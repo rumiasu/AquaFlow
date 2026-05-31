@@ -20,7 +20,7 @@ public class WaterTypeController {
     @PostMapping
     public Result save(@RequestBody WaterType waterType) {
         waterTypeService.save(waterType);
-        return Result.success(waterType.getId());
+        return Result.success();
     }
 
     @GetMapping

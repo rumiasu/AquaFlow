@@ -20,7 +20,7 @@ public class AddressController {
     @PostMapping
     public Result save(@RequestBody Address address) {
         addressService.save(address);
-        return Result.success(address.getId());
+        return Result.success();
     }
 
     @GetMapping

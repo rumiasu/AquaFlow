@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.aquaflow.mapper.OrderMapper">
+
+    <update id="updateStatus">
+        update orders
+        set status=#{status},
+            update_time=now()
+        where id=#{id}
+    </update>
+
+    <select id="list" resultType="Orders">
+        select * from orders
+        <where>
+            status = #{status}
+            <if test="tag != null and tag != ''">
+                and exists (
+                select 1 from address a
+                where a.id = orders.address_id and a.tag = #{tag}
+                )
+            </if>
+            <if test="createTimeStart != null and createTimeStart != ''">
+                and create_time &gt;= #{createTimeStart}
+            </if>
+            <if test="createTimeEnd != null and createTimeEnd != ''">
+                and create_time &lt;= #{createTimeEnd}
+            </if>
+        </where>
+        order by create_time asc
+    </select>
+
+</mapper>

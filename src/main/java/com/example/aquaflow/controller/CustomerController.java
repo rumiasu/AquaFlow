@@ -25,7 +25,7 @@ public class CustomerController {
     @PostMapping
     public Result save(@RequestBody Customer customer){
         customerService.save(customer);
-        return Result.success(customer.getId());
+        return Result.success();
     }
 
     @GetMapping("/{id}")

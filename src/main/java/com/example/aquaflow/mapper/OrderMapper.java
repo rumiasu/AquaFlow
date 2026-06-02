@@ -1,10 +1,7 @@
 package com.example.aquaflow.mapper;
 
 import com.example.aquaflow.entity.Orders;
-import org.apache.ibatis.annotations.Insert;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 import java.util.Map;
@@ -25,4 +22,8 @@ public interface OrderMapper {
     Orders getById(Integer id);
 
     void updateStatus(Integer id, Map<String, Integer> params);
+
+    @Update("update orders set status = #{status}, update_time = now() where id = #{id}")
+    void updateStatus(@Param("id") Integer id, @Param("status") Integer status);
+
 }

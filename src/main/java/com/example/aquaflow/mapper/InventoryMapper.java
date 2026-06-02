@@ -3,6 +3,8 @@ package com.example.aquaflow.mapper;
 import com.example.aquaflow.entity.Inventory;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -19,4 +21,9 @@ public interface InventoryMapper {
     void insert(Inventory newInventory);
 
     void update(Inventory inventory);
+
+    @Update("update inventory set quantity = quantity - #{quantity}, update_time = now() " +
+            "where water_type_id = #{waterTypeId}")
+    void decreaseStock(@Param("waterTypeId") Integer waterTypeId, @Param("quantity") Integer quantity);
+
 }

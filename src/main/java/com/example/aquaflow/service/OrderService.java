@@ -12,5 +12,5 @@ public interface OrderService {
 
     Orders getById(Integer id);
 
-    void updateStatus(Integer id, Map<String, Integer> params);
+    void updateStatus(Integer id, Integer status);
 }

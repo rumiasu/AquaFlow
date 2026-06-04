@@ -9,9 +9,10 @@ import java.util.Map;
 @Mapper
 public interface OrderMapper {
 
-    @Insert("insert into orders (customer_id, address_id, water_type_id, quantity, source) values " +
-            "(#{customerId},#{addressId},#{waterTypeId},#{quantity},#{source})")
+    @Insert("insert into orders(customer_id, address_id, water_type_id, quantity, source, status, create_time, update_time) " +
+            "values(#{customerId}, #{addressId}, #{waterTypeId}, #{quantity}, #{source}, #{status}, #{createTime}, #{updateTime})")
     void save(Orders orders);
+
 
     List<Orders> list(@Param("status") Integer status,
                       @Param("tag") String tag,
@@ -20,8 +21,6 @@ public interface OrderMapper {
 
     @Select("select * from orders where id = #{id}")
     Orders getById(Integer id);
-
-    void updateStatus(Integer id, Map<String, Integer> params);
 
     @Update("update orders set status = #{status}, update_time = now() where id = #{id}")
     void updateStatus(@Param("id") Integer id, @Param("status") Integer status);

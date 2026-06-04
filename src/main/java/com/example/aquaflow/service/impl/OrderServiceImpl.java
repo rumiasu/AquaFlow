@@ -1,11 +1,13 @@
 package com.example.aquaflow.service.impl;
 
+import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -16,8 +18,8 @@ public class OrderServiceImpl implements OrderService {
     private OrderMapper orderMapper;
 
     @Override
-    public void updateStatus(Integer id, Map<String, Integer> params) {
-        orderMapper.updateStatus(id,params);
+    public void updateStatus(Integer id, Integer status) {
+        orderMapper.updateStatus(id,status);
     }
 
     @Override
@@ -32,6 +34,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public void save(Orders orders) {
+        orders.setStatus(OrderStatus.PENDING);
+        orders.setCreateTime(LocalDateTime.now());
+        orders.setUpdateTime(LocalDateTime.now());
         orderMapper.save(orders);
     }
 }

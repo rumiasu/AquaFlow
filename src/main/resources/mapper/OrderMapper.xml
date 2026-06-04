@@ -5,13 +5,6 @@
 
 <mapper namespace="com.example.aquaflow.mapper.OrderMapper">
 
-    <update id="updateStatus">
-        update orders
-        set status=#{status},
-            update_time=now()
-        where id=#{id}
-    </update>
-
     <select id="list" resultType="Orders">
         select * from orders
         <where>

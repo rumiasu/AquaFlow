@@ -1,6 +1,7 @@
 package com.example.aquaflow.controller;
 
 import com.example.aquaflow.common.Result;
+import com.example.aquaflow.dto.BatchCreateDTO;
 import com.example.aquaflow.dto.BatchFinishDTO;
 import com.example.aquaflow.entity.Batch;
 import com.example.aquaflow.service.BatchService;
@@ -19,10 +20,8 @@ public class BatchController {
     private BatchService batchService;
 
     @PostMapping
-    public Result create(@RequestBody Map<String, Object> params){
-        @SuppressWarnings("unchecked")
-        List<Integer> orderIds = (List<Integer>) params.get("orderIds");
-        Batch batch = batchService.create(orderIds);
+    public Result create(@RequestBody BatchCreateDTO batchCreateDTO){
+        Batch batch = batchService.create(batchCreateDTO.getOrderIds());
         return Result.success(batch.getId());
     }
 

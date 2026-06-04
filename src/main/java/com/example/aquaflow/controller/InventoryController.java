@@ -1,6 +1,7 @@
 package com.example.aquaflow.controller;
 
 import com.example.aquaflow.common.Result;
+import com.example.aquaflow.dto.InventoryInboundDTO;
 import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.service.InventoryService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,10 +23,8 @@ public class InventoryController {
     }
 
     @PostMapping("/inbound")
-    public Result inbound(@RequestBody Map<String, Object> params) {
-        @SuppressWarnings("unchecked")
-        List<Map<String, Integer>> items = (List<Map<String, Integer>>) params.get("items");
-        inventoryService.inbound(items);
+    public Result inbound(@RequestBody InventoryInboundDTO inventoryInboundDTO) {
+        inventoryService.inbound(inventoryInboundDTO.getItems());
         return Result.success();
     }
 

@@ -1,14 +1,13 @@
 package com.example.aquaflow.controller;
 
 import com.example.aquaflow.common.Result;
+import com.example.aquaflow.dto.OrderStatusDTO;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
@@ -36,8 +35,8 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/status")
-    public Result updateStatus(@PathVariable Integer id, @RequestBody Map<String,Integer> params){
-        orderService.updateStatus(id,params);
+    public Result updateStatus(@PathVariable Integer id, @RequestBody OrderStatusDTO orderStatusDTO){
+        orderService.updateStatus(id,orderStatusDTO.getStatus());
         return Result.success();
     }
 

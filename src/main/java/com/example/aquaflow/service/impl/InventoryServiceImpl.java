@@ -1,5 +1,6 @@
 package com.example.aquaflow.service.impl;
 
+import com.example.aquaflow.dto.InventoryInboundDTO;
 import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.service.InventoryService;
@@ -17,17 +18,25 @@ public class InventoryServiceImpl implements InventoryService {
     @Autowired
     private InventoryMapper inventoryMapper;
 
+    /**
+     * 查询库存
+     * @return
+     */
     @Override
     public List<Inventory> list() {
         return inventoryMapper.list();
     }
 
+    /**
+     * 入库
+     * @param items
+     */
     @Override
     @Transactional
-    public void inbound(List<Map<String, Integer>> items) {
-        for (Map<String, Integer> item : items) {
-            Integer waterTypeId = item.get("waterTypeId");
-            Integer quantity = item.get("quantity");
+    public void inbound(List<InventoryInboundDTO.ItemDTO> items) {
+        for (InventoryInboundDTO.ItemDTO item : items) {
+            Integer waterTypeId = item.getWaterTypeId();
+            Integer quantity = item.getQuantity();
 
             // 查询是否已有库存
             Inventory inventory = inventoryMapper.getByWaterTypeId(waterTypeId);
@@ -48,6 +57,11 @@ public class InventoryServiceImpl implements InventoryService {
         }
     }
 
+    /**
+     * 库存校验
+     * @param waterTypeId
+     * @param needQuantity
+     */
     public void checkStock(Integer waterTypeId,Integer needQuantity){
         Inventory inventory = inventoryMapper.getByWaterTypeId(waterTypeId);
 

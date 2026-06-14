@@ -8,9 +8,10 @@ import com.example.aquaflow.service.BatchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import javax.xml.crypto.Data;
+
+import java.util.Date;
 import java.util.List;
-import java.util.Map;
+
 
 @RestController
 @RequestMapping("/api/batches")
@@ -27,8 +28,8 @@ public class BatchController {
 
     @GetMapping
     public Result<List<Batch>> list(@RequestParam(required = false) Integer status,
-                                    @RequestParam(required = false) Data createTimeStart,
-                                    @RequestParam(required = false) Data createTimeEnd){
+                                    @RequestParam(required = false) String createTimeStart,
+                                    @RequestParam(required = false) String createTimeEnd){
         return Result.success(batchService.list(status,createTimeStart,createTimeEnd));
     }
 

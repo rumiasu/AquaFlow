@@ -3,7 +3,6 @@ package com.example.aquaflow.mapper;
 import com.example.aquaflow.entity.Batch;
 import org.apache.ibatis.annotations.*;
 
-import javax.xml.crypto.Data;
 import java.util.List;
 
 @Mapper
@@ -14,7 +13,7 @@ public interface BatchMapper {
     void insert(Batch batch);
 
 
-    List<Batch> list(Integer status, Data createTimeStart, Data createTimeEnd);
+    List<Batch> list(Integer status, String createTimeStart, String createTimeEnd);
 
     @Select("select * from batch where id=#{id}")
     Batch getById(Integer id);

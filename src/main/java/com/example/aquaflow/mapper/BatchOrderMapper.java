@@ -1,5 +1,6 @@
 package com.example.aquaflow.mapper;
 
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -14,4 +15,7 @@ public interface BatchOrderMapper {
 
     @Select("select order_id from batch_order where batch_id = #{batchId}")
     List<Integer> getOrderIdsByBatchId(Integer batchId);
+
+    @Delete("delete from batch_order where batch_id = #{batchId}")
+    void deleteByBatchId(Integer batchId);
 }

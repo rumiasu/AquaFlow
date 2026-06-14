@@ -38,6 +38,10 @@ public class InventoryServiceImpl implements InventoryService {
             Integer waterTypeId = item.getWaterTypeId();
             Integer quantity = item.getQuantity();
 
+            if(quantity == null || quantity <= 0){
+                throw new RuntimeException("入库数量必须大于0");
+            }
+
             // 查询是否已有库存
             Inventory inventory = inventoryMapper.getByWaterTypeId(waterTypeId);
 

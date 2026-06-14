@@ -29,6 +29,10 @@ public class WaterTypeServiceImpl implements WaterTypeService {
 
     @Override
     public WaterType getById(Integer id) {
-        return waterTypeMapper.getById(id);
+        WaterType waterType = waterTypeMapper.getById(id);
+        if (waterType == null){
+            throw new RuntimeException("该水类型无记录");
+        }
+        return waterType;
     }
 }

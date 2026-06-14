@@ -24,6 +24,9 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     public Customer getById(Integer id) {
         Customer customer = customerMapper.getById(id);
+        if(customer == null){
+            throw new RuntimeException("客户不存在");
+        }
         return customer;
     }
 

@@ -12,7 +12,7 @@ public class Orders {
     private Integer waterTypeId;//水类型id
     private Integer quantity;//数量
     private Integer source;//来源1电话2微信群3小程序
-    private Integer status;//状态1待配送2配送中3已完成
+    private Integer status;//状态1待组批2配送中3已完成4已组批待出发
     private LocalDateTime createTime;//创建时间
     private LocalDateTime updateTime;//修改时间
 }

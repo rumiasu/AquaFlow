@@ -29,7 +29,11 @@ public class AddressServiceImpl implements AddressService {
 
     @Override
     public Address getById(Integer id) {
-        return addressMapper.getById(id);
+        Address address = addressMapper.getById(id);
+        if(address == null){
+            throw new RuntimeException("该地址无记录");
+        }
+        return address;
     }
 
     @Override

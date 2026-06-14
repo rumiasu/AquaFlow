@@ -18,7 +18,7 @@ public class OrderController {
     @PostMapping
     public Result save(@RequestBody Orders orders){
         orderService.save(orders);
-        return Result.success();
+        return Result.success(orders.getId());
     }
 
     @GetMapping

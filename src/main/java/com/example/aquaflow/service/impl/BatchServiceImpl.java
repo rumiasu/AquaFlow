@@ -3,7 +3,6 @@ package com.example.aquaflow.service.impl;
 import com.example.aquaflow.constant.BatchStatus;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.entity.Batch;
-import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.mapper.BatchMapper;
 import com.example.aquaflow.mapper.BatchOrderMapper;
@@ -15,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.xml.crypto.Data;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -36,14 +34,21 @@ public class BatchServiceImpl implements BatchService {
     private InventoryService inventoryService;
 
     @Override
+    @Transactional
     public void delete(Integer id) {
         Batch batch = batchMapper.getById(id);
         if(batch == null){
             throw new RuntimeException("批次不存在");
         }
-        if (batch.getStatus()== BatchStatus.PENDING){
-            batchMapper.delete(id);
+        if(batch.getStatus()!=BatchStatus.PENDING){
+            throw new RuntimeException("仅待配送批次允许删除");
         }
+        List<Integer> orderIds = batchOrderMapper.getOrderIdsByBatchId(id);
+        for (Integer orderId : orderIds) {
+            orderMapper.updateStatus(orderId, OrderStatus.PENDING);
+        }
+        batchOrderMapper.deleteByBatchId(id);
+        batchMapper.delete(id);
     }
 
     @Override
@@ -56,7 +61,7 @@ public class BatchServiceImpl implements BatchService {
             }
         }
         //传进来id和un,全是id是完成批次,也就是un非空则不完成,空了则完成
-        if(unfinishedOrderIds == null){
+        if(unfinishedOrderIds == null || unfinishedOrderIds.isEmpty()){
             batchMapper.updateStatus(id, BatchStatus.FINISHED);
         }
 
@@ -74,11 +79,15 @@ public class BatchServiceImpl implements BatchService {
 
     @Override
     public Batch getById(Integer id) {
-        return batchMapper.getById(id);
+        Batch batch = batchMapper.getById(id);
+        if(batch == null){
+            throw new RuntimeException("批次不存在");
+        }
+        return batch;
     }
 
     @Override
-    public List<Batch> list(Integer status, Data createTimeStart, Data createTimeEnd) {
+    public List<Batch> list(Integer status, String createTimeStart, String createTimeEnd) {
         return batchMapper.list(status,createTimeStart,createTimeEnd);
     }
 
@@ -93,8 +102,8 @@ public class BatchServiceImpl implements BatchService {
             if (order == null){
                 throw new RuntimeException("订单不存在:"+orderId);
             }
-            if (order.getStatus() != 1){
-                throw new RuntimeException("订单不是待配送状态:"+orderId);
+            if (order.getStatus() != OrderStatus.PENDING){
+                throw new RuntimeException("订单不是待组批状态:"+orderId);
             }
 
             needMap.merge(order.getWaterTypeId(), order.getQuantity(), Integer::sum);
@@ -124,10 +133,10 @@ public class BatchServiceImpl implements BatchService {
             inventoryMapper.decreaseStock(entry.getKey(), entry.getValue());
         }
 
-
-        // 插入批次-订单关系
+        // 插入批次-订单关系，并标记订单为已组批
         for (Integer orderId : orderIds) {
             batchOrderMapper.insert(batch.getId(), orderId);
+            orderMapper.updateStatus(orderId, OrderStatus.BATCHED);
         }
 
         return batch;

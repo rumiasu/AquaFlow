@@ -1,5 +1,6 @@
 package com.example.aquaflow.mapper;
 
+import com.example.aquaflow.entity.Orders;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
@@ -18,4 +19,9 @@ public interface BatchOrderMapper {
 
     @Delete("delete from batch_order where batch_id = #{batchId}")
     void deleteByBatchId(Integer batchId);
+
+    @Select("select o.* from orders o " +
+            "inner join batch_order bo on o.id = bo.order_id " +
+            "where bo.batch_id = #{batchId}")
+    List<Orders> getOrdersByBatchId(Integer batchId);
 }

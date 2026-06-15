@@ -83,6 +83,9 @@ public class BatchServiceImpl implements BatchService {
         if(batch == null){
             throw new RuntimeException("批次不存在");
         }
+        // 查询批次包含的订单列表
+        List<Orders> orders = batchOrderMapper.getOrdersByBatchId(id);
+        batch.setOrders(orders);
         return batch;
     }
 

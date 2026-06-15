@@ -4,6 +4,7 @@ import com.example.aquaflow.dto.InventoryInboundDTO;
 import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.service.InventoryService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Slf4j
 public class InventoryServiceImpl implements InventoryService {
 
     @Autowired
@@ -57,6 +59,7 @@ public class InventoryServiceImpl implements InventoryService {
                 inventory.setQuantity(inventory.getQuantity() + quantity);
                 inventory.setUpdateTime(LocalDateTime.now());
                 inventoryMapper.update(inventory);
+                log.info("存在:{},累加:{},库存:{}",waterTypeId,quantity,inventory);
             }
         }
     }

@@ -3,6 +3,7 @@ package com.example.aquaflow.entity;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class Batch {
@@ -11,4 +12,7 @@ public class Batch {
     private Integer totalQTY;//总数量
     private LocalDateTime createTime;//创建时间
     private LocalDateTime updateTime;//修改时间
+    
+    // 关联查询字段
+    private List<Orders> orders;//批次包含的订单列表
 }

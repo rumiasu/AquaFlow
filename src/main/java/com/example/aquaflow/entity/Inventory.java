@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 public class Inventory {
     private Integer id;//库存id
     private Integer waterTypeId;//水类型
+    private String waterTypeName;//水名称（关联查询）
+    private String spec;//规格（关联查询）
     private Integer quantity;//数量
     private LocalDateTime updateTime;//修改时间
 }

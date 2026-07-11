@@ -10,6 +10,7 @@ public interface BatchMapper {
 
     @Insert("insert into batch (status, total_qty, create_time, update_time) values " +
             "(#{status},#{totalQTY},#{createTime},#{updateTime})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(Batch batch);
 
 

@@ -6,23 +6,24 @@
 <mapper namespace="com.example.aquaflow.mapper.OrderMapper">
 
     <select id="list" resultType="Orders">
-        select * from orders
+        select o.*, c.name as customerName, a.detail as addressDetail, a.tag as addressTag, w.name as waterTypeName
+        from orders o
+        left join customer c on o.customer_id = c.id
+        left join address a on o.address_id = a.id
+        left join water_type w on o.water_type_id = w.id
         <where>
-            status = #{status}
+            o.status = #{status}
             <if test="tag != null and tag != ''">
-                and exists (
-                select 1 from address a
-                where a.id = orders.address_id and a.tag = #{tag}
-                )
+                and a.tag = #{tag}
             </if>
             <if test="createTimeStart != null and createTimeStart != ''">
-                and create_time &gt;= #{createTimeStart}
+                and o.create_time &gt;= #{createTimeStart}
             </if>
             <if test="createTimeEnd != null and createTimeEnd != ''">
-                and create_time &lt;= #{createTimeEnd}
+                and o.create_time &lt;= #{createTimeEnd}
             </if>
         </where>
-        order by create_time asc
+        order by o.create_time asc
     </select>
 
 </mapper>

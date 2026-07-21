@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.aquaflow.mapper.OrderMapper">
+
+    <select id="list" resultType="Orders">
+        select o.*, c.name as customerName, c.phone as customerPhone,
+               a.detail as addressDetail, a.tag as addressTag, a.lat as addressLat, a.lng as addressLng,
+               a.name as addressName, a.phone as addressPhone, a.label as addressLabel,
+               w.name as waterTypeName, w.spec as waterTypeSpec, w.price as waterTypePrice
+        from orders o
+        left join customer c on o.customer_id = c.id
+        left join address a on o.address_id = a.id
+        left join water_type w on o.water_type_id = w.id
+        <where>
+            <if test="customerId != null">
+                o.customer_id = #{customerId}
+            </if>
+            <if test="status != null">
+                and o.status = #{status}
+            </if>
+            <if test="tag != null and tag != ''">
+                and a.tag = #{tag}
+            </if>
+            <if test="createTimeStart != null and createTimeStart != ''">
+                and o.create_time &gt;= #{createTimeStart}
+            </if>
+            <if test="createTimeEnd != null and createTimeEnd != ''">
+                and o.create_time &lt;= #{createTimeEnd}
+            </if>
+        </where>
+        order by o.create_time desc
+    </select>
+
+</mapper>

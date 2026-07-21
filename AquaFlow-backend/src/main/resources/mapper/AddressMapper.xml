@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.aquaflow.mapper.AddressMapper">
+    <select id="list" resultType="Address">
+        select * from address
+        <where>
+            <if test="customerId != null">
+                and customer_id = #{customerId}
+            </if>
+            <if test="tag != null and tag != ''">
+                and tag = #{tag}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and detail like concat('%', #{keyword}, '%')
+            </if>
+        </where>
+    </select>
+
+    <update id="update">
+        update address
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="isDefault != null">is_default = #{isDefault},</if>
+            <if test="label != null">label = #{label},</if>
+            <if test="detail != null">detail = #{detail},</if>
+            <if test="tag != null">tag = #{tag},</if>
+            <if test="lat != null">lat = #{lat},</if>
+            <if test="lng != null">lng = #{lng},</if>
+            update_time = #{updateTime}
+        </set>
+        where id = #{id}
+    </update>
+
+    <select id="countByTag" resultType="java.util.Map">
+        select tag, count(*) as count
+        from address
+        where tag is not null and tag != ''
+        group by tag
+        order by count desc
+        limit 10
+    </select>
+</mapper>

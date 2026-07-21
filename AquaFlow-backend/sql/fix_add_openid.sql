@@ -1,0 +1,1 @@
+ALTER TABLE customer ADD COLUMN openid VARCHAR(100) DEFAULT NULL COMMENT 'wechat openid' AFTER tags;

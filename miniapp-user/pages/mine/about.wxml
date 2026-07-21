@@ -1,0 +1,29 @@
+<view class="container">
+  <view class="about-section">
+    <view class="logo-section">
+      <image class="logo" src="/assets/logo/aquaflow.png" mode="aspectFit"></image>
+      <text class="app-name">AquaFlow</text>
+      <text class="app-version">版本 {{version}}</text>
+    </view>
+
+    <view class="info-section">
+      <view class="info-item">
+        <text class="info-label">服务协议</text>
+        <text class="info-arrow">›</text>
+      </view>
+      <view class="info-item">
+        <text class="info-label">隐私政策</text>
+        <text class="info-arrow">›</text>
+      </view>
+      <view class="info-item">
+        <text class="info-label">用户反馈</text>
+        <text class="info-arrow">›</text>
+      </view>
+    </view>
+
+    <view class="copyright">
+      <text>© 2024 AquaFlow</text>
+      <text>All Rights Reserved</text>
+    </view>
+  </view>
+</view>

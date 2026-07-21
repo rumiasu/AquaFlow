@@ -1,0 +1,79 @@
+/* 通用样式 */
+.container {
+  padding: var(--spacing-md);
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-primary {
+  color: var(--primary-color);
+}
+
+.text-success {
+  color: var(--success-color);
+}
+
+.text-warning {
+  color: var(--warning-color);
+}
+
+.text-error {
+  color: var(--error-color);
+}
+
+.text-regular {
+  color: var(--text-regular);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.bg-white {
+  background-color: var(--bg-white);
+}
+
+.card {
+  background-color: var(--bg-white);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.divider {
+  height: 1rpx;
+  background-color: var(--border-color);
+  margin: var(--spacing-md) 0;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}

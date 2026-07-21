@@ -1,0 +1,138 @@
+<view class="container">
+  <loading wx:if="{{loading}}"></loading>
+
+  <block wx:else>
+    <!-- 水桶概况卡片 -->
+    <view class="summary-card">
+      <view class="summary-header">
+        <text class="summary-title">我的水桶</text>
+        <view class="deposit-badge">
+          <text>押金 ¥{{summary.depositBalance}}</text>
+        </view>
+      </view>
+
+      <view class="summary-main">
+        <view class="bucket-display">
+          <text class="bucket-count">{{summary.actualBuckets}}</text>
+          <text class="bucket-label">当前持有（桶）</text>
+        </view>
+      </view>
+
+      <view class="summary-stats">
+        <view class="stat-item">
+          <text class="stat-value">{{summary.deliveryBuckets}}</text>
+          <text class="stat-label">累计送出</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-value">{{summary.returnBuckets}}</text>
+          <text class="stat-label">累计回收</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-value">{{summary.pendingReturns}}</text>
+          <text class="stat-label">待退桶</text>
+        </view>
+      </view>
+
+      <!-- 退桶按钮 -->
+      <view class="return-btn" bindtap="onShowReturnModal">
+        <text>申请退桶</text>
+      </view>
+    </view>
+
+    <!-- 押金说明 -->
+    <view class="info-card">
+      <view class="info-row">
+        <text class="info-label">每桶押金</text>
+        <text class="info-value">¥{{summary.depositPerBucket}}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">押金余额</text>
+        <text class="info-value highlight">¥{{summary.depositBalance}}</text>
+      </view>
+      <view class="info-tip">
+        <text>退桶时可申请退还押金，退桶后押金将从余额中扣除</text>
+      </view>
+    </view>
+
+    <!-- 退桶记录 -->
+    <view class="section">
+      <text class="section-title">退桶记录</text>
+
+      <view class="record-list" wx:if="{{records.length > 0}}">
+        <view class="record-item" wx:for="{{records}}" wx:key="id">
+          <view class="record-main">
+            <view class="record-info">
+              <text class="record-qty">退 {{item.quantity}} 桶</text>
+              <text class="record-status status-{{item.status}}">
+                {{item.status === 1 ? '待处理' : item.status === 2 ? '已确认' : item.status === 3 ? '已退押金' : '已驳回'}}
+              </text>
+            </view>
+            <text class="record-time">{{item.createTime}}</text>
+            <text class="record-note" wx:if="{{item.note}}">{{item.note}}</text>
+          </view>
+          <view class="record-deposit" wx:if="{{item.depositRefund > 0}}">
+            <text>退押金 ¥{{item.depositRefund}}</text>
+          </view>
+        </view>
+      </view>
+
+      <empty wx:else text="暂无退桶记录"></empty>
+    </view>
+  </block>
+
+  <!-- 退桶弹窗 -->
+  <view class="modal-mask" wx:if="{{showReturnModal}}" bindtap="onCloseReturnModal"></view>
+  <view class="modal-content {{showReturnModal ? 'show' : ''}}" catchtap="">
+    <view class="modal-header">
+      <text class="modal-title">申请退桶</text>
+      <text class="modal-close" bindtap="onCloseReturnModal">×</text>
+    </view>
+
+    <view class="modal-body">
+      <!-- 可退提示 -->
+      <view class="return-tip">
+        <text>当前可退 <text class="highlight">{{maxReturnQty}}</text> 桶</text>
+      </view>
+
+      <!-- 退桶数量 -->
+      <view class="form-row">
+        <text class="form-label">退桶数量</text>
+        <view class="quantity-control">
+          <view class="qty-btn {{returnForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onReturnQtyChange" data-type="minus">
+            <text>-</text>
+          </view>
+          <input class="qty-input" type="number" value="{{returnForm.quantity}}" bindinput="onReturnQtyInput"></input>
+          <view class="qty-btn {{returnForm.quantity >= maxReturnQty ? 'disabled' : ''}}" bindtap="onReturnQtyChange" data-type="add">
+            <text>+</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 退押金 -->
+      <view class="form-row">
+        <text class="form-label">退押金（元）</text>
+        <view class="deposit-input-row">
+          <input class="deposit-input" type="digit" value="{{returnForm.depositRefund}}" bindinput="onDepositRefundInput" placeholder="0"></input>
+          <text class="deposit-max" bindtap="onFullRefund">全额退 ¥{{summary.depositBalance}}</text>
+        </view>
+      </view>
+
+      <!-- 备注 -->
+      <view class="form-row">
+        <text class="form-label">备注</text>
+        <input class="note-input" placeholder="如：搬家、换地址等" value="{{returnForm.note}}" bindinput="onReturnNoteInput"></input>
+      </view>
+    </view>
+
+    <view class="modal-footer">
+      <view class="modal-btn cancel" bindtap="onCloseReturnModal">
+        <text>取消</text>
+      </view>
+      <view class="modal-btn confirm {{submitting ? 'disabled' : ''}}" bindtap="onSubmitReturn">
+        <text>{{submitting ? '提交中...' : '提交申请'}}</text>
+      </view>
+    </view>
+  </view>
+</view>

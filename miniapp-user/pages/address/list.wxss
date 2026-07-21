@@ -1,0 +1,114 @@
+.container {
+  background-color: #f5f5f5;
+  min-height: 100vh;
+  padding-bottom: 120rpx;
+}
+
+.address-list {
+  padding: 24rpx;
+}
+
+.address-item {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+}
+
+.address-item.selectable {
+  border: 2rpx solid transparent;
+}
+
+.address-item.selectable:active {
+  border-color: #1890ff;
+  background-color: #e6f7ff;
+}
+
+.address-info {
+  margin-bottom: 20rpx;
+}
+
+.selectable .address-info {
+  margin-bottom: 0;
+}
+
+.address-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.address-name {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #333;
+  margin-right: 16rpx;
+}
+
+.address-phone {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.default-tag {
+  font-size: 22rpx;
+  color: #1890ff;
+  border: 2rpx solid #1890ff;
+  border-radius: 6rpx;
+  padding: 2rpx 8rpx;
+  margin-left: 16rpx;
+}
+
+.address-detail {
+  font-size: 26rpx;
+  color: #999;
+  margin-bottom: 12rpx;
+}
+
+.address-tag .tag {
+  font-size: 22rpx;
+  color: #666;
+  background-color: #f5f5f5;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+}
+
+.address-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 24rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.action-btn {
+  font-size: 26rpx;
+  color: #666;
+}
+
+.action-btn.delete {
+  color: #ff4d4f;
+}
+
+.select-hint {
+  display: block;
+  text-align: right;
+  font-size: 26rpx;
+  color: #1890ff;
+  padding-top: 12rpx;
+}
+
+.add-btn {
+  position: fixed;
+  bottom: 40rpx;
+  left: 24rpx;
+  right: 24rpx;
+  height: 88rpx;
+  background-color: #1890ff;
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 30rpx;
+}

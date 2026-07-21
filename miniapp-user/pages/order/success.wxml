@@ -1,0 +1,71 @@
+<view class="page">
+  <!-- 成功动画区 -->
+  <view class="success-hero">
+    <view class="success-circle">
+      <view class="success-ring"></view>
+      <text class="success-check">✓</text>
+    </view>
+    <text class="success-title">下单成功</text>
+    <text class="success-desc">我们会尽快为您配送</text>
+  </view>
+
+  <!-- 常用订单保存区 -->
+  <view class="template-section" wx:if="{{!isDefaultSet}}">
+    <view class="template-card" bindtap="onSaveTemplate">
+      <view class="template-left">
+        <view class="template-icon-wrap">
+          <text class="template-icon">⚡</text>
+        </view>
+        <view class="template-text">
+          <text class="template-title">存为常用订单</text>
+          <text class="template-hint">下次一键复购，省时省力</text>
+        </view>
+      </view>
+      <text class="template-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 已保存提示 -->
+  <view class="template-section" wx:if="{{isDefaultSet}}">
+    <view class="template-card saved">
+      <view class="template-left">
+        <view class="template-icon-wrap saved">
+          <text class="template-check">✓</text>
+        </view>
+        <view class="template-text">
+          <text class="template-title saved">已存为常用订单</text>
+          <text class="template-hint">首页可一键复购</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="actions">
+    <view class="action-row">
+      <view class="action-card primary" bindtap="onViewOrders">
+        <view class="action-icon-wrap primary">
+          <text class="action-icon-text">📋</text>
+        </view>
+        <view class="action-info">
+          <text class="action-title">查看订单</text>
+          <text class="action-desc">追踪配送状态</text>
+        </view>
+      </view>
+      <view class="action-card secondary" bindtap="onBackHome">
+        <view class="action-icon-wrap secondary">
+          <text class="action-icon-text">🏠</text>
+        </view>
+        <view class="action-info">
+          <text class="action-title">返回首页</text>
+          <text class="action-desc">继续下单</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部提示 -->
+  <view class="bottom-tip">
+    <text class="tip-text">配送员会在 30 分钟内送达</text>
+  </view>
+</view>

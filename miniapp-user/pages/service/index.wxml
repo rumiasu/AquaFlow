@@ -1,0 +1,37 @@
+<view class="container">
+  <!-- 客服信息 -->
+  <view class="service-section">
+    <view class="service-item">
+      <text class="service-label">客服电话</text>
+      <view class="service-value-row">
+        <text class="service-value">{{serviceInfo.phone}}</text>
+        <view class="call-btn" bindtap="onCallPhone">
+          <text>拨打</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="service-item">
+      <text class="service-label">工作时间</text>
+      <text class="service-value">{{serviceInfo.workTime}}</text>
+    </view>
+
+    <view class="service-item">
+      <text class="service-label">客服微信</text>
+      <view class="service-value-row">
+        <text class="service-value">{{serviceInfo.wechat}}</text>
+        <view class="copy-btn" bindtap="onCopyWechat">
+          <text>复制</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 其他选项 -->
+  <view class="other-section">
+    <view class="other-item" bindtap="onFeedback">
+      <text class="other-title">意见反馈</text>
+      <text class="other-arrow">›</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,59 @@
+/* 主题色 */
+page {
+  --primary-color: #4facfe;
+  --primary-light: #80c4ff;
+  --primary-dark: #2b8cf5;
+
+  --accent-color: #00f2fe;
+  --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+
+  /* 功能色 */
+  --success-color: #34c759;
+  --warning-color: #ff9500;
+  --error-color: #ff3b30;
+  --info-color: #4facfe;
+
+  /* 价格色 */
+  --price-color: #ff6b35;
+
+  /* 中性色 */
+  --text-primary: #1a1a1a;
+  --text-regular: #555555;
+  --text-secondary: #999999;
+  --text-placeholder: #cccccc;
+
+  /* 背景色 */
+  --bg-color: #f5f7fa;
+  --bg-white: #ffffff;
+  --bg-gray: #f8fafc;
+
+  /* 边框 */
+  --border-color: #eeeeee;
+  --border-light: #f5f7fa;
+
+  /* 间距 */
+  --spacing-xs: 8rpx;
+  --spacing-sm: 16rpx;
+  --spacing-md: 24rpx;
+  --spacing-lg: 32rpx;
+  --spacing-xl: 48rpx;
+
+  /* 圆角 */
+  --radius-sm: 8rpx;
+  --radius-md: 16rpx;
+  --radius-lg: 24rpx;
+  --radius-round: 999rpx;
+
+  /* 字体大小 */
+  --font-xs: 20rpx;
+  --font-sm: 24rpx;
+  --font-md: 28rpx;
+  --font-lg: 32rpx;
+  --font-xl: 36rpx;
+  --font-xxl: 40rpx;
+
+  /* 阴影 */
+  --shadow-sm: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8rpx 24rpx rgba(0, 0, 0, 0.1);
+}

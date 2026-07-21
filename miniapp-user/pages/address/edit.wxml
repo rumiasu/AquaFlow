@@ -1,0 +1,70 @@
+<view class="container">
+  <loading wx:if="{{loading}}"></loading>
+
+  <view class="address-form" wx:else>
+    <!-- 基本信息 -->
+    <view class="form-section">
+      <view class="form-item">
+        <text class="form-label">姓名</text>
+        <input class="form-input" placeholder="请输入姓名" value="{{formData.name}}" bindinput="onInputChange" data-field="name" />
+      </view>
+      <view class="form-item">
+        <text class="form-label">电话</text>
+        <input class="form-input" placeholder="请输入电话" type="number" value="{{formData.phone}}" bindinput="onInputChange" data-field="phone" />
+      </view>
+      <view class="form-item">
+        <text class="form-label">地址</text>
+        <input class="form-input" placeholder="请输入详细地址" value="{{formData.detail}}" bindinput="onInputChange" data-field="detail" />
+      </view>
+      <view class="form-item location-item" bindtap="onChooseLocation">
+        <text class="form-label">定位</text>
+        <text class="location-btn">点击获取位置</text>
+      </view>
+    </view>
+
+    <!-- 地址标签 -->
+    <view class="form-section">
+      <view class="section-title">地址标签</view>
+      <view class="tag-list">
+        <view
+          class="tag-item {{formData.tag === item.value ? 'active' : ''}}"
+          wx:for="{{tags}}"
+          wx:key="value"
+          bindtap="onTagSelect"
+          data-tag="{{item.value}}"
+        >
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 快捷称呼 -->
+    <view class="form-section">
+      <view class="section-title">快捷称呼</view>
+      <view class="tag-list">
+        <view
+          class="tag-item {{formData.label === item ? 'active' : ''}}"
+          wx:for="{{labels}}"
+          wx:key="*this"
+          bindtap="onLabelSelect"
+          data-label="{{item}}"
+        >
+          <text>{{item}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 默认地址 -->
+    <view class="form-section">
+      <view class="form-item switch-item">
+        <text class="form-label">设为默认地址</text>
+        <switch class="form-switch" checked="{{formData.isDefault}}" bindchange="onDefaultChange" color="#4facfe"></switch>
+      </view>
+    </view>
+
+    <!-- 提交按钮 -->
+    <view class="submit-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
+      <text>{{submitting ? '保存中...' : '保存'}}</text>
+    </view>
+  </view>
+</view>

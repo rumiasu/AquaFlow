@@ -1,0 +1,10 @@
+<view class="product-card" bindtap="onProductTap">
+  <image class="product-image" src="{{product.image || '/assets/image/default-product.png'}}" mode="aspectFill"></image>
+  <view class="product-info">
+    <text class="product-name">{{product.name}}</text>
+    <text class="product-spec">{{product.spec}}</text>
+    <view class="product-bottom">
+      <price price="{{product.price}}"></price>
+    </view>
+  </view>
+</view>

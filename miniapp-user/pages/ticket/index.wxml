@@ -1,0 +1,53 @@
+<view class="container">
+  <loading wx:if="{{loading}}"></loading>
+
+  <view class="ticket-content" wx:else>
+    <!-- 标签切换 -->
+    <view class="tabs">
+      <view
+        class="tab-item {{currentTab === item.id ? 'active' : ''}}"
+        wx:for="{{tabs}}"
+        wx:key="id"
+        bindtap="onTabChange"
+        data-id="{{item.id}}"
+      >
+        <text>{{item.name}}</text>
+      </view>
+    </view>
+
+    <!-- 水票余额 -->
+    <view class="tab-content" wx:if="{{currentTab === 0}}">
+      <view class="account-list">
+        <view class="account-item" wx:for="{{accounts}}" wx:key="id">
+          <view class="account-info">
+            <text class="account-name">{{item.waterTypeName}}</text>
+            <text class="account-spec">{{item.waterTypeSpec}}</text>
+          </view>
+          <view class="account-quantity">
+            <text class="quantity-value">{{item.remainQuantity}}</text>
+            <text class="quantity-unit">张</text>
+          </view>
+        </view>
+        <empty wx:if="{{accounts.length === 0}}" text="暂无水票"></empty>
+      </view>
+    </view>
+
+    <!-- 消费记录 -->
+    <view class="tab-content" wx:if="{{currentTab === 1}}">
+      <view class="record-list">
+        <view class="record-item" wx:for="{{records}}" wx:key="id">
+          <view class="record-info">
+            <text class="record-name">{{item.waterTypeName}}</text>
+            <text class="record-time">{{item.createTime}}</text>
+          </view>
+          <view class="record-quantity">
+            <text class="quantity-change {{item.increaseQty > 0 ? 'increase' : 'decrease'}}">
+              {{item.increaseQty > 0 ? '+' : ''}}{{item.increaseQty > 0 ? item.increaseQty : -item.decreaseQty}}
+            </text>
+          </view>
+        </view>
+        <empty wx:if="{{records.length === 0}}" text="暂无记录"></empty>
+      </view>
+    </view>
+  </view>
+</view>

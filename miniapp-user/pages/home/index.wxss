@@ -1,0 +1,693 @@
+/* ========== 页面 ========== */
+.page {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  padding-bottom: 140rpx;
+}
+
+/* ========== 顶部渐变 ========== */
+.header {
+  position: relative;
+  padding-top: env(safe-area-inset-top);
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  border-radius: 0 0 48rpx 48rpx;
+}
+
+.header-bg {
+  display: none;
+}
+
+.header-content {
+  position: relative;
+  z-index: 1;
+  padding: 24rpx 32rpx 32rpx;
+}
+
+/* 地址栏 */
+.address-bar {
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,0.95);
+  border-radius: 20rpx;
+  padding: 24rpx 28rpx;
+  box-shadow: 0 4rpx 20rpx rgba(79, 172, 254, 0.15);
+}
+
+.address-left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.address-icon {
+  font-size: 36rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.address-text {
+  flex: 1;
+  overflow: hidden;
+}
+
+.address-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+  display: block;
+  margin-bottom: 4rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.address-detail {
+  font-size: 24rpx;
+  color: #999;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.address-empty {
+  font-size: 28rpx;
+  color: #999;
+}
+
+.address-arrow {
+  font-size: 32rpx;
+  color: #ccc;
+  margin-left: 12rpx;
+  flex-shrink: 0;
+}
+
+/* 游客头部 */
+.guest-header {
+  background: rgba(255,255,255,0.95);
+  border-radius: 20rpx;
+  padding: 40rpx 28rpx;
+  text-align: center;
+  box-shadow: 0 4rpx 20rpx rgba(79, 172, 254, 0.15);
+}
+
+.guest-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #333;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.guest-subtitle {
+  font-size: 26rpx;
+  color: #999;
+  display: block;
+  margin-bottom: 28rpx;
+}
+
+.guest-login-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  border-radius: 40rpx;
+  padding: 0 48rpx;
+  height: 72rpx;
+}
+
+.guest-login-btn text {
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+/* 水桶明细条 */
+.barrel-brief {
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,0.9);
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+}
+
+.barrel-brief-icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.barrel-brief-list {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx 20rpx;
+}
+
+.barrel-brief-item {
+  display: flex;
+  align-items: center;
+}
+
+.barrel-brief-name {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.barrel-brief-qty {
+  font-size: 24rpx;
+  color: #4facfe;
+  font-weight: 600;
+  margin-left: 6rpx;
+}
+
+.barrel-brief-arrow {
+  font-size: 28rpx;
+  color: #ccc;
+  margin-left: 8rpx;
+  flex-shrink: 0;
+}
+
+/* ========== 状态卡片 ========== */
+.state-card {
+  margin: 40rpx 48rpx 0;
+  text-align: center;
+}
+
+.state-icon {
+  font-size: 80rpx;
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.state-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #333;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.state-desc {
+  font-size: 26rpx;
+  color: #999;
+  display: block;
+  margin-bottom: 40rpx;
+}
+
+.state-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  border-radius: 44rpx;
+  padding: 0 64rpx;
+  height: 88rpx;
+}
+
+.state-btn text {
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+/* ========== 内容区 ========== */
+.body {
+  padding: 24rpx 32rpx;
+}
+
+/* 卡片 */
+.card {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.card-link {
+  font-size: 24rpx;
+  color: #4facfe;
+}
+
+/* ========== 配送中 ========== */
+.delivering-card {
+  border-left: 6rpx solid #4facfe;
+}
+
+.delivering-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.delivering-icon {
+  font-size: 32rpx;
+  margin-right: 12rpx;
+}
+
+.delivering-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #4facfe;
+}
+
+.delivering-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.delivering-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f7fa;
+}
+
+.delivering-item:last-child {
+  border-bottom: none;
+}
+
+.delivering-left {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.delivering-name {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+.delivering-qty {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.delivering-status {
+  font-size: 24rpx;
+  color: #ff9500;
+  font-weight: 500;
+}
+
+/* ========== 模板卡 ========== */
+.template-card {
+  border-left: 6rpx solid #52c41a;
+}
+
+.template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.template-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.template-edit {
+  font-size: 24rpx;
+  color: #4facfe;
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.template-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid #f5f7fa;
+}
+
+.template-item:last-child {
+  border-bottom: none;
+}
+
+.template-name {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.template-qty {
+  font-size: 26rpx;
+  color: #4facfe;
+  font-weight: 600;
+}
+
+/* 切换模式 */
+.switch-mode {
+  text-align: center;
+  padding: 20rpx 0;
+}
+
+.switch-mode-text {
+  font-size: 26rpx;
+  color: #999;
+}
+
+/* 模板提示条 */
+.template-banner {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #f0f9ff, #e6f7ff);
+  border: 1rpx solid #d6eef8;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 24rpx;
+}
+
+.template-banner-icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.template-banner-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #4facfe;
+  font-weight: 500;
+}
+
+.template-banner-edit {
+  font-size: 24rpx;
+  color: #999;
+  flex-shrink: 0;
+}
+
+/* ========== 游客Banner ========== */
+.guest-banner {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  border-radius: 24rpx;
+  padding: 60rpx 40rpx;
+  text-align: center;
+  margin-bottom: 24rpx;
+}
+
+.guest-banner-icon {
+  font-size: 64rpx;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.guest-banner-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #fff;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.guest-banner-desc {
+  font-size: 26rpx;
+  color: rgba(255,255,255,0.8);
+  display: block;
+  margin-bottom: 32rpx;
+}
+
+.guest-banner-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 40rpx;
+  padding: 0 48rpx;
+  height: 72rpx;
+}
+
+.guest-banner-btn text {
+  color: #4facfe;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+/* ========== 水类型网格 ========== */
+.water-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.water-card {
+  width: calc(33.33% - 11rpx);
+  background: #f8fafc;
+  border-radius: 16rpx;
+  padding: 24rpx 12rpx 20rpx;
+  text-align: center;
+  position: relative;
+  border: 2rpx solid transparent;
+  transition: all 0.2s;
+}
+
+.water-card.active {
+  border-color: #4facfe;
+  background: linear-gradient(135deg, #f0f9ff, #e6f7ff);
+  box-shadow: 0 4rpx 16rpx rgba(79, 172, 254, 0.15);
+}
+
+.water-icon-wrap {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e8f4fd, #d6eef8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12rpx;
+}
+
+.water-card.active .water-icon-wrap {
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+}
+
+.water-icon {
+  font-size: 32rpx;
+}
+
+.water-card.active .water-icon {
+  filter: brightness(10);
+}
+
+.water-name {
+  font-size: 24rpx;
+  color: #333;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 4rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.water-spec {
+  font-size: 20rpx;
+  color: #bbb;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.water-price-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
+
+.water-price-symbol {
+  font-size: 20rpx;
+  color: #ff6b35;
+}
+
+.water-price-value {
+  font-size: 28rpx;
+  color: #ff6b35;
+  font-weight: 700;
+}
+
+.water-check {
+  position: absolute;
+  top: 0; right: 0;
+  width: 36rpx;
+  height: 36rpx;
+  background: #4facfe;
+  border-radius: 0 16rpx 0 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.water-check text {
+  color: #fff;
+  font-size: 20rpx;
+}
+
+/* ========== 数量步进器 ========== */
+.stepper-row {
+  display: flex;
+  align-items: center;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  background: #f5f7fa;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.stepper-btn {
+  width: 68rpx;
+  height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stepper-btn text {
+  font-size: 36rpx;
+  font-weight: 500;
+  color: #333;
+  line-height: 1;
+}
+
+.stepper-btn.disabled {
+  opacity: 0.3;
+}
+
+.stepper-btn.disabled text {
+  color: #ccc;
+}
+
+.stepper-input {
+  width: 96rpx;
+  height: 68rpx;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+  background: transparent;
+}
+
+.stepper-unit {
+  font-size: 28rpx;
+  color: #999;
+  margin-left: 16rpx;
+}
+
+/* ========== 备注 ========== */
+.note-wrap {
+  background: #f5f7fa;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+}
+
+.note-input {
+  width: 100%;
+  height: 80rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+
+.note-placeholder {
+  color: #ccc;
+}
+
+/* ========== 底部栏 ========== */
+.bottom-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 100;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 -2rpx 16rpx rgba(0,0,0,0.06);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.bottom-inner {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 32rpx;
+  height: 120rpx;
+}
+
+.price-section {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
+}
+
+.price-label {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.price-value-wrap {
+  display: flex;
+  align-items: baseline;
+}
+
+.price-symbol {
+  font-size: 24rpx;
+  color: #ff6b35;
+  font-weight: 600;
+}
+
+.price-num {
+  font-size: 40rpx;
+  color: #ff6b35;
+  font-weight: 700;
+}
+
+.price-pending {
+  font-size: 30rpx;
+  color: #999;
+}
+
+.submit-btn {
+  width: 280rpx;
+  height: 88rpx;
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6rpx 20rpx rgba(79, 172, 254, 0.35);
+}
+
+.submit-btn text {
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.submit-btn.disabled {
+  background: #ccc;
+  box-shadow: none;
+}
+
+.submit-btn:active {
+  transform: scale(0.97);
+}

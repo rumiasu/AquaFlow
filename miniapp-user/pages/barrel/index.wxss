@@ -1,0 +1,398 @@
+.container {
+  background-color: #f5f5f5;
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+/* 概况卡片 */
+.summary-card {
+  background: linear-gradient(135deg, #1890ff, #36cfc9);
+  margin: 24rpx;
+  padding: 32rpx;
+  border-radius: 20rpx;
+  color: #fff;
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.summary-title {
+  font-size: 32rpx;
+  font-weight: 500;
+}
+
+.deposit-badge {
+  background-color: rgba(255, 255, 255, 0.2);
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+}
+
+.summary-main {
+  text-align: center;
+  margin-bottom: 40rpx;
+}
+
+.bucket-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.bucket-count {
+  font-size: 80rpx;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.bucket-label {
+  font-size: 24rpx;
+  opacity: 0.8;
+  margin-top: 8rpx;
+}
+
+.summary-stats {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 24rpx 0;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.2);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-size: 36rpx;
+  font-weight: 500;
+}
+
+.stat-label {
+  font-size: 22rpx;
+  opacity: 0.8;
+  margin-top: 4rpx;
+}
+
+.stat-divider {
+  width: 1rpx;
+  height: 48rpx;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.return-btn {
+  margin-top: 24rpx;
+  height: 72rpx;
+  background-color: rgba(255, 255, 255, 0.2);
+  border: 2rpx solid rgba(255, 255, 255, 0.5);
+  border-radius: 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+}
+
+/* 信息卡片 */
+.info-card {
+  background-color: #fff;
+  margin: 0 24rpx 24rpx;
+  padding: 24rpx 32rpx;
+  border-radius: 16rpx;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12rpx 0;
+}
+
+.info-label {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.info-value {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+.info-value.highlight {
+  color: #ff4d4f;
+}
+
+.info-tip {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #999;
+}
+
+/* 通用区块 */
+.section {
+  background-color: #fff;
+  margin: 0 24rpx 24rpx;
+  padding: 28rpx 24rpx;
+  border-radius: 16rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #333;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+/* 退桶记录 */
+.record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.record-item {
+  padding: 20rpx;
+  background-color: #fafafa;
+  border-radius: 12rpx;
+}
+
+.record-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.record-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.record-qty {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #333;
+}
+
+.record-status {
+  font-size: 24rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 12rpx;
+}
+
+.status-1 {
+  color: #faad14;
+  background-color: #fff7e6;
+}
+
+.status-2 {
+  color: #1890ff;
+  background-color: #e6f7ff;
+}
+
+.status-3 {
+  color: #52c41a;
+  background-color: #f6ffed;
+}
+
+.status-4 {
+  color: #ff4d4f;
+  background-color: #fff2f0;
+}
+
+.record-time {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.record-note {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.record-deposit {
+  margin-top: 12rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx solid #f0f0f0;
+  font-size: 26rpx;
+  color: #ff4d4f;
+}
+
+/* 弹窗 */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.modal-content {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  z-index: 1001;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+}
+
+.modal-content.show {
+  transform: translateY(0);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 32rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 500;
+}
+
+.modal-close {
+  font-size: 40rpx;
+  color: #999;
+  padding: 0 8rpx;
+}
+
+.modal-body {
+  padding: 32rpx;
+}
+
+.return-tip {
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 24rpx;
+}
+
+.return-tip .highlight {
+  color: #1890ff;
+  font-weight: bold;
+}
+
+.form-row {
+  margin-bottom: 28rpx;
+}
+
+.form-label {
+  font-size: 28rpx;
+  color: #333;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+}
+
+.qty-btn {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 12rpx;
+  background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qty-btn.disabled {
+  opacity: 0.4;
+}
+
+.qty-btn text {
+  font-size: 36rpx;
+  color: #333;
+  line-height: 1;
+}
+
+.qty-input {
+  width: 100rpx;
+  height: 60rpx;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 500;
+  margin: 0 16rpx;
+}
+
+.deposit-input-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.deposit-input {
+  flex: 1;
+  height: 72rpx;
+  background-color: #f5f5f5;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+}
+
+.deposit-max {
+  font-size: 24rpx;
+  color: #1890ff;
+  white-space: nowrap;
+  padding: 8rpx 16rpx;
+  background-color: #e6f7ff;
+  border-radius: 8rpx;
+}
+
+.note-input {
+  width: 100%;
+  height: 72rpx;
+  background-color: #f5f5f5;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+
+.modal-footer {
+  display: flex;
+  padding: 16rpx 32rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  gap: 24rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.modal-btn {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+}
+
+.modal-btn.cancel {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+.modal-btn.confirm {
+  background-color: #1890ff;
+  color: #fff;
+}
+
+.modal-btn.confirm.disabled {
+  background-color: #ccc;
+}

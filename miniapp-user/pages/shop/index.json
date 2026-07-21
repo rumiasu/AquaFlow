@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "商城",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "empty": "../../components/Empty/index",
+    "loading": "../../components/Loading/index"
+  }
+}

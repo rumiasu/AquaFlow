@@ -1,0 +1,112 @@
+.container {
+  background-color: #f5f5f5;
+  min-height: 100vh;
+}
+
+.tabs {
+  display: flex;
+  background-color: #fff;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.tab-item {
+  flex: 1;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  color: #666;
+  position: relative;
+}
+
+.tab-item.active {
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48rpx;
+  height: 4rpx;
+  background-color: #1890ff;
+  border-radius: 2rpx;
+}
+
+.tab-content {
+  padding: 24rpx;
+}
+
+.account-list,
+.record-list {
+  background-color: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.account-item,
+.record-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.account-item:last-child,
+.record-item:last-child {
+  border-bottom: none;
+}
+
+.account-info,
+.record-info {
+  flex: 1;
+}
+
+.account-name,
+.record-name {
+  font-size: 28rpx;
+  color: #333;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.account-spec,
+.record-time {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.account-quantity {
+  display: flex;
+  align-items: baseline;
+}
+
+.quantity-value {
+  font-size: 36rpx;
+  font-weight: 500;
+  color: #1890ff;
+  margin-right: 8rpx;
+}
+
+.quantity-unit {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.quantity-change {
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.quantity-change.increase {
+  color: #52c41a;
+}
+
+.quantity-change.decrease {
+  color: #ff4d4f;
+}

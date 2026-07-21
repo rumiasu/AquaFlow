@@ -1,0 +1,125 @@
+<view class="container">
+  <loading wx:if="{{loading}}"></loading>
+
+  <block wx:else>
+    <!-- 水桶提示 -->
+    <view class="barrel-tip" wx:if="{{barrelSummary}}">
+      <text class="barrel-tip-icon">🪣</text>
+      <text class="barrel-tip-text">当前持有 <text class="highlight">{{barrelSummary.actualBuckets}}</text> 桶</text>
+    </view>
+
+    <!-- 商品信息 -->
+    <view class="section product-section">
+      <image class="product-image" src="{{product.image || '/assets/image/default-product.png'}}" mode="aspectFill"></image>
+      <view class="product-info">
+        <text class="product-name">{{product.name}}</text>
+        <text class="product-spec">{{product.spec}}</text>
+        <view class="product-price" wx:if="{{product.price}}">
+          <text class="price-symbol">¥</text>
+          <text class="price-value">{{product.price}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 配送地址 -->
+    <view class="section address-card" bindtap="onAddressTap">
+      <view class="address-info" wx:if="{{address}}">
+        <view class="address-top">
+          <text class="address-name">{{address.name}}</text>
+          <text class="address-phone">{{address.phone}}</text>
+        </view>
+        <text class="address-detail">{{address.detail}}</text>
+      </view>
+      <view class="address-empty" wx:else>
+        <text>请选择配送地址</text>
+      </view>
+      <text class="address-arrow">›</text>
+    </view>
+
+    <!-- 数量 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">数量</text>
+        <text class="section-hint" wx:if="{{barrelSummary && quantity > barrelSummary.actualBuckets}}">
+          超出持有桶数，需支付新桶押金
+        </text>
+      </view>
+      <view class="quantity-row">
+        <view class="quantity-control">
+          <view class="qty-btn {{quantity <= 1 ? 'disabled' : ''}}" bindtap="onQuantityChange" data-type="minus">
+            <text>-</text>
+          </view>
+          <input class="qty-input" type="number" value="{{quantity}}" bindinput="onQuantityInput"></input>
+          <view class="qty-btn" bindtap="onQuantityChange" data-type="add">
+            <text>+</text>
+          </view>
+        </view>
+        <text class="quantity-tip">桶</text>
+      </view>
+    </view>
+
+    <!-- 备注 -->
+    <view class="section">
+      <text class="section-title">备注</text>
+      <input class="note-input" placeholder="如：放门口、几号楼等" value="{{note}}" bindinput="onNoteInput"></input>
+    </view>
+  </block>
+
+  <!-- 底部提交 -->
+  <view class="bottom-bar" wx:if="{{!loading}}">
+    <view class="total-info">
+      <text class="total-label">合计：</text>
+      <text class="total-price" wx:if="{{product.price}}">
+        <text class="price-symbol">¥</text>{{product.price * quantity}}
+      </text>
+      <text class="total-price" wx:else>待确认</text>
+    </view>
+    <view class="submit-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
+      <text>{{submitting ? '提交中...' : '立即下单'}}</text>
+    </view>
+  </view>
+
+  <!-- 超额提醒弹窗 -->
+  <view class="modal-mask" wx:if="{{showExceedModal}}" bindtap="onCloseExceedModal"></view>
+  <view class="modal-content {{showExceedModal ? 'show' : ''}}" catchtap="">
+    <view class="modal-header">
+      <text class="modal-title">超出水桶数量提醒</text>
+      <text class="modal-close" bindtap="onCloseExceedModal">×</text>
+    </view>
+
+    <view class="modal-body">
+      <view class="exceed-warn">
+        <text class="warn-icon">⚠️</text>
+        <text class="warn-text">您当前持有 {{barrelSummary.actualBuckets}} 桶，本次下单 {{quantity}} 桶，超出 <text class="highlight">{{exceedInfo.exceedQty}}</text> 桶</text>
+      </view>
+
+      <view class="cost-detail">
+        <view class="cost-row">
+          <text class="cost-label">超出部分水费（{{exceedInfo.exceedQty}} 桶 × ¥{{product.price}}）</text>
+          <text class="cost-value">¥{{exceedInfo.extraWaterCost}}</text>
+        </view>
+        <view class="cost-row">
+          <text class="cost-label">新桶押金（{{exceedInfo.exceedQty}} 桶 × ¥{{barrelSummary.depositPerBucket}}）</text>
+          <text class="cost-value deposit">¥{{exceedInfo.extraDepositCost}}</text>
+        </view>
+        <view class="cost-total">
+          <text class="cost-label">额外费用合计</text>
+          <text class="cost-value total">¥{{exceedInfo.extraTotal}}</text>
+        </view>
+      </view>
+
+      <view class="exceed-note">
+        <text>超出部分的水费和新桶押金将一并计入订单，退桶时可退还押金。</text>
+      </view>
+    </view>
+
+    <view class="modal-footer">
+      <view class="modal-btn cancel" bindtap="onCloseExceedModal">
+        <text>取消</text>
+      </view>
+      <view class="modal-btn confirm" bindtap="onConfirmExceed">
+        <text>确认下单</text>
+      </view>
+    </view>
+  </view>
+</view>

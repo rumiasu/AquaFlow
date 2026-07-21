@@ -1,0 +1,86 @@
+<view class="page">
+  <!-- 订单摘要 -->
+  <view class="order-summary">
+    <view class="summary-header">
+      <text class="summary-icon">💧</text>
+      <view class="summary-info">
+        <text class="summary-name">{{waterTypeName}} {{waterTypeSpec}}</text>
+        <text class="summary-qty">×{{quantity}}桶</text>
+      </view>
+    </view>
+    <view class="summary-addr">
+      <text class="addr-icon">📍</text>
+      <text class="addr-text">{{addressDetail}}</text>
+    </view>
+    <view class="summary-barrel" wx:if="{{heldBarrels > 0 || excessBarrels > 0}}">
+      <text class="barrel-icon">🪣</text>
+      <text class="barrel-text" wx:if="{{excessBarrels > 0}}">持有{{heldBarrels}}桶，本次需购{{excessBarrels}}桶新桶</text>
+      <text class="barrel-text" wx:else>持有{{heldBarrels}}桶，无需购桶</text>
+    </view>
+  </view>
+
+  <!-- 金额明细 -->
+  <view class="amount-card">
+    <view class="amount-row">
+      <text class="amount-label">水费</text>
+      <view class="amount-value">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-num-small">{{waterCost}}</text>
+        <text class="amount-detail">（¥{{waterTypePrice}} × {{quantity}}桶）</text>
+      </view>
+    </view>
+    <view class="amount-row" wx:if="{{excessBarrels > 0}}">
+      <text class="amount-label">新桶押金</text>
+      <view class="amount-value">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-num-small">{{barrelDeposit}}</text>
+        <text class="amount-detail">（超出{{excessBarrels}}桶 × ¥{{barrelDepositPerUnit}}）</text>
+      </view>
+    </view>
+    <view class="amount-row" wx:if="{{heldBarrels > 0}}">
+      <text class="amount-label">持有桶</text>
+      <text class="amount-hint">{{heldBarrels}}桶可抵扣</text>
+    </view>
+    <view class="amount-divider"></view>
+    <view class="amount-row total">
+      <text class="amount-label">合计</text>
+      <view class="amount-value">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-num">{{totalAmount}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 支付方式 -->
+  <view class="pay-section">
+    <text class="section-title">选择支付方式</text>
+    <view class="method-list">
+      <view
+        class="method-item {{selectedMethod === item.id ? 'active' : ''}} {{item.id === 3 && !ticketEnough ? 'disabled' : ''}}"
+        wx:for="{{methods}}"
+        wx:key="id"
+        bindtap="onSelectMethod"
+        data-id="{{item.id}}"
+      >
+        <view class="method-left">
+          <text class="method-icon">{{item.icon}}</text>
+          <view class="method-text">
+            <text class="method-name">{{item.name}}</text>
+            <text class="method-desc" wx:if="{{item.id === 3}}">余额: {{ticketBalance}}张 {{!ticketEnough ? '(不足)' : ''}}</text>
+            <text class="method-desc" wx:else>{{item.desc}}</text>
+          </view>
+        </view>
+        <view class="method-check" wx:if="{{selectedMethod === item.id}}">
+          <text>✓</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 提交 -->
+  <view class="submit-bar">
+    <view class="submit-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
+      <text>{{submitting ? '提交中...' : '确认下单'}}</text>
+    </view>
+  </view>
+</view>

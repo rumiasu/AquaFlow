@@ -1,0 +1,8 @@
+.empty {
+  padding: 120rpx 0;
+  text-align: center;
+}
+.empty-text {
+  color: #999;
+  font-size: 28rpx;
+}

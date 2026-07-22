@@ -4,46 +4,48 @@ const { storage } = require('../utils/storage')
 const userStore = {
   state: {
     userInfo: null,
-    token: null,
+    accessToken: null,
+    refreshToken: null,
     isLogin: false
   },
 
-  // 初始化
   init() {
-    const token = storage.get('token')
+    const accessToken = storage.get('accessToken')
+    const refreshToken = storage.get('refreshToken')
     const userInfo = storage.get('userInfo')
-    if (token && userInfo) {
-      this.state.token = token
+    if (accessToken && userInfo) {
+      this.state.accessToken = accessToken
+      this.state.refreshToken = refreshToken
       this.state.userInfo = userInfo
       this.state.isLogin = true
     }
   },
 
-  // 设置登录信息
-  setLoginInfo(token, userInfo) {
-    this.state.token = token
+  setLoginInfo(accessToken, refreshToken, userInfo) {
+    this.state.accessToken = accessToken
+    this.state.refreshToken = refreshToken
     this.state.userInfo = userInfo
     this.state.isLogin = true
-    storage.set('token', token)
+    storage.set('accessToken', accessToken)
+    storage.set('refreshToken', refreshToken)
     storage.set('userInfo', userInfo)
   },
 
-  // 更新用户信息
   updateUserInfo(userInfo) {
     this.state.userInfo = { ...this.state.userInfo, ...userInfo }
     storage.set('userInfo', this.state.userInfo)
   },
 
-  // 清除登录信息
   clearLoginInfo() {
-    this.state.token = null
+    this.state.accessToken = null
+    this.state.refreshToken = null
     this.state.userInfo = null
     this.state.isLogin = false
-    storage.remove('token')
+    storage.remove('accessToken')
+    storage.remove('refreshToken')
     storage.remove('userInfo')
   },
 
-  // 检查登录状态
   checkLogin() {
     return this.state.isLogin
   }

@@ -1,7 +1,9 @@
 package com.example.aquaflow.service.impl;
 
+import com.example.aquaflow.constant.PaymentStatus;
 import com.example.aquaflow.entity.PaymentRecord;
 import com.example.aquaflow.entity.TicketAccount;
+import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.mapper.PaymentRecordMapper;
 import com.example.aquaflow.mapper.TicketAccountMapper;
 import com.example.aquaflow.mapper.TicketRecordMapper;
@@ -28,6 +30,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired
     private TicketRecordMapper ticketRecordMapper;
 
+    @Autowired
+    private OrderMapper orderMapper;
+
     @Override
     @Transactional
     public PaymentRecord createPayment(Long orderId, Long customerId, BigDecimal amount, BigDecimal waterAmount,
@@ -48,12 +53,18 @@ public class PaymentServiceImpl implements PaymentService {
         record.setUpdateTime(LocalDateTime.now());
 
         if (paymentMethod == 1 || paymentMethod == 2) {
-            record.setStatus(1); // 待支付
+            record.setStatus(PaymentStatus.PENDING);
         } else {
-            record.setStatus(2); // 水票/挂账直接确认
+            record.setStatus(PaymentStatus.PAID); // 水票/挂账直接确认
         }
 
         paymentRecordMapper.insert(record);
+
+        // 同步订单付款状态为待付款
+        if (orderId != null) {
+            orderMapper.updatePaymentStatus(orderId.intValue(), PaymentStatus.UNPAID);
+        }
+
         return record;
     }
 
@@ -62,8 +73,13 @@ public class PaymentServiceImpl implements PaymentService {
     public void confirmPayment(Long paymentId) {
         PaymentRecord record = paymentRecordMapper.getById(paymentId);
         if (record == null) throw new RuntimeException("支付记录不存在");
-        if (record.getStatus() != 1) throw new RuntimeException("该记录状态异常");
-        paymentRecordMapper.updateStatus(paymentId, 2);
+        if (record.getStatus() != PaymentStatus.PENDING) throw new RuntimeException("该记录状态异常");
+        paymentRecordMapper.updateStatus(paymentId, PaymentStatus.PAID);
+
+        // 同步订单付款状态为已付款
+        if (record.getOrderId() != null) {
+            orderMapper.updatePaymentStatus(record.getOrderId().intValue(), PaymentStatus.PAID);
+        }
     }
 
     @Override
@@ -71,8 +87,10 @@ public class PaymentServiceImpl implements PaymentService {
     public void confirmCashPayment(Long orderId, Long customerId, BigDecimal amount) {
         List<PaymentRecord> records = paymentRecordMapper.listByOrderId(orderId);
         for (PaymentRecord r : records) {
-            if (r.getPaymentMethod() == 2 && r.getStatus() == 1) {
-                paymentRecordMapper.updateStatus(r.getId(), 2);
+            if (r.getPaymentMethod() == 2 && r.getStatus() == PaymentStatus.PENDING) {
+                paymentRecordMapper.updateStatus(r.getId(), PaymentStatus.PAID);
+                // 同步订单付款状态
+                orderMapper.updatePaymentStatus(orderId.intValue(), PaymentStatus.PAID);
                 return;
             }
         }
@@ -94,7 +112,7 @@ public class PaymentServiceImpl implements PaymentService {
     public void deductTickets(Long orderId) {
         List<PaymentRecord> records = paymentRecordMapper.listByOrderId(orderId);
         for (PaymentRecord r : records) {
-            if (r.getPaymentMethod() == 3 && r.getStatus() == 2) {
+            if (r.getPaymentMethod() == 3 && r.getStatus() == PaymentStatus.PAID) {
                 ticketRecordMapper.insertWaterTicketRecord(
                         r.getCustomerId().intValue(),
                         r.getTicketWaterTypeId().intValue(),
@@ -109,15 +127,27 @@ public class PaymentServiceImpl implements PaymentService {
     public void refundPayment(Long paymentId, String note) {
         PaymentRecord record = paymentRecordMapper.getById(paymentId);
         if (record == null) throw new RuntimeException("支付记录不存在");
-        if (record.getStatus() != 2) throw new RuntimeException("只能退款已支付记录");
+        if (record.getStatus() != PaymentStatus.PAID) throw new RuntimeException("只能退款已支付记录");
 
-        paymentRecordMapper.updateStatus(paymentId, 3);
+        paymentRecordMapper.updateStatus(paymentId, PaymentStatus.REFUNDED);
 
+        // 水票退款：恢复水票余额
         if (record.getPaymentMethod() == 3 && record.getTicketWaterTypeId() != null) {
             TicketAccount account = ticketAccountMapper.getByCustomerAndWaterType(
                     record.getCustomerId().intValue(), record.getTicketWaterTypeId().intValue());
             if (account != null) {
                 ticketAccountMapper.incrementQuantity(account.getId(), record.getTicketQty());
+            }
+        }
+
+        // 同步订单付款状态回待付款
+        if (record.getOrderId() != null) {
+            // 检查该订单是否还有其他已付款记录
+            List<PaymentRecord> allRecords = paymentRecordMapper.listByOrderId(record.getOrderId());
+            boolean hasOtherPaid = allRecords.stream()
+                    .anyMatch(r -> !r.getId().equals(paymentId) && r.getStatus() == PaymentStatus.PAID);
+            if (!hasOtherPaid) {
+                orderMapper.updatePaymentStatus(record.getOrderId().intValue(), PaymentStatus.UNPAID);
             }
         }
     }

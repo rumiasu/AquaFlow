@@ -1,5 +1,5 @@
 const { post, get, put } = require('../utils/request')
-const { API, getCustomerId } = require('../config/api')
+const { API } = require('../config/api')
 
 /** 创建支付记录 */
 const createPayment = (data) => {
@@ -16,9 +16,9 @@ const getPaymentsByOrder = (orderId) => {
   return get(`${API.PAYMENTS}/by-order`, { orderId })
 }
 
-/** 查询客户支付记录 */
+/** 查询客户支付记录 (customerId 从 JWT 获取) */
 const getPaymentsByCustomer = () => {
-  return get(`${API.PAYMENTS}/by-customer`, { customerId: getCustomerId() })
+  return get(`${API.PAYMENTS}/by-customer`)
 }
 
 /** 获取站点支付配置 */

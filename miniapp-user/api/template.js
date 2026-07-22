@@ -1,40 +1,40 @@
 // 常用订单模板接口（后端: OrderTemplateController）
 const { get, post, put, del } = require('../utils/request')
-const { API, getCustomerId } = require('../config/api')
+const { API } = require('../config/api')
 
-// GET /api/order-templates/quick?customerId=xxx
+// GET /api/order-templates/quick (customerId 从 JWT 获取)
 const getQuickOrder = () => {
-  return get(API.ORDER_TEMPLATES_QUICK, { customerId: getCustomerId() })
+  return get(API.ORDER_TEMPLATES_QUICK)
 }
 
-// GET /api/order-templates?customerId=xxx
+// GET /api/order-templates (customerId 从 JWT 获取)
 const getTemplates = () => {
-  return get(API.ORDER_TEMPLATES, { customerId: getCustomerId() })
+  return get(API.ORDER_TEMPLATES)
 }
 
-// POST /api/order-templates?customerId=xxx
+// POST /api/order-templates (customerId 从 JWT 获取)
 const saveTemplate = (data) => {
-  return post(API.ORDER_TEMPLATES, data, { customerId: getCustomerId() })
+  return post(API.ORDER_TEMPLATES, data)
 }
 
-// PUT /api/order-templates/{id}/toggle?customerId=xxx&enabled=1
+// PUT /api/order-templates/{id}/toggle (customerId 从 JWT 获取)
 const toggleTemplate = (id, enabled) => {
-  return put(`${API.ORDER_TEMPLATES}/${id}/toggle`, null, { customerId: getCustomerId(), enabled })
+  return put(`${API.ORDER_TEMPLATES}/${id}/toggle`, null, { enabled })
 }
 
-// PUT /api/order-templates/{id}/default?customerId=xxx
+// PUT /api/order-templates/{id}/default (customerId 从 JWT 获取)
 const setDefaultTemplate = (id) => {
-  return put(`${API.ORDER_TEMPLATES}/${id}/default`, null, { customerId: getCustomerId() })
+  return put(`${API.ORDER_TEMPLATES}/${id}/default`, null)
 }
 
-// POST /api/order-templates/from-order?customerId=xxx&orderId=xxx
+// POST /api/order-templates/from-order (customerId 从 JWT 获取)
 const setFromOrder = (orderId) => {
-  return post(API.ORDER_TEMPLATES_FROM_ORDER, null, { customerId: getCustomerId(), orderId })
+  return post(API.ORDER_TEMPLATES_FROM_ORDER, null, { orderId })
 }
 
-// DELETE /api/order-templates/{id}?customerId=xxx
+// DELETE /api/order-templates/{id} (customerId 从 JWT 获取)
 const deleteTemplate = (id) => {
-  return del(`${API.ORDER_TEMPLATES}/${id}`, { customerId: getCustomerId() })
+  return del(`${API.ORDER_TEMPLATES}/${id}`)
 }
 
 module.exports = { getQuickOrder, getTemplates, saveTemplate, toggleTemplate, setDefaultTemplate, setFromOrder, deleteTemplate }

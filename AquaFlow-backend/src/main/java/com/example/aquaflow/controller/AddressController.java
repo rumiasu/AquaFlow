@@ -3,6 +3,7 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.Address;
 import com.example.aquaflow.service.AddressService;
+import com.example.aquaflow.util.AuthContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -25,9 +26,9 @@ public class AddressController {
     }
 
     @GetMapping
-    public Result<List<Address>> list(@RequestParam(required = false) Integer customerId,
-                                      @RequestParam(required = false) String tag,
+    public Result<List<Address>> list(@RequestParam(required = false) String tag,
                                       @RequestParam(required = false) String keyword) {
+        Integer customerId = AuthContext.requireCustomerId();
         return Result.success(addressService.list(customerId, tag, keyword));
     }
 
@@ -44,13 +45,15 @@ public class AddressController {
     }
 
     @DeleteMapping("/{id}")
-    public Result delete(@PathVariable Integer id, @RequestParam Integer customerId) {
+    public Result delete(@PathVariable Integer id) {
+        Integer customerId = AuthContext.requireCustomerId();
         addressService.delete(customerId, id);
         return Result.success();
     }
 
     @PutMapping("/{id}/default")
-    public Result setDefault(@PathVariable Integer id, @RequestParam Integer customerId) {
+    public Result setDefault(@PathVariable Integer id) {
+        Integer customerId = AuthContext.requireCustomerId();
         addressService.setDefault(customerId, id);
         return Result.success();
     }

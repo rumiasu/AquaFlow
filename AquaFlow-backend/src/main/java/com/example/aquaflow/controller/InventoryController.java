@@ -17,13 +17,13 @@ public class InventoryController {
     private InventoryService inventoryService;
 
     @GetMapping
-    public Result<List<Inventory>> list(){
-        return Result.success(inventoryService.list());
+    public Result<List<Inventory>> list(@RequestParam(required = false) Integer stationId){
+        return Result.success(inventoryService.list(stationId));
     }
 
     @PostMapping("/inbound")
-    public Result inbound(@RequestBody InventoryInboundDTO inventoryInboundDTO) {
-        inventoryService.inbound(inventoryInboundDTO.getItems());
+    public Result inbound(@RequestParam Integer stationId, @RequestBody InventoryInboundDTO inventoryInboundDTO) {
+        inventoryService.inbound(stationId, inventoryInboundDTO.getItems());
         return Result.success();
     }
 

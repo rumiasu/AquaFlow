@@ -19,14 +19,19 @@ const API = {
   LOGIN: '/api/auth/login',
   WX_LOGIN: '/api/auth/wx-login',
   DEV_LOGIN: '/api/auth/dev-login',
+  REFRESH: '/api/auth/refresh',
+  LOGOUT: '/api/auth/logout',
+  ME: '/api/auth/me',
   UPDATE_PROFILE: '/api/auth/update-profile',
+  CHANGE_PASSWORD: '/api/auth/change-password',
 
   // 商品（后端: WaterTypeController）
   WATER_TYPES: '/api/water-types',
   MY_WATER_TYPES: '/api/water-types/my',
 
-  // 订单（后端: OrderController）— 需要 customerId
-  ORDERS: '/api/orders',
+  // 订单（后端: OrderController）
+  CUSTOMERS: '/api/customers',
+    ORDERS: '/api/orders',
   CREATE_ORDER: '/api/orders',
 
   // 常用订单模板（后端: OrderTemplateController）
@@ -34,15 +39,15 @@ const API = {
   ORDER_TEMPLATES_QUICK: '/api/order-templates/quick',
   ORDER_TEMPLATES_FROM_ORDER: '/api/order-templates/from-order',
 
-  // 地址（后端: AddressController）— 需要 customerId
+  // 地址（后端: AddressController）
   ADDRESSES: '/api/addresses',
   CREATE_ADDRESS: '/api/addresses',
 
-  // 水票（后端: TicketAccountController）— 需要 customerId
+  // 水票（后端: TicketAccountController）
   TICKETS: '/api/tickets',
   TICKET_RECORDS: '/api/ticket-records',
 
-  // 水桶（后端: BarrelController）— 需要 customerId
+  // 水桶（后端: BarrelController）
   BARREL_SUMMARY: '/api/barrels/summary',
   BARREL_SUMMARY_BY_TYPE: '/api/barrels/summary-by-type',
   BARREL_RECORDS: '/api/barrels/records',
@@ -55,7 +60,7 @@ const API = {
   SEARCH: '/api/search'
 }
 
-// 客户ID（小程序用户绑定的客户ID，先用本地存储）
+// 客户ID（兼容旧代码，优先从 JWT 获取）
 const getCustomerId = () => {
   return wx.getStorageSync('customerId') || 1
 }

@@ -9,13 +9,14 @@ import java.util.Map;
 @Mapper
 public interface OrderMapper {
 
-    @Insert("insert into orders(customer_id, address_id, water_type_id, quantity, source, special_note, receiver_name, receiver_phone, address_snapshot, payment_method, status, create_time, update_time) " +
-            "values(#{customerId}, #{addressId}, #{waterTypeId}, #{quantity}, #{source}, #{specialNote}, #{receiverName}, #{receiverPhone}, #{addressSnapshot}, #{paymentMethod}, #{status}, #{createTime}, #{updateTime})")
+    @Insert("insert into orders(customer_id, station_id, address_id, water_type_id, quantity, source, special_note, receiver_name, receiver_phone, address_snapshot, payment_method, status, create_time, update_time) " +
+            "values(#{customerId}, #{stationId}, #{addressId}, #{waterTypeId}, #{quantity}, #{source}, #{specialNote}, #{receiverName}, #{receiverPhone}, #{addressSnapshot}, #{paymentMethod}, #{status}, #{createTime}, #{updateTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void save(Orders orders);
 
 
-    List<Orders> list(@Param("customerId") Integer customerId,
+    List<Orders> list(@Param("stationId") Integer stationId,
+                      @Param("customerId") Integer customerId,
                       @Param("status") Integer status,
                       @Param("tag") String tag,
                       @Param("createTimeStart") String createTimeStart,
@@ -33,6 +34,10 @@ public interface OrderMapper {
 
     @Update("update orders set status = #{status}, update_time = now() where id = #{id}")
     void updateStatus(@Param("id") Integer id, @Param("status") Integer status);
+
+    /** 更新订单付款状态 */
+    @Update("update orders set payment_status = #{paymentStatus}, update_time = now() where id = #{id}")
+    void updatePaymentStatus(@Param("id") Integer id, @Param("paymentStatus") Integer paymentStatus);
 
     @Select("select count(*) from orders")
     int countAll();
@@ -102,5 +107,67 @@ public interface OrderMapper {
     // V2: 按付款状态统计
     @Select("select count(*) from orders where payment_status = #{status}")
     int countByPaymentStatus(@Param("status") Integer status);
+
+    // ========== 水厂运营平台统计查询 ==========
+
+    @Select("select station_id as stationId, count(*) as count from orders where date(create_time) = curdate() group by station_id")
+    List<Map<String, Object>> countTodayByStation();
+
+    @Select("select station_id as stationId, sum(quantity) as totalQuantity from orders where date(create_time) = curdate() group by station_id")
+    List<Map<String, Object>> sumTodayQtyByStation();
+
+    @Select("select station_id as stationId, count(*) as count from orders where station_id is not null group by station_id")
+    List<Map<String, Object>> countTotalByStation();
+
+    @Select("select date(create_time) as date, station_id as stationId, count(*) as count from orders where station_id is not null and create_time >= date_sub(curdate(), interval 7 day) group by date(create_time), station_id order by date")
+    List<Map<String, Object>> trendLast7DaysByStation();
+
+    @Select("select station_id as stationId, sum(quantity) as totalQuantity from orders where station_id is not null group by station_id order by totalQuantity desc")
+    List<Map<String, Object>> salesRankingByStation();
+
+    @Select("select station_id as stationId, count(distinct customer_id) as customerCount from orders where station_id is not null group by station_id")
+    List<Map<String, Object>> customerCountByStation();
+
+    @Select("select station_id as stationId, date(create_time) as date, count(*) as count from orders where station_id = #{stationId} and create_time >= date_sub(curdate(), interval 7 day) group by date(create_time), station_id order by date")
+    List<Map<String, Object>> dailyTrendByStation(@Param("stationId") Integer stationId);
+
+    @Select("select station_id as stationId, date(create_time) as date, count(*) as count from orders where station_id = #{stationId} and create_time >= date_sub(curdate(), interval 365 day) group by date(create_time), station_id order by date")
+    List<Map<String, Object>> yearlyTrendByStation(@Param("stationId") Integer stationId);
+
+    @Select("select count(*) from orders where station_id = #{stationId} and date(create_time) = curdate()")
+    int countTodayByStationId(@Param("stationId") Integer stationId);
+
+    @Select("select ifnull(sum(quantity), 0) from orders where station_id = #{stationId} and date(create_time) = curdate()")
+    int sumTodayQtyByStationId(@Param("stationId") Integer stationId);
+
+    @Select("select count(*) from orders where station_id = #{stationId}")
+    int countTotalByStationId(@Param("stationId") Integer stationId);
+
+    @Select("select count(distinct customer_id) from orders where station_id = #{stationId}")
+    int customerCountByStationId(@Param("stationId") Integer stationId);
+
+    @Select("select count(distinct customer_id) from orders where station_id = #{stationId} and create_time >= date_sub(curdate(), interval 30 day) and customer_id not in (select distinct customer_id from orders where station_id = #{stationId} and create_time >= date_sub(curdate(), interval 30 day) and create_time < date_sub(curdate(), interval 15 day)) and customer_id in (select distinct customer_id from orders where station_id = #{stationId} and create_time >= date_sub(curdate(), interval 15 day))")
+    int countNewCustomersByStationId(@Param("stationId") Integer stationId);
+
+    @Select("select count(distinct customer_id) from orders where station_id = #{stationId} and create_time >= date_sub(curdate(), interval 30 day)")
+    int activeCustomersLast30Days(@Param("stationId") Integer stationId);
+
+    @Select("select count(*) from orders where station_id = #{stationId} and create_time >= date_sub(curdate(), interval #{days} day) and create_time < date_sub(curdate(), interval #{prevDays} day)")
+    int countInPeriod(@Param("stationId") Integer stationId, @Param("days") Integer days, @Param("prevDays") Integer prevDays);
+
+
+    /** 按关键词搜索订单（收货人姓名/电话模糊匹配） */
+    @Select("select o.*, c.name as customerName, c.phone as customerPhone " +
+            "from orders o left join customer c on o.customer_id = c.id " +
+            "where o.receiver_name like concat('%', #{keyword}, '%') " +
+            "or o.receiver_phone like concat('%', #{keyword}, '%') " +
+            "order by o.create_time desc limit 50")
+    List<Orders> searchByKeyword(@Param("keyword") String keyword);
+
+    /**
+     * 查询指定水站的待配送订单（status=1 待配送）
+     */
+    @Select("select * from orders where station_id = #{stationId} and status in (1, 4)")
+    List<Orders> listPendingByStationId(@Param("stationId") Integer stationId);
 
 }

@@ -7,9 +7,9 @@ import java.util.List;
 import java.util.Map;
 
 public interface InventoryService {
-    List<Inventory> list();
+    List<Inventory> list(Integer stationId);
 
-    void inbound(List<InventoryInboundDTO.ItemDTO> items);
+    void inbound(Integer stationId, List<InventoryInboundDTO.ItemDTO> items);
 
-    void checkStock(Integer waterTypeId,Integer needQuantity);
+    void checkStock(Integer stationId, Integer waterTypeId, Integer needQuantity);
 }

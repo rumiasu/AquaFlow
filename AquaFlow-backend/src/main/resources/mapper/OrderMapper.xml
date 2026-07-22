@@ -15,8 +15,11 @@
         left join address a on o.address_id = a.id
         left join water_type w on o.water_type_id = w.id
         <where>
+            <if test="stationId != null">
+                o.station_id = #{stationId}
+            </if>
             <if test="customerId != null">
-                o.customer_id = #{customerId}
+                and o.customer_id = #{customerId}
             </if>
             <if test="status != null">
                 and o.status = #{status}

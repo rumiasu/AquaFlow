@@ -32,6 +32,9 @@ public class TicketRecord {
     /** 来源说明，如"购买"、"使用"、"赠送" */
     private String source;
 
+    /** 水票来源渠道：1=线上购买 2=线下购买 */
+    private Integer ticketSource;
+
     /** 创建时间 */
     private LocalDateTime createTime;
 }

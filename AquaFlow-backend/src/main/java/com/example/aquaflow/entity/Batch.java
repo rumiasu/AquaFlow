@@ -11,6 +11,7 @@ public class Batch {
     private Integer status;//状态:1待出发,2配送中,3已完成
     private Integer totalQTY;//总数量
     private Integer stationId;//所属水站ID
+    private Integer deliveryPersonId;//配送员ID
     private LocalDateTime createTime;//创建时间
     private LocalDateTime updateTime;//修改时间
     

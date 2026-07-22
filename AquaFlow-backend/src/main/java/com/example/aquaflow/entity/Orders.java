@@ -122,8 +122,8 @@ public class Orders {
     private String addressSnapshot;
 
     /** 水厂ID，关联 factory 表 */
-    private Long factoryId;
+    private Integer factoryId;
 
     /** 水站ID，关联 station 表 */
-    private Long stationId;
+    private Integer stationId;
 }

@@ -1,0 +1,26 @@
+﻿# ==================== IDE 配置 ====================
+.idea/
+**/*.iml
+project.private.config.json
+
+# ==================== 编译构建产物 ====================
+out/
+target/
+AquaFlow-backend/build/
+AquaFlow-backend/.gradle/
+AquaFlow-frontend/dist/
+miniapp-user/dist/
+
+# ==================== 依赖目录 ====================
+AquaFlow-frontend/node_modules/
+miniapp-user/node_modules/
+
+# ==================== 日志、临时文件 ====================
+*.log
+boot.log
+*.tmp
+*.bak
+.DS_Store
+
+# ==================== 调试截图（临时截图不上传，项目展示图手动放到docs/images再取消本条）
+screenshot_*.png

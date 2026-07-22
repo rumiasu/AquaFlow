@@ -1,46 +1,46 @@
-const { logout } = require('../../services/loginService')
 const { getBarrelSummary } = require('../../api/barrel')
+const { getCustomerStats } = require('../../api/customer')
+const app = getApp()
 
 Page({
   data: {
     isLogin: false,
     userInfo: null,
     barrelSummary: null,
+    customerStats: null,
     guestMenu: [
-      { id: 'shop', icon: '🛒', title: '商城', url: '/pages/shop/index' },
-      { id: 'service', icon: '📞', title: '联系客服', url: '/pages/service/index' }
+      { icon: '🛒', title: '商城', url: '/pages/shop/index' },
+      { icon: '💬', title: '联系客服', url: '/pages/service/index' }
     ],
     loginMenu: [
-      { id: 'template', icon: '⚡', title: '常用订单', url: '/pages/template/index' },
-      { id: 'address', icon: '📍', title: '地址管理', url: '/pages/address/list' },
-      { id: 'barrel', icon: '🪣', title: '我的水桶', url: '/pages/barrel/index' },
-      { id: 'ticket', icon: '🎫', title: '我的水票', url: '/pages/ticket/index' },
-      { id: 'shop', icon: '🛒', title: '商城', url: '/pages/shop/index' },
-      { id: 'service', icon: '📞', title: '联系客服', url: '/pages/service/index' }
+      { icon: '📋', title: '常用订单', url: '/pages/order/list' },
+      { icon: '📍', title: '地址管理', url: '/pages/address/list' },
+      { icon: '🪣', title: '我的水桶', url: '/pages/barrel/index' },
+      { icon: '🎫', title: '我的水票', url: '/pages/ticket/index' },
+      { icon: '🛒', title: '商城', url: '/pages/shop/index' },
+      { icon: '💬', title: '联系客服', url: '/pages/service/index' }
     ]
   },
 
-  onLoad() {},
-
   onShow() {
-    const app = getApp()
-    const isLogin = app.globalData.isLogin
-    const userInfo = app.globalData.userInfo
+    const { isLogin, userInfo } = app.globalData
     this.setData({ isLogin, userInfo })
     if (isLogin) {
       this.loadBarrelSummary()
+      this.loadCustomerStats()
     }
   },
 
-  async loadBarrelSummary() {
-    try {
-      const res = await getBarrelSummary()
-      if (res.data) {
-        this.setData({ barrelSummary: res.data })
-      }
-    } catch (error) {
-      console.warn('[Mine] loadBarrelSummary失败:', error.message)
-    }
+  loadBarrelSummary() {
+    getBarrelSummary().then(res => {
+      this.setData({ barrelSummary: res })
+    }).catch(() => {})
+  },
+
+  loadCustomerStats() {
+    getCustomerStats().then(res => {
+      this.setData({ customerStats: res })
+    }).catch(() => {})
   },
 
   onLogin() {
@@ -48,7 +48,7 @@ Page({
   },
 
   onMenuTap(e) {
-    const { url } = e.currentTarget.dataset
+    const url = e.currentTarget.dataset.url
     wx.navigateTo({ url })
   },
 
@@ -62,13 +62,13 @@ Page({
 
   onLogout() {
     wx.showModal({
-      title: '确认退出',
-      content: '确定要退出登录吗？',
+      title: '提示',
+      content: '确定退出登录吗？',
       success: (res) => {
         if (res.confirm) {
-          const app = getApp()
           app.clearLoginInfo()
-          this.setData({ isLogin: false, userInfo: null, barrelSummary: null })
+          this.setData({ isLogin: false, userInfo: null, barrelSummary: null, customerStats: null })
+          wx.showToast({ title: '已退出', icon: 'success' })
         }
       }
     })

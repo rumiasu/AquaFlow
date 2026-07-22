@@ -8,8 +8,8 @@ import java.util.List;
 @Mapper
 public interface BatchMapper {
 
-    @Insert("insert into batch (status, total_qty, create_time, update_time) values " +
-            "(#{status},#{totalQTY},#{createTime},#{updateTime})")
+    @Insert("insert into batch (status, total_qty, station_id, delivery_person_id, create_time, update_time) values " +
+            "(#{status},#{totalQTY},#{stationId},#{deliveryPersonId},#{createTime},#{updateTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(Batch batch);
 
@@ -25,6 +25,9 @@ public interface BatchMapper {
     @Delete("delete from batch where id=#{id}")
     void delete(Integer id);
 
+    @Update("update batch set total_qty = #{totalQTY}, update_time = now() where id = #{id}")
+    void updateTotalQTY(@Param("id") Integer id, @Param("totalQTY") Integer totalQTY);
+
     @Select("select count(*) from batch")
     int countAll();
 
@@ -33,4 +36,16 @@ public interface BatchMapper {
 
     @Select("select ifnull(sum(total_qty), 0) from batch where status in (1, 2)")
     int sumDeliveringQty();
+
+    /**
+     * 查询指定配送员的批次列表
+     */
+    @Select("select * from batch where delivery_person_id = #{deliveryPersonId} order by create_time desc")
+    List<Batch> listByDeliveryPersonId(@Param("deliveryPersonId") Integer deliveryPersonId);
+
+    /**
+     * 分配配送员到批次
+     */
+    @Update("update batch set delivery_person_id = #{deliveryPersonId}, update_time = now() where id = #{batchId}")
+    void assignDeliveryPerson(@Param("batchId") Integer batchId, @Param("deliveryPersonId") Integer deliveryPersonId);
 }

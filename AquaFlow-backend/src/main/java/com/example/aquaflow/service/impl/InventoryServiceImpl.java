@@ -4,76 +4,48 @@ import com.example.aquaflow.dto.InventoryInboundDTO;
 import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.service.InventoryService;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 @Service
-@Slf4j
 public class InventoryServiceImpl implements InventoryService {
 
     @Autowired
     private InventoryMapper inventoryMapper;
 
-    /**
-     * 查询库存
-     * @return
-     */
     @Override
-    public List<Inventory> list() {
-        return inventoryMapper.list();
+    public List<Inventory> list(Integer stationId) {
+        return inventoryMapper.listByStationId(stationId);
     }
 
-    /**
-     * 入库
-     * @param items
-     */
     @Override
-    @Transactional
-    public void inbound(List<InventoryInboundDTO.ItemDTO> items) {
-        for (InventoryInboundDTO.ItemDTO item : items) {
-            Integer waterTypeId = item.getWaterTypeId();
-            Integer quantity = item.getQuantity();
-
-            if(quantity == null || quantity <= 0){
-                throw new RuntimeException("入库数量必须大于0");
-            }
-
-            // 查询是否已有库存
-            Inventory inventory = inventoryMapper.getByWaterTypeId(waterTypeId);
-
-            if (inventory == null) {
-                // 不存在，新增
-                Inventory newInventory = new Inventory();
-                newInventory.setWaterTypeId(waterTypeId);
-                newInventory.setQuantity(quantity);
-                newInventory.setUpdateTime(LocalDateTime.now());
-                inventoryMapper.insert(newInventory);
-            } else {
-                // 存在，累加
-                inventory.setQuantity(inventory.getQuantity() + quantity);
-                inventory.setUpdateTime(LocalDateTime.now());
-                inventoryMapper.update(inventory);
-                log.info("存在:{},累加:{},库存:{}",waterTypeId,quantity,inventory);
-            }
+    public void checkStock(Integer stationId, Integer waterTypeId, Integer needQuantity) {
+        Inventory inventory = inventoryMapper.getByStationAndWaterType(stationId, waterTypeId);
+        if (inventory == null || inventory.getQuantity() < needQuantity) {
+            throw new RuntimeException("水站[" + stationId + "]库存不足，需要:" + needQuantity);
         }
     }
 
-    /**
-     * 库存校验
-     * @param waterTypeId
-     * @param needQuantity
-     */
-    public void checkStock(Integer waterTypeId,Integer needQuantity){
-        Inventory inventory = inventoryMapper.getByWaterTypeId(waterTypeId);
-
-        if (inventory == null || inventory.getQuantity()<needQuantity){
-            throw new RuntimeException("库存不足");
+    @Override
+    @Transactional
+    public void inbound(Integer stationId, List<InventoryInboundDTO.ItemDTO> items) {
+        for (InventoryInboundDTO.ItemDTO item : items) {
+            if (item.getQuantity() == null || item.getQuantity() <= 0) {
+                throw new RuntimeException("入库数量必须大于0");
+            }
+            Inventory existing = inventoryMapper.getByStationAndWaterType(stationId, item.getWaterTypeId());
+            if (existing == null) {
+                Inventory newInv = new Inventory();
+                newInv.setStationId(stationId);
+                newInv.setWaterTypeId(item.getWaterTypeId());
+                newInv.setQuantity(item.getQuantity());
+                inventoryMapper.insert(newInv);
+            } else {
+                inventoryMapper.increaseStock(stationId, item.getWaterTypeId(), item.getQuantity());
+            }
         }
     }
 }

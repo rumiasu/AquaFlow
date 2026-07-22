@@ -1,20 +1,20 @@
-// 订单相关接口（后端: OrderController）
-const { get, post } = require('../utils/request')
-const { API, getCustomerId } = require('../config/api')
+import { get, post, put } from '../utils/request'
+import { API } from '../config/api'
 
-// GET /api/orders?customerId=xxx&status=xxx
-const getOrders = (params = {}) => {
-  return get(API.ORDERS, { customerId: getCustomerId(), ...params })
+export const getOrders = (params = {}) => {
+  // customerId 从 JWT 获取，不再前端传参
+  return get(API.ORDERS, params)
 }
 
-// GET /api/orders/{id}
-const getOrderDetail = (id) => {
+export const getOrderDetail = (id) => {
   return get(`${API.ORDERS}/${id}`)
 }
 
-// POST /api/orders
-const createOrder = (data) => {
-  return post(API.CREATE_ORDER, { customerId: getCustomerId(), source: 3, ...data })
+export const createOrder = (data) => {
+  // customerId 从 JWT 获取，但后端 save 仍需要它来关联 stationId
+  return post(API.ORDERS, { ...data, source: 3 })
 }
 
-module.exports = { getOrders, getOrderDetail, createOrder }
+export const cancelOrder = (id) => {
+  return put(`${API.ORDERS}/${id}/cancel`)
+}

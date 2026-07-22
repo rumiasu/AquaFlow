@@ -3,6 +3,7 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.WaterType;
 import com.example.aquaflow.service.WaterTypeService;
+import com.example.aquaflow.util.AuthContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -51,11 +52,12 @@ public class WaterTypeController {
     }
 
     /**
-     * 获取用户已购买过的水类型（用于首页展示已有的桶类型）
-     * GET /api/water-types/my?customerId=xxx
+     * 获取当前登录客户已购买过的水类型
+     * GET /api/water-types/my
      */
     @GetMapping("/my")
-    public Result<List<Map<String, Object>>> listMyTypes(@RequestParam Integer customerId) {
+    public Result<List<Map<String, Object>>> listMyTypes() {
+        Integer customerId = AuthContext.requireCustomerId();
         return Result.success(waterTypeService.listMyTypes(customerId));
     }
 }

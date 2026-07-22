@@ -1,7 +1,6 @@
 // 本地存储工具
 
 const storage = {
-  // 获取
   get: (key) => {
     try {
       return wx.getStorageSync(key)
@@ -11,7 +10,6 @@ const storage = {
     }
   },
 
-  // 设置
   set: (key, value) => {
     try {
       wx.setStorageSync(key, value)
@@ -22,7 +20,6 @@ const storage = {
     }
   },
 
-  // 移除
   remove: (key) => {
     try {
       wx.removeStorageSync(key)
@@ -33,7 +30,6 @@ const storage = {
     }
   },
 
-  // 清空
   clear: () => {
     try {
       wx.clearStorageSync()
@@ -45,11 +41,19 @@ const storage = {
   }
 }
 
-// Token相关
+// Token相关（JWT 双 Token）
 const tokenStorage = {
-  get: () => storage.get('token'),
-  set: (token) => storage.set('token', token),
-  remove: () => storage.remove('token')
+  getAccessToken: () => storage.get('accessToken'),
+  setAccessToken: (token) => storage.set('accessToken', token),
+  getRefreshToken: () => storage.get('refreshToken'),
+  setRefreshToken: (token) => storage.set('refreshToken', token),
+  // 兼容旧代码
+  get: () => storage.get('accessToken'),
+  set: (token) => storage.set('accessToken', token),
+  remove: () => {
+    storage.remove('accessToken')
+    storage.remove('refreshToken')
+  }
 }
 
 // 用户信息相关

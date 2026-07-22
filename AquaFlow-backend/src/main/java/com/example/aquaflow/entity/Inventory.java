@@ -31,4 +31,7 @@ public class Inventory {
 
     /** 最后修改时间 */
     private LocalDateTime updateTime;
+
+    /** 所属水站名称（关联查询字段） */
+    private String stationName;
 }

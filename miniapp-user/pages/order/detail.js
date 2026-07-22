@@ -1,11 +1,12 @@
-const { getOrderDetail } = require('../../api/order')
-const { formatOrderStatus } = require('../../utils/format')
+const { getOrderDetail, cancelOrder } = require('../../api/order')
+const { formatOrderStatus, formatPaymentStatus } = require('../../utils/format')
 
 Page({
   data: {
-    loading: true,
-    order: {},
-    statusText: ''
+    order: null,
+    statusText: '',
+    payStatusText: '',
+    canCancel: false
   },
 
   onLoad(options) {
@@ -14,36 +15,50 @@ Page({
     }
   },
 
-  async loadOrder(id) {
-    this.setData({ loading: true })
-    try {
-      const res = await getOrderDetail(id)
-      if (res.data) {
-        this.setData({
-          order: res.data,
-          statusText: formatOrderStatus(res.data.status)
-        })
-      }
-    } catch (error) {
-      console.error('Load order error:', error)
-      this.setData({
-        order: { id, waterTypeName: '农夫山泉', waterTypeSpec: '18.9L', quantity: 2, addressDetail: '济南市历城区XX小区', status: 1, createTime: '2026-07-18 10:00', customerPhone: '13800138000' },
-        statusText: '待配送'
-      })
-    } finally {
-      this.setData({ loading: false })
+  onPullDownRefresh() {
+    if (this.data.order) {
+      this.loadOrder(this.data.order.id).then(() => wx.stopPullDownRefresh())
+    } else {
+      wx.stopPullDownRefresh()
     }
   },
 
+  loadOrder(id) {
+    return getOrderDetail(id).then(order => {
+      const statusText = formatOrderStatus(order.status)
+      const payStatusText = formatPaymentStatus(order.paymentStatus)
+      const canCancel = order.status === 1 || order.status === 4
+      this.setData({ order, statusText, payStatusText, canCancel })
+    }).catch(err => {
+      wx.showToast({ title: err.message || '加载失败', icon: 'none' })
+    })
+  },
+
   onCallPhone() {
-    const { order } = this.data
-    if (order.customerPhone) {
-      wx.makePhoneCall({ phoneNumber: order.customerPhone })
+    if (this.data.order && this.data.order.customerPhone) {
+      wx.makePhoneCall({ phoneNumber: this.data.order.customerPhone })
     }
   },
 
   onReorder() {
-    const { order } = this.data
-    wx.navigateTo({ url: `/pages/order/create?reorderId=${order.id}` })
+    wx.navigateTo({ url: `/pages/order/create?reorderId=${this.data.order.id}` })
+  },
+
+  onCancel() {
+    wx.showModal({
+      title: '取消订单',
+      content: '确定取消此订单吗？取消后将自动释放库存、退水票、退款。',
+      confirmColor: '#f5222d',
+      success: (res) => {
+        if (res.confirm) {
+          cancelOrder(this.data.order.id).then(() => {
+            wx.showToast({ title: '订单已取消', icon: 'success' })
+            this.loadOrder(this.data.order.id)
+          }).catch(err => {
+            wx.showToast({ title: err.message || '取消失败', icon: 'none' })
+          })
+        }
+      }
+    })
   }
 })

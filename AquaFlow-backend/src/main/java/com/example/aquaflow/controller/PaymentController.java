@@ -3,6 +3,7 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.PaymentRecord;
 import com.example.aquaflow.service.PaymentService;
+import com.example.aquaflow.util.AuthContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -58,10 +59,18 @@ public class PaymentController {
         return Result.success(paymentService.listByOrderId(orderId));
     }
 
-    /** 查询客户支付记录 */
+    /** 查询客户支付记录（客户自己） */
     @GetMapping("/by-customer")
-    public Result<List<PaymentRecord>> listByCustomerId(@RequestParam Long customerId) {
-        return Result.success(paymentService.listByCustomerId(customerId));
+    public Result<List<PaymentRecord>> listByCustomerId() {
+        Integer customerId = AuthContext.requireCustomerId();
+        return Result.success(paymentService.listByCustomerId(Long.valueOf(customerId)));
+    }
+
+    /** 查询指定客户支付记录（员工管理端） */
+    @GetMapping("/customer/{customerId}")
+    public Result<List<PaymentRecord>> listByCustomerIdForStaff(@PathVariable Integer customerId) {
+        AuthContext.requireStaffRole();
+        return Result.success(paymentService.listByCustomerId(Long.valueOf(customerId)));
     }
 
     /** 查询所有支付记录（管理端） */

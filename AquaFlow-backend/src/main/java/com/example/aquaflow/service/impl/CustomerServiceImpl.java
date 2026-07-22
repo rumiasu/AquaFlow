@@ -7,7 +7,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class CustomerServiceImpl implements CustomerService {
@@ -38,7 +40,30 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public List<Customer> list() {
+    public List<Customer> list(Integer stationId) {
+        if (stationId != null) {
+            return customerMapper.listByStationId(stationId);
+        }
         return customerMapper.list();
+    }
+
+    @Override
+    public Map<String, Object> getCustomerStats(Integer customerId) {
+        // 先刷新统计数据
+        customerMapper.refreshStats(customerId);
+        
+        // 获取客户信息（包含统计字段）
+        Customer customer = customerMapper.getById(customerId);
+        if (customer == null) {
+            throw new RuntimeException("客户不存在");
+        }
+        
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalOrders", customer.getTotalOrders());
+        stats.put("totalConsumption", customer.getTotalConsumption());
+        stats.put("avgCycleDays", customer.getAvgCycleDays());
+        stats.put("firstOrderTime", customer.getFirstOrderTime());
+        stats.put("lastDeliveryTime", customer.getLastDeliveryTime());
+        return stats;
     }
 }

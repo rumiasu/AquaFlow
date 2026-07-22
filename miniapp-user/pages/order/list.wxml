@@ -1,28 +1,21 @@
-<view class="container">
-  <!-- 订单标签 -->
-  <view class="tabs">
-    <view
-      class="tab-item {{currentTab === item.id ? 'active' : ''}}"
-      wx:for="{{tabs}}"
-      wx:key="id"
-      bindtap="onTabChange"
-      data-id="{{item.id}}"
-    >
-      <text>{{item.name}}</text>
+<view class="page-container">
+  <!-- 标签栏 -->
+  <view class="tab-bar">
+    <view wx:for="{{tabs}}" wx:key="index"
+      class="tab-item {{currentTab === index ? 'active' : ''}}"
+      data-index="{{index}}" bindtap="onTabChange">
+      {{item.name}}
     </view>
   </view>
 
   <!-- 订单列表 -->
-  <loading wx:if="{{loading}}"></loading>
-
-  <view class="order-list" wx:else>
-    <order-card
-      wx:for="{{orders}}"
-      wx:key="id"
+  <view class="order-list" wx:if="{{orders.length > 0}}">
+    <order-card wx:for="{{orders}}" wx:key="id"
       order="{{item}}"
       bind:reorder="onReorder"
-    ></order-card>
-
-    <empty wx:if="{{orders.length === 0}}" text="暂无订单"></empty>
+      bind:cancel="onCancel" />
   </view>
+
+  <!-- 空状态 -->
+  <empty wx:if="{{orders.length === 0}}" text="暂无订单" />
 </view>

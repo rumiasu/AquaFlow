@@ -19,4 +19,9 @@ mybatis:
 wechat:
   miniapp:
     appid: your-appid-here
-    secret: ${WX_APP_SECRET:}
+    secret: ${JWT_SECRET:}
+
+jwt:
+  secret: ${JWT_SECRET:}
+  access-token-expiry: 7200000
+  refresh-token-expiry: 604800000

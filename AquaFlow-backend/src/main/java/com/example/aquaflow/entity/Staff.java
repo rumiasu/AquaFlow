@@ -17,6 +17,9 @@ public class Staff {
 
     private String phone;
 
+    /** BCrypt 加密后的密码 */
+    private String password;
+
     private Integer factoryId;
 
     private Integer stationId;

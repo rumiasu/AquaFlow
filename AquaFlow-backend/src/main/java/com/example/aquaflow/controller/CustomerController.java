@@ -3,11 +3,13 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.service.CustomerService;
+import com.example.aquaflow.util.AuthContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/customers")
@@ -18,8 +20,8 @@ public class CustomerController {
     private CustomerService customerService;
 
     @GetMapping
-    public Result<List<Customer>> list() {
-        return Result.success(customerService.list());
+    public Result<List<Customer>> list(@RequestParam(required = false) Integer stationId) {
+        return Result.success(customerService.list(stationId));
     }
 
     @PostMapping
@@ -39,5 +41,15 @@ public class CustomerController {
         customer.setId(id);
         customerService.update(customer);
         return Result.success();
+    }
+
+    /**
+     * 获取当前登录客户的统计数据
+     * GET /api/customers/stats
+     */
+    @GetMapping("/stats")
+    public Result<Map<String, Object>> getStats() {
+        Integer customerId = AuthContext.requireCustomerId();
+        return Result.success(customerService.getCustomerStats(customerId));
     }
 }

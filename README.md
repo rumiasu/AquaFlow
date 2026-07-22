@@ -1,189 +1,119 @@
-# AquaFlow
+# AquaFlow — 桶装水配送管理系统
 
-> 桶装水行业三端协同平台 — 水厂 · 水站 · 客户
-
-## 项目定位
-
-AquaFlow 不是一个通用的订单管理系统，而是一个**围绕桶装水行业真实业务规则设计**的垂直领域平台。
-
-```
-水厂（factory）       供货、定价、品牌管理
-  └── 水站（station）    接单、配送、库存、财务
-       └── 客户（customer）   下单、复购、押金、水票
-```
-
-**当前状态：** V1.0 水站管理后台 + C端微信小程序已完成
-
-**目标演进：** 从单人配送站 → 多人协作 → 水厂-水站-客户三端协同
+> 统一管理后台 | 水厂 · 水站 · 配送员 三端合一
 
 ---
 
-## 设计理念
+## 项目定位
 
-### 一、行业驱动，不是通用 CRUD
+AquaFlow 是一个围绕**桶装水行业真实业务规则**设计的垂直领域管理系统，覆盖订单管理、配送调度、资产管理（水票/押金/退桶）、企业账期、多站数据分析与风险预警等核心业务环节。
 
-桶装水行业和电商有本质区别：
+不是通用 CRUD，而是深度绑定行业逻辑的业务平台。
+
+### 行业差异
 
 | 维度 | 通用电商 | AquaFlow |
 |------|---------|----------|
-| 购买单元 | 多品类购物车 | 单品类 + 数量 |
+| 购买单元 | 多品类购物车 | 单品类 + 桶数 |
 | 消费频率 | 低频/随机 | 高频/周期性（每周/每两周） |
 | 物流模式 | 快递到家 | 配送员上门 + 空桶回收 |
 | 资产管理 | 无 | 桶是资产（押金追踪） |
 | 支付方式 | 在线支付 | 线下为主 / 水票预购 / 企业账期 |
 
-因此 AquaFlow **没有购物车、没有多品类结算、没有在线支付**。一切围绕「选水 → 选桶数 → 地址 → 下单 → 配送」这条主线。
+---
 
-### 二、桶是资产，不是消耗品
+## 架构概览
 
-这是桶装水行业最核心的业务逻辑：
+### 一系统 · 三角色
 
-```
-送桶（delivery_bucket_qty）→ 客户持有 → 回桶（return_bucket_qty）
-         │                              │
-         └── 需要押金（deposit）──────────┘ 退桶退押金
-```
-
-- 每个订单记录送出桶数和回收桶数
-- 客户持有桶数 = 送出 - 回收
-- 桶有押金（¥30/桶），退桶时退还
-- 水站需要追踪每个客户手上有几桶、什么类型
-
-这就是为什么首页地址栏下方要显示"水桶明细"——它不是装饰，是**资产管理的核心入口**。
-
-### 三、首页即工作台
-
-#### 水站管理端（AquaFlow-frontend）
-
-打开系统就要知道**今天要做什么**：
+同一个 URL，登录后根据角色动态显示不同功能菜单。
 
 ```
-┌─────────────────────────────────────────────┐
-│              今日工作台                       │
-├──────────────┬──────────────┬───────────────┤
-│  今日待配送   │  今日待装车   │   库存预警     │
-│     8 单      │     2 批     │    3 种       │
-├──────────────┴──────────────┴───────────────┤
-│  待收桶        │  企业待结算    │  欠款提醒     │
-│   12 桶        │   3 单/¥850  │   2 客户     │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                    AquaFlow                           │
+│                 管理后台 (Vue3)                        │
+├─────────────────────────────────────────────────────┤
+│                                                       │
+│  厂长 (admin)        站长 (张建国)       配送员 (李永强) │
+│  ┌─────────────┐    ┌──────────────┐   ┌──────────┐  │
+│  │ 水站运营     │    │ 订单管理     │   │ 首页     │  │
+│  │ 数据分析     │    │ 批次管理     │   │ 我的配送  │  │
+│  │ 水站协同     │    │ 库存管理     │   └──────────┘  │
+│  │ 风险预警     │    │ 客户管理     │                  │
+│  │ 水站管理     │    │ 地址管理     │                  │
+│  │ 水厂管理     │    │ 员工管理     │                  │
+│  └─────────────┘    │ ...共 14 页  │                  │
+│                      └──────────────┘                  │
+│         │                    │              │          │
+│         └──────────┬─────────┘──────────────┘          │
+│                    ▼                                    │
+│              ┌────────────────┐                        │
+│              │   Spring Boot  │  ← REST API            │
+│              │   + MyBatis    │                        │
+│              └───────┬───────┘                        │
+│                      ▼                                  │
+│              ┌────────────────┐                        │
+│              │    MySQL       │                        │
+│              └────────────────┘                        │
+└─────────────────────────────────────────────────────┘
 ```
 
-#### C端小程序（miniapp-user）
+### 角色权限对照
 
-用户打开小程序的目的很明确：**再订一桶水**。所以首页直接是下单表单：
+| 页面 | 路由 | 厂长 `factory` | 站长 `manager` | 配送员 `delivery` |
+|------|------|:---:|:---:|:---:|
+| 首页（站长/配送） | `/dashboard` | | ✅ | ✅ |
+| 首页（厂长版） | `/factory-dashboard` | ✅ | | |
+| 订单管理 | `/order` | | ✅ | |
+| 批次管理 | `/batch` | | ✅ | |
+| 库存管理 | `/inventory` | | ✅ | |
+| 客户管理 | `/customer` | | ✅ | |
+| 地址管理 | `/address` | | ✅ | |
+| 水类型管理 | `/water` | | ✅ | |
+| 退桶审批 | `/barrel-return` | | ✅ | |
+| 水票管理 | `/ticket` | | ✅ | |
+| 押金管理 | `/deposit` | | ✅ | |
+| 支付管理 | `/payment` | | ✅ | |
+| 员工管理 | `/staff` | | ✅ | |
+| 地址地图 | `/address-map` | | ✅ | |
+| 数据报表 | `/report` | | ✅ | |
+| **水站运营** | `/station-ops` | ✅ | | |
+| **数据分析** | `/analysis` | ✅ | | |
+| **水站协同** | `/collaboration` | ✅ | | |
+| **风险预警** | `/risk-alerts` | ✅ | | |
+| **水站管理** | `/station-mgmt` | ✅ | | |
+| **水厂管理** | `/factory-mgmt` | ✅ | | |
+| **水站画像** | `/profile/:id` | ✅ | | |
+| **我的配送** | `/my-deliveries` | | | ✅ |
 
-```
-┌─────────────────────────────┐
-│  📍 张三 138xxxx             │  ← 知道在哪送
-│  济南市历下区XX路18号         │
-├─────────────────────────────┤
-│  🪣 农夫山泉(大桶) ×2桶  ›  │  ← 知道手上有几桶
-├─────────────────────────────┤
-│  选择水类型                   │  ← 选要订什么
-│  [💧纯净水] [💧矿泉水] ...   │
-├─────────────────────────────┤
-│  数量  [−] 2 [+] 桶          │  ← 要几桶
-├─────────────────────────────┤
-│  备注  放门口、几号楼...       │
-├─────────────────────────────┤
-│  合计 ¥40      [立即下单]     │  ← 一步完成
-└─────────────────────────────┘
-```
+### 数据范围隔离
 
-### 四、常用订单 = 一键复购
-
-桶装水是**周期性消费**——用户每次买的水类型和数量基本固定。
-
-```
-第一次：选水 → 选数量 → 填地址 → 下单
-         │
-         └── "存为常用订单"
-              │
-第二次：首页自动填入 → 直接点"立即下单"
-```
-
-常用订单模板（order_template）记录用户的偏好：水类型 + 桶数 + 地址 + 备注。下次打开小程序，首页自动填好，一键复购。
-
-### 五、渐进式功能叠加
-
-核心是**下单**，其他功能在此基础上叠加，不干扰主流程：
-
-```
-核心：下单（首页直接完成）
-  │
-  ├── 常用订单 → 复购加速（不用重新选）
-  ├── 水桶明细 → 资产管理（知道自己有几桶）
-  ├── 水票 → 预购优惠（买票打折）
-  ├── 地址管理 → 多地址（家/公司/父母家）
-  ├── 押金管理 → 财务透明（在我的页面）
-  └── 订单历史 → 再来一单（最近订单一键复购）
-```
-
-### 六、三端架构
-
-```
-水厂（factory）
-  │  供货管理、品牌管理、价格体系
-  │
-  └── 水站（station）
-       │  接单、配送、库存、财务
-       │  ┌──────────────────────┐
-       │  │ AquaFlow-frontend    │  ← 管理后台（Vue3）
-       │  └──────────────────────┘
-       │
-       └── 客户（customer）
-            │  下单、复购、查询
-            │  ┌──────────────────────┐
-            │  │ miniapp-user         │  ← 微信小程序
-            │  └──────────────────────┘
-```
+- **厂长**：看到所有水站的汇总/统计/分析数据
+- **站长**：只能看到本水站的数据（通过 `station_id` 过滤）
+- **配送员**：只能看到分配给自己的配送任务（通过 `delivery_person_id` 过滤）
 
 ---
 
-## 项目结构
+## 测试账号
 
-```
-AquaFlow/
-├── AquaFlow-backend/          # 后端（Spring Boot + MyBatis）
-│   ├── src/main/java/com/example/aquaflow/
-│   │   ├── controller/        # API 控制器
-│   │   ├── entity/            # 实体类
-│   │   ├── mapper/            # MyBatis Mapper
-│   │   ├── service/           # 业务逻辑
-│   │   ├── dto/               # 请求 DTO
-│   │   ├── common/            # 统一返回封装
-│   │   ├── config/            # 跨域等配置
-│   │   └── constant/          # 状态常量
-│   ├── src/main/resources/mapper/  # MyBatis XML
-│   └── sql/                   # 数据库迁移脚本
-├── AquaFlow-frontend/         # 管理后台（Vue3 + Element Plus + Leaflet）
-│   └── src/views/
-│       ├── dashboard/         # 首页（今日工作台）
-│       ├── customer/          # 客户管理
-│       ├── address/           # 地址管理
-│       ├── address-map/       # 地图选单（创建批次）
-│       ├── water/             # 水类型管理
-│       ├── inventory/         # 库存管理
-│       ├── order/             # 订单管理
-│       ├── batch/             # 批次管理
-│       └── report/            # 数据报表
-├── miniapp-user/              # C端微信小程序
-│   ├── pages/
-│   │   ├── home/              # 首页（下单页）
-│   │   ├── order/             # 订单管理
-│   │   ├── address/           # 地址管理
-│   │   ├── ticket/            # 水票查询
-│   │   ├── barrel/            # 水桶管理
-│   │   ├── template/          # 常用订单
-│   │   ├── shop/              # 商城（浏览所有水类型）
-│   │   ├── mine/              # 我的（含押金概况）
-│   │   └── login/             # 微信登录
-│   ├── api/                   # 接口层
-│   ├── components/            # 公共组件
-│   └── utils/                 # 工具函数
-└── reset_data.sql             # 测试数据
-```
+所有密码均为 `123456`（厂长 admin 为 `admin123`）。
+
+| 角色 | 账号 | 密码 | 所属水站 | 数据范围 |
+|------|------|------|---------|---------|
+| 厂长 | `admin` | `admin123` | - | 全部水站 |
+| 站长 | `张建国` | `123456` | 张店水站 | 本站 |
+| 站长 | `淄站长` | `123456` | 淄川水站 | 本站 |
+| 站长 | `博站长` | `123456` | 博山水站 | 本站 |
+| 站长 | `历站长` | `123456` | 历下水站 | 本站 |
+| 站长 | `槐站长` | `123456` | 槐荫水站 | 本站 |
+| 配送员 | `李永强` | `123456` | 张店水站 | 本站任务 |
+| 配送员 | `王师傅` | `123456` | 张店水站 | 本站任务 |
+| 配送员 | `赵师傅` | `123456` | 淄川水站 | 本站任务 |
+| 配送员 | `孙师傅` | `123456` | 淄川水站 | 本站任务 |
+| 配送员 | `周师傅` | `123456` | 博山水站 | 本站任务 |
+| 配送员 | `吴师傅` | `123456` | 历下水站 | 本站任务 |
+| 配送员 | `郑师傅` | `123456` | 历下水站 | 本站任务 |
+| 配送员 | `陈师傅` | `123456` | 槐荫水站 | 本站任务 |
 
 ---
 
@@ -196,26 +126,39 @@ AquaFlow/
 | JDK | 17+ |
 | MySQL | 8.x |
 | Node.js | 18+ |
-| 微信开发者工具 | 最新版 |
+| Gradle | 9.x（使用 gradlew） |
 
 ### 1. 初始化数据库
 
 ```bash
 mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS aquaflow DEFAULT CHARACTER SET utf8mb4;"
-mysql -u root -p aquaflow < reset_data.sql
+mysql -u root -p aquaflow < AquaFlow-backend/sql/migration_factory_ops.sql
+mysql -u root -p aquaflow < AquaFlow-backend/sql/seed_full_data.sql
 ```
 
-### 2. 启动后端
+### 2. 配置数据库连接
+
+`AquaFlow-backend/src/main/resources/application.yml` 中修改：
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/aquaflow?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Tokyo
+    username: root
+    password: 123456
+```
+
+### 3. 启动后端
 
 ```bash
 cd AquaFlow-backend
-.\gradlew.bat bootRun    # Windows
-./gradlew bootRun        # Mac/Linux
+.\gradlew.bat bootRun        # Windows
+./gradlew bootRun            # Mac/Linux
 ```
 
 后端运行于 `http://localhost:8080`
 
-### 3. 启动管理后台
+### 4. 启动管理后台
 
 ```bash
 cd AquaFlow-frontend
@@ -225,226 +168,329 @@ npm run dev
 
 管理后台运行于 `http://localhost:5173`
 
-登录：`admin` / `123456`
-
-### 4. 启动小程序
-
-1. 微信开发者工具导入 `miniapp-user` 目录
-2. `config/api.js` 配置后端地址（默认 `http://192.168.0.104:8080`）
-3. 编译运行
-
 ---
 
 ## 技术栈
 
 | 端 | 技术 | 版本 |
 |----|------|------|
-| 后端 | Spring Boot + MyBatis + MySQL | 4.0.6 / 4.0.1 / 8.x |
-| 管理后台 | Vue3 + Vite + Element Plus + ECharts + Leaflet | 3.5 / 6.3 / 2.9 / 6.1 / 1.9 |
-| 小程序 | 微信原生 + JavaScript ES6+ | - |
+| 后端 | Spring Boot | 4.0.6 |
+| ORM | MyBatis | 4.0.1 |
+| 数据库 | MySQL | 8.x |
+| 构建 | Gradle | 9.x（Wrapper） |
+| 语言 | Java | 17 |
+| 认证 | JWT (双Token) + BCrypt | - |
+| 前端框架 | Vue 3 (Composition API) | 3.5 |
+| 构建工具 | Vite | 6.3 |
+| UI 库 | Element Plus | 2.9 |
+| 图表 | ECharts | 6.1 |
+| 地图 | Leaflet (OpenStreetMap) | 1.9 |
+| 状态管理 | Pinia | 3.0 |
+| 路由 | Vue Router | 4.5 |
+| HTTP | Axios | 1.7 |
+
+---
+
+## 项目结构
+
+### 后端
+
+```
+AquaFlow-backend/
+└── src/main/java/com/example/aquaflow/
+    ├── AquaFlowApplication.java       # @EnableScheduling
+    ├── common/Result.java             # 统一返回 { code, message, data }
+    ├── config/
+    │   ├── CorsConfig.java            # 跨域
+    │   ├── AuthConfig.java            # JWT 配置
+    │   └── JwtUtil.java               # JWT 工具（双Token生成/校验）
+    ├── constant/
+    │   ├── OrderStatus.java
+    │   └── BatchStatus.java
+    ├── entity/                        # 24 实体类
+    │   ├── (核心业务) Customer, Orders, Address, Batch, Inventory, WaterType
+    │   ├── (资产管理) TicketAccount, TicketRecord, DepositRecord, BarrelRecord
+    │   ├── (组织) Factory, Station, Staff, CompanyInfo
+    │   ├── (运营) RiskAlert, StockTransfer, PaymentRecord
+    │   ├── (快捷) OrderTemplate, OrderTemplateItem, OrderImage
+    │   └── (基础设施) UserToken, AuditLog, CustomerStationRecord, StationPaymentConfig
+    ├── mapper/                        # MyBatis Mapper 接口（23个）
+    │   └── factory/                   # 运营平台 Mapper（2个）
+    ├── service/
+    │   ├── impl/                      # 业务实现
+    │   │   └── factory/               # 厂长业务实现（5个）
+    │   └── WeChatLoginService.java    # 微信登录
+    ├── controller/
+    │   ├── LoginController.java       # 统一登录（JWT 双Token）
+    │   ├── factory/                   # 厂长 API（5个）
+    │   └── *.java                     # 站长/通用 API
+    ├── dto/                           # 数据传输对象
+    ├── filter/JwtAuthFilter.java      # JWT 鉴权过滤器
+    ├── interceptor/
+    │   └── AuditLogInterceptor.java   # 操作审计日志
+    ├── scheduler/
+    │   └── RiskAlertScheduler.java    # 每日风险预警检测
+    └── util/
+        ├── PasswordUtil.java          # BCrypt 工具
+        └── IpUtil.java                # IP 提取工具
+```
+
+### 前端
+
+```
+AquaFlow-frontend/src/
+├── api/index.js                  # 统一 API 定义（20+ 模块）
+├── router/index.js               # 路由 + 角色守卫
+├── utils/request.js              # Axios（Token自动续期）
+├── styles/theme.css              # 亮色/暗色主题
+├── components/GlobalSearch.vue   # 全局搜索
+├── App.vue                       # 根布局 + 三角色菜单
+├── views/
+│   ├── shared/login/             # 登录页（双栏设计）
+│   ├── station/                  # 站长/配送员页面（14页）
+│   │   ├── dashboard/
+│   │   ├── delivery/             # 配送员专用
+│   │   ├── order/
+│   │   ├── batch/
+│   │   ├── inventory/
+│   │   ├── customer/
+│   │   ├── address/
+│   │   ├── address-map/
+│   │   ├── water/
+│   │   ├── barrel-return/
+│   │   ├── ticket/
+│   │   ├── deposit/
+│   │   ├── payment/              # 支付管理
+│   │   ├── staff/
+│   │   └── report/
+│   └── factory/                  # 厂长页面（8页）
+│       ├── dashboard/
+│       ├── station-ops/
+│       ├── analysis/
+│       ├── profile/
+│       ├── collaboration/
+│       ├── risk-alerts/
+│       ├── station-mgmt/
+│       └── factory-mgmt/
+└── main.js
+```
+
+---
+
+## 认证系统
+
+### JWT 双 Token
+
+| 令牌 | 存于 | 有效期 | 用途 |
+|------|------|--------|------|
+| `accessToken` | 前端 localStorage + 请求头 | 30 分钟 | API 鉴权 |
+| `refreshToken` | 前端 localStorage + 数据库 | 7 天 | 无感续期 |
+
+### 登录流程
+
+```
+POST /api/auth/login { username, password }
+    │
+    ├── admin + admin123 → 厂长
+    ├── staff 姓名 + 123456 → STATION_MANAGER→站长 / DELIVERY→配送员
+    └── customer 表兼容（迁移过渡期）
+    │
+    ▼
+返回 { accessToken, refreshToken, role, stationId, staffId, nickname }
+存储到 localStorage
+```
+
+### Token 续期
+
+- 请求 401 时自动调用 `/api/auth/refresh` 续期
+- 续期成功 → 重放原请求
+- 续期失败 → 清除登录状态，跳转登录页
+- 并发请求排队等待续期（防止多次刷新）
+
+---
+
+## 数据库设计 — 25 张表
+
+### 基础数据（4表）
+
+| 表名 | 行数 | 作用 | 关键设计 |
+|------|------|------|---------|
+| `factory` | 2 | 水厂 | `status`(0停用/1启用) |
+| `station` | 6 | 水站 | `factory_id` 关联水厂，`status`(0停用/1启用) |
+| `water_type` | 10 | 水品牌+规格 | UNIQUE(`name`,`spec`) 同品牌不同规格 |
+| `staff` | 14 | 员工/登录账号 | `role`(FACTORY_ADMIN/STATION_MANAGER/DELIVERY)，`password` BCrypt |
+
+### 业务核心（6表）
+
+| 表名 | 行数 | 作用 | 关键设计 |
+|------|------|------|---------|
+| `customer` | 20 | 购水客户 | `station_id` 归属，`deposit_balance` 押金，`customer_type`(1个人/2企业)，`tags` 标签 |
+| `address` | 21 | 配送地址 | `customer_id` 关联，`tag` 小区分组，`lat`/`lng` 地图坐标 |
+| `orders` | 35 | 订单 | `status`(1待组批/4已组批/2配送中/3已完成)，`delivery_bucket_qty`/`return_bucket_qty` 送退桶追踪，`station_id` 数据隔离 |
+| `inventory` | 52 | 库存 | UNIQUE(`station_id`,`water_type_id`) 每站每种水一条，`quantity<20` 低库存预警 |
+| `batch` | 11 | 配送批次 | `status`(1待出发/2配送中/3已完成)，`delivery_person_id` 配送员 |
+| `batch_order` | 25 | 批次-订单关联 | UNIQUE(`batch_id`,`order_id`) |
+
+### 资产管理（5表）
+
+| 表名 | 行数 | 作用 | 关键设计 |
+|------|------|------|---------|
+| `ticket_account` | 8 | 水票余额 | UNIQUE(`customer_id`,`water_type_id`) 按水类型分账户 |
+| `ticket_record` | 7 | 水票流水 | `increase_qty`/`decrease_qty`，`source`(购买/消费) |
+| `deposit_record` | 7 | 押金流水 | `type`(1充值/2退款/3赔偿/4调整) |
+| `barrel_record` | 4 | 退桶申请 | `status`(1待处理/2已确认/3已退还/4已驳回)，`deposit_refund` |
+| `payment_record` | 0 | 支付记录 | `payment_method`(1微信/2现金/3水票/4挂账)，`status`(1待付/2已付/3已退款/4已取消) |
+
+### 运营管理（5表）
+
+| 表名 | 行数 | 作用 | 关键设计 |
+|------|------|------|---------|
+| `risk_alert` | 5 | 风险预警 | `alert_type`(ORDER_DECLINE/INVENTORY_BACKLOG/LOW_STOCK/CUSTOMER_LOSS/NO_ACTIVITY)，`alert_level`(1提示/2警告/3紧急)，`status`(1未读/2已读/3已处理) |
+| `stock_transfer` | 2 | 水站调拨 | `from_station_id`→`to_station_id`，`status`(1待审批/2已审批/3已完成/4已取消) |
+| `audit_log` | - | 操作审计日志 | `user_id`, `module`, `action`, `target`, `ip` |
+| `user_token` | - | refresh_token 存储 | `user_id`, `user_type`, `refresh_token`, `expire_time` |
+| `station_payment_config` | 1 | 支付配置 | 各种支付方式开关 |
+
+### 快捷功能（2表）
+
+| 表名 | 行数 | 作用 | 关键设计 |
+|------|------|------|---------|
+| `order_template` | 4 | 订水模板 | `customer_id`+`name`（如"家里"/"公司"）一键复购 |
+| `order_template_item` | 4 | 模板明细 | `template_id`, `water_type_id`, `quantity` |
+
+### 辅助（3表）
+
+| 表名 | 行数 | 作用 | 关键设计 |
+|------|------|------|---------|
+| `company_info` | 5 | 企业客户 | UNIQUE(`customer_id`)，`due_days` 账期天数 |
+| `customer_station_record` | 0 | 客户迁移记录 | `from_station_id`→`to_station_id` |
+| `order_image` | 0 | 配送照片 | `type`(1正常/2异常) |
 
 ---
 
 ## 核心业务流程
 
-### 水站管理端
+### 订单流转
 
 ```
-水类型维护 → 库存入库 → 客户维护 → 地址维护
-                                        │
-                                        ▼
-                                   创建订单（待组批）
-                                        │
-                                        ▼
-                              地图选单 → 创建配送批次
-                                        │
-                                        ▼
-                                   开始装车配送
-                                        │
-                                        ▼
-                                   完成配送 → 回桶登记
+待组批(1) ──组批──→ 已组批(4) ──出发──→ 配送中(2) ──完成──→ 已完成(3)
+   ↑                    │                                    │
+   │                    └── 删除批次 → 恢复待组批              │
+   │                                                         │
+   └──── 配送未完成 → 恢复库存 + 恢复待组批                    │
+                                                             │
+               已完成 → 付款 / 减水票 / 更新押金 / 退桶 ───────┘
 ```
 
-### C端小程序
+### 配送流程
 
 ```
-微信登录（openid）
-    │
-    ▼
-首页（自动填入常用订单）
-    │
-    ├── 选水类型
-    ├── 选桶数
-    ├── 选地址
-    └── 备注
-    │
-    ▼
-提交订单 → 下单成功 → 存为常用订单
-    │
-    ▼
-等待配送 → 完成
+收货入库 → 客户下单(电话/微信/小程序)
+               │
+               ▼
+          地图选单 → 创建批次 → 分配配送员
+               │
+               ▼
+          开始配送 → 完成配送 → 回桶登记
+               │
+               └── 未完成订单退回库存
 ```
 
-### 订单状态流转
+### 调拨流程
 
 ```
-1(待组批) → 4(已组批) → 2(配送中) → 3(已完成)
+水站 A 发起调拨 → 厂长审批 → 水站 A 出库 + 水站 B 入库 → 完成
+                     ↓
+                审批不通过 → 取消
+```
+
+### 风险预警机制（每日 @Scheduled 自动检测）
+
+```
+├── 近7天销量下降 > 50% → ORDER_DECLINE
+├── 库存超量（周转率偏低）→ INVENTORY_BACKLOG
+├── 库存不足（< 阈值）→ LOW_STOCK
+├── 60 天未下单客户数 → CUSTOMER_LOSS
+└── 门店停用状态 → NO_ACTIVITY
 ```
 
 ---
 
-## 数据库表结构
+## 关键设计决策
 
-### 核心业务表
+### 1. 桶是资产，不是消耗品
 
-| 表名 | 说明 | 设计要点 |
-|------|------|---------|
-| `customer` | 客户/用户 | 含 `openid`（微信登录）、`deposit_balance`（押金余额） |
-| `address` | 配送地址 | 含 `name`/`phone`（收件人）、`is_default`（默认地址） |
-| `water_type` | 水类型 | 含 `price`（单价），是库存和订单的基础 |
-| `orders` | 订单 | 含 `delivery_bucket_qty`/`return_bucket_qty`（桶追踪） |
-| `inventory` | 库存 | 水类型维度的库存量 |
-| `batch` | 配送批次 | 多个订单合并配送 |
-| `batch_order` | 批次-订单关联 | 批次和订单的多对多关系 |
+每个订单 `delivery_bucket_qty` 和 `return_bucket_qty` 追踪桶的流动。客户持有桶数 = 送出 - 回收。桶有押金，退桶时退还。
 
-### 资产管理表
+### 2. 三端合一，角色控制
 
-| 表名 | 说明 | 设计要点 |
-|------|------|---------|
-| `barrel_record` | 退桶记录 | 客户申请退桶，水站确认 |
-| `deposit_record` | 押金记录 | 充值/退款/赔偿扣除 |
-| `ticket_account` | 水票账户 | 按水类型维度的预购余额 |
-| `ticket_record` | 水票流水 | 增加/消费记录 |
+不是三个系统，是**一个系统一个 URL**。登录后根据 staff 表 `role` 决定菜单和数据范围。路由守卫拦截越权访问。
 
-### 模板与快捷
+### 3. JWT 双 Token 无感续期
 
-| 表名 | 说明 | 设计要点 |
-|------|------|---------|
-| `order_template` | 常用订单模板 | 记录用户偏好，首页一键复购 |
+access_token 30 分钟过期，refresh_token 7 天。401 时自动续期并重放请求，用户体验无感知。
 
-### 组织架构表
+### 4. 水站级数据隔离
 
-| 表名 | 说明 |
-|------|------|
-| `factory` | 水厂 |
-| `station` | 水站 |
-| `staff` | 员工/配送员 |
-| `company_info` | 企业客户信息 |
-| `customer_station_record` | 客户归属变更记录 |
-| `order_image` | 订单配送照片 |
+站长只看到本站数据（`station_id`），配送员只看到自己任务（`delivery_person_id`），厂长看到全站汇总。前端 `request.js` 自动注入 `stationId`。
+
+### 5. 批次配送
+
+多个订单合并一批，支持分配配送员、分批完成（部分订单继续配送）。降低配送成本。
+
+### 6. 没有在线支付
+
+桶装水行业以线下支付为主，支持水票预购和企业账期。支付方式：微信/现金/水票/挂账。
 
 ---
 
-## API 接口一览
+## 核心 API
 
 ### 认证
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/auth/login` | 登录（admin/123456） |
-| POST | `/api/auth/wx-login` | 微信小程序登录 |
-| PUT | `/api/auth/update-profile` | 更新用户资料 |
+| POST | `/api/auth/login` | 统一登录（返回双Token） |
+| POST | `/api/auth/logout` | 登出（清除 refresh_token） |
+| POST | `/api/auth/refresh` | 刷新 access_token |
+| POST | `/api/auth/change-password` | 修改密码 |
+| GET | `/api/auth/me` | 获取当前用户 |
 
-### 水类型
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/water-types` | 水类型列表（支持 `?keyword=` 搜索） |
-| POST | `/api/water-types` | 新增水类型 |
-| GET | `/api/water-types/my` | 用户已购买的水类型 |
-
-### 订单
+### 厂长模块（`/api/factory-ops/`）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/orders` | 订单列表（支持 `customerId/status/tag/日期`） |
-| POST | `/api/orders` | 创建订单 |
-| PUT | `/api/orders/{id}/status` | 更新状态 |
+| GET | `/factory-ops/overview` | 水厂总览指标 |
+| GET | `/factory-ops/stations/ranking` | 水站销量排行 |
+| GET | `/factory-ops/stations/trend` | 各站销量趋势 |
+| GET | `/factory-ops/analysis/sales-decline` | 销量下降分析 |
+| GET | `/factory-ops/analysis/customer-churn` | 客户流失分析 |
+| GET | `/factory-ops/analysis/inventory-pressure` | 库存压力 |
+| GET | `/factory-ops/analysis/suggestions` | 智能建议 |
+| GET | `/factory-ops/profile/{id}` | 单站画像 |
+| GET/POST/PUT | `/factory-ops/transfers` | 库存调拨 |
+| GET/POST/PUT | `/factory-ops/alerts` | 风险预警 |
+| POST | `/factory-ops/alerts/check` | 手动检测预警 |
 
-### 常用订单模板
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/order-templates` | 获取模板列表 |
-| POST | `/api/order-templates` | 保存模板 |
-| PUT | `/api/order-templates/{id}/toggle` | 启用/禁用模板 |
-| DELETE | `/api/order-templates/{id}` | 删除模板 |
-| GET | `/api/order-templates/quick` | 快速下单数据 |
-| POST | `/api/order-templates/from-order` | 从订单创建模板 |
-
-### 地址
+### 站长模块
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/addresses` | 地址列表（支持 `customerId/tag/keyword`） |
-| POST | `/api/addresses` | 新增地址 |
-| PUT | `/api/addresses/{id}` | 修改地址 |
-| DELETE | `/api/addresses/{id}` | 删除地址 |
-| PUT | `/api/addresses/{id}/default` | 设为默认地址 |
-
-### 水票
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/tickets` | 水票余额（含水类型名称） |
-| GET | `/api/ticket-records` | 水票流水（含水类型名称） |
-| POST | `/api/tickets/add` | 充值水票 |
-| POST | `/api/tickets/consume` | 消费水票 |
-
-### 水桶
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/barrels/summary` | 水桶概况（持有数/押金余额） |
-| GET | `/api/barrels/summary-by-type` | 按水类型统计持有桶数 |
-| GET | `/api/barrels/records` | 退桶记录 |
-| POST | `/api/barrels/return` | 申请退桶 |
-
-### 批次
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/batches` | 批次列表 |
-| POST | `/api/batches` | 创建批次 |
-| POST | `/api/batches/{id}/start` | 开始配送 |
-| POST | `/api/batches/{id}/finish` | 完成配送 |
-| DELETE | `/api/batches/{id}` | 删除批次 |
-
-### 首页/报表
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/dashboard/today` | 今日概览 |
-| GET | `/api/dashboard/overview` | 经营概览 |
-| GET | `/api/dashboard/order-trend` | 近7天趋势 |
-| GET | `/api/dashboard/top-customers` | 客户排行 |
+| GET/POST/PUT | `/customers` | 客户 CRUD |
+| GET/POST/PUT | `/addresses` | 地址 CRUD |
+| GET/POST | `/water-types` | 水类型 CRUD |
+| GET/POST | `/inventory` | 库存查询/入库 |
+| GET/POST/PUT | `/orders` | 订单（含取消） |
+| GET/POST/DELETE | `/batches` | 批次（含分配配送员） |
+| GET/POST/PUT | `/payments` | 支付管理 |
+| GET/POST | `/tickets` | 水票 |
+| GET/POST/PUT | `/deposit-records` | 押金 |
+| GET/PUT | `/barrels` | 退桶 |
+| GET/POST/PUT/DELETE | `/staff` | 员工 |
+| GET/POST/PUT/DELETE | `/stations` | 水站（站长可管理下属站） |
+| GET/POST/PUT/DELETE | `/factories` | 水厂 |
 
 ---
-
-## V2.0 规划
-
-从单纯水站管理，逐步扩展为**水厂-水站-客户三端协同平台**。
-
-| 阶段 | 模块 | 优先级 |
-|------|------|--------|
-| 1 | 数据库结构调整（所有新增字段/表） | P0 |
-| 2 | 客户归属体系 | P0 |
-| 3 | 押金管理 | P1 |
-| 4 | 水票体系 | P1 |
-| 5 | 回桶管理 | P1 |
-| 6 | 企业客户 + 账期 | P2 |
-| 7 | 配送员管理 | P2 |
-| 8 | 客户画像 + 自动标签 | P2 |
-| 9 | 首页改造（今日工作台） | P2 |
-| 10 | 水厂/水站表预留 | P3 |
-
----
-
-## 文档
-
-- [后端 README](./AquaFlow-backend/README.md)
-- [前端 README](./AquaFlow-frontend/README.md)
-- [小程序 README](./miniapp-user/README.md)
 
 ## License
 

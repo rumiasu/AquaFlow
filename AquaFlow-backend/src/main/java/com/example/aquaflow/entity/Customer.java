@@ -68,4 +68,7 @@ public class Customer {
 
     /** 微信openid，用于小程序登录 */
     private String openid;
+
+    /** 角色: 1=站长 2=管理员 */
+    private Integer role;
 }

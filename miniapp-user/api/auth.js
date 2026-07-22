@@ -17,7 +17,7 @@ const updateProfile = (data) => {
   return post(API.UPDATE_PROFILE, data)
 }
 
-// 管理员登录（保留，供后台管理端使用）
+// 管理员登录
 const login = (username, password) => {
   return post(API.LOGIN, { username, password })
 }

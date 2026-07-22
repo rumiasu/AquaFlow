@@ -18,4 +18,14 @@ public interface BatchService {
     void finishAll(Integer id);
 
     void delete(Integer id);
+
+    /**
+     * 查询指定配送员的批次列表
+     */
+    List<Batch> listByDeliveryPersonId(Integer deliveryPersonId);
+
+    /**
+     * 分配配送员到批次
+     */
+    void assignDeliveryPerson(Integer batchId, Integer deliveryPersonId);
 }

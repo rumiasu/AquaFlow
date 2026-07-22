@@ -1,15 +1,15 @@
 // 水票相关接口（后端: TicketAccountController / TicketRecordController）
 const { get } = require('../utils/request')
-const { API, getCustomerId } = require('../config/api')
+const { API } = require('../config/api')
 
-// GET /api/tickets?customerId=xxx
+// GET /api/tickets (customerId 从 JWT 获取)
 const getTicketAccounts = () => {
-  return get(API.TICKETS, { customerId: getCustomerId() })
+  return get(API.TICKETS)
 }
 
-// GET /api/ticket-records?customerId=xxx
+// GET /api/ticket-records (customerId 从 JWT 获取)
 const getTicketRecords = () => {
-  return get(API.TICKET_RECORDS, { customerId: getCustomerId() })
+  return get(API.TICKET_RECORDS)
 }
 
 module.exports = { getTicketAccounts, getTicketRecords }

@@ -4,6 +4,7 @@ import com.example.aquaflow.common.Result;
 import com.example.aquaflow.dto.BarrelReturnDTO;
 import com.example.aquaflow.entity.BarrelRecord;
 import com.example.aquaflow.service.BarrelService;
+import com.example.aquaflow.util.AuthContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -24,42 +25,46 @@ public class BarrelController {
     private BarrelService barrelService;
 
     /**
-     * 获取客户水桶概况
-     * GET /api/barrels/summary?customerId=xxx
+     * 获取当前登录客户的水桶概况
+     * GET /api/barrels/summary
      */
     @GetMapping("/summary")
-    public Result<Map<String, Object>> getSummary(@RequestParam Integer customerId) {
+    public Result<Map<String, Object>> getSummary() {
+        Integer customerId = AuthContext.requireCustomerId();
         return Result.success(barrelService.getSummary(customerId));
     }
 
     /**
-     * 获取客户退桶记录列表
-     * GET /api/barrels/records?customerId=xxx
+     * 获取当前登录客户的退桶记录列表
+     * GET /api/barrels/records
      */
     @GetMapping("/records")
-    public Result<List<BarrelRecord>> listRecords(@RequestParam Integer customerId) {
+    public Result<List<BarrelRecord>> listRecords() {
+        Integer customerId = AuthContext.requireCustomerId();
         return Result.success(barrelService.listRecords(customerId));
     }
 
     /**
-     * 按水类型统计持有桶数明细
-     * GET /api/barrels/summary-by-type?customerId=xxx
+     * 按水类型统计当前客户持有桶数明细
+     * GET /api/barrels/summary-by-type
      */
     @GetMapping("/summary-by-type")
-    public Result<List<Map<String, Object>>> getSummaryByType(@RequestParam Integer customerId) {
+    public Result<List<Map<String, Object>>> getSummaryByType() {
+        Integer customerId = AuthContext.requireCustomerId();
         return Result.success(barrelService.getBarrelSummaryByType(customerId));
     }
 
     /**
-     * 客户申请退桶
+     * 当前登录客户申请退桶
      * POST /api/barrels/return
      */
     @PostMapping("/return")
     public Result<BarrelRecord> requestReturn(@RequestBody BarrelReturnDTO dto) {
+        Integer customerId = AuthContext.requireCustomerId();
         log.info("退桶申请: customerId={}, quantity={}, depositRefund={}",
-                dto.getCustomerId(), dto.getQuantity(), dto.getDepositRefund());
+                customerId, dto.getQuantity(), dto.getDepositRefund());
         BarrelRecord record = barrelService.requestReturn(
-                dto.getCustomerId(),
+                customerId,
                 dto.getQuantity(),
                 dto.getDepositRefund(),
                 dto.getNote()

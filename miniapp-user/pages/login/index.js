@@ -8,8 +8,8 @@ Page({
   },
 
   onLoad() {
-    const token = storage.get('token')
-    if (token) {
+    const accessToken = storage.get('accessToken')
+    if (accessToken) {
       wx.switchTab({ url: '/pages/home/index' })
     }
   },
@@ -20,7 +20,6 @@ Page({
     this.setData({ loading: true })
 
     try {
-      // 1. 调用微信 wx.login 获取 code
       const loginRes = await new Promise((resolve, reject) => {
         wx.login({
           success: resolve,
@@ -33,17 +32,18 @@ Page({
         return
       }
 
-      // 2. 发送 code 到后端换取 token
       const res = await wxLogin(loginRes.code)
 
-      if (res.data && res.data.token) {
-        // 3. 保存登录信息
-        storage.set('token', res.data.token)
-        storage.set('customerId', res.data.customerId)
-        storage.set('userInfo', {
+      if (res.data && res.data.accessToken) {
+        const app = getApp()
+        app.setLoginInfo(res.data.accessToken, res.data.refreshToken, {
           nickname: res.data.nickname || '微信用户',
           phone: res.data.phone || ''
         })
+        // 兼容：保存 customerId
+        if (res.data.customerId) {
+          wx.setStorageSync('customerId', res.data.customerId)
+        }
 
         wx.showToast({ title: '登录成功', icon: 'success' })
         setTimeout(() => {
@@ -68,13 +68,15 @@ Page({
     try {
       const res = await devLogin('测试用户')
 
-      if (res.data && res.data.token) {
-        storage.set('token', res.data.token)
-        storage.set('customerId', res.data.customerId)
-        storage.set('userInfo', {
+      if (res.data && res.data.accessToken) {
+        const app = getApp()
+        app.setLoginInfo(res.data.accessToken, res.data.refreshToken, {
           nickname: res.data.nickname || '测试用户',
           phone: res.data.phone || ''
         })
+        if (res.data.customerId) {
+          wx.setStorageSync('customerId', res.data.customerId)
+        }
 
         wx.showToast({ title: '登录成功', icon: 'success' })
         setTimeout(() => {

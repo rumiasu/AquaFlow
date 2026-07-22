@@ -155,14 +155,14 @@ Page({
       }
 
       const res = await createOrder(orderData)
-      if (res.data) {
+      if (res.data && res.data.id) {
         wx.redirectTo({ url: `/pages/order/success?id=${res.data.id}` })
       } else {
-        wx.redirectTo({ url: '/pages/order/success?id=mock' })
+        wx.showToast({ title: res.message || '下单失败，请重试', icon: 'none' })
       }
     } catch (error) {
       console.error('Create order error:', error)
-      wx.redirectTo({ url: '/pages/order/success?id=mock' })
+      wx.showToast({ title: error.message || '网络异常，请重试', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
     }

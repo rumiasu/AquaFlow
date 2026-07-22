@@ -1,62 +1,65 @@
-<view class="container">
+<view class="page-container">
   <!-- 用户信息 -->
-  <view class="user-section">
-    <view class="user-info" wx:if="{{isLogin}}" bindtap="onEditProfile">
-      <image class="user-avatar" src="{{userInfo.avatarUrl || '/assets/image/default-avatar.png'}}" mode="aspectFill"></image>
-      <view class="user-detail">
-        <text class="user-name">{{userInfo.nickname || userInfo.nickName || '用户'}}</text>
-        <text class="user-phone">{{userInfo.phone || ''}}</text>
-      </view>
-      <text class="edit-arrow">›</text>
+  <view class="user-card" bindtap="{{isLogin ? 'onEditProfile' : 'onLogin'}}">
+    <image class="avatar" src="{{isLogin ? userInfo.avatarUrl : '/images/default-avatar.png'}}" mode="aspectFill" />
+    <view class="user-info" wx:if="{{isLogin}}">
+      <text class="nickname">{{userInfo.nickName || '用户'}}</text>
+      <text class="phone" wx:if="{{userInfo.phone}}">{{userInfo.phone}}</text>
     </view>
-    <view class="login-section" wx:else bindtap="onLogin">
-      <image class="user-avatar" src="/assets/image/default-avatar.png" mode="aspectFill"></image>
-      <text class="login-text">点击登录</text>
+    <view class="user-info" wx:else>
+      <text class="nickname">点击登录</text>
+    </view>
+    <text class="arrow">></text>
+  </view>
+
+  <!-- 客户统计 -->
+  <view class="stats-card" wx:if="{{isLogin && customerStats}}">
+    <view class="stats-title">我的数据</view>
+    <view class="stats-grid">
+      <view class="stat-item">
+        <text class="stat-value">{{customerStats.totalOrders || 0}}</text>
+        <text class="stat-label">累计订单</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value">¥{{customerStats.totalConsumption || 0}}</text>
+        <text class="stat-label">累计消费</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value">{{customerStats.avgCycleDays || '-'}}</text>
+        <text class="stat-label">订水周期(天)</text>
+      </view>
     </view>
   </view>
 
-  <!-- 水桶押金概况（登录后） -->
-  <view class="barrel-summary-card" wx:if="{{isLogin && barrelSummary}}" bindtap="onBarrelTap">
-    <view class="barrel-row">
+  <!-- 水桶摘要 -->
+  <view class="barrel-card" wx:if="{{isLogin && barrelSummary}}" bindtap="onBarrelTap">
+    <view class="barrel-title">我的水桶</view>
+    <view class="barrel-info">
       <view class="barrel-item">
-        <text class="barrel-num">{{barrelSummary.actualBuckets}}</text>
+        <text class="barrel-value">{{barrelSummary.actualBuckets}}</text>
         <text class="barrel-label">持有桶数</text>
       </view>
-      <view class="barrel-divider"></view>
       <view class="barrel-item">
-        <text class="barrel-num deposit">¥{{barrelSummary.depositBalance}}</text>
+        <text class="barrel-value">¥{{barrelSummary.depositBalance}}</text>
         <text class="barrel-label">押金余额</text>
       </view>
-      <view class="barrel-divider"></view>
       <view class="barrel-item">
-        <text class="barrel-num">¥{{barrelSummary.depositPerBucket}}</text>
+        <text class="barrel-value">¥{{barrelSummary.depositPerBucket}}</text>
         <text class="barrel-label">元/桶</text>
       </view>
     </view>
-    <text class="barrel-detail-link">查看水桶详情 ›</text>
   </view>
 
   <!-- 菜单列表 -->
-  <view class="menu-section">
-    <view
-      class="menu-item"
-      wx:for="{{isLogin ? loginMenu : guestMenu}}"
-      wx:key="id"
-      bindtap="onMenuTap"
-      data-url="{{item.url}}"
-    >
-      <view class="menu-left">
-        <text class="menu-icon">{{item.icon}}</text>
-        <text class="menu-title">{{item.title}}</text>
-      </view>
-      <text class="menu-arrow">›</text>
+  <view class="menu-list">
+    <view class="menu-item" wx:for="{{isLogin ? loginMenu : guestMenu}}" wx:key="title"
+      data-url="{{item.url}}" bindtap="onMenuTap">
+      <text class="menu-icon">{{item.icon}}</text>
+      <text class="menu-title">{{item.title}}</text>
+      <text class="menu-arrow">></text>
     </view>
   </view>
 
   <!-- 退出登录 -->
-  <view class="logout-section" wx:if="{{isLogin}}">
-    <view class="logout-btn" bindtap="onLogout">
-      <text>退出登录</text>
-    </view>
-  </view>
+  <button wx:if="{{isLogin}}" class="btn-logout" bindtap="onLogout">退出登录</button>
 </view>

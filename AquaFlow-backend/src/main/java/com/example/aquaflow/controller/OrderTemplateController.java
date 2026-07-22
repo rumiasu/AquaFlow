@@ -3,6 +3,7 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.OrderTemplate;
 import com.example.aquaflow.service.OrderTemplateService;
+import com.example.aquaflow.util.AuthContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -19,38 +20,41 @@ public class OrderTemplateController {
     private OrderTemplateService templateService;
 
     @GetMapping("/quick")
-    public Result<OrderTemplate> getQuickOrder(@RequestParam Integer customerId) {
+    public Result<OrderTemplate> getQuickOrder() {
+        Integer customerId = AuthContext.requireCustomerId();
         return Result.success(templateService.getQuickOrder(customerId));
     }
 
     @GetMapping
-    public Result<List<OrderTemplate>> listByCustomerId(@RequestParam Integer customerId) {
+    public Result<List<OrderTemplate>> listByCustomerId() {
+        Integer customerId = AuthContext.requireCustomerId();
         return Result.success(templateService.listByCustomerId(customerId));
     }
 
     @PostMapping
-    public Result<OrderTemplate> save(@RequestBody OrderTemplate template,
-                                      @RequestParam Integer customerId) {
+    public Result<OrderTemplate> save(@RequestBody OrderTemplate template) {
+        Integer customerId = AuthContext.requireCustomerId();
         return Result.success(templateService.save(customerId, template));
     }
 
     @PutMapping("/{id}/toggle")
     public Result toggleEnabled(@PathVariable Integer id,
-                                @RequestParam Integer customerId,
                                 @RequestParam Integer enabled) {
+        Integer customerId = AuthContext.requireCustomerId();
         templateService.toggleEnabled(customerId, id, enabled);
         return Result.success();
     }
 
     @PutMapping("/{id}/default")
-    public Result setDefault(@PathVariable Integer id, @RequestParam Integer customerId) {
+    public Result setDefault(@PathVariable Integer id) {
+        Integer customerId = AuthContext.requireCustomerId();
         templateService.setDefault(customerId, id);
         return Result.success();
     }
 
     @PostMapping("/from-order")
-    public Result<OrderTemplate> setFromOrder(@RequestParam Integer customerId,
-                                              @RequestParam Integer orderId) {
+    public Result<OrderTemplate> setFromOrder(@RequestParam Integer orderId) {
+        Integer customerId = AuthContext.requireCustomerId();
         log.info("从订单创建模板: customerId={}, orderId={}", customerId, orderId);
         try {
             return Result.success(templateService.setFromOrder(customerId, orderId));
@@ -61,7 +65,8 @@ public class OrderTemplateController {
     }
 
     @DeleteMapping("/{id}")
-    public Result delete(@PathVariable Integer id, @RequestParam Integer customerId) {
+    public Result delete(@PathVariable Integer id) {
+        Integer customerId = AuthContext.requireCustomerId();
         templateService.delete(customerId, id);
         return Result.success();
     }

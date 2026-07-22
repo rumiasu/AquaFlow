@@ -5,6 +5,7 @@ import com.example.aquaflow.mapper.AddressMapper;
 import com.example.aquaflow.service.AddressService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,6 +18,7 @@ public class AddressServiceImpl implements AddressService {
     private AddressMapper addressMapper;
 
     @Override
+    @Transactional
     public void save(Address address) {
         address.setCreateTime(LocalDateTime.now());
         address.setUpdateTime(LocalDateTime.now());
@@ -34,13 +36,14 @@ public class AddressServiceImpl implements AddressService {
     @Override
     public Address getById(Integer id) {
         Address address = addressMapper.getById(id);
-        if(address == null){
-            throw new RuntimeException("该地址无记录");
+        if (address == null) {
+            throw new com.example.aquaflow.exception.ResourceNotFoundException("地址", id);
         }
         return address;
     }
 
     @Override
+    @Transactional
     public void update(Address address) {
         address.setUpdateTime(LocalDateTime.now());
         if (address.getIsDefault() != null && address.getIsDefault() == 1) {
@@ -57,6 +60,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
+    @Transactional
     public void setDefault(Integer customerId, Integer addressId) {
         addressMapper.clearDefault(customerId);
         addressMapper.setDefault(addressId);

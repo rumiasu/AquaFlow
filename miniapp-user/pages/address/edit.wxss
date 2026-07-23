@@ -1,93 +1,159 @@
 .container {
-  background-color: #f5f5f5;
+  background: #f5f6f8;
   min-height: 100vh;
 }
 
-.form-section {
-  background-color: #fff;
-  margin: 24rpx;
-  border-radius: 16rpx;
-  padding: 24rpx;
+/* ===== 主卡片 ===== */
+.addr-card {
+  background: #fff;
+  margin: 20rpx 24rpx;
+  border-radius: 20rpx;
+  padding: 0 28rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 
-.section-title {
-  font-size: 28rpx;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 20rpx;
-}
-
-.form-item {
+/* ===== 表单行 ===== */
+.field-row {
   display: flex;
   align-items: center;
-  padding: 16rpx 0;
+  min-height: 96rpx;
   border-bottom: 1rpx solid #f0f0f0;
 }
 
-.form-item:last-child {
+.field-row:last-of-type {
   border-bottom: none;
 }
 
-.form-label {
-  width: 140rpx;
+.field-label {
+  width: 110rpx;
+  font-size: 28rpx;
+  color: #333;
+  flex-shrink: 0;
+}
+
+.field-input {
+  flex: 1;
+  height: 96rpx;
   font-size: 28rpx;
   color: #333;
 }
 
-.form-input {
-  flex: 1;
-  font-size: 28rpx;
+/* ===== 定位按钮（嵌入区域行右侧） ===== */
+.loc-btn {
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: #eef2ff;
+  border-radius: 50%;
+  margin-left: 12rpx;
 }
 
-.location-item {
-  justify-content: space-between;
+.loc-icon {
+  font-size: 32rpx;
+  line-height: 1;
 }
 
-.location-btn {
-  color: #1890ff;
-  font-size: 26rpx;
+/* ===== 区域快捷建议 ===== */
+.suggest-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  padding: 8rpx 0 16rpx 110rpx;
 }
 
-.tag-list {
+.suggest-tag {
+  padding: 8rpx 20rpx;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  color: #666;
+  background: #f5f6f8;
+}
+
+.suggest-tag.active {
+  color: #1e40af;
+  background: #eef2ff;
+}
+
+/* ===== 标签行（家/公司/父母家） ===== */
+.label-row {
+  padding: 16rpx 0;
+}
+
+.label-options {
   display: flex;
   flex-wrap: wrap;
   gap: 16rpx;
+  flex: 1;
 }
 
-.tag-item {
-  padding: 12rpx 24rpx;
-  border-radius: 24rpx;
-  background-color: #f5f5f5;
+.label-chip {
+  padding: 10rpx 24rpx;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  color: #666;
+  background: #f5f6f8;
+  border: 2rpx solid transparent;
+}
+
+.label-chip.active {
+  color: #1e40af;
+  background: #eef2ff;
+  border-color: #1e40af;
+}
+
+/* ===== 底部操作栏 ===== */
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 0 32rpx;
+  margin-top: 8rpx;
+}
+
+.default-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.check-box {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 8rpx;
+  border: 2rpx solid #d0d0d0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12rpx;
+  font-size: 24rpx;
+  color: #fff;
+}
+
+.check-box.checked {
+  background: #1e40af;
+  border-color: #1e40af;
+}
+
+.default-text {
   font-size: 26rpx;
   color: #666;
 }
 
-.tag-item.active {
-  background-color: #e6f7ff;
-  color: #1890ff;
-  border: 2rpx solid #1890ff;
-}
-
-.switch-item {
-  justify-content: space-between;
-}
-
-.form-switch {
-  transform: scale(0.8);
-}
-
-.submit-btn {
-  margin: 48rpx 24rpx;
-  height: 88rpx;
-  background-color: #1890ff;
-  border-radius: 44rpx;
+.save-btn {
+  height: 72rpx;
+  padding: 0 56rpx;
+  background: #1e40af;
+  border-radius: 36rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 30rpx;
+  font-size: 28rpx;
+  font-weight: 500;
 }
 
-.submit-btn.disabled {
-  background-color: #ccc;
+.save-btn.disabled {
+  background: #b0b0b0;
 }

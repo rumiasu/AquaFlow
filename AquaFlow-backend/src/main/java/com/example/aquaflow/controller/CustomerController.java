@@ -1,5 +1,6 @@
 package com.example.aquaflow.controller;
 
+import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.service.CustomerService;
@@ -24,6 +25,7 @@ public class CustomerController {
         return Result.success(customerService.list(stationId));
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PostMapping
     public Result save(@RequestBody Customer customer){
         customerService.save(customer);
@@ -36,6 +38,7 @@ public class CustomerController {
         return Result.success(customer);
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PutMapping("/{id}")
     public Result update(@PathVariable Integer id, @RequestBody Customer customer){
         customer.setId(id);

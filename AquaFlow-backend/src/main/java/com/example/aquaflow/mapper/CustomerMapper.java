@@ -39,8 +39,8 @@ public interface CustomerMapper {
     @Select("select * from customer where name = #{username} and role = 1 and station_id is not null limit 1")
     Customer findManagerByUsername(@Param("username") String username);
 
-    @Insert("insert into customer(name, phone, openid, create_time, update_time) " +
-            "values(#{name}, #{phone}, #{openid}, #{createTime}, #{updateTime})")
+    @Insert("insert into customer(name, phone, openid, customer_type, station_id, role, create_time, update_time) " +
+            "values(#{name}, #{phone}, #{openid}, #{customerType}, #{stationId}, #{role}, #{createTime}, #{updateTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insertWithOpenid(Customer customer);
 

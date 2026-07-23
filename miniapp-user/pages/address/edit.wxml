@@ -1,70 +1,70 @@
 <view class="container">
+  <privacy-popup />
   <loading wx:if="{{loading}}"></loading>
 
-  <view class="address-form" wx:else>
-    <!-- 基本信息 -->
-    <view class="form-section">
-      <view class="form-item">
-        <text class="form-label">姓名</text>
-        <input class="form-input" placeholder="请输入姓名" value="{{formData.name}}" bindinput="onInputChange" data-field="name" />
-      </view>
-      <view class="form-item">
-        <text class="form-label">电话</text>
-        <input class="form-input" placeholder="请输入电话" type="number" value="{{formData.phone}}" bindinput="onInputChange" data-field="phone" />
-      </view>
-      <view class="form-item">
-        <text class="form-label">地址</text>
-        <input class="form-input" placeholder="请输入详细地址" value="{{formData.detail}}" bindinput="onInputChange" data-field="detail" />
-      </view>
-      <view class="form-item location-item" bindtap="onChooseLocation">
-        <text class="form-label">定位</text>
-        <text class="location-btn">点击获取位置</text>
-      </view>
+  <view class="addr-card" wx:else>
+    <!-- 联系人 -->
+    <view class="field-row">
+      <text class="field-label">联系人</text>
+      <input class="field-input" placeholder="姓名" value="{{formData.name}}" bindinput="onInputChange" data-field="name" />
     </view>
 
-    <!-- 地址标签 -->
-    <view class="form-section">
-      <view class="section-title">地址标签</view>
-      <view class="tag-list">
-        <view
-          class="tag-item {{formData.tag === item.value ? 'active' : ''}}"
-          wx:for="{{tags}}"
-          wx:key="value"
-          bindtap="onTagSelect"
-          data-tag="{{item.value}}"
-        >
-          <text>{{item.label}}</text>
-        </view>
-      </view>
+    <!-- 电话 -->
+    <view class="field-row">
+      <text class="field-label">电话</text>
+      <input class="field-input" placeholder="手机号码" type="number" value="{{formData.phone}}" bindinput="onInputChange" data-field="phone" />
     </view>
 
-    <!-- 快捷称呼 -->
-    <view class="form-section">
-      <view class="section-title">快捷称呼</view>
-      <view class="tag-list">
+    <!-- 所在地区/小区 + 定位 -->
+    <view class="field-row">
+      <text class="field-label">区域</text>
+      <input class="field-input" placeholder="小区/大厦/学校名称" value="{{formData.tag}}" bindinput="onInputChange" data-field="tag" />
+      <view class="loc-btn" bindtap="onChooseLocation">
+        <text class="loc-icon">📍</text>
+      </view>
+    </view>
+    <!-- 区域快捷建议 -->
+    <view class="suggest-row" wx:if="{{tagSuggestions.length > 0}}">
+      <view
+        class="suggest-tag {{formData.tag === item ? 'active' : ''}}"
+        wx:for="{{tagSuggestions}}"
+        wx:key="*this"
+        bindtap="onTagSuggest"
+        data-tag="{{item}}"
+      >{{item}}</view>
+    </view>
+
+    <!-- 详细地址 -->
+    <view class="field-row">
+      <text class="field-label">门牌</text>
+      <input class="field-input" placeholder="楼栋/单元/门牌号" value="{{formData.detail}}" bindinput="onInputChange" data-field="detail" />
+    </view>
+
+    <!-- 标签 -->
+    <view class="field-row label-row">
+      <text class="field-label">标签</text>
+      <view class="label-options">
         <view
-          class="tag-item {{formData.label === item ? 'active' : ''}}"
+          class="label-chip {{formData.label === item ? 'active' : ''}}"
           wx:for="{{labels}}"
           wx:key="*this"
           bindtap="onLabelSelect"
           data-label="{{item}}"
-        >
-          <text>{{item}}</text>
+        >{{item}}</view>
+      </view>
+    </view>
+
+    <!-- 默认 + 保存 -->
+    <view class="bottom-bar">
+      <view class="default-toggle" bindtap="onToggleDefault">
+        <view class="check-box {{formData.isDefault ? 'checked' : ''}}">
+          <text wx:if="{{formData.isDefault}}">&#10003;</text>
         </view>
+        <text class="default-text">设为默认地址</text>
       </view>
-    </view>
-
-    <!-- 默认地址 -->
-    <view class="form-section">
-      <view class="form-item switch-item">
-        <text class="form-label">设为默认地址</text>
-        <switch class="form-switch" checked="{{formData.isDefault}}" bindchange="onDefaultChange" color="#4facfe"></switch>
+      <view class="save-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
+        <text>{{submitting ? '保存中...' : '保存'}}</text>
       </view>
-    </view>
-
-    <!-- 提交按钮 -->
-    <view class="submit-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
-      <text>{{submitting ? '保存中...' : '保存'}}</text>
     </view>
   </view>
 </view>

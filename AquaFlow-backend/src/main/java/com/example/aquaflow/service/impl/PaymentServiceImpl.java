@@ -168,6 +168,11 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    public List<PaymentRecord> listWithFilter(Integer status, Integer paymentMethod, int limit) {
+        return paymentRecordMapper.listWithFilter(status, paymentMethod, limit);
+    }
+
+    @Override
     public Map<String, Object> getStationConfig(Long stationId) {
         Map<String, Object> config = new HashMap<>();
         config.put("enableWechat", true);

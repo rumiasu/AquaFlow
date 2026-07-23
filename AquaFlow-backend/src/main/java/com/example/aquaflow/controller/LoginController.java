@@ -180,7 +180,6 @@ public class LoginController {
     public Result<Map<String, Object>> devLogin(@RequestBody Map<String, String> params) {
         String openid = params.getOrDefault("openid", "dev-openid-001");
         String nickname = params.getOrDefault("nickname", "测试用户");
-        String role = params.getOrDefault("role", "manager");
 
         Customer customer = customerMapper.findByOpenid(openid);
         if (customer == null) {
@@ -189,23 +188,16 @@ public class LoginController {
             customer.setPhone("");
             customer.setOpenid(openid);
             customer.setCustomerType(1);
-            customer.setRole("delivery".equals(role) ? 1 : 2);
-            if (!"delivery".equals(role)) {
-                customer.setStationId(1);
-            }
+            customer.setRole(2);
+            customer.setStationId(1);
             customer.setCreateTime(LocalDateTime.now());
             customer.setUpdateTime(LocalDateTime.now());
             customerMapper.insertWithOpenid(customer);
-        } else {
-            customer.setName(nickname);
-            customer.setRole("delivery".equals(role) ? 1 : 2);
-            customer.setUpdateTime(LocalDateTime.now());
-            customerMapper.update(customer);
         }
 
         // 生成 JWT 双 Token
         String accessToken = jwtUtil.generateAccessToken(
-                customer.getId(), "customer", role,
+                customer.getId(), "customer", "manager",
                 customer.getStationId(), null);
         String refreshToken = jwtUtil.generateRefreshToken(customer.getId(), "customer");
 
@@ -217,7 +209,7 @@ public class LoginController {
         data.put("customerId", customer.getId());
         data.put("nickname", customer.getName());
         data.put("phone", customer.getPhone());
-        data.put("role", role);
+        data.put("role", "manager");
         data.put("stationId", customer.getStationId());
         return Result.success(data);
     }

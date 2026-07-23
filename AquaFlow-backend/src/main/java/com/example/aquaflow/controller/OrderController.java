@@ -1,5 +1,6 @@
 package com.example.aquaflow.controller;
 
+import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.dto.OrderStatusDTO;
@@ -46,12 +47,14 @@ public class OrderController {
         return Result.success(orderService.getById(id));
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PutMapping("/{id}/status")
     public Result updateStatus(@PathVariable Integer id, @RequestBody OrderStatusDTO orderStatusDTO){
         orderService.updateStatus(id,orderStatusDTO.getStatus());
         return Result.success();
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PutMapping("/{id}/cancel")
     public Result cancel(@PathVariable Integer id){
         orderService.updateStatus(id, OrderStatus.CANCELLED);

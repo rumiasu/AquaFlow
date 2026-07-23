@@ -1,5 +1,6 @@
 package com.example.aquaflow.controller;
 
+import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.WaterType;
 import com.example.aquaflow.service.WaterTypeService;
@@ -19,12 +20,14 @@ public class WaterTypeController {
     @Autowired
     private WaterTypeService waterTypeService;
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PostMapping
     public Result save(@RequestBody WaterType waterType) {
         waterTypeService.save(waterType);
         return Result.success();
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PutMapping("/{id}")
     public Result update(@PathVariable Integer id, @RequestBody WaterType waterType) {
         waterType.setId(id);
@@ -32,6 +35,7 @@ public class WaterTypeController {
         return Result.success();
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @DeleteMapping("/{id}")
     public Result delete(@PathVariable Integer id) {
         waterTypeService.delete(id);

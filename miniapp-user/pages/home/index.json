@@ -1,5 +1,7 @@
 {
   "navigationStyle": "custom",
   "enablePullDownRefresh": true,
-  "usingComponents": {}
+  "usingComponents": {
+    "loading": "../../components/Loading/index"
+  }
 }

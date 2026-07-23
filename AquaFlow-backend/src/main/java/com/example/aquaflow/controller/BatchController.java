@@ -22,6 +22,7 @@ public class BatchController {
     @Autowired
     private BatchService batchService;
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PostMapping
     public Result create(@RequestBody BatchCreateDTO batchCreateDTO){
         Batch batch = batchService.create(batchCreateDTO.getOrderIds());
@@ -40,24 +41,28 @@ public class BatchController {
         return Result.success(batchService.getById(id));
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PostMapping("/{id}/start")
     public Result start(@PathVariable Integer id){
         batchService.start(id);
         return Result.success();
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PostMapping("/{id}/finish")
     public Result finish(@PathVariable Integer id, @RequestBody BatchFinishDTO batchFinishDTO){
         batchService.finish(id,batchFinishDTO.getFinishedOrderIds(),batchFinishDTO.getUnfinishedOrderIds());
         return Result.success();
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PostMapping("/{id}/finish-all")
     public Result finishAll(@PathVariable Integer id){
         batchService.finishAll(id);
         return Result.success();
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @DeleteMapping("/{id}")
     public Result delete (@PathVariable Integer id){
         batchService.delete(id);

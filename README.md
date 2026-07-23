@@ -1,6 +1,6 @@
 # AquaFlow — 桶装水配送管理系统
 
-> 统一管理后台 | 水厂 · 水站 · 配送员 三端合一
+> 管理后台 · 水厂运营平台 · 微信小程序 三端协同，统一 API
 
 ---
 
@@ -24,41 +24,37 @@ AquaFlow 是一个围绕**桶装水行业真实业务规则**设计的垂直领�
 
 ## 架构概览
 
-### 一系统 · 三角色
+### 三端协同 · 四种角色
 
-同一个 URL，登录后根据角色动态显示不同功能菜单。
+管理后台（厂长/站长/配送员）与微信小程序（客户）共用同一套后端 API。
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    AquaFlow                           │
-│                 管理后台 (Vue3)                        │
-├─────────────────────────────────────────────────────┤
-│                                                       │
-│  厂长 (admin)        站长 (张建国)       配送员 (李永强) │
-│  ┌─────────────┐    ┌──────────────┐   ┌──────────┐  │
-│  │ 水站运营     │    │ 订单管理     │   │ 首页     │  │
-│  │ 数据分析     │    │ 批次管理     │   │ 我的配送  │  │
-│  │ 水站协同     │    │ 库存管理     │   └──────────┘  │
-│  │ 风险预警     │    │ 客户管理     │                  │
-│  │ 水站管理     │    │ 地址管理     │                  │
-│  │ 水厂管理     │    │ 员工管理     │                  │
-│  └─────────────┘    │ ...共 14 页  │                  │
-│                      └──────────────┘                  │
-│         │                    │              │          │
-│         └──────────┬─────────┘──────────────┘          │
-│                    ▼                                    │
-│              ┌────────────────┐                        │
-│              │   Spring Boot  │  ← REST API            │
-│              │   + MyBatis    │                        │
-│              └───────┬───────┘                        │
-│                      ▼                                  │
-│              ┌────────────────┐                        │
-│              │    MySQL       │                        │
-│              └────────────────┘                        │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────┐   ┌──────────────────────────┐
+│   管理后台 (Vue3)          │   │   微信小程序 (原生)        │
+│   AquaFlow-frontend      │   │   miniapp-user           │
+├──────────────────────────┤   ├──────────────────────────┤
+│                          │   │                          │
+│  厂长 ── 水厂运营/分析     │   │  客户 ── 下单/复购       │
+│  站长 ── 订单/配送/资产    │   │        水桶/水票/地址     │
+│  配送员 ── 我的配送        │   │                          │
+│                          │   │                          │
+└────────────┬─────────────┘   └────────────┬─────────────┘
+             │                               │
+             └──────────────┬────────────────┘
+                            ▼
+                  ┌────────────────────┐
+                  │  Spring Boot 后端    │
+                  │  + MyBatis + JWT    │
+                  │  Port: 8080        │
+                  └─────────┬──────────┘
+                            ▼
+                  ┌────────────────────┐
+                  │  MySQL 8.x         │
+                  │  25 张表            │
+                  └────────────────────┘
 ```
 
-### 角色权限对照
+### 管理后台角色权限
 
 | 页面 | 路由 | 厂长 `factory` | 站长 `manager` | 配送员 `delivery` |
 |------|------|:---:|:---:|:---:|
@@ -143,7 +139,7 @@ mysql -u root -p aquaflow < AquaFlow-backend/sql/seed_full_data.sql
 ```yaml
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/aquaflow?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Tokyo
+    url: jdbc:mysql://localhost:3306/aquaflow?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
     username: root
     password: 123456
 ```
@@ -198,41 +194,46 @@ npm run dev
 ```
 AquaFlow-backend/
 └── src/main/java/com/example/aquaflow/
-    ├── AquaFlowApplication.java       # @EnableScheduling
-    ├── common/Result.java             # 统一返回 { code, message, data }
+    ├── AquaFlowApplication.java              # @EnableScheduling 启动类
+    ├── common/Result.java                    # 统一返回 { code, message, data }
     ├── config/
-    │   ├── CorsConfig.java            # 跨域
-    │   ├── AuthConfig.java            # JWT 配置
-    │   └── JwtUtil.java               # JWT 工具（双Token生成/校验）
+    │   ├── CorsConfig.java                   # 跨域
+    │   ├── WebMvcConfig.java                 # MVC 配置（拦截器注册）
+    │   └── PasswordInitializer.java          # 初始密码 BCrypt 加密
     ├── constant/
-    │   ├── OrderStatus.java
-    │   └── BatchStatus.java
-    ├── entity/                        # 24 实体类
+    │   ├── OrderStatus.java                  # 订单状态（1待组批/2配送中/3已完成/4已组批/5已取消）
+    │   ├── BatchStatus.java                  # 批次状态（1待出发/2配送中/3已完成）
+    │   └── PaymentStatus.java                # 支付状态
+    ├── entity/                               # 24 实体类
     │   ├── (核心业务) Customer, Orders, Address, Batch, Inventory, WaterType
     │   ├── (资产管理) TicketAccount, TicketRecord, DepositRecord, BarrelRecord
     │   ├── (组织) Factory, Station, Staff, CompanyInfo
     │   ├── (运营) RiskAlert, StockTransfer, PaymentRecord
     │   ├── (快捷) OrderTemplate, OrderTemplateItem, OrderImage
-    │   └── (基础设施) UserToken, AuditLog, CustomerStationRecord, StationPaymentConfig
-    ├── mapper/                        # MyBatis Mapper 接口（23个）
-    │   └── factory/                   # 运营平台 Mapper（2个）
+    │   └── (基础设施) AuditLog, CustomerStationRecord, StationPaymentConfig
+    ├── mapper/                               # MyBatis Mapper 接口（22个）
+    │   └── factory/                          # 运营平台 Mapper（2个）
     ├── service/
-    │   ├── impl/                      # 业务实现
-    │   │   └── factory/               # 厂长业务实现（5个）
-    │   └── WeChatLoginService.java    # 微信登录
+    │   ├── impl/                             # 业务实现（18个）
+    │   ├── factory/                          # 厂长业务接口（5个）
+    │   └── impl/factory/                     # 厂长业务实现（5个）
     ├── controller/
-    │   ├── LoginController.java       # 统一登录（JWT 双Token）
-    │   ├── factory/                   # 厂长 API（5个）
-    │   └── *.java                     # 站长/通用 API
-    ├── dto/                           # 数据传输对象
-    ├── filter/JwtAuthFilter.java      # JWT 鉴权过滤器
-    ├── interceptor/
-    │   └── AuditLogInterceptor.java   # 操作审计日志
-    ├── scheduler/
-    │   └── RiskAlertScheduler.java    # 每日风险预警检测
+    │   ├── LoginController.java              # 统一登录（JWT 双Token）
+    │   ├── factory/                          # 厂长 API（5个）
+    │   └── *.java                            # 站长/通用 API（21个）
+    ├── dto/                                  # 8 个数据传输对象
+    ├── annotation/RequireRole.java           # 角色权限注解
+    ├── aspect/RequireRoleAspect.java         # AOP 角色校验切面
+    ├── interceptor/AuthInterceptor.java      # JWT 鉴权拦截器
+    ├── exception/
+    │   ├── BusinessException.java            # 业务异常
+    │   ├── ValidationException.java          # 参数校验异常
+    │   ├── ResourceNotFoundException.java    # 资源不存在异常
+    │   └── GlobalExceptionHandler.java       # 全局异常处理
     └── util/
-        ├── PasswordUtil.java          # BCrypt 工具
-        └── IpUtil.java                # IP 提取工具
+        ├── AuthContext.java                  # 请求上下文（userId/userType/role/stationId）
+        ├── JwtUtil.java                      # JWT 工具（双Token生成/校验）
+        └── PasswordUtil.java                 # BCrypt 密码工具
 ```
 
 ### 前端
@@ -307,64 +308,81 @@ POST /api/auth/login { username, password }
 - 续期失败 → 清除登录状态，跳转登录页
 - 并发请求排队等待续期（防止多次刷新）
 
+### 授权：AOP 角色控制
+
+- `@RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})` — 注解标注在 Controller 方法上
+- `RequireRoleAspect` — AOP 切面，拦截带注解的方法，校验 `AuthContext` 中的角色
+- `AuthContext` — ThreadLocal 存储当前请求的 `userId`/`userType`/`role`/`stationId`
+- `AuthInterceptor` — 从 JWT token 解析用户信息注入 `AuthContext`
+
+所有管理端写操作（POST/PUT/DELETE）均通过 `@RequireRole` 保护，客户 token 无法调用。
+
 ---
 
 ## 数据库设计 — 25 张表
 
 ### 基础数据（4表）
 
-| 表名 | 行数 | 作用 | 关键设计 |
-|------|------|------|---------|
-| `factory` | 2 | 水厂 | `status`(0停用/1启用) |
-| `station` | 6 | 水站 | `factory_id` 关联水厂，`status`(0停用/1启用) |
-| `water_type` | 10 | 水品牌+规格 | UNIQUE(`name`,`spec`) 同品牌不同规格 |
-| `staff` | 14 | 员工/登录账号 | `role`(FACTORY_ADMIN/STATION_MANAGER/DELIVERY)，`password` BCrypt |
+| 表名 | 作用 | 关键设计 |
+|------|------|--------|
+| `factory` | 水厂 | `status`(0停用/1启用) |
+| `station` | 水站 | `factory_id` 关联水厂，`status`(0停用/1启用) |
+| `water_type` | 水品牌+规格 | UNIQUE(`name`,`spec`) 同品牌不同规格 |
+| `staff` | 员工/登录账号 | `role`(FACTORY_ADMIN/STATION_MANAGER/DELIVERY)，`password` BCrypt |
 
 ### 业务核心（6表）
 
-| 表名 | 行数 | 作用 | 关键设计 |
-|------|------|------|---------|
-| `customer` | 20 | 购水客户 | `station_id` 归属，`deposit_balance` 押金，`customer_type`(1个人/2企业)，`tags` 标签 |
-| `address` | 21 | 配送地址 | `customer_id` 关联，`tag` 小区分组，`lat`/`lng` 地图坐标 |
-| `orders` | 35 | 订单 | `status`(1待组批/4已组批/2配送中/3已完成)，`delivery_bucket_qty`/`return_bucket_qty` 送退桶追踪，`station_id` 数据隔离 |
-| `inventory` | 52 | 库存 | UNIQUE(`station_id`,`water_type_id`) 每站每种水一条，`quantity<20` 低库存预警 |
-| `batch` | 11 | 配送批次 | `status`(1待出发/2配送中/3已完成)，`delivery_person_id` 配送员 |
-| `batch_order` | 25 | 批次-订单关联 | UNIQUE(`batch_id`,`order_id`) |
+| 表名 | 作用 | 关键设计 |
+|------|------|--------|
+| `customer` | 购水客户 | `station_id` 归属，`deposit_balance` 押金，`customer_type`(1个人/2企业)，`tags` 标签 |
+| `address` | 配送地址 | `customer_id` 关联，`tag` 小区分组，`lat`/`lng` 地图坐标 |
+| `orders` | 订单 | `status`(1待组批/2配送中/3已完成/4已组批/5已取消)，`delivery_bucket_qty`/`return_bucket_qty` 送退桶追踪 |
+| `inventory` | 库存 | UNIQUE(`station_id`,`water_type_id`) 每站每种水一条，`quantity<20` 低库存预警 |
+| `batch` | 配送批次 | `status`(1待出发/2配送中/3已完成)，`delivery_person_id` 配送员 |
+| `batch_order` | 批次-订单关联 | UNIQUE(`batch_id`,`order_id`) |
 
 ### 资产管理（5表）
 
-| 表名 | 行数 | 作用 | 关键设计 |
-|------|------|------|---------|
-| `ticket_account` | 8 | 水票余额 | UNIQUE(`customer_id`,`water_type_id`) 按水类型分账户 |
-| `ticket_record` | 7 | 水票流水 | `increase_qty`/`decrease_qty`，`source`(购买/消费) |
-| `deposit_record` | 7 | 押金流水 | `type`(1充值/2退款/3赔偿/4调整) |
-| `barrel_record` | 4 | 退桶申请 | `status`(1待处理/2已确认/3已退还/4已驳回)，`deposit_refund` |
-| `payment_record` | 0 | 支付记录 | `payment_method`(1微信/2现金/3水票/4挂账)，`status`(1待付/2已付/3已退款/4已取消) |
+| 表名 | 作用 | 关键设计 |
+|------|------|--------|
+| `ticket_account` | 水票余额 | UNIQUE(`customer_id`,`water_type_id`) 按水类型分账户 |
+| `ticket_record` | 水票流水 | `increase_qty`/`decrease_qty`，`source`(购买/消费) |
+| `deposit_record` | 押金流水 | `type`(1充值/2退还/3扣除) |
+| `barrel_record` | 退桶申请 | `status`(1待处理/2已确认/3已退押金/4已驳回)，`deposit_refund` |
+| `payment_record` | 支付记录 | `payment_method`(1微信/2现金/3水票)，`status`(1待确认/2已付款/3已退款/4已取消) |
 
 ### 运营管理（5表）
 
-| 表名 | 行数 | 作用 | 关键设计 |
-|------|------|------|---------|
-| `risk_alert` | 5 | 风险预警 | `alert_type`(ORDER_DECLINE/INVENTORY_BACKLOG/LOW_STOCK/CUSTOMER_LOSS/NO_ACTIVITY)，`alert_level`(1提示/2警告/3紧急)，`status`(1未读/2已读/3已处理) |
-| `stock_transfer` | 2 | 水站调拨 | `from_station_id`→`to_station_id`，`status`(1待审批/2已审批/3已完成/4已取消) |
-| `audit_log` | - | 操作审计日志 | `user_id`, `module`, `action`, `target`, `ip` |
-| `user_token` | - | refresh_token 存储 | `user_id`, `user_type`, `refresh_token`, `expire_time` |
-| `station_payment_config` | 1 | 支付配置 | 各种支付方式开关 |
+| 表名 | 作用 | 关键设计 |
+|------|------|--------|
+| `risk_alert` | 风险预警 | `alert_type`(ORDER_DECLINE/INVENTORY_BACKLOG/LOW_STOCK/CUSTOMER_LOSS/NO_ACTIVITY) |
+| `stock_transfer` | 水站调拨 | `from_station_id`→`to_station_id`，`status`(1待审批/2已审批/3已完成/4已取消) |
+| `audit_log` | 操作审计日志 | `user_id`, `module`, `action`, `target`, `ip` |
+| `user_token` | refresh_token 存储 | `user_id`, `user_type`, `refresh_token`, `expire_time` |
+| `station_payment_config` | 支付配置 | 各种支付方式开关 |
 
 ### 快捷功能（2表）
 
-| 表名 | 行数 | 作用 | 关键设计 |
-|------|------|------|---------|
-| `order_template` | 4 | 订水模板 | `customer_id`+`name`（如"家里"/"公司"）一键复购 |
-| `order_template_item` | 4 | 模板明细 | `template_id`, `water_type_id`, `quantity` |
+| 表名 | 作用 | 关键设计 |
+|------|------|--------|
+| `order_template` | 订水模板 | `customer_id`+`name`（如"家里"/"公司"）一键复购 |
+| `order_template_item` | 模板明细 | `template_id`, `water_type_id`, `quantity` |
 
 ### 辅助（3表）
 
-| 表名 | 行数 | 作用 | 关键设计 |
-|------|------|------|---------|
-| `company_info` | 5 | 企业客户 | UNIQUE(`customer_id`)，`due_days` 账期天数 |
-| `customer_station_record` | 0 | 客户迁移记录 | `from_station_id`→`to_station_id` |
-| `order_image` | 0 | 配送照片 | `type`(1正常/2异常) |
+| 表名 | 作用 | 关键设计 |
+|------|------|--------|
+| `company_info` | 企业客户 | UNIQUE(`customer_id`)，`due_days` 账期天数 |
+| `customer_station_record` | 客户迁移记录 | `from_station_id`→`to_station_id` |
+| `order_image` | 配送照片 | `type`(1正常/2异常) |
+
+---
+
+## 数据范围隔离
+
+- **厂长**：看到所有水站的汇总/统计/分析数据
+- **站长**：只能看到本水站的数据（通过 `station_id` 过滤）
+- **配送员**：只能看到分配给自己的配送任务（通过 `delivery_person_id` 过滤）
 
 ---
 
@@ -422,9 +440,9 @@ POST /api/auth/login { username, password }
 
 每个订单 `delivery_bucket_qty` 和 `return_bucket_qty` 追踪桶的流动。客户持有桶数 = 送出 - 回收。桶有押金，退桶时退还。
 
-### 2. 三端合一，角色控制
+### 2. 三端协同，角色控制
 
-不是三个系统，是**一个系统一个 URL**。登录后根据 staff 表 `role` 决定菜单和数据范围。路由守卫拦截越权访问。
+管理后台（厂长/站长/配送员）和微信小程序（客户）共用后端 API。管理后台登录后根据 staff 表 `role` 决定菜单和数据范围。后端通过 `@RequireRole` AOP 注解 + `AuthContext` 实现接口级权限控制，所有管理端写操作均有保护。
 
 ### 3. JWT 双 Token 无感续期
 

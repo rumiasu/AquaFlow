@@ -1,5 +1,5 @@
 .container {
-  background-color: #f5f5f5;
+  background-color: var(--bg-color);
   min-height: 100vh;
 }
 
@@ -8,21 +8,22 @@
   align-items: center;
   background-color: #fff;
   padding: 16rpx 24rpx;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid var(--border-color);
 }
 
 .search-input {
   flex: 1;
   height: 64rpx;
-  background-color: #f5f5f5;
+  background-color: var(--bg-gray);
   border-radius: 32rpx;
   padding: 0 24rpx;
   font-size: 28rpx;
+  color: var(--text-primary);
 }
 
 .clear-btn {
   margin-left: 16rpx;
-  color: #999;
+  color: var(--text-secondary);
   font-size: 36rpx;
 }
 
@@ -30,8 +31,9 @@
 .result-section {
   background-color: #fff;
   margin: 24rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 24rpx;
+  box-shadow: var(--shadow-sm);
 }
 
 .section-header {
@@ -43,13 +45,13 @@
 
 .section-title {
   font-size: 28rpx;
-  font-weight: 500;
-  color: #333;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .clear-history {
   font-size: 24rpx;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .history-list {
@@ -60,10 +62,10 @@
 
 .history-item {
   padding: 12rpx 24rpx;
-  background-color: #f5f5f5;
+  background-color: var(--bg-gray);
   border-radius: 24rpx;
   font-size: 26rpx;
-  color: #666;
+  color: var(--text-regular);
 }
 
 .result-list {
@@ -74,7 +76,7 @@
   display: flex;
   align-items: center;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid var(--border-light);
 }
 
 .result-item:last-child {
@@ -84,9 +86,9 @@
 .result-image {
   width: 80rpx;
   height: 80rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   margin-right: 16rpx;
-  background-color: #f5f5f5;
+  background-color: var(--bg-gray);
 }
 
 .result-info {
@@ -95,14 +97,14 @@
 
 .result-name {
   font-size: 28rpx;
-  color: #333;
+  color: var(--text-primary);
   display: block;
   margin-bottom: 8rpx;
 }
 
 .result-spec {
   font-size: 24rpx;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .empty-section {
@@ -111,6 +113,6 @@
 }
 
 .empty-text {
-  color: #999;
+  color: var(--text-secondary);
   font-size: 28rpx;
 }

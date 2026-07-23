@@ -191,7 +191,9 @@ miniapp-user/
 │   ├── template.js         # 常用订单接口
 │   ├── address.js          # 地址接口
 │   ├── barrel.js           # 水桶接口
-│   └── ticket.js           # 水票接口
+│   ├── ticket.js           # 水票接口
+│   ├── customer.js         # 客户资料接口
+│   └── payment.js          # 支付接口
 │
 ├── components/             # 公共组件
 │   ├── Loading/            # 加载组件
@@ -202,19 +204,21 @@ miniapp-user/
 │
 ├── config/
 │   ├── api.js              # API 地址配置
-│   └── constant.js         # 常量配置
+│   ├── constant.js         # 常量配置
+│   └── env.js              # 环境配置
 │
 ├── pages/                  # 页面目录
-│   ├── home/               # 首页
-│   ├── order/              # 订单
-│   ├── address/            # 地址
-│   ├── template/           # 常用订单
-│   ├── barrel/             # 水桶
-│   ├── shop/               # 商城
-│   ├── ticket/             # 水票
-│   ├── mine/               # 我的
-│   ├── login/              # 登录
-│   └── service/            # 客服
+│   ├── home/               # 首页（下单页）
+│   ├── order/              # 订单（列表/详情/创建/成功）
+│   ├── address/            # 地址（列表/编辑）
+│   ├── template/           # 常用订单模板
+│   ├── barrel/             # 水桶管理
+│   ├── shop/               # 商城（浏览水类型）
+│   ├── ticket/             # 水票查询
+│   ├── payment/            # 支付页
+│   ├── mine/               # 个人中心
+│   ├── login/              # 微信登录
+│   └── service/            # 联系客服
 │
 ├── services/               # 业务逻辑层
 │   └── loginService.js     # 登录状态管理
@@ -228,7 +232,8 @@ miniapp-user/
 │
 ├── styles/                 # 样式文件
 │   ├── variable.wxss       # CSS 变量（主题色）
-│   └── common.wxss         # 公共样式
+│   ├── common.wxss         # 公共样式
+│   └── theme.wxss          # 主题样式
 │
 ├── app.js                  # 小程序入口（登录检查）
 ├── app.json                # 小程序配置（TabBar 等）

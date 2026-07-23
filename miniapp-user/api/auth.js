@@ -9,7 +9,7 @@ const wxLogin = (code) => {
 
 // 开发模式登录（后端: POST /api/auth/dev-login）
 const devLogin = (nickname) => {
-  return post(API.DEV_LOGIN, { openid: 'dev-' + Date.now(), nickname: nickname || '测试用户' })
+  return post(API.DEV_LOGIN, { openid: 'dev-openid-001', nickname: nickname || '测试用户' })
 }
 
 // 更新用户资料（后端: POST /api/auth/update-profile）

@@ -18,7 +18,7 @@ mybatis:
 
 wechat:
   miniapp:
-    appid: your-appid-here
+    appid: ${JWT_SECRET:}
     secret: ${JWT_SECRET:}
 
 jwt:

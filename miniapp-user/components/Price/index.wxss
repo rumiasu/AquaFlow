@@ -1,8 +1,8 @@
 .price {
   display: inline-flex;
   align-items: baseline;
-  color: #ff4d4f;
-  font-weight: bold;
+  color: var(--price-color);
+  font-weight: 700;
 }
 .symbol {
   font-size: 24rpx;

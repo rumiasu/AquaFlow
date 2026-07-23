@@ -1,16 +1,18 @@
 .container {
   padding-bottom: 130rpx;
+  background: var(--bg-color);
+  min-height: 100vh;
 }
 
 /* 水桶提示 */
 .barrel-tip {
   display: flex;
   align-items: center;
-  background-color: #fffbe6;
+  background-color: rgba(217, 119, 6, 0.06);
   margin: 24rpx 24rpx 0;
   padding: 20rpx 24rpx;
   border-radius: 12rpx;
-  border: 1rpx solid #ffe58f;
+  border: 1rpx solid rgba(217, 119, 6, 0.15);
 }
 
 .barrel-tip-icon {
@@ -21,19 +23,20 @@
 .barrel-tip-text {
   flex: 1;
   font-size: 26rpx;
-  color: #8c6e00;
+  color: var(--warning-color);
 }
 
 .barrel-tip-text .highlight {
-  font-weight: bold;
-  color: #d48806;
+  font-weight: 700;
+  color: var(--warning-color);
 }
 
 .section {
   background-color: #fff;
   margin: 24rpx;
   padding: 28rpx 24rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .section-header {
@@ -49,15 +52,15 @@
 
 .section-title {
   font-size: 30rpx;
-  font-weight: 500;
-  color: #333;
+  font-weight: 700;
+  color: var(--text-primary);
   display: block;
   margin-bottom: 20rpx;
 }
 
 .section-hint {
   font-size: 22rpx;
-  color: #faad14;
+  color: var(--warning-color);
 }
 
 /* 商品信息 */
@@ -69,8 +72,8 @@
 .product-image {
   width: 160rpx;
   height: 160rpx;
-  border-radius: 12rpx;
-  background-color: #f5f5f5;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-gray);
   margin-right: 24rpx;
 }
 
@@ -80,28 +83,29 @@
 
 .product-name {
   font-size: 30rpx;
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: var(--text-primary);
   display: block;
   margin-bottom: 8rpx;
 }
 
 .product-spec {
   font-size: 24rpx;
-  color: #999;
+  color: var(--text-secondary);
   display: block;
   margin-bottom: 12rpx;
 }
 
 .price-symbol {
   font-size: 24rpx;
-  color: #ff4d4f;
+  color: var(--price-color);
+  font-weight: 600;
 }
 
 .price-value {
   font-size: 32rpx;
-  color: #ff4d4f;
-  font-weight: bold;
+  color: var(--price-color);
+  font-weight: 700;
 }
 
 /* 地址卡片 */
@@ -120,29 +124,29 @@
 
 .address-name {
   font-size: 30rpx;
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: var(--text-primary);
   margin-right: 16rpx;
 }
 
 .address-phone {
   font-size: 26rpx;
-  color: #666;
+  color: var(--text-regular);
 }
 
 .address-detail {
   font-size: 26rpx;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .address-empty {
   flex: 1;
-  color: #999;
+  color: var(--text-secondary);
   font-size: 28rpx;
 }
 
 .address-arrow {
-  color: #ccc;
+  color: var(--text-placeholder);
   font-size: 36rpx;
   margin-left: 12rpx;
 }
@@ -162,7 +166,7 @@
   width: 60rpx;
   height: 60rpx;
   border-radius: 12rpx;
-  background-color: #f5f5f5;
+  background-color: var(--bg-gray);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -174,7 +178,7 @@
 
 .qty-btn text {
   font-size: 36rpx;
-  color: #333;
+  color: var(--text-primary);
   line-height: 1;
 }
 
@@ -185,22 +189,24 @@
   font-size: 32rpx;
   font-weight: 500;
   margin: 0 16rpx;
+  color: var(--text-primary);
 }
 
 .quantity-tip {
   font-size: 28rpx;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 /* 备注 */
 .note-input {
   width: 100%;
   height: 72rpx;
-  background-color: #f5f5f5;
+  background-color: var(--bg-gray);
   border-radius: 12rpx;
   padding: 0 20rpx;
   font-size: 28rpx;
-  color: #333;
+  color: var(--text-primary);
+  border: 1rpx solid var(--border-color);
 }
 
 /* 底部提交栏 */
@@ -215,7 +221,7 @@
   align-items: center;
   padding: 0 24rpx;
   padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
+  box-shadow: 0 -2rpx 10rpx rgba(15, 23, 42, 0.06);
   z-index: 100;
 }
 
@@ -227,13 +233,13 @@
 
 .total-label {
   font-size: 28rpx;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .total-price {
   font-size: 36rpx;
-  font-weight: bold;
-  color: #ff4d4f;
+  font-weight: 700;
+  color: var(--price-color);
 }
 
 .total-price .price-symbol {
@@ -243,35 +249,33 @@
 .submit-btn {
   width: 260rpx;
   height: 80rpx;
-  background-color: #1890ff;
+  background: var(--primary-gradient);
   border-radius: 40rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-size: 30rpx;
+  font-weight: 600;
+  box-shadow: var(--shadow-primary);
 }
 
 .submit-btn.disabled {
-  background-color: #ccc;
+  background: var(--text-placeholder);
+  box-shadow: none;
 }
 
 /* 超额弹窗 */
 .modal-mask {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   z-index: 1000;
 }
 
 .modal-content {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 0; left: 0; right: 0;
   background-color: #fff;
   border-radius: 24rpx 24rpx 0 0;
   z-index: 1001;
@@ -288,17 +292,18 @@
   justify-content: space-between;
   align-items: center;
   padding: 28rpx 32rpx;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid var(--border-light);
 }
 
 .modal-title {
   font-size: 32rpx;
-  font-weight: 500;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .modal-close {
   font-size: 40rpx;
-  color: #999;
+  color: var(--text-secondary);
   padding: 0 8rpx;
 }
 
@@ -309,7 +314,7 @@
 .exceed-warn {
   display: flex;
   align-items: flex-start;
-  background-color: #fff7e6;
+  background-color: rgba(217, 119, 6, 0.06);
   padding: 20rpx 24rpx;
   border-radius: 12rpx;
   margin-bottom: 24rpx;
@@ -323,17 +328,17 @@
 
 .warn-text {
   font-size: 26rpx;
-  color: #8c6e00;
+  color: var(--warning-color);
   line-height: 1.6;
 }
 
 .warn-text .highlight {
-  color: #faad14;
-  font-weight: bold;
+  color: var(--warning-color);
+  font-weight: 700;
 }
 
 .cost-detail {
-  background-color: #fafafa;
+  background-color: var(--bg-gray);
   border-radius: 12rpx;
   padding: 20rpx 24rpx;
   margin-bottom: 20rpx;
@@ -348,17 +353,17 @@
 
 .cost-label {
   font-size: 26rpx;
-  color: #666;
+  color: var(--text-regular);
 }
 
 .cost-value {
   font-size: 26rpx;
-  color: #333;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .cost-value.deposit {
-  color: #faad14;
+  color: var(--warning-color);
 }
 
 .cost-total {
@@ -367,24 +372,24 @@
   align-items: center;
   padding-top: 16rpx;
   margin-top: 12rpx;
-  border-top: 1rpx solid #f0f0f0;
+  border-top: 1rpx solid var(--border-light);
 }
 
 .cost-total .cost-label {
   font-size: 28rpx;
-  color: #333;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .cost-total .cost-value.total {
   font-size: 32rpx;
-  color: #ff4d4f;
-  font-weight: bold;
+  color: var(--price-color);
+  font-weight: 700;
 }
 
 .exceed-note {
   font-size: 24rpx;
-  color: #999;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
@@ -393,7 +398,7 @@
   padding: 16rpx 32rpx;
   padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
   gap: 24rpx;
-  border-top: 1rpx solid #f0f0f0;
+  border-top: 1rpx solid var(--border-light);
 }
 
 .modal-btn {
@@ -407,11 +412,11 @@
 }
 
 .modal-btn.cancel {
-  background-color: #f5f5f5;
-  color: #666;
+  background-color: var(--bg-gray);
+  color: var(--text-regular);
 }
 
 .modal-btn.confirm {
-  background-color: #1890ff;
+  background: var(--primary-gradient);
   color: #fff;
 }

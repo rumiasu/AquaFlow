@@ -81,13 +81,13 @@ Page({
         wx.showToast({ title: '登录成功', icon: 'success' })
         setTimeout(() => {
           wx.switchTab({ url: '/pages/home/index' })
-        }, 1000)
+        }, 500)
       } else {
         wx.showToast({ title: res.message || '登录失败', icon: 'none' })
       }
     } catch (error) {
       console.error('开发登录失败:', error)
-      wx.showToast({ title: '登录失败: ' + (error.message || ''), icon: 'none', duration: 3000 })
+      wx.showToast({ title: '登录失败: ' + (error.message || '网络错误'), icon: 'none', duration: 3000 })
     } finally {
       this.setData({ loading: false })
     }

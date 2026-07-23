@@ -1,14 +1,13 @@
-@import './styles/common.wxss';
 @import './styles/variable.wxss';
+@import './styles/common.wxss';
 @import './styles/theme.wxss';
 
 page {
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
   font-size: 28rpx;
-  color: #1a1a1a;
-  background-color: #f5f7fa;
+  color: var(--text-primary);
+  background-color: var(--bg-color);
   box-sizing: border-box;
-  -webkit-font-smoothing: antialiased;
 }
 
 view, text, image {

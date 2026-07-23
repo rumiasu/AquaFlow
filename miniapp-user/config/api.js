@@ -1,6 +1,6 @@
 // API配置
 const API_CONFIG = {
-  dev: { baseUrl: 'http://192.168.0.243:8080' },
+  dev: { baseUrl: 'http://127.0.0.1:8080' },
   prod: { baseUrl: 'https://your-domain.com' }
 }
 

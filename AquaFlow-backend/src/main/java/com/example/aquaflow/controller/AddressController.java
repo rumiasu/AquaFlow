@@ -1,5 +1,6 @@
 package com.example.aquaflow.controller;
 
+import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.Address;
 import com.example.aquaflow.service.AddressService;
@@ -19,6 +20,7 @@ public class AddressController {
     @Autowired
     private AddressService addressService;
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PostMapping
     public Result save(@RequestBody Address address) {
         addressService.save(address);
@@ -27,8 +29,12 @@ public class AddressController {
 
     @GetMapping
     public Result<List<Address>> list(@RequestParam(required = false) String tag,
-                                      @RequestParam(required = false) String keyword) {
-        Integer customerId = AuthContext.requireCustomerId();
+                                      @RequestParam(required = false) String keyword,
+                                      @RequestParam(required = false) Integer customerId) {
+        // 客户只能看自己的地址，员工可以看所有或按客户筛选
+        if ("customer".equals(AuthContext.getUserType())) {
+            customerId = AuthContext.requireCustomerId();
+        }
         return Result.success(addressService.list(customerId, tag, keyword));
     }
 
@@ -37,6 +43,7 @@ public class AddressController {
         return Result.success(addressService.getById(id));
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PutMapping("/{id}")
     public Result update(@PathVariable Integer id, @RequestBody Address address) {
         address.setId(id);

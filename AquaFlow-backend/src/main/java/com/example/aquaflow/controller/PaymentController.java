@@ -1,5 +1,6 @@
 package com.example.aquaflow.controller;
 
+import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.PaymentRecord;
 import com.example.aquaflow.service.PaymentService;
@@ -37,19 +38,18 @@ public class PaymentController {
     }
 
     /** 确认支付 */
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PutMapping("/{id}/confirm")
     public Result confirm(@PathVariable Long id) {
         paymentService.confirmPayment(id);
         return Result.success();
     }
 
-    /** 货到付款确认 */
-    @PostMapping("/cash-confirm")
-    public Result confirmCash(@RequestBody Map<String, Object> body) {
-        Long orderId = Long.valueOf(body.get("orderId").toString());
-        Long customerId = Long.valueOf(body.get("customerId").toString());
-        BigDecimal amount = new BigDecimal(body.get("amount").toString());
-        paymentService.confirmCashPayment(orderId, customerId, amount);
+    /** 现金收款确认 */
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
+    @PutMapping("/{id}/cash-confirm")
+    public Result confirmCashById(@PathVariable Long id) {
+        paymentService.confirmPayment(id);
         return Result.success();
     }
 
@@ -73,13 +73,23 @@ public class PaymentController {
         return Result.success(paymentService.listByCustomerId(Long.valueOf(customerId)));
     }
 
-    /** 查询所有支付记录（管理端） */
+    /** 查询所有支付记录（管理端，支持过滤） */
+    @GetMapping
+    public Result<List<PaymentRecord>> listAll(
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) Integer method,
+            @RequestParam(defaultValue = "200") int limit) {
+        return Result.success(paymentService.listWithFilter(status, method, limit));
+    }
+
+    /** 查询所有支付记录（管理端，备用） */
     @GetMapping("/all")
-    public Result<List<PaymentRecord>> listAll(@RequestParam(defaultValue = "100") int limit) {
+    public Result<List<PaymentRecord>> listAllBackup(@RequestParam(defaultValue = "100") int limit) {
         return Result.success(paymentService.listAll(limit));
     }
 
     /** 退款 */
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PutMapping("/{id}/refund")
     public Result refund(@PathVariable Long id, @RequestBody Map<String, String> body) {
         paymentService.refundPayment(id, body.get("note"));
@@ -93,6 +103,7 @@ public class PaymentController {
     }
 
     /** 更新站点支付配置 */
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PutMapping("/config")
     public Result updateConfig(@RequestBody Map<String, Object> body) {
         Long stationId = body.get("stationId") != null ? Long.valueOf(body.get("stationId").toString()) : null;

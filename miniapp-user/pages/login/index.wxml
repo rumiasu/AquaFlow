@@ -15,7 +15,7 @@
         <text wx:else>微信一键登录</text>
       </button>
       <view class="dev-login-btn" bindtap="onDevLogin">
-        <text>开发模式登录</text>
+        <text>📱 测试账号直接登录</text>
       </view>
     </view>
 

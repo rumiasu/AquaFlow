@@ -3,6 +3,6 @@
   text-align: center;
 }
 .empty-text {
-  color: #999;
+  color: var(--text-secondary);
   font-size: 28rpx;
 }

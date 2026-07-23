@@ -75,12 +75,14 @@ public class BarrelController {
     /** 管理端：查看所有退桶记录 */
     @GetMapping("/all-records")
     public Result<List<BarrelRecord>> listAllRecords() {
+        AuthContext.requireStaffRole();
         return Result.success(barrelService.listAllRecords());
     }
 
     /** 管理端：审批退桶记录 */
     @PutMapping("/records/{id}/status")
     public Result handleReturn(@PathVariable Integer id, @RequestBody Map<String, Object> body) {
+        AuthContext.requireStaffRole();
         Integer status = (Integer) body.get("status");
         String handleNote = (String) body.get("handleNote");
         barrelService.handleReturn(id, status, handleNote);

@@ -33,13 +33,13 @@ Page({
 
   loadBarrelSummary() {
     getBarrelSummary().then(res => {
-      this.setData({ barrelSummary: res })
+      this.setData({ barrelSummary: res.data || res })
     }).catch(() => {})
   },
 
   loadCustomerStats() {
     getCustomerStats().then(res => {
-      this.setData({ customerStats: res })
+      this.setData({ customerStats: res.data || res })
     }).catch(() => {})
   },
 

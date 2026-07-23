@@ -1,6 +1,8 @@
 {
   "pages": [
     "pages/home/index",
+    "pages/home/search",
+    "pages/home/notice",
     "pages/order/list",
     "pages/order/detail",
     "pages/order/create",
@@ -21,16 +23,16 @@
   ],
   "window": {
     "backgroundTextStyle": "dark",
-    "navigationBarBackgroundColor": "#4facfe",
+    "navigationBarBackgroundColor": "#1e40af",
     "navigationBarTitleText": "AquaFlow",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#f5f7fa"
+    "backgroundColor": "#f0f4f8"
   },
   "tabBar": {
-    "color": "#999999",
-    "selectedColor": "#4facfe",
+    "color": "#94a3b8",
+    "selectedColor": "#1e40af",
     "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/home/index",
@@ -58,6 +60,18 @@
       }
     ]
   },
-  "usingComponents": {},
+  "requiredPrivateInfos": [
+    "chooseLocation",
+    "getLocation"
+  ],
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于获取您的收货地址，方便配送"
+    }
+  },
+  "__usePrivacyCheck": true,
+  "usingComponents": {
+    "privacy-popup": "/components/PrivacyPopup/index"
+  },
   "sitemapLocation": "sitemap.json"
 }

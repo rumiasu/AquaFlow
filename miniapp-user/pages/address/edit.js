@@ -1,6 +1,5 @@
-const { getAddressDetail, createAddress, updateAddress } = require('../../api/address')
+const { getAddressDetail, createAddress, updateAddress, getAddresses } = require('../../api/address')
 const { validateForm, rules } = require('../../utils/validator')
-const { ADDRESS_TAGS } = require('../../config/constant')
 
 Page({
   data: {
@@ -8,7 +7,7 @@ Page({
     submitting: false,
     isEdit: false,
     addressId: '',
-    tags: ADDRESS_TAGS,
+    tagSuggestions: [],
     labels: ['家', '公司', '父母家', '其他'],
     formData: {
       name: '',
@@ -21,6 +20,7 @@ Page({
   },
 
   onLoad(options) {
+    this.loadTagSuggestions()
     if (options.id) {
       this.setData({
         isEdit: true,
@@ -42,7 +42,7 @@ Page({
             detail: res.data.detail || '',
             tag: res.data.tag || '',
             label: res.data.label || '',
-            isDefault: res.data.isDefault || false
+            isDefault: !!res.data.isDefault
           }
         })
       }
@@ -59,9 +59,22 @@ Page({
     this.setData({ [`formData.${field}`]: e.detail.value })
   },
 
-  onTagSelect(e) {
+  onTagSuggest(e) {
     const { tag } = e.currentTarget.dataset
     this.setData({ 'formData.tag': tag })
+  },
+
+  async loadTagSuggestions() {
+    try {
+      const res = await getAddresses()
+      if (res.data && res.data.length) {
+        // 从已有地址中提取不重复的 tag 作为快捷建议
+        const tags = [...new Set(res.data.map(a => a.tag).filter(Boolean))]
+        this.setData({ tagSuggestions: tags })
+      }
+    } catch (e) {
+      // 静默失败
+    }
   },
 
   onLabelSelect(e) {
@@ -73,11 +86,56 @@ Page({
     this.setData({ 'formData.isDefault': e.detail.value })
   },
 
+  onToggleDefault() {
+    this.setData({ 'formData.isDefault': !this.data.formData.isDefault })
+  },
+
   onChooseLocation() {
+    // 先检查并请求位置权限
+    wx.getSetting({
+      success: (res) => {
+        if (res.authSetting['scope.userLocation'] === false) {
+          // 用户之前拒绝过，引导去设置页
+          wx.showModal({
+            title: '需要位置权限',
+            content: '请在设置中开启位置权限，以便获取收货地址',
+            confirmText: '去设置',
+            success: (modalRes) => {
+              if (modalRes.confirm) wx.openSetting()
+            }
+          })
+          return
+        }
+        // 有权限或未决定，直接调用
+        this._doChooseLocation()
+      },
+      fail: () => {
+        this._doChooseLocation()
+      }
+    })
+  },
+
+  _doChooseLocation() {
     wx.chooseLocation({
       success: (res) => {
         if (res.address) {
           this.setData({ 'formData.detail': res.address + (res.name || '') })
+        }
+      },
+      fail: (err) => {
+        console.warn('chooseLocation fail:', err)
+        const msg = (err.errMsg || '')
+        if (msg.includes('auth') || msg.includes('deny')) {
+          wx.showModal({
+            title: '需要位置权限',
+            content: '请在设置中开启位置权限，以便获取收货地址',
+            confirmText: '去设置',
+            success: (res) => {
+              if (res.confirm) wx.openSetting()
+            }
+          })
+        } else {
+          wx.showToast({ title: '定位不可用，请手动输入', icon: 'none' })
         }
       }
     })
@@ -99,11 +157,16 @@ Page({
     }
 
     this.setData({ submitting: true })
+    // isDefault: 前端用 boolean，后端要 Integer (0/1)
+    const submitData = {
+      ...formData,
+      isDefault: formData.isDefault ? 1 : 0
+    }
     try {
       if (isEdit) {
-        await updateAddress(addressId, formData)
+        await updateAddress(addressId, submitData)
       } else {
-        await createAddress(formData)
+        await createAddress(submitData)
       }
       wx.showToast({ title: isEdit ? '更新成功' : '添加成功', icon: 'success' })
       setTimeout(() => wx.navigateBack(), 1500)

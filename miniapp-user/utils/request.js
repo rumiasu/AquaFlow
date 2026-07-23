@@ -36,6 +36,7 @@ const request = (options) => {
       method: options.method || 'GET',
       data: options.data,
       header,
+      timeout: 15000,
       success: (res) => {
         if (res.statusCode === 200) {
           if (res.data.code === 0 || res.data.code === 200) {

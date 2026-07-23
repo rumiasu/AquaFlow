@@ -1,5 +1,5 @@
 .container {
-  background-color: #f5f5f5;
+  background-color: var(--bg-color);
   min-height: 100vh;
 }
 
@@ -20,22 +20,23 @@
 
 .app-name {
   font-size: 36rpx;
-  font-weight: 500;
-  color: #333;
+  font-weight: 700;
+  color: var(--text-primary);
   display: block;
   margin-bottom: 12rpx;
 }
 
 .app-version {
   font-size: 26rpx;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .info-section {
   background-color: #fff;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: 48rpx;
+  box-shadow: var(--shadow-sm);
 }
 
 .info-item {
@@ -43,20 +44,24 @@
   justify-content: space-between;
   align-items: center;
   padding: 28rpx 24rpx;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid var(--border-light);
 }
 
 .info-item:last-child {
   border-bottom: none;
 }
 
+.info-item:active {
+  background-color: var(--bg-gray);
+}
+
 .info-label {
   font-size: 28rpx;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .info-arrow {
-  color: #ccc;
+  color: var(--text-placeholder);
   font-size: 32rpx;
 }
 
@@ -67,6 +72,6 @@
 .copyright text {
   display: block;
   font-size: 24rpx;
-  color: #ccc;
+  color: var(--text-placeholder);
   line-height: 1.8;
 }

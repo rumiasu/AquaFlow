@@ -25,6 +25,9 @@ public interface PaymentRecordMapper {
     @Select("SELECT * FROM payment_record ORDER BY create_time DESC LIMIT #{limit}")
     List<PaymentRecord> listAll(@Param("limit") int limit);
 
+    @Select({"<script>SELECT * FROM payment_record", "<where>", "<if test='status != null'>AND status = #{status}</if>", "<if test='paymentMethod != null'>AND payment_method = #{paymentMethod}</if>", "</where>", "ORDER BY create_time DESC LIMIT #{limit}</script>"})
+    List<PaymentRecord> listWithFilter(@Param("status") Integer status, @Param("paymentMethod") Integer paymentMethod, @Param("limit") int limit);
+
     @Update("UPDATE payment_record SET status = #{status}, update_time = NOW() WHERE id = #{id}")
     void updateStatus(@Param("id") Long id, @Param("status") Integer status);
 }

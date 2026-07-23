@@ -1,12 +1,15 @@
 .container {
-  background-color: #f5f5f5;
+  background-color: var(--bg-color);
   min-height: 100vh;
 }
 
 .tabs {
   display: flex;
   background-color: #fff;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .tab-item {
@@ -16,13 +19,14 @@
   align-items: center;
   justify-content: center;
   font-size: 28rpx;
-  color: #666;
+  color: var(--text-regular);
   position: relative;
+  transition: color 0.2s;
 }
 
 .tab-item.active {
-  color: #1890ff;
-  font-weight: 500;
+  color: var(--primary-color);
+  font-weight: 600;
 }
 
 .tab-item.active::after {
@@ -32,9 +36,9 @@
   left: 50%;
   transform: translateX(-50%);
   width: 48rpx;
-  height: 4rpx;
-  background-color: #1890ff;
-  border-radius: 2rpx;
+  height: 6rpx;
+  background: var(--primary-gradient);
+  border-radius: 3rpx;
 }
 
 .tab-content {
@@ -44,8 +48,9 @@
 .account-list,
 .record-list {
   background-color: #fff;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .account-item,
@@ -53,8 +58,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24rpx;
-  border-bottom: 1rpx solid #f0f0f0;
+  padding: 28rpx;
+  border-bottom: 1rpx solid var(--border-light);
 }
 
 .account-item:last-child,
@@ -70,7 +75,8 @@
 .account-name,
 .record-name {
   font-size: 28rpx;
-  color: #333;
+  color: var(--text-primary);
+  font-weight: 500;
   display: block;
   margin-bottom: 8rpx;
 }
@@ -78,7 +84,7 @@
 .account-spec,
 .record-time {
   font-size: 24rpx;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .account-quantity {
@@ -88,25 +94,25 @@
 
 .quantity-value {
   font-size: 36rpx;
-  font-weight: 500;
-  color: #1890ff;
+  font-weight: 700;
+  color: var(--primary-color);
   margin-right: 8rpx;
 }
 
 .quantity-unit {
   font-size: 24rpx;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .quantity-change {
   font-size: 28rpx;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .quantity-change.increase {
-  color: #52c41a;
+  color: var(--success-color);
 }
 
 .quantity-change.decrease {
-  color: #ff4d4f;
+  color: var(--error-color);
 }

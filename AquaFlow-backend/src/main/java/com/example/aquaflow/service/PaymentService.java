@@ -36,6 +36,9 @@ public interface PaymentService {
     /** 查询所有支付记录（管理端） */
     List<PaymentRecord> listAll(int limit);
 
+    /** 查询支付记录（带过滤） */
+    List<PaymentRecord> listWithFilter(Integer status, Integer paymentMethod, int limit);
+
     /** 获取站点支付配置 */
     Map<String, Object> getStationConfig(Long stationId);
 

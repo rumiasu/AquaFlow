@@ -33,11 +33,13 @@ Page({
     const isLogin = app.globalData.isLogin
     this.setData({ isLogin })
 
-    if (isLogin) {
-      this.loadData()
-    } else {
-      this.setData({ state: 'guest', loading: false })
+    // 游客跳转到商城
+    if (!isLogin) {
+      wx.switchTab({ url: '/pages/shop/index' })
+      return
     }
+
+    this.loadData()
 
     const selectedAddress = storage.get('selectedAddress')
     if (selectedAddress) {

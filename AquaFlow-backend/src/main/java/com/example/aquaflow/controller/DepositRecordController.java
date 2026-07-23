@@ -1,5 +1,6 @@
 package com.example.aquaflow.controller;
 
+import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.dto.DepositDTO;
 import com.example.aquaflow.entity.DepositRecord;
@@ -33,6 +34,7 @@ public class DepositRecordController {
         return Result.success(depositRecordService.listByCustomerId(customerId));
     }
 
+    @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})
     @PostMapping
     public Result add(@RequestBody DepositDTO dto) {
         DepositRecord record = new DepositRecord();

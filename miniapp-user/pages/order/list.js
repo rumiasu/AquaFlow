@@ -13,7 +13,13 @@ Page({
     orders: []
   },
 
-  onLoad() { this.loadOrders() },
+  onLoad() {
+    if (!app.globalData.isLogin) {
+      wx.redirectTo({ url: '/pages/login/index' })
+      return
+    }
+    this.loadOrders()
+  },
   onShow() { this.loadOrders() },
 
   onPullDownRefresh() {
@@ -24,7 +30,8 @@ Page({
     const { currentTab, tabs } = this.data
     const params = {}
     if (currentTab > 0) params.status = tabs[currentTab].status
-    return getOrders(params).then(orders => {
+    return getOrders(params).then(res => {
+      const orders = Array.isArray(res) ? res : (res.data || [])
       this.setData({ orders })
     }).catch(err => {
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })

@@ -36,7 +36,14 @@ export const PAYMENT_STATUS_TEXT = {
   4: '已取消'
 }
 
-export const ADDRESS_TAGS = ['小区', '工厂', '写字楼', '商场', '其他']
+export const ADDRESS_TAGS = [
+  { value: '小区', label: '小区' },
+  { value: '工厂', label: '工厂' },
+  { value: '写字楼', label: '写字楼' },
+  { value: '学校', label: '学校' },
+  { value: '商场', label: '商场' },
+  { value: '其他', label: '其他' }
+]
 
 export const TICKET_SOURCE = {
   PURCHASE: '购买',

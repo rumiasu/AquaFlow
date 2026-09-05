@@ -67,7 +67,7 @@ AquaFlow：打开 → 选水 → 选数量 → 下单 → 等配送
 **数据来源：**
 - 地址：`GET /api/addresses`
 - 水桶：`GET /api/barrels/summary-by-type`
-- 水类型：`GET /api/water-types`
+- 商品：`GET /api/products`
 - 常用订单：`GET /api/order-templates/quick`
 - 最近订单：`GET /api/orders`
 

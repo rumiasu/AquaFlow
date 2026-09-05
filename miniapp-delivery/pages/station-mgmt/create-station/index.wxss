@@ -1,0 +1,133 @@
+.container {
+  min-height: 100vh;
+  padding: 32rpx 32rpx 180rpx;
+  background: #f5f7fb;
+  box-sizing: border-box;
+}
+
+.form-card {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 40rpx 36rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.04);
+}
+
+.form-header {
+  margin-bottom: 40rpx;
+}
+
+.form-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 12rpx;
+}
+
+.form-subtitle {
+  font-size: 26rpx;
+  color: #888888;
+}
+
+.form-group {
+  margin-bottom: 36rpx;
+}
+
+.form-label {
+  display: block;
+  font-size: 28rpx;
+  color: #333333;
+  font-weight: 500;
+  margin-bottom: 16rpx;
+}
+
+.required {
+  color: #FF3B30;
+  margin-left: 4rpx;
+}
+
+.form-input {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 28rpx;
+  background: #f7f8fb;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  color: #1a1a1a;
+  box-sizing: border-box;
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 180rpx;
+  padding: 24rpx 28rpx;
+  background: #f7f8fb;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  color: #1a1a1a;
+  box-sizing: border-box;
+}
+
+.form-picker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 88rpx;
+  padding: 0 28rpx;
+  background: #f7f8fb;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  color: #1a1a1a;
+}
+
+.form-picker.placeholder {
+  color: #999999;
+}
+
+.picker-arrow {
+  font-size: 36rpx;
+  color: #cccccc;
+}
+
+.location-group .location-value {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 88rpx;
+  padding: 0 28rpx;
+  background: #f7f8fb;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: #1a1a1a;
+}
+
+.location-value.placeholder {
+  color: #999999;
+}
+
+.location-icon {
+  font-size: 32rpx;
+}
+
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 24rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
+  background: #ffffff;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.btn-submit {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  background: #4F8EF7;
+  color: #ffffff;
+  border-radius: 48rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  border: none;
+}

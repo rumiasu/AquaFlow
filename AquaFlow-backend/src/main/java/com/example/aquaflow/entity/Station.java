@@ -6,35 +6,40 @@ import java.time.LocalDateTime;
 
 /**
  * 水站实体类，对应数据库 station 表。
- * <p>存储水站的基本信息，包括所属水厂、站长及地址。</p>
+ * <p><b>V1 Binding 模型:</b> 站长关系<b>不在 station 表里存 manager 字段</b>，真正的站长关系由:
+ * <pre>
+ *   staff.role       = STATION_MANAGER
+ *   staff.station_id = station.id
+ * </pre>
+ * 表达。
  */
 @Data
 public class Station {
 
     /** 水站ID，主键自增 */
-    private Integer id;
-
-    /** 所属水厂ID，关联 factory 表 */
-    private Integer factoryId;
+    private Long id;
 
     /** 水站名称 */
     private String name;
 
-    /** 站长姓名 */
-    private String manager;
-
-    /** 站长电话 */
+    /** 水站电话 */
     private String phone;
 
     /** 水站地址 */
     private String address;
 
-    /** 状态：0=停用 1=启用 */
+    /** 状态: 1 营业 2 停业 */
     private Integer status;
+
+    /** 是否允许线下支付总开关 */
+    private Integer offlinePaymentEnabled;
+
+    /** 创建者站长ID */
+    private Long creatorStaffId;
 
     /** 创建时间 */
     private LocalDateTime createTime;
 
-    /** 最后修改时间 */
+    /** 更新时间 */
     private LocalDateTime updateTime;
 }

@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS water_type (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    name VARCHAR(100) NOT NULL COMMENT '水类型名称',
+    brand VARCHAR(100) DEFAULT '' COMMENT '品牌',
+    spec VARCHAR(100) DEFAULT NULL COMMENT '容量/规格',
+    note VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    image_url VARCHAR(500) DEFAULT '' COMMENT '图片URL',
+    description TEXT COMMENT '商品描述',
+    sort INT DEFAULT '0' COMMENT '排序',
+    status TINYINT DEFAULT '1' COMMENT '状态 0=下架 1=上架 2=停售',
+    price DECIMAL(10,2) DEFAULT '0.00',
+    deposit DECIMAL(10,2) DEFAULT '0.00' COMMENT '押金',
+    max_per_order INT NOT NULL DEFAULT '4' COMMENT '单次正常购买上限(桶)',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_water_type_name_spec (name, spec)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='水类型表';

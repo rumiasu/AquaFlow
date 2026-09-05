@@ -1,6 +1,9 @@
 const { getTemplates, saveTemplate, toggleTemplate, deleteTemplate } = require('../../api/template')
-const { getWaterTypes } = require('../../api/product')
+const { getProducts, getStationProducts } = require('../../api/product')
 const { getAddresses } = require('../../api/address')
+const { getBaseUrl, API } = require('../../config/api')
+const { getAccessToken } = require('../../utils/token')
+const { stationStorage } = require('../../utils/storage')
 
 Page({
   data: {
@@ -11,6 +14,7 @@ Page({
     isEditing: false,
     products: [],
     addresses: [],
+    stationId: null,
     form: {
       name: '',
       addressId: null,
@@ -28,11 +32,10 @@ Page({
   async loadData() {
     this.setData({ loading: true })
     try {
-      const tplRes = await getTemplates().catch(() => null)
+      const sid = this.data.stationId || stationStorage.getId()
+      const tplRes = sid ? await getTemplates(sid).catch(() => null) : null
       let templates = []
-      if (tplRes && tplRes.data) {
-        templates = tplRes.data
-      }
+      if (tplRes && tplRes.data) templates = tplRes.data
       this.setData({ templates })
     } finally {
       this.setData({ loading: false })
@@ -48,7 +51,7 @@ Page({
         name: '',
         addressId: null,
         specialNote: '',
-        items: [{ waterTypeId: null, quantity: 1 }]
+        items: [{ productId: null, quantity: 1 }]
       }
     })
     this.loadFormData()
@@ -57,8 +60,8 @@ Page({
   onEditTemplate(e) {
     const { template } = e.currentTarget.dataset
     const items = (template.items && template.items.length > 0)
-      ? template.items.map(i => ({ waterTypeId: i.waterTypeId, quantity: i.quantity || 1 }))
-      : [{ waterTypeId: null, quantity: 1 }]
+      ? template.items.map(i => ({ productId: i.productId || i.waterTypeId, quantity: i.quantity || 1 }))
+      : [{ productId: null, quantity: 1 }]
     this.setData({
       showEditModal: true,
       isEditing: true,
@@ -74,12 +77,35 @@ Page({
   },
 
   async loadFormData() {
-    const [productRes, addressRes] = await Promise.all([
-      getWaterTypes().catch(() => null),
-      getAddresses().catch(() => null)
-    ])
+    const baseUrl = getBaseUrl()
+    const token = getAccessToken()
+    let currentStationId = null
+    try {
+      const stationRes = await new Promise((resolve, reject) => {
+        wx.request({
+          url: baseUrl + API.STATIONS_MY_CURRENT,
+          method: 'GET',
+          header: { 'Authorization': 'Bearer ' + token },
+          success: (r) => resolve(r.data),
+          fail: reject
+        })
+      })
+      if (stationRes && stationRes.code === 0 && stationRes.data) {
+        currentStationId = stationRes.data
+      }
+    } catch (e) {}
+
+    let productRes = null
+    if (currentStationId) {
+      productRes = await getStationProducts(currentStationId).catch(() => null)
+    }
+    if (!productRes || !productRes.data) {
+      productRes = await getProducts().catch(() => null)
+    }
+    const addressRes = await getAddresses().catch(() => null)
+
     if (productRes && productRes.data) {
-      this.setData({ products: productRes.data })
+      this.setData({ products: productRes.data, stationId: currentStationId })
     }
     if (addressRes && addressRes.data) {
       const addresses = addressRes.data
@@ -96,20 +122,20 @@ Page({
   },
 
   onAddItem() {
-    const items = this.data.form.items.concat([{ waterTypeId: null, quantity: 1 }])
+    const items = this.data.form.items.concat([{ productId: null, quantity: 1 }])
     this.setData({ 'form.items': items })
   },
 
   onRemoveItem(e) {
     const { index } = e.currentTarget.dataset
     const items = this.data.form.items.filter((_, i) => i !== index)
-    if (items.length === 0) items.push({ waterTypeId: null, quantity: 1 })
+    if (items.length === 0) items.push({ productId: null, quantity: 1 })
     this.setData({ 'form.items': items })
   },
 
   onSelectProduct(e) {
     const { index, id } = e.currentTarget.dataset
-    this.setData({ [`form.items[${index}].waterTypeId`]: parseInt(id) })
+    this.setData({ [`form.items[${index}].productId`]: parseInt(id) })
   },
 
   onQuantityChange(e) {
@@ -142,12 +168,11 @@ Page({
 
   async onSaveTemplate() {
     const { form, isEditing, editingTemplate } = this.data
-    const validItems = form.items.filter(i => i.waterTypeId)
+    const validItems = form.items.filter(i => i.productId)
     if (validItems.length === 0) {
-      wx.showToast({ title: '请选择至少一种水', icon: 'none' })
+      wx.showToast({ title: '请选择至少一种商品', icon: 'none' })
       return
     }
-
     const payload = {
       ...(isEditing ? { id: editingTemplate.id } : {}),
       name: form.name || '常用订单',
@@ -155,9 +180,8 @@ Page({
       specialNote: form.specialNote,
       items: validItems
     }
-
     try {
-      await saveTemplate(payload)
+      await saveTemplate(payload, this.data.stationId)
       wx.showToast({ title: '保存成功', icon: 'success' })
       this.setData({ showEditModal: false })
       this.loadData()

@@ -26,13 +26,21 @@
           </template>
         </el-table-column>
         <el-table-column prop="note" label="客户备注" show-overflow-tooltip />
+        <el-table-column label="欠桶提醒" width="140">
+          <template #default="{ row }">
+            <el-tag v-if="row.owedBuckets > 0" type="danger" size="small">
+              欠 {{ row.owedBuckets }} 桶，不可退
+            </el-tag>
+            <el-tag v-else type="success" size="small">无欠桶</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="handleNote" label="处理备注" show-overflow-tooltip />
         <el-table-column prop="createTime" label="申请时间" width="160" />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <template v-if="row.status === 1">
-              <el-button size="small" type="success" @click="handleAction(row.id, 2, '确认收到空桶')">确认</el-button>
-              <el-button size="small" type="primary" @click="handleAction(row.id, 3, '押金已退还')">退押金</el-button>
+              <el-button size="small" type="success" @click="handleAction(row.id, 2, '确认收到空桶', row)">确认</el-button>
+              <el-button size="small" type="primary" @click="handleAction(row.id, 3, '押金已退还', row)">退押金</el-button>
               <el-button size="small" type="danger" @click="showReject(row)">驳回</el-button>
             </template>
             <span v-else class="text-muted">已处理</span>
@@ -71,7 +79,19 @@ const loadData = async () => {
   try { list.value = await barrelApi.allRecords() } finally { loading.value = false }
 }
 
-const handleAction = async (id, status, handleNote) => {
+const handleAction = async (id, status, handleNote, row) => {
+  // 退押金前若客户有欠桶，二次确认提醒
+  if (status === 3 && row && row.owedBuckets > 0) {
+    try {
+      await ElMessageBox.confirm(
+        `该客户当前欠 ${row.owedBuckets} 个空桶未归还。存在欠桶时不允许退桶，请先让客户归还欠桶。是否继续？`,
+        '欠桶提醒',
+        { confirmButtonText: '仍要处理', cancelButtonText: '取消', type: 'warning' }
+      )
+    } catch {
+      return
+    }
+  }
   await barrelApi.handleReturn(id, status, handleNote)
   ElMessage.success('处理成功')
   loadData()

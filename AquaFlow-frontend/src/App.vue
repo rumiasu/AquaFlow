@@ -3,52 +3,26 @@
     <router-view />
   </div>
   <el-container v-else style="height: 100vh;">
-    <!-- 可折叠侧边栏 -->
     <el-aside :width="isCollapse ? '64px' : '200px'" class="sidebar" :class="{ collapsed: isCollapse }">
       <div class="sidebar-logo" @click="goHome">
         <span class="logo-icon">💧</span>
         <span v-show="!isCollapse" class="logo-text">AquaFlow</span>
-        <span v-show="!isCollapse" class="logo-badge">{{ userRole === 'factory' ? '水厂' : userRole === 'manager' ? '水站' : '配送' }}</span>
+        <span v-show="!isCollapse" class="logo-badge">{{ userRole === 'manager' ? '水站' : '配送' }}</span>
       </div>
       <el-menu :default-active="route.path" router :collapse="isCollapse"
         background-color="transparent" text-color="#94a3b8" active-text-color="#60a5fa"
         :collapse-transition="true" class="sidebar-menu">
 
-        <!-- 所有角色都能看到 -->
-        <el-menu-item :index="userRole === 'factory' ? '/factory-dashboard' : '/dashboard'">
+        <el-menu-item index="/dashboard">
           <el-icon><Odometer /></el-icon><span>首页</span>
         </el-menu-item>
 
-        <!-- 厂长菜单 -->
-        <template v-if="userRole === 'factory'">
-          <el-menu-item index="/station-ops">
-            <el-icon><TrendCharts /></el-icon><span>水站运营</span>
-          </el-menu-item>
-          <el-menu-item index="/analysis">
-            <el-icon><DataAnalysis /></el-icon><span>数据分析</span>
-          </el-menu-item>
-          <el-menu-item index="/collaboration">
-            <el-icon><Tickets /></el-icon><span>水站协同</span>
-          </el-menu-item>
-          <el-menu-item index="/risk-alerts">
-            <el-icon><WarningFilled /></el-icon><span>风险预警</span>
-          </el-menu-item>
-          <el-sub-menu index="system">
-            <template #title>
-              <el-icon><Setting /></el-icon><span>系统管理</span>
-            </template>
-            <el-menu-item index="/station-mgmt">水站管理</el-menu-item>
-            <el-menu-item index="/factory-mgmt">水厂管理</el-menu-item>
-          </el-sub-menu>
-        </template>
-
-        <!-- 站长菜单 -->
-        <template v-else-if="userRole === 'manager'">
+        <template v-if="userRole === 'manager'">
           <el-menu-item index="/order">
             <el-icon><Document /></el-icon><span>订单管理</span>
           </el-menu-item>
-          <el-menu-item index="/batch">
-            <el-icon><Tickets /></el-icon><span>批次管理</span>
+          <el-menu-item index="/deliver-assign">
+            <el-icon><Van /></el-icon><span>配送任务分配</span>
           </el-menu-item>
           <el-menu-item index="/inventory">
             <el-icon><Box /></el-icon><span>库存管理</span>
@@ -60,7 +34,7 @@
             <el-icon><Location /></el-icon><span>地址管理</span>
           </el-menu-item>
           <el-menu-item index="/water">
-            <el-icon><Goods /></el-icon><span>水类型</span>
+            <el-icon><Goods /></el-icon><span>商品管理</span>
           </el-menu-item>
           <el-menu-item index="/barrel-return">
             <el-icon><Box /></el-icon><span>退桶审批</span>
@@ -85,7 +59,6 @@
           </el-menu-item>
         </template>
 
-        <!-- 配送员菜单 -->
         <template v-else-if="userRole === 'delivery'">
           <el-menu-item index="/my-deliveries">
             <el-icon><Van /></el-icon><span>我的配送</span>
@@ -94,9 +67,7 @@
       </el-menu>
     </el-aside>
 
-    <!-- 右侧主区域 -->
     <el-container>
-      <!-- 顶部工具栏 -->
       <el-header class="header-toolbar" height="50px">
         <div style="display: flex; align-items: center; gap: 16px;">
           <el-icon class="collapse-btn" @click="isCollapse = !isCollapse" :size="20">
@@ -112,21 +83,21 @@
           <el-icon class="header-icon" @click="showSearch = true" :size="18"><Search /></el-icon>
           <el-switch v-model="isDark" active-text="🌙" inactive-text="☀️" @change="toggleTheme"
             style="--el-switch-on-color: #409eff;" />
-          <el-dropdown>
+          <el-dropdown @command="handleCommand">
             <span style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-regular);">
               <el-avatar :size="28" style="background: #409eff;">{{ roleLabel }}</el-avatar>
               {{ userInfo.nickname || roleLabel }}
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
+                <el-dropdown-item command="claim">认领所属</el-dropdown-item>
+                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
         </div>
       </el-header>
 
-      <!-- 主内容区 -->
       <el-main class="main-content">
         <router-view v-slot="{ Component }">
           <transition name="fade-transform" mode="out-in">
@@ -136,7 +107,6 @@
       </el-main>
     </el-container>
 
-    <!-- 全局搜索 -->
     <GlobalSearch v-model="showSearch" @navigate="handleNavigate" />
   </el-container>
 </template>
@@ -145,7 +115,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Odometer, User, Location, MapLocation, Goods, Box, Document, Tickets, DataAnalysis,
-  Fold, Expand, Search, Money, Wallet, Avatar, TrendCharts, Setting, Van, WarningFilled } from '@element-plus/icons-vue'
+  Fold, Expand, Search, Money, Wallet, Avatar, Van } from '@element-plus/icons-vue'
 import GlobalSearch from './components/GlobalSearch.vue'
 import { authApi } from './api'
 
@@ -160,14 +130,14 @@ const userInfo = ref(JSON.parse(localStorage.getItem('userInfo') || '{}'))
 const userRole = computed(() => localStorage.getItem('userRole') || '')
 
 const roleLabel = computed(() => {
-  const map = { factory: '厂', manager: '站', delivery: '配' }
+  const map = { manager: '站', delivery: '配' }
   return map[userRole.value] || '用'
 })
 
 let timer = null
 
 const goHome = () => {
-  router.push(userRole.value === 'factory' ? '/factory-dashboard' : '/dashboard')
+  router.push('/dashboard')
 }
 
 const toggleTheme = (val) => {
@@ -185,11 +155,15 @@ const handleNavigate = (path) => {
   router.push(path)
 }
 
+const handleCommand = (cmd) => {
+  if (cmd === 'claim') router.push('/claim')
+  else if (cmd === 'logout') handleLogout()
+}
+
 const handleLogout = async () => {
   try {
     await authApi.logout()
   } catch (e) {
-    // 即使后端失败也清除本地状态
   }
   localStorage.removeItem('accessToken')
   localStorage.removeItem('refreshToken')

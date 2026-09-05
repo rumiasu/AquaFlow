@@ -17,12 +17,14 @@ public interface UserTokenMapper {
     UserToken findByRefreshToken(@Param("refreshToken") String refreshToken);
 
     @Delete("delete from user_token where id = #{id}")
-    void deleteById(Integer id);
+    void deleteById(@Param("id") Long id);
 
-    /** 清除某用户的所有 refresh_token（用于强制登出全部设备） */
     @Delete("delete from user_token where user_id = #{userId} and user_type = #{userType}")
-    void deleteByUser(@Param("userId") Integer userId, @Param("userType") String userType);
+    void deleteByUser(@Param("userId") Long userId, @Param("userType") String userType);
+
+    @Delete("delete from user_token where refresh_token = #{refreshToken}")
+    void deleteByRefreshToken(@Param("refreshToken") String refreshToken);
 
     @Select("select * from user_token where user_id = #{userId} and user_type = #{userType} and expire_time > NOW()")
-    List<UserToken> findActiveByUser(@Param("userId") Integer userId, @Param("userType") String userType);
+    List<UserToken> findActiveByUser(@Param("userId") Long userId, @Param("userType") String userType);
 }

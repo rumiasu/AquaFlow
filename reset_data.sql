@@ -141,11 +141,11 @@ INSERT INTO address (customer_id, detail, tag, lat, lng) VALUES
 (50, '济南市高新区贤文小区55号', '小区', 36.6220, 117.0850);
 
 -- =============================================
--- 5. 库存（每种水类型一条，数量随机50-200）
+-- 5. 库存（每种商品一条，数量随机50-200）
 -- =============================================
-INSERT INTO inventory (water_type_id, quantity) VALUES
-(1, 180), (2, 150), (3, 120), (4, 90), (5, 75),
-(6, 200), (7, 60), (8, 300), (9, 250), (10, 100);
+INSERT INTO inventory (station_id, product_id, quantity, enabled, sale_price, ticket_enabled, ticket_price, create_time, update_time) VALUES
+(1, 1, 180, 1, NULL, 0, NULL, NOW(), NOW()), (1, 2, 150, 1, NULL, 0, NULL, NOW(), NOW()), (1, 3, 120, 1, NULL, 0, NULL, NOW(), NOW()), (1, 4, 90, 1, NULL, 0, NULL, NOW(), NOW()), (1, 5, 75, 1, NULL, 0, NULL, NOW(), NOW()),
+(1, 6, 200, 1, NULL, 0, NULL, NOW(), NOW()), (1, 7, 60, 1, NULL, 0, NULL, NOW(), NOW()), (1, 8, 300, 1, NULL, 0, NULL, NOW(), NOW()), (1, 9, 250, 1, NULL, 0, NULL, NOW(), NOW()), (1, 10, 100, 1, NULL, 0, NULL, NOW(), NOW());
 
 -- =============================================
 -- 6. 订单（50条，混合状态）

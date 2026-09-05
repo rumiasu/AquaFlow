@@ -1,7 +1,9 @@
 package com.example.aquaflow.service.impl;
 
 import com.example.aquaflow.entity.Customer;
+import com.example.aquaflow.entity.CustomerStationConfig;
 import com.example.aquaflow.mapper.CustomerMapper;
+import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.service.CustomerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,9 @@ public class CustomerServiceImpl implements CustomerService {
     @Autowired
     private CustomerMapper customerMapper;
 
+    @Autowired
+    private CustomerStationConfigMapper customerStationConfigMapper;
+
     @Override
     public void update(Customer customer) {
         customer.setUpdateTime(LocalDateTime.now());
@@ -24,9 +29,9 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public Customer getById(Integer id) {
+    public Customer getById(Long id) {
         Customer customer = customerMapper.getById(id);
-        if(customer == null){
+        if (customer == null) {
             throw new RuntimeException("客户不存在");
         }
         return customer;
@@ -40,7 +45,7 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public List<Customer> list(Integer stationId) {
+    public List<Customer> list(Long stationId) {
         if (stationId != null) {
             return customerMapper.listByStationId(stationId);
         }
@@ -48,22 +53,32 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public Map<String, Object> getCustomerStats(Integer customerId) {
-        // 先刷新统计数据
-        customerMapper.refreshStats(customerId);
-        
-        // 获取客户信息（包含统计字段）
+    public Map<String, Object> getCustomerStats(Long customerId) {
         Customer customer = customerMapper.getById(customerId);
         if (customer == null) {
             throw new RuntimeException("客户不存在");
         }
-        
+
         Map<String, Object> stats = new HashMap<>();
-        stats.put("totalOrders", customer.getTotalOrders());
-        stats.put("totalConsumption", customer.getTotalConsumption());
-        stats.put("avgCycleDays", customer.getAvgCycleDays());
         stats.put("firstOrderTime", customer.getFirstOrderTime());
         stats.put("lastDeliveryTime", customer.getLastDeliveryTime());
         return stats;
+    }
+
+    @Override
+    public CustomerStationConfig getOfflinePaymentConfig(Long customerId, Long stationId) {
+        CustomerStationConfig config = customerStationConfigMapper.getByCustomerAndStation(customerId, stationId);
+        if (config == null) {
+            // 确保记录存在，默认关闭
+            customerStationConfigMapper.ensureExists(customerId, stationId);
+            config = customerStationConfigMapper.getByCustomerAndStation(customerId, stationId);
+        }
+        return config;
+    }
+
+    @Override
+    public void updateOfflinePaymentConfig(Long customerId, Long stationId, Integer enabled) {
+        customerStationConfigMapper.ensureExists(customerId, stationId);
+        customerStationConfigMapper.updateOfflinePaymentEnabled(customerId, stationId, enabled);
     }
 }

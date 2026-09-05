@@ -1,3 +1,7 @@
+-- STATUS: DANGEROUS - 包含 DELETE FROM inventory
+-- 此文件包含危险的 DELETE FROM inventory 操作，禁止在新环境执行。
+-- 其中 CREATE TABLE (stock_transfer, risk_alert) 和 INSERT 数据已被 schema.sql / seed_full_data.sql 吸收。
+
 SET NAMES utf8mb4;
 
 -- ============================================================

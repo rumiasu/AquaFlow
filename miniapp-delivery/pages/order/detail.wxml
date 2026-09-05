@@ -1,0 +1,116 @@
+<view class="container">
+  <!-- 蓝色头部 -->
+  <view class="header">
+    <view class="header-top">
+      <text class="customer-name">{{order.receiverName || order.customerName}}</text>
+      <text class="order-no">订单 {{order.orderNo || order.id}}</text>
+    </view>
+    <view class="status-row">
+      <text class="status-badge status-{{order.statusClass}}">{{order.statusText}}</text>
+      <text class="aux-tag aux-offline" wx:if="{{order.isOffline}}">🟧 线下</text>
+      <text class="aux-tag aux-{{l.type}}" wx:for="{{order.labels}}" wx:for-item="l" wx:key="type">{{l.text}}</text>
+    </view>
+  </view>
+
+  <!-- 联系信息卡片 -->
+  <view class="info-card">
+    <view class="info-row" bindtap="onCallPhone">
+      <text class="info-icon">📞</text>
+      <text class="info-text">{{order.receiverPhone || order.customerPhone}}</text>
+      <text class="info-action">拨打</text>
+    </view>
+    <view class="info-row" bindtap="onCopyAddress">
+      <text class="info-icon">📍</text>
+      <text class="info-text address">{{order.addressSnapshot || order.addressDetail}}</text>
+      <text class="info-action">复制</text>
+    </view>
+  </view>
+
+  <!-- 订单内容 -->
+  <view class="section">
+    <text class="section-title">订单内容</text>
+    <view class="order-content">
+      <text class="content-name">{{order.waterTypeName}}</text>
+      <text class="content-spec" wx:if="{{order.waterTypeSpec}}">{{order.waterTypeSpec}}</text>
+      <text class="content-qty">× {{order.quantity}} 桶</text>
+    </view>
+  </view>
+
+  <!-- 历史订单 -->
+  <view class="section">
+    <text class="section-title">历史订单</text>
+    <view class="history-row">
+      <view class="history-item">
+        <text class="history-label">近一年配送</text>
+        <text class="history-value">{{order.historyCount || 0}}次</text>
+      </view>
+      <view class="history-divider"></view>
+      <view class="history-item">
+        <text class="history-label">最近一次</text>
+        <text class="history-value">{{order.lastOrderDays || 0}}天前</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 客户备注 -->
+  <view class="section" wx:if="{{order.notes && order.notes.length > 0}}">
+    <text class="section-title">客户备注</text>
+    <view class="notes-list">
+      <view class="note-item" wx:for="{{order.notes}}" wx:key="index">
+        <text class="note-icon">⚠</text>
+        <text class="note-text">{{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 预计回桶 -->
+  <view class="section">
+    <view class="info-row-between">
+      <text class="info-label">预计回桶</text>
+      <text class="info-value">{{order.expectedReturnBarrels || 0}}个</text>
+    </view>
+  </view>
+
+  <!-- 付款方式 -->
+  <view class="section">
+    <view class="info-row-between">
+      <text class="info-label">付款方式</text>
+      <text class="info-value">{{order.paymentMethodText || '现金'}}</text>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-bar" wx:if="{{!order.isTransferTarget}}">
+    <button class="action-btn action-nav" bindtap="onNavigate">
+      <text class="action-icon"></text>
+      <text>导航</text>
+    </button>
+    <button class="action-btn action-complete" bindtap="onComplete">
+      <text class="action-icon">✓</text>
+      <text>完成配送</text>
+    </button>
+    <button class="action-btn action-report" bindtap="onReport">
+      <text class="action-icon">⚠</text>
+      <text>异常反馈</text>
+    </button>
+  </view>
+
+  <view class="action-bar action-bar-confirm" wx:if="{{order.isTransferTarget}}">
+    <button class="action-btn action-reject" bindtap="onRejectTransfer">
+      <text>拒绝转单</text>
+    </button>
+    <button class="action-btn action-accept" bindtap="onAcceptTransfer">
+      <text>同意并接单</text>
+    </button>
+  </view>
+
+  <!-- 转给同事 / 退回站长 -->
+  <block wx:if="{{!order.isTransferTarget}}">
+    <view class="transfer-btn" bindtap="onTransfer">
+      <text>转单给其他配送员</text>
+    </view>
+    <view class="transfer-btn" bindtap="onReturnToStation">
+      <text>退回站长</text>
+    </view>
+  </block>
+</view>

@@ -1,3 +1,6 @@
+-- STATUS: SUPERSEDED BY schema.sql
+-- 此文件中的所有操作已被 schema.sql 吸收，新环境无需执行。
+
 -- V3: 支付系统重构
 -- 1. 订单加 payment_method 字段
 -- 2. 创建 payment_record 支付记录表

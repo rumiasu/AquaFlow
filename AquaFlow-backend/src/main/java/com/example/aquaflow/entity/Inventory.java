@@ -2,36 +2,52 @@ package com.example.aquaflow.entity;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 库存实体类，对应数据库 inventory 表。
- * <p>记录每种水类型的库存数量。支持入库累加、组批扣减操作。</p>
+ * 水站商品库存实体类，对应数据库 inventory 表。
+ * <p>某水站有没有这个商品、库存多少、是否在商城销售。</p>
  */
 @Data
 public class Inventory {
 
     /** 库存记录ID，主键自增 */
-    private Integer id;
+    private Long id;
 
-    /** 水类型ID，关联 water_type 表 */
-    private Integer waterTypeId;
+    /** 水站ID */
+    private Long stationId;
 
-    /** 水类型名称（关联查询字段，非库存表本身字段） */
-    private String waterTypeName;
+    /** 商品ID */
+    private Long productId;
 
-    /** 规格信息（关联查询字段，非库存表本身字段） */
+    /** 商品名称(关联查询字段) */
+    private String productName;
+
+    /** 规格(关联查询字段) */
     private String spec;
 
-    /** 所属水站ID，关联 station 表 */
-    private Integer stationId;
-
-    /** 当前库存数量 */
+    /** 库存数量 */
     private Integer quantity;
 
-    /** 最后修改时间 */
+    /** 是否在商城销售: 0 不在商城销售 1 在商城销售 */
+    private Integer enabled;
+
+    /** 是否支持水票: 0 不支持 1 支持 */
+    private Integer ticketEnabled;
+
+    /** 水票价格 */
+    private BigDecimal ticketPrice;
+
+    /** 优先展示: 0 否 1 是 */
+    private Integer priorityDisplay;
+
+    /** 创建时间 */
+    private LocalDateTime createTime;
+
+    /** 更新时间 */
     private LocalDateTime updateTime;
 
-    /** 所属水站名称（关联查询字段） */
+    /** 所属水站名称(关联查询字段) */
     private String stationName;
 }

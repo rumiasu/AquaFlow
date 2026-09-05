@@ -27,11 +27,37 @@
     </view>
   </view>
 
-  <!-- 其他选项 -->
-  <view class="other-section">
-    <view class="other-item" bindtap="onFeedback">
-      <text class="other-title">意见反馈</text>
-      <text class="other-arrow">›</text>
+  <!-- 意见反馈表单 -->
+  <view class="service-section">
+    <text class="section-title">意见反馈</text>
+    <view class="category-list">
+      <view class="category-item {{category === 'bug' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="bug">
+        <text>功能问题</text>
+      </view>
+      <view class="category-item {{category === 'feature' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="feature">
+        <text>功能建议</text>
+      </view>
+      <view class="category-item {{category === 'ui' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="ui">
+        <text>界面优化</text>
+      </view>
+      <view class="category-item {{category === 'other' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="other">
+        <text>其他</text>
+      </view>
+    </view>
+    <textarea class="content-input" placeholder="请描述您遇到的问题或建议..." maxlength="500" value="{{content}}" bindinput="onContentInput" />
+    <input class="contact-input" placeholder="联系方式（可选）" value="{{contact}}" bindinput="onContactInput" />
+    <view class="feedback-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
+      <text>{{submitting ? '提交中...' : '提交反馈'}}</text>
+    </view>
+  </view>
+
+  <!-- 我的反馈历史 -->
+  <view class="other-section" wx:if="{{history.length > 0}}">
+    <view class="other-item" wx:for="{{history}}" wx:key="id">
+      <view class="history-main">
+        <text class="history-content">{{item.content}}</text>
+        <text class="history-time">{{item.createTime}}</text>
+      </view>
     </view>
   </view>
 </view>

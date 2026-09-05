@@ -1,0 +1,1 @@
+INSERT INTO orders (customer_id, quantity) VALUES (1, 2);

@@ -1,0 +1,9 @@
+.container { background: var(--bg-color); min-height: 100vh; padding: 24rpx; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20rpx; }
+.module-card { background: var(--bg-card); border-radius: 20rpx; padding: 32rpx 24rpx; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; align-items: center; text-align: center; }
+.module-icon { font-size: 56rpx; margin-bottom: 16rpx; }
+.module-title { font-size: 28rpx; font-weight: 600; color: var(--text-primary); margin-bottom: 8rpx; }
+.module-desc { font-size: 22rpx; color: var(--text-secondary); }
+.module-card:active { opacity: 0.8; }
+.coming-soon { opacity: 0.5; }
+

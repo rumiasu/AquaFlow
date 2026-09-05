@@ -3,30 +3,27 @@ package com.example.aquaflow.entity;
 import lombok.Data;
 
 /**
- * 常用订单模板明细实体类，对应数据库 order_template_item 表。
- * <p>记录模板中每个水类型的数量。</p>
+ * 常用订单明细实体类，对应数据库 order_template_item 表。
+ * <p>记录模板中每个商品的数量。</p>
  */
 @Data
 public class OrderTemplateItem {
 
     /** ID，主键自增 */
-    private Integer id;
+    private Long id;
 
-    /** 模板ID，关联 order_template 表 */
-    private Integer templateId;
+    /** 模板ID */
+    private Long templateId;
 
-    /** 水类型ID，关联 water_type 表 */
-    private Integer waterTypeId;
+    /** 商品ID */
+    private Long productId;
 
-    /** 水类型名称（关联查询字段） */
-    private String waterTypeName;
+    /** 商品名称(关联查询字段) */
+    private String productName;
 
-    /** 水类型规格（关联查询字段） */
-    private String waterTypeSpec;
+    /** 规格(关联查询字段) */
+    private String spec;
 
-    /** 水类型单价（关联查询字段） */
-    private java.math.BigDecimal waterTypePrice;
-
-    /** 数量（桶数） */
+    /** 数量 */
     private Integer quantity;
 }

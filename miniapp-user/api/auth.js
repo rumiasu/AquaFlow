@@ -3,6 +3,7 @@ const { post } = require('../utils/request')
 const { API } = require('../config/api')
 
 // 微信登录（后端: POST /api/auth/wx-login）
+// code 来自 wx.login，后端用它换 openid 并查/建用户
 const wxLogin = (code) => {
   return post(API.WX_LOGIN, { code })
 }

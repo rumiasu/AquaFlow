@@ -1,0 +1,34 @@
+<view class="container">
+  <view class="toolbar">
+    <button class="btn-add" bindtap="onShowAdd">新增配送员</button>
+  </view>
+
+  <view class="staff-card" wx:for="{{list}}" wx:key="id">
+    <view class="staff-header">
+      <view class="staff-info">
+        <text class="staff-name">{{item.name}}</text>
+        <text class="staff-phone">{{item.phone}}</text>
+      </view>
+      <text class="staff-status {{item.status === 1 ? 'active' : ''}}">{{item.status === 1 ? '在职' : '离职'}}</text>
+    </view>
+    <view class="card-actions" wx:if="{{item.status === 1}}">
+      <button class="btn-detach" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onDetach">解除所属</button>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{list.length === 0}}">
+    <text>暂无配送员</text>
+  </view>
+
+  <!-- 新增配送员弹窗 -->
+  <view class="modal-overlay" wx:if="{{showModal}}" bindtap="onCloseModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <text class="modal-title">新增配送员</text>
+      <input class="modal-input" placeholder="姓名" model:value="{{formName}}" />
+      <input class="modal-input" placeholder="电话" type="number" model:value="{{formPhone}}" />
+      <text class="modal-hint">新增后将自动归属到当前水站</text>
+      <button class="btn-submit" bindtap="onSubmitAdd">确认添加</button>
+      <button class="btn-cancel" bindtap="onCloseModal">取消</button>
+    </view>
+  </view>
+</view>

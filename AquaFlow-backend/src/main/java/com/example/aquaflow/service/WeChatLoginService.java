@@ -22,13 +22,18 @@ public class WeChatLoginService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * code2Session：用 wx.login 拿到的 code 换 openid + session_key
+     * 文档: https://developers.weixin.qq.com/miniprogram/dev/api-backend/open-api/login/auth.code2Session.html
+     */
     public Map<String, Object> code2Session(String code) {
         String url = String.format(
                 "https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
                 appid, secret, code);
 
         String response = restTemplate.getForObject(url, String.class);
-        log.info("微信code2Session响应: {}", response);
+        // #56: 不打印完整响应（包含session_key敏感信息），仅打印脱敏后的部分
+        log.info("微信code2Session响应: {}", response != null ? response.replaceAll("\"session_key\":\"[^\"]*\"", "\"session_key\":\"***\"") : "null");
 
         Map<String, Object> result;
         try {

@@ -24,3 +24,22 @@ boot.log
 
 # ==================== 调试截图（临时截图不上传，项目展示图手动放到docs/images再取消本条）
 screenshot_*.png
+
+# ==================== 敏感配置（不提交）====================
+application.yml
+application-prod.yml
+*.db
+
+# ==================== 测试脚本（含硬编码密钥）====================
+*.py
+test_*.bat
+test.bat
+run_migration.bat
+dev_login.json
+req.json
+body.json
+test_order.json
+
+# ==================== 编译输出 ====================
+compile_output*.txt
+AquaFlow-backend/out/

@@ -1,15 +1,16 @@
 package com.example.aquaflow.controller;
 
+import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.mapper.AddressMapper;
 import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.OrderMapper;
+import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -23,13 +24,14 @@ public class SearchController {
     @Autowired
     private OrderMapper orderMapper;
 
+    @RequireRole({"STATION_MANAGER"})
     @GetMapping
     public Result<Map<String, Object>> search(@RequestParam String keyword) {
         Map<String, Object> result = new HashMap<>();
-        result.put("customers", customerMapper.search(keyword));
-        result.put("addresses", addressMapper.search(keyword));
-        // 搜索订单：按收货人姓名或电话模糊匹配
-        result.put("orders", orderMapper.searchByKeyword(keyword));
+        Long stationId = AuthContext.requireStationId();
+        result.put("customers", customerMapper.searchByStation(stationId, keyword));
+        result.put("addresses", addressMapper.listByStation(stationId, keyword));
+        result.put("orders", orderMapper.searchByKeywordAndStation(stationId, keyword));
         return Result.success(result);
     }
 }

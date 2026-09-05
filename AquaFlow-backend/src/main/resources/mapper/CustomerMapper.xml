@@ -4,33 +4,5 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.example.aquaflow.mapper.CustomerMapper">
-    <update id="update">
-        update customer
-        <set>
-            <if test="name != null">name=#{name},</if>
-            <if test="phone != null">phone=#{phone},</if>
-            <if test="note != null">note=#{note},</if>
-            <if test="stationId != null">station_id=#{stationId},</if>
-            <if test="ownerStaffId != null">owner_staff_id=#{ownerStaffId},</if>
-            <if test="bindTime != null">bind_time=#{bindTime},</if>
-            <if test="bindReason != null">bind_reason=#{bindReason},</if>
-            <if test="lastDeliveryTime != null">last_delivery_time=#{lastDeliveryTime},</if>
-            <if test="depositBalance != null">deposit_balance=#{depositBalance},</if>
-            <if test="customerType != null">customer_type=#{customerType},</if>
-            <if test="firstOrderTime != null">first_order_time=#{firstOrderTime},</if>
-            <if test="totalOrders != null">total_orders=#{totalOrders},</if>
-            <if test="totalConsumption != null">total_consumption=#{totalConsumption},</if>
-            <if test="avgCycleDays != null">avg_cycle_days=#{avgCycleDays},</if>
-            <if test="tags != null">tags=#{tags},</if>
-            <if test="openid != null">openid=#{openid},</if>
-            <if test="role != null">role=#{role},</if>
-            update_time=#{updateTime}
-        </set>
-        where id=#{id}
-    </update>
-
-    <select id="list" resultType="Customer">
-        select * from customer
-    </select>
 
 </mapper>

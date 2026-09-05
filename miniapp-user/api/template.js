@@ -3,18 +3,18 @@ const { get, post, put, del } = require('../utils/request')
 const { API } = require('../config/api')
 
 // GET /api/order-templates/quick (customerId 从 JWT 获取)
-const getQuickOrder = () => {
-  return get(API.ORDER_TEMPLATES_QUICK)
+const getQuickOrder = (stationId) => {
+  return get(API.ORDER_TEMPLATES_QUICK, { stationId })
 }
 
 // GET /api/order-templates (customerId 从 JWT 获取)
-const getTemplates = () => {
-  return get(API.ORDER_TEMPLATES)
+const getTemplates = (stationId) => {
+  return get(API.ORDER_TEMPLATES, { stationId })
 }
 
 // POST /api/order-templates (customerId 从 JWT 获取)
-const saveTemplate = (data) => {
-  return post(API.ORDER_TEMPLATES, data)
+const saveTemplate = (data, stationId) => {
+  return post(API.ORDER_TEMPLATES, data, { stationId })
 }
 
 // PUT /api/order-templates/{id}/toggle (customerId 从 JWT 获取)
@@ -23,13 +23,13 @@ const toggleTemplate = (id, enabled) => {
 }
 
 // PUT /api/order-templates/{id}/default (customerId 从 JWT 获取)
-const setDefaultTemplate = (id) => {
-  return put(`${API.ORDER_TEMPLATES}/${id}/default`, null)
+const setDefaultTemplate = (id, stationId) => {
+  return put(`${API.ORDER_TEMPLATES}/${id}/default`, null, { stationId })
 }
 
 // POST /api/order-templates/from-order (customerId 从 JWT 获取)
-const setFromOrder = (orderId) => {
-  return post(API.ORDER_TEMPLATES_FROM_ORDER, null, { orderId })
+const setFromOrder = (orderId, stationId) => {
+  return post(API.ORDER_TEMPLATES_FROM_ORDER, null, { orderId, stationId })
 }
 
 // DELETE /api/order-templates/{id} (customerId 从 JWT 获取)

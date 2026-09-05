@@ -1,0 +1,27 @@
+<view class="container">
+  <view class="empty-illustration">
+    <text class="empty-icon">⏳</text>
+  </view>
+  <view class="empty-title">绑定申请已提交</view>
+  <view class="empty-desc">
+    <text>您已申请绑定水站，请等待站长确认。</text>
+    <text wx:if="{{stationName}}">申请绑定：{{stationName}}</text>
+  </view>
+  <view class="status-card">
+    <view class="status-row">
+      <text class="status-label">当前状态</text>
+      <text class="status-value status-pending">审核中</text>
+    </view>
+    <view class="status-row" wx:if="{{applyTime}}">
+      <text class="status-label">申请时间</text>
+      <text class="status-value">{{applyTime}}</text>
+    </view>
+  </view>
+  <view class="btn-wrap">
+    <button class="btn-outline" bindtap="onWithdraw">撤回申请</button>
+    <button class="btn-primary" bindtap="onRefresh">刷新状态</button>
+  </view>
+  <view class="tip-row">
+    <text class="tip-text">💡 提示：此时无法进入订单页，请耐心等待站长审核</text>
+  </view>
+</view>

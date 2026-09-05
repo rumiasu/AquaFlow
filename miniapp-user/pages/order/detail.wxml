@@ -1,14 +1,16 @@
 <view class="page-container" wx:if="{{order}}">
-  <!-- 状态卡片 -->
   <view class="status-card status-{{order.status}}">
     <view class="status-main">{{statusText}}</view>
     <view class="status-sub">
-      <text class="pay-badge">{{payStatusText}}</text>
+      <text class="pay-badge {{payStatusClass}}">{{payStatusText}}</text>
       <text wx:if="{{order.amount}}"> · 金额 ¥{{order.amount}}</text>
     </view>
   </view>
 
-  <!-- 订单信息 -->
+  <view class="collect-banner" wx:if="{{order.status === 4 && order.paymentStatus !== 2}}">
+    <text>订单已配送，货款待收款确认，请与配送员确认付款金额</text>
+  </view>
+
   <view class="info-section">
     <view class="section-title">订单信息</view>
     <view class="info-row">
@@ -19,22 +21,59 @@
       <text class="label">下单时间</text>
       <text class="value">{{order.createTime}}</text>
     </view>
+    <view class="info-row" wx:if="{{order.deliveryStationName || order.stationName}}">
+      <text class="label">配送水站</text>
+      <text class="value">{{order.deliveryStationName || order.stationName}}</text>
+    </view>
   </view>
 
-  <!-- 商品信息 -->
   <view class="info-section">
     <view class="section-title">商品信息</view>
-    <view class="info-row">
-      <text class="label">水类型</text>
-      <text class="value">{{order.waterTypeName}} <text wx:if="{{order.waterTypeSpec}}">{{order.waterTypeSpec}}</text></text>
-    </view>
-    <view class="info-row">
-      <text class="label">数量</text>
-      <text class="value">{{order.quantity}} 桶</text>
+    <view class="items-list">
+      <view class="item-row" wx:for="{{items}}" wx:key="productId">
+        <view class="item-thumb" wx:if="{{item.imageUrl}}">
+          <image src="{{item.imageUrl}}" mode="aspectFill" class="item-thumb-img" />
+        </view>
+        <view class="item-thumb item-thumb-placeholder" wx:else>
+          <text>💧</text>
+        </view>
+        <view class="item-info">
+          <text class="item-name">{{item.productName || item.waterTypeName}}</text>
+          <text class="item-spec" wx:if="{{item.productSpec || item.waterTypeSpec}}">{{item.productSpec || item.waterTypeSpec}}</text>
+        </view>
+        <view class="item-right">
+          <text class="item-price" wx:if="{{item.price}}">¥{{item.price}}</text>
+          <text class="item-qty">×{{item.quantity}}</text>
+        </view>
+      </view>
     </view>
   </view>
 
-  <!-- 配送信息 -->
+  <view class="info-section" wx:if="{{bucketInfo}}">
+    <view class="section-title">桶资产（本订单）</view>
+    <view class="bucket-card">
+      <view class="bucket-row">
+        <text class="bucket-label">本次配送</text>
+        <text class="bucket-value">{{bucketInfo.deliveredQty}} 桶</text>
+      </view>
+      <view class="bucket-row">
+        <text class="bucket-label">已回收空桶</text>
+        <text class="bucket-value">{{bucketInfo.returnedQty}} 桶</text>
+      </view>
+      <view class="bucket-row pending">
+        <text class="bucket-label">暂未回收</text>
+        <text class="bucket-value highlight">{{bucketInfo.pendingUnreturned}} 桶</text>
+      </view>
+      <view class="bucket-row" wx:if="{{bucketInfo.extraDepositBuckets > 0}}">
+        <text class="bucket-label">额外桶押金</text>
+        <text class="bucket-value">{{bucketInfo.extraDepositBuckets}}桶 · ¥{{bucketInfo.extraDepositAmount}}</text>
+      </view>
+      <view class="bucket-tip" wx:if="{{bucketInfo.pendingUnreturned > 0}}">
+        <text>请下次配送时配合配送员回收 {{bucketInfo.pendingUnreturned}} 个空桶</text>
+      </view>
+    </view>
+  </view>
+
   <view class="info-section">
     <view class="section-title">配送信息</view>
     <view class="info-row">
@@ -51,10 +90,25 @@
     </view>
   </view>
 
-  <!-- 操作按钮 -->
+  <view class="info-section" wx:if="{{images.length > 0}}">
+    <view class="section-title">配送凭证</view>
+    <view class="image-grid">
+      <image
+        wx:for="{{images}}"
+        wx:key="id"
+        class="order-image"
+        src="{{item.url}}"
+        mode="aspectFill"
+        data-url="{{item.url}}"
+        bindtap="onPreviewImage"
+      ></image>
+    </view>
+  </view>
+
   <view class="action-section">
+    <button wx:if="{{order.paymentStatus === 0 && (order.status === 1 || order.status === 4)}}" class="btn-action btn-pay" bindtap="onPayNow">去支付</button>
     <button wx:if="{{canCancel}}" class="btn-action btn-cancel" bindtap="onCancel">取消订单</button>
-    <button wx:if="{{order.status === 3}}" class="btn-action btn-reorder" bindtap="onReorder">再次购买</button>
+    <button wx:if="{{order.status === 5}}" class="btn-action btn-reorder" bindtap="onReorder">再次购买</button>
     <button class="btn-action btn-call" bindtap="onCallPhone">联系配送员</button>
   </view>
 </view>

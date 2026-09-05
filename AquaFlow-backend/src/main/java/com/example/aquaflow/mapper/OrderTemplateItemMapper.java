@@ -8,16 +8,14 @@ import java.util.List;
 @Mapper
 public interface OrderTemplateItemMapper {
 
-    @Insert("insert into order_template_item(template_id, water_type_id, quantity) " +
-            "values(#{templateId}, #{waterTypeId}, #{quantity})")
+    @Insert("insert into order_template_item(template_id, product_id, quantity) " +
+            "values(#{templateId}, #{productId}, #{quantity})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(OrderTemplateItem item);
 
-    @Select("select i.*, w.name as waterTypeName, w.spec as waterTypeSpec, w.price as waterTypePrice " +
-            "from order_template_item i left join water_type w on i.water_type_id = w.id " +
-            "where i.template_id = #{templateId}")
-    List<OrderTemplateItem> listByTemplateId(@Param("templateId") Integer templateId);
+    @Select("select * from order_template_item where template_id = #{templateId}")
+    List<OrderTemplateItem> listByTemplateId(@Param("templateId") Long templateId);
 
     @Delete("delete from order_template_item where template_id = #{templateId}")
-    void deleteByTemplateId(@Param("templateId") Integer templateId);
+    void deleteByTemplateId(@Param("templateId") Long templateId);
 }

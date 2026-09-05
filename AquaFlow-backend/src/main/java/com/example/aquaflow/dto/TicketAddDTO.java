@@ -5,9 +5,11 @@ import lombok.Data;
 @Data
 public class TicketAddDTO {
 
-    private Integer customerId;
+    private Long customerId;
 
-    private Integer waterTypeId;
+    private Long productId;
 
     private Integer quantity;
+
+    private Long stationId;
 }

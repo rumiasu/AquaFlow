@@ -5,27 +5,92 @@
 
 <mapper namespace="com.example.aquaflow.mapper.OrderMapper">
 
-    <select id="list" resultType="Orders">
+    <sql id="orderColumns">
+        customer_id, address_id, station_id, delivery_station_id, delivery_staff_id,
+        source, status, payment_method, payment_status, total_amount, water_amount, deposit_amount,
+        receiver_name, receiver_phone, address_snapshot, address_snapshot_lat, address_snapshot_lng,
+        guard_info, delivery_time_request, special_note, delivery_bucket_qty, return_bucket_qty,
+        barrel_discrepancy, barrel_discrepancy_note, first_barrel_order, quantity, create_time, update_time
+    </sql>
+
+    <sql id="orderValues">
+        #{customerId}, #{addressId}, #{stationId}, #{deliveryStationId}, #{deliveryStaffId},
+        #{source}, #{status}, #{paymentMethod}, #{paymentStatus}, #{totalAmount}, #{waterAmount}, #{depositAmount},
+        #{receiverName}, #{receiverPhone}, #{addressSnapshot}, #{addressSnapshotLat}, #{addressSnapshotLng},
+        #{guardInfo}, #{deliveryTimeRequest}, #{specialNote}, #{deliveryBucketQty}, #{returnBucketQty},
+        #{barrelDiscrepancy}, #{barrelDiscrepancyNote}, #{firstBarrelOrder}, #{quantity}, #{createTime}, #{updateTime}
+    </sql>
+
+    <insert id="save" parameterType="com.example.aquaflow.entity.Orders" useGeneratedKeys="true" keyProperty="id">
+        insert into orders
+        (customer_id, address_id, station_id, delivery_station_id, delivery_staff_id,
+        source, status, payment_method, payment_status, total_amount, water_amount, deposit_amount,
+        receiver_name, receiver_phone, address_snapshot, address_snapshot_lat, address_snapshot_lng,
+        guard_info, delivery_time_request, special_note, delivery_bucket_qty, return_bucket_qty,
+        barrel_discrepancy, barrel_discrepancy_note, first_barrel_order, quantity, create_time, update_time)
+        values
+        (#{customerId}, #{addressId}, #{stationId}, #{deliveryStationId}, #{deliveryStaffId},
+        #{source}, #{status}, #{paymentMethod}, #{paymentStatus}, #{totalAmount}, #{waterAmount}, #{depositAmount},
+        #{receiverName}, #{receiverPhone}, #{addressSnapshot}, #{addressSnapshotLat}, #{addressSnapshotLng},
+        #{guardInfo}, #{deliveryTimeRequest}, #{specialNote}, #{deliveryBucketQty}, #{returnBucketQty},
+        #{barrelDiscrepancy}, #{barrelDiscrepancyNote}, #{firstBarrelOrder}, #{quantity}, #{createTime}, #{updateTime})
+    </insert>
+
+    <update id="update" parameterType="com.example.aquaflow.entity.Orders">
+        update orders
+        <set>
+            <if test="customerId != null">customer_id=#{customerId},</if>
+            <if test="addressId != null">address_id=#{addressId},</if>
+            <if test="stationId != null">station_id=#{stationId},</if>
+            <if test="deliveryStationId != null">delivery_station_id=#{deliveryStationId},</if>
+            <if test="deliveryStaffId != null">delivery_staff_id=#{deliveryStaffId},</if>
+            <if test="source != null">source=#{source},</if>
+            <if test="status != null">status=#{status},</if>
+            <if test="paymentMethod != null">payment_method=#{paymentMethod},</if>
+            <if test="paymentStatus != null">payment_status=#{paymentStatus},</if>
+            <if test="totalAmount != null">total_amount=#{totalAmount},</if>
+            <if test="waterAmount != null">water_amount=#{waterAmount},</if>
+            <if test="depositAmount != null">deposit_amount=#{depositAmount},</if>
+            <if test="receiverName != null">receiver_name=#{receiverName},</if>
+            <if test="receiverPhone != null">receiver_phone=#{receiverPhone},</if>
+            <if test="addressSnapshot != null">address_snapshot=#{addressSnapshot},</if>
+            <if test="addressSnapshotLat != null">address_snapshot_lat=#{addressSnapshotLat},</if>
+            <if test="addressSnapshotLng != null">address_snapshot_lng=#{addressSnapshotLng},</if>
+            <if test="guardInfo != null">guard_info=#{guardInfo},</if>
+            <if test="deliveryTimeRequest != null">delivery_time_request=#{deliveryTimeRequest},</if>
+            <if test="specialNote != null">special_note=#{specialNote},</if>
+            <if test="deliveryBucketQty != null">delivery_bucket_qty=#{deliveryBucketQty},</if>
+            <if test="returnBucketQty != null">return_bucket_qty=#{returnBucketQty},</if>
+            <if test="barrelDiscrepancy != null">barrel_discrepancy=#{barrelDiscrepancy},</if>
+            <if test="barrelDiscrepancyNote != null">barrel_discrepancy_note=#{barrelDiscrepancyNote},</if>
+            <if test="firstBarrelOrder != null">first_barrel_order=#{firstBarrelOrder},</if>
+            <if test="idempotencyKey != null">idempotency_key=#{idempotencyKey},</if>
+            <if test="barrelExceptionId != null">barrel_exception_id=#{barrelExceptionId},</if>
+            <if test="exceptionFlag != null">exception_flag=#{exceptionFlag},</if>
+            <if test="exceptionCategory != null">exception_category=#{exceptionCategory},</if>
+            <if test="exceptionCount != null">exception_count=#{exceptionCount},</if>
+            update_time=NOW()
+        </set>
+        where id=#{id}
+    </update>
+
+    <select id="list" resultType="com.example.aquaflow.entity.Orders">
         select o.*, c.name as customerName, c.phone as customerPhone,
-               a.detail as addressDetail, a.tag as addressTag, a.lat as addressLat, a.lng as addressLng,
-               a.name as addressName, a.phone as addressPhone, a.label as addressLabel,
-               w.name as waterTypeName, w.spec as waterTypeSpec, w.price as waterTypePrice
+               a.detail as addressDetail, a.name as addressName, a.phone as addressPhone,
+               a.lat as addressLat, a.lng as addressLng,
+               (select oi.product_name_snapshot from order_item oi where oi.order_id = o.id order by oi.id limit 1) as firstProductName
         from orders o
         left join customer c on o.customer_id = c.id
         left join address a on o.address_id = a.id
-        left join water_type w on o.water_type_id = w.id
         <where>
             <if test="stationId != null">
-                o.station_id = #{stationId}
+                and o.station_id = #{stationId}
             </if>
             <if test="customerId != null">
                 and o.customer_id = #{customerId}
             </if>
             <if test="status != null">
                 and o.status = #{status}
-            </if>
-            <if test="tag != null and tag != ''">
-                and a.tag = #{tag}
             </if>
             <if test="createTimeStart != null and createTimeStart != ''">
                 and o.create_time &gt;= #{createTimeStart}
@@ -37,4 +102,12 @@
         order by o.create_time desc
     </select>
 
+    <select id="getLatestStationByCustomerId" resultType="map">
+        select o.station_id as stationId, s.name as stationName
+        from orders o
+        inner join station s on o.station_id = s.id
+        where o.customer_id = #{customerId}
+        order by o.create_time desc
+        limit 1
+    </select>
 </mapper>

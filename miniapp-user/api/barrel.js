@@ -3,18 +3,18 @@ const { get, post } = require('../utils/request')
 const { API } = require('../config/api')
 
 // GET /api/barrels/summary (customerId 从 JWT 获取)
-const getBarrelSummary = () => {
-  return get(API.BARREL_SUMMARY)
+const getBarrelSummary = (stationId) => {
+  return get(API.BARREL_SUMMARY, stationId ? { stationId } : {})
 }
 
 // GET /api/barrels/summary-by-type (customerId 从 JWT 获取)
-const getBarrelSummaryByType = () => {
-  return get(API.BARREL_SUMMARY_BY_TYPE)
+const getBarrelSummaryByType = (stationId) => {
+  return get(API.BARREL_SUMMARY_BY_TYPE, stationId ? { stationId } : {})
 }
 
 // GET /api/barrels/records (customerId 从 JWT 获取)
-const getBarrelRecords = () => {
-  return get(API.BARREL_RECORDS)
+const getBarrelRecords = (stationId) => {
+  return get(API.BARREL_RECORDS, stationId ? { stationId } : {})
 }
 
 // POST /api/barrels/return (customerId 从 JWT 获取)

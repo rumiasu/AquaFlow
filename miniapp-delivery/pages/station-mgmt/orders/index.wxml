@@ -1,0 +1,27 @@
+<view class="container">
+  <view class="tab-bar">
+    <view class="tab-item {{currentTab === item.id ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="id" data-id="{{item.id}}" bindtap="onTabChange">
+      <text>{{item.name}}</text>
+    </view>
+  </view>
+
+  <view class="order-list" wx:if="{{!loading}}">
+    <view class="order-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+      <view class="card-header">
+        <text class="status-tag status-{{item.statusCls}}">{{item.statusText}}</text>
+        <text class="order-id">#{{item.id}}</text>
+        <text class="order-time" wx:if="{{item.createTime}}">{{item.createTime}}</text>
+      </view>
+      <view class="customer-info">
+        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+        <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+      </view>
+      <view class="product-info">
+        <text class="product-name">{{item.waterTypeName}}</text>
+        <text class="product-qty">× {{item.quantity}} 桶</text>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{list.length === 0}}"><text>暂无订单</text></view>
+  </view>
+  <view class="loading" wx:if="{{loading}}">加载中...</view>
+</view>

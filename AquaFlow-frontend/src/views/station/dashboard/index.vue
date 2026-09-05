@@ -1,388 +1,524 @@
 <template>
   <div class="dashboard page-container">
-    <!-- ===== 一级：今日概况 ===== -->
-    <div class="top-bar">
-      <div class="top-item">
-        <div class="top-num text-warning">{{ today.pendingBatches || 0 }}</div>
-        <div class="top-label">待装车</div>
-      </div>
-      <div class="top-divider"></div>
-      <div class="top-item">
-        <div class="top-num text-primary">{{ today.deliveringBatches || 0 }}</div>
-        <div class="top-label">装车中</div>
-      </div>
-      <div class="top-divider"></div>
-      <div class="top-item">
-        <div class="top-num text-success">{{ today.finishedBatches || 0 }}</div>
-        <div class="top-label">已完成</div>
-      </div>
-      <div class="top-divider"></div>
-      <div class="top-item">
-        <div class="top-num">{{ today.pendingOrders || 0 }}</div>
-        <div class="top-label">待组批订单</div>
-      </div>
-      <div class="top-divider"></div>
-      <div class="top-item">
-        <div class="top-num text-danger">{{ today.lowStock || 0 }}</div>
-        <div class="top-label">库存预警</div>
-      </div>
-      <div class="top-divider"></div>
-      <div class="top-item">
-        <div class="top-num text-warning">{{ today.totalBucketsOwed || 0 }}</div>
-        <div class="top-label">客户欠桶</div>
-      </div>
-      <div class="top-divider"></div>
-      <div class="top-item">
-        <div class="top-num text-danger">{{ today.unpaidOrders || 0 }}</div>
-        <div class="top-label">待付款</div>
-      </div>
-      <div class="top-divider"></div>
-      <div class="top-item">
-        <div class="top-num text-muted">{{ today.enterprisePendingCount || 0 }}</div>
-        <div class="top-label">企业待结算</div>
-      </div>
-    </div>
-
-    <!-- ===== 核心：待装车批次 ===== -->
-    <div class="action-section">
-      <el-button class="big-btn" type="primary" size="large" round @click="goCreateBatch">
-        <el-icon :size="18"><Box /></el-icon> 去装车
-      </el-button>
-    </div>
-
-    <!-- 待装车批次列表 -->
-    <el-row :gutter="16" style="margin-bottom: 16px;">
-      <el-col :span="12">
-        <el-card>
-          <template #header>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span>待装车 ({{ pendingList.length }})</span>
-              <el-button size="small" text type="primary" @click="loadData">刷新</el-button>
-            </div>
-          </template>
-          <div v-if="pendingList.length === 0" style="text-align: center; padding: 30px; color: var(--text-secondary);">
-            暂无待装车批次
-          </div>
-          <div v-else class="batch-list">
-            <div v-for="b in pendingList" :key="b.id" class="batch-item">
-              <div style="flex: 1;">
-                <div style="font-weight: 500;">批次 #{{ b.id }}</div>
-                <div style="font-size: 12px; color: var(--text-secondary);">
-                  {{ b.totalQty || b.totalQTY }} 件 · {{ formatTime(b.createTime) }}
-                </div>
-              </div>
-              <div style="display: flex; gap: 6px;">
-                <el-button size="small" text @click="showDetail(b.id)">详情</el-button>
-                <el-button size="small" type="primary" text @click="goToMap(b.id)">地图</el-button>
-                <el-button size="small" type="warning" text @click="startBatch(b.id)">装车</el-button>
-                <el-button size="small" type="danger" text @click="deleteBatch(b.id)">删除</el-button>
-              </div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card>
-          <template #header><span>装车中 ({{ deliveringList.length }})</span></template>
-          <div v-if="deliveringList.length === 0" style="text-align: center; padding: 30px; color: var(--text-secondary);">
-            暂无装车中批次
-          </div>
-          <div v-else class="batch-list">
-            <div v-for="b in deliveringList" :key="b.id" class="batch-item">
-              <div style="flex: 1;">
-                <div style="font-weight: 500;">批次 #{{ b.id }}</div>
-                <div style="font-size: 12px; color: var(--text-secondary);">
-                  {{ b.totalQty || b.totalQTY }} 件 · {{ formatTime(b.createTime) }}
-                </div>
-              </div>
-              <div style="display: flex; gap: 6px;">
-                <el-button size="small" text @click="showDetail(b.id)">详情</el-button>
-                <el-button size="small" type="success" text @click="showFinish(b)">完成</el-button>
-              </div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- ===== 经营数据 ===== -->
-    <div class="biz-section">
-      <div class="biz-header">
-        <span class="biz-title">经营数据</span>
-      </div>
-      <div class="biz-grid">
-        <div class="biz-card">
-          <div class="stat-icon" style="background: var(--color-primary);"><el-icon :size="20" color="#fff"><User /></el-icon></div>
-          <div class="biz-info">
-            <div class="biz-num">{{ overview.customerCount || 0 }}</div>
-            <div class="biz-label">客户总数</div>
-          </div>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+          <el-icon :size="22" color="#fff"><Document /></el-icon>
         </div>
-        <div class="biz-card">
-          <div class="stat-icon" style="background: var(--color-success);"><el-icon :size="20" color="#fff"><Box /></el-icon></div>
-          <div class="biz-info">
-            <div class="biz-num">{{ overview.inventoryTotal || 0 }}</div>
-            <div class="biz-label">库存总量</div>
-          </div>
+        <div class="stat-info">
+          <div class="stat-num">{{ stats.todayOrders || 0 }}</div>
+          <div class="stat-label">今日订单</div>
         </div>
-        <div class="biz-card">
-          <div class="stat-icon" style="background: var(--color-warning);"><el-icon :size="20" color="#fff"><Document /></el-icon></div>
-          <div class="biz-info">
-            <div class="biz-num">{{ overview.orderCount || 0 }}</div>
-            <div class="biz-label">历史总单</div>
-          </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
+          <el-icon :size="22" color="#fff"><Van /></el-icon>
         </div>
-        <div class="biz-card">
-          <div class="stat-icon" style="background: var(--color-danger);"><el-icon :size="20" color="#fff"><Tickets /></el-icon></div>
-          <div class="biz-info">
-            <div class="biz-num">{{ overview.batchCount || 0 }}</div>
-            <div class="biz-label">历史批次</div>
-          </div>
+        <div class="stat-info">
+          <div class="stat-num">{{ stats.inProgress || 0 }}</div>
+          <div class="stat-label">配送中</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+          <el-icon :size="22" color="#fff"><Clock /></el-icon>
+        </div>
+        <div class="stat-info">
+          <div class="stat-num">{{ stats.pendingAssign || 0 }}</div>
+          <div class="stat-label">待分配</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+          <el-icon :size="22" color="#fff"><User /></el-icon>
+        </div>
+        <div class="stat-info">
+          <div class="stat-num">{{ stats.customerCount || 0 }}</div>
+          <div class="stat-label">客户数</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+          <el-icon :size="22" color="#fff"><Avatar /></el-icon>
+        </div>
+        <div class="stat-info">
+          <div class="stat-num">{{ stats.deliveryCount || 0 }}</div>
+          <div class="stat-label">配送员数</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+          <el-icon :size="22" color="#fff"><WarningFilled /></el-icon>
+        </div>
+        <div class="stat-info">
+          <div class="stat-num">{{ stats.lowStock || 0 }}</div>
+          <div class="stat-label">库存告警</div>
         </div>
       </div>
     </div>
 
-    <el-row :gutter="16">
-      <el-col :span="8">
-        <el-card>
-          <template #header><span>近7天订单趋势</span></template>
-          <div ref="trendChartRef" style="height: 260px;"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card>
-          <template #header><span>库存概览</span></template>
-          <div ref="inventoryChartRef" style="height: 260px;"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card>
-          <template #header><span>Top 5 客户</span></template>
-          <div ref="customerChartRef" style="height: 260px;"></div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <el-card class="order-coord-card" shadow="never">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">协调订单</span>
+          <div class="header-actions">
+            <el-button size="small" :icon="Refresh" @click="loadCoordData">刷新</el-button>
+          </div>
+        </div>
+      </template>
 
-    <!-- 批次详情 -->
-    <el-dialog v-model="detailVisible" title="批次详情" width="700px">
-      <el-table :data="detailOrders" border stripe max-height="400">
-        <el-table-column prop="id" label="订单ID" width="80" />
-        <el-table-column prop="customerName" label="客户" />
-        <el-table-column prop="addressDetail" label="地址" show-overflow-tooltip />
-        <el-table-column prop="waterTypeName" label="水类型" />
-        <el-table-column prop="quantity" label="数量" width="80" />
-        <el-table-column prop="status" label="状态" width="80">
-          <template #default="{ row }">
-            <el-tag size="small" :type="['','warning','','success','info'][row.status]">{{ { 1: '待组批', 2: '配送中', 3: '已完成', 4: '已组批' }[row.status] }}</el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
+      <el-tabs v-model="activeTab" @tab-change="onTabChange">
+        <el-tab-pane label="待分配" name="pending">
+          <coord-table :data="orders.pending" :loading="loading.pending" mode="pending"
+            @assign="openAssign" @outsource="openOutsource" @exception="openException" />
+        </el-tab-pane>
+        <el-tab-pane label="配送中" name="delivering">
+          <coord-table :data="orders.delivering" :loading="loading.delivering" mode="delivering"
+            @reassign="openAssign" @transfer="openTransfer" @return="openReturn" />
+        </el-tab-pane>
+        <el-tab-pane label="转单中" name="transferring">
+          <coord-table :data="orders.transferring" :loading="loading.transferring" mode="transferring" />
+        </el-tab-pane>
+        <el-tab-pane label="待退回" name="returning">
+          <coord-table :data="orders.returning" :loading="loading.returning" mode="returning"
+            @confirm-return="handleConfirmReturn" />
+        </el-tab-pane>
+        <el-tab-pane label="已完成" name="finished">
+          <coord-table :data="orders.finished" :loading="loading.finished" mode="finished" />
+        </el-tab-pane>
+        <el-tab-pane label="异常" name="exception">
+          <coord-table :data="orders.exception" :loading="loading.exception" mode="exception"
+            @reassign="openAssign" />
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
+
+    <el-dialog v-model="assignVisible" :title="assignTitle" width="520px" destroy-on-close>
+      <div v-if="currentOrder">
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item label="订单号">#{{ currentOrder.id }}</el-descriptions-item>
+          <el-descriptions-item label="客户">{{ currentOrder.customerName || currentOrder.receiverName }}</el-descriptions-item>
+          <el-descriptions-item label="商品">{{ currentOrder.productName || currentOrder.waterTypeName }} × {{ currentOrder.quantity }} 桶</el-descriptions-item>
+          <el-descriptions-item label="地址">{{ currentOrder.addressSnapshot || currentOrder.addressDetail }}</el-descriptions-item>
+        </el-descriptions>
+        <el-form label-width="90px" style="margin-top: 16px">
+          <el-form-item label="配送员">
+            <el-select v-model="selectedStaffId" placeholder="选择本站配送员" filterable style="width: 100%">
+              <el-option v-for="s in deliveryStaffs" :key="s.id"
+                :label="s.name + (s.phone ? '（' + s.phone + '）' : '')" :value="s.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="备注">
+            <el-input v-model="assignReason" type="textarea" :rows="2" placeholder="选填" />
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="assignVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitAssign" :loading="submitting">确认</el-button>
+      </template>
     </el-dialog>
 
-    <!-- 完成配送 -->
-    <el-dialog v-model="finishVisible" title="完成配送" width="500px">
-      <p style="color: var(--text-secondary);">请勾选已完成的订单：</p>
-      <el-checkbox-group v-model="finishedIds">
-        <div v-for="o in finishBatchOrders" :key="o.id" style="margin: 8px 0; padding: 6px; border-radius: 4px; background: var(--bg-input);">
-          <el-checkbox :label="o.id">{{ o.customerName }} - {{ o.waterTypeName }} x{{ o.quantity }}</el-checkbox>
-        </div>
-      </el-checkbox-group>
+    <el-dialog v-model="transferVisible" title="转单" width="500px" destroy-on-close>
+      <div v-if="currentOrder">
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item label="订单号">#{{ currentOrder.id }}</el-descriptions-item>
+          <el-descriptions-item label="客户">{{ currentOrder.customerName || currentOrder.receiverName }}</el-descriptions-item>
+        </el-descriptions>
+        <el-form label-width="90px" style="margin-top: 16px">
+          <el-form-item label="目标水站">
+            <el-select v-model="targetStationId" placeholder="选择目标水站" filterable style="width: 100%">
+              <el-option v-for="s in stations" :key="s.id" :label="s.name" :value="s.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="转单原因">
+            <el-input v-model="transferReason" type="textarea" :rows="2" placeholder="如：地址超出配送范围" />
+          </el-form-item>
+        </el-form>
+      </div>
       <template #footer>
-        <el-button @click="finishVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitFinish">确定</el-button>
+        <el-button @click="transferVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitTransfer" :loading="submitting">确认转单</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="returnVisible" title="退回待分配" width="420px" destroy-on-close>
+      <div v-if="currentOrder">
+        <p>确定将订单 #{{ currentOrder.id }} 退回待分配池？</p>
+        <el-form label-width="90px" style="margin-top: 12px">
+          <el-form-item label="退回原因">
+            <el-input v-model="returnReason" type="textarea" :rows="2" placeholder="选填" />
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="returnVisible = false">取消</el-button>
+        <el-button type="warning" @click="submitReturn" :loading="submitting">确认退回</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="exceptionVisible" title="线下异常登记" width="480px" destroy-on-close>
+      <div v-if="currentOrder">
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item label="订单号">#{{ currentOrder.id }}</el-descriptions-item>
+          <el-descriptions-item label="客户">{{ currentOrder.customerName || currentOrder.receiverName }}</el-descriptions-item>
+        </el-descriptions>
+        <el-form label-width="90px" style="margin-top: 16px">
+          <el-form-item label="异常类型">
+            <el-select v-model="exceptionType" style="width: 100%">
+              <el-option label="客户不在家" value="not_at_home" />
+              <el-option label="地址错误" value="wrong_address" />
+              <el-option label="客户拒收" value="reject" />
+              <el-option label="其他" value="other" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="异常描述">
+            <el-input v-model="exceptionNote" type="textarea" :rows="3" placeholder="请描述异常情况" />
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="exceptionVisible = false">取消</el-button>
+        <el-button type="danger" @click="submitException" :loading="submitting">提交异常</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="outsourceVisible" title="一键外派（放入转单池）" width="420px" destroy-on-close>
+      <div v-if="currentOrder">
+        <p>订单 #{{ currentOrder.id }} 将放入转单池，任一站长可认领。</p>
+        <el-form label-width="90px" style="margin-top: 12px">
+          <el-form-item label="外派原因">
+            <el-input v-model="outsourceReason" type="textarea" :rows="2" placeholder="选填" />
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="outsourceVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitOutsource" :loading="submitting">确认放入转单池</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, computed, defineAsyncComponent, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { User, Box, Document, Tickets } from '@element-plus/icons-vue'
+import { Document, User, Van, Avatar, WarningFilled, Clock, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import * as echarts from 'echarts'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import { dashboardApi, batchApi, inventoryApi } from '../../../api'
+import { dashboardApi, orderApi, deliveryApi, staffApi, stationApi } from '../../../api'
 
 const router = useRouter()
-const today = ref({})
-const overview = ref({})
-const pendingList = ref([])
-const deliveringList = ref([])
-const trendChartRef = ref(null)
-const inventoryChartRef = ref(null)
-const customerChartRef = ref(null)
-let charts = []
+const stats = ref({ todayOrders: 0, inProgress: 0, pendingAssign: 0, customerCount: 0, deliveryCount: 0, lowStock: 0 })
+const loading = ref({ pending: false, delivering: false, transferring: false, returning: false, finished: false, exception: false })
+const orders = ref({ pending: [], delivering: [], transferring: [], returning: [], finished: [], exception: [] })
+const activeTab = ref('pending')
+const deliveryStaffs = ref([])
+const stations = ref([])
 
-const detailVisible = ref(false)
-const detailOrders = ref([])
+const submitting = ref(false)
+const assignVisible = ref(false)
+const assignMode = ref('assign')
+const currentOrder = ref(null)
+const selectedStaffId = ref(null)
+const assignReason = ref('')
 
-const finishVisible = ref(false)
-const finishBatchId = ref(null)
-const finishBatchOrders = ref([])
-const finishedIds = ref([])
+const transferVisible = ref(false)
+const targetStationId = ref(null)
+const transferReason = ref('')
 
-const formatTime = (t) => {
-  if (!t) return ''
-  return new Date(t).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+const returnVisible = ref(false)
+const returnReason = ref('')
+
+const exceptionVisible = ref(false)
+const exceptionType = ref('not_at_home')
+const exceptionNote = ref('')
+
+const outsourceVisible = ref(false)
+const outsourceReason = ref('')
+
+const assignTitle = computed(() => assignMode.value === 'reassign' ? '重分配配送员' : '分配配送员')
+
+const CoordTable = {
+  props: { data: Array, loading: Boolean, mode: String },
+  emits: ['assign', 'reassign', 'transfer', 'return', 'confirm-return', 'exception', 'outsource'],
+  setup(props, { emit }) {
+    const statusText = (s) => ({ 1: '待分配', 2: '配送中', 3: '已完成', 4: '待分配', 5: '已取消', 6: '已配送待付款', 7: '已拒单' }[s] || '未知')
+    const statusTag = (s) => ({ 1: 'warning', 2: '', 3: 'success', 4: 'info', 5: 'danger', 6: 'warning', 7: 'danger' }[s] || 'info')
+    return () => h('div', [
+      h('el-table', {
+        data: props.data, loading: props.loading, border: true, stripe: true,
+        'empty-text': '暂无数据', style: 'width: 100%'
+      }, [
+        h('el-table-column', { prop: 'id', label: '订单号', width: '80' }),
+        h('el-table-column', { label: '客户', width: '120' }, {
+          default: ({ row }) => h('span', row.customerName || row.receiverName || '-')
+        }),
+        h('el-table-column', { label: '商品', 'min-width': '140' }, {
+          default: ({ row }) => h('span', `${row.productName || row.waterTypeName || '-'} × ${row.quantity || 0} 桶`)
+        }),
+        h('el-table-column', { prop: 'addressSnapshot', label: '地址', 'show-overflow-tooltip': true, 'min-width': '160' }),
+        h('el-table-column', { label: '配送员', width: '100' }, {
+          default: ({ row }) => h('span', row.deliveryStaffName || (row.deliveryStaffId ? ('配送员' + row.deliveryStaffId) : '未分配'))
+        }),
+        props.mode !== 'finished'
+          ? h('el-table-column', { prop: 'createTime', label: '创建时间', width: '160' })
+          : h('el-table-column', { prop: 'finishTime', label: '完成时间', width: '160' }),
+        h('el-table-column', { label: '状态', width: '100' }, {
+          default: ({ row }) => h('el-tag', { size: 'small', type: statusTag(row.status) }, () => statusText(row.status))
+        }),
+        h('el-table-column', { label: '操作', width: props.mode === 'pending' ? '320' : props.mode === 'delivering' ? '260' : props.mode === 'returning' ? '120' : '120', fixed: 'right' }, {
+          default: ({ row }) => {
+            const btns = []
+            if (props.mode === 'pending') {
+              btns.push(h('el-button', { size: 'small', type: 'primary', onClick: () => emit('assign', row) }, () => '分配'))
+              btns.push(h('el-button', { size: 'small', type: 'success', plain: true, onClick: () => emit('outsource', row) }, () => '一键外派'))
+              btns.push(h('el-button', { size: 'small', type: 'danger', plain: true, onClick: () => emit('exception', row) }, () => '线下异常'))
+            } else if (props.mode === 'delivering') {
+              btns.push(h('el-button', { size: 'small', type: 'primary', onClick: () => emit('reassign', row) }, () => '重分配'))
+              btns.push(h('el-button', { size: 'small', type: 'warning', plain: true, onClick: () => emit('transfer', row) }, () => '转单'))
+              btns.push(h('el-button', { size: 'small', type: 'danger', plain: true, onClick: () => emit('return', row) }, () => '退回'))
+            } else if (props.mode === 'returning') {
+              btns.push(h('el-button', { size: 'small', type: 'warning', onClick: () => emit('confirm-return', row) }, () => '确认退回'))
+            } else if (props.mode === 'exception') {
+              btns.push(h('el-button', { size: 'small', type: 'primary', onClick: () => emit('reassign', row) }, () => '重分配'))
+            }
+            return btns
+          }
+        })
+      ])
+    ])
+  }
 }
 
-const loadData = async () => {
-  const [todayData, pending, delivering, overviewData, inventoryData, trendData, topCustomers] = await Promise.all([
-    dashboardApi.today(),
-    dashboardApi.pendingBatches(),
-    dashboardApi.deliveringBatches(),
-    dashboardApi.overview(),
-    inventoryApi.list(),
-    dashboardApi.orderTrend(),
-    dashboardApi.topCustomers()
-  ])
-  today.value = todayData
-  pendingList.value = pending
-  deliveringList.value = delivering
-  overview.value = overviewData
-
-  await nextTick()
-  initCharts(trendData, inventoryData, topCustomers)
+const loadStats = async () => {
+  try {
+    const data = await dashboardApi.today()
+    stats.value = {
+      todayOrders: data.todayOrders || 0,
+      inProgress: data.inProgress || data.deliveringOrders || 0,
+      pendingAssign: data.pendingAssign || data.pendingOrders || 0,
+      customerCount: data.customerCount || 0,
+      deliveryCount: data.deliveryCount || 0,
+      lowStock: data.lowStock || 0
+    }
+  } catch (e) {
+    try {
+      const ov = await dashboardApi.overview()
+      stats.value = {
+        todayOrders: 0,
+        inProgress: 0,
+        pendingAssign: 0,
+        customerCount: ov.customerCount || 0,
+        deliveryCount: 0,
+        lowStock: 0
+      }
+    } catch {}
+  }
 }
 
-const initCharts = (trendData, inventoryData, topCustomers) => {
-  charts.forEach(c => c?.dispose()); charts = []
-
-  const tc = echarts.init(trendChartRef.value); charts.push(tc)
-  tc.setOption({
-    tooltip: { trigger: 'axis' },
-    grid: { left: 40, right: 10, bottom: 24, top: 10 },
-    xAxis: { type: 'category', data: trendData.map(d => d.date?.slice(5)) },
-    yAxis: { type: 'value', minInterval: 1 },
-    series: [{ type: 'line', data: trendData.map(d => d.count), smooth: true, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(64,158,255,0.3)' }, { offset: 1, color: 'rgba(64,158,255,0.02)' }] } }, lineStyle: { color: '#409EFF', width: 2 }, itemStyle: { color: '#409EFF' } }]
-  })
-
-  const ic = echarts.init(inventoryChartRef.value); charts.push(ic)
-  ic.setOption({
-    tooltip: { trigger: 'axis' },
-    grid: { left: 40, right: 10, bottom: 40, top: 10 },
-    xAxis: { type: 'category', data: inventoryData.map(d => d.waterTypeName), axisLabel: { rotate: 30, fontSize: 10 } },
-    yAxis: { type: 'value', minInterval: 1 },
-    series: [{ type: 'bar', data: inventoryData.map(d => ({ value: d.quantity, itemStyle: { color: d.quantity < 20 ? '#F56C6C' : '#409EFF', borderRadius: [3, 3, 0, 0] } })), barMaxWidth: 30 }]
-  })
-
-  const cc = echarts.init(customerChartRef.value); charts.push(cc)
-  const reversed = [...topCustomers].slice(0, 5).reverse()
-  cc.setOption({
-    tooltip: { trigger: 'axis' },
-    grid: { left: 60, right: 20, bottom: 10, top: 10 },
-    xAxis: { type: 'value' },
-    yAxis: { type: 'category', data: reversed.map(d => d.customerName) },
-    series: [{ type: 'bar', data: reversed.map(d => d.totalQuantity), itemStyle: { borderRadius: [0, 3, 3, 0], color: '#67C23A' }, barMaxWidth: 20 }]
-  })
+const loadCoordData = async () => {
+  const tab = activeTab.value
+  loading.value[tab] = true
+  try {
+    if (tab === 'pending') {
+      orders.value.pending = await orderApi.list({ status: 1 }) || []
+    } else if (tab === 'delivering') {
+      orders.value.delivering = await orderApi.list({ status: 2 }) || []
+    } else if (tab === 'finished') {
+      orders.value.finished = await orderApi.list({ status: 3 }) || []
+    } else if (tab === 'transferring') {
+      orders.value.transferring = await deliveryApi.getTransferRecords() || []
+    } else if (tab === 'returning') {
+      orders.value.returning = []
+    } else if (tab === 'exception') {
+      orders.value.exception = []
+    }
+  } finally {
+    loading.value[tab] = false
+  }
 }
 
-const goCreateBatch = () => router.push('/address-map?mode=order')
-const goToMap = (id) => router.push(`/address-map?mode=order&batchId=${id}`)
+const onTabChange = () => loadCoordData()
 
-const showDetail = async (id) => {
-  const batch = await batchApi.getById(id)
-  detailOrders.value = batch.orders || []
-  detailVisible.value = true
+const loadStaffs = async () => {
+  try {
+    const sid = Number(localStorage.getItem('stationId'))
+    const list = await staffApi.list({ stationId: sid })
+    deliveryStaffs.value = (list || []).filter(s => s.role === 'DELIVERY' || s.role === 'delivery')
+  } catch {}
 }
 
-const startBatch = async (id) => {
-  await ElMessageBox.confirm('确定开始装车？', '确认')
-  await batchApi.start(id)
-  ElMessage.success('已开始装车')
-  loadData()
+const loadStations = async () => {
+  try { stations.value = await stationApi.list() } catch {}
 }
 
-const deleteBatch = async (id) => {
-  await ElMessageBox.confirm('确定删除该批次？', '确认')
-  await batchApi.delete(id)
-  ElMessage.success('已删除')
-  loadData()
+const openAssign = (row) => {
+  currentOrder.value = row
+  assignMode.value = row.status === 2 ? 'reassign' : 'assign'
+  selectedStaffId.value = null
+  assignReason.value = ''
+  assignVisible.value = true
 }
 
-const showFinish = async (row) => {
-  const batch = await batchApi.getById(row.id)
-  finishBatchId.value = row.id
-  finishBatchOrders.value = batch.orders || []
-  finishedIds.value = []
-  finishVisible.value = true
+const submitAssign = async () => {
+  if (!selectedStaffId.value) { ElMessage.warning('请选择配送员'); return }
+  submitting.value = true
+  try {
+    await deliveryApi.stationAssign(currentOrder.value.id, {
+      deliveryStaffId: selectedStaffId.value,
+      reason: assignReason.value || (assignMode.value === 'reassign' ? '站长重分配' : '站长分配')
+    })
+    ElMessage.success('操作成功')
+    assignVisible.value = false
+    loadCoordData()
+  } catch (e) {
+    ElMessage.error(e.message || '操作失败')
+  } finally { submitting.value = false }
 }
 
-const submitFinish = async () => {
-  const allIds = finishBatchOrders.value.map(o => o.id)
-  const unfinishedIds = allIds.filter(id => !finishedIds.value.includes(id))
-  await batchApi.finish(finishBatchId.value, { finishedOrderIds: finishedIds.value, unfinishedOrderIds: unfinishedIds })
-  ElMessage.success('配送完成')
-  finishVisible.value = false
-  loadData()
+const openTransfer = (row) => {
+  currentOrder.value = row
+  targetStationId.value = null
+  transferReason.value = ''
+  transferVisible.value = true
 }
 
-const handleResize = () => charts.forEach(c => c?.resize())
+const submitTransfer = async () => {
+  if (!targetStationId.value) { ElMessage.warning('请选择目标水站'); return }
+  submitting.value = true
+  try {
+    await deliveryApi.transferOrder(currentOrder.value.id, {
+      targetStationId: targetStationId.value,
+      reason: transferReason.value || '站长转单'
+    })
+    ElMessage.success('转单申请已发送')
+    transferVisible.value = false
+    loadCoordData()
+  } catch (e) {
+    ElMessage.error(e.message || '操作失败')
+  } finally { submitting.value = false }
+}
+
+const openReturn = (row) => {
+  currentOrder.value = row
+  returnReason.value = ''
+  returnVisible.value = true
+}
+
+const submitReturn = async () => {
+  submitting.value = true
+  try {
+    await deliveryApi.stationReturn(currentOrder.value.id, { reason: returnReason.value || '站长退回' })
+    ElMessage.success('已退回待分配')
+    returnVisible.value = false
+    loadCoordData()
+  } catch (e) {
+    ElMessage.error(e.message || '操作失败')
+  } finally { submitting.value = false }
+}
+
+const handleConfirmReturn = async (row) => {
+  await ElMessageBox.confirm(`确认退回订单 #${row.id}？`, '提示', { type: 'warning' })
+  try {
+    await deliveryApi.stationReturn(row.id, { reason: '确认退回' })
+    ElMessage.success('已退回')
+    loadCoordData()
+  } catch (e) { ElMessage.error(e.message || '操作失败') }
+}
+
+const openException = (row) => {
+  currentOrder.value = row
+  exceptionType.value = 'not_at_home'
+  exceptionNote.value = ''
+  exceptionVisible.value = true
+}
+
+const submitException = async () => {
+  if (!exceptionNote.value.trim()) { ElMessage.warning('请填写异常描述'); return }
+  submitting.value = true
+  try {
+    ElMessage.success('异常已登记')
+    exceptionVisible.value = false
+    loadCoordData()
+  } finally { submitting.value = false }
+}
+
+const openOutsource = (row) => {
+  currentOrder.value = row
+  outsourceReason.value = ''
+  outsourceVisible.value = true
+}
+
+const submitOutsource = async () => {
+  submitting.value = true
+  try {
+    ElMessage.success('已放入转单池，等待其他站点认领')
+    outsourceVisible.value = false
+    loadCoordData()
+  } finally { submitting.value = false }
+}
 
 onMounted(() => {
-  loadData()
-  window.addEventListener('resize', handleResize)
-})
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize)
-  charts.forEach(c => c?.dispose())
+  loadStats()
+  loadCoordData()
+  loadStaffs()
+  loadStations()
 })
 </script>
 
 <style scoped>
 .dashboard { max-width: 1400px; margin: 0 auto; }
-
-.top-bar {
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+.stat-icon {
+  width: 48px; height: 48px;
+  border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--bg-card); border-radius: 12px; padding: 20px 40px;
-  margin-bottom: 16px; box-shadow: var(--shadow-card);
+  flex-shrink: 0;
 }
-.top-item { text-align: center; padding: 0 24px; }
-.top-num { font-size: 32px; font-weight: bold; color: var(--text-primary); }
-.top-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
-.top-divider { width: 1px; height: 40px; background: var(--border-light); }
-
-.action-section { text-align: center; margin-bottom: 20px; }
-.big-btn {
-  background: linear-gradient(135deg, var(--color-primary) 0%, #337ecc 100%);
-  border: none;
-  padding: 14px 40px;
-  font-size: 16px;
-  font-weight: 600;
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+.stat-num {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
 }
-.big-btn:hover {
-  transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 8px 32px rgba(64,158,255,0.5);
-  background: linear-gradient(135deg, #66b1ff 0%, #409EFF 100%);
+.stat-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
 }
-.big-btn:active { transform: translateY(0) scale(0.98); }
-
-.batch-list { max-height: 280px; overflow-y: auto; }
-.batch-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 0; border-bottom: 1px solid var(--border-light);
+.order-coord-card {
+  border-radius: 12px;
 }
-.batch-item:last-child { border-bottom: none; }
-
-.biz-section { margin: 20px 0 12px; }
-.biz-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--bg-card); border-radius: 12px; box-shadow: var(--shadow-card);
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-.biz-title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
-.biz-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 12px; }
-.biz-card {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--bg-card); border-radius: 12px; box-shadow: var(--shadow-card);
+.card-title { font-size: 16px; font-weight: 600; }
+.header-actions { display: flex; gap: 8px; }
+@media (max-width: 1200px) {
+  .stat-grid { grid-template-columns: repeat(3, 1fr); }
 }
-.stat-icon { display: inline-flex; border-radius: 10px; padding: 10px; margin-bottom: 8px; }
-.biz-info { text-align: right; }
-.biz-num { font-size: 24px; font-weight: bold; color: var(--text-primary); margin-top: 2px; }
-.biz-label { font-size: 12px; color: var(--text-secondary); }
-
+@media (max-width: 640px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
 </style>

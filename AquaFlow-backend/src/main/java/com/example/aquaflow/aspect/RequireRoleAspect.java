@@ -32,7 +32,7 @@ public class RequireRoleAspect {
             return joinPoint.proceed();
         }
         
-        // 获取 JWT 中的角色（可能是 factory/manager/delivery 或 FACTORY_ADMIN/STATION_MANAGER/DELIVERY）
+        // 获取 JWT 中的角色（可能是 manager/delivery 或 STATION_MANAGER/DELIVERY）
         String userType = AuthContext.getUserType();
         String rawRole = AuthContext.getRole();
         
@@ -49,8 +49,8 @@ public class RequireRoleAspect {
         // 同时映射允许列表中的角色
         java.util.Set<String> allowedSet = new java.util.HashSet<>();
         for (String r : allowedRoles) {
-            allowedSet.add(r);                    // 原始值 FACTORY_ADMIN 等
-            allowedSet.add(mapToFrontendRole(r)); // 映射值 factory 等
+            allowedSet.add(r);                    // 原始值 STATION_MANAGER 等
+            allowedSet.add(mapToFrontendRole(r)); // 映射值 manager 等
         }
         if (!allowedSet.contains(role)) {
             throw new BusinessException("权限不足，当前角色：" + rawRole);
@@ -62,15 +62,14 @@ public class RequireRoleAspect {
 
     /**
      * 将数据库角色名映射为前端角色名，如果已经是前端角色名则原样返回。
-     * FACTORY_ADMIN → factory, STATION_MANAGER → manager, DELIVERY → delivery
+     * STATION_MANAGER → manager, DELIVERY → delivery
      */
     private String mapToFrontendRole(String role) {
         if (role == null) return null;
         switch (role) {
-            case "FACTORY_ADMIN": return "factory";
             case "STATION_MANAGER": return "manager";
             case "DELIVERY": return "delivery";
-            default: return role; // 已经是 factory/manager/delivery
+            default: return role; // 已经是 manager/delivery
         }
     }
 }

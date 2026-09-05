@@ -41,25 +41,26 @@ INSERT IGNORE INTO water_type (id, name, spec, price, note, create_time, update_
 -- ============================================================
 INSERT IGNORE INTO staff (id, name, phone, password, factory_id, station_id, role, status, create_time, update_time) VALUES
 -- 张店水站（站长+配送员）
-(1, '张建国', '13800001001', '123456', 1, 1, 'STATION_MANAGER', 1, NOW(), NOW()),
-(2, '李师傅', '13700001001', '123456', 1, 1, 'DELIVERY', 1, NOW(), NOW()),
-(3, '王师傅', '13700001002', '123456', 1, 1, 'DELIVERY', 1, NOW(), NOW()),
+(1, '张建国', '13800001001', NULL, 1, 1, 'STATION_MANAGER', 1, NOW(), NOW()),
+(2, '李师傅', '13700001001', NULL, 1, 1, 'DELIVERY', 1, NOW(), NOW()),
+(3, '王师傅', '13700001002', NULL, 1, 1, 'DELIVERY', 1, NOW(), NOW()),
 -- 淄川水站
-(4, '淄站长', '13800001002', '123456', 1, 2, 'STATION_MANAGER', 1, NOW(), NOW()),
-(5, '赵师傅', '13700001003', '123456', 1, 2, 'DELIVERY', 1, NOW(), NOW()),
-(6, '孙师傅', '13700001004', '123456', 1, 2, 'DELIVERY', 1, NOW(), NOW()),
+(4, '淄站长', '13800001002', NULL, 1, 2, 'STATION_MANAGER', 1, NOW(), NOW()),
+(5, '赵师傅', '13700001003', NULL, 1, 2, 'DELIVERY', 1, NOW(), NOW()),
+(6, '孙师傅', '13700001004', NULL, 1, 2, 'DELIVERY', 1, NOW(), NOW()),
 -- 博山水站
-(7, '博站长', '13800001003', '123456', 1, 3, 'STATION_MANAGER', 1, NOW(), NOW()),
-(8, '周师傅', '13700001005', '123456', 1, 3, 'DELIVERY', 1, NOW(), NOW()),
+(7, '博站长', '13800001003', NULL, 1, 3, 'STATION_MANAGER', 1, NOW(), NOW()),
+(8, '周师傅', '13700001005', NULL, 1, 3, 'DELIVERY', 1, NOW(), NOW()),
 -- 历下水站
-(9, '历站长', '13800002001', '123456', 2, 4, 'STATION_MANAGER', 1, NOW(), NOW()),
-(10, '吴师傅', '13700002001', '123456', 2, 4, 'DELIVERY', 1, NOW(), NOW()),
-(11, '郑师傅', '13700002002', '123456', 2, 4, 'DELIVERY', 1, NOW(), NOW()),
+(9, '历站长', '13800002001', NULL, 2, 4, 'STATION_MANAGER', 1, NOW(), NOW()),
+(10, '吴师傅', '13700002001', NULL, 2, 4, 'DELIVERY', 1, NOW(), NOW()),
+(11, '郑师傅', '13700002002', NULL, 2, 4, 'DELIVERY', 1, NOW(), NOW()),
 -- 槐荫水站
-(12, '槐站长', '13800002002', '123456', 2, 5, 'STATION_MANAGER', 1, NOW(), NOW()),
-(13, '陈师傅', '13700002003', '123456', 2, 5, 'DELIVERY', 1, NOW(), NOW()),
+(12, '槐站长', '13800002002', NULL, 2, 5, 'STATION_MANAGER', 1, NOW(), NOW()),
+(13, '陈师傅', '13700002003', NULL, 2, 5, 'DELIVERY', 1, NOW(), NOW()),
 -- 厂长（FACTORY_ADMIN，不绑定水站）
-(14, '王总', '13900001001', '123456', 1, NULL, 'FACTORY_ADMIN', 1, NOW(), NOW());
+(14, '王总', '13900001001', NULL, 1, NULL, 'FACTORY_ADMIN', 1, NOW(), NOW());
+-- 密码由 PasswordInitializer 启动时自动初始化
 
 -- ============================================================
 -- 5. 客户（每站5-8个，覆盖个人+企业）
@@ -130,26 +131,26 @@ INSERT IGNORE INTO address (id, customer_id, name, phone, is_default, label, det
 (21, 20, '许静', '13600005004', 1, '家', '济南市槐荫区道德街56号', '小区', 36.6670, 116.9910, NOW(), NOW());
 
 -- ============================================================
--- 7. 库存（每站每水类型有库存）
+-- 7. 库存（每站每商品有库存）
 -- ============================================================
-INSERT IGNORE INTO inventory (water_type_id, station_id, quantity, update_time) VALUES
+INSERT IGNORE INTO inventory (station_id, product_id, quantity, enabled, sale_price, ticket_enabled, ticket_price, create_time, update_time) VALUES
 -- 张店水站（库存充足）
-(1, 1, 120, NOW()), (2, 1, 80, NOW()), (3, 1, 50, NOW()), (4, 1, 200, NOW()), (5, 1, 30, NOW()),
-(6, 1, 100, NOW()), (7, 1, 60, NOW()), (8, 1, 150, NOW()), (9, 1, 40, NOW()), (10, 1, 35, NOW()),
+(1, 1, 120, 1, NULL, 0, NULL, NOW(), NOW()), (1, 2, 80, 1, NULL, 0, NULL, NOW(), NOW()), (1, 3, 50, 1, NULL, 0, NULL, NOW(), NOW()), (1, 4, 200, 1, NULL, 0, NULL, NOW(), NOW()), (1, 5, 30, 1, NULL, 0, NULL, NOW(), NOW()),
+(1, 6, 100, 1, NULL, 0, NULL, NOW(), NOW()), (1, 7, 60, 1, NULL, 0, NULL, NOW(), NOW()), (1, 8, 150, 1, NULL, 0, NULL, NOW(), NOW()), (1, 9, 40, 1, NULL, 0, NULL, NOW(), NOW()), (1, 10, 35, 1, NULL, 0, NULL, NOW(), NOW()),
 -- 淄川水站（部分偏低）
-(1, 2, 60, NOW()), (2, 2, 40, NOW()), (3, 2, 25, NOW()), (4, 2, 100, NOW()), (5, 2, 15, NOW()),
-(6, 2, 50, NOW()), (7, 2, 30, NOW()), (8, 2, 80, NOW()), (9, 2, 20, NOW()), (10, 2, 18, NOW()),
+(2, 1, 60, 1, NULL, 0, NULL, NOW(), NOW()), (2, 2, 40, 1, NULL, 0, NULL, NOW(), NOW()), (2, 3, 25, 1, NULL, 0, NULL, NOW(), NOW()), (2, 4, 100, 1, NULL, 0, NULL, NOW(), NOW()), (2, 5, 15, 1, NULL, 0, NULL, NOW(), NOW()),
+(2, 6, 50, 1, NULL, 0, NULL, NOW(), NOW()), (2, 7, 30, 1, NULL, 0, NULL, NOW(), NOW()), (2, 8, 80, 1, NULL, 0, NULL, NOW(), NOW()), (2, 9, 20, 1, NULL, 0, NULL, NOW(), NOW()), (2, 10, 18, 1, NULL, 0, NULL, NOW(), NOW()),
 -- 博山水站（库存压力大）
-(1, 3, 180, NOW()), (2, 3, 150, NOW()), (3, 3, 120, NOW()), (4, 3, 250, NOW()), (5, 3, 90, NOW()),
-(6, 3, 160, NOW()), (7, 3, 130, NOW()), (8, 3, 200, NOW()), (9, 3, 100, NOW()), (10, 3, 85, NOW()),
+(3, 1, 180, 1, NULL, 0, NULL, NOW(), NOW()), (3, 2, 150, 1, NULL, 0, NULL, NOW(), NOW()), (3, 3, 120, 1, NULL, 0, NULL, NOW(), NOW()), (3, 4, 250, 1, NULL, 0, NULL, NOW(), NOW()), (3, 5, 90, 1, NULL, 0, NULL, NOW(), NOW()),
+(3, 6, 160, 1, NULL, 0, NULL, NOW(), NOW()), (3, 7, 130, 1, NULL, 0, NULL, NOW(), NOW()), (3, 8, 200, 1, NULL, 0, NULL, NOW(), NOW()), (3, 9, 100, 1, NULL, 0, NULL, NOW(), NOW()), (3, 10, 85, 1, NULL, 0, NULL, NOW(), NOW()),
 -- 历下水站（库存正常）
-(1, 4, 90, NOW()), (2, 4, 70, NOW()), (3, 4, 45, NOW()), (4, 4, 130, NOW()), (5, 4, 35, NOW()),
-(6, 4, 80, NOW()), (7, 4, 55, NOW()), (8, 4, 110, NOW()), (9, 4, 30, NOW()), (10, 4, 28, NOW()),
+(4, 1, 90, 1, NULL, 0, NULL, NOW(), NOW()), (4, 2, 70, 1, NULL, 0, NULL, NOW(), NOW()), (4, 3, 45, 1, NULL, 0, NULL, NOW(), NOW()), (4, 4, 130, 1, NULL, 0, NULL, NOW(), NOW()), (4, 5, 35, 1, NULL, 0, NULL, NOW(), NOW()),
+(4, 6, 80, 1, NULL, 0, NULL, NOW(), NOW()), (4, 7, 55, 1, NULL, 0, NULL, NOW(), NOW()), (4, 8, 110, 1, NULL, 0, NULL, NOW(), NOW()), (4, 9, 30, 1, NULL, 0, NULL, NOW(), NOW()), (4, 10, 28, 1, NULL, 0, NULL, NOW(), NOW()),
 -- 槐荫水站（库存偏低）
-(1, 5, 40, NOW()), (2, 5, 25, NOW()), (3, 5, 15, NOW()), (4, 5, 60, NOW()), (5, 5, 10, NOW()),
-(6, 5, 35, NOW()), (7, 5, 20, NOW()), (8, 5, 45, NOW()), (9, 5, 12, NOW()), (10, 5, 10, NOW()),
+(5, 1, 40, 1, NULL, 0, NULL, NOW(), NOW()), (5, 2, 25, 1, NULL, 0, NULL, NOW(), NOW()), (5, 3, 15, 1, NULL, 0, NULL, NOW(), NOW()), (5, 4, 60, 1, NULL, 0, NULL, NOW(), NOW()), (5, 5, 10, 1, NULL, 0, NULL, NOW(), NOW()),
+(5, 6, 35, 1, NULL, 0, NULL, NOW(), NOW()), (5, 7, 20, 1, NULL, 0, NULL, NOW(), NOW()), (5, 8, 45, 1, NULL, 0, NULL, NOW(), NOW()), (5, 9, 12, 1, NULL, 0, NULL, NOW(), NOW()), (5, 10, 10, 1, NULL, 0, NULL, NOW(), NOW()),
 -- 天桥水站（停用，少量库存）
-(1, 6, 20, NOW()), (4, 6, 30, NOW());
+(6, 1, 20, 1, NULL, 0, NULL, NOW(), NOW()), (6, 4, 30, 1, NULL, 0, NULL, NOW(), NOW());
 
 -- ============================================================
 -- 8. 订单（覆盖各种状态：待组批/已组批/配送中/已完成，以及付款状态）

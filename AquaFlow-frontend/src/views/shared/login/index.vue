@@ -1,6 +1,5 @@
 <template>
   <div class="login-page">
-    <!-- 左侧品牌区 -->
     <div class="login-brand">
       <div class="brand-content">
         <div class="brand-logo">
@@ -8,15 +7,15 @@
           <h1 class="brand-name">AquaFlow</h1>
         </div>
         <h2 class="brand-slogan">桶装水配送管理系统</h2>
-        <p class="brand-desc">高效智能的水站运营管理平台，覆盖水厂-水站-配送全链路</p>
+        <p class="brand-desc">高效智能的水站运营管理平台，覆盖订单-配送-客户全链路</p>
         <div class="brand-features">
           <div class="feature-item">
             <div class="feature-dot"></div>
-            <span>多水站统一管理与协同</span>
+            <span>订单分配与配送追踪</span>
           </div>
           <div class="feature-item">
             <div class="feature-dot"></div>
-            <span>智能批次调度与配送追踪</span>
+            <span>客户、地址、商品一站式管理</span>
           </div>
           <div class="feature-item">
             <div class="feature-dot"></div>
@@ -24,7 +23,7 @@
           </div>
           <div class="feature-item">
             <div class="feature-dot"></div>
-            <span>数据分析与风险预警</span>
+            <span>数据概览与经营统计</span>
           </div>
         </div>
         <div class="brand-footer">
@@ -33,7 +32,6 @@
       </div>
     </div>
 
-    <!-- 右侧登录区 -->
     <div class="login-form-area">
       <div class="form-container">
         <div class="form-header">
@@ -54,9 +52,7 @@
           </el-form-item>
         </el-form>
         <div class="login-tip">
-          <div class="tip-item"><span class="tip-role">厂长</span><span class="tip-account">admin / admin123</span></div>
-          <div class="tip-item"><span class="tip-role">站长</span><span class="tip-account">张建国 / 123456</span></div>
-          <div class="tip-item"><span class="tip-role">配送</span><span class="tip-account">李永强 / 123456</span></div>
+          <div class="tip-item"><span class="tip-role">提示</span><span class="tip-account">请联系管理员获取账号</span></div>
         </div>
       </div>
     </div>
@@ -90,9 +86,8 @@ const handleLogin = async () => {
     if (res.stationId) localStorage.setItem('stationId', res.stationId)
     if (res.staffId) localStorage.setItem('staffId', res.staffId)
     ElMessage.success('登录成功')
-    router.push(res.role === 'factory' ? '/factory-dashboard' : '/dashboard')
+    router.push('/dashboard')
   } catch (e) {
-    // error handled by interceptor
   } finally {
     loading.value = false
   }
@@ -106,7 +101,6 @@ const handleLogin = async () => {
   background: #f8fafc;
 }
 
-/* 左侧品牌区 */
 .login-brand {
   flex: 1;
   background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
@@ -194,7 +188,6 @@ const handleLogin = async () => {
   font-size: 12px;
 }
 
-/* 右侧登录区 */
 .login-form-area {
   width: 480px;
   flex-shrink: 0;
@@ -251,7 +244,6 @@ const handleLogin = async () => {
   border-color: #3b82f6 !important;
 }
 
-/* 登录提示 */
 .login-tip {
   margin-top: 32px;
   padding-top: 24px;
@@ -283,7 +275,6 @@ const handleLogin = async () => {
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
-/* 响应式 */
 @media (max-width: 900px) {
   .login-brand { display: none; }
   .login-form-area { width: 100%; }

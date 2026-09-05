@@ -1,0 +1,153 @@
+<view class="container">
+  <!-- 无权限提示 -->
+  <view class="no-auth" wx:if="{{!isManager}}">
+    <text class="no-auth-icon">🔒</text>
+    <text class="no-auth-title">您无权限</text>
+    <text class="no-auth-desc">首页仅站长可访问</text>
+    <button class="no-auth-btn" bindtap="onGoBack">返回配送页</button>
+  </view>
+
+  <view wx:else>
+    <!-- Tab 切换 -->
+    <scroll-view class="tab-bar" scroll-x enable-flex>
+      <view class="tab-item {{activeTab === item.key ? 'active' : ''}}"
+            wx:for="{{tabs}}" wx:key="key"
+            bindtap="switchTab" data-tab="{{item.key}}">
+        <text>{{item.label}}</text>
+        <text class="tab-count" wx:if="{{item.count > 0}}">{{item.count}}</text>
+      </view>
+    </scroll-view>
+
+    <!-- 待分配：未分配配送员 + 转单请求（合并） -->
+    <view class="list" wx:if="{{activeTab === 'pending'}}">
+      <view class="order-card" wx:for="{{lists.pending}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="card-header">
+          <view class="tag-row">
+            <text class="status-tag status-pending" wx:if="{{!item.deliveryStaffId}}">待分配</text>
+            <text class="status-tag status-transfer" wx:else>转单中</text>
+          </view>
+          <text class="order-id">#{{item.id}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">客户</text>
+          <text class="info-value">{{item.customerName || item.receiverName}}</text>
+          <text class="info-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">商品</text>
+          <text class="info-value">{{item.productName || item.waterTypeName}} × {{item.quantity}}桶</text>
+        </view>
+        <view class="info-row info-address">
+          <text class="info-label">地址</text>
+          <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+        </view>
+        <view class="card-actions">
+          <button class="btn-primary" catchtap="onShowAssign" data-id="{{item.id}}">分配配送员</button>
+          <button class="btn-outline-small" catchtap="onOutsourceToPool" data-id="{{item.id}}">外派抢单池</button>
+        </view>
+      </view>
+      <view class="empty" wx:if="{{lists.pending.length === 0}}">
+        <text>暂无待分配订单</text>
+      </view>
+    </view>
+
+    <!-- 抢单池：其他水站外派的救援订单 -->
+    <view class="list" wx:elif="{{activeTab === 'pool'}}">
+      <view class="order-card pool-card" wx:for="{{lists.pool}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="card-header">
+          <view class="tag-row">
+            <text class="status-tag status-pool">抢单池</text>
+            <text class="match-tag match-{{item.productMatch.level}}" wx:if="{{item.productMatch}}">
+              {{item.productMatch.hint}}
+            </text>
+          </view>
+          <text class="order-id">#{{item.id}}</text>
+        </view>
+        <view class="pool-product-info">
+          <text class="pool-product-label">订单商品：</text>
+          <text class="pool-product-name">{{item.productName || item.waterTypeName}} × {{item.quantity}}桶</text>
+        </view>
+        <view class="pool-match-info" wx:if="{{item.productMatch}}">
+          <text class="match-label">本站匹配：</text>
+          <text class="match-name" wx:if="{{item.productMatch.matchName}}">{{item.productMatch.matchName}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">客户</text>
+          <text class="info-value">{{item.customerName || item.receiverName}}</text>
+        </view>
+        <view class="info-row info-address">
+          <text class="info-label">地址</text>
+          <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+        </view>
+        <view class="card-actions">
+          <button class="btn-outline-small" catchtap="onSkipPool" data-id="{{item.id}}">跳过</button>
+          <button class="btn-primary-small" catchtap="onClaimPool" data-id="{{item.id}}">抢单</button>
+        </view>
+      </view>
+      <view class="empty" wx:if="{{lists.pool.length === 0}}">
+        <text>暂无可抢单订单</text>
+      </view>
+    </view>
+
+    <!-- 外派追踪：本站外派出去的订单状态 -->
+    <view class="list" wx:elif="{{activeTab === 'dispatch'}}">
+      <view class="order-card dispatch-card" wx:for="{{lists.dispatch}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="card-header">
+          <view class="tag-row">
+            <text class="status-tag status-dispatch">外派中</text>
+            <text class="dispatch-status-tag" wx:if="{{item.dispatchStatus === 'pending'}}">等待接单</text>
+            <text class="dispatch-status-tag dispatch-accepted" wx:elif="{{item.dispatchStatus === 'accepted'}}">已接单</text>
+            <text class="dispatch-status-tag dispatch-rejected" wx:elif="{{item.dispatchStatus === 'rejected'}}">已拒绝</text>
+            <text class="dispatch-status-tag dispatch-completed" wx:elif="{{item.dispatchStatus === 'completed'}}">已完成</text>
+          </view>
+          <text class="order-id">#{{item.id}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">客户</text>
+          <text class="info-value">{{item.customerName || item.receiverName}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">商品</text>
+          <text class="info-value">{{item.productName || item.waterTypeName}} × {{item.quantity}}桶</text>
+        </view>
+        <view class="dispatch-info" wx:if="{{item.deliveryStationName}}">
+          <view class="dispatch-row">
+            <text class="dispatch-label">外派至</text>
+            <text class="dispatch-value">{{item.deliveryStationName}}</text>
+          </view>
+          <view class="dispatch-row" wx:if="{{item.deliveryStaffName}}">
+            <text class="dispatch-label">配送员</text>
+            <text class="dispatch-value">{{item.deliveryStaffName}}</text>
+          </view>
+        </view>
+        <view class="card-actions">
+          <button class="btn-danger-small" catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.deliveryStationId === null}}">取消外派</button>
+          <button class="btn-outline-small" catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.deliveryStationId === null}}">重新外派</button>
+        </view>
+      </view>
+      <view class="empty" wx:if="{{lists.dispatch.length === 0}}">
+        <text>暂无外派订单</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 分配弹窗 -->
+  <view class="modal-overlay" wx:if="{{showAssignModal}}" bindtap="onCloseModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <text class="modal-title">选择配送员</text>
+      <view class="modal-list">
+        <view class="modal-item" wx:for="{{staffList}}" wx:key="id" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onConfirmAssign">
+          <view class="modal-item-info">
+            <text class="modal-item-name">{{item.name}}</text>
+            <text class="modal-item-phone" wx:if="{{item.phone}}">{{item.phone}}</text>
+          </view>
+          <text class="modal-item-arrow">›</text>
+        </view>
+        <view class="modal-empty" wx:if="{{staffList.length === 0}}">
+          <text>暂无配送员，请先添加配送员</text>
+        </view>
+      </view>
+      <button class="modal-cancel" bindtap="onCloseModal">取消</button>
+    </view>
+  </view>
+</view>

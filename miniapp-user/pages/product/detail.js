@@ -1,22 +1,27 @@
-const { getWaterTypeDetail } = require('../../api/product')
+const { getProductDetail } = require('../../api/product')
+const { getBaseUrl, API } = require('../../config/api')
 
 Page({
   data: {
     loading: true,
     product: {},
-    quantity: 1
+    quantity: 1,
+    stationId: null
   },
 
   onLoad(options) {
     if (options.id) {
       this.loadProduct(options.id)
     }
+    if (options.stationId) {
+      this.setData({ stationId: parseInt(options.stationId) })
+    }
   },
 
   async loadProduct(id) {
     this.setData({ loading: true })
     try {
-      const res = await getWaterTypeDetail(id)
+      const res = await getProductDetail(id)
       if (res.data) {
         this.setData({ product: res.data })
       }
@@ -45,9 +50,14 @@ Page({
   },
 
   onBuyNow() {
-    const { product, quantity } = this.data
+    const app = getApp()
+    if (!app.globalData.isLogin) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+    const { product, quantity, stationId } = this.data
     wx.navigateTo({
-      url: `/pages/order/create?productId=${product.id}&quantity=${quantity}`
+      url: `/pages/order/create?productId=${product.id}&quantity=${quantity}&stationId=${stationId || ''}`
     })
   }
 })

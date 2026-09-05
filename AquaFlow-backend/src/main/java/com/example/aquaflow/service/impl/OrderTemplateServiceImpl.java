@@ -1,8 +1,10 @@
 package com.example.aquaflow.service.impl;
 
+import com.example.aquaflow.entity.OrderItem;
 import com.example.aquaflow.entity.OrderTemplate;
 import com.example.aquaflow.entity.OrderTemplateItem;
 import com.example.aquaflow.entity.Orders;
+import com.example.aquaflow.mapper.OrderItemMapper;
 import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.mapper.OrderTemplateItemMapper;
 import com.example.aquaflow.mapper.OrderTemplateMapper;
@@ -26,29 +28,30 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
     @Autowired
     private OrderMapper orderMapper;
 
+    @Autowired
+    private OrderItemMapper orderItemMapper;
+
     @Override
-    public OrderTemplate getQuickOrder(Integer customerId) {
-        // 优先返回默认模板
-        OrderTemplate tpl = templateMapper.getDefault(customerId);
+    public OrderTemplate getQuickOrder(Long customerId, Long stationId) {
+        // H02: 模板按水站隔离
+        OrderTemplate tpl = templateMapper.getDefault(customerId, stationId);
         if (tpl != null) {
             tpl.setItems(itemMapper.listByTemplateId(tpl.getId()));
             return tpl;
         }
-        // 其次返回最近启用的模板
-        List<OrderTemplate> all = templateMapper.listByCustomerId(customerId);
+        List<OrderTemplate> all = templateMapper.listByCustomerAndStation(customerId, stationId);
         for (OrderTemplate t : all) {
-            if (t.getEnabled() != null && t.getEnabled() == 1) {
+            if (t.getEnabled() != null && Integer.valueOf(1).equals(t.getEnabled())) {
                 t.setItems(itemMapper.listByTemplateId(t.getId()));
                 return t;
             }
         }
-        // 最后返回最近一次完成的订单
-        return templateMapper.getLastCompletedOrder(customerId);
+        return templateMapper.getLastCompletedOrder(customerId, stationId);
     }
 
     @Override
-    public List<OrderTemplate> listByCustomerId(Integer customerId) {
-        List<OrderTemplate> list = templateMapper.listByCustomerId(customerId);
+    public List<OrderTemplate> listByCustomerAndStation(Long customerId, Long stationId) {
+        List<OrderTemplate> list = templateMapper.listByCustomerAndStation(customerId, stationId);
         for (OrderTemplate tpl : list) {
             tpl.setItems(itemMapper.listByTemplateId(tpl.getId()));
         }
@@ -57,24 +60,21 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
 
     @Override
     @Transactional
-    public OrderTemplate save(Integer customerId, OrderTemplate template) {
+    public OrderTemplate save(Long customerId, OrderTemplate template, Long stationId) {
         template.setCustomerId(customerId);
+        template.setStationId(stationId);
         template.setUpdateTime(LocalDateTime.now());
 
         if (template.getId() != null) {
-            // 更新模板主体
             templateMapper.update(template);
-            // 删除旧明细，插入新明细
             itemMapper.deleteByTemplateId(template.getId());
         } else {
-            // 新建模板
             if (template.getEnabled() == null) template.setEnabled(1);
             if (template.getIsDefault() == null) template.setIsDefault(0);
             template.setCreateTime(LocalDateTime.now());
             templateMapper.insert(template);
         }
 
-        // 插入明细
         if (template.getItems() != null) {
             for (OrderTemplateItem item : template.getItems()) {
                 item.setTemplateId(template.getId());
@@ -82,9 +82,8 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
             }
         }
 
-        // 如果设为默认，取消其他默认
-        if (template.getIsDefault() != null && template.getIsDefault() == 1) {
-            templateMapper.clearDefault(customerId);
+        if (template.getIsDefault() != null && Integer.valueOf(1).equals(template.getIsDefault())) {
+            templateMapper.clearDefault(customerId, stationId);
             templateMapper.setDefault(template.getId());
         }
 
@@ -92,29 +91,28 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
     }
 
     @Override
-    public void setDefault(Integer customerId, Integer templateId) {
-        templateMapper.clearDefault(customerId);
+    public void setDefault(Long customerId, Long templateId, Long stationId) {
+        templateMapper.clearDefault(customerId, stationId);
         templateMapper.setDefault(templateId);
     }
 
     @Override
-    public void toggleEnabled(Integer customerId, Integer templateId, Integer enabled) {
-        templateMapper.toggleEnabled(templateId, customerId, enabled);
+    public void toggleEnabled(Long customerId, Long templateId, Integer enabled) {
+        templateMapper.toggleEnabled(templateId, enabled);
     }
 
     @Override
     @Transactional
-    public OrderTemplate setFromOrder(Integer customerId, Integer orderId) {
+    public OrderTemplate setFromOrder(Long customerId, Long orderId, Long stationId) {
         Orders order = orderMapper.getById(orderId);
         if (order == null || !order.getCustomerId().equals(customerId)) {
             throw new RuntimeException("订单不存在");
         }
 
-        // 创建模板
         OrderTemplate template = new OrderTemplate();
         template.setCustomerId(customerId);
+        template.setStationId(stationId);
         template.setName(null);
-        template.setAddressId(order.getAddressId());
         template.setSpecialNote(order.getSpecialNote());
         template.setEnabled(1);
         template.setIsDefault(0);
@@ -122,21 +120,25 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
         template.setUpdateTime(LocalDateTime.now());
         templateMapper.insert(template);
 
-        // 创建明细
-        OrderTemplateItem item = new OrderTemplateItem();
-        item.setTemplateId(template.getId());
-        item.setWaterTypeId(order.getWaterTypeId());
-        item.setQuantity(order.getQuantity());
-        itemMapper.insert(item);
+        java.util.List<OrderTemplateItem> templateItems = new java.util.ArrayList<>();
+        java.util.List<OrderItem> orderItems = orderItemMapper.listByOrderId(orderId);
+        for (OrderItem oi : orderItems) {
+            OrderTemplateItem item = new OrderTemplateItem();
+            item.setTemplateId(template.getId());
+            item.setProductId(oi.getProductId());
+            item.setQuantity(oi.getQuantity());
+            itemMapper.insert(item);
+            templateItems.add(item);
+        }
 
-        template.setItems(List.of(item));
+        template.setItems(templateItems);
         return template;
     }
 
     @Override
     @Transactional
-    public void delete(Integer customerId, Integer templateId) {
+    public void delete(Long customerId, Long templateId) {
         itemMapper.deleteByTemplateId(templateId);
-        templateMapper.delete(templateId, customerId);
+        templateMapper.delete(templateId);
     }
 }

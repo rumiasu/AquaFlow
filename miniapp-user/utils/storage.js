@@ -84,15 +84,30 @@ const searchStorage = {
     const index = history.indexOf(keyword)
     if (index > -1) {
       history.splice(index, 1)
-      searchStorage.set(history)
     }
+    searchStorage.set(history)
   },
   clear: () => storage.set('searchHistory', [])
+}
+
+// 当前选中的水站持久化（仅 UI 偏好，不关联客户归属）
+const stationStorage = {
+  get: () => storage.get('selectedStation'),
+  set: (station) => storage.set('selectedStation', station),
+  getId: () => {
+    const s = storage.get('selectedStation')
+    return s ? s.id : null
+  },
+  // 水站切换提示"不再提示"状态
+  getSwitchNoticeDisabled: () => storage.get('stationSwitchNoticeDisabled') === true,
+  setSwitchNoticeDisabled: (disabled) => storage.set('stationSwitchNoticeDisabled', !!disabled),
+  remove: () => storage.remove('selectedStation')
 }
 
 module.exports = {
   storage,
   tokenStorage,
   userStorage,
-  searchStorage
+  searchStorage,
+  stationStorage
 }

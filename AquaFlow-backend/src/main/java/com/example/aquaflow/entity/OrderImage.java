@@ -6,9 +6,13 @@ import java.time.LocalDateTime;
 
 @Data
 public class OrderImage {
-    private Integer id;//订单图片
-    private Integer orderId;//订单id
-    private String url;
-    private Integer type;//类型1正常2异常
-    private LocalDateTime createTime;//创建时间
+    private Integer id;
+    private Integer orderId;
+    /** COS 对象键（如 private/order/42/abc.jpg） */
+    private String objectName;
+    private Integer type; // 1=正常 2=异常
+    private LocalDateTime createTime;
+
+    /** 临时访问 URL（由 Controller 注入，不入库） */
+    private transient String url;
 }

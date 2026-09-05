@@ -26,14 +26,25 @@ export const addressApi = {
   update: (id, data) => request.put(`/addresses/${id}`, data)
 }
 
-// ==================== 水类型管理 ====================
-export const waterTypeApi = {
-  list: () => request.get('/water-types'),
-  getById: (id) => request.get(`/water-types/${id}`),
-  save: (data) => request.post('/water-types', data),
-  update: (id, data) => request.put(`/water-types/${id}`, data),
-  delete: (id) => request.delete(`/water-types/${id}`)
+// ==================== 商品管理 ====================
+export const productApi = {
+  list: () => request.get('/products'),
+  getById: (id) => request.get(`/products/${id}`),
+  save: (data) => request.post('/products', data),
+  update: (id, data) => request.put(`/products/${id}`, data),
+  delete: (id) => request.delete(`/products/${id}`),
+  uploadImage: (id, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return request.post(`/products/${id}/image`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  deleteImage: (id) => request.delete(`/products/${id}/image`)
 }
+
+// ==================== 兼容旧接口（逐步迁移用） ====================
+export const waterTypeApi = productApi
 
 // ==================== 库存管理 ====================
 export const inventoryApi = {
@@ -50,17 +61,18 @@ export const orderApi = {
   cancel: (id) => request.put(`/orders/${id}/cancel`)
 }
 
-// ==================== 批次管理 ====================
-export const batchApi = {
-  list: (params) => request.get('/batches', { params }),
-  getById: (id) => request.get(`/batches/${id}`),
-  create: (orderIds) => request.post('/batches', { orderIds }),
-  start: (id) => request.post(`/batches/${id}/start`),
-  finish: (id, data) => request.post(`/batches/${id}/finish`, data),
-  finishAll: (id) => request.post(`/batches/${id}/finish-all`),
-  delete: (id) => request.delete(`/batches/${id}`),
-  getMyBatches: () => request.get('/batches/my'),
-  assignDelivery: (id, deliveryPersonId) => request.post(`/batches/${id}/assign`, null, { params: { deliveryPersonId } })
+// ==================== 配送订单 ====================
+export const deliveryApi = {
+  confirmCollection: (id) => request.post(`/delivery/orders/confirm-collection/${id}`),
+  unconfirmCollection: (id) => request.post(`/delivery/orders/unconfirm-collection/${id}`),
+  rejectOrder: (id, reason) => request.post(`/delivery/orders/reject/${id}`, { reason }),
+  getStationDeliveringOrders: () => request.get('/delivery/orders/station-delivering'),
+  getStationPendingOrders: () => request.get('/delivery/orders/station-pending'),
+  stationAssign: (id, data) => request.post(`/delivery/orders/assign/${id}`, data),
+  stationReturn: (id, data) => request.post(`/delivery/orders/return/${id}`, data),
+  transferOrder: (id, data) => request.post(`/delivery/orders/transfer/${id}`, data),
+  getTransferRecords: () => request.get('/delivery/transfers'),
+  getMyDeliveries: () => request.get('/delivery/orders/my')
 }
 
 // ==================== 支付管理 ====================
@@ -75,22 +87,10 @@ export const paymentApi = {
   getConfig: () => request.get('/payments/config')
 }
 
-// ==================== 报表 ====================
-export const reportApi = {
-  addressTags: () => request.get('/addresses/report/tags')
-}
-
 // ==================== 仪表盘 ====================
 export const dashboardApi = {
   today: () => request.get('/dashboard/today'),
-  pendingBatches: () => request.get('/dashboard/pending-batches'),
-  deliveringBatches: () => request.get('/dashboard/delivering-batches'),
-  overview: () => request.get('/dashboard/overview'),
-  orderSource: () => request.get('/dashboard/order-source'),
-  orderStatus: () => request.get('/dashboard/order-status'),
-  orderTrend: () => request.get('/dashboard/order-trend'),
-  waterTypeSales: () => request.get('/dashboard/water-type-sales'),
-  topCustomers: () => request.get('/dashboard/top-customers')
+  overview: () => request.get('/dashboard/overview')
 }
 
 // ==================== 全局搜索 ====================
@@ -139,7 +139,10 @@ export const staffApi = {
   getById: (id) => request.get(`/staff/${id}`),
   save: (data) => request.post('/staff', data),
   update: (id, data) => request.put(`/staff/${id}`, data),
-  delete: (id) => request.delete(`/staff/${id}`)
+  delete: (id) => request.delete(`/staff/${id}`),
+  detach: (id) => request.post(`/staff/${id}/detach`),
+  claim: (id, data) => request.post(`/staff/${id}/claim`, data),
+  unaffiliated: (role) => request.get('/staff/unaffiliated', { params: { role } })
 }
 
 // ==================== V2: 水站 ====================
@@ -152,43 +155,43 @@ export const stationApi = {
   close: (id) => request.put(`/stations/${id}/close`)
 }
 
-// ==================== V2: 水厂 ====================
-export const factoryApi = {
-  list: () => request.get('/factories'),
-  getById: (id) => request.get(`/factories/${id}`),
-  save: (data) => request.post('/factories', data),
-  update: (id, data) => request.put(`/factories/${id}`, data),
-  delete: (id) => request.delete(`/factories/${id}`)
+// ==================== 文件上传 ====================
+export const uploadApi = {
+  upload: (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return request.post('/common/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  }
 }
 
-// ==================== 水厂运营平台 ====================
-export const factoryOpsApi = {
-  overview: () => request.get('/factory-ops/overview'),
-  stationRanking: (params) => request.get('/factory-ops/stations/ranking', { params }),
-  stationTrend: (params) => request.get('/factory-ops/stations/trend', { params }),
-  stationDetail: (stationId) => request.get(`/factory-ops/stations/${stationId}/detail`),
-  salesDecline: (params) => request.get('/factory-ops/analysis/sales-decline', { params }),
-  areaHeatmap: () => request.get('/factory-ops/analysis/area-heatmap'),
-  customerChurn: (params) => request.get('/factory-ops/analysis/customer-churn', { params }),
-  inventoryPressure: () => request.get('/factory-ops/analysis/inventory-pressure'),
-  suggestions: () => request.get('/factory-ops/analysis/suggestions'),
-  profile: (stationId) => request.get(`/factory-ops/profile/${stationId}`),
-  profileSalesTrend: (stationId, params) => request.get(`/factory-ops/profile/${stationId}/sales-trend`, { params }),
-  profileCustomerStats: (stationId) => request.get(`/factory-ops/profile/${stationId}/customer-stats`),
-  profileInventoryTurnover: (stationId) => request.get(`/factory-ops/profile/${stationId}/inventory-turnover`),
-  profilePaymentSpeed: (stationId) => request.get(`/factory-ops/profile/${stationId}/payment-speed`),
-  inventoryOverview: () => request.get('/factory-ops/inventory-overview'),
-  transferAvailable: () => request.get('/factory-ops/transfers/available'),
-  transferCreate: (data) => request.post('/factory-ops/transfers', data),
-  transferList: (params) => request.get('/factory-ops/transfers', { params }),
-  transferApprove: (id, data) => request.put(`/factory-ops/transfers/${id}/approve`, data),
-  transferComplete: (id, data) => request.put(`/factory-ops/transfers/${id}/complete`, data),
-  alertList: (params) => request.get('/factory-ops/alerts', { params }),
-  alertStats: () => request.get('/factory-ops/alerts/stats'),
-  alertRead: (id) => request.put(`/factory-ops/alerts/${id}/read`),
-  alertHandle: (id, data) => request.put(`/factory-ops/alerts/${id}/handle`, data),
-  alertCheck: () => request.post('/factory-ops/alerts/check'),
-  recentAlerts: () => request.get('/factory-ops/alerts/recent')
+// ==================== 订单图片 ====================
+export const orderImageApi = {
+  upload: (orderId, file, type = 1) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('orderId', orderId)
+    formData.append('type', type)
+    return request.post('/order-images/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  listByOrder: (orderId) => request.get(`/order-images/by-order/${orderId}`)
+}
+
+// ==================== 文件管理 ====================
+export const fileApi = {
+  list: (category) => request.get('/files', { params: { category } }),
+  upload: (file, category = 'general') => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('category', category)
+    return request.post('/files/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  delete: (id) => request.delete(`/files/${id}`)
 }
 
 // ==================== 审计日志 ====================

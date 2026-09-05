@@ -6,24 +6,33 @@ Component({
   data: {
     statusText: '',
     statusClass: '',
-    payStatusText: ''
+    payStatusText: '',
+    payStatusClass: ''
   },
 
   observers: {
     'order.status': function (status) {
       const map = {
         1: { text: '待配送', class: 'warning' },
-        2: { text: '配送中', class: 'primary' },
-        3: { text: '已完成', class: 'success' },
-        4: { text: '待配送', class: 'warning' },
-        5: { text: '已取消', class: 'cancelled' }
+        3: { text: '配送中', class: 'primary' },
+        4: { text: '已送达', class: 'success' },
+        5: { text: '已完成', class: 'success' },
+        6: { text: '已取消', class: 'cancelled' },
+        7: { text: '已拒单', class: 'cancelled' }
       }
       const info = map[status] || { text: '未知', class: 'default' }
       this.setData({ statusText: info.text, statusClass: info.class })
     },
     'order.paymentStatus': function (ps) {
-      const map = { 0: '未付款', 1: '待确认', 2: '已付款', 3: '已退款', 4: '已取消' }
-      this.setData({ payStatusText: map[ps] || '未知' })
+      const map = {
+        0: { text: '未付款', class: 'other' },
+        1: { text: '待收款', class: 'warning' },
+        2: { text: '已付款', class: 'paid' },
+        3: { text: '已退款', class: 'other' },
+        4: { text: '已取消', class: 'other' }
+      }
+      const info = map[ps] || { text: '未知', class: 'other' }
+      this.setData({ payStatusText: info.text, payStatusClass: info.class })
     }
   },
 
@@ -33,6 +42,9 @@ Component({
     },
     onReorder() {
       this.triggerEvent('reorder', { order: this.data.order })
+    },
+    onPayNow() {
+      this.triggerEvent('pay', { order: this.data.order })
     },
     onCancel() {
       wx.showModal({

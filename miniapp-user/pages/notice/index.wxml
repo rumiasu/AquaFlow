@@ -1,0 +1,16 @@
+<view class="container">
+  <loading wx:if="{{loading}}"></loading>
+
+  <view class="notice-list" wx:else>
+    <view class="notice-item" wx:for="{{notices}}" wx:key="id" data-id="{{item.id}}" bindtap="onNoticeTap">
+      <view class="notice-item-top">
+        <text class="notice-type {{item.type === 1 ? 'type-system' : item.type === 2 ? 'type-station' : 'type-promo'}}">
+          {{item.type === 1 ? '系统' : item.type === 2 ? '水站' : '促销'}}
+        </text>
+        <text class="notice-title">{{item.title}}</text>
+      </view>
+      <text class="notice-time">{{item.createTime}}</text>
+    </view>
+    <empty wx:if="{{notices.length === 0}}" text="暂无公告"></empty>
+  </view>
+</view>

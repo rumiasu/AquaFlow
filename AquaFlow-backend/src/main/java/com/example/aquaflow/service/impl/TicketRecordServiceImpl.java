@@ -15,7 +15,7 @@ public class TicketRecordServiceImpl implements TicketRecordService {
     private TicketRecordMapper ticketRecordMapper;
 
     @Override
-    public List<TicketRecord> listByCustomerId(Integer customerId) {
+    public List<TicketRecord> listByCustomerId(Long customerId) {
         return ticketRecordMapper.listByCustomerId(customerId);
     }
 }

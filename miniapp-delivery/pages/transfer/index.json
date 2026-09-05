@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "转让记录",
+  "navigationBarBackgroundColor": "#4F8EF7",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#f0f4f8",
+  "enablePullDownRefresh": true
+}

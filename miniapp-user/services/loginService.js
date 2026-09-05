@@ -2,9 +2,8 @@
 const { storage } = require('../utils/storage')
 
 const loginService = {
-  // 检查登录状态
   checkLogin: () => {
-    const token = storage.get('token')
+    const token = storage.get('accessToken')
     const userInfo = storage.get('userInfo')
     return {
       isLogin: !!token && !!userInfo,
@@ -13,12 +12,19 @@ const loginService = {
     }
   },
 
-  // 退出登录
   logout: () => {
-    storage.remove('token')
+    const app = getApp()
+    storage.remove('accessToken')
+    storage.remove('refreshToken')
     storage.remove('userInfo')
     storage.remove('customerId')
-    wx.reLaunch({ url: '/pages/home/index' })
+    if (app) {
+      app.globalData.accessToken = null
+      app.globalData.refreshToken = null
+      app.globalData.userInfo = null
+      app.globalData.isLogin = false
+    }
+    wx.reLaunch({ url: '/pages/login/index' })
   }
 }
 

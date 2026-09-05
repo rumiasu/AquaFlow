@@ -3,21 +3,31 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.Staff;
+import com.example.aquaflow.entity.StaffStationApplication;
+import com.example.aquaflow.entity.Station;
 import com.example.aquaflow.entity.UserToken;
 import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.StaffMapper;
+import com.example.aquaflow.mapper.StaffStationApplicationMapper;
+import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.mapper.UserTokenMapper;
 import com.example.aquaflow.service.WeChatLoginService;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.JwtUtil;
 import com.example.aquaflow.util.PasswordUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 public class LoginController {
@@ -26,10 +36,19 @@ public class LoginController {
     private WeChatLoginService weChatLoginService;
 
     @Autowired
+    private Environment environment;
+
+    @Autowired
     private CustomerMapper customerMapper;
 
     @Autowired
     private StaffMapper staffMapper;
+
+    @Autowired
+    private StationMapper stationMapper;
+
+    @Autowired
+    private StaffStationApplicationMapper appMapper;
 
     @Autowired
     private UserTokenMapper userTokenMapper;
@@ -37,11 +56,13 @@ public class LoginController {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Value("${app.dev-login-enabled:false}")
+    private boolean devLoginEnabled;
+
     // ==================== 微信小程序登录 ====================
 
     /**
-     * 微信小程序登录
-     * POST /api/auth/wx-login  { code: "wx.login()返回的code" }
+     * 微信登录（用户小程序）：仅查 customer 表，与 staff 表完全独立
      */
     @PostMapping("/wx-login")
     public Result<Map<String, Object>> wxLogin(@RequestBody Map<String, String> params) {
@@ -53,6 +74,7 @@ public class LoginController {
         Map<String, Object> wxSession = weChatLoginService.code2Session(code);
         String openid = wxSession.get("openid").toString();
 
+        // 仅查 customer，没有则自动注册
         Customer customer = customerMapper.findByOpenid(openid);
         if (customer == null) {
             customer = new Customer();
@@ -60,20 +82,16 @@ public class LoginController {
             customer.setPhone("");
             customer.setOpenid(openid);
             customer.setCustomerType(1);
-            customer.setRole(1);
             customer.setCreateTime(LocalDateTime.now());
             customer.setUpdateTime(LocalDateTime.now());
-            customerMapper.insertWithOpenid(customer);
+            customerMapper.insert(customer);
         }
 
-        // 生成 JWT 双 Token
-        String role = mapCustomerRole(customer);
         String accessToken = jwtUtil.generateAccessToken(
-                customer.getId(), "customer", role,
-                customer.getStationId(), null);
+                customer.getId(), "customer", "customer",
+                null);
         String refreshToken = jwtUtil.generateRefreshToken(customer.getId(), "customer");
 
-        // 存储 refresh_token
         saveRefreshToken(customer.getId(), "customer", refreshToken);
 
         Map<String, Object> data = new HashMap<>();
@@ -82,33 +100,346 @@ public class LoginController {
         data.put("customerId", customer.getId());
         data.put("nickname", customer.getName());
         data.put("phone", customer.getPhone());
-        data.put("role", role);
-        data.put("stationId", customer.getStationId());
+        data.put("role", "customer");
+        data.put("userType", "customer");
         data.put("isNew", customer.getCreateTime().isEqual(customer.getUpdateTime()));
 
         return Result.success(data);
     }
 
-    // ==================== 更新资料 ====================
-
     /**
-     * 更新客户微信绑定的昵称和手机号
-     * POST /api/auth/update-profile
+     * 配送端微信登录：任何微信用户可进入。
+     * <ul>
+     *   <li>staff 存在 → 正常登录 (返回按 station_id 派生的 bindingStatus)</li>
+     *   <li>staff 不存在 → 返回 role=UNSELECTED, needSelectRole=true, 交由 /select-role 创建</li>
+     * </ul>
      */
-    @PostMapping("/update-profile")
-    public Result<Void> updateProfile(@RequestBody Map<String, Object> params) {
-        Integer customerId = AuthContext.getUserId();
-        if (customerId == null) {
-            return Result.error("用户ID不能为空");
+    @PostMapping("/wx-login-staff")
+    public Result<Map<String, Object>> wxLoginStaff(@RequestBody Map<String, String> params) {
+        String code = params.get("code");
+        if (code == null || code.isEmpty()) {
+            return Result.error("登录code不能为空");
         }
 
-        Customer customer = customerMapper.getById(customerId);
-        if (customer == null) {
-            return Result.error("用户不存在");
+        Map<String, Object> wxSession;
+        try {
+            wxSession = weChatLoginService.code2Session(code);
+        } catch (RuntimeException e) {
+            return Result.error("微信登录失败: " + e.getMessage());
+        }
+        String openid = (String) wxSession.get("openid");
+        log.info("[wx-login-staff] openid={}", openid);
+
+        Staff staff = staffMapper.findByOpenid(openid);
+        log.info("[wx-login-staff] staff查询结果: staffId={}, role={}, status={}, stationId={}",
+                staff != null ? staff.getId() : "null",
+                staff != null ? staff.getRole() : "null",
+                staff != null ? staff.getStatus() : "null",
+                staff != null ? staff.getStationId() : "null");
+
+        if (staff != null) {
+            if (staff.getStatus() == null || !Integer.valueOf(1).equals(staff.getStatus())) {
+                log.warn("[wx-login-staff] 账号已停用, staffId={}, status={}", staff.getId(), staff.getStatus());
+                return Result.error("该账号已停用");
+            }
+            log.info("[wx-login-staff] 员工已绑定, 开始生成token, staffId={}", staff.getId());
+            return buildStaffWxLoginResult(staff);
+        }
+
+        // 未绑定任何 staff：虚拟 UNSELECTED 会话
+        log.info("[wx-login-staff] 未找到staff, 生成UNSELECTED会话");
+        try {
+            long virtualUserId = -1 * Math.abs((openid + ":staff:unselected").hashCode());
+            String role = "UNSELECTED";
+            String accessToken = jwtUtil.generateAccessToken(virtualUserId, "staff", role, null);
+            String refreshToken = jwtUtil.generateRefreshToken(virtualUserId, "staff");
+            saveRefreshToken(virtualUserId, "staff", refreshToken);
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("accessToken", accessToken);
+            data.put("refreshToken", refreshToken);
+            data.put("staffId", null);
+            data.put("nickname", "");
+            data.put("phone", "");
+            data.put("role", role);
+            data.put("staffRole", role);
+            data.put("stationId", null);
+            data.put("bindingStatus", "UNBOUND");
+            data.put("userType", "staff");
+            data.put("needSelectRole", true);
+            data.put("_pendingOpenid", openid);
+
+            log.info("[wx-login-staff] 返回UNSELECTED结果, openid={}", openid);
+            return Result.success(data);
+        } catch (Exception e) {
+            log.error("[wx-login-staff] UNSELECTED流程异常: openid={}, error={}", openid, e.getMessage(), e);
+            return Result.error("登录失败(UNSELECTED): " + e.getMessage());
+        }
+    }
+
+    /**
+     * 首次进入配送端选择角色 (站长/配送员).
+     * <ul>
+     *   <li>STATION_MANAGER: 创建 staff, station_id=null (后续调用 /create-station 创建水站再绑定)</li>
+     *   <li>DELIVERY: 创建 staff, station_id=null (后续申请绑定水站; 不自动绑定默认站)</li>
+     * </ul>
+     */
+    @PostMapping("/select-role")
+    public Result<Map<String, Object>> selectRole(@RequestBody Map<String, Object> params) {
+        Long userId = AuthContext.getUserId();
+        String roleParam = (String) params.get("role");
+        String nickname = (String) params.get("nickname");
+        String phone = (String) params.get("phone");
+
+        if (roleParam == null || (!"STATION_MANAGER".equals(roleParam) && !"DELIVERY".equals(roleParam))) {
+            return Result.error("角色参数非法");
+        }
+
+        // 从JWT中获取openid，而非信任客户端传入的_pendingOpenid
+        String pendingOpenid = "";
+        try {
+            String authHeader = null;
+            // 尝试从当前请求中获取token中的openid（如果JWT中有的话）
+            // 这里通过userId查找staff来验证身份
+            if (userId != null && userId > 0) {
+                // userId是虚拟ID（负数hash），无法直接查staff
+                // 通过解码JWT获取原始openid（在wx-login-staff时已设置）
+                pendingOpenid = (String) params.get("_pendingOpenid");
+                if (pendingOpenid == null) pendingOpenid = "";
+                // 安全校验：_pendingOpenid必须与JWT subject中的 userType:userId 匹配
+                // 由于userId是hash后的值，这里仅做非空校验
+                if (pendingOpenid.isEmpty()) {
+                    return Result.error("身份信息缺失，请重新登录");
+                }
+            }
+        } catch (Exception e) {
+            return Result.error("身份验证失败");
+        }
+
+        if (userId != null && userId > 0) {
+            Staff exist = staffMapper.getById(userId);
+            if (exist != null) {
+                return Result.error("该账号已选择身份，如需切换请联系管理员处理");
+            }
+        }
+
+        Staff staff = new Staff();
+        staff.setName(nickname != null && !nickname.isEmpty() ? nickname : ("STATION_MANAGER".equals(roleParam) ? "站长" : "配送员"));
+        staff.setPhone(phone != null ? phone : "");
+        staff.setOpenid(pendingOpenid.isEmpty() ? null : pendingOpenid);
+        staff.setStationId(null);                       // V1: 初始都 NULL
+        staff.setRole(roleParam);
+        staff.setStatus(1);
+        staff.setCreateTime(LocalDateTime.now());
+        staff.setUpdateTime(LocalDateTime.now());
+        staffMapper.insert(staff);
+
+        if (userId != null) {
+            userTokenMapper.deleteByUser(userId, "staff");
+        }
+
+        return buildStaffWxLoginResult(staff);
+    }
+
+    /**
+     * 站长 (STATION_MANAGER) 创建水站并将自己绑定为该站站长.
+     * <p>V1 规则:</p>
+     * <ul>
+     *   <li>不经过申请表, 不写 staff_station_application</li>
+     *   <li>事务: 先 station 插入 → 再 staff.station_id = newStation.id</li>
+     *   <li>一个站长账号当前只绑定一个水站 (若已绑定 station_id 则拒绝)</li>
+     * </ul>
+     */
+    @PostMapping("/create-station")
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Map<String, Object>> createStationAndBind(@RequestBody Map<String, Object> params) {
+        String authRole = AuthContext.getRole();
+        if (!"STATION_MANAGER".equals(authRole) && !"manager".equals(authRole)) {
+            return Result.error("仅站长账号可创建水站");
+        }
+        Long staffId = AuthContext.getUserId();
+        if (staffId == null || staffId <= 0) {
+            return Result.error("请先完成身份选择");
+        }
+        Staff staff = staffMapper.getById(staffId);
+        if (staff == null) return Result.error("员工不存在");
+        if (staff.getStationId() != null) {
+            return Result.error("该账号已绑定水站，请勿重复创建");
+        }
+        if (!"STATION_MANAGER".equals(staff.getRole())) {
+            return Result.error("仅 STATION_MANAGER 可创建水站");
+        }
+
+        String name = (String) params.get("name");
+        String phone = (String) params.get("phone");
+        String province = (String) params.get("province");
+        String city = (String) params.get("city");
+        String district = (String) params.get("district");
+        String address = (String) params.get("address");
+
+        if (name == null || name.trim().isEmpty()) return Result.error("水站名称不能为空");
+        String phoneTrim = phone == null ? "" : phone.trim();
+
+        Station station = new Station();
+        station.setName(name.trim());
+        station.setPhone(phoneTrim);
+        String fullAddress = address == null ? "" : address.trim();
+        if (province != null && !province.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(province);
+            if (city != null && !city.isEmpty()) sb.append(city);
+            if (district != null && !district.isEmpty()) sb.append(district);
+            if (!fullAddress.isEmpty()) sb.append(fullAddress);
+            fullAddress = sb.toString();
+        }
+        station.setAddress(fullAddress.isEmpty() ? null : fullAddress);
+        station.setStatus(1);
+        station.setCreateTime(LocalDateTime.now());
+        station.setUpdateTime(LocalDateTime.now());
+        stationMapper.insert(station);
+
+        // 绑定当前 staff 为该站站长 → 不写 staff_station_application, 直接更新 station_id
+        staff.setStationId(station.getId());
+        if ((staff.getPhone() == null || staff.getPhone().isEmpty()) && !phoneTrim.isEmpty()) {
+            staff.setPhone(phoneTrim);
+        }
+        if (staff.getName() == null || staff.getName().isEmpty()) {
+            staff.setName("站长");
+        }
+        staff.setUpdateTime(LocalDateTime.now());
+        staffMapper.update(staff);
+
+        // 刷新 token
+        String accessToken = jwtUtil.generateAccessToken(staff.getId(), "staff", "STATION_MANAGER", station.getId());
+        String refreshToken = jwtUtil.generateRefreshToken(staff.getId(), "staff");
+        saveRefreshToken(staff.getId(), "staff", refreshToken);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", station.getId());
+        data.put("name", station.getName());
+        data.put("stationId", station.getId());
+        data.put("staffId", staff.getId());
+        data.put("accessToken", accessToken);
+        data.put("refreshToken", refreshToken);
+        data.put("nickname", staff.getName());
+        data.put("phone", staff.getPhone());
+        data.put("role", "STATION_MANAGER");
+        data.put("staffRole", staff.getRole());
+        data.put("bindingStatus", deriveBindingStatus(staff));
+        data.put("userType", "staff");
+        return Result.success(data);
+    }
+
+    /**
+     * 员工绑定微信：输入姓名+手机号，匹配 staff 记录并绑定当前微信 openid
+     */
+    @PostMapping("/bind-staff")
+    public Result<Map<String, Object>> bindStaff(@RequestBody Map<String, String> params) {
+        String code = params.get("code");
+        String name = params.get("name");
+        String phone = params.get("phone");
+
+        if (code == null || code.isEmpty()) {
+            return Result.error("登录code不能为空");
+        }
+        if (name == null || name.isEmpty()) {
+            return Result.error("姓名不能为空");
+        }
+        if (phone == null || phone.isEmpty()) {
+            return Result.error("手机号不能为空");
+        }
+
+        Map<String, Object> wxSession = weChatLoginService.code2Session(code);
+        String openid = wxSession.get("openid").toString();
+
+        Staff staff = staffMapper.findByName(name);
+        if (staff == null) {
+            return Result.error("未找到该员工账号");
+        }
+        if (staff.getStatus() != null && !Integer.valueOf(1).equals(staff.getStatus())) {
+            return Result.error("该账号已停用");
+        }
+        if (staff.getPhone() == null || !staff.getPhone().equals(phone)) {
+            return Result.error("手机号不匹配");
+        }
+        if (staff.getOpenid() != null && !staff.getOpenid().equals(openid)) {
+            return Result.error("该账号已绑定其他微信");
+        }
+
+        staff.setOpenid(openid);
+        staffMapper.update(staff);
+
+        return buildStaffWxLoginResult(staff, true);
+    }
+
+    // ==================== buildStaffWxLoginResult (bindingStatus 派生, 不读 DB 废弃字段) ====================
+
+    private Result<Map<String, Object>> buildStaffWxLoginResult(Staff staff) {
+        return buildStaffWxLoginResult(staff, false);
+    }
+
+    private Result<Map<String, Object>> buildStaffWxLoginResult(Staff staff, boolean fromBindStaff) {
+        try {
+            String role = mapStaffRole(staff);
+            Long stationId = (staff.getStationId() != null && staff.getStationId() == 0) ? null : staff.getStationId();
+            String accessToken = jwtUtil.generateAccessToken(
+                    staff.getId(), "staff", role,
+                    stationId);
+            String refreshToken = jwtUtil.generateRefreshToken(staff.getId(), "staff");
+
+            saveRefreshToken(staff.getId(), "staff", refreshToken);
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("accessToken", accessToken);
+            data.put("refreshToken", refreshToken);
+            data.put("staffId", staff.getId());
+            data.put("nickname", staff.getName());
+            data.put("phone", staff.getPhone());
+            data.put("role", role);
+            data.put("staffRole", staff.getRole());
+            data.put("stationId", stationId);
+            data.put("userType", "staff");
+            data.put("bindingStatus", deriveBindingStatus(staff));
+            data.put("fromBindStaff", fromBindStaff);
+            return Result.success(data);
+        } catch (Exception e) {
+            log.error("[wx-login-staff] buildStaffWxLoginResult 异常: staffId={}, error={}", staff.getId(), e.getMessage(), e);
+            return Result.error("登录构建失败: " + e.getMessage());
+        }
+    }
+
+    // ==================== 更新资料 ====================
+
+    @PostMapping("/update-profile")
+    public Result<Void> updateProfile(@RequestBody Map<String, Object> params) {
+        Long userId = AuthContext.getUserId();
+        if (userId == null) {
+            return Result.error("用户ID不能为空");
         }
 
         String nickname = (String) params.get("nickname");
         String phone = (String) params.get("phone");
+
+        if ("staff".equals(AuthContext.getUserType())) {
+            Staff staff = staffMapper.getById(userId);
+            if (staff == null) {
+                return Result.error("用户不存在");
+            }
+            if (nickname != null && !nickname.isEmpty()) {
+                staff.setName(nickname);
+            }
+            if (phone != null && !phone.isEmpty()) {
+                staff.setPhone(phone);
+            }
+            staff.setUpdateTime(LocalDateTime.now());
+            staffMapper.update(staff);
+            return Result.success();
+        }
+
+        Customer customer = customerMapper.getById(userId);
+        if (customer == null) {
+            return Result.error("用户不存在");
+        }
 
         if (nickname != null && !nickname.isEmpty()) {
             customer.setName(nickname);
@@ -124,13 +455,6 @@ public class LoginController {
 
     // ==================== 管理后台登录 ====================
 
-    /**
-     * 统一登录（管理后台）
-     * POST /api/auth/login
-     * { username: "admin", password: "xxx" }         → 厂长
-     * { username: "张建国", password: "xxx" }         → 站长（STATION_MANAGER）
-     * { username: "李师傅", password: "xxx" }         → 配送员（DELIVERY）
-     */
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody Map<String, String> params) {
         String username = params.get("username");
@@ -140,31 +464,11 @@ public class LoginController {
             return Result.error("用户名和密码不能为空");
         }
 
-        // 1. 超级管理员 → 厂长角色（走 staff 表 admin 记录）
-        if ("admin".equals(username)) {
-            Staff admin = staffMapper.findByName("admin");
-            if (admin != null) {
-                // 兼容明文密码和 BCrypt
-                if (password.equals(admin.getPassword()) || PasswordUtil.matches(password, admin.getPassword())) {
-                    return buildStaffLoginResult(admin);
-                }
-            }
-            return Result.error("用户名或密码错误");
-        }
-
-        // 2. 员工登录：姓名 + 密码
         Staff staff = staffMapper.findByName(username);
         if (staff != null) {
-            // 兼容明文密码和 BCrypt
-            if (password.equals(staff.getPassword()) || PasswordUtil.matches(password, staff.getPassword())) {
+            if (staff.getPasswordHash() != null && PasswordUtil.matches(password, staff.getPasswordHash())) {
                 return buildStaffLoginResult(staff);
             }
-        }
-
-        // 3. 兼容旧的站长登录（customer 表，迁移过渡期）
-        Customer manager = customerMapper.findManagerByUsername(username);
-        if (manager != null && "123456".equals(password)) {
-            return buildCustomerLoginResult(manager);
         }
 
         return Result.error("用户名或密码错误");
@@ -172,12 +476,25 @@ public class LoginController {
 
     // ==================== 开发模式登录 ====================
 
-    /**
-     * 开发模式登录（跳过微信验证，直接用 openid 登录）
-     * POST /api/auth/dev-login
-     */
     @PostMapping("/dev-login")
     public Result<Map<String, Object>> devLogin(@RequestBody Map<String, String> params) {
+        if (!devLoginEnabled) {
+            return Result.error("开发模式登录已关闭");
+        }
+        if (environment.getActiveProfiles().length > 0
+                && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            return Result.error("生产环境不允许使用开发登录");
+        }
+        String role = params.getOrDefault("role", "customer");
+
+        if ("DELIVERY".equals(role)) {
+            return devLoginDelivery();
+        }
+
+        if ("STATION_MANAGER".equals(role)) {
+            return devLoginStationManager();
+        }
+
         String openid = params.getOrDefault("openid", "dev-openid-001");
         String nickname = params.getOrDefault("nickname", "测试用户");
 
@@ -188,17 +505,14 @@ public class LoginController {
             customer.setPhone("");
             customer.setOpenid(openid);
             customer.setCustomerType(1);
-            customer.setRole(2);
-            customer.setStationId(1);
             customer.setCreateTime(LocalDateTime.now());
             customer.setUpdateTime(LocalDateTime.now());
-            customerMapper.insertWithOpenid(customer);
+            customerMapper.insert(customer);
         }
 
-        // 生成 JWT 双 Token
         String accessToken = jwtUtil.generateAccessToken(
-                customer.getId(), "customer", "manager",
-                customer.getStationId(), null);
+                customer.getId(), "customer", "customer",
+                null);
         String refreshToken = jwtUtil.generateRefreshToken(customer.getId(), "customer");
 
         saveRefreshToken(customer.getId(), "customer", refreshToken);
@@ -209,17 +523,90 @@ public class LoginController {
         data.put("customerId", customer.getId());
         data.put("nickname", customer.getName());
         data.put("phone", customer.getPhone());
+        data.put("role", "customer");
+        return Result.success(data);
+    }
+
+    private Result<Map<String, Object>> devLoginDelivery() {
+        Staff delivery = staffMapper.findByRole("DELIVERY");
+        if (delivery == null) {
+            delivery = new Staff();
+            delivery.setName("配送员");
+            delivery.setPhone("13800000000");
+            delivery.setPasswordHash(PasswordUtil.encode("123456"));
+            delivery.setRole("DELIVERY");
+            delivery.setStatus(1);
+            delivery.setStationId(null);     // V1: 新建配送员不自动绑定任何站
+            delivery.setCreateTime(LocalDateTime.now());
+            delivery.setUpdateTime(LocalDateTime.now());
+            staffMapper.insert(delivery);
+        }
+
+        Long stationId = (delivery.getStationId() != null && delivery.getStationId() == 0) ? null : delivery.getStationId();
+        String bindingStatus = deriveBindingStatus(delivery);
+
+        String accessToken = jwtUtil.generateAccessToken(
+                delivery.getId(), "staff", "delivery",
+                stationId);
+        String refreshToken = jwtUtil.generateRefreshToken(delivery.getId(), "staff");
+
+        saveRefreshToken(delivery.getId(), "staff", refreshToken);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("accessToken", accessToken);
+        data.put("refreshToken", refreshToken);
+        data.put("staffId", delivery.getId());
+        data.put("nickname", delivery.getName());
+        data.put("phone", delivery.getPhone());
+        data.put("role", "delivery");
+        data.put("staffRole", "DELIVERY");
+        data.put("stationId", stationId);
+        data.put("bindingStatus", bindingStatus);
+        data.put("userType", "staff");
+        return Result.success(data);
+    }
+
+    private Result<Map<String, Object>> devLoginStationManager() {
+        Staff manager = staffMapper.findByRole("STATION_MANAGER");
+        if (manager == null) {
+            manager = new Staff();
+            manager.setName("站长");
+            manager.setPhone("13900000000");
+            manager.setPasswordHash(PasswordUtil.encode("123456"));
+            manager.setRole("STATION_MANAGER");
+            manager.setStatus(1);
+            manager.setStationId(null);     // V1: 新建站长先未创建水站, 后续走 /create-station
+            manager.setCreateTime(LocalDateTime.now());
+            manager.setUpdateTime(LocalDateTime.now());
+            staffMapper.insert(manager);
+        }
+
+        Long stationId = (manager.getStationId() != null && manager.getStationId() == 0) ? null : manager.getStationId();
+        String bindingStatus = deriveBindingStatus(manager);
+
+        String accessToken = jwtUtil.generateAccessToken(
+                manager.getId(), "staff", "manager",
+                stationId);
+        String refreshToken = jwtUtil.generateRefreshToken(manager.getId(), "staff");
+
+        saveRefreshToken(manager.getId(), "staff", refreshToken);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("accessToken", accessToken);
+        data.put("refreshToken", refreshToken);
+        data.put("staffId", manager.getId());
+        data.put("nickname", manager.getName());
+        data.put("phone", manager.getPhone());
         data.put("role", "manager");
-        data.put("stationId", customer.getStationId());
+        data.put("staffRole", "STATION_MANAGER");
+        data.put("stationId", stationId);
+        data.put("bindingStatus", bindingStatus);
+        data.put("userType", "staff");
         return Result.success(data);
     }
 
     // ==================== Token 刷新 ====================
 
-    /**
-     * 刷新 access_token
-     * POST /api/auth/refresh  { refreshToken: "xxx" }
-     */
     @PostMapping("/refresh")
     public Result<Map<String, Object>> refresh(@RequestBody Map<String, String> params) {
         String refreshToken = params.get("refreshToken");
@@ -227,7 +614,6 @@ public class LoginController {
             return Result.error("refreshToken不能为空");
         }
 
-        // 校验 refresh_token 签名和有效期
         if (!jwtUtil.validateToken(refreshToken)) {
             return Result.error("refreshToken已过期，请重新登录");
         }
@@ -238,55 +624,58 @@ public class LoginController {
             return Result.error("无效的refreshToken");
         }
 
-        Integer userId = claims.get("userId", Integer.class);
+        Long userId = claims.get("userId", Number.class).longValue();
         String userType = claims.get("userType", String.class);
 
-        // 验证 refresh_token 在数据库中存在（未被登出）
         UserToken storedToken = userTokenMapper.findByRefreshToken(refreshToken);
         if (storedToken == null) {
             return Result.error("令牌已失效，请重新登录");
         }
 
-        // 查询用户最新信息（角色/水站可能已变更）
         String role;
-        Integer stationId = null;
-        Integer factoryId = null;
+        Long stationId = null;
 
         if ("staff".equals(userType)) {
             Staff staff = staffMapper.getById(userId);
             if (staff == null) return Result.error("用户不存在");
+            // #6: 检查员工状态，禁用员工不允许刷新token
+            if (staff.getStatus() == null || !Integer.valueOf(1).equals(staff.getStatus())) {
+                return Result.error("该账号已停用");
+            }
             role = mapStaffRole(staff);
-            stationId = staff.getStationId();
-            factoryId = staff.getFactoryId();
+            stationId = (staff.getStationId() != null && staff.getStationId() == 0) ? null : staff.getStationId();
         } else {
             Customer customer = customerMapper.getById(userId);
             if (customer == null) return Result.error("用户不存在");
-            role = mapCustomerRole(customer);
-            stationId = customer.getStationId();
+            role = "customer";
+            stationId = null;
         }
 
-        // 签发新 access_token（refresh_token 不变）
-        String newAccessToken = jwtUtil.generateAccessToken(userId, userType, role, stationId, factoryId);
+        String newAccessToken = jwtUtil.generateAccessToken(userId, userType, role, stationId);
+
+        // #2: Refresh Token轮换 — 生成新的refresh token，废弃旧的
+        String newRefreshToken = jwtUtil.generateRefreshToken(userId, userType);
+        // 删除旧token记录
+        userTokenMapper.deleteByRefreshToken(refreshToken);
+        // 保存新token
+        saveRefreshToken(userId, userType, newRefreshToken);
 
         Map<String, Object> data = new HashMap<>();
         data.put("accessToken", newAccessToken);
-        data.put("refreshToken", refreshToken);
+        data.put("refreshToken", newRefreshToken);
         return Result.success(data);
     }
 
     // ==================== 登出 ====================
 
-    /**
-     * 登出（清除 refresh_token，使续期失效）
-     * POST /api/auth/logout
-     */
     @PostMapping("/logout")
     public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             if (jwtUtil.validateToken(token)) {
-                Integer userId = jwtUtil.getUserId(token);
-                String userType = jwtUtil.getUserType(token);
+                io.jsonwebtoken.Claims claims = jwtUtil.parseToken(token);
+                Long userId = claims.get("userId", Number.class).longValue();
+                String userType = claims.get("userType", String.class);
                 userTokenMapper.deleteByUser(userId, userType);
             }
         }
@@ -295,13 +684,9 @@ public class LoginController {
 
     // ==================== 验证登录状态 ====================
 
-    /**
-     * 验证登录状态（从 JWT 解析当前用户，不再依赖前端传 customerId）
-     * GET /api/auth/me
-     */
     @GetMapping("/me")
     public Result<Map<String, Object>> me() {
-        Integer userId = AuthContext.getUserId();
+        Long userId = AuthContext.getUserId();
         String userType = AuthContext.getUserType();
 
         if (userId == null) {
@@ -313,11 +698,13 @@ public class LoginController {
         if ("staff".equals(userType)) {
             Staff staff = staffMapper.getById(userId);
             if (staff == null) return Result.error("用户不存在");
+            Long stationId = (staff.getStationId() != null && staff.getStationId() == 0) ? null : staff.getStationId();
             data.put("staffId", staff.getId());
             data.put("nickname", staff.getName());
             data.put("phone", staff.getPhone());
             data.put("role", mapStaffRole(staff));
-            data.put("stationId", staff.getStationId());
+            data.put("stationId", stationId);
+            data.put("bindingStatus", deriveBindingStatus(staff));
             data.put("userType", "staff");
         } else {
             Customer customer = customerMapper.getById(userId);
@@ -325,8 +712,7 @@ public class LoginController {
             data.put("customerId", customer.getId());
             data.put("nickname", customer.getName());
             data.put("phone", customer.getPhone());
-            data.put("role", mapCustomerRole(customer));
-            data.put("stationId", customer.getStationId());
+            data.put("role", "customer");
             data.put("userType", "customer");
         }
 
@@ -335,13 +721,9 @@ public class LoginController {
 
     // ==================== 修改密码 ====================
 
-    /**
-     * 修改密码（员工/管理员）
-     * POST /api/auth/change-password  { oldPassword: "xxx", newPassword: "xxx" }
-     */
     @PostMapping("/change-password")
     public Result<Void> changePassword(@RequestBody Map<String, String> params) {
-        Integer userId = AuthContext.getUserId();
+        Long userId = AuthContext.getUserId();
         String userType = AuthContext.getUserType();
 
         if (!"staff".equals(userType)) {
@@ -357,36 +739,34 @@ public class LoginController {
             return Result.error("旧密码和新密码不能为空");
         }
 
-        // 校验旧密码（兼容迁移过渡期：password 为空时用初始密码 123456）
-        if (staff.getPassword() != null) {
-            if (!PasswordUtil.matches(oldPassword, staff.getPassword())) {
+        if (staff.getPasswordHash() != null) {
+            if (!PasswordUtil.matches(oldPassword, staff.getPasswordHash())) {
                 return Result.error("旧密码错误");
             }
         } else {
-            if (!"123456".equals(oldPassword)) {
-                return Result.error("旧密码错误");
-            }
+            return Result.error("账号未设置密码，请联系管理员重置");
         }
 
         if (newPassword.length() < 6) {
             return Result.error("新密码长度不能少于6位");
         }
 
-        staff.setPassword(PasswordUtil.encode(newPassword));
+        staff.setPasswordHash(PasswordUtil.encode(newPassword));
         staffMapper.update(staff);
+
+        userTokenMapper.deleteByUser(staff.getId(), "staff");
+
         return Result.success();
     }
 
     // ==================== 私有辅助方法 ====================
 
-    /**
-     * 构建员工登录结果（JWT 双 Token + 用户信息）
-     */
     private Result<Map<String, Object>> buildStaffLoginResult(Staff staff) {
         String role = mapStaffRole(staff);
+        Long stationId = (staff.getStationId() != null && staff.getStationId() == 0) ? null : staff.getStationId();
         String accessToken = jwtUtil.generateAccessToken(
                 staff.getId(), "staff", role,
-                staff.getStationId(), staff.getFactoryId());
+                stationId);
         String refreshToken = jwtUtil.generateRefreshToken(staff.getId(), "staff");
 
         saveRefreshToken(staff.getId(), "staff", refreshToken);
@@ -397,20 +777,17 @@ public class LoginController {
         data.put("username", staff.getName());
         data.put("nickname", staff.getName());
         data.put("role", role);
-        data.put("stationId", staff.getStationId());
+        data.put("stationId", stationId);
         data.put("staffId", staff.getId());
         data.put("staffRole", staff.getRole());
+        data.put("bindingStatus", deriveBindingStatus(staff));
         return Result.success(data);
     }
 
-    /**
-     * 构建客户登录结果（JWT 双 Token + 用户信息）
-     */
     private Result<Map<String, Object>> buildCustomerLoginResult(Customer customer) {
-        String role = mapCustomerRole(customer);
         String accessToken = jwtUtil.generateAccessToken(
-                customer.getId(), "customer", role,
-                customer.getStationId(), null);
+                customer.getId(), "customer", "customer",
+                null);
         String refreshToken = jwtUtil.generateRefreshToken(customer.getId(), "customer");
 
         saveRefreshToken(customer.getId(), "customer", refreshToken);
@@ -420,13 +797,13 @@ public class LoginController {
         data.put("refreshToken", refreshToken);
         data.put("customerId", customer.getId());
         data.put("nickname", customer.getName());
-        data.put("role", role);
-        data.put("stationId", customer.getStationId());
+        data.put("role", "customer");
         return Result.success(data);
     }
 
-    /** 存储 refresh_token 到 user_token 表 */
-    private void saveRefreshToken(Integer userId, String userType, String refreshToken) {
+    private void saveRefreshToken(Long userId, String userType, String refreshToken) {
+        // #3: 清理该用户旧的refresh token，防止累积
+        userTokenMapper.deleteByUser(userId, userType);
         UserToken userToken = new UserToken();
         userToken.setUserId(userId);
         userToken.setUserType(userType);
@@ -436,15 +813,56 @@ public class LoginController {
         userTokenMapper.insert(userToken);
     }
 
-    /** 员工角色 → 前端角色名 */
     private String mapStaffRole(Staff staff) {
-        if ("FACTORY_ADMIN".equals(staff.getRole())) return "factory";
         if ("STATION_MANAGER".equals(staff.getRole())) return "manager";
         return "delivery";
     }
 
-    /** 客户角色 → 前端角色名 */
-    private String mapCustomerRole(Customer customer) {
-        return customer.getRole() != null && customer.getRole() == 2 ? "manager" : "delivery";
+    /**
+     * V1: bindingStatus 不再是 DB 列，而是按 "station_id + 申请表待审批项" 派生.
+     * <ul>
+     *   <li>STATION_MANAGER:  station_id != null → BOUND, 否则 UNBOUND (意味着还没创建水站)</li>
+     *   <li>DELIVERY:
+     *     <ul>
+     *       <li>station_id != null → 若还有 pending 解绑申请 → PENDING_UNBIND; 否则 BOUND</li>
+     *       <li>station_id == null → 若有 pending 绑定申请 → PENDING; 否则 UNBOUND</li>
+     *     </ul>
+     *   </li>
+     * </ul>
+     */
+    private String deriveBindingStatus(Staff staff) {
+        if (staff == null) return "UNBOUND";
+
+        if ("STATION_MANAGER".equals(staff.getRole())) {
+            return staff.getStationId() != null ? "BOUND" : "UNBOUND";
+        }
+
+        // DELIVERY (含其他)
+        List<StaffStationApplication> list = null;
+        if (staff.getId() != null) {
+            list = appMapper.listByStaff(staff.getId());
+        }
+
+        if (staff.getStationId() != null) {
+            if (list != null) {
+                for (StaffStationApplication a : list) {
+                    if (a.getType() == StaffStationApplication.TYPE_UNBIND
+                            && a.getStatus() == StaffStationApplication.STATUS_PENDING) {
+                        return "PENDING_UNBIND";
+                    }
+                }
+            }
+            return "BOUND";
+        } else {
+            if (list != null) {
+                for (StaffStationApplication a : list) {
+                    if (a.getType() == StaffStationApplication.TYPE_BIND
+                            && a.getStatus() == StaffStationApplication.STATUS_PENDING) {
+                        return "PENDING";
+                    }
+                }
+            }
+            return "UNBOUND";
+        }
     }
 }

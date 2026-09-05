@@ -1,0 +1,6 @@
+.container { background: var(--bg-color); min-height: 100vh; padding: 24rpx; }
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20rpx; }
+.stat-card { background: var(--bg-card); border-radius: 20rpx; padding: 40rpx 24rpx; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; align-items: center; }
+.stat-value { font-size: 48rpx; font-weight: 700; color: var(--primary); margin-bottom: 8rpx; }
+.stat-label { font-size: 24rpx; color: var(--text-secondary); }
+.loading { text-align: center; color: var(--text-secondary); font-size: var(--font-md); padding-top: 120rpx; }

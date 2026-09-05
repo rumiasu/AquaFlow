@@ -3,7 +3,6 @@
     <el-input v-model="keyword" placeholder="搜索客户、地址、订单..." clearable autofocus
       @input="handleSearch" size="large" prefix-icon="Search" />
     <div v-if="results" class="search-results">
-      <!-- 客户 -->
       <div v-if="results.customers && results.customers.length">
         <div class="section-title">客户</div>
         <div v-for="c in results.customers" :key="'c'+c.id" class="search-item"
@@ -15,7 +14,6 @@
           </div>
         </div>
       </div>
-      <!-- 地址 -->
       <div v-if="results.addresses && results.addresses.length">
         <div class="section-title">地址</div>
         <div v-for="a in results.addresses" :key="'a'+a.id" class="search-item"
@@ -27,7 +25,6 @@
           </div>
         </div>
       </div>
-      <!-- 订单 -->
       <div v-if="results.orders && results.orders.length">
         <div class="section-title">订单</div>
         <div v-for="o in results.orders" :key="'o'+o.id" class="search-item"
@@ -40,7 +37,6 @@
           </div>
         </div>
       </div>
-      <!-- 无结果 -->
       <div v-if="isEmpty" class="empty-result">
         <el-icon :size="40" color="#c0c4cc"><Search /></el-icon>
         <p>无搜索结果</p>
@@ -69,8 +65,8 @@ const isEmpty = computed(() => {
     (!r.orders || !r.orders.length)
 })
 
-const orderStatusText = (s) => ({ 1: '待组批', 2: '配送中', 3: '已完成', 4: '已组批', 5: '已取消' }[s] || '未知')
-const orderTagType = (s) => ({ 1: 'warning', 2: '', 3: 'success', 4: 'info', 5: 'danger' }[s] || 'info')
+const orderStatusText = (s) => ({ 1: '待分配', 2: '配送中', 3: '已完成', 4: '已分配', 5: '已取消', 6: '待收款', 7: '已拒单' }[s] || '未知')
+const orderTagType = (s) => ({ 1: 'warning', 2: '', 3: 'success', 4: 'info', 5: 'danger', 6: 'warning', 7: 'danger' }[s] || 'info')
 
 watch(() => props.modelValue, (v) => { visible.value = v; if (!v) { keyword.value = ''; results.value = null } })
 watch(visible, (v) => emit('update:modelValue', v))

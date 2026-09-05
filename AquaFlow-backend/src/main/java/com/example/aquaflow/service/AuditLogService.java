@@ -22,7 +22,7 @@ public class AuditLogService {
         AuditLog log = new AuditLog();
         AuthContext.AuthUser user = AuthContext.get();
         if (user != null) {
-            log.setUserId(user.getUserId());
+            log.setUserId(user.getUserId() != null ? user.getUserId().intValue() : null);
             log.setRole(user.getRole());
         }
         log.setModule(module);
@@ -38,7 +38,7 @@ public class AuditLogService {
         return auditLogMapper.listRecent(limit);
     }
 
-    public List<AuditLog> listByUserId(Integer userId, int limit) {
+    public List<AuditLog> listByUserId(Long userId, int limit) {
         return auditLogMapper.listByUserId(userId, limit);
     }
 

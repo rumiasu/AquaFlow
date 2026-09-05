@@ -21,7 +21,7 @@ public class StaffServiceImpl implements StaffService {
     }
 
     @Override
-    public Staff getById(Integer id) {
+    public Staff getById(Long id) {
         Staff staff = staffMapper.getById(id);
         if (staff == null) {
             throw new RuntimeException("员工不存在");
@@ -43,12 +43,17 @@ public class StaffServiceImpl implements StaffService {
     }
 
     @Override
-    public void delete(Integer id) {
+    public void delete(Long id) {
         staffMapper.delete(id);
     }
 
     @Override
-    public List<Staff> listByStationId(Integer stationId) {
+    public List<Staff> listByStationId(Long stationId) {
         return staffMapper.listByStationId(stationId);
+    }
+
+    @Override
+    public List<Staff> listByStationIdAndRole(Long stationId, String role) {
+        return staffMapper.listByStationIdAndRole(stationId, role);
     }
 }

@@ -1,56 +1,70 @@
 package com.example.aquaflow.mapper;
 
 import com.example.aquaflow.entity.Inventory;
-import org.apache.ibatis.annotations.Insert;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.*;
 
 import java.util.List;
-import java.util.Map;
 
 @Mapper
 public interface InventoryMapper {
 
-    List<Inventory> list();
+    @Insert("insert into inventory(station_id, product_id, quantity, enabled, ticket_enabled, ticket_price, priority_display, create_time, update_time) " +
+            "values(#{stationId}, #{productId}, #{quantity}, #{enabled}, #{ticketEnabled}, #{ticketPrice}, #{priorityDisplay}, #{createTime}, #{updateTime})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    void insert(Inventory inventory);
 
-    @Insert("insert into inventory (water_type_id, station_id, quantity) values (#{waterTypeId},#{stationId},#{quantity})")
-    void save(Inventory inventory);
+    @Select("select * from inventory where id = #{id}")
+    Inventory getById(@Param("id") Long id);
 
-    Inventory getByStationAndWaterType(@Param("stationId") Integer stationId, @Param("waterTypeId") Integer waterTypeId);
-
-    void insert(Inventory newInventory);
-
+    @Update("update inventory set quantity=#{quantity}, enabled=#{enabled}, ticket_enabled=#{ticketEnabled}, " +
+            "ticket_price=#{ticketPrice}, priority_display=#{priorityDisplay}, update_time=NOW() where id=#{id}")
     void update(Inventory inventory);
 
-    /** 原子扣减库存，带库存不足保护（不会扣成负数） */
-    @Update("update inventory set quantity = quantity - #{quantity}, update_time = now() " +
-            "where station_id = #{stationId} and water_type_id = #{waterTypeId} and quantity >= #{quantity}")
-    int decreaseStock(@Param("stationId") Integer stationId, @Param("waterTypeId") Integer waterTypeId, @Param("quantity") Integer quantity);
+    @Delete("delete from inventory where id = #{id}")
+    void delete(@Param("id") Long id);
 
-    @Update("update inventory set quantity = quantity + #{quantity}, update_time = now() " +
-            "where station_id = #{stationId} and water_type_id = #{waterTypeId}")
-    void increaseStock(@Param("stationId") Integer stationId, @Param("waterTypeId") Integer waterTypeId, @Param("quantity") Integer quantity);
+    @Select("select i.*, p.name as product_name, p.spec as spec, p.image_object_name as image_object_name " +
+            "from inventory i left join product p on i.product_id = p.id " +
+            "where i.station_id = #{stationId} order by i.id asc")
+    List<Inventory> listByStationId(@Param("stationId") Long stationId);
 
-    @Select("select ifnull(sum(quantity), 0) from inventory")
-    int sumQuantity();
+    @Select("select * from inventory where station_id = #{stationId} and product_id = #{productId}")
+    Inventory getByStationAndProduct(@Param("stationId") Long stationId, @Param("productId") Long productId);
 
-    // ========== 水厂运营平台统计查询 ==========
+    @Select("select * from inventory")
+    List<Inventory> list();
 
-    @Select("select station_id as stationId, ifnull(sum(quantity), 0) as totalQuantity from inventory where station_id is not null group by station_id")
-    List<Map<String, Object>> sumQuantityByStation();
+    @Update("update inventory set quantity = quantity - #{quantity}, update_time = NOW() " +
+            "where station_id = #{stationId} and product_id = #{productId} and quantity >= #{quantity}")
+    int decreaseStock(@Param("stationId") Long stationId, @Param("productId") Long productId, @Param("quantity") Integer quantity);
 
-    @Select("select i.*, w.name as waterTypeName, w.spec as spec, s.name as stationName from inventory i left join water_type w on i.water_type_id = w.id left join station s on i.station_id = s.id where i.station_id is not null")
-    List<Inventory> listWithStation();
+    @Update("update inventory set quantity = quantity + #{quantity}, update_time = NOW() " +
+            "where station_id = #{stationId} and product_id = #{productId}")
+    void increaseStock(@Param("stationId") Long stationId, @Param("productId") Long productId, @Param("quantity") Integer quantity);
 
-    @Select("select i.*, w.name as waterTypeName, w.spec as spec from inventory i left join water_type w on i.water_type_id = w.id where i.station_id = #{stationId}")
-    List<Inventory> listByStationId(@Param("stationId") Integer stationId);
+    @Insert("insert into inventory(station_id, product_id, quantity, enabled, ticket_enabled, ticket_price, priority_display, create_time, update_time) " +
+            "values(#{stationId}, #{productId}, #{quantity}, 1, 0, 0, 0, NOW(), NOW()) " +
+            "on duplicate key update quantity = quantity + #{quantity}, update_time = NOW()")
+    void upsertQuantity(@Param("stationId") Long stationId, @Param("productId") Long productId, @Param("quantity") Integer quantity);
 
-    @Select("select count(*) from inventory where station_id is not null and quantity < 20")
-    int countLowStockByStation();
+    /**
+     * 插入或更新库存设置 (上架开关/水票开关/水票价格/优先展示).
+     * 不存在则插入 (quantity 默认 0), 已存在则更新设置字段.
+     */
+    @Insert("insert into inventory(station_id, product_id, quantity, enabled, ticket_enabled, ticket_price, priority_display, create_time, update_time) " +
+            "values(#{stationId}, #{productId}, #{quantity}, #{enabled}, #{ticketEnabled}, #{ticketPrice}, #{priorityDisplay}, NOW(), NOW()) " +
+            "on duplicate key update enabled = #{enabled}, ticket_enabled = #{ticketEnabled}, " +
+            "ticket_price = #{ticketPrice}, priority_display = #{priorityDisplay}, " +
+            "quantity = #{quantity}, update_time = NOW()")
+    void upsertSettings(@Param("stationId") Long stationId, @Param("productId") Long productId,
+                       @Param("quantity") Integer quantity, @Param("enabled") Integer enabled,
+                       @Param("ticketEnabled") Integer ticketEnabled,
+                       @Param("ticketPrice") java.math.BigDecimal ticketPrice,
+                       @Param("priorityDisplay") Integer priorityDisplay);
 
-    @Select("select station_id as stationId, count(*) as lowCount from inventory where station_id is not null and quantity < 20 group by station_id")
-    List<Map<String, Object>> lowStockByStation();
+    @Update("update inventory set priority_display=#{priorityDisplay}, update_time=NOW() where id=#{id}")
+    void updatePriorityDisplay(@Param("id") Long id, @Param("priorityDisplay") Integer priorityDisplay);
 
+    @Select("select count(*) from inventory where station_id = #{stationId} and priority_display = 1")
+    int countPriorityDisplay(@Param("stationId") Long stationId);
 }

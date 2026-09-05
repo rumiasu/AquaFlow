@@ -1,4 +1,4 @@
-.container {
+.page-container {
   background-color: var(--bg-color);
   min-height: 100vh;
 }
@@ -7,8 +7,8 @@
 .tab-bar {
   display: flex;
   background-color: #fff;
-  padding: 0 24rpx;
-  border-bottom: 1rpx solid var(--border-color);
+  padding: 0 16rpx;
+  border-bottom: 1rpx solid var(--border-light);
   position: sticky;
   top: 0;
   z-index: 10;

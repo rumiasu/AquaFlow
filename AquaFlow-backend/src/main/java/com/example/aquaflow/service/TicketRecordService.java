@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface TicketRecordService {
 
-    List<TicketRecord> listByCustomerId(Integer customerId);
+    List<TicketRecord> listByCustomerId(Long customerId);
 }

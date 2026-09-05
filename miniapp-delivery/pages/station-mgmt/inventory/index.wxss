@@ -1,0 +1,12 @@
+.container { background: var(--bg-color); min-height: 100vh; padding: 24rpx; }
+.inv-card { background: var(--bg-card); border-radius: 20rpx; padding: 28rpx 24rpx; margin-bottom: 20rpx; box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: center; }
+.inv-info { flex: 1; }
+.inv-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 8rpx; }
+.inv-status { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 20rpx; }
+.inv-status.ok { background: #e8f5e9; color: #2e7d32; }
+.inv-status.warn { background: #fff3e0; color: #e65100; }
+.inv-qty { display: flex; align-items: baseline; }
+.qty-num { font-size: 40rpx; font-weight: 700; color: var(--primary); margin-right: 8rpx; }
+.qty-num.warn { color: #e65100; }
+.qty-unit { font-size: 24rpx; color: var(--text-secondary); }
+.empty, .loading { text-align: center; color: var(--text-secondary); font-size: var(--font-md); padding-top: 120rpx; }

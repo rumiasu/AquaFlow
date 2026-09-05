@@ -28,6 +28,12 @@
             <span v-else style="color: var(--text-secondary);">未绑定</span>
           </template>
         </el-table-column>
+        <el-table-column label="省市区" width="200">
+          <template #default="{ row }">
+            <span v-if="row.province || row.city || row.district">{{ row.province }}{{ row.city }}{{ row.district }}</span>
+            <span v-else style="color: var(--text-secondary);">-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="detail" label="详细地址" show-overflow-tooltip />
         <el-table-column prop="tag" label="标签" width="100">
           <template #default="{ row }">
@@ -57,7 +63,10 @@
             <el-option v-for="c in customers" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="详细地址"><el-input v-model="form.detail" placeholder="请输入详细地址" /></el-form-item>
+        <el-form-item label="省"><el-input v-model="form.province" placeholder="省" /></el-form-item>
+        <el-form-item label="市"><el-input v-model="form.city" placeholder="市" /></el-form-item>
+        <el-form-item label="区/县"><el-input v-model="form.district" placeholder="区/县" /></el-form-item>
+        <el-form-item label="详细地址"><el-input v-model="form.detail" placeholder="小区/大厦/楼栋/单元/门牌号" /></el-form-item>
         <el-form-item label="标签"><el-input v-model="form.tag" placeholder="如：小区、工厂" /></el-form-item>
         <el-form-item label="纬度"><el-input-number v-model="form.lat" :precision="6" :step="0.001" style="width: 100%;" /></el-form-item>
         <el-form-item label="经度"><el-input-number v-model="form.lng" :precision="6" :step="0.001" style="width: 100%;" /></el-form-item>
@@ -80,7 +89,7 @@ const filterTag = ref('')
 const filterKeyword = ref('')
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const form = ref({ detail: '', tag: '', lat: null, lng: null, customerId: null })
+const form = ref({ province: '', city: '', district: '', detail: '', tag: '', lat: null, lng: null, customerId: null })
 const customers = ref([])
 
 const customerName = (id) => customers.value.find(c => c.id === id)?.name || ''
@@ -90,7 +99,7 @@ const loadData = async () => {
   try { list.value = await addressApi.list({ tag: filterTag.value, keyword: filterKeyword.value }) } finally { loading.value = false }
 }
 const loadCustomers = async () => { customers.value = await customerApi.list() }
-const showAdd = () => { isEdit.value = false; form.value = { detail: '', tag: '', lat: null, lng: null, customerId: null }; dialogVisible.value = true }
+const showAdd = () => { isEdit.value = false; form.value = { province: '', city: '', district: '', detail: '', tag: '', lat: null, lng: null, customerId: null }; dialogVisible.value = true }
 const showEdit = (row) => { isEdit.value = true; form.value = { ...row }; dialogVisible.value = true }
 const submit = async () => {
   if (isEdit.value) { await addressApi.update(form.value.id, form.value) }

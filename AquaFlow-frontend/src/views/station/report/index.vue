@@ -1,16 +1,28 @@
 <template>
   <div class="page-container">
     <el-row :gutter="16" style="margin-bottom: 16px;">
-      <el-col :span="14">
-        <el-card>
-          <template #header><span>地址标签统计（Top 10）</span></template>
-          <div ref="barChartRef" style="height: 350px;"></div>
+      <el-col :span="6">
+        <el-card shadow="hover" class="summary-card">
+          <div class="summary-title">总订单数</div>
+          <div class="summary-num">{{ overview.totalOrders || 0 }}</div>
         </el-card>
       </el-col>
-      <el-col :span="10">
-        <el-card>
-          <template #header><span>标签占比</span></template>
-          <div ref="pieChartRef" style="height: 350px;"></div>
+      <el-col :span="6">
+        <el-card shadow="hover" class="summary-card">
+          <div class="summary-title">已完成订单</div>
+          <div class="summary-num summary-success">{{ overview.finishedOrders || 0 }}</div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="summary-card">
+          <div class="summary-title">总销售额</div>
+          <div class="summary-num summary-warning">¥{{ Number(overview.totalSales || 0).toFixed(0) }}</div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="summary-card">
+          <div class="summary-title">客户总数</div>
+          <div class="summary-num summary-primary">{{ overview.customerCount || 0 }}</div>
         </el-card>
       </el-col>
     </el-row>
@@ -18,26 +30,67 @@
     <el-row :gutter="16" style="margin-bottom: 16px;">
       <el-col :span="12">
         <el-card>
-          <template #header><span>水类型销量排行</span></template>
-          <div ref="waterChartRef" style="height: 320px;"></div>
+          <template #header>
+            <div class="card-head">
+              <span>商品销量排行</span>
+              <el-button size="small" plain @click="loadData">刷新</el-button>
+            </div>
+          </template>
+          <el-table :data="productSales" border stripe size="small" empty-text="暂无数据">
+            <el-table-column type="index" label="排名" width="70" align="center" />
+            <el-table-column prop="productName" label="商品" min-width="140" />
+            <el-table-column prop="totalQuantity" label="销量" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag size="small" type="success" effect="plain">{{ row.totalQuantity || 0 }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="totalAmount" label="销售额" width="120" align="right">
+              <template #default="{ row }">¥{{ Number(row.totalAmount || 0).toFixed(0) }}</template>
+            </el-table-column>
+          </el-table>
         </el-card>
       </el-col>
       <el-col :span="12">
         <el-card>
-          <template #header><span>Top 10 高频客户</span></template>
-          <div ref="customerChartRef" style="height: 320px;"></div>
+          <template #header>
+            <div class="card-head">
+              <span>订单来源分布</span>
+            </div>
+          </template>
+          <el-table :data="sourceStats" border stripe size="small" empty-text="暂无数据">
+            <el-table-column prop="source" label="来源" width="120" />
+            <el-table-column prop="count" label="订单数" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag size="small" :type="row.type" effect="plain">{{ row.count || 0 }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="占比" width="140">
+              <template #default="{ row }">
+                <el-progress :percentage="row.percent || 0" :stroke-width="14" :color="row.color" />
+              </template>
+            </el-table-column>
+          </el-table>
         </el-card>
       </el-col>
     </el-row>
 
     <el-card>
-      <template #header><span>地址标签明细</span></template>
-      <el-table :data="tagData" border stripe>
-        <el-table-column type="index" label="排名" width="80" />
-        <el-table-column prop="tag" label="标签" />
-        <el-table-column prop="count" label="地址数量" width="120" />
-        <el-table-column label="占比" width="120">
-          <template #default="{ row }">{{ ((row.count / totalCount) * 100).toFixed(1) }}%</template>
+      <template #header>
+        <div class="card-head">
+          <span>Top 10 客户（按订单数）</span>
+        </div>
+      </template>
+      <el-table :data="topCustomers" border stripe size="small" empty-text="暂无数据">
+        <el-table-column type="index" label="排名" width="70" align="center" />
+        <el-table-column prop="customerName" label="客户姓名" min-width="120" />
+        <el-table-column prop="customerPhone" label="联系电话" width="140" />
+        <el-table-column prop="totalOrders" label="订单数" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag size="small" type="warning" effect="dark">{{ row.totalOrders || 0 }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="lastOrderTime" label="最近下单时间" width="170">
+          <template #default="{ row }">{{ row.lastOrderTime || '-' }}</template>
         </el-table-column>
       </el-table>
     </el-card>
@@ -45,71 +98,73 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import * as echarts from 'echarts'
-import { reportApi, dashboardApi } from '../../../api'
+import { ref, onMounted } from 'vue'
+import { orderApi, customerApi, productApi } from '../../../api'
 
-const tagData = ref([])
-const barChartRef = ref(null)
-const pieChartRef = ref(null)
-const waterChartRef = ref(null)
-const customerChartRef = ref(null)
-let charts = []
-
-const totalCount = computed(() => tagData.value.reduce((s, d) => s + d.count, 0))
-const pieColors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#b37feb', '#36cfc9', '#ff85c0', '#ffc53d', '#73d13d']
+const overview = ref({ totalOrders: 0, finishedOrders: 0, totalSales: 0, customerCount: 0 })
+const productSales = ref([])
+const sourceStats = ref([])
+const topCustomers = ref([])
 
 const loadData = async () => {
-  const [tags, waterSales, topCustomers] = await Promise.all([
-    reportApi.addressTags(),
-    dashboardApi.waterTypeSales(),
-    dashboardApi.topCustomers()
-  ])
-  tagData.value = tags
+  try {
+    const [orders, customers, products] = await Promise.all([
+      orderApi.list({}),
+      customerApi.list(),
+      productApi.list()
+    ])
+    const orderList = orders || []
 
-  // 柱状图
-  const bc = echarts.init(barChartRef.value); charts.push(bc)
-  bc.setOption({
-    tooltip: { trigger: 'axis' },
-    grid: { left: 60, right: 20, bottom: 50, top: 10 },
-    xAxis: { type: 'category', data: tags.map(d => d.tag), axisLabel: { rotate: 20 } },
-    yAxis: { type: 'value', name: '地址数量', minInterval: 1 },
-    series: [{ type: 'bar', data: tags.map((d, i) => ({ value: d.count, itemStyle: { borderRadius: [4, 4, 0, 0], color: pieColors[i % pieColors.length] } })), barMaxWidth: 50 }]
-  })
+    overview.value.totalOrders = orderList.length
+    overview.value.finishedOrders = orderList.filter(o => o.status === 3).length
+    overview.value.totalSales = orderList
+      .filter(o => o.status === 3)
+      .reduce((s, o) => s + Number(o.totalAmount || o.amount || 0), 0)
+    overview.value.customerCount = (customers || []).length
 
-  // 饼图
-  const pc = echarts.init(pieChartRef.value); charts.push(pc)
-  pc.setOption({
-    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-    legend: { bottom: 0, type: 'scroll', itemWidth: 10, itemHeight: 10 },
-    color: pieColors,
-    series: [{ type: 'pie', radius: ['35%', '65%'], itemStyle: { borderRadius: 8, borderColor: 'var(--bg-card)', borderWidth: 2 }, label: { show: false }, emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } }, data: tags.map(d => ({ name: d.tag, value: d.count })) }]
-  })
+    const productMap = {}
+    orderList.forEach(o => {
+      const key = o.productId || o.waterTypeId
+      const name = o.productName || o.waterTypeName || '未知商品'
+      if (!productMap[key]) productMap[key] = { productName: name, totalQuantity: 0, totalAmount: 0 }
+      productMap[key].totalQuantity += Number(o.quantity || 0)
+      productMap[key].totalAmount += Number(o.totalAmount || 0)
+    })
+    productSales.value = Object.values(productMap).sort((a, b) => b.totalQuantity - a.totalQuantity).slice(0, 10)
 
-  // 水类型销售
-  const wc = echarts.init(waterChartRef.value); charts.push(wc)
-  wc.setOption({
-    tooltip: { trigger: 'axis' },
-    grid: { left: 80, right: 20, bottom: 30, top: 10 },
-    xAxis: { type: 'category', data: waterSales.map(d => d.waterTypeName) },
-    yAxis: { type: 'value', name: '销量', minInterval: 1 },
-    series: [{ type: 'bar', data: waterSales.map(d => d.totalQuantity), itemStyle: { borderRadius: [4, 4, 0, 0], color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#E6A23C' }, { offset: 1, color: '#f0c78a' }]) }, barMaxWidth: 40 }]
-  })
+    const sourceMap = { 1: { name: '电话', type: '', color: '#409eff' }, 2: { name: '微信群', type: 'success', color: '#67c23a' }, 3: { name: '小程序', type: 'warning', color: '#e6a23c' } }
+    const sourceCount = { 1: 0, 2: 0, 3: 0 }
+    orderList.forEach(o => { if (sourceCount[o.source] !== undefined) sourceCount[o.source]++ })
+    const total = orderList.length || 1
+    sourceStats.value = Object.keys(sourceMap).map(k => ({
+      source: sourceMap[k].name,
+      count: sourceCount[k],
+      type: sourceMap[k].type,
+      color: sourceMap[k].color,
+      percent: Math.round((sourceCount[k] / total) * 100)
+    }))
 
-  // 客户排行
-  const cc = echarts.init(customerChartRef.value); charts.push(cc)
-  const reversed = [...topCustomers].reverse()
-  cc.setOption({
-    tooltip: { trigger: 'axis' },
-    grid: { left: 80, right: 30, bottom: 10, top: 10 },
-    xAxis: { type: 'value', name: '配送量' },
-    yAxis: { type: 'category', data: reversed.map(d => d.customerName) },
-    series: [{ type: 'bar', data: reversed.map(d => d.totalQuantity), itemStyle: { borderRadius: [0, 4, 4, 0], color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#409EFF' }, { offset: 1, color: '#79bbff' }]) }, barMaxWidth: 24 }]
-  })
+    const custMap = {}
+    orderList.forEach(o => {
+      const cid = o.customerId
+      if (!cid) return
+      if (!custMap[cid]) custMap[cid] = { customerName: o.customerName, customerPhone: o.customerPhone, totalOrders: 0, lastOrderTime: o.createTime }
+      custMap[cid].totalOrders++
+      if (o.createTime && o.createTime > custMap[cid].lastOrderTime) custMap[cid].lastOrderTime = o.createTime
+    })
+    topCustomers.value = Object.values(custMap).sort((a, b) => b.totalOrders - a.totalOrders).slice(0, 10)
+  } catch (e) {}
 }
 
-const handleResize = () => { charts.forEach(c => c?.resize()) }
-
-onMounted(() => { loadData(); window.addEventListener('resize', handleResize) })
-onBeforeUnmount(() => { window.removeEventListener('resize', handleResize); charts.forEach(c => c?.dispose()); charts = [] })
+onMounted(loadData)
 </script>
+
+<style scoped>
+.summary-card { text-align: center; }
+.summary-title { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+.summary-num { font-size: 30px; font-weight: 700; color: var(--text-primary); }
+.summary-success { color: #67c23a; }
+.summary-warning { color: #e6a23c; }
+.summary-primary { color: #409eff; }
+.card-head { display: flex; align-items: center; justify-content: space-between; }
+</style>

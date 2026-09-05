@@ -19,18 +19,21 @@
     "pages/service/index",
     "pages/mine/about",
     "pages/mine/edit",
-    "pages/payment/index"
+    "pages/payment/index",
+    "pages/payment/records",
+    "pages/notice/index",
+    "pages/mine/company"
   ],
   "window": {
     "backgroundTextStyle": "dark",
-    "navigationBarBackgroundColor": "#1e40af",
+    "navigationBarBackgroundColor": "#0EA5E9",
     "navigationBarTitleText": "AquaFlow",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#f0f4f8"
+    "backgroundColor": "#F1F5F9"
   },
   "tabBar": {
-    "color": "#94a3b8",
-    "selectedColor": "#1e40af",
+    "color": "#94A3B8",
+    "selectedColor": "#0EA5E9",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [
@@ -39,12 +42,6 @@
         "text": "首页",
         "iconPath": "static/tabbar/home.png",
         "selectedIconPath": "static/tabbar/home-active.png"
-      },
-      {
-        "pagePath": "pages/shop/index",
-        "text": "商城",
-        "iconPath": "static/tabbar/shop.png",
-        "selectedIconPath": "static/tabbar/shop-active.png"
       },
       {
         "pagePath": "pages/order/list",
@@ -69,9 +66,9 @@
       "desc": "用于获取您的收货地址，方便配送"
     }
   },
-  "__usePrivacyCheck": true,
   "usingComponents": {
-    "privacy-popup": "/components/PrivacyPopup/index"
+    "privacy-popup": "/components/PrivacyPopup/index",
+    "icon": "/components/Icon/index"
   },
   "sitemapLocation": "sitemap.json"
 }

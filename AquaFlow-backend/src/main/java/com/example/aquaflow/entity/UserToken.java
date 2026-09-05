@@ -10,10 +10,10 @@ import java.time.LocalDateTime;
 @Data
 public class UserToken {
 
-    private Integer id;
+    private Long id;
 
     /** 用户ID（staff.id 或 customer.id） */
-    private Integer userId;
+    private Long userId;
 
     /** 用户类型：staff / customer */
     private String userType;

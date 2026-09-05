@@ -4,7 +4,6 @@
       <el-col :span="16">
         <el-card :body-style="{ padding: '0' }" style="position: relative;">
           <div ref="mapRef" style="height: 600px;"></div>
-          <!-- 模式切换按钮 -->
           <div class="mode-switch">
             <el-button :type="mode === 'order' ? 'primary' : 'info'" size="small" @click="switchMode('order')">
               <el-icon><Document /></el-icon> 订单
@@ -13,11 +12,10 @@
               <el-icon><User /></el-icon> 客户
             </el-button>
           </div>
-          <!-- 订单模式：选中计数 + 创建批次 -->
           <div v-if="mode === 'order'" class="order-bar">
             <span>已选 <b>{{ selectedOrderIds.length }}</b> 单</span>
-            <el-button type="primary" :disabled="selectedOrderIds.length === 0" @click="createBatch">
-              创建批次
+            <el-button type="primary" :disabled="selectedOrderIds.length === 0" @click="batchAssign">
+              批量分配
             </el-button>
           </div>
         </el-card>
@@ -26,19 +24,18 @@
         <el-card>
           <template #header>
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span>{{ mode === 'order' ? '待组批订单' : '客户地址' }}</span>
+              <span>{{ mode === 'order' ? '待分配订单' : '客户地址' }}</span>
               <el-tag size="small">{{ mode === 'order' ? pendingOrders.length : addresses.length }} 个</el-tag>
             </div>
           </template>
           <div style="max-height: 540px; overflow-y: auto;">
-            <!-- 订单模式 -->
             <template v-if="mode === 'order'">
               <div v-for="o in pendingOrders" :key="o.id" class="list-item"
                 @click="toggleOrder(o)" :class="{ active: selectedOrderIds.includes(o.id) }">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <el-checkbox :model-value="selectedOrderIds.includes(o.id)" @click.stop />
                   <div>
-                    <div style="font-weight: 500;">{{ o.customerName }} - {{ o.waterTypeName }}</div>
+                    <div style="font-weight: 500;">{{ o.customerName }} - {{ o.productName || o.waterTypeName }}</div>
                     <div style="font-size: 12px; color: var(--text-secondary);">
                       {{ o.addressDetail }} · x{{ o.quantity }}
                     </div>
@@ -46,10 +43,9 @@
                 </div>
               </div>
               <div v-if="pendingOrders.length === 0" style="text-align: center; padding: 30px; color: var(--text-secondary);">
-                暂无待组批订单
+                暂无待分配订单
               </div>
             </template>
-            <!-- 客户模式 -->
             <template v-else>
               <div v-for="a in addresses" :key="a.id" class="list-item"
                 @click="flyTo(a)" :class="{ active: selectedId === a.id }">
@@ -78,7 +74,7 @@ import { Document, User } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { addressApi, orderApi, batchApi } from '../../../api'
+import { addressApi, orderApi, staffApi } from '../../../api'
 
 const route = useRoute()
 const router = useRouter()
@@ -115,13 +111,34 @@ const toggleOrder = (o) => {
   else selectedOrderIds.value.splice(idx, 1)
 }
 
-const createBatch = async () => {
+const bulkAssign = async () => {
   if (selectedOrderIds.value.length === 0) return
-  await ElMessageBox.confirm(`确认将 ${selectedOrderIds.value.length} 个订单创建为一个批次？`, '创建批次')
-  await batchApi.create(selectedOrderIds.value)
-  ElMessage.success('批次创建成功')
-  selectedOrderIds.value = []
-  loadData()
+  try {
+    const staffList = await staffApi.list()
+    const deliveryList = staffList.filter(s => s.role === 'DELIVERY' && s.status === 1)
+    if (deliveryList.length === 0) {
+      ElMessage.warning('暂无在职配送员')
+      return
+    }
+    const { value } = await ElMessageBox.prompt(
+      `将 ${selectedOrderIds.value.length} 个订单分配给配送员，请选择配送员ID：\n` +
+      deliveryList.map(s => `  #${s.id} ${s.name}`).join('\n'),
+      '批量分配订单',
+      { confirmButtonText: '确定', cancelButtonText: '取消', inputPattern: /^\d+$/ }
+    )
+    const staffId = parseInt(value)
+    const target = deliveryList.find(s => s.id === staffId)
+    if (!target) {
+      ElMessage.error('配送员ID无效')
+      return
+    }
+    await Promise.all(selectedOrderIds.value.map(oid => orderApi.assign(oid, { staffId })))
+    ElMessage.success(`已分配 ${selectedOrderIds.value.length} 单给 ${target.name}`)
+    selectedOrderIds.value = []
+    loadData()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(e.message || '操作失败')
+  }
 }
 
 const switchMode = (m) => {
@@ -158,7 +175,7 @@ const renderMap = () => {
         popupAnchor: [0, -32]
       })
       const marker = L.marker([o.addressLat, o.addressLng], { icon }).addTo(map)
-      marker.bindPopup(`<b>${o.customerName}</b><br/>${o.addressDetail}<br/>${o.waterTypeName} x${o.quantity}`)
+      marker.bindPopup(`<b>${o.customerName}</b><br/>${o.addressDetail}<br/>${o.productName || o.waterTypeName} x${o.quantity}`)
       marker.on('click', () => toggleOrder(o))
       markers.push(marker)
       group.addLayer(marker)
@@ -198,13 +215,7 @@ const loadData = async () => {
   addresses.value = addrs
   pendingOrders.value = orders
 
-  // URL 参数支持
   if (route.query.mode) mode.value = route.query.mode
-  if (route.query.batchId) {
-    const batch = await batchApi.getById(route.query.batchId)
-    const batchOrderIds = (batch.orders || []).map(o => o.id)
-    selectedOrderIds.value = batchOrderIds
-  }
 
   renderMap()
 }

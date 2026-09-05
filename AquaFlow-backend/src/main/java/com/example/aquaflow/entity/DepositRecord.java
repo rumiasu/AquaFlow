@@ -6,26 +6,35 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 押金记录实体类，对应数据库 deposit_record 表。
- * <p>记录客户押金的充值、退还等变动明细。</p>
+ * 押金流水实体类，对应数据库 deposit_record 表。
+ * <p>记录客户押金的新增、退还、赔偿等变动。</p>
  */
 @Data
 public class DepositRecord {
 
     /** 记录ID，主键自增 */
-    private Integer id;
+    private Long id;
 
-    /** 客户ID，关联 customer 表 */
-    private Integer customerId;
+    /** 客户ID */
+    private Long customerId;
 
-    /** 押金类型：1=充值 2=退还 3=扣除 */
+    /** 所属水站ID */
+    private Long stationId;
+
+    /** 类型: 1 新增押金 2 退押金 3 丢桶赔偿 4 其他调整 */
     private Integer type;
 
     /** 金额 */
     private BigDecimal amount;
 
-    /** 备注说明 */
+    /** 关联订单ID */
+    private Long relatedOrderId;
+
+    /** 备注 */
     private String note;
+
+    /** 操作员ID */
+    private Long operatorId;
 
     /** 创建时间 */
     private LocalDateTime createTime;

@@ -1,0 +1,42 @@
+<view class="container">
+  <view class="form-card">
+    <view class="form-header">
+      <text class="form-title">创建我的水站</text>
+      <text class="form-subtitle">命名水站并选择位置即可</text>
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">水站名称 <text class="required">*</text></text>
+      <input class="form-input" placeholder="给您的水站起个名字" value="{{stationName}}" bindinput="onStationNameInput" maxlength="30" />
+    </view>
+
+    <view class="form-group location-group {{locationText ? 'location-filled' : ''}}" bindtap="onChooseLocation">
+      <text class="form-label">定位水站位置 <text class="required">*</text></text>
+      <view class="location-value {{locationText ? '' : 'placeholder'}}">
+        <view class="location-text-wrap">
+          <text class="location-text">{{locationText || '点击选择地图位置'}}</text>
+          <text class="location-sub" wx:if="{{region.length}}">{{region[0]}} · {{region[1]}} · {{region[2]}}</text>
+        </view>
+        <text class="location-icon">📍</text>
+      </view>
+    </view>
+
+    <view class="form-group" wx:if="{{locationText && !region.length}}">
+      <picker mode="region" bindchange="onRegionChange">
+        <view class="form-picker {{region.length ? '' : 'placeholder'}}">
+          {{region.length ? region : '补充省/市/区（可选）'}}
+          <text class="picker-arrow">›</text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">水站简介</text>
+      <textarea class="form-textarea" placeholder="简介、营业时间、配送范围等（可选）" value="{{description}}" bindinput="onDescInput" maxlength="200"></textarea>
+    </view>
+  </view>
+
+  <view class="footer">
+    <button class="btn-submit" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">创建水站</button>
+  </view>
+</view>

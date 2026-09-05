@@ -1,9 +1,14 @@
+const { STORAGE_KEYS } = require('./utils/storage-keys')
+const { stationStorage } = require('./utils/storage')
+
 App({
   globalData: {
     userInfo: null,
     accessToken: null,
     refreshToken: null,
-    isLogin: false
+    isLogin: false,
+    // 购物车按站隔离：{ [stationId]: { [productId]: qty } }
+    cart: {}
   },
 
   onLaunch() {
@@ -11,15 +16,14 @@ App({
   },
 
   checkLogin() {
-    const accessToken = wx.getStorageSync('accessToken')
-    const refreshToken = wx.getStorageSync('refreshToken')
-    const userInfo = wx.getStorageSync('userInfo')
+    const accessToken = wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
+    const refreshToken = wx.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
+    const userInfo = wx.getStorageSync(STORAGE_KEYS.USER_INFO)
     if (accessToken && userInfo) {
       this.globalData.accessToken = accessToken
       this.globalData.refreshToken = refreshToken
       this.globalData.userInfo = userInfo
       this.globalData.isLogin = true
-      // 用 /api/auth/me 验证 token 是否有效（通过 JWT 识别用户，不再传 customerId）
       this.validateToken()
     } else {
       this.globalData.isLogin = false
@@ -40,14 +44,15 @@ App({
           this.globalData.isLogin = true
           this.globalData.userInfo = res.data.data
         } else if (res.statusCode === 401 || (res.data && res.data.code === 401)) {
-          // access_token 失效，尝试用 refresh_token 续期
           this.tryRefresh().then(() => {
             this.globalData.isLogin = true
           }).catch(() => {
             this.clearLoginInfo()
+            wx.redirectTo({ url: '/pages/login/index' })
           })
         } else {
           this.clearLoginInfo()
+          wx.redirectTo({ url: '/pages/login/index' })
         }
       },
       fail: () => {
@@ -58,7 +63,7 @@ App({
 
   tryRefresh() {
     return new Promise((resolve, reject) => {
-      const refreshToken = this.globalData.refreshToken || wx.getStorageSync('refreshToken')
+      const refreshToken = this.globalData.refreshToken || wx.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
       if (!refreshToken) return reject(new Error('no refresh token'))
 
       const { getBaseUrl } = require('./config/api')
@@ -71,8 +76,8 @@ App({
             const { accessToken, refreshToken: newRefreshToken } = res.data.data
             this.globalData.accessToken = accessToken
             if (newRefreshToken) this.globalData.refreshToken = newRefreshToken
-            wx.setStorageSync('accessToken', accessToken)
-            if (newRefreshToken) wx.setStorageSync('refreshToken', newRefreshToken)
+            wx.setStorageSync(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
+            if (newRefreshToken) wx.setStorageSync(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken)
             resolve()
           } else {
             reject(new Error('refresh failed'))
@@ -88,9 +93,9 @@ App({
     this.globalData.refreshToken = refreshToken
     this.globalData.userInfo = userInfo
     this.globalData.isLogin = true
-    wx.setStorageSync('accessToken', accessToken)
-    wx.setStorageSync('refreshToken', refreshToken)
-    wx.setStorageSync('userInfo', userInfo)
+    wx.setStorageSync(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
+    wx.setStorageSync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken)
+    wx.setStorageSync(STORAGE_KEYS.USER_INFO, userInfo)
   },
 
   clearLoginInfo() {
@@ -98,8 +103,64 @@ App({
     this.globalData.refreshToken = null
     this.globalData.userInfo = null
     this.globalData.isLogin = false
-    wx.removeStorageSync('accessToken')
-    wx.removeStorageSync('refreshToken')
-    wx.removeStorageSync('userInfo')
+    wx.removeStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
+    wx.removeStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
+    wx.removeStorageSync(STORAGE_KEYS.USER_INFO)
+  },
+
+  // ===== 购物车工具方法（按站隔离）=====
+  getCart(stationId) {
+    const sid = String(stationId)
+    if (!this.globalData.cart[sid]) {
+      this.globalData.cart[sid] = {}
+    }
+    return this.globalData.cart[sid]
+  },
+
+  getCartCount(stationId) {
+    const cart = this.getCart(stationId)
+    return Object.values(cart).reduce((sum, qty) => sum + (parseInt(qty) || 0), 0)
+  },
+
+  addToCart(stationId, productId, qty = 1) {
+    const cart = this.getCart(stationId)
+    const pid = String(productId)
+    cart[pid] = (parseInt(cart[pid]) || 0) + qty
+  },
+
+  removeFromCart(stationId, productId) {
+    const cart = this.getCart(stationId)
+    delete cart[String(productId)]
+  },
+
+  setCartQty(stationId, productId, qty) {
+    const cart = this.getCart(stationId)
+    const pid = String(productId)
+    if (qty <= 0) {
+      delete cart[pid]
+    } else {
+      cart[pid] = qty
+    }
+  },
+
+  clearCart(stationId) {
+    const sid = String(stationId)
+    this.globalData.cart[sid] = {}
+  },
+
+  // 获取当前选择的站点 ID（从 stationStorage 读取）
+  getCurrentStationId() {
+    return stationStorage.getId()
+  },
+
+  // 获取当前站点的购物车
+  getCurrentCart() {
+    const stationId = this.getCurrentStationId()
+    return stationId ? this.getCart(stationId) : {}
+  },
+
+  getCurrentCartCount() {
+    const stationId = this.getCurrentStationId()
+    return stationId ? this.getCartCount(stationId) : 0
   }
 })

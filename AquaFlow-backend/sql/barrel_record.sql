@@ -1,3 +1,6 @@
+-- STATUS: DUPLICATE of migration_full.sql
+-- barrel_record 表已在 migration_full.sql 中创建，此文件重复，新环境无需执行。
+
 -- 水桶退桶记录表
 CREATE TABLE IF NOT EXISTS `barrel_record` (
   `id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',

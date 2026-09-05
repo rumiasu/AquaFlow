@@ -5,20 +5,23 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 水票变动记录实体类，对应数据库 ticket_record 表。
- * <p>记录客户水票的增减明细，包括购买、使用、赠送等来源。</p>
+ * 水票流水实体类，对应数据库 ticket_record 表。
+ * <p>记录客户水票的增减明细。</p>
  */
 @Data
 public class TicketRecord {
 
     /** 记录ID，主键自增 */
-    private Integer id;
+    private Long id;
 
-    /** 客户ID，关联 customer 表 */
-    private Integer customerId;
+    /** 客户ID */
+    private Long customerId;
 
-    /** 水类型ID，关联 water_type 表 */
-    private Integer waterTypeId;
+    /** 商品ID(桶装水) */
+    private Long productId;
+
+    /** 所属水站ID */
+    private Long stationId;
 
     /** 增加数量 */
     private Integer increaseQty;
@@ -26,13 +29,13 @@ public class TicketRecord {
     /** 减少数量 */
     private Integer decreaseQty;
 
-    /** 关联订单ID，可为空 */
-    private Integer orderId;
+    /** 关联订单ID */
+    private Long orderId;
 
-    /** 来源说明，如"购买"、"使用"、"赠送" */
+    /** 来源说明 */
     private String source;
 
-    /** 水票来源渠道：1=线上购买 2=线下购买 */
+    /** 水票来源: 1 线上 2 线下 */
     private Integer ticketSource;
 
     /** 创建时间 */

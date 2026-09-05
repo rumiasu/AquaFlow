@@ -35,7 +35,8 @@ Page({
 
   onSelectAddress(e) {
     const { item } = e.currentTarget.dataset
-    if (this.data.from === 'home') {
+    // 首页/下单页统一通过 selectedAddress 回写
+    if (this.data.from === 'home' || this.data.from === 'order') {
       storage.set('selectedAddress', item)
       wx.navigateBack()
     }

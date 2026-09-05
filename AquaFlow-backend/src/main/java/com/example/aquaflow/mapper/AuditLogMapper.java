@@ -17,7 +17,7 @@ public interface AuditLogMapper {
     List<AuditLog> listRecent(@Param("limit") int limit);
 
     @Select("select * from audit_log where user_id = #{userId} order by create_time desc limit #{limit}")
-    List<AuditLog> listByUserId(@Param("userId") Integer userId, @Param("limit") int limit);
+    List<AuditLog> listByUserId(@Param("userId") Long userId, @Param("limit") int limit);
 
     @Select("select * from audit_log where module = #{module} order by create_time desc limit #{limit}")
     List<AuditLog> listByModule(@Param("module") String module, @Param("limit") int limit);

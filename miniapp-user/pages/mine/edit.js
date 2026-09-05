@@ -1,4 +1,5 @@
 const { updateProfile } = require('../../api/auth')
+const { STORAGE_KEYS } = require('../../utils/storage-keys')
 
 Page({
   data: {
@@ -45,7 +46,7 @@ Page({
       userInfo.nickname = nickname.trim()
       userInfo.phone = phone.trim()
       app.globalData.userInfo = userInfo
-      wx.setStorageSync('userInfo', userInfo)
+      wx.setStorageSync(STORAGE_KEYS.USER_INFO, userInfo)
 
       wx.showToast({ title: '保存成功', icon: 'success' })
       setTimeout(() => wx.navigateBack(), 1500)

@@ -13,7 +13,7 @@
       </template>
       <el-table :data="list" border stripe v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="waterTypeName" label="水类型" />
+        <el-table-column prop="productName" label="商品" />
         <el-table-column prop="spec" label="规格" />
         <el-table-column prop="quantity" label="库存数量" width="140">
           <template #default="{ row }">
@@ -30,13 +30,13 @@
     <el-dialog v-model="dialogVisible" title="批量入库" width="550px">
       <el-form :model="inboundForm" label-width="80px">
         <div v-for="(item, index) in inboundForm.items" :key="index" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
-          <el-select v-model="item.waterTypeId" placeholder="选择水类型" style="flex: 1;">
-            <el-option v-for="w in waterTypes" :key="w.id" :label="`${w.name} ${w.spec}`" :value="w.id" />
+          <el-select v-model="item.productId" placeholder="选择商品" style="flex: 1;">
+            <el-option v-for="p in products" :key="p.id" :label="`${p.name} ${p.spec}`" :value="p.id" />
           </el-select>
           <el-input-number v-model="item.quantity" :min="1" style="width: 130px;" />
           <el-button type="danger" :icon="Delete" circle v-if="inboundForm.items.length > 1" @click="inboundForm.items.splice(index, 1)" />
         </div>
-        <el-button @click="inboundForm.items.push({ waterTypeId: null, quantity: 1 })">+ 添加一项</el-button>
+        <el-button @click="inboundForm.items.push({ productId: null, quantity: 1 })">+ 添加一项</el-button>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -49,13 +49,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { Delete } from '@element-plus/icons-vue'
-import { inventoryApi, waterTypeApi } from '../../../api'
+import { inventoryApi, productApi } from '../../../api'
 
 const list = ref([])
 const loading = ref(false)
-const waterTypes = ref([])
+const products = ref([])
 const dialogVisible = ref(false)
-const inboundForm = ref({ items: [{ waterTypeId: null, quantity: 1 }] })
+const inboundForm = ref({ items: [{ productId: null, quantity: 1 }] })
 
 const totalQuantity = computed(() => list.value.reduce((sum, item) => sum + (item.quantity || 0), 0))
 const lowStockCount = computed(() => list.value.filter(item => item.quantity < 20).length)
@@ -64,9 +64,9 @@ const loadData = async () => {
   loading.value = true
   try { list.value = await inventoryApi.list() } finally { loading.value = false }
 }
-const loadWaterTypes = async () => { waterTypes.value = await waterTypeApi.list() }
-const showInbound = () => { inboundForm.value = { items: [{ waterTypeId: null, quantity: 1 }] }; dialogVisible.value = true }
+const loadProducts = async () => { products.value = await productApi.list() }
+const showInbound = () => { inboundForm.value = { items: [{ productId: null, quantity: 1 }] }; dialogVisible.value = true }
 const submit = async () => { await inventoryApi.inbound(inboundForm.value); dialogVisible.value = false; loadData() }
 
-onMounted(() => { loadData(); loadWaterTypes() })
+onMounted(() => { loadData(); loadProducts() })
 </script>

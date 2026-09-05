@@ -1,37 +1,103 @@
 const { getOrderDetail, cancelOrder } = require('../../api/order')
+const { createPayment } = require('../../api/order')
+const { getOrderImages } = require('../../api/orderImage')
+const { getProductDetail } = require('../../api/product')
 const { formatOrderStatus, formatPaymentStatus } = require('../../utils/format')
 
 Page({
   data: {
     order: null,
+    items: [],
     statusText: '',
     payStatusText: '',
-    canCancel: false
+    payStatusClass: '',
+    canCancel: false,
+    images: [],
+    bucketInfo: null
   },
 
   onLoad(options) {
     if (options.id) {
       this.loadOrder(options.id)
+      this.loadImages(options.id)
     }
   },
 
   onPullDownRefresh() {
     if (this.data.order) {
-      this.loadOrder(this.data.order.id).then(() => wx.stopPullDownRefresh())
+      this.loadOrder(this.data.order.id).then(() => {
+        this.loadImages(this.data.order.id)
+        wx.stopPullDownRefresh()
+      })
     } else {
       wx.stopPullDownRefresh()
     }
   },
 
-  loadOrder(id) {
-    return getOrderDetail(id).then(order => {
+  async loadOrder(id) {
+    try {
+      const res = await getOrderDetail(id)
+      const order = res.data || res
+
+      let items = []
+      if (order.items && order.items.length > 0) {
+        items = order.items.map(it => ({
+          productId: it.productId || it.waterTypeId,
+          productName: it.productNameSnapshot || it.productName || it.waterTypeName || '',
+          productSpec: it.specSnapshot || it.productSpec || it.waterTypeSpec || '',
+          quantity: it.quantity || order.quantity || 1,
+          price: it.price || it.productPrice || 0,
+          imageUrl: ''
+        }))
+      } else {
+        items = [{
+          productId: order.productId || order.waterTypeId,
+          productName: order.productNameSnapshot || order.productName || order.waterTypeName || '',
+          productSpec: order.specSnapshot || order.productSpec || order.waterTypeSpec || '',
+          quantity: order.quantity || 1,
+          price: order.price || 0,
+          imageUrl: ''
+        }]
+      }
+
+      const bucketInfo = {
+        deliveredQty: order.deliveredBuckets || order.deliveredQty || 0,
+        returnedQty: order.returnedBuckets || order.returnedQty || 0,
+        pendingUnreturned: Math.max(0, (order.deliveredBuckets || order.deliveredQty || 0) - (order.returnedBuckets || order.returnedQty || 0))
+      }
+      if (order.extraDepositBuckets != null && order.extraDepositBuckets > 0) {
+        bucketInfo.extraDepositBuckets = order.extraDepositBuckets
+        bucketInfo.extraDepositAmount = order.extraDepositAmount || 0
+      }
+
       const statusText = formatOrderStatus(order.status)
       const payStatusText = formatPaymentStatus(order.paymentStatus)
-      const canCancel = order.status === 1 || order.status === 4
-      this.setData({ order, statusText, payStatusText, canCancel })
-    }).catch(err => {
+      const payClassMap = { 0: 'default', 1: 'warning', 2: 'success', 3: 'default', 4: 'default' }
+      const payStatusClass = payClassMap[order.paymentStatus] || 'default'
+      const canCancel = order.status === 1
+
+      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, bucketInfo })
+
+      this.loadItemImages(items)
+    } catch (err) {
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
-    })
+    }
+  },
+
+  async loadItemImages(items) {
+    const ids = items.map(i => i.productId).filter(Boolean)
+    if (ids.length === 0) return
+    for (const pid of ids) {
+      try {
+        const res = await getProductDetail(pid)
+        if (res && res.data && res.data.imageUrl) {
+          const idx = this.data.items.findIndex(i => i.productId === pid)
+          if (idx >= 0) {
+            this.setData({ [`items[${idx}].imageUrl`]: res.data.imageUrl })
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
   },
 
   onCallPhone() {
@@ -40,8 +106,44 @@ Page({
     }
   },
 
+  loadImages(id) {
+    return getOrderImages(id).then(res => {
+      this.setData({ images: res.data || [] })
+    }).catch(() => {
+      this.setData({ images: [] })
+    })
+  },
+
+  onPreviewImage(e) {
+    const { url } = e.currentTarget.dataset
+    const urls = this.data.images.map(i => i.url)
+    wx.previewImage({ current: url, urls })
+  },
+
   onReorder() {
     wx.navigateTo({ url: `/pages/order/create?reorderId=${this.data.order.id}` })
+  },
+
+  onPayNow() {
+    const { order } = this.data
+    if (!order) return
+    createPayment({
+      orderId: order.id,
+      customerId: wx.getStorageSync('customerId'),
+      amount: order.totalAmount || order.amount,
+      paymentMethod: order.paymentMethod || 1,
+      waterAmount: 0,
+      barrelDeposit: 0,
+      extraDepositBuckets: 0,
+      extraDepositAmount: 0,
+      ticketProductId: null,
+      ticketQty: null
+    }).then(() => {
+      wx.showToast({ title: '支付成功', icon: 'success' })
+      this.loadOrder(order.id)
+    }).catch(e => {
+      wx.showToast({ title: e.message || '支付失败', icon: 'none' })
+    })
   },
 
   onCancel() {

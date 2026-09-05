@@ -4,24 +4,5 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.example.aquaflow.mapper.InventoryMapper">
-    <select id="getByStationAndWaterType" resultType="Inventory">
-        select * from inventory where station_id = #{stationId} and water_type_id = #{waterTypeId}
-    </select>
 
-    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        insert into inventory(water_type_id, station_id, quantity, update_time)
-        values(#{waterTypeId}, #{stationId}, #{quantity}, #{updateTime})
-    </insert>
-
-    <update id="update">
-        update inventory
-        set quantity = #{quantity}, update_time = #{updateTime}
-        where station_id = #{stationId} and water_type_id = #{waterTypeId}
-    </update>
-
-    <select id="list" resultType="com.example.aquaflow.entity.Inventory">
-        select i.*, w.name as waterTypeName, w.spec as specification
-        from inventory i
-        left join water_type w on i.water_type_id = w.id
-    </select>
 </mapper>

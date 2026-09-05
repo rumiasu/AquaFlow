@@ -9,7 +9,7 @@ const getBaseUrl = () => {
     const env = __wxConfig.envVersion === 'release' ? 'prod' : 'dev'
     return API_CONFIG[env].baseUrl
   } catch (e) {
-    return API_CONFIG.dev.baseUrl
+    throw new Error('无法获取小程序环境版本，请勿在非微信开发者工具中运行')
   }
 }
 
@@ -25,14 +25,17 @@ const API = {
   UPDATE_PROFILE: '/api/auth/update-profile',
   CHANGE_PASSWORD: '/api/auth/change-password',
 
-  // 商品（后端: WaterTypeController）
-  WATER_TYPES: '/api/water-types',
-  MY_WATER_TYPES: '/api/water-types/my',
+  // 商品（后端: ProductController）
+  PRODUCTS: '/api/products',
+  PRODUCTS_SALE: '/api/products/on-sale',
+  MY_PRODUCTS: '/api/products/my',
+  PRODUCTS_SALE_BY_STATION: '/api/products/sale-by-station',
 
-  // 订单（后端: OrderController）
+// 订单（后端: OrderController）
   CUSTOMERS: '/api/customers',
-    ORDERS: '/api/orders',
-  CREATE_ORDER: '/api/orders',
+  ORDERS: '/api/orders',
+  CREATE_ORDER: '/api/orders/create',
+  MY_STATION: '/api/orders/my-station',
 
   // 常用订单模板（后端: OrderTemplateController）
   ORDER_TEMPLATES: '/api/order-templates',
@@ -55,9 +58,48 @@ const API = {
 
   // 支付（后端: PaymentController）
   PAYMENTS: '/api/payments',
+  PAYMENT_QUOTE: '/api/payments/quote',
+  PAYMENT_RECORDS: '/api/payments/by-customer',
+
+  // 押金记录（后端: DepositRecordController）
+  DEPOSIT_RECORDS: '/api/deposit-records',
+
+  // 公告（后端: NoticeController）
+  NOTICES: '/api/notices',
+
+  // 企业资料（后端: CompanyInfoController）
+  COMPANY_INFO: '/api/company-info',
+
+  // 水站（后端: StationController）
+  STATIONS: '/api/stations',
+  STATIONS_CURRENT: '/api/stations/current',
+  STATIONS_MY_CURRENT: '/api/stations/mine',
+  STATIONS_PUBLIC: '/api/stations/public',
+  STATIONS_SELECT: '/api/stations/current/select',
+
+  // 意见反馈（后端: FeedbackController）
+  FEEDBACK: '/api/feedback',
+  FEEDBACK_MY: '/api/feedback/my',
+
+  // 订单图片（后端: OrderImageController）
+  ORDER_IMAGES: '/api/order-images',
 
   // 搜索（后端: SearchController）
-  SEARCH: '/api/search'
+  SEARCH: '/api/search',
+
+  // 站长端：桶异常管理（后端: ManagerExceptionController）
+  MANAGER_EXCEPTIONS: '/api/manager/exceptions',
+  MANAGER_EXCEPTIONS_STATS: '/api/manager/exceptions/stats',
+  MANAGER_EXCEPTIONS_CONFIG: '/api/manager/exceptions/config',
+
+  // 客户端：我的异常记录（后端: OrderController/CustomerExceptionController）
+  CUSTOMER_EXCEPTIONS: '/api/customer/exceptions',
+
+  // 客户通知（后端: CustomerNotificationController）
+  CUSTOMER_NOTIFICATIONS: '/api/customer/notifications',
+  CUSTOMER_NOTIFICATIONS_UNREAD: '/api/customer/notifications/unread',
+  CUSTOMER_NOTIFICATIONS_UNREAD_COUNT: '/api/customer/notifications/unread-count',
+  CUSTOMER_NOTIFICATIONS_READ_ALL: '/api/customer/notifications/read-all'
 }
 
 // 客户ID（兼容旧代码，优先从 JWT 获取）

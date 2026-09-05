@@ -1,32 +1,37 @@
 package com.example.aquaflow.service.impl;
 
-import com.example.aquaflow.constant.BatchStatus;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.constant.PaymentStatus;
-import com.example.aquaflow.entity.Address;
-import com.example.aquaflow.entity.Batch;
-import com.example.aquaflow.entity.Orders;
-import com.example.aquaflow.entity.PaymentRecord;
-import com.example.aquaflow.mapper.AddressMapper;
-import com.example.aquaflow.mapper.BatchMapper;
-import com.example.aquaflow.mapper.BatchOrderMapper;
-import com.example.aquaflow.mapper.CustomerMapper;
-import com.example.aquaflow.mapper.InventoryMapper;
-import com.example.aquaflow.mapper.OrderMapper;
-import com.example.aquaflow.mapper.PaymentRecordMapper;
+import com.example.aquaflow.dto.OrderCreateDTO;
+import com.example.aquaflow.dto.OrderCreateResult;
+import com.example.aquaflow.entity.*;
+import com.example.aquaflow.exception.BusinessException;
+import com.example.aquaflow.mapper.*;
+import com.example.aquaflow.service.AssetService;
+import com.example.aquaflow.service.AuditLogService;
 import com.example.aquaflow.service.OrderService;
+import com.example.aquaflow.service.PaymentService;
+import com.example.aquaflow.util.AuthContext;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
+@Slf4j
 public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private OrderMapper orderMapper;
+
+    @Autowired
+    private OrderItemMapper orderItemMapper;
 
     @Autowired
     private AddressMapper addressMapper;
@@ -35,140 +40,438 @@ public class OrderServiceImpl implements OrderService {
     private CustomerMapper customerMapper;
 
     @Autowired
-    private BatchOrderMapper batchOrderMapper;
-
-    @Autowired
-    private BatchMapper batchMapper;
-
-    @Autowired
     private InventoryMapper inventoryMapper;
 
     @Autowired
-    private PaymentRecordMapper paymentRecordMapper;
+    private ProductMapper productMapper;
 
     @Autowired
-    private com.example.aquaflow.mapper.TicketAccountMapper ticketAccountMapper;
+    private StationMapper stationMapper;
 
-    @Override
+    @Autowired
+    private CustomerBarrelAssetMapper customerBarrelAssetMapper;
+
+    @Autowired
+    private CustomerDepositAccountMapper customerDepositAccountMapper;
+
+    @Autowired
+    private TicketAccountMapper ticketAccountMapper;
+
+    @Autowired
+    private DepositRecordMapper depositRecordMapper;
+
+    @Autowired
+    private CustomerBarrelInTransitMapper customerBarrelInTransitMapper;
+
+    @Autowired
+    private AuditLogService auditLogService;
+
+    @Autowired
+    private AssetService assetService;
+
+    @Autowired
+    private PaymentService paymentService;
+
+@Override
     @Transactional
-    public void updateStatus(Integer id, Integer status) {
-        Orders order = orderMapper.getById(id);
-        if (order == null) {
-            throw new RuntimeException("订单不存在");
+    public OrderCreateResult createOrder(OrderCreateDTO dto) {
+        if (dto.getItems() == null || dto.getItems().isEmpty()) {
+            throw new BusinessException("订单商品不能为空");
+        }
+        if (dto.getCustomerId() == null) {
+            throw new BusinessException("客户ID不能为空");
+        }
+        if (dto.getAddressId() == null) {
+            throw new BusinessException("地址ID不能为空");
+        }
+        if (dto.getPaymentMethod() == null) {
+            throw new BusinessException("支付方式不能为空");
+        }
+        if (dto.getStationId() == null) {
+            throw new BusinessException("请先选择服务水站");
         }
 
-        // 状态机校验
-        if (!OrderStatus.isValidTransition(order.getStatus(), status)) {
-            throw new RuntimeException("不允许从状态" + order.getStatus() + "转换到" + status);
-        }
-
-        // 取消订单时的善后处理
-        if (status == OrderStatus.CANCELLED) {
-            if (order.getStatus() == OrderStatus.BATCHED) {
-                cancelBatchedOrder(order);
+        // 幂等性检查：防止重复下单
+        if (dto.getIdempotencyKey() != null && !dto.getIdempotencyKey().isEmpty()) {
+            Orders existing = orderMapper.findByIdempotencyKey(dto.getIdempotencyKey());
+            if (existing != null) {
+                java.util.List<String> warnings = new java.util.ArrayList<>();
+                return OrderCreateResult.success(existing.getId(), warnings, false);
             }
-            // 取消时自动退款
-            autoRefundOnCancel(order);
         }
 
-        orderMapper.updateStatus(id, status);
-    }
+        Customer customer = customerMapper.getById(dto.getCustomerId());
+        if (customer == null) {
+            throw new BusinessException("客户不存在");
+        }
+        Long stationId = dto.getStationId();
 
-    /**
-     * 取消已组批的订单：从批次中移除并恢复库存
-     */
-    private void cancelBatchedOrder(Orders order) {
-        Integer batchId = batchOrderMapper.getBatchIdByOrderId(order.getId());
-        if (batchId == null) return;
-
-        Batch batch = batchMapper.getById(batchId);
-        if (batch == null) return;
-
-        // 只有待配送状态的批次才允许移除订单
-        if (batch.getStatus() != BatchStatus.PENDING) {
-            throw new RuntimeException("批次已出发，无法取消订单");
+        // 验证水站存在且营业中
+        Station station = stationMapper.getById(stationId);
+        if (station == null || !Integer.valueOf(1).equals(station.getStatus())) {
+            throw new BusinessException("水站不存在或已停业");
         }
 
-        // 恢复库存
-        inventoryMapper.increaseStock(order.getStationId(), order.getWaterTypeId(), order.getQuantity());
+        Address addr = addressMapper.getById(dto.getAddressId());
+        if (addr == null) {
+            throw new BusinessException("地址不存在");
+        }
 
-        // 从批次中移除此订单
-        batchOrderMapper.deleteByOrderId(order.getId());
-
-        // 更新批次的总数量
-        List<Integer> remainingOrderIds = batchOrderMapper.getOrderIdsByBatchId(batchId);
-        if (remainingOrderIds.isEmpty()) {
-            // 批次没有订单了，直接删除批次
-            batchMapper.delete(batchId);
-        } else {
-            // 重新计算批次总数量
-            List<Orders> remainingOrders = batchOrderMapper.getOrdersByBatchId(batchId);
-            int newTotal = 0;
-            for (Orders o : remainingOrders) {
-                newTotal += o.getQuantity();
+        // ===== 综合校验链 =====
+        // 1. 校验商品属于该水站
+        // 2. 校验库存属于该水站
+        // 3. 如果使用水票支付，校验该客户在该水站有水票账户
+        // 4. 如果涉及桶/押金，校验该客户在该水站有资产记录
+        // 5. 首次资产业务检查
+        boolean needStationAsset = false;
+        for (OrderCreateDTO.OrderItemDTO item : dto.getItems()) {
+            if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity() <= 0) {
+                throw new BusinessException("商品参数异常");
             }
-            batchMapper.updateTotalQTY(batchId, newTotal);
+            Product product = productMapper.getById(item.getProductId());
+            if (product == null) {
+                throw new BusinessException("商品不存在: " + item.getProductId());
+            }
+            // 校验商品在该水站有库存记录（即属于该水站可售）
+            Inventory inv = inventoryMapper.getByStationAndProduct(stationId, item.getProductId());
+            if (inv == null) {
+                throw new BusinessException("商品不在该水站销售: " + product.getName());
+            }
+            if (inv.getEnabled() == null || !Integer.valueOf(1).equals(inv.getEnabled())) {
+                throw new BusinessException("商品未上架: " + product.getName());
+            }
+            // 判断是否涉及站点资产（桶装水类别=1）
+            if (product.getCategory() != null && Integer.valueOf(1).equals(product.getCategory())) {
+                needStationAsset = true;
+            }
         }
-    }
 
-    /**
-     * 取消订单时自动退款：查找该订单所有已付款记录并退款
-     */
-    private void autoRefundOnCancel(Orders order) {
-        List<PaymentRecord> records = paymentRecordMapper.listByOrderId(Long.valueOf(order.getId()));
-        for (PaymentRecord record : records) {
-            if (record.getStatus() == PaymentStatus.PAID) {
-                paymentRecordMapper.updateStatus(record.getId(), PaymentStatus.REFUNDED);
-                // 水票退款：恢复余额
-                if (record.getPaymentMethod() == 3 && record.getTicketWaterTypeId() != null) {
-                    com.example.aquaflow.entity.TicketAccount account =
-                            ticketAccountMapper.getByCustomerAndWaterType(
-                                    record.getCustomerId().intValue(),
-                                    record.getTicketWaterTypeId().intValue());
-                    if (account != null) {
-                        ticketAccountMapper.incrementQuantity(account.getId(), record.getTicketQty());
+        // 线下支付权限校验
+        if (dto.getPaymentMethod() != null && Integer.valueOf(3).equals(dto.getPaymentMethod())) {
+            if (!paymentService.canUseOfflinePayment(dto.getCustomerId(), stationId)) {
+                throw new BusinessException("当前客户暂不支持线下支付");
+            }
+        }
+
+        // 首次站点资产业务检查
+        boolean firstStationAsset = false;
+        if (needStationAsset) {
+            firstStationAsset = !assetService.hasStationAsset(dto.getCustomerId(), stationId);
+        }
+
+        BigDecimal waterAmount = BigDecimal.ZERO;
+        BigDecimal depositAmount = BigDecimal.ZERO;
+        int totalNeededBuckets = 0;
+        int newDepositBuckets = 0;
+        Map<Long, Integer> barrelByProduct = new HashMap<>();
+
+        // 缓存每个商品的 product/inventory 供后续扣库存使用
+        Map<Long, Product> productCache = new HashMap<>();
+        Map<Long, Inventory> invCache = new HashMap<>();
+        List<OrderCreateResult.ShortageItem> shortages = new java.util.ArrayList<>();
+
+        // ===== 第一遍: 校验 + 计算金额 + 收集库存不足 (不扣库存) =====
+        for (OrderCreateDTO.OrderItemDTO item : dto.getItems()) {
+            // #13: 校验productId去重
+            Long pid = item.getProductId();
+            if (barrelByProduct.containsKey(pid) || productCache.containsKey(pid)) {
+                throw new BusinessException("订单商品不能包含重复商品: " + pid);
+            }
+            Product product = productMapper.getById(pid);
+            Inventory inv = inventoryMapper.getByStationAndProduct(stationId, item.getProductId());
+            if (inv == null) {
+                log.warn("[OrderService] Station {} has no inventory for product {} ({}), creating default inventory", stationId, item.getProductId(), product.getName());
+                Inventory newInv = new Inventory();
+                newInv.setStationId(stationId);
+                newInv.setProductId(item.getProductId());
+                newInv.setQuantity(0);
+                newInv.setEnabled(1);
+                newInv.setTicketEnabled(0);
+                newInv.setCreateTime(LocalDateTime.now());
+                newInv.setUpdateTime(LocalDateTime.now());
+                inventoryMapper.insert(newInv);
+                inv = newInv;
+            }
+            if (inv.getEnabled() == null || !Integer.valueOf(1).equals(inv.getEnabled())) {
+                throw new BusinessException("商品未上架: " + product.getName());
+            }
+
+            productCache.put(item.getProductId(), product);
+            invCache.put(item.getProductId(), inv);
+
+            int stock = inv.getQuantity() != null ? inv.getQuantity() : 0;
+            if (stock < item.getQuantity()) {
+                OrderCreateResult.ShortageItem s = new OrderCreateResult.ShortageItem();
+                s.setProductId(item.getProductId());
+                s.setProductName(product.getName());
+                s.setBrand(product.getBrand());
+                s.setSpec(product.getSpec());
+                s.setRequested(item.getQuantity());
+                s.setStock(stock);
+                if (stock == 0) {
+                    s.setMessage("暂时没货，需要等待配送");
+                } else {
+                    s.setMessage("库存不足，仅剩 " + stock + " 桶");
+                }
+                shortages.add(s);
+            }
+
+            BigDecimal unitPrice = product.getPrice();
+            if (unitPrice == null) {
+                unitPrice = BigDecimal.ZERO;
+            }
+            BigDecimal itemSubtotal = unitPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
+            waterAmount = waterAmount.add(itemSubtotal);
+
+            // 桶装水(category=1)不在此处收押金，仅在 extraDeposit 按缺桶数收取
+            if (product.getCategory() == null || !Integer.valueOf(1).equals(product.getCategory())) {
+                BigDecimal itemDeposit = product.getDeposit() != null ? product.getDeposit() : BigDecimal.ZERO;
+                depositAmount = depositAmount.add(itemDeposit.multiply(BigDecimal.valueOf(item.getQuantity())));
+            }
+
+            if (product.getCategory() != null && Integer.valueOf(1).equals(product.getCategory())) {
+                totalNeededBuckets += item.getQuantity();
+                barrelByProduct.merge(item.getProductId(), item.getQuantity(), Integer::sum);
+            }
+        }
+
+        // ===== 库存不足且未确认 → 返回 needConfirm, 不创建订单 =====
+        if (!shortages.isEmpty() && !Boolean.TRUE.equals(dto.getConfirmShortage())) {
+            return OrderCreateResult.needConfirm(shortages);
+        }
+
+        List<Long> createdInTransitIds = new java.util.ArrayList<>();
+        if (totalNeededBuckets > 0) {
+            List<CustomerBarrelAsset> assets = customerBarrelAssetMapper.listByCustomerAndStation(dto.getCustomerId(), stationId);
+            Map<Long, Integer> heldByProduct = new HashMap<>();
+            if (assets != null) {
+                for (CustomerBarrelAsset a : assets) {
+                    heldByProduct.merge(a.getProductId(), a.getQuantity() != null ? a.getQuantity() : 0, Integer::sum);
+                }
+            }
+
+            BigDecimal requiredExtraDeposit = BigDecimal.ZERO;
+            Map<Long, Integer> extraByProduct = new HashMap<>();
+            for (Map.Entry<Long, Integer> e : barrelByProduct.entrySet()) {
+                Long pid = e.getKey();
+                int needed = e.getValue();
+                int held = heldByProduct.getOrDefault(pid, 0);
+                int shortage = Math.max(0, needed - held);
+                if (shortage > 0) {
+                    extraByProduct.put(pid, shortage);
+                    Product p = productCache.get(pid);
+                    BigDecimal dep = (p != null && p.getDeposit() != null) ? p.getDeposit() : BigDecimal.ZERO;
+                    requiredExtraDeposit = requiredExtraDeposit.add(dep.multiply(BigDecimal.valueOf(shortage)));
+                }
+            }
+
+            if (!extraByProduct.isEmpty()) {
+                BigDecimal extraDeposit = dto.getExtraDeposit() != null ? dto.getExtraDeposit() : BigDecimal.ZERO;
+                if (extraDeposit.compareTo(requiredExtraDeposit) < 0) {
+                    throw new BusinessException("桶资产不足，需额外押桶押金 " + requiredExtraDeposit + " 元");
+                }
+
+                if (extraDeposit.compareTo(BigDecimal.ZERO) > 0) {
+                    customerDepositAccountMapper.increaseBalance(dto.getCustomerId(), stationId, extraDeposit);
+                    depositAmount = depositAmount.add(extraDeposit);
+
+                    DepositRecord dr = new DepositRecord();
+                    dr.setCustomerId(dto.getCustomerId());
+                    dr.setStationId(stationId);
+                    dr.setType(5); // PREPAID: 下单预收押金
+                    dr.setAmount(extraDeposit);
+                    dr.setNote("下单预收桶押金");
+                    dr.setOperatorId(AuthContext.getUserId());
+                    dr.setCreateTime(LocalDateTime.now());
+                    depositRecordMapper.insert(dr);
+
+                    // 创建在途桶资产记录，而非直接增加桶资产
+                    for (Map.Entry<Long, Integer> e : extraByProduct.entrySet()) {
+                        Long pid = e.getKey();
+                        int qty = e.getValue();
+                        CustomerBarrelInTransit inTransit = new CustomerBarrelInTransit();
+                        inTransit.setCustomerId(dto.getCustomerId());
+                        inTransit.setStationId(stationId);
+                        inTransit.setProductId(pid);
+                        inTransit.setQty(qty);
+                        inTransit.setRelatedOrderId(null); // 订单创建后再设置
+                        inTransit.setStatus("PENDING");
+                        inTransit.setCreateTime(LocalDateTime.now());
+                        inTransit.setUpdateTime(LocalDateTime.now());
+                        // 先保存，订单创建后更新 relatedOrderId
+                        customerBarrelInTransitMapper.insert(inTransit);
+                        createdInTransitIds.add(inTransit.getId());
                     }
                 }
             }
         }
-        // 更新订单付款状态为未付款
-        orderMapper.updatePaymentStatus(order.getId(), PaymentStatus.UNPAID);
-    }
 
-    @Override
-    public Orders getById(Integer id) {
-        return orderMapper.getById(id);
-    }
-
-    @Override
-    public List<Orders> list(Integer stationId, Integer customerId, Integer status, String tag, String createTimeStart, String createTimeEnd) {
-        return orderMapper.list(stationId, customerId, status, tag, createTimeStart, createTimeEnd);
-    }
-
-    @Override
-    public void save(Orders orders) {
-        orders.setStatus(OrderStatus.PENDING);
+        Orders orders = new Orders();
+        orders.setCustomerId(dto.getCustomerId());
+        orders.setAddressId(dto.getAddressId());
+        orders.setStationId(stationId);
+        orders.setDeliveryStationId(stationId);
+        orders.setSource(dto.getSource() != null ? dto.getSource() : 2);
+        orders.setPaymentMethod(dto.getPaymentMethod());
+        orders.setPaymentStatus(PaymentStatus.PENDING);
+        orders.setWaterAmount(waterAmount);
+        orders.setDepositAmount(depositAmount);
+        orders.setTotalAmount(waterAmount.add(depositAmount));
+        // 计算订单总数量：所有商品数量之和
+        if (dto.getItems() != null && !dto.getItems().isEmpty()) {
+            int totalQuantity = dto.getItems().stream()
+                    .mapToInt(item -> item.getQuantity() != null ? item.getQuantity() : 0)
+                    .sum();
+            orders.setQuantity(totalQuantity);
+        }
+        orders.setReceiverName(dto.getReceiverName() != null ? dto.getReceiverName() : addr.getName());
+        orders.setReceiverPhone(dto.getReceiverPhone() != null ? dto.getReceiverPhone() : addr.getPhone());
+        orders.setAddressSnapshot(addr.getDetail());
+        orders.setAddressSnapshotLat(addr.getLat());
+        orders.setAddressSnapshotLng(addr.getLng());
+        orders.setGuardInfo(dto.getGuardInfo());
+        orders.setDeliveryTimeRequest(dto.getDeliveryTimeRequest());
+        orders.setSpecialNote(dto.getSpecialNote());
+        orders.setReturnBucketQty(dto.getReturnBucketQty());
+        orders.setDeliveryBucketQty(totalNeededBuckets > 0 ? totalNeededBuckets : null);
+        orders.setFirstBarrelOrder(firstStationAsset && totalNeededBuckets > 0);
+        orders.setIdempotencyKey(dto.getIdempotencyKey());
+        orders.setStatus(1);
         orders.setCreateTime(LocalDateTime.now());
         orders.setUpdateTime(LocalDateTime.now());
+        orderMapper.save(orders);
 
-        // 如果前端未传stationId，从客户信息中获取
-        if (orders.getStationId() == null && orders.getCustomerId() != null) {
-            com.example.aquaflow.entity.Customer customer = customerMapper.getById(orders.getCustomerId());
-            if (customer != null) {
-                orders.setStationId(customer.getStationId());
+        // 更新在途桶资产记录的关联订单ID（仅关联本次创建的在途桶记录）
+        if (!createdInTransitIds.isEmpty()) {
+            customerBarrelInTransitMapper.linkPendingToOrder(orders.getId(), createdInTransitIds);
+        }
+
+        for (OrderCreateDTO.OrderItemDTO item : dto.getItems()) {
+            Product product = productCache.get(item.getProductId());
+            Inventory inv = invCache.get(item.getProductId());
+            BigDecimal unitPrice = product.getPrice();
+            if (unitPrice == null) unitPrice = BigDecimal.ZERO;
+            // 桶装水押金在 extraDeposit 中统一处理，order item 记 0
+            BigDecimal itemDeposit = (product.getCategory() != null && Integer.valueOf(1).equals(product.getCategory()))
+                    ? BigDecimal.ZERO
+                    : (product.getDeposit() != null ? product.getDeposit() : BigDecimal.ZERO);
+
+            OrderItem oi = new OrderItem();
+            oi.setOrderId(orders.getId());
+            oi.setProductId(item.getProductId());
+            oi.setProductNameSnapshot(product.getName());
+            oi.setBrandSnapshot(product.getBrand());
+            oi.setSpecSnapshot(product.getSpec());
+            oi.setPrice(unitPrice);
+            oi.setQuantity(item.getQuantity());
+            oi.setDeposit(itemDeposit);
+            oi.setSubtotal(unitPrice.multiply(BigDecimal.valueOf(item.getQuantity())));
+            oi.setCreateTime(LocalDateTime.now());
+            orderItemMapper.insert(oi);
+        }
+
+        // ===== 扣减库存: 库存充足扣全量, 不足扣 min(stock, requested), 为0不扣 =====
+        List<String> warnings = new java.util.ArrayList<>();
+        for (OrderCreateDTO.OrderItemDTO item : dto.getItems()) {
+            Inventory inv = invCache.get(item.getProductId());
+            int stock = inv.getQuantity() != null ? inv.getQuantity() : 0;
+            int toDecrease = Math.min(stock, item.getQuantity());
+            if (toDecrease > 0) {
+                int affected = inventoryMapper.decreaseStock(stationId, item.getProductId(), toDecrease);
+                if (affected <= 0) {
+                    throw new BusinessException("扣减库存失败: " + productCache.get(item.getProductId()).getName());
+                }
+            }
+            if (stock < item.getQuantity()) {
+                Product p = productCache.get(item.getProductId());
+                if (stock == 0) {
+                    warnings.add(p.getName() + " 暂时没货，需要等待配送");
+                } else {
+                    warnings.add(p.getName() + " 库存不足(仅剩" + stock + "桶)，缺" + (item.getQuantity() - stock) + "桶需等待配送");
+                }
             }
         }
 
-        // 保存地址快照
+        Map<String, Object> detail = new HashMap<>();
+        detail.put("orderId", orders.getId());
+        detail.put("customerId", dto.getCustomerId());
+        detail.put("stationId", stationId);
+        detail.put("totalAmount", orders.getTotalAmount());
+        detail.put("waterAmount", waterAmount);
+        detail.put("depositAmount", depositAmount);
+        detail.put("itemCount", dto.getItems().size());
+        detail.put("paymentMethod", dto.getPaymentMethod());
+        auditLogService.log("ORDER", "CREATE", "order:" + orders.getId(), detail.toString(), null);
+
+        return OrderCreateResult.success(orders.getId(), warnings, firstStationAsset);
+    }
+
+    @Override
+    @Transactional
+    public void save(Orders orders) {
+        // #9: save接口限制 — 只允许更新已存在的订单，不允许通过此接口创建新订单
+        if (orders.getId() == null) {
+            throw new BusinessException("不允许通过此接口创建订单，请使用下单接口");
+        }
+        Orders existing = orderMapper.getById(orders.getId());
+        if (existing == null) {
+            throw new BusinessException("订单不存在");
+        }
+        if (orders.getCustomerId() != null) {
+            var customer = customerMapper.getById(orders.getCustomerId());
+            if (customer == null) {
+                throw new RuntimeException("客户不存在");
+            }
+        }
+
         if (orders.getAddressId() != null) {
             Address addr = addressMapper.getById(orders.getAddressId());
-            if (addr != null) {
-                orders.setReceiverName(addr.getName());
-                orders.setReceiverPhone(addr.getPhone());
-                orders.setAddressSnapshot(addr.getDetail());
+            if (addr == null) {
+                throw new RuntimeException("地址不存在");
             }
+            orders.setReceiverName(addr.getName());
+            orders.setReceiverPhone(addr.getPhone());
+            orders.setAddressSnapshot(addr.getDetail());
+            orders.setAddressSnapshotLat(addr.getLat());
+            orders.setAddressSnapshotLng(addr.getLng());
         }
 
-        orderMapper.save(orders);
+        // 保留原有状态和支付状态，不允许通过此接口修改
+        orders.setStatus(existing.getStatus());
+        orders.setPaymentStatus(existing.getPaymentStatus());
+        orders.setCreateTime(existing.getCreateTime());
+        orders.setUpdateTime(LocalDateTime.now());
+
+        orderMapper.update(orders);
+    }
+
+    @Override
+    public List<Orders> list(Long stationId, Long customerId, Integer status, String createTimeStart, String createTimeEnd) {
+        return orderMapper.list(stationId, customerId, status, createTimeStart, createTimeEnd);
+    }
+
+    @Override
+    public Orders getById(Long id) {
+        Orders order = orderMapper.getById(id);
+        if (order != null) {
+            List<OrderItem> items = orderItemMapper.listByOrderId(id);
+            order.setItems(items);
+        }
+        return order;
+    }
+
+    @Override
+    @Transactional
+    public void updateStatus(Long id, Integer status) {
+        Orders order = orderMapper.getById(id);
+        if (order == null) {
+            throw new RuntimeException("订单不存在");
+        }
+        // #10: 使用isValidTransition校验状态转换合法性
+        int currentStatus = order.getStatus() != null ? order.getStatus() : 0;
+        if (!OrderStatus.isValidTransition(currentStatus, status)) {
+            throw new BusinessException("不允许从状态 " + currentStatus + " 转换到 " + status);
+        }
+        orderMapper.updateStatus(id, status);
     }
 }

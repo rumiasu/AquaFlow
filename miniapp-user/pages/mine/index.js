@@ -9,16 +9,20 @@ Page({
     barrelSummary: null,
     customerStats: null,
     guestMenu: [
-      { icon: '🛒', title: '商城', url: '/pages/shop/index' },
-      { icon: '💬', title: '联系客服', url: '/pages/service/index' }
+      { icon: 'shop', title: '商城', url: '/pages/shop/index' },
+      { icon: 'notice', title: '公告', url: '/pages/notice/index' },
+      { icon: 'chat', title: '联系客服', url: '/pages/service/index' }
     ],
     loginMenu: [
-      { icon: '📋', title: '常用订单', url: '/pages/order/list' },
-      { icon: '📍', title: '地址管理', url: '/pages/address/list' },
-      { icon: '🪣', title: '我的水桶', url: '/pages/barrel/index' },
-      { icon: '🎫', title: '我的水票', url: '/pages/ticket/index' },
-      { icon: '🛒', title: '商城', url: '/pages/shop/index' },
-      { icon: '💬', title: '联系客服', url: '/pages/service/index' }
+      { icon: 'order', title: '常用订单', url: '/pages/order/list' },
+      { icon: 'notice', title: '公告', url: '/pages/notice/index' },
+      { icon: 'bill', title: '账单记录', url: '/pages/payment/records' },
+      { icon: 'location', title: '地址管理', url: '/pages/address/list' },
+      { icon: 'barrel', title: '我的水桶', url: '/pages/barrel/index' },
+      { icon: 'ticket', title: '我的水票', url: '/pages/ticket/index' },
+      { icon: 'building', title: '企业资料', url: '/pages/mine/company' },
+      { icon: 'shop', title: '商城', url: '/pages/shop/index' },
+      { icon: 'chat', title: '客服与反馈', url: '/pages/service/index' }
     ]
   },
 
@@ -49,7 +53,13 @@ Page({
 
   onMenuTap(e) {
     const url = e.currentTarget.dataset.url
-    wx.navigateTo({ url })
+    // tabBar 页面必须用 switchTab 跳转，否则会被微信拦截
+    const tabPages = ['/pages/home/index', '/pages/order/list', '/pages/mine/index']
+    if (tabPages.indexOf(url) >= 0) {
+      wx.switchTab({ url })
+    } else {
+      wx.navigateTo({ url })
+    }
   },
 
   onEditProfile() {
@@ -58,6 +68,18 @@ Page({
 
   onBarrelTap() {
     wx.navigateTo({ url: '/pages/barrel/index' })
+  },
+
+  onRecharge() {
+    wx.navigateTo({ url: '/pages/ticket/index' })
+  },
+
+  onGoOrder() {
+    wx.switchTab({ url: '/pages/order/list' })
+  },
+
+  onInvite() {
+    wx.showToast({ title: '邀请功能即将上线', icon: 'none' })
   },
 
   onLogout() {

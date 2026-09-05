@@ -1,3 +1,6 @@
+-- STATUS: DUPLICATE of migration_full.sql
+-- order_template 表已在 migration_full.sql 中创建，此文件重复，新环境无需执行。
+
 -- 默认订单模板表
 CREATE TABLE IF NOT EXISTS `order_template` (
   `id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '模板ID',

@@ -2,6 +2,19 @@
   <loading wx:if="{{loading}}"></loading>
 
   <view class="ticket-content" wx:else>
+    <!-- 可用水票卡片 -->
+    <view class="ticket-balance-card">
+      <view class="balance-left">
+        <text class="balance-label">可用水票</text>
+        <view class="balance-amount">
+          <text class="balance-count">{{totalTickets}}</text>
+          <text class="balance-unit">张</text>
+        </view>
+        <text class="balance-total" wx:if="{{totalValue > 0}}">共计 ¥{{totalValue}}</text>
+      </view>
+      <view class="balance-icon"><icon name="ticket" size="56rpx" color="rgba(255,255,255,0.9)" /></view>
+    </view>
+
     <!-- 标签切换 -->
     <view class="tabs">
       <view
@@ -15,15 +28,17 @@
       </view>
     </view>
 
-    <!-- 水票余额 -->
+    <!-- 水票明细 -->
     <view class="tab-content" wx:if="{{currentTab === 0}}">
-      <view class="account-list">
-        <view class="account-item" wx:for="{{accounts}}" wx:key="id">
-          <view class="account-info">
-            <text class="account-name">{{item.waterTypeName}}</text>
-            <text class="account-spec">{{item.waterTypeSpec}}</text>
+      <view class="section-title">水票明细</view>
+      <view class="ticket-list">
+        <view class="ticket-item" wx:for="{{accounts}}" wx:key="id">
+          <view class="ticket-info">
+            <text class="ticket-name">{{item.productName || item.waterTypeName}}</text>
+            <text class="ticket-spec" wx:if="{{item.productSpec || item.waterTypeSpec}}">{{item.productSpec || item.waterTypeSpec}}</text>
+            <text class="ticket-expire" wx:if="{{item.expireTime}}">有效期至 {{item.expireTime}}</text>
           </view>
-          <view class="account-quantity">
+          <view class="ticket-quantity">
             <text class="quantity-value">{{item.remainQuantity}}</text>
             <text class="quantity-unit">张</text>
           </view>
@@ -34,10 +49,11 @@
 
     <!-- 消费记录 -->
     <view class="tab-content" wx:if="{{currentTab === 1}}">
+      <view class="section-title">消费记录</view>
       <view class="record-list">
         <view class="record-item" wx:for="{{records}}" wx:key="id">
           <view class="record-info">
-            <text class="record-name">{{item.waterTypeName}}</text>
+            <text class="record-name">{{item.productName || item.waterTypeName}}</text>
             <text class="record-time">{{item.createTime}}</text>
           </view>
           <view class="record-quantity">
@@ -47,6 +63,78 @@
           </view>
         </view>
         <empty wx:if="{{records.length === 0}}" text="暂无记录"></empty>
+      </view>
+    </view>
+
+    <!-- 购买水票按钮 -->
+    <view class="buy-ticket-section">
+      <view class="buy-ticket-btn" bindtap="onBuyTicket">
+        <text>购买水票</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 购买水票弹窗 -->
+  <view class="modal-mask" wx:if="{{showPurchase}}" bindtap="onClosePurchase"></view>
+  <view class="modal-body {{showPurchase ? 'show' : ''}}" wx:if="{{showPurchase}}" catchtap="">
+    <view class="modal-header">
+      <text class="modal-title">购买水票</text>
+      <text class="modal-close" bindtap="onClosePurchase">×</text>
+    </view>
+
+    <scroll-view scroll-y class="modal-scroll">
+      <!-- 选择商品 -->
+      <text class="modal-label">选择商品</text>
+      <view class="product-list">
+        <view
+          class="product-item {{buyForm.productId === item.id ? 'active' : ''}}"
+          wx:for="{{buyProducts}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onSelectProduct"
+        >
+          <text class="product-name">{{item.name}}</text>
+          <text class="product-price" wx:if="{{item.price}}">¥{{item.price}}/张</text>
+        </view>
+      </view>
+
+      <!-- 数量 -->
+      <text class="modal-label">购买数量</text>
+      <view class="qty-row">
+        <view class="qty-btn {{buyForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onQtyChange" data-type="minus">
+          <text>-</text>
+        </view>
+        <input class="qty-input" type="number" value="{{buyForm.quantity}}" bindinput="onQtyInput" />
+        <view class="qty-btn" bindtap="onQtyChange" data-type="add">
+          <text>+</text>
+        </view>
+      </view>
+
+      <!-- 支付方式 -->
+      <text class="modal-label">支付方式</text>
+      <view class="method-list">
+        <view
+          class="method-item {{buyForm.paymentMethod === item.id ? 'active' : ''}}"
+          wx:for="{{buyMethods}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onSelectMethod"
+        >
+          <view class="method-info">
+            <text class="method-name">{{item.name}}</text>
+            <text class="method-desc">{{item.desc}}</text>
+          </view>
+          <view class="method-radio {{buyForm.paymentMethod === item.id ? 'checked' : ''}}"></view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="modal-footer">
+      <view class="modal-btn cancel" bindtap="onClosePurchase">
+        <text>取消</text>
+      </view>
+      <view class="modal-btn confirm {{submitting ? 'disabled' : ''}}" bindtap="onSubmitPurchase">
+        <text>{{submitting ? '购买中...' : '确认购买 ¥' + buyForm.totalPrice}}</text>
       </view>
     </view>
   </view>

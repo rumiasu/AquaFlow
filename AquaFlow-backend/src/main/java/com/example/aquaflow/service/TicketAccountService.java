@@ -6,9 +6,12 @@ import java.util.List;
 
 public interface TicketAccountService {
 
-    List<TicketAccount> listByCustomerId(Integer customerId);
+    List<TicketAccount> listByCustomerAndStation(Long customerId, Long stationId);
 
-    void addTicket(Integer customerId, Integer waterTypeId, Integer qty);
+    void addTicket(Long customerId, Long productId, Integer qty, Long stationId);
 
-    void consumeTicket(Integer customerId, Integer waterTypeId, Integer qty, Integer orderId);
+    void consumeTicket(Long customerId, Long productId, Integer qty, Long orderId, Long stationId);
+
+    /** 客户线上购买水票：入账水票 + 生成支付记录（无订单） */
+    com.example.aquaflow.entity.PaymentRecord purchaseTicket(Long customerId, Long productId, Integer qty, Integer paymentMethod, Long stationId);
 }

@@ -5,103 +5,95 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 订单实体类，对应数据库 orders 表。
- * <p>核心业务实体，记录客户的每一次订水请求。</p>
- * <p>状态流转：待组批(1) → 已组批(4) → 配送中(2) → 已完成(3)</p>
+ * <p>这是整个系统核心。</p>
  */
 @Data
 public class Orders {
 
     /** 订单ID，主键自增 */
-    private Integer id;
+    private Long id;
 
-    /** 客户ID，关联 customer 表 */
-    private Integer customerId;
+    /** 客户ID */
+    private Long customerId;
 
-    /** 客户名称（关联查询字段） */
+    /** 客户名称(关联查询字段) */
     private String customerName;
 
-    /** 客户电话（关联查询字段） */
+    /** 客户电话(关联查询字段) */
     private String customerPhone;
 
-    /** 配送地址ID，关联 address 表 */
-    private Integer addressId;
+    /** 地址ID */
+    private Long addressId;
 
-    /** 详细地址（关联查询字段） */
+    /** 地址详情(关联查询字段) */
     private String addressDetail;
 
-    /** 地址标签（关联查询字段） */
-    private String addressTag;
+    /** 订单归属水站 */
+    private Long stationId;
 
-    /** 地址纬度（关联查询字段） */
-    private Double addressLat;
+    /** 实际履约配送水站ID，可与 station_id 不同 */
+    private Long deliveryStationId;
 
-    /** 地址经度（关联查询字段） */
-    private Double addressLng;
+    /** 配送员ID */
+    private Long deliveryStaffId;
 
-    /** 地址收件人姓名（关联查询字段） */
-    private String addressName;
+    /** 配送员姓名(关联查询字段) */
+    private String deliveryStaffName;
 
-    /** 地址收件人电话（关联查询字段） */
-    private String addressPhone;
-
-    /** 水类型ID，关联 water_type 表 */
-    private Integer waterTypeId;
-
-    /** 水类型名称（关联查询字段） */
-    private String waterTypeName;
-
-    /** 水类型规格（关联查询字段） */
-    private String waterTypeSpec;
-
-    /** 水类型单价（关联查询字段） */
-    private BigDecimal waterTypePrice;
-
-    /** 订购数量（桶数） */
+    /** 订单总数量（所有商品数量之和） */
     private Integer quantity;
 
-    /** 订单来源：1=电话, 2=微信群, 3=小程序 */
+    /** 来源: 1 电话 2 微信 3 小程序 */
     private Integer source;
 
-    /**
-     * 订单状态：
-     * <ul>
-     *   <li>1 - 待组批（初始状态）</li>
-     *   <li>4 - 已组批待出发</li>
-     *   <li>2 - 配送中</li>
-     *   <li>3 - 已完成</li>
-     * </ul>
-     */
+    /** 订单状态：1 待配送 3 配送中 4 已送达 5 已完成 6 已取消（是否分配用 delivery_staff_id 判断） */
     private Integer status;
 
-    /** 创建时间 */
-    private LocalDateTime createTime;
-
-    /** 最后修改时间 */
-    private LocalDateTime updateTime;
-
-    /** 付款状态：1=待付款 2=已付款 */
-    private Integer paymentStatus;
-
-    /** 支付方式: 1=微信 2=现金 3=水票 4=挂账 */
+    /** 支付方式: 1 微信支付 2 水票 3 线下支付 */
     private Integer paymentMethod;
 
-    /** 结算状态：1=未结算 2=已结算 */
+    /** 支付状态: 1 待付款 2 已付款 */
+    private Integer paymentStatus;
+
+    /** 结算状态: 1 未结算 2 已结算 */
     private Integer settlementStatus;
 
-    /** 应付款日期 */
-    private LocalDate dueDate;
+    /** 应结算日期 */
+    private java.time.LocalDate dueDate;
 
-    /** 送出空桶数 */
-    private Integer deliveryBucketQty;
+    /** 厂家ID */
+    private Long factoryId;
 
-    /** 回收空桶数 */
-    private Integer returnBucketQty;
+    /** 批次ID */
+    private Long batchId;
 
-    /** 配送员ID，关联 delivery_staff 表 */
-    private Long deliveryStaffId;
+    /** 订单总金额 */
+    private BigDecimal totalAmount;
+
+    /** 水费金额 */
+    private BigDecimal waterAmount;
+
+    /** 押金金额 */
+    private BigDecimal depositAmount;
+
+    /** 收件人姓名 */
+    private String receiverName;
+
+    /** 收件人电话 */
+    private String receiverPhone;
+
+    /** 地址快照 */
+    private String addressSnapshot;
+
+    /** 地址快照纬度 */
+    private BigDecimal addressSnapshotLat;
+
+    /** 地址快照经度 */
+    private BigDecimal addressSnapshotLng;
 
     /** 门卫信息 */
     private String guardInfo;
@@ -112,18 +104,45 @@ public class Orders {
     /** 特殊说明 */
     private String specialNote;
 
-    /** 收件人姓名快照 */
-    private String receiverName;
+    /** 配送桶数量 */
+    private Integer deliveryBucketQty;
 
-    /** 收件人电话快照 */
-    private String receiverPhone;
+    /** 回收桶数量 */
+    private Integer returnBucketQty;
 
-    /** 地址快照 */
-    private String addressSnapshot;
+    /** 差桶数量 */
+    private Integer barrelDiscrepancy;
 
-    /** 水厂ID，关联 factory 表 */
-    private Integer factoryId;
+    /** 差桶差异说明 */
+    private String barrelDiscrepancyNote;
 
-    /** 水站ID，关联 station 表 */
-    private Integer stationId;
+    /** 是否有异常标记 */
+    private Boolean exceptionFlag;
+
+    /** 是否首次桶装水订单（押金桶无需回桶） */
+    private Boolean firstBarrelOrder;
+
+    /** 首个异常类别 */
+    private String exceptionCategory;
+
+    /** 异常次数 */
+    private Integer exceptionCount;
+
+    /** 关联的桶异常记录ID */
+    private Long barrelExceptionId;
+
+    /** 幂等键：防止重复下单 */
+    private String idempotencyKey;
+
+    /** 创建时间 */
+    private LocalDateTime createTime;
+
+    /** 更新时间 */
+    private LocalDateTime updateTime;
+
+    /** 首个商品名称(列表联查字段) */
+    private String firstProductName;
+
+    /** 订单商品明细(关联查询字段) */
+    private List<OrderItem> items;
 }

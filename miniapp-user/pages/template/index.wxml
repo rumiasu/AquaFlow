@@ -2,12 +2,10 @@
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>
-    <!-- 说明 -->
     <view class="info-bar">
       <text class="info-text">设置常用订单后，首页将自动填入，一键复购</text>
     </view>
 
-    <!-- 模板列表 -->
     <view class="section" wx:if="{{templates.length > 0}}">
       <view class="template-list">
         <view class="template-item" wx:for="{{templates}}" wx:key="id">
@@ -22,10 +20,9 @@
               </view>
             </view>
           </view>
-          <!-- 明细列表 -->
           <view class="template-items" wx:if="{{item.items && item.items.length > 0}}">
             <view class="template-item-row" wx:for="{{item.items}}" wx:for-item="itm" wx:key="id">
-              <text class="item-name">{{itm.waterTypeName}}</text>
+              <text class="item-name">{{itm.productName || itm.waterTypeName}}</text>
               <text class="item-qty">×{{itm.quantity}}桶</text>
             </view>
           </view>
@@ -42,13 +39,11 @@
 
     <empty wx:else text="还没有常用订单"></empty>
 
-    <!-- 添加按钮 -->
     <view class="add-btn" bindtap="onAddTemplate">
       <text>+ 新建常用订单</text>
     </view>
   </block>
 
-  <!-- 编辑弹窗 -->
   <view class="modal-mask" wx:if="{{showEditModal}}" bindtap="onCloseEditModal"></view>
   <view class="modal-content {{showEditModal ? 'show' : ''}}" catchtap="">
     <view class="modal-header">
@@ -57,13 +52,11 @@
     </view>
 
     <view class="modal-body">
-      <!-- 名称 -->
       <view class="form-section">
         <text class="form-label">订单名称</text>
         <input class="form-input" placeholder="如：每周一桶" value="{{form.name}}" bindinput="onNameInput" />
       </view>
 
-      <!-- 商品列表 -->
       <view class="form-section">
         <view class="form-label-row">
           <text class="form-label">商品</text>
@@ -74,7 +67,7 @@
             <view class="item-select">
               <view class="form-options compact">
                 <view
-                  class="form-option mini {{item.waterTypeId === p.id ? 'active' : ''}}"
+                  class="form-option mini {{item.productId === p.id ? 'active' : ''}}"
                   wx:for="{{products}}"
                   wx:for-item="p"
                   wx:key="id"
@@ -100,7 +93,6 @@
         </view>
       </view>
 
-      <!-- 地址 -->
       <view class="form-section">
         <text class="form-label">配送地址</text>
         <view class="form-options">
@@ -116,7 +108,6 @@
         </view>
       </view>
 
-      <!-- 备注 -->
       <view class="form-section">
         <text class="form-label">备注</text>
         <input class="form-input" placeholder="如：放门口" value="{{form.specialNote}}" bindinput="onNoteInput" />

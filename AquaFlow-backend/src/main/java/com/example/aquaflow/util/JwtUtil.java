@@ -10,11 +10,9 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 
-/**
- * JWT 工具类：生成和校验 access_token / refresh_token
- */
 @Component
 public class JwtUtil {
 
@@ -31,31 +29,30 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    /**
-     * 生成 access_token（短时效，携带业务 claims）
-     */
-    public String generateAccessToken(Integer userId, String userType, String role,
-                                       Integer stationId, Integer factoryId) {
+public String generateAccessToken(Long userId, String userType, String role,
+                                            Long stationId) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", userId);
+        claims.put("userType", userType);
+        claims.put("role", role);
+        claims.put("tokenType", "access");
+        if ("staff".equals(userType) && stationId != null) {
+            claims.put("stationId", stationId);
+        }
+        // Set iat to 1 hour ago to avoid clock skew issues
+        long issuedAtMillis = System.currentTimeMillis() - 3600000;
+        claims.put("iat", issuedAtMillis / 1000); // iat is in seconds
         return Jwts.builder()
                 .subject(userType + ":" + userId)
-                .claims(Map.of(
-                        "userId", userId,
-                        "userType", userType,
-                        "role", role,
-                        "stationId", stationId != null ? stationId : 0,
-                        "factoryId", factoryId != null ? factoryId : 0,
-                        "tokenType", "access"
-                ))
-                .issuedAt(new Date())
+                .claims(claims)
                 .expiration(new Date(System.currentTimeMillis() + accessTokenExpiry))
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    /**
-     * 生成 refresh_token（长效，仅含用户标识）
-     */
-    public String generateRefreshToken(Integer userId, String userType) {
+    public String generateRefreshToken(Long userId, String userType) {
+        // Set iat to 1 hour ago to avoid clock skew issues
+        Date issuedAt = new Date(System.currentTimeMillis() - 3600000);
         return Jwts.builder()
                 .subject(userType + ":" + userId)
                 .claims(Map.of(
@@ -63,26 +60,21 @@ public class JwtUtil {
                         "userType", userType,
                         "tokenType", "refresh"
                 ))
-                .issuedAt(new Date())
+                .issuedAt(issuedAt)
                 .expiration(new Date(System.currentTimeMillis() + refreshTokenExpiry))
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    /**
-     * 解析并校验 token，返回 claims
-     */
     public Claims parseToken(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
+                .clockSkewSeconds(120)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
     }
 
-    /**
-     * 校验 token 是否有效（未过期 + 签名正确）
-     */
     public boolean validateToken(String token) {
         try {
             parseToken(token);
@@ -92,17 +84,11 @@ public class JwtUtil {
         }
     }
 
-    /**
-     * 从 token 中提取 userId
-     */
-    public Integer getUserId(String token) {
+    public Long getUserId(String token) {
         Claims claims = parseToken(token);
-        return claims.get("userId", Integer.class);
+        return claims.get("userId", Number.class).longValue();
     }
 
-    /**
-     * 从 token 中提取 userType (staff / customer)
-     */
     public String getUserType(String token) {
         Claims claims = parseToken(token);
         return claims.get("userType", String.class);

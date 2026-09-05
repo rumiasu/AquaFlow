@@ -1,3 +1,6 @@
+-- STATUS: SUPERSEDED BY schema.sql
+-- 此文件中的所有操作已被 schema.sql 吸收，新环境无需执行。
+
 SET NAMES utf8mb4;
 
 -- 1. order_template 加 name 和 is_default 字段

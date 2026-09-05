@@ -1,5 +1,5 @@
 const { searchStorage } = require('../../utils/storage')
-const { getWaterTypes } = require('../../api/product')
+const { getProducts } = require('../../api/product')
 
 Page({
   data: {
@@ -49,7 +49,7 @@ Page({
   async doSearch(keyword) {
     this.setData({ loading: true })
     try {
-      const res = await getWaterTypes({ keyword })
+      const res = await getProducts({ keyword })
       if (res.data) {
         this.setData({ searchResults: res.data })
       }

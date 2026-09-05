@@ -10,10 +10,10 @@ import java.lang.annotation.Target;
  * 用于 Controller 方法上，限制只有指定角色的员工才能访问。
  * 
  * 使用示例：
- * @RequireRole("FACTORY_ADMIN")  // 仅厂长可访问
- * @RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})  // 厂长或站长可访问
+ * @RequireRole("STATION_MANAGER")  // 仅站长可访问
+ * @RequireRole({"STATION_MANAGER", "DELIVERY"})  // 站长或配送员可访问
  */
-@Target(ElementType.METHOD)
+@Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RequireRole {
     /**

@@ -97,8 +97,34 @@
 }
 
 .agreement {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-top: 40rpx;
+  flex-wrap: wrap;
+}
+
+.checkbox {
+  width: 32rpx;
+  height: 32rpx;
+  border: 2rpx solid rgba(255,255,255,0.7);
+  border-radius: 50%;
+  margin-right: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.checkbox.checked {
+  background: #07c160;
+  border-color: #07c160;
+}
+
+.check-icon {
+  color: #fff;
+  font-size: 22rpx;
+  line-height: 1;
 }
 
 .agreement-text {

@@ -6,6 +6,11 @@ const createPayment = (data) => {
   return post(API.PAYMENTS, data)
 }
 
+/** 服务端支付试算（金额/新增桶押金以服务端为准） */
+const getQuote = (data) => {
+  return post(API.PAYMENT_QUOTE, data)
+}
+
 /** 确认支付 */
 const confirmPayment = (id) => {
   return put(`${API.PAYMENTS}/${id}/confirm`)
@@ -26,4 +31,4 @@ const getPayConfig = () => {
   return get(`${API.PAYMENTS}/config`, { stationId: 0 })
 }
 
-module.exports = { createPayment, confirmPayment, getPaymentsByOrder, getPaymentsByCustomer, getPayConfig }
+module.exports = { createPayment, getQuote, confirmPayment, getPaymentsByOrder, getPaymentsByCustomer, getPayConfig }

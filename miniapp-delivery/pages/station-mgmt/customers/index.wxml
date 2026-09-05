@@ -1,0 +1,22 @@
+<view class="container">
+  <view class="search-bar">
+    <input class="search-input" placeholder="搜索客户姓名/手机号" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="onSearch" />
+    <view class="search-btn" bindtap="onSearch"><text>搜索</text></view>
+  </view>
+
+  <view class="customer-list" wx:if="{{!loading}}">
+    <view class="customer-card" wx:for="{{list}}" wx:key="id">
+      <view class="customer-info">
+        <text class="customer-name">{{item.name}}</text>
+        <text class="customer-type" wx:if="{{item.type}}">{{item.type === 2 ? '企业客户' : '个人客户'}}</text>
+        <text class="customer-phone" wx:if="{{item.phone}}">{{item.phone}}</text>
+        <text class="customer-address" wx:if="{{item.address}}">{{item.address}}</text>
+      </view>
+      <view class="call-btn" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall">
+        <text>致电</text>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{list.length === 0}}"><text>未找到客户</text></view>
+  </view>
+  <view class="loading" wx:if="{{loading}}">加载中...</view>
+</view>

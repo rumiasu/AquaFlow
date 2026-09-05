@@ -14,4 +14,6 @@ public class DepositDTO {
     private BigDecimal amount;
 
     private String note;
+
+    private Long stationId;
 }

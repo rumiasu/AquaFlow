@@ -10,7 +10,7 @@ public class InventoryInboundDTO {
 
     @Data
     public static class ItemDTO {
-        private Integer waterTypeId;
+        private Long productId;
         private Integer quantity;
     }
 }

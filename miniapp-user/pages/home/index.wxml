@@ -1,43 +1,13 @@
 <view class="page">
-  <!-- 顶部渐变头 -->
   <view class="header">
     <view class="header-bg"></view>
     <view class="header-content">
-      <!-- 地址 -->
-      <view class="address-bar" wx:if="{{isLogin}}" bindtap="onAddressTap">
-        <view class="address-left" wx:if="{{address}}">
-          <text class="address-icon">📍</text>
-          <view class="address-text">
-            <text class="address-name">{{address.name}} {{address.phone}}</text>
-            <text class="address-detail">{{address.detail}}</text>
-          </view>
+      <view class="logo-row">
+        <image class="logo-img" src="/assets/logo/aquaflow.jpg" mode="aspectFill" />
+        <view class="logo-text">
+          <text class="logo-name">AquaFlow</text>
+          <text class="logo-slogan">纯净之水 净享生活</text>
         </view>
-        <view class="address-left" wx:else>
-          <text class="address-icon">📍</text>
-          <text class="address-empty">点击设置配送地址</text>
-        </view>
-        <text class="address-arrow">›</text>
-      </view>
-
-      <!-- 游客头部 -->
-      <view class="guest-header" wx:else>
-        <text class="guest-title">欢迎使用 AquaFlow</text>
-        <text class="guest-subtitle">登录后享受快速复购</text>
-        <view class="guest-login-btn" bindtap="onLogin">
-          <text>立即登录</text>
-        </view>
-      </view>
-
-      <!-- 水桶明细条 -->
-      <view class="barrel-brief" wx:if="{{isLogin && barrelByType.length > 0}}" bindtap="onViewBarrel">
-        <text class="barrel-brief-icon">🪣</text>
-        <view class="barrel-brief-list">
-          <view class="barrel-brief-item" wx:for="{{barrelByType}}" wx:key="waterTypeId">
-            <text class="barrel-brief-name">{{item.waterTypeName}}</text>
-            <text class="barrel-brief-qty">×{{item.holdingQty}}桶</text>
-          </view>
-        </view>
-        <text class="barrel-brief-arrow">›</text>
       </view>
     </view>
   </view>
@@ -45,211 +15,269 @@
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>
-    <!-- 状态: 无地址 -->
-    <view class="state-card" wx:if="{{state === 'noAddress'}}">
-      <text class="state-icon">📍</text>
-      <text class="state-title">请先设置配送地址</text>
-      <text class="state-desc">添加您的收货地址后即可下单</text>
-      <view class="state-btn" bindtap="onAddressTap">
-        <text>去添加地址</text>
-      </view>
+    <view class="station-bar" wx:if="{{isLogin}}" bindtap="onOpenStationList">
+      <icon name="location" size="32rpx" color="#0EA5E9" />
+      <text class="station-bar-label" wx:if="{{currentStation}}">{{currentStation.name}}</text>
+      <text class="station-bar-label station-bar-empty" wx:else>请选择服务水站</text>
+      <icon name="arrow" size="24rpx" color="#94A3B8" />
     </view>
 
-    <!-- 状态: 配送中 -->
-    <view class="body" wx:if="{{state === 'delivering'}}">
-      <view class="card delivering-card">
-        <view class="delivering-header">
-          <text class="delivering-icon">🚚</text>
-          <text class="delivering-title">配送中</text>
-        </view>
-        <view class="delivering-list">
-          <view class="delivering-item" wx:for="{{activeOrders}}" wx:key="id" bindtap="onViewOrder" data-id="{{item.id}}">
-            <view class="delivering-left">
-              <text class="delivering-name">{{item.waterTypeName}}</text>
-              <text class="delivering-qty">×{{item.quantity}}桶</text>
-            </view>
-            <text class="delivering-status">{{item.status === 1 ? '待配送' : '配送中'}}</text>
-          </view>
+    <view class="no-station-section" wx:if="{{state === 'claimPending' && !loading}}">
+      <view class="no-station-card">
+        <icon name="location" size="80rpx" color="#F59E0B" />
+        <text class="no-station-title">等待水站认领</text>
+        <text class="no-station-desc">您的客户资料正在等待对应水站确认，认领成功后即可下单购水</text>
+        <view class="no-station-btn pending">
+          <text>等待认领中…</text>
         </view>
       </view>
     </view>
 
-    <!-- 状态: 有模板（预填表单） -->
-    <view class="body" wx:if="{{state === 'hasTemplate'}}">
-      <!-- 模板提示 -->
-      <view class="template-banner">
-        <text class="template-banner-icon">📋</text>
-        <text class="template-banner-text">已加载「{{templateName}}」，可修改后下单</text>
-        <text class="template-banner-edit" bindtap="onEditTemplate">编辑 ›</text>
-      </view>
-
-      <!-- 水类型卡片 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">选择水类型</text>
-          <text class="card-link" bindtap="onGoShop">发现更多好水 ›</text>
-        </view>
-        <view class="water-grid">
-          <view
-            class="water-card {{selectedProduct && selectedProduct.id === item.id ? 'active' : ''}}"
-            wx:for="{{products}}"
-            wx:key="id"
-            bindtap="onSelectProduct"
-            data-id="{{item.id}}"
-          >
-            <view class="water-icon-wrap">
-              <text class="water-icon">💧</text>
-            </view>
-            <text class="water-name">{{item.name}}</text>
-            <text class="water-spec">{{item.spec}}</text>
-            <view class="water-price-row" wx:if="{{item.price}}">
-              <text class="water-price-symbol">¥</text>
-              <text class="water-price-value">{{item.price}}</text>
-            </view>
-            <view class="water-check" wx:if="{{selectedProduct && selectedProduct.id === item.id}}">
-              <text>✓</text>
-            </view>
-          </view>
-        </view>
-      </view>
-
-      <!-- 数量 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">数量</text>
-        </view>
-        <view class="stepper-row">
-          <view class="stepper">
-            <view class="stepper-btn minus {{quantity <= 1 ? 'disabled' : ''}}" bindtap="onQuantityChange" data-type="minus">
-              <text>−</text>
-            </view>
-            <input class="stepper-input" type="number" value="{{quantity}}" bindinput="onQuantityInput" />
-            <view class="stepper-btn plus" bindtap="onQuantityChange" data-type="add">
-              <text>+</text>
-            </view>
-          </view>
-          <text class="stepper-unit">桶</text>
-        </view>
-      </view>
-
-      <!-- 备注 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">备注</text>
-        </view>
-        <view class="note-wrap">
-          <input class="note-input" placeholder="放门口、几号楼等" placeholder-class="note-placeholder" value="{{note}}" bindinput="onNoteInput" />
+    <view class="no-station-section" wx:if="{{state === 'noStation' && !claimPending && !loading}}">
+      <view class="no-station-card">
+        <icon name="location" size="80rpx" color="#0EA5E9" />
+        <text class="no-station-title">请选择服务水站</text>
+        <text class="no-station-desc">选择水站后可查看该站商品并下单</text>
+        <view class="no-station-btn" bindtap="onOpenStationList">
+          <text>选择水站</text>
         </view>
       </view>
     </view>
 
-    <!-- 状态: 手动选择（无模板） -->
-    <view class="body" wx:if="{{state === 'noTemplate'}}">
-      <!-- 水类型卡片 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">选择水类型</text>
-          <text class="card-link" bindtap="onGoShop">发现更多好水 ›</text>
-        </view>
-        <view class="water-grid">
-          <view
-            class="water-card {{selectedProduct && selectedProduct.id === item.id ? 'active' : ''}}"
-            wx:for="{{products}}"
-            wx:key="id"
-            bindtap="onSelectProduct"
-            data-id="{{item.id}}"
-          >
-            <view class="water-icon-wrap">
-              <text class="water-icon">💧</text>
-            </view>
-            <text class="water-name">{{item.name}}</text>
-            <text class="water-spec">{{item.spec}}</text>
-            <view class="water-price-row" wx:if="{{item.price}}">
-              <text class="water-price-symbol">¥</text>
-              <text class="water-price-value">{{item.price}}</text>
-            </view>
-            <view class="water-check" wx:if="{{selectedProduct && selectedProduct.id === item.id}}">
-              <text>✓</text>
-            </view>
-          </view>
-        </view>
-      </view>
-
-      <!-- 数量 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">数量</text>
-        </view>
-        <view class="stepper-row">
-          <view class="stepper">
-            <view class="stepper-btn minus {{quantity <= 1 ? 'disabled' : ''}}" bindtap="onQuantityChange" data-type="minus">
-              <text>−</text>
-            </view>
-            <input class="stepper-input" type="number" value="{{quantity}}" bindinput="onQuantityInput" />
-            <view class="stepper-btn plus" bindtap="onQuantityChange" data-type="add">
-              <text>+</text>
-            </view>
-          </view>
-          <text class="stepper-unit">桶</text>
-        </view>
-      </view>
-
-      <!-- 备注 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">备注</text>
-        </view>
-        <view class="note-wrap">
-          <input class="note-input" placeholder="放门口、几号楼、联系人等" placeholder-class="note-placeholder" value="{{note}}" bindinput="onNoteInput" />
+    <view class="banner" bindtap="onBannerTap" wx:if="{{state !== 'noStation' && state !== 'claimPending'}}">
+      <image class="banner-img" src="/assets/banner/banner1.jpg" mode="aspectFill" />
+      <view class="banner-overlay">
+        <text class="banner-title">纯净好水 健康生活</text>
+        <text class="banner-subtitle">专业配送，品质如一</text>
+        <view class="banner-btn">
+          <text>立即下单</text>
         </view>
       </view>
     </view>
 
-    <!-- 游客模式内容 -->
-    <view class="body" wx:if="{{state === 'guest'}}">
+    <view class="address-section" wx:if="{{isLogin && state !== 'noStation' && state !== 'claimPending'}}">
+      <view class="address-card" bindtap="onAddressTap">
+        <icon name="location" size="36rpx" color="#0EA5E9" />
+        <view class="address-text" wx:if="{{address}}">
+          <text class="address-detail" wx:if="{{address.province || address.city || address.district}}">{{address.province}}{{address.city}}{{address.district}} {{address.detail}}</text>
+          <text class="address-detail" wx:else>{{address.detail}}</text>
+        </view>
+        <view class="address-text" wx:else>
+          <text class="address-empty">点击设置配送地址</text>
+        </view>
+        <icon name="arrow" size="32rpx" color="#CBD5E1" />
+      </view>
+    </view>
+
+    <view class="quick-actions" wx:if="{{isLogin && state !== 'noStation' && state !== 'claimPending'}}">
+      <view class="action-item" bindtap="onGoOrder">
+        <view class="action-icon action-icon-primary">
+          <icon name="cart" size="44rpx" color="#FFFFFF" />
+        </view>
+        <text class="action-text">立即下单</text>
+      </view>
+      <view class="action-item" bindtap="onGoOrderList">
+        <view class="action-icon action-icon-success">
+          <icon name="order" size="44rpx" color="#FFFFFF" />
+        </view>
+        <text class="action-text">我的订单</text>
+      </view>
+      <view class="action-item" bindtap="onGoTicket">
+        <view class="action-icon action-icon-warning">
+          <icon name="ticket" size="44rpx" color="#FFFFFF" />
+        </view>
+        <text class="action-text">我的水票</text>
+      </view>
+      <view class="action-item" bindtap="onGoBarrel">
+        <view class="action-icon action-icon-accent">
+          <icon name="barrel" size="44rpx" color="#FFFFFF" />
+        </view>
+        <text class="action-text">我的水桶</text>
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{isLogin && recentOrders.length > 0 && state !== 'noStation' && state !== 'claimPending'}}">
+      <view class="section-header">
+        <text class="section-title">常用订单</text>
+        <text class="section-link" bindtap="onGoTemplates">更多</text>
+        <icon name="arrow" size="24rpx" color="#0EA5E9" />
+      </view>
+      <view class="recent-order-list">
+        <view class="recent-order-card" wx:for="{{recentOrders}}" wx:key="id"
+              bindtap="onViewOrder" data-id="{{item.id}}">
+          <view class="recent-order-items">
+            <view class="recent-order-item" wx:for="{{item.displayItems}}" wx:for-item="it" wx:key="name">
+              <text class="recent-order-item-name">{{it.name}}</text>
+              <text class="recent-order-item-spec" wx:if="{{it.spec}}">{{it.spec}}</text>
+              <text class="recent-order-item-qty">×{{it.qty}}</text>
+            </view>
+          </view>
+          <view class="recent-order-footer">
+            <text class="recent-order-price">¥{{item.nextAmountText}}</text>
+            <text class="recent-order-date">{{item.displayDate}}</text>
+            <view class="recent-order-btn" catchtap="onReorder" data-id="{{item.id}}">
+              <icon name="cart" size="28rpx" color="#FFFFFF" />
+              <text>复购</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{isLogin && barrelByType.length > 0 && state !== 'noStation' && state !== 'claimPending'}}">
+      <view class="section-header">
+        <text class="section-title">水桶管理</text>
+        <text class="section-link" bindtap="onGoBarrel">查看全部</text>
+        <icon name="arrow" size="24rpx" color="#0EA5E9" />
+      </view>
+      <view class="barrel-list">
+        <view class="barrel-item" wx:for="{{barrelByType}}" wx:key="id">
+          <text class="barrel-name">{{item.productName || item.waterTypeName}}</text>
+          <text class="barrel-qty">{{item.assetQty || 0}} 桶</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{isLogin && barrelProducts.length > 0 && state !== 'noStation' && state !== 'claimPending'}}">
+      <view class="section-header">
+        <text class="section-title">我有水桶 · 优先续购</text>
+      </view>
+      <view class="product-list">
+        <view class="product-card" wx:for="{{barrelProducts}}" wx:key="id">
+          <view class="product-img" wx:if="{{item.imageUrl}}">
+            <image src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+          </view>
+          <view class="product-img product-img-placeholder" wx:else>
+            <text>💧</text>
+          </view>
+          <view class="product-info">
+            <view class="name-row">
+              <text class="product-name">{{item.name}}</text>
+              <view class="barrel-tag">
+                <text>持有{{item.barrelQty}}桶</text>
+              </view>
+            </view>
+            <text class="product-brand" wx:if="{{item.brand}}">{{item.brand}} · {{item.spec}}</text>
+            <view class="info-row">
+              <text class="product-price">¥{{item.price}}</text>
+              <text class="product-deposit" wx:if="{{item.deposit > 0}}">押金 ¥{{item.deposit}}</text>
+            </view>
+            <view class="stepper-row">
+              <view class="stepper-btn {{cart[item.id] <= 0 ? 'disabled' : ''}}"
+                    bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="minus">
+                <text>−</text>
+              </view>
+              <input class="stepper-input" type="number"
+                     value="{{cart[item.id] || 0}}"
+                     bindinput="onCartQtyInput" data-id="{{item.id}}" />
+              <view class="stepper-btn"
+                    bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="add">
+                <text>+</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{(state !== 'noStation' && state !== 'claimPending') && products.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">购物区 · 可供商品</text>
+        <view class="shop-entry" bindtap="onGoShop">
+          <text class="shop-entry-text">进入商城</text>
+          <icon name="arrow" size="24rpx" color="#0EA5E9" />
+        </view>
+      </view>
+      <view class="product-list">
+        <view class="product-card" wx:for="{{products}}" wx:key="id">
+          <view class="product-img" wx:if="{{item.imageUrl}}">
+            <image src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+          </view>
+          <view class="product-img product-img-placeholder" wx:else>
+            <text>💧</text>
+          </view>
+          <view class="product-info">
+            <view class="name-row">
+              <text class="product-name">{{item.name}}</text>
+            </view>
+            <text class="product-brand" wx:if="{{item.brand}}">{{item.brand}} · {{item.spec}}</text>
+            <view class="info-row">
+              <text class="product-price">¥{{item.price}}</text>
+              <text class="product-deposit" wx:if="{{item.deposit > 0}}">押金 ¥{{item.deposit}}</text>
+            </view>
+            <view class="stepper-row">
+              <view class="stepper-btn {{cart[item.id] <= 0 ? 'disabled' : ''}}"
+                    bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="minus">
+                <text>−</text>
+              </view>
+              <input class="stepper-input" type="number"
+                     value="{{cart[item.id] || 0}}"
+                     bindinput="onCartQtyInput" data-id="{{item.id}}" />
+              <view class="stepper-btn"
+                    bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="add">
+                <text>+</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="shop-banner" wx:if="{{isLogin && state !== 'noStation' && state !== 'claimPending'}}" bindtap="onGoShop">
+      <view class="shop-banner-left">
+        <view class="shop-banner-icon-wrap">
+          <icon name="shop" size="48rpx" color="#FFFFFF" />
+        </view>
+        <view class="shop-banner-text">
+          <text class="shop-banner-title">浏览全部商品</text>
+          <text class="shop-banner-desc">查看{{currentStation.name || '水站'}}所有在售商品</text>
+        </view>
+      </view>
+      <view class="shop-banner-arrow">
+        <text class="shop-banner-btn-text">进入商城</text>
+        <icon name="arrow" size="28rpx" color="#0EA5E9" />
+      </view>
+    </view>
+
+    <view class="guest-section" wx:if="{{!isLogin}}">
       <view class="guest-banner">
-        <text class="guest-banner-icon">💧</text>
+        <image class="guest-banner-icon" src="/assets/logo/aquaflow.jpg" mode="aspectFill" />
         <text class="guest-banner-title">AquaFlow 送水到家</text>
-        <text class="guest-banner-desc">新鲜水源，快速配送</text>
+        <text class="guest-banner-desc">请先登录选择服务水站后下单购水</text>
         <view class="guest-banner-btn" bindtap="onLogin">
           <text>登录后下单</text>
-        </view>
-      </view>
-
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">热门商品</text>
-        </view>
-        <view class="water-grid">
-          <view class="water-card" wx:for="{{products}}" wx:key="id">
-            <view class="water-icon-wrap">
-              <text class="water-icon">💧</text>
-            </view>
-            <text class="water-name">{{item.name}}</text>
-            <text class="water-spec">{{item.spec}}</text>
-            <view class="water-price-row" wx:if="{{item.price}}">
-              <text class="water-price-symbol">¥</text>
-              <text class="water-price-value">{{item.price}}</text>
-            </view>
-          </view>
         </view>
       </view>
     </view>
   </block>
 
-  <!-- 底部提交栏（已登录状态） -->
-  <view class="bottom-bar" wx:if="{{!loading && isLogin && state !== 'noAddress' && state !== 'delivering' && state !== 'guest'}}">
-    <view class="bottom-inner">
-      <view class="price-section">
-        <text class="price-label">合计</text>
-        <view class="price-value-wrap" wx:if="{{selectedProduct && selectedProduct.price}}">
-          <text class="price-symbol">¥</text>
-          <text class="price-num">{{selectedProduct.price * quantity}}</text>
-        </view>
-        <text class="price-pending" wx:else>待确认</text>
+  <view class="fab-cart" wx:if="{{isLogin && cartCount > 0}}" bindtap="onSubmit">
+    <icon name="cart" size="40rpx" color="#FFFFFF" />
+    <view class="fab-cart-badge">
+      <text>{{cartCount}}</text>
+    </view>
+  </view>
+
+  <view class="station-picker-mask" wx:if="{{showStationList}}" bindtap="onCloseStationList"></view>
+  <view class="station-picker {{showStationList ? 'show' : ''}}">
+    <view class="station-picker-header">
+      <text class="station-picker-title">选择服务水站</text>
+      <view class="station-picker-close" bindtap="onCloseStationList">
+        <text>关闭</text>
       </view>
-      <view class="submit-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
-        <text>{{submitting ? '提交中...' : '立即下单'}}</text>
+    </view>
+    <view class="station-picker-list">
+      <view class="station-picker-item" wx:for="{{stationList}}" wx:key="id"
+            bindtap="onSelectStation" data-id="{{item.id}}"
+            class="{{item.id === currentStationId ? 'active' : ''}}">
+        <view class="station-picker-item-info">
+          <text class="station-picker-item-name">{{item.name}}</text>
+          <text class="station-picker-item-addr" wx:if="{{item.address}}">{{item.address}}</text>
+        </view>
+        <text class="station-picker-item-check" wx:if="{{item.id === currentStationId}}">当前</text>
+      </view>
+      <view class="station-picker-empty" wx:if="{{stationList.length === 0}}">
+        <text>暂无可用水站</text>
       </view>
     </view>
   </view>

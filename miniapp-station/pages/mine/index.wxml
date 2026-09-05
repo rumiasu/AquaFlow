@@ -1,0 +1,33 @@
+<view class="page-container">
+  <!-- 用户信息卡片 -->
+  <view class="user-card">
+    <view class="avatar-wrapper">
+      <image class="avatar" src="{{userInfo?.avatarUrl || '/assets/images/default-avatar.png'}}" mode="aspectFill" />
+    </view>
+    <text class="name">{{userInfo?.nickName || '站长'}}</text>
+    <view class="station-info">
+      <text class="station-label">当前水站：</text>
+      <text class="station-name">{{stationName}}</text>
+      <view class="switch-btn" bindtap="onStationSwitch">切换</view>
+    </view>
+  </view>
+
+  <!-- 功能列表 -->
+  <view class="menu-section">
+    <view class="menu-item" bindtap="onAboutTap">
+      <image src="/assets/icons/about.png" mode="aspectFit" />
+      <text>关于</text>
+      <image class="arrow" src="/assets/icons/arrow-right.png" mode="aspectFit" />
+    </view>
+
+    <view class="menu-item danger" bindtap="onLogout">
+      <image src="/assets/icons/logout.png" mode="aspectFit" />
+      <text>退出登录</text>
+    </view>
+  </view>
+
+  <view class="version-info">
+    <text>版本 1.0.0</text>
+    <text>AquaFlow 站长端</text>
+  </view>
+</view>

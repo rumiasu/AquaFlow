@@ -1,0 +1,39 @@
+<view class="container">
+  <view class="section-card">
+    <view class="card-header">
+      <text class="card-title">选择要加入的水站</text>
+      <text class="card-desc">点击水站卡片直接申请，站长通过后生效</text>
+    </view>
+
+    <view class="station-list" wx:if="{{stationList.length > 0}}">
+      <view class="station-item station-clickable" wx:for="{{stationList}}" wx:key="id" data-id="{{item.id}}" data-station="{{item}}" bindtap="onApplyStation" hover-class="station-hover">
+        <view class="station-main">
+          <view class="station-icon-wrap">
+            <text class="station-icon">🏢</text>
+          </view>
+          <view class="station-info">
+            <text class="station-name">{{item.name}}</text>
+            <text class="station-address">{{item.province}}{{item.city}}{{item.district}} {{item.address || '暂无详细地址'}}</text>
+            <text class="station-meta" wx:if="{{item.phone}}">联系：{{item.phone}}</text>
+          </view>
+        </view>
+        <view class="station-action">
+          <text class="apply-btn-text">申请加入</text>
+          <text class="apply-arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-tip" wx:if="{{!loading && stationList.length === 0}}">
+      <text>附近还没有水站，请联系站长先创建水站</text>
+    </view>
+
+    <view class="loading-tip" wx:if="{{loading}}">
+      <text>加载水站列表中...</text>
+    </view>
+  </view>
+
+  <view class="footer">
+    <text class="footer-hint">V1 规则：配送员必须主动申请 · 站长审批后才生效 · 申请期间无法查看业务数据</text>
+  </view>
+</view>

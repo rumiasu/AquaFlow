@@ -1,20 +1,31 @@
-import { get, post, put } from '../utils/request'
-import { API } from '../config/api'
+const { get, post, put } = require('../utils/request')
+const { API } = require('../config/api')
 
-export const getOrders = (params = {}) => {
+const getOrders = (params = {}) => {
   // customerId 从 JWT 获取，不再前端传参
   return get(API.ORDERS, params)
 }
 
-export const getOrderDetail = (id) => {
+const getOrderDetail = (id) => {
   return get(`${API.ORDERS}/${id}`)
 }
 
-export const createOrder = (data) => {
-  // customerId 从 JWT 获取，但后端 save 仍需要它来关联 stationId
-  return post(API.ORDERS, { ...data, source: 3 })
+const createOrder = (data) => {
+  // customerId/source 等由各业务页显式传入，这里不做覆盖
+  return post(API.CREATE_ORDER, data)
 }
 
-export const cancelOrder = (id) => {
-  return put(`${API.ORDERS}/${id}/cancel`)
+const createPayment = (data) => {
+  const { orderId, ...rest } = data
+  return post(`${API.PAYMENTS}`, { orderId, ...rest })
 }
+
+const cancelOrder = (id) => {
+  return put(`${API.ORDERS}/${id}/customer-cancel`)
+}
+
+const getMyLatestStation = () => {
+  return get(API.MY_STATION)
+}
+
+module.exports = { getOrders, getOrderDetail, createOrder, createPayment, cancelOrder, getMyLatestStation }

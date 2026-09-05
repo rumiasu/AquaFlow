@@ -1,26 +1,29 @@
-export const ORDER_STATUS = {
+const ORDER_STATUS = {
   PENDING: 1,
-  DELIVERING: 2,
-  COMPLETED: 3,
-  GROUPED: 4,
-  CANCELLED: 5
+  DELIVERING: 3,
+  DELIVERED: 4,
+  COMPLETED: 5,
+  CANCELLED: 6,
+  DELIVERED_PENDING_PAYMENT: 4,
+  REJECTED: 7
 }
 
-export const ORDER_STATUS_TEXT = {
+const ORDER_STATUS_TEXT = {
   1: '待配送',
-  2: '配送中',
-  3: '已完成',
-  4: '待配送',
-  5: '已取消'
+  3: '配送中',
+  4: '已送达',
+  5: '已完成',
+  6: '已取消',
+  7: '待水站认领'
 }
 
-export const ORDER_SOURCE = {
+const ORDER_SOURCE = {
   PHONE: 1,
   WECHAT: 2,
   MINIAPP: 3
 }
 
-export const PAYMENT_STATUS = {
+const PAYMENT_STATUS = {
   UNPAID: 0,
   PENDING: 1,
   PAID: 2,
@@ -28,15 +31,15 @@ export const PAYMENT_STATUS = {
   CANCELLED: 4
 }
 
-export const PAYMENT_STATUS_TEXT = {
+const PAYMENT_STATUS_TEXT = {
   0: '未付款',
-  1: '待确认',
+  1: '待收款',
   2: '已付款',
   3: '已退款',
   4: '已取消'
 }
 
-export const ADDRESS_TAGS = [
+const ADDRESS_TAGS = [
   { value: '小区', label: '小区' },
   { value: '工厂', label: '工厂' },
   { value: '写字楼', label: '写字楼' },
@@ -45,8 +48,18 @@ export const ADDRESS_TAGS = [
   { value: '其他', label: '其他' }
 ]
 
-export const TICKET_SOURCE = {
+const TICKET_SOURCE = {
   PURCHASE: '购买',
   GIFT: '赠送',
   CONSUME: '消费'
+}
+
+module.exports = {
+  ORDER_STATUS,
+  ORDER_STATUS_TEXT,
+  ORDER_SOURCE,
+  PAYMENT_STATUS,
+  PAYMENT_STATUS_TEXT,
+  ADDRESS_TAGS,
+  TICKET_SOURCE
 }

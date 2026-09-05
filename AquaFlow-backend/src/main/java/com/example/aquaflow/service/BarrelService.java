@@ -1,23 +1,30 @@
 package com.example.aquaflow.service;
 
 import com.example.aquaflow.entity.BarrelRecord;
+import com.example.aquaflow.entity.CustomerBarrelAsset;
 
 import java.util.List;
 import java.util.Map;
 
 public interface BarrelService {
 
-    Map<String, Object> getSummary(Integer customerId);
+    List<CustomerBarrelAsset> getAssets(Long customerId, Long stationId);
 
-    List<BarrelRecord> listRecords(Integer customerId);
+    List<BarrelRecord> listRecords(Long customerId, Long stationId);
 
-    /** 查看所有退桶记录（管理端用） */
-    List<BarrelRecord> listAllRecords();
+    void handleBarrelException(Long customerId, Long stationId, Long productId, Integer type, Integer quantity, Long relatedOrderId, String note, Long operatorId);
 
-    List<Map<String, Object>> getBarrelSummaryByType(Integer customerId);
+    /**
+     * 站长审批退桶申请
+     * @param id          退桶记录ID
+     * @param status      2=确认收到空桶 3=已退押金 4=驳回
+     * @param handleNote  处理备注
+     * @param operatorId  站长ID
+     */
+    void handleBarrelReturn(Long id, Integer status, String handleNote, Long operatorId);
 
-    BarrelRecord requestReturn(Integer customerId, Integer quantity, java.math.BigDecimal depositRefund, String note);
-
-    /** 审批退桶记录 */
-    void handleReturn(Integer id, Integer status, String handleNote);
+    /**
+     * 获取按水类型分组的桶资产摘要（用于首页展示）
+     */
+    List<Map<String, Object>> getBarrelSummaryByType(Long customerId, Long stationId);
 }

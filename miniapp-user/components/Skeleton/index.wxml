@@ -1,0 +1,19 @@
+<view class="skeleton" wx:if="{{loading}}">
+  <view class="skeleton-header" wx:if="{{showHeader}}">
+    <view class="skeleton-avatar skeleton-animate"></view>
+    <view class="skeleton-header-info">
+      <view class="skeleton-title skeleton-animate"></view>
+      <view class="skeleton-desc skeleton-animate"></view>
+    </view>
+  </view>
+  
+  <view class="skeleton-content">
+    <view class="skeleton-item" wx:for="{{rows}}" wx:key="index">
+      <view class="skeleton-thumb skeleton-animate" wx:if="{{showThumb}}"></view>
+      <view class="skeleton-item-content">
+        <view class="skeleton-line skeleton-animate" style="width: {{item.width || '100%'}}"></view>
+        <view class="skeleton-line skeleton-line-short skeleton-animate" wx:if="{{item.showShort}}"></view>
+      </view>
+    </view>
+  </view>
+</view>

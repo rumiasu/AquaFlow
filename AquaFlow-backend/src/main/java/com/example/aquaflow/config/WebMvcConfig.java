@@ -22,8 +22,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         "/api/auth/login",
                         "/api/auth/wx-login",
+                        "/api/auth/wx-login-staff",
+                        "/api/auth/bind-staff",
                         "/api/auth/dev-login",
-                        "/api/auth/refresh"
+                        "/api/auth/refresh",
+                        "/api/stations/public",
+                        "/api/station/public",
+                        "/api/stations/search",
+                        "/api/station/search"
                 );
     }
 }

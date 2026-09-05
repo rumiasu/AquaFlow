@@ -5,44 +5,51 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 退桶记录实体类，对应数据库 barrel_record 表。
- * <p>记录客户每次退桶的申请和处理情况，作为退桶凭证。</p>
+ * 桶资产异常记录实体类，对应数据库 barrel_record 表。
+ * <p>桶资产发生真正变化时留下的业务凭证。</p>
  */
 @Data
 public class BarrelRecord {
 
     /** 记录ID，主键自增 */
-    private Integer id;
+    private Long id;
 
-    /** 客户ID，关联 customer 表 */
-    private Integer customerId;
+    /** 客户ID */
+    private Long customerId;
 
-    /** 退桶数量 */
+    /** 所属水站ID */
+    private Long stationId;
+
+    /** 商品ID(桶装水) */
+    private Long productId;
+
+    /** 类型: 1 新增押金桶 2 退桶 3 丢失 4 损坏 5 赔偿 6 人工调整 */
+    private Integer type;
+
+    /** 数量 */
     private Integer quantity;
 
-    /**
-     * 状态：
-     * <ul>
-     *   <li>1 - 待处理</li>
-     *   <li>2 - 已确认（站内确认收到空桶）</li>
-     *   <li>3 - 已退还押金</li>
-     *   <li>4 - 已驳回</li>
-     * </ul>
-     */
-    private Integer status;
-
-    /** 抵扣押金金额（可选，退桶时可同时退押金） */
-    private java.math.BigDecimal depositRefund;
+    /** 关联订单ID */
+    private Long relatedOrderId;
 
     /** 备注 */
     private String note;
 
-    /** 处理备注（站内人员填写） */
-    private String handleNote;
+    /** 操作员ID */
+    private Long operatorId;
 
     /** 创建时间 */
     private LocalDateTime createTime;
 
-    /** 处理时间 */
-    private LocalDateTime handleTime;
+    /** 退桶申请状态: 1 待处理 2 已确认收到空桶 3 已退押金 4 已驳回（仅type=2退桶有意义） */
+    private Integer status;
+
+    /** 处理备注（站长驳回原因等） */
+    private String handleNote;
+
+    /** 退桶申请的退押金金额（仅type=2退桶有意义） */
+    private java.math.BigDecimal depositRefund;
+
+    /** 客户当前欠桶数（瞬时字段，不映射数据库，仅用于站长审批页提醒） */
+    private transient Integer owedBuckets;
 }

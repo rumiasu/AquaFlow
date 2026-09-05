@@ -6,18 +6,22 @@
           <span class="page-title">订单管理</span>
           <div class="header-actions">
             <el-select v-model="query.status" placeholder="订单状态" clearable style="width: 120px;">
-              <el-option label="待组批" :value="1" />
-              <el-option label="已组批" :value="4" />
+              <el-option label="待分配" :value="1" />
+              <el-option label="已分配" :value="4" />
               <el-option label="配送中" :value="2" />
               <el-option label="已完成" :value="3" />
+              <el-option label="待收款" :value="6" />
               <el-option label="已取消" :value="5" />
+              <el-option label="已拒单" :value="7" />
             </el-select>
             <el-select v-model="query.paymentStatus" placeholder="付款状态" clearable style="width: 120px;">
               <el-option label="未付款" :value="0" />
+              <el-option label="待收款" :value="1" />
               <el-option label="已付款" :value="2" />
               <el-option label="已退款" :value="3" />
+              <el-option label="已取消" :value="4" />
             </el-select>
-            <el-input v-model="query.tag" placeholder="地址标签" clearable style="width: 120px;" />
+            <el-input v-model="query.keyword" placeholder="客户/电话搜索" clearable style="width: 160px;" />
             <el-date-picker v-model="dateRange" type="daterange" range-separator="~"
               start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD"
               style="width: 250px;" @change="handleDateChange" />
@@ -31,7 +35,7 @@
         <el-table-column prop="id" label="ID" width="70" align="center" />
         <el-table-column prop="customerName" label="客户" min-width="100" />
         <el-table-column prop="addressDetail" label="地址" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="waterTypeName" label="水类型" width="110" />
+        <el-table-column prop="productName" label="商品" width="110" />
         <el-table-column prop="quantity" label="数量" width="70" align="center" />
         <el-table-column prop="source" label="来源" width="80" align="center">
           <template #default="{ row }">
@@ -49,16 +53,17 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="155" />
-        <el-table-column label="操作" width="140" align="center" fixed="right">
+        <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
             <el-button v-if="canCancel(row)" size="small" type="danger" plain @click="handleCancel(row)">取消</el-button>
+            <el-button v-if="row.status === 3 && (!row.paymentMethod || row.paymentMethod !== 3)" size="small" type="warning" plain @click="handleUnconfirm(row)">修正收款</el-button>
+            <el-button v-if="row.status === 1" size="small" type="danger" plain @click="handleReject(row)">拒单</el-button>
             <el-button size="small" @click="showDetail(row)">详情</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <!-- 新增订单 -->
     <el-dialog v-model="dialogVisible" title="新增订单" width="480px" destroy-on-close>
       <el-form :model="form" label-width="80px" :rules="formRules" ref="formRef">
         <el-form-item label="客户" prop="customerId">
@@ -72,9 +77,9 @@
             <el-option v-for="a in customerAddresses" :key="a.id" :label="a.detail" :value="a.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="水类型" prop="waterTypeId">
-          <el-select v-model="form.waterTypeId" placeholder="选择水类型" style="width: 100%;">
-            <el-option v-for="w in waterTypes" :key="w.id" :label="`${w.name} ${w.spec}`" :value="w.id" />
+        <el-form-item label="商品" prop="productId">
+          <el-select v-model="form.productId" placeholder="选择商品" style="width: 100%;">
+            <el-option v-for="w in products" :key="w.id" :label="`${w.name} ${w.spec}`" :value="w.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="数量" prop="quantity">
@@ -94,13 +99,20 @@
       </template>
     </el-dialog>
 
-    <!-- 订单详情 -->
-    <el-dialog v-model="detailVisible" title="订单详情" width="520px" destroy-on-close>
+    <el-dialog v-model="detailVisible" title="订单详情" width="680px" destroy-on-close @closed="clearOrderImages">
       <el-descriptions :column="2" border v-if="detailOrder">
         <el-descriptions-item label="订单ID">{{ detailOrder.id }}</el-descriptions-item>
         <el-descriptions-item label="客户">{{ detailOrder.customerName }}</el-descriptions-item>
+        <el-descriptions-item label="归属站点ID" :span="1">
+          <el-tag v-if="detailOrder.ownerStationId" size="small" type="success">#{{ detailOrder.ownerStationId }}</el-tag>
+          <span v-else class="text-muted">-</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="履约站点ID" :span="1">
+          <el-tag v-if="detailOrder.deliveryStationId" size="small" type="warning">#{{ detailOrder.deliveryStationId }}</el-tag>
+          <span v-else class="text-muted">-</span>
+        </el-descriptions-item>
         <el-descriptions-item label="地址" :span="2">{{ detailOrder.addressDetail }}</el-descriptions-item>
-        <el-descriptions-item label="水类型">{{ detailOrder.waterTypeName }}</el-descriptions-item>
+        <el-descriptions-item label="商品">{{ detailOrder.productName || detailOrder.waterTypeName }}</el-descriptions-item>
         <el-descriptions-item label="数量">{{ detailOrder.quantity }} 桶</el-descriptions-item>
         <el-descriptions-item label="来源">{{ sourceText(detailOrder.source) }}</el-descriptions-item>
         <el-descriptions-item label="订单状态">
@@ -109,8 +121,45 @@
         <el-descriptions-item label="付款状态">
           <el-tag size="small" :type="payTagType(detailOrder.paymentStatus)" effect="dark">{{ payText(detailOrder.paymentStatus) }}</el-tag>
         </el-descriptions-item>
+        <el-descriptions-item label="配送员">
+          <span v-if="detailOrder.deliveryStaffName">{{ detailOrder.deliveryStaffName }}</span>
+          <span v-else-if="detailOrder.deliveryStaffId">配送员{{ detailOrder.deliveryStaffId }}</span>
+          <span v-else class="text-muted">未分配</span>
+        </el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ detailOrder.createTime }}</el-descriptions-item>
       </el-descriptions>
+
+      <el-divider v-if="detailOrder" />
+
+      <div v-if="detailOrder" class="order-images-section">
+        <div class="section-label">订单图片</div>
+
+        <div class="image-list" v-if="orderImages.length">
+          <div v-for="img in orderImages" :key="img.id" class="image-item">
+            <el-image :src="img.url" fit="cover" class="order-img" :preview-src-list="[img.url]" preview-teleported />
+            <el-tag size="small" :type="img.type === 1 ? 'success' : 'danger'" class="image-tag">
+              {{ img.type === 1 ? '正常' : '异常' }}
+            </el-tag>
+          </div>
+        </div>
+
+        <div class="upload-area">
+          <el-upload
+            ref="uploadRef"
+            :http-request="handleUpload"
+            :show-file-list="false"
+            accept="image/jpeg,image/png,image/gif"
+          >
+            <el-button type="primary" :icon="Upload" :loading="uploading">
+              {{ uploading ? '上传中...' : (uploadType === 1 ? '上传正常图片' : '上传异常图片') }}
+            </el-button>
+          </el-upload>
+          <el-radio-group v-model="uploadType" size="small" style="margin-left: 8px;">
+            <el-radio :value="1">正常</el-radio>
+            <el-radio :value="2">异常</el-radio>
+          </el-radio-group>
+        </div>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -118,27 +167,27 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus } from '@element-plus/icons-vue'
-import { orderApi, customerApi, addressApi, waterTypeApi } from '../../../api'
+import { Search, Plus, Upload } from '@element-plus/icons-vue'
+import { orderApi, customerApi, addressApi, productApi, orderImageApi, deliveryApi } from '../../../api'
 
 const list = ref([])
 const loading = ref(false)
 const submitting = ref(false)
 const customers = ref([])
 const addresses = ref([])
-const waterTypes = ref([])
-const query = ref({ status: '', paymentStatus: '', tag: '', createTimeStart: '', createTimeEnd: '' })
+const products = ref([])
+const query = ref({ status: '', paymentStatus: '', keyword: '', createTimeStart: '', createTimeEnd: '' })
 const dateRange = ref(null)
 const dialogVisible = ref(false)
 const detailVisible = ref(false)
 const detailOrder = ref(null)
 const formRef = ref(null)
-const form = ref({ customerId: null, addressId: null, waterTypeId: null, quantity: 1, source: 1 })
+const form = ref({ customerId: null, addressId: null, productId: null, quantity: 1, source: 1 })
 
 const formRules = {
   customerId: [{ required: true, message: '请选择客户', trigger: 'change' }],
   addressId: [{ required: true, message: '请选择地址', trigger: 'change' }],
-  waterTypeId: [{ required: true, message: '请选择水类型', trigger: 'change' }],
+  productId: [{ required: true, message: '请选择商品', trigger: 'change' }],
   quantity: [{ required: true, message: '请输入数量', trigger: 'blur' }]
 }
 
@@ -147,13 +196,12 @@ const customerAddresses = computed(() => {
   return addresses.value.filter(a => a.customerId === form.value.customerId)
 })
 
-// 状态映射
-const statusText = (s) => ({ 1: '待组批', 2: '配送中', 3: '已完成', 4: '已组批', 5: '已取消' }[s] || '未知')
-const statusTagType = (s) => ({ 1: 'warning', 2: '', 3: 'success', 4: 'info', 5: 'danger' }[s] || 'info')
+const statusText = (s) => ({ 1: '待分配', 2: '配送中', 3: '已完成', 4: '已分配', 5: '已取消', 6: '待收款', 7: '已拒单' }[s] || '未知')
+const statusTagType = (s) => ({ 1: 'warning', 2: '', 3: 'success', 4: 'info', 5: 'danger', 6: 'warning', 7: 'danger' }[s] || 'info')
 const sourceText = (s) => ({ 1: '电话', 2: '微信群', 3: '小程序' }[s] || '其他')
 const sourceTagType = (s) => ({ 1: '', 2: 'success', 3: 'warning' }[s] || 'info')
-const payText = (s) => ({ 0: '未付款', 1: '待确认', 2: '已付款', 3: '已退款', 4: '已取消' }[s] || '未知')
-const payTagType = (s) => ({ 0: 'danger', 1: 'warning', 2: 'success', 3: 'info', 4: 'info' }[s] || 'info')
+const payText = (s) => ({ 0: '未付款', 1: '待收款', 2: '已付款', 3: '已退款', 4: '已取消' }[s] || '未知')
+const payTagType = (s) => ({ 0: 'info', 1: 'warning', 2: 'success', 3: 'info', 4: 'info' }[s] || 'info')
 
 const canCancel = (row) => row.status === 1 || row.status === 4
 
@@ -168,18 +216,27 @@ const loadData = async () => {
     const params = { ...query.value }
     if (!params.status) delete params.status
     if (params.paymentStatus === '' || params.paymentStatus === null) delete params.paymentStatus
-    list.value = await orderApi.list(params)
+    let data = await orderApi.list(params) || []
+    if (query.value.keyword) {
+      const kw = String(query.value.keyword).trim().toLowerCase()
+      data = data.filter(o =>
+        (o.customerName && String(o.customerName).toLowerCase().includes(kw)) ||
+        (o.customerPhone && String(o.customerPhone).includes(kw)) ||
+        (o.receiverPhone && String(o.receiverPhone).includes(kw))
+      )
+    }
+    list.value = data
   } finally { loading.value = false }
 }
 
 const loadOptions = async () => {
   customers.value = await customerApi.list()
   addresses.value = await addressApi.list({})
-  waterTypes.value = await waterTypeApi.list()
+  products.value = await productApi.list()
 }
 
 const showAdd = () => {
-  form.value = { customerId: null, addressId: null, waterTypeId: null, quantity: 1, source: 1 }
+  form.value = { customerId: null, addressId: null, productId: null, quantity: 1, source: 1 }
   dialogVisible.value = true
 }
 
@@ -195,16 +252,44 @@ const submit = async () => {
   }
   submitting.value = true
   try {
-    await orderApi.save(form.value)
+    const payload = { ...form.value, waterTypeId: form.value.productId }
+    await orderApi.save(payload)
     ElMessage.success('订单创建成功')
     dialogVisible.value = false
     loadData()
   } finally { submitting.value = false }
 }
 
-const showDetail = (row) => {
+const orderImages = ref([])
+const uploadType = ref(1)
+const uploading = ref(false)
+const uploadRef = ref(null)
+
+const showDetail = async (row) => {
   detailOrder.value = row
   detailVisible.value = true
+  try {
+    orderImages.value = await orderImageApi.listByOrder(row.id)
+  } catch {
+    orderImages.value = []
+  }
+}
+
+const handleUpload = async ({ file }) => {
+  uploading.value = true
+  try {
+    const url = await orderImageApi.upload(detailOrder.value.id, file, uploadType.value)
+    ElMessage.success('图片上传成功')
+    orderImages.value = await orderImageApi.listByOrder(detailOrder.value.id)
+  } catch (e) {
+    ElMessage.error('图片上传失败')
+  } finally {
+    uploading.value = false
+  }
+}
+
+const clearOrderImages = () => {
+  orderImages.value = []
 }
 
 const handleCancel = async (row) => {
@@ -221,9 +306,45 @@ const handleCancel = async (row) => {
   }
 }
 
+const handleUnconfirm = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定将订单 #${row.id} 改回"待收款"吗？`,
+      '修正收款', { type: 'warning', confirmButtonText: '确定修正', cancelButtonText: '返回' }
+    )
+    await deliveryApi.unconfirmCollection(row.id)
+    ElMessage.success('已改回待收款')
+    loadData()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error('修正失败: ' + (e.message || '未知错误'))
+  }
+}
+
+const handleReject = async (row) => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入拒单原因', '拒单', {
+      inputValue: '水站拒单',
+      confirmButtonText: '确定拒单',
+      cancelButtonText: '返回',
+      inputPlaceholder: '请输入拒单原因'
+    })
+    await deliveryApi.rejectOrder(row.id, value || '水站拒单')
+    ElMessage.success('已拒单并回池')
+    loadData()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error('拒单失败: ' + (e.message || '未知错误'))
+  }
+}
+
 onMounted(() => { loadData(); loadOptions() })
 </script>
 
 <style scoped>
-/* 全局 theme.css 已接管 page-header / page-title / header-actions */
+.order-images-section { margin-top: 4px; }
+.section-label { font-weight: 500; margin-bottom: 8px; color: #303133; }
+.image-list { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.image-item { position: relative; width: 120px; }
+.order-img { width: 120px; height: 120px; border-radius: 6px; border: 1px solid #dcdfe6; }
+.image-tag { position: absolute; top: 4px; right: 4px; }
+.upload-area { display: flex; align-items: center; }
 </style>

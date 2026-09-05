@@ -51,13 +51,15 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        Integer userId = claims.get("userId", Integer.class);
+        Number userIdNum = claims.get("userId", Number.class);
         String userType = claims.get("userType", String.class);
         String role = claims.get("role", String.class);
-        Integer stationId = claims.get("stationId", Integer.class);
-        Integer factoryId = claims.get("factoryId", Integer.class);
+        Number stationIdNum = claims.get("stationId", Number.class);
 
-        AuthContext.set(new AuthContext.AuthUser(userId, userType, role, stationId, factoryId));
+        Long userId = userIdNum != null ? userIdNum.longValue() : null;
+        Long stationId = stationIdNum != null ? stationIdNum.longValue() : null;
+
+        AuthContext.set(new AuthContext.AuthUser(userId, userType, role, stationId));
 
         return true;
     }

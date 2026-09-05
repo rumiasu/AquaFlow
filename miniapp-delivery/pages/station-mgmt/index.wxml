@@ -1,0 +1,34 @@
+<view class="container">
+  <view class="grid">
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/dashboard/index">
+      <text class="module-icon">📊</text>
+      <text class="module-title">数据看板</text>
+      <text class="module-desc">今日运营统计</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/orders/index">
+      <text class="module-icon">📋</text>
+      <text class="module-title">订单管理</text>
+      <text class="module-desc">查看本站订单</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/customers/index">
+      <text class="module-icon">👤</text>
+      <text class="module-title">客户查询</text>
+      <text class="module-desc">搜索本站客户</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/products/index">
+      <text class="module-icon">💧</text>
+      <text class="module-title">商品与库存</text>
+      <text class="module-desc">商品增删改查、库存、上架、水票</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/barrel-return/index">
+      <text class="module-icon">🔄</text>
+      <text class="module-title">退桶审批</text>
+      <text class="module-desc">审核客户退桶申请</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/staff/index">
+      <text class="module-icon">👥</text>
+      <text class="module-title">员工管理</text>
+      <text class="module-desc">管理配送员</text>
+    </view>
+  </view>
+</view>

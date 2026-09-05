@@ -3,10 +3,19 @@
   <view class="success-hero">
     <view class="success-circle">
       <view class="success-ring"></view>
-      <text class="success-check">✓</text>
+      <icon name="check" size="56rpx" color="#FFFFFF" />
     </view>
     <text class="success-title">下单成功</text>
-    <text class="success-desc">我们会尽快为您配送</text>
+    <text class="success-desc" wx:if="{{paymentStatus === 0}}">订单已创建，待支付 ¥{{orderAmount}}</text>
+    <text class="success-desc" wx:elif="{{paymentStatus === 2}}">支付已完成，我们会尽快为您配送</text>
+    <text class="success-desc" wx:else>我们会尽快为您配送</text>
+  </view>
+
+  <!-- 去支付按钮 -->
+  <view class="pay-section" wx:if="{{paymentStatus === 0}}">
+    <view class="pay-btn" bindtap="onPayNow">
+      <text class="pay-btn-text">去支付 ¥{{orderAmount}}</text>
+    </view>
   </view>
 
   <!-- 常用订单保存区 -->
@@ -14,7 +23,7 @@
     <view class="template-card" bindtap="onSaveTemplate">
       <view class="template-left">
         <view class="template-icon-wrap">
-          <text class="template-icon">⚡</text>
+          <icon name="zap" size="40rpx" color="#0EA5E9" />
         </view>
         <view class="template-text">
           <text class="template-title">存为常用订单</text>
@@ -30,7 +39,7 @@
     <view class="template-card saved">
       <view class="template-left">
         <view class="template-icon-wrap saved">
-          <text class="template-check">✓</text>
+          <icon name="check" size="40rpx" color="#10B981" />
         </view>
         <view class="template-text">
           <text class="template-title saved">已存为常用订单</text>
@@ -45,7 +54,7 @@
     <view class="action-row">
       <view class="action-card primary" bindtap="onViewOrders">
         <view class="action-icon-wrap primary">
-          <text class="action-icon-text">📋</text>
+          <icon name="order" size="44rpx" color="#0EA5E9" />
         </view>
         <view class="action-info">
           <text class="action-title">查看订单</text>
@@ -54,7 +63,7 @@
       </view>
       <view class="action-card secondary" bindtap="onBackHome">
         <view class="action-icon-wrap secondary">
-          <text class="action-icon-text">🏠</text>
+          <icon name="home" size="44rpx" color="#475569" />
         </view>
         <view class="action-info">
           <text class="action-title">返回首页</text>

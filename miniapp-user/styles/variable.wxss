@@ -1,39 +1,40 @@
-/* ========== AquaFlow 深邃蓝设计系统 ========== */
+/* ========== AquaFlow 清泉青蓝设计系统 ========== */
 page {
-  /* 主色 */
-  --primary-color: #1e40af;
-  --primary-light: #3b82f6;
-  --primary-dark: #1e3a8a;
-  --primary-bg: rgba(30, 64, 175, 0.08);
+  /* 主色 - 清泉青蓝（更贴近"水"的联想） */
+  --primary-color: #0EA5E9;
+  --primary-light: #38BDF8;
+  --primary-dark: #0369A1;
+  --primary-bg: rgba(14, 165, 233, 0.08);
 
-  --accent-color: #06b6d4;
-  --accent-gradient: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #06b6d4 100%);
-  --primary-gradient: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  --accent-color: #0EA5E9;
+  --accent-gradient: linear-gradient(135deg, #38BDF8 0%, #0EA5E9 100%);
+  --primary-gradient: linear-gradient(135deg, #0EA5E9 0%, #0369A1 100%);
+  --header-gradient: linear-gradient(135deg, #38BDF8 0%, #0EA5E9 50%, #0369A1 100%);
 
   /* 功能色 */
-  --success-color: #059669;
-  --warning-color: #d97706;
-  --error-color: #dc2626;
-  --info-color: #3b82f6;
+  --success-color: #10B981;
+  --warning-color: #F59E0B;
+  --error-color: #EF4444;
+  --info-color: #0EA5E9;
 
   /* 价格色 */
-  --price-color: #ea580c;
+  --price-color: #EF4444;
 
   /* 中性色 */
-  --text-primary: #0f172a;
+  --text-primary: #0F172A;
   --text-regular: #475569;
-  --text-secondary: #94a3b8;
-  --text-placeholder: #cbd5e1;
+  --text-secondary: #94A3B8;
+  --text-placeholder: #CBD5E1;
 
   /* 背景色 */
-  --bg-color: #f0f4f8;
-  --bg-white: #ffffff;
-  --bg-gray: #f8fafc;
-  --bg-card: #ffffff;
+  --bg-color: #F1F5F9;
+  --bg-white: #FFFFFF;
+  --bg-gray: #F8FAFC;
+  --bg-card: #FFFFFF;
 
   /* 边框 */
-  --border-color: #e2e8f0;
-  --border-light: #f1f5f9;
+  --border-color: #E2E8F0;
+  --border-light: #F1F5F9;
 
   /* 间距 */
   --spacing-xs: 8rpx;
@@ -58,8 +59,8 @@ page {
   --font-xxl: 40rpx;
 
   /* 阴影 */
-  --shadow-sm: 0 2rpx 8rpx rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 4rpx 16rpx rgba(15, 23, 42, 0.06);
-  --shadow-lg: 0 8rpx 32rpx rgba(15, 23, 42, 0.1);
-  --shadow-primary: 0 8rpx 24rpx rgba(30, 64, 175, 0.25);
+  --shadow-sm: 0 2rpx 12rpx rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4rpx 20rpx rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 8rpx 32rpx rgba(15, 23, 42, 0.08);
+  --shadow-primary: 0 8rpx 24rpx rgba(14, 165, 233, 0.25);
 }

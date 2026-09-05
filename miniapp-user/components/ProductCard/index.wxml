@@ -1,5 +1,5 @@
 <view class="product-card" bindtap="onProductTap">
-  <image class="product-image" src="{{product.image || '/assets/image/default-product.png'}}" mode="aspectFill"></image>
+  <image class="product-image" src="{{product.imageUrl || '/assets/image/default-product.png'}}" mode="aspectFill" style="width:100%;height:100%;"></image>
   <view class="product-info">
     <text class="product-name">{{product.name}}</text>
     <text class="product-spec">{{product.spec}}</text>

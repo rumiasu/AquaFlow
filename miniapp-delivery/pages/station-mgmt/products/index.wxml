@@ -1,0 +1,142 @@
+<view class="container">
+  <!-- 顶部统计 -->
+  <view class="top-bar">
+    <text class="count-text">共 {{list.length}} 个商品</text>
+    <view class="filter-tabs">
+      <text class="tab {{filterStatus === null ? 'active' : ''}}" bindtap="onFilter" data-status="">全部</text>
+      <text class="tab {{filterStatus === 1 ? 'active' : ''}}" bindtap="onFilter" data-status="1">在售</text>
+      <text class="tab {{filterStatus === 0 ? 'active' : ''}}" bindtap="onFilter" data-status="0">已停用</text>
+    </view>
+  </view>
+
+  <!-- 商品列表 (含库存/上架/水票) -->
+  <view class="product-card" wx:for="{{list}}" wx:key="id" data-item="{{item}}" bindtap="openEdit">
+    <view class="product-img" wx:if="{{item.imageUrl}}">
+      <image src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+    </view>
+    <view class="product-img product-img-placeholder" wx:else>
+      <text>💧</text>
+    </view>
+    <view class="product-info">
+      <view class="name-row">
+        <text class="product-name">{{item.name}}</text>
+        <text class="status-tag {{item.status === 1 ? 'on' : 'off'}}">{{item.status === 1 ? '正常' : '已停用'}}</text>
+      </view>
+      <text class="product-brand" wx:if="{{item.brand}}">{{item.brand}} · {{item.spec}}</text>
+
+      <view class="info-row">
+        <text class="product-price">¥{{item.price}}</text>
+        <text class="product-deposit" wx:if="{{item.deposit}}">押金 ¥{{item.deposit}}</text>
+      </view>
+
+      <view class="tag-row">
+        <view class="stock-tag {{item.quantity > 0 ? 'in' : 'out'}}">
+          库存 {{item.quantity || 0}}
+        </view>
+        <view class="shelf-tag {{item.enabled === 1 ? 'on' : 'off'}}">
+          {{item.enabled === 1 ? '商城上架' : '未上架'}}
+        </view>
+        <view class="ticket-tag" wx:if="{{item.ticketEnabled === 1}}">
+          水票 ¥{{item.ticketPrice || 0}}
+        </view>
+        <view class="priority-tag {{item.priorityDisplay === 1 ? 'on' : ''}}" catchtap="onTogglePriority" data-id="{{item.id}}" data-value="{{item.priorityDisplay}}">
+          {{item.priorityDisplay === 1 ? '★ 优先展示' : '优先展示'}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{list.length === 0}}">
+    <text>暂无商品，点击右下角 + 新增</text>
+  </view>
+
+  <!-- 新增按钮 (FAB) -->
+  <view class="fab" bindtap="openAdd">
+    <text class="fab-icon">+</text>
+  </view>
+
+  <!-- 编辑/新增弹窗 -->
+  <view class="modal-mask" wx:if="{{showEdit}}" catchtouchmove="preventMove" bindtap="closeEdit">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">{{isAdd ? '新增商品' : '编辑商品'}}</view>
+
+      <view class="modal-img" bindtap="uploadImage">
+        <image class="preview-img" wx:if="{{editForm.imageUrl}}" src="{{editForm.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+        <view class="preview-img preview-placeholder" wx:else>
+          <text>💧</text>
+          <text>点击上传</text>
+        </view>
+        <text class="img-upload-hint">{{uploading ? '上传中...' : '点击换图'}}</text>
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">商品名称</text>
+        <input class="form-input" value="{{editForm.name}}" data-field="name" bindinput="onFieldChange" placeholder="如：农夫山泉18.9L" />
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">品牌</text>
+        <input class="form-input" value="{{editForm.brand}}" data-field="brand" bindinput="onFieldChange" placeholder="如：农夫山泉" />
+      </view>
+
+      <view class="form-row">
+        <view class="form-group half">
+          <text class="form-label">类型</text>
+          <picker class="form-picker" bindchange="onCategoryChange" value="{{editForm.categoryIndex}}" range="{{categoryNames}}">
+            <view class="picker-text">{{categoryNames[editForm.categoryIndex] || '请选择'}}</view>
+          </picker>
+        </view>
+        <view class="form-group half">
+          <text class="form-label">规格</text>
+          <input class="form-input" value="{{editForm.spec}}" data-field="spec" bindinput="onFieldChange" placeholder="如：18.9L" />
+        </view>
+      </view>
+
+      <view class="form-row">
+        <view class="form-group half">
+          <text class="form-label">售价(元)</text>
+          <input class="form-input" value="{{editForm.price}}" data-field="price" bindinput="onFieldChange" placeholder="0.00" type="digit" />
+        </view>
+        <view class="form-group half" wx:if="{{editForm.category === 1}}">
+          <text class="form-label">押金(元)</text>
+          <input class="form-input" value="{{editForm.deposit}}" data-field="deposit" bindinput="onFieldChange" placeholder="0" type="digit" />
+        </view>
+      </view>
+
+      <view class="form-row">
+        <view class="form-group half">
+          <text class="form-label">库存(桶)</text>
+          <input class="form-input" value="{{editForm.quantity}}" data-field="quantity" bindinput="onFieldChange" placeholder="0" type="number" />
+        </view>
+        <view class="form-group half">
+          <text class="form-label">本站售价(选填)</text>
+          <input class="form-input" value="{{editForm.salePrice}}" data-field="salePrice" bindinput="onFieldChange" placeholder="默认跟售价" type="digit" />
+        </view>
+      </view>
+
+      <!-- 开关区 -->
+      <view class="switch-row">
+        <view class="switch-item">
+          <text class="switch-label">上架商城</text>
+          <switch checked="{{editForm.enabled === 1}}" bindchange="onSwitchChange" data-field="enabled" />
+        </view>
+        <view class="switch-item" wx:if="{{editForm.category !== 3}}">
+          <text class="switch-label">推出水票</text>
+          <switch checked="{{editForm.ticketEnabled === 1}}" bindchange="onSwitchChange" data-field="ticketEnabled" />
+        </view>
+      </view>
+
+      <!-- 水票价格 (仅非饮水器且推出水票时显示) -->
+      <view class="form-group" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled === 1}}">
+        <text class="form-label">水票价格(元/张)</text>
+        <input class="form-input" value="{{editForm.ticketPrice}}" data-field="ticketPrice" bindinput="onFieldChange" placeholder="如：500" type="digit" />
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="closeEdit" wx:if="{{!isAdd}}">取消</button>
+        <button class="btn-delete" bindtap="onDelete" wx:if="{{!isAdd}}" loading="{{deleting}}" disabled="{{deleting}}">停用</button>
+        <button class="btn-save" bindtap="onSave" loading="{{saving}}" disabled="{{saving}}">{{isAdd ? '创建' : '保存'}}</button>
+      </view>
+    </view>
+  </view>
+</view>

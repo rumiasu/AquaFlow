@@ -1,3 +1,6 @@
+-- STATUS: SUPERSEDED BY schema.sql
+-- 此文件中的所有操作已被 schema.sql 吸收，新环境无需执行。
+
 -- Phase 4: 审计日志表
 CREATE TABLE IF NOT EXISTS audit_log (
     id INT AUTO_INCREMENT PRIMARY KEY,

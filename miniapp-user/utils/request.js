@@ -1,5 +1,6 @@
 // 网络请求封装（JWT 双 Token + 自动续期）
 const { getBaseUrl } = require('../config/api')
+const { STORAGE_KEYS } = require('../utils/storage-keys')
 
 let isRefreshing = false
 let refreshQueue = []
@@ -8,7 +9,7 @@ const request = (options) => {
   return new Promise((resolve, reject) => {
     const app = getApp()
     const baseUrl = getBaseUrl()
-    const accessToken = app.globalData.accessToken || wx.getStorageSync('accessToken')
+    const accessToken = app.globalData.accessToken || wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
 
     const header = {
       'Content-Type': 'application/json',
@@ -79,7 +80,7 @@ function handle401(originalOptions, resolve, reject) {
   }
 
   isRefreshing = true
-  const refreshToken = wx.getStorageSync('refreshToken')
+  const refreshToken = wx.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
 
   if (!refreshToken) {
     clearAndRedirect()
@@ -99,8 +100,8 @@ function handle401(originalOptions, resolve, reject) {
         const app = getApp()
         app.globalData.accessToken = accessToken
         if (newRefreshToken) app.globalData.refreshToken = newRefreshToken
-        wx.setStorageSync('accessToken', accessToken)
-        if (newRefreshToken) wx.setStorageSync('refreshToken', newRefreshToken)
+        wx.setStorageSync(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
+        if (newRefreshToken) wx.setStorageSync(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken)
 
         // 重试原始请求
         retryRequest(originalOptions, accessToken).then(resolve).catch(reject)
@@ -173,9 +174,9 @@ function processQueue(error, token) {
 }
 
 function clearAndRedirect() {
-  wx.removeStorageSync('accessToken')
-  wx.removeStorageSync('refreshToken')
-  wx.removeStorageSync('userInfo')
+  wx.removeStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
+  wx.removeStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
+  wx.removeStorageSync(STORAGE_KEYS.USER_INFO)
   const app = getApp()
   if (app) {
     app.globalData.accessToken = null
@@ -183,7 +184,7 @@ function clearAndRedirect() {
     app.globalData.userInfo = null
     app.globalData.isLogin = false
   }
-  wx.navigateTo({ url: '/pages/login/index' })
+  wx.redirectTo({ url: '/pages/login/index' })
 }
 
 const get = (url, query) => request({ url, method: 'GET', query })

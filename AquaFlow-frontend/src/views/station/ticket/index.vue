@@ -13,8 +13,8 @@
       <el-table :data="tickets" border stripe v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="customerId" label="客户ID" width="80" />
-        <el-table-column prop="waterTypeName" label="水类型" />
-        <el-table-column prop="waterTypeSpec" label="规格" />
+        <el-table-column prop="productName" label="商品" />
+        <el-table-column prop="productSpec" label="规格" />
         <el-table-column prop="remainQuantity" label="剩余张数" width="100" />
       </el-table>
     </el-card>
@@ -29,7 +29,7 @@
       <el-table :data="records" border stripe v-loading="recordsLoading">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="customerId" label="客户ID" width="80" />
-        <el-table-column prop="waterTypeName" label="水类型" />
+        <el-table-column prop="productName" label="商品" />
         <el-table-column prop="increaseQty" label="发放" width="80">
           <template #default="{ row }">
             <span v-if="row.increaseQty > 0" class="text-success">+{{ row.increaseQty }}</span>
@@ -51,9 +51,9 @@
         <el-form-item label="客户ID">
           <el-input-number v-model="addForm.customerId" :min="1" />
         </el-form-item>
-        <el-form-item label="水类型">
-          <el-select v-model="addForm.waterTypeId" placeholder="选择水类型">
-            <el-option v-for="w in waterTypes" :key="w.id" :label="w.name + ' ' + w.spec" :value="w.id" />
+        <el-form-item label="商品">
+          <el-select v-model="addForm.productId" placeholder="选择商品">
+            <el-option v-for="p in products" :key="p.id" :label="p.name + ' ' + p.spec" :value="p.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="数量">
@@ -70,17 +70,17 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { ticketApi, ticketRecordApi, waterTypeApi } from '../../../api'
+import { ticketApi, ticketRecordApi, productApi } from '../../../api'
 import { ElMessage } from 'element-plus'
 
 const customerId = ref('')
 const tickets = ref([])
 const records = ref([])
-const waterTypes = ref([])
+const products = ref([])
 const loading = ref(false)
 const recordsLoading = ref(false)
 const addDialog = ref(false)
-const addForm = ref({ customerId: 1, waterTypeId: null, quantity: 1 })
+const addForm = ref({ customerId: 1, productId: null, quantity: 1 })
 
 const loadData = async () => {
   if (!customerId.value) return
@@ -100,9 +100,9 @@ const loadData = async () => {
 }
 
 const showAddTicket = async () => {
-  addForm.value = { customerId: parseInt(customerId.value) || 1, waterTypeId: null, quantity: 1 }
-  if (waterTypes.value.length === 0) {
-    waterTypes.value = await waterTypeApi.list()
+  addForm.value = { customerId: parseInt(customerId.value) || 1, productId: null, quantity: 1 }
+  if (products.value.length === 0) {
+    products.value = await productApi.list()
   }
   addDialog.value = true
 }

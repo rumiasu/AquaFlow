@@ -39,21 +39,53 @@
 }
 
 /* ===== 定位按钮（嵌入区域行右侧） ===== */
-.loc-btn {
-  width: 72rpx;
-  height: 72rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background: #eef2ff;
-  border-radius: 50%;
-  margin-left: 12rpx;
+.auto-row {
+  border-bottom: none;
 }
 
-.loc-icon {
-  font-size: 32rpx;
-  line-height: 1;
+.auto-btn {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  background: #0EA5E9;
+  border-radius: 32rpx;
+  padding: 0 28rpx;
+  height: 56rpx;
+  flex-shrink: 0;
+}
+
+.auto-btn text {
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+/* ===== 省市区 ===== */
+.region-row {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16rpx 0;
+}
+
+.region-row .field-label {
+  margin-bottom: 12rpx;
+}
+
+.region-fields {
+  display: flex;
+  gap: 12rpx;
+  width: 100%;
+}
+
+.region-input {
+  flex: 1;
+  height: 72rpx;
+  font-size: 28rpx;
+  color: #333;
+  background: #f5f6f8;
+  border-radius: 8rpx;
+  padding: 0 16rpx;
+  text-align: center;
 }
 
 /* ===== 区域快捷建议 ===== */
@@ -127,13 +159,27 @@
   align-items: center;
   justify-content: center;
   margin-right: 12rpx;
-  font-size: 24rpx;
-  color: #fff;
+  position: relative;
+}
+
+.check-box::after {
+  content: '';
+  position: absolute;
+  width: 16rpx;
+  height: 28rpx;
+  border-right: 3rpx solid #fff;
+  border-bottom: 3rpx solid #fff;
+  transform: rotate(45deg) translate(-2rpx, -4rpx);
+  opacity: 0;
 }
 
 .check-box.checked {
   background: #1e40af;
   border-color: #1e40af;
+}
+
+.check-box.checked::after {
+  opacity: 1;
 }
 
 .default-text {

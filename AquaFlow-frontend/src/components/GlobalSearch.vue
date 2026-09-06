@@ -65,8 +65,8 @@ const isEmpty = computed(() => {
     (!r.orders || !r.orders.length)
 })
 
-const orderStatusText = (s) => ({ 1: '待分配', 2: '配送中', 3: '已完成', 4: '已分配', 5: '已取消', 6: '待收款', 7: '已拒单' }[s] || '未知')
-const orderTagType = (s) => ({ 1: 'warning', 2: '', 3: 'success', 4: 'info', 5: 'danger', 6: 'warning', 7: 'danger' }[s] || 'info')
+const orderStatusText = (s) => ({ 1: '待配送', 2: '配送中', 3: '已送达', 4: '已完成', 5: '已取消' }[s] || '未知')
+const orderTagType = (s) => ({ 1: 'warning', 2: 'primary', 3: 'success', 4: 'info', 5: 'danger' }[s] || 'info')
 
 watch(() => props.modelValue, (v) => { visible.value = v; if (!v) { keyword.value = ''; results.value = null } })
 watch(visible, (v) => emit('update:modelValue', v))

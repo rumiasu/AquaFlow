@@ -4,7 +4,7 @@ const orderStore = {
     currentOrder: null,
     orderList: [],
     filters: {
-      status: 0, // 0: 全部, 1: 待配送, 2: 配送中, 3: 已完成
+      status: 0, // 0: 全部, 1: 待配送, 2: 配送中, 3: 已送达, 4: 已完成, 5: 已取消
       page: 1,
       pageSize: 10
     }

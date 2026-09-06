@@ -67,8 +67,8 @@
         <el-table-column prop="addressDetail" label="地址" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="90">
           <template #default="{ row }">
-            <el-tag size="small" :type="{1:'warning',2:'',3:'success',4:'info',5:'danger',6:'warning',7:'danger'}[row.status] || 'info'">
-              {{ {1:'待分配',2:'配送中',3:'已完成',4:'待分配',5:'已取消',6:'待收款',7:'已拒单'}[row.status] || '未知' }}
+            <el-tag size="small" :type="{1:'warning',2:'primary',3:'success',4:'info',5:'danger'}[row.status] || 'info'">
+              {{ {1:'待配送',2:'配送中',3:'已送达',4:'已完成',5:'已取消'}[row.status] || '未知' }}
             </el-tag>
           </template>
         </el-table-column>

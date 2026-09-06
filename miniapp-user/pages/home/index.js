@@ -2,7 +2,7 @@ const { getQuickOrder } = require('../../api/template')
 const { getMyProducts, getStationProducts, getProducts } = require('../../api/product')
 const { getOrders, getOrderDetail, getMyLatestStation } = require('../../api/order')
 const { getAddresses } = require('../../api/address')
-const { getBarrelSummaryByType } = require('../../api/barrel')
+const { getBarrelSummary, getBarrelSummaryByType } = require('../../api/barrel')
 const { getUnreadNotifications, markAllRead } = require('../../api/notification')
 const { getPublicStations } = require('../../api/station')
 const { storage, stationStorage } = require('../../utils/storage')
@@ -21,7 +21,8 @@ Page({
     cart: {},
     cartCount: 0,
     note: '',
-    barrelByType: [],
+    barrelSummary: { heldBuckets: 0, owedBuckets: 0, deliveryBuckets: 0, depositBalance: 0, depositTotal: 0 },
+    hasBarrelModule: false,
     recentOrders: [],
     templateItems: [],
     templateName: '',
@@ -224,11 +225,12 @@ async loadData() {
       const app = getApp()
       const stationId = this.data.currentStationId
 
-      const [quickRes, ordersRes, addressRes, barrelRes, productsRes] = await Promise.all([
+      const [quickRes, ordersRes, addressRes, barrelRes, summaryRes, productsRes] = await Promise.all([
         getQuickOrder(stationId).catch(() => null),
         getOrders({}).catch(() => null),
         getAddresses().catch(() => null),
         getBarrelSummaryByType(stationId).catch(() => null),
+        getBarrelSummary(stationId).catch(() => null),
         stationId ? getStationProducts(stationId).catch(() => null) : Promise.resolve(null)
       ])
 
@@ -243,7 +245,11 @@ async loadData() {
       if (barrelRes && barrelRes.data) {
         barrelByType = barrelRes.data
       }
-      this.setData({ barrelByType })
+
+      let barrelSummary = { heldBuckets: 0, owedBuckets: 0, deliveryBuckets: 0, depositBalance: 0, depositTotal: 0 }
+      if (summaryRes && summaryRes.data) {
+        barrelSummary = summaryRes.data
+      }
 
       let products = []
       if (stationId && productsRes && productsRes.data) {
@@ -255,20 +261,62 @@ async loadData() {
         if (cart[p.id] === undefined) cart[p.id] = 0
       })
 
-      const barrelProductIds = new Set()
+      // 桶资产明细 merge 进商品卡：本站有售可加购，下架/非本站商品仅展示明细
+      const formatMoney = (n) => {
+        const v = Number(n) || 0
+        return (Math.round(v * 100) / 100).toFixed(v % 1 === 0 ? 0 : 2)
+      }
+      const barrelProducts = []
       ;(barrelByType || []).forEach(b => {
-        const pid = b.productId || b.waterTypeId
-        if (pid && (b.assetQty || 0) > 0) barrelProductIds.add(pid)
+        const pid = b.productId != null ? b.productId : b.waterTypeId
+        if (pid == null) return
+        const assetQty = b.assetQty != null
+          ? (b.assetQty || 0)
+          : Math.max(0, (b.holdingQty || 0) - (b.confirmedQty || 0))
+        const inTransitQty = b.inTransitQty || 0
+        const depositTotal = b.depositTotal != null
+          ? (b.depositTotal || 0)
+          : (Number(b.deposit) || 0) * assetQty
+        if (assetQty <= 0 && inTransitQty <= 0 && depositTotal <= 0) return
+
+        const p = products.find(x => String(x.id) === String(pid))
+        if (p) {
+          barrelProducts.push({
+            ...p,
+            barrelQty: assetQty,
+            inTransitQty,
+            depositTotal,
+            depositTotalText: formatMoney(depositTotal),
+            hasProduct: true
+          })
+        } else {
+          barrelProducts.push({
+            id: pid,
+            name: b.productName || '未知商品',
+            spec: b.productSpec || '',
+            brand: '',
+            imageUrl: '',
+            price: null,
+            deposit: null,
+            barrelQty: assetQty,
+            inTransitQty,
+            depositTotal,
+            depositTotalText: formatMoney(depositTotal),
+            hasProduct: false
+          })
+        }
       })
-      const barrelProducts = products.filter(p => barrelProductIds.has(p.id)).map(p => {
-        const b = barrelByType.find(x => (x.productId || x.waterTypeId) === p.id)
-        return { ...p, barrelQty: b ? (b.assetQty || 0) : 0 }
-      })
+
+      const hasBarrelModule = barrelProducts.length > 0
+        || (barrelSummary.heldBuckets || 0) > 0
+        || (barrelSummary.deliveryBuckets || 0) > 0
+        || (barrelSummary.owedBuckets || 0) > 0
+        || (barrelSummary.depositBalance || 0) > 0
 
       const cartCount = app.getCartCount(stationId)
 
       // products 必须 always setData，即使后面因无地址返回 early
-      this.setData({ products, barrelProducts, cart, cartCount })
+      this.setData({ products, barrelProducts, cart, cartCount, barrelSummary, hasBarrelModule })
 
       if (!address) {
         this.setData({ state: 'noAddress' })
@@ -277,7 +325,7 @@ async loadData() {
 
       let activeOrders = []
       if (ordersRes && ordersRes.data) {
-        activeOrders = ordersRes.data.filter(o => o.status === 1 || o.status === 3)
+        activeOrders = ordersRes.data.filter(o => o.status === 1 || o.status === 2)
       }
       this.setData({ activeOrders })
 
@@ -379,10 +427,6 @@ async loadData() {
 
   onAddressTap() {
     wx.navigateTo({ url: '/pages/address/list?from=home' })
-  },
-
-  onViewBarrel() {
-    wx.navigateTo({ url: '/pages/barrel/index' })
   },
 
   onBannerTap() {
@@ -518,7 +562,7 @@ async loadData() {
   },
 
   onSubmit() {
-    const { address, barrelByType } = this.data
+    const { address } = this.data
     const items = this.collectCartItems()
 
     if (!address) {
@@ -529,14 +573,6 @@ async loadData() {
       wx.showToast({ title: '请选择商品', icon: 'none' })
       return
     }
-
-    const barrelHeld = {}
-    ;(barrelByType || []).forEach(b => {
-      const pid = b.productId || b.waterTypeId
-      if (pid) {
-        barrelHeld[pid] = Math.max(0, b.assetQty != null ? b.assetQty : (b.holdingQty || 0) - (b.confirmedQty || 0))
-      }
-    })
 
     const itemsParam = items.map(it => ({
       productId: it.productId,

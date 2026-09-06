@@ -66,10 +66,6 @@ Page({
     wx.navigateTo({ url: '/pages/mine/edit' })
   },
 
-  onBarrelTap() {
-    wx.navigateTo({ url: '/pages/barrel/index' })
-  },
-
   onRecharge() {
     wx.navigateTo({ url: '/pages/ticket/index' })
   },

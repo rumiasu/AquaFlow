@@ -27,4 +27,9 @@ public interface BarrelService {
      * 获取按水类型分组的桶资产摘要（用于首页展示）
      */
     List<Map<String, Object>> getBarrelSummaryByType(Long customerId, Long stationId);
+
+    /**
+     * 获取当前客户的桶资产站级汇总（用于首页/详情页顶部汇总）
+     */
+    Map<String, Object> getBarrelSummary(Long customerId, Long stationId);
 }

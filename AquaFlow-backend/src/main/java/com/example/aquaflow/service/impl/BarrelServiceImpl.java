@@ -2,18 +2,26 @@ package com.example.aquaflow.service.impl;
 
 import com.example.aquaflow.entity.BarrelRecord;
 import com.example.aquaflow.entity.CustomerBarrelAsset;
+import com.example.aquaflow.entity.CustomerBarrelInTransit;
 import com.example.aquaflow.entity.CustomerBarrelOwed;
+import com.example.aquaflow.entity.Product;
 import com.example.aquaflow.mapper.BarrelRecordMapper;
 import com.example.aquaflow.mapper.CustomerBarrelAssetMapper;
+import com.example.aquaflow.mapper.CustomerBarrelInTransitMapper;
 import com.example.aquaflow.mapper.CustomerBarrelOwedMapper;
 import com.example.aquaflow.mapper.CustomerDepositAccountMapper;
 import com.example.aquaflow.mapper.DepositRecordMapper;
+import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.service.BarrelService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -35,6 +43,12 @@ public class BarrelServiceImpl implements BarrelService {
     @Autowired
     private DepositRecordMapper depositRecordMapper;
 
+    @Autowired
+    private ProductMapper productMapper;
+
+    @Autowired
+    private CustomerBarrelInTransitMapper customerBarrelInTransitMapper;
+
     @Override
     public List<CustomerBarrelAsset> getAssets(Long customerId, Long stationId) {
         return customerBarrelAssetMapper.listByCustomerAndStation(customerId, stationId);
@@ -45,17 +59,109 @@ public class BarrelServiceImpl implements BarrelService {
         return barrelRecordMapper.listByCustomerAndStation(customerId, stationId);
     }
 
-@Override
+    @Override
     public List<Map<String, Object>> getBarrelSummaryByType(Long customerId, Long stationId) {
         List<CustomerBarrelAsset> assets = customerBarrelAssetMapper.listByCustomerAndStation(customerId, stationId);
-        return assets.stream().map(asset -> {
-            Map<String, Object> map = new java.util.HashMap<>();
-            map.put("productId", asset.getProductId());
-            map.put("assetQty", asset.getQuantity());
-            map.put("holdingQty", asset.getQuantity());
-            map.put("confirmedQty", 0);
-            return map;
-        }).collect(java.util.stream.Collectors.toList());
+
+        // 在途桶按产品聚合（排除已取消）
+        Map<Long, Integer> inTransitByProduct = new HashMap<>();
+        List<CustomerBarrelInTransit> transits = customerBarrelInTransitMapper.listByCustomerAndStation(customerId, stationId);
+        if (transits != null) {
+            for (CustomerBarrelInTransit t : transits) {
+                if (t.getStatus() != null && "CANCELLED".equals(t.getStatus())) continue;
+                Long pid = t.getProductId();
+                if (pid == null) continue;
+                inTransitByProduct.put(pid, inTransitByProduct.getOrDefault(pid, 0) + (t.getQty() != null ? t.getQty() : 0));
+            }
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (CustomerBarrelAsset asset : assets) {
+            Long pid = asset.getProductId();
+            Product product = pid != null ? productMapper.getById(pid) : null;
+            int assetQty = asset.getQuantity() != null ? asset.getQuantity() : 0;
+            BigDecimal deposit = product != null && product.getDeposit() != null ? product.getDeposit() : BigDecimal.ZERO;
+            int inTransitQty = inTransitByProduct.getOrDefault(pid, 0);
+            BigDecimal depositTotal = deposit.multiply(BigDecimal.valueOf(assetQty));
+            Map<String, Object> map = new HashMap<>();
+            map.put("productId", pid);
+            map.put("productName", product != null ? product.getName() : "未知商品");
+            map.put("productSpec", product != null ? product.getSpec() : "");
+            map.put("assetQty", assetQty);
+            map.put("inTransitQty", inTransitQty);
+            map.put("deposit", deposit);
+            map.put("depositTotal", depositTotal);
+            result.add(map);
+        }
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> getBarrelSummary(Long customerId, Long stationId) {
+        Map<String, Object> summary = new HashMap<>();
+
+        // 持有桶 + 桶押金合计
+        List<CustomerBarrelAsset> assets = customerBarrelAssetMapper.listByCustomerAndStation(customerId, stationId);
+        int heldBuckets = 0;
+        BigDecimal depositTotal = BigDecimal.ZERO;
+        if (assets != null) {
+            for (CustomerBarrelAsset a : assets) {
+                int q = a.getQuantity() != null ? a.getQuantity() : 0;
+                heldBuckets += q;
+                Product p = a.getProductId() != null ? productMapper.getById(a.getProductId()) : null;
+                BigDecimal dep = p != null && p.getDeposit() != null ? p.getDeposit() : BigDecimal.ZERO;
+                depositTotal = depositTotal.add(dep.multiply(BigDecimal.valueOf(q)));
+            }
+        }
+
+        // 欠桶（站点级，不区分产品）
+        int owedBuckets = 0;
+        CustomerBarrelOwed owed = customerBarrelOwedMapper.get(customerId, stationId);
+        if (owed != null && owed.getOwedQty() != null) owedBuckets = owed.getOwedQty();
+
+        // 在途桶
+        int deliveryBuckets = 0;
+        List<CustomerBarrelInTransit> transits = customerBarrelInTransitMapper.listByCustomerAndStation(customerId, stationId);
+        if (transits != null) {
+            for (CustomerBarrelInTransit t : transits) {
+                if (t.getStatus() != null && "CANCELLED".equals(t.getStatus())) continue;
+                deliveryBuckets += t.getQty() != null ? t.getQty() : 0;
+            }
+        }
+
+        // 退桶记录统计（type=2 为退桶申请）
+        int pendingReturns = 0, confirmedReturns = 0, returnBuckets = 0;
+        List<BarrelRecord> records = barrelRecordMapper.listByCustomerAndStation(customerId, stationId);
+        if (records != null) {
+            for (BarrelRecord r : records) {
+                if (r.getType() != null && r.getType() == 2) {
+                    returnBuckets++;
+                    if (r.getStatus() != null && r.getStatus() == 1) pendingReturns++;
+                    else if (r.getStatus() != null && r.getStatus() >= 2) confirmedReturns++;
+                }
+            }
+        }
+
+        // 押金账户余额
+        BigDecimal depositBalance = customerDepositAccountMapper.getBalance(customerId, stationId);
+        if (depositBalance == null) depositBalance = BigDecimal.ZERO;
+
+        // 平均单桶押金（用于详情页"最近一次每桶押金"展示）
+        BigDecimal depositPerBucket = heldBuckets > 0
+                ? depositTotal.divide(BigDecimal.valueOf(heldBuckets), 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        summary.put("heldBuckets", heldBuckets);
+        summary.put("actualBuckets", heldBuckets);
+        summary.put("owedBuckets", owedBuckets);
+        summary.put("deliveryBuckets", deliveryBuckets);
+        summary.put("returnBuckets", returnBuckets);
+        summary.put("pendingReturns", pendingReturns);
+        summary.put("confirmedReturns", confirmedReturns);
+        summary.put("depositBalance", depositBalance);
+        summary.put("depositTotal", depositTotal);
+        summary.put("depositPerBucket", depositPerBucket);
+        return summary;
     }
 
     @Override

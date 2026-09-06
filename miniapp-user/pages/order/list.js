@@ -7,12 +7,12 @@ Page({
     tabs: [
       { name: '全部', status: 0 },
       { name: '待配送', status: 1 },
-      { name: '配送中', status: 3 },
-      { name: '已送达', status: 4 },
-      { name: '已完成', status: 5 },
+      { name: '配送中', status: 2 },
+      { name: '已送达', status: 3 },
+      { name: '已完成', status: 4 },
       // P6: 抢单池tab已冻结 — 客户选站后不再有"待认领"状态
       // { name: '待认领', status: 7 },
-      { name: '已取消', status: 6 }
+      { name: '已取消', status: 5 }
     ],
     orders: []
   },

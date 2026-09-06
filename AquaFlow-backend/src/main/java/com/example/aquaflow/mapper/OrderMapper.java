@@ -1,5 +1,6 @@
 package com.example.aquaflow.mapper;
 
+import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.entity.Orders;
 import org.apache.ibatis.annotations.*;
 
@@ -108,7 +109,7 @@ public interface OrderMapper {
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
-            "where o.delivery_staff_id = #{staffId} and o.status = 3 " +
+            "where o.delivery_staff_id = #{staffId} and o.status = " + OrderStatus.DELIVERING + " " +
             "order by o.update_time desc")
     List<Orders> listBarrelRecords(@Param("staffId") Long staffId);
 
@@ -139,7 +140,7 @@ public interface OrderMapper {
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
             "where o.station_id = #{stationId} " +
-            "and o.status = 6 " +
+            "and o.status = " + OrderStatus.CANCELLED + " " +
             "order by o.update_time desc")
     List<Orders> listStationExceptionOrders(@Param("stationId") Long stationId);
 

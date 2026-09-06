@@ -1,20 +1,17 @@
 const ORDER_STATUS = {
   PENDING: 1,
-  DELIVERING: 3,
-  DELIVERED: 4,
-  COMPLETED: 5,
-  CANCELLED: 6,
-  DELIVERED_PENDING_PAYMENT: 4,
-  REJECTED: 7
+  DELIVERING: 2,
+  DELIVERED: 3,
+  COMPLETED: 4,
+  CANCELLED: 5
 }
 
 const ORDER_STATUS_TEXT = {
   1: '待配送',
-  3: '配送中',
-  4: '已送达',
-  5: '已完成',
-  6: '已取消',
-  7: '待水站认领'
+  2: '配送中',
+  3: '已送达',
+  4: '已完成',
+  5: '已取消'
 }
 
 const ORDER_SOURCE = {

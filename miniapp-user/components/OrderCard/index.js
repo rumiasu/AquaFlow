@@ -14,11 +14,10 @@ Component({
     'order.status': function (status) {
       const map = {
         1: { text: '待配送', class: 'warning' },
-        3: { text: '配送中', class: 'primary' },
-        4: { text: '已送达', class: 'success' },
-        5: { text: '已完成', class: 'success' },
-        6: { text: '已取消', class: 'cancelled' },
-        7: { text: '已拒单', class: 'cancelled' }
+        2: { text: '配送中', class: 'primary' },
+        3: { text: '已送达', class: 'success' },
+        4: { text: '已完成', class: 'success' },
+        5: { text: '已取消', class: 'cancelled' }
       }
       const info = map[status] || { text: '未知', class: 'default' }
       this.setData({ statusText: info.text, statusClass: info.class })

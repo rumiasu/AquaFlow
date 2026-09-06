@@ -1,6 +1,6 @@
 # AquaFlow Backend
 
-Spring Boot 4.0.6 + MyBatis + MySQL 的后端服务，为管理后台（厂长/站长/配送员）和微信小程序（客户）提供统一 API。
+Spring Boot 4.0.6 + MyBatis + MySQL 的后端服务，为管理后台（站长/配送员）和微信小程序（客户）提供统一 API。
 
 ## 项目规模
 
@@ -8,10 +8,10 @@ Spring Boot 4.0.6 + MyBatis + MySQL 的后端服务，为管理后台（厂长/�
 |------|------|
 | Java 文件 | 150 |
 | 实体类 | 24 |
-| Mapper 接口 | 24（含厂长模块 2 个） |
-| Controller | 26（含厂长模块 5 个） |
-| Service 接口 | 26（含厂长模块 5 个） |
-| Service 实现 | 23（含厂长模块 5 个） |
+| Mapper 接口 | 24 |
+| Controller | 26 |
+| Service 接口 | 26 |
+| Service 实现 | 23 |
 | 数据库表 | 32 |
 
 ## 项目结构
@@ -25,31 +25,21 @@ com.example.aquaflow
 │   ├── WebMvcConfig.java                 # MVC 配置（AuthInterceptor 注册）
 │   └── PasswordInitializer.java          # 初始密码 BCrypt 加密
 ├── constant/
-│   ├── OrderStatus.java                  # 订单状态（1待组批/2配送中/3已完成/4已组批/5已取消）
-│   ├── BatchStatus.java                  # 批次状态（1待出发/2配送中/3已完成）
+│   ├── OrderStatus.java                  # 订单状态（1待配送/2配送中/3已送达/4已完成/5已取消，canonical 连续编号）
 │   └── PaymentStatus.java                # 支付状态（1待确认/2已付款/3已退款/4已取消）
 ├── entity/                               # 24 个实体
-│   ├── 核心业务: Customer, Orders, Address, Batch, Inventory, WaterType
+│   ├── 核心业务: Customer, Orders, Address, Inventory, WaterType
 │   ├── 资产管理: TicketAccount, TicketRecord, DepositRecord, BarrelRecord
-│   ├── 组织: Factory, Station, Staff, CompanyInfo
-│   ├── 运营: RiskAlert, StockTransfer, PaymentRecord
+│   ├── 组织: Station, Staff, CompanyInfo
+│   ├── 运营: PaymentRecord
 │   ├── 快捷: OrderTemplate, OrderTemplateItem, OrderImage
 │   └── 基础设施: AuditLog, CustomerStationRecord, StationPaymentConfig
-├── mapper/                               # MyBatis Mapper（22 个 + factory 2 个）
-│   └── factory/                          # 运营平台 Mapper（RiskAlertMapper, StationAnalysisMapper 等）
+├── mapper/                               # MyBatis Mapper
 ├── service/
-│   ├── impl/                             # 业务实现（18 个）
-│   ├── factory/                          # 厂长业务接口（5 个）
-│   └── impl/factory/                     # 厂长业务实现（5 个）
+│   └── impl/                             # 业务实现
 ├── controller/
 │   ├── LoginController.java              # 统一登录/登出/续期/改密/获取当前用户
-│   ├── factory/                          # 厂长 API（5 个 Controller）
-│   │   ├── StationOperationController    # 水站运营总览
-│   │   ├── StationAnalysisController     # 数据分析
-│   │   ├── StationProfileController      # 水站画像
-│   │   ├── StockTransferController       # 库存调拨
-│   │   └── RiskAlertController           # 风险预警
-│   └── *.java                            # 站长/通用 API（21 个 Controller）
+│   └── *.java                            # 站长/通用 API
 ├── dto/                                  # 8 个数据传输对象
 ├── annotation/RequireRole.java           # 角色权限注解
 ├── aspect/RequireRoleAspect.java         # AOP 角色校验切面
@@ -78,7 +68,6 @@ com.example.aquaflow
 
 ```
 POST /api/auth/login { username, password }
-  ├─ admin 用户 → staff 表查找 → role=FACTORY_ADMIN → factory 角色
   ├─ 员工姓名 → staff 表查找 → role=STATION_MANAGER→manager / DELIVERY→delivery
   └─ customer 表兼容（旧系统迁移过渡期）
 ```
@@ -86,7 +75,7 @@ POST /api/auth/login { username, password }
 
 ### AOP 角色控制
 
-- `@RequireRole({"FACTORY_ADMIN", "STATION_MANAGER"})` 标注在 Controller 方法上
+- `@RequireRole({"STATION_MANAGER"})` 标注在 Controller 方法上
 - `RequireRoleAspect` AOP 切面拦截，校验 `AuthContext` 中的角色
 - 所有管理端写操作（POST/PUT/DELETE）均有保护，客户 token 无法调用
 
@@ -104,11 +93,10 @@ POST /api/auth/login { username, password }
 
 ## 数据范围隔离
 
-- **厂长**：跨水站汇总/分析，无 `station_id` 过滤
 - **站长**：SQL 中 `WHERE station_id = #{stationId}` 自动过滤
 - **配送员**：`WHERE delivery_person_id = #{staffId}` 限制本人任务
 
-`AuthInterceptor` 从 token 中解析 `userId`/`userType`/`role`/`stationId`/`factoryId`，注入 `AuthContext` 供后续请求使用。
+`AuthInterceptor` 从 token 中解析 `userId`/`userType`/`role`/`stationId`，注入 `AuthContext` 供后续请求使用。
 
 ## 数据库
 
@@ -121,15 +109,12 @@ POST /api/auth/login { username, password }
 | customer | 84 | 购水客户 |
 | orders | 265 | 订单 |
 | payment_record | 192 | 支付记录 |
-| batch | 49 | 配送批次 |
 | inventory | 90 | 库存（10站×9种水） |
 | audit_log | 50 | 操作审计 |
 | staff | 40 | 员工 |
 | deposit_record | 47 | 押金流水 |
 | ticket_record | 79 | 水票流水 |
 | ticket_account | 35 | 水票账户 |
-| risk_alert | 15 | 风险预警 |
 | barrel_record | 20 | 退桶记录 |
 | station | 10 | 水站 |
 | water_type | 10 | 水品牌/规格 |
-| factory | 3 | 水厂 |

@@ -137,7 +137,7 @@ const deliveryStaffName = (id) => {
 }
 
 const orderStatusText = (status) => {
-  const map = { 1: '待配送', 2: '配送中', 3: '已完成', 4: '待配送', 6: '已配送待付款', 7: '已拒单' }
+  const map = { 1: '待配送', 2: '配送中', 3: '已送达', 4: '已完成', 5: '已取消' }
   return map[status] || '未知'
 }
 

@@ -14,7 +14,7 @@ import java.util.Map;
 
 /**
  * 意见反馈接口（后端: FeedbackController）
- * 配送员/站长/厂长提交；客户也可提交；客户可查自己的反馈记录
+ * 配送员/站长/客户提交；客户可查自己的反馈记录
  */
 @RestController
 @RequestMapping("/api/feedback")

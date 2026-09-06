@@ -2,12 +2,11 @@
 const { getOrders } = require('../../../api/station-mgmt')
 
 const STATUS_MAP = {
-  1: { text: '待接单', cls: 'pending' },
+  1: { text: '待配送', cls: 'pending' },
   2: { text: '配送中', cls: 'delivering' },
-  3: { text: '已完成', cls: 'completed' },
-  5: { text: '已取消', cls: 'cancelled' },
-  6: { text: '待收款', cls: 'warning' },
-  7: { text: '已拒单', cls: 'cancelled' }
+  3: { text: '已送达', cls: 'delivered' },
+  4: { text: '已完成', cls: 'completed' },
+  5: { text: '已取消', cls: 'cancelled' }
 }
 
 Page({
@@ -17,7 +16,7 @@ Page({
     tabs: [
       { id: 0, name: '全部' },
       { id: 1, name: '待配送' },
-      { id: 2, name: '已完成' }
+      { id: 2, name: '配送中' }
     ],
     currentTab: 0
   },

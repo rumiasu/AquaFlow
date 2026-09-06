@@ -57,15 +57,6 @@
       <empty wx:else text="暂无长期桶资产"></empty>
     </view>
 
-    <view class="section" wx:if="{{pendingUnreturnedTotal > 0 || pendingUnreturned.length > 0}}">
-      <view class="section-header">
-        <text class="section-title">暂未回收合计（各订单）</text>
-      </view>
-      <view class="unreturned-tip">
-        <text>合计暂未回收 {{pendingUnreturnedTotal}} 桶，请配合配送员回收空桶</text>
-      </view>
-    </view>
-
     <view class="section">
       <view class="section-header">
         <text class="section-title">水桶记录</text>

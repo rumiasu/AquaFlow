@@ -322,36 +322,102 @@
   font-weight: 600;
 }
 
-/* ========== 水桶管理 ========== */
-.barrel-list {
+/* ========== 我的水桶（站级汇总 + 明细/续购） ========== */
+.barrel-summary {
+  display: flex;
   background: #fff;
   border-radius: 20rpx;
-  padding: 8rpx 28rpx;
-  box-shadow: var(--shadow-sm);
-}
-
-.barrel-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   padding: 24rpx 0;
-  border-bottom: 1rpx solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16rpx;
 }
 
-.barrel-item:last-child {
-  border-bottom: none;
+.bs-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
 }
 
-.barrel-name {
-  font-size: 28rpx;
+.bs-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 12rpx;
+  bottom: 12rpx;
+  width: 1rpx;
+  background: var(--border-light);
+}
+
+.bs-num {
+  font-size: 36rpx;
+  font-weight: 700;
   color: var(--text-primary);
-  font-weight: 500;
+  line-height: 1.2;
 }
 
-.barrel-qty {
-  font-size: 28rpx;
-  color: var(--primary-color);
+.bs-num.owed {
+  color: var(--error-color);
+}
+
+.bs-label {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  margin-top: 6rpx;
+}
+
+.owed-tip {
+  font-size: 22rpx;
+  color: #D97706;
+  background: #FFFBEB;
+  border-radius: 12rpx;
+  padding: 12rpx 20rpx;
+  margin-bottom: 16rpx;
+  line-height: 1.4;
+}
+
+.barrel-sub-header {
+  margin: 8rpx 0 16rpx;
+}
+
+.barrel-sub-title {
+  font-size: 26rpx;
   font-weight: 600;
+  color: var(--text-regular);
+}
+
+/* 商品卡内的桶明细行 */
+.barrel-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex-wrap: wrap;
+  margin-top: 4rpx;
+}
+
+.barrel-meta {
+  font-size: 22rpx;
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+.barrel-meta.transit {
+  color: #F59E0B;
+}
+
+.barrel-meta.deposit {
+  color: var(--text-secondary);
+}
+
+.barrel-empty {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 40rpx 28rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ========== P6: 水站选择栏 ========== */

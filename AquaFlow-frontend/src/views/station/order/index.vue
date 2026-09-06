@@ -6,13 +6,11 @@
           <span class="page-title">订单管理</span>
           <div class="header-actions">
             <el-select v-model="query.status" placeholder="订单状态" clearable style="width: 120px;">
-              <el-option label="待分配" :value="1" />
-              <el-option label="已分配" :value="4" />
+              <el-option label="待配送" :value="1" />
               <el-option label="配送中" :value="2" />
-              <el-option label="已完成" :value="3" />
-              <el-option label="待收款" :value="6" />
+              <el-option label="已送达" :value="3" />
+              <el-option label="已完成" :value="4" />
               <el-option label="已取消" :value="5" />
-              <el-option label="已拒单" :value="7" />
             </el-select>
             <el-select v-model="query.paymentStatus" placeholder="付款状态" clearable style="width: 120px;">
               <el-option label="未付款" :value="0" />
@@ -196,14 +194,14 @@ const customerAddresses = computed(() => {
   return addresses.value.filter(a => a.customerId === form.value.customerId)
 })
 
-const statusText = (s) => ({ 1: '待分配', 2: '配送中', 3: '已完成', 4: '已分配', 5: '已取消', 6: '待收款', 7: '已拒单' }[s] || '未知')
-const statusTagType = (s) => ({ 1: 'warning', 2: '', 3: 'success', 4: 'info', 5: 'danger', 6: 'warning', 7: 'danger' }[s] || 'info')
+const statusText = (s) => ({ 1: '待配送', 2: '配送中', 3: '已送达', 4: '已完成', 5: '已取消' }[s] || '未知')
+const statusTagType = (s) => ({ 1: 'warning', 2: 'primary', 3: 'success', 4: 'info', 5: 'danger' }[s] || 'info')
 const sourceText = (s) => ({ 1: '电话', 2: '微信群', 3: '小程序' }[s] || '其他')
 const sourceTagType = (s) => ({ 1: '', 2: 'success', 3: 'warning' }[s] || 'info')
 const payText = (s) => ({ 0: '未付款', 1: '待收款', 2: '已付款', 3: '已退款', 4: '已取消' }[s] || '未知')
 const payTagType = (s) => ({ 0: 'info', 1: 'warning', 2: 'success', 3: 'info', 4: 'info' }[s] || 'info')
 
-const canCancel = (row) => row.status === 1 || row.status === 4
+const canCancel = (row) => row.status === 1 || row.status === 2 || row.status === 3
 
 const handleDateChange = (val) => {
   query.value.createTimeStart = val?.[0] || ''

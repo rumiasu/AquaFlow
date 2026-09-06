@@ -26,7 +26,8 @@ public interface FeedbackMapper {
     List<Feedback> listAll();
 
     @Select("select f.* from feedback f inner join customer c on f.customer_id = c.id " +
-            "where f.customer_id is not null and c.station_id = #{stationId} order by f.create_time desc")
+            "inner join customer_station_config csc on csc.customer_id = c.id and csc.station_id = #{stationId} " +
+            "where f.customer_id is not null order by f.create_time desc")
     List<Feedback> listCustomerFeedbackByStation(@Param("stationId") Long stationId);
 
     @Select("select * from feedback where customer_id is not null order by create_time desc")

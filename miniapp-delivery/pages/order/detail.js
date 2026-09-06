@@ -37,10 +37,10 @@ Page({
 
       const statusMap = {
         1: { text: '待配送', class: 'pending' },
-        3: { text: '配送中', class: 'delivering' },
-        4: { text: '已送达', class: 'warning' },
-        5: { text: '已完成', class: 'completed' },
-        6: { text: '已取消', class: 'cancelled' }
+        2: { text: '配送中', class: 'delivering' },
+        3: { text: '已送达', class: 'delivered' },
+        4: { text: '已完成', class: 'completed' },
+        5: { text: '已取消', class: 'cancelled' }
       }
       const statusInfo = statusMap[order.status] || { text: '待处理', class: 'default' }
 

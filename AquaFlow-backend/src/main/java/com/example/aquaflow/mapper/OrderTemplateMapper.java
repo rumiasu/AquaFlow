@@ -1,5 +1,6 @@
 package com.example.aquaflow.mapper;
 
+import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.entity.OrderTemplate;
 import org.apache.ibatis.annotations.*;
 
@@ -41,7 +42,7 @@ public interface OrderTemplateMapper {
 
     @Select("select ot.* from order_template ot " +
             "inner join orders o on o.customer_id = ot.customer_id " +
-            "where ot.customer_id = #{customerId} and ot.station_id = #{stationId} and o.status = 5 " +
+            "where ot.customer_id = #{customerId} and ot.station_id = #{stationId} and o.status = " + OrderStatus.COMPLETED + " " +
             "order by o.update_time desc limit 1")
     OrderTemplate getLastCompletedOrder(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 }

@@ -50,7 +50,7 @@ public class Orders {
     /** 来源: 1 电话 2 微信 3 小程序 */
     private Integer source;
 
-    /** 订单状态：1 待配送 3 配送中 4 已送达 5 已完成 6 已取消（是否分配用 delivery_staff_id 判断） */
+    /** 订单状态（canonical 1-5）：1 待配送 2 配送中 3 已送达 4 已完成 5 已取消（是否分配用 delivery_staff_id 判断） */
     private Integer status;
 
     /** 支付方式: 1 微信支付 2 水票 3 线下支付 */
@@ -64,9 +64,6 @@ public class Orders {
 
     /** 应结算日期 */
     private java.time.LocalDate dueDate;
-
-    /** 厂家ID */
-    private Long factoryId;
 
     /** 批次ID */
     private Long batchId;

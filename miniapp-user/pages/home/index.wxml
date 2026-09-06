@@ -59,8 +59,7 @@
       <view class="address-card" bindtap="onAddressTap">
         <icon name="location" size="36rpx" color="#0EA5E9" />
         <view class="address-text" wx:if="{{address}}">
-          <text class="address-detail" wx:if="{{address.province || address.city || address.district}}">{{address.province}}{{address.city}}{{address.district}} {{address.detail}}</text>
-          <text class="address-detail" wx:else>{{address.detail}}</text>
+          <text class="address-detail">{{address.detail}}</text>
         </view>
         <view class="address-text" wx:else>
           <text class="address-empty">点击设置配送地址</text>
@@ -124,25 +123,41 @@
       </view>
     </view>
 
-    <view class="section" wx:if="{{isLogin && barrelByType.length > 0 && state !== 'noStation' && state !== 'claimPending'}}">
+    <view class="section" wx:if="{{isLogin && hasBarrelModule && state !== 'noStation' && state !== 'claimPending'}}">
       <view class="section-header">
-        <text class="section-title">水桶管理</text>
+        <text class="section-title">我的水桶</text>
         <text class="section-link" bindtap="onGoBarrel">查看全部</text>
         <icon name="arrow" size="24rpx" color="#0EA5E9" />
       </view>
-      <view class="barrel-list">
-        <view class="barrel-item" wx:for="{{barrelByType}}" wx:key="id">
-          <text class="barrel-name">{{item.productName || item.waterTypeName}}</text>
-          <text class="barrel-qty">{{item.assetQty || 0}} 桶</text>
+
+      <!-- 站级汇总 -->
+      <view class="barrel-summary">
+        <view class="bs-item">
+          <text class="bs-num">{{barrelSummary.heldBuckets || 0}}</text>
+          <text class="bs-label">持有</text>
+        </view>
+        <view class="bs-item">
+          <text class="bs-num">{{barrelSummary.deliveryBuckets || 0}}</text>
+          <text class="bs-label">在途</text>
+        </view>
+        <view class="bs-item">
+          <text class="bs-num {{barrelSummary.owedBuckets > 0 ? 'owed' : ''}}">{{barrelSummary.owedBuckets || 0}}</text>
+          <text class="bs-label">欠桶</text>
+        </view>
+        <view class="bs-item">
+          <text class="bs-num">¥{{barrelSummary.depositBalance > 0 ? barrelSummary.depositBalance : (barrelSummary.depositTotal || 0)}}</text>
+          <text class="bs-label">押金</text>
         </view>
       </view>
-    </view>
-
-    <view class="section" wx:if="{{isLogin && barrelProducts.length > 0 && state !== 'noStation' && state !== 'claimPending'}}">
-      <view class="section-header">
-        <text class="section-title">我有水桶 · 优先续购</text>
+      <view class="owed-tip" wx:if="{{barrelSummary.owedBuckets > 0}}">
+        <text>欠桶 {{barrelSummary.owedBuckets}} 桶：待回收空桶，退桶请与水站确认</text>
       </view>
-      <view class="product-list">
+
+      <!-- 持有明细 + 优先续购 -->
+      <view class="barrel-sub-header" wx:if="{{barrelProducts.length > 0}}">
+        <text class="barrel-sub-title">优先续购</text>
+      </view>
+      <view class="product-list" wx:if="{{barrelProducts.length > 0}}">
         <view class="product-card" wx:for="{{barrelProducts}}" wx:key="id">
           <view class="product-img" wx:if="{{item.imageUrl}}">
             <image src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
@@ -153,16 +168,23 @@
           <view class="product-info">
             <view class="name-row">
               <text class="product-name">{{item.name}}</text>
-              <view class="barrel-tag">
+              <view class="barrel-tag" wx:if="{{item.barrelQty > 0}}">
                 <text>持有{{item.barrelQty}}桶</text>
               </view>
             </view>
-            <text class="product-brand" wx:if="{{item.brand}}">{{item.brand}} · {{item.spec}}</text>
-            <view class="info-row">
-              <text class="product-price">¥{{item.price}}</text>
-              <text class="product-deposit" wx:if="{{item.deposit > 0}}">押金 ¥{{item.deposit}}</text>
+            <text class="product-brand" wx:if="{{item.brand || item.spec}}">{{item.brand}}{{item.brand && item.spec ? ' · ' : ''}}{{item.spec}}</text>
+
+            <view class="barrel-meta-row">
+              <text class="barrel-meta">持有 {{item.barrelQty || 0}}</text>
+              <text class="barrel-meta transit" wx:if="{{item.inTransitQty > 0}}">在途 {{item.inTransitQty}}</text>
+              <text class="barrel-meta deposit">押金 ¥{{item.depositTotalText}}</text>
             </view>
-            <view class="stepper-row">
+
+            <view class="info-row" wx:if="{{item.hasProduct}}">
+              <text class="product-price">¥{{item.price}}</text>
+              <text class="product-deposit" wx:if="{{item.deposit > 0}}">押金 ¥{{item.deposit}}/桶</text>
+            </view>
+            <view class="stepper-row" wx:if="{{item.hasProduct}}">
               <view class="stepper-btn {{cart[item.id] <= 0 ? 'disabled' : ''}}"
                     bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="minus">
                 <text>−</text>
@@ -177,6 +199,9 @@
             </view>
           </view>
         </view>
+      </view>
+      <view class="barrel-empty" wx:else>
+        <text>暂无桶资产明细</text>
       </view>
     </view>
 

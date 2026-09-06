@@ -1,5 +1,4 @@
-const { getBarrelSummary, getBarrelRecords, getBarrelSummaryByType, requestBarrelReturn, getOrders } = require('../../api/barrel')
-const { getPublicStations } = require('../../api/station')
+const { getBarrelSummary, getBarrelRecords, getBarrelSummaryByType, requestBarrelReturn } = require('../../api/barrel')
 const { stationStorage } = require('../../utils/storage')
 
 Page({
@@ -17,10 +16,7 @@ Page({
       depositPerBucket: 0
     },
     records: [],
-    holdings: [],
     customerBarrelAsset: [],
-    pendingUnreturned: [],
-    pendingUnreturnedTotal: 0,
     showReturnModal: false,
     returnForm: {
       productId: null,
@@ -29,11 +25,7 @@ Page({
       note: ''
     },
     maxReturnQty: 0,
-    submitting: false,
-    currentStationId: null,
-    currentStation: null,
-    showStationPicker: false,
-    stationList: []
+    submitting: false
   },
 
   onLoad() {
@@ -51,17 +43,13 @@ Page({
   async loadData() {
     // 优先读取本地存储的水站
     let stationId = stationStorage.getId()
-    let station = stationStorage.get()
-
-    this.setData({ currentStationId: stationId, currentStation: station })
 
     this.setData({ loading: true })
     try {
-      const [summaryRes, recordsRes, holdingsRes, ordersRes] = await Promise.all([
+      const [summaryRes, recordsRes, holdingsRes] = await Promise.all([
         getBarrelSummary(stationId).catch(e => { console.warn('[Barrel] getBarrelSummary失败:', e.message); return null }),
         getBarrelRecords(stationId).catch(e => { console.warn('[Barrel] getBarrelRecords失败:', e.message); return null }),
-        getBarrelSummaryByType(stationId).catch(e => { console.warn('[Barrel] getBarrelSummaryByType失败:', e.message); return null }),
-        null
+        getBarrelSummaryByType(stationId).catch(e => { console.warn('[Barrel] getBarrelSummaryByType失败:', e.message); return null })
       ])
 
       if (summaryRes && summaryRes.data) {
@@ -96,10 +84,7 @@ Page({
       })
       Object.keys(map).forEach(k => customerBarrelAsset.push(map[k]))
 
-      this.setData({
-        holdings,
-        customerBarrelAsset
-      })
+      this.setData({ customerBarrelAsset })
 
       const { heldBuckets, actualBuckets, pendingReturns } = this.data.summary
       const held = heldBuckets !== undefined && heldBuckets !== null ? heldBuckets : actualBuckets
@@ -107,70 +92,6 @@ Page({
     } finally {
       this.setData({ loading: false })
     }
-  },
-
-  async loadStationList() {
-    try {
-      const res = await getPublicStations().catch(() => null)
-      if (res && res.code === 0 && res.data) {
-        const activeStations = res.data.filter(s => s.status === 1)
-        this.setData({ stationList: activeStations })
-      }
-    } catch (e) {
-      console.error('加载水站列表失败:', e)
-    }
-  },
-
-  onOpenStationPicker() {
-    this.setData({ showStationPicker: true })
-    this.loadStationList()
-  },
-
-  onCloseStationPicker() {
-    this.setData({ showStationPicker: false })
-  },
-
-  async onSelectStation(e) {
-    const { id } = e.currentTarget.dataset
-    if (id === this.data.currentStationId) {
-      this.setData({ showStationPicker: false })
-      return
-    }
-    const station = this.data.stationList.find(s => s.id === id)
-
-    // 本地提示：不同水站资产不互通
-    const noticeDisabled = stationStorage.getSwitchNoticeDisabled()
-    if (!noticeDisabled && this.data.currentStationId && this.data.currentStationId !== id) {
-      const confirm = await new Promise(resolve => {
-        wx.showModal({
-          title: '切换水站提醒',
-          content: '不同水站的水票、桶及押金等资产不互通，请确认后再切换。',
-          confirmText: '知道了，继续',
-          cancelText: '取消',
-          showCancel: true,
-          success: (r) => resolve(r.confirm)
-        })
-      })
-      if (!confirm) {
-        return
-      }
-      const dontShow = await new Promise(resolve => {
-        wx.showModal({
-          title: '提示',
-          content: '下次不再提示？',
-          confirmText: '不再提示',
-          cancelText: '每次都提示',
-          success: (r) => resolve(r.confirm)
-        })
-      })
-      if (dontShow) {
-        stationStorage.setSwitchNoticeDisabled(true)
-      }
-    }
-
-    stationStorage.set(station)
-    this.setData({ showStationPicker: false })
-    await this.loadData()
   },
 
   onShowReturnModal() {

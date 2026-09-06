@@ -13,7 +13,9 @@
           <el-select v-model="filter.status" placeholder="全部" clearable style="width: 150px">
             <el-option label="待配送" :value="1" />
             <el-option label="配送中" :value="2" />
-            <el-option label="已完成" :value="3" />
+            <el-option label="已送达" :value="3" />
+            <el-option label="已完成" :value="4" />
+            <el-option label="已取消" :value="5" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -86,12 +88,12 @@ const filteredOrders = computed(() => {
 })
 
 const statusText = (status) => {
-  const map = { 1: '待配送', 2: '配送中', 3: '已完成', 4: '待配送', 6: '待收款', 7: '已拒单' }
+  const map = { 1: '待配送', 2: '配送中', 3: '已送达', 4: '已完成', 5: '已取消' }
   return map[status] || '未知'
 }
 
 const statusTagType = (status) => {
-  const map = { 1: 'warning', 2: 'primary', 3: 'success', 4: 'info', 6: 'warning', 7: 'danger' }
+  const map = { 1: 'warning', 2: 'primary', 3: 'success', 4: 'info', 5: 'danger' }
   return map[status] || 'info'
 }
 

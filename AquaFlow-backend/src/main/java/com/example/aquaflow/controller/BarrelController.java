@@ -3,7 +3,6 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.BarrelRecord;
-import com.example.aquaflow.entity.CustomerBarrelAsset;
 import com.example.aquaflow.entity.CustomerBarrelOwed;
 import com.example.aquaflow.mapper.BarrelRecordMapper;
 import com.example.aquaflow.mapper.CustomerBarrelOwedMapper;
@@ -46,17 +45,16 @@ public class BarrelController {
     }
 
     /**
-     * 获取当前登录客户的桶资产（可指定站点）
+     * 获取当前登录客户的桶资产站级汇总（持有/欠桶/在途/押金余额等）
      */
-    @GetMapping("/assets")
-    public Result<List<CustomerBarrelAsset>> getAssets(@RequestParam(required = false) Long stationId) {
+    @GetMapping("/summary")
+    public Result<Map<String, Object>> getBarrelSummary(@RequestParam(required = false) Long stationId) {
         Long customerId = AuthContext.requireCustomerId();
-        // 优先使用传入的 stationId，其次使用客户绑定的站点
         Long effectiveStationId = stationId != null ? stationId : AuthContext.getStationId();
         if (effectiveStationId == null) {
-            return Result.success(java.util.Collections.emptyList());
+            return Result.success(java.util.Collections.emptyMap());
         }
-        return Result.success(barrelService.getAssets(customerId, effectiveStationId));
+        return Result.success(barrelService.getBarrelSummary(customerId, effectiveStationId));
     }
 
     /**
@@ -70,25 +68,6 @@ public class BarrelController {
             return Result.success(java.util.Collections.emptyList());
         }
         return Result.success(barrelService.listRecords(customerId, effectiveStationId));
-    }
-
-    /**
-     * 管理端：处理桶异常（丢桶/损坏等）
-     */
-    @RequireRole({"STATION_MANAGER"})
-    @PostMapping("/handle-exception")
-    public Result<Void> handleException(@RequestBody java.util.Map<String, Object> params) {
-        Long customerId = ((Number) params.get("customerId")).longValue();
-        Long productId = ((Number) params.get("productId")).longValue();
-        Integer type = (Integer) params.get("type");
-        Integer quantity = (Integer) params.get("quantity");
-        Long relatedOrderId = params.get("relatedOrderId") != null ? ((Number) params.get("relatedOrderId")).longValue() : null;
-        String note = (String) params.get("note");
-        Long operatorId = AuthContext.getUserId();
-        Long stationId = AuthContext.requireStationId();
-
-        barrelService.handleBarrelException(customerId, stationId, productId, type, quantity, relatedOrderId, note, operatorId);
-        return Result.success();
     }
 
     @RequireRole({"STATION_MANAGER"})

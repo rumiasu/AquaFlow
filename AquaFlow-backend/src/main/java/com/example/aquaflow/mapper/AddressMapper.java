@@ -44,8 +44,8 @@ public interface AddressMapper {
 
     @Select("select a.* from address a " +
             "inner join customer c on a.customer_id = c.id " +
-            "where c.station_id = #{stationId} " +
-            "and (#{keyword} is null or a.detail like concat('%', #{keyword}, '%')) " +
+            "inner join customer_station_config csc on csc.customer_id = c.id and csc.station_id = #{stationId} " +
+            "where (#{keyword} is null or a.detail like concat('%', #{keyword}, '%')) " +
             "order by a.is_default desc, a.create_time desc")
     List<Address> listByStation(@Param("stationId") Long stationId, @Param("keyword") String keyword);
 
@@ -57,6 +57,7 @@ public interface AddressMapper {
 
     @Select("select a.label as tag, count(*) as cnt from address a " +
             "inner join customer c on a.customer_id = c.id " +
-            "where c.station_id = #{stationId} group by a.label")
+            "inner join customer_station_config csc on csc.customer_id = c.id and csc.station_id = #{stationId} " +
+            "group by a.label")
     List<java.util.Map<String, Object>> countByTagByStation(@Param("stationId") Long stationId);
 }

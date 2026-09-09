@@ -44,6 +44,36 @@ public class BarrelRecord {
     /** 退桶申请状态: 1 待处理 2 已确认收到空桶 3 已退押金 4 已驳回（仅type=2退桶有意义） */
     private Integer status;
 
+    /**
+     * 状态中文文案（全系统唯一来源）。
+     * <p>前端曾同时在 JS 的 getStatusText() 与 WXML 的内联三元表达式里各写一份映射，
+     * 新增状态时两处都要改、极易漏改。统一由后端下发，前端直接渲染 statusText。</p>
+     */
+    public String getStatusText() {
+        if (status == null) return "使用中";
+        switch (status) {
+            case 1: return "待处理";
+            case 2: return "已确认";
+            case 3: return "已退押金";
+            case 4: return "已驳回";
+            default: return "使用中";
+        }
+    }
+
+    /** 类型中文文案（全系统唯一来源） */
+    public String getTypeText() {
+        if (type == null) return "其他";
+        switch (type) {
+            case 1: return "新增押金桶";
+            case 2: return "退桶";
+            case 3: return "丢失";
+            case 4: return "损坏";
+            case 5: return "赔偿";
+            case 6: return "人工调整";
+            default: return "其他";
+        }
+    }
+
     /** 处理备注（站长驳回原因等） */
     private String handleNote;
 

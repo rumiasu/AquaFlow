@@ -51,6 +51,17 @@ public class Product {
     /** 状态: 0 下架 1 正常 2 停售 */
     private Integer status;
 
+    /** 状态中文文案（全系统唯一来源）：0 下架 1 在售 2 停售 */
+    public String getStatusText() {
+        if (status == null) return "在售";
+        switch (status) {
+            case 0: return "下架";
+            case 1: return "在售";
+            case 2: return "停售";
+            default: return "在售";
+        }
+    }
+
     /** 排序 */
     private Integer sort;
 

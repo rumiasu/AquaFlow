@@ -1,5 +1,6 @@
 const { getAddresses, deleteAddress, setDefaultAddress } = require('../../api/address')
 const { storage } = require('../../utils/storage')
+const { formatAddress } = require('../../utils/address')
 
 Page({
   data: {
@@ -24,7 +25,11 @@ Page({
     try {
       const res = await getAddresses()
       if (res.data) {
-        this.setData({ addresses: res.data })
+        // 统一展示粒度：「区 + 街道门牌」，与首页一致
+        const addresses = res.data.map(function (a) {
+          return Object.assign({}, a, { addressText: formatAddress(a) })
+        })
+        this.setData({ addresses })
       }
     } catch (error) {
       console.error('Load addresses error:', error)

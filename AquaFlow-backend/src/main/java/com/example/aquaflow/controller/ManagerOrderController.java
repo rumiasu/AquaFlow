@@ -271,6 +271,7 @@ public class ManagerOrderController {
         order.setSpecialNote(appendNote(order.getSpecialNote(), " [退回通过] 由配送员 " + fromName + " 退回站长"));
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
+        orderMapper.clearDeliveryStaff(orderId); // 选择性更新下 setDeliveryStaffId(null) 不写库，必须显式清空
 
         logOrder("RETURN_APPROVE", orderId, Collections.singletonMap("fromStaffId", originalStaffId));
         return Result.success();

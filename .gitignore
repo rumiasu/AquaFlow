@@ -8,6 +8,9 @@ out/
 target/
 AquaFlow-backend/build/
 AquaFlow-backend/.gradle/
+AquaFlow-backend/.gradle_alt/
+AquaFlow-backend/.gradle_alt2/
+AquaFlow-backend/.gradle_b/
 AquaFlow-frontend/dist/
 miniapp-user/dist/
 
@@ -43,3 +46,9 @@ test_order.json
 # ==================== 编译输出 ====================
 compile_output*.txt
 AquaFlow-backend/out/
+
+# 数据库备份（本地，勿提交）
+backup/
+
+# 本地 agent 记忆/工作区状态（本地专用，勿提交）
+.workbuddy/

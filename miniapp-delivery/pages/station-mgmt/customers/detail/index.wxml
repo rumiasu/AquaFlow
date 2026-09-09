@@ -1,0 +1,133 @@
+<view class="page">
+  <view class="loading" wx:if="{{loading}}"><text>加载中...</text></view>
+
+  <view class="error-banner" wx:if="{{error}}">
+    <text class="error-text">加载失败：{{error}}</text>
+    <text class="error-hint">若提示接口不存在/网络错误，通常是后端未部署画像接口，请重新构建并启动后端</text>
+  </view>
+
+  <block wx:if="{{!loading && profile}}">
+    <!-- 头部画像卡 -->
+    <view class="profile-header">
+      <view class="avatar" style="background:{{profile.customerLevelColor}}">{{profile.avatarText}}</view>
+      <view class="header-info">
+        <view class="name-row">
+          <text class="name">{{profile.name}}</text>
+          <text class="badge type">{{profile.customerTypeText}}</text>
+        </view>
+        <text class="phone" bindtap="onCall" data-phone="{{profile.phone}}">{{profile.phone || '未填写电话'}}</text>
+        <view class="badge-row">
+          <text class="badge level" style="background:{{profile.customerLevelColor}}">{{profile.customerLevel}}</text>
+          <text class="badge act-{{profile.activityStatus}}">{{profile.activityText}}</text>
+          <text class="badge {{profile.codEnabled ? 'cod-on' : 'cod-off'}}">{{profile.codEnabled ? '货到付款' : '无线下支付'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 核心指标 -->
+    <view class="section">
+      <view class="section-title">消费概览</view>
+      <view class="metric-grid">
+        <view class="metric">
+          <text class="metric-value">{{profile.totalOrders}}</text>
+          <text class="metric-label">累计订单</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.totalConsumptionText}}</text>
+          <text class="metric-label">累计消费</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.avgOrderAmountText}}</text>
+          <text class="metric-label">客单价</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">{{profile.ticketBalance}}</text>
+          <text class="metric-label">水票余额(张)</text>
+        </view>
+      </view>
+      <view class="metric-grid second">
+        <view class="metric">
+          <text class="metric-value">{{profile.monthOrders}}</text>
+          <text class="metric-label">本月订单</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.monthConsumptionText}}</text>
+          <text class="metric-label">本月消费</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.depositBalanceText}}</text>
+          <text class="metric-label">押金余额</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value small {{profile.owedBarrels ? 'warn' : ''}}">{{profile.owedBarrelsText}}</text>
+          <text class="metric-label">欠桶</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 消费特征 -->
+    <view class="section">
+      <view class="section-title">消费特征</view>
+      <view class="row">
+        <text class="label">首次下单</text>
+        <text class="value">{{profile.firstOrderTimeText || '暂无'}}</text>
+      </view>
+      <view class="row">
+        <text class="label">最近下单</text>
+        <text class="value">{{profile.lastOrderAgoText}}</text>
+      </view>
+      <view class="row" wx:if="{{profile.avgCycleDays}}">
+        <text class="label">平均下单周期</text>
+        <text class="value">{{profile.avgCycleDays}} 天</text>
+      </view>
+      <view class="row" wx:if="{{profile.exceptionCount}}">
+        <text class="label">桶异常</text>
+        <text class="value warn">{{profile.exceptionCount}} 次</text>
+      </view>
+      <view class="row" wx:if="{{profile.favoriteProducts.length}}">
+        <text class="label">常购商品</text>
+        <view class="value tags">
+          <text class="tag" wx:for="{{profile.favoriteProducts}}" wx:key="name">{{item.name}} ×{{item.qty}}</text>
+        </view>
+      </view>
+      <view class="row" wx:if="{{profile.defaultAddress}}">
+        <text class="label">常用地址</text>
+        <text class="value">{{profile.defaultAddress}}</text>
+      </view>
+      <view class="row" wx:if="{{profile.tagsList.length}}">
+        <text class="label">标签</text>
+        <view class="value tags">
+          <text class="tag" wx:for="{{profile.tagsList}}" wx:key="*this">{{item}}</text>
+        </view>
+      </view>
+      <view class="row" wx:if="{{profile.note}}">
+        <text class="label">备注</text>
+        <text class="value">{{profile.note}}</text>
+      </view>
+    </view>
+
+    <!-- 权限设置 -->
+    <view class="section">
+      <view class="section-title">权限设置</view>
+      <view class="row switch-row">
+        <view class="switch-info">
+          <text class="label">货到付款</text>
+          <text class="hint">开通后该客户在本站下单可选择货到付款</text>
+        </view>
+        <switch checked="{{profile.codEnabled}}" bindchange="onToggleCod" color="#409EFF" disabled="{{saving}}" />
+      </view>
+    </view>
+
+    <!-- 最近订单 -->
+    <view class="section" wx:if="{{profile.recentOrders.length}}">
+      <view class="section-title">最近订单</view>
+      <view class="order-item" wx:for="{{profile.recentOrders}}" wx:key="id">
+        <text class="order-no">#{{item.id}}</text>
+        <text class="order-status">{{item.statusText}}</text>
+        <text class="order-amount">¥{{item.totalAmount}}</text>
+      </view>
+    </view>
+  </block>
+
+  <view class="empty" wx:if="{{!loading && !profile}}"><text>暂无客户画像</text></view>
+</view>

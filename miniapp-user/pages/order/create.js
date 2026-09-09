@@ -1,7 +1,7 @@
 const { getProductDetail } = require('../../api/product')
 const { getOrderDetail } = require('../../api/order')
 const { getAddresses } = require('../../api/address')
-const { getBarrelSummaryByType } = require('../../api/barrel')
+const { getBarrelSummary, getBarrelSummaryByType } = require('../../api/barrel')
 const { getTicketAccounts } = require('../../api/ticket')
 const { createOrder, createPayment } = require('../../api/order')
 const { getQuote } = require('../../api/payment')
@@ -9,6 +9,7 @@ const { getStationById } = require('../../api/station')
 const { storage, stationStorage } = require('../../utils/storage')
 const { getBaseUrl, API } = require('../../config/api')
 const { getAccessToken } = require('../../utils/token')
+const { formatAddress } = require('../../utils/address')
 const app = getApp()
 
 Page({
@@ -17,6 +18,7 @@ Page({
     items: [],
     products: [],
     address: null,
+    addressText: '',
     note: '',
     barrelByType: [],
     barrelSummary: [],
@@ -35,6 +37,8 @@ Page({
     // 支付方式：1微信 2水票 3货到付款
     selectedMethod: 2,
     submitting: false,
+    // 幂等键：onLoad 生成一次，下单成功后才刷新（保证同一意图只产生一单）
+    idempotencyKey: '',
     // 支付方式确认弹窗
     showOfflineConfirm: false,
     // 首次资产业务确认弹窗
@@ -45,7 +49,11 @@ Page({
     stationPhone: '',
     pendingOrderRes: null,
     // 费用明细弹窗
-    showDetailPopup: false
+    showDetailPopup: false,
+    // 在途桶提醒弹窗
+    showInTransitReminder: false,
+    inTransitReminderAck: false,   // 同一次进入页面只提示一次
+    hasInTransitBarrels: false
   },
 
   onLoad(options) {
@@ -53,6 +61,9 @@ Page({
       wx.redirectTo({ url: '/pages/login/index' })
       return
     }
+
+    // 一次下单意图 = 一个幂等键（提交失败重试也复用），避免重复下单
+    this.setData({ idempotencyKey: this.genIdempotencyKey() })
 
     // 优先级：URL参数 > 全局临时站点 > 本地存储
     let stationId = null
@@ -124,7 +135,10 @@ Page({
   onShow() {
     const selectedAddress = storage.get('selectedAddress')
     if (selectedAddress) {
-      this.setData({ address: selectedAddress })
+      this.setData({
+        address: selectedAddress,
+        addressText: formatAddress(selectedAddress)
+      })
       storage.remove('selectedAddress')
     }
   },
@@ -200,6 +214,16 @@ this.setData({ products, stationName: effectiveStationName })
 
   onOfflineConfirmCancel() {
     this.setData({ showOfflineConfirm: false })
+  },
+
+  onInTransitReminderCancel() {
+    this.setData({ showInTransitReminder: false })
+  },
+
+  onInTransitReminderOk() {
+    // 用户确认继续：关闭提醒后重跑提交（此时 inTransitReminderAck 已为 true，会跳过提醒并真正下单）
+    this.setData({ showInTransitReminder: false })
+    this.onSubmit()
   },
 
   async loadReorder(orderId) {
@@ -282,7 +306,8 @@ this.setData({ products, stationName: effectiveStationName })
         const list = res.data
         const picked = list.find(a => a.id === preferId)
         const fallback = list.find(a => a.isDefault) || list[0]
-        this.setData({ address: picked || fallback })
+        const addr = picked || fallback
+        this.setData({ address: addr, addressText: addr ? formatAddress(addr) : '' })
       }
     } catch (error) {
       console.error('Load address error:', error)
@@ -296,6 +321,13 @@ this.setData({ products, stationName: effectiveStationName })
       if (res.data) {
         this.setData({ barrelByType: res.data })
         this.syncBarrelSummary()
+      }
+      // 统计"正在配送中(PENDING)"的在途桶：仅未送达确认的才视为配送中，
+      // 已送达的在途记录(DELIVERED)不应再触发提醒；首单仍在配送的也已被包含。
+      const sumRes = await getBarrelSummary(stationId)
+      if (sumRes.data) {
+        const pending = sumRes.data.pendingDeliveryBuckets || 0
+        this.setData({ hasInTransitBarrels: pending > 0 })
       }
     } catch (error) {
       console.error('Load barrel error:', error)
@@ -437,6 +469,11 @@ this.setData({ products, stationName: effectiveStationName })
     }
   },
 
+  // 生成一个下单幂等键（仅在"新的一次下单意图"时调用：进入页面 / 下单成功后）
+  genIdempotencyKey() {
+    return 'order_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+  },
+
   async onSubmit() {
     if (this.data.submitting) return
 
@@ -457,9 +494,19 @@ this.setData({ products, stationName: effectiveStationName })
       return
     }
 
-    const idempotencyKey = 'order_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+    // 在途桶提醒：有水桶正在配送中，且本次下单会产生额外桶押金时，先友好提示
+    if (this.data.hasInTransitBarrels && this.data.extraDepositBuckets > 0 && !this.data.inTransitReminderAck) {
+      this.setData({ showInTransitReminder: true, inTransitReminderAck: true })
+      return
+    }
 
-    this.setData({ submitting: true, showOfflineConfirm: false })
+    // 复用本次下单意图的幂等键：失败重试不会产生第二单
+    const idempotencyKey = this.data.idempotencyKey || this.genIdempotencyKey()
+
+    this.setData({ submitting: true, showOfflineConfirm: false, idempotencyKey })
+
+    // 资产确认弹窗未处理完前保持 submitting=true，防止用户重复点击造成重复下单
+    let keepSubmitting = false
     try {
       const items = this.data.products.map(p => ({
         productId: p.id,
@@ -482,7 +529,11 @@ this.setData({ products, stationName: effectiveStationName })
         idempotencyKey: idempotencyKey
       })
 
+      // 订单已创建成功 -> 刷新幂等键，之后再主动下单才是新的一单
+      this.setData({ idempotencyKey: this.genIdempotencyKey() })
+
       if (orderRes.data && orderRes.data.firstStationAsset) {
+        keepSubmitting = true
         this.setData({ showAssetConfirm: true, assetConfirmed: false, pendingOrderRes: orderRes })
         return
       }
@@ -492,7 +543,7 @@ this.setData({ products, stationName: effectiveStationName })
       console.error('[OrderCreate] 下单失败:', error)
       wx.showToast({ title: '下单失败: ' + (error.message || ''), icon: 'none', duration: 3000 })
     } finally {
-      this.setData({ submitting: false })
+      if (!keepSubmitting) this.setData({ submitting: false })
     }
   },
 
@@ -524,8 +575,22 @@ this.setData({ products, stationName: effectiveStationName })
   },
 
   // ===== 首次资产业务确认弹窗 =====
+  // 注意：订单在弹窗出现之前就已创建成功。这里的"取消"只是不继续支付，
+  // 必须明确提示订单已存在，否则用户会以为没下单而再次提交，造成重复下单。
   onAssetConfirmCancel() {
-    this.setData({ showAssetConfirm: false, assetConfirmed: false })
+    this.setData({
+      showAssetConfirm: false,
+      assetConfirmed: false,
+      pendingOrderRes: null,
+      submitting: false
+    })
+    wx.showModal({
+      title: '订单已创建',
+      content: '订单已提交成功，可在「我的订单」中查看或取消。',
+      showCancel: false,
+      confirmText: '查看订单',
+      success: () => wx.switchTab({ url: '/pages/order/list' })
+    })
   },
 
   onAssetCheckboxChange(e) {

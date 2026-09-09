@@ -36,6 +36,9 @@ public class Customer {
     /** 最近配送时间 */
     private LocalDateTime lastDeliveryTime;
 
+    /** 平均下单周期（天），来自 customer.avg_cycle_days，用于客户画像 */
+    private Integer avgCycleDays;
+
     /** 创建时间 */
     private LocalDateTime createTime;
 

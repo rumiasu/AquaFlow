@@ -31,7 +31,7 @@
       <text class="amount" wx:if="{{order.amount || order.totalAmount}}">¥{{order.amount || order.totalAmount}}</text>
     </view>
     <view class="footer-actions">
-      <button wx:if="{{order.paymentStatus === 0 && (order.status === 1 || order.status === 4)}}" class="btn-pay" catchtap="onPayNow">去支付</button>
+      <button wx:if="{{canRepay}}" class="btn-pay" catchtap="onPayNow">{{repayLabel}}</button>
       <button wx:if="{{order.status === 1}}" class="btn-cancel" catchtap="onCancel">取消订单</button>
       <button wx:if="{{order.status === 5}}" class="btn-reorder" catchtap="onReorder">再次购买</button>
     </view>

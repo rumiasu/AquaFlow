@@ -142,8 +142,45 @@ const getDispatchTracking = () => {
 }
 
 // 取消外派
+// ⚠️ 以下路由的 {id} 在路径中间（/orders/{id}/xxx），必须用 DELIVERY_ORDERS 拼接，
+// 不能把 id 追加在末尾，否则请求会打到不存在的路径（返回"系统错误，请联系管理员"）。
 const cancelDispatch = (id) => {
-  return post(`${API.DELIVERY_CANCEL_DISPATCH}/${id}`)
+  return post(`${API.DELIVERY_ORDERS}/${id}/cancel-dispatch`)
+}
+
+// 指定水站外派：目标水站将订单调解退回原归属站
+const directedReturn = (id) => {
+  return post(`${API.DELIVERY_ORDERS}/${id}/directed-return`)
+}
+
+// 原归属站：同意退回（变回普通待分配）
+const approveDirectedReturn = (id) => {
+  return post(`${API.DELIVERY_ORDERS}/${id}/directed-return/approve`)
+}
+
+// 原归属站：拒绝退回（回到配送中，由原配送员继续）
+const rejectDirectedReturn = (id) => {
+  return post(`${API.DELIVERY_ORDERS}/${id}/directed-return/reject`)
+}
+
+// 原归属站：被退回待确认的订单列表
+const getDirectedReturns = () => {
+  return get(API.DELIVERY_DIRECTED_RETURNS)
+}
+
+// 目标水站：被其他水站指定为履约站的订单列表（他站外派给我）
+const getDirectedIncoming = () => {
+  return get(API.DELIVERY_DIRECTED_INCOMING)
+}
+
+// 配送员转单（退回站长）：站长同意 -> 变普通待分配
+const approveStaffReturn = (id) => {
+  return post(`${API.DELIVERY_ORDERS}/return/${id}/approve`)
+}
+
+// 配送员转单（退回站长）：站长拒绝 -> 回到配送中，由原配送员继续配送
+const rejectStaffReturn = (id) => {
+  return post(`${API.DELIVERY_ORDERS}/return/${id}/reject`)
 }
 
 // 站长拒单（简化版）
@@ -180,5 +217,12 @@ module.exports = {
   claimPoolOrder,
   getDispatchTracking,
   cancelDispatch,
-  stationReject
+  stationReject,
+  directedReturn,
+  approveDirectedReturn,
+  rejectDirectedReturn,
+  getDirectedReturns,
+  getDirectedIncoming,
+  approveStaffReturn,
+  rejectStaffReturn
 }

@@ -60,6 +60,7 @@ Page({
         deliveryQty,
         actualReturn: deliveryQty, // 默认按全收
         discrepancy: 0,
+        discrepancyAbs: 0,
         discrepancyDesc: '实收等于应送，无差异'
       })
 
@@ -97,7 +98,7 @@ Page({
       waterOwed = discrepancy
     }
 
-    this.setData({ actualReturn, discrepancy, waterOwed })
+    this.setData({ actualReturn, discrepancy, waterOwed, discrepancyAbs: Math.abs(discrepancy) })
     this.updateDiscrepancyDesc()
   },
 

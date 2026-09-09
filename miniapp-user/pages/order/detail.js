@@ -12,6 +12,8 @@ Page({
     payStatusText: '',
     payStatusClass: '',
     canCancel: false,
+    canRepay: false,
+    repayLabel: '去支付',
     images: [],
     bucketInfo: null
   },
@@ -70,13 +72,20 @@ Page({
         bucketInfo.extraDepositAmount = order.extraDepositAmount || 0
       }
 
-      const statusText = formatOrderStatus(order.status)
-      const payStatusText = formatPaymentStatus(order.paymentStatus)
-      const payClassMap = { 0: 'default', 1: 'warning', 2: 'success', 3: 'default', 4: 'default' }
-      const payStatusClass = payClassMap[order.paymentStatus] || 'default'
-      const canCancel = order.status === 1
+      // 状态/支付文案、能否取消、能否重新支付：全部由后端计算下发（Orders 派生字段），
+      // 前端只负责渲染与选配色，不再自行推导业务规则（此前 canCancel/canRepay 各端各写一套）。
+      const statusText = order.statusText || ''
+      const payStatusText = order.payStateText || ''
+      const payClassMap = {
+        UNPAID: 'default', PENDING: 'warning', PAID: 'success',
+        REFUNDED: 'default', CANCELLED: 'default'
+      }
+      const payStatusClass = payClassMap[order.payState] || 'default'
+      const canCancel = !!order.canCancel
+      const canRepay = !!order.canRepay
+      const repayLabel = order.repayLabel || '去支付'
 
-      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, bucketInfo })
+      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, bucketInfo })
 
       this.loadItemImages(items)
     } catch (err) {

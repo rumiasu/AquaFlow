@@ -100,6 +100,18 @@ public class OrderController {
     /**
      * 客户获取自己最近一笔订单的水站信息（用于重新登录后自动选站）
      */
+    /**
+     * 客户取消自己的订单（仅"待配送"可取消）。
+     * 注意：不能加 @RequireRole —— RequireRoleAspect 硬性要求 userType=staff，会把客户拦掉。
+     * 客户身份由 JWT -> AuthContext 获取。
+     */
+    @PutMapping("/{id}/customer-cancel")
+    public Result customerCancel(@PathVariable Long id) {
+        Long customerId = AuthContext.requireCustomerId();
+        orderService.cancelByCustomer(id, customerId);
+        return Result.success();
+    }
+
     @GetMapping("/my-station")
     public Result<?> getMyLatestStation() {
         Long customerId = AuthContext.requireCustomerId();

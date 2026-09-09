@@ -23,7 +23,8 @@ public interface InventoryMapper {
     @Delete("delete from inventory where id = #{id}")
     void delete(@Param("id") Long id);
 
-    @Select("select i.*, p.name as product_name, p.spec as spec, p.image_object_name as image_object_name " +
+    @Select("select i.*, p.name as product_name, p.spec as spec, p.image_object_name as image_object_name, " +
+            "p.status as status, p.category as category " +
             "from inventory i left join product p on i.product_id = p.id " +
             "where i.station_id = #{stationId} order by i.id asc")
     List<Inventory> listByStationId(@Param("stationId") Long stationId);

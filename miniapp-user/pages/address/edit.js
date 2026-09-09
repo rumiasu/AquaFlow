@@ -1,34 +1,8 @@
 const { getAddressDetail, createAddress, updateAddress, getAddresses } = require('../../api/address')
 const { validateForm, rules } = require('../../utils/validator')
 const { getCustomerId } = require('../../utils/token')
-
-function parseRegion(addressStr) {
-  if (!addressStr) return { province: '', city: '', district: '', detail: '' }
-  let province = '', city = '', district = '', detail = addressStr
-  const m4 = addressStr.match(/^(北京市|天津市|上海市|重庆市)(.*?)(省|市|区|县|$)/)
-  if (m4) {
-    province = m4[1]; city = m4[1]; district = m4[2] || ''
-    detail = addressStr.substring(m4[0].length)
-    return { province, city, district, detail }
-  }
-  const m1 = addressStr.match(/^(.{2,8}省)(.{2,10}?市)(.{2,10}?(?:区|县))(.*)/)
-  if (m1) {
-    return { province: m1[1], city: m1[2], district: m1[3], detail: m1[4] }
-  }
-  const m2 = addressStr.match(/^(.{2,8}省)(.{2,10}?市)(.*)/)
-  if (m2) {
-    return { province: m2[1], city: m2[2], district: '', detail: m2[3] }
-  }
-  const m3 = addressStr.match(/^(.{2,10}?市)(.{2,10}?(?:区|县))(.*)/)
-  if (m3) {
-    return { province: '', city: m3[1], district: m3[2], detail: m3[3] }
-  }
-  const m5 = addressStr.match(/^(.{2,10}?市)(.*)/)
-  if (m5) {
-    return { province: '', city: m5[1], district: '', detail: m5[2] }
-  }
-  return { province: '', city: '', district: '', detail: addressStr }
-}
+// 与首页/列表/下单页共用同一份地址解析逻辑（含直辖市修正），避免各自维护导致数据再次污染
+const { parseRegion } = require('../../utils/address')
 
 Page({
   data: {

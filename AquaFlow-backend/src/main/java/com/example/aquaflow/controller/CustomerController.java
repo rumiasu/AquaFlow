@@ -7,6 +7,8 @@ import com.example.aquaflow.entity.CustomerStationConfig;
 import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.service.CustomerService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.vo.CustomerProfileVO;
+import com.example.aquaflow.vo.CustomerStationVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -30,11 +32,11 @@ public class CustomerController {
 
     @RequireRole({"STATION_MANAGER"})
     @GetMapping
-    public Result<List<Customer>> list(@RequestParam(required = false) Long stationId) {
+    public Result<List<CustomerStationVO>> list(@RequestParam(required = false) Long stationId) {
         if (AuthContext.isManager()) {
             stationId = AuthContext.requireStationId();
         }
-        return Result.success(customerService.list(stationId));
+        return Result.success(customerService.listStationCustomers(stationId));
     }
 
     @RequireRole({"STATION_MANAGER"})
@@ -46,18 +48,14 @@ public class CustomerController {
 
     @RequireRole({"STATION_MANAGER"})
     @GetMapping("/{id}")
-    public Result<Customer> getById(@PathVariable Long id){
+    public Result<CustomerStationVO> getById(@PathVariable Long id){
         // #37: 校验客户属于当前站长的水站
-        Customer customer = customerService.getById(id);
-        if (customer == null) {
-            return Result.error("客户不存在");
-        }
         Long stationId = AuthContext.requireStationId();
-        CustomerStationConfig config = customerStationConfigMapper.getByCustomerAndStation(id, stationId);
-        if (config == null) {
-            return Result.error("无权查看其他水站的客户");
+        CustomerStationVO vo = customerService.getStationCustomerDetail(id, stationId);
+        if (vo == null) {
+            return Result.error("客户不存在或无权查看");
         }
-        return Result.success(customer);
+        return Result.success(vo);
     }
 
     @RequireRole({"STATION_MANAGER"})
@@ -100,5 +98,20 @@ public class CustomerController {
         Integer enabled = body.get("offlinePaymentEnabled") != null ? Integer.valueOf(body.get("offlinePaymentEnabled").toString()) : 0;
         customerService.updateOfflinePaymentConfig(id, stationId, enabled);
         return Result.success();
+    }
+
+    /**
+     * 客户画像（站长视角）：聚合该客户在本站的消费、资产、履约与行为数据。
+     * GET /api/customers/{id}/profile
+     */
+    @RequireRole({"STATION_MANAGER"})
+    @GetMapping("/{id}/profile")
+    public Result<CustomerProfileVO> getProfile(@PathVariable Long id) {
+        Long stationId = AuthContext.requireStationId();
+        CustomerProfileVO vo = customerService.getCustomerProfile(id, stationId);
+        if (vo == null) {
+            return Result.error("客户不存在或无权查看");
+        }
+        return Result.success(vo);
     }
 }

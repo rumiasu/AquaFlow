@@ -24,6 +24,16 @@ public class TicketRecordController {
     private CustomerMapper customerMapper;
 
     /**
+     * 客户查询自己的水票流水
+     * GET /api/ticket-records  (customerId 从 JWT 获取，与 TicketAccountController.listByCustomerId 同模式)
+     */
+    @GetMapping
+    public Result<List<Map<String, Object>>> listByCustomerId() {
+        Long customerId = AuthContext.requireCustomerId();
+        return Result.success(ticketRecordMapper.listByCustomerIdWithDetail(customerId));
+    }
+
+    /**
      * 员工查询指定客户的水票流水（管理端）
      * GET /api/ticket-records/customer/{customerId}?stationId=xxx
      */

@@ -4,6 +4,7 @@ import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.service.StaffService;
+import com.example.aquaflow.vo.StaffProfileVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,5 +52,24 @@ public class StaffController {
     public Result delete(@PathVariable Long id) {
         staffService.delete(id);
         return Result.success();
+    }
+
+    /**
+     * 员工画像（站长视角）：聚合配送业绩与服务质量。
+     * GET /api/staff/{id}/profile
+     */
+    @GetMapping("/{id}/profile")
+    public Result<StaffProfileVO> getProfile(@PathVariable Long id) {
+        Long stationId = null;
+        try {
+            stationId = com.example.aquaflow.util.AuthContext.getStationId();
+        } catch (Exception ignored) {
+            // 拿不到水站不影响画像，仅水站名留空
+        }
+        StaffProfileVO vo = staffService.getStaffProfile(id, stationId);
+        if (vo == null) {
+            return Result.error("员工不存在");
+        }
+        return Result.success(vo);
     }
 }

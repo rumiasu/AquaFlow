@@ -1,7 +1,8 @@
 // 站长库存查看
 const { getInventory } = require('../../../api/station-mgmt')
 
-const STATUS_MAP = { 0: '下架', 1: '上架', 2: '停售' }
+// 商品状态文案与低库存判定均由后端下发（Inventory.statusText / lowStock），
+// 前端不再本地映射状态、也不再硬编码低库存阈值。
 
 Page({
   data: {
@@ -35,8 +36,8 @@ Page({
         return {
           ...i,
           displayName,
-          statusText: STATUS_MAP[i.status] || '在售',
-          lowStock: (i.quantity || 0) < 20
+          statusText: i.statusText || '在售',
+          lowStock: !!i.lowStock
         }
       })
       this.setData({ list })

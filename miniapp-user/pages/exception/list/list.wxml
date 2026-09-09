@@ -9,20 +9,20 @@
       <view class="card-header">
         <view class="order-info">
           <text class="order-id">订单 #{{item.orderId}}</text>
-          <text class="time">{{formatTime(item.createdAt)}}</text>
+          <text class="time">{{item.timeText}}</text>
         </view>
-        <view class="status-badge {{getStatusColor(item.status)}}">{{getStatusName(item.status)}}</view>
+        <view class="status-badge {{item.statusColor}}">{{item.statusText}}</view>
       </view>
 
       <view class="card-body">
         <view class="info-row">
           <view class="info-item">
             <text class="label">类型</text>
-            <text class="value category-tag">{{getCategoryName(item.category)}}</text>
+            <text class="value category-tag">{{item.categoryText}}</text>
           </view>
           <view class="info-item">
             <text class="label">状态</text>
-            <text class="value">{{getStatusName(item.status)}}</text>
+            <text class="value">{{item.statusText}}</text>
           </view>
         </view>
 
@@ -30,13 +30,13 @@
           <view class="info-item">
             <text class="label">差异</text>
             <text class="value {{item.discrepancy > 0 ? 'short' : 'over'}}">
-              {{item.discrepancy > 0 ? '少回' : '多回'}} {{Math.abs(item.discrepancy)}} 桶
+              {{item.discrepancy > 0 ? '少回' : '多回'}} {{item.discrepancyAbs}} 桶
             </text>
           </view>
           <view class="info-item" wx:if="{{item.managerAction && item.managerAction !== 'IGNORE'}}">
             <text class="label">补偿</text>
             <text class="value compensation-tag">
-              {{getCompensationText(item)}}
+              {{item.compensationText}}
             </text>
           </view>
         </view>

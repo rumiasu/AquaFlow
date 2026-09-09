@@ -205,8 +205,4 @@ Page({
     })
   },
 
-  getStatusText(status) {
-    const map = { 1: '待处理', 2: '已确认', 3: '已退押金', 4: '已驳回' }
-    return map[status] || '未知'
-  }
 })

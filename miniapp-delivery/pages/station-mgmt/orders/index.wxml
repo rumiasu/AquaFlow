@@ -17,7 +17,7 @@
         <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
       </view>
       <view class="product-info">
-        <text class="product-name">{{item.waterTypeName}}</text>
+        <text class="product-name">{{item.firstProductName}}</text>
         <text class="product-qty">× {{item.quantity}} 桶</text>
       </view>
     </view>

@@ -44,8 +44,7 @@
           <text class="address-name">{{address.name}}</text>
           <text class="address-phone">{{address.phone}}</text>
         </view>
-        <text class="address-detail" wx:if="{{address.province || address.city || address.district}}">{{address.province}}{{address.city}}{{address.district}} {{address.detail}}</text>
-        <text class="address-detail" wx:else>{{address.detail}}</text>
+        <text class="address-detail">{{addressText || address.detail}}</text>
       </view>
       <view class="address-empty" wx:else>
         <text>请选择配送地址</text>
@@ -118,6 +117,19 @@
       <view class="popup-btns">
         <button class="btn-cancel" bindtap="onOfflineConfirmCancel">取消</button>
         <button class="btn-ok" bindtap="onOfflineConfirmOk">确认</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 在途桶提醒弹窗 -->
+  <view class="method-popup {{showInTransitReminder ? 'show' : ''}}" wx:if="{{showInTransitReminder}}">
+    <view class="popup-mask" bindtap="onInTransitReminderCancel"></view>
+    <view class="popup-content">
+      <view class="popup-title">下单提醒</view>
+      <text class="popup-desc">您的水桶正在配送中，请饮完水后再下单，或再购买新的水桶。</text>
+      <view class="popup-btns">
+        <button class="btn-cancel" bindtap="onInTransitReminderCancel">再想想</button>
+        <button class="btn-ok" bindtap="onInTransitReminderOk">继续下单</button>
       </view>
     </view>
   </view>

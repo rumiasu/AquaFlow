@@ -1,4 +1,4 @@
-const { getOrders } = require('../../api/order')
+const { getOrders, createPayment } = require('../../api/order')
 const app = getApp()
 
 Page({
@@ -57,5 +57,29 @@ Page({
   onCancel(e) {
     // OrderCard 已处理取消逻辑，这里刷新列表
     this.loadOrders()
+  },
+
+  // 订单列表中的"去支付/重新支付"入口
+  async onPay(e) {
+    const { order } = e.detail
+    if (!order) return
+    try {
+      await createPayment({
+        orderId: order.id,
+        customerId: wx.getStorageSync('customerId'),
+        amount: order.totalAmount || order.amount,
+        paymentMethod: order.paymentMethod || 1,
+        waterAmount: 0,
+        barrelDeposit: 0,
+        extraDepositBuckets: 0,
+        extraDepositAmount: 0,
+        ticketProductId: null,
+        ticketQty: null
+      })
+      wx.showToast({ title: '支付成功', icon: 'success' })
+      this.loadOrders()
+    } catch (err) {
+      wx.showToast({ title: err.message || '支付失败', icon: 'none' })
+    }
   }
 })

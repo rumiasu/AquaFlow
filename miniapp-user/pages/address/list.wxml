@@ -16,8 +16,7 @@
           <text class="default-tag" wx:if="{{item.isDefault}}">默认</text>
         </view>
         <view class="address-detail">
-          <text wx:if="{{item.province || item.city || item.district}}">{{item.province}}{{item.city}}{{item.district}} </text>
-          <text>{{item.detail}}</text>
+          <text>{{item.addressText || item.detail}}</text>
         </view>
       </view>
       <view class="address-actions" wx:if="{{from !== 'home'}}">

@@ -84,9 +84,10 @@ public class DeliveryController {
     private com.example.aquaflow.mapper.StationMapper stationMapper;
 
     private void checkStationOwnership(Orders order) {
-        Long myStationId = AuthContext.getStationId();
+        // 强制当前水站非空（未绑站直接拒绝，fail-closed），并严格比对履约站
+        Long myStationId = AuthContext.requireStationId();
         Long orderStation = deliveryStation(order);
-        if (myStationId != null && orderStation != null && !myStationId.equals(orderStation)) {
+        if (orderStation == null || !myStationId.equals(orderStation)) {
             throw new BusinessException("无权操作他站订单");
         }
     }
@@ -251,7 +252,26 @@ public class DeliveryController {
             checkStationOwnership(order);
         }
         order.setItems(orderItemMapper.listByOrderId(id));
+        // 「待我确认的转单」由后端按登录人判定（前端此前读的 isTransferTarget 后端并不存在）
+        order.setTransferTarget(isTransferTarget(order));
         return Result.success(order);
+    }
+
+    /**
+     * 判定订单是否为「转给当前登录人、待其确认」的转单。
+     * <p>站间指定退回 -> 归属站站长决策；配送员转单 -> 本站站长可决策，
+     * 或未分配/已分配给本人的配送员可认领（与 claimTransfer 的校验口径保持一致）。</p>
+     */
+    private boolean isTransferTarget(Orders order) {
+        if (!order.getTransferPending()) return false;
+        Long staffId = AuthContext.getUserId();
+        Long stationId = AuthContext.getStationId();
+        if ("DIRECTED".equals(order.getTransferKind())) {
+            return stationId != null && stationId.equals(order.getStationId());
+        }
+        if (stationId != null && stationId.equals(deliveryStation(order))) return true;
+        return order.getDeliveryStaffId() == null
+                || (staffId != null && staffId.equals(order.getDeliveryStaffId()));
     }
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
@@ -536,10 +556,9 @@ public class DeliveryController {
     public Result<Void> rejectOrder(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> params) {
         Orders order = orderMapper.getById(id);
         if (order == null) return Result.error("订单不存在");
-        if (AuthContext.isManager()) {
-            Long stationId = AuthContext.requireStationId();
-            if (!stationId.equals(deliveryStation(order))) return Result.error("无权操作他站订单");
-        }
+        // 配送员与站长都必须校验订单归属，杜绝越权取消任意订单并触发退款
+        Long stationId = AuthContext.requireStationId();
+        if (!stationId.equals(deliveryStation(order))) return Result.error("无权操作他站订单");
         String reason = params != null && params.get("reason") != null ? params.get("reason").toString() : "水站拒单";
         order.setSpecialNote(appendNote(order.getSpecialNote(), " [拒单] " + reason));
         order.setUpdateTime(LocalDateTime.now());
@@ -622,7 +641,8 @@ public class DeliveryController {
         if (reasonObj == null) return Result.error("拒单原因必填");
         String reason = reasonObj.toString();
 
-        order.setStatus(OrderStatus.CANCELLED);
+        // 注意：不要提前置 CANCELLED，否则 refundOrder 的状态门槛(orderStatus < DELIVERED)会失效、
+        // 导致押金不退/在途桶悬挂。状态由 refundOrder 末尾统一置位。
         order.setSpecialNote(appendNote(order.getSpecialNote(), " [解决/拒单] " + reason));
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
@@ -695,6 +715,7 @@ public class DeliveryController {
         order.setSpecialNote(appendNote(order.getSpecialNote(), " [退回站长] " + reason));
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
+        orderMapper.clearDeliveryStaff(id); // 选择性更新下 setDeliveryStaffId(null) 不写库，必须显式清空
 
         log("RETURN_TO_STATION", id, null);
         return Result.success();
@@ -725,21 +746,41 @@ public class DeliveryController {
     @RequireRole("STATION_MANAGER")
     @PostMapping("/orders/transfer/{id}/outsource")
     @Transactional
-    public Result<Void> outsourceOrder(@PathVariable Long id) {
+    public Result<Void> outsourceOrder(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> params) {
         Long stationId = AuthContext.requireStationId();
         Orders order = orderMapper.getById(id);
         if (order == null) return Result.error("订单不存在");
         if (!stationId.equals(deliveryStation(order))) return Result.error("仅能操作本站订单");
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) return Result.error("当前状态不可外派");
-        // 清空 delivery_station_id 进入抢单池，station_id（归属站）不变
-        order.setDeliveryStationId(null);
-        order.setDeliveryStaffId(null);
-        order.setStatus(OrderStatus.PENDING);
-        order.setSpecialNote(appendNote(order.getSpecialNote(), " [外派] 站长放入抢单池，原归属站=" + stationId));
-        order.setUpdateTime(LocalDateTime.now());
-        orderMapper.update(order);
-        log("OUTSOURCE", id, Map.of("stationId", stationId));
+
+        Object targetObj = params != null ? params.get("targetStationId") : null;
+        if (targetObj != null) {
+            // 指定水站外派：直接派给目标站，订单进入目标站待分配
+            Long targetStationId = ((Number) targetObj).longValue();
+            if (targetStationId.equals(stationId)) return Result.error("不能外派给自己水站");
+            String reason = params.get("reason") != null ? params.get("reason").toString() : "站长指定水站外派";
+            order.setDeliveryStationId(targetStationId);
+            order.setDeliveryStaffId(null);
+            order.setStatus(OrderStatus.PENDING);
+            order.setSpecialNote(appendNote(order.getSpecialNote(),
+                    " [外派] 站长指定外派至 " + targetStationId + "，原因：" + reason + "，原归属站=" + stationId));
+            order.setUpdateTime(LocalDateTime.now());
+            orderMapper.update(order);
+            orderMapper.clearDeliveryStaff(id); // 清空原配送员
+            // 给客户发送临时外派配送提醒
+            notifyCustomerTempDispatch(order.getCustomerId(), id, targetStationId);
+            log("OUTSOURCE_DIRECT", id, Map.of("fromStationId", stationId, "toStationId", targetStationId, "reason", reason));
+        } else {
+            // 放入抢单池：清空 delivery_station_id，station_id（归属站）不变
+            order.setDeliveryStationId(null);
+            order.setDeliveryStaffId(null);
+            order.setStatus(OrderStatus.PENDING);
+            order.setSpecialNote(appendNote(order.getSpecialNote(), " [外派] 站长放入抢单池，原归属站=" + stationId));
+            order.setUpdateTime(LocalDateTime.now());
+            orderMapper.update(order);
+            log("OUTSOURCE", id, Map.of("stationId", stationId));
+        }
         return Result.success();
     }
 
@@ -804,11 +845,16 @@ public class DeliveryController {
         Orders order = orderMapper.getById(id);
         if (order == null) return Result.error("订单不存在");
         if (!stationId.equals(deliveryStation(order))) return Result.error("仅能操作本站订单");
-        order.setDeliveryStaffId(null);
+        // 同意转单：去掉转单标记（离开「转单中」列表）+ 清空配送员（变普通待分配，可再分配/外派）
+        String note = (order.getSpecialNote() == null ? "" : order.getSpecialNote())
+                .replace("[退回站长]", "[退回站长-已同意]")
+                .replace("[转让]", "[转让-已同意]")
+                .replace("[重分配]", "[重分配-已同意]");
+        order.setSpecialNote(appendNote(note, " [退回通过]"));
         order.setStatus(OrderStatus.PENDING);
-        order.setSpecialNote(appendNote(order.getSpecialNote(), " [退回通过]"));
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
+        orderMapper.clearDeliveryStaff(id); // 选择性更新下 setDeliveryStaffId(null) 不写库，必须显式清空
         log("RETURN_APPROVE", id, null);
         return Result.success();
     }
@@ -820,7 +866,13 @@ public class DeliveryController {
         Orders order = orderMapper.getById(id);
         if (order == null) return Result.error("订单不存在");
         if (!stationId.equals(deliveryStation(order))) return Result.error("仅能操作本站订单");
-        order.setSpecialNote(appendNote(order.getSpecialNote(), " [退回拒绝]"));
+        // 拒绝转单：去掉转单标记（离开「转单中」列表）+ 回到配送中，保留原配送员继续完成配送
+        String note = (order.getSpecialNote() == null ? "" : order.getSpecialNote())
+                .replace("[退回站长]", "[退回站长-已拒绝]")
+                .replace("[转让]", "[转让-已拒绝]")
+                .replace("[重分配]", "[重分配-已拒绝]");
+        order.setSpecialNote(appendNote(note, " [退回拒绝]"));
+        order.setStatus(OrderStatus.DELIVERING);
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
         log("RETURN_REJECT", id, null);
@@ -844,6 +896,9 @@ public class DeliveryController {
                 .mapToInt(o -> o.getReturnBucketQty() != null ? o.getReturnBucketQty() : 0)
                 .sum();
         stats.put("returnBarrels", totalReturn);
+        // 待收款订单数：以前端读 stats.unpaidOrders，但后端从未下发该字段，看板恒显示 0。
+        // 改为后端按 payment_status / payment_method 真实统计（水票视同已付，不计入）。
+        stats.put("unpaidOrders", stationId == null ? 0 : orderMapper.countUncollected(stationId));
 
         return Result.success(stats);
     }
@@ -1052,22 +1107,118 @@ public class DeliveryController {
         Long stationId = AuthContext.requireStationId();
         Orders order = orderMapper.getById(id);
         if (order == null) return Result.error("订单不存在");
-        // 验证是本站外派的订单
+        // 验证是本站外派的订单（归属站）
         Long ownerStation = order.getStationId();
         if (!stationId.equals(ownerStation)) return Result.error("仅能取消本站外派的订单");
-        if (order.getDeliveryStationId() != null) {
-            return Result.error("该订单已被其他水站抢单，无法取消");
+        int cur = order.getStatus() != null ? order.getStatus() : 0;
+        if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) {
+            return Result.error("该订单状态不可取消外派");
         }
-        // 恢复为本站待分配
+        // 召回为本站待分配（无论当前在抢单池、已指定或已被其他站接单）
         order.setDeliveryStationId(stationId);
         order.setDeliveryStaffId(null);
         order.setStatus(OrderStatus.PENDING);
         order.setSpecialNote(appendNote(order.getSpecialNote(), " [取消外派] 站长取消外派，恢复本站"));
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
+        orderMapper.clearDeliveryStaff(id); // 清空配送员，恢复本站待分配（update 为选择性更新，null 不会写库）
 
         log("CANCEL_DISPATCH", id, null);
         return Result.success();
+    }
+
+    /**
+     * 指定水站外派后，目标水站将订单调解退回原归属站。
+     * 仅打标记 [指定退回待确认]（即「转单中」），保留原履约站与原配送员，等待原站长决定：
+     * 同意 -> 变回原站普通待分配（可重新分配/外派）；
+     * 拒绝 -> 回到配送中，由原配送员继续完成配送。
+     */
+    @RequireRole("STATION_MANAGER")
+    @PostMapping("/orders/{id}/directed-return")
+    @Transactional
+    public Result<Void> directedReturn(@PathVariable Long id) {
+        Long stationId = AuthContext.requireStationId();
+        Orders order = orderMapper.getById(id);
+        if (order == null) return Result.error("订单不存在");
+        if (!stationId.equals(deliveryStation(order))) return Result.error("仅目标水站可退回此单");
+        int cur = order.getStatus() != null ? order.getStatus() : 0;
+        if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) return Result.error("当前状态不可退回");
+        // 进入「转单中」：不动 delivery_station_id / delivery_staff_id，拒绝时才能还原由原配送员继续配送
+        order.setStatus(OrderStatus.PENDING);
+        order.setSpecialNote(appendNote(order.getSpecialNote(),
+                " [指定退回待确认] 由水站 " + stationId + " 申请退回原归属站 " + order.getStationId()));
+        order.setUpdateTime(LocalDateTime.now());
+        orderMapper.update(order);
+        log("DIRECTED_RETURN", id, Map.of("fromStationId", stationId, "toStationId", order.getStationId()));
+        return Result.success();
+    }
+
+    /**
+     * 原归属站站长同意退回：订单变为普通待分配，可重新分配/外派
+     */
+    @RequireRole("STATION_MANAGER")
+    @PostMapping("/orders/{id}/directed-return/approve")
+    @Transactional
+    public Result<Void> directedReturnApprove(@PathVariable Long id) {
+        Long stationId = AuthContext.requireStationId();
+        Orders order = orderMapper.getById(id);
+        if (order == null) return Result.error("订单不存在");
+        if (!stationId.equals(order.getStationId())) return Result.error("仅原归属站可操作");
+        if (order.getSpecialNote() == null || !order.getSpecialNote().contains("[指定退回待确认]"))
+            return Result.error("该订单无需确认退回");
+        String note = order.getSpecialNote().replace("[指定退回待确认]", "").replace("[外派]", "").trim();
+        order.setSpecialNote((note.isEmpty() ? "" : note + " ") + "[指定退回-同意]");
+        order.setDeliveryStationId(stationId);
+        order.setDeliveryStaffId(null);
+        order.setStatus(OrderStatus.PENDING);
+        order.setUpdateTime(LocalDateTime.now());
+        orderMapper.update(order);
+        orderMapper.clearDeliveryStaff(id); // 清空配送员，变回普通待分配（update 为选择性更新，null 不会写库）
+        log("DIRECTED_RETURN_APPROVE", id, null);
+        return Result.success();
+    }
+
+    /**
+     * 原归属站站长拒绝退回：取消转单，订单回到「配送中」，由原配送员继续完成配送
+     */
+    @RequireRole("STATION_MANAGER")
+    @PostMapping("/orders/{id}/directed-return/reject")
+    @Transactional
+    public Result<Void> directedReturnReject(@PathVariable Long id) {
+        Long stationId = AuthContext.requireStationId();
+        Orders order = orderMapper.getById(id);
+        if (order == null) return Result.error("订单不存在");
+        if (!stationId.equals(order.getStationId())) return Result.error("仅原归属站可操作");
+        if (order.getSpecialNote() == null || !order.getSpecialNote().contains("[指定退回待确认]"))
+            return Result.error("该订单无需确认退回");
+        String note = order.getSpecialNote().replace("[指定退回待确认]", "").trim();
+        order.setSpecialNote((note.isEmpty() ? "" : note + " ") + "[指定退回-拒绝]");
+        // 拒绝转单 -> 回到配送中；delivery_station_id / delivery_staff_id 保持原样，由原配送员继续配送
+        order.setStatus(OrderStatus.DELIVERING);
+        order.setUpdateTime(LocalDateTime.now());
+        orderMapper.update(order);
+        log("DIRECTED_RETURN_REJECT", id, null);
+        return Result.success();
+    }
+
+    /**
+     * 原归属站：被指定水站退回、等待同意的订单列表
+     */
+    @RequireRole("STATION_MANAGER")
+    @GetMapping("/orders/directed-returns")
+    public Result<?> getDirectedReturns() {
+        Long stationId = AuthContext.requireStationId();
+        return Result.success(orderMapper.listDirectedReturns(stationId));
+    }
+
+    /**
+     * 目标水站视角：被其他水站指定为履约站的订单列表（他站外派给我）
+     */
+    @RequireRole("STATION_MANAGER")
+    @GetMapping("/orders/directed-incoming")
+    public Result<?> getDirectedIncoming() {
+        Long stationId = AuthContext.requireStationId();
+        return Result.success(orderMapper.listDirectedIncoming(stationId));
     }
 
     /**
@@ -1094,6 +1245,7 @@ public class DeliveryController {
                     " [外派] 站长拒单后外派，原因=" + reason + "，原归属站=" + stationId));
             order.setUpdateTime(LocalDateTime.now());
             orderMapper.update(order);
+            orderMapper.clearDispatchStation(id); // 放回抢单池：清空履约站+配送员
         } else {
             // 直接取消 — 先更新备注，再由 refundOrder 统一处理退款+置CANCELLED
             order.setSpecialNote(appendNote(order.getSpecialNote(),

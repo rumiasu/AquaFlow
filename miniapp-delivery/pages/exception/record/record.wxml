@@ -42,7 +42,7 @@
         <view class="discrepancy-display {{discrepancy > 0 ? 'short' : (discrepancy < 0 ? 'over' : 'normal')}}">
           <text class="discrepancy-label">差异：</text>
           <text class="discrepancy-value">
-            {{discrepancy > 0 ? '少回' : (discrepancy < 0 ? '多回' : '无')}} {{Math.abs(discrepancy)}} 桶
+            {{discrepancy > 0 ? '少回' : (discrepancy < 0 ? '多回' : '无')}} {{discrepancyAbs}} 桶
           </text>
           <text class="discrepancy-desc">{{discrepancyDesc}}</text>
         </view>

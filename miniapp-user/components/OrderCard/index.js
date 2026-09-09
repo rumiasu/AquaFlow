@@ -7,31 +7,36 @@ Component({
     statusText: '',
     statusClass: '',
     payStatusText: '',
-    payStatusClass: ''
+    payStatusClass: '',
+    canRepay: false,
+    repayLabel: '去支付'
   },
 
   observers: {
-    'order.status': function (status) {
-      const map = {
-        1: { text: '待配送', class: 'warning' },
-        2: { text: '配送中', class: 'primary' },
-        3: { text: '已送达', class: 'success' },
-        4: { text: '已完成', class: 'success' },
-        5: { text: '已取消', class: 'cancelled' }
+    'order': function (order) {
+      if (!order) return
+      // 订单状态与支付态文案、支付入口均由后端计算下发（Orders 派生字段 statusText /
+      // payStateText / canRepay / repayLabel）。前端只按状态编码选配色，
+      // 不再维护 status -> 文案映射，避免两端各写一套导致漂移。
+      const statusClassMap = {
+        1: 'warning', 2: 'primary', 3: 'success', 4: 'success', 5: 'cancelled'
       }
-      const info = map[status] || { text: '未知', class: 'default' }
-      this.setData({ statusText: info.text, statusClass: info.class })
-    },
-    'order.paymentStatus': function (ps) {
-      const map = {
-        0: { text: '未付款', class: 'other' },
-        1: { text: '待收款', class: 'warning' },
-        2: { text: '已付款', class: 'paid' },
-        3: { text: '已退款', class: 'other' },
-        4: { text: '已取消', class: 'other' }
+      const statusClass = statusClassMap[order.status] || 'default'
+      const payClassMap = {
+        UNPAID: 'other',
+        PENDING: 'warning',
+        PAID: 'paid',
+        REFUNDED: 'other',
+        CANCELLED: 'other'
       }
-      const info = map[ps] || { text: '未知', class: 'other' }
-      this.setData({ payStatusText: info.text, payStatusClass: info.class })
+      this.setData({
+        statusText: order.statusText || '',
+        statusClass,
+        payStatusText: order.payStateText || '',
+        payStatusClass: payClassMap[order.payState] || 'other',
+        canRepay: !!order.canRepay,
+        repayLabel: order.repayLabel || '去支付'
+      })
     }
   },
 

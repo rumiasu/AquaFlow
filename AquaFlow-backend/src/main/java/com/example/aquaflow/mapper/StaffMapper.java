@@ -62,4 +62,54 @@ public interface StaffMapper {
      */
     @Update("UPDATE staff SET station_id = #{stationId}, update_time = NOW() WHERE id = #{id}")
     void updateStationId(@Param("id") Long id, @Param("stationId") Long stationId);
+
+    // ==================== 员工画像聚合 ====================
+
+    /** 今日完成 */
+    @Select("select count(*) from orders where delivery_staff_id = #{staffId} and status = 4 " +
+            "and date(create_time) = curdate()")
+    int countTodayCompleted(@Param("staffId") Long staffId);
+
+    /** 本月完成 */
+    @Select("select count(*) from orders where delivery_staff_id = #{staffId} and status = 4 " +
+            "and create_time >= date_format(now(), '%Y-%m-01')")
+    int countMonthCompleted(@Param("staffId") Long staffId);
+
+    /** 累计完成 */
+    @Select("select count(*) from orders where delivery_staff_id = #{staffId} and status = 4")
+    int countTotalCompleted(@Param("staffId") Long staffId);
+
+    /** 在途（待配送 + 配送中） */
+    @Select("select count(*) from orders where delivery_staff_id = #{staffId} and status in (1, 2)")
+    int countDelivering(@Param("staffId") Long staffId);
+
+    /** 已取消 */
+    @Select("select count(*) from orders where delivery_staff_id = #{staffId} and status = 5")
+    int countCancelled(@Param("staffId") Long staffId);
+
+    /** 累计配送金额 */
+    @Select("select coalesce(sum(total_amount),0) from orders where delivery_staff_id = #{staffId} and status = 4")
+    java.math.BigDecimal sumTotalAmount(@Param("staffId") Long staffId);
+
+    /** 本月配送金额 */
+    @Select("select coalesce(sum(total_amount),0) from orders where delivery_staff_id = #{staffId} and status = 4 " +
+            "and create_time >= date_format(now(), '%Y-%m-01')")
+    java.math.BigDecimal sumMonthAmount(@Param("staffId") Long staffId);
+
+    /** 退回站长次数 */
+    @Select("select count(*) from orders where delivery_staff_id = #{staffId} " +
+            "and special_note like '%[退回站长]%'")
+    int countReturns(@Param("staffId") Long staffId);
+
+    /** 桶异常次数 */
+    @Select("select count(*) from order_barrel_exception where delivery_staff_id = #{staffId}")
+    int countExceptions(@Param("staffId") Long staffId);
+
+    /** 当前在途订单 */
+    @Select("select o.id, o.status, o.total_amount as totalAmount, " +
+            "o.address_snapshot as addressSnapshot, c.name as customerName " +
+            "from orders o left join customer c on o.customer_id = c.id " +
+            "where o.delivery_staff_id = #{staffId} and o.status in (1, 2) " +
+            "order by o.create_time desc limit 10")
+    java.util.List<java.util.Map<String, Object>> listCurrentOrders(@Param("staffId") Long staffId);
 }

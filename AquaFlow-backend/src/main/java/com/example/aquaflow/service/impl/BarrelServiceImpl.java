@@ -121,11 +121,16 @@ public class BarrelServiceImpl implements BarrelService {
 
         // 在途桶
         int deliveryBuckets = 0;
+        int pendingDeliveryBuckets = 0;
         List<CustomerBarrelInTransit> transits = customerBarrelInTransitMapper.listByCustomerAndStation(customerId, stationId);
         if (transits != null) {
             for (CustomerBarrelInTransit t : transits) {
                 if (t.getStatus() != null && "CANCELLED".equals(t.getStatus())) continue;
                 deliveryBuckets += t.getQty() != null ? t.getQty() : 0;
+                // 仅统计尚未送达确认(PENDING)的在途桶，避免把已收到的桶误判为"配送中"
+                if ("PENDING".equals(t.getStatus())) {
+                    pendingDeliveryBuckets += t.getQty() != null ? t.getQty() : 0;
+                }
             }
         }
 
@@ -155,6 +160,7 @@ public class BarrelServiceImpl implements BarrelService {
         summary.put("actualBuckets", heldBuckets);
         summary.put("owedBuckets", owedBuckets);
         summary.put("deliveryBuckets", deliveryBuckets);
+        summary.put("pendingDeliveryBuckets", pendingDeliveryBuckets);
         summary.put("returnBuckets", returnBuckets);
         summary.put("pendingReturns", pendingReturns);
         summary.put("confirmedReturns", confirmedReturns);

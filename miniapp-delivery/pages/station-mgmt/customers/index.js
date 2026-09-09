@@ -1,11 +1,34 @@
 // 站长客户查询
 const { getCustomers } = require('../../../api/station-mgmt')
 
+const AVATAR_COLORS = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6B', '#909399', '#9254DE']
+
+// 列表项前端派生展示字段（头像/脱敏等纯展示，不依赖后端）
+function decorate(item) {
+  const name = item.name || '?'
+  item.avatarText = name.charAt(0)
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  item.avatarColor = AVATAR_COLORS[h % AVATAR_COLORS.length]
+  const phone = item.phone || ''
+  item.phoneMasked = phone.length === 11 ? phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : (phone || '未填写')
+  item.totalOrders = item.totalOrders || 0
+  item.totalConsumptionText = Number(item.totalConsumption || 0).toFixed(2)
+  item.depositBalanceText = Number(item.depositBalance || 0).toFixed(2)
+  item.customerLevel = item.customerLevel || '普通客户'
+  item.customerLevelColor = item.customerLevelColor || '#909399'
+  item.activityStatus = item.activityStatus || 'new'
+  item.activityText = item.activityText || '新客'
+  item.tagsList = item.tags ? String(item.tags).split(',').map(s => s.trim()).filter(Boolean) : []
+  return item
+}
+
 Page({
   data: {
     loading: true,
     list: [],
-    keyword: ''
+    keyword: '',
+    filterType: 'all' // all | 1 个人 | 2 企业
   },
 
   onShow() {
@@ -29,6 +52,11 @@ Page({
     this.loadData()
   },
 
+  onFilterType(e) {
+    this.setData({ filterType: e.currentTarget.dataset.type })
+    this.loadData()
+  },
+
   async loadData() {
     const app = getApp()
     const stationId = app.globalData.userInfo?.stationId
@@ -37,7 +65,12 @@ Page({
     try {
       const res = await getCustomers(stationId)
       const keyword = this.data.keyword.trim()
-      let list = res.data || []
+      const filterType = this.data.filterType
+      let list = (res.data || []).map(decorate)
+      if (filterType !== 'all') {
+        const t = Number(filterType)
+        list = list.filter(c => c.customerType === t)
+      }
       if (keyword) {
         list = list.filter(c =>
           (c.name || '').includes(keyword) || (c.phone || '').includes(keyword)
@@ -54,5 +87,11 @@ Page({
   onCall(e) {
     const { phone } = e.currentTarget.dataset
     if (phone) wx.makePhoneCall({ phoneNumber: phone })
+  },
+
+  // 跳转客户画像/权限管理
+  onManage(e) {
+    const { id } = e.currentTarget.dataset
+    wx.navigateTo({ url: `/pages/station-mgmt/customers/detail/index?id=${id}` })
   }
 })

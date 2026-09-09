@@ -3,16 +3,31 @@
     <button class="btn-add" bindtap="onShowAdd">新增配送员</button>
   </view>
 
+  <view class="search-bar">
+    <input class="search-input" placeholder="搜索姓名/手机号" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="onSearch" />
+    <view class="search-btn" bindtap="onSearch"><text>搜索</text></view>
+  </view>
+
+  <view class="filter-chips">
+    <view class="chip {{filterStatus === 'all' ? 'active' : ''}}" data-status="all" bindtap="onFilterStatus"><text>全部</text></view>
+    <view class="chip {{filterStatus === '1' ? 'active' : ''}}" data-status="1" bindtap="onFilterStatus"><text>在职</text></view>
+    <view class="chip {{filterStatus === '0' ? 'active' : ''}}" data-status="0" bindtap="onFilterStatus"><text>离职</text></view>
+  </view>
+
   <view class="staff-card" wx:for="{{list}}" wx:key="id">
-    <view class="staff-header">
-      <view class="staff-info">
+    <view class="avatar" style="background:{{item.avatarColor}}">{{item.avatarText}}</view>
+    <view class="staff-body">
+      <view class="name-row">
         <text class="staff-name">{{item.name}}</text>
-        <text class="staff-phone">{{item.phone}}</text>
+        <text class="badge role">{{item.roleText}}</text>
+        <text class="badge {{item.status === 1 ? 'on' : 'off'}}">{{item.statusText}}</text>
       </view>
-      <text class="staff-status {{item.status === 1 ? 'active' : ''}}">{{item.status === 1 ? '在职' : '离职'}}</text>
+      <text class="staff-phone" wx:if="{{item.phone}}">{{item.phoneMasked}}</text>
+      <text class="staff-phone muted" wx:else>未填写电话</text>
     </view>
-    <view class="card-actions" wx:if="{{item.status === 1}}">
-      <button class="btn-detach" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onDetach">解除所属</button>
+    <view class="card-actions">
+      <button class="btn-profile" data-id="{{item.id}}" bindtap="onViewProfile">画像</button>
+      <button class="btn-detach" wx:if="{{item.status === 1}}" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onDetach">解除</button>
     </view>
   </view>
 

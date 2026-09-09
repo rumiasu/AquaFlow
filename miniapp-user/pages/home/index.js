@@ -8,6 +8,7 @@ const { getPublicStations } = require('../../api/station')
 const { storage, stationStorage } = require('../../utils/storage')
 const { getBaseUrl, API } = require('../../config/api')
 const { getAccessToken } = require('../../utils/token')
+const { formatAddress } = require('../../utils/address')
 
 Page({
   data: {
@@ -16,6 +17,7 @@ Page({
     isLogin: false,
     state: 'guest',
     address: null,
+    addressText: '',
     products: [],
     barrelProducts: [],
     cart: {},
@@ -53,7 +55,10 @@ Page({
 
     const selectedAddress = storage.get('selectedAddress')
     if (selectedAddress) {
-      this.setData({ address: selectedAddress })
+      this.setData({
+        address: selectedAddress,
+        addressText: formatAddress(selectedAddress)
+      })
       storage.remove('selectedAddress')
     }
 
@@ -239,7 +244,9 @@ async loadData() {
         const list = addressRes.data
         address = list.find(a => a.isDefault) || list[0]
       }
-      this.setData({ address })
+      // 展示串：「区 + 街道门牌」，去掉冗长的省市区前缀（未清洗数据也会兜底拆分）
+      const addressText = address ? formatAddress(address) : ''
+      this.setData({ address, addressText })
 
       let barrelByType = []
       if (barrelRes && barrelRes.data) {
@@ -332,7 +339,8 @@ async loadData() {
       let recentOrders = []
       if (ordersRes && ordersRes.data) {
         recentOrders = ordersRes.data.slice(0, 3).map(o => {
-          const nextAmount = o.waterAmount || Math.max(0, (o.totalAmount || 0) - (o.depositAmount || 0))
+          // 水费金额（不含押金）由后端统一计算/兜底下发，前端不再自行做减法
+          const nextAmount = o.waterAmount || 0
           let displayDate = o.createTime || ''
           if (displayDate.length >= 10) {
             const parts = displayDate.substring(0, 10).split('-')

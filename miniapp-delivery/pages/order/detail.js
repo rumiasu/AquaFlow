@@ -1,6 +1,15 @@
 // 订单详情页
 const { getOrderDetail, completeOrder, transferOrder, returnToStation, reportOrder, getStaffList, dispatchOrder, resolveOrder } = require('../../api/delivery')
 
+// 纯展示用：订单状态数字 → 徽章 CSS class（仅控制颜色，不承载业务逻辑）
+const STATUS_CLASS_MAP = {
+  1: 'pending',     // 待配送
+  2: 'delivering',  // 配送中
+  3: 'delivered',   // 已送达
+  4: 'completed',   // 已完成
+  5: 'cancelled'    // 已取消
+}
+
 Page({
   data: {
     orderId: null,
@@ -35,50 +44,29 @@ Page({
       const res = await getOrderDetail(id)
       const order = res.data
 
-      const statusMap = {
-        1: { text: '待配送', class: 'pending' },
-        2: { text: '配送中', class: 'delivering' },
-        3: { text: '已送达', class: 'delivered' },
-        4: { text: '已完成', class: 'completed' },
-        5: { text: '已取消', class: 'cancelled' }
-      }
-      const statusInfo = statusMap[order.status] || { text: '待处理', class: 'default' }
-
+      // 状态文案、支付方式文案、是否需现场收款、转单状态：全部由后端计算下发。
+      // 注意：此前这里读取的 transferStatus / returnStatus / isTransferTarget 三个字段
+      // 后端 Orders 根本不存在（与 collected 同类问题），导致「转单中/退回申请/待你确认」
+      // 标签永远不显示。现改用后端 transferPending / transferText。
       let notes = []
       if (order.specialNote) {
         notes = order.specialNote.split('\n').filter(n => n.trim())
       }
 
-      const paymentMethodMap = {
-        1: '微信',
-        2: '现金',
-        3: '水票'
-      }
-
-      const isOffline = order.paymentMethod === 2 || order.paymentMethod === 4
-        || (order.paymentMethod === 1 && order.paymentStatus !== 2)
-      const isTransfer = !!order.transferStatus && order.transferStatus !== 'NONE'
-      const isReturnReq = !!order.returnStatus && order.returnStatus === 'REQUESTED'
-      const isTransferTarget = !!order.isTransferTarget
-
       const labels = []
-      if (isOffline) labels.push({ type: 'offline', text: '线下' })
-      if (isTransfer) labels.push({ type: 'transfer', text: '转单中' })
-      if (isReturnReq) labels.push({ type: 'return', text: '退回申请' })
-      if (isTransferTarget) labels.push({ type: 'target', text: '待你确认' })
+      if (order.needCollect) labels.push({ type: 'offline', text: '线下' })
+      if (order.transferPending) labels.push({ type: 'transfer', text: order.transferText })
 
       this.setData({
         order: {
           ...order,
-          statusText: statusInfo.text,
-          statusClass: statusInfo.class,
+          statusText: order.statusText || '',
+          statusClass: STATUS_CLASS_MAP[order.status] || 'default',
           notes,
-          paymentMethodText: paymentMethodMap[order.paymentMethod] || '现金',
-          isOffline,
+          paymentMethodText: order.payMethodText || '',
+          isOffline: !!order.needCollect,
           labels,
-          isTransfer,
-          isReturnReq,
-          isTransferTarget
+          isTransfer: !!order.transferPending
         },
         loading: false
       })

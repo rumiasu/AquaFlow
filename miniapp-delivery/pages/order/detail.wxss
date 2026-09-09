@@ -41,6 +41,18 @@
   background: rgba(79, 142, 247, 0.3);
 }
 
+.status-pending {
+  background: rgba(255, 149, 0, 0.3);
+}
+
+.status-delivered {
+  background: rgba(79, 142, 247, 0.3);
+}
+
+.status-cancelled {
+  background: rgba(117, 117, 117, 0.3);
+}
+
 .status-completed {
   background: rgba(52, 199, 89, 0.3);
 }

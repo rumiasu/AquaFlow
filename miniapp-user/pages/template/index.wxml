@@ -103,7 +103,7 @@
             bindtap="onSelectAddress"
             data-id="{{item.id}}"
           >
-            <text>{{item.label ? item.label + ' ' : ''}}{{item.detail}}</text>
+            <text>{{item.label ? item.label + ' ' : ''}}{{item.addressText || item.detail}}</text>
           </view>
         </view>
       </view>

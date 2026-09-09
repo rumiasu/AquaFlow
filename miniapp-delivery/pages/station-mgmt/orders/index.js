@@ -50,8 +50,8 @@ Page({
       const res = await getOrders({ stationId, status })
       const list = (res.data || []).map(o => ({
         ...o,
-        statusText: (STATUS_MAP[o.status] || {}).text || '未知',
-        statusCls: (STATUS_MAP[o.status] || {}).cls || 'default'
+        statusText: o.statusText || '未知',
+        statusCls: STATUS_CLASS_MAP[o.status] || 'default'
       }))
       this.setData({ list })
     } catch (err) {

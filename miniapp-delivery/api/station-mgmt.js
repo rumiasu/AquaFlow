@@ -21,6 +21,31 @@ const getCustomers = (stationId) => {
   return get(API.CUSTOMERS, { stationId })
 }
 
+// 客户详情（站长视角，含本站权限与统计）
+const getCustomerDetail = (id) => {
+  return get(API.CUSTOMER_DETAIL(id))
+}
+
+// 客户画像（站长视角：消费/资产/行为聚合）
+const getCustomerProfile = (id) => {
+  return get(API.CUSTOMER_PROFILE(id))
+}
+
+// 员工画像（站长视角：配送业绩/服务质量聚合）
+const getStaffProfile = (id) => {
+  return get(API.STAFF_PROFILE(id))
+}
+
+// 获取客户在本站的货到付款权限配置
+const getOfflinePayment = (id) => {
+  return get(API.CUSTOMER_OFFLINE_PAYMENT(id))
+}
+
+// 设置客户在本站的货到付款权限（enabled: true 开通 / false 关闭）
+const updateOfflinePayment = (id, enabled) => {
+  return put(API.CUSTOMER_OFFLINE_PAYMENT(id), { offlinePaymentEnabled: enabled ? 1 : 0 })
+}
+
 // 库存
 const getInventory = (stationId) => {
   return get(API.INVENTORY, { stationId })
@@ -88,8 +113,11 @@ const createStaff = (data) => {
   return post(API.STAFF, data)
 }
 
+// 解除配送员与本站的所属关系
+// ⚠️ 后端实际端点为 POST /api/manager/bind/release（body: {staffId}），
+// 不存在 /api/staff/{id}/detach，不要按后者的名字猜路由。
 const detachStaff = (id) => {
-  return post(API.STAFF_DETACH(id))
+  return post(API.MANAGER_BIND_RELEASE, { staffId: id })
 }
 
 module.exports = {
@@ -97,6 +125,11 @@ module.exports = {
   getDashboardOverview,
   getOrders,
   getCustomers,
+  getCustomerDetail,
+  getCustomerProfile,
+  getStaffProfile,
+  getOfflinePayment,
+  updateOfflinePayment,
   getInventory,
   getWaterTypesWithStock,
   updateWaterType,

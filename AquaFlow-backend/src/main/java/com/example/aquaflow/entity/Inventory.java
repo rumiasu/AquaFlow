@@ -50,4 +50,29 @@ public class Inventory {
 
     /** 所属水站名称(关联查询字段) */
     private String stationName;
+
+    /** 商品状态（联查 product.status）：0 下架 1 在售 2 停售 */
+    private Integer status;
+
+    /** 商品类别（联查 product.category） */
+    private String category;
+
+    /** 商品状态中文文案（全系统唯一来源） */
+    public String getStatusText() {
+        if (status == null) return "在售";
+        switch (status) {
+            case 0: return "下架";
+            case 1: return "在售";
+            case 2: return "停售";
+            default: return "在售";
+        }
+    }
+
+    /** 低库存预警线（业务参数，由后端定义，前端不再硬编码阈值） */
+    public static final int LOW_STOCK_THRESHOLD = 20;
+
+    /** 是否低库存（低于预警线） */
+    public Boolean getLowStock() {
+        return quantity != null && quantity < LOW_STOCK_THRESHOLD;
+    }
 }

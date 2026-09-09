@@ -4,16 +4,40 @@
     <view class="search-btn" bindtap="onSearch"><text>搜索</text></view>
   </view>
 
+  <view class="filter-chips">
+    <view class="chip {{filterType === 'all' ? 'active' : ''}}" data-type="all" bindtap="onFilterType"><text>全部</text></view>
+    <view class="chip {{filterType === '1' ? 'active' : ''}}" data-type="1" bindtap="onFilterType"><text>个人</text></view>
+    <view class="chip {{filterType === '2' ? 'active' : ''}}" data-type="2" bindtap="onFilterType"><text>企业</text></view>
+  </view>
+
   <view class="customer-list" wx:if="{{!loading}}">
     <view class="customer-card" wx:for="{{list}}" wx:key="id">
-      <view class="customer-info">
-        <text class="customer-name">{{item.name}}</text>
-        <text class="customer-type" wx:if="{{item.type}}">{{item.type === 2 ? '企业客户' : '个人客户'}}</text>
-        <text class="customer-phone" wx:if="{{item.phone}}">{{item.phone}}</text>
-        <text class="customer-address" wx:if="{{item.address}}">{{item.address}}</text>
+      <view class="avatar" style="background:{{item.avatarColor}}">{{item.avatarText}}</view>
+      <view class="card-body">
+        <view class="name-row">
+          <text class="customer-name">{{item.name}}</text>
+          <text class="badge type">{{item.customerTypeText}}</text>
+          <text class="badge level" style="background:{{item.customerLevelColor}}">{{item.customerLevel}}</text>
+          <text class="badge act-{{item.activityStatus}}">{{item.activityText}}</text>
+          <text class="badge cod" wx:if="{{item.codEnabled}}">货到付款</text>
+        </view>
+        <text class="customer-phone" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}">{{item.phoneMasked}} ›</text>
+        <text class="customer-phone muted" wx:else>未填写电话</text>
+
+        <view class="stat-row">
+          <view class="stat"><text class="stat-val">{{item.totalOrders}}</text><text class="stat-label">订单</text></view>
+          <view class="stat"><text class="stat-val">¥{{item.totalConsumptionText}}</text><text class="stat-label">累计消费</text></view>
+          <view class="stat"><text class="stat-val">¥{{item.depositBalanceText}}</text><text class="stat-label">押金</text></view>
+          <view class="stat"><text class="stat-val">{{item.firstOrderTimeText}}</text><text class="stat-label">首单</text></view>
+        </view>
+
+        <view class="tags" wx:if="{{item.tagsList.length}}">
+          <text class="tag" wx:for="{{item.tagsList}}" wx:for-item="t" wx:key="*this">{{t}}</text>
+        </view>
       </view>
-      <view class="call-btn" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall">
-        <text>致电</text>
+      <view class="card-actions">
+        <view class="manage-btn" data-id="{{item.id}}" bindtap="onManage"><text>画像</text></view>
+        <view class="call-btn" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall"><text>致电</text></view>
       </view>
     </view>
     <view class="empty" wx:if="{{list.length === 0}}"><text>未找到客户</text></view>

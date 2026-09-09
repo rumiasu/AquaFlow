@@ -27,13 +27,15 @@
         source, status, payment_method, payment_status, total_amount, water_amount, deposit_amount,
         receiver_name, receiver_phone, address_snapshot, address_snapshot_lat, address_snapshot_lng,
         guard_info, delivery_time_request, special_note, delivery_bucket_qty, return_bucket_qty,
-        barrel_discrepancy, barrel_discrepancy_note, first_barrel_order, quantity, create_time, update_time)
+        barrel_discrepancy, barrel_discrepancy_note, first_barrel_order, quantity, create_time, update_time,
+        idempotency_key)
         values
         (#{customerId}, #{addressId}, #{stationId}, #{deliveryStationId}, #{deliveryStaffId},
         #{source}, #{status}, #{paymentMethod}, #{paymentStatus}, #{totalAmount}, #{waterAmount}, #{depositAmount},
         #{receiverName}, #{receiverPhone}, #{addressSnapshot}, #{addressSnapshotLat}, #{addressSnapshotLng},
         #{guardInfo}, #{deliveryTimeRequest}, #{specialNote}, #{deliveryBucketQty}, #{returnBucketQty},
-        #{barrelDiscrepancy}, #{barrelDiscrepancyNote}, #{firstBarrelOrder}, #{quantity}, #{createTime}, #{updateTime})
+        #{barrelDiscrepancy}, #{barrelDiscrepancyNote}, #{firstBarrelOrder}, #{quantity}, #{createTime}, #{updateTime},
+        #{idempotencyKey})
     </insert>
 
     <update id="update" parameterType="com.example.aquaflow.entity.Orders">

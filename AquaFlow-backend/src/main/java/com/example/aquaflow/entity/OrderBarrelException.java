@@ -82,6 +82,38 @@ public class OrderBarrelException {
     /** 状态: STAFF_RECORDED/MANAGER_PENDING/MANAGER_APPROVED/EXECUTING/EXECUTED/IGNORED */
     private String status;
 
+    /**
+     * 状态中文文案（全系统唯一来源）。
+     * 前端异常列表曾自行维护 status -> 文案/配色映射，新增状态时容易漏改，改由后端下发。
+     */
+    public String getStatusText() {
+        if (status == null) return "未知";
+        switch (status) {
+            case "STAFF_RECORDED":   return "待处理";
+            case "MANAGER_PENDING":  return "处理中";
+            case "MANAGER_APPROVED": return "已审批";
+            case "EXECUTING":        return "执行中";
+            case "EXECUTED":         return "已完成";
+            case "IGNORED":          return "已忽略";
+            default:                 return status;
+        }
+    }
+
+    /** 异常类别中文文案（全系统唯一来源） */
+    public String getCategoryText() {
+        if (category == null) return "其他";
+        switch (category) {
+            case "RETURN_SHORT":     return "少回桶";
+            case "RETURN_OVER":      return "多回桶";
+            case "RETURN_REFUSE":    return "拒收";
+            case "RETURN_DAMAGE":    return "损坏";
+            case "STATION_SHORTAGE": return "站内缺水";
+            case "CUSTOMER_REFUSE":  return "客户拒收";
+            case "OTHER":            return "其他";
+            default:                 return category;
+        }
+    }
+
     /** 创建时间 */
     private LocalDateTime createdAt;
 

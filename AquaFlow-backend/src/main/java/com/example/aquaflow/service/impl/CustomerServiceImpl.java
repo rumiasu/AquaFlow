@@ -5,6 +5,8 @@ import com.example.aquaflow.entity.CustomerStationConfig;
 import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.service.CustomerService;
+import com.example.aquaflow.vo.CustomerProfileVO;
+import com.example.aquaflow.vo.CustomerStationVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -80,5 +82,89 @@ public class CustomerServiceImpl implements CustomerService {
     public void updateOfflinePaymentConfig(Long customerId, Long stationId, Integer enabled) {
         customerStationConfigMapper.ensureExists(customerId, stationId);
         customerStationConfigMapper.updateOfflinePaymentEnabled(customerId, stationId, enabled);
+    }
+
+    @Override
+    public List<CustomerStationVO> listStationCustomers(Long stationId) {
+        if (stationId == null) {
+            return new java.util.ArrayList<>();
+        }
+        List<CustomerStationVO> list = customerMapper.listStationCustomers(stationId);
+        if (list != null) {
+            for (CustomerStationVO vo : list) {
+                vo.deriveProfileMeta();
+            }
+        }
+        return list;
+    }
+
+    @Override
+    public CustomerStationVO getStationCustomerDetail(Long customerId, Long stationId) {
+        CustomerStationVO vo = customerMapper.getStationCustomer(customerId, stationId);
+        if (vo != null) {
+            vo.deriveProfileMeta();
+        }
+        return vo;
+    }
+
+    @Override
+    public CustomerProfileVO getCustomerProfile(Long customerId, Long stationId) {
+        CustomerStationVO base = customerMapper.getStationCustomer(customerId, stationId);
+        if (base == null) {
+            return null;
+        }
+        Customer c = customerMapper.getById(customerId);
+        if (c == null) {
+            return null;
+        }
+
+        CustomerProfileVO vo = new CustomerProfileVO();
+        // 基础档案
+        vo.setId(base.getId());
+        vo.setName(base.getName());
+        vo.setPhone(base.getPhone());
+        vo.setCustomerType(base.getCustomerType());
+        vo.setNote(base.getNote());
+        vo.setTags(base.getTags());
+        vo.setCreateTime(base.getCreateTime());
+        vo.setFirstOrderTime(base.getFirstOrderTime());
+        vo.setDefaultAddress(customerMapper.getDefaultAddress(customerId));
+
+        // 消费画像
+        vo.setTotalOrders(customerMapper.countCompletedOrders(customerId, stationId));
+        vo.setTotalConsumption(customerMapper.sumConsumption(customerId, stationId));
+        vo.setMonthOrders(customerMapper.countMonthOrders(customerId, stationId));
+        vo.setMonthConsumption(customerMapper.sumMonthConsumption(customerId, stationId));
+        vo.setLastOrderTime(customerMapper.getLastOrderTime(customerId, stationId));
+        vo.setAvgCycleDays(c.getAvgCycleDays());
+
+        // 资产
+        vo.setDepositBalance(base.getDepositBalance());
+        vo.setTicketBalance(customerMapper.getTicketBalance(customerId, stationId));
+        vo.setOwedBarrels(customerMapper.getOwedBarrels(customerId, stationId));
+
+        // 行为
+        vo.setExceptionCount(customerMapper.countExceptions(customerId, stationId));
+        vo.setFavoriteProducts(customerMapper.listFavoriteProducts(customerId, stationId));
+        vo.setRecentOrders(decorateOrders(customerMapper.listRecentOrders(customerId, stationId)));
+
+        // 权限
+        vo.setCodEnabled(base.getCodEnabled());
+        vo.setOfflinePaymentEnabled(base.getOfflinePaymentEnabled());
+        return vo;
+    }
+
+    /** 给订单 map 补上后端派生的状态文案，前端只渲染 */
+    private List<Map<String, Object>> decorateOrders(List<Map<String, Object>> orders) {
+        if (orders == null) {
+            return new java.util.ArrayList<>();
+        }
+        for (Map<String, Object> m : orders) {
+            Object st = m.get("status");
+            if (st instanceof Number) {
+                m.put("statusText", com.example.aquaflow.constant.OrderStatus.textOf(((Number) st).intValue()));
+            }
+        }
+        return orders;
     }
 }

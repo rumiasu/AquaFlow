@@ -10,11 +10,13 @@ import com.example.aquaflow.entity.TicketAccount;
 import com.example.aquaflow.entity.Product;
 import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.entity.CustomerBarrelAsset;
+import com.example.aquaflow.entity.OrderItem;
 import com.example.aquaflow.entity.Station;
 import com.example.aquaflow.entity.CustomerStationConfig;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.*;
 import com.example.aquaflow.service.PaymentService;
+import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +56,9 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Autowired
     private InventoryMapper inventoryMapper;
+
+    @Autowired
+    private OrderItemMapper orderItemMapper;
 
     @Autowired
     private ProductMapper productMapper;
@@ -197,6 +202,11 @@ public class PaymentServiceImpl implements PaymentService {
         record.setPaymentMethod(3); // 线下支付
         record.setStatus(PaymentStatus.PAID);
         record.setNote("货到付款确认");
+        // 审计留痕：记录「谁、在哪个水站」收的款（历史 payment_record.operator_id 全为空，无法追溯）
+        record.setOperatorId(AuthContext.getUserId());
+        com.example.aquaflow.entity.Orders o = orderMapper.getById(orderId);
+        Long st = (o != null && o.getStationId() != null) ? o.getStationId() : AuthContext.getStationId();
+        record.setStationId(st);
         record.setCreateTime(LocalDateTime.now());
         record.setUpdateTime(LocalDateTime.now());
         paymentRecordMapper.insert(record);
@@ -293,6 +303,16 @@ public class PaymentServiceImpl implements PaymentService {
             List<CustomerBarrelInTransit> inTransitList = customerBarrelInTransitMapper.listPendingByOrderId(orderId);
             if (inTransitList != null && !inTransitList.isEmpty()) {
                 customerBarrelInTransitMapper.deleteByOrderId(orderId);
+            }
+
+            // 3. 回补库存：下单时已按归属站扣减库存，取消时原路加回，避免库存被反复下单-取消扣到 0
+            List<OrderItem> items = orderItemMapper.listByOrderId(orderId);
+            if (items != null) {
+                for (OrderItem item : items) {
+                    if (item.getProductId() != null && item.getQuantity() != null && item.getQuantity() > 0) {
+                        inventoryMapper.increaseStock(order.getStationId(), item.getProductId(), item.getQuantity());
+                    }
+                }
             }
         }
 

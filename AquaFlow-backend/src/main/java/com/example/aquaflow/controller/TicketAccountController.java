@@ -38,8 +38,10 @@ public class TicketAccountController {
      */
     @RequireRole({"STATION_MANAGER"})
     @GetMapping("/customer/{customerId}")
-    public Result<List<Map<String, Object>>> listByCustomerIdForStaff(@PathVariable Long customerId, @RequestParam Long stationId) {
-        return Result.success(ticketAccountMapper.listByCustomerAndStationWithDetail(customerId, stationId));
+    public Result<List<Map<String, Object>>> listByCustomerIdForStaff(@PathVariable Long customerId, @RequestParam(required = false) Long stationId) {
+        // stationId 以 JWT 当前站长所属水站为准，防跨站查询
+        Long effectiveStationId = AuthContext.requireStationId();
+        return Result.success(ticketAccountMapper.listByCustomerAndStationWithDetail(customerId, effectiveStationId));
     }
 
     @RequireRole({"STATION_MANAGER"})
@@ -48,10 +50,8 @@ public class TicketAccountController {
         if (dto.getCustomerId() == null) {
             return Result.error("客户ID不能为空");
         }
-        if (dto.getStationId() == null) {
-            return Result.error("水站ID不能为空");
-        }
-        Long stationId = dto.getStationId();
+        // stationId 以 JWT 当前站长所属水站为准，禁止信任请求体（防跨站刷水票）
+        Long stationId = AuthContext.requireStationId();
         ticketAccountService.addTicket(dto.getCustomerId(), dto.getProductId(), dto.getQuantity(), stationId);
         return Result.success();
     }
@@ -62,10 +62,9 @@ public class TicketAccountController {
         if (dto.getCustomerId() == null) {
             return Result.error("客户ID不能为空");
         }
-        if (dto.getStationId() == null) {
-            return Result.error("水站ID不能为空");
-        }
-        ticketAccountService.consumeTicket(dto.getCustomerId(), dto.getProductId(), dto.getQuantity(), dto.getOrderId(), dto.getStationId());
+        // stationId 以 JWT 当前站长所属水站为准，禁止信任请求体（防跨站扣水票）
+        Long stationId = AuthContext.requireStationId();
+        ticketAccountService.consumeTicket(dto.getCustomerId(), dto.getProductId(), dto.getQuantity(), dto.getOrderId(), stationId);
         return Result.success();
     }
 

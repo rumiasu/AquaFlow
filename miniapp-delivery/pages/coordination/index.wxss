@@ -484,6 +484,26 @@
   font-weight: 500;
 }
 
+/* ========== 退回待确认样式 ========== */
+.return-card {
+  border-left: 6rpx solid #FF9500;
+}
+
+.status-return {
+  background: #FFF3E0;
+  color: #E8590C;
+}
+
+/* ========== 他站外派样式 ========== */
+.incoming-card {
+  border-left: 6rpx solid #007AFF;
+}
+
+.status-incoming {
+  background: #E7F1FF;
+  color: #007AFF;
+}
+
 /* ========== tag-row ========== */
 .tag-row {
   display: flex;

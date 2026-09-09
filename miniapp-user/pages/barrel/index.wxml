@@ -71,7 +71,7 @@
             </view>
           </view>
           <view class="bucket-status status-{{item.status || 0}}">
-            <text>{{item.status === 1 ? '待处理' : item.status === 2 ? '已确认' : item.status === 3 ? '已退押金' : item.status === 4 ? '已驳回' : '使用中'}}</text>
+            <text>{{item.statusText}}</text>
           </view>
         </view>
       </view>

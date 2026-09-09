@@ -29,10 +29,10 @@
   <!-- 订单内容 -->
   <view class="section">
     <text class="section-title">订单内容</text>
-    <view class="order-content">
-      <text class="content-name">{{order.waterTypeName}}</text>
-      <text class="content-spec" wx:if="{{order.waterTypeSpec}}">{{order.waterTypeSpec}}</text>
-      <text class="content-qty">× {{order.quantity}} 桶</text>
+    <view class="order-content" wx:for="{{order.items}}" wx:for-item="it" wx:key="id">
+      <text class="content-name">{{it.productNameSnapshot}}</text>
+      <text class="content-spec" wx:if="{{it.specSnapshot}}">{{it.specSnapshot}}</text>
+      <text class="content-qty">× {{it.quantity}} 桶</text>
     </view>
   </view>
 
@@ -80,7 +80,7 @@
   </view>
 
   <!-- 操作按钮 -->
-  <view class="action-bar" wx:if="{{!order.isTransferTarget}}">
+  <view class="action-bar" wx:if="{{!order.transferTarget}}">
     <button class="action-btn action-nav" bindtap="onNavigate">
       <text class="action-icon"></text>
       <text>导航</text>
@@ -95,7 +95,7 @@
     </button>
   </view>
 
-  <view class="action-bar action-bar-confirm" wx:if="{{order.isTransferTarget}}">
+  <view class="action-bar action-bar-confirm" wx:if="{{order.transferTarget}}">
     <button class="action-btn action-reject" bindtap="onRejectTransfer">
       <text>拒绝转单</text>
     </button>
@@ -105,7 +105,7 @@
   </view>
 
   <!-- 转给同事 / 退回站长 -->
-  <block wx:if="{{!order.isTransferTarget}}">
+  <block wx:if="{{!order.transferTarget}}">
     <view class="transfer-btn" bindtap="onTransfer">
       <text>转单给其他配送员</text>
     </view>

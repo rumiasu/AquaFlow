@@ -2,6 +2,8 @@ package com.example.aquaflow.entity;
 
 import lombok.Data;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.time.LocalDateTime;
 
 /**
@@ -29,7 +31,8 @@ public class Staff {
     /** 微信openid (唯一约束: 微信账号与staff账号稳定映射) */
     private String openid;
 
-    /** 密码哈希 (开发账号登录用) */
+    /** 密码哈希 (开发账号登录用)，禁止随接口序列化返回 */
+    @JsonIgnore
     private String passwordHash;
 
     /**
@@ -60,4 +63,17 @@ public class Staff {
 
     /** 更新时间 */
     private LocalDateTime updateTime;
+
+    /** 角色文本（后端派生，前端直接渲染） */
+    public String getRoleText() {
+        if ("STATION_MANAGER".equals(role)) return "站长";
+        if ("DELIVERY".equals(role)) return "配送员";
+        if ("ADMIN".equals(role)) return "管理员";
+        return role == null ? "" : role;
+    }
+
+    /** 状态文本（后端派生，前端直接渲染） */
+    public String getStatusText() {
+        return status != null && status == 1 ? "在职" : "离职";
+    }
 }

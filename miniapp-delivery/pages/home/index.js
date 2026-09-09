@@ -46,7 +46,8 @@ Page({
         getAssignedToMe(),
         getDeliveringOrders(),
         getCompletedToday(),
-        getDeliveredUnpaid()
+        getDeliveredUnpaid(),
+        getPendingOrders()
       ])
 
       const unwrap = (r) => r.status === 'fulfilled' ? r.value : { data: [] }
@@ -55,36 +56,37 @@ Page({
       const deliveringRes = unwrap(results[2])
       const completedRes = unwrap(results[3])
       const unpaidRes = unwrap(results[4])
+      const pendingRes = unwrap(results[5])
 
-      const unpaidOrders = (unpaidRes.data || []).map(o => {
-        const amount = ((o.quantity || 0) * (o.waterTypePrice || o.productPrice || 0)).toFixed(2)
-        const isOffline = (o.paymentMethod === 2 || o.paymentMethod === 4 || o.paymentStatus !== 2)
-        return {
-          ...o,
-          amountText: `¥${amount}`,
-          isOffline,
-          isUnpaid: !o.collected || o.paymentStatus !== 2
-        }
+      // 金额一律取后端 totalAmount。此前按 quantity * (waterTypePrice || productPrice)
+      // 前端自算，而这两个单价字段后端从不返回，导致金额恒为 ¥0.00。
+      const enrichOrder = (o) => ({
+        ...o,
+        amountText: `¥${Number(o.totalAmount || 0).toFixed(2)}`,
+        // 是否需现场收款、是否已收款：均由后端按 payment_status / payment_method 判定，
+        // 前端不再各写一套（此前三处 isOffline 口径互不一致）。
+        isOffline: !!o.needCollect,
+        isUnpaid: o.payState !== 'PAID'
       })
 
-      const enrichOrder = (o) => {
-        const isOffline = o.paymentMethod === 2 || o.paymentMethod === 4
-          || (o.paymentMethod === 1 && o.paymentStatus !== 2)
-        return {
-          ...o,
-          isOffline
-        }
-      }
+      const unpaidOrders = (unpaidRes.data || []).map(enrichOrder)
+
+      // 待接单 = 站长已分配给我(未接单) + 本站待分配(用户刚下的单)，去重合并
+      const assignedSet = new Set()
+      const mergedAssigned = [
+        ...(assignedRes.data || []),
+        ...(pendingRes.data || [])
+      ].filter(o => {
+        if (assignedSet.has(o.id)) return false
+        assignedSet.add(o.id)
+        return true
+      }).map(enrichOrder)
 
       this.setData({
         stats: (statsRes && statsRes.data) || {},
-        assignedOrders: (assignedRes.data || []).map(enrichOrder),
+        assignedOrders: mergedAssigned,
         deliveringOrders: (deliveringRes.data || []).map(enrichOrder),
-        completedOrders: (completedRes.data || []).map(o => ({
-          ...o,
-          isOffline: o.paymentMethod === 2 || o.paymentMethod === 4,
-          isUnpaid: !o.collected
-        })),
+        completedOrders: (completedRes.data || []).map(enrichOrder),
         deliveredUnpaidOrders: unpaidOrders,
         loading: false
       })

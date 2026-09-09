@@ -8,6 +8,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.stereotype.Component;
+import org.springframework.core.annotation.AnnotationUtils;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -20,14 +21,13 @@ import java.util.Arrays;
 @Component
 public class RequireRoleAspect {
 
-    @Around("@annotation(com.example.aquaflow.annotation.RequireRole)")
-    public Object checkRole(ProceedingJoinPoint joinPoint) throws Throwable {
-        // 获取方法签名
-        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-        Method method = signature.getMethod();
-        
-        // 获取注解
-        RequireRole requireRole = method.getAnnotation(RequireRole.class);
+    @Around("@annotation(requireRole) || @within(requireRole)")
+    public Object checkRole(ProceedingJoinPoint joinPoint, RequireRole requireRole) throws Throwable {
+        // 类级注解时，参数注入的 requireRole 为 null，需回退到类上查找
+        if (requireRole == null) {
+            requireRole = AnnotationUtils.findAnnotation(
+                    joinPoint.getSignature().getDeclaringType(), RequireRole.class);
+        }
         if (requireRole == null) {
             return joinPoint.proceed();
         }

@@ -13,6 +13,7 @@
     <order-card wx:for="{{orders}}" wx:key="id"
       order="{{item}}"
       bind:reorder="onReorder"
+      bind:pay="onPay"
       bind:cancel="onCancel" />
   </view>
 

@@ -543,6 +543,13 @@ public class LoginController {
         }
 
         Long stationId = (delivery.getStationId() != null && delivery.getStationId() == 0) ? null : delivery.getStationId();
+        if (stationId == null) {
+            // dev 环境：未绑定水站的配送员默认关联第一个水站，避免看不到用户端下的单
+            for (Station s : stationMapper.listAll()) { stationId = s.getId(); break; }
+        }
+        if (stationId != null) {
+            delivery.setStationId(stationId);
+        }
         String bindingStatus = deriveBindingStatus(delivery);
 
         String accessToken = jwtUtil.generateAccessToken(

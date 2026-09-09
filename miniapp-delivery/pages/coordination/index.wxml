@@ -23,8 +23,8 @@
       <view class="order-card" wx:for="{{lists.pending}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
         <view class="card-header">
           <view class="tag-row">
-            <text class="status-tag status-pending" wx:if="{{!item.deliveryStaffId}}">待分配</text>
-            <text class="status-tag status-transfer" wx:else>转单中</text>
+            <text class="status-tag status-transfer" wx:if="{{item.transferPending}}">转单中</text>
+            <text class="status-tag status-pending" wx:else>待分配</text>
           </view>
           <text class="order-id">#{{item.id}}</text>
         </view>
@@ -35,19 +35,25 @@
         </view>
         <view class="info-row">
           <text class="info-label">商品</text>
-          <text class="info-value">{{item.productName || item.waterTypeName}} × {{item.quantity}}桶</text>
+          <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
         </view>
         <view class="info-row info-address">
           <text class="info-label">地址</text>
           <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
         </view>
         <view class="card-actions">
-          <button class="btn-primary" catchtap="onShowAssign" data-id="{{item.id}}">分配配送员</button>
-          <button class="btn-outline-small" catchtap="onOutsourceToPool" data-id="{{item.id}}">外派抢单池</button>
+          <block wx:if="{{item.transferPending}}">
+            <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}">同意转单</button>
+            <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}">拒绝转单</button>
+          </block>
+          <block wx:else>
+            <button class="btn-primary" catchtap="onShowAssign" data-id="{{item.id}}">分配配送员</button>
+            <button class="btn-outline-small" catchtap="onOutsource" data-id="{{item.id}}">外派</button>
+          </block>
         </view>
       </view>
       <view class="empty" wx:if="{{lists.pending.length === 0}}">
-        <text>暂无待分配订单</text>
+        <text>暂无待分配/转单订单</text>
       </view>
     </view>
 
@@ -65,7 +71,7 @@
         </view>
         <view class="pool-product-info">
           <text class="pool-product-label">订单商品：</text>
-          <text class="pool-product-name">{{item.productName || item.waterTypeName}} × {{item.quantity}}桶</text>
+          <text class="pool-product-name">{{item.firstProductName}} × {{item.quantity}}桶</text>
         </view>
         <view class="pool-match-info" wx:if="{{item.productMatch}}">
           <text class="match-label">本站匹配：</text>
@@ -108,7 +114,7 @@
         </view>
         <view class="info-row">
           <text class="info-label">商品</text>
-          <text class="info-value">{{item.productName || item.waterTypeName}} × {{item.quantity}}桶</text>
+          <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
         </view>
         <view class="dispatch-info" wx:if="{{item.deliveryStationName}}">
           <view class="dispatch-row">
@@ -121,14 +127,45 @@
           </view>
         </view>
         <view class="card-actions">
-          <button class="btn-danger-small" catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.deliveryStationId === null}}">取消外派</button>
-          <button class="btn-outline-small" catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.deliveryStationId === null}}">重新外派</button>
+          <button class="btn-danger-small" catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1 || item.status === 3}}">取消外派</button>
+          <button class="btn-outline-small" catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1 || item.status === 3}}">重新外派</button>
         </view>
       </view>
       <view class="empty" wx:if="{{lists.dispatch.length === 0}}">
         <text>暂无外派订单</text>
       </view>
     </view>
+
+    <!-- 他站外派：其他水站指定本水站为履约站的订单 -->
+    <view class="list" wx:elif="{{activeTab === 'incoming'}}">
+      <view class="order-card incoming-card" wx:for="{{lists.incoming}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="card-header">
+          <view class="tag-row">
+            <text class="status-tag status-incoming">他站外派</text>
+          </view>
+          <text class="order-id">#{{item.id}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">客户</text>
+          <text class="info-value">{{item.customerName || item.receiverName}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">商品</text>
+          <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+        </view>
+        <view class="info-row info-address">
+          <text class="info-label">地址</text>
+          <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+        </view>
+        <view class="card-actions">
+          <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}">调解退回原站</button>
+        </view>
+      </view>
+      <view class="empty" wx:if="{{lists.incoming.length === 0}}">
+        <text>暂无他站外派订单</text>
+      </view>
+    </view>
+
   </view>
 
   <!-- 分配弹窗 -->

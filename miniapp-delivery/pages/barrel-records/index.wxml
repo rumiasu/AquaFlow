@@ -26,7 +26,7 @@
         <text class="meta-divider">|</text>
         <text class="meta-bucket">回收 {{item.returnBucketQty || 0}}桶</text>
         <text class="meta-divider">|</text>
-        <text class="meta-bucket">{{item.waterTypeName}}</text>
+        <text class="meta-bucket">{{item.firstProductName}}</text>
       </view>
       <view class="record-bottom" wx:if="{{item.barrelDiscrepancy !== 0}}">
         <text class="discrepancy-tag {{item.discTagClass}}">

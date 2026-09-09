@@ -30,7 +30,7 @@ const PAYMENT_STATUS = {
 
 const PAYMENT_STATUS_TEXT = {
   0: '未付款',
-  1: '待收款',
+  1: '待支付',
   2: '已付款',
   3: '已退款',
   4: '已取消'

@@ -59,7 +59,7 @@
       <view class="address-card" bindtap="onAddressTap">
         <icon name="location" size="36rpx" color="#0EA5E9" />
         <view class="address-text" wx:if="{{address}}">
-          <text class="address-detail">{{address.detail}}</text>
+          <text class="address-detail">{{addressText || address.detail}}</text>
         </view>
         <view class="address-text" wx:else>
           <text class="address-empty">点击设置配送地址</text>
@@ -138,7 +138,7 @@
         </view>
         <view class="bs-item">
           <text class="bs-num">{{barrelSummary.deliveryBuckets || 0}}</text>
-          <text class="bs-label">在途</text>
+          <text class="bs-label">配送中</text>
         </view>
         <view class="bs-item">
           <text class="bs-num {{barrelSummary.owedBuckets > 0 ? 'owed' : ''}}">{{barrelSummary.owedBuckets || 0}}</text>
@@ -176,7 +176,7 @@
 
             <view class="barrel-meta-row">
               <text class="barrel-meta">持有 {{item.barrelQty || 0}}</text>
-              <text class="barrel-meta transit" wx:if="{{item.inTransitQty > 0}}">在途 {{item.inTransitQty}}</text>
+              <text class="barrel-meta transit" wx:if="{{item.inTransitQty > 0}}">配送中 {{item.inTransitQty}}</text>
               <text class="barrel-meta deposit">押金 ¥{{item.depositTotalText}}</text>
             </view>
 

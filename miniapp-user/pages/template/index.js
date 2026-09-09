@@ -4,6 +4,7 @@ const { getAddresses } = require('../../api/address')
 const { getBaseUrl, API } = require('../../config/api')
 const { getAccessToken } = require('../../utils/token')
 const { stationStorage } = require('../../utils/storage')
+const { formatAddress } = require('../../utils/address')
 
 Page({
   data: {
@@ -108,7 +109,9 @@ Page({
       this.setData({ products: productRes.data, stationId: currentStationId })
     }
     if (addressRes && addressRes.data) {
-      const addresses = addressRes.data
+      const addresses = addressRes.data.map(function (a) {
+        return Object.assign({}, a, { addressText: formatAddress(a) })
+      })
       const defaultAddr = addresses.find(a => a.isDefault) || addresses[0]
       this.setData({
         addresses,

@@ -71,10 +71,13 @@ const API = {
 
   // 员工
   STAFF: '/api/staff',
-  STAFF_DETACH: (id) => `/api/staff/${id}/detach`,
+  STAFF_PROFILE: (id) => `/api/staff/${id}/profile`,
 
   // 客户
   CUSTOMERS: '/api/customers',
+  CUSTOMER_DETAIL: (id) => `/api/customers/${id}`,
+  CUSTOMER_PROFILE: (id) => `/api/customers/${id}/profile`,
+  CUSTOMER_OFFLINE_PAYMENT: (id) => `/api/customers/${id}/offline-payment`,
 
   // 订单
   ORDERS: '/api/orders',
@@ -135,8 +138,11 @@ const API = {
   DELIVERY_POOL: '/api/delivery/orders/pool',
   DELIVERY_CLAIM_POOL: '/api/delivery/orders/claim-pool',
   DELIVERY_DISPATCH_TRACKING: '/api/delivery/orders/dispatch-tracking',
-  DELIVERY_CANCEL_DISPATCH: '/api/delivery/orders/cancel-dispatch',
-  DELIVERY_STATION_REJECT: '/api/delivery/orders/station-reject'
+  DELIVERY_DIRECTED_RETURNS: '/api/delivery/orders/directed-returns',
+  DELIVERY_DIRECTED_INCOMING: '/api/delivery/orders/directed-incoming',
+  // ⚠️ 以下 POST 路由的 {id} 在路径**中间**（如 /orders/{id}/cancel-dispatch），
+  // 千万不要拿一个"完整路径常量"再在末尾追加 id（会打到不存在的地址，报"系统错误，请联系管理员"）。
+  // 已在 api/delivery.js 统一改用 DELIVERY_ORDERS + `/${id}/...` 拼接，这些常量已废弃不再使用。
 }
 
 // 员工绑定状态枚举(与后端 constant.BindingStatus 一致)

@@ -3,6 +3,7 @@ package com.example.aquaflow.exception;
 import com.example.aquaflow.common.Result;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -71,6 +72,13 @@ public class GlobalExceptionHandler {
     public Result handleRuntimeException(RuntimeException e) {
         log.error("运行时异常: {}", e.getMessage(), e);
         return Result.error(e.getMessage());
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public Result handleMissingParam(MissingServletRequestParameterException e) {
+        // 区分 400（客户端参数问题）与 500（服务端错误），避免调试时误判
+        log.warn("缺少必填参数: {}", e.getParameterName());
+        return Result.error("缺少必填参数：" + e.getParameterName());
     }
 
     @ExceptionHandler(Exception.class)

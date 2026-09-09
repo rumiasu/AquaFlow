@@ -1,5 +1,6 @@
 package com.example.aquaflow.service.impl;
 
+import com.example.aquaflow.constant.DepositType;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.constant.PaymentStatus;
 import com.example.aquaflow.dto.OrderCreateDTO;
@@ -458,6 +459,75 @@ public class OrderServiceImpl implements OrderService {
             order.setItems(items);
         }
         return order;
+    }
+
+    @Override
+    @Transactional
+    /**
+     * 客户主动取消订单。
+     *
+     * 设计要点：
+     * 1. 归属校验——只能取消自己的订单；
+     * 2. 状态校验——客户仅可取消"待配送"(PENDING)，已进入配送环节需联系水站，
+     *    避免骑手已出发却被撤单；
+     * 3. 完整回滚下单副作用（下单时扣了库存、收了押桶押金、生成了在途桶记录），
+     *    否则会造成库存凭空减少、押金余额虚高、在途桶残留。
+     */
+    public void cancelByCustomer(Long orderId, Long customerId) {
+        Orders order = orderMapper.getById(orderId);
+        if (order == null) {
+            throw new BusinessException("订单不存在");
+        }
+        if (order.getCustomerId() == null || !order.getCustomerId().equals(customerId)) {
+            throw new BusinessException("无权取消他人订单");
+        }
+
+        int status = order.getStatus() != null ? order.getStatus() : 0;
+        if (status != OrderStatus.PENDING) {
+            throw new BusinessException("当前订单状态不可取消，如需帮助请联系水站");
+        }
+        if (!OrderStatus.isValidTransition(status, OrderStatus.CANCELLED)) {
+            throw new BusinessException("当前订单状态不可取消");
+        }
+
+        Long stationId = order.getStationId();
+
+        // 1) 回补库存：按下单时扣减的商品数量原样加回
+        List<OrderItem> items = orderItemMapper.listByOrderId(orderId);
+        if (items != null) {
+            for (OrderItem oi : items) {
+                if (oi.getProductId() != null && oi.getQuantity() != null && oi.getQuantity() > 0) {
+                    inventoryMapper.increaseStock(stationId, oi.getProductId(), oi.getQuantity());
+                }
+            }
+        }
+
+        // 2) 退还预收桶押金（写负金额流水，便于对账）
+        BigDecimal depositAmount = order.getDepositAmount();
+        if (depositAmount != null && depositAmount.compareTo(BigDecimal.ZERO) > 0) {
+            int affected = customerDepositAccountMapper.decreaseBalance(customerId, stationId, depositAmount);
+            if (affected > 0) {
+                DepositRecord dr = new DepositRecord();
+                dr.setCustomerId(customerId);
+                dr.setStationId(stationId);
+                dr.setType(DepositType.CANCEL_PREPAID); // 8 取消订单释放预收押金
+                dr.setAmount(depositAmount.negate());
+                dr.setNote("客户取消订单释放押金");
+                dr.setOperatorId(null);
+                dr.setCreateTime(LocalDateTime.now());
+                depositRecordMapper.insert(dr);
+            }
+        }
+
+        // 3) 清理该订单产生的在途桶记录（PENDING 状态）
+        List<CustomerBarrelInTransit> inTransitList = customerBarrelInTransitMapper.listPendingByOrderId(orderId);
+        if (inTransitList != null && !inTransitList.isEmpty()) {
+            customerBarrelInTransitMapper.deleteByOrderId(orderId);
+        }
+
+        // 4) 状态置为已取消
+        orderMapper.updateStatus(orderId, OrderStatus.CANCELLED);
+        log.info("[OrderService] 客户取消订单成功 orderId={}, customerId={}", orderId, customerId);
     }
 
     @Override

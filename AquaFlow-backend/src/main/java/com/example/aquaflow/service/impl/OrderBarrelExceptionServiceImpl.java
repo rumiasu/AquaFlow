@@ -331,10 +331,14 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
             totalCount += cnt;
         }
 
-        // 补偿汇总
+        // 补偿汇总（空表时 sumCompensation 返回 null，需判空）
         Map<String, Object> sum = exceptionMapper.sumCompensation(stationId, startDate, endDate);
-        long totalTickets = sum.get("total_tickets") != null ? ((Number) sum.get("total_tickets")).longValue() : 0;
-        BigDecimal totalCash = sum.get("total_cash") != null ? (BigDecimal) sum.get("total_cash") : BigDecimal.ZERO;
+        long totalTickets = 0;
+        BigDecimal totalCash = BigDecimal.ZERO;
+        if (sum != null) {
+            totalTickets = sum.get("total_tickets") != null ? ((Number) sum.get("total_tickets")).longValue() : 0;
+            totalCash = sum.get("total_cash") != null ? (BigDecimal) sum.get("total_cash") : BigDecimal.ZERO;
+        }
 
         stats.setTotalCount(totalCount);
         stats.setByCategory(byCategory);

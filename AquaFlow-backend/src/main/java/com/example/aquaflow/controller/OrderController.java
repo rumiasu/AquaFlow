@@ -5,13 +5,19 @@ import com.example.aquaflow.common.Result;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.dto.OrderCreateDTO;
 import com.example.aquaflow.dto.OrderCreateResult;
+import com.example.aquaflow.entity.CustomerStationConfig;
 import com.example.aquaflow.entity.Orders;
+import com.example.aquaflow.entity.Station;
+import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.mapper.OrderMapper;
+import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.OrderService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.StationUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +30,12 @@ public class OrderController {
 
     @Autowired
     private OrderMapper orderMapper;
+
+    @Autowired
+    private CustomerStationConfigMapper customerStationConfigMapper;
+
+    @Autowired
+    private StationMapper stationMapper;
 
     @PostMapping("/create")
     public Result<OrderCreateResult> createOrder(@RequestBody OrderCreateDTO dto) {
@@ -48,7 +60,9 @@ public class OrderController {
                                      @RequestParam(required = false) Long customerId,
                                      @RequestParam(required = false) Integer status,
                                      @RequestParam(required = false) String createTimeStart,
-                                     @RequestParam(required = false) String createTimeEnd) {
+                                     @RequestParam(required = false) String createTimeEnd,
+                                     @RequestParam(required = false) Integer page,
+                                     @RequestParam(required = false) Integer pageSize) {
         String userType = AuthContext.getUserType();
         if ("customer".equals(userType)) {
             Long cid = AuthContext.requireCustomerId();
@@ -62,7 +76,11 @@ public class OrderController {
                 stationId = myStationId;
             }
         }
-        return Result.success(orderService.list(stationId, customerId, status, createTimeStart, createTimeEnd));
+        // [AQ-046] 分页兜底：默认每页 200 条、上限 500，避免单站上万单一次全量返回拖垮接口
+        int size = (pageSize == null || pageSize <= 0) ? 200 : Math.min(pageSize, 500);
+        int p = (page == null || page <= 0) ? 1 : page;
+        int offset = (p - 1) * size;
+        return Result.success(orderService.list(stationId, customerId, status, createTimeStart, createTimeEnd, size, offset));
     }
 
     @GetMapping("/{id}")
@@ -76,6 +94,13 @@ public class OrderController {
             Long cid = AuthContext.requireCustomerId();
             if (order.getCustomerId() == null || !order.getCustomerId().equals(cid)) {
                 return Result.error("无权查看他人订单");
+            }
+        } else if ("staff".equals(userType)) {
+            // 员工分支此前直接返回订单：遍历 id 即可拉取全平台订单（含姓名、电话、地址快照、金额）。
+            // 这里补上与 list 接口同款的归属校验。
+            Long myStationId = AuthContext.requireStationId();
+            if (!myStationId.equals(StationUtil.deliveryStation(order))) {
+                return Result.error("无权查看他站订单");
             }
         }
         return Result.success(order);
@@ -93,7 +118,16 @@ public class OrderController {
                 && status != OrderStatus.CANCELLED) {
             return Result.error("无效的订单状态值: " + status);
         }
-        orderService.updateStatus(id, status);
+        // 归属校验：此前只校验了 status 值合法，A 站员工可以把 B 站订单直接置为已完成
+        Orders order = orderService.getById(id);
+        if (order == null) {
+            return Result.error("订单不存在");
+        }
+        Long myStationId = AuthContext.requireStationId();
+        if (!myStationId.equals(StationUtil.deliveryStation(order))) {
+            return Result.error("无权操作他站订单");
+        }
+        orderService.transitionStatus(id, status);
         return Result.success();
     }
 
@@ -112,10 +146,34 @@ public class OrderController {
         return Result.success();
     }
 
+    /**
+     * 我当前的服务水站（用于登录后自动选站）。
+     * <p>优先取最近一笔订单的水站；<b>没有下过单的新客户</b>回退到水站给其配置的绑定关系
+     * （customer_station_config）——旧实现只查订单，新客户恒定拿到 null，
+     * 首页只能退化成"请选择服务水站"，即便水站早已把该客户纳入管辖。</p>
+     */
     @GetMapping("/my-station")
     public Result<?> getMyLatestStation() {
         Long customerId = AuthContext.requireCustomerId();
+
         Map<String, Object> station = orderMapper.getLatestStationByCustomerId(customerId);
-        return Result.success(station);
+        if (station != null && station.get("stationId") != null) {
+            return Result.success(station);
+        }
+
+        // 回退：客户与水站的绑定关系（可能来自水站代建/认领）
+        List<CustomerStationConfig> configs = customerStationConfigMapper.listByCustomer(customerId);
+        if (configs != null && !configs.isEmpty()) {
+            CustomerStationConfig config = configs.get(0);
+            Station s = config.getStationId() != null ? stationMapper.getById(config.getStationId()) : null;
+            if (s != null) {
+                Map<String, Object> fallback = new HashMap<>();
+                fallback.put("stationId", s.getId());
+                fallback.put("stationName", s.getName());
+                return Result.success(fallback);
+            }
+        }
+
+        return Result.success(null);
     }
 }

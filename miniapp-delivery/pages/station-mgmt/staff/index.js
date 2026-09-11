@@ -1,5 +1,6 @@
 const { getStaffList } = require('../../../api/delivery')
 const { createStaff, detachStaff } = require('../../../api/station-mgmt')
+const { STORAGE_KEYS } = require('../../../utils/storage-keys')
 
 const AVATAR_COLORS = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6B', '#909399', '#9254DE']
 
@@ -53,8 +54,17 @@ Page({
   async loadData() {
     try {
       const app = getApp()
-      const stationId = app.globalData.userInfo?.stationId
-      if (!stationId) return
+      // 冷启动时 globalData 可能尚未水合（userInfo 为 null），只读它会让列表一直空白。
+      // 依次兜底：globalData.userInfo -> globalData -> 本地存储
+      const stationId = (app.globalData.userInfo && app.globalData.userInfo.stationId)
+        || app.globalData.stationId
+        || wx.getStorageSync(STORAGE_KEYS.STATION_ID)
+        || null
+      if (!stationId) {
+        this.setData({ list: [] })
+        wx.showToast({ title: '未获取到水站信息，请重新登录', icon: 'none' })
+        return
+      }
       const res = await getStaffList(stationId)
       const keyword = this.data.keyword.trim()
       const filterStatus = this.data.filterStatus
@@ -70,7 +80,10 @@ Page({
       }
       this.setData({ list })
     } catch (err) {
+      // 原实现只 console.error，请求失败时页面无任何反馈，表现为"空白"
       console.error(err)
+      this.setData({ list: [] })
+      wx.showToast({ title: (err && err.message) || '加载失败，请重试', icon: 'none' })
     }
   },
 
@@ -124,5 +137,7 @@ Page({
   },
 
   onCloseModal() { this.setData({ showModal: false }) },
+  onNameInput(e) { this.setData({ formName: e.detail.value }) },
+  onPhoneInput(e) { this.setData({ formPhone: e.detail.value }) },
   stopPropagation() {}
 })

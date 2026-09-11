@@ -101,6 +101,14 @@
   opacity: 0.85;
 }
 
+.payment-method.disabled {
+  opacity: 0.5;
+}
+
+.payment-method.disabled:active {
+  opacity: 0.5;
+}
+
 .method-info {
   flex: 1;
   margin-left: 16rpx;

@@ -27,6 +27,15 @@ public class PaymentRecord {
     /** 支付金额 */
     private BigDecimal amount;
 
+    /**
+     * 在线购买水票：所购水票标识（对应数据库 payment_record.ticket_water_type_id 列）。
+     * 用于支付确认后自动入账水票，非购票支付为 null。
+     */
+    private Long ticketWaterTypeId;
+
+    /** 在线购买水票：购买数量 */
+    private Integer ticketQty;
+
     /** 水费金额 */
     private BigDecimal waterAmount;
 
@@ -36,7 +45,10 @@ public class PaymentRecord {
     /** 超出桶数 */
     private Integer excessBarrels;
 
-    /** 支付方式: 1 微信支付 2 水票 3 线下支付 */
+    /**
+     * 支付方式：1 微信 2 现金（货到付款） 3 水票。
+     * 以 {@link com.example.aquaflow.constant.PayMethod} 为准（本注释此前误写为 "2水票 3线下"）。
+     */
     private Integer paymentMethod;
 
     /** 状态: 1 待支付 2 已支付 3 已退款 4 已取消 */

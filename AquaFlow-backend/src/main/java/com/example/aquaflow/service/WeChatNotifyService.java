@@ -14,7 +14,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 微信订阅消息通知服务
- * 用于发送订单状态变更、配送通知等给小程序用户
+ * 用于发送订单状态变更、配送通知等给小程序用户。
+ *
+ * <p>[AQ-028] 现状说明：本服务当前**全项目 0 处调用**（死代码）。微信支付回调 / 微信退款
+ * 亦未接入（用户明确"微信可模拟、暂不接真实支付"）。保留此文件作为后续接入的脚手架，
+ * 接入时需：① 在微信后台配置模板 ID 并替换下面的占位常量；② 由业务侧注入调用本服务；
+ * ③ 补支付回调验签入口。在此之前不应假定"订阅消息已发送成功"。</p>
  */
 @Slf4j
 @Service
@@ -32,6 +37,19 @@ public class WeChatNotifyService {
     // access_token 缓存
     private volatile String accessToken;
     private volatile LocalDateTime tokenExpireTime;
+
+    /** [AQ-047] 脱敏：access_token 等密钥绝不进日志 */
+    private static String maskSecret(String s) {
+        if (s == null) return "null";
+        return s.replaceAll("(\"access_token\"\\s*:\\s*\")[^\"]+", "$1***");
+    }
+
+    /** [AQ-047] openid 脱敏 */
+    private static String maskOpenid(String openid) {
+        if (openid == null) return "null";
+        if (openid.length() <= 4) return "***";
+        return openid.substring(0, 4) + "****";
+    }
 
     /**
      * 获取 access_token（带缓存，有效期2小时）
@@ -57,7 +75,7 @@ public class WeChatNotifyService {
                     log.info("获取access_token成功，有效期{}秒", expiresIn);
                     return accessToken;
                 } else {
-                    log.error("获取access_token失败: {}", response);
+                    log.error("获取access_token失败: {}", maskSecret(response));
                     throw new RuntimeException("获取access_token失败");
                 }
             } catch (Exception e) {
@@ -91,12 +109,12 @@ public class WeChatNotifyService {
             Map<String, Object> result = objectMapper.readValue(response, new TypeReference<Map<String, Object>>() {});
             Object errcode = result.get("errcode");
             if (errcode != null && ((Number) errcode).intValue() != 0) {
-                log.error("发送订阅消息失败: openid={}, templateId={}, response={}", openid, templateId, response);
+                log.error("发送订阅消息失败: openid={}, templateId={}, response={}", maskOpenid(openid), templateId, maskSecret(response));
             } else {
-                log.info("发送订阅消息成功: openid={}, templateId={}", openid, templateId);
+                log.info("发送订阅消息成功: openid={}, templateId={}", maskOpenid(openid), templateId);
             }
         } catch (Exception e) {
-            log.error("发送订阅消息异常: openid={}, templateId={}", openid, templateId, e);
+            log.error("发送订阅消息异常: openid={}, templateId={}", maskOpenid(openid), templateId, e);
         }
     }
 

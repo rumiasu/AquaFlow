@@ -220,7 +220,12 @@ Page({
 
   formatTime(time) {
     if (!time) return ''
-    const date = new Date(time.replace(/-/g, '/'))
+    // [AQ-045] 时间统一按 ISO-8601 解析。旧写法 .replace(/-/g,'/') 会把 ISO 的 'T' 破坏成 '2026/09/10T12:00:00'，
+    // iOS Safari 对此返回 Invalid Date。这里直解 ISO，并兼容历史空格分隔格式。
+    let s = String(time).trim()
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s)) s = s.replace(' ', 'T')
+    const date = new Date(s)
+    if (isNaN(date.getTime())) return String(time)
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
     const hour = String(date.getHours()).padStart(2, '0')

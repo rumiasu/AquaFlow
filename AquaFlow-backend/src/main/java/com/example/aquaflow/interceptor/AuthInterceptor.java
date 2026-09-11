@@ -1,5 +1,7 @@
 package com.example.aquaflow.interceptor;
 
+import com.example.aquaflow.entity.Staff;
+import com.example.aquaflow.mapper.StaffMapper;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.JwtUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,6 +24,9 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private StaffMapper staffMapper;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -58,6 +63,22 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         Long userId = userIdNum != null ? userIdNum.longValue() : null;
         Long stationId = stationIdNum != null ? stationIdNum.longValue() : null;
+
+        // [AQ-024] 员工 token 回查：JWT 只验签不查库，一旦员工被停用/调站，旧 token 在有效期内（默认2h）
+        // 仍可继续访问，属越权窗口。此处对 staff 类型 token 每次请求回查员工实际状态：
+        //   1) 员工必须仍存在且在职（status=1）—— 停用/删除即时失效；
+        //   2) role/stationId 以库内为准 —— 调站后旧 token 无法继续操作原站数据。
+        // 管理员(ADMIN)与系统账号不受水站绑定约束，仅校验在职。
+        if ("staff".equals(userType) && userId != null) {
+            Staff staff = staffMapper.getById(userId);
+            if (staff == null || staff.getStatus() == null || staff.getStatus() != 1) {
+                send401(response, "账号已被停用或不存在，请重新登录");
+                return false;
+            }
+            // 以库内真实角色/归属为准，覆盖 token 中的旧值
+            role = staff.getRole();
+            stationId = staff.getStationId();
+        }
 
         AuthContext.set(new AuthContext.AuthUser(userId, userType, role, stationId));
 

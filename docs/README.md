@@ -6,7 +6,7 @@
 - **客户全局身份（V13）**：`customer` 表无 `station_id` 列；客户资产按 `(customer_id, station_id)` 隔离，经 `customer_station_config` 关联。禁止给 `customer` 加 `station_id`。
 - **订单状态 1–5**：`1 待配送 / 2 配送中 / 3 已送达 / 4 已完成 / 5 已取消`。状态流转见 `OrderStatus.java`，小程序端 `AquaFlow-frontend` 的旧 `2/7` 态映射已作废。
 - **桶资产隔离**：按 `(customer_id, station_id)` 隔离，与水站绑定。
-- **水厂/厂长已废弃**：`factory` / `FACTORY_ADMIN` 不做；DB 仅 `orders.factory_id` 死列（无数据），后端无 factory 业务代码。
+- **水厂 / 厂长已彻底移除**（2026-09-11 复核）：`factory` 表、`FACTORY_ADMIN` 角色、各表 `factory_id` 列**在 DB 层已全部清除**；后端与三个小程序端均无水厂业务代码（`staff.role` 实际取值只有 `STATION_MANAGER` / `DELIVERY`）。演进过程见 `AquaFlow-backend/sql/README.md`「历史迁移演进」。
 
 ## 架构
 | 文件 | 内容 |

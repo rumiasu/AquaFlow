@@ -14,12 +14,9 @@ request.interceptors.request.use(config => {
     config.headers.Authorization = `Bearer ${token}`
   }
 
-  // 自动带 stationId 参数（站长和配送员都需要）
-  const stationId = localStorage.getItem('stationId')
-  if (stationId && config.method === 'get') {
-    config.params = { ...config.params, stationId: stationId }
-  }
-
+  // 注意：禁止在请求里自动注入 stationId。
+  // 水站归属必须以后端登录态（AuthContext）为准，前端传入的 stationId 一律视为不可信，
+  // 否则改一行 localStorage 即可越权遍历其它水站数据（见安全测评 A5）。
   return config
 })
 

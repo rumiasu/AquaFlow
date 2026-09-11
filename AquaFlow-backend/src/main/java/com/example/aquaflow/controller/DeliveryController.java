@@ -4,6 +4,7 @@ import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.constant.PaymentStatus;
+import com.example.aquaflow.constant.PayMethod;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.entity.Staff;
@@ -21,8 +22,14 @@ import com.example.aquaflow.mapper.CustomerBarrelOwedMapper;
 import com.example.aquaflow.entity.CustomerBarrelInTransit;
 import com.example.aquaflow.entity.CustomerBarrelAsset;
 import com.example.aquaflow.entity.CustomerBarrelOwed;
+import com.example.aquaflow.entity.BarrelRecord;
+import com.example.aquaflow.mapper.BarrelRecordMapper;
 import com.example.aquaflow.entity.CustomerNotification;
+import com.example.aquaflow.entity.OrderTransfer;
+import com.example.aquaflow.entity.OrderItem;
+import com.example.aquaflow.mapper.OrderTransferMapper;
 import com.example.aquaflow.service.PaymentService;
+import com.example.aquaflow.service.BarrelLedgerService;
 import com.example.aquaflow.util.AuthContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +55,9 @@ public class DeliveryController {
     private OrderMapper orderMapper;
 
     @Autowired
+    private BarrelRecordMapper barrelRecordMapper;
+
+    @Autowired
     private CustomerMapper customerMapper;
 
     @Autowired
@@ -65,6 +75,10 @@ public class DeliveryController {
     @Autowired
     private PaymentService paymentService;
 
+    /** [AQ-015] 转单状态结构化存储 */
+    @Autowired
+    private OrderTransferMapper orderTransferMapper;
+
     @Autowired
     private OrderBarrelExceptionService orderBarrelExceptionService;
 
@@ -76,6 +90,10 @@ public class DeliveryController {
 
     @Autowired
     private CustomerBarrelOwedMapper customerBarrelOwedMapper;
+
+    /** 桶权益总账：全系统唯一的桶账写入口（over 结算 + 押金条/权益批次） */
+    @Autowired
+    private com.example.aquaflow.service.BarrelLedgerService barrelLedgerService;
 
     @Autowired
     private com.example.aquaflow.mapper.CustomerNotificationMapper customerNotificationMapper;
@@ -147,6 +165,22 @@ public class DeliveryController {
             return existing;
         }
         return (existing != null && !existing.trim().isEmpty()) ? existing + " " + part.trim() : part.trim();
+    }
+
+    /** [AQ-015] 写入一条待决策转单记录（结构化权威状态源） */
+    private void insertTransfer(Long orderId, String kind, String subKind,
+                                Long fromStaffId, Long toStaffId, Long fromStationId, String reason) {
+        OrderTransfer ot = new OrderTransfer();
+        ot.setOrderId(orderId);
+        ot.setKind(kind);
+        ot.setSubKind(subKind);
+        ot.setFromStaffId(fromStaffId);
+        ot.setToStaffId(toStaffId);
+        ot.setFromStationId(fromStationId);
+        ot.setStatus(OrderTransfer.STATUS_PENDING);
+        ot.setReason(reason);
+        ot.setOperatorId(AuthContext.getUserId());
+        orderTransferMapper.insert(ot);
     }
 
     private Staff requireDelivery(Long staffId, Long stationId) {
@@ -322,8 +356,9 @@ public class DeliveryController {
         if (AuthContext.isDelivery()) {
             checkDeliverySelf(order);
         }
-        if (order.getPaymentMethod() == null || !Integer.valueOf(3).equals(order.getPaymentMethod())) {
-            return Result.error("仅线下支付订单可确认收款");
+        // 仅现金(货到付款)订单需配送员现场确认收款；微信(线上回调)与水票(已扣减)不在此处理
+        if (order.getPaymentMethod() == null || !Integer.valueOf(PayMethod.CASH).equals(order.getPaymentMethod())) {
+            return Result.error("仅现金(货到付款)订单可确认收款");
         }
         if (order.getStatus() != OrderStatus.DELIVERING && order.getStatus() != OrderStatus.DELIVERED) {
             return Result.error("当前状态不可确认线下收款");
@@ -337,8 +372,79 @@ public class DeliveryController {
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
 
+        // [AQ-002] 置「已付款」必须补写 PAID 支付流水，否则订单已付款却无凭证，日结对不上
+        paymentService.recordCashCollection(id);
+        // [AQ-009] 收款后入账预收桶押金（幂等）
+        paymentService.applyDepositOnPaid(id);
+
         log("CONFIRM_OFFLINE_PAY", id, null);
         return Result.success();
+    }
+
+    /**
+     * 旧客户端只回传一个总回桶数、没有商品维度时，按订单明细数量比例分摊（余数补给最后一项）。
+     * 这是兼容兜底，正常路径（itemReturns 带 orderItemId）不会走到这里。
+     */
+    /**
+     * 把本次配送的<b>物理桶收发</b>写进 barrel_record（type=8），每个商品一行。
+     *
+     * <p>为什么必须写：权益账（lot / over）自洽只能证明"账做得平"，
+     * 证明不了"顾客手上真有这么多桶"。只有留下送出/收回的流水，
+     * 对账 V2 的 E5 才能用流水反推占用，跟「权益 + over」交叉验证——
+     * 这是发现"桶实际丢了但账上还在"的唯一办法。</p>
+     */
+    private void recordDeliveryBarrels(Orders order, BarrelLedgerService.DeliveryOutcome outcome, Long staffId) {
+        if (outcome == null || outcome.getLines() == null) return;
+        Long customerId = order.getCustomerId();
+        Long stationId = order.getStationId();
+        if (customerId == null || stationId == null) return;
+
+        for (BarrelLedgerService.DeliveryOutcome.Line line : outcome.getLines()) {
+            int delivered = line.getDelivered() == null ? 0 : line.getDelivered();
+            int returned = line.getReturned() == null ? 0 : line.getReturned();
+            int purchased = line.getRightPurchase() == null ? 0 : line.getRightPurchase();
+            if (delivered == 0 && returned == 0 && purchased == 0) continue;
+
+            BarrelRecord r = new BarrelRecord();
+            r.setCustomerId(customerId);
+            r.setStationId(stationId);
+            r.setProductId(line.getProductId());
+            r.setType(8); // 配送收发明细
+            r.setQuantity(delivered);
+            r.setDeliveredQty(delivered);
+            r.setReturnedQty(returned);
+            r.setRelatedOrderId(order.getId());
+            r.setStatus(3); // 即时生效，不参与退桶审批
+            r.setOverBefore(line.getOverBefore());
+            r.setOverAfter(line.getOverAfter());
+            r.setDepositRefund(java.math.BigDecimal.ZERO); // 配送不涉及退款
+            r.setNote("送出 " + delivered + " / 收回 " + returned + " / 本单新购权益 " + purchased);
+            r.setOperatorId(staffId);
+            r.setCreateTime(LocalDateTime.now());
+            barrelRecordMapper.insert(r);
+        }
+    }
+
+    private Map<Long, Integer> splitByItemRatio(List<OrderItem> items, int total) {
+        Map<Long, Integer> result = new HashMap<>();
+        if (items == null || items.isEmpty() || total <= 0) return result;
+        int sumQty = 0;
+        for (OrderItem oi : items) sumQty += (oi.getQuantity() == null ? 0 : oi.getQuantity());
+        if (sumQty <= 0) return result;
+        int assigned = 0;
+        Long lastPid = null;
+        for (OrderItem oi : items) {
+            if (oi.getProductId() == null) continue;
+            lastPid = oi.getProductId();
+            int q = (oi.getQuantity() == null ? 0 : oi.getQuantity());
+            int v = (int) Math.floor((double) total * q / sumQty);
+            result.merge(oi.getProductId(), v, Integer::sum);
+            assigned += v;
+        }
+        if (lastPid != null && assigned < total) {
+            result.merge(lastPid, total - assigned, Integer::sum);
+        }
+        return result;
     }
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
@@ -357,9 +463,21 @@ public class DeliveryController {
         // 首次桶装水订单：押金桶无需回桶，直接跳过回桶核对
         boolean isFirstBarrelOrder = Boolean.TRUE.equals(order.getFirstBarrelOrder());
 
-        // 解析 itemReturns 数组（新版按商品核对回桶）
+        // 解析 itemReturns 数组（按商品核对回桶）
+        // 【不信任客户端】商品维度一律由后端用 orderItemId 反查 order_item.product_id 得到，
+        // 客户端只提供 orderItemId 与数量。productName 仅用于生成差异说明文案。
         int returnBucketQty = 0;
         List<Map<String, Object>> itemReturns = null;
+        Map<Long, Integer> returnedByProduct = new HashMap<>();
+        List<OrderItem> orderItems = orderItemMapper.listByOrderId(id);
+        Map<Long, Long> itemIdToProductId = new HashMap<>();
+        if (orderItems != null) {
+            for (OrderItem oi : orderItems) {
+                if (oi.getId() != null && oi.getProductId() != null) {
+                    itemIdToProductId.put(oi.getId(), oi.getProductId());
+                }
+            }
+        }
         if (!isFirstBarrelOrder) {
             if (params != null && params.containsKey("itemReturns")) {
                 Object ir = params.get("itemReturns");
@@ -370,43 +488,60 @@ public class DeliveryController {
                     for (Map<String, Object> item : list) {
                         Object actual = item.get("actual");
                         if (actual instanceof Number) {
-                            returnBucketQty += ((Number) actual).intValue();
+                            int act = ((Number) actual).intValue();
+                            returnBucketQty += act;
+                            Object oiId = item.get("orderItemId");
+                            Long pid = null;
+                            if (oiId instanceof Number) {
+                                pid = itemIdToProductId.get(((Number) oiId).longValue());
+                            }
+                            // 单商品订单容错：即使前端没带 orderItemId 也能归位
+                            if (pid == null && itemIdToProductId.size() == 1) {
+                                pid = itemIdToProductId.values().iterator().next();
+                            }
+                            if (pid == null) {
+                                return Result.error("回桶明细缺少有效的商品信息，请更新小程序后重试");
+                            }
+                            returnedByProduct.merge(pid, act, Integer::sum);
                         }
                     }
                 }
             }
-            // 兼容旧版 returnBucketQty 参数
+            // 兼容旧版 returnBucketQty 参数（无商品维度，按订单明细数量比例分摊）
             if (itemReturns == null && params != null && params.containsKey("returnBucketQty")) {
                 Object rb = params.get("returnBucketQty");
                 if (rb instanceof Number) {
                     returnBucketQty = ((Number) rb).intValue();
+                    returnedByProduct = splitByItemRatio(orderItems, returnBucketQty);
                 }
             }
         }
         if (returnBucketQty < 0) return Result.error("回收空桶数不能为负数");
-        Integer deliveryQty = order.getDeliveryBucketQty();
-        int deliveryBucket = deliveryQty != null ? deliveryQty : 0;
-
-        // #24: 查询客户欠桶记录，判断回桶上限
-        int currentOwed = 0;
-        if (!isFirstBarrelOrder) {
-            CustomerBarrelOwed owedRecord = customerBarrelOwedMapper.get(order.getCustomerId(), order.getStationId());
-            currentOwed = owedRecord != null ? owedRecord.getOwedQty() : 0;
-        }
-        // 欠桶信用额度：owed_qty为正=客户欠桶，为负=客户多还（有信用）
-        int credit = Math.min(0, currentOwed); // 负数=可用额度，0=无额度
-        int maxReturn = isFirstBarrelOrder ? deliveryBucket : deliveryBucket - credit;
-        if (returnBucketQty > maxReturn) {
-            if (credit < 0) {
-                return Result.error("回收空桶数(" + returnBucketQty + ")超过上限(" + maxReturn + ")，含历史欠桶抵扣" + (-credit) + "桶");
-            } else {
-                return Result.error("回收空桶数(" + returnBucketQty + ")不能超过配送数(" + deliveryBucket + ")");
-            }
-        }
         order.setReturnBucketQty(returnBucketQty);
 
-        int owed = isFirstBarrelOrder ? 0 : (deliveryBucket - returnBucketQty);
+        // ===== 桶账（全系统唯一写入口）=====
+        // 旧实现有两处错误，已整体废弃：
+        //   ① owed = delivered − returned，漏减「本单新购权益数 rightPurchase」——
+        //      只有新购为 0 的换桶场景才恰好正确，所以主流程一直没暴露；
+        //   ② maxReturn = delivered − credit 硬拦截，把「家里空桶全还、这次少买」直接拒单。
+        // 新实现：newOver = oldOver + (delivered − returned) − rightPurchase，按商品结算；
+        // 唯一校验是【物理上限】returned <= 占用_before(权益+over)，over 允许为负（多还桶/水站暂存）。
+        // 首次桶装水订单无需特判：right=0、over=0、买3送3收0 → newOver = 0，公式自然成立。
+        BarrelLedgerService.DeliveryOutcome ledgerOutcome;
+        try {
+            ledgerOutcome = barrelLedgerService.applyDelivery(
+                    id, order.getCustomerId(), order.getStationId(), returnedByProduct, staffId);
+        } catch (BusinessException e) {
+            return Result.error(e.getMessage());
+        }
+        int owed = ledgerOutcome.totalOverDelta();
         order.setBarrelDiscrepancy(owed);
+
+        // 物理桶流水留痕（type=8 配送收发明细）。
+        // 没有它，对账只能校验「权益账自洽」，无法回答最要命的那个问题：
+        //   「这个顾客手上到底应该有几个桶？」
+        // 有了它，对账 V2 的 E5 才能用流水重算占用，跟 权益+over 交叉验证。
+        recordDeliveryBarrels(order, ledgerOutcome, staffId);
 
         // 从 itemReturns 构建差异说明
         if (itemReturns != null) {
@@ -456,14 +591,21 @@ public class DeliveryController {
             order.setSpecialNote(appendNote(order.getSpecialNote(), " [配送备注] " + note));
         }
 
-        // 货到付款判断：paymentMethod=2（现金/线下）或 paymentMethod=3（水票）且未线上支付
+        // ===== 支付前置校验（[AQ-002][AQ-007]，必须早于桶异常录入等副作用） =====
+        // 原则：PAID 只能由支付链路（createPayment / confirmPayment / 现金现场收款）写入，
+        // 配送员点"完成"绝不能是付款动作。否则未付款的微信单 / 未扣票的水票单会被白送。
         Integer pm = order.getPaymentMethod();
-        Integer ps = order.getPaymentStatus();
-        boolean isCashOnDelivery = pm != null && !Integer.valueOf(1).equals(pm) && !(Integer.valueOf(2).equals(ps));
+        boolean paid = paymentService.hasPaidRecord(id);
+        boolean isCashOnDelivery = pm == null || Integer.valueOf(PayMethod.CASH).equals(pm);
         boolean collected = false;
         if (params != null && params.containsKey("collected")) {
             Object c = params.get("collected");
             collected = Boolean.TRUE.equals(c);
+        }
+
+        // 微信(1) / 水票(3)：必须有 PAID 流水才能完成，否则直接拒绝。
+        if (!isCashOnDelivery && !paid) {
+            return Result.error("该订单尚未完成支付，请先完成支付再配送（微信需支付回调，水票需先扣减）");
         }
 
         // 处理桶差异异常录入
@@ -482,56 +624,45 @@ public class DeliveryController {
         }
 
         if (isCashOnDelivery) {
-            if (!collected) {
-                order.setStatus(OrderStatus.DELIVERED);
-                order.setPaymentStatus(PaymentStatus.UNPAID);
-            } else {
+            if (paid) {
+                // 已收款（例：站长已确认），直接完成；collected 不再影响付款状态
                 order.setStatus(OrderStatus.COMPLETED);
                 order.setPaymentStatus(PaymentStatus.PAID);
+            } else if (collected) {
+                // [AQ-043] 跨站外派单（归属站 != 履约站）：收款与欠桶账都归原归属站。
+                // 禁止目标站（履约站）替归属站确认收款并闭环订单，否则钱记到履约站、欠桶却记到归属站，账实错位。
+                Long ownerStation = order.getStationId();
+                Long fulfillStation = deliveryStation(order);
+                if (ownerStation != null && fulfillStation != null && !ownerStation.equals(fulfillStation)) {
+                    Long myStation = AuthContext.getStationId();
+                    if (myStation == null || !myStation.equals(ownerStation)) {
+                        return Result.error("跨站外派订单仅原归属站可确认收款，请由归属站操作");
+                    }
+                }
+                order.setStatus(OrderStatus.COMPLETED);
+                order.setPaymentStatus(PaymentStatus.PAID);
+                paymentService.recordCashCollection(id);   // 补写流水，保证账证一致
+            } else {
+                order.setStatus(OrderStatus.DELIVERED);
+                order.setPaymentStatus(PaymentStatus.UNPAID);
             }
         } else {
+            // 微信 / 水票：到此必 paid == true（已在上面拦截），正常完成
             order.setStatus(OrderStatus.COMPLETED);
             order.setPaymentStatus(PaymentStatus.PAID);
         }
 
-        // 更新在途桶资产状态为 DELIVERED，并转入持有桶资产
-        if (order.getDeliveryBucketQty() != null && order.getDeliveryBucketQty() > 0) {
-            List<CustomerBarrelInTransit> inTransitList = customerBarrelInTransitMapper.listPendingByOrderId(id);
-            for (CustomerBarrelInTransit inTransit : inTransitList) {
-                // 转入持有桶资产
-                Long productId = inTransit.getProductId();
-                int qty = inTransit.getQty() != null ? inTransit.getQty() : 0;
-                if (productId != null && qty > 0) {
-                    com.example.aquaflow.entity.CustomerBarrelAsset existing =
-                        customerBarrelAssetMapper.getByCustomerAndProduct(
-                            order.getCustomerId(), productId, order.getStationId());
-                    if (existing == null) {
-                        com.example.aquaflow.entity.CustomerBarrelAsset asset =
-                            new com.example.aquaflow.entity.CustomerBarrelAsset();
-                        asset.setCustomerId(order.getCustomerId());
-                        asset.setProductId(productId);
-                        asset.setStationId(order.getStationId());
-                        asset.setQuantity(qty);
-                        asset.setUpdateTime(LocalDateTime.now());
-                        customerBarrelAssetMapper.insert(asset);
-                    } else {
-                        customerBarrelAssetMapper.increaseQuantity(existing.getId(), qty);
-                    }
-                }
-            }
-            customerBarrelInTransitMapper.updateStatusByOrderId(id, "DELIVERED");
+        // [AQ-009] 只要订单最终为已付款，就在此刻入账预收桶押金（幂等，重复调用安全）。
+        // 押金不再于下单时入账，这是其唯一入口，覆盖现金现场收款 / 站长确认 / 线上支付完成各条路径。
+        if (Integer.valueOf(PaymentStatus.PAID).equals(order.getPaymentStatus())) {
+            paymentService.applyDepositOnPaid(id);
         }
+
+        // 配送中权益转正（建押金条 lot + 增加权益）已由 BarrelLedgerService.applyDelivery 完成，
+        // 配送中记录标记 DELIVERED 而非物理删除（DEF-6）——「已购待送权益」需要可追溯。
 
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
-
-        // #24: 更新欠桶记录
-        if (!isFirstBarrelOrder) {
-            int deltaOwed = deliveryBucket - returnBucketQty; // 正=欠桶增加，负=多还抵扣
-            if (deltaOwed != 0) {
-                customerBarrelOwedMapper.adjustOwed(order.getCustomerId(), order.getStationId(), deltaOwed);
-            }
-        }
 
         Map<String, Object> d = new HashMap<>();
         d.put("returnBucketQty", returnBucketQty);
@@ -564,7 +695,7 @@ public class DeliveryController {
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
 
-        // 触发退款（退支付记录 + 退押金账户 + 清在途桶），由 refundOrder 统一置为 CANCELLED
+        // 触发退款（退支付记录 + 退押金账户 + 清配送中桶），由 refundOrder 统一置为 CANCELLED
         paymentService.refundOrder(id, reason);
 
         // 给客户发送拒单提醒
@@ -603,12 +734,12 @@ public class DeliveryController {
         String reason = params != null && params.get("reason") != null ? params.get("reason").toString() : "外派配送";
 
         // 仅修改 delivery_station_id，owner_station_id 保持不变
-        order.setDeliveryStationId(targetStationId);
-        order.setDeliveryStaffId(null); // 重新分配
-        order.setStatus(OrderStatus.PENDING);
-        order.setSpecialNote(appendNote(order.getSpecialNote(), " [外派] 从水站 " + myStationId + " 外派至 " + targetStationId + "，原因：" + reason));
-        order.setUpdateTime(LocalDateTime.now());
-        orderMapper.update(order);
+        // [AQ-020] 原为 check-then-act（先查状态再 update）→ 并发下可重复外派/覆盖。改为 CAS。
+        int dispatched = orderMapper.dispatchIfStatus(id, targetStationId, OrderStatus.PENDING);
+        if (dispatched == 0) {
+            return Result.error("订单状态已变更，请刷新后重试");
+        }
+        orderMapper.appendSpecialNote(id, " [外派] 从水站 " + myStationId + " 外派至 " + targetStationId + "，原因：" + reason);
 
         // 给客户发送临时外派配送提醒
         notifyCustomerTempDispatch(order.getCustomerId(), id, targetStationId);
@@ -642,7 +773,7 @@ public class DeliveryController {
         String reason = reasonObj.toString();
 
         // 注意：不要提前置 CANCELLED，否则 refundOrder 的状态门槛(orderStatus < DELIVERED)会失效、
-        // 导致押金不退/在途桶悬挂。状态由 refundOrder 末尾统一置位。
+        // 导致押金不退/配送中桶悬挂。状态由 refundOrder 末尾统一置位。
         order.setSpecialNote(appendNote(order.getSpecialNote(), " [解决/拒单] " + reason));
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
@@ -687,6 +818,9 @@ public class DeliveryController {
         }
         Staff target = requireDelivery(targetId, stationId);
         String reason = params != null && params.get("reason") != null ? params.get("reason").toString() : "配送员转让";
+        // [AQ-015] 结构化转单记录（转让），须在改派前取原配送员
+        insertTransfer(id, OrderTransfer.KIND_STAFF, OrderTransfer.SUB_TRANSFER,
+                order.getDeliveryStaffId(), targetId, deliveryStation(order), reason);
         order.setDeliveryStaffId(targetId);
         order.setSpecialNote(appendNote(order.getSpecialNote(), " [转让] " + reason + " -> 配送员 " + target.getName()));
         order.setUpdateTime(LocalDateTime.now());
@@ -710,12 +844,16 @@ public class DeliveryController {
             return Result.error("只能退回自己名下的订单");
         }
         String reason = params != null && params.get("reason") != null ? params.get("reason").toString() : "配送员退回站长";
-        order.setDeliveryStaffId(null);
-        order.setStatus(OrderStatus.PENDING);
-        order.setSpecialNote(appendNote(order.getSpecialNote(), " [退回站长] " + reason));
-        order.setUpdateTime(LocalDateTime.now());
-        orderMapper.update(order);
-        orderMapper.clearDeliveryStaff(id); // 选择性更新下 setDeliveryStaffId(null) 不写库，必须显式清空
+        // AQ-016: 退回待审期间订单仍带原配送员（与 [退回站长] 标记配合，旧 UI 用 deliveryStaffId 判定"转单中"）。
+        // 不可在此清空配送员，否则 rejectReturn 把状态置回 DELIVERING 时已无配送员可恢复 → 孤儿卡死。
+        // 仅在 approveReturn（同意退回）时清空，转成真正待分配。
+        // [AQ-015] 备注改为 DB 侧原子追加，避免并发整列覆盖丢更新；状态更新走 CAS。
+        int changed = orderMapper.updateStatusIf(id, cur, OrderStatus.PENDING);
+        if (changed == 0) return Result.error("订单状态已变更，请刷新后重试");
+        orderMapper.appendSpecialNote(id, "[退回站长] " + reason);
+        // [AQ-015] 结构化转单记录（权威状态源）
+        insertTransfer(id, OrderTransfer.KIND_STAFF, OrderTransfer.SUB_RETURN_STATION,
+                order.getDeliveryStaffId(), null, deliveryStation(order), reason);
 
         log("RETURN_TO_STATION", id, null);
         return Result.success();
@@ -794,6 +932,8 @@ public class DeliveryController {
         order.setSpecialNote(appendNote(order.getSpecialNote(), " [取消转让]"));
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
+        // [AQ-015] 结构化：把该单待决策的配送员转单置为已取消
+        orderTransferMapper.resolvePendingByKind(id, OrderTransfer.KIND_STAFF, OrderTransfer.STATUS_CANCELLED, AuthContext.getUserId());
         log("CANCEL_TRANSFER", id, null);
         return Result.success();
     }
@@ -818,10 +958,12 @@ public class DeliveryController {
         if (order.getDeliveryStaffId() != null && !order.getDeliveryStaffId().equals(staffId)) {
             return Result.error("该订单已分配给其他配送员");
         }
-        order.setDeliveryStaffId(staffId);
-        order.setSpecialNote(appendNote(order.getSpecialNote(), " [认领]"));
-        order.setUpdateTime(LocalDateTime.now());
-        orderMapper.update(order);
+        // [AQ-020] 原为 check-then-act，并发下两个配送员可同时认领。改为原子 CAS：仅当订单无配送员（或归自己）时更新。
+        int claimed = orderMapper.claimIfUnassigned(id, staffId);
+        if (claimed == 0) {
+            return Result.error("该订单已被其他配送员认领");
+        }
+        orderMapper.appendSpecialNote(id, "[认领]");
         log("CLAIM", id, null);
         return Result.success();
     }
@@ -831,6 +973,14 @@ public class DeliveryController {
     public Result<Void> rejectTransfer(@PathVariable Long id) {
         Orders order = orderMapper.getById(id);
         if (order == null) return Result.error("订单不存在");
+        // [AQ-034] 旧实现零校验：任意配送员可拒绝任意水站任意订单，并往 special_note 里塞标记污染数据。
+        Long stationId = AuthContext.getStationId();
+        if (stationId == null) return Result.error("无法识别当前水站");
+        if (!stationId.equals(deliveryStation(order))) return Result.error("仅能操作本站订单");
+        if (AuthContext.isDelivery()
+                && (order.getDeliveryStaffId() == null || !order.getDeliveryStaffId().equals(AuthContext.getUserId()))) {
+            return Result.error("只能拒绝自己名下的订单");
+        }
         order.setSpecialNote(appendNote(order.getSpecialNote(), " [拒绝认领]"));
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
@@ -845,16 +995,13 @@ public class DeliveryController {
         Orders order = orderMapper.getById(id);
         if (order == null) return Result.error("订单不存在");
         if (!stationId.equals(deliveryStation(order))) return Result.error("仅能操作本站订单");
-        // 同意转单：去掉转单标记（离开「转单中」列表）+ 清空配送员（变普通待分配，可再分配/外派）
-        String note = (order.getSpecialNote() == null ? "" : order.getSpecialNote())
-                .replace("[退回站长]", "[退回站长-已同意]")
-                .replace("[转让]", "[转让-已同意]")
-                .replace("[重分配]", "[重分配-已同意]");
-        order.setSpecialNote(appendNote(note, " [退回通过]"));
-        order.setStatus(OrderStatus.PENDING);
-        order.setUpdateTime(LocalDateTime.now());
-        orderMapper.update(order);
+        // [AQ-015] 备注原子追加；[AQ-016] 同意退回才清空配送员（转成真正待分配）。
+        // 关键：写入决策子串「-已同意」，列表侧用 LIKE 排除；不再做 replace 整列覆盖（并发下会丢更新）。
+        orderMapper.appendSpecialNote(id, "[退回站长-已同意] [退回通过]");
+        orderMapper.updateStatus(id, OrderStatus.PENDING);
         orderMapper.clearDeliveryStaff(id); // 选择性更新下 setDeliveryStaffId(null) 不写库，必须显式清空
+        // [AQ-015] 结构化：把该单待决策的配送员转单置为已同意
+        orderTransferMapper.resolvePendingByKind(id, OrderTransfer.KIND_STAFF, OrderTransfer.STATUS_APPROVED, AuthContext.getUserId());
         log("RETURN_APPROVE", id, null);
         return Result.success();
     }
@@ -866,15 +1013,17 @@ public class DeliveryController {
         Orders order = orderMapper.getById(id);
         if (order == null) return Result.error("订单不存在");
         if (!stationId.equals(deliveryStation(order))) return Result.error("仅能操作本站订单");
-        // 拒绝转单：去掉转单标记（离开「转单中」列表）+ 回到配送中，保留原配送员继续完成配送
-        String note = (order.getSpecialNote() == null ? "" : order.getSpecialNote())
-                .replace("[退回站长]", "[退回站长-已拒绝]")
-                .replace("[转让]", "[转让-已拒绝]")
-                .replace("[重分配]", "[重分配-已拒绝]");
-        order.setSpecialNote(appendNote(note, " [退回拒绝]"));
-        order.setStatus(OrderStatus.DELIVERING);
-        order.setUpdateTime(LocalDateTime.now());
-        orderMapper.update(order);
+        // [AQ-015] 备注原子追加（写入「-已拒绝」决策子串，列表侧 LIKE 排除）。
+        // [AQ-016] 拒绝退回须保证订单有配送员可继续履约，否则会变成「配送中但无配送员」的孤儿卡死单。
+        if (order.getDeliveryStaffId() == null) {
+            return Result.error("订单当前无配送员，无法拒绝退回，请先分配配送员");
+        }
+        int cur = order.getStatus() != null ? order.getStatus() : 0;
+        int changed = orderMapper.updateStatusIf(id, cur, OrderStatus.DELIVERING);
+        if (changed == 0) return Result.error("订单状态已变更，请刷新后重试");
+        orderMapper.appendSpecialNote(id, "[退回站长-已拒绝] [退回拒绝]");
+        // [AQ-015] 结构化：把该单待决策的配送员转单置为已拒绝
+        orderTransferMapper.resolvePendingByKind(id, OrderTransfer.KIND_STAFF, OrderTransfer.STATUS_REJECTED, AuthContext.getUserId());
         log("RETURN_REJECT", id, null);
         return Result.success();
     }
@@ -890,7 +1039,7 @@ public class DeliveryController {
         stats.put("completedCount", completed.size());
         var delivering = orderMapper.listByDeliveryStaffId(staffId, OrderStatus.DELIVERING);
         stats.put("deliveringCount", delivering.size());
-        var pending = orderMapper.list(stationId, null, OrderStatus.PENDING, null, null);
+        var pending = orderMapper.list(stationId, null, OrderStatus.PENDING, null, null, null, null);
         stats.put("pendingCount", pending.size());
         int totalReturn = completed.stream()
                 .mapToInt(o -> o.getReturnBucketQty() != null ? o.getReturnBucketQty() : 0)
@@ -1070,14 +1219,14 @@ public class DeliveryController {
         Long targetStaffId = ((Number) staffIdObj).longValue();
         Staff target = requireDelivery(targetStaffId, stationId);
 
-        // 更新订单：分配到本站
-        order.setDeliveryStationId(stationId);
-        order.setDeliveryStaffId(targetStaffId);
-        order.setStatus(OrderStatus.DELIVERING);
-        order.setSpecialNote(appendNote(order.getSpecialNote(),
-                " [抢单] " + stationId + "站抢单成功，配送员=" + target.getName()));
-        order.setUpdateTime(LocalDateTime.now());
-        orderMapper.update(order);
+        // [AQ-020] 原为 check-then-act，两个水站可同时抢到同一单（后写覆盖前写）。
+        // 改为原子 CAS：仅当订单仍在池中（delivery_station_id 为空）且状态=待配送时才算抢到。
+        int grabbed = orderMapper.claimPoolIfFree(id, stationId, targetStaffId,
+                OrderStatus.DELIVERING, OrderStatus.PENDING);
+        if (grabbed == 0) {
+            return Result.error("该订单已被其他水站抢单");
+        }
+        orderMapper.appendSpecialNote(id, " [抢单] " + stationId + "站抢单成功，配送员=" + target.getName());
 
         // 抢单成功：给客户发送临时外派配送提醒（告知由本站代替送达）
         notifyCustomerTempDispatch(order.getCustomerId(), id, stationId);
@@ -1149,6 +1298,9 @@ public class DeliveryController {
                 " [指定退回待确认] 由水站 " + stationId + " 申请退回原归属站 " + order.getStationId()));
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
+        // [AQ-015] 结构化转单记录（站间指定退回待确认）
+        insertTransfer(id, OrderTransfer.KIND_DIRECTED, OrderTransfer.SUB_DIRECTED_RETURN,
+                order.getDeliveryStaffId(), null, stationId, "申请退回原归属站 " + order.getStationId());
         log("DIRECTED_RETURN", id, Map.of("fromStationId", stationId, "toStationId", order.getStationId()));
         return Result.success();
     }
@@ -1174,6 +1326,8 @@ public class DeliveryController {
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
         orderMapper.clearDeliveryStaff(id); // 清空配送员，变回普通待分配（update 为选择性更新，null 不会写库）
+        // [AQ-015] 结构化：指定退回置为已同意
+        orderTransferMapper.resolvePendingByKind(id, OrderTransfer.KIND_DIRECTED, OrderTransfer.STATUS_APPROVED, AuthContext.getUserId());
         log("DIRECTED_RETURN_APPROVE", id, null);
         return Result.success();
     }
@@ -1197,6 +1351,8 @@ public class DeliveryController {
         order.setStatus(OrderStatus.DELIVERING);
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.update(order);
+        // [AQ-015] 结构化：指定退回置为已拒绝
+        orderTransferMapper.resolvePendingByKind(id, OrderTransfer.KIND_DIRECTED, OrderTransfer.STATUS_REJECTED, AuthContext.getUserId());
         log("DIRECTED_RETURN_REJECT", id, null);
         return Result.success();
     }

@@ -11,7 +11,8 @@ Page({
     guestMenu: [
       { icon: 'shop', title: '商城', url: '/pages/shop/index' },
       { icon: 'notice', title: '公告', url: '/pages/notice/index' },
-      { icon: 'chat', title: '联系客服', url: '/pages/service/index' }
+      { icon: 'chat', title: '联系客服', url: '/pages/service/index' },
+      { icon: 'droplet', title: '关于我们', url: '/pages/mine/about' }
     ],
     loginMenu: [
       { icon: 'order', title: '常用订单', url: '/pages/order/list' },
@@ -22,7 +23,9 @@ Page({
       { icon: 'ticket', title: '我的水票', url: '/pages/ticket/index' },
       { icon: 'building', title: '企业资料', url: '/pages/mine/company' },
       { icon: 'shop', title: '商城', url: '/pages/shop/index' },
-      { icon: 'chat', title: '客服与反馈', url: '/pages/service/index' }
+      { icon: 'alert', title: '异常记录', url: '/pages/exception/list/list' },
+      { icon: 'chat', title: '客服与反馈', url: '/pages/service/index' },
+      { icon: 'droplet', title: '关于我们', url: '/pages/mine/about' }
     ]
   },
 

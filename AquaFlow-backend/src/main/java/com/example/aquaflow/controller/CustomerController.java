@@ -8,6 +8,7 @@ import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.service.CustomerService;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.vo.CustomerProfileVO;
+import com.example.aquaflow.vo.CustomerStationAssetVO;
 import com.example.aquaflow.vo.CustomerStationVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -111,6 +112,25 @@ public class CustomerController {
         CustomerProfileVO vo = customerService.getCustomerProfile(id, stationId);
         if (vo == null) {
             return Result.error("客户不存在或无权查看");
+        }
+        return Result.success(vo);
+    }
+
+    /**
+     * 客户在本站的资产（水桶 / 水票 / 押金）。
+     * GET /api/customers/{id}/assets
+     *
+     * <p>水站取自登录站长（{@code AuthContext.requireStationId()}），<b>不接受前端传入 stationId</b>；
+     * 服务层再校验"该客户确实属于本站"，因此该接口只能查到该客户在本站的资产，
+     * 不会串到客户在其他水站的水桶/水票/押金。</p>
+     */
+    @RequireRole({"STATION_MANAGER"})
+    @GetMapping("/{id}/assets")
+    public Result<CustomerStationAssetVO> getStationAssets(@PathVariable Long id) {
+        Long stationId = AuthContext.requireStationId();
+        CustomerStationAssetVO vo = customerService.getStationAssets(id, stationId);
+        if (vo == null) {
+            return Result.error("客户不存在或不属于本水站，无权查看");
         }
         return Result.success(vo);
     }

@@ -18,4 +18,10 @@ public interface DepositRecordMapper {
 
     @Select("select * from deposit_record where customer_id = #{customerId} and station_id = #{stationId} order by create_time desc")
     List<DepositRecord> listByCustomerAndStation(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
+    /**
+     * [AQ-009] 统计某订单某类型的押金流水条数，用于"支付成功入账"的幂等判断。
+     */
+    @Select("select count(*) from deposit_record where related_order_id = #{orderId} and type = #{type}")
+    int countByOrderAndType(@Param("orderId") Long orderId, @Param("type") Integer type);
 }

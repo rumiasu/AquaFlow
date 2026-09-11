@@ -24,12 +24,18 @@ public class TicketRecordController {
     private CustomerMapper customerMapper;
 
     /**
-     * 客户查询自己的水票流水
-     * GET /api/ticket-records  (customerId 从 JWT 获取，与 TicketAccountController.listByCustomerId 同模式)
+     * 客户查询自己的水票流水。
+     * GET /api/ticket-records?stationId=xxx
+     * <p>customerId 从 JWT 获取，不接受前端传入。stationId 可选：传了只返回该站流水
+     * （资产按水站隔离，页面切站后应看到本站记录），不传则返回全部。</p>
      */
     @GetMapping
-    public Result<List<Map<String, Object>>> listByCustomerId() {
+    public Result<List<Map<String, Object>>> listByCustomerId(
+            @RequestParam(required = false) Long stationId) {
         Long customerId = AuthContext.requireCustomerId();
+        if (stationId != null) {
+            return Result.success(ticketRecordMapper.listByCustomerAndStationWithDetail(customerId, stationId));
+        }
         return Result.success(ticketRecordMapper.listByCustomerIdWithDetail(customerId));
     }
 
@@ -40,6 +46,8 @@ public class TicketRecordController {
     @RequireRole({"STATION_MANAGER"})
     @GetMapping("/customer/{customerId}")
     public Result<List<Map<String, Object>>> listByCustomerIdForStaff(@PathVariable Long customerId, @RequestParam Long stationId) {
-        return Result.success(ticketRecordMapper.listByCustomerIdWithDetail(customerId));
+        // [AQ-023] 强制使用登录站长所属水站，忽略客户端传入的 stationId，杜绝跨站查询他站客户水票流水
+        Long myStationId = AuthContext.requireStationId();
+        return Result.success(ticketRecordMapper.listByCustomerAndStationWithDetail(customerId, myStationId));
     }
 }

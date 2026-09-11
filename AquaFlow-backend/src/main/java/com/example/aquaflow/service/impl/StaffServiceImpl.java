@@ -101,7 +101,7 @@ public class StaffServiceImpl implements StaffService {
         return vo;
     }
 
-    /** 给在途订单补后端派生的状态文案 */
+    /** 给进行中订单补后端派生的状态文案 */
     private java.util.List<java.util.Map<String, Object>> decorateOrders(
             java.util.List<java.util.Map<String, Object>> orders) {
         if (orders == null) {

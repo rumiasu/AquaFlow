@@ -77,7 +77,12 @@ const API = {
   CUSTOMERS: '/api/customers',
   CUSTOMER_DETAIL: (id) => `/api/customers/${id}`,
   CUSTOMER_PROFILE: (id) => `/api/customers/${id}/profile`,
+  // 客户在本站的资产（水桶/水票/押金）。水站由后端按登录站长判定，前端不传 stationId
+  CUSTOMER_ASSETS: (id) => `/api/customers/${id}/assets`,
   CUSTOMER_OFFLINE_PAYMENT: (id) => `/api/customers/${id}/offline-payment`,
+
+  // 综合数据报表（range=today|7d|30d）。水站由后端按登录站长判定，前端不传 stationId
+  DASHBOARD_REPORT: '/api/dashboard/report',
 
   // 订单
   ORDERS: '/api/orders',
@@ -115,6 +120,7 @@ const API = {
   // 水桶
   BARRELS_ALL_RECORDS: '/api/barrels/all-records',
   BARRELS_RECORDS_STATUS: (id) => `/api/barrels/records/${id}/status`,
+  BARRELS_RETURN_EMPTY: '/api/barrels/return-empty',
 
   // 上传
   ORDER_IMAGE_UPLOAD: '/api/order-images/upload',

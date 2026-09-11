@@ -1,4 +1,4 @@
-const { getBarrelSummary, getBarrelRecords, getBarrelSummaryByType, requestBarrelReturn } = require('../../api/barrel')
+const { getBarrelSummary, getBarrelRecords, getBarrelSummaryByType, requestBarrelReturn, previewBarrelReturn } = require('../../api/barrel')
 const { stationStorage } = require('../../utils/storage')
 
 Page({
@@ -21,9 +21,11 @@ Page({
     returnForm: {
       productId: null,
       quantity: 1,
-      depositRefund: 0,
       note: ''
     },
+    // 退桶试算结果（后端按押金条批次 FIFO 算出，前端不自行计算金额）
+    preview: null,
+    previewing: false,
     maxReturnQty: 0,
     submitting: false
   },
@@ -99,17 +101,43 @@ Page({
       wx.showToast({ title: '暂无可退水桶', icon: 'none' })
       return
     }
+    // 默认选中第一个有权益的商品，省得顾客忘了选还要等报错
+    const first = (this.data.customerBarrelAsset || []).find(i => (i.assetQty || 0) > 0)
     this.setData({
       showReturnModal: true,
-      'returnForm.productId': null,
+      'returnForm.productId': first ? first.productId : null,
       'returnForm.quantity': 1,
-      'returnForm.depositRefund': 0,
-      'returnForm.note': ''
+      'returnForm.note': '',
+      preview: null
     })
+    if (first) this.refreshPreview()
   },
 
   onCloseReturnModal() {
     this.setData({ showReturnModal: false })
+  },
+
+  /**
+   * 退桶试算：调后端 /return/preview。
+   * 退款金额只认后端按押金条批次算出来的值 —— 前端自己用「数量 × 押金单价」估是错的：
+   * 顾客当年买桶的价和现在不一定一样，那是柜台吵架的经典导火索。
+   */
+  async refreshPreview() {
+    const { productId, quantity } = this.data.returnForm
+    if (!productId || !quantity || quantity <= 0) {
+      this.setData({ preview: null })
+      return
+    }
+    this.setData({ previewing: true })
+    try {
+      const res = await previewBarrelReturn(productId, quantity, stationStorage.getId())
+      this.setData({ preview: (res && res.data) || null })
+    } catch (e) {
+      console.warn('[Barrel] 退桶试算失败:', e.message)
+      this.setData({ preview: null })
+    } finally {
+      this.setData({ previewing: false })
+    }
   },
 
   onReturnQtyChange(e) {
@@ -121,6 +149,7 @@ Page({
       qty--
     }
     this.setData({ 'returnForm.quantity': qty })
+    this.refreshPreview()
   },
 
   onReturnQtyInput(e) {
@@ -128,21 +157,7 @@ Page({
     this.setData({
       'returnForm.quantity': Math.min(this.data.maxReturnQty, Math.max(1, qty))
     })
-  },
-
-  onDepositRefundInput(e) {
-    const val = parseFloat(e.detail.value) || 0
-    // #44: 防止undefined导致NaN
-    const maxRefund = this.data.summary.depositBalance || 0
-    this.setData({
-      'returnForm.depositRefund': Math.min(maxRefund, Math.max(0, val))
-    })
-  },
-
-  onFullRefund() {
-    this.setData({
-      'returnForm.depositRefund': this.data.summary.depositBalance || 0
-    })
+    this.refreshPreview()
   },
 
   onReturnNoteInput(e) {
@@ -152,39 +167,32 @@ Page({
   onSelectProduct(e) {
     const { id } = e.currentTarget.dataset
     this.setData({ 'returnForm.productId': parseInt(id) || null })
+    this.refreshPreview()
   },
 
   async onSubmitReturn() {
-    const { returnForm, summary } = this.data
-    const { productId, quantity, depositRefund, note } = returnForm
+    const { returnForm } = this.data
+    const { productId, quantity, note } = returnForm
 
+    if (!productId) {
+      wx.showToast({ title: '请选择要退的商品', icon: 'none' })
+      return
+    }
     if (quantity <= 0) {
       wx.showToast({ title: '请输入退桶数量', icon: 'none' })
       return
     }
 
-    if (depositRefund > summary.depositBalance) {
-      wx.showToast({ title: '退押金金额超过余额', icon: 'none' })
+    // 试算已经把「权益不足 / 有欠桶」拦在前面了，这里只是最后一道提示
+    if (this.data.preview && this.data.preview.blocked) {
+      wx.showToast({ title: this.data.preview.blockedReason || '当前无法退桶', icon: 'none', duration: 3000 })
       return
-    }
-
-    // 欠桶提醒：客户有欠桶时弹窗提示，但不硬阻拦提交（站长审批时会拦截）
-    if (summary.owedBuckets > 0) {
-      const confirm = await new Promise((resolve) => {
-        wx.showModal({
-          title: '存在欠桶提醒',
-          content: `您当前欠 ${summary.owedBuckets} 个空桶未归还。存在欠桶时退桶申请可能被站长驳回，建议先归还欠桶后再申请退桶。是否继续提交？`,
-          confirmText: '继续提交',
-          cancelText: '取消',
-          success: (res) => resolve(res.confirm)
-        })
-      })
-      if (!confirm) return
     }
 
     this.setData({ submitting: true })
     try {
-      await requestBarrelReturn({ productId, waterTypeId: productId, quantity, depositRefund, note })
+      // 不传 depositRefund：金额由服务端按押金条批次核销决定，顾客填多少都不算数
+      await requestBarrelReturn({ productId, waterTypeId: productId, quantity, note })
       wx.showToast({ title: '退桶申请已提交', icon: 'success' })
       this.setData({ showReturnModal: false })
       this.loadData()

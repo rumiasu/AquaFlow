@@ -225,7 +225,7 @@ Page({
           this.setData({ staffList: [...list] })
         }
         try {
-          await del(`${API.MANAGER_BIND_RELEASE}/${id}`)
+          await post(API.MANAGER_BIND_RELEASE, { staffId: id })
           wx.showToast({ title: '已解除', icon: 'success' })
           this.loadStaffList()
         } catch (e) {
@@ -246,7 +246,7 @@ Page({
     const idx = apps.findIndex(a => a.id === id || a.applyId === id)
     if (idx >= 0) { apps[idx]._loading = true; this.setData({ bindApplications: [...apps] }) }
     try {
-      await put(`${API.MANAGER_BIND_APPROVE}/${id}`)
+      await post(API.MANAGER_BIND_APPROVE, { applicationId: id })
       wx.showToast({ title: '已同意', icon: 'success' })
       this.loadBindApplications()
       this.loadStaffList()
@@ -263,7 +263,7 @@ Page({
     const idx = apps.findIndex(a => a.id === id || a.applyId === id)
     if (idx >= 0) { apps[idx]._loading = true; this.setData({ bindApplications: [...apps] }) }
     try {
-      await put(`${API.MANAGER_BIND_REJECT}/${id}`)
+      await post(API.MANAGER_BIND_REJECT, { applicationId: id })
       wx.showToast({ title: '已拒绝', icon: 'success' })
       this.loadBindApplications()
     } catch (e) {

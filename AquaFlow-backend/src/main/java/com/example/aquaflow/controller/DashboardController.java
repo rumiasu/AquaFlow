@@ -5,11 +5,13 @@ import com.example.aquaflow.common.Result;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.mapper.*;
+import com.example.aquaflow.service.DashboardService;
 import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
@@ -29,6 +31,8 @@ public class DashboardController {
     private InventoryMapper inventoryMapper;
     @Autowired
     private InventoryService inventoryService;
+    @Autowired
+    private DashboardService dashboardService;
 
     /**
      * 水站端首页 — 只看本站数据
@@ -75,5 +79,20 @@ public class DashboardController {
     public Result<?> orderTrend() {
         Long stationId = AuthContext.requireStationId();
         return Result.success(orderMapper.trendLast7DaysByStationId(stationId));
+    }
+
+    /**
+     * 综合数据报表。
+     * GET /api/dashboard/report?range=today|7d|30d
+     *
+     * <p>返回：周期汇总 + 环比对比（自动取上一等长周期）+ 按天趋势（补零）+
+     * 状态/支付方式分布 + 热销商品/客户 TOP5 + 配送员业绩 + 下单时段分布 + 欠桶提醒。
+     * 水站取自登录站长，不接受前端传参。</p>
+     */
+    @RequireRole({"STATION_MANAGER"})
+    @GetMapping("/report")
+    public Result<?> report(@RequestParam(defaultValue = "7d") String range) {
+        Long stationId = AuthContext.requireStationId();
+        return Result.success(dashboardService.report(stationId, range));
     }
 }

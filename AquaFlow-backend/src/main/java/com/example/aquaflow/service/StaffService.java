@@ -22,7 +22,7 @@ public interface StaffService {
     List<Staff> listByStationIdAndRole(Long stationId, String role);
 
     /**
-     * 员工画像（站长视角）：聚合配送业绩（今日/本月/累计、在途、完成率）与服务质量。
+     * 员工画像（站长视角）：聚合配送业绩（今日/本月/累计、进行中、完成率）与服务质量。
      * 员工不存在返回 null。
      */
     StaffProfileVO getStaffProfile(Long staffId, Long stationId);

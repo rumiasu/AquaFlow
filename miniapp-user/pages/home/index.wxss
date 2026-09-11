@@ -55,6 +55,22 @@
   margin-top: 4rpx;
 }
 
+/* 搜索框：跳转商品搜索页 */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 24rpx;
+  padding: 18rpx 24rpx;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999rpx;
+}
+
+.search-bar-placeholder {
+  font-size: 26rpx;
+  color: #94A3B8;
+}
+
 /* ========== Banner ========== */
 .banner {
   position: relative;

@@ -33,7 +33,7 @@ public class DepositRecordServiceImpl implements DepositRecordService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void add(DepositRecord record, Long stationId) {
         Customer customer = customerMapper.getById(record.getCustomerId());
         if (customer == null) {

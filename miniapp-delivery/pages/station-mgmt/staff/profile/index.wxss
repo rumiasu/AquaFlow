@@ -89,7 +89,7 @@
 .value { color: var(--text-primary, #1f2329); }
 .value.warn { color: #f56c6c; }
 
-/* ===== 在途订单 ===== */
+/* ===== 进行中订单 ===== */
 .order-item {
   display: flex;
   align-items: center;

@@ -11,6 +11,15 @@ const getDashboardOverview = (stationId) => {
   return get(API.DASHBOARD_OVERVIEW, { stationId })
 }
 
+/**
+ * 综合数据报表（含环比/趋势/多维分布）。
+ * 注意：不传 stationId —— 后端按登录站长所属水站出数，前端传了也会被忽略，
+ * 传了反而会让人误以为能查别站数据。
+ */
+const getDashboardReport = (range) => {
+  return get(API.DASHBOARD_REPORT, { range })
+}
+
 // 订单
 const getOrders = (params) => {
   return get(API.ORDERS, params)
@@ -29,6 +38,13 @@ const getCustomerDetail = (id) => {
 // 客户画像（站长视角：消费/资产/行为聚合）
 const getCustomerProfile = (id) => {
   return get(API.CUSTOMER_PROFILE(id))
+}
+
+// 客户在本站的资产（水桶/水票/押金）。
+// 注意：后端按「登录站长所属水站」限定数据范围，前端不传也不应传 stationId，
+// 否则会让人误以为可以查别站的资产。
+const getCustomerAssets = (id) => {
+  return get(API.CUSTOMER_ASSETS(id))
 }
 
 // 员工画像（站长视角：配送业绩/服务质量聚合）
@@ -108,6 +124,14 @@ const updateBarrelRecordStatus = (id, status) => {
   return put(API.BARRELS_RECORDS_STATUS(id), { status })
 }
 
+/**
+ * 纯还桶：顾客交回空桶但不带走满桶 —— 只冲减 over，不扣权益、不退款。
+ * 后端会校验「交回数 ≤ 占用」，clientToken 用于防重复提交（同一 token 只生效一次）。
+ */
+const returnEmptyBuckets = (customerId, items, clientToken, note) => {
+  return post(API.BARRELS_RETURN_EMPTY, { customerId, items, clientToken, note })
+}
+
 // 员工
 const createStaff = (data) => {
   return post(API.STAFF, data)
@@ -123,10 +147,12 @@ const detachStaff = (id) => {
 module.exports = {
   getDashboardToday,
   getDashboardOverview,
+  getDashboardReport,
   getOrders,
   getCustomers,
   getCustomerDetail,
   getCustomerProfile,
+  getCustomerAssets,
   getStaffProfile,
   getOfflinePayment,
   updateOfflinePayment,
@@ -142,6 +168,7 @@ module.exports = {
   inboundProducts,
   getAllBarrelRecords,
   updateBarrelRecordStatus,
+  returnEmptyBuckets,
   createStaff,
   detachStaff
 }

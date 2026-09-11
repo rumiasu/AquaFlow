@@ -47,7 +47,7 @@ public interface BarrelAssetService {
     List<CustomerBarrelAsset> getHeldAssets(Long customerId, Long stationId);
 
     /**
-     * 查询在途桶资产（下单已收押金但未送达确认）
+     * 查询配送中桶资产（下单已收押金但未送达确认）
      * 用途：下单上限校验时计入"已承诺资产"
      */
     List<BarrelInTransitDTO> getInTransitAssets(Long customerId, Long stationId);
@@ -97,7 +97,7 @@ public interface BarrelAssetService {
     }
 
     /**
-     * 在途桶资产DTO
+     * 配送中桶资产DTO
      */
     class BarrelInTransitDTO {
         private Long productId;

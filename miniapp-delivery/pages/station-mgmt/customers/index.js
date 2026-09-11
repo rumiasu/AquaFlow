@@ -1,5 +1,6 @@
 // 站长客户查询
 const { getCustomers } = require('../../../api/station-mgmt')
+const { STORAGE_KEYS } = require('../../../utils/storage-keys')
 
 const AVATAR_COLORS = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6B', '#909399', '#9254DE']
 
@@ -59,7 +60,11 @@ Page({
 
   async loadData() {
     const app = getApp()
-    const stationId = app.globalData.userInfo?.stationId
+    // 冷启动时 globalData 可能尚未水合，需回退本地存储，否则列表一直空白
+    const stationId = (app.globalData.userInfo && app.globalData.userInfo.stationId)
+      || app.globalData.stationId
+      || wx.getStorageSync(STORAGE_KEYS.STATION_ID)
+      || null
 
     this.setData({ loading: true })
     try {

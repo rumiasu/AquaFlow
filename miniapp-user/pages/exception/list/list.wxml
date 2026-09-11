@@ -63,11 +63,10 @@
     </view>
   </view>
 
-  <view class="empty-state" wx:if="{{!loading && exceptions.length === 0}}">
-    <image src="../../../assets/images/empty-exception.png" mode="aspectFit" />
-    <text class="empty-text">暂无异常记录</text>
+  <block wx:if="{{!loading && exceptions.length === 0}}">
+    <empty text="暂无异常记录" />
     <text class="empty-subtext">配送过程中如有问题会记录在这里</text>
-  </view>
+  </block>
 
   <view class="load-more" wx:if="{{!noMore && exceptions.length > 0}}">
     <view class="loading-spinner" wx:if="{{loadingMore}}"></view>

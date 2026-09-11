@@ -8,7 +8,7 @@ const { getQuote } = require('../../api/payment')
 const { getStationById } = require('../../api/station')
 const { storage, stationStorage } = require('../../utils/storage')
 const { getBaseUrl, API } = require('../../config/api')
-const { getAccessToken } = require('../../utils/token')
+const { getAccessToken, getCustomerId } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
 const app = getApp()
 
@@ -34,8 +34,13 @@ Page({
     totalDepositText: '0.00',
     extraDepositAmountText: '',
     totalAmountText: '0.00',
-    // 支付方式：1微信 2水票 3货到付款
-    selectedMethod: 2,
+    // 支付方式：枚举以后端 PayMethod 为准 —— 1=微信 2=现金(货到付款) 3=水票。
+    // 历史 bug：这里曾按「1微信 2水票 3货到付款」自造映射，与后端 2/3 恰好相反，
+    // 导致默认项（2）被后端判为现金而撞上货到付款授权校验 → 新客户 100% 下单失败；
+    // 选"货到付款"(3) 反被当成水票 → 下单即视同已付、无人收款。
+    // 现在选项与文案一律由服务端 /api/payments/quote 的 methods 下发，前端不再自带映射。
+    selectedMethod: 3,
+    payMethods: [],
     submitting: false,
     // 幂等键：onLoad 生成一次，下单成功后才刷新（保证同一意图只产生一单）
     idempotencyKey: '',
@@ -50,7 +55,7 @@ Page({
     pendingOrderRes: null,
     // 费用明细弹窗
     showDetailPopup: false,
-    // 在途桶提醒弹窗
+    // 配送中桶提醒弹窗
     showInTransitReminder: false,
     inTransitReminderAck: false,   // 同一次进入页面只提示一次
     hasInTransitBarrels: false
@@ -203,7 +208,13 @@ this.setData({ products, stationName: effectiveStationName })
   },
 
   onSelectMethod(e) {
-    const { id } = e.currentTarget.dataset
+    const { id, enabled } = e.currentTarget.dataset
+    // 不可用的支付方式（如未接入的微信支付、未授权的货到付款）不响应点击
+    if (enabled === false || String(enabled) === 'false') {
+      const tip = (this.data.payMethods.find(m => m.id === parseInt(id)) || {}).desc
+      wx.showToast({ title: tip || '该支付方式暂不可用', icon: 'none' })
+      return
+    }
     this.setData({ selectedMethod: parseInt(id) })
     this.refreshQuote()
   },
@@ -322,8 +333,8 @@ this.setData({ products, stationName: effectiveStationName })
         this.setData({ barrelByType: res.data })
         this.syncBarrelSummary()
       }
-      // 统计"正在配送中(PENDING)"的在途桶：仅未送达确认的才视为配送中，
-      // 已送达的在途记录(DELIVERED)不应再触发提醒；首单仍在配送的也已被包含。
+      // 统计「配送中」的桶：只有 PENDING（已购待送、尚未送达确认）才算配送中，
+      // 已送达的 DELIVERED 记录不应再触发提醒；首单仍在配送的也已被包含。
       const sumRes = await getBarrelSummary(stationId)
       if (sumRes.data) {
         const pending = sumRes.data.pendingDeliveryBuckets || 0
@@ -417,6 +428,14 @@ this.setData({ products, stationName: effectiveStationName })
         const totalAmount = d.totalAmount || (totalWaterCost + totalDeposit + extraDepositAmount)
         const allowOfflinePayment = d.allowOfflinePayment === true
 
+        // 支付方式列表由服务端下发（含文案、可用性、默认项），前端不再硬编码 1/2/3 的含义
+        const payMethods = Array.isArray(d.methods) && d.methods.length
+          ? d.methods
+          : [{ id: 3, name: '水票支付', desc: '使用账户水票抵扣', enabled: true }]
+        // 当前选中项若已不可用（权限被收回），回退到服务端给的默认值
+        const selectedStillOk = payMethods.some(m => m.id === selectedMethod && m.enabled)
+        const nextMethod = selectedStillOk ? selectedMethod : (d.defaultMethod || payMethods[0].id)
+
         // 计算每个商品的押金明细
         const updatedProducts = products.map(p => {
           const deposit = parseFloat(p.deposit) || 0
@@ -455,11 +474,9 @@ this.setData({ products, stationName: effectiveStationName })
           totalDepositText: totalDeposit.toFixed(2),
           extraDepositAmountText: extraDepositBuckets > 0 ? extraDepositAmount.toFixed(2) : '',
           totalAmountText: totalAmount.toFixed(2),
-          allowOfflinePayment
-        }
-
-        if (!allowOfflinePayment && this.data.selectedMethod === 3) {
-          updates.selectedMethod = 1
+          allowOfflinePayment,
+          payMethods,
+          selectedMethod: nextMethod
         }
 
         this.setData(updates)
@@ -489,12 +506,13 @@ this.setData({ products, stationName: effectiveStationName })
       return
     }
 
-    if (selectedMethod === 3 && !this.data.showOfflineConfirm) {
+    // 2 = PayMethod.CASH（货到付款）：需先弹窗确认"送达后付款"
+    if (selectedMethod === 2 && !this.data.showOfflineConfirm) {
       this.setData({ showOfflineConfirm: true })
       return
     }
 
-    // 在途桶提醒：有水桶正在配送中，且本次下单会产生额外桶押金时，先友好提示
+    // 配送中桶提醒：有水桶正在配送中，且本次下单会产生额外桶押金时，先友好提示
     if (this.data.hasInTransitBarrels && this.data.extraDepositBuckets > 0 && !this.data.inTransitReminderAck) {
       this.setData({ showInTransitReminder: true, inTransitReminderAck: true })
       return
@@ -551,17 +569,18 @@ this.setData({ products, stationName: effectiveStationName })
     const orderId = orderRes.data?.orderId || orderRes.data || null
     if (!orderId) return
 
-    if (this.data.selectedMethod === 2) {
+    // 3 = PayMethod.TICKET（水票支付）：下单即视同已付，补一条支付流水用于对账
+    if (this.data.selectedMethod === 3) {
       try {
         await createPayment({
           orderId,
-          customerId: wx.getStorageSync('customerId'),
+          customerId: getCustomerId(),
           amount: this.data.totalAmount,
           waterAmount: this.data.totalWaterCost,
           barrelDeposit: this.data.totalDeposit,
           extraDepositBuckets: this.data.extraDepositBuckets,
           extraDepositAmount: this.data.extraDepositAmount,
-          paymentMethod: 2,
+          paymentMethod: 3,
           ticketProductId: null,
           ticketQty: null
         })

@@ -61,29 +61,16 @@
     <view class="payment-method-section">
       <text class="section-title">支付方式</text>
       <view class="payment-methods">
-        <view class="payment-method {{selectedMethod === 1 ? 'selected' : ''}}" bindtap="onSelectMethod" data-id="1">
-          <icon name="bill" size="40rpx" color="#8B5CF6" />
+        <view class="payment-method {{selectedMethod === item.id ? 'selected' : ''}} {{item.enabled ? '' : 'disabled'}}"
+              wx:for="{{payMethods}}" wx:key="id"
+              bindtap="onSelectMethod" data-id="{{item.id}}" data-enabled="{{item.enabled}}">
+          <icon name="{{item.id === 1 ? 'bill' : (item.id === 2 ? 'wallet' : 'ticket')}}"
+                size="40rpx" color="{{item.enabled ? (item.id === 1 ? '#8B5CF6' : (item.id === 2 ? '#0EA5E9' : '#F59E0B')) : '#94A3B8'}}" />
           <view class="method-info">
-            <text class="method-name">微信支付</text>
-            <text class="method-desc">在线支付（暂未开放，将直接完成）</text>
+            <text class="method-name">{{item.name}}</text>
+            <text class="method-desc">{{item.desc}}</text>
           </view>
-          <icon name="check" size="36rpx" color="#8B5CF6" wx:if="{{selectedMethod === 1}}" />
-        </view>
-        <view class="payment-method {{selectedMethod === 2 ? 'selected' : ''}}" bindtap="onSelectMethod" data-id="2">
-          <icon name="ticket" size="40rpx" color="#F59E0B" />
-          <view class="method-info">
-            <text class="method-name">水票支付</text>
-            <text class="method-desc">使用账户水票抵扣</text>
-          </view>
-          <icon name="check" size="36rpx" color="#F59E0B" wx:if="{{selectedMethod === 2}}" />
-        </view>
-        <view class="payment-method {{selectedMethod === 3 ? 'selected' : ''}}" bindtap="onSelectMethod" data-id="3" wx:if="{{allowOfflinePayment}}">
-          <icon name="wallet" size="40rpx" color="#0EA5E9" />
-          <view class="method-info">
-            <text class="method-name">货到付款</text>
-            <text class="method-desc">配送员送达后现金/扫码支付</text>
-          </view>
-          <icon name="check" size="36rpx" color="#0EA5E9" wx:if="{{selectedMethod === 3}}" />
+          <icon name="check" size="36rpx" color="#0EA5E9" wx:if="{{selectedMethod === item.id}}" />
         </view>
       </view>
     </view>
@@ -121,7 +108,7 @@
     </view>
   </view>
 
-  <!-- 在途桶提醒弹窗 -->
+  <!-- 配送中桶提醒弹窗 -->
   <view class="method-popup {{showInTransitReminder ? 'show' : ''}}" wx:if="{{showInTransitReminder}}">
     <view class="popup-mask" bindtap="onInTransitReminderCancel"></view>
     <view class="popup-content">

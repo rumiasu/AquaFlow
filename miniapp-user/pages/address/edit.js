@@ -180,7 +180,7 @@ Page({
           content: '当前是员工账号，请切换到客户账号登录后再试',
           showCancel: false,
           confirmText: '去登录',
-          success: () => wx.navigateTo({ url: '/pages/login/login' })
+          success: () => wx.navigateTo({ url: '/pages/login/index' })
         })
       } else {
         wx.showToast({ title: msg, icon: 'none' })

@@ -22,6 +22,13 @@ public interface CustomerNotificationMapper {
     @Update("update customer_notification set is_read = 1 where id = #{id}")
     void markRead(@Param("id") Long id);
 
+    /**
+     * [AQ-035] 按 id + 归属客户更新已读，返回受影响行数。
+     * 旧实现只按 id 更新，且 controller 查到归属后丢弃结果 → 顾客可把任意他人通知标记已读。
+     */
+    @Update("update customer_notification set is_read = 1 where id = #{id} and customer_id = #{customerId}")
+    int markReadOwned(@Param("id") Long id, @Param("customerId") Long customerId);
+
     @Update("update customer_notification set is_read = 1 where customer_id = #{customerId}")
     void markAllRead(@Param("customerId") Long customerId);
 

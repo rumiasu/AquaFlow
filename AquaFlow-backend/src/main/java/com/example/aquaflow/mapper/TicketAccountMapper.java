@@ -34,7 +34,23 @@ public interface TicketAccountMapper {
     @Select("select * from ticket_account where customer_id = #{customerId} and station_id = #{stationId}")
     List<TicketAccount> listByCustomerAndStation(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
-    @Select("select ta.*, p.name as productName, p.spec as productSpec " +
+    /**
+     * 客户在本站的水票明细（含商品名/规格）。
+     * <p>注意：这里的 Map 直接回给小程序，键名即字段名。此前用 {@code ta.*} 会带出
+     * {@code remain_quantity} 等下划线列名，而两端约定的是驼峰 {@code remainQuantity}，
+     * 结果水票页「剩余张数」恒为空、合计张数恒为 0 —— 客户买了票却看不到票。
+     * 因此这里逐个显式起驼峰别名，不要改回 {@code ta.*}。</p>
+     */
+    @Select("select ta.id as id, " +
+            "ta.customer_id as customerId, " +
+            "ta.product_id as productId, " +
+            "ta.station_id as stationId, " +
+            "ta.remain_quantity as remainQuantity, " +
+            "ta.update_time as updateTime, " +
+            "p.name as productName, " +
+            "p.spec as productSpec, " +
+            "p.price as price, " +
+            "p.ticket_price as ticketPrice " +
             "from ticket_account ta " +
             "left join product p on ta.product_id = p.id " +
             "where ta.customer_id = #{customerId} and ta.station_id = #{stationId} " +

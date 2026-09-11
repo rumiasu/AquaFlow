@@ -70,8 +70,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public Result handleRuntimeException(RuntimeException e) {
+        // 安全：绝不把原始异常信息（NPE 堆栈、SQL 错误等）直接回传给前端，
+        // 仅记录日志供排查，前端统一展示中性文案。
         log.error("运行时异常: {}", e.getMessage(), e);
-        return Result.error(e.getMessage());
+        // [AQ-048] 系统级异常用 code=500，与业务错误(code=1)区分
+        return Result.systemError("操作失败，请稍后重试");
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
@@ -81,9 +84,48 @@ public class GlobalExceptionHandler {
         return Result.error("缺少必填参数：" + e.getParameterName());
     }
 
+    /**
+     * 参数类型不匹配（如 stationId 传了 "None"、id 传了非数字）。
+     * <p>同样是客户端参数问题，此前会落到 RuntimeException/Exception 分支变成 code=500
+     * 「操作失败，请稍后重试」——把前端的拼串错误伪装成后端故障。</p>
+     */
+    @ExceptionHandler({
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            org.springframework.web.bind.MethodArgumentNotValidException.class
+    })
+    public Result handleTypeMismatch(Exception e) {
+        String param = "参数";
+        if (e instanceof org.springframework.web.method.annotation.MethodArgumentTypeMismatchException m) {
+            param = m.getName();
+        }
+        log.warn("参数格式不正确: {}", e.getMessage());
+        return Result.error("参数格式不正确：" + param);
+    }
+
+    /**
+     * 路由不存在（含静态资源未命中）。
+     * <p>Spring 6.1 起，未匹配到任何 handler 时抛的是 NoResourceFoundException。
+     * 旧实现无对应分支，会落到最下面的 Exception 处理器，对外表现为
+     * 「HTTP 200 + code=500 系统错误」——排查时极易被误判为后端逻辑异常，
+     * 实际只是前端把接口路径写错了。这里单独识别并给出 code=404。</p>
+     */
+    @ExceptionHandler({
+            org.springframework.web.servlet.resource.NoResourceFoundException.class,
+            org.springframework.web.servlet.NoHandlerFoundException.class
+    })
+    public Result handleNoHandler(Exception e) {
+        String path = null;
+        if (e instanceof org.springframework.web.servlet.resource.NoResourceFoundException nrf) {
+            path = nrf.getResourcePath();
+        }
+        log.warn("接口不存在: {}", path != null ? path : e.getMessage());
+        return Result.notFound(path != null ? ("接口不存在：" + path) : "接口不存在");
+    }
+
     @ExceptionHandler(Exception.class)
     public Result handleException(Exception e) {
         log.error("系统异常: {}", e.getMessage(), e);
-        return Result.error("系统错误，请联系管理员");
+        // [AQ-048] 系统级异常用 code=500
+        return Result.systemError("系统错误，请联系管理员");
     }
 }

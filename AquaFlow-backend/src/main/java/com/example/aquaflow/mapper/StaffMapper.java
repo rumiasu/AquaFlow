@@ -28,6 +28,18 @@ public interface StaffMapper {
             "role=#{role}, station_id=#{stationId}, status=#{status}, update_time=NOW() WHERE id=#{id}")
     void update(Staff staff);
 
+    /**
+     * 白名单更新：只允许改 name / phone / status。
+     * <p>
+     * 与 {@link #update(Staff)} 的区别：update() 会全量写入 role / station_id / password_hash，
+     * 只能用于服务端内部流程，绝不能直接接收客户端入参，否则站长可自行提权。
+     */
+    @Update("UPDATE staff SET name=#{name}, phone=#{phone}, status=#{status}, update_time=NOW() WHERE id=#{id}")
+    void updateBaseInfo(@Param("id") Long id,
+                        @Param("name") String name,
+                        @Param("phone") String phone,
+                        @Param("status") Integer status);
+
     @Delete("DELETE FROM staff WHERE id = #{id}")
     void delete(@Param("id") Long id);
 
@@ -79,7 +91,7 @@ public interface StaffMapper {
     @Select("select count(*) from orders where delivery_staff_id = #{staffId} and status = 4")
     int countTotalCompleted(@Param("staffId") Long staffId);
 
-    /** 在途（待配送 + 配送中） */
+    /** 进行中（待配送 + 配送中） */
     @Select("select count(*) from orders where delivery_staff_id = #{staffId} and status in (1, 2)")
     int countDelivering(@Param("staffId") Long staffId);
 
@@ -96,16 +108,15 @@ public interface StaffMapper {
             "and create_time >= date_format(now(), '%Y-%m-01')")
     java.math.BigDecimal sumMonthAmount(@Param("staffId") Long staffId);
 
-    /** 退回站长次数 */
-    @Select("select count(*) from orders where delivery_staff_id = #{staffId} " +
-            "and special_note like '%[退回站长]%'")
+    /** 退回站长次数（[AQ-015] 改由 order_transfer 统计，含已同意/已拒绝的历史记录） */
+    @Select("select count(*) from order_transfer where from_staff_id = #{staffId} and sub_kind = 'RETURN_STATION'")
     int countReturns(@Param("staffId") Long staffId);
 
     /** 桶异常次数 */
     @Select("select count(*) from order_barrel_exception where delivery_staff_id = #{staffId}")
     int countExceptions(@Param("staffId") Long staffId);
 
-    /** 当前在途订单 */
+    /** 当前进行中订单 */
     @Select("select o.id, o.status, o.total_amount as totalAmount, " +
             "o.address_snapshot as addressSnapshot, c.name as customerName " +
             "from orders o left join customer c on o.customer_id = c.id " +

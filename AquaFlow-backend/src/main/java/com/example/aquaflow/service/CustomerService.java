@@ -3,6 +3,7 @@ package com.example.aquaflow.service;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.CustomerStationConfig;
 import com.example.aquaflow.vo.CustomerProfileVO;
+import com.example.aquaflow.vo.CustomerStationAssetVO;
 import com.example.aquaflow.vo.CustomerStationVO;
 
 import java.util.List;
@@ -34,4 +35,12 @@ public interface CustomerService {
      * 无权限返回 null。
      */
     CustomerProfileVO getCustomerProfile(Long customerId, Long stationId);
+
+    /**
+     * 客户在指定水站的资产（站长视角）：水桶 / 水票 / 押金三类。
+     *
+     * <p>资产按 {@code (customerId, stationId)} 隔离，只会返回该客户<b>在本站</b>的资产；
+     * 客户不属于该水站时返回 null，由调用方转为"无权查看"。</p>
+     */
+    CustomerStationAssetVO getStationAssets(Long customerId, Long stationId);
 }

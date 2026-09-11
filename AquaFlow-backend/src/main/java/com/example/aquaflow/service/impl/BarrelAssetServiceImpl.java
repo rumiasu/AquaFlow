@@ -41,7 +41,7 @@ public class BarrelAssetServiceImpl implements BarrelAssetService {
     private DepositRecordMapper depositRecordMapper;
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void purchaseBarrels(Long customerId, Long stationId,
                                 List<BarrelPurchaseItem> items, Long operatorId) {
         if (items == null || items.isEmpty()) {
@@ -87,15 +87,15 @@ public class BarrelAssetServiceImpl implements BarrelAssetService {
                 depositRecordMapper.insert(dr);
             }
 
-            // 3. 清理在途记录（如果有关联订单，由上层传入 relatedOrderId 处理）
-            // 这里不处理在途清理，由上层业务在调用前处理 in_transit 表
+            // 3. 清理配送中记录（如果有关联订单，由上层传入 relatedOrderId 处理）
+            // 这里不处理配送中清理，由上层业务在调用前处理 in_transit 表
         }
 
         log.info("[BarrelAsset] 购桶入账完成: customerId={}, stationId={}, items={}", customerId, stationId, items.size());
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void returnBarrels(Long customerId, Long stationId,
                               List<BarrelReturnItem> items, Long operatorId) {
         if (items == null || items.isEmpty()) {

@@ -203,16 +203,29 @@ Page({
 
     this.setData({ submitting: true })
     try {
-      await purchaseTicket({
+      const res = await purchaseTicket({
         productId: productId,
         waterTypeId: productId, // 兼容旧字段
         quantity: quantity,
         paymentMethod: paymentMethod,
         stationId: this.data.currentStationId
       })
-      wx.showToast({ title: '购买成功', icon: 'success' })
+      // 后端此时只创建了待支付流水，水票要等支付确认后才入账。
+      // 旧实现无条件提示"购买成功"，客户看到余额为空会以为系统吞了钱。
+      // 这里按真实 status 区分：2=已支付(票已到账)，1=待支付(等水站确认)。
+      const status = (res && res.data && res.data.status) != null ? res.data.status : 1
       this.onClosePurchase()
       await this.loadData()
+      if (status === 2) {
+        wx.showToast({ title: '购买成功，水票已到账', icon: 'success' })
+      } else {
+        wx.showModal({
+          title: '已提交，等待到账',
+          content: '购买申请已提交给水站，水站确认收款后水票才会到账。如长时间未到账请联系水站。',
+          showCancel: false,
+          confirmText: '知道了'
+        })
+      }
     } catch (error) {
       console.error('Purchase ticket error:', error)
       wx.showToast({ title: error.message || '购买失败', icon: 'none' })

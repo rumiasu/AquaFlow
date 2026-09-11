@@ -98,7 +98,7 @@ public class Orders {
      */
     public Boolean getNeedCollect() {
         return paymentMethod != null
-                && paymentMethod == 2
+                && Integer.valueOf(PayMethod.CASH).equals(paymentMethod)
                 && paymentStatus != PaymentStatus.PAID;
     }
 
@@ -124,11 +124,24 @@ public class Orders {
         return OrderStatus.isCancellable(status);
     }
 
-    /** 是否展示支付入口：订单未取消 且 支付态为 未付款/待收款/支付已取消 */
+    /**
+     * 是否展示支付入口。
+     * <p>只有在「点了就能真的付掉」时才返回 true：
+     * <ul>
+     *   <li>订单已取消 / 已付款 / 已退款 → false</li>
+     *   <li>水票(3)：下单即视同已付，客户无需再操作 → false</li>
+     *   <li>现金(2)：货到付款，由配送员送达时收款 → false</li>
+     *   <li>微信(1)：尚未接入微信支付渠道，没有在线支付入口 → false</li>
+     * </ul>
+     * 旧实现对「未付款/待收款」一律返回 true，前端按钮点了只是建一条 PENDING 流水，
+     * 却提示"支付成功"，客户以为付了款、配送员上门按未付处理 —— 典型假支付。</p>
+     */
     public Boolean getCanRepay() {
         if (status != null && status == OrderStatus.CANCELLED) return false;
         String s = getPayState();
-        return "UNPAID".equals(s) || "PENDING".equals(s) || "CANCELLED".equals(s);
+        if (!("UNPAID".equals(s) || "PENDING".equals(s) || "CANCELLED".equals(s))) return false;
+        // 三种支付方式当前都没有客户自助在线支付入口，见 payHint 的说明
+        return false;
     }
 
     /** 支付入口按钮文案：支付被取消过显示为「重新支付」，否则「去支付」 */
@@ -136,13 +149,45 @@ public class Orders {
         return "CANCELLED".equals(getPayState()) ? "重新支付" : "去支付";
     }
 
+    /**
+     * 付款状态说明（客户侧展示，全系统唯一文案来源）。
+     * 没有支付入口时，前端渲染这段话解释"钱怎么付"，而不是留一个点了也没用的按钮。
+     */
+    public String getPayHint() {
+        if (status != null && status == OrderStatus.CANCELLED) return "订单已取消";
+        switch (getPayState()) {
+            case "PAID":      return "已付款";
+            case "REFUNDED":  return "已退款";
+            case "CANCELLED": return "支付已取消";
+            default: break;
+        }
+        if (paymentMethod != null) {
+            if (paymentMethod == PayMethod.TICKET) return "水票支付，下单即视同已付";
+            if (paymentMethod == PayMethod.CASH)   return "货到付款，配送员送达时收款";
+            if (paymentMethod == PayMethod.WECHAT) return "微信支付暂未开通，请联系水站改用货到付款或水票支付";
+        }
+        return "待付款";
+    }
+
     // ============ 转单（退回/转让）状态：由后端按 special_note 标记统一判定 ============
     // 背景：配送端订单详情曾读取 transferStatus / returnStatus / isTransferTarget 三个
     // 后端根本不存在的字段（与 collected 同类问题），导致「转单中/退回申请/待你确认」
     // 标签永远不显示。改为后端按真实标记计算后下发。
 
+    /**
+     * [AQ-015] 待决策转单类型（STAFF / DIRECTED），由列表 SQL 从 order_transfer 子查询填充。
+     * <p>把"转单中"的判定从 special_note 文本标记迁移到结构化表；此字段仅用于承载查询结果，
+     * 不落库（orders 表无此列）。</p>
+     */
+    private String transferPendingKind;
+
     /** 转单类型：NONE 无 / STAFF 配送员转单 / DIRECTED 站间指定外派退回 */
     public String getTransferKind() {
+        // [AQ-015] 优先使用结构化转单记录（order_transfer，权威状态源）
+        if (transferPendingKind != null && !transferPendingKind.isEmpty()) {
+            return transferPendingKind;
+        }
+        // 回退：未经查询填充（如单条 getById）或历史数据，仍按 special_note 文本判定，保证兼容
         String note = specialNote == null ? "" : specialNote;
         if (note.contains("[指定退回待确认]")) return "DIRECTED";
         // 配送员转单：[退回站长]/[转让]/[重分配] 经 同意/拒绝 后会改写为
@@ -179,7 +224,10 @@ public class Orders {
     /** 应结算日期 */
     private java.time.LocalDate dueDate;
 
-    /** 批次ID */
+    /**
+     * 批次ID。
+     * [AQ-054] 已废弃：全项目无 batch 表、无写入点，恒为 null。保留仅为兼容旧库列，新代码勿使用。
+     */
     private Long batchId;
 
     /** 订单总金额 */

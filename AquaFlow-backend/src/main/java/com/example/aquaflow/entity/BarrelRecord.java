@@ -23,7 +23,7 @@ public class BarrelRecord {
     /** 商品ID(桶装水) */
     private Long productId;
 
-    /** 类型: 1 新增押金桶 2 退桶 3 丢失 4 损坏 5 赔偿 6 人工调整 */
+    /** 类型: 1 新增押金桶 2 退桶 3 丢失 4 损坏 5 赔偿 6 人工调整 7 纯还桶 8 配送收发明细 */
     private Integer type;
 
     /** 数量 */
@@ -70,6 +70,8 @@ public class BarrelRecord {
             case 4: return "损坏";
             case 5: return "赔偿";
             case 6: return "人工调整";
+            case 7: return "纯还桶";
+            case 8: return "配送收发";
             default: return "其他";
         }
     }
@@ -79,6 +81,31 @@ public class BarrelRecord {
 
     /** 退桶申请的退押金金额（仅type=2退桶有意义） */
     private java.math.BigDecimal depositRefund;
+
+    /** 客户端幂等 token：纯还桶 / 退桶防重复提交（唯一索引 uk_record_client_token，NULL 不参与） */
+    private String clientToken;
+
+    /** 确认收到空桶的操作人（DEF-7：退桶不得从 1 直接跳到 3） */
+    private Long confirmedBy;
+
+    /** 确认收到空桶的时间 */
+    private LocalDateTime confirmedTime;
+
+    /** 变更前 over（<b>可为负</b>：负数=顾客多还桶/水站暂存，合法状态） */
+    private Integer overBefore;
+
+    /** 变更后 over（<b>可为负</b>） */
+    private Integer overAfter;
+
+    /**
+     * 本单送出满桶数（仅 type=8 配送收发明细有值，其余类型恒 0）。
+     * <p>没有这两个数字，就无法从流水重算「顾客手上实际有几个桶」，
+     * 物理桶守恒（对账 V2 的 E5）也就无从校验——只能选择"相信代码没写错"。</p>
+     */
+    private Integer deliveredQty;
+
+    /** 本单收回空桶数（仅 type=8 有值） */
+    private Integer returnedQty;
 
     /** 客户当前欠桶数（瞬时字段，不映射数据库，仅用于站长审批页提醒） */
     private transient Integer owedBuckets;

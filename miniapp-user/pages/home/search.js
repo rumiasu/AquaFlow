@@ -49,12 +49,14 @@ Page({
   async doSearch(keyword) {
     this.setData({ loading: true })
     try {
+      // keyword 传给后端做名称/品牌/规格匹配；只展示在售商品，避免把下架商品搜出来
       const res = await getProducts({ keyword })
-      if (res.data) {
-        this.setData({ searchResults: res.data })
-      }
+      const list = Array.isArray(res.data) ? res.data : []
+      this.setData({ searchResults: list.filter(p => p.status === 1) })
     } catch (error) {
       console.error('Search error:', error)
+      wx.showToast({ title: error.message || '搜索失败', icon: 'none' })
+      this.setData({ searchResults: [] })
     } finally {
       this.setData({ loading: false })
     }

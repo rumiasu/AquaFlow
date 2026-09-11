@@ -107,6 +107,7 @@
 
   <view class="action-section">
     <button wx:if="{{canRepay}}" class="btn-action btn-pay" bindtap="onPayNow">{{repayLabel}}</button>
+    <text wx:else class="pay-hint">{{payHint}}</text>
     <button wx:if="{{canCancel}}" class="btn-action btn-cancel" bindtap="onCancel">取消订单</button>
     <button wx:if="{{order.status === 5}}" class="btn-action btn-reorder" bindtap="onReorder">再次购买</button>
     <button class="btn-action btn-call" bindtap="onCallPhone">联系配送员</button>

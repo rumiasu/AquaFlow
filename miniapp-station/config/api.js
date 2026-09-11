@@ -38,7 +38,7 @@ const API = {
   MANAGER_EXCEPTIONS_CONFIG: '/api/manager/exceptions/config',
 
   // 站长端：商品管理
-  MANAGER_PRODUCTS_WITH_STOCK: '/api/manager/products/with-stock',
+  MANAGER_PRODUCTS_WITH_STOCK: '/api/products/with-stock',
   MANAGER_PRODUCTS: '/api/manager/products',
 
   // 水站信息

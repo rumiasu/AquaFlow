@@ -25,6 +25,9 @@ public class FileManageController {
     private static final Set<String> ALLOWED_EXTENSIONS = new HashSet<>(Arrays.asList(
             ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".pdf", ".doc", ".docx", ".xls", ".xlsx"
     ));
+    /** [AQ-039] category 参与拼接对象路径（public/<category>），只允许字母/数字/下划线/中划线 */
+    private static final java.util.regex.Pattern CATEGORY_PATTERN =
+            java.util.regex.Pattern.compile("^[a-zA-Z0-9_-]{1,32}$");
 
     @Autowired
     private CosUtil cosUtil;
@@ -50,6 +53,10 @@ public class FileManageController {
         String extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
             return Result.error("不支持的文件类型: " + extension);
+        }
+        // [AQ-039] category 会拼进对象路径，必须白名单校验，杜绝 "public/../../private/..." 目录穿越
+        if (category == null || !CATEGORY_PATTERN.matcher(category).matches()) {
+            return Result.error("非法的文件分类");
         }
 
         try {

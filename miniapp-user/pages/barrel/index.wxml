@@ -31,6 +31,12 @@
       <text>欠桶 {{summary.owedBuckets}} 桶：配送应回收未回收的空桶，不参与购买上限，退桶请与水站确认</text>
     </view>
 
+    <!-- 多还的桶寄在水站：over<0 是合法状态，以前被当成 0 完全不显示，
+         于是顾客还了 3 个只拿走 1 个却看不出来，这是"我的桶呢"类咨询的直接来源 -->
+    <view class="storage-tip" wx:if="{{summary.storageBuckets > 0}}">
+      <text>另有 {{summary.storageBuckets}} 个空桶寄存在水站（您多还的桶，可随时取回或用于下次换水）</text>
+    </view>
+
     <view class="section">
       <view class="section-header">
         <text class="section-title">长期桶资产（按商品聚合）</text>
@@ -139,12 +145,33 @@
         </view>
       </view>
 
+      <!-- 退款金额由后端按押金条批次 FIFO 核销算出，顾客不能自己填 -->
       <view class="form-row">
-        <text class="form-label">退押金（元）</text>
-        <view class="deposit-input-row">
-          <input class="deposit-input" type="digit" value="{{returnForm.depositRefund}}" bindinput="onDepositRefundInput" placeholder="0"></input>
-          <text class="deposit-max" bindtap="onFullRefund">全额退 ¥{{summary.depositBalance}}</text>
+        <text class="form-label">预计退回</text>
+        <view class="preview-row">
+          <text class="preview-amount" wx:if="{{preview && !preview.blocked}}">¥{{preview.refundAmount}}</text>
+          <text class="preview-placeholder" wx:elif="{{previewing}}">计算中...</text>
+          <text class="preview-placeholder" wx:else>请选择商品和数量</text>
         </view>
+      </view>
+
+      <view class="preview-blocked" wx:if="{{preview && preview.blocked}}">
+        <text>{{preview.blockedReason}}</text>
+      </view>
+
+      <view class="preview-lots" wx:if="{{preview && preview.lots.length > 0}}">
+        <text class="preview-lots-title">金额依据（按买入时的押金条核销）</text>
+        <view class="preview-lot" wx:for="{{preview.lots}}" wx:key="lotId">
+          <text>押金条 #{{item.lotId}}：{{item.qty}} 个 × ¥{{item.unitPrice}}</text>
+        </view>
+      </view>
+
+      <view class="preview-warn" wx:if="{{preview && preview.hasMigratedPrice}}">
+        <text>含历史推断单价，实际金额请与水站确认</text>
+      </view>
+
+      <view class="preview-storage" wx:if="{{preview && preview.storageQty > 0}}">
+        <text>另有 {{preview.storageQty}} 个空桶寄存在水站，不影响本次退款</text>
       </view>
 
       <view class="form-row">

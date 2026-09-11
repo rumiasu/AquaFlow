@@ -131,9 +131,9 @@ const getPoolOrders = () => {
   return get(API.DELIVERY_POOL)
 }
 
-// 从抢单池抢单
+// 从抢单池抢单（后端路由 /api/delivery/orders/{id}/claim-pool，{id} 在路径中间）
 const claimPoolOrder = (id, data) => {
-  return post(`${API.DELIVERY_CLAIM_POOL}/${id}`, data)
+  return post(`${API.DELIVERY_ORDERS}/${id}/claim-pool`, data)
 }
 
 // 获取外派追踪列表

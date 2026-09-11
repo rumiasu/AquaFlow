@@ -64,6 +64,12 @@ public interface OrderBarrelExceptionMapper {
             @Param("customerId") Long customerId,
             @Param("stationId") Long stationId);
 
+    /** 客户全部异常记录（不限定水站，用于客户未选水站时的"我的异常"列表） */
+    @Select("select * from order_barrel_exception " +
+            "where customer_id = #{customerId} " +
+            "order by created_at desc")
+    List<OrderBarrelException> listByCustomer(@Param("customerId") Long customerId);
+
     @Update("update order_barrel_exception set " +
             "manager_action = #{managerAction}, " +
             "refund_ticket_qty = #{refundTicketQty}, " +

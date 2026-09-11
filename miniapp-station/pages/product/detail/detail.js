@@ -27,7 +27,7 @@ Page({
 
   async loadDetail(productId) {
     try {
-      const res = await get(`${API.MANAGER_PRODUCTS}/${productId}/with-stock`)
+      const res = await get(`${API.MANAGER_PRODUCTS}/${productId}`)
       if (res.data && res.data.code === 0) {
         this.setData({ 
           product: res.data.data.product,

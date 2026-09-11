@@ -26,10 +26,19 @@ public class TicketAccountController {
     @Autowired
     private TicketAccountMapper ticketAccountMapper;
 
+    /**
+     * 我的水票账户。
+     * <p>stationId 可选：客户尚未选水站时返回空列表，而不是 400「缺少必填参数：stationId」
+     * ——前端在未选站时正是这么调的。</p>
+     */
     @GetMapping
-    public Result<List<Map<String, Object>>> listByCustomerId(@RequestParam Long stationId) {
+    public Result<List<Map<String, Object>>> listByCustomerId(@RequestParam(required = false) Long stationId) {
         Long customerId = AuthContext.requireCustomerId();
-        return Result.success(ticketAccountMapper.listByCustomerAndStationWithDetail(customerId, stationId));
+        Long effectiveStationId = stationId != null ? stationId : AuthContext.getStationId();
+        if (effectiveStationId == null) {
+            return Result.success(java.util.Collections.emptyList());
+        }
+        return Result.success(ticketAccountMapper.listByCustomerAndStationWithDetail(customerId, effectiveStationId));
     }
 
     /**

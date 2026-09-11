@@ -265,6 +265,10 @@ public interface OrderBarrelExceptionService {
         private Integer suggestedTicketQty;
         private java.math.BigDecimal suggestedCashAmount;
         private String status;
+        /** 状态中文文案（后端下发，前端禁止自建映射表） */
+        private String statusText;
+        /** 异常类别中文文案（后端下发） */
+        private String categoryText;
         private java.time.LocalDateTime createdAt;
         private java.time.LocalDateTime decidedAt;
         private java.time.LocalDateTime executedAt;
@@ -316,6 +320,10 @@ public interface OrderBarrelExceptionService {
         public void setSuggestedCashAmount(java.math.BigDecimal suggestedCashAmount) { this.suggestedCashAmount = suggestedCashAmount; }
         public String getStatus() { return status; }
         public void setStatus(String status) { this.status = status; }
+        public String getStatusText() { return statusText; }
+        public void setStatusText(String statusText) { this.statusText = statusText; }
+        public String getCategoryText() { return categoryText; }
+        public void setCategoryText(String categoryText) { this.categoryText = categoryText; }
         public java.time.LocalDateTime getCreatedAt() { return createdAt; }
         public void setCreatedAt(java.time.LocalDateTime createdAt) { this.createdAt = createdAt; }
         public java.time.LocalDateTime getDecidedAt() { return decidedAt; }
@@ -323,4 +331,10 @@ public interface OrderBarrelExceptionService {
         public java.time.LocalDateTime getExecutedAt() { return executedAt; }
         public void setExecutedAt(java.time.LocalDateTime executedAt) { this.executedAt = executedAt; }
     }
+
+    /**
+     * 客户视角：按客户 + 水站分页查询自己的桶异常记录。
+     * <p>客户侧此前没有这个能力，前端 exception 页调用 /api/customer/exceptions 恒 500。</p>
+     */
+    Page<OrderBarrelExceptionDTO> listByCustomer(Long customerId, Long stationId, int page, int size);
 }

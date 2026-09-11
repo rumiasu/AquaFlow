@@ -35,7 +35,7 @@ public class AddressController {
         // 检查客户是否在当前站长的站点有过订单
         Long myStationId = AuthContext.getStationId();
         if (myStationId != null) {
-            List<com.example.aquaflow.entity.Orders> orders = orderMapper.list(myStationId, customerId, null, null, null);
+            List<com.example.aquaflow.entity.Orders> orders = orderMapper.list(myStationId, customerId, null, null, null, null, null);
             if (orders.isEmpty()) {
                 return Result.error("无权操作他站客户");
             }
@@ -54,21 +54,15 @@ public class AddressController {
         if ("customer".equals(userType)) {
             address.setCustomerId(AuthContext.requireCustomerId());
         }
-        // 管理端：检查权限
+        // 管理端：客户必须归属本水站。
+        // [AQ-037] 删除"显式传 customerId 即跳过校验"的调试后门 —— 该分支允许站长/任意 staff
+        // 为全平台任意客户新建地址（越权写入 + 泄露他站客户资料）。
         else if (AuthContext.isManager()) {
-            // 显式传了 customerId：放宽校验，允许为任意客户创建地址（录入/调试场景）
-            if (address.getCustomerId() != null) {
-                log.info("manager debug mode: using explicit customerId={}, skip station check", address.getCustomerId());
-            } else {
-                Result<Void> check = checkCustomerStation(address.getCustomerId());
-                if (check != null) return check;
-            }
-        }
-        // 兼容：staff 调试时可显式传 customerId
-        else if (address.getCustomerId() != null) {
-            log.info("staff debug mode: using explicit customerId={}", address.getCustomerId());
+            Result<Void> check = checkCustomerStation(address.getCustomerId());
+            if (check != null) return check;
         } else {
-            return Result.error("权限不足，请用客户账号登录或传入 customerId");
+            // 非客户、非站长（如配送员）：一律拒绝，不再保留"传 customerId 即可写"的口子
+            return Result.error("权限不足，仅客户本人或本站站长可创建地址");
         }
 
         if (address.getCustomerId() == null) {
@@ -90,7 +84,8 @@ public class AddressController {
             Long stationId = AuthContext.requireStationId();
             return Result.success(addressService.listByStation(stationId, keyword));
         }
-        return Result.success(addressService.list(null, keyword));
+        // AQ-013: 兜底分支严禁返回全平台地址簿 — 配送/其他角色无权查看全部地址，返回空列表。
+        return Result.success(java.util.Collections.emptyList());
     }
 
     @GetMapping("/{id}")
@@ -109,7 +104,7 @@ public class AddressController {
             Customer c = customerMapper.getById(address.getCustomerId());
             if (c == null) return Result.error("客户不存在");
             Long myStationId = AuthContext.requireStationId();
-            List<com.example.aquaflow.entity.Orders> orders = orderMapper.list(myStationId, c.getId(), null, null, null);
+            List<com.example.aquaflow.entity.Orders> orders = orderMapper.list(myStationId, c.getId(), null, null, null, null, null);
             if (orders.isEmpty()) {
                 return Result.error("无权查看他站客户地址");
             }
@@ -128,14 +123,14 @@ public class AddressController {
                 return Result.error("无权修改他人地址");
             }
         }
-        // 管理端：检查权限
+        // 管理端：客户必须归属本水站。
+        // [AQ-037] 删除"改 customerId 即跳过校验"的调试后门 —— 原分支允许站长把地址改挂到他站客户名下。
         else if (AuthContext.isManager()) {
-            // 显式传了 customerId：放宽校验
+            Result<Void> check = checkCustomerStation(existing.getCustomerId());
+            if (check != null) return check;
+            // 禁止通过本接口把地址改挂到别的客户名下
             if (address.getCustomerId() != null && !address.getCustomerId().equals(existing.getCustomerId())) {
-                log.info("manager debug mode: changing customerId {} -> {}, skip station check", existing.getCustomerId(), address.getCustomerId());
-            } else {
-                Result<Void> check = checkCustomerStation(existing.getCustomerId());
-                if (check != null) return check;
+                return Result.error("不支持变更地址归属客户");
             }
         } else {
             return Result.error("权限不足");

@@ -10,7 +10,7 @@ public interface PaymentService {
     /** 创建支付记录 */
     PaymentRecord createPayment(Long orderId, Long customerId, BigDecimal amount, BigDecimal waterAmount,
                                 BigDecimal barrelDeposit, Integer excessBarrels, Integer paymentMethod,
-                                Long ticketProductId, Integer ticketQty, String note);
+                                Long ticketWaterTypeId, Integer ticketQty, String note);
 
     /**
      * 服务端支付试算（quote）。
@@ -48,17 +48,39 @@ public interface PaymentService {
     /** 订单退款（取消订单触发）：对该订单所有已支付记录生成退款流水，更新订单状态 */
     void refundOrder(Long orderId, String reason);
 
+    /**
+     * 订单是否已有「已支付(PAID)」的支付流水。
+     * [AQ-002][AQ-007] 完成配送时判定能否置「已付款」的唯一凭据 —— 杜绝配送员点一下"完成"就把
+     * 未付款的微信单 / 未扣票的水票单变成已付款。
+     */
+    boolean hasPaidRecord(Long orderId);
+
+    /**
+     * 记录现金现场收款（货到付款），保证「订单已付款」必有对应支付流水。
+     * 幂等：若该订单已存在 PAID 流水则直接返回，不重复记账。
+     */
+    void recordCashCollection(Long orderId);
+
+    /**
+     * [AQ-009] 订单支付成功时入账预收桶押金（幂等）。
+     * <p>押金不再在下单时入账（那时顾客一分未付、且金额取自客户端可被放大），
+     * 而是统一改到订单支付成功（payment_status -> PAID）时，按订单 deposit_amount 入账并写流水。
+     * 幂等：同一订单仅入账一次（按 related_order_id + PREPAID 去重），
+     * 可被多处"置已付款"入口（线上确认 / 现金收款 / 水票扣减）安全重复调用。</p>
+     */
+    void applyDepositOnPaid(Long orderId);
+
     /** 查询订单支付记录 */
     List<PaymentRecord> listByOrderId(Long orderId);
 
     /** 查询客户支付记录 */
     List<PaymentRecord> listByCustomerId(Long customerId);
 
-    /** 查询所有支付记录（管理端） */
-    List<PaymentRecord> listAll(int limit);
+    /** 查询所有支付记录（管理端）—— [AQ-052] 必须带 stationId，禁止全平台无过滤查询 */
+    List<PaymentRecord> listAll(Long stationId, int limit);
 
-    /** 查询支付记录（带过滤） */
-    List<PaymentRecord> listWithFilter(Integer status, Integer paymentMethod, int limit);
+    /** 查询支付记录（带过滤）—— [AQ-052] 必须带 stationId */
+    List<PaymentRecord> listWithFilter(Long stationId, Integer status, Integer paymentMethod, int limit);
 
     /** 获取站点支付配置 */
     Map<String, Object> getStationConfig(Long stationId);

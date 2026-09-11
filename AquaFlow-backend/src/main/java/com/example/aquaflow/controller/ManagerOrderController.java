@@ -9,6 +9,7 @@ import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.*;
 import com.example.aquaflow.service.AuditLogService;
+import com.example.aquaflow.service.PaymentService;
 import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,13 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.*;
 
+/**
+ * 站长订单管理接口。
+ *
+ * <p>[AQ-053] 现状标注：本类 8 个接口当前**前端零调用**（未联调的写操作暴露在外）。
+ * 上线前应确认三端是否使用；若确定不用，建议整体下线或加管理端开关，避免未联调写口成为攻击面。
+ * 在此之前，本类接口均已按其自身逻辑补归属校验（[AQ-002]/[AQ-009]/[AQ-043]）。</p>
+ */
 @RestController
 @RequestMapping("/api/manager")
 public class ManagerOrderController {
@@ -32,6 +40,10 @@ public class ManagerOrderController {
 
     @Autowired
     private AuditLogService auditLogService;
+
+    /** [AQ-002][AQ-009] 置已付款须补写流水并入账押金 */
+    @Autowired
+    private PaymentService paymentService;
 
     private Long deliveryStation(Orders o) {
         return o.getDeliveryStationId() != null ? o.getDeliveryStationId() : o.getStationId();
@@ -305,6 +317,9 @@ public class ManagerOrderController {
                 order.setSpecialNote(appendNote(order.getSpecialNote(), " [线下异常:确认收款] " + note));
                 order.setUpdateTime(LocalDateTime.now());
                 orderMapper.update(order);
+                // [AQ-002] 置已付款必须补写 PAID 流水；[AQ-009] 入账预收桶押金（均幂等）
+                paymentService.recordCashCollection(orderId);
+                paymentService.applyDepositOnPaid(orderId);
                 logOrder("OFFLINE_CONFIRM_COLLECTED", orderId, d);
                 break;
             case "MARK_CANCELLED":
@@ -327,6 +342,10 @@ public class ManagerOrderController {
                 order.setSpecialNote(appendNote(order.getSpecialNote(), " [线下异常:修正支付] " + note));
                 order.setUpdateTime(LocalDateTime.now());
                 orderMapper.update(order);
+                // [AQ-009] 若修正为已付款，入账预收桶押金（幂等）
+                if (Integer.valueOf(PaymentStatus.PAID).equals(order.getPaymentStatus())) {
+                    paymentService.applyDepositOnPaid(orderId);
+                }
                 logOrder("OFFLINE_CORRECT", orderId, d);
                 break;
             default:

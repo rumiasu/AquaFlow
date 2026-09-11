@@ -25,6 +25,22 @@ public interface OrderMapper {
     @Update("update orders set status = #{status}, update_time = NOW() where id = #{id}")
     void updateStatus(@Param("id") Long id, @Param("status") Integer status);
 
+    /**
+     * [AQ-015 紧急止血] DB 侧原子追加备注。
+     * 转单/分配等流程此前都是「读旧快照 → 内存拼字符串 → orderMapper.update 整列覆盖」，
+     * 并发下后写者会丢掉前写者的备注（lost update）。改为在数据库做 concat，由 DB 行锁保证串行。
+     */
+    @Update("update orders set special_note = concat(coalesce(special_note, ''), case when coalesce(special_note,'')='' then '' else ' ' end, #{part}), update_time = NOW() where id = #{id}")
+    int appendSpecialNote(@Param("id") Long id, @Param("part") String part);
+
+    /** 订单状态 CAS 更新：仅当当前状态等于 expectedStatus 时才更新，返回受影响行数(0=状态已变，拒绝) */
+    @Update("update orders set status = #{newStatus}, update_time = NOW() where id = #{id} and status = #{expectedStatus}")
+    int updateStatusIf(@Param("id") Long id, @Param("expectedStatus") Integer expectedStatus, @Param("newStatus") Integer newStatus);
+
+    /** 支付状态 CAS 更新：仅当当前支付状态等于 expectedStatus 时才更新 */
+    @Update("update orders set payment_status = #{newPaymentStatus}, update_time = NOW() where id = #{id} and payment_status = #{expectedStatus}")
+    int updatePaymentStatusIf(@Param("id") Long id, @Param("expectedStatus") Integer expectedStatus, @Param("newPaymentStatus") Integer newPaymentStatus);
+
     @Update("update orders set delivery_staff_id = #{staffId}, status = #{status}, update_time = NOW() where id = #{id}")
     void updateDeliveryStaff(@Param("id") Long id, @Param("staffId") Long staffId, @Param("status") Integer status);
 
@@ -50,13 +66,42 @@ public interface OrderMapper {
     @Update("update orders set delivery_staff_id = #{staffId}, status = #{status}, update_time = NOW() where id = #{id} and status = 1")
     int updateStatusIfPENDING(@Param("id") Long id, @Param("status") Integer status, @Param("staffId") Long staffId);
 
+    /**
+     * [AQ-020] 认领（check-then-act → CAS）：仅当订单当前无配送员（或已归自己）时才认领，返回受影响行数。
+     * 0 = 已被其他配送员抢先认领。
+     */
+    @Update("update orders set delivery_staff_id = #{staffId}, update_time = NOW() " +
+            "where id = #{id} and (delivery_staff_id is null or delivery_staff_id = #{staffId})")
+    int claimIfUnassigned(@Param("id") Long id, @Param("staffId") Long staffId);
+
+    /**
+     * [AQ-020] 抢单池抢单（check-then-act → CAS）：仅当订单仍在池中（delivery_station_id 为空）
+     * 且状态为期望值时更新，返回受影响行数。0 = 已被其他水站抢走或状态已变。
+     */
+    @Update("update orders set delivery_station_id = #{stationId}, delivery_staff_id = #{staffId}, " +
+            "status = #{newStatus}, update_time = NOW() " +
+            "where id = #{id} and delivery_station_id is null and status = #{expectedStatus}")
+    int claimPoolIfFree(@Param("id") Long id, @Param("stationId") Long stationId, @Param("staffId") Long staffId,
+                        @Param("newStatus") Integer newStatus, @Param("expectedStatus") Integer expectedStatus);
+
+    /**
+     * [AQ-020] 外派：仅当状态为期望值时改写履约站并清空配送员，返回受影响行数。
+     * 0 = 状态已变（被并发操作），拒绝。
+     */
+    @Update("update orders set delivery_station_id = #{targetStationId}, delivery_staff_id = null, update_time = NOW() " +
+            "where id = #{id} and status = #{expectedStatus}")
+    int dispatchIfStatus(@Param("id") Long id, @Param("targetStationId") Long targetStationId,
+                         @Param("expectedStatus") Integer expectedStatus);
+
     void update(Orders orders);
 
     List<Orders> list(@Param("stationId") Long stationId,
                       @Param("customerId") Long customerId,
                       @Param("status") Integer status,
                       @Param("createTimeStart") String createTimeStart,
-                      @Param("createTimeEnd") String createTimeEnd);
+                      @Param("createTimeEnd") String createTimeEnd,
+                      @Param("limit") Integer limit,
+                      @Param("offset") Integer offset);
 
     @Select("select count(*) from orders")
     int countAll();
@@ -129,26 +174,26 @@ public interface OrderMapper {
     List<Orders> listBarrelRecords(@Param("staffId") Long staffId);
 
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail " +
+            "a.detail as addressDetail, " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
             "where o.station_id = #{stationId} " +
-            "and ( (o.special_note like '%[转让]%' and o.special_note not like '%[转让-已同意]%' and o.special_note not like '%[转让-已拒绝]%') " +
-            "   or (o.special_note like '%[退回站长]%' and o.special_note not like '%[退回站长-已同意]%' and o.special_note not like '%[退回站长-已拒绝]%') " +
-            "   or (o.special_note like '%[重分配]%' and o.special_note not like '%[重分配-已同意]%' and o.special_note not like '%[重分配-已拒绝]%') ) " +
+            // [AQ-015] 转单状态改由 order_transfer 结构化判定（原 special_note LIKE 已退役）
+            "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='STAFF') " +
             "order by o.update_time desc")
     List<Orders> listTransferredOrders(@Param("stationId") Long stationId);
 
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail " +
+            "a.detail as addressDetail, " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
             "where o.station_id = #{stationId} " +
-            "and o.special_note like '%[退回站长]%' " +
-            "and o.special_note not like '%[退回站长-已同意]%' " +
-            "and o.special_note not like '%[退回站长-已拒绝]%' " +
+            // [AQ-015] 退回站长（活跃）改由 order_transfer 判定
+            "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.sub_kind='RETURN_STATION') " +
             "and o.status = 1 " +
             "order by o.update_time desc")
     List<Orders> listStationReturnOrders(@Param("stationId") Long stationId);
@@ -164,14 +209,14 @@ public interface OrderMapper {
     List<Orders> listStationExceptionOrders(@Param("stationId") Long stationId);
 
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail " +
+            "a.detail as addressDetail, " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
             "where o.delivery_staff_id = #{staffId} " +
-            "and o.special_note like '%[转让]%' " +
-            "and o.special_note not like '%[转让-已同意]%' " +
-            "and o.special_note not like '%[转让-已拒绝]%' " +
+            // [AQ-015] 转让给我（待确认）改由 order_transfer 判定
+            "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.sub_kind='TRANSFER') " +
             "order by o.update_time desc")
     List<Orders> listIncomingTransfers(@Param("staffId") Long staffId);
 
@@ -227,22 +272,25 @@ public interface OrderMapper {
 
     /**
      * 站长待分配列表：本站 status=1 且未分配配送员的订单。
-     * 另含「转单中」订单（special_note 带 [指定退回待确认]，归属本站、等待站长同意/拒绝），
+     * 另含「转单中」订单（order_transfer 有 DIRECTED 待确认，归属本站、等待站长同意/拒绝），
      * 这类单可能仍挂着原配送员，前端按状态渲染成「同意/拒绝」而非「分配/外派」。
      */
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail " +
+            "a.detail as addressDetail, " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
             "where ( " +
             "  (o.station_id = #{stationId} AND o.delivery_station_id IS NULL) " +
             "  OR o.delivery_station_id = #{stationId} " +
-            "  OR (o.station_id = #{stationId} AND o.special_note LIKE '%[指定退回待确认]%') " +
+            // [AQ-015] 指定退回待确认改由 order_transfer 判定
+            "  OR (o.station_id = #{stationId} AND exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED')) " +
             ") " +
             "and o.status = 1 " +
-            "and (o.delivery_staff_id IS NULL OR o.special_note LIKE '%[指定退回待确认]%') " +
-            "and (o.special_note IS NULL OR INSTR(o.special_note, '外派') = 0 OR o.delivery_station_id = #{stationId} OR o.special_note LIKE '%[指定退回待确认]%') " +
+            "and (o.delivery_staff_id IS NULL OR exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED')) " +
+            "and (o.special_note IS NULL OR INSTR(o.special_note, '外派') = 0 OR o.delivery_station_id = #{stationId} " +
+            "     OR exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED')) " +
             "order by o.create_time asc")
     List<Orders> listStationPendingUnassigned(@Param("stationId") Long stationId);
 
@@ -250,13 +298,15 @@ public interface OrderMapper {
      * 配送员待接单列表：分配给我但还未接单的订单
      */
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail " +
+            "a.detail as addressDetail, " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
             "where o.delivery_staff_id = #{staffId} " +
             "and o.status = 1 " +
-            "and (o.special_note IS NULL OR o.special_note NOT LIKE '%[指定退回待确认]%') " +
+            // [AQ-015] 排除已发起指定退回（转单中）的单，改由 order_transfer 判定
+            "and not exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED') " +
             "order by o.create_time asc")
     List<Orders> listAssignedToStaff(@Param("staffId") Long staffId);
 
@@ -295,12 +345,14 @@ public interface OrderMapper {
      * 原归属站视角：被指定水站退回、等待站长同意的订单
      */
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail " +
+            "a.detail as addressDetail, " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
             "where o.station_id = #{stationId} " +
-            "and o.special_note like '%[指定退回待确认]%' " +
+            // [AQ-015] 待原站确认的指定退回改由 order_transfer 判定
+            "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED') " +
             "and o.status = 1 " +
             "order by o.update_time desc")
     List<Orders> listDirectedReturns(@Param("stationId") Long stationId);
@@ -309,14 +361,16 @@ public interface OrderMapper {
      * 目标水站视角：本水站被指定为履约站、但归属站为其他水站的订单（他站外派给我）
      */
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail " +
+            "a.detail as addressDetail, " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
             "where o.delivery_station_id = #{stationId} " +
             "and o.station_id != #{stationId} " +
             "and o.status in (1, 2, 3) " +
-            "and (o.special_note IS NULL OR o.special_note NOT LIKE '%[指定退回待确认]%') " +
+            // [AQ-015] 排除已发起「指定退回待确认」的单，改由 order_transfer 判定
+            "and not exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED') " +
             "order by o.update_time desc")
     List<Orders> listDirectedIncoming(@Param("stationId") Long stationId);
 

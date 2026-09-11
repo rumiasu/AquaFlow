@@ -49,3 +49,9 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// [AQ-041] 开启 -parameters：让 AOP 能拿到方法参数名，从而校验 JSON body / 路径变量里的 stationId
+// （原 RequireStationAspect 只读 query/form 参数，注解形同虚设）
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs << '-parameters'
+}

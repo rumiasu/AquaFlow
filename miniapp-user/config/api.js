@@ -55,14 +55,12 @@ const API = {
   BARREL_SUMMARY_BY_TYPE: '/api/barrels/summary-by-type',
   BARREL_RECORDS: '/api/barrels/records',
   BARREL_RETURN: '/api/barrels/return',
+  BARREL_RETURN_PREVIEW: '/api/barrels/return/preview',
 
   // 支付（后端: PaymentController）
   PAYMENTS: '/api/payments',
   PAYMENT_QUOTE: '/api/payments/quote',
   PAYMENT_RECORDS: '/api/payments/by-customer',
-
-  // 押金记录（后端: DepositRecordController）
-  DEPOSIT_RECORDS: '/api/deposit-records',
 
   // 公告（后端: NoticeController）
   NOTICES: '/api/notices',
@@ -84,8 +82,10 @@ const API = {
   // 订单图片（后端: OrderImageController）
   ORDER_IMAGES: '/api/order-images',
 
-  // 搜索（后端: SearchController）
-  SEARCH: '/api/search',
+  // 注意：不要在此处再定义 SEARCH('/api/search')。
+  // /api/search 是站长端"搜客户/地址/订单"的接口（@RequireRole STATION_MANAGER），
+  // 不是顾客的商品搜索；顾客搜商品走 GET /api/products?keyword=xxx。
+  // 曾因注释误导被误用，导致用户端搜索恒定报"当前账号未绑定水站"。
 
   // 站长端：桶异常管理（后端: ManagerExceptionController）
   MANAGER_EXCEPTIONS: '/api/manager/exceptions',
@@ -102,9 +102,18 @@ const API = {
   CUSTOMER_NOTIFICATIONS_READ_ALL: '/api/customer/notifications/read-all'
 }
 
-// 客户ID（兼容旧代码，优先从 JWT 获取）
+// 客户ID：统一从登录态获取（正确的存储键 aq_user_customerId，由 utils/token.js 维护）。
+// 注意：禁止写死兜底值（|| 1）。旧实现读的是错误键名 'customerId'（正确键为 aq_user_customerId）
+// 且兜底 || 1，导致所有客户都被识别成 1 号客户——付款、下单、订单归属全部错乱。
+// 取不到身份就抛错，让上层跳登录，而不是用兜底常量掩盖问题。
+const { getCustomerId: getCustomerIdFromToken } = require('../utils/token')
+
 const getCustomerId = () => {
-  return wx.getStorageSync('customerId') || 1
+  const id = getCustomerIdFromToken()
+  if (id === undefined || id === null || id === '') {
+    throw new Error('未获取到客户身份，请重新登录')
+  }
+  return id
 }
 
 module.exports = { getBaseUrl, API, getCustomerId }

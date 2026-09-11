@@ -11,7 +11,7 @@ import java.util.Map;
 
 /**
  * 员工画像（站长视角）。
- * <p>在员工档案基础之上，聚合该员工的配送业绩（今日/本月/累计、在途、完成率）
+ * <p>在员工档案基础之上，聚合该员工的配送业绩（今日/本月/累计、进行中、完成率）
  * 与服务质量（异常、退回），并派生绩效等级等展示字段。前端只渲染不计算。</p>
  */
 @Data
@@ -38,7 +38,10 @@ public class StaffProfileVO {
     private Integer monthOrders;
     /** 累计完成 */
     private Integer totalOrders;
-    /** 在途（待配送+配送中） */
+    /**
+     * 进行中 = 待配送(1) + 配送中(2)，即"还没干完的单"。
+     * 术语：旧称"在途"，因与订单状态"配送中"撞名、且不含"待配送"易被误读，已统一改为"进行中"。
+     */
     private Integer deliveringOrders;
     /** 已取消 */
     private Integer cancelledOrders;
@@ -53,7 +56,7 @@ public class StaffProfileVO {
     /** 退回站长次数 */
     private Integer returnCount;
 
-    /** 在途订单: {id, customerName, addressSnapshot, statusText, totalAmount} */
+    /** 进行中订单: {id, customerName, addressSnapshot, statusText, totalAmount} */
     private List<Map<String, Object>> currentOrders;
 
     // ==================== 派生展示字段 ====================
@@ -113,7 +116,7 @@ public class StaffProfileVO {
         }
     }
 
-    /** 是否有在途订单 */
+    /** 是否有进行中订单 */
     public Boolean getHasCurrentOrders() {
         return currentOrders != null && !currentOrders.isEmpty();
     }

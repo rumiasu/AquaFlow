@@ -3,6 +3,8 @@ const { createPayment } = require('../../api/order')
 const { getOrderImages } = require('../../api/orderImage')
 const { getProductDetail } = require('../../api/product')
 const { formatOrderStatus, formatPaymentStatus } = require('../../utils/format')
+const { getCustomerId } = require('../../utils/token')
+const { notifyPayResult } = require('../../utils/pay')
 
 Page({
   data: {
@@ -14,6 +16,7 @@ Page({
     canCancel: false,
     canRepay: false,
     repayLabel: '去支付',
+    payHint: '',
     images: [],
     bucketInfo: null
   },
@@ -84,8 +87,9 @@ Page({
       const canCancel = !!order.canCancel
       const canRepay = !!order.canRepay
       const repayLabel = order.repayLabel || '去支付'
+      const payHint = order.payHint || ''
 
-      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, bucketInfo })
+      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, payHint, bucketInfo })
 
       this.loadItemImages(items)
     } catch (err) {
@@ -138,7 +142,7 @@ Page({
     if (!order) return
     createPayment({
       orderId: order.id,
-      customerId: wx.getStorageSync('customerId'),
+      customerId: getCustomerId(),
       amount: order.totalAmount || order.amount,
       paymentMethod: order.paymentMethod || 1,
       waterAmount: 0,
@@ -147,8 +151,9 @@ Page({
       extraDepositAmount: 0,
       ticketProductId: null,
       ticketQty: null
-    }).then(() => {
-      wx.showToast({ title: '支付成功', icon: 'success' })
+    }).then(res => {
+      // 按后端返回的真实支付状态提示，不再无条件报"支付成功"
+      notifyPayResult(res && res.data)
       this.loadOrder(order.id)
     }).catch(e => {
       wx.showToast({ title: e.message || '支付失败', icon: 'none' })

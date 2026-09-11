@@ -92,13 +92,23 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
 
     @Override
     public void setDefault(Long customerId, Long templateId, Long stationId) {
+        // [AQ-036] 旧实现 setDefault 只按 id 更新，customerId 仅用于 clearDefault → 顾客可把他人模板设为默认。
+        // 先校验归属，再清空旧默认、设为新默认。
+        OrderTemplate t = templateMapper.getById(templateId);
+        if (t == null || t.getCustomerId() == null || !t.getCustomerId().equals(customerId)) {
+            throw new RuntimeException("模板不存在或无权操作");
+        }
         templateMapper.clearDefault(customerId, stationId);
         templateMapper.setDefault(templateId);
     }
 
     @Override
     public void toggleEnabled(Long customerId, Long templateId, Integer enabled) {
-        templateMapper.toggleEnabled(templateId, enabled);
+        // [AQ-036] 归属校验下沉到 SQL：只更新属于该客户的模板
+        int affected = templateMapper.toggleEnabledOwned(templateId, enabled, customerId);
+        if (affected <= 0) {
+            throw new RuntimeException("模板不存在或无权操作");
+        }
     }
 
     @Override
@@ -138,7 +148,11 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
     @Override
     @Transactional
     public void delete(Long customerId, Long templateId) {
+        // [AQ-036] 旧实现直接按 id 删除（含明细）→ 顾客可删他人模板。先做归属限定的删除。
+        int affected = templateMapper.deleteOwned(templateId, customerId);
+        if (affected <= 0) {
+            throw new RuntimeException("模板不存在或无权操作");
+        }
         itemMapper.deleteByTemplateId(templateId);
-        templateMapper.delete(templateId);
     }
 }

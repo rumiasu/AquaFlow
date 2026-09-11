@@ -39,8 +39,8 @@
   <view class="modal-overlay" wx:if="{{showModal}}" bindtap="onCloseModal">
     <view class="modal-content" catchtap="stopPropagation">
       <text class="modal-title">新增配送员</text>
-      <input class="modal-input" placeholder="姓名" model:value="{{formName}}" />
-      <input class="modal-input" placeholder="电话" type="number" model:value="{{formPhone}}" />
+      <input class="modal-input" placeholder="姓名" value="{{formName}}" bindinput="onNameInput" />
+      <input class="modal-input" placeholder="电话" type="number" value="{{formPhone}}" bindinput="onPhoneInput" />
       <text class="modal-hint">新增后将自动归属到当前水站</text>
       <button class="btn-submit" bindtap="onSubmitAdd">确认添加</button>
       <button class="btn-cancel" bindtap="onCloseModal">取消</button>

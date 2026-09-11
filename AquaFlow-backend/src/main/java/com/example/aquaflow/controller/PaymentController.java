@@ -47,10 +47,22 @@ public class PaymentController {
         return null;
     }
 
-    /** 校验支付单对应订单属于本站履约，否则返回错误 */
+    /**
+     * 校验支付单归属本站，否则返回错误。
+     * <p>站内购买（如线上买水票）产生的支付记录没有关联订单（order_id 为空）。
+     * 旧实现对此直接返回「支付记录不存在」，导致水票购买后任何人都无法确认入账 ——
+     * 客户付了钱、票永远不到账，且没有任何补救入口。这里改为按水站归属校验。</p>
+     */
     private Result<Void> requirePaymentOrderStation(Long paymentId) {
         PaymentRecord p = paymentRecordMapper.getById(paymentId);
-        if (p == null || p.getOrderId() == null) return Result.error("支付记录不存在");
+        if (p == null) return Result.error("支付记录不存在");
+        if (p.getOrderId() == null) {
+            Long myStationId = AuthContext.getStationId();
+            if (myStationId == null || p.getStationId() == null || !myStationId.equals(p.getStationId())) {
+                return Result.error("无权操作他站支付记录");
+            }
+            return null;
+        }
         return requireOrderStation(p.getOrderId());
     }
 
@@ -144,7 +156,9 @@ public class PaymentController {
     @RequireRole({"STATION_MANAGER"})
     @GetMapping("/customer/{customerId}")
     public Result<List<PaymentRecord>> listByCustomerIdForStaff(@PathVariable Long customerId, @RequestParam Long stationId) {
-        return Result.success(paymentService.listByCustomerId(customerId));
+        // [AQ-023] 强制使用登录站长所属水站，忽略客户端传入的 stationId，杜绝跨站查询他站客户支付流水
+        Long myStationId = AuthContext.requireStationId();
+        return Result.success(paymentRecordMapper.listByCustomerAndStation(customerId, myStationId));
     }
 
     /** 查询所有支付记录（管理端，支持过滤） */
@@ -174,12 +188,16 @@ public class PaymentController {
         return Result.success();
     }
 
-    /** 获取站点支付配置 */
+    /**
+     * 获取本站支付配置（站长端）。
+     * <p>原先声明了 {@code stationId} 入参却紧接着用登录态覆盖，调用方传什么都不生效，
+     * 顾客调用还会得到"当前账号未绑定水站"这种误导性报错。这里直接去掉该无效入参，
+     * 客户端的支付方式与可用性改由 /api/payments/quote 的 methods 字段下发。</p>
+     */
     @RequireRole({"STATION_MANAGER"})
     @GetMapping("/config")
-    public Result<Map<String, Object>> getConfig(@RequestParam(required = false) Long stationId) {
-        stationId = AuthContext.requireStationId();
-        return Result.success(paymentService.getStationConfig(stationId));
+    public Result<Map<String, Object>> getConfig() {
+        return Result.success(paymentService.getStationConfig(AuthContext.requireStationId()));
     }
 
     /** 更新站点支付配置 */

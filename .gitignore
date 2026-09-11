@@ -29,9 +29,33 @@ boot.log
 screenshot_*.png
 
 # ==================== 敏感配置（不提交）====================
+# 注意：application.yml 已被历史提交过（内含真实密钥），仅 ignore 无法消除历史泄露，
+# 必须按 docs/SECURITY-密钥处置指南.md 吊销轮换 + 清理 git 历史。
 application.yml
 application-prod.yml
+application-local.yml
+.env
+.env.*
+!.env.example
 *.db
+
+# ==================== 密钥相关（补充）====================
+# 小程序端本地环境文件（IDE 生成，避免混入密钥）
+.env.local
+miniapp-*/.env.local
+# 后端本地启动脚本（可能内嵌密钥）
+*-local.sh
+run-local.*
+
+# ==================== 展示 / 审计类（按用户要求不提交）====================
+# 安全审计报告与测试问题清单：含系统漏洞细节，不进仓库
+docs/上线前业务级审计报告.md
+docs/测试阶段问题清单.md
+# 演示/展示材料
+docs/showcase/
+showcase/
+demo/
+演示/
 
 # ==================== 测试脚本（含硬编码密钥）====================
 *.py
@@ -42,6 +66,11 @@ dev_login.json
 req.json
 body.json
 test_order.json
+fixture_*.sql
+
+# ==================== 构建缓存目录 ====================
+AquaFlow-backend/.gradle_alt*/
+AquaFlow-backend/.gradle*/
 
 # ==================== 编译输出 ====================
 compile_output*.txt
@@ -49,6 +78,9 @@ AquaFlow-backend/out/
 
 # 数据库备份（本地，勿提交）
 backup/
+
+# git-filter-repo 的密钥替换表（含真实旧密钥，勿提交）
+replacements.txt
 
 # 本地 agent 记忆/工作区状态（本地专用，勿提交）
 .workbuddy/

@@ -42,7 +42,7 @@
         </view>
         <view class="metric">
           <text class="metric-value">{{profile.deliveringOrders}}</text>
-          <text class="metric-label">在途订单</text>
+          <text class="metric-label">进行中订单</text>
         </view>
       </view>
       <view class="metric-grid second">
@@ -95,9 +95,9 @@
       </view>
     </view>
 
-    <!-- 当前在途 -->
+    <!-- 当前进行中 -->
     <view class="section" wx:if="{{profile.currentOrders.length}}">
-      <view class="section-title">当前在途订单 ({{profile.currentOrders.length}})</view>
+      <view class="section-title">当前进行中订单 ({{profile.currentOrders.length}})</view>
       <view class="order-item" wx:for="{{profile.currentOrders}}" wx:key="id">
         <view class="order-left">
           <text class="order-customer">{{item.customerName || '未知客户'}}</text>

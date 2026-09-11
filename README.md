@@ -4,6 +4,30 @@
 
 ---
 
+## 📐 设计文档（先读这个）
+
+本仓库的设计说明按模块拆成一组文档，**每一篇都回答"为什么这么设计、为什么不那么设计"**，
+包含建模推导过程、被否决的方案和真实踩坑复盘：
+
+| # | 文档 |
+|---|------|
+| 00 | [文档导航与讲述路线](./docs/design/00-文档导航.md) |
+| 01 | [项目总览与技术选型](./docs/design/01-项目总览与技术选型.md) |
+| 02 | [领域建模](./docs/design/02-领域建模.md) |
+| 03 | [**桶权益模型（核心设计）**](./docs/design/03-桶权益模型.md) |
+| 04 | [订单与状态机](./docs/design/04-订单与状态机.md) |
+| 05 | [支付与资金](./docs/design/05-支付与资金.md) |
+| 06 | [权限与安全](./docs/design/06-权限与安全.md) |
+| 07 | [数据一致性与对账](./docs/design/07-数据一致性与对账.md) |
+| 08 | [踩坑与复盘](./docs/design/08-踩坑与复盘.md) |
+| 09 | [面试速答 Q&A](./docs/design/09-面试速答.md) |
+
+> 本 README 是**功能与操作层面的总览**（状态定义、接口清单、启动方式等）；
+> 设计决策、建模推导、踩坑复盘在上述 `docs/design/` 中。
+> 面向代码的速查约定见 [docs/AGENTS.md](./docs/AGENTS.md)。
+
+---
+
 ## 项目定位
 
 AquaFlow 是一个围绕**桶装水行业真实业务规则**设计的垂直领域管理系统，覆盖订单管理、配送调度、资产管理（水票/押金/退桶）、企业账期等核心业务环节。
@@ -49,7 +73,7 @@ AquaFlow 是一个围绕**桶装水行业真实业务规则**设计的垂直领�
 ### P2 桶资产联动（已完成）
 
 - **下单**：桶装水订单计算 shortage = needed - held，预收缺桶押金，创建 `customer_barrel_in_transit`（PENDING）。
-- **配送完成**：`completeOrder` 将 PENDING 在途记录自动转入 `customer_barrel_asset`（持有桶），更新状态为 DELIVERED。
+- **配送完成**：`completeOrder` 将 PENDING 配送中记录自动转入 `customer_barrel_asset`（持有桶），更新状态为 DELIVERED。
 - **复购**：持有桶数正确读取，已持有的桶不再收押金。
 - **安全**：`listPendingByOrderId` 只查 PENDING 状态，防止重复调用导致桶资产翻倍。
 
@@ -465,7 +489,7 @@ AquaFlow-frontend/src/
 | 表名 | 作用 | 关键设计 |
 |------|------|--------|
 | `customer_barrel_asset` | 客户持有桶资产 | UNIQUE(`customer_id`,`product_id`,`station_id`) 按水站隔离 |
-| `customer_barrel_in_transit` | 在途桶 | 下单收押金但未送达确认的桶，`status`(PENDING/DELIVERED/CANCELLED)，配送完成自动转入持有桶资产 |
+| `customer_barrel_in_transit` | 配送中桶 | 下单收押金但未送达确认的桶，`status`(PENDING/DELIVERED/CANCELLED)，配送完成自动转入持有桶资产 |
 | `customer_owed_barrel` | 欠桶台账 | 配送差额（应回收-实际回收>0） |
 | `barrel_record` | 桶变动记录 | `type`(1新增/2退桶/3丢失/4损坏/5赔偿/6人工调整) |
 | `customer_deposit_account` | 押金余额 | UNIQUE(`customer_id`,`station_id`) 按水站隔离 |
@@ -576,7 +600,7 @@ AquaFlow-frontend/src/
 
 ### 1. 桶是资产，不是消耗品
 
-每个订单 `delivery_bucket_qty` 和 `return_bucket_qty` 追踪桶的流动。客户持有桶数 = 送出 - 回收。桶有押金，退桶时退还。配送完成时在途桶自动转入持有桶资产。
+每个订单 `delivery_bucket_qty` 和 `return_bucket_qty` 追踪桶的流动。客户持有桶数 = 送出 - 回收。桶有押金，退桶时退还。配送完成时配送中桶自动转入持有桶资产。
 
 ### 2. 双站模型
 

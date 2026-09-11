@@ -45,12 +45,12 @@ public class CustomerNotificationController {
     @PostMapping("/{id}/read")
     public Result<Void> markRead(@PathVariable Long id) {
         Long customerId = AuthContext.requireCustomerId();
-        CustomerNotification n = notificationMapper.listByCustomerId(customerId, 1).stream()
-                .filter(x -> x.getId().equals(id))
-                .findFirst()
-                .orElse(null);
-        // 简化：直接按id标记（前端只会传自己的通知id）
-        notificationMapper.markRead(id);
+        // [AQ-035] 归属校验下沉到 SQL：旧实现查到通知后丢弃结果、直接按 id 更新，
+        // 顾客传任意 id 即可把他人通知标记已读。此处只更新"属于自己"的通知，0 行即越权/不存在。
+        int affected = notificationMapper.markReadOwned(id, customerId);
+        if (affected <= 0) {
+            return Result.error("通知不存在或无权操作");
+        }
         return Result.success();
     }
 

@@ -1,4 +1,6 @@
 const { getOrders, createPayment } = require('../../api/order')
+const { getCustomerId } = require('../../utils/token')
+const { notifyPayResult } = require('../../utils/pay')
 const app = getApp()
 
 Page({
@@ -64,9 +66,9 @@ Page({
     const { order } = e.detail
     if (!order) return
     try {
-      await createPayment({
+      const res = await createPayment({
         orderId: order.id,
-        customerId: wx.getStorageSync('customerId'),
+        customerId: getCustomerId(),
         amount: order.totalAmount || order.amount,
         paymentMethod: order.paymentMethod || 1,
         waterAmount: 0,
@@ -76,7 +78,8 @@ Page({
         ticketProductId: null,
         ticketQty: null
       })
-      wx.showToast({ title: '支付成功', icon: 'success' })
+      // 按真实支付状态提示，不再无条件报"支付成功"
+      notifyPayResult(res && res.data)
       this.loadOrders()
     } catch (err) {
       wx.showToast({ title: err.message || '支付失败', icon: 'none' })

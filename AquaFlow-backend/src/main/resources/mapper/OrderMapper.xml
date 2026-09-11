@@ -102,6 +102,13 @@
             </if>
         </where>
         order by o.create_time desc
+        <!-- [AQ-046] 分页兜底：limit 非空时生效，避免单站上万单一次性全量返回拖垮接口 -->
+        <if test="limit != null">
+            limit #{limit}
+            <if test="offset != null">
+                offset #{offset}
+            </if>
+        </if>
     </select>
 
     <select id="getLatestStationByCustomerId" resultType="map">

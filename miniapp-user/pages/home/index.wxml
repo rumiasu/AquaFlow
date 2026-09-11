@@ -9,6 +9,10 @@
           <text class="logo-slogan">纯净之水 净享生活</text>
         </view>
       </view>
+      <view class="search-bar" bindtap="onSearchTap">
+        <icon name="search" size="32rpx" color="#94A3B8" />
+        <text class="search-bar-placeholder">搜索商品名称</text>
+      </view>
     </view>
   </view>
 

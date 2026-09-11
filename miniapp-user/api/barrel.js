@@ -22,4 +22,10 @@ const requestBarrelReturn = (data) => {
   return post(API.BARREL_RETURN, data)
 }
 
-module.exports = { getBarrelSummary, getBarrelSummaryByType, getBarrelRecords, requestBarrelReturn }
+// GET /api/barrels/return/preview 退桶试算（只读）
+// 金额由后端按押金条批次 FIFO 算出，前端禁止自己用「数量 × 押金单价」估。
+const previewBarrelReturn = (productId, quantity, stationId) => {
+  return get(API.BARREL_RETURN_PREVIEW, { productId, quantity, ...(stationId ? { stationId } : {}) })
+}
+
+module.exports = { getBarrelSummary, getBarrelSummaryByType, getBarrelRecords, requestBarrelReturn, previewBarrelReturn }

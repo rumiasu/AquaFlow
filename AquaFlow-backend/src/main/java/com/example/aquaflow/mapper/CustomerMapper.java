@@ -56,7 +56,8 @@ public interface CustomerMapper {
      * 派生字段（驼峰别名）由 CustomerStationVO 接收。
      */
     @Select("select c.id, c.name, c.phone, c.customer_type as customerType, c.note, " +
-            "c.deposit_balance as depositBalance, c.total_orders as totalOrders, " +
+            // [AQ-054] customer.deposit_balance 为废弃列（只读不写恒 0），展示改用真实来源 deposit_account
+            "coalesce((select da.balance from customer_deposit_account da where da.customer_id = c.id and da.station_id = #{stationId}), 0) as depositBalance, c.total_orders as totalOrders, " +
             "c.total_consumption as totalConsumption, c.tags, " +
             "c.first_order_time as firstOrderTime, c.last_delivery_time as lastDeliveryTime, " +
             "c.create_time as createTime, " +
@@ -72,7 +73,8 @@ public interface CustomerMapper {
      * 单个客户的站长视图（含本站货到付款权限）。无订单/无配置关系时返回 null。
      */
     @Select("select c.id, c.name, c.phone, c.customer_type as customerType, c.note, " +
-            "c.deposit_balance as depositBalance, c.total_orders as totalOrders, " +
+            // [AQ-054] customer.deposit_balance 为废弃列（只读不写恒 0），展示改用真实来源 deposit_account
+            "coalesce((select da.balance from customer_deposit_account da where da.customer_id = c.id and da.station_id = #{stationId}), 0) as depositBalance, c.total_orders as totalOrders, " +
             "c.total_consumption as totalConsumption, c.tags, " +
             "c.first_order_time as firstOrderTime, c.last_delivery_time as lastDeliveryTime, " +
             "c.create_time as createTime, " +
@@ -131,8 +133,12 @@ public interface CustomerMapper {
             "where customer_id = #{customerId} and station_id = #{stationId}")
     Integer getTicketBalance(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
-    /** 本站欠桶数 */
-    @Select("select coalesce(sum(owed_qty),0) from customer_owed_barrel " +
+    /**
+     * 本站欠桶数：按商品统计 Σ max(0, over_qty)。
+     * 欠桶已改为按商品记录在 customer_barrel_over；over 可为负（多还桶/水站暂存，合法状态），
+     * 负值不能抵销其他商品的欠桶，所以必须先 greatest(over_qty, 0) 再求和。
+     */
+    @Select("select coalesce(sum(greatest(over_qty, 0)),0) from customer_barrel_over " +
             "where customer_id = #{customerId} and station_id = #{stationId}")
     Integer getOwedBarrels(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 

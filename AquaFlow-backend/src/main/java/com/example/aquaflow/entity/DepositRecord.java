@@ -21,11 +21,20 @@ public class DepositRecord {
     /** 所属水站ID */
     private Long stationId;
 
+    /** 涉及商品ID：桶权益按 (customer, station, product) 隔离，流水必须带商品维度 */
+    private Long productId;
+
     /** 类型: 1 新增押金 2 退押金 3 丢桶赔偿 4 其他调整 */
     private Integer type;
 
     /** 金额 */
     private BigDecimal amount;
+
+    /** 本次桶权益的买入单价快照（退款只认批次单价，此字段供对账/审计） */
+    private BigDecimal unitPrice;
+
+    /** 本次涉及桶数 */
+    private Integer quantity;
 
     /** 关联订单ID */
     private Long relatedOrderId;

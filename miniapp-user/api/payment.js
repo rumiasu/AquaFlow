@@ -26,9 +26,9 @@ const getPaymentsByCustomer = () => {
   return get(`${API.PAYMENTS}/by-customer`)
 }
 
-/** 获取站点支付配置 */
-const getPayConfig = () => {
-  return get(`${API.PAYMENTS}/config`, { stationId: 0 })
-}
+// 说明：原先这里导出一个 getPayConfig()，调用 GET /api/payments/config 并写死 stationId: 0。
+// 该接口是站长端的（@RequireRole STATION_MANAGER），且 stationId 入参会被后端用登录态覆盖，
+// 客户端调用必然失败；此函数也从未被任何页面使用，已删除。
+// 客户端的支付方式与可用性请使用 getQuote() 返回的 methods / allowOfflinePayment 字段。
 
-module.exports = { createPayment, getQuote, confirmPayment, getPaymentsByOrder, getPaymentsByCustomer, getPayConfig }
+module.exports = { createPayment, getQuote, confirmPayment, getPaymentsByOrder, getPaymentsByCustomer }

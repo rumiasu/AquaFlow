@@ -19,10 +19,10 @@
     "pages/service/index",
     "pages/mine/about",
     "pages/mine/edit",
-    "pages/payment/index",
     "pages/payment/records",
     "pages/notice/index",
-    "pages/mine/company"
+    "pages/mine/company",
+    "pages/exception/list/list"
   ],
   "window": {
     "backgroundTextStyle": "dark",

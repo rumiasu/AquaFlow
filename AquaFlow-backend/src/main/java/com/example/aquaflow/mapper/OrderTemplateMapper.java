@@ -40,6 +40,20 @@ public interface OrderTemplateMapper {
     @Delete("delete from order_template where id = #{id}")
     void delete(@Param("id") Long id);
 
+    // ===== [AQ-036] 归属限定版本：只操作属于该客户的模板，返回受影响行数 =====
+
+    /** 归属限定的启用/停用 */
+    @Update("update order_template set enabled = #{enabled}, update_time = NOW() where id = #{id} and customer_id = #{customerId}")
+    int toggleEnabledOwned(@Param("id") Long id, @Param("enabled") Integer enabled, @Param("customerId") Long customerId);
+
+    /** 归属限定的删除 */
+    @Delete("delete from order_template where id = #{id} and customer_id = #{customerId}")
+    int deleteOwned(@Param("id") Long id, @Param("customerId") Long customerId);
+
+    /** 归属限定的设为默认 */
+    @Update("update order_template set is_default = 1, update_time = NOW() where id = #{id} and customer_id = #{customerId}")
+    int setDefaultOwned(@Param("id") Long id, @Param("customerId") Long customerId);
+
     @Select("select ot.* from order_template ot " +
             "inner join orders o on o.customer_id = ot.customer_id " +
             "where ot.customer_id = #{customerId} and ot.station_id = #{stationId} and o.status = " + OrderStatus.COMPLETED + " " +

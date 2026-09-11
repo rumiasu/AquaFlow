@@ -1,5 +1,5 @@
 // 员工画像（站长视角）
-const { getStaffProfile } = require('../../../api/station-mgmt')
+const { getStaffProfile } = require('../../../../api/station-mgmt')
 
 Page({
   data: {

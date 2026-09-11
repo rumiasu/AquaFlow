@@ -1,8 +1,10 @@
 package com.example.aquaflow.service.impl;
 
 import com.example.aquaflow.constant.DepositType;
+import com.example.aquaflow.constant.InventoryChangeType;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.constant.PaymentStatus;
+import com.example.aquaflow.constant.PayMethod;
 import com.example.aquaflow.dto.OrderCreateDTO;
 import com.example.aquaflow.dto.OrderCreateResult;
 import com.example.aquaflow.entity.*;
@@ -10,9 +12,12 @@ import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.*;
 import com.example.aquaflow.service.AssetService;
 import com.example.aquaflow.service.AuditLogService;
+import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.service.OrderService;
 import com.example.aquaflow.service.PaymentService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.PriceUtil;
+import com.example.aquaflow.util.StationUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -73,8 +78,25 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private PaymentService paymentService;
 
+    @Autowired
+    private CustomerStationConfigMapper customerStationConfigMapper;
+
+    @Autowired
+    private InventoryService inventoryService;
+
+    /** [AQ-030] 欠桶风控：下单前检查客户在本站的欠桶数 */
+    @Autowired
+    private CustomerBarrelOwedMapper customerBarrelOwedMapper;
+
+    @Autowired
+    private com.example.aquaflow.mapper.CustomerBarrelOverMapper customerBarrelOverMapper;
+
+    /** [AQ-030] 允许的最大欠桶数，超过则拒绝新单 */
+    private static final int MAX_OWED_BUCKETS = 5;
+
+
 @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public OrderCreateResult createOrder(OrderCreateDTO dto) {
         if (dto.getItems() == null || dto.getItems().isEmpty()) {
             throw new BusinessException("订单商品不能为空");
@@ -92,13 +114,16 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("请先选择服务水站");
         }
 
-        // 幂等性检查：防止重复下单
-        if (dto.getIdempotencyKey() != null && !dto.getIdempotencyKey().isEmpty()) {
-            Orders existing = orderMapper.findByIdempotencyKey(dto.getIdempotencyKey());
-            if (existing != null) {
-                java.util.List<String> warnings = new java.util.ArrayList<>();
-                return OrderCreateResult.success(existing.getId(), warnings, false);
-            }
+        // 幂等性检查：防止重复下单。客户端未传则服务端生成 UUID，确保任何请求都强制幂等，
+        // 杜绝因 idempotencyKey 为 null 而跳过查重（AQ-019）
+        String idempotencyKey = dto.getIdempotencyKey();
+        if (idempotencyKey == null || idempotencyKey.isEmpty()) {
+            idempotencyKey = java.util.UUID.randomUUID().toString();
+        }
+        Orders existing = orderMapper.findByIdempotencyKey(idempotencyKey);
+        if (existing != null) {
+            java.util.List<String> warnings = new java.util.ArrayList<>();
+            return OrderCreateResult.success(existing.getId(), warnings, false);
         }
 
         Customer customer = customerMapper.getById(dto.getCustomerId());
@@ -113,9 +138,37 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("水站不存在或已停业");
         }
 
+        // [AQ-012] 员工代客下单必须校验该客户确属本水站，禁止替他站客户下单消耗其水票/押金
+        // 顾客本人下单走 controller 已强覆盖 customerId，不在此约束。
+        if ("staff".equals(AuthContext.getUserType())
+                && customerStationConfigMapper.getByCustomerAndStation(dto.getCustomerId(), stationId) == null) {
+            throw new BusinessException("该客户不属于本水站，无法代客下单");
+        }
+
         Address addr = addressMapper.getById(dto.getAddressId());
         if (addr == null) {
             throw new BusinessException("地址不存在");
+        }
+        // [AQ-011] 地址必须归属当前下单客户，否则可填他人地址并读出姓名/电话/门牌（隐私泄露）
+        if (!dto.getCustomerId().equals(addr.getCustomerId())) {
+            throw new BusinessException("该地址不属于当前客户");
+        }
+
+        // [AQ-030] 欠桶风控：客户在本站欠桶超阈值时拒绝新单。
+        // 原实现下单链路完全不读 owed_qty，唯一拦截点是"退押金"，导致顾客能一直借桶、想结算时被拦，体验割裂。
+        // [DEF-3] 欠桶风控改为【按商品】统计（customer_barrel_over），阈值按站内 Σ max(0, over) 计。
+        // over 可为负（多还桶 / 水站暂存，合法状态），负值不能拿去抵销其他商品的欠桶
+        // ——A 水多还的桶不能抵 B 水的欠桶——所以必须先 max(0, ...) 再求和。
+        int totalOwed = 0;
+        List<CustomerBarrelOver> overs = customerBarrelOverMapper.listByCustomerAndStation(dto.getCustomerId(), stationId);
+        if (overs != null) {
+            for (CustomerBarrelOver o : overs) {
+                if (o.getOverQty() == null) continue;
+                totalOwed += Math.max(0, o.getOverQty());
+            }
+        }
+        if (totalOwed >= MAX_OWED_BUCKETS) {
+            throw new BusinessException("您在本水站有 " + totalOwed + " 个欠桶未归还，请先归还后再下单");
         }
 
         // ===== 综合校验链 =====
@@ -147,10 +200,11 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // 线下支付权限校验
-        if (dto.getPaymentMethod() != null && Integer.valueOf(3).equals(dto.getPaymentMethod())) {
+        // 货到付款（现金）权限校验：PayMethod 中 2=现金、3=水票
+        // 旧代码用 3 判断"线下支付"，与 PayMethod 定义冲突，导致水票支付被要求走线下授权校验
+        if (Integer.valueOf(PayMethod.CASH).equals(dto.getPaymentMethod())) {
             if (!paymentService.canUseOfflinePayment(dto.getCustomerId(), stationId)) {
-                throw new BusinessException("当前客户暂不支持线下支付");
+                throw new BusinessException("当前客户暂不支持货到付款");
             }
         }
 
@@ -196,6 +250,11 @@ public class OrderServiceImpl implements OrderService {
             if (inv.getEnabled() == null || !Integer.valueOf(1).equals(inv.getEnabled())) {
                 throw new BusinessException("商品未上架: " + product.getName());
             }
+            // [AQ-030] 商品状态校验：product.status 0下架 / 1在售 / 2停售，仅"在售"可下单。
+            // 原实现只看 inventory.enabled，product 停售后仍能继续产生订单。
+            if (product.getStatus() != null && !Integer.valueOf(1).equals(product.getStatus())) {
+                throw new BusinessException("商品已下架或停售: " + product.getName());
+            }
 
             productCache.put(item.getProductId(), product);
             invCache.put(item.getProductId(), inv);
@@ -217,10 +276,26 @@ public class OrderServiceImpl implements OrderService {
                 shortages.add(s);
             }
 
-            BigDecimal unitPrice = product.getPrice();
-            if (unitPrice == null) {
-                unitPrice = BigDecimal.ZERO;
+            // [AQ-030] 限购校验：站长按商品配置的单笔上限（product.max_per_order）必须生效
+            if (product.getMaxPerOrder() != null && product.getMaxPerOrder() > 0
+                    && item.getQuantity() > product.getMaxPerOrder()) {
+                throw new BusinessException("商品「" + product.getName() + "」单笔最多购买 "
+                        + product.getMaxPerOrder() + " 件");
             }
+
+            // [AQ-030] 水票支付适用性校验：该站必须启用该商品的水票且配置了有效水票价，
+            // 否则水票支付无法成立（历史实现完全不校验，可对未开水票的商品下水票单）。
+            if (Integer.valueOf(PayMethod.TICKET).equals(dto.getPaymentMethod())) {
+                boolean ticketEnabled = inv.getTicketEnabled() != null && Integer.valueOf(1).equals(inv.getTicketEnabled());
+                BigDecimal stTicketPrice = inv.getTicketPrice();
+                boolean hasPrice = stTicketPrice != null && stTicketPrice.compareTo(BigDecimal.ZERO) > 0;
+                if (!ticketEnabled || !hasPrice) {
+                    throw new BusinessException("商品「" + product.getName() + "」未开通水票支付");
+                }
+            }
+
+            // 与结算页报价共用同一套单价算法（水票支付用站级水票价，其余用零售价）
+            BigDecimal unitPrice = PriceUtil.calcUnitPrice(product, inv, dto.getPaymentMethod());
             BigDecimal itemSubtotal = unitPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
             waterAmount = waterAmount.add(itemSubtotal);
 
@@ -251,58 +326,67 @@ public class OrderServiceImpl implements OrderService {
                 }
             }
 
+            // [DEF-5] 已下单但尚未送达的「配送中权益」必须一并扣减，否则并发两单会重复收桶款：
+            // 两个请求同时读到 held=0，各自算出 shortage=2，顾客付了两份桶款却只买到一份权益。
+            // 说明：这里解决的是快速重复下单/连下两单的常规场景；彻底的串行化需要分布式锁，
+            //      按"初期量小、跳过高并发"的既定取舍，暂不引入。
+            Map<Long, Integer> pendingByProduct = new HashMap<>();
+            List<CustomerBarrelInTransit> pendings =
+                    customerBarrelInTransitMapper.listByCustomerAndStation(dto.getCustomerId(), stationId);
+            if (pendings != null) {
+                for (CustomerBarrelInTransit t : pendings) {
+                    if (t.getProductId() == null || !"PENDING".equals(t.getStatus())) continue;
+                    pendingByProduct.merge(t.getProductId(), t.getQty() == null ? 0 : t.getQty(), Integer::sum);
+                }
+            }
+
             BigDecimal requiredExtraDeposit = BigDecimal.ZERO;
             Map<Long, Integer> extraByProduct = new HashMap<>();
+            Map<Long, BigDecimal> priceByProduct = new HashMap<>();
             for (Map.Entry<Long, Integer> e : barrelByProduct.entrySet()) {
                 Long pid = e.getKey();
                 int needed = e.getValue();
                 int held = heldByProduct.getOrDefault(pid, 0);
-                int shortage = Math.max(0, needed - held);
+                int pending = pendingByProduct.getOrDefault(pid, 0);
+                int shortage = Math.max(0, needed - held - pending);
                 if (shortage > 0) {
                     extraByProduct.put(pid, shortage);
                     Product p = productCache.get(pid);
                     BigDecimal dep = (p != null && p.getDeposit() != null) ? p.getDeposit() : BigDecimal.ZERO;
+                    priceByProduct.put(pid, dep);
                     requiredExtraDeposit = requiredExtraDeposit.add(dep.multiply(BigDecimal.valueOf(shortage)));
                 }
             }
 
             if (!extraByProduct.isEmpty()) {
-                BigDecimal extraDeposit = dto.getExtraDeposit() != null ? dto.getExtraDeposit() : BigDecimal.ZERO;
-                if (extraDeposit.compareTo(requiredExtraDeposit) < 0) {
-                    throw new BusinessException("桶资产不足，需额外押桶押金 " + requiredExtraDeposit + " 元");
-                }
+                // [AQ-009] 押金一律按服务端缺桶数计算的应收金额，忽略客户端传入的 extraDeposit。
+                // 原实现"只校验不得低于应收、无上界"，客户端可传 99999 直接放大押金余额。
+                //
+                // 并且不再在下单时入账押金账户——此时顾客一分钱未付（payment_status=PENDING）。
+                // 仅把应缴押金记到订单，待支付成功（payment_status -> PAID）时由
+                // PaymentService.applyDepositOnPaid(orderId) 入账（幂等：按 related_order_id 去重）。
+                depositAmount = depositAmount.add(requiredExtraDeposit);
 
-                if (extraDeposit.compareTo(BigDecimal.ZERO) > 0) {
-                    customerDepositAccountMapper.increaseBalance(dto.getCustomerId(), stationId, extraDeposit);
-                    depositAmount = depositAmount.add(extraDeposit);
-
-                    DepositRecord dr = new DepositRecord();
-                    dr.setCustomerId(dto.getCustomerId());
-                    dr.setStationId(stationId);
-                    dr.setType(5); // PREPAID: 下单预收押金
-                    dr.setAmount(extraDeposit);
-                    dr.setNote("下单预收桶押金");
-                    dr.setOperatorId(AuthContext.getUserId());
-                    dr.setCreateTime(LocalDateTime.now());
-                    depositRecordMapper.insert(dr);
-
-                    // 创建在途桶资产记录，而非直接增加桶资产
-                    for (Map.Entry<Long, Integer> e : extraByProduct.entrySet()) {
-                        Long pid = e.getKey();
-                        int qty = e.getValue();
-                        CustomerBarrelInTransit inTransit = new CustomerBarrelInTransit();
-                        inTransit.setCustomerId(dto.getCustomerId());
-                        inTransit.setStationId(stationId);
-                        inTransit.setProductId(pid);
-                        inTransit.setQty(qty);
-                        inTransit.setRelatedOrderId(null); // 订单创建后再设置
-                        inTransit.setStatus("PENDING");
-                        inTransit.setCreateTime(LocalDateTime.now());
-                        inTransit.setUpdateTime(LocalDateTime.now());
-                        // 先保存，订单创建后更新 relatedOrderId
-                        customerBarrelInTransitMapper.insert(inTransit);
-                        createdInTransitIds.add(inTransit.getId());
-                    }
+                // AQ-033: 只要配送中桶缺口存在（extraByProduct 非空），无论是否额外收押金都须建立配送中桶记录，
+                // 否则配送完成后桶不进持有资产、凭空消失。物理桶与押金是两件事，不能绑在同一个分支里。
+                for (Map.Entry<Long, Integer> e : extraByProduct.entrySet()) {
+                    Long pid = e.getKey();
+                    int qty = e.getValue();
+                    CustomerBarrelInTransit inTransit = new CustomerBarrelInTransit();
+                    inTransit.setCustomerId(dto.getCustomerId());
+                    inTransit.setStationId(stationId);
+                    inTransit.setProductId(pid);
+                    inTransit.setQty(qty);
+                    inTransit.setRelatedOrderId(null); // 订单创建后再设置
+                    inTransit.setStatus("PENDING");
+                    // 下单当时的桶权益单价快照：配送完成时用它建押金条(customer_barrel_lot.unit_price)，
+                    // 保证将来退款按【买入时】的价格，而不是退款时的当前价。
+                    inTransit.setUnitPrice(priceByProduct.get(pid));
+                    inTransit.setCreateTime(LocalDateTime.now());
+                    inTransit.setUpdateTime(LocalDateTime.now());
+                    // 先保存，订单创建后更新 relatedOrderId
+                    customerBarrelInTransitMapper.insert(inTransit);
+                    createdInTransitIds.add(inTransit.getId());
                 }
             }
         }
@@ -336,13 +420,13 @@ public class OrderServiceImpl implements OrderService {
         orders.setReturnBucketQty(dto.getReturnBucketQty());
         orders.setDeliveryBucketQty(totalNeededBuckets > 0 ? totalNeededBuckets : null);
         orders.setFirstBarrelOrder(firstStationAsset && totalNeededBuckets > 0);
-        orders.setIdempotencyKey(dto.getIdempotencyKey());
+        orders.setIdempotencyKey(idempotencyKey);
         orders.setStatus(1);
         orders.setCreateTime(LocalDateTime.now());
         orders.setUpdateTime(LocalDateTime.now());
         orderMapper.save(orders);
 
-        // 更新在途桶资产记录的关联订单ID（仅关联本次创建的在途桶记录）
+        // 更新配送中桶资产记录的关联订单ID（仅关联本次创建的配送中桶记录）
         if (!createdInTransitIds.isEmpty()) {
             customerBarrelInTransitMapper.linkPendingToOrder(orders.getId(), createdInTransitIds);
         }
@@ -350,12 +434,16 @@ public class OrderServiceImpl implements OrderService {
         for (OrderCreateDTO.OrderItemDTO item : dto.getItems()) {
             Product product = productCache.get(item.getProductId());
             Inventory inv = invCache.get(item.getProductId());
-            BigDecimal unitPrice = product.getPrice();
-            if (unitPrice == null) unitPrice = BigDecimal.ZERO;
+            BigDecimal unitPrice = PriceUtil.calcUnitPrice(product, inv, dto.getPaymentMethod());
             // 桶装水押金在 extraDeposit 中统一处理，order item 记 0
             BigDecimal itemDeposit = (product.getCategory() != null && Integer.valueOf(1).equals(product.getCategory()))
                     ? BigDecimal.ZERO
                     : (product.getDeposit() != null ? product.getDeposit() : BigDecimal.ZERO);
+
+            // 本次实际能扣减的库存量：库存不足时只能扣到 min(stock, quantity)
+            // 落库到 deducted_qty，取消/退款时按此回补，避免"下单10桶库存只有3桶，取消却回补10桶"刷出库存
+            int stock = inv != null && inv.getQuantity() != null ? inv.getQuantity() : 0;
+            int toDecrease = Math.max(0, Math.min(stock, item.getQuantity()));
 
             OrderItem oi = new OrderItem();
             oi.setOrderId(orders.getId());
@@ -366,6 +454,7 @@ public class OrderServiceImpl implements OrderService {
             oi.setPrice(unitPrice);
             oi.setQuantity(item.getQuantity());
             oi.setDeposit(itemDeposit);
+            oi.setDeductedQty(toDecrease);
             oi.setSubtotal(unitPrice.multiply(BigDecimal.valueOf(item.getQuantity())));
             oi.setCreateTime(LocalDateTime.now());
             orderItemMapper.insert(oi);
@@ -382,6 +471,9 @@ public class OrderServiceImpl implements OrderService {
                 if (affected <= 0) {
                     throw new BusinessException("扣减库存失败: " + productCache.get(item.getProductId()).getName());
                 }
+                // [AQ-029] 扣减库存写流水，与库存变动同事务
+                inventoryService.recordChange(stationId, item.getProductId(), -toDecrease,
+                        InventoryChangeType.CONSUME, orders.getId(), AuthContext.getUserId(), "下单扣减");
             }
             if (stock < item.getQuantity()) {
                 Product p = productCache.get(item.getProductId());
@@ -408,7 +500,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void save(Orders orders) {
         // #9: save接口限制 — 只允许更新已存在的订单，不允许通过此接口创建新订单
         if (orders.getId() == null) {
@@ -418,23 +510,43 @@ public class OrderServiceImpl implements OrderService {
         if (existing == null) {
             throw new BusinessException("订单不存在");
         }
+
+        // AQ-005: 跨站改价/搬单防护 — 调用方必须是订单所属水站的员工；且本接口不允许改站。
+        Long myStationId = AuthContext.requireStationId();
+        Long orderStation = StationUtil.deliveryStation(existing);
+        if (myStationId == null || orderStation == null || !myStationId.equals(orderStation)) {
+            throw new BusinessException("无权修改他站订单");
+        }
+
         if (orders.getCustomerId() != null) {
             var customer = customerMapper.getById(orders.getCustomerId());
             if (customer == null) {
-                throw new RuntimeException("客户不存在");
+                throw new BusinessException("客户不存在");
             }
         }
 
         if (orders.getAddressId() != null) {
             Address addr = addressMapper.getById(orders.getAddressId());
             if (addr == null) {
-                throw new RuntimeException("地址不存在");
+                throw new BusinessException("地址不存在");
+            }
+            // AQ-011: 地址归属校验 — 不允许把订单地址改成他人地址（泄露隐私）。
+            if (orders.getCustomerId() != null && !orders.getCustomerId().equals(addr.getCustomerId())) {
+                throw new BusinessException("地址不属于该客户");
             }
             orders.setReceiverName(addr.getName());
             orders.setReceiverPhone(addr.getPhone());
             orders.setAddressSnapshot(addr.getDetail());
             orders.setAddressSnapshotLat(addr.getLat());
             orders.setAddressSnapshotLng(addr.getLng());
+        }
+
+        // AQ-005/012: 归属锁定 — 不允许通过此接口改站、改客户归属；代客改单的客户必须归属本站。
+        orders.setStationId(existing.getStationId());
+        if (orders.getCustomerId() == null) {
+            orders.setCustomerId(existing.getCustomerId());
+        } else if (customerStationConfigMapper.getByCustomerAndStation(orders.getCustomerId(), myStationId) == null) {
+            throw new BusinessException("该客户不属于当前水站");
         }
 
         // 保留原有状态和支付状态，不允许通过此接口修改
@@ -447,8 +559,9 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public List<Orders> list(Long stationId, Long customerId, Integer status, String createTimeStart, String createTimeEnd) {
-        return orderMapper.list(stationId, customerId, status, createTimeStart, createTimeEnd);
+    public List<Orders> list(Long stationId, Long customerId, Integer status, String createTimeStart, String createTimeEnd,
+                             Integer limit, Integer offset) {
+        return orderMapper.list(stationId, customerId, status, createTimeStart, createTimeEnd, limit, offset);
     }
 
     @Override
@@ -462,7 +575,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     /**
      * 客户主动取消订单。
      *
@@ -470,8 +583,12 @@ public class OrderServiceImpl implements OrderService {
      * 1. 归属校验——只能取消自己的订单；
      * 2. 状态校验——客户仅可取消"待配送"(PENDING)，已进入配送环节需联系水站，
      *    避免骑手已出发却被撤单；
-     * 3. 完整回滚下单副作用（下单时扣了库存、收了押桶押金、生成了在途桶记录），
-     *    否则会造成库存凭空减少、押金余额虚高、在途桶残留。
+     * 3. 完整回滚下单副作用：回补库存、退还押金、清理配送中桶、退还已消耗的水票，
+     *    并同步支付状态（未付款→已取消；已付款→已退款）。
+     * <p>上面这些回滚动作与站点侧"退款并取消"完全一致，因此统一委托给
+     * {@link PaymentService#refundOrder}，不再在本方法内自行复制一份 ——
+     * 旧实现正是抄漏了支付状态与水票退还两项：客户取消后订单仍显示"待收款"，
+     * 还可能对已取消订单再次发起支付；水票支付的订单取消后票价也没退回。</p>
      */
     public void cancelByCustomer(Long orderId, Long customerId) {
         Orders order = orderMapper.getById(orderId);
@@ -490,58 +607,39 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("当前订单状态不可取消");
         }
 
-        Long stationId = order.getStationId();
-
-        // 1) 回补库存：按下单时扣减的商品数量原样加回
-        List<OrderItem> items = orderItemMapper.listByOrderId(orderId);
-        if (items != null) {
-            for (OrderItem oi : items) {
-                if (oi.getProductId() != null && oi.getQuantity() != null && oi.getQuantity() > 0) {
-                    inventoryMapper.increaseStock(stationId, oi.getProductId(), oi.getQuantity());
-                }
-            }
-        }
-
-        // 2) 退还预收桶押金（写负金额流水，便于对账）
-        BigDecimal depositAmount = order.getDepositAmount();
-        if (depositAmount != null && depositAmount.compareTo(BigDecimal.ZERO) > 0) {
-            int affected = customerDepositAccountMapper.decreaseBalance(customerId, stationId, depositAmount);
-            if (affected > 0) {
-                DepositRecord dr = new DepositRecord();
-                dr.setCustomerId(customerId);
-                dr.setStationId(stationId);
-                dr.setType(DepositType.CANCEL_PREPAID); // 8 取消订单释放预收押金
-                dr.setAmount(depositAmount.negate());
-                dr.setNote("客户取消订单释放押金");
-                dr.setOperatorId(null);
-                dr.setCreateTime(LocalDateTime.now());
-                depositRecordMapper.insert(dr);
-            }
-        }
-
-        // 3) 清理该订单产生的在途桶记录（PENDING 状态）
-        List<CustomerBarrelInTransit> inTransitList = customerBarrelInTransitMapper.listPendingByOrderId(orderId);
-        if (inTransitList != null && !inTransitList.isEmpty()) {
-            customerBarrelInTransitMapper.deleteByOrderId(orderId);
-        }
-
-        // 4) 状态置为已取消
-        orderMapper.updateStatus(orderId, OrderStatus.CANCELLED);
+        paymentService.refundOrder(orderId, "客户取消订单");
         log.info("[OrderService] 客户取消订单成功 orderId={}, customerId={}", orderId, customerId);
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, Integer status) {
+        transitionStatus(id, status);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void transitionStatus(Long id, Integer targetStatus) {
         Orders order = orderMapper.getById(id);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
-        // #10: 使用isValidTransition校验状态转换合法性
         int currentStatus = order.getStatus() != null ? order.getStatus() : 0;
-        if (!OrderStatus.isValidTransition(currentStatus, status)) {
-            throw new BusinessException("不允许从状态 " + currentStatus + " 转换到 " + status);
+        // AQ-014: 强制走状态机，杜绝越级跳转（如 PENDING 直接跳 COMPLETED）
+        if (!OrderStatus.isValidTransition(currentStatus, targetStatus)) {
+            throw new BusinessException("不允许从状态 " + currentStatus + " 转换到 " + targetStatus);
         }
-        orderMapper.updateStatus(id, status);
+        // AQ-014: CAS 更新，状态已被并发修改则拒绝（affected=0 => 失败）
+        int affected = orderMapper.updateStatusIf(id, currentStatus, targetStatus);
+        if (affected == 0) {
+            throw new BusinessException("订单状态已被并发修改，请刷新后重试");
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void transitionPaymentStatus(Long id, Integer expected, Integer target) {
+        int affected = orderMapper.updatePaymentStatusIf(id, expected, target);
+        if (affected == 0) {
+            throw new BusinessException("支付状态已被并发修改，请刷新后重试");
+        }
     }
 }

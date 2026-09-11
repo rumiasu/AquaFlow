@@ -9,6 +9,10 @@ const STATUS_MAP = {
   5: { text: '已取消', cls: 'cancelled' }
 }
 
+// 由 STATUS_MAP 派生状态→样式类映射（避免重复手写另一份枚举）
+const STATUS_CLASS_MAP = {}
+Object.keys(STATUS_MAP).forEach(k => { STATUS_CLASS_MAP[k] = STATUS_MAP[k].cls })
+
 Page({
   data: {
     loading: true,
@@ -42,7 +46,9 @@ Page({
   async loadData() {
     const app = getApp()
     const stationId = app.globalData.userInfo?.stationId
-    const statusMap = { 0: null, 1: 1, 2: 3 }
+    // tab → 订单状态码：0=全部(null) 1=待配送 2=配送中。
+    // 旧实现把 tab=2(配送中) 错映射成 status=3(已送达)，导致「配送中」标签筛出的是已送达订单。
+    const statusMap = { 0: null, 1: 1, 2: 2 }
     const status = statusMap[this.data.currentTab]
 
     this.setData({ loading: true })

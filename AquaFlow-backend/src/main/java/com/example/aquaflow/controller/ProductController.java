@@ -54,15 +54,30 @@ public class ProductController {
     }
 
     @GetMapping
-    public Result<List<Product>> list(@RequestParam(required = false) Integer category) {
+    public Result<List<Product>> list(@RequestParam(required = false) Integer category,
+                                      @RequestParam(required = false) String keyword) {
         List<Product> products;
         if (category != null) {
             products = productService.listByCategory(category);
         } else {
             products = productService.list();
         }
+        // 关键字搜索：用户端搜索页按名称/品牌/规格匹配。
+        // 旧实现完全忽略 keyword，搜索结果恒为"全部商品"，用户以为搜什么都没差别。
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String kw = keyword.trim().toLowerCase();
+            products = new ArrayList<>(products).stream()
+                    .filter(p -> containsIgnoreCase(p.getName(), kw)
+                            || containsIgnoreCase(p.getBrand(), kw)
+                            || containsIgnoreCase(p.getSpec(), kw))
+                    .collect(Collectors.toList());
+        }
         injectImageUrls(products);
         return Result.success(products);
+    }
+
+    private static boolean containsIgnoreCase(String src, String lowerKeyword) {
+        return src != null && src.toLowerCase().contains(lowerKeyword);
     }
 
     @GetMapping("/{id}")

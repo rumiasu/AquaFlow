@@ -11,4 +11,7 @@
 .btn-approve, .btn-reject { flex: 1; padding: 16rpx; border-radius: 12rpx; font-size: 26rpx; border: none; }
 .btn-approve { background: var(--primary-gradient); color: #fff; }
 .btn-reject { background: #fce4ec; color: #f44336; }
+/* 欠桶提醒（over>0）与暂存提醒（over<0）——两者都是合法状态，必须如实显示 */
+.info-row .warn { color: #d32f2f; font-size: 24rpx; }
+.info-row .tip { color: var(--text-secondary); font-size: 24rpx; }
 .empty { text-align: center; padding: 120rpx 0; font-size: 28rpx; color: var(--text-secondary); }

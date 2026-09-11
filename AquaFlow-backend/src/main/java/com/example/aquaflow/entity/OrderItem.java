@@ -36,6 +36,14 @@ public class OrderItem {
     /** 数量 */
     private Integer quantity;
 
+    /**
+     * 下单时实际扣减的库存数量。
+     * <p>库存不足时只会扣掉现有库存（toDecrease = min(stock, quantity)），因此它可能小于 quantity。
+     * 取消/退款回补库存必须以此为准 —— 按 quantity 回补会凭空多出库存，反复下单-取消即可刷库存。</p>
+     * 历史数据为 null 时，调用方按 quantity 兜底（与修复前行为一致）。
+     */
+    private Integer deductedQty;
+
     /** 押金 */
     private BigDecimal deposit;
 

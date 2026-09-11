@@ -481,6 +481,11 @@ async loadData() {
     wx.switchTab({ url: '/pages/order/list' })
   },
 
+  // 搜索页此前已实现但没有任何入口，用户根本进不去 —— 这里补上首页搜索框
+  onSearchTap() {
+    wx.navigateTo({ url: '/pages/home/search' })
+  },
+
   onGoTicket() {
     wx.navigateTo({ url: '/pages/ticket/index' })
   },

@@ -28,7 +28,8 @@ Page({
       paymentMethod: 1
     },
     buyMethods: [
-      { id: 1, name: '微信支付', desc: '在线支付（待确认）' }
+      // 微信支付渠道本身未接入；此处语义是「提交购票申请，由水站确认收款后水票到账」
+      { id: 1, name: '微信支付', desc: '提交后由水站确认收款，到账后可用' }
     ],
     submitting: false,
     currentStationId: null,
@@ -162,28 +163,48 @@ Page({
     this.setData({ showPurchase: false, buyForm: { productId: null, productName: '', faceValue: 0, quantity: 1, totalPrice: 0, paymentMethod: 1 } })
   },
 
+  /** 弹窗内容区吞掉点击，避免冒泡到遮罩触发关闭（wxml 用 catchtap 绑定） */
+  stopPropagation() {},
+
   onBuyProductSelect(e) {
     const { id } = e.currentTarget.dataset
-    const product = this.data.buyProducts.find(p => p.id === id)
+    // dataset 类型可能是 string/number，统一按字符串比较，避免 === 恒 false
+    const product = this.data.buyProducts.find(p => String(p.id) === String(id))
     if (!product) return
+    const price = parseFloat(product.price) || 0
     this.setData({
-      'buyForm.productId': id,
+      'buyForm.productId': product.id,
       'buyForm.productName': product.name,
-      'buyForm.faceValue': parseFloat(product.price) || 0,
-      'buyForm.totalPrice': (parseFloat(product.price) || 0) * (this.data.buyForm.quantity || 1)
+      'buyForm.faceValue': price,
+      'buyForm.totalPrice': price * (this.data.buyForm.quantity || 1)
     })
   },
 
-  onBuyQuantityChange(e) {
-    const qty = parseInt(e.detail.value) || 1
+  /** 步进器 +/-（tap 事件，data-type=minus/add），数量下限 1 */
+  onBuyQtyStep(e) {
+    const { type } = e.currentTarget.dataset
+    const cur = this.data.buyForm.quantity || 1
+    const next = type === 'add' ? cur + 1 : Math.max(1, cur - 1)
+    if (next === cur) return
+    this.setData({
+      'buyForm.quantity': next,
+      'buyForm.totalPrice': (this.data.buyForm.faceValue || 0) * next
+    })
+  },
+
+  /** 手动输入数量（input 事件） */
+  onBuyQuantityInput(e) {
+    const qty = Math.max(1, parseInt(e.detail.value) || 1)
     this.setData({
       'buyForm.quantity': qty,
       'buyForm.totalPrice': (this.data.buyForm.faceValue || 0) * qty
     })
   },
 
-  onBuyPaymentMethodChange(e) {
-    this.setData({ 'buyForm.paymentMethod': parseInt(e.detail.value) })
+  /** 选择支付方式（tap 事件，data-id） */
+  onBuyPaymentMethodSelect(e) {
+    const { id } = e.currentTarget.dataset
+    this.setData({ 'buyForm.paymentMethod': parseInt(id) || 1 })
   },
 
   async onBuySubmit() {

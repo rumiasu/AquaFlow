@@ -10,6 +10,9 @@ const REASON_OPTIONS = [
 ]
 
 Page({
+  /** 弹窗内容区吞掉点击（wxml 用 catchtap 绑定，此处为空实现，避免未定义方法告警） */
+  stopPropagation() {},
+
   data: {
     orderId: null,
     from: 'detail',

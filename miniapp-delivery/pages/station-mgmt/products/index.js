@@ -134,6 +134,9 @@ Page({
 
   stopPropagation() {},
 
+  /** 弹窗遮罩上吞掉 touchmove，防止滚动穿透到页面（wxml 用 catchtouchmove） */
+  preventMove() {},
+
   onFieldChange(e) {
     const { field } = e.currentTarget.dataset
     this.setData({ ['editForm.' + field]: e.detail.value })

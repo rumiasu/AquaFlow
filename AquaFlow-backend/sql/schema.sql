@@ -510,7 +510,12 @@ CREATE TABLE IF NOT EXISTS `payment_record` (
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_payment_order_status` (`order_id`,`status`),
+  -- [DEF-3] 原为 UNIQUE KEY uk_payment_order_status(order_id,status)，
+  -- 与「退款另立负金额冲正流水」的设计冲突：退款把原记录置 REFUNDED 后再插入一条
+  -- REFUNDED 冲正流水，(order_id, 已退款) 必然重复 → 水票/现金已付订单永远取消不了。
+  -- 改为普通索引（保留按订单+状态的查询性能），防重由应用层保证
+  -- （PaymentServiceImpl.createPayment：已有 PAID/PENDING 流水即直接返回）。
+  KEY `idx_payment_order_status` (`order_id`,`status`),
   KEY `idx_order_id` (`order_id`),
   KEY `idx_customer_id` (`customer_id`),
   CONSTRAINT `fk_payment_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
@@ -609,7 +614,12 @@ CREATE TABLE IF NOT EXISTS `ticket_record` (
   `product_id` bigint NOT NULL DEFAULT '0',
   `station_id` bigint DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_ticket_consume` (`order_id`,`product_id`),
+  -- [DEF-3] 原为 UNIQUE KEY uk_ticket_consume(order_id,product_id)，同一订单同一商品
+  -- 只能有一条流水：取消水票已付订单时 refundTicket 要插入一条 source='退款' 的回补流水，
+  -- 与已有的 source='消费' 消费流水撞唯一键（Duplicate entry 'N-M'），取消直接失败。
+  -- 纳入 source 后，消费/退款各一条互不冲突；同时"消费"维度仍唯一，
+  -- 仍能兜底并发双扣（consumeTicket 捕获 DuplicateKeyException 幂等跳过）。
+  UNIQUE KEY `uk_ticket_consume` (`order_id`,`product_id`,`source`),
   KEY `idx_ticket_record_station` (`station_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 CREATE TABLE IF NOT EXISTS `user_token` (

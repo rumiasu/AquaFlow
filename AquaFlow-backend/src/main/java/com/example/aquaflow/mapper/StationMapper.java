@@ -23,8 +23,10 @@ public interface StationMapper {
     @Select("SELECT * FROM station WHERE id = #{id}")
     Station getById(@Param("id") Long id);
 
+    // 注：原 offline_payment_enabled 列已于 2026-09-12 停止读写（站点总闸移除），
+    // DROP 脚本见 sql/migration_v22_drop_station_offline_payment.sql
     @Update("UPDATE station SET name=#{name}, phone=#{phone}, address=#{address}, " +
-            "status=#{status}, offline_payment_enabled=#{offlinePaymentEnabled}, update_time=NOW() WHERE id=#{id}")
+            "status=#{status}, update_time=NOW() WHERE id=#{id}")
     void update(Station station);
 
     @Delete("DELETE FROM station WHERE id = #{id}")

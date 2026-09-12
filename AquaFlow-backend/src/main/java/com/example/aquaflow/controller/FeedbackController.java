@@ -2,9 +2,11 @@ package com.example.aquaflow.controller;
 
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
+import com.example.aquaflow.dto.FeedbackCreateDTO;
 import com.example.aquaflow.entity.Feedback;
 import com.example.aquaflow.mapper.FeedbackMapper;
 import com.example.aquaflow.util.AuthContext;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,14 +27,10 @@ public class FeedbackController {
 
     /** 客户/员工提交反馈（自动识别身份） */
     @PostMapping
-    public Result<Void> submit(@RequestBody Map<String, String> params) {
-        String category = params.get("category");
-        String content = params.get("content");
-        String contact = params.get("contact");
-
-        if (content == null || content.trim().isEmpty()) {
-            return Result.error("反馈内容不能为空");
-        }
+    public Result<Void> submit(@RequestBody @Valid FeedbackCreateDTO params) {
+        String category = params.getCategory();
+        String content = params.getContent();
+        String contact = params.getContact();
 
         Feedback fb = new Feedback();
         if ("customer".equals(AuthContext.getUserType())) {

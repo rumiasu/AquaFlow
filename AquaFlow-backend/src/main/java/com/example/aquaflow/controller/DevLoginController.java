@@ -1,6 +1,7 @@
 package com.example.aquaflow.controller;
 
 import com.example.aquaflow.common.Result;
+import com.example.aquaflow.dto.AuthRequestDTO;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.entity.StaffStationApplication;
@@ -13,6 +14,7 @@ import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.mapper.UserTokenMapper;
 import com.example.aquaflow.util.JwtUtil;
 import com.example.aquaflow.util.PasswordUtil;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
@@ -66,9 +68,9 @@ public class DevLoginController {
     private JwtUtil jwtUtil;
 
     @PostMapping("/dev-login")
-    public Result<Map<String, Object>> devLogin(@RequestBody Map<String, String> params) {
+    public Result<Map<String, Object>> devLogin(@RequestBody @Valid AuthRequestDTO.DevLogin params) {
         log.warn("[DEV-LOGIN] 开发模式登录被调用，该接口仅限非生产环境使用");
-        String role = params.getOrDefault("role", "customer");
+        String role = params.getRole() != null ? params.getRole() : "customer";
 
         if ("DELIVERY".equals(role)) {
             return devLoginDelivery();
@@ -77,8 +79,8 @@ public class DevLoginController {
             return devLoginStationManager();
         }
 
-        String openid = params.getOrDefault("openid", "dev-openid-001");
-        String nickname = params.getOrDefault("nickname", "测试用户");
+        String openid = params.getOpenid() != null ? params.getOpenid() : "dev-openid-001";
+        String nickname = params.getNickname() != null ? params.getNickname() : "测试用户";
 
         Customer customer = customerMapper.findByOpenid(openid);
         if (customer == null) {

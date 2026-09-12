@@ -1,7 +1,7 @@
 /**
  * AquaFlow 图标组件
  * 线性 SVG 图标系统，统一替换 emoji
- * 用法：<icon name="home" size="48rpx" color="#0EA5E9" />
+ * 用法：<icon name="home" size="48rpx" color="#2E4A68" />
  */
 const ICONS = {
   // 水滴 Logo
@@ -72,7 +72,7 @@ Component({
     },
     color: {
       type: String,
-      value: '#0EA5E9'
+      value: '#2E4A68'
     }
   },
   data: {

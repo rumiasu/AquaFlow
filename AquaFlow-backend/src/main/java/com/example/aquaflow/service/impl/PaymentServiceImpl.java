@@ -14,7 +14,6 @@ import com.example.aquaflow.entity.Product;
 import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.entity.CustomerBarrelAsset;
 import com.example.aquaflow.entity.OrderItem;
-import com.example.aquaflow.entity.Station;
 import com.example.aquaflow.entity.CustomerStationConfig;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.*;
@@ -70,9 +69,6 @@ public class PaymentServiceImpl implements PaymentService {
     private ProductMapper productMapper;
 
     @Autowired
-    private StationMapper stationMapper;
-
-    @Autowired
     private CustomerStationConfigMapper customerStationConfigMapper;
 
     /** 水票账户：用于水票支付的原子扣减与在线购票入账 */
@@ -104,10 +100,17 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentRecord createPayment(Long orderId, Long customerId, BigDecimal amount, BigDecimal waterAmount,
                                         BigDecimal barrelDeposit, Integer excessBarrels, Integer paymentMethod,
                                         Long ticketWaterTypeId, Integer ticketQty, String note) {
-        // 防重复支付：如果该订单已有已支付记录，直接返回
+        // 防重复支付：该订单已有「已支付」或「待收款」记录时直接返回，不再新建。
+        // [DEF-3] 必须连同 PENDING 一起拦：payment_record 原来靠
+        // uk_payment_order_status(order_id, status) 唯一键兜底防重，但该唯一键与
+        // 「退款另立负金额流水」的设计根本冲突（退款会把原记录置 REFUNDED 再插一条 REFUNDED，
+        // 撞唯一键 → 水票已付订单永远取消不了），已改为普通索引。
+        // 去掉数据库兜底后，防重的责任回到应用层：同一订单不允许出现第二条待收款流水。
         if (orderId != null) {
             PaymentRecord existing = paymentRecordMapper.getByOrderId(orderId);
-            if (existing != null && existing.getStatus() != null && existing.getStatus() == PaymentStatus.PAID) {
+            if (existing != null && existing.getStatus() != null
+                    && (existing.getStatus() == PaymentStatus.PAID
+                            || existing.getStatus() == PaymentStatus.PENDING)) {
                 return existing;
             }
         }
@@ -171,7 +174,9 @@ public class PaymentServiceImpl implements PaymentService {
 
         // 同步订单付款状态
         if (orderId != null) {
-            orderMapper.updatePaymentStatus(orderId,
+            // [Phase C] CAS：新订单付款状态为「待付款」(PENDING=1，库默认)，据此做乐观锁；
+            // 现金/微信 → UNPAID(0)，水票 → PAID(2)。注意库列默认 1 而非 0，expected 必须用 PENDING。
+            orderMapper.updatePaymentStatusIf(orderId, PaymentStatus.PENDING,
                     Integer.valueOf(PaymentStatus.PAID).equals(status) ? PaymentStatus.PAID : PaymentStatus.UNPAID);
         }
 
@@ -213,7 +218,8 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         if (record.getOrderId() != null) {
-            orderMapper.updatePaymentStatus(record.getOrderId(), PaymentStatus.PAID);
+            // [Phase C] CAS：确认收款把 UNPAID → PAID；水票支付创建时已置 PAID，此处 affected=0 属幂等，不报错
+            orderMapper.updatePaymentStatusIf(record.getOrderId(), PaymentStatus.UNPAID, PaymentStatus.PAID);
             // [AQ-009] 支付成功时才入账预收桶押金（此前在下单时即入账，那时客户一分未付）
             applyDepositOnPaid(record.getOrderId());
         }
@@ -236,14 +242,14 @@ public class PaymentServiceImpl implements PaymentService {
             List<PaymentRecord> records = paymentRecordMapper.listByOrderId(orderId);
             for (PaymentRecord r : records) {
                 if (r.getStatus() != null && r.getStatus() == PaymentStatus.PENDING) {
-                    paymentRecordMapper.updateStatus(r.getId(), PaymentStatus.PAID);
+                    paymentRecordMapper.updateStatusIf(r.getId(), PaymentStatus.PENDING, PaymentStatus.PAID);
                 }
             }
-            orderMapper.updatePaymentStatus(orderId, PaymentStatus.PAID);
+            orderMapper.updatePaymentStatusIf(orderId, PaymentStatus.UNPAID, PaymentStatus.PAID);
             // [AQ-009] 收款成功时入账预收桶押金
             applyDepositOnPaid(orderId);
         }
-        orderMapper.updateStatus(orderId, OrderStatus.COMPLETED);
+        orderMapper.updateStatusIf(orderId, OrderStatus.DELIVERED, OrderStatus.COMPLETED);
     }
 
     @Override
@@ -255,7 +261,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (order.getStatus() != OrderStatus.COMPLETED) {
             throw new RuntimeException("仅已完成的订单可修正");
         }
-        orderMapper.updateStatus(orderId, OrderStatus.DELIVERED);
+        orderMapper.updateStatusIf(orderId, OrderStatus.COMPLETED, OrderStatus.DELIVERED);
     }
 
     @Override
@@ -367,7 +373,7 @@ public class PaymentServiceImpl implements PaymentService {
         record.setUpdateTime(LocalDateTime.now());
         paymentRecordMapper.insert(record);
 
-        orderMapper.updatePaymentStatus(orderId, PaymentStatus.PAID);
+        orderMapper.updatePaymentStatusIf(orderId, PaymentStatus.UNPAID, PaymentStatus.PAID);
         // [AQ-009] 现场收款（货到付款）成功时入账预收桶押金
         applyDepositOnPaid(orderId);
     }
@@ -453,11 +459,15 @@ public class PaymentServiceImpl implements PaymentService {
             // 没有任何已支付记录 = 这笔订单客户根本没付过钱。
             // 旧实现一律写 REFUNDED，于是从未付款的订单取消后显示"已退款"，
             // 与实际资金流水对不上。正确语义是"已取消"。
-            orderMapper.updatePaymentStatus(orderId, PaymentStatus.CANCELLED);
+            // 没有任何已支付记录 = 这笔订单客户根本没付过钱。正确语义是「已取消」而非「已退款」。
+            // 未付款订单的付款状态可能是 UNPAID(0，建了现金支付但未确认) 或 PENDING(1，库默认待付款)，
+            // 以读取到的当前值作 expected（同一事务内，CAS 仍防并发重复取消）。
+            int prePs = order.getPaymentStatus() != null ? order.getPaymentStatus() : PaymentStatus.PENDING;
+            orderMapper.updatePaymentStatusIf(orderId, prePs, PaymentStatus.CANCELLED);
         } else {
             for (PaymentRecord r : paidRecords) {
                 // 标记原支付记录为已退款
-                paymentRecordMapper.updateStatus(r.getId(), PaymentStatus.REFUNDED);
+                paymentRecordMapper.updateStatusIf(r.getId(), PaymentStatus.PAID, PaymentStatus.REFUNDED);
 
                 // 生成退款记录
                 PaymentRecord refundRecord = new PaymentRecord();
@@ -480,7 +490,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
 
             // AQ-022: 退款后支付状态应为 REFUNDED 而非 UNPAID，反映"已退款"而非"从未付款"
-            orderMapper.updatePaymentStatus(orderId, PaymentStatus.REFUNDED);
+            orderMapper.updatePaymentStatusIf(orderId, PaymentStatus.PAID, PaymentStatus.REFUNDED);
         }
 
         // ===== 退桶押金 + 清理配送中桶 =====
@@ -532,7 +542,8 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        orderMapper.updateStatus(orderId, OrderStatus.CANCELLED);
+        // [Phase C] CAS：以读取到的当前状态为 expected，防止取消期间订单状态被并发改动
+        orderMapper.updateStatusIf(orderId, order.getStatus(), OrderStatus.CANCELLED);
     }
 
     @Override
@@ -544,9 +555,9 @@ public class PaymentServiceImpl implements PaymentService {
         if (record.getStatus() != PaymentStatus.PAID) {
             throw new RuntimeException("仅已支付记录可退款，当前状态: " + record.getStatus());
         }
-        paymentRecordMapper.updateStatus(paymentId, PaymentStatus.REFUNDED);
+        paymentRecordMapper.updateStatusIf(paymentId, PaymentStatus.PAID, PaymentStatus.REFUNDED);
         if (record.getOrderId() != null) {
-            orderMapper.updatePaymentStatus(record.getOrderId(), PaymentStatus.UNPAID);
+            orderMapper.updatePaymentStatusIf(record.getOrderId(), PaymentStatus.PAID, PaymentStatus.UNPAID);
         }
     }
 
@@ -672,17 +683,24 @@ public class PaymentServiceImpl implements PaymentService {
         return result;
     }
 
+    /**
+     * 该客户在该水站能否使用货到付款（现金）。
+     *
+     * <p><b>唯一控制点 = 客户级授权</b>（{@code customer_station_config.offline_payment_enabled}），
+     * 由站长在「用户画像 → 权限设置 → 货到付款」逐个客户开通。默认 0 → 顾客端不展示货到付款。
+     *
+     * <p><b>[2026-09-12 移除站点总闸 station.offline_payment_enabled]</b>
+     * 旧实现要求「站点总闸 + 客户授权」双开才算放行，但总闸在三个小程序里<b>没有任何入口能打开</b>
+     * （建站默认 0），结果是站长明明给用户开了开关、顾客端照样不显示货到付款。
+     * 两道闸的控制权实质重合在站长一人身上，多出来的一道只会制造「我明明开了啊」的困惑，
+     * 因此按「站长说了算」的原则移除：站长在用户画像里的开关就是最终决定。
+     * 站点列已停止读写，DROP 脚本见 {@code sql/migration_v22_drop_station_offline_payment.sql}。
+     */
     @Override
     public boolean canUseOfflinePayment(Long customerId, Long stationId) {
         if (customerId == null || stationId == null) {
             return false;
         }
-        // 1. 水站总开关
-        Station station = stationMapper.getById(stationId);
-        if (station == null || station.getOfflinePaymentEnabled() == null || !Integer.valueOf(1).equals(station.getOfflinePaymentEnabled())) {
-            return false;
-        }
-        // 2. 客户授权
         CustomerStationConfig config = customerStationConfigMapper.getByCustomerAndStation(customerId, stationId);
         return config != null && config.getOfflinePaymentEnabled() != null && Integer.valueOf(1).equals(config.getOfflinePaymentEnabled());
     }

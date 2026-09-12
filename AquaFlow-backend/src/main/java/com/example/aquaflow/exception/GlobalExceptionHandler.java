@@ -35,7 +35,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public Result handleDataIntegrity(DataIntegrityViolationException e) {
         String msg = e.getMessage();
+        if (msg == null) msg = "";   // 下面直接 matcher(msg)，为 null 会 NPE
         log.error("数据库约束冲突: {}", msg);
+
+        // [DEF-1] 先区分「值过长 / 超范围」与「字段为空」。
+        // 二者在 MySQL 报错里都写作 "Column 'xxx' ..."，旧实现用同一个正则提取列名后
+        // 一律回「xxx不能为空」，于是 "Data too long for column 'lot_no'" 被报成
+        // 「lot_no不能为空」——排查方向被彻底带偏（真实原因是值超长，不是没传值）。
+        if (msg.contains("Data too long") || msg.contains("Data truncation")
+                || msg.contains("Out of range")) {
+            Matcher too = Pattern.compile("for column '([^']+)'", Pattern.CASE_INSENSITIVE).matcher(msg);
+            String col = too.find() ? too.group(1) : null;
+            return Result.error(col != null ? (col + "值超出允许长度") : "字段值超出允许长度，请检查输入");
+        }
 
         // 提取列名，如 Column 'sale_price' cannot be null
         Matcher m = Pattern.compile("Column '([^']+)'", Pattern.CASE_INSENSITIVE).matcher(msg);
@@ -64,6 +76,15 @@ public class GlobalExceptionHandler {
         }
         if (msg.contains("Duplicate entry")) {
             return Result.error("数据已存在，请勿重复提交");
+        }
+        // 外键约束（原先落到兜底，报成「数据提交失败，请检查输入」，用户完全无从下手）：
+        //  - Cannot delete/update a parent row → 该记录被别的数据引用（例如地址已被订单占用）
+        //  - Cannot add/update a child row     → 引用了不存在的数据
+        if (msg.contains("foreign key constraint fails")) {
+            if (msg.contains("a parent row")) {
+                return Result.error("该记录已被其他数据引用，无法删除");
+            }
+            return Result.error("关联的数据不存在或已被删除");
         }
         return Result.error("数据提交失败，请检查输入");
     }

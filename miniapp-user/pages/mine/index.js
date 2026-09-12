@@ -1,57 +1,83 @@
+// 我的 · Step6 重构（2026-09-12）
+// 结构：用户行 → 钱包与桶四格卡 → 账单 / 我的信息 / 服务 三组菜单。
+// 数字全部读后端派生口径（余额/押金/水票张数/水桶权益），前端不做业务加减。
 const { getBarrelSummary } = require('../../api/barrel')
 const { getCustomerStats } = require('../../api/customer')
+const { getTicketAccounts } = require('../../api/ticket')
+const { getCompanyInfo } = require('../../api/company')
+const { stationStorage } = require('../../utils/storage')
 const app = getApp()
+
+const fmtMoney = (n) => {
+  const v = Number(n) || 0
+  return (Math.round(v * 100) / 100).toFixed(v % 1 === 0 ? 0 : 2)
+}
 
 Page({
   data: {
     isLogin: false,
     userInfo: null,
-    barrelSummary: null,
-    customerStats: null,
-    guestMenu: [
-      { icon: 'shop', title: '商城', url: '/pages/shop/index' },
-      { icon: 'notice', title: '公告', url: '/pages/notice/index' },
-      { icon: 'chat', title: '联系客服', url: '/pages/service/index' },
-      { icon: 'droplet', title: '关于我们', url: '/pages/mine/about' }
-    ],
-    loginMenu: [
-      { icon: 'order', title: '常用订单', url: '/pages/order/list' },
-      { icon: 'notice', title: '公告', url: '/pages/notice/index' },
-      { icon: 'bill', title: '账单记录', url: '/pages/payment/records' },
-      { icon: 'location', title: '地址管理', url: '/pages/address/list' },
-      { icon: 'barrel', title: '我的水桶', url: '/pages/barrel/index' },
-      { icon: 'ticket', title: '我的水票', url: '/pages/ticket/index' },
-      { icon: 'building', title: '企业资料', url: '/pages/mine/company' },
-      { icon: 'shop', title: '商城', url: '/pages/shop/index' },
-      { icon: 'alert', title: '异常记录', url: '/pages/exception/list/list' },
-      { icon: 'chat', title: '客服与反馈', url: '/pages/service/index' },
-      { icon: 'droplet', title: '关于我们', url: '/pages/mine/about' }
-    ]
+    statsText: '',       // 累计 N 单
+    balanceText: '0',    // 余额
+    depositText: '0',    // 押金（可退口径 = 押金账户余额）
+    ticketCount: 0,      // 水票张数 = Σ remainQuantity
+    barrelCount: 0,      // 水桶权益
+    stationName: '',
+    isCompany: false
   },
 
   onShow() {
     const { isLogin, userInfo } = app.globalData
-    this.setData({ isLogin, userInfo })
+    const station = stationStorage.get()
+    this.setData({
+      isLogin,
+      userInfo,
+      stationName: (station && station.name) || ''
+    })
     if (isLogin) {
-      this.loadBarrelSummary()
-      this.loadCustomerStats()
+      this.loadAssets()
     }
   },
 
-  loadBarrelSummary() {
-    getBarrelSummary().then(res => {
-      this.setData({ barrelSummary: res.data || res })
-    }).catch(() => {})
-  },
+  async loadAssets() {
+    const stationId = stationStorage.getId()
+    const [statsRes, summaryRes, ticketsRes, companyRes] = await Promise.all([
+      getCustomerStats().catch(() => null),
+      getBarrelSummary(stationId).catch(() => null),
+      getTicketAccounts(stationId).catch(() => null),
+      getCompanyInfo().catch(() => null)
+    ])
 
-  loadCustomerStats() {
-    getCustomerStats().then(res => {
-      this.setData({ customerStats: res.data || res })
-    }).catch(() => {})
+    const patch = {}
+
+    if (statsRes && statsRes.data) {
+      patch.balanceText = fmtMoney(statsRes.data.balance)
+      patch.statsText = statsRes.data.totalOrders > 0 ? `累计 ${statsRes.data.totalOrders} 单` : ''
+    }
+
+    if (summaryRes && summaryRes.data) {
+      patch.depositText = fmtMoney(summaryRes.data.depositBalance)
+      patch.barrelCount = summaryRes.data.heldBuckets || 0
+    }
+
+    if (ticketsRes && ticketsRes.code === 0 && ticketsRes.data) {
+      // 水票张数 = Σ 各商品账户 remainQuantity（接口已显式起驼峰别名，直接读）
+      patch.ticketCount = ticketsRes.data.reduce((sum, t) => sum + (Number(t.remainQuantity) || 0), 0)
+    }
+
+    // 企业资料：仅月结/企业客户显示这行，个人用户不占行
+    patch.isCompany = !!(companyRes && companyRes.code === 0 && companyRes.data
+      && (companyRes.data.id || companyRes.data.companyName))
+
+    this.setData(patch)
   },
 
   onLogin() {
     wx.navigateTo({ url: '/pages/login/index' })
+  },
+
+  onEditProfile() {
+    wx.navigateTo({ url: '/pages/mine/edit' })
   },
 
   onMenuTap(e) {
@@ -65,22 +91,6 @@ Page({
     }
   },
 
-  onEditProfile() {
-    wx.navigateTo({ url: '/pages/mine/edit' })
-  },
-
-  onRecharge() {
-    wx.navigateTo({ url: '/pages/ticket/index' })
-  },
-
-  onGoOrder() {
-    wx.switchTab({ url: '/pages/order/list' })
-  },
-
-  onInvite() {
-    wx.showToast({ title: '邀请功能即将上线', icon: 'none' })
-  },
-
   onLogout() {
     wx.showModal({
       title: '提示',
@@ -88,7 +98,16 @@ Page({
       success: (res) => {
         if (res.confirm) {
           app.clearLoginInfo()
-          this.setData({ isLogin: false, userInfo: null, barrelSummary: null, customerStats: null })
+          this.setData({
+            isLogin: false,
+            userInfo: null,
+            statsText: '',
+            balanceText: '0',
+            depositText: '0',
+            ticketCount: 0,
+            barrelCount: 0,
+            isCompany: false
+          })
           wx.showToast({ title: '已退出', icon: 'success' })
         }
       }

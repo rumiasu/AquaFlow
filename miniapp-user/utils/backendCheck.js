@@ -9,7 +9,7 @@ const backendCheck = {
     try {
       const res = await new Promise((resolve, reject) => {
         wx.request({
-          url: baseUrl + '/api/water-types',
+          url: baseUrl + '/api/stations/public',
           method: 'GET',
           timeout: 5000,
           success: (r) => {

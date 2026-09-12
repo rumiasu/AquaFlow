@@ -1,7 +1,6 @@
 {
   "pages": [
     "pages/home/index",
-    "pages/home/search",
     "pages/home/notice",
     "pages/order/list",
     "pages/order/detail",
@@ -26,20 +25,20 @@
   ],
   "window": {
     "backgroundTextStyle": "dark",
-    "navigationBarBackgroundColor": "#0EA5E9",
+    "navigationBarBackgroundColor": "#FAF7F0",
     "navigationBarTitleText": "AquaFlow",
-    "navigationBarTextStyle": "white",
-    "backgroundColor": "#F1F5F9"
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#FAF7F0"
   },
   "tabBar": {
-    "color": "#94A3B8",
-    "selectedColor": "#0EA5E9",
+    "color": "#A39E92",
+    "selectedColor": "#2E4A68",
     "backgroundColor": "#ffffff",
-    "borderStyle": "white",
+    "borderStyle": "black",
     "list": [
       {
         "pagePath": "pages/home/index",
-        "text": "首页",
+        "text": "订水",
         "iconPath": "static/tabbar/home.png",
         "selectedIconPath": "static/tabbar/home-active.png"
       },

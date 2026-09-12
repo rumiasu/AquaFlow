@@ -17,6 +17,8 @@ import com.example.aquaflow.util.StationUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +40,7 @@ public class OrderController {
     private StationMapper stationMapper;
 
     @PostMapping("/create")
-    public Result<OrderCreateResult> createOrder(@RequestBody OrderCreateDTO dto) {
+    public Result<OrderCreateResult> createOrder(@RequestBody @Valid OrderCreateDTO dto) {
         String userType = AuthContext.getUserType();
         if ("customer".equals(userType)) {
             Long customerId = AuthContext.requireCustomerId();

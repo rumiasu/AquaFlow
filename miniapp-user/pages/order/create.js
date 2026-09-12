@@ -5,7 +5,7 @@ const { getBarrelSummary, getBarrelSummaryByType } = require('../../api/barrel')
 const { getTicketAccounts } = require('../../api/ticket')
 const { createOrder, createPayment } = require('../../api/order')
 const { getQuote } = require('../../api/payment')
-const { getStationById } = require('../../api/station')
+const { getStationPublicPhone } = require('../../api/station')
 const { storage, stationStorage } = require('../../utils/storage')
 const { getBaseUrl, API } = require('../../config/api')
 const { getAccessToken, getCustomerId } = require('../../utils/token')
@@ -640,7 +640,7 @@ this.setData({ products, stationName: effectiveStationName })
   async fetchStationPhone() {
     if (this.data.stationPhone) return
     try {
-      const res = await getStationById(this.data.stationId)
+      const res = await getStationPublicPhone(this.data.stationId)
       if (res.data && res.data.phone) {
         this.setData({ stationPhone: res.data.phone })
       }

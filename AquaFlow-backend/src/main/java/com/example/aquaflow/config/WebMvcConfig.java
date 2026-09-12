@@ -29,7 +29,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/stations/public",
                         "/api/station/public",
                         "/api/stations/search",
-                        "/api/station/search"
+                        "/api/station/search",
+                        "/api/stations/{id}/public-phone",
+                        "/api/station/{id}/public-phone"
                 );
     }
 }

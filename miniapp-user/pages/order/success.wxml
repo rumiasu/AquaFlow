@@ -24,7 +24,7 @@
     <view class="template-card" bindtap="onSaveTemplate">
       <view class="template-left">
         <view class="template-icon-wrap">
-          <icon name="zap" size="40rpx" color="#0EA5E9" />
+          <icon name="zap" size="40rpx" color="#2E4A68" />
         </view>
         <view class="template-text">
           <text class="template-title">存为常用订单</text>
@@ -55,7 +55,7 @@
     <view class="action-row">
       <view class="action-card primary" bindtap="onViewOrders">
         <view class="action-icon-wrap primary">
-          <icon name="order" size="44rpx" color="#0EA5E9" />
+          <icon name="order" size="44rpx" color="#2E4A68" />
         </view>
         <view class="action-info">
           <text class="action-title">查看订单</text>

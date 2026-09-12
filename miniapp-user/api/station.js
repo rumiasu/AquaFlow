@@ -17,4 +17,9 @@ const getStationById = (id) => {
   return get(`${API.STATIONS}/${id}`)
 }
 
-module.exports = { getPublicStations, getStations, getStationById }
+// GET /api/stations/{id}/public-phone 公开获取站点电话（无需登录，顾客资产说明用）
+const getStationPublicPhone = (id) => {
+  return get(`${API.STATIONS}/${id}/public-phone`)
+}
+
+module.exports = { getPublicStations, getStations, getStationById, getStationPublicPhone }

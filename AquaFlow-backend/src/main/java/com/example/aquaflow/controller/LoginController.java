@@ -1,6 +1,7 @@
 package com.example.aquaflow.controller;
 
 import com.example.aquaflow.common.Result;
+import com.example.aquaflow.dto.AuthRequestDTO;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.entity.StaffStationApplication;
@@ -15,6 +16,7 @@ import com.example.aquaflow.service.WeChatLoginService;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.JwtUtil;
 import com.example.aquaflow.util.PasswordUtil;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -58,11 +60,8 @@ public class LoginController {
      * 微信登录（用户小程序）：仅查 customer 表，与 staff 表完全独立
      */
     @PostMapping("/wx-login")
-    public Result<Map<String, Object>> wxLogin(@RequestBody Map<String, String> params) {
-        String code = params.get("code");
-        if (code == null || code.isEmpty()) {
-            return Result.error("登录code不能为空");
-        }
+    public Result<Map<String, Object>> wxLogin(@RequestBody @Valid AuthRequestDTO.WxLogin params) {
+        String code = params.getCode();
 
         Map<String, Object> wxSession = weChatLoginService.code2Session(code);
         String openid = wxSession.get("openid").toString();
@@ -108,11 +107,8 @@ public class LoginController {
      * </ul>
      */
     @PostMapping("/wx-login-staff")
-    public Result<Map<String, Object>> wxLoginStaff(@RequestBody Map<String, String> params) {
-        String code = params.get("code");
-        if (code == null || code.isEmpty()) {
-            return Result.error("登录code不能为空");
-        }
+    public Result<Map<String, Object>> wxLoginStaff(@RequestBody @Valid AuthRequestDTO.WxLoginStaff params) {
+        String code = params.getCode();
 
         Map<String, Object> wxSession;
         try {
@@ -178,7 +174,7 @@ public class LoginController {
      * </ul>
      */
     @PostMapping("/select-role")
-    public Result<Map<String, Object>> selectRole(@RequestBody Map<String, Object> params) {
+    public Result<Map<String, Object>> selectRole(@RequestBody @Valid AuthRequestDTO.SelectRole params) {
         // AQ-006: 权限提权防护 — 仅配送端(staff)账号可选择角色，顾客(userType=customer)必须用 customer 身份。
         // 否则顾客可调用此接口创建 STATION_MANAGER/DELIVERY 员工记录并拿到 staff JWT，完成提权。
         if (!"staff".equals(AuthContext.getUserType())) {
@@ -186,13 +182,9 @@ public class LoginController {
         }
 
         Long userId = AuthContext.getUserId();
-        String roleParam = (String) params.get("role");
-        String nickname = (String) params.get("nickname");
-        String phone = (String) params.get("phone");
-
-        if (roleParam == null || (!"STATION_MANAGER".equals(roleParam) && !"DELIVERY".equals(roleParam))) {
-            return Result.error("角色参数非法");
-        }
+        String roleParam = params.getRole();
+        String nickname = params.getNickname();
+        String phone = params.getPhone();
 
         // 从JWT中获取openid，而非信任客户端传入的_pendingOpenid
         String pendingOpenid = "";
@@ -203,7 +195,7 @@ public class LoginController {
             if (userId != null && userId > 0) {
                 // userId是虚拟ID（负数hash），无法直接查staff
                 // 通过解码JWT获取原始openid（在wx-login-staff时已设置）
-                pendingOpenid = (String) params.get("_pendingOpenid");
+                pendingOpenid = params.getPendingOpenid();
                 if (pendingOpenid == null) pendingOpenid = "";
                 // 安全校验：_pendingOpenid必须与JWT subject中的 userType:userId 匹配
                 // 由于userId是hash后的值，这里仅做非空校验
@@ -251,7 +243,7 @@ public class LoginController {
      */
     @PostMapping("/create-station")
     @Transactional(rollbackFor = Exception.class)
-    public Result<Map<String, Object>> createStationAndBind(@RequestBody Map<String, Object> params) {
+    public Result<Map<String, Object>> createStationAndBind(@RequestBody @Valid AuthRequestDTO.CreateStation params) {
         String authRole = AuthContext.getRole();
         if (!"STATION_MANAGER".equals(authRole) && !"manager".equals(authRole)) {
             return Result.error("仅站长账号可创建水站");
@@ -269,14 +261,13 @@ public class LoginController {
             return Result.error("仅 STATION_MANAGER 可创建水站");
         }
 
-        String name = (String) params.get("name");
-        String phone = (String) params.get("phone");
-        String province = (String) params.get("province");
-        String city = (String) params.get("city");
-        String district = (String) params.get("district");
-        String address = (String) params.get("address");
+        String name = params.getName();
+        String phone = params.getPhone();
+        String province = params.getProvince();
+        String city = params.getCity();
+        String district = params.getDistrict();
+        String address = params.getAddress();
 
-        if (name == null || name.trim().isEmpty()) return Result.error("水站名称不能为空");
         String phoneTrim = phone == null ? "" : phone.trim();
 
         Station station = new Station();
@@ -333,20 +324,10 @@ public class LoginController {
      * 员工绑定微信：输入姓名+手机号，匹配 staff 记录并绑定当前微信 openid
      */
     @PostMapping("/bind-staff")
-    public Result<Map<String, Object>> bindStaff(@RequestBody Map<String, String> params) {
-        String code = params.get("code");
-        String name = params.get("name");
-        String phone = params.get("phone");
-
-        if (code == null || code.isEmpty()) {
-            return Result.error("登录code不能为空");
-        }
-        if (name == null || name.isEmpty()) {
-            return Result.error("姓名不能为空");
-        }
-        if (phone == null || phone.isEmpty()) {
-            return Result.error("手机号不能为空");
-        }
+    public Result<Map<String, Object>> bindStaff(@RequestBody @Valid AuthRequestDTO.BindStaff params) {
+        String code = params.getCode();
+        String name = params.getName();
+        String phone = params.getPhone();
 
         Map<String, Object> wxSession = weChatLoginService.code2Session(code);
         String openid = wxSession.get("openid").toString();
@@ -423,14 +404,14 @@ public class LoginController {
     // ==================== 更新资料 ====================
 
     @PostMapping("/update-profile")
-    public Result<Void> updateProfile(@RequestBody Map<String, Object> params) {
+    public Result<Void> updateProfile(@RequestBody @Valid AuthRequestDTO.UpdateProfile params) {
         Long userId = AuthContext.getUserId();
         if (userId == null) {
             return Result.error("用户ID不能为空");
         }
 
-        String nickname = (String) params.get("nickname");
-        String phone = (String) params.get("phone");
+        String nickname = params.getNickname();
+        String phone = params.getPhone();
 
         if ("staff".equals(AuthContext.getUserType())) {
             Staff staff = staffMapper.getById(userId);
@@ -505,13 +486,9 @@ public class LoginController {
     }
 
     @PostMapping("/login")
-    public Result<Map<String, Object>> login(@RequestBody Map<String, String> params) {
-        String username = params.get("username");
-        String password = params.get("password");
-
-        if (username == null || password == null) {
-            return Result.error("用户名和密码不能为空");
-        }
+    public Result<Map<String, Object>> login(@RequestBody @Valid AuthRequestDTO.Login params) {
+        String username = params.getUsername();
+        String password = params.getPassword();
 
         // [AQ-040] 同一用户名 15 分钟内失败次数超限即锁定，防暴力破解
         String lockKey = "login:" + username;
@@ -534,11 +511,8 @@ public class LoginController {
     // ==================== Token 刷新 ====================
 
     @PostMapping("/refresh")
-    public Result<Map<String, Object>> refresh(@RequestBody Map<String, String> params) {
-        String refreshToken = params.get("refreshToken");
-        if (refreshToken == null || refreshToken.isEmpty()) {
-            return Result.error("refreshToken不能为空");
-        }
+    public Result<Map<String, Object>> refresh(@RequestBody @Valid AuthRequestDTO.Refresh params) {
+        String refreshToken = params.getRefreshToken();
 
         if (!jwtUtil.validateToken(refreshToken)) {
             return Result.error("refreshToken已过期，请重新登录");
@@ -648,7 +622,7 @@ public class LoginController {
     // ==================== 修改密码 ====================
 
     @PostMapping("/change-password")
-    public Result<Void> changePassword(@RequestBody Map<String, String> params) {
+    public Result<Void> changePassword(@RequestBody @Valid AuthRequestDTO.ChangePassword params) {
         Long userId = AuthContext.getUserId();
         String userType = AuthContext.getUserType();
 
@@ -659,11 +633,8 @@ public class LoginController {
         Staff staff = staffMapper.getById(userId);
         if (staff == null) return Result.error("用户不存在");
 
-        String oldPassword = params.get("oldPassword");
-        String newPassword = params.get("newPassword");
-        if (oldPassword == null || newPassword == null) {
-            return Result.error("旧密码和新密码不能为空");
-        }
+        String oldPassword = params.getOldPassword();
+        String newPassword = params.getNewPassword();
 
         if (staff.getPasswordHash() != null) {
             if (!PasswordUtil.matches(oldPassword, staff.getPasswordHash())) {

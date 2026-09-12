@@ -47,7 +47,7 @@
   display: flex;
   align-items: center;
   gap: 8rpx;
-  background: #0EA5E9;
+  background: #2E4A68;
   border-radius: 32rpx;
   padding: 0 28rpx;
   height: 56rpx;

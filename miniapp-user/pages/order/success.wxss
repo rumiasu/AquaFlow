@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  background: linear-gradient(180deg, rgba(5,150,105,0.06) 0%, var(--bg-color) 40%);
+  background: var(--bg-color);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -17,7 +17,7 @@
   width: 160rpx;
   height: 160rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--success-color), #34d399);
+  background: var(--success-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -85,7 +85,7 @@
 
 .template-card.saved {
   border-color: rgba(5, 150, 105, 0.3);
-  background: linear-gradient(135deg, rgba(5,150,105,0.03), #fff);
+  background: #ffffff;
 }
 
 .template-left {
@@ -98,7 +98,7 @@
   width: 72rpx;
   height: 72rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  background: #f59e0b;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -108,7 +108,7 @@
 }
 
 .template-icon-wrap.saved {
-  background: linear-gradient(135deg, var(--success-color), #34d399);
+  background: var(--success-color);
   box-shadow: 0 4rpx 12rpx rgba(5, 150, 105, 0.3);
 }
 
@@ -194,7 +194,7 @@
 }
 
 .action-icon-wrap.secondary {
-  background: linear-gradient(135deg, #f97316, #fb923c);
+  background: #f97316;
   box-shadow: 0 6rpx 20rpx rgba(249, 115, 22, 0.3);
 }
 
@@ -241,7 +241,7 @@
 .pay-btn {
   width: 100%;
   height: 96rpx;
-  background: linear-gradient(135deg, #FF6B00, #FF9500);
+  background: #f59e0b;
   border-radius: 48rpx;
   display: flex;
   align-items: center;

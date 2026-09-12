@@ -6,7 +6,7 @@
 
 .header {
   padding: 40rpx 24rpx 24rpx;
-  background: linear-gradient(135deg, #007aff, #00c6ff);
+  background: #2E4A68;
   border-radius: 0 0 32rpx 32rpx;
   color: #fff;
 }

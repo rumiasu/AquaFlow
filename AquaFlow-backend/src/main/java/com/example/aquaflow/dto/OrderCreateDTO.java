@@ -1,5 +1,9 @@
 package com.example.aquaflow.dto;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -20,6 +24,11 @@ public class OrderCreateDTO {
     private String specialNote;
     private Integer returnBucketQty;
     private BigDecimal extraDeposit;
+
+    /** 订单至少含一个商品；缺失/空列表在边界被 Bean Validation 拒回，不进入下单流程 */
+    @NotNull(message = "订单商品不能为空")
+    @NotEmpty(message = "订单商品不能为空")
+    @Valid
     private List<OrderItemDTO> items;
 
     /**
@@ -34,7 +43,11 @@ public class OrderCreateDTO {
 
     @Data
     public static class OrderItemDTO {
+        @NotNull(message = "商品ID不能为空")
         private Long productId;
+
+        @NotNull(message = "数量不能为空")
+        @Min(value = 1, message = "数量至少 1")
         private Integer quantity;
     }
 }

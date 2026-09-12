@@ -10,7 +10,11 @@ import com.example.aquaflow.mapper.CustomerBarrelOwedMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.service.BarrelService;
 import com.example.aquaflow.service.BarrelLedgerService;
+import com.example.aquaflow.dto.BarrelRecordStatusDTO;
+import com.example.aquaflow.dto.BarrelReturnEmptyDTO;
+import com.example.aquaflow.dto.BarrelReturnRequestDTO;
 import com.example.aquaflow.util.AuthContext;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -125,17 +129,15 @@ public class BarrelController {
      * 真正退款时（站长退押金）会重新核销一次；若期间批次有变动，以实际核销金额为准。</p>
      */
     @PostMapping("/return")
-    public Result<Map<String, Object>> requestReturn(@RequestBody Map<String, Object> params) {
+    public Result<Map<String, Object>> requestReturn(@RequestBody @Valid BarrelReturnRequestDTO dto) {
         Long customerId = AuthContext.requireCustomerId();
-        Long stationId = params.get("stationId") != null
-                ? ((Number) params.get("stationId")).longValue()
-                : AuthContext.getStationId();
+        Long stationId = dto.getStationId() != null ? dto.getStationId() : AuthContext.getStationId();
         if (stationId == null) {
             return Result.error("请先选择服务水站");
         }
-        Long productId = params.get("productId") != null ? ((Number) params.get("productId")).longValue() : null;
-        Integer quantity = params.get("quantity") != null ? ((Number) params.get("quantity")).intValue() : null;
-        String note = params.get("note") != null ? params.get("note").toString() : "";
+        Long productId = dto.getProductId();
+        Integer quantity = dto.getQuantity();
+        String note = dto.getNote() != null ? dto.getNote() : "";
 
         if (productId == null || quantity == null || quantity <= 0) {
             return Result.error("商品和数量不能为空");
@@ -191,10 +193,10 @@ public class BarrelController {
      */
     @RequireRole("STATION_MANAGER")
     @PutMapping("/records/{id}/status")
-    public Result<Void> handleReturn(@PathVariable Long id, @RequestBody Map<String, Object> params) {
+    public Result<Void> handleReturn(@PathVariable Long id, @RequestBody @Valid BarrelRecordStatusDTO dto) {
         Long stationId = AuthContext.requireStationId();
-        Integer status = params.get("status") != null ? ((Number) params.get("status")).intValue() : null;
-        String handleNote = params.get("handleNote") != null ? params.get("handleNote").toString() : "";
+        Integer status = dto.getStatus();
+        String handleNote = dto.getHandleNote() != null ? dto.getHandleNote() : "";
         if (status == null) {
             return Result.error("status 不能为空");
         }
@@ -236,28 +238,17 @@ public class BarrelController {
     @RequireRole({"STATION_MANAGER", "DELIVERY"})
     @PostMapping("/return-empty")
     @org.springframework.transaction.annotation.Transactional
-    public Result<Map<String, Object>> returnEmpty(@RequestBody Map<String, Object> params) {
+    public Result<Map<String, Object>> returnEmpty(@RequestBody @Valid BarrelReturnEmptyDTO dto) {
         Long stationId = AuthContext.requireStationId();
-        Long customerId = params.get("customerId") != null
-                ? ((Number) params.get("customerId")).longValue() : null;
-        String clientToken = params.get("clientToken") != null ? params.get("clientToken").toString() : null;
-        String note = params.get("note") != null ? params.get("note").toString() : "";
+        Long customerId = dto.getCustomerId();
+        String clientToken = dto.getClientToken();
+        String note = dto.getNote() != null ? dto.getNote() : "";
         if (customerId == null) return Result.error("客户不能为空");
         if (clientToken == null || clientToken.isEmpty()) return Result.error("缺少幂等 token");
 
-        Object itemsObj = params.get("items");
-        if (!(itemsObj instanceof List)) return Result.error("请填写还桶明细");
-        List<?> rawItems = (List<?>) itemsObj;
-
         List<BarrelLedgerService.ItemQty> items = new java.util.ArrayList<>();
-        for (Object o : rawItems) {
-            if (!(o instanceof Map)) continue;
-            Map<?, ?> m = (Map<?, ?>) o;
-            Object pid = m.get("productId");
-            Object qty = m.get("qty");
-            if (pid == null || qty == null) return Result.error("还桶明细必须包含商品与数量");
-            items.add(new BarrelLedgerService.ItemQty(
-                    ((Number) pid).longValue(), ((Number) qty).intValue()));
+        for (BarrelReturnEmptyDTO.BarrelReturnEmptyItemDTO it : dto.getItems()) {
+            items.add(new BarrelLedgerService.ItemQty(it.getProductId(), it.getQty()));
         }
 
         // 幂等：同一 token 已处理过就直接返回成功，绝不再动一次账。
@@ -276,13 +267,13 @@ public class BarrelController {
             }
         }
 
+        // [DEF-4] 不在此处 catch 业务异常：
+        // 本方法带 @Transactional，若把异常吞掉再返回 Result.error，Spring 仍会把事务标记为
+        // rollback-only，提交时抛 UnexpectedRollbackException —— 于是「交回数超过持有数」这种
+        // 正常业务拒绝会被伪装成 code=500。交给 GlobalExceptionHandler 统一转 code=1 才正确。
         Long operatorId = AuthContext.getUserId();
-        List<BarrelLedgerService.OverChange> changes;
-        try {
-            changes = barrelLedgerService.returnEmpty(customerId, stationId, items, operatorId);
-        } catch (RuntimeException e) {
-            return Result.error(e.getMessage());
-        }
+        List<BarrelLedgerService.OverChange> changes =
+                barrelLedgerService.returnEmpty(customerId, stationId, items, operatorId);
 
         // 留痕：纯还桶 type=7，refund_amount 恒为 0（它不产生任何退款），over 前后值可负
         for (BarrelLedgerService.OverChange c : changes) {

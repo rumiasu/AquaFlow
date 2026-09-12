@@ -42,6 +42,23 @@ public class StationController {
     }
 
     /**
+     * 公开：获取站点联系电话（顾客端资产说明弹窗展示用，无需登录）
+     * 仅返回 id/name/phone，避免泄露站长等内部字段
+     */
+    @GetMapping("/{id}/public-phone")
+    public Result<Map<String, Object>> getPublicPhone(@PathVariable Long id) {
+        Station s = stationMapper.getById(id);
+        if (s == null) {
+            return Result.error("水站不存在");
+        }
+        Map<String, Object> info = new HashMap<>(3);
+        info.put("id", s.getId());
+        info.put("name", s.getName());
+        info.put("phone", s.getPhone());
+        return Result.success(info);
+    }
+
+    /**
      * 公开可选水站列表（客户选站用，无需登录）
      * 仅返回 status=1 营业中的站点
      */
@@ -135,33 +152,4 @@ public class StationController {
         return Result.success();
     }
 
-    /** 获取当前站长水站的线下支付总开关状态 */
-    @RequireRole({"STATION_MANAGER"})
-    @GetMapping("/{id}/offline-payment")
-    public Result<Map<String, Object>> getOfflinePaymentConfig(@PathVariable Long id) {
-        Long staffId = AuthContext.getUserId();
-        Station existing = stationMapper.getByIdAndCreator(id, staffId);
-        if (existing == null) {
-            return Result.error("水站不存在或无权操作");
-        }
-        Map<String, Object> result = new HashMap<>();
-        result.put("stationId", existing.getId());
-        result.put("offlinePaymentEnabled", existing.getOfflinePaymentEnabled() != null ? existing.getOfflinePaymentEnabled() : 0);
-        return Result.success(result);
-    }
-
-    /** 设置当前站长水站的线下支付总开关 */
-    @RequireRole({"STATION_MANAGER"})
-    @PutMapping("/{id}/offline-payment")
-    public Result updateOfflinePaymentConfig(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-        Long staffId = AuthContext.getUserId();
-        Station existing = stationMapper.getByIdAndCreator(id, staffId);
-        if (existing == null) {
-            return Result.error("水站不存在或无权操作");
-        }
-        Integer enabled = body.get("offlinePaymentEnabled") != null ? Integer.valueOf(body.get("offlinePaymentEnabled").toString()) : 0;
-        existing.setOfflinePaymentEnabled(enabled);
-        stationService.update(existing);
-        return Result.success();
-    }
 }

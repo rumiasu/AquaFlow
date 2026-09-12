@@ -2,6 +2,7 @@ package com.example.aquaflow.controller;
 
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
+import com.example.aquaflow.dto.BindingActionDTO;
 import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.entity.StaffStationApplication;
 import com.example.aquaflow.mapper.StaffMapper;
@@ -11,6 +12,7 @@ import com.example.aquaflow.service.AuditLogService;
 import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -48,14 +50,10 @@ public class DeliveryBindingController {
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
     @PostMapping("/api/delivery/bind/apply")
     @Transactional(rollbackFor = Exception.class)
-    public Result<Void> applyBind(@RequestBody Map<String, Object> params) {
+    public Result<Void> applyBind(@RequestBody @Valid BindingActionDTO.ApplyBind params) {
         Long staffId = AuthContext.getUserId();
-        Object stationIdObj = params.get("stationId");
-        if (stationIdObj == null) {
-            return Result.error("stationId 不能为空");
-        }
-        Long stationId = ((Number) stationIdObj).longValue();
-        String applyNote = params.get("applyNote") != null ? params.get("applyNote").toString() : "";
+        Long stationId = params.getStationId();
+        String applyNote = params.getApplyNote() != null ? params.getApplyNote() : "";
 
         Staff staff = staffMapper.getById(staffId);
         if (staff == null) {
@@ -241,18 +239,17 @@ public class DeliveryBindingController {
     @RequireRole("STATION_MANAGER")
     @PostMapping("/api/manager/bind/approve")
     @Transactional(rollbackFor = Exception.class)
-    public Result<Void> approveBind(@RequestBody Map<String, Object> params) {
+    public Result<Void> approveBind(@RequestBody @Valid BindingActionDTO.Handle params) {
         Long myStaffId = AuthContext.getUserId();
         Long myStationId = AuthContext.requireStationId();
 
         // applicationId 或 staffId 二选一 (优先取 applicationId, 兼容性更好)
         StaffStationApplication app = null;
-        if (params.get("applicationId") != null) {
-            Long appId = ((Number) params.get("applicationId")).longValue();
-            app = appMapper.getById(appId);
+        if (params.getApplicationId() != null) {
+            app = appMapper.getById(params.getApplicationId());
         }
-        if (app == null && params.get("staffId") != null) {
-            Long staffId = ((Number) params.get("staffId")).longValue();
+        if (app == null && params.getStaffId() != null) {
+            Long staffId = params.getStaffId();
             List<StaffStationApplication> list = appMapper.listByStationAndStatus(
                     myStationId, StaffStationApplication.STATUS_PENDING);
             for (StaffStationApplication a : list) {
@@ -289,7 +286,7 @@ public class DeliveryBindingController {
 
         // 事务: 1) 更新申请为已同意  2) 写审批人/时间  3) 改 staff.station_id
         appMapper.handle(app.getId(), StaffStationApplication.STATUS_APPROVED, myStaffId,
-                params.get("handleNote") != null ? params.get("handleNote").toString() : "");
+                params.getHandleNote() != null ? params.getHandleNote() : "");
         staffMapper.updateStationId(staff.getId(), myStationId);
 
         Map<String, Object> detail = new HashMap<>();
@@ -308,18 +305,17 @@ public class DeliveryBindingController {
     @RequireRole("STATION_MANAGER")
     @PostMapping("/api/manager/bind/reject")
     @Transactional(rollbackFor = Exception.class)
-    public Result<Void> rejectBind(@RequestBody Map<String, Object> params) {
+    public Result<Void> rejectBind(@RequestBody @Valid BindingActionDTO.Handle params) {
         Long myStaffId = AuthContext.getUserId();
         Long myStationId = AuthContext.requireStationId();
-        String reason = params.get("reason") != null ? params.get("reason").toString() : "";
+        String reason = params.getReason() != null ? params.getReason() : "";
 
         StaffStationApplication app = null;
-        if (params.get("applicationId") != null) {
-            Long appId = ((Number) params.get("applicationId")).longValue();
-            app = appMapper.getById(appId);
+        if (params.getApplicationId() != null) {
+            app = appMapper.getById(params.getApplicationId());
         }
-        if (app == null && params.get("staffId") != null) {
-            Long staffId = ((Number) params.get("staffId")).longValue();
+        if (app == null && params.getStaffId() != null) {
+            Long staffId = params.getStaffId();
             List<StaffStationApplication> list = appMapper.listByStationAndStatus(
                     myStationId, StaffStationApplication.STATUS_PENDING);
             for (StaffStationApplication a : list) {
@@ -361,18 +357,17 @@ public class DeliveryBindingController {
     @RequireRole("STATION_MANAGER")
     @PostMapping("/api/manager/bind/unbind-confirm")
     @Transactional(rollbackFor = Exception.class)
-    public Result<Void> unbindConfirm(@RequestBody Map<String, Object> params) {
+    public Result<Void> unbindConfirm(@RequestBody @Valid BindingActionDTO.Handle params) {
         Long myStaffId = AuthContext.getUserId();
         Long myStationId = AuthContext.requireStationId();
-        String handleNote = params.get("handleNote") != null ? params.get("handleNote").toString() : "";
+        String handleNote = params.getHandleNote() != null ? params.getHandleNote() : "";
 
         StaffStationApplication app = null;
-        if (params.get("applicationId") != null) {
-            Long appId = ((Number) params.get("applicationId")).longValue();
-            app = appMapper.getById(appId);
+        if (params.getApplicationId() != null) {
+            app = appMapper.getById(params.getApplicationId());
         }
-        if (app == null && params.get("staffId") != null) {
-            Long staffId = ((Number) params.get("staffId")).longValue();
+        if (app == null && params.getStaffId() != null) {
+            Long staffId = params.getStaffId();
             List<StaffStationApplication> list = appMapper.listByStationAndStatus(
                     myStationId, StaffStationApplication.STATUS_PENDING);
             for (StaffStationApplication a : list) {
@@ -422,18 +417,17 @@ public class DeliveryBindingController {
     @RequireRole("STATION_MANAGER")
     @PostMapping("/api/manager/bind/unbind-reject")
     @Transactional(rollbackFor = Exception.class)
-    public Result<Void> unbindReject(@RequestBody Map<String, Object> params) {
+    public Result<Void> unbindReject(@RequestBody @Valid BindingActionDTO.Handle params) {
         Long myStaffId = AuthContext.getUserId();
         Long myStationId = AuthContext.requireStationId();
-        String reason = params.get("reason") != null ? params.get("reason").toString() : "";
+        String reason = params.getReason() != null ? params.getReason() : "";
 
         StaffStationApplication app = null;
-        if (params.get("applicationId") != null) {
-            Long appId = ((Number) params.get("applicationId")).longValue();
-            app = appMapper.getById(appId);
+        if (params.getApplicationId() != null) {
+            app = appMapper.getById(params.getApplicationId());
         }
-        if (app == null && params.get("staffId") != null) {
-            Long staffId = ((Number) params.get("staffId")).longValue();
+        if (app == null && params.getStaffId() != null) {
+            Long staffId = params.getStaffId();
             List<StaffStationApplication> list = appMapper.listByStationAndStatus(
                     myStationId, StaffStationApplication.STATUS_PENDING);
             for (StaffStationApplication a : list) {
@@ -475,15 +469,11 @@ public class DeliveryBindingController {
     @RequireRole("STATION_MANAGER")
     @PostMapping("/api/manager/bind/release")
     @Transactional(rollbackFor = Exception.class)
-    public Result<Void> release(@RequestBody Map<String, Object> params) {
+    public Result<Void> release(@RequestBody @Valid BindingActionDTO.Release params) {
         Long myStaffId = AuthContext.getUserId();
         Long myStationId = AuthContext.requireStationId();
-        Object staffIdObj = params.get("staffId");
-        if (staffIdObj == null) {
-            return Result.error("staffId 不能为空");
-        }
-        Long staffId = ((Number) staffIdObj).longValue();
-        String reason = params.get("reason") != null ? params.get("reason").toString() : "站长强制解除绑定";
+        Long staffId = params.getStaffId();
+        String reason = params.getReason() != null ? params.getReason() : "站长强制解除绑定";
 
         Staff staff = staffMapper.getById(staffId);
         if (staff == null) {

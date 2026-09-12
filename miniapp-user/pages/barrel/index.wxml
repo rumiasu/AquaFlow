@@ -48,7 +48,7 @@
       <view class="bucket-list" wx:if="{{customerBarrelAsset.length > 0}}">
         <view class="bucket-item" wx:for="{{customerBarrelAsset}}" wx:key="productId">
           <view class="bucket-info">
-            <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#0EA5E9" /></view>
+            <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#2E4A68" /></view>
             <view class="bucket-detail">
               <text class="bucket-id">{{item.productName}} {{item.productSpec}}</text>
               <text class="bucket-time">持有 {{item.assetQty || 0}} 桶 / 欠桶 {{item.owedQty || 0}}</text>
@@ -70,7 +70,7 @@
       <view class="bucket-list" wx:if="{{records.length > 0}}">
         <view class="bucket-item" wx:for="{{records}}" wx:key="id">
           <view class="bucket-info">
-            <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#0EA5E9" /></view>
+            <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#2E4A68" /></view>
             <view class="bucket-detail">
               <text class="bucket-id">{{item.barrelNo || ('桶号 #' + item.id)}}</text>
               <text class="bucket-time" wx:if="{{item.createTime}}">{{item.createTime}}</text>

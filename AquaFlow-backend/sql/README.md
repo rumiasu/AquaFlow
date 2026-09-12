@@ -46,6 +46,27 @@ mysql -u root -p aquaflow < schema.sql
 
 ---
 
+## 基线之后必须补跑的迁移（已有库升级）
+
+`schema.sql` 是**新建库**的权威基线。对于**已经存在的老库**，以下迁移脚本必须按顺序补跑，
+否则代码依赖的表/列/索引不存在，后端会在运行时崩溃：
+
+| 顺序 | 文件 | 用途 |
+|------|------|------|
+| 1 | `migration_order_transfer.sql` | 转单表 `order_transfer` |
+| 2 | `migration_inventory_record.sql` | 库存流水表 `inventory_record` |
+| 3 | `migration_aq_bucket_right_v1_ddl.sql` + `migration_aq_bucket_right_v1_backfill.sql` | 桶权益模型（lot / over / record_lot） |
+| 4 | `migration_aq009_deposit_timing.sql` | 押金改为支付成功时入账 |
+| 5 | `migration_aq056_payment_fk.sql` | `payment_record` 外键 |
+| 6 | `migration_fix_ticket_account_uk.sql` | 水票账户唯一键修正 |
+| 7 | `migration_v22_drop_station_offline_payment.sql` | 删除 `station.offline_payment_enabled` |
+| 8 | `migration_v23_fix_payment_ticket_uk.sql` | **[DEF-3]** 修正 `uk_ticket_consume`（纳入 `source`）与 `uk_payment_order_status`（降级为普通索引） |
+
+> 以上脚本均为**幂等**（`information_schema` 预检 + `PREPARE`），可重复执行。
+> 执行方式务必带库名：`mysql -uroot <库名> < 脚本.sql`。
+
+---
+
 ## 历史迁移演进（脚本已删除，结论保留）
 
 > 以下迁移脚本**均已在开发库执行完毕**，产出已固化到当前 `schema.sql`。

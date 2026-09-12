@@ -22,9 +22,6 @@ public interface OrderMapper {
             "where o.id = #{id}")
     Orders getById(@Param("id") Long id);
 
-    @Update("update orders set status = #{status}, update_time = NOW() where id = #{id}")
-    void updateStatus(@Param("id") Long id, @Param("status") Integer status);
-
     /**
      * [AQ-015 紧急止血] DB 侧原子追加备注。
      * 转单/分配等流程此前都是「读旧快照 → 内存拼字符串 → orderMapper.update 整列覆盖」，
@@ -59,9 +56,6 @@ public interface OrderMapper {
     @Update("update orders set delivery_station_id = null, delivery_staff_id = null, update_time = NOW() where id = #{id}")
     int clearDispatchStation(@Param("id") Long id);
 
-    @Update("update orders set payment_status = #{paymentStatus}, update_time = NOW() where id = #{id}")
-    void updatePaymentStatus(@Param("id") Long id, @Param("paymentStatus") Integer paymentStatus);
-
     /** 原子接单：仅当status=PENDING时才更新，返回受影响行数(0=失败) */
     @Update("update orders set delivery_staff_id = #{staffId}, status = #{status}, update_time = NOW() where id = #{id} and status = 1")
     int updateStatusIfPENDING(@Param("id") Long id, @Param("status") Integer status, @Param("staffId") Long staffId);
@@ -93,6 +87,75 @@ public interface OrderMapper {
     int dispatchIfStatus(@Param("id") Long id, @Param("targetStationId") Long targetStationId,
                          @Param("expectedStatus") Integer expectedStatus);
 
+    /**
+     * [Phase C] 指派/转让配送员（CAS）：仅当当前状态 = expectedStatus 时写入，返回受影响行数。
+     * <p>替代旧的「读 Orders → setDeliveryStaffId → orderMapper.update(order)」整行选择性写。
+     * 后者是 read-modify-write：两个并发的「分配/转让」会互相覆盖，且会连带把内存里的旧快照
+     * 写回其它列。此处只改一列，并由 status 做乐观锁。</p>
+     */
+    @Update("update orders set delivery_staff_id = #{staffId}, update_time = NOW() " +
+            "where id = #{id} and status = #{expectedStatus}")
+    int setDeliveryStaffIf(@Param("id") Long id, @Param("staffId") Long staffId,
+                           @Param("expectedStatus") Integer expectedStatus);
+
+    /** [Phase C] 指定水站外派（CAS）：履约站=目标站、清空配送员、状态=新状态，仅当当前状态 = expectedStatus。 */
+    @Update("update orders set delivery_station_id = #{targetStationId}, delivery_staff_id = null, " +
+            "status = #{newStatus}, update_time = NOW() " +
+            "where id = #{id} and status = #{expectedStatus}")
+    int outsourceToStationIf(@Param("id") Long id, @Param("targetStationId") Long targetStationId,
+                             @Param("newStatus") Integer newStatus, @Param("expectedStatus") Integer expectedStatus);
+
+    /** [Phase C] 放入抢单池（CAS）：清空履约站与配送员、状态=新状态，仅当当前状态 = expectedStatus。 */
+    @Update("update orders set delivery_station_id = null, delivery_staff_id = null, " +
+            "status = #{newStatus}, update_time = NOW() " +
+            "where id = #{id} and status = #{expectedStatus}")
+    int outsourceToPoolIf(@Param("id") Long id, @Param("newStatus") Integer newStatus,
+                          @Param("expectedStatus") Integer expectedStatus);
+
+    /** [Phase C] 取消外派、召回本站（CAS）：履约站=本站、清空配送员、状态=新状态，仅当当前状态 = expectedStatus。 */
+    @Update("update orders set delivery_station_id = #{stationId}, delivery_staff_id = null, " +
+            "status = #{newStatus}, update_time = NOW() " +
+            "where id = #{id} and status = #{expectedStatus}")
+    int recallToStationIf(@Param("id") Long id, @Param("stationId") Long stationId,
+                          @Param("newStatus") Integer newStatus, @Param("expectedStatus") Integer expectedStatus);
+
+    /**
+     * [Phase C] 指定退回-同意（CAS 守卫在备注标记上）：仅当订单仍带「[指定退回待确认]」标记时才生效，
+     * 原子地把标记替换为「[指定退回-同意]」、履约站改回原归属站、清空配送员、状态=新状态。
+     * <p>并发下两个站长同时点「同意」只有一个能改到（affected=1），另一个为 0。</p>
+     */
+    @Update("update orders set special_note = concat(replace(replace(coalesce(special_note, ''), '[指定退回待确认]', ''), '[外派]', ''), ' [指定退回-同意]'), " +
+            "delivery_station_id = #{stationId}, delivery_staff_id = null, status = #{newStatus}, update_time = NOW() " +
+            "where id = #{id} and special_note like '%[指定退回待确认]%'")
+    int directedReturnApproveIf(@Param("id") Long id, @Param("stationId") Long stationId,
+                                @Param("newStatus") Integer newStatus);
+
+    /** [Phase C] 指定退回-拒绝（CAS 守卫在备注标记上）：标记替换为「[指定退回-拒绝]」、状态回到配送中。 */
+    @Update("update orders set special_note = concat(replace(coalesce(special_note, ''), '[指定退回待确认]', ''), ' [指定退回-拒绝]'), " +
+            "status = #{newStatus}, update_time = NOW() " +
+            "where id = #{id} and special_note like '%[指定退回待确认]%'")
+    int directedReturnRejectIf(@Param("id") Long id, @Param("newStatus") Integer newStatus);
+
+    /**
+     * [Phase C] 配送完成时回写「回桶核对结果」这类纯数据字段（不含状态/支付状态，二者另行 CAS）。
+     * <p>note / exceptionId 为 null 时保留库中旧值（与原 update(Orders) 的选择性更新语义一致）。</p>
+     */
+    @Update("update orders set return_bucket_qty = #{returnBucketQty}, barrel_discrepancy = #{barrelDiscrepancy}, " +
+            "barrel_discrepancy_note = coalesce(#{barrelDiscrepancyNote}, barrel_discrepancy_note), " +
+            "barrel_exception_id = coalesce(#{barrelExceptionId}, barrel_exception_id), update_time = NOW() " +
+            "where id = #{id}")
+    int updateDeliveryOutcome(@Param("id") Long id,
+                              @Param("returnBucketQty") Integer returnBucketQty,
+                              @Param("barrelDiscrepancy") Integer barrelDiscrepancy,
+                              @Param("barrelDiscrepancyNote") String barrelDiscrepancyNote,
+                              @Param("barrelExceptionId") Long barrelExceptionId);
+
+    /**
+     * 整行选择性更新。
+     * <p><b>[Phase C] 禁止 Controller 调用</b>：只能在 Service 内部用于「非状态、非支付状态」的业务字段回写。
+     * 状态请用 {@link #updateStatusIf}，支付状态请用 {@link #updatePaymentStatusIf}，
+     * 配送员请用 {@link #setDeliveryStaffIf}。</p>
+     */
     void update(Orders orders);
 
     List<Orders> list(@Param("stationId") Long stationId,

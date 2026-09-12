@@ -3,6 +3,7 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.dto.InventoryInboundDTO;
+import com.example.aquaflow.dto.ManagerProductDTO;
 import com.example.aquaflow.dto.ProductWithInventoryVO;
 import com.example.aquaflow.entity.Product;
 import com.example.aquaflow.mapper.InventoryMapper;
@@ -12,6 +13,7 @@ import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.CosUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import lombok.extern.slf4j.Slf4j;
@@ -74,38 +76,31 @@ public class ManagerProductController {
 
     @PostMapping
     @Transactional(rollbackFor = Exception.class)
-    public Result<Long> save(@RequestBody Map<String, Object> params) {
+    public Result<Long> save(@RequestBody @Valid ManagerProductDTO.Save params) {
         Long stationId = AuthContext.requireStationId();
 
         // --- 商品基本信息 ---
         Product product = new Product();
-        product.setName((String) params.get("name"));
-        product.setCategory(toInt(params.get("category")));
-        product.setBrand((String) params.get("brand"));
-        product.setSpec((String) params.get("spec"));
+        product.setName(params.getName());
+        product.setCategory(params.getCategory());
+        product.setBrand(params.getBrand());
+        product.setSpec(params.getSpec());
         // 前端传的是 objectName（从 /api/common/upload 返回的 URL 中解析出来的）
         // 或者前端直接传 objectName
-        product.setImageObjectName((String) params.get("imageObjectName"));
-        if (product.getImageObjectName() == null && params.get("imageUrl") != null) {
+        product.setImageObjectName(params.getImageObjectName());
+        if (product.getImageObjectName() == null && params.getImageUrl() != null) {
             // 兼容旧格式：前端可能还在传 imageUrl，提取 objectName
-            String imageUrl = (String) params.get("imageUrl");
-            product.setImageObjectName(extractObjectName(imageUrl));
+            product.setImageObjectName(extractObjectName(params.getImageUrl()));
         }
-        product.setDescription((String) params.get("description"));
-        product.setPrice(toBigDecimal(params.get("price")));
-        product.setDeposit(toBigDecimal(params.get("deposit")));
-        product.setMaxPerOrder(toInt(params.get("maxPerOrder")));
+        product.setDescription(params.getDescription());
+        product.setPrice(params.getPrice());
+        product.setDeposit(params.getDeposit());
+        product.setMaxPerOrder(params.getMaxPerOrder());
         product.setStatus(1);
-        product.setSort(toInt(params.get("sort")) != null ? toInt(params.get("sort")) : 0);
+        product.setSort(params.getSort() != null ? params.getSort() : 0);
         product.setCreateTime(LocalDateTime.now());
         product.setUpdateTime(LocalDateTime.now());
 
-        if (product.getName() == null || product.getName().trim().isEmpty()) {
-            return Result.error("商品名称不能为空");
-        }
-        if (product.getPrice() == null) {
-            return Result.error("价格不能为空");
-        }
         if (product.getDeposit() == null) {
             product.setDeposit(BigDecimal.ZERO);
         }
@@ -113,14 +108,14 @@ public class ManagerProductController {
         productMapper.insert(product);
 
         // --- 同时配置当前水站的库存/上架/水票 ---
-        if (params.containsKey("quantity") || params.containsKey("enabled")
-                || params.containsKey("ticketEnabled") || params.containsKey("ticketPrice")
-                || params.containsKey("priorityDisplay")) {
-            Integer quantity = toInt(params.get("quantity")) != null ? toInt(params.get("quantity")) : 0;
-            Integer enabled = toInt(params.get("enabled")) != null ? toInt(params.get("enabled")) : 1;
-            Integer ticketEnabled = toInt(params.get("ticketEnabled")) != null ? toInt(params.get("ticketEnabled")) : 0;
-            BigDecimal ticketPrice = toBigDecimal(params.get("ticketPrice")) != null ? toBigDecimal(params.get("ticketPrice")) : BigDecimal.ZERO;
-            Integer priorityDisplay = toInt(params.get("priorityDisplay")) != null ? toInt(params.get("priorityDisplay")) : 0;
+        if (params.getQuantity() != null || params.getEnabled() != null
+                || params.getTicketEnabled() != null || params.getTicketPrice() != null
+                || params.getPriorityDisplay() != null) {
+            Integer quantity = params.getQuantity() != null ? params.getQuantity() : 0;
+            Integer enabled = params.getEnabled() != null ? params.getEnabled() : 1;
+            Integer ticketEnabled = params.getTicketEnabled() != null ? params.getTicketEnabled() : 0;
+            BigDecimal ticketPrice = params.getTicketPrice() != null ? params.getTicketPrice() : BigDecimal.ZERO;
+            Integer priorityDisplay = params.getPriorityDisplay() != null ? params.getPriorityDisplay() : 0;
             inventoryMapper.upsertSettings(stationId, product.getId(), quantity, enabled, ticketEnabled, ticketPrice, priorityDisplay);
         }
 
@@ -131,43 +126,42 @@ public class ManagerProductController {
 
     @PutMapping("/{id}")
     @Transactional(rollbackFor = Exception.class)
-    public Result<Void> update(@PathVariable Long id, @RequestBody Map<String, Object> params) {
+    public Result<Void> update(@PathVariable Long id, @RequestBody @Valid ManagerProductDTO.Update params) {
         Product product = productMapper.getById(id);
         if (product == null) {
             return Result.error("商品不存在");
         }
 
-        if (params.get("name") != null) product.setName((String) params.get("name"));
-        if (params.get("category") != null) product.setCategory(toInt(params.get("category")));
-        if (params.get("brand") != null) product.setBrand((String) params.get("brand"));
-        if (params.get("spec") != null) product.setSpec((String) params.get("spec"));
-        if (params.get("imageObjectName") != null) {
-            product.setImageObjectName((String) params.get("imageObjectName"));
-        } else if (params.get("imageUrl") != null) {
+        if (params.getName() != null) product.setName(params.getName());
+        if (params.getCategory() != null) product.setCategory(params.getCategory());
+        if (params.getBrand() != null) product.setBrand(params.getBrand());
+        if (params.getSpec() != null) product.setSpec(params.getSpec());
+        if (params.getImageObjectName() != null) {
+            product.setImageObjectName(params.getImageObjectName());
+        } else if (params.getImageUrl() != null) {
             // 兼容旧格式
-            String imageUrl = (String) params.get("imageUrl");
-            product.setImageObjectName(extractObjectName(imageUrl));
+            product.setImageObjectName(extractObjectName(params.getImageUrl()));
         }
-        if (params.get("description") != null) product.setDescription((String) params.get("description"));
-        if (params.get("price") != null) product.setPrice(toBigDecimal(params.get("price")));
-        if (params.get("deposit") != null) product.setDeposit(toBigDecimal(params.get("deposit")));
-        if (params.get("maxPerOrder") != null) product.setMaxPerOrder(toInt(params.get("maxPerOrder")));
-        if (params.get("status") != null) product.setStatus(toInt(params.get("status")));
-        if (params.get("sort") != null) product.setSort(toInt(params.get("sort")));
+        if (params.getDescription() != null) product.setDescription(params.getDescription());
+        if (params.getPrice() != null) product.setPrice(params.getPrice());
+        if (params.getDeposit() != null) product.setDeposit(params.getDeposit());
+        if (params.getMaxPerOrder() != null) product.setMaxPerOrder(params.getMaxPerOrder());
+        if (params.getStatus() != null) product.setStatus(params.getStatus());
+        if (params.getSort() != null) product.setSort(params.getSort());
         product.setUpdateTime(LocalDateTime.now());
 
         productMapper.update(product);
 
         // 同时更新库存配置
         Long stationId = AuthContext.requireStationId();
-        if (params.containsKey("quantity") || params.containsKey("enabled")
-                || params.containsKey("ticketEnabled") || params.containsKey("ticketPrice")
-                || params.containsKey("priorityDisplay")) {
-            Integer quantity = toInt(params.get("quantity")) != null ? toInt(params.get("quantity")) : 0;
-            Integer enabled = toInt(params.get("enabled")) != null ? toInt(params.get("enabled")) : 1;
-            Integer ticketEnabled = toInt(params.get("ticketEnabled")) != null ? toInt(params.get("ticketEnabled")) : 0;
-            BigDecimal ticketPrice = toBigDecimal(params.get("ticketPrice")) != null ? toBigDecimal(params.get("ticketPrice")) : BigDecimal.ZERO;
-            Integer priorityDisplay = toInt(params.get("priorityDisplay")) != null ? toInt(params.get("priorityDisplay")) : 0;
+        if (params.getQuantity() != null || params.getEnabled() != null
+                || params.getTicketEnabled() != null || params.getTicketPrice() != null
+                || params.getPriorityDisplay() != null) {
+            Integer quantity = params.getQuantity() != null ? params.getQuantity() : 0;
+            Integer enabled = params.getEnabled() != null ? params.getEnabled() : 1;
+            Integer ticketEnabled = params.getTicketEnabled() != null ? params.getTicketEnabled() : 0;
+            BigDecimal ticketPrice = params.getTicketPrice() != null ? params.getTicketPrice() : BigDecimal.ZERO;
+            Integer priorityDisplay = params.getPriorityDisplay() != null ? params.getPriorityDisplay() : 0;
             inventoryMapper.upsertSettings(stationId, id, quantity, enabled, ticketEnabled, ticketPrice, priorityDisplay);
         }
 

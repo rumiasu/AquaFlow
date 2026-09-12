@@ -3,6 +3,10 @@ const { getStationById } = require('../../../api/station')
 const app = getApp()
 
 Page({
+  /** 弹窗内容区吞掉点击，避免冒泡到 overlay 触发「取消提交」
+   *  （wxml 侧已改为 catchtap，这里保留空实现以消除未定义方法告警） */
+  stopPropagation() {},
+
   data: {
     loading: true,
     orderId: null,

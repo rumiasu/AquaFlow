@@ -617,7 +617,7 @@
 }
 
 .asset-warning .popup-title.warning {
-  background: linear-gradient(90deg, #EF4444, #DC2626);
+  background: #DC2626;
   color: #fff;
   border-radius: 16rpx 16rpx 0 0;
   padding: 24rpx;
@@ -732,7 +732,7 @@
 }
 
 .asset-detail-popup .popup-title {
-  background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+  background: var(--primary-color);
   color: #fff;
   border-radius: 24rpx 24rpx 0 0;
   padding: 28rpx 32rpx;

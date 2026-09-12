@@ -1,0 +1,18 @@
+# =============================================================================
+# 集成测试专用 profile（可安全提交：本文件不含任何密钥）。
+#
+# 依据改造执行任务书 Phase A.4 / Phase B：本机无 Docker，Testcontainers 不可用，
+# 故采用任务书认可的降级方案 —— 使用「独立、可重建的测试库」aquaflow_test。
+#
+# 关键安全约定：
+#   * 本文件只把数据源指向 aquaflow_test，绝不写死用户名/密码；
+#     凭据由 local profile（application-local.yml，已 gitignore）继承。
+#   * 测试基类 AbstractIntegrationTest 会在每个用例前 TRUNCATE 当前库全部业务表，
+#     并断言「当前库名必须含 test」，杜绝误清真实库 aquaflow。
+#
+# 运行前置：先执行 scripts/provision-test-db.sh 重建 aquaflow_test（从 sql/schema.sql）。
+# =============================================================================
+spring:
+  datasource:
+    # 允许用 TEST_DB_URL 覆盖（例如 MySQL 不在 127.0.0.1:3306）；默认即指向测试库。
+    url: ${TEST_DB_URL:jdbc:mysql://127.0.0.1:3306/aquaflow_test?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}

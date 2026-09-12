@@ -1,42 +1,56 @@
-const { getQuickOrder } = require('../../api/template')
-const { getMyProducts, getStationProducts, getProducts } = require('../../api/product')
+// 首页 · Step4 锁稿落地（2026-09-11）
+// 六区块：头部卡 / 再来一单 / 配送状态条 / 订水区 / 桶账一行 / 合计下单栏
+// 原则：桶账与金额口径只读后端派生字段，前端不做业务加减（合计栏除外——那是基于后端下发单价的选购预估）。
+const { getStationProducts } = require('../../api/product')
 const { getOrders, getOrderDetail, getMyLatestStation } = require('../../api/order')
 const { getAddresses } = require('../../api/address')
 const { getBarrelSummary, getBarrelSummaryByType } = require('../../api/barrel')
 const { getUnreadNotifications, markAllRead } = require('../../api/notification')
 const { getPublicStations } = require('../../api/station')
 const { storage, stationStorage } = require('../../utils/storage')
-const { getBaseUrl, API } = require('../../config/api')
-const { getAccessToken } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
+
+// 金额展示：整数不带小数点，非整数保留两位（纯展示，不涉及计算口径）
+const fmtMoney = (n) => {
+  const v = Number(n) || 0
+  return (Math.round(v * 100) / 100).toFixed(v % 1 === 0 ? 0 : 2)
+}
 
 Page({
   data: {
     loading: true,
-    submitting: false,
+    statusBarHeight: 44,
     isLogin: false,
-    state: 'guest',
+    state: 'guest', // guest / noStation / claimPending / ready
+    greeting: '你好',
     address: null,
-    addressText: '',
-    products: [],
-    barrelProducts: [],
+    addressHint: '点击设置配送地址',
+    heroImage: '',
+    products: [],       // 原始商品列表（后端下发单价/押金）
+    productsView: [],   // 渲染用：合并了 qty / priceText / depositText
     cart: {},
-    cartCount: 0,
-    note: '',
-    barrelSummary: { heldBuckets: 0, owedBuckets: 0, deliveryBuckets: 0, depositBalance: 0, depositTotal: 0 },
-    hasBarrelModule: false,
-    recentOrders: [],
-    templateItems: [],
-    templateName: '',
-    activeOrders: [],
+    total: { count: 0, waterText: '0', depositText: '0', grandText: '0' },
+    againOrder: null,   // { img, summary, items:[{productId, quantity}] }
+    activeShip: null,   // { id, title, sub }
+    barrelVisible: false,
+    barrelLine1: '',
+    barrelLine2: '',
     currentStation: null,
     currentStationId: null,
     showStationList: false,
     stationList: [],
-    claimPending: false
+    // 桶权益按商品：{ productId: 权益数量 }，来自后端 /api/barrels/summary-by-type
+    // 用途：合计栏计算「缺桶押金」时抵扣已有权益，口径与后端 payments/quote 一致
+    barrelRights: {}
   },
 
-  onLoad() {},
+  onLoad() {
+    try {
+      const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
+      this.setData({ statusBarHeight: info.statusBarHeight || 44 })
+    } catch (e) {}
+    this.setData({ greeting: this.buildGreeting() })
+  },
 
   onShow() {
     const app = getApp()
@@ -44,21 +58,16 @@ Page({
     this.setData({ isLogin })
 
     if (!isLogin) {
-      this.setData({ state: 'guest', products: [], loading: false })
+      this.setData({ state: 'guest', products: [], productsView: [], loading: false })
       return
     }
 
     this.checkStation()
-
-    // 检查是否有未读通知（拒单/临时外派提醒）
     this.checkNotifications()
 
     const selectedAddress = storage.get('selectedAddress')
     if (selectedAddress) {
-      this.setData({
-        address: selectedAddress,
-        addressText: formatAddress(selectedAddress)
-      })
+      this.setData({ address: selectedAddress })
       storage.remove('selectedAddress')
     }
 
@@ -73,12 +82,19 @@ Page({
     this.checkStation().then(() => wx.stopPullDownRefresh())
   },
 
+  buildGreeting() {
+    const h = new Date().getHours()
+    if (h < 6) return '夜深了'
+    if (h < 11) return '早上好，该喝水了'
+    if (h < 14) return '中午好，该喝水了'
+    if (h < 18) return '下午好，该喝水了'
+    return '晚上好'
+  },
+
   async checkStation() {
     this.setData({ loading: true })
     let completed = false
     try {
-      const app = getApp()
-
       // 1. 优先使用本地存储的水站
       if (stationStorage.getId()) {
         this.setData({
@@ -97,10 +113,7 @@ Page({
           const s = stationRes.data
           const station = { id: s.stationId, name: s.stationName || '水站' }
           stationStorage.set(station)
-          this.setData({
-            currentStationId: station.id,
-            currentStation: station
-          })
+          this.setData({ currentStationId: station.id, currentStation: station })
           await this.loadData()
           completed = true
           return
@@ -127,7 +140,6 @@ Page({
       const res = await getUnreadNotifications().catch(() => null)
       if (res && res.code === 0 && res.data && res.data.length > 0) {
         const notifications = res.data
-        // 逐条弹窗提醒
         for (let i = 0; i < notifications.length; i++) {
           const n = notifications[i]
           await new Promise((resolve) => {
@@ -140,7 +152,6 @@ Page({
             })
           })
         }
-        // 全部标记已读
         await markAllRead().catch(() => {})
       }
     } catch (e) {
@@ -186,9 +197,7 @@ Page({
             success: (r) => resolve(r.confirm)
           })
         })
-        if (!confirm) {
-          return
-        }
+        if (!confirm) return
         const dontShow = await new Promise(resolve => {
           wx.showModal({
             title: '提示',
@@ -198,16 +207,12 @@ Page({
             success: (r) => resolve(r.confirm)
           })
         })
-        if (dontShow) {
-          stationStorage.setSwitchNoticeDisabled(true)
-        }
+        if (dontShow) stationStorage.setSwitchNoticeDisabled(true)
       }
 
       wx.showToast({ title: '已选择水站', icon: 'success' })
       this.setData({ showStationList: false })
-      const app = getApp()
       stationStorage.set(station)
-      // 不再清空购物车，各站购物车独立保留
       await this.checkStation()
     } catch (e) {
       console.error('选择水站失败:', e)
@@ -224,291 +229,279 @@ Page({
     this.setData({ showStationList: false })
   },
 
-async loadData() {
+  async loadData() {
     this.setData({ loading: true })
     try {
       const app = getApp()
       const stationId = this.data.currentStationId
 
-      const [quickRes, ordersRes, addressRes, barrelRes, summaryRes, productsRes] = await Promise.all([
-        getQuickOrder(stationId).catch(() => null),
+      const [ordersRes, addressRes, summaryRes, rightsRes, productsRes] = await Promise.all([
         getOrders({}).catch(() => null),
         getAddresses().catch(() => null),
-        getBarrelSummaryByType(stationId).catch(() => null),
         getBarrelSummary(stationId).catch(() => null),
+        stationId ? getBarrelSummaryByType(stationId).catch(() => null) : Promise.resolve(null),
         stationId ? getStationProducts(stationId).catch(() => null) : Promise.resolve(null)
       ])
 
-      let address = null
+      // 地址：只决定头部卡提示与下单参数，不再单独占一张卡
+      let address = this.data.address
       if (addressRes && addressRes.data && addressRes.data.length > 0) {
         const list = addressRes.data
         address = list.find(a => a.isDefault) || list[0]
       }
-      // 展示串：「区 + 街道门牌」，去掉冗长的省市区前缀（未清洗数据也会兜底拆分）
-      const addressText = address ? formatAddress(address) : ''
-      this.setData({ address, addressText })
+      const addressHint = address ? `配送至：${formatAddress(address)}` : '点击设置配送地址'
 
-      let barrelByType = []
-      if (barrelRes && barrelRes.data) {
-        barrelByType = barrelRes.data
-      }
+      const products = (stationId && productsRes && productsRes.data) ? productsRes.data : []
+      // 头部卡美术图 = 本站主力商品（第一个）档案照；没有图则占位
+      const heroImage = products.length > 0 && products[0].imageUrl ? products[0].imageUrl : ''
 
-      let barrelSummary = { heldBuckets: 0, owedBuckets: 0, deliveryBuckets: 0, depositBalance: 0, depositTotal: 0 }
-      if (summaryRes && summaryRes.data) {
-        barrelSummary = summaryRes.data
-      }
-
-      let products = []
-      if (stationId && productsRes && productsRes.data) {
-        products = productsRes.data
-      }
-
+      // 购物车（按水站独立保留）
       const cart = app.getCart(stationId)
-      products.forEach(p => {
-        if (cart[p.id] === undefined) cart[p.id] = 0
-      })
-
-      // 桶资产明细 merge 进商品卡：本站有售可加购，下架/非本站商品仅展示明细
-      const formatMoney = (n) => {
-        const v = Number(n) || 0
-        return (Math.round(v * 100) / 100).toFixed(v % 1 === 0 ? 0 : 2)
-      }
-      const barrelProducts = []
-      ;(barrelByType || []).forEach(b => {
-        const pid = b.productId != null ? b.productId : b.waterTypeId
-        if (pid == null) return
-        const assetQty = b.assetQty != null
-          ? (b.assetQty || 0)
-          : Math.max(0, (b.holdingQty || 0) - (b.confirmedQty || 0))
-        const inTransitQty = b.inTransitQty || 0
-        const depositTotal = b.depositTotal != null
-          ? (b.depositTotal || 0)
-          : (Number(b.deposit) || 0) * assetQty
-        if (assetQty <= 0 && inTransitQty <= 0 && depositTotal <= 0) return
-
-        const p = products.find(x => String(x.id) === String(pid))
-        if (p) {
-          barrelProducts.push({
-            ...p,
-            barrelQty: assetQty,
-            inTransitQty,
-            depositTotal,
-            depositTotalText: formatMoney(depositTotal),
-            hasProduct: true
-          })
-        } else {
-          barrelProducts.push({
-            id: pid,
-            name: b.productName || '未知商品',
-            spec: b.productSpec || '',
-            brand: '',
-            imageUrl: '',
-            price: null,
-            deposit: null,
-            barrelQty: assetQty,
-            inTransitQty,
-            depositTotal,
-            depositTotalText: formatMoney(depositTotal),
-            hasProduct: false
-          })
-        }
-      })
-
-      const hasBarrelModule = barrelProducts.length > 0
-        || (barrelSummary.heldBuckets || 0) > 0
-        || (barrelSummary.deliveryBuckets || 0) > 0
-        || (barrelSummary.owedBuckets || 0) > 0
-        || (barrelSummary.depositBalance || 0) > 0
-
-      const cartCount = app.getCartCount(stationId)
-
-      // products 必须 always setData，即使后面因无地址返回 early
-      this.setData({ products, barrelProducts, cart, cartCount, barrelSummary, hasBarrelModule })
-
-      if (!address) {
-        this.setData({ state: 'noAddress' })
-        return
-      }
-
-      let activeOrders = []
-      if (ordersRes && ordersRes.data) {
-        activeOrders = ordersRes.data.filter(o => o.status === 1 || o.status === 2)
-      }
-      this.setData({ activeOrders })
-
-      let recentOrders = []
-      if (ordersRes && ordersRes.data) {
-        recentOrders = ordersRes.data.slice(0, 3).map(o => {
-          // 水费金额（不含押金）由后端统一计算/兜底下发，前端不再自行做减法
-          const nextAmount = o.waterAmount || 0
-          let displayDate = o.createTime || ''
-          if (displayDate.length >= 10) {
-            const parts = displayDate.substring(0, 10).split('-')
-            if (parts.length >= 3) displayDate = parseInt(parts[1]) + '/' + parseInt(parts[2])
-          }
-          return {
-            ...o,
-            nextAmount: parseFloat(nextAmount) || 0,
-            nextAmountText: (parseFloat(nextAmount) || 0).toFixed(2),
-            displayDate,
-            displayItems: []
-          }
-        })
-        const detailResults = await Promise.all(
-          recentOrders.map(o => getOrderDetail(o.id).catch(() => null))
-        )
-        detailResults.forEach((detail, i) => {
-          if (detail && detail.data && detail.data.items && detail.data.items.length > 0) {
-            recentOrders[i].displayItems = detail.data.items.map(it => ({
-              name: it.productNameSnapshot || '',
-              spec: it.specSnapshot || '',
-              qty: it.quantity || 0,
-              price: it.price || 0
-            }))
-          } else if (detail && detail.data) {
-            const o = detail.data
-            recentOrders[i].displayItems = [{
-              name: o.productNameSnapshot || o.productName || '桶装水',
-              spec: o.specSnapshot || o.productSpec || '',
-              qty: o.quantity || 1,
-              price: o.price || 0
-            }]
-          }
-        })
-      }
-      this.setData({ recentOrders })
-
-      if (activeOrders.length > 0) {
-        this.setData({ state: 'delivering' })
-        return
-      }
-
-      const quick = quickRes && quickRes.data
-      if (quick && quick.items && quick.items.length > 0) {
-        const items = quick.items
-        const hasCartData = items.some(i => {
-          const pid = i.productId || i.waterTypeId
-          return pid && (cart[pid] || 0) > 0
-        })
-        if (!hasCartData) {
-          items.forEach(i => {
-            const pid = i.productId || i.waterTypeId
-            if (pid && cart[pid] !== undefined) {
-              cart[pid] = (cart[pid] || 0) + (i.quantity || 0)
-            }
-          })
-        }
-        if (this._pendingProductId) {
-          const target = products.find(p => p.id === this._pendingProductId)
-          if (target) cart[this._pendingProductId] = (cart[this._pendingProductId] || 0) + 1
-          this._pendingProductId = null
-        }
-        const newCartCount = app.getCartCount(stationId)
-        this.setData({
-          state: 'hasTemplate',
-          templateItems: items,
-          templateName: quick.name || '常用订单',
-          cart,
-          cartCount: newCartCount,
-          note: quick.specialNote || ''
-        })
-        return
-      }
-
-      let cartNew = { ...cart }
+      products.forEach(p => { if (cart[p.id] === undefined) cart[p.id] = 0 })
       if (this._pendingProductId) {
         const target = products.find(p => p.id === this._pendingProductId)
-        if (target) cartNew[this._pendingProductId] = 1
+        if (target) cart[this._pendingProductId] = (cart[this._pendingProductId] || 0) + 1
         this._pendingProductId = null
       }
 
-      this.setData({
-        state: 'noTemplate',
-        cart: cartNew,
-        cartCount: app.getCartCount(stationId),
-        note: ''
-      })
+      // 桶权益按商品（合计栏抵扣缺桶押金用，口径与后端 payments/quote 一致）
+      const barrelRights = this.parseBarrelRights(rightsRes)
+
+      this.setData({ address, addressHint, products, cart, heroImage, barrelRights })
+      this.refreshDerived(barrelRights)
+
+      // 桶账一行：口径全部来自后端 summary（权益/占用/配送中/水站暂存/欠桶/可退押金）
+      const summary = (summaryRes && summaryRes.data) ? summaryRes.data : {}
+      this.renderBarrelLine(summary)
+
+      // 进行中订单 → 配送状态条（最多展示 1 条）
+      const orders = (ordersRes && ordersRes.data) ? ordersRes.data : []
+      const active = orders.find(o => o.status === 1 || o.status === 2)
+      await this.renderActiveShip(active)
+
+      // 最近一笔已送达/已完成订单 → 再来一单
+      const lastDone = orders.find(o => o.status === 3 || o.status === 4)
+      await this.renderAgainOrder(lastDone, products)
+
+      this.setData({ state: 'ready' })
     } finally {
       this.setData({ loading: false })
     }
+  },
+
+  /** 桶账一行：只读后端派生口径，前端不加减 */
+  renderBarrelLine(s) {
+    const held = s.heldBuckets || 0          // 权益
+    const occupied = s.occupiedBuckets != null ? s.occupiedBuckets : held // 占用
+    const delivery = s.deliveryBuckets || 0  // 配送中
+    const storageN = s.storageBuckets || 0   // 水站暂存（over<0，合法状态）
+    const owed = s.owedBuckets || 0          // 欠桶
+    const balance = Number(s.depositBalance) || 0
+
+    const visible = held > 0 || occupied > 0 || delivery > 0 || storageN > 0 || owed > 0 || balance > 0
+    if (!visible) {
+      this.setData({ barrelVisible: false, barrelLine1: '', barrelLine2: '' })
+      return
+    }
+
+    let line1 = `权益 ${held} · 占用 ${occupied}`
+    if (delivery > 0) line1 += ` · 配送中 ${delivery}`
+    if (storageN > 0) line1 += ` · 水站暂存 ${storageN} 个`
+    if (owed > 0) line1 += ` · 欠 ${owed} 个`
+
+    const parts = []
+    if (storageN > 0) parts.push('暂存桶下次订水自动抵扣')
+    if (balance > 0) parts.push(`可退押金 ¥${fmtMoney(balance)}（退桶按买入价退）`)
+
+    this.setData({ barrelVisible: true, barrelLine1: line1, barrelLine2: parts.join(' · ') })
+  },
+
+  /** 配送状态条：进行中订单（待配送1/配送中2），附商品摘要 */
+  async renderActiveShip(order) {
+    if (!order) {
+      this.setData({ activeShip: null })
+      return
+    }
+    const title = order.status === 2 ? '配送中 · 师傅正在送来' : '待配送 · 水站备货中'
+    let sub = ''
+    const detail = await getOrderDetail(order.id).catch(() => null)
+    if (detail && detail.data && detail.data.items && detail.data.items.length > 0) {
+      sub = detail.data.items
+        .map(it => `${it.productNameSnapshot || '桶装水'} ×${it.quantity || 0}`)
+        .join('、')
+    }
+    this.setData({ activeShip: { id: order.id, title, sub } })
+  },
+
+  /** 再来一单：取最近一笔已送达/已完成订单的商品组合；「加入」直接写进步进器，不跳页 */
+  async renderAgainOrder(order, products) {
+    if (!order) {
+      this.setData({ againOrder: null })
+      return
+    }
+    const detail = await getOrderDetail(order.id).catch(() => null)
+    if (!detail || !detail.data || !detail.data.items || detail.data.items.length === 0) {
+      this.setData({ againOrder: null })
+      return
+    }
+    const items = detail.data.items
+      .filter(it => (it.productId != null) && (it.quantity || 0) > 0)
+      .map(it => ({ productId: it.productId, quantity: it.quantity, name: it.productNameSnapshot || '桶装水' }))
+    if (items.length === 0) {
+      this.setData({ againOrder: null })
+      return
+    }
+    const names = items.slice(0, 2).map(it => `${it.name} ×${it.quantity}`)
+    const summary = items.length > 2 ? `${names.join('、')} 等${items.length}件` : names.join('、')
+    // 缩略图取第一件商品的本站档案照（商品可能已下架，下架则占位）
+    const first = products.find(p => String(p.id) === String(items[0].productId))
+    const img = first && first.imageUrl ? first.imageUrl : ''
+    this.setData({ againOrder: { img, summary, items } })
+  },
+
+  /**
+   * 桶权益按商品归集：{ productId: 权益数量 }
+   * 数据源 /api/barrels/summary-by-type（后端 BarrelServiceImpl，驼峰键 assetQty）。
+   * 拿不到就返回空对象 —— 退化成"全额收押金"，与后端 quote 在拿不到资产时的行为一致（不会算少）。
+   */
+  parseBarrelRights(res) {
+    const list = (res && res.data) ? res.data : []
+    const map = {}
+    list.forEach(it => {
+      if (it && it.productId != null) {
+        map[String(it.productId)] = Number(it.assetQty) || 0
+      }
+    })
+    return map
+  },
+
+  /**
+   * 合并 cart → productsView + 合计栏。
+   *
+   * 【押金口径必须与后端 PaymentServiceImpl.quote() 保持一致】
+   *  - 桶装水（category === 1）：只为「缺的桶」付押金 → shortage = max(0, 需要 − 该商品已持有权益)。
+   *    顾客已拥有的桶权益【不重复收押金】，这是"押金 = 买桶权益"的定义决定的。
+   *  - 非桶商品：无权益概念，按数量全额收押金。
+   *
+   * 旧实现无脑 deposit += qty × p.deposit，导致有桶权益的顾客在首页看到虚高押金，
+   * 跳到下单页（走后端 quote）数字又变正确 —— 同一个购物车两个价。已在 2026-09-12 对齐。
+   */
+  refreshDerived(rights) {
+    const { products, cart } = this.data
+    const heldMap = rights || this.data.barrelRights || {}
+    let count = 0, water = 0, deposit = 0
+    const productsView = products.map(p => {
+      const qty = parseInt(cart[p.id]) || 0
+      const unitDeposit = Number(p.deposit) || 0
+      let depositNote = ''
+
+      if (qty > 0) {
+        count += qty
+        water += qty * (Number(p.price) || 0)
+
+        if (Number(p.category) === 1) {
+          // 桶装水：已有权益的桶不再收押金
+          const held = Number(heldMap[String(p.id)]) || 0
+          const shortage = Math.max(0, qty - held)
+          deposit += shortage * unitDeposit
+          if (held > 0 && shortage === 0) {
+            depositNote = `已享 ${held} 个桶权益，无需再付押金`
+          } else if (held > 0) {
+            depositNote = `已享 ${held} 个桶权益，另需 ${shortage} 个桶押金 ¥${fmtMoney(shortage * unitDeposit)}`
+          } else if (unitDeposit > 0) {
+            depositNote = `桶押金 ¥${fmtMoney(unitDeposit)}/个`
+          }
+        } else {
+          deposit += qty * unitDeposit
+          if (unitDeposit > 0) depositNote = `押金 ¥${fmtMoney(unitDeposit)}/个`
+        }
+      }
+
+      return {
+        ...p,
+        qty,
+        depositNote,
+        priceText: fmtMoney(p.price),
+        depositText: fmtMoney(p.deposit)
+      }
+    })
+
+    const waterText = fmtMoney(water)
+    const depositText = fmtMoney(deposit)
+    this.setData({
+      productsView,
+      total: {
+        count,
+        waterText,
+        depositText,
+        grandText: fmtMoney(water + deposit),
+        // wxml 不能做三元拼接，文案在 JS 里算好
+        detailText: count === 0
+          ? '选中数量后自动合计'
+          : (deposit > 0 ? `（水款 ¥${waterText} + 押金 ¥${depositText}）` : `（水款 ¥${waterText}）`)
+      }
+    })
   },
 
   onAddressTap() {
     wx.navigateTo({ url: '/pages/address/list?from=home' })
   },
 
-  onBannerTap() {
-    const { products, cart, address, currentStationId } = this.data
-    const items = this.collectCartItems()
-    if (!address) {
-      wx.showToast({ title: '请先选择配送地址', icon: 'none' })
-      return
-    }
-    if (items.length === 0) {
-      if (products && products.length > 0) {
-        const p = products[0]
-        wx.navigateTo({
-          url: `/pages/order/create?productId=${p.id}&stationId=${currentStationId || ''}`
-        })
+  onAgainTap() {
+    const { againOrder, products } = this.data
+    if (!againOrder) return
+    const app = getApp()
+    const stationId = this.data.currentStationId
+    const cart = app.getCart(stationId)
+    let added = 0
+    againOrder.items.forEach(it => {
+      const target = products.find(p => String(p.id) === String(it.productId))
+      if (target) { // 已下架/非本站商品不写入，避免下出幽灵商品
+        cart[it.productId] = (parseInt(cart[it.productId]) || 0) + it.quantity
+        added += it.quantity
       }
+    })
+    if (added === 0) {
+      wx.showToast({ title: '原商品已下架', icon: 'none' })
       return
     }
-    this.onSubmit()
+    this.setData({ cart })
+    this.refreshDerived()
+    wx.showToast({ title: '已加入订水清单', icon: 'none' })
   },
 
-  onGoOrder() {
-    const { products, currentStationId } = this.data
-    if (!this.data.address) {
-      wx.showToast({ title: '请先选择配送地址', icon: 'none' })
-      return
+  onViewActiveOrder() {
+    const { activeShip } = this.data
+    if (activeShip) {
+      wx.navigateTo({ url: `/pages/order/detail?id=${activeShip.id}` })
     }
-    const items = this.collectCartItems()
-    if (items.length === 0) {
-      if (products && products.length > 0) {
-        const p = products[0]
-        wx.navigateTo({
-          url: `/pages/order/create?productId=${p.id}&stationId=${currentStationId || ''}`
-        })
-      } else {
-        wx.showToast({ title: '暂无商品可选', icon: 'none' })
-      }
-      return
-    }
-    this.onSubmit()
-  },
-
-  onGoOrderList() {
-    wx.switchTab({ url: '/pages/order/list' })
-  },
-
-  // 搜索页此前已实现但没有任何入口，用户根本进不去 —— 这里补上首页搜索框
-  onSearchTap() {
-    wx.navigateTo({ url: '/pages/home/search' })
-  },
-
-  onGoTicket() {
-    wx.navigateTo({ url: '/pages/ticket/index' })
   },
 
   onGoBarrel() {
     wx.navigateTo({ url: '/pages/barrel/index' })
   },
 
-  onTemplateSubmit() {
-    if (!this.data.address) {
-      wx.showToast({ title: '请选择配送地址', icon: 'none' })
-      return
-    }
-    this.onSubmit()
+  onGoShop() {
+    wx.navigateTo({ url: '/pages/shop/index' })
+  },
+
+  onGoSearch() {
+    // 搜索统一到商城页（shop 的搜索范围 = 本站商品，与"只能买本站商品"的业务一致）。
+    // 原先指向 pages/home/search（服务端全量搜索，会搜出别站商品、点进去无法下单），
+    // 该页已于 2026-09-12 删除合并。focus=1 让商城页自动聚焦输入框，少点一步。
+    wx.navigateTo({ url: '/pages/shop/index?focus=1' })
+  },
+
+  onLogin() {
+    wx.navigateTo({ url: '/pages/login/index' })
   },
 
   collectCartItems() {
     const app = getApp()
     const stationId = this.data.currentStationId
     const cart = app.getCart(stationId)
-    const { products } = this.data
     const items = []
-    products.forEach(p => {
+    this.data.products.forEach(p => {
       const qty = parseInt(cart[p.id]) || 0
       if (qty > 0) items.push({ productId: p.id, quantity: qty })
     })
@@ -524,76 +517,31 @@ async loadData() {
     if (type === 'add') qty++
     else if (type === 'minus' && qty > 0) qty--
     cart[id] = qty
-    const cartCount = app.getCartCount(stationId)
-    this.setData({ cart, cartCount })
-  },
-
-  onCartQtyInput(e) {
-    const { id } = e.currentTarget.dataset
-    const app = getApp()
-    const stationId = this.data.currentStationId
-    const qty = Math.max(0, parseInt(e.detail.value) || 0)
-    const cart = app.getCart(stationId)
-    cart[id] = qty
-    const cartCount = app.getCartCount(stationId)
-    this.setData({ cart, cartCount })
-  },
-
-  onNoteInput(e) {
-    this.setData({ note: e.detail.value })
-  },
-
-  onEditTemplate() {
-    wx.navigateTo({ url: '/pages/template/index' })
-  },
-
-  onGoShop() {
-    wx.navigateTo({ url: '/pages/shop/index' })
-  },
-
-  onGoProduct(e) {
-    const { id } = e.currentTarget.dataset
-    wx.navigateTo({ url: `/pages/order/create?productId=${id}&stationId=${this.data.currentStationId || ''}` })
-  },
-
-  onLogin() {
-    wx.navigateTo({ url: '/pages/login/index' })
-  },
-
-  onViewOrder(e) {
-    const { id } = e.currentTarget.dataset
-    wx.navigateTo({ url: `/pages/order/detail?id=${id}` })
-  },
-
-  onReorder(e) {
-    const { id } = e.currentTarget.dataset
-    wx.navigateTo({ url: `/pages/order/create?reorderId=${id}` })
-  },
-
-  onGoTemplates() {
-    wx.navigateTo({ url: '/pages/template/index' })
+    this.setData({ cart })
+    this.refreshDerived()
   },
 
   onSubmit() {
-    const { address } = this.data
-    const items = this.collectCartItems()
-
-    if (!address) {
-      wx.showToast({ title: '请选择配送地址', icon: 'none' })
-      return
-    }
-    if (items.length === 0) {
+    const { address, total } = this.data
+    if (total.count === 0) {
       wx.showToast({ title: '请选择商品', icon: 'none' })
       return
     }
-
-    const itemsParam = items.map(it => ({
-      productId: it.productId,
-      quantity: it.quantity
-    }))
-
+    if (!address) {
+      wx.showModal({
+        title: '还没有配送地址',
+        content: '先设置一个收货地址，水才能送到家',
+        confirmText: '去设置',
+        success: (r) => {
+          if (r.confirm) wx.navigateTo({ url: '/pages/address/list?from=home' })
+        }
+      })
+      return
+    }
+    const items = this.collectCartItems()
+    const itemsParam = items.map(it => ({ productId: it.productId, quantity: it.quantity }))
     wx.navigateTo({
-      url: `/pages/order/create?items=${encodeURIComponent(JSON.stringify(itemsParam))}&addressId=${address.id}&addressDetail=${encodeURIComponent(address.detail || '')}&specialNote=${encodeURIComponent(this.data.note || '')}&source=3&stationId=${this.data.currentStationId || ''}`
+      url: `/pages/order/create?items=${encodeURIComponent(JSON.stringify(itemsParam))}&addressId=${address.id}&addressDetail=${encodeURIComponent(address.detail || '')}&source=3&stationId=${this.data.currentStationId || ''}`
     })
   }
 })

@@ -68,7 +68,7 @@
 
     <!-- 购买水票按钮 -->
     <view class="buy-ticket-section">
-      <view class="buy-ticket-btn" bindtap="onBuyTicket">
+      <view class="buy-ticket-btn" bindtap="onShowPurchase">
         <text>购买水票</text>
       </view>
     </view>
@@ -76,7 +76,7 @@
 
   <!-- 购买水票弹窗 -->
   <view class="modal-mask" wx:if="{{showPurchase}}" bindtap="onClosePurchase"></view>
-  <view class="modal-body {{showPurchase ? 'show' : ''}}" wx:if="{{showPurchase}}" catchtap="">
+  <view class="modal-body {{showPurchase ? 'show' : ''}}" wx:if="{{showPurchase}}" catchtap="stopPropagation">
     <view class="modal-header">
       <text class="modal-title">购买水票</text>
       <text class="modal-close" bindtap="onClosePurchase">×</text>
@@ -91,7 +91,7 @@
           wx:for="{{buyProducts}}"
           wx:key="id"
           data-id="{{item.id}}"
-          bindtap="onSelectProduct"
+          bindtap="onBuyProductSelect"
         >
           <text class="product-name">{{item.name}}</text>
           <text class="product-price" wx:if="{{item.price}}">¥{{item.price}}/张</text>
@@ -101,11 +101,11 @@
       <!-- 数量 -->
       <text class="modal-label">购买数量</text>
       <view class="qty-row">
-        <view class="qty-btn {{buyForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onQtyChange" data-type="minus">
+        <view class="qty-btn {{buyForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onBuyQtyStep" data-type="minus">
           <text>-</text>
         </view>
-        <input class="qty-input" type="number" value="{{buyForm.quantity}}" bindinput="onQtyInput" />
-        <view class="qty-btn" bindtap="onQtyChange" data-type="add">
+        <input class="qty-input" type="number" value="{{buyForm.quantity}}" bindinput="onBuyQuantityInput" />
+        <view class="qty-btn" bindtap="onBuyQtyStep" data-type="add">
           <text>+</text>
         </view>
       </view>
@@ -118,7 +118,7 @@
           wx:for="{{buyMethods}}"
           wx:key="id"
           data-id="{{item.id}}"
-          bindtap="onSelectMethod"
+          bindtap="onBuyPaymentMethodSelect"
         >
           <view class="method-info">
             <text class="method-name">{{item.name}}</text>
@@ -133,7 +133,7 @@
       <view class="modal-btn cancel" bindtap="onClosePurchase">
         <text>取消</text>
       </view>
-      <view class="modal-btn confirm {{submitting ? 'disabled' : ''}}" bindtap="onSubmitPurchase">
+      <view class="modal-btn confirm {{submitting ? 'disabled' : ''}}" bindtap="onBuySubmit">
         <text>{{submitting ? '购买中...' : '确认购买 ¥' + buyForm.totalPrice}}</text>
       </view>
     </view>

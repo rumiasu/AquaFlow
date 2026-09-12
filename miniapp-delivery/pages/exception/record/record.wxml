@@ -98,7 +98,7 @@
 
   <!-- 确认弹窗 -->
   <view wx:if="{{showConfirm}}" class="modal-overlay" bindtap="onCancelSubmit">
-    <view class="modal" bindtap="stopPropagation">
+    <view class="modal" catchtap="stopPropagation">
       <view class="modal-title">确认提交</view>
       <view class="modal-content">{{confirmMsg}}</view>
       <view class="modal-actions">

@@ -8,6 +8,10 @@ import com.example.aquaflow.entity.PaymentRecord;
 import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.mapper.PaymentRecordMapper;
+import com.example.aquaflow.dto.PaymentCreateDTO;
+import com.example.aquaflow.dto.PaymentQuoteDTO;
+import com.example.aquaflow.dto.PaymentQuoteItemDTO;
+import com.example.aquaflow.dto.PaymentRefundDTO;
 import com.example.aquaflow.service.PaymentService;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.StationUtil;
@@ -16,8 +20,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -68,19 +76,21 @@ public class PaymentController {
 
     /** 服务端支付试算（下单前展示，金额以服务端为准） */
     @PostMapping("/quote")
-    public Result<Map<String, Object>> quote(@RequestBody Map<String, Object> body) {
+    public Result<Map<String, Object>> quote(@RequestBody @Valid PaymentQuoteDTO dto) {
         Long customerId = AuthContext.requireCustomerId();
-        Long stationId = body.get("stationId") != null ? Long.valueOf(body.get("stationId").toString()) : null;
-        Integer paymentMethod = body.get("paymentMethod") != null ? Integer.valueOf(body.get("paymentMethod").toString()) : null;
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("items");
-        return Result.success(paymentService.quote(customerId, stationId, paymentMethod, items));
+        List<Map<String, Object>> itemMaps = dto.getItems().stream().map(i -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("productId", i.getProductId());
+            m.put("quantity", i.getQuantity());
+            return m;
+        }).collect(Collectors.toList());
+        return Result.success(paymentService.quote(customerId, dto.getStationId(), dto.getPaymentMethod(), itemMaps));
     }
 
     /** 创建支付记录（金额/新增桶数一律以服务端重算为准） */
     @PostMapping
-    public Result<PaymentRecord> create(@RequestBody Map<String, Object> body) {
-        Long orderId = Long.valueOf(body.get("orderId").toString());
+    public Result<PaymentRecord> create(@RequestBody @Valid PaymentCreateDTO dto) {
+        Long orderId = dto.getOrderId();
 
         // 客户调用时：customerId 强制取自登录态，且订单必须属于本人，防止越权修改他人余额/水票
         Long customerId;
@@ -105,14 +115,14 @@ public class PaymentController {
             customerId = order.getCustomerId();
         }
 
-        BigDecimal amount = body.get("amount") != null ? new BigDecimal(body.get("amount").toString()) : BigDecimal.ZERO;
-        BigDecimal waterAmount = body.get("waterAmount") != null ? new BigDecimal(body.get("waterAmount").toString()) : BigDecimal.ZERO;
-        BigDecimal barrelDeposit = body.get("barrelDeposit") != null ? new BigDecimal(body.get("barrelDeposit").toString()) : BigDecimal.ZERO;
-        Integer excessBarrels = body.get("excessBarrels") != null ? Integer.valueOf(body.get("excessBarrels").toString()) : 0;
-        Integer paymentMethod = Integer.valueOf(body.get("paymentMethod").toString());
-        Long ticketProductId = body.get("ticketProductId") != null ? Long.valueOf(body.get("ticketProductId").toString()) : null;
-        Integer ticketQty = body.get("ticketQty") != null ? Integer.valueOf(body.get("ticketQty").toString()) : null;
-        String note = (String) body.get("note");
+        BigDecimal amount = dto.getAmount() != null ? dto.getAmount() : BigDecimal.ZERO;
+        BigDecimal waterAmount = dto.getWaterAmount() != null ? dto.getWaterAmount() : BigDecimal.ZERO;
+        BigDecimal barrelDeposit = dto.getBarrelDeposit() != null ? dto.getBarrelDeposit() : BigDecimal.ZERO;
+        Integer excessBarrels = dto.getExcessBarrels() != null ? dto.getExcessBarrels() : 0;
+        Integer paymentMethod = dto.getPaymentMethod();
+        Long ticketProductId = dto.getTicketProductId();
+        Integer ticketQty = dto.getTicketQty();
+        String note = dto.getNote();
         return Result.success(paymentService.createPayment(orderId, customerId, amount, waterAmount, barrelDeposit, excessBarrels, paymentMethod, ticketProductId, ticketQty, note));
     }
 
@@ -181,10 +191,10 @@ public class PaymentController {
     /** 退款 */
     @RequireRole({"STATION_MANAGER"})
     @PutMapping("/{id}/refund")
-    public Result refund(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public Result refund(@PathVariable Long id, @RequestBody @Valid PaymentRefundDTO dto) {
         Result<Void> check = requirePaymentOrderStation(id);
         if (check != null) return check;
-        paymentService.refundPayment(id, body.get("note"));
+        paymentService.refundPayment(id, dto.getNote());
         return Result.success();
     }
 

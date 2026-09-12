@@ -11,9 +11,15 @@ Page({
     currentStation: null,
     stationList: [],
     showStationPicker: false,
-    cartCount: 0
+    cartCount: 0,
+    // 由首页「搜索 ›」入口带参进入时自动聚焦搜索框（/pages/shop/index?focus=1）
+    focusSearch: false
   },
-  onLoad() {},
+  onLoad(options) {
+    if (options && (options.focus === '1' || options.focus === 'true')) {
+      this.setData({ focusSearch: true })
+    }
+  },
   onShow() {
     const app = getApp()
     this.setData({ isLogin: app.globalData.isLogin })

@@ -4,7 +4,7 @@
   <block wx:elif="{{info}}">
     <view class="company-card">
       <view class="company-name-row">
-        <view class="company-icon"><icon name="building" size="44rpx" color="#0EA5E9" /></view>
+        <view class="company-icon"><icon name="building" size="44rpx" color="#2E4A68" /></view>
         <text class="company-name">{{info.companyName}}</text>
       </view>
 

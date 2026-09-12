@@ -59,7 +59,7 @@
 }
 
 .edit-btn {
-  background-color: #0EA5E9;
+  background-color: #2E4A68;
   color: #fff;
   border-radius: 16rpx;
   padding: 22rpx 0;
@@ -88,7 +88,7 @@
 }
 
 .btn.confirm {
-  background-color: #0EA5E9;
+  background-color: #2E4A68;
   color: #fff;
 }
 

@@ -61,6 +61,21 @@ public class BarrelLedgerService {
         return (o == null || o.getOverQty() == null) ? 0 : o.getOverQty();
     }
 
+    /**
+     * 加锁读 over（当前读），仅用于并发写入路径。
+     *
+     * <p>与 {@link #overQty} 的区别：MySQL 默认 REPEATABLE READ 隔离级别下，
+     * 普通 SELECT 读的是事务开始时的快照；并发的第二个事务即使 wait 到第一个提交、
+     * 拿到了行锁，普通 SELECT 依然返回旧值，于是校验形同虚设。
+     * {@code SELECT ... FOR UPDATE} 属于当前读，必然返回最新已提交值。</p>
+     *
+     * <p>调用前应先 {@code lockOrCreate} 确保行存在（FOR UPDATE 对不存在的行不加锁）。</p>
+     */
+    private int lockedOverQty(Long customerId, Long stationId, Long productId) {
+        CustomerBarrelOver o = overMapper.getForUpdate(customerId, stationId, productId);
+        return (o == null || o.getOverQty() == null) ? 0 : o.getOverQty();
+    }
+
     /** 占用：顾客手上实际有几个桶（派生值） */
     public int occupiedQty(Long customerId, Long stationId, Long productId) {
         return rightQty(customerId, stationId, productId) + overQty(customerId, stationId, productId);
@@ -128,10 +143,15 @@ public class BarrelLedgerService {
         }
 
         // 3) 按商品逐个结算 over
-        Set<Long> productIds = new LinkedHashSet<>();
-        productIds.addAll(deliveredByProduct.keySet());
-        productIds.addAll(returnedByProduct == null ? Collections.emptySet() : returnedByProduct.keySet());
-        productIds.addAll(rightPurchaseByProduct.keySet());
+        Set<Long> productIdSet = new LinkedHashSet<>();
+        productIdSet.addAll(deliveredByProduct.keySet());
+        productIdSet.addAll(returnedByProduct == null ? Collections.emptySet() : returnedByProduct.keySet());
+        productIdSet.addAll(rightPurchaseByProduct.keySet());
+        productIdSet.remove(null);
+
+        // 与 returnEmpty 保持同一加锁顺序（按 productId 升序），避免并发事务互相等待成环。
+        List<Long> productIds = new ArrayList<>(productIdSet);
+        productIds.sort(Comparator.naturalOrder());
 
         DeliveryOutcome outcome = new DeliveryOutcome();
         for (Long pid : productIds) {
@@ -140,8 +160,12 @@ public class BarrelLedgerService {
             int rightPurchase = rightPurchaseByProduct.getOrDefault(pid, 0);
             if (returned < 0) throw new BusinessException("回收空桶数不能为负数");
 
+            // [DEF-4] 先对 over 行加排他锁再读取/校验：并发送达结算在同一客户同一商品上
+            // 同样存在「都读到旧 occupied → 都通过校验 → 重复冲减」的窗口，与纯还桶同类。
+            overMapper.lockOrCreate(customerId, stationId, pid);
+
             int rightBefore = rightQty(customerId, stationId, pid);
-            int overBefore = overQty(customerId, stationId, pid);
+            int overBefore = lockedOverQty(customerId, stationId, pid);
             int occupiedBefore = rightBefore + overBefore;
 
             // 唯一校验：物理上限。over 可以为负，这里不做任何非负约束。
@@ -170,11 +194,22 @@ public class BarrelLedgerService {
         return outcome;
     }
 
-    /** 单价优先级：配送中表下单时快照 > 订单明细 deposit 快照 > 当前商品押金价 */
+    /**
+     * 单价优先级：配送中表下单时快照 &gt; 订单明细 deposit 快照 &gt; 当前商品押金价。
+     *
+     * <p>[DEF-2] 只有<b>大于 0</b> 的候选值才算有效：桶装水(category=1)的
+     * {@code order_item.deposit} 被刻意记 0（押金按下单缺桶数单独收，不走明细），
+     * 若把 0 当成有效回退值，押金条单价会被写成 0 → 退桶退 ¥0。
+     * 因此 0 一律视为「无快照」，继续向后回退到商品当前押金价。</p>
+     */
     private BigDecimal resolveUnitPrice(CustomerBarrelInTransit t, Map<Long, BigDecimal> depositByProduct) {
-        if (t.getUnitPrice() != null) return t.getUnitPrice();
+        if (t.getUnitPrice() != null && t.getUnitPrice().compareTo(BigDecimal.ZERO) > 0) {
+            return t.getUnitPrice();
+        }
         BigDecimal d = depositByProduct.get(t.getProductId());
-        if (d != null) return d;
+        if (d != null && d.compareTo(BigDecimal.ZERO) > 0) {
+            return d;
+        }
         Product p = productMapper.getById(t.getProductId());
         return (p != null && p.getDeposit() != null) ? p.getDeposit() : BigDecimal.ZERO;
     }
@@ -187,7 +222,13 @@ public class BarrelLedgerService {
         BigDecimal price = unitPrice == null ? BigDecimal.ZERO : unitPrice;
 
         CustomerBarrelLot lot = new CustomerBarrelLot();
-        lot.setLotNo("TMP-" + UUID.randomUUID()); // 插入后按 id 生成正式凭证号
+        // [DEF-1] lot_no 列为 varchar(32)，占位号必须 ≤32 字符。
+        // 旧实现写 "TMP-" + UUID(36 字符含连字符) = 40 字符，在 STRICT_TRANS_TABLES 下
+        // 直接报 ERROR 1406 Data too long，导致「配送完成建押金条」整条链路不可用
+        // （首次购买桶装水的顾客拿不到桶权益、后续无法退桶退款）。
+        // 取 UUID 去掉连字符后的前 24 位十六进制（96 bit 熵）作占位，长度 28，足够唯一；
+        // 插入后立即用自增 id 生成正式凭证号 DPyyyymmdd-000001（15 字符）。
+        lot.setLotNo("TMP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 24));
         lot.setCustomerId(customerId);
         lot.setStationId(stationId);
         lot.setProductId(productId);
@@ -244,19 +285,37 @@ public class BarrelLedgerService {
     public List<OverChange> returnEmpty(Long customerId, Long stationId,
                                         List<ItemQty> items, Long operatorId) {
         if (items == null || items.isEmpty()) throw new BusinessException("请填写还桶数量");
+
+        // 按 productId 排序后再逐个加锁：并发事务的加锁顺序一致，避免互相等待成环（死锁）。
+        List<ItemQty> ordered = new ArrayList<>(items);
+        ordered.sort(Comparator.comparing(ItemQty::getProductId,
+                Comparator.nullsFirst(Comparator.naturalOrder())));
+
         List<OverChange> changes = new ArrayList<>();
-        for (ItemQty it : items) {
+        for (ItemQty it : ordered) {
             if (it.getProductId() == null) throw new BusinessException("还桶必须指定商品");
             int qty = it.getQty() == null ? 0 : it.getQty();
             if (qty <= 0) continue;
 
-            int occupied = occupiedQty(customerId, stationId, it.getProductId());
+            // [DEF-4] 先加排他行锁，再用【当前读】取 over，最后才校验。
+            // 旧实现是「先读 occupied → 再原子 adjustOver」，两个并发请求都读到 occupied=1、
+            // 都通过 qty(1) <= occupied(1)，各自把 over 冲成 -1 → 最终 over=-2，占用=权益(1)+(-2)=-1，
+            // 物理上不可能，桶账被冲穿。
+            //
+            // 注意：只加锁还不够。MySQL 默认 REPEATABLE READ，普通 SELECT 走事务快照；
+            // 第二个事务即使等到第一个提交后拿到了锁，普通 SELECT 读到的仍是它自己快照里的旧值
+            // （表现为两个请求都上报 overBefore=0、双双通过）。
+            // 所以必须用加锁读（getForUpdate / SELECT ... FOR UPDATE，当前读）取最新已提交值。
+            Long pid = it.getProductId();
+            overMapper.lockOrCreate(customerId, stationId, pid);
+
+            int before = lockedOverQty(customerId, stationId, pid);
+            int occupied = rightQty(customerId, stationId, pid) + before;
             if (qty > occupied) {
                 throw new BusinessException("交回数(" + qty + ")超过该客户当前持有数(" + occupied + ")");
             }
-            int before = overQty(customerId, stationId, it.getProductId());
-            overMapper.adjustOver(customerId, stationId, it.getProductId(), -qty);
-            changes.add(new OverChange(it.getProductId(), qty, before, before - qty, operatorId));
+            overMapper.adjustOver(customerId, stationId, pid, -qty);
+            changes.add(new OverChange(pid, qty, before, before - qty, operatorId));
         }
         if (changes.isEmpty()) throw new BusinessException("还桶数量必须大于 0");
         return changes;

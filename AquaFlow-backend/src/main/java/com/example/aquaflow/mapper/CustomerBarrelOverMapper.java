@@ -51,4 +51,23 @@ public interface CustomerBarrelOverMapper {
     CustomerBarrelOver getForUpdate(@Param("customerId") Long customerId,
                                     @Param("stationId") Long stationId,
                                     @Param("productId") Long productId);
+
+    /**
+     * [DEF-4] 确保 over 行存在并对其加<b>排他行锁</b>，用于把同一
+     * (customer, station, product) 的并发桶账写入串行化。
+     *
+     * <p><b>为什么必须是 upsert 而不是 SELECT ... FOR UPDATE：</b>
+     * {@code SELECT ... FOR UPDATE} 在行不存在时不产生任何锁（无间隙锁兜底），
+     * 于是「首次还桶」这种行尚未建立的场景仍会两端并发通过校验。
+     * 这里用 {@code INSERT ... ON DUPLICATE KEY UPDATE}：行不存在则插入 0 并持有排他锁，
+     * 行存在则同样持排他锁，两种情况都能把并发事务挡在门外。</p>
+     *
+     * <p>调用方必须处于事务中（{@code @Transactional}），锁才会持续到事务提交。</p>
+     */
+    @Insert("insert into customer_barrel_over(customer_id, station_id, product_id, over_qty, create_time, update_time) " +
+            "values(#{customerId}, #{stationId}, #{productId}, 0, NOW(), NOW()) " +
+            "on duplicate key update over_qty = over_qty")
+    int lockOrCreate(@Param("customerId") Long customerId,
+                     @Param("stationId") Long stationId,
+                     @Param("productId") Long productId);
 }

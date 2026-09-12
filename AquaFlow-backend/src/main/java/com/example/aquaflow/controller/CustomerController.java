@@ -6,8 +6,10 @@ import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.CustomerStationConfig;
 import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.service.CustomerService;
+import com.example.aquaflow.dto.CustomerOfflinePaymentDTO;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.vo.CustomerProfileVO;
+import jakarta.validation.Valid;
 import com.example.aquaflow.vo.CustomerStationAssetVO;
 import com.example.aquaflow.vo.CustomerStationVO;
 import lombok.extern.slf4j.Slf4j;
@@ -94,9 +96,9 @@ public class CustomerController {
     /** 设置客户在当前站长水站的线下支付授权（仅当水站总开关开启时生效） */
     @RequireRole({"STATION_MANAGER"})
     @PutMapping("/{id}/offline-payment")
-    public Result updateOfflinePaymentConfig(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+    public Result updateOfflinePaymentConfig(@PathVariable Long id, @RequestBody @Valid CustomerOfflinePaymentDTO dto) {
         Long stationId = AuthContext.requireStationId();
-        Integer enabled = body.get("offlinePaymentEnabled") != null ? Integer.valueOf(body.get("offlinePaymentEnabled").toString()) : 0;
+        Integer enabled = dto.getOfflinePaymentEnabled();
         customerService.updateOfflinePaymentConfig(id, stationId, enabled);
         return Result.success();
     }

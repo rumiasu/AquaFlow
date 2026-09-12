@@ -37,7 +37,7 @@
 
     <view class="address-card" bindtap="onAddressTap">
       <view class="address-icon-wrap">
-        <icon name="location" size="36rpx" color="#0EA5E9" />
+        <icon name="location" size="36rpx" color="#2E4A68" />
       </view>
       <view class="address-info" wx:if="{{address}}">
         <view class="address-top">
@@ -65,12 +65,12 @@
               wx:for="{{payMethods}}" wx:key="id"
               bindtap="onSelectMethod" data-id="{{item.id}}" data-enabled="{{item.enabled}}">
           <icon name="{{item.id === 1 ? 'bill' : (item.id === 2 ? 'wallet' : 'ticket')}}"
-                size="40rpx" color="{{item.enabled ? (item.id === 1 ? '#8B5CF6' : (item.id === 2 ? '#0EA5E9' : '#F59E0B')) : '#94A3B8'}}" />
+                size="40rpx" color="{{item.enabled ? (item.id === 1 ? '#8B5CF6' : (item.id === 2 ? '#2E4A68' : '#F59E0B')) : '#94A3B8'}}" />
           <view class="method-info">
             <text class="method-name">{{item.name}}</text>
             <text class="method-desc">{{item.desc}}</text>
           </view>
-          <icon name="check" size="36rpx" color="#0EA5E9" wx:if="{{selectedMethod === item.id}}" />
+          <icon name="check" size="36rpx" color="#2E4A68" wx:if="{{selectedMethod === item.id}}" />
         </view>
       </view>
     </view>
@@ -95,8 +95,11 @@
     </view>
   </block>
 
-  <!-- 支付方式确认弹窗 -->
-  <view class="method-popup {{showOfflineConfirm ? 'show' : ''}}" wx:if="{{selectedMethod === 3 || showOfflineConfirm}}">
+  <!-- 支付方式确认弹窗
+       只由 showOfflineConfirm 控制（现金/货到付款在 onSumbit 里置 true）。
+       旧写法 `selectedMethod === 3 || showOfflineConfirm` 是旧映射残留：现在 3 = 水票、2 = 现金，
+       会导致「选水票付款」也弹出确认货到付款弹窗。 -->
+  <view class="method-popup {{showOfflineConfirm ? 'show' : ''}}" wx:if="{{showOfflineConfirm}}">
     <view class="popup-mask" bindtap="onOfflineConfirmCancel"></view>
     <view class="popup-content">
       <view class="popup-title">确认货到付款</view>

@@ -36,6 +36,17 @@ Page({
     return isManager
   },
 
+  /** 无权限兜底卡片的「返回配送页」按钮
+   *  coordination 本身是 tabBar 页，回到另一个 tabBar 页必须用 switchTab
+   *  （navigateBack 对 tabBar 页不可靠）。原先 wxml 绑了此方法但 js 未定义 →
+   *  点了没反应，配送员会被卡在「您无权限」页出不去。 */
+  onGoBack() {
+    wx.switchTab({
+      url: '/pages/home/index',
+      fail: () => wx.reLaunch({ url: '/pages/home/index' })
+    })
+  },
+
   onLoad() {
     if (!this.checkRole()) {
       wx.switchTab({ url: '/pages/home/index' })

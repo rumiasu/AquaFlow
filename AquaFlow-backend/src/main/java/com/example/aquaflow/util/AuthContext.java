@@ -82,6 +82,16 @@ public class AuthContext {
         return null;
     }
 
+    /**
+     * 当前会话的"待绑定 openid"（仅 UNSELECTED 会话有值，来自 JWT 的 pendingOpenid claim）。
+     * <p>供 {@code /api/auth/select-role} 建员工记录时使用 —— 它必须在签发 token 时就签进 JWT，
+     * 不能由客户端在请求体里回传，否则等于让调用方自报身份（可抢绑他人 openid）。</p>
+     */
+    public static String getPendingOpenid() {
+        AuthUser user = HOLDER.get();
+        return user != null ? user.getPendingOpenid() : null;
+    }
+
     public static void clear() {
         HOLDER.remove();
     }
@@ -124,17 +134,25 @@ public class AuthContext {
         private final String userType;
         private final String role;
         private final Long stationId;
+        /** 仅 UNSELECTED 会话有值：签发 token 时签入的待绑定 openid（见 JwtUtil 的重载） */
+        private final String pendingOpenid;
 
         public AuthUser(Long userId, String userType, String role, Long stationId) {
+            this(userId, userType, role, stationId, null);
+        }
+
+        public AuthUser(Long userId, String userType, String role, Long stationId, String pendingOpenid) {
             this.userId = userId;
             this.userType = userType;
             this.role = role;
             this.stationId = stationId;
+            this.pendingOpenid = pendingOpenid;
         }
 
         public Long getUserId() { return userId; }
         public String getUserType() { return userType; }
         public String getRole() { return role; }
         public Long getStationId() { return stationId; }
+        public String getPendingOpenid() { return pendingOpenid; }
     }
 }

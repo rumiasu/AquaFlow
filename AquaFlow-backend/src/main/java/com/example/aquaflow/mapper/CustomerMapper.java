@@ -85,8 +85,7 @@ public interface CustomerMapper {
             "and exists (select 1 from orders o where o.customer_id = c.id and o.station_id = #{stationId})")
     CustomerStationVO getStationCustomer(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
-    @Select("select count(*) from customer")
-    int countAll();
+    // [清理 2026-09-12] 删除 countAll()：全平台客户总数，零调用，且一旦被新页面顺手调用即跨站泄露。
 
     @Select("select count(distinct c.id) from customer c " +
             "join orders o on c.id = o.customer_id " +

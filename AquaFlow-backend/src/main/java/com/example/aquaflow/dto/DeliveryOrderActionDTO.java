@@ -84,6 +84,17 @@ public final class DeliveryOrderActionDTO {
         private Boolean tryDispatch;
     }
 
+    /**
+     * reportOrder：配送员上报「非桶账类」配送异常（客户不接电话 / 地址找不到 / 客户拒收 / 水桶破损 / 其他）。
+     * <p>它与「回桶差异」是两条线：回桶差异走 {@code order_barrel_exception} 与站长补偿流程，
+     * 这里只做上报留痕 + 通知站长，不改订单状态、不动任何账。</p>
+     */
+    @Data
+    public static class Report {
+        @NotNull(message = "异常原因必填")
+        private String reason;
+    }
+
     // ==================== complete（回桶明细，Map 直传 service，需结构化） ====================
 
     /** complete 单条回桶明细：后端按 orderItemId 反查商品，客户端只给数量与原因 */

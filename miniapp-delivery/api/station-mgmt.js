@@ -144,6 +144,23 @@ const detachStaff = (id) => {
   return post(API.MANAGER_BIND_RELEASE, { staffId: id })
 }
 
+/**
+ * 待确认收款列表（订单待收款 + 线上买水票的无订单待收款）。
+ * 水站由后端按登录站长判定，前端不传 stationId。
+ */
+const getPendingPayments = () => {
+  return get(API.PAYMENTS_PENDING)
+}
+
+/**
+ * 确认某笔收款已到账。
+ * 订单类 → 订单支付状态置已付并入账预收押金；购票类 → 水票入账。
+ * 后端用乐观锁保证同一笔只能确认成功一次，重复点击会得到「该笔支付已确认」而不是重复入账。
+ */
+const confirmPayment = (id) => {
+  return put(API.PAYMENT_CONFIRM(id))
+}
+
 module.exports = {
   getDashboardToday,
   getDashboardOverview,
@@ -170,5 +187,7 @@ module.exports = {
   updateBarrelRecordStatus,
   returnEmptyBuckets,
   createStaff,
-  detachStaff
+  detachStaff,
+  getPendingPayments,
+  confirmPayment
 }

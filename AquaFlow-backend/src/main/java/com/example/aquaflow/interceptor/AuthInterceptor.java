@@ -60,6 +60,9 @@ public class AuthInterceptor implements HandlerInterceptor {
         String userType = claims.get("userType", String.class);
         String role = claims.get("role", String.class);
         Number stationIdNum = claims.get("stationId", Number.class);
+        // 仅 UNSELECTED 会话携带：wx-login-staff 签发时就签进来的待绑定 openid。
+        // select-role 只认这个值，不再读客户端请求体里的 _pendingOpenid（防抢绑他人微信）。
+        String pendingOpenid = claims.get("pendingOpenid", String.class);
 
         Long userId = userIdNum != null ? userIdNum.longValue() : null;
         Long stationId = stationIdNum != null ? stationIdNum.longValue() : null;
@@ -68,8 +71,14 @@ public class AuthInterceptor implements HandlerInterceptor {
         // 仍可继续访问，属越权窗口。此处对 staff 类型 token 每次请求回查员工实际状态：
         //   1) 员工必须仍存在且在职（status=1）—— 停用/删除即时失效；
         //   2) role/stationId 以库内为准 —— 调站后旧 token 无法继续操作原站数据。
-        // 管理员(ADMIN)与系统账号不受水站绑定约束，仅校验在职。
-        if ("staff".equals(userType) && userId != null) {
+        //
+        // [2026-09-12] 例外：UNSELECTED 会话的 userId 是**负数占位**（wx-login-staff 用
+        // `-|openid.hashCode()|` 生成，因为此时还没有 staff 记录）。对负数 ID 查库必然查不到，
+        // 于是这条会话的任何请求都被判成"账号已被停用"——/api/auth/select-role 因此在
+        // 首次选身份这一步恒定 401。这类会话本就没有员工行，不是"停用"，跳过回查；
+        // 它拿不到 stationId（仍为 null），所有需要水站的接口都会 fail-closed 拒绝。
+        boolean isUnselectedSession = "UNSELECTED".equals(role);
+        if ("staff".equals(userType) && userId != null && (userId > 0 || !isUnselectedSession)) {
             Staff staff = staffMapper.getById(userId);
             if (staff == null || staff.getStatus() == null || staff.getStatus() != 1) {
                 send401(response, "账号已被停用或不存在，请重新登录");
@@ -80,7 +89,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             stationId = staff.getStationId();
         }
 
-        AuthContext.set(new AuthContext.AuthUser(userId, userType, role, stationId));
+        AuthContext.set(new AuthContext.AuthUser(userId, userType, role, stationId, pendingOpenid));
 
         return true;
     }

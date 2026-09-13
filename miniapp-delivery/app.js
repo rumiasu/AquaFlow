@@ -87,6 +87,10 @@ App({
       stationId,
       bindStatus,
       applyStationId: u.applyStationId || null,
+      // applyStationName 必须一起透出：申请绑定后 bind-wait 页要用它显示"已申请绑定 XX 水站"。
+      // 旧实现只白名单了 applyStationId，申请页写进本地的水站名在归一化时被丢掉，
+      // 结果是待审批页永远显示空水站名。
+      applyStationName: u.applyStationName || null,
       needSelectRole: !!u.needSelectRole || role === ROLE_UNSELECTED,
       _pendingOpenid: u._pendingOpenid || null
     }
@@ -147,7 +151,7 @@ App({
    * @param {boolean} silent  已在业务页时，仅在不符合权限时重定向，正常不操作
    */
   routeByRole(silent) {
-    const userInfo = this.globalData.userInfo || wx.getStorageSync('userInfo') || {}
+    const userInfo = this.globalData.userInfo || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {}
     const u = this._normalizeUserInfo(userInfo)
     const role = u.role
     const bindStatus = u.bindStatus

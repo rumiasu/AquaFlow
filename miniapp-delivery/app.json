@@ -18,6 +18,7 @@
     "pages/station-mgmt/inventory/index",
     "pages/station-mgmt/products/index",
     "pages/station-mgmt/barrel-return/index",
+    "pages/station-mgmt/payments/index",
     "pages/station-mgmt/staff/index",
     "pages/station-mgmt/staff/profile/index",
     "pages/barrel-records/index",

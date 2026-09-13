@@ -1,0 +1,45 @@
+<view class="container">
+  <view class="hint">这里列出「钱已收到但系统还未确认」的款项：订单的现金/微信待收款，以及客户线上购买水票的待确认收款（微信支付渠道未接入，需人工核对到账后确认）。确认前请先核实款项确实已到账。</view>
+
+  <view class="record-card" wx:for="{{list}}" wx:key="id">
+    <view class="card-header">
+      <text class="status pending">待确认</text>
+      <text class="status ticket" wx:if="{{item.isTicketPurchase}}">线上购票</text>
+    </view>
+    <view class="info-row">
+      <text class="label">客户</text>
+      <text>{{item.customerName || ('ID:' + item.customerId)}}</text>
+    </view>
+    <view class="info-row" wx:if="{{item.customerPhone}}">
+      <text class="label">电话</text>
+      <text>{{item.customerPhone}}</text>
+    </view>
+    <view class="info-row" wx:if="{{item.orderId}}">
+      <text class="label">订单</text>
+      <text>#{{item.orderId}}{{item.productName ? ' · ' + item.productName : ''}}</text>
+    </view>
+    <view class="info-row" wx:else>
+      <text class="label">类型</text>
+      <text>购买水票 {{item.ticketQty || 0}} 张</text>
+    </view>
+    <view class="info-row">
+      <text class="label">支付方式</text>
+      <text>{{item.methodText}}</text>
+    </view>
+    <view class="info-row">
+      <text class="label">应收金额</text>
+      <text class="amount">¥{{item.amountText}}</text>
+    </view>
+    <view class="info-row" wx:if="{{item.createTime}}">
+      <text class="label">生成时间</text>
+      <text>{{item.createTime}}</text>
+    </view>
+    <view class="card-actions">
+      <button class="btn-confirm" data-id="{{item.id}}" bindtap="onConfirm">确认已到账</button>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && list.length === 0}}">
+    <text>暂无待确认收款</text>
+  </view>
+</view>

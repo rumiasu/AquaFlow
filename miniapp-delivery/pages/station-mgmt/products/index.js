@@ -216,17 +216,24 @@ Page({
   },
 
   // ===== 停用 (软删除) =====
-  async onDelete() {
+  // 注意：wx.showModal 是**回调式** API，不是 Promise。写成 `await wx.showModal(...)` 解构 confirm
+  // 会恒得 undefined（其余 45 处调用都是 success 回调式，本项目没有做 promisify），
+  // 表现为「点了停用没反应」。这里统一回回调式。
+  onDelete() {
     const { editId } = this.data
     if (!editId) return
-    const { confirm } = await wx.showModal({
+    wx.showModal({
       title: '停用商品',
       content: '停用后客户将无法看到该商品，历史订单不受影响。确认停用？',
       confirmText: '停用',
-      confirmColor: '#f44336'
+      confirmColor: '#f44336',
+      success: (res) => {
+        if (res.confirm) this._doDelete(editId)
+      }
     })
-    if (!confirm) return
+  },
 
+  async _doDelete(editId) {
     this.setData({ deleting: true })
     try {
       await deleteManagerProduct(editId)

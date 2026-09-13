@@ -106,6 +106,12 @@ App({
     wx.removeStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
     wx.removeStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
     wx.removeStorageSync(STORAGE_KEYS.USER_INFO)
+    // customerId 必须一起清：它由登录页写入、由 utils/token.js 的 getCustomerId() 读取，
+    // 而多个页面会把它当 customerId 传给 /api/payments、/api/addresses。
+    // 旧实现漏了这一行 → 退出登录后旧 customerId 仍留在本地，
+    // 下一个登录的人（或未登录状态）会拿上一位客户的身份去构造请求参数。
+    // 身份校验在后端以 JWT 为准（不会越权），但前端展示与请求参数会错人，属必须清掉的脏状态。
+    wx.removeStorageSync(STORAGE_KEYS.CUSTOMER_ID)
   },
 
   // ===== 购物车工具方法（按站隔离）=====

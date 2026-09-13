@@ -31,6 +31,24 @@ public class JwtUtil {
 
 public String generateAccessToken(Long userId, String userType, String role,
                                             Long stationId) {
+        return generateAccessToken(userId, userType, role, stationId, null);
+    }
+
+    /**
+     * 签发 access token（可携带一个"待绑定 openid"）。
+     *
+     * <p><b>为什么需要 pendingOpenid</b>：员工首次进入配送端时还没有 staff 记录（userId 是负数占位），
+     * 但后续 {@code POST /api/auth/select-role} 需要知道"这个微信是哪个 openid"才能建员工记录。
+     * 旧实现是靠客户端把 openid 放在请求体里回传（{@code _pendingOpenid}）——
+     * 那等于让调用方自报身份：任何人都能把别人的 openid 填进来，抢绑到该微信账号上
+     * （配合 {@code uk_staff_openid} 唯一键，可顶掉真实主人后续的登录）。
+     * 现在改为在 wx-login-staff 签发时就把它签进 JWT，select-role 只认 token 里的值，
+     * 客户端传什么都不影响结果。</p>
+     *
+     * @param pendingOpenid 仅 UNSELECTED 会话需要；其他场景传 null，claim 不写入
+     */
+    public String generateAccessToken(Long userId, String userType, String role,
+                                      Long stationId, String pendingOpenid) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("userType", userType);
@@ -38,6 +56,9 @@ public String generateAccessToken(Long userId, String userType, String role,
         claims.put("tokenType", "access");
         if ("staff".equals(userType) && stationId != null) {
             claims.put("stationId", stationId);
+        }
+        if (pendingOpenid != null && !pendingOpenid.isEmpty()) {
+            claims.put("pendingOpenid", pendingOpenid);
         }
         // Set iat to 1 hour ago to avoid clock skew issues
         long issuedAtMillis = System.currentTimeMillis() - 3600000;

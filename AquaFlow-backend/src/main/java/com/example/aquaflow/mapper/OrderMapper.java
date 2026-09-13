@@ -166,14 +166,9 @@ public interface OrderMapper {
                       @Param("limit") Integer limit,
                       @Param("offset") Integer offset);
 
-    @Select("select count(*) from orders")
-    int countAll();
-
-    @Select("select count(*) from orders where date(create_time) = curdate()")
-    int countToday();
-
-    @Select("select count(*) from orders where status = #{status}")
-    int countByStatus(@Param("status") Integer status);
+    // [清理 2026-09-12] 删除三个全平台口径的死统计方法：countAll / countToday / countByStatus。
+    // 它们不带 station_id 过滤，一旦被某个新页面顺手调用就是全平台数据泄露；
+    // 而它们当前零调用（站内皮只有 countByStationId / countByStationIdAndStatus），属永久废案。
 
     @Select("select count(*) from orders where station_id = #{stationId}")
     int countByStationId(@Param("stationId") Long stationId);
@@ -283,18 +278,10 @@ public interface OrderMapper {
             "order by o.update_time desc")
     List<Orders> listIncomingTransfers(@Param("staffId") Long staffId);
 
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail " +
-            "from orders o " +
-            "left join customer c on o.customer_id = c.id " +
-            "left join address a on o.address_id = a.id " +
-            "where o.station_id = #{stationId} " +
-            "and (o.receiver_name like concat('%', #{keyword}, '%') " +
-            "or o.receiver_phone like concat('%', #{keyword}, '%') " +
-            "or c.name like concat('%', #{keyword}, '%') " +
-            "or c.phone like concat('%', #{keyword}, '%')) " +
-            "order by o.create_time desc limit 50")
-    List<Orders> searchByKeyword(@Param("keyword") String keyword);
+    // [清理 2026-09-12] 删除 searchByKeyword(@Param("keyword"))：全仓零调用，且它是本文件里唯一
+    // 一条**没有站过滤**的关键字搜索 —— SQL 里却引用了 #{stationId}（方法签名并没有这个参数）。
+    // 一旦被调用，轻则报参数缺失，重则被"顺手补上参数"后变成跨站订单+客户手机号泄露。
+    // 站内搜索请一律用下面的 searchByKeywordAndStation。
 
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail " +
@@ -309,12 +296,8 @@ public interface OrderMapper {
             "order by o.create_time desc limit 50")
     List<Orders> searchByKeywordAndStation(@Param("stationId") Long stationId, @Param("keyword") String keyword);
 
-    @Update("update orders set station_id=#{stationId}, delivery_station_id=#{deliveryStationId}, " +
-            "status=#{status}, special_note=#{specialNote}, update_time=NOW() where id=#{id}")
-    void updateClaimStation(@Param("id") Long id, @Param("stationId") Long stationId,
-                            @Param("deliveryStationId") Long deliveryStationId,
-                            @Param("status") Integer status,
-                            @Param("specialNote") String specialNote);
+    // [清理 2026-09-12] 删除 updateClaimStation：全仓零调用（抢单/外派已统一走 claimPoolIfFree /
+    // dispatchIfStatus / outsourceTo*If 等带 expected-state 的 CAS 方法），属永久废案。
 
     @Select("select count(*) from orders where station_id = #{stationId} and date(create_time) = curdate()")
     int countTodayByStationId(@Param("stationId") Long stationId);

@@ -100,7 +100,7 @@ POST /api/auth/login { username, password }
 
 ## 数据库
 
-32 张表，详见根目录 README 数据库设计章节。
+37 张业务表 + 1 视图（权威基线是 `sql/schema.sql`），详见 `sql/README.md` 与根目录 README。
 
 ### 数据量（当前）
 

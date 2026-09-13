@@ -188,6 +188,24 @@ public class PaymentController {
         return Result.success(paymentRecordMapper.listAllByStation(AuthContext.requireStationId(), limit));
     }
 
+    /**
+     * 待确认收款列表（站长端）。
+     *
+     * <p>同时覆盖两类此前<b>完全没有界面入口</b>的待确认收款：</p>
+     * <ol>
+     *   <li>订单现金/微信下单后生成的待收款流水；</li>
+     *   <li>「线上买水票」产生的无订单 PENDING 流水 —— 微信支付渠道未接入，
+     *       钱只能靠站长核对到账后手工确认，没有入口时顾客付了钱、水票永远不入账。</li>
+     * </ol>
+     * <p>确认动作复用 {@code PUT /api/payments/{id}/confirm}，其站别校验已支持无订单支付。</p>
+     */
+    @RequireRole({"STATION_MANAGER"})
+    @GetMapping("/pending")
+    public Result<List<Map<String, Object>>> listPending(@RequestParam(defaultValue = "200") int limit) {
+        int n = limit <= 0 ? 200 : Math.min(limit, 500);
+        return Result.success(paymentRecordMapper.listPendingByStation(AuthContext.requireStationId(), n));
+    }
+
     /** 退款 */
     @RequireRole({"STATION_MANAGER"})
     @PutMapping("/{id}/refund")

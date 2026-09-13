@@ -22,6 +22,7 @@ import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.service.TicketAccountService;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.PriceUtil;
+import com.example.aquaflow.util.StationUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -178,6 +179,14 @@ public class PaymentServiceImpl implements PaymentService {
             // 现金/微信 → UNPAID(0)，水票 → PAID(2)。注意库列默认 1 而非 0，expected 必须用 PENDING。
             orderMapper.updatePaymentStatusIf(orderId, PaymentStatus.PENDING,
                     Integer.valueOf(PaymentStatus.PAID).equals(status) ? PaymentStatus.PAID : PaymentStatus.UNPAID);
+        }
+
+        // [AQ-009] 水票是「下单即视同已付」的唯一支付方式：订单在这一步就已经是 PAID，
+        // 但它绕过了 confirmPayment（现金/线上走那条路径时才入账押金），因此必须在这里补入账，
+        // 否则水票支付的订单预收押金永远不进押金账户 —— 客户退了桶却退不出钱，押金余额显示为 0。
+        // applyDepositOnPaid 以 (related_order_id, PREPAID) 去重，重复调用安全。
+        if (orderId != null && Integer.valueOf(PaymentStatus.PAID).equals(status)) {
+            applyDepositOnPaid(orderId);
         }
 
         return record;
@@ -435,7 +444,13 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         Long customerId = order.getCustomerId();
-        Long stationId = order.getDeliveryStationId() != null ? order.getDeliveryStationId() : order.getStationId();
+        // ===== 站别口径（跨站外派单必须分清，混用会真丢钱）=====
+        // 钱与票（收款流水 / 预收押金 / 水票扣减）在下单与收款时一律记【归属站】(ownerStation)，
+        // 所以取消时也必须退回同一个账户 —— 退到履约站等于把钱记进没收到过钱的站。
+        // 库存则相反：下单扣的是【履约站】的库存（OrderServiceImpl 用 dto.stationId，抢单池接单=接单站），
+        // 因此回补必须回到履约站，否则履约站库存凭空少、归属站凭空多。
+        Long ownerStation = ownerStation(order);
+        Long fulfillStation = StationUtil.deliveryStation(order);
 
         // AQ-008: 退还订单已消费的水票（按实际扣减记录回补，避免重复还/漏还）
         List<OrderItem> refundItems = orderItemMapper.listByOrderId(orderId);
@@ -446,7 +461,7 @@ public class PaymentServiceImpl implements PaymentService {
                 }
                 // 仅当该订单该商品确曾消耗水票时才归还
                 if (ticketRecordMapper.countConsumeByOrderAndProduct(orderId, item.getProductId()) > 0) {
-                    ticketAccountService.refundTicket(customerId, item.getProductId(), item.getQuantity(), orderId, stationId);
+                    ticketAccountService.refundTicket(customerId, item.getProductId(), item.getQuantity(), orderId, ownerStation);
                 }
             }
         }
@@ -497,21 +512,38 @@ public class PaymentServiceImpl implements PaymentService {
         // 仅当订单尚未配送完成(status < DELIVERED=4)时，押金桶还在配送中状态，需退还押金并清理配送中记录
         int orderStatus = order.getStatus() != null ? order.getStatus() : 0;
         if (orderStatus < OrderStatus.DELIVERED) {
-            // 1. 退还客户押金账户余额
+            // 1. 释放客户在该站预收的押金
+            //    钱当初入在【归属站】(applyDepositOnPaid -> ownerStation)，所以只能从归属站释放。
+            //
+            //    是否需要释放，只看【有没有入账凭据】(deposit_record 里该单的 PREPAID 流水)，
+            //    不能只看 orders.deposit_amount：那个字段是"应收押金"，下单时就写好了，
+            //    而钱要等支付成功才入账。未付款订单（含从未付款的现金单、水票余额不足被拒的单）
+            //    deposit_amount 照样 > 0，此时账户里一分钱都没有，去"释放"就是无中生有。
+            //
+            //    真入过账才可能余额不足（账被人为改动 / 押金曾被手工退过）。
+            //    旧实现对 affected=0 静默跳过，于是「订单已取消、押金却留在账上」，既无流水也无提示。
+            //    这里显式拒绝：宁可让取消失败并被人发现，也不要留下查不出来的敞口。
             BigDecimal depositAmount = order.getDepositAmount();
-            if (depositAmount != null && depositAmount.compareTo(BigDecimal.ZERO) > 0) {
-                int affected = customerDepositAccountMapper.decreaseBalance(customerId, stationId, depositAmount);
-                if (affected > 0) {
-                    DepositRecord dr = new DepositRecord();
-                    dr.setCustomerId(customerId);
-                    dr.setStationId(stationId);
-                    dr.setType(DepositType.CANCEL_PREPAID); // 8 取消订单释放预收押金
-                    dr.setAmount(depositAmount.negate()); // 负金额表示退出
-                    dr.setNote("订单取消释放押金: " + (reason != null ? reason : ""));
-                    dr.setOperatorId(null);
-                    dr.setCreateTime(LocalDateTime.now());
-                    depositRecordMapper.insert(dr);
+            boolean depositCredited = depositRecordMapper.countByOrderAndType(orderId, DepositType.PREPAID) > 0;
+            if (depositCredited && depositAmount != null && depositAmount.compareTo(BigDecimal.ZERO) > 0) {
+                int affected = customerDepositAccountMapper.decreaseBalance(customerId, ownerStation, depositAmount);
+                if (affected == 0) {
+                    throw new BusinessException("取消失败：该客户在本水站的押金余额不足 ¥" + depositAmount
+                            + "，无法释放本单预收押金，请人工核对押金流水后重试");
                 }
+                DepositRecord dr = new DepositRecord();
+                dr.setCustomerId(customerId);
+                dr.setStationId(ownerStation);
+                dr.setType(DepositType.CANCEL_PREPAID); // 8 取消订单释放预收押金
+                dr.setAmount(depositAmount.negate()); // 负金额表示退出
+                dr.setNote("订单取消释放押金: " + (reason != null ? reason : ""));
+                // related_order_id 必须落库：它不只是"备注"，还是"这笔释放属于哪张订单"的唯一凭据。
+                // 旧实现漏了这一行，于是（a）按订单反查押金流水查不到任何释放记录，
+                // （b）入账侧靠 countByOrderAndType(orderId, PREPAID) 做幂等、释放侧却无从判断是否已释放。
+                dr.setRelatedOrderId(orderId);
+                dr.setOperatorId(null);
+                dr.setCreateTime(LocalDateTime.now());
+                depositRecordMapper.insert(dr);
             }
 
             // 2. 清理该订单的配送中桶记录（PENDING 状态）
@@ -523,6 +555,7 @@ public class PaymentServiceImpl implements PaymentService {
             // 3. 回补库存：按下单时"实际扣减量"回补，而不是订单数量。
             //    下单时库存不足只扣了现有库存（deducted_qty < quantity），若按 quantity 回补会凭空多出库存，
             //    反复"下单-取消"即可刷出无限库存。
+            //    站别：回到【履约站】—— 下单扣的就是履约站的库存。
             List<OrderItem> items = orderItemMapper.listByOrderId(orderId);
             if (items != null) {
                 for (OrderItem item : items) {
@@ -533,17 +566,23 @@ public class PaymentServiceImpl implements PaymentService {
                             ? Math.min(item.getDeductedQty(), item.getQuantity())
                             : item.getQuantity();
                     if (restoreQty > 0) {
-                        inventoryMapper.increaseStock(order.getStationId(), item.getProductId(), restoreQty);
+                        inventoryMapper.increaseStock(fulfillStation, item.getProductId(), restoreQty);
                         // [AQ-029] 退款回补库存写流水
-                        inventoryService.recordChange(order.getStationId(), item.getProductId(), restoreQty,
+                        inventoryService.recordChange(fulfillStation, item.getProductId(), restoreQty,
                                 InventoryChangeType.REFUND_RESTORE, orderId, AuthContext.getUserId(), "退款回补");
                     }
                 }
             }
         }
 
-        // [Phase C] CAS：以读取到的当前状态为 expected，防止取消期间订单状态被并发改动
-        orderMapper.updateStatusIf(orderId, order.getStatus(), OrderStatus.CANCELLED);
+        // [Phase C] CAS：以读取到的当前状态为 expected，防止取消期间订单状态被并发改动。
+        // affected 必须检查：上面已按订单释放过押金 / 退过水票 / 回过库存，这是本方法唯一一道
+        // "同一订单只允许完成一次取消"的闸门。旧实现不检查返回值，重复或并发取消时会再走一遍
+        // 释放段（押金被重复退、库存被重复回补）。
+        int cancelled = orderMapper.updateStatusIf(orderId, order.getStatus(), OrderStatus.CANCELLED);
+        if (cancelled == 0) {
+            throw new BusinessException("订单状态已变更（可能已被取消），请刷新后重试");
+        }
     }
 
     @Override

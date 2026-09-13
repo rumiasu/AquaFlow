@@ -5,7 +5,6 @@ import com.example.aquaflow.entity.BarrelRecord;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.CustomerBarrelAsset;
 import com.example.aquaflow.entity.CustomerBarrelInTransit;
-import com.example.aquaflow.entity.CustomerBarrelOwed;
 import com.example.aquaflow.entity.CustomerBarrelOver;
 import com.example.aquaflow.entity.CustomerStationConfig;
 import com.example.aquaflow.entity.DepositRecord;
@@ -16,7 +15,6 @@ import com.example.aquaflow.entity.TicketRecord;
 import com.example.aquaflow.mapper.BarrelRecordMapper;
 import com.example.aquaflow.mapper.CustomerBarrelAssetMapper;
 import com.example.aquaflow.mapper.CustomerBarrelInTransitMapper;
-import com.example.aquaflow.mapper.CustomerBarrelOwedMapper;
 import com.example.aquaflow.mapper.CustomerBarrelOverMapper;
 import com.example.aquaflow.mapper.CustomerDepositAccountMapper;
 import com.example.aquaflow.mapper.CustomerMapper;
@@ -63,9 +61,6 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Autowired
     private CustomerBarrelInTransitMapper customerBarrelInTransitMapper;
-
-    @Autowired
-    private CustomerBarrelOwedMapper customerBarrelOwedMapper;
 
     @Autowired
     private CustomerBarrelOverMapper customerBarrelOverMapper;

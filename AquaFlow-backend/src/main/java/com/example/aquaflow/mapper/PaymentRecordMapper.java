@@ -69,4 +69,31 @@ public interface PaymentRecordMapper {
 
     @Select("select * from payment_record where station_id = #{stationId} order by create_time desc limit #{limit}")
     List<PaymentRecord> listAllByStation(@Param("stationId") Long stationId, @Param("limit") int limit);
+
+    /**
+     * 站长待确认收款列表（含客户名与所购商品名）。
+     *
+     * <p>覆盖两类待确认收款，它们此前<b>都没有任何界面入口</b>：</p>
+     * <ol>
+     *   <li><b>订单待收款</b>（{@code order_id} 非空）：现金/微信下单后生成的 PENDING 流水；</li>
+     *   <li><b>线上买水票</b>（{@code order_id} 为空）：{@code POST /api/tickets/purchase} 只写 PENDING 流水，
+     *       而微信支付渠道未接入，钱只能靠站长核对到账后手工确认 —— 没有这个列表，
+     *       顾客付了钱、水票永远不入账（实测库里积压过多笔此类流水）。</li>
+     * </ol>
+     *
+     * <p>返回 Map 而非 {@code PaymentRecord}：customerName / productName 是关联列，
+     * 不该往实体里加非数据库字段。列表只取展示与确认所需字段，不回传整行。</p>
+     */
+    @Select("select p.id, p.order_id as orderId, p.customer_id as customerId, "
+            + "c.name as customerName, c.phone as customerPhone, "
+            + "p.station_id as stationId, p.amount, p.payment_method as paymentMethod, "
+            + "p.ticket_water_type_id as ticketProductId, p.ticket_qty as ticketQty, "
+            + "p.note, p.create_time as createTime, "
+            + "(select oi.product_name_snapshot from order_item oi where oi.order_id = p.order_id order by oi.id limit 1) as productName "
+            + "from payment_record p "
+            + "left join customer c on c.id = p.customer_id "
+            + "where p.station_id = #{stationId} and p.status = 1 "
+            + "order by p.create_time asc limit #{limit}")
+    List<java.util.Map<String, Object>> listPendingByStation(@Param("stationId") Long stationId,
+                                                             @Param("limit") int limit);
 }

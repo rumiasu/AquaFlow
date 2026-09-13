@@ -1,19 +1,31 @@
 -- ============================================================
 -- AquaFlow 数据库结构基线（初始化用）
 --
--- 生成时间：2026-09-11
--- 来源：从开发环境实际数据库导出（37 张业务表 + 1 个视图）
+-- 生成时间：2026-09-11（2026-09-12 校正漂移）
+-- 来源：从开发环境实际数据库导出（36 张业务表 + 1 个视图）
 --
 -- 说明：
 --   1. 本文件是当前库结构的唯一基线，已包含桶权益模型相关表
 --      （customer_barrel_lot / customer_barrel_over / barrel_record_lot /
 --        order_transfer 等），旧版本基线缺失这些表，请勿再使用。
 --   2. 全部使用 CREATE TABLE IF NOT EXISTS，重复执行不会覆盖或清空已有表。
+--      ⚠️ 因此本文件**只能用于新建空库**：对已存在的表，改列/删列不会生效，
+--      结构性变更必须另写幂等迁移脚本（见 sql/README.md）。
 --   3. 不含备份表（bak_* / *_bak_*）与任何测试数据。
 --   4. 水厂端已彻底移除：无 factory 表、无各表 factory_id 列、无 FACTORY_ADMIN 角色。
 --      演进过程见 sql/README.md「历史迁移演进」。
---   5. customer_owed_barrel 为旧欠桶台账，已停止写入、待下线；
---      欠桶一律改读 customer_barrel_over。
+--   5. [2026-09-12 已归档] 旧欠桶台账 customer_owed_barrel 已从基线中移除：
+--      该表 0 行、全仓零读写，已由 migration_v25 备份并改名为 bak_v25_customer_owed_barrel_retired。
+--      欠桶一律读 customer_barrel_over（按 customer×station×product，over>0 为欠桶、<0 为水站暂存）。
+--   6. [2026-09-12 校正] 与真实库逐列比对后修掉三处漂移：
+--      · station.offline_payment_enabled —— 真实库已 DROP（v22 已执行），本文件此前仍保留 → 已删。
+--        货到付款的唯一控制点是 customer_station_config.offline_payment_enabled（站长按客户开通）。
+--      · orders 的 payment_method / address_snapshot_lat / address_snapshot_lng /
+--        delivery_station_id 四列注释是**导出时编码坏掉的乱码**（真实库里同样是乱码）→ 已按代码语义重写。
+--      · orders.status / payment_status 注释停在旧口径（"3已完成"、无 4/5）→ 已补齐。
+--   7. [2026-09-12 补索引] deposit_record 增加 idx_deposit_record_order(related_order_id, type)：
+--      它是"按订单查押金流水"的唯一条件，而 applyDepositOnPaid（每次支付成功都调）与
+--      refundOrder 都走它做幂等/释放判定，原来没有索引（migration_v26 已在真实库执行）。
 --
 -- 初始化：mysql -u root -p aquaflow < sql/schema.sql
 -- ============================================================
@@ -126,15 +138,15 @@ CREATE TABLE IF NOT EXISTS `customer` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='客户表';
 CREATE TABLE IF NOT EXISTS `customer_barrel_asset` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `customer_id` int NOT NULL COMMENT '瀹㈡埛ID',
-  `quantity` int NOT NULL DEFAULT '0' COMMENT '鎸佹湁妗惰祫浜ф暟',
+  `customer_id` int NOT NULL COMMENT '客户ID',
+  `quantity` int NOT NULL DEFAULT '0' COMMENT '持有桶权益数（= Σ customer_barrel_lot.remain_qty）',
   `right_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '可退桶款=Σ lot.remain_qty×unit_price',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `product_id` int NOT NULL DEFAULT '0',
   `station_id` bigint DEFAULT NULL COMMENT '所属水站ID',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_asset` (`customer_id`,`product_id`,`station_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='瀹㈡埛鎸佹湁妗惰祫浜э紙鎶奸噾妗讹紝涓??鎬у洖濉?巻鍙插悗鐢变笟鍔＄淮鎶わ級';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='客户桶权益汇总（按 customer×station×product；数量与可退金额均为派生值，真相源是 customer_barrel_lot）';
 CREATE TABLE IF NOT EXISTS `customer_barrel_in_transit` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
   `customer_id` bigint NOT NULL COMMENT 'Customer ID',
@@ -210,21 +222,11 @@ CREATE TABLE IF NOT EXISTS `customer_notification` (
   `create_time` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-CREATE TABLE IF NOT EXISTS `customer_owed_barrel` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `customer_id` int NOT NULL COMMENT '客户ID',
-  `station_id` bigint DEFAULT NULL COMMENT '所属水站ID',
-  `owed_qty` int DEFAULT '0',
-  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_owed_station` (`customer_id`,`station_id`),
-  KEY `idx_owed_station` (`station_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='客户欠桶台账（配送完成差额，后续回收补欠桶，不进持有）';
 CREATE TABLE IF NOT EXISTS `customer_station_config` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `customer_id` bigint NOT NULL COMMENT '客户ID',
   `station_id` bigint NOT NULL COMMENT '水站ID',
-  `offline_payment_enabled` tinyint NOT NULL DEFAULT '0' COMMENT '该客户在该站是否允许线下支付',
+  `offline_payment_enabled` tinyint NOT NULL DEFAULT '0' COMMENT '该客户在该站是否允许线下支付（货到付款）。全系统唯一控制点，由站长在客户画像里逐个开通；无站点级总闸',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -235,44 +237,45 @@ CREATE TABLE IF NOT EXISTS `deposit_record` (
   `customer_id` bigint NOT NULL,
   `station_id` bigint DEFAULT NULL COMMENT '所属水站ID',
   `product_id` bigint DEFAULT NULL COMMENT '桶权益对应商品(按商品隔离)',
-  `type` tinyint NOT NULL COMMENT '1充值 2退款 3赔偿扣除 4调整',
-  `amount` decimal(10,2) NOT NULL COMMENT '金额',
+  `type` tinyint NOT NULL COMMENT '押金流水类型（见 DepositType）：1新增押金桶 2退押金 3丢桶赔偿 4人工调整 5预收押金 6退桶退押金 7异常补偿 8取消订单释放预收押金',
+  `amount` decimal(10,2) NOT NULL COMMENT '金额（退还/释放为负值）',
   `unit_price` decimal(10,2) DEFAULT NULL COMMENT '桶权益买入单价快照',
   `quantity` int DEFAULT NULL COMMENT '本次涉及桶数',
-  `related_order_id` bigint DEFAULT NULL,
+  `related_order_id` bigint DEFAULT NULL COMMENT '关联订单ID。既是"这笔押金属于哪张订单"的唯一凭据，也是入账/释放幂等的依据（按 related_order_id + type 去重），取消退款时必须落库',
   `note` varchar(200) DEFAULT NULL,
   `operator_id` bigint DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_deposit_record_station` (`station_id`)
+  KEY `idx_deposit_record_station` (`station_id`),
+  KEY `idx_deposit_record_order` (`related_order_id`,`type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 CREATE TABLE IF NOT EXISTS `feedback` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `staff_id` int DEFAULT NULL COMMENT '鎻愪氦浜洪厤閫佸憳ID',
+  `staff_id` int DEFAULT NULL COMMENT '提交人（配送员）ID',
   `customer_id` int DEFAULT NULL COMMENT '客户ID（客户反馈时使用）',
-  `category` varchar(50) DEFAULT NULL COMMENT '鍒嗙被锛歜ug/feature/other',
-  `content` text NOT NULL COMMENT '鍙嶉?鍐呭?',
-  `contact` varchar(100) DEFAULT NULL COMMENT '鑱旂郴鏂瑰紡',
+  `category` varchar(50) DEFAULT NULL COMMENT '分类：bug/feature/other',
+  `content` text NOT NULL COMMENT '反馈内容',
+  `contact` varchar(100) DEFAULT NULL COMMENT '联系方式',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='鍙嶉?寤鸿?';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='意见反馈';
 CREATE TABLE IF NOT EXISTS `file_info` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `file_name` varchar(255) NOT NULL COMMENT '?????',
-  `file_size` bigint DEFAULT '0' COMMENT '????(??)',
-  `file_type` varchar(50) DEFAULT '' COMMENT '????(image/video/document/other)',
-  `mime_type` varchar(100) DEFAULT '' COMMENT 'MIME??',
-  `object_name` varchar(500) NOT NULL COMMENT 'OSS???',
-  `category` varchar(50) DEFAULT 'general' COMMENT '??(general/banner/product/other)',
-  `uploader_id` int DEFAULT NULL COMMENT '???ID',
-  `uploader_name` varchar(50) DEFAULT '' COMMENT '?????',
+  `file_name` varchar(255) NOT NULL COMMENT '原始文件名',
+  `file_size` bigint DEFAULT '0' COMMENT '文件大小（字节）',
+  `file_type` varchar(50) DEFAULT '' COMMENT '文件类型（image/video/document/other）',
+  `mime_type` varchar(100) DEFAULT '' COMMENT 'MIME 类型',
+  `object_name` varchar(500) NOT NULL COMMENT '腾讯云 COS 对象键（如 public/product/abc.jpg）',
+  `category` varchar(50) DEFAULT 'general' COMMENT '业务分类（general/banner/product/other）',
+  `uploader_id` int DEFAULT NULL COMMENT '上传人员工ID',
+  `uploader_name` varchar(50) DEFAULT '' COMMENT '上传人姓名',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_category` (`category`),
   KEY `idx_file_type` (`file_type`),
   KEY `idx_create_time` (`create_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='?????';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文件管理（COS 对象登记）';
 CREATE TABLE IF NOT EXISTS `inventory` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
   `station_id` bigint DEFAULT NULL COMMENT '所属水站ID',
@@ -446,9 +449,9 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `address_id` bigint NOT NULL COMMENT '地址ID',
   `quantity` int NOT NULL COMMENT '数量',
   `source` tinyint NOT NULL COMMENT '来源：1电话 2微信 3小程序',
-  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1待配送 2配送中 3已完成',
-  `payment_status` tinyint DEFAULT '1' COMMENT '1待付款 2已付款',
-  `payment_method` tinyint DEFAULT NULL COMMENT '鏀?粯鏂瑰紡: 1=寰?俊 2=鐜伴噾 3=姘寸エ 4=鎸傝处',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1待配送 2配送中 3已送达 4已完成 5已取消（连续编号，历史 1/3/4/5/6 已废弃）',
+  `payment_status` tinyint DEFAULT '1' COMMENT '支付状态：0未支付 1待收款 2已付款 3已退款 4已取消。注意列默认值是 1（待收款），与 PaymentStatus.UNPAID=0 不同，CAS 的 expected 必须按库实际值取',
+  `payment_method` tinyint DEFAULT NULL COMMENT '支付方式: 1=微信 2=现金(货到付款) 3=水票（水票下单即视同已付）',
   `settlement_status` tinyint DEFAULT '1' COMMENT '1未结算 2已结算',
   `due_date` date DEFAULT NULL COMMENT '应付款日期',
   `delivery_bucket_qty` int DEFAULT '0' COMMENT '送出空桶数',
@@ -460,11 +463,11 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `receiver_name` varchar(50) DEFAULT NULL COMMENT '收件人姓名快照',
   `receiver_phone` varchar(20) DEFAULT NULL COMMENT '收件人电话快照',
   `address_snapshot` varchar(500) DEFAULT NULL COMMENT '地址快照',
-  `address_snapshot_lat` decimal(10,7) DEFAULT NULL COMMENT '鍦板潃蹇?収绾?害',
-  `address_snapshot_lng` decimal(10,7) DEFAULT NULL COMMENT '鍦板潃蹇?収缁忓害',
-  `station_id` bigint DEFAULT NULL COMMENT '订单归属水站',
-  `delivery_station_id` bigint DEFAULT NULL COMMENT '鏈??灞ョ害閰嶉?绔?缁勬壒/鎵ｅ簱瀛?閰嶉?鐢?',
-  `batch_id` bigint DEFAULT NULL COMMENT '所属批次',
+  `address_snapshot_lat` decimal(10,7) DEFAULT NULL COMMENT '地址快照纬度',
+  `address_snapshot_lng` decimal(10,7) DEFAULT NULL COMMENT '地址快照经度',
+  `station_id` bigint DEFAULT NULL COMMENT '订单归属水站（交易/营收归属，客户自选）',
+  `delivery_station_id` bigint DEFAULT NULL COMMENT '实际履约水站（可被站长外派/抢单切换，为空=在抢单池）',
+  `batch_id` bigint DEFAULT NULL COMMENT '所属批次。[已废弃] 全项目无 batch 表、无读写点，恒为 NULL，仅为兼容旧库列保留',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `barrel_discrepancy` int DEFAULT '0' COMMENT '空桶差异',
@@ -494,19 +497,19 @@ CREATE TABLE IF NOT EXISTS `orders` (
 CREATE TABLE IF NOT EXISTS `payment_record` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `order_id` bigint DEFAULT NULL COMMENT '订单ID（水票直购等无订单支付时为空）',
-  `customer_id` bigint NOT NULL COMMENT '瀹㈡埛ID',
+  `customer_id` bigint NOT NULL COMMENT '客户ID',
   `station_id` bigint DEFAULT NULL,
-  `amount` decimal(10,2) NOT NULL COMMENT '鏀?粯閲戦?',
-  `water_amount` decimal(10,2) DEFAULT '0.00' COMMENT '姘磋垂閲戦?',
-  `barrel_deposit` decimal(10,2) DEFAULT '0.00' COMMENT '妗舵娂閲戦噾棰',
-  `excess_barrels` int DEFAULT '0' COMMENT '瓒呭嚭妗舵暟',
-  `payment_method` tinyint NOT NULL COMMENT '鏀?粯鏂瑰紡: 1=寰?俊 2=鐜伴噾 3=姘寸エ 4=鎸傝处',
-  `ticket_water_type_id` bigint DEFAULT NULL COMMENT '姘寸エ鏀?粯鏃跺叧鑱旂殑姘寸被鍨婭D',
-  `ticket_qty` int DEFAULT NULL COMMENT '姘寸エ鏀?粯寮犳暟',
-  `status` tinyint DEFAULT '1' COMMENT '鐘舵?: 1=寰呮敮浠?2=宸叉敮浠?3=宸查?娆?4=宸插彇娑',
+  `amount` decimal(10,2) NOT NULL COMMENT '支付金额（退款冲正流水为负值）',
+  `water_amount` decimal(10,2) DEFAULT '0.00' COMMENT '水费金额',
+  `barrel_deposit` decimal(10,2) DEFAULT '0.00' COMMENT '桶押金金额',
+  `excess_barrels` int DEFAULT '0' COMMENT '超出桶数',
+  `payment_method` tinyint NOT NULL COMMENT '支付方式: 1=微信 2=现金(货到付款) 3=水票（水票下单即视同已付）',
+  `ticket_water_type_id` bigint DEFAULT NULL COMMENT '在线购票：所购商品ID（即原 water_type；非购票支付为空）',
+  `ticket_qty` int DEFAULT NULL COMMENT '在线购票：购买张数',
+  `status` tinyint DEFAULT '1' COMMENT '状态: 1=待支付 2=已支付 3=已退款 4=已取消',
   `transaction_no` varchar(100) DEFAULT NULL,
   `operator_id` bigint DEFAULT NULL,
-  `note` varchar(200) DEFAULT NULL COMMENT '澶囨敞',
+  `note` varchar(200) DEFAULT NULL COMMENT '备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -519,7 +522,7 @@ CREATE TABLE IF NOT EXISTS `payment_record` (
   KEY `idx_order_id` (`order_id`),
   KEY `idx_customer_id` (`customer_id`),
   CONSTRAINT `fk_payment_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='鏀?粯璁板綍琛';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='支付记录';
 CREATE TABLE IF NOT EXISTS `product` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL COMMENT '商品名称',
@@ -579,7 +582,6 @@ CREATE TABLE IF NOT EXISTS `station` (
   `phone` varchar(30) DEFAULT NULL,
   `address` varchar(200) DEFAULT NULL,
   `status` tinyint DEFAULT '1' COMMENT '1营业 2停业',
-  `offline_payment_enabled` tinyint NOT NULL DEFAULT '0' COMMENT '是否允许线下支付总开关',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -609,7 +611,7 @@ CREATE TABLE IF NOT EXISTS `ticket_record` (
   `decrease_qty` int DEFAULT '0' COMMENT '消费数量',
   `order_id` bigint DEFAULT NULL COMMENT '关联订单',
   `source` varchar(50) DEFAULT NULL COMMENT '来源：购买/赠送/消费',
-  `ticket_source` tinyint DEFAULT '1' COMMENT '鏉ユ簮: 1=绾夸笂 2=绾夸笅',
+  `ticket_source` tinyint DEFAULT '1' COMMENT '票据来源: 1=线上 2=线下',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `product_id` bigint NOT NULL DEFAULT '0',
   `station_id` bigint DEFAULT NULL,

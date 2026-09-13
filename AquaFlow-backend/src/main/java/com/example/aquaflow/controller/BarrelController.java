@@ -3,10 +3,8 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.BarrelRecord;
-import com.example.aquaflow.entity.CustomerBarrelOwed;
 import com.example.aquaflow.entity.Product;
 import com.example.aquaflow.mapper.BarrelRecordMapper;
-import com.example.aquaflow.mapper.CustomerBarrelOwedMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.service.BarrelService;
 import com.example.aquaflow.service.BarrelLedgerService;
@@ -34,9 +32,6 @@ public class BarrelController {
 
     @Autowired
     private BarrelRecordMapper barrelRecordMapper;
-
-    @Autowired
-    private CustomerBarrelOwedMapper customerBarrelOwedMapper;
 
     @Autowired
     private ProductMapper productMapper;

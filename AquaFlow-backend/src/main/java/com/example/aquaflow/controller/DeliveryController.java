@@ -14,7 +14,6 @@ import com.example.aquaflow.entity.OrderItem;
 import com.example.aquaflow.dto.DeliveryOrderActionDTO;
 import com.example.aquaflow.util.AuthContext;
 import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,7 +27,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/delivery")
-@Slf4j
 public class DeliveryController {
 
     @Autowired
@@ -275,6 +273,58 @@ public class DeliveryController {
     public Result<?> getBarrelRecords() {
         Long staffId = AuthContext.getUserId();
         return Result.success(orderMapper.listBarrelRecords(staffId));
+    }
+
+    /**
+     * 配送异常上报：客户不接电话 / 地址找不到 / 客户拒收 / 水桶破损 / 其他。
+     *
+     * <p>补的是一个**前端一直在调、后端从来没实现**的端点：miniapp-delivery 的订单详情
+     * 「异常反馈」按钮打的就是 {@code POST /api/delivery/orders/report/{id}}，
+     * 缺路由 → 配送员每次上报都拿到「接口不存在」，现场异常没有任何留痕，站长也无从得知。</p>
+     *
+     * <p>边界（刻意做小）：只做「校验归属 → 写 special_note 留痕 → 通知站长」，
+     * <b>不改订单状态、不动钱/票/桶账</b>。回桶差异补偿是另一条链路
+     * （{@code order_barrel_exception} + 站长审批），不要在这里混。</p>
+     */
+    @RequireRole({"DELIVERY", "STATION_MANAGER"})
+    @PostMapping("/orders/report/{id}")
+    public Result<Void> reportOrder(@PathVariable Long id, @RequestBody @Valid DeliveryOrderActionDTO.Report body) {
+        Orders order = orderMapper.getById(id);
+        if (order == null) {
+            return Result.error("订单不存在");
+        }
+        checkStationOwnership(order);
+        // 配送员只能上报自己名下的单（站长不受限，用于代报）
+        if (AuthContext.isDelivery()) {
+            Long staffId = AuthContext.getUserId();
+            if (order.getDeliveryStaffId() == null || !order.getDeliveryStaffId().equals(staffId)) {
+                return Result.error("仅可上报分配给自己的订单");
+            }
+        }
+
+        String reason = body.getReason().trim();
+        if (reason.isEmpty() || reason.length() > 50) {
+            return Result.error("异常原因长度需在 1-50 字之间");
+        }
+        Long staffId = AuthContext.getUserId();
+
+        orderMapper.appendSpecialNote(id, "[配送异常] " + reason + "（上报人ID=" + staffId + "）");
+
+        Map<String, Object> detail = new HashMap<>();
+        detail.put("orderId", id);
+        detail.put("reason", reason);
+        detail.put("staffId", staffId);
+        log("REPORT_EXCEPTION", id, detail);
+
+        // 【为什么这里没有推送站长】NotificationService 的 6 个方法目前**全是空壳**：
+        // 只按站长列表打日志，拼好的 message 从未发出（其余 5 个方法连调用方都没有，
+        // OrderBarrelExceptionServiceImpl 里那一处也是注释掉的）。
+        // 在这里调 pushBatchSummary 只会得到一行日志，却让人误以为"已经通知站长了" ——
+        // 与其做这种假动作，不如把事实写清楚：
+        //   现状：配送异常只落在 orders.special_note 与 audit_log 里；
+        //   影响：站长不会主动收到提醒，需要自己翻订单详情才能看到；
+        //   待办：接入真实推送渠道（微信订阅消息）后，在这里补一次真正的通知。
+        return Result.success();
     }
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})

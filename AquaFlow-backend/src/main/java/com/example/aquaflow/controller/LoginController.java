@@ -140,7 +140,9 @@ public class LoginController {
         try {
             long virtualUserId = -1 * Math.abs((openid + ":staff:unselected").hashCode());
             String role = "UNSELECTED";
-            String accessToken = jwtUtil.generateAccessToken(virtualUserId, "staff", role, null);
+            // 把 openid 签进 token，而不是只放在响应体里让客户端下次再回传 ——
+            // select-role 只认 token 里的身份，杜绝"自报 openid 抢绑他人微信"。
+            String accessToken = jwtUtil.generateAccessToken(virtualUserId, "staff", role, null, openid);
             String refreshToken = jwtUtil.generateRefreshToken(virtualUserId, "staff");
             saveRefreshToken(virtualUserId, "staff", refreshToken);
 
@@ -186,25 +188,18 @@ public class LoginController {
         String nickname = params.getNickname();
         String phone = params.getPhone();
 
-        // 从JWT中获取openid，而非信任客户端传入的_pendingOpenid
-        String pendingOpenid = "";
-        try {
-            String authHeader = null;
-            // 尝试从当前请求中获取token中的openid（如果JWT中有的话）
-            // 这里通过userId查找staff来验证身份
-            if (userId != null && userId > 0) {
-                // userId是虚拟ID（负数hash），无法直接查staff
-                // 通过解码JWT获取原始openid（在wx-login-staff时已设置）
-                pendingOpenid = params.getPendingOpenid();
-                if (pendingOpenid == null) pendingOpenid = "";
-                // 安全校验：_pendingOpenid必须与JWT subject中的 userType:userId 匹配
-                // 由于userId是hash后的值，这里仅做非空校验
-                if (pendingOpenid.isEmpty()) {
-                    return Result.error("身份信息缺失，请重新登录");
-                }
-            }
-        } catch (Exception e) {
-            return Result.error("身份验证失败");
+        // ===== 身份来源：只认 JWT 里的 pendingOpenid =====
+        // [2026-09-12 修复] 旧实现在这里读 params.getPendingOpenid()（客户端请求体里的 _pendingOpenid），
+        // 原注释还写着"从JWT中获取openid，而非信任客户端传入"——但它实际做的是后者，
+        // 且自认了局限（"userId 是 hash 后的值，这里仅做非空校验"）。
+        // 后果：任何持 UNSELECTED token 的人，只要把 _pendingOpenid 换成别人的 openid，
+        // 就能把该 openid 绑到自己新建的员工记录上；配合 staff.uk_staff_openid 唯一键，
+        // 真实主人之后再登录会直接落到这条被抢绑的记录上。
+        // 现在 openid 在 wx-login-staff 签发 token 时就已签入 claims，此处从 AuthContext 读取，
+        // 客户端传什么参数都不再影响结果（字段保留仅为兼容旧客户端，不参与判定）。
+        String pendingOpenid = AuthContext.getPendingOpenid();
+        if (pendingOpenid == null || pendingOpenid.isEmpty()) {
+            return Result.error("身份信息缺失，请重新登录");
         }
 
         if (userId != null && userId > 0) {
@@ -212,6 +207,12 @@ public class LoginController {
             if (exist != null) {
                 return Result.error("该账号已选择身份，如需切换请联系管理员处理");
             }
+        }
+
+        // 该微信已经绑定过员工 → 不能再建一条（否则撞 uk_staff_openid，报的是难懂的数据库错误）
+        Staff bound = staffMapper.findByOpenid(pendingOpenid);
+        if (bound != null) {
+            return Result.error("该微信已绑定员工账号，请直接登录");
         }
 
         Staff staff = new Staff();

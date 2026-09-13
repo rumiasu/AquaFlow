@@ -1,4 +1,4 @@
-﻿# ==================== IDE 配置 ====================
+# ==================== IDE 配置 ====================
 .idea/
 **/*.iml
 project.private.config.json
@@ -71,6 +71,11 @@ fixture_*.sql
 # ==================== 构建缓存目录 ====================
 AquaFlow-backend/.gradle_alt*/
 AquaFlow-backend/.gradle*/
+AquaFlow-backend/.gradle-user/
+# 仓库根下为绕开 Gradle 锁而复制出来的缓存/项目缓存（临时产物，勿提交）
+.gradlehome/
+.gradle_alt*/
+.gradle-user/
 
 # ==================== 编译输出 ====================
 compile_output*.txt

@@ -125,6 +125,13 @@ class PaymentFlowIntegrationTest extends AbstractIntegrationTest {
                         + "WHERE order_id=? AND product_id=? AND decrease_qty>0", order, product),
                 "应产生一条消费流水");
 
+        // 水票是唯一「下单即已付」的方式，它绕过 confirmPayment，因此入账押金必须在这里自己补。
+        // 漏了这一步的后果是：客户用票付了 60 元押金，押金账户却是 0，退桶时退不出钱。
+        BigDecimal ticketDeposit = decimalOf("SELECT IFNULL(balance,0) FROM customer_deposit_account "
+                + "WHERE customer_id=? AND station_id=?", customer, station);
+        assertEquals(0, ticketDeposit.compareTo(new BigDecimal("60.00")),
+                "水票支付成功也必须入账预收押金 60.00，实际=" + ticketDeposit);
+
         // 再对同一订单发起一次水票支付：必须幂等返回，且不得二次扣票
         Api retry = post("/api/payments", customerToken(customer),
                 "{\"orderId\":" + order + ",\"paymentMethod\":3}");

@@ -73,6 +73,11 @@ const API = {
   STAFF: '/api/staff',
   STAFF_PROFILE: (id) => `/api/staff/${id}/profile`,
 
+  // 支付（站长端）
+  // 待确认收款：订单待收款 + 线上买水票的无订单待收款（微信支付未接入，只能人工核对到账后确认）
+  PAYMENTS_PENDING: '/api/payments/pending',
+  PAYMENT_CONFIRM: (id) => `/api/payments/${id}/confirm`,
+
   // 客户
   CUSTOMERS: '/api/customers',
   CUSTOMER_DETAIL: (id) => `/api/customers/${id}`,

@@ -104,11 +104,16 @@ SELECT customer_id, product_id, station_id, quantity,
 FROM customer_barrel_asset
 WHERE quantity < 0;
 
--- 3c. 欠桶数量为负（异常）
-SELECT customer_id, station_id, owed_qty,
-       'ALERT: 欠桶数量为负' AS issue
-FROM customer_owed_barrel
-WHERE owed_qty < 0;
+-- 3c. 占用越界（异常）：over < −权益 意味着"顾客手上有负数个桶"，物理上不可能。
+--     注意口径：over < 0 本身【不是】异常 —— 那是"顾客多还桶、寄存在水站"，业务上合法。
+--     旧版本这条查的是已停写的旧欠桶表 customer_owed_barrel（owed_qty < 0），
+--     该表自桶权益模型上线后零读零写，查询恒返回空集，属失效断言。
+SELECT o.customer_id, o.station_id, o.product_id, o.over_qty,
+       'ALERT: 占用越界(over < -权益，占用为负)' AS issue
+FROM customer_barrel_over o
+WHERE o.over_qty < -(SELECT COALESCE(SUM(l.remain_qty), 0) FROM customer_barrel_lot l
+                     WHERE l.customer_id = o.customer_id AND l.station_id = o.station_id
+                       AND l.product_id = o.product_id AND l.status = 1);
 
 -- 3d. 桶资产折算押金 vs 押金账户余额（宏观敞口，仅供参考，非硬阈值）
 SELECT

@@ -65,6 +65,12 @@ class OrderCancelRollbackIntegrationTest extends AbstractIntegrationTest {
         Api res = put("/api/orders/" + order + "/customer-cancel", customerToken(customer), null);
         assertTrue(res.isSuccess(), "客户取消待配送订单应成功，实际=" + res);
 
+        // 从未付款的订单不该留下任何押金动作：既没入过账，也就不存在"释放"。
+        // （orders.deposit_amount > 0 只代表"应收押金"，不代表钱到过账上。）
+        assertEquals(0, intOf("SELECT COUNT(*) FROM deposit_record WHERE related_order_id=?", order),
+                "未付款订单取消不得产生任何押金流水");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM customer_deposit_account"), "不得凭空创建押金账户");
+
         assertEquals(5, intOf("SELECT status FROM orders WHERE id=?", order), "订单应置已取消");
         assertEquals(10, intOf("SELECT quantity FROM inventory WHERE station_id=? AND product_id=?",
                         station, product),

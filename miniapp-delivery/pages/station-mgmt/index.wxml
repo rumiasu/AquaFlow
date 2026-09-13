@@ -25,6 +25,11 @@
       <text class="module-title">退桶审批</text>
       <text class="module-desc">审核客户退桶申请</text>
     </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/payments/index">
+      <text class="module-icon">💰</text>
+      <text class="module-title">待确认收款</text>
+      <text class="module-desc">核对到账、确认订单收款与购票入账</text>
+    </view>
     <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/staff/index">
       <text class="module-icon">👥</text>
       <text class="module-title">员工管理</text>

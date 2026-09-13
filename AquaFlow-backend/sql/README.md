@@ -4,7 +4,7 @@
 
 | 文件 | 用途 | 说明 |
 |------|------|------|
-| `schema.sql` | 数据库结构基线 | 当前库完整 DDL（37 张业务表 + 1 视图），2026-09-11 从实际库重新导出 |
+| `schema.sql` | 数据库结构基线 | 当前库完整 DDL（36 张业务表 + 1 视图），2026-09-11 从实际库重新导出，2026-09-12 校正漂移 |
 | `init.sql` | 一键初始化入口 | 创建数据库 + schema，**只建结构，不含种子数据** |
 | `seed_dev_account.sql` | 开发账号 | 开发环境账号初始化 |
 | `seed_new_user_83.sql` | 测试用户 | 测试用户数据 |
@@ -61,6 +61,9 @@ mysql -u root -p aquaflow < schema.sql
 | 6 | `migration_fix_ticket_account_uk.sql` | 水票账户唯一键修正 |
 | 7 | `migration_v22_drop_station_offline_payment.sql` | 删除 `station.offline_payment_enabled` |
 | 8 | `migration_v23_fix_payment_ticket_uk.sql` | **[DEF-3]** 修正 `uk_ticket_consume`（纳入 `source`）与 `uk_payment_order_status`（降级为普通索引） |
+| 9 | `migration_v24_fix_garbled_column_comments.sql` | 归一化导出期编码事故造成的乱码列/表注释（16 列 + 6 表），并补齐停在旧口径的 `orders` 注释。**已在真实库执行** |
+| 10 | `migration_v25_retire_customer_owed_barrel.sql` | 归档旧欠桶台账 `customer_owed_barrel`：备份为 `bak_v25_customer_owed_barrel` 后改名为 `bak_v25_customer_owed_barrel_retired`（**不 DROP**，改名后同名引用会立刻报错，作为误引用哨兵）。**已在真实库执行** |
+| 11 | `migration_v26_deposit_record_order_index.sql` | 为 `deposit_record` 增加 `idx_deposit_record_order(related_order_id, type)` —— 支付/退款路径按订单查押金流水，原来无索引（全表扫描）。**已在真实库执行** |
 
 > 以上脚本均为**幂等**（`information_schema` 预检 + `PREPARE`），可重复执行。
 > 执行方式务必带库名：`mysql -uroot <库名> < 脚本.sql`。

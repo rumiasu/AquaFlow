@@ -84,10 +84,11 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private InventoryService inventoryService;
 
-    /** [AQ-030] 欠桶风控：下单前检查客户在本站的欠桶数 */
-    @Autowired
-    private CustomerBarrelOwedMapper customerBarrelOwedMapper;
-
+    /**
+     * [AQ-030] 欠桶风控：下单前检查客户在本站的欠桶数。
+     * <p>数据源是 {@code customer_barrel_over}（按商品、可为负），不是已停写的旧表
+     * {@code customer_owed_barrel}——下面的 {@code totalOwed} 计算就是按 over 逐商品 max(0,·) 求和。</p>
+     */
     @Autowired
     private com.example.aquaflow.mapper.CustomerBarrelOverMapper customerBarrelOverMapper;
 

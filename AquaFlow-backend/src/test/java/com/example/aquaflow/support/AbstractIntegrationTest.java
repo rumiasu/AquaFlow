@@ -83,6 +83,15 @@ public abstract class AbstractIntegrationTest {
         return jwtUtil.generateAccessToken(staffId, "staff", role, stationId);
     }
 
+    /**
+     * UNSELECTED 会话 token（员工首次进入配送端、还没有 staff 记录时）。
+     * <p>openid 是**签进 token** 的，不是客户端回传的 —— 这正是
+     * {@code /api/auth/select-role} 判定"这个微信是谁"的唯一依据。</p>
+     */
+    protected String unselectedStaffToken(long virtualUserId, String openid) {
+        return jwtUtil.generateAccessToken(virtualUserId, "staff", "UNSELECTED", null, openid);
+    }
+
     /* ==================== HTTP ==================== */
 
     private Api exchange(String method, String path, String token, String body) {
@@ -206,14 +215,47 @@ public abstract class AbstractIntegrationTest {
                 firstBarrelOrder ? 1 : 0, deliveryBucketQty);
     }
 
+    /**
+     * 跨站外派单：归属站 ownerStation，履约站 deliveryStation（两者不同）。
+     * <p>双水站语义下「钱与票记归属站、实物与库存走履约站」，是本项目最容易写错的一条边界，
+     * 所有涉及外派单的回归都应显式构造本形态，而不是复用单站造的 {@code createOrderFull}。</p>
+     */
+    protected long createOrderCrossStation(long customerId, long addressId, long ownerStation,
+                                          long deliveryStation, long productId,
+                                          int status, int paymentStatus, Integer paymentMethod,
+                                          String waterAmount, String depositAmount, String totalAmount) {
+        return insert("INSERT INTO orders(customer_id, address_id, quantity, source, status, payment_status, "
+                        + "payment_method, station_id, delivery_station_id, product_id, water_amount, deposit_amount, "
+                        + "total_amount) VALUES (?,?,1,3,?,?,?,?,?,?,?,?,?)",
+                customerId, addressId, status, paymentStatus, paymentMethod, ownerStation, deliveryStation, productId,
+                new BigDecimal(waterAmount), new BigDecimal(depositAmount), new BigDecimal(totalAmount));
+    }
+
+    /** 库存流水。[AQ-029] 起库存变动必须留流水，此处用于对齐「库存回补到哪一站」。 */
+    protected long createInventoryRecord(long stationId, long productId, int delta, String type, long refId) {
+        return insert("INSERT INTO inventory_record(station_id, product_id, delta, type, ref_id, note) "
+                + "VALUES (?,?,?,?,?,?)", stationId, productId, delta, type, refId, "测试造数");
+    }
+
     protected long createOrderItem(long orderId, long productId, String productName, int quantity,
                                    String price, String deposit, int category) {
+        return createOrderItemFull(orderId, productId, productName, quantity, 0, price, deposit);
+    }
+
+    /**
+     * 订单明细（可控 deducted_qty）。
+     * <p>{@code deductedQty} 是"下单时实际扣减的库存量"：库存不足时它 &lt; quantity，
+     * 取消退款按它回补而不是按 quantity。凡是要验证库存回补的用例都必须显式设定它，
+     * 否则默认 0 会让用例看起来"没有回补"，实为正确行为（一桶都没扣过）。</p>
+     */
+    protected long createOrderItemFull(long orderId, long productId, String productName, int quantity,
+                                       int deductedQty, String price, String deposit) {
         BigDecimal p = new BigDecimal(price);
         BigDecimal d = new BigDecimal(deposit);
         BigDecimal subtotal = p.add(d).multiply(BigDecimal.valueOf(quantity));
         return insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, "
                         + "deposit, subtotal, deducted_qty) VALUES (?,?,?,?,?,?,?,?)",
-                orderId, productId, productName, p, quantity, d, subtotal, 0);
+                orderId, productId, productName, p, quantity, d, subtotal, deductedQty);
     }
 
     protected long createTicketAccount(long customerId, long stationId, long productId, int remainQuantity) {

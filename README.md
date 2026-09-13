@@ -61,96 +61,65 @@ AquaFlow 是一个围绕**桶装水行业真实业务规则**设计的垂直领�
 
 ---
 
-## 阶段改造记录
-
-### P3 配送员分配 / 转让 / 退回站长（已完成）
-
-- **语义**：站长分配＝待配送状态→直接置配送中(DELIVERING)并挂载配送员。配送员可**直转本站同事**（DELIVERING→DELIVERING 换人，留痕），也可**退回站长**（DELIVERING→待配送 清空配送员回待分配池，站长重新分配）。
-- **规则**：① 仅限本站配送员 + 本站履约单（按 `delivery_station_id` 判站）；② 仅站长可分配（`@RequireRole STATION_MANAGER`）；③ 配送员只能操作自己名下的单；④ 分配/转让/退回均写 `special_note` 留痕 `[分配]/[转让]/[退回站长]`。
-- **后端**：`DeliveryController` 改造 `assignOrder`、`transferOrder`（提交同事可直转）、新增 `returnToStation`；`OrderMapper.listTransferredOrders` 按备注 `[转让]/[退回站长]` 汇总转让记录。
-- **前端**：Vue 后台新增站长页「配送任务分配」`/deliver-assign`（待配送/配送中/转让记录三 tab）；配送员小程序首页与订单详情「转给同事」「退回站长」双按钮。
-
-### P2 桶资产联动（已完成）
-
-- **下单**：桶装水订单计算 shortage = needed - held，预收缺桶押金，创建 `customer_barrel_in_transit`（PENDING）。
-- **配送完成**：`completeOrder` 将 PENDING 配送中记录自动转入 `customer_barrel_asset`（持有桶），更新状态为 DELIVERED。
-- **复购**：持有桶数正确读取，已持有的桶不再收押金。
-- **安全**：`listPendingByOrderId` 只查 PENDING 状态，防止重复调用导致桶资产翻倍。
-
-### P2 地址省市区拆分（已完成）
-
-- `address` 表新增 `province`/`city`/`district` 字段，与 `detail` 分离。
-- 前端地址编辑页：自动识别按钮 → `wx.chooseLocation` → `parseRegion()` 解析地址字符串自动填充省/市/区。
-- 支持直辖市（北京市/上海市等）、标准格式（XX省XX市XX区）、省直市等变体。
-- 地址列表/首页/下单页拼接显示 `{{province}}{{city}}{{district}} {{detail}}`。
-
-### P2 首页改版（已完成）
-
-- **常用订单**：显示全部3笔历史订单，每笔订单展示全部商品名+规格+数量，价格改为下次购买价（不含已付押金）。
-- **购物车 badge**：修复 `loadData` 中 cart 引用问题，模板 items 加入后 cartCount 实时更新；防重复加载避免数量倍增。
-- **水桶管理**：首页展示持有桶类型+数量。
-- **水桶资产**：下单后自动联动录入 `customer_barrel_asset`。
-
-### P1 资产与履约闭环（已完成）
-
-- 桶资产/欠桶台账（`customer_barrel_asset`/`customer_owed_barrel`）、库存不足自动欠桶、收款确认/拒单/站长修正、支付落库等。
-
-### P0 基础设施（已完成）
-
-- JWT 双Token认证、BCrypt密码、幂等键防重复下单、地址快照等。
-
----
-
 ## 架构概览
 
-### 三端协同 · 三种角色
+### 两端协同 · 三种角色
 
-管理后台（站长/配送员）与微信小程序（客户）共用同一套后端 API。
+**在维护的端只有两个原生微信小程序**，共用同一套后端 API。
+（原 Vue3 管理后台 `AquaFlow-frontend` 已不在仓库中，仅 `archive/legacy-web-frontend` 留档，
+不再维护；站长与配送员的全部管理动作现在都在 `miniapp-delivery` 里完成。）
 
 ```
-┌──────────────────────────┐   ┌──────────────────────────┐
-│   管理后台 (Vue3)          │   │   微信小程序 (原生)        │
-│   AquaFlow-frontend      │   │   miniapp-user (客户)     │
-├──────────────────────────┤   │   miniapp-delivery          │
-│                          │   │   (站长 + 配送员)    │
-│  站长 ── 订单/配送/资产    │   ├──────────────────────────┤
-│  配送员 ── 我的配送        │   │  客户 ── 下单/复购       │
-│                          │   │        水桶/水票/地址     │
-└────────────┬─────────────┘   └────────────┬─────────────┘
-             │                               │
-             └──────────────┬────────────────┘
-                            ▼
-                  ┌────────────────────┐
-                  │  Spring Boot 后端    │
-                  │  + MyBatis + JWT    │
-                  │  Port: 8080        │
-                  └─────────┬──────────┘
-                            ▼
-                  ┌────────────────────┐
-                  │  MySQL 8.x         │
-                  └────────────────────┘
+        ┌────────────────────────────┐
+        │  微信小程序 (原生, 无框架)     │
+        ├──────────────┬─────────────┤
+        │ miniapp-user │ miniapp-delivery
+        │  客户         │  站长 + 配送员
+        ├──────────────┼─────────────┤
+        │ 下单 / 复购    │ 站长：订单/派单/库存/
+        │ 水桶/水票/地址 │      商品/客户/员工/
+        │ 押金/账单     │      退桶审批/待确认收款
+        │              │ 配送员：待接单/配送中/
+        │              │      收款/异常上报
+        └──────┬───────┴──────┬──────┘
+               │              │
+               └──────┬───────┘
+                      ▼
+            ┌────────────────────┐
+            │  Spring Boot 后端    │
+            │  + MyBatis + JWT    │
+            │  Port: 8080         │
+            └─────────┬──────────┘
+                      ▼
+            ┌────────────────────┐
+            │  MySQL 8.x          │
+            └────────────────────┘
 ```
 
-### 管理后台角色权限
+### 小程序功能与角色权限
 
-| 页面 | 路由 | 站长 `manager` | 配送员 `delivery` |
+`miniapp-delivery` 内的 `pages/station-mgmt/**` 为站长专用（后端以 `@RequireRole("STATION_MANAGER")` 兜底）：
+
+| 功能 | 路由 | 站长 `STATION_MANAGER` | 配送员 `DELIVERY` |
 |------|------|:---:|:---:|
-| 首页 | `/dashboard` | ✅ | ✅ |
-| 订单管理 | `/order` | ✅ | |
-| 配送任务分配 | `/deliver-assign` | ✅ | |
-| 库存管理 | `/inventory` | ✅ | |
-| 客户管理 | `/customer` | ✅ | |
-| 地址管理 | `/address` | ✅ | |
-| 商品管理 | `/water` | ✅ | |
-| 退桶审批 | `/barrel-return` | ✅ | |
-| 水票管理 | `/ticket` | ✅ | |
-| 押金管理 | `/deposit` | ✅ | |
-| 支付管理 | `/payment` | ✅ | |
-| 员工管理 | `/staff` | ✅ | |
-| 地址地图 | `/address-map` | ✅ | |
-| 数据报表 | `/report` | ✅ | |
-| 文件管理 | `/file-manage` | ✅ | |
-| 我的配送 | `/my-deliveries` | | ✅ |
+| 首页（站长协作台：待分配/抢单池/外派） | `pages/coordination/index` | ✅ | |
+| 配送工作台（待接单/配送中/已完成） | `pages/home/index` | ✅ | ✅ |
+| 数据看板 | `pages/station-mgmt/dashboard/index` | ✅ | |
+| 订单管理 | `pages/station-mgmt/orders/index` | ✅ | |
+| 客户查询 / 客户画像 | `pages/station-mgmt/customers/**` | ✅ | |
+| 商品与库存 | `pages/station-mgmt/products/index` | ✅ | |
+| 退桶审批 | `pages/station-mgmt/barrel-return/index` | ✅ | |
+| 待确认收款 | `pages/station-mgmt/payments/index` | ✅ | |
+| 员工管理 | `pages/station-mgmt/staff/**` | ✅ | |
+| 我的（含绑定审批） | `pages/mine/index` | ✅ | ✅ |
+| 订单详情（接单/转单/退回/外派/异常上报） | `pages/order/detail` | ✅ | ✅ |
+| 完成配送（回桶核对+拍照） | `pages/order/complete` | ✅ | ✅ |
+| 空桶记录 / 配送历史 / 转让记录 | `pages/barrel-records`、`history`、`transfer` | ✅ | ✅ |
+| 意见反馈 / 设置 / 编辑资料 | `pages/report`、`settings`、`mine/edit` | ✅ | ✅ |
+
+`miniapp-user`（顾客端，22 页）：登录 / 订水首页 / 商城+搜索 / 商品详情 / 下单确认 /
+订单列表与详情 / 桶账与退桶申请 / 水票 / 地址簿 / 账单记录 / 常用订单模板 / 服务记录 /
+公告 / 企业资料 / 关于。
 
 ### 数据范围隔离
 
@@ -159,25 +128,19 @@ AquaFlow 是一个围绕**桶装水行业真实业务规则**设计的垂直领�
 
 ---
 
-## 测试账号
+## 账号与初始化
 
-所有密码均为 `123456`。
+**本仓库不含任何测试账号**，也不再提供种子数据 —— 基线库是空库，
+基础数据（水站 → 员工 → 商品 → 库存）由管理员在实际环境里手动创建，
+避免误把测试数据带进验收/生产。参考 `AquaFlow-backend/sql/README.md`。
 
-| 角色 | 账号 | 密码 | 所属水站 | 数据范围 |
-|------|------|------|---------|---------|
-| 站长 | `张建国` | `123456` | 张店水站 | 本站 |
-| 站长 | `淄站长` | `123456` | 淄川水站 | 本站 |
-| 站长 | `博站长` | `123456` | 博山水站 | 本站 |
-| 站长 | `历站长` | `123456` | 历下水站 | 本站 |
-| 站长 | `槐站长` | `123456` | 槐荫水站 | 本站 |
-| 配送员 | `李永强` | `123456` | 张店水站 | 本站任务 |
-| 配送员 | `王师傅` | `123456` | 张店水站 | 本站任务 |
-| 配送员 | `赵师傅` | `123456` | 淄川水站 | 本站任务 |
-| 配送员 | `孙师傅` | `123456` | 淄川水站 | 本站任务 |
-| 配送员 | `周师傅` | `123456` | 博山水站 | 本站任务 |
-| 配送员 | `吴师傅` | `123456` | 历下水站 | 本站任务 |
-| 配送员 | `郑师傅` | `123456` | 历下水站 | 本站任务 |
-| 配送员 | `陈师傅` | `123456` | 槐荫水站 | 本站任务 |
+- 员工登录：后端 `POST /api/auth/login`（姓名 + BCrypt 密码）。
+  密码哈希由 `PasswordInitializer` 在启动时为**没有密码的员工**写入初始值（`123456`，`admin` 账号为 `admin123`），
+  上线前必须逐个改掉（`POST /api/auth/change-password`）。
+- 微信端登录：`POST /api/auth/wx-login`（客户）/ `POST /api/auth/wx-login-staff`（员工），
+  均由微信 `code2Session` 换取 openid。
+- 开发态免微信登录：`POST /api/auth/dev-login`，**默认关闭**，
+  需同时满足 `DEV_LOGIN_ENABLED=true` 且非 prod profile；生产环境该 Controller 物理不加载。
 
 ---
 
@@ -195,22 +158,33 @@ AquaFlow 是一个围绕**桶装水行业真实业务规则**设计的垂直领�
 ### 1. 初始化数据库
 
 ```bash
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS aquaflow DEFAULT CHARACTER SET utf8mb4;"
-mysql -u root -p aquaflow < AquaFlow-backend/sql/schema.sql
-mysql -u root -p aquaflow < AquaFlow-backend/sql/seed_full_data.sql
+cd AquaFlow-backend/sql
+mysql -u root -p < init.sql        # 建库 + schema.sql（必须在本目录执行，init.sql 用相对路径 SOURCE）
 ```
 
-### 2. 配置数据库连接
+> **只建结构，不灌任何种子数据**（空库）。原先文档里的 `seed_full_data.sql` 已移入
+> `sql/archive/` 且**不可执行**（停留在 V1 大迁移之前，引用 `factory` / `water_type` 等已删对象）。
+> 基础数据按依赖顺序手动创建：水站 → 员工 → 商品 → 库存。详见 `AquaFlow-backend/sql/README.md`。
 
-`AquaFlow-backend/src/main/resources/application.yml` 中修改：
+**已有老库升级**必须按 `sql/README.md`「基线之后必须补跑的迁移」顺序补跑脚本，
+否则运行期会因缺表/缺列崩溃。注意：**Flyway 未启用**，所有迁移都是手工执行。
 
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/aquaflow?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: 123456
-```
+### 2. 配置连接与密钥（一律走环境变量，禁止写回 yml）
+
+敏感配置在 `application.yml` 里**不提供默认值**，缺失时 `RequiredConfigChecker` 会在启动阶段直接失败退出：
+
+| 环境变量 | 说明 |
+|---|---|
+| `JWT_SECRET` | 签名密钥，长度 ≥ 32；泄露 = 任何人可伪造任意身份 token |
+| `WX_APP_ID` / `WX_APP_SECRET` | 微信小程序凭据 |
+| `COS_REGION` / `COS_SECRET_ID` / `COS_SECRET_KEY` / `COS_BUCKET_NAME` | 腾讯云 COS（未配置时仅对象存储不可用，不阻塞启动） |
+| `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | 数据库连接 |
+| `CORS_ALLOWED_ORIGINS` | 生产必须填真实域名 |
+| `DEV_LOGIN_ENABLED` | 开发登录后门，**生产必须 false**（prod profile 下该 Controller 物理不加载） |
+
+本地开发：把真实值写进 `src/main/resources/application-local.yml`（**已 gitignore，禁止提交**），
+默认 profile 就是 `local`；生产用 `--spring.profiles.active=prod` + 纯环境变量。
+完整清单见 `AquaFlow-backend/.env.example`。
 
 ### 3. 启动后端
 
@@ -222,15 +196,14 @@ cd AquaFlow-backend
 
 后端运行于 `http://localhost:8080`
 
-### 4. 启动管理后台
+### 4. 打开小程序
 
-```bash
-cd AquaFlow-frontend
-npm install
-npm run dev
-```
+用微信开发者工具分别打开 `miniapp-user/`（顾客端）与 `miniapp-delivery/`（站长+配送员端）目录，
+无 npm 构建步骤。API 基址在各自 `config/api.js` 里配置。
 
-管理后台运行于 `http://localhost:5173`
+> ⚠️ 两端的 `prod.baseUrl` 目前都是占位符 `https://your-domain.com`，
+> 而 `project.config.json` 里 `urlCheck: false` 导致开发者工具不会提示 ——
+> **发版前必须替换成真实域名**，否则 release 版指向一个不存在的地址。
 
 ---
 
@@ -283,7 +256,6 @@ AquaFlow-backend/
     │   ├── OrderController.java              # 订单 CRUD
     │   ├── DeliveryController.java           # 配送员订单 API（672行）
     │   ├── DeliveryBindingController.java    # 配送员绑定/解绑（624行）
-    │   ├── ManagerOrderController.java       # 站长订单管理（430行）
     │   ├── ManagerProductController.java     # 商品+库存管理（288行）
     │   ├── ManagerExceptionController.java   # 桶异常管理
     │   ├── PaymentController.java            # 支付管理
@@ -322,40 +294,10 @@ AquaFlow-backend/
         └── StationUtil.java                  # 水站工具
 ```
 
-### 前端
+### 前端（已不在本仓库）
 
-```
-AquaFlow-frontend/src/
-├── api/index.js                  # 统一 API 定义（20+ 模块）
-├── router/index.js               # 路由 + 角色守卫
-├── utils/request.js              # Axios（Token自动续期）
-├── styles/theme.css              # 亮色/暗色主题
-├── components/
-│   ├── GlobalSearch.vue          # 全局搜索
-│   └── ImageUpload.vue           # 图片上传
-├── App.vue                       # 根布局 + 双角色菜单
-└── views/
-    ├── shared/
-    │   ├── login/                # 登录页（双栏设计）
-    │   └── claim/                # 认领所属
-    └── station/
-        ├── dashboard/            # 首页仪表盘（536行）
-        ├── order/                # 订单管理
-        ├── deliver-assign/       # 配送任务分配
-        ├── delivery/             # 我的配送（配送员专用）
-        ├── inventory/            # 库存管理
-        ├── customer/             # 客户管理
-        ├── address/              # 地址管理
-        ├── address-map/          # 地址地图（Leaflet）
-        ├── water/                # 商品管理
-        ├── barrel-return/        # 退桶审批
-        ├── ticket/               # 水票管理
-        ├── deposit/              # 押金管理
-        ├── payment/              # 支付管理
-        ├── staff/                # 员工管理
-        ├── report/               # 数据报表
-        └── file-manage/          # 文件管理
-```
+原 Vue3 管理后台 `AquaFlow-frontend` 已从仓库移除，仅 `archive/legacy-web-frontend/` 留档、不再维护。
+站长与配送员的全部管理界面现在都在 `miniapp-delivery` 里（见 `### 小程序` 与本文档「小程序功能与角色权限」）。
 
 ### 小程序
 
@@ -484,7 +426,7 @@ AquaFlow-frontend/src/
 |------|------|--------|
 | `customer_barrel_asset` | 客户持有桶资产 | UNIQUE(`customer_id`,`product_id`,`station_id`) 按水站隔离 |
 | `customer_barrel_in_transit` | 配送中桶 | 下单收押金但未送达确认的桶，`status`(PENDING/DELIVERED/CANCELLED)，配送完成自动转入持有桶资产 |
-| `customer_owed_barrel` | 欠桶台账 | 配送差额（应回收-实际回收>0） |
+| ~~`customer_owed_barrel`~~ | ~~欠桶台账~~ | **已归档**（0 行、全仓零读写）：由 `migration_v25` 备份后改名为 `bak_v25_customer_owed_barrel_retired`。欠桶改读 `customer_barrel_over` |
 | `barrel_record` | 桶变动记录 | `type`(1新增/2退桶/3丢失/4损坏/5赔偿/6人工调整) |
 | `customer_deposit_account` | 押金余额 | UNIQUE(`customer_id`,`station_id`) 按水站隔离 |
 | `deposit_record` | 押金流水 | `type`(1新增/2退/3丢桶赔偿/4其他) |
@@ -525,43 +467,65 @@ AquaFlow-frontend/src/
 
 ## 核心业务流程
 
-### 订单状态流转（V1简化版）
+### 订单状态流转
+
+状态以 `constant/OrderStatus.java` 为唯一真值来源：**1 待配送 / 2 配送中 / 3 已送达 / 4 已完成 / 5 已取消**
+（连续编号；历史版本用过 1/3/4/5/6，已废弃）。
 
 ```
-待配送(1) ──站长分配──→ 配送中(3) ──完成配送──→ 按支付方式分流：
+待配送(1) ──接单──→ 配送中(2) ──完成配送──→ 按支付方式分流：
     ↑                                    │
-    │                                    ├── 微信/水票 → 直接 COMPLETED(5)
-    │                                    ├── 线下已收款 → COMPLETED(5)
-    │                                    └── 线下未收款 → DELIVERED(4) → 收款确认 → COMPLETED(5)
+    │                                    ├── 微信/水票（已付） → 已完成(4)
+    │                                    ├── 现金已收款        → 已完成(4)
+    │                                    └── 现金未收款        → 已送达(3) ──收款确认──→ 已完成(4)
     │
-    │         配送中(3) ──退回站长──→ 待配送(1)[清空配送员]
+    │         配送中(2) ──退回站长──→ 待配送(1)[同意后清空配送员]
     │
-    └──── 已取消(6) ←── 退款/取消订单
+    └──── 已取消(5) ←── 退款/取消订单（唯一编排入口 PaymentService.refundOrder）
 
-判断是否分配配送员：通过 delivery_staff_id 是否为 NULL
+判断是否已分配配送员：看 delivery_staff_id 是否为 NULL（与 status 无关）
 ```
+
+> 「站长分配」只写 `delivery_staff_id`、**不改状态**（仍是待配送 1），配送员点「接单」才进 2。
+> 所有状态改写都走带 expected-state 的 CAS（`updateStatusIf`）并检查受影响行数。
 
 ### 配送员分配/转让/退回（P3）
 
 ```
-待配送(1) --站长分配--> 配送中(3)[配送员A]
-配送中(3)[A] --配送员A转同事--> 配送中(3)[配送员B]   （直转本站同事）
-配送中(3)[A] --退回站长--> 待配送(1)[无配送员]        （站长重新分配）
+待配送(1) --站长分配--> 待配送(1)[配送员A]           （分配只改 delivery_staff_id，状态不变）
+待配送(1)[A] --配送员A接单--> 配送中(2)[配送员A]
+配送中(2)[A] --转同事--> 配送中(2)[配送员B]           （直转本站同事，留痕 order_transfer）
+配送中(2)[A] --退回站长--> 待配送(1)[仍挂A] --站长同意--> 待配送(1)[无配送员]
 ```
+
+> 退回申请期间**不清空配送员**：否则站长点「拒绝退回」时已无人可恢复，会留下
+> 「配送中但无配送员」的孤儿卡死单。清空只发生在站长**同意**退回时。
 
 ### 桶资产流转
 
+桶账唯一写入口是 `BarrelLedgerService`。核心概念：
+
 ```
-下单(桶装水) → 检查客户持有桶 vs 需要桶
-  ├─ 持有足够 → 不收押金
-  └─ 持有不足 → 预收缺桶押金 → 创建 in_transit 记录(PENDING)
-配送完成 → in_transit 转入 customer_barrel_asset（持有桶自动增加）→ 状态变 DELIVERED
-下次下单 → heldByProduct 正确读取持有数 → 已持有的桶不再收押金
-回桶 → 实际回桶数 vs 送出桶数
-  ├─ 相等 → 正常
-  ├─ 少回 → barrel_discrepancy > 0, 记录异常
-  └─ 多回 → barrel_discrepancy < 0
+权益 Right    = Σ customer_barrel_lot.remain_qty          （押金条批次，金额真相源）
+占用 Occupied = 顾客手上实际有几个桶（派生值，不落表）
+over          = 占用 − 权益                                 （customer_barrel_over，可为负）
+恒等式：占用 = 权益 + over
 ```
+
+```
+下单(桶装水) → 按商品算 shortage = 需要 − 已持有权益 − 已在配送中
+  ├─ shortage ≤ 0 → 不收押金
+  └─ shortage > 0 → 计入订单 deposit_amount（此时【不入账】）→ 建 in_transit 记录(PENDING)
+支付成功      → applyDepositOnPaid：预收押金入 customer_deposit_account（幂等，按订单去重）
+配送完成      → applyDelivery：newOver = oldOver + (delivered − returned) − rightPurchase
+                同时 in_transit 转正为 lot（押金条）+ 增加权益，in_transit 置 DELIVERED
+                唯一校验是【物理上限】returned ≤ 占用_before（不是 returned ≤ delivered）
+纯还桶        → 只动 over，允许变负（顾客多还 / 水站暂存），不扣权益、不退款
+退桶(终止权益) → 按押金条 FIFO 核销，退款 = Σ 核销数 × 该批次【买入时】单价
+```
+
+> **over < 0 是合法状态**（水站替顾客存桶），任何地方都不许写 `over >= 0` 形式的拦截校验。
+> 能退款的只有 lot 里剩余的权益，over 永远不产生退款。
 
 ### 水票流转
 
@@ -697,10 +661,11 @@ access_token 2 小时过期，refresh_token 7 天。401 时自动续期并重放
 
 ### 站长订单管理
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/manager/orders/{id}/dispatch` | 派单出发 |
-| POST | `/api/manager/offline-exception` | 线下异常处理 |
+`ManagerOrderController` **已整体删除**：它原有的 8 个订单写端点（`/api/manager/orders/**`、
+`/api/manager/offline-exception`）全部是「无 CAS 的整行直写」，且三个小程序**零调用**，
+其中 `offline-exception` 还允许前端直传 `paymentStatus`，属越权高危。
+订单写操作现在只有一条入口 —— `OrderWorkflowService`（见「配送」章节的 `/api/delivery/orders/**`）。
+删除有回归用例锁定：`ManagerOrderControllerRemovedIntegrationTest` 断言这些路径返回 `code=404`。
 
 ### 商品+库存
 

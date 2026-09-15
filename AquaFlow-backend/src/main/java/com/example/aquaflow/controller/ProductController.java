@@ -16,6 +16,17 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
+/**
+ * 商品接口（<b>浏览侧</b>）。
+ *
+ * <p>顾客/游客可看的（无注解）：列表、详情、在售、按站售价；{@code /my} 标注 {@code {"customer"}}，
+ * 是顾客自己的商品视角。写操作（{@code POST}/{@code PUT}/{@code DELETE}）与 {@code /with-stock}
+ * 限 {@code STATION_MANAGER}。</p>
+ *
+ * <p><b>⚠️ 别和 {@code ManagerProductController}（{@code /api/manager/products}）搞混</b>：
+ * 站长日常管理"商品 + 本站库存/上架/水票价格"用的是后者；本类偏浏览与基础 CRUD。
+ * 另：商品是<b>全局</b>的，"某站能不能买"由该站的 {@code inventory} 决定，不在商品表上。</p>
+ */
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {

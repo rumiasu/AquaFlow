@@ -5,6 +5,23 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 支付服务：下单试算、发起支付、收款确认、退款编排。
+ *
+ * <p><b>三条唯一性约定（改动前必读）：</b></p>
+ * <ul>
+ *   <li>支付状态的唯一真值是 {@code orders.payment_status}，本服务是它唯一的写方。</li>
+ *   <li>{@code refundOrder} 是<b>全系统「取消订单 / 退款」的唯一编排入口</b>：
+ *       退水票 → 退支付流水 → 退押金 → 清配送中桶 → 回补库存 → 置订单已取消，
+ *       并带「已完成(4) / 已取消(5) 不得再取消」的状态门槛。
+ *       客户取消、配送员拒单、站长解决/拒单、取消申请审批<b>全都汇到它</b>，不要另写一套
+ *       —— 历史上各 Controller 各拼半套回滚，漏一步就留下"订单已取消但钱票没退"。</li>
+ *   <li>金额与桶数一律由 {@code quote} 在<b>服务端</b>推导，不信任前端传入的任何数字。</li>
+ * </ul>
+ *
+ * <p>渠道现状：微信支付未接入（{@code availableMethods()} 里该选项恒 disabled），
+ * 当前可用的是现金（货到付款）与水票。</p>
+ */
 public interface PaymentService {
 
     /** 创建支付记录 */

@@ -1,5 +1,5 @@
 // 网络请求封装（JWT 双 Token + 自动续期）
-const { getBaseUrl } = require('../config/api')
+const { getBaseUrl, API } = require('../config/api')
 const { STORAGE_KEYS } = require('../utils/storage-keys')
 
 let isRefreshing = false
@@ -88,7 +88,9 @@ function handle401(originalOptions, resolve, reject) {
   }
 
   wx.request({
-    url: getBaseUrl() + '/api/auth/refresh',
+    // 统一走 API.REFRESH。勿硬编码 '/api/auth/refresh'——本项目出现过
+    // "常量定义了没人用、路径却散落硬编码在四处"的不一致（2026-09-14 已统一）。
+    url: getBaseUrl() + API.REFRESH,
     method: 'POST',
     data: { refreshToken },
     success: (res) => {

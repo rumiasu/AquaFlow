@@ -223,12 +223,11 @@ public class BarrelController {
      * <p>业务边界：over &lt; 0 是合法状态（不是脏数据、不是负债、不是负权益），
      * 所以这里<b>不做任何"结果必须非负"的校验</b>；唯一校验是物理上限「交回数 ≤ 持有数」。
      * 真正想拿回钱要走退桶（/return），那才会按押金条批次核销退款。</p>
-     */
-    /**
-     * ⚠️ 必须加事务：改 over 和写流水必须是原子的。
-     * BarrelLedgerService.returnEmpty 自带 @Transactional，但若此处没有外层事务，它一返回就提交，
-     * 之后 insert 流水失败（例如 clientToken 撞唯一键）时 over 已经落库、回滚不了——
-     * 结果是「桶账少了一个桶，却没有任何流水」，对账 E5 立刻就不平。
+     *
+     * <p><b>⚠️ 必须加事务</b>：改 over 和写流水必须是原子的。
+     * {@code BarrelLedgerService.returnEmpty} 自带 {@code @Transactional}，但若此处没有外层事务，
+     * 它一返回就提交；之后 insert 流水失败（例如 clientToken 撞唯一键）时 over 已经落库、回滚不了——
+     * 结果是「桶账少了一个桶，却没有任何流水」，对账 E5 立刻就不平。</p>
      */
     @RequireRole({"STATION_MANAGER", "DELIVERY"})
     @PostMapping("/return-empty")

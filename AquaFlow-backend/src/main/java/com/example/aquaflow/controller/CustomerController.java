@@ -19,6 +19,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 客户档案（<b>站长端</b>；除 {@code GET /stats} 外全部 {@code STATION_MANAGER}）。
+ *
+ * <p><b>⚠️ 本类里有一个"反向"端点</b>：{@code GET /api/customers/stats} 是<b>顾客</b>查自己的消费统计，
+ * 无注解、靠 {@code requireCustomerId()} 兜身份 —— 与同前缀下其它端点的归属完全相反。
+ * 给这个类加类级 {@code @RequireRole} 会顺手把顾客的统计接口也拦掉，改之前务必看清。</p>
+ */
 @RestController
 @RequestMapping("/api/customers")
 @Slf4j

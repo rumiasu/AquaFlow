@@ -26,6 +26,20 @@ import java.util.Set;
  *
  * <p>现改为对全部 Controller 方法统一织入，再在通知内按「方法注解优先、类注解兜底」自行解析，
  * 结果确定、可验证，不再依赖 AspectJ 的注解参数绑定行为。</p>
+ *
+ * <p><b>⚠️ 新增端点的强制约定（2026-09-14 补充）：</b>本切点是「无注解即放行」，
+ * 所以每个新端点必须二选一，否则等同于裸奔：</p>
+ * <ul>
+ *   <li><b>员工端点</b>：标注 {@code @RequireRole({"STATION_MANAGER"})} / {@code {"DELIVERY"}} 等。
+ *       方法级、类级都生效；本项目习惯把它写在 {@code @XxxMapping} <b>之后</b>，
+ *       本切面上下位置都能解析（注意：用文本工具搜索时别只往注解上方看，会漏读）。</li>
+ *   <li><b>顾客自助端点</b>：<b>不要</b>依赖注解，必须在方法体内用
+ *       {@code AuthContext.requireCustomerId()}（或 {@code requireStationId()}）
+ *       <b>强制取当前身份</b>，绝不信任请求参数里的 customerId / stationId。</li>
+ * </ul>
+ * <p>归类标准很简单：<b>顾客小程序（miniapp-user）会不会调它</b>？会，就是第二类。
+ * 顾客端一旦误调员工端点，必然 403，而小程序侧这类失败常被静默吞掉——
+ * 详见 {@code StationController#getMyStation} 的注释（那里记录了三次真实事故）。</p>
  */
 @Aspect
 @Component

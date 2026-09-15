@@ -1,5 +1,6 @@
 package com.example.aquaflow.service;
 
+import com.example.aquaflow.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -48,6 +49,114 @@ public class ReconciliationService {
         } else {
             log.warn("[日结对账 V2] 发现不平项：{}", v2);
         }
+
+        // 结果落表：此前只写日志，无人可查、无留痕（问责与趋势分析都做不到）
+        persistResults(result, v2);
+    }
+
+    /**
+     * 把对账结果落到 reconciliation_result（每日每检查项一行，同日重跑覆盖）。
+     * <p>级别：E5/E7 为提示型（WARN），其余为 ERROR。</p>
+     */
+    public void persistResults(Map<String, Integer> v1, Map<String, Integer> v2) {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        try {
+            writeRows(today, v1, "ERROR");
+            writeRows(today, v2, "WARN_KEYS");
+        } catch (Exception e) {
+            // 落表失败不能影响对账本身的告警（对账是只读校验，日志才是最后防线）
+            log.error("[日结对账] 结果落表失败：{}", e.getMessage(), e);
+        }
+    }
+
+    private void writeRows(java.time.LocalDate date, Map<String, Integer> data, String levelMode) {
+        if (data == null) return;
+        data.forEach((key, count) -> {
+            String level = "WARN_KEYS".equals(levelMode)
+                    ? (key.startsWith("E5") || key.startsWith("E7") ? "WARN" : "ERROR")
+                    : "ERROR";
+            jdbcTemplate.update(
+                    "INSERT INTO reconciliation_result(run_date, check_key, diff_count, level, sample_ids) "
+                            + "VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE diff_count = VALUES(diff_count), "
+                            + "level = VALUES(level), sample_ids = VALUES(sample_ids), create_time = NOW()",
+                    java.sql.Date.valueOf(date), key, count == null ? 0 : count, level, null);
+        });
+    }
+
+    /**
+     * 単一水站スコープの対帳（站长端向け）。
+     *
+     * <p>[2026-09-13 修正] 此前站长端读到的是 {@link #listRecentResults} 返回的<b>全平台</b>结果，
+     * 其中含其它水站的差异件数与 {@code sample_ids}（客户 ID），属跨租户信息泄露。
+     * 现改为只按登录站长所属水站做 station-scoped 校验：返回值中不含其它水站与全平台的任何数据。</p>
+     *
+     * <p>本方法只读、不写库；全平台结果仍由 03:00 的 {@link #dailyReconcile()} 落
+     * {@code reconciliation_result} 供运维/事后追查使用，不经任何面向站长的接口暴露。</p>
+     */
+    public Map<String, Object> stationCheck(Long stationId) {
+        if (stationId == null) {
+            throw new BusinessException("无法识别当前水站");
+        }
+        Map<String, Integer> r = new LinkedHashMap<>();
+
+        // SE1：本水站押金账户余额 == 本水站押金流水净和（对账等式1 的按站版）
+        r.put("SE1_depositAccount", count("SELECT COUNT(*) FROM ("
+                + "SELECT a.customer_id FROM customer_deposit_account a "
+                + "LEFT JOIN (SELECT customer_id, station_id, SUM(amount) AS flow_sum FROM deposit_record "
+                + "           WHERE station_id = ? GROUP BY customer_id, station_id) f "
+                + "  ON f.customer_id = a.customer_id AND f.station_id = a.station_id "
+                + "WHERE a.station_id = ? AND ABS(a.balance - COALESCE(f.flow_sum, 0)) > 0.009) x",
+                stationId, stationId));
+
+        // SE3：权益汇总 vs 权益批次（E3 的按站版）
+        r.put("SE3_rightVsLot", count("SELECT COUNT(*) FROM ("
+                + "SELECT a.customer_id, a.station_id, a.product_id FROM customer_barrel_asset a "
+                + "LEFT JOIN (SELECT customer_id, station_id, product_id, SUM(remain_qty) rq, "
+                + "                  SUM(remain_qty * unit_price) ra FROM customer_barrel_lot "
+                + "           WHERE status = 1 AND station_id = ? GROUP BY customer_id, station_id, product_id) l "
+                + "  ON l.customer_id = a.customer_id AND l.station_id = a.station_id AND l.product_id = a.product_id "
+                + "WHERE a.station_id = ? AND (a.quantity <> COALESCE(l.rq, 0) "
+                + "   OR ABS(COALESCE(a.right_amount, 0) - COALESCE(l.ra, 0)) > 0.009)) x",
+                stationId, stationId));
+
+        // SE4：占用为负（over < −权益）
+        r.put("SE4_occupiedOutOfRange", count("SELECT COUNT(*) FROM customer_barrel_over o "
+                + "WHERE o.station_id = ? AND o.over_qty < -COALESCE((SELECT SUM(l.remain_qty) FROM customer_barrel_lot l "
+                + "  WHERE l.customer_id = o.customer_id AND l.station_id = o.station_id "
+                + "    AND l.product_id = o.product_id AND l.status = 1), 0)", stationId));
+
+        // SE5：物理桶守恒（E5 的按站版；type=6/9 为人工调整，已纳入）
+        r.put("SE5_physicalConservation", count("SELECT COUNT(*) FROM ("
+                + "SELECT u.customer_id, u.station_id, u.product_id FROM ("
+                + "  SELECT customer_id, station_id, product_id, (delivered_qty - returned_qty) AS delta, 0 AS book FROM barrel_record WHERE type = 8 AND station_id = ? "
+                + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type = 7 AND station_id = ? "
+                + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type = 2 AND status = 3 AND station_id = ? "
+                + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type IN (3, 4) AND station_id = ? "
+                + "  UNION ALL SELECT customer_id, station_id, product_id,  quantity, 0 FROM barrel_record WHERE type = 1 AND station_id = ? "
+                + "  UNION ALL SELECT customer_id, station_id, product_id,  quantity, 0 FROM barrel_record WHERE type = 6 AND station_id = ? "
+                + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type = 9 AND station_id = ? "
+                + "  UNION ALL SELECT a.customer_id, a.station_id, a.product_id, 0, a.quantity + COALESCE(o.over_qty, 0) "
+                + "    FROM customer_barrel_asset a LEFT JOIN customer_barrel_over o "
+                + "      ON o.customer_id = a.customer_id AND o.station_id = a.station_id AND o.product_id = a.product_id "
+                + "    WHERE a.station_id = ? "
+                + ") u GROUP BY u.customer_id, u.station_id, u.product_id "
+                + "HAVING COALESCE(SUM(u.delta), 0) <> COALESCE(MAX(u.book), 0)) x",
+                stationId, stationId, stationId, stationId, stationId, stationId, stationId, stationId));
+
+        // SE6：押金穿底（权益可退金额 > 押金余额）
+        r.put("SE6_depositShortfall", count("SELECT COUNT(*) FROM ("
+                + "SELECT a.customer_id, a.station_id FROM customer_barrel_asset a "
+                + "LEFT JOIN customer_deposit_account da ON da.customer_id = a.customer_id AND da.station_id = a.station_id "
+                + "WHERE a.station_id = ? GROUP BY a.customer_id, a.station_id "
+                + "HAVING SUM(COALESCE(a.right_amount, 0)) - COALESCE(MAX(da.balance), 0) > 0.009) x",
+                stationId));
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("stationId", stationId);
+        out.put("checks", r);
+        out.put("totalDiff", r.values().stream().mapToInt(Integer::intValue).sum());
+        out.put("checkedAt", java.time.LocalDateTime.now().toString());
+        return out;
     }
 
     /**
@@ -187,8 +296,12 @@ public class ReconciliationService {
         }
 
         // ---- E5：物理桶守恒（用流水重算占用，与账面交叉验证）----
-        // 只有留了 type=8 配送收发流水之后这条才成立；历史数据若含 type=6 人工调整
-        // （语义是"设置为 N"而非增减），可能导致误报，需要人工分辨。
+        // 只有留了 type=8 配送收发流水之后这条才成立。
+        // [2026-09-13] 人工调整（station_adjustment）落 barrel_record 的 type=6/9：
+        //   type=6 = 人工调整（增加，quantity 为绝对增量）
+        //   type=9 = 人工调整（减少，quantity 为绝对减量）
+        // 拆成两个类型而不是用负数，正是为了让本守恒式无需判断符号即可求和。
+        // 若不把这两项纳入，每一次站长补录都会让本检查项告警（假警报）。
         int e5 = count("SELECT COUNT(*) FROM ("
                 + "SELECT u.customer_id, u.station_id, u.product_id "
                 + "FROM ("
@@ -197,6 +310,8 @@ public class ReconciliationService {
                 + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type = 2 AND status = 3 "
                 + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type IN (3, 4) "
                 + "  UNION ALL SELECT customer_id, station_id, product_id,  quantity, 0 FROM barrel_record WHERE type = 1 "
+                + "  UNION ALL SELECT customer_id, station_id, product_id,  quantity, 0 FROM barrel_record WHERE type = 6 "
+                + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type = 9 "
                 + "  UNION ALL SELECT a.customer_id, a.station_id, a.product_id, 0, "
                 + "                   a.quantity + COALESCE(o.over_qty, 0) FROM customer_barrel_asset a "
                 + "                   LEFT JOIN customer_barrel_over o ON o.customer_id = a.customer_id "
@@ -206,7 +321,7 @@ public class ReconciliationService {
         r.put("E5_physicalConservation", e5);
         if (e5 > 0) {
             log.warn("[对账V2 ALERT E5] 物理桶不守恒：流水重算的占用与账面(权益+over)不符 {} 条。"
-                    + "若存在 type=6 人工调整记录，需先人工分辨（该类型是'设置为N'而非增减，无法纳入守恒）", e5);
+                    + "若存在历史遗留的 type=6 记录（2026-09-13 之前该类型语义为'设置为N'而非增减），需人工分辨", e5);
         }
 
         // ---- E6：穿底（权益可退金额 > 押金账户余额）----
@@ -239,6 +354,12 @@ public class ReconciliationService {
 
     private int count(String sql) {
         Integer n = jdbcTemplate.queryForObject(sql, Integer.class);
+        return n == null ? 0 : n;
+    }
+
+    /** 带参数的计数（station-scoped 校验使用） */
+    private int count(String sql, Object... args) {
+        Integer n = jdbcTemplate.queryForObject(sql, Integer.class, args);
         return n == null ? 0 : n;
     }
 

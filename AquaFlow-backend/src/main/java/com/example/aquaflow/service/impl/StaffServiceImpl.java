@@ -1,6 +1,7 @@
 package com.example.aquaflow.service.impl;
 
 import com.example.aquaflow.entity.Staff;
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.StaffMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.StaffService;
@@ -29,7 +30,7 @@ public class StaffServiceImpl implements StaffService {
     public Staff getById(Long id) {
         Staff staff = staffMapper.getById(id);
         if (staff == null) {
-            throw new RuntimeException("员工不存在");
+            throw new BusinessException("员工不存在");
         }
         return staff;
     }

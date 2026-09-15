@@ -1,6 +1,7 @@
 package com.example.aquaflow.service.impl;
 
 import com.example.aquaflow.entity.Station;
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.StationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +25,7 @@ public class StationServiceImpl implements StationService {
     public Station getById(Long id) {
         Station station = stationMapper.getById(id);
         if (station == null) {
-            throw new RuntimeException("水站不存在");
+            throw new BusinessException("水站不存在");
         }
         return station;
     }

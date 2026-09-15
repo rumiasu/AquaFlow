@@ -183,6 +183,28 @@ const rejectStaffReturn = (id) => {
   return post(`${API.DELIVERY_ORDERS}/return/${id}/reject`)
 }
 
+// ==================== 取消申请（已接单订单的取消须站长审批） ====================
+
+// 站长「审批」页：customer（客户发起）/ station（站内发起）两组待决策申请
+const getPendingApprovals = () => {
+  return get(API.DELIVERY_PENDING_APPROVALS)
+}
+
+// 配送员发起取消申请：订单已被接单，取消需站长同意（不立即取消，仅提交申请）
+const requestCancel = (id, data) => {
+  return post(`${API.DELIVERY_ORDERS}/${id}/cancel-request`, data || {})
+}
+
+// 站长同意取消申请：走完整退款链（退水票/支付/押金、回补库存），订单置已取消
+const approveCancelRequest = (id) => {
+  return post(`${API.DELIVERY_ORDERS}/cancel-request/${id}/approve`)
+}
+
+// 站长驳回取消申请：订单保持原状态，由原配送员继续履约
+const rejectCancelRequest = (id) => {
+  return post(`${API.DELIVERY_ORDERS}/cancel-request/${id}/reject`)
+}
+
 // 站长拒单（简化版）
 const stationReject = (id, data) => {
   return post(`${API.DELIVERY_ORDERS}/${id}/station-reject`, data)
@@ -224,5 +246,9 @@ module.exports = {
   getDirectedReturns,
   getDirectedIncoming,
   approveStaffReturn,
-  rejectStaffReturn
+  rejectStaffReturn,
+  getPendingApprovals,
+  requestCancel,
+  approveCancelRequest,
+  rejectCancelRequest
 }

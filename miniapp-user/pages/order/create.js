@@ -7,8 +7,8 @@ const { createOrder, createPayment } = require('../../api/order')
 const { getQuote } = require('../../api/payment')
 const { getStationPublicPhone } = require('../../api/station')
 const { storage, stationStorage } = require('../../utils/storage')
-const { getBaseUrl, API } = require('../../config/api')
-const { getAccessToken, getCustomerId } = require('../../utils/token')
+const { resolveStationId } = require('../../utils/station')
+const { getCustomerId } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
 const app = getApp()
 
@@ -247,19 +247,12 @@ this.setData({ products, stationName: effectiveStationName })
         return
       }
 
-      const baseUrl = getBaseUrl()
-      const token = getAccessToken()
-      const stationRes = await new Promise((resolve, reject) => {
-        wx.request({
-          url: baseUrl + API.STATIONS_MY_CURRENT,
-          method: 'GET',
-          header: { 'Authorization': 'Bearer ' + token },
-          success: (r) => resolve(r.data),
-          fail: reject
-        })
-      })
-
-      const currentStationId = stationRes && stationRes.code === 0 ? stationRes.data : null
+      // [2026-09-14 修正] 原实现调 /api/stations/mine —— 员工专属接口（@RequireRole
+      // STATION_MANAGER/DELIVERY），顾客 token 恒 403，currentStationId 永远为 null，
+      // 于是下面那段「水站不一致」提醒成了永不触发的死分支：从 A 站订单「再来一单」时，
+      // 即便人已在 B 站也不会得到任何提示，可能按 B 站的价格/库存下单。
+      // 改用与首页同一套来源：stationStorage 优先，回退 my-station。
+      const currentStationId = await resolveStationId()
       const orderStationId = order.deliveryStationId || order.stationId
 
       if (currentStationId && orderStationId && currentStationId !== orderStationId) {

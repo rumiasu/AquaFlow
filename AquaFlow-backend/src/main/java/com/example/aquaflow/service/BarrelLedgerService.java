@@ -214,11 +214,80 @@ public class BarrelLedgerService {
         return (p != null && p.getDeposit() != null) ? p.getDeposit() : BigDecimal.ZERO;
     }
 
+    /** lot.note 为 varchar(200)：超长在 STRICT_TRANS_TABLES 下会直接 1406，这里统一截断 */
+    private static String truncateNote(String note) {
+        if (note == null) return null;
+        return note.length() <= 200 ? note : note.substring(0, 200);
+    }
+
+    /**
+     * 批次来源：订单购买 / 历史迁移 / 人工补录。
+     *
+     * <p>schema 早已为这三种来源预留了列（`customer_barrel_lot.source_type` / `price_source` / `is_migrated`），
+     * 但旧实现把三者<b>写死成「订单购买」</b>（`setSourceType(1)` / `setPriceSource(1)` / `setIsMigrated(0)`），
+     * 于是站长补录的历史账无法表达「这个单价是推断出来的」，退款时也就无法触发二次确认。</p>
+     */
+    public static class LotOrigin {
+
+        /** 1订单购买 2历史迁移 3人工补录 */
+        private final int sourceType;
+        /** 1订单实付 2当时商品押金 3当前商品押金(兜底推断) */
+        private final int priceSource;
+        /** true = 单价为推断值，退款需二次确认（对应 is_migrated=1） */
+        private final boolean migrated;
+        private final String note;
+
+        public LotOrigin(int sourceType, int priceSource, boolean migrated, String note) {
+            this.sourceType = sourceType;
+            this.priceSource = priceSource;
+            this.migrated = migrated;
+            this.note = note;
+        }
+
+        /** 订单链路：单价来自订单实付，非推断值（与旧实现行为逐字节一致） */
+        public static LotOrigin fromOrder() {
+            return new LotOrigin(1, 1, false, null);
+        }
+
+        /**
+         * 站长人工补录。
+         *
+         * @param priceIsInferred true = 单价取自商品当前押金（推断值），退款需二次确认
+         */
+        public static LotOrigin manual(boolean priceIsInferred, String note) {
+            return new LotOrigin(3, priceIsInferred ? 3 : 1, priceIsInferred, note);
+        }
+
+        /** 历史迁移：单价一律为推断值 */
+        public static LotOrigin historyMigration(String note) {
+            return new LotOrigin(2, 3, true, note);
+        }
+
+        public int getSourceType() { return sourceType; }
+        public int getPriceSource() { return priceSource; }
+        public boolean isMigrated() { return migrated; }
+        public String getNote() { return note; }
+    }
+
     /** 新建权益批次（押金条），并同步 customer_barrel_asset 的数量与派生金额 */
     @Transactional
     public CustomerBarrelLot createLot(Long customerId, Long stationId, Long productId,
                                        BigDecimal unitPrice, int qty, Long relatedOrderId, Long operatorId) {
+        return createLot(customerId, stationId, productId, unitPrice, qty, relatedOrderId, operatorId,
+                LotOrigin.fromOrder());
+    }
+
+    /**
+     * 带来源的建批次。
+     * <p>订单/配送链路传 {@link LotOrigin#fromOrder()}；站长补录历史账传 {@link LotOrigin#manual}；
+     * 迁移导入传 {@link LotOrigin#historyMigration}。</p>
+     */
+    @Transactional
+    public CustomerBarrelLot createLot(Long customerId, Long stationId, Long productId,
+                                       BigDecimal unitPrice, int qty, Long relatedOrderId, Long operatorId,
+                                       LotOrigin origin) {
         if (qty <= 0) throw new BusinessException("新增权益数必须大于 0");
+        LotOrigin src = origin != null ? origin : LotOrigin.fromOrder();
         BigDecimal price = unitPrice == null ? BigDecimal.ZERO : unitPrice;
 
         CustomerBarrelLot lot = new CustomerBarrelLot();
@@ -235,12 +304,14 @@ public class BarrelLedgerService {
         lot.setUnitPrice(price);
         lot.setQty(qty);
         lot.setRemainQty(qty);
-        lot.setSourceType(1);
-        lot.setPriceSource(1);
+        lot.setSourceType(src.getSourceType());
+        lot.setPriceSource(src.getPriceSource());
         lot.setRelatedOrderId(relatedOrderId);
         lot.setStatus(1);
-        lot.setIsMigrated(0);
+        lot.setIsMigrated(src.isMigrated() ? 1 : 0);
         lot.setOperatorId(operatorId);
+        // note 列为 varchar(200)：补录说明可能较长，超长直接报 1406，这里先截断（不静默丢关键信息，只截尾）
+        lot.setNote(truncateNote(src.getNote()));
         lot.setCreateTime(LocalDateTime.now());
         lotMapper.insert(lot);
 
@@ -390,6 +461,47 @@ public class BarrelLedgerService {
             int am = assetMapper.subRightAmount(asset.getId(), amount);
             if (am == 0) throw new BusinessException("可退金额不足，扣减失败");
         }
+    }
+
+    // =========================================================================
+    // 写操作 4：订正欠桶（站长资产调整单专用）
+    // =========================================================================
+
+    /**
+     * 订正欠桶：按 delta 调整 over（正=补记欠桶，负=核销欠桶）。
+     *
+     * <p><b>为什么必须走这里</b>：{@code customer_barrel_over} 是桶账的唯一欠桶真相源，
+     * 而并发写它必须先加排他行锁、再用<b>当前读</b>取最新值——MySQL 默认 REPEATABLE READ 下，
+     * 普通 SELECT 读到的是事务开始时的快照，第二个事务即使等到了锁也会读到旧值（DEF-4）。
+     * 直接调 mapper 的 {@code adjustOver} 会绕过这套协议。</p>
+     *
+     * <p>唯一校验是物理下限：调整后必须满足 {@code 占用 = 权益 + over ≥ 0}。
+     * over 本身允许为负（多还桶 / 水站暂存），但不能负到让占用为负。</p>
+     *
+     * @param delta 正=补记欠桶，负=核销欠桶；0 视为非法（调用方不应发起空调整）
+     * @return 变更结果（含变更前后 over）
+     */
+    @Transactional
+    public OverChange adjustOver(Long customerId, Long stationId, Long productId, int delta, Long operatorId) {
+        if (delta == 0) throw new BusinessException("欠桶调整量不能为 0");
+        if (customerId == null || stationId == null || productId == null) {
+            throw new BusinessException("欠桶调整必须指定客户、水站与商品");
+        }
+
+        // 与 returnEmpty / applyDelivery 同一套协议：先 upsert 建行（FOR UPDATE 对不存在的行不加锁），
+        // 再当前读取最新已提交值，最后才校验。
+        overMapper.lockOrCreate(customerId, stationId, productId);
+        int before = lockedOverQty(customerId, stationId, productId);
+        int after = before + delta;
+
+        int right = rightQty(customerId, stationId, productId);
+        if (right + after < 0) {
+            throw new BusinessException("该调整会使占用为负（权益 " + right + " + 调整后 over " + after
+                    + " < 0）；核销欠桶的数量不能超过（权益 + 当前 over）=" + (right + before));
+        }
+
+        overMapper.adjustOver(customerId, stationId, productId, delta);
+        return new OverChange(productId, delta, before, after, operatorId);
     }
 
     // =========================================================================

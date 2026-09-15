@@ -9,8 +9,8 @@ import java.util.Map;
 @Mapper
 public interface TicketRecordMapper {
 
-    @Insert("insert into ticket_record(customer_id, product_id, station_id, increase_qty, decrease_qty, order_id, source, ticket_source, create_time) " +
-            "values(#{customerId}, #{productId}, #{stationId}, #{increaseQty}, #{decreaseQty}, #{orderId}, #{source}, #{ticketSource}, #{createTime})")
+    @Insert("insert into ticket_record(customer_id, product_id, station_id, increase_qty, decrease_qty, order_id, source, ticket_source, create_time, adjustment_id) " +
+            "values(#{customerId}, #{productId}, #{stationId}, #{increaseQty}, #{decreaseQty}, #{orderId}, #{source}, #{ticketSource}, #{createTime}, #{adjustmentId})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(TicketRecord ticketRecord);
 

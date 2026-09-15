@@ -8,8 +8,8 @@ import java.util.List;
 @Mapper
 public interface DepositRecordMapper {
 
-    @Insert("insert into deposit_record(customer_id, station_id, type, amount, related_order_id, note, operator_id, create_time) " +
-            "values(#{customerId}, #{stationId}, #{type}, #{amount}, #{relatedOrderId}, #{note}, #{operatorId}, #{createTime})")
+    @Insert("insert into deposit_record(customer_id, station_id, type, amount, related_order_id, note, operator_id, create_time, product_id, unit_price, quantity, adjustment_id) " +
+            "values(#{customerId}, #{stationId}, #{type}, #{amount}, #{relatedOrderId}, #{note}, #{operatorId}, #{createTime}, #{productId}, #{unitPrice}, #{quantity}, #{adjustmentId})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(DepositRecord depositRecord);
 

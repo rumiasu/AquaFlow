@@ -88,7 +88,11 @@ Page({
     try {
       const res = await getTodayStats()
       this.setData({ todayStats: res.data || {} })
-    } catch (err) {}
+    } catch (err) {
+      // 静默失败会让看板把「没加载出来」显示成 0，误导站长。至少留痕 + 提示。
+      console.error('[Mine] 今日统计加载失败:', err)
+      wx.showToast({ title: '今日统计加载失败', icon: 'none' })
+    }
   },
 
   async loadRoleData() {
@@ -96,7 +100,9 @@ Page({
       try {
         const s = await get(API.STATION_GET)
         this.setData({ stationInfo: s.data || null })
-      } catch (e) {}
+      } catch (e) {
+        console.error('[Mine] 水站信息加载失败:', e)
+      }
       this.loadStaffList()
       this.loadBindApplications()
     }
@@ -113,7 +119,11 @@ Page({
           _firstChar: firstChar(s.name || s.nickname || s.nickName || '配')
         }))
       })
-    } catch (e) {}
+    } catch (e) {
+      // 静默失败会让站长看到「本站没有配送员」，可能误以为需要重新添加员工。
+      console.error('[Mine] 员工列表加载失败:', e)
+      wx.showToast({ title: '员工列表加载失败', icon: 'none' })
+    }
   },
 
   async loadBindApplications() {
@@ -127,7 +137,10 @@ Page({
           _firstChar: firstChar(a.name || a.nickname || a.nickName || '申')
         }))
       })
-    } catch (e) {}
+    } catch (e) {
+      console.error('[Mine] 绑定申请加载失败:', e)
+      wx.showToast({ title: '绑定申请加载失败', icon: 'none' })
+    }
   },
 
   onLogin() {

@@ -1,6 +1,7 @@
 package com.example.aquaflow.service.impl;
 
 import com.example.aquaflow.constant.InventoryChangeType;
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.dto.InventoryInboundDTO;
 import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.entity.InventoryRecord;
@@ -32,7 +33,7 @@ public class InventoryServiceImpl implements InventoryService {
     public void checkStock(Long stationId, Long productId, Integer needQuantity) {
         Inventory inventory = inventoryMapper.getByStationAndProduct(stationId, productId);
         if (inventory == null || inventory.getQuantity() < needQuantity) {
-            throw new RuntimeException("水站[" + stationId + "]库存不足，需要:" + needQuantity);
+            throw new BusinessException("水站库存不足，还差 " + needQuantity + " 桶，请先入库后再接单");
         }
     }
 
@@ -42,7 +43,7 @@ public class InventoryServiceImpl implements InventoryService {
         Long operatorId = AuthContext.getUserId();
         for (InventoryInboundDTO.ItemDTO item : items) {
             if (item.getQuantity() == null || item.getQuantity() <= 0) {
-                throw new RuntimeException("入库数量必须大于0");
+                throw new BusinessException("入库数量必须大于0");
             }
             inventoryMapper.upsertQuantity(stationId, item.getProductId(), item.getQuantity());
             // [AQ-029] 入库写流水，与库存变动同事务

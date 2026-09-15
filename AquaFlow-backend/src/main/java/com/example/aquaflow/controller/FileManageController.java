@@ -16,6 +16,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 文件管理（<b>站长专属</b>）：上传 / 列表 / 删除均限 {@code STATION_MANAGER}。
+ *
+ * <p>与 {@code CommonController#upload} 的区别：那里是"登录即可"的通用图片上传（顾客也会用），
+ * 这里是站长对自己站点文件资料的管理入口，带归属与清理语义。</p>
+ */
 @RestController
 @RequestMapping("/api/files")
 @Slf4j

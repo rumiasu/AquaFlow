@@ -20,6 +20,14 @@ import java.io.IOException;
 import java.util.List;
 
 @Slf4j
+/**
+ * 订单图片（配送 / 退货凭证）。上传与按订单查询对<b>三方角色</b>开放：
+ * {@code STATION_MANAGER} / {@code DELIVERY} / {@code customer}。
+ *
+ * <p>三方都需要它：配送员上传送达/异常凭证、站长查看凭证、顾客查自己订单的图。
+ * 注意顾客角色的字面量在本项目里写作小写 {@code "customer"}（与 {@code AuthContext.getUserType()} 一致），
+ * 员工角色则是大写下划线风格 —— 新增端点时请照此填写，别自创写法。</p>
+ */
 @RestController
 @RequestMapping("/api/order-images")
 public class OrderImageController {

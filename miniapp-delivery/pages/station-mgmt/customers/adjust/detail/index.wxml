@@ -1,0 +1,124 @@
+<view class="container">
+  <view class="denied" wx:if="{{denied}}">
+    <text>{{deniedText}}</text>
+  </view>
+
+  <view class="loading" wx:elif="{{loading && !detail}}"><text>加载中...</text></view>
+
+  <view class="empty" wx:elif="{{!loading && !detail}}"><text>调整单不存在或无权访问</text></view>
+
+  <block wx:elif="{{detail}}">
+    <!-- ============ 单据头 ============ -->
+    <view class="card">
+      <view class="head">
+        <view class="head-left">
+          <text class="adjust-no">{{detail.adjustNo}}</text>
+          <text class="adjust-type">{{detail.adjustTypeText}}</text>
+        </view>
+        <text class="status {{detail.statusClass}}">{{detail.statusText}}</text>
+      </view>
+
+      <view class="row" wx:if="{{detail.hasQty}}">
+        <text class="label">数量</text>
+        <text class="value strong">{{detail.qtyText}}</text>
+      </view>
+      <view class="row" wx:if="{{detail.hasAmount}}">
+        <text class="label">金额</text>
+        <text class="value strong">¥{{detail.amountText}}</text>
+      </view>
+      <view class="row" wx:if="{{detail.hasUnitPrice}}">
+        <text class="label">补录单价</text>
+        <text class="value">¥{{detail.unitPriceText}}</text>
+      </view>
+      <view class="row">
+        <text class="label">是否推断单价</text>
+        <text class="value">{{detail.isMigratedText}}</text>
+      </view>
+      <view class="row">
+        <text class="label">单价来源(后端原值)</text>
+        <text class="value">{{detail.priceSource}}</text>
+      </view>
+      <view class="row">
+        <text class="label">客户</text>
+        <text class="value">#{{detail.customerId}}</text>
+      </view>
+      <view class="row" wx:if="{{detail.productId}}">
+        <text class="label">商品</text>
+        <text class="value">#{{detail.productId}}</text>
+      </view>
+      <view class="row">
+        <text class="label">创建时间</text>
+        <text class="value">{{detail.createTimeText}}</text>
+      </view>
+      <view class="row" wx:if="{{detail.executeTimeText}}">
+        <text class="label">执行时间</text>
+        <text class="value">{{detail.executeTimeText}}</text>
+      </view>
+      <view class="row">
+        <text class="label">创建人 / 执行人</text>
+        <text class="value">#{{detail.operatorId}} / {{detail.executorId ? '#' + detail.executorId : '—'}}</text>
+      </view>
+      <view class="row" wx:if="{{detail.reverses}}">
+        <text class="label">撤销的原单</text>
+        <text class="value link" bindtap="onOpenRelated" data-id="{{detail.reverses}}">#{{detail.reverses}}</text>
+      </view>
+      <view class="row" wx:if="{{detail.reversedBy}}">
+        <text class="label">反向单</text>
+        <text class="value link" bindtap="onOpenRelated" data-id="{{detail.reversedBy}}">#{{detail.reversedBy}}</text>
+      </view>
+    </view>
+
+    <!-- ============ 调整原因 ============ -->
+    <view class="card">
+      <view class="card-title">调整原因</view>
+      <text class="reason">{{detail.reason || '（未填写）'}}</text>
+    </view>
+
+    <!-- ============ 证据图 ============ -->
+    <view class="card" wx:if="{{detail.evidenceList.length}}">
+      <view class="card-title">证据图（{{detail.evidenceList.length}} 张）</view>
+      <view class="evidence-row">
+        <image class="evidence-img" wx:for="{{detail.evidenceList}}" wx:key="*this" src="{{item}}"
+               mode="aspectFill" data-index="{{index}}" bindtap="onPreviewEvidence" />
+      </view>
+    </view>
+
+    <!-- ============ 资产快照（后端落库的 JSON 串的友好展示） ============ -->
+    <view class="card" wx:if="{{detail.snapshotRows.length}}">
+      <view class="card-title">资产快照（调整前 / 调整后）</view>
+      <view class="snap-head">
+        <text class="col col-name">项目</text>
+        <text class="col">调整前</text>
+        <text class="col">调整后</text>
+      </view>
+      <view class="snap-row" wx:for="{{detail.snapshotRows}}" wx:key="label">
+        <text class="col col-name">{{item.label}}</text>
+        <text class="col">{{item.before}}</text>
+        <text class="col after">{{item.after}}</text>
+      </view>
+    </view>
+
+    <view class="card" wx:if="{{detail.beforeRaw || detail.afterRaw}}">
+      <view class="card-title">原始 JSON</view>
+      <view class="raw-block" wx:if="{{detail.beforeRaw}}">
+        <text class="raw-label">beforeSnapshot</text>
+        <text class="raw-text">{{detail.beforeRaw}}</text>
+      </view>
+      <view class="raw-block" wx:if="{{detail.afterRaw}}">
+        <text class="raw-label">afterSnapshot</text>
+        <text class="raw-text">{{detail.afterRaw}}</text>
+      </view>
+    </view>
+
+    <!-- ============ 操作按钮 ============ -->
+    <view class="footer" wx:if="{{detail.isPending}}">
+      <view class="btn-main" bindtap="onExecute"><text>{{executing ? '执行中...' : '执行（立即改写客户资产）'}}</text></view>
+    </view>
+    <view class="footer" wx:elif="{{detail.isEffective}}">
+      <view class="btn-danger" bindtap="onReverse"><text>{{reversing ? '撤销中...' : '撤销（生成反向单）'}}</text></view>
+    </view>
+    <view class="footer-tip" wx:else>
+      <text>当前状态「{{detail.statusText}}」，无可执行操作。如需修正请新建一张调整单。</text>
+    </view>
+  </block>
+</view>

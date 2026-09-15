@@ -19,6 +19,9 @@ Page({
       const res = await getMyFeedbacks()
       this.setData({ historyList: res.data || [] })
     } catch (err) {
+      // 静默失败会被当成「没有历史反馈」，用户以为反馈丢了。留痕 + 提示。
+      console.error('[Report] 反馈历史加载失败:', err)
+      wx.showToast({ title: '反馈历史加载失败', icon: 'none' })
     } finally {
       this.setData({ historyLoading: false })
     }

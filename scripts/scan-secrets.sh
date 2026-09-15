@@ -13,16 +13,23 @@ cd "$(cd "$(dirname "$0")/.." && pwd)"
 # 高置信度密钥特征：键名 + 等号/冒号 + 长度 >= 12 的值
 PATTERN='(jwt[_-]?secret|app[_-]?secret|secret[_-]?key|secret-id|access[_-]?key|password|passwd|wx[_-]?app[_-]?secret)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'${}[:space:]]{12,}["'"'"']'
 
-if git grep -nEI "$PATTERN" -- \
+# 注意：不能用 `git grep -n`（它会连命中整行一起打印，等于把密钥二次抄进 CI 日志）。
+# 这里用 -c 只输出「文件:处数」，既定位到文件，又保证任何密钥值都不会出现在输出里。
+HITS="$(git grep -cEI "$PATTERN" -- \
       ':(exclude)*.md' \
       ':(exclude)*example*' \
       ':(exclude)*.lock' \
       ':(exclude)*.example' \
       ':(exclude)*application-local.yml' \
       ':(exclude)*.min.js' \
-      ':(exclude)archive/*' ; then
+      ':(exclude)archive/*' || true)"
+
+if [ -n "$HITS" ]; then
+  echo "$HITS" | while IFS= read -r line; do
+    echo "  疑似硬编码密钥：${line%:*}（${line##*:} 处）"
+  done
   echo ""
-  echo "[scan-secrets] ✗ 发现疑似硬编码密钥（见上方文件:行号）。请改用环境变量注入。" >&2
+  echo "[scan-secrets] ✗ 发现疑似硬编码密钥（仅列出文件与处数，不回显内容）。请改用环境变量注入。" >&2
   exit 1
 fi
 

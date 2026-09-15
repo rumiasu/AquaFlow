@@ -31,6 +31,14 @@ public class RequiredConfigChecker {
     @Value("${wechat.miniapp.secret:}")
     private String wxSecret;
 
+    // [2026-09-15] 客户端与员工端是两个小程序（appid 不同）。员工端这对**不硬校验**：
+    // 缺了只影响"员工端微信登录"，本地还有 dev-login 兜底，没必要让人起不来。
+    @Value("${wechat.miniapp.staff-appid:}")
+    private String wxStaffAppId;
+
+    @Value("${wechat.miniapp.staff-secret:}")
+    private String wxStaffSecret;
+
     @Value("${cos.secret-id:}")
     private String cosSecretId;
 
@@ -63,7 +71,11 @@ public class RequiredConfigChecker {
         if (isBlank(cosSecretId) || isBlank(cosSecretKey)) {
             log.warn("COS_SECRET_ID / COS_SECRET_KEY 未配置，对象存储上传功能将不可用（不影响启动）");
         }
-        log.info("安全配置校验通过：JWT/微信配置均已外部注入");
+        if (isBlank(wxStaffAppId) || isBlank(wxStaffSecret)) {
+            log.warn("WX_STAFF_APP_ID / WX_STAFF_APP_SECRET 未配置，员工端（站长/配送员）微信登录不可用"
+                    + "（不影响启动，客户端微信登录不受影响；本地可用 dev-login 兜底）");
+        }
+        log.info("安全配置校验通过：JWT / 客户端微信配置均已外部注入");
     }
 
     private boolean isBlank(String s) {

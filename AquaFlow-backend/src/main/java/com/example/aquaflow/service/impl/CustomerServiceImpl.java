@@ -1,6 +1,7 @@
 package com.example.aquaflow.service.impl;
 
 import com.example.aquaflow.constant.DepositType;
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.entity.BarrelRecord;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.CustomerBarrelAsset;
@@ -99,7 +100,7 @@ public class CustomerServiceImpl implements CustomerService {
     public Customer getById(Long id) {
         Customer customer = customerMapper.getById(id);
         if (customer == null) {
-            throw new RuntimeException("客户不存在");
+            throw new BusinessException("客户不存在");
         }
         return customer;
     }
@@ -123,7 +124,7 @@ public class CustomerServiceImpl implements CustomerService {
     public Map<String, Object> getCustomerStats(Long customerId) {
         Customer customer = customerMapper.getById(customerId);
         if (customer == null) {
-            throw new RuntimeException("客户不存在");
+            throw new BusinessException("客户不存在");
         }
 
         Map<String, Object> stats = new HashMap<>();

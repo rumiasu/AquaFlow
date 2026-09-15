@@ -1,6 +1,6 @@
 const { get, post } = require('../../utils/request')
 const { API } = require('../../config/api')
-const { getStaffList, getPoolOrders, claimPoolOrder, getDispatchTracking, cancelDispatch, approveDirectedReturn, rejectDirectedReturn, getDirectedIncoming, approveStaffReturn, rejectStaffReturn } = require('../../api/delivery')
+const { getStaffList, getPoolOrders, claimPoolOrder, getDispatchTracking, cancelDispatch, approveDirectedReturn, rejectDirectedReturn, getDirectedIncoming, approveStaffReturn, rejectStaffReturn, getPendingApprovals, approveCancelRequest, rejectCancelRequest } = require('../../api/delivery')
 
 // 转单中标记：站间转单 vs 配送员转单（退回站长/转让/重分配）
 const DIRECTED_MARK = '[指定退回待确认]'
@@ -10,8 +10,11 @@ Page({
   data: {
     isManager: false,
     activeTab: 'pending',
+    // 「审批」大页签内的子页签：customer 客户发起 / station 站内（配送员）发起
+    approvalTab: 'customer',
     tabs: [
       { key: 'pending', label: '待分配', count: 0 },
+      { key: 'approval', label: '审批', count: 0 },
       { key: 'pool', label: '抢单池', count: 0 },
       { key: 'dispatch', label: '外派', count: 0 },
       { key: 'incoming', label: '他站外派', count: 0 }
@@ -20,7 +23,10 @@ Page({
       pending: [],
       pool: [],
       dispatch: [],
-      incoming: []
+      incoming: [],
+      // 待审批申请：客户发起（取消申请）/ 站内发起（退回站长、转让、重分配、取消申请）
+      approvalCustomer: [],
+      approvalStation: []
     },
     staffList: [],
     showAssignModal: false,
@@ -81,14 +87,15 @@ Page({
       const userInfo = app.globalData.userInfo || {}
       const stationId = userInfo.stationId
 
-      // 并行加载3个tab数据
+      // 并行加载各 tab 数据
       // 待分配 = station-pending（未分配的）+ station-transfer（转单请求，合并进来）
-      const [pendingRes, transferRes, poolRes, dispatchRes, incomingRes] = await Promise.all([
+      const [pendingRes, transferRes, poolRes, dispatchRes, incomingRes, approvalsRes] = await Promise.all([
         get(API.DELIVERY_ORDERS + '/station-pending'),
         get(API.DELIVERY_ORDERS + '/station-transfer'),
         getPoolOrders(),
         getDispatchTracking(),
-        getDirectedIncoming()
+        getDirectedIncoming(),
+        getPendingApprovals()
       ])
 
       let staffList = []
@@ -112,16 +119,22 @@ Page({
         return { ...o, transferPending: transferKind !== '', transferKind }
       })
 
+      const approvalData = approvalsRes.data || {}
       const lists = {
         pending: pendingList,
         pool: poolRes.data || [],
         dispatch: dispatchRes.data || [],
-        incoming: incomingRes.data || []
+        incoming: incomingRes.data || [],
+        approvalCustomer: approvalData.customer || [],
+        approvalStation: approvalData.station || []
       }
 
       const tabs = this.data.tabs.map(t => ({
         ...t,
-        count: (lists[t.key] || []).length
+        // 「审批」角标 = 客户 + 站内 两组待审批之和
+        count: t.key === 'approval'
+          ? lists.approvalCustomer.length + lists.approvalStation.length
+          : (lists[t.key] || []).length
       }))
 
       this.setData({ lists, tabs, staffList })
@@ -135,6 +148,58 @@ Page({
 
   switchTab(e) {
     this.setData({ activeTab: e.currentTarget.dataset.tab })
+  },
+
+  // 「审批」页签内切换子页签：customer 客户 / station 站内
+  switchApprovalTab(e) {
+    this.setData({ approvalTab: e.currentTarget.dataset.tab })
+  },
+
+  // 审批 · 同意取消申请 —— 同意即走完整退款链并取消订单，不可撤销
+  onApproveCancel(e) {
+    const id = e.currentTarget.dataset.id
+    wx.showModal({
+      title: '同意取消',
+      content: '同意后将取消该订单，并退还水票/押金、回补库存。此操作不可撤销。',
+      confirmText: '同意取消',
+      confirmColor: '#FF3B30',
+      success: async (res) => {
+        if (!res.confirm) return
+        wx.showLoading({ title: '处理中...' })
+        try {
+          await approveCancelRequest(id)
+          wx.hideLoading()
+          wx.showToast({ title: '已同意，订单已取消', icon: 'success' })
+          this.loadAllData()
+        } catch (err) {
+          wx.hideLoading()
+          wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+        }
+      }
+    })
+  },
+
+  // 审批 · 驳回取消申请 —— 订单保持原状态，由原配送员继续履约
+  onRejectCancel(e) {
+    const id = e.currentTarget.dataset.id
+    wx.showModal({
+      title: '驳回取消',
+      content: '驳回后订单保持原状态，由原配送员继续配送。',
+      confirmText: '驳回',
+      success: async (res) => {
+        if (!res.confirm) return
+        wx.showLoading({ title: '处理中...' })
+        try {
+          await rejectCancelRequest(id)
+          wx.hideLoading()
+          wx.showToast({ title: '已驳回', icon: 'none' })
+          this.loadAllData()
+        } catch (err) {
+          wx.hideLoading()
+          wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+        }
+      }
+    })
   },
 
   onOrderTap(e) {

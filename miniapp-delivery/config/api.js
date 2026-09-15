@@ -1,16 +1,33 @@
 // API配置
+// [2026-09-15] dev.baseUrl 必须是「运行后端那台电脑的局域网 IP」，不能是 127.0.0.1/localhost。
+//   真机（预览二维码扫出来的开发版）上的 127.0.0.1 指的是**手机自己**，请求必然失败，
+//   且失败表现为「网络错误」而非业务报错，极难定位。换网络/换路由器后 IP 会变，需同步改这里。
+//   真机预览还需在手机上打开「调试」（右上角 ... → 打开调试）跳过域名校验，
+//   因为 request 合法域名只接受已 ICP 备案的 HTTPS 域名，本机 HTTP 地址无法配置。
+//   体验版(trial)/正式版(release) 都必须走 prod 的真实域名 —— 见下方 getBaseUrl 的判定。
 const API_CONFIG = {
-  dev: { baseUrl: 'http://localhost:8080' },
+  dev: { baseUrl: 'http://192.168.0.243:8080' },
   prod: { baseUrl: 'https://your-domain.com' }
 }
 
 const getBaseUrl = () => {
+  // 这里只包住环境读取：不要把下面的域名校验一起包进来，
+  // 否则它抛出的明确提示会被外层 catch 覆盖成「无法获取小程序环境版本」，反而更难排查。
+  let envVersion
   try {
-    const env = __wxConfig.envVersion === 'release' ? 'prod' : 'dev'
-    return API_CONFIG[env].baseUrl
+    envVersion = __wxConfig.envVersion
   } catch (e) {
     throw new Error('无法获取小程序环境版本，请勿在非微信开发者工具中运行')
   }
+  // 注意：体验版(envVersion='trial') 与开发版('develop') 都落到 dev。
+  // 曾因此让「上传后的体验版」静默指向本机地址，扫码后一片网络错误。
+  const env = envVersion === 'release' ? 'prod' : 'dev'
+  const baseUrl = API_CONFIG[env].baseUrl
+  // 占位域名直接拦下来报清楚，否则真机上只看到超时/网络错误，排查成本极高。
+  if (baseUrl.indexOf('your-domain.com') !== -1) {
+    throw new Error('正式环境域名还是占位符 https://your-domain.com，请先在 config/api.js 里替换为已备案的真实域名')
+  }
+  return baseUrl
 }
 
 // AquaFlow V1 配送端 API 配置
@@ -41,7 +58,6 @@ const API = {
   MANAGER_BIND_APPLICATIONS: '/api/manager/bind/applications', // 我的待审批绑定申请
   MANAGER_BIND_APPROVE: '/api/manager/bind/approve',           // 通过绑定申请
   MANAGER_BIND_REJECT: '/api/manager/bind/reject',             // 拒绝绑定申请
-  MANAGER_UNBIND_CONFIRM: '/api/manager/bind/unbind-confirm',  // 确认配送员的解绑申请
   MANAGER_BIND_RELEASE: '/api/manager/bind/release',           // 站长单方面解除配送员绑定
   MANAGER_STAFF: '/api/manager/staff',                         // 站长查看本站员工(含申请中)
 
@@ -49,11 +65,7 @@ const API = {
   DELIVERY_ORDERS: '/api/delivery/orders',
   DELIVERY_PENDING: '/api/delivery/orders/pending',
   DELIVERY_DELIVERING: '/api/delivery/orders/delivering',
-  DELIVERY_ACCEPT: '/api/delivery/orders/accept',
-  DELIVERY_COMPLETE: '/api/delivery/orders/complete',
   DELIVERY_DELIVERED_UNPAID: '/api/delivery/orders/delivered-unpaid',
-  DELIVERY_CONFIRM_COLLECTION: '/api/delivery/orders/confirm-collection',
-  DELIVERY_UNCONFIRM_COLLECTION: '/api/delivery/orders/unconfirm-collection',
   DELIVERY_REJECT: '/api/delivery/orders/reject',
   DELIVERY_TRANSFER: '/api/delivery/orders/transfer',
   DELIVERY_RETURN: '/api/delivery/orders/return',
@@ -91,20 +103,15 @@ const API = {
 
   // 订单
   ORDERS: '/api/orders',
-  ORDER_DETAIL: (id) => `/api/orders/${id}`,
 
   // 水站
-  STATIONS: '/api/stations',
   STATION_SEARCH: '/api/stations/search',           // 公开搜索，供配送员申请绑定前使用
   STATION_GET: '/api/stations/mine',
-  STATION_CREATE: '/api/stations',
-  STATION_UPDATE: '/api/stations',
 
   // 库存
   INVENTORY: '/api/inventory',
 
   // 商品（V1 不再使用 water-types）
-  PRODUCTS: '/api/products',
   WATER_TYPES: '/api/products',
   WATER_TYPE_UPDATE: (id) => `/api/products/${id}`,
 
@@ -113,6 +120,16 @@ const API = {
   MANAGER_PRODUCT: (id) => `/api/manager/products/${id}`,
   MANAGER_PRODUCT_SHELF: (id) => `/api/manager/products/${id}/shelf`,
   MANAGER_PRODUCTS_INBOUND: '/api/manager/products/inbound',
+
+  // 站长资产调整单（人工补录 / 代客订正，站长专属）。
+  // 水站一律由后端按登录站长判定，前端不传 stationId。
+  // 注意：列表与创建是同一路径、不同方法；拆成两个常量只为调用处一眼看清语义。
+  MANAGER_ADJUSTMENTS: '/api/manager/adjustments',
+  MANAGER_ADJUSTMENT: (id) => `/api/manager/adjustments/${id}`,
+  MANAGER_ADJUSTMENT_CREATE: '/api/manager/adjustments',
+  MANAGER_ADJUSTMENT_PREVIEW: '/api/manager/adjustments/preview',
+  MANAGER_ADJUSTMENT_EXECUTE: (id) => `/api/manager/adjustments/${id}/execute`,
+  MANAGER_ADJUSTMENT_REVERSE: (id) => `/api/manager/adjustments/${id}/reverse`,
 
   // 仪表盘
   DASHBOARD_TODAY: '/api/dashboard/today',
@@ -131,29 +148,19 @@ const API = {
   ORDER_IMAGE_UPLOAD: '/api/order-images/upload',
   GENERAL_UPLOAD: '/api/common/upload',
 
-  // 线下收款确认
-  CONFIRM_OFFLINE_PAY: '/api/delivery/orders/confirm-offline-pay',
-
-  // 转单池（协调）
-  TRANSFER_POOL: '/api/delivery/transfer-pool',
-  TRANSFER_CLAIM: '/api/delivery/transfer-claim',
-  TRANSFER_PLACE: '/api/delivery/transfer-place',
-  TRANSFER_CANCEL: '/api/delivery/transfer-cancel',
-
-  // 退回申请（站长确认/拒绝）
-  RETURN_CONFIRM: '/api/delivery/return/confirm',
-  RETURN_REJECT: '/api/delivery/return/reject',
-  RETURN_REQUEST: '/api/delivery/return-request',
-
   // 抢单池 & 外派追踪
   DELIVERY_POOL: '/api/delivery/orders/pool',
-  DELIVERY_CLAIM_POOL: '/api/delivery/orders/claim-pool',
   DELIVERY_DISPATCH_TRACKING: '/api/delivery/orders/dispatch-tracking',
   DELIVERY_DIRECTED_RETURNS: '/api/delivery/orders/directed-returns',
   DELIVERY_DIRECTED_INCOMING: '/api/delivery/orders/directed-incoming',
-  // ⚠️ 以下 POST 路由的 {id} 在路径**中间**（如 /orders/{id}/cancel-dispatch），
-  // 千万不要拿一个"完整路径常量"再在末尾追加 id（会打到不存在的地址，报"系统错误，请联系管理员"）。
-  // 已在 api/delivery.js 统一改用 DELIVERY_ORDERS + `/${id}/...` 拼接，这些常量已废弃不再使用。
+  // 站长「审批」页：客户 / 站内 两组待决策申请（已接单订单的取消须站长同意）
+  DELIVERY_PENDING_APPROVALS: '/api/delivery/orders/pending-approvals',
+  // ⚠️ 关于「带 {id} 的路径」：本端 POST 路由的 {id} 多在路径**中间**
+  // （如 /api/delivery/orders/{id}/cancel-dispatch），一律用 DELIVERY_ORDERS + `/${id}/...` 拼接；
+  // 不要再定义「完整路径常量」再往末尾追加 id —— 那样会打到不存在的地址，
+  // 前端只会看到「系统错误，请联系管理员」，极难定位。
+  // [2026-09-14] 已删除 19 个此类废弃常量（TRANSFER_POOL / RETURN_REQUEST / DELIVERY_ACCEPT 等）；
+  // 其中多数**指向后端根本不存在的接口**，留着属于"错误信息"而不只是冗余。
 }
 
 // 员工绑定状态枚举(与后端 constant.BindingStatus 一致)

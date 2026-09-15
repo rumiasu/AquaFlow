@@ -15,6 +15,16 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 水票账户。
+ *
+ * <p><b>顾客侧</b>（无注解 + {@code requireCustomerId()}）：{@code GET /api/tickets} 查自己的余额、
+ * {@code /purchase} 购买。<b>站长侧</b>（{@code STATION_MANAGER}）：按客户查询、加票、扣票。</p>
+ *
+ * <p><b>⚠️ 水票是唯一「下单即视同已付」的支付方式</b>，它绕过 {@code confirmPayment}，
+ * 所以<b>押金入账必须在本服务这条路径自行补齐</b>，否则会出现"客户用票付了押金、押金账户却是 0、
+ * 退桶时退不出钱"（见 AGENTS.md §8 第 4 条）。动扣票/加票逻辑前请先回看那条。</p>
+ */
 @RestController
 @RequestMapping("/api/tickets")
 @Slf4j

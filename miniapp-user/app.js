@@ -31,10 +31,10 @@ App({
   },
 
   validateToken() {
-    const { getBaseUrl } = require('./config/api')
+    const { getBaseUrl, API } = require('./config/api')
     const baseUrl = getBaseUrl()
     wx.request({
-      url: baseUrl + '/api/auth/me',
+      url: baseUrl + API.ME,
       method: 'GET',
       header: {
         'Authorization': 'Bearer ' + this.globalData.accessToken
@@ -66,9 +66,10 @@ App({
       const refreshToken = this.globalData.refreshToken || wx.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
       if (!refreshToken) return reject(new Error('no refresh token'))
 
-      const { getBaseUrl } = require('./config/api')
+      const { getBaseUrl, API } = require('./config/api')
       wx.request({
-        url: getBaseUrl() + '/api/auth/refresh',
+        // 统一走 API.REFRESH，勿硬编码路径；同文件 validateToken 用 API.ME。
+        url: getBaseUrl() + API.REFRESH,
         method: 'POST',
         data: { refreshToken },
         success: (res) => {

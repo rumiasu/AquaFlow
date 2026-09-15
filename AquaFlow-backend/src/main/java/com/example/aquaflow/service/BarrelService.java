@@ -6,6 +6,14 @@ import com.example.aquaflow.entity.CustomerBarrelAsset;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 水桶业务：客户的桶资产 / 桶流水 / 退桶申请与站长审批。
+ *
+ * <p><b>⚠️ 这里不是桶账的写入口。</b>桶账（权益批次、欠桶 over、占用）的唯一写入口是
+ * {@code BarrelLedgerService}；本接口的退桶审批与试算最终都委托给它，
+ * 以保证恒等式「占用 = 权益 + over」不被绕开（over 可为负 = 水站暂存，是合法状态）。
+ * 改动本接口时请确认没有直接 UPDATE 余额/数量列。</p>
+ */
 public interface BarrelService {
 
     List<CustomerBarrelAsset> getAssets(Long customerId, Long stationId);

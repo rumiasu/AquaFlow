@@ -19,6 +19,16 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 押金流水。
+ *
+ * <p>按归属分两类，别一刀切：{@code GET /api/deposit-records} 是<b>顾客</b>查自己的
+ * （无注解 + {@code requireCustomerId()}）；其余是<b>站长</b>查/记
+ * （{@code STATION_MANAGER} + {@code @RequireStation}，忽略客户端传入的 stationId，杜绝跨站查询）。</p>
+ *
+ * <p>押金<b>余额</b>的唯一真相是 {@code customer_deposit_account}，本类只负责流水；
+ * 对账等式「余额 == SUM(deposit_record.amount)」见 {@code ReconciliationService} 等式 1。</p>
+ */
 @RestController
 @RequestMapping("/api/deposit-records")
 @Slf4j
@@ -28,7 +38,10 @@ public class DepositRecordController {
     private static final Set<Integer> ALLOWED_DEPOSIT_TYPES = Arrays.asList(
             DepositType.PURCHASE, DepositType.RETURN, DepositType.COMPENSATION_LOST,
             DepositType.ADJUSTMENT, DepositType.PREPAID, DepositType.RETURN_BARREL,
-            DepositType.EXCEPTION_COMPENSATION, DepositType.CANCEL_PREPAID
+            DepositType.EXCEPTION_COMPENSATION, DepositType.CANCEL_PREPAID,
+            // [2026-09-13] 新增 9=人工补录押金（余额增加）。此前站长要「给客户补一笔押金」
+            // 没有任何正确的类型可用，只能借用 1/5，或误用方向相反的 7。
+            DepositType.MANUAL_GRANT
     ).stream().collect(java.util.stream.Collectors.toSet());
 
     @Autowired

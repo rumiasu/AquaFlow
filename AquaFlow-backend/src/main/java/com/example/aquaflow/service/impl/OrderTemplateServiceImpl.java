@@ -1,6 +1,7 @@
 package com.example.aquaflow.service.impl;
 
 import com.example.aquaflow.entity.OrderItem;
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.entity.OrderTemplate;
 import com.example.aquaflow.entity.OrderTemplateItem;
 import com.example.aquaflow.entity.Orders;
@@ -96,7 +97,7 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
         // 先校验归属，再清空旧默认、设为新默认。
         OrderTemplate t = templateMapper.getById(templateId);
         if (t == null || t.getCustomerId() == null || !t.getCustomerId().equals(customerId)) {
-            throw new RuntimeException("模板不存在或无权操作");
+            throw new BusinessException("常用订单不存在，可能已被删除");
         }
         templateMapper.clearDefault(customerId, stationId);
         templateMapper.setDefault(templateId);
@@ -107,7 +108,7 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
         // [AQ-036] 归属校验下沉到 SQL：只更新属于该客户的模板
         int affected = templateMapper.toggleEnabledOwned(templateId, enabled, customerId);
         if (affected <= 0) {
-            throw new RuntimeException("模板不存在或无权操作");
+            throw new BusinessException("常用订单不存在，可能已被删除");
         }
     }
 
@@ -116,7 +117,7 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
     public OrderTemplate setFromOrder(Long customerId, Long orderId, Long stationId) {
         Orders order = orderMapper.getById(orderId);
         if (order == null || !order.getCustomerId().equals(customerId)) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
 
         OrderTemplate template = new OrderTemplate();
@@ -151,7 +152,7 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
         // [AQ-036] 旧实现直接按 id 删除（含明细）→ 顾客可删他人模板。先做归属限定的删除。
         int affected = templateMapper.deleteOwned(templateId, customerId);
         if (affected <= 0) {
-            throw new RuntimeException("模板不存在或无权操作");
+            throw new BusinessException("常用订单不存在，可能已被删除");
         }
         itemMapper.deleteByTemplateId(templateId);
     }

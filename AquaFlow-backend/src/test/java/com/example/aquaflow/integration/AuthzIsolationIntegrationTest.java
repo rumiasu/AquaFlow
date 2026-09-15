@@ -43,15 +43,17 @@ class AuthzIsolationIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("客户不能调用员工专属的订单状态接口")
-    void customerCannotCallStaffOnlyStatusEndpoint() {
+    @DisplayName("客户不能调用员工专属的订单操作接口")
+    void customerCannotCallStaffOnlyEndpoint() {
         long s1 = createStation("S1");
         long p = createProduct("桶装水18.9L", 1, "20.00", "30.00", 1, "18.00");
         long alice = createCustomer("Alice", "openid-alice");
         long addr = createAddress(alice, "某小区1号");
         long order = createOrder(alice, addr, s1, p, 1, 1);
 
-        Api res = put("/api/orders/" + order + "/status?status=4", customerToken(alice), null);
+        // 原用已作为 P0-4 删除的 PUT /api/orders/{id}/status。必须改走仍存在的员工专属入口：
+        // 否则 404 同样满足 assertFalse，用例会退化成永远为真的空断言（2026-09-14 发现并修正）。
+        Api res = post("/api/delivery/orders/" + order + "/accept", customerToken(alice), null);
 
         assertFalse(res.isSuccess(), "客户不应能调用员工专属接口，实际=" + res);
     }
@@ -89,7 +91,7 @@ class AuthzIsolationIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("S1 员工不能改 S2 订单的状态（跨站写）")
+    @DisplayName("S1 员工不能操作 S2 的订单（跨站写）")
     void staffCannotOperateAnotherStationsOrder() {
         long s1 = createStation("S1");
         long s2 = createStation("S2");
@@ -99,9 +101,11 @@ class AuthzIsolationIntegrationTest extends AbstractIntegrationTest {
         long addr = createAddress(alice, "某小区1号");
         long order = createOrder(alice, addr, s2, p, 1, 1);
 
-        Api res = put("/api/orders/" + order + "/status?status=2", staffToken(m1, "STATION_MANAGER", s1), null);
+        // 同上：改走真实接单入口，才会真正打到 acceptOrder 里的「只能接本站履约的订单」校验。
+        Api res = post("/api/delivery/orders/" + order + "/accept",
+                staffToken(m1, "STATION_MANAGER", s1), null);
 
-        assertFalse(res.isSuccess(), "S1 员工不应能改 S2 订单，实际=" + res);
+        assertFalse(res.isSuccess(), "S1 员工不应能操作 S2 订单，实际=" + res);
         Integer status = jdbc.queryForObject("SELECT status FROM orders WHERE id=?", Integer.class, order);
         assertEquals(1, status, "被越权拒绝后订单状态必须保持原状");
     }

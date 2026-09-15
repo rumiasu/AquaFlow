@@ -1,9 +1,7 @@
 const { getTemplates, saveTemplate, toggleTemplate, deleteTemplate } = require('../../api/template')
 const { getProducts, getStationProducts } = require('../../api/product')
 const { getAddresses } = require('../../api/address')
-const { getBaseUrl, API } = require('../../config/api')
-const { getAccessToken } = require('../../utils/token')
-const { stationStorage } = require('../../utils/storage')
+const { resolveStationId } = require('../../utils/station')
 const { formatAddress } = require('../../utils/address')
 
 Page({
@@ -33,7 +31,7 @@ Page({
   async loadData() {
     this.setData({ loading: true })
     try {
-      const sid = this.data.stationId || stationStorage.getId()
+      const sid = this.data.stationId || await resolveStationId()
       const tplRes = sid ? await getTemplates(sid).catch(() => null) : null
       let templates = []
       if (tplRes && tplRes.data) templates = tplRes.data
@@ -78,23 +76,11 @@ Page({
   },
 
   async loadFormData() {
-    const baseUrl = getBaseUrl()
-    const token = getAccessToken()
-    let currentStationId = null
-    try {
-      const stationRes = await new Promise((resolve, reject) => {
-        wx.request({
-          url: baseUrl + API.STATIONS_MY_CURRENT,
-          method: 'GET',
-          header: { 'Authorization': 'Bearer ' + token },
-          success: (r) => resolve(r.data),
-          fail: reject
-        })
-      })
-      if (stationRes && stationRes.code === 0 && stationRes.data) {
-        currentStationId = stationRes.data
-      }
-    } catch (e) {}
+    // [2026-09-14 修正] 原实现调 /api/stations/mine —— 那是**员工**接口
+    // （@RequireRole STATION_MANAGER/DELIVERY），顾客 token 必然 403；异常又被空 catch 吞掉，
+    // 导致 stationId 恒为 null：模板列表恒空、保存时 station_id 落空。是静默失败，不是「缺字段」。
+    // 现改为与首页 checkStation 同一套来源：stationStorage 优先，回退 my-station。
+    const currentStationId = await resolveStationId()
 
     let productRes = null
     if (currentStationId) {
@@ -176,6 +162,19 @@ Page({
       wx.showToast({ title: '请选择至少一种商品', icon: 'none' })
       return
     }
+    // 水站是模板的归属维度（order_template 按站隔离），拿不到就必须挡住并说明原因，
+    // 而不是把 station_id 静默存成空。
+    const stationId = this.data.stationId || await resolveStationId()
+    if (!stationId) {
+      // 不逼用户当场去选站：下次下单时 order/success 页会按那次下单的水站把常用订单存好。
+      wx.showModal({
+        title: '还没确定水站',
+        content: '常用订单是按水站分开保存的，现在还不知道该存到哪个水站。\n\n不用特意去选——你直接去下单，系统会按那次下单的水站自动把常用订单存好。',
+        confirmText: '知道了',
+        showCancel: false
+      })
+      return
+    }
     const payload = {
       ...(isEditing ? { id: editingTemplate.id } : {}),
       name: form.name || '常用订单',
@@ -184,7 +183,7 @@ Page({
       items: validItems
     }
     try {
-      await saveTemplate(payload, this.data.stationId)
+      await saveTemplate(payload, stationId)
       wx.showToast({ title: '保存成功', icon: 'success' })
       this.setData({ showEditModal: false })
       this.loadData()

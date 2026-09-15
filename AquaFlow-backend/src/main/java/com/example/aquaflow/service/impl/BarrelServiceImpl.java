@@ -223,7 +223,7 @@ public class BarrelServiceImpl implements BarrelService {
     public void handleBarrelException(Long customerId, Long stationId, Long productId, Integer type, Integer quantity, Long relatedOrderId, String note, Long operatorId) {
         // #25: 校验quantity必须大于0
         if (quantity == null || quantity <= 0) {
-            throw new RuntimeException("数量必须大于0");
+            throw new BusinessException("数量必须大于0");
         }
         // 更新桶资产
         CustomerBarrelAsset asset = customerBarrelAssetMapper.getByCustomerAndProduct(customerId, productId, stationId);
@@ -247,7 +247,7 @@ public class BarrelServiceImpl implements BarrelService {
             case 3: // 丢失
             case 4: // 损坏
                 if (asset == null || asset.getQuantity() < quantity) {
-                    throw new RuntimeException("桶资产不足");
+                    throw new BusinessException("可用桶权益不足，无法完成本次操作");
                 }
                 customerBarrelAssetMapper.decreaseQuantity(asset.getId(), quantity);
                 break;

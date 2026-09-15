@@ -577,6 +577,19 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("无权操作他站订单");
         }
+        // [2026-09-13] 状态门槛：此前这里只校验归属、不校验状态，
+        // 于是「配送员点完成」与「配送员/站长点拒单」在两个客户端上没有任何互斥，
+        // 且已完成的订单也能被拒单退款。业务上只允许 待配送/配送中/已送达 拒单。
+        int cur = order.getStatus() != null ? order.getStatus() : 0;
+        if (!OrderStatus.isCancellable(cur)) {
+            throw new BusinessException("该订单当前状态不可拒单（status=" + cur + "）");
+        }
+        // [2026-09-14] 配送员对「已接单」订单不得直接拒单（那等于绕开站长取消了订单并触发退款），
+        // 必须提交取消申请由站长审批。站长本人不受限——他就是要点头的那个人。
+        // 待配送(1) 尚未接单，配送员仍可直接拒单。
+        if (AuthContext.isDelivery() && cur != OrderStatus.PENDING) {
+            throw new BusinessException("该订单已被接单，取消需经站长同意，请提交取消申请");
+        }
         String r = (reason != null && !reason.isBlank()) ? reason : "水站拒单";
         cancelWithRefund(orderId, r, "[拒单] " + r);
         notifyCustomerRejected(order.getCustomerId(), orderId, r);
@@ -593,6 +606,16 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         if (reason == null || reason.isBlank()) {
             throw new BusinessException("拒单原因必填");
+        }
+        // [2026-09-13] 与 rejectOrder 同款状态门槛：已完成/已取消的订单不允许再走退款
+        int cur = order.getStatus() != null ? order.getStatus() : 0;
+        if (!OrderStatus.isCancellable(cur)) {
+            throw new BusinessException("该订单当前状态不可解决/拒单（status=" + cur + "）");
+        }
+        // [2026-09-14] 与 rejectOrder 同款收口：配送员对已接单订单不得直接取消（会触发退款），
+        // 必须提交取消申请由站长审批。站长本人不受限。
+        if (AuthContext.isDelivery() && cur != OrderStatus.PENDING) {
+            throw new BusinessException("该订单已被接单，取消需经站长同意，请提交取消申请");
         }
         // 注意：不要提前置 CANCELLED，否则 refundOrder 的状态门槛(orderStatus < DELIVERED)会失效、
         // 导致押金不退/配送中桶悬挂。状态由 refundOrder 末尾统一置位。
@@ -620,6 +643,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             orderMapper.appendSpecialNote(orderId,
                     "[外派] 站长拒单后外派，原因=" + r + "，原归属站=" + stationId);
         } else {
+            // [2026-09-13] 取消分支原先没有任何状态门槛（外派分支靠 outsourceToPoolIf 的 CAS 兜着）。
+            // 与 rejectOrder/resolveOrder 统一：只允许 待配送/配送中/已送达。
+            int curCancel = order.getStatus() != null ? order.getStatus() : 0;
+            if (!OrderStatus.isCancellable(curCancel)) {
+                throw new BusinessException("该订单当前状态不可取消（status=" + curCancel + "）");
+            }
             cancelWithRefund(orderId, r, "[拒单] " + r);
             notifyCustomerRejected(order.getCustomerId(), orderId, r);
         }
@@ -1024,6 +1053,101 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_DIRECTED,
                 OrderTransfer.STATUS_REJECTED, AuthContext.getUserId());
         log("DIRECTED_RETURN_REJECT", orderId, null);
+    }
+
+    /* ==================================================================
+     *  取消申请（已接单订单的取消须站长审批）
+     *
+     *  背景：此前配送员可经 rejectOrder 直接取消已接单订单（含退款），零审批；
+     *  客户对已接单订单则完全取消不了。现统一为「申请 → 站长决策」：
+     *    配送员/客户 → requestCancelBy*（写 order_transfer，PENDING，不动订单状态）
+     *                → 站长 approveCancelRequest（refundOrder 完整退款链）/ rejectCancelRequest
+     *  与「退回站长」的区别：退回 = 订单继续（变待分配）；取消 = 订单终止。
+     * ================================================================== */
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void requestCancelByStaff(Long orderId, String reason) {
+        Orders order = requireOrder(orderId);
+        checkStationOwnership(order);
+        if (AuthContext.isDelivery()) {
+            checkDeliverySelf(order);
+        }
+        int cur = order.getStatus() != null ? order.getStatus() : 0;
+        // 待配送(1) 尚未接单，配送员可直接走 rejectOrder；只有已接单才需要审批
+        if (cur != OrderStatus.DELIVERING && cur != OrderStatus.DELIVERED) {
+            throw new BusinessException("仅已接单（配送中/已送达）的订单需提交取消申请，当前状态=" + cur);
+        }
+        OrderTransfer pending = orderTransferMapper.findPendingByOrder(orderId);
+        if (pending != null && OrderTransfer.SUB_CANCEL_REQUEST.equals(pending.getSubKind())) {
+            throw new BusinessException("该订单已有待审批的取消申请，请勿重复提交");
+        }
+        String r = (reason != null && !reason.isBlank()) ? reason : "配送员申请取消";
+        insertTransfer(orderId, OrderTransfer.KIND_STAFF, OrderTransfer.SUB_CANCEL_REQUEST,
+                AuthContext.getUserId(), null, deliveryStation(order), r);
+        orderMapper.appendSpecialNote(orderId, "[取消申请] " + r);
+        log("CANCEL_REQUEST_STAFF", orderId, serviceMap("reason", r));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void requestCancelByCustomer(Long orderId, Long customerId, String reason) {
+        Orders order = requireOrder(orderId);
+        if (order.getCustomerId() == null || !order.getCustomerId().equals(customerId)) {
+            throw new BusinessException("无权取消他人订单");
+        }
+        int cur = order.getStatus() != null ? order.getStatus() : 0;
+        if (!OrderStatus.isCancellable(cur)) {
+            throw new BusinessException("当前订单状态不可取消，如需帮助请联系水站");
+        }
+        OrderTransfer pending = orderTransferMapper.findPendingByOrder(orderId);
+        if (pending != null && OrderTransfer.SUB_CANCEL_REQUEST.equals(pending.getSubKind())) {
+            throw new BusinessException("已提交取消申请，请等待水站处理");
+        }
+        String r = (reason != null && !reason.isBlank()) ? reason : "客户申请取消";
+        insertTransfer(orderId, OrderTransfer.KIND_CUSTOMER, OrderTransfer.SUB_CANCEL_REQUEST,
+                null, null, deliveryStation(order), r);
+        orderMapper.appendSpecialNote(orderId, "[取消申请] " + r);
+        log("CANCEL_REQUEST_CUSTOMER", orderId, serviceMap("reason", r));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void approveCancelRequest(Long orderId) {
+        Orders order = requireOrder(orderId);
+        checkStationOwnership(order);
+        OrderTransfer pending = orderTransferMapper.findPendingByOrder(orderId);
+        if (pending == null || !OrderTransfer.SUB_CANCEL_REQUEST.equals(pending.getSubKind())) {
+            throw new BusinessException("该订单没有待审批的取消申请");
+        }
+        int cur = order.getStatus() != null ? order.getStatus() : 0;
+        if (!OrderStatus.isCancellable(cur)) {
+            throw new BusinessException("该订单当前状态不可取消（status=" + cur + "）");
+        }
+        // 先落审批结论，再走统一退款编排（refundOrder 末尾统一把订单置为已取消）
+        orderTransferMapper.resolvePendingByKind(orderId, pending.getKind(),
+                OrderTransfer.STATUS_APPROVED, AuthContext.getUserId());
+        String reason = (pending.getReason() != null && !pending.getReason().isBlank())
+                ? pending.getReason() : "取消申请";
+        cancelWithRefund(orderId, reason, "[取消申请-已同意] ");
+        notifyCustomerRejected(order.getCustomerId(), orderId, reason);
+        log("CANCEL_REQUEST_APPROVE", orderId, serviceMap("transferId", pending.getId()));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectCancelRequest(Long orderId) {
+        Orders order = requireOrder(orderId);
+        checkStationOwnership(order);
+        OrderTransfer pending = orderTransferMapper.findPendingByOrder(orderId);
+        if (pending == null || !OrderTransfer.SUB_CANCEL_REQUEST.equals(pending.getSubKind())) {
+            throw new BusinessException("该订单没有待审批的取消申请");
+        }
+        // 驳回：订单状态保持不变（继续配送中/已送达），仅落审批结论
+        orderTransferMapper.resolvePendingByKind(orderId, pending.getKind(),
+                OrderTransfer.STATUS_REJECTED, AuthContext.getUserId());
+        orderMapper.appendSpecialNote(orderId, "[取消申请-已驳回]");
+        log("CANCEL_REQUEST_REJECT", orderId, serviceMap("transferId", pending.getId()));
     }
 
     /** 便捷构造：Map.of 不允许 null 值，这里统一用 LinkedHashMap */

@@ -4,11 +4,11 @@ import com.example.aquaflow.entity.OrderBarrelException;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.entity.DepositRecord;
 import com.example.aquaflow.constant.DepositType;
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.OrderBarrelExceptionMapper;
 import com.example.aquaflow.mapper.OrderMapper;
-import com.example.aquaflow.mapper.CustomerDepositAccountMapper;
-import com.example.aquaflow.mapper.DepositRecordMapper;
 import com.example.aquaflow.service.BarrelAssetService;
+import com.example.aquaflow.service.DepositRecordService;
 import com.example.aquaflow.service.OrderBarrelExceptionService;
 import com.example.aquaflow.service.StationExceptionConfigService;
 import com.example.aquaflow.service.TicketAccountService;
@@ -49,18 +49,16 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
     @Autowired
     private TicketAccountService ticketAccountService;
 
+    /** 押金唯一入口（账户 + 流水成对写）；不再直连 mapper 改余额 */
     @Autowired
-    private CustomerDepositAccountMapper customerDepositAccountMapper;
-
-    @Autowired
-    private DepositRecordMapper depositRecordMapper;
+    private DepositRecordService depositRecordService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OrderBarrelExceptionDTO recordReturn(Long orderId, ReturnInput input) {
         Orders order = orderMapper.getById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在: " + orderId);
+            throw new BusinessException("订单不存在: " + orderId);
         }
 
         int delivery = order.getDeliveryBucketQty() != null ? order.getDeliveryBucketQty() : 0;
@@ -100,14 +98,8 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
 
         exceptionMapper.insert(ex);
 
-        // 更新订单异常标记
-        order.setExceptionFlag(true);
-        order.setExceptionCategory(category);
-        order.setExceptionCount(order.getExceptionCount() != null ? order.getExceptionCount() + 1 : 1);
-        order.setBarrelExceptionId(ex.getId());
-        order.setReturnBucketQty(actual);
-        order.setBarrelDiscrepancy(diff);
-        orderMapper.update(order);
+        // 更新订单异常标记（专用列更新 + 计数 DB 侧自增，不再整行写回）
+        orderMapper.markBarrelException(orderId, category, ex.getId(), actual, diff);
 
         // 推送站长通知（异步）
         // notificationService.pushExceptionCreated(toDTO(ex));
@@ -121,7 +113,7 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
     public OrderBarrelExceptionDTO recordException(Long orderId, ExceptionInput input) {
         Orders order = orderMapper.getById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在: " + orderId);
+            throw new BusinessException("订单不存在: " + orderId);
         }
 
         OrderBarrelException ex = new OrderBarrelException();
@@ -144,12 +136,8 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
 
         exceptionMapper.insert(ex);
 
-        // 更新订单标记
-        order.setExceptionFlag(true);
-        order.setExceptionCategory(input.getCategory());
-        order.setExceptionCount(order.getExceptionCount() != null ? order.getExceptionCount() + 1 : 1);
-        order.setBarrelExceptionId(ex.getId());
-        orderMapper.update(order);
+        // 更新订单标记（专用列更新，不再整行写回：整行写回会覆盖并发的 status/payment_status）
+        orderMapper.markBarrelException(orderId, input.getCategory(), ex.getId(), null, null);
 
         log.info("[OrderBarrelException] 配送员录入异常: orderId={}, exceptionId={}, category={}", orderId, ex.getId(), input.getCategory());
         return toDTO(ex);
@@ -160,31 +148,27 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
     public void handleException(Long exceptionId, HandleInput input) {
         OrderBarrelException ex = exceptionMapper.getById(exceptionId);
         if (ex == null) {
-            throw new RuntimeException("异常记录不存在: " + exceptionId);
+            throw new BusinessException("异常记录不存在: " + exceptionId);
         }
 
         // AQ-010: 终态守卫 — 已处理(MANAGER_APPROVED/EXECUTED/IGNORED)的异常不可重复处理，防止重复刷补偿
+        // [2026-09-13] 守卫改为 CAS：读后写会让并发两次 handleException 都通过校验，
+        // 于是同一条异常被重复补偿（重复退票 + 重复加押金）。affected=0 即代表已被别人处理。
         if (!"STAFF_RECORDED".equals(ex.getStatus())) {
-            throw new RuntimeException("异常已处理或状态无效，不可重复处理: " + ex.getStatus());
+            throw new BusinessException("异常已处理或状态无效，不可重复处理: " + ex.getStatus());
         }
 
         String action = input.getAction() != null ? input.getAction() : "IGNORE";
 
-        // 记录站长决策
-        ex.setManagerAction(action);
-        ex.setRefundTicketQty(input.getRefundTicketQty());
-        ex.setRefundCashAmount(input.getRefundCashAmount());
-        ex.setAdjustAssetQty(input.getAdjustAssetQty());
-        ex.setAdjustProductId(input.getAdjustProductId());
-        ex.setManagerNote(input.getManagerNote());
-        // #39: 修复APPROVE/MODIFY的状态映射 — 这两个action应设为MANAGER_APPROVED
-        ex.setStatus("IGNORE".equals(action) ? "IGNORED" : "MANAGER_APPROVED");
-        ex.setDecidedAt(LocalDateTime.now());
-
-        exceptionMapper.updateDecision(ex.getId(), action,
+        // 记录站长决策（CAS：仅 STAFF_RECORDED → 决策态可写）
+        String nextStatus = "IGNORE".equals(action) ? "IGNORED" : "MANAGER_APPROVED";
+        int decided = exceptionMapper.updateDecisionIf(ex.getId(), "STAFF_RECORDED", action,
                 input.getRefundTicketQty(), input.getRefundCashAmount(),
                 input.getAdjustAssetQty(), input.getAdjustProductId(),
-                input.getManagerNote(), ex.getStatus());
+                input.getManagerNote(), nextStatus);
+        if (decided == 0) {
+            throw new BusinessException("该异常已被处理，请刷新后重试");
+        }
 
         // 如果是APPROVE或MODIFY，直接执行补偿（此时状态已是MANAGER_APPROVED）
         if ("APPROVE".equals(action) || "MODIFY".equals(action)) {
@@ -199,21 +183,21 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
     public void executeCompensation(Long exceptionId) {
         OrderBarrelException ex = exceptionMapper.getById(exceptionId);
         if (ex == null) {
-            throw new RuntimeException("异常记录不存在: " + exceptionId);
+            throw new BusinessException("异常记录不存在: " + exceptionId);
         }
 
         // AQ-010: 终态守卫 — 已执行(EXECUTED)的异常拒绝重复执行（配合 handleException 的守卫，杜绝重复刷补偿）
-        if ("EXECUTED".equals(ex.getStatus())) {
-            throw new RuntimeException("异常补偿已执行，不可重复执行: " + ex.getId());
-        }
+        // [2026-09-13] 改为 CAS：把「读到的状态」当作 expected，affected=0 即已被并发推进，直接拒绝。
         if (!"MANAGER_APPROVED".equals(ex.getStatus()) && !"EXECUTING".equals(ex.getStatus())) {
-            throw new RuntimeException("异常状态不允许执行: " + ex.getStatus());
+            throw new BusinessException("异常状态不允许执行: " + ex.getStatus());
         }
-
+        int claimed = exceptionMapper.updateStatusIf(ex.getId(), ex.getStatus(), "EXECUTING");
+        if (claimed == 0) {
+            throw new BusinessException("该异常已由其他操作执行或状态已变更，请刷新后重试");
+        }
         ex.setStatus("EXECUTING");
-        exceptionMapper.updateStatus(ex.getId(), "EXECUTING");
 
-        try {
+        {
             Long customerId = ex.getCustomerId();
             Long stationId = ex.getStationId();
 
@@ -233,18 +217,19 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
                 }
             }
 
-            // 2. 退现金 / 减免押金：退还到客户押金账户（余额增加，金额记正）
+            // 2. 退现金 / 减免押金：退还到客户押金账户（余额增加）
+            //    [2026-09-13 修复] 旧实现用 type=7「异常补偿退押金」+ 直写 increaseBalance，
+            //    但 7 在 DepositType.isDecrease 里是【扣减】——同一个类型出现两种相反方向。
+            //    现改为：走押金唯一入口（账户+流水成对写），类型用 9「人工补录押金（增加）」。
             if (ex.getRefundCashAmount() != null && ex.getRefundCashAmount().compareTo(BigDecimal.ZERO) > 0) {
-                customerDepositAccountMapper.increaseBalance(customerId, stationId, ex.getRefundCashAmount());
                 DepositRecord dr = new DepositRecord();
                 dr.setCustomerId(customerId);
                 dr.setStationId(stationId);
-                dr.setType(DepositType.EXCEPTION_COMPENSATION); // 7 异常补偿退押金
-                dr.setAmount(ex.getRefundCashAmount());
+                dr.setType(DepositType.MANUAL_GRANT); // 9 人工补录押金（余额增加）
+                dr.setAmount(ex.getRefundCashAmount()); // 正值：方向由 type 决定
                 dr.setNote("桶异常补偿退现金: exceptionId=" + ex.getId());
                 dr.setOperatorId(AuthContext.getUserId());
-                dr.setCreateTime(LocalDateTime.now());
-                depositRecordMapper.insert(dr);
+                depositRecordService.add(dr, stationId);
                 compensated = true;
                 log.info("[OrderBarrelException] 执行退现金: exceptionId={}, amount={}", ex.getId(), ex.getRefundCashAmount());
             }
@@ -252,7 +237,7 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
             // 3. 调整桶资产
             if (ex.getAdjustAssetQty() != null && ex.getAdjustAssetQty() != 0) {
                 if (ex.getAdjustProductId() == null) {
-                    throw new RuntimeException("调整桶资产必须指定产品ID");
+                    throw new BusinessException("调整桶资产必须指定产品ID");
                 }
                 List<BarrelAssetService.BarrelReturnItem> items = new ArrayList<>();
                 BarrelAssetService.BarrelReturnItem item = new BarrelAssetService.BarrelReturnItem();
@@ -277,16 +262,14 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
                 log.info("[OrderBarrelException] 执行调整桶资产: exceptionId={}, qty={}", ex.getId(), ex.getAdjustAssetQty());
             }
 
+            // 收尾：EXECUTING → EXECUTED（CAS，affected=0 说明状态被并发改动，必须失败而不是静默继续）
+            if (exceptionMapper.updateStatusIf(ex.getId(), "EXECUTING", "EXECUTED") == 0) {
+                throw new BusinessException("异常执行状态已变更，本次补偿已回滚，请刷新后重试");
+            }
             ex.setStatus("EXECUTED");
             ex.setExecutedAt(LocalDateTime.now());
-            exceptionMapper.updateStatus(ex.getId(), "EXECUTED");
 
             log.info("[OrderBarrelException] 补偿执行完成: exceptionId={}, compensated={}", ex.getId(), compensated);
-        } catch (Exception e) {
-            log.error("[OrderBarrelException] 补偿执行失败: exceptionId={}", ex.getId(), e);
-            ex.setStatus("MANAGER_APPROVED"); // 回滚到待执行状态
-            exceptionMapper.updateStatus(ex.getId(), "MANAGER_APPROVED");
-            throw e;
         }
     }
 

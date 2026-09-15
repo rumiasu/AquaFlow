@@ -15,6 +15,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Slf4j
+/**
+ * 收货地址接口（<b>顾客自助</b>）。
+ *
+ * <p>身份一律由 {@code AuthContext.requireCustomerId()} 取得，<b>不信任请求参数里的 customerId</b>。
+ * 因此本类不加 {@code @RequireRole} —— 那不是"忘了加"，而是「顾客自助端点」的标准写法
+ * （见 {@code aspect/RequireRoleAspect.java} 的「新增端点强制约定」）。</p>
+ */
 @RestController
 @RequestMapping("/api/addresses")
 public class AddressController {

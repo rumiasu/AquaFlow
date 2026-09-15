@@ -13,6 +13,16 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 站长端综合搜索（搜客户 / 地址 / 订单），<b>仅 {@code STATION_MANAGER}</b>。
+ *
+ * <p><b>⚠️ 顾客搜商品不要用这个接口</b>：它是站长专属，顾客调用必然 403。
+ * 顾客搜商品请用 {@code GET /api/products?keyword=xxx}。</p>
+ *
+ * <p>历史上小程序端曾因注释误导而误用本接口，导致用户端搜索恒定报"当前账号未绑定水站"。
+ * 因此 {@code miniapp-user/config/api.js} 里<b>特意不定义</b> {@code SEARCH} 常量，
+ * 并在原位置留了一段反向警示 —— 新增顾客端搜索功能时请先读那段注释。</p>
+ */
 @RestController
 @RequestMapping("/api/search")
 public class SearchController {

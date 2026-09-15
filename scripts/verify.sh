@@ -23,14 +23,27 @@ echo "==================== [2/4] 后端集成测试 ===================="
 echo "==================== [3/4] 小程序静态扫描 ===================="
 PY="$(command -v python || command -v python3 || true)"
 if [ -n "$PY" ]; then
-  for s in audit_wxml_handlers.py static_audit_user.py page_reach_audit.py; do
-    if [ -f "$s" ]; then
-      echo "--- $s ---"
-      "$PY" "$s" || echo "[verify] $s 报告了问题（见上）"
-    fi
-  done
+  # 三个脚本都有真实退出码：0 通过 / 1 有致命问题。这里不再用 `|| echo` 吞掉失败，
+  # 否则脚本红着也会打印「验证全部通过」。audit_wxml_handlers.py 自带两端遍历；
+  # 另两个需显式传端名，故两端各跑一次（与 .github/workflows/ci.yml 保持一致）。
+  SCAN_FAILED=0
+  run_scan() {
+    echo "--- $* ---"
+    "$PY" "$@" || { echo "[verify] 失败：$*"; SCAN_FAILED=1; }
+  }
+  run_scan audit_wxml_handlers.py
+  run_scan page_reach_audit.py miniapp-user
+  run_scan page_reach_audit.py miniapp-delivery
+  run_scan static_audit_user.py miniapp-user
+  run_scan static_audit_user.py miniapp-delivery
+  # 注释体检：揪出「悬空 javadoc」。悬空注释会误导读者（已有三次真实事故，
+  # 见 AGENTS.md §8 第 14 条），故纳入门禁。自带两端遍历，无需传参。
+  run_scan audit_comments.py
+  if [ "$SCAN_FAILED" -ne 0 ]; then
+    echo "❌ 静态扫描未通过"; exit 1
+  fi
 else
-  echo "[verify] 未找到 python，跳过静态扫描"
+  echo "[verify] 未找到 python，跳过静态扫描（CI 上会强制执行）"
 fi
 
 echo "==================== [4/4] 敏感信息扫描 ===================="

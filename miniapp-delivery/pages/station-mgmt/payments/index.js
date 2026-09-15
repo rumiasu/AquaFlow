@@ -1,9 +1,7 @@
 const { getPendingPayments, confirmPayment } = require('../../../api/station-mgmt')
 
-// 支付方式文案：1=微信 2=现金(货到付款) 3=水票。
-// 与后端 PayMethod.java 保持一致；这里只是把历史数据里的数字翻成人话，
-// 新代码不要再往别处复制这份映射。
-const PAY_METHOD_TEXT = { 1: '微信', 2: '现金/货到付款', 3: '水票' }
+// 支付方式/支付状态文案一律由后端下发（PaymentRecord.getMethodText / getStatusText，
+// 真相源为 PayMethod.java / PaymentStatus.java）。前端不再自建 1/2/3 映射表。
 
 Page({
   data: { list: [], loading: false },
@@ -27,7 +25,8 @@ Page({
       const res = await getPendingPayments()
       // wxml 里不能做函数调用与三元嵌套，所有展示字段在 JS 里预计算好。
       const list = (res.data || []).map(item => Object.assign({}, item, {
-        methodText: PAY_METHOD_TEXT[item.paymentMethod] || '未知',
+        methodText: item.methodText || '—',
+        statusText: item.statusText || '—',
         amountText: Number(item.amount || 0).toFixed(2),
         // 无订单号 = 线上买水票这类"不挂在订单上"的收款
         isTicketPurchase: !item.orderId,

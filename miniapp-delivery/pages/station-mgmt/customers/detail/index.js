@@ -142,6 +142,17 @@ Page({
     this.loadAssets(this.data.id)
   },
 
+  /**
+   * 资产调整单入口（站长专属，见 pages/station-mgmt/customers/adjust/）。
+   * 调整是「人工补录/订正」的唯一入口：桶权益、欠桶、押金、水票的历史漏录都走这里，
+   * 不再新开第二条改账路径。
+   */
+  onOpenAdjust() {
+    wx.navigateTo({
+      url: `/pages/station-mgmt/customers/adjust/index?customerId=${this.data.id}`
+    })
+  },
+
   // ============ 纯还桶：只冲减 over，不扣权益、不退款 ============
   // 为什么必须有这个入口：旧模型里消掉欠桶的唯一途径是"下次配送时多还"，
   // 而欠桶超阈值又会被拒单 → 顾客一旦欠桶就永久锁死、押金退不出来。

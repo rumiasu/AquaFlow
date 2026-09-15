@@ -123,6 +123,8 @@
   border: 1rpx solid var(--primary, #4f8ef7);
   border-radius: 999rpx;
 }
+/* 「还空桶」+「资产调整」两个文字链并排（原本只有一个链接，直接放在 .sub-title-row 里） */
+.link-row { display: flex; align-items: center; gap: 12rpx; }
 
 /* over 文案：欠桶(红) / 水站暂存(灰蓝)。over<0 是合法状态，颜色只做区分不做警告 */
 .asset-item-sub.over-owed { color: #d93025; }

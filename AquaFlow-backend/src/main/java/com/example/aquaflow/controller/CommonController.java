@@ -12,6 +12,13 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * 通用能力接口。
+ *
+ * <p>当前只有图片上传：<b>登录即可用</b>（内部校验 {@code AuthContext.getUserId()}），
+ * 限制 5MB + 扩展名白名单（jpg/jpeg/png/webp），落到对象存储的 {@code public/} 前缀。
+ * 它既不是"公开接口"、也不限具体角色 —— 站长传商品图、顾客传退款凭证都走它。</p>
+ */
 @RestController
 @RequestMapping("/api/common")
 @Slf4j

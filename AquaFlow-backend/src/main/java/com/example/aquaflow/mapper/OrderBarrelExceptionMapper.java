@@ -70,6 +70,14 @@ public interface OrderBarrelExceptionMapper {
             "order by created_at desc")
     List<OrderBarrelException> listByCustomer(@Param("customerId") Long customerId);
 
+    /**
+     * 带预期状态的站长决策（CAS）。
+     * <p>[2026-09-13] 原实现是「先 getById 判状态、再 updateDecision」，属读后写：
+     * 并发两次 handleException 都会通过守卫，把同一条异常重复补偿（重复退票 + 重复加押金）。
+     * 这里把守卫下沉到 SQL，affected=0 即代表状态已被别人改走。
+     * <p>无 expected-state 的旧方法 `updateDecision` 已删除：全仓零调用，
+     * 留着只会成为绕过 CAS 的第二条写路径。</p>
+     */
     @Update("update order_barrel_exception set " +
             "manager_action = #{managerAction}, " +
             "refund_ticket_qty = #{refundTicketQty}, " +
@@ -79,21 +87,34 @@ public interface OrderBarrelExceptionMapper {
             "manager_note = #{managerNote}, " +
             "status = #{status}, " +
             "decided_at = NOW() " +
-            "where id = #{id}")
-    void updateDecision(@Param("id") Long id,
-                        @Param("managerAction") String managerAction,
-                        @Param("refundTicketQty") Integer refundTicketQty,
-                        @Param("refundCashAmount") java.math.BigDecimal refundCashAmount,
-                        @Param("adjustAssetQty") Integer adjustAssetQty,
-                        @Param("adjustProductId") Long adjustProductId,
-                        @Param("managerNote") String managerNote,
-                        @Param("status") String status);
+            "where id = #{id} and status = #{expectedStatus}")
+    int updateDecisionIf(@Param("id") Long id,
+                         @Param("expectedStatus") String expectedStatus,
+                         @Param("managerAction") String managerAction,
+                         @Param("refundTicketQty") Integer refundTicketQty,
+                         @Param("refundCashAmount") java.math.BigDecimal refundCashAmount,
+                         @Param("adjustAssetQty") Integer adjustAssetQty,
+                         @Param("adjustProductId") Long adjustProductId,
+                         @Param("managerNote") String managerNote,
+                         @Param("status") String status);
 
     @Update("update order_barrel_exception set " +
             "status = #{status}, " +
             "executed_at = NOW() " +
             "where id = #{id}")
     void updateStatus(@Param("id") Long id, @Param("status") String status);
+
+    /**
+     * 带预期状态的状态流转（CAS），用于「执行中 / 已执行」这两个终态守卫。
+     * affected=0 表示状态已被并发改动，调用方必须据此拒绝，而不是继续执行副作用。
+     */
+    @Update("update order_barrel_exception set " +
+            "status = #{status}, " +
+            "executed_at = NOW() " +
+            "where id = #{id} and status = #{expectedStatus}")
+    int updateStatusIf(@Param("id") Long id,
+                       @Param("expectedStatus") String expectedStatus,
+                       @Param("status") String status);
 
     @Select("select category, count(*) as cnt from order_barrel_exception " +
             "where station_id = #{stationId} " +

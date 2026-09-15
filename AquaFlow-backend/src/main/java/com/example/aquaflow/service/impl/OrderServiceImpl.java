@@ -14,12 +14,14 @@ import com.example.aquaflow.service.AssetService;
 import com.example.aquaflow.service.AuditLogService;
 import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.service.OrderService;
+import com.example.aquaflow.service.OrderWorkflowService;
 import com.example.aquaflow.service.PaymentService;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.PriceUtil;
 import com.example.aquaflow.util.StationUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,14 @@ import java.util.Map;
 @Service
 @Slf4j
 public class OrderServiceImpl implements OrderService {
+
+    /**
+     * 取消申请的编排入口（已接单订单的取消须站长审批）。
+     * <p>{@code @Lazy} 用于打破潜在 Bean 循环：OrderWorkflowService 侧还依赖支付、桶账等一系列服务。</p>
+     */
+    @Autowired
+    @Lazy
+    private OrderWorkflowService orderWorkflowService;
 
     @Autowired
     private OrderMapper orderMapper;
@@ -601,8 +611,15 @@ public class OrderServiceImpl implements OrderService {
         }
 
         int status = order.getStatus() != null ? order.getStatus() : 0;
-        if (status != OrderStatus.PENDING) {
+        if (!OrderStatus.isCancellable(status)) {
             throw new BusinessException("当前订单状态不可取消，如需帮助请联系水站");
+        }
+        // [2026-09-14] 已接单（配送中/已送达）的订单，客户不能自助取消，
+        // 只能提交取消申请，由站长审批；同意后才走 refundOrder 完整退款链。
+        if (status != OrderStatus.PENDING) {
+            orderWorkflowService.requestCancelByCustomer(orderId, customerId, "客户申请取消");
+            log.info("[OrderService] 客户取消申请已提交 orderId={}, customerId={}", orderId, customerId);
+            return;
         }
         if (!OrderStatus.isValidTransition(status, OrderStatus.CANCELLED)) {
             throw new BusinessException("当前订单状态不可取消");
@@ -610,30 +627,6 @@ public class OrderServiceImpl implements OrderService {
 
         paymentService.refundOrder(orderId, "客户取消订单");
         log.info("[OrderService] 客户取消订单成功 orderId={}, customerId={}", orderId, customerId);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void updateStatus(Long id, Integer status) {
-        transitionStatus(id, status);
-    }
-
-    @Transactional(rollbackFor = Exception.class)
-    public void transitionStatus(Long id, Integer targetStatus) {
-        Orders order = orderMapper.getById(id);
-        if (order == null) {
-            throw new BusinessException("订单不存在");
-        }
-        int currentStatus = order.getStatus() != null ? order.getStatus() : 0;
-        // AQ-014: 强制走状态机，杜绝越级跳转（如 PENDING 直接跳 COMPLETED）
-        if (!OrderStatus.isValidTransition(currentStatus, targetStatus)) {
-            throw new BusinessException("不允许从状态 " + currentStatus + " 转换到 " + targetStatus);
-        }
-        // AQ-014: CAS 更新，状态已被并发修改则拒绝（affected=0 => 失败）
-        int affected = orderMapper.updateStatusIf(id, currentStatus, targetStatus);
-        if (affected == 0) {
-            throw new BusinessException("订单状态已被并发修改，请刷新后重试");
-        }
     }
 
     @Transactional(rollbackFor = Exception.class)

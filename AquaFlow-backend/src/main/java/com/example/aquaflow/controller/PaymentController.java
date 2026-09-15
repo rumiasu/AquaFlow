@@ -27,6 +27,18 @@ import java.util.stream.Collectors;
 
 import jakarta.validation.Valid;
 
+/**
+ * 支付接口 —— <b>顾客端与站长端混装在同一个 {@code /api/payments} 前缀下</b>，靠逐个方法的注解区分。
+ *
+ * <p><b>顾客侧</b>（无注解 + {@code requireCustomerId()}）：{@code /quote} 试算、
+ * {@code POST /api/payments} 发起支付、{@code /by-customer} 查自己的流水。
+ * <b>站长侧</b>（{@code STATION_MANAGER}）：确认收款、现金确认、退款、配置、各类列表。</p>
+ *
+ * <p>资金口径：支付状态的唯一真值是 {@code orders.payment_status}；
+ * 退款的<b>唯一入口</b>是 {@code PaymentService.refundOrder}（内含"已完成/已取消不得再取消"的
+ * 状态门槛，以及退水票→退流水→退押金→清配送中桶→回补库存的完整编排）。
+ * <b>不要在本类另写一套退款逻辑</b> —— 历史上抄漏步骤导致过"订单已取消但钱票没退"。</p>
+ */
 @RestController
 @RequestMapping("/api/payments")
 @Slf4j
@@ -203,7 +215,20 @@ public class PaymentController {
     @GetMapping("/pending")
     public Result<List<Map<String, Object>>> listPending(@RequestParam(defaultValue = "200") int limit) {
         int n = limit <= 0 ? 200 : Math.min(limit, 500);
-        return Result.success(paymentRecordMapper.listPendingByStation(AuthContext.requireStationId(), n));
+        List<Map<String, Object>> rows = paymentRecordMapper.listPendingByStation(AuthContext.requireStationId(), n);
+        // 本端点返回的是原始列 Map（非实体），派生 getter 不参与序列化，故在此显式补两条文案。
+        // 文案真相源仍是常量类（PayMethod / PaymentStatus），**不在 SQL 里复制映射**，
+        // 前端也不得自建映射表 —— 历史上两端各写一套导致展示与实际状态不符。
+        for (Map<String, Object> r : rows) {
+            r.put("methodText", com.example.aquaflow.constant.PayMethod.textOf(asInt(r.get("paymentMethod"))));
+            r.put("statusText", com.example.aquaflow.constant.PaymentStatus.textOf(asInt(r.get("status"))));
+        }
+        return Result.success(rows);
+    }
+
+    /** Map 结果里的数值列可能来自不同数值类型，统一取 Integer */
+    private static Integer asInt(Object v) {
+        return v instanceof Number ? ((Number) v).intValue() : null;
     }
 
     /** 退款 */

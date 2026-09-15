@@ -4,7 +4,7 @@
 
 | 文件 | 用途 | 说明 |
 |------|------|------|
-| `schema.sql` | 数据库结构基线 | 当前库完整 DDL（36 张业务表 + 1 视图），2026-09-11 从实际库重新导出，2026-09-12 校正漂移 |
+| `schema.sql` | 数据库结构基线 | 当前库完整 DDL（37 张业务表、无视图），2026-09-11 从实际库重新导出，2026-09-12 校正漂移，2026-09-15 清理废弃对象 |
 | `init.sql` | 一键初始化入口 | 创建数据库 + schema，**只建结构，不含种子数据** |
 | `seed_dev_account.sql` | 开发账号 | 开发环境账号初始化 |
 | `seed_new_user_83.sql` | 测试用户 | 测试用户数据 |
@@ -39,7 +39,7 @@ mysql -u root -p aquaflow < schema.sql
 ## 注意事项
 
 - `schema.sql` 全部使用 `CREATE TABLE IF NOT EXISTS`，重复执行安全，不会覆盖已有表
-- 视图 `v_station_exception_stats` 使用 `CREATE OR REPLACE VIEW`，可重复执行
+- 基线**只含表、不含视图**。原视图 `v_station_exception_stats`（水站桶异常近 30 天统计）已随 2026-09-15 的清理移出基线：它只有 0 处代码引用，属人工查看用的临时产物，需要时直接查 `order_barrel_exception` 即可
 - `init.sql` 中的 `SOURCE` 依赖相对路径，**必须在 `sql/` 目录下执行**
 - 不再有任何随 init 自动灌入的种子数据 —— 期望是"建完是空库"，避免误把测试数据带进验收/生产
 - 当前库已有真实业务数据，需要造数请用对账/导出功能，而不是种子脚本
@@ -55,18 +55,31 @@ mysql -u root -p aquaflow < schema.sql
 |------|------|------|
 | 1 | `migration_order_transfer.sql` | 转单表 `order_transfer` |
 | 2 | `migration_inventory_record.sql` | 库存流水表 `inventory_record` |
-| 3 | `migration_aq_bucket_right_v1_ddl.sql` + `migration_aq_bucket_right_v1_backfill.sql` | 桶权益模型（lot / over / record_lot） |
+| 3 | `migration_aq_bucket_right_v1_ddl.sql` + `migration_aq_bucket_right_v1_backfill.sql` | 桶权益模型（lot / over / record_lot）。**注意**：`_backfill.sql` 会顺手建一张人工核对用的差异登记表 `migration_diff_bucket_right`，它**不属于基线**、无任何代码引用，跑完核对一遍即可 DROP（真实库已于 2026-09-15 删除） |
 | 4 | `migration_aq009_deposit_timing.sql` | 押金改为支付成功时入账 |
 | 5 | `migration_aq056_payment_fk.sql` | `payment_record` 外键 |
 | 6 | `migration_fix_ticket_account_uk.sql` | 水票账户唯一键修正 |
 | 7 | `migration_v22_drop_station_offline_payment.sql` | 删除 `station.offline_payment_enabled` |
-| 8 | `migration_v23_fix_payment_ticket_uk.sql` | **[DEF-3]** 修正 `uk_ticket_consume`（纳入 `source`）与 `uk_payment_order_status`（降级为普通索引） |
+| 8 | `migration_v23_fix_payment_ticket_uk.sql` | **[DEF-3]** 修正 `uk_ticket_consume`（纳入 `source`）与 `uk_payment_order_status`（降级为普通索引）。**2026-09-14 已在真实库执行**（此前从未执行：真实库上「取消已付款订单」与「水票退款」都会撞唯一键而失败，已用事务回滚法复现并复测通过） |
 | 9 | `migration_v24_fix_garbled_column_comments.sql` | 归一化导出期编码事故造成的乱码列/表注释（16 列 + 6 表），并补齐停在旧口径的 `orders` 注释。**已在真实库执行** |
 | 10 | `migration_v25_retire_customer_owed_barrel.sql` | 归档旧欠桶台账 `customer_owed_barrel`：备份为 `bak_v25_customer_owed_barrel` 后改名为 `bak_v25_customer_owed_barrel_retired`（**不 DROP**，改名后同名引用会立刻报错，作为误引用哨兵）。**已在真实库执行** |
 | 11 | `migration_v26_deposit_record_order_index.sql` | 为 `deposit_record` 增加 `idx_deposit_record_order(related_order_id, type)` —— 支付/退款路径按订单查押金流水，原来无索引（全表扫描）。**已在真实库执行** |
+| 12 | `migration_v27_station_adjustment.sql` | 站长资产调整单：新增 `station_adjustment`（人工补录/订正的单据头）与 `reconciliation_result`（对账结果落表）；给 `barrel_record` / `deposit_record` / `ticket_record` 各加 `adjustment_id` 及调整场景唯一键（`uk_record_adjustment` / `uk_deposit_adjustment` / `uk_ticket_adjustment`）。纯新增、不改既有列、不动数据。**2026-09-14 已在真实库执行**（执行前已 `mysqldump` 备份至 `backup/`；存量行数执行前后一致：`barrel_record` 4 / `deposit_record` 7 / `ticket_record` 4） |
+| 13 | `migration_v28_payment_active_order_uk.sql` | **[AQ-053] 资金防重**：为 `payment_record` 增加 STORED 生成列 `active_order_id`（仅当 `status in (1,2)` 时取 `order_id`，否则 NULL）与唯一键 `uk_payment_active_order`，使「同一订单最多一条活跃流水」由数据库强制。修复并发重复提交导致重复扣票 + 重复入账押金（`payment_record` 原唯一键因与退款冲正流水冲突已降级为普通索引）。**执行前务必先跑脚本第 1 步预检**：若历史数据已有同一订单多条活跃流水，加唯一键会失败，须人工核对后处理（脚本不自动删资金数据）。**2026-09-14 已在真实库执行**（预检 0 行重复；执行后 17 行未变，并已用回滚事务验证：同订单再插活跃流水被 `Duplicate entry` 拒绝） |
 
 > 以上脚本均为**幂等**（`information_schema` 预检 + `PREPARE`），可重复执行。
 > 执行方式务必带库名：`mysql -uroot <库名> < 脚本.sql`。
+>
+> **真实库（`aquaflow`）已走完本清单（2026-09-14 实测）**：第 1〜7 步、9〜13 步确认生效，
+> 第 8 步（v23）此前**从未执行**，已于 2026-09-14 补跑。核对方法（只读）：
+> 逐个对象查 `information_schema`（表 / 列 / `STATISTICS`），不要凭"应该跑过了"推断——
+> v23 的遗漏正是这样被发现的：真实库仍存在唯一键 `uk_payment_order_status`，
+> 且 `uk_ticket_consume` 未纳入 `source`，导致取消已付款订单与退水票在真实库上必然失败
+> （`aquaflow_test` 由 `schema.sql` 建库，因此测试全绿、问题只在真实库暴露）。
+>
+> ⚠️ 已知例外（尚未整改，执行前请先人工确认）：`migration_aq056_payment_fk.sql` 中的 `ADD CONSTRAINT` 非幂等，
+> 重跑会报 1061；且本清单第 3 步依赖 `customer_owed_barrel` 旧表名，而第 10 步已将其改名——顺序存在冲突。
+> 详见 `docs/audit/2026-09-13-全方位评价.md` 的 P0-6。
 
 ---
 

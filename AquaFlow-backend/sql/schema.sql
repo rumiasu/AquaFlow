@@ -1,8 +1,8 @@
 -- ============================================================
 -- AquaFlow 数据库结构基线（初始化用）
 --
--- 生成时间：2026-09-11（2026-09-12 校正漂移）
--- 来源：从开发环境实际数据库导出（36 张业务表 + 1 个视图）
+-- 生成时间：2026-09-11（2026-09-12 校正漂移，2026-09-15 清理废弃对象）
+-- 来源：从开发环境实际数据库导出（37 张业务表，无视图）
 --
 -- 说明：
 --   1. 本文件是当前库结构的唯一基线，已包含桶权益模型相关表
@@ -26,6 +26,11 @@
 --   7. [2026-09-12 补索引] deposit_record 增加 idx_deposit_record_order(related_order_id, type)：
 --      它是"按订单查押金流水"的唯一条件，而 applyDepositOnPaid（每次支付成功都调）与
 --      refundOrder 都走它做幂等/释放判定，原来没有索引（migration_v26 已在真实库执行）。
+--   8. [2026-09-15 清理] 移出两个非业务对象，本文件与真实库从此一致（均为 37 张表、0 视图）：
+--      · 表 migration_diff_bucket_right —— 桶权益迁移期的一次性人工核对登记表，
+--        由 migration_aq_bucket_right_v1_backfill.sql 建、全仓 0 处代码引用、迁移早已完成。
+--      · 视图 v_station_exception_stats —— 近 30 天桶异常统计，同为 0 引用的人工查看产物。
+--      两者此前只存在于基线与真实库、不参与运行，删除不影响任何读写路径。
 --
 -- 初始化：mysql -u root -p aquaflow < sql/schema.sql
 -- ============================================================
@@ -88,8 +93,11 @@ CREATE TABLE IF NOT EXISTS `barrel_record` (
   `handle_time` datetime DEFAULT NULL,
   `delivered_qty` int NOT NULL DEFAULT '0' COMMENT '本单送出满桶数(仅type=8配送收发明细)',
   `returned_qty` int NOT NULL DEFAULT '0' COMMENT '本单收回空桶数(仅type=8配送收发明细)',
+  `adjustment_id` bigint DEFAULT NULL COMMENT '站长资产调整单ID（station_adjustment.id），NULL=非调整产生',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_record_client_token` (`client_token`),
+  -- [AQ-ADJ] 一张调整单最多一条桶流水，作为「重复执行」的数据库级兜底
+  UNIQUE KEY `uk_record_adjustment` (`adjustment_id`),
   KEY `idx_customer_id` (`customer_id`),
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -245,7 +253,11 @@ CREATE TABLE IF NOT EXISTS `deposit_record` (
   `note` varchar(200) DEFAULT NULL,
   `operator_id` bigint DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `adjustment_id` bigint DEFAULT NULL COMMENT '站长资产调整单ID（station_adjustment.id），NULL=非调整产生',
   PRIMARY KEY (`id`),
+  -- [AQ-ADJ] 一张调整单最多一条押金流水（重复执行的数据库级兜底）。
+  -- 此前 deposit_record 没有任何唯一键，幂等完全依赖应用层。
+  UNIQUE KEY `uk_deposit_adjustment` (`adjustment_id`),
   KEY `idx_deposit_record_station` (`station_id`),
   KEY `idx_deposit_record_order` (`related_order_id`,`type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -307,22 +319,6 @@ CREATE TABLE IF NOT EXISTS `inventory_record` (
   KEY `idx_inv_record_ref` (`ref_id`),
   KEY `idx_inv_record_type` (`type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='库存流水';
-CREATE TABLE IF NOT EXISTS `migration_diff_bucket_right` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `customer_id` bigint DEFAULT NULL,
-  `station_id` bigint DEFAULT NULL,
-  `product_id` bigint DEFAULT NULL,
-  `kind` varchar(48) NOT NULL COMMENT 'LOT_VS_DEPOSIT | OVER_VS_OLD_OWED | RIGHT_AMT_EXCEED_BALANCE',
-  `expected_val` decimal(12,2) DEFAULT NULL,
-  `actual_val` decimal(12,2) DEFAULT NULL,
-  `diff_val` decimal(12,2) DEFAULT NULL,
-  `note` varchar(500) DEFAULT NULL,
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `handled` tinyint NOT NULL DEFAULT '0' COMMENT '0=待处理 1=已人工处理',
-  `handled_note` varchar(500) DEFAULT NULL COMMENT '人工处理说明',
-  PRIMARY KEY (`id`),
-  KEY `idx_diff_kind` (`kind`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='桶权益迁移差异登记(人工核对用, 不强行对齐)';
 CREATE TABLE IF NOT EXISTS `notice` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `station_id` bigint DEFAULT NULL,
@@ -512,6 +508,7 @@ CREATE TABLE IF NOT EXISTS `payment_record` (
   `note` varchar(200) DEFAULT NULL COMMENT '备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `active_order_id` bigint GENERATED ALWAYS AS ((case when (`status` in (1,2)) then `order_id` else NULL end)) STORED COMMENT '仅当流水为活跃态(1待收款/2已付)时等于 order_id，否则 NULL；与 uk_payment_active_order 配合保证一单一条活跃流水',
   PRIMARY KEY (`id`),
   -- [DEF-3] 原为 UNIQUE KEY uk_payment_order_status(order_id,status)，
   -- 与「退款另立负金额冲正流水」的设计冲突：退款把原记录置 REFUNDED 后再插入一条
@@ -521,6 +518,10 @@ CREATE TABLE IF NOT EXISTS `payment_record` (
   KEY `idx_payment_order_status` (`order_id`,`status`),
   KEY `idx_order_id` (`order_id`),
   KEY `idx_customer_id` (`customer_id`),
+  -- [AQ-053] 数据库级防重：把「活跃态(status in 1,2) 的 order_id」落到 STORED 生成列再建唯一键。
+  -- 既与退款冲正流水不冲突（退款后原记录与冲正流水均为 REFUNDED，生成列为 NULL，NULL 在唯一键中不参与比较），
+  -- 又能在并发重复提交时由数据库兜底。无订单支付（水票直购）order_id 为 NULL，同样不受影响。
+  UNIQUE KEY `uk_payment_active_order` (`active_order_id`),
   CONSTRAINT `fk_payment_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='支付记录';
 CREATE TABLE IF NOT EXISTS `product` (
@@ -615,6 +616,7 @@ CREATE TABLE IF NOT EXISTS `ticket_record` (
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `product_id` bigint NOT NULL DEFAULT '0',
   `station_id` bigint DEFAULT NULL,
+  `adjustment_id` bigint DEFAULT NULL COMMENT '站长资产调整单ID（station_adjustment.id），NULL=非调整产生',
   PRIMARY KEY (`id`),
   -- [DEF-3] 原为 UNIQUE KEY uk_ticket_consume(order_id,product_id)，同一订单同一商品
   -- 只能有一条流水：取消水票已付订单时 refundTicket 要插入一条 source='退款' 的回补流水，
@@ -622,6 +624,9 @@ CREATE TABLE IF NOT EXISTS `ticket_record` (
   -- 纳入 source 后，消费/退款各一条互不冲突；同时"消费"维度仍唯一，
   -- 仍能兜底并发双扣（consumeTicket 捕获 DuplicateKeyException 幂等跳过）。
   UNIQUE KEY `uk_ticket_consume` (`order_id`,`product_id`,`source`),
+  -- [AQ-ADJ] 调整单幂等键。注意 uk_ticket_consume 对调整记录【零保护】：
+  -- 调整场景 order_id 为 NULL，而 MySQL 唯一键中 NULL 互不冲突。
+  UNIQUE KEY `uk_ticket_adjustment` (`adjustment_id`,`product_id`,`source`),
   KEY `idx_ticket_record_station` (`station_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 CREATE TABLE IF NOT EXISTS `user_token` (
@@ -639,9 +644,57 @@ CREATE TABLE IF NOT EXISTS `user_token` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户Token表';
 
 -- ============================================================
--- 视图：水站桶异常统计（近 30 天）
+-- 站长资产调整单（人工补录 / 历史迁移 / 代客订正 的单据头）
+-- 设计依据：站长资产调整单（单据头 + 反向单撤销 + 幂等键 + 纳入对账）。
+--   注意：对应设计文档**不在本仓库内分发**，勿在其上写路径引用。
 -- ============================================================
-CREATE OR REPLACE VIEW `v_station_exception_stats` AS
-select `obe`.`station_id` AS `station_id`,`s`.`name` AS `station_name`,count(0) AS `total_exceptions`,sum((case when (`obe`.`category` = 'RETURN_SHORT') then 1 else 0 end)) AS `short_return_count`,sum((case when (`obe`.`category` = 'RETURN_OVER') then 1 else 0 end)) AS `over_return_count`,sum((case when (`obe`.`category` = 'STATION_SHORTAGE') then 1 else 0 end)) AS `shortage_count`,sum((case when (`obe`.`status` = 'STAFF_RECORDED') then 1 else 0 end)) AS `pending_count`,sum((case when (`obe`.`status` = 'EXECUTED') then 1 else 0 end)) AS `resolved_count`,coalesce(sum(`obe`.`refund_ticket_qty`),0) AS `total_refund_tickets`,coalesce(sum(`obe`.`refund_cash_amount`),0) AS `total_refund_cash`,avg(timestampdiff(HOUR,`obe`.`created_at`,`obe`.`decided_at`)) AS `avg_handle_hours` from (`order_barrel_exception` `obe` left join `station` `s` on((`obe`.`station_id` = `s`.`id`))) where (`obe`.`created_at` >= (now() - interval 30 day)) group by `obe`.`station_id`,`s`.`name`;
+CREATE TABLE IF NOT EXISTS `station_adjustment` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `adjust_no` varchar(32) NOT NULL COMMENT '单据号 ADJyyyymmdd-000001',
+  `station_id` bigint NOT NULL COMMENT '发起站=资产所属站；跨站一律拒绝',
+  `customer_id` bigint NOT NULL,
+  `product_id` bigint DEFAULT NULL COMMENT '桶类调整必填',
+  `adjust_type` varchar(32) NOT NULL COMMENT 'BARREL_GRANT/BARREL_REVOKE/OVER_ADJUST/DEPOSIT_GRANT/DEPOSIT_DEDUCT/TICKET_GRANT/TICKET_DEDUCT',
+  `qty` int DEFAULT NULL COMMENT '桶/水票数量（绝对值，方向由 adjust_type 决定）',
+  `amount` decimal(10,2) DEFAULT NULL COMMENT '押金金额（正数，方向由 adjust_type 决定）',
+  `unit_price` decimal(10,2) DEFAULT NULL COMMENT '补录单价快照（桶权益用）',
+  `price_source` tinyint DEFAULT NULL COMMENT '1订单实付 2当时商品押金 3当前商品押金(推断)',
+  `is_migrated` tinyint NOT NULL DEFAULT '0' COMMENT '1=历史迁移（单价为推断，退款需二次确认）',
+  `reason` varchar(200) NOT NULL COMMENT '调整原因（必填）',
+  `evidence` varchar(500) DEFAULT NULL COMMENT '证据图 objectName，逗号分隔',
+  `before_snapshot` varchar(500) DEFAULT NULL COMMENT '执行前快照 JSON',
+  `after_snapshot` varchar(500) DEFAULT NULL COMMENT '执行后快照 JSON',
+  `status` varchar(16) NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING/EFFECTIVE/REVERSED/REJECTED',
+  `client_token` varchar(64) NOT NULL COMMENT '客户端幂等键',
+  `operator_id` bigint NOT NULL COMMENT '发起人（站长）',
+  `executor_id` bigint DEFAULT NULL COMMENT '执行人',
+  `reverses` bigint DEFAULT NULL COMMENT '本单是反冲哪张单',
+  `reversed_by` bigint DEFAULT NULL COMMENT '本单被哪张单反冲',
+  `execute_time` datetime DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_adjust_no` (`adjust_no`),
+  UNIQUE KEY `uk_adjust_client_token` (`client_token`),
+  KEY `idx_adjust_station_time` (`station_id`,`create_time`),
+  KEY `idx_adjust_customer` (`customer_id`,`station_id`),
+  KEY `idx_adjust_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站长资产调整单：人工补录/订正的唯一合法来源';
+
+-- ============================================================
+-- 对账结果落表（替代「只打日志」）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `reconciliation_result` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `run_date` date NOT NULL COMMENT '对账执行日',
+  `check_key` varchar(64) NOT NULL COMMENT '检查项键（E3_rightVsLot / E5_physicalConservation 等）',
+  `diff_count` int NOT NULL DEFAULT '0' COMMENT '不平条数',
+  `level` varchar(8) NOT NULL DEFAULT 'ERROR' COMMENT 'ERROR/WARN',
+  `sample_ids` varchar(500) DEFAULT NULL COMMENT '样本 id，供人工追查',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_recon_run_check` (`run_date`,`check_key`),
+  KEY `idx_recon_date` (`run_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='对账结果：每日每检查项一行';
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -2,7 +2,6 @@ package com.example.aquaflow.controller;
 
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
-import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.dto.OrderCreateDTO;
 import com.example.aquaflow.dto.OrderCreateResult;
 import com.example.aquaflow.entity.CustomerStationConfig;
@@ -23,6 +22,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 订单接口 —— <b>顾客侧的订单入口</b>（员工侧的写在 {@code DeliveryController} 与
+ * {@code OrderWorkflowService} 里）。
+ *
+ * <p>除 {@code POST /api/orders}（站长/配送员代客建单，限 {@code STATION_MANAGER}/{@code DELIVERY}）外，
+ * 本类端点均无 {@code @RequireRole}，靠 {@code AuthContext.requireCustomerId()} 兜身份 ——
+ * 这是「顾客自助端点」的标准写法，<b>不是漏标注解</b>
+ * （见 {@code aspect/RequireRoleAspect.java} 的「新增端点强制约定」）。</p>
+ *
+ * <p>{@code PUT /{id}/customer-cancel} 按状态分流：待配送当场取消；配送中 / 已送达只提交取消申请，
+ * 由站长在「审批」页决策。</p>
+ *
+ * <p><b>⚠️ 本类曾有 {@code PUT /{id}/status} 旁路端点</b>（只改 status 字段，不执行退款 / 退票 /
+ * 退押金 / 回补库存），已于 2026-09-14 作为 P0-4 删除。任何"改状态"都必须走
+ * {@code OrderWorkflowService} 的具名方法；守护用例见
+ * {@code OrderStateMachineIntegrationTest#statusBypassEndpoint_isGone}。**不要把它加回来。**</p>
+ */
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
@@ -108,38 +124,30 @@ public class OrderController {
         return Result.success(order);
     }
 
-    @PutMapping("/{id}/status")
-    @RequireRole({"STATION_MANAGER", "DELIVERY"})
-    public Result updateStatus(@PathVariable Long id, @RequestParam Integer status) {
-        // #8: 校验status必须是合法的OrderStatus值
-        if (status == null) {
-            return Result.error("状态不能为空");
-        }
-        if (status != OrderStatus.PENDING && status != OrderStatus.DELIVERING
-                && status != OrderStatus.DELIVERED && status != OrderStatus.COMPLETED
-                && status != OrderStatus.CANCELLED) {
-            return Result.error("无效的订单状态值: " + status);
-        }
-        // 归属校验：此前只校验了 status 值合法，A 站员工可以把 B 站订单直接置为已完成
-        Orders order = orderService.getById(id);
-        if (order == null) {
-            return Result.error("订单不存在");
-        }
-        Long myStationId = AuthContext.requireStationId();
-        if (!myStationId.equals(StationUtil.deliveryStation(order))) {
-            return Result.error("无权操作他站订单");
-        }
-        orderService.transitionStatus(id, status);
-        return Result.success();
-    }
+    /*
+     * 已删除：PUT /api/orders/{id}/status（2026-09-14，P0-4）。
+     *
+     * 该端点只做「isValidTransition 校验 + CAS 改 status 字段」，不执行任何与流转绑定的副作用：
+     *   1→5 取消：不退水票、不退押金、不回补库存；
+     *   2/3→4 完成：跳过收款确认、押金入账、桶权益核销。
+     * 它绕开的正是前门（refundOrder 的 isCancellable 门槛、v28 支付防重、completeOrder 入账链）
+     * 辛苦建立的资金/资产不变量，等价于给保险柜配了一把万能后门钥匙。
+     *
+     * 确认删除前：两端小程序 0 调用（命中过的 /status 均为 BIND_STATUS、BARRELS_RECORDS_STATUS），
+     * 测试 0 引用，OrderService.transitionStatus 的唯一 HTTP 入口即本端点。
+     * 任一状态流转都必须走带完整副作用的具名入口（OrderWorkflowService.*）。
+     */
 
     /**
-     * 客户获取自己最近一笔订单的水站信息（用于重新登录后自动选站）
-     */
-    /**
-     * 客户取消自己的订单（仅"待配送"可取消）。
-     * 注意：不能加 @RequireRole —— RequireRoleAspect 硬性要求 userType=staff，会把客户拦掉。
-     * 客户身份由 JWT -> AuthContext 获取。
+     * 客户取消自己的订单。
+     *
+     * <p>按状态分流（2026-09-14 起）：<b>待配送(1)</b> 当场取消并走完整退款链；
+     * <b>配送中(2) / 已送达(3)</b> 不能自助取消，只提交<b>取消申请</b>，由站长审批
+     * （见 {@code OrderWorkflowService#requestCancelByCustomer}）。</p>
+     *
+     * <p>这是<b>顾客自助端点</b>：不加 {@code @RequireRole}，身份一律由
+     * {@code AuthContext.requireCustomerId()} 强制获取、不信任请求参数
+     * （见 {@code RequireRoleAspect} 类注释里的「新增端点强制约定」）。</p>
      */
     @PutMapping("/{id}/customer-cancel")
     public Result customerCancel(@PathVariable Long id) {

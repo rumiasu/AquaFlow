@@ -7,6 +7,13 @@ import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 客户企业资料（开票信息等），<b>顾客自助</b>。
+ *
+ * <p>身份由 {@code AuthContext.requireCustomerId()} 强制取得并回写进实体，
+ * 因此不存在"改到别人资料"的可能 —— 这也是本类无需 {@code @RequireRole} 的原因。
+ * 若将来新增"站长代某客户填企业信息"这类端点，<b>必须</b>改标注解并显式校验站别归属。</p>
+ */
 @RestController
 @RequestMapping("/api/company-info")
 public class CompanyInfoController {

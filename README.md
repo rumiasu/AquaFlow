@@ -1,6 +1,45 @@
 # AquaFlow — 桶装水配送管理系统
 
-> 管理后台 · 微信小程序 三端协同，统一 API
+[![CI](https://github.com/rumiasu/AquaFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/rumiasu/AquaFlow/actions/workflows/ci.yml)
+
+> 面向水站的桶装水配送 SaaS：**两端原生微信小程序**（顾客端 / 站长+配送员端）+ 统一后端 API。
+> 当前状态：集成测试 **21 个测试类 / 96 用例全绿**，数据库迁移至 **v28**。
+
+---
+
+## ⏱️ 5 分钟看懂这个项目
+
+**一句话定位**：桶装水配送管理系统，服务对象是**水站**（一个站长 + 若干配送员 + 它们的客户）。不是 Demo，也不是课程设计。
+
+**这个行业的难点在哪**：桶是**资产**，不是消耗品。顾客买水时买下的是桶的**权益**，喝完要还桶、最后要退押金。所以系统不能只订单，还要按 `(客户 × 水站 × 桶型)` 管三本账：
+
+```
+权益 Right  = Σ 权益批次(押金条)剩余数     ← 顾客买下的桶
+欠桶 over   = 占用 − 权益                  ← 可为负：多还的桶寄存在水站（合法状态）
+恒等式      ：占用 = 权益 + over
+```
+
+再叠加**双水站模型**：`orders.station_id` = **营收归属站**、`orders.delivery_station_id` = **履约站**。跨站外派时「**钱与票记归属站、库存走履约站**」——这条口径写错就是真丢钱。
+
+**两端三角色**：`miniapp-user`（客户，22 页）+ `miniapp-delivery`（站长 `STATION_MANAGER` / 配送员 `DELIVERY`，31 页）。**没有管理后台**（历史 Vue 后台已从仓库移除）。
+
+**技术栈**：Java 17 · Spring Boot 4.0.6 · MyBatis · MySQL 8 · 原生微信小程序（无框架、无 npm 构建步骤）。
+
+**怎么跑起来**（三条命令）：
+```powershell
+# 1) 建库建表：sql/schema.sql 是权威基线（项目无 Flyway，迁移均为手工执行）
+cd AquaFlow-backend\sql ; & 'D:\backend\MySQL\bin\mysql.exe' -u root -p < init.sql
+# 2) 配环境变量：完整清单见 AquaFlow-backend\.env.example（JWT_SECRET 长度须 ≥ 32）
+$env:JWT_SECRET='<32位以上随机串>' ; $env:WX_APP_ID='<appid>' ; $env:WX_APP_SECRET='<secret>'
+# 3) 启动后端（端口 8080）
+cd .. ; .\gradlew.bat bootRun
+```
+小程序：用微信开发者工具分别打开 `miniapp-user/` 与 `miniapp-delivery/`。
+
+**三件能讲满 15 分钟的事**（各有代码 + 回归用例两处证据）：
+1. **站长资产调整单** —— 在不破坏「桶账唯一写入口」的前提下，把历史资产补录的权限交给站长：单据头 + 反向单撤销 + 幂等键 + 纳入对账。入口 `/api/manager/adjustments`（`controller/ManagerAdjustmentController.java`），对账落 `reconciliation_result` 表。
+2. **支付流水生成列防重**（`sql/migration_v28_payment_active_order_uk.sql`）——为什么不能把唯一键直接加回 `(order_id, status)`（会与退款冲正流水冲突），改用 STORED 生成列模拟部分索引。
+3. **桶账并发铁律**（`service/BarrelLedgerService.java`）——MySQL REPEATABLE READ 下**只加行锁不够**：第二个事务拿到锁后普通 `SELECT` 读到的仍是旧快照，必须「加锁 + 当前读 `FOR UPDATE`」两件套。
 
 ---
 
@@ -217,9 +256,7 @@ cd AquaFlow-backend
 | 构建 | Gradle | 9.x（Wrapper） |
 | 语言 | Java | 17 |
 | 认证 | JWT (双Token) + BCrypt | - |
-| 前端框架 | Vue 3 (Composition API) | 3.5 |
-| 构建工具 | Vite | 6.3 |
-| UI 库 | Element Plus | 2.9 |
+| 前端 | 微信原生小程序（无框架、无 npm 构建步骤） | 基础库 3.17.0 |
 | 地图 | Leaflet (OpenStreetMap) | 1.9 |
 | 路由 | Vue Router | 4.5 |
 | HTTP | Axios | 1.7 |
@@ -437,8 +474,7 @@ AquaFlow-backend/
 
 | 表名 | 作用 | 关键设计 |
 |------|------|--------|
-| `payment_record` | 支付记录 | `payment_method`(1微信/2水票/3线下)，`status`(1待支付/2已支付/3已退款/4已取消) |
-| `station_payment_config` | 站点支付配置 | 各种支付方式开关 |
+| `payment_record` | 支付记录 | `payment_method`(1微信/2现金货到付款/3水票)，`status`(1待收款/2已付/3已退款/4已取消)。活跃态由生成列 `active_order_id` + `uk_payment_active_order` 保证「一单一条」 |
 
 #### 系统
 

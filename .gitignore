@@ -29,9 +29,11 @@ boot.log
 screenshot_*.png
 
 # ==================== 敏感配置（不提交）====================
-# 注意：application.yml 已被历史提交过（内含真实密钥），仅 ignore 无法消除历史泄露，
-# 必须按 docs/SECURITY-密钥处置指南.md 吊销轮换 + 清理 git 历史。
-application.yml
+# 说明（2026-09-13 更新）：application.yml 已改为**脱敏入库**（全部取值为 ${ENV:...} 占位符，
+# 不含任何真实密钥），因此不再忽略它 —— 否则新克隆既起不来、CI 也无法运行。
+# 真实密钥只存在于本地的 application-local.yml / 生产环境变量中。
+# 注意：历史提交里的 application.yml 曾含真实密钥，仅 ignore 无法消除历史泄露，
+# 按 docs/SECURITY-密钥处置指南.md 吊销轮换 + 清理 git 历史。
 application-prod.yml
 application-local.yml
 .env
@@ -59,6 +61,12 @@ demo/
 
 # ==================== 测试脚本（含硬编码密钥）====================
 *.py
+# 例外：这三个静态审计脚本无任何密钥/绝对路径，被 scripts/verify.sh 与 CI 引用，
+# 必须入库——否则新克隆的 CI 机器上文件不存在，扫描步骤必然失败。
+!audit_wxml_handlers.py
+!page_reach_audit.py
+!static_audit_user.py
+!audit_comments.py
 test_*.bat
 test.bat
 run_migration.bat
@@ -89,3 +97,23 @@ replacements.txt
 
 # 本地 agent 记忆/工作区状态（本地专用，勿提交）
 .workbuddy/
+
+# ==================== AI 编码工具的本地产出（磁盘保留，不入库）====================
+# 这些目录是 CodeBuddy / Lingma / Roo 等 AI 工具在工作区生成的技能库与规则文件
+# （miniapp-delivery 下约 318 个文件 / 2.7 MB），属**个人工具产物**而非项目资产：
+# 既不是构建输入，也不被任何代码引用。2026-09-13 以 `git rm -r --cached` 从索引移除，
+# **文件仍保留在本地工作区**，仅不再纳入版本管理。
+# 用限定路径而非通配，避免误伤其它目录下的同名文件。
+miniapp-delivery/.agents/
+miniapp-delivery/.codebuddy/
+miniapp-delivery/.lingma/
+miniapp-delivery/.roo/
+miniapp-delivery/.rules/
+miniapp-delivery/.workbuddy/
+miniapp-delivery/codebuddy-plugin/
+
+# ==================== 生成预览 / 生成图片 ====================
+docs/design/step*.html
+docs/design/tabbar-icons-preview.png
+docs/redesign/
+generated-images/

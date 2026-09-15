@@ -151,6 +151,32 @@ public interface OrderMapper {
                               @Param("barrelExceptionId") Long barrelExceptionId);
 
     /**
+     * [2026-09-13] 回写「桶异常」标记（专用列更新）。
+     *
+     * <p>替代 {@code OrderBarrelExceptionServiceImpl} 里两处 {@code orderMapper.update(order)}：
+     * 那两处把<b>整行内存快照</b>写回，包含 `status` / `payment_status` / 金额列，
+     * 于是「配送员点完成」与「站长取消退款」并发时，会把已提交的 `status=5` 覆盖回 2，
+     * 随后配送完成链路的 CAS（expected=DELIVERYING）反而成功，把<b>已退款订单改成已完成</b>。</p>
+     *
+     * <p>同时把 `exception_count` 改成 DB 侧自增，消除「读值+1 再写回」的丢失更新。</p>
+     *
+     * @param returnBucketQty 为 null 时保留旧值（仅 recordReturn 场景需要写）
+     */
+    @Update("update orders set exception_flag = 1, " +
+            "exception_category = #{exceptionCategory}, " +
+            "exception_count = exception_count + 1, " +
+            "barrel_exception_id = #{barrelExceptionId}, " +
+            "return_bucket_qty = coalesce(#{returnBucketQty}, return_bucket_qty), " +
+            "barrel_discrepancy = coalesce(#{barrelDiscrepancy}, barrel_discrepancy), " +
+            "update_time = NOW() " +
+            "where id = #{id}")
+    int markBarrelException(@Param("id") Long id,
+                            @Param("exceptionCategory") String exceptionCategory,
+                            @Param("barrelExceptionId") Long barrelExceptionId,
+                            @Param("returnBucketQty") Integer returnBucketQty,
+                            @Param("barrelDiscrepancy") Integer barrelDiscrepancy);
+
+    /**
      * 整行选择性更新。
      * <p><b>[Phase C] 禁止 Controller 调用</b>：只能在 Service 内部用于「非状态、非支付状态」的业务字段回写。
      * 状态请用 {@link #updateStatusIf}，支付状态请用 {@link #updatePaymentStatusIf}，
@@ -255,6 +281,25 @@ public interface OrderMapper {
             "and o.status = 1 " +
             "order by o.update_time desc")
     List<Orders> listStationReturnOrders(@Param("stationId") Long stationId);
+
+    /**
+     * 站长「审批」页 · <b>客户发起</b>的待决策申请（目前仅取消申请）。
+     *
+     * <p>[2026-09-14 新增] 订单一旦被接单（配送中/已送达），客户不能再自助取消，
+     * 只能提交取消申请等待站长决策；此查询即该队列。与「站内」队列（复用
+     * {@link #listTransferredOrders}，kind='STAFF'）并列，构成站长端审批页的两个页签。</p>
+     */
+    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+            "a.detail as addressDetail, " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
+            "from orders o " +
+            "left join customer c on o.customer_id = c.id " +
+            "left join address a on o.address_id = a.id " +
+            "where o.station_id = #{stationId} " +
+            "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' " +
+            "and t.kind='CUSTOMER' and t.sub_kind='CANCEL_REQUEST') " +
+            "order by o.update_time desc")
+    List<Orders> listPendingCustomerCancelRequests(@Param("stationId") Long stationId);
 
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail " +

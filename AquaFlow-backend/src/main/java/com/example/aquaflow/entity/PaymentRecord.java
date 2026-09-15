@@ -68,4 +68,20 @@ public class PaymentRecord {
 
     /** 更新时间 */
     private LocalDateTime updateTime;
+
+    /* ==================== 派生文案（只读，随序列化下发给前端） ====================
+     * 前端禁止自行维护「支付方式/支付状态 → 文案」的映射表：历史上两端各写一套，
+     * 后端调整口径后前端不跟随，展示与实际状态不符。文案一律由后端下发。
+     * 与本项目 Orders.getStatusText()/getPayMethodText() 的处理方式一致。
+     */
+
+    /** 支付方式文案（1 微信 / 2 现金(货到付款) / 3 水票），真相源是 PayMethod */
+    public String getMethodText() {
+        return com.example.aquaflow.constant.PayMethod.textOf(paymentMethod);
+    }
+
+    /** 支付状态文案（0 未支付 / 1 待收款 / 2 已付款 / 3 已退款 / 4 已取消），真相源是 PaymentStatus */
+    public String getStatusText() {
+        return com.example.aquaflow.constant.PaymentStatus.textOf(status);
+    }
 }

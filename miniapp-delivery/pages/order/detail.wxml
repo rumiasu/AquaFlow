@@ -112,5 +112,9 @@
     <view class="transfer-btn" bindtap="onReturnToStation">
       <text>退回站长</text>
     </view>
+    <!-- 已接单订单不能自行取消：只能提交申请，由站长审批（2026-09-14） -->
+    <view class="transfer-btn" wx:if="{{order.status === 2 || order.status === 3}}" bindtap="onRequestCancel">
+      <text>申请取消订单</text>
+    </view>
   </block>
 </view>

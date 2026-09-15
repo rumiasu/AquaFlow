@@ -128,6 +128,36 @@
 .status-return { background: #FFEBEE; color: #C62828; }
 .status-completed { background: #E8F5E9; color: #2E7D32; }
 .status-exception { background: #FFEBEE; color: #D32F2F; }
+.status-approval { background: #FFEBEE; color: #C62828; }
+
+/* 「审批」页签内的子页签（客户 / 站内） */
+.sub-tab-bar {
+  display: flex;
+  gap: 16rpx;
+  padding: 4rpx 0 16rpx;
+}
+
+.sub-tab-item {
+  padding: 12rpx 32rpx;
+  font-size: 26rpx;
+  color: #666666;
+  background: #ffffff;
+  border-radius: 999rpx;
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.sub-tab-item.active {
+  color: #ffffff;
+  font-weight: 600;
+  background: #4F8EF7;
+}
+
+.sub-tab-item.active .tab-count {
+  background: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
 
 .order-id {
   font-size: 24rpx;

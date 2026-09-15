@@ -107,6 +107,13 @@ public class BarrelRecord {
     /** 本单收回空桶数（仅 type=8 有值） */
     private Integer returnedQty;
 
+    /**
+     * 站长资产调整单 ID（station_adjustment.id），NULL=非调整产生。
+     * <p>type=6/9（人工调整）必须带本字段：既是「这条流水属于哪张单」的唯一凭据，
+     * 也是 uk_record_adjustment 的幂等依据（一张单最多一条桶流水）。</p>
+     */
+    private Long adjustmentId;
+
     /** 客户当前欠桶数（瞬时字段，不映射数据库，仅用于站长审批页提醒） */
     private transient Integer owedBuckets;
 }

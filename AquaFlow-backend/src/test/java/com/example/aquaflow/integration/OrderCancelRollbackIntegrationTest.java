@@ -82,17 +82,30 @@ class OrderCancelRollbackIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("已送达订单不可被客户取消，且不错误回补库存")
-    void deliveredOrder_cannotBeCancelledByCustomer() {
+    @DisplayName("已送达订单客户取消 → 转为站长审批的取消申请，订单与库存均不变")
+    void deliveredOrder_cancelBecomesApprovalRequest() {
         seed(true);
         // 已送达、未付款的现金订单
         long order = createOrderFull(customer, addr, station, product,
                 3 /* 已送达 */, 0, 2 /* 现金 */, "40.00", "0.00", "40.00", false, 2);
+        int qtyBefore = intOf("SELECT quantity FROM inventory WHERE station_id=? AND product_id=?",
+                station, product);
 
+        // [2026-09-14] 语义变更：已接单（配送中/已送达）的订单，客户不再被直接拒绝，
+        // 而是提交取消申请（order_transfer kind=CUSTOMER / subKind=CANCEL_REQUEST），
+        // 由站长审批；站长同意后才走 refundOrder 完整退款链。
         Api res = put("/api/orders/" + order + "/customer-cancel", customerToken(customer), null);
-        assertFalse(res.isSuccess(), "已送达订单不应可被客户取消，实际=" + res);
+        assertTrue(res.isSuccess(), "已送达订单应转为提交取消申请，实际=" + res);
 
-        assertEquals(3, intOf("SELECT status FROM orders WHERE id=?", order), "状态必须保持已送达");
+        // 申请 ≠ 取消：订单状态与库存必须原封不动，否则就成了「申请即退款」的事故。
+        assertEquals(3, intOf("SELECT status FROM orders WHERE id=?", order),
+                "提交申请后状态必须保持已送达");
+        assertEquals(qtyBefore, intOf("SELECT quantity FROM inventory WHERE station_id=? AND product_id=?",
+                        station, product),
+                "提交申请不得回补库存（只有站长同意后才回补）");
+        assertEquals(1, intOf("SELECT COUNT(*) FROM order_transfer WHERE order_id=? AND status='PENDING' "
+                        + "AND kind='CUSTOMER' AND sub_kind='CANCEL_REQUEST'", order),
+                "应恰好生成一条客户取消申请");
     }
 
     @Test

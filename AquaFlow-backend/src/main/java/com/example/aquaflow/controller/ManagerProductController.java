@@ -5,6 +5,7 @@ import com.example.aquaflow.common.Result;
 import com.example.aquaflow.dto.InventoryInboundDTO;
 import com.example.aquaflow.dto.ManagerProductDTO;
 import com.example.aquaflow.dto.ProductWithInventoryVO;
+import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.entity.Product;
 import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.mapper.ProductMapper;
@@ -157,11 +158,21 @@ public class ManagerProductController {
         if (params.getQuantity() != null || params.getEnabled() != null
                 || params.getTicketEnabled() != null || params.getTicketPrice() != null
                 || params.getPriorityDisplay() != null) {
-            Integer quantity = params.getQuantity() != null ? params.getQuantity() : 0;
-            Integer enabled = params.getEnabled() != null ? params.getEnabled() : 1;
-            Integer ticketEnabled = params.getTicketEnabled() != null ? params.getTicketEnabled() : 0;
-            BigDecimal ticketPrice = params.getTicketPrice() != null ? params.getTicketPrice() : BigDecimal.ZERO;
-            Integer priorityDisplay = params.getPriorityDisplay() != null ? params.getPriorityDisplay() : 0;
+            // [P1-2 修复 2026-09-14] 缺省值必须回落到「当前行的原值」，绝不可落 0。
+            // 旧写法 quantity 缺省 = 0：站长只想改水票价格 / 上下架时前端不传 quantity，
+            // 只要命中上面任一条件就会整行 upsertSettings，把本站库存静默清零 → 对账不平。
+            // 这正是 toggleShelf / togglePriority 一直在用的「保留式」写法，此处对齐。
+            Inventory current = inventoryMapper.getByStationAndProduct(stationId, id);
+            Integer quantity = params.getQuantity() != null ? params.getQuantity()
+                    : (current != null && current.getQuantity() != null ? current.getQuantity() : 0);
+            Integer enabled = params.getEnabled() != null ? params.getEnabled()
+                    : (current != null && current.getEnabled() != null ? current.getEnabled() : 1);
+            Integer ticketEnabled = params.getTicketEnabled() != null ? params.getTicketEnabled()
+                    : (current != null && current.getTicketEnabled() != null ? current.getTicketEnabled() : 0);
+            BigDecimal ticketPrice = params.getTicketPrice() != null ? params.getTicketPrice()
+                    : (current != null && current.getTicketPrice() != null ? current.getTicketPrice() : BigDecimal.ZERO);
+            Integer priorityDisplay = params.getPriorityDisplay() != null ? params.getPriorityDisplay()
+                    : (current != null && current.getPriorityDisplay() != null ? current.getPriorityDisplay() : 0);
             inventoryMapper.upsertSettings(stationId, id, quantity, enabled, ticketEnabled, ticketPrice, priorityDisplay);
         }
 

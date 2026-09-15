@@ -4,7 +4,7 @@
 -- 用法: 在 AquaFlow-backend/sql/ 目录下执行
 --       mysql -u root -p < init.sql
 -- 说明:
---   1. schema.sql 是从当前运行库导出的完整 DDL（37 张业务表 + 1 视图），
+--   1. schema.sql 是从当前运行库导出的完整 DDL（37 张业务表，无视图），
 --      水厂/厂长相关对象已于 2026-09-11 全部移除，不要再往里补。
 --   2. 原 seed_full_data.sql 等种子脚本停留在 V1 大迁移之前
 --      （引用 water_type / staff.password / factory 等已删对象），

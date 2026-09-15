@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * <p>所以断言不只是「恰好一个成功」，还要看<b>库里的最终值</b>：只对了一个返回值、
  * 库里却写了两次，那是最坏的结果。</p>
  */
-@DisplayName("Phase B · 并发一致性（接单/收款/退桶）")
+@DisplayName("Phase B · 并发一致性（接单/收款/退桶/支付防重）")
 class ConcurrencyIntegrationTest extends AbstractIntegrationTest {
 
     private long station;
@@ -91,9 +91,10 @@ class ConcurrencyIntegrationTest extends AbstractIntegrationTest {
         long order = createOrder(customer, addr, station, product, 1 /* 待配送 */, 0);
         String token = mgrToken();
 
+        // 走真实接单入口（CAS：updateStatusIfPENDING），而非已作为 P0-4 删除的 /status 旁路端点
         List<Api> results = fireTogether(List.of(
-                () -> put("/api/orders/" + order + "/status?status=2", token, null),
-                () -> put("/api/orders/" + order + "/status?status=2", token, null)));
+                () -> post("/api/delivery/orders/" + order + "/accept", token, null),
+                () -> post("/api/delivery/orders/" + order + "/accept", token, null)));
 
         assertEquals(1L, successCount(results), "并发接单应恰好一个成功，实际=" + results);
         assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order), "状态应只前进一次到「配送中」");
@@ -138,5 +139,54 @@ class ConcurrencyIntegrationTest extends AbstractIntegrationTest {
         assertEquals(-1, intOf("SELECT IFNULL(MAX(over_qty),0) FROM customer_barrel_over "
                         + "WHERE customer_id=? AND station_id=? AND product_id=?", customer, station, product),
                 "over 只能被冲减一次（-1），超还即为账实不符");
+    }
+
+    @Test
+    @DisplayName("两个并发创建支付请求（水票）：只扣一次票、只入账一次押金（AQ-053 数据库级防重）")
+    void concurrentTicketPayment_deductsAndCreditsOnce() throws Exception {
+        seed();
+        // 订单带押金（30.00），这样"押金只入账一次"才是可观测的；水票余额 10 张，本次买 2 桶
+        long order = createOrderFull(customer, addr, station, product,
+                1 /* 待配送 */, 1 /* 待收款（库默认） */, 3 /* 水票 */,
+                "40.00", "30.00", "70.00", false, 2);
+        createOrderItemFull(order, product, "桶装水18.9L", 2, 2, "20.00", "0.00");
+        createTicketAccount(customer, product, station, 10);
+
+        String token = customerToken(customer);
+        List<Api> results = fireTogether(List.of(
+                () -> post("/api/payments", token, "{\"orderId\":" + order + ",\"paymentMethod\":3}"),
+                () -> post("/api/payments", token, "{\"orderId\":" + order + ",\"paymentMethod\":3}")));
+
+        // ① 恰好一个成功：另一个必须收到业务错误（code=1），而不是 500、也不能两个都成功
+        assertEquals(1L, successCount(results), "并发创建支付应恰好一个成功，实际=" + results);
+        for (Api r : results) {
+            if (!r.isSuccess()) {
+                assertEquals(1, r.code(), "失败方应是业务错误(code=1)而非系统错误，实际=" + r);
+            }
+        }
+
+        // ② 只产生一条支付流水（数据库唯一键 uk_payment_active_order 兜底）
+        assertEquals(1, intOf("SELECT COUNT(*) FROM payment_record WHERE order_id=?", order),
+                "同一订单只应有一条支付流水");
+
+        // ③ 水票只被扣一次（10 → 8）；若被扣两次则剩 6
+        assertEquals(8, intOf("SELECT IFNULL(MAX(remain_quantity),0) FROM ticket_account "
+                        + "WHERE customer_id=? AND product_id=? AND station_id=?", customer, product, station),
+                "水票只应被扣减一次（10-2=8）");
+
+        // ④ 预收押金只入账一次（30.00，而非 60.00）
+        assertEquals(0, decimalOf("SELECT IFNULL(balance,0) FROM customer_deposit_account "
+                        + "WHERE customer_id=? AND station_id=?", customer, station)
+                        .compareTo(new java.math.BigDecimal("30.00")),
+                "押金只应入账一次（30.00）");
+        assertEquals(1, intOf("SELECT COUNT(*) FROM deposit_record WHERE related_order_id=? AND type=5", order),
+                "预收押金流水只应有一条");
+
+        // ⑤ 对账等式1 仍成立（余额 == 流水合计）
+        assertEquals(0, decimalOf("SELECT IFNULL(balance,0) FROM customer_deposit_account "
+                        + "WHERE customer_id=? AND station_id=?", customer, station)
+                        .compareTo(decimalOf("SELECT IFNULL(SUM(amount),0) FROM deposit_record "
+                                + "WHERE customer_id=? AND station_id=?", customer, station)),
+                "对账等式1：押金余额必须等于押金流水合计");
     }
 }

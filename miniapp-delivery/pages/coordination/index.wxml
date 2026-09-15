@@ -57,6 +57,87 @@
       </view>
     </view>
 
+    <!-- 审批：客户 / 站内 两组待决策申请（已接单订单的取消须站长同意） -->
+    <view class="list" wx:elif="{{activeTab === 'approval'}}">
+      <!-- 子页签 -->
+      <view class="sub-tab-bar">
+        <view class="sub-tab-item {{approvalTab === 'customer' ? 'active' : ''}}"
+              bindtap="switchApprovalTab" data-tab="customer">
+          <text>客户</text>
+          <text class="tab-count" wx:if="{{lists.approvalCustomer.length > 0}}">{{lists.approvalCustomer.length}}</text>
+        </view>
+        <view class="sub-tab-item {{approvalTab === 'station' ? 'active' : ''}}"
+              bindtap="switchApprovalTab" data-tab="station">
+          <text>站内</text>
+          <text class="tab-count" wx:if="{{lists.approvalStation.length > 0}}">{{lists.approvalStation.length}}</text>
+        </view>
+      </view>
+
+      <!-- 客户发起：取消申请 -->
+      <block wx:if="{{approvalTab === 'customer'}}">
+        <view class="order-card" wx:for="{{lists.approvalCustomer}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+          <view class="card-header">
+            <view class="tag-row">
+              <text class="status-tag status-approval">客户申请取消</text>
+            </view>
+            <text class="order-id">#{{item.id}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">客户</text>
+            <text class="info-value">{{item.customerName || item.receiverName}}</text>
+            <text class="info-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">商品</text>
+            <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+          </view>
+          <view class="info-row info-address">
+            <text class="info-label">地址</text>
+            <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+          </view>
+          <view class="card-actions">
+            <button class="btn-primary-small" catchtap="onApproveCancel" data-id="{{item.id}}">同意取消</button>
+            <button class="btn-danger-small" catchtap="onRejectCancel" data-id="{{item.id}}">驳回</button>
+          </view>
+        </view>
+        <view class="empty" wx:if="{{lists.approvalCustomer.length === 0}}">
+          <text>暂无客户待审批申请</text>
+        </view>
+      </block>
+
+      <!-- 站内发起：退回站长 / 转让 / 重分配 / 取消申请 -->
+      <block wx:else>
+        <view class="order-card" wx:for="{{lists.approvalStation}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+          <view class="card-header">
+            <view class="tag-row">
+              <text class="status-tag status-transfer">转单中</text>
+            </view>
+            <text class="order-id">#{{item.id}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">客户</text>
+            <text class="info-value">{{item.customerName || item.receiverName}}</text>
+            <text class="info-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">商品</text>
+            <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+          </view>
+          <view class="info-row info-address">
+            <text class="info-label">地址</text>
+            <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+          </view>
+          <view class="card-actions">
+            <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind === 'DIRECTED' ? 'directed' : 'staff'}}">同意</button>
+            <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind === 'DIRECTED' ? 'directed' : 'staff'}}">拒绝</button>
+          </view>
+        </view>
+        <view class="empty" wx:if="{{lists.approvalStation.length === 0}}">
+          <text>暂无站内待审批申请</text>
+        </view>
+      </block>
+    </view>
+
     <!-- 抢单池：其他水站外派的救援订单 -->
     <view class="list" wx:elif="{{activeTab === 'pool'}}">
       <view class="order-card pool-card" wx:for="{{lists.pool}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">

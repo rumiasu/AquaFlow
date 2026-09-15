@@ -46,6 +46,34 @@ public interface OrderWorkflowService {
     /** 站长拒单（简化版）：直接取消（走退款编排）或尝试外派进入抢单池。 */
     void stationReject(Long orderId, String reason, boolean tryDispatch);
 
+    /* ========== 取消申请（已接单订单的取消须站长审批） ========== */
+
+    /**
+     * 配送员发起取消申请：写入 {@code order_transfer(kind=STAFF, subKind=CANCEL_REQUEST, PENDING)}，
+     * <b>不改订单状态</b>——订单继续处于配送中/已送达，直到站长决策。
+     *
+     * <p>适用状态：配送中(2) / 已送达(3)。待配送(1) 尚未接单，配送员走 {@link #rejectOrder} 直接取消即可。</p>
+     */
+    void requestCancelByStaff(Long orderId, String reason);
+
+    /**
+     * 客户发起取消申请：写入 {@code order_transfer(kind=CUSTOMER, subKind=CANCEL_REQUEST, PENDING)}，
+     * 同样不改订单状态。仅用于<b>已接单</b>（配送中/已送达）的订单；
+     * 待配送订单客户仍可直接取消（{@code OrderService.cancelByCustomer}）。
+     *
+     * @param customerId 当前登录客户ID，用于校验订单归属，防止冒名取消他人订单
+     */
+    void requestCancelByCustomer(Long orderId, Long customerId, String reason);
+
+    /**
+     * 站长同意取消申请：走 {@code PaymentService.refundOrder} 完整退款链
+     * （退水票 → 退支付流水 → 退押金 → 回补库存）并置订单为已取消，申请置 APPROVED。
+     */
+    void approveCancelRequest(Long orderId);
+
+    /** 站长驳回取消申请：订单保持原状态继续履约，申请置 REJECTED。 */
+    void rejectCancelRequest(Long orderId);
+
     /* ========== 派单 / 外派 / 召回 ========== */
 
     /** 跨站外派：改写履约站并清空配送员（归属站不变），通知客户。 */

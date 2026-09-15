@@ -40,4 +40,12 @@ public class TicketRecord {
 
     /** 创建时间 */
     private LocalDateTime createTime;
+
+    /**
+     * 站长资产调整单 ID（station_adjustment.id），NULL=非调整产生。
+     * <p>注意 uk_ticket_consume(order_id, product_id, source) 对调整记录<b>零保护</b>：
+     * 调整场景 order_id 为 NULL，而 MySQL 唯一键中 NULL 互不冲突。
+     * 调整的幂等由 uk_ticket_adjustment(adjustment_id, product_id, source) 承担。</p>
+     */
+    private Long adjustmentId;
 }

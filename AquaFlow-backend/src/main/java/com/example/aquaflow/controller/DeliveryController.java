@@ -45,10 +45,9 @@ public class DeliveryController {
     @Autowired
     private OrderWorkflowService orderWorkflowService;
 
-    /** [AQ-015] 转单状态结构化存储 */
-
-    /** 桶权益总账：全系统唯一的桶账写入口（over 结算 + 押金条/权益批次） */
-
+    // 注：本类曾直接注入 OrderTransferMapper（转单状态）与 BarrelLedgerService（桶权益总账）直写那两张表，
+    // 已按「Controller 只做认证 + 调服务 + 包 Result，不得触碰业务表」的契约全部移入 OrderWorkflowService。
+    // 新增写操作请调 orderWorkflowService，**不要在本类重新注入 Mapper** —— 那会绕开状态机与账本写入口。
     private void checkStationOwnership(Orders order) {
         // 强制当前水站非空（未绑站直接拒绝，fail-closed），并严格比对履约站
         Long myStationId = AuthContext.requireStationId();
@@ -390,6 +389,48 @@ public class DeliveryController {
     public Result<Void> rejectReturn(@PathVariable Long id) {
         orderWorkflowService.rejectReturn(id);
         return Result.success();
+    }
+
+    /* ========== 取消申请（已接单订单的取消须站长审批，2026-09-14） ========== */
+
+    /** 配送员发起取消申请：订单已被接单，取消需站长同意（body 可为空，reason 可选）。 */
+    @RequireRole({"DELIVERY", "STATION_MANAGER"})
+    @PostMapping("/orders/{id}/cancel-request")
+    public Result<Void> requestCancel(@PathVariable Long id,
+                                      @RequestBody(required = false) DeliveryOrderActionDTO.Reject body) {
+        orderWorkflowService.requestCancelByStaff(id, body != null ? body.getReason() : null);
+        return Result.success();
+    }
+
+    /** 站长同意取消申请：走完整退款链（退水票/支付/押金、回补库存）并置订单为已取消。 */
+    @RequireRole("STATION_MANAGER")
+    @PostMapping("/orders/cancel-request/{id}/approve")
+    public Result<Void> approveCancelRequest(@PathVariable Long id) {
+        orderWorkflowService.approveCancelRequest(id);
+        return Result.success();
+    }
+
+    /** 站长驳回取消申请：订单保持原状态，由原配送员继续履约。 */
+    @RequireRole("STATION_MANAGER")
+    @PostMapping("/orders/cancel-request/{id}/reject")
+    public Result<Void> rejectCancelRequest(@PathVariable Long id) {
+        orderWorkflowService.rejectCancelRequest(id);
+        return Result.success();
+    }
+
+    /**
+     * 站长「审批」页数据：按发起通道分列。
+     * <p>{@code customer} = 客户发起的取消申请；{@code station} = 站内（配送员）发起的
+     * 退回站长/转让/重分配/取消申请。两者合并为站长端「审批」大页签下的两个子页签。</p>
+     */
+    @RequireRole("STATION_MANAGER")
+    @GetMapping("/orders/pending-approvals")
+    public Result<Map<String, Object>> getPendingApprovals() {
+        Long stationId = AuthContext.getStationId();
+        Map<String, Object> data = new HashMap<>();
+        data.put("customer", orderMapper.listPendingCustomerCancelRequests(stationId));
+        data.put("station", orderMapper.listTransferredOrders(stationId));
+        return Result.success(data);
     }
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})

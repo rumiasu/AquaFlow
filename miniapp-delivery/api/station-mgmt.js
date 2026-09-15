@@ -132,6 +132,47 @@ const returnEmptyBuckets = (customerId, items, clientToken, note) => {
   return post(API.BARRELS_RETURN_EMPTY, { customerId, items, clientToken, note })
 }
 
+// ===== 站长资产调整单（人工补录 / 代客订正，站长专属）=====
+
+/**
+ * 调整单列表（本站）。params: { customerId?, page?, size? }，page 从 1 起、size 上限 100。
+ * 不传 customerId = 本站全部；水站由后端按登录站长判定，前端不传 stationId。
+ */
+const listAdjustments = (params) => {
+  return get(API.MANAGER_ADJUSTMENTS, params)
+}
+
+/** 调整单详情（含 beforeSnapshot / afterSnapshot 快照串） */
+const getAdjustment = (id) => {
+  return get(API.MANAGER_ADJUSTMENT(id))
+}
+
+/**
+ * 只读试算（不落库）：返回 before/after 的权益/欠桶/占用/押金/水票与预计金额。
+ * 入参与创建一致：{ customerId, adjustType, productId?, qty?, amount?, unitPrice? }
+ */
+const previewAdjustment = (data) => {
+  return post(API.MANAGER_ADJUSTMENT_PREVIEW, data)
+}
+
+/**
+ * 创建调整单（初始 status=PENDING「待执行」，需再调 execute 才改资产）。
+ * clientToken 为幂等键：同一 token 重复提交由后端返回原单，不会产生第二张单。
+ */
+const createAdjustment = (data) => {
+  return post(API.MANAGER_ADJUSTMENT_CREATE, data)
+}
+
+/** 执行调整单（CAS PENDING→EFFECTIVE）；重复执行业务拒绝，不会重复入账 */
+const executeAdjustment = (id) => {
+  return post(API.MANAGER_ADJUSTMENT_EXECUTE(id))
+}
+
+/** 撤销已生效的调整单：生成反向单并执行，原单置 REVERSED。reason 必填，clientToken 幂等 */
+const reverseAdjustment = (id, reason, clientToken) => {
+  return post(API.MANAGER_ADJUSTMENT_REVERSE(id), { reason, clientToken })
+}
+
 // 员工
 const createStaff = (data) => {
   return post(API.STAFF, data)
@@ -186,6 +227,12 @@ module.exports = {
   getAllBarrelRecords,
   updateBarrelRecordStatus,
   returnEmptyBuckets,
+  listAdjustments,
+  getAdjustment,
+  previewAdjustment,
+  createAdjustment,
+  executeAdjustment,
+  reverseAdjustment,
   createStaff,
   detachStaff,
   getPendingPayments,

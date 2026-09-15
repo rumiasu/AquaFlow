@@ -1,0 +1,59 @@
+<view class="container">
+  <view class="denied" wx:if="{{denied}}">
+    <text>{{deniedText}}</text>
+  </view>
+
+  <block wx:else>
+    <!-- 顶部：当前过滤口径 + 新建入口 -->
+    <view class="topbar">
+      <view class="topbar-info">
+        <text class="topbar-title">资产调整单</text>
+        <text class="topbar-sub" wx:if="{{customerId}}">仅显示客户 #{{customerId}} 的单据 · 共 {{total}} 张</text>
+        <text class="topbar-sub" wx:else>本站全部调整单 · 共 {{total}} 张</text>
+      </view>
+      <view class="btn-new" bindtap="onCreate"><text>新建调整</text></view>
+    </view>
+
+    <view class="record-card" wx:for="{{list}}" wx:key="id">
+      <view class="card-head" bindtap="onDetail" data-id="{{item.id}}">
+        <view class="card-head-left">
+          <text class="adjust-no">{{item.adjustNo}}</text>
+          <text class="adjust-type">{{item.adjustTypeText}}</text>
+        </view>
+        <text class="status {{item.statusClass}}">{{item.statusText}}</text>
+      </view>
+
+      <view class="info-row" wx:if="{{item.hasQty}}">
+        <text class="label">数量</text>
+        <text class="value strong">{{item.qtyText}}</text>
+      </view>
+      <view class="info-row" wx:if="{{item.hasAmount}}">
+        <text class="label">金额</text>
+        <text class="value strong">¥{{item.amountText}}</text>
+      </view>
+      <view class="info-row">
+        <text class="label">客户</text>
+        <text class="value">#{{item.customerId}}</text>
+      </view>
+      <view class="info-row">
+        <text class="label">创建时间</text>
+        <text class="value">{{item.createTimeText}}</text>
+      </view>
+
+      <view class="card-actions">
+        <view class="btn-ghost" bindtap="onDetail" data-id="{{item.id}}"><text>查看详情</text></view>
+        <view class="btn-exec" wx:if="{{item.isPending}}" bindtap="onExecute" data-id="{{item.id}}"><text>执行</text></view>
+      </view>
+    </view>
+
+    <view class="empty" wx:if="{{!loading && list.length === 0}}">
+      <text>暂无调整单</text>
+    </view>
+
+    <view class="list-footer" wx:if="{{list.length > 0}}">
+      <text wx:if="{{loading}}">加载中...</text>
+      <text wx:elif="{{hasMore}}">上拉加载更多</text>
+      <text wx:else>没有更多了</text>
+    </view>
+  </block>
+</view>

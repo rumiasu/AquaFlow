@@ -1,6 +1,7 @@
 package com.example.aquaflow.controller;
 
 import com.example.aquaflow.common.Result;
+import com.example.aquaflow.constant.WeChatApp;
 import com.example.aquaflow.dto.AuthRequestDTO;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.Staff;
@@ -29,6 +30,18 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
+/**
+ * 认证与会话。
+ *
+ * <p><b>本类不加 {@code @RequireRole} 是正确的</b>：登录相关端点在调用时还没有身份，
+ * 加了反而会把自己拦死。覆盖：微信登录（顾客 {@code /wx-login}、员工 {@code /wx-login-staff}）、
+ * 角色选择、建站、员工绑定、改资料、账号密码登录、token 刷新 / 登出、{@code /me}、改密码。</p>
+ *
+ * <p><b>⚠️ {@code /api/auth/refresh} 与 {@code /api/auth/me} 的路径曾被小程序硬编码引用</b>
+ * （两端的 {@code utils/request.js} 与 {@code app.js} 的自动续期链路）。改这两个路径会同时打断
+ * 双端的 token 续期 —— 现已统一改用 {@code API.REFRESH} / {@code API.ME} 常量引用，
+ * 改路径前请先确认两端 {@code config/api.js} 常量已同步。</p>
+ */
 @RestController
 @RequestMapping("/api/auth")
 public class LoginController {
@@ -63,7 +76,7 @@ public class LoginController {
     public Result<Map<String, Object>> wxLogin(@RequestBody @Valid AuthRequestDTO.WxLogin params) {
         String code = params.getCode();
 
-        Map<String, Object> wxSession = weChatLoginService.code2Session(code);
+        Map<String, Object> wxSession = weChatLoginService.code2Session(WeChatApp.CUSTOMER, code);
         String openid = wxSession.get("openid").toString();
 
         // 仅查 customer，没有则自动注册
@@ -112,7 +125,7 @@ public class LoginController {
 
         Map<String, Object> wxSession;
         try {
-            wxSession = weChatLoginService.code2Session(code);
+            wxSession = weChatLoginService.code2Session(WeChatApp.STAFF, code);
         } catch (RuntimeException e) {
             return Result.error("微信登录失败: " + e.getMessage());
         }
@@ -330,7 +343,7 @@ public class LoginController {
         String name = params.getName();
         String phone = params.getPhone();
 
-        Map<String, Object> wxSession = weChatLoginService.code2Session(code);
+        Map<String, Object> wxSession = weChatLoginService.code2Session(WeChatApp.STAFF, code);
         String openid = wxSession.get("openid").toString();
 
         // [AQ-040] 绑定失败限流：同一 姓名+手机 组合 15 分钟内失败超限即锁定，

@@ -171,7 +171,18 @@ public class PaymentServiceImpl implements PaymentService {
         }
         record.setStatus(status);
 
-        paymentRecordMapper.insert(record);
+        try {
+            paymentRecordMapper.insert(record);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // [AQ-053] 数据库级防重兜底：并发的两个请求都会通过上面的存在性检查（check-then-act），
+            // 此时由 uk_payment_active_order（active_order_id 上的唯一键）拦住第二条活跃流水。
+            //
+            // 关键：**必须抛出**，不能吞掉后返回原记录。本方法在插入之前可能已经扣过水票
+            // （见上面的 deductTickets），只有回滚才能保证「票不被扣两次」「押金不被入账两次」；
+            // 若在此处 catch 后继续提交，Spring 会因事务被标记 rollback-only 而抛
+            // UnexpectedRollbackException，把一次正常的并发拒绝伪装成 500。
+            throw new BusinessException("该订单已有待收款或已支付流水，请勿重复提交");
+        }
 
         // 同步订单付款状态
         if (orderId != null) {
@@ -239,10 +250,10 @@ public class PaymentServiceImpl implements PaymentService {
     public void confirmOrderCollection(Long orderId) {
         com.example.aquaflow.entity.Orders order = orderMapper.getById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
         if (order.getStatus() != OrderStatus.DELIVERED) {
-            throw new RuntimeException("仅已配送待付款的订单可确认收款");
+            throw new BusinessException("仅已配送待付款的订单可确认收款");
         }
         // 货到付款（现金）：现场收款后把待支付流水置为已支付
         // 旧代码用 3 判断"线下支付"，与 PayMethod（3=水票）语义冲突，已统一为 CASH=2
@@ -265,10 +276,10 @@ public class PaymentServiceImpl implements PaymentService {
     public void unconfirmOrderCollection(Long orderId) {
         com.example.aquaflow.entity.Orders order = orderMapper.getById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
         if (order.getStatus() != OrderStatus.COMPLETED) {
-            throw new RuntimeException("仅已完成的订单可修正");
+            throw new BusinessException("仅已完成的订单可修正");
         }
         orderMapper.updateStatusIf(orderId, OrderStatus.COMPLETED, OrderStatus.DELIVERED);
     }
@@ -392,11 +403,11 @@ public class PaymentServiceImpl implements PaymentService {
         // #26: 直接调用原子扣减，检查返回值判断是否成功
         TicketAccount account = ticketAccountMapper.getByCustomerProductStation(customerId, productId, orderStationId != null ? Long.valueOf(orderStationId) : null);
         if (account == null) {
-            throw new RuntimeException("水票账户不存在");
+            throw new BusinessException("该客户还没有此商品的水票账户，无法扣减");
         }
         int affected = ticketAccountMapper.decrementQuantity(account.getId(), qty);
         if (affected == 0) {
-            throw new RuntimeException("水票余额不足");
+            throw new BusinessException("水票余额不足，请先购买水票后再试");
         }
     }
 
@@ -440,7 +451,19 @@ public class PaymentServiceImpl implements PaymentService {
     public void refundOrder(Long orderId, String reason) {
         com.example.aquaflow.entity.Orders order = orderMapper.getById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
+        }
+
+        // [2026-09-13 修复] 本方法是**唯一**的取消退款入口，但此前完全没有状态门槛：
+        // 任何调用方（配送员拒单 / 站长解决 / 站长取消）只要订单存在，就能对
+        // **已完成(4)** 甚至 **已取消(5)** 的订单再跑一遍退款。
+        // 实测路径：`POST /api/delivery/orders/reject/{id}` 对一张已完成订单调用 →
+        // 退水票 + 退支付流水（押金/库存因 orderStatus >= DELIVERED 被跳过）→ 末尾 CAS 4→5 成功，
+        // 结果「货已送达、桶在客户手上、钱退回去了、订单变成已取消」。
+        // 这里用 isCancellable 明确限定为 待配送/配送中/已送达；已完成须先经 unconfirmOrderCollection 退回。
+        int currentStatus = order.getStatus() != null ? order.getStatus() : 0;
+        if (!OrderStatus.isCancellable(currentStatus)) {
+            throw new BusinessException("当前订单状态不可取消（status=" + currentStatus + "）");
         }
 
         Long customerId = order.getCustomerId();
@@ -589,10 +612,10 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional(rollbackFor = Exception.class)
     public void refundPayment(Long paymentId, String note) {
         PaymentRecord record = paymentRecordMapper.getById(paymentId);
-        if (record == null) throw new RuntimeException("支付记录不存在");
+        if (record == null) throw new BusinessException("支付记录不存在");
         // #32: 校验当前状态，只有PAID才能退款
         if (record.getStatus() != PaymentStatus.PAID) {
-            throw new RuntimeException("仅已支付记录可退款，当前状态: " + record.getStatus());
+            throw new BusinessException("仅已支付记录可退款，当前状态: " + record.getStatus());
         }
         paymentRecordMapper.updateStatusIf(paymentId, PaymentStatus.PAID, PaymentStatus.REFUNDED);
         if (record.getOrderId() != null) {

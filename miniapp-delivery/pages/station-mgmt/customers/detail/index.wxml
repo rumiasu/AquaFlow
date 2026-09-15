@@ -122,12 +122,20 @@
         <view class="asset-empty" wx:if="{{assets.empty}}">
           <text>该客户在本站暂无任何水桶、水票或押金</text>
         </view>
+        <!-- 资产为空时「水桶明细」标题行不渲染，这里补一个入口：
+             历史漏录的客户正是最需要「资产调整」补录的人，不能让他们无路可走 -->
+        <view class="record-toggle" wx:if="{{assets.empty}}" bindtap="onOpenAdjust">
+          <text>历史漏录？去「资产调整」补录</text>
+        </view>
 
         <block wx:else>
           <!-- 水桶明细 -->
           <view class="sub-title-row" wx:if="{{assets.barrels.length}}">
             <text class="sub-title no-mb">水桶明细</text>
-            <text class="link-btn" bindtap="onShowReturnEmpty">还空桶</text>
+            <view class="link-row">
+              <text class="link-btn" bindtap="onShowReturnEmpty">还空桶</text>
+              <text class="link-btn" bindtap="onOpenAdjust">资产调整</text>
+            </view>
           </view>
           <view class="asset-item" wx:for="{{assets.barrels}}" wx:key="productId">
             <view class="asset-item-main">

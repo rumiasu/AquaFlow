@@ -12,6 +12,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 水票流水：顾客查自己的（无注解 + {@code requireCustomerId()}），
+ * 站长按客户查询（{@code STATION_MANAGER}）。
+ *
+ * <p>水票<b>余额</b>的真相源是 {@code ticket_account}，本类只读流水，不做余额计算。</p>
+ */
 @RestController
 @RequestMapping("/api/ticket-records")
 @Slf4j

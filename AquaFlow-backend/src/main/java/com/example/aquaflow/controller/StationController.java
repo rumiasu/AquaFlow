@@ -16,6 +16,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 水站接口 —— <b>同一个前缀下混装了"顾客可用"与"员工专属"两类端点，务必逐方法看注解</b>。
+ *
+ * <p><b>顾客可用</b>（无注解）：{@code /public} 营业中水站列表、{@code /search} 公开搜索、
+ * {@code /{id}/public-phone} 取水站电话。
+ * <b>员工专属</b>：{@code /mine}、{@code /mine/list} 以及全部写接口。</p>
+ *
+ * <p><b>⚠️ 顾客端最容易踩的坑就是 {@code GET /mine}</b> —— 它的名字像"我的水站"，
+ * 实际是<b>员工</b>所属水站（{@code @RequireRole({"STATION_MANAGER","DELIVERY"})}），顾客调用恒 403。
+ * 顾客要"我的服务水站"请用 {@code GET /api/orders/my-station}；小程序侧统一走
+ * {@code miniapp-user/utils/station.js#resolveStationId()}。
+ * 该误用已真实发生三次，详见 {@code getMyStation()} 方法上的记录。</p>
+ *
+ * <p>另注：本类用 {@code @RequestMapping({"/api/stations", "/api/station"})} 双前缀（兼容历史单数写法），
+ * 用文本工具扫端点时别只匹配单值形式，否则整个类的路径都会漏掉。</p>
+ */
 @RestController
 @RequestMapping({"/api/stations", "/api/station"})
 public class StationController {
@@ -92,10 +108,17 @@ public class StationController {
     }
 
     /**
-     * 当前登录客户选择的服务水站
-     */
-    /**
-     * 当前登录员工所属水站
+     * 当前登录<b>员工</b>所属水站（站长 / 配送员）。
+     *
+     * <p><b>⚠️ 顾客端禁止调用本接口。</b>它带
+     * {@code @RequireRole({"STATION_MANAGER","DELIVERY"})}，顾客 token 请求必然 403；
+     * 而小程序侧这类失败常被静默吞掉，表现成"功能莫名失效"而不是报错，极难排查。
+     * 顾客端历史上已因此误用三次：模板页保存（stationId 恒 null → 模板存不进）、
+     * 下单页"再来一单"（跨站校验沦为死分支）、以及更早的取水站电话。</p>
+     *
+     * <p>顾客要取「我的服务水站」，请用 {@code GET /api/orders/my-station}
+     * （顾客可用；优先上次下单的水站，无订单时回退客户与站点的绑定配置）；
+     * 小程序侧统一走 {@code miniapp-user/utils/station.js} 的 {@code resolveStationId()}。</p>
      */
     @RequireRole({"STATION_MANAGER", "DELIVERY"})
     @GetMapping("/mine")

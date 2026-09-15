@@ -54,20 +54,20 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         // 尤其 stationId 为 null 时，MySQL 唯一键中 NULL 互不相等，可插出多行 —— 水票串站 / 重复入账。
         // 数据库列已改为 NOT NULL 兜底，这里提前给出可读的报错。
         if (customerId == null) {
-            throw new RuntimeException("客户ID不能为空");
+            throw new BusinessException("客户ID不能为空");
         }
         if (productId == null) {
-            throw new RuntimeException("商品ID不能为空");
+            throw new BusinessException("商品ID不能为空");
         }
         if (stationId == null) {
-            throw new RuntimeException("水站ID不能为空，水票必须归属到具体水站");
+            throw new BusinessException("水站ID不能为空，水票必须归属到具体水站");
         }
         if (qty == null || qty <= 0) {
-            throw new RuntimeException("水票数量必须大于0");
+            throw new BusinessException("水票数量必须大于0");
         }
         // [AQ-051] 单次入账上限：防止误操作或脚本把水票余额刷成天文数字（原实现无任何上限）
         if (qty > 5000) {
-            throw new RuntimeException("单次水票数量不能超过 5000");
+            throw new BusinessException("单次水票数量不能超过 5000");
         }
 
         // 水票按水站隔离
@@ -98,6 +98,65 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         // [AQ-051] 水票入账审计日志（谁给谁加了多少张）
         log.info("[AQ-051] 水票入账: customerId={}, productId={}, stationId={}, qty={}, operatorId={}",
                 customerId, productId, stationId, qty, com.example.aquaflow.util.AuthContext.getUserId());
+    }
+
+    /**
+     * 站长资产调整单专用：按 delta 调整水票（正=补录，负=扣减）。
+     *
+     * <p>不复用 {@link #addTicket}（无幂等键）与 {@link #consumeTicket}（要求 orderId）：
+     * 调整场景没有订单，且必须能挡住"同一张单重复执行"。
+     * 幂等由 {@code uk_ticket_adjustment(adjustment_id, product_id, source)} 兜底 ——
+     * 重复执行会命中唯一键抛异常并回滚整个事务，而不是静默再加一次。</p>
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void adjustTicket(Long customerId, Long productId, Integer delta, Long stationId, Long adjustmentId) {
+        if (customerId == null || productId == null || stationId == null) {
+            throw new BusinessException("水票调整必须指定客户、商品与水站");
+        }
+        if (delta == null || delta == 0) {
+            throw new BusinessException("水票调整量不能为 0");
+        }
+        if (adjustmentId == null) {
+            throw new BusinessException("水票调整必须关联调整单（否则无法保证幂等）");
+        }
+        int qty = Math.abs(delta);
+        boolean increase = delta > 0;
+        String source = increase ? "人工调整补入" : "人工调整扣减";
+
+        TicketAccount account = ticketAccountMapper.getByCustomerProductStation(customerId, productId, stationId);
+        if (account == null) {
+            if (!increase) {
+                throw new BusinessException("该客户在本站无此商品的水票账户，无法扣减");
+            }
+            account = new TicketAccount();
+            account.setCustomerId(customerId);
+            account.setProductId(productId);
+            account.setStationId(stationId);
+            account.setRemainQuantity(qty);
+            account.setUpdateTime(LocalDateTime.now());
+            ticketAccountMapper.insert(account);
+        } else if (increase) {
+            ticketAccountMapper.incrementQuantity(account.getId(), qty);
+        } else {
+            int affected = ticketAccountMapper.decrementQuantity(account.getId(), qty);
+            if (affected == 0) {
+                throw new BusinessException("水票余额不足，无法扣减");
+            }
+        }
+
+        TicketRecord record = new TicketRecord();
+        record.setCustomerId(customerId);
+        record.setProductId(productId);
+        record.setStationId(stationId);
+        record.setIncreaseQty(increase ? qty : 0);
+        record.setDecreaseQty(increase ? 0 : qty);
+        record.setOrderId(null);
+        record.setSource(source);
+        record.setTicketSource(1);
+        record.setCreateTime(LocalDateTime.now());
+        record.setAdjustmentId(adjustmentId);
+        ticketRecordMapper.insert(record);
     }
 
     @Override
@@ -139,11 +198,11 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         // 水票按水站隔离
         TicketAccount account = ticketAccountMapper.getByCustomerProductStation(customerId, productId, stationId);
         if (account == null) {
-            throw new RuntimeException("当前水站水票余额不足");
+            throw new BusinessException("当前水站水票余额不足，请先补充水票库存");
         }
         int affected = ticketAccountMapper.decrementQuantity(account.getId(), qty);
         if (affected == 0) {
-            throw new RuntimeException("水票余额不足");
+            throw new BusinessException("水票余额不足，请先购买水票后再试");
         }
 
         TicketRecord record = new TicketRecord();

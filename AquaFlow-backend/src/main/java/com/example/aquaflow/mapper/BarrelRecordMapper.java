@@ -8,12 +8,12 @@ import java.util.List;
 @Mapper
 public interface BarrelRecordMapper {
 
-    @Insert("insert into barrel_record(customer_id, station_id, product_id, type, quantity, related_order_id, note, operator_id, create_time, status, handle_note, deposit_refund, client_token, over_before, over_after, delivered_qty, returned_qty) " +
+    @Insert("insert into barrel_record(customer_id, station_id, product_id, type, quantity, related_order_id, note, operator_id, create_time, status, handle_note, deposit_refund, client_token, over_before, over_after, delivered_qty, returned_qty, adjustment_id) " +
             // delivered_qty / returned_qty 只有 type=8（配送收发明细）才有业务值，
             // 其余类型不设置 → MyBatis 传 null，而这两列是 NOT NULL，直接插 null 会报
             // "Column 'delivered_qty' cannot be null"（DEFAULT 只在省略该列时生效）。
             // 所以这里显式兜底成 0。
-            "values(#{customerId}, #{stationId}, #{productId}, #{type}, #{quantity}, #{relatedOrderId}, #{note}, #{operatorId}, #{createTime}, #{status}, #{handleNote}, #{depositRefund}, #{clientToken}, #{overBefore}, #{overAfter}, COALESCE(#{deliveredQty}, 0), COALESCE(#{returnedQty}, 0))")
+            "values(#{customerId}, #{stationId}, #{productId}, #{type}, #{quantity}, #{relatedOrderId}, #{note}, #{operatorId}, #{createTime}, #{status}, #{handleNote}, #{depositRefund}, #{clientToken}, #{overBefore}, #{overAfter}, COALESCE(#{deliveredQty}, 0), COALESCE(#{returnedQty}, 0), #{adjustmentId})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(BarrelRecord barrelRecord);
 

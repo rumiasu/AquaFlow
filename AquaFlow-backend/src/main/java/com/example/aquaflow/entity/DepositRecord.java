@@ -47,4 +47,10 @@ public class DepositRecord {
 
     /** 创建时间 */
     private LocalDateTime createTime;
+
+    /**
+     * 站长资产调整单 ID（station_adjustment.id），NULL=非调整产生。
+     * <p>uk_deposit_adjustment 的幂等依据：一张调整单最多一条押金流水。</p>
+     */
+    private Long adjustmentId;
 }

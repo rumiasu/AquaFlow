@@ -2,7 +2,6 @@ const { getOrderDetail, cancelOrder } = require('../../api/order')
 const { createPayment } = require('../../api/order')
 const { getOrderImages } = require('../../api/orderImage')
 const { getProductDetail } = require('../../api/product')
-const { formatOrderStatus, formatPaymentStatus } = require('../../utils/format')
 const { getCustomerId } = require('../../utils/token')
 const { notifyPayResult } = require('../../utils/pay')
 

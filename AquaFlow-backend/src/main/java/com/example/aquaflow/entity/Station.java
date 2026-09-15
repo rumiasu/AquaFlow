@@ -31,11 +31,12 @@ public class Station {
     /** 状态: 1 营业 2 停业 */
     private Integer status;
 
-    /**
-     * <b>[2026-09-12 已移除]</b> 原"水站线下支付总开关"。
-     * <p>货到付款的唯一控制点已收敛为客户级授权 {@code customer_station_config.offline_payment_enabled}
-     * （站长在「用户画像 → 权限设置 → 货到付款」逐个开通），见 {@code PaymentServiceImpl#canUseOfflinePayment}。
-     * 本字段与配套接口/列均已停止读写，DROP 脚本见 {@code sql/migration_v22_drop_station_offline_payment.sql}。
+    /*
+     * [2026-09-12 已移除] 原「水站线下支付总开关」字段曾位于此处，现已删除。
+     * 货到付款的唯一控制点收敛为客户级授权 customer_station_config.offline_payment_enabled
+     * （站长在「用户画像 → 权限设置 → 货到付款」逐个开通），见 PaymentServiceImpl#canUseOfflinePayment。
+     * 该字段与配套接口/列均已停止读写，DROP 脚本见 sql/migration_v22_drop_station_offline_payment.sql。
+     * 保留这段说明（用普通块注释而非 javadoc：它不对应任何成员），是为了防止有人照旧文档把它加回来。
      */
 
     /** 创建者站长ID */

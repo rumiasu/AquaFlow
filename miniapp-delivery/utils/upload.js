@@ -1,5 +1,5 @@
 // 统一文件上传工具（与 request.js 保持一致的 Token 来源 + 基础 refresh 重试）
-const { getBaseUrl } = require('../config/api')
+const { getBaseUrl, API } = require('../config/api')
 const { STORAGE_KEYS } = require('../utils/storage-keys')
 
 let isRefreshing = false
@@ -80,7 +80,8 @@ function handleUpload401(originalOptions, resolve, reject) {
   }
 
   wx.request({
-    url: getBaseUrl() + '/api/auth/refresh',
+    // 统一走 API.REFRESH，勿硬编码 '/api/auth/refresh'。
+    url: getBaseUrl() + API.REFRESH,
     method: 'POST',
     data: { refreshToken },
     success: (res) => {

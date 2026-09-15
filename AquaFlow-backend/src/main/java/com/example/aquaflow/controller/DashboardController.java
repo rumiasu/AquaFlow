@@ -17,6 +17,12 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 站长经营看板（<b>全部限 {@code STATION_MANAGER}</b>）。
+ *
+ * <p>水站维度一律由后端按登录站长判定（{@code AuthContext.requireStationId()}），前端不传 stationId。
+ * 指标口径若与对账（{@code ReconciliationService}）不一致，以对账为准并在注释里写明差异原因。</p>
+ */
 @RestController
 @RequestMapping("/api/dashboard")
 public class DashboardController {

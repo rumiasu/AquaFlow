@@ -1,5 +1,5 @@
 // 订单详情页
-const { getOrderDetail, completeOrder, transferOrder, returnToStation, reportOrder, getStaffList, dispatchOrder, resolveOrder } = require('../../api/delivery')
+const { getOrderDetail, completeOrder, transferOrder, returnToStation, reportOrder, getStaffList, dispatchOrder, resolveOrder, requestCancel } = require('../../api/delivery')
 
 // 纯展示用：订单状态数字 → 徽章 CSS class（仅控制颜色，不承载业务逻辑）
 const STATUS_CLASS_MAP = {
@@ -340,6 +340,46 @@ Page({
         }
       }
     })
+  },
+
+  // 申请取消订单（配送员）：已接单订单不能自行取消，须提交申请由站长审批
+  async onRequestCancel() {
+    const id = this.data.orderId
+    const confirm = await new Promise(resolve => {
+      wx.showModal({
+        title: '申请取消订单',
+        content: '该订单已被接单，需要站长同意才能取消。\n\n提交后订单保持当前状态，等待站长审批；站长同意后才会取消并退款。',
+        confirmText: '提交申请',
+        success: (r) => resolve(r.confirm)
+      })
+    })
+    if (!confirm) return
+
+    const reason = await new Promise(resolve => {
+      wx.showModal({
+        title: '取消原因',
+        content: '请填写取消原因，将一并提交给站长：',
+        editable: true,
+        placeholderText: '如：客户临时取消、车辆故障',
+        success: (r) => resolve(r.confirm ? r.content : ''),
+        fail: () => resolve('')
+      })
+    })
+    if (!reason || !reason.trim()) {
+      wx.showToast({ title: '请填写取消原因', icon: 'none' })
+      return
+    }
+
+    wx.showLoading({ title: '提交中...' })
+    try {
+      await requestCancel(id, { reason: reason.trim() })
+      wx.hideLoading()
+      wx.showToast({ title: '已提交，等待站长审批', icon: 'success' })
+      setTimeout(() => { wx.navigateBack() }, 1500)
+    } catch (err) {
+      wx.hideLoading()
+      wx.showToast({ title: err.message || '提交失败', icon: 'none' })
+    }
   },
 
   // 解决订单：拒单并取消，触发退款

@@ -251,7 +251,13 @@ Page({
       }
       const addressHint = address ? `配送至：${formatAddress(address)}` : '点击设置配送地址'
 
-      const products = (stationId && productsRes && productsRes.data) ? productsRes.data : []
+      // 后端下发的是**本站有效价**（站级覆盖 → 通用库参考价）；统一映射回 price/deposit，
+      // 让本页下方那段"价格/押金文案 + 押金合计"的既有算法用上站级价（否则首页显示的价与结算价不一致）。
+      const products = ((stationId && productsRes && productsRes.data) ? productsRes.data : []).map(p => ({
+        ...p,
+        price: p.effectivePrice != null ? p.effectivePrice : p.price,
+        deposit: p.effectiveDeposit != null ? p.effectiveDeposit : p.deposit
+      }))
       // 头部卡美术图 = 本站主力商品（第一个）档案照；没有图则占位
       const heroImage = products.length > 0 && products[0].imageUrl ? products[0].imageUrl : ''
 
@@ -291,20 +297,26 @@ Page({
 
   /** 桶账一行：只读后端派生口径，前端不加减 */
   renderBarrelLine(s) {
-    const held = s.heldBuckets || 0          // 权益
-    const occupied = s.occupiedBuckets != null ? s.occupiedBuckets : held // 占用
-    const delivery = s.deliveryBuckets || 0  // 配送中
+    // [2026-09-16 修复] 三个数各有其源，不能混用：
+    //   rightBuckets    = 权益（已到手）—— 下单抵扣 / 退押金认的是这个
+    //   heldBuckets     = 持有 = 权益 + 配送中（"买了就是你的"，barrel 页与员工端都用它）
+    //   occupiedBuckets = 占用 = 权益 + over（物理在手，不含配送中）
+    // 此前第一项取的是 heldBuckets 却标成"权益"，把在途算进了权益；
+    // 配送中取的是 deliveryBuckets（含已送达的 DELIVERED 行），送达后仍会显示"配送中 N"。
+    const right = s.rightBuckets != null ? s.rightBuckets : (s.heldBuckets || 0)
+    const occupied = s.occupiedBuckets != null ? s.occupiedBuckets : right
+    const delivery = s.pendingDeliveryBuckets || 0  // 配送中：只含 PENDING
     const storageN = s.storageBuckets || 0   // 水站暂存（over<0，合法状态）
     const owed = s.owedBuckets || 0          // 欠桶
     const balance = Number(s.depositBalance) || 0
 
-    const visible = held > 0 || occupied > 0 || delivery > 0 || storageN > 0 || owed > 0 || balance > 0
+    const visible = right > 0 || occupied > 0 || delivery > 0 || storageN > 0 || owed > 0 || balance > 0
     if (!visible) {
       this.setData({ barrelVisible: false, barrelLine1: '', barrelLine2: '' })
       return
     }
 
-    let line1 = `权益 ${held} · 占用 ${occupied}`
+    let line1 = `权益 ${right} · 占用 ${occupied}`
     if (delivery > 0) line1 += ` · 配送中 ${delivery}`
     if (storageN > 0) line1 += ` · 水站暂存 ${storageN} 个`
     if (owed > 0) line1 += ` · 欠 ${owed} 个`

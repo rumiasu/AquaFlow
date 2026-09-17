@@ -47,12 +47,15 @@ public class InventoryController {
 
     /**
      * [AQ-029] 查询本站库存流水（进出明细），供站长核对库存变动。
+     *
+     * @param productId 可选：只看某一种商品的进出（站长核对单品时用）；不传 = 本站全部商品
      */
     @RequireRole({"STATION_MANAGER"})
     @GetMapping("/records")
-    public Result<List<InventoryRecord>> records(@RequestParam(required = false) Integer limit) {
+    public Result<List<InventoryRecord>> records(@RequestParam(required = false) Integer limit,
+                                                @RequestParam(required = false) Long productId) {
         Long stationId = AuthContext.requireStationId();
         int n = (limit == null || limit <= 0) ? 200 : Math.min(limit, 1000);
-        return Result.success(inventoryService.listRecords(stationId, n));
+        return Result.success(inventoryService.listRecords(stationId, productId, n));
     }
 }

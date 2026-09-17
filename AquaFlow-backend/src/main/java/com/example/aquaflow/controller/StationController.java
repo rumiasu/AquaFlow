@@ -2,6 +2,7 @@ package com.example.aquaflow.controller;
 
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
+import com.example.aquaflow.dto.StationCoordinateDTO;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.Station;
 import com.example.aquaflow.mapper.CustomerMapper;
@@ -81,6 +82,33 @@ public class StationController {
     @GetMapping("/public")
     public Result<List<Station>> listPublic() {
         return Result.success(stationMapper.listPublic());
+    }
+
+    /**
+     * 公开：水站营业状态（软状态）+ 站长留言（顾客端商城/下单页横幅用，无需登录）。
+     *
+     * <p><b>它不阻断下单</b>：营业状态只是提示，顾客照常下单；返回的 {@code customerHint}
+     * 为 null 时就表示"正常运营、不用提示"。要判断"这家站还能不能下单"看的是
+     * 硬状态 {@code status}（2 停业 = 下单会被拒，且不在 {@code /public} 列表里）。</p>
+     */
+    @GetMapping("/{id}/status")
+    public Result<Map<String, Object>> getPublicStatus(@PathVariable Long id) {
+        Station s = stationMapper.getById(id);
+        if (s == null) {
+            return Result.error("水站不存在");
+        }
+        Map<String, Object> info = new HashMap<>(6);
+        info.put("stationId", s.getId());
+        info.put("stationName", s.getName());
+        info.put("hardStatus", s.getStatus());                 // 1 营业 2 停业（下单硬拦）
+        info.put("operatingStatus", s.getOperatingStatus() == null
+                ? com.example.aquaflow.constant.StationOperatingStatus.NORMAL : s.getOperatingStatus());
+        info.put("statusText", s.getOperatingStatusText());
+        info.put("note", s.getStatusNote());
+        info.put("statusUpdateTime", s.getStatusUpdateTime());
+        info.put("customerHint", com.example.aquaflow.constant.StationOperatingStatus.customerHint(
+                s.getOperatingStatus(), s.getStatusNote()));
+        return Result.success(info);
     }
 
     /**
@@ -172,6 +200,44 @@ public class StationController {
             return Result.error("水站不存在或无权操作他人创建的水站");
         }
         stationService.delete(id);
+        return Result.success();
+    }
+
+    /**
+     * 站长给自己的水站设置坐标（地图选点），2026-09-17 新增（v34）。
+     *
+     * <p>配送范围要算「站点到客户」的距离，而 {@code station} 表原先没有坐标
+     * （只有 {@code address} 有）。没有坐标时范围校验只能跳过，等于功能不存在。</p>
+     *
+     * <p><b>为什么单独一个端点，而不是并进 {@code PUT /api/stations/{id}}</b>：
+     * 后者是站长编辑站点资料（名称/电话/地址/状态）用的整行覆盖更新，
+     * 而旧客户端不会传坐标 —— 并进去会让站长改一次站名就把坐标冲成 NULL。
+     * 这与 {@code updateOperatingStatus} 单独开一个更新方法的理由完全一致。</p>
+     *
+     * <p><b>站点取自登录态</b>（{@code AuthContext.requireStationId()}），不接收请求体里的
+     * stationId —— 否则站长可改他人站点坐标，进而影响别人的配送范围判定。</p>
+     *
+     * <p>坐标传 {@code null} 表示清除；清除后范围校验跳过并放行（不会拒单）。</p>
+     */
+    @RequireRole({"STATION_MANAGER"})
+    @PutMapping("/mine/coordinates")
+    public Result updateCoordinates(@RequestBody StationCoordinateDTO dto) {
+        Long stationId = AuthContext.requireStationId();
+        // 只在"传了值"时校验范围：null 是合法的（= 清除坐标）
+        if (dto.getLat() != null
+                && (dto.getLat().compareTo(java.math.BigDecimal.valueOf(-90)) < 0
+                    || dto.getLat().compareTo(java.math.BigDecimal.valueOf(90)) > 0)) {
+            return Result.error("纬度必须在 -90 到 90 之间");
+        }
+        if (dto.getLng() != null
+                && (dto.getLng().compareTo(java.math.BigDecimal.valueOf(-180)) < 0
+                    || dto.getLng().compareTo(java.math.BigDecimal.valueOf(180)) > 0)) {
+            return Result.error("经度必须在 -180 到 180 之间");
+        }
+        int affected = stationMapper.updateCoordinates(stationId, dto.getLat(), dto.getLng());
+        if (affected == 0) {
+            return Result.error("水站不存在或无权操作");
+        }
         return Result.success();
     }
 

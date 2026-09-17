@@ -2,6 +2,12 @@
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>
+    <!-- 水站营业状态（软状态）：只提示、不阻断下单 —— 顾客仍可正常下单 -->
+    <view class="station-status-banner" wx:if="{{stationStatusHint}}">
+      <text class="banner-icon">⏰</text>
+      <text class="banner-text">{{stationStatusHint}}</text>
+    </view>
+
     <view class="section">
       <view class="section-header"><text class="section-title">商品清单</text></view>
       <view class="product-list">
@@ -75,6 +81,15 @@
       </view>
     </view>
 
+    <!-- 配送计费提示（v35）：起送量未达 / 超范围 / 楼层未填等。
+         ⚠️ 文案一律由后端下发（DeliveryFeeUtil 产出），前端不自造 —— 前后端各写一套必然对不上。 -->
+    <view class="fee-warn" wx:if="{{blocked}}">
+      <text class="fee-warn-text">{{blockReason}}</text>
+    </view>
+    <view class="fee-warn" wx:elif="{{feeWarnings.length > 0}}">
+      <text class="fee-warn-text" wx:for="{{feeWarnings}}" wx:key="*this">{{item}}</text>
+    </view>
+
     <!-- 底部栏 -->
     <view class="bottom-bar" wx:if="{{!loading}}">
       <view class="total-info" bindtap="onShowDetail">
@@ -82,6 +97,9 @@
           <text class="detail-item">水费 ¥{{totalWaterCostText}}</text>
           <text class="detail-item" wx:if="{{totalDeposit > 0}}">桶押金 ¥{{totalDepositText}}</text>
           <text class="detail-item extra" wx:if="{{extraDepositBuckets > 0}}">额外桶押金 ¥{{extraDepositAmountText}}</text>
+          <!-- 配送费/楼层费各自成行：只把它们并进合计而不显示，客户会以为算错了钱 -->
+          <text class="detail-item" wx:if="{{deliveryFeeText}}">配送费 ¥{{deliveryFeeText}}</text>
+          <text class="detail-item" wx:if="{{floorFeeText}}">楼层费 ¥{{floorFeeText}}</text>
         </view>
         <view class="total-row">
           <text class="total-label">合计</text>
@@ -89,8 +107,8 @@
           <text class="detail-arrow">明细›</text>
         </view>
       </view>
-      <view class="submit-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
-        <text>{{submitting ? '提交中...' : '立即下单'}}</text>
+      <view class="submit-btn {{(submitting || blocked) ? 'disabled' : ''}}" bindtap="onSubmit">
+        <text>{{blocked ? '暂不可下单' : (submitting ? '提交中...' : '立即下单')}}</text>
       </view>
     </view>
   </block>

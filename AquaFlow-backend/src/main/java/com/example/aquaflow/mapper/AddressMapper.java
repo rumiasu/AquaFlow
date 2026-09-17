@@ -8,16 +8,24 @@ import java.util.List;
 @Mapper
 public interface AddressMapper {
 
-    @Insert("insert into address(customer_id, name, phone, province, city, district, label, detail, lat, lng, is_default, create_time, update_time) " +
-            "values(#{customerId}, #{name}, #{phone}, #{province}, #{city}, #{district}, #{label}, #{detail}, #{lat}, #{lng}, #{isDefault}, #{createTime}, #{updateTime})")
+    @Insert("insert into address(customer_id, name, phone, province, city, district, label, detail, lat, lng, floor, has_elevator, is_default, create_time, update_time) " +
+            "values(#{customerId}, #{name}, #{phone}, #{province}, #{city}, #{district}, #{label}, #{detail}, #{lat}, #{lng}, #{floor}, #{hasElevator}, #{isDefault}, #{createTime}, #{updateTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(Address address);
 
     @Select("select * from address where id = #{id}")
     Address getById(@Param("id") Long id);
 
+    /**
+     * 整行更新地址。
+     *
+     * <p>⚠️ {@code floor} / {@code has_elevator} 也在覆盖范围内：<b>旧版客户端不会传这两个字段</b>，
+     * 直接写会把客户已填的楼层抹成 NULL（本仓「整行覆盖」事故的同一形状）。
+     * 因此 {@code AddressServiceImpl.update} 会先读一次现有记录、对这两个字段做保留合并 ——
+     * 改这条 SQL 时别把那层保护绕过去。</p>
+     */
     @Update("update address set name=#{name}, phone=#{phone}, province=#{province}, city=#{city}, district=#{district}, label=#{label}, detail=#{detail}, " +
-            "lat=#{lat}, lng=#{lng}, is_default=#{isDefault}, update_time=NOW() where id=#{id}")
+            "lat=#{lat}, lng=#{lng}, floor=#{floor}, has_elevator=#{hasElevator}, is_default=#{isDefault}, update_time=NOW() where id=#{id}")
     void update(Address address);
 
     @Delete("delete from address where id = #{id}")
@@ -49,8 +57,9 @@ public interface AddressMapper {
             "order by a.is_default desc, a.create_time desc")
     List<Address> listByStation(@Param("stationId") Long stationId, @Param("keyword") String keyword);
 
+    /** 归属限定的删除；返回受影响行数，调用方必须检查（0 = 不是他的地址） */
     @Delete("delete from address where id = #{id} and customer_id = #{customerId}")
-    void delete(@Param("id") Long id, @Param("customerId") Long customerId);
+    int delete(@Param("id") Long id, @Param("customerId") Long customerId);
 
     @Select("select label as tag, count(*) as cnt from address group by label")
     List<java.util.Map<String, Object>> countByTag();

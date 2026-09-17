@@ -120,8 +120,18 @@ public class FileManageController {
                 return Result.error("无权删除他人文件");
             }
         }
-        // 删除 COS 文件
-        cosUtil.delete(file.getObjectName());
+        // 删除 COS 文件。
+        // [2026-09-16] 必须容错：COS_SECRET_ID/KEY 未配置时 RequiredConfigChecker 只 WARN 不拒启
+        // （见 §3），此时 cosClient.deleteObject 抛异常 → 整个请求变成 code=500，
+        // 站长连一条废记录都删不掉（实测：删自己的文件返回 code=500 且 DB 行仍在）。
+        // 对象存储不可用是可预期的运维状态，不该升级成系统故障：这里降级为 WARN，
+        // 继续清掉 DB 记录；存储里的残留对象交给运维核对（记录没了也就无从引用）。
+        try {
+            cosUtil.delete(file.getObjectName());
+        } catch (Exception e) {
+            log.warn("[FileManage] 对象存储删除失败，仍清除数据库记录: objectName={}, error={}",
+                    file.getObjectName(), e.getMessage());
+        }
         fileInfoMapper.deleteById(id);
         return Result.success();
     }

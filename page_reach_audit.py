@@ -59,6 +59,24 @@ for dirpath, _, files in os.walk(ROOT):
             u = m.group(1).split("?")[0].strip("/")
             links.setdefault(u, []).append(os.path.relpath(p, ROOT))
 
+# [2026-09-16 补] wxml 里的 `data-url="/pages/xx/yy"` 也要算作入口。
+# 背景：员工端站长页用 `bindtap="onNavigate" data-url="/pages/..."` + 通用处理器
+# （pages/station-mgmt/index.js 里 `wx.navigateTo({ url: e.currentTarget.dataset.url })`）
+# 渲染整片功能卡片墙；js 里只有变量、没有字面量 URL，此前只扫 js 会把**整片卡片墙的页面
+# 全部误报成"孤岛页面"（D 段）**，包括 2026-09-16 新增的欠桶台账页。
+# `{{item.url}}` 这类动态绑定无法静态解析，跳过（不计入，也不误判为死链）。
+for dirpath, _, files in os.walk(ROOT):
+    if "node_modules" in dirpath:
+        continue
+    for f in files:
+        if not f.endswith(".wxml"):
+            continue
+        p = os.path.join(dirpath, f)
+        src = open(p, encoding="utf-8", errors="ignore").read()
+        for m in re.finditer(r"data-url\s*=\s*[\"'](/pages/[^\"'{}]+)[\"']", src):
+            u = m.group(1).split("?")[0].strip("/")
+            links.setdefault(u, []).append(os.path.relpath(p, ROOT))
+
 fatal = 0
 
 print("=" * 88)

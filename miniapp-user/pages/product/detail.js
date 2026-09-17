@@ -10,20 +10,30 @@ Page({
   },
 
   onLoad(options) {
-    if (options.id) {
-      this.loadProduct(options.id)
-    }
+    // 先落地 stationId 再拉商品：详情接口要用它判定"这个自定义商品是不是你的站的"
     if (options.stationId) {
       this.setData({ stationId: parseInt(options.stationId) })
+    }
+    if (options.id) {
+      this.loadProduct(options.id)
     }
   },
 
   async loadProduct(id) {
     this.setData({ loading: true })
     try {
-      const res = await getProductDetail(id)
+      // 带上 stationId：本站自定义商品只有该站能读（后端按 owner_station_id 过滤）；
+      // 同时用它拿到**本站有效价**（站级覆盖 → 通用库参考价），与列表/结算同口径。
+      const res = await getProductDetail(id, this.data.stationId)
       if (res.data) {
-        this.setData({ product: res.data })
+        const d = res.data
+        this.setData({
+          product: {
+            ...d,
+            price: d.effectivePrice != null ? d.effectivePrice : d.price,
+            deposit: d.effectiveDeposit != null ? d.effectiveDeposit : d.deposit
+          }
+        })
       }
     } catch (error) {
       console.error('Load product error:', error)

@@ -374,3 +374,26 @@
   color: #fff;
   font-weight: 600;
 }
+
+/* ===== 水站营业状态横幅（软状态：只提示，不阻断下单）===== */
+.station-status-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin: 16rpx 24rpx 0;
+  padding: 20rpx 24rpx;
+  background: #fff7e6;
+  border-radius: 16rpx;
+}
+
+.station-status-banner .banner-icon {
+  font-size: 30rpx;
+  line-height: 1.4;
+}
+
+.station-status-banner .banner-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #b26a00;
+  line-height: 1.5;
+}

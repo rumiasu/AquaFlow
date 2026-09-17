@@ -31,6 +31,18 @@ public interface TicketAccountMapper {
     @Update("update ticket_account set remain_quantity = #{remainQuantity}, update_time = NOW() where id = #{id}")
     void updateQuantity(@Param("id") Long id, @Param("remainQuantity") Integer remainQuantity);
 
+    /**
+     * 同步「剩余水票的金额价值」（v36）。
+     *
+     * <p>它是**派生列**，真相源是 {@code ticket_lot}：值必须等于
+     * {@code Σ lot.remain_qty × lot.unit_price}。任何改动批次的路径（购票入账、消耗、退款回补、
+     * 站长加票）都必须在同一事务里调它，否则对账 E8 立刻报不平。</p>
+     *
+     * <p>⚠️ 只写正数、不在这里做业务判断 —— 金额方向与大小的判断属于账务逻辑，不属于 mapper。</p>
+     */
+    @Update("update ticket_account set right_amount = #{rightAmount}, update_time = NOW() where id = #{id}")
+    void setRightAmount(@Param("id") Long id, @Param("rightAmount") java.math.BigDecimal rightAmount);
+
     @Select("select * from ticket_account where customer_id = #{customerId} and station_id = #{stationId}")
     List<TicketAccount> listByCustomerAndStation(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
@@ -46,13 +58,16 @@ public interface TicketAccountMapper {
             "ta.product_id as productId, " +
             "ta.station_id as stationId, " +
             "ta.remain_quantity as remainQuantity, " +
+            "ta.right_amount as rightAmount, " +
             "ta.update_time as updateTime, " +
             "p.name as productName, " +
             "p.spec as productSpec, " +
             "p.price as price, " +
-            "p.ticket_price as ticketPrice " +
+            "p.ticket_price as ticketPrice, " +
+            "coalesce(nullif(i.ticket_price, 0), nullif(p.ticket_price, 0), nullif(i.sale_price, 0), p.price) as effectiveTicketPrice " +
             "from ticket_account ta " +
             "left join product p on ta.product_id = p.id " +
+            "left join inventory i on i.product_id = ta.product_id and i.station_id = ta.station_id " +
             "where ta.customer_id = #{customerId} and ta.station_id = #{stationId} " +
             "order by ta.update_time desc")
     List<Map<String, Object>> listByCustomerAndStationWithDetail(@Param("customerId") Long customerId, @Param("stationId") Long stationId);

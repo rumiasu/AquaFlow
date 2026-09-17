@@ -5,7 +5,7 @@ const { getBarrelSummary, getBarrelSummaryByType } = require('../../api/barrel')
 const { getTicketAccounts } = require('../../api/ticket')
 const { createOrder, createPayment } = require('../../api/order')
 const { getQuote } = require('../../api/payment')
-const { getStationPublicPhone } = require('../../api/station')
+const { getStationPublicPhone, getStationStatus } = require('../../api/station')
 const { storage, stationStorage } = require('../../utils/storage')
 const { resolveStationId } = require('../../utils/station')
 const { getCustomerId } = require('../../utils/token')
@@ -30,6 +30,8 @@ Page({
     extraDepositBuckets: 0,
     extraDepositAmount: 0,
     totalAmount: 0,
+    // 水站营业状态提示（软状态）：有值时页面顶部显示横幅，**不阻断下单**
+    stationStatusHint: '',
     totalWaterCostText: '0.00',
     totalDepositText: '0.00',
     extraDepositAmountText: '',
@@ -189,9 +191,20 @@ async loadItemsProducts() {
     // 加载商品详情
     for (const it of items) {
       try {
-        const res = await getProductDetail(it.productId)
+        // 必须带 stationId：本站自定义商品只有该站能读（后端按 owner_station_id 过滤）
+        const res = await getProductDetail(it.productId, effectiveStationId)
         if (res && res.data) {
-          const p = { ...res.data, quantity: it.quantity || 1, waterTypeId: res.data.water_type_id }
+          const d = res.data
+          // 后端下发的是**本站有效价**（站级覆盖 → 通用库参考价）。
+          // 这里统一映射回 price/deposit：本页下方的小计、桶押金估算、提交快照都沿用旧字段名，
+          // 避免"有的地方改了、有的地方没改"又变成双口径（本仓计价双轨的历史事故）。
+          const p = {
+            ...d,
+            price: d.effectivePrice != null ? d.effectivePrice : d.price,
+            deposit: d.effectiveDeposit != null ? d.effectiveDeposit : d.deposit,
+            quantity: it.quantity || 1,
+            waterTypeId: d.water_type_id
+          }
           p.subtotal = (parseFloat(p.price) || 0) * (p.quantity || 1)
           p.subtotalText = p.subtotal.toFixed(2)
           products.push(p)
@@ -202,6 +215,7 @@ async loadItemsProducts() {
     }
 
 this.setData({ products, stationName: effectiveStationName })
+    this.loadStationStatus(effectiveStationId)
     this.syncBarrelSummary()
     this.refreshQuote()
     this.setData({ loading: false })
@@ -399,7 +413,7 @@ this.setData({ products, stationName: effectiveStationName })
   },
 
   async refreshQuote() {
-    const { products, selectedMethod, stationId, barrelSummary } = this.data
+    const { products, selectedMethod, stationId, barrelSummary, address } = this.data
     if (!products || products.length === 0 || !stationId) return
 
     try {
@@ -410,7 +424,11 @@ this.setData({ products, stationName: effectiveStationName })
       const res = await getQuote({
         items: quoteItems,
         paymentMethod: selectedMethod,
-        stationId: stationId
+        stationId: stationId,
+        // [v35] 必须带上收货地址：配送范围要靠它取坐标、楼层费要靠它取楼层。
+        // 不传的话后端算不出距离与楼层（按"拿不准就不收"处理），
+        // 而**下单时是带地址的** → 报价与订单金额就会不一致（本仓记过的"计价双轨"事故）。
+        addressId: address && address.id ? address.id : undefined
       })
       if (res.data) {
         const d = res.data
@@ -420,6 +438,13 @@ this.setData({ products, stationName: effectiveStationName })
         const extraDepositAmount = d.extraDeposit || 0
         const totalAmount = d.totalAmount || (totalWaterCost + totalDeposit + extraDepositAmount)
         const allowOfflinePayment = d.allowOfflinePayment === true
+        // [v35] 配送费与楼层费：金额与文案都由后端下发，前端只负责展示，不自算、不自造文案
+        const deliveryFee = d.deliveryFee || 0
+        const floorFee = d.floorFee || 0
+        const feeWarnings = Array.isArray(d.warnings) ? d.warnings : []
+        // blocked 是"起送量/配送范围配成了不接单"的硬拦结论 —— 与下单侧的拒绝判据同源
+        const blocked = d.blocked === true
+        const blockReason = d.blockReason || ''
 
         // 支付方式列表由服务端下发（含文案、可用性、默认项），前端不再硬编码 1/2/3 的含义
         const payMethods = Array.isArray(d.methods) && d.methods.length
@@ -469,7 +494,16 @@ this.setData({ products, stationName: effectiveStationName })
           totalAmountText: totalAmount.toFixed(2),
           allowOfflinePayment,
           payMethods,
-          selectedMethod: nextMethod
+          selectedMethod: nextMethod,
+          deliveryFee,
+          floorFee,
+          deliveryFeeText: deliveryFee > 0 ? deliveryFee.toFixed(2) : '',
+          floorFeeText: floorFee > 0 ? floorFee.toFixed(2) : '',
+          // 费用合计文案（两个都为 0 时不显示这一行）
+          feeTotalText: (deliveryFee + floorFee) > 0 ? (deliveryFee + floorFee).toFixed(2) : '',
+          feeWarnings,
+          blocked,
+          blockReason
         }
 
         this.setData(updates)
@@ -486,6 +520,19 @@ this.setData({ products, stationName: effectiveStationName })
 
   async onSubmit() {
     if (this.data.submitting) return
+
+    // [v35] 硬拦（起送量/配送范围被站长配成不接单）在前端就地挡住：
+    // 让客户填完地址、点了提交才被后端拒，体验上像是"系统坏了"。
+    // reason 由后端下发（与 createOrder 的拒绝判据同源），前端不自己判断该不该拦。
+    if (this.data.blocked) {
+      wx.showModal({
+        title: '暂不可下单',
+        content: this.data.blockReason || '当前订单暂不满足下单条件，请调整后重试',
+        showCancel: false,
+        confirmText: '知道了'
+      })
+      return
+    }
 
     const { products, address, note, stationId, selectedMethod } = this.data
 
@@ -562,6 +609,11 @@ this.setData({ products, stationName: effectiveStationName })
     const orderId = orderRes.data?.orderId || orderRes.data || null
     if (!orderId) return
 
+    // 下单响应里的 warnings（水站营业状态提示 / 欠桶提醒 / 缺货提示）**必须让客户看到**：
+    // 后端一直在下发，前端从来没读过，等于白提醒。营业状态是"不阻断但要说清楚"的软状态，
+    // 所以这里只弹提示，订单已经在库里了，点"知道了"继续走支付/成功页。
+    await this.showOrderWarnings(orderRes)
+
     // 3 = PayMethod.TICKET（水票支付）：下单即视同已付，补一条支付流水用于对账
     if (this.data.selectedMethod === 3) {
       try {
@@ -584,6 +636,25 @@ this.setData({ products, stationName: effectiveStationName })
 
     wx.setStorageSync('lastOrderId', orderId)
     wx.redirectTo({ url: `/pages/order/success?id=${orderId}&stationId=${this.data.stationId}` })
+  },
+
+  /**
+   * 展示下单响应里的 warnings（非阻断）。
+   * wx.showModal 是**回调式** API（本仓没有 promisify），所以这里包一层 Promise
+   * 以便在跳转前把提示显示完 —— 直接 await wx.showModal(...) 会恒得 undefined。
+   */
+  showOrderWarnings(orderRes) {
+    const warnings = (orderRes && orderRes.data && orderRes.data.warnings) || []
+    if (!warnings.length) return Promise.resolve()
+    return new Promise((resolve) => {
+      wx.showModal({
+        title: '下单成功，请注意',
+        content: warnings.join('\n'),
+        showCancel: false,
+        confirmText: '知道了',
+        complete: () => resolve()
+      })
+    })
   },
 
   // ===== 首次资产业务确认弹窗 =====

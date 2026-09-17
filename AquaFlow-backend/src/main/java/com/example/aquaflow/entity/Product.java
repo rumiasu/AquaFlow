@@ -15,11 +15,35 @@ public class Product {
     /** 商品ID，主键自增 */
     private Long id;
 
+    /**
+     * 归属水站：{@code NULL} = <b>通用商品库</b>（由开发者/运维维护，站长只读，只能"选用"到自己站）；
+     * 非空 = 该站的<b>自定义商品</b>（不入通用库，仅本站可见，站长可完整编辑）。
+     * <p>为什么要这张表同时装两种商品：{@code product.id} 是 15 张业务表（订单明细/桶账/水票/
+     * 库存流水/调整单…）与 7 个唯一键的锚点，物理拆表会让这些引用的 id 语义分叉。
+     * 隔离靠查询口径（{@code owner_station_id IS NULL OR = 本站}），不靠分表。</p>
+     */
+    private Long ownerStationId;
+
     /** 商品名称 */
     private String name;
 
     /** 商品分类: 1 桶装水 2 瓶装水 3 饮水器 */
     private Integer category;
+
+    /**
+     * 分类中文文案（全系统唯一来源）。
+     * <p>前端禁止自带 1/2/3 映射表（本仓历史事故：两端各写一套映射，导致新客下单 100% 失败），
+     * 所以展示文案一律由后端下发。</p>
+     */
+    public String getCategoryText() {
+        if (category == null) return "";
+        switch (category) {
+            case 1: return "桶装水";
+            case 2: return "瓶装水";
+            case 3: return "饮水器";
+            default: return "";
+        }
+    }
 
     /** 品牌 */
     private String brand;

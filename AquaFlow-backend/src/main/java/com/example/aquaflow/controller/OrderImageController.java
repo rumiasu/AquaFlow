@@ -6,6 +6,7 @@ import com.example.aquaflow.entity.OrderImage;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.entity.Customer;
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.service.OrderImageService;
 import com.example.aquaflow.util.AuthContext;
@@ -90,6 +91,15 @@ public class OrderImageController {
             }
             return Result.success(uploaded);
         } catch (IOException e) {
+            return Result.error("图片上传失败");
+        } catch (BusinessException e) {
+            // 业务拒绝（如订单状态不允许传图）必须原样冒泡，别被下面的兜底吞成"上传失败"
+            throw e;
+        } catch (Exception e) {
+            // [2026-09-16] 对象存储未配置/不可用时 CosClient 抛的是运行时异常，原先会一路冒到
+            // GlobalExceptionHandler → code=500（系统故障 + 一条 SYSTEM 告警）。
+            // 上传失败是可预期的运维状态，应给业务错误让用户看懂；记录一条 ERROR 便于运维定位。
+            log.error("[OrderImage] 图片上传失败: orderId={}, error={}", orderId, e.getMessage(), e);
             return Result.error("图片上传失败");
         }
     }

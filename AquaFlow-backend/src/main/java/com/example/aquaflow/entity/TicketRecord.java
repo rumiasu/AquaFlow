@@ -38,6 +38,21 @@ public class TicketRecord {
     /** 水票来源: 1 线上 2 线下 */
     private Integer ticketSource;
 
+    /**
+     * 本次变动的单价（v36）。购买 = 实付均价；消耗 = 所消耗批次的**加权均价**；
+     * 退款回补 = 还原批次所用的单价。
+     *
+     * <p>为什么要落在流水上：档位意味着票价分段，光有"买了 100 张、收了 800 元"没法自证均价，
+     * 更没法在订单取消时按**当时**的价把票还原回去。</p>
+     */
+    private java.math.BigDecimal unitPrice;
+
+    /**
+     * 关联的水票批次（v36）。仅当本次变动<b>只涉及一个批次</b>时有值；
+     * 跨批次消耗时为 {@code null}，此时看 {@link #unitPrice} 的加权均价。
+     */
+    private Long ticketLotId;
+
     /** 创建时间 */
     private LocalDateTime createTime;
 

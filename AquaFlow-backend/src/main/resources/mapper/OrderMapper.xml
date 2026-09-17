@@ -5,36 +5,37 @@
 
 <mapper namespace="com.example.aquaflow.mapper.OrderMapper">
 
-    <sql id="orderColumns">
-        customer_id, address_id, station_id, delivery_station_id, delivery_staff_id,
-        source, status, payment_method, payment_status, total_amount, water_amount, deposit_amount,
-        receiver_name, receiver_phone, address_snapshot, address_snapshot_lat, address_snapshot_lng,
-        guard_info, delivery_time_request, special_note, delivery_bucket_qty, return_bucket_qty,
-        barrel_discrepancy, barrel_discrepancy_note, first_barrel_order, quantity, create_time, update_time
-    </sql>
+    <!--
+        ⚠️ 这里曾有两个 <sql id="orderColumns"> / <sql id="orderValues"> 片段，全仓 0 处 <include>，
+        是纯粹的死代码 —— 但它们**长得像下面 save 的列清单**，改列的人会先改它们、然后发现没生效
+        （2026-09-17 加 due_date 时确认零引用后删除）。别再照着它们的形状复制一份。
+    -->
 
-    <sql id="orderValues">
-        #{customerId}, #{addressId}, #{stationId}, #{deliveryStationId}, #{deliveryStaffId},
-        #{source}, #{status}, #{paymentMethod}, #{paymentStatus}, #{totalAmount}, #{waterAmount}, #{depositAmount},
-        #{receiverName}, #{receiverPhone}, #{addressSnapshot}, #{addressSnapshotLat}, #{addressSnapshotLng},
-        #{guardInfo}, #{deliveryTimeRequest}, #{specialNote}, #{deliveryBucketQty}, #{returnBucketQty},
-        #{barrelDiscrepancy}, #{barrelDiscrepancyNote}, #{firstBarrelOrder}, #{quantity}, #{createTime}, #{updateTime}
-    </sql>
-
+    <!--
+        ⚠️ delivery_fee / floor_fee 必须用 IFNULL 兜住，不要改成裸 #{deliveryFee}：
+        这两列是 v34 加的 NOT NULL DEFAULT 0.00，而 SQL 里的 DEFAULT **只在「该列没出现在
+        INSERT 里」时才生效** —— 一旦显式列出却又传 NULL，MySQL 直接报
+        「Column 'delivery_fee' cannot be null」，下单整条链路全挂。
+        payment_record 那边已经因为这个坑一次性红了 29 个用例（见 v34/v35 的迁移头注释）。
+    -->
     <insert id="save" parameterType="com.example.aquaflow.entity.Orders" useGeneratedKeys="true" keyProperty="id">
         insert into orders
         (customer_id, address_id, station_id, delivery_station_id, delivery_staff_id,
         source, status, payment_method, payment_status, total_amount, water_amount, deposit_amount,
+        delivery_fee, floor_fee,
         receiver_name, receiver_phone, address_snapshot, address_snapshot_lat, address_snapshot_lng,
         guard_info, delivery_time_request, special_note, delivery_bucket_qty, return_bucket_qty,
         barrel_discrepancy, barrel_discrepancy_note, first_barrel_order, quantity, create_time, update_time,
+        due_date,
         idempotency_key)
         values
         (#{customerId}, #{addressId}, #{stationId}, #{deliveryStationId}, #{deliveryStaffId},
         #{source}, #{status}, #{paymentMethod}, #{paymentStatus}, #{totalAmount}, #{waterAmount}, #{depositAmount},
+        IFNULL(#{deliveryFee}, 0.00), IFNULL(#{floorFee}, 0.00),
         #{receiverName}, #{receiverPhone}, #{addressSnapshot}, #{addressSnapshotLat}, #{addressSnapshotLng},
         #{guardInfo}, #{deliveryTimeRequest}, #{specialNote}, #{deliveryBucketQty}, #{returnBucketQty},
         #{barrelDiscrepancy}, #{barrelDiscrepancyNote}, #{firstBarrelOrder}, #{quantity}, #{createTime}, #{updateTime},
+        #{dueDate},
         #{idempotencyKey})
     </insert>
 
@@ -53,6 +54,8 @@
             <if test="totalAmount != null">total_amount=#{totalAmount},</if>
             <if test="waterAmount != null">water_amount=#{waterAmount},</if>
             <if test="depositAmount != null">deposit_amount=#{depositAmount},</if>
+            <if test="deliveryFee != null">delivery_fee=#{deliveryFee},</if>
+            <if test="floorFee != null">floor_fee=#{floorFee},</if>
             <if test="receiverName != null">receiver_name=#{receiverName},</if>
             <if test="receiverPhone != null">receiver_phone=#{receiverPhone},</if>
             <if test="addressSnapshot != null">address_snapshot=#{addressSnapshot},</if>

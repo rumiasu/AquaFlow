@@ -99,6 +99,22 @@ Page({
     }
   },
 
+  /**
+   * 退出出口。本页是 redirectTo 进来的（页面栈无上一页）：
+   * PENDING 时还能靠「撤回申请」自己走出来，**PENDING_UNBIND 撤回被禁用**，
+   * 没有这个按钮就只能干等站长，属于用户报的"卡死"的一部分。
+   */
+  onLogout() {
+    wx.showModal({
+      title: '退出登录',
+      content: '退出后可用其他微信账号登录。',
+      confirmText: '退出',
+      success: (res) => {
+        if (res.confirm) getApp().logout()
+      }
+    })
+  },
+
   onWithdraw() {
     if (this.data.mode === 'PENDING_UNBIND') {
       wx.showToast({ title: '解绑审批中，无法撤回', icon: 'none' })

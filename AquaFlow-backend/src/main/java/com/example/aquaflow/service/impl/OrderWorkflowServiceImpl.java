@@ -78,6 +78,16 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Autowired
     private OrderTransferMapper orderTransferMapper;
 
+    /**
+     * 配送员计件工资（v37）。
+     *
+     * <p>⚠️ 收益只在<b>本类的 completeDelivery 里、状态 CAS 成功之后</b>产生，
+     * 不要在别处补算：钉在这个时点的好处是订单状态只前进、`isCancellable` 已拦掉
+     * 已完成/已取消，所以能取消的单一定还没产生收益 —— 不存在"收益发了又要撤回"的回滚问题。</p>
+     */
+    @Autowired
+    private com.example.aquaflow.service.StaffEarningService staffEarningService;
+
     @Autowired
     private OrderBarrelExceptionService orderBarrelExceptionService;
 
@@ -472,11 +482,14 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException("订单状态已变更，请刷新后重试");
         }
 
-        // 支付状态 CAS
+        // 支付状态：[2026-09-16 修正] 未收款时**保持原状态**，绝不倒回 未支付(0)。
+        // 现金单下单即 待收款(1)，"送到门口、钱还没收"本身就是 待收款——这正是
+        // DashboardMapper 的待收款金额口径（pendingAmount = payment_status=1 且未取消）。
+        // 此前写成 UNPAID(0)，会让这笔应收从站长「待收款」合计里消失（看不到该催谁）。
+        // 状态只前进：只有真的收到钱才写 已付款(2)（见 OrderMapper.markPaidIfCollectable）。
         int payCur = order.getPaymentStatus() != null ? order.getPaymentStatus() : PaymentStatus.UNPAID;
-        int payTarget = markPaid ? PaymentStatus.PAID : PaymentStatus.UNPAID;
-        if (payCur != payTarget) {
-            orderMapper.updatePaymentStatusIf(orderId, payCur, payTarget);
+        if (markPaid && payCur != PaymentStatus.PAID) {
+            orderMapper.markPaidIfCollectable(orderId);
         }
         // [AQ-009] 只要订单最终为已付款，就在此刻入账预收桶押金（幂等，重复调用安全）
         if (markPaid) {
@@ -485,6 +498,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
         // 纯数据字段回写（回桶数 / 欠桶数 / 差异说明 / 异常单号），不含状态
         orderMapper.updateDeliveryOutcome(orderId, returnBucketQty, owed, discrepancyNote, exceptionId);
+
+        // [v37] 配送员计件工资：状态 CAS 已成功 → 这一单确实送达了，这才产生工钱。
+        // 幂等由 uk_earning_auto（生成列唯一键）兜底，重复完成配送会被拦。
+        // ⚠️ 工钱**不进客户对账**（那些等式是客户/资产维度），它走独立等式 E-PAY —— 
+        // 混进去会让每天 03:00 的日结必然报不平、淹没真问题。
+        staffEarningService.recordDeliveryEarnings(orderId);
 
         if (params != null && params.containsKey("note")) {
             orderMapper.appendSpecialNote(orderId, "[配送备注] " + params.get("note"));

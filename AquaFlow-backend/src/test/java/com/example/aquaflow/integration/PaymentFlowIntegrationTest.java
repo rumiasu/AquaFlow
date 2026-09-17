@@ -65,8 +65,12 @@ class PaymentFlowIntegrationTest extends AbstractIntegrationTest {
 
         assertEquals(1, intOf("SELECT status FROM payment_record WHERE id=?", paymentId),
                 "现金支付创建后必须是待收款(1)，不能直接已付(2)");
-        assertEquals(0, intOf("SELECT payment_status FROM orders WHERE id=?", order),
-                "订单支付状态不应在创建支付时就变已付");
+        // [2026-09-16] 订单侧也必须是 待收款(1)，不是 未支付(0)：
+        // 1 才是「钱还没到手、等着收」的正规状态（PaymentStatus.textOf(1)="待收款"），
+        // 也是 DashboardMapper 统计待收款金额的口径（payment_status=1 且未取消）。
+        // 曾在创建支付时把它写成 0 —— 状态倒滚，且这笔应收会从站长「待收款」合计里消失。
+        assertEquals(1, intOf("SELECT payment_status FROM orders WHERE id=?", order),
+                "发起收款不得把订单改成 未支付(0)（会从待收款合计里消失）；也不能变已付(2)");
 
         BigDecimal recordAmount = decimalOf("SELECT amount FROM payment_record WHERE id=?", paymentId);
         BigDecimal orderTotal = decimalOf("SELECT total_amount FROM orders WHERE id=?", order);
@@ -104,6 +108,30 @@ class PaymentFlowIntegrationTest extends AbstractIntegrationTest {
                         + "WHERE customer_id=? AND station_id=?", customer, station)
                         .compareTo(new BigDecimal("60.00")),
                 "重复确认不得重复入账押金");
+    }
+
+    @Test
+    @DisplayName("「撤销确认收款」已按产品决定移除：任何形态的端点都必须 404（状态不许倒滚）")
+    void noUnconfirmCollectionEndpoint() {
+        seed(true);
+        long order = createOrderViaApi(2 /* 现金 */, 1);
+        String token = staffToken(mgr, "STATION_MANAGER", station);
+
+        // 2026-09-16 产品口径：订单状态只前进。原 PaymentService.unconfirmOrderCollection 把
+        // 已完成(4) 倒回 已送达(3)（且不改 payment_status，会留下「已送达+已付款」的矛盾组合），
+        // 已删除（删除时全仓零调用点）。已完成订单要退钱走退款流程，不是改状态。
+        // 本用例是护栏：谁把这类端点加回来，这里就红。
+        assertEquals(404, post("/api/payments/orders/" + order + "/unconfirm-collection", token, "{}").code(),
+                "不得新增「撤销确认收款」端点（POST /api/payments/...）");
+        assertEquals(404, put("/api/payments/orders/" + order + "/unconfirm-collection", token, "{}").code(),
+                "不得新增「撤销确认收款」端点（PUT /api/payments/...）");
+        // 历史遗留（archive/legacy-web-frontend 调过这个路径）：同样必须不存在
+        assertEquals(404, post("/api/delivery/orders/unconfirm-collection/" + order, token, "{}").code(),
+                "不得新增「撤销确认收款」端点（/api/delivery/...）");
+        assertEquals(404, post("/api/manager/orders/" + order + "/unconfirm-collection", token, "{}").code(),
+                "不得新增「撤销确认收款」端点（/api/manager/...）");
+
+        assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", order), "订单状态不得被这些请求推动");
     }
 
     @Test

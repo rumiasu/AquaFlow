@@ -67,6 +67,9 @@ demo/
 !page_reach_audit.py
 !static_audit_user.py
 !audit_comments.py
+# 例外（2026-09-17 补）：双向接口审计（后端端点 → 前端调用），补足上面三个只做正向的盲区。
+# 此前被 *.py 静默忽略 —— 表现为"文件在本地、git status 里也看不到"，极易误以为已入库。
+!api_reverse_audit.py
 test_*.bat
 test.bat
 run_migration.bat
@@ -117,3 +120,9 @@ docs/design/step*.html
 docs/design/tabbar-icons-preview.png
 docs/redesign/
 generated-images/
+.openvisio/
+
+# agent / ������ʱ���2026-09-17������ �������ڲֿ�����
+.dsh-code-index/
+.mcp.json
+__*.ps1

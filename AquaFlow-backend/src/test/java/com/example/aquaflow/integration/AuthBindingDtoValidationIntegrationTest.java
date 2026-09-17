@@ -89,23 +89,23 @@ class AuthBindingDtoValidationIntegrationTest extends AbstractIntegrationTest {
     // ---- 商品管理 ----
 
     @Test
-    @DisplayName("manager/products 保存缺 name 被边界拒回且不落库")
+    @DisplayName("my-products 保存缺 name 被边界拒回且不落库")
     void productSaveMissingNameRejected() {
         long mgr = createStaff("站长乙", "STATION_MANAGER", null, 1);
         long station = createStation("商品站");
         String token = staffToken(mgr, "STATION_MANAGER", station);
-        Api res = post("/api/manager/products", token, "{\"price\":12.5}");
+        Api res = post("/api/manager/my-products", token, "{\"price\":12.5}");
         assertTrue(!res.isSuccess(), "缺 name 应被拒: " + res);
         assertEquals(0, intOf("SELECT COUNT(*) FROM product"), "不应落库");
     }
 
     @Test
-    @DisplayName("manager/products 保存缺 price 被边界拒回")
+    @DisplayName("my-products 保存缺 price 被边界拒回")
     void productSaveMissingPriceRejected() {
         long mgr = createStaff("站长丙", "STATION_MANAGER", null, 1);
         long station = createStation("商品站二");
         String token = staffToken(mgr, "STATION_MANAGER", station);
-        Api res = post("/api/manager/products", token, "{\"name\":\"矿泉水\"}");
+        Api res = post("/api/manager/my-products", token, "{\"name\":\"矿泉水\"}");
         assertTrue(!res.isSuccess(), "缺 price 应被拒: " + res);
         assertEquals(0, intOf("SELECT COUNT(*) FROM product"), "不应落库");
     }

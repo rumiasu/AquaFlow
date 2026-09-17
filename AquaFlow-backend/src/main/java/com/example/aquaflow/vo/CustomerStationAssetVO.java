@@ -107,9 +107,18 @@ public class CustomerStationAssetVO {
         private Long productId;
         private String productName;
         private String productSpec;
-        /** 持有数量 = 权益数（可退的桶） */
+        /**
+         * 持有数量 = **权益 + 配送中**（展示口径）：客户视角"这个客户一共有几个桶，买了就是他的"。
+         * <p>[2026-09-15] 与 {@link #rightQty}（已到手）拆开，避免同一字段既当"展示持有"又当
+         * "可用于下单抵扣/退押金"的基准 —— 两者混用会让页面与账务互相打架。</p>
+         */
         private Integer heldQty;
-        /** 配送中数量（含尚未确认送达的） */
+        /**
+         * 权益数（**已到手**、可退的桶）。下单抵扣与退押金只认这个数；
+         * {@link #heldQty} 减去它 = 在途（配送中）部分。
+         */
+        private Integer rightQty;
+        /** 配送中数量（只含 PENDING；DELIVERED = 已送达，不算在途） */
         private Integer inTransitQty;
         /**
          * over（<b>可为负</b>）：正数 = 欠桶，负数 = 顾客多还的桶寄存在水站。
@@ -117,7 +126,7 @@ public class CustomerStationAssetVO {
          * 不能当成 0 ——那是顾客打电话问"我的桶呢"的直接来源。</p>
          */
         private Integer overQty;
-        /** 占用 = 权益 + over：顾客手上实际有几个桶（派生）。纯还桶的数量上限就是它。 */
+        /** 占用 = 权益 + over：顾客手上实际有几个桶（派生，**不含配送中**）。纯还桶的数量上限就是它。 */
         private Integer occupiedQty;
         /** 单桶押金 */
         private BigDecimal depositPerBucket;

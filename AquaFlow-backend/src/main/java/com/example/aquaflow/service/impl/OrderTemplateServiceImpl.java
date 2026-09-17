@@ -67,7 +67,15 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
         template.setUpdateTime(LocalDateTime.now());
 
         if (template.getId() != null) {
-            templateMapper.update(template);
+            // [2026-09-16 修复] 原来这里直接 templateMapper.update(template)（只按 id 过滤，无归属校验），
+            // 于是顾客只要把**别人的模板 id** 传进来，就能覆盖别人的模板名/备注，并顺带
+            // itemMapper.deleteByTemplateId 清空别人的模板明细 —— 与 [AQ-036] 已修的
+            // setDefault / toggleEnabled / delete 是同一个洞，当时漏了这一处。
+            // 现在走归属限定的 updateOwned，并按仓库约定检查受影响行数（0 = 不是他的 / 已删）。
+            int affected = templateMapper.updateOwned(template);
+            if (affected == 0) {
+                throw new BusinessException("常用订单不存在，可能已被删除");
+            }
             itemMapper.deleteByTemplateId(template.getId());
         } else {
             if (template.getEnabled() == null) template.setEnabled(1);

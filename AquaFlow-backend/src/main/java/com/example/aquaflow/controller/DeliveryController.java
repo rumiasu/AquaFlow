@@ -61,10 +61,15 @@ public class DeliveryController {
         auditLogService.log("ORDER", action, "order:" + orderId, detail != null ? detail.toString() : "", null);
     }
 
-    /** complete 强类型 DTO -> 原 service 期望的 Map 结构（itemReturns/returnBucketQty/barrelDiscrepancyNote） */
+    /** complete 强类型 DTO -> 原 service 期望的 Map 结构（itemReturns/returnBucketQty/barrelDiscrepancyNote/collected/note） */
     private Map<String, Object> toCompleteParams(DeliveryOrderActionDTO.Complete complete) {
         Map<String, Object> params = new HashMap<>();
         if (complete == null) return params;
+        // [2026-09-16 修复] collected / note 必须显式搬过来：service 读的是 Map 里的键，
+        // 少了这两行不会报任何错，只是「已收款」永远 false（现金单永远收不了款、停 已送达未付）、
+        // 配送备注永远写不进 special_note。f3e702f 收敛强类型 DTO 时正是这样丢的。
+        if (complete.getCollected() != null) params.put("collected", complete.getCollected());
+        if (complete.getNote() != null) params.put("note", complete.getNote());
         if (complete.getItemReturns() != null) {
             List<Map<String, Object>> ir = new ArrayList<>();
             for (DeliveryOrderActionDTO.CompleteItemReturn it : complete.getItemReturns()) {

@@ -74,6 +74,9 @@ Page({
         bucketInfo.extraDepositAmount = order.extraDepositAmount || 0
       }
 
+      // 订单归属站：补商品图/详情时带上它，才能读到本站自定义商品（后端按 owner_station_id 过滤）
+      this.stationIdOfOrder = order.stationId || order.ownerStationId || null
+
       // 状态/支付文案、能否取消、能否重新支付：全部由后端计算下发（Orders 派生字段），
       // 前端只负责渲染与选配色，不再自行推导业务规则（此前 canCancel/canRepay 各端各写一套）。
       const statusText = order.statusText || ''
@@ -101,7 +104,7 @@ Page({
     if (ids.length === 0) return
     for (const pid of ids) {
       try {
-        const res = await getProductDetail(pid)
+        const res = await getProductDetail(pid, this.stationIdOfOrder)
         if (res && res.data && res.data.imageUrl) {
           const idx = this.data.items.findIndex(i => i.productId === pid)
           if (idx >= 0) {

@@ -87,7 +87,9 @@ Page({
       productRes = await getStationProducts(currentStationId).catch(() => null)
     }
     if (!productRes || !productRes.data) {
-      productRes = await getProducts().catch(() => null)
+      // 没有选水站时的兜底：只取**通用库**商品（带 stationId 才能看到本站自定义商品；
+      // 模板页只需要 id/name，不显示价格，所以这里不涉及站级价）。
+      productRes = await getProducts(currentStationId ? { stationId: currentStationId } : {}).catch(() => null)
     }
     const addressRes = await getAddresses().catch(() => null)
 

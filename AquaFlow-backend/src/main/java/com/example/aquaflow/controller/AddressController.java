@@ -55,7 +55,11 @@ public class AddressController {
         String userType = AuthContext.getUserType();
         Long userId = AuthContext.getUserId();
 
-        log.info("save address: userType={}, userId={}, address.customerId={}, address={}", userType, userId, address.getCustomerId(), address);
+        // [2026-09-16] 原来把整个 Address 对象打进日志（收件人姓名 / 电话 / 完整门牌），
+        // 属个人信息，不应落日志（OPS-001 非功能-隐私判定 NG 项）。
+        // 只保留定位问题所需的非敏感标识。
+        log.info("save address: userType={}, userId={}, addressId={}, address.customerId={}",
+                userType, userId, address.getId(), address.getCustomerId());
 
         // 客户端：使用 JWT 中的 customerId
         if ("customer".equals(userType)) {

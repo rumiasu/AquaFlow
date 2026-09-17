@@ -8,10 +8,37 @@ import java.util.List;
 @Mapper
 public interface PaymentRecordMapper {
 
-    @Insert("insert into payment_record(order_id, customer_id, station_id, amount, payment_method, status, transaction_no, operator_id, note, create_time, update_time, water_amount, barrel_deposit, excess_barrels, ticket_water_type_id, ticket_qty) " +
-            "values(#{orderId}, #{customerId}, #{stationId}, #{amount}, #{paymentMethod}, #{status}, #{transactionNo}, #{operatorId}, #{note}, #{createTime}, #{updateTime}, #{waterAmount}, #{barrelDeposit}, #{excessBarrels}, #{ticketWaterTypeId}, #{ticketQty})")
+    /**
+     * 新增支付流水。
+     *
+     * <p>⚠️ {@code delivery_fee} / {@code floor_fee} 用 {@code IFNULL(..., 0.00)} 兜住，
+     * <b>不要改回裸 {@code #{deliveryFee}}</b>：这两列是 v34 加的 {@code NOT NULL DEFAULT 0.00}，
+     * 而实体字段默认是 {@code null} —— 两条写路径（{@code PaymentServiceImpl.createPayment}
+     * 与 {@code TicketAccountServiceImpl.purchaseTicket}）都不设这两个字段，
+     * 裸写会把 {@code NULL} 显式塞进 NOT NULL 列，MySQL 直接报
+     * 「Column 'delivery_fee' cannot be null」，**整条支付链路全挂**
+     * （实测：一次全量测试 29 个用例失败，覆盖购票、现金收款、退款、押金、取消回滚）。
+     * 注意 SQL 里的 {@code DEFAULT 0.00} 只在「列没出现在 INSERT 里」时生效，
+     * 显式传 NULL 时它救不了你。</p>
+     */
+    @Insert("insert into payment_record(order_id, idempotency_key, customer_id, station_id, amount, payment_method, status, transaction_no, operator_id, note, create_time, update_time, water_amount, barrel_deposit, delivery_fee, floor_fee, excess_barrels, ticket_water_type_id, ticket_qty, ticket_package_id) " +
+            "values(#{orderId}, #{idempotencyKey}, #{customerId}, #{stationId}, #{amount}, #{paymentMethod}, #{status}, #{transactionNo}, #{operatorId}, #{note}, #{createTime}, #{updateTime}, #{waterAmount}, #{barrelDeposit}, IFNULL(#{deliveryFee}, 0.00), IFNULL(#{floorFee}, 0.00), #{excessBarrels}, #{ticketWaterTypeId}, #{ticketQty}, #{ticketPackageId})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(PaymentRecord record);
+
+    /**
+     * 按客户端幂等键查已有流水（{@code uk_payment_idempotency(customer_id, idempotency_key)}）。
+     *
+     * <p><b>必须带 customerId 查询</b>：单靠 token 查会让客户端编造/复用别人的 token 时
+     * 拿回别人的支付记录。{@code idempotencyKey} 为 null 时本查询恒返回空
+     * （SQL 中 {@code NULL = NULL} 为 unknown），这正是订单支付想要的行为。</p>
+     *
+     * <p>用途：{@code TicketAccountServiceImpl.purchaseTicket} 的串行重放命中路径
+     * ——连点两次「买票」时返回同一笔流水，而不是新建第二笔。</p>
+     */
+    @Select("select * from payment_record where customer_id = #{customerId} and idempotency_key = #{idempotencyKey} order by id desc limit 1")
+    PaymentRecord getByCustomerAndIdempotencyKey(@Param("customerId") Long customerId,
+                                                 @Param("idempotencyKey") String idempotencyKey);
 
     @Select("select * from payment_record where id = #{id}")
     PaymentRecord getById(@Param("id") Long id);

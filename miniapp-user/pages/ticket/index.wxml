@@ -94,7 +94,8 @@
           bindtap="onBuyProductSelect"
         >
           <text class="product-name">{{item.name}}</text>
-          <text class="product-price" wx:if="{{item.price}}">¥{{item.price}}/张</text>
+          <!-- 面值 = 本站水票价（后端 effectiveTicketPrice），与扣款同源 -->
+          <text class="product-price" wx:if="{{item.effectiveTicketPrice}}">¥{{item.effectiveTicketPrice}}/张</text>
         </view>
       </view>
 

@@ -33,8 +33,14 @@ public interface PaymentService {
      * 服务端支付试算（quote）。
      * 按最终业务规则在服务端计算：单次上限、当前可持有桶、需新增押金桶、水费/押金/总金额。
      * 不信任前端传入的任何金额或桶数。
+     *
+     * <p>⚠️ [v35] 与 {@code OrderServiceImpl.createOrder} <b>必须同口径</b>：配送费与楼层费两边
+     * 都调 {@code DeliveryFeeService.calcForOrder}，水费与桶数口径也一致。
+     * {@code addressId} 用于算配送范围与楼层费；不传则距离按"算不出来"处理
+     * （不收远程费、不拦单），并在返回的 {@code warnings} 里说明。</p>
      */
-    Map<String, Object> quote(Long customerId, Long stationId, Integer paymentMethod, List<Map<String, Object>> items);
+    Map<String, Object> quote(Long customerId, Long stationId, Integer paymentMethod,
+                              List<Map<String, Object>> items, Long addressId);
 
     /** 确认支付（微信回调/手动确认） */
     void confirmPayment(Long paymentId);
@@ -45,10 +51,13 @@ public interface PaymentService {
      */
     void confirmOrderCollection(Long orderId);
 
-    /**
-     * 收款修正（站长用）：已完成的线下订单改回「已送达待付款」（DELIVERED）。
-     */
-    void unconfirmOrderCollection(Long orderId);
+    // [2026-09-16 按产品决定删除] 原 `void unconfirmOrderCollection(Long orderId);`
+    //   做的事是把 已完成(4) 倒回 已送达(3)，属于**状态倒滚**，且回滚后 payment_status 仍留在
+    //   已付款(2)，产生「已送达 + 已付款」这种自相矛盾的组合。产品口径：订单状态只前进，
+    //   已完成的收款不许撤销；真要退钱走退款流程（`refundOrder`，其门槛是 OrderStatus.isCancellable，
+    //   即 已完成/已取消 不可取消）。删除时全仓零调用点（仅接口 + 实现 + 一处注释提到它）。
+    //   ⚠️ 不要再把它加回来，也不要新增任何「撤销确认收款」端点：
+    //   `PaymentFlowIntegrationTest.noUnconfirmCollectionEndpoint` 会因此变红。
 
     /** 货到付款确认（配送员确认收到现金） */
     void confirmCashPayment(Long orderId, Long customerId, BigDecimal amount);
@@ -98,12 +107,6 @@ public interface PaymentService {
 
     /** 查询支付记录（带过滤）—— [AQ-052] 必须带 stationId */
     List<PaymentRecord> listWithFilter(Long stationId, Integer status, Integer paymentMethod, int limit);
-
-    /** 获取站点支付配置 */
-    Map<String, Object> getStationConfig(Long stationId);
-
-    /** 更新站点支付配置 */
-    void updateStationConfig(Long stationId, Map<String, Object> config);
 
     /**
      * 校验客户在指定水站是否有线下支付权限

@@ -13,8 +13,54 @@ Page({
     applyingId: null // 正在提交申请的水站ID，防重复点击
   },
 
-  onLoad() {
+  // 不用 onLoad：进页面先向服务器确认真实状态 —— 可能已经在别处完成了绑定
+  // （站长在后台直接把人加进本站 / 审批在另一台设备上点了通过），此时应当直接放行，
+  // 而不是继续让用户"申请加入"。
+  onShow() {
+    this.refresh()
+  },
+
+  /**
+   * 先同步状态并尝试放行，确认确实还需要申请才加载水站列表。
+   * refreshIdentityAndRoute 只在「目标页 ≠ 当前页」时才跳，所以不会自我循环。
+   */
+  async refresh() {
+    const app = getApp()
+    const left = await app.refreshIdentityAndRoute('pages/station-mgmt/apply-bind/index')
+    if (left) return
     this.loadStations()
+  },
+
+  /**
+   * 返回上一步：重新选择身份。
+   *
+   * 用 reLaunch 而不是 navigateBack —— 本页是 redirectTo 进来的，页面栈里根本没有上一页。
+   * 之所以允许返回：**选择身份不等于生效**（还没被站长批准绑定），此时改选是合理的；
+   * 生效后（stationId 非空）后端会拒绝改选，这里先拦下免得用户白跑一趟。
+   */
+  onBackToRoleSelect() {
+    const app = getApp()
+    if (app.isIdentityEffective()) {
+      wx.showToast({ title: '身份已生效，如需更换请联系管理员', icon: 'none' })
+      return
+    }
+    wx.reLaunch({ url: '/pages/role-select/index' })
+  },
+
+  /**
+   * 退出登录。
+   * 本页是被 redirectTo 进来的（页面栈里没有上一页），页面本身也没有任何返回入口 ——
+   * 不给出口，用户就会一直卡在这里，这正是"注册卡死"的直接成因。
+   */
+  onLogout() {
+    wx.showModal({
+      title: '退出登录',
+      content: '退出后可用其他微信账号登录。',
+      confirmText: '退出',
+      success: (res) => {
+        if (res.confirm) getApp().logout()
+      }
+    })
   },
 
   onPullDownRefresh() {

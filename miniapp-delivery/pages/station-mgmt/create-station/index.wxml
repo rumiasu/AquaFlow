@@ -15,19 +15,11 @@
       <view class="location-value {{locationText ? '' : 'placeholder'}}">
         <view class="location-text-wrap">
           <text class="location-text">{{locationText || '点击选择地图位置'}}</text>
-          <text class="location-sub" wx:if="{{region.length}}">{{region[0]}} · {{region[1]}} · {{region[2]}}</text>
+          <!-- 省市区由定位结果自动解析回填，不需要站长再手选（见 index.js onChooseLocation） -->
+          <text class="location-sub" wx:if="{{regionText}}">省市区：{{regionText}}</text>
         </view>
         <text class="location-icon">📍</text>
       </view>
-    </view>
-
-    <view class="form-group" wx:if="{{locationText && !region.length}}">
-      <picker mode="region" bindchange="onRegionChange">
-        <view class="form-picker {{region.length ? '' : 'placeholder'}}">
-          {{region.length ? region : '补充省/市/区（可选）'}}
-          <text class="picker-arrow">›</text>
-        </view>
-      </picker>
     </view>
 
     <view class="form-group">
@@ -38,5 +30,12 @@
 
   <view class="footer">
     <button class="btn-submit" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">创建水站</button>
+    <!-- 选择身份只是登记意向，生效前允许改选；生效后后端会拒绝（按钮会给出提示） -->
+    <view class="footer-action" bindtap="onBackToRoleSelect">
+      <text>返回，重新选择身份</text>
+    </view>
+    <view class="footer-action" bindtap="onLogout">
+      <text>退出登录</text>
+    </view>
   </view>
 </view>

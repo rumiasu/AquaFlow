@@ -7,6 +7,11 @@ app:
   dev-login-enabled: ${DEV_LOGIN_ENABLED:false}
   # P4-3: CORS 允许的来源列表（逗号分隔），生产环境必须配置实际域名
   cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173}
+  # 登录类端点的按 IP 限流（见 interceptor/RateLimitInterceptor.java）。
+  # 与 LoginController 里的按用户名锁定 [AQ-040] 正交：换用户名绕得过后者，绕不过前者。
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:20}
 
 spring:
   application:
@@ -67,3 +72,24 @@ cos:
   secret-id: ${COS_SECRET_ID:}
   secret-key: ${COS_SECRET_KEY:}
   bucket-name: ${COS_BUCKET_NAME:aquaflow-prod-1474857078}
+
+alert:
+  # 系统故障告警的外部渠道 webhook 地址（可空）。留空则只落 alert_log 表 + ERROR 日志。
+  # 分级口径：系统故障→系统管理员（本渠道）；运营故障→水站站长（站长端 /api/manager/alerts 可查）。
+  system-webhook: ${ALERT_SYSTEM_WEBHOOK:}
+
+  # 外部渠道的报文格式，必须与实际接收方匹配（各服务报文不同，猜错会静默失败）：
+  #   WECOM / DINGTALK → 企业微信群机器人 / 钉钉自定义机器人（默认，两者同格式）
+  #   SERVERCHAN       → Server酱 https://sctapi.ftqq.com/{SendKey}.send
+  #                      form-urlencoded(title/desp)，消息落到**微信「放糖服务号」**，无需建群
+  #   RAW              → 原样发 JSON {title,source,content,level}，供自建接收端/其它中介
+  # ⚠️ 无论哪种格式，都按 **body 里的业务错误码** 判定成败（企业微信/钉钉 errcode、Server酱 code）——
+  #    这三家在失败时都返回 HTTP 200，只看状态码会把"被拒绝"记成已推送。
+  webhook-format: ${ALERT_WEBHOOK_FORMAT:WECOM}
+
+catalog:
+  # 站级价护栏：本站售价/押金偏离通用库参考价超过该比例时，接口返回 warnings（**非阻断，保存照常成功**）。
+  # 产品口径（2026-09-16）：站间允许有价差，不做强制；这里只防"手滑把 25 写成 2500"。
+  # 0.5 = ±50%。设为 0 或负数则不提醒。见 docs/design/12-商品与库存重构.md §4.4。
+  price-warn-ratio: ${CATALOG_PRICE_WARN_RATIO:0.5}
+

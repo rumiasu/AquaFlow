@@ -80,6 +80,15 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired
     private InventoryService inventoryService;
 
+    /**
+     * 配送计费（起送量 / 配送范围 / 运费 / 楼层费，v35）。
+     *
+     * <p>⚠️ {@code OrderServiceImpl.createOrder} 用的是<b>同一个服务</b>、传同样的入参 ——
+     * 报价与下单必须同口径。见 {@code docs/design/17} 与 {@code PriceUtil} 文件头记的计价双轨事故。</p>
+     */
+    @Autowired
+    private com.example.aquaflow.service.DeliveryFeeService deliveryFeeService;
+
     /** 订单归属站（优先履约站） */
     private static Long stationOf(Orders o) {
         if (o == null) return null;
@@ -184,12 +193,13 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException("该订单已有待收款或已支付流水，请勿重复提交");
         }
 
-        // 同步订单付款状态
-        if (orderId != null) {
-            // [Phase C] CAS：新订单付款状态为「待付款」(PENDING=1，库默认)，据此做乐观锁；
-            // 现金/微信 → UNPAID(0)，水票 → PAID(2)。注意库列默认 1 而非 0，expected 必须用 PENDING。
-            orderMapper.updatePaymentStatusIf(orderId, PaymentStatus.PENDING,
-                    Integer.valueOf(PaymentStatus.PAID).equals(status) ? PaymentStatus.PAID : PaymentStatus.UNPAID);
+        // 同步订单付款状态：[2026-09-16 修正] 只有「水票」在这一步才是真付款（下单即视同已付）。
+        // 现金/微信只是**发起收款**（payment_record 落一条待收款流水），订单必须留在 待收款(1)：
+        // 原先无条件把它写成 UNPAID(0)，而 DashboardMapper 的待收款金额口径是
+        // `payment_status = 1 且未取消` —— 一改这笔钱就从站长「待收款」合计里凭空消失。
+        // 状态只前进：0/1（钱没到手）→ 2（已付款），见 OrderMapper.markPaidIfCollectable。
+        if (orderId != null && Integer.valueOf(PaymentStatus.PAID).equals(status)) {
+            orderMapper.markPaidIfCollectable(orderId);
         }
 
         // [AQ-009] 水票是「下单即视同已付」的唯一支付方式：订单在这一步就已经是 PAID，
@@ -231,15 +241,24 @@ public class PaymentServiceImpl implements PaymentService {
 
         // 在线购买水票：支付确认后入账。
         // 此前这里是一个 TODO —— 客户在线买水票付了钱，水票却永远不到账。
-        // 上面的乐观锁保证同一笔支付只会确认成功一次，因此入账天然幂等。
+        //
+        // ⚠️ [2026-09-17 修正] 原文写的是「上面的乐观锁保证同一笔支付只会确认成功一次，
+        // 因此入账天然幂等」—— 这句话是**错的**，而且危险：它会诱导下一个人以为「重复流水无害」。
+        // 上面的 CAS 只保证**单条 payment_record** 只会被确认成功一次，它管不住
+        // 「同一个购买意图存在两条流水」这种情况 —— 两条流水各自被确认一次，水票就入账两次。
+        // 所以防重必须发生在**落流水**那一步：见 TicketAccountServiceImpl.purchaseTicket 的
+        // idempotencyKey 与 uk_payment_idempotency（v33 / migration_v33_payment_idempotency.sql）。
         if (record.getTicketWaterTypeId() != null && record.getTicketQty() != null && record.getTicketQty() > 0) {
-            ticketAccountService.addTicket(record.getCustomerId(), record.getTicketWaterTypeId(),
-                    record.getTicketQty(), record.getStationId());
+            // [v36] 走 creditPurchasedTickets 而不是 addTicket：前者把**实付均价**快照进水票批次，
+            // 后者用的是站级水票价。档位套餐下两者不同 —— 客户按档位价付了 800 元买 100 张，
+            // 批次单价必须是 8.00；用站级单张价记，退票时就会多退给客户钱。
+            ticketAccountService.creditPurchasedTickets(record.getCustomerId(), record.getTicketWaterTypeId(),
+                    record.getTicketQty(), record.getStationId(), record.getId(), record.getAmount());
         }
 
         if (record.getOrderId() != null) {
-            // [Phase C] CAS：确认收款把 UNPAID → PAID；水票支付创建时已置 PAID，此处 affected=0 属幂等，不报错
-            orderMapper.updatePaymentStatusIf(record.getOrderId(), PaymentStatus.UNPAID, PaymentStatus.PAID);
+            // 确认收款 = 收钱 → 0/1 任一状态都前进到 已付款(2)；水票创建时已是 2，此处 affected=0 属幂等
+            orderMapper.markPaidIfCollectable(record.getOrderId());
             // [AQ-009] 支付成功时才入账预收桶押金（此前在下单时即入账，那时客户一分未付）
             applyDepositOnPaid(record.getOrderId());
         }
@@ -262,27 +281,26 @@ public class PaymentServiceImpl implements PaymentService {
             List<PaymentRecord> records = paymentRecordMapper.listByOrderId(orderId);
             for (PaymentRecord r : records) {
                 if (r.getStatus() != null && r.getStatus() == PaymentStatus.PENDING) {
-                    paymentRecordMapper.updateStatusIf(r.getId(), PaymentStatus.PENDING, PaymentStatus.PAID);
+                    // ⚠️ 参数顺序是 (id, 目标状态, 期望状态) —— PaymentRecordMapper.updateStatusIf 的
+                    // SQL 是 `set status = #{status} ... and status = #{expectStatus}`。
+                    // [2026-09-16 修复] 这里原写作 (PENDING, PAID)，即"把 status 改成 PENDING、要求它现在是 PAID"，
+                    // 与上面那行 `r.getStatus() == PENDING` 的判据自相矛盾，SQL 恒命中 0 行：
+                    // 现金单确认收款后订单变已付款，但支付流水永远停在「待收款」。
+                    paymentRecordMapper.updateStatusIf(r.getId(), PaymentStatus.PAID, PaymentStatus.PENDING);
                 }
             }
-            orderMapper.updatePaymentStatusIf(orderId, PaymentStatus.UNPAID, PaymentStatus.PAID);
+            orderMapper.markPaidIfCollectable(orderId);
             // [AQ-009] 收款成功时入账预收桶押金
             applyDepositOnPaid(orderId);
         }
         orderMapper.updateStatusIf(orderId, OrderStatus.DELIVERED, OrderStatus.COMPLETED);
     }
 
-    @Override
-    public void unconfirmOrderCollection(Long orderId) {
-        com.example.aquaflow.entity.Orders order = orderMapper.getById(orderId);
-        if (order == null) {
-            throw new BusinessException("订单不存在");
-        }
-        if (order.getStatus() != OrderStatus.COMPLETED) {
-            throw new BusinessException("仅已完成的订单可修正");
-        }
-        orderMapper.updateStatusIf(orderId, OrderStatus.COMPLETED, OrderStatus.DELIVERED);
-    }
+    // [2026-09-16 按产品决定删除] 原 `unconfirmOrderCollection`：把 已完成(4) 倒回 已送达(3)。
+    //   删除理由（与上一条领域不变式一致）：订单状态只前进；而且它**只改订单状态、不改
+    //   payment_status**，回滚后订单会停在「已送达 + 已付款(2)」这种自相矛盾的组合上。
+    //   删除时全仓零调用点（接口声明 + 本实现 + refundOrder 里的一句注释）。
+    //   已完成的收款不许撤销；要退钱请走 refundOrder（其 isCancellable 门槛本就排除 已完成/已取消）。
 
     @Override
     public boolean hasPaidRecord(Long orderId) {
@@ -393,7 +411,7 @@ public class PaymentServiceImpl implements PaymentService {
         record.setUpdateTime(LocalDateTime.now());
         paymentRecordMapper.insert(record);
 
-        orderMapper.updatePaymentStatusIf(orderId, PaymentStatus.UNPAID, PaymentStatus.PAID);
+        orderMapper.markPaidIfCollectable(orderId);
         // [AQ-009] 现场收款（货到付款）成功时入账预收桶押金
         applyDepositOnPaid(orderId);
     }
@@ -460,7 +478,10 @@ public class PaymentServiceImpl implements PaymentService {
         // 实测路径：`POST /api/delivery/orders/reject/{id}` 对一张已完成订单调用 →
         // 退水票 + 退支付流水（押金/库存因 orderStatus >= DELIVERED 被跳过）→ 末尾 CAS 4→5 成功，
         // 结果「货已送达、桶在客户手上、钱退回去了、订单变成已取消」。
-        // 这里用 isCancellable 明确限定为 待配送/配送中/已送达；已完成须先经 unconfirmOrderCollection 退回。
+        // 这里用 isCancellable 明确限定为 待配送/配送中/已送达；**已完成(4)/已取消(5) 一律不可取消**。
+        // [2026-09-16] 原先这句后面还写着"已完成须先经 unconfirmOrderCollection 退回"——那个方法已按产品
+        // 决定删除（状态不许倒滚）。所以已完成订单出现问题时，出路是**退款流程**或人工调整单，
+        // 不是把订单状态改回去。
         int currentStatus = order.getStatus() != null ? order.getStatus() : 0;
         if (!OrderStatus.isCancellable(currentStatus)) {
             throw new BusinessException("当前订单状态不可取消（status=" + currentStatus + "）");
@@ -504,8 +525,13 @@ public class PaymentServiceImpl implements PaymentService {
             orderMapper.updatePaymentStatusIf(orderId, prePs, PaymentStatus.CANCELLED);
         } else {
             for (PaymentRecord r : paidRecords) {
-                // 标记原支付记录为已退款
-                paymentRecordMapper.updateStatusIf(r.getId(), PaymentStatus.PAID, PaymentStatus.REFUNDED);
+                // 标记原支付记录为已退款。
+                // [2026-09-16 修复] 参数顺序原写作 (PAID, REFUNDED) = "把 status 改成 PAID、要求它现在是 REFUNDED",
+                // SQL 恒命中 0 行 → 原流水永远停在「已付款」。后果有两层：
+                //   ① 站长在支付流水里看到一笔"已付款"，而钱其实已退回客户；
+                //   ② 对账等式2 的 p2b 项（订单非已付款却存在 status=2 的流水）会持续报差异。
+                // 正确顺序是 (id, 目标状态, 期望状态)。
+                paymentRecordMapper.updateStatusIf(r.getId(), PaymentStatus.REFUNDED, PaymentStatus.PAID);
 
                 // 生成退款记录
                 PaymentRecord refundRecord = new PaymentRecord();
@@ -617,9 +643,17 @@ public class PaymentServiceImpl implements PaymentService {
         if (record.getStatus() != PaymentStatus.PAID) {
             throw new BusinessException("仅已支付记录可退款，当前状态: " + record.getStatus());
         }
-        paymentRecordMapper.updateStatusIf(paymentId, PaymentStatus.PAID, PaymentStatus.REFUNDED);
+        // [2026-09-16 修复] 参数顺序：(id, 目标状态, 期望状态)。原写作 (PAID, REFUNDED) 会让这条 CAS
+        // 恒命中 0 行 —— 退款成功了，但支付流水仍显示「已付款」（本类 refundOrder 里同一处也已修）。
+        paymentRecordMapper.updateStatusIf(paymentId, PaymentStatus.REFUNDED, PaymentStatus.PAID);
         if (record.getOrderId() != null) {
-            orderMapper.updatePaymentStatusIf(record.getOrderId(), PaymentStatus.PAID, PaymentStatus.UNPAID);
+            // [2026-09-16] 原为 updatePaymentStatusIf(orderId, PAID, UNPAID)：把订单支付状态从
+            // 已付款(2) 倒滚回 未支付(0)。后果与 [AQ-022]（refundOrder 那条）完全一样 ——
+            // 钱退给客户了，订单却显示"从未付款"，对账与客服排查都会读到假的资金状态；
+            // 也违反 AGENTS.md §1「支付状态只前进、不倒滚，3/4 是终态」。
+            // 正确值是与退款流水一致的 已退款(3)：markPaidIfCollectable 从 0/1 迁入，绝不复活 3/4，
+            // 因此退款后的订单不会被重新收一遍钱。
+            orderMapper.updatePaymentStatusIf(record.getOrderId(), PaymentStatus.PAID, PaymentStatus.REFUNDED);
         }
     }
 
@@ -646,19 +680,8 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    public Map<String, Object> getStationConfig(Long stationId) {
-        Map<String, Object> config = new HashMap<>();
-        config.put("stationId", stationId);
-        return config;
-    }
-
-    @Override
-    public void updateStationConfig(Long stationId, Map<String, Object> config) {
-        // 站点支付配置更新
-    }
-
-    @Override
-    public Map<String, Object> quote(Long customerId, Long stationId, Integer paymentMethod, List<Map<String, Object>> items) {
+    public Map<String, Object> quote(Long customerId, Long stationId, Integer paymentMethod,
+                                     List<Map<String, Object>> items, Long addressId) {
         Map<String, Object> result = new HashMap<>();
 
         boolean allowOffline = canUseOfflinePayment(customerId, stationId);
@@ -673,6 +696,12 @@ public class PaymentServiceImpl implements PaymentService {
             result.put("barrelDeposit", BigDecimal.ZERO);
             result.put("extraDeposit", BigDecimal.ZERO);
             result.put("extraDepositBuckets", 0);
+            // 费用字段即使为空单也要下发，否则前端得判 undefined —— 判 undefined 就会长出第二套默认值
+            result.put("deliveryFee", BigDecimal.ZERO);
+            result.put("floorFee", BigDecimal.ZERO);
+            result.put("warnings", java.util.Collections.emptyList());
+            result.put("blocked", false);
+            result.put("blockReason", null);
             result.put("totalAmount", BigDecimal.ZERO);
             return result;
         }
@@ -705,7 +734,8 @@ public class PaymentServiceImpl implements PaymentService {
             if (product.getCategory() != null && Integer.valueOf(1).equals(product.getCategory())) {
                 barrelByProduct.merge(productId, quantity, Integer::sum);
             } else {
-                BigDecimal itemDeposit = product.getDeposit() != null ? product.getDeposit() : BigDecimal.ZERO;
+                // 本站押金覆盖优先（inventory.deposit_price）→ 通用库参考押金
+                BigDecimal itemDeposit = PriceUtil.calcDeposit(product, inv);
                 totalNonBarrelDeposit = totalNonBarrelDeposit.add(itemDeposit.multiply(BigDecimal.valueOf(quantity)));
             }
         }
@@ -728,18 +758,39 @@ public class PaymentServiceImpl implements PaymentService {
                 if (shortage > 0) {
                     totalExtraBuckets += shortage;
                     Product p = productMapper.getById(pid);
-                    BigDecimal deposit = (p != null && p.getDeposit() != null) ? p.getDeposit() : BigDecimal.ZERO;
+                    // 缺桶押金取**本站押金**（inventory.deposit_price 优先），与下单侧同口径
+                    Inventory pInv = inventoryMapper.getByStationAndProduct(stationId, pid);
+                    BigDecimal deposit = PriceUtil.calcDeposit(p, pInv);
                     totalExtraDeposit = totalExtraDeposit.add(deposit.multiply(BigDecimal.valueOf(shortage)));
                 }
             }
         }
 
-        BigDecimal totalAmount = totalWaterAmount.add(totalNonBarrelDeposit).add(totalExtraDeposit);
+        // ===== [v35] 配送计费：与下单侧调**同一个服务**、传同样的入参 =====
+        // 水费口径 = totalWaterAmount（不含押金与运费）；桶数口径 = 桶装水商品的数量之和，
+        // 与 OrderServiceImpl 的 totalNeededBuckets 同源（都只数 category=1）。
+        // 任何一侧内联算费用都会重新制造"计价双轨"事故（结算页一个价、下单另一个价）。
+        int totalBuckets = 0;
+        for (Integer q : barrelByProduct.values()) {
+            totalBuckets += q == null ? 0 : q;
+        }
+        com.example.aquaflow.util.DeliveryFeeUtil.FeeResult fee =
+                deliveryFeeService.calcForOrder(customerId, stationId, addressId, totalBuckets, totalWaterAmount);
+
+        BigDecimal totalAmount = totalWaterAmount.add(totalNonBarrelDeposit).add(totalExtraDeposit)
+                .add(fee.getFeeTotal());
 
         result.put("waterAmount", totalWaterAmount);
         result.put("barrelDeposit", totalNonBarrelDeposit);
         result.put("extraDeposit", totalExtraDeposit);
         result.put("extraDepositBuckets", totalExtraBuckets);
+        // 费用单独下发，前端各自展示；totalAmount 是含费用的合计
+        result.put("deliveryFee", fee.getDeliveryFee());
+        result.put("floorFee", fee.getFloorFee());
+        result.put("warnings", fee.getWarnings());
+        // blocked/blockReason 让前端在提交前就能拦住并显示原因，与下单侧的拒绝判据同源
+        result.put("blocked", fee.isBlocked());
+        result.put("blockReason", fee.getBlockReason());
         result.put("totalAmount", totalAmount);
 
         return result;

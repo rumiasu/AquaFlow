@@ -8,6 +8,18 @@ const { STORAGE_KEYS } = require('../../utils/storage-keys')
 Page({
   data: {},
 
+  /**
+   * 身份**已生效**（已挂到水站上）时不应再停留在这里改选：后端 selectRole 会直接拒绝，
+   * 让用户点两次才发现被拒是坏体验。生效前（如从 apply-bind / create-station 返回重选）
+   * 则正常留在此页。
+   */
+  onShow() {
+    const app = getApp()
+    if (typeof app.isIdentityEffective === 'function' && app.isIdentityEffective()) {
+      app.routeByRole(false)
+    }
+  },
+
   onSelectStationManager() {
     wx.showModal({
       title: '选择身份',

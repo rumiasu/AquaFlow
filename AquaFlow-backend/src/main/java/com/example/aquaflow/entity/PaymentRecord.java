@@ -18,6 +18,20 @@ public class PaymentRecord {
     /** 订单ID */
     private Long orderId;
 
+    /**
+     * 客户端幂等键（在线购票等<b>无订单支付</b>用），NULL = 不参与防重。
+     *
+     * <p>为什么必须有：无订单支付的 {@code order_id} 为 NULL，而数据库层的
+     * {@code uk_payment_active_order} 建在生成列 {@code active_order_id}
+     * （{@code case when status in (1,2) then order_id else null end}）上，
+     * order_id 为 NULL 时该生成列同样是 NULL —— <b>MySQL 唯一键中 NULL 互不冲突</b>，
+     * 于是这条路径零保护，连点两次就产生两条待收款流水，站长两次确认即入账两次。</p>
+     *
+     * <p>唯一键是 {@code uk_payment_idempotency(customer_id, idempotency_key)}：
+     * 必须带 customer_id，否则客户端传别人的 token 会拿回别人的支付记录。</p>
+     */
+    private String idempotencyKey;
+
     /** 客户ID */
     private Long customerId;
 
@@ -36,11 +50,31 @@ public class PaymentRecord {
     /** 在线购买水票：购买数量 */
     private Integer ticketQty;
 
+    /**
+     * 在线购票：所购档位（{@code ticket_package.id}，v36）。
+     *
+     * <p>为什么要落库：档位价会变。历史流水若只记「买了 100 张、收了 800 元」，
+     * 几个月后无法自证当时是哪个档位，也就无法解释"为什么这 100 张均价 8 元而现在均价 9 元"。</p>
+     */
+    private Long ticketPackageId;
+
     /** 水费金额 */
     private BigDecimal waterAmount;
 
     /** 桶押金金额 */
     private BigDecimal barrelDeposit;
+
+    /**
+     * 配送费 / 楼层费（2026-09-17 新增，见 {@code sql/migration_v34_delivery_fee_and_floors.sql}）。
+     *
+     * <p>与 {@code orders.delivery_fee} / {@code orders.floor_fee} <b>同口径</b>，
+     * 供对账等式2（订单支付状态与流水是否相符）比对 —— 两边口径不一致会报
+     * 「有凭证未置已付」。当前恒为 0（Phase 0 只加列不计算）。</p>
+     */
+    private BigDecimal deliveryFee;
+
+    /** 楼层费，语义同 {@link #deliveryFee} */
+    private BigDecimal floorFee;
 
     /** 超出桶数 */
     private Integer excessBarrels;

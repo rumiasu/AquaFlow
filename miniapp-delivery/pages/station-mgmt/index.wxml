@@ -18,12 +18,37 @@
     <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/products/index">
       <text class="module-icon">💧</text>
       <text class="module-title">商品与库存</text>
-      <text class="module-desc">商品增删改查、库存、上架、水票</text>
+      <text class="module-desc">选品上架、本站定价、库存流水</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/station-status/index">
+      <text class="module-icon">📣</text>
+      <text class="module-title">营业状态与公告</text>
+      <text class="module-desc">休息/延迟、给顾客留言、发公告</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/place-order/index">
+      <text class="module-icon">📞</text>
+      <text class="module-title">代客下单</text>
+      <text class="module-desc">电话叫水当场录单，桶的流动才入账</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/delivery-config/index">
+      <text class="module-icon">🚚</text>
+      <text class="module-title">配送计费</text>
+      <text class="module-desc">起送量、配送范围、运费、楼层费</text>
     </view>
     <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/barrel-return/index">
       <text class="module-icon">🔄</text>
       <text class="module-title">退桶审批</text>
       <text class="module-desc">审核客户退桶申请</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/owed-barrels/index">
+      <text class="module-icon">⏳</text>
+      <text class="module-title">欠桶台账</text>
+      <text class="module-desc">谁欠桶、欠几个、欠了几天</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/alerts/index">
+      <text class="module-icon">🔔</text>
+      <text class="module-title">运营告警</text>
+      <text class="module-desc">桶异常等待处置、补偿留痕</text>
     </view>
     <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/payments/index">
       <text class="module-icon">💰</text>

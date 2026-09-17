@@ -4,6 +4,7 @@ import com.example.aquaflow.constant.DepositType;
 import com.example.aquaflow.constant.InventoryChangeType;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.constant.PaymentStatus;
+import com.example.aquaflow.constant.StationOperatingStatus;
 import com.example.aquaflow.constant.PayMethod;
 import com.example.aquaflow.dto.OrderCreateDTO;
 import com.example.aquaflow.dto.OrderCreateResult;
@@ -95,16 +96,72 @@ public class OrderServiceImpl implements OrderService {
     private InventoryService inventoryService;
 
     /**
-     * [AQ-030] 欠桶风控：下单前检查客户在本站的欠桶数。
-     * <p>数据源是 {@code customer_barrel_over}（按商品、可为负），不是已停写的旧表
-     * {@code customer_owed_barrel}——下面的 {@code totalOwed} 计算就是按 over 逐商品 max(0,·) 求和。</p>
+     * 欠桶数据源（下单时用于**生成提醒**，不再用于拦截）。
+     *
+     * <p>数据源是 {@code customer_barrel_over}（按 (客户,水站,桶型)、可为负），不是已停写的旧表
+     * {@code customer_owed_barrel}。负数 = 客户多还的桶寄存在水站（合法状态），
+     * <b>不能拿来抵销其他桶型的欠桶</b>——所以统计一律先 {@code max(0, over)} 再按桶型分开处理。</p>
      */
     @Autowired
     private com.example.aquaflow.mapper.CustomerBarrelOverMapper customerBarrelOverMapper;
 
-    /** [AQ-030] 允许的最大欠桶数，超过则拒绝新单 */
-    private static final int MAX_OWED_BUCKETS = 5;
+    /**
+     * 配送计费（起送量 / 配送范围 / 运费 / 楼层费，v35）。
+     *
+     * <p>⚠️ {@code PaymentServiceImpl.quote} 用的是<b>同一个服务</b>、传同样的入参 ——
+     * 报价与下单必须同口径。任何一侧内联算费用都会重新制造"计价双轨"事故
+     * （结算页价格与最终订单金额不一致 → 客诉，见 {@code PriceUtil} 文件头）。</p>
+     */
+    @Autowired
+    private com.example.aquaflow.service.DeliveryFeeService deliveryFeeService;
 
+    /**
+     * 账期快照（应收账款，2026-09-17）。
+     *
+     * <p>规则（"哪种单才有应付日期"）只在 {@code ReceivableService.resolveDueDate} 里实现一次 ——
+     * 下单时算一次就写死进 {@code orders.due_date}，与地址/金额快照同源的理由：
+     * 站长事后改客户账期，不能改到历史单的到期日。</p>
+     */
+    @Autowired
+    private com.example.aquaflow.service.ReceivableService receivableService;
+
+    // [2026-09-15] 原 [AQ-030]/[DEF-3] 的硬拦 `MAX_OWED_BUCKETS = 5`（欠桶 ≥5 拒绝下单）**已按产品决定移除**：
+    // 欠桶改为「只警告、不阻断」——下单照常放行，但每次下单都在 warnings 里提醒客户归还空桶
+    // （见 buildOwedWarnings），站长端另有「欠桶台账」按天数催收。
+    // 移除理由：欠桶是运营追缴事项（配送员下次上门把空桶收回来），不是资金风险；拦单只会把客户推走。
+    // 护栏仍在：欠桶的物理上界由桶账恒等式「占用 = 权益 + over ≥ 0」保证（BarrelLedgerService），与下单放行无关。
+    // 若将来要恢复硬拦：常数与判断要加回来，并把 BarrelOwedIntegrationTest 里
+    // 「欠桶很多仍可下单」那条用例同步反转，否则测试会挡住这次回退。
+
+
+    /**
+     * 生成欠桶提醒（**只提示、不阻断**）。每个欠桶的桶型各一条，文案面向**客户**——
+     * 每次下单都要让他看见"记得还桶"。
+     *
+     * <p>[2026-09-15] 原来的 [AQ-030]/[DEF-3] 是"欠桶 ≥5 拒绝下单"，现按产品决定改为纯提醒：
+     * 欠桶是运营追缴事项（配送员下次上门回收），不该把客户挡在下单之外。站长端另有
+     * {@code GET /api/manager/owed-barrels} 按欠桶天数催收。</p>
+     *
+     * <p>口径：只取 {@code over_qty > 0} 的行；{@code over_qty < 0}（水站暂存）不是欠桶。
+     * 天数和站长端台账同源（{@link com.example.aquaflow.vo.OwedBarrelVO#owedDays}），避免两处各算一套。</p>
+     */
+    private List<String> buildOwedWarnings(Long customerId, Long stationId) {
+        List<String> out = new java.util.ArrayList<>();
+        if (customerId == null || stationId == null) return out;
+        List<CustomerBarrelOver> overs = customerBarrelOverMapper.listByCustomerAndStation(customerId, stationId);
+        if (overs == null) return out;
+        for (CustomerBarrelOver o : overs) {
+            int owed = o.getOverQty() == null ? 0 : o.getOverQty();
+            if (owed <= 0) continue;
+            Product p = o.getProductId() == null ? null : productMapper.getById(o.getProductId());
+            String pname = p != null && p.getName() != null ? p.getName() : ("商品" + o.getProductId());
+            Long days = com.example.aquaflow.vo.OwedBarrelVO.owedDays(o.getOwedSince());
+            out.add("欠桶提醒：您有 " + owed + " 个空桶未归还（" + pname
+                    + (days == null ? "" : "，已 " + days + " 天")
+                    + "），请记得还桶 —— 配送员上门时把空桶一并交回");
+        }
+        return out;
+    }
 
 @Override
     @Transactional(rollbackFor = Exception.class)
@@ -133,7 +190,8 @@ public class OrderServiceImpl implements OrderService {
         }
         Orders existing = orderMapper.findByIdempotencyKey(idempotencyKey);
         if (existing != null) {
-            java.util.List<String> warnings = new java.util.ArrayList<>();
+            // 幂等命中同样是"一次下单"，欠桶提醒照发（客户可能只看到这一次响应）
+            List<String> warnings = buildOwedWarnings(dto.getCustomerId(), dto.getStationId());
             return OrderCreateResult.success(existing.getId(), warnings, false);
         }
 
@@ -151,8 +209,12 @@ public class OrderServiceImpl implements OrderService {
 
         // [AQ-012] 员工代客下单必须校验该客户确属本水站，禁止替他站客户下单消耗其水票/押金
         // 顾客本人下单走 controller 已强覆盖 customerId，不在此约束。
+        // [2026-09-17] 判据从「只看 customer_station_config 绑定行」改成并集
+        //（countCustomerOfStation = 绑定 或 本站订单）：老客户完全可能没有绑定行，
+        // 而"客户列表里点得到、下单却说他不是本站客户"是最难排查的一类拒绝。
+        // 放宽是安全的：只有与本水站已有关系的客户才放行，他站客户两条都不满足。
         if ("staff".equals(AuthContext.getUserType())
-                && customerStationConfigMapper.getByCustomerAndStation(dto.getCustomerId(), stationId) == null) {
+                && customerMapper.countCustomerOfStation(dto.getCustomerId(), stationId) == 0) {
             throw new BusinessException("该客户不属于本水站，无法代客下单");
         }
 
@@ -165,22 +227,9 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("该地址不属于当前客户");
         }
 
-        // [AQ-030] 欠桶风控：客户在本站欠桶超阈值时拒绝新单。
-        // 原实现下单链路完全不读 owed_qty，唯一拦截点是"退押金"，导致顾客能一直借桶、想结算时被拦，体验割裂。
-        // [DEF-3] 欠桶风控改为【按商品】统计（customer_barrel_over），阈值按站内 Σ max(0, over) 计。
-        // over 可为负（多还桶 / 水站暂存，合法状态），负值不能拿去抵销其他商品的欠桶
-        // ——A 水多还的桶不能抵 B 水的欠桶——所以必须先 max(0, ...) 再求和。
-        int totalOwed = 0;
-        List<CustomerBarrelOver> overs = customerBarrelOverMapper.listByCustomerAndStation(dto.getCustomerId(), stationId);
-        if (overs != null) {
-            for (CustomerBarrelOver o : overs) {
-                if (o.getOverQty() == null) continue;
-                totalOwed += Math.max(0, o.getOverQty());
-            }
-        }
-        if (totalOwed >= MAX_OWED_BUCKETS) {
-            throw new BusinessException("您在本水站有 " + totalOwed + " 个欠桶未归还，请先归还后再下单");
-        }
+        // [2026-09-15] 这里原本是 [AQ-030]/[DEF-3] 的欠桶硬拦（Σ max(0, over) ≥ 5 即拒绝下单）。
+        // 现改为**只提醒不阻断**：欠桶明细由 buildOwedWarnings 在下单结果里以 warnings 下发（面向客户），
+        // 站长端另有 /api/manager/owed-barrels 台账按天数催收。此处不再做任何拒绝判断。
 
         // ===== 综合校验链 =====
         // 1. 校验商品属于该水站
@@ -245,18 +294,13 @@ public class OrderServiceImpl implements OrderService {
             }
             Product product = productMapper.getById(pid);
             Inventory inv = inventoryMapper.getByStationAndProduct(stationId, item.getProductId());
+            // [2026-09-16 商品与库存重构] 这里原本有一段"本站没有 inventory 行就自动补建
+            // (quantity=0, enabled=1)"的代码，是**不可达的死代码**（上面第一遍校验链已按 inv==null
+            // 抛过"商品不在该水站销售"），但它是上了膛的枪：一旦有人摘掉那道校验或合并两个循环，
+            // 客户下一单就能把任意商品**自动变成该站已上架商品**并静默建行。
+            // 产品口径：只有站长"选用"才能建行（P1 的 /api/manager/catalog/{id}/select），故这里改成抛异常。
             if (inv == null) {
-                log.warn("[OrderService] Station {} has no inventory for product {} ({}), creating default inventory", stationId, item.getProductId(), product.getName());
-                Inventory newInv = new Inventory();
-                newInv.setStationId(stationId);
-                newInv.setProductId(item.getProductId());
-                newInv.setQuantity(0);
-                newInv.setEnabled(1);
-                newInv.setTicketEnabled(0);
-                newInv.setCreateTime(LocalDateTime.now());
-                newInv.setUpdateTime(LocalDateTime.now());
-                inventoryMapper.insert(newInv);
-                inv = newInv;
+                throw new BusinessException("商品不在该水站销售: " + product.getName());
             }
             if (inv.getEnabled() == null || !Integer.valueOf(1).equals(inv.getEnabled())) {
                 throw new BusinessException("商品未上架: " + product.getName());
@@ -312,7 +356,8 @@ public class OrderServiceImpl implements OrderService {
 
             // 桶装水(category=1)不在此处收押金，仅在 extraDeposit 按缺桶数收取
             if (product.getCategory() == null || !Integer.valueOf(1).equals(product.getCategory())) {
-                BigDecimal itemDeposit = product.getDeposit() != null ? product.getDeposit() : BigDecimal.ZERO;
+                // 押金也走 PriceUtil：本站押金覆盖（inventory.deposit_price）→ 通用库参考押金
+                BigDecimal itemDeposit = PriceUtil.calcDeposit(product, inv);
                 depositAmount = depositAmount.add(itemDeposit.multiply(BigDecimal.valueOf(item.getQuantity())));
             }
 
@@ -341,16 +386,6 @@ public class OrderServiceImpl implements OrderService {
             // 两个请求同时读到 held=0，各自算出 shortage=2，顾客付了两份桶款却只买到一份权益。
             // 说明：这里解决的是快速重复下单/连下两单的常规场景；彻底的串行化需要分布式锁，
             //      按"初期量小、跳过高并发"的既定取舍，暂不引入。
-            Map<Long, Integer> pendingByProduct = new HashMap<>();
-            List<CustomerBarrelInTransit> pendings =
-                    customerBarrelInTransitMapper.listByCustomerAndStation(dto.getCustomerId(), stationId);
-            if (pendings != null) {
-                for (CustomerBarrelInTransit t : pendings) {
-                    if (t.getProductId() == null || !"PENDING".equals(t.getStatus())) continue;
-                    pendingByProduct.merge(t.getProductId(), t.getQty() == null ? 0 : t.getQty(), Integer::sum);
-                }
-            }
-
             BigDecimal requiredExtraDeposit = BigDecimal.ZERO;
             Map<Long, Integer> extraByProduct = new HashMap<>();
             Map<Long, BigDecimal> priceByProduct = new HashMap<>();
@@ -358,12 +393,21 @@ public class OrderServiceImpl implements OrderService {
                 Long pid = e.getKey();
                 int needed = e.getValue();
                 int held = heldByProduct.getOrDefault(pid, 0);
-                int pending = pendingByProduct.getOrDefault(pid, 0);
-                int shortage = Math.max(0, needed - held - pending);
+                // [2026-09-15 口径变更] 下单抵扣**只认已到手的权益**（held），在途（PENDING）不再抵扣：
+                // 在途的桶是给上一单的，客户手上并没有可换水的空桶，这一单要按需新买桶权益。
+                // 这与支付报价侧（PaymentServiceImpl.quote）和小程序下单页（miniapp-user/pages/order/create.js
+                // 用 assetQty 算"已有几个桶"）一致 —— 此前只有本处多减了一个 pending，属三处口径不一致。
+                // ⚠️ 取舍：原 [DEF-5] 加 `- pending` 是为了防"连点两次下单各算一次 shortage、重复收桶款"；
+                // 现在在途被有意排除，那种情况会各收一份押金（客户多买桶权益）→ **幂等键必须继续生效**，
+                // 前端也要防连点。若将来恢复"在途抵扣"，请同时改报价侧与下单页，否则三处又会打架。
+                int shortage = Math.max(0, needed - held);
                 if (shortage > 0) {
                     extraByProduct.put(pid, shortage);
                     Product p = productCache.get(pid);
-                    BigDecimal dep = (p != null && p.getDeposit() != null) ? p.getDeposit() : BigDecimal.ZERO;
+                    // [2026-09-16] 缺桶押金必须取**本站押金**：这里算出的值会快照进
+                    // customer_barrel_in_transit.unit_price（→ 建 lot 的 unit_price → 决定退桶能退多少钱），
+                    // 所以绝不能再直接读全局 product.deposit。
+                    BigDecimal dep = PriceUtil.calcDeposit(p, invCache.get(pid));
                     priceByProduct.put(pid, dep);
                     requiredExtraDeposit = requiredExtraDeposit.add(dep.multiply(BigDecimal.valueOf(shortage)));
                 }
@@ -402,6 +446,18 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
+        // ===== [v35] 配送计费：起送量 / 配送范围 / 运费 / 楼层费 =====
+        // 与 PaymentServiceImpl.quote 调**同一个服务**、传同样的入参（水费口径、桶数口径都在这之前已算好），
+        // 保证"报价说多少、下单就是多少"。见 docs/design/17。
+        com.example.aquaflow.util.DeliveryFeeUtil.FeeResult feeResult =
+                deliveryFeeService.calcForOrder(dto.getCustomerId(), stationId, dto.getAddressId(),
+                        totalNeededBuckets, waterAmount);
+        if (feeResult.isBlocked()) {
+            // 硬拦（站长把起送量/配送范围配成 REJECT）。quote 侧会把同一个原因作为 blocked 下发，
+            // 所以正常流程里客户不会走到这里 —— 走到这里说明前端没先试算，或配置刚被改。
+            throw new BusinessException(feeResult.getBlockReason());
+        }
+
         Orders orders = new Orders();
         orders.setCustomerId(dto.getCustomerId());
         orders.setAddressId(dto.getAddressId());
@@ -412,7 +468,11 @@ public class OrderServiceImpl implements OrderService {
         orders.setPaymentStatus(PaymentStatus.PENDING);
         orders.setWaterAmount(waterAmount);
         orders.setDepositAmount(depositAmount);
-        orders.setTotalAmount(waterAmount.add(depositAmount));
+        // ⚠️ 费用**单独成列**，绝不并入 water_amount（污染水费口径）或 deposit_amount
+        //（那是可退押金，退款按它释放押金余额，混入会导致取消订单多退钱）。
+        orders.setDeliveryFee(feeResult.getDeliveryFee());
+        orders.setFloorFee(feeResult.getFloorFee());
+        orders.setTotalAmount(waterAmount.add(depositAmount).add(feeResult.getFeeTotal()));
         // 计算订单总数量：所有商品数量之和
         if (dto.getItems() != null && !dto.getItems().isEmpty()) {
             int totalQuantity = dto.getItems().stream()
@@ -432,6 +492,9 @@ public class OrderServiceImpl implements OrderService {
         orders.setDeliveryBucketQty(totalNeededBuckets > 0 ? totalNeededBuckets : null);
         orders.setFirstBarrelOrder(firstStationAsset && totalNeededBuckets > 0);
         orders.setIdempotencyKey(idempotencyKey);
+        // 账期快照：客户设了账期且本单是现金(货到付款)时才有应付日期，其余为 null（即时结清）。
+        // 只有下单这一次会算它，之后 due_date 只读（见 ReceivableService.resolveDueDate）。
+        orders.setDueDate(receivableService.resolveDueDate(dto.getCustomerId(), dto.getPaymentMethod()));
         orders.setStatus(1);
         orders.setCreateTime(LocalDateTime.now());
         orders.setUpdateTime(LocalDateTime.now());
@@ -449,7 +512,7 @@ public class OrderServiceImpl implements OrderService {
             // 桶装水押金在 extraDeposit 中统一处理，order item 记 0
             BigDecimal itemDeposit = (product.getCategory() != null && Integer.valueOf(1).equals(product.getCategory()))
                     ? BigDecimal.ZERO
-                    : (product.getDeposit() != null ? product.getDeposit() : BigDecimal.ZERO);
+                    : PriceUtil.calcDeposit(product, inv);
 
             // 本次实际能扣减的库存量：库存不足时只能扣到 min(stock, quantity)
             // 落库到 deducted_qty，取消/退款时按此回补，避免"下单10桶库存只有3桶，取消却回补10桶"刷出库存
@@ -495,6 +558,23 @@ public class OrderServiceImpl implements OrderService {
                 }
             }
         }
+
+        // [v29] 欠桶提醒（**只标红，不阻断**）：每次下单都提醒客户归还空桶，
+        // 同时让配送员/站长知道下次上门要收哪些桶。文案与站长端「欠桶台账」同源（OwedBarrelVO.owedDays），
+        // 避免两处各算一套天数。欠桶不再有任何拒绝逻辑（原 [AQ-030] 硬拦已移除，见文件头注释）。
+        warnings.addAll(buildOwedWarnings(dto.getCustomerId(), stationId));
+
+        // [2026-09-17] 水站营业状态是**软状态**：不阻断下单，但下单响应必须再提示一次
+        //（客户可能没注意到商城/下单页的横幅，而这条提示会跟着"下单成功"直接出现在眼前）。
+        String stationStatusHint = StationOperatingStatus.customerHint(
+                station.getOperatingStatus(), station.getStatusNote());
+        if (stationStatusHint != null) {
+            warnings.add(stationStatusHint);
+        }
+
+        // [v35] 配送计费提示（起送量未达、超范围、楼层未填、加收的费用…）。
+        // 与 quote 侧同源 —— 都由 DeliveryFeeUtil 产出，前端不得自造文案。
+        warnings.addAll(feeResult.getWarnings());
 
         Map<String, Object> detail = new HashMap<>();
         detail.put("orderId", orders.getId());

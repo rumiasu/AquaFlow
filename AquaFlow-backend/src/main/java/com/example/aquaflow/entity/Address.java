@@ -45,6 +45,21 @@ public class Address {
     /** 经度 */
     private BigDecimal lng;
 
+    /**
+     * 楼层（2026-09-17 新增，见 {@code sql/migration_v34_delivery_fee_and_floors.sql}）。
+     * <p>楼层费的依据。与 {@link #hasElevator} 一样：<b>未填（NULL）时不收楼层费、只提示</b>，
+     * 而不是按"无电梯"收费 —— 把未确认当无电梯会向客户乱收钱。见 {@code docs/design/17} §4.4。</p>
+     */
+    private Integer floor;
+
+    /**
+     * 有无电梯：<b>NULL = 未确认</b> / 0 = 确认无电梯 / 1 = 有电梯。
+     *
+     * <p>⚠️ NULL 与 0 <b>必须区分</b>：把 NULL 当"无电梯"会乱收费，当"有电梯"会漏收。
+     * 三态是刻意的，不要用 {@code Boolean} 或 {@code boolean} 默认值把它压成两态。</p>
+     */
+    private Integer hasElevator;
+
     /** 是否默认地址: 0 非默认 1 默认 */
     private Integer isDefault;
 

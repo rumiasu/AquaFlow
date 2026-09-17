@@ -24,8 +24,40 @@ public interface TicketAccountService {
     /** 退款归还水票：回补客户水票账户余额并记一条"退款"流水（AQ-008） */
     void refundTicket(Long customerId, Long productId, Integer qty, Long orderId, Long stationId);
 
-    /** 客户线上购买水票：入账水票 + 生成支付记录（无订单） */
-    com.example.aquaflow.entity.PaymentRecord purchaseTicket(Long customerId, Long productId, Integer qty, Integer paymentMethod, Long stationId);
+    /**
+     * 在线购票**支付确认后**入账（v36）。
+     *
+     * <p>与 {@link #addTicket} 的关键差别：单价取<b>实付均价</b>（实付金额 ÷ 张数），
+     * 而不是站级水票价。档位套餐下这两者不同 —— 客户买 100 张按档位价付了 800 元，
+     * 批次单价就该是 8.00；用站级单张价 9.00 记，退票时就会多退给客户钱。</p>
+     *
+     * @param paidAmount 实际收到的金额（{@code payment_record.amount}）
+     */
+    void creditPurchasedTickets(Long customerId, Long productId, Integer qty, Long stationId,
+                                Long paymentRecordId, java.math.BigDecimal paidAmount);
+
+    /**
+     * 客户线上购买水票：生成待支付流水（无订单），支付确认后再入账水票。
+     *
+     * <p><b>idempotencyKey 必传</b>（2026-09-17 / v33）。这条路径是「无订单支付」，
+     * {@code order_id} 为 NULL，因此：
+     * <ul>
+     *   <li>{@code PaymentServiceImpl.createPayment} 的存在性检查（包在
+     *       {@code if (orderId != null)} 里）整段跳过；</li>
+     *   <li>数据库唯一键 {@code uk_payment_active_order} 建在生成列 {@code active_order_id} 上，
+     *       order_id 为 NULL 时生成列也是 NULL，<b>MySQL 唯一键中 NULL 互不冲突 → 零保护</b>。</li>
+     * </ul>
+     * 没有幂等键时连点两次会落两条待收款流水，站长两次确认即<b>入账两次水票</b>
+     * （{@code confirmPayment} 的乐观锁只保证单条流水确认一次，管不住重复流水）。
+     * 之所以设成必传而不是可选：「可选」等于默认没有保护，而漏传的代价是真金白银。</p>
+     *
+     * @param idempotencyKey 客户端生成的幂等键（同一笔购买意图重试时复用同一个值）
+     * @param packageId      水票档位ID（v36，可空）：传了则张数与总价以服务端档位配置为准，
+     *                       不传则按散买单张价计费
+     */
+    com.example.aquaflow.entity.PaymentRecord purchaseTicket(Long customerId, Long productId, Integer qty,
+                                                            Integer paymentMethod, Long stationId,
+                                                            String idempotencyKey, Long packageId);
 
     /**
      * 站长资产调整单专用：按 delta 调整水票余额（正=补录，负=扣减），并写带 adjustmentId 的流水。

@@ -52,4 +52,20 @@ public interface BarrelService {
      * 获取当前客户的桶资产站级汇总（用于首页/详情页顶部汇总）
      */
     Map<String, Object> getBarrelSummary(Long customerId, Long stationId);
+
+    /**
+     * 站长端「欠桶台账」：本站**当前仍欠桶**的客户，按欠得最久排前面。
+     *
+     * <p>口径：{@code overQty} 是 {@code customer_barrel_over.over_qty} 的当前净额（只取 &gt;0），
+     * 「欠了几天」来自 v29 新增的 {@code owed_since}。明细（哪一单欠的、差几个、处理到哪一步）
+     * 走现成的异常单 {@code order_barrel_exception}（{@code discrepancy > 0}），两者不可相加。</p>
+     *
+     * <p><b>本方法只读、不做任何风控。</b>欠桶已改为「只提醒不阻断」：下单是否放行与欠桶无关，
+     * 提醒由 {@code OrderServiceImpl.buildOwedWarnings} 写进下单响应的 warnings
+     * （原 [AQ-030] 的「欠桶 ≥5 拒绝下单」硬拦已于 2026-09-15 按产品决定移除）。</p>
+     *
+     * @param minDays 只返回欠桶天数 ≥ 该值的行；null / ≤0 表示不过滤。
+     *                天数未知（历史存量未回填 {@code owed_since}）的行**一并保留**：宁可多提醒，不可漏催收。
+     */
+    List<com.example.aquaflow.vo.OwedBarrelVO> listOwedCustomers(Long stationId, Integer minDays);
 }

@@ -1,5 +1,5 @@
 const { getTicketAccounts, getTicketRecords, purchaseTicket } = require('../../api/ticket')
-const { getOnSaleProducts, getStationProducts } = require('../../api/product')
+const { getStationProducts } = require('../../api/product')
 const { getPublicStations } = require('../../api/station')
 const { getBaseUrl, API } = require('../../config/api')
 const { getAccessToken } = require('../../utils/token')
@@ -32,6 +32,10 @@ Page({
       { id: 1, name: '微信支付', desc: '提交后由水站确认收款，到账后可用' }
     ],
     submitting: false,
+    // 在线购票幂等键：同一笔购买意图（含失败重试）复用同一个值，购买成功后才重新生成。
+    // 后端 v33 起必传 —— 无订单支付在数据库层没有任何防重，缺了它连点两次「买票」
+    // 会落两条待收款流水，站长两条都确认就会入账两次。
+    purchaseIdempotencyKey: '',
     currentStationId: null,
     currentStation: null,
     showStationPicker: false,
@@ -40,6 +44,11 @@ Page({
 
   onShow() {
     this.loadData()
+  },
+
+  // 生成一个购票幂等键（仅在"新的一次购买意图"时调用：进入页面 / 购买成功后）
+  genPurchaseIdempotencyKey() {
+    return 'ticket_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
   },
 
   async loadData() {
@@ -53,10 +62,9 @@ Page({
     try {
       let productsRes = null
       if (stationId) {
+        // 2026-09-16：不再回退到 /api/products/on-sale —— 那是**全平台**在售列表，
+        // 会把别站可售商品塞进"买水票"弹窗（跨站可见性漏洞）。没有选水站就只展示已持有水票。
         productsRes = await getStationProducts(stationId).catch(() => null)
-      }
-      if (!productsRes || !productsRes.data) {
-        productsRes = await getOnSaleProducts().catch(() => null)
       }
 
       const [accountsRes, recordsRes] = await Promise.all([
@@ -66,14 +74,17 @@ Page({
       if (accountsRes.data) {
         const accounts = accountsRes.data
         const totalTickets = accounts.reduce((sum, a) => sum + (a.remainQuantity || 0), 0)
-        const totalValue = accounts.reduce((sum, a) => sum + (a.remainQuantity || 0) * (a.faceValue || a.price || 0), 0)
+        const totalValue = accounts.reduce((sum, a) => sum + (a.remainQuantity || 0) * (a.effectiveTicketPrice || a.faceValue || a.price || 0), 0)
         this.setData({ accounts, totalTickets, totalValue })
       }
       if (recordsRes.data) {
         this.setData({ records: recordsRes.data })
       }
       if (productsRes && productsRes.data) {
-        this.setData({ buyProducts: productsRes.data, currentStationId: stationId })
+        // 只留"本站开了水票"的商品；面值用后端下发的**本站水票价**（effectiveTicketPrice），
+        // 它才是真正会扣款的价（旧实现用 product.price，站级水票价一设就显示错）。
+        const buyProducts = productsRes.data.filter(p => p.ticketEnabled === 1)
+        this.setData({ buyProducts, currentStationId: stationId })
       }
     } catch (error) {
       console.error('Load ticket data error:', error)
@@ -171,7 +182,8 @@ Page({
     // dataset 类型可能是 string/number，统一按字符串比较，避免 === 恒 false
     const product = this.data.buyProducts.find(p => String(p.id) === String(id))
     if (!product) return
-    const price = parseFloat(product.price) || 0
+    // 面值 = 后端下发的本站水票价（与 /api/tickets/purchase 的计费完全同源），不再用零售价
+    const price = parseFloat(product.effectiveTicketPrice || product.price) || 0
     this.setData({
       'buyForm.productId': product.id,
       'buyForm.productName': product.name,
@@ -222,20 +234,28 @@ Page({
       return
     }
 
-    this.setData({ submitting: true })
+    // 幂等键：同一笔购买意图（含失败重试）必须复用同一个值，否则「连点两次」或
+    // 「超时后重试」都会各落一条待收款流水，站长两条都确认就会入账两次。
+    // 与 pages/order/create.js 的差别：那里失败后重新生成键（下一单是新意图），
+    // 这里失败时**保留**原键 —— 购票只有「买成」与「没买成」两种结果，重试就是在重试同一件事。
+    const idempotencyKey = this.data.purchaseIdempotencyKey || this.genPurchaseIdempotencyKey()
+    this.setData({ submitting: true, purchaseIdempotencyKey: idempotencyKey })
     try {
       const res = await purchaseTicket({
         productId: productId,
         waterTypeId: productId, // 兼容旧字段
         quantity: quantity,
         paymentMethod: paymentMethod,
-        stationId: this.data.currentStationId
+        stationId: this.data.currentStationId,
+        idempotencyKey: idempotencyKey
       })
       // 后端此时只创建了待支付流水，水票要等支付确认后才入账。
       // 旧实现无条件提示"购买成功"，客户看到余额为空会以为系统吞了钱。
       // 这里按真实 status 区分：2=已支付(票已到账)，1=待支付(等水站确认)。
       const status = (res && res.data && res.data.status) != null ? res.data.status : 1
       this.onClosePurchase()
+      // 本次购买意图已落库，换一个新键，避免「下一次购买」被当成重放而返回上一笔
+      this.setData({ purchaseIdempotencyKey: this.genPurchaseIdempotencyKey() })
       await this.loadData()
       if (status === 2) {
         wx.showToast({ title: '购买成功，水票已到账', icon: 'success' })

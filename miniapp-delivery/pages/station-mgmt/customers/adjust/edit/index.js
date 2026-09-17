@@ -1,5 +1,5 @@
 // 新建站长资产调整单（人工补录 / 代客订正）
-const { getManagerProducts, previewAdjustment, createAdjustment } = require('../../../../../api/station-mgmt')
+const { getCatalog, previewAdjustment, createAdjustment } = require('../../../../../api/station-mgmt')
 const { upload } = require('../../../../../utils/upload')
 const { API } = require('../../../../../config/api')
 
@@ -87,12 +87,16 @@ Page({
   /** 本站已上架商品（后端按登录站长判定水站，前端不传 stationId） */
   async loadProducts() {
     try {
-      const res = await getManagerProducts(1)
-      const list = (res.data || []).map(p => ({
-        id: p.id,
-        name: p.name + (p.spec ? ' ' + p.spec : ''),
-        deposit: p.deposit
-      }))
+      // 2026-09-16 商品与库存重构：旧 /api/manager/products 已删除，
+      // 选品目录接口返回的是"通用库 + 本站自定义"，这里只要**本站已上架**的。
+      const res = await getCatalog()
+      const list = (res.data || [])
+        .filter(p => p.selected && p.enabled === 1)
+        .map(p => ({
+          id: p.id,
+          name: p.name + (p.spec ? ' ' + p.spec : ''),
+          deposit: p.deposit
+        }))
       this.setData({
         productList: list,
         productLabels: list.map(p => p.name),

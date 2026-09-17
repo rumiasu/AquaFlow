@@ -64,14 +64,15 @@ public class WeChatLoginService {
 
         String response = restTemplate.getForObject(url, String.class);
         // #56: 不打印完整响应（包含session_key敏感信息），仅打印脱敏后的部分
-        log.info("微信code2Session响应[{}]: {}", app,
-                response != null ? response.replaceAll("\"session_key\":\"[^\"]*\"", "\"session_key\":\"***\"") : "null");
+        log.info("微信code2Session响应[{}]: {}", app, maskSessionKey(response));
 
         Map<String, Object> result;
         try {
             result = objectMapper.readValue(response, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
-            log.error("解析微信响应失败: {}", response, e);
+            // 同样必须脱敏：解析失败的响应里 session_key 是原样出现的，
+            // 而这一支恰恰只在异常时触发，最容易被忽略而泄漏。
+            log.error("解析微信响应失败: {}", maskSessionKey(response), e);
             throw new BusinessException("微信登录响应解析失败");
         }
 
@@ -91,6 +92,15 @@ public class WeChatLoginService {
         }
 
         return result;
+    }
+
+    /**
+     * code2Session 的响应含 {@code session_key}（可解密用户敏感数据），落日志前必须打码。
+     * 所有打印该响应的地方都要过这一层 —— 包括异常分支。
+     */
+    private static String maskSessionKey(String response) {
+        if (response == null) return "null";
+        return response.replaceAll("\"session_key\":\"[^\"]*\"", "\"session_key\":\"***\"");
     }
 
     private String appidOf(WeChatApp app) {

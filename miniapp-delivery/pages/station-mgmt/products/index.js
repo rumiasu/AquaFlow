@@ -1,31 +1,82 @@
 const {
-  getManagerProducts,
-  createManagerProduct,
-  updateManagerProduct,
-  deleteManagerProduct
+  getCatalog,
+  selectCatalogProduct,
+  updateCatalogSetting,
+  removeCatalogProduct,
+  setCatalogStock,
+  getMyProducts,
+  createMyProduct,
+  updateMyProduct,
+  deleteMyProduct,
+  submitMyProduct,
+  getMySubmissions,
+  inboundProducts,
+  getInventoryRecords
 } = require('../../../api/station-mgmt')
 const { upload } = require('../../../utils/upload')
 const { API } = require('../../../config/api')
 
-const CATEGORY_MAP = [
+// 表单里的分类下拉：只是"给站长选"的输入控件，**展示文案一律用后端下发的 categoryText**
+// （本仓历史事故：前端自带 1/2/3 映射表导致下单必失败，所以映射表不再放前端）。
+const CATEGORY_OPTIONS = [
   { value: 1, name: '桶装水' },
   { value: 2, name: '瓶装水' },
   { value: 3, name: '饮水器' }
 ]
-const CATEGORY_NAMES = CATEGORY_MAP.map(c => c.name)
+const CATEGORY_NAMES = CATEGORY_OPTIONS.map(c => c.name)
 
+/** 上报处理状态文案（后端 product_submission.status：0 待处理 / 1 已纳入 / 2 已驳回） */
+const SUBMISSION_STATUS_TEXT = { 0: '待处理', 1: '已纳入通用库', 2: '已驳回' }
+
+/**
+ * 商品与库存（站长）。
+ *
+ * 产品口径见 docs/design/12-商品与库存重构.md：
+ *   · 顶部是**选品目录**（通用库 + 本站自定义）——"选什么水"，点行进"本站设置"；
+ *   · 站长能改的只有本站的：上架 / 库存 / 本站售价 / 本站押金 / 水票 / 优先展示；
+ *   · 通用库商品的名称规格图片**锁死**（后端 DTO 里根本没有这些字段）；
+ *   · 通用库没有的品，走**底部独立入口**「自己定义商品」（不进通用库，仅本站可见，可上报给开发者）。
+ */
 Page({
   data: {
+    loading: true,
+    tab: 'all',          // all=全部目录 | selected=已选用 | mine=我的商品
+    keyword: '',
+    category: 0,         // 0=全部
+    quick: '',           // ''=不限 | offShelf 未上架 | lowStock 低库存 | ticket 已开水票
+    categoryNames: CATEGORY_NAMES,
     list: [],
-    filterStatus: null,
+    viewList: [],
+    stationId: null,
+
+    // 本站设置弹窗
+    showSetting: false,
+    setting: {},
+    stockMode: 'in',     // in=入库(在现有基础上加) | check=盘点(把库存设成输入值)
+    stockInput: '',
+    stockAfterText: '',
+    warningsInline: [],
+    saving: false,
+
+    // 自定义商品弹窗
     showEdit: false,
     isAdd: false,
     editId: null,
     editForm: {},
-    categoryNames: CATEGORY_NAMES,
-    saving: false,
-    deleting: false,
-    uploading: false
+    editCategoryIndex: 0,
+    uploading: false,
+
+    // 库存流水
+    showRecords: false,
+    records: [],
+    recordsLoading: false,
+    recordsLimit: 50,       // 「加载更多」按 50 递增（后端上限 1000）
+    recordsProductId: null, // 按商品过滤
+    recordsFilterName: '',
+
+    // 上报记录（自定义商品上报通用库的处理进度）
+    showSubmissions: false,
+    submissions: []
   },
 
   onShow() {
@@ -34,6 +85,7 @@ Page({
       app.routeByRole(true)
       return
     }
+    this.setData({ stationId: (app.globalData.userInfo || {}).stationId || null })
     this.loadData()
   },
 
@@ -42,89 +94,430 @@ Page({
   },
 
   async loadData() {
+    this.setData({ loading: true })
     try {
-      const res = await getManagerProducts()
-      let list = res.data || []
-      // 前端过滤
-      if (this.data.filterStatus !== null) {
-        list = list.filter(i => i.status === this.data.filterStatus)
+      const res = await getCatalog()
+      const raw = res.data || []
+      // 上报状态：一次拉取，按商品挂到列表行上（站长最关心"我上报的那个品处理没处理"）
+      let submissionsByProduct = {}
+      try {
+        const subRes = await getMySubmissions()
+        ;(subRes.data || []).forEach(s => {
+          if (!s.productId) return
+          // 同一商品可能有多条（驳回后可再上报）：取最新的一条（列表按 id desc）
+          if (!submissionsByProduct[s.productId]) {
+            submissionsByProduct[s.productId] = {
+              status: s.status,
+              statusText: SUBMISSION_STATUS_TEXT[s.status] || '已上报',
+              handleNote: s.handleNote || ''
+            }
+          }
+        })
+      } catch (e) {
+        // 上报记录拿不到不影响选品主流程
+        submissionsByProduct = {}
       }
-      this.setData({ list })
+      const list = raw.map(i => ({
+        ...i,
+        // 后端下发文案优先；仅当后端没给才兜底，避免"商品 #12"这种半成品展示
+        displayName: i.name || ('商品 #' + i.id),
+        categoryLabel: i.categoryText || '',
+        refPriceText: this.money(i.price),
+        refDepositText: this.money(i.deposit),
+        effectivePriceText: this.money(i.effectivePrice),
+        effectiveDepositText: this.money(i.effectiveDeposit),
+        stockText: i.selected ? String(i.quantity || 0) : '—',
+        priceDiffText: this.priceDiffText(i),
+        lowStock: i.selected && i.enabled === 1 && (i.quantity || 0) < 20,
+        submission: submissionsByProduct[i.id] || null
+      }))
+      this.setData({ list }, () => this.applyFilter())
     } catch (err) {
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
+    } finally {
+      this.setData({ loading: false })
     }
   },
 
-  onFilter(e) {
-    const raw = e.currentTarget.dataset.status
-    const status = raw === '' || raw === undefined ? null : Number(raw)
-    this.setData({ filterStatus: status }, () => this.loadData())
+  money(v) {
+    if (v === null || v === undefined || v === '') return '0.00'
+    const n = parseFloat(v)
+    return isNaN(n) ? '0.00' : n.toFixed(2)
   },
 
-  async onTogglePriority(e) {
-    const { id, value } = e.currentTarget.dataset
-    const newValue = value === 1 ? 0 : 1
+  /**
+   * 本站价与平台参考价的差：一眼看出"这个品我调过价没有、调了多少"。
+   * 只在两者都存在且不相等时返回文案（未覆盖时返回空串，避免列表噪音）。
+   */
+  priceDiffText(i) {
+    if (i.salePrice === null || i.salePrice === undefined) return ''
+    const ref = parseFloat(i.price)
+    const station = parseFloat(i.salePrice)
+    if (isNaN(ref) || isNaN(station) || ref === station) return ''
+    const diff = station - ref
+    const sign = diff > 0 ? '+' : ''
+    return sign + diff.toFixed(2)
+  },
+
+  /** 分段 + 关键字 + 分类 + 快捷筛选（前端过滤：一个站的目录量级很小） */
+  applyFilter() {
+    const { list, tab, keyword, category, quick } = this.data
+    const kw = (keyword || '').trim().toLowerCase()
+    const viewList = list.filter(i => {
+      if (tab === 'selected' && !i.selected) return false
+      if (tab === 'mine' && !i.ownerStationId) return false
+      if (category && i.category !== category) return false
+      if (quick === 'offShelf' && !(i.selected && i.enabled !== 1)) return false
+      if (quick === 'lowStock' && !i.lowStock) return false
+      if (quick === 'ticket' && !(i.selected && i.ticketEnabled === 1)) return false
+      if (quick === 'priceOverridden' && !i.salePrice) return false
+      if (kw) {
+        const hay = ((i.name || '') + (i.brand || '') + (i.spec || '')).toLowerCase()
+        if (hay.indexOf(kw) < 0) return false
+      }
+      return true
+    })
+    this.setData({ viewList })
+  },
+
+  onQuickFilter(e) {
+    const value = e.currentTarget.dataset.value || ''
+    // 再点一次同一个 chip = 取消筛选
+    this.setData({ quick: this.data.quick === value ? '' : value }, () => this.applyFilter())
+  },
+
+  onTabChange(e) {
+    this.setData({ tab: e.currentTarget.dataset.tab }, () => this.applyFilter())
+  },
+
+  onKeywordInput(e) {
+    this.setData({ keyword: e.detail.value }, () => this.applyFilter())
+  },
+
+  onCategoryFilter(e) {
+    this.setData({ category: Number(e.currentTarget.dataset.value) || 0 }, () => this.applyFilter())
+  },
+
+  /* ==================== 选用 / 本站设置 ==================== */
+
+  async onSelectProduct(e) {
+    const id = Number(e.currentTarget.dataset.id)
     try {
-      const { post } = require('../../../utils/request')
-      await post(`/api/manager/products/${id}/priority?enabled=${newValue}`)
-      const list = this.data.list.map(item => {
-        if (item.id === id) return { ...item, priorityDisplay: newValue }
-        return item
-      })
-      this.setData({ list })
-      wx.showToast({ title: newValue === 1 ? '已设为优先展示' : '已取消优先展示', icon: 'success' })
+      const res = await selectCatalogProduct(id, { enabled: 0 })
+      this.toastWarnings(res)
+      wx.showToast({ title: '已加入本站，请设置库存与价格', icon: 'none', duration: 2000 })
+      this.loadData()
     } catch (err) {
-      wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+      wx.showToast({ title: err.message || '选用失败', icon: 'none' })
     }
   },
 
-  // ===== 新增 =====
-  openAdd() {
+  onOpenSetting(e) {
+    const item = e.currentTarget.dataset.item
+    if (!item) return
+    if (!item.selected) {
+      this.onSelectProduct(e)
+      return
+    }
     this.setData({
-      isAdd: true,
-      editId: null,
-      editForm: {
-        name: '',
-        brand: '',
-        spec: '',
-        category: 1,
-        categoryIndex: 0,
-        price: '',
-        deposit: '',
-        quantity: '',
-        salePrice: '',
-        enabled: 1,
-        ticketEnabled: 0,
-        ticketPrice: '',
-        imageUrl: ''
+      showSetting: true,
+      setting: {
+        id: item.id,
+        name: item.displayName,
+        category: item.category || 1,
+        categoryLabel: item.categoryLabel,
+        spec: item.spec || '',
+        brand: item.brand || '',
+        refPriceText: item.refPriceText,
+        refDepositText: item.refDepositText,
+        enabled: item.enabled === 1,
+        salePrice: item.salePrice === null || item.salePrice === undefined ? '' : String(item.salePrice),
+        depositPrice: item.depositPrice === null || item.depositPrice === undefined ? '' : String(item.depositPrice),
+        ticketEnabled: item.ticketEnabled === 1,
+        ticketPrice: item.ticketPrice === null || item.ticketPrice === undefined ? '' : String(item.ticketPrice),
+        priorityDisplay: item.priorityDisplay === 1,
+        quantity: item.quantity || 0,
+        ownerStationId: item.ownerStationId || null
       },
-      showEdit: true
+      stockMode: 'in',
+      stockInput: '',
+      stockAfterText: '',
+      warningsInline: []
     })
   },
 
-  // ===== 编辑 =====
+  closeSetting() {
+    this.setData({ showSetting: false })
+  },
+
+  onSettingShelfChange(e) {
+    this.setData({ 'setting.enabled': e.detail.value })
+  },
+
+  onSettingTicketChange(e) {
+    this.setData({ 'setting.ticketEnabled': e.detail.value })
+  },
+
+  onSettingPriorityChange(e) {
+    this.setData({ 'setting.priorityDisplay': e.detail.value })
+  },
+
+  onSettingFieldInput(e) {
+    const field = e.currentTarget.dataset.field
+    this.setData({ ['setting.' + field]: e.detail.value })
+  },
+
+  /* ==================== 库存：入库 / 盘点（P0 合并交互）====================
+   * 原实现是两个按钮共用一个输入框，语义全靠按钮区分：点错"盘点为"就把库存**覆盖**成输入值。
+   * 现在改成显式模式切换 + 实时预览"变更后库存 N"，盘点在提交前还要二次确认。
+   */
+
+  onStockModeChange(e) {
+    this.setData({ stockMode: e.currentTarget.dataset.mode }, () => this.refreshStockPreview())
+  },
+
+  onStockInput(e) {
+    this.setData({ stockInput: e.detail.value }, () => this.refreshStockPreview())
+  },
+
+  /** 实时算出"提交后库存会变成几"，让站长在点按钮之前就看到结果 */
+  refreshStockPreview() {
+    const qty = parseInt(this.data.stockInput, 10)
+    const current = Number(this.data.setting.quantity || 0)
+    if (isNaN(qty) || qty < 0) {
+      this.setData({ stockAfterText: '' })
+      return
+    }
+    const after = this.data.stockMode === 'in' ? current + qty : qty
+    const delta = after - current
+    const sign = delta > 0 ? '+' : ''
+    this.setData({ stockAfterText: '变更后库存 ' + after + '（' + sign + delta + '）' })
+  },
+
+  /** 一个按钮走两种模式：入库直接提交，盘点先确认再提交 */
+  onSubmitStock() {
+    const { stockMode, stockInput, setting } = this.data
+    const qty = parseInt(stockInput, 10)
+    if (isNaN(qty) || qty < 0 || (stockMode === 'in' && qty <= 0)) {
+      wx.showToast({ title: stockMode === 'in' ? '请输入入库数量' : '请输入盘点数量', icon: 'none' })
+      return
+    }
+    if (stockMode === 'in') {
+      this.doInbound(qty)
+      return
+    }
+    const after = qty
+    wx.showModal({
+      title: '确认盘点',
+      content: '「' + setting.name + '」库存将直接设为 ' + after + '（当前 ' + (setting.quantity || 0) + '）。盘点会写一条调整流水，确认？',
+      confirmText: '确认盘点',
+      success: (res) => {
+        if (res.confirm) this.doStockCheck(after)
+      }
+    })
+  },
+
+  /** 入库：在现有库存上加（写 INBOUND 流水） */
+  async doInbound(qty) {
+    const s = this.data.setting
+    if (!this.data.stationId) {
+      wx.showToast({ title: '登录态缺少水站信息', icon: 'none' })
+      return
+    }
+    try {
+      await inboundProducts(this.data.stationId, [{ productId: s.id, quantity: qty }])
+      wx.showToast({ title: '入库成功', icon: 'success' })
+      this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': (s.quantity || 0) + qty })
+      this.loadData()
+    } catch (err) {
+      wx.showToast({ title: err.message || '入库失败', icon: 'none' })
+    }
+  },
+
+  /** 盘点：把库存设成目标值（写 ADJUST 流水） */
+  async doStockCheck(target) {
+    const s = this.data.setting
+    try {
+      await setCatalogStock(s.id, target, '商品页盘点')
+      wx.showToast({ title: '已盘点', icon: 'success' })
+      this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': target })
+      this.loadData()
+    } catch (err) {
+      wx.showToast({ title: err.message || '盘点失败', icon: 'none' })
+    }
+  },
+
+  /** 价格输入失焦时统一成两位小数（真机上少打一个小数点很常见） */
+  onPriceBlur(e) {
+    const field = e.currentTarget.dataset.field
+    const raw = this.data.setting[field]
+    if (raw === '' || raw === null || raw === undefined) return
+    const n = parseFloat(raw)
+    if (isNaN(n)) {
+      this.setData({ ['setting.' + field]: '' })
+      return
+    }
+    this.setData({ ['setting.' + field]: n.toFixed(2) })
+  },
+
+  /** 保存本站设置：价格留空 = 用平台参考价；填 0 = 清除覆盖（后端归一化为 NULL） */
+  async onSaveSetting() {
+    const s = this.data.setting
+    if (!s || !s.id) return
+    const payload = {
+      enabled: s.enabled ? 1 : 0,
+      ticketEnabled: s.ticketEnabled ? 1 : 0,
+      priorityDisplay: s.priorityDisplay ? 1 : 0
+    }
+    // 空字符串不传（= 保持原值）；填了数字才传，0 会被后端解释为"清除覆盖"
+    if (s.salePrice !== '') payload.salePrice = parseFloat(s.salePrice)
+    if (s.depositPrice !== '') payload.depositPrice = parseFloat(s.depositPrice)
+    if (s.ticketPrice !== '') payload.ticketPrice = parseFloat(s.ticketPrice)
+
+    this.setData({ saving: true })
+    try {
+      const res = await updateCatalogSetting(s.id, payload)
+      this.toastWarnings(res)
+      wx.showToast({ title: '已保存', icon: 'success' })
+      this.setData({ showSetting: false })
+      this.loadData()
+    } catch (err) {
+      wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+    } finally {
+      this.setData({ saving: false })
+    }
+  },
+
+  /** 盘点：把库存设成输入值（差额会落 ADJUST 流水）—— 已被 onSubmitStock 取代，见下 */
+  onRemoveProduct() {
+    const s = this.data.setting
+    wx.showModal({
+      title: '移除本站配置',
+      content: '移除后顾客在本站看不到该商品；库存必须先盘点为 0。确认移除？',
+      confirmText: '移除',
+      confirmColor: '#f44336',
+      success: (res) => {
+        if (!res.confirm) return
+        removeCatalogProduct(s.id)
+          .then(() => {
+            wx.showToast({ title: '已移除', icon: 'success' })
+            this.setData({ showSetting: false })
+            this.loadData()
+          })
+          .catch(err => wx.showToast({ title: err.message || '移除失败', icon: 'none' }))
+      }
+    })
+  },
+
+  /* ==================== 库存流水 ==================== */
+
+  /** 打开流水：默认本站全部商品；可按商品过滤 + 加载更多（每次 +50，后端上限 1000） */
+  async onOpenRecords() {
+    this.setData({ showRecords: true, recordsLimit: 50, recordsProductId: null, recordsFilterName: '' })
+    await this.loadRecords()
+  },
+
+  async loadRecords() {
+    this.setData({ recordsLoading: true })
+    try {
+      const res = await getInventoryRecords(this.data.recordsLimit, this.data.recordsProductId)
+      const records = (res.data || []).map(r => ({
+        ...r,
+        deltaText: (r.delta > 0 ? '+' : '') + r.delta,
+        timeText: (r.createTime || '').replace('T', ' ').slice(0, 16),
+        productText: r.productName || ('商品 #' + (r.productId || '')),
+        refText: r.refId ? '单据 #' + r.refId : ''
+      }))
+      this.setData({ records })
+    } catch (err) {
+      wx.showToast({ title: err.message || '流水加载失败', icon: 'none' })
+    } finally {
+      this.setData({ recordsLoading: false })
+    }
+  },
+
+  /** 把流水弹窗过滤到当前设置里的这个商品 */
+  onFilterRecordsByCurrent() {
+    const s = this.data.setting
+    if (!s || !s.id) return
+    this.setData({ recordsProductId: s.id, recordsFilterName: s.name, recordsLimit: 50, showRecords: true })
+    this.loadRecords()
+  },
+
+  onClearRecordsFilter() {
+    this.setData({ recordsProductId: null, recordsFilterName: '', recordsLimit: 50 })
+    this.loadRecords()
+  },
+
+  onLoadMoreRecords() {
+    this.setData({ recordsLimit: this.data.recordsLimit + 50 }, () => this.loadRecords())
+  },
+
+  closeRecords() {
+    this.setData({ showRecords: false })
+  },
+
+  /* ==================== 上报记录 ==================== */
+
+  async onOpenSubmissions() {
+    this.setData({ showSubmissions: true })
+    try {
+      const res = await getMySubmissions()
+      const nameById = {}
+      this.data.list.forEach(i => { nameById[i.id] = i.displayName })
+      const submissions = (res.data || []).map(s => ({
+        ...s,
+        productName: nameById[s.productId] || ('商品 #' + s.productId),
+        statusText: SUBMISSION_STATUS_TEXT[s.status] || '已上报',
+        timeText: (s.createTime || '').replace('T', ' ').slice(0, 16)
+      }))
+      this.setData({ submissions })
+    } catch (err) {
+      wx.showToast({ title: err.message || '上报记录加载失败', icon: 'none' })
+    }
+  },
+
+  closeSubmissions() {
+    this.setData({ showSubmissions: false })
+  },
+
+  /* ==================== 自己定义商品 ==================== */
+
+  openAdd() {
+    this.setData({
+      showEdit: true,
+      isAdd: true,
+      editId: null,
+      editCategoryIndex: 0,
+      editForm: {
+        name: '', brand: '', spec: '', category: 1,
+        price: '', deposit: '', quantity: '', imageUrl: '',
+        enabled: false, ticketEnabled: false, ticketPrice: ''
+      }
+    })
+  },
+
   openEdit(e) {
     const item = e.currentTarget.dataset.item
-    const catIdx = CATEGORY_MAP.findIndex(c => c.value === item.category)
+    const idx = CATEGORY_OPTIONS.findIndex(c => c.value === item.category)
     this.setData({
+      showEdit: true,
       isAdd: false,
       editId: item.id,
+      editCategoryIndex: idx >= 0 ? idx : 0,
       editForm: {
         name: item.name || '',
         brand: item.brand || '',
         spec: item.spec || '',
         category: item.category || 1,
-        categoryIndex: catIdx >= 0 ? catIdx : 0,
-        price: item.price != null ? String(item.price) : '',
-        deposit: item.deposit != null ? String(item.deposit) : '',
-        quantity: item.quantity != null ? String(item.quantity) : '0',
-        salePrice: item.salePrice != null ? String(item.salePrice) : '',
-        enabled: item.enabled != null ? item.enabled : 0,
-        ticketEnabled: item.ticketEnabled != null ? item.ticketEnabled : 0,
-        ticketPrice: item.ticketPrice != null ? String(item.ticketPrice) : '',
-        imageUrl: item.imageUrl || ''
-      },
-      showEdit: true
+        price: item.price === null || item.price === undefined ? '' : String(item.price),
+        deposit: item.deposit === null || item.deposit === undefined ? '' : String(item.deposit),
+        quantity: item.quantity === null || item.quantity === undefined ? '' : String(item.quantity),
+        imageUrl: item.imageUrl || '',
+        enabled: item.enabled === 1,
+        ticketEnabled: item.ticketEnabled === 1,
+        ticketPrice: item.ticketPrice === null || item.ticketPrice === undefined ? '' : String(item.ticketPrice)
+      }
     })
   },
 
@@ -137,35 +530,29 @@ Page({
   /** 弹窗遮罩上吞掉 touchmove，防止滚动穿透到页面（wxml 用 catchtouchmove） */
   preventMove() {},
 
-  onFieldChange(e) {
-    const { field } = e.currentTarget.dataset
+  onEditFieldInput(e) {
+    const field = e.currentTarget.dataset.field
     this.setData({ ['editForm.' + field]: e.detail.value })
   },
 
-  onCategoryChange(e) {
+  onEditCategoryChange(e) {
     const idx = Number(e.detail.value)
-    const newCategory = CATEGORY_MAP[idx].value
-    const updates = {
-      'editForm.categoryIndex': idx,
-      'editForm.category': newCategory
-    }
-    if (newCategory !== 1) {
-      updates['editForm.deposit'] = ''
-    }
-    if (newCategory === 3) {
-      updates['editForm.ticketEnabled'] = 0
+    const cat = CATEGORY_OPTIONS[idx].value
+    const updates = { editCategoryIndex: idx, 'editForm.category': cat }
+    if (cat !== 1) updates['editForm.deposit'] = ''
+    if (cat === 3) {
+      updates['editForm.ticketEnabled'] = false
       updates['editForm.ticketPrice'] = ''
     }
     this.setData(updates)
   },
 
-  onSwitchChange(e) {
-    const { field } = e.currentTarget.dataset
-    this.setData({ ['editForm.' + field]: e.detail.value ? 1 : 0 })
+  onEditSwitchChange(e) {
+    const field = e.currentTarget.dataset.field
+    this.setData({ ['editForm.' + field]: e.detail.value })
   },
 
-  // ===== 保存 (新增/编辑) =====
-  async onSave() {
+  async onSaveEdit() {
     const { isAdd, editId, editForm } = this.data
     if (!editForm.name || !editForm.name.trim()) {
       wx.showToast({ title: '商品名称不能为空', icon: 'none' })
@@ -175,7 +562,6 @@ Page({
       wx.showToast({ title: '请输入正确的售价', icon: 'none' })
       return
     }
-
     const payload = {
       name: editForm.name.trim(),
       brand: editForm.brand || '',
@@ -183,30 +569,31 @@ Page({
       category: editForm.category || 1,
       price: parseFloat(editForm.price) || 0,
       deposit: parseFloat(editForm.deposit) || 0,
-      quantity: parseInt(editForm.quantity) || 0,
-      enabled: editForm.enabled || 0,
-      ticketEnabled: editForm.ticketEnabled || 0,
+      enabled: editForm.enabled ? 1 : 0,
+      ticketEnabled: editForm.ticketEnabled ? 1 : 0,
       imageUrl: editForm.imageUrl || ''
     }
-    // 本站售价 (有值才传)
-    if (editForm.salePrice && !isNaN(parseFloat(editForm.salePrice))) {
-      payload.salePrice = parseFloat(editForm.salePrice)
-    }
-    // 水票价格 (推出水票时才传)
-    if (editForm.ticketEnabled === 1 && editForm.ticketPrice && !isNaN(parseFloat(editForm.ticketPrice))) {
+    if (editForm.ticketEnabled && editForm.ticketPrice !== '') {
       payload.ticketPrice = parseFloat(editForm.ticketPrice)
+    }
+    if (isAdd && editForm.quantity !== '') {
+      payload.quantity = parseInt(editForm.quantity, 10) || 0
+    }
+    if (!isAdd && editForm.quantity !== '') {
+      payload.quantity = parseInt(editForm.quantity, 10) || 0
     }
 
     this.setData({ saving: true })
     try {
       if (isAdd) {
-        await createManagerProduct(payload)
-        wx.showToast({ title: '创建成功', icon: 'success' })
+        await createMyProduct(payload)
+        wx.showToast({ title: '已创建', icon: 'success' })
       } else {
-        await updateManagerProduct(editId, payload)
-        wx.showToast({ title: '保存成功', icon: 'success' })
+        const res = await updateMyProduct(editId, payload)
+        this.toastWarnings(res)
+        wx.showToast({ title: '已保存', icon: 'success' })
       }
-      this.closeEdit()
+      this.setData({ showEdit: false })
       this.loadData()
     } catch (err) {
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })
@@ -215,39 +602,43 @@ Page({
     }
   },
 
-  // ===== 停用 (软删除) =====
-  // 注意：wx.showModal 是**回调式** API，不是 Promise。写成 `await wx.showModal(...)` 解构 confirm
-  // 会恒得 undefined（其余 45 处调用都是 success 回调式，本项目没有做 promisify），
-  // 表现为「点了停用没反应」。这里统一回回调式。
-  onDelete() {
-    const { editId } = this.data
-    if (!editId) return
+  /** 停用本站自定义商品（软删：历史订单/桶账仍能引用它） */
+  onDeactivate(e) {
+    const item = e.currentTarget.dataset.item
     wx.showModal({
       title: '停用商品',
-      content: '停用后客户将无法看到该商品，历史订单不受影响。确认停用？',
+      content: '停用后本站顾客看不到它，历史订单不受影响。确认停用？',
       confirmText: '停用',
       confirmColor: '#f44336',
       success: (res) => {
-        if (res.confirm) this._doDelete(editId)
+        if (!res.confirm) return
+        deleteMyProduct(item.id)
+          .then(() => {
+            wx.showToast({ title: '已停用', icon: 'success' })
+            this.loadData()
+          })
+          .catch(err => wx.showToast({ title: err.message || '操作失败', icon: 'none' }))
       }
     })
   },
 
-  async _doDelete(editId) {
-    this.setData({ deleting: true })
-    try {
-      await deleteManagerProduct(editId)
-      wx.showToast({ title: '已停用', icon: 'success' })
-      this.closeEdit()
-      this.loadData()
-    } catch (err) {
-      wx.showToast({ title: err.message || '操作失败', icon: 'none' })
-    } finally {
-      this.setData({ deleting: false })
-    }
+  /** 上报给开发者，请其考虑补进通用库 */
+  onSubmitToPlatform(e) {
+    const item = e.currentTarget.dataset.item
+    wx.showModal({
+      title: '上报给开发者',
+      editable: true,
+      placeholderText: '补充说明（规格/品牌/进货渠道等，可留空）',
+      confirmText: '上报',
+      success: (res) => {
+        if (!res.confirm) return
+        submitMyProduct(item.id, res.content || '')
+          .then(() => wx.showToast({ title: '已上报，等待开发者处理', icon: 'success', duration: 2000 }))
+          .catch(err => wx.showToast({ title: err.message || '上报失败', icon: 'none' }))
+      }
+    })
   },
 
-  // ===== 上传图片 =====
   async uploadImage() {
     wx.chooseImage({
       count: 1,
@@ -273,5 +664,36 @@ Page({
         }
       }
     })
+  },
+
+  /**
+   * 站级价提醒（非阻断）：后端返回 warnings 时只提示，不当失败处理。
+   * 口径见 docs/design/12 §4.4：站间允许差价，这里只防手滑填错。
+   *
+   * [P0 优化] 原实现一律弹**阻断式** showModal，把"保存成功"这件事也变成了要先点确认。
+   * 现在改成：行内展示（`warningsInline`，弹窗里一直看得到）+ toast 一句；
+   * 只有偏离到 **10 倍以上**（明显的录入事故）才弹一次 modal。
+   */
+  toastWarnings(res) {
+    const warnings = (res && res.data && res.data.warnings) || []
+    if (!warnings.length) {
+      this.setData({ warningsInline: [] })
+      return
+    }
+    this.setData({ warningsInline: warnings })
+    const times = warnings.map(w => {
+      const m = String(w).match(/参考价的\s*([\d.]+)\s*倍/)
+      return m ? parseFloat(m[1]) : 0
+    })
+    if (times.some(t => t >= 10)) {
+      wx.showModal({
+        title: '价格请再核对一次',
+        content: warnings.join('\n'),
+        showCancel: false,
+        confirmText: '我知道了'
+      })
+      return
+    }
+    wx.showToast({ title: '已保存（有价格提醒）', icon: 'none', duration: 2500 })
   }
 })

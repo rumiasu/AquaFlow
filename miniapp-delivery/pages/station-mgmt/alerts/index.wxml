@@ -1,0 +1,41 @@
+<view class="container">
+  <view class="filter-bar">
+    <view class="filter-item {{filter === item.value ? 'active' : ''}}"
+          wx:for="{{filters}}"
+          wx:key="value"
+          data-value="{{item.value}}"
+          bindtap="onFilter">
+      <text>{{item.label}}</text>
+    </view>
+  </view>
+
+  <view class="hint">
+    <text>这里只列本站的运营告警（桶异常等待处置、补偿留痕）。系统故障类告警（对账不平、服务异常）由系统管理员处理，不会出现在此处。</text>
+  </view>
+
+  <view class="alert-card" wx:for="{{list}}" wx:key="id">
+    <view class="card-head">
+      <text class="level {{item.levelClass}}">{{item.levelText}}</text>
+      <text class="time">{{item.timeText}}</text>
+    </view>
+
+    <text class="title">{{item.title}}</text>
+    <text class="content" wx:if="{{item.content}}">{{item.content}}</text>
+
+    <view class="card-foot" wx:if="{{item.sourceText || item.relatedText}}">
+      <text class="foot-item" wx:if="{{item.relatedText}}">关联：{{item.relatedText}}</text>
+      <text class="foot-item" wx:if="{{item.sourceText}}">{{item.sourceText}}</text>
+    </view>
+
+    <!-- 如实标注投递结果：LOGGED 不是"没发"，本页面就是它的送达方式 -->
+    <text class="notify">{{item.notifyText}}</text>
+  </view>
+
+  <view class="empty" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+  <view class="empty" wx:elif="{{list.length === 0}}">
+    <text>本站暂无运营告警</text>
+    <text class="empty-hint" wx:if="{{filter !== 'ALL'}}">试试切到「全部」</text>
+  </view>
+</view>

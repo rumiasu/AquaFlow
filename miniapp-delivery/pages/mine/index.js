@@ -119,6 +119,7 @@ Page({
           _firstChar: firstChar(s.name || s.nickname || s.nickName || '配')
         }))
       })
+      this.syncStaffUnbindFlags()
     } catch (e) {
       // 静默失败会让站长看到「本站没有配送员」，可能误以为需要重新添加员工。
       console.error('[Mine] 员工列表加载失败:', e)
@@ -126,17 +127,42 @@ Page({
     }
   },
 
+  // [2026-09-16 修复] GET /api/manager/staff 返回的是 Staff 实体，没有 bindStatus 字段，
+  // 前端原来判 s.bindStatus 恒为 undefined → 永远显示「已绑定」，有解绑申请的配送员看不出来。
+  // 改用本页已加载的待审批申请（type=2 解绑）推导，两个接口的数据都齐了才准。
+  syncStaffUnbindFlags() {
+    const pendingUnbind = new Set(
+      (this.data.bindApplications || [])
+        .filter(a => Number(a.type) === 2)
+        .map(a => a.staffId)
+    )
+    const staffList = (this.data.staffList || []).map(s => ({
+      ...s,
+      _unbindPending: pendingUnbind.has(s.id)
+    }))
+    this.setData({ staffList })
+  },
+
   async loadBindApplications() {
     try {
       const r = await get(API.MANAGER_BIND_APPLICATIONS)
       const firstChar = (str) => str ? str.charAt(0) : ''
+      // [2026-09-16 修复] 后端 applicationToMap 下发的是 staffName / staffPhone /
+      // createTime / applyNote，此前前端读 name / phone / applyTime / remark，
+      // 字段全不匹配 → 所有申请人都显示成「申请人 · 暂无电话 · 今天」，无法分辨。
+      // 这里统一归一到视图字段名（真实字段优先，兼容旧写法）。
       this.setData({
         bindApplications: (r.data || []).map(a => ({
           ...a,
+          name: a.staffName || a.nickname || a.name || '',
+          phone: a.staffPhone || a.phone || '',
+          applyTime: a.createTime || a.applyTime || '',
+          applyNote: a.applyNote || a.remark || a.skill || '',
           _loading: false,
-          _firstChar: firstChar(a.name || a.nickname || a.nickName || '申')
+          _firstChar: firstChar(a.staffName || a.nickname || a.name || a.nickName || '申')
         }))
       })
+      this.syncStaffUnbindFlags()
     } catch (e) {
       console.error('[Mine] 绑定申请加载失败:', e)
       wx.showToast({ title: '绑定申请加载失败', icon: 'none' })
@@ -252,15 +278,18 @@ Page({
     })
   },
 
-  // 站长同意绑定申请
+  // 站长同意申请
+  // [2026-09-16 修复] 绑定申请(type=1)与解绑申请(type=2)共用同一张待审批列表，
+  // 但后端是两个端点：/approve 对 type!=1 直接报「这不是绑定申请」，解绑会永远悬挂。
   async onApproveBind(e) {
     const id = e.currentTarget.dataset.id
     const apps = this.data.bindApplications
     const idx = apps.findIndex(a => a.id === id || a.applyId === id)
     if (idx >= 0) { apps[idx]._loading = true; this.setData({ bindApplications: [...apps] }) }
+    const isUnbind = idx >= 0 && Number(apps[idx].type) === 2
     try {
-      await post(API.MANAGER_BIND_APPROVE, { applicationId: id })
-      wx.showToast({ title: '已同意', icon: 'success' })
+      await post(isUnbind ? API.MANAGER_BIND_UNBIND_CONFIRM : API.MANAGER_BIND_APPROVE, { applicationId: id })
+      wx.showToast({ title: isUnbind ? '已同意解绑' : '已同意绑定', icon: 'success' })
       this.loadBindApplications()
       this.loadStaffList()
     } catch (e) {
@@ -269,15 +298,16 @@ Page({
     }
   },
 
-  // 站长拒绝绑定申请
+  // 站长拒绝申请（同 onApproveBind，解绑申请须走 /unbind-reject）
   async onRejectBind(e) {
     const id = e.currentTarget.dataset.id
     const apps = this.data.bindApplications
     const idx = apps.findIndex(a => a.id === id || a.applyId === id)
     if (idx >= 0) { apps[idx]._loading = true; this.setData({ bindApplications: [...apps] }) }
+    const isUnbind = idx >= 0 && Number(apps[idx].type) === 2
     try {
-      await post(API.MANAGER_BIND_REJECT, { applicationId: id })
-      wx.showToast({ title: '已拒绝', icon: 'success' })
+      await post(isUnbind ? API.MANAGER_BIND_UNBIND_REJECT : API.MANAGER_BIND_REJECT, { applicationId: id })
+      wx.showToast({ title: isUnbind ? '已拒绝解绑' : '已拒绝绑定', icon: 'success' })
       this.loadBindApplications()
     } catch (e) {
       if (idx >= 0) { apps[idx]._loading = false; this.setData({ bindApplications: [...apps] }) }

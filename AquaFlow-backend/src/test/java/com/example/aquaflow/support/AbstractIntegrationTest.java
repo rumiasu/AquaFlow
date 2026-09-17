@@ -190,6 +190,21 @@ public abstract class AbstractIntegrationTest {
                 stationId, productId, qty, ticketEnabled, new BigDecimal(ticketPrice));
     }
 
+    /**
+     * 带**本站定价覆盖**的库存行（商品与库存重构，见 docs/design/12-商品与库存重构.md）。
+     * <p>{@code salePrice}/{@code depositPrice} 传 null 或 "0" 都表示不覆盖（回落 product 的参考价）。</p>
+     */
+    protected long createInventoryWithStationPricing(long stationId, long productId, int qty,
+                                                     String salePrice, String depositPrice,
+                                                     int ticketEnabled, String ticketPrice) {
+        return insert("INSERT INTO inventory(station_id, product_id, quantity, enabled, sale_price, deposit_price, "
+                        + "ticket_enabled, ticket_price) VALUES (?,?,?,1,?,?,?,?)",
+                stationId, productId, qty,
+                salePrice == null ? null : new BigDecimal(salePrice),
+                depositPrice == null ? null : new BigDecimal(depositPrice),
+                ticketEnabled, new BigDecimal(ticketPrice));
+    }
+
     protected long createAddress(long customerId, String detail) {
         return insert("INSERT INTO address(customer_id, name, phone, detail, is_default) VALUES (?,?,?,?,1)",
                 customerId, "测试地址", "13800000000", detail);
@@ -258,9 +273,27 @@ public abstract class AbstractIntegrationTest {
                 orderId, productId, productName, p, quantity, d, subtotal, deductedQty);
     }
 
+    /**
+     * 造一个水票账户余额。
+     *
+     * <p>⚠️ <b>v36 起必须同时建批次</b>：水票余额的真相源是 {@code ticket_lot}，
+     * {@code ticket_account} 只是它的派生汇总（数量 + 金额价值）。只插账户不建批次会导致两件事：
+     * ① 用票支付时 {@code TicketLotService.consumeFifo} 找不到批次，直接报「水票批次余额不足」；
+     * ② 对账 E8 报不平。实测：只插账户的写法一次性打红了 10 个现有用例。</p>
+     *
+     * <p>单价记 0 并标记为推断值 —— 测试夹具不关心票值，但 E8 的两条等式（数量与金额）
+     * 必须<b>同时</b>成立，所以单价 0 时 {@code right_amount} 也要是 0（DB 默认值即可）。</p>
+     */
     protected long createTicketAccount(long customerId, long stationId, long productId, int remainQuantity) {
-        return insert("INSERT INTO ticket_account(customer_id, product_id, station_id, remain_quantity) "
+        long id = insert("INSERT INTO ticket_account(customer_id, product_id, station_id, remain_quantity) "
                 + "VALUES (?,?,?,?)", customerId, productId, stationId, remainQuantity);
+        if (remainQuantity > 0) {
+            insert("INSERT INTO ticket_lot(lot_no, customer_id, station_id, product_id, unit_price, qty, remain_qty, "
+                            + "source_type, price_source, is_migrated, status) "
+                            + "VALUES (?,?,?,?,0.00,?,?,3,3,1,1)",
+                    "FIXTURE-" + id, customerId, stationId, productId, remainQuantity, remainQuantity);
+        }
+        return id;
     }
 
     protected long createCustomerStationConfig(long customerId, long stationId, int offlinePaymentEnabled) {

@@ -3,6 +3,7 @@ package com.example.aquaflow.service;
 import com.example.aquaflow.entity.*;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.*;
+import com.example.aquaflow.util.PriceUtil;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ public class BarrelLedgerService {
     @Autowired private CustomerBarrelInTransitMapper inTransitMapper;
     @Autowired private OrderItemMapper orderItemMapper;
     @Autowired private ProductMapper productMapper;
+    @Autowired private InventoryMapper inventoryMapper;
 
     // =========================================================================
     // 只读查询
@@ -176,6 +178,9 @@ public class BarrelLedgerService {
             int delta = delivered - returned - rightPurchase;
             if (delta != 0) {
                 overMapper.adjustOver(customerId, stationId, pid, delta);
+                // [v29] over 一变就要同步欠桶起始时间：从<=0变>0写入、回到<=0清空、已是正数再增不重置。
+                // 只影响展示（站长端欠桶台账/下单提醒），不参与任何校验。
+                overMapper.syncOwedSince(customerId, stationId, pid);
             }
             outcome.add(pid, delivered, returned, rightPurchase, overBefore, overBefore + delta);
         }
@@ -201,6 +206,11 @@ public class BarrelLedgerService {
      * {@code order_item.deposit} 被刻意记 0（押金按下单缺桶数单独收，不走明细），
      * 若把 0 当成有效回退值，押金条单价会被写成 0 → 退桶退 ¥0。
      * 因此 0 一律视为「无快照」，继续向后回退到商品当前押金价。</p>
+     *
+     * <p>[2026-09-16 商品与库存重构] 第三级兜底从"全局 product.deposit"改为
+     * <b>本站押金</b>（{@code inventory.deposit_price} 优先，走
+     * {@code PriceUtil#calcDeposit}）：否则本站把押金调到 50、历史缺快照的批次仍按
+     * 通用库参考押金 30 建条，退桶金额就错了。前两级仍是快照，改价不影响正常批次。</p>
      */
     private BigDecimal resolveUnitPrice(CustomerBarrelInTransit t, Map<Long, BigDecimal> depositByProduct) {
         if (t.getUnitPrice() != null && t.getUnitPrice().compareTo(BigDecimal.ZERO) > 0) {
@@ -211,7 +221,8 @@ public class BarrelLedgerService {
             return d;
         }
         Product p = productMapper.getById(t.getProductId());
-        return (p != null && p.getDeposit() != null) ? p.getDeposit() : BigDecimal.ZERO;
+        Inventory inv = inventoryMapper.getByStationAndProduct(t.getStationId(), t.getProductId());
+        return PriceUtil.calcDeposit(p, inv);
     }
 
     /** lot.note 为 varchar(200)：超长在 STRICT_TRANS_TABLES 下会直接 1406，这里统一截断 */
@@ -386,6 +397,8 @@ public class BarrelLedgerService {
                 throw new BusinessException("交回数(" + qty + ")超过该客户当前持有数(" + occupied + ")");
             }
             overMapper.adjustOver(customerId, stationId, pid, -qty);
+            // [v29] 还桶可能把欠桶还清 → 同步 owed_since（见 syncOwedSince 的注释）
+            overMapper.syncOwedSince(customerId, stationId, pid);
             changes.add(new OverChange(pid, qty, before, before - qty, operatorId));
         }
         if (changes.isEmpty()) throw new BusinessException("还桶数量必须大于 0");
@@ -501,6 +514,8 @@ public class BarrelLedgerService {
         }
 
         overMapper.adjustOver(customerId, stationId, productId, delta);
+        // [v29] 人工调整同样要维护欠桶起始时间（补记欠桶=开始计时；核销=清空/继续计时）
+        overMapper.syncOwedSince(customerId, stationId, productId);
         return new OverChange(productId, delta, before, after, operatorId);
     }
 

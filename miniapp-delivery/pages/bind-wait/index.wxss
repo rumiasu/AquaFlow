@@ -107,3 +107,16 @@
   color: #B8860B;
   line-height: 1.6;
 }
+
+/* 退出出口：PENDING_UNBIND 时撤回被禁用，没有它用户只能干等站长 */
+.logout-row {
+  margin-top: 32rpx;
+  padding: 20rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #e5e5ea;
+  background: #ffffff;
+  text-align: center;
+  font-size: 28rpx;
+  color: #999999;
+}
+.logout-row:active { opacity: 0.8; }

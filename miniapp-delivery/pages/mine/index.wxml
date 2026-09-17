@@ -134,12 +134,9 @@
         <view class="staff-item" wx:for="{{staffList}}" wx:key="id" wx:for-item="s">
           <view class="staff-avatar">{{s._firstChar || '配'}}</view>
           <view class="staff-info">
-            <text class="staff-name">{{s.nickname || s.nickName || '配送员'}}</text>
+            <text class="staff-name">{{s.name || s.nickname || s.nickName || '配送员'}}</text>
             <text class="staff-meta">
-              <text wx:if="{{s.bindStatus === 'BOUND' || !s.bindStatus}}">已绑定</text>
-              <text wx:elif="{{s.bindStatus === 'PENDING_UNBIND'}}">解绑申请中</text>
-              <text wx:else>{{s.bindStatus}}</text>
-              · {{s.phone || '暂无电话'}}
+              {{s._unbindPending ? '解绑申请中' : '已绑定'}} · {{s.phone || '暂无电话'}}
             </text>
           </view>
           <button class="staff-remove-btn" disabled="{{s._loading}}" data-id="{{s.id || s.staffId}}" bindtap="onRemoveStaff">{{s._loading ? '处理中' : '解除'}}</button>
@@ -154,9 +151,9 @@
         <view class="staff-item" wx:for="{{bindApplications}}" wx:key="id" wx:for-item="a">
           <view class="staff-avatar staff-avatar-blue">{{a._firstChar || '申'}}</view>
           <view class="staff-info">
-            <text class="staff-name">{{a.nickname || a.name || '申请人'}}</text>
-            <text class="staff-meta">{{a.phone || '暂无电话'}} · {{a.applyTime || '今天'}}</text>
-            <text class="staff-meta" wx:if="{{a.remark || a.skill}}">备注：{{a.remark || a.skill}}</text>
+            <text class="staff-name">{{a.name || '申请人'}}<text class="staff-tag" wx:if="{{a.typeName}}"> · {{a.typeName}}</text></text>
+            <text class="staff-meta">{{a.phone || '暂无电话'}} · {{a.applyTime || '时间未知'}}</text>
+            <text class="staff-meta" wx:if="{{a.applyNote}}">备注：{{a.applyNote}}</text>
           </view>
           <view class="staff-action-col">
             <button class="staff-btn staff-btn-green" disabled="{{a._loading}}" data-id="{{a.id || a.applyId}}" bindtap="onApproveBind">{{a._loading ? '' : '同意'}}</button>

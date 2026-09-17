@@ -14,6 +14,25 @@ import java.util.regex.Pattern;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    /**
+     * 分级告警：未预期的 500 属**系统故障**，投给系统管理员（见 {@code constant/AlertType}）。
+     *
+     * <p>为什么放在这里：这是全站唯一的"未预期异常"汇集点 —— 任何没人处理的
+     * {@code RuntimeException} 都会经过它。如果只在日志里留一行，等于"系统出事了但没人知道"。
+     * AlertServiceImpl 内部已做兜底（落库失败只记日志、独立事务），不会反过来把业务搞崩。</p>
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.example.aquaflow.service.AlertService alertService;
+
+    private void raiseSystemAlert(String source, Throwable e) {
+        try {
+            alertService.systemFault(source, "未预期的服务端异常",
+                    e == null ? "" : (e.getClass().getSimpleName() + ": " + e.getMessage()), null, null);
+        } catch (Exception ignore) {
+            // 告警自身绝不能影响"把错误回给前端"这件事
+        }
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public Result handleNotFound(ResourceNotFoundException e) {
         log.warn("资源不存在: {}", e.getMessage());
@@ -94,6 +113,7 @@ public class GlobalExceptionHandler {
         // 安全：绝不把原始异常信息（NPE 堆栈、SQL 错误等）直接回传给前端，
         // 仅记录日志供排查，前端统一展示中性文案。
         log.error("运行时异常: {}", e.getMessage(), e);
+        raiseSystemAlert("GlobalExceptionHandler.runtime", e);
         // [AQ-048] 系统级异常用 code=500，与业务错误(code=1)区分
         return Result.systemError("操作失败，请稍后重试");
     }
@@ -146,6 +166,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public Result handleException(Exception e) {
         log.error("系统异常: {}", e.getMessage(), e);
+        raiseSystemAlert("GlobalExceptionHandler.system", e);
         // [AQ-048] 系统级异常用 code=500
         return Result.systemError("系统错误，请联系管理员");
     }

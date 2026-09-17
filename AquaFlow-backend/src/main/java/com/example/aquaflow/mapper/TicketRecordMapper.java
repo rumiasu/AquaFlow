@@ -9,13 +9,23 @@ import java.util.Map;
 @Mapper
 public interface TicketRecordMapper {
 
-    @Insert("insert into ticket_record(customer_id, product_id, station_id, increase_qty, decrease_qty, order_id, source, ticket_source, create_time, adjustment_id) " +
-            "values(#{customerId}, #{productId}, #{stationId}, #{increaseQty}, #{decreaseQty}, #{orderId}, #{source}, #{ticketSource}, #{createTime}, #{adjustmentId})")
+    @Insert("insert into ticket_record(customer_id, product_id, station_id, increase_qty, decrease_qty, order_id, source, ticket_source, unit_price, ticket_lot_id, create_time, adjustment_id) " +
+            "values(#{customerId}, #{productId}, #{stationId}, #{increaseQty}, #{decreaseQty}, #{orderId}, #{source}, #{ticketSource}, #{unitPrice}, #{ticketLotId}, #{createTime}, #{adjustmentId})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(TicketRecord ticketRecord);
 
     @Select("select * from ticket_record where id = #{id}")
     TicketRecord getById(@Param("id") Long id);
+
+    /**
+     * 取某订单某商品的**消费**流水（v36）。
+     *
+     * <p>用途：订单取消要回补水票时，必须按**当时消耗的批次单价**还原，
+     * 而不是按退款时的当前价 —— 否则站长在这中间调过一次价，客户拿回的票就凭空变了值。</p>
+     */
+    @Select("select * from ticket_record where order_id = #{orderId} and product_id = #{productId} "
+            + "and decrease_qty > 0 order by id desc limit 1")
+    TicketRecord getConsumeRecord(@Param("orderId") Long orderId, @Param("productId") Long productId);
 
     @Select("select * from ticket_record where customer_id = #{customerId} and product_id = #{productId} and station_id = #{stationId} order by create_time desc")
     List<TicketRecord> listByCustomerAndProduct(@Param("customerId") Long customerId, @Param("productId") Long productId, @Param("stationId") Long stationId);

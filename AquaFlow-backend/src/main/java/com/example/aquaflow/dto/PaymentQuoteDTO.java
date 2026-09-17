@@ -23,4 +23,16 @@ public class PaymentQuoteDTO {
     @Size(min = 1, message = "至少包含一个商品")
     @Valid
     private List<PaymentQuoteItemDTO> items;
+
+    /**
+     * 收货地址ID（2026-09-17 新增，v35）。
+     *
+     * <p><b>为什么必须传</b>：配送范围与楼层费要靠它取地址的坐标与楼层，而下单侧
+     * （{@code OrderCreateDTO.addressId}）本来就有这个值。若报价不传，两侧算出的费用就可能不同
+     * —— 那正是本仓"计价双轨"事故的形状（结算页一个价、下单另一个价）。</p>
+     *
+     * <p>允许为 {@code null}：此时距离按"算不出来"处理（不收远程费、不拦单），
+     * 并在返回的 {@code warnings} 里说明。存量调用方不传不会报错。</p>
+     */
+    private Long addressId;
 }

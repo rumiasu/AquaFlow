@@ -1,12 +1,17 @@
 const { post } = require('../../../utils/request')
 const { API } = require('../../../config/api')
+// 与客户端收货地址共用同一套省市区拆分规则，避免同一串定位结果两端拆得不一样
+const { parseRegion } = require('../../../utils/address')
 
 // V1: 站长(尚未创建水站)使用 /api/auth/create-station 创建水站，
 // 只需要水站名称 + 定位（可选），其他字段使用默认值
 Page({
   data: {
     stationName: '',
+    // [省, 市, 区] 固定 3 位（提交时按索引取值），直辖市已把重复的市置空
     region: [],
+    // 展示用文案，由 region 去空后拼接（wxml 里不能调 filter/join）
+    regionText: '',
     address: '',
     latitude: null,
     longitude: null,
@@ -15,22 +20,77 @@ Page({
     submitting: false
   },
 
+  /**
+   * 进页面先向服务器确认真实状态：可能本站已建好（例如在另一台设备上完成，
+   * 或已被管理员加进某个水站），此时不该再让站长重复建站 —— 直接放行进入业务。
+   * refreshIdentityAndRoute 只在「目标页 ≠ 当前页」时才跳，所以不会自我循环。
+   */
+  async onShow() {
+    const app = getApp()
+    await app.refreshIdentityAndRoute('pages/station-mgmt/create-station/index')
+  },
+
+  /**
+   * 返回上一步：重新选择身份。
+   * 用 reLaunch 而非 navigateBack —— 本页是 reLaunch 进来的，页面栈里没有上一页。
+   * 依据：**选择身份不等于生效**（水站还没建），此时改选合理；生效后后端会拒绝改选。
+   */
+  onBackToRoleSelect() {
+    const app = getApp()
+    if (app.isIdentityEffective()) {
+      wx.showToast({ title: '身份已生效，如需更换请联系管理员', icon: 'none' })
+      return
+    }
+    wx.reLaunch({ url: '/pages/role-select/index' })
+  },
+
+  /**
+   * 退出出口。本页是 reLaunch 进来的（页面栈无上一页），页面本身只有「创建水站」一条路，
+   * 没有出口就只能在"必须建站"与"退不出"之间卡住。
+   */
+  onLogout() {
+    wx.showModal({
+      title: '退出登录',
+      content: '退出后可用其他微信账号登录。',
+      confirmText: '退出',
+      success: (res) => {
+        if (res.confirm) getApp().logout()
+      }
+    })
+  },
+
   onStationNameInput(e) { this.setData({ stationName: e.detail.value }) },
-  onRegionChange(e) { this.setData({ region: e.detail.value }) },
   onDescInput(e) { this.setData({ description: e.detail.value }) },
 
   onChooseLocation() {
     wx.chooseLocation({
       success: (res) => {
+        // [2026-09-16] 原实现在这里只写地址文本，省市区要靠站长另外手点一个
+        // 「补充省/市/区（可选）」级联选择器（`<picker mode="region">`）补齐，
+        // 结果绝大多数水站的省市区都是空的。定位返回的 address 本身就带省市区，
+        // 直接解析回填即可，手填项已删除。
+        const fullAddr = (res.address || '') + (res.name || '')
+        const parsed = parseRegion(fullAddr)
+        const province = parsed.province
+        // 直辖市 parsed.city === province，提交前去掉，否则拼出来是「北京市北京市朝阳区」
+        const region = [province, parsed.city === province ? '' : parsed.city, parsed.district]
+        // 后端 LoginController#createStationAndBind 拼 fullAddress 时是
+        // 「province + city + district + address」，且**仅当 province 非空才拼** ——
+        // 所以：解析出省 → 把省市区从地址串里剥掉交给 region 字段（否则库里存两遍）；
+        // 没解析出省 → 整串留在 address 里（否则 city/district 会被后端静默丢掉）
+        const streetAddress = province ? parsed.detail : (res.address || res.name || '')
+
         this.setData({
           latitude: res.latitude,
           longitude: res.longitude,
           locationText: res.name + (res.address ? ' · ' + res.address : ''),
-          address: res.address || res.name || ''
+          address: streetAddress,
+          region: region,
+          regionText: region.filter(function (p) { return !!p }).join(' · ')
         })
       },
       fail: (err) => {
-        // 用户拒绝授权时，友好提示（不强制，省市区选填）
+        // 用户拒绝授权时，友好提示（不强制，定位可跳过）
         if (err && err.errMsg && err.errMsg.indexOf('auth') >= 0) {
           wx.showToast({ title: '可稍后在设置中开启定位', icon: 'none' })
         }

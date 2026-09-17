@@ -4,10 +4,18 @@ const { stationStorage } = require('../../utils/storage')
 Page({
   data: {
     loading: true,
+    // 占位初值：真实数据由 getBarrelSummary 整体替换。
+    // [2026-09-16] 字段名必须与后端 BarrelServiceImpl.getBarrelSummary 的下发键一致 ——
+    // 这里原先留着已删除的 deliveryBuckets（含已送达行，口径错误，后端已移除），
+    // 会让后来者以为它是有效字段。配送中请一律用 pendingDeliveryBuckets。
+    // 口径：持有 = 权益 + 配送中（展示）；占用 = 权益 + over（还桶上限）；权益 = 已到手。
     summary: {
       heldBuckets: 0,
+      rightBuckets: 0,
       owedBuckets: 0,
-      deliveryBuckets: 0,
+      pendingDeliveryBuckets: 0,
+      occupiedBuckets: 0,
+      storageBuckets: 0,
       returnBuckets: 0,
       actualBuckets: 0,
       pendingReturns: 0,
@@ -77,20 +85,39 @@ Page({
             productName: h.productName || h.waterTypeName || '',
             productSpec: h.productSpec || h.waterTypeSpec || '',
             assetQty: 0,
+            heldTotalQty: 0,
+            inTransitQty: 0,
+            occupiedQty: 0,
             owedQty: 0,
+            storageQty: 0,
             deposit: h.deposit || 0
           }
         }
-        map[pid].assetQty += (h.assetQty != null ? h.assetQty : ((h.holdingQty || 0) - (h.confirmedQty || 0)))
+        // 后端一行即一个商品，这里的累加是防御性写法（历史上有按 holding 多条返回的版本）。
+        // 各字段口径见 BarrelServiceImpl.getBarrelSummaryByType 的注释；
+        // 缺少 heldTotalQty/occupiedQty 时回退到 assetQty（只影响展示与上限，不参与下单抵扣）。
+        const base = h.assetQty != null ? h.assetQty : ((h.holdingQty || 0) - (h.confirmedQty || 0))
+        map[pid].assetQty += base
+        map[pid].heldTotalQty += (h.heldTotalQty != null ? h.heldTotalQty : base)
+        map[pid].inTransitQty += (h.inTransitQty || 0)
+        map[pid].occupiedQty += (h.occupiedQty != null ? h.occupiedQty : base)
         map[pid].owedQty += (h.owedQty || 0)
+        map[pid].storageQty += (h.storageQty || 0)
       })
       Object.keys(map).forEach(k => customerBarrelAsset.push(map[k]))
 
       this.setData({ customerBarrelAsset })
 
-      const { heldBuckets, actualBuckets, pendingReturns } = this.data.summary
-      const held = heldBuckets !== undefined && heldBuckets !== null ? heldBuckets : actualBuckets
-      this.setData({ maxReturnQty: Math.max(0, (held || 0) - (pendingReturns || 0)) })
+      // 还桶上限 = **占用**（权益 + over），不是「持有」（权益 + 配送中）：
+      // 配送中的桶还没到客户手上，后端 returnEmpty 也是按占用校验的
+      //（BarrelLedgerService：qty <= rightQty + over）。用持有当上限会在有在途桶时
+      // 允许多报，提交后被后端以「交回数超过该客户当前持有数」拒绝 —— 顾客以为是 bug。
+      // 再减去已提交待处理的退桶申请数，避免同一批桶被重复申请两次。
+      const { occupiedBuckets, rightBuckets, pendingReturns } = this.data.summary
+      const ceiling = occupiedBuckets !== undefined && occupiedBuckets !== null
+        ? occupiedBuckets
+        : (rightBuckets || 0)
+      this.setData({ maxReturnQty: Math.max(0, (ceiling || 0) - (pendingReturns || 0)) })
     } finally {
       this.setData({ loading: false })
     }
@@ -101,8 +128,11 @@ Page({
       wx.showToast({ title: '暂无可退水桶', icon: 'none' })
       return
     }
-    // 默认选中第一个有权益的商品，省得顾客忘了选还要等报错
-    const first = (this.data.customerBarrelAsset || []).find(i => (i.assetQty || 0) > 0)
+    // 默认选中第一个**可退**的商品（占用 > 0）。
+    // 不能用 assetQty：桶全在配送中时权益也可能 > 0，但此时占用为 0，其实退不了，
+    // 默认选中它只会让顾客点提交后被拒。省得顾客等报错。
+    const first = (this.data.customerBarrelAsset || [])
+      .find(i => (i.occupiedQty || 0) > 0) || (this.data.customerBarrelAsset || [])[0]
     this.setData({
       showReturnModal: true,
       'returnForm.productId': first ? first.productId : null,

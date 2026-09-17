@@ -10,6 +10,12 @@
       </view>
     </view>
 
+    <!-- 水站营业状态（软状态）：只提示、不隐藏商品、不拦截下单 -->
+    <view class="station-status-banner" wx:if="{{stationStatusHint}}">
+      <text class="banner-icon">⏰</text>
+      <text class="banner-text">{{stationStatusHint}}</text>
+    </view>
+
     <view class="station-bar" wx:if="{{isLogin}}" bindtap="onOpenStationPicker">
       <icon name="location" size="32rpx" color="#2E4A68" />
       <text class="station-bar-label" wx:if="{{currentStation}}">{{currentStation.name}}</text>
@@ -35,9 +41,6 @@
           wx:if="{{!keywords || item.name.indexOf(keywords) >= 0 || (item.brand && item.brand.indexOf(keywords) >= 0) || (item.spec && item.spec.indexOf(keywords) >= 0)}}">
           <view class="product-img" wx:if="{{item.imageUrl}}">
             <image src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
-            <view class="owned-tag" wx:if="{{myProductIds.indexOf(item.id) >= 0}}">
-              <text>已有</text>
-            </view>
           </view>
           <view class="product-img product-img-placeholder" wx:else>
             <text>💧</text>
@@ -48,8 +51,9 @@
             </view>
             <text class="product-brand" wx:if="{{item.brand}}">{{item.brand}} · {{item.spec}}</text>
             <view class="info-row">
-              <text class="product-price">¥{{item.price}}</text>
-              <text class="product-deposit" wx:if="{{item.deposit}}">押金 ¥{{item.deposit}}</text>
+              <!-- 本站有效价（站级覆盖 → 通用库参考价），后端下发，前端不再自己拼价 -->
+              <text class="product-price">¥{{item.effectivePrice}}</text>
+              <text class="product-deposit" wx:if="{{item.effectiveDeposit > 0}}">押金 ¥{{item.effectiveDeposit}}</text>
             </view>
             <view class="btn-row">
               <view class="cart-btn" bindtap="onAddToCart" data-id="{{item.id}}">

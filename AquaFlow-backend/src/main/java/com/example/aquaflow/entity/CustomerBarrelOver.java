@@ -47,6 +47,22 @@ public class CustomerBarrelOver {
      */
     private Integer overQty;
 
+    /**
+     * 本次欠桶的起始时间（[v29] 2026-09-15 新增）。
+     *
+     * <p>只用于站长端「欠桶台账」算天数与下单提醒，<b>不参与任何校验</b>。
+     * 维护规则（唯一维护点：{@code CustomerBarrelOverMapper.syncOwedSince}）：</p>
+     * <ul>
+     *   <li>{@code over_qty} 由 &lt;=0 变 &gt;0 → 写入当前时间；</li>
+     *   <li>{@code over_qty} 回到 &lt;=0 → 置 NULL；</li>
+     *   <li>{@code over_qty} 已是正数再增加 → <b>保持原值</b>（同一笔欠桶的延续，天数不清零）。</li>
+     * </ul>
+     *
+     * <p>为什么不复用 {@code updateTime}：它是「行被更新」的时间，任何一次部分回收都会刷新它，
+     * 用它算天数会永远显示"今天"。而 {@code createTime} 是行首次建立的时间，over 归零后再欠也不会重置。</p>
+     */
+    private LocalDateTime owedSince;
+
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

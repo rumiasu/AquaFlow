@@ -1,6 +1,7 @@
 package com.example.aquaflow.service.impl;
 
 import com.example.aquaflow.constant.DepositType;
+import com.example.aquaflow.constant.PayMethod;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.entity.BarrelRecord;
 import com.example.aquaflow.entity.Customer;
@@ -30,10 +31,12 @@ import com.example.aquaflow.service.CustomerService;
 import com.example.aquaflow.vo.CustomerProfileVO;
 import com.example.aquaflow.vo.CustomerStationAssetVO;
 import com.example.aquaflow.vo.CustomerStationVO;
+import com.example.aquaflow.util.PriceUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -246,14 +249,17 @@ public class CustomerServiceImpl implements CustomerService {
         Map<Long, Product> productCache = new HashMap<>();
 
         // ---------- 水桶 ----------
-        // 配送中桶先按商品聚合（排除已取消），一次查询供"明细"与"概览"共用
+        // 配送中桶先按商品聚合（只计 PENDING），一次查询供"明细"与"概览"共用。
+        // [2026-09-15] 旧实现只排除 CANCELLED → 送达后（行被标 DELIVERED 但保留，供对账 E5 用）
+        // 仍被算进"配送中"，于是站长看到「持有 2 个，配送中 2 个」——同一批桶被数了两遍。
+        // 口径与 BarrelServiceImpl.getBarrelSummary 保持一致：只有 PENDING 才算配送中。
         Map<Long, Integer> inTransitByProduct = new LinkedHashMap<>();
         int inTransitTotal = 0;
         List<CustomerBarrelInTransit> transits =
                 customerBarrelInTransitMapper.listByCustomerAndStation(customerId, stationId);
         if (transits != null) {
             for (CustomerBarrelInTransit t : transits) {
-                if ("CANCELLED".equals(t.getStatus())) continue;
+                if (!"PENDING".equals(t.getStatus())) continue;
                 int q = t.getQty() != null ? t.getQty() : 0;
                 inTransitTotal += q;
                 if (t.getProductId() != null) {
@@ -269,7 +275,7 @@ public class CustomerServiceImpl implements CustomerService {
         // customer_barrel_asset 只记录客户手上的持有桶，配送中桶可能存在而持有记录为 0
         // （例如首单还在配送途中）。若只遍历 assets，就会出现"概览显示配送中 4 个、
         // 明细却一行都没有"的情况，站长无从判断是配送中的哪种桶。
-        Map<Long, int[]> byProduct = new LinkedHashMap<>();   // productId -> [held, inTransit]
+        Map<Long, int[]> byProduct = new LinkedHashMap<>();   // productId -> [权益(已到手), 配送中(PENDING)]
         if (assets != null) {
             for (CustomerBarrelAsset a : assets) {
                 if (a.getProductId() == null) continue;
@@ -303,29 +309,65 @@ public class CustomerServiceImpl implements CustomerService {
             byProduct.computeIfAbsent(pid, k -> new int[2]);
         }
 
+        // 押金金额按**批次快照**算（与 BarrelServiceImpl / doRefund / 对账同口径）：
+        //   权益部分   = customer_barrel_asset.right_amount（Σ lot.remain_qty × lot.unit_price）
+        //   配送中部分 = customer_barrel_in_transit.unit_price × qty（下单时快照）
+        // 不能用"当前本站押金 × 桶数"：站长调价后客户**已经付过的钱**会跟着变（docs/design/12 §4.3）。
+        Map<Long, BigDecimal> assetAmountByProduct = new HashMap<>();
+        if (assets != null) {
+            for (CustomerBarrelAsset a : assets) {
+                if (a.getProductId() == null) continue;
+                assetAmountByProduct.merge(a.getProductId(),
+                        a.getRightAmount() != null ? a.getRightAmount() : BigDecimal.ZERO, BigDecimal::add);
+            }
+        }
+        Map<Long, BigDecimal> pendingAmountByProduct = new HashMap<>();
+        if (transits != null) {
+            for (CustomerBarrelInTransit t : transits) {
+                if (!"PENDING".equals(t.getStatus()) || t.getProductId() == null) continue;
+                int q = t.getQty() != null ? t.getQty() : 0;
+                if (q == 0) continue;
+                BigDecimal unit = t.getUnitPrice();
+                if (unit == null || unit.compareTo(BigDecimal.ZERO) <= 0) {
+                    // 无快照的历史行才回落到本站押金（与 BarrelLedgerService#resolveUnitPrice 一致）
+                    unit = PriceUtil.calcDeposit(product(t.getProductId(), productCache),
+                            inventoryMapper.getByStationAndProduct(stationId, t.getProductId()));
+                }
+                pendingAmountByProduct.merge(t.getProductId(), unit.multiply(BigDecimal.valueOf(q)), BigDecimal::add);
+            }
+        }
+
         int heldTotal = 0;
         BigDecimal barrelDepositTotal = BigDecimal.ZERO;
         List<CustomerStationAssetVO.BarrelItem> barrels = new ArrayList<>();
         for (Map.Entry<Long, int[]> e : byProduct.entrySet()) {
-            int held = e.getValue()[0];
+            // [2026-09-15] slot[0] 是**权益**（已到手），不是"持有"：
+            //   持有（展示）= 权益 + 配送中 —— 客户视角"买了就是你的"
+            //   占用（还桶上限）= 权益 + over —— 物理在手，不含配送中（那批桶还没到手上）
+            int right = e.getValue()[0];
             int inTransit = e.getValue()[1];
+            int held = right + inTransit;
             int over = overByProduct.getOrDefault(e.getKey(), 0);
             // 全为 0 的行没有展示价值（历史残留的 0 行）
-            if (held == 0 && inTransit == 0 && over == 0) continue;
+            if (held == 0 && over == 0) continue;
 
             Product p = product(e.getKey(), productCache);
-            BigDecimal per = p != null && p.getDeposit() != null ? p.getDeposit() : BigDecimal.ZERO;
-            BigDecimal amount = per.multiply(BigDecimal.valueOf(held));
+            BigDecimal amount = assetAmountByProduct.getOrDefault(e.getKey(), BigDecimal.ZERO)
+                    .add(pendingAmountByProduct.getOrDefault(e.getKey(), BigDecimal.ZERO));
 
             CustomerStationAssetVO.BarrelItem item = new CustomerStationAssetVO.BarrelItem();
             item.setProductId(e.getKey());
             item.setProductName(p != null ? p.getName() : "未知商品");
             item.setProductSpec(p != null ? p.getSpec() : "");
             item.setHeldQty(held);
+            item.setRightQty(right);
             item.setInTransitQty(inTransit);
             item.setOverQty(over);
-            item.setOccupiedQty(held + over); // 恒等式：占用 = 权益 + over
-            item.setDepositPerBucket(per);
+            item.setOccupiedQty(right + over); // 物理在手 = 权益 + over（不含配送中）
+            // 单桶押金：按快照金额摊回（各批次买入价可能不同，展示取加权平均）
+            item.setDepositPerBucket(held > 0
+                    ? amount.divide(BigDecimal.valueOf(held), 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO);
             item.setDepositAmount(amount);
             barrels.add(item);
 
@@ -352,13 +394,9 @@ public class CustomerServiceImpl implements CustomerService {
                 Product p = product(ta.getProductId(), productCache);
                 Inventory inv = ta.getProductId() != null
                         ? inventoryMapper.getByStationAndProduct(stationId, ta.getProductId()) : null;
-                BigDecimal unit = BigDecimal.ZERO;
-                if (inv != null && inv.getTicketPrice() != null
-                        && inv.getTicketPrice().compareTo(BigDecimal.ZERO) > 0) {
-                    unit = inv.getTicketPrice();
-                } else if (p != null && p.getPrice() != null) {
-                    unit = p.getPrice();
-                }
+                // 水票"价值"= 水票支付时真正会扣的单价，所以直接走唯一计价入口：
+                // 站级 ticket_price → product.ticket_price → 站级售价 → product.price（旧实现少了两级）
+                BigDecimal unit = PriceUtil.calcUnitPrice(p, inv, PayMethod.TICKET);
                 BigDecimal value = unit.multiply(BigDecimal.valueOf(remain));
 
                 CustomerStationAssetVO.TicketItem item = new CustomerStationAssetVO.TicketItem();

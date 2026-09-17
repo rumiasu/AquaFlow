@@ -54,6 +54,25 @@
       </view>
     </view>
 
+    <!-- 楼层与电梯（2026-09-17 新增，v34）：楼层费的依据。
+         ⚠️ 「不确定」是合法选项而不是"没选"—— 后端刻意区分 NULL(未确认) 与 0(确认无电梯)：
+         把未确认当无电梯会向客户乱收钱，当有电梯会漏收。 -->
+    <view class="field-row label-row">
+      <text class="field-label">楼层</text>
+      <view class="label-options">
+        <input class="region-input" type="number" placeholder="如 6（可留空）" value="{{formData.floor}}" bindinput="onInputChange" data-field="floor" />
+      </view>
+    </view>
+
+    <view class="field-row label-row">
+      <text class="field-label">电梯</text>
+      <view class="label-options">
+        <view class="label-chip {{formData.hasElevator === 1 ? 'active' : ''}}" bindtap="onElevatorSelect" data-value="1">有电梯</view>
+        <view class="label-chip {{formData.hasElevator === 0 ? 'active' : ''}}" bindtap="onElevatorSelect" data-value="0">无电梯</view>
+        <view class="label-chip {{formData.hasElevator === null ? 'active' : ''}}" bindtap="onElevatorSelect" data-value="">不确定</view>
+      </view>
+    </view>
+
     <!-- 默认 + 保存 -->
     <view class="bottom-bar">
       <view class="default-toggle" bindtap="onToggleDefault">

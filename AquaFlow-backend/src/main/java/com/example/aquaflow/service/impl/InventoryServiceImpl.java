@@ -53,6 +53,42 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveStationSetting(Inventory setting) {
+        if (setting == null || setting.getStationId() == null || setting.getProductId() == null) {
+            throw new BusinessException("本站设置参数异常");
+        }
+        Inventory current = inventoryMapper.getByStationAndProduct(setting.getStationId(), setting.getProductId());
+        // 库存不从设置入口改：沿用当前值（新行=0），保证 inventory.quantity 与 inventory_record 永远成对
+        setting.setQuantity(current != null && current.getQuantity() != null ? current.getQuantity() : 0);
+        inventoryMapper.upsertSettings(setting);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int setStock(Long stationId, Long productId, Integer targetQuantity, String type, Long refId, String note) {
+        if (stationId == null || productId == null) {
+            throw new BusinessException("库存参数异常");
+        }
+        if (targetQuantity == null || targetQuantity < 0) {
+            throw new BusinessException("库存数量不能为负");
+        }
+        // 先锁行再算差额：并发盘点下"读旧值→算 delta→增量写"必须串行，否则最后一次覆盖前一次
+        Inventory current = inventoryMapper.getByStationAndProductForUpdate(stationId, productId);
+        if (current == null) {
+            throw new BusinessException("该商品尚未在本站配置，请先在商品页选用后再入库");
+        }
+        int before = current.getQuantity() == null ? 0 : current.getQuantity();
+        int delta = targetQuantity - before;
+        if (delta == 0) {
+            return 0;
+        }
+        inventoryMapper.upsertQuantity(stationId, productId, delta);
+        recordChange(stationId, productId, delta, type, refId, AuthContext.getUserId(), note);
+        return delta;
+    }
+
+    @Override
     public void recordChange(Long stationId, Long productId, Integer delta, String type,
                              Long refId, Long operatorId, String note) {
         if (stationId == null || productId == null || delta == null || delta == 0) {
@@ -72,5 +108,13 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     public List<InventoryRecord> listRecords(Long stationId, int limit) {
         return inventoryRecordMapper.listByStation(stationId, limit);
+    }
+
+    @Override
+    public List<InventoryRecord> listRecords(Long stationId, Long productId, int limit) {
+        if (productId == null) {
+            return inventoryRecordMapper.listByStation(stationId, limit);
+        }
+        return inventoryRecordMapper.listByStationAndProduct(stationId, productId, limit);
     }
 }

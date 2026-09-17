@@ -70,4 +70,46 @@ public interface CustomerBarrelOverMapper {
     int lockOrCreate(@Param("customerId") Long customerId,
                      @Param("stationId") Long stationId,
                      @Param("productId") Long productId);
+
+    /**
+     * 同步 {@code owed_since}（欠桶起始时间）。**必须在每次 {@link #adjustOver} 之后调用。**
+     *
+     * <p>三条规则全部由 SQL 的 CASE 表达，避免调用方各写一套判断：</p>
+     * <ul>
+     *   <li>{@code over_qty <= 0} → 置 NULL（含 over&lt;0 的水站暂存，不算欠桶）；</li>
+     *   <li>{@code over_qty > 0} 且 {@code owed_since IS NULL} → 写入 NOW()（本次欠桶开始，也顺带修复历史空值）；</li>
+     *   <li>{@code over_qty > 0} 且已有值 → 保持不变（同一笔欠桶再增加，天数不清零）。</li>
+     * </ul>
+     *
+     * <p>注意本语句**不要**显式写 {@code update_time = ...}：该列是
+     * {@code ON UPDATE CURRENT_TIMESTAMP}，只有行真的变化时 MySQL 才刷新它。
+     * 第三分支"保持不变"时行无变化 → update_time 不动，符合"行更新时间"的语义。</p>
+     *
+     * <p>仅供展示（站长端欠桶台账 / 下单提醒），<b>不参与任何校验</b>。</p>
+     */
+    @Update("update customer_barrel_over set owed_since = case " +
+            "when over_qty <= 0 then null " +
+            "when owed_since is null then now() " +
+            "else owed_since end " +
+            "where customer_id = #{customerId} and station_id = #{stationId} and product_id = #{productId}")
+    int syncOwedSince(@Param("customerId") Long customerId,
+                      @Param("stationId") Long stationId,
+                      @Param("productId") Long productId);
+
+    /**
+     * 站长端「欠桶台账」：本站当前仍欠桶（{@code over_qty > 0}）的客户，按欠得最久的排前面。
+     *
+     * <p>只读查询。明细（哪一单欠的、差几个、处理到哪一步）走现成的
+     * {@code order_barrel_exception}（取 {@code discrepancy > 0} 的记录），
+     * 不在这里重复建事件表。</p>
+     */
+    @Select("select o.customer_id, o.product_id, o.over_qty, o.owed_since, " +
+            "       c.name as customer_name, c.phone as phone, " +
+            "       p.name as product_name, p.spec as product_spec " +
+            "  from customer_barrel_over o " +
+            "  join customer c on c.id = o.customer_id " +
+            "  left join product p on p.id = o.product_id " +
+            " where o.station_id = #{stationId} and o.over_qty > 0 " +
+            " order by o.owed_since is null, o.owed_since asc, o.customer_id asc")
+    List<com.example.aquaflow.vo.OwedBarrelVO> listOwedByStation(@Param("stationId") Long stationId);
 }

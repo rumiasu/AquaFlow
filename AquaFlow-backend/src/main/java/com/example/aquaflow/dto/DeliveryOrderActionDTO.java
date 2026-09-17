@@ -124,5 +124,24 @@ public final class DeliveryOrderActionDTO {
         private List<CompleteItemReturn> itemReturns;
         private Integer returnBucketQty;
         private String barrelDiscrepancyNote;
+
+        /**
+         * 货到付款是否已现场收款（配送完成页「已收款 / 未收款」选项）。
+         *
+         * <p>[2026-09-16 修复] 这两个字段此前**只存在于 service 层**：`OrderWorkflowServiceImpl`
+         * 一直读 {@code params.get("collected")} / {@code params.get("note")}，配送端
+         * `pages/order/complete.js` 也一直在发，但请求体在 f3e702f（2026-09-12）从裸 Map 收敛为
+         * 这个强类型 DTO 时把它们漏了 —— 后端静默忽略未知字段，于是
+         * 「已收款」永远为 false、`recordCashCollection` 与跨站收款护栏（AQ-043）**自那时起
+         * 在 HTTP 路径上不可达**：现金单点「配送完成」只会停在 已送达(3) 且 payment_status 被写成
+         * 未付(0)，钱不入账；配送备注也写不进 `special_note`。
+         *
+         * <p>⚠️ 改这里必须同步 `DeliveryController.toCompleteParams`；漏一个字段不会报错，
+         * 只会静默丢功能。新增字段后请补一条走 HTTP 的用例（见 DeliveryCompleteIntegrationTest）。
+         */
+        private Boolean collected;
+
+        /** 配送员手填备注，service 侧写进 `orders.special_note`（前缀「[配送备注]」） */
+        private String note;
     }
 }

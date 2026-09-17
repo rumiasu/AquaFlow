@@ -58,6 +58,22 @@ public class AuthRequestDTO {
         private String district;
 
         private String address;
+
+        /**
+         * 地图选点的纬度 / 经度（2026-09-17 补，v34）。
+         *
+         * <p>⚠️ 这两个字段此前**根本不存在**：`miniapp-delivery` 的建站页从 2026-09-16 起
+         * 就一直在发 {@code latitude}/{@code longitude}，而本 DTO 没有对应字段 ——
+         * Jackson 对未知字段静默忽略，不报错也不进日志，于是站长选的点**凭空消失**，
+         * 而 {@code station} 表当时也没有坐标列，等于三层都缺。
+         * 这与 AGENTS.md §8 第 15 条（配送端 collected/note 被静默丢弃）是同一个形状。</p>
+         *
+         * <p>可空：站长可以不定位（V1 极简原则）。为空时配送范围校验会跳过而不是拒单。</p>
+         */
+        private java.math.BigDecimal latitude;
+
+        /** 经度，语义同 {@link #latitude} */
+        private java.math.BigDecimal longitude;
     }
 
     /** POST /api/auth/bind-staff：员工绑定微信（姓名+手机号+wx code） */

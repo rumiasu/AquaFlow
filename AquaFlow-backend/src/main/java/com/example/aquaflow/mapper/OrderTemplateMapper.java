@@ -14,10 +14,22 @@ public interface OrderTemplateMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(OrderTemplate template);
 
+    /**
+     * ⚠️ 无归属限定，只按 id 更新。**不要在新代码里直接用它**：
+     * [2026-09-16] {@code OrderTemplateServiceImpl.save} 曾走它，于是顾客只要把别人的模板 id 传进来，
+     * 就能覆盖别人的模板并顺带清空别人的模板明细（`itemMapper.deleteByTemplateId`）。
+     * 需要更新请用 {@link #updateOwned}。
+     */
     @Update("update order_template set name=#{name}, special_note=#{specialNote}, " +
             "enabled=#{enabled}, is_default=#{isDefault}, update_time=NOW() " +
             "where id=#{id}")
     void update(OrderTemplate template);
+
+    /** [2026-09-16 AQ-036 补齐] 归属限定的更新：只改属于该客户的模板，返回受影响行数（0=不属于他/已删） */
+    @Update("update order_template set name=#{name}, special_note=#{specialNote}, " +
+            "enabled=#{enabled}, is_default=#{isDefault}, update_time=NOW() " +
+            "where id=#{id} and customer_id=#{customerId}")
+    int updateOwned(OrderTemplate template);
 
     @Select("select * from order_template where id = #{id}")
     OrderTemplate getById(@Param("id") Long id);

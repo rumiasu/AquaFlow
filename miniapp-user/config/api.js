@@ -43,7 +43,8 @@ const API = {
   // 商品（后端: ProductController）
   PRODUCTS: '/api/products',
   PRODUCTS_SALE: '/api/products/on-sale',
-  MY_PRODUCTS: '/api/products/my',
+  // 注意：MY_PRODUCTS('/api/products/my') 已于 2026-09-16 随"恒空端点"清理一并删除，
+  // '已有商品'标签因此下线；要恢复得先在后端实现真实的"客户已购商品"。
   PRODUCTS_SALE_BY_STATION: '/api/products/sale-by-station',
 
 // 订单（后端: OrderController）

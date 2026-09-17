@@ -33,6 +33,22 @@ public class Inventory {
     /** 是否在商城销售: 0 不在商城销售 1 在商城销售 */
     private Integer enabled;
 
+    /**
+     * 本站售价（覆盖 product.price 这个"通用库参考价"）。
+     * <p><b>NULL 或 &lt;=0 都表示"不覆盖"</b>，回落 product.price —— 与 ticket_price 的
+     * "&gt;0 才生效"保持同一口径，避免"填了 0 结果变成免费送水"。读取必须走
+     * {@code util/PriceUtil#calcUnitPrice}，不要各处自己 if。</p>
+     */
+    private BigDecimal salePrice;
+
+    /**
+     * 本站押金（覆盖 product.deposit 这个"通用库参考押金"）。
+     * <p><b>NULL 或 &lt;=0 表示"不覆盖"</b>：0 押金会让 {@code customer_barrel_lot.unit_price = 0}，
+     * 而 {@code BarrelLedgerService#resolveUnitPrice} 按本仓 [DEF-2] 的口径把 0 视为"无快照"，
+     * 于是会回退到商品押金 —— 即"免押金"在当前桶账模型下表达不出来。要做免押金得先改那条口径。</p>
+     */
+    private BigDecimal depositPrice;
+
     /** 是否支持水票: 0 不支持 1 支持 */
     private Integer ticketEnabled;
 

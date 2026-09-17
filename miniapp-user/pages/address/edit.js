@@ -21,7 +21,10 @@ Page({
       label: '',
       isDefault: false,
       lat: null,
-      lng: null
+      lng: null,
+      // 楼层（可留空）与有无电梯（1 有 / 0 无 / null 未确认）。见 migration_v34。
+      floor: '',
+      hasElevator: null
     }
   },
 
@@ -51,7 +54,12 @@ Page({
             label: res.data.label || '',
             isDefault: !!res.data.isDefault,
             lat: res.data.lat || null,
-            lng: res.data.lng || null
+            lng: res.data.lng || null,
+            // floor 在后端是可空 int；空值回填成 '' 才能在输入框里正常编辑
+            floor: (res.data.floor === null || res.data.floor === undefined) ? '' : String(res.data.floor),
+            // hasElevator 三态：null 不能被 `|| null` 之类顺手写成 0
+            hasElevator: (res.data.hasElevator === null || res.data.hasElevator === undefined)
+              ? null : res.data.hasElevator
           }
         })
       }
@@ -75,6 +83,17 @@ Page({
 
   onDefaultChange(e) {
     this.setData({ 'formData.isDefault': e.detail.value })
+  },
+
+  /**
+   * 有无电梯：三态选择（1 有 / 0 无 / null 未确认）。
+   *
+   * ⚠️ 不要把「不确定」写成 0 —— 后端据此决定收不收楼层费，
+   * 二者混同的后果是向客户乱收钱（见 docs/design/17 §4.4）。
+   */
+  onElevatorSelect(e) {
+    const raw = e.currentTarget.dataset.value
+    this.setData({ 'formData.hasElevator': raw === '' ? null : Number(raw) })
   },
 
   onToggleDefault() {
@@ -160,6 +179,13 @@ Page({
     const customerId = getCustomerId()
     const submitData = {
       ...formData,
+      // 楼层：输入框给的是字符串，留空要转成 null（后端列是可空 int，
+      // 传 '' 会被 Jackson 当成非法数字直接 400）
+      floor: (formData.floor === '' || formData.floor === null || formData.floor === undefined)
+        ? null : Number(formData.floor),
+      // 电梯三态原样透传：null 表示未确认，不能顺手写成 0
+      hasElevator: (formData.hasElevator === null || formData.hasElevator === undefined)
+        ? null : formData.hasElevator,
       isDefault: formData.isDefault ? 1 : 0,
       ...(customerId ? { customerId } : {})
     }

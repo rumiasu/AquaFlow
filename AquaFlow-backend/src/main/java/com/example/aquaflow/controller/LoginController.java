@@ -8,6 +8,7 @@ import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.entity.StaffStationApplication;
 import com.example.aquaflow.entity.Station;
 import com.example.aquaflow.entity.UserToken;
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.StaffMapper;
 import com.example.aquaflow.mapper.StaffStationApplicationMapper;
@@ -126,6 +127,10 @@ public class LoginController {
         Map<String, Object> wxSession;
         try {
             wxSession = weChatLoginService.code2Session(WeChatApp.STAFF, code);
+        } catch (BusinessException e) {
+            // [2026-09-15] 这里的消息已由 WeChatLoginService 组织成面向用户的话术（自带「微信登录失败: 」前缀），
+            // 再包一层会变成「微信登录失败: 微信登录失败: invalid code」（实测）。业务异常直接透传。
+            return Result.error(e.getMessage());
         } catch (RuntimeException e) {
             return Result.error("微信登录失败: " + e.getMessage());
         }
@@ -182,12 +187,20 @@ public class LoginController {
     }
 
     /**
-     * 首次进入配送端选择角色 (站长/配送员).
+     * 首次进入配送端选择角色 (站长/配送员)；**未生效时也可用于改选**。
      * <ul>
      *   <li>STATION_MANAGER: 创建 staff, station_id=null (后续调用 /create-station 创建水站再绑定)</li>
      *   <li>DELIVERY: 创建 staff, station_id=null (后续申请绑定水站; 不自动绑定默认站)</li>
      * </ul>
+     *
+     * <p>[2026-09-17 产品口径] <b>「选择 ≠ 生效」</b>：选角色只是登记意向。若该员工还没挂到任何水站
+     * （{@code station_id} 为空），允许再次调用本接口**原地改选**另一个角色 —— 前端在
+     * apply-bind / create-station 页提供「重新选择身份」入口。一旦生效（{@code station_id} 非空）
+     * 就拒绝自行更改，须走管理员。</p>
+     *
+     * <p>本方法有多步写入（撤销悬挂的待审批申请 → 改角色 → 清旧 token），故加事务。</p>
      */
+    @Transactional(rollbackFor = Exception.class)
     @PostMapping("/select-role")
     public Result<Map<String, Object>> selectRole(@RequestBody @Valid AuthRequestDTO.SelectRole params) {
         // AQ-006: 权限提权防护 — 仅配送端(staff)账号可选择角色，顾客(userType=customer)必须用 customer 身份。
@@ -201,25 +214,62 @@ public class LoginController {
         String nickname = params.getNickname();
         String phone = params.getPhone();
 
-        // ===== 身份来源：只认 JWT 里的 pendingOpenid =====
-        // [2026-09-12 修复] 旧实现在这里读 params.getPendingOpenid()（客户端请求体里的 _pendingOpenid），
-        // 原注释还写着"从JWT中获取openid，而非信任客户端传入"——但它实际做的是后者，
-        // 且自认了局限（"userId 是 hash 后的值，这里仅做非空校验"）。
-        // 后果：任何持 UNSELECTED token 的人，只要把 _pendingOpenid 换成别人的 openid，
-        // 就能把该 openid 绑到自己新建的员工记录上；配合 staff.uk_staff_openid 唯一键，
+        // ===== 情况一：该 token 已对应一条真实员工记录（userId 是真实 staffId）=====
+        // 这只可能是「改选」。[2026-09-17 产品口径] **「选择 ≠ 生效」**：选角色只是登记意向，
+        // 还没挂到水站上就不算生效，此时允许回上一步改选（前端在 apply-bind / create-station
+        // 提供「重新选择身份」入口）；一旦生效就禁止自行更改，须走管理员。
+        //
+        // 判据：两种角色「生效」时都落在同一个字段上，不必分角色判断 ——
+        //   配送员生效 = 站长批准了绑定（DeliveryBindingController.approveBind → updateStationId）
+        //   站长生效   = 已建好水站（本类 createStationAndBind → staff.setStationId）
+        // 两者都表现为 staff.station_id 非空。
+        //
+        // ⚠️ **本分支不需要 pendingOpenid，也不能把它挡在前面**：改选的凭据就是 token 里的
+        // userId（它本身就是那条员工记录），比"客户端自报 openid"更硬。而身份选定后签发的
+        // token 走的是 generateAccessToken(userId, userType, role, stationId) **四参重载**
+        // → pendingOpenid 为 null；若把 openid 校验放在本分支之前，改选会永远以
+        // 「身份信息缺失」失败（这正是初版实现过的错）。
+        Staff exist = (userId != null && userId > 0) ? staffMapper.getById(userId) : null;
+        if (exist != null) {
+            if (exist.getStationId() != null) {
+                return Result.error("身份已生效（已绑定水站），如需更换请联系管理员处理");
+            }
+            // 未生效 → **原地改既有记录**，不新建（新建会撞 uk_staff_openid）。
+            // 先撤掉挂着的待审批绑定申请：配送员改选站长后那条申请已无人认领，
+            // 而且站长那边点「同意」会被 approveBind 的「仅配送员可审批绑定」挡回去 ——
+            // 等于给站长留了一个永远批不掉的申请。
+            List<StaffStationApplication> pendings = appMapper.listByStaff(exist.getId());
+            if (pendings != null) {
+                for (StaffStationApplication a : pendings) {
+                    if (a.getStatus() != null
+                            && a.getStatus() == StaffStationApplication.STATUS_PENDING) {
+                        appMapper.cancel(a.getId());
+                    }
+                }
+            }
+            exist.setRole(roleParam);
+            if (nickname != null && !nickname.isEmpty()) exist.setName(nickname);
+            if (phone != null) exist.setPhone(phone);
+            exist.setUpdateTime(LocalDateTime.now());
+            // 注意 staffMapper.update() 是**全量写**（含 role / station_id / password_hash）：
+            // 这里传的是刚从库里读出来的实体，且 role 已被 DTO 的 @Pattern 限死为两个合法值，
+            // 不会把 station_id / password_hash 写坏（不要改成接收客户端实体）。
+            staffMapper.update(exist);
+
+            userTokenMapper.deleteByUser(userId, "staff");
+            return buildStaffWxLoginResult(exist);
+        }
+
+        // ===== 情况二：还没有员工记录 → 需要新建。**此时才需要 openid，且只认 JWT 里签入的那个** =====
+        // [2026-09-12 修复] 旧实现读 params.getPendingOpenid()（请求体里的 _pendingOpenid），
+        // 等于让调用方自报身份：任何持 UNSELECTED token 的人把该字段换成别人的 openid，
+        // 就能把那个 openid 绑到自己新建的员工记录上；配合 staff.uk_staff_openid 唯一键，
         // 真实主人之后再登录会直接落到这条被抢绑的记录上。
         // 现在 openid 在 wx-login-staff 签发 token 时就已签入 claims，此处从 AuthContext 读取，
         // 客户端传什么参数都不再影响结果（字段保留仅为兼容旧客户端，不参与判定）。
         String pendingOpenid = AuthContext.getPendingOpenid();
         if (pendingOpenid == null || pendingOpenid.isEmpty()) {
             return Result.error("身份信息缺失，请重新登录");
-        }
-
-        if (userId != null && userId > 0) {
-            Staff exist = staffMapper.getById(userId);
-            if (exist != null) {
-                return Result.error("该账号已选择身份，如需切换请联系管理员处理");
-            }
         }
 
         // 该微信已经绑定过员工 → 不能再建一条（否则撞 uk_staff_openid，报的是难懂的数据库错误）
@@ -297,6 +347,13 @@ public class LoginController {
             fullAddress = sb.toString();
         }
         station.setAddress(fullAddress.isEmpty() ? null : fullAddress);
+        // [2026-09-17 / v34] 地图选点坐标。
+        // 此前这里**从没读过** params 的 latitude/longitude，而建站页一直在发它们 ——
+        // 站长在地图上选的点被静默丢弃（DTO 当时也没有这两个字段，Jackson 直接忽略未知字段）。
+        // 坐标是配送范围判定的前提：没有它，"超出范围"这件事根本无从判断。
+        // 留空是允许的（站长可以不定位），为空时范围校验跳过而不是拒单。
+        station.setLat(params.getLatitude());
+        station.setLng(params.getLongitude());
         station.setStatus(1);
         station.setCreateTime(LocalDateTime.now());
         station.setUpdateTime(LocalDateTime.now());

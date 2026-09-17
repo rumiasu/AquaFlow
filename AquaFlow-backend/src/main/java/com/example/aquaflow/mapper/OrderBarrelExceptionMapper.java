@@ -116,9 +116,12 @@ public interface OrderBarrelExceptionMapper {
                        @Param("expectedStatus") String expectedStatus,
                        @Param("status") String status);
 
+    // [2026-09-16 修复] 区间上界必须用**半开**写法 `< endDate + 1 天`。
+    // 原写法 `created_at <= #{endDate}` 把 endDate 当 DATE 比较，实际是"<= 今天 00:00:00"，
+    // 于是**今天新增的异常一条都统计不到**（站长看板永远停在昨天，刚发生的问题显示为"无异常"）。
     @Select("select category, count(*) as cnt from order_barrel_exception " +
             "where station_id = #{stationId} " +
-            "and created_at >= #{startDate} and created_at <= #{endDate} " +
+            "and created_at >= #{startDate} and created_at < DATE_ADD(#{endDate}, INTERVAL 1 DAY) " +
             "group by category")
     List<java.util.Map<String, Object>> countByCategory(
             @Param("stationId") Long stationId,
@@ -130,7 +133,7 @@ public interface OrderBarrelExceptionMapper {
             "from order_barrel_exception " +
             "where station_id = #{stationId} " +
             "and status = 'EXECUTED' " +
-            "and created_at >= #{startDate} and created_at <= #{endDate}")
+            "and created_at >= #{startDate} and created_at < DATE_ADD(#{endDate}, INTERVAL 1 DAY)")
     java.util.Map<String, Object> sumCompensation(
             @Param("stationId") Long stationId,
             @Param("startDate") java.time.LocalDate startDate,

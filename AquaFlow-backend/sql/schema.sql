@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS `address` (
   `detail` varchar(255) NOT NULL COMMENT '详细地址',
   `lat` decimal(10,6) DEFAULT NULL COMMENT '纬度(地图解析后存)',
   `lng` decimal(10,6) DEFAULT NULL COMMENT '经度(地图解析后存)',
+  `floor` int DEFAULT NULL COMMENT '楼层（楼层费依据；NULL=未填，不收楼层费只提示）',
+  `has_elevator` tinyint DEFAULT NULL COMMENT '有无电梯: NULL=未确认(不收楼层费) 0=无电梯 1=有电梯。⚠️ NULL 与 0 必须区分',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`)
@@ -204,6 +206,7 @@ CREATE TABLE IF NOT EXISTS `customer_barrel_over` (
   `over_qty` int NOT NULL DEFAULT '0' COMMENT '过占=占用-权益; 正数=欠桶, 负数=多还桶(水站暂存), 均为合法状态',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `owed_since` datetime NULL DEFAULT NULL COMMENT '本次欠桶起始时间: over 由<=0变为>0时写入, 回到<=0时清空, 已是正数再增加不重置; NULL=当前不欠桶(含 over<0 的水站暂存)。仅供站长端欠桶台账/下单提醒展示, 不参与任何校验',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_over` (`customer_id`,`station_id`,`product_id`),
   KEY `idx_over_station` (`station_id`),
@@ -240,6 +243,25 @@ CREATE TABLE IF NOT EXISTS `customer_station_config` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_customer_station` (`customer_id`,`station_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='客户水站权限配置';
+-- 客户特权（v40）：站长在客户画像里逐个开通。已实现的只有 NO_MIN_ORDER（免起送门槛）。
+-- ⚠️ **只承载"不动钱"的类型**：动钱的（折扣率/免配送次数/允许退票）本质是客户资产，
+-- 必须做成账户+流水（与水票/押金同类），落在本表表达不了语义 —— 所以接口层对它们直接拒绝授予，
+-- 而不是收下一个"配了也不生效"的悬空配置（见 constant/PrivilegeType.isImplemented）。
+-- 特权按 (customer, station) 隔离：A 站给的不在 B 站生效（否则等于跨站送钱）。
+CREATE TABLE IF NOT EXISTS `customer_privilege` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `customer_id` bigint NOT NULL COMMENT '客户ID',
+  `station_id` bigint NOT NULL COMMENT '水站ID —— 特权按 (customer, station) 隔离',
+  `type` varchar(32) NOT NULL COMMENT '特权类型；有限枚举，见 constant/PrivilegeType。本版只接受不动钱的类型',
+  `value` varchar(64) DEFAULT NULL COMMENT '数值型特权的取值（本版唯一的 NO_MIN_ORDER 不用它，保留给将来的次数/折扣率）',
+  `note` varchar(200) DEFAULT NULL COMMENT '站长备注（为什么给这个客户开）',
+  `operator_id` bigint DEFAULT NULL COMMENT '授予人（站长员工ID）',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_customer_privilege` (`customer_id`,`station_id`,`type`),
+  KEY `idx_privilege_station` (`station_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站长按客户逐个开通的特权; 只承载不动钱的类型';
 CREATE TABLE IF NOT EXISTS `deposit_record` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `customer_id` bigint NOT NULL,
@@ -294,6 +316,9 @@ CREATE TABLE IF NOT EXISTS `inventory` (
   `product_id` bigint NOT NULL COMMENT '商品ID',
   `quantity` int NOT NULL DEFAULT '0' COMMENT '库存数量',
   `enabled` int NOT NULL DEFAULT '1',
+  `sale_price` decimal(10,2) DEFAULT NULL COMMENT '本站售价; NULL=回落 product.price(通用库参考价)。计价唯一入口 util/PriceUtil#calcUnitPrice',
+  `cost_price` decimal(10,2) DEFAULT NULL COMMENT '本站进货成本单价（NULL=未填，毛利报表会标注未填而不是按 0 算成全额毛利）。⚠️ 成本变了之后历史毛利会用新成本重算 —— 见 migration_v39 头注释',
+  `deposit_price` decimal(10,2) DEFAULT NULL COMMENT '本站押金(仅桶装水使用); NULL=回落 product.deposit。下单时必须快照进 customer_barrel_in_transit.unit_price',
   `ticket_enabled` int NOT NULL DEFAULT '0',
   `ticket_price` decimal(10,2) NOT NULL DEFAULT '0.00',
   `priority_display` int NOT NULL DEFAULT '0' COMMENT '优先展示: 0 否 1 是',
@@ -477,6 +502,8 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `total_amount` decimal(10,2) DEFAULT '0.00' COMMENT '订单总金额',
   `water_amount` decimal(10,2) DEFAULT '0.00' COMMENT '水费金额',
   `deposit_amount` decimal(10,2) DEFAULT '0.00' COMMENT '押金金额',
+  `delivery_fee` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '配送费（并入 total_amount 是 Phase 1 的事；勿塞进 water_amount/deposit_amount）',
+  `floor_fee` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '楼层费（向客户收的那一笔；给配送员的楼层补贴是另一笔成本）',
   `idempotency_key` varchar(64) DEFAULT NULL COMMENT '幂等键',
   `first_barrel_order` tinyint(1) DEFAULT '0' COMMENT '是否首次桶装水订单(押金桶无需回桶)',
   PRIMARY KEY (`id`),
@@ -493,15 +520,19 @@ CREATE TABLE IF NOT EXISTS `orders` (
 CREATE TABLE IF NOT EXISTS `payment_record` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `order_id` bigint DEFAULT NULL COMMENT '订单ID（水票直购等无订单支付时为空）',
+  `idempotency_key` varchar(64) DEFAULT NULL COMMENT '客户端幂等键（在线购票等无订单支付用）；NULL=不参与防重。见 migration_v33',
   `customer_id` bigint NOT NULL COMMENT '客户ID',
   `station_id` bigint DEFAULT NULL,
   `amount` decimal(10,2) NOT NULL COMMENT '支付金额（退款冲正流水为负值）',
   `water_amount` decimal(10,2) DEFAULT '0.00' COMMENT '水费金额',
   `barrel_deposit` decimal(10,2) DEFAULT '0.00' COMMENT '桶押金金额',
+  `delivery_fee` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '配送费（与 orders.delivery_fee 对齐口径，供对账等式2）',
+  `floor_fee` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '楼层费（与 orders.floor_fee 对齐口径）',
   `excess_barrels` int DEFAULT '0' COMMENT '超出桶数',
   `payment_method` tinyint NOT NULL COMMENT '支付方式: 1=微信 2=现金(货到付款) 3=水票（水票下单即视同已付）',
   `ticket_water_type_id` bigint DEFAULT NULL COMMENT '在线购票：所购商品ID（即原 water_type；非购票支付为空）',
   `ticket_qty` int DEFAULT NULL COMMENT '在线购票：购买张数',
+  `ticket_package_id` bigint DEFAULT NULL COMMENT '在线购票：所购档位（ticket_package.id）。档位价会变，历史流水必须能自证当时是哪个档位',
   `status` tinyint DEFAULT '1' COMMENT '状态: 1=待支付 2=已支付 3=已退款 4=已取消',
   `transaction_no` varchar(100) DEFAULT NULL,
   `operator_id` bigint DEFAULT NULL,
@@ -522,27 +553,54 @@ CREATE TABLE IF NOT EXISTS `payment_record` (
   -- 既与退款冲正流水不冲突（退款后原记录与冲正流水均为 REFUNDED，生成列为 NULL，NULL 在唯一键中不参与比较），
   -- 又能在并发重复提交时由数据库兜底。无订单支付（水票直购）order_id 为 NULL，同样不受影响。
   UNIQUE KEY `uk_payment_active_order` (`active_order_id`),
+  -- [v33] 在线购票（order_id IS NULL）的幂等键。⚠️ 上面那个 uk_payment_active_order 对它
+  -- **零保护**：生成列 active_order_id 在 order_id 为 NULL 时也是 NULL，而 MySQL 唯一键中
+  -- NULL 互不冲突。唯一键带上 customer_id 是必需的 —— 单列唯一键下，客户端传别人的 token
+  -- 会拿回别人的支付记录（跨客户泄露）。
+  -- idempotency_key 为 NULL 时整行不参与唯一性判定，故存量行与全部订单支付不受影响。
+  UNIQUE KEY `uk_payment_idempotency` (`customer_id`,`idempotency_key`),
   CONSTRAINT `fk_payment_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='支付记录';
 CREATE TABLE IF NOT EXISTS `product` (
   `id` bigint NOT NULL AUTO_INCREMENT,
+  `owner_station_id` bigint DEFAULT NULL COMMENT '归属水站: NULL=通用商品库(开发者维护, 站长只读); 非NULL=该站自定义商品(仅本站可见, 可完整编辑)',
   `name` varchar(100) NOT NULL COMMENT '商品名称',
   `category` tinyint NOT NULL COMMENT '1 桶装水 2 瓶装水 3 饮水器',
   `brand` varchar(100) DEFAULT NULL COMMENT '品牌',
   `spec` varchar(100) DEFAULT NULL COMMENT '规格',
   `image_object_name` varchar(500) DEFAULT NULL COMMENT '图片 COS 对象键',
   `description` text COMMENT '商品描述',
-  `price` decimal(10,2) NOT NULL COMMENT '基础售价',
-  `deposit` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '押金(只有桶装水使用)',
+  `price` decimal(10,2) NOT NULL COMMENT '基础售价(通用库参考价; 本站售价见 inventory.sale_price)',
+  `deposit` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '押金(只有桶装水使用; 通用库参考押金, 本站押金见 inventory.deposit_price)',
   `max_per_order` int DEFAULT NULL COMMENT '单次购买上限',
-  `status` tinyint NOT NULL DEFAULT '1' COMMENT '0 下架 1 正常 2 停售',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '0 下架 1 正常 2 停售。仅供开发者维护目录时使用, 站长端无"平台停售"概念',
   `sort` int NOT NULL DEFAULT '0' COMMENT '排序',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `ticket_enabled` int DEFAULT '0' COMMENT '是否支持水票支付',
-  `ticket_price` decimal(10,2) DEFAULT '0.00' COMMENT '水票价格',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品表';
+  `ticket_enabled` int DEFAULT '0' COMMENT '是否支持水票支付(商品级默认值; 真正生效的是 inventory.ticket_enabled)',
+  `ticket_price` decimal(10,2) DEFAULT '0.00' COMMENT '水票价格(历史列, 实际恒为 0; 真正生效的是 inventory.ticket_price)',
+  `preset_uk` varchar(220) GENERATED ALWAYS AS (IF(`owner_station_id` IS NULL,CONCAT(`name`,'|',IFNULL(`brand`,''),'|',IFNULL(`spec`,'')),NULL)) STORED COMMENT '通用库去重键(生成列): 通用库行=名称|品牌|规格, 自定义商品行=NULL。唯一键中 NULL 互不冲突, 故用生成列表达条件唯一',
+  `station_uk` varchar(240) GENERATED ALWAYS AS (IF(`owner_station_id` IS NULL,NULL,CONCAT(`owner_station_id`,':',`name`,'|',IFNULL(`brand`,''),'|',IFNULL(`spec`,'')))) STORED COMMENT '站内自定义商品去重键(生成列): 同一站不允许同名同品牌同规格两条; 通用库行=NULL',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_product_preset` (`preset_uk`),
+  UNIQUE KEY `uk_product_station` (`station_uk`),
+  KEY `idx_product_owner_station` (`owner_station_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品表(通用商品库 + 各站自定义商品, 靠 owner_station_id 逻辑隔离)';
+CREATE TABLE IF NOT EXISTS `product_submission` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `station_id` bigint NOT NULL COMMENT '上报水站',
+  `product_id` bigint NOT NULL COMMENT '被上报的商品（product.id，必为本站自定义商品）',
+  `submitter_staff_id` bigint DEFAULT NULL COMMENT '上报人（站长）；取不到则 NULL，只影响追溯',
+  `note` varchar(200) DEFAULT NULL COMMENT '站长补充说明（规格/品牌/进货渠道等）',
+  `status` tinyint NOT NULL DEFAULT '0' COMMENT '0 待处理 / 1 已纳入通用库 / 2 已驳回',
+  `handle_note` varchar(200) DEFAULT NULL COMMENT '开发者处置说明',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_submission_status_time` (`status`,`create_time`),
+  KEY `idx_submission_product` (`product_id`),
+  KEY `idx_submission_station` (`station_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站长自定义商品上报通用库登记表（平台侧人工处理，站长端只写只读自己的）';
 CREATE TABLE IF NOT EXISTS `staff` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
@@ -582,7 +640,12 @@ CREATE TABLE IF NOT EXISTS `station` (
   `name` varchar(100) NOT NULL,
   `phone` varchar(30) DEFAULT NULL,
   `address` varchar(200) DEFAULT NULL,
-  `status` tinyint DEFAULT '1' COMMENT '1营业 2停业',
+  `status` tinyint DEFAULT '1' COMMENT '1营业 2停业（硬状态：停业会真的拒绝下单，且不在公开选站列表里）',
+  `operating_status` tinyint NOT NULL DEFAULT '1' COMMENT '营业软状态（不阻断下单，只给顾客提示）: 1正常运营 2休息中 3配送延迟 4暂停配送可预约; 见 constant/StationOperatingStatus',
+  `status_note` varchar(100) DEFAULT NULL COMMENT '站长留言：配合营业状态的一句话说明，展示给顾客（≤100字）',
+  `status_update_time` datetime DEFAULT NULL COMMENT '营业状态最近一次修改时间',
+  `lat` decimal(10,6) DEFAULT NULL COMMENT '纬度（站长地图选点；NULL=未设置，配送范围校验会跳过）',
+  `lng` decimal(10,6) DEFAULT NULL COMMENT '经度（站长地图选点；NULL=未设置，配送范围校验会跳过）',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -595,10 +658,97 @@ CREATE TABLE IF NOT EXISTS `station_exception_config` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update time',
   PRIMARY KEY (`station_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Station exception config table';
+-- 站级配送计费配置（v35）：起送量 / 配送范围 / 运费 / 楼层费。
+-- **无行 = 未配置**，代码用 StationDeliveryConfig.defaults() 兜底成「全 0、不拦单、只提示」，
+-- 所以存量水站的行为与升级前完全一致。算出来的钱落 orders.delivery_fee / floor_fee（下单快照），
+-- 不落本表 —— 站长改配置不能改到历史订单的金额。
+CREATE TABLE IF NOT EXISTS `station_delivery_config` (
+  `station_id` bigint NOT NULL COMMENT '水站ID（一站一行）',
+  `min_order_buckets` int DEFAULT NULL COMMENT '起送桶数（与 min_order_amount 取或；都为空=不限）',
+  `min_order_amount` decimal(10,2) DEFAULT NULL COMMENT '起送金额（水费口径，不含押金与运费）',
+  `min_order_mode` varchar(10) NOT NULL DEFAULT 'WARN' COMMENT '未达起送量: WARN仅提示 / REJECT不接单 / FEE加收费用; 见 constant/DeliveryLimitMode',
+  `min_order_fee` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT 'FEE 模式下未达起送量的加收金额',
+  `delivery_radius_m` int DEFAULT NULL COMMENT '配送半径(米); NULL=不限范围',
+  `over_radius_mode` varchar(10) NOT NULL DEFAULT 'WARN' COMMENT '超范围: WARN / REJECT / FEE',
+  `remote_fee` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT 'FEE 模式下超范围的加收金额',
+  `base_delivery_fee` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '基础配送费(未达免运费门槛时收)',
+  `free_delivery_buckets` int DEFAULT NULL COMMENT '免运费桶数门槛(与金额门槛取或; 都为空=一直收基础配送费)',
+  `free_delivery_amount` decimal(10,2) DEFAULT NULL COMMENT '免运费金额门槛(水费口径)',
+  `floor_free_level` int NOT NULL DEFAULT '1' COMMENT '免费楼层(此层及以下不收楼层费)',
+  `floor_fee_per_level` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '每超一层加收金额; 0=本站不收楼层费',
+  `floor_fee_mode` varchar(10) NOT NULL DEFAULT 'PER_ORDER' COMMENT '楼层费口径: PER_ORDER按单 / PER_BUCKET按桶; 见 constant/FloorFeeMode',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`station_id`),
+  CONSTRAINT `fk_sdc_station` FOREIGN KEY (`station_id`) REFERENCES `station` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站级配送计费配置(起送量/配送范围/运费/楼层费); 无行=未配置, 等同全0不拦单';
+-- 配送员计件单价（v37）：product_id=0 表示该站默认价。
+-- 与外卖平台的关键差别：**发钱的是站长不是平台**，所以这是站内台账，没有平台结算单/佣金/骑手钱包；
+-- 计件单位是**桶**不是单（一单常 1~3 桶）。
+CREATE TABLE IF NOT EXISTS `staff_piece_rate` (
+  `station_id` bigint NOT NULL COMMENT '水站ID',
+  `product_id` bigint NOT NULL DEFAULT '0' COMMENT '商品ID; 0=该站默认价（按商品可单独定价，18.9L 与 5L 搬运成本不同）',
+  `per_bucket_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '每送一桶的计件价; 0=本站不计件',
+  `return_bucket_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '每回收一个空桶的奖励; 0=不奖',
+  `floor_bonus_per_level` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '无电梯时每超一层的补贴; 0=不补',
+  `floor_free_level` int NOT NULL DEFAULT '1' COMMENT '免费楼层（此层及以下不补）',
+  `per_order_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '每单基础奖励',
+  `penalty_per_bucket` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '每少收一个空桶的扣减; 0=不扣',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`station_id`,`product_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站级配送计件单价';
+-- 配送员收益明细（v37）：一行一个动作，工钱走独立对账等式 E-PAY，**不进客户对账**。
+-- ⚠️ auto_uk 的 NULL 是**有意**的：order_id 为 NULL = 人工录入，本来就允许无限多条。
+-- 自动收益（完成配送时产生）必须幂等，由 uk_earning_auto 兜底；调整单另由 uk_earning_adjustment 兜底。
+-- 这与 uk_ticket_consume / uk_payment_active_order 那个"NULL 导致零保护"的坑形状相同但语义相反。
+CREATE TABLE IF NOT EXISTS `staff_earning` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `station_id` bigint NOT NULL COMMENT '结算站 = 履约站(delivery_station_id)：工钱是履约成本，跟出车的人走',
+  `staff_id` bigint NOT NULL COMMENT '收益归属人（实际完成配送的人）',
+  `order_id` bigint DEFAULT NULL COMMENT '关联订单；NULL=人工调整',
+  `kind` varchar(32) NOT NULL COMMENT 'DELIVERY_BUCKET/RETURN_BUCKET/FLOOR_BONUS/ORDER_BONUS/PENALTY/ADJUST; 见 constant/EarningKind',
+  `product_id` bigint NOT NULL DEFAULT '0' COMMENT '商品ID（送桶/回桶按商品分行的用）; 0=与商品无关（楼层/单奖/扣减/人工调整）',
+  `qty` int DEFAULT NULL COMMENT '数量（桶数/层数）',
+  `unit_amount` decimal(10,2) DEFAULT NULL COMMENT '单价快照',
+  `amount` decimal(10,2) NOT NULL COMMENT '金额; 扣减类为负数（方向由 kind 决定）',
+  `payroll_id` bigint DEFAULT NULL COMMENT '已结算时写入所属结算单; NULL=未结算',
+  `adjustment_id` bigint DEFAULT NULL COMMENT '来源资产调整单（人工调整场景的幂等键）',
+  `note` varchar(200) DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `auto_uk` varchar(128) GENERATED ALWAYS AS ((case when `order_id` is null then NULL else concat(`order_id`,'-',`staff_id`,'-',`kind`,'-',`product_id`) end)) STORED COMMENT '自动收益去重键(含 product_id); NULL 是有意的=人工录入允许无限多条',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_earning_auto` (`auto_uk`),
+  UNIQUE KEY `uk_earning_adjustment` (`adjustment_id`,`staff_id`,`kind`),
+  KEY `idx_earning_staff_time` (`station_id`,`staff_id`,`create_time`),
+  KEY `idx_earning_payroll` (`payroll_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='配送员收益明细; 工钱走独立等式不进客户对账';
+-- 配送员工资结算单（v37）：草稿 → 已确认 → 已发放。
+-- 「算出来」与「发出去」必须分开：只有一个状态时，站长改一条明细就会悄悄改掉已经发过的钱。
+CREATE TABLE IF NOT EXISTS `staff_payroll` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `payroll_no` varchar(32) NOT NULL COMMENT '单据号 PRyyyymmdd-000001（拿到自增 id 后生成，与押金条 DP 同款）',
+  `station_id` bigint NOT NULL,
+  `staff_id` bigint NOT NULL,
+  `period_start` date NOT NULL COMMENT '结算期间起（含）',
+  `period_end` date NOT NULL COMMENT '结算期间止（含）',
+  `total_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '本期合计; 必须等于本期明细之和（对账 E-PAY）',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '1 草稿 2 已确认 3 已发放',
+  `paid_time` datetime DEFAULT NULL COMMENT '发钱时间（线下转账/现金，系统只留痕）',
+  `operator_id` bigint DEFAULT NULL,
+  `note` varchar(200) DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_payroll_no` (`payroll_no`),
+  UNIQUE KEY `uk_payroll_period` (`station_id`,`staff_id`,`period_start`,`period_end`) COMMENT '同一人同一期间只能有一张结算单 —— 防止重复结算',
+  KEY `idx_payroll_station_status` (`station_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='配送员工资结算单; 确认后明细锁定';
 CREATE TABLE IF NOT EXISTS `ticket_account` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `customer_id` bigint NOT NULL,
   `remain_quantity` int NOT NULL DEFAULT '0' COMMENT '剩余水票数',
+  `right_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '剩余水票的金额价值 = Σ ticket_lot.remain_qty × unit_price（派生值，真相源是 ticket_lot）',
   `product_id` bigint NOT NULL DEFAULT '0',
   `station_id` bigint NOT NULL COMMENT '所属水站ID',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -613,6 +763,8 @@ CREATE TABLE IF NOT EXISTS `ticket_record` (
   `order_id` bigint DEFAULT NULL COMMENT '关联订单',
   `source` varchar(50) DEFAULT NULL COMMENT '来源：购买/赠送/消费',
   `ticket_source` tinyint DEFAULT '1' COMMENT '票据来源: 1=线上 2=线下',
+  `unit_price` decimal(10,2) DEFAULT NULL COMMENT '本次变动的单价（购买=实付均价；消耗=所消耗批次的加权均价；退款=回补批次单价）',
+  `ticket_lot_id` bigint DEFAULT NULL COMMENT '关联的水票批次；仅当本次变动只涉及一个批次时有值，跨批次为 NULL（看 unit_price 的加权均价）',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `product_id` bigint NOT NULL DEFAULT '0',
   `station_id` bigint DEFAULT NULL,
@@ -629,6 +781,50 @@ CREATE TABLE IF NOT EXISTS `ticket_record` (
   UNIQUE KEY `uk_ticket_adjustment` (`adjustment_id`,`product_id`,`source`),
   KEY `idx_ticket_record_station` (`station_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- 水票档位套餐（v36）：站级定价结构（10/20/100 张一组，越买越便宜）。
+-- **不是促销引擎** —— 永远可买、不叠加、不互斥，所以不需要活动/优先级/退款摊分那一套。
+-- 档位是站级的：全局档位会让 A 站买的票在 B 站有价差。
+CREATE TABLE IF NOT EXISTS `ticket_package` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `station_id` bigint NOT NULL COMMENT '水站ID（档位是站级的，不是全局的）',
+  `product_id` bigint NOT NULL COMMENT '商品ID',
+  `qty` int NOT NULL COMMENT '本档张数（10 / 20 / 100）',
+  `price` decimal(10,2) NOT NULL COMMENT '本档总价',
+  `unit_price` decimal(10,2) NOT NULL COMMENT '均价 = price / qty（冗余落库，用于快照与展示，避免每次相除）',
+  `title` varchar(50) DEFAULT NULL COMMENT '展示名（如「100 张超值装」），可空则前端按张数生成',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '1 上架 0 下架',
+  `sort` int NOT NULL DEFAULT '0' COMMENT '排序（小的在前）',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ticket_package` (`station_id`,`product_id`,`qty`),
+  KEY `idx_ticket_package_station_product` (`station_id`,`product_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='水票档位套餐(站级定价结构, 非促销引擎)';
+-- 水票批次（v36）：单价快照，照抄 customer_barrel_lot 的模型。
+-- 为什么必须有：档位意味着票价分段，站长改了档位价之后，「客户账户里已买的票值多少钱」
+-- 与「退票按什么价退」就无从回答。桶账早就解决过同一问题（"2026 年 30 元买的，2027 年退就退 30 元"）。
+CREATE TABLE IF NOT EXISTS `ticket_lot` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `lot_no` varchar(32) NOT NULL COMMENT '批次号 TMyyyymmdd-000001（拿到自增 id 后生成，与押金条 DP 同款）',
+  `customer_id` bigint NOT NULL,
+  `station_id` bigint NOT NULL,
+  `product_id` bigint NOT NULL,
+  `unit_price` decimal(10,2) NOT NULL COMMENT '买入当时单价快照（档位均价）—— 退票按它退，不按退时的当前价',
+  `qty` int NOT NULL COMMENT '本批张数',
+  `remain_qty` int NOT NULL COMMENT '剩余未退张数',
+  `source_type` tinyint NOT NULL DEFAULT '1' COMMENT '1 在线购买 2 历史迁移 3 人工补录 4 退款回补',
+  `price_source` tinyint NOT NULL DEFAULT '1' COMMENT '1 实付均价 2 当时站级水票价 3 当前价推断(兜底)',
+  `is_migrated` tinyint NOT NULL DEFAULT '0' COMMENT '1=历史迁移/单价为推断，退票需二次确认',
+  `payment_record_id` bigint DEFAULT NULL COMMENT '来源支付流水（在线购买）',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '1 有效 2 已退完 3 作废',
+  `operator_id` bigint DEFAULT NULL,
+  `note` varchar(200) DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ticket_lot_no` (`lot_no`),
+  KEY `idx_ticket_lot_owner` (`customer_id`,`station_id`,`product_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='水票批次(单价快照); 余额的真相源是 Σ remain_qty';
 CREATE TABLE IF NOT EXISTS `user_token` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL COMMENT '用户ID',
@@ -696,5 +892,31 @@ CREATE TABLE IF NOT EXISTS `reconciliation_result` (
   UNIQUE KEY `uk_recon_run_check` (`run_date`,`check_key`),
   KEY `idx_recon_date` (`run_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='对账结果：每日每检查项一行';
+
+-- ============================================================
+-- 分级告警（v30 引入）：按「谁该处理」投递
+--   SYSTEM    = 系统故障 → 系统管理员（开发者）：对账不平 / 补偿失败 / 未预期 500
+--   OPERATION = 运营故障 → 该水站站长：桶异常待处置 / 补偿已执行
+--   投递方向由 constant/AlertType 决定；唯一写入口 service/impl/AlertServiceImpl。
+--   ⚠️ 站长端只可查 alert_type='OPERATION' and station_id=本站（ManagerAlertController）；
+--      系统告警没有 HTTP 入口，运维直接查表。
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `alert_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `alert_type` varchar(16) NOT NULL COMMENT '告警归属：SYSTEM=系统故障(收件人=系统管理员) / OPERATION=运营故障(收件人=该站站长)；方向由 constant/AlertType 决定',
+  `level` varchar(8) NOT NULL DEFAULT 'WARN' COMMENT 'ERROR/WARN/INFO',
+  `source` varchar(64) NOT NULL COMMENT '产生位置（类/环节），排查时用来定位',
+  `station_id` bigint DEFAULT NULL COMMENT '运营告警的收件水站；系统告警恒为 NULL（也是"不给站长看"的判据）',
+  `staff_id` bigint DEFAULT NULL COMMENT '运营告警的收件站长；当时没有站长则为 NULL（只落库不丢）',
+  `title` varchar(200) NOT NULL COMMENT '一句话摘要（人看的标题）',
+  `content` text COMMENT '详情',
+  `related_type` varchar(32) DEFAULT NULL COMMENT '关联业务对象类型，如 ORDER_BARREL_EXCEPTION',
+  `related_id` bigint DEFAULT NULL COMMENT '关联业务对象 id',
+  `notify_status` varchar(16) NOT NULL DEFAULT 'LOGGED' COMMENT 'LOGGED=只落库+日志 / PUSHED=已推送外部渠道 / FAILED=推送失败',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_alert_type_station_time` (`alert_type`,`station_id`,`create_time`),
+  KEY `idx_alert_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='分级告警：系统故障→系统管理员；运营故障→水站站长';
 
 SET FOREIGN_KEY_CHECKS = 1;

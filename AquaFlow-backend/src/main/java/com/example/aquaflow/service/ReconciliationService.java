@@ -25,8 +25,12 @@ public class ReconciliationService {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public ReconciliationService(JdbcTemplate jdbcTemplate) {
+    /** 分级告警：对账不平属**系统故障** → 投给系统管理员（见 constant/AlertType） */
+    private final AlertService alertService;
+
+    public ReconciliationService(JdbcTemplate jdbcTemplate, AlertService alertService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.alertService = alertService;
     }
 
     /** 每日 03:00 执行日结对账。 */
@@ -39,6 +43,9 @@ public class ReconciliationService {
             log.info("[日结对账] 通过：押金 / 支付 / 桶 / 库存 全部平衡");
         } else {
             log.error("[日结对账] 发现不平项，请人工介入：{}", result);
+            // [2026-09-16] 对账不平 = 系统故障（账目/流水层面出了问题，站长既看不懂也修不了）
+            alertService.systemFault("DailyReconcile", "日结对账发现不平项",
+                    "V1（押金/支付/桶/库存）不平项：" + result, null, null);
         }
 
         // 新桶权益模型的独立校验（与 V1 并行跑，不覆盖 V1 的结论）
@@ -48,6 +55,8 @@ public class ReconciliationService {
             log.info("[日结对账 V2] 通过：权益批次 / 占用恒等 / 物理桶守恒 / 穿底 全部平衡");
         } else {
             log.warn("[日结对账 V2] 发现不平项：{}", v2);
+            alertService.systemFault("DailyReconcile", "日结对账 V2 发现不平项",
+                    "V2（权益批次/占用恒等/物理守恒/穿底）不平项：" + v2, null, null);
         }
 
         // 结果落表：此前只写日志，无人可查、无留痕（问责与趋势分析都做不到）
@@ -347,6 +356,73 @@ public class ReconciliationService {
         r.put("E7_storageStale", e7);
         if (e7 > 0) {
             log.warn("[对账V2 提示 E7] 存桶滞留：over<0 且 30 天无配送记录 {} 条（顾客多还的桶寄在水站，建议人工确认）", e7);
+        }
+
+        // ---- E8：水票余额 vs 水票批次（v36，与 E3 同构）----
+        // 为什么必须有一条：档位意味着一张票的价格是**分段**的，站长改一次档位价之后，
+        // "客户账户里那 100 张票值多少钱"就再也没有参照物了。
+        // ticket_lot 是真相源，ticket_account.remain_quantity / right_amount 都是它的派生汇总。
+        int e8a = count("SELECT COUNT(*) FROM ("
+                + "SELECT a.customer_id, a.station_id, a.product_id FROM ticket_account a "
+                + "LEFT JOIN (SELECT customer_id, station_id, product_id, SUM(remain_qty) rq, "
+                + "                  SUM(remain_qty * unit_price) ra FROM ticket_lot WHERE status = 1 "
+                + "            GROUP BY customer_id, station_id, product_id) l "
+                + "  ON l.customer_id = a.customer_id AND l.station_id = a.station_id AND l.product_id = a.product_id "
+                + "WHERE COALESCE(a.remain_quantity, 0) <> COALESCE(l.rq, 0) "
+                + "   OR ABS(COALESCE(a.right_amount, 0) - COALESCE(l.ra, 0)) > 0.009) x");
+        // 有批次却没有汇总行：说明账户行被删了，或批次写进了别的 (客户,站,商品) 维度
+        int e8b = count("SELECT COUNT(*) FROM ("
+                + "SELECT l.customer_id, l.station_id, l.product_id FROM ticket_lot l "
+                + "WHERE l.status = 1 AND NOT EXISTS (SELECT 1 FROM ticket_account a "
+                + "  WHERE a.customer_id = l.customer_id AND a.station_id = l.station_id "
+                + "    AND a.product_id = l.product_id)) x");
+        int e8 = e8a + e8b;
+        r.put("E8_ticketBalanceVsLot", e8);
+        if (e8 > 0) {
+            // 与 E3/E5 同级：水票是钱（预付），不平属**系统故障**，投给系统管理员而不是站长
+            log.error("[对账V2 ALERT E8] 水票余额与批次不符：汇总错={}, 有批次无汇总={}。示例={}",
+                    e8a, e8b, sampleIds("SELECT a.customer_id FROM ticket_account a "
+                            + "LEFT JOIN (SELECT customer_id, station_id, product_id, SUM(remain_qty) rq, "
+                            + "                  SUM(remain_qty * unit_price) ra FROM ticket_lot WHERE status = 1 "
+                            + "            GROUP BY customer_id, station_id, product_id) l "
+                            + "  ON l.customer_id = a.customer_id AND l.station_id = a.station_id "
+                            + " AND l.product_id = a.product_id "
+                            + "WHERE COALESCE(a.remain_quantity, 0) <> COALESCE(l.rq, 0) "
+                            + "   OR ABS(COALESCE(a.right_amount, 0) - COALESCE(l.ra, 0)) > 0.009"));
+        }
+
+        // ---- E10：应收核销 vs 实收款（2026-09-17，应收账款）----
+        // 不变量「核销 ⟹ 已收款」：settlement_status=2 却 payment_status<>2 表示
+        // "把这笔应收销掉了、钱却没进来"，属资金层面的不一致，与 E1/E8 同级。
+        // ⚠️ 这里**只查单向**：反向（收了钱还没核销）是正常的 —— 现金单送货上门当场收钱，
+        // 站长之后才走月结核销。谁把它改成双向比较，日结就会天天报不平、淹没真问题。
+        // payment_status 为 NULL 也要算进来（NULL <> 2 在 SQL 里是 NULL，不是 true）。
+        int e10 = count("SELECT COUNT(*) FROM orders "
+                + "WHERE settlement_status = 2 AND (payment_status IS NULL OR payment_status <> 2)");
+        r.put("E10_settledButUnpaid", e10);
+        if (e10 > 0) {
+            log.error("[对账V2 ALERT E10] 已核销却未收款的订单 {} 条。示例={}",
+                    e10, sampleIds("SELECT id FROM orders WHERE settlement_status = 2 "
+                            + "AND (payment_status IS NULL OR payment_status <> 2)"));
+        }
+
+        // ---- E9（E-PAY）：工资结算单合计 vs 本期明细之和（v37）----
+        // ⚠️ 这条**刻意不属于客户对账**：staff_earning 是水站与人之间的账，与客户无关。
+        // 把它混进等式 1~4 / E3~E8 会让每天 03:00 的日结必然报不平、淹没真问题。
+        // 同理它的告警分级是 **OPERATION**（站长能看懂也能修）而不是 SYSTEM。
+        int epay = count("SELECT COUNT(*) FROM ("
+                + "SELECT p.id FROM staff_payroll p "
+                + "LEFT JOIN (SELECT payroll_id, SUM(amount) AS s FROM staff_earning "
+                + "            WHERE payroll_id IS NOT NULL GROUP BY payroll_id) e ON e.payroll_id = p.id "
+                + "WHERE ABS(COALESCE(p.total_amount, 0) - COALESCE(e.s, 0)) > 0.009) x");
+        r.put("EPAY_payrollVsEarning", epay);
+        if (epay > 0) {
+            log.error("[对账 ALERT E-PAY] 结算单合计与明细之和不符：{} 张。示例={}",
+                    epay, sampleIds("SELECT p.id FROM staff_payroll p "
+                            + "LEFT JOIN (SELECT payroll_id, SUM(amount) AS s FROM staff_earning "
+                            + "            WHERE payroll_id IS NOT NULL GROUP BY payroll_id) e "
+                            + "  ON e.payroll_id = p.id "
+                            + "WHERE ABS(COALESCE(p.total_amount, 0) - COALESCE(e.s, 0)) > 0.009"));
         }
 
         return r;

@@ -51,7 +51,7 @@
             <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#2E4A68" /></view>
             <view class="bucket-detail">
               <text class="bucket-id">{{item.productName}} {{item.productSpec}}</text>
-              <text class="bucket-time">持有 {{item.assetQty || 0}} 桶 / 欠桶 {{item.owedQty || 0}}</text>
+              <text class="bucket-time">持有 {{item.heldTotalQty || 0}} 桶<text wx:if="{{item.inTransitQty > 0}}">（含配送中 {{item.inTransitQty}}）</text> / 欠桶 {{item.owedQty || 0}}</text>
             </view>
           </view>
           <view class="bucket-status">
@@ -127,7 +127,9 @@
                 wx:for="{{customerBarrelAsset}}" wx:key="productId"
                 data-id="{{item.productId}}" bindtap="onSelectProduct">
             <text>{{item.productName}}{{item.productSpec ? ' ' + item.productSpec : ''}}</text>
-            <text class="water-type-qty">持有 {{item.assetQty || 0}} 桶</text>
+            <!-- 退桶选择处显示「可退」而不是「持有」：可退 = 占用（权益 + over），
+                 配送中的桶还没到手、退不了；欠桶时占用也会小于权益。 -->
+            <text class="water-type-qty">可退 {{item.occupiedQty || 0}} 桶</text>
           </view>
         </view>
       </view>

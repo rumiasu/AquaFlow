@@ -38,6 +38,37 @@ public interface OrderMapper {
     @Update("update orders set payment_status = #{newPaymentStatus}, update_time = NOW() where id = #{id} and payment_status = #{expectedStatus}")
     int updatePaymentStatusIf(@Param("id") Long id, @Param("expectedStatus") Integer expectedStatus, @Param("newPaymentStatus") Integer newPaymentStatus);
 
+    /**
+     * 收到钱：把订单标记为已付款(2)，只允许从「钱还没到手」的两个状态迁入（0 未支付 / 1 待收款）。
+     *
+     * <p>[2026-09-16] 为什么不用 {@code updatePaymentStatusIf(id, UNPAID, PAID)}：现金单下单即
+     * <b>待收款(1)</b>（库列默认值，也是 {@code PaymentStatus.textOf(1)} 与
+     * {@code DashboardMapper} 的待收款金额口径），发起收款/送达都**不再**把它改成 0。
+     * 若收款时仍按 {@code expected=0} 做 CAS，`affected` 恒为 0 → 钱收了、订单却永远停在待收款，
+     * 待收款合计也永远清不掉。收起钱的语义就是"从 0 或 1 都能前进到 2"。</p>
+     *
+     * <p>已退款(3) / 已取消(4) 一律不碰（那是终态，收钱不能把它们复活）。</p>
+     */
+    @Update("update orders set payment_status = 2, update_time = NOW() where id = #{id} and payment_status in (0, 1)")
+    int markPaidIfCollectable(@Param("id") Long id);
+
+    /**
+     * 应收核销：把订单从「未结算」推到「已结算」（2026-09-17，应收账款）。
+     *
+     * <p><b>CAS 的 expected 里带 {@code payment_status = 2} 不是冗余条件</b> —— 它把不变量
+     * 「<b>核销 ⟹ 已收款</b>」钉在 SQL 层：没收到钱就核销，B2B 账面上会出现"账销了、钱没到"。
+     * 调用方必须先经 {@link #markPaidIfCollectable} 再调本方法，且两次都要检查受影响行数
+     * （拿不到行数就不能返回成功，AGENTS §8.20）。</p>
+     *
+     * <p>只允许 1 → 2 单向前进（AGENTS §8.18：状态不许倒滚）；已是 2 时返回 0 —— 幂等重放
+     * 不得报错，但也不得重复计数。</p>
+     *
+     * @return 1 = 本次核销成功；0 = 未收款 / 已是已结算 / 订单不存在
+     */
+    @Update("update orders set settlement_status = 2, update_time = NOW() "
+            + "where id = #{id} and settlement_status = 1 and payment_status = 2")
+    int settleIfCollected(@Param("id") Long id);
+
     @Update("update orders set delivery_staff_id = #{staffId}, status = #{status}, update_time = NOW() where id = #{id}")
     void updateDeliveryStaff(@Param("id") Long id, @Param("staffId") Long staffId, @Param("status") Integer status);
 

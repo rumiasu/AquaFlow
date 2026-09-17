@@ -1,6 +1,7 @@
 .container {
   min-height: 100vh;
-  padding: 32rpx 32rpx 180rpx;
+  /* 底部留白要盖过固定 footer 的总高（提交按钮 + 两行操作），否则最后一段表单会被遮住 */
+  padding: 32rpx 32rpx 340rpx;
   background: #f5f7fb;
   box-sizing: border-box;
 }
@@ -69,37 +70,44 @@
   box-sizing: border-box;
 }
 
-.form-picker {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 88rpx;
-  padding: 0 28rpx;
-  background: #f7f8fb;
-  border-radius: 16rpx;
-  font-size: 30rpx;
-  color: #1a1a1a;
-}
-
-.form-picker.placeholder {
-  color: #999999;
-}
-
-.picker-arrow {
-  font-size: 36rpx;
-  color: #cccccc;
-}
+/* [2026-09-16] .form-picker / .picker-arrow 随「补充省/市/区」级联选择器一并删除：
+   省市区改为从定位结果自动解析（见 index.js onChooseLocation），不再有手选项 */
 
 .location-group .location-value {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 88rpx;
-  padding: 0 28rpx;
+  /* 有省市区副行时自动长高（原为固定 88rpx，会把副行压掉） */
+  min-height: 88rpx;
+  height: auto;
+  padding: 18rpx 28rpx;
   background: #f7f8fb;
   border-radius: 16rpx;
   font-size: 28rpx;
   color: #1a1a1a;
+  box-sizing: border-box;
+}
+
+/* 地址文案可与省市区副行折行，故取 flex:1 + min-width:0，避免长地址把图标挤出容器 */
+.location-text-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.location-text {
+  font-size: 28rpx;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location-sub {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: #8a94a6;
 }
 
 .location-value.placeholder {
@@ -131,3 +139,15 @@
   font-weight: 600;
   border: none;
 }
+
+/* 退出出口：本页是 reLaunch 进来的（页面栈无上一页），没有它站长就出不去 */
+.footer-action {
+  margin-top: 16rpx;
+  padding: 18rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #e5e5ea;
+  text-align: center;
+  font-size: 28rpx;
+  color: #999999;
+}
+.footer-action:active { opacity: 0.8; }

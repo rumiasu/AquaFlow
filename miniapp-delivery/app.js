@@ -1,6 +1,9 @@
 // AquaFlow V1 配送端小程序
 const { getBaseUrl, API, BINDING_STATUS } = require('./config/api')
 const { STORAGE_KEYS } = require('./utils/storage-keys')
+// 仅用于 syncIdentity()。utils/request 只依赖 config/api 与 utils/storage-keys，
+// 不会回引 app.js，故此处顶层 require 不会形成循环。
+const { get } = require('./utils/request')
 
 const ROLE_UNSELECTED = 'UNSELECTED'
 const ROLE_STATION_MANAGER = 'STATION_MANAGER'
@@ -147,69 +150,129 @@ App({
   },
 
   /**
+   * 纯决策：按当前身份/绑定状态算出「应该在哪一页」。
+   * 返回 null 表示状态已满足，可以正常进入业务页。
+   * 抽出来是为了让 routeByRole 与 refreshIdentityAndRoute 共用同一套判定，
+   * 避免两处各写一份、日后逐渐走样。
+   */
+  _targetRoute(u) {
+    const user = u || {}
+    if (!user.role || user.role === ROLE_UNSELECTED || user.needSelectRole) {
+      return '/pages/role-select/index'
+    }
+    if (user.role === ROLE_STATION_MANAGER) {
+      return user.stationId ? null : '/pages/station-mgmt/create-station/index'
+    }
+    if (user.role === ROLE_DELIVERY) {
+      if (user.bindStatus === BINDING_STATUS.BOUND && user.stationId) return null
+      if (user.bindStatus === BINDING_STATUS.PENDING
+          || user.bindStatus === BINDING_STATUS.PENDING_UNBIND) {
+        return '/pages/bind-wait/index'
+      }
+      return '/pages/station-mgmt/apply-bind/index'
+    }
+    return '/pages/role-select/index'
+  },
+
+  /**
    * V1 严格路由守卫
    * @param {boolean} silent  已在业务页时，仅在不符合权限时重定向，正常不操作
    */
   routeByRole(silent) {
-    const userInfo = this.globalData.userInfo || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {}
-    const u = this._normalizeUserInfo(userInfo)
-    const role = u.role
-    const bindStatus = u.bindStatus
-    const stationId = u.stationId
+    const u = this._normalizeUserInfo(
+      this.globalData.userInfo || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {})
+    const target = this._targetRoute(u)
+    console.log('[routeByRole] silent=' + silent + ', role=' + u.role
+      + ', bindStatus=' + u.bindStatus + ', stationId=' + u.stationId
+      + ' → ' + (target || '业务页'))
 
-    console.log('[routeByRole] silent=' + silent + ', role=' + role + ', bindStatus=' + bindStatus + ', stationId=' + stationId + ', needSelectRole=' + u.needSelectRole)
-
-    // 1) 未选角色
-    if (role === ROLE_UNSELECTED || !role || u.needSelectRole) {
-      const targetUrl = '/pages/role-select/index'
-      console.log('[routeByRole] 跳转角色选择页:', targetUrl, 'silent=' + silent)
-      if (silent) wx.redirectTo({ url: targetUrl })
-      else wx.reLaunch({ url: targetUrl })
-      return
-    }
-
-    // 2) 站长：没有 stationId → 创建水站
-    if (role === ROLE_STATION_MANAGER) {
-      if (!stationId) {
-        const targetUrl = '/pages/station-mgmt/create-station/index'
-        console.log('[routeByRole] 站长无水站, 跳转:', targetUrl)
-        if (silent) wx.redirectTo({ url: targetUrl })
-        else wx.reLaunch({ url: targetUrl })
-        return
-      }
-      console.log('[routeByRole] 站长已绑定, 进入首页')
+    if (target === null) {
       if (!silent) wx.reLaunch({ url: '/pages/home/index' })
       return
     }
+    if (silent) wx.redirectTo({ url: target })
+    else wx.reLaunch({ url: target })
+  },
 
-    // 3) 配送员：按 bindStatus
-    if (role === ROLE_DELIVERY) {
-      if (bindStatus === BINDING_STATUS.BOUND && stationId) {
-        console.log('[routeByRole] 配送员已绑定, 进入首页')
-        if (!silent) wx.reLaunch({ url: '/pages/home/index' })
-        return
-      }
-
-      if (bindStatus === BINDING_STATUS.PENDING || bindStatus === BINDING_STATUS.PENDING_UNBIND) {
-        const targetUrl = '/pages/bind-wait/index'
-        console.log('[routeByRole] 配送员审批中, 跳转:', targetUrl)
-        if (silent) wx.redirectTo({ url: targetUrl })
-        else wx.reLaunch({ url: targetUrl })
-        return
-      }
-
-      const targetUrl = '/pages/station-mgmt/apply-bind/index'
-      console.log('[routeByRole] 配送员未绑定, 跳转:', targetUrl)
-      if (silent) wx.redirectTo({ url: targetUrl })
-      else wx.reLaunch({ url: targetUrl })
-      return
+  /**
+   * 向服务器同步当前员工的真实身份/绑定状态，并写回 globalData 与本地存储。
+   *
+   * 为什么必须有这个方法（「注册卡死」的根因之一）：
+   * 本地 userInfo 只是「登录/申请那一刻」的快照，之后**再也不会自动更新**。
+   * 于是「在别的地方完成了注册」——站长在后台直接把你加进本站、审批在另一台设备上点了通过、
+   * 或者你在另一部手机上走完了建站流程——本机永远不知道，界面还按旧状态把人按在注册流程里，
+   * 且注册页本身没有任何出口，就表现为"卡死"。
+   *
+   * 注意：UNSELECTED 是「还没建员工记录」的虚拟会话（后端查不到 staff 行），
+   * 此时调该接口只会得到「员工不存在」，故直接跳过。
+   */
+  async syncIdentity() {
+    const token = this.globalData.accessToken || wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
+    if (!token) return null
+    const current = this._normalizeUserInfo(
+      this.globalData.userInfo || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {})
+    if (!current || !current.role
+        || current.role === ROLE_UNSELECTED || current.needSelectRole) {
+      return null
     }
+    try {
+      // 该端点对 DELIVERY / STATION_MANAGER 都开放，返回 role + stationId + bindingStatus，
+      // 足够支撑一次完整的路由判定。
+      const res = await get(API.BIND_STATUS)
+      const d = (res && res.data) || null
+      if (!d) return null
+      const normalized = this._normalizeUserInfo({
+        ...current,
+        role: d.role || current.role,
+        stationId: d.stationId,
+        bindStatus: d.bindingStatus || current.bindStatus
+      })
+      this.globalData.userInfo = normalized
+      wx.setStorageSync(STORAGE_KEYS.USER_INFO, normalized)
+      return normalized
+    } catch (e) {
+      // 同步失败绝不能把人卡在流程里：保持旧状态，让页面按原逻辑继续走
+      console.warn('[syncIdentity] 同步身份状态失败:', e && e.message)
+      return null
+    }
+  },
 
-    // 未知角色 → 角色选择
-    const fallbackUrl = '/pages/role-select/index'
-    console.log('[routeByRole] 未知角色, 跳转:', fallbackUrl)
-    if (silent) wx.redirectTo({ url: fallbackUrl })
-    else wx.reLaunch({ url: fallbackUrl })
+  /**
+   * 注册/绑定流程页专用：先同步服务器状态，再按最新状态决定去留。
+   *
+   * @param {string} currentRoute 当前页面路由（不带前导 /）
+   * @returns {Promise<boolean>} true = 已跳走（调用方不要再执行自己的加载逻辑）
+   *
+   * 只在**目标页与当前页不同**时才跳 —— 否则 reLaunch 到当前页会重新触发 onShow，
+   * 形成自我循环（这是"进页面就重定向"这类写法最容易踩的坑）。
+   */
+  async refreshIdentityAndRoute(currentRoute) {
+    await this.syncIdentity()
+    const u = this._normalizeUserInfo(this.globalData.userInfo || {})
+    const target = this._targetRoute(u)
+    // target === null 表示「状态已满足」→ 该进业务首页；否则去 target 指定的流程页。
+    // **这一支必须跳**：用户报的"在别的地方注册了也没用"，就是因为在别处获批后
+    // 本地状态更新了、却没有人把他从注册页放出去。
+    // 两种情况下都只在「目标 ≠ 当前页」时跳，避免 reLaunch 到当前页触发的 onShow 自我循环。
+    const dest = target || '/pages/home/index'
+    if (dest.replace(/^\//, '') !== currentRoute) {
+      wx.reLaunch({ url: dest })
+      return true
+    }
+    return false
+  },
+
+  /**
+   * 身份是否已「生效」：已经挂到某个水站上。
+   *   配送员生效 = 站长批准了绑定；站长生效 = 已建好水站 —— 两者在数据上都表现为 stationId 非空。
+   *
+   * 与后端 LoginController#selectRole 的判据**必须保持一致**：
+   * 未生效时允许返回重选身份，生效后由后端拒绝自行更改（前端据此隐藏入口，别让用户白点）。
+   */
+  isIdentityEffective() {
+    const u = this._normalizeUserInfo(
+      this.globalData.userInfo || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {})
+    return !!u.role && u.role !== ROLE_UNSELECTED && !!u.stationId
   },
 
   /** 判断是否具有水站业务数据访问权限(业务页 onShow 自保护用) */

@@ -1001,3 +1001,41 @@
   font-weight: 700;
   color: var(--price-color);
 }
+/* ===== 姘寸珯钀ヤ笟鐘舵�佹í骞咃紙杞姸鎬侊細鍙彁绀猴紝涓嶉樆鏂笅鍗曪級===== */
+.station-status-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin: 16rpx 24rpx 0;
+  padding: 20rpx 24rpx;
+  background: #fff7e6;
+  border-radius: 16rpx;
+}
+
+.station-status-banner .banner-icon {
+  font-size: 30rpx;
+  line-height: 1.4;
+}
+
+.station-status-banner .banner-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #b26a00;
+  line-height: 1.5;
+}
+
+/* 配送计费提示（v35）：起送量未达 / 超范围 / 楼层未填 / 硬拦原因。
+   文案由后端下发，这里只管排版。 */
+.fee-warn {
+  margin: 0 24rpx 12rpx;
+  padding: 16rpx 20rpx;
+  background: #fff8e6;
+  border-left: 6rpx solid #f5a623;
+  border-radius: 8rpx;
+}
+.fee-warn-text {
+  display: block;
+  font-size: 24rpx;
+  color: #a86a00;
+  line-height: 36rpx;
+}

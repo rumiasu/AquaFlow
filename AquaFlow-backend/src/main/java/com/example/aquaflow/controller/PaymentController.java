@@ -96,7 +96,8 @@ public class PaymentController {
             m.put("quantity", i.getQuantity());
             return m;
         }).collect(Collectors.toList());
-        return Result.success(paymentService.quote(customerId, dto.getStationId(), dto.getPaymentMethod(), itemMaps));
+        return Result.success(paymentService.quote(customerId, dto.getStationId(), dto.getPaymentMethod(), itemMaps,
+                dto.getAddressId()));
     }
 
     /** 创建支付记录（金额/新增桶数一律以服务端重算为准） */
@@ -241,25 +242,4 @@ public class PaymentController {
         return Result.success();
     }
 
-    /**
-     * 获取本站支付配置（站长端）。
-     * <p>原先声明了 {@code stationId} 入参却紧接着用登录态覆盖，调用方传什么都不生效，
-     * 顾客调用还会得到"当前账号未绑定水站"这种误导性报错。这里直接去掉该无效入参，
-     * 客户端的支付方式与可用性改由 /api/payments/quote 的 methods 字段下发。</p>
-     */
-    @RequireRole({"STATION_MANAGER"})
-    @GetMapping("/config")
-    public Result<Map<String, Object>> getConfig() {
-        return Result.success(paymentService.getStationConfig(AuthContext.requireStationId()));
-    }
-
-    /** 更新站点支付配置 */
-    @RequireRole({"STATION_MANAGER"})
-    @PutMapping("/config")
-    public Result updateConfig(@RequestBody Map<String, Object> body) {
-        body.put("stationId", AuthContext.requireStationId());
-        Long stationId = body.get("stationId") != null ? Long.valueOf(body.get("stationId").toString()) : null;
-        paymentService.updateStationConfig(stationId, body);
-        return Result.success();
-    }
 }

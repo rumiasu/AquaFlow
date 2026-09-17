@@ -13,6 +13,7 @@ import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.BarrelRecordMapper;
 import com.example.aquaflow.mapper.CustomerDepositAccountMapper;
 import com.example.aquaflow.mapper.CustomerStationConfigMapper;
+import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.mapper.StationAdjustmentMapper;
 import com.example.aquaflow.service.AuditLogService;
@@ -21,6 +22,7 @@ import com.example.aquaflow.service.DepositRecordService;
 import com.example.aquaflow.service.StationAdjustmentService;
 import com.example.aquaflow.service.TicketAccountService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.PriceUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -57,6 +59,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
     @Autowired private BarrelRecordMapper barrelRecordMapper;
     @Autowired private CustomerDepositAccountMapper depositAccountMapper;
     @Autowired private CustomerStationConfigMapper customerStationConfigMapper;
+    @Autowired private InventoryMapper inventoryMapper;
     @Autowired private ProductMapper productMapper;
     @Autowired private AuditLogService auditLogService;
 
@@ -244,7 +247,8 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
             return a.getUnitPrice();
         }
         Product p = productMapper.getById(productId);
-        BigDecimal dep = (p != null && p.getDeposit() != null) ? p.getDeposit() : BigDecimal.ZERO;
+        // [2026-09-16] 缺单价时按**本站押金**推断（inventory.deposit_price 优先），与下单/补录同口径
+        BigDecimal dep = PriceUtil.calcDeposit(p, inventoryMapper.getByStationAndProduct(a.getStationId(), productId));
         if (dep.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("补录桶权益必须能确定单价：请指定单价，或先为该商品设置押金");
         }

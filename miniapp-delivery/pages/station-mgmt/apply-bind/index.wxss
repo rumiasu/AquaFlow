@@ -215,3 +215,16 @@
   font-size: 24rpx;
   color: #aaaaaa;
 }
+
+/* 退出出口：本页是被 redirectTo 进来的，页面栈无上一页，没有这个按钮用户就出不去 */
+.footer-action {
+  margin-top: 24rpx;
+  padding: 20rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid var(--border-color);
+  background: var(--bg-card);
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--text-secondary);
+}
+.footer-action:active { opacity: 0.8; }

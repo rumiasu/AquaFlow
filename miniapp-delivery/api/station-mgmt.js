@@ -62,57 +62,131 @@ const updateOfflinePayment = (id, enabled) => {
   return put(API.CUSTOMER_OFFLINE_PAYMENT(id), { offlinePaymentEnabled: enabled ? 1 : 0 })
 }
 
-// 库存
-const getInventory = (stationId) => {
-  return get(API.INVENTORY, { stationId })
+// ===== 商品与库存（2026-09-16 重构后的唯一入口）=====
+//
+// 语义要点（见 docs/design/12-商品与库存重构.md）：
+//   · 选品目录 = 通用库 + 本站自定义商品；`selected` 表示本站是否已配置过；
+//   · 站长只能改"本站设置"（上架/售价/押金/水票/优先展示/库存）；
+//   · 库存**不能**在设置里直改：加数量走入库（写 INBOUND 流水），盘数量走 stock（写 ADJUST 流水）；
+//   · 水站一律由后端按登录站长判定，前端不传 stationId。
+
+/** 选品目录（含本站状态：selected/enabled/quantity/salePrice/effectivePrice/...） */
+const getCatalog = () => {
+  return get(API.MANAGER_CATALOG)
 }
 
-// 水类型 (兼容旧调用)
-const getWaterTypesWithStock = (stationId) => {
-  return get(API.WATER_TYPES + '/with-stock', { stationId })
+/** 选用某商品到本站（默认未上架，站长再填库存并上架） */
+const selectCatalogProduct = (id, data) => {
+  return post(API.MANAGER_CATALOG_SELECT(id), data || {})
 }
 
-const updateWaterType = (id, data) => {
-  return put(API.WATER_TYPE_UPDATE(id), data)
+/** 更新本站设置（未传的字段保持原值；价格传 0 = 清除覆盖、回落平台参考价） */
+const updateCatalogSetting = (id, data) => {
+  return put(API.MANAGER_CATALOG_ITEM(id), data)
 }
 
-// ===== 管理端: 商品+库存统一管理 (V1) =====
+/** 移除本站配置（不再卖）：库存必须先盘点为 0 */
+const removeCatalogProduct = (id) => {
+  return del(API.MANAGER_CATALOG_ITEM(id))
+}
 
-/** 商品列表 (含当前水站库存/上架/水票配置) */
-const getManagerProducts = (status) => {
+/** 盘点：把本站库存设为 target（差额写 ADJUST 流水），note 会进流水的 note 字段 */
+const setCatalogStock = (id, target, note) => {
+  return post(API.MANAGER_CATALOG_STOCK(id), { target, note: note || '' })
+}
+
+/** 本站自定义商品（不入通用库，仅本站可见；名称规格图片可改） */
+const getMyProducts = () => {
+  return get(API.MANAGER_MY_PRODUCTS)
+}
+
+const createMyProduct = (data) => {
+  return post(API.MANAGER_MY_PRODUCTS, data)
+}
+
+const updateMyProduct = (id, data) => {
+  return put(API.MANAGER_MY_PRODUCT(id), data)
+}
+
+const deleteMyProduct = (id) => {
+  return del(API.MANAGER_MY_PRODUCT(id))
+}
+
+/** 上报给开发者，请其考虑补进通用库（同一商品已有待处理上报时会被拒） */
+const submitMyProduct = (id, note) => {
+  return post(API.MANAGER_MY_PRODUCT_SUBMIT(id), { note: note || '' })
+}
+
+/** 本站的上报记录 */
+const getMySubmissions = () => {
+  return get(API.MANAGER_MY_SUBMISSIONS)
+}
+
+// ===== 水站营业状态（软状态，2026-09-17）=====
+//
+// **不阻断下单**：顾客照常下单，只是会在商城/下单页看到横幅、下单响应里带 warnings。
+// 真正"不接单"用的是 station.status = 2 停业（硬开关），两者不要混。
+
+/** 读本站营业状态（含 statusText / note / customerHint） */
+const getStationStatus = () => {
+  return get(API.MANAGER_STATION_STATUS)
+}
+
+/** 设置营业状态与留言：{ operatingStatus: 1..4, note: '≤100字' } */
+const updateStationStatus = (operatingStatus, note) => {
+  return put(API.MANAGER_STATION_STATUS, { operatingStatus, note: note || '' })
+}
+
+// ===== 水站坐标（地图选点，2026-09-17 / v34）=====
+//
+// 坐标是**配送范围判定**的前提：没有它，「这单超没超范围」根本无从判断，
+// 系统只能跳过校验（等于功能不存在）。建站页从 2026-09-16 起就在收集坐标，
+// 但后端 DTO 当时没有这两个字段，被 Jackson 静默丢掉了 —— 本端点给已建的站补上。
+
+/** 读本站信息（含 lat / lng；lat 为 null 表示还没选点） */
+const getMyStation = () => {
+  return get(API.STATION_GET)
+}
+
+/**
+ * 保存本站坐标。传 null 表示清除（清除后范围校验跳过，不会拒单）。
+ * stationId 由后端从登录态取，前端不传。
+ */
+const updateStationCoordinates = (lat, lng) => {
+  return put(API.STATION_MY_COORDINATES, { lat: lat === undefined ? null : lat, lng: lng === undefined ? null : lng })
+}
+
+// ===== 公告（站长发本站公告；顾客端只读已发布）=====
+
+/** 本站全部公告（含草稿） */
+const getNotices = () => {
+  return get(API.NOTICES_ALL)
+}
+
+/** 新建公告：{ title, content, type: 2 水站通知, status: 1 发布 / 0 下架 } */
+const createNotice = (data) => {
+  return post(API.NOTICES, data)
+}
+
+const updateNotice = (id, data) => {
+  return put(API.NOTICE(id), data)
+}
+
+const deleteNotice = (id) => {
+  return del(API.NOTICE(id))
+}
+
+/** 批量入库（加库存，写 INBOUND 流水）。items: [{productId, quantity}] */
+const inboundProducts = (stationId, items) => {
+  return post(API.INVENTORY_INBOUND + '?stationId=' + stationId, { items })
+}
+
+/** 本站库存流水（倒序）。传 productId 只看某种商品；limit 用于"加载更多" */
+const getInventoryRecords = (limit, productId) => {
   const params = {}
-  if (status !== undefined && status !== null) params.status = status
-  return get(API.MANAGER_PRODUCTS, params)
-}
-
-/** 单个商品 (含库存配置) */
-const getManagerProduct = (id) => {
-  return get(API.MANAGER_PRODUCT(id))
-}
-
-/** 新增商品 + 同时配置库存/上架/水票 */
-const createManagerProduct = (data) => {
-  return post(API.MANAGER_PRODUCTS, data)
-}
-
-/** 修改商品基本信息 + 库存配置 */
-const updateManagerProduct = (id, data) => {
-  return put(API.MANAGER_PRODUCT(id), data)
-}
-
-/** 软删除 (停用/下架) */
-const deleteManagerProduct = (id) => {
-  return del(API.MANAGER_PRODUCT(id))
-}
-
-/** 快捷上下架 */
-const toggleShelf = (id, enabled) => {
-  return put(API.MANAGER_PRODUCT_SHELF(id) + '?enabled=' + enabled)
-}
-
-/** 批量入库 */
-const inboundProducts = (items) => {
-  return post(API.MANAGER_PRODUCTS_INBOUND, { items })
+  if (limit) params.limit = limit
+  if (productId) params.productId = productId
+  return get(API.INVENTORY_RECORDS, params)
 }
 
 // 退桶
@@ -173,6 +247,32 @@ const reverseAdjustment = (id, reason, clientToken) => {
   return post(API.MANAGER_ADJUSTMENT_REVERSE(id), { reason, clientToken })
 }
 
+/**
+ * 欠桶台账（v29）：本站当前仍欠桶的客户，按欠得最久排前面。
+ *
+ * 只读、只预警 —— 下单是否放行与欠桶**无关**（原「欠桶 ≥5 拒绝下单」硬拦已移除）。
+ * minDays 传 0 / 不传 = 不过滤；「欠了几天」来自后端 owed_since，
+ * 天数未知（历史存量行）的也一并返回，故筛天数是前端兜底而非过滤掉。
+ */
+const getOwedBarrels = (minDays) => {
+  return get(API.MANAGER_OWED_BARRELS, minDays ? { minDays } : {})
+}
+
+/**
+ * 本站运营告警（v30）：只读，最近 N 条（默认 50、后端上限 200）。
+ *
+ * 后端固定只返回 `alert_type='OPERATION'` 且属于本站的记录 ——
+ * **系统故障告警不会出现在这里**（它带平台级细节、收件人是系统管理员），
+ * 所以前端不要试图"顺带展示全部"。
+ *
+ * 投递状态含义（notifyStatus）：
+ *   LOGGED = 已落库（外部渠道没配或站长侧未接入，属正常，不代表告警不存在）
+ *   PUSHED = 已推送外部渠道；FAILED = 推送失败
+ */
+const getAlerts = (limit) => {
+  return get(API.MANAGER_ALERTS, limit ? { limit } : {})
+}
+
 // 员工
 const createStaff = (data) => {
   return post(API.STAFF, data)
@@ -214,16 +314,27 @@ module.exports = {
   getStaffProfile,
   getOfflinePayment,
   updateOfflinePayment,
-  getInventory,
-  getWaterTypesWithStock,
-  updateWaterType,
-  getManagerProducts,
-  getManagerProduct,
-  createManagerProduct,
-  updateManagerProduct,
-  deleteManagerProduct,
-  toggleShelf,
+  getCatalog,
+  selectCatalogProduct,
+  updateCatalogSetting,
+  removeCatalogProduct,
+  setCatalogStock,
+  getMyProducts,
+  createMyProduct,
+  updateMyProduct,
+  deleteMyProduct,
+  submitMyProduct,
+  getMySubmissions,
+  getStationStatus,
+  updateStationStatus,
+  getMyStation,
+  updateStationCoordinates,
+  getNotices,
+  createNotice,
+  updateNotice,
+  deleteNotice,
   inboundProducts,
+  getInventoryRecords,
   getAllBarrelRecords,
   updateBarrelRecordStatus,
   returnEmptyBuckets,
@@ -236,5 +347,7 @@ module.exports = {
   createStaff,
   detachStaff,
   getPendingPayments,
-  confirmPayment
+  confirmPayment,
+  getOwedBarrels,
+  getAlerts
 }

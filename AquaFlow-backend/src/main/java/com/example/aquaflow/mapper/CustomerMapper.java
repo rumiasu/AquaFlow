@@ -85,6 +85,55 @@ public interface CustomerMapper {
             "and exists (select 1 from orders o where o.customer_id = c.id and o.station_id = #{stationId})")
     CustomerStationVO getStationCustomer(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
+    /**
+     * 客户是否归属本站 —— <b>站长端"对这个客户动手"的归属判据</b>。
+     *
+     * <p>⚠️ <b>不要用 {@link #getStationCustomer} 代替本方法</b>。它的 SQL 带
+     * {@code exists (select 1 from orders ...)}，那是「客户画像」的口径（有订单才有画像）；
+     * 拿来当归属判据，<b>从没下过单的新客户恒定被判定为"不属于本站"</b>。
+     * 这个坑本仓已踩过一次：{@code OrderController.getMyLatestStation} 的注释写着
+     * 「旧实现只查订单，新客户恒定拿到 null」。2026-09-17 在用画像口径校验客户特权归属时
+     * <b>又踩了一次</b> —— 免起送门槛的典型场景恰恰是"新客户第一单"，
+     * 用画像口径会把该场景整个挡掉（用例 {@code CustomerPrivilegeIntegrationTest}）。</p>
+     *
+     * <p><b>归属的正确口径 = 两者取并集</b>：① 水站已把该客户纳入管辖
+     * （{@code customer_station_config} 绑定行，站长代建/认领即产生）；② 该客户在本站下过单
+     * （老客户可能没有绑定行）。缺任何一条都会漏判一类客户。</p>
+     *
+     * @return 1 = 归属本站；0 = 不归属本站或客户不存在。用 int 而不是 boolean：
+     *         MyBatis 对 boolean 的映射依赖驱动，用 count 更稳
+     */
+    @Select("select count(*) from customer c where c.id = #{customerId} and (" +
+            "exists (select 1 from customer_station_config csc where csc.customer_id = c.id and csc.station_id = #{stationId}) " +
+            "or exists (select 1 from orders o where o.customer_id = c.id and o.station_id = #{stationId}))")
+    int countCustomerOfStation(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
+    /**
+     * 代客下单的客户选择器（站长端）：按姓名/电话关键字搜「本站客户」。
+     *
+     * <p>⚠️ <b>为什么不复用 {@link #listStationCustomers}（即 {@code GET /api/customers}）</b>：
+     * 它的 SQL 是 <b>orders 驱动</b>（{@code join orders o ... where o.station_id = ?}），
+     * <b>没下过单的客户一行都查不出来</b>。而站长刚在客户管理里新建的客户恰恰就是这种 ——
+     * 于是"给新客户下第一单"这个最常见的代客下单场景，会在客户列表里找不到人，
+     * 看起来像"客户没建成功"。归属口径因此与 {@link #countCustomerOfStation} 一致：
+     * 绑定 <b>或</b> 本站订单，取并集。</p>
+     *
+     * <p>关键字过滤写成 {@code #{keyword} is null or ...} 而不是动态 {@code <if>}，
+     * 与 {@code AddressMapper.list} 同款：少一处拼接就少一处出错的地方。</p>
+     *
+     * @param keyword 姓名或电话片段；{@code null}/空 = 不筛（返回最近建档的若干条）
+     */
+    @Select("select c.id, c.name, c.phone, c.customer_type as customerType from customer c "
+            + "where (exists (select 1 from customer_station_config csc "
+            + "                where csc.customer_id = c.id and csc.station_id = #{stationId}) "
+            + "    or exists (select 1 from orders o where o.customer_id = c.id and o.station_id = #{stationId})) "
+            + "and (#{keyword} is null or #{keyword} = '' "
+            + "     or c.name like concat('%', #{keyword}, '%') "
+            + "     or c.phone like concat('%', #{keyword}, '%')) "
+            + "order by c.id desc limit 50")
+    List<java.util.Map<String, Object>> listOrderCustomers(@Param("stationId") Long stationId,
+                                                           @Param("keyword") String keyword);
+
     // [清理 2026-09-12] 删除 countAll()：全平台客户总数，零调用，且一旦被新页面顺手调用即跨站泄露。
 
     @Select("select count(distinct c.id) from customer c " +

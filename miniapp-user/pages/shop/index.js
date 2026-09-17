@@ -1,12 +1,13 @@
-const { getOnSaleProducts, getMyProducts, getStationProducts } = require('../../api/product')
-const { getPublicStations } = require('../../api/station')
+const { getStationProducts } = require('../../api/product')
+const { getPublicStations, getStationStatus } = require('../../api/station')
 const { getBaseUrl, API } = require('../../config/api')
 const { getAccessToken } = require('../../utils/token')
 const { stationStorage } = require('../../utils/storage')
 
 Page({
   data: {
-    loading: true, isLogin: false, allProducts: [], myProductIds: [], keywords: '',
+    loading: true, isLogin: false, allProducts: [], keywords: '',
+    stationStatusHint: '',
     currentStationId: null,
     currentStation: null,
     stationList: [],
@@ -51,22 +52,41 @@ Page({
 
       // 如果本地没有，不再调用后端接口，等待用户选择
       if (currentStationId) {
+        // 2026-09-16：sale-by-station 现在下发的是**本站有效价**（effectivePrice/effectiveDeposit），
+        // 即"站级覆盖 → 通用库参考价"，与结算价同口径（原实现只给平台参考价）。
         const productsRes = await getStationProducts(currentStationId).catch(() => null)
         if (productsRes && productsRes.data) {
           allProducts = productsRes.data
         }
       }
 
-      const myRes = await getMyProducts().catch(() => null)
-      let myProductIds = []
-      if (myRes && myRes.data) { myProductIds = myRes.data.map(item => item.id) }
-      this.setData({ allProducts, myProductIds, currentStationId, currentStation })
+      // 「已有商品」标签原先靠 GET /api/products/my，而那个接口恒返回空数组（永远点不亮）。
+      // 2026-09-16 已按设计删除该端点，标签一并去掉；要恢复得先有一个真实的"客户已购商品"接口。
+      this.setData({ allProducts, currentStationId, currentStation })
+      this.loadStationStatus(currentStationId)
     } finally {
       this.setData({ loading: false })
     }
   },
-  async loadStationList() {
+  /**
+   * 水站营业状态（软状态）：商城顶部提示一句，**不隐藏商品、不拦截下单** ——
+   * 产品口径是"不阻断，只提示"。拿不到就静默（不能因为提示失败让人买不了水）。
+   */
+  async loadStationStatus(stationId) {
+    if (!stationId) {
+      this.setData({ stationStatusHint: '' })
+      return
+    }
     try {
+      const res = await getStationStatus(stationId)
+      const hint = res && res.data ? res.data.customerHint : ''
+      this.setData({ stationStatusHint: hint || '' })
+    } catch (e) {
+      this.setData({ stationStatusHint: '' })
+    }
+  },
+
+  async loadStationList() {    try {
       const res = await getPublicStations().catch(() => null)
       if (res && res.code === 0 && res.data) {
         const activeStations = res.data.filter(s => s.status === 1)
@@ -138,10 +158,8 @@ Page({
       if (productsRes && productsRes.data) {
         allProducts = productsRes.data
       }
-      const myRes = await getMyProducts().catch(() => null)
-      let myProductIds = []
-      if (myRes && myRes.data) { myProductIds = myRes.data.map(item => item.id) }
-      this.setData({ allProducts, myProductIds })
+      this.setData({ allProducts })
+      this.loadStationStatus(id)
     } finally {
       this.setData({ loading: false })
     }

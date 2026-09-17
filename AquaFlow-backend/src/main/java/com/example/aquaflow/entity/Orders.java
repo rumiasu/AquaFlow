@@ -245,12 +245,34 @@ public class Orders {
         if (waterAmount != null) return waterAmount;
         if (totalAmount == null) return null;
         BigDecimal deposit = depositAmount != null ? depositAmount : BigDecimal.ZERO;
+        // ⚠️ [Phase 1 待办] 本兜底假定 total_amount = 水费 + 押金。一旦把配送费/楼层费并入
+        // total_amount（见 docs/design/16 §3.1），这里必须一并减去 deliveryFee 与 floorFee，
+        // 否则「历史订单没回填 water_amount」的那些单，水费会被多算出一个运费。
         BigDecimal water = totalAmount.subtract(deposit);
         return water.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : water;
     }
 
     /** 押金金额 */
     private BigDecimal depositAmount;
+
+    /**
+     * 配送费（2026-09-17 新增，见 {@code sql/migration_v34_delivery_fee_and_floors.sql}）。
+     *
+     * <p>⚠️ <b>绝不并入 {@link #waterAmount} 或 {@link #depositAmount}</b>：前者污染水费口径
+     * （水费与退款、报表、对账都相关）；后者的后果是真丢钱 —— 退款路径按
+     * {@code orders.deposit_amount} 释放押金余额（{@code PaymentServiceImpl} 的退款分支），
+     * 把运费混进去，取消订单时会<b>多退一份运费到客户押金账户</b>。</p>
+     */
+    private BigDecimal deliveryFee;
+
+    /**
+     * 楼层费（<b>向客户收</b>的那一笔，收入项）。
+     *
+     * <p>⚠️ 给配送员的「楼层补贴」是<b>另一笔钱</b>（成本项），两者金额可以不同、
+     * 必须分别配置分别落库（见 docs/design/18 §4）。合成一个字段会导致客户投诉时查不清、
+     * 工钱算不准。</p>
+     */
+    private BigDecimal floorFee;
 
     /** 收件人姓名 */
     private String receiverName;

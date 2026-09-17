@@ -53,6 +53,10 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
     @Autowired
     private DepositRecordService depositRecordService;
 
+    /** 分级告警：运营故障投给站长、系统故障投给系统管理员（见 constant/AlertType） */
+    @Autowired
+    private com.example.aquaflow.service.AlertService alertService;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OrderBarrelExceptionDTO recordReturn(Long orderId, ReturnInput input) {
@@ -101,8 +105,13 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         // 更新订单异常标记（专用列更新 + 计数 DB 侧自增，不再整行写回）
         orderMapper.markBarrelException(orderId, category, ex.getId(), actual, diff);
 
-        // 推送站长通知（异步）
-        // notificationService.pushExceptionCreated(toDTO(ex));
+        // 通知站长（[2026-09-16] 此前这行是**注释掉的**，等于"异常产生了但站长不知道"；
+        // 现在改成落库+日志的分级告警，站长端可查 /api/manager/alerts，微信订阅消息待接入）。
+        alertService.stationFault(order.getStationId(), "WARN", "OrderBarrelException",
+                "新桶异常待处置：" + category + " 差 " + diff + " 桶",
+                "订单 " + orderId + " 回桶异常（应收 " + delivery + "、实收 " + actual
+                        + "），请及时处置。异常单号=" + ex.getId(),
+                "ORDER_BARREL_EXCEPTION", ex.getId());
 
         log.info("[OrderBarrelException] 配送员录入回桶异常: orderId={}, exceptionId={}, diff={}", orderId, ex.getId(), diff);
         return toDTO(ex);
@@ -172,7 +181,23 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
 
         // 如果是APPROVE或MODIFY，直接执行补偿（此时状态已是MANAGER_APPROVED）
         if ("APPROVE".equals(action) || "MODIFY".equals(action)) {
-            executeCompensation(ex.getId());
+            try {
+                executeCompensation(ex.getId());
+            } catch (RuntimeException e) {
+                // [2026-09-16] 补偿执行失败属于**系统故障**（对账/账目出了问题，站长修不了），
+                // 投给系统管理员；然后照旧抛出去让事务回滚，异常单退回可重试。
+                // 告警走独立事务（AlertService 内部 REQUIRES_NEW），不会被这次回滚带走。
+                alertService.systemFault("OrderBarrelException",
+                        "桶异常补偿执行失败：exceptionId=" + ex.getId(),
+                        "action=" + action + "，原因=" + e.getMessage(),
+                        "ORDER_BARREL_EXCEPTION", ex.getId());
+                throw e;
+            }
+        } else if ("IGNORE".equals(action)) {
+            alertService.stationFault(ex.getStationId(), "INFO", "OrderBarrelException",
+                    "桶异常已忽略：exceptionId=" + ex.getId(),
+                    "站长选择忽略，未做任何补偿。备注=" + input.getManagerNote(),
+                    "ORDER_BARREL_EXCEPTION", ex.getId());
         }
 
         log.info("[OrderBarrelException] 站长处理异常: exceptionId={}, action={}", exceptionId, action);
@@ -213,7 +238,10 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
                     log.info("[OrderBarrelException] 执行退水票: exceptionId={}, productId={}, qty={}",
                             ex.getId(), ex.getAdjustProductId(), ex.getRefundTicketQty());
                 } else {
-                    log.warn("[OrderBarrelException] 退水票失败: 未指定 productId, exceptionId={}", ex.getId());
+                    // [2026-09-16 修复] 原来这里只 log.warn，然后照样把异常标成 EXECUTED ——
+                    // 站长以为票退了，客户账户上一张都没多（与"静默丢字段"同一类坑）。
+                    // 补偿要求了却做不到，必须失败回滚、让他补全重试。
+                    throw new BusinessException("退水票必须指定商品（adjustProductId 不能为空）");
                 }
             }
 
@@ -270,6 +298,14 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
             ex.setExecutedAt(LocalDateTime.now());
 
             log.info("[OrderBarrelException] 补偿执行完成: exceptionId={}, compensated={}", ex.getId(), compensated);
+
+            // [2026-09-16] 补偿落账成功 → 运营告警给站长（"钱/票已经动过了"是需要站内留痕与对账的动作）
+            alertService.stationFault(ex.getStationId(), "INFO", "OrderBarrelException",
+                    "桶异常补偿已执行：exceptionId=" + ex.getId(),
+                    "退水票=" + (ex.getRefundTicketQty() == null ? 0 : ex.getRefundTicketQty())
+                            + " 张，退现金=¥" + (ex.getRefundCashAmount() == null ? "0" : ex.getRefundCashAmount())
+                            + "，调整桶资产=" + (ex.getAdjustAssetQty() == null ? 0 : ex.getAdjustAssetQty()),
+                    "ORDER_BARREL_EXCEPTION", ex.getId());
         }
     }
 

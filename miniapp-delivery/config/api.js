@@ -56,8 +56,13 @@ const API = {
 
   // ==================== 站长-绑定审批/员工管理 ====================
   MANAGER_BIND_APPLICATIONS: '/api/manager/bind/applications', // 我的待审批绑定申请
-  MANAGER_BIND_APPROVE: '/api/manager/bind/approve',           // 通过绑定申请
-  MANAGER_BIND_REJECT: '/api/manager/bind/reject',             // 拒绝绑定申请
+  MANAGER_BIND_APPROVE: '/api/manager/bind/approve',           // 通过绑定申请(type=1)
+  MANAGER_BIND_REJECT: '/api/manager/bind/reject',             // 拒绝绑定申请(type=1)
+  // [2026-09-16 修复] 解绑申请(type=2)必须走独立端点。此前无论绑定还是解绑都调
+  // /approve，而后端 approveBind 对 type!=1 直接返回「这不是绑定申请」→ 配送员
+  // 提交解绑后申请永久悬挂、卡在等待页无法撤回。
+  MANAGER_BIND_UNBIND_CONFIRM: '/api/manager/bind/unbind-confirm', // 同意解绑申请(type=2)
+  MANAGER_BIND_UNBIND_REJECT: '/api/manager/bind/unbind-reject',   // 拒绝解绑申请(type=2)
   MANAGER_BIND_RELEASE: '/api/manager/bind/release',           // 站长单方面解除配送员绑定
   MANAGER_STAFF: '/api/manager/staff',                         // 站长查看本站员工(含申请中)
 
@@ -107,19 +112,35 @@ const API = {
   // 水站
   STATION_SEARCH: '/api/stations/search',           // 公开搜索，供配送员申请绑定前使用
   STATION_GET: '/api/stations/mine',
+  // 水站坐标（地图选点，v34）。单独一个端点而不是并进站点编辑 ——
+  // 后者是整行覆盖，旧客户端不传坐标会把已选的坐标冲成 NULL。
+  STATION_MY_COORDINATES: '/api/stations/mine/coordinates',
 
   // 库存
   INVENTORY: '/api/inventory',
+  INVENTORY_INBOUND: '/api/inventory/inbound',
+  INVENTORY_RECORDS: '/api/inventory/records',
 
-  // 商品（V1 不再使用 water-types）
-  WATER_TYPES: '/api/products',
-  WATER_TYPE_UPDATE: (id) => `/api/products/${id}`,
+  // ===== 商品与库存（2026-09-16 重构）：通用商品库 + 本站设置 + 自定义商品 =====
+  // 站长能改的只有"本站"的东西（上架/库存/本站售价/水票/优先展示）；
+  // 通用库商品的名称规格图片由平台维护，站长只读 —— 所以没有"改商品"的接口。
+  MANAGER_CATALOG: '/api/manager/catalog',
+  MANAGER_CATALOG_ITEM: (id) => `/api/manager/catalog/${id}`,
+  MANAGER_CATALOG_SELECT: (id) => `/api/manager/catalog/${id}/select`,
+  MANAGER_CATALOG_STOCK: (id) => `/api/manager/catalog/${id}/stock`,
+  MANAGER_MY_PRODUCTS: '/api/manager/my-products',
+  MANAGER_MY_PRODUCT: (id) => `/api/manager/my-products/${id}`,
+  MANAGER_MY_PRODUCT_SUBMIT: (id) => `/api/manager/my-products/${id}/submit`,
+  MANAGER_MY_SUBMISSIONS: '/api/manager/my-products/submissions',
 
-  // 管理端: 商品+库存统一管理 (站长专用)
-  MANAGER_PRODUCTS: '/api/manager/products',
-  MANAGER_PRODUCT: (id) => `/api/manager/products/${id}`,
-  MANAGER_PRODUCT_SHELF: (id) => `/api/manager/products/${id}/shelf`,
-  MANAGER_PRODUCTS_INBOUND: '/api/manager/products/inbound',
+  // 水站营业状态（软状态，2026-09-17）：**不阻断下单**，只给顾客弹提示；
+  // 站长可写一句留言（如"今天休息，明早正常送"）。硬状态（停业）是另一套，见 station.status。
+  MANAGER_STATION_STATUS: '/api/manager/station-status',
+
+  // 公告：站长发本站公告（顾客端只读已发布的；员工端 /all 只看本站）
+  NOTICES: '/api/notices',
+  NOTICES_ALL: '/api/notices/all',
+  NOTICE: (id) => `/api/notices/${id}`,
 
   // 站长资产调整单（人工补录 / 代客订正，站长专属）。
   // 水站一律由后端按登录站长判定，前端不传 stationId。
@@ -130,6 +151,14 @@ const API = {
   MANAGER_ADJUSTMENT_PREVIEW: '/api/manager/adjustments/preview',
   MANAGER_ADJUSTMENT_EXECUTE: (id) => `/api/manager/adjustments/${id}/execute`,
   MANAGER_ADJUSTMENT_REVERSE: (id) => `/api/manager/adjustments/${id}/reverse`,
+
+  // 欠桶台账（v29）：本站当前仍欠桶的客户，按欠得最久排序。
+  // 只读、只预警（下单是否放行与欠桶无关）；水站由后端按登录站长判定，前端不传 stationId。
+  MANAGER_OWED_BARRELS: '/api/manager/owed-barrels',
+
+  // 本站运营告警（v30）：只读。后端固定只返回 alert_type='OPERATION' 且本站的记录 ——
+  // 系统故障告警是发给系统管理员的（带平台级细节），故意不外露给站长，前端也不要试图展示。
+  MANAGER_ALERTS: '/api/manager/alerts',
 
   // 仪表盘
   DASHBOARD_TODAY: '/api/dashboard/today',

@@ -47,6 +47,17 @@ public class ManagerProductDTO {
 
         private Integer enabled;
 
+        /**
+         * 本站售价（覆盖 product.price 这个通用库参考价）。
+         * <p>2026-09-16 修复：此前前端「本站售价(选填)」一直在发，但本 DTO 没有这个字段 →
+         * Jackson 静默忽略、`inventory` 也没有对应列，站长填的值等于没填（见 AGENTS.md §8.15 同类事故）。
+         * 留空或 0 = 用通用库参考价。</p>
+         */
+        private BigDecimal salePrice;
+
+        /** 本站押金（覆盖 product.deposit）。留空或 0 = 用通用库参考押金。 */
+        private BigDecimal depositPrice;
+
         private Integer ticketEnabled;
 
         private BigDecimal ticketPrice;
@@ -84,6 +95,12 @@ public class ManagerProductDTO {
         private Integer quantity;
 
         private Integer enabled;
+
+        /** 本站售价（覆盖通用库参考价 product.price）；留空或 0 = 用参考价。详见 {@link Save#getSalePrice()} */
+        private BigDecimal salePrice;
+
+        /** 本站押金（覆盖通用库参考押金 product.deposit）；留空或 0 = 用参考押金。 */
+        private BigDecimal depositPrice;
 
         private Integer ticketEnabled;
 

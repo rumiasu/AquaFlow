@@ -8,10 +8,12 @@ import com.example.aquaflow.entity.Product;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.CustomerBarrelAssetMapper;
 import com.example.aquaflow.mapper.CustomerBarrelInTransitMapper;
+import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.service.BarrelAssetService;
 import com.example.aquaflow.service.BarrelLedgerService;
 import com.example.aquaflow.service.DepositRecordService;
+import com.example.aquaflow.util.PriceUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -47,6 +49,9 @@ public class BarrelAssetServiceImpl implements BarrelAssetService {
     @Autowired
     private ProductMapper productMapper;
 
+    @Autowired
+    private InventoryMapper inventoryMapper;
+
     /** 桶账唯一写入口 */
     @Autowired
     private BarrelLedgerService barrelLedgerService;
@@ -76,10 +81,11 @@ public class BarrelAssetServiceImpl implements BarrelAssetService {
             BigDecimal depositAmount = item.getDepositAmount() != null ? item.getDepositAmount() : BigDecimal.ZERO;
 
             // 单价来源：实收押金优先；未传（=纯资产调整）则回退到商品当前押金，并标记为「推断值」
+            // [2026-09-16] 「商品当前押金」= 本站押金（inventory.deposit_price 优先），不是全局 product.deposit
             Product product = productMapper.getById(productId);
             boolean priceInferred = depositAmount.compareTo(BigDecimal.ZERO) <= 0;
             BigDecimal unitPrice = priceInferred
-                    ? (product != null && product.getDeposit() != null ? product.getDeposit() : BigDecimal.ZERO)
+                    ? PriceUtil.calcDeposit(product, inventoryMapper.getByStationAndProduct(stationId, productId))
                     : depositAmount;
 
             // 1. 权益批次 = 唯一真相源。[DEF-8] 必须建 lot，否则 rightQty() 仍为 0，客户退不掉桶。

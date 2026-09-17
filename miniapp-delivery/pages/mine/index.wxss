@@ -389,6 +389,12 @@
   color: #263238;
   font-weight: 600;
 }
+/* 申请类型（绑定申请 / 解绑申请）：用次要灰而非品牌蓝，避免抢占主色 */
+.staff-tag {
+  font-size: 22rpx;
+  color: #78909c;
+  font-weight: 400;
+}
 .staff-meta {
   font-size: 22rpx;
   color: #78909c;

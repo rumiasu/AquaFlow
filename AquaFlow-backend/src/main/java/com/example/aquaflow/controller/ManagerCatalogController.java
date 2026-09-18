@@ -39,8 +39,30 @@ public class ManagerCatalogController {
     /** 选品列表：通用库 + 本站自定义，带本站状态（是否已选用、上架、库存、本站价、水票、优先展示）。 */
     @GetMapping
     public Result<List<ProductWithInventoryVO>> list() {
-        // 图片临时 URL 由 CatalogService 统一注入（两处列表接口共用一份实现）
+        // 图片 URL 由 CatalogService 统一注入（两处列表接口共用一份实现）
         return Result.success(catalogService.listCatalog(AuthContext.requireStationId()));
+    }
+
+    /**
+     * 平台预设商品图清单（站长选图用）。
+     *
+     * <p>站长建自定义商品时，图片不再是"只能自己拍一张传"——也可以从平台预设里选一张。
+     * 返回 {@code [{key, path}]}，其中 {@code key} 是稳定标识、{@code path} 是小程序包内资源路径
+     * （前端可直接当 {@code src} 用）。映射真值在 {@code constant/ProductImageKeys}。</p>
+     *
+     * <p><b>为什么由后端下发而不是前端硬编码：</b>两端小程序的包内资源互相独立、
+     * 将来还可能整体换成 COS 地址；前端硬编码路径会导致"换存储要改两个小程序"。</p>
+     */
+    @GetMapping("/preset-images")
+    public Result<List<Map<String, String>>> presetImages() {
+        List<Map<String, String>> list = new java.util.ArrayList<>();
+        com.example.aquaflow.constant.ProductImageKeys.all().forEach((key, path) -> {
+            Map<String, String> item = new HashMap<>();
+            item.put("key", key);
+            item.put("path", path);
+            list.add(item);
+        });
+        return Result.success(list);
     }
 
     /**

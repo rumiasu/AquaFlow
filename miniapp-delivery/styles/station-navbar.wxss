@@ -1,0 +1,96 @@
+/* ========== 自绘导航栏（b 方案）：状态胶囊坐在「首页 / 配送」字样左边 ==========
+   原生导航栏塞不进任何东西，所以这两页 navigationStyle=custom，尺寸由 utils/navbar.js 算。
+   文案与配色依据仍全部来自后端（customerHint 非空即提醒），前端不做 1..4 映射。
+   结构在 templates/station-navbar.wxml，数据与方法在 behaviors/stationNavbar.js。
+   两页统一 @import "../../styles/station-navbar.wxss"; —— 改这里两页一起变。 */
+.navbar {
+  background: #4F8EF7;
+}
+
+.navbar-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* 标题绝对居中（与原生导航栏观感一致），不被左侧胶囊挤位 */
+.navbar-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #ffffff;
+  pointer-events: none;
+}
+
+/* 左侧状态位：最多占 42% 并省略 —— 宁可截断提示语，也不压住中间的标题 */
+.navbar-left {
+  position: absolute;
+  left: 24rpx;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  max-width: 42%;
+  overflow: hidden;
+}
+
+/* 右侧给微信胶囊按钮留位（约 87px + 边距），避免遮挡点击区 */
+.navbar-right {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 190rpx;
+}
+
+.status-chip {
+  display: flex;
+  align-items: center;
+  padding: 6rpx 16rpx;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+
+.status-chip-warn {
+  background: #fff3e0;
+}
+
+.status-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #b9f6ca;
+  margin-right: 10rpx;
+  flex-shrink: 0;
+}
+
+.status-chip-warn .status-dot {
+  background: #f57c00;
+}
+
+.status-chip-text {
+  font-size: 24rpx;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.status-chip-warn .status-chip-text {
+  color: #b26a00;
+}
+
+.status-chip-note {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.85);
+  margin-left: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-chip-warn .status-chip-note {
+  color: #b26a00;
+}

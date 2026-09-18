@@ -188,6 +188,40 @@
       </block>
     </view>
 
+    <!-- 客户特权（v40）：站长给单个客户的差异化规则。
+         可授予的类型由服务端下发（只含已实现的），所以这里不会出现"配了也不生效"的开关。 -->
+    <view class="section" wx:if="{{canViewAssets}}">
+      <view class="section-title">客户特权</view>
+      <view class="asset-error" wx:if="{{privilegesError}}">
+        <text class="asset-error-text">{{privilegesError}}</text>
+      </view>
+      <block wx:elif="{{privilegesLoading}}">
+        <view class="empty-line">加载中…</view>
+      </block>
+      <block wx:else>
+        <view class="priv-row" wx:for="{{privileges}}" wx:key="type">
+          <view class="priv-main">
+            <text class="priv-name">{{item.typeText || item.type}}</text>
+            <text class="priv-note" wx:if="{{item.note}}">{{item.note}}</text>
+          </view>
+          <view class="priv-btn priv-btn-off" bindtap="onRevokePrivilege" data-type="{{item.type}}">撤销</view>
+        </view>
+        <view class="empty-line" wx:if="{{!privileges.length}}">该客户在本站暂无特权，按默认规则。</view>
+
+        <block wx:if="{{grantableTypes.length}}">
+          <view class="priv-add-label">可授予</view>
+          <view class="priv-add-row">
+            <view class="priv-btn" wx:for="{{grantableTypes}}" wx:key="type"
+                  bindtap="onGrantPrivilege" data-type="{{item.type}}">+ {{item.text}}</view>
+          </view>
+        </block>
+        <view class="priv-hint">
+          特权按「本水站 + 本客户」生效，A 站给的不在 B 站算数。
+          撤销后立即恢复默认规则；已授予的重复授予只会更新备注。
+        </view>
+      </block>
+    </view>
+
     <!-- 消费特征 -->
     <view class="section">
       <view class="section-title">消费特征</view>

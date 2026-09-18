@@ -76,6 +76,8 @@ public class FileManageController {
             fileInfo.setMimeType(file.getContentType());
             fileInfo.setObjectName(objectName);
             fileInfo.setCategory(category);
+            // v45 站隔离：归属站取登录态（不信任请求参数），NULL 只留给平台级/开发者维护的文件
+            fileInfo.setStationId(AuthContext.requireStationId());
 
             Long uid = AuthContext.getUserId();
             fileInfo.setUploaderId(uid != null ? uid.intValue() : null);
@@ -91,11 +93,18 @@ public class FileManageController {
         }
     }
 
+    /**
+     * 本站可见的文件列表（本站 + 平台级）。
+     *
+     * <p>⚠️ v45 起必须带水站条件：原实现调 `listAll()` 返回**全部水站**的文件名与临时 URL，
+     * 任何站长 token 都能看到别人的资源（跨租户泄露，AGENTS §8.23）。站点取自登录态。</p>
+     */
     @RequireRole({"STATION_MANAGER"})
     @GetMapping
     public Result<List<FileInfo>> list(@RequestParam(value = "category", required = false) String category) {
+        Long stationId = AuthContext.requireStationId();
         List<FileInfo> list = category != null && !category.isEmpty()
-                ? fileInfoMapper.listByCategory(category) : fileInfoMapper.listAll();
+                ? fileInfoMapper.listVisibleByCategory(stationId, category) : fileInfoMapper.listVisible(stationId);
         // 为每条记录注入临时访问 URL
         for (FileInfo file : list) {
             try {
@@ -113,6 +122,10 @@ public class FileManageController {
         FileInfo file = fileInfoMapper.getById(id);
         if (file == null) {
             return Result.error("文件不存在");
+        }
+        // v45 站隔离：他站的文件连"存在"都不该暴露给别站，直接按无权处理
+        if (file.getStationId() != null && !file.getStationId().equals(AuthContext.requireStationId())) {
+            return Result.error("无权操作他站文件");
         }
         if (AuthContext.isManager()) {
             Long uid = AuthContext.getUserId();

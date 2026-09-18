@@ -50,6 +50,12 @@
         <text class="menu-name">账单记录</text>
         <text class="row-arrow">›</text>
       </view>
+      <!-- 押金流水：上面四格卡里的「押金」只回答"现在多少"，这一页回答"为什么变" -->
+      <view class="menu-row" data-url="/pages/deposit/records/index" bindtap="onMenuTap">
+        <text class="menu-name">押金流水</text>
+        <text class="menu-desc">押金的每一笔增减</text>
+        <text class="row-arrow">›</text>
+      </view>
     </view>
 
     <!-- 我的信息 -->

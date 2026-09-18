@@ -31,6 +31,14 @@
 --        由 migration_aq_bucket_right_v1_backfill.sql 建、全仓 0 处代码引用、迁移早已完成。
 --      · 视图 v_station_exception_stats —— 近 30 天桶异常统计，同为 0 引用的人工查看产物。
 --      两者此前只存在于基线与真实库、不参与运行，删除不影响任何读写路径。
+--   9. [2026-09-18 加列] orders 补 `settle_station_id`（结算站，v47，见
+--      sql/migration_v47_order_settle_station.sql）：
+--      "这单营收归谁"此前**没有一列表达**，每个查询各自推导 —— 看板/客户画像按
+--      coalesce(delivery_station_id, station_id)、毛利表与应收账款却按 station_id，
+--      同一笔钱在两张报表里归两个站。语义：水费 + 配送费 + 楼层费归结算站；
+--      **押金 / 水票 / 桶权益仍按 station_id（归属站）**。
+--      读一律 `coalesce(settle_station_id, delivery_station_id, station_id)`（防御性回退，
+--      正常路径必须写本列）。⚠️ 本文件只建空表：已存在的库改列不生效，必须另跑 v47 迁移。
 --
 -- 初始化：mysql -u root -p aquaflow < sql/schema.sql
 -- ============================================================
@@ -238,6 +246,8 @@ CREATE TABLE IF NOT EXISTS `customer_station_config` (
   `customer_id` bigint NOT NULL COMMENT '客户ID',
   `station_id` bigint NOT NULL COMMENT '水站ID',
   `offline_payment_enabled` tinyint NOT NULL DEFAULT '0' COMMENT '该客户在该站是否允许线下支付（货到付款）。全系统唯一控制点，由站长在客户画像里逐个开通；无站点级总闸',
+  `offline_payment_single_limit` decimal(10,2) DEFAULT NULL COMMENT '货到付款单笔上限（NULL=不限，特殊客户可放宽）',
+  `offline_payment_allow_first_order` tinyint NOT NULL DEFAULT 0 COMMENT '是否允许首单货到付款（0=不允许，默认）',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -290,6 +300,7 @@ CREATE TABLE IF NOT EXISTS `feedback` (
   `category` varchar(50) DEFAULT NULL COMMENT '分类：bug/feature/other',
   `content` text NOT NULL COMMENT '反馈内容',
   `contact` varchar(100) DEFAULT NULL COMMENT '联系方式',
+  `anonymous` tinyint NOT NULL DEFAULT '0' COMMENT '是否匿名(v46); 0=实名 1=匿名。判据是"站长不知道是谁"：站长端列表必须在 SQL 层把 customer_id 与姓名置 NULL，详见 FeedbackMapper',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='意见反馈';
@@ -301,12 +312,14 @@ CREATE TABLE IF NOT EXISTS `file_info` (
   `mime_type` varchar(100) DEFAULT '' COMMENT 'MIME 类型',
   `object_name` varchar(500) NOT NULL COMMENT '腾讯云 COS 对象键（如 public/product/abc.jpg）',
   `category` varchar(50) DEFAULT 'general' COMMENT '业务分类（general/banner/product/other）',
+  `station_id` bigint DEFAULT NULL COMMENT '归属水站(v45); NULL=平台级文件(全站可见) —— 列表查询必须带水站条件，见 FileInfoMapper',
   `uploader_id` int DEFAULT NULL COMMENT '上传人员工ID',
   `uploader_name` varchar(50) DEFAULT '' COMMENT '上传人姓名',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_category` (`category`),
+  KEY `idx_file_station` (`station_id`,`category`),
   KEY `idx_file_type` (`file_type`),
   KEY `idx_create_time` (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文件管理（COS 对象登记）';
@@ -395,7 +408,7 @@ CREATE TABLE IF NOT EXISTS `order_image` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
   `order_id` bigint NOT NULL COMMENT '订单ID',
   `object_name` varchar(500) NOT NULL COMMENT 'COS 对象键',
-  `type` tinyint NOT NULL DEFAULT '1' COMMENT '类型：1正常送达 2异常',
+  `type` tinyint NOT NULL DEFAULT '1' COMMENT '类型：1正常送达 2异常 3楼层凭证（防虚报楼层补贴，配送员与站长都可传）',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_order_image_order` (`order_id`),
@@ -486,9 +499,9 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `address_snapshot` varchar(500) DEFAULT NULL COMMENT '地址快照',
   `address_snapshot_lat` decimal(10,7) DEFAULT NULL COMMENT '地址快照纬度',
   `address_snapshot_lng` decimal(10,7) DEFAULT NULL COMMENT '地址快照经度',
-  `station_id` bigint DEFAULT NULL COMMENT '订单归属水站（交易/营收归属，客户自选）',
+  `station_id` bigint DEFAULT NULL COMMENT '订单归属水站（客户主动选定的站 = 定价方；营收归 settle_station_id，v47）',
   `delivery_station_id` bigint DEFAULT NULL COMMENT '实际履约水站（可被站长外派/抢单切换，为空=在抢单池）',
-  `batch_id` bigint DEFAULT NULL COMMENT '所属批次。[已废弃] 全项目无 batch 表、无读写点，恒为 NULL，仅为兼容旧库列保留',
+  `settle_station_id` bigint DEFAULT NULL COMMENT '结算水站(v47)=本单营收归谁：水费+配送费+楼层费。下单=station_id，抢单/外派=履约站，取消外派/召回/退回池=回 station_id；押金/水票/桶权益仍按 station_id。读一律 coalesce(settle,delivery,station)',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `barrel_discrepancy` int DEFAULT '0' COMMENT '空桶差异',
@@ -504,6 +517,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `deposit_amount` decimal(10,2) DEFAULT '0.00' COMMENT '押金金额',
   `delivery_fee` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '配送费（并入 total_amount 是 Phase 1 的事；勿塞进 water_amount/deposit_amount）',
   `floor_fee` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '楼层费（向客户收的那一笔；给配送员的楼层补贴是另一笔成本）',
+  `reported_floor` int DEFAULT NULL COMMENT '配送员上报的楼层（选填，v43）。NULL=没上报 → 楼层补贴沿用地址楼层；与地址不一致时在收益明细里标记',
   `idempotency_key` varchar(64) DEFAULT NULL COMMENT '幂等键',
   `first_barrel_order` tinyint(1) DEFAULT '0' COMMENT '是否首次桶装水订单(押金桶无需回桶)',
   PRIMARY KEY (`id`),
@@ -514,6 +528,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   KEY `idx_orders_address_status_time` (`address_id`,`status`,`create_time`),
   KEY `idx_orders_station` (`station_id`),
   KEY `idx_orders_delivery_station` (`delivery_station_id`),
+  KEY `idx_orders_settle_station` (`settle_station_id`),
   CONSTRAINT `fk_orders_address` FOREIGN KEY (`address_id`) REFERENCES `address` (`id`),
   CONSTRAINT `fk_orders_customer` FOREIGN KEY (`customer_id`) REFERENCES `customer` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='订单表';
@@ -568,7 +583,7 @@ CREATE TABLE IF NOT EXISTS `product` (
   `category` tinyint NOT NULL COMMENT '1 桶装水 2 瓶装水 3 饮水器',
   `brand` varchar(100) DEFAULT NULL COMMENT '品牌',
   `spec` varchar(100) DEFAULT NULL COMMENT '规格',
-  `image_object_name` varchar(500) DEFAULT NULL COMMENT '图片 COS 对象键',
+  `image_object_name` varchar(500) DEFAULT NULL COMMENT '图片: 小程序包内预设图路径(/assets/product/xxx.webp) 或 COS 对象键; 判据=以/开头即本地资源(原样下发), 否则走 COS 签名(v38 起)',
   `description` text COMMENT '商品描述',
   `price` decimal(10,2) NOT NULL COMMENT '基础售价(通用库参考价; 本站售价见 inventory.sale_price)',
   `deposit` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '押金(只有桶装水使用; 通用库参考押金, 本站押金见 inventory.deposit_price)',
@@ -689,15 +704,27 @@ CREATE TABLE IF NOT EXISTS `staff_piece_rate` (
   `station_id` bigint NOT NULL COMMENT '水站ID',
   `product_id` bigint NOT NULL DEFAULT '0' COMMENT '商品ID; 0=该站默认价（按商品可单独定价，18.9L 与 5L 搬运成本不同）',
   `per_bucket_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '每送一桶的计件价; 0=本站不计件',
-  `return_bucket_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '每回收一个空桶的奖励; 0=不奖',
   `floor_bonus_per_level` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '无电梯时每超一层的补贴; 0=不补',
   `floor_free_level` int NOT NULL DEFAULT '1' COMMENT '免费楼层（此层及以下不补）',
-  `per_order_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '每单基础奖励',
-  `penalty_per_bucket` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '每少收一个空桶的扣减; 0=不扣',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`station_id`,`product_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站级配送计件单价';
+-- 站长自定义工资条目（v44）：加项/扣项字典。为什么要有它见 migration_v44 文件头。
+-- ⚠️ uk 建在 (station_id, name) 上：同站两个"高温补贴"会让月底汇总直接对不上账。
+CREATE TABLE IF NOT EXISTS `staff_earning_item` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `station_id` bigint NOT NULL COMMENT '所属水站',
+  `name` varchar(20) NOT NULL COMMENT '条目名称（如 迟到扣款 / 高温补贴）',
+  `direction` tinyint NOT NULL DEFAULT '1' COMMENT '方向: 1=加项(补钱) 2=扣项(扣钱); 调用方一律传正数金额',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '1 启用 0 停用; 停用只挡新录入，历史流水照旧',
+  `sort` int NOT NULL DEFAULT '0' COMMENT '展示顺序（小的在前）',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_earning_item_name` (`station_id`,`name`) COMMENT '同站条目名不得重复',
+  KEY `idx_earning_item_station` (`station_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站长自定义工资条目(加项/扣项字典)';
 -- 配送员收益明细（v37）：一行一个动作，工钱走独立对账等式 E-PAY，**不进客户对账**。
 -- ⚠️ auto_uk 的 NULL 是**有意**的：order_id 为 NULL = 人工录入，本来就允许无限多条。
 -- 自动收益（完成配送时产生）必须幂等，由 uk_earning_auto 兜底；调整单另由 uk_earning_adjustment 兜底。
@@ -714,6 +741,8 @@ CREATE TABLE IF NOT EXISTS `staff_earning` (
   `amount` decimal(10,2) NOT NULL COMMENT '金额; 扣减类为负数（方向由 kind 决定）',
   `payroll_id` bigint DEFAULT NULL COMMENT '已结算时写入所属结算单; NULL=未结算',
   `adjustment_id` bigint DEFAULT NULL COMMENT '来源资产调整单（人工调整场景的幂等键）',
+  `item_id` bigint DEFAULT NULL COMMENT '自定义工资条目ID(v44); NULL=非按条目录入（老数据与自由文本调整）',
+  `item_name` varchar(20) DEFAULT NULL COMMENT '条目名称快照(v44): 条目改名不改写已发生的工资历史',
   `note` varchar(200) DEFAULT NULL,
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `auto_uk` varchar(128) GENERATED ALWAYS AS ((case when `order_id` is null then NULL else concat(`order_id`,'-',`staff_id`,'-',`kind`,'-',`product_id`) end)) STORED COMMENT '自动收益去重键(含 product_id); NULL 是有意的=人工录入允许无限多条',

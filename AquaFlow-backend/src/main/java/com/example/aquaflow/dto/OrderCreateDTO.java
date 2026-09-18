@@ -13,6 +13,15 @@ import java.util.List;
 public class OrderCreateDTO {
 
     private Long customerId;
+
+    /**
+     * 收货地址ID（v35 起被配送计费依赖）。
+     *
+     * <p>⚠️ 前端传来的 JSON 数字可能是 {@code Integer}，而这里必须是 {@code Long} ——
+     * 与 {@link PaymentQuoteDTO#getAddressId()} 保持同一类型，否则报价与下单两侧
+     * 算出的楼层费/远程费可能不同（"计价双轨"事故的形状）。
+     * Jackson 会把 JSON 数字直接转成目标类型，客户端无需改动。</p>
+     */
     private Long addressId;
     private Long stationId;
     private Integer source;

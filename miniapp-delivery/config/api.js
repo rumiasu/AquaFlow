@@ -128,6 +128,7 @@ const API = {
   MANAGER_CATALOG_ITEM: (id) => `/api/manager/catalog/${id}`,
   MANAGER_CATALOG_SELECT: (id) => `/api/manager/catalog/${id}/select`,
   MANAGER_CATALOG_STOCK: (id) => `/api/manager/catalog/${id}/stock`,
+  MANAGER_CATALOG_PRESET_IMAGES: '/api/manager/catalog/preset-images',
   MANAGER_MY_PRODUCTS: '/api/manager/my-products',
   MANAGER_MY_PRODUCT: (id) => `/api/manager/my-products/${id}`,
   MANAGER_MY_PRODUCT_SUBMIT: (id) => `/api/manager/my-products/${id}/submit`,
@@ -167,6 +168,8 @@ const API = {
   // 反馈
   FEEDBACK: '/api/feedback',
   FEEDBACK_MY: '/api/feedback/my',
+  // 站长看「落到本站的客户反馈」（只读）；与上面两个是不同人群，见 api/feedback.js
+  FEEDBACK_CUSTOMERS: '/api/feedback/customers',
 
   // 水桶
   BARRELS_ALL_RECORDS: '/api/barrels/all-records',

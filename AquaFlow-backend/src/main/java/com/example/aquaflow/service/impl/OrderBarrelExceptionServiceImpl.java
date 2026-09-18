@@ -453,6 +453,8 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         // 中文文案由后端统一计算下发，前端不再自建 status/category 映射表
         dto.setStatusText(ex.getStatusText());
         dto.setCategoryText(ex.getCategoryText());
+        // 「还等着站长处置」的判据也留在后端：前端标红时不该去比对中文文案（文案一改就静默失效）
+        dto.setPending("STAFF_RECORDED".equals(ex.getStatus()));
         dto.setCreatedAt(ex.getCreatedAt());
         dto.setDecidedAt(ex.getDecidedAt());
         dto.setExecutedAt(ex.getExecutedAt());

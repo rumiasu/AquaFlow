@@ -1,0 +1,220 @@
+.page {
+  min-height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  background: #f5f6f8;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.filter {
+  font-size: 24rpx;
+  color: #4e5969;
+  padding: 6rpx 18rpx;
+  background: #f2f3f5;
+  border-radius: 999rpx;
+}
+
+.filter-on {
+  color: #ffffff;
+  background: #2f7cf6;
+}
+
+.empty {
+  font-size: 26rpx;
+  color: #a3a8b0;
+  padding: 30rpx 0;
+  text-align: center;
+}
+
+/* ===== 统计 ===== */
+.stats-row {
+  display: flex;
+  margin-top: 16rpx;
+}
+
+.stats-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stats-value {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.stats-label {
+  font-size: 22rpx;
+  color: #8a9099;
+  margin-top: 6rpx;
+}
+
+.stats-note {
+  font-size: 22rpx;
+  color: #a3a8b0;
+  line-height: 1.5;
+  margin-top: 16rpx;
+}
+
+/* ===== 损耗 ===== */
+.loss-sub {
+  font-size: 22rpx;
+  color: #8a9099;
+  margin-top: 10rpx;
+}
+
+.loss-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-top: 16rpx;
+}
+
+.loss-label {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1f2329;
+  margin-right: 8rpx;
+}
+
+.loss-total {
+  color: #d4380d;
+}
+
+.loss-hint {
+  font-size: 22rpx;
+  color: #8a9099;
+  margin-right: 24rpx;
+}
+
+.loss-item {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.loss-item-name {
+  font-size: 26rpx;
+  color: #1f2329;
+}
+
+.loss-item-qty {
+  font-size: 24rpx;
+  color: #8a9099;
+}
+
+.loss-note {
+  font-size: 22rpx;
+  color: #a3a8b0;
+  line-height: 1.5;
+  margin-top: 16rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx solid #f0f2f5;
+}
+
+/* ===== 异常单 ===== */
+.ex {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f2f5;
+}
+
+.ex:last-child {
+  border-bottom: none;
+}
+
+.ex-pending {
+  background: #fff7f5;
+  margin: 0 -24rpx;
+  padding: 20rpx 24rpx;
+}
+
+.ex-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.ex-tag {
+  font-size: 22rpx;
+  color: #4e5969;
+  background: #f2f3f5;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+}
+
+.ex-tag-pending {
+  color: #ffffff;
+  background: #d4380d;
+}
+
+.ex-cat {
+  font-size: 24rpx;
+  color: #1f2329;
+  margin-left: 14rpx;
+}
+
+.ex-id {
+  font-size: 22rpx;
+  color: #a3a8b0;
+  margin-left: auto;
+}
+
+.ex-row {
+  display: flex;
+  margin-top: 8rpx;
+}
+
+.ex-label {
+  width: 120rpx;
+  font-size: 24rpx;
+  color: #8a9099;
+  flex-shrink: 0;
+}
+
+.ex-value {
+  flex: 1;
+  font-size: 24rpx;
+  color: #1f2329;
+  word-break: break-all;
+}
+
+.ex-time {
+  display: block;
+  font-size: 22rpx;
+  color: #a3a8b0;
+  margin-top: 10rpx;
+}
+
+.load-hint {
+  font-size: 22rpx;
+  color: #a3a8b0;
+  text-align: center;
+  padding-top: 16rpx;
+}
+
+.page-note {
+  font-size: 22rpx;
+  color: #8a9099;
+  line-height: 1.6;
+  padding: 0 8rpx 40rpx;
+}

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -18,6 +19,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.List;
@@ -66,11 +68,24 @@ public abstract class AbstractIntegrationTest {
         List<String> tables = jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'",
                 String.class);
-        jdbc.execute("SET FOREIGN_KEY_CHECKS=0");
-        for (String t : tables) {
-            jdbc.execute("TRUNCATE TABLE `" + t + "`");
-        }
-        jdbc.execute("SET FOREIGN_KEY_CHECKS=1");
+        // ⚠️ 必须把 SET FOREIGN_KEY_CHECKS 与随后的 TRUNCATE **放在同一条连接上**。
+        // 该设置是**会话级**的：原实现用 jdbc.execute(...) 逐条发（SET → 循环 TRUNCATE → SET），
+        // 每条都可能从连接池拿到**另一条**连接 —— 于是 TRUNCATE 在"外键检查仍开着"的连接上执行，
+        // 撞上被外键引用的表（station ← staff_station_application.fk_app_station）就报
+        // ERROR 1701 Cannot truncate a table referenced in a foreign key constraint。
+        // 平时靠连接复用侥幸通过，池状态一变（例如高负载下连接被换掉）就**偶发**失败：
+        // 2026-09-18 隔离区全量回归里 314 例中恰有 1 例红在这里，排查成本远高于本修复。
+        // ConnectionCallback 保证整段跑在同一条连接上。
+        jdbc.execute((ConnectionCallback<Void>) con -> {
+            try (Statement st = con.createStatement()) {
+                st.execute("SET FOREIGN_KEY_CHECKS=0");
+                for (String t : tables) {
+                    st.execute("TRUNCATE TABLE `" + t + "`");
+                }
+                st.execute("SET FOREIGN_KEY_CHECKS=1");
+            }
+            return null;
+        });
     }
 
     /* ==================== 令牌 ==================== */
@@ -297,8 +312,13 @@ public abstract class AbstractIntegrationTest {
     }
 
     protected long createCustomerStationConfig(long customerId, long stationId, int offlinePaymentEnabled) {
-        return insert("INSERT INTO customer_station_config(customer_id, station_id, offline_payment_enabled) "
-                + "VALUES (?,?,?)", customerId, stationId, offlinePaymentEnabled);
+        // [v48] 夹具语义 = 「站长把这个客户的货到付款配好了、能用」—— 所以开通时**同时放行首单**。
+        // 首单不给 / 欠款即停 / 单笔上限那三层约束由 OfflinePaymentConstraintIntegrationTest
+        // 走**接口**逐个验（那才是站长真实的配置入口）；不要在这里加"按需放行"的分支，
+        // 否则 20+ 个既有用例会以同一句"首单暂不支持货到付款"集体变红、看不出真正原因。
+        return insert("INSERT INTO customer_station_config(customer_id, station_id, offline_payment_enabled, "
+                + "offline_payment_allow_first_order) VALUES (?,?,?,?)",
+                customerId, stationId, offlinePaymentEnabled, offlinePaymentEnabled == 1 ? 1 : 0);
     }
 
     protected long createBarrelLot(String lotNo, long customerId, long stationId, long productId,

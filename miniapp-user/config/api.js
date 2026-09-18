@@ -65,6 +65,8 @@ const API = {
   // 水票（后端: TicketAccountController）
   TICKETS: '/api/tickets',
   TICKET_RECORDS: '/api/ticket-records',
+  // 水票档位价目表（后端: TicketPackageController）。站级 + 商品级，公开只读、只返回上架档位。
+  TICKET_PACKAGES: '/api/ticket-packages',
 
   // 水桶（后端: BarrelController）
   BARREL_SUMMARY: '/api/barrels/summary',

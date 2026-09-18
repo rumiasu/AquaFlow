@@ -26,4 +26,25 @@ public class StationUtil {
         if (o == null) return null;
         return o.getStationId();
     }
+
+    /**
+     * 订单**结算站**：这笔订单的**营收（水费 + 配送费 + 楼层费）归谁**。
+     * <p>取值顺序 {@code settle_station_id → delivery_station_id → station_id}：
+     * 下单时 = 归属站；抢单 / 定向外派成功后 = 履约站；召回 / 退回池回归属站。
+     * 迁移与语义正本见 {@code sql/migration_v47_order_settle_station.sql}。</p>
+     *
+     * <p>⚠️ <b>只有"钱"用它</b>。三类口径不要混：<br>
+     * · <b>营收（钱）</b> → 本方法 / SQL 里同一套 coalesce（看板、毛利、应收、收款与退款的判权）；<br>
+     * · <b>客户资产（押金 / 水票 / 桶权益）</b> → {@link #station(Orders)}（归属站）——
+     *   那是客户在哪个站买的账，与谁去送无关；<br>
+     * · <b>库存与工钱</b> → {@link #deliveryStation(Orders)}（履约站）。</p>
+     *
+     * <p>最后一级回退是**防御**（万一有漏写的行也不至于让营收凭空消失），
+     * 不是常态：正常写入路径必须落 {@code settle_station_id}。</p>
+     */
+    public static Long settleStation(Orders o) {
+        if (o == null) return null;
+        if (o.getSettleStationId() != null) return o.getSettleStationId();
+        return deliveryStation(o);
+    }
 }

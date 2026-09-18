@@ -38,6 +38,22 @@ public interface TicketRecordMapper {
             "and decrease_qty > 0")
     int countConsumeByOrderAndProduct(@Param("orderId") Long orderId, @Param("productId") Long productId);
 
+    /**
+     * 统计某订单某商品已产生的水票**退款回补**流水数量（2026-09-18 补）。
+     *
+     * <p>用途：退款回补的幂等闸门。水票回补一旦发生就不该再来一次，两条退款路径
+     * （订单取消链 {@code refundOrder} / 站长手工退款 {@code refundPayment}）都必须在
+     * 调 {@code refundTicket} 之前先问这一句。</p>
+     *
+     * <p><b>为什么不能只靠 {@code uk_ticket_consume(order_id, product_id, source)} 兜底</b>：
+     * 那条唯一键确实能挡住第二次回补（回补流水撞键 → 整个事务回滚，票不会多），
+     * 但它是**数据库异常**，会被兜底处理器转成 {@code code=500}「系统错误」，
+     * 让"这张单已经退过了"这种正常业务判断看起来像后端崩了 —— 与 AGENTS.md §8.17 同类。</p>
+     */
+    @Select("select count(*) from ticket_record where order_id = #{orderId} and product_id = #{productId} "
+            + "and increase_qty > 0 and source = '退款'")
+    int countRefundByOrderAndProduct(@Param("orderId") Long orderId, @Param("productId") Long productId);
+
     @Select("select * from ticket_record where customer_id = #{customerId} order by create_time desc")
     List<TicketRecord> listByCustomerId(@Param("customerId") Long customerId);
 

@@ -17,7 +17,8 @@
   <view class="record-list">
     <view class="record-card" wx:for="{{records}}" wx:key="id">
       <view class="record-top">
-        <text class="record-customer">{{item.customerName || '未知客户'}}</text>
+        <!-- 跨站履约单后端刻意不下发 customerName（画像归归属站）→ 回落订单收件人 -->
+        <text class="record-customer">{{item.customerName || item.receiverName || '未知客户'}}</text>
         <text class="record-time">{{item.timeText}}</text>
       </view>
       <view class="record-address" wx:if="{{item.addressDetail}}">{{item.addressDetail}}</view>

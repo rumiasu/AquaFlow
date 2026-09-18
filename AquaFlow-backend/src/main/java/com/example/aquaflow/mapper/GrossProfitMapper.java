@@ -36,11 +36,18 @@ public interface GrossProfitMapper {
     /**
      * 期间毛利报表：按商品汇总销量、收入、成本与毛利。
      *
-     * <p>口径说明（三条，都容易踩错）：</p>
+     * <p>口径说明（四条，都容易踩错）：</p>
      * <ol>
-     *   <li>按 <b>{@code orders.station_id}</b>（营收归属站）统计，不是履约站 ——
-     *       毛利是"这笔生意赚了多少"，跨站外派单的钱记在归属站，
-     *       换成绩效口径（工钱）才用履约站（见 {@code docs/design/18}）。</li>
+     *   <li>按 <b>{@code coalesce(settle_station_id, delivery_station_id, station_id)}</b>
+     *       （v47 <b>结算站</b> = 本单营收归谁）统计，<b>不是</b> {@code station_id}（归属站）——
+     *       跨站外派单的水费 + 配送费 + 楼层费归实际配送站（2026-09-18 产品裁定），毛利是"这笔生意
+     *       赚了多少"，所以它出现在<b>送货那一站</b>的报表里。换成绩效口径（工钱）才用履约站
+     *       （见 {@code docs/design/18}）。
+     *       ⚠️ 改写前这里按 {@code station_id} 统计，与本仓看板/客户画像（两级 coalesce）**归两个站**。</li>
+     *   <li><b>成本 join 必须与统计条件用同一个站</b>（{@code i.station_id = 上面那个 coalesce}）——
+     *       进货价是站级的（v39：{@code inventory.cost_price}），A 站的成本算 B 站的售价
+     *       会得到一个既不是 A 也不是 B 的毛利，而且**看起来完全正常**（没有任何报错）。
+     *       只改 where 不改 join = 正是这个错误。</li>
      *   <li><b>排除已取消(5)</b>：取消单不该进营收，也不该进毛利。</li>
      *   <li>时间上界用「结束日 + 1 天」（调用方传 {@code endExclusive}）——
      *       写 {@code <= 结束日} 会让当天的销量一条都统计不到（AGENTS §8.19）。</li>
@@ -59,8 +66,10 @@ public interface GrossProfitMapper {
             + "       case when max(i.cost_price) is null then 1 else 0 end as missingCost "
             + "  from order_item oi "
             + "  join orders o on o.id = oi.order_id "
-            + "  left join inventory i on i.station_id = o.station_id and i.product_id = oi.product_id "
-            + " where o.station_id = #{stationId} and o.status <> 5 "
+            + "  left join inventory i on i.station_id = coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) "
+            + "       and i.product_id = oi.product_id "
+            + " where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
+            + "   and o.status <> 5 "
             + "   and o.create_time >= #{start} and o.create_time < #{endExclusive} "
             + " group by oi.product_id "
             + " order by revenue desc")

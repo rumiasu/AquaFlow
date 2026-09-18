@@ -70,7 +70,8 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
                 "/api/delivery/orders/station-completed",
                 "/api/delivery/orders/station-transfer",
                 "/api/delivery/orders/station-return",
-                "/api/delivery/orders/station-exception",
+                // [2026-09-18] station-exception 已按死端点评估删除（名字叫"异常"、实际返回取消单），
+                // 它的 404 断言在 ManagerOrderControllerRemovedIntegrationTest 里。
                 "/api/delivery/orders/pending-approvals",
                 "/api/delivery/orders/pool",
                 "/api/delivery/orders/dispatch-tracking",

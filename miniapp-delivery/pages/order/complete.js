@@ -22,6 +22,10 @@ Page({
     noteText: '',
     photos: [],
     uploading: false,
+    // v43：楼层数（选填）+ 楼层凭证照片（不强制，和客户对峙时用）
+    reportedFloor: '',
+    floorPhotos: [],
+    floorUploading: false,
     isCashOnDelivery: false,
     collected: false,
     showReasonPicker: false,
@@ -73,7 +77,11 @@ Page({
         isFirstBarrelOrder,
         items,
         isCashOnDelivery,
-        collected: !isCashOnDelivery
+        collected: !isCashOnDelivery,
+        // 楼层数**默认带出地址里的楼层**（客户填过就省得配送员再输一遍）；
+        // 地址没填就留空 —— 有楼层才填，没有就不填（空 = 沿用地址，两边都没有就不补）。
+        reportedFloor: order.addressFloor === null || order.addressFloor === undefined
+          ? '' : String(order.addressFloor)
       })
     } catch (err) {
       this.setData({ orderLoaded: false })
@@ -173,6 +181,55 @@ Page({
 
   onNoteInput(e) {
     this.setData({ noteText: e.detail.value })
+  },
+
+  /* ==================== 楼层数（选填）+ 楼层凭证（v43）====================
+   * 为什么要有这两样：楼层补贴是给配送员的钱，只有他知道自己爬了几层 ——
+   *   ① 楼层数**选填**：有楼层就填、没有就不填；不填时后端沿用客户地址里的楼层；
+   *   ② 照片**不强制**（产品决定），但拍一张站得住脚 —— 与客户扯皮时（"你不是说 6 楼吗"）
+   *      这是唯一的凭证，站长也可以事后补传。
+   * ⚠️ 它不影响向客户收的楼层费 —— 那笔钱在下单时就按地址快照了。
+   */
+  onFloorInput(e) {
+    this.setData({ reportedFloor: e.detail.value })
+  },
+
+  onAddFloorPhoto() {
+    if (this.data.floorPhotos.length >= 3 || this.data.floorUploading) return
+    const { upload } = require('../../utils/upload')
+    const { API } = require('../../config/api')
+    wx.chooseImage({
+      count: 3 - this.data.floorPhotos.length,
+      sizeType: ['compressed'],
+      success: async (res) => {
+        this.setData({ floorUploading: true })
+        const uploads = res.tempFilePaths.map(p => upload({
+          filePath: p,
+          url: API.ORDER_IMAGE_UPLOAD,
+          name: 'file',
+          // 3 = 楼层凭证（1 正常送达 / 2 异常），后端 order_image.type 的注释里有
+          formData: { orderId: this.data.orderId, type: 3 }
+        }).then(r => r.data))
+        try {
+          const urls = await Promise.all(uploads)
+          this.setData({ floorPhotos: this.data.floorPhotos.concat(urls.filter(Boolean)) })
+        } catch (err) {
+          wx.showToast({ title: err.message || '上传失败', icon: 'none' })
+        } finally {
+          this.setData({ floorUploading: false })
+        }
+      }
+    })
+  },
+
+  onPreviewFloorPhoto(e) {
+    const { index } = e.currentTarget.dataset
+    wx.previewImage({ current: this.data.floorPhotos[index], urls: this.data.floorPhotos })
+  },
+
+  onRemoveFloorPhoto(e) {
+    const { index } = e.currentTarget.dataset
+    this.setData({ floorPhotos: this.data.floorPhotos.filter((_, i) => i !== index) })
   },
 
   onAddPhoto() {
@@ -291,7 +348,7 @@ Page({
   },
 
   async _doSubmit() {
-    const { orderId, items, noteText, collected, isCashOnDelivery } = this.data
+    const { orderId, items, noteText, collected, isCashOnDelivery, reportedFloor } = this.data
 
     const itemReturns = items.map(it => ({
       orderItemId: it.id,
@@ -306,7 +363,10 @@ Page({
       await completeOrder(orderId, {
         itemReturns,
         note: noteText,
-        collected: isCashOnDelivery ? collected : true
+        collected: isCashOnDelivery ? collected : true,
+        // v43：楼层数选填（有就填、没有不填）。填了才是楼层补贴的依据，
+        // 与客户地址里填的不一致时后端会在收益明细里标记出来（防虚报）。
+        reportedFloor: reportedFloor === '' || reportedFloor === null ? null : Number(reportedFloor)
       })
       wx.hideLoading()
       wx.showToast({ title: '配送完成！', icon: 'success' })

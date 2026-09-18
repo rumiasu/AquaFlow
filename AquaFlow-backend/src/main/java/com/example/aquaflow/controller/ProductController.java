@@ -8,7 +8,7 @@ import com.example.aquaflow.entity.Product;
 import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.util.AuthContext;
-import com.example.aquaflow.util.CosUtil;
+import com.example.aquaflow.util.ProductImageResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,7 +43,7 @@ public class ProductController {
     private InventoryMapper inventoryMapper;
 
     @Autowired
-    private CosUtil cosUtil;
+    private ProductImageResolver imageResolver;
 
     /**
      * 商品列表。
@@ -147,14 +147,8 @@ public class ProductController {
             item.put("price", p.getPrice());
             item.put("deposit", p.getDeposit());
             item.put("status", p.getStatus());
-            // 注入图片临时访问 URL
-            try {
-                item.put("imageUrl", p.getImageObjectName() != null
-                        ? cosUtil.generatePublicUrl(p.getImageObjectName()) : null);
-            } catch (Exception e) {
-                log.warn("生成商品图片URL失败, id={}, error={}", p.getId(), e.getMessage());
-                item.put("imageUrl", null);
-            }
+            // 注入图片 URL（本地预设路径原样下发 / COS 对象键签成临时 URL）
+            item.put("imageUrl", imageResolver.resolve(p.getImageObjectName()));
             Inventory inv = stockMap.get(p.getId());
             item.put("stock", inv != null ? inv.getQuantity() : 0);
             item.put("inventoryId", inv != null ? inv.getId() : null);
@@ -163,26 +157,18 @@ public class ProductController {
         return Result.success(result);
     }
 
-    /** 为 Product 注入图片临时访问 URL（容错） */
+    /**
+     * 为 Product 注入图片 URL。
+     * <p>本地预设路径（{@code /assets/...}）原样下发；COS 对象键签成 24h 临时 URL；
+     * 解析失败返回 null 而非抛异常（详情接口不该因一张图挂掉）。</p>
+     */
     private void injectImageUrl(Product product) {
-        try {
-            if (product.getImageObjectName() != null && !product.getImageObjectName().isEmpty()) {
-                product.setImageUrl(cosUtil.generatePublicUrl(product.getImageObjectName()));
-            }
-        } catch (Exception e) {
-            log.warn("生成商品图片URL失败, id={}, error={}", product.getId(), e.getMessage());
-        }
+        product.setImageUrl(imageResolver.resolve(product.getImageObjectName()));
     }
 
-    /** 为 StationProductVO 注入图片临时访问 URL（容错：单条失败不影响列表） */
+    /** 为 StationProductVO 注入图片 URL（容错：单条失败不影响列表） */
     private void injectImageUrl(StationProductVO vo) {
-        try {
-            if (vo.getImageObjectName() != null && !vo.getImageObjectName().isEmpty()) {
-                vo.setImageUrl(cosUtil.generatePublicUrl(vo.getImageObjectName()));
-            }
-        } catch (Exception e) {
-            log.warn("生成商品图片URL失败, id={}, error={}", vo.getId(), e.getMessage());
-        }
+        vo.setImageUrl(imageResolver.resolve(vo.getImageObjectName()));
     }
 
     /**

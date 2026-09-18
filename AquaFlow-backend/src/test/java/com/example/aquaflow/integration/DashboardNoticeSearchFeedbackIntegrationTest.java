@@ -37,8 +37,8 @@ class DashboardNoticeSearchFeedbackIntegrationTest extends AbstractIntegrationTe
         String[] paths = {
                 "/api/dashboard/today",
                 "/api/dashboard/overview",
-                "/api/dashboard/order-status",
-                "/api/dashboard/order-trend",
+                // [2026-09-18] order-status / order-trend 已按死端点评估删除（口径与 /report 分叉），
+                // 它们的 404 断言在 ManagerOrderControllerRemovedIntegrationTest 里。
                 "/api/dashboard/report?range=7d",
                 "/api/dashboard/report?range=30d"
         };
@@ -70,6 +70,11 @@ class DashboardNoticeSearchFeedbackIntegrationTest extends AbstractIntegrationTe
         assertTrue(noticeId > 0, "应返回落库后的公告 id");
         // 归属强制绑定登录站，请求体里没法伪造
         assertEquals(stationA, longOf("SELECT station_id FROM notice WHERE id=?", noticeId));
+        // [2026-09-18] 状态文案必须由后端下发（Notice.getStatusText，真相源 constant/NoticeStatus.java）：
+        // 站长端公告列表原来在前端写 `status === 1 ? '已发布' : '草稿'`，那正是本仓禁止的映射表。
+        // 这条断言把它钉在契约层 —— 后端哪天不再下发 statusText，这里立刻红。
+        assertEquals("已发布", created.data().path("statusText").asText(),
+                "未传 status 时应默认发布，且状态文案由后端下发");
 
         Api published = get("/api/notices", cus);
         assertEquals(0, published.code(), "客户应能看已发布公告: " + published);
@@ -83,6 +88,21 @@ class DashboardNoticeSearchFeedbackIntegrationTest extends AbstractIntegrationTe
         long draftId = insert("INSERT INTO notice(station_id, title, content, type, status) VALUES (?,?,?,1,0)",
                 stationA, "草稿", "未发布");
         assertNotEquals(0, get("/api/notices/" + draftId, cus).code(), "草稿不该被顾客读到");
+        assertEquals("草稿", get("/api/notices/" + draftId, mgrA).data().path("statusText").asText(),
+                "草稿的状态文案同样由后端下发（前端只渲染，不做 status → 文案 映射）");
+
+        // [2026-09-18 修复] 站长列表必须看得到**没发布的那部分**：
+        // 旧 SQL 是 `where station_id = ? and status = 1` → 「保存草稿后列表里没有它」、
+        // 「点下架后从列表消失、再也点不回来」，而界面文案明写"草稿只有你自己可见"。
+        Api staffList = get("/api/notices/all", mgrA);
+        assertEquals(0, staffList.code(), "站长应能看本站公告列表: " + staffList);
+        boolean draftVisible = false;
+        for (int i = 0; i < staffList.data().size(); i++) {
+            if (staffList.data().get(i).path("id").asLong() == draftId) {
+                draftVisible = true;
+            }
+        }
+        assertTrue(draftVisible, "站长列表必须包含本站草稿（含未发布 / 已下架），否则草稿与下架两个状态在界面上等于不存在");
 
         Api updated = put("/api/notices/" + noticeId, mgrA, "{\"title\":\"改过的标题\"}");
         assertEquals(0, updated.code(), "站长应能编辑本站公告: " + updated);
@@ -159,5 +179,25 @@ class DashboardNoticeSearchFeedbackIntegrationTest extends AbstractIntegrationTe
         assertEquals(0, all.code(), "站长应能看客户反馈汇总: " + all);
         assertEquals(1, all.data().size(), "只统计客户反馈，不含站长自己提的那条");
         assertNotEquals(0, get("/api/feedback/customers", cus).code(), "客户不该看反馈汇总");
+        // [2026-09-18 修复] 客户姓名必须带出来：原 SQL 是 `select f.*`，从不 JOIN customer，
+        // 于是 customerName 恒为 null —— 站长看到的是"客户 #42"，认不出人，这条反馈等于没法处理。
+        assertEquals("反馈客户", all.data().get(0).path("customerName").asText(),
+                "站长端要能看出是哪个客户报的（否则反馈无法闭环）");
+
+        // [2026-09-18 修复] 归属口径必须是「绑定行 **或** 本站订单」的并集：
+        // 原 SQL 用 inner join customer_station_config（只看绑定行），于是**只在小程序下过单、
+        // 没有绑定行的老顾客**提交的反馈不进站长列表 —— 界面显示"暂无客户反馈"，库里却有记录。
+        // 这正是 AGENTS §1 记的那条口径坑（客户特权 / 应收账款 / 代客下单护栏都栽在同一处）。
+        long orderOnly = createCustomer("只下过单的客户", "fb-openid-3");
+        long product = createProduct("反馈测试水", 1, "10.00", "30.00", 1, "0.00");
+        long address = createAddress(orderOnly, "只下过单的客户地址");
+        createOrder(orderOnly, address, station, product, 1, 1);
+        assertEquals(0, post("/api/feedback", customerToken(orderOnly),
+                "{\"category\":\"bug\",\"content\":\"下不了单\"}").code(), "该客户应能提交反馈");
+
+        Api afterOrderOnly = get("/api/feedback/customers", mgr);
+        assertEquals(0, afterOrderOnly.code());
+        assertEquals(2, afterOrderOnly.data().size(),
+                "只下过单、没有绑定行的顾客，其反馈也必须进站长列表（归属 = 绑定 或 本站订单，取并集）");
     }
 }

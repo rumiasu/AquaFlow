@@ -1,5 +1,9 @@
 // 客户画像（站长视角）
 const { getCustomerProfile, getCustomerAssets, updateOfflinePayment, returnEmptyBuckets } = require('../../../../api/station-mgmt')
+// ⚠️ 特权接口走 utils/request + 本文件内的路径常量，不往 api/station-mgmt.js 里加函数：
+// 那个文件正被另一个工作流（商品图片库）改动，往里加东西会让两边未提交的改动纠缠在一起。
+const { get: httpGet, post: httpPost, del: httpDel } = require('../../../../utils/request')
+const privilegesPath = (customerId) => `/api/manager/customers/${customerId}/privileges`
 
 Page({
   data: {
@@ -22,7 +26,15 @@ Page({
     // ===== 纯还桶（只冲减 over，不扣权益、不退款） =====
     showReturnEmpty: false,
     returnItems: [],
-    returnSubmitting: false
+    returnSubmitting: false,
+    // ===== 客户特权（v40） =====
+    // 与资产接口同理，是站长专属：配送员不请求、不渲染该区块。
+    privileges: [],
+    // 可授予类型由**服务端下发**（只含已实现的），前端不写死枚举 ——
+    // 否则后端新增一种特权，前端不改就永远看不到
+    grantableTypes: [],
+    privilegesLoading: false,
+    privilegesError: ''
   },
 
   onLoad(options) {
@@ -37,6 +49,7 @@ Page({
     this.loadProfile(id)
     if (canViewAssets) {
       this.loadAssets(id)
+      this.loadPrivileges(id)
     }
   },
 
@@ -55,6 +68,66 @@ Page({
     } finally {
       this.setData({ loading: false })
     }
+  },
+
+  /**
+   * 客户特权（v40）。规格见 docs/design/20 §4。
+   *
+   * 产品决定（docs/design/16 D6）：不做个人/企业客户的显式区分，
+   * 差异化一律落到「站长在客户画像里给特权」—— 这个区块就是那个落点。
+   * ⚠️ 未实现的类型（折扣率/免配送次数/允许退票）后端会在授予时直接拒，
+   * 且**不**出现在 grantableTypes 里，所以界面上根本不会出现"点了没反应"的开关。
+   */
+  async loadPrivileges(id) {
+    this.setData({ privilegesLoading: true, privilegesError: '' })
+    try {
+      const res = await httpGet(privilegesPath(id))
+      const d = res.data || {}
+      this.setData({ privileges: d.privileges || [], grantableTypes: d.grantableTypes || [] })
+    } catch (err) {
+      this.setData({ privilegesError: err.message || '特权加载失败' })
+    } finally {
+      this.setData({ privilegesLoading: false })
+    }
+  },
+
+  onGrantPrivilege(e) {
+    const type = e.currentTarget.dataset.type
+    const t = this.data.grantableTypes.find(x => x.type === type)
+    if (!t) return
+    wx.showModal({
+      title: '授予特权',
+      content: (t.text || type) + '：' + (t.desc || ''),
+      success: async (r) => {
+        if (!r.confirm) return
+        try {
+          await httpPost(privilegesPath(this.data.id), { type })
+          wx.showToast({ title: '已授予', icon: 'success' })
+          await this.loadPrivileges(this.data.id)
+        } catch (err) {
+          wx.showToast({ title: err.message || '授予失败', icon: 'none' })
+        }
+      }
+    })
+  },
+
+  /** 撤销。后端在"本来就没有"时会报错——如实弹出，不要无条件提示成功（AGENTS §8.20）。 */
+  onRevokePrivilege(e) {
+    const type = e.currentTarget.dataset.type
+    wx.showModal({
+      title: '撤销特权？',
+      content: '撤销后该客户在本站立即恢复默认规则。',
+      success: async (r) => {
+        if (!r.confirm) return
+        try {
+          await httpDel(privilegesPath(this.data.id) + '/' + type)
+          wx.showToast({ title: '已撤销', icon: 'success' })
+          await this.loadPrivileges(this.data.id)
+        } catch (err) {
+          wx.showToast({ title: err.message || '撤销失败', icon: 'none' })
+        }
+      }
+    })
   },
 
   /**

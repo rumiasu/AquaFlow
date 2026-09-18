@@ -167,6 +167,8 @@ class BarrelExceptionFlowIntegrationTest extends AbstractIntegrationTest {
         assertEquals("STAFF_RECORDED", row.path("status").asText());
         assertTrue(row.path("statusText").asText().length() > 0, "状态文案应由后端下发");
         assertTrue(row.path("categoryText").asText().length() > 0, "类别文案应由后端下发");
+        // 页面要标红"还等着处理"的那几条：判据必须由后端给布尔，前端既不比对中文、也不自带状态表
+        assertTrue(row.path("pending").asBoolean(), "待处理的异常单 pending 应为 true");
     }
 
     @Test

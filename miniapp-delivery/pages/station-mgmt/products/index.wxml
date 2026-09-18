@@ -138,8 +138,34 @@
         </view>
       </view>
       <view class="form-item" wx:if="{{setting.ticketEnabled}}">
-        <text class="label">水票价格(元/张)</text>
+        <text class="label">水票散买单张价(元/张)</text>
         <input class="input" type="digit" placeholder="如：20" value="{{setting.ticketPrice}}" data-field="ticketPrice" bindinput="onSettingFieldInput" />
+      </view>
+
+      <!--
+        水票档位（商品上架时的「基本」定义）：基本档位就在这里配完，
+        更丰富的设置（档位标题 / 排序 / 单独上下架）进「水票档位」独立模块。
+        ⚠️ 没挂档位 = 客户只能按上面的单张价散买 —— 所以这里必须有明确提示，
+           不能让人以为打开开关就自动有档位（"水票还在按张卖"就是这么来的）。
+      -->
+      <view class="pkg-block" wx:if="{{setting.ticketEnabled}}">
+        <view class="pkg-head">
+          <text class="pkg-title">水票档位（成组更便宜）</text>
+          <text class="link" catchtap="onOpenTicketPackages">更多档位设置 ›</text>
+        </view>
+        <text class="pkg-hint">填「张数 + 总价」，例如 10 张 190 元；清空总价 = 删除该档位（保存后生效）。没挂档位时客户只能按单张价买。</text>
+
+        <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
+          <input class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" placeholder="张数" />
+          <text class="pkg-unit">张</text>
+          <text class="pkg-arrow">→</text>
+          <input class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" placeholder="总价" />
+          <text class="pkg-unit">元</text>
+          <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销' : '删除'}}</text>
+        </view>
+
+        <text class="pkg-empty" wx:if="{{!pkgRows.length}}">{{pkgLoading ? '读取档位中…' : '还没有档位'}}</text>
+        <text class="link" catchtap="onAddPkgRow">＋ 加一档</text>
       </view>
 
       <view class="modal-footer">
@@ -160,6 +186,12 @@
         <image class="preview" wx:if="{{editForm.imageUrl}}" src="{{editForm.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
         <view class="preview placeholder" wx:else><text>💧</text><text>点击上传</text></view>
         <text class="img-hint">{{uploading ? '上传中...' : '点击换图'}}</text>
+      </view>
+
+      <!-- 平台统一图库：站长不必自己拍照，直接从平台图里挑（图在小程序包内，不依赖 COS） -->
+      <view class="preset-entry" catchtap="openPresetPicker">
+        <text class="preset-entry-text">从平台图库选择</text>
+        <text class="preset-entry-sub">平台已备好统一商品图，比自拍照更整齐</text>
       </view>
 
       <view class="form-item">
@@ -213,8 +245,27 @@
         </view>
       </view>
       <view class="form-item" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
-        <text class="label">水票价格(元/张)</text>
+        <text class="label">水票散买单张价(元/张)</text>
         <input class="input" type="digit" placeholder="如：20" value="{{editForm.ticketPrice}}" data-field="ticketPrice" bindinput="onEditFieldInput" />
+      </view>
+
+      <!-- 档位：与「本站设置」共用同一份行数据（新建商品时用 create 返回的 id 挂上去） -->
+      <view class="pkg-block" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
+        <view class="pkg-head">
+          <text class="pkg-title">水票档位（成组更便宜）</text>
+          <text class="link" catchtap="onOpenTicketPackages">更多档位设置 ›</text>
+        </view>
+        <text class="pkg-hint">填「张数 + 总价」，例如 10 张 190 元；清空总价 = 删除该档位（保存后生效）。没挂档位时客户只能按单张价买。</text>
+        <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
+          <input class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" placeholder="张数" />
+          <text class="pkg-unit">张</text>
+          <text class="pkg-arrow">→</text>
+          <input class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" placeholder="总价" />
+          <text class="pkg-unit">元</text>
+          <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销' : '删除'}}</text>
+        </view>
+        <text class="pkg-empty" wx:if="{{!pkgRows.length}}">{{pkgLoading ? '读取档位中…' : '还没有档位'}}</text>
+        <text class="link" catchtap="onAddPkgRow">＋ 加一档</text>
       </view>
 
       <view class="modal-footer">
@@ -277,6 +328,35 @@
       <view class="empty" wx:else><text>还没有上报记录（在「我的商品」里点「上报」）</text></view>
       <view class="modal-footer">
         <button class="btn-save" bindtap="closeSubmissions">关闭</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 平台统一图库（选图） ============ -->
+  <!-- 图在**小程序包内**：后端下发路径，前端直接当 src 用，不依赖 COS、不会过期 -->
+  <view class="modal-mask" wx:if="{{showPresetPicker}}" catchtouchmove="preventMove" bindtap="closePresetPicker">
+    <view class="modal" catchtap="stopPropagation">
+      <view class="modal-header">选择平台图</view>
+      <view class="modal-sub">平台统一商品图，比自拍照更整齐；选中后仍可在上方点「点击换图」改回自传</view>
+
+      <view class="preset-loading" wx:if="{{presetLoading}}"><text>加载中...</text></view>
+      <view class="preset-empty" wx:elif="{{presetImages.length === 0}}"><text>暂无可选图片</text></view>
+
+      <view class="preset-grid" wx:else>
+        <view
+          class="preset-item {{editForm.imageUrl === item.path ? 'active' : ''}}"
+          wx:for="{{presetImages}}"
+          wx:key="key"
+          data-path="{{item.path}}"
+          bindtap="onPickPresetImage"
+        >
+          <image class="preset-thumb" src="{{item.path}}" mode="aspectFit" lazy-load />
+          <text class="preset-check" wx:if="{{editForm.imageUrl === item.path}}">已选</text>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-save" bindtap="closePresetPicker">关闭</button>
       </view>
     </view>
   </view>

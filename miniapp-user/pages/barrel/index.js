@@ -243,4 +243,10 @@ Page({
     })
   },
 
+  // 押金流水入口（本页顶部「押金」格子）。余额与流水必须取同一个水站，
+  // 两边都读 stationStorage.getId()，否则客户会看到"余额没变但流水在动"。
+  onDepositRecords() {
+    wx.navigateTo({ url: '/pages/deposit/records/index' })
+  },
+
 })

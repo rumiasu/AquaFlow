@@ -34,10 +34,28 @@ import jakarta.validation.Valid;
  * {@code POST /api/payments} 发起支付、{@code /by-customer} 查自己的流水。
  * <b>站长侧</b>（{@code STATION_MANAGER}）：确认收款、现金确认、退款、配置、各类列表。</p>
  *
- * <p>资金口径：支付状态的唯一真值是 {@code orders.payment_status}；
- * 退款的<b>唯一入口</b>是 {@code PaymentService.refundOrder}（内含"已完成/已取消不得再取消"的
- * 状态门槛，以及退水票→退流水→退押金→清配送中桶→回补库存的完整编排）。
- * <b>不要在本类另写一套退款逻辑</b> —— 历史上抄漏步骤导致过"订单已取消但钱票没退"。</p>
+ * <p>资金口径：支付状态的唯一真值是 {@code orders.payment_status}，本类一律只调 service，不自己写资金表。</p>
+ *
+ * <p><b>两条退款路径（2026-09-18 口径修正，本条此前写作"退款的唯一入口是 refundOrder"，已不准确）：</b></p>
+ * <ul>
+ *   <li><b>取消订单</b>（客户取消 / 配送员拒单 / 站长解决 / 取消申请审批）→
+ *       {@code PaymentService.refundOrder}：退水票 → 退流水 → 退押金 → 清配送中桶 → 回补库存 → 置已取消，
+ *       带"已完成/已取消不得再取消"的状态门槛。</li>
+ *   <li><b>只退这一笔钱</b>（客户投诉多收/重复付款，订单继续履约）→ {@code PaymentService.refundPayment}，
+ *       即本类 {@code PUT /{id}/refund}。<b>它不取消订单</b>，因此两者不是"两套取消逻辑"，
+ *       而是"取消一笔订单"与"退一笔流水"两个不同动作。</li>
+ * </ul>
+ * <p><b>站别口径只有一条：认「结算站」</b>（{@code orders.settle_station_id}，本单营收归谁）。
+ * 确认收款（{@code /confirm}、{@code /cash-confirm}）与退款（{@code /{id}/refund}）都走它 ——
+ * 现金是结算站的配送员当场收的，钱也记它的账，所以收与退必须是同一站。
+ * 未外派的单结算站 = 归属站；被抢单/定向外派后 = 履约站。正本见
+ * {@code sql/migration_v47_order_settle_station.sql} 与 {@link #requireRefundStation} 的 javadoc。
+ * <!-- [2026-09-18 二次修订] 本段此前写作"确认认履约站、退款认归属站，两条口径不要统一"，
+ *      那是「钱与票记归属站」旧口径的产物；产品改为"水费+配送费归实际履约站"后，
+ *      **两条口径合并成结算站这一条**。别再按旧注释拆回去。 --></p>
+ *
+ * <p><b>仍然禁止在本类另写一套回滚/记账逻辑</b>：任何"退水票 / 退押金 / 改资金状态"都必须经 service，
+ * 历史上 Controller 各拼半套回滚，抄漏步骤导致过"订单已取消但钱票没退"。本类两个退款端点只是转发。</p>
  */
 @RestController
 @RequestMapping("/api/payments")
@@ -67,8 +85,7 @@ public class PaymentController {
         return null;
     }
 
-    /**
-     * 校验支付单归属本站，否则返回错误。
+    /** 校验支付单归属本站，否则返回错误。
      * <p>站内购买（如线上买水票）产生的支付记录没有关联订单（order_id 为空）。
      * 旧实现对此直接返回「支付记录不存在」，导致水票购买后任何人都无法确认入账 ——
      * 客户付了钱、票永远不到账，且没有任何补救入口。这里改为按水站归属校验。</p>
@@ -84,6 +101,42 @@ public class PaymentController {
             return null;
         }
         return requireOrderStation(p.getOrderId());
+    }
+
+    /**
+     * 校验「这笔钱是本站的」——<b>只用于退款</b>。
+     *
+     * <p>[2026-09-18 二次修订] 产品裁定：**水费 + 配送费 + 楼层费（本单营收）归实际履约站**，
+     * 并为此新增了显式列 {@code orders.settle_station_id}（结算站，正本
+     * {@code sql/migration_v47_order_settle_station.sql}）。所以判权改认**结算站**：
+     * 未外派的单结算站 = 归属站（归属站可退）；被抢单 / 定向外派后结算站 = 履约站（履约站可退，
+     * 因为钱是它收的、也记它的账）。退款冲正流水沿用原流水站别，与收款同源。</p>
+     *
+     * <p>⚠️ <b>本方法此前叫 {@code requirePaymentOwnerStation}（认归属站）</b>，那是上一版口径
+     * （「钱与票记归属站」）的产物；新口径下那个理由不再成立：钱既然归履约站，
+     * 让归属站退钱就成了"B 收的钱、A 退的钱"。**判据变了，名字也跟着改，别再改回去。**</p>
+     *
+     * <p><b>不用 {@code payment_record.station_id} 判权</b>：那一列在写入侧的语义没被钉住
+     * （下单即发起时 = 归属站；现金由 {@code recordCashCollection} 写 = 结算站；
+     * 定向外派后才发起支付的老数据可能是履约站）。订单才是权威，无订单（线上购票）没有订单可依，
+     * 才退回看该列。</p>
+     */
+    private Result<Void> requireRefundStation(Long paymentId) {
+        PaymentRecord p = paymentRecordMapper.getById(paymentId);
+        if (p == null) return Result.error("支付记录不存在");
+        Long settleStationId;
+        if (p.getOrderId() != null) {
+            Orders order = orderMapper.getById(p.getOrderId());
+            if (order == null) return Result.error("订单不存在");
+            settleStationId = StationUtil.settleStation(order);
+        } else {
+            settleStationId = p.getStationId();
+        }
+        Long myStationId = AuthContext.getStationId();
+        if (myStationId == null || settleStationId == null || !myStationId.equals(settleStationId)) {
+            return Result.error("该笔款项由其他水站结算，退款需由结算水站操作");
+        }
+        return null;
     }
 
     /** 服务端支付试算（下单前展示，金额以服务端为准） */
@@ -159,7 +212,17 @@ public class PaymentController {
         return Result.success();
     }
 
-    /** 查询订单支付记录 */
+    /**
+     * 查询订单支付记录（站长）。
+     *
+     * <p>调用方：员工端 {@code miniapp-delivery/pages/order/detail} 的「支付流水」区块
+     * （只读展示 方式 / 状态 / 金额 / 时间，全部用后端下发的 {@code methodText}/{@code statusText}）。</p>
+     *
+     * <p>返回的实体含派生文案 {@code methodText} / {@code statusText}（真相源是
+     * {@code PayMethod} / {@code PaymentStatus}），<b>前端不得自建 1/2/3 映射表</b>。
+     * 站别由 {@link #requireOrderStation} 校验：按<b>履约站</b>判定（与退款入口 {@code requirePaymentOrderStation}
+     * 走同一条 {@code requireOrderStation}），跨站取他站订单流水会被拒。</p>
+     */
     @RequireRole({"STATION_MANAGER"})
     @GetMapping("/by-order")
     public Result<List<PaymentRecord>> listByOrderId(@RequestParam Long orderId) {
@@ -232,11 +295,21 @@ public class PaymentController {
         return v instanceof Number ? ((Number) v).intValue() : null;
     }
 
-    /** 退款 */
+    /**
+     * 单笔支付流水退款（站长）。
+     *
+     * <p>调用方：员工端 {@code miniapp-delivery/pages/order/detail} 的「支付流水」区块，
+     * 每笔「已付款」的流水一个「退款」按钮（二次确认后调本端点）。<b>顾客端不可调</b>（{@code @RequireRole}）。</p>
+     *
+     * <p>站别经 {@link #requireRefundStation} 校验 —— <b>认结算站</b>（这笔钱归谁，就由谁退）。</p>
+     *
+     * <p>业务拒绝一律是 {@code code=1} + 可读文案 —— 前端必须把 {@code message} 原样显示出来：
+     * 「微信支付渠道未接入，无法自动原路退回，请线下退款并登记」这类文案是站长唯一的操作指引。</p>
+     */
     @RequireRole({"STATION_MANAGER"})
     @PutMapping("/{id}/refund")
     public Result refund(@PathVariable Long id, @RequestBody @Valid PaymentRefundDTO dto) {
-        Result<Void> check = requirePaymentOrderStation(id);
+        Result<Void> check = requireRefundStation(id);
         if (check != null) return check;
         paymentService.refundPayment(id, dto.getNote());
         return Result.success();

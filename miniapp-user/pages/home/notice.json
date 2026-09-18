@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "公告详情",
-  "usingComponents": {}
+  "usingComponents": {
+    "empty": "../../components/Empty/index"
+  }
 }

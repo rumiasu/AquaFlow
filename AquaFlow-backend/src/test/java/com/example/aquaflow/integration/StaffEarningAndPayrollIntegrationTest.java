@@ -33,10 +33,10 @@ class StaffEarningAndPayrollIntegrationTest extends AbstractIntegrationTest {
         long mgr2 = ids[4], delivery = ids[5];
         String mgr = staffToken(mgr2, "STATION_MANAGER", station);
 
-        // 3 元/桶、无电梯每层 2 元、每单 1 元
+        // 3 元/桶、无电梯每层 2 元（v42 起工资只有这两项，不再有回桶奖励/每单补贴/少收扣减）
         assertEquals(0, put("/api/manager/piece-rate", mgr,
-                "{\"productId\":0,\"perBucketAmount\":3.00,\"returnBucketAmount\":1.00,"
-                        + "\"floorBonusPerLevel\":2.00,\"floorFreeLevel\":1,\"perOrderAmount\":1.00}").code(),
+                "{\"productId\":0,\"perBucketAmount\":3.00,"
+                        + "\"floorBonusPerLevel\":2.00,\"floorFreeLevel\":1}").code(),
                 "站长配计件单价");
 
         long order = deliveringCashOrder(customer, address, station, product, delivery, 2);
@@ -52,20 +52,23 @@ class StaffEarningAndPayrollIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, new BigDecimal("10.00").compareTo(
                         decimalOf("SELECT amount FROM staff_earning WHERE order_id=? AND kind='FLOOR_BONUS'", order)),
                 "楼层补贴应为 (6-1) × 2.00 = 10.00");
-        assertEquals(0, new BigDecimal("1.00").compareTo(
-                        decimalOf("SELECT amount FROM staff_earning WHERE order_id=? AND kind='ORDER_BONUS'", order)),
-                "每单奖励应为 1.00");
+        // v42：已停用的三类**一条都不许再产生**（否则就是"删了配置还在偷偷算钱"）
+        assertEquals(0, intOf("SELECT COUNT(*) FROM staff_earning WHERE order_id=? "
+                        + "AND kind IN ('RETURN_BUCKET','ORDER_BONUS','PENALTY')", order),
+                "v42 起回桶奖励/每单补贴/少收扣减都不再产生");
 
         // 归属站必须是**履约站**，且归属人必须是实际完成的人。
-        // 注意断言写法：一单会产生多条收益（送桶/楼层/单奖各一条），所以不能断言 COUNT=1，
+        // 注意断言写法：一单会产生多条收益（送桶/楼层各一条），所以不能断言 COUNT=1，
         // 而要断言「该单的全部收益都落在这个 (station, staff) 上」—— 后者才是真正要守的不变量。
         assertEquals(intOf("SELECT COUNT(*) FROM staff_earning WHERE order_id=?", order),
                 intOf("SELECT COUNT(*) FROM staff_earning WHERE order_id=? AND station_id=? AND staff_id=?",
                         order, station, delivery),
                 "该单的全部收益都必须记在履约站与完成人身上");
-        assertEquals(0, new BigDecimal("17.00").compareTo(
+        assertEquals(2, intOf("SELECT COUNT(*) FROM staff_earning WHERE order_id=?", order),
+                "一单两条：送桶计件 + 楼层补贴");
+        assertEquals(0, new BigDecimal("16.00").compareTo(
                         decimalOf("SELECT COALESCE(SUM(amount),0) FROM staff_earning WHERE order_id=?", order)),
-                "本单合计 6 + 10 + 1 = 17.00");
+                "本单合计 6 + 10 = 16.00（不再有每单奖励的 1.00）");
     }
 
     @Test
@@ -175,13 +178,13 @@ class StaffEarningAndPayrollIntegrationTest extends AbstractIntegrationTest {
 
         // 负值一律归零：负数工钱会让站长倒欠配送员，属"能少付钱"的输入
         assertEquals(0, put("/api/manager/piece-rate", a,
-                "{\"perBucketAmount\":-5.00,\"penaltyPerBucket\":-3.00,\"floorFreeLevel\":-2}").code());
+                "{\"perBucketAmount\":-5.00,\"floorBonusPerLevel\":-3.00,\"floorFreeLevel\":-2}").code());
         assertEquals(0, new BigDecimal("0.00").compareTo(
                         decimalOf("SELECT per_bucket_amount FROM staff_piece_rate WHERE station_id=? AND product_id=0",
                                 stationA)), "负的计件价必须归零");
         assertEquals(0, new BigDecimal("0.00").compareTo(
-                        decimalOf("SELECT penalty_per_bucket FROM staff_piece_rate WHERE station_id=? AND product_id=0",
-                                stationA)), "负的扣减必须归零");
+                        decimalOf("SELECT floor_bonus_per_level FROM staff_piece_rate WHERE station_id=? AND product_id=0",
+                                stationA)), "负的楼层补贴必须归零");
 
         // 按站隔离：B 站看不到 A 站的配置
         assertEquals(0, get("/api/manager/piece-rate", b).data().path("rates").size(),
@@ -198,6 +201,58 @@ class StaffEarningAndPayrollIntegrationTest extends AbstractIntegrationTest {
         // 人工调整必须拒绝 0 金额（没有记录价值，也不该占位）
         assertNotEquals(0, post("/api/manager/payroll/adjust", a,
                 "{\"staffId\":" + mgrA + ",\"amount\":0}").code(), "调整金额 0 必须被拒");
+    }
+
+    /**
+     * 楼层上报（v43）：报了就按报的算并在明细里标记与地址不一致；没报就沿用地址。
+     *
+     * <p>为什么值得单独钉：楼层补贴是给配送员的钱，只有他知道自己爬了几层 ——
+     * 让客户在地址里填的楼层既当收费依据又当发钱依据，等于用别人的话给自己发工资。
+     * 这条用例锁三件事：① 上报值落库且驱动补贴；② 不一致必须留痕（防虚报）；③ 没上报时口径与升级前一致。</p>
+     */
+    @Test
+    @DisplayName("楼层上报（v43）：按上报值算补贴并标记不一致，没上报则沿用地址")
+    void floorReportDrivesBonus() {
+        long[] ids = seed();
+        long station = ids[0], customer = ids[1], address = ids[2], product = ids[3];
+        long mgr = ids[4], delivery = ids[5];
+        assertEquals(0, put("/api/manager/piece-rate", staffToken(mgr, "STATION_MANAGER", station),
+                "{\"productId\":0,\"perBucketAmount\":3.00,\"floorBonusPerLevel\":2.00,\"floorFreeLevel\":1}").code(),
+                "站长配计件单价");
+
+        // ① 地址里是 6 层；配送员报 8 层 → 以他报的为准，并在明细里标出"不一致"
+        long order = deliveringCashOrder(customer, address, station, product, delivery, 2);
+        Api done = post("/api/delivery/orders/" + order + "/complete",
+                staffToken(delivery, "DELIVERY", station), "{\"collected\":true,\"reportedFloor\":8}");
+        assertEquals(0, done.code(), "完成配送: " + done);
+        assertEquals(8, intOf("SELECT reported_floor FROM orders WHERE id=?", order),
+                "上报值必须落库 —— 它是发钱的依据，也要能在订单上追溯");
+        assertEquals(0, new BigDecimal("14.00").compareTo(
+                        decimalOf("SELECT amount FROM staff_earning WHERE order_id=? AND kind='FLOOR_BONUS'", order)),
+                "楼层补贴按上报的 8 层算：(8 − 1) × 2.00 = 14.00");
+        assertTrue(jdbc.queryForObject(
+                        "SELECT note FROM staff_earning WHERE order_id=? AND kind='FLOOR_BONUS'", String.class, order)
+                        .contains("不一致"),
+                "与地址不一致必须在明细里留痕（这就是防虚报的痕迹，站长看得到）");
+
+        // ② 不报 → 沿用地址楼层（6 层 → (6−1) × 2.00 = 10.00），与升级前口径完全一致
+        long order2 = deliveringCashOrder(customer, address, station, product, delivery, 2);
+        assertEquals(0, post("/api/delivery/orders/" + order2 + "/complete",
+                staffToken(delivery, "DELIVERY", station), "{\"collected\":true}").code(), "不填楼层也能完成配送");
+        assertEquals(0, intOf("SELECT IFNULL(reported_floor, 0) FROM orders WHERE id=?", order2),
+                "没上报时 reported_floor 必须是 NULL（= 沿用地址，不是 0 层）");
+        assertEquals(0, new BigDecimal("10.00").compareTo(
+                        decimalOf("SELECT amount FROM staff_earning WHERE order_id=? AND kind='FLOOR_BONUS'", order2)),
+                "没上报就沿用地址的 6 层：(6 − 1) × 2.00 = 10.00");
+
+        // ③ 荒唐的楼层数给业务错误（code=1），不是 500
+        long order3 = deliveringCashOrder(customer, address, station, product, delivery, 2);
+        assertEquals(1, post("/api/delivery/orders/" + order3 + "/complete",
+                        staffToken(delivery, "DELIVERY", station), "{\"collected\":true,\"reportedFloor\":0}").code(),
+                "0 层应给业务错误");
+        assertEquals(1, post("/api/delivery/orders/" + order3 + "/complete",
+                        staffToken(delivery, "DELIVERY", station), "{\"collected\":true,\"reportedFloor\":999}").code(),
+                "999 层应给业务错误");
     }
 
     // ---------- helpers ----------

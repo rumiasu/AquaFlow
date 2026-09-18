@@ -73,19 +73,10 @@ public class DashboardController {
         return Result.success(data);
     }
 
-    @RequireRole({"STATION_MANAGER"})
-    @GetMapping("/order-status")
-    public Result<?> orderStatus() {
-        Long stationId = AuthContext.requireStationId();
-        return Result.success(orderMapper.countByStatusByStationId(stationId));
-    }
-
-    @RequireRole({"STATION_MANAGER"})
-    @GetMapping("/order-trend")
-    public Result<?> orderTrend() {
-        Long stationId = AuthContext.requireStationId();
-        return Result.success(orderMapper.trendLast7DaysByStationId(stationId));
-    }
+    // [2026-09-18 删除] GET /order-status 与 GET /order-trend：两个端点零前端调用，且口径与
+    // GET /api/dashboard/report 分叉 —— 同一个指标两套算法，正是本仓"口径分叉"的老来源
+    // （docs/audit/2026-09-16-死端点评估.md 判"删除"，已执行）。看板数据一律走下面的 /report。
+    // 回归：ManagerOrderControllerRemovedIntegrationTest 断言这两条路径返回 404。
 
     /**
      * 综合数据报表。

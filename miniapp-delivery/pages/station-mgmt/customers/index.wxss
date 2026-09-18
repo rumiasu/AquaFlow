@@ -35,3 +35,16 @@
 .manage-btn { background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 26rpx; text-align: center; }
 .call-btn { background: var(--success-color); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 26rpx; text-align: center; }
 .empty, .loading { text-align: center; color: var(--text-secondary); font-size: var(--font-md); padding-top: 120rpx; }
+
+/* 货到付款设置弹窗（v48）：开通开关 + 首单放行 + 单笔上限，并把该客户的欠款/逾期摆在眼前 */
+.cod-btn { font-size: 24rpx; color: var(--text-secondary); padding: 0 12rpx; }
+.modal-mask { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal-body { width: 620rpx; background: #fff; border-radius: 16rpx; padding: 28rpx; }
+.modal-title { font-size: 32rpx; font-weight: 600; color: var(--text-primary); }
+.modal-tip { margin-top: 12rpx; font-size: 24rpx; color: #E6A23C; line-height: 1.5; }
+.modal-row { display: flex; align-items: center; justify-content: space-between; margin-top: 20rpx; font-size: 28rpx; color: var(--text-primary); }
+.modal-input { width: 220rpx; border: 1rpx solid var(--border-color); border-radius: 8rpx; padding: 8rpx 12rpx; font-size: 26rpx; text-align: right; }
+.modal-stat { display: flex; justify-content: space-between; margin-top: 20rpx; font-size: 24rpx; color: var(--text-secondary); }
+.modal-actions { display: flex; justify-content: flex-end; margin-top: 28rpx; }
+.modal-btn { padding: 12rpx 32rpx; margin-left: 16rpx; border-radius: 8rpx; font-size: 28rpx; color: var(--text-regular); border: 1rpx solid var(--border-color); }
+.modal-btn.primary { background: var(--primary-color, #409EFF); color: #fff; border: none; }

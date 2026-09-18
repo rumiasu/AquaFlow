@@ -32,6 +32,17 @@ public interface StaffPayrollMapper {
     @Select("select * from staff_payroll where station_id = #{stationId} order by id desc limit #{limit}")
     List<StaffPayroll> listByStation(@Param("stationId") Long stationId, @Param("limit") int limit);
 
+    /**
+     * 「我的工资」自助查询：只按 staff_id（理由同 {@code StaffEarningMapper.listByStaff} ——
+     * 工资是按人累计的，不是按站）。
+     */
+    @Select("select * from staff_payroll where staff_id = #{staffId} order by id desc limit #{limit}")
+    List<StaffPayroll> listByStaff(@Param("staffId") Long staffId, @Param("limit") int limit);
+
+    /** 本站某状态的结算单张数（站长首页「待办聚合」用：草稿 = 待确认） */
+    @Select("select count(*) from staff_payroll where station_id = #{stationId} and status = #{status}")
+    int countByStatus(@Param("stationId") Long stationId, @Param("status") Integer status);
+
     @Select("select * from staff_payroll where station_id = #{stationId} and staff_id = #{staffId} "
             + "and period_start = #{periodStart} and period_end = #{periodEnd}")
     StaffPayroll getByPeriod(@Param("stationId") Long stationId, @Param("staffId") Long staffId,

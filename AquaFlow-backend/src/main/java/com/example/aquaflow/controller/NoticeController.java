@@ -50,12 +50,18 @@ public class NoticeController {
         return Result.success(notice);
     }
 
-    /** 管理端：本水站公告（按登录站过滤，杜绝跨站可见） */
+    /**
+     * 管理端：本水站全部公告（**含草稿与已下架**）。
+     *
+     * <p>站别取自登录态、按登录站过滤（杜绝跨站可见）。[2026-09-18 修复] 原来底层 SQL 多带一个
+     * {@code status = 1}，于是站长保存的草稿立刻从列表消失、下架后再也点不回来 —— 管理列表
+     * 要能管理**没发布的那部分**，否则「草稿 / 下架」这两个状态在界面上等于不存在。</p>
+     */
     @RequireRole({"STATION_MANAGER"})
     @RequireStation
     @GetMapping("/all")
     public Result<List<Notice>> listAll() {
-        return Result.success(noticeMapper.listByStationId(AuthContext.requireStationId()));
+        return Result.success(noticeMapper.listForStation(AuthContext.requireStationId()));
     }
 
     /** 管理端：发布公告（归属强制绑定登录站） */

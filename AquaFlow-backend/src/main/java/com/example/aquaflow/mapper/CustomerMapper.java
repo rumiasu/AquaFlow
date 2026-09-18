@@ -37,6 +37,16 @@ public interface CustomerMapper {
     @Select("select * from customer where phone = #{phone} limit 1")
     Customer findByPhone(@Param("phone") String phone);
 
+    /**
+     * ⚠️ <b>不要用它做站长端搜索</b>（历史方法，当前全仓零调用，保留仅为不误删他人引用）。
+     *
+     * <p>两个硬伤恰好都是新口径要解决的问题：① <b>不按水站过滤</b>（{@code select * from customer}
+     * 扫全平台客户，一旦被新页面顺手调用即跨站泄露）；② 只做 {@code name/phone} 的强子串匹配，
+     * <b>不搜地址</b> —— 而站长认人主要靠地址。</p>
+     *
+     * <p>站长端搜索统一走 {@link #listSearchCandidates}（本站候选集）+
+     * {@code util/CustomerSearchMatcher}（归一化与相关性打分），两个入口共用同一实现。</p>
+     */
     @Select("select * from customer where name like concat('%', #{keyword}, '%') or phone like concat('%', #{keyword}, '%')")
     List<Customer> search(@Param("keyword") String keyword);
 
@@ -45,11 +55,43 @@ public interface CustomerMapper {
             "where o.station_id = #{stationId}")
     List<Customer> listByStationId(@Param("stationId") Long stationId);
 
-    @Select("select distinct c.* from customer c " +
-            "join orders o on c.id = o.customer_id " +
-            "where o.station_id = #{stationId} " +
-            "and (c.name like concat('%', #{keyword}, '%') or c.phone like concat('%', #{keyword}, '%'))")
-    List<Customer> searchByStation(@Param("stationId") Long stationId, @Param("keyword") String keyword);
+    /**
+     * 站长端客户搜索的<b>候选集</b>（不是结果集）：本站客户 + 其地址文本，交给
+     * {@code util/CustomerSearchMatcher} 归一化并打分排序。
+     *
+     * <p><b>为什么 SQL 里不带关键字过滤</b>：站长习惯把「阳光小区8栋1单元301」打成「阳光81301」，
+     * 任何 {@code like '%关键字%'} 的粗筛都会把<b>本该命中的候选在进入打分之前就滤掉</b>
+     * （SQL 粗筛只能宽、不能窄）。候选上限与超限策略见
+     * {@code CustomerSearchMatcher.MAX_CANDIDATES}。</p>
+     *
+     * <p><b>归属口径 = 绑定 ∪ 本站订单</b>（与 {@link #countCustomerOfStation} 同源）：
+     * 只查绑定行会漏掉"只下过单、没有绑定行"的老客户；只查订单又查不到"刚建档还没下单"的新客户，
+     * 而后者恰恰是代客下单最常见的场景。这也是本方法<b>不能</b>复用
+     * {@link #listStationCustomers}（orders 驱动，无订单一行都查不出）的原因。</p>
+     *
+     * <p><b>地址文本</b>同时覆盖两处来源：客户档案地址（{@code address} 按 customer_id 全量取，
+     * 默认地址排在前面）与本站订单的地址快照（{@code orders.address_snapshot}）——
+     * 客户改过/删过地址后，仍能按当初实际送货的地址搜到人。</p>
+     *
+     * <p>⚠️ 两条实现约束：① {@code group by c.id} 靠 MySQL 对主键的函数依赖带出其它 {@code c.*} 列，
+     * 与 {@link #listStationCustomers} 同款；② {@code separator '\n'} 在 Java 源码里写作
+     * {@code '\\n'}，用于把同一客户的多个地址分行（展示只取第一行）。</p>
+     *
+     * @param limit 候选上限；调用方传 {@code CustomerSearchMatcher.MAX_CANDIDATES}
+     */
+    @Select("select c.id, c.name, c.phone, c.customer_type as customerType, "
+            + "group_concat(concat_ws('', ifnull(a.province,''), ifnull(a.city,''), ifnull(a.district,''), ifnull(a.detail,'')) "
+            + "order by a.is_default desc, a.id desc separator '\\n') as addressText, "
+            + "(select group_concat(o.address_snapshot separator ' ') from orders o "
+            + " where o.customer_id = c.id and o.station_id = #{stationId} and o.address_snapshot is not null) as orderAddressText "
+            + "from customer c "
+            + "left join address a on a.customer_id = c.id "
+            + "where (exists (select 1 from customer_station_config csc where csc.customer_id = c.id and csc.station_id = #{stationId}) "
+            + "    or exists (select 1 from orders o2 where o2.customer_id = c.id and o2.station_id = #{stationId})) "
+            + "group by c.id "
+            + "order by c.id desc "
+            + "limit #{limit}")
+    List<Map<String, Object>> listSearchCandidates(@Param("stationId") Long stationId, @Param("limit") int limit);
 
     /**
      * 站长客户视图：本站有订单的客户，LEFT JOIN 客户×水站配置带出货到付款权限。
@@ -108,31 +150,13 @@ public interface CustomerMapper {
             "or exists (select 1 from orders o where o.customer_id = c.id and o.station_id = #{stationId}))")
     int countCustomerOfStation(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
-    /**
-     * 代客下单的客户选择器（站长端）：按姓名/电话关键字搜「本站客户」。
-     *
-     * <p>⚠️ <b>为什么不复用 {@link #listStationCustomers}（即 {@code GET /api/customers}）</b>：
-     * 它的 SQL 是 <b>orders 驱动</b>（{@code join orders o ... where o.station_id = ?}），
-     * <b>没下过单的客户一行都查不出来</b>。而站长刚在客户管理里新建的客户恰恰就是这种 ——
-     * 于是"给新客户下第一单"这个最常见的代客下单场景，会在客户列表里找不到人，
-     * 看起来像"客户没建成功"。归属口径因此与 {@link #countCustomerOfStation} 一致：
-     * 绑定 <b>或</b> 本站订单，取并集。</p>
-     *
-     * <p>关键字过滤写成 {@code #{keyword} is null or ...} 而不是动态 {@code <if>}，
-     * 与 {@code AddressMapper.list} 同款：少一处拼接就少一处出错的地方。</p>
-     *
-     * @param keyword 姓名或电话片段；{@code null}/空 = 不筛（返回最近建档的若干条）
-     */
-    @Select("select c.id, c.name, c.phone, c.customer_type as customerType from customer c "
-            + "where (exists (select 1 from customer_station_config csc "
-            + "                where csc.customer_id = c.id and csc.station_id = #{stationId}) "
-            + "    or exists (select 1 from orders o where o.customer_id = c.id and o.station_id = #{stationId})) "
-            + "and (#{keyword} is null or #{keyword} = '' "
-            + "     or c.name like concat('%', #{keyword}, '%') "
-            + "     or c.phone like concat('%', #{keyword}, '%')) "
-            + "order by c.id desc limit 50")
-    List<java.util.Map<String, Object>> listOrderCustomers(@Param("stationId") Long stationId,
-                                                           @Param("keyword") String keyword);
+    // [2026-09-18 客户地址搜索] 删除 listOrderCustomers（代客下单选择器的关键字 LIKE 查询）：
+    //   它与 searchByStation 是同一件事的两份实现（都是"本站客户 + name/phone 强子串"），
+    //   而"两处搜索各写一套"正是本仓计价双轨事故的同形风险。现在两个入口
+    //   （GET /api/customers 客户列表、GET /api/manager/order-assist/customers 选择器）
+    //   共用 CustomerMapper.listSearchCandidates + util/CustomerSearchMatcher。
+    //   原注释里那条判据仍然有效，已随实现搬进 listSearchCandidates 的 javadoc：
+    //   "归属 = 绑定 ∪ 本站订单；不能复用 orders 驱动的 listStationCustomers，否则新客户查不出来"。
 
     // [清理 2026-09-12] 删除 countAll()：全平台客户总数，零调用，且一旦被新页面顺手调用即跨站泄露。
 
@@ -142,6 +166,14 @@ public interface CustomerMapper {
     int countByStationId(@Param("stationId") Long stationId);
 
     // ==================== 客户画像聚合 ====================
+    //
+    // ⚠️ 站别口径在这一段是**混着两种**的，改之前先看清是哪一个（v47，2026-09-18）：
+    //   · 「钱」类聚合（完成单数 / 累计消费 / 本月消费 / 最近下单 / 常买商品 / 最近订单）用
+    //     **结算站** `coalesce(settle_station_id, delivery_station_id, station_id)` ——
+    //     跨站外派单的水费 + 配送费 + 楼层费归实际配送站，所以它算在实际配送站的客户画像里。
+    //     读侧的三级 coalesce 是**防御**：正常路径必须写 settle_station_id（见 v47 迁移文件头）。
+    //   · 「资产」类聚合（水票余额 / 欠桶 / 桶异常）**仍按归属站 station_id**，一个字没改 ——
+    //     那是"客户买在哪个站的资产"，与营收归谁是两件事（AGENTS §1.1）。别顺手"统一"掉。
 
     /** 常用地址（默认地址优先） */
     @Select("select concat_ws('', ifnull(a.province,''), ifnull(a.city,''), ifnull(a.district,''), ifnull(a.detail,'')) " +
@@ -151,29 +183,29 @@ public interface CustomerMapper {
 
     /** 本站已完成订单数 */
     @Select("select count(*) from orders o where o.customer_id = #{customerId} and o.status = 4 " +
-            "and coalesce(o.delivery_station_id, o.station_id) = #{stationId}")
+            "and coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId}")
     int countCompletedOrders(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
     /** 本站累计消费金额 */
     @Select("select coalesce(sum(o.total_amount),0) from orders o where o.customer_id = #{customerId} and o.status = 4 " +
-            "and coalesce(o.delivery_station_id, o.station_id) = #{stationId}")
+            "and coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId}")
     BigDecimal sumConsumption(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
     /** 本月完成订单数 */
     @Select("select count(*) from orders o where o.customer_id = #{customerId} and o.status = 4 " +
-            "and coalesce(o.delivery_station_id, o.station_id) = #{stationId} " +
+            "and coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} " +
             "and o.create_time >= date_format(now(), '%Y-%m-01')")
     int countMonthOrders(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
     /** 本月消费金额 */
     @Select("select coalesce(sum(o.total_amount),0) from orders o where o.customer_id = #{customerId} and o.status = 4 " +
-            "and coalesce(o.delivery_station_id, o.station_id) = #{stationId} " +
+            "and coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} " +
             "and o.create_time >= date_format(now(), '%Y-%m-01')")
     BigDecimal sumMonthConsumption(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
     /** 最近下单时间 */
     @Select("select max(o.create_time) from orders o where o.customer_id = #{customerId} " +
-            "and coalesce(o.delivery_station_id, o.station_id) = #{stationId}")
+            "and coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId}")
     LocalDateTime getLastOrderTime(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
     /** 本站水票余额 */
@@ -200,7 +232,7 @@ public interface CustomerMapper {
             "from order_item oi join orders o on oi.order_id = o.id " +
             "left join product p on oi.product_id = p.id " +
             "where o.customer_id = #{customerId} and o.status = 4 " +
-            "and coalesce(o.delivery_station_id, o.station_id) = #{stationId} " +
+            "and coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} " +
             "group by ifnull(p.name, oi.product_name_snapshot) " +
             "order by qty desc limit 3")
     List<Map<String, Object>> listFavoriteProducts(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
@@ -209,7 +241,7 @@ public interface CustomerMapper {
     @Select("select o.id, o.status, o.total_amount as totalAmount, o.create_time as createTime, " +
             "o.receiver_name as receiverName " +
             "from orders o where o.customer_id = #{customerId} " +
-            "and coalesce(o.delivery_station_id, o.station_id) = #{stationId} " +
+            "and coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} " +
             "order by o.create_time desc limit 5")
     List<Map<String, Object>> listRecentOrders(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 }

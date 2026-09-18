@@ -26,9 +26,15 @@ public interface NoticeMapper {
     @Select("select * from notice where status = 1 order by create_time desc")
     List<Notice> listPublished();
 
-    @Select("select * from notice where station_id = #{stationId} and status = 1 order by create_time desc")
-    List<Notice> listByStationId(@Param("stationId") Long stationId);
-
-    @Select("select * from notice order by create_time desc")
-    List<Notice> listAll();
+    /**
+     * 本站全部公告（**含草稿与已下架**），供站长端管理列表使用。
+     *
+     * <p>[2026-09-18 修复] 原方法名 {@code listByStationId}，SQL 是
+     * {@code where station_id = #{stationId} and status = 1} —— 于是站长端出现两个真实缺陷：
+     * ① 「保存草稿」后提示成功，列表里却没有它（界面文案还写着"草稿只有你自己可见"）；
+     * ② 点「下架」后该公告从列表消失，**再也点不回来**（无法重新上架）。
+     * 两者都是"界面说做了、实际没做"的同族问题（AGENTS §8.15）。管理列表不该按发布状态过滤。</p>
+     */
+    @Select("select * from notice where station_id = #{stationId} order by create_time desc")
+    List<Notice> listForStation(@Param("stationId") Long stationId);
 }

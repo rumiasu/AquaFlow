@@ -1,4 +1,4 @@
-const { getTicketAccounts, getTicketRecords, purchaseTicket } = require('../../api/ticket')
+const { getTicketAccounts, getTicketRecords, getTicketPackages, purchaseTicket } = require('../../api/ticket')
 const { getStationProducts } = require('../../api/product')
 const { getPublicStations } = require('../../api/station')
 const { getBaseUrl, API } = require('../../config/api')
@@ -25,8 +25,14 @@ Page({
       faceValue: 0,
       quantity: 1,
       totalPrice: 0,
-      paymentMethod: 1
+      paymentMethod: 1,
+      // 选中的档位 id（null = 散买，按单张水票价）
+      packageId: null,
+      // 散买单张价。选了档位后 faceValue 会变成档位均价，用它才能退回散买口径
+      looseFaceValue: 0
     },
+    // 当前商品在本站的上架档位（10 张 / 20 张 / 100 张各卖多少钱）
+    buyPackages: [],
     buyMethods: [
       // 微信支付渠道本身未接入；此处语义是「提交购票申请，由水站确认收款后水票到账」
       { id: 1, name: '微信支付', desc: '提交后由水站确认收款，到账后可用' }
@@ -171,7 +177,7 @@ Page({
   },
 
   onClosePurchase() {
-    this.setData({ showPurchase: false, buyForm: { productId: null, productName: '', faceValue: 0, quantity: 1, totalPrice: 0, paymentMethod: 1 } })
+    this.setData({ showPurchase: false, buyPackages: [], buyForm: { productId: null, productName: '', faceValue: 0, quantity: 1, totalPrice: 0, paymentMethod: 1, packageId: null, looseFaceValue: 0 } })
   },
 
   /** 弹窗内容区吞掉点击，避免冒泡到遮罩触发关闭（wxml 用 catchtap 绑定） */
@@ -184,11 +190,62 @@ Page({
     if (!product) return
     // 面值 = 后端下发的本站水票价（与 /api/tickets/purchase 的计费完全同源），不再用零售价
     const price = parseFloat(product.effectiveTicketPrice || product.price) || 0
+    // 换商品必须清掉已选档位：档位是「本站 + 本商品」的，留着上一个商品的 packageId
+    // 会被后端以"档位与本水站/本商品不匹配"拒绝
     this.setData({
       'buyForm.productId': product.id,
       'buyForm.productName': product.name,
       'buyForm.faceValue': price,
-      'buyForm.totalPrice': price * (this.data.buyForm.quantity || 1)
+      'buyForm.looseFaceValue': price,
+      'buyForm.packageId': null,
+      'buyForm.quantity': 1,
+      'buyForm.totalPrice': price
+    })
+    this.loadBuyPackages(product.id)
+  },
+
+  /**
+   * 拉该商品在本站的上架档位。
+   *
+   * 没挂档位就返回空数组 —— 此时页面保持"散买"（按单张水票价），**不要**因此报错或禁用购买：
+   * 档位是站长可选挂的价目表，不挂就该照旧能买。
+   */
+  async loadBuyPackages(productId) {
+    this.setData({ buyPackages: [] })
+    try {
+      const res = await getTicketPackages(this.data.currentStationId, productId)
+      this.setData({ buyPackages: res.data || [] })
+    } catch (err) {
+      // 档位拉不到不该挡住买票：静默降级为散买（不弹错误提示，避免"其实能买却提示失败"）
+      console.warn('load ticket packages failed:', err && err.message)
+    }
+  },
+
+  /**
+   * 选档位。金额一律用**服务端下发的档位价**，前端不做 price/qty 的算术 ——
+   * 均价是快照进水票批次的值，前端算一遍就会出现"界面一个价、批次另一个价"。
+   * 张数必须等于档位张数（后端会校验 qty == pkg.qty）。
+   */
+  onBuyPackageSelect(e) {
+    const id = e.currentTarget.dataset.id
+    const pkg = this.data.buyPackages.find(p => String(p.id) === String(id))
+    if (!pkg) return
+    this.setData({
+      'buyForm.packageId': pkg.id,
+      'buyForm.quantity': pkg.qty,
+      'buyForm.faceValue': pkg.unitPrice,
+      'buyForm.totalPrice': pkg.price
+    })
+  },
+
+  /** 退回散买：张数与单价都回到按单张水票价的口径。 */
+  onBuyPackageClear() {
+    const loose = this.data.buyForm.looseFaceValue || 0
+    this.setData({
+      'buyForm.packageId': null,
+      'buyForm.quantity': 1,
+      'buyForm.faceValue': loose,
+      'buyForm.totalPrice': loose
     })
   },
 
@@ -198,18 +255,28 @@ Page({
     const cur = this.data.buyForm.quantity || 1
     const next = type === 'add' ? cur + 1 : Math.max(1, cur - 1)
     if (next === cur) return
-    this.setData({
-      'buyForm.quantity': next,
-      'buyForm.totalPrice': (this.data.buyForm.faceValue || 0) * next
-    })
+    this.applyLooseQty(next)
   },
 
   /** 手动输入数量（input 事件） */
   onBuyQuantityInput(e) {
-    const qty = Math.max(1, parseInt(e.detail.value) || 1)
+    this.applyLooseQty(Math.max(1, parseInt(e.detail.value) || 1))
+  },
+
+  /**
+   * 改张数即放弃已选档位，回到散买口径。
+   *
+   * 档位价对应的是**固定张数**（后端会校验 quantity === pkg.qty）。张数一变，档位价就不再适用；
+   * 若留着 packageId，提交会被后端以"购买张数与档位不一致，请重新选择"拒回 ——
+   * 与其让客户撞一次错误，不如在这里直接退回散买并把单价换回单张水票价。
+   */
+  applyLooseQty(qty) {
+    const loose = this.data.buyForm.looseFaceValue || 0
     this.setData({
+      'buyForm.packageId': null,
       'buyForm.quantity': qty,
-      'buyForm.totalPrice': (this.data.buyForm.faceValue || 0) * qty
+      'buyForm.faceValue': loose,
+      'buyForm.totalPrice': loose * qty
     })
   },
 
@@ -220,7 +287,7 @@ Page({
   },
 
   async onBuySubmit() {
-    const { productId, quantity, faceValue, paymentMethod } = this.data.buyForm
+    const { productId, quantity, paymentMethod, packageId } = this.data.buyForm
     if (!productId) {
       wx.showToast({ title: '请选择商品', icon: 'none' })
       return
@@ -247,7 +314,9 @@ Page({
         quantity: quantity,
         paymentMethod: paymentMethod,
         stationId: this.data.currentStationId,
-        idempotencyKey: idempotencyKey
+        idempotencyKey: idempotencyKey,
+        // 按档位买时必传：张数与总价一律以服务端档位配置为准（客户端传的价格会被忽略）
+        packageId: packageId || null
       })
       // 后端此时只创建了待支付流水，水票要等支付确认后才入账。
       // 旧实现无条件提示"购买成功"，客户看到余额为空会以为系统吞了钱。

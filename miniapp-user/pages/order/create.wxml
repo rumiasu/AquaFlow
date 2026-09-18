@@ -261,6 +261,31 @@
             <text class="detail-subtotal-value">¥{{extraDepositAmountText}}</text>
           </view>
         </view>
+        <!-- 配送费 / 楼层费（v35）：必须逐项列出 —— 只把它们并进下面的合计，
+             弹窗里各项之和就对不上合计，客户会以为算错了钱 -->
+        <view class="detail-section" wx:if="{{deliveryFeeText || floorFeeText}}">
+          <view class="detail-section-title">配送费用</view>
+          <view class="detail-row" wx:if="{{deliveryFeeText}}">
+            <view class="detail-row-left">
+              <text class="detail-item-name">配送费</text>
+            </view>
+            <view class="detail-row-right">
+              <text class="detail-item-price">¥{{deliveryFeeText}}</text>
+            </view>
+          </view>
+          <view class="detail-row" wx:if="{{floorFeeText}}">
+            <view class="detail-row-left">
+              <text class="detail-item-name">楼层费</text>
+            </view>
+            <view class="detail-row-right">
+              <text class="detail-item-price">¥{{floorFeeText}}</text>
+            </view>
+          </view>
+          <view class="detail-subtotal-row">
+            <text class="detail-subtotal-label">小计</text>
+            <text class="detail-subtotal-value">¥{{feeTotalText}}</text>
+          </view>
+        </view>
       </scroll-view>
       <view class="detail-sheet-footer">
         <view class="detail-total-row">

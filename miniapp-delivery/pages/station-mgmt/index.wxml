@@ -30,6 +30,26 @@
       <text class="module-title">代客下单</text>
       <text class="module-desc">电话叫水当场录单，桶的流动才入账</text>
     </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/receivables/index">
+      <text class="module-icon">🧾</text>
+      <text class="module-title">应收账款</text>
+      <text class="module-desc">待收款、账期、逾期提醒与核销</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/payroll/index">
+      <text class="module-icon">💰</text>
+      <text class="module-title">计件工资</text>
+      <text class="module-desc">按桶计价、结算单、人工调整</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/ticket-packages/index">
+      <text class="module-icon">🎫</text>
+      <text class="module-title">水票档位</text>
+      <text class="module-desc">10 张、20 张、100 张各卖多少钱</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/gross-profit/index">
+      <text class="module-icon">📈</text>
+      <text class="module-title">毛利报表</text>
+      <text class="module-desc">进货成本、期间毛利、未填成本提示</text>
+    </view>
     <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/delivery-config/index">
       <text class="module-icon">🚚</text>
       <text class="module-title">配送计费</text>
@@ -45,10 +65,20 @@
       <text class="module-title">欠桶台账</text>
       <text class="module-desc">谁欠桶、欠几个、欠了几天</text>
     </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/barrel-exceptions/index">
+      <text class="module-icon">🛠</text>
+      <text class="module-title">桶异常</text>
+      <text class="module-desc">回桶差异单、处理进度与桶损耗读数</text>
+    </view>
     <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/alerts/index">
       <text class="module-icon">🔔</text>
       <text class="module-title">运营告警</text>
       <text class="module-desc">桶异常等待处置、补偿留痕</text>
+    </view>
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/customer-feedback/index">
+      <text class="module-icon">✉️</text>
+      <text class="module-title">客户反馈</text>
+      <text class="module-desc">顾客在小程序里报的问题（只读）</text>
     </view>
     <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/payments/index">
       <text class="module-icon">💰</text>

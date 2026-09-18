@@ -1,8 +1,13 @@
 const { getPendingOrders, getDeliveringOrders, getCompletedToday, getTodayStats, acceptOrder, getDeliveredUnpaid, confirmCollection, transferOrder, returnToStation, getStaffList, respondTransfer, getTransferList, getAssignedToMe } = require('../../api/delivery')
-const { post } = require('../../utils/request')
-const { API } = require('../../config/api')
+// 楼层/电梯文案与订单详情页共用同一份实现（口径只有一处）
+const { buildFloorText } = require('../../utils/address')
+// 自绘导航栏 + 水站营业状态胶囊（本页 navigationStyle=custom）：与「首页」共用一份实现
+// —— 结构与样式见 templates/station-navbar.wxml、styles/station-navbar.wxss
+const stationNavbar = require('../../behaviors/stationNavbar')
 
 Page({
+  behaviors: [stationNavbar],
+
   data: {
     activeTab: 'assigned',
     isManager: false,
@@ -18,7 +23,10 @@ Page({
     currentOrderId: null
   },
 
-  onLoad() {},
+  onLoad() {
+    // 自绘导航栏尺寸先算好再渲染，避免状态胶囊闪一下（实现来自 behaviors/stationNavbar.js）
+    this.initNavMetrics()
+  },
 
   onShow() {
     const app = getApp()
@@ -31,6 +39,9 @@ Page({
     // #46: 匹配normalized后的角色值
     const isManager = role === 'STATION_MANAGER' || role === 'manager' || role === 'MANAGER'
     this.setData({ isManager })
+    // 营业状态跟着首页刷新：站长刚改成"休息中"，配送员回到这页就该看到
+    // （软状态 v32：只提示不阻断；实现与「首页」共用，见 behaviors/stationNavbar.js）
+    this.loadStationStatus(userInfo.stationId)
     this.loadData()
   },
 
@@ -66,7 +77,11 @@ Page({
         // 是否需现场收款、是否已收款：均由后端按 payment_status / payment_method 判定，
         // 前端不再各写一套（此前三处 isOffline 口径互不一致）。
         isOffline: !!o.needCollect,
-        isUnpaid: o.payState !== 'PAID'
+        isUnpaid: o.payState !== 'PAID',
+        // 楼层/电梯：配送员出车前要知道这一单要不要上楼。
+        // 文案口径与订单详情页共用 utils/address.buildFloorText（只有一处实现）；
+        // 后端只有「我的配送中」这条查询带了这两个字段，没有时它是空串、整行不显示。
+        floorText: buildFloorText(o)
       })
 
       const unpaidOrders = (unpaidRes.data || []).map(enrichOrder)

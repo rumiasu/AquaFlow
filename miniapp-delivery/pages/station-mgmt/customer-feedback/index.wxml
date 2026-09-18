@@ -1,0 +1,63 @@
+<view class="container">
+
+  <!-- 口径说明：把"这里是什么、这里能做什么"讲清楚，免得站长把它与「我的反馈」混为一谈。
+       匿名那句也必须写在这里：不写的话，站长看到「匿名顾客」会以为是页面出错了
+       （而且**后端确实没有**这人的姓名/客户号，不是前端没显示）。 -->
+  <view class="hint" wx:if="{{!denied}}">
+    <text>这里汇总顾客提交的反馈（含顾客端报系统错误时的一键上报）。本页只读，后端暂无回复/处置功能。</text>
+    <text>顾客提交时可以选择匿名；匿名反馈不会带上姓名与客户号，只能显示为「匿名顾客」。</text>
+  </view>
+
+  <!-- 权限不足：不说"暂无数据"，否则配送员会以为本站真的没有反馈 -->
+  <view class="empty" wx:if="{{denied}}">
+    <text>{{deniedText}}</text>
+  </view>
+
+  <block wx:else>
+    <!-- ① 失败：后端 message 原样展示。这条分支必须与下面的"暂无客户反馈"分开，
+         否则接口挂了会看起来像"确实没有反馈"（本仓 §8.22）。 -->
+    <view class="state error" wx:if="{{type === 'error'}}">
+      <text class="state-title">加载失败</text>
+      <text class="state-msg">{{errMsg}}</text>
+      <text class="state-hint">这不代表本站没有客户反馈 —— 请点下方重试或下拉刷新。</text>
+      <view class="retry-btn" bindtap="onRetry">重试</view>
+    </view>
+
+    <!-- ② 确实没有 -->
+    <view class="state" wx:elif="{{type === 'empty'}}">
+      <text class="state-title">暂无客户反馈</text>
+      <text class="state-hint">顾客提交反馈后会出现在这里。</text>
+    </view>
+
+    <!-- ③ 加载中 -->
+    <view class="state" wx:elif="{{type === 'loading'}}">
+      <text class="state-title">加载中...</text>
+    </view>
+
+    <!-- ④ 列表 -->
+    <block wx:else>
+      <view class="fb-card" wx:for="{{list}}" wx:key="id">
+        <view class="card-head">
+          <!-- whoText 由 js 的 decorate() 算好：有姓名→姓名；没姓名有客户号→"客户 #<id>"；
+               两个都没有→"匿名顾客"。⚠️ 匿名记录在**后端响应里就没有** customerId/customerName
+               （SQL 层置 NULL），所以这里不是"前端藏起来"，而是**根本没拿到**。
+               本页不读 anonymous 标志位自己拼身份文案（后端刻意不下发该字段）。 -->
+          <text class="who">{{item.whoText}}</text>
+          <text class="time">{{item.timeText}}</text>
+        </view>
+
+        <!-- category 是提交方写的原文（顾客端一键上报写死"错误报告"），原样透传，前端不建映射表 -->
+        <text class="category" wx:if="{{item.categoryText}}">{{item.categoryText}}</text>
+
+        <text class="content">{{item.content}}</text>
+
+        <view class="card-foot">
+          <text class="foot-item" wx:if="{{item.contactText}}">{{item.contactText}}</text>
+          <text class="foot-item muted" wx:else>{{item.noContactText}}</text>
+          <text class="foot-item muted" wx:if="{{item.customerIdText}}">{{item.customerIdText}}</text>
+        </view>
+      </view>
+    </block>
+  </block>
+
+</view>

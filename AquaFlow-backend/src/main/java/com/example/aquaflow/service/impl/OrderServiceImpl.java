@@ -263,8 +263,12 @@ public class OrderServiceImpl implements OrderService {
         // 货到付款（现金）权限校验：PayMethod 中 2=现金、3=水票
         // 旧代码用 3 判断"线下支付"，与 PayMethod 定义冲突，导致水票支付被要求走线下授权校验
         if (Integer.valueOf(PayMethod.CASH).equals(dto.getPaymentMethod())) {
-            if (!paymentService.canUseOfflinePayment(dto.getCustomerId(), stationId)) {
-                throw new BusinessException("当前客户暂不支持货到付款");
+            // 唯一判据在 PaymentServiceImpl.offlinePaymentBlockReason（v48：开关 + 欠款即停 + 首单 + 单笔上限）。
+            // 这里先不带金额判一次（金额要等费用算完），算完总额后再补判一次上限 —— 两处调的是同一个方法。
+            String blockReason = paymentService.offlinePaymentBlockReason(
+                    dto.getCustomerId(), stationId, null);
+            if (blockReason != null) {
+                throw new BusinessException(blockReason);
             }
         }
 
@@ -463,6 +467,11 @@ public class OrderServiceImpl implements OrderService {
         orders.setAddressId(dto.getAddressId());
         orders.setStationId(stationId);
         orders.setDeliveryStationId(stationId);
+        // [v47] 结算站（营收归谁）在下单这一刻 = 归属站：客户是在这个站下的单，
+        // 抢单/定向外派时才随履约站一起改（改的地方全在 OrderMapper 的 CAS 里，见 v47 迁移文件头）。
+        // ⚠️ 漏写这一行**不会报错**：读侧的 coalesce 会回退成旧口径（= coalesce(履约站, 归属站)），
+        // 于是"显式列"退化成装饰，下一个改外派流程的人又得回去猜钱归谁。
+        orders.setSettleStationId(stationId);
         orders.setSource(dto.getSource() != null ? dto.getSource() : 2);
         orders.setPaymentMethod(dto.getPaymentMethod());
         orders.setPaymentStatus(PaymentStatus.PENDING);
@@ -473,6 +482,16 @@ public class OrderServiceImpl implements OrderService {
         orders.setDeliveryFee(feeResult.getDeliveryFee());
         orders.setFloorFee(feeResult.getFloorFee());
         orders.setTotalAmount(waterAmount.add(depositAmount).add(feeResult.getFeeTotal()));
+
+        // 货到付款的**金额层**复核（v48）：总额此刻才算出来，补判一次单笔上限 ——
+        // 与前面那次是同一个方法，所以"报价页能选、提交被拒"这种分叉不会出现。
+        if (Integer.valueOf(PayMethod.CASH).equals(dto.getPaymentMethod())) {
+            String amountBlock = paymentService.offlinePaymentBlockReason(
+                    dto.getCustomerId(), stationId, orders.getTotalAmount());
+            if (amountBlock != null) {
+                throw new BusinessException(amountBlock);
+            }
+        }
         // 计算订单总数量：所有商品数量之和
         if (dto.getItems() != null && !dto.getItems().isEmpty()) {
             int totalQuantity = dto.getItems().stream()
@@ -575,6 +594,13 @@ public class OrderServiceImpl implements OrderService {
         // [v35] 配送计费提示（起送量未达、超范围、楼层未填、加收的费用…）。
         // 与 quote 侧同源 —— 都由 DeliveryFeeUtil 产出，前端不得自造文案。
         warnings.addAll(feeResult.getWarnings());
+
+        // ⚠️ 水票支付**不在这里扣票**（2026-09-18 试过并撤回）：水票的扣减发生在客户端下单后
+        // 那次支付请求里（{@code PaymentServiceImpl.createPayment} 的 TICKET 分支 → {@code deductTickets}）。
+        // 把它挪进下单事务会让"客户还没买票/票不够"直接变成**下单失败** —— 而现有流程（客户端先下单、
+        // 再扣票；票不足时客户端提示充值）与多张既有用例都按两步走。扣票成功的那一刻
+        // {@code payment_status} 会被置 2，订单随即自动进入站长/配送员视野（判据见 OrderMapper 的两张列表），
+        // 所以"没扣票的水票单不进站长端"是**由判据本身保证**的，不需要在下单时抢着扣。
 
         Map<String, Object> detail = new HashMap<>();
         detail.put("orderId", orders.getId());

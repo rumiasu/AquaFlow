@@ -23,15 +23,19 @@ import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.mapper.DepositRecordMapper;
 import com.example.aquaflow.mapper.InventoryMapper;
+import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.mapper.TicketAccountMapper;
 import com.example.aquaflow.mapper.TicketRecordMapper;
 import com.example.aquaflow.service.CustomerService;
+import com.example.aquaflow.service.PaymentService;
 import com.example.aquaflow.vo.CustomerProfileVO;
 import com.example.aquaflow.vo.CustomerStationAssetVO;
 import com.example.aquaflow.vo.CustomerStationVO;
+import com.example.aquaflow.util.CustomerSearchMatcher;
 import com.example.aquaflow.util.PriceUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -47,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Slf4j
 public class CustomerServiceImpl implements CustomerService {
 
     /** 资产流水单次返回上限（避免长年在站客户把响应撑爆） */
@@ -92,6 +97,14 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Autowired
     private StationMapper stationMapper;
+
+    /** 货到付款的欠款/首单判据要读订单（v48）。 */
+    @Autowired
+    private OrderMapper orderMapper;
+
+    /** 货到付款能不能用由 PaymentService 一处判定，这里只取结论与原因（v48），不另拼一套。 */
+    @Autowired
+    private PaymentService paymentService;
 
     @Override
     public void update(Customer customer) {
@@ -148,23 +161,146 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public void updateOfflinePaymentConfig(Long customerId, Long stationId, Integer enabled) {
+    public void updateOfflinePaymentConfig(Long customerId, Long stationId, Integer enabled,
+                                           java.math.BigDecimal singleLimit, Integer allowFirstOrder) {
         customerStationConfigMapper.ensureExists(customerId, stationId);
-        customerStationConfigMapper.updateOfflinePaymentEnabled(customerId, stationId, enabled);
+        // 整份覆盖写：singleLimit 传 null 就是"改成不限"（SQL 里刻意不做"非空才更新"）
+        customerStationConfigMapper.updateOfflinePaymentConfig(customerId, stationId, enabled,
+                singleLimit, allowFirstOrder == null ? 0 : allowFirstOrder);
     }
 
     @Override
-    public List<CustomerStationVO> listStationCustomers(Long stationId) {
+    public Map<String, Object> offlinePaymentSummary(Long customerId, Long stationId) {
+        CustomerStationConfig config = customerStationConfigMapper.getByCustomerAndStation(customerId, stationId);
+        Map<String, Object> out = new java.util.HashMap<>();
+        out.put("offlinePaymentEnabled", config == null ? 0 : config.getOfflinePaymentEnabled());
+        out.put("singleLimit", config == null ? null : config.getOfflinePaymentSingleLimit());
+        out.put("allowFirstOrder", config == null ? 0 : config.getOfflinePaymentAllowFirstOrder());
+        // 欠款/逾期（与"欠款即停"同源：逾期未结的现金单）
+        out.put("overdueCount", orderMapper.countOverdueCashOrders(customerId, stationId));
+        out.put("overdueAmount", orderMapper.sumOverdueCashAmount(customerId, stationId));
+        // 历史订单数：为 0 即"首单"（默认不放行货到付款）—— 站长在弹窗里一眼看到为什么要放开
+        out.put("orderCount", orderMapper.countCustomerOrdersAtStation(customerId, stationId));
+        // 当前能不能用 + 原因（唯一判据在 PaymentService，这里不另拼文案）
+        String reason = paymentService.offlinePaymentBlockReason(customerId, stationId, null);
+        out.put("blockReason", reason);
+        out.put("usable", reason == null);
+        return out;
+    }
+
+    @Override
+    public List<CustomerStationVO> listStationCustomers(Long stationId, String keyword) {
         if (stationId == null) {
             return new java.util.ArrayList<>();
         }
         List<CustomerStationVO> list = customerMapper.listStationCustomers(stationId);
-        if (list != null) {
-            for (CustomerStationVO vo : list) {
-                vo.deriveProfileMeta();
+        if (list == null) {
+            return new ArrayList<>();
+        }
+        for (CustomerStationVO vo : list) {
+            vo.deriveProfileMeta();
+        }
+        if (CustomerSearchMatcher.isBlank(keyword)) {
+            return list;
+        }
+        // 带关键字：地址不在 listStationCustomers 的返回列里（那是客户画像口径，逐行再查一次地址
+        // 会让"每个客户一次地址扫描"），所以这里用统一的候选集（含地址）打分，
+        // 再按得分顺序把命中的 VO 取出来。口径差异：客户画像是 orders 驱动，
+        // 候选集是"绑定 ∪ 本站订单"——只绑定没下单的客户不在本列表里，那是刻意的（见 CustomerMapper）。
+        Map<Long, Map<String, Object>> candidateById = new java.util.HashMap<>();
+        for (Map<String, Object> candidate : loadSearchCandidates(stationId)) {
+            Object id = candidate.get("id");
+            if (id instanceof Number) {
+                candidateById.put(((Number) id).longValue(), candidate);
             }
         }
-        return list;
+        List<CustomerStationVO> matched = CustomerSearchMatcher.rank(keyword, list,
+                CustomerStationVO::getName, CustomerStationVO::getPhone,
+                vo -> searchTextOf(candidateById.get(vo.getId())),
+                CustomerSearchMatcher.MAX_RESULTS);
+        for (CustomerStationVO vo : matched) {
+            // 回填展示用地址：站长是靠地址认人的，只给姓名/电话等于没回答"为什么命中"
+            vo.setAddressText(displayAddressOf(candidateById.get(vo.getId())));
+        }
+        return matched;
+    }
+
+    @Override
+    public List<Map<String, Object>> searchStationCustomers(Long stationId, String keyword) {
+        if (stationId == null) {
+            return new ArrayList<>();
+        }
+        List<Map<String, Object>> candidates = loadSearchCandidates(stationId);
+        if (CustomerSearchMatcher.isBlank(keyword)) {
+            // 不筛 = 最近建档的若干条。代客下单页首屏就是这条路径，返回空列表会让站长
+            // 以为"客户没建档成功"（原 listOrderCustomers 的 null 语义，必须保持）
+            List<Map<String, Object>> recent = new ArrayList<>();
+            for (Map<String, Object> candidate : candidates) {
+                if (recent.size() >= CustomerSearchMatcher.MAX_RESULTS) {
+                    break;
+                }
+                recent.add(toSearchItem(candidate));
+            }
+            return recent;
+        }
+        List<Map<String, Object>> ranked = CustomerSearchMatcher.rank(keyword, candidates,
+                c -> str(c, "name"), c -> str(c, "phone"), CustomerServiceImpl::searchTextOf,
+                CustomerSearchMatcher.MAX_RESULTS);
+        List<Map<String, Object>> out = new ArrayList<>(ranked.size());
+        for (Map<String, Object> candidate : ranked) {
+            out.add(toSearchItem(candidate));
+        }
+        return out;
+    }
+
+    /** 取本站搜索候选集（含地址文本），并处理"候选被截断"这一边界 */
+    private List<Map<String, Object>> loadSearchCandidates(Long stationId) {
+        List<Map<String, Object>> candidates =
+                customerMapper.listSearchCandidates(stationId, CustomerSearchMatcher.MAX_CANDIDATES);
+        if (candidates == null) {
+            return new ArrayList<>();
+        }
+        if (candidates.size() >= CustomerSearchMatcher.MAX_CANDIDATES) {
+            // 超限：按建档倒序截断（新客户优先保住），接口照常返回，只把"结果可能不全"记进日志。
+            // 真到这一步说明单站客户量已超出产品口径（几百~几千），该换检索引擎而不是加大 LIMIT
+            log.warn("[客户搜索] 站点 {} 候选数达到上限 {}，地址搜索可能查不到较老的客户（按建档倒序截断）",
+                    stationId, CustomerSearchMatcher.MAX_CANDIDATES);
+        }
+        return candidates;
+    }
+
+    /** 打分用的地址文本：档案地址（默认在前、多条换行分隔）+ 本站订单地址快照 */
+    private static String searchTextOf(Map<String, Object> candidate) {
+        if (candidate == null) {
+            return null;
+        }
+        return str(candidate, "addressText") + "\n" + str(candidate, "orderAddressText");
+    }
+
+    /** 展示用地址：默认地址那条（多地址时取第一行） */
+    private static String displayAddressOf(Map<String, Object> candidate) {
+        String text = str(candidate, "addressText");
+        if (text == null || text.isEmpty()) {
+            return null;
+        }
+        int cut = text.indexOf('\n');
+        return cut >= 0 ? text.substring(0, cut) : text;
+    }
+
+    /** 列表项字段由后端定死：{@code searchTextOf} 用的 orderAddressText 不外泄给前端 */
+    private static Map<String, Object> toSearchItem(Map<String, Object> candidate) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("id", candidate.get("id"));
+        item.put("name", candidate.get("name"));
+        item.put("phone", candidate.get("phone"));
+        item.put("customerType", candidate.get("customerType"));
+        item.put("addressText", displayAddressOf(candidate));
+        return item;
+    }
+
+    private static String str(Map<String, Object> map, String key) {
+        Object value = map == null ? null : map.get(key);
+        return value == null ? "" : value.toString();
     }
 
     @Override

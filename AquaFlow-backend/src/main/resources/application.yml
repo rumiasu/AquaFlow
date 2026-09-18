@@ -12,6 +12,11 @@ app:
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:20}
+  # 订单相关开关
+  order:
+    # 微信未付单超时自动取消（分钟；≤0 = 关闭）。只对微信单生效 —— 现金是货到付款、
+    # 水票要等扣票，都不适用。见 service/UnpaidWechatOrderSweeper.java 与 docs/design/04 §4.8。
+    wechat-pay-timeout-minutes: ${WECHAT_PAY_TIMEOUT_MINUTES:30}
 
 spring:
   application:

@@ -27,15 +27,13 @@ public interface StaffPieceRateMapper {
      * INSERT 里」时才生效</b> —— 显式列出却传 NULL 会直接报「Column 'per_bucket_amount' cannot be null」。
      * 这个坑在 v34/v35 上已经踩过三次（payment_record / orders / station_delivery_config）。</p>
      */
-    @Insert("insert into staff_piece_rate(station_id, product_id, per_bucket_amount, return_bucket_amount, "
-            + "floor_bonus_per_level, floor_free_level, per_order_amount, penalty_per_bucket, create_time, update_time) "
-            + "values(#{stationId}, #{productId}, IFNULL(#{perBucketAmount},0.00), IFNULL(#{returnBucketAmount},0.00), "
-            + "IFNULL(#{floorBonusPerLevel},0.00), IFNULL(#{floorFreeLevel},1), IFNULL(#{perOrderAmount},0.00), "
-            + "IFNULL(#{penaltyPerBucket},0.00), NOW(), NOW()) "
+    @Insert("insert into staff_piece_rate(station_id, product_id, per_bucket_amount, "
+            + "floor_bonus_per_level, floor_free_level, create_time, update_time) "
+            + "values(#{stationId}, #{productId}, IFNULL(#{perBucketAmount},0.00), "
+            + "IFNULL(#{floorBonusPerLevel},0.00), IFNULL(#{floorFreeLevel},1), NOW(), NOW()) "
             + "on duplicate key update per_bucket_amount=values(per_bucket_amount), "
-            + "return_bucket_amount=values(return_bucket_amount), floor_bonus_per_level=values(floor_bonus_per_level), "
-            + "floor_free_level=values(floor_free_level), per_order_amount=values(per_order_amount), "
-            + "penalty_per_bucket=values(penalty_per_bucket), update_time=NOW()")
+            + "floor_bonus_per_level=values(floor_bonus_per_level), "
+            + "floor_free_level=values(floor_free_level), update_time=NOW()")
     int upsert(StaffPieceRate rate);
 
     @Delete("delete from staff_piece_rate where station_id = #{stationId} and product_id = #{productId}")

@@ -19,6 +19,7 @@
     "pages/mine/about",
     "pages/mine/edit",
     "pages/payment/records",
+    "pages/deposit/records/index",
     "pages/notice/index",
     "pages/mine/company",
     "pages/exception/list/list"

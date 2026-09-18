@@ -1,5 +1,6 @@
 package com.example.aquaflow.service.impl;
 
+import com.example.aquaflow.constant.EarningItemDirection;
 import com.example.aquaflow.constant.EarningKind;
 import com.example.aquaflow.entity.*;
 import com.example.aquaflow.exception.BusinessException;
@@ -31,6 +32,8 @@ public class StaffEarningServiceImpl implements StaffEarningService {
     @Autowired private StaffPieceRateMapper staffPieceRateMapper;
     @Autowired private StaffEarningMapper staffEarningMapper;
     @Autowired private StaffPayrollMapper staffPayrollMapper;
+    @Autowired private StaffMapper staffMapper;
+    @Autowired private StaffEarningItemMapper staffEarningItemMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -68,51 +71,37 @@ public class StaffEarningServiceImpl implements StaffEarningService {
                     "送水计件 " + qty + " 桶");
         }
 
-        // ---- 回桶奖励（与商品无关，按订单整体记一行）----
+        // ---- 楼层补贴：v43 起**以配送员上报的楼层为准**，没上报才沿用地址 ----
+        // 为什么改成这样：楼层补贴是给配送员的钱，只有他知道自己爬了几层；只认客户在地址里填的值，
+        // 等于拿别人的话给自己发工资，虚报也没有痕迹。照片（order_image.type=3）不强制，可作凭证。
+        // 两笔钱仍然分开：向客户收的楼层费在下单时按地址快照（orders.floor_fee），本段只算给配送员的补贴。
         StaffPieceRate defaultRate = rateOf(stationId, 0L);
-        int returned = order.getReturnBucketQty() != null ? order.getReturnBucketQty() : 0;
-        BigDecimal returnPer = nz(defaultRate.getReturnBucketAmount());
-        if (returned > 0 && returnPer.signum() > 0) {
-            insert(order, stationId, staffId, EarningKind.RETURN_BUCKET, 0L, returned, returnPer,
-                    "回收空桶 " + returned + " 个");
-        }
-
-        // ---- 楼层补贴：无电梯才补，且只在**站点配了补贴**时出现 ----
         BigDecimal floorPer = nz(defaultRate.getFloorBonusPerLevel());
         if (floorPer.signum() > 0) {
             Address addr = order.getAddressId() != null ? addressMapper.getById(order.getAddressId()) : null;
-            if (addr != null && addr.getFloor() != null && addr.getHasElevator() != null
-                    && addr.getHasElevator() == 0) {
+            Integer addressFloor = addr != null ? addr.getFloor() : null;
+            Integer hasElevator = addr != null ? addr.getHasElevator() : null;
+            Integer reported = order.getReportedFloor();
+            Integer floor = reported != null ? reported : addressFloor;
+            // 地址明确写了"有电梯"就不补（不管有没有上报）；NULL = 客户没确认过 ——
+            // 此时若配送员报了几层，就按他报的给（他确实爬了，凭证可核）。
+            boolean explicitLift = Integer.valueOf(1).equals(hasElevator);
+            if (floor != null && !explicitLift) {
                 int freeLevel = defaultRate.getFloorFreeLevel() != null ? defaultRate.getFloorFreeLevel() : 1;
-                int levels = addr.getFloor() - freeLevel;
+                int levels = floor - freeLevel;
                 if (levels > 0) {
-                    insert(order, stationId, staffId, EarningKind.FLOOR_BONUS, 0L, levels, floorPer,
-                            "无电梯 " + addr.getFloor() + " 层，超 " + levels + " 层");
+                    // ⚠️ 与地址不一致必须**标记出来**：这就是"防虚报"的痕迹，站长在结算单明细里能看到。
+                    boolean mismatch = reported != null && addressFloor != null && !addressFloor.equals(reported);
+                    String note = (reported != null ? "上报 " + reported + " 层" : "地址 " + floor + " 层")
+                            + (mismatch ? "（与地址 " + addressFloor + " 层不一致）" : "")
+                            + "，超 " + levels + " 层";
+                    insert(order, stationId, staffId, EarningKind.FLOOR_BONUS, 0L, levels, floorPer, note);
                 }
             }
         }
 
-        // ---- 每单基础奖励 ----
-        BigDecimal perOrder = nz(defaultRate.getPerOrderAmount());
-        if (perOrder.signum() > 0) {
-            insert(order, stationId, staffId, EarningKind.ORDER_BONUS, 0L, null, perOrder, "单量奖励");
-        }
-
-        // ---- 空桶差异扣减 ----
-        // ⚠️ barrel_discrepancy 与 barrel_discrepancy_note 在 updateDeliveryOutcome 里写的是
-        // 「少收空桶数（正数=欠）」；只在站点配了 penalty_per_bucket 时才扣。
-        // 站点没配就不扣 —— "默认扣钱"会引发劳资纠纷，本仓的产品口径一贯是宁可只提示。
-        BigDecimal penaltyPer = nz(defaultRate.getPenaltyPerBucket());
-        if (penaltyPer.signum() > 0) {
-            int owed = order.getBarrelDiscrepancy() != null ? order.getBarrelDiscrepancy() : 0;
-            if (owed > 0) {
-                insert(order, stationId, staffId, EarningKind.PENALTY, 0L, owed, penaltyPer,
-                        "少收空桶 " + owed + " 个");
-            }
-        }
-
-        log.info("[v37] 计件收益已产生: orderId={}, staffId={}, stationId={}, 送桶={}, 回桶={}",
-                orderId, staffId, stationId, totalBuckets, returned);
+        log.info("[v37] 计件收益已产生: orderId={}, staffId={}, stationId={}, 送桶={}", orderId, staffId, stationId,
+                totalBuckets);
     }
 
     /**
@@ -244,10 +233,12 @@ public class StaffEarningServiceImpl implements StaffEarningService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void adjustEarning(Long stationId, Long staffId, BigDecimal amount, String note) {
+    public void adjustEarning(Long stationId, Long staffId, Long itemId, BigDecimal amount, String note) {
         if (staffId == null || amount == null || amount.signum() == 0) {
             throw new BusinessException("配送员与调整金额不能为空，且金额不能为 0");
         }
+        requireAdjustableStaff(stationId, staffId);
+
         StaffEarning e = new StaffEarning();
         e.setStationId(stationId);
         e.setStaffId(staffId);
@@ -256,10 +247,56 @@ public class StaffEarningServiceImpl implements StaffEarningService {
         e.setProductId(0L);
         e.setQty(null);
         e.setUnitAmount(null);
-        // 唯一允许调用方给符号的 kind
-        e.setAmount(amount.setScale(2, RoundingMode.HALF_UP));
-        e.setNote(note);
+
+        if (itemId != null) {
+            // 按条目录入（v44）：方向由条目决定，因此这里**只接受正数** ——
+            // 让录的人自己判"这次是补还是扣"，等于每次都要重新赌一次手感
+            StaffEarningItem item = staffEarningItemMapper.getById(itemId);
+            if (item == null || !item.getStationId().equals(stationId)) {
+                throw new BusinessException("条目不存在或不属于本站");
+            }
+            if (!item.isEnabled()) {
+                throw new BusinessException("条目「" + item.getName() + "」已停用，请先启用它或换一个条目");
+            }
+            if (amount.signum() < 0) {
+                throw new BusinessException("按条目录入时金额一律传正数，加项/扣项由条目决定");
+            }
+            e.setItemId(item.getId());
+            e.setItemName(item.getName());     // 名称快照：条目日后改名不改写这笔历史
+            e.setAmount(amount.abs()
+                    .multiply(BigDecimal.valueOf(EarningItemDirection.signOf(item.getDirection())))
+                    .setScale(2, RoundingMode.HALF_UP));
+            e.setNote(note == null || note.trim().isEmpty() ? item.getName() : note);
+        } else {
+            // 自由文本调整：唯一允许调用方给符号的 kind
+            e.setAmount(amount.setScale(2, RoundingMode.HALF_UP));
+            e.setNote(note);
+        }
         staffEarningMapper.insert(e);
+    }
+
+    /**
+     * 人工调整的归属校验：只能给「本站员工」或「在本站有过履约的人」记工钱。
+     *
+     * <p>⚠️ 修的是一个真实越权形状（2026-09-18 随 v44 一起补）：{@code POST /payroll/adjust}
+     * 原本只收 {@code staffId}，而"我的工资"自助查询**只按 staff_id 过滤**（刻意不带站点，
+     * 否则跨站外派挣的那部分会消失）—— 于是任何站长传一个别站配送员的 id 就能往那个人的
+     * 「未结工资」里塞钱或扣钱。判据取并集而不是只看 {@code staff.station_id}：
+     * 跨站外派时人属于 B 站、给 A 站跑腿，A 站给他记一笔完全正常。</p>
+     */
+    private void requireAdjustableStaff(Long stationId, Long staffId) {
+        Staff staff = staffMapper.getById(staffId);
+        if (staff == null
+                || (!"DELIVERY".equals(staff.getRole()) && !"STATION_MANAGER".equals(staff.getRole()))) {
+            throw new BusinessException("配送员不存在");
+        }
+        if (stationId.equals(staff.getStationId())) {
+            return;   // 本站员工
+        }
+        if (staffEarningMapper.countByStationAndStaff(stationId, staffId) > 0) {
+            return;   // 跨站外派：在本站留下过收益痕迹
+        }
+        throw new BusinessException("该配送员与本站没有履约关系，不能给他记工资");
     }
 
     private StaffPayroll requireOwned(Long stationId, Long payrollId) {

@@ -215,6 +215,59 @@ class TicketPackageAndLotIntegrationTest extends AbstractIntegrationTest {
     }
 
     /**
+     * 删除档位：只能删本站的，且**只删价目表，不动已售出的票**。
+     *
+     * <p>为什么单独钉一条：2026-09-18 起「商品上架 → 本站设置」里直接就能删档位
+     * （站长不用再去档位模块），这条写路径因此从"只有接口"变成"界面天天点"。
+     * 两条护栏必须成立：① 传别人的档位 id 删不掉（跨站）；② 删档位不能碰客户账户余额 ——
+     * 票的价值由 {@code ticket_lot} 的单价快照记着，与价目表在不在无关。</p>
+     */
+    @Test
+    @DisplayName("删除档位：跨站删不掉、删自己的只动价目表（已售水票一张不少）")
+    void deletePackageGuardsStationAndKeepsSoldTickets() {
+        long stationA = createStation("删档位A站");
+        long stationB = createStation("删档位B站");
+        long mgrA = createStaff("删档位站长A", "STATION_MANAGER", stationA, 1);
+        long mgrB = createStaff("删档位站长B", "STATION_MANAGER", stationB, 1);
+        long customer = createCustomer("删档位客户", "pkg-del-openid");
+        long product = createProduct("删档位水", 1, "20.00", "30.00", 1, "9.00");
+        createInventoryFull(stationA, product, 100, 1, "9.00");
+        String tokenA = staffToken(mgrA, "STATION_MANAGER", stationA);
+        String tokenB = staffToken(mgrB, "STATION_MANAGER", stationB);
+        String cus = customerToken(customer);
+
+        long packageId = post("/api/ticket-packages", tokenA,
+                "{\"productId\":" + product + ",\"qty\":10,\"price\":80.00}")
+                .data().path("id").asLong();
+
+        // 先按档位买一张并使用：证明"卖出去的票"确实存在
+        long paymentId = post("/api/tickets/purchase", cus,
+                "{\"productId\":" + product + ",\"quantity\":10,\"paymentMethod\":2,\"stationId\":" + stationA
+                        + ",\"packageId\":" + packageId + ",\"idempotencyKey\":\"pkg-del-buy\"}")
+                .data().path("paymentId").asLong();
+        assertEquals(0, put("/api/payments/" + paymentId + "/confirm", tokenA, null).code(), "站长确认收款");
+        assertEquals(10, intOf("SELECT remain_quantity FROM ticket_account WHERE customer_id=? AND station_id=?",
+                customer, stationA), "前置：客户账上已有 10 张");
+
+        // ① 他站站长删不掉本站档位（按 id 操作必须验证归属）
+        assertNotEquals(0, delete("/api/ticket-packages/" + packageId, tokenB).code(),
+                "他站站长不得删除本站档位");
+        assertEquals(1, intOf("SELECT COUNT(*) FROM ticket_package WHERE id=?", packageId),
+                "被拒之后档位必须还在");
+
+        // ② 本站站长可以删，且**不动已售出的水票**
+        assertEquals(0, delete("/api/ticket-packages/" + packageId, tokenA).code(), "本站站长应能删除档位");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM ticket_package WHERE id=?", packageId), "档位应已删除");
+        assertEquals(10, intOf("SELECT remain_quantity FROM ticket_account WHERE customer_id=? AND station_id=?",
+                customer, stationA), "删档位不得影响客户账上的票");
+        assertTicketBookConsistent(customer, stationA, product);
+
+        // ③ 删不存在的 id 给业务错误（code=1），不是 500
+        assertEquals(1, delete("/api/ticket-packages/" + packageId, tokenA).code(),
+                "重复删除应给业务错误而不是系统异常");
+    }
+
+    /**
      * 复核 E8 的两条等式（{@code docs/design/19} §6）。
      *
      * <p>这里直接用 SQL 断言而不是去调对账服务：E8 的内容就是这两条等式，

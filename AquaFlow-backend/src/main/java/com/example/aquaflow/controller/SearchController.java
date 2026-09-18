@@ -4,8 +4,8 @@ import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.mapper.AddressMapper;
-import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.OrderMapper;
+import com.example.aquaflow.service.CustomerService;
 import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -28,18 +28,31 @@ import java.util.Map;
 public class SearchController {
 
     @Autowired
-    private CustomerMapper customerMapper;
-    @Autowired
     private AddressMapper addressMapper;
     @Autowired
     private OrderMapper orderMapper;
+    @Autowired
+    private CustomerService customerService;
 
+    /**
+     * 站长端综合搜索：一次返回客户 / 地址 / 订单三类结果。
+     *
+     * <p>三类结果的匹配口径<b>目前并不一致，这是有意的</b>：</p>
+     * <ul>
+     *   <li><b>客户</b>：走 {@code CustomerService.searchStationCustomers}
+     *       —— 地址参与、归一化后按相关性排序，支持缩写与中英数字混用
+     *       （站长认人主要靠地址，见 {@code util/CustomerSearchMatcher}）；</li>
+     *   <li><b>地址 / 订单</b>：仍是 {@code AddressMapper} / {@code OrderMapper} 的强子串 LIKE
+     *       （它们不在本次改造范围内，且 {@code OrderMapper} 属共享禁改文件）。</li>
+     * </ul>
+     * <p>所以"同一个关键字，客户里有、地址里没有"是可能出现的，界面不要据此判断数据缺失。</p>
+     */
     @RequireRole({"STATION_MANAGER"})
     @GetMapping
     public Result<Map<String, Object>> search(@RequestParam String keyword) {
         Map<String, Object> result = new HashMap<>();
         Long stationId = AuthContext.requireStationId();
-        result.put("customers", customerMapper.searchByStation(stationId, keyword));
+        result.put("customers", customerService.searchStationCustomers(stationId, keyword));
         result.put("addresses", addressMapper.listByStation(stationId, keyword));
         result.put("orders", orderMapper.searchByKeywordAndStation(stationId, keyword));
         return Result.success(result);

@@ -64,9 +64,7 @@ SET @s := IF(@has_orders>0,
      MODIFY COLUMN `address_snapshot_lat` decimal(10,7) DEFAULT NULL COMMENT '地址快照纬度',
      MODIFY COLUMN `address_snapshot_lng` decimal(10,7) DEFAULT NULL COMMENT '地址快照经度',
      MODIFY COLUMN `delivery_station_id` bigint DEFAULT NULL
-       COMMENT '实际履约水站（可被站长外派/抢单切换，为空=在抢单池）',
-     MODIFY COLUMN `batch_id` bigint DEFAULT NULL
-       COMMENT '所属批次。[已废弃] 全项目无 batch 表、无读写点，恒为 NULL，仅为兼容旧库列保留'",
+       COMMENT '实际履约水站（可被站长外派/抢单切换，为空=在抢单池）'",
   "SELECT 'skip: orders 不存在' AS r");
 PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 

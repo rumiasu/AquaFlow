@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -205,5 +206,54 @@ class FileUploadIntegrationTest extends AbstractIntegrationTest {
                 "theirs.png", 10, "image", "image/png", "public/general/theirs.png", "general", 999999);
         assertNotEquals(0, delete("/api/files/" + otherFile, mgr).code(), "不得删别人上传的文件");
         assertEquals(1, intOf("SELECT COUNT(*) FROM file_info WHERE id=?", otherFile));
+    }
+
+    @Test
+    @DisplayName("文件按水站隔离：看不到他站文件、也删不掉（v45 修的跨租户泄露）")
+    void fileListAndDeleteAreStationScoped() {
+        long stationA = createStation("文件站A");
+        long stationB = createStation("文件站B");
+        long mgrA = createStaff("文件站长A", "STATION_MANAGER", stationA, 1);
+        long mgrB = createStaff("文件站长B", "STATION_MANAGER", stationB, 1);
+        String tokenA = staffToken(mgrA, "STATION_MANAGER", stationA);
+
+        long fileA = insertFile(mgrA, stationA, "a.png");
+        long fileB = insertFile(mgrB, stationB, "b.png");
+        long platformFile = insertFile(mgrA, null, "banner.png");   // NULL = 平台级，有意保留
+
+        java.util.List<Long> visible = fileIds(tokenA, null);
+        assertTrue(visible.contains(fileA), "本站文件必须可见：" + visible);
+        assertTrue(visible.contains(platformFile),
+                "平台级文件（station_id 为 NULL）全站可见 —— 这个 NULL 是有语义的，不是脏数据");
+        assertFalse(visible.contains(fileB),
+                "他站文件不得出现在列表里：这正是 v45 修的跨租户泄露（原 listAll() 无任何水站过滤）");
+        assertFalse(fileIds(tokenA, "general").contains(fileB), "按分类查同样必须隔离");
+
+        assertNotEquals(0, delete("/api/files/" + fileB, tokenA).code(), "不得删他站文件");
+        assertEquals(1, intOf("SELECT COUNT(*) FROM file_info WHERE id=?", fileB), "拒绝后他站文件必须还在");
+    }
+
+    /* ==================== v45 夹具 ==================== */
+
+    /** 直接插一条文件登记（本机 COS 未配置，走不了真实上传路径） */
+    private long insertFile(long uploaderId, Long stationId, String name) {
+        String sql = "INSERT INTO file_info(file_name, file_size, file_type, mime_type, object_name, "
+                + "category, uploader_id, station_id) VALUES (?,?,?,?,?,?,?,"
+                + (stationId == null ? "NULL)" : "?)");
+        return stationId == null
+                ? insert(sql, name, 10, "image", "image/png", "public/general/" + name, "general", uploaderId)
+                : insert(sql, name, 10, "image", "image/png", "public/general/" + name, "general", uploaderId, stationId);
+    }
+
+    /** 当前可见的文件 id 列表；category 为 null 时不带分类参数 */
+    private java.util.List<Long> fileIds(String token, String category) {
+        String path = category == null ? "/api/files" : "/api/files?category=" + category;
+        Api res = get(path, token);
+        assertEquals(0, res.code(), "文件列表应可读：" + res.data());
+        java.util.List<Long> ids = new java.util.ArrayList<>();
+        for (JsonNode n : res.data()) {
+            ids.add(n.path("id").asLong());
+        }
+        return ids;
     }
 }

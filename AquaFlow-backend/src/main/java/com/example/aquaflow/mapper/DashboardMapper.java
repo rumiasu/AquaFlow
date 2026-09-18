@@ -13,19 +13,25 @@ import java.util.Map;
  *
  * <p><b>口径约定（所有 SQL 必须遵守）：</b></p>
  * <ul>
- *   <li>水站归属一律用 {@code coalesce(delivery_station_id, station_id) = #{stationId}}，
- *       与 {@code StationUtil.deliveryStation()} 的判定一致 —— 跨站外派的单也算原站业绩，
+ *   <li>水站归属一律用 {@code coalesce(settle_station_id, delivery_station_id, station_id) = #{stationId}}
+ *       —— <b>结算站</b>口径（v47）：水费 + 配送费 + 楼层费归实际配送的那一站。
+ *       后两级的回退是<b>防御</b>（漏写 settle 的历史/未来行不丢营收），不是常态：正常路径必须写
+ *       {@code orders.settle_station_id}（写入点清单见 {@code sql/migration_v47_order_settle_station.sql}）。
  *       且 <b>stationId 只能来自登录站长</b>，绝不接受前端传入。</li>
  *   <li>时间窗为左闭右开 {@code [start, end)}，方便"今日/近7天/近30天"与上一周期对齐比较。</li>
  *   <li>营业额(grossAmount) = 未取消订单的应收合计；已收款(paidAmount) 以
  *       {@code payment_status=2} 为准；待收款(pendingAmount) = {@code payment_status=1 且未取消}。
  *       三者分开返回，前端不做二次推导。</li>
  * </ul>
+ *
+ * <p>⚠️ 本类只管"钱与单量"的看板口径；<b>押金 / 水票 / 桶权益的站别不在这里决定</b> ——
+ * 它们一律按归属站（{@code station_id}），那是"客户买在哪个站的资产"，与营收归谁是两件事
+ * （见 {@code barrelFlow} / {@code owedCustomers}：它们本来就按归属站，别顺手改成结算站）。</p>
  */
 @Mapper
 public interface DashboardMapper {
 
-    String RANGE = "coalesce(delivery_station_id, station_id) = #{stationId} "
+    String RANGE = "coalesce(settle_station_id, delivery_station_id, station_id) = #{stationId} "
             + "and create_time >= #{start} and create_time < #{end}";
 
     /** 周期汇总（一行） */
@@ -45,7 +51,7 @@ public interface DashboardMapper {
     /** 本周期新增客户：首次在本站下单的时间落在区间内 */
     @Select("select count(*) from ("
             + "select customer_id, min(create_time) as first_at from orders "
-            + "where coalesce(delivery_station_id, station_id) = #{stationId} "
+            + "where coalesce(settle_station_id, delivery_station_id, station_id) = #{stationId} "
             + "group by customer_id having min(create_time) >= #{start} and min(create_time) < #{end}"
             + ") t")
     int countNewCustomers(@Param("stationId") Long stationId,
@@ -85,7 +91,7 @@ public interface DashboardMapper {
     @Select("select oi.product_id as productId, oi.product_name_snapshot as productName, "
             + "sum(oi.quantity) as qty, coalesce(sum(oi.subtotal), 0) as revenue "
             + "from order_item oi join orders o on o.id = oi.order_id "
-            + "where coalesce(o.delivery_station_id, o.station_id) = #{stationId} "
+            + "where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "and o.create_time >= #{start} and o.create_time < #{end} and o.status != 5 "
             + "group by oi.product_id, oi.product_name_snapshot order by qty desc limit #{limit}")
     List<Map<String, Object>> topProducts(@Param("stationId") Long stationId,
@@ -97,7 +103,7 @@ public interface DashboardMapper {
     @Select("select o.customer_id as customerId, c.name as customerName, count(*) as orders, "
             + "coalesce(sum(o.total_amount), 0) as amount "
             + "from orders o left join customer c on c.id = o.customer_id "
-            + "where coalesce(o.delivery_station_id, o.station_id) = #{stationId} "
+            + "where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "and o.create_time >= #{start} and o.create_time < #{end} and o.status != 5 "
             + "group by o.customer_id, c.name order by amount desc limit #{limit}")
     List<Map<String, Object>> topCustomers(@Param("stationId") Long stationId,
@@ -110,7 +116,7 @@ public interface DashboardMapper {
             + "sum(case when o.status = 4 then 1 else 0 end) as completedOrders, "
             + "coalesce(sum(case when o.status != 5 then o.total_amount else 0 end), 0) as amount "
             + "from orders o left join staff s on s.id = o.delivery_staff_id "
-            + "where coalesce(o.delivery_station_id, o.station_id) = #{stationId} "
+            + "where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "and o.create_time >= #{start} and o.create_time < #{end} "
             + "and o.delivery_staff_id is not null "
             + "group by o.delivery_staff_id, s.name order by totalOrders desc")

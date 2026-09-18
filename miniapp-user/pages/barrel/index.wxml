@@ -11,11 +11,13 @@
         </view>
       </view>
       <view class="stat-divider"></view>
-      <view class="stat-col">
+      <view class="stat-col" bindtap="onDepositRecords">
         <text class="stat-label">押金</text>
         <view class="stat-value-row">
           <text class="stat-number deposit">¥{{summary.depositBalance}}</text>
         </view>
+        <!-- 余额只回答"现在多少"，流水才回答"为什么变"（退桶/丢桶赔偿/调整都只在这里看得见） -->
+        <text class="stat-link">押金流水 ›</text>
       </view>
       <view class="stat-divider"></view>
       <view class="stat-col">

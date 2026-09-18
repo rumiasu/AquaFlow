@@ -340,3 +340,124 @@
   font-size: var(--font-md);
   color: var(--text-secondary);
 }
+
+/* ========== 楼层上报与凭证（v43） ========== */
+.floor-warn {
+  margin-left: 12rpx;
+  padding: 4rpx 14rpx;
+  font-size: 22rpx;
+  color: #b26a00;
+  background: #fff3e0;
+  border-radius: 999rpx;
+}
+
+.floor-proof-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.floor-proof-title {
+  font-size: 26rpx;
+  color: #4e5969;
+}
+
+.floor-proof-add {
+  font-size: 24rpx;
+  color: #2f7cf6;
+}
+
+.floor-proof-photos {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12rpx;
+}
+
+.floor-proof-img {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 10rpx;
+  margin: 0 12rpx 12rpx 0;
+}
+
+.floor-proof-tip {
+  display: block;
+  font-size: 22rpx;
+  color: #a3a8b0;
+  margin-top: 8rpx;
+}
+
+/* ========== 支付流水与手工退款（2026-09-18） ========== */
+.pay-row {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.pay-row:last-child {
+  border-bottom: none;
+}
+
+.pay-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.pay-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pay-method {
+  font-size: 28rpx;
+  color: var(--text-primary);
+  margin-right: 12rpx;
+}
+
+.pay-status {
+  font-size: 22rpx;
+  color: #4e5969;
+  background: #f2f3f5;
+  border-radius: 999rpx;
+  padding: 2rpx 14rpx;
+  margin-right: 12rpx;
+}
+
+.pay-amount {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 负金额 = 退款冲正流水，标红一眼可辨 */
+.pay-amount-refund {
+  color: #FF3B30;
+}
+
+.pay-time {
+  display: block;
+  font-size: 22rpx;
+  color: #a3a8b0;
+  margin-top: 6rpx;
+}
+
+.pay-note {
+  display: block;
+  font-size: 22rpx;
+  color: #86909c;
+  margin-top: 6rpx;
+  line-height: 1.4;
+}
+
+.pay-refund {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  padding: 8rpx 26rpx;
+  font-size: 24rpx;
+  color: #FF3B30;
+  border: 1rpx solid #FFCDD2;
+  border-radius: 999rpx;
+}

@@ -197,9 +197,9 @@ class TicketDepositNotificationIntegrationTest extends AbstractIntegrationTest {
         Api page = get("/api/customer/exceptions?stationId=" + station, cus);
         assertEquals(0, page.code(), "客户侧异常分页: " + page);
         assertEquals(0, get("/api/customer/exceptions?stationId=" + station + "&page=1&size=5", cus).code());
-        Api list = get("/api/customer/exceptions/list?stationId=" + station, cus);
-        assertEquals(0, list.code(), "客户侧异常列表: " + list);
-        assertEquals(1, list.data().size(), "只看得到自己的异常");
+        // [2026-09-18] /list（"兼容：部分调用方按裸数组处理"）已按死端点评估删除，
+        // 同一件事改在分页端点的 records 上断言；它的 404 断言在 ManagerOrderControllerRemovedIntegrationTest。
+        assertEquals(1, page.data().path("records").size(), "只看得到自己的异常");
 
         assertEquals(0, get("/api/customer/exceptions/" + mine, cus).code());
         assertNotEquals(0, get("/api/customer/exceptions/" + theirs, cus).code(), "不得读别人的异常单");

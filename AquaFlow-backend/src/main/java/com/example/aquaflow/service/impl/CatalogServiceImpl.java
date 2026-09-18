@@ -14,7 +14,7 @@ import com.example.aquaflow.mapper.ProductSubmissionMapper;
 import com.example.aquaflow.service.CatalogService;
 import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.util.AuthContext;
-import com.example.aquaflow.util.CosUtil;
+import com.example.aquaflow.util.ProductImageResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,7 +59,7 @@ public class CatalogServiceImpl implements CatalogService {
     private ProductSubmissionMapper submissionMapper;
 
     @Autowired
-    private CosUtil cosUtil;
+    private ProductImageResolver imageResolver;
 
     /**
      * 站级价偏离通用库参考价多少算"要提醒"（默认 ±50%）。
@@ -162,7 +162,7 @@ public class CatalogServiceImpl implements CatalogService {
         product.setCategory(dto.getCategory());
         product.setBrand(dto.getBrand());
         product.setSpec(dto.getSpec());
-        product.setImageObjectName(dto.getImageObjectName() != null ? dto.getImageObjectName() : dto.getImageUrl());
+        product.setImageObjectName(pickImageValue(dto.getImageObjectName(), dto.getImageUrl()));
         product.setDescription(dto.getDescription());
         product.setPrice(dto.getPrice());
         product.setDeposit(dto.getDeposit() != null ? dto.getDeposit() : BigDecimal.ZERO);
@@ -202,8 +202,9 @@ public class CatalogServiceImpl implements CatalogService {
         if (dto.getName() != null && !dto.getName().trim().isEmpty()) product.setName(dto.getName().trim());
         if (dto.getBrand() != null) product.setBrand(dto.getBrand());
         if (dto.getSpec() != null) product.setSpec(dto.getSpec());
-        if (dto.getImageObjectName() != null) product.setImageObjectName(dto.getImageObjectName());
-        else if (dto.getImageUrl() != null) product.setImageObjectName(dto.getImageUrl());
+        if (dto.getImageObjectName() != null || dto.getImageUrl() != null) {
+            product.setImageObjectName(pickImageValue(dto.getImageObjectName(), dto.getImageUrl()));
+        }
         if (dto.getDescription() != null) product.setDescription(dto.getDescription());
         if (dto.getPrice() != null) product.setPrice(dto.getPrice());
         if (dto.getDeposit() != null) product.setDeposit(dto.getDeposit());
@@ -328,21 +329,46 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     /**
-     * 批量注入图片临时访问 URL。
-     * <p>⚠️ 别省这一步：商品图片存的是 COS 对象键（{@code image_object_name}），
-     * 前端只有拿到签名 URL 才显示得出来；删掉旧控制台时这一处最容易漏
-     * （漏了的表现是"图片全空"而不是报错，很容易被当成前端问题）。</p>
+     * 从请求里的两个图片字段中挑出**该落库的值**。
+     *
+     * <p>⚠️ 这里修的是一个真实缺陷（round-trip 污染）：{@code /api/common/upload} 返回的是
+     * <b>预签名 URL</b>，站长端把<b>整个 URL</b>回填进 {@code imageUrl}；旧实现直接把它当
+     * {@code image_object_name} 落库 → 之后 {@code resolve(那个URL)} 必然签不出有效地址
+     * → <b>自定义商品图即使配好 COS 也永远不显示</b>。</p>
+     *
+     * <p>判据（按落库口径从优到劣）：</p>
+     * <ol>
+     *   <li>{@code imageObjectName} 是<b>对象键或本地资源路径</b>，本就该落库 → 优先；</li>
+     *   <li>{@code imageUrl} 只在<b>以 {@code /} 开头</b>时可用（平台预设图的本地路径）；
+     *       若是 http(s) 开头的预签名 URL，说明是上传回填的临时地址，
+     *       <b>其对象键已丢失、无法反推</b>，此时宁可存 null（前端显示占位图）也不存一个永远签不出来的值
+     *       —— 半坏的图比明确的"无图"更难排查。</li>
+     * </ol>
+     */
+    private String pickImageValue(String imageObjectName, String imageUrl) {
+        if (imageObjectName != null && !imageObjectName.isEmpty()) {
+            return imageObjectName;
+        }
+        if (imageUrl != null && imageUrl.startsWith("/")) {
+            return imageUrl;
+        }
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            log.warn("忽略非对象键的 imageUrl（疑为上传返回的预签名 URL，对象键已丢失）: {}", imageUrl);
+        }
+        return null;
+    }
+
+    /**
+     * 批量注入图片 URL。
+     * <p>⚠️ 别省这一步：商品图片存的是 {@code image_object_name}，它有两种口径 ——
+     * <b>平台预设图的本地资源路径</b>（形如 {@code /assets/product/barrel-water.webp}）与
+     * <b>COS 对象键</b>。前端只认 {@code imageUrl} 一个字段，必须由后端统一翻译
+     * （翻译规则见 {@link ProductImageResolver#resolve}）。</p>
+     * <p>漏了这一步的表现是"图片全空"而<b>不是报错</b>，很容易被当成前端问题。</p>
      */
     private List<ProductWithInventoryVO> withImageUrls(List<ProductWithInventoryVO> list) {
         for (ProductWithInventoryVO vo : list) {
-            try {
-                if (vo.getImageObjectName() != null && !vo.getImageObjectName().isEmpty()) {
-                    vo.setImageUrl(cosUtil.generatePublicUrl(vo.getImageObjectName()));
-                }
-            } catch (Exception e) {
-                // 单条失败不影响列表（本机 COS 未配置时就是这种情况，见 §8.21 的口径）
-                log.warn("生成商品图片URL失败, productId={}, error={}", vo.getId(), e.getMessage());
-            }
+            vo.setImageUrl(imageResolver.resolve(vo.getImageObjectName()));
         }
         return list;
     }

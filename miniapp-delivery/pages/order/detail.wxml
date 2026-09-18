@@ -24,6 +24,34 @@
       <text class="info-text address">{{order.addressSnapshot || order.addressDetail}}</text>
       <text class="info-action">复制</text>
     </view>
+    <!-- 楼层 / 电梯：配送员据此知道要不要上楼。文案已在 js 里按三态算好，
+         不确定时整行不显示（不放假数据）。 -->
+    <view class="info-row" wx:if="{{order.floorText}}">
+      <text class="info-icon">🛗</text>
+      <text class="info-text">{{order.floorText}}</text>
+    </view>
+  </view>
+
+  <!--
+    楼层上报与凭证（v43）：站长看的"两行对照" —— 配送员上报多少、客户地址里填的是多少。
+    不一致时打提示标（防虚报）；权威的"标记"在收益明细的 note 里（后端生成）。
+    照片不强制：配送员当时没拍，站长可以在这里补传（和客户对峙时它是唯一凭证）。
+  -->
+  <view class="section" wx:if="{{order.reportedFloor || floorPhotos.length}}">
+    <text class="section-title">楼层上报</text>
+    <view class="info-row" wx:if="{{order.reportedFloorText}}">
+      <text class="info-text">{{order.reportedFloorText}}</text>
+      <text class="floor-warn" wx:if="{{order.floorMismatch}}">与地址不一致</text>
+    </view>
+    <view class="floor-proof-head">
+      <text class="floor-proof-title">楼层凭证</text>
+      <text class="floor-proof-add" bindtap="onAddFloorPhoto">{{floorUploading ? '上传中…' : '＋ 补传照片'}}</text>
+    </view>
+    <view class="floor-proof-photos" wx:if="{{floorPhotos.length}}">
+      <image class="floor-proof-img" wx:for="{{floorPhotos}}" wx:key="index" src="{{item}}"
+             mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" />
+    </view>
+    <text class="floor-proof-tip" wx:else>还没有照片（不强制，但和客户对峙时它是唯一凭证）</text>
   </view>
 
   <!-- 订单内容 -->
@@ -71,11 +99,40 @@
     </view>
   </view>
 
-  <!-- 付款方式 -->
+  <!-- 付款方式：文案由后端 order.payMethodText 下发，前端不自带 1/2/3 映射表、不写兜底默认值
+       （写 `|| '现金'` 等于在展示层再造一份映射，后端改口径时这里会显示错的） -->
   <view class="section">
     <view class="info-row-between">
       <text class="info-label">付款方式</text>
-      <text class="info-value">{{order.paymentMethodText || '现金'}}</text>
+      <text class="info-value">{{order.paymentMethodText}}</text>
+    </view>
+  </view>
+
+  <!--
+    支付流水（2026-09-18 接线）：接的是此前两个无界面端点
+      GET /api/payments/by-order  按订单查该订单的全部支付流水（含退款冲正流水）
+      PUT /api/payments/{id}/refund 站长对**单笔已付款流水**手工退款
+    仅站长可见（后端两个端点都是 STATION_MANAGER 专属，配送员点了只会拿到权限不足）。
+    ⚠️ 方式 / 状态文案一律用后端下发的 methodText / statusText，金额用后端给的 amount 原值，
+       本页不做任何 1/2/3 映射，也不做金额加减。
+    流水为空时整块不显示（与上方"楼层上报"同一处理，不显示空壳区块）。
+  -->
+  <view class="section" wx:if="{{canRefundPayment && payments.length}}">
+    <text class="section-title">支付流水</text>
+    <view class="pay-row" wx:for="{{payments}}" wx:key="id">
+      <view class="pay-main">
+        <view class="pay-line">
+          <text class="pay-method">{{item.methodText}}</text>
+          <text class="pay-status">{{item.statusText}}</text>
+          <text class="pay-amount {{item.isRefund ? 'pay-amount-refund' : ''}}">{{item.amountText}}</text>
+        </view>
+        <text class="pay-time" wx:if="{{item.timeText}}">{{item.timeText}}</text>
+        <text class="pay-note" wx:if="{{item.note}}">{{item.note}}</text>
+      </view>
+      <!-- 只有「已付款」的流水可退；退款/已取消的流水不出现按钮，
+           避免站长对着一条已退款的流水反复点（后端也会拒，但那是白点一次） -->
+      <view class="pay-refund" wx:if="{{item.canRefund}}" data-id="{{item.id}}" data-index="{{index}}"
+            bindtap="onRefundPayment">退款</view>
     </view>
   </view>
 

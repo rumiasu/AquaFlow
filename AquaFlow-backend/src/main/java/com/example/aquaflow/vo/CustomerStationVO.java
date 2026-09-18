@@ -54,6 +54,18 @@ public class CustomerStationVO {
     /** 货到付款（线下支付）权限: 0 关闭 1 开启 */
     private Integer offlinePaymentEnabled;
 
+    /**
+     * 搜索命中的地址文本（默认地址优先）。
+     *
+     * <p>只在 {@code GET /api/customers?keyword=} 带关键字时回填：站长"更看重地址，
+     * 地址其实更能指代人"（口径见 {@code util/CustomerSearchMatcher}），
+     * 不显示"送到哪"的话，搜出来的结果看着像随机命中的。</p>
+     *
+     * <p>不带关键字的普通列表恒为 {@code null} —— 地址不在 {@code listStationCustomers}
+     * 的返回列里，逐行补查地址会让"每个客户一次地址扫描"。</p>
+     */
+    private String addressText;
+
     /** 客户等级文本（后端派生：按累计消费/订单数分档，前端直接渲染） */
     private String customerLevel;
 

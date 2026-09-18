@@ -20,3 +20,14 @@
 .product-name { font-size: 26rpx; color: var(--text-regular); }
 .product-qty { font-size: 26rpx; color: var(--text-regular); }
 .empty, .loading { text-align: center; color: var(--text-secondary); font-size: var(--font-md); padding-top: 120rpx; }
+/* 跨站履约单：归并成一行（默认收起），点开看逐单明细。视觉上刻意与本站单区分（虚线边框） */
+.cross-card { border: 1rpx dashed var(--border-color); border-radius: 12rpx; padding: 20rpx; margin-bottom: 20rpx; background: var(--bg-page); }
+.cross-head { display: flex; align-items: baseline; justify-content: space-between; }
+.cross-title { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
+.cross-amount { font-size: 28rpx; color: var(--text-primary); }
+.cross-toggle { font-size: 24rpx; color: var(--text-secondary); }
+.cross-sub { display: flex; justify-content: space-between; margin-top: 10rpx; font-size: 24rpx; color: var(--text-secondary); }
+.cross-row { border-top: 1rpx solid var(--border-color); padding-top: 14rpx; margin-top: 14rpx; }
+.cross-row-head { display: flex; align-items: center; }
+.cross-row-body { display: flex; justify-content: space-between; margin-top: 8rpx; }
+.cross-row-addr { margin-top: 6rpx; font-size: 24rpx; color: var(--text-secondary); }

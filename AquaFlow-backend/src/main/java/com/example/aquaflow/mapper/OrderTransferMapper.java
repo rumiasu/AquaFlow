@@ -21,6 +21,19 @@ public interface OrderTransferMapper {
     @Select("select * from order_transfer where order_id = #{orderId} and status = 'PENDING' order by id desc limit 1")
     OrderTransfer findPendingByOrder(@Param("orderId") Long orderId);
 
+    /**
+     * 查询订单最新一条**指定类型**的待决策转单（撤回与决策都要按 kind 定位，
+     * 否则会误判成"另一类转单被撤了"）。
+     *
+     * <p>[2026-09-18 补] 撤回（{@code cancelTransfer}）需要先拿到这条记录才能校验
+     * "调用者是不是发起人"（{@code from_staff_id}）。补这个方法之前，全仓**没有任何**
+     * 按 {@code from_staff_id} 过滤/取值的 SQL，于是那条校验根本无法实现 ——
+     * 结果是同站任意员工都能撤掉别人的转单。</p>
+     */
+    @Select("select * from order_transfer where order_id = #{orderId} and kind = #{kind} "
+            + "and status = 'PENDING' order by id desc limit 1")
+    OrderTransfer findPendingByOrderAndKind(@Param("orderId") Long orderId, @Param("kind") String kind);
+
     /** 订单是否存在待决策转单 */
     @Select("select count(*) from order_transfer where order_id = #{orderId} and status = 'PENDING'")
     int countPendingByOrder(@Param("orderId") Long orderId);

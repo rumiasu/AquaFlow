@@ -53,4 +53,17 @@ public class DepositRecord {
      * <p>uk_deposit_adjustment 的幂等依据：一张调整单最多一条押金流水。</p>
      */
     private Long adjustmentId;
+
+    /* ==================== 派生文案（只读，随序列化下发给前端） ====================
+     * 与 PaymentRecord.getMethodText()/getStatusText()、Orders.getStatusText() 同一处理方式。
+     * [2026-09-18 补] 顾客端要上线「押金流水」页（终于能看到"余额为什么变"），
+     * 而本实体只下发数字 type —— 前端若自己写 type→中文 的映射表，就重演了
+     * "两端各写一套、后端调口径前端不跟随"的历史事故（PayMethod 那条注释记的就是它）。
+     * 文案的唯一真相源是 {@link com.example.aquaflow.constant.DepositType#textOf(Integer)}。
+     */
+
+    /** 押金变动类型文案（1 押金入账 / 2 退押金 / … / 9 人工补录押金），真相源是 DepositType */
+    public String getTypeText() {
+        return com.example.aquaflow.constant.DepositType.textOf(type);
+    }
 }

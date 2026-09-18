@@ -1,3 +1,6 @@
+/* 自绘导航栏 + 状态胶囊（.navbar* / .status-chip*）：与「配送」页共用一份样式 */
+@import "../../styles/station-navbar.wxss";
+
 .container {
   min-height: 100vh;
   background: #f0f4f8;
@@ -387,6 +390,97 @@
   border-left: 6rpx solid #4F8EF7;
 }
 
+/* ========== 「一眼看到钱」金额块（抢单池 / 他站外派共用） ========== */
+/* 放在卡片最上面（标题行之下、商品行之前）：抢单决策的第一信息是钱，不是商品名 */
+.fee-box {
+  padding: 14rpx 16rpx;
+  background: #FFF9EC;
+  border: 2rpx solid #FFE0A3;
+  border-radius: 10rpx;
+  margin-bottom: 12rpx;
+}
+
+.fee-row-main {
+  display: flex;
+  align-items: baseline;
+}
+
+.fee-label {
+  font-size: 24rpx;
+  color: #8A6D3B;
+  flex-shrink: 0;
+}
+
+.fee-amount {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #E65100;
+  margin-left: 12rpx;
+}
+
+.fee-detail {
+  margin-top: 6rpx;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.fee-detail-item {
+  font-size: 22rpx;
+  color: #8A6D3B;
+  margin-right: 20rpx;
+}
+
+.fee-source {
+  margin-top: 6rpx;
+  display: flex;
+  align-items: center;
+}
+
+.fee-source-label {
+  font-size: 22rpx;
+  color: #8A6D3B;
+  flex-shrink: 0;
+}
+
+.fee-source-name {
+  font-size: 24rpx;
+  color: #333333;
+  font-weight: 500;
+  margin-left: 8rpx;
+}
+
+/* 结算去向：整句由后端下发（settleNote），前端只负责显示 */
+.fee-settle {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #2E7D32;
+  line-height: 1.5;
+}
+
+/* 押金/桶权益风险提示（文案由后端下发 crossStationRiskNote，前端原样展示、不改写） */
+.risk-box {
+  display: flex;
+  flex-direction: column;
+  padding: 14rpx 16rpx;
+  margin-bottom: 12rpx;
+  background: #FFF7E6;
+  border: 1rpx solid #FFD591;
+  border-radius: 10rpx;
+}
+
+.risk-title {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #AD6800;
+  margin-bottom: 6rpx;
+}
+
+.risk-text {
+  font-size: 22rpx;
+  color: #874D00;
+  line-height: 1.5;
+}
+
 .pool-product-info {
   padding: 12rpx 16rpx;
   background: #f7f8fb;
@@ -541,4 +635,76 @@
   gap: 10rpx;
   flex-wrap: wrap;
   flex: 1;
+}
+
+/* ========== 待办聚合（站长首页） ========== */
+.todo-card {
+  margin: 16rpx 20rpx 4rpx;
+  padding: 22rpx 20rpx 16rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+}
+
+.todo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.todo-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.todo-hint {
+  font-size: 24rpx;
+  color: #8a9099;
+}
+
+.todo-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.todo-item {
+  width: 25%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8rpx 0;
+}
+
+.todo-count {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #a3a8b0;
+}
+
+.todo-item-on .todo-count {
+  color: #d4380d;
+}
+
+.todo-label {
+  font-size: 22rpx;
+  color: #4e5969;
+  margin-top: 6rpx;
+  text-align: center;
+}
+
+.todo-amount {
+  font-size: 20rpx;
+  color: #d4380d;
+  margin-top: 4rpx;
+}
+
+.todo-note {
+  font-size: 20rpx;
+  color: #a3a8b0;
+  line-height: 1.5;
+  margin-top: 12rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx solid #f0f2f5;
 }

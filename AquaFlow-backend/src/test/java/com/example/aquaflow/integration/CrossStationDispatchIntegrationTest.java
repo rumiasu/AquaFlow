@@ -15,21 +15,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 转单 / 外派 / 抢单池的跨站链路。
  *
  * <p>这是本仓库**最容易真丢钱**的一片区域：一单可以「归属站 ≠ 履约站」，于是必须时刻分清
- * <b>钱与票记归属站（{@code orders.station_id}）、实物与库存走履约站（{@code delivery_station_id}）</b>。
- * 外派/抢单只改后者，前者自始至终不变 —— 本类的每一条断言都在守这条线。</p>
+ * <b>三列</b>（v47 起是三列不是两列，正本 {@code sql/migration_v47_order_settle_station.sql}）：
+ * <b>归属站 {@code station_id}</b>（客户主动选定的站 = <b>定价方</b>）、
+ * <b>履约站 {@code delivery_station_id}</b>（谁去送：库存、配送员、工钱）、
+ * <b>结算站 {@code settle_station_id}</b>（<b>本单营收归谁</b>：水费 + 配送费 + 楼层费）。
+ * 外派 / 抢单 / 放池改的是<b>后两列（一起改）</b>，归属站自始至终不变；
+ * 而<b>押金 / 水票 / 桶权益一律按归属站</b> —— 「营收跟着送货的站走、客户资产留在买它的站」
+ * 就是本类的每一条断言在守的线。</p>
  *
  * <p>链路（都走 HTTP，不直接调 service）：</p>
  * <ul>
  *   <li>放抢单池：{@code POST /api/delivery/orders/transfer/{id}/outsource}（{@code targetStationId} 留空）→
- *       履约站与配送员被清空、订单回到待配送；归属站不变。</li>
+ *       履约站与配送员被清空、订单回到待配送、结算站回归属站；归属站不变。</li>
  *   <li>抢单：目标站 {@code GET /api/delivery/orders/pool} 看得到 → {@code POST .../{id}/claim-pool} →
- *       履约站变成抢单站、状态推到配送中。</li>
- *   <li>召回：{@code POST .../{id}/cancel-dispatch} → 履约站恢复成归属站、配送员清空。</li>
+ *       履约站与结算站都变成抢单站、状态推到配送中。</li>
+ *   <li>召回：{@code POST .../{id}/cancel-dispatch} → 履约站与结算站都恢复成归属站、配送员清空。</li>
  *   <li>指定外派：{@code .../outsource} 带 {@code targetStationId}（不能是自己）。</li>
  *   <li>站内转单：{@code POST .../transfer/{id}} 直接改派并落 {@code order_transfer} 结构化记录。</li>
  * </ul>
  */
-@DisplayName("跨站调度 · 外派 / 抢单池 / 召回 / 站内转单（钱票归归属站，实物走履约站）")
+@DisplayName("跨站调度 · 外派 / 抢单池 / 召回 / 站内转单（营收随履约站，押金与桶权益留归属站）")
 class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
 
     private long stationA;
@@ -62,11 +67,20 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
         return staffToken(mgrB, "STATION_MANAGER", stationB);
     }
 
-    /** A 站的一张待配送订单（履约站也是 A）。 */
+    /**
+     * A 站的一张待配送订单（履约站也是 A）。
+     *
+     * <p>⚠️ [2026-09-18] 刻意造成<b>不含桶、不收押金</b>的单（{@code delivery_bucket_qty = 0}）：
+     * 产品裁定「涉押金/桶权益的单禁止外派直接拒单；如确需外派只能指定水站并由双方确认」之后，
+     * 要核对回桶的老客单（{@code delivery_bucket_qty > 0 && first_barrel_order = 0}）与收押金的单
+     * 都进不了抢单池（判据 {@code OrderWorkflowServiceImpl.involvesDepositOrBarrelRights}）。
+     * 本类验证的是<b>外派机制本身</b>（CAS、履约站、留痕、召回、转单），所以用能合法外派的普通单造数；
+     * 被拒的那一侧由 {@code CrossStationPoolRiskAndProfileIsolationIntegrationTest} 覆盖。</p>
+     */
     private long pendingOrderAtA() {
         return createOrderFull(customer, addr, stationA, product,
                 1 /* 待配送 */, 1 /* 待收款 */, 2 /* 现金 */,
-                "40.00", "0.00", "40.00", false, 2);
+                "40.00", "0.00", "40.00", false, 0);
     }
 
     private String deliveryStationOf(long orderId) {
@@ -213,14 +227,20 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
         assertEquals(3, intOf("SELECT status FROM orders WHERE id=?", order), "未收款 → 停在已送达(3)");
         assertEquals(1, intOf("SELECT payment_status FROM orders WHERE id=?", order), "仍是待收款(1)");
 
-        // B 现场收到现金后再确认收款 → 订单闭环；但钱与桶账都记在【归属站】A
+        // B 现场收到现金后再确认收款 → 订单闭环。
+        // ⚠️ [2026-09-18 产品裁定 / v47] 从这里往下，**营收与客户资产分成两个站**：
+        //   · **收款流水（= 营收凭证）记【结算站】B** —— 「配送费要改，还有水费也一起给实际配送站」，
+        //     结算站就是"这单的钱归谁"（`orders.settle_station_id`，本单 = 履约站 B）；
+        //   · **押金账户 / 押金流水 / 桶权益仍记【归属站】A** —— 那是"客户买在哪个站的资产"，
+        //     与营收归谁是两件事（AGENTS §1.1）。改这条线之前先读 v47 迁移文件头。
+        // 本条断言原写作"收款流水必须记在【归属站】A"，是 v47 之前的旧口径，已随产品裁定订正。
         Api pay = post("/api/delivery/orders/" + order + "/confirm-offline-pay", tokenB(), null);
         assertTrue(pay.isSuccess(), "履约站确认线下收款应成功，实际=" + pay);
 
         assertEquals(4, intOf("SELECT status FROM orders WHERE id=?", order), "收款后订单闭环为已完成");
         assertEquals(2, intOf("SELECT payment_status FROM orders WHERE id=?", order), "应已付款");
-        assertEquals(stationA, longOf("SELECT station_id FROM payment_record WHERE order_id=? AND status=2", order),
-                "收款流水必须记在【归属站】A（钱是谁的，账就记谁）");
+        assertEquals(stationB, longOf("SELECT station_id FROM payment_record WHERE order_id=? AND status=2", order),
+                "收款流水（营收凭证）必须记【结算站】B —— 水费+配送费+楼层费归实际配送站（v47）");
         assertEquals(0, decimalOf("SELECT IFNULL(MAX(balance),0) FROM customer_deposit_account "
                         + "WHERE customer_id=? AND station_id=?", customer, stationA)
                         .compareTo(new BigDecimal("60.00")), "预收押金应入 A 站账户");
@@ -264,12 +284,40 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
                 + "AND sub_kind='TRANSFER'", order), "应落一条结构化转单记录（事后可追溯，而不是只写备注）");
         assertTrue(specialNote(order).contains("[转让]"), "必须留痕，实际=" + specialNote(order));
 
-        // 取消转让：待决策的转单记录置为已取消
-        Api cancel = post("/api/delivery/orders/transfer/" + order + "/cancel", tokenA(), null);
-        assertTrue(cancel.isSuccess(), "取消转让应成功，实际=" + cancel);
+        // ===== 撤回转让：[2026-09-18 修] 旧实现只有站级校验，缺两条判据 =====
+        // ① 没有校验"调用者是不是发起人"：转单后 delivery_staff_id 立即变成 DA2，
+        //    于是**同站任意第三个配送员**都能把这条转单撤掉 —— DA2 的"待接收"里静默少一条，
+        //    而订单还挂在 DA2 名下、状态不变。
+        // ② 丢弃 resolvePendingByKind 的受影响行数（它自己的 javadoc 写着"0 表示无待决策转单"）：
+        //    对没有待决策转单的订单也返回成功，只往 special_note 塞一行「[取消转让]」（会显示在转单页的"备注"里）。
+        long driverA3 = createStaff("DA3", "DELIVERY", stationA, 1);
+        String t3 = staffToken(driverA3, "DELIVERY", stationA);
+        String noteBefore = specialNote(order);
+
+        Api byOther = post("/api/delivery/orders/transfer/" + order + "/cancel", t3, null);
+        assertFalse(byOther.isSuccess(), "同站非发起人不得撤回别人的转单，实际=" + byOther);
+        assertEquals("PENDING", jdbc.queryForObject(
+                "SELECT status FROM order_transfer WHERE order_id=? AND sub_kind='TRANSFER'", String.class, order),
+                "被拒之后转单必须还是待决策");
+        assertEquals(noteBefore, specialNote(order), "被拒不得往 special_note 里塞「[取消转让]」");
+
+        // 发起人 DA1 撤回 → 成功，待决策的转单记录置为已取消
+        Api cancel = post("/api/delivery/orders/transfer/" + order + "/cancel", t1, null);
+        assertTrue(cancel.isSuccess(), "发起人撤回自己的转单应成功，实际=" + cancel);
         assertEquals("CANCELLED", jdbc.queryForObject(
                 "SELECT status FROM order_transfer WHERE order_id=? AND sub_kind='TRANSFER'", String.class, order),
                 "待决策的转单应被置为已取消");
+
+        // 已经没有待决策转单了 → 必须**报错**，不能静默成功（§8.17「用户以为做成了、账上没动」）
+        Api again = post("/api/delivery/orders/transfer/" + order + "/cancel", t1, null);
+        assertFalse(again.isSuccess(), "没有待决策转单时必须拒绝，实际=" + again);
+
+        // 站长代撤：站务常态，保留（既有断言用的就是站长令牌）
+        Api back = post("/api/delivery/orders/transfer/" + order, t2,
+                "{\"deliveryStaffId\":" + driverA1 + ",\"reason\":\"转回去\"}");
+        assertTrue(back.isSuccess(), "DA2 转回 DA1 应成功，实际=" + back);
+        assertTrue(post("/api/delivery/orders/transfer/" + order + "/cancel", tokenA(), null).isSuccess(),
+                "站长应能代撤本站的待决策转单");
     }
 
     @Test

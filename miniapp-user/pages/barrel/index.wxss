@@ -54,6 +54,12 @@
   margin-left: 6rpx;
 }
 
+/* 「押金流水 ›」入口：整列可点（bindtap 在 .stat-col 上），这里只做视觉提示 */
+.stat-link {
+  font-size: 22rpx;
+  color: var(--primary-color);
+}
+
 .stat-divider {
   width: 1rpx;
   background-color: var(--border-light);

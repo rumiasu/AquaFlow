@@ -34,12 +34,21 @@ public final class DeliveryOrderActionDTO {
         private String reason;
     }
 
-    /** dispatchOrder：外派到指定水站 */
+    /**
+     * dispatchOrder：外派到指定水站。
+     *
+     * <p>{@code riskAcknowledged} = 外派方对「押金 / 桶权益」风险的**显式确认**（2026-09-18 产品裁定：
+     * 「如果不拒单也只能指定水站外派，双方都特别提醒后<b>同意</b>才行」）。
+     * 涉押金/桶权益的单（判据见 {@code OrderWorkflowServiceImpl.involvesDepositOrBarrelRights}）
+     * 不带它即被拒（{@code code=1}，订单状态/履约站/备注都不动）；不涉押金的普通单不看它。
+     * 前端应在拿到 {@code GET /api/delivery/orders/{id}/cross-station-risk} 的文案、用户确认后再置 true。</p>
+     */
     @Data
     public static class Dispatch {
         @NotNull(message = "targetStationId 不能为空")
         private Long targetStationId;
         private String reason;
+        private Boolean riskAcknowledged;
     }
 
     /** transferOrder：转给本站同事 */
@@ -56,18 +65,33 @@ public final class DeliveryOrderActionDTO {
         private String reason;
     }
 
-    /** assignOrder：站长分配配送员，deliveryStaffId 必填 */
+    /**
+     * assignOrder：站长分配配送员，deliveryStaffId 必填。
+     *
+     * <p>{@code riskAcknowledged} = <b>接收站</b>的确认（2026-09-18）：他站定向外派过来的
+     * 涉押金/桶权益单，本站"分配配送员"就是真正受理这一单的动作，此时必须确认一次风险
+     * （外派方在 DISPATCH/OUTSOURCE_DIRECT 已确认过，产品要求「双方都特别提醒后同意」）。
+     * 本站自己的单、不涉押金/桶权益的单都不看这个字段。</p>
+     */
     @Data
     public static class Assign {
         @NotNull(message = "请指定配送员")
         private Long deliveryStaffId;
+        private Boolean riskAcknowledged;
     }
 
-    /** outsourceOrder：站长指定外派，targetStationId 可空（空则入抢单池） */
+    /**
+     * outsourceOrder：站长指定外派，targetStationId 可空（空则入抢单池）。
+     *
+     * <p>{@code riskAcknowledged} 与 {@link Dispatch} 同一语义：<b>指定外派</b>涉押金/桶权益的单时必填 true。
+     * <b>放入抢单池（targetStationId 为空）时该字段无效</b> —— 涉押金/桶权益的单无论确认与否都禁止入池
+     * （池子没有"双方同意"这一步，出了纠纷找不到确认人）。</p>
+     */
     @Data
     public static class Outsource {
         private Long targetStationId;
         private String reason;
+        private Boolean riskAcknowledged;
     }
 
     /** claimPoolOrder：从抢单池抢单，deliveryStaffId 必填 */
@@ -143,5 +167,17 @@ public final class DeliveryOrderActionDTO {
 
         /** 配送员手填备注，service 侧写进 `orders.special_note`（前缀「[配送备注]」） */
         private String note;
+
+        /**
+         * 配送员**上报的楼层**（选填，v43）：有的填、没有的不填。
+         *
+         * <p>不填（null）→ 楼层补贴沿用**地址**里的楼层；填了 → 以他上报的为准，
+         * 与地址不一致时在收益明细里标记。照片不强制，但可传（{@code order_image.type=3} 楼层凭证），
+         * 供站长与客户对峙时核对（见 docs/design/18 §4）。</p>
+         *
+         * <p>⚠️ 同样必须同步 {@code DeliveryController.toCompleteParams} —— 漏了不会报错，
+         * 只会静默丢掉上报值（本文件里 {@code collected} 就是这么丢过一次，见上面的注释）。</p>
+         */
+        private Integer reportedFloor;
     }
 }

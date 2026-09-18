@@ -28,6 +28,25 @@ public class ReconciliationService {
     /** 分级告警：对账不平属**系统故障** → 投给系统管理员（见 constant/AlertType） */
     private final AlertService alertService;
 
+    /**
+     * V2 检查项里属于「站长台账」而不是「客户账」的键 —— 它们不平是**运营故障**
+     * （站长看得懂、也能自己改结算单），因此**不能**混进面向系统管理员的 V2 汇总告警。
+     * 见 {@link #alertStationLedgerImbalance(Map)}。
+     */
+    private static final java.util.Set<String> STATION_LEDGER_KEYS =
+            java.util.Set.of("EPAY_payrollVsEarning");
+
+    /** 一次日结最多投递几条站长台账告警；差异总数另写在正文与日志里，防一次刷爆站长的消息。 */
+    private static final int ALERT_MAX_PER_RUN = 20;
+
+    /** E-PAY 不平的结算单（合计 ≠ 本期明细之和），只取投递所需的两列。 */
+    private static final String PAYROLL_IMBALANCE_SQL =
+            "SELECT p.id AS id, p.station_id AS station_id FROM staff_payroll p "
+                    + "LEFT JOIN (SELECT payroll_id, SUM(amount) AS s FROM staff_earning "
+                    + "           WHERE payroll_id IS NOT NULL GROUP BY payroll_id) e ON e.payroll_id = p.id "
+                    + "WHERE ABS(COALESCE(p.total_amount, 0) - COALESCE(e.s, 0)) > 0.009 "
+                    + "ORDER BY p.id DESC LIMIT " + ALERT_MAX_PER_RUN;
+
     public ReconciliationService(JdbcTemplate jdbcTemplate, AlertService alertService) {
         this.jdbcTemplate = jdbcTemplate;
         this.alertService = alertService;
@@ -50,14 +69,25 @@ public class ReconciliationService {
 
         // 新桶权益模型的独立校验（与 V1 并行跑，不覆盖 V1 的结论）
         Map<String, Integer> v2 = runReconcileV2();
-        boolean v2Ok = v2.values().stream().allMatch(v -> v == 0);
+
+        // ⚠️ V2 一张表里混了两种账，**投递方向相反**（见 constant/AlertType 的产品口径）：
+        //   · 客户账（E3~E8 / E10）：不平 = 账目或流水层面出错 → 系统故障，投系统管理员；
+        //   · 站长台账（E-PAY = 工资结算单 vs 本期明细）：不平 = 站长自己能修的运营故障。
+        // [2026-09-18 修] 此前整张 V2 一把交给 systemFault：E-PAY 真出问题时平台管理员收到告警，
+        // 而**唯一能改结算单的站长一条都收不到** —— 与本仓 §1.1 的分级口径正好相反。
+        Map<String, Integer> v2Customer = new LinkedHashMap<>();
+        Map<String, Integer> v2StationLedger = new LinkedHashMap<>();
+        v2.forEach((k, v) -> (STATION_LEDGER_KEYS.contains(k) ? v2StationLedger : v2Customer).put(k, v));
+
+        boolean v2Ok = v2Customer.values().stream().allMatch(v -> v == 0);
         if (v2Ok) {
             log.info("[日结对账 V2] 通过：权益批次 / 占用恒等 / 物理桶守恒 / 穿底 全部平衡");
         } else {
-            log.warn("[日结对账 V2] 发现不平项：{}", v2);
+            log.warn("[日结对账 V2] 发现不平项：{}", v2Customer);
             alertService.systemFault("DailyReconcile", "日结对账 V2 发现不平项",
-                    "V2（权益批次/占用恒等/物理守恒/穿底）不平项：" + v2, null, null);
+                    "V2（权益批次/占用恒等/物理守恒/穿底）不平项：" + v2Customer, null, null);
         }
+        alertStationLedgerImbalance(v2StationLedger);
 
         // 结果落表：此前只写日志，无人可查、无留痕（问责与趋势分析都做不到）
         persistResults(result, v2);
@@ -65,7 +95,13 @@ public class ReconciliationService {
 
     /**
      * 把对账结果落到 reconciliation_result（每日每检查项一行，同日重跑覆盖）。
+     *
      * <p>级别：E5/E7 为提示型（WARN），其余为 ERROR。</p>
+     *
+     * <p>⚠️ 这里的 {@code level} 是**严重度**（要不要马上看），与"这条告警投给谁"
+     * （SYSTEM 系统管理员 / OPERATION 站长）是<b>两件独立的事</b> ——
+     * 后者由 {@code constant/AlertType} + 投递时的调用点决定，见 {@link #dailyReconcile()}。
+     * 例如 E-PAY 落表是 ERROR，但投递对象是站长。别把两者当成一个字段。</p>
      */
     public void persistResults(Map<String, Integer> v1, Map<String, Integer> v2) {
         java.time.LocalDate today = java.time.LocalDate.now();
@@ -90,6 +126,40 @@ public class ReconciliationService {
                             + "level = VALUES(level), sample_ids = VALUES(sample_ids), create_time = NOW()",
                     java.sql.Date.valueOf(date), key, count == null ? 0 : count, level, null);
         });
+    }
+
+    /**
+     * 站长台账不平 → **按水站**投 OPERATION 告警（2026-09-18）。
+     *
+     * <p>⚠️ {@code AlertService.stationFault} 的 {@code stationId} 是必填的（见 {@code constant/AlertType}），
+     * 所以这里必须**一张不平的结算单投一条**，不能像 V1/V2 那样投一条全平台告警：
+     * 站长只该看到本站的账，平台管理员也不该被拉进站长与配送员之间的账。</p>
+     *
+     * <p>⚠️ 条数按 {@link #ALERT_MAX_PER_RUN} 封顶：单价录错会让整批结算单同时不平，
+     * 不封顶等于把站长的订阅消息刷爆。真实的差异总数写在告警正文与日志里。</p>
+     */
+    private void alertStationLedgerImbalance(Map<String, Integer> stationLedger) {
+        if (stationLedger == null || stationLedger.isEmpty()) {
+            return;
+        }
+        int total = stationLedger.getOrDefault("EPAY_payrollVsEarning", 0);
+        if (total <= 0) {
+            return;
+        }
+        for (Map<String, Object> row : jdbcTemplate.queryForList(PAYROLL_IMBALANCE_SQL)) {
+            Object sid = row.get("station_id");
+            if (sid == null) {
+                // station_id 是 NOT NULL，真为空说明数据被手工改过 —— 投不出去也不能静默丢掉
+                log.error("[对账 ALERT E-PAY] 结算单不平但无归属水站，无法投递站长：payrollId={}", row.get("id"));
+                continue;
+            }
+            long payrollId = ((Number) row.get("id")).longValue();
+            alertService.stationFault(((Number) sid).longValue(), "ERROR", "DailyReconcile",
+                    "工资结算单与明细之和不符",
+                    "结算单 #" + payrollId + " 的合计金额 ≠ 本期收益明细之和（本次共 " + total + " 张不平）。"
+                            + "给配送员发钱之前先核对该单明细。",
+                    "STAFF_PAYROLL", payrollId);
+        }
     }
 
     /**
@@ -194,7 +264,12 @@ public class ReconciliationService {
                 + "AND NOT EXISTS (SELECT 1 FROM payment_record p WHERE p.order_id = o.id AND p.status = 2)");
         int p2b = count("SELECT COUNT(*) FROM orders o WHERE o.payment_status <> 2 "
                 + "AND EXISTS (SELECT 1 FROM payment_record p WHERE p.order_id = o.id AND p.status = 2)");
-        int p2c = count("SELECT COUNT(*) FROM payment_record p LEFT JOIN orders o ON o.id = p.order_id WHERE o.id IS NULL");
+        // p2c 孤儿流水：**在线购票（无订单支付）本来就是 order_id IS NULL**，它不是孤儿。
+        // ⚠️ 2026-09-17 修正：原来只判 order_id IS NULL，于是**任何买过水票的水站日结都会不平**
+        // （v33 起在线购票必然产生无订单流水）→ 天天误报 SYSTEM 告警，真问题被淹没。
+        // 真正的孤儿 = 既没有订单、也不是购票（ticket_qty 由 TicketAccountServiceImpl 落库）。
+        int p2c = count("SELECT COUNT(*) FROM payment_record p LEFT JOIN orders o ON o.id = p.order_id "
+                + "WHERE o.id IS NULL AND p.ticket_qty IS NULL");
         int p2d = count("SELECT COUNT(*) FROM orders o WHERE o.payment_status = 3 "
                 + "AND NOT EXISTS (SELECT 1 FROM payment_record p WHERE p.order_id = o.id AND p.status = 3)");
         int eq2 = p2a + p2b + p2c + p2d;
@@ -209,7 +284,15 @@ public class ReconciliationService {
         //   旧：customer_owed_barrel.owed_qty < 0 视为脏数据（该表只增不减，负值确实异常）
         //   新：customer_barrel_over.over_qty < 0 = 顾客多还桶 / 水站暂存，是【业务方确认的合法状态】，
         //       不报警。真正要拦的是越界：over < −权益（意味着占用为负，物理上不可能）。
-        int b3a = count("SELECT COUNT(*) FROM customer_barrel_in_transit WHERE status = 'DELIVERED'");
+        // b3a：标了「已送达」却没有对应权益批次的配送中记录 —— 那才是真的丢权益。
+        // ⚠️ 2026-09-17 修正：原来直接数 status='DELIVERED' 的行数，但 DELIVERED 是**合法终态**
+        // （BarrelLedgerService 送达到账时把记录标为 DELIVERED 且**不物理删除**，供追溯；
+        //  见 CustomerBarrelInTransit 的类注释）。于是**每一笔完成过的配送都会让等式3 不平**，
+        // 日结天天报 SYSTEM 告警 —— 这与 E-PAY 那条注释里说的"淹没真问题"是同一个后果。
+        int b3a = count("SELECT COUNT(*) FROM customer_barrel_in_transit t "
+                + "WHERE t.status = 'DELIVERED' AND NOT EXISTS ("
+                + "  SELECT 1 FROM customer_barrel_lot l WHERE l.customer_id = t.customer_id "
+                + "    AND l.station_id = t.station_id AND l.product_id = t.product_id)");
         int b3b = count("SELECT COUNT(*) FROM customer_barrel_asset WHERE quantity < 0");
         int b3c = count("SELECT COUNT(*) FROM customer_barrel_over o "
                 + "WHERE o.over_qty < -(SELECT COALESCE(SUM(l.remain_qty),0) FROM customer_barrel_lot l "
@@ -226,7 +309,7 @@ public class ReconciliationService {
         int eq3 = b3a + b3b + b3c + b3d;
         result.put("barrelState", eq3);
         if (eq3 > 0) {
-            log.error("[日结对账 ALERT 等式3] 桶三态异常：配送中残留DELIVERED={}, 在手负数={}, over越界(over<-权益)={}, 权益金额超押金余额(穿底风险)={}",
+            log.error("[日结对账 ALERT 等式3] 桶三态异常：已送达但无权益批次={}, 在手负数={}, over越界(over<-权益)={}, 权益金额超押金余额(穿底风险)={}",
                     b3a, b3b, b3c, b3d);
         }
 
@@ -409,7 +492,9 @@ public class ReconciliationService {
         // ---- E9（E-PAY）：工资结算单合计 vs 本期明细之和（v37）----
         // ⚠️ 这条**刻意不属于客户对账**：staff_earning 是水站与人之间的账，与客户无关。
         // 把它混进等式 1~4 / E3~E8 会让每天 03:00 的日结必然报不平、淹没真问题。
-        // 同理它的告警分级是 **OPERATION**（站长能看懂也能修）而不是 SYSTEM。
+        // ⚠️ 它同样不属于「V2 汇总告警」：那个汇总投的是系统管理员（SYSTEM），而工资账
+        // 站长能看懂也能自己修，属 OPERATION。键名登记在 STATION_LEDGER_KEYS，
+        // 由 dailyReconcile → alertStationLedgerImbalance 按站投递 —— 改动键名要同步那两处。
         int epay = count("SELECT COUNT(*) FROM ("
                 + "SELECT p.id FROM staff_payroll p "
                 + "LEFT JOIN (SELECT payroll_id, SUM(amount) AS s FROM staff_earning "

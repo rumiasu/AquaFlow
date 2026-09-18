@@ -22,7 +22,7 @@ whenToUse: 要改已弃用表(customer_owed_barrel / customer_barrel_in_transit)
 
 ### A2. 已弃用表的实际停写状态未逐一复核调用链
 
-对象：`customer_owed_barrel`（`docs/AGENTS.md` 称已停止写入）与 `customer_barrel_in_transit` 的**写入点**。
+对象：`customer_owed_barrel`（旧文档称已停止写入；该文档已归档，见 `docs/audit/2026-09-18-docs-AGENTS-旧版归档.md`）与 `customer_barrel_in_transit` 的**写入点**。
 
 **注意**：`customer_barrel_in_transit` 是**仍在用**的（桶的「配送中」口径就读它），要确认的不是"是否停写"，而是**写入点是否只在 `BarrelLedgerService` 这条唯一入口**。`customer_owed_barrel` 才是打算停写的那个，欠桶改读 `customer_barrel_over`。
 

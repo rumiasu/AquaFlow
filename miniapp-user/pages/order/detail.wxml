@@ -49,6 +49,32 @@
     </view>
   </view>
 
+  <!-- 费用明细：水费 / 桶押金 / 额外桶押金 / 配送费 / 楼层费 → 合计。
+       ⚠️ 配送费与楼层费必须逐项显示：只并进合计而不列出来，客户会以为算错了钱。 -->
+  <view class="info-section" wx:if="{{fee}}">
+    <view class="section-title">费用明细</view>
+    <view class="info-row">
+      <text class="label">水费</text>
+      <text class="value">¥{{fee.waterText}}</text>
+    </view>
+    <view class="info-row" wx:if="{{fee.hasDeposit}}">
+      <text class="label">桶押金</text>
+      <text class="value">¥{{fee.depositText}}</text>
+    </view>
+    <view class="info-row" wx:if="{{fee.hasDeliveryFee}}">
+      <text class="label">配送费</text>
+      <text class="value">¥{{fee.deliveryFeeText}}</text>
+    </view>
+    <view class="info-row" wx:if="{{fee.hasFloorFee}}">
+      <text class="label">楼层费</text>
+      <text class="value">¥{{fee.floorFeeText}}</text>
+    </view>
+    <view class="info-row fee-total">
+      <text class="label">合计</text>
+      <text class="value">¥{{fee.totalText}}</text>
+    </view>
+  </view>
+
   <view class="info-section" wx:if="{{bucketInfo}}">
     <view class="section-title">桶资产（本订单）</view>
     <view class="bucket-card">
@@ -83,6 +109,12 @@
     <view class="info-row" wx:if="{{order.deliveryTimeRequest}}">
       <text class="label">配送时间</text>
       <text class="value">{{order.deliveryTimeRequest}}</text>
+    </view>
+    <!-- 配送员上报的楼层（v43）：双向可见 —— 客户在订单里也能看到"他报了几层"，
+         楼层凭证照片（如上传过）在同页「配送凭证」里。这样楼层争议双方都有据可查。 -->
+    <view class="info-row" wx:if="{{order.reportedFloor}}">
+      <text class="label">楼层</text>
+      <text class="value">配送员上报 {{order.reportedFloor}} 层</text>
     </view>
     <view class="info-row" wx:if="{{order.specialNote}}">
       <text class="label">备注</text>

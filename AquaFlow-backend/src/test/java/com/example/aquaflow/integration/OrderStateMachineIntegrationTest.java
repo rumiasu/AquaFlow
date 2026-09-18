@@ -60,7 +60,9 @@ class OrderStateMachineIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("合法流转 1 待配送 → 2 配送中 成功且落库")
     void legalTransition_succeeds() {
         seedBase();
-        long order = createOrder(alice, addr, station, product, 1, 1);
+        // 已付(2)：本用例盯的是状态流转本身；"没收到钱不许接单"是另一条规则（2026-09-18），
+        // 用待收款造数会让它被那条规则挡掉，测不出流转
+        long order = createOrder(alice, addr, station, product, 1, 2);
 
         Api res = accept(order);
 

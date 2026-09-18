@@ -1,6 +1,6 @@
 <view class="container">
   <view class="search-bar">
-    <input class="search-input" placeholder="搜索客户姓名/手机号" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="onSearch" />
+    <input class="search-input" placeholder="搜姓名/手机号/地址（地址可缩写）" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="onSearch" />
     <view class="search-btn" bindtap="onSearch"><text>搜索</text></view>
   </view>
 
@@ -23,6 +23,9 @@
         </view>
         <text class="customer-phone" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}">{{item.phoneMasked}} ›</text>
         <text class="customer-phone muted" wx:else>未填写电话</text>
+        <!-- 命中地址：站长是靠地址认人的（搜「阳光81301」时得看得出命中的是哪一家）。
+             只有带关键字搜索时后端才下发 addressText，普通列表恒为空、不占位。 -->
+        <text class="customer-phone" wx:if="{{item.addressText}}">{{item.addressText}}</text>
 
         <view class="stat-row">
           <view class="stat"><text class="stat-val">{{item.totalOrders}}</text><text class="stat-label">订单</text></view>
@@ -37,10 +40,43 @@
       </view>
       <view class="card-actions">
         <view class="manage-btn" data-id="{{item.id}}" bindtap="onManage"><text>画像</text></view>
+        <!-- 货到付款的开关与约束（v48）：站长在这里开通，并同时定"首单是否放行 + 单笔上限" -->
+        <view class="cod-btn" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onCod"><text>货到付款</text></view>
         <view class="call-btn" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall"><text>致电</text></view>
       </view>
     </view>
     <view class="empty" wx:if="{{list.length === 0}}"><text>未找到客户</text></view>
   </view>
   <view class="loading" wx:if="{{loading}}">加载中...</view>
+
+  <!--
+    货到付款设置弹窗（v48）。三件事都在这里定：开关、首单是否放行、单笔上限（留空 = 不限）。
+    上面那行提示是**后端唯一判据**给出的原因（欠款未结 / 首单未放行 / 超上限），前端只展示、不自编。
+  -->
+  <view class="modal-mask" wx:if="{{codModal.visible}}" bindtap="onCodClose">
+    <view class="modal-body" catchtap="onCodNoop">
+      <view class="modal-title">货到付款 · {{codModal.customerName}}</view>
+      <view class="modal-tip" wx:if="{{codModal.blockReason}}">{{codModal.blockReason}}</view>
+      <view class="modal-row">
+        <text>开通货到付款</text>
+        <switch checked="{{codForm.enabled}}" bindchange="onCodToggle" />
+      </view>
+      <view class="modal-row">
+        <text>允许首单货到付款</text>
+        <switch checked="{{codForm.allowFirstOrder}}" bindchange="onCodFirstToggle" />
+      </view>
+      <view class="modal-row">
+        <text>单笔上限（留空 = 不限）</text>
+        <input class="modal-input" type="digit" value="{{codForm.singleLimit}}" placeholder="不限" bindinput="onCodLimitInput" />
+      </view>
+      <view class="modal-stat">
+        <text>历史订单 {{codModal.orderCount}} 笔</text>
+        <text>逾期未结 {{codModal.overdueCount}} 笔 · ¥{{codModal.overdueAmount}}</text>
+      </view>
+      <view class="modal-actions">
+        <view class="modal-btn" bindtap="onCodClose"><text>取消</text></view>
+        <view class="modal-btn primary" bindtap="onCodSave"><text>保存</text></view>
+      </view>
+    </view>
+  </view>
 </view>

@@ -68,4 +68,35 @@ class ManagerOrderControllerRemovedIntegrationTest extends AbstractIntegrationTe
 
         assertNotEquals(404, res.code(), "存活的 /api/manager/staff 不应返回 404，实际=" + res);
     }
+
+    /**
+     * [2026-09-18] 死端点评估（{@code docs/audit/2026-09-16-死端点评估.md}）里的 4 条已执行删除。
+     *
+     * <p>为什么钉在这里：其中两条（{@code station-exception} / {@code customer/exceptions/list}）
+     * 不是"多余"，而是**会误导人** —— 前者名字叫"异常"、实际返回**取消单**（谁按名字接线，
+     * 站长看到的就会是取消单列表）；后者是同一批数据的裸数组冗余版。删掉之后必须有东西拦住
+     * "照着旧文档接回来"。</p>
+     */
+    @Test
+    @DisplayName("死端点评估的 4 条已删除端点不再可用")
+    void deadEndpointsRemoved_noLongerUsable() {
+        long station = createStation("死端点站");
+        long manager = createStaff("死端点站长", "STATION_MANAGER", station, 1);
+        long customer = createCustomer("死端点客户", "openid-dead-endpoint");
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+        String cus = customerToken(customer);
+
+        // 这两条没有同形路由争用 → 精确断言 404（接口不存在）
+        assertEquals(404, get("/api/dashboard/order-status", mgr).code(),
+                "已删除的看板端点应返回 404（口径与 /report 分叉，看板一律走 /report）");
+        assertEquals(404, get("/api/dashboard/order-trend", mgr).code(),
+                "已删除的看板端点应返回 404");
+
+        // 这两条会落进同控制器的 /{id} 路由，因此拿到的是"id 非法"的拒绝而不是 404；
+        // 共同且必须钉住的是：**不再返回成功**（谁把端点加回来，下面两条立刻变红）。
+        assertNotEquals(0, get("/api/delivery/orders/station-exception", mgr).code(),
+                "已删除的「异常」端点不应再返回成功（它返回的其实是取消单）");
+        assertNotEquals(0, get("/api/customer/exceptions/list", cus).code(),
+                "已删除的裸数组兼容端点不应再返回成功（改用 /api/customer/exceptions 分页）");
+    }
 }

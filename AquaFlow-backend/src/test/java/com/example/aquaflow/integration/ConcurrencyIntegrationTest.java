@@ -88,7 +88,9 @@ class ConcurrencyIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("两个并发接单请求：只有一个成功，状态只前进一次")
     void concurrentAcceptOrder_onlyOneWins() throws Exception {
         seed();
-        long order = createOrder(customer, addr, station, product, 1 /* 待配送 */, 0);
+        // 已付(2)：本用例盯的是接单的 CAS，而"没收到钱的单不许接"是另一条规则（2026-09-18），
+        // 用 0（未付）造数会让两个请求都被那条规则挡掉，测不出并发
+        long order = createOrder(customer, addr, station, product, 1 /* 待配送 */, 2 /* 已付 */);
         String token = mgrToken();
 
         // 走真实接单入口（CAS：updateStatusIfPENDING），而非已作为 P0-4 删除的 /status 旁路端点

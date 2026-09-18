@@ -1,5 +1,6 @@
 const {
   getCatalog,
+  getPresetImages,
   selectCatalogProduct,
   updateCatalogSetting,
   removeCatalogProduct,
@@ -15,6 +16,11 @@ const {
 } = require('../../../api/station-mgmt')
 const { upload } = require('../../../utils/upload')
 const { API } = require('../../../config/api')
+// ⚠️ 水票档位这两个路径直接写常量、不往 api/station-mgmt.js 里加：那个文件正被另一个
+// 工作流（商品图片库）改动，加函数会让两边未提交的改动纠缠在一起。
+const { get, post, del } = require('../../../utils/request')
+const PKG = '/api/ticket-packages'
+const PKG_MANAGE = '/api/ticket-packages/manage'
 
 // 表单里的分类下拉：只是"给站长选"的输入控件，**展示文案一律用后端下发的 categoryText**
 // （本仓历史事故：前端自带 1/2/3 映射表导致下单必失败，所以映射表不再放前端）。
@@ -52,6 +58,8 @@ Page({
     // 本站设置弹窗
     showSetting: false,
     setting: {},
+    pkgRows: [],         // 水票档位（快捷定义）：{id,qty,price,onShelf,deleted}
+    pkgLoading: false,
     stockMode: 'in',     // in=入库(在现有基础上加) | check=盘点(把库存设成输入值)
     stockInput: '',
     stockAfterText: '',
@@ -65,6 +73,11 @@ Page({
     editForm: {},
     editCategoryIndex: 0,
     uploading: false,
+
+    // 预设图选择面板（平台统一图库）：站长不必自己拍照，直接从平台图里挑
+    showPresetPicker: false,
+    presetImages: [],      // [{ key, path }] 由后端下发
+    presetLoading: false,
 
     // 库存流水
     showRecords: false,
@@ -242,8 +255,11 @@ Page({
       stockMode: 'in',
       stockInput: '',
       stockAfterText: '',
-      warningsInline: []
+      warningsInline: [],
+      pkgRows: []
     })
+    // 档位跟着商品走：打开设置就把该商品已挂的档位拉出来（没挂 = 空表，客户只能散买）
+    this.loadPkgRows(item.id)
   },
 
   closeSetting() {
@@ -256,6 +272,92 @@ Page({
 
   onSettingTicketChange(e) {
     this.setData({ 'setting.ticketEnabled': e.detail.value })
+  },
+
+  /* ==================== 水票档位（商品上架时的「基本」定义）====================
+   * 口径：上架一个商品时，水票这块的**基本**内容就应该在这里配完 ——
+   *   ① 推出水票开关（上面已有）② 散买单张价（ticketPrice）③ 档位（10 张 / 20 张 / 100 张各多少钱）。
+   * 更丰富的设置（档位标题、排序、单独上下架某档）在独立模块「水票档位」里，这里只放基本档位 + 一个入口。
+   *
+   * ⚠️ **没挂档位的商品，客户只能按单张价散买** —— 这就是"水票还在按张卖"的直接原因，
+   *    所以这块必须有一句明示，而不是让站长以为打开开关就自动有了档位。
+   * ⚠️ 金额一律发服务端算：unitPrice 由后端用 price/qty 推导，前端不传、也不显示自己算的均价
+   *    （档位均价是水票批次的快照值，前端算会与快照不一致）。
+   */
+  async loadPkgRows(productId) {
+    if (!productId) return
+    this.setData({ pkgLoading: true })
+    try {
+      const res = await get(PKG_MANAGE + '?productId=' + productId)
+      const rows = (res.data || []).map(p => ({
+        key: 'p' + p.id,
+        id: p.id,
+        qty: p.qty,
+        price: p.price === null || p.price === undefined ? '' : String(p.price),
+        onShelf: p.status === 1,
+        deleted: false
+      }))
+      this.setData({ pkgRows: rows })
+    } catch (err) {
+      // 档位拉不到不该挡住上架设置：给一句提示 + 空表，站长仍可新增
+      console.warn('[ticket-packages] load failed:', err && err.message)
+      this.setData({ pkgRows: [] })
+    } finally {
+      this.setData({ pkgLoading: false })
+    }
+  },
+
+  onPkgPriceInput(e) {
+    const idx = e.currentTarget.dataset.index
+    this.setData({ ['pkgRows[' + idx + '].price']: e.detail.value })
+  },
+
+  onPkgQtyInput(e) {
+    const idx = e.currentTarget.dataset.index
+    this.setData({ ['pkgRows[' + idx + '].qty']: e.detail.value })
+  },
+
+  /** 加一档：默认按常见档位递推（10 / 20 / 100），已存在的就不重复加 */
+  onAddPkgRow() {
+    const rows = this.data.pkgRows.slice()
+    const used = rows.filter(r => !r.deleted).map(r => String(r.qty))
+    const preset = [10, 20, 100].find(q => !used.includes(String(q))) || ''
+    rows.push({ key: 'n' + Date.now() + rows.length, id: null, qty: preset, price: '', deleted: false })
+    this.setData({ pkgRows: rows })
+  },
+
+  /** 已存在的档位只标记删除（保存时才真删，再点一次可撤销）；没保存过的新行直接移除。 */
+  onRemovePkgRow(e) {
+    const idx = e.currentTarget.dataset.index
+    const rows = this.data.pkgRows.slice()
+    const row = rows[idx]
+    if (!row) return
+    if (row.id) {
+      row.deleted = !row.deleted
+    } else {
+      rows.splice(idx, 1)
+    }
+    this.setData({ pkgRows: rows })
+  },
+
+  onOpenTicketPackages() {
+    wx.navigateTo({ url: '/pages/station-mgmt/ticket-packages/index' })
+  },
+
+  /** 把档位行落库：有价的新增/改价走 upsert；被清空价格或被标记删除的走 DELETE。 */
+  async savePkgRows(productId) {
+    const rows = this.data.pkgRows || []
+    for (const r of rows) {
+      const price = parseFloat(r.price)
+      const qty = parseInt(r.qty, 10)
+      if (r.id && (r.deleted || !r.price || isNaN(price) || price <= 0)) {
+        await del(PKG + '/' + r.id)
+        continue
+      }
+      if (r.deleted) continue
+      if (!qty || qty <= 0 || isNaN(price) || price <= 0) continue   // 没填完的行不提交，也不报错
+      await post(PKG, { productId, qty, price })
+    }
   },
 
   onSettingPriorityChange(e) {
@@ -378,6 +480,9 @@ Page({
     try {
       const res = await updateCatalogSetting(s.id, payload)
       this.toastWarnings(res)
+      // 档位跟在同一次"保存"里落库（站长不必再跑一趟水票档位页）——
+      // 关掉水票开关时不动档位：档位是价目表，下架商品不该顺手把它删了。
+      if (s.ticketEnabled) await this.savePkgRows(s.id)
       wx.showToast({ title: '已保存', icon: 'success' })
       this.setData({ showSetting: false })
       this.loadData()
@@ -489,6 +594,7 @@ Page({
       isAdd: true,
       editId: null,
       editCategoryIndex: 0,
+      pkgRows: [],   // 新商品还没有档位
       editForm: {
         name: '', brand: '', spec: '', category: 1,
         price: '', deposit: '', quantity: '', imageUrl: '',
@@ -519,6 +625,8 @@ Page({
         ticketPrice: item.ticketPrice === null || item.ticketPrice === undefined ? '' : String(item.ticketPrice)
       }
     })
+    // 编辑自定义商品时同样把档位带出来（与「本站设置」共用同一份行数据与保存逻辑）
+    this.loadPkgRows(item.id)
   },
 
   closeEdit() {
@@ -586,11 +694,16 @@ Page({
     this.setData({ saving: true })
     try {
       if (isAdd) {
-        await createMyProduct(payload)
+        // createMyProduct 返回的是新建商品的 id（Result<Long>）—— 拿到它才能把档位挂上去，
+        // 否则「新建商品」这一步永远配不出档位，站长还得回头去水票档位页补一次
+        const created = await createMyProduct(payload)
+        const newId = created && created.data
+        if (editForm.ticketEnabled && newId) await this.savePkgRows(newId)
         wx.showToast({ title: '已创建', icon: 'success' })
       } else {
         const res = await updateMyProduct(editId, payload)
         this.toastWarnings(res)
+        if (editForm.ticketEnabled) await this.savePkgRows(editId)
         wx.showToast({ title: '已保存', icon: 'success' })
       }
       this.setData({ showEdit: false })
@@ -636,6 +749,47 @@ Page({
           .then(() => wx.showToast({ title: '已上报，等待开发者处理', icon: 'success', duration: 2000 }))
           .catch(err => wx.showToast({ title: err.message || '上报失败', icon: 'none' }))
       }
+    })
+  },
+
+  /**
+   * 打开平台预设图选择面板。
+   *
+   * 产品口径（docs/design/14）：平台提供一套**统一商品图**，站长不必自己拍照上传 ——
+   * 这样顾客端看到的是同一套视觉，不会出现各站五花八门的糊图。
+   * 图在**小程序包内**（不依赖 COS），由后端下发路径，前端零硬编码。
+   */
+  async openPresetPicker() {
+    this.setData({ showPresetPicker: true })
+    if (this.data.presetImages.length) return   // 已拉过就不重复请求
+    this.setData({ presetLoading: true })
+    try {
+      const res = await getPresetImages()
+      this.setData({ presetImages: res.data || [] })
+    } catch (err) {
+      wx.showToast({ title: err.message || '预设图加载失败', icon: 'none' })
+    } finally {
+      this.setData({ presetLoading: false })
+    }
+  },
+
+  closePresetPicker() {
+    this.setData({ showPresetPicker: false })
+  },
+
+  /**
+   * 选中某张预设图。
+   *
+   * ⚠️ 值必须写进 `imageUrl` 且是**以 / 开头的路径** —— 后端
+   * `CatalogServiceImpl.pickImageValue` 只认这种形式的 imageUrl
+   * （http 开头的一律视为上传回填的过期预签名 URL 而丢弃，对象键已丢失无法反推）。
+   */
+  onPickPresetImage(e) {
+    const path = e.currentTarget.dataset.path
+    if (!path) return
+    this.setData({
+      'editForm.imageUrl': path,
+      showPresetPicker: false
     })
   },
 

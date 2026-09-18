@@ -1,0 +1,104 @@
+<!-- 站长端「毛利」：进货成本 + 期间毛利报表。规格见 docs/design/20 §2。
+     金额与文案全部用服务端下发的值（含 profitText / profitRateText / costBasisNote），本页不做毛利算术。 -->
+<view class="page">
+
+  <!-- 期间 -->
+  <view class="card">
+    <view class="card-title">统计期间</view>
+    <picker mode="date" value="{{from}}" bindchange="onDate" data-field="from">
+      <view class="picker">开始：{{from || '本月 1 号'}}</view>
+    </picker>
+    <picker mode="date" value="{{to}}" bindchange="onDate" data-field="to">
+      <view class="picker">结束：{{to || '今天'}}</view>
+    </picker>
+    <view class="chips">
+      <view class="chip" bindtap="onQuickRange" data-days="0">本月</view>
+      <view class="chip" bindtap="onQuickRange" data-days="7">近 7 天</view>
+      <view class="chip" bindtap="onQuickRange" data-days="30">近 30 天</view>
+    </view>
+    <view class="hint">结束日是闭区间（含当天）：服务端按「结束日 + 1 天」做上界，今天的销量不会漏。</view>
+  </view>
+
+  <view class="empty" wx:if="{{loading}}">加载中…</view>
+
+  <block wx:if="{{report}}">
+    <!-- 合计 -->
+    <view class="hero">
+      <view class="hero-item">
+        <text class="hero-num">¥{{report.totalRevenue}}</text>
+        <text class="hero-label">销售收入</text>
+      </view>
+      <view class="hero-item">
+        <text class="hero-num">¥{{report.totalCost}}</text>
+        <text class="hero-label">进货成本</text>
+      </view>
+      <view class="hero-item">
+        <!-- totalProfit 为 null = 有商品没填成本，此时不给数字（后端下发 null，绝不能当 0） -->
+        <text class="hero-num {{report.totalProfit === null ? 'hero-warn' : 'hero-ok'}}">
+          {{report.totalProfit === null ? '算不出' : '¥' + report.totalProfit}}
+        </text>
+        <text class="hero-label">毛利</text>
+      </view>
+    </view>
+
+    <view class="notice" wx:if="{{report.missingCostHint}}">{{report.missingCostHint}}</view>
+    <!-- 成本口径提示：原样展示服务端文案，前端不改写、不截断 -->
+    <view class="hint" wx:if="{{report.costBasisNote}}">{{report.costBasisNote}}</view>
+
+    <!-- 未填成本的商品：快速补录入口 -->
+    <view class="card" wx:if="{{missingCost.length}}">
+      <view class="card-title">未填成本的商品（{{missingCost.length}} 个）</view>
+      <view class="chips">
+        <view class="chip chip-warn" wx:for="{{missingCost}}" wx:key="productId"
+              bindtap="onOpenCostFromMissing" data-id="{{item.productId}}">+ {{item.productName}}</view>
+      </view>
+      <view class="hint">没填成本的商品只列收入、不算毛利。点商品名直接补录成本价。</view>
+    </view>
+
+    <!-- 明细 -->
+    <view class="card">
+      <view class="card-title">按商品明细（{{report.items.length}} 项）</view>
+      <view class="empty" wx:if="{{!report.items.length}}">该期间没有销售记录。</view>
+      <view class="row" wx:for="{{report.items}}" wx:key="productId"
+            bindtap="onOpenCost" data-id="{{item.productId}}">
+        <view class="row-main">
+          <view class="row-between">
+            <text class="row-title">{{item.productName}}</text>
+            <text class="row-amount">收入 ¥{{item.revenue}}</text>
+          </view>
+          <text class="row-sub">
+            卖出 {{item.soldQty}} · 成本价 {{item.costPriceText}} · 成本合计 ¥{{item.costAmount}}
+          </text>
+          <text class="row-sub {{item.profit === null ? 'row-warn' : ''}}">
+            毛利：{{item.profitText}}<text wx:if="{{item.profitRateText}}"> · 毛利率 {{item.profitRateText}}</text>
+          </text>
+        </view>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="hint" wx:if="{{report.items.length}}">点任意一行可以设置该商品的进货成本价。</view>
+    </view>
+  </block>
+
+  <view class="card">
+    <view class="btn-ghost block" bindtap="onShowHelp">毛利怎么算</view>
+  </view>
+
+  <!-- 成本编辑 -->
+  <view class="mask" wx:if="{{costVisible}}" bindtap="onCloseCost"></view>
+  <view class="dialog" wx:if="{{costVisible}}">
+    <text class="dialog-title">{{costProduct.productName}} 的进货成本</text>
+    <input class="dialog-input" type="digit" value="{{costInput}}" bindinput="onCostInput"
+           placeholder="每桶/每件的进价" />
+    <view class="hint">
+      单位与商品规格一致。未上架的商品设不了成本价（会提示先去「商品管家」上架）。
+    </view>
+    <view class="dialog-footer">
+      <view class="btn-ghost flex1" bindtap="onCloseCost">取消</view>
+      <view class="btn-ghost flex1" bindtap="onClearCost">清除成本</view>
+      <view class="btn-primary flex1 {{costSaving ? 'btn-disabled' : ''}}" bindtap="onSaveCost">
+        {{costSaving ? '保存中…' : '保存'}}
+      </view>
+    </view>
+  </view>
+
+</view>

@@ -200,6 +200,77 @@
   padding: 18rpx 20rpx;
 }
 .asset-error-text { font-size: 24rpx; color: #f56c6c; flex: 1; }
+
+/* ---- 客户特权（v40） ---- */
+
+.empty-line {
+  font-size: 24rpx;
+  color: #999;
+  line-height: 40rpx;
+  padding: 8rpx 0;
+}
+
+.priv-row {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.priv-main {
+  flex: 1;
+  overflow: hidden;
+}
+
+.priv-name {
+  display: block;
+  font-size: 27rpx;
+  color: #222;
+}
+
+.priv-note {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.priv-btn {
+  padding: 10rpx 24rpx;
+  border: 1rpx solid #1677ff;
+  color: #1677ff;
+  border-radius: 28rpx;
+  font-size: 24rpx;
+  margin-left: 12rpx;
+  white-space: nowrap;
+}
+
+.priv-btn-off {
+  border-color: #ffa39e;
+  color: #cf1322;
+}
+
+.priv-add-label {
+  font-size: 24rpx;
+  color: #888;
+  margin: 18rpx 0 6rpx;
+}
+
+.priv-add-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.priv-add-row .priv-btn {
+  margin: 0 16rpx 12rpx 0;
+}
+
+.priv-hint {
+  font-size: 22rpx;
+  color: #999;
+  line-height: 34rpx;
+  margin-top: 10rpx;
+}
 .asset-retry {
   font-size: 24rpx;
   color: #fff;

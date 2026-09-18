@@ -116,9 +116,19 @@ public interface StaffMapper {
     @Select("select count(*) from order_barrel_exception where delivery_staff_id = #{staffId}")
     int countExceptions(@Param("staffId") Long staffId);
 
-    /** 当前进行中订单 */
+    /**
+     * 当前进行中订单。
+     *
+     * <p>⚠️ 站别两列与收件人快照是<b>给跨站画像抹除用的</b>（{@code util/CustomerProfileMask}）：
+     * 本查询按 {@code delivery_staff_id} 过滤，跨站外派给本站配送员的单也在结果里，
+     * 而 {@code c.name} 带出的是<b>归属站</b>的客户档案 —— 调用方必须对跨站行置 null。
+     * <b>别名不能改</b>：MyBatis 的 {@code map-underscore-to-camel-case} 对 Map 返回值不生效，
+     * 抹除逻辑按 {@code stationId} / {@code deliveryStationId} 这两个键取值，读不到就静默不抹。</p>
+     */
     @Select("select o.id, o.status, o.total_amount as totalAmount, " +
-            "o.address_snapshot as addressSnapshot, c.name as customerName " +
+            "o.address_snapshot as addressSnapshot, o.receiver_name as receiverName, " +
+            "o.station_id as stationId, o.delivery_station_id as deliveryStationId, " +
+            "c.name as customerName " +
             "from orders o left join customer c on o.customer_id = c.id " +
             "where o.delivery_staff_id = #{staffId} and o.status in (1, 2) " +
             "order by o.create_time desc limit 10")

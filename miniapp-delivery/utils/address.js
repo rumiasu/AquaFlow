@@ -54,6 +54,38 @@ function parseRegion(addressStr) {
   return { province: '', city: '', district: '', detail: addressStr }
 }
 
+/**
+ * 「楼层 / 电梯」展示文案 —— 给配送员看：这一单要不要上楼。
+ *
+ * P0-2 给 address 加了 floor / has_elevator，但此前只有计价在用（向客户收楼层费、
+ * 给配送员补楼层补贴），**真正要爬楼的人看不到**，所以两端都补上这一行。
+ *
+ * ⚠️ hasElevator 是**三态**：null = 客户没确认过 / 0 = 无电梯 / 1 = 有电梯。
+ * **只有确认过"无电梯"才说无电梯** —— 把 null 说成无电梯既误导配送员，
+ * 也与后端收费口径相反（拿不准时后端不收楼层费）。
+ * ⚠️ 取的是**当前地址**的值、不是下单快照（配送员要知道客户现在在哪层）。
+ * ⚠️ 什么都不确定时返回空串，调用方据此**整行不显示** —— 不放假数据。
+ */
+function buildFloorText(order) {
+  if (!order) return ''
+  const parts = []
+  const floor = order.addressFloor
+  if (floor !== null && floor !== undefined && floor !== '') {
+    parts.push('楼层 ' + floor)
+  }
+  const lift = order.addressHasElevator
+  if (lift === 0 || lift === '0') {
+    parts.push('无电梯')
+  } else if (lift === 1 || lift === '1') {
+    parts.push('有电梯')
+  } else if (parts.length) {
+    // 知道楼层但不知道电梯：如实说"未知"，别替客户回答
+    parts.push('电梯未知')
+  }
+  return parts.join(' · ')
+}
+
 module.exports = {
-  parseRegion: parseRegion
+  parseRegion: parseRegion,
+  buildFloorText: buildFloorText
 }

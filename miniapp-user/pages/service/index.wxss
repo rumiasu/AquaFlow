@@ -143,6 +143,37 @@
   font-size: 28rpx;
 }
 
+/* 匿名提交开关（v46）：左文案右 switch，说明文字要能一眼读完后果 */
+.anonymous-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-top: 20rpx;
+  padding: 20rpx;
+  background: var(--bg-gray);
+  border-radius: 16rpx;
+}
+
+.anonymous-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.anonymous-label {
+  font-size: 28rpx;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.anonymous-desc {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 .feedback-btn {
   height: 84rpx;
   background: var(--primary-gradient);

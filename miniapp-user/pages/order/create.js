@@ -100,7 +100,10 @@ Page({
         cancelText: '取消',
         success: (res) => {
           if (res.confirm) {
-            wx.navigateTo({ url: '/pages/home/index' })
+            // [2026-09-18 修] `/pages/home/index` 是 tabBar 页面，**只能用 switchTab**。
+            // 原来写 navigateTo，微信会直接 fail（控制台报 "can not navigateTo a tabbar page"）——
+            // 用户点了「去选站」什么都不会发生，属"点击静默无反应"那一类（AGENTS §6）。
+            wx.switchTab({ url: '/pages/home/index' })
           } else {
             wx.navigateBack()
           }
@@ -173,7 +176,8 @@ async loadItemsProducts() {
       if (!confirm) {
         wx.navigateBack()
       } else {
-        wx.navigateTo({ url: '/pages/home/index' })
+        // [2026-09-18 修] 同 :103 —— tabBar 页面必须用 switchTab，navigateTo 必然 fail。
+        wx.switchTab({ url: '/pages/home/index' })
       }
       return
 }

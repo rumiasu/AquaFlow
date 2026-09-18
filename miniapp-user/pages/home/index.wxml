@@ -4,6 +4,19 @@
 <view class="page">
   <view class="nav-spacer" style="height: {{statusBarHeight}}px;"></view>
 
+  <!--
+    水站营业状态（软状态，v32）：放在页面最顶部、左对齐 —— 客户第一眼就知道这家站今天什么状态。
+    只提示、不阻断下单；文案与"要不要变黄"都来自后端（customerHint 非空即提醒），前端不做映射。
+  -->
+  <view class="station-status-row" wx:if="{{isLogin && stationStatusText}}">
+    <view class="status-chip {{stationStatusHint ? 'status-chip-warn' : ''}}" bindtap="onStationStatusTap">
+      <text class="status-dot"></text>
+      <text class="status-chip-text">{{stationStatusText}}</text>
+      <text class="status-chip-note" wx:if="{{stationStatusNote}}">· {{stationStatusNote}}</text>
+      <text class="status-chip-arrow">›</text>
+    </view>
+  </view>
+
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>

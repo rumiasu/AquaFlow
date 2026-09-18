@@ -6,7 +6,7 @@ const { getOrders, getOrderDetail, getMyLatestStation } = require('../../api/ord
 const { getAddresses } = require('../../api/address')
 const { getBarrelSummary, getBarrelSummaryByType } = require('../../api/barrel')
 const { getUnreadNotifications, markAllRead } = require('../../api/notification')
-const { getPublicStations } = require('../../api/station')
+const { getPublicStations, getStationStatus } = require('../../api/station')
 const { storage, stationStorage } = require('../../utils/storage')
 const { formatAddress } = require('../../utils/address')
 
@@ -37,6 +37,11 @@ Page({
     barrelLine2: '',
     currentStation: null,
     currentStationId: null,
+    // 水站营业状态（软状态，v32）：文案与"要不要提醒"全部由后端下发，前端不做 1..4 映射。
+    // stationStatusHint 非空 = 需要提醒（休息中/配送延迟/暂停配送），只影响配色，不阻断下单。
+    stationStatusText: '',
+    stationStatusNote: '',
+    stationStatusHint: '',
     showStationList: false,
     stationList: [],
     // 桶权益按商品：{ productId: 权益数量 }，来自后端 /api/barrels/summary-by-type
@@ -80,6 +85,43 @@ Page({
 
   onPullDownRefresh() {
     this.checkStation().then(() => wx.stopPullDownRefresh())
+  },
+
+  /**
+   * 水站营业状态（软状态，v32）：只提示、不阻断下单。
+   *
+   * ⚠️ 文案与"要不要提醒"全部取后端下发的 statusText / note / customerHint ——
+   * 前端不做 operatingStatus 1..4 的映射（本仓明文禁止自带映射表）。
+   * 拉不到就**不显示**：宁可不显示，也不要编造一个"营业中"。
+   */
+  async loadStationStatus(stationId) {
+    if (!stationId) {
+      this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '' })
+      return
+    }
+    try {
+      const res = await getStationStatus(stationId)
+      const d = (res && res.data) || {}
+      this.setData({
+        stationStatusText: d.statusText || '',
+        stationStatusNote: d.note || '',
+        stationStatusHint: d.customerHint || ''
+      })
+    } catch (e) {
+      this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '' })
+    }
+  },
+
+  /** 点状态胶囊：把完整说明（状态 + 站长留言）摊开给客户看 */
+  onStationStatusTap() {
+    const { stationStatusText, stationStatusNote } = this.data
+    if (!stationStatusText) return
+    wx.showModal({
+      title: '水站状态',
+      content: stationStatusNote ? stationStatusText + '\n' + stationStatusNote : stationStatusText,
+      showCancel: false,
+      confirmText: '知道了'
+    })
   },
 
   buildGreeting() {
@@ -234,6 +276,9 @@ Page({
     try {
       const app = getApp()
       const stationId = this.data.currentStationId
+
+      // 营业状态跟着首页一起刷新（站长刚改成"休息中"，客户回到首页就该看到）
+      this.loadStationStatus(stationId)
 
       const [ordersRes, addressRes, summaryRes, rightsRes, productsRes] = await Promise.all([
         getOrders({}).catch(() => null),

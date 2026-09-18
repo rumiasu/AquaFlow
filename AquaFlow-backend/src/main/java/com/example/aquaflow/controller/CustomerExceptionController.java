@@ -7,8 +7,6 @@ import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 /**
  * 客户端：我的桶异常记录。
  * <p>背景：用户端小程序 pages/exception/list 此前调用 GET /api/customer/exceptions，
@@ -51,12 +49,7 @@ public class CustomerExceptionController {
         return Result.success(dto);
     }
 
-    /** 兼容：部分调用方按裸数组处理 */
-    @GetMapping("/list")
-    public Result<List<OrderBarrelExceptionDTO>> myExceptionList(
-            @RequestParam(required = false) Long stationId
-    ) {
-        Long customerId = AuthContext.requireCustomerId();
-        return Result.success(exceptionService.listByCustomer(customerId, stationId, 1, 200).getRecords());
-    }
+    // [2026-09-18 删除] GET /list（"兼容：部分调用方按裸数组处理"）：与上面的分页端点返回同一批数据，
+    // 属冗余读端点（docs/audit/2026-09-16-死端点评估.md 判"删除"，已执行）。调用方一律用
+    // GET /api/customer/exceptions（分页）。回归：ManagerOrderControllerRemovedIntegrationTest 断言 404。
 }

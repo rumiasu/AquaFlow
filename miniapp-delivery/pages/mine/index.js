@@ -190,6 +190,11 @@ Page({
     wx.navigateTo({ url: '/pages/barrel-records/index' })
   },
 
+  /** 我的工资：员工自助只读页（配送员与自己也在送水的站长都能看，身份由服务端从登录态取） */
+  onMyEarnings() {
+    wx.navigateTo({ url: '/pages/my-earnings/index' })
+  },
+
   onEditProfile() {
     wx.navigateTo({ url: '/pages/mine/edit' })
   },

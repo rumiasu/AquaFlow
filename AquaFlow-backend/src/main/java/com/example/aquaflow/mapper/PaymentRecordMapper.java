@@ -85,6 +85,46 @@ public interface PaymentRecordMapper {
                        @Param("status") Integer status,
                        @Param("expectStatus") Integer expectStatus);
 
+    /**
+     * 把这张订单<b>尚未确认</b>的待收款流水改挂到新的结算站（v47，2026-09-18）。
+     *
+     * <p>只在订单的<b>结算站发生变化</b>时调用：抢单 / 定向外派 / 退回池 / 召回 / 指定退回-同意。
+     * 流水的站别是在"发起收款"那一刻按当时的站写死的（{@code PaymentServiceImpl.createPayment}），
+     * 订单随后换了站它不会自己跟着走 —— 结果是「履约站收了钱、凭据却挂在归属站」，
+     * 正是 v47 要消灭的那种钱货分家。</p>
+     *
+     * <p>⚠️ 只搬 {@code status = 1}（{@link com.example.aquaflow.constant.PaymentStatus#PENDING}）
+     * 的行：已收 / 已退的历史凭据不能改站，那是已经发生过的钱，改了等于伪造账；
+     * 而新收的那笔（{@code recordCashCollection}）本来就按结算站写。</p>
+     *
+     * @return 受影响行数（0 = 这张单没有待收款流水，属正常）
+     */
+    @Update("update payment_record set station_id = #{stationId}, update_time = NOW() " +
+            "where order_id = #{orderId} and status = 1")
+    int movePendingToStation(@Param("orderId") Long orderId, @Param("stationId") Long stationId);
+
+    /**
+     * 把这张订单已有的<b>待收款</b>流水就地确认成已付（并改挂到结算站）。
+     *
+     * <p>⚠️ <b>收款路径必须走本方法，不能再插一条 PAID</b>：{@code active_order_id} 生成列把
+     * {@code status ∈ (1,2)} 都算活跃，配合 {@code uk_payment_active_order} 是"一单一条活跃流水"。
+     * 客户下单后点过「去支付」（现金单会先落一条 PENDING）时，配送员送达再点「已收款」若走插入，
+     * 必然撞唯一键 → {@code DuplicateKeyException} → 整个送达事务回滚，
+     * 前端拿到 {@code code=1「数据已存在，请勿重复提交」}，订单永远停在配送中（2026-09-18 实测复现）。</p>
+     *
+     * <p>{@code note} / {@code operatorId} 覆盖写：这条凭据此刻表达的是"谁在什么时候收的这笔钱"，
+     * 比原来那条"客户发起的收款意图"更接近事实。</p>
+     *
+     * @return 受影响行数（0 = 这张单没有待收款流水，调用方按"新插一条"处理）
+     */
+    @Update("update payment_record set status = 2, station_id = #{stationId}, " +
+            "note = #{note}, operator_id = #{operatorId}, update_time = NOW() " +
+            "where order_id = #{orderId} and status = 1")
+    int confirmPendingToPaid(@Param("orderId") Long orderId,
+                             @Param("stationId") Long stationId,
+                             @Param("note") String note,
+                             @Param("operatorId") Long operatorId);
+
     @Select("select * from payment_record where station_id = #{stationId} " +
             "and (#{status} is null or status = #{status}) " +
             "and (#{paymentMethod} is null or payment_method = #{paymentMethod}) " +

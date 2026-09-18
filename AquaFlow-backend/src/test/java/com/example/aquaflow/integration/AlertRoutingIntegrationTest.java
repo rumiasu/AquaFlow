@@ -156,6 +156,44 @@ class AlertRoutingIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("工资结算单不平（E-PAY）属运营故障：投给站长，不进系统管理员的 V2 汇总")
+    void payrollImbalanceGoesToStationManagerNotAdmin() {
+        seed();
+        // 造脏数据：结算单合计 100 却没有任何收益明细 → E-PAY 必不平。
+        // 正常链路（StaffEarningService）不会产生这种状态，而告警路由恰恰只在异常态下才生效，
+        // 所以这里直接种一张不平的结算单（等式本身的实现见 StaffEarningAndPayrollIntegrationTest）。
+        insert("INSERT INTO staff_payroll(payroll_no, station_id, staff_id, period_start, period_end, "
+                        + "total_amount, status) VALUES (?,?,?,?,?,100.00,1)",
+                "PR-TEST-EPAY", stationA, mgrA, java.sql.Date.valueOf("2026-09-01"),
+                java.sql.Date.valueOf("2026-09-07"));
+
+        // 检查项本身还在（别把它整个删掉来"修"路由）
+        assertEquals(1, reconciliationService.runReconcileV2().get("EPAY_payrollVsEarning"),
+                "E-PAY 必须仍然查出这张不平的结算单");
+
+        reconciliationService.dailyReconcile();
+
+        // [2026-09-18 修] 此前 E-PAY 混在 V2 汇总里投 SYSTEM：平台管理员收到告警，
+        // 唯一能改结算单的站长一条都收不到 —— 这条断言就是那个缺陷的护栏。
+        assertEquals(1, opAlerts(), "E-PAY 不平必须产生一条运营告警");
+        assertEquals(stationA, longOf("SELECT station_id FROM alert_log WHERE alert_type='OPERATION'"),
+                "工资账是站长与配送员之间的账，告警必须落在该站站长名下");
+        assertEquals(mgrA, longOf("SELECT staff_id FROM alert_log WHERE alert_type='OPERATION'"));
+        assertTrue(jdbc.queryForObject(
+                        "SELECT title FROM alert_log WHERE alert_type='OPERATION' ORDER BY id DESC LIMIT 1",
+                        String.class).contains("工资"),
+                "标题要让人一眼看出是工资账");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM alert_log "
+                        + "WHERE alert_type='SYSTEM' AND content LIKE '%EPAY%'"),
+                "E-PAY 不得再混进面向系统管理员的 V2 汇总告警");
+
+        // 站长端确实收得到（这才是"分级投递"的意义所在）
+        Api mine = get("/api/manager/alerts", tokenA());
+        assertTrue(mine.isSuccess(), "站长查本站告警应成功，实际=" + mine);
+        assertEquals(1, mine.data().size(), "站长应能在自己的告警列表里看到这张不平的结算单");
+    }
+
+    @Test
     @DisplayName("未预期的 500 也算系统故障（全站异常汇集点接入告警）")
     void unexpected500RaisesSystemAlert() {
         seed();

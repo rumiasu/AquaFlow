@@ -122,6 +122,28 @@
     </view>
   </view>
 
+  <!-- 楼层数（选填）+ 楼层凭证（v43）：楼层补贴的依据，有楼层才填、没有就不填 -->
+  <view class="section">
+    <text class="section-title">楼层数（有就填，没有不用填）</text>
+    <text class="section-tip">填了才是楼层补贴的依据；跟客户地址里填的不一致时会标出来（防虚报）</text>
+    <view class="floor-row">
+      <input class="floor-input" type="number" placeholder="如 6" value="{{reportedFloor}}" bindinput="onFloorInput" />
+      <text class="floor-unit">层</text>
+    </view>
+
+    <text class="section-tip">楼层凭证（可选，拍一张更站得住脚；站长也能补传）</text>
+    <view class="photo-grid">
+      <view class="photo-item" wx:for="{{floorPhotos}}" wx:key="index">
+        <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" />
+        <view class="photo-remove" data-index="{{index}}" catchtap="onRemoveFloorPhoto">×</view>
+      </view>
+      <view class="photo-add" bindtap="onAddFloorPhoto" wx:if="{{floorPhotos.length < 3}}">
+        <text class="photo-add-icon">🏢</text>
+        <text class="photo-add-text">{{floorUploading ? '上传中...' : '添加照片'}}</text>
+      </view>
+    </view>
+  </view>
+
   <!-- 备注 -->
   <view class="section">
     <view class="note-header">

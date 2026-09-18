@@ -52,6 +52,28 @@ SCAN_EXT = (".js", ".wxml")
 ANN_RE = re.compile(r'@(Get|Post|Put|Delete|Patch|Request)Mapping\s*(?:\(([^)]*)\))?', re.M)
 STR_RE = re.compile(r'"([^"]*)"')
 API_CONST_RE = re.compile(r"([A-Z][A-Z0-9_]*)\s*:\s*'(/[^']*)'")
+LOCAL_CONST_RE = re.compile(r"(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*'([^']*)'")
+
+
+def expand_local_consts(txt):
+    """把**页面内**的局部路径常量展开成字面量。
+
+    必要性（2026-09-18 实测踩到，属本脚本第三个偏差）：本仓推荐「新页面用局部路径常量、
+    不要动 config/api.js」（见根 AGENTS §2/§6），于是同一个路径被拆成两处 —— 文件顶部
+    `const EARNING_ITEMS = '/api/manager/earning-items'`，调用点几百行之后
+    `post(EARNING_ITEMS + '/' + id + '/status')`。`:func:`called_pattern` 只容忍段间
+    60 字符，对"同一个文件里相隔几百行"完全不够，于是 v44 那三个**确实在用**的端点
+    （`earning-items/{id}/status`、`payroll/adjust`、`payroll/{id}/confirm`）全被报成死端点。
+    展开之后 `'/api/manager/earning-items' + '/' + id + '/status'` 两段只隔十几字符，即可命中。
+
+    只展开**以 / 开头**的常量值（路径），并按名字长度倒序替换，避免 `PKG` 吃掉 `PKG_MANAGE`；
+    用 \\b 词边界，`_` 属词字符，所以 `PKG` 不会误伤 `PKG_MANAGE`。
+    """
+    local = {m.group(1): m.group(2) for m in LOCAL_CONST_RE.finditer(txt)}
+    names = sorted((n for n, v in local.items() if v.startswith("/")), key=len, reverse=True)
+    for name in names:
+        txt = re.sub(r"\b" + re.escape(name) + r"\b", lambda _m, v=local[name]: v, txt)
+    return txt
 
 
 def read(path):
@@ -142,6 +164,8 @@ def frontend_text(app):
                          lambda m: consts.get(m.group(1), m.group(0)), txt)
             txt = re.sub(r"API\.([A-Z0-9_]+)",
                          lambda m: consts.get(m.group(1), m.group(0)), txt)
+            # 最后展开页面内局部路径常量：本仓新页面一律这么写，不展开必误报（见函数 docstring）
+            txt = expand_local_consts(txt)
             parts.append(txt)
     return "\n".join(parts)
 

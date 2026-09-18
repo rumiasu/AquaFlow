@@ -35,11 +35,45 @@ public class Orders {
     /** 地址详情(关联查询字段) */
     private String addressDetail;
 
+    /**
+     * 收货地址的楼层 / 是否有电梯（关联查询字段，2026-09-17 新增）。
+     *
+     * <p><b>为什么要有</b>：P0-2 给 {@code address} 加了这两个字段，但此前只有"计价"在用
+     * （向客户收楼层费、给配送员补楼层补贴）——**真正要爬楼的那个人（配送员）看不到**。
+     * 楼层费按它收、补贴按它补，配送员出车前却不知道要不要上楼。</p>
+     *
+     * <p>⚠️ 取的是<b>当前地址</b>的值，不是下单时的快照：配送员要知道"客户现在在哪层"。
+     * 计费用的历史口径已经落在 {@code orders.floor_fee} 上，<b>不需要也不应该</b>为此加快照列。</p>
+     *
+     * <p>⚠️ {@code addressHasElevator} 是<b>三态</b>：{@code null} = 客户没确认过、{@code 0} = 无电梯、
+     * {@code 1} = 有电梯。展示时别把 null 说成"无电梯"。</p>
+     */
+    private Integer addressFloor;
+
+    private Integer addressHasElevator;
+
     /** 订单归属水站 */
     private Long stationId;
 
     /** 实际履约配送水站ID，可与 station_id 不同 */
     private Long deliveryStationId;
+
+    /**
+     * 结算水站（v47）= <b>本单营收归谁</b>：水费 + 配送费 + 楼层费归它。
+     *
+     * <p>三列的分工（别混用）：{@code stationId} = 归属站（客户选定的站，<b>定价方</b>）；
+     * {@code deliveryStationId} = 履约站（谁去送，库存/配送员/工钱）；本列 = 钱归谁。</p>
+     *
+     * <p>取值：下单 = {@code stationId}；抢单/定向外派 = 履约站；取消外派/召回/退回池 = 回
+     * {@code stationId}。<b>押金 / 水票 / 桶权益仍按归属站</b>，与营收归属是两件事
+     * （那是"客户买在哪个站的资产"）。</p>
+     *
+     * <p>⚠️ 读取一律 {@code coalesce(settle_station_id, delivery_station_id, station_id)}
+     * —— 这是<b>防御</b>（漏写的历史/未来行不丢营收），<b>不是常态</b>：正常路径必须写本列。
+     * 写入点见 {@code OrderMapper} 的 save 与那 7 条改履约站的 CAS，以及
+     * {@code sql/migration_v47_order_settle_station.sql} 的文件头。</p>
+     */
+    private Long settleStationId;
 
     /** 配送员ID */
     private Long deliveryStaffId;
@@ -224,12 +258,6 @@ public class Orders {
     /** 应结算日期 */
     private java.time.LocalDate dueDate;
 
-    /**
-     * 批次ID。
-     * [AQ-054] 已废弃：全项目无 batch 表、无写入点，恒为 null。保留仅为兼容旧库列，新代码勿使用。
-     */
-    private Long batchId;
-
     /** 订单总金额 */
     private BigDecimal totalAmount;
 
@@ -273,6 +301,18 @@ public class Orders {
      * 工钱算不准。</p>
      */
     private BigDecimal floorFee;
+
+    /**
+     * 配送员在完成配送时**上报的楼层**（选填，v43）。
+     *
+     * <p>⚠️ 三态语义：{@code null} = 没上报（楼层补贴沿用<b>地址</b>里的楼层）／有值 = 以他上报的为准。
+     * 与地址里的楼层不一致时，收益明细的 note 会打上"与地址 N 层不一致"的标记 ——
+     * 楼层补贴是给配送员的钱，只有他知道自己爬了几层，所以要有他自己的口径 + 可核对的凭证
+     * （{@code order_image.type=3} 楼层凭证，配送员与站长都可传），见 docs/design/18 §4。</p>
+     *
+     * <p>⚠️ 它<b>不影响向客户收的楼层费</b>（那是下单时按地址快照的 {@link #floorFee}）。</p>
+     */
+    private Integer reportedFloor;
 
     /** 收件人姓名 */
     private String receiverName;
@@ -344,6 +384,30 @@ public class Orders {
      * 该判断恒为 false，转单确认入口从未出现。</p>
      */
     private transient Boolean transferTarget;
+
+    /**
+     * 定价来源站名（瞬时字段，非数据库列）：跨站单的配送费/楼层费是按<b>归属站</b>
+     * （{@code station_id}）当时的站级配置算出来、并快照进 {@link #deliveryFee} / {@link #floorFee} 的，
+     * 即"站长外派也按本站定价"。认领/接单前要让目标站一眼看到这个价是谁定的
+     * （{@code docs/design/17} 的配送计费 + 2026-09-18 的产品裁定）。
+     * <p>由 {@code DeliveryController} 在抢单池 / 他站外派两个列表里填充，其它端点不下发。</p>
+     */
+    private transient String feeStationName;
+
+    /**
+     * 结算去向文案（瞬时字段，非数据库列）：<b>由后端下发，前端不得自造</b>
+     * （本仓铁律：金额与口径文案只有一个来源，见 AGENTS.md §6）。
+     * <p>抢单池是"认领后"，他站外派是"接单后"—— 两种语境下这句话不一样，
+     * 所以文案由填充它的方法决定，前端只负责原样展示。</p>
+     */
+    private transient String settleNote;
+
+    /**
+     * 本单营收是否计入当前登录水站（瞬时字段，非数据库列）。
+     * <p>抢单池/他站外派列表里恒为 {@code true}（这些列表本身就是"待本站履约"的单），
+     * 下发它是为了让前端不必自己推导"钱归谁"，只按它决定要不要把结算文案显示成强调色。</p>
+     */
+    private transient Boolean settleToMyStation;
 
     /** 订单商品明细(关联查询字段) */
     private List<OrderItem> items;

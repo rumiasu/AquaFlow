@@ -116,6 +116,10 @@ class ReceivableIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, all.data().path("overdueAmount").decimalValue()
                 .compareTo(java.math.BigDecimal.ZERO), "还没到期，逾期金额应为 0");
         assertEquals(1, all.data().path("customerCount").asInt(), "应有 1 个欠款客户");
+        // 台账必须下发**客户级账期**：少了它，页面会把已设账期的客户一律显示成
+        // 「未设账期（即时结清）」—— 不报错，但站长会按错的方式报价（静默误导）
+        assertEquals(30, all.data().path("customers").get(0).path("dueDays").asInt(),
+                "台账每行都应带上客户账期: " + all);
         assertEquals(0, all.data().path("outstandingAmount").decimalValue().compareTo(amount),
                 "待收款合计应等于该订单金额: " + all);
         assertEquals(0, all.data().path("customers").get(0).path("outstandingAmount").decimalValue()
@@ -168,6 +172,14 @@ class ReceivableIntegrationTest extends AbstractIntegrationTest {
 
         assertEquals(2, intOf("SELECT payment_status FROM orders WHERE id=?", id), "钱应记为已付(2)");
         assertEquals(2, intOf("SELECT settlement_status FROM orders WHERE id=?", id), "应记为已结算(2)");
+
+        // ⚠️ 核销必须**补写 PAID 支付流水**，不能只把 payment_status 改成 2。
+        // 对账等式2 把「已付却查不到 PAID 流水」判为不平，只改状态的话站长每核销一单
+        // 日结就报一次假警报，真问题会被淹没。本用例最初漏了这条断言，于是漏掉了这个缺陷。
+        assertEquals(1, intOf("SELECT COUNT(*) FROM payment_record WHERE order_id=? AND status=2", id),
+                "核销收款必须留下 PAID 支付流水（等式2 的凭证）");
+        assertEquals(0, reconciliationKey("paymentStatus"),
+                "核销后对账等式2 必须为 0（已付但无凭证 = 不平）");
 
         // 幂等重放：已核销的单跳过而不是报错（站长重复点一次不该看到红字），也不得重复计数
         Api again = post("/api/manager/receivables/settle", mgr, body);
@@ -242,6 +254,19 @@ class ReceivableIntegrationTest extends AbstractIntegrationTest {
         Map<String, Integer> v2 = reconciliationService.runReconcileV2();
         Integer v = v2.get("E10_settledButUnpaid");
         assertTrue(v != null, "V2 应含 E10_settledButUnpaid，实际=" + v2.keySet());
+        return v;
+    }
+
+    /**
+     * 取 V1（押金/支付/桶/库存）里某一项的差异数。
+     *
+     * <p>本用例的造数只求"够用"（不塞库存流水），所以**只断言与核销有关的那一项**，
+     * 不对 V1 全表做全零断言 —— 那测的是造数自洽性，不是产品。</p>
+     */
+    private int reconciliationKey(String key) {
+        Map<String, Integer> v1 = reconciliationService.runReconcile();
+        Integer v = v1.get(key);
+        assertTrue(v != null, "V1 应含 " + key + "，实际=" + v1.keySet());
         return v;
     }
 }

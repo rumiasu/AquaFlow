@@ -19,7 +19,7 @@
   <view class="card" wx:if="{{step === 1}}">
     <view class="card-title">选择客户</view>
     <view class="search-row">
-      <input class="search-input" placeholder="搜姓名或电话" value="{{keyword}}"
+      <input class="search-input" placeholder="搜姓名/电话/地址（地址可缩写）" value="{{keyword}}"
              bindinput="onKeyword" bindconfirm="onSearch" confirm-type="search" />
       <view class="search-btn" bindtap="onSearch">搜索</view>
     </view>
@@ -32,6 +32,8 @@
       <view class="row-main">
         <text class="row-title">{{item.name}}</text>
         <text class="row-sub">{{item.phone || '未留电话'}}</text>
+        <!-- 命中地址（后端下发）：站长"最多记个姓氏"，靠地址认出人；没有地址的客户不占位 -->
+        <text class="row-sub" wx:if="{{item.addressText}}">{{item.addressText}}</text>
       </view>
       <text class="row-arrow">›</text>
     </view>

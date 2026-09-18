@@ -126,3 +126,14 @@ generated-images/
 .dsh-code-index/
 .mcp.json
 __*.ps1
+
+# ==================== 本地素材库（勿入库，2026-09-18）====================
+# 前面的 / 是锚点，只在仓库根生效：写成不带斜杠的 assets/ 会连
+# miniapp-user/assets/** 与 miniapp-delivery/assets/** 一起忽略掉 —— 那里有
+# tabbar 图标与商品预设图，是必须入库的包内资源。
+/assets/
+
+# Created at repo root by the commands documented in AGENTS.md (Gradle --project-cache-dir
+# and the isolated git worktree used for full-suite verification). Never commit these.
+/.gradle_eval/
+/.verify-*/

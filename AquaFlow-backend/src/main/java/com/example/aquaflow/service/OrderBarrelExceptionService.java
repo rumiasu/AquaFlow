@@ -269,6 +269,13 @@ public interface OrderBarrelExceptionService {
         private String statusText;
         /** 异常类别中文文案（后端下发） */
         private String categoryText;
+        /**
+         * 是否「已录入、等站长处置」（2026-09-18）。
+         *
+         * <p>页面要标出哪些还等着处理，而<b>前端不得自带状态映射表</b>（也不能靠比中文文案 ——
+         * 文案一改就静默失效）。所以这里下发一个布尔：判据留在后端，前端只负责标红。</p>
+         */
+        private boolean pending;
         private java.time.LocalDateTime createdAt;
         private java.time.LocalDateTime decidedAt;
         private java.time.LocalDateTime executedAt;
@@ -324,6 +331,8 @@ public interface OrderBarrelExceptionService {
         public void setStatusText(String statusText) { this.statusText = statusText; }
         public String getCategoryText() { return categoryText; }
         public void setCategoryText(String categoryText) { this.categoryText = categoryText; }
+        public boolean isPending() { return pending; }
+        public void setPending(boolean pending) { this.pending = pending; }
         public java.time.LocalDateTime getCreatedAt() { return createdAt; }
         public void setCreatedAt(java.time.LocalDateTime createdAt) { this.createdAt = createdAt; }
         public java.time.LocalDateTime getDecidedAt() { return decidedAt; }

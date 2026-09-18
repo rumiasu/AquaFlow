@@ -29,8 +29,11 @@ import java.util.Map;
  *   <li><b>账期必须快照进订单</b>（{@code orders.due_date}）—— 与地址/金额快照同源的理由：
  *       站长事后改客户账期，不能改到历史单的到期日。下单时算一次，之后只读。</li>
  *   <li><b>核销 ⟹ 已收款</b>，由 {@code OrderMapper.settleIfCollected} 的 CAS 钉住。
- *       B2B 最怕的是"账面销了、钱没到"，所以核销的入参是订单集合，收款走
- *       {@code markPaidIfCollectable}（全仓唯一收钱入口），两者同一事务。</li>
+ *       B2B 最怕的是"账面销了、钱没到"，所以核销的入参是订单集合，收款与核销同一事务。
+ *       ⚠️ 收款必须**两步都做**：先 {@code PaymentService.recordCashCollection} 补写 PAID 流水，
+ *       再 {@code markPaidIfCollectable} 置 {@code payment_status = 2}。只做后者的话，
+ *       对账<b>等式2</b>会判「已付但无凭证」不平 —— 站长每核销一单日结就报一次假警报。
+ *       （2026-09-17 实测：本类最初只调了 markPaidIfCollectable，确实踩中这一条。）</li>
  *   <li><b>逾期只提醒、不改任何金额</b> —— 对齐本仓"欠桶只提醒不阻断"的既有风格
  *       （AGENTS §1）。本类没有任何写金额的分支。</li>
  * </ol>
@@ -48,12 +51,15 @@ public class ReceivableService {
     private final ReceivableMapper receivableMapper;
     private final OrderMapper orderMapper;
     private final CompanyInfoMapper companyInfoMapper;
+    /** 收款一律走支付链路（PAID 只能由它写入，见 recordCashCollection 的注释）。 */
+    private final PaymentService paymentService;
 
     public ReceivableService(ReceivableMapper receivableMapper, OrderMapper orderMapper,
-                             CompanyInfoMapper companyInfoMapper) {
+                             CompanyInfoMapper companyInfoMapper, PaymentService paymentService) {
         this.receivableMapper = receivableMapper;
         this.orderMapper = orderMapper;
         this.companyInfoMapper = companyInfoMapper;
+        this.paymentService = paymentService;
     }
 
     /**
@@ -138,6 +144,12 @@ public class ReceivableService {
                 continue;
             }
             if (asInt(order.get("paymentStatus")) != PaymentStatus.PAID) {
+                // ⚠️ 必须先补写 PAID 流水，**不能只改 orders.payment_status**。
+                // 对账等式2 把「payment_status=2 却查不到 PAID 流水」判为不平（已付无凭证），
+                // 于是站长每核销一单，日结就报一次不平、还会发 SYSTEM 告警 —— 真问题会被淹没。
+                // 本仓的领域原则是「PAID 只能由支付链路写入」，所以这里复用
+                // PaymentService.recordCashCollection（它幂等），而不是自己 insert 一条流水。
+                paymentService.recordCashCollection(orderId, "站长核销应收账款");
                 if (orderMapper.markPaidIfCollectable(orderId) == 0) {
                     throw new BusinessException("订单 " + orderId + " 收款失败：状态已变更，请刷新后重试");
                 }

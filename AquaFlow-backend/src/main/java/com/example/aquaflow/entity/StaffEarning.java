@@ -59,6 +59,20 @@ public class StaffEarning {
     /** 来源资产调整单（人工调整场景的幂等键） */
     private Long adjustmentId;
 
+    /**
+     * 自定义工资条目（v44）：NULL = 不是按条目录的（老数据，以及自由文本的人工调整）。
+     */
+    private Long itemId;
+
+    /**
+     * 条目名称快照（v44）：写入时的名字。
+     *
+     * <p>为什么要快照：条目改名（「迟到扣款」→「迟到罚款」）不该改写**已经发生**的工资历史，
+     * 与 {@code order_item.product_name} 同一口径。汇总时优先用条目当前名，
+     * 条目已不存在时才回落到这里。</p>
+     */
+    private String itemName;
+
     private String note;
 
     private LocalDateTime createTime;
@@ -66,6 +80,16 @@ public class StaffEarning {
     /** 前端展示用（后端唯一下发来源，前端禁止自带映射表） */
     public String getKindText() {
         return com.example.aquaflow.constant.EarningKind.textOf(kind);
+    }
+
+    /**
+     * 明细的展示名：按条目录入的显示条目名，其余回落 {@link #getKindText()}。
+     *
+     * <p>前端只认这一个字段，不要在页面里写"有 itemName 就用它"的判空 ——
+     * 两处各写一次回落逻辑，迟早有一处写错（本仓在支付方式的 1/2/3 映射上踩过）。</p>
+     */
+    public String getDisplayText() {
+        return itemName != null && !itemName.isEmpty() ? itemName : getKindText();
     }
 
     /** 是否还未结算（前端据此决定是否允许站长手工调整） */

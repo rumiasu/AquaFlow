@@ -1,0 +1,82 @@
+<!-- 站长端「水票档位」：给本站商品挂价目表（10 张 / 20 张 / 100 张各卖多少钱）。
+     规格见 docs/design/19。均价由服务端算并快照，本页只展示服务端返回的值。 -->
+<view class="page">
+
+  <view class="card">
+    <view class="card-title">选择商品</view>
+    <view class="empty" wx:if="{{loading && !products.length}}">加载中…</view>
+    <view class="chips">
+      <view class="chip {{productId === item.id + '' ? 'chip-on' : ''}}"
+            wx:for="{{products}}" wx:key="id"
+            bindtap="onPickProduct" data-id="{{item.id}}">{{item.name}}</view>
+    </view>
+    <view class="empty" wx:if="{{!products.length}}">本站还没有上架商品。</view>
+    <view class="hint" wx:if="{{productId}}">
+      档位是按「本站 + 本商品」挂的。顾客买票时只看到上架的档位；没挂档位就按单张水票价散买。
+    </view>
+  </view>
+
+  <block wx:if="{{productId}}">
+    <view class="card">
+      <view class="card-title">新增 / 修改档位</view>
+      <view class="field">
+        <text class="field-label">张数</text>
+        <input class="field-input" type="number" value="{{form.qty}}"
+               bindinput="onInput" data-field="qty" placeholder="如 10" />
+      </view>
+      <view class="field">
+        <text class="field-label">总价</text>
+        <input class="field-input" type="digit" value="{{form.price}}"
+               bindinput="onInput" data-field="price" placeholder="这一组一共多少钱" />
+      </view>
+      <view class="field">
+        <text class="field-label">名称（可选）</text>
+        <input class="field-input" value="{{form.title}}"
+               bindinput="onInput" data-field="title" placeholder="如 10 张优惠装" />
+      </view>
+      <view class="field">
+        <text class="field-label">排序（可选）</text>
+        <input class="field-input" type="number" value="{{form.sort}}"
+               bindinput="onInput" data-field="sort" placeholder="数字越小越靠前" />
+      </view>
+      <view class="btn-primary {{saving ? 'btn-disabled' : ''}}" bindtap="onSave">
+        {{saving ? '保存中…' : '保存档位'}}
+      </view>
+      <view class="hint">
+        均价（总价 ÷ 张数）由服务端计算，保存后在下表显示。同一张数重复保存就是修改该档位。
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">本站该商品的档位（{{packages.length}} 个）</view>
+      <view class="empty" wx:if="{{!packages.length}}">还没挂档位。</view>
+      <view class="row" wx:for="{{packages}}" wx:key="id">
+        <view class="row-main">
+          <view class="row-between">
+            <text class="row-title">{{item.qty}} 张 · ¥{{item.price}}</text>
+            <text class="row-amount">均价 ¥{{item.unitPrice}}</text>
+          </view>
+          <text class="row-sub">
+            {{item.title ? item.title + ' · ' : ''}}{{item.statusText}}
+            <text wx:if="{{item.saveText}}"> · {{item.saveText}}</text>
+          </text>
+        </view>
+        <view class="actions">
+          <view class="mini-btn" bindtap="onToggleStatus" data-id="{{item.id}}">
+            {{item.status === 1 ? '下架' : '上架'}}
+          </view>
+          <view class="mini-btn mini-btn-danger" bindtap="onDelete" data-id="{{item.id}}">删除</view>
+        </view>
+      </view>
+      <view class="hint" wx:if="{{packages.length}}">
+        「参考节省」是拿本站单张水票价与本档位均价比较得出的展示值；
+        权威金额始终是档位的总价与均价（服务端下发）。
+      </view>
+    </view>
+  </block>
+
+  <view class="card">
+    <view class="btn-ghost block" bindtap="onHelp">档位怎么定</view>
+  </view>
+
+</view>

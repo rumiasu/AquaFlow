@@ -14,9 +14,9 @@
         <text class="order-date">{{item.createTime}}</text>
       </view>
 
-      <!-- 客户信息 -->
+      <!-- 客户信息：跨站履约单后端**刻意不下发** customerName（画像归归属站），回落到订单收件人 -->
       <view class="customer-info">
-        <text class="customer-name">{{item.customerName}}</text>
+        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
       </view>
 
       <!-- 商品信息 -->

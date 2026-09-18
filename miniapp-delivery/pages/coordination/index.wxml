@@ -1,4 +1,14 @@
+<import src="../../templates/station-navbar.wxml" />
+
 <view class="container">
+  <!--
+    自绘导航栏（b 方案）：**水站营业状态就在「首页」字样的左边**。
+    为什么自绘：原生导航栏塞不进任何东西，而站长/配送员要在最上面一眼看到"今天休息 / 配送延迟"。
+    结构与尺寸见共用件 templates/station-navbar.wxml（样式 styles/station-navbar.wxss，
+    数据与方法 behaviors/stationNavbar.js）—— 与「配送」页同一份实现。
+  -->
+  <template is="stationNavbar"
+            data="{{title: '首页', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, rightPad: true}}" />
   <!-- 无权限提示 -->
   <view class="no-auth" wx:if="{{!isManager}}">
     <text class="no-auth-icon">🔒</text>
@@ -8,6 +18,28 @@
   </view>
 
   <view wx:else>
+    <!--
+      待办聚合（站长首页第一眼）：今天该处理什么。四类的口径全部由服务端算，
+      文案（label）也由服务端下发；本页只把 key 映射成"点进去看哪个页面"（路由是前端的事）。
+      数量为 0 的项照样显示 —— 否则站长不知道系统里有这一项。
+    -->
+    <view class="todo-card" wx:if="{{todo}}">
+      <view class="todo-head">
+        <text class="todo-title">待办</text>
+        <text class="todo-hint" wx:if="{{!todo.hasAny}}">今天没有需要处理的</text>
+      </view>
+      <view class="todo-row">
+        <view class="todo-item {{item.count > 0 ? 'todo-item-on' : ''}}"
+              wx:for="{{todo.items}}" wx:key="key"
+              bindtap="onTodoTap" data-key="{{item.key}}">
+          <text class="todo-count">{{item.count}}</text>
+          <text class="todo-label">{{item.label}}</text>
+          <text class="todo-amount" wx:if="{{item.amountText}}">￥{{item.amountText}}</text>
+        </view>
+      </view>
+      <view class="todo-note" wx:if="{{todo.scopeNote}}">{{todo.scopeNote}}</view>
+    </view>
+
     <!-- Tab 切换 -->
     <scroll-view class="tab-bar" scroll-x enable-flex>
       <view class="tab-item {{activeTab === item.key ? 'active' : ''}}"
@@ -150,6 +182,39 @@
           </view>
           <text class="order-id">#{{item.id}}</text>
         </view>
+        <!--
+          抢单前「一眼看到钱」：抢单是花钱出力的事，值不值得抢必须在这一屏就能判断，
+          所以金额不进二级页、不折叠。三件事各占一行 —— 收多少钱 / 这个价是谁定的 / 认领后钱归谁：
+          ① 金额三个数全部取 orders 上的快照（后端下发），前端不做任何加减（否则与订单详情页会分叉）；
+          ② 费用为 0 时不单列两行（只显示总额），非 0 才展开明细，避免"¥0.00 × 2"的噪音；
+          ③ 结算去向整句由后端下发（settleNote），前端不自编「钱归你」这类口径文案。
+        -->
+        <view class="fee-box">
+          <view class="fee-row fee-row-main">
+            <text class="fee-label">本单金额</text>
+            <text class="fee-amount">￥{{item.totalAmountText}}</text>
+          </view>
+          <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
+            <text class="fee-detail-item">含配送费 ￥{{item.deliveryFeeText}}</text>
+            <text class="fee-detail-item">楼层费 ￥{{item.floorFeeText}}</text>
+          </view>
+          <view class="fee-source" wx:if="{{item.feeStationName}}">
+            <text class="fee-source-label">定价来自</text>
+            <text class="fee-source-name">{{item.feeStationName}}</text>
+          </view>
+          <view class="fee-settle" wx:if="{{item.settleNote}}">{{item.settleNote}}</view>
+        </view>
+        <!--
+          押金/桶权益风险提示：文案整段来自后端（crossStationRiskNote），前端只展示、不自编。
+          正常路径下池里不该有这种单（入池的两个入口后端都硬拦了），出现即"规则上线前放进来的历史单"，
+          这时点抢单会被后端拒 —— 先把原因摆在卡片上，别让站长点了才知道。
+          另外三个页签（待分配/他站外派/外派）是实体直出、列表里没有这个字段，
+          它们的提示在**提交前那一次确认弹窗**里给（见 index.js 的 _confirmRisk）。
+        -->
+        <view class="risk-box" wx:if="{{item.crossStationRiskNote}}">
+          <text class="risk-title">⚠️ 押金/桶权益风险</text>
+          <text class="risk-text">{{item.crossStationRiskNote}}</text>
+        </view>
         <view class="pool-product-info">
           <text class="pool-product-label">订单商品：</text>
           <text class="pool-product-name">{{item.firstProductName}} × {{item.quantity}}桶</text>
@@ -225,6 +290,22 @@
             <text class="status-tag status-incoming">他站外派</text>
           </view>
           <text class="order-id">#{{item.id}}</text>
+        </view>
+        <!-- 与抢单池同一口径：定向外派也是"站长外派"，接不接这一单同样要先看到钱与去向 -->
+        <view class="fee-box">
+          <view class="fee-row fee-row-main">
+            <text class="fee-label">本单金额</text>
+            <text class="fee-amount">￥{{item.totalAmountText}}</text>
+          </view>
+          <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
+            <text class="fee-detail-item">含配送费 ￥{{item.deliveryFeeText}}</text>
+            <text class="fee-detail-item">楼层费 ￥{{item.floorFeeText}}</text>
+          </view>
+          <view class="fee-source" wx:if="{{item.feeStationName}}">
+            <text class="fee-source-label">定价来自</text>
+            <text class="fee-source-name">{{item.feeStationName}}</text>
+          </view>
+          <view class="fee-settle" wx:if="{{item.settleNote}}">{{item.settleNote}}</view>
         </view>
         <view class="info-row">
           <text class="info-label">客户</text>

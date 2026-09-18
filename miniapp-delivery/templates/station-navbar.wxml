@@ -1,0 +1,33 @@
+<!--
+  自绘导航栏（b 方案）：**水站营业状态就坐在「配送 / 首页」字样的左边**。
+  为什么自绘：原生导航栏塞不进任何东西，而站长/配送员要在最上面一眼看到"今天休息 / 配送延迟"。
+  尺寸来自 utils/navbar.js（状态栏高度 + 微信胶囊算法），右侧留白避开微信胶囊按钮。
+  数据与方法来自 behaviors/stationNavbar.js，样式来自 styles/station-navbar.wxss。
+
+  用法（两页完全一致）：
+    <import src="../../templates/station-navbar.wxml" />
+    <template is="stationNavbar" data="{{title: '配送', statusBarHeight: statusBarHeight, ...}}" />
+
+  ⚠️ 模板拥有自己的作用域：页面 data 里的字段（尺寸、营业状态）**必须逐个 data 传入**，
+     不传就是 undefined。
+  ⚠️ 模板里的 bindtap 由**使用它的页面**解析（onStationStatusTap 来自 behavior），
+     处理函数必须真实存在，否则点击静默无反应。
+  ⚠️ `rightPad` 只用 `!== false` 判否：不传（undefined）时**默认保留**右侧胶囊留白，
+     避免将来新调用方忘了传就压住微信胶囊按钮。
+-->
+<template name="stationNavbar">
+  <view class="navbar" style="padding-top:{{statusBarHeight}}px;">
+    <view class="navbar-inner" style="height:{{navBarHeight}}px;">
+      <view class="navbar-left">
+        <view class="status-chip {{stationStatusHint ? 'status-chip-warn' : ''}}"
+              wx:if="{{stationStatusText}}" bindtap="onStationStatusTap">
+          <text class="status-dot"></text>
+          <text class="status-chip-text">{{stationStatusText}}</text>
+          <text class="status-chip-note" wx:if="{{stationStatusNote}}">· {{stationStatusNote}}</text>
+        </view>
+      </view>
+      <view class="navbar-title">{{title}}</view>
+      <view class="navbar-right" wx:if="{{rightPad !== false}}"></view>
+    </view>
+  </view>
+</template>

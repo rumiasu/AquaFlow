@@ -63,7 +63,7 @@ cd .. ; .\gradlew.bat bootRun
 
 > 本 README 是**功能与操作层面的总览**（状态定义、接口清单、启动方式等）；
 > 设计决策、建模推导、踩坑复盘在上述 `docs/design/` 中。
-> 面向代码的速查约定见 [docs/AGENTS.md](./docs/AGENTS.md)。
+> 面向代码的速查约定见根目录的 [`AGENTS.md`](./AGENTS.md)（原 `docs/AGENTS.md` 已于 2026-09-18 整体作废并归档到 `docs/audit/2026-09-18-docs-AGENTS-旧版归档.md`）。
 
 ---
 

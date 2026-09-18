@@ -199,7 +199,9 @@ Page({
       const res = await getNotices()
       const notices = (res.data || []).map(n => ({
         ...n,
-        statusText: n.status === 1 ? '已发布' : '草稿',
+        // [2026-09-18] statusText 一律用后端下发的（Notice.getStatusText，真相源 constant/NoticeStatus.java）。
+        // 这里原来写的是 `n.status === 1 ? '已发布' : '草稿'` —— 正是本仓禁止的"前端自带映射表"：
+        // 后端一旦改状态口径，前端不会跟随、也不会报错，只会一直显示错的那句。
         timeText: (n.createTime || '').replace('T', ' ').slice(0, 16)
       }))
       this.setData({ notices })

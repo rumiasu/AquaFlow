@@ -3,7 +3,7 @@
     <view class="feedback-item" wx:for="{{list}}" wx:key="id">
       <view class="feedback-content">{{item.content}}</view>
       <view class="feedback-meta">
-        <text class="feedback-category" wx:if="{{item.category}}">{{item.category}}</text>
+        <text class="feedback-cat" wx:if="{{item.category}}">{{item.category}}</text>
         <text class="feedback-time">{{item.createTime}}</text>
       </view>
     </view>

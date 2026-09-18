@@ -98,6 +98,18 @@
   font-weight: 500;
 }
 
+/* 费用明细的合计行：与上面的分项拉开层次（不另起卡片，避免与「桶资产」重复成两张表） */
+.fee-total {
+  margin-top: 8rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #eef0f3;
+}
+
+.fee-total .label,
+.fee-total .value {
+  font-weight: 600;
+}
+
 .action-section {
   display: flex;
   flex-direction: column;

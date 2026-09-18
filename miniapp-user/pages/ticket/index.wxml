@@ -99,6 +99,28 @@
         </view>
       </view>
 
+      <!-- 水票档位（价目表）：站长挂了档位才出现，没挂就照旧散买。
+           总价与均价全部用服务端下发的值，这里不做 price/qty 的算术。 -->
+      <block wx:if="{{buyPackages.length}}">
+        <text class="modal-label">按档位买（越买越便宜）</text>
+        <view class="pkg-list">
+          <view
+            class="pkg-item {{buyForm.packageId === item.id ? 'active' : ''}}"
+            wx:for="{{buyPackages}}"
+            wx:key="id"
+            data-id="{{item.id}}"
+            bindtap="onBuyPackageSelect"
+          >
+            <text class="pkg-title">{{item.title || item.qty + ' 张'}}</text>
+            <text class="pkg-price">¥{{item.price}}</text>
+            <text class="pkg-sub">{{item.qty}} 张 · 均价 ¥{{item.unitPrice}}/张</text>
+          </view>
+        </view>
+        <view class="pkg-clear" bindtap="onBuyPackageClear">
+          {{buyForm.packageId ? '不按档位，改为散买' : '当前：按单张散买'}}
+        </view>
+      </block>
+
       <!-- 数量 -->
       <text class="modal-label">购买数量</text>
       <view class="qty-row">
@@ -110,6 +132,9 @@
           <text>+</text>
         </view>
       </view>
+      <text class="pkg-lock" wx:if="{{buyForm.packageId}}">
+        已按档位锁定张数；改数量会自动退回「按单张散买」。
+      </text>
 
       <!-- 支付方式 -->
       <text class="modal-label">支付方式</text>

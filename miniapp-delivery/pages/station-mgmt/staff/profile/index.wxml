@@ -100,7 +100,8 @@
       <view class="section-title">当前进行中订单 ({{profile.currentOrders.length}})</view>
       <view class="order-item" wx:for="{{profile.currentOrders}}" wx:key="id">
         <view class="order-left">
-          <text class="order-customer">{{item.customerName || '未知客户'}}</text>
+          <!-- 跨站履约单后端刻意不下发 customerName（画像归归属站）→ 回落订单收件人 -->
+          <text class="order-customer">{{item.customerName || item.receiverName || '未知客户'}}</text>
           <text class="order-address">{{item.addressSnapshot || ''}}</text>
         </view>
         <view class="order-right">

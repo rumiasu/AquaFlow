@@ -91,7 +91,23 @@ Page({
       const repayLabel = order.repayLabel || '去支付'
       const payHint = order.payHint || ''
 
-      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, payHint, bucketInfo })
+      // 费用明细：全部用后端下发的金额字段，前端口径只做格式化
+      // ⚠️ 配送费/楼层费是 v34/v35 加的列，**必须在明细里逐项出现** —— 只把它们并进合计
+      //    而不显示，客户会以为算错了钱（下单页那句同样的注释已经写过一次，这里是同一个坑）。
+      const yuan = v => Number(v || 0).toFixed(2)
+      const fee = {
+        waterText: yuan(order.waterAmount),
+        depositText: yuan(order.depositAmount),
+        extraDepositText: yuan(order.extraDepositAmount),
+        deliveryFeeText: yuan(order.deliveryFee),
+        floorFeeText: yuan(order.floorFee),
+        totalText: yuan(order.totalAmount),
+        hasDeposit: Number(order.depositAmount || 0) > 0 || Number(order.extraDepositAmount || 0) > 0,
+        hasDeliveryFee: Number(order.deliveryFee || 0) > 0,
+        hasFloorFee: Number(order.floorFee || 0) > 0
+      }
+
+      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, payHint, bucketInfo, fee })
 
       this.loadItemImages(items)
     } catch (err) {

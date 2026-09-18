@@ -2,6 +2,21 @@ const { get, post } = require('../../../utils/request')
 const { API, BINDING_STATUS } = require('../../../config/api')
 const { STORAGE_KEYS } = require('../../../utils/storage-keys')
 
+// 配送员自己的绑定/解绑申请历史（只读）。
+// 路径常量就近写在本页顶部，不进 config/api.js —— 那是**员工端全局路径表**，
+// 为一个页面级只读端点去改它，冲突成本高于收益（本仓前端约定：新页面自带局部常量）。
+const BIND_APPLICATIONS = '/api/delivery/bind/applications'
+
+// 时间展示：后端下发 ISO-8601，统一 new Date(str)。
+// 不要写 .replace(/-/g, '/') —— 那是给非标准格式打补丁，iOS 上反而更脆（AGENTS.md §8.7）。
+function formatTime(value) {
+  if (!value) return ''
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return ''
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 // V1: 配送员申请绑定水站（极简流程，不填任何个人信息）
 // - 页面进入即自动拉取所有水站列表
 // - 点击任意水站卡片 = 直接提交绑定申请
@@ -10,7 +25,8 @@ Page({
   data: {
     loading: false,
     stationList: [],
-    applyingId: null // 正在提交申请的水站ID，防重复点击
+    applyingId: null, // 正在提交申请的水站ID，防重复点击
+    history: []       // 申请历史（只读，见 loadHistory）
   },
 
   // 不用 onLoad：进页面先向服务器确认真实状态 —— 可能已经在别处完成了绑定
@@ -28,7 +44,9 @@ Page({
     const app = getApp()
     const left = await app.refreshIdentityAndRoute('pages/station-mgmt/apply-bind/index')
     if (left) return
-    this.loadStations()
+    // 顺序有意义：申请历史里的水站名要用 stationList 反查，先有列表再有历史
+    await this.loadStations()
+    this.loadHistory()
   },
 
   /**
@@ -63,10 +81,10 @@ Page({
     })
   },
 
-  onPullDownRefresh() {
-    this.loadStations().then(() => {
-      wx.stopPullDownRefresh()
-    })
+  async onPullDownRefresh() {
+    await this.loadStations()
+    await this.loadHistory()
+    wx.stopPullDownRefresh()
   },
 
   async loadStations() {
@@ -80,6 +98,35 @@ Page({
     } catch (err) {
       this.setData({ loading: false, stationList: [] })
       wx.showToast({ title: err.message || '加载水站列表失败', icon: 'none' })
+    }
+  },
+
+  /**
+   * 申请历史（只读）：回答"上次为什么被拒、什么时候被解绑"。
+   *
+   * 为什么落在本页而不是等待页 bind-wait（2026-09-18）：被拒(REJECTED) / 未绑定(UNBOUND) 时
+   * app.js 一律把人路由到本页（app.js:166-172 _targetRoute；role-select/index.js:83-88 同理），
+   * 而 bind-wait 只在 PENDING / PENDING_UNBIND 才停留（bind-wait/index.js:66-88 会 switchTab/redirectTo 走）——
+   * 把历史挂在等待页上，恰好是最需要看它的两个状态看不到。
+   *
+   * 文案一律用后端下发的 typeName / statusName（DeliveryBindingController.applicationToMap），
+   * 前端不写 type/status → 中文映射；水站名后端只给 stationId，用本页已有的 stationList 反查补齐。
+   */
+  async loadHistory() {
+    try {
+      const res = await get(BIND_APPLICATIONS)
+      const stationName = {}
+      this.data.stationList.forEach(s => { stationName[s.id] = s.name })
+      const history = (res.data || []).map(row => ({
+        ...row,
+        stationLabel: stationName[row.stationId] || `水站 #${row.stationId}`,
+        createTimeText: formatTime(row.createTime),
+        handleTimeText: formatTime(row.handleTime)
+      }))
+      this.setData({ history })
+    } catch (err) {
+      // 历史是附加信息：拉不到就不显示，不弹错误打断"申请绑定"这条主流程
+      this.setData({ history: [] })
     }
   },
 

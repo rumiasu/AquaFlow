@@ -5,6 +5,7 @@ import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.StaffMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.StaffService;
+import com.example.aquaflow.util.CustomerProfileMask;
 import com.example.aquaflow.vo.StaffProfileVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -113,6 +114,10 @@ public class StaffServiceImpl implements StaffService {
             if (st instanceof Number) {
                 m.put("statusText", com.example.aquaflow.constant.OrderStatus.textOf(((Number) st).intValue()));
             }
+            // 跨站外派给本站配送员的单：客户档案算归属站的，这里只留订单快照
+            // （receiverName / 地址 / 金额）。口径见 util/CustomerProfileMask；
+            // SQL 必须 as 出 stationId / deliveryStationId 两列，否则这里静默不抹。
+            CustomerProfileMask.maskIfCrossStation(m, "customerName");
         }
         return orders;
     }

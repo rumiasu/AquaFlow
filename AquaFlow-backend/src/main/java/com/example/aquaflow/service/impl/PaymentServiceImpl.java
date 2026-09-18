@@ -23,6 +23,7 @@ import com.example.aquaflow.service.TicketAccountService;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.PriceUtil;
 import com.example.aquaflow.util.StationUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Slf4j
 public class PaymentServiceImpl implements PaymentService {
 
     @Autowired
@@ -89,7 +91,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired
     private com.example.aquaflow.service.DeliveryFeeService deliveryFeeService;
 
-    /** 订单归属站（优先履约站） */
+    /** 履约站口径取 {@link StationUtil#deliveryStation}（唯一实现，本类不自留副本）。 */
     private static Long stationOf(Orders o) {
         if (o == null) return null;
         return o.getDeliveryStationId() != null ? o.getDeliveryStationId() : o.getStationId();
@@ -97,8 +99,17 @@ public class PaymentServiceImpl implements PaymentService {
 
     /**
      * [AQ-043] 订单「归属站」= orders.station_id。
-     * 钱与票据（收款流水 / 预收押金 / 水票扣减）一律记在归属站，与欠桶 adjustOwed 的口径一致；
-     * 跨站外派时若用履约站会与实物账错位（钱记履约站、欠桶记归属站）。
+     *
+     * <p><b>认归属站的是"资产与退款"</b>：预收押金（{@code customer_deposit_account} /
+     * {@code deposit_record}）、水票扣减与回补、退款——那是"客户买在哪个站的资产"，
+     * 与欠桶 {@code adjustOwed} 的口径一致。跨站外派时若用履约站会与实物账错位
+     * （押金记履约站、欠桶记归属站）。</p>
+     *
+     * <p>⚠️ <b>收款流水不归本方法管</b>（v47，2026-09-18）：{@code payment_record.station_id}
+     * 按<b>结算站</b>写（水费 + 配送费 + 楼层费归实际配送站），取 {@link StationUtil#settleStation}
+     * —— 口径只有那一份，本类不再自留副本（两份实现迟早算出两个站，正是本仓"计价双轨"事故的同形风险）。
+     * 两者刻意不同，别"统一"掉 —— 产品裁定就是"钱（营收）跟着送货的站走，
+     * 押金/票/桶这种客户资产留在归属站"。</p>
      */
     private static Long ownerStation(Orders o) {
         if (o == null) return null;
@@ -131,6 +142,11 @@ public class PaymentServiceImpl implements PaymentService {
         if (orderId != null) {
             order = orderMapper.getById(orderId);
             if (order != null) {
+                // [v47 复核] 这个表达式的值 = 结算站（本列写入 payment_record.station_id）：
+                // 正常路径下 settle_station_id 与 coalesce(delivery_station_id, station_id) 恒等
+                // （下单两列同值、抢单/外派两列一起改、退回池/召回一起回归属站），故此处**无需**改用
+                // StationUtil.settleStation(order)。留着 orderStationId 是因为它下面还要判「货到付款权限」
+                // （customer_station_config 是 (客户 × 站) 的绑定关系，判据不是营收归属，别混用）。
                 orderStationId = order.getDeliveryStationId() != null ? order.getDeliveryStationId() : order.getStationId();
             }
         }
@@ -313,7 +329,31 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void relocatePendingCollection(Long orderId, Long settleStationId) {
+        if (orderId == null || settleStationId == null) {
+            return;
+        }
+        // [v47 2026-09-18] 订单换站（抢单/定向外派/退回池/召回/指定退回-同意）后，待收款流水必须跟着走：
+        // 否则「履约站收了钱、凭据却挂在归属站」，并且两个站的「待确认收款」列表各错一边
+        // （归属站列着它永远收不到的钱、履约站看不到自己该催的单）。
+        // 只搬 PENDING 行 —— 已收/已退的历史凭据是已经发生过的钱，改站等于伪造账。
+        // 调用方（OrderWorkflowServiceImpl）与订单站别的 CAS 在同一个事务里，CAS 没成功就不会走到这里。
+        int moved = paymentRecordMapper.movePendingToStation(orderId, settleStationId);
+        if (moved > 0) {
+            log.info("[结算站] 订单 {} 的 {} 条待收款流水改挂水站 {}", orderId, moved, settleStationId);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void recordCashCollection(Long orderId) {
+        // 默认事由即"配送员现场收款"——本方法最初的唯一调用方是 completeDelivery。
+        recordCashCollection(orderId, "配送员现场收款（货到付款）");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void recordCashCollection(Long orderId, String note) {
         if (orderId == null) {
             return;
         }
@@ -325,18 +365,41 @@ public class PaymentServiceImpl implements PaymentService {
         if (hasPaidRecord(orderId)) {
             return;
         }
+        String finalNote = note != null && !note.isEmpty() ? note : "配送员现场收款（货到付款）";
+        Long settleStationId = StationUtil.settleStation(order);
+        // [2026-09-18] 已有一条**待收款**流水时，就地确认它，**不要再插一条 PAID**：
+        // 一单只能有一条活跃流水（生成列 active_order_id 把 status ∈ (1,2) 都算活跃 +
+        // uk_payment_active_order），插第二条必然 DuplicateKeyException → 整个送达事务回滚，
+        // 配送员点「已收款」只拿到 code=1「数据已存在，请勿重复提交」，订单永远停在配送中。
+        // 这条路径真实可达：现金单在客户点过「去支付」之后就会先落一条 PENDING
+        // （PaymentServiceImpl.createPayment 的现金分支），而收款是另一条写路径。
+        // 顺带把站别改成结算站 —— 确认下来的这条凭据就是"谁结算谁收钱"的凭证。
+        if (paymentRecordMapper.confirmPendingToPaid(orderId, settleStationId, finalNote,
+                AuthContext.getUserId()) > 0) {
+            return;
+        }
         // [AQ-002] 现金（货到付款）由配送员现场收款，是合法收款动作；
         // 但必须补写一条 PAID 支付流水，否则「订单已付款」与支付流水对不上，日结无凭证。
+        //
+        // [v47 2026-09-18] 流水的站别从 ownerStation（归属站）改为**结算站**：
+        // 产品裁定「水费 + 配送费 + 楼层费归实际配送站」，钱在谁手里收的就记谁的营收。
+        // 两条链路的调用方都在这条规则里：① 站长核销应收账款（ReceivableService.settle
+        // → 本方法）—— 核销的站别校验也已改成结算站，收款流水必须跟着同一个站，
+        // 否则"在 B 站核销掉、钱却记在 A 站"，对账口径再次分叉；
+        // ② 配送员现场收款（completeDelivery / confirmOfflinePay）—— 现金是履约站收的。
+        // ⚠️ 押金/水票**不跟着走**：applyDepositOnPaid / refundOrder 仍用 ownerStation（归属站），
+        // 那是客户买在哪个站的资产（见 ownerStation 的 javadoc）。
+        // 结算站口径取 StationUtil.settleStation（唯一实现），不在本类另写一份。
         PaymentRecord record = new PaymentRecord();
         record.setOrderId(orderId);
         record.setCustomerId(order.getCustomerId());
-        record.setStationId(ownerStation(order));
+        record.setStationId(settleStationId);
         record.setAmount(order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO);
         record.setWaterAmount(order.getWaterAmount());
         record.setBarrelDeposit(order.getDepositAmount());
         record.setPaymentMethod(PayMethod.CASH);
         record.setStatus(PaymentStatus.PAID);
-        record.setNote("配送员现场收款（货到付款）");
+        record.setNote(finalNote);
         record.setOperatorId(AuthContext.getUserId());
         record.setCreateTime(LocalDateTime.now());
         record.setUpdateTime(LocalDateTime.now());
@@ -405,7 +468,12 @@ public class PaymentServiceImpl implements PaymentService {
         record.setNote("货到付款确认");
         // 审计留痕：记录「谁、在哪个水站」收的款（历史 payment_record.operator_id 全为空，无法追溯）
         record.setOperatorId(AuthContext.getUserId());
-        Long st = (o != null && o.getStationId() != null) ? o.getStationId() : AuthContext.getStationId();
+        // [2026-09-18 订正] 站别改为**结算站**（v47）：跨站外派单（归属 A / 履约 B）的营收归履约站，
+        // 所以这笔现金流水也必须记 B，与 recordCashCollection 同口径。
+        // ⚠️ 本方法**全仓零调用**（2026-09-18 grep 复核：只有接口声明与本实现）—— 保留但不得据它判权；
+        // 曾经的注释写着「刻意不动、等 [AQ-043] 裁定」，而那条裁定已经下来（确认收款认结算站）。
+        Long st = StationUtil.settleStation(o);
+        if (st == null) st = AuthContext.getStationId();
         record.setStationId(st);
         record.setCreateTime(LocalDateTime.now());
         record.setUpdateTime(LocalDateTime.now());
@@ -489,26 +557,21 @@ public class PaymentServiceImpl implements PaymentService {
 
         Long customerId = order.getCustomerId();
         // ===== 站别口径（跨站外派单必须分清，混用会真丢钱）=====
-        // 钱与票（收款流水 / 预收押金 / 水票扣减）在下单与收款时一律记【归属站】(ownerStation)，
+        // 这里退的是**客户的资产**：预收押金、水票。它们在收款时一律记【归属站】(ownerStation)，
         // 所以取消时也必须退回同一个账户 —— 退到履约站等于把钱记进没收到过钱的站。
+        // （收款流水 payment_record.station_id 是另一回事：v47 起按【结算站】写，
+        //   但退款流水是"沿用原流水自己的站"（insertRefundRecord），原路返回，与这里无关。）
         // 库存则相反：下单扣的是【履约站】的库存（OrderServiceImpl 用 dto.stationId，抢单池接单=接单站），
         // 因此回补必须回到履约站，否则履约站库存凭空少、归属站凭空多。
         Long ownerStation = ownerStation(order);
         Long fulfillStation = StationUtil.deliveryStation(order);
 
         // AQ-008: 退还订单已消费的水票（按实际扣减记录回补，避免重复还/漏还）
-        List<OrderItem> refundItems = orderItemMapper.listByOrderId(orderId);
-        if (refundItems != null) {
-            for (OrderItem item : refundItems) {
-                if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity() <= 0) {
-                    continue;
-                }
-                // 仅当该订单该商品确曾消耗水票时才归还
-                if (ticketRecordMapper.countConsumeByOrderAndProduct(orderId, item.getProductId()) > 0) {
-                    ticketAccountService.refundTicket(customerId, item.getProductId(), item.getQuantity(), orderId, ownerStation);
-                }
-            }
-        }
+        // [2026-09-18] 抽成 restoreTicketsForOrder：站长手工退款（refundPayment）要对水票支付的
+        // 订单做**同一件事**，两处各写一份必然走样（本仓已有"计价双轨"的前车之鉴）。
+        // 站别仍取【归属站】、判据仍是"该单该商品确曾消耗过票"，与抽取前一致；
+        // 唯一新增的是"已回补过就跳过"的幂等闸门（两条退款路径可能先后碰到同一张单）。
+        restoreTicketsForOrder(order, orderId, reason);
 
         List<PaymentRecord> paidRecords = paymentRecordMapper.listByOrderId(orderId).stream()
                 .filter(r -> r.getStatus() == PaymentStatus.PAID)
@@ -517,12 +580,18 @@ public class PaymentServiceImpl implements PaymentService {
         if (paidRecords.isEmpty()) {
             // 没有任何已支付记录 = 这笔订单客户根本没付过钱。
             // 旧实现一律写 REFUNDED，于是从未付款的订单取消后显示"已退款"，
-            // 与实际资金流水对不上。正确语义是"已取消"。
-            // 没有任何已支付记录 = 这笔订单客户根本没付过钱。正确语义是「已取消」而非「已退款」。
+            // 与实际资金流水对不上。正确语义是「已取消」。
             // 未付款订单的付款状态可能是 UNPAID(0，建了现金支付但未确认) 或 PENDING(1，库默认待付款)，
             // 以读取到的当前值作 expected（同一事务内，CAS 仍防并发重复取消）。
-            int prePs = order.getPaymentStatus() != null ? order.getPaymentStatus() : PaymentStatus.PENDING;
-            orderMapper.updatePaymentStatusIf(orderId, prePs, PaymentStatus.CANCELLED);
+            final int prePs = order.getPaymentStatus() != null ? order.getPaymentStatus() : PaymentStatus.PENDING;
+            // [2026-09-18] 但「已退款(3)」不许被覆盖成「已取消(4)」：站长手工退款（refundPayment）
+            // 先把流水转 REFUNDED，此后订单再被取消就会走到这一支（此时该单已无 PAID 流水），
+            // 于是钱退了、支付状态却显示"从未付款"。与 [AQ-022] 同一类错误：
+            // 3/4 都是终态、只前进不倒滚（AGENTS.md §1.1）。
+            // 这个分支原本只有 0/1 会进来，是 2026-09-18 给 refundPayment 补票据后才出现的组合。
+            if (prePs != PaymentStatus.REFUNDED && prePs != PaymentStatus.CANCELLED) {
+                orderMapper.updatePaymentStatusIf(orderId, prePs, PaymentStatus.CANCELLED);
+            }
         } else {
             for (PaymentRecord r : paidRecords) {
                 // 标记原支付记录为已退款。
@@ -533,24 +602,11 @@ public class PaymentServiceImpl implements PaymentService {
                 // 正确顺序是 (id, 目标状态, 期望状态)。
                 paymentRecordMapper.updateStatusIf(r.getId(), PaymentStatus.REFUNDED, PaymentStatus.PAID);
 
-                // 生成退款记录
-                PaymentRecord refundRecord = new PaymentRecord();
-                refundRecord.setOrderId(orderId);
-                refundRecord.setCustomerId(r.getCustomerId());
-                refundRecord.setStationId(r.getStationId());
-                refundRecord.setAmount(r.getAmount().negate()); // 负金额表示退款
-                refundRecord.setWaterAmount(r.getWaterAmount() != null ? r.getWaterAmount().negate() : BigDecimal.ZERO);
-                refundRecord.setBarrelDeposit(r.getBarrelDeposit() != null ? r.getBarrelDeposit().negate() : BigDecimal.ZERO);
-                refundRecord.setExcessBarrels(r.getExcessBarrels() != null ? -r.getExcessBarrels() : 0);
-                refundRecord.setPaymentMethod(r.getPaymentMethod());
-                refundRecord.setStatus(PaymentStatus.REFUNDED);
-                refundRecord.setNote("退款：" + (reason != null ? reason : "订单取消"));
-                refundRecord.setCreateTime(LocalDateTime.now());
-                refundRecord.setUpdateTime(LocalDateTime.now());
-                paymentRecordMapper.insert(refundRecord);
-
-                // TODO: 微信支付退款 - 若 paymentMethod=1，调用微信退款 API
-                // 这里暂时仅记录退款流水，实际微信退款需异步任务处理
+                // 生成退款记录（形状与站长手工退款共用同一个私有方法，见 insertRefundRecord）
+                insertRefundRecord(r, refundNoteForOrder(r.getPaymentMethod(), reason));
+                // 微信渠道未接入（PayMethod.availableMethods() 里该项恒 disabled），这里**没有**任何
+                // API 调用会发生。注释从原文的 `// TODO: 微信支付退款 - 若 paymentMethod=1，调用微信退款 API`
+                // 改写成结论：TODO 会被下一次读到它的人当成"已经处理过"，而实际口径是**永不自动退**。
             }
 
             // AQ-022: 退款后支付状态应为 REFUNDED 而非 UNPAID，反映"已退款"而非"从未付款"
@@ -634,6 +690,32 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    /**
+     * 站长手工退款（单笔支付流水）。
+     *
+     * <p>覆盖范围 = <b>一笔流水</b>，不是一张订单：它<b>不</b>取消订单、<b>不</b>退押金、
+     * <b>不</b>清配送中桶、<b>不</b>回补库存 —— 那些属于订单取消链（{@link #refundOrder}）。
+     * 用它的场景是"客户投诉多收/重复付款"，订单本身还要继续履约。</p>
+     *
+     * <h3>[2026-09-18] 修掉的三处真实缺口</h3>
+     * <p>原文自陈「只做两件事：原流水 CAS 成 REFUNDED、订单 payment_status 从 PAID 改成 REFUNDED」。
+     * 三处后果都在钱上：</p>
+     * <ol>
+     *   <li><b>没有"钱流出去了"的凭据</b>：原流水被改成"已退款"，却<b>不</b>新增负金额冲正流水
+     *       （{@link #refundOrder} 一直有）。于是资金流水里既没有这笔支出，
+     *       对账等式2 也无从复核"退了多少、按什么方式退的"。</li>
+     *   <li><b>水票一点没回来</b>：水票支付的钱就是票。原实现对 method=3 只改流水状态，
+     *       客户账上少掉的票一张都不补 —— 界面上显示"已退款"，票却永远没了（AGENTS.md §8.15）。</li>
+     *   <li><b>微信假装退成功</b>：method=1 时同样只改状态，而微信渠道根本没接入
+     *       （{@code PayMethod.availableMethods()} 里该项恒 disabled），钱一分没退。</li>
+     * </ol>
+     *
+     * <h3>刻意与 {@link #refundOrder} 不一致的一处（不是疏漏）</h3>
+     * <p>微信（method=1）在本方法<b>直接拒绝</b>，在 {@code refundOrder} 里<b>只记流水 + 写清"需线下退款"</b>。
+     * 理由：本方法的唯一产出就是"钱"，钱退不出去时它没有任何有意义的下半场，装作成功等于制造
+     * "界面说退了、账上没退"；而订单取消链必须跑完（还要连退押金 / 回补库存 / 清配送中桶），
+     * 为一笔退不出去的钱把整条取消链卡死，会让历史微信单永远取消不掉。</p>
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void refundPayment(Long paymentId, String note) {
@@ -643,9 +725,53 @@ public class PaymentServiceImpl implements PaymentService {
         if (record.getStatus() != PaymentStatus.PAID) {
             throw new BusinessException("仅已支付记录可退款，当前状态: " + record.getStatus());
         }
+
+        // ===== 场景① 无订单的线上购票流水：本批不实现，但必须拒绝得明明白白 =====
+        // 这笔钱买到的是水票，而水票在 confirmPayment 时就已经入账（creditPurchasedTickets）。
+        // 「退款」= 把已入账的票扣回来，难度与风险都不在同一个量级：
+        //   · 票可能已经被用掉了 —— 扣回必须**先校验余额是否够**，不够就得拒绝（不能透支）；
+        //   · 扣回同样要过批次账（TicketLotService.consumeFifo + 反写 ticket_record），
+        //     否则对账 E8 立刻报不平；
+        //   · 已经发出去的票是否允许回收，本身还需要产品口径（现金退款？还是站长资产调整单的
+        //     人工扣减 + 置流水 REFUNDED？）。
+        // 所以这里宁可拒绝，也**绝不**静默只改流水状态：那样界面显示"已退款"，客户票却还在账上，
+        // 等于白送 —— 与 [AQ-017]「要求了补偿却没执行也必须失败」同一条判据。
+        if (record.getOrderId() == null && record.getTicketQty() != null && record.getTicketQty() > 0) {
+            throw new BusinessException("该笔为无订单的线上购票支付，退款需先扣回已入账的水票"
+                    + "（票可能已被使用，余额不足时不能透支），本批未开放此路径；"
+                    + "请走站长资产调整单处理，或联系运维按流水手工核销");
+        }
+
+        // ===== 场景② 微信（1）：渠道未接入，不能假装退成功 =====
+        // PayMethod.availableMethods() 里微信恒 disabled，全系统没有一处微信退款 API 调用。
+        // 若照旧把流水标成已退款，界面会显示"已退款"，而钱仍在客户账上没动。
+        if (Integer.valueOf(PayMethod.WECHAT).equals(record.getPaymentMethod())) {
+            throw new BusinessException("微信支付渠道未接入，无法自动原路退回，请线下退款并登记");
+        }
+
+        // ===== 水票（3）：钱就是票，必须原路回补水票 =====
+        // ⚠️ 必须放在 CAS 改状态**之前**：回补失败（余额/批次账对不上）时整事务回滚，
+        // 流水状态也要跟着回到「已付款」，不能留下"流水说退了、票没补"的中间态。
+        // 站别用**归属站**（钱当初收在归属站），与 refundOrder 同源，不回补 = 客户票凭空少。
+        Orders ticketOrder = record.getOrderId() != null ? orderMapper.getById(record.getOrderId()) : null;
+        if (Integer.valueOf(PayMethod.TICKET).equals(record.getPaymentMethod())
+                && record.getOrderId() != null && ticketOrder != null) {
+            restoreTicketsForOrder(ticketOrder, record.getOrderId(), note);
+        }
+
         // [2026-09-16 修复] 参数顺序：(id, 目标状态, 期望状态)。原写作 (PAID, REFUNDED) 会让这条 CAS
         // 恒命中 0 行 —— 退款成功了，但支付流水仍显示「已付款」（本类 refundOrder 里同一处也已修）。
-        paymentRecordMapper.updateStatusIf(paymentId, PaymentStatus.REFUNDED, PaymentStatus.PAID);
+        // [2026-09-18] 补上 0 行检查：上面的开销（回补水票 + 建批次）是不能重复吃的副作用，
+        // 而这一句正是"同一笔流水只允许退一次"的唯一闸门 —— 不检查就等于把闸门焊死在开位。
+        int refunded = paymentRecordMapper.updateStatusIf(paymentId, PaymentStatus.REFUNDED, PaymentStatus.PAID);
+        if (refunded == 0) {
+            throw new BusinessException("退款失败，该笔支付状态已变更，请刷新后重试");
+        }
+
+        // ===== 负金额冲正流水：与 refundOrder 共用同一个私有方法，杜绝两套口径 =====
+        // 原文把"退款"实现成"把原流水改成已退款"，于是资金流水里看不到这笔支出。
+        insertRefundRecord(record, manualRefundNote(record, note));
+
         if (record.getOrderId() != null) {
             // [2026-09-16] 原为 updatePaymentStatusIf(orderId, PAID, UNPAID)：把订单支付状态从
             // 已付款(2) 倒滚回 未支付(0)。后果与 [AQ-022]（refundOrder 那条）完全一样 ——
@@ -655,6 +781,161 @@ public class PaymentServiceImpl implements PaymentService {
             // 因此退款后的订单不会被重新收一遍钱。
             orderMapper.updatePaymentStatusIf(record.getOrderId(), PaymentStatus.PAID, PaymentStatus.REFUNDED);
         }
+    }
+
+    /**
+     * 按订单项把该订单消耗掉的水票原路回补（<b>唯一的</b>水票回补实现，供两条退款路径共用）。
+     *
+     * <p>[2026-09-18] 从 {@code refundOrder} 抽出来，与站长手工退款（{@code refundPayment}）共用。
+     * 抽出来的理由是"同一件事只能有一份口径"：水票回补要同时满足四条约束，
+     * 任何一条在复制粘贴时漏掉，对账 E8 就会报不平或让客户凭空多票 ——</p>
+     * <ol>
+     *   <li>只回补**确曾消耗过**的商品（{@code countConsumeByOrderAndProduct > 0}），否则会给没扣过票的单凭空发票；</li>
+     *   <li>已经回补过就跳过（{@code countRefundByOrderAndProduct > 0}）：两条退款路径可能先后碰到同一张单，
+     *       第二次回补会撞 {@code uk_ticket_consume}，报出来却是 500「系统错误」；</li>
+     *   <li>回补必须走 {@code ticketAccountService.refundTicket}（<b>不要</b>直接改 ticket_account /
+     *       ticket_lot）：余额的真相源是 {@code ticket_lot}，批次是唯一写入口，
+     *       单价按流水里**当时消耗的批次单价**还原（见 docs/design/19）；</li>
+     *   <li>站别一律【归属站】（{@code ownerStation}）—— 水票当初就扣在归属站（{@code deductTickets}
+     *       用 ownerStation，是"客户买在哪个站的资产"），退回履约站等于把票记进没扣过票的站
+     *       （跨站外派单 [AQ-043]）。⚠️ 这里说的只是**票**：收款流水 v47 起按结算站写，
+     *       两者刻意不同，别顺手"统一"。</li>
+     * </ol>
+     *
+     * @param order       订单（用于取归属站与客户）
+     * @param orderId     订单ID
+     * @param ticketReason 退款事由，仅用于日志
+     */
+    private void restoreTicketsForOrder(Orders order, Long orderId, String ticketReason) {
+        Long customerId = order.getCustomerId();
+        Long ownerStation = ownerStation(order);
+        List<OrderItem> refundItems = orderItemMapper.listByOrderId(orderId);
+        if (refundItems == null) {
+            return;
+        }
+        int restored = 0;
+        for (OrderItem item : refundItems) {
+            if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity() <= 0) {
+                continue;
+            }
+            // 仅当该订单该商品确曾消耗水票时才归还
+            if (ticketRecordMapper.countConsumeByOrderAndProduct(orderId, item.getProductId()) <= 0) {
+                continue;
+            }
+            // [2026-09-18] 幂等闸门前移：这张单的该商品若已经回补过（两条退款路径可能先后碰到
+            // 同一张单：站长先在订单详情点「退款」，之后订单又被取消/拒单），再来一次会撞
+            // uk_ticket_consume(order_id, product_id, source='退款')。撞键虽然也能保证票不多退
+            // （整个事务回滚），但报出来的是 code=500「系统错误」，
+            // 把"这张单已经退过了"伪装成后端故障。这里提前判掉，错误留在原路径，见 §8.17。
+            if (ticketRecordMapper.countRefundByOrderAndProduct(orderId, item.getProductId()) > 0) {
+                continue;
+            }
+            ticketAccountService.refundTicket(customerId, item.getProductId(), item.getQuantity(), orderId, ownerStation);
+            restored++;
+        }
+        if (restored > 0) {
+            log.info("[水票回补] orderId={}, customerId={}, stationId={}, 商品数={}, 事由={}",
+                    orderId, customerId, ownerStation, restored, ticketReason);
+        }
+    }
+
+    /**
+     * 插入"负金额退款冲正流水" —— <b>退款凭据的唯一写法</b>，两条退款路径共用。
+     *
+     * <p>[2026-09-18] 从 {@code refundOrder} 里原样抽出，行为逐字未变：金额与水费/押金/超出桶数
+     * 一律取负、支付方式/客户/水站沿用原流水、状态 REFUNDED。抽出来的直接原因：
+     * {@code refundPayment} 原先<b>没有</b>这条凭据（只把原流水改成已退款），
+     * 补的时候若复制粘贴，就又多出一套口径 —— 日后改金额方向必然只改一处。
+     * 本仓对"同一件事两份实现"的代价有明确记录（计价双轨、前端各自维护 1/2/3 映射表）。</p>
+     *
+     * <p><b>不要把 {@code deliveryFee} / {@code floorFee} 改成取负</b>：原实现就不设这两个字段，
+     * 抽出来时保持逐字不变；mapper 的 {@code IFNULL(#{deliveryFee}, 0.00)} 会把 null 兜成 0，
+     * 改方向等于凭空改动资金流水（见 {@code PaymentRecordMapper.insert} 的注释）。</p>
+     *
+     * <p>{@code status} 保持 {@code REFUNDED}（而不是 CANCELLED）：对账等式2 的 p2d 项要求
+     * 「订单 payment_status=3 时必须存在 status=3 的流水」。{@code operatorId} 也保持不设 ——
+     * 与原实现一致；要追溯"谁点的退款"，看原流水所在订单的操作日志与 note。</p>
+     *
+     * @param original   被退的原支付流水（必须是 PAID，调用方已校验）
+     * @param refundNote 备注（本方法负责按 {@code payment_record.note} 的 varchar(200) 截断）
+     */
+    private void insertRefundRecord(PaymentRecord original, String refundNote) {
+        PaymentRecord refundRecord = new PaymentRecord();
+        // order_id 直接沿 original 取（两条路径传进来的 original 就是被退的那条流水）。
+        refundRecord.setOrderId(original.getOrderId());
+        refundRecord.setCustomerId(original.getCustomerId());
+        refundRecord.setStationId(original.getStationId());
+        refundRecord.setAmount(negate(original.getAmount())); // 负金额表示退款
+        refundRecord.setWaterAmount(negate(original.getWaterAmount()));
+        refundRecord.setBarrelDeposit(negate(original.getBarrelDeposit()));
+        refundRecord.setExcessBarrels(original.getExcessBarrels() != null ? -original.getExcessBarrels() : 0);
+        refundRecord.setPaymentMethod(original.getPaymentMethod());
+        refundRecord.setStatus(PaymentStatus.REFUNDED);
+        refundRecord.setNote(truncateNote(refundNote));
+        refundRecord.setCreateTime(LocalDateTime.now());
+        refundRecord.setUpdateTime(LocalDateTime.now());
+        paymentRecordMapper.insert(refundRecord);
+    }
+
+    /** 金额取负，{@code null} 一律按 0 处理（原 refundOrder 内联写法即 {@code != null ? negate : ZERO}）。 */
+    private static BigDecimal negate(BigDecimal v) {
+        return v != null ? v.negate() : BigDecimal.ZERO;
+    }
+
+    /**
+     * {@code payment_record.note} 是 {@code varchar(200)}，而 {@code PUT /api/payments/{id}/refund}
+     * 的 DTO 允许 500 字。不截断的话长备注会在 INSERT 阶段报「Data too long for column 'note'」，
+     * 把一次正常退款变成 500 系统异常，且站长完全看不懂（AGENTS.md §8.21 判据）。
+     */
+    private static String truncateNote(String note) {
+        if (note == null) {
+            return null;
+        }
+        return note.length() <= 200 ? note : note.substring(0, 200);
+    }
+
+    /**
+     * 订单取消链的退款备注。
+     *
+     * <p>[2026-09-18] 基数文案与抽取前完全一致（{@code "退款：" + reason}），只是按支付方式追加了
+     * 一句渠道说明：微信追加「未接入，需线下退款并登记」，现金追加「钱由站长当面退还」。
+     * 这两句是给人看的凭据说明 —— 站长在支付流水里必须能一眼看出"这笔钱到底有没有真的退出去"。</p>
+     */
+    private static String refundNoteForOrder(Integer paymentMethod, String reason) {
+        String base = "退款：" + (reason != null ? reason : "订单取消");
+        if (Integer.valueOf(PayMethod.WECHAT).equals(paymentMethod)) {
+            // [2026-09-18] 微信渠道未接入，本链**不会**自动原路退回（渠道未接入，
+            // PayMethod.availableMethods() 里该项恒 disabled）。但不阻断取消：
+            // 取消还要连锁退押金 / 回补库存 / 清配送中桶，为一笔退不出去的钱卡死整条链，
+            // 会让历史微信单永远取消不掉。所以这里只记流水 + 写清"需线下退款"，让站长看得见。
+            // 对比：站长手工退款（refundPayment）对 method=1 直接拒绝 —— 那个方法的唯一产出就是"钱"，
+            // 退不出去时没有有意义的下半场，不能假装成功。
+            log.warn("[退款] 微信渠道未接入，本条退款流水仅为凭据，需线下退款: orderId 见流水, paymentMethod={}, reason={}",
+                    paymentMethod, reason);
+            base = base + "（微信渠道未接入，需线下退款并登记）";
+        } else if (Integer.valueOf(PayMethod.CASH).equals(paymentMethod)) {
+            // 现金退款没有线上渠道可言，钱由站长当面退还；写进备注，对账/客服才有依据。
+            base = base + "（现金，钱由站长当面退还）";
+        }
+        return base;
+    }
+
+    /**
+     * 站长手工退款的备注（含支付方式与原因，便于日后从流水反查"这笔钱怎么出去的"）。
+     * <p>金额一律取数据库里那一笔的实际值，不重新计算 —— 备注只是文案，不是账。</p>
+     */
+    private static String manualRefundNote(PaymentRecord record, String note) {
+        String reason = (note != null && !note.trim().isEmpty()) ? note.trim() : "站长手工退款";
+        StringBuilder sb = new StringBuilder("手工退款（")
+                .append(PayMethod.textOf(record.getPaymentMethod()))
+                .append("）：")
+                .append(reason);
+        if (Integer.valueOf(PayMethod.TICKET).equals(record.getPaymentMethod())) {
+            sb.append("；已按原路径回补水票");
+        } else if (Integer.valueOf(PayMethod.CASH).equals(record.getPaymentMethod())) {
+            sb.append("；钱由站长当面退还");
+        }
+        return sb.toString();
     }
 
     @Override
@@ -684,8 +965,13 @@ public class PaymentServiceImpl implements PaymentService {
                                      List<Map<String, Object>> items, Long addressId) {
         Map<String, Object> result = new HashMap<>();
 
-        boolean allowOffline = canUseOfflinePayment(customerId, stationId);
+        // 货到付款能不能选：走唯一判据（v48）。这里还不知道金额，所以只判前三层；
+        // 金额层（单笔上限）由本方法末尾按算出来的总额再判一次，并把原因一并下发，
+        // 免得"报价页能选、提交却被拒"。
+        String offlineBlockReason = offlinePaymentBlockReason(customerId, stationId, null);
+        boolean allowOffline = offlineBlockReason == null;
         result.put("allowOfflinePayment", allowOffline);
+        result.put("offlinePaymentBlockReason", offlineBlockReason);
         // 可用支付方式由后端下发（含文案与默认选中项），前端禁止自带 1/2/3 映射表，
         // 否则再次出现"前端 2=水票、后端 2=现金"这类错位。
         result.put("methods", PayMethod.availableMethods(allowOffline));
@@ -793,6 +1079,16 @@ public class PaymentServiceImpl implements PaymentService {
         result.put("blockReason", fee.getBlockReason());
         result.put("totalAmount", totalAmount);
 
+        // 金额层复核（v48）：总额此刻才算出来，所以在这里补判一次货到付款的单笔上限 ——
+        // 判据同上（同一个方法），只把"金额相关的那一层"补上；被拦时同步把选项收回并下发原因。
+        String amountBlock = offlinePaymentBlockReason(customerId, stationId, totalAmount);
+        if (amountBlock != null) {
+            result.put("allowOfflinePayment", false);
+            result.put("offlinePaymentBlockReason", amountBlock);
+            result.put("methods", PayMethod.availableMethods(false));
+            result.put("defaultMethod", PayMethod.defaultMethod(false));
+        }
+
         return result;
     }
 
@@ -811,10 +1107,52 @@ public class PaymentServiceImpl implements PaymentService {
      */
     @Override
     public boolean canUseOfflinePayment(Long customerId, Long stationId) {
+        // 只判"开关层"（老调用方：试算/报价里决定要不要把"货到付款"这个选项放出来）。
+        // 金额相关的层（首单/欠款/单笔上限）见 offlinePaymentBlockReason —— 那里是**唯一判据**。
+        return offlinePaymentBlockReason(customerId, stationId, null) == null;
+    }
+
+    /**
+     * 货到付款**能不能用**，不能用时给出原因 —— 全仓唯一判据（v48，2026-09-18 产品裁定）。
+     *
+     * <p>四层，顺序即优先级（先开关、再欠款、再首单、最后金额）：</p>
+     * <ol>
+     *   <li><b>开关</b>：该客户在该站是否被站长开通（`customer_station_config.offline_payment_enabled`）；</li>
+     *   <li><b>欠款即停</b>：该客户在本站有逾期未结的现金单就不给新的赊账单 ——
+     *       判据只用现有列现算（`payment_status = 1` 且未取消且 `due_date` 已过），不发明新规则；</li>
+     *   <li><b>首单不给</b>（默认）：客户在本站还没有历史订单时，第一单先走水票/在线付
+     *       —— 与"首单收满押金"同一个逻辑：先建立信用。站长可给个别客户放开；</li>
+     *   <li><b>单笔上限</b>：上限为 NULL = 不限（"特殊允许的客户可以大额"）。</li>
+     * </ol>
+     *
+     * <p>⚠️ 下单（{@code OrderServiceImpl.createOrder}）与报价（{@code quote}）都必须调本方法，
+     * **不要各写一套**：两处判据一旦分叉，就会出现"报价页能选货到付款、提交却被拒"。</p>
+     *
+     * @param amount 本单金额；{@code null} = 还不知道金额（只判前三层）
+     * @return {@code null} = 可用；否则是给用户看的原因（前端直接展示，不要自编同义文案）
+     */
+    public String offlinePaymentBlockReason(Long customerId, Long stationId, BigDecimal amount) {
         if (customerId == null || stationId == null) {
-            return false;
+            return "无法识别客户或水站";
         }
         CustomerStationConfig config = customerStationConfigMapper.getByCustomerAndStation(customerId, stationId);
-        return config != null && config.getOfflinePaymentEnabled() != null && Integer.valueOf(1).equals(config.getOfflinePaymentEnabled());
+        if (config == null || !Integer.valueOf(1).equals(config.getOfflinePaymentEnabled())) {
+            return "当前客户暂不支持货到付款";
+        }
+        int overdue = orderMapper.countOverdueCashOrders(customerId, stationId);
+        if (overdue > 0) {
+            BigDecimal owed = orderMapper.sumOverdueCashAmount(customerId, stationId);
+            return "该客户有 " + overdue + " 笔逾期未结货款（合计 ¥" + owed + "），请先结清再使用货到付款";
+        }
+        boolean allowFirst = Integer.valueOf(1).equals(config.getOfflinePaymentAllowFirstOrder());
+        if (!allowFirst && orderMapper.countCustomerOrdersAtStation(customerId, stationId) == 0) {
+            return "该客户在本站还没有订单，首单暂不支持货到付款（站长可在客户权限里放开）";
+        }
+        BigDecimal limit = config.getOfflinePaymentSingleLimit();
+        if (amount != null && limit != null && amount.compareTo(limit) > 0) {
+            return "本单金额 ¥" + amount + " 超过该客户的货到付款单笔上限 ¥" + limit;
+        }
+        return null;
     }
+
 }

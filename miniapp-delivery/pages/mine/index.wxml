@@ -172,6 +172,11 @@
       <text class="menu-arrow">></text>
     </view>
     <block wx:if="{{canAccessBusiness}}">
+      <view class="menu-item" bindtap="onMyEarnings">
+        <text class="menu-icon">💰</text>
+        <text class="menu-text">我的工资</text>
+        <text class="menu-arrow">></text>
+      </view>
       <view class="menu-item" bindtap="onBarrelRecords">
         <text class="menu-icon">🛢</text>
         <text class="menu-text">空桶记录</text>

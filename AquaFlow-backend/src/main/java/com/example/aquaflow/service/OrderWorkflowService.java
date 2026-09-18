@@ -1,5 +1,7 @@
 package com.example.aquaflow.service;
 
+import com.example.aquaflow.entity.Orders;
+
 import java.util.Map;
 
 /**
@@ -74,13 +76,25 @@ public interface OrderWorkflowService {
     /** 站长驳回取消申请：订单保持原状态继续履约，申请置 REJECTED。 */
     void rejectCancelRequest(Long orderId);
 
-    /* ========== 派单 / 外派 / 召回 ========== */
+    /* ========== 派单 / 外派 / 召回 / 抢单 ========== */
 
-    /** 跨站外派：改写履约站并清空配送员（归属站不变），通知客户。 */
-    void dispatchExternal(Long orderId, Long targetStationId, String reason);
+    /**
+     * 跨站外派：改写履约站并清空配送员（归属站不变），通知客户。
+     *
+     * @param riskAcknowledged 外派方对「押金 / 桶权益」风险的<b>显式确认</b>。
+     *        涉押金/桶权益的单（判据见实现类 {@code involvesDepositOrBarrelRights}）
+     *        未确认即拒绝，且不产生任何副作用；不涉押金的普通单不看这个字段（保持原状）。
+     */
+    void dispatchExternal(Long orderId, Long targetStationId, String reason, boolean riskAcknowledged);
 
-    /** 站长外派：指定目标站，或（targetStationId 为 null 时）放入抢单池。 */
-    void outsource(Long orderId, Long targetStationId, String reason);
+    /**
+     * 站长外派：指定目标站，或（targetStationId 为 null 时）放入抢单池。
+     *
+     * <p><b>涉押金/桶权益的单禁止放入抢单池</b>（无论确认与否，直接拒绝）；指定目标站时
+     * 需要 {@code riskAcknowledged=true}，与 {@link #dispatchExternal} 同一道闸门
+     * ——两个端点干的是同一件事，只堵一个等于没堵。</p>
+     */
+    void outsource(Long orderId, Long targetStationId, String reason, boolean riskAcknowledged);
 
     /** 取消外派：召回本站待分配。 */
     void cancelDispatch(Long orderId);
@@ -88,10 +102,23 @@ public interface OrderWorkflowService {
     /** 抢单池抢单：本站认领并指定配送员（CAS，仅当订单仍在池中）。 */
     void claimPool(Long orderId, Long targetStaffId);
 
+    /**
+     * 跨站外派风险提示文案（下发给前端，前端原样展示、不得自编）。
+     *
+     * @return 本单涉押金/桶权益时返回提示与出路文案；否则返回 {@code null}
+     *         （前端据此决定要不要在提交前弹确认）
+     */
+    String crossStationRiskNote(Orders order);
+
     /* ========== 站内转单 ========== */
 
-    /** 站长分配配送员（状态保持待配送，等配送员接单）。 */
-    void assignToStaff(Long orderId, Long targetStaffId);
+    /**
+     * 站长分配配送员（状态保持待配送，等配送员接单）。
+     *
+     * @param riskAcknowledged <b>接收站</b>对「押金 / 桶权益」风险的显式确认：
+     *        他站定向外派过来的涉押金/桶权益单，未确认即拒绝（不涉押金的单不要求）
+     */
+    void assignToStaff(Long orderId, Long targetStaffId, boolean riskAcknowledged);
 
     /** 配送员/站长转让订单给本站其他员工。 */
     void transferToStaff(Long orderId, Long targetStaffId, String reason);

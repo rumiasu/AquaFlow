@@ -1,5 +1,16 @@
 // 订单详情页
 const { getOrderDetail, completeOrder, transferOrder, returnToStation, reportOrder, getStaffList, dispatchOrder, resolveOrder, requestCancel } = require('../../api/delivery')
+// ⚠️ 楼层凭证（v43）用 utils/request 直接调：路径写常量、不往 api/ 或 config/api.js 加
+// —— 那两个文件正被另一个工作流（商品图片库）改动。
+const { get, put } = require('../../utils/request')
+const ORDER_IMAGE_BY_ORDER = '/api/order-images/by-order'
+// 支付流水（2026-09-18 接线）：GET 按订单查流水（后端 PaymentController.listByOrderId），
+// PUT 单笔退款（后端 PaymentController.refund，站长专属）。
+// 与上面的 ORDER_IMAGE_BY_ORDER 同一惯例：常量写在页面 js 顶部，不加进 config/api.js。
+const PAYMENTS_BY_ORDER = '/api/payments/by-order'
+const PAYMENT_REFUND = '/api/payments/'
+// 楼层/电梯文案：与配送任务列表共用同一份实现（口径只有一处）
+const { buildFloorText } = require('../../utils/address')
 
 // 纯展示用：订单状态数字 → 徽章 CSS class（仅控制颜色，不承载业务逻辑）
 const STATUS_CLASS_MAP = {
@@ -10,11 +21,35 @@ const STATUS_CLASS_MAP = {
   5: 'cancelled'    // 已取消
 }
 
+// ISO-8601 → 「MM-DD HH:mm」。
+// ⚠️ 这是**纯展示切分**，不是时间计算，也绝不能写成 `new Date(str.replace(/-/g,'/'))`：
+// 仓库明令禁止那种写法（AGENTS.md §8.7，时间一律按 ISO 解析）。
+// 解析失败就原样返回，不编造时间。
+function formatTime(v) {
+  if (!v || typeof v !== 'string') return ''
+  const parts = v.split('T')
+  if (parts.length < 2) return v
+  const time = parts[1].slice(0, 5)
+  const date = parts[0].length >= 10 ? parts[0].slice(5, 10) : parts[0]
+  return date + ' ' + time
+}
+
+// 支付状态「已付款」= 2（PaymentStatus.PAID）。
+// 只做**一个等值判断**（决定要不要出现「退款」按钮），不是映射表 ——
+// 文案一律渲染后端下发的 statusText / methodText，前端不维护状态字典。
+const PAY_STATUS_PAID = 2
+
 Page({
   data: {
     orderId: null,
     order: {},
-    loading: true
+    loading: true,
+    // 楼层凭证（v43）：站长与配送员都能看、都能补传；不强制，所以"没有也不拦"
+    floorPhotos: [],
+    floorUploading: false,
+    // 支付流水（2026-09-18）：只对站长展示（后端端点本身也是 STATION_MANAGER 专属）
+    payments: [],
+    canRefundPayment: false
   },
 
   onLoad(options) {
@@ -66,10 +101,18 @@ Page({
           paymentMethodText: order.payMethodText || '',
           isOffline: !!order.needCollect,
           labels,
-          isTransfer: !!order.transferPending
+          isTransfer: !!order.transferPending,
+          floorText: buildFloorText(order),
+          // 楼层上报（v43）：显示成两行（配送员上报 / 地址里填的），不一致时打一个提示标。
+          // ⚠️ 这只是**给人看的提示**；"标记"的权威记录在收益明细的 note 里（后端生成，见 docs/design/18 §4）。
+          reportedFloorText: order.reportedFloor ? ('配送员上报 ' + order.reportedFloor + ' 层') : '',
+          floorMismatch: !!(order.reportedFloor && order.addressFloor
+            && Number(order.reportedFloor) !== Number(order.addressFloor))
         },
         loading: false
       })
+      this.loadFloorPhotos(id)
+      this.loadPayments(id)
     } catch (err) {
       console.error('加载订单详情失败:', err)
       this.setData({ loading: false })
@@ -428,6 +471,144 @@ Page({
     } catch (err) {
       wx.hideLoading()
       wx.showToast({ title: err.message || '解决失败', icon: 'none' })
+    }
+  },
+
+  /* ==================== 楼层凭证（v43）====================
+   * 为什么站长也要能传：楼层补贴是给配送员的钱，与客户扯皮时（"你说的 6 楼呢"）
+   * 这张照片是唯一的凭证；配送员当时没拍，站长可以事后补。
+   * 照片**不强制**（产品决定），所以这里没有也不拦、只提示。
+   */
+  async loadFloorPhotos(orderId) {
+    if (!orderId) return
+    try {
+      const res = await get(ORDER_IMAGE_BY_ORDER + '/' + orderId)
+      const photos = (res.data || [])
+        .filter(img => Number(img.type) === 3)
+        .map(img => img.url || img.objectName)
+        .filter(Boolean)
+      this.setData({ floorPhotos: photos })
+    } catch (e) {
+      // 拉不到就不显示，不编造"没照片"
+      this.setData({ floorPhotos: [] })
+    }
+  },
+
+  onPreviewFloorPhoto(e) {
+    const { index } = e.currentTarget.dataset
+    wx.previewImage({ current: this.data.floorPhotos[index], urls: this.data.floorPhotos })
+  },
+
+  onAddFloorPhoto() {
+    const { upload } = require('../../utils/upload')
+    const { API } = require('../../config/api')
+    wx.chooseImage({
+      count: 3,
+      sizeType: ['compressed'],
+      success: async (res) => {
+        this.setData({ floorUploading: true })
+        const uploads = res.tempFilePaths.map(p => upload({
+          filePath: p,
+          url: API.ORDER_IMAGE_UPLOAD,
+          name: 'file',
+          // 3 = 楼层凭证（1 正常送达 / 2 异常）
+          formData: { orderId: this.data.orderId, type: 3 }
+        }).then(r => r.data))
+        try {
+          await Promise.all(uploads)
+          await this.loadFloorPhotos(this.data.orderId)
+          wx.showToast({ title: '已补传', icon: 'success' })
+        } catch (err) {
+          wx.showToast({ title: err.message || '上传失败', icon: 'none' })
+        } finally {
+          this.setData({ floorUploading: false })
+        }
+      }
+    })
+  },
+
+  /* ==================== 支付流水与手工退款（2026-09-18 接线）====================
+   * 为什么只给站长看：两个端点都是后端 @RequireRole({"STATION_MANAGER"}) 专属
+   * （GET /api/payments/by-order、PUT /api/payments/{id}/refund），
+   * 配送员点了只会拿到 code=1「权限不足」—— 那属于"让用户白点"。
+   *
+   * ⚠️ 展示口径：方式 / 状态**一律渲染后端下发的 methodText / statusText**，金额用后端给的
+   * amount 原值，前端**不做任何金额加减**（包括"合计已退多少"这类派生数字一律不做）——
+   * 金额口径的唯一真相源是 orders / payment_record，见 AGENTS.md §6。
+   * 这里唯一用到的数字判断是"状态是不是 2（已付款）"，它只决定「退款」按钮出不出现。
+   */
+  async loadPayments(orderId) {
+    if (!orderId) return
+    const app = getApp()
+    // 非站长直接跳过，连请求都不发（端点本身也会拒）
+    if (!app.isStationManager || !app.isStationManager()) {
+      this.setData({ payments: [], canRefundPayment: false })
+      return
+    }
+    try {
+      const res = await get(PAYMENTS_BY_ORDER, { orderId: orderId })
+      const list = (res.data || []).map(p => ({
+        id: p.id,
+        methodText: p.methodText || '',
+        statusText: p.statusText || '',
+        amount: p.amount,
+        amountText: p.amount === null || p.amount === undefined ? '' : ('¥' + p.amount),
+        // 负数（退款冲正流水）标红，纯展示
+        isRefund: Number(p.amount) < 0,
+        // 2026-09-18：后端下的时间统一 ISO-8601，前端只做展示切分（见文件头 formatTime）
+        timeText: formatTime(p.createTime),
+        note: p.note || '',
+        canRefund: Number(p.status) === PAY_STATUS_PAID
+      }))
+      this.setData({ payments: list, canRefundPayment: true })
+    } catch (err) {
+      // 拉不到就整块不显示，不编造"没有流水"（同 loadFloorPhotos 的处理）
+      console.error('加载支付流水失败:', err)
+      this.setData({ payments: [], canRefundPayment: false })
+    }
+  },
+
+  /**
+   * 手工退款（站长）：二次确认 → 调 PUT /api/payments/{id}/refund → 成功后刷新本区块。
+   *
+   * ⚠️ 失败必须把**后端 message 原样显示出来**（用 showModal 而不是一闪而过的 toast）：
+   * 「微信支付渠道未接入，无法自动原路退回，请线下退款并登记」这类文案是站长唯一的操作指引，
+   * 弹个 toast 就消失等于没告诉他下一步该干什么。
+   */
+  onRefundPayment(e) {
+    const { id, index } = e.currentTarget.dataset
+    const pay = this.data.payments[index]
+    if (!pay) return
+
+    wx.showModal({
+      title: '退款确认',
+      content: '确定为这笔支付退款吗？\n\n支付方式：' + pay.methodText
+        + '\n退款金额：' + pay.amountText
+        + '\n\n退款按原支付方式退回：水票支付的会把票原路补回客户账户；'
+        + '现金由你当面退还客户；微信渠道未接入，无法自动退回。',
+      confirmText: '确认退款',
+      confirmColor: '#FF3B30',
+      success: (res) => {
+        if (!res.confirm) return
+        this.doRefundPayment(id)
+      }
+    })
+  },
+
+  async doRefundPayment(paymentId) {
+    wx.showLoading({ title: '退款中...' })
+    try {
+      await put(PAYMENT_REFUND + paymentId + '/refund', { note: '站长手工退款' })
+      wx.hideLoading()
+      wx.showToast({ title: '已退款', icon: 'success' })
+      // 刷新支付流水区块（订单支付状态可能一起变了）
+      await this.loadPayments(this.data.orderId)
+      await this.loadOrderDetail(this.data.orderId)
+    } catch (err) {
+      wx.hideLoading()
+      const msg = (err && err.message) ? err.message : '退款失败，请稍后重试'
+      console.error('手工退款失败:', msg)
+      wx.showModal({ title: '退款未成功', content: msg, showCancel: false, confirmText: '知道了' })
     }
   }
 })

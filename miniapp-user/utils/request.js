@@ -79,7 +79,20 @@ const offeredReports = new Set()
  * 而 500 意味着服务端异常，用户既看不懂也做不了，唯一有价值的动作就是把它交给站长。</p>
  *
  * <p>复用既有的反馈通道：提交走 {@code POST /api/feedback}，站长在
- * {@code miniapp-delivery/pages/feedback} 里接收（{@code GET /api/feedback/customers}）。</p>
+ * {@code miniapp-delivery/pages/station-mgmt/customer-feedback} 里接收
+ * （{@code GET /api/feedback/customers}，只读）。
+ * [2026-09-18 订正] 这里原写作 {@code miniapp-delivery/pages/feedback} —— 那是**员工自己的**
+ * 「我的反馈」列表（{@code /api/feedback/my}），站长根本看不到客户提交的内容。
+ * 一句指错地方的注释等于把下一个排查的人送到错页面（本仓 §6.1 注释契约）。</p>
+ *
+ * <p><b>[2026-09-18] 自动上报刻意保持实名（不传 {@code anonymous}，落库即 0）—— 这不是漏改</b>：
+ * 自动上报与「客服页手动提反馈」是两件事。手动反馈是<b>意见</b>（可能针对水站本身，
+ * 实名会让客户不敢开口，所以要给匿名开关）；自动上报是<b>报障</b>，它的唯一价值就是
+ * 「站长能复现、能追问」—— 而反馈内容本身已经写明了页面与接口（下面 {@code content} 里那几行），
+ * 匿名之后站长拿到一条"某客户在某页报了个错"却不知道找谁问，这条上报基本等于没用。
+ * 客户若不想被认出来，可以到「客服/反馈」页手动提交（那边有匿名开关）。
+ * ⚠️ 要改成匿名只是一个参数的事（{@code data} 里加 {@code anonymous: true}），
+ * 属于**产品决定**，不要在排查问题时顺手改掉。</p>
  */
 function offerErrorReport(message, options) {
   if (!message || offeredReports.has(message)) return
@@ -122,6 +135,8 @@ function submitErrorReport(message, options) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
+    // 不带 anonymous：自动上报**刻意保持实名** —— 它的价值就是站长能复现/追问，
+    // 理由见 offerErrorReport 的 javadoc。要改成匿名是产品决定，别顺手加。
     data: { category: '错误报告', content },
     success: () => wx.showToast({ title: '已上报，水站会尽快处理', icon: 'none' }),
     fail: () => wx.showToast({ title: '上报失败，请稍后再试', icon: 'none' })

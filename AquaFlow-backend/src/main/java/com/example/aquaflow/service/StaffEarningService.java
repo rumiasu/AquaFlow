@@ -49,7 +49,9 @@ public interface StaffEarningService {
     /**
      * 追加一条人工调整（站长在结算单上加减）。
      *
-     * <p>{@code amount} 可正可负 —— 这是唯一允许调用方给符号的 kind。</p>
+     * @param itemId 自定义条目（v44，可空）。<b>传了它就只能传正数金额</b> —— 方向由条目决定；
+     *               为 null 时是老的自由文本调整，{@code amount} 可正可负
+     *               （这是唯一允许调用方给符号的 kind）
      */
-    void adjustEarning(Long stationId, Long staffId, BigDecimal amount, String note);
+    void adjustEarning(Long stationId, Long staffId, Long itemId, BigDecimal amount, String note);
 }

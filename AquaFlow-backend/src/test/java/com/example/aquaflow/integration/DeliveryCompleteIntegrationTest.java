@@ -20,7 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <ul>
  *   <li>货到付款点「已收款」完成配送，后端一律按「未收款」处理：订单停在 已送达(3)、
  *       {@code payment_status} 被改写成 未付(0)、{@code recordCashCollection} 不执行（钱不入账、
- *       没有 PAID 流水），跨站收款护栏（AQ-043）也成了死代码；</li>
+ *       没有 PAID 流水），跨站收款的站别护栏也成了死代码
+ *       （[AQ-043] 原口径「跨站单仅原归属站可确认收款」，2026-09-18 已按结算站修订，
+ *       见本类 {@code crossStationCollectionIsConfirmedBySettleStation}）；</li>
  *   <li>配送员手填的配送备注写不进 {@code orders.special_note}。</li>
  * </ul>
  *
@@ -161,27 +163,58 @@ class DeliveryCompleteIntegrationTest extends AbstractIntegrationTest {
                 "配送备注应追加到 special_note，实际=" + note);
     }
 
+    /**
+     * 跨站外派单的现金收款判权（2026-09-18 <b>按新口径反过来</b>）。
+     *
+     * <p><b>旧口径</b>（[AQ-043]，本用例原来断言的就是它）：跨站单的钱与欠桶账都归归属站，
+     * 所以「仅原归属站可确认收款」，履约站替归属站点收款必须被拒。</p>
+     *
+     * <p><b>为什么反过来</b>：三站语义落地后（v47 {@code orders.settle_station_id}），跨站单的
+     * 营收（水费 + 配送费 + 楼层费）归<b>结算站</b> = 抢单/定向外派成功后的<b>履约站</b>
+     * —— 谁送谁收钱谁确认。继续要求归属站确认，等于让一个不拿这笔钱的人点"已收款"，
+     * 而且他根本点不进来（{@code completeDelivery} 开头的 {@code checkStationOwnership}
+     * 只放行履约站）。所以本条改成：<b>履约站（= 结算站）确认收款 → 闭环</b>；
+     * <b>归属站来确认 → 被拒</b>（不是"他也能收"，而是他连这单都不是他的履约单）。</p>
+     *
+     * <p>⚠️ 与押金/欠桶的站别**不是**同一件事：钱认结算站，而押金入账、欠桶录入仍记<b>归属站</b>
+     * （客户资产是"买在哪个站"）。本用例同时把这条不对称口径钉住。</p>
+     */
     @Test
-    @DisplayName("跨站外派单：履约站不得替归属站确认收款（AQ-043 护栏在 HTTP 路径上必须可达）")
-    void crossStationCannotCollectCashOnBehalfOfOwner() {
+    @DisplayName("跨站外派单：由履约站（结算站）确认收款并闭环；归属站来确认被拒（AQ-043 已按结算站修订）")
+    void crossStationCollectionIsConfirmedBySettleStation() {
         seed();
         long station2 = createStation("S2");
         long mgr2 = createStaff("M2", "STATION_MANAGER", station2, 1);
 
-        // 归属站 S1、履约站 S2：钱与欠桶账都归 S1，故 S2 不得确认收款并闭环
+        // 归属站 S1、履约站 S2（结算站 = S2）：谁送谁收钱谁确认
         long order = createOrderCrossStation(customer, addr, station, station2, product,
                 2 /* 配送中 */, 1 /* 待收款 */, 2 /* 现金 */, "20.00", "30.00", "50.00");
         createOrderItem(order, product, "桶装水18.9L", 1, "20.00", "30.00", 1);
         createBarrelInTransit(customer, station, product, 1, "30.00", order, "PENDING");
 
+        // ① 归属站 S1 来确认 → 拒（他不是履约站；这笔钱也已经不归他）
+        Api byOwner = post("/api/delivery/orders/" + order + "/complete", mgrToken(),
+                returnBody(order, 1, 0, "\"collected\":true"));
+        assertFalse(byOwner.isSuccess(), "归属站不得确认跨站单收款，实际=" + byOwner);
+        assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order), "被拒后订单状态不得变");
+        assertEquals(0, paidRecords(order), "被拒后不得留下 PAID 流水");
+
+        // ② 履约站 S2（= 结算站）确认 → 闭环 + 补 PAID 流水
         Api res = post("/api/delivery/orders/" + order + "/complete",
                 staffToken(mgr2, "STATION_MANAGER", station2),
                 returnBody(order, 1, 0, "\"collected\":true"));
+        assertTrue(res.isSuccess(), "履约站（结算站）确认收款应成功，实际=" + res);
 
-        assertFalse(res.isSuccess(), "履约站替归属站收款必须被拒，实际=" + res);
-        assertTrue(res.message() != null && res.message().contains("归属站"),
-                "拒绝原因应指向归属站，实际=" + res.message());
-        assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order), "被拒后订单状态不得变");
-        assertEquals(0, paidRecords(order), "被拒后不得留下任何 PAID 流水");
+        assertEquals(4, intOf("SELECT status FROM orders WHERE id=?", order), "收款后应闭环为 已完成(4)");
+        assertEquals(2, intOf("SELECT payment_status FROM orders WHERE id=?", order), "应置为已付款(2)");
+        assertEquals(1, paidRecords(order), "必须补写 PAID 流水（账证一致）");
+
+        // ③ 但押金仍记**归属站** S1 —— 钱认结算站，客户资产认归属站，这条不对称是有意的
+        assertEquals(0, decimalOf("SELECT IFNULL(MAX(balance),0) FROM customer_deposit_account "
+                                + "WHERE customer_id=? AND station_id=?", customer, station)
+                        .compareTo(new BigDecimal("30.00")),
+                "预收押金仍应入【归属站】S1 的账户（客户资产认归属站）");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM customer_deposit_account WHERE customer_id=? AND station_id=?",
+                customer, station2), "履约站/结算站不得出现这个客户的押金账户");
     }
 }

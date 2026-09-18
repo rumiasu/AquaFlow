@@ -7,6 +7,7 @@ import com.example.aquaflow.dto.PaymentQuoteItemDTO;
 import com.example.aquaflow.entity.Address;
 import com.example.aquaflow.mapper.AddressMapper;
 import com.example.aquaflow.mapper.CustomerMapper;
+import com.example.aquaflow.service.CustomerService;
 import com.example.aquaflow.service.PaymentService;
 import com.example.aquaflow.util.AuthContext;
 import jakarta.validation.Valid;
@@ -51,17 +52,26 @@ public class ManagerOrderAssistController {
     @Autowired private CustomerMapper customerMapper;
     @Autowired private AddressMapper addressMapper;
     @Autowired private PaymentService paymentService;
+    @Autowired private CustomerService customerService;
 
     /**
-     * 客户选择器：按姓名/电话片段搜本站客户（含"已绑定但还没下过单"的新客户）。
+     * 客户选择器：按姓名 / 电话 / <b>地址</b>片段搜本站客户（含"已绑定但还没下过单"的新客户）。
      *
-     * @param keyword 姓名或电话片段；为空则返回最近建档的若干条
+     * <p>搜索实现与 {@code GET /api/customers}（客户列表）<b>完全同一个</b>：
+     * {@code CustomerService.searchStationCustomers} + {@code util/CustomerSearchMatcher}
+     * （归一化 + 相关性打分）。这里<b>不允许</b>再写一份 LIKE 或打分 —— 两条路径各算一套
+     * 正是本仓计价双轨事故的同形风险。</p>
+     *
+     * <p>产品口径（2026-09-18）：站长搜客户更看重<b>地址</b>（"地址其实更能指代人"），
+     * 习惯缩写（「阳光81301」=「阳光小区8栋1单元301」）且中文/阿拉伯数字混用，
+     * 所以返回项带 {@code addressText} 供界面显示"送到哪"。</p>
+     *
+     * @param keyword 姓名 / 电话 / 地址片段；为空则返回最近建档的若干条
      */
     @GetMapping("/customers")
     public Result<List<Map<String, Object>>> customers(@RequestParam(required = false) String keyword) {
         Long stationId = AuthContext.requireStationId();
-        String kw = (keyword == null || keyword.trim().isEmpty()) ? null : keyword.trim();
-        return Result.success(customerMapper.listOrderCustomers(stationId, kw));
+        return Result.success(customerService.searchStationCustomers(stationId, keyword));
     }
 
     /**

@@ -116,6 +116,30 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         return StationUtil.deliveryStation(o);
     }
 
+    /**
+     * 「钱已经到手（或本来就该到付）」—— 决定一张单**能不能进站长/配送员视野、能不能被接单**的唯一判据
+     * （2026-09-18 产品裁定：只有已支付的订单才推给站长、才允许接单）。
+     *
+     * <p>⚠️ 这个判据在<b>三处</b>必须一致，改一处就得改三处，否则「站长看得到、配送员接不了」两边分叉：
+     * ① {@code OrderMapper.listPendingByStationId}、② {@code OrderMapper.listStationPendingUnassigned}、
+     * ③ 本方法（接单 / 分配的业务闸门，防"列表里看不到但 id 可编造"）。</p>
+     *
+     * <p>只有两条路：<b>已付(2)</b>（微信/水票都在付款成功那一刻置 2，水票的扣票就发生在
+     * 客户端下单后那次支付请求里 —— 所以"水票单算已付"是**由扣票成功**体现的，
+     * 不是靠下单时就推）与<b>现金(2)</b>（货到付款：钱要当面收，不能等付了才派人；
+     * 客户没开通货到付款时下单就被拒，所以"现金单" ≡ "允许货到付款的客户"）。
+     * TODO(微信支付接入)：回调置 {@code payment_status = 2} 即自动命中第一条，本方法不用改。</p>
+     */
+    private boolean isPaidOrPayOnDelivery(Orders order) {
+        if (order == null) {
+            return false;
+        }
+        if (Integer.valueOf(PaymentStatus.PAID).equals(order.getPaymentStatus())) {
+            return true;
+        }
+        return Integer.valueOf(PayMethod.CASH).equals(order.getPaymentMethod());
+    }
+
     /** 强制当前水站非空（未绑站直接拒绝，fail-closed），并严格比对履约站 */
     private void checkStationOwnership(Orders order) {
         Long myStationId = AuthContext.requireStationId();
@@ -231,6 +255,11 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (cur != OrderStatus.PENDING) {
             throw new BusinessException("该订单当前状态不可接单");
         }
+        // 与两张待办列表同一道闸门：没收到钱的单不进站长/配送员视野，也接不了。
+        // 渠道未接入的微信单会一直停在这里 —— 这是有意的（客户没付钱，货不该出门）。
+        if (!isPaidOrPayOnDelivery(order)) {
+            throw new BusinessException("该订单尚未支付，暂时不能接单：请客户完成支付后再配送");
+        }
         if (order.getDeliveryStaffId() != null && !order.getDeliveryStaffId().equals(staffId)) {
             throw new BusinessException("该订单已分配给其他配送员");
         }
@@ -304,6 +333,19 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
         // 首次桶装水订单：押金桶无需回桶，直接跳过回桶核对
         boolean isFirstBarrelOrder = Boolean.TRUE.equals(order.getFirstBarrelOrder());
+
+        // ===== 配送员上报楼层（选填，v43）=====
+        // 楼层补贴是给配送员的钱，只有他知道自己爬了几层 —— 所以有他自己的口径 + 可核对的凭证。
+        // ⚠️ 只写一次（mapper 带 `reported_floor is null`）：完工那一刻的快照，
+        //    之后谁都不许悄悄改写发钱的依据；真要改走人工调整（ADJUST）留痕。
+        // ⚠️ 它**不影响向客户收的楼层费**（那是下单时按地址快照的 orders.floor_fee）。
+        Integer reportedFloor = intOrNull(params == null ? null : params.get("reportedFloor"));
+        if (reportedFloor != null) {
+            if (reportedFloor <= 0 || reportedFloor > 200) {
+                throw new BusinessException("楼层数不合理（请填 1~200，没有楼层就不用填）");
+            }
+            orderMapper.saveReportedFloor(orderId, reportedFloor);
+        }
 
         // 解析 itemReturns 数组（按商品核对回桶）
         // 【不信任客户端】商品维度一律由后端用 orderItemId 反查 order_item.product_id 得到，
@@ -454,15 +496,18 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                 finalStatus = OrderStatus.COMPLETED;
                 markPaid = true;
             } else if (collected) {
-                // [AQ-043] 跨站外派单（归属站 != 履约站）：收款与欠桶账都归原归属站。
-                // 禁止目标站（履约站）替归属站确认收款并闭环订单，否则钱记到履约站、欠桶却记到归属站。
-                Long ownerStation = order.getStationId();
-                Long fulfillStation = deliveryStation(order);
-                if (ownerStation != null && fulfillStation != null && !ownerStation.equals(fulfillStation)) {
-                    Long myStation = AuthContext.getStationId();
-                    if (myStation == null || !myStation.equals(ownerStation)) {
-                        throw new BusinessException("跨站外派订单仅原归属站可确认收款，请由归属站操作");
-                    }
+                // [2026-09-18 修订 AQ-043] 跨站外派单的收款判权：**认结算站**，不再认归属站。
+                // 旧口径（"跨站单仅原归属站可确认收款"）成立的年代跨站单的钱记归属站，钱与欠桶账同站；
+                // 三站语义（v47 `orders.settle_station_id`）之后本单营收（水费 + 配送费 + 楼层费）归
+                // **结算站** = 抢单/定向外派成功后的履约站 —— 谁送谁收钱谁确认，继续要求归属站确认，
+                // 等于让一个不拿这笔钱的人去点"已收款"（他连这单都点不进来：本方法开头的
+                // checkStationOwnership 只放行履约站）。
+                // ⚠️ 只改这一个判权点：`recordCashCollection` 的站别、押金入账（applyDepositOnPaid）、
+                // 欠桶录入一律不动 —— 押金 / 水票 / 桶权益是"客户买在哪个站的资产"，仍记**归属站**。
+                Long settleStation = StationUtil.settleStation(order);
+                Long myStation = AuthContext.getStationId();
+                if (settleStation != null && (myStation == null || !myStation.equals(settleStation))) {
+                    throw new BusinessException("跨站外派订单需由实际配送站（结算站）确认收款，请由该站操作");
                 }
                 finalStatus = OrderStatus.COMPLETED;
                 markPaid = true;
@@ -654,11 +699,19 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
         if (tryDispatch) {
             int cur = order.getStatus() != null ? order.getStatus() : 0;
+            // [2026-09-18] 这是"放进抢单池"的**第二个入口**（第一个是 outsource(targetStationId=null)），
+            // 押金/桶权益的闸门必须同样装上，否则换个入口就绕过去了。
+            if (involvesDepositOrBarrelRights(order)) {
+                throw new BusinessException("该单涉及押金/桶权益，不能放入抢单池（本次拒单也未执行）："
+                        + DEPOSIT_BARREL_RISK_TEXT);
+            }
             // 原子：清空履约站与配送员、状态回到待配送（原实现是先 update 再 clearDispatchStation 两次写）
             int changed = orderMapper.outsourceToPoolIf(orderId, OrderStatus.PENDING, cur);
             if (changed == 0) {
                 throw new BusinessException("订单状态已变更，请刷新后重试");
             }
+            // 退回池 = 这单又回归属站 → 待收款流水跟着回归属站
+            movePendingCollectionTo(orderId, order.getStationId());
             orderMapper.appendSpecialNote(orderId,
                     "[外派] 站长拒单后外派，原因=" + r + "，原归属站=" + stationId);
         } else {
@@ -678,9 +731,94 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
      *  派单 / 外派 / 召回 / 抢单
      * ================================================================== */
 
+    /**
+     * 涉及押金 / 桶权益的单，跨站外派前的**风险提示与出路** —— 全仓唯一文案来源。
+     *
+     * <p>产品口径（2026-09-18）：「如果产生押金问题，特别提醒站长，一般建议禁止外派直接拒单，
+     * 因为押金不好划定；要么就是水站间的欠桶问题。如果不拒单也只能<b>指定水站外派</b>，
+     * 双方都特别提醒后<b>同意</b>才行。」本文案同时用于三处：① 拒绝放入抢单池 / 拒绝抢单的错误文案；
+     * ② 定向外派与接收确认下发给前端的提示文案（见 {@link #crossStationRiskNote}）；
+     * ③ 两侧确认后写进 {@code orders.special_note} 的留痕。**前端不得自编同义文案**
+     * （AGENTS §6：口径文案只有一个来源）。</p>
+     */
+    public static final String DEPOSIT_BARREL_RISK_TEXT =
+            "该单涉及押金/桶权益，跨站结算口径不清（押金记归属站、回桶也记回归属站的桶账，"
+                    + "水站之间的欠桶在系统里无处登记）。建议直接拒单；如确需外派，请改用定向外派，"
+                    + "并由外派方与接收站双方确认风险后共同承担。";
+
+    /**
+     * 结算站变了 → 这张单**尚未确认**的待收款流水一起搬过去（谁结算谁催收，v47 2026-09-18）。
+     *
+     * <p>流水的站别在"发起收款"那一刻就按当时的站写死了（{@code PaymentServiceImpl.createPayment}），
+     * 订单随后被抢单 / 定向外派 / 退回池 / 召回时它不会自己跟着走 —— 结果是
+     * 「履约站收了钱、凭据却挂在归属站」，两个站的「待确认收款」列表还会各错一边。</p>
+     *
+     * <p>⚠️ 必须在<b>站别 CAS 成功之后</b>调用（CAS 失败就直接抛异常回滚，不能先搬），
+     * 并且与本类方法在同一个 {@code @Transactional} 里 —— 搬流水与改站必须同生共死。</p>
+     */
+    private void movePendingCollectionTo(Long orderId, Long settleStationId) {
+        paymentService.relocatePendingCollection(orderId, settleStationId);
+    }
+
+    /**
+     * <b>跨站外派的风险判据</b>：本单是否涉及押金 / 桶权益。抢单池、定向外派、接收确认三处共用同一份判据。
+     *
+     * <p>取<b>并集</b>（宁可严一点也不要漏），两项分别对应产品点名的两类纠纷：</p>
+     * <ol>
+     *   <li>{@code orders.deposit_amount > 0} —— <b>本单要收押金</b>。押金账户按
+     *       {@code (customer_id, station_id)} 记在<b>归属站</b>（{@code PaymentService.applyDepositOnPaid}
+     *       → {@code customer_deposit_account}），跨站单却是履约站的人当场收钱／当场退桶，
+     *       钱要记到归属站账上 —— 就是产品说的「押金不好划定」。</li>
+     *   <li>{@code orders.delivery_bucket_qty > 0 且 orders.first_barrel_order = 0} ——
+     *       <b>本单要送桶、且不是本站首笔买桶单</b>。首单免回桶核对（见 {@link #completeDelivery}
+     *       的 isFirstBarrelOrder 分支），其余单完成配送时必须核对回桶；而回桶差量由
+     *       {@code BarrelLedgerService.applyDelivery} 记在<b>归属站</b>
+     *       （本类 completeDelivery 传的就是 {@code order.getStationId()}）——
+     *       履约站司机手里的空桶在两站之间没有任何台账，即产品说的「水站间的欠桶问题」。</li>
+     * </ol>
+     *
+     * <p><b>为什么第 2 项必须带上 {@code delivery_bucket_qty > 0}</b>：{@code first_barrel_order}
+     * 的写入口径是 {@code OrderServiceImpl:493} 的
+     * {@code firstStationAsset && totalNeededBuckets > 0} —— <b>不含桶装水的单（瓶装水 / 饮水机）
+     * 恒为 0</b>，只看它会把这类"根本碰不到桶"的普通单也一并拦死，违反产品
+     * 「普通单保持原状、不要给所有外派加摩擦」。{@code delivery_bucket_qty} 同为下单时写死的快照
+     * （无桶写 NULL/0，{@code OrderServiceImpl:492}），两列一起看才等价于"本单真的要动桶"。</p>
+     *
+     * <p>⚠️ 反过来说：<b>桶装水单几乎都会被判为风险单</b>（首单收押金 → 命中第 1 项；
+     * 老客换水 → 命中第 2 项），这正是产品要的效果 —— 抢单池只剩"不碰桶"的单，
+     * 桶装水单只能走定向外派 + 双方确认。放宽判据前先回去读那段产品原话。</p>
+     */
+    private boolean involvesDepositOrBarrelRights(Orders order) {
+        if (order == null) return false;
+        if (order.getDepositAmount() != null && order.getDepositAmount().signum() > 0) return true;
+        boolean deliversBarrels = order.getDeliveryBucketQty() != null && order.getDeliveryBucketQty() > 0;
+        // firstBarrelOrder 为 NULL（历史行）按"不是首单"处理 —— 偏严的一侧，宁可多拦不可漏
+        return deliversBarrels && !Boolean.TRUE.equals(order.getFirstBarrelOrder());
+    }
+
+    @Override
+    public String crossStationRiskNote(Orders order) {
+        return involvesDepositOrBarrelRights(order) ? DEPOSIT_BARREL_RISK_TEXT : null;
+    }
+
+    /**
+     * 外派方的显式确认留痕：谁（员工ID）在什么时候（{@code audit_log.create_time}）确认的，
+     * 见 {@code audit_log} 的 {@code DISPATCH} / {@code OUTSOURCE_DIRECT}（detail 里带 {@code riskAcknowledged}）。
+     *
+     * <p>⚠️ 这里**不把整段风险文案抄进 special_note**：{@code orders.special_note} 是
+     * {@code varchar(200)}，一张单上先后会追加 [外派] / [分配] / 本行，抄全文必超长——
+     * 超长会以 {@code DataIntegrityViolationException} 抛在事务里（表现为
+     * 「special_note值超出允许长度」），把一次正常的外派整个回滚掉（2026-09-18 实测踩到）。
+     * 全文进 {@code audit_log.detail}（text 列，无此限制）。</p>
+     */
+    private void appendRiskAckNote(Long orderId, String role, Long stationId) {
+        orderMapper.appendSpecialNote(orderId, "[外派风险确认] " + role + "=" + stationId
+                + "，操作人=" + AuthContext.getUserId() + "，已确认押金/桶权益风险");
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void dispatchExternal(Long orderId, Long targetStationId, String reason) {
+    public void dispatchExternal(Long orderId, Long targetStationId, String reason, boolean riskAcknowledged) {
         Long myStationId = AuthContext.getStationId();
         if (myStationId == null) throw new BusinessException("无法识别当前水站");
 
@@ -695,6 +833,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (cur != OrderStatus.PENDING) {
             throw new BusinessException("当前状态不可外派调度");
         }
+        // [2026-09-18] 押金/桶权益单：定向外派前必须由**外派方显式确认**风险（产品：双方都特别提醒后同意）。
+        // 校验放在任何写操作之前 —— 被拒时订单状态/履约站/备注一律不动。
+        boolean risky = involvesDepositOrBarrelRights(order);
+        if (risky && !riskAcknowledged) {
+            throw new BusinessException("外派该单前必须先确认风险，本次操作未执行：" + DEPOSIT_BARREL_RISK_TEXT);
+        }
         String r = reason != null ? reason : "外派配送";
 
         // [AQ-020] 仅修改 delivery_station_id、清空配送员；归属站保持不变。CAS 于状态。
@@ -702,16 +846,21 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (dispatched == 0) {
             throw new BusinessException("订单状态已变更，请刷新后重试");
         }
+        // 履约站 = 结算站 = 目标站 → 待收款流水跟着走
+        movePendingCollectionTo(orderId, targetStationId);
         orderMapper.appendSpecialNote(orderId,
                 "[外派] 从水站 " + myStationId + " 外派至 " + targetStationId + "，原因：" + r);
+        if (risky) appendRiskAckNote(orderId, "外派方", myStationId);
         notifyCustomerTempDispatch(order.getCustomerId(), orderId, targetStationId);
         log("DISPATCH", orderId,
-                serviceMap("orderId", orderId, "fromStationId", myStationId, "toStationId", targetStationId, "reason", r));
+                serviceMap("orderId", orderId, "fromStationId", myStationId, "toStationId", targetStationId,
+                        "reason", r, "depositBarrelRisk", risky, "riskAcknowledged", riskAcknowledged,
+                        "riskNote", risky ? DEPOSIT_BARREL_RISK_TEXT : null));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void outsource(Long orderId, Long targetStationId, String reason) {
+    public void outsource(Long orderId, Long targetStationId, String reason, boolean riskAcknowledged) {
         Long stationId = AuthContext.requireStationId();
         Orders order = requireOrder(orderId);
         if (!stationId.equals(deliveryStation(order))) {
@@ -721,24 +870,41 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) {
             throw new BusinessException("当前状态不可外派");
         }
+        boolean risky = involvesDepositOrBarrelRights(order);
 
         if (targetStationId != null) {
             if (targetStationId.equals(stationId)) throw new BusinessException("不能外派给自己水站");
+            // 与 dispatchExternal 同一道闸门：两个端点是同一件事的两个入口，只堵一个等于没堵
+            if (risky && !riskAcknowledged) {
+                throw new BusinessException("外派该单前必须先确认风险，本次操作未执行：" + DEPOSIT_BARREL_RISK_TEXT);
+            }
             String r = reason != null ? reason : "站长指定水站外派";
             int changed = orderMapper.outsourceToStationIf(orderId, targetStationId, OrderStatus.PENDING, cur);
             if (changed == 0) {
                 throw new BusinessException("订单状态已变更，请刷新后重试");
             }
+            // 定向外派 = 钱货都归目标站 → 待收款流水跟着走
+            movePendingCollectionTo(orderId, targetStationId);
             orderMapper.appendSpecialNote(orderId,
                     "[外派] 站长指定外派至 " + targetStationId + "，原因：" + r + "，原归属站=" + stationId);
+            if (risky) appendRiskAckNote(orderId, "外派方", stationId);
             notifyCustomerTempDispatch(order.getCustomerId(), orderId, targetStationId);
             log("OUTSOURCE_DIRECT", orderId,
-                    serviceMap("fromStationId", stationId, "toStationId", targetStationId, "reason", r));
+                    serviceMap("fromStationId", stationId, "toStationId", targetStationId, "reason", r,
+                            "depositBarrelRisk", risky, "riskAcknowledged", riskAcknowledged,
+                            "riskNote", risky ? DEPOSIT_BARREL_RISK_TEXT : null));
         } else {
+            // [2026-09-18] 涉押金/桶权益的单**禁止入池**（不是"确认后可入"）：池子是跨租户可见面，
+            // 认领方与归属站之间没有"双方同意"这一步，出了押金/欠桶纠纷连个确认人都找不到。
+            if (risky) {
+                throw new BusinessException("该单涉及押金/桶权益，不能放入抢单池：" + DEPOSIT_BARREL_RISK_TEXT);
+            }
             int changed = orderMapper.outsourceToPoolIf(orderId, OrderStatus.PENDING, cur);
             if (changed == 0) {
                 throw new BusinessException("订单状态已变更，请刷新后重试");
             }
+            // 放入池中 = 又回归属站 → 待收款流水跟着回归属站
+            movePendingCollectionTo(orderId, order.getStationId());
             orderMapper.appendSpecialNote(orderId, "[外派] 站长放入抢单池，原归属站=" + stationId);
             log("OUTSOURCE", orderId, serviceMap("stationId", stationId));
         }
@@ -761,6 +927,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (changed == 0) {
             throw new BusinessException("订单状态已变更，请刷新后重试");
         }
+        // 召回 = 回归属站 → 待收款流水跟着回归属站
+        movePendingCollectionTo(orderId, stationId);
         orderMapper.appendSpecialNote(orderId, "[取消外派] 站长取消外派，恢复本站");
         log("CANCEL_DISPATCH", orderId, null);
     }
@@ -779,6 +947,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException("该订单当前状态不可抢单");
         }
         if (targetStaffId == null) throw new BusinessException("请指定配送员");
+        // [2026-09-18] 池子的**出口**也装同一道闸门：入池的两个入口都堵了，这里防的是"历史遗留在池中的
+        // 押金/桶权益单"（规则上线前放进去的）。认领方看到提示后应让归属站召回（取消外派）自送，
+        // 或由归属站改用定向外派 + 双方确认。
+        if (involvesDepositOrBarrelRights(order)) {
+            throw new BusinessException("该单涉及押金/桶权益，不能跨站抢单：" + DEPOSIT_BARREL_RISK_TEXT);
+        }
         Staff target = requireDelivery(targetStaffId, stationId);
 
         // [AQ-020] 原子 CAS：仅当订单仍在池中（delivery_station_id 为空）且状态=待配送时才算抢到
@@ -787,6 +961,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (grabbed == 0) {
             throw new BusinessException("该订单已被其他水站抢单");
         }
+        // 抢单 = 钱货都归抢单站 → 待收款流水跟着走（否则归属站列着一笔它收不到的钱）
+        movePendingCollectionTo(orderId, stationId);
         orderMapper.appendSpecialNote(orderId, " [抢单] " + stationId + "站抢单成功，配送员=" + target.getName());
         notifyCustomerTempDispatch(order.getCustomerId(), orderId, stationId);
         log("CLAIM_POOL", orderId, serviceMap("stationId", stationId, "staffId", targetStaffId));
@@ -798,7 +974,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void assignToStaff(Long orderId, Long targetStaffId) {
+    public void assignToStaff(Long orderId, Long targetStaffId, boolean riskAcknowledged) {
         Long stationId = AuthContext.requireStationId();
         Orders order = requireOrder(orderId);
         if (!stationId.equals(deliveryStation(order))) {
@@ -808,7 +984,24 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (cur != OrderStatus.PENDING) {
             throw new BusinessException("仅待分配订单可分配");
         }
+        // 收费站长也守同一道闸门：没收到钱的单不该被派出去（列表里看不到，但 id 是可编造的）
+        if (!isPaidOrPayOnDelivery(order)) {
+            throw new BusinessException("该订单尚未支付，暂时不能分配配送员：请客户完成支付后再派单");
+        }
         if (targetStaffId == null) throw new BusinessException("请指定配送员");
+
+        // [2026-09-18] **接收站的确认落点**：他站定向外派过来的单，履约站就是本站
+        // （delivery_station_id = 本站，station_id = 归属站）。站长"分配配送员"是本站真正受理这一单的动作
+        // —— 认领/接单类端点里只有它是站级、且对"已定履约站的单"仍然可用（claimTransfer 是员工级认领，
+        // directedReturn 是拒收）。涉押金/桶权益的单在这里要第二次确认：外派方确认过一次（DISPATCH /
+        // OUTSOURCE_DIRECT），接收站再确认一次，两边都留痕，才算产品要求的「双方都特别提醒后同意」。
+        // 普通单（不涉押金/桶权益）不看这个字段 —— 不加无谓摩擦。
+        boolean crossStation = order.getStationId() != null && !order.getStationId().equals(stationId);
+        boolean risky = crossStation && involvesDepositOrBarrelRights(order);
+        if (risky && !riskAcknowledged) {
+            throw new BusinessException("接收他站外派的押金/桶权益单前必须先确认风险，本次操作未执行："
+                    + DEPOSIT_BARREL_RISK_TEXT);
+        }
         Staff target = requireDelivery(targetStaffId, stationId);
 
         // status 保持 1（待接单），配送员点"接单"后才变配送中
@@ -817,7 +1010,10 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException("订单状态已变更，请刷新后重试");
         }
         orderMapper.appendSpecialNote(orderId, "[分配] 站长分配给 " + target.getName());
-        log("ASSIGN", orderId, serviceMap("targetStaffId", targetStaffId));
+        if (risky) appendRiskAckNote(orderId, "接收站", stationId);
+        log("ASSIGN", orderId, serviceMap("targetStaffId", targetStaffId,
+                "crossStation", crossStation, "depositBarrelRisk", risky, "riskAcknowledged", riskAcknowledged,
+                "riskNote", risky ? DEPOSIT_BARREL_RISK_TEXT : null));
     }
 
     @Override
@@ -855,18 +1051,47 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         log("TRANSFER", orderId, null);
     }
 
+    /**
+     * 撤回一笔还没被决策的转单（发起人反悔）。
+     *
+     * <p>[2026-09-18 修] 接线调研时发现旧实现缺两条判据，两条都会造成"看起来成功、实际没做成"：</p>
+     * <ol>
+     *   <li><b>没有校验"调用者是不是发起人"</b>：只有一句"仅能操作本站订单"，
+     *       而 {@code OrderTransfer.fromStaffId} 一直存在、javadoc 也写着"或发起方主动 CANCELLED 撤回"。
+     *       后果：A 把单转给 B 之后（{@code delivery_staff_id} 立即变成 B），**同站任意第三个配送员
+     *       都能把这条转单撤掉** —— B 的"待接收"列表里静默少一条，而订单还挂在 B 名下、状态不变。</li>
+     *   <li><b>丢弃了受影响行数</b>：{@code resolvePendingByKind} 的 javadoc 自己写着
+     *       "返回受影响行数；0 表示无待决策转单"，旧实现不看返回值，于是对**根本没有待决策转单**的订单
+     *       也返回成功，只往 {@code special_note} 塞一行「[取消转让]」（而它会显示在转单页的"备注"里）。
+     *       属 §8.17 / §8.20 同族：用户以为做成了、账上没动。</li>
+     * </ol>
+     * <p>归属口径：<b>发起人本人</b>，或**本站站长**（站长代撤是站务常态，且既有用例
+     * {@code CrossStationDispatchIntegrationTest} 正是用站长令牌驱动它）。</p>
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void cancelTransfer(Long orderId) {
+        Long staffId = AuthContext.getUserId();
         Long stationId = AuthContext.getStationId();
         Orders order = requireOrder(orderId);
         if (stationId == null || !stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站订单");
         }
+        // 先按 kind 定位待决策转单：拿不到就没有可撤的东西（**不要**先写 special_note 再判断）
+        OrderTransfer pending = orderTransferMapper.findPendingByOrderAndKind(orderId, OrderTransfer.KIND_STAFF);
+        if (pending == null) {
+            throw new BusinessException("该订单当前没有待决策的转单，无需撤回");
+        }
+        boolean isInitiator = pending.getFromStaffId() != null && pending.getFromStaffId().equals(staffId);
+        if (!isInitiator && !AuthContext.isManager()) {
+            throw new BusinessException("只有转单的发起人（或本站站长）可以撤回这笔转单");
+        }
+        int affected = orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_STAFF,
+                OrderTransfer.STATUS_CANCELLED, staffId);
+        if (affected == 0) {
+            throw new BusinessException("该转单已被处理，请刷新后重试");
+        }
         orderMapper.appendSpecialNote(orderId, "[取消转让]");
-        // [AQ-015] 结构化：把该单待决策的配送员转单置为已取消
-        orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_STAFF,
-                OrderTransfer.STATUS_CANCELLED, AuthContext.getUserId());
         log("CANCEL_TRANSFER", orderId, null);
     }
 
@@ -1048,6 +1273,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (changed == 0) {
             throw new BusinessException("该订单状态已变更，请刷新后重试");
         }
+        // 同意指定退回 = 回归属站 → 待收款流水跟着回归属站
+        movePendingCollectionTo(orderId, stationId);
         orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_DIRECTED,
                 OrderTransfer.STATUS_APPROVED, AuthContext.getUserId());
         log("DIRECTED_RETURN_APPROVE", orderId, null);
@@ -1169,9 +1396,32 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         log("CANCEL_REQUEST_REJECT", orderId, serviceMap("transferId", pending.getId()));
     }
 
+    /**
+     * 从 params 里取一个**可空**整数。
+     *
+     * <p>JSON 数字经 Jackson 到 Java 可能是 Integer / Long / Double，直接强转 Integer 会 ClassCastException
+     * （那会被兜成 500 —— 本仓对"可预期的输入问题"一律要求 code=1，见 AGENTS §8.21 的同族判据）。</p>
+     */
+    private static Integer intOrNull(Object v) {
+        if (v == null) {
+            return null;
+        }
+        if (v instanceof Number n) {
+            return n.intValue();
+        }
+        String s = v.toString().trim();
+        if (s.isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(s);
+        } catch (NumberFormatException e) {
+            throw new BusinessException("数字格式不正确");
+        }
+    }
+
     /** 便捷构造：Map.of 不允许 null 值，这里统一用 LinkedHashMap */
-    private Map<String, Object> serviceMap(Object... kv) {
-        Map<String, Object> m = new LinkedHashMap<>();
+    private Map<String, Object> serviceMap(Object... kv) {        Map<String, Object> m = new LinkedHashMap<>();
         for (int i = 0; i + 1 < kv.length; i += 2) {
             m.put(String.valueOf(kv[i]), kv[i + 1]);
         }

@@ -25,9 +25,19 @@ const getOrders = (params) => {
   return get(API.ORDERS, params)
 }
 
+// 跨站履约单（本站是履约站、归属站是别站）：一次拿到总数/金额合计/按状态分类/明细。
+// 明细里**没有**客户画像（后端掩码），只有订单自身信息（收件人、地址、金额）。
+const getCrossStationOrders = () => {
+  return get(`${API.DELIVERY_ORDERS}/cross-station`)
+}
+
 // 客户
-const getCustomers = (stationId) => {
-  return get(API.CUSTOMERS, { stationId })
+// keyword 可选（不传 = 全量）：姓名 / 电话 / 地址片段，支持缩写「阳光81301」与中英数字混用「八栋/8栋」。
+// 搜索在服务端做（归一化 + 相关性排序），页面不要再本地 filter name/phone —— 那会把地址命中整条丢掉。
+const getCustomers = (stationId, keyword) => {
+  const query = { stationId }
+  if (keyword) query.keyword = keyword
+  return get(API.CUSTOMERS, query)
 }
 
 // 客户详情（站长视角，含本站权限与统计）
@@ -57,6 +67,17 @@ const getOfflinePayment = (id) => {
   return get(API.CUSTOMER_OFFLINE_PAYMENT(id))
 }
 
+// 货到付款的三项配置一次写全（v48）：开关 + 单笔上限（null = 不限）+ 是否放行首单。
+// ⚠️ 整份覆盖写：把上限改回"不限"就是把 singleLimit 传 null，不要沿用旧值。
+const updateOfflinePayment = (id, payload) => {
+  return put(API.CUSTOMER_OFFLINE_PAYMENT(id), payload)
+}
+
+// 开通弹窗的依据（v48）：当前配置 + 该客户在本站的欠款/逾期 + 历史订单数 + 此刻能不能用（不能用给原因）
+const getOfflinePaymentSummary = (id) => {
+  return get(`${API.CUSTOMER_OFFLINE_PAYMENT(id)}/summary`)
+}
+
 // 设置客户在本站的货到付款权限（enabled: true 开通 / false 关闭）
 const updateOfflinePayment = (id, enabled) => {
   return put(API.CUSTOMER_OFFLINE_PAYMENT(id), { offlinePaymentEnabled: enabled ? 1 : 0 })
@@ -73,6 +94,15 @@ const updateOfflinePayment = (id, enabled) => {
 /** 选品目录（含本站状态：selected/enabled/quantity/salePrice/effectivePrice/...） */
 const getCatalog = () => {
   return get(API.MANAGER_CATALOG)
+}
+
+/**
+ * 平台预设商品图清单（建自定义商品时选图用）。
+ * 返回 [{ key, path }]：key 是稳定标识，path 是小程序包内资源路径，可直接当 image src。
+ * 由后端下发而非前端硬编码 —— 换存储（如改 COS）时前端零改动。
+ */
+const getPresetImages = () => {
+  return get(API.MANAGER_CATALOG_PRESET_IMAGES)
 }
 
 /** 选用某商品到本站（默认未上架，站长再填库存并上架） */
@@ -307,14 +337,17 @@ module.exports = {
   getDashboardOverview,
   getDashboardReport,
   getOrders,
+  getCrossStationOrders,
   getCustomers,
   getCustomerDetail,
   getCustomerProfile,
   getCustomerAssets,
   getStaffProfile,
   getOfflinePayment,
+  getOfflinePaymentSummary,
   updateOfflinePayment,
   getCatalog,
+  getPresetImages,
   selectCatalogProduct,
   updateCatalogSetting,
   removeCatalogProduct,

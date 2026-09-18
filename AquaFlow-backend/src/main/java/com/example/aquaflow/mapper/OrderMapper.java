@@ -83,8 +83,16 @@ public interface OrderMapper {
     /**
      * 显式清空履约站与配送员（放入抢单池 / 站长拒单外派场景）。
      * 同样不能用 orderMapper.update(Orders)（选择性更新会跳过 null）。
+     *
+     * <p>[v47] 清空履约站 ⟹ 结算站回<b>归属站</b>（营收跟着"退回池 = 这单又归我"走）。
+     * ⚠️ 与本类其它改履约站的语句不同，这里回的是 {@code station_id} 而<b>不是</b>某个传入值：
+     * 在池中的单没有履约站，营收只能记归属站 —— 这就是 v47 取值规则里的"退回池 = 回 station_id"。</p>
+     *
+     * <p>当前<b>零调用</b>（放池/拒单外派已统一走带 expected-state 的 {@link #outsourceToPoolIf}）。
+     * 留在这里是为了不让它成为下一个人的陷阱：它会改 delivery_station_id，就必须同步 settle。</p>
      */
-    @Update("update orders set delivery_station_id = null, delivery_staff_id = null, update_time = NOW() where id = #{id}")
+    @Update("update orders set delivery_station_id = null, settle_station_id = station_id, "
+            + "delivery_staff_id = null, update_time = NOW() where id = #{id}")
     int clearDispatchStation(@Param("id") Long id);
 
     /** 原子接单：仅当status=PENDING时才更新，返回受影响行数(0=失败) */
@@ -102,19 +110,28 @@ public interface OrderMapper {
     /**
      * [AQ-020] 抢单池抢单（check-then-act → CAS）：仅当订单仍在池中（delivery_station_id 为空）
      * 且状态为期望值时更新，返回受影响行数。0 = 已被其他水站抢走或状态已变。
+     *
+     * <p>[v47] 抢到手的站既履约也结算（settle_station_id 与 delivery_station_id 同一个
+     * {@code #{stationId}}）：按产品裁定「水费 + 配送费 + 楼层费归实际配送站」。两列必须在
+     * <b>同一条语句</b>里写 —— 分成两次 UPDATE，中间失败就会留下"履约站是 B、营收还在 A"的脏行。</p>
      */
-    @Update("update orders set delivery_station_id = #{stationId}, delivery_staff_id = #{staffId}, " +
-            "status = #{newStatus}, update_time = NOW() " +
-            "where id = #{id} and delivery_station_id is null and status = #{expectedStatus}")
+    @Update("update orders set delivery_station_id = #{stationId}, settle_station_id = #{stationId}, "
+            + "delivery_staff_id = #{staffId}, "
+            + "status = #{newStatus}, update_time = NOW() "
+            + "where id = #{id} and delivery_station_id is null and status = #{expectedStatus}")
     int claimPoolIfFree(@Param("id") Long id, @Param("stationId") Long stationId, @Param("staffId") Long staffId,
                         @Param("newStatus") Integer newStatus, @Param("expectedStatus") Integer expectedStatus);
 
     /**
      * [AQ-020] 外派：仅当状态为期望值时改写履约站并清空配送员，返回受影响行数。
      * 0 = 状态已变（被并发操作），拒绝。
+     *
+     * <p>[v47] 定向外派把营收一并交给目标站（同 {@link #claimPoolIfFree}）。
+     * <b>定价不变</b>：费用仍是下单时按归属站算好的快照，外派不重算（docs/design/17 §4.3）。</p>
      */
-    @Update("update orders set delivery_station_id = #{targetStationId}, delivery_staff_id = null, update_time = NOW() " +
-            "where id = #{id} and status = #{expectedStatus}")
+    @Update("update orders set delivery_station_id = #{targetStationId}, settle_station_id = #{targetStationId}, "
+            + "delivery_staff_id = null, update_time = NOW() "
+            + "where id = #{id} and status = #{expectedStatus}")
     int dispatchIfStatus(@Param("id") Long id, @Param("targetStationId") Long targetStationId,
                          @Param("expectedStatus") Integer expectedStatus);
 
@@ -129,22 +146,28 @@ public interface OrderMapper {
     int setDeliveryStaffIf(@Param("id") Long id, @Param("staffId") Long staffId,
                            @Param("expectedStatus") Integer expectedStatus);
 
-    /** [Phase C] 指定水站外派（CAS）：履约站=目标站、清空配送员、状态=新状态，仅当当前状态 = expectedStatus。 */
-    @Update("update orders set delivery_station_id = #{targetStationId}, delivery_staff_id = null, " +
+    /** [Phase C] 指定水站外派（CAS）：履约站=目标站、清空配送员、状态=新状态，仅当当前状态 = expectedStatus。
+     *  <p>[v47] 营收随履约站走（结算站=目标站，见 {@link #claimPoolIfFree}）。</p> */
+    @Update("update orders set delivery_station_id = #{targetStationId}, settle_station_id = #{targetStationId}, " +
+            "delivery_staff_id = null, " +
             "status = #{newStatus}, update_time = NOW() " +
             "where id = #{id} and status = #{expectedStatus}")
     int outsourceToStationIf(@Param("id") Long id, @Param("targetStationId") Long targetStationId,
                              @Param("newStatus") Integer newStatus, @Param("expectedStatus") Integer expectedStatus);
 
-    /** [Phase C] 放入抢单池（CAS）：清空履约站与配送员、状态=新状态，仅当当前状态 = expectedStatus。 */
-    @Update("update orders set delivery_station_id = null, delivery_staff_id = null, " +
+    /** [Phase C] 放入抢单池（CAS）：清空履约站与配送员、状态=新状态，仅当当前状态 = expectedStatus。
+     *  <p>[v47] 结算站回<b>归属站</b>（在池中没人履约，营收只能记归属站；见 {@link #clearDispatchStation}）。</p> */
+    @Update("update orders set delivery_station_id = null, settle_station_id = station_id, " +
+            "delivery_staff_id = null, " +
             "status = #{newStatus}, update_time = NOW() " +
             "where id = #{id} and status = #{expectedStatus}")
     int outsourceToPoolIf(@Param("id") Long id, @Param("newStatus") Integer newStatus,
                           @Param("expectedStatus") Integer expectedStatus);
 
-    /** [Phase C] 取消外派、召回本站（CAS）：履约站=本站、清空配送员、状态=新状态，仅当当前状态 = expectedStatus。 */
-    @Update("update orders set delivery_station_id = #{stationId}, delivery_staff_id = null, " +
+    /** [Phase C] 取消外派、召回本站（CAS）：履约站=本站、清空配送员、状态=新状态，仅当当前状态 = expectedStatus。
+     *  <p>[v47] 营收一并召回（结算站=本站）。</p> */
+    @Update("update orders set delivery_station_id = #{stationId}, settle_station_id = #{stationId}, " +
+            "delivery_staff_id = null, " +
             "status = #{newStatus}, update_time = NOW() " +
             "where id = #{id} and status = #{expectedStatus}")
     int recallToStationIf(@Param("id") Long id, @Param("stationId") Long stationId,
@@ -154,9 +177,11 @@ public interface OrderMapper {
      * [Phase C] 指定退回-同意（CAS 守卫在备注标记上）：仅当订单仍带「[指定退回待确认]」标记时才生效，
      * 原子地把标记替换为「[指定退回-同意]」、履约站改回原归属站、清空配送员、状态=新状态。
      * <p>并发下两个站长同时点「同意」只有一个能改到（affected=1），另一个为 0。</p>
+     * <p>[v47] 营收随之退回归属站（同 {@link #outsourceToPoolIf}：退回 = 这单又归原站）。</p>
      */
     @Update("update orders set special_note = concat(replace(replace(coalesce(special_note, ''), '[指定退回待确认]', ''), '[外派]', ''), ' [指定退回-同意]'), " +
-            "delivery_station_id = #{stationId}, delivery_staff_id = null, status = #{newStatus}, update_time = NOW() " +
+            "delivery_station_id = #{stationId}, settle_station_id = #{stationId}, " +
+            "delivery_staff_id = null, status = #{newStatus}, update_time = NOW() " +
             "where id = #{id} and special_note like '%[指定退回待确认]%'")
     int directedReturnApproveIf(@Param("id") Long id, @Param("stationId") Long stationId,
                                 @Param("newStatus") Integer newStatus);
@@ -166,6 +191,16 @@ public interface OrderMapper {
             "status = #{newStatus}, update_time = NOW() " +
             "where id = #{id} and special_note like '%[指定退回待确认]%'")
     int directedReturnRejectIf(@Param("id") Long id, @Param("newStatus") Integer newStatus);
+
+    /**
+     * 配送员上报楼层（选填，v43）。
+     *
+     * <p>⚠️ 带 {@code reported_floor is null} 条件 = **只写一次**：完工那一刻的快照，
+     * 之后任何路径（包括站长看单、客户申诉）都不许悄悄改写发钱的依据。真要改，走人工调整（ADJUST）留痕。</p>
+     */
+    @Update("update orders set reported_floor = #{floor}, update_time = NOW() "
+            + "where id = #{orderId} and reported_floor is null")
+    int saveReportedFloor(@Param("orderId") Long orderId, @Param("floor") Integer floor);
 
     /**
      * [Phase C] 配送完成时回写「回桶核对结果」这类纯数据字段（不含状态/支付状态，二者另行 CAS）。
@@ -233,6 +268,26 @@ public interface OrderMapper {
     @Select("select count(*) from orders where station_id = #{stationId} and status = #{status}")
     int countByStationIdAndStatus(@Param("stationId") Long stationId, @Param("status") Integer status);
 
+    /**
+     * 配送员待接单列表：本站 status=1、未分配配送员、且**钱已经到手**的订单。
+     *
+     * <p>「钱已经到手」只有两条路，别再加第三条：</p>
+     * <ol>
+     *   <li>{@code payment_status = 2}（已付）—— 微信/水票走的都是这条：<b>谁付款成功谁自动出现</b>。
+     *       水票的扣减发生在客户端下单后那次支付请求里，扣成功即置 2，于是它和微信支付成功
+     *       完全同一条线（不要为了"水票下单即算已付"在下单时抢着扣票：那会让票不够的客户
+     *       <b>连单都下不出来</b>，而现有流程是"先下单、再扣票"）。</li>
+     *   <li>{@code payment_method = 2}（现金 = 货到付款）—— <b>钱要当面收，不能等付了才派人</b>，
+     *       所以它必须在钱没到时就进视野。它的安全性由**下单闸门**保证：客户没在本站开通
+     *       货到付款时，{@code OrderServiceImpl.createOrder} 直接拒单，所以"现金单"本身
+     *       就等价于"允许货到付款的客户"。</li>
+     * </ol>
+     *
+     * <p>⚠️ 被排除的是**还没付钱的微信单**（渠道未接入，见 {@code PayMethod}）：客户下单 ≠ 收到钱。
+     * TODO(微信支付接入)：回调里把 {@code payment_status} 置 2 之后，本条件会**自动**把它放出来 ——
+     * 所以**不要**在这里加"渠道未接入"之类的特例，也不要在别处另写一套推送判据
+     * （全仓三处：本方法、{@link #listStationPendingUnassigned}、接单/分配的业务闸门）。</p>
+     */
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail " +
             "from orders o " +
@@ -241,11 +296,82 @@ public interface OrderMapper {
             "where o.station_id = #{stationId} " +
             "and o.status = 1 " +
             "and o.delivery_staff_id IS NULL " +
+            // 已收款，或货到付款（现金）：没收到钱的单不进站长/配送员的视野
+            "and (o.payment_status = 2 or o.payment_method = 2) " +
             "order by o.create_time asc")
     List<Orders> listPendingByStationId(@Param("stationId") Long stationId);
 
+    /**
+     * 超时未支付的**微信**单（供定时任务自动取消，2026-09-18 产品裁定：只对微信单，货到付款是特殊）。
+     *
+     * <p>判据必须同时满足四条：① {@code payment_method = 1}（微信）—— 现金是货到付款、水票是扣票后
+     * 才算已付，都不适用；② {@code payment_status in (0,1)}（还没收到钱）；③ {@code status = 1}（还在待配送，
+     * 已经出车的不能自动取消）；④ 建单超过阈值分钟数。阈值是参数，不写死在这里。</p>
+     *
+     * <p>⚠️ 别把判据放宽成"所有未付单"：现金单未付是**正常经营状态**（钱要当面收），
+     * 水票单未付是"票还没扣"（客户可能正在充值），自动取消它们等于替客户做决定。</p>
+     */
+    @Select("select id from orders where payment_method = 1 and payment_status in (0, 1) and status = 1 " +
+            "and create_time < date_sub(now(), interval #{minutes} minute) " +
+            "order by id limit #{limit}")
+    List<Long> listTimedOutWechatOrders(@Param("minutes") int minutes, @Param("limit") int limit);
+
+    /**
+     * 本站作为**履约站**接下的跨站单（归属站 ≠ 本站），供站长端「订单」页归并展示（2026-09-18 产品裁定）。
+     *
+     * <p>产品原话：「跨站单订单可以算，只是不能看用户画像，但是可以把跨站单统一成一个，
+     * 统一看接了多少跨站单。」所以这里按<b>履约站</b>取数（谁送货谁算），
+     * 与「站长端订单列表按归属站取数」是两套口径 —— 那张列表只列本站自己的单。</p>
+     *
+     * <p>⚠️ 返回的是<b>原始实体</b>（带 {@code customerName} / {@code customerPhone}），
+     * 调用方**必须**先过 {@code CustomerProfileMask.maskIfCrossStation} 再出网 ——
+     * 这几行全是别站的客户，画像不能下发。状态只取 1/2/3/4（已取消的不算"接了多少单"）。</p>
+     */
+    @Select("select o.*, c.name as customerName, c.phone as customerPhone, " +
+            "(select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+            "a.detail as addressDetail " +
+            "from orders o " +
+            "left join customer c on o.customer_id = c.id " +
+            "left join address a on o.address_id = a.id " +
+            "where o.delivery_station_id = #{stationId} and o.station_id <> #{stationId} " +
+            "and o.status in (1, 2, 3, 4) " +
+            "order by o.create_time desc")
+    List<Orders> listCrossStationOrders(@Param("stationId") Long stationId);
+
+    /**
+     * 该客户在本站的**历史订单数**（不含已取消）—— 判"这是不是他在本站的第一单"（v48）。
+     *
+     * <p>口径：`orders.station_id = 本站`（归属站，不是履约站）—— 客户是在这个站下的单，
+     * 货到付款是"这个站敢不敢让他赊账"，与谁去送无关。</p>
+     */
+    @Select("select count(*) from orders where customer_id = #{customerId} and station_id = #{stationId} and status <> 5")
+    int countCustomerOrdersAtStation(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
+    /**
+     * 该客户在本站**逾期未结的现金单**张数与金额（v48 的「欠款即停」判据）。
+     *
+     * <p>判据只用现有列现算（不发明新规则）：{@code payment_status = 1}（待收款，钱还没到手）
+     * 且 {@code status <> 5}（未取消）且 {@code payment_method = 2}（现金）且
+     * {@code due_date < curdate()}（账期已过）。{@code due_date} 是下单时按客户账期快照的
+     * （{@code ReceivableService.resolveDueDate}），**只有现金单才有**，所以这里再加一个
+     * {@code due_date is not null} 只是把语义写明，不改变结果集。</p>
+     */
+    @Select("select count(*) from orders where customer_id = #{customerId} and station_id = #{stationId} "
+            + "and status <> 5 and payment_status = 1 and payment_method = 2 "
+            + "and due_date is not null and due_date < curdate()")
+    int countOverdueCashOrders(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
+    /** 见 {@link #countOverdueCashOrders}：同一判据的金额合计（给站长在开通弹窗里看到"欠了多少"）。 */
+    @Select("select coalesce(sum(total_amount), 0) from orders where customer_id = #{customerId} and station_id = #{stationId} "
+            + "and status <> 5 and payment_status = 1 and payment_method = 2 "
+            + "and due_date is not null and due_date < curdate()")
+    java.math.BigDecimal sumOverdueCashAmount(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
+    // ⚠️ 比同族查询多带 a.floor / a.has_elevator：这是**配送员自己的任务列表**，
+    // 他要据此知道这一单要不要上楼（P0-2 的楼层字段此前只有计价在用，见 Orders 的字段注释）。
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail, a.name as addressName, a.phone as addressPhone " +
+            "a.detail as addressDetail, a.name as addressName, a.phone as addressPhone, " +
+            "a.floor as addressFloor, a.has_elevator as addressHasElevator " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
@@ -332,15 +458,11 @@ public interface OrderMapper {
             "order by o.update_time desc")
     List<Orders> listPendingCustomerCancelRequests(@Param("stationId") Long stationId);
 
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail " +
-            "from orders o " +
-            "left join customer c on o.customer_id = c.id " +
-            "left join address a on o.address_id = a.id " +
-            "where o.station_id = #{stationId} " +
-            "and o.status = " + OrderStatus.CANCELLED + " " +
-            "order by o.update_time desc")
-    List<Orders> listStationExceptionOrders(@Param("stationId") Long stationId);
+    // [2026-09-18 删除] listStationExceptionOrders(stationId)：只服务于
+    // GET /api/delivery/orders/station-exception —— 那个端点名字叫"异常"、实际过滤 status=5 返回**取消单**，
+    // 与 GET /api/orders?status=5 重复，两端小程序都没调用（docs/audit/2026-09-16-死端点评估.md 判"删除"，已执行）。
+    // 要看本站取消单请走订单列表接口；不要再按"异常"这个名字把本方法加回来。
+    // 回归：ManagerOrderControllerRemovedIntegrationTest 断言该路径返回 404。
 
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
@@ -381,14 +503,10 @@ public interface OrderMapper {
     @Select("select * from orders where idempotency_key = #{key} limit 1")
     Orders findByIdempotencyKey(@Param("key") String idempotencyKey);
 
-    @Select("select status, count(*) as cnt from orders where station_id = #{stationId} group by status")
-    List<java.util.Map<String, Object>> countByStatusByStationId(@Param("stationId") Long stationId);
-
-    @Select("select date(create_time) as dt, count(*) as cnt from orders " +
-            "where station_id = #{stationId} " +
-            "and create_time >= date_sub(curdate(), interval 6 day) " +
-            "group by date(create_time) order by dt")
-    List<java.util.Map<String, Object>> trendLast7DaysByStationId(@Param("stationId") Long stationId);
+    // [2026-09-18 删除] countByStatusByStationId / trendLast7DaysByStationId：只服务于
+    // GET /api/dashboard/order-status 与 /order-trend，两个端点零前端调用且与 /report 口径分叉
+    // （同一指标两套算法，见 docs/audit/2026-09-16-死端点评估.md §5.2/§5.4，判"删除"，已执行）。
+    // 看板一律走 DashboardService.report()；不要再把这两个"同名不同算法"的查询加回来。
 
     // ==================== 抢单池 & 外派追踪 ====================
 
@@ -396,6 +514,10 @@ public interface OrderMapper {
      * 站长待分配列表：本站 status=1 且未分配配送员的订单。
      * 另含「转单中」订单（order_transfer 有 DIRECTED 待确认，归属本站、等待站长同意/拒绝），
      * 这类单可能仍挂着原配送员，前端按状态渲染成「同意/拒绝」而非「分配/外派」。
+     *
+     * <p>⚠️ 与 {@link #listPendingByStationId} 同一条推送判据：**没收到钱的单不进站长视野**
+     * （现金与水票除外，理由见该方法的 javadoc）。改一处必须改另一处，否则
+     * 「站长看得到、配送员看不到」两边分叉。</p>
      */
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
@@ -410,6 +532,8 @@ public interface OrderMapper {
             "  OR (o.station_id = #{stationId} AND exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED')) " +
             ") " +
             "and o.status = 1 " +
+            // 与 listPendingByStationId 同一道推送闸门：已收款 或 货到付款（现金）
+            "and (o.payment_status = 2 or o.payment_method = 2) " +
             "and (o.delivery_staff_id IS NULL OR exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED')) " +
             "and (o.special_note IS NULL OR INSTR(o.special_note, '外派') = 0 OR o.delivery_station_id = #{stationId} " +
             "     OR exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED')) " +
@@ -498,10 +622,18 @@ public interface OrderMapper {
 
     /**
      * 本水站「待收款」订单数（站长看板统计）。
-     * <p>口径：履约站为本水站（外派单由履约站收款）、订单未闭环、支付态非 已付/已退款、且非水票支付。</p>
+     * <p>口径：<b>结算站</b>为本水站（v47：谁结算谁催收 —— 与应收台账
+     * {@code ReceivableMapper.listOrders} 同一个站别口径）、订单未闭环、支付态非 已付/已退款、且非水票支付。</p>
+     *
+     * <p>⚠️ 本方法此前用 {@code coalesce(delivery_station_id, station_id)}，而应收台账那一套用
+     * {@code station_id} → 同一句"待收款"在首页看板与应收台账里是<b>两个订单集合</b>
+     * （跨站外派单只出现在其中一边）。2026-09-18 统一到 v47 结算站口径。
+     * <b>两边仍未统一的是谓词</b>（本方法限现金单且 status in (1,2,3)；台账是
+     * {@code payment_status=1 and status<>5}，不限支付方式）—— 那是两个不同的指标
+     * （"还有几笔现金要收" vs "待收款台账"），不是站别分叉，别再顺手改成一样。</p>
      */
     @Select("select count(*) from orders o " +
-            "where coalesce(o.delivery_station_id, o.station_id) = #{stationId} " +
+            "where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} " +
             "and o.status in (1, 2, 3) " +
             "and o.payment_method = 2 " +
             "and o.payment_status != 2")

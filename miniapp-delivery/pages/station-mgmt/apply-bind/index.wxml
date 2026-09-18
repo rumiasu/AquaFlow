@@ -1,4 +1,28 @@
 <view class="container">
+  <!-- 申请历史（只读）。放最上面：被拒/被解绑的人进到本页，第一眼要看到"上次为什么被拒"。
+       typeName / statusName / handleNote 全部是后端下发的原文，前端不做 type/status → 中文映射；
+       没记录时不渲染整块，免得新用户看到一个空卡片。 -->
+  <view class="section-card" wx:if="{{history.length > 0}}">
+    <view class="card-header">
+      <text class="card-title">申请历史</text>
+      <text class="card-desc">共 {{history.length}} 条，含被拒绝与已解绑的记录</text>
+    </view>
+
+    <view class="history-list">
+      <view class="history-item" wx:for="{{history}}" wx:key="id">
+        <view class="history-head">
+          <text class="history-type">{{item.typeName}}</text>
+          <text class="history-station">{{item.stationLabel}}</text>
+          <text class="history-status">{{item.statusName}}</text>
+        </view>
+        <text class="history-time">申请时间：{{item.createTimeText}}</text>
+        <text class="history-time" wx:if="{{item.handleTimeText}}">处理时间：{{item.handleTimeText}}</text>
+        <text class="history-note" wx:if="{{item.handleNote}}">站长说明：{{item.handleNote}}</text>
+        <text class="history-note" wx:if="{{item.applyNote}}">申请说明：{{item.applyNote}}</text>
+      </view>
+    </view>
+  </view>
+
   <view class="section-card">
     <view class="card-header">
       <text class="card-title">选择要加入的水站</text>

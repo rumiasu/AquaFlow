@@ -138,7 +138,7 @@ class PaymentFlowIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("水票：下单支付原子扣票；重复支付不重复扣票")
     void ticketPayment_deductsAtomicallyAndIdempotently() {
         seed(false);
-        createTicketAccount(customer, product, station, 10);
+        createTicketAccount(customer, station, product, 10);
         long order = createOrderViaApi(3 /* 水票 */, 2);
 
         Api pay = post("/api/payments", customerToken(customer),

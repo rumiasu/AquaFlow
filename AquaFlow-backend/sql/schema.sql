@@ -246,8 +246,6 @@ CREATE TABLE IF NOT EXISTS `customer_station_config` (
   `customer_id` bigint NOT NULL COMMENT '客户ID',
   `station_id` bigint NOT NULL COMMENT '水站ID',
   `offline_payment_enabled` tinyint NOT NULL DEFAULT '0' COMMENT '该客户在该站是否允许线下支付（货到付款）。全系统唯一控制点，由站长在客户画像里逐个开通；无站点级总闸',
-  `offline_payment_single_limit` decimal(10,2) DEFAULT NULL COMMENT '货到付款单笔上限（NULL=不限，特殊客户可放宽）',
-  `offline_payment_allow_first_order` tinyint NOT NULL DEFAULT 0 COMMENT '是否允许首单货到付款（0=不允许，默认）',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -798,6 +796,12 @@ CREATE TABLE IF NOT EXISTS `ticket_record` (
   `product_id` bigint NOT NULL DEFAULT '0',
   `station_id` bigint DEFAULT NULL,
   `adjustment_id` bigint DEFAULT NULL COMMENT '站长资产调整单ID（station_adjustment.id），NULL=非调整产生',
+  -- [v54 统一水票] 这一笔扣自哪个**账户**：NULL=与 product_id 同账户（存量行全是这种/定制票），
+  -- 0=站级通用票（统一水票）。为什么不复用 product_id：uk_ticket_consume(order_id,product_id,source)
+  -- 靠 product_id 做"同一单同一商品只扣一次"的逐项幂等 —— 统一票的流水也写 product_id=0 的话，
+  -- 同一单两个都走统一票的商品会撞唯一键、第二条被当成并发重复静默跳过 → 少扣一张票。
+  -- 退款必须回到这个账户（退款时刻余额已变，重新判定会算出另一个答案，见 util/TicketScope）。
+  `account_product_id` bigint DEFAULT NULL COMMENT '扣票账户的商品ID: NULL=与 product_id 同账户(存量/定制), 0=站级通用票(统一水票)',
   PRIMARY KEY (`id`),
   -- [DEF-3] 原为 UNIQUE KEY uk_ticket_consume(order_id,product_id)，同一订单同一商品
   -- 只能有一条流水：取消水票已付订单时 refundTicket 要插入一条 source='退款' 的回补流水，
@@ -949,3 +953,45 @@ CREATE TABLE IF NOT EXISTS `alert_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='分级告警：系统故障→系统管理员；运营故障→水站站长';
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+
+-- =============================================================================
+-- 企业身份申请（v50）：客户申请 → 站长审核 → 转 customer_type=2 + 写 company_info。
+-- 受 app.enterprise.enabled 开关控制（默认关闭）。正本说明见 migration_v50_enterprise_apply.sql。
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `customer_enterprise_apply` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `customer_id` bigint NOT NULL COMMENT '申请人（客户）',
+  `station_id` bigint NOT NULL COMMENT '向哪个站申请（站长审核该站的申请）',
+  `company_name` varchar(200) NOT NULL COMMENT '企业名称（必填）',
+  `contact_person` varchar(100) DEFAULT NULL COMMENT '联系人',
+  `contact_phone` varchar(100) DEFAULT NULL COMMENT '联系电话',
+  `tax_no` varchar(64) DEFAULT NULL COMMENT '税号/统一社会信用代码（选填，先攒数据不对接开票）',
+  `status` varchar(20) NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING/APPROVED/REJECTED',
+  `review_note` varchar(255) DEFAULT NULL COMMENT '站长审核备注（驳回原因等）',
+  `reviewer_id` bigint DEFAULT NULL COMMENT '审核人（站长 staff.id）',
+  `apply_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `review_time` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_ent_apply_station_status` (`station_id`,`status`),
+  KEY `idx_ent_apply_customer` (`customer_id`,`station_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='企业身份申请（v50，受 app.enterprise.enabled 开关控制）';
+
+-- =============================================================================
+-- 站级企业身份提示阈值（v51）：两条**只算水**的口径，站长按站配。
+--   · 桶数口径 = 本单桶装水(product.category=1)数量合计；金额口径 = 本单**水费**（不含押金/配送费/楼层费）。
+--   · 两项都配 = 任一满足即提示；只配一项 = 只按那一项；两项都空 = 本站不提示。
+--   · **无行 = 还没配过 → 用平台默认**（app.enterprise.large-order-barrels，默认 30 桶）；
+--     **有行且两项空 = 站长明确表示本站不提示**。两者语义不同，别合并。
+-- 正本说明见 migration_v51_station_enterprise_config.sql。
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `station_enterprise_config` (
+  `station_id` bigint NOT NULL COMMENT '水站ID（一站一行）',
+  `barrel_threshold` int DEFAULT NULL COMMENT '本单桶装水(product.category=1)达到该桶数即提示可申请企业身份；NULL=该项不启用',
+  `water_amount_threshold` decimal(10,2) DEFAULT NULL COMMENT '本单水费达到该金额即提示（不含押金/配送费/楼层费）；NULL=该项不启用',
+  `operator_id` bigint DEFAULT NULL COMMENT '最后修改人（站长 staff.id）',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`station_id`),
+  CONSTRAINT `fk_sec_station` FOREIGN KEY (`station_id`) REFERENCES `station` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站级企业身份提示阈值(v51); 无行=用平台默认, 有行且两项空=本站不提示';

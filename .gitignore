@@ -137,3 +137,7 @@ __*.ps1
 # and the isolated git worktree used for full-suite verification). Never commit these.
 /.gradle_eval/
 /.verify-*/
+
+# js syntax gate (2026-09-19): duplicate const declaration silently killed a whole
+# api module and no gate caught it. Tracked like the other audit_*.py gates.
+!audit_js_syntax.py

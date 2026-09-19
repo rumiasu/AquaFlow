@@ -1,12 +1,15 @@
-// ⚠️ 这里直接用 utils/request 而不是 api/station-mgmt.js 的封装：
+// ⚠️ 这里直接用 utils/request 而不是 api/station-mgmt.js 的封装（含 2026-09-19 加的 /api/manager/setup-guide）：
 // 后者的接口清单当前正被另一个工作流（商品图片库）改动，共用文件会让两边未提交的改动纠缠在一起。
 // 路径常量也写在本文件里，同样是为了避开共享的 config/api.js。
 const { get, put } = require('../../../utils/request')
 
 const DELIVERY_CONFIG_PATH = '/api/manager/delivery-config'
+const SETUP_GUIDE_PATH = '/api/manager/setup-guide'
 
 const getDeliveryConfig = () => get(DELIVERY_CONFIG_PATH)
 const saveDeliveryConfig = (data) => put(DELIVERY_CONFIG_PATH, data)
+/** 本站配置完善度清单（2026-09-19）：路径同样写在本文件里，理由同上（避开共享文件）。 */
+const getSetupGuide = () => get(SETUP_GUIDE_PATH)
 
 /**
  * 配送计费配置（站长）：起送量 / 配送范围 / 运费 / 楼层费。规格见 docs/design/17。
@@ -51,7 +54,23 @@ Page({
       floorFreeLevel: '1',
       floorFeePerLevel: '',
       floorFeeMode: 'PER_ORDER'
-    }
+    },
+    // 引导信息（2026-09-19）：本站已上架非桶装商品时，金额类门槛必须补上 ——
+    // 非桶装不占桶，只配桶数门槛等于那条规则对它不生效（后端 DeliveryFeeUtil 的"条件不适用"分支）。
+    // 建议值由后端按"本站最便宜的一桶水"算好下发，前端只展示与回填，**不自算倍数、不自造文案**。
+    guide: {
+      nonBarrelOnShelf: false,
+      requiredAmountFields: [],
+      cheapestWaterPrice: null,
+      cheapestPriceBasis: '',
+      suggestedMinOrderAmount: null,
+      suggestedFreeDeliveryAmount: null
+    },
+    guideText: '',
+    // 本站「配置完善度」（2026-09-19）：规则目录在后端 StationSetupGuideService，
+    // 页面只渲染后端给的中文（label/why/where/action），**不自建 key→文案映射**。
+    setup: { items: [], summaryText: '', p0PendingCount: 0, doneCount: 0, totalCount: 0 },
+    setupPending: []
   },
 
   onShow() {
@@ -61,6 +80,35 @@ Page({
       return
     }
     this.load()
+    this.loadSetup()
+  },
+
+  /**
+   * 读"本站配置完善度"（2026-09-19）：规则目录在后端，页面只渲染。
+   *
+   * 静默失败是有意的：这是页面顶部的一张提示卡，取不到就当没有 —— 不该因为一个提示
+   * 把整个配送计费页变成错误页（同客户列表页对待"待审列表"的口径）。
+   */
+  async loadSetup() {
+    try {
+      const res = await getSetupGuide()
+      const d = (res && res.data) || {}
+      const items = Array.isArray(d.items) ? d.items : []
+      this.setData({
+        setup: {
+          items,
+          summaryText: d.summaryText || '',
+          p0PendingCount: Number(d.p0PendingCount || 0),
+          doneCount: Number(d.doneCount || 0),
+          totalCount: Number(d.totalCount || items.length)
+        },
+        // 只把"没配好的"列出来（P0 在前、已完成的收起来），否则卡片会很长且没人看
+        setupPending: items.filter(i => !i.done).sort((a, b) => String(a.level).localeCompare(String(b.level)))
+      })
+    } catch (err) {
+      console.warn('[DeliveryConfig] 完善度清单获取失败（当作没有）:', err.message)
+      this.setData({ setup: { items: [], summaryText: '', p0PendingCount: 0, doneCount: 0, totalCount: 0 }, setupPending: [] })
+    }
   },
 
   async load() {
@@ -71,6 +119,15 @@ Page({
       const c = d.config || {}
       // 后端把 null 原样下发（表示"不限/不收"），这里统一转成 '' 便于输入框编辑
       const s = (v) => (v === null || v === undefined ? '' : String(v))
+      const g = d.guidance || {}
+      const guide = {
+        nonBarrelOnShelf: g.nonBarrelOnShelf === true,
+        requiredAmountFields: Array.isArray(g.requiredAmountFields) ? g.requiredAmountFields : [],
+        cheapestWaterPrice: g.cheapestWaterPrice == null ? null : Number(g.cheapestWaterPrice),
+        cheapestPriceBasis: g.cheapestPriceBasis || '',
+        suggestedMinOrderAmount: g.suggestedMinOrderAmount == null ? null : Number(g.suggestedMinOrderAmount),
+        suggestedFreeDeliveryAmount: g.suggestedFreeDeliveryAmount == null ? null : Number(g.suggestedFreeDeliveryAmount)
+      }
       this.setData({
         configured: d.configured === true,
         form: {
@@ -87,13 +144,49 @@ Page({
           floorFreeLevel: s(c.floorFreeLevel),
           floorFeePerLevel: s(c.floorFeePerLevel),
           floorFeeMode: c.floorFeeMode || 'PER_ORDER'
-        }
+        },
+        guide,
+        guideText: this.describeGuide(guide)
       })
     } catch (err) {
       wx.showToast({ title: err.message || '配置加载失败', icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
+  },
+
+  /** 把后端下发的引导信息说成一句人话（wxml 不做拼接）。 */
+  describeGuide(g) {
+    if (!g || !g.requiredAmountFields || !g.requiredAmountFields.length) {
+      return ''
+    }
+    const names = g.requiredAmountFields.map(f => (f === 'minOrderAmount' ? '起送量金额' : '免运费金额'))
+    const parts = [`你上架了${g.nonBarrelOnShelf ? '瓶装水/一次性桶/饮水器' : '非桶装商品'}，` +
+      `但这些商品不占桶，只配桶数门槛对它没有意义 —— 请补上：${names.join('、')}。`]
+    if (g.cheapestPriceBasis) {
+      parts.push(`建议值按${g.cheapestPriceBasis} ¥${g.cheapestWaterPrice} 推算（起送约两桶水、免运费约三桶水），可直接点下方按钮填入。`)
+    } else {
+      parts.push('本站还没有已上架的商品，无法推算建议值，请手动填写。')
+    }
+    return parts.join('')
+  },
+
+  /** 一键填入建议值（只填后端给了建议的那几项，其余不动）。 */
+  onFillSuggested() {
+    const { guide, form } = this.data
+    const updates = {}
+    if (guide.suggestedMinOrderAmount != null && !form.minOrderAmount) {
+      updates['form.minOrderAmount'] = String(guide.suggestedMinOrderAmount)
+    }
+    if (guide.suggestedFreeDeliveryAmount != null && !form.freeDeliveryAmount) {
+      updates['form.freeDeliveryAmount'] = String(guide.suggestedFreeDeliveryAmount)
+    }
+    if (!Object.keys(updates).length) {
+      wx.showToast({ title: '没有可填入的建议值，请手动填写', icon: 'none' })
+      return
+    }
+    this.setData(updates)
+    wx.showToast({ title: '已填入建议值，确认后保存', icon: 'none' })
   },
 
   onInput(e) {

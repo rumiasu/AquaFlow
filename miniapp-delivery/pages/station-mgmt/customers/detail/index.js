@@ -319,7 +319,9 @@ Page({
     if (this.data.saving) return
     this.setData({ saving: true })
     try {
-      const res = await updateOfflinePayment(this.data.id, enabled)
+      // 显式给全 body：`updateOfflinePayment` 只接受 payload 形态
+      // （它曾在 api 模块里以 `(id, boolean)` 重载出现，两次声明直接让整个模块语法错误，2026-09-19）
+      const res = await updateOfflinePayment(this.data.id, { offlinePaymentEnabled: enabled ? 1 : 0 })
       if (res.code === 0) {
         this.setData({
           'profile.codEnabled': enabled,

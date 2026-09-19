@@ -95,7 +95,9 @@
       <view class="total-info" bindtap="onShowDetail">
         <view class="total-detail">
           <text class="detail-item">水费 ¥{{totalWaterCostText}}</text>
-          <text class="detail-item" wx:if="{{totalDeposit > 0}}">桶押金 ¥{{totalDepositText}}</text>
+          <!-- 「桶押金 ¥X」这一行已于 2026-09-19 删除：它读的是 quote 的 barrelDeposit，
+               而该字段装的是**非桶装**押金（键名是历史误称），收口后恒为 0 → 永远不显示。
+               真正的桶押金看下一行「额外桶押金」（缺桶时才有）。 -->
           <text class="detail-item extra" wx:if="{{extraDepositBuckets > 0}}">额外桶押金 ¥{{extraDepositAmountText}}</text>
           <!-- 配送费/楼层费各自成行：只把它们并进合计而不显示，客户会以为算错了钱 -->
           <text class="detail-item" wx:if="{{deliveryFeeText}}">配送费 ¥{{deliveryFeeText}}</text>
@@ -225,24 +227,11 @@
           </view>
         </view>
 
-        <!-- 桶押金（逐项展示） -->
-        <view class="detail-section" wx:if="{{totalDeposit > 0}}">
-          <view class="detail-section-title">桶押金</view>
-          <view class="detail-row" wx:for="{{products}}" wx:key="id" wx:if="{{item.deposit > 0 && item.category !== 1}}">
-            <view class="detail-row-left">
-              <text class="detail-item-name">{{item.name}}</text>
-              <text class="detail-item-spec">¥{{item.deposit}}/个</text>
-            </view>
-            <view class="detail-row-right">
-              <text class="detail-item-qty">x{{item.quantity}}</text>
-              <text class="detail-item-price">¥{{item.depositAmountText}}</text>
-            </view>
-          </view>
-          <view class="detail-subtotal-row">
-            <text class="detail-subtotal-label">小计</text>
-            <text class="detail-subtotal-value">¥{{totalDepositText}}</text>
-          </view>
-        </view>
+        <!--
+          「非桶装押金」这一节已于 2026-09-19 删除：押金只有桶装水收（正本 product.deposit 列注释
+          "只有桶装水使用"），后端 quote 的 barrelDeposit 恒为 0。原来这里按 item.category !== 1
+          逐项列出"¥押金/个"，与后端收口后会对不上（显示 0.00）。缺桶押金看下面「额外桶押金」。
+        -->
 
         <!-- 额外桶押金 -->
         <view class="detail-section" wx:if="{{extraDepositBuckets > 0}}">

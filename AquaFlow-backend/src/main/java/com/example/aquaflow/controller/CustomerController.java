@@ -139,9 +139,6 @@ public class CustomerController {
      * <p>[2026-09-18] 与 {@link #getOfflinePaymentConfig} 同一道闸门：这里同样会
      * {@code ensureExists} 建绑定行，缺了校验就能拿任意 id 给本站"认领"一个别站客户。</p>
      *
-     * <p>[v48] 站长在开通货到付款时**同时**定单笔上限与"首单是否放行"（产品：「最好是给站长定，
-     * 在设置是否允许货到付款时就给弹出来」）。{@code singleLimit} 传 {@code null} = 不限
-     * （"特殊允许的客户可以大额"）；负数直接拒。</p>
      */
     @RequireRole({"STATION_MANAGER"})
     @PutMapping("/{id}/offline-payment")
@@ -151,11 +148,7 @@ public class CustomerController {
             return Result.error("客户不存在或不属于本水站，无权操作");
         }
         Integer enabled = dto.getOfflinePaymentEnabled();
-        if (dto.getSingleLimit() != null && dto.getSingleLimit().signum() < 0) {
-            return Result.error("单笔上限不能为负数（不限请留空）");
-        }
-        customerService.updateOfflinePaymentConfig(id, stationId, enabled,
-                dto.getSingleLimit(), dto.getAllowFirstOrder());
+        customerService.updateOfflinePaymentConfig(id, stationId, enabled);
         return Result.success();
     }
 

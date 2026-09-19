@@ -152,7 +152,7 @@ class ConcurrencyIntegrationTest extends AbstractIntegrationTest {
                 1 /* 待配送 */, 1 /* 待收款（库默认） */, 3 /* 水票 */,
                 "40.00", "30.00", "70.00", false, 2);
         createOrderItemFull(order, product, "桶装水18.9L", 2, 2, "20.00", "0.00");
-        createTicketAccount(customer, product, station, 10);
+        createTicketAccount(customer, station, product, 10);
 
         String token = customerToken(customer);
         List<Api> results = fireTogether(List.of(

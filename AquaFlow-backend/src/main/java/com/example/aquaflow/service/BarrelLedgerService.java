@@ -3,6 +3,7 @@ package com.example.aquaflow.service;
 import com.example.aquaflow.entity.*;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.*;
+import com.example.aquaflow.util.BarrelScope;
 import com.example.aquaflow.util.PriceUtil;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -119,12 +120,20 @@ public class BarrelLedgerService {
         }
 
         // 1) 本单送出：按订单明细统计
+        // ⚠️ [2026-09-19] **只统计桶装水（category=1）**：本方法下面用 delta = delivered − returned −
+        // rightPurchase 去改 customer_barrel_over，而非桶装商品既没有"配送中权益"也没有"还桶"入口
+        // （returned 恒 0），于是 delivered 会被整笔记成"客户欠桶"，还会由 owed != 0 生成假桶异常单。
+        // 品类判据的唯一实现在 util/BarrelScope —— 别在调用点写 category != 1（历史就是这么漏的）。
         Map<Long, Integer> deliveredByProduct = new LinkedHashMap<>();
         Map<Long, BigDecimal> depositByProduct = new HashMap<>();
         List<OrderItem> items = orderItemMapper.listByOrderId(orderId);
         if (items != null) {
             for (OrderItem it : items) {
                 if (it.getProductId() == null) continue;
+                Product lineProduct = productMapper.getById(it.getProductId());
+                if (!BarrelScope.isBarrel(lineProduct)) {
+                    continue;
+                }
                 deliveredByProduct.merge(it.getProductId(),
                         it.getQuantity() == null ? 0 : it.getQuantity(), Integer::sum);
                 if (it.getDeposit() != null) {

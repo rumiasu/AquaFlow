@@ -85,6 +85,14 @@ const API = {
   // 企业资料（后端: CompanyInfoController）
   COMPANY_INFO: '/api/company-info',
 
+  // 企业身份申请（后端: EnterpriseController，v50）。**刻意没有独立入口**：
+  // 只有下单页拿到报价的 enterpriseHint（订单金额达阈值）后，由那个弹窗带进来。
+  // 服务端有总开关（app.enterprise.enabled，默认关），关掉时这两个端点会真的返回
+  // 业务错误「企业身份功能当前未开启」—— 前端不要把它当异常吞掉，也不要自己藏入口，
+  // 直接展示服务端给的那句话即可。
+  ENTERPRISE_APPLICATIONS: '/api/enterprise/applications',
+  ENTERPRISE_APPLICATIONS_MY: '/api/enterprise/applications/my',
+
   // 水站（后端: StationController）
   STATIONS: '/api/stations',
   STATIONS_PUBLIC: '/api/stations/public',

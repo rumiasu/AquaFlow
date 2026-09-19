@@ -473,7 +473,10 @@ Page({
     }
     // 空字符串不传（= 保持原值）；填了数字才传，0 会被后端解释为"清除覆盖"
     if (s.salePrice !== '') payload.salePrice = parseFloat(s.salePrice)
-    if (s.depositPrice !== '') payload.depositPrice = parseFloat(s.depositPrice)
+    // 押金只对桶装水(category=1)提交：非桶装不显示这个输入框，若把表单里的残留值一并提交，
+    // 后端会按"只有桶装水能设押金"拒绝整次保存 —— 那就变成"改个售价也被拒"的怪事。
+    // 判据与后端 util/BarrelScope 一致（品类值正本：1 桶装水 / 2 瓶装水 / 3 饮水器）。
+    if (s.category === 1 && s.depositPrice !== '') payload.depositPrice = parseFloat(s.depositPrice)
     if (s.ticketPrice !== '') payload.ticketPrice = parseFloat(s.ticketPrice)
 
     this.setData({ saving: true })

@@ -3,6 +3,7 @@ package com.example.aquaflow.integration;
 import com.example.aquaflow.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.context.TestPropertySource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -16,7 +17,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>列表端点值得单独钉一遍：它们是配送端每个 Tab 的<b>唯一数据来源</b>，
  * 一旦某个 mapper 的 JOIN 写错，界面就是"空白页"而不是报错 —— 也正因如此，
  * 这批端点长期零覆盖却没人发现。</p>
+ *
+ * <p>⚠️ 2026-09-19：本类**显式**把 dev-login 打开。此前它写的是"由 application-local.yml
+ * 提供"，而那个文件是 gitignore 的、CI 上没有，CI 又把 {@code DEV_LOGIN_ENABLED} 设成
+ * {@code false}（那是**有意**的：CI 要贴近生产）→ {@code DevLoginController} 带
+ * {@code @ConditionalOnProperty(havingValue="true")}，端点根本不存在，
+ * 于是 {@code loginSelfServiceLifecycle} 在 CI 上必然红（实测 {@code code=404
+ * 接口不存在：api/auth/dev-login}）。用例依赖什么就自己声明什么，别依赖开发机上那份不入库的配置。</p>
  */
+@TestPropertySource(properties = "app.dev-login-enabled=true")
 class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTest {
 
     @Test
@@ -129,7 +138,8 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
     @Test
     @DisplayName("登录态自助：me / 改资料 / refresh 轮换 / logout 后旧 refresh 失效")
     void loginSelfServiceLifecycle() throws InterruptedException {
-        // dev-login 本地可用（DEV_LOGIN_ENABLED=true 由 application-local.yml 提供），
+        // dev-login 由本类的 @TestPropertySource 显式打开（**不能**再依赖 application-local.yml：
+        // 那份配置已 gitignore、CI 上不存在，而 CI 的 DEV_LOGIN_ENABLED 是有意设成 false 的），
         // 它能一次给齐 access + refresh，正是要验证 refresh 轮换所需要的
         Api login = post("/api/auth/dev-login", null, "{\"role\":\"CUSTOMER\",\"openid\":\"p1-self-openid\"}");
         assertEquals(0, login.code(), "开发登录: " + login);

@@ -18,11 +18,14 @@ import com.example.aquaflow.entity.CustomerStationConfig;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.*;
 import com.example.aquaflow.service.PaymentService;
+import com.example.aquaflow.service.EnterpriseIdentityService;
 import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.service.TicketAccountService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.BarrelScope;
 import com.example.aquaflow.util.PriceUtil;
 import com.example.aquaflow.util.StationUtil;
+import com.example.aquaflow.util.TicketScope;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -73,6 +76,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Autowired
     private CustomerStationConfigMapper customerStationConfigMapper;
+
+    /** 企业身份（v50）：只用来取"大额可申请"的提示文案；开关关着时它恒返回 null。 */
+    @Autowired
+    private EnterpriseIdentityService enterpriseIdentityService;
 
     /** 水票账户：用于水票支付的原子扣减与在线购票入账 */
     @Autowired
@@ -965,10 +972,9 @@ public class PaymentServiceImpl implements PaymentService {
                                      List<Map<String, Object>> items, Long addressId) {
         Map<String, Object> result = new HashMap<>();
 
-        // 货到付款能不能选：走唯一判据（v48）。这里还不知道金额，所以只判前三层；
-        // 金额层（单笔上限）由本方法末尾按算出来的总额再判一次，并把原因一并下发，
-        // 免得"报价页能选、提交却被拒"。
-        String offlineBlockReason = offlinePaymentBlockReason(customerId, stationId, null);
+        // 货到付款能不能选：走唯一判据（开关 + 欠款即停），并把原因一并下发 ——
+        // 前端只知道 false 是不知道为什么的。
+        String offlineBlockReason = offlinePaymentBlockReason(customerId, stationId);
         boolean allowOffline = offlineBlockReason == null;
         result.put("allowOfflinePayment", allowOffline);
         result.put("offlinePaymentBlockReason", offlineBlockReason);
@@ -993,11 +999,16 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         BigDecimal totalWaterAmount = BigDecimal.ZERO;
-        BigDecimal totalNonBarrelDeposit = BigDecimal.ZERO;
         int totalExtraBuckets = 0;
         BigDecimal totalExtraDeposit = BigDecimal.ZERO;
 
         Map<Long, Integer> barrelByProduct = new java.util.HashMap<>();
+
+        // [v54 统一水票] 水票支付的可用性提示：客户在结算页点了「水票」就得知道
+        // "这单能不能用票 / 用的是定制票还是本站统一票 / 票够不够"，
+        // 而不是等提交订单后才由 consumeTicket 抛错 —— 那时地址、时段都白填了一遍。
+        List<String> ticketWarnings = new java.util.ArrayList<>();
+        boolean payByTicket = Integer.valueOf(PayMethod.TICKET).equals(paymentMethod);
 
         for (Map<String, Object> item : items) {
             Long productId = item.get("productId") != null ? Long.valueOf(item.get("productId").toString()) : null;
@@ -1017,12 +1028,16 @@ public class PaymentServiceImpl implements PaymentService {
 
             totalWaterAmount = totalWaterAmount.add(unitPrice.multiply(BigDecimal.valueOf(quantity)));
 
-            if (product.getCategory() != null && Integer.valueOf(1).equals(product.getCategory())) {
+            // [2026-09-19] 只有桶装水进桶/押金体系（判据唯一实现在 util/BarrelScope）：
+            // 非桶装商品**不收押金**（押金是循环桶的押金，两处列注释都写着"仅桶装水使用"），
+            // 也不进桶账（见 BarrelLedgerService.applyDelivery 的白名单过滤）。
+            // 历史实现在这里按件收非桶装押金，结果钱进了押金账户却没有退还路径（无押金条可核销）。
+            if (BarrelScope.isBarrel(product)) {
                 barrelByProduct.merge(productId, quantity, Integer::sum);
-            } else {
-                // 本站押金覆盖优先（inventory.deposit_price）→ 通用库参考押金
-                BigDecimal itemDeposit = PriceUtil.calcDeposit(product, inv);
-                totalNonBarrelDeposit = totalNonBarrelDeposit.add(itemDeposit.multiply(BigDecimal.valueOf(quantity)));
+            }
+
+            if (payByTicket) {
+                appendTicketWarning(ticketWarnings, customerId, stationId, product, quantity);
             }
         }
 
@@ -1063,33 +1078,76 @@ public class PaymentServiceImpl implements PaymentService {
         com.example.aquaflow.util.DeliveryFeeUtil.FeeResult fee =
                 deliveryFeeService.calcForOrder(customerId, stationId, addressId, totalBuckets, totalWaterAmount);
 
-        BigDecimal totalAmount = totalWaterAmount.add(totalNonBarrelDeposit).add(totalExtraDeposit)
-                .add(fee.getFeeTotal());
+        // 押金合计 = 缺桶押金(totalExtraDeposit)；非桶装不再有押金（2026-09-19），故这里没有第二项
+        BigDecimal totalAmount = totalWaterAmount.add(totalExtraDeposit).add(fee.getFeeTotal());
 
         result.put("waterAmount", totalWaterAmount);
-        result.put("barrelDeposit", totalNonBarrelDeposit);
+        // ⚠️ 键名 barrelDeposit 是历史遗留的**误称**：它装的曾是"非桶装商品的押金"（`barrelDeposit` 与
+        // `extraDeposit` 语义正好相反），顾客端 create.js 读它当"押金合计"展示。2026-09-19 起非桶装不收押金
+        // → **恒为 0**。保留键名是为了不动两端契约；真正的"桶押金"看 extraDeposit（缺桶押金）。
+        // 别看到 0 就以为是 bug，也**别把非桶装押金加回来**（那会让钱进押金账户却无退还路径）。
+        result.put("barrelDeposit", BigDecimal.ZERO);
         result.put("extraDeposit", totalExtraDeposit);
         result.put("extraDepositBuckets", totalExtraBuckets);
         // 费用单独下发，前端各自展示；totalAmount 是含费用的合计
         result.put("deliveryFee", fee.getDeliveryFee());
         result.put("floorFee", fee.getFloorFee());
-        result.put("warnings", fee.getWarnings());
+        // 水票可用性提示与配送费提示**合并**下发（前端只认一个 warnings 数组，新增一个键等于前端不显示）
+        List<String> allWarnings = new java.util.ArrayList<>();
+        if (fee.getWarnings() != null) {
+            allWarnings.addAll(fee.getWarnings());
+        }
+        allWarnings.addAll(ticketWarnings);
+        result.put("warnings", allWarnings);
         // blocked/blockReason 让前端在提交前就能拦住并显示原因，与下单侧的拒绝判据同源
         result.put("blocked", fee.isBlocked());
         result.put("blockReason", fee.getBlockReason());
         result.put("totalAmount", totalAmount);
 
-        // 金额层复核（v48）：总额此刻才算出来，所以在这里补判一次货到付款的单笔上限 ——
-        // 判据同上（同一个方法），只把"金额相关的那一层"补上；被拦时同步把选项收回并下发原因。
-        String amountBlock = offlinePaymentBlockReason(customerId, stationId, totalAmount);
-        if (amountBlock != null) {
-            result.put("allowOfflinePayment", false);
-            result.put("offlinePaymentBlockReason", amountBlock);
-            result.put("methods", PayMethod.availableMethods(false));
-            result.put("defaultMethod", PayMethod.defaultMethod(false));
-        }
+        // 企业身份提示（v51）：**只算水** —— 桶装水数量与"水费"（不含押金/配送费/楼层费）两条口径，
+        // 命中任一即提示；阈值按站配、没配过用平台默认（30 桶）。开关关着时连字段都不下发（前端也就没有入口）。
+        // ⚠️ 传的是 totalWaterAmount（水费），不是 totalAmount（含押金与费用的合计）——
+        // 押金不算进企业身份的判定（产品 2026-09-19：「企业的只看水，押金不算」）。
+        result.put("enterpriseHint",
+                enterpriseIdentityService.largeOrderHint(customerId, stationId, totalBuckets, totalWaterAmount));
+
 
         return result;
+    }
+
+    /**
+     * 给「水票支付」的结算页追加一条可读提示（[v54] 统一水票）。
+     *
+     * <p>判据不在这里：账户选择一律问 {@code TicketAccountService.resolveDeductAccount}
+     * （内部是 {@link TicketScope} 的唯一实现）。本方法只负责把结果翻译成人话 ——
+     * 客户在结算页看到的必须与提交后 {@code consumeTicket} 真正会扣的账户一致，
+     * 否则又会出现"页面说用定制票、实际扣了统一票"。</p>
+     *
+     * <p>只提示、不阻断：真正的拦阻在提交路径上（下单闸门 + 扣票的原子 SQL）。
+     * 结算页拦一道会让"票刚好在别处补上了"的客户无法下单。</p>
+     */
+    private void appendTicketWarning(List<String> out, Long customerId, Long stationId,
+                                     Product product, int quantity) {
+        Long accountProductId = ticketAccountService.resolveDeductAccount(customerId, product.getId(), stationId);
+        String name = product.getName() != null ? product.getName() : ("商品" + product.getId());
+        if (accountProductId == null) {
+            out.add("「" + name + "」不能用票支付：没有该商品的定制水票，本站也未配置统一水票");
+            return;
+        }
+        int balance = ticketAccountService.balanceOf(customerId, accountProductId, stationId);
+        boolean unified = TicketScope.isUnified(accountProductId);
+        if (balance <= 0) {
+            out.add(unified
+                    ? "「" + name + "」将使用本站统一水票，但当前没有余额，请先购买统一水票"
+                    : "「" + name + "」的水票余额为 0，请先购买水票");
+        } else if (balance < quantity) {
+            // 「不够也不拿统一票补差额」是定稿口径（docs/design/26 §26.0），所以这里必须说清"整单会失败"
+            out.add(unified
+                    ? "「" + name + "」将使用本站统一水票，余额 " + balance + " 张、本单需要 " + quantity + " 张，不足部分不能用定制票补"
+                    : "「" + name + "」的定制水票余额 " + balance + " 张、本单需要 " + quantity + " 张");
+        } else if (unified) {
+            out.add("「" + name + "」将使用本站统一水票（1 张抵 1 桶），余额 " + balance + " 张");
+        }
     }
 
     /**
@@ -1108,30 +1166,32 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public boolean canUseOfflinePayment(Long customerId, Long stationId) {
         // 只判"开关层"（老调用方：试算/报价里决定要不要把"货到付款"这个选项放出来）。
-        // 金额相关的层（首单/欠款/单笔上限）见 offlinePaymentBlockReason —— 那里是**唯一判据**。
-        return offlinePaymentBlockReason(customerId, stationId, null) == null;
+        // 只判"开关层"（老调用方：试算/报价里决定要不要把"货到付款"这个选项放出来）。
+        // 欠款那一层见 offlinePaymentBlockReason —— 那里是**唯一判据**。
+        return offlinePaymentBlockReason(customerId, stationId) == null;
     }
 
     /**
-     * 货到付款**能不能用**，不能用时给出原因 —— 全仓唯一判据（v48，2026-09-18 产品裁定）。
+     * 货到付款**能不能用**，不能用时给出原因 —— 全仓唯一判据（v48 起；两项配置已于 v49 撤回）。
      *
-     * <p>四层，顺序即优先级（先开关、再欠款、再首单、最后金额）：</p>
+     * <p>两层，顺序即优先级：</p>
      * <ol>
-     *   <li><b>开关</b>：该客户在该站是否被站长开通（`customer_station_config.offline_payment_enabled`）；</li>
-     *   <li><b>欠款即停</b>：该客户在本站有逾期未结的现金单就不给新的赊账单 ——
-     *       判据只用现有列现算（`payment_status = 1` 且未取消且 `due_date` 已过），不发明新规则；</li>
-     *   <li><b>首单不给</b>（默认）：客户在本站还没有历史订单时，第一单先走水票/在线付
-     *       —— 与"首单收满押金"同一个逻辑：先建立信用。站长可给个别客户放开；</li>
-     *   <li><b>单笔上限</b>：上限为 NULL = 不限（"特殊允许的客户可以大额"）。</li>
+     *   <li><b>开关</b>：该客户在该站是否被站长开通（customer_station_config.offline_payment_enabled）。
+     *       货到付款**没有站点级总闸**，只能由站长逐个客户开通 —— 这本身就是第一道审核；</li>
+     *   <li><b>欠款即停</b>：该客户在本站有逾期未结的现金单就不给新的赊账单 —— 判据只用现有列现算
+     *       （payment_status = 1 且未取消且 due_date 已过），不发明新规则。它挡的是
+     *       "已经欠着钱还想再赊"，与站长审核不重复。</li>
      * </ol>
      *
-     * <p>⚠️ 下单（{@code OrderServiceImpl.createOrder}）与报价（{@code quote}）都必须调本方法，
-     * **不要各写一套**：两处判据一旦分叉，就会出现"报价页能选货到付款、提交却被拒"。</p>
+     * <p>⚠️ 下单（OrderServiceImpl.createOrder）与报价（quote）都必须调本方法，不要各写一套：
+     * 两处判据一旦分叉，就会出现"报价页能选货到付款、提交却被拒"。</p>
      *
-     * @param amount 本单金额；{@code null} = 还不知道金额（只判前三层）
-     * @return {@code null} = 可用；否则是给用户看的原因（前端直接展示，不要自编同义文案）
+     * <p>⚠️ v48 曾在此加过"首单是否放行 + 单笔上限"两层，v49 按产品裁定撤回
+     * （"既然目前还由站长审核，这两个先不做了"）；要加回来先读 migration_v49_drop_cod_limits.sql 的文件头。</p>
+     *
+     * @return null = 可用；否则是给用户看的原因（前端直接展示，不要自编同义文案）
      */
-    public String offlinePaymentBlockReason(Long customerId, Long stationId, BigDecimal amount) {
+    public String offlinePaymentBlockReason(Long customerId, Long stationId) {
         if (customerId == null || stationId == null) {
             return "无法识别客户或水站";
         }
@@ -1144,15 +1204,6 @@ public class PaymentServiceImpl implements PaymentService {
             BigDecimal owed = orderMapper.sumOverdueCashAmount(customerId, stationId);
             return "该客户有 " + overdue + " 笔逾期未结货款（合计 ¥" + owed + "），请先结清再使用货到付款";
         }
-        boolean allowFirst = Integer.valueOf(1).equals(config.getOfflinePaymentAllowFirstOrder());
-        if (!allowFirst && orderMapper.countCustomerOrdersAtStation(customerId, stationId) == 0) {
-            return "该客户在本站还没有订单，首单暂不支持货到付款（站长可在客户权限里放开）";
-        }
-        BigDecimal limit = config.getOfflinePaymentSingleLimit();
-        if (amount != null && limit != null && amount.compareTo(limit) > 0) {
-            return "本单金额 ¥" + amount + " 超过该客户的货到付款单笔上限 ¥" + limit;
-        }
         return null;
     }
-
 }

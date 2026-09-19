@@ -298,6 +298,12 @@ public abstract class AbstractIntegrationTest {
      *
      * <p>单价记 0 并标记为推断值 —— 测试夹具不关心票值，但 E8 的两条等式（数量与金额）
      * 必须<b>同时</b>成立，所以单价 0 时 {@code right_amount} 也要是 0（DB 默认值即可）。</p>
+     *
+     * <p>⚠️ <b>参数顺序是 {@code (customerId, stationId, productId)}</b>。2026-09-19 实测发现
+     * 有 4 处调用写成了 {@code (customer, product, station)} —— 它们一直"没出事"，
+     * 只因为那些用例里本站与商品都是各自表的第一行（id 都是 1），写反了也插在同一格。
+     * 一旦有人给那些用例加第二个水站或第二个商品，票就会被插进一个错误的账户，
+     * 而现象是"用票支付报余额不足"，极难定位。传参前对一眼这个顺序。</p>
      */
     protected long createTicketAccount(long customerId, long stationId, long productId, int remainQuantity) {
         long id = insert("INSERT INTO ticket_account(customer_id, product_id, station_id, remain_quantity) "
@@ -312,13 +318,8 @@ public abstract class AbstractIntegrationTest {
     }
 
     protected long createCustomerStationConfig(long customerId, long stationId, int offlinePaymentEnabled) {
-        // [v48] 夹具语义 = 「站长把这个客户的货到付款配好了、能用」—— 所以开通时**同时放行首单**。
-        // 首单不给 / 欠款即停 / 单笔上限那三层约束由 OfflinePaymentConstraintIntegrationTest
-        // 走**接口**逐个验（那才是站长真实的配置入口）；不要在这里加"按需放行"的分支，
-        // 否则 20+ 个既有用例会以同一句"首单暂不支持货到付款"集体变红、看不出真正原因。
-        return insert("INSERT INTO customer_station_config(customer_id, station_id, offline_payment_enabled, "
-                + "offline_payment_allow_first_order) VALUES (?,?,?,?)",
-                customerId, stationId, offlinePaymentEnabled, offlinePaymentEnabled == 1 ? 1 : 0);
+        return insert("INSERT INTO customer_station_config(customer_id, station_id, offline_payment_enabled) "
+                + "VALUES (?,?,?)", customerId, stationId, offlinePaymentEnabled);
     }
 
     protected long createBarrelLot(String lotNo, long customerId, long stationId, long productId,

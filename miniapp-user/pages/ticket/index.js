@@ -33,6 +33,10 @@ Page({
     },
     // 当前商品在本站的上架档位（10 张 / 20 张 / 100 张各卖多少钱）
     buyPackages: [],
+    // [v54] 当前选中的是不是「统一水票（站级通用）」——
+    // 它没有单张价（product_id=0 没有商品也没有库存行），所以**只能按档位买**，
+    // 也因为这个原因不显示"改为散买"。
+    isUnifiedBuy: false,
     buyMethods: [
       // 微信支付渠道本身未接入；此处语义是「提交购票申请，由水站确认收款后水票到账」
       { id: 1, name: '微信支付', desc: '提交后由水站确认收款，到账后可用' }
@@ -90,7 +94,16 @@ Page({
         // 只留"本站开了水票"的商品；面值用后端下发的**本站水票价**（effectiveTicketPrice），
         // 它才是真正会扣款的价（旧实现用 product.price，站级水票价一设就显示错）。
         const buyProducts = productsRes.data.filter(p => p.ticketEnabled === 1)
-        this.setData({ buyProducts, currentStationId: stationId })
+        // [v54 统一水票] 站级通用票：product_id=0，**不属于任何商品**，所以不在商品列表里，
+        // 得单独问一次"本站挂了统一票档位吗"（挂上架档位 = 开通）。
+        const unifiedPackages = await getTicketPackages(stationId, 0)
+          .then(r => (r && r.data) || []).catch(() => [])
+        this.setData({
+          buyProducts: unifiedPackages.length
+            ? [{ id: 0, name: '统一水票（站级通用）', unified: true }].concat(buyProducts)
+            : buyProducts,
+          currentStationId: stationId
+        })
       }
     } catch (error) {
       console.error('Load ticket data error:', error)
@@ -177,7 +190,7 @@ Page({
   },
 
   onClosePurchase() {
-    this.setData({ showPurchase: false, buyPackages: [], buyForm: { productId: null, productName: '', faceValue: 0, quantity: 1, totalPrice: 0, paymentMethod: 1, packageId: null, looseFaceValue: 0 } })
+    this.setData({ showPurchase: false, buyPackages: [], isUnifiedBuy: false, buyForm: { productId: null, productName: '', faceValue: 0, quantity: 1, totalPrice: 0, paymentMethod: 1, packageId: null, looseFaceValue: 0 } })
   },
 
   /** 弹窗内容区吞掉点击，避免冒泡到遮罩触发关闭（wxml 用 catchtap 绑定） */
@@ -188,20 +201,23 @@ Page({
     // dataset 类型可能是 string/number，统一按字符串比较，避免 === 恒 false
     const product = this.data.buyProducts.find(p => String(p.id) === String(id))
     if (!product) return
-    // 面值 = 后端下发的本站水票价（与 /api/tickets/purchase 的计费完全同源），不再用零售价
-    const price = parseFloat(product.effectiveTicketPrice || product.price) || 0
+    // 面值 = 后端下发的本站水票价（与 /api/tickets/purchase 的计费完全同源），不再用零售价。
+    // 统一水票没有单张价（后端也不下发），面值只有选了档位才知道。
+    const unified = !!product.unified
+    const price = unified ? 0 : (parseFloat(product.effectiveTicketPrice || product.price) || 0)
     // 换商品必须清掉已选档位：档位是「本站 + 本商品」的，留着上一个商品的 packageId
     // 会被后端以"档位与本水站/本商品不匹配"拒绝
     this.setData({
-      'buyForm.productId': product.id,
+      'buyForm.productId': unified ? 0 : product.id,
       'buyForm.productName': product.name,
       'buyForm.faceValue': price,
       'buyForm.looseFaceValue': price,
       'buyForm.packageId': null,
       'buyForm.quantity': 1,
-      'buyForm.totalPrice': price
+      'buyForm.totalPrice': price,
+      isUnifiedBuy: unified
     })
-    this.loadBuyPackages(product.id)
+    this.loadBuyPackages(unified ? 0 : product.id)
   },
 
   /**
@@ -238,8 +254,9 @@ Page({
     })
   },
 
-  /** 退回散买：张数与单价都回到按单张水票价的口径。 */
+  /** 退回散买：张数与单价都回到按单张水票价的口径。统一水票没有散买口径，直接忽略。 */
   onBuyPackageClear() {
+    if (this.data.isUnifiedBuy) return
     const loose = this.data.buyForm.looseFaceValue || 0
     this.setData({
       'buyForm.packageId': null,
@@ -288,8 +305,14 @@ Page({
 
   async onBuySubmit() {
     const { productId, quantity, paymentMethod, packageId } = this.data.buyForm
-    if (!productId) {
+    if (!productId && productId !== 0) {
       wx.showToast({ title: '请选择商品', icon: 'none' })
+      return
+    }
+    // [v54] 统一水票没有单张价（product_id=0 既无商品也无库存行），只能按档位买 ——
+    // 散买会算出 0 元，后端也会以「购买统一水票必须选择档位套餐」拒绝。
+    if (this.data.isUnifiedBuy && !packageId) {
+      wx.showToast({ title: '统一水票只能按档位购买，请先选一个档位', icon: 'none' })
       return
     }
     if (!quantity || quantity <= 0) {

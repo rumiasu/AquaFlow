@@ -60,6 +60,7 @@ Page({
   },
 
   onStationNameInput(e) { this.setData({ stationName: e.detail.value }) },
+  onPhoneInput(e) { this.setData({ phone: e.detail.value }) },
   onDescInput(e) { this.setData({ description: e.detail.value }) },
 
   onChooseLocation() {
@@ -99,12 +100,22 @@ Page({
   },
 
   async onSubmit() {
-    const { stationName, region, address } = this.data
+    const { stationName, region, address, phone, locationText } = this.data
     const stationNameTrim = stationName.trim()
 
-    // V1 极简：只需要水站名称，其他全部可选（含定位）
+    // [2026-09-19] 三项必填，且**页面标了 * 就必须真的校验**（此前定位标了 * 却不校验，
+    // 结果真实库两台水站的坐标都是空的 —— 而没坐标 = 算不出距离 = 配送范围整段失效）。
     if (!stationNameTrim) {
       wx.showToast({ title: '请输入水站名称', icon: 'none' })
+      return
+    }
+    const phoneTrim = (phone || '').trim()
+    if (!phoneTrim) {
+      wx.showToast({ title: '请填写联系电话', icon: 'none' })
+      return
+    }
+    if (!locationText) {
+      wx.showToast({ title: '请选择水站位置（配送范围靠它判断）', icon: 'none' })
       return
     }
 
@@ -113,7 +124,7 @@ Page({
     try {
       const payload = {
         name: stationNameTrim,
-        phone: '', // 不强制填写，后端使用默认值
+        phone: phoneTrim,   // [2026-09-19] 必填，不再是写死的空串（旧注释：不强制填写，后端使用默认值）
         province: region[0] || '',
         city: region[1] || '',
         district: region[2] || '',

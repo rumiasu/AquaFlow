@@ -22,13 +22,8 @@ public interface CustomerService {
 
     CustomerStationConfig getOfflinePaymentConfig(Long customerId, Long stationId);
 
-    /**
-     * 站长一次性写全货到付款的三项配置（v48）：开关 + 单笔上限 + 是否放行首单。
-     *
-     * @param singleLimit 单笔上限；{@code null} = **不限**（"特殊允许的客户可以大额"）
-     */
-    void updateOfflinePaymentConfig(Long customerId, Long stationId, Integer enabled,
-                                    java.math.BigDecimal singleLimit, Integer allowFirstOrder);
+    /** 设置客户在本站的货到付款开关（唯一控制点是它；没有站点级总闸）。 */
+    void updateOfflinePaymentConfig(Long customerId, Long stationId, Integer enabled);
 
     /**
      * 站长开通货到付款时弹窗要用的**全部依据**（v48）：当前配置 + 该客户在本站的欠款/逾期 +

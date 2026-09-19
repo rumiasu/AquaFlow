@@ -6,6 +6,7 @@ import com.example.aquaflow.constant.DeliveryLimitMode;
 import com.example.aquaflow.constant.FloorFeeMode;
 import com.example.aquaflow.entity.StationDeliveryConfig;
 import com.example.aquaflow.mapper.StationDeliveryConfigMapper;
+import com.example.aquaflow.service.impl.DeliveryConfigGuideService;
 import com.example.aquaflow.util.AuthContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,10 +38,17 @@ public class ManagerDeliveryConfigController {
     @Autowired
     private StationDeliveryConfigMapper stationDeliveryConfigMapper;
 
+    @Autowired
+    private DeliveryConfigGuideService deliveryConfigGuideService;
+
     /**
      * 读本站配送计费配置。
      *
      * <p>没配过时返回默认配置（全 0、WARN、不收费不拦单），并带 {@code configured=false}。</p>
+     *
+     * <p>[2026-09-19] 一并下发 {@code guidance}：本站是否已上架非桶装商品、哪些**金额类门槛**还缺、
+     * 以及按本站最便宜的一桶水算出来的**建议值**。产品口径「没用桶数时，核验金额即可」——
+     * 非桶装商品不占桶，只配桶数门槛等于那条规则对它不生效，所以要把站长引到金额字段上。</p>
      */
     @GetMapping
     public Result<Map<String, Object>> get() {
@@ -57,6 +65,8 @@ public class ManagerDeliveryConfigController {
         data.put("minOrderModeText", DeliveryLimitMode.textOf(cfg.getMinOrderMode()));
         data.put("overRadiusModeText", DeliveryLimitMode.textOf(cfg.getOverRadiusMode()));
         data.put("floorFeeModeText", FloorFeeMode.textOf(cfg.getFloorFeeMode()));
+        // 引导信息（缺哪些金额字段 + 建议值）。前端只展示、不自算倍数。
+        data.put("guidance", deliveryConfigGuideService.guidance(stationId));
         return Result.success(data);
     }
 

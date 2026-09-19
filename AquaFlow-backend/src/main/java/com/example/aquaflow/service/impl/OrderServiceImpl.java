@@ -17,9 +17,12 @@ import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.service.OrderService;
 import com.example.aquaflow.service.OrderWorkflowService;
 import com.example.aquaflow.service.PaymentService;
+import com.example.aquaflow.service.TicketAccountService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.BarrelScope;
 import com.example.aquaflow.util.PriceUtil;
 import com.example.aquaflow.util.StationUtil;
+import com.example.aquaflow.util.TicketScope;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -73,6 +76,10 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private TicketAccountMapper ticketAccountMapper;
+
+    /** [v54] 统一水票的"本站是否开通"判据在 TicketAccountService（唯一实现），下单闸门要问它 */
+    @Autowired
+    private TicketAccountService ticketAccountService;
 
     @Autowired
     private DepositRecordMapper depositRecordMapper;
@@ -254,8 +261,8 @@ public class OrderServiceImpl implements OrderService {
             if (inv.getEnabled() == null || !Integer.valueOf(1).equals(inv.getEnabled())) {
                 throw new BusinessException("商品未上架: " + product.getName());
             }
-            // 判断是否涉及站点资产（桶装水类别=1）
-            if (product.getCategory() != null && Integer.valueOf(1).equals(product.getCategory())) {
+            // 判断是否涉及站点资产（桶装水类别；判据唯一实现在 util/BarrelScope）
+            if (BarrelScope.isBarrel(product)) {
                 needStationAsset = true;
             }
         }
@@ -263,10 +270,9 @@ public class OrderServiceImpl implements OrderService {
         // 货到付款（现金）权限校验：PayMethod 中 2=现金、3=水票
         // 旧代码用 3 判断"线下支付"，与 PayMethod 定义冲突，导致水票支付被要求走线下授权校验
         if (Integer.valueOf(PayMethod.CASH).equals(dto.getPaymentMethod())) {
-            // 唯一判据在 PaymentServiceImpl.offlinePaymentBlockReason（v48：开关 + 欠款即停 + 首单 + 单笔上限）。
-            // 这里先不带金额判一次（金额要等费用算完），算完总额后再补判一次上限 —— 两处调的是同一个方法。
-            String blockReason = paymentService.offlinePaymentBlockReason(
-                    dto.getCustomerId(), stationId, null);
+            // 唯一判据在 PaymentServiceImpl.offlinePaymentBlockReason（开关 + 欠款即停；
+        // v48 的"首单/单笔上限"两层已于 v49 按产品裁定撤回）。
+        String blockReason = paymentService.offlinePaymentBlockReason(dto.getCustomerId(), stationId);
             if (blockReason != null) {
                 throw new BusinessException(blockReason);
             }
@@ -344,11 +350,18 @@ public class OrderServiceImpl implements OrderService {
 
             // [AQ-030] 水票支付适用性校验：该站必须启用该商品的水票且配置了有效水票价，
             // 否则水票支付无法成立（历史实现完全不校验，可对未开水票的商品下水票单）。
+            // [v54 统一水票] 定制票不满足时，本站的**统一水票**可以兜底 —— 但只兜桶装水
+            // （统一票是桶装水的折扣工具：瓶装水/一次性桶/饮水器不占桶、没有"循环"，
+            // 见 docs/design/26 与 util/TicketScope）。判据不在这里重写，统一走 TicketScope。
             if (Integer.valueOf(PayMethod.TICKET).equals(dto.getPaymentMethod())) {
                 boolean ticketEnabled = inv.getTicketEnabled() != null && Integer.valueOf(1).equals(inv.getTicketEnabled());
                 BigDecimal stTicketPrice = inv.getTicketPrice();
                 boolean hasPrice = stTicketPrice != null && stTicketPrice.compareTo(BigDecimal.ZERO) > 0;
-                if (!ticketEnabled || !hasPrice) {
+                boolean customOk = ticketEnabled && hasPrice;
+                boolean unifiedOk = !customOk
+                        && TicketScope.unifiedEligible(product)
+                        && ticketAccountService.unifiedTicketConfigured(stationId);
+                if (!customOk && !unifiedOk) {
                     throw new BusinessException("商品「" + product.getName() + "」未开通水票支付");
                 }
             }
@@ -358,14 +371,11 @@ public class OrderServiceImpl implements OrderService {
             BigDecimal itemSubtotal = unitPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
             waterAmount = waterAmount.add(itemSubtotal);
 
-            // 桶装水(category=1)不在此处收押金，仅在 extraDeposit 按缺桶数收取
-            if (product.getCategory() == null || !Integer.valueOf(1).equals(product.getCategory())) {
-                // 押金也走 PriceUtil：本站押金覆盖（inventory.deposit_price）→ 通用库参考押金
-                BigDecimal itemDeposit = PriceUtil.calcDeposit(product, inv);
-                depositAmount = depositAmount.add(itemDeposit.multiply(BigDecimal.valueOf(item.getQuantity())));
-            }
-
-            if (product.getCategory() != null && Integer.valueOf(1).equals(product.getCategory())) {
+            // [2026-09-19] 押金只对桶装水收（判据唯一实现在 util/BarrelScope）：
+            // 桶装水不在此处按件收，只在下面按"缺桶数"收 extraDeposit；非桶装（瓶装水/一次性桶/饮水器）
+            // **一概不收押金** —— 押金是循环桶的押金（product.deposit 列注释"只有桶装水使用"），
+            // 且非桶装没有押金条可核销，收了就没有退还路径。与结算页报价同口径，避免计价双轨。
+            if (BarrelScope.isBarrel(product)) {
                 totalNeededBuckets += item.getQuantity();
                 barrelByProduct.merge(item.getProductId(), item.getQuantity(), Integer::sum);
             }
@@ -482,16 +492,6 @@ public class OrderServiceImpl implements OrderService {
         orders.setDeliveryFee(feeResult.getDeliveryFee());
         orders.setFloorFee(feeResult.getFloorFee());
         orders.setTotalAmount(waterAmount.add(depositAmount).add(feeResult.getFeeTotal()));
-
-        // 货到付款的**金额层**复核（v48）：总额此刻才算出来，补判一次单笔上限 ——
-        // 与前面那次是同一个方法，所以"报价页能选、提交被拒"这种分叉不会出现。
-        if (Integer.valueOf(PayMethod.CASH).equals(dto.getPaymentMethod())) {
-            String amountBlock = paymentService.offlinePaymentBlockReason(
-                    dto.getCustomerId(), stationId, orders.getTotalAmount());
-            if (amountBlock != null) {
-                throw new BusinessException(amountBlock);
-            }
-        }
         // 计算订单总数量：所有商品数量之和
         if (dto.getItems() != null && !dto.getItems().isEmpty()) {
             int totalQuantity = dto.getItems().stream()
@@ -528,10 +528,10 @@ public class OrderServiceImpl implements OrderService {
             Product product = productCache.get(item.getProductId());
             Inventory inv = invCache.get(item.getProductId());
             BigDecimal unitPrice = PriceUtil.calcUnitPrice(product, inv, dto.getPaymentMethod());
-            // 桶装水押金在 extraDeposit 中统一处理，order item 记 0
-            BigDecimal itemDeposit = (product.getCategory() != null && Integer.valueOf(1).equals(product.getCategory()))
-                    ? BigDecimal.ZERO
-                    : PriceUtil.calcDeposit(product, inv);
+            // [2026-09-19] 明细押金快照：桶装水在 extraDeposit 里按缺桶数统一收，明细记 0（[DEF-2]：
+            // 0 视为"无快照"，退押金时回退到押金条上的买入价）；非桶装本来就不收押金 → 同样记 0。
+            // 于是这个字段现在**恒为 0**，留着是因为 BarrelLedgerService.depositByProduct 会读它做兜底。
+            BigDecimal itemDeposit = BigDecimal.ZERO;
 
             // 本次实际能扣减的库存量：库存不足时只能扣到 min(stock, quantity)
             // 落库到 deducted_qty，取消/退款时按此回补，避免"下单10桶库存只有3桶，取消却回补10桶"刷出库存

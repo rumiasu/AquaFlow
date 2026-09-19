@@ -103,6 +103,14 @@ const API = {
   CUSTOMER_ASSETS: (id) => `/api/customers/${id}/assets`,
   CUSTOMER_OFFLINE_PAYMENT: (id) => `/api/customers/${id}/offline-payment`,
 
+  // 企业身份申请（后端: EnterpriseController，v50）：站长在客户列表页审核。
+  // 功能有总开关（app.enterprise.enabled，默认关）；关着时列表端点**返回空列表**，不报错。
+  ENTERPRISE_APPLICATIONS: '/api/enterprise/manager/applications',
+  ENTERPRISE_APPLICATION: (id) => `/api/enterprise/manager/applications/${id}`,
+  // 站级「企业身份提示阈值」（v51）：桶数 与/或 水费金额，站长自己设；不设=用平台默认（30 桶）。
+  // ⚠️ 平台级总开关没有对应端点，也没有界面（产品：平台级不做前端可视化）。
+  ENTERPRISE_CONFIG: '/api/enterprise/manager/config',
+
   // 综合数据报表（range=today|7d|30d）。水站由后端按登录站长判定，前端不传 stationId
   DASHBOARD_REPORT: '/api/dashboard/report',
 

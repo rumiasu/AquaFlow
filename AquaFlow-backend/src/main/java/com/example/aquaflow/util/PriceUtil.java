@@ -84,9 +84,19 @@ public final class PriceUtil {
      *       <b>不要</b>调本方法重算，否则改价会改到客户已经付过的钱。</li>
      * </ul>
      *
+     * <p><b>[2026-09-19] 非桶装商品一律返回 0</b>：押金是"循环桶的押金"，两处列注释都写着
+     * <i>仅桶装水使用</i>（见 {@code product.deposit} / {@code inventory.deposit_price}）。
+     * 这条判据放在这里而不是各调用点，是因为报价、下单、明细快照、兜底建押金条全都汇到本方法 ——
+     * 只要有一处漏判，"非桶装收押金"就会从那个缺口重新长出来（2026-09-19 实测到的正是这种漏）。
+     * 品类判据的唯一实现在 {@link BarrelScope}。</p>
+     *
      * @param inventory 该站该商品的库存配置（含本站押金），可为 null
      */
     public static BigDecimal calcDeposit(Product product, Inventory inventory) {
+        if (!BarrelScope.isBarrel(product)) {
+            // 非桶装：即使通用库/站级误填了押金，也不收（写侧另有校验拦截，这里是读侧的最后一道）
+            return BigDecimal.ZERO;
+        }
         BigDecimal stDeposit = inventory != null ? inventory.getDepositPrice() : null;
         if (isEffectiveOverride(stDeposit)) {
             return stDeposit;
@@ -97,6 +107,25 @@ public final class PriceUtil {
     /** 站级覆盖是否生效：非空且 &gt; 0（留空/0 都表示"用通用库参考值"） */
     private static boolean isEffectiveOverride(BigDecimal value) {
         return value != null && value.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    /**
+     * 该商品在该站是否配了**有效的水票价**（站级 → 通用库，非空且 &gt; 0）。
+     *
+     * <p>用途：{@link #calcUnitPrice} 在水票价缺失时会**静默回落到零售价**，
+     * 于是"这个价是水票价算出来的"和"这个是零售价"从返回值上分不出来。
+     * 凡是需要把**依据**讲给用户听的地方（例如统一水票预设档的引导文案）必须问这一句，
+     * 不能凭"调用时传了 TICKET"就宣称是水票价。</p>
+     *
+     * <p>与 {@code calcUnitPrice} 共用同一个覆盖判定（{@link #isEffectiveOverride}），
+     * 所以两处不会分叉 —— 这也是它放在本类而不是调用方自己写 if 的原因。</p>
+     */
+    public static boolean hasEffectiveTicketPrice(Product product, Inventory inventory) {
+        if (product == null) {
+            return false;
+        }
+        return isEffectiveOverride(inventory != null ? inventory.getTicketPrice() : null)
+                || isEffectiveOverride(product.getTicketPrice());
     }
 
     /** 数量 × 单价，空值安全 */

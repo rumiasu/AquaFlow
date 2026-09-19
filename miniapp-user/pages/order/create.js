@@ -6,6 +6,7 @@ const { getTicketAccounts } = require('../../api/ticket')
 const { createOrder, createPayment } = require('../../api/order')
 const { getQuote } = require('../../api/payment')
 const { getStationPublicPhone, getStationStatus } = require('../../api/station')
+const { submitEnterpriseApply, getMyEnterpriseApplies } = require('../../api/enterprise')
 const { storage, stationStorage } = require('../../utils/storage')
 const { resolveStationId } = require('../../utils/station')
 const { getCustomerId } = require('../../utils/token')
@@ -26,6 +27,8 @@ Page({
     stationName: '',
     // 金额校准相关
     totalWaterCost: 0,
+    // 非桶装押金合计：后端 quote 的 barrelDeposit 键（历史误称）装着它，2026-09-19 起恒为 0，
+    // 只用于支付请求的兼容字段（后端会用订单金额重算、丢弃客户端值），页面上不再展示
     totalDeposit: 0,
     extraDepositBuckets: 0,
     extraDepositAmount: 0,
@@ -33,7 +36,6 @@ Page({
     // 水站营业状态提示（软状态）：有值时页面顶部显示横幅，**不阻断下单**
     stationStatusHint: '',
     totalWaterCostText: '0.00',
-    totalDepositText: '0.00',
     extraDepositAmountText: '',
     totalAmountText: '0.00',
     // 支付方式：枚举以后端 PayMethod 为准 —— 1=微信 2=现金(货到付款) 3=水票。
@@ -60,7 +62,10 @@ Page({
     // 配送中桶提醒弹窗
     showInTransitReminder: false,
     inTransitReminderAck: false,   // 同一次进入页面只提示一次
-    hasInTransitBarrels: false
+    hasInTransitBarrels: false,
+    // 企业身份提示（v50）：由服务端在报价里下发（金额达阈值且客户还不是企业身份时才有值），
+    // 前端不自算阈值、不自造文案。**不做独立入口** —— 只在拿到它的那一刻弹一次。
+    enterpriseHint: ''
   },
 
   onLoad(options) {
@@ -449,6 +454,8 @@ this.setData({ products, stationName: effectiveStationName })
         // blocked 是"起送量/配送范围配成了不接单"的硬拦结论 —— 与下单侧的拒绝判据同源
         const blocked = d.blocked === true
         const blockReason = d.blockReason || ''
+        // 企业身份提示（v50）：服务端开关关着 / 没到阈值 / 已是企业身份时都是空串
+        const enterpriseHint = d.enterpriseHint || ''
 
         // 支付方式列表由服务端下发（含文案、可用性、默认项），前端不再硬编码 1/2/3 的含义
         const payMethods = Array.isArray(d.methods) && d.methods.length
@@ -458,11 +465,10 @@ this.setData({ products, stationName: effectiveStationName })
         const selectedStillOk = payMethods.some(m => m.id === selectedMethod && m.enabled)
         const nextMethod = selectedStillOk ? selectedMethod : (d.defaultMethod || payMethods[0].id)
 
-        // 计算每个商品的押金明细
+        // 计算每个商品的**缺桶押金**明细（非桶装没有押金，见下）
         const updatedProducts = products.map(p => {
           const deposit = parseFloat(p.deposit) || 0
           const isBarrel = p.category === 1
-          let depositAmount = 0
           let shortage = 0
           let shortageDeposit = 0
 
@@ -472,14 +478,14 @@ this.setData({ products, stationName: effectiveStationName })
             const actualBuckets = held ? held.actualBuckets : 0
             shortage = Math.max(0, (p.quantity || 1) - actualBuckets)
             shortageDeposit = deposit * shortage
-          } else {
-            // 非桶装水：每个都收押金
-            depositAmount = deposit * (p.quantity || 1)
           }
+          // 非桶装（瓶装水 / 一次性桶 / 饮水器）：**押金恒为 0**（2026-09-19）。
+          // 押金是循环桶的押金（正本：product.deposit 列注释"只有桶装水使用"），
+          // 这里原来写的是"每个都收押金"，与后端同口径一起收口 —— 否则结算页会显示一笔
+          // 后端根本不收的押金（计价双轨的老坑）。后端 quote 的 barrelDeposit 同样恒为 0。
 
           return {
             ...p,
-            depositAmountText: depositAmount > 0 ? depositAmount.toFixed(2) : '0.00',
             shortage,
             shortageDepositText: shortageDeposit > 0 ? shortageDeposit.toFixed(2) : '0.00'
           }
@@ -493,7 +499,6 @@ this.setData({ products, stationName: effectiveStationName })
           extraDepositAmount,
           totalAmount,
           totalWaterCostText: totalWaterCost.toFixed(2),
-          totalDepositText: totalDeposit.toFixed(2),
           extraDepositAmountText: extraDepositBuckets > 0 ? extraDepositAmount.toFixed(2) : '',
           totalAmountText: totalAmount.toFixed(2),
           allowOfflinePayment,
@@ -507,10 +512,13 @@ this.setData({ products, stationName: effectiveStationName })
           feeTotalText: (deliveryFee + floorFee) > 0 ? (deliveryFee + floorFee).toFixed(2) : '',
           feeWarnings,
           blocked,
-          blockReason
+          blockReason,
+          enterpriseHint
         }
 
         this.setData(updates)
+        // 弹窗放在 setData 之后、不 await：提示而已，绝不能拖住报价渲染或下单按钮
+        this.maybePromptEnterprise(enterpriseHint)
       }
     } catch (e) {
       console.warn('[OrderCreate] refreshQuote error:', e.message)
@@ -692,6 +700,91 @@ this.setData({ products, stationName: effectiveStationName })
     const orderRes = this.data.pendingOrderRes
     this.setData({ showAssetConfirm: false, assetConfirmed: false, pendingOrderRes: null })
     this.proceedToPayment(orderRes)
+  },
+
+  // ===== 企业身份申请（v50）=====
+  //
+  // 产品口径：「订水时检测到大额订单，会弹出确认是否是企业，可申请企业身份」——
+  // **客户侧没有独立入口**，这一步就是全部入口。
+  //
+  // 三个设计取舍（改之前先读）：
+  //   ① 每次进入页面**只弹一次**（this.enterprisePrompted 是挂在页面实例上的，不是 data）：
+  //      报价在改数量/改支付方式时都会重算，若不加这个闸门，用户每点一下加号就被弹一次。
+  //   ② 弹窗前先查一次"我在本站有没有待审的申请"：已经申请过的人不再骚扰
+  //      （重复提交后端虽然幂等，但天天弹同一个窗很烦）。查询失败**不阻断** ——
+  //      宁可多弹一次，也不能因为一次网络抖动就把"能申请"这件事静默丢掉。
+  //   ③ 全程不阻断下单：无论用户点"暂不"、还是提交失败，都不影响本次下单流程。
+  maybePromptEnterprise(hint) {
+    if (!hint || this.enterprisePrompted) return
+    // 先置位再弹：showModal 是异步回调，这里若不先置位，同一轮里的第二次报价会再弹一个
+    this.enterprisePrompted = true
+    this.checkPendingEnterpriseApply().then((hasPending) => {
+      if (hasPending) return
+      wx.showModal({
+        title: '企业订水',
+        content: hint,
+        confirmText: '申请企业身份',
+        cancelText: '暂不',
+        success: (r) => {
+          if (r.confirm) this.askEnterpriseName()
+        }
+      })
+    })
+  },
+
+  /** 本站是否已有待审申请（拿不到就说"没有"，即允许弹窗）。 */
+  async checkPendingEnterpriseApply() {
+    try {
+      const res = await getMyEnterpriseApplies(this.data.stationId)
+      const list = (res && res.data) || []
+      return list.some((a) => a.status === 'PENDING')
+    } catch (e) {
+      console.warn('[OrderCreate] 查询企业身份申请失败（按未申请处理）:', e.message)
+      return false
+    }
+  },
+
+  /**
+   * 只问企业名称（后端必填项就这一个），用 wx.showModal 的 editable 形态 ——
+   * 需求是"最小闭环、不新增页面"，为这一句话单开一个表单页不值当。
+   * 联系人/电话/税号都可留空：站长审核时看得到是谁在下单（订单里有收货人）。
+   */
+  askEnterpriseName() {
+    wx.showModal({
+      title: '企业名称',
+      editable: true,
+      placeholderText: '请填写营业执照上的企业全称',
+      success: (r) => {
+        if (!r.confirm) return
+        const companyName = (r.content || '').trim()
+        if (!companyName) {
+          wx.showToast({ title: '企业名称不能为空', icon: 'none' })
+          return
+        }
+        this.submitEnterpriseApply(companyName)
+      }
+    })
+  },
+
+  async submitEnterpriseApply(companyName) {
+    const address = this.data.address || {}
+    try {
+      await submitEnterpriseApply({
+        stationId: this.data.stationId,
+        companyName,
+        // 电话可用就用收货人电话兜底：站长要打电话核实时不至于拿到一条没有任何联系方式的申请
+        contactPhone: address.phone || undefined
+      })
+      wx.showModal({
+        title: '申请已提交',
+        content: '水站站长审核通过后，你会成为企业客户。本次下单不受影响，可以继续。',
+        showCancel: false,
+        confirmText: '继续下单'
+      })
+    } catch (e) {
+      // 服务端开关关掉时这里收到的就是「企业身份功能当前未开启」，原样展示服务端文案
+      wx.showToast({ title: e.message || '提交失败，请稍后重试', icon: 'none' })
+    }
   },
 
   // ===== 资产使用说明详情弹窗 =====

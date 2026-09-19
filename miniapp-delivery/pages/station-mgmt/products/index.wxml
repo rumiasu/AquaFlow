@@ -45,7 +45,7 @@
           <text class="tag submit" wx:if="{{item.submission}}">上报·{{item.submission.statusText}}</text>
         </view>
         <text class="sub" wx:if="{{item.brand || item.spec}}">{{item.brand}} {{item.spec}}</text>
-        <text class="sub muted">{{item.categoryLabel}} · 参考价 ¥{{item.refPriceText}}<text wx:if="{{item.deposit > 0}}"> · 参考押金 ¥{{item.refDepositText}}</text></text>
+        <text class="sub muted">{{item.categoryLabel}} · 参考价 ¥{{item.refPriceText}}<text wx:if="{{item.deposit > 0 && item.category === 1}}"> · 参考押金 ¥{{item.refDepositText}}</text></text>
 
         <view class="tags">
           <text class="tag stock" wx:if="{{item.selected}}">库存 {{item.stockText}}</text>
@@ -114,7 +114,9 @@
           <text class="label">本站售价(元)</text>
           <input class="input" type="digit" placeholder="留空=平台价 ¥{{setting.refPriceText}}；填 0 = 恢复平台价" value="{{setting.salePrice}}" data-field="salePrice" bindinput="onSettingFieldInput" bindblur="onPriceBlur" />
         </view>
-        <view class="form-item" wx:if="{{setting.category !== 3}}">
+        <!-- 押金只对桶装水开放（2026-09-19）：瓶装水/一次性桶/饮水器都没有"回收退押"这件事，
+             填了也收不进来（后端按"只有桶装水能设押金"直接拒绝），所以这里不显示输入框。 -->
+        <view class="form-item" wx:if="{{setting.category === 1}}">
           <text class="label">本站押金(元)</text>
           <input class="input" type="digit" placeholder="留空=平台押金 ¥{{setting.refDepositText}}" value="{{setting.depositPrice}}" data-field="depositPrice" bindinput="onSettingFieldInput" bindblur="onPriceBlur" />
         </view>

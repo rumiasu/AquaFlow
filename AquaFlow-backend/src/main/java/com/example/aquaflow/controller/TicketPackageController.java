@@ -34,6 +34,10 @@ public class TicketPackageController {
     @Autowired
     private TicketPackageMapper ticketPackageMapper;
 
+    /** 平台预设档的引导（v54 统一水票）：算出"本站一桶水的钱"再折算三档建议 */
+    @Autowired
+    private com.example.aquaflow.service.impl.TicketPackagePresetService ticketPackagePresetService;
+
     /**
      * 客户端查某站某商品的在售档位。
      *
@@ -50,6 +54,21 @@ public class TicketPackageController {
     @GetMapping("/manage")
     public Result<List<TicketPackage>> listForManager(@RequestParam Long productId) {
         return Result.success(ticketPackageMapper.listAll(AuthContext.requireStationId(), productId));
+    }
+
+    /**
+     * 平台预设档（**一键填入的草稿**，v54）：给统一水票用，按本站"一桶水的钱"折算 10 / 20 / 100 张三档。
+     *
+     * <p>⚠️ 本端点**只读**：不会替站长建档位。因为"本站有上架的 {@code product_id=0} 档位"
+     * 就是**统一水票的站级开关**，自动落行等于替所有水站开通一个折扣工具。
+     * 站长看完建议、按自己的经营情况改数字，再走 {@link #save} 保存。</p>
+     *
+     * <p>客户端**不能调**（{@code @RequireRole}）：它是站长定价的辅助信息，不是顾客可见的商品数据。</p>
+     */
+    @RequireRole({"STATION_MANAGER"})
+    @GetMapping("/presets")
+    public Result<java.util.Map<String, Object>> presets() {
+        return Result.success(ticketPackagePresetService.presets(AuthContext.requireStationId()));
     }
 
     /**

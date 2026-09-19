@@ -2,12 +2,19 @@
   <view class="form-card">
     <view class="form-header">
       <text class="form-title">创建我的水站</text>
-      <text class="form-subtitle">命名水站并选择位置即可</text>
+      <text class="form-subtitle">名称、联系电话、位置三项必填</text>
     </view>
 
     <view class="form-group">
       <text class="form-label">水站名称 <text class="required">*</text></text>
       <input class="form-input" placeholder="给您的水站起个名字" value="{{stationName}}" bindinput="onStationNameInput" maxlength="30" />
+    </view>
+
+    <!-- [2026-09-19] 联系电话改为必填（产品裁定）：客户下单、退桶、催单都靠它，缺了页面只能显示「请咨询客服」。
+         此前这里没有输入框，提交时写死 phone:''（见 index.js），后端也不校验。 -->
+    <view class="form-group">
+      <text class="form-label">联系电话 <text class="required">*</text></text>
+      <input class="form-input" type="number" placeholder="客户联系你用的号码" value="{{phone}}" bindinput="onPhoneInput" maxlength="20" />
     </view>
 
     <view class="form-group location-group {{locationText ? 'location-filled' : ''}}" bindtap="onChooseLocation">
@@ -17,6 +24,8 @@
           <text class="location-text">{{locationText || '点击选择地图位置'}}</text>
           <!-- 省市区由定位结果自动解析回填，不需要站长再手选（见 index.js onChooseLocation） -->
           <text class="location-sub" wx:if="{{regionText}}">省市区：{{regionText}}</text>
+          <!-- 标了必填就要真的校验：没坐标 = 算不出距离 = 你设的配送范围整段失效 -->
+          <text class="location-sub warn" wx:else>必须选点：没有坐标，配送范围与距离都无法判断</text>
         </view>
         <text class="location-icon">📍</text>
       </view>

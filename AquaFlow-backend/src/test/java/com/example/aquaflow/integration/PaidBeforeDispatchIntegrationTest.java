@@ -55,10 +55,6 @@ class PaidBeforeDispatchIntegrationTest extends AbstractIntegrationTest {
         createInventoryFull(station, ticketGoods, 100, 1, "18.00");
         if (offlinePaymentEnabled) {
             createCustomerStationConfig(customer, station, 1);
-            // [v48] 货到付款多了一层「首单是否放行」（默认不放行）：本用例要验的是"货到付款是推送规则的
-            // 例外"，所以把首单也放开；否则它测的就变成"首单限制"了（那条另有 OfflinePaymentConstraint 用例）
-            jdbc.update("UPDATE customer_station_config SET offline_payment_allow_first_order = 1 "
-                    + "WHERE customer_id = ? AND station_id = ?", customer, station);
         }
         tokenMgr = staffToken(mgr, "STATION_MANAGER", station);
         tokenDriver = staffToken(driver, "DELIVERY", station);

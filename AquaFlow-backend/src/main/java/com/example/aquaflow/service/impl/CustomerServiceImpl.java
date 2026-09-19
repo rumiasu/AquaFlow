@@ -35,6 +35,7 @@ import com.example.aquaflow.vo.CustomerStationAssetVO;
 import com.example.aquaflow.vo.CustomerStationVO;
 import com.example.aquaflow.util.CustomerSearchMatcher;
 import com.example.aquaflow.util.PriceUtil;
+import com.example.aquaflow.util.TicketScope;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -161,12 +162,9 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public void updateOfflinePaymentConfig(Long customerId, Long stationId, Integer enabled,
-                                           java.math.BigDecimal singleLimit, Integer allowFirstOrder) {
+    public void updateOfflinePaymentConfig(Long customerId, Long stationId, Integer enabled) {
         customerStationConfigMapper.ensureExists(customerId, stationId);
-        // 整份覆盖写：singleLimit 传 null 就是"改成不限"（SQL 里刻意不做"非空才更新"）
-        customerStationConfigMapper.updateOfflinePaymentConfig(customerId, stationId, enabled,
-                singleLimit, allowFirstOrder == null ? 0 : allowFirstOrder);
+        customerStationConfigMapper.updateOfflinePaymentEnabled(customerId, stationId, enabled);
     }
 
     @Override
@@ -174,15 +172,13 @@ public class CustomerServiceImpl implements CustomerService {
         CustomerStationConfig config = customerStationConfigMapper.getByCustomerAndStation(customerId, stationId);
         Map<String, Object> out = new java.util.HashMap<>();
         out.put("offlinePaymentEnabled", config == null ? 0 : config.getOfflinePaymentEnabled());
-        out.put("singleLimit", config == null ? null : config.getOfflinePaymentSingleLimit());
-        out.put("allowFirstOrder", config == null ? 0 : config.getOfflinePaymentAllowFirstOrder());
         // 欠款/逾期（与"欠款即停"同源：逾期未结的现金单）
         out.put("overdueCount", orderMapper.countOverdueCashOrders(customerId, stationId));
         out.put("overdueAmount", orderMapper.sumOverdueCashAmount(customerId, stationId));
-        // 历史订单数：为 0 即"首单"（默认不放行货到付款）—— 站长在弹窗里一眼看到为什么要放开
+        // 历史订单数：站长在弹窗里一眼看到"这个客户在本站下过几单"
         out.put("orderCount", orderMapper.countCustomerOrdersAtStation(customerId, stationId));
         // 当前能不能用 + 原因（唯一判据在 PaymentService，这里不另拼文案）
-        String reason = paymentService.offlinePaymentBlockReason(customerId, stationId, null);
+        String reason = paymentService.offlinePaymentBlockReason(customerId, stationId);
         out.put("blockReason", reason);
         out.put("usable", reason == null);
         return out;
@@ -527,18 +523,28 @@ public class CustomerServiceImpl implements CustomerService {
                 int remain = ta.getRemainQuantity() != null ? ta.getRemainQuantity() : 0;
                 if (remain <= 0) continue;
 
-                Product p = product(ta.getProductId(), productCache);
-                Inventory inv = ta.getProductId() != null
+                // [v54 统一水票] product_id = 0 是**站级通用票**，product 表里没有这一行：
+                // 名称会变成"未知商品"、单价会算成 0（product=null → PriceUtil 返回 0）。
+                // 它的真实价值只能取账户派生列 right_amount / remain（= 批次的加权均价，
+                // 因为统一票没有"站级水票价"这个参考物）。
+                boolean unifiedTicket = TicketScope.isUnified(ta.getProductId());
+
+                Product p = unifiedTicket ? null : product(ta.getProductId(), productCache);
+                Inventory inv = !unifiedTicket && ta.getProductId() != null
                         ? inventoryMapper.getByStationAndProduct(stationId, ta.getProductId()) : null;
                 // 水票"价值"= 水票支付时真正会扣的单价，所以直接走唯一计价入口：
                 // 站级 ticket_price → product.ticket_price → 站级售价 → product.price（旧实现少了两级）
-                BigDecimal unit = PriceUtil.calcUnitPrice(p, inv, PayMethod.TICKET);
+                BigDecimal unit = unifiedTicket
+                        ? (remain > 0 && ta.getRightAmount() != null
+                            ? ta.getRightAmount().divide(BigDecimal.valueOf(remain), 2, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO)
+                        : PriceUtil.calcUnitPrice(p, inv, PayMethod.TICKET);
                 BigDecimal value = unit.multiply(BigDecimal.valueOf(remain));
 
                 CustomerStationAssetVO.TicketItem item = new CustomerStationAssetVO.TicketItem();
                 item.setProductId(ta.getProductId());
-                item.setProductName(p != null ? p.getName() : "未知商品");
-                item.setProductSpec(p != null ? p.getSpec() : "");
+                item.setProductName(unifiedTicket ? "统一水票（站级通用）" : (p != null ? p.getName() : "未知商品"));
+                item.setProductSpec(unifiedTicket ? "1 张 = 1 桶，本站桶装水通用" : (p != null ? p.getSpec() : ""));
                 item.setRemainQuantity(remain);
                 item.setUnitPrice(unit);
                 item.setTotalValue(value);
@@ -632,7 +638,9 @@ public class CustomerServiceImpl implements CustomerService {
             rec.setDirection(delta > 0 ? "IN" : (delta < 0 ? "OUT" : "FLAT"));
             rec.setChangeText(delta == 0 ? "" : (delta > 0 ? "+" : "") + delta + " 张");
             Product p = product(r.getProductId(), productCache);
-            rec.setProductName(p != null ? p.getName() : null);
+            // [v54] 统一水票的流水 product_id = 0，product 表查不到 → 不能下发 null（界面会空着）
+            rec.setProductName(TicketScope.isUnified(r.getProductId())
+                    ? "统一水票（站级通用）" : (p != null ? p.getName() : null));
             rec.setOrderId(r.getOrderId());
             rec.setNote(r.getSource());
             rec.setTime(r.getCreateTime());

@@ -112,7 +112,7 @@ class OrderCancelRollbackIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("取消水票已付订单：水票退回、支付状态置已退款")
     void cancelTicketPaidOrder_refundsTicket() {
         seed(false);
-        createTicketAccount(customer, product, station, 10);
+        createTicketAccount(customer, station, product, 10);
         long order = createOrderViaApi(3 /* 水票 */, 2);
 
         Api pay = post("/api/payments", customerToken(customer), "{\"orderId\":" + order + ",\"paymentMethod\":3}");

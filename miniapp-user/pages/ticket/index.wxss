@@ -331,6 +331,12 @@
   color: var(--price-color);
 }
 
+/* [v54] 统一水票是站级通用票（不挑品牌），没有"单张价"可显示，
+   所以这里不写价格、只写一句它是什么。 */
+.product-price-unified {
+  color: #ad4e00;
+}
+
 .qty-row {
   display: flex;
   align-items: center;

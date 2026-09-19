@@ -28,6 +28,15 @@ public interface CustomerMapper {
     @Delete("delete from customer where id = #{id}")
     void delete(@Param("id") Long id);
 
+    /**
+     * 只改客户类型（1 个人 / 2 企业）—— 企业身份审核通过时用（v50）。
+     *
+     * <p>⚠️ 必须用这个窄方法，不要拿 {@link #update(Customer)} 顶上：那一条是**整行覆盖写**，
+     * 传一个只填了 id/type 的对象上去会把 openid、姓名、电话、备注一并清空。</p>
+     */
+    @Update("update customer set customer_type = #{customerType}, update_time = NOW() where id = #{id}")
+    int updateCustomerType(@Param("id") Long id, @Param("customerType") Integer customerType);
+
     @Select("select * from customer")
     List<Customer> list();
 

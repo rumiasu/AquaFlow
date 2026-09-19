@@ -1,5 +1,7 @@
 // 站长客户查询
-const { getCustomers, getOfflinePaymentSummary, updateOfflinePayment } = require('../../../api/station-mgmt')
+const { getCustomers, getOfflinePaymentSummary, updateOfflinePayment,
+        getEnterpriseApplies, reviewEnterpriseApply,
+        getEnterpriseConfig, updateEnterpriseConfig } = require('../../../api/station-mgmt')
 const { STORAGE_KEYS } = require('../../../utils/storage-keys')
 
 const AVATAR_COLORS = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6B', '#909399', '#9254DE']
@@ -33,7 +35,18 @@ Page({
     // 货到付款开通弹窗（v48）：站长在"设置是否允许货到付款"的那一刻就要看到该客户欠了多少、
     // 为什么现在用不了（原因文案来自后端唯一判据，前端不自己编）
     codModal: { visible: false, customerId: null, customerName: '', orderCount: 0, overdueCount: 0, overdueAmount: '0.00', blockReason: '' },
-    codForm: { enabled: false, allowFirstOrder: false, singleLimit: '' }
+    codForm: { enabled: false },
+    // 企业身份申请（v50）：开关关着时后端返回空列表 → 这里 count 为 0 → 整行不显示
+    entApplies: [],
+    entVisible: false,
+    entSaving: false,
+    // 企业身份提示阈值（v51）：站长按站配。entCfg.enabled=false（平台总开关关着）时整块隐藏 ——
+    // 注意平台级开关**没有**前端入口，这里说的开关只是"要不要显示这一块"。
+    entCfg: { enabled: false, barrelThreshold: null, waterAmountThreshold: null, defaultBarrels: 30, usingDefault: true },
+    entCfgText: '',
+    entCfgVisible: false,
+    entCfgSaving: false,
+    entCfgForm: { barrels: '', amount: '' }
   },
 
   onShow() {
@@ -76,6 +89,10 @@ Page({
       // 数字混用只有归一化之后才匹配得上（本地 includes 一定漏）。
       // 因此这里**不再**本地 filter name/phone —— 服务端已经把结果筛好了。
       const keyword = this.data.keyword.trim()
+      // 企业身份待审与客户列表是两个独立请求，并行发；它自己吞掉异常，
+      // 绝不能让"待审列表取不到"把客户列表也变成一片空白。
+      const entTask = this.loadEnterpriseApplies()
+      const cfgTask = this.loadEnterpriseConfig()
       const res = await getCustomers(stationId, keyword)
       const filterType = this.data.filterType
       let list = (res.data || []).map(decorate)
@@ -84,10 +101,36 @@ Page({
         list = list.filter(c => c.customerType === t)
       }
       this.setData({ list })
+      await entTask
+      await cfgTask
     } catch (err) {
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     } finally {
       this.setData({ loading: false })
+    }
+  },
+
+  /**
+   * 本站待审的企业身份申请（v50）。
+   *
+   * 静默失败是有意的：这是客户列表页顶部的一行"顺带提示"，取不到就当作没有 ——
+   * 为一个附加提示在客户查询页弹红字，属于喧宾夺主。
+   * ⚠️ 功能总开关关着时后端给的是**空列表**，与"真的没有申请"同形，前端无需区分。
+   */
+  async loadEnterpriseApplies() {
+    try {
+      const res = await getEnterpriseApplies()
+      const list = (res.data || []).map(a => {
+        // 时间只用后端下发的 ISO 串做切片展示：不 new Date()、不做时区换算
+        // （这是"谁什么时候申请的"，精度到分钟足够）
+        a.applyTimeText = a.applyTime ? String(a.applyTime).replace('T', ' ').slice(0, 16) : ''
+        a.statusText = a.statusText || '待审核'
+        return a
+      })
+      this.setData({ entApplies: list })
+    } catch (err) {
+      console.warn('[Customers] 企业身份待审列表获取失败（当作没有）:', err.message)
+      this.setData({ entApplies: [] })
     }
   },
 
@@ -126,12 +169,7 @@ Page({
           overdueAmount: d.overdueAmount != null ? d.overdueAmount : '0.00',
           blockReason: d.blockReason || ''
         },
-        codForm: {
-          enabled: Number(d.offlinePaymentEnabled) === 1,
-          allowFirstOrder: Number(d.allowFirstOrder) === 1,
-          // 上限为 null = 不限 → 输入框留空（不要填 0，那会被当成"上限 0 元"）
-          singleLimit: d.singleLimit == null ? '' : String(d.singleLimit)
-        }
+        codForm: { enabled: Number(d.offlinePaymentEnabled) === 1 }
       })
     } catch (err) {
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
@@ -149,24 +187,10 @@ Page({
     this.setData({ 'codForm.enabled': e.detail.value })
   },
 
-  onCodFirstToggle(e) {
-    this.setData({ 'codForm.allowFirstOrder': e.detail.value })
-  },
-
-  onCodLimitInput(e) {
-    this.setData({ 'codForm.singleLimit': e.detail.value })
-  },
-
   async onCodSave() {
     const { customerId } = this.data.codModal
-    const { enabled, allowFirstOrder, singleLimit } = this.data.codForm
-    const limitText = (singleLimit || '').trim()
-    // 留空 = 不限（null）；填了就必须是非负数，服务端也会再挡一道
-    const payload = {
-      offlinePaymentEnabled: enabled ? 1 : 0,
-      allowFirstOrder: allowFirstOrder ? 1 : 0,
-      singleLimit: limitText === '' ? null : limitText
-    }
+    const { enabled } = this.data.codForm
+    const payload = { offlinePaymentEnabled: enabled ? 1 : 0 }
     try {
       const res = await updateOfflinePayment(customerId, payload)
       if (res.code !== 0) {
@@ -178,6 +202,187 @@ Page({
       this.loadData()
     } catch (err) {
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+    }
+  },
+
+  /* ==================== 企业身份提示阈值（v51，站长按站配） ==================== */
+
+  /**
+   * 读本站阈值。**静默失败**：这是客户列表页顶部的一行附加设置，取不到就当作功能没开、
+   * 整块不显示，不为它弹红字（与待审列表同一处理口径）。
+   *
+   * 回填时把"没配过 → 用平台默认"一并展示出来：站长得看得出这个 30 桶是平台给的还是自己设的
+   * （`usingDefault`），否则他会以为自己设过。
+   */
+  async loadEnterpriseConfig() {
+    try {
+      const res = await getEnterpriseConfig()
+      const c = (res && res.data) || {}
+      // 「未启用」只有一种表示法：null。这里把 0/负数也归一到 null ——
+      // 否则站长打开设置会看到"水费达到 0 元"，一保存又被"必须为正"拒掉（后端已保证不下发 0，
+      // 这一层是防御：老版本后端 / 人为改库都可能给出 0）。
+      const positive = (v) => {
+        const n = Number(v)
+        return Number.isFinite(n) && n > 0 ? n : null
+      }
+      const cfg = {
+        enabled: c.enabled === true,
+        barrelThreshold: positive(c.barrelThreshold),
+        waterAmountThreshold: positive(c.waterAmountThreshold),
+        defaultBarrels: c.defaultBarrels == null ? 30 : Number(c.defaultBarrels),
+        usingDefault: c.usingDefault === true
+      }
+      this.setData({
+        entCfg: cfg,
+        entCfgText: this.describeEnterpriseConfig(cfg)
+      })
+    } catch (err) {
+      console.warn('[Customers] 企业身份阈值配置获取失败（当作功能未开启）:', err.message)
+      this.setData({ entCfg: { enabled: false }, entCfgText: '' })
+    }
+  },
+
+  /** 把两项阈值说成一句人话（wxml 不做格式化，一律在 js 里拼好）。 */
+  describeEnterpriseConfig(cfg) {
+    const parts = []
+    if (cfg.barrelThreshold) {
+      parts.push(`达到 ${cfg.barrelThreshold} 桶`)
+    }
+    if (cfg.waterAmountThreshold) {
+      parts.push(`水费达到 ¥${cfg.waterAmountThreshold.toFixed(2)}`)
+    }
+    if (!parts.length) {
+      return '本站不提示（两项都留空）'
+    }
+    const suffix = cfg.usingDefault ? '（平台默认，可改）' : ''
+    return parts.join(' 或 ') + suffix
+  },
+
+  onEntCfgOpen() {
+    const { barrelThreshold, waterAmountThreshold } = this.data.entCfg
+    this.setData({
+      entCfgVisible: true,
+      entCfgForm: {
+        barrels: barrelThreshold == null ? '' : String(barrelThreshold),
+        amount: waterAmountThreshold == null ? '' : String(waterAmountThreshold)
+      }
+    })
+  },
+
+  onEntCfgClose() {
+    this.setData({ entCfgVisible: false })
+  },
+
+  /** 弹窗内容区的空处理器：阻止点击穿透到遮罩。 */
+  onEntCfgNoop() {},
+
+  onEntCfgBarrelInput(e) {
+    this.setData({ 'entCfgForm.barrels': e.detail.value })
+  },
+
+  onEntCfgAmountInput(e) {
+    this.setData({ 'entCfgForm.amount': e.detail.value })
+  },
+
+  /**
+   * 保存阈值。两条都留空是**合法**的（= 本站不提示），所以这里不拦"空"，
+   * 只拦"填了但不是正数" —— 后端也会再校验一次，前端这层只是为了少一次往返。
+   */
+  async onEntCfgSave() {
+    if (this.data.entCfgSaving) return
+    const barrelsRaw = (this.data.entCfgForm.barrels || '').trim()
+    const amountRaw = (this.data.entCfgForm.amount || '').trim()
+    const barrels = barrelsRaw === '' ? null : Number(barrelsRaw)
+    const amount = amountRaw === '' ? null : Number(amountRaw)
+    if (barrels !== null && (!Number.isInteger(barrels) || barrels <= 0)) {
+      wx.showToast({ title: '桶数要填大于 0 的整数，或留空', icon: 'none' })
+      return
+    }
+    if (amount !== null && !(amount > 0)) {
+      wx.showToast({ title: '金额要填大于 0 的数字，或留空', icon: 'none' })
+      return
+    }
+    this.setData({ entCfgSaving: true })
+    try {
+      const res = await updateEnterpriseConfig({ barrelThreshold: barrels, waterAmountThreshold: amount })
+      if (res.code !== 0) {
+        wx.showToast({ title: res.message || '保存失败', icon: 'none' })
+        return
+      }
+      wx.showToast({ title: '已保存', icon: 'success' })
+      this.setData({ entCfgVisible: false })
+      await this.loadEnterpriseConfig()
+    } catch (err) {
+      wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+    } finally {
+      this.setData({ entCfgSaving: false })
+    }
+  },
+
+  /* ==================== 企业身份申请审核（v50） ==================== */
+
+  onEntOpen() {
+    if (!this.data.entApplies.length) return
+    this.setData({ entVisible: true })
+  },
+
+  onEntClose() {
+    this.setData({ entVisible: false })
+  },
+
+  /** 弹窗内容区的空处理器：阻止点击穿透到遮罩（否则点一下就把弹窗关了）。 */
+  onEntNoop() {},
+
+  /**
+   * 通过申请。
+   *
+   * 先确认再动手：通过之后这个客户就转成**企业客户**了（企业资料一并落库），
+   * 站长该在这个时刻知道"我认下了这笔生意"，而不是点错一下悄悄改了客户类型。
+   */
+  onEntApprove(e) {
+    const { id, name } = e.currentTarget.dataset
+    wx.showModal({
+      title: '确认为企业客户',
+      content: `通过后「${name}」将转为企业客户，企业资料同步建档。`,
+      confirmText: '通过',
+      cancelText: '再想想',
+      success: (r) => {
+        if (r.confirm) this.doReview(id, true, '')
+      }
+    })
+  },
+
+  /** 驳回申请：驳回理由（可不填）用 editable 弹窗问一次，它会随申请一起留痕。 */
+  onEntReject(e) {
+    const { id, name } = e.currentTarget.dataset
+    wx.showModal({
+      title: '驳回申请',
+      editable: true,
+      placeholderText: `驳回「${name}」的理由（可不填）`,
+      success: (r) => {
+        if (r.confirm) this.doReview(id, false, (r.content || '').trim())
+      }
+    })
+  },
+
+  async doReview(id, approve, note) {
+    if (this.data.entSaving) return
+    this.setData({ entSaving: true })
+    try {
+      const res = await reviewEnterpriseApply(id, approve, note)
+      if (res.code !== 0) {
+        wx.showToast({ title: res.message || '操作失败', icon: 'none' })
+        return
+      }
+      wx.showToast({ title: approve ? '已通过' : '已驳回', icon: 'success' })
+      // 重新拉一次：待审列表少一条，且通过后客户列表里的身份标签要跟着变
+      await this.loadEnterpriseApplies()
+      if (!this.data.entApplies.length) this.setData({ entVisible: false })
+      this.loadData()
+    } catch (err) {
+      wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ entSaving: false })
     }
   }
 })

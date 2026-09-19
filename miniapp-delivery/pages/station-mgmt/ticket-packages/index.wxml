@@ -6,19 +6,47 @@
     <view class="card-title">选择商品</view>
     <view class="empty" wx:if="{{loading && !products.length}}">加载中…</view>
     <view class="chips">
-      <view class="chip {{productId === item.id + '' ? 'chip-on' : ''}}"
+      <view class="chip {{productId === item.id + '' ? 'chip-on' : ''}} {{item.unified ? 'chip-unified' : ''}}"
             wx:for="{{products}}" wx:key="id"
             bindtap="onPickProduct" data-id="{{item.id}}">{{item.name}}</view>
     </view>
-    <view class="empty" wx:if="{{!products.length}}">本站还没有上架商品。</view>
-    <view class="hint" wx:if="{{productId}}">
+    <view class="empty" wx:if="{{products.length <= 1}}">本站还没有上架商品。</view>
+    <view class="hint" wx:if="{{productId && !isUnified}}">
       档位是按「本站 + 本商品」挂的。顾客买票时只看到上架的档位；没挂档位就按单张水票价散买。
+    </view>
+    <view class="hint hint-unified" wx:if="{{isUnified}}">
+      统一水票是站级通用票：一张抵一桶，本站桶装水通用，不挑品牌。
+      挂上档位就等于给本站开通统一水票，全部下架就等于关闭。
+      客户手里有某个商品的定制票时先用定制票，没有才用统一票 —— 顺序由后端裁定。
     </view>
   </view>
 
   <block wx:if="{{productId}}">
+    <!-- 平台预设档：只给统一水票用（普通商品的档位是"这款水的价目表"，与站级通用票无关）。
+         点一下只填表单、不保存 —— 站长按自己的经营情况改完再存。 -->
+    <view class="card" wx:if="{{isUnified}}">
+      <view class="card-title">平台预设档（点一下填入，可改）</view>
+      <block wx:if="{{presets.length}}">
+        <view class="preset-row">
+          <view class="preset-chip" wx:for="{{presets}}" wx:key="qty"
+                bindtap="onApplyPreset" data-id="{{item.qty}}">
+            <text class="preset-qty">{{item.qty}} 张</text>
+            <text class="preset-price">¥{{item.price}}</text>
+            <text class="preset-sub">{{item.discountText}} · 每张 ¥{{item.unitPrice}}</text>
+          </view>
+        </view>
+        <view class="hint">
+          按「{{presetBasis}}」¥{{presetBasePrice}}/桶 折算：一张票抵一桶。
+          平台给的是建议值，改完点下面的「保存档位」才生效。
+        </view>
+      </block>
+      <view class="empty" wx:else>
+        本站还没有已上架桶装水，暂时给不出建议价 —— 可以先上架一款桶装水，或自己填张数与总价。
+      </view>
+    </view>
+
     <view class="card">
-      <view class="card-title">新增 / 修改档位</view>
+      <view class="card-title">新增 / 修改档位{{isUnified ? '（统一水票）' : ''}}</view>
       <view class="field">
         <text class="field-label">张数</text>
         <input class="field-input" type="number" value="{{form.qty}}"
@@ -32,7 +60,7 @@
       <view class="field">
         <text class="field-label">名称（可选）</text>
         <input class="field-input" value="{{form.title}}"
-               bindinput="onInput" data-field="title" placeholder="如 10 张优惠装" />
+               bindinput="onInput" data-field="title" placeholder="如 10 张 9.5 折" />
       </view>
       <view class="field">
         <text class="field-label">排序（可选）</text>
@@ -44,12 +72,15 @@
       </view>
       <view class="hint">
         均价（总价 ÷ 张数）由服务端计算，保存后在下表显示。同一张数重复保存就是修改该档位。
+        <text wx:if="{{isUnified}}">折扣只发生在购买那一刻：10 张卖 85.50 → 每张按 8.55 记进批次，用票时一张就是一张。</text>
       </view>
     </view>
 
     <view class="card">
-      <view class="card-title">本站该商品的档位（{{packages.length}} 个）</view>
-      <view class="empty" wx:if="{{!packages.length}}">还没挂档位。</view>
+      <view class="card-title">{{isUnified ? '本站统一水票档位' : '本站该商品的档位'}}（{{packages.length}} 个）</view>
+      <view class="empty" wx:if="{{!packages.length}}">
+        {{isUnified ? '还没挂档位 —— 现在本站没有统一水票，客户只能用自己的定制票。' : '还没挂档位。'}}
+      </view>
       <view class="row" wx:for="{{packages}}" wx:key="id">
         <view class="row-main">
           <view class="row-between">
@@ -68,8 +99,12 @@
           <view class="mini-btn mini-btn-danger" bindtap="onDelete" data-id="{{item.id}}">删除</view>
         </view>
       </view>
-      <view class="hint" wx:if="{{packages.length}}">
+      <view class="hint" wx:if="{{packages.length && !isUnified}}">
         「参考节省」是拿本站单张水票价与本档位均价比较得出的展示值；
+        权威金额始终是档位的总价与均价（服务端下发）。
+      </view>
+      <view class="hint" wx:if="{{packages.length && isUnified}}">
+        统一水票没有"单张水票价"可比，所以这里不显示参考节省；
         权威金额始终是档位的总价与均价（服务端下发）。
       </view>
     </view>

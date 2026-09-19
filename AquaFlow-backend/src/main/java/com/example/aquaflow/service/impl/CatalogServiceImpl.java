@@ -14,6 +14,7 @@ import com.example.aquaflow.mapper.ProductSubmissionMapper;
 import com.example.aquaflow.service.CatalogService;
 import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.BarrelScope;
 import com.example.aquaflow.util.ProductImageResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,6 +62,10 @@ public class CatalogServiceImpl implements CatalogService {
     @Autowired
     private ProductImageResolver imageResolver;
 
+    /** 上架非桶装商品前的金额门槛校验与建议值（2026-09-19），见 DeliveryConfigGuideService。 */
+    @Autowired
+    private DeliveryConfigGuideService deliveryConfigGuideService;
+
     /**
      * 站级价偏离通用库参考价多少算"要提醒"（默认 ±50%）。
      * <p>产品口径：护栏<b>不强制</b>，只提醒 —— 站间可以有价差，但要防手滑把 25 写成 2500。</p>
@@ -86,6 +91,28 @@ public class CatalogServiceImpl implements CatalogService {
             throw new BusinessException("该商品已被开发者下架，无法在本站配置");
         }
         Inventory current = inventoryMapper.getByStationAndProduct(stationId, productId);
+
+        // [2026-09-19] 押金只对桶装水生效：非桶装商品**不允许**设站级押金。
+        // 读侧（PriceUtil.calcDeposit）已经会把非桶装押金算成 0，但只靠读侧会变成"站长填了、系统不认、还不报错"
+        // —— 那正是本仓最忌讳的静默不一致。所以在写入这一刻就拒绝并说清原因。
+        if (!BarrelScope.isBarrelCategory(vo.getCategory())
+                && dto.getDepositPrice() != null && dto.getDepositPrice().compareTo(BigDecimal.ZERO) > 0) {
+            throw new BusinessException("只有桶装水能设押金："
+                    + (vo.getName() != null ? vo.getName() : "该商品")
+                    + " 是" + vo.getCategoryText() + "，不收押金（也无需退）");
+        }
+
+        // [2026-09-19] 上架**非桶装**商品前的金额门槛硬校验（产品：「没用桶数时，核验金额即可」
+        // ＋「选择了上架瓶装水/饮水机等非桶装水业务，最好指引着强制完成金额类字段填写」）：
+        // 非桶装不占桶，站长若只配了桶数门槛、没配金额门槛，那条规则对这类订单就是不生效的
+        // （见 DeliveryFeeUtil.belowMinOrder 的"条件不适用"分支）。与其让站长以为自己设了门槛，
+        // 不如在上架这一刻拦住、并给出按本站最低水价算的建议值 —— 界面上一键就能填完。
+        // 只在"本次要上架"时校验：关掉上架（enabled=0）不受影响，避免把下架操作也卡住。
+        boolean enabling = Integer.valueOf(1).equals(dto.getEnabled())
+                || (dto.getEnabled() == null && current != null && Integer.valueOf(1).equals(current.getEnabled()));
+        if (enabling && !BarrelScope.isBarrelCategory(vo.getCategory())) {
+            deliveryConfigGuideService.requireAmountFieldsForNonBarrel(stationId);
+        }
 
         Inventory setting = new Inventory();
         setting.setStationId(stationId);
@@ -151,9 +178,16 @@ public class CatalogServiceImpl implements CatalogService {
             throw new BusinessException("押金不能为负数");
         }
         // 桶装水没有押金 = 桶白送（退桶退 0），与桶账模型冲突，必须挡住
-        if (Integer.valueOf(1).equals(dto.getCategory())
+        if (BarrelScope.isBarrelCategory(dto.getCategory())
                 && (dto.getDeposit() == null || dto.getDeposit().compareTo(BigDecimal.ZERO) <= 0)) {
             throw new BusinessException("桶装水必须设置大于 0 的押金");
+        }
+        // [2026-09-19] 反向也挡住：非桶装（瓶装水 / 一次性桶 / 饮水器）**不许有押金** ——
+        // 押金是循环桶的押金（product.deposit 列注释"只有桶装水使用"），读了也没有退还路径
+        // （退押金按桶型押金条核销，非桶装不建押金条）。读侧 PriceUtil.calcDeposit 同样返回 0，双保险。
+        if (!BarrelScope.isBarrelCategory(dto.getCategory())
+                && dto.getDeposit() != null && dto.getDeposit().compareTo(BigDecimal.ZERO) > 0) {
+            throw new BusinessException("只有桶装水能设押金：" + categoryName(dto.getCategory()) + "不收押金（也无需退）");
         }
 
         Product product = new Product();
@@ -210,9 +244,16 @@ public class CatalogServiceImpl implements CatalogService {
         if (dto.getDeposit() != null) product.setDeposit(dto.getDeposit());
         if (dto.getMaxPerOrder() != null) product.setMaxPerOrder(dto.getMaxPerOrder());
         if (dto.getSort() != null) product.setSort(dto.getSort());
-        if (Integer.valueOf(1).equals(product.getCategory())
+        // 校验用的是**改完之后**的 category+deposit（下面两处 set 已完成），故放在这里而不是入口处：
+        // ① 桶装水必须有押金（没押金 = 桶白送，与桶账模型冲突）；
+        // ② 非桶装不许有押金（押金是循环桶的押金，非桶装没有押金条可核销 → 收了退不出，2026-09-19）。
+        if (BarrelScope.isBarrelCategory(product.getCategory())
                 && (product.getDeposit() == null || product.getDeposit().compareTo(BigDecimal.ZERO) <= 0)) {
             throw new BusinessException("桶装水必须设置大于 0 的押金");
+        }
+        if (!BarrelScope.isBarrelCategory(product.getCategory())
+                && product.getDeposit() != null && product.getDeposit().compareTo(BigDecimal.ZERO) > 0) {
+            throw new BusinessException("只有桶装水能设押金：" + categoryName(product.getCategory()) + "不收押金（也无需退）");
         }
         product.setUpdateTime(LocalDateTime.now());
 
@@ -291,6 +332,17 @@ public class CatalogServiceImpl implements CatalogService {
         }
         if (category < 1 || category > 3) {
             throw new BusinessException("商品分类值无效，必须为 1(桶装水)、2(瓶装水) 或 3(饮水器)");
+        }
+    }
+
+    /** 品类中文名，只用于把"为什么不能设押金"这句话说清楚（文案正本仍是 Product.getCategoryText()）。 */
+    private static String categoryName(Integer category) {
+        if (category == null) return "该商品";
+        switch (category) {
+            case 1: return "桶装水";
+            case 2: return "瓶装水";
+            case 3: return "饮水器";
+            default: return "该商品";
         }
     }
 

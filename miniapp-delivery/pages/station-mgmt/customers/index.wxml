@@ -10,6 +10,28 @@
     <view class="chip {{filterType === '2' ? 'active' : ''}}" data-type="2" bindtap="onFilterType"><text>企业</text></view>
   </view>
 
+  <!--
+    企业身份提示阈值（v51）：与"待审"同一处 —— 这一块是站长与企业身份相关的全部操作面。
+    `entCfg.enabled` 为 false（平台总开关关着）时整块不显示：功能关掉就该连设置都看不到，
+    而不是留一个点了会报错的入口。文案在 js 里拼好（wxml 不做格式化）。
+  -->
+  <view class="ent-cfg" wx:if="{{entCfg.enabled}}" bindtap="onEntCfgOpen">
+    <view class="ent-cfg-left">
+      <text class="ent-cfg-title">企业身份提示</text>
+      <text class="ent-cfg-desc">{{entCfgText}}</text>
+    </view>
+    <text class="ent-cfg-arrow">设置 ›</text>
+  </view>
+
+  <!--
+    企业身份待审（v50）：客户在下单页看到「大额订单可申请企业身份」后提交的那些。
+    功能总开关关着时后端返回空列表 → 这一行整行不显示（不是"0 条待审"的占位）。
+  -->
+  <view class="ent-banner" wx:if="{{entApplies.length}}" bindtap="onEntOpen">
+    <text class="ent-banner-text">有 {{entApplies.length}} 条企业身份申请待审核</text>
+    <text class="ent-banner-arrow">›</text>
+  </view>
+
   <view class="customer-list" wx:if="{{!loading}}">
     <view class="customer-card" wx:for="{{list}}" wx:key="id">
       <view class="avatar" style="background:{{item.avatarColor}}">{{item.avatarText}}</view>
@@ -40,7 +62,7 @@
       </view>
       <view class="card-actions">
         <view class="manage-btn" data-id="{{item.id}}" bindtap="onManage"><text>画像</text></view>
-        <!-- 货到付款的开关与约束（v48）：站长在这里开通，并同时定"首单是否放行 + 单笔上限" -->
+        <!-- 货到付款的开关与约束（v48）：站长在这里开通；v49 已撤回「首单是否放行 / 单笔上限」 -->
         <view class="cod-btn" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onCod"><text>货到付款</text></view>
         <view class="call-btn" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall"><text>致电</text></view>
       </view>
@@ -50,8 +72,9 @@
   <view class="loading" wx:if="{{loading}}">加载中...</view>
 
   <!--
-    货到付款设置弹窗（v48）。三件事都在这里定：开关、首单是否放行、单笔上限（留空 = 不限）。
-    上面那行提示是**后端唯一判据**给出的原因（欠款未结 / 首单未放行 / 超上限），前端只展示、不自编。
+    货到付款设置弹窗：开关，以及该客户的欠款/逾期与"此刻为什么用不了"。
+    ⚠️ v48 曾有「首单是否放行 / 单笔上限」两行，v49 按产品裁定撤回（货到付款本来就由站长逐个审核开通，
+    这两层是重复设防）；`migration_v49_drop_cod_limits.sql` 里有完整理由。
   -->
   <view class="modal-mask" wx:if="{{codModal.visible}}" bindtap="onCodClose">
     <view class="modal-body" catchtap="onCodNoop">
@@ -61,14 +84,6 @@
         <text>开通货到付款</text>
         <switch checked="{{codForm.enabled}}" bindchange="onCodToggle" />
       </view>
-      <view class="modal-row">
-        <text>允许首单货到付款</text>
-        <switch checked="{{codForm.allowFirstOrder}}" bindchange="onCodFirstToggle" />
-      </view>
-      <view class="modal-row">
-        <text>单笔上限（留空 = 不限）</text>
-        <input class="modal-input" type="digit" value="{{codForm.singleLimit}}" placeholder="不限" bindinput="onCodLimitInput" />
-      </view>
       <view class="modal-stat">
         <text>历史订单 {{codModal.orderCount}} 笔</text>
         <text>逾期未结 {{codModal.overdueCount}} 笔 · ¥{{codModal.overdueAmount}}</text>
@@ -76,6 +91,57 @@
       <view class="modal-actions">
         <view class="modal-btn" bindtap="onCodClose"><text>取消</text></view>
         <view class="modal-btn primary" bindtap="onCodSave"><text>保存</text></view>
+      </view>
+    </view>
+  </view>
+
+  <!--
+    企业身份申请审核（v50）。客户填的信息原样展示（企业名/联系人/电话/时间），
+    通过/驳回各一个按钮 —— 不做"批量通过"：通过 = 认下一家企业客户，逐条看是应该的。
+  -->
+  <view class="modal-mask" wx:if="{{entVisible}}" bindtap="onEntClose">
+    <view class="modal-body" catchtap="onEntNoop">
+      <view class="modal-title">企业身份申请（{{entApplies.length}}）</view>
+      <view class="ent-item" wx:for="{{entApplies}}" wx:key="id">
+        <view class="ent-item-head">
+          <text class="ent-item-name">{{item.companyName}}</text>
+          <text class="ent-item-time">{{item.applyTimeText}}</text>
+        </view>
+        <text class="ent-item-line" wx:if="{{item.contactPerson}}">联系人：{{item.contactPerson}}</text>
+        <text class="ent-item-line" wx:if="{{item.contactPhone}}">电话：{{item.contactPhone}}</text>
+        <text class="ent-item-line" wx:if="{{item.taxNo}}">税号：{{item.taxNo}}</text>
+        <text class="ent-item-line" wx:if="{{item.contactPhone}}" data-phone="{{item.contactPhone}}" bindtap="onCall">拨号核实 ›</text>
+        <view class="ent-item-actions">
+          <view class="modal-btn" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntReject"><text>驳回</text></view>
+          <view class="modal-btn primary" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntApprove"><text>通过</text></view>
+        </view>
+      </view>
+      <view class="modal-actions">
+        <view class="modal-btn" bindtap="onEntClose"><text>关闭</text></view>
+      </view>
+    </view>
+  </view>
+
+  <!--
+    企业身份提示阈值设置（v51）。两项都可留空：留空 = 不用这条口径；两项都留空 = 本站不提示。
+    ⚠️ 平台级总开关**不在这里**（产品：平台级不做前端可视化），站长能改的只有本站阈值。
+  -->
+  <view class="modal-mask" wx:if="{{entCfgVisible}}" bindtap="onEntCfgClose">
+    <view class="modal-body" catchtap="onEntCfgNoop">
+      <view class="modal-title">企业身份提示 · 本站阈值</view>
+      <view class="modal-tip">下单时达到任一条就提示客户「可申请企业身份」。只算桶装水：押金、配送费、楼层费都不计。</view>
+      <view class="modal-row">
+        <text>桶数达到</text>
+        <input class="modal-input" type="number" placeholder="留空=不用这条" value="{{entCfgForm.barrels}}" bindinput="onEntCfgBarrelInput" />
+      </view>
+      <view class="modal-row">
+        <text>水费达到（元）</text>
+        <input class="modal-input" type="digit" placeholder="留空=不用这条" value="{{entCfgForm.amount}}" bindinput="onEntCfgAmountInput" />
+      </view>
+      <view class="modal-tip">两条都填 = 满足任一条就提示；两条都留空 = 本站不提示。不改就是平台默认（{{entCfg.defaultBarrels}} 桶）。</view>
+      <view class="modal-actions">
+        <view class="modal-btn" bindtap="onEntCfgClose"><text>取消</text></view>
+        <view class="modal-btn primary" bindtap="onEntCfgSave"><text>保存</text></view>
       </view>
     </view>
   </view>

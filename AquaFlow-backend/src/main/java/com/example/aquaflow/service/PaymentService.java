@@ -162,15 +162,14 @@ public interface PaymentService {
     List<PaymentRecord> listByOrderId(Long orderId);
 
     /**
-     * 货到付款能不能用，不能用时给出**给用户看的原因** —— 全仓唯一判据（v48）。
+     * 货到付款能不能用，不能用时给出**给用户看的原因** —— 全仓唯一判据（v48 起；两项配置已于 v49 撤回）。
      *
-     * <p>四层：开关 → 欠款即停（有逾期未结的现金单）→ 首单不给（默认，站长可放开）→ 单笔上限（NULL = 不限）。
+     * <p>两层：开关（该客户在该站是否被站长开通）→ 欠款即停（有逾期未结的现金单就不给新的赊账单）。
      * 下单与报价都必须调它，不要各写一套（分叉就会出现"报价能选、提交被拒"）。</p>
      *
-     * @param amount 本单金额；{@code null} = 还不知道金额（只判前三层）
      * @return {@code null} = 可用；否则是可直接展示的拒绝原因
      */
-    String offlinePaymentBlockReason(Long customerId, Long stationId, java.math.BigDecimal amount);
+    String offlinePaymentBlockReason(Long customerId, Long stationId);
 
     /** 查询客户支付记录 */
     List<PaymentRecord> listByCustomerId(Long customerId);

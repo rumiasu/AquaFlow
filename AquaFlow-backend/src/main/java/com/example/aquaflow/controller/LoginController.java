@@ -15,6 +15,7 @@ import com.example.aquaflow.mapper.StaffStationApplicationMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.mapper.UserTokenMapper;
 import com.example.aquaflow.service.WeChatLoginService;
+import com.example.aquaflow.service.impl.StationServiceImpl;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.JwtUtil;
 import com.example.aquaflow.util.PasswordUtil;
@@ -337,6 +338,7 @@ public class LoginController {
         Station station = new Station();
         station.setName(name.trim());
         station.setPhone(phoneTrim);
+
         String fullAddress = address == null ? "" : address.trim();
         if (province != null && !province.isEmpty()) {
             StringBuilder sb = new StringBuilder();
@@ -357,6 +359,9 @@ public class LoginController {
         station.setStatus(1);
         station.setCreateTime(LocalDateTime.now());
         station.setUpdateTime(LocalDateTime.now());
+        // [2026-09-19] 名称 + 联系电话必填（判据的唯一实现在 StationServiceImpl.requireContactFields）：
+        // 这是站长**实际走的那条**建站路径，另一条是 StationController.POST /api/stations —— 两条都要校验。
+        StationServiceImpl.requireContactFields(station);
         stationMapper.insert(station);
 
         // 绑定当前 staff 为该站站长 → 不写 staff_station_application, 直接更新 station_id

@@ -118,10 +118,29 @@ public final class DeliveryFeeUtil {
         return r;
     }
 
+    /**
+     * 起送量判据：**桶数与金额取或**（满足其一即达门槛）。
+     *
+     * <p><b>[2026-09-19 产品裁定]「没用桶数时，核验金额即可」</b>：本单一件桶装水都没有
+     * （{@code buckets <= 0}，即纯瓶装水/一次性桶/饮水机单）时，桶数条件**不适用** ——
+     * 它是为循环桶设的，拿它去判这种单必然是"0 桶 &lt; N 桶 → 未达起送量"，
+     * 于是整类非桶装订单会被无理由拦下（或按 FEE 模式白加钱）。此时**只看金额条件</b>：</p>
+     * <ul>
+     *   <li>配了金额门槛 → 按它判（这是唯一有意义的口径）；</li>
+     *   <li>没配金额门槛 → 两条条件一条不适用、一条没配 → <b>该规则整体不生效（不拦）</b>。</li>
+     * </ul>
+     * <p>⚠️ 这是"条件不适用"，**不是**"默认放行"：有桶的单照旧按取或判（1 桶 &lt; 2 桶且水费也没到 → 未达）。
+     * 站长侧有配套引导：上架非桶装商品时若金额门槛为空会被拒绝保存，并给出建议值
+     * （见 {@code CatalogServiceImpl} 与 {@code ManagerDeliveryConfigController}）。</p>
+     */
     private static boolean belowMinOrder(StationDeliveryConfig cfg, int buckets, BigDecimal water) {
         Integer mb = cfg.getMinOrderBuckets();
         BigDecimal ma = cfg.getMinOrderAmount();
         if (mb == null && ma == null) return false;          // 不限起送量
+        if (buckets <= 0) {
+            // 纯非桶装单：桶数条件不适用，只核金额；金额也没配 = 该规则不生效
+            return ma != null && water.compareTo(ma) < 0;
+        }
         if (mb != null && buckets >= mb) return false;       // 桶数达标
         if (ma != null && water.compareTo(ma) >= 0) return false;  // 金额达标
         return true;
@@ -134,10 +153,20 @@ public final class DeliveryFeeUtil {
         return String.join(" 或 ", parts);
     }
 
+    /**
+     * 免运费判据：桶数与金额取或（达到其一即免基础配送费）。
+     *
+     * <p>与 {@link #belowMinOrder} 同一条产品口径：本单没有桶装水时，桶数条件不适用，
+     * 只看金额条件；金额也没配 → 这条规则不生效 = **照常收基础配送费**
+     * （免运费是"给优惠"，条件不适用时不给优惠是保守且可解释的一侧，不要反成"默认免"）。</p>
+     */
     private static boolean isFreeDelivery(StationDeliveryConfig cfg, int buckets, BigDecimal water) {
         Integer fb = cfg.getFreeDeliveryBuckets();
         BigDecimal fa = cfg.getFreeDeliveryAmount();
         if (fb == null && fa == null) return false;          // 没有免运费门槛 → 一直收基础配送费
+        if (buckets <= 0) {
+            return fa != null && water.compareTo(fa) >= 0;    // 纯非桶装单：只认金额
+        }
         if (fb != null && buckets >= fb) return true;
         if (fa != null && water.compareTo(fa) >= 0) return true;
         return false;

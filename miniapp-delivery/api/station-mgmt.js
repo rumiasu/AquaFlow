@@ -67,8 +67,14 @@ const getOfflinePayment = (id) => {
   return get(API.CUSTOMER_OFFLINE_PAYMENT(id))
 }
 
-// 货到付款的三项配置一次写全（v48）：开关 + 单笔上限（null = 不限）+ 是否放行首单。
-// ⚠️ 整份覆盖写：把上限改回"不限"就是把 singleLimit 传 null，不要沿用旧值。
+// 开通/关闭货到付款（v48 的「首单是否放行 / 单笔上限」两项已按产品裁定撤回，见 migration_v49）。
+//
+// ⚠️ 2026-09-19 事故：本函数在这里被**声明了两次**（v49 那次改写时把旧的 `(id, enabled)` 版本
+// 留在下面没删）→ `SyntaxError: Identifier 'updateOfflinePayment' has already been declared`
+// → **整个模块加载失败**，而模块里还有订单/商品/库存/工资/对账等全部站长接口 ——
+// 表现出来是站长端一堆页面同时白屏，而四个静态门禁与后端用例**一个都报不出来**
+// （它们不解析 delivery 端的 js）。现已加门禁 `audit_js_syntax.py`（node --check 全量小程序 js）。
+// 只保留下面这一个签名：payload 由调用方显式给全，别再写"布尔开关"的重载形态。
 const updateOfflinePayment = (id, payload) => {
   return put(API.CUSTOMER_OFFLINE_PAYMENT(id), payload)
 }
@@ -76,11 +82,6 @@ const updateOfflinePayment = (id, payload) => {
 // 开通弹窗的依据（v48）：当前配置 + 该客户在本站的欠款/逾期 + 历史订单数 + 此刻能不能用（不能用给原因）
 const getOfflinePaymentSummary = (id) => {
   return get(`${API.CUSTOMER_OFFLINE_PAYMENT(id)}/summary`)
-}
-
-// 设置客户在本站的货到付款权限（enabled: true 开通 / false 关闭）
-const updateOfflinePayment = (id, enabled) => {
-  return put(API.CUSTOMER_OFFLINE_PAYMENT(id), { offlinePaymentEnabled: enabled ? 1 : 0 })
 }
 
 // ===== 商品与库存（2026-09-16 重构后的唯一入口）=====
@@ -303,6 +304,38 @@ const getAlerts = (limit) => {
   return get(API.MANAGER_ALERTS, limit ? { limit } : {})
 }
 
+/**
+ * 本站待审的企业身份申请（v50）：客户在下单页看到「大额订单可申请企业身份」后提交的那些。
+ *
+ * ⚠️ 功能总开关关着时后端**返回空列表而不是报错** —— 这是有意的：客户列表页那一行提示
+ * 应该安静地消失，而不是给站长弹一个"功能未开启"的红字。所以调用方拿到空列表就什么都不显示，
+ * 别自己判断"接口是不是坏了"。
+ */
+const getEnterpriseApplies = () => {
+  return get(API.ENTERPRISE_APPLICATIONS)
+}
+
+/** 审核一条企业身份申请：approve=true 通过（该客户转企业身份 + 写企业资料），false 驳回。 */
+const reviewEnterpriseApply = (id, approve, note) => {
+  return put(API.ENTERPRISE_APPLICATION(id), { approve: !!approve, note: note || undefined })
+}
+
+/**
+ * 本站的「企业身份提示阈值」（v51）：桶数 与/或 水费金额。
+ *
+ * 语义（照后端 StationEnterpriseConfig）：两项都填 = 任一满足即提示；只填一项 = 只按那一项；
+ * **两项都留空 = 本站不提示**；**从没配过 = 用平台默认**（`defaultBarrels`，默认 30 桶，
+ * 此时 `usingDefault=true`）。开关关着时后端回 `enabled:false`（不报错），前端据此把整块隐藏。
+ */
+const getEnterpriseConfig = () => {
+  return get(API.ENTERPRISE_CONFIG)
+}
+
+/** 保存本站阈值：两项都可传 null（= 该项不启用）。 */
+const updateEnterpriseConfig = (payload) => {
+  return put(API.ENTERPRISE_CONFIG, payload)
+}
+
 // 员工
 const createStaff = (data) => {
   return post(API.STAFF, data)
@@ -382,5 +415,9 @@ module.exports = {
   getPendingPayments,
   confirmPayment,
   getOwedBarrels,
-  getAlerts
+  getAlerts,
+  getEnterpriseApplies,
+  reviewEnterpriseApply,
+  getEnterpriseConfig,
+  updateEnterpriseConfig
 }

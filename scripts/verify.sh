@@ -23,7 +23,7 @@ echo "==================== [2/4] 后端集成测试 ===================="
 echo "==================== [3/4] 小程序静态扫描 ===================="
 PY="$(command -v python || command -v python3 || true)"
 if [ -n "$PY" ]; then
-  # 三个脚本都有真实退出码：0 通过 / 1 有致命问题。这里不再用 `|| echo` 吞掉失败，
+  # 六个脚本都有真实退出码：0 通过 / 1 有致命问题。这里不再用 `|| echo` 吞掉失败，
   # 否则脚本红着也会打印「验证全部通过」。audit_wxml_handlers.py 自带两端遍历；
   # 另两个需显式传端名，故两端各跑一次（与 .github/workflows/ci.yml 保持一致）。
   SCAN_FAILED=0
@@ -39,6 +39,15 @@ if [ -n "$PY" ]; then
   # 注释体检：揪出「悬空 javadoc」。悬空注释会误导读者（已有三次真实事故，
   # 见 AGENTS.md §8 第 14 条），故纳入门禁。自带两端遍历，无需传参。
   run_scan audit_comments.py
+  # js 语法体检（node --check 全量）：解析期错误（重复 const 声明 / 少括号）会让**整个模块**
+  # 加载失败，而上面五个脚本都不解析 js。2026-09-19 真实事故：重复声明
+  # updateOfflinePayment → 站长端一批页面同时白屏，门禁与 381 条用例一个都没报出来。
+  # 缺 node 时该脚本退出码是 2（跳过），不能当失败算，故单独判一次。
+  if command -v node >/dev/null 2>&1; then
+    run_scan audit_js_syntax.py
+  else
+    echo "[verify] 未找到 node，跳过 audit_js_syntax.py（CI 上会强制执行）"
+  fi
   if [ "$SCAN_FAILED" -ne 0 ]; then
     echo "❌ 静态扫描未通过"; exit 1
   fi

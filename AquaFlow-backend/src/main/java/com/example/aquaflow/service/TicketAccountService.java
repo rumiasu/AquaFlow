@@ -17,8 +17,46 @@ public interface TicketAccountService {
 
     List<TicketAccount> listByCustomerAndStation(Long customerId, Long stationId);
 
+    /**
+     * 该客户在本站、该商品的**定制票**余额（没有账户时返回 0）。
+     *
+     * <p>统一水票的判据要用它：余额 &gt; 0 = 有定制票 → 定制优先（见 {@code util/TicketScope}）。</p>
+     */
+    int balanceOf(Long customerId, Long productId, Long stationId);
+
+    /**
+     * 本站是否配了**上架的统一水票档位**（{@code ticket_package.product_id = 0}）。
+     *
+     * <p>这就是统一水票的"站级开关" —— 产品口径是"**统一水票是可以设置项**"，
+     * 不必再加一个开关列：配了档位 = 开通，全下架 = 关闭。</p>
+     */
+    boolean unifiedTicketConfigured(Long stationId);
+
+    /**
+     * 这一行该从哪个账户扣票（**唯一判据**，内部委托 {@code util/TicketScope}）。
+     *
+     * @return 账户商品 id：定制票 → 该商品 id；统一票 → 0；都不能用 → {@code null}
+     */
+    Long resolveDeductAccount(Long customerId, Long productId, Long stationId);
+
+    /**
+     * 站长手工加票 / 在线购票之外的人工入账。{@code productId = 0} = 给客户补**统一水票**（站级通用票）。
+     *
+     * <p>没有真实付款，故单价按 {@code TicketAccountServiceImpl.inferredUnitPrice} 推断
+     * （统一票取本站上架档位的最低均价）并标记为推断值 —— 退票需二次确认。</p>
+     */
     void addTicket(Long customerId, Long productId, Integer qty, Long stationId);
 
+    /**
+     * 从该客户在本站的水票里扣 {@code qty} 张，用于商品 {@code productId}。
+     *
+     * <p><b>账户由 {@link #resolveDeductAccount} 选</b>（判据在 {@code util/TicketScope}）：
+     * 该商品有定制票余额 → 扣定制；没有且本站配了统一票、商品是桶装水 → 扣站级通用票。
+     * 所以**两条调用路径都受这条规则约束**：订单支付（{@code PaymentServiceImpl.deductTickets}）
+     * 与站长手工扣票（{@code POST /api/tickets/consume}）——
+     * 后者在客户只有统一票时会扣统一票，这是刻意的（"该客户手上能抵这件商品的票"），
+     * 不是漏判；界面上若要按商品展示余额，请分别展示定制与统一两个账户。</p>
+     */
     void consumeTicket(Long customerId, Long productId, Integer qty, Long orderId, Long stationId);
 
     /** 退款归还水票：回补客户水票账户余额并记一条"退款"流水（AQ-008） */

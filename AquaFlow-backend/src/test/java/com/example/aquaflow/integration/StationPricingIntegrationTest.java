@@ -58,10 +58,14 @@ class StationPricingIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("站级售价与押金覆盖：报价 = 下单 = 订单明细，且不再等于通用库参考价")
+    @DisplayName("站级覆盖：售价对瓶装水生效（报价=下单=明细）；押金对瓶装水**不生效**（恒 0）")
     void stationSalePriceAndDepositOverrideCatalogValues() {
         seedBase();
         // 通用库参考价：售价 22 / 押金 30；本站覆盖：售价 18 / 押金 50
+        // ⚠️ 这里刻意给**瓶装水**塞了站级押金 50：2026-09-19 起"押金只对桶装水生效"，
+        // 本用例因此变成**读侧防御的行为证明** —— 即使库里被塞了押金（历史数据 / 人为改库），
+        // 报价与下单也必须按 0 收。站级押金"能生效"的那一侧由下面
+        // stationDepositIsSnapshottedIntoInTransit 用桶装水验证（缺桶押金 + unit_price 快照）。
         long product = createProduct("瓶装水", 2, "22.00", "30.00", 0, "0.00");
         createInventoryWithStationPricing(station, product, 100, "18.00", "50.00", 0, "0.00");
 
@@ -69,8 +73,8 @@ class StationPricingIntegrationTest extends AbstractIntegrationTest {
         assertTrue(q.isSuccess(), "报价应成功，实际=" + q);
         assertEquals(0, new BigDecimal(q.data().path("waterAmount").asText()).compareTo(new BigDecimal("36.00")),
                 "水费必须按**本站售价** 18×2=36，而不是通用库 22×2=44：" + q);
-        assertEquals(0, new BigDecimal(q.data().path("barrelDeposit").asText()).compareTo(new BigDecimal("100.00")),
-                "瓶装水押金必须按**本站押金** 50×2=100，而不是通用库 30×2=60：" + q);
+        assertEquals(0, new BigDecimal(q.data().path("barrelDeposit").asText()).compareTo(BigDecimal.ZERO),
+                "瓶装水不收押金：即使站级押金配了 50，也必须是 0（押金是循环桶的押金）：" + q);
 
         Api res = order("station-price-k1", product, 2);
         assertTrue(res.isSuccess(), "下单应成功，实际=" + res);
@@ -80,14 +84,14 @@ class StationPricingIntegrationTest extends AbstractIntegrationTest {
                         .compareTo(new BigDecimal("36.00")),
                 "订单水费必须与报价同口径（站级售价）");
         assertEquals(0, decimalOf("SELECT deposit_amount FROM orders WHERE id=?", orderId)
-                        .compareTo(new BigDecimal("100.00")),
-                "订单押金必须与报价同口径（站级押金）");
+                        .compareTo(BigDecimal.ZERO),
+                "瓶装水订单押金必须为 0（与报价同口径；钱收得进就必须退得出，而非桶装没有退还路径）");
         assertEquals(0, decimalOf("SELECT price FROM order_item WHERE order_id=?", orderId)
                         .compareTo(new BigDecimal("18.00")),
                 "订单明细单价快照 = 下单当时生效的站级售价");
         assertEquals(0, decimalOf("SELECT deposit FROM order_item WHERE order_id=?", orderId)
-                        .compareTo(new BigDecimal("50.00")),
-                "订单明细押金快照 = 下单当时生效的站级押金");
+                        .compareTo(BigDecimal.ZERO),
+                "非桶装明细的押金快照恒为 0（它是退押金时的兜底单价来源，留旧值会污染将来的押金条）");
     }
 
     @Test

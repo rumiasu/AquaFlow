@@ -1,4 +1,4 @@
-const { getPendingOrders, getDeliveringOrders, getCompletedToday, getTodayStats, acceptOrder, getDeliveredUnpaid, confirmCollection, transferOrder, returnToStation, getStaffList, respondTransfer, getTransferList, getAssignedToMe } = require('../../api/delivery')
+const { getPendingOrders, getDeliveringOrders, getCompletedToday, acceptOrder, getDeliveredUnpaid, confirmCollection, transferOrder, returnToStation, getStaffList, respondTransfer, getTransferList, getAssignedToMe } = require('../../api/delivery')
 // 楼层/电梯文案与订单详情页共用同一份实现（口径只有一处）
 const { buildFloorText } = require('../../utils/address')
 // 自绘导航栏 + 水站营业状态胶囊（本页 navigationStyle=custom）：与「首页」共用一份实现
@@ -11,7 +11,6 @@ Page({
   data: {
     activeTab: 'assigned',
     isManager: false,
-    stats: {},
     assignedOrders: [],
     deliveringOrders: [],
     completedOrders: [],
@@ -19,6 +18,8 @@ Page({
     incomingTransfers: [],
     staffList: [],
     loading: false,
+    // 部分列表接口失败时的提示文案（空串 = 全部正常）。见 loadData 里的说明。
+    loadError: '',
     showMediateModal: false,
     currentOrderId: null
   },
@@ -52,8 +53,11 @@ Page({
   async loadData() {
     this.setData({ loading: true })
     try {
+      // ⚠️ [2026-09-19 删除] 这里原先还调 `getTodayStats()`（/api/delivery/stats/today）并把结果写进
+      // `data.stats` —— 而本页 wxml **从来没有读过 `stats`**（上面看板用的是三个列表的 .length）。
+      // 也就是说每次进「配送」页都白发一次请求。删掉它，页面上的数字一个都不会变。
+      // 证据见 docs/audit/2026-09-16-死端点评估.md「删除登记表」#10。
       const results = await Promise.allSettled([
-        getTodayStats(),
         getAssignedToMe(),
         getDeliveringOrders(),
         getCompletedToday(),
@@ -62,12 +66,20 @@ Page({
       ])
 
       const unwrap = (r) => r.status === 'fulfilled' ? r.value : { data: [] }
-      const statsRes = unwrap(results[0])
-      const assignedRes = unwrap(results[1])
-      const deliveringRes = unwrap(results[2])
-      const completedRes = unwrap(results[3])
-      const unpaidRes = unwrap(results[4])
-      const pendingRes = unwrap(results[5])
+      // [2026-09-20 真机联调] 原来 unwrap 把「失败」静默折成「空列表」，于是外层 catch
+      // **永远不会触发** —— 后端没起 / 手机换了网时，配送员看到的是 4 个空白列表，
+      // 与"今天确实没有单"完全无法区分（正是 AGENTS §8.22 描述的形状）。
+      // 现在把失败项数记下来，由 wxml 显式提示；列表照常渲染（部分成功仍然有用）。
+      const failedCount = results.filter(r => r.status === 'rejected').length
+      if (failedCount) {
+        console.error('[home] 有 ' + failedCount + ' 个列表接口失败：',
+          results.filter(r => r.status === 'rejected').map(r => r.reason))
+      }
+      const assignedRes = unwrap(results[0])
+      const deliveringRes = unwrap(results[1])
+      const completedRes = unwrap(results[2])
+      const unpaidRes = unwrap(results[3])
+      const pendingRes = unwrap(results[4])
 
       // 金额一律取后端 totalAmount。此前按 quantity * (waterTypePrice || productPrice)
       // 前端自算，而这两个单价字段后端从不返回，导致金额恒为 ¥0.00。
@@ -86,7 +98,9 @@ Page({
 
       const unpaidOrders = (unpaidRes.data || []).map(enrichOrder)
 
-      // 待接单 = 站长已分配给我(未接单) + 本站待分配(用户刚下的单)，去重合并
+      // 「待配送」页签 = status 1（后端状态名就叫待配送）：
+      //   ① 站长已分配给我、我还没接单的；② 本站还没派出去的单（用户刚下的）。
+      // 两支去重合并 —— 站长自己也会接单，所以这两支对站长来说是同一件事。
       const assignedSet = new Set()
       const mergedAssigned = [
         ...(assignedRes.data || []),
@@ -98,11 +112,13 @@ Page({
       }).map(enrichOrder)
 
       this.setData({
-        stats: (statsRes && statsRes.data) || {},
         assignedOrders: mergedAssigned,
         deliveringOrders: (deliveringRes.data || []).map(enrichOrder),
         completedOrders: (completedRes.data || []).map(enrichOrder),
         deliveredUnpaidOrders: unpaidOrders,
+        loadError: failedCount
+          ? '有 ' + failedCount + ' 项没加载出来（网络或后端异常），下面列表可能不完整'
+          : '',
         loading: false
       })
     } catch (err) {
@@ -192,11 +208,24 @@ Page({
     const app = getApp()
     const myId = (app.globalData.userInfo || {}).staffId
     let staffList = []
+    // [2026-09-20] 原来失败只 console.error，随后照旧拿空列表往下走 —— 于是"接口挂了/断网"
+    // 被显示成「本站暂无其他在职配送员可转单」，把人往错误方向带（AGENTS §8.17 的判据：
+    // 「用户以为做成了、账上没动」与「用户以为没数据、其实没查到」都算缺陷，宁可失败出声）。
+    let loadError = ''
     try {
       const staffRes = await getStaffList((app.globalData.userInfo || {}).stationId)
       staffList = (staffRes.data || []).filter(s => String(s.id) !== String(myId))
     } catch (e) {
+      loadError = (e && e.message) || '网络异常'
       console.error('加载配送员失败:', e)
+    }
+    if (loadError) {
+      wx.showModal({
+        title: '加载失败',
+        content: '没能取到同事名单（' + loadError + '），请稍后重试',
+        showCancel: false
+      })
+      return
     }
     if (staffList.length === 0) {
       wx.showModal({ title: '暂无同事', content: '本站暂无其他在职配送员可转单', showCancel: false })

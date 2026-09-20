@@ -82,17 +82,50 @@
     </block>
   </view>
 
-  <!-- 统计卡片（有业务权限时才显示） -->
+  <!--
+    统计卡片（有业务权限时才显示）—— [2026-09-19] **按角色分叉**，两个角色看的不是同一组数：
+      · 站长 = 经营三格：今日净利 / 今日单数 / 桶异常·欠桶
+      · 配送员 = 自己的活三格：今日完成 / 配送中 / 回桶数
+    为什么站长那三格不显示"今日完成/待配送"：那两件事在「配送」tab 上就是页签与角标
+    （tab 名已由「待接单」改为「待配送」，与 OrderStatus 1 同名），在「我的」再报一遍就是重复。
+    ⚠️ 净利是**站长专属**（毛利端点是 @RequireRole("STATION_MANAGER")），
+    配送员那一支绝不能去请求它 —— 那不是显示成 0，而是直接拿一个权限错误。
+  -->
   <view class="stats-card" wx:if="{{isLogin && canAccessBusiness}}">
-    <view class="stats-row">
+    <!-- 站长：经营 -->
+    <view class="stats-row" wx:if="{{isManager}}">
+      <view class="stats-item" bindtap="onGoTodayProfit">
+        <text class="stats-value stats-money {{todayProfit.netProfitWarn ? 'stats-warn' : ''}}">{{todayProfit.netProfitText}}</text>
+        <text class="stats-label">今日净利</text>
+      </view>
+      <view class="stats-divider"></view>
+      <view class="stats-item" bindtap="onGoTodayProfit">
+        <text class="stats-value">{{todayProfit.orderCount}}</text>
+        <text class="stats-label">今日单数</text>
+      </view>
+      <view class="stats-divider"></view>
+      <!--
+        第三格一格里放两个数：异常单是"要处理的事"，欠桶是"要回收的账"。
+        点主数字进桶异常页（可处置），点下面那行欠桶进欠桶台账 —— 两个目标各自可点，
+        故内层用 catchtap 阻止冒泡（否则会跟着外层跳到桶异常页）。
+      -->
+      <view class="stats-item" bindtap="onGoBarrelException">
+        <text class="stats-value {{risk.barrelExceptionCount > 0 ? 'stats-warn' : ''}}">{{risk.barrelExceptionCount}}</text>
+        <text class="stats-label">桶异常</text>
+        <text class="stats-sub" catchtap="onGoOwedBarrels">欠桶 {{risk.owedCustomerCount}} 户 ›</text>
+      </view>
+    </view>
+
+    <!-- 配送员：自己的活（口径全部按人统计，见 /api/delivery/stats/today） -->
+    <view class="stats-row" wx:else>
       <view class="stats-item">
         <text class="stats-value">{{todayStats.completedCount || 0}}</text>
         <text class="stats-label">今日完成</text>
       </view>
       <view class="stats-divider"></view>
       <view class="stats-item">
-        <text class="stats-value">{{todayStats.pendingCount || 0}}</text>
-        <text class="stats-label">待配送</text>
+        <text class="stats-value">{{todayStats.deliveringCount || 0}}</text>
+        <text class="stats-label">配送中</text>
       </view>
       <view class="stats-divider"></view>
       <view class="stats-item">
@@ -104,29 +137,46 @@
 
   <!-- 站长：水站信息 + 配送员管理 / 绑定申请 Tab -->
   <block wx:if="{{isLogin && isManager}}">
-    <view class="section-card station-info-card">
+    <view class="section-card">
       <view class="section-header">
         <text class="section-title">🏢 我的水站</text>
+        <!--
+          「管理 ›」进的是站长端宫格（订单/桶/客户/配置的总入口）；
+          「编辑资料 ›」进的是水站资料页（站名/电话/地址/坐标，可直接改）。
+          两个入口语义不同，别合并成一个 —— 宫格不是"资料"的编辑处。
+        -->
         <text class="section-link" bindtap="onGoStationMgmt">管理 ›</text>
       </view>
       <view class="station-info-row" wx:if="{{stationInfo}}">
         <text class="station-name">{{stationInfo.name || '未命名水站'}}</text>
         <text class="station-address">{{stationInfo.address || '未填写地址'}}</text>
         <text class="station-phone" wx:if="{{stationInfo.phone}}">联系电话：{{stationInfo.phone}}</text>
+        <text class="station-edit" bindtap="onGoStationInfo">编辑资料 ›</text>
       </view>
       <view class="station-info-empty" wx:else>
         <text>暂未创建水站，请前往创建</text>
       </view>
     </view>
 
+    <!--
+      配送员管理 / 绑定申请（原样保留）。
+      [2026-09-19 IA 重组] 站长端「员工」页也有一份更全的（多了搜索、在职/离职筛选、
+      员工画像、新增配送员），两处数据同源。**这里保留列表与审批的原地操作**，
+      只在标题行加一个「更多 ›」进站长端员工页 —— 不要把它删成一个纯跳转，
+      也别再往这里加功能（新功能加在 station-mgmt/staff/）。
+    -->
     <view class="section-card">
+      <view class="section-header">
+        <text class="section-title">👥 员工</text>
+        <text class="section-link" bindtap="onGoStaff">更多 ›</text>
+      </view>
       <view class="mgmt-tabs">
         <text class="mgmt-tab {{mgmtActiveTab === 0 ? 'active' : ''}}" bindtap="onMgmtTabSwitch" data-tab="0">配送员管理 <text class="tab-count" wx:if="{{staffList.length > 0}}">{{staffList.length}}</text></text>
         <text class="mgmt-tab {{mgmtActiveTab === 1 ? 'active' : ''}}" bindtap="onMgmtTabSwitch" data-tab="1">绑定申请 <text class="tab-count tab-badge" wx:if="{{bindApplications.length > 0}}">{{bindApplications.length}}</text></text>
       </view>
 
       <!-- 配送员列表 -->
-      <view class="mgmt-content" wx:if="{{mgmtActiveTab === 0}}">
+      <view wx:if="{{mgmtActiveTab === 0}}">
         <view class="mgmt-empty" wx:if="{{staffList.length === 0}}">
           <text>暂无配送员</text>
           <text class="mgmt-empty-hint">待配送员提交绑定申请后，可在「绑定申请」Tab 审核</text>
@@ -139,12 +189,18 @@
               {{s._unbindPending ? '解绑申请中' : '已绑定'}} · {{s.phone || '暂无电话'}}
             </text>
           </view>
-          <button class="staff-remove-btn" disabled="{{s._loading}}" data-id="{{s.id || s.staffId}}" bindtap="onRemoveStaff">{{s._loading ? '处理中' : '解除'}}</button>
+          <!--
+            「解除」只给配送员 —— 站长不可被解除（服务端 2026-09-19 补的护栏，理由见
+            pages/station-mgmt/staff/index.wxml 里的同一处注释：解除站长会让水站变成没人管的孤儿）。
+            这里留一行字而不是干脆不渲染，否则站长会以为是界面坏了。
+          -->
+          <button class="staff-remove-btn" wx:if="{{s.role === 'DELIVERY'}}" disabled="{{s._loading}}" data-id="{{s.id || s.staffId}}" bindtap="onRemoveStaff">{{s._loading ? '处理中' : '解除'}}</button>
+          <text class="staff-self-note" wx:else>站长 · 不可解除</text>
         </view>
       </view>
 
       <!-- 绑定申请列表 -->
-      <view class="mgmt-content" wx:if="{{mgmtActiveTab === 1}}">
+      <view wx:if="{{mgmtActiveTab === 1}}">
         <view class="mgmt-empty" wx:if="{{bindApplications.length === 0}}">
           <text>暂无绑定申请</text>
         </view>

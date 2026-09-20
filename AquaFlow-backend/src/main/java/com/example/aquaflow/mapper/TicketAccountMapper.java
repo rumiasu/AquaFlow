@@ -52,11 +52,6 @@ public interface TicketAccountMapper {
      * {@code remain_quantity} 等下划线列名，而两端约定的是驼峰 {@code remainQuantity}，
      * 结果水票页「剩余张数」恒为空、合计张数恒为 0 —— 客户买了票却看不到票。
      * 因此这里逐个显式起驼峰别名，不要改回 {@code ta.*}。</p>
-     *
-     * <p><b>[v54 统一水票] {@code product_id = 0} 在 {@code product} 表里没有对应行</b>，
-     * 直接 join 会下发 {@code productName = null}（界面变成"未知商品"）且单价全是 null。
-     * 所以名字/规格用 CASE 兜，面值用账户的派生列 {@code right_amount / remain_quantity}
-     * （= 批次的加权均价，统一票没有"站级水票价"可查，这是它唯一的真实价值口径）。</p>
      */
     @Select("select ta.id as id, " +
             "ta.customer_id as customerId, " +
@@ -65,13 +60,11 @@ public interface TicketAccountMapper {
             "ta.remain_quantity as remainQuantity, " +
             "ta.right_amount as rightAmount, " +
             "ta.update_time as updateTime, " +
-            "case when ta.product_id = 0 then '统一水票（站级通用）' else p.name end as productName, " +
-            "case when ta.product_id = 0 then '1 张 = 1 桶，本站桶装水通用' else p.spec end as productSpec, " +
+            "p.name as productName, " +
+            "p.spec as productSpec, " +
             "p.price as price, " +
             "p.ticket_price as ticketPrice, " +
-            "case when ta.product_id = 0 then " +
-            "  case when ta.remain_quantity > 0 then round(ta.right_amount / ta.remain_quantity, 2) else 0 end " +
-            "else coalesce(nullif(i.ticket_price, 0), nullif(p.ticket_price, 0), nullif(i.sale_price, 0), p.price) end as effectiveTicketPrice " +
+            "coalesce(nullif(i.ticket_price, 0), nullif(p.ticket_price, 0), nullif(i.sale_price, 0), p.price) as effectiveTicketPrice " +
             "from ticket_account ta " +
             "left join product p on ta.product_id = p.id " +
             "left join inventory i on i.product_id = ta.product_id and i.station_id = ta.station_id " +

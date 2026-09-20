@@ -796,12 +796,6 @@ CREATE TABLE IF NOT EXISTS `ticket_record` (
   `product_id` bigint NOT NULL DEFAULT '0',
   `station_id` bigint DEFAULT NULL,
   `adjustment_id` bigint DEFAULT NULL COMMENT '站长资产调整单ID（station_adjustment.id），NULL=非调整产生',
-  -- [v54 统一水票] 这一笔扣自哪个**账户**：NULL=与 product_id 同账户（存量行全是这种/定制票），
-  -- 0=站级通用票（统一水票）。为什么不复用 product_id：uk_ticket_consume(order_id,product_id,source)
-  -- 靠 product_id 做"同一单同一商品只扣一次"的逐项幂等 —— 统一票的流水也写 product_id=0 的话，
-  -- 同一单两个都走统一票的商品会撞唯一键、第二条被当成并发重复静默跳过 → 少扣一张票。
-  -- 退款必须回到这个账户（退款时刻余额已变，重新判定会算出另一个答案，见 util/TicketScope）。
-  `account_product_id` bigint DEFAULT NULL COMMENT '扣票账户的商品ID: NULL=与 product_id 同账户(存量/定制), 0=站级通用票(统一水票)',
   PRIMARY KEY (`id`),
   -- [DEF-3] 原为 UNIQUE KEY uk_ticket_consume(order_id,product_id)，同一订单同一商品
   -- 只能有一条流水：取消水票已付订单时 refundTicket 要插入一条 source='退款' 的回补流水，
@@ -833,6 +827,25 @@ CREATE TABLE IF NOT EXISTS `ticket_package` (
   UNIQUE KEY `uk_ticket_package` (`station_id`,`product_id`,`qty`),
   KEY `idx_ticket_package_station_product` (`station_id`,`product_id`,`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='水票档位套餐(站级定价结构, 非促销引擎)';
+-- 水站「统一折扣」档位（v58，2026-09-20）：产品口径「统一水票在站长端是特殊化的，但在用户端
+-- 看起来没区别，执行上也不是统一定价，而是对应水怎么统一打折、统一打几折的区别，不是专门卖统一水票」。
+-- ⇒ 「统一」统一的是**折扣率**（站级一处配），价格按**各款水自己的水票价**折算。
+-- 本表只存折扣、**不存价格** —— 存价格就立刻会与"各款水的价"分叉（v54 把统一票做成"站级一个价"，
+-- 就是这么错的）。判据链：该商品 `inventory.ticket_enabled=1` → 走**定制**（散买按站级水票价、
+-- 档位按 ticket_package 的绝对价目表）；否则本站有**上架**的统一折扣档 → 走**统一折扣**。
+CREATE TABLE IF NOT EXISTS `station_ticket_discount` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `station_id` bigint NOT NULL COMMENT '水站ID（折扣是站级设置）',
+  `qty` int NOT NULL COMMENT '本档张数（如 10 / 30 / 100）',
+  `discount_per_mille` int NOT NULL COMMENT '折扣千分比：950 = 9.5 折、900 = 9 折（整数运算，避免浮点误差）',
+  `title` varchar(32) DEFAULT NULL COMMENT '展示名（可空；为空时一律按「N 张 X 折」生成，不要前后端各写一套）',
+  `status` tinyint DEFAULT '1' COMMENT '1 上架 0 下架。本站有没有上架的档位 = 统一折扣是否生效（不另设开关列）',
+  `sort` int DEFAULT '0' COMMENT '排序，小的在前',
+  `create_time` datetime DEFAULT NULL,
+  `update_time` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_station_ticket_discount` (`station_id`,`qty`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='水站统一折扣档位(v58): 某款水没有自己的定制票时, 按这张表把该款水的价打折卖票';
 -- 水票批次（v36）：单价快照，照抄 customer_barrel_lot 的模型。
 -- 为什么必须有：档位意味着票价分段，站长改了档位价之后，「客户账户里已买的票值多少钱」
 -- 与「退票按什么价退」就无从回答。桶账早就解决过同一问题（"2026 年 30 元买的，2027 年退就退 30 元"）。

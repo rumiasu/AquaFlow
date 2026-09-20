@@ -1,4 +1,6 @@
 <view class="container">
+  <!-- 隐私授权弹窗：本页用 wx.chooseImage 选送达/回桶照片，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
+  <privacy-popup />
   <!-- 成功提示 -->
   <view class="success-header">
     <view class="success-icon">✓</view>

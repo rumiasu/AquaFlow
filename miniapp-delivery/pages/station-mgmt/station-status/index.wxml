@@ -1,20 +1,9 @@
 <view class="container">
-  <!-- ============ 水站坐标（配送范围判定用，v34）============ -->
-  <view class="card">
-    <view class="card-header">
-      <text class="card-title">水站坐标</text>
-      <text class="badge badge-on" wx:if="{{coord.lat !== null}}">已设置</text>
-      <text class="badge badge-warn" wx:else>未设置</text>
-    </view>
-    <text class="card-sub">用于判断订单是否超出配送范围。不设置也能正常接单，只是无法做范围校验。</text>
-    <text class="card-sub" wx:if="{{coord.lat !== null}}">当前坐标：{{coord.lat}}, {{coord.lng}}</text>
-    <button class="btn-primary" bindtap="onPickCoordinates" loading="{{coordSaving}}" disabled="{{coordSaving}}">地图选点</button>
-    <button
-      wx:if="{{coord.lat !== null}}"
-      bindtap="onClearCoordinates"
-      style="margin-top:16rpx;background:#fff;color:#f44336;border:1rpx solid #f44336"
-    >清除坐标</button>
-  </view>
+  <!--
+    [2026-09-19] 「水站坐标」那一块已**搬到 pages/station-mgmt/station-info/**：
+    坐标属于"水站资料"（固定信息），不是"营业状态"（临时状态）；两处各写一份会分叉。
+    本页只管：营业状态 + 留言 + 公告。
+  -->
 
   <!-- ============ 营业状态（软状态：不阻断下单，只提示顾客）============ -->
   <view class="card">

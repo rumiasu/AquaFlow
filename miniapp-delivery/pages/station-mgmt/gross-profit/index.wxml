@@ -12,6 +12,7 @@
       <view class="picker">结束：{{to || '今天'}}</view>
     </picker>
     <view class="chips">
+      <view class="chip" bindtap="onQuickRange" data-days="1">今日</view>
       <view class="chip" bindtap="onQuickRange" data-days="0">本月</view>
       <view class="chip" bindtap="onQuickRange" data-days="7">近 7 天</view>
       <view class="chip" bindtap="onQuickRange" data-days="30">近 30 天</view>
@@ -26,7 +27,7 @@
     <view class="hero">
       <view class="hero-item">
         <text class="hero-num">¥{{report.totalRevenue}}</text>
-        <text class="hero-label">销售收入</text>
+        <text class="hero-label">水费收入</text>
       </view>
       <view class="hero-item">
         <text class="hero-num">¥{{report.totalCost}}</text>
@@ -42,6 +43,55 @@
     </view>
 
     <view class="notice" wx:if="{{report.missingCostHint}}">{{report.missingCostHint}}</view>
+
+    <!--
+      收入构成与净利（[2026-09-19] 新增）：与上面的毛利是**同一批订单**（同结算站、同时间窗、排除已取消），
+      所以两个卡片里的"水费收入"必然是同一个数 —— 这是判据，不要在这里另算一套。
+      · 净利 = 水费 + 配送费 + 楼层费 − 进货成本 − 计件工钱
+      · wx:if 用 profitBasisNote 当开关：它是本次新增的字段，老响应里没有 → 整块不显示，
+        避免在字段缺失时把 undefined 渲染成"¥undefined"（那是最坏的一种"看起来正常"）
+      · netProfit 为 null = 有商品没填成本 → 显示「算不出」，**绝不能当 0**
+    -->
+    <view class="card" wx:if="{{report.profitBasisNote}}">
+      <view class="card-title">{{range === 'today' ? '今日收入与净利' : '收入与净利'}}</view>
+      <view class="ledger-row">
+        <text class="ledger-label">单数</text>
+        <text class="ledger-value">{{report.orderCount}} 单</text>
+      </view>
+      <view class="ledger-row">
+        <text class="ledger-label">水费收入</text>
+        <text class="ledger-value">¥{{report.totalRevenue}}</text>
+      </view>
+      <view class="ledger-row">
+        <text class="ledger-label">配送费</text>
+        <text class="ledger-value">¥{{report.deliveryFee}}</text>
+      </view>
+      <view class="ledger-row">
+        <text class="ledger-label">楼层费</text>
+        <text class="ledger-value">¥{{report.floorFee}}</text>
+      </view>
+      <view class="ledger-row ledger-strong">
+        <text class="ledger-label">收入合计</text>
+        <text class="ledger-value">¥{{report.totalIncome}}</text>
+      </view>
+      <view class="ledger-row">
+        <text class="ledger-label">− 进货成本</text>
+        <text class="ledger-value">¥{{report.totalCost}}</text>
+      </view>
+      <view class="ledger-row">
+        <text class="ledger-label">− 计件工钱</text>
+        <text class="ledger-value">¥{{report.wage}}</text>
+      </view>
+      <view class="ledger-row ledger-strong">
+        <text class="ledger-label">净利</text>
+        <text class="ledger-value {{report.netProfit === null ? 'ledger-warn' : 'ledger-ok'}}">
+          {{report.netProfit === null ? '算不出' : '¥' + report.netProfit}}
+        </text>
+      </view>
+      <!-- 净利口径提示：原样展示服务端文案（按下单时间、工钱在送达时才产生、人工调整不计入） -->
+      <view class="hint">{{report.profitBasisNote}}</view>
+    </view>
+
     <!-- 成本口径提示：原样展示服务端文案，前端不改写、不截断 -->
     <view class="hint" wx:if="{{report.costBasisNote}}">{{report.costBasisNote}}</view>
 

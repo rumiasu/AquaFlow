@@ -231,6 +231,23 @@ class DeliveryBindingIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, intOf("SELECT COUNT(*) FROM staff_station_application WHERE staff_id=?", mine),
                 "强制解除不走申请单（它不需要员工同意），不产生申请记录");
 
+        // [2026-09-19] 站长不可被解除 —— 该护栏补之前，这两条都会**成功**，把水站变成没人管的孤儿：
+        // staff.station_id 被置 NULL → 站长所有 requireStationId() 端点全废、被路由去"创建水站"，
+        // 而站里的客户/订单/库存还在，客户照常下单却没人接。重建水站是新 id，数据搬不回来。
+        assertEquals(stationA, longOf("SELECT station_id FROM staff WHERE id=?", managerA),
+                "前置：站长自己挂在 stationA 下（listByStationId 不带 role 条件，站长也在列表里）");
+
+        assertNotEquals(0, post("/api/manager/bind/release", mgrA, "{\"staffId\":" + managerA + "}").code(),
+                "站长不得解除自己");
+        assertEquals(stationA, longOf("SELECT station_id FROM staff WHERE id=?", managerA),
+                "被拒后站长归属必须原样保留");
+
+        long managerA2 = createStaff("解除站A第二站长", "STATION_MANAGER", stationA, 1);
+        assertNotEquals(0, post("/api/manager/bind/release", mgrA, "{\"staffId\":" + managerA2 + "}").code(),
+                "站长不得解除另一个站长（role 门禁，不只看是不是自己）");
+        assertEquals(stationA, longOf("SELECT station_id FROM staff WHERE id=?", managerA2),
+                "被拒后另一站长的归属必须原样保留");
+
         // 角色门禁
         assertNotEquals(0, post("/api/manager/bind/release", staffToken(mine, "DELIVERY", null),
                 "{\"staffId\":" + theirs + "}").code(), "配送员不得强制解除他人");

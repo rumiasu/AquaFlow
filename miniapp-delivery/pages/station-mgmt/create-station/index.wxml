@@ -1,4 +1,6 @@
 <view class="container">
+  <!-- 隐私授权弹窗：本页用 wx.chooseLocation 选水站坐标，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
+  <privacy-popup />
   <view class="form-card">
     <view class="form-header">
       <text class="form-title">创建我的水站</text>

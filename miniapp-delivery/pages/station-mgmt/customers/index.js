@@ -36,15 +36,17 @@ Page({
     // 为什么现在用不了（原因文案来自后端唯一判据，前端不自己编）
     codModal: { visible: false, customerId: null, customerName: '', orderCount: 0, overdueCount: 0, overdueAmount: '0.00', blockReason: '' },
     codForm: { enabled: false },
-    // 企业身份申请（v50）：开关关着时后端返回空列表 → 这里 count 为 0 → 整行不显示
+    // 企业身份（v50 审核 + v51 阈值）：**一个入口、一个弹窗、两个视图**（2026-09-19 IA 重组 C5）。
+    //   · entApplies 为空且平台开关关着 → 入口整行不显示（见 wxml 的 entCfg.enabled）；
+    //   · entVisible / entView 是这一个弹窗的两个状态，**不要再加第二个弹窗**。
     entApplies: [],
     entVisible: false,
+    entView: 'review', // review 待审 | settings 阈值
     entSaving: false,
     // 企业身份提示阈值（v51）：站长按站配。entCfg.enabled=false（平台总开关关着）时整块隐藏 ——
     // 注意平台级开关**没有**前端入口，这里说的开关只是"要不要显示这一块"。
     entCfg: { enabled: false, barrelThreshold: null, waterAmountThreshold: null, defaultBarrels: 30, usingDefault: true },
     entCfgText: '',
-    entCfgVisible: false,
     entCfgSaving: false,
     entCfgForm: { barrels: '', amount: '' }
   },
@@ -258,23 +260,16 @@ Page({
     return parts.join(' 或 ') + suffix
   },
 
-  onEntCfgOpen() {
+  /** 把当前阈值回填进表单（进阈值视图时调）。 */
+  openEntCfgForm() {
     const { barrelThreshold, waterAmountThreshold } = this.data.entCfg
     this.setData({
-      entCfgVisible: true,
       entCfgForm: {
         barrels: barrelThreshold == null ? '' : String(barrelThreshold),
         amount: waterAmountThreshold == null ? '' : String(waterAmountThreshold)
       }
     })
   },
-
-  onEntCfgClose() {
-    this.setData({ entCfgVisible: false })
-  },
-
-  /** 弹窗内容区的空处理器：阻止点击穿透到遮罩。 */
-  onEntCfgNoop() {},
 
   onEntCfgBarrelInput(e) {
     this.setData({ 'entCfgForm.barrels': e.detail.value })
@@ -310,7 +305,9 @@ Page({
         return
       }
       wx.showToast({ title: '已保存', icon: 'success' })
-      this.setData({ entCfgVisible: false })
+      // 保存后**留在弹窗里、切回待审视图**（而不是把弹窗关掉）：站长刚设完阈值，
+      // 下一步多半就是回去看待审申请；关掉弹窗会让他重新找入口。
+      this.setData({ entView: 'review' })
       await this.loadEnterpriseConfig()
     } catch (err) {
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })
@@ -321,9 +318,22 @@ Page({
 
   /* ==================== 企业身份申请审核（v50） ==================== */
 
-  onEntOpen() {
-    if (!this.data.entApplies.length) return
-    this.setData({ entVisible: true })
+  /**
+   * 打开企业身份弹窗（唯一入口）。`data-view` 决定先看哪个视图：
+   * review = 待审列表（点入口左半边）/ settings = 阈值（点右半边「提示阈值 ›」）。
+   * 进 settings 时才去拉一次阈值配置（不在 onShow 里预拉，省一次请求）。
+   */
+  onEntOpen(e) {
+    const view = (e.currentTarget.dataset.view === 'settings') ? 'settings' : 'review'
+    this.setData({ entVisible: true, entView: view })
+    if (view === 'settings') this.openEntCfgForm()
+  },
+
+  /** 弹窗内两个视图互切（审核 ⇄ 阈值）。 */
+  onEntSwitch(e) {
+    const view = e.currentTarget.dataset.view === 'settings' ? 'settings' : 'review'
+    this.setData({ entView: view })
+    if (view === 'settings') this.openEntCfgForm()
   },
 
   onEntClose() {
@@ -375,9 +385,10 @@ Page({
         return
       }
       wx.showToast({ title: approve ? '已通过' : '已驳回', icon: 'success' })
-      // 重新拉一次：待审列表少一条，且通过后客户列表里的身份标签要跟着变
+      // 重新拉一次：待审列表少一条，且通过后客户列表里的身份标签要跟着变。
+      // [2026-09-19 C5] 处理完最后一条**不再自动关弹窗** —— 弹窗里已有「暂无待审申请」的空态，
+      // 关掉反而像"操作完不知道发生了什么"；要关由站长自己点。
       await this.loadEnterpriseApplies()
-      if (!this.data.entApplies.length) this.setData({ entVisible: false })
       this.loadData()
     } catch (err) {
       wx.showToast({ title: err.message || '操作失败', icon: 'none' })

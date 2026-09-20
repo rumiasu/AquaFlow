@@ -1024,8 +1024,8 @@
   line-height: 1.5;
 }
 
-/* ���ͼƷ���ʾ��v35����������δ�� / ����Χ / ¥��δ�� / Ӳ��ԭ��
-   �İ��ɺ���·�������ֻ���Ű档 */
+/* 配送计费提示（v35）：起送量未达 / 超范围 / 楼层未填 / 硬拦原因。
+   文案由后端下发，这里只管排版。 */
 .fee-warn {
   margin: 0 24rpx 12rpx;
   padding: 16rpx 20rpx;
@@ -1038,4 +1038,16 @@
   font-size: 24rpx;
   color: #a86a00;
   line-height: 36rpx;
+}
+
+/* 水票抵扣（2026-09-19）：水票支付且整单能被票结清时，计费区不再逐项列水费/押金/配送费
+   （它们随票一并结清），只显示这一行抵扣 + 「本次需付 ¥0.00」。
+   用绿色与黄色的"提示"区分开：这是"已经付过了"，不是"要额外付"。 */
+.detail-item.ticket-cover,
+.ticket-cover-row .detail-total-label {
+  color: #16a34a;
+}
+.ticket-cover-row .detail-total-value {
+  color: #16a34a;
+  font-size: 26rpx;
 }

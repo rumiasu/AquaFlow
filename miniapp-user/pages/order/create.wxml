@@ -90,22 +90,33 @@
       <text class="fee-warn-text" wx:for="{{feeWarnings}}" wx:key="*this">{{item}}</text>
     </view>
 
+    <!-- 水票不足提示（后端下发结论，前端只展示）。
+         它必须说清"不支持票 + 现金/微信混合支付、票不会被扣"，否则客户会以为可以补差价。 -->
+    <view class="fee-warn" wx:if="{{isTicketPay && ticketShortfallHint}}">
+      <text class="fee-warn-text">{{ticketShortfallHint}}</text>
+    </view>
+
     <!-- 底部栏 -->
     <view class="bottom-bar" wx:if="{{!loading}}">
       <view class="total-info" bindtap="onShowDetail">
         <view class="total-detail">
-          <text class="detail-item">水费 ¥{{totalWaterCostText}}</text>
-          <!-- 「桶押金 ¥X」这一行已于 2026-09-19 删除：它读的是 quote 的 barrelDeposit，
-               而该字段装的是**非桶装**押金（键名是历史误称），收口后恒为 0 → 永远不显示。
-               真正的桶押金看下一行「额外桶押金」（缺桶时才有）。 -->
-          <text class="detail-item extra" wx:if="{{extraDepositBuckets > 0}}">额外桶押金 ¥{{extraDepositAmountText}}</text>
-          <!-- 配送费/楼层费各自成行：只把它们并进合计而不显示，客户会以为算错了钱 -->
-          <text class="detail-item" wx:if="{{deliveryFeeText}}">配送费 ¥{{deliveryFeeText}}</text>
-          <text class="detail-item" wx:if="{{floorFeeText}}">楼层费 ¥{{floorFeeText}}</text>
+          <!-- 水票支付且整单能被票结清时：不再逐项列"水费/押金/配送费"（它们随票一并结清），
+               只显示这一行抵扣 —— 这就是产品口径「水票支付时不显示计费，只计费除去水票的部分」。 -->
+          <text class="detail-item ticket-cover" wx:if="{{ticketCoverText}}">{{ticketCoverText}}</text>
+          <block wx:else>
+            <text class="detail-item">水费 ¥{{totalWaterCostText}}</text>
+            <!-- 「桶押金 ¥X」这一行已于 2026-09-19 删除：它读的是 quote 的 barrelDeposit，
+                 而该字段装的是**非桶装**押金（键名是历史误称），收口后恒为 0 → 永远不显示。
+                 真正的桶押金看下一行「额外桶押金」（缺桶时才有）。 -->
+            <text class="detail-item extra" wx:if="{{extraDepositBuckets > 0}}">额外桶押金 ¥{{extraDepositAmountText}}</text>
+            <!-- 配送费/楼层费各自成行：只把它们并进合计而不显示，客户会以为算错了钱 -->
+            <text class="detail-item" wx:if="{{deliveryFeeText}}">配送费 ¥{{deliveryFeeText}}</text>
+            <text class="detail-item" wx:if="{{floorFeeText}}">楼层费 ¥{{floorFeeText}}</text>
+          </block>
         </view>
         <view class="total-row">
-          <text class="total-label">合计</text>
-          <text class="total-price">¥{{totalAmountText}}</text>
+          <text class="total-label">{{isTicketPay ? '本次需付' : '合计'}}</text>
+          <text class="total-price">¥{{payableAmountText}}</text>
           <text class="detail-arrow">明细›</text>
         </view>
       </view>
@@ -277,9 +288,15 @@
         </view>
       </scroll-view>
       <view class="detail-sheet-footer">
+        <!-- 水票支付且整单能被票结清：明细里各项之和 = 票抵扣 + 需付，合计显示"本次需付"（=0）。
+             票不足时"本次需付"就是订单全额（本单用不了票），上方已有红色结论说明原因。 -->
+        <view class="detail-total-row ticket-cover-row" wx:if="{{ticketCoverText}}">
+          <text class="detail-total-label">{{ticketCoverText}}</text>
+          <text class="detail-total-value">已抵扣</text>
+        </view>
         <view class="detail-total-row">
-          <text class="detail-total-label">合计</text>
-          <text class="detail-total-value">¥{{totalAmountText}}</text>
+          <text class="detail-total-label">{{isTicketPay ? '本次需付' : '合计'}}</text>
+          <text class="detail-total-value">¥{{payableAmountText}}</text>
         </view>
       </view>
     </view>

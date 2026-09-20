@@ -127,9 +127,9 @@ Page({
       width: Math.min(100, Number(x.completeRate) || 0)
     }))
 
-    r.owedCustomers = (r.owedCustomers || []).map((x, i) => ({ ...x, idx: i }))
-
-    r.hasPending = Number(s.pendingAmount) > 0
+    // [2026-09-19 IA 重组 C2] 原有两行派生字段（owedCustomers / hasPending）只为已删除的
+    // 「欠桶客户 TOP」与待收款横幅服务，一并删除。后端响应里仍有这两个字段（不改后端），
+    // 前端不再读它 —— 别为了"看起来没浪费"又把它们渲染出来。
     r.hasData = Number(s.orderCount) > 0
     return r
   },

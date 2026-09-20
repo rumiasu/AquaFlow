@@ -2,7 +2,7 @@
 const { get, post, put } = require('../utils/request')
 const { API } = require('../config/api')
 
-// 获取待接单列表
+// 获取待配送列表（本站 status=1 的单：已派给我但未接单 + 全站还没派出去的）
 const getPendingOrders = (params = {}) => {
   return get(API.DELIVERY_PENDING, params)
 }
@@ -92,7 +92,7 @@ const getStaffList = (stationId) => {
   return get(API.STAFF, { stationId })
 }
 
-// 获取分配给我的待接单列表
+// 获取「分配给我、我还没接单」的列表（与上面那支合并成「待配送」页签）
 const getAssignedToMe = () => {
   return get(API.DELIVERY_ASSIGNED_TO_ME)
 }

@@ -7,7 +7,7 @@ const { createOrder, createPayment } = require('../../api/order')
 const { getQuote } = require('../../api/payment')
 const { getStationPublicPhone, getStationStatus } = require('../../api/station')
 const { submitEnterpriseApply, getMyEnterpriseApplies } = require('../../api/enterprise')
-const { storage, stationStorage } = require('../../utils/storage')
+const { storage, stationStorage, payMethodStorage } = require('../../utils/storage')
 const { resolveStationId } = require('../../utils/station')
 const { getCustomerId } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
@@ -43,8 +43,18 @@ Page({
     // 导致默认项（2）被后端判为现金而撞上货到付款授权校验 → 新客户 100% 下单失败；
     // 选"货到付款"(3) 反被当成水票 → 下单即视同已付、无人收款。
     // 现在选项与文案一律由服务端 /api/payments/quote 的 methods 下发，前端不再自带映射。
-    selectedMethod: 3,
+    // [2026-09-19] 默认值不是写死的 3，而是**上次用过的支付方式**（本地偏好，见 utils/storage.js）；
+    // 首次下单没有记录时回到 3（水票），再由 refreshQuote 按后端下发的 enabled 校正。
+    selectedMethod: payMethodStorage.get() || 3,
     payMethods: [],
+    // [2026-09-19] 水票抵扣预览（后端 quote 下发，仅当选中水票时有值）：
+    // 产品口径「水票支付时不显示计费，只计费除去水票的部分」靠它实现 ——
+    // 金额一律后端算，前端只渲染，绝不在前端做抵扣算术。
+    ticketPay: null,
+    ticketCoverText: '',      // 「水票抵扣 N 张 · ¥X」（仅整单可被票结清时才有值）
+    ticketShortfallHint: '',  // 票不足时的一句结论（后端下发）
+    payableAmountText: '0.00',// 计费区展示的"这次要付"的金额；真实订单金额看 totalAmountText
+    isTicketPay: false,       // 当前是否选中水票（决定计费区怎么渲染）
     submitting: false,
     // 幂等键：onLoad 生成一次，下单成功后才刷新（保证同一意图只产生一单）
     idempotencyKey: '',
@@ -461,9 +471,28 @@ this.setData({ products, stationName: effectiveStationName })
         const payMethods = Array.isArray(d.methods) && d.methods.length
           ? d.methods
           : [{ id: 3, name: '水票支付', desc: '使用账户水票抵扣', enabled: true }]
-        // 当前选中项若已不可用（权限被收回），回退到服务端给的默认值
+        // 当前选中项若已不可用（权限被收回），回退到服务端给的默认值。
+        // [2026-09-19] selectedMethod 的初值来自"上次用过的支付方式"（本地偏好），
+        // 所以这一句同时也是**记住的方式在本站不可用时的回退点**。
         const selectedStillOk = payMethods.some(m => m.id === selectedMethod && m.enabled)
         const nextMethod = selectedStillOk ? selectedMethod : (d.defaultMethod || payMethods[0].id)
+
+        // ===== 水票抵扣预览（产品口径：水票支付时不显示计费，只计费除去水票的部分）=====
+        // 金额一律后端算好下发（quote.ticketPay），前端只渲染，绝不在前端做抵扣算术 ——
+        // 前端算一遍就会出现"结算页一个价、扣票另一个价"（本仓记过的计价双轨）。
+        // 只在选中水票时用：切到现金/微信后这个键不再相关，留着会让计费区显示错。
+        const ticketPay = (nextMethod === 3 && d.ticketPay) ? d.ticketPay : null
+        const ticketFullyCovered = !!(ticketPay && ticketPay.fullyCovered)
+        // 水票抵扣那行只在**整单能被票结清**时显示：抵不掉时本单根本用不了票，
+        // 这时显示"水票抵扣 ¥X"却又要付全额，客户只会以为系统算错了。
+        const ticketCoverText = ticketFullyCovered
+          ? '水票抵扣 ' + ticketPay.coverQty + ' 张 · ¥' + (Number(ticketPay.coverAmount) || 0).toFixed(2)
+          : ''
+        const ticketShortfallHint = (ticketPay && !ticketPay.fullyCovered) ? (ticketPay.hint || '') : ''
+        // 客户这次**实际要付**的钱：票能全抵 → 0（水费/押金/配送费随票一并结清）；
+        // 抵不掉 → 订单全额（本单用不了票，改选方式后就是全额付）。
+        // ⚠️ 只用于展示，不参与任何提交参数 —— 提交金额一律由后端按订单重算。
+        const payableAmount = ticketPay ? (Number(ticketPay.payableAmount) || 0) : totalAmount
 
         // 计算每个商品的**缺桶押金**明细（非桶装没有押金，见下）
         const updatedProducts = products.map(p => {
@@ -501,6 +530,14 @@ this.setData({ products, stationName: effectiveStationName })
           totalWaterCostText: totalWaterCost.toFixed(2),
           extraDepositAmountText: extraDepositBuckets > 0 ? extraDepositAmount.toFixed(2) : '',
           totalAmountText: totalAmount.toFixed(2),
+          // 计费区展示用（水票支付时"只计费除去水票的部分"）：
+          // 票能全抵 → 0.00；否则 = 订单全额。totalAmount/totalAmountText 仍是**真实订单金额**，
+          // 两者刻意的分开：展示值绝不能混进任何提交参数。
+          payableAmountText: payableAmount.toFixed(2),
+          ticketPay,
+          ticketCoverText,
+          ticketShortfallHint,
+          isTicketPay: nextMethod === 3,
           allowOfflinePayment,
           payMethods,
           selectedMethod: nextMethod,
@@ -521,7 +558,19 @@ this.setData({ products, stationName: effectiveStationName })
         this.maybePromptEnterprise(enterpriseHint)
       }
     } catch (e) {
-      console.warn('[OrderCreate] refreshQuote error:', e.message)
+      // [2026-09-20 真机联调] 原来只 console.warn 就完了：报价失败时页面停在
+      // 「合计 ¥0.00」、支付方式还是上一轮的，而**下单按钮照样可点** ——
+      // 真机弱网下会提交一张金额陈旧的订单（钱的事，宁可挡住）。
+      // 这里复用页面**既有的**硬拦闸门：onSubmit 开头就查 this.data.blocked 并 return，
+      // 所以不用新增一套判断。下次报价成功时，成功分支会用后端下发的 blocked/blockReason
+      // 覆盖掉这里的值（见上面 setData 的 updates），不会把页面永久锁死。
+      console.error('[OrderCreate] refreshQuote 失败:', e)
+      this.setData({
+        blocked: true,
+        blockReason: '没能取到最新报价（' + ((e && e.message) || '网络异常')
+          + '），为避免金额出错已暂停下单，请下拉刷新后重试'
+      })
+      wx.showToast({ title: '报价加载失败，已暂停下单', icon: 'none' })
     }
   },
 
@@ -564,6 +613,31 @@ this.setData({ products, stationName: effectiveStationName })
       return
     }
 
+    // [2026-09-19] 水票不足就地拦住（产品口径：「点击水票后优先水票支付，但经校验后
+    // 发现水票不足以覆盖该订单时…」——校验点就在这里，而不是等支付时报"余额不足"）。
+    //
+    // ⚠️ 为什么是"拦"而不是"放过去让它失败"：水票支付是**整单**结清，票不够时
+    // `deductTickets` 会抛错 → 订单已创建但 `payment_status` 停在 0 → 按派单判据
+    // **这单进不了站长视野**（客户以为下单成功了，实际没人看得见）。宁可当场拦住。
+    //
+    // 提交前**重跑一次报价**再判定：客户可能刚在别处补了票，用页面上的旧数据会误伤。
+    // 重跑不会重复弹企业身份窗（maybePromptEnterprise 有 this.enterprisePrompted 闸门）。
+    if (selectedMethod === 3) {
+      await this.refreshQuote()
+      const tp = this.data.ticketPay
+      if (tp && !tp.fullyCovered) {
+        wx.showModal({
+          // 标题与结论都由后端下发：它要区分"某商品根本不能用票（补票也没用）"
+          // 与"票不够（补票或者改选）"，前端分不出来也不该分
+          title: tp.title || '暂不能用票支付',
+          content: tp.hint || '水票不足以覆盖本单，请改选支付方式或先补齐水票',
+          showCancel: false,
+          confirmText: '知道了'
+        })
+        return
+      }
+    }
+
     // 配送中桶提醒：有水桶正在配送中，且本次下单会产生额外桶押金时，先友好提示
     if (this.data.hasInTransitBarrels && this.data.extraDepositBuckets > 0 && !this.data.inTransitReminderAck) {
       this.setData({ showInTransitReminder: true, inTransitReminderAck: true })
@@ -601,6 +675,10 @@ this.setData({ products, stationName: effectiveStationName })
 
       // 订单已创建成功 -> 刷新幂等键，之后再主动下单才是新的一单
       this.setData({ idempotencyKey: this.genIdempotencyKey() })
+
+      // [2026-09-19] 记下这次用的支付方式（**只存本地**，产品口径「前端记一下就好，不用写进后端」）。
+      // 放在这里而不是提交前：提交失败/被拒时不该污染"上次成功用过的"那一项。
+      payMethodStorage.set(this.data.selectedMethod)
 
       if (orderRes.data && orderRes.data.firstStationAsset) {
         keepSubmitting = true

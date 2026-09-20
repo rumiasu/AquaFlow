@@ -1,4 +1,6 @@
 <view class="container">
+  <!-- 隐私授权弹窗：本页用 wx.chooseImage 传商品图，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
+  <privacy-popup />
   <!-- 顶部：分段 + 搜索 + 分类筛选 -->
   <view class="top-bar">
     <view class="tabs">

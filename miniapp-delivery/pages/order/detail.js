@@ -336,13 +336,25 @@ Page({
     const { get } = require('../../utils/request')
     const { API } = require('../../config/api')
     let stationList = []
+    // [2026-09-20] 同 home/index.js 的 onMediateToColleague：原来失败只 console.error，
+    // 然后把"没查到"说成「暂无其他营业中的水站可外派」—— 站长会以为真的没有可派的水站。
+    let loadError = ''
     try {
       const res = await get(API.STATION_SEARCH, {})
       stationList = (res.data || []).filter(s => s.id !== myStationId && s.status === 1)
     } catch (e) {
+      loadError = (e && e.message) || '网络异常'
       console.error('加载水站列表失败:', e)
     }
 
+    if (loadError) {
+      wx.showModal({
+        title: '加载失败',
+        content: '没能取到水站列表（' + loadError + '），请稍后重试',
+        showCancel: false
+      })
+      return
+    }
     if (stationList.length === 0) {
       wx.showModal({ title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
       return

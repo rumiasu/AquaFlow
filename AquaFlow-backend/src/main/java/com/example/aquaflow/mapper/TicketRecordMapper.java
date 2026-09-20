@@ -9,8 +9,8 @@ import java.util.Map;
 @Mapper
 public interface TicketRecordMapper {
 
-    @Insert("insert into ticket_record(customer_id, product_id, account_product_id, station_id, increase_qty, decrease_qty, order_id, source, ticket_source, unit_price, ticket_lot_id, create_time, adjustment_id) " +
-            "values(#{customerId}, #{productId}, #{accountProductId}, #{stationId}, #{increaseQty}, #{decreaseQty}, #{orderId}, #{source}, #{ticketSource}, #{unitPrice}, #{ticketLotId}, #{createTime}, #{adjustmentId})")
+    @Insert("insert into ticket_record(customer_id, product_id, station_id, increase_qty, decrease_qty, order_id, source, ticket_source, unit_price, ticket_lot_id, create_time, adjustment_id) " +
+            "values(#{customerId}, #{productId}, #{stationId}, #{increaseQty}, #{decreaseQty}, #{orderId}, #{source}, #{ticketSource}, #{unitPrice}, #{ticketLotId}, #{createTime}, #{adjustmentId})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(TicketRecord ticketRecord);
 
@@ -20,11 +20,12 @@ public interface TicketRecordMapper {
     /**
      * 取某订单某商品的**消费**流水（v36）。
      *
-     * <p>用途一：订单取消要回补水票时，必须按**当时消耗的批次单价**还原，
+     * <p>用途：订单取消要回补水票时，必须按**当时消耗的批次单价**还原，
      * 而不是按退款时的当前价 —— 否则站长在这中间调过一次价，客户拿回的票就凭空变了值。</p>
      *
-     * <p>用途二（v54）：读它自证的 {@code accountProductId}，把票退进**当初扣的那个账户**。
-     * 所以本查询的返回列必须包含 {@code account_product_id}（{@code select *} 已覆盖）。</p>
+     * <p>⚠️ v54 曾让它再读一列 {@code account_product_id}（"这笔扣自哪个账户"）用于把票退回原账户；
+     * 2026-09-20 产品澄清「按统一折扣买的票只能抵那款水」之后，账户恒等于 {@code product_id}，
+     * 该列已由 v59 撤回，本查询回到只服务于"按当时单价还原"这一个用途。</p>
      */
     @Select("select * from ticket_record where order_id = #{orderId} and product_id = #{productId} "
             + "and decrease_qty > 0 order by id desc limit 1")
@@ -69,15 +70,11 @@ public interface TicketRecordMapper {
      * <p>必须逐个起驼峰别名：Map 的键名会直接透给小程序，而两端约定的是
      * {@code increaseQty/decreaseQty/createTime}。此前用 {@code tr.*} 带出下划线列名，
      * 导致"消费记录"标签页的名称、时间、增减数量全部渲染为空。</p>
-     *
-     * <p>{@code productName} 用 CASE 兜 {@code product_id = 0}（统一水票）：它在 {@code product}
-     * 表里没有对应行，直接 join 会下发 null，界面表现为"买了 N 张票但没有名字"。</p>
      */
     String RECORD_DETAIL_COLUMNS =
             "select tr.id as id, " +
             "tr.customer_id as customerId, " +
             "tr.product_id as productId, " +
-            "tr.account_product_id as accountProductId, " +
             "tr.station_id as stationId, " +
             "tr.order_id as orderId, " +
             "tr.increase_qty as increaseQty, " +
@@ -85,8 +82,8 @@ public interface TicketRecordMapper {
             "tr.source as source, " +
             "tr.ticket_source as ticketSource, " +
             "tr.create_time as createTime, " +
-            "case when tr.product_id = 0 then '统一水票（站级通用）' else p.name end as productName, " +
-            "case when tr.product_id = 0 then '1 张 = 1 桶' else p.spec end as productSpec " +
+            "p.name as productName, " +
+            "p.spec as productSpec " +
             "from ticket_record tr " +
             "left join product p on tr.product_id = p.id ";
 

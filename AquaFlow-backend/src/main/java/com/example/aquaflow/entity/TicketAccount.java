@@ -12,8 +12,10 @@ import java.time.LocalDateTime;
  * （{@code remain_quantity == Σ lot.remain_qty}），批次唯一写入口是 {@code TicketLotService}，
  * 对账 E8 校验这条等式。写本表前先问"批次动了吗"。</p>
  *
- * <p><b>[v54 统一水票]</b> {@code productId = 0} 表示<b>站级通用票</b>（见 {@code util/TicketScope}）——
- * 水票四张表的 {@code product_id} 都没有外键，所以这里能放一个不存在的商品 id。</p>
+ * <p><b>[2026-09-20] 账户恒为"某一款商品"</b>：水票不再有"站级通用账户"这种形态 ——
+ * 站级的「统一折扣」（{@code station_ticket_discount}）只是**买票时的定价规则**，
+ * 按折扣买的票仍然进这一款水自己的账户（产品拍板：「只能抵那款水」）。
+ * v54 曾把 {@code productId = 0} 当作"站级通用票"，该形态已由 v58/v59 收口。</p>
  */
 @Data
 public class TicketAccount {
@@ -24,7 +26,7 @@ public class TicketAccount {
     /** 客户ID */
     private Long customerId;
 
-    /** 商品ID(桶装水)；{@code 0} = 站级通用票（统一水票），对照 {@code util/TicketScope} */
+    /** 商品ID(桶装水) */
     private Long productId;
 
     /** 所属水站ID */
@@ -36,8 +38,8 @@ public class TicketAccount {
     /**
      * 剩余水票的**金额价值**（派生列，v36）：{@code Σ lot.remain_qty × lot.unit_price}。
      *
-     * <p>它同时是统一水票唯一的"面值"来源 —— 统一票没有商品、没有站级水票价，
-     * {@code right_amount / remain_quantity} 就是它的加权均价。</p>
+     * <p>它是 {@code ticket_account} 的一个真实列，对账 E8 的金额等式按它校验
+     * —— 不是仅供某个形态使用的临时字段。</p>
      */
     private java.math.BigDecimal rightAmount;
 

@@ -88,4 +88,50 @@ public interface GrossProfitMapper {
             + " where i.station_id = #{stationId} and i.enabled = 1 and i.cost_price is null "
             + " order by p.name asc")
     List<Map<String, Object>> listMissingCost(@Param("stationId") Long stationId);
+
+    /**
+     * 同一订单集合里的<b>单数</b>与<b>配送费 / 楼层费</b>合计（净利用）。
+     *
+     * <p>⚠️ 判据必须与 {@link #grossProfitByProduct} <b>逐字一致</b>（结算站 + 排除已取消 +
+     * 同一时间窗）—— 两批不同的单混在一起算出来的净利没有任何意义。所以这里刻意
+     * <b>不 join {@code order_item}</b>：一旦 join，配送费会被明细行数放大
+     * （一单 2 个商品 = 把同一笔配送费收了两次）。</p>
+     *
+     * <p>本查询恒返回一行（{@code count(*)} 是聚合），金额字段用 coalesce 兜 0。</p>
+     */
+    @Select("select count(*) as orderCount, "
+            + "       round(coalesce(sum(o.delivery_fee), 0), 2) as deliveryFee, "
+            + "       round(coalesce(sum(o.floor_fee), 0), 2) as floorFee "
+            + "  from orders o "
+            + " where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
+            + "   and o.status <> 5 "
+            + "   and o.create_time >= #{start} and o.create_time < #{endExclusive}")
+    Map<String, Object> orderCountAndFees(@Param("stationId") Long stationId,
+                                          @Param("start") java.time.LocalDateTime start,
+                                          @Param("endExclusive") java.time.LocalDateTime endExclusive);
+
+    /**
+     * 这批订单产生的<b>计件工钱</b>合计（净利用）。
+     *
+     * <p>口径三条，改之前先读：</p>
+     * <ol>
+     *   <li><b>按 {@code staff_earning.order_id} 挂到这批订单上</b>，不是按工钱自己的
+     *       {@code create_time} 筛。否则"今天下单、明天送完"会变成"今天有收入、明天才有成本"，
+     *       日净利在两天里一正一负地跳。</li>
+     *   <li><b>人工调整不计入</b>（{@code order_id IS NULL} 的行被这个 join 天然排除）——
+     *       迟到扣款 / 高温补贴不是"某一天订单"的成本，摊进日净利会让"今天扣了罚款"
+     *       莫名其妙地减少今天的利润。</li>
+     *   <li>收益在订单进入<b>送达</b>时才产生（{@code StaffEarningService} 文件头），
+     *       所以单还没送完时工钱是 0 —— 那几天的净利会暂时偏高，这是本版的已知口径边界，
+     *       已随响应里的 {@code profitBasisNote} 告知前端。</li>
+     * </ol>
+     */
+    @Select("select round(coalesce(sum(se.amount), 0), 2) as wage "
+            + "  from staff_earning se join orders o on o.id = se.order_id "
+            + " where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
+            + "   and o.status <> 5 "
+            + "   and o.create_time >= #{start} and o.create_time < #{endExclusive}")
+    Map<String, Object> wageOfOrders(@Param("stationId") Long stationId,
+                                     @Param("start") java.time.LocalDateTime start,
+                                     @Param("endExclusive") java.time.LocalDateTime endExclusive);
 }

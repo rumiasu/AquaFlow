@@ -9,11 +9,21 @@
   <template is="stationNavbar"
             data="{{title: '配送', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, rightPad: true}}" />
 
-  <!-- 统计看板 -->
+  <!--
+    [2026-09-20 真机联调] 部分列表接口失败时的显式提示。
+    没有它的话，后端没起 / 换了网时配送员看到的只是几个空白列表，会读成「今天没有单」；
+    失败与"确实没单"必须能区分（AGENTS §8.17 / §8.22）。loadError 为空串时整块不渲染。
+  -->
+  <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+
+  <!--
+    统计看板。三个数与下面的页签一一对应，点一下就是切页签。
+    [2026-09-19] 「待接单」改叫「待配送」—— 见下面 tab-bar 上方的注释（重点：站长自己也会接单）。
+  -->
   <view class="stats-panel">
     <view class="stat-item" bindtap="switchTab" data-tab="assigned">
       <text class="stat-value">{{assignedOrders.length || 0}}</text>
-      <text class="stat-label">待接单</text>
+      <text class="stat-label">待配送</text>
       <text class="stat-unit">单</text>
     </view>
     <view class="stat-item" bindtap="switchTab" data-tab="delivering">
@@ -60,10 +70,17 @@
     </view>
   </view>
 
-  <!-- Tab 切换 -->
+  <!--
+    Tab 切换。名字与后端订单状态一一对齐（constant/OrderStatus）：
+      待配送 = status 1（还没开始送）· 配送中 = status 2 · 已完成 = status 4。
+    ⚠️ [2026-09-19] 第一个页签原叫「待接单」，改叫「待配送」：**站长自己也会接单**
+    （acceptOrder 允许 DELIVERY 与 STATION_MANAGER），一个"待接单"的标签在站长眼里
+    读起来像"还没人派单"，而它实际装的是"本站所有还没开始配送的单"
+    （= 已分配给我的 + 全站待分配的，见 index.js 的合并逻辑）。按「接单配送」= status 1→2。
+  -->
   <view class="tab-bar">
     <view class="tab-item {{activeTab === 'assigned' ? 'active' : ''}}" bindtap="switchTab" data-tab="assigned">
-      <text>待接单</text>
+      <text>待配送</text>
     </view>
     <view class="tab-item {{activeTab === 'delivering' ? 'active' : ''}}" bindtap="switchTab" data-tab="delivering">
       <text>配送中</text>
@@ -73,12 +90,12 @@
     </view>
   </view>
 
-  <!-- 待接单列表（站长分配给我，我还没点接单的） -->
+  <!-- 待配送列表（站长分配给我、以及全站还没派出去的单；还没点「接单配送」） -->
   <view class="order-list" wx:if="{{activeTab === 'assigned'}}">
     <view class="order-card" wx:for="{{assignedOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
       <view class="card-header">
         <view class="tag-row">
-          <text class="status-tag status-pending">待接单</text>
+          <text class="status-tag status-pending">待配送</text>
         </view>
         <text class="order-id">#{{item.id}}</text>
       </view>
@@ -105,7 +122,7 @@
     </view>
     <view class="empty-state" wx:if="{{!loading && assignedOrders.length === 0}}">
       <text class="empty-icon">📭</text>
-      <text class="empty-text">暂无待接单订单</text>
+      <text class="empty-text">暂无待配送订单</text>
     </view>
   </view>
 

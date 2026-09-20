@@ -60,6 +60,28 @@ App({
 
   onShow() {
     this.checkLoginState()
+    this.refreshPendingReminder()
+  },
+
+  /**
+   * 刷新「待办」红点（站长专属，应用内提醒）。
+   *
+   * [2026-09-19 新建] 小程序**在前台无法真推送** —— 所以红点只能在"打开小程序时"刷新，
+   * 这里是那个唯一的时机点（app.onShow 每次从后台切回前台都会走）。
+   * 配送员不请求：那个端点是 `@RequireRole("STATION_MANAGER")`，问了只会拿到一条权限错误。
+   *
+   * ⚠️ 不 await、不抛错：它挂在应用启动路径上，一次网络抖动不该影响任何页面。
+   * 失败时 quiet 降级为"不亮红点"（utils/pending-reminder.js 里会 console.warn 留痕）。
+   */
+  refreshPendingReminder() {
+    const u = this.globalData.userInfo || {}
+    const role = this._normalizeRole(u)
+    if (!this.globalData.isLogin || role !== ROLE_STATION_MANAGER || !u.stationId) {
+      // 不是站长 / 没绑定水站：确保不留上一次登录遗留的红点
+      wx.hideTabBarRedDot({ index: 0, fail: () => {} })
+      return
+    }
+    require('./utils/pending-reminder').syncPendingReminder()
   },
 
   _normalizeUserInfo(u) {

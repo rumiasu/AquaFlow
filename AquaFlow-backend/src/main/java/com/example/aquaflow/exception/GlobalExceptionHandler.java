@@ -118,6 +118,24 @@ public class GlobalExceptionHandler {
         return Result.systemError("操作失败，请稍后重试");
     }
 
+    /**
+     * 上传体积超限：Servlet 容器在进入 Controller **之前**就拒绝，所以只能在这里兜。
+     *
+     * <p>[2026-09-20 真机联调] 此前没有任何专属分支，于是落到
+     * {@link #handleRuntimeException} → HTTP 200 + {@code code=500}「操作失败，请稍后重试」，
+     * 还顺带触发一条 SYSTEM 告警。真机上拍一张大图就会踩到，而这属于**可预期的用户输入问题**，
+     * 不该表现为"服务端故障"（判据同 AGENTS §8.21：外部依赖/输入问题不许升级成 500）。</p>
+     *
+     * <p>上限正本在 {@code application.yml} 的 {@code spring.servlet.multipart.max-file-size}
+     * （10MB）；单张图片另有 5MB 的业务限制（{@code CommonController.MAX_FILE_SIZE}）。
+     * 这里给的是**对用户可操作**的那一条，不重复声明数字以外的东西。</p>
+     */
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public Result handleMaxUploadSize(org.springframework.web.multipart.MaxUploadSizeExceededException e) {
+        log.warn("上传体积超限（容器在上传阶段即拒绝）: {}", e.getMessage());
+        return Result.error("文件太大了，请压缩后重试（单张图片请控制在 5MB 以内）");
+    }
+
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public Result handleMissingParam(MissingServletRequestParameterException e) {
         // 区分 400（客户端参数问题）与 500（服务端错误），避免调试时误判

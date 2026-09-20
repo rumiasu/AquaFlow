@@ -466,6 +466,29 @@ public class DeliveryBindingController {
 
     // ==================== 站长: 单方面解除配送员 (H) — 直接改 station_id=NULL, 不走申请 ====================
 
+    /**
+     * 站长强制解除**配送员**与本站的归属关系。
+     *
+     * <p>⚠️ 2026-09-19 补了两条护栏，之前**一个都没有**（实测能把站长自己解除掉）：
+     * 本方法原来只校验「员工存在 + 属于本站」，而列表数据源
+     * {@link #getManagerStaff()} 用的是 {@code staffMapper.listByStationId}
+     * （`where station_id = ? and status = 1`，**不带 role 条件**）→ 站长自己也在返回集里，
+     * 前端两个页面都给站长那一行渲染了「解除」按钮，点下去真的成功。</p>
+     *
+     * <p><b>解除站长 = 把水站变成没人管的孤儿</b>：{@code staff.station_id} 被置 NULL 之后，
+     * 该站长所有走 {@code AuthContext.requireStationId()} 的端点全部失败、被前端路由到"创建水站"，
+     * 而 {@code station} 表、客户、订单、库存、{@code customer_station_config} 全都留在库里 ——
+     * 客户还能照常给这个站下单，却再没有任何站长能接单。重建水站会拿到**新 id**，旧数据搬不回来。
+     * 这条不是"少一个按钮"的问题，是**不可逆的脏数据制造机**。</p>
+     *
+     * <p>两条护栏缺一不可：① 目标必须是 {@code DELIVERY}（挡"解除别的站长"）；
+     * ② 不能解除自己（挡"解除自己"，它同样会孤儿化水站）。
+     * 前端两处（{@code station-mgmt/staff/}、{@code mine/}）也把站长行的按钮换成了纯文字，
+     * 但**判定必须以服务端为准** —— 列表里看不到不等于 id 编不出来（见 AGENTS §1.1 的同形判据）。</p>
+     *
+     * <p>站长退出/交接水站属于另一个功能（水站转让，需要"接手人 + 二次确认 + 数据迁移范围"），
+     * <b>当前全仓没有这个端点</b>，不要拿本端点当地址用。</p>
+     */
     @RequireRole("STATION_MANAGER")
     @PostMapping("/api/manager/bind/release")
     @Transactional(rollbackFor = Exception.class)
@@ -481,6 +504,14 @@ public class DeliveryBindingController {
         }
         if (staff.getStationId() == null || !staff.getStationId().equals(myStationId)) {
             return Result.error("该员工不属于本站");
+        }
+        // ① 只允许解除配送员：解除站长会让水站失去唯一管理者（见本方法 javadoc）
+        if (!"DELIVERY".equals(staff.getRole())) {
+            return Result.error("只能解除配送员，站长不能这样解除；水站交接请走水站转让");
+        }
+        // ② 不能解除自己（防自伤；正常情况下站长的 role 已被①挡住，这里再兜一层）
+        if (staffId.equals(myStaffId)) {
+            return Result.error("不能解除自己");
         }
 
         staffMapper.updateStationId(staffId, null);

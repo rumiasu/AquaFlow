@@ -13,7 +13,6 @@ import com.example.aquaflow.constant.PaymentStatus;
 import com.example.aquaflow.constant.PayMethod;
 import com.example.aquaflow.service.TicketAccountService;
 import com.example.aquaflow.util.PriceUtil;
-import com.example.aquaflow.util.TicketScope;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -56,6 +55,14 @@ public class TicketAccountServiceImpl implements TicketAccountService {
     @Autowired
     private com.example.aquaflow.mapper.TicketPackageMapper ticketPackageMapper;
 
+    /** 站级统一折扣档（v58）—— 只用于购票时的定价与"本站有没有配"的判据 */
+    @Autowired
+    private com.example.aquaflow.mapper.StationTicketDiscountMapper stationTicketDiscountMapper;
+
+    /** 档位判据（定制 or 统一）的唯一实现 */
+    @Autowired
+    private TicketTierService ticketTierService;
+
     @Override
     public List<TicketAccount> listByCustomerAndStation(Long customerId, Long stationId) {
         return ticketAccountMapper.listByCustomerAndStation(customerId, stationId);
@@ -72,36 +79,17 @@ public class TicketAccountServiceImpl implements TicketAccountService {
     }
 
     /**
-     * 本站的统一水票"开关"：配了**上架**的 {@code product_id = 0} 档位即为开通。
+     * 本站的"统一折扣是否生效"：配了**上架**的 {@code station_ticket_discount} 档位即为生效。
      *
      * <p>不新增开关列的原因：产品口径是「统一水票是<b>可以设置项</b>」——
-     * 站长把档位全下架，统一票自然就不再生效；多一个开关列就多一处可能与档位状态打架的真值。</p>
+     * 站长把档位全下架，统一折扣自然就不再生效；多一个开关列就多一处可能与档位状态打架的真值。</p>
+     *
+     * <p>⚠️ 别把它当成"该商品能用票"的判据：那还要看该商品是否走定制
+     * （唯一实现 {@code TicketTierService.usesCustomTicket}，"定制优先"）。</p>
      */
     @Override
-    public boolean unifiedTicketConfigured(Long stationId) {
-        if (stationId == null) {
-            return false;
-        }
-        List<com.example.aquaflow.entity.TicketPackage> pkgs =
-                ticketPackageMapper.listOnShelf(stationId, TicketScope.UNIFIED_PRODUCT_ID);
-        return pkgs != null && !pkgs.isEmpty();
-    }
-
-    /** 扣票账户的唯一判据入口；规则本身在 {@link TicketScope}（不要在调用点重写这三条 if）。 */
-    @Override
-    public Long resolveDeductAccount(Long customerId, Long productId, Long stationId) {
-        if (customerId == null || productId == null || stationId == null) {
-            return null;
-        }
-        if (TicketScope.isUnified(productId)) {
-            // 传进来的就是站级通用票本身（购票入账、站长加票/调整），直接用，不再判定
-            return TicketScope.UNIFIED_PRODUCT_ID;
-        }
-        return TicketScope.resolveAccount(
-                productId,
-                balanceOf(customerId, productId, stationId),
-                unifiedTicketConfigured(stationId),
-                TicketScope.unifiedEligible(productMapper.getById(productId)));
+    public boolean unifiedDiscountConfigured(Long stationId) {
+        return stationId != null && stationTicketDiscountMapper.countOnShelf(stationId) > 0;
     }
 
     @Override
@@ -154,9 +142,6 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         TicketRecord record = new TicketRecord();
         record.setCustomerId(customerId);
         record.setProductId(productId);
-        // [v54] 新流水一律显式写账户列（NULL 只属于 v54 之前的存量行）：站长给客户补的若是
-        // product_id=0 的统一票，这一行自证"进的是站级通用账户"，退票/对账都不必再猜。
-        record.setAccountProductId(productId);
         record.setStationId(stationId);
         record.setIncreaseQty(qty);
         record.setDecreaseQty(0);
@@ -239,8 +224,6 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         TicketRecord record = new TicketRecord();
         record.setCustomerId(customerId);
         record.setProductId(productId);
-        // [v54] 同 addTicket：显式写账户列（调整单同样可以对 product_id=0 的统一票发起）
-        record.setAccountProductId(productId);
         record.setStationId(stationId);
         record.setIncreaseQty(increase ? qty : 0);
         record.setDecreaseQty(increase ? 0 : qty);
@@ -291,8 +274,6 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         TicketRecord record = new TicketRecord();
         record.setCustomerId(customerId);
         record.setProductId(productId);
-        // [v54] 统一水票购买时 productId=0：这一行自证"进的是站级通用账户"
-        record.setAccountProductId(productId);
         record.setStationId(stationId);
         record.setIncreaseQty(qty);
         record.setDecreaseQty(0);
@@ -314,23 +295,15 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         if (customerId == null || productId == null || stationId == null || qty == null || qty <= 0) {
             throw new BusinessException("退款水票参数不合法");
         }
-        // ===== [v54 统一水票] 回补必须回到**当初扣的那个账户** =====
-        // 判据来自消费流水自证的 account_product_id（v54 之前的存量流水为 NULL，
-        // 语义就是"与 product_id 同账户"，见迁移 v54 的列注释）。
-        // ⚠️ **绝不能**在这里重新跑一遍 TicketScope 判定：退款这一刻客户余额早已变化
-        // （定制票刚被扣光 → 会重新判成统一票），票就会退进一个客户从没扣过的账户，
-        // 表现为"取消订单后定制票没回来、统一票反而多了几张"。
-        TicketRecord consumeRecord = orderId != null
-                ? ticketRecordMapper.getConsumeRecord(orderId, productId) : null;
-        Long accountProductId = consumeRecord != null && consumeRecord.getAccountProductId() != null
-                ? consumeRecord.getAccountProductId() : productId;
-
+        // 账户恒为**该商品**（{@code productId}）。2026-09-20 产品澄清"按统一折扣买的票只能抵那款水"
+        // 之后，同一张订单里"订单行商品"与"扣票账户"必然相等 —— v54 曾为此加过
+        // ticket_record.account_product_id（当时把统一票做成了站级通用账户），该列已由 v59 撤回。
         // 水票按水站隔离：先取（不存在则建），再回补
-        TicketAccount account = ticketAccountMapper.getByCustomerProductStation(customerId, accountProductId, stationId);
+        TicketAccount account = ticketAccountMapper.getByCustomerProductStation(customerId, productId, stationId);
         if (account == null) {
             account = new TicketAccount();
             account.setCustomerId(customerId);
-            account.setProductId(accountProductId);
+            account.setProductId(productId);
             account.setStationId(stationId);
             account.setRemainQuantity(qty);
             account.setUpdateTime(LocalDateTime.now());
@@ -342,21 +315,21 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         // [v36] 回补批次。单价必须取**当时消耗的批次单价**（流水里记着），不能取当前价 ——
         // 否则站长在这中间调过一次价，客户拿回的票就凭空变了值。
         // 查不到消费流水时（历史单 / 人工退款）退化为"当前站级水票价"并标记为推断值，退票需二次确认。
+        TicketRecord consumeRecord = orderId != null
+                ? ticketRecordMapper.getConsumeRecord(orderId, productId) : null;
         BigDecimal restorePrice;
         boolean restoreInferred;
         if (consumeRecord != null && consumeRecord.getUnitPrice() != null) {
             restorePrice = consumeRecord.getUnitPrice();
             restoreInferred = false;
         } else {
-            // 退化分支一律按**订单行商品**取价：统一票没有商品也没有站级水票价可查，
-            // 用它当基准只会得到 0。
             Product rp = productMapper.getById(productId);
             com.example.aquaflow.entity.Inventory rInv = inventoryMapper.getByStationAndProduct(stationId, productId);
             restorePrice = rp == null ? BigDecimal.ZERO : PriceUtil.calcUnitPrice(rp, rInv, PayMethod.TICKET);
             restoreInferred = true;
         }
         com.example.aquaflow.entity.TicketLot restoreLot = ticketLotService.createLot(
-                customerId, stationId, accountProductId, restorePrice, qty,
+                customerId, stationId, productId, restorePrice, qty,
                 com.example.aquaflow.entity.TicketLot.SourceType.REFUND_RESTORE,
                 restoreInferred ? com.example.aquaflow.entity.TicketLot.PriceSource.INFERRED
                                 : com.example.aquaflow.entity.TicketLot.PriceSource.PAID,
@@ -365,7 +338,6 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         TicketRecord record = new TicketRecord();
         record.setCustomerId(customerId);
         record.setProductId(productId);
-        record.setAccountProductId(accountProductId);
         record.setStationId(stationId);
         record.setIncreaseQty(qty);
         record.setDecreaseQty(0);
@@ -384,43 +356,27 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         if (qty == null || qty <= 0) {
             throw new BusinessException("水票扣减张数必须大于 0");
         }
-        // ===== [v54 统一水票] 先按**唯一判据**选账户（规则在 util/TicketScope，不要在这里重写）=====
-        // 定制优先：该商品还有定制票余额 → 只用定制（不够也不拿统一票补差额，见 docs/design/26 §26.0）；
-        // 统一兜底：没有定制票余额（没账户 / 已用光）且本站配了统一票档位、商品是桶装水 → 站级通用票。
-        Long accountProductId = resolveDeductAccount(customerId, productId, stationId);
-        if (accountProductId == null) {
-            // 这些文案会原样出现在客户端 toast 上，要说清"为什么不能用票"而不是笼统的余额不足
-            throw new BusinessException("该商品不能用票支付：没有该商品的定制水票余额，本站也未配置统一水票（统一水票只抵桶装水）");
-        }
-        boolean unified = TicketScope.isUnified(accountProductId);
-        // 水票按水站隔离（统一票同理：A 站买的站级票不能在 B 站用）
-        TicketAccount account = ticketAccountMapper.getByCustomerProductStation(customerId, accountProductId, stationId);
+        // 账户恒为**该商品**：统一折扣只是买票时的定价规则，买到的票进的是这一款水自己的账户，
+        // 所以这里不再有"选账户"这一步（v54 的 util/TicketScope 已随形态收口删除）。
+        // 水票按水站隔离：A 站买的票不能在 B 站用。
+        TicketAccount account = ticketAccountMapper.getByCustomerProductStation(customerId, productId, stationId);
         if (account == null) {
-            throw new BusinessException(unified
-                    ? "统一水票余额不足，请先购买统一水票后再试"
-                    : "当前水站水票余额不足，请先补充水票库存");
+            // 文案会原样出现在客户端 toast 上，要说清"为什么不能用票"而不是笼统的余额不足
+            throw new BusinessException("当前水站水票余额不足，请先补充水票库存");
         }
         int affected = ticketAccountMapper.decrementQuantity(account.getId(), qty);
         if (affected == 0) {
-            throw new BusinessException(unified
-                    ? "统一水票余额不足，请先购买统一水票后再试"
-                    : "水票余额不足，请先购买水票后再试");
+            throw new BusinessException("水票余额不足，请先购买水票后再试");
         }
 
         // [v36] 按 FIFO 消耗批次。批次单价快照决定"这次消耗值多少钱"，
         // 订单取消回补时按它还原 —— 否则站长中途调一次价，客户拿回的票就凭空变了值。
-        // ⚠️ 必须用 accountProductId（账户）而不是 productId（订单行商品）去消耗批次，
-        // 否则会分裂成"汇总结余扣的是统一票、批次扣的是该商品定制票"（E8 随即报不平）。
         com.example.aquaflow.service.TicketLotService.ConsumeResult cr =
-                ticketLotService.consumeFifo(customerId, stationId, accountProductId, qty);
+                ticketLotService.consumeFifo(customerId, stationId, productId, qty);
 
         TicketRecord record = new TicketRecord();
         record.setCustomerId(customerId);
-        // ⚠️ 流水仍记**订单行商品**：幂等键 uk_ticket_consume(order_id, product_id) 与
-        // countConsumeByOrderAndProduct 都按它判重。写成 0（统一票）会让同一张单的第二条流水
-        // 撞唯一键、被 catch 当成"已扣过"静默跳过 —— 也就是少扣票（v54 加 account_product_id 的起因）。
         record.setProductId(productId);
-        record.setAccountProductId(accountProductId);
         record.setStationId(stationId);
         record.setIncreaseQty(0);
         record.setDecreaseQty(qty);
@@ -441,7 +397,7 @@ public class TicketAccountServiceImpl implements TicketAccountService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PaymentRecord purchaseTicket(Long customerId, Long productId, Integer qty, Integer paymentMethod,
-                                        Long stationId, String idempotencyKey, Long packageId) {
+                                        Long stationId, String idempotencyKey, Long packageId, Integer unifiedQty) {
         // ===== [v33] 幂等键必传 =====
         // 这条路径是「无订单支付」（order_id 为 NULL），此前完全没有任何防重：
         //   · PaymentServiceImpl.createPayment 的存在性检查整段包在 if (orderId != null) 里，跳过；
@@ -471,42 +427,31 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         if (qty == null || qty <= 0) {
             throw new BusinessException("购买数量必须大于0");
         }
-        // ===== [v54 统一水票] productId = 0 是**站级通用票**，不是商品 ====
-        // 所以这段必须分路：统一票没有 product 行、没有 inventory 行，走商品那套校验只会得到
-        // "商品不存在 / 该商品在本水站未开启水票"。它的"开通"判据是**本站配了 product_id=0 的档位**。
-        boolean unified = TicketScope.isUnified(productId);
-        Product product = unified ? null : productMapper.getById(productId);
-        com.example.aquaflow.entity.Inventory inv = null;
-        if (unified) {
-            if (stationId == null) {
-                throw new BusinessException("购买统一水票必须指定水站");
-            }
-            // ⚠️ 统一票**只能按档位买**：散买价来自"站级水票价 → product.ticket_price"的两级阶梯，
-            // 而 product_id=0 既没有商品也没有库存行，散买会算出 0 元 —— 那等于白送票。
-            // 折扣本来就发生在档位上（买 10 张 9.5 折、30 张 9 折），所以这条限制不损失任何能力。
-            if (packageId == null) {
-                throw new BusinessException("购买统一水票必须选择档位套餐");
-            }
-            if (!unifiedTicketConfigured(stationId)) {
-                throw new BusinessException("本水站未配置统一水票，暂不支持购买");
-            }
-        } else {
-            if (product == null) {
-                throw new BusinessException("商品不存在");
-            }
-            // 水票开关与票价以「站级库存」为准（与下单/试算走的 PriceUtil 同一口径）。
-            // 注意 product.ticket_enabled 是商品级默认值，水站可对本站单独开启，
-            // 因此必须查 inventory，不能只看 product。
-            inv = stationId != null ? inventoryMapper.getByStationAndProduct(stationId, productId) : null;
-            if (inv == null || !Integer.valueOf(1).equals(inv.getTicketEnabled())) {
-                throw new BusinessException("该商品在本水站未开启水票，暂不支持购买");
-            }
+        if (packageId != null && unifiedQty != null) {
+            throw new BusinessException("一次只能按一种档位购票，请重新选择");
+        }
+        // 买的一定是**真实商品**的票（2026-09-20 形态收口）：不存在"站级通用票"这种商品。
+        // 统一折扣与定制档位的区别只在**怎么定价**，账户、批次、退款路径完全一样。
+        Product product = productMapper.getById(productId);
+        if (product == null) {
+            throw new BusinessException("商品不存在");
+        }
+        // 水票开关与票价以「站级库存」为准（与下单/试算走的 PriceUtil 同一口径）。
+        // 注意 product.ticket_enabled 是商品级默认值，水站可对本站单独开启，因此必须查 inventory。
+        com.example.aquaflow.entity.Inventory inv =
+                stationId != null ? inventoryMapper.getByStationAndProduct(stationId, productId) : null;
+        boolean custom = ticketTierService.usesCustomTicket(product, inv);
+        if (!custom && !(ticketTierService.unifiedConfigured(stationId)
+                && com.example.aquaflow.util.BarrelScope.isBarrel(product))) {
+            // 既没给这款水开定制票、本站也没配统一折扣（或它不是桶装水）→ 这款水不能卖票
+            throw new BusinessException("该商品在本水站未开通水票，暂不支持购买");
         }
         // [2026-09-16] 改走唯一计价入口：旧实现是"inventory.ticket_price → product.price"两段式，
         // 跳过了 product.ticket_price 这一级，与水票支付/报价（PriceUtil）的阶梯不一致 ——
         // 同一种水票，买票与用票可能算出两个价。
-        // [v36] 档位套餐：张数与总价一律以**服务端档位配置**为准。
-        // 绝不能信客户端传来的套餐价 —— 那等于让客户端自己定价。
+        // [v36] 定制档位：张数与总价一律以**服务端档位配置**为准，绝不能信客户端传来的价。
+        // [v58] 统一折扣档：张数以客户端选的档为准（服务端按 (站,张数) 查档），
+        //       **价格由服务端按该款水自己的水票价 × 折扣现算**（这就是"对应水怎么统一打折"）。
         BigDecimal unitPrice;
         BigDecimal totalAmount;
         if (packageId != null) {
@@ -524,7 +469,26 @@ public class TicketAccountServiceImpl implements TicketAccountService {
             }
             unitPrice = pkg.getUnitPrice();
             totalAmount = pkg.getPrice();
+        } else if (unifiedQty != null) {
+            // 走统一折扣：**只有档位可买**（折扣长在张数档上，没有"单张统一价"这种东西）
+            if (custom) {
+                // 定制优先：这款水自己开了定制票，就不该走站级统一折扣
+                throw new BusinessException("该商品已开通专属水票，请按其档位购买");
+            }
+            com.example.aquaflow.entity.StationTicketDiscount tier =
+                    ticketTierService.requireUnifiedTier(stationId, unifiedQty);
+            if (!tier.getQty().equals(qty)) {
+                throw new BusinessException("购买张数与折扣档不一致，请重新选择");
+            }
+            java.util.Map<String, BigDecimal> priced =
+                    ticketTierService.priceUnifiedTier(product, inv, tier);
+            unitPrice = priced.get("unitPrice");
+            totalAmount = priced.get("totalPrice");
         } else {
+            if (!custom) {
+                // 这款水没有"单张水票价"可依（定制票没开），散买没有折扣依据 → 只能按档买
+                throw new BusinessException("该商品请按统一折扣档位购买");
+            }
             // 散买：唯一计价入口（站级水票价 → product.ticket_price 阶梯）
             unitPrice = PriceUtil.calcUnitPrice(product, inv, PayMethod.TICKET);
             totalAmount = unitPrice.multiply(BigDecimal.valueOf(qty));
@@ -537,12 +501,19 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         record.setAmount(totalAmount);
         record.setPaymentMethod(paymentMethod);
         record.setStatus(PaymentStatus.PENDING);
-        record.setNote("线上购买水票");
+        // 备注要能自证"这笔是按哪种方式定的价"：定制档位 vs 站级统一折扣 vs 散买。
+        // 定制档另有 ticket_package_id 可查；统一折扣档**不需要新列** ——
+        // 档位由 (station_id, qty) 唯一确定，而 ticket_qty 已经落库，读者拿张数就能查到当时那一档。
+        record.setNote(unifiedQty != null
+                ? "线上购买水票（站级统一折扣 " + unifiedQty + " 张档）"
+                : "线上购买水票");
         // 记录"买的是哪种水票、买几张"，支付确认后据此入账。
         // 此前这两个信息没有落库，导致支付成功也无从入账 —— 客户付了钱水票永远不到账。
         record.setTicketWaterTypeId(productId);
         record.setTicketQty(qty);
-        // 记下"这笔记的是哪个档位"：档位价会变，历史流水必须能自证
+        // 记下"这笔记的是哪个档位"：档位价会变，历史流水必须能自证。
+        // ⚠️ 统一折扣档没有 ticket_package 行（价格按各款水现算、不落库），这里就是 NULL ——
+        // 那不是漏记：判别方式见上面的备注与 ticket_qty。
         record.setTicketPackageId(packageId);
         record.setCreateTime(LocalDateTime.now());
         record.setUpdateTime(LocalDateTime.now());
@@ -575,29 +546,11 @@ public class TicketAccountServiceImpl implements TicketAccountService {
      * <p>与单价真相源的关系：真正可信的单价只有两种 —— 在线购票的<b>实付均价</b>
      * （{@code creditPurchasedTickets}）和批次 FIFO 快照。本方法只服务于"没有付款凭据"的场景。</p>
      *
-     * <p>统一水票（{@code productId = 0}）取<b>本站上架档位里均价最低的那个</b>：
-     * 档位价会变、客户究竟按哪档买也无从得知，"买得越多越便宜"的设计下最低均价是客户能拿到的
-     * 真实最低单张成本。取不到档位就退化为 0（仍标记为推断值）——
+     * <p>取该商品在本站的**水票价**（{@link PriceUtil#calcUnitPrice} 传 {@code TICKET} 那一级：
+     * 站级水票价 → 通用库水票价 → 零售价）。取不到商品就退化为 0（仍标记为推断值）——
      * 宁可显示 0 也不要凭空编一个价。</p>
      */
     private BigDecimal inferredUnitPrice(Long stationId, Long productId) {
-        if (TicketScope.isUnified(productId)) {
-            List<com.example.aquaflow.entity.TicketPackage> pkgs =
-                    ticketPackageMapper.listOnShelf(stationId, TicketScope.UNIFIED_PRODUCT_ID);
-            BigDecimal best = null;
-            if (pkgs != null) {
-                for (com.example.aquaflow.entity.TicketPackage pkg : pkgs) {
-                    BigDecimal u = pkg.getUnitPrice();
-                    if (u == null || u.compareTo(BigDecimal.ZERO) <= 0) {
-                        continue;
-                    }
-                    if (best == null || u.compareTo(best) < 0) {
-                        best = u;
-                    }
-                }
-            }
-            return best != null ? best : BigDecimal.ZERO;
-        }
         Product p = productMapper.getById(productId);
         com.example.aquaflow.entity.Inventory inv = inventoryMapper.getByStationAndProduct(stationId, productId);
         return p == null ? BigDecimal.ZERO : PriceUtil.calcUnitPrice(p, inv, PayMethod.TICKET);

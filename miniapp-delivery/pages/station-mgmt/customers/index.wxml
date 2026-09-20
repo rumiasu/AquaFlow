@@ -6,30 +6,25 @@
 
   <view class="filter-chips">
     <view class="chip {{filterType === 'all' ? 'active' : ''}}" data-type="all" bindtap="onFilterType"><text>全部</text></view>
-    <view class="chip {{filterType === '1' ? 'active' : ''}}" data-type="1" bindtap="onFilterType"><text>个人</text></view>
-    <view class="chip {{filterType === '2' ? 'active' : ''}}" data-type="2" bindtap="onFilterType"><text>企业</text></view>
+    <view class="chip {{filterType === '1' ? 'active' : ''}}" data-type="1" bindtap="onFilterType"><text>普通客户</text></view>
+    <view class="chip {{filterType === '2' ? 'active' : ''}}" data-type="2" bindtap="onFilterType"><text>企业客户</text></view>
   </view>
 
   <!--
-    企业身份提示阈值（v51）：与"待审"同一处 —— 这一块是站长与企业身份相关的全部操作面。
-    `entCfg.enabled` 为 false（平台总开关关着）时整块不显示：功能关掉就该连设置都看不到，
-    而不是留一个点了会报错的入口。文案在 js 里拼好（wxml 不做格式化）。
+    企业身份（v50 审核 + v51 阈值）—— **本页与企业身份有关的全部操作都在这一个弹窗里**。
+    [2026-09-19 IA 重组 C5] 原先是两个弹窗（审核一个、阈值一个）加两处入口（待审横幅 + 设置行），
+    同一个主题四处分叉；现在只留一行入口，点开同一个弹窗，弹窗内两个视图切换。
+    ⚠️ `entCfg.enabled` 为 false（平台总开关关着）时整行不显示 —— 功能关掉就该连设置都看不到，
+       而不是留一个点了会报错的入口。
+    ⚠️ 待审条数为 0 时这一行**照样显示**（否则站长不知道本站开没开企业身份、阈值是多少）。
   -->
-  <view class="ent-cfg" wx:if="{{entCfg.enabled}}" bindtap="onEntCfgOpen">
-    <view class="ent-cfg-left">
-      <text class="ent-cfg-title">企业身份提示</text>
-      <text class="ent-cfg-desc">{{entCfgText}}</text>
+  <view class="ent-entry" wx:if="{{entCfg.enabled}}">
+    <view class="ent-entry-left" bindtap="onEntOpen" data-view="review">
+      <text class="ent-entry-title">企业身份</text>
+      <text class="ent-entry-desc" wx:if="{{entApplies.length}}">有 {{entApplies.length}} 条申请待审核</text>
+      <text class="ent-entry-desc" wx:else>暂无待审申请</text>
     </view>
-    <text class="ent-cfg-arrow">设置 ›</text>
-  </view>
-
-  <!--
-    企业身份待审（v50）：客户在下单页看到「大额订单可申请企业身份」后提交的那些。
-    功能总开关关着时后端返回空列表 → 这一行整行不显示（不是"0 条待审"的占位）。
-  -->
-  <view class="ent-banner" wx:if="{{entApplies.length}}" bindtap="onEntOpen">
-    <text class="ent-banner-text">有 {{entApplies.length}} 条企业身份申请待审核</text>
-    <text class="ent-banner-arrow">›</text>
+    <text class="ent-entry-set" bindtap="onEntOpen" data-view="settings">提示阈值 ›</text>
   </view>
 
   <view class="customer-list" wx:if="{{!loading}}">
@@ -96,52 +91,60 @@
   </view>
 
   <!--
-    企业身份申请审核（v50）。客户填的信息原样展示（企业名/联系人/电话/时间），
-    通过/驳回各一个按钮 —— 不做"批量通过"：通过 = 认下一家企业客户，逐条看是应该的。
+    企业身份弹窗：**审核视图**与**阈值视图**共用一个弹窗（v50 审核 + v51 阈值）。
+    [2026-09-19 IA 重组 C5] 原先这是两个独立弹窗 + 两个 visible 状态；合成一个之后
+    站长不会在两个长得很像的弹窗之间迷失，也不需要记住"阈值在哪一个里"。
+    · 审核视图：客户填的信息原样展示，通过/驳回各一个按钮 —— **不做"批量通过"**：
+      通过 = 认下一家企业客户，逐条看是应该的。
+    · 阈值视图：两项都可留空（留空 = 不用这条口径，两项都留空 = 本站不提示）。
+    ⚠️ 平台级总开关**不在这里**（产品：平台级不做前端可视化），站长能改的只有本站阈值。
   -->
   <view class="modal-mask" wx:if="{{entVisible}}" bindtap="onEntClose">
     <view class="modal-body" catchtap="onEntNoop">
-      <view class="modal-title">企业身份申请（{{entApplies.length}}）</view>
-      <view class="ent-item" wx:for="{{entApplies}}" wx:key="id">
-        <view class="ent-item-head">
-          <text class="ent-item-name">{{item.companyName}}</text>
-          <text class="ent-item-time">{{item.applyTimeText}}</text>
-        </view>
-        <text class="ent-item-line" wx:if="{{item.contactPerson}}">联系人：{{item.contactPerson}}</text>
-        <text class="ent-item-line" wx:if="{{item.contactPhone}}">电话：{{item.contactPhone}}</text>
-        <text class="ent-item-line" wx:if="{{item.taxNo}}">税号：{{item.taxNo}}</text>
-        <text class="ent-item-line" wx:if="{{item.contactPhone}}" data-phone="{{item.contactPhone}}" bindtap="onCall">拨号核实 ›</text>
-        <view class="ent-item-actions">
-          <view class="modal-btn" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntReject"><text>驳回</text></view>
-          <view class="modal-btn primary" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntApprove"><text>通过</text></view>
-        </view>
+      <view class="modal-title">
+        <text wx:if="{{entView === 'review'}}">企业身份申请（{{entApplies.length}}）</text>
+        <text wx:else>企业身份提示 · 本站阈值</text>
       </view>
-      <view class="modal-actions">
-        <view class="modal-btn" bindtap="onEntClose"><text>关闭</text></view>
-      </view>
-    </view>
-  </view>
 
-  <!--
-    企业身份提示阈值设置（v51）。两项都可留空：留空 = 不用这条口径；两项都留空 = 本站不提示。
-    ⚠️ 平台级总开关**不在这里**（产品：平台级不做前端可视化），站长能改的只有本站阈值。
-  -->
-  <view class="modal-mask" wx:if="{{entCfgVisible}}" bindtap="onEntCfgClose">
-    <view class="modal-body" catchtap="onEntCfgNoop">
-      <view class="modal-title">企业身份提示 · 本站阈值</view>
-      <view class="modal-tip">下单时达到任一条就提示客户「可申请企业身份」。只算桶装水：押金、配送费、楼层费都不计。</view>
-      <view class="modal-row">
-        <text>桶数达到</text>
-        <input class="modal-input" type="number" placeholder="留空=不用这条" value="{{entCfgForm.barrels}}" bindinput="onEntCfgBarrelInput" />
-      </view>
-      <view class="modal-row">
-        <text>水费达到（元）</text>
-        <input class="modal-input" type="digit" placeholder="留空=不用这条" value="{{entCfgForm.amount}}" bindinput="onEntCfgAmountInput" />
-      </view>
-      <view class="modal-tip">两条都填 = 满足任一条就提示；两条都留空 = 本站不提示。不改就是平台默认（{{entCfg.defaultBarrels}} 桶）。</view>
+      <!-- ===== 审核视图 ===== -->
+      <block wx:if="{{entView === 'review'}}">
+        <view class="ent-item" wx:for="{{entApplies}}" wx:key="id">
+          <view class="ent-item-head">
+            <text class="ent-item-name">{{item.companyName}}</text>
+            <text class="ent-item-time">{{item.applyTimeText}}</text>
+          </view>
+          <text class="ent-item-line" wx:if="{{item.contactPerson}}">联系人：{{item.contactPerson}}</text>
+          <text class="ent-item-line" wx:if="{{item.contactPhone}}">电话：{{item.contactPhone}}</text>
+          <text class="ent-item-line" wx:if="{{item.taxNo}}">税号：{{item.taxNo}}</text>
+          <text class="ent-item-line" wx:if="{{item.contactPhone}}" data-phone="{{item.contactPhone}}" bindtap="onCall">拨号核实 ›</text>
+          <view class="ent-item-actions">
+            <view class="modal-btn" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntReject"><text>驳回</text></view>
+            <view class="modal-btn primary" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntApprove"><text>通过</text></view>
+          </view>
+        </view>
+        <view class="ent-empty" wx:if="{{!entApplies.length}}">暂无待审申请</view>
+      </block>
+
+      <!-- ===== 阈值视图 ===== -->
+      <block wx:else>
+        <view class="modal-tip">下单时达到任一条就提示客户「可申请企业身份」。只算桶装水：押金、配送费、楼层费都不计。</view>
+        <view class="modal-row">
+          <text>桶数达到</text>
+          <input class="modal-input" type="number" placeholder="留空=不用这条" value="{{entCfgForm.barrels}}" bindinput="onEntCfgBarrelInput" />
+        </view>
+        <view class="modal-row">
+          <text>水费达到（元）</text>
+          <input class="modal-input" type="digit" placeholder="留空=不用这条" value="{{entCfgForm.amount}}" bindinput="onEntCfgAmountInput" />
+        </view>
+        <view class="modal-tip">两条都填 = 满足任一条就提示；两条都留空 = 本站不提示。不改就是平台默认（{{entCfg.defaultBarrels}} 桶）。</view>
+        <view class="modal-tip" wx:if="{{entCfgText}}">当前：{{entCfgText}}</view>
+      </block>
+
       <view class="modal-actions">
-        <view class="modal-btn" bindtap="onEntCfgClose"><text>取消</text></view>
-        <view class="modal-btn primary" bindtap="onEntCfgSave"><text>保存</text></view>
+        <view class="modal-btn" wx:if="{{entView === 'review'}}" bindtap="onEntSwitch" data-view="settings"><text>提示阈值 ›</text></view>
+        <view class="modal-btn" wx:else bindtap="onEntSwitch" data-view="review"><text>‹ 返回待审</text></view>
+        <view class="modal-btn" bindtap="onEntClose"><text>关闭</text></view>
+        <view class="modal-btn primary" wx:if="{{entView === 'settings'}}" bindtap="onEntCfgSave"><text>{{entCfgSaving ? '保存中…' : '保存'}}</text></view>
       </view>
     </view>
   </view>

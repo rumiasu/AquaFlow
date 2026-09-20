@@ -24,10 +24,14 @@ import java.util.Map;
  *   <li>金额与桶数一律由 {@code quote} 在<b>服务端</b>推导，不信任前端传入的任何数字。</li>
  * </ul>
  *
- * <p>渠道现状：微信支付未接入（{@code availableMethods()} 里该选项恒 disabled），
- * 当前可用的是现金（货到付款）与水票。<b>因此两条退款路径都不得假装把钱原路退给了微信客户</b>：
- * 手工退款（{@code refundPayment}）对微信流水直接拒绝（它的唯一产出就是"钱"）；
- * 订单取消链（{@code refundOrder}）只记凭据 + 在 {@code note} 写明"需线下退款"，
+ * <p>渠道现状：真实微信支付未接入，当前可用的是现金（货到付款）与水票。
+ * [2026-09-20] 新增<b>微信支付模拟渠道</b>（{@code app.payment.mock-wechat-pay}，默认 <b>false</b>）：
+ * 开启时 {@code availableMethods()} 把微信置为可选、{@code createPayment} 对 method=1
+ * <b>当场置为已付款</b>（只取代"真实付款"这一下：金额重算、活跃流水唯一键、押金入账、
+ * 订单付款状态只前进等校验全部照跑）；关闭时行为与之前逐字一致。
+ * <b>两条退款路径的口径随之联动</b>——模拟开启时微信退款也按"原路退回（模拟）"放行并在
+ * {@code note} 里写明是模拟；关闭时维持原状：手工退款（{@code refundPayment}）对微信流水直接拒绝
+ * （它的唯一产出就是"钱"），订单取消链（{@code refundOrder}）只记凭据 + 写明"需线下退款"，
  * 不阻断取消（取消还要连锁退押金 / 回补库存 / 清配送中桶）。取舍理由见两个方法的 javadoc。</p>
  */
 public interface PaymentService {

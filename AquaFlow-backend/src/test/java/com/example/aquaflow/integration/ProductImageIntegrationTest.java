@@ -25,27 +25,31 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class ProductImageIntegrationTest extends AbstractIntegrationTest {
 
-    /** 与 constant/ProductImageKeys.BARREL_WATER 对应的小程序包内路径 */
-    private static final String PRESET_PATH = "/assets/product/barrel-water.webp";
+    /**
+     * 一个真实存在于两端包内的本地路径（品牌官网图）。
+     * <p>⚠️ 2026-09-20 前这里用的是 {@code barrel-water.webp} —— 那是平台自制图，
+     * 已按产品口径（只用官网实拍图）连同文件一起移除，故改用官网图路径。</p>
+     */
+    private static final String LOCAL_IMAGE_PATH = "/assets/product/pulisi-pure.webp";
 
     @Test
-    @DisplayName("平台预设图清单：下发包内路径，且顾客端读不到")
+    @DisplayName("选图清单：下发包内路径，且顾客端读不到")
     void presetImageListServesPackagePaths() {
         String mgr = newManagerToken("图片站A");
         long customer = createCustomer("顾客甲", "openid-img-a");
 
         Api res = get("/api/manager/catalog/preset-images", mgr);
-        assertEquals(0, res.code(), "预设图清单应可读：" + res.data());
-        assertTrue(res.data().isArray() && res.data().size() >= 1, "至少应有一张平台预设图");
+        assertEquals(0, res.code(), "选图清单应可读：" + res.data());
+        assertTrue(res.data().isArray(), "必须是数组（可以为空）");
 
-        List<String> keys = new ArrayList<>();
+        // ⚠️ 口径（2026-09-20）：**允许为空** —— 平台只保留品牌官网实拍图，
+        //    不再提供自制预设图。这里不断言数量，只断言"只要有，就必须是可用的包内路径"，
+        //    否则将来增减预设图会无意义地弄红用例。
         for (JsonNode n : res.data()) {
-            keys.add(n.path("key").asText());
             String path = n.path("path").asText();
             assertTrue(path.startsWith("/assets/product/"),
                     "下发的必须是两端小程序包内都存在的路径（前端直接当 src 用），实际=" + path);
         }
-        assertTrue(keys.contains("barrel-water"), "通用桶装水预设图必须在清单里，实际=" + keys);
 
         assertNotEquals(0, get("/api/manager/catalog/preset-images", customerToken(customer)).code(),
                 "顾客端不得读取站长选图清单");
@@ -55,12 +59,12 @@ class ProductImageIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("本地预设路径原样落库、原样下发（以 / 开头即本地资源，不经 COS）")
     void localPresetPathIsPassedThrough() {
         String mgr = newManagerToken("图片站B");
-        long productId = createMyProduct(mgr, "本地图商品", PRESET_PATH, null);
+        long productId = createMyProduct(mgr, "本地图商品", LOCAL_IMAGE_PATH, null);
 
         assertEquals(1, intOf("select count(*) from product where id = ? and image_object_name = ?",
-                        productId, PRESET_PATH),
+                        productId, LOCAL_IMAGE_PATH),
                 "本地路径应原样落库（不能被当成对象键去签名）");
-        assertEquals(PRESET_PATH, imageUrlOf(get("/api/manager/catalog", mgr).data(), productId),
+        assertEquals(LOCAL_IMAGE_PATH, imageUrlOf(get("/api/manager/catalog", mgr).data(), productId),
                 "本地预设路径必须原样下发 —— 本机 COS 未配置时，只有它能显示出来");
     }
 

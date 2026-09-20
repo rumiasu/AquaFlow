@@ -114,7 +114,7 @@ public class TicketAccountController {
         Long stationId = dto.getStationId();
         com.example.aquaflow.entity.PaymentRecord pr = ticketAccountService.purchaseTicket(
                 customerId, dto.getProductId(), dto.getQuantity(), dto.getPaymentMethod(), stationId,
-                dto.getIdempotencyKey(), dto.getPackageId());
+                dto.getIdempotencyKey(), dto.getPackageId(), dto.getUnifiedQty());
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("paymentId", pr.getId());
         result.put("amount", pr.getAmount());

@@ -168,6 +168,98 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
                 "结束日传今天时，今天下的单必须被统计到");
     }
 
+    @Test
+    @DisplayName("净利 = 水费 + 配送费 + 楼层费 − 进货成本 − 计件工钱，且与毛利同一批订单")
+    void netProfitAddsFeesAndSubtractsWages() {
+        long station = createStation("净利站");
+        long manager = createStaff("净利站长", "STATION_MANAGER", station, 1);
+        long rider = createStaff("净利配送员", "DELIVERY", station, 1);
+        long customer = createCustomer("净利客户", "np-openid");
+        long address = createAddress(customer, "净利小区 1 号");
+        long product = createProduct("净利水", 1, "20.00", "30.00", 0, "0.00");
+        createInventoryFull(station, product, 100, 0, "0.00");
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+        assertEquals(0, put("/api/manager/gross-profit/cost", mgr,
+                "{\"productId\":" + product + ",\"costPrice\":12.00}").code(), "设成本价 12");
+        // 计件单价必须在本站配置里，否则完成配送时静默跳过（"没配计件"是合法经营状态）
+        assertEquals(0, put("/api/manager/piece-rate", mgr, "{\"perBucketAmount\":3.00}").code(), "设计件单价");
+
+        // 直接造一张「配送中(2)」的现金单（下单→指派→接单三步已由 DeliveryCompleteIntegrationTest 覆盖）
+        long orderId = createOrderFull(customer, address, station, product,
+                2, 1, 2, "40.00", "0.00", "40.00", false, 2);
+        // ⚠️ 必须有 order_item：毛利的水费收入与计件的送桶收益都是**按明细行**产生的
+        insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
+                        + "VALUES (?,?,?,?,?,?,?)",
+                orderId, product, "净利水", new BigDecimal("20.00"), 2,
+                new BigDecimal("0.00"), new BigDecimal("40.00"));
+        // 配送费/楼层费：下单链路的金额由计费配置决定，这里只验证净利的加法，直接写库
+        jdbc.update("UPDATE orders SET delivery_staff_id=?, delivery_fee=5.00, floor_fee=2.00 WHERE id=?",
+                rider, orderId);
+        // 完成配送（走到「送达」这一步才会产生计件收益）
+        assertEquals(0, post("/api/delivery/orders/" + orderId + "/complete", mgr,
+                "{\"collected\":false,\"note\":\"净利用例\"}").code(), "完成配送");
+
+        BigDecimal wage = decimalOf(
+                "SELECT COALESCE(SUM(amount),0) FROM staff_earning WHERE order_id=?", orderId);
+        assertTrue(wage.signum() > 0, "完成配送后必须有计件工钱，否则这个用例证明不了减法");
+
+        String today = java.time.LocalDate.now().toString();
+        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
+        assertEquals(0, report.code(), "净利报表: " + report);
+        assertEquals(1, report.data().path("orderCount").asInt(), "单数按订单数，不按明细行数");
+        assertEquals(0, new BigDecimal("40.00").compareTo(
+                new BigDecimal(report.data().path("totalRevenue").asText())), "水费 2 × 20 = 40");
+        assertEquals(0, new BigDecimal("5.00").compareTo(
+                new BigDecimal(report.data().path("deliveryFee").asText())), "配送费 5");
+        assertEquals(0, new BigDecimal("2.00").compareTo(
+                new BigDecimal(report.data().path("floorFee").asText())), "楼层费 2");
+        // 收入合计必须**包含**配送费与楼层费（毛利两项都没有），且不含押金
+        assertEquals(0, new BigDecimal("47.00").compareTo(
+                new BigDecimal(report.data().path("totalIncome").asText())), "收入合计 40 + 5 + 2");
+        assertEquals(0, new BigDecimal("24.00").compareTo(
+                new BigDecimal(report.data().path("totalCost").asText())), "成本 2 × 12 = 24");
+        assertEquals(0, wage.compareTo(new BigDecimal(report.data().path("wage").asText())),
+                "工钱应等于该单产生的计件收益合计");
+        // 净利 = 47 − 24 − 工钱；毛利 = 40 − 24 = 16
+        assertEquals(0, new BigDecimal("23.00").subtract(wage).compareTo(
+                        new BigDecimal(report.data().path("netProfit").asText())),
+                "净利 = 收入合计 47 − 成本 24 − 工钱 " + wage);
+        // 净利与毛利不相等，否则说明配送费/楼层费/工钱有一项根本没接上
+        assertNotEquals(0, new BigDecimal(report.data().path("totalProfit").asText())
+                        .compareTo(new BigDecimal(report.data().path("netProfit").asText())),
+                "净利与毛利不应相等（本例有配送费/楼层费/工钱）");
+    }
+
+    @Test
+    @DisplayName("缺成本时净利也必须是 null —— 只 null 毛利会让站长拿净利继续当真")
+    void netProfitIsNullWhenCostMissing() {
+        long station = createStation("缺成本净利站");
+        long manager = createStaff("缺成本净利站长", "STATION_MANAGER", station, 1);
+        long customer = createCustomer("缺成本净利客户", "np-missing-openid");
+        long address = createAddress(customer, "缺成本净利小区 1 号");
+        long product = createProduct("缺成本净利水", 1, "20.00", "30.00", 0, "0.00");
+        createInventoryFull(station, product, 100, 0, "0.00");
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+        // 现金单（货到付款需要客户级授权，故直接造数而不是走下单接口）
+        long orderId = createOrderFull(customer, address, station, product,
+                2, 1, 2, "40.00", "0.00", "40.00", false, 2);
+        insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
+                        + "VALUES (?,?,?,?,?,?,?)",
+                orderId, product, "缺成本净利水", new BigDecimal("20.00"), 2,
+                new BigDecimal("0.00"), new BigDecimal("40.00"));
+
+        String today = java.time.LocalDate.now().toString();
+        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
+        assertEquals(0, report.code(), "净利报表: " + report);
+        assertTrue(report.data().path("totalProfit").isNull(), "合计毛利必须是 null");
+        assertTrue(report.data().path("netProfit").isNull(),
+                "合计净利同样必须是 null —— 成本按 0 计会让净利凭空多出整整一个进货成本");
+        // 收入构成仍然照实下发（那些数字不依赖成本）
+        assertEquals(1, report.data().path("orderCount").asInt(), "单数照实下发");
+        assertTrue(report.data().path("profitBasisNote").asText().contains("净利 ="),
+                "必须下发净利口径文案: " + report.data().path("profitBasisNote").asText());
+    }
+
     private Api order(String customerToken, long stationId, long addressId, long productId,
                       int qty, String key) {
         return post("/api/orders/create", customerToken,

@@ -25,6 +25,8 @@ Page({
     },
     records: [],
     customerBarrelAsset: [],
+    // 桶数据部分加载失败时的提示（空串 = 全部正常）。见 loadData 里的说明。
+    loadError: '',
     showReturnModal: false,
     returnForm: {
       productId: null,
@@ -56,11 +58,27 @@ Page({
 
     this.setData({ loading: true })
     try {
+      // [2026-09-20 真机联调] 原来三个请求各自 `.catch(e => { console.warn(...); return null })`，
+      // 失败被吞成 null → 页面照常渲染「权益 0 · 占用 0」，与"这客户确实没有桶"完全无法区分
+      // （AGENTS §8.22）。弱网/后端没起时顾客会以为自己一张桶都没有。
+      // 现在失败照旧降级（部分成功仍然可用），但**必须出声**：页面顶部提示 + toast。
+      let failedCount = 0
+      const softCatch = (tag) => (e) => {
+        failedCount++
+        console.warn('[Barrel] ' + tag + ' 失败:', e.message)
+        return null
+      }
       const [summaryRes, recordsRes, holdingsRes] = await Promise.all([
-        getBarrelSummary(stationId).catch(e => { console.warn('[Barrel] getBarrelSummary失败:', e.message); return null }),
-        getBarrelRecords(stationId).catch(e => { console.warn('[Barrel] getBarrelRecords失败:', e.message); return null }),
-        getBarrelSummaryByType(stationId).catch(e => { console.warn('[Barrel] getBarrelSummaryByType失败:', e.message); return null })
+        getBarrelSummary(stationId).catch(softCatch('getBarrelSummary')),
+        getBarrelRecords(stationId).catch(softCatch('getBarrelRecords')),
+        getBarrelSummaryByType(stationId).catch(softCatch('getBarrelSummaryByType'))
       ])
+      if (failedCount > 0) {
+        this.setData({ loadError: '桶数据有 ' + failedCount + ' 项没加载出来，下面数字可能不准' })
+        wx.showToast({ title: '桶数据加载不完整，请下拉刷新', icon: 'none' })
+      } else {
+        this.setData({ loadError: '' })
+      }
 
       if (summaryRes && summaryRes.data) {
         this.setData({ summary: summaryRes.data })

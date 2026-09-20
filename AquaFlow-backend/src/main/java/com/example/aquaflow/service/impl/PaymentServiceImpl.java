@@ -25,7 +25,6 @@ import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.BarrelScope;
 import com.example.aquaflow.util.PriceUtil;
 import com.example.aquaflow.util.StationUtil;
-import com.example.aquaflow.util.TicketScope;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -41,6 +40,36 @@ import java.util.Map;
 @Slf4j
 public class PaymentServiceImpl implements PaymentService {
 
+    /**
+     * 微信支付**模拟渠道**开关（{@code app.payment.mock-wechat-pay}，**默认 false**）。
+     *
+     * <p>[2026-09-20 产品裁定] 真实微信支付尚未接入，但联调需要一个能走通的微信单。
+     * 口径是「<b>点击即成功，只取代真实支付这一下，别的一律按真实标准</b>」—— 因此本开关
+     * <b>只改一件事</b>：{@code createPayment} 里 method=1 的流水由 PENDING 改为 PAID。
+     * 其余全部**原样保留**：金额服务端重算、活跃流水唯一键
+     * （{@code uk_payment_active_order}）、水票扣减、押金入账（{@code applyDepositOnPaid}）、
+     * 订单付款状态只前进（{@code markPaidIfCollectable}）、对账等式。</p>
+     *
+     * <p>⚠️ <b>不能只写 {@code status = PAID} 就完事</b>：下面那两个 if 分支是按
+     * "status 已是 PAID"触发的，改这一处就自动带上了押金入账与订单置已付 ——
+     * 若另起一段单独写，就会出现"流水说付了、押金没进账"（AGENTS §8.4 的老坑）。</p>
+     *
+     * <p>⚠️ 生产**必须保持 false**：开启等于任何人选微信支付都能零元购。
+     * 真实渠道接入时应删掉本开关与 {@link #isMockWechatPay}，而不是把它留成"永真"。</p>
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.payment.mock-wechat-pay:false}")
+    private boolean mockWechatPay;
+
+    /**
+     * 本次请求是否走微信**模拟**渠道。
+     *
+     * <p>集中一处判断，避免"报价说微信可用、下单又不认"这类口径分叉
+     * （同一个坑本仓已踩过：报价与下单各写一套判据）。</p>
+     */
+    private boolean isMockWechatPay(Integer paymentMethod) {
+        return mockWechatPay && Integer.valueOf(PayMethod.WECHAT).equals(paymentMethod);
+    }
+
     @Autowired
     private PaymentRecordMapper paymentRecordMapper;
 
@@ -49,6 +78,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Autowired
     private TicketRecordMapper ticketRecordMapper;
+
+    /** 档位判据（定制 or 统一折扣）的唯一实现 —— 结算页预览要与下单闸门、扣票路径同一口径 */
+    @Autowired
+    private TicketTierService ticketTierService;
 
     @Autowired
     private OrderMapper orderMapper;
@@ -191,12 +224,18 @@ public class PaymentServiceImpl implements PaymentService {
 
         // ===== 支付状态判定：绝不能由客户端参数直接决定"已支付" =====
         // 水票(3)：先按订单项原子扣减水票，扣减成功才算已支付
-        // 微信(1)：PENDING，PAID 只能由微信支付异步回调写入（TODO: 接入统一下单 + 回调验签）
+        // 微信(1)：真实渠道下是 PENDING，PAID 只能由微信支付异步回调写入（TODO: 接入统一下单 + 回调验签）；
+        //         **模拟渠道**下当场置 PAID（见字段 mockWechatPay 的说明）
         // 现金(2)：PENDING，货到付款，由站长确认收款后写入
-        // 历史实现：paymentMethod==1 或 2 直接置 PAID（"测试阶段"注释），等于任何人都可零元购
+        // 历史实现：paymentMethod==1 或 2 直接置 PAID（"测试阶段"注释），等于任何人都可零元购 ——
+        // 注意区别：当年的错在于**无条件**置 PAID；现在是**开关控制**且默认关闭，判据没有放宽。
         Integer status;
         if (Integer.valueOf(PayMethod.TICKET).equals(paymentMethod)) {
             deductTickets(orderId);
+            status = PaymentStatus.PAID;
+        } else if (isMockWechatPay(paymentMethod)) {
+            // 只跳过"真实付款"这一下；走到这里时金额重算、活跃流水唯一键、幂等检查都已跑完。
+            log.warn("[模拟微信支付] 开关 app.payment.mock-wechat-pay=true，跳过真实渠道直接置为已付款: orderId={}", orderId);
             status = PaymentStatus.PAID;
         } else {
             status = PaymentStatus.PENDING;
@@ -749,10 +788,12 @@ public class PaymentServiceImpl implements PaymentService {
                     + "请走站长资产调整单处理，或联系运维按流水手工核销");
         }
 
-        // ===== 场景② 微信（1）：渠道未接入，不能假装退成功 =====
-        // PayMethod.availableMethods() 里微信恒 disabled，全系统没有一处微信退款 API 调用。
-        // 若照旧把流水标成已退款，界面会显示"已退款"，而钱仍在客户账上没动。
-        if (Integer.valueOf(PayMethod.WECHAT).equals(record.getPaymentMethod())) {
+        // ===== 场景② 微信（1）：真实渠道未接入，不能假装退成功 =====
+        // PayMethod.availableMethods() 在没有模拟渠道时把微信置为 disabled，全系统没有一处
+        // 微信退款 API 调用。若照旧把流水标成已退款，界面会显示"已退款"，而钱仍在客户账上没动。
+        // [2026-09-20] 模拟渠道开启时放行：那笔钱本来就是模拟进来的，"原路退回"同样是模拟，
+        // 两边口径一致；否则会出现"模拟能付、但一取消订单就退不掉"的怪状态，联调走不完。
+        if (Integer.valueOf(PayMethod.WECHAT).equals(record.getPaymentMethod()) && !mockWechatPay) {
             throw new BusinessException("微信支付渠道未接入，无法自动原路退回，请线下退款并登记");
         }
 
@@ -907,19 +948,29 @@ public class PaymentServiceImpl implements PaymentService {
      * <p>[2026-09-18] 基数文案与抽取前完全一致（{@code "退款：" + reason}），只是按支付方式追加了
      * 一句渠道说明：微信追加「未接入，需线下退款并登记」，现金追加「钱由站长当面退还」。
      * 这两句是给人看的凭据说明 —— 站长在支付流水里必须能一眼看出"这笔钱到底有没有真的退出去"。</p>
+     *
+     * <p>[2026-09-20] 因此改成**实例方法**：微信那支现在要看 {@code mockWechatPay}
+     * （模拟渠道开启时文案改为「原路退回亦为模拟」）。这是注释契约的一部分 ——
+     * 把测试期的模拟资金记成真实退款凭据，比缺一句文案危险得多。</p>
      */
-    private static String refundNoteForOrder(Integer paymentMethod, String reason) {
+    private String refundNoteForOrder(Integer paymentMethod, String reason) {
         String base = "退款：" + (reason != null ? reason : "订单取消");
         if (Integer.valueOf(PayMethod.WECHAT).equals(paymentMethod)) {
-            // [2026-09-18] 微信渠道未接入，本链**不会**自动原路退回（渠道未接入，
-            // PayMethod.availableMethods() 里该项恒 disabled）。但不阻断取消：
-            // 取消还要连锁退押金 / 回补库存 / 清配送中桶，为一笔退不出去的钱卡死整条链，
-            // 会让历史微信单永远取消不掉。所以这里只记流水 + 写清"需线下退款"，让站长看得见。
-            // 对比：站长手工退款（refundPayment）对 method=1 直接拒绝 —— 那个方法的唯一产出就是"钱"，
-            // 退不出去时没有有意义的下半场，不能假装成功。
-            log.warn("[退款] 微信渠道未接入，本条退款流水仅为凭据，需线下退款: orderId 见流水, paymentMethod={}, reason={}",
-                    paymentMethod, reason);
-            base = base + "（微信渠道未接入，需线下退款并登记）";
+            if (mockWechatPay) {
+                // [2026-09-20] 模拟渠道：这笔钱本来就是模拟收到的，"原路退回"同样是模拟，
+                // 备注必须写明是模拟，否则日后翻流水会把测试数据当成真实资金记录。
+                base = base + "（模拟微信渠道，原路退回亦为模拟）";
+            } else {
+                // [2026-09-18] 微信渠道未接入，本链**不会**自动原路退回（渠道未接入，
+                // PayMethod.availableMethods() 里该项恒 disabled）。但不阻断取消：
+                // 取消还要连锁退押金 / 回补库存 / 清配送中桶，为一笔退不出去的钱卡死整条链，
+                // 会让历史微信单永远取消不掉。所以这里只记流水 + 写清"需线下退款"，让站长看得见。
+                // 对比：站长手工退款（refundPayment）对 method=1 直接拒绝 —— 那个方法的唯一产出就是"钱"，
+                // 退不出去时没有有意义的下半场，不能假装成功。
+                log.warn("[退款] 微信渠道未接入，本条退款流水仅为凭据，需线下退款: orderId 见流水, paymentMethod={}, reason={}",
+                        paymentMethod, reason);
+                base = base + "（微信渠道未接入，需线下退款并登记）";
+            }
         } else if (Integer.valueOf(PayMethod.CASH).equals(paymentMethod)) {
             // 现金退款没有线上渠道可言，钱由站长当面退还；写进备注，对账/客服才有依据。
             base = base + "（现金，钱由站长当面退还）";
@@ -980,8 +1031,8 @@ public class PaymentServiceImpl implements PaymentService {
         result.put("offlinePaymentBlockReason", offlineBlockReason);
         // 可用支付方式由后端下发（含文案与默认选中项），前端禁止自带 1/2/3 映射表，
         // 否则再次出现"前端 2=水票、后端 2=现金"这类错位。
-        result.put("methods", PayMethod.availableMethods(allowOffline));
-        result.put("defaultMethod", PayMethod.defaultMethod(allowOffline));
+        result.put("methods", PayMethod.availableMethods(allowOffline, mockWechatPay));
+        result.put("defaultMethod", PayMethod.defaultMethod(allowOffline, mockWechatPay));
 
         if (items == null || items.isEmpty() || stationId == null) {
             result.put("waterAmount", BigDecimal.ZERO);
@@ -992,6 +1043,8 @@ public class PaymentServiceImpl implements PaymentService {
             result.put("deliveryFee", BigDecimal.ZERO);
             result.put("floorFee", BigDecimal.ZERO);
             result.put("warnings", java.util.Collections.emptyList());
+            // 键名与下方同形：前端读 d.ticketPay 时不必判 undefined（本仓对"判 undefined 就会长出第二套默认值"有记录）
+            result.put("ticketPay", null);
             result.put("blocked", false);
             result.put("blockReason", null);
             result.put("totalAmount", BigDecimal.ZERO);
@@ -1004,10 +1057,17 @@ public class PaymentServiceImpl implements PaymentService {
 
         Map<Long, Integer> barrelByProduct = new java.util.HashMap<>();
 
-        // [v54 统一水票] 水票支付的可用性提示：客户在结算页点了「水票」就得知道
+        // [v54 统一水票] 水票支付的可用性：客户在结算页点了「水票」就得知道
         // "这单能不能用票 / 用的是定制票还是本站统一票 / 票够不够"，
         // 而不是等提交订单后才由 consumeTicket 抛错 —— 那时地址、时段都白填了一遍。
+        //
+        // [2026-09-19 第十批] 从"只给一句提示"升级为**结构化的抵扣预览**：
+        // 结算页要按产品口径「水票支付时只计费除去水票的部分」把计费区改掉，
+        // 所以金额也得由后端算好下发（前端不得自算金额，这是本仓的硬规则）。
         List<String> ticketWarnings = new java.util.ArrayList<>();
+        List<TicketLine> ticketLines = new java.util.ArrayList<>();
+        BigDecimal ticketCoveredAmount = BigDecimal.ZERO;
+        int ticketTotalQty = 0;
         boolean payByTicket = Integer.valueOf(PayMethod.TICKET).equals(paymentMethod);
 
         for (Map<String, Object> item : items) {
@@ -1037,7 +1097,22 @@ public class PaymentServiceImpl implements PaymentService {
             }
 
             if (payByTicket) {
-                appendTicketWarning(ticketWarnings, customerId, stationId, product, quantity);
+                TicketLine line = ticketLineOf(customerId, stationId, product, quantity);
+                ticketLines.add(line);
+                ticketTotalQty += quantity;
+                if (line.covered()) {
+                    // 覆盖部分的水费 = 该行水票价 × 行数量（与 deductTickets 扣的是同一批桶）
+                    ticketCoveredAmount = ticketCoveredAmount
+                            .add(unitPrice.multiply(BigDecimal.valueOf(quantity)));
+                }
+            }
+        }
+        // 逐行文案（定制/统一/不能用票）在循环外统一生成：与结构化数据同源，不会两处对不上。
+        // 定制票够的行返回 null（不必打扰客户），这里必须判掉 —— 否则 null 会进 JSON 数组。
+        for (TicketLine line : ticketLines) {
+            String text = ticketLineText(line);
+            if (text != null) {
+                ticketWarnings.add(text);
             }
         }
 
@@ -1104,6 +1179,10 @@ public class PaymentServiceImpl implements PaymentService {
         result.put("blockReason", fee.getBlockReason());
         result.put("totalAmount", totalAmount);
 
+        result.put("ticketPay", payByTicket
+                ? ticketPayPreview(ticketLines, ticketTotalQty, ticketCoveredAmount, totalAmount)
+                : null);
+
         // 企业身份提示（v51）：**只算水** —— 桶装水数量与"水费"（不含押金/配送费/楼层费）两条口径，
         // 命中任一即提示；阈值按站配、没配过用平台默认（30 桶）。开关关着时连字段都不下发（前端也就没有入口）。
         // ⚠️ 传的是 totalWaterAmount（水费），不是 totalAmount（含押金与费用的合计）——
@@ -1115,39 +1194,121 @@ public class PaymentServiceImpl implements PaymentService {
         return result;
     }
 
+    /** 结算页水票抵扣预览的**单行**事实（每行一个订单项）。 */
+    private record TicketLine(String name, int qty, boolean usable, int balance, boolean covered) {}
+
     /**
-     * 给「水票支付」的结算页追加一条可读提示（[v54] 统一水票）。
+     * 算一行的水票抵扣事实。**判据与真实扣票逐条对齐**（这是本方法唯一的价值所在）：
      *
-     * <p>判据不在这里：账户选择一律问 {@code TicketAccountService.resolveDeductAccount}
-     * （内部是 {@link TicketScope} 的唯一实现）。本方法只负责把结果翻译成人话 ——
-     * 客户在结算页看到的必须与提交后 {@code consumeTicket} 真正会扣的账户一致，
-     * 否则又会出现"页面说用定制票、实际扣了统一票"。</p>
-     *
-     * <p>只提示、不阻断：真正的拦阻在提交路径上（下单闸门 + 扣票的原子 SQL）。
-     * 结算页拦一道会让"票刚好在别处补上了"的客户无法下单。</p>
+     * <ol>
+     *   <li>账户恒为**该商品**（2026-09-20 产品拍板：按统一折扣买的票只能抵那款水）；</li>
+     *   <li>该商品得**能用票**（定制票已开，或本站配了统一折扣且它是桶装水）——
+     *       判据与下单闸门、购票路径同源，见 {@code TicketTierService}；</li>
+     *   <li>该账户余额 <b>≥ 本行数量</b> 才算这一行能抵 ——
+     *       {@code consumeTicket} 用的是 {@code remain_quantity >= qty} 的原子 SQL，
+     *       <b>不够就整行失败</b>，不会"先抵一部分"。所以这里也必须是全有或全无，
+     *       否则结算页会说"还差 1 桶"而实际提交时整行被拒。</li>
+     * </ol>
      */
-    private void appendTicketWarning(List<String> out, Long customerId, Long stationId,
-                                     Product product, int quantity) {
-        Long accountProductId = ticketAccountService.resolveDeductAccount(customerId, product.getId(), stationId);
+    private TicketLine ticketLineOf(Long customerId, Long stationId, Product product, int qty) {
         String name = product.getName() != null ? product.getName() : ("商品" + product.getId());
-        if (accountProductId == null) {
-            out.add("「" + name + "」不能用票支付：没有该商品的定制水票，本站也未配置统一水票");
-            return;
+        Inventory inv = inventoryMapper.getByStationAndProduct(stationId, product.getId());
+        // 与下单闸门同一判据：定制票开了 → 可用；否则本站有统一折扣且是桶装水 → 可用
+        boolean usable = ticketTierService.usesCustomTicket(product, inv)
+                || (BarrelScope.isBarrel(product)
+                    && ticketAccountService.unifiedDiscountConfigured(stationId));
+        int balance = usable ? ticketAccountService.balanceOf(customerId, product.getId(), stationId) : 0;
+        boolean covered = usable && balance >= qty;
+        return new TicketLine(name, qty, usable, balance, covered);
+    }
+
+    /** 单行的可读文案（不能用票 / 余额不足两种）。文案一律后端下发，前端不自造。 */
+    private String ticketLineText(TicketLine line) {
+        if (!line.usable()) {
+            return "「" + line.name() + "」不能用票支付：本站没有为它开通水票，也没有配置可用的统一折扣";
         }
-        int balance = ticketAccountService.balanceOf(customerId, accountProductId, stationId);
-        boolean unified = TicketScope.isUnified(accountProductId);
-        if (balance <= 0) {
-            out.add(unified
-                    ? "「" + name + "」将使用本站统一水票，但当前没有余额，请先购买统一水票"
-                    : "「" + name + "」的水票余额为 0，请先购买水票");
-        } else if (balance < quantity) {
-            // 「不够也不拿统一票补差额」是定稿口径（docs/design/26 §26.0），所以这里必须说清"整单会失败"
-            out.add(unified
-                    ? "「" + name + "」将使用本站统一水票，余额 " + balance + " 张、本单需要 " + quantity + " 张，不足部分不能用定制票补"
-                    : "「" + name + "」的定制水票余额 " + balance + " 张、本单需要 " + quantity + " 张");
-        } else if (unified) {
-            out.add("「" + name + "」将使用本站统一水票（1 张抵 1 桶），余额 " + balance + " 张");
+        if (line.balance() <= 0) {
+            return "「" + line.name() + "」的水票余额为 0，请先购买水票";
         }
+        if (!line.covered()) {
+            // 不存在"先抵一部分"：consumeTicket 要求余额 ≥ 整行数量，所以必须说清"整单会失败"
+            return "「" + line.name() + "」的水票余额 " + line.balance() + " 张、本单需要 " + line.qty() + " 张";
+        }
+        return null;   // 票够：不必打扰客户
+    }
+
+    /**
+     * 水票抵扣预览（结算页据此把计费区改成"只计费除去水票的部分"）。
+     *
+     * <p><b>⚠️ 先把"票到底结清了什么"说清楚</b>（这一条决定了字段口径，别想当然）：
+     * 水票支付是把**整单**置为已付 —— {@code createPayment} 在 {@code paymentMethod=3} 时
+     * 扣票成功后直接 {@code status=PAID} + {@code markPaidIfCollectable} + {@code applyDepositOnPaid}，
+     * 也就是<b>水费、押金、配送费、楼层费全部随票一并结清</b>，客户在门口不再掏钱。
+     * 所以"票够"时客户这次要付的是 <b>0</b>，而不是 {@code 合计 − 水费}。</p>
+     *
+     * <p>字段（前端不得自造同义字段）：</p>
+     * <ul>
+     *   <li>{@code needQty} —— 本单需要几张票（= 需要走票的行数量合计）；</li>
+     *   <li>{@code coverQty} —— 按唯一判据选出的账户实际能覆盖几件。**不够就是整单用不了票**
+     *       （{@code consumeTicket} 要求账户余额 ≥ 本行数量，不存在"先抵一部分"）；</li>
+     *   <li>{@code fullyCovered} —— 整单能否全部用票结清；</li>
+     *   <li>{@code coverAmount} —— 被票覆盖那部分对应的**水费**（账目口径的展示值）；</li>
+     *   <li>{@code payableAmount} —— <b>客户这次实际要付的钱</b>：能全抵 → {@code 0}；
+     *       抵不掉 → 订单全额（因为本单根本用不了票，得改选别的支付方式全额付）；</li>
+     *   <li>{@code title} / {@code hint} —— 弹窗标题与一句可读结论（都由后端下发）。
+     *       抵不掉时**必须区分两种情况**：某商品<b>根本不能用票</b>（补票也没用，只能改选）
+     *       与<b>票不够</b>（补票或者改选）。两者混成一句话会把客户引到错的动作上。
+     *       另外必须说清"**当前不支持票 + 现金/微信混合支付**，票不会被扣、留在账户里下次用" ——
+     *       否则客户会以为可以补差价，或者以为票已经被扣掉了。</li>
+     * </ul>
+     */
+    private Map<String, Object> ticketPayPreview(List<TicketLine> lines,
+                                                 int totalQty, BigDecimal coveredAmount, BigDecimal totalAmount) {
+        int coveredQty = 0;
+        String unavailableName = null;    // 第一项"根本不能用票"的商品（如未开水票的瓶装水）
+        for (TicketLine l : lines) {
+            if (l.covered()) {
+                coveredQty += l.qty();
+            } else if (!l.usable() && unavailableName == null) {
+                unavailableName = l.name();
+            }
+        }
+        int shortfallQty = totalQty - coveredQty;
+        boolean fullyCovered = shortfallQty == 0 && totalQty > 0;
+        // 票够 → 整单随票结清，这次不用再付；票不够 → 本单用不了票，要付就是全额
+        BigDecimal payable = fullyCovered ? BigDecimal.ZERO : totalAmount;
+
+        // 三种情况必须分开说，否则客户会被引到错的动作上：
+        //   ① 全抵 → 不用付钱；
+        //   ② 有商品**根本不能用票** → 补票也没用，只能改选支付方式（优先级最高，
+        //      因为"再买几张票"解决不了它）；
+        //   ③ 票能抵这项商品、只是余额不够 → 补票或者改选。
+        String title;
+        String hint;
+        if (fullyCovered) {
+            title = "水票支付";
+            hint = "本单全部由水票结清（含水费、押金与配送费），无需另行付款";
+        } else if (unavailableName != null) {
+            title = "暂不能用票支付";
+            hint = "「" + unavailableName + "」不能用票支付（本站没有为它开通水票，也没有可用的统一折扣），"
+                    + "补票也解决不了 —— 请改选支付方式后再下单";
+        } else {
+            title = "水票不足";
+            hint = "水票不足以覆盖本单：需要 " + totalQty + " 张、手上只够抵 " + coveredQty
+                    + " 件，还差 " + shortfallQty + " 张。当前不支持「水票 + 现金/微信」混合支付，"
+                    + "请改选支付方式，或先补齐水票再下单（票不会被扣，仍留在你的账户里）";
+        }
+
+        Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("needQty", totalQty);
+        data.put("coverQty", coveredQty);
+        data.put("shortfallQty", shortfallQty);
+        data.put("coverAmount", coveredAmount);
+        data.put("payableAmount", payable);
+        data.put("fullyCovered", fullyCovered);
+        data.put("title", title);
+        data.put("hint", hint);
+        return data;
     }
 
     /**
@@ -1165,7 +1326,6 @@ public class PaymentServiceImpl implements PaymentService {
      */
     @Override
     public boolean canUseOfflinePayment(Long customerId, Long stationId) {
-        // 只判"开关层"（老调用方：试算/报价里决定要不要把"货到付款"这个选项放出来）。
         // 只判"开关层"（老调用方：试算/报价里决定要不要把"货到付款"这个选项放出来）。
         // 欠款那一层见 offlinePaymentBlockReason —— 那里是**唯一判据**。
         return offlinePaymentBlockReason(customerId, stationId) == null;

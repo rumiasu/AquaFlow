@@ -7,37 +7,35 @@ import java.util.Map;
 /**
  * 平台预设商品图 —— key 与小程序包内资源路径的唯一映射。
  *
- * <p><b>口径：</b>预设图存放在<b>两个小程序的包内</b>（{@code assets/product/}），
- * 不依赖 COS、不会过期、无网络请求。后端 {@code product.image_object_name} 存<b>路径</b>
- * （形如 {@code /assets/product/barrel-water.webp}），由
- * {@link com.example.aquaflow.util.ProductImageResolver#resolve} 原样下发。</p>
+ * <p><b>当前为空（2026-09-20）。</b>产品口径已明确：<b>只用品牌官网实拍图</b>，
+ * 不使用平台自行生成 / 加工的图。原先的两张自制图（{@code barrel-water} / {@code barrel-purified}）
+ * 已连同两端包内文件一起移除；引用它们的 47 行商品**均已下架**，
+ * 其 {@code image_object_name} 也已置空（见 {@code migration_v57_clear_selfmade_images.sql}）。</p>
  *
- * <p><b>为什么 key 与路径都要有：</b>key 是稳定标识（未来可能改名或换存储），
- * 路径是当前实现细节。站长端选图时用 key，后端翻译成路径下发。</p>
+ * <p><b>将来要恢复这个面板</b>：把实拍图放进 {@code assets/product/}、在静态块里登记
+ * key → 路径即可，<b>无需改任何调用方</b> —— {@code GET /api/manager/catalog/preset-images}
+ * 直接读 {@link #all()}，前端空列表时已显示「暂无预设图」。</p>
  *
- * <p>⚠️ 新增/删除预设图时，<b>必须同步</b>：① 本表；② {@code miniapp-user/assets/product/}；
- * ③ {@code miniapp-delivery/assets/product/}。两端包内各存一份是微信小程序的固有限制
- * （包内资源不能跨小程序共享），文件本身很小（单张约 7 KB），重复可以接受。</p>
+ * <p>⚠️ 新增图必须<b>同步三处</b>：本表 + {@code miniapp-user/assets/product/} +
+ * {@code miniapp-delivery/assets/product/}（微信包内资源不能跨小程序共享）。</p>
+ *
+ * <p>⚠️ 别与「品牌图」混淆：品牌图由商品行<b>直接存路径</b>（如
+ * {@code /assets/product/pulisi-pure.webp}），<b>不经过 key 体系</b>；
+ * 本表只服务「站长自选图」面板。</p>
  */
 public final class ProductImageKeys {
 
     private ProductImageKeys() {
     }
 
-    /** 通用桶装水（无品牌、无标签）：用于循环桶装水这一通用品类 */
-    public static final String BARREL_WATER = "barrel-water";
-
-    /** 饮用纯净水桶 */
-    public static final String BARREL_PURIFIED = "barrel-purified";
-
     /** 本地资源存放目录（两个小程序包内保持一致） */
     private static final String DIR = "/assets/product/";
 
     private static final Map<String, String> PRESET_TO_PATH;
+
     static {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put(BARREL_WATER, DIR + "barrel-water.webp");
-        m.put(BARREL_PURIFIED, DIR + "barrel-purified.webp");
+        // 当前为空：平台不再提供自制图。恢复时在此登记 key -> DIR + "xxx.webp"
         PRESET_TO_PATH = Collections.unmodifiableMap(m);
     }
 
@@ -54,7 +52,7 @@ public final class ProductImageKeys {
         return PRESET_TO_PATH.get(presetKey);
     }
 
-    /** 全部预设 key（下发给站长端选图面板） */
+    /** 全部预设 key（下发给站长端选图面板）；当前为空 Map */
     public static Map<String, String> all() {
         return PRESET_TO_PATH;
     }

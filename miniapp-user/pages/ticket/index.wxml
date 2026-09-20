@@ -83,7 +83,10 @@
     </view>
 
     <scroll-view scroll-y class="modal-scroll">
-      <!-- 选择商品 -->
+      <!-- 选择商品。
+           ⚠️ 这里**只有真实商品**，没有"统一水票"这种东西 —— 产品口径「统一水票在站长端是特殊化的，
+           但在**用户端看起来没区别**…不是专门卖统一水票」。某款水按不按统一折扣卖，
+           体现在下面拉到的档位上，不体现在商品名上。 -->
       <text class="modal-label">选择商品</text>
       <view class="product-list">
         <view
@@ -94,23 +97,24 @@
           bindtap="onBuyProductSelect"
         >
           <text class="product-name">{{item.name}}</text>
-          <!-- 面值 = 本站水票价（后端 effectiveTicketPrice），与扣款同源。
-               统一水票（站级通用）没有单张价，面值只有选了档位才知道，故不显示。 -->
+          <!-- 面值 = 本站水票价（后端 effectiveTicketPrice），与扣款同源 -->
           <text class="product-price" wx:if="{{item.effectiveTicketPrice}}">¥{{item.effectiveTicketPrice}}/张</text>
-          <text class="product-price product-price-unified" wx:if="{{item.unified}}">一张抵一桶 · 按档位买</text>
         </view>
       </view>
 
-      <!-- 水票档位（价目表）：站长挂了档位才出现，没挂就照旧散买。
+      <!-- 档位（价目表）。两种来源在界面上**长得一样**：
+             · CUSTOM  = 站长给这款水挂的定制档位；
+             · UNIFIED = 站级统一折扣按**这款水自己的价**折算出来的档位。
            总价与均价全部用服务端下发的值，这里不做 price/qty 的算术。 -->
       <block wx:if="{{buyPackages.length}}">
-        <text class="modal-label">{{isUnifiedBuy ? '选一个档位（统一水票只能按档位买）' : '按档位买（越买越便宜）'}}</text>
+        <text class="modal-label">按档位买（越买越便宜）</text>
         <view class="pkg-list">
           <view
-            class="pkg-item {{buyForm.packageId === item.id ? 'active' : ''}}"
+            class="pkg-item {{(buyForm.packageId && buyForm.packageId === item.packageId) || (buyForm.unifiedQty && buyForm.unifiedQty === item.qty && item.source === 'UNIFIED') ? 'active' : ''}}"
             wx:for="{{buyPackages}}"
-            wx:key="id"
-            data-id="{{item.id}}"
+            wx:key="qty"
+            data-id="{{item.packageId || item.qty}}"
+            data-source="{{item.source}}"
             bindtap="onBuyPackageSelect"
           >
             <text class="pkg-title">{{item.title || item.qty + ' 张'}}</text>
@@ -118,30 +122,24 @@
             <text class="pkg-sub">{{item.qty}} 张 · 均价 ¥{{item.unitPrice}}/张</text>
           </view>
         </view>
-        <view class="pkg-clear" wx:if="{{!isUnifiedBuy}}" bindtap="onBuyPackageClear">
-          {{buyForm.packageId ? '不按档位，改为散买' : '当前：按单张散买'}}
+        <view class="pkg-clear" bindtap="onBuyPackageClear">
+          {{buyForm.packageId || buyForm.unifiedQty ? '不按档位，改为散买' : '当前：按单张散买'}}
         </view>
       </block>
 
-      <!-- 数量：统一水票的张数由档位决定（它没有单张价，不能散买） -->
-      <block wx:if="{{!isUnifiedBuy}}">
-        <text class="modal-label">购买数量</text>
-        <view class="qty-row">
-          <view class="qty-btn {{buyForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onBuyQtyStep" data-type="minus">
-            <text>-</text>
-          </view>
-          <input class="qty-input" type="number" value="{{buyForm.quantity}}" bindinput="onBuyQuantityInput" />
-          <view class="qty-btn" bindtap="onBuyQtyStep" data-type="add">
-            <text>+</text>
-          </view>
+      <!-- 数量：张数由所选档位决定（后端会校验张数必须等于档位张数） -->
+      <text class="modal-label">购买数量</text>
+      <view class="qty-row">
+        <view class="qty-btn {{buyForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onBuyQtyStep" data-type="minus">
+          <text>-</text>
         </view>
-        <text class="pkg-lock" wx:if="{{buyForm.packageId}}">
-          已按档位锁定张数；改数量会自动退回「按单张散买」。
-        </text>
-      </block>
-      <text class="pkg-lock" wx:else>
-        统一水票一张抵一桶，本站桶装水通用；张数由所选档位决定。
-        你手里若已有某个商品的定制水票，下单时会优先用定制票，不够才轮到统一票。
+        <input class="qty-input" type="number" value="{{buyForm.quantity}}" bindinput="onBuyQuantityInput" />
+        <view class="qty-btn" bindtap="onBuyQtyStep" data-type="add">
+          <text>+</text>
+        </view>
+      </view>
+      <text class="pkg-lock" wx:if="{{buyForm.packageId || buyForm.unifiedQty}}">
+        已按档位锁定张数；改数量会自动退回「按单张散买」。
       </text>
 
       <!-- 支付方式 -->

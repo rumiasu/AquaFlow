@@ -34,41 +34,34 @@ public class TicketPackageController {
     @Autowired
     private TicketPackageMapper ticketPackageMapper;
 
-    /** 平台预设档的引导（v54 统一水票）：算出"本站一桶水的钱"再折算三档建议 */
+    /** 档位判据（定制 or 站级统一折扣）的唯一实现 —— 客户端该看到哪些档位问它 */
     @Autowired
-    private com.example.aquaflow.service.impl.TicketPackagePresetService ticketPackagePresetService;
+    private com.example.aquaflow.service.impl.TicketTierService ticketTierService;
 
     /**
-     * 客户端查某站某商品的在售档位。
+     * 客户端查某站某商品**能买哪些档位**。
      *
-     * <p>无鉴权要求与其它公开商品接口一致；只返回上架档位，不含任何站长私有字段。</p>
+     * <p>无鉴权要求与其它公开商品接口一致；不含任何站长私有字段。</p>
+     *
+     * <p><b>[v58] 返回的是"这一款水"的档位，可能是两种来源</b>（{@code source} 字段区分，
+     * 前端不必分两套渲染）：该商品开了定制票 → {@code CUSTOM}（站长挂的绝对价目表）；
+     * 否则本站配了统一折扣且它是桶装水 → {@code UNIFIED}（<b>按这一款水自己的价打折</b>折算）。
+     * 判据唯一实现在 {@code TicketTierService.customerTiers}。</p>
+     *
+     * <p>⚠️ 这里**永远不会**出现"统一水票"这种商品 —— 用户端看到的始终是某款水的票
+     * （产品 2026-09-20：「在用户端看起来没区别…不是专门卖统一水票」）。</p>
      */
     @GetMapping
-    public Result<List<TicketPackage>> listForCustomer(@RequestParam Long stationId,
-                                                       @RequestParam Long productId) {
-        return Result.success(ticketPackageMapper.listOnShelf(stationId, productId));
+    public Result<List<java.util.Map<String, Object>>> listForCustomer(@RequestParam Long stationId,
+                                                                      @RequestParam Long productId) {
+        return Result.success(ticketTierService.customerTiers(stationId, productId));
     }
 
-    /** 站长查本站某商品的全部档位（含已下架） */
+    /** 站长查本站某商品的全部**定制**档位（含已下架）。统一折扣档走 /api/ticket-discounts。 */
     @RequireRole({"STATION_MANAGER"})
     @GetMapping("/manage")
     public Result<List<TicketPackage>> listForManager(@RequestParam Long productId) {
         return Result.success(ticketPackageMapper.listAll(AuthContext.requireStationId(), productId));
-    }
-
-    /**
-     * 平台预设档（**一键填入的草稿**，v54）：给统一水票用，按本站"一桶水的钱"折算 10 / 20 / 100 张三档。
-     *
-     * <p>⚠️ 本端点**只读**：不会替站长建档位。因为"本站有上架的 {@code product_id=0} 档位"
-     * 就是**统一水票的站级开关**，自动落行等于替所有水站开通一个折扣工具。
-     * 站长看完建议、按自己的经营情况改数字，再走 {@link #save} 保存。</p>
-     *
-     * <p>客户端**不能调**（{@code @RequireRole}）：它是站长定价的辅助信息，不是顾客可见的商品数据。</p>
-     */
-    @RequireRole({"STATION_MANAGER"})
-    @GetMapping("/presets")
-    public Result<java.util.Map<String, Object>> presets() {
-        return Result.success(ticketPackagePresetService.presets(AuthContext.requireStationId()));
     }
 
     /**

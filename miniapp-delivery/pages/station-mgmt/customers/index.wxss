@@ -51,20 +51,23 @@
 .modal-btn { padding: 12rpx 32rpx; margin-left: 16rpx; border-radius: 8rpx; font-size: 28rpx; color: var(--text-regular); border: 1rpx solid var(--border-color); }
 .modal-btn.primary { background: var(--primary-color, #409EFF); color: #fff; border: none; }
 
-/* 企业身份申请（v50）：顶部一行提示 + 审核弹窗里的逐条申请 */
-.ent-banner { display: flex; align-items: center; justify-content: space-between; background: #fff7e6; border: 1rpx solid #ffd591; border-radius: 16rpx; padding: 20rpx 24rpx; margin-bottom: 20rpx; }
-.ent-banner-text { font-size: 26rpx; color: #d46b08; }
-.ent-banner-arrow { font-size: 32rpx; color: #d46b08; }
+/*
+  企业身份（v50 审核 + v51 阈值）：**一行入口**，点开是同一个弹窗。
+  [2026-09-19 IA 重组 C5] 原先是 .ent-banner（待审）+ .ent-cfg（阈值）两行两个入口
+  + 两个弹窗，同一主题四处分叉；现在合成一个 .ent-entry，点哪半边决定先看哪个视图。
+*/
+.ent-entry { display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border-radius: 16rpx; padding: 20rpx 24rpx; margin-bottom: 20rpx; box-shadow: var(--shadow-sm); }
+.ent-entry-left { display: flex; flex-direction: column; gap: 6rpx; min-width: 0; flex: 1; }
+.ent-entry-title { font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
+.ent-entry-desc { font-size: 24rpx; color: var(--text-secondary); }
+.ent-entry-set { font-size: 24rpx; color: var(--primary); flex-shrink: 0; padding-left: 20rpx; }
+.ent-empty { text-align: center; padding: 40rpx 0; font-size: 26rpx; color: var(--text-secondary); }
+
+/* 审核弹窗里的逐条申请 */
 .ent-item { border-top: 1rpx solid var(--border-color); padding: 20rpx 0; }
+.ent-item:first-child { border-top: none; }
 .ent-item-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12rpx; }
 .ent-item-name { font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
 .ent-item-time { font-size: 22rpx; color: var(--text-secondary); }
 .ent-item-line { display: block; margin-top: 8rpx; font-size: 24rpx; color: var(--text-secondary); }
 .ent-item-actions { display: flex; justify-content: flex-end; margin-top: 16rpx; }
-
-/* 企业身份提示阈值（v51）：与「待审」同一处的一行设置入口 */
-.ent-cfg { display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border-radius: 16rpx; padding: 20rpx 24rpx; margin-bottom: 16rpx; box-shadow: var(--shadow-sm); }
-.ent-cfg-left { display: flex; flex-direction: column; gap: 6rpx; min-width: 0; }
-.ent-cfg-title { font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
-.ent-cfg-desc { font-size: 24rpx; color: var(--text-secondary); }
-.ent-cfg-arrow { font-size: 24rpx; color: var(--primary); flex-shrink: 0; }

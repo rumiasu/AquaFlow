@@ -232,6 +232,30 @@
   color: var(--text-secondary);
 }
 
+/* 「算不出」（缺成本）与"有异常"用同一个警示色 —— 两者都表示"这个数别按 0 理解"。
+   正常态不套这个类：满屏红字会让真正需要看的那一格失去信号。**只管颜色，不改字号**。 */
+.stats-value.stats-warn {
+  color: #d9534f;
+}
+
+/* 金额格专用：三格里它是唯一可能到 5 位数的（¥12345.67），40rpx 会挤出格子。
+   nowrap 是兜底 —— 宁可让金额格窄一点也不要在数字中间换行（"¥123\n45.67" 会被读错）。 */
+.stats-value.stats-money {
+  font-size: 32rpx;
+  white-space: nowrap;
+}
+
+/* 第三格的第二行（欠桶 N 户）：比 label 更弱，且**自己可点**（catchtap）——
+   一格两数时必须让两个目标各自可点，否则用户点哪都是同一个页面。 */
+.stats-sub {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 20rpx;
+  /* 比 --text-secondary(#999) 再浅一档：它是同一格里的次要数字，不该与 label 抢注意力。
+     app.wxss 没有这一档变量，故写死色值（别引不存在的 --text-tertiary）。 */
+  color: #B0B0B5;
+}
+
 .stats-divider {
   width: 1rpx;
   height: 60rpx;
@@ -286,6 +310,32 @@
   text-align: center;
   color: #78909c;
   font-size: 26rpx;
+}
+/* 「编辑资料 ›」：水站资料页的入口（站名/电话/地址/坐标可直接改） */
+.station-edit {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #1976d2;
+  font-weight: 500;
+}
+/* 员工入口（2026-09-19 IA 重组）：本页保留完整的「配送员管理 / 绑定申请」列表与原地操作，
+   站长端 pages/station-mgmt/staff/ 是更全的那一份（多了搜索、筛选、画像、新增），
+   两边数据同源，标题行的「更多 ›」跳过去。 */
+.staff-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 0 4rpx;
+}
+.staff-entry-text {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+.staff-entry-arrow {
+  font-size: 26rpx;
+  color: #1976d2;
+  font-weight: 500;
 }
 
 /* 管理 Tab */
@@ -342,16 +392,13 @@
   text-align: center;
   color: #90a4ae;
   font-size: 26rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 10rpx;
 }
 .mgmt-empty-hint {
-  font-size: 22rpx;
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
   color: #b0bec5;
 }
-
-/* 配送员/申请 列表 */
 .staff-item {
   display: flex;
   align-items: center;
@@ -360,61 +407,59 @@
   border-bottom: 1rpx solid var(--border-light);
 }
 .staff-item:last-child { border-bottom: none; }
-
 .staff-avatar {
-  width: 76rpx;
-  height: 76rpx;
+  width: 72rpx;
+  height: 72rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
-  color: #ffffff;
-  text-align: center;
-  line-height: 76rpx;
-  font-size: 30rpx;
-  font-weight: 700;
   flex-shrink: 0;
+  background: #1976d2;
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.staff-avatar.staff-avatar-blue {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
+.staff-avatar.staff-avatar-blue { background: #42a5f5; }
 .staff-info {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6rpx;
-  overflow: hidden;
 }
 .staff-name {
   font-size: 28rpx;
-  color: #263238;
   font-weight: 600;
+  color: var(--text-primary);
 }
-/* 申请类型（绑定申请 / 解绑申请）：用次要灰而非品牌蓝，避免抢占主色 */
 .staff-tag {
   font-size: 22rpx;
-  color: #78909c;
-  font-weight: 400;
+  color: #1976d2;
+  font-weight: 500;
 }
 .staff-meta {
-  font-size: 22rpx;
-  color: #78909c;
-  line-height: 1.5;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 24rpx;
+  color: var(--text-secondary);
 }
-
 .staff-remove-btn {
-  background: #ffebee;
-  color: #c62828;
+  flex-shrink: 0;
   border: none;
   border-radius: 999rpx;
   font-size: 24rpx;
-  padding: 10rpx 24rpx;
+  padding: 10rpx 26rpx;
   line-height: 1.4;
+  background: #ffebee;
+  color: #c62828;
 }
 .staff-remove-btn::after { border: none; }
-
+/* 站长行没有「解除」按钮，用一行灰字说明原因（不渲染任何东西会让站长以为界面坏了） */
+.staff-self-note {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: #b0bec5;
+  padding: 10rpx 12rpx;
+}
 .staff-action-col {
   display: flex;
   flex-direction: column;
@@ -436,7 +481,6 @@
   background: #eceff1;
   color: #546e7a;
 }
-
 .menu-list {
   background: var(--bg-card);
   margin: 0 24rpx 24rpx;

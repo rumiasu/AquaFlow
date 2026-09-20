@@ -109,25 +109,6 @@ public final class PriceUtil {
         return value != null && value.compareTo(BigDecimal.ZERO) > 0;
     }
 
-    /**
-     * 该商品在该站是否配了**有效的水票价**（站级 → 通用库，非空且 &gt; 0）。
-     *
-     * <p>用途：{@link #calcUnitPrice} 在水票价缺失时会**静默回落到零售价**，
-     * 于是"这个价是水票价算出来的"和"这个是零售价"从返回值上分不出来。
-     * 凡是需要把**依据**讲给用户听的地方（例如统一水票预设档的引导文案）必须问这一句，
-     * 不能凭"调用时传了 TICKET"就宣称是水票价。</p>
-     *
-     * <p>与 {@code calcUnitPrice} 共用同一个覆盖判定（{@link #isEffectiveOverride}），
-     * 所以两处不会分叉 —— 这也是它放在本类而不是调用方自己写 if 的原因。</p>
-     */
-    public static boolean hasEffectiveTicketPrice(Product product, Inventory inventory) {
-        if (product == null) {
-            return false;
-        }
-        return isEffectiveOverride(inventory != null ? inventory.getTicketPrice() : null)
-                || isEffectiveOverride(product.getTicketPrice());
-    }
-
     /** 数量 × 单价，空值安全 */
     public static BigDecimal calcItemAmount(Product product, Integer paymentMethod, Integer quantity) {
         int qty = quantity == null || quantity < 0 ? 0 : quantity;

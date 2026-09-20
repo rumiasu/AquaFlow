@@ -594,15 +594,19 @@ public class DeliveryController {
         stats.put("completedCount", completed.size());
         var delivering = orderMapper.listByDeliveryStaffId(staffId, OrderStatus.DELIVERING);
         stats.put("deliveringCount", delivering.size());
-        var pending = orderMapper.list(stationId, null, OrderStatus.PENDING, null, null, null, null);
-        stats.put("pendingCount", pending.size());
         int totalReturn = completed.stream()
                 .mapToInt(o -> o.getReturnBucketQty() != null ? o.getReturnBucketQty() : 0)
                 .sum();
         stats.put("returnBarrels", totalReturn);
         // 待收款订单数：以前端读 stats.unpaidOrders，但后端从未下发该字段，看板恒显示 0。
         // 改为后端按 payment_status / payment_method 真实统计（水票视同已付，不计入）。
+        // ⚠️ 页面侧目前没有消费方（「我的」那三个数是按角色取的），但**不能删**：
+        // `OrderSettleStationIntegrationTest.unpaidCount()` 拿它当"待收款口径"的探针（4 处断言）。
         stats.put("unpaidOrders", stationId == null ? 0 : orderMapper.countUncollected(stationId));
+        // [2026-09-19 删除] pendingCount（本站 status=1 的单数）：
+        // 唯一消费方是「我的」页的「待配送」格，该格已在统计卡按角色分叉时撤掉（配送页本身就是那个页签）。
+        // 它每次都要跑一遍 listStationPending 只为了取 .size()，而且**站级口径混在一个按人统计的响应里**，
+        // 正是口径混淆的温床。证据与核实过程见 docs/audit/2026-09-16-死端点评估.md「删除登记表」#9。
 
         return Result.success(stats);
     }

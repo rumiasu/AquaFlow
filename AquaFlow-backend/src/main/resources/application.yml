@@ -28,6 +28,18 @@ app:
     # 微信未付单超时自动取消（分钟；≤0 = 关闭）。只对微信单生效 —— 现金是货到付款、
     # 水票要等扣票，都不适用。见 service/UnpaidWechatOrderSweeper.java 与 docs/design/04 §4.8。
     wechat-pay-timeout-minutes: ${WECHAT_PAY_TIMEOUT_MINUTES:30}
+  payment:
+    # 微信支付**模拟渠道**（2026-09-20）：开启后顾客选「微信支付」点一下就成功，
+    # 用于真实支付渠道接入前的全链路联调。**生产必须保持 false** —— 开启等于零元购。
+    #
+    # 它**只**取代"真实付款"这一下（把 payment_record 由 PENDING 直接置为 PAID）：
+    # 金额服务端重算、活跃流水唯一键 uk_payment_active_order、水票扣减、押金入账
+    # （applyDepositOnPaid）、订单付款状态只前进（markPaidIfCollectable）、对账等式
+    # 全部照跑，一个字没放宽。退款路径随之联动，见 PaymentService 接口头的说明。
+    #
+    # ⚠️ 真实渠道接入时应**删掉**这个开关与 PaymentServiceImpl.isMockWechatPay，
+    #    而不是把它留成"永真"。本地默认在 application-local.yml 里打开。
+    mock-wechat-pay: ${MOCK_WECHAT_PAY:false}
 
 spring:
   application:

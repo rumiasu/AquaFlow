@@ -1,4 +1,6 @@
 <view class="container">
+  <!-- 隐私授权弹窗：本页用 wx.chooseLocation 导航、wx.chooseImage 传图，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
+  <privacy-popup />
   <!-- 蓝色头部 -->
   <view class="header">
     <view class="header-top">

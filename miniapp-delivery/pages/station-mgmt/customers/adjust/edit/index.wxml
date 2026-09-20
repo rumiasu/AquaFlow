@@ -1,4 +1,6 @@
 <view class="container">
+  <!-- 隐私授权弹窗：本页用 wx.chooseImage 传调整凭证，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
+  <privacy-popup />
   <view class="denied" wx:if="{{denied}}">
     <text>资产调整仅站长可操作</text>
   </view>

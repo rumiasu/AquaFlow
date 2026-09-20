@@ -26,17 +26,17 @@ Page({
       quantity: 1,
       totalPrice: 0,
       paymentMethod: 1,
-      // 选中的档位 id（null = 散买，按单张水票价）
+      // 选中的档位 id（null = 散买，按单张水票价）。**只用于定制档位**。
       packageId: null,
+      // 选中的**统一折扣档张数**（null = 没选统一档）。与 packageId 互斥。
+      // ⚠️ 只传张数、不传价：价格由后端按"这款水自己的价 × 该档折扣"现算
+      // （产品口径「对应水怎么统一打折」），客户端算价就等于自己定价。
+      unifiedQty: null,
       // 散买单张价。选了档位后 faceValue 会变成档位均价，用它才能退回散买口径
       looseFaceValue: 0
     },
-    // 当前商品在本站的上架档位（10 张 / 20 张 / 100 张各卖多少钱）
+    // 当前商品在本站能买的档位（定制档位 or 站级统一折扣折算出来的档位，见后端 TicketTierService）
     buyPackages: [],
-    // [v54] 当前选中的是不是「统一水票（站级通用）」——
-    // 它没有单张价（product_id=0 没有商品也没有库存行），所以**只能按档位买**，
-    // 也因为这个原因不显示"改为散买"。
-    isUnifiedBuy: false,
     buyMethods: [
       // 微信支付渠道本身未接入；此处语义是「提交购票申请，由水站确认收款后水票到账」
       { id: 1, name: '微信支付', desc: '提交后由水站确认收款，到账后可用' }
@@ -91,19 +91,14 @@ Page({
         this.setData({ records: recordsRes.data })
       }
       if (productsRes && productsRes.data) {
-        // 只留"本站开了水票"的商品；面值用后端下发的**本站水票价**（effectiveTicketPrice），
-        // 它才是真正会扣款的价（旧实现用 product.price，站级水票价一设就显示错）。
-        const buyProducts = productsRes.data.filter(p => p.ticketEnabled === 1)
-        // [v54 统一水票] 站级通用票：product_id=0，**不属于任何商品**，所以不在商品列表里，
-        // 得单独问一次"本站挂了统一票档位吗"（挂上架档位 = 开通）。
-        const unifiedPackages = await getTicketPackages(stationId, 0)
-          .then(r => (r && r.data) || []).catch(() => [])
-        this.setData({
-          buyProducts: unifiedPackages.length
-            ? [{ id: 0, name: '统一水票（站级通用）', unified: true }].concat(buyProducts)
-            : buyProducts,
-          currentStationId: stationId
-        })
+        // 列表里放两类商品，**都是真实商品**（2026-09-20 产品口径：「在用户端看起来没区别…
+        // 不是专门卖统一水票」—— 所以这里**不会**出现"统一水票"这种商品）：
+        //   ① 本站开了定制票的（ticketEnabled === 1）；
+        //   ② 桶装水（category === 1）—— 站长配了站级统一折扣时，它也能按折扣买票。
+        //      "到底能不能买"由点进去拉到的档位决定（后端 TicketTierService 一处判据），
+        //      拉不到档位就提示一句，不在这儿猜。
+        const buyProducts = productsRes.data.filter(p => p.ticketEnabled === 1 || p.category === 1)
+        this.setData({ buyProducts, currentStationId: stationId })
       }
     } catch (error) {
       console.error('Load ticket data error:', error)
@@ -190,7 +185,7 @@ Page({
   },
 
   onClosePurchase() {
-    this.setData({ showPurchase: false, buyPackages: [], isUnifiedBuy: false, buyForm: { productId: null, productName: '', faceValue: 0, quantity: 1, totalPrice: 0, paymentMethod: 1, packageId: null, looseFaceValue: 0 } })
+    this.setData({ showPurchase: false, buyPackages: [], buyForm: { productId: null, productName: '', faceValue: 0, quantity: 1, totalPrice: 0, paymentMethod: 1, packageId: null, unifiedQty: null, looseFaceValue: 0 } })
   },
 
   /** 弹窗内容区吞掉点击，避免冒泡到遮罩触发关闭（wxml 用 catchtap 绑定） */
@@ -202,29 +197,32 @@ Page({
     const product = this.data.buyProducts.find(p => String(p.id) === String(id))
     if (!product) return
     // 面值 = 后端下发的本站水票价（与 /api/tickets/purchase 的计费完全同源），不再用零售价。
-    // 统一水票没有单张价（后端也不下发），面值只有选了档位才知道。
-    const unified = !!product.unified
-    const price = unified ? 0 : (parseFloat(product.effectiveTicketPrice || product.price) || 0)
-    // 换商品必须清掉已选档位：档位是「本站 + 本商品」的，留着上一个商品的 packageId
+    // ⚠️ 走统一折扣的商品没配水票价 → 这个值可能是 0，此时**只能按档位买**（页面不会显示散买）。
+    const price = parseFloat(product.effectiveTicketPrice || product.price) || 0
+    // 换商品必须清掉已选档位：档位是「本站 + 本商品」的，留着上一个商品的档位
     // 会被后端以"档位与本水站/本商品不匹配"拒绝
     this.setData({
-      'buyForm.productId': unified ? 0 : product.id,
+      'buyForm.productId': product.id,
       'buyForm.productName': product.name,
       'buyForm.faceValue': price,
       'buyForm.looseFaceValue': price,
       'buyForm.packageId': null,
+      'buyForm.unifiedQty': null,
       'buyForm.quantity': 1,
-      'buyForm.totalPrice': price,
-      isUnifiedBuy: unified
+      'buyForm.totalPrice': price
     })
-    this.loadBuyPackages(unified ? 0 : product.id)
+    this.loadBuyPackages(product.id)
   },
 
   /**
-   * 拉该商品在本站的上架档位。
+   * 拉该商品在本站能买的档位。
    *
-   * 没挂档位就返回空数组 —— 此时页面保持"散买"（按单张水票价），**不要**因此报错或禁用购买：
-   * 档位是站长可选挂的价目表，不挂就该照旧能买。
+   * <p>后端返回的每一项带 {@code source}：{@code CUSTOM} = 站长给这款水挂的定制档位；
+   * {@code UNIFIED} = 站级统一折扣按**这款水自己的价**折算出来的档位。两者在界面上
+   * **长得一样**（产品口径：「在用户端看起来没区别」），前端只需记住选了哪一个。</p>
+   *
+   * <p>没档位就返回空数组 —— 此时页面保持"散买"（按单张水票价）。但对于**走统一折扣的商品**，
+   * 散买没有价可依（它没配水票价），所以后端会拒；页面对这种商品不显示散买入口。</p>
    */
   async loadBuyPackages(productId) {
     this.setData({ buyPackages: [] })
@@ -240,26 +238,34 @@ Page({
   /**
    * 选档位。金额一律用**服务端下发的档位价**，前端不做 price/qty 的算术 ——
    * 均价是快照进水票批次的值，前端算一遍就会出现"界面一个价、批次另一个价"。
-   * 张数必须等于档位张数（后端会校验 qty == pkg.qty）。
+   * 张数必须等于档位张数（后端会校验）。
+   *
+   * <p>定制档回传 {@code packageId}；统一折扣档**只回传张数** {@code unifiedQty}
+   * （价格由服务端按该款水的价 × 折扣现算，客户端传不了价也不该传）。</p>
    */
   onBuyPackageSelect(e) {
-    const id = e.currentTarget.dataset.id
-    const pkg = this.data.buyPackages.find(p => String(p.id) === String(id))
+    const { id, source } = e.currentTarget.dataset
+    // 统一档没有 packageId，只能按 qty 找；定制档按 id 找
+    const pkg = this.data.buyPackages.find(p => source === 'UNIFIED'
+      ? (p.source === 'UNIFIED' && String(p.qty) === String(id))
+      : (p.source !== 'UNIFIED' && String(p.packageId || p.id) === String(id)))
     if (!pkg) return
+    const custom = pkg.source !== 'UNIFIED'
     this.setData({
-      'buyForm.packageId': pkg.id,
+      'buyForm.packageId': custom ? (pkg.packageId || pkg.id) : null,
+      'buyForm.unifiedQty': custom ? null : pkg.qty,
       'buyForm.quantity': pkg.qty,
       'buyForm.faceValue': pkg.unitPrice,
       'buyForm.totalPrice': pkg.price
     })
   },
 
-  /** 退回散买：张数与单价都回到按单张水票价的口径。统一水票没有散买口径，直接忽略。 */
+  /** 退回散买：张数与单价都回到按单张水票价的口径。 */
   onBuyPackageClear() {
-    if (this.data.isUnifiedBuy) return
     const loose = this.data.buyForm.looseFaceValue || 0
     this.setData({
       'buyForm.packageId': null,
+      'buyForm.unifiedQty': null,
       'buyForm.quantity': 1,
       'buyForm.faceValue': loose,
       'buyForm.totalPrice': loose
@@ -291,6 +297,7 @@ Page({
     const loose = this.data.buyForm.looseFaceValue || 0
     this.setData({
       'buyForm.packageId': null,
+      'buyForm.unifiedQty': null,
       'buyForm.quantity': qty,
       'buyForm.faceValue': loose,
       'buyForm.totalPrice': loose * qty
@@ -304,15 +311,9 @@ Page({
   },
 
   async onBuySubmit() {
-    const { productId, quantity, paymentMethod, packageId } = this.data.buyForm
+    const { productId, quantity, paymentMethod, packageId, unifiedQty } = this.data.buyForm
     if (!productId && productId !== 0) {
       wx.showToast({ title: '请选择商品', icon: 'none' })
-      return
-    }
-    // [v54] 统一水票没有单张价（product_id=0 既无商品也无库存行），只能按档位买 ——
-    // 散买会算出 0 元，后端也会以「购买统一水票必须选择档位套餐」拒绝。
-    if (this.data.isUnifiedBuy && !packageId) {
-      wx.showToast({ title: '统一水票只能按档位购买，请先选一个档位', icon: 'none' })
       return
     }
     if (!quantity || quantity <= 0) {
@@ -338,8 +339,10 @@ Page({
         paymentMethod: paymentMethod,
         stationId: this.data.currentStationId,
         idempotencyKey: idempotencyKey,
-        // 按档位买时必传：张数与总价一律以服务端档位配置为准（客户端传的价格会被忽略）
-        packageId: packageId || null
+        // 定制档：张数与总价一律以服务端档位配置为准（客户端传的价格会被忽略）
+        packageId: packageId || null,
+        // 统一折扣档：**只传张数**，价格由服务端按"这款水自己的价 × 该档折扣"现算
+        unifiedQty: unifiedQty || null
       })
       // 后端此时只创建了待支付流水，水票要等支付确认后才入账。
       // 旧实现无条件提示"购买成功"，客户看到余额为空会以为系统吞了钱。

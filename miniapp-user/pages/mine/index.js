@@ -41,12 +41,21 @@ Page({
 
   async loadAssets() {
     const stationId = stationStorage.getId()
+    // [2026-09-20 真机联调] 四个请求原来各自 `.catch(() => null)` —— 失败被吞成 null，
+    // 页面照常显示「余额 ¥0 / 押金 ¥0 / 水票 0 张」，与"这个客户确实没有资产"完全无法区分
+    // （AGENTS §8.22）。降级保留（部分成功仍然显示），但失败**必须出声**。
+    let failedCount = 0
+    const softCatch = () => { failedCount++; return null }
     const [statsRes, summaryRes, ticketsRes, companyRes] = await Promise.all([
-      getCustomerStats().catch(() => null),
-      getBarrelSummary(stationId).catch(() => null),
-      getTicketAccounts(stationId).catch(() => null),
-      getCompanyInfo().catch(() => null)
+      getCustomerStats().catch(softCatch),
+      getBarrelSummary(stationId).catch(softCatch),
+      getTicketAccounts(stationId).catch(softCatch),
+      getCompanyInfo().catch(softCatch)
     ])
+    if (failedCount > 0) {
+      // 不阻断渲染：没失败的那几项照常显示。文案里带数量，便于区分"全挂了"与"只挂一项"。
+      wx.showToast({ title: '有 ' + failedCount + ' 项资产没加载出来，显示的可能是 0', icon: 'none' })
+    }
 
     const patch = {}
 

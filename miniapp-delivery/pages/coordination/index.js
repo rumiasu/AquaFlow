@@ -11,9 +11,13 @@ const stationNavbar = require('../../behaviors/stationNavbar')
 const DIRECTED_MARK = '[指定退回待确认]'
 const STAFF_MARKS = ['[退回站长]', '[转让]', '[重分配]']
 
-// ⚠️ 直接写路径常量、不往 config/api.js 里加：那个文件正被另一个工作流（商品图片库）改动，
-// 共用会让两边未提交的改动纠缠在一起（与站长端各新页同一处理）。
-const TODO_SUMMARY = '/api/manager/todo-summary'
+// 待办汇总：路径常量已并入 config/api.js（MANAGER_PENDING_SUMMARY）—— [2026-09-19]
+// 原来说"config/api.js 被另一个工作流（商品图片库）占着"才写在这里，那个工作流早已合并，
+// 现在「我的」页也要调同一个端点，再留一份副本就是同一条路径的两个定义。
+// 口径：从 todo-summary 换成 pending-summary，后者带 level（P0/P1/P2）并覆盖
+// "别人递过来的申请"（待分配/转单/取消/退桶/绑定申请…）。todo-summary 仍被保留在后端
+// （它的 4 项与本站点部分重叠，桶异常那一项两边刻意用同一个服务方法保证一致）。
+const PENDING_SUMMARY = API.MANAGER_PENDING_SUMMARY
 
 /** 跨站外派风险查询（后端路由 /api/delivery/orders/{id}/cross-station-risk）。 */
 const crossStationRiskUrl = (id) => `/api/delivery/orders/${id}/cross-station-risk`
@@ -92,9 +96,31 @@ Page({
     staffList: [],
     showAssignModal: false,
     currentOrderId: null,
-    // 待办聚合（站长首页）：由 /api/manager/todo-summary 下发，前端不自己算
+    // 「其他待办」视图模型（只含不在本页页签里的项），由 loadTodo() 组装
     todo: null
   },
+
+  /**
+   * 「其他待办」**收录哪些 key** —— 这是首页顶部唯一需要维护的清单。
+   *
+   * [2026-09-19 收敛，当天两次修订] 判据只有一条：**本页 tab 覆盖不到、且没有立刻可见的计数**。
+   * ⚠️ 修订前先**把整张卡删光了**，产品随即质疑"都是那种重复的吗" —— 不是：15 项里只有 7 项
+   * 真重复。别再删整卡（wxml 里那段注释记着同一件事）：
+   *   · **剔除**（本页页签已有角标 / 宫格已有卡）：pendingAssign · pendingTransfer · customerCancel ·
+   *     stationCancel · poolClaimable · directedIncoming · barrelReturn；
+   *   · **保留**（只活在「水站管理」里，首页不报就没人知道）：下面这 8 项。
+   *
+   * ⚠️ 被剔除的 7 项里 **6 项是 P0**（待分配/转单/客户取消/站内取消/他站定向外派/退桶审批，
+   * 只有「抢单池」是 P2）—— 按级别它们"应该"在首页。之所以仍剔除：它们各自的页签/页面上一眼
+   * 就能看到数，在这里再报一遍正是本次要消除的那种重复。**P0 并没有丢**：tab 红点算的是完整
+   * payload 的 p0Total（这 6 项全在内），只是换成"一个红点"而不是"6 个数字"。
+   * 若产品认为 P0 必须逐项上门，**加回一项要动两处**：本清单添 key **且** TODO_ROUTES 补路由 ——
+   * 其中 4 项（待分配/转单/客户取消/站内取消）本身就是本页页签，得走 switchTab 而非 navigateTo。
+   */
+  TODO_KEYS: [
+    'overdueReceivable', 'pendingPayment', 'staffBinding', 'enterpriseApply',
+    'draftPayroll', 'costNotFilled', 'barrelException', 'operationAlert'
+  ],
 
   /**
    * 待办项 key → 页面。key 是服务端给的稳定标识，label 由服务端下发；
@@ -102,31 +128,63 @@ Page({
    */
   TODO_ROUTES: {
     overdueReceivable: '/pages/station-mgmt/receivables/index',
-    costNotFilled: '/pages/station-mgmt/gross-profit/index',
+    pendingPayment: '/pages/station-mgmt/payments/index',
+    staffBinding: '/pages/station-mgmt/staff/index',
+    enterpriseApply: '/pages/station-mgmt/customers/index',
     draftPayroll: '/pages/station-mgmt/payroll/index',
-    pendingBarrelException: '/pages/station-mgmt/barrel-exceptions/index'
+    costNotFilled: '/pages/station-mgmt/gross-profit/index',
+    barrelException: '/pages/station-mgmt/exceptions/index',
+    // 处理留痕（原「运营告警」页，2026-09-19 并入「异常订单」页的页签 2）
+    operationAlert: '/pages/station-mgmt/exceptions/index?tab=alerts'
   },
 
   /**
-   * 拉待办聚合。故意**不阻塞**主列表：它挂了也只是少一张卡片，
-   * 但失败必须出声（静默失败会让站长以为"今天没事"）。
+   * 拉待办汇总，两件事：① 组装「其他待办」卡；② 刷新首页 tab 红点。
+   *
+   * 刻意**不阻塞**主列表、失败也不弹红字：它只是附加信号，取不到就不显示卡、不亮红点，
+   * 由下面 console.warn 留痕（静默失败会让"没数据"与"真没待办"无法区分）。
    */
   async loadTodo() {
     const app = getApp()
     const stationId = (app.globalData.userInfo || {}).stationId
     if (!stationId) return
     try {
-      const res = await get(TODO_SUMMARY)
+      const res = await get(PENDING_SUMMARY)
+      if (!res || res.code !== 0) {
+        console.warn('[pending-summary] 非成功响应:', res && res.message)
+        return
+      }
       const d = res.data || {}
-      const items = (d.items || []).map(it => Object.assign({}, it, {
-        // 金额只有"逾期应收"那一项有；格式化放在这里做（wxml 不能调方法）
-        amountText: it.amount === null || it.amount === undefined ? '' : Number(it.amount).toFixed(2)
-      }))
-      this.setData({ todo: Object.assign({}, d, { items }) })
+      this.setData({ todo: this.decorateTodo(d) })
+      // 红点判据（P0 且非零）由 utils/pending-reminder 统一持有，页面不自己判断。
+      // ⚠️ 红点看的是**全部** P0（含被本卡剔除的那几项），不是只看卡里这 8 项 —— 别改成用 todo.items 推。
+      require('../../utils/pending-reminder').applyRedDot(d)
     } catch (err) {
-      console.warn('[todo-summary] 加载失败:', err && err.message)
-      wx.showToast({ title: (err && err.message) || '待办加载失败', icon: 'none' })
+      console.warn('[pending-summary] 取待办汇总失败（不显示卡、不亮红点）:', err && err.message)
     }
+  },
+
+  /**
+   * 待办数据 → 「其他待办」视图模型。
+   *
+   * ⚠️ 只收 {@link #TODO_KEYS} 里的项 —— 其余项由 tab 角标负责，不在这里重复。
+   * 金额格式化放在这里做（wxml 不能调方法）。
+   * 保留项**按 0 也显示**（与 tab 角标"0 就不显示"语义不同：角标是"有几条要办"，
+   * 这里是"系统有哪些事项"，不显示站长就不知道有这个功能）。
+   */
+  decorateTodo(d) {
+    const byKey = {}
+    ;(d.items || []).forEach(it => { byKey[it.key] = it })
+    const items = []
+    this.TODO_KEYS.forEach(key => {
+      const it = byKey[key]
+      if (!it) return   // 后端没下发这一项（如企业身份功能关着）→ 不硬造
+      items.push(Object.assign({}, it, {
+        amountText: (it.amount === null || it.amount === undefined) ? '' : Number(it.amount).toFixed(2),
+        hasCount: Number(it.count) > 0
+      }))
+    })
+    return { items }
   },
 
   onTodoTap(e) {
@@ -346,6 +404,29 @@ Page({
   onOrderTap(e) {
     const id = e.currentTarget.dataset.id
     wx.navigateTo({ url: `/pages/order/detail?id=${id}` })
+  },
+
+  /**
+   * 「看全部订单 ›」→ 站长端订单台账（pages/station-mgmt/orders）。
+   *
+   * 这是**状态视角**的台账（全部/待配送/配送中/已完成），与本页五个页签的**动作视角**
+   * （待分配/审批/抢单池/外派/他站外派）互补：一个订单可能同时在"待分配"和台账里，
+   * 所以不要指望它们互斥，也别把状态页签并进本页那一排（两种维度混排会让站长分不清
+   * "待配送"与"待分配"的差别）。
+   *
+   * ⚠️ 本页是 **tabBar 页**：`switchTab` 会把本页从页面栈里销毁，所以**只能用 navigateTo**；
+   * 但来回点几次会堆栈，所以先查一眼栈里有没有它，有就 navigateBack。
+   */
+  onOpenOrders() {
+    const pages = getCurrentPages()
+    for (let i = pages.length - 1; i >= 0; i--) {
+      // delta 必须算出来、不能写死 1：栈里中间可能还夹着别的页（如从台账进过订单详情）
+      if (pages[i] && pages[i].route === 'pages/station-mgmt/orders/index') {
+        wx.navigateBack({ delta: pages.length - 1 - i })
+        return
+      }
+    }
+    wx.navigateTo({ url: '/pages/station-mgmt/orders/index' })
   },
 
   onShowAssign(e) {
@@ -570,6 +651,12 @@ Page({
           })
         }
       })
+    }).catch(err => {
+      // [2026-09-20] 原来这条链是**全端唯一没有 .catch() 的**：拉水站列表失败 = 未处理的
+      // promise rejection —— 站长点「重新外派」什么都不发生（无 loading、无弹窗、无 toast），
+      // 控制台也不留线索。外派是本页的核心动作，失败必须出声（AGENTS §8.17）。
+      console.error('[coordination] 重新外派拉取水站列表失败:', err)
+      wx.showToast({ title: err.message || '获取水站列表失败，请重试', icon: 'none' })
     })
   },
 

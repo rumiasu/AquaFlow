@@ -2,6 +2,9 @@
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>
+    <!-- [2026-09-20] 部分桶接口失败时的提示：没有它，失败渲染出来的「权益 0 · 占用 0」
+         与"确实没有桶"长得一模一样（loadError 为空串时不渲染）。 -->
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
     <view class="stats-card">
       <view class="stat-col">
         <text class="stat-label">持有桶</text>

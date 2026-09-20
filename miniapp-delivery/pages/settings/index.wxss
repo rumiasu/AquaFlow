@@ -58,6 +58,22 @@
   border-bottom: none;
 }
 
+/* 带副标题的设置行（如「待办提醒」）：文字竖排、开关靠右 */
+.setting-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  flex: 1;
+  min-width: 0;
+  padding-right: 20rpx;
+}
+
+.setting-sub {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 .setting-label {
   font-size: var(--font-md);
   color: var(--text-primary);

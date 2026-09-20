@@ -5,6 +5,8 @@
 //   真机预览还需在手机上打开「调试」（右上角 ... → 打开调试）跳过域名校验，
 //   因为 request 合法域名只接受已 ICP 备案的 HTTPS 域名，本机 HTTP 地址无法配置。
 //   体验版(trial)/正式版(release) 都必须走 prod 的真实域名 —— 见下方 getBaseUrl 的判定。
+//   [2026-09-20] 本机 WLAN 是 DHCP（租约由 192.168.0.1 发放），地址会变，**不是 bug**。
+//   固定办法与改地址的脚本见 miniapp-user/config/api.js 头部注释（两端必须一起改）。
 const API_CONFIG = {
   dev: { baseUrl: 'http://192.168.0.243:8080' },
   prod: { baseUrl: 'https://your-domain.com' }
@@ -120,6 +122,12 @@ const API = {
   // 水站
   STATION_SEARCH: '/api/stations/search',           // 公开搜索，供配送员申请绑定前使用
   STATION_GET: '/api/stations/mine',
+  // 水站资料（名称/电话/地址/状态）—— 2026-09-19 接线。
+  // ⚠️ 后端这条是**整行覆盖**更新（name/phone/address/status 全写一遍），所以调用方
+  // **必须把四项都给全**，只传要改的那一项会把其余三项写成 NULL（本仓"整行覆盖"事故已多次）。
+  // 由此也要求 `creator_staff_id` 必须已回填：后端鉴权走 `getByIdAndCreator`（按创建人校验），
+  // 创建人字段为 NULL 时站长会拿不到自己的站。
+  STATION_UPDATE: (id) => `/api/stations/${id}`,
   // 水站坐标（地图选点，v34）。单独一个端点而不是并进站点编辑 ——
   // 后者是整行覆盖，旧客户端不传坐标会把已选的坐标冲成 NULL。
   STATION_MY_COORDINATES: '/api/stations/mine/coordinates',
@@ -165,13 +173,31 @@ const API = {
   // 只读、只预警（下单是否放行与欠桶无关）；水站由后端按登录站长判定，前端不传 stationId。
   MANAGER_OWED_BARRELS: '/api/manager/owed-barrels',
 
+  // 站长端桶异常单（只读列表 + 近 30 天统计；`/stats` 是同前缀的另一个只读端点）。
+  // [2026-09-19] 唯一消费方 = 「异常订单」页的页签 1。
+  // ⚠️ 损耗读数 `/api/manager/barrel-loss` 已无任何页面调用（同一批合并时删掉了那张恒为 0 的卡），
+  //    后端端点仍在 —— 见 docs/audit/2026-09-16-死端点评估.md「删除登记表」#12。
+  MANAGER_EXCEPTIONS: '/api/manager/exceptions',
+
   // 本站运营告警（v30）：只读。后端固定只返回 alert_type='OPERATION' 且本站的记录 ——
   // 系统故障告警是发给系统管理员的（带平台级细节），故意不外露给站长，前端也不要试图展示。
+  // [2026-09-19] 由「异常订单」页的页签 2「处理留痕」消费（原独立页面已废弃，见登记表 #13）。
   MANAGER_ALERTS: '/api/manager/alerts',
 
+  // 待办汇总（2026-09-19）：15 项按 P0/P1/P2 分级 + p0Total。首页红点与「其他待办」卡的唯一数据源
+  // （口径、为什么与 todo-summary 并存见 ManagerPendingSummaryController 文件头）。
+  MANAGER_PENDING_SUMMARY: '/api/manager/pending-summary',
+
+  // 毛利 + 净利报表（v39 / 2026-09-19 加净利）：站长专属 —— 成本价是站长的商业机密，
+  // 这个路径**不要**出现在顾客端或配送员会调的地方（后端整类带 @RequireRole("STATION_MANAGER")）。
+  // 期间由 from/to 决定（缺省本月 1 号~今天）；「今日净利」= from=to=今天。
+  MANAGER_GROSS_PROFIT: '/api/manager/gross-profit',
+
   // 仪表盘
-  DASHBOARD_TODAY: '/api/dashboard/today',
-  DASHBOARD_OVERVIEW: '/api/dashboard/overview',
+  // [2026-09-19 删除] DASHBOARD_TODAY / DASHBOARD_OVERVIEW 两个常量（连同 api/station-mgmt.js
+  // 里的包装函数）已删，看板一律走下面的 DASHBOARD_REPORT。
+  // 证据见 docs/audit/2026-09-16-死端点评估.md「删除登记表」#1；⚠️ 它们在时会让审计脚本
+  // 以为端点"有人调"（**定义 ≠ 调用**），所以那条登记特意注明是用 grep 逐条证的。
 
   // 反馈
   FEEDBACK: '/api/feedback',

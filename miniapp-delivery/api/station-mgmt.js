@@ -2,14 +2,15 @@
 const { get, post, put, del } = require('../utils/request')
 const { API } = require('../config/api')
 
-// 仪表盘
-const getDashboardToday = (stationId) => {
-  return get(API.DASHBOARD_TODAY, { stationId })
-}
-
-const getDashboardOverview = (stationId) => {
-  return get(API.DASHBOARD_OVERVIEW, { stationId })
-}
+// [2026-09-19 删除] 这里原有 getDashboardToday / getDashboardOverview 两个包装函数
+// （→ /api/dashboard/today、/api/dashboard/overview）。删除理由与证据见
+// docs/audit/2026-09-16-死端点评估.md 的「删除登记表」#1：
+//   · 全端 grep 只命中它们自身的定义与导出，**没有任何页面调用**；
+//   · 看板页早已改用下面的 getDashboardReport（/api/dashboard/report）；
+//   · 它们还接受客户端传的 stationId —— 后端只看登录态、传了会被忽略，
+//     所以不是漏洞，但是"让人以为能查别站"的错误示范。
+// ⚠️ 那个审计脚本当初**没把它们报成死端点**（config/api.js 里有路径常量，脚本算作"有调用"）——
+//    核实删除时必须落到"有没有页面真调"，**定义 ≠ 调用**。
 
 /**
  * 综合数据报表（含环比/趋势/多维分布）。
@@ -177,6 +178,23 @@ const updateStationStatus = (operatingStatus, note) => {
 /** 读本站信息（含 lat / lng；lat 为 null 表示还没选点） */
 const getMyStation = () => {
   return get(API.STATION_GET)
+}
+
+/**
+ * 保存本站资料（名称 / 电话 / 地址 / 状态）。
+ *
+ * ⚠️ 后端那条 `PUT /api/stations/{id}` 是**整行覆盖**（`set name=?, phone=?, address=?, status=?`），
+ * 所以 payload **必须四项给全** —— 只传 name 会把 phone/address/status 一并写成 NULL。
+ * 页面侧的做法：先把 `getMyStation()` 的结果读回来，改了哪项就覆盖哪项，其余原值带回去。
+ *
+ * ⚠️ `status`（1 营业 / 2 停业）是**硬状态**，停业会让顾客下不了单、且不在公开选站列表里。
+ * 本页**不提供**改它的入口（现有交互里没有这个需求），只把它原样带回，别顺手做成开关。
+ *
+ * stationId 由后端从登录态以外的方式校验（`getByIdAndCreator` 按**创建人**判定），
+ * 所以创建人字段没回填的站会报「无权操作」，不是前端传错。
+ */
+const updateStation = (id, payload) => {
+  return put(API.STATION_UPDATE(id), payload)
 }
 
 /**
@@ -366,8 +384,6 @@ const confirmPayment = (id) => {
 }
 
 module.exports = {
-  getDashboardToday,
-  getDashboardOverview,
   getDashboardReport,
   getOrders,
   getCrossStationOrders,
@@ -394,6 +410,7 @@ module.exports = {
   getStationStatus,
   updateStationStatus,
   getMyStation,
+  updateStation,
   updateStationCoordinates,
   getNotices,
   createNotice,

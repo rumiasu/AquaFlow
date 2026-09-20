@@ -18,44 +18,37 @@ public interface TicketAccountService {
     List<TicketAccount> listByCustomerAndStation(Long customerId, Long stationId);
 
     /**
-     * 该客户在本站、该商品的**定制票**余额（没有账户时返回 0）。
+     * 该客户在本站、该商品的**水票**余额（没有账户时返回 0）。
      *
-     * <p>统一水票的判据要用它：余额 &gt; 0 = 有定制票 → 定制优先（见 {@code util/TicketScope}）。</p>
+     * <p>账户就是商品：水票按 {@code (customer_id, product_id, station_id)} 隔离。无论是站长挂的
+     * 定制档位买的，还是按**站级统一折扣**买的，都进**这一款水自己**的账户
+     * （2026-09-20 产品拍板：「按统一折扣买的票只能抵那款水」）。</p>
      */
     int balanceOf(Long customerId, Long productId, Long stationId);
 
     /**
-     * 本站是否配了**上架的统一水票档位**（{@code ticket_package.product_id = 0}）。
+     * 本站是否配了**上架的统一折扣档**（{@code station_ticket_discount}）。
      *
-     * <p>这就是统一水票的"站级开关" —— 产品口径是"**统一水票是可以设置项**"，
-     * 不必再加一个开关列：配了档位 = 开通，全下架 = 关闭。</p>
+     * <p>这就是"站级统一折扣是否生效"的判据 —— 产品口径是「统一水票是**可以设置项**」，
+     * 不必再加一个开关列：配了档位 = 生效，全下架 = 关闭。</p>
+     *
+     * <p>⚠️ 它只回答"站里配没配"；<b>该商品走定制还是走统一</b>是另一条判据，
+     * 唯一实现在 {@code TicketTierService.usesCustomTicket}（定制优先）。</p>
      */
-    boolean unifiedTicketConfigured(Long stationId);
+    boolean unifiedDiscountConfigured(Long stationId);
 
     /**
-     * 这一行该从哪个账户扣票（**唯一判据**，内部委托 {@code util/TicketScope}）。
-     *
-     * @return 账户商品 id：定制票 → 该商品 id；统一票 → 0；都不能用 → {@code null}
-     */
-    Long resolveDeductAccount(Long customerId, Long productId, Long stationId);
-
-    /**
-     * 站长手工加票 / 在线购票之外的人工入账。{@code productId = 0} = 给客户补**统一水票**（站级通用票）。
-     *
-     * <p>没有真实付款，故单价按 {@code TicketAccountServiceImpl.inferredUnitPrice} 推断
-     * （统一票取本站上架档位的最低均价）并标记为推断值 —— 退票需二次确认。</p>
+     * 站长手工加票 / 在线购票之外的人工入账。没有真实付款，单价按
+     * {@code TicketAccountServiceImpl.inferredUnitPrice} 推断（取该商品本站水票价）
+     * 并标记为推断值 —— 退票需二次确认。
      */
     void addTicket(Long customerId, Long productId, Integer qty, Long stationId);
 
     /**
-     * 从该客户在本站的水票里扣 {@code qty} 张，用于商品 {@code productId}。
+     * 从该客户在本站、该商品的账户里扣 {@code qty} 张。
      *
-     * <p><b>账户由 {@link #resolveDeductAccount} 选</b>（判据在 {@code util/TicketScope}）：
-     * 该商品有定制票余额 → 扣定制；没有且本站配了统一票、商品是桶装水 → 扣站级通用票。
-     * 所以**两条调用路径都受这条规则约束**：订单支付（{@code PaymentServiceImpl.deductTickets}）
-     * 与站长手工扣票（{@code POST /api/tickets/consume}）——
-     * 后者在客户只有统一票时会扣统一票，这是刻意的（"该客户手上能抵这件商品的票"），
-     * 不是漏判；界面上若要按商品展示余额，请分别展示定制与统一两个账户。</p>
+     * <p><b>账户恒为该商品</b>（{@code product_id}）—— 不存在"从别的账户扣"的情况：
+     * 统一折扣只是**买票时的定价规则**，买到的票进的是这一款水自己的账户。</p>
      */
     void consumeTicket(Long customerId, Long productId, Integer qty, Long orderId, Long stationId);
 
@@ -90,12 +83,14 @@ public interface TicketAccountService {
      * 之所以设成必传而不是可选：「可选」等于默认没有保护，而漏传的代价是真金白银。</p>
      *
      * @param idempotencyKey 客户端生成的幂等键（同一笔购买意图重试时复用同一个值）
-     * @param packageId      水票档位ID（v36，可空）：传了则张数与总价以服务端档位配置为准，
-     *                       不传则按散买单张价计费
+     * @param packageId      水票档位ID（v36，可空）：传了则张数与总价以服务端**定制档位**配置为准
+     * @param unifiedQty     站级**统一折扣**档的张数（v58，可空）：传了则按"该商品水票价 × 该档折扣"
+     *                       由服务端算价。与 {@code packageId} 互斥（定制优先）；都不传 = 散买
      */
     com.example.aquaflow.entity.PaymentRecord purchaseTicket(Long customerId, Long productId, Integer qty,
                                                             Integer paymentMethod, Long stationId,
-                                                            String idempotencyKey, Long packageId);
+                                                            String idempotencyKey, Long packageId,
+                                                            Integer unifiedQty);
 
     /**
      * 站长资产调整单专用：按 delta 调整水票余额（正=补录，负=扣减），并写带 adjustmentId 的流水。

@@ -25,7 +25,13 @@ async function resolveStationId() {
   try {
     const res = await getMyLatestStation()
     if (res && res.data && res.data.stationId) return res.data.stationId
-  } catch (e) {}
+  } catch (e) {
+    // [2026-09-20 真机联调] 这里原来是**空 catch**：水站身份静默丢失且不留任何线索 ——
+    // 调用方拿到 null 后只会提示「请先选择水站」，与"接口 500 / 断网"长得一模一样，
+    // 排查时分不清是"真没选站"还是"请求挂了"。
+    // 保持返回 null 的契约不变（调用方的兜底提示仍然有效），但必须留下可查的记录。
+    console.warn('[station] 解析当前水站失败，已回退为 null:', e && (e.errMsg || e.message))
+  }
   return null
 }
 

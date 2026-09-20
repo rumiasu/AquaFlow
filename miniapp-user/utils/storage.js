@@ -104,10 +104,30 @@ const stationStorage = {
   remove: () => storage.remove('selectedStation')
 }
 
+// 上次用过的支付方式（2026-09-19 产品口径：「默认订单里会沿用上次支付方式，前端记一下就好」）
+//
+// ⚠️ **只存本地、不进后端**。理由（产品明确说了"不用再写进后端"）：它是**交互偏好**，
+// 不是业务事实 —— 存到后端就要跟着客户档案走，还要考虑多端同步与脏数据；
+// 而它唯一的作用是"下次打开下单页时预选上一次那一项"。
+// 真正的可用性判据仍在后端 `PayMethod.availableMethods()`：记住的方式若在本站不可用
+// （比如上次用货到付款、换个站没被开通），下单页会按后端下发的 enabled 回退到默认项。
+const payMethodStorage = {
+  get: () => {
+    const v = parseInt(storage.get('lastPayMethod'), 10)
+    return isNaN(v) ? null : v
+  },
+  set: (method) => {
+    const v = parseInt(method, 10)
+    if (!isNaN(v)) storage.set('lastPayMethod', v)
+  },
+  remove: () => storage.remove('lastPayMethod')
+}
+
 module.exports = {
   storage,
   tokenStorage,
   userStorage,
   searchStorage,
-  stationStorage
+  stationStorage,
+  payMethodStorage
 }

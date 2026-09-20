@@ -253,3 +253,5 @@
   font-weight: 500; border: none; margin-top: 8rpx;
 }
 .modal-cancel::after { border: none; }
+
+/* 提示条 `.load-error` 的样式定义在 app.wxss（全局，多个页面都会用），此处不要再写一份。 */

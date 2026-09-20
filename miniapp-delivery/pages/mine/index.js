@@ -1,5 +1,5 @@
 const { getTodayStats } = require('../../api/delivery')
-const { get, post, put, del } = require('../../utils/request')
+const { get, post } = require('../../utils/request')
 const { API, BINDING_STATUS } = require('../../config/api')
 
 Page({
@@ -7,6 +7,10 @@ Page({
     isLogin: false,
     userInfo: null,
     todayStats: {},
+    // 站长三格（[2026-09-19] 按角色分叉，见 loadManagerStats）：
+    // 今日净利与单数（净利为 null 时要显示「算不出」）、桶异常 / 欠桶客户数
+    todayProfit: null,
+    risk: { barrelExceptionCount: 0, owedCustomerCount: 0 },
     roleLabel: '配送员',
     isManager: false,
     isDelivery: false,
@@ -30,7 +34,7 @@ Page({
     if (!this._initialized) {
       this.checkLogin()
       if (this.data.isLogin) {
-        this.loadStats()
+        this.loadStats(this.data.isManager)
         this.loadRoleData()
       }
     }
@@ -79,12 +83,26 @@ Page({
     })
 
     if (isLogin) {
-      if (canAccessBusiness) this.loadStats()
+      // ⚠️ 角色**显式传参**，不要让 loadStats 回头读 this.data.isManager：
+      // 依赖"setData 已同步写回 data"这种时序，一旦不成立就会静默走错分支
+      // （站长看到配送员的三格数，或反过来去调站长专属端点拿一个权限错误）。
+      if (canAccessBusiness) this.loadStats(isManager)
       if (isManager) this.loadRoleData()
     }
   },
 
-  async loadStats() {
+  /**
+   * 今日统计 —— **按角色取两个不同来源**（[2026-09-19]）：
+   *   · 配送员：`/api/delivery/stats/today`（backend 按**人**统计完成/配送中/回桶）；
+   *   · 站长：净利走毛利端点（按**站**、按下单时间），异常/欠桶走另外两个站长只读端点。
+   * ⚠️ 站长分支**不能**去请求毛利端点以外的东西来凑数：毛利端点带 @RequireRole("STATION_MANAGER")，
+   * 配送员调用只会拿到一个权限错误（不是"显示 0"）。
+   */
+  async loadStats(isManager) {
+    if (isManager) {
+      await this.loadManagerStats()
+      return
+    }
     try {
       const res = await getTodayStats()
       this.setData({ todayStats: res.data || {} })
@@ -93,6 +111,81 @@ Page({
       console.error('[Mine] 今日统计加载失败:', err)
       wx.showToast({ title: '今日统计加载失败', icon: 'none' })
     }
+  },
+
+  /** 站长三格：今日净利 / 今日单数 / 桶异常·欠桶。三个请求互不依赖，任一失败只影响自己那一格。 */
+  async loadManagerStats() {
+    const today = this._todayStr()
+    const [profitRes, pendingRes, owedRes] = await Promise.allSettled([
+      get(API.MANAGER_GROSS_PROFIT + '?from=' + today + '&to=' + today),
+      get(API.MANAGER_PENDING_SUMMARY),
+      get(API.MANAGER_OWED_BARRELS)
+    ])
+    const next = {}
+
+    if (profitRes.status === 'fulfilled' && profitRes.value && profitRes.value.code === 0) {
+      next.todayProfit = this._decorateProfit(profitRes.value.data || {})
+    } else {
+      // 取不到就给"—"而不是 0：0 会被读成"今天一分没赚"
+      console.warn('[Mine] 今日净利加载失败:', profitRes.reason && profitRes.reason.message)
+      next.todayProfit = { netProfitText: '—', netProfitWarn: false, orderCount: '—' }
+    }
+
+    const risk = { barrelExceptionCount: 0, owedCustomerCount: 0 }
+    if (pendingRes.status === 'fulfilled' && pendingRes.value && pendingRes.value.code === 0) {
+      const items = ((pendingRes.value.data || {}).items) || []
+      const hit = items.find(i => i.key === 'barrelException')
+      risk.barrelExceptionCount = hit ? Number(hit.count) || 0 : 0
+    } else {
+      console.warn('[Mine] 桶异常数加载失败:', pendingRes.reason && pendingRes.reason.message)
+    }
+    if (owedRes.status === 'fulfilled' && owedRes.value && owedRes.value.code === 0) {
+      // 欠桶端点是"客户列表"（没有专门的计数），这里数的是**欠桶客户数**，不是欠桶个数
+      risk.owedCustomerCount = ((owedRes.value.data) || []).length
+    } else {
+      console.warn('[Mine] 欠桶客户加载失败:', owedRes.reason && owedRes.reason.message)
+    }
+    next.risk = risk
+
+    this.setData(next)
+  },
+
+  /**
+   * 净利 → 展示模型。
+   *
+   * ⚠️ `netProfit` 为 null = 有商品没填进货成本，**必须显示「算不出」**：
+   * 把它当 0 相减会让站长以为自己净赚了整整一个售价（同毛利页的判据）。
+   * 金额格式化放在 js 里做（wxml 不能调方法）。
+   */
+  _decorateProfit(d) {
+    const isNull = d.netProfit === null || d.netProfit === undefined
+    return {
+      netProfitText: isNull ? '算不出' : '¥' + Number(d.netProfit).toFixed(2),
+      netProfitWarn: isNull,
+      orderCount: Number(d.orderCount) || 0
+    }
+  },
+
+  /** 今天的 YYYY-MM-DD（本地时区）。净利端点的 from/to 都传今天 = 只看今天。 */
+  _todayStr() {
+    const d = new Date()
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0')
+  },
+
+  /** 点「今日净利 / 今日单数」→ 毛利页，并把期间锁定为今天（页面据 range=today 设 from/to）。 */
+  onGoTodayProfit() {
+    wx.navigateTo({ url: '/pages/station-mgmt/gross-profit/index?range=today' })
+  },
+
+  /** 第三格主数字 → 「异常订单」页（页签 1 就是桶异常单，故不带 ?tab=）。 */
+  onGoBarrelException() {
+    wx.navigateTo({ url: '/pages/station-mgmt/exceptions/index' })
+  },
+
+  onGoOwedBarrels() {
+    wx.navigateTo({ url: '/pages/station-mgmt/owed-barrels/index' })
   },
 
   async loadRoleData() {
@@ -184,6 +277,16 @@ Page({
 
   onGoStationMgmt() {
     wx.navigateTo({ url: '/pages/station-mgmt/index' })
+  },
+
+  /** 员工（列表/画像/绑定申请审核）已整块搬到站长端员工页，这里直跳，不再走宫格中转 */
+  onGoStaff() {
+    wx.navigateTo({ url: '/pages/station-mgmt/staff/index' })
+  },
+
+  /** 水站资料（站名/电话/地址/坐标）——2026-09-19 起有真页面可改，不再只是只读展示 */
+  onGoStationInfo() {
+    wx.navigateTo({ url: '/pages/station-mgmt/station-info/index' })
   },
 
   onBarrelRecords() {
@@ -332,6 +435,8 @@ Page({
             isLogin: false,
             userInfo: null,
             todayStats: {},
+            todayProfit: null,
+            risk: { barrelExceptionCount: 0, owedCustomerCount: 0 },
             stationInfo: null,
             staffList: [],
             bindApplications: []

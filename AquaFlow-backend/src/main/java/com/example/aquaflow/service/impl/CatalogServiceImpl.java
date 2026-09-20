@@ -73,9 +73,29 @@ public class CatalogServiceImpl implements CatalogService {
     @Value("${catalog.price-warn-ratio:0.5}")
     private double priceWarnRatio;
 
+    /**
+     * 站长端「选品清单」。
+     *
+     * <p>⚠️ 底层 SQL（{@code ProductMapper.listWithInventory}）**不过滤 {@code product.status}**
+     * —— 所以「平台下架」这件事**必须在这里体现**：只改数据不改这行代码，下架了站长照样看得到、
+     * 照样能选。反过来，这里若一刀切按 {@code status = 1} 过滤，站长就会**看不到自己已选用的商品**、
+     * 无法再管库存与站级价。</p>
+     *
+     * <p>因此可见性拆成三条，缺一不可：</p>
+     * <ol>
+     *   <li><b>本站自定义商品</b>（{@code ownerStationId} 非空）—— 平台下架管不到它，始终可见；</li>
+     *   <li><b>通用库商品</b>须在架（{@code status = 1}）；</li>
+     *   <li>例外：通用库商品虽已下架、但<b>本站已选用</b>（{@code inventoryId} 非空）—— 仍可见，
+     *       否则站长只能看着库存却找不到入口（历史订单与库存都还挂在它身上）。</li>
+     * </ol>
+     */
     @Override
     public List<ProductWithInventoryVO> listCatalog(Long stationId) {
-        return withImageUrls(productMapper.listWithInventory(stationId));
+        return withImageUrls(productMapper.listWithInventory(stationId).stream()
+                .filter(vo -> vo.getOwnerStationId() != null
+                        || Integer.valueOf(1).equals(vo.getStatus())
+                        || vo.getInventoryId() != null)
+                .collect(Collectors.toList()));
     }
 
     @Override
@@ -413,7 +433,7 @@ public class CatalogServiceImpl implements CatalogService {
     /**
      * 批量注入图片 URL。
      * <p>⚠️ 别省这一步：商品图片存的是 {@code image_object_name}，它有两种口径 ——
-     * <b>平台预设图的本地资源路径</b>（形如 {@code /assets/product/barrel-water.webp}）与
+     * <b>本地资源路径</b>（形如 {@code /assets/product/pulisi-pure.webp}）与
      * <b>COS 对象键</b>。前端只认 {@code imageUrl} 一个字段，必须由后端统一翻译
      * （翻译规则见 {@link ProductImageResolver#resolve}）。</p>
      * <p>漏了这一步的表现是"图片全空"而<b>不是报错</b>，很容易被当成前端问题。</p>

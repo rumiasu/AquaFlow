@@ -56,14 +56,39 @@ const request = (options) => {
         } else if (res.statusCode === 401) {
           handle401(options, resolve, reject)
         } else {
-          reject(new Error('网络错误 ' + res.statusCode))
+          // [2026-09-20] 原来直接把状态码拼给用户看（「网络错误 500」）—— 顾客看不懂也没法处理。
+          // 保留状态码在括号里，排查时仍能一眼看出是 4xx 还是 5xx。
+          reject(new Error('服务暂时不可用（HTTP ' + res.statusCode + '），请稍后重试'))
         }
       },
       fail: (err) => {
-        reject(err)
+        reject(toNetworkError(err))
       }
     })
   })
+}
+
+/**
+ * 把 wx 的失败对象归一化成带可读 message 的 Error。
+ *
+ * <p>[2026-09-20 真机联调] 这不是美化文案，是修一个**系统性根因**：`wx.request` 的 `fail`
+ * 回调拿到的是 `{errMsg: "request:fail timeout"}` 这种**没有 `message` 字段**的对象，
+ * 原样 `reject` 出去后，全端约 150 处 `err.message || 'xxx失败'` 会**全部走兜底分支** ——
+ * 于是真机弱网/后端没起时，用户看到的是「下单失败: 」（冒号后面什么都没有）、
+ * 「保存失败: 」这类**没有原因**的提示，排查时也拿不到任何线索。</p>
+ *
+ * <p>⚠️ 别把这里改回 `reject(err)`：`err.message` 恒为 `undefined` 是 wx 的既定形状，
+ * 不是偶发。要加新文案就在这里加分支，不要在调用点各写一套。</p>
+ */
+function toNetworkError(err) {
+  const raw = (err && (err.errMsg || err.message)) || ''
+  if (/timeout/i.test(raw)) {
+    return new Error('网络超时，请确认手机与后端在同一网络后重试')
+  }
+  if (/fail/i.test(raw)) {
+    return new Error('网络连接失败，请检查网络后重试')
+  }
+  return new Error(raw || '网络连接失败，请重试')
 }
 
 /* ==================== 系统级错误「一键上报给水站」 ==================== */
@@ -178,6 +203,10 @@ function handle401(originalOptions, resolve, reject) {
     url: getBaseUrl() + API.REFRESH,
     method: 'POST',
     data: { refreshToken },
+    // [2026-09-20] 必须带 timeout：refresh 请求原本没有任何超时，真机切网/弱网时可能
+    // 既不 success 也不 fail → refreshQueue 里的 promise 永不 settle → 按钮一直转圈。
+    // 有了超时会走 fail 分支，processQueue 才会把排队的请求放掉。
+    timeout: 15000,
     success: (res) => {
       if (res.statusCode === 200 && res.data && res.data.code === 0) {
         const { accessToken, refreshToken: newRefreshToken } = res.data.data
@@ -200,7 +229,9 @@ function handle401(originalOptions, resolve, reject) {
     fail: (err) => {
       clearAndRedirect()
       reject(new Error('网络错误'))
-      processQueue(err)
+      // 排队的请求也要拿到**可读**的错误：原来是原样透传 wx 的 `{errMsg}` 对象，
+      // 那些请求的 catch 里 `err.message` 同样是 undefined。
+      processQueue(toNetworkError(err))
     },
     complete: () => {
       isRefreshing = false
@@ -233,6 +264,9 @@ function retryRequest(options, newToken) {
       method: options.method || 'GET',
       data: options.data,
       header,
+      // [2026-09-20] 与首次请求（上面的 `timeout: 15000`）保持一致。
+      // 原实现漏了这一个，续期后的重试会走系统默认超时（60s），弱网下表现为长时间卡死。
+      timeout: 15000,
       success: (res) => {
         if (res.statusCode === 200 && (res.data.code === 0 || res.data.code === 200)) {
           resolve(res.data)
@@ -240,7 +274,7 @@ function retryRequest(options, newToken) {
           reject(new Error(res.data.message || '请求失败'))
         }
       },
-      fail: reject
+      fail: (err) => reject(toNetworkError(err))
     })
   })
 }

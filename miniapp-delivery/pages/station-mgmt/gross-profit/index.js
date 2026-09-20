@@ -1,26 +1,32 @@
-// ⚠️ 直接用 utils/request，不引 api/station-mgmt.js 与 config/api.js：
-// 那两个文件正被另一个工作流（商品图片库）改动，共用会让两边未提交的改动纠缠在一起。
-// 路径常量写在本文件里，理由同上。
+// ⚠️ 直接用 utils/request，不引 api/station-mgmt.js：
+// 那个文件由另一个工作流（商品图片库）维护，共用会让两边未提交的改动纠缠在一起。
+// [2026-09-19 修订] 路径常量**已移入 config/api.js**（MANAGER_GROSS_PROFIT）——
+// 原来说"config/api.js 也在被别的改动占着"，那个改动早已合并，本页再留一份副本
+// 只会让同一条路径有两个定义（本仓最忌讳的"口径分叉"）。
 const { get, put } = require('../../../utils/request')
+const { API } = require('../../../config/api')
 
-const GP = '/api/manager/gross-profit'
+const GP = API.MANAGER_GROSS_PROFIT
 const MISSING_COST = GP + '/missing-cost'
 const COST = GP + '/cost'
 
 /**
- * 站长端「毛利」：进货成本 + 期间毛利报表。规格见 docs/design/20 §2。
+ * 站长端「毛利 + 净利」：进货成本 + 期间报表。规格见 docs/design/20 §2。
  *
- * 三条口径（改这个页面时必须守住）：
+ * 四条口径（改这个页面时必须守住）：
  *   1. **成本价是站长的商业机密**，只走站长端接口（后端全部带 @RequireRole("STATION_MANAGER")）
  *      —— 进价泄露等于竞争对手知道你的底价。本页任何数据都不要往顾客端带。
  *   2. **缺成本的商品不给毛利数字**。后端在那种行上下发 profit=null、
- *      profitText="未填成本，无法计算"，合计也返回 null。页面必须**原样展示**，
+ *      profitText="未填成本，无法计算"，合计与**净利**也返回 null。页面必须**原样展示**，
  *      绝不能把 null 当 0 相减 —— 那会让站长以为这一单赚了整整一个售价。
  *   3. **成本改了历史毛利会跟着变**（本版不做批次成本核算）。后端下发的 costBasisNote
  *      必须原样展示，不能让站长以为这是"当时的真实毛利"。
+ *   4. **净利 = 水费 + 配送费 + 楼层费 − 进货成本 − 计件工钱**（[2026-09-19] 新增），
+ *      六个数字取自**同一批订单**（按下单时间、按结算站、排除已取消）。口径原文由服务端
+ *      在 profitBasisNote 里下发，本页只显示不解释。
  *
- * ⚠️ 所有金额与文案都用服务端下发的值（含 profitRateText / costPriceText / missingCostHint），
- * 页面里不做任何毛利算术。
+ * ⚠️ 所有金额与文案都用服务端下发的值（含 profitText / profitRateText / costPriceText /
+ * missingCostHint / profitBasisNote），页面里不做任何毛利或净利算术。
  */
 Page({
   data: {
@@ -30,11 +36,32 @@ Page({
     to: '',
     report: null,
     missingCost: [],
+    // 从「我的 → 今日净利」跳进来时置为 'today'：只用于副标题文案与默认期间
+    range: '',
     // 成本编辑弹层
     costVisible: false,
     costProduct: null,
     costInput: '',
     costSaving: false
+  },
+
+  /**
+   * ⚠️ `?range=today` = 看今天（我的页那两格点进来的就是这个）。
+   * 日期仍由这里算好后当 with from/to 传给服务端 —— 但**口径解释权仍在服务端**
+   * （它会把生效区间回传，界面显示回传值而不是本地这份）。
+   */
+  onLoad(options) {
+    if (options && options.range === 'today') {
+      const today = this._todayStr()
+      this.setData({ range: 'today', from: today, to: today })
+    }
+  },
+
+  _todayStr() {
+    const d = new Date()
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0')
   },
 
   onShow() {
@@ -79,7 +106,9 @@ Page({
   },
 
   onDate(e) {
-    this.setData({ [e.currentTarget.dataset.field]: e.detail.value }, () => this.load())
+    // ⚠️ 手改日期就不再是"今日"视图了：`range` 必须清掉，否则标题还写着「今日收入与净利」
+    // 而下面列的是别的期间 —— 一个自己会撒谎的标题比没有标题更糟。
+    this.setData({ range: '', [e.currentTarget.dataset.field]: e.detail.value }, () => this.load())
   },
 
   /** 快捷区间：只改 from/to 再拉一次，日期口径仍由服务端解释。 */
@@ -90,11 +119,12 @@ Page({
     const now = new Date()
     if (days === 0) {
       // 本月：交给服务端默认（清空 from/to）
-      this.setData({ from: '', to: '' }, () => this.load())
+      this.setData({ range: '', from: '', to: '' }, () => this.load())
       return
     }
     const start = new Date(now.getTime() - (days - 1) * 24 * 3600 * 1000)
-    this.setData({ from: fmt(start), to: fmt(now) }, () => this.load())
+    // days === 1 才是"今日"；其余区间必须把 range 清掉（同 onDate 的理由）
+    this.setData({ range: days === 1 ? 'today' : '', from: fmt(start), to: fmt(now) }, () => this.load())
   },
 
   /** 点报表行 → 给该商品设/改成本价。 */

@@ -45,6 +45,19 @@ public class ManagerGrossProfitController {
             "毛利按当前的成本价计算：改了成本价之后，历史期间的毛利也会跟着变（本版不做批次成本核算）。"
                     + "未填成本的商品不计入毛利，只列收入。";
 
+    /**
+     * 净利口径提示。[2026-09-19 新增净利] 前端必须原样展示 ——
+     * 净利比毛利更容易被误读成"今天到手的钱"。
+     *
+     * <p>⚠️ 与 {@link #COST_BASIS_NOTE} 同一个坑：这段文案直接渲染在小程序界面上，
+     * <b>不要写 Markdown 记号</b>。</p>
+     */
+    private static final String PROFIT_BASIS_NOTE =
+            "净利 = 水费收入 + 配送费 + 楼层费 − 进货成本 − 配送员计件工钱。"
+                    + "按「下单时间」统计这一批订单（不是按哪天送完），所以是这批生意本身的账，"
+                    + "不是当天进账的现金。工钱在该单送到时产生：还没送完的单暂时不计工钱，"
+                    + "那几天净利会偏高。迟到扣款、高温补贴这类人工调整不计入日净利。";
+
     @Autowired
     private GrossProfitMapper grossProfitMapper;
 
@@ -90,7 +103,16 @@ public class ManagerGrossProfitController {
     }
 
     /**
-     * 期间毛利报表。
+     * 期间毛利 + 净利报表。
+     *
+     * <p>毛利的构成：{@code totalRevenue}（水费，来自 {@code order_item.subtotal}）与
+     * {@code totalCost}（销量 × 进货成本）。<b>2026-09-19 起同一响应里再给出净利</b>：
+     * {@code orderCount} / {@code deliveryFee} / {@code floorFee} / {@code totalIncome}
+     * / {@code wage} / {@code netProfit} —— 六个字段全部取自<b>同一订单集合</b>，
+     * 看 {@code profitBasisNote} 了解口径。</p>
+     *
+     * <p>⚠️ 两个 null 语义：{@code totalProfit} 与 {@code netProfit} 在"有商品没填成本"时
+     * <b>一起为 null</b>。只 null 一个会让站长拿另一个数字继续算，等于把缺失的成本当成 0。</p>
      *
      * @param from 起始日（含），缺省 = 本月 1 号
      * @param to   结束日（含），缺省 = 今天
@@ -151,6 +173,33 @@ public class ManagerGrossProfitController {
         data.put("missingCostHint", missingCostKinds > 0
                 ? "有 " + missingCostKinds + " 个商品没填进货成本，它们的毛利算不出来（收入已计入合计，成本按 0 计）"
                 : null);
+
+        // ===== 净利（2026-09-19）：同一批订单的 收入 − 成本 − 工钱 =====
+        // ⚠️ 三个数字必须来自**同一订单集合**（结算站 + 排除已取消 + 同一时间窗），
+        // 混两批单算出来的净利没有意义 —— 前两个查询的判据与 grossProfitByProduct 逐字一致。
+        Map<String, Object> fees = grossProfitMapper.orderCountAndFees(stationId,
+                start.atStartOfDay(), end.plusDays(1).atStartOfDay());
+        Map<String, Object> wageRow = grossProfitMapper.wageOfOrders(stationId,
+                start.atStartOfDay(), end.plusDays(1).atStartOfDay());
+        int orderCount = fees == null || fees.get("orderCount") == null
+                ? 0 : ((Number) fees.get("orderCount")).intValue();
+        BigDecimal deliveryFee = fees == null ? BigDecimal.ZERO : dec(fees.get("deliveryFee"));
+        BigDecimal floorFee = fees == null ? BigDecimal.ZERO : dec(fees.get("floorFee"));
+        BigDecimal wage = wageRow == null ? BigDecimal.ZERO : dec(wageRow.get("wage"));
+        // 收入合计 = 水费 + 配送费 + 楼层费。⚠️ **不含押金**（押金是可退的负债，不是收入）。
+        BigDecimal totalIncome = totalRevenue.add(deliveryFee).add(floorFee);
+        // ⚠️ 缺成本时净利**也必须为 null**（与 totalProfit 同一条命）：
+        // 成本按 0 计会让净利凭空多出整整一个进货成本，那比不显示更糟。
+        BigDecimal netProfit = missingCostKinds > 0
+                ? null : totalIncome.subtract(totalCost).subtract(wage);
+
+        data.put("orderCount", orderCount);
+        data.put("deliveryFee", deliveryFee);
+        data.put("floorFee", floorFee);
+        data.put("totalIncome", totalIncome);
+        data.put("wage", wage);
+        data.put("netProfit", netProfit);
+        data.put("profitBasisNote", PROFIT_BASIS_NOTE);
         return Result.success(data);
     }
 

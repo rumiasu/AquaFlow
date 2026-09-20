@@ -20,23 +20,6 @@ public class TicketRecord {
     /** 商品ID(桶装水) */
     private Long productId;
 
-    /**
-     * 本次变动实际落在**哪个水票账户**（v54，统一水票）。
-     *
-     * <p>为什么不复用 {@link #productId}：消费流水必须记<b>订单行上的商品</b>，
-     * 因为幂等键 {@code uk_ticket_consume(order_id, product_id, source)} 与
-     * {@code countConsumeByOrderAndProduct} 都按它判重 —— 用统一票抵扣时若写 0，
-     * 同一张单的第二条流水会撞唯一键被静默当成"已扣过"，<b>等于少扣票</b>。
-     * 所以「订单行商品」与「扣哪个账户」必须分成两列。</p>
-     *
-     * <p>取值：{@code null} = 与 {@link #productId} 同账户（v54 之前的存量流水）；
-     * {@code 0} = 站级通用票（统一水票）；其余 = 该商品的定制票。</p>
-     *
-     * <p>退款回补<b>必须</b>读它（{@code TicketAccountServiceImpl.refundTicket}）：
-     * 退款那一刻余额早已变化，重新判定会算错账户。</p>
-     */
-    private Long accountProductId;
-
     /** 所属水站ID */
     private Long stationId;
 

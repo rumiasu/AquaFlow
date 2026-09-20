@@ -88,6 +88,43 @@
   margin-bottom: 12rpx;
 }
 
+/* 收入构成与净利（[2026-09-19]）：一张"减法账"，每行一个数字，合计行加重。
+   颜色沿用本页既有的语义：绿 = 正常给数（.hero-ok），橙 = 算不出/需注意（.hero-warn）。 */
+.ledger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.ledger-row:last-of-type {
+  border-bottom: none;
+}
+.ledger-label {
+  font-size: 26rpx;
+  color: #666;
+}
+.ledger-value {
+  font-size: 28rpx;
+  color: #222;
+}
+.ledger-strong {
+  border-top: 1rpx solid #f0f0f0;
+}
+.ledger-strong .ledger-label,
+.ledger-strong .ledger-value {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #222;
+}
+.ledger-ok {
+  color: #389e0d;
+}
+.ledger-warn {
+  color: #d46b08;
+  font-size: 27rpx;
+}
+
 .row {
   display: flex;
   align-items: center;

@@ -426,6 +426,34 @@ public interface OrderMapper {
             "order by o.update_time desc")
     List<Orders> listTransferredOrders(@Param("stationId") Long stationId);
 
+    /**
+     * 同上，但**按 {@code sub_kind} 过滤** —— 给「待办汇总」拆"转单请求 / 站内取消申请"用。
+     *
+     * <p>为什么不改 {@link #listTransferredOrders} 的契约：它另有三个调用方
+     * （两个列表端点 + 站长「审批」页的 pending-approvals），改签名等于顺手扩大风险面；
+     * 而这里要的只是"同一批数据切一刀"。SQL 主体与它逐字一致，**只有过滤条件多一项** ——
+     * 两处若将来要改口径（比如推送闸门），必须同时改（判据：它们回答的是同一个问题）。</p>
+     *
+     * <p>⚠️ {@code subKinds} 为空列表时**返回空集**（MyBatis 会把空集合渲染成 {@code in ()}，
+     * 是语法错误）—— 调用方不要传空。</p>
+     *
+     * @param subKinds 见 {@code constant/PendingItem.STAFF_TRANSFER_SUB_KINDS} /
+     *                 {@code PendingItem.SUB_CANCEL_REQUEST}（两者互补，新增子类时必须归类）
+     */
+    @Select("<script>select o.*, c.name as customerName, c.phone as customerPhone, " +
+            "(select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+            "a.detail as addressDetail " +
+            "from orders o " +
+            "left join customer c on o.customer_id = c.id " +
+            "left join address a on o.address_id = a.id " +
+            "where o.station_id = #{stationId} " +
+            "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' " +
+            "and t.kind='STAFF' and t.sub_kind in " +
+            "<foreach collection='subKinds' item='sk' open='(' separator=',' close=')'>#{sk}</foreach>) " +
+            "order by o.update_time desc</script>")
+    List<Orders> listStaffRequestsBySubKinds(@Param("stationId") Long stationId,
+                                            @Param("subKinds") List<String> subKinds);
+
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +

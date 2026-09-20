@@ -22,7 +22,6 @@ import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.BarrelScope;
 import com.example.aquaflow.util.PriceUtil;
 import com.example.aquaflow.util.StationUtil;
-import com.example.aquaflow.util.TicketScope;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -350,17 +349,18 @@ public class OrderServiceImpl implements OrderService {
 
             // [AQ-030] 水票支付适用性校验：该站必须启用该商品的水票且配置了有效水票价，
             // 否则水票支付无法成立（历史实现完全不校验，可对未开水票的商品下水票单）。
-            // [v54 统一水票] 定制票不满足时，本站的**统一水票**可以兜底 —— 但只兜桶装水
-            // （统一票是桶装水的折扣工具：瓶装水/一次性桶/饮水器不占桶、没有"循环"，
-            // 见 docs/design/26 与 util/TicketScope）。判据不在这里重写，统一走 TicketScope。
+            // [v58] 定制票不可用时，本站的**统一折扣**可以兜底 —— 但只兜桶装水
+            // （统一折扣是桶装水的折扣工具：瓶装水/一次性桶/饮水器不占桶、没有"循环"）。
+            // 注意「统一折扣」只是**买票时的定价规则**，它不改变"票进哪个账户"：
+            // 票永远进这一款水自己的账户（2026-09-20 产品拍板：只抵那款水）。
             if (Integer.valueOf(PayMethod.TICKET).equals(dto.getPaymentMethod())) {
                 boolean ticketEnabled = inv.getTicketEnabled() != null && Integer.valueOf(1).equals(inv.getTicketEnabled());
                 BigDecimal stTicketPrice = inv.getTicketPrice();
                 boolean hasPrice = stTicketPrice != null && stTicketPrice.compareTo(BigDecimal.ZERO) > 0;
                 boolean customOk = ticketEnabled && hasPrice;
                 boolean unifiedOk = !customOk
-                        && TicketScope.unifiedEligible(product)
-                        && ticketAccountService.unifiedTicketConfigured(stationId);
+                        && BarrelScope.isBarrel(product)
+                        && ticketAccountService.unifiedDiscountConfigured(stationId);
                 if (!customOk && !unifiedOk) {
                     throw new BusinessException("商品「" + product.getName() + "」未开通水票支付");
                 }

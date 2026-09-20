@@ -14,11 +14,12 @@
   </view>
 
   <block wx:if="{{!loading && report}}">
-    <!-- 待收款提醒 -->
-    <view class="alert" wx:if="{{report.hasPending}}">
-      <text class="alert-icon">!</text>
-      <text class="alert-text">本周期有 <text class="alert-strong">¥{{report.pendingAmountText}}</text> 待收款，请及时安排收取</text>
-    </view>
+    <!--
+      [2026-09-19 IA 重组 C2] 这里原有一块「本周期有 ¥X 待收款，请及时安排收取」的横幅，
+      与首页「待办」卡的 overdueReceivable（逾期应收，**带金额**）是同一件事的两处展示，
+      已删除。看板只负责"这段时间经营怎么样"，「今天该收哪笔钱」归首页待办卡。
+      别再加回来 —— 同一笔钱两个入口，站长会以为系统有两笔账。
+    -->
 
     <!-- 核心指标 + 环比 -->
     <view class="section">
@@ -149,13 +150,10 @@
       </view>
     </view>
 
-    <!-- 欠桶提醒 -->
-    <view class="section" wx:if="{{report.owedCustomers.length}}">
-      <view class="section-title">欠桶客户 TOP{{report.owedCustomers.length}}</view>
-      <view class="owed-item" wx:for="{{report.owedCustomers}}" wx:key="idx">
-        <text class="owed-name">{{item.customerName || '客户#' + item.customerId}}</text>
-        <text class="owed-qty">欠 {{item.owedQty}} 桶</text>
-      </view>
-    </view>
+    <!--
+      [2026-09-19 IA 重组 C2] 这里原有「欠桶客户 TOP N」一块，与「欠桶台账」页
+      （按欠得最久排序的完整台账）重复，且首页待办卡已有欠桶相关待办，已删除。
+      欠桶是一个独立模块的事，看板不复制它。
+    -->
   </block>
 </view>

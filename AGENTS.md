@@ -11,7 +11,7 @@
 
 1. **一切以代码为准**。`README.md`、`docs/**`、`.workbuddy/memory/**` 仅作参考且**已知大面积过期**；与代码冲突时以 `src/**`、`sql/schema.sql`、可运行测试为准。【仓】
 2. 唯一可信来源顺序：**当前 Java/WXML/JS 源码 → `AquaFlow-backend/sql/schema.sql` → 通过的集成测试与实际接口行为 → 仓库 Markdown**（`docs/AI_EXECUTION_HANDOFF.md` §0）。【仓】
-3. 动手前先只读排查；破坏性操作（删文件、改 git 历史、清库、执行历史迁移 SQL）**先报告证据与影响并等确认**；删除类改动必须先证明零引用且属永久废案。【会】
+3. **删除类改动协议（2026-09-19 立，强制）**：删代码 / 端点 / 文件前先只读排查，**报备必须给六项**：① 核实到哪一步（几遍、什么方法）；② 证据（逐条 `文件:行号`）；③ **原来为什么存在**；④ **删掉会怎样**（连带的测试 / 文档 / 常量 / mapper）；⑤ **推荐删或留 + 理由**；⑥ 风险等级。**登记表正本**：`docs/audit/2026-09-16-死端点评估.md` 的「删除登记表」（带核实日期 —— 旧判定会随代码过期，已实测推翻过一条）。**核实纪律**：光跑 `api_reverse_audit.py` 不算，它既有假阳性、**也有假阴性**（`config/api.js` 里**有路径常量**就算"有人调"，于是"定义了没人调"的死包装函数报不出来）。**判据：自己 grep 出所有字符串出现位置，逐个确认是"真调用"还是仅"常量定义 / 文档 / 注释 / 测试断言"—— 定义 ≠ 调用**；零引用确认后再跑一遍全量测试留基线。破坏性操作（删文件、改 git 历史、清库、跑历史迁移 SQL）先报证据与影响并等确认。
 4. **数値の SSOT —— 有正本就不要在本文件重述**：表定义看 `sql/schema.sql`、迁移顺序看 `sql/README.md`、枚举值看 `constant/*.java`、API 实路径看 `controller/**` 注解、测试件数看 `build/test-results/test/*.xml`、**结构看 `code_map`（别手写这类计数，必然过期）**。【仓】
 5. 仓库内文档的入口是 `docs/README.md`；`docs/**` 已知过期，只作线索、不作规格。【仓】
 
@@ -120,7 +120,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 ```
 
 - **断言看响应体 `code`，不看 HTTP 状态**（业务错误仍 200；未认证才是 401）。新增用例：继承 `AbstractIntegrationTest`，用 `createStation/createStaff/createCustomer/createProduct/createOrderFull/createOrderCrossStation` 造数，`customerToken(id)` / `staffToken(id, role, stationId)` 取令牌，`get/post/put/delete` 发请求，`intOf/decimalOf` 查库；并发参考 `ConcurrencyIntegrationTest.fireTogether`。【仓】
-- **统计测试件数**：把所有 XML 相加，**不要用 `Get-Content -Raw` 再转 `[xml]`**（按 ANSI 解码会弄坏测试名、解析失败且**静默少算**）；改用 `$d = New-Object System.Xml.XmlDocument; $d.Load($path)`。【仓】
+- **统计测试件数**：把所有 XML 相加，用 `$d = New-Object System.Xml.XmlDocument; $d.Load($path)` —— **不要 `Get-Content -Raw` 再转 `[xml]`**（按 ANSI 解码会弄坏测试名、**静默少算**）。【仓】
 - **验证 CI 会不会绿，就在本机复现 CI 三步**：① `DROP DATABASE aquaflow_test; CREATE DATABASE aquaflow_test;` 后**字节级重定向**导入 `sql/schema.sql`；② `.gradlew.bat cleanTest test`（必须 `cleanTest`，否则报 `:test UP-TO-DATE` 而**根本没跑**）；③ **把 CI 的环境变量也照抄一遍**（尤其 `DEV_LOGIN_ENABLED=false` —— 本机 `application-local.yml` 是 `true`，两者不一致会让"只在 CI 上红"的用例长期隐身：2026-09-19 就抓到一条，见 §8.27 末段）。【仓】
 - **按业务场景组织的覆盖地图见 `docs/audit/2026-09-16-场景测试矩阵.md`** —— 新增用例前先看它找空白。
 
@@ -160,7 +160,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 - **生成物 / 勿手改**：`AquaFlow-backend/build/`、`out/`、`.gradle*`、`*.log`、`backup/`、`generated-images/`、`docs/design/*.html`、`tabbar-icons-preview.png`、`project.private.config.json`。另 `.gradlehome/`、`.gradle_alt2/`、`.gradle-user`、`.gradle_alt3`、`.dsh-code-index/`、`.openvisio/` 都是工具缓存，属临时产物。
 - **`.gitattributes` 已加入**（`* text=auto` + `*.sh/*.py/*.yml/*.sql eol=lf`）：blob 一律存 LF，防止 Windows 检出 CRLF 后 `bash scripts/*.sh` 在 CI（Linux）上因 `\r` 失败。
 - **根目录的 `*.py` 分两类**：**5 个已入库**（`audit_wxml_handlers.py`、`page_reach_audit.py`、`static_audit_user.py`、`audit_comments.py`、`audit_js_syntax.py` —— CI 与 `scripts/verify.sh` 的静态扫描门禁，`.gitignore` 对 `*.py` 开了 `!` 例外，**不入库则新克隆的 CI 必然失败**；前两个需传端名，`page_reach_audit.py` 还能识别 js 的 `url:` 与 wxml 的 `data-url="/pages/..."`）；另若干（`e2e_user_test.py`、`gen_tabbar_icons.py`、`api_reverse_audit.py`）属调试/审计残留，不可作为项目入口或规范依据。
-- **`api_reverse_audit.py` 的已知偏差**：① 行号按**剥离注释后**的源码计，**系统性偏早**（实测 `/api/payments/all` 报 `:182`、实际 `:198`）—— 引用前回原文件核对；② 死端点判定**只看路径、不看 HTTP 方法**，**报的数字是下界**；③ **已修（2026-09-18）**：认不出「页面内局部路径常量」拼出来的路径（`const EARNING_ITEMS = '/api/...'` + `post(EARNING_ITEMS + '/' + id + '/status')`），**在用端点被判死**（45 → 34）；④ **仍看不见**：路径段由**函数参数**传入（`post(PAYROLL + '/' + id + '/' + action)`）、**段匹配被子串蒙对**（`/pay` 被 `payroll` 的 pay 命中）。**清单是候选、不是结论** —— 要动"删除端点"这类决定，必须自己重新证一遍零引用（见 §0.3）。
+- **`api_reverse_audit.py` 的已知偏差**：① 行号按**剥离注释后**计，**系统性偏早**（报 `:182`／实际 `:198`）—— 引用前回原文件核对；② 判定**只看路径、不看 HTTP 方法**，**报的数字是下界**；③ 认不出「**页面内路径常量拼接**」与「路径段由**函数参数**传入」的调用（前者已修：45→34，后者仍看不见），**在用端点会被判死**。**清单是候选、不是结论** —— 要动"删除端点"这类决定，必须自己重新证一遍零引用（见 §0.3）。
 
 ## 8. 已知坑与历史教训
 
@@ -197,10 +197,11 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 25. **`PUT /api/payments/{id}/cash-confirm` 与 `PUT /{id}/confirm` 实现逐字相同**（都只调 `paymentService.confirmPayment`），但已进验收文档（IT-PAY-002 / IT-CNF-002）→ **保留、登记，不要合并**（合并会动验收口径）。
 26. **「隔离工作区跑全量测试」证明不了"应用能起来" —— 收尾必须验真实工作区**（2026-09-18）—— 隔离 worktree（`git worktree add --detach`）**只含 HEAD、不含未提交文件**："全绿"不能推出应用可启动。实测：多个构造器都没标 `@Autowired` → 上下文起不来，隔离 worktree 里 297 例却全绿。**判据：收尾三步都要做** —— ① 真实工作区 `.gradlew.bat clean compileJava compileTestJava`；② 真起一次上下文（`test --tests '*AquaFlowApplicationTests*'`，11 秒的用例才是真起过；0.05 秒红掉就是没起来）；③ 再在隔离 worktree 跑全量用例。**Spring 只在"有且仅有一个构造器"时自动选它**：多于一个就必须给生产那个显式标 `@Autowired`。⚠️ **隔离 worktree 里也没有 `application-local.yml`（gitignore）**，所以 `JWT_SECRET` / `WX_APP_ID` / `WX_APP_SECRET` / `DB_USERNAME` / `DB_PASSWORD` / `DEV_LOGIN_ENABLED` **都得从环境变量传**；缺了会让 `RequiredConfigChecker` 拒启，表现为**1 分钟红掉 344/382 例**（2026-09-19 实测），看着像"功能大面积坏了"。
 27. **小程序 js 的「解析期」错误此前没有任何门禁（2026-09-19 真实事故）** —— `miniapp-delivery/api/station-mgmt.js` 里同一个 `const updateOfflinePayment` 被声明两次 → `SyntaxError: Identifier ... has already been declared` → **整个模块不执行**，而站长端 **15 个页面**都 require 这一个模块（看板 / 订单 / 客户 / 画像 / 待收款 / 商品 / 员工 / 营业状态 / 告警 / 欠桶 / 回桶 / 资产调整 3 页 …）→ 整端白屏；后端 382 例与 4 个静态门禁**一个都没报出来**（它们都不解析 js）。**判据一：扫绑定 / 扫引用 / 扫注释这类语义审计永远抓不到少括号、多逗号、重复声明 —— 改完小程序 js 必须过解析器**；已加门禁 `audit_js_syntax.py`（`node --check` 两端全部 js，进 `scripts/verify.sh` 与 CI，缺 node 时**跳过并明说**而不是判绿）。**判据二：api 模块里别写"重载形态"**（`(id, enabled)` 与 `(id, payload)` 靠调用方自觉区分 = 迟早撞车），一个函数只留一种签名、由调用方把 body 给全。**判据三（CI）：用例依赖什么就自己声明什么** —— 有 1 例靠 `application-local.yml` 打开 `dev-login`，而 CI 有意把 `DEV_LOGIN_ENABLED` 设成 `false`（端点带 `@ConditionalOnProperty`，根本不存在）→ **只在 CI 上红的用例**；同批用 `@TestPropertySource` 修掉（见 §5 第三步）。
-
+28. **小程序文件带 UTF-8 BOM 会让 IDE 编译失败，而本地门禁全都发现不了（2026-09-19）** —— 用 PowerShell 的 `Set-Content -Encoding UTF8` 改写 `miniapp-delivery/pages/mine/index.wxss`，写入 **BOM + CRLF**（仓库其余文件都是 LF 无 BOM）→ 微信开发者工具报 `编译 .wxss 文件错误` 且**不指名文件**，而 `node --check` 与四个静态门禁、`page_reach_audit` **全绿**。**判据一：改小程序文件别用 `Set-Content -Encoding UTF8`**（用 `edit`/`write`，或显式 `New-Object System.Text.UTF8Encoding($false)` + `File.WriteAllText`）。**判据二：遇"编译错但门禁全绿"，先查 BOM**（前三字节 `EF BB BF`），**再读 IDE 日志**（`%LOCALAPPDATA%\微信开发者工具\User Data\<hash>\WeappLog\logs\*.log`，带时间戳，能和"改了哪个文件"对上）。
+29. **「解除员工」不校验角色 → 站长能把自己解除，水站变孤儿（2026-09-19 实测确认并已修）** —— `POST /api/manager/bind/release` 原来只校验「员工存在 + 属于本站」，**无 role 校验、也无"别解除自己"**；而列表数据源 `StaffMapper.listByStationId`（`where station_id=? and status=1`）**不带 role 条件** → 站长自己也在列表里，前端两处都给了他「解除」按钮且真的成功：`staff.station_id` 置 NULL 后该站长所有 `requireStationId()` 端点全废、被 `app.js` 路由去"创建水站"，而 `station`/客户/订单/库存全留在库里 —— **客户照常给这个站下单却没人能接单**，重建水站是**新 id**、旧数据搬不回来。**判据一：凡是"把某行归属/所有者置空"的端点，先回答"置空之后谁会变孤儿"；判据二：列表 SQL 不过滤 role 时，前端不得按"列表里有什么"决定给不给按钮**（列表看不到 ≠ id 编不出来，同 §1.1）。现补两条护栏（role 必须是 `DELIVERY` + 不能解除自己），回归断言 `DeliveryBindingIntegrationTest.managerReleaseUnbindsDirectly`（**已反向验证**：临时摘掉护栏该用例即红、`code` 返回 0 = 真解除成功）。⚠️ **"转让水站"当前全仓无端点**，别把 release 当地址用。
 ## 9. 待确认 / 未验证清单
 
-> 完整的 12 条（含 7 条已结案的结论）在 skill **`aquaflow-open-questions`** 里，**执行相关操作前先加载它**。这里只留仍在生效的判据。
+> 完整清单在 skill **`aquaflow-open-questions`**（动手前先加载）；这里只留仍在生效的判据。
 
 以下条目**未取得确证，执行前必须自行核实**：
 
@@ -209,14 +210,13 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 3. **`ManagerOrderController` 确已删除**（文件不存在，有 `ManagerOrderControllerRemovedIntegrationTest`），但 `.workbuddy/memory/MEMORY.md` 仍把它列为「仍未做」的高危项 —— **该记忆已过期**，也不排除有其他等效写入口。
 4. **开发者工具「测试号」是否支持 `wx.login` / `jscode2session`，尚未实测**：官方只承诺「开发测试 + 真机预览」，**没有明文承诺登录能力**。真机「微信一键登录」能否跑通要实测（两对 appid/secret 填好后真机点登录，看日志 `微信code2Session响应[CUSTOMER]` / `[STAFF]`）。**测试号确定不能上传代码 / 发布 / 设为体验版**；若不支持登录，`dev-login` 是唯一可用登录路径。
 5. **测试号分「小程序」与「小游戏」两种，不可混用**：把**小游戏**测试号的 appid 填进小程序项目（`compileType: "miniprogram"`）会**编译失败**。
+6. **微信订阅消息对本项目不可行**：除少数行业（政务/医疗/交通等）外，订阅消息都是**一次性授权** —— 推一条要用户当面点一次「允许」，`wx.requestSubscribeMessage` **无法静默获取**；水站这种高频提醒摩擦过大，**产品裁定不做**（站长端只有应用内红点，见 `miniapp-delivery/utils/pending-reminder.js`）。另注：`WeChatNotifyService` 骨架读的是**客户端** appid，推员工要用员工端那对。
 
 ## 10. 本文件的来源与维护
 
 - 原则：**能验证才写，不能验证就放进 §9**。任何一条若与本仓库当前代码冲突，**以代码为准**，并回来改本文件。
 - 维护建议：做大改动/重构后核对 §1 的常量清单（`OrderStatus` / `PayMethod` / `PaymentStatus` / `DepositType` / `BarrelRecordType`）与 `sql/README.md` 的迁移清单；**新增枚举或迁移后必须同步 §1**（枚举值正本在 `constant/*.java`）；§9 被证实的条目应上移进正文并删除。
-- **体积约束（2026-09-18 实测修订）**：必须留在指令预算 65536 字节以内并**保有安全余量**。实测轨迹：68338（**已超限、尾部被静默截断** —— 上次瘦身的起因）→ 52224 → 63831 → 56859 / 53595（两次瘦身）→ 60588（三站语义）→ 61335（认领后画像面 + 待收款流水搬站）→ 61853（先付款后派单）→ **62755（企业身份 v50 + 两端入口；余量 2781 字节 ≈ 2.7 KB —— 加 §8.27 的同时把 §1.1 那份过期的手写迁移清单换成了指向 `sql/README.md`，净增不到 1 KB）**。
-  - ⚠️ **"≥10 KB 余量"这条已经做不到，别再照它判断**：按节实测 `§1.1` + `§8` 占近六成，**§8 只压得动个位数百分比**，剩下的几乎全是判据本身（确切条件 / 类名 / 列名 / 行号 / 后果），"再压"确实等于"丢判据"。
-  - **可执行的规则**：① 量体积/行数必须用 node 或 `read`，**不要用 `Get-Content`**（它把这个文件读成 109 行，据此做章节体检结论全错）；② **余量 < 4 KB 就先瘦身再加**；③ 瘦身**只压正文，不删条目、不重排 §8 编号**；④ 叙事写进 `docs/audit/`、规格写进 `docs/design/`，本文件只放判据；⑤ 不要手写会漂移的计数（文件数 / Controller 数 / 页面数 / 测试件数）。
+- **体积约束**：必须留在 65536 字节以内 —— 超出后**注入时会被静默削尾**。⚠️ **"≥10 KB 余量"早就不成立**：`§1.1` + `§8` 占近六成，且**只压得动个位数百分比**（剩下的全是判据本身）。**可执行规则**：① 加任何一段前先量体积（用 `node`/`read`，**别用 `Get-Content`**），**余量 < 4 KB 先瘦身**；② 瘦身**只压正文，不删条目、不重排 §8 编号**；③ 叙事写 `docs/audit/`、规格写 `docs/design/`；④ 别手写会漂移的计数。
 - 已知待决策项：工作区未提交改动是否先 review 再按语义拆成数个提交（见 §7）；`docs/AGENTS.md` 的处置见下一条。
 - **`docs/AGENTS.md` 已归档**（2026-09-18 `git mv` → `docs/audit/2026-09-18-docs-AGENTS-旧版归档.md`，正文一字未改，仅换顶部警示为终态声明）：判定口径是**过期文档要"离开会被自动加载的位置"，而不是"换个名字留在原地"** —— DSH 会把 `docs/` 下的 `AGENTS.md` 当附加指令**全文注入**（18 KB 过期指令进每个 docs 上下文），改名（原待决项 `docs/DOMAIN.md`）等于留在原地，**该待决策项就此关闭：不改名**。归档前把它仅存的两条判据（经营归属并集口径、抢单池跨租户可见面）搬进 §1.1。
 

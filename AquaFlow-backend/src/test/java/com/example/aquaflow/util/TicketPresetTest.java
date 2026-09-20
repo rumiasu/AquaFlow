@@ -9,14 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
- * 统一水票**平台预设档**的纯规则（v54）。
+ * 站级「统一折扣」**平台预设档**的纯规则（v58）。
  *
- * <p>为什么给这几个算式单独写用例：预设档是"一键填入"的草稿，站长点一下就把数字填进表单、
- * 再点保存就**快照进批次单价**。算错一位就是"界面写 8.55、批次存 8.54"这种
+ * <p>为什么给这几个算式单独写用例：预设档是"一键填入"的草稿，站长点一下就把张数与折扣填进表单、
+ * 再点保存就**按各款水的价算出均价并快照进批次**。算错一位就是"界面写 8.55、批次存 8.54"这种
  * 展示与账目分叉（本仓把"展示与快照同源"当硬规则，见 {@code TicketPackageController.save}
  * 的 {@code unitPrice = price / qty}）。</p>
  */
-@DisplayName("统一水票 · 平台预设档（util/TicketPreset）")
+@DisplayName("统一折扣 · 平台预设档（util/TicketPreset）")
 class TicketPresetTest {
 
     private static final BigDecimal BASE_9 = new BigDecimal("9.00");

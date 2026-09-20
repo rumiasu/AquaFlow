@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>为什么需要它：</b>商品图片有两种来源，前端只认一个 {@code imageUrl} 字段：</p>
  * <ol>
- *   <li><b>平台预设图</b>：值形如 {@code /assets/product/barrel-water.webp}，是<b>小程序包内本地资源</b>，
+ *   <li><b>本地资源</b>：值形如 {@code /assets/product/pulisi-pure.webp}，是<b>小程序包内本地资源</b>，
  *       前端可直接当 {@code src} 使用，无需签名、不会过期；</li>
  *   <li><b>COS 对象键</b>：值是对象键（如 {@code product/xxx.jpg}），必须经
  *       {@link CosUtil#generatePublicUrl} 签成 24 小时有效的临时 URL 才能显示。</li>

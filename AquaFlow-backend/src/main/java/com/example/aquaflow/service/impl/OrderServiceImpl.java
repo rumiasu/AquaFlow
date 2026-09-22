@@ -511,9 +511,10 @@ public class OrderServiceImpl implements OrderService {
         orders.setDeliveryBucketQty(totalNeededBuckets > 0 ? totalNeededBuckets : null);
         orders.setFirstBarrelOrder(firstStationAsset && totalNeededBuckets > 0);
         orders.setIdempotencyKey(idempotencyKey);
-        // 账期快照：客户设了账期且本单是现金(货到付款)时才有应付日期，其余为 null（即时结清）。
+        // 账期快照：该客户在**本站**设了账期、且本单是现金(货到付款)时才有应付日期，其余为 null（即时结清）。
         // 只有下单这一次会算它，之后 due_date 只读（见 ReceivableService.resolveDueDate）。
-        orders.setDueDate(receivableService.resolveDueDate(dto.getCustomerId(), dto.getPaymentMethod()));
+        // ⚠️ 必须传 stationId：账期是**站级**的（v60），同一家公司在 A 站月结、在 B 站可能只能现结。
+        orders.setDueDate(receivableService.resolveDueDate(dto.getCustomerId(), stationId, dto.getPaymentMethod()));
         orders.setStatus(1);
         orders.setCreateTime(LocalDateTime.now());
         orders.setUpdateTime(LocalDateTime.now());
@@ -698,8 +699,8 @@ public class OrderServiceImpl implements OrderService {
      *
      * 设计要点：
      * 1. 归属校验——只能取消自己的订单；
-     * 2. 状态校验——客户仅可取消"待配送"(PENDING)，已进入配送环节需联系水站，
-     *    避免骑手已出发却被撤单；
+     * 2. 状态校验——客户仅可取消"待配送"(PENDING)；配送中需由站长审批（本方法只提交申请），
+     *    已送达及以上**直接拒**（货已交付，走「配送异常」），避免骑手已出发却被撤单、或已交付的单被抹掉；
      * 3. 完整回滚下单副作用：回补库存、退还押金、清理配送中桶、退还已消耗的水票，
      *    并同步支付状态（未付款→已取消；已付款→已退款）。
      * <p>上面这些回滚动作与站点侧"退款并取消"完全一致，因此统一委托给
@@ -718,10 +719,11 @@ public class OrderServiceImpl implements OrderService {
 
         int status = order.getStatus() != null ? order.getStatus() : 0;
         if (!OrderStatus.isCancellable(status)) {
-            throw new BusinessException("当前订单状态不可取消，如需帮助请联系水站");
+            throw new BusinessException(OrderStatus.notCancellableReason(status));
         }
-        // [2026-09-14] 已接单（配送中/已送达）的订单，客户不能自助取消，
-        // 只能提交取消申请，由站长审批；同意后才走 refundOrder 完整退款链。
+        // 已接单（配送中）的订单，客户不能自助取消，只能提交取消申请，由站长审批；
+        // 同意后才走 refundOrder 完整退款链 —— **配送中的单"取消"这个动作只有配送端能做**。
+        // 已送达(3) 及以上走不到这里：上面那道 isCancellable 已经直接拒了（文案指向「配送异常」）。
         if (status != OrderStatus.PENDING) {
             orderWorkflowService.requestCancelByCustomer(orderId, customerId, "客户申请取消");
             log.info("[OrderService] 客户取消申请已提交 orderId={}, customerId={}", orderId, customerId);

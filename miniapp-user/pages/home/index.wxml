@@ -156,7 +156,10 @@
         <text class="sum-total sum-total-empty">¥0</text>
         <text class="sum-detail">（未选商品）</text>
       </view>
-      <text class="sum-sub">{{total.count > 0 ? '已选 ' + total.count + ' 件 · 配送免运费' : '选中数量后自动合计'}}</text>
+      <!-- ⚠️ 原来写死「配送免运费」：配送费是站级配置（v35），站长一旦配了费，
+           首页承诺免运费、结算页照收 —— 客户拿着两张截图来吵架。
+           首页算不出运费（还没选地址），所以这里**不做费用承诺**，只报件数并指向结算页报价。 -->
+      <text class="sum-sub">{{total.count > 0 ? '已选 ' + total.count + ' 件 · 配送费以结算页报价为准' : '选中数量后自动合计'}}</text>
     </view>
     <!-- 主按钮：蓝色合法出现处 ②；置灰用 #C9C4B8，不是浅蓝 -->
     <view class="cta {{total.count > 0 ? '' : 'off'}}" bindtap="onSubmit">下单</view>

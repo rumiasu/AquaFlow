@@ -2,12 +2,27 @@
   <loading wx:if="{{loading}}"></loading>
 
   <view class="ticket-content" wx:else>
+    <!--
+      数据没加载出来的提示（空串时不渲染）。[2026-09-20 真机联调] 原来任一请求失败都被静默吞掉，
+      页面照旧显示「0 张 / 暂无水票 / 暂无记录」。样式复用 styles/common.wxss 的 .load-error。
+    -->
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+
+    <!-- 当前水站：水票按「客户 × 水站」隔离（A 站买的票不能抵 B 站的单，也不在 B 站显示）。
+         不写清楚，客户换个站就会以为"我的票少了" —— 站长接到这种电话也解释不了。
+         文案与样式照抄 pages/deposit/records（那里已有同一条提示条，保持一致）。 -->
+    <view class="station-bar" wx:if="{{currentStation && currentStation.name}}">
+      <text class="station-bar-name">{{currentStation.name}}</text>
+      <text class="station-bar-tip">水票按水站独立，这里只显示该站的水票</text>
+    </view>
+
     <!-- 可用水票卡片 -->
     <view class="ticket-balance-card">
       <view class="balance-left">
         <text class="balance-label">可用水票</text>
         <view class="balance-amount">
-          <text class="balance-count">{{totalTickets}}</text>
+          <!-- [2026-09-20] 余额没拉到就显示「—」：显示 0 张会让客户以为票没了（钱的事，宁可不显示数） -->
+          <text class="balance-count">{{accountsFailed ? '—' : totalTickets}}</text>
           <text class="balance-unit">张</text>
         </view>
         <text class="balance-total" wx:if="{{totalValue > 0}}">共计 ¥{{totalValue}}</text>

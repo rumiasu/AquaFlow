@@ -1,5 +1,6 @@
 package com.example.aquaflow.service;
 
+import com.example.aquaflow.constant.SettlementCycle;
 import com.example.aquaflow.entity.CompanyInfo;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.CustomerEnterpriseApply;
@@ -8,6 +9,7 @@ import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.CompanyInfoMapper;
 import com.example.aquaflow.mapper.CustomerEnterpriseApplyMapper;
 import com.example.aquaflow.mapper.CustomerMapper;
+import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.mapper.StationEnterpriseConfigMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +58,16 @@ public class EnterpriseIdentityService {
 
     @Autowired
     private StationEnterpriseConfigMapper configMapper;
+
+    /**
+     * 账期的写入口（v60 起账期是**站级**配置，落在 {@code customer_station_config}）。
+     *
+     * <p>⚠️ 这里注入 mapper 而不是 {@code ReceivableService}：后者依赖 {@code PaymentService}，
+     * 而 {@code PaymentServiceImpl} 又依赖本类（`largeOrderHint`）—— 走 service 会形成循环依赖。
+     * 平台默认值本身是常量（{@link SettlementCycle}），不存在两处各写一套数字的问题。</p>
+     */
+    @Autowired
+    private CustomerStationConfigMapper customerStationConfigMapper;
 
     /** 总开关：默认关闭。关掉后本功能的端点一律拒绝、报价不再下发提示。 */
     @Value("${app.enterprise.enabled:false}")
@@ -270,6 +282,25 @@ public class EnterpriseIdentityService {
             companyInfoMapper.updateByCustomerId(info);
         }
         log.info("[企业身份] 客户 {} 的申请 {} 已通过（站 {}）", apply.getCustomerId(), applyId, stationId);
+
+        // [v60] 一键套用平台默认账期 —— 「点开启企业账户时可以一键使用，然后后续可以重设」。
+        //
+        // 为什么默认是「月结 30 天」：企业主流是"本月消费、下月结账"（见 constant/SettlementCycle）。
+        // 站长的动作因此只是"点一下通过"，不需要理解什么是结算周期、也不需要填数
+        // —— 站长主要是力工，每多一个要填的框就多一份误判风险。
+        //
+        // ⚠️ 这里**直接调 mapper 而不调 ReceivableService**：后者依赖 PaymentService，
+        // 而 PaymentServiceImpl 又依赖本类（`largeOrderHint`），绕过去会形成循环依赖。
+        // 平台默认值本身是常量（SettlementCycle），不存在两处各写一套数字的问题。
+        //
+        // ⚠️ 只写**站级**配置：客户在别的站有没有账期不受影响（v60 起账期按 (customer, station) 隔离）。
+        customerStationConfigMapper.ensureExists(apply.getCustomerId(), stationId);
+        customerStationConfigMapper.updateCreditTerms(apply.getCustomerId(), stationId,
+                SettlementCycle.PLATFORM_DEFAULT_DUE_DAYS, SettlementCycle.PLATFORM_DEFAULT);
+        log.info("[企业身份] 已为客户 {} 在站 {} 套用平台默认账期：{} {} 天",
+                apply.getCustomerId(), stationId,
+                SettlementCycle.textOf(SettlementCycle.PLATFORM_DEFAULT),
+                SettlementCycle.PLATFORM_DEFAULT_DUE_DAYS);
     }
 
     private void requireEnabled() {

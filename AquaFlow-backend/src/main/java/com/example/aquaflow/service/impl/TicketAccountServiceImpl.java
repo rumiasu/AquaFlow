@@ -427,6 +427,15 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         if (qty == null || qty <= 0) {
             throw new BusinessException("购买数量必须大于0");
         }
+        // [2026-09-20] 收款方式只允许「微信/线下收款申请(1)」与「现金(2)」。
+        // 3 = 水票：购票场景下"用水票买水票"没有任何业务含义，而此前是**传什么存什么**，
+        // 实测 paymentMethod=3 也能建出一条待收款流水（凭据记的收款方式与事实不符）。
+        // ⚠️ 这里**不**套用"货到付款授权"（offlinePaymentBlockReason）：购票是**预付** ——
+        //    客户先把钱给水站才拿到票，水站没有赊账风险；那个授权管的是"送水时再收钱"。
+        if (!Integer.valueOf(PayMethod.WECHAT).equals(paymentMethod)
+                && !Integer.valueOf(PayMethod.CASH).equals(paymentMethod)) {
+            throw new BusinessException("购票只支持微信/现金两种收款方式");
+        }
         if (packageId != null && unifiedQty != null) {
             throw new BusinessException("一次只能按一种档位购票，请重新选择");
         }

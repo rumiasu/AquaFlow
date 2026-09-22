@@ -97,6 +97,17 @@ jobs:
           python3 audit_comments.py
           python3 audit_js_syntax.py
 
+      # 场景测试矩阵门禁（2026-09-21 新增）。
+      # 为什么需要它：docs/audit/2026-09-16-场景测试矩阵.md 是 AGENTS.md §5 指定的
+      # 「新增用例前先看它找空白」入口，但它是一份**手写文档**，而测试类会被改名、合并、删除
+      # —— 文档说「这条有断言」，人就会信；那个类其实没了，覆盖就是一个洞
+      # （同 §8 第 14 条「被信任的文本比没有文本更危险」）。
+      # 它查三件事：① 引用的测试类/方法必须真实存在；② 标 ✅ 的行必须指得出可核对的证据
+      # （测试类/方法/脚本/报告，或显式写明「live 实测」）；③ 件数 STATS 块必须与本次实测一致。
+      # ⚠️ 必须放在集成测试**之后**：③ 依赖 build/test-results/test/*.xml。
+      - name: 场景测试矩阵一致性门禁
+        run: python3 audit_scenario_matrix.py
+
       - name: 敏感信息扫描（只报位置，不回显内容）
         run: bash scripts/scan-secrets.sh
 

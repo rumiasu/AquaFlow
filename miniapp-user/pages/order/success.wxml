@@ -10,12 +10,17 @@
     <text class="success-desc" wx:elif="{{paymentStatus === 4}}">支付已取消，请重新支付 ¥{{orderAmount}}</text>
     <text class="success-desc" wx:elif="{{paymentStatus === 2}}">支付已完成，我们会尽快为您配送</text>
     <text class="success-desc" wx:else>我们会尽快为您配送</text>
+    <!-- 付款说明由后端下发（payHint）：没有在线支付入口时，用它解释"钱怎么付"，
+         而不是留一个点了没用的按钮。 -->
+    <text class="success-desc" wx:if="{{payHint}}">{{payHint}}</text>
   </view>
 
-  <!-- 去支付按钮 -->
-  <view class="pay-section" wx:if="{{paymentStatus === 0 || paymentStatus === 1 || paymentStatus === 4}}">
+  <!-- 去支付按钮：条件一律用后端下发的 canRepay，不用 paymentStatus 自己判断。
+       原写法 paymentStatus in (0,1,4) 会让现金单（货到付款，payment_status=1）
+       也显示「去支付」：客户点一下就多一条待收款流水，而现金本该当面收。 -->
+  <view class="pay-section" wx:if="{{canRepay}}">
     <view class="pay-btn" bindtap="onPayNow">
-      <text class="pay-btn-text">去支付 ¥{{orderAmount}}</text>
+      <text class="pay-btn-text">{{repayLabel}} ¥{{orderAmount}}</text>
     </view>
   </view>
 

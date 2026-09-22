@@ -58,9 +58,16 @@
         <text class="ledger-label">单数</text>
         <text class="ledger-value">{{report.orderCount}} 单</text>
       </view>
+      <!-- 收入按【来源】分列（2026-09-20 产品口径）：水票收入只在客户「买票」那一刻计一次，
+           用票下的单不再重复计水费与配送费 —— 所以它必须单独一行，否则站长看不出来钱从哪来。
+           明细：订单收入（水费） + 水票收入 + 配送费 + 楼层费 = 收入合计（与后端同一条加法）。 -->
       <view class="ledger-row">
-        <text class="ledger-label">水费收入</text>
-        <text class="ledger-value">¥{{report.totalRevenue}}</text>
+        <text class="ledger-label">订单收入（水费）</text>
+        <text class="ledger-value">¥{{report.orderRevenue}}</text>
+      </view>
+      <view class="ledger-row">
+        <text class="ledger-label">水票收入（买票实收）</text>
+        <text class="ledger-value">¥{{report.ticketRevenue}}</text>
       </view>
       <view class="ledger-row">
         <text class="ledger-label">配送费</text>

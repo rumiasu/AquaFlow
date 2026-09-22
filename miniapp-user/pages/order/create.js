@@ -468,9 +468,12 @@ this.setData({ products, stationName: effectiveStationName })
         const enterpriseHint = d.enterpriseHint || ''
 
         // 支付方式列表由服务端下发（含文案、可用性、默认项），前端不再硬编码 1/2/3 的含义
+        // ⚠️ 这个兜底本身有隐患，已登记待处理（审计报告 §6.5）：methods 缺失时它只造出"水票支付"一项 ——
+        // 客户会看到一个唯一选项而票可能是 0 张，且现金/微信凭空消失，比"明确提示报价失败并重试"更误导。
+        // 本轮只同步文案（不扩大改动范围）。
         const payMethods = Array.isArray(d.methods) && d.methods.length
           ? d.methods
-          : [{ id: 3, name: '水票支付', desc: '使用账户水票抵扣', enabled: true }]
+          : [{ id: 3, name: '水票支付', desc: '使用账户水票抵扣 · 票不足可先购买水票', enabled: true }]
         // 当前选中项若已不可用（权限被收回），回退到服务端给的默认值。
         // [2026-09-19] selectedMethod 的初值来自"上次用过的支付方式"（本地偏好），
         // 所以这一句同时也是**记住的方式在本站不可用时的回退点**。
@@ -626,13 +629,26 @@ this.setData({ products, stationName: effectiveStationName })
       await this.refreshQuote()
       const tp = this.data.ticketPay
       if (tp && !tp.fullyCovered) {
+        // 标题与结论都由后端下发：它要区分"某商品根本不能用票（补票也没用）"
+        // 与"票不够（补票或者改选）"，前端分不出来也不该分。
+        // [2026-09-20] 按钮从只有一个"知道了"改成**可执行的两个动作**：
+        //   · 「去买水票」→ 跳购票页（这就是"先补齐水票再下单"那条路，也是购票页的**唯一入口**）；
+        //   · 「留在本页」→ 关掉弹窗回结算页改选支付方式（货到付款/微信在那里切）。
+        // 原实现客户看完提示只能自己去找购票入口 —— 而全仓根本没有跳转购票页的地方，等于死路。
+        // 判定用后端下发的结构化 reason，**不比对 title 文案**（文案是给人看的，不是判据）。
+        const canBuyTicket = tp.reason === 'INSUFFICIENT'
         wx.showModal({
-          // 标题与结论都由后端下发：它要区分"某商品根本不能用票（补票也没用）"
-          // 与"票不够（补票或者改选）"，前端分不出来也不该分
           title: tp.title || '暂不能用票支付',
           content: tp.hint || '水票不足以覆盖本单，请改选支付方式或先补齐水票',
-          showCancel: false,
-          confirmText: '知道了'
+          showCancel: canBuyTicket,
+          confirmText: canBuyTicket ? '去买水票' : '改选支付方式',
+          cancelText: '留在本页',
+          success: (r) => {
+            // 只有"余额不够"才把人引去买票；"商品根本不能用票"时补票没用（后端 hint 已写明）
+            if (canBuyTicket && r.confirm) {
+              wx.navigateTo({ url: '/pages/ticket/index' })
+            }
+          }
         })
         return
       }

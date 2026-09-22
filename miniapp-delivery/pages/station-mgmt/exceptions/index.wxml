@@ -87,6 +87,13 @@
               <text class="ex-value">{{item.managerNote}}</text>
             </view>
             <text class="ex-time">{{item.timeText}}</text>
+            <!-- 处置入口（2026-09-20 产品批准开放「A1」）：只有两个动作。
+                 ⚠️ 这里**没有任何金额/数量输入框** —— 「按系统建议补偿」的明细由后端下发、前端原样提交，
+                 人手输入金额在本仓出过事故（design/20 §9.3 的护栏之一）。 -->
+            <view class="ex-actions" wx:if="{{item.pending}}">
+              <view class="ex-btn ex-btn-ghost" data-id="{{item.id}}" bindtap="onIgnore">忽略</view>
+              <view class="ex-btn ex-btn-primary" data-id="{{item.id}}" bindtap="onApproveSuggested">按系统建议补偿</view>
+            </view>
           </view>
         </block>
 

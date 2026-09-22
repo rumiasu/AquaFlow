@@ -36,18 +36,23 @@ public interface ReceivableMapper {
      * <p>排序刻意是「先看逾期金额」：站长打开页面第一眼该看到的是"谁欠得最久"，
      * 而不是"谁欠得最多"。</p>
      *
-     * <p>⚠️ {@code dueDays} 是<b>客户级账期</b>（{@code company_info.due_days}），
+     * <p>⚠️ {@code dueDays} 是<b>该客户在</b>{@code stationId} <b>这个站的账期</b>
+     * （{@code customer_station_config.due_days}，v60 起账期是**站级**的），
      * 与订单级的 {@code earliestDueDate} 不是一回事：前者是"以后按多少天月结"，
      * 后者是"已有订单里最早哪天到期"。台账页两个都要显示 ——
      * 少了 {@code dueDays}，页面会把已设账期的客户一律显示成"未设账期（即时结清）"，
      * 而那种错误不会报错，只会让站长按错的方式报价。</p>
+     *
+     * <p>[v60] 原实现读的是客户级的 {@code company_info.due_days}。账期改站级之后
+     * **必须一起改这里** —— 否则台账页会永远显示"未设账期"，而真正的账期在配置表里躺着。
+     * 这正是 AGENTS.md 那条"废弃一列前先全仓 grep 它的读取点"要防的事。</p>
      */
     @Select("select o.customer_id as customerId, c.name as customerName, "
             + "count(*) as orderCount, "
             + "coalesce(sum(o.total_amount), 0) as outstandingAmount, "
             + "sum(case when o.due_date is not null then 1 else 0 end) as creditOrderCount, "
             + "min(o.due_date) as earliestDueDate, "
-            + "max(ci.due_days) as dueDays, "
+            + "max(csc.due_days) as dueDays, "
             + "coalesce(sum(case when o.due_date is not null and o.due_date < curdate() "
             + "                  then o.total_amount else 0 end), 0) as overdueAmount, "
             + "coalesce(sum(case when o.due_date is not null and o.due_date < curdate() "
@@ -55,7 +60,8 @@ public interface ReceivableMapper {
             + "coalesce(max(case when o.due_date is not null and o.due_date < curdate() "
             + "                  then datediff(curdate(), o.due_date) else 0 end), 0) as maxOverdueDays "
             + "from orders o join customer c on c.id = o.customer_id "
-            + "left join company_info ci on ci.customer_id = o.customer_id "
+            + "left join customer_station_config csc on csc.customer_id = o.customer_id "
+            + "     and csc.station_id = #{stationId} "
             + "where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "and o.payment_status = 1 and o.status <> 5 "
             + "group by o.customer_id, c.name "

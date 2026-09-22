@@ -132,6 +132,15 @@ public class ManagerGrossProfitController {
         List<Map<String, Object>> rows = grossProfitMapper.grossProfitByProduct(
                 stationId, start.atStartOfDay(), end.plusDays(1).atStartOfDay());
 
+        // [2026-09-20 产品口径] 水票收入**只在买票那一刻计一次**，用票下单/配送不再重算。
+        // 所以收入有两个来源，必须分开统计再相加：漏了它水票收入就凭空消失（票单已从订单侧排除），
+        // 按挂牌价再算一次又是重复计。
+        BigDecimal ticketRevenue = BigDecimal.ZERO;
+        for (Map<String, Object> tr : grossProfitMapper.ticketPurchaseRevenueByProduct(
+                stationId, start.atStartOfDay(), end.plusDays(1).atStartOfDay())) {
+            ticketRevenue = ticketRevenue.add(dec(tr.get("ticketRevenue")));
+        }
+
         BigDecimal totalRevenue = BigDecimal.ZERO;
         BigDecimal totalCost = BigDecimal.ZERO;
         int missingCostKinds = 0;
@@ -164,10 +173,16 @@ public class ManagerGrossProfitController {
         data.put("from", start.toString());
         data.put("to", end.toString());
         data.put("items", items);
-        data.put("totalRevenue", totalRevenue);
+        // 收入按来源分开给（站长能看出钱从哪来）：订单侧 = 水费，仅非水票单；
+        // 水票侧 = 客户买票时的实收。totalRevenue 是两者之和，页面必须能对上这一层加法。
+        BigDecimal orderRevenue = totalRevenue;
+        BigDecimal revenueAll = orderRevenue.add(ticketRevenue);
+        data.put("orderRevenue", orderRevenue);
+        data.put("ticketRevenue", ticketRevenue);
+        data.put("totalRevenue", revenueAll);
         data.put("totalCost", totalCost);
         // 合计毛利只在**所有商品都有成本**时才给，否则给出 null + 提示
-        data.put("totalProfit", missingCostKinds > 0 ? null : totalRevenue.subtract(totalCost));
+        data.put("totalProfit", missingCostKinds > 0 ? null : revenueAll.subtract(totalCost));
         data.put("missingCostKinds", missingCostKinds);
         data.put("costBasisNote", COST_BASIS_NOTE);
         data.put("missingCostHint", missingCostKinds > 0

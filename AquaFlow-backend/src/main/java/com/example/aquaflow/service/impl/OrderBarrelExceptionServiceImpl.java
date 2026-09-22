@@ -53,6 +53,20 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
     @Autowired
     private DepositRecordService depositRecordService;
 
+    /**
+     * 桶账的**唯一写入口** —— 拒付核销要撤权益、记欠桶，必须经它。
+     *
+     * <p>⚠️ 不要直连 {@code CustomerBarrelOverMapper.adjustOver}：并发写 over 必须先加排他行锁、
+     * 再用当前读取最新值（REPEATABLE READ 下普通 SELECT 读的是旧快照，DEF-4），
+     * 绕过这套协议会算错欠桶。</p>
+     */
+    @Autowired
+    private com.example.aquaflow.service.BarrelLedgerService barrelLedgerService;
+
+    /** 拒付核销要按订单明细逐商品撤权益。 */
+    @Autowired
+    private com.example.aquaflow.mapper.OrderItemMapper orderItemMapper;
+
     /** 分级告警：运营故障投给站长、系统故障投给系统管理员（见 constant/AlertType） */
     @Autowired
     private com.example.aquaflow.service.AlertService alertService;
@@ -307,6 +321,110 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
                             + "，调整桶资产=" + (ex.getAdjustAssetQty() == null ? 0 : ex.getAdjustAssetQty()),
                     "ORDER_BARREL_EXCEPTION", ex.getId());
         }
+    }
+
+    /**
+     * 拒付结案（核销认损）：客户收了货但拒不付款，站长认下这笔损失并把它一次性收口。
+     *
+     * <p><b>为什么要有这个动作</b>：客户拒付发生在<b>已送达(3)</b>之后，而「已送达不可取消」
+     * （见 {@code OrderStatus.isCancellable}）之后，订单没有别的出路 ——
+     * 钱收不回来、桶追不回来、订单永远挂在站长的「待收款」台账上。本方法是那个收口。</p>
+     *
+     * <p><b>它做三件事，三件缺一不可</b>：</p>
+     * <ol>
+     *   <li><b>核销那笔收不回来的钱</b>：{@code payment_status} 待收款(1) → 已取消(4)。
+     *       ⚠️ 这不是"倒滚"——状态只前进，且 4 是终态；语义与取消链完全一致
+     *       （{@code PaymentServiceImpl.refundOrder} 对"钱从没收到过"的单也是置 4）。
+     *       效果：待收款口径（{@code payment_status = 1}）自动不再包含它，
+     *       而<b>它为什么消失，留在这张异常单里</b>（谁、什么时候、什么原因）。</li>
+     *   <li><b>撤销这张单送出、客户尚未归还的桶权益</b>：权益是"可退押金的桶"，客户能拿它换钱，
+     *       可我们从未收到过那笔押金 —— 留着就是白送。</li>
+     *   <li><b>把等量的桶记成客户欠桶</b>：桶在客户手上、但不算卖给他。
+     *       ⚠️ 只做第 2 步不做这一步，占用（= 权益 + over）会凭空少掉，
+     *       物理桶数在账上消失；做完两步占用 = 0 + N = N，与实物一致，站长也能靠欠桶台账去追。</li>
+     * </ol>
+     *
+     * <p><b>只允许从「待处理 / 已审批」进入</b>（CAS）：钱与桶账都只许动一次，
+     * 重复点核销不能重复撤权益。已核销/已忽略的再次调用会报错而不是静默跳过。</p>
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void writeOffForRefusal(Long exceptionId, String managerNote) {
+        OrderBarrelException ex = exceptionMapper.getById(exceptionId);
+        if (ex == null) {
+            throw new BusinessException("异常记录不存在: " + exceptionId);
+        }
+        String from = ex.getStatus();
+        if (!"STAFF_RECORDED".equals(from) && !"MANAGER_APPROVED".equals(from)) {
+            throw new BusinessException("该异常已结案或状态不允许核销（当前=" + from + "）");
+        }
+        String note = (managerNote != null && !managerNote.isBlank()) ? managerNote : "客户拒付，站长核销认损";
+
+        // 先 CAS 收口异常单：拿不到行数说明已被别人处理过，此时绝不能继续动钱与桶账
+        int decided = exceptionMapper.updateDecisionIf(ex.getId(), from, "WRITE_OFF",
+                null, null, null, null, note, "EXECUTED");
+        if (decided == 0) {
+            throw new BusinessException("该异常已被处理，请刷新后重试");
+        }
+
+        Orders order = orderMapper.getById(ex.getOrderId());
+        if (order == null) {
+            throw new BusinessException("订单不存在: " + ex.getOrderId());
+        }
+        Long customerId = ex.getCustomerId();
+        Long stationId = ex.getStationId();
+        Long operatorId = AuthContext.getUserId();
+
+        // ---- ① 核销应收 ----
+        int payCur = order.getPaymentStatus() != null
+                ? order.getPaymentStatus() : com.example.aquaflow.constant.PaymentStatus.UNPAID;
+        if (payCur == com.example.aquaflow.constant.PaymentStatus.PENDING) {
+            if (orderMapper.updatePaymentStatusIf(order.getId(),
+                    com.example.aquaflow.constant.PaymentStatus.PENDING,
+                    com.example.aquaflow.constant.PaymentStatus.CANCELLED) == 0) {
+                throw new BusinessException("订单支付状态已变更，本次核销已回滚，请刷新后重试");
+            }
+        } else if (payCur != com.example.aquaflow.constant.PaymentStatus.CANCELLED) {
+            // 已付/已退的单不该走拒付核销 —— 那是退款流程的事，别在这里揉
+            throw new BusinessException("只有「待收款」的订单可拒付核销，当前支付状态=" + payCur);
+        }
+
+        // ---- ② + ③ 撤权益、记欠桶（逐商品，上限 = 该商品当前权益）----
+        // 非桶装商品没有权益批次 → rightQty 返回 0 → 自然跳过，不必额外判 category。
+        List<com.example.aquaflow.entity.OrderItem> items = orderItemMapper.listByOrderId(order.getId());
+        int revoked = 0;
+        if (items != null) {
+            for (com.example.aquaflow.entity.OrderItem it : items) {
+                if (it.getProductId() == null || it.getQuantity() == null || it.getQuantity() <= 0) {
+                    continue;
+                }
+                int rights = barrelLedgerService.rightQty(customerId, stationId, it.getProductId());
+                int take = Math.min(it.getQuantity(), rights);
+                if (take <= 0) {
+                    continue;
+                }
+                // consumeLots 只动批次，decreaseRight 动权益汇总 —— 两个都要，缺一个 E3 就不平
+                com.example.aquaflow.service.BarrelLedgerService.LotConsumption consumed =
+                        barrelLedgerService.consumeLots(customerId, stationId, it.getProductId(), take, null, false);
+                barrelLedgerService.decreaseRight(customerId, stationId, it.getProductId(), take, consumed.getAmount());
+                barrelLedgerService.adjustOver(customerId, stationId, it.getProductId(), take, operatorId);
+                revoked += take;
+            }
+        }
+
+        // ---- 订单留痕：账上少了一笔应收、多了 N 个欠桶，必须能查出"是谁在什么时候改的" ----
+        orderMapper.appendSpecialNote(order.getId(),
+                "[拒付核销] 异常单 " + ex.getId() + " 收口：" + note
+                        + "；核销应收、撤销桶权益 " + revoked + " 个并记为客户欠桶（操作人 " + operatorId + "）");
+
+        alertService.stationFault(stationId, "WARN", "OrderBarrelException",
+                "客户拒付已核销：exceptionId=" + ex.getId(),
+                "订单 " + order.getId() + " 的应收已核销（不再计入待收款），"
+                        + "撤销桶权益 " + revoked + " 个并记为客户欠桶。备注=" + note,
+                "ORDER_BARREL_EXCEPTION", ex.getId());
+
+        log.info("[OrderBarrelException] 拒付核销完成: exceptionId={}, orderId={}, 撤销权益={} 个",
+                ex.getId(), order.getId(), revoked);
     }
 
     @Override

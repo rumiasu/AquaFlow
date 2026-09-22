@@ -367,6 +367,99 @@ public interface OrderMapper {
             + "and due_date is not null and due_date < curdate()")
     java.math.BigDecimal sumOverdueCashAmount(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
+    /**
+     * 本站**有赊账的客户**批量摘要（未结赊账 / 逾期笔数 / 最长逾期天数）—— 订单列表上色用。
+     *
+     * <p>一次查完，避免列表页逐行算风险造成 N+1。判据与 {@link #sumOutstandingCredit}、
+     * {@link #countOverdueCashOrders}、{@link #maxOverdueDaysForCredit} **同源**
+     * （同一组 where 条件），四处必须一起改。</p>
+     */
+    @Select("select customer_id as customerId, coalesce(sum(water_amount), 0) as outstandingCredit, "
+            + "sum(case when due_date is not null and due_date < curdate() then 1 else 0 end) as overdueCount, "
+            + "coalesce(max(case when due_date is not null and due_date < curdate() "
+            + "                  then datediff(curdate(), due_date) else 0 end), 0) as maxOverdueDays "
+            + "from orders where station_id = #{stationId} and status <> 5 "
+            + "and payment_status = 1 and payment_method = 2 "
+            + "group by customer_id")
+    List<java.util.Map<String, Object>> creditSummaryByStation(@Param("stationId") Long stationId);
+
+    /**
+     * 该客户在本站赊账的**最长逾期天数**（0 = 没有逾期的）—— 风险等级升级为「冻结」的判据。     *
+     * <p>判据与 {@link #countOverdueCashOrders} / {@link #sumOverdueCashAmount} **逐字同源**
+     * （同一组 where 条件），三处必须一起改：分叉会出现"看板说逾期 20 天、却按 5 天判冻结"。</p>
+     */
+    @Select("select coalesce(max(datediff(curdate(), due_date)), 0) from orders "
+            + "where customer_id = #{customerId} and station_id = #{stationId} "
+            + "and status <> 5 and payment_status = 1 and payment_method = 2 "
+            + "and due_date is not null and due_date < curdate()")
+    int maxOverdueDaysForCredit(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
+    /**
+     * 该客户在本站**未结清的赊账**（含未到期与已逾期）—— 验资与额度用。
+     *
+     * <p>两个口径都必须与"可赊额度"对齐，否则会自己把自己判成超额度：</p>
+     * <ul>
+     *   <li>只算 {@code payment_method = 2}（现金/赊账）：微信未付单与水票未付单不是赊账，
+     *       它们收不到钱根本不会进配送流程；</li>
+     *   <li>只算 {@code water_amount}：<b>押金不算</b> —— 押金是客户资产（可退）、由他手上的桶担保，
+     *       把它算进"欠款"会凭空放大敞口。这与 {@code EnterpriseIdentityService} 的大额口径同源
+     *       （产品原话：「企业的只看水，押金不算」）。</li>
+     * </ul>
+     * <p>⚠️ 2026-09-21 实测踩过：这里原先用 {@code total_amount}（水费 + 押金），
+     * 而额度只按水费算 —— 于是"按额度上限买 20 桶水"会被判成超额度（1000 &gt; 400）。</p>
+     */
+    @Select("select coalesce(sum(water_amount), 0) from orders where customer_id = #{customerId} and station_id = #{stationId} "
+            + "and status <> 5 and payment_status = 1 and payment_method = 2")
+    java.math.BigDecimal sumOutstandingCredit(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
+    /**
+     * 该客户在本站近 N 天的**水费**合计 —— 验资用（算"他平时一个月买多少水"）。
+     *
+     * <p>只算 {@code water_amount}：押金是客户资产不是消费、配送费与楼层费是履约成本，
+     * 三者都不代表这个客户的采购规模（与 {@code EnterpriseIdentityService} 的大额口径同源：只算水）。</p>
+     */
+    @Select("select coalesce(sum(water_amount), 0) from orders "
+            + "where customer_id = #{customerId} and station_id = #{stationId} and status <> 5 "
+            + "and create_time >= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)")
+    java.math.BigDecimal sumWaterAmountSince(@Param("customerId") Long customerId,
+                                             @Param("stationId") Long stationId,
+                                             @Param("days") int days);
+
+    /**
+     * 本站**每个客户**近 N 天的水费合计（{@code customerId → water90}）—— 订单列表批量算可赊额度用。
+     *
+     * <p>⚠️ where 条件必须与 {@link #sumWaterAmountSince} <b>逐字同源</b>（只多"按客户分组"这一处）：
+     * 少一个条件，列表算出的额度就与客户详情页 / 退押金拦截用的是两个数 ——
+     * 同一个客户在列表上标黄、点进去变红（口径只有一份，见 AGENTS §6.1）。</p>
+     */
+    @Select("select customer_id as customerId, coalesce(sum(water_amount), 0) as water90 from orders "
+            + "where station_id = #{stationId} and status <> 5 "
+            + "and create_time >= DATE_SUB(CURDATE(), INTERVAL #{days} DAY) group by customer_id")
+    List<java.util.Map<String, Object>> waterAmountSinceByStation(@Param("stationId") Long stationId,
+                                                                 @Param("days") int days);
+
+    /**
+     * 该客户在本站**还没结清的挂账单**（有应付日期、未付、未取消）—— 供「账期重算」用。
+     *
+     * <p>只取挂账单（{@code due_date is not null}）：即时结清的单下单时就没有账期，
+     * 重算时不该给它凭空长出一个。</p>
+     */
+    @Select("select * from orders where customer_id = #{customerId} and station_id = #{stationId} "
+            + "and status <> 5 and payment_status = 1 and due_date is not null order by id")
+    List<Orders> listUnsettledWithDueDate(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
+    /**
+     * 改一张**还没结清**的挂账单的应付日期（「账期重算」专用）。
+     *
+     * <p>⚠️ {@code orders.due_date} 的常规约定是<b>下单时快照、之后只读</b>（与金额/地址快照同源）。
+     * 本方法是那个约定的**唯一例外**，且只允许站长显式触发；CAS 里的三个条件
+     * （{@code due_date is not null}、{@code payment_status = 1}、{@code status <> 5}）
+     * 保证它改不到已付/已取消/即时结清的单 —— 拿不到行数就跳过，不报错。</p>
+     */
+    @Update("update orders set due_date = #{dueDate}, update_time = NOW() where id = #{id} "
+            + "and due_date is not null and payment_status = 1 and status <> 5")
+    int updateDueDateIfUnsettled(@Param("id") Long id, @Param("dueDate") java.time.LocalDate dueDate);
+
     // ⚠️ 比同族查询多带 a.floor / a.has_elevator：这是**配送员自己的任务列表**，
     // 他要据此知道这一单要不要上楼（P0-2 的楼层字段此前只有计价在用，见 Orders 的字段注释）。
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
@@ -547,7 +640,7 @@ public interface OrderMapper {
      * （现金与水票除外，理由见该方法的 javadoc）。改一处必须改另一处，否则
      * 「站长看得到、配送员看不到」两边分叉。</p>
      */
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, c.name as customerName, c.phone as customerPhone, c.customer_type as customerType, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +

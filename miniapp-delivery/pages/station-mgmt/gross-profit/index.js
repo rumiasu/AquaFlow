@@ -188,6 +188,25 @@ Page({
   async onClearCost() {
     if (this.data.costSaving) return
     const p = this.data.costProduct
+    // [2026-09-20 预防层] 清空成本是**会影响历史数字**的动作，不能直接提交：
+    // 成本价是站级"当前值"（本版不做批次成本核算，见 GrossProfitMapper 文件头），
+    // 清掉之后该商品会一直显示「未填成本、毛利算不出」，而且**历史期间的毛利也一起变**。
+    // 写法与「拒单」「资产调整单」那两处一致：说清"会发生什么 + 能不能恢复"。
+    const ok = await new Promise((resolve) => {
+      wx.showModal({
+        title: '确认清除进货成本',
+        content: `将清除「${p.productName || '该商品'}」的进货成本价。\n\n`
+          + '清除后：\n'
+          + '1. 报表里这个商品会显示「未填成本，毛利算不出」\n'
+          + '2. 历史期间的毛利也会跟着变（成本不是批次快照）\n\n'
+          + '可以随时重新填入成本价恢复。',
+        confirmText: '确认清除',
+        confirmColor: '#FF3B30',
+        success: (r) => resolve(r.confirm)
+      })
+    })
+    if (!ok) return
+
     this.setData({ costSaving: true })
     try {
       await put(COST, { productId: p.productId, clear: true })

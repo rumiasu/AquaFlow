@@ -592,13 +592,15 @@ public class PaymentServiceImpl implements PaymentService {
         // 实测路径：`POST /api/delivery/orders/reject/{id}` 对一张已完成订单调用 →
         // 退水票 + 退支付流水（押金/库存因 orderStatus >= DELIVERED 被跳过）→ 末尾 CAS 4→5 成功，
         // 结果「货已送达、桶在客户手上、钱退回去了、订单变成已取消」。
-        // 这里用 isCancellable 明确限定为 待配送/配送中/已送达；**已完成(4)/已取消(5) 一律不可取消**。
+        // 这里用 isCancellable 明确限定为 待配送/配送中；**已送达(3)/已完成(4)/已取消(5) 一律不可取消**。
         // [2026-09-16] 原先这句后面还写着"已完成须先经 unconfirmOrderCollection 退回"——那个方法已按产品
         // 决定删除（状态不许倒滚）。所以已完成订单出现问题时，出路是**退款流程**或人工调整单，
         // 不是把订单状态改回去。
+        // [2026-09-21 产品裁定] **已送达(3) 也被排除**：见 OrderStatus.isCancellable 的注释
+        // （货已交付、权益已建而取消链够不着它）。客户拒付改走「配送异常」流程。
         int currentStatus = order.getStatus() != null ? order.getStatus() : 0;
         if (!OrderStatus.isCancellable(currentStatus)) {
-            throw new BusinessException("当前订单状态不可取消（status=" + currentStatus + "）");
+            throw new BusinessException(OrderStatus.notCancellableReason(currentStatus));
         }
 
         Long customerId = order.getCustomerId();
@@ -661,6 +663,19 @@ public class PaymentServiceImpl implements PaymentService {
 
         // ===== 退桶押金 + 清理配送中桶 =====
         // 仅当订单尚未配送完成(status < DELIVERED=4)时，押金桶还在配送中状态，需退还押金并清理配送中记录
+        //
+        // ⚠️【护栏】本块**不撤销桶权益**，这是对的，但改动前必须读懂这条边界（2026-09-21 裁定）：
+        //   桶权益批次是在**送达那一刻**由 `BarrelLedgerService.applyDelivery` 建的，而本块只在
+        //   `status < 已送达(3)` 时执行 —— 两者时点不同，本块天然够不着已送达单的权益。
+        //   曾担心「取消一张已送达的单会留下没被撤销的权益（客户留着可退押金、我们从未收到押金）」，
+        //   **该场景现已不可达**：`isCancellable` 已把 已送达(3) 排除，本方法开头的门槛会直接拒。
+        //
+        //   **若将来有人放松取消门槛（让已送达也能取消），必须同时补上：**
+        //     ① 用 `BarrelLedgerService.consumeLots` 撤销送达时建立的权益；
+        //     ② `customer_barrel_over` 加上 delivered 数量（记成客户欠桶）——
+        //        否则占用 = 权益 + over 会对不上，物理桶数在账上凭空消失。
+        //   判据：`CashOrderLifecycleScenarioTest` 与 `OrderCancelRollbackIntegrationTest`
+        //   各有一条用例断言「已送达单不可取消」，放松门槛会让它们变红。
         int orderStatus = order.getStatus() != null ? order.getStatus() : 0;
         if (orderStatus < OrderStatus.DELIVERED) {
             // 1. 释放客户在该站预收的押金
@@ -1306,6 +1321,12 @@ public class PaymentServiceImpl implements PaymentService {
         data.put("coverAmount", coveredAmount);
         data.put("payableAmount", payable);
         data.put("fullyCovered", fullyCovered);
+        // [2026-09-20] 结构化原因，供前端决定"票不足"弹窗该给哪个动作：
+        //   COVERED      = 票够，整单结清；
+        //   INSUFFICIENT = 票能抵这项商品、只是余额不够 → 可以引导去补票（跳购票页）；
+        //   UNUSABLE     = 这项商品根本不能用票 → 补票也没用，只能改选支付方式。
+        // 前端**不得**靠比对 title 文案来区分这两种情况（文案是给人看的，不是判据）。
+        data.put("reason", fullyCovered ? "COVERED" : (unavailableName != null ? "UNUSABLE" : "INSUFFICIENT"));
         data.put("title", title);
         data.put("hint", hint);
         return data;

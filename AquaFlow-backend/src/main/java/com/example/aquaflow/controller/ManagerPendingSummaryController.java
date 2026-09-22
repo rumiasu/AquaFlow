@@ -239,7 +239,11 @@ public class ManagerPendingSummaryController {
      * 不可能出现；真到了那个量级，该修的是"没人处理"这件事本身，不是计数。</p>
      */
     private int countPendingBarrelReturn(Long stationId) {
+        // ⚠️ status 是「退桶申请状态」，只对 type=2（退桶）有意义 —— 必须连 type 一起过滤。
+        // 人工调整(type=6) 等类型也会写 status=1，只按 status 过滤会让这条待办**永久挂着**
+        // 一笔"待审退桶"（实测：一条 type=6 记录让该计数从 2 降到 1 后再也降不下去）。
         return (int) barrelRecordMapper.listByStationId(stationId, BARREL_SCAN_LIMIT).stream()
+                .filter(r -> r.getType() != null && r.getType() == 2)
                 .filter(r -> r.getStatus() != null && r.getStatus() == 1)
                 .count();
     }

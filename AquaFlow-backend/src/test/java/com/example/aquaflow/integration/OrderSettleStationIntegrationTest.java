@@ -308,7 +308,7 @@ class OrderSettleStationIntegrationTest extends AbstractIntegrationTest {
     // ==================== ④ 履约站怎么变，结算站就怎么变 ====================
 
     @Test
-    @DisplayName("放池/退回池→归属站；抢单/定向外派→履约站；召回→归属站")
+    @DisplayName("放池/退回池→归属站；抢单/定向外派→履约站；召回→归属站（**只在对方接单之前**）")
     void settleFollowsDispatchLifecycle() {
         seed();
         long order = placeOrder(1, "settle-life-1");
@@ -320,28 +320,45 @@ class OrderSettleStationIntegrationTest extends AbstractIntegrationTest {
         assertEquals("NULL", deliveryStationOf(order), "在池中 = 无履约站");
         assertEquals(stationA, settleOf(order), "退货回池里，营收回归属站（池中没人履约）");
 
-        // B 抢单
-        Api claim = post("/api/delivery/orders/" + order + "/claim-pool", tokenB,
-                "{\"deliveryStaffId\":" + driverB + "}");
-        assertTrue(claim.isSuccess(), "B 抢单应成功: " + claim);
-        assertEquals(stationB, settleOf(order), "抢单 = 营收归抢单站");
-
-        // A 召回
-        Api recall = post("/api/delivery/orders/" + order + "/cancel-dispatch", tokenA, null);
-        assertTrue(recall.isSuccess(), "取消外派（召回）应成功: " + recall);
+        // 池中没人接单 → 归属站可以召回，营收随之回归属站
+        assertTrue(post("/api/delivery/orders/" + order + "/cancel-dispatch", tokenA, null).isSuccess(),
+                "在池中（没人接单）归属站可以召回");
         assertEquals(stationA, settleOf(order), "召回 = 营收回归属站");
 
-        // 定向外派 → 再取消外派
+        // 定向外派 → 目标站**还没接单**（状态仍是待配送）→ 归属站仍可反悔召回
         Api direct = post("/api/delivery/orders/transfer/" + order + "/outsource", tokenA,
                 "{\"targetStationId\":" + stationB + "}");
         assertTrue(direct.isSuccess(), "定向外派应成功: " + direct);
         assertEquals(stationB, settleOf(order), "定向外派 = 营收归目标站");
         assertTrue(post("/api/delivery/orders/" + order + "/cancel-dispatch", tokenA, null).isSuccess(),
-                "取消外派应成功");
+                "对方还没接单，归属站仍可召回");
         assertEquals(stationA, settleOf(order), "取消外派 = 营收回归属站");
 
-        assertEquals(0, intOf("SELECT COUNT(*) FROM orders WHERE id=? "
-                        + "AND NOT (settle_station_id <=> coalesce(delivery_station_id, station_id))", order),
+        // ============ 被接单之后：这单归接单站管，归属站不能再插手（2026-09-22 产品裁定） ============
+        // 原话：「外派出去的本单就不归本站管了，只能接单站管，联系等都是接单站执行」。
+        // ⚠️ 本次是本类**旧断言的反转**：`recall.isSuccess()` 曾经是被**断言为成功**的行为，
+        //    现在必须被拒 —— 产品口径变了，不是实现坏了。
+        long taken = placeOrder(1, "settle-life-2");
+        assertTrue(post("/api/delivery/orders/transfer/" + taken + "/outsource", tokenA, "{}").isSuccess(),
+                "放入抢单池应成功");
+        assertTrue(post("/api/delivery/orders/" + taken + "/claim-pool", tokenB,
+                        "{\"deliveryStaffId\":" + driverB + "}").isSuccess(),
+                "B 抢单应成功");
+        assertEquals(stationB, settleOf(taken), "抢单 = 营收归抢单站");
+
+        Api recallAfterClaim = post("/api/delivery/orders/" + taken + "/cancel-dispatch", tokenA, null);
+        assertFalse(recallAfterClaim.isSuccess(),
+                "B 已接单后归属站不得再召回（这单归接单站管）: " + recallAfterClaim);
+        assertEquals(stationB, settleOf(taken), "召回被拒后营收仍归接单站");
+        assertEquals(String.valueOf(stationB), deliveryStationOf(taken), "履约站也不得被动");
+
+        Api reDispatch = post("/api/delivery/orders/transfer/" + taken + "/outsource", tokenA,
+                "{\"targetStationId\":" + stationA + "}");
+        assertFalse(reDispatch.isSuccess(), "被接单后归属站也不能再改外派方向: " + reDispatch);
+
+        assertEquals(0, intOf("SELECT COUNT(*) FROM orders WHERE id IN (?, ?) "
+                        + "AND NOT (settle_station_id <=> coalesce(delivery_station_id, station_id))",
+                        order, taken),
                 "走完整条外派链路后，结算站与「两级 coalesce」必须始终同值（写入口径不分叉）");
     }
 

@@ -47,6 +47,60 @@ public class ReconciliationService {
                     + "WHERE ABS(COALESCE(p.total_amount, 0) - COALESCE(e.s, 0)) > 0.009 "
                     + "ORDER BY p.id DESC LIMIT " + ALERT_MAX_PER_RUN;
 
+    /**
+     * 「该客户在该站有<b>已过应付日期、仍未结清</b>的账单」—— 押金穿底的**前提判据**（2026-09-21 新增）。
+     *
+     * <p>与 {@code PaymentServiceImpl.offlinePaymentBlockReason} 的「欠款即停」**完全同源**
+     * （{@code payment_status = 1 AND status <> 5 AND due_date < CURDATE()}）—— 复用同一口径，不发明新规则。</p>
+     *
+     * <p>⚠️ 关联列用 {@code o.station_id}（订单**归属站**），与 {@code customer_barrel_asset.station_id}
+     * （客户资产也认归属站，见 AGENTS.md §1.1）同口径。跨站外派单的欠款归结算站，
+     * 本站的桶权益不会因为别站的欠款而报 —— **宁可少报，也不要把别站的欠款串到本站界面上**。</p>
+     */
+    private static final String HAS_OVERDUE_UNSETTLED_SQL =
+            "EXISTS (SELECT 1 FROM orders o "
+                    + " WHERE o.customer_id = a.customer_id AND o.station_id = a.station_id "
+                    + "   AND o.payment_status = 1 AND o.status <> 5 "
+                    + "   AND o.due_date IS NOT NULL AND o.due_date < CURDATE())";
+
+    /**
+     * 「押金穿底」的**唯一** SQL —— V1 的 {@code b3d}、V2 的 {@code E6}、站长端的 {@code SE6} 三处共用本方法。
+     *
+     * <p><b>为什么抽成一个方法</b>：它们原本是三段逐字重复的 SQL，靠注释写着"必须一起改"。
+     * 改一处漏一处的后果是<b>「日结不报了，但站长界面天天报红」</b>—— 两边都以为自己是对的。
+     * 抽成一处之后，分叉在物理上不可能发生。</p>
+     *
+     * <h3>[2026-09-21 修订] 为什么要加"已逾期未结账单"这个前提</h3>
+     * <p>旧判据只看「权益可退金额 &gt; 押金余额」，于是**把正常的挂账时间差算成了穿底**：
+     * 桶权益在<b>送达</b>那一刻就建好了（{@code BarrelLedgerService.applyDelivery} 写入押金快照），
+     * 而押金要等<b>收到钱</b>才入账（{@code PaymentServiceImpl.applyDepositOnPaid}）。
+     * 两者时点不同，于是"货已送到、钱还没收"这个窗口里必然 {@code 权益 > 0 且 押金 = 0}。</p>
+     * <p>这曾是每天 03:00 的 SYSTEM 告警噪声源（与等式2 的 p2a/p2c、等式3 的 b3a 同形，
+     * 见 AGENTS.md §1「对账等式不能把合法业务状态算成差异」）。新前提把
+     * <b>"时间差"与"真穿底"</b>分开：钱在账期内是时间差，过了应付日期才是真风险。</p>
+     *
+     * <p>⚠️ <b>两个有意为之的取舍</b>（不是缺陷）：
+     * <ol>
+     *   <li><b>没有账期的客户（散户）永远不会被判为穿底</b> —— 他们 {@code due_date} 为 NULL、
+     *       永远不"逾期"。其敞口由站长的「待收款」列表盯，不进对账差异。
+     *       这是 2026-09-21 产品裁定（散户开货到付款的不多，不值得为它引入缺省账期）。</li>
+     *   <li><b>订单已终结但权益仍在</b>的情形也<b>不</b>由本式兜底 —— 那属于"取消链没撤权益"，
+     *       已由 {@code OrderStatus.isCancellable} 排除已送达(3) 从入口堵死，
+     *       见 {@code PaymentServiceImpl.refundOrder} 的护栏注释。本式只管"欠着钱还拿着桶"。</li>
+     * </ol>
+     *
+     * @param stationScoped true = 只看某一个站（站长端 SE6 用，需按顺序补一个 stationId 参数）
+     */
+    private static String depositShortfallSql(boolean stationScoped) {
+        return "SELECT COUNT(*) FROM ("
+                + "SELECT a.customer_id, a.station_id FROM customer_barrel_asset a "
+                + "LEFT JOIN customer_deposit_account da ON da.customer_id = a.customer_id AND da.station_id = a.station_id "
+                + (stationScoped ? "WHERE a.station_id = ? AND " : "WHERE ")
+                + HAS_OVERDUE_UNSETTLED_SQL + " "
+                + "GROUP BY a.customer_id, a.station_id "
+                + "HAVING SUM(COALESCE(a.right_amount, 0)) - COALESCE(MAX(da.balance), 0) > 0.009) x";
+    }
+
     public ReconciliationService(JdbcTemplate jdbcTemplate, AlertService alertService) {
         this.jdbcTemplate = jdbcTemplate;
         this.alertService = alertService;
@@ -222,13 +276,9 @@ public class ReconciliationService {
                 + "HAVING COALESCE(SUM(u.delta), 0) <> COALESCE(MAX(u.book), 0)) x",
                 stationId, stationId, stationId, stationId, stationId, stationId, stationId, stationId));
 
-        // SE6：押金穿底（权益可退金额 > 押金余额）
-        r.put("SE6_depositShortfall", count("SELECT COUNT(*) FROM ("
-                + "SELECT a.customer_id, a.station_id FROM customer_barrel_asset a "
-                + "LEFT JOIN customer_deposit_account da ON da.customer_id = a.customer_id AND da.station_id = a.station_id "
-                + "WHERE a.station_id = ? GROUP BY a.customer_id, a.station_id "
-                + "HAVING SUM(COALESCE(a.right_amount, 0)) - COALESCE(MAX(da.balance), 0) > 0.009) x",
-                stationId));
+        // SE6：押金穿底（权益可退金额 > 押金余额，**且该客户在本站有已逾期的未结账单**）
+        // 判据与 V1 的 b3d、V2 的 E6 共用同一个方法 —— 三处不可能分叉，见 depositShortfallSql 的注释。
+        r.put("SE6_depositShortfall", count(depositShortfallSql(true), stationId));
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("stationId", stationId);
@@ -301,11 +351,11 @@ public class ReconciliationService {
         // 押金口径改用 right_amount（= Σ lot.remain_qty × lot.unit_price，按买入时单价）。
         // 旧口径用【当前 product.deposit】折算，只要调过价就必然不平，属于假告警；
         // 新口径下不平说明"权益可退金额 > 押金账户余额"，是真实的退款穿底风险。
-        int b3d = count("SELECT COUNT(*) FROM ("
-                + "SELECT a.customer_id FROM customer_barrel_asset a "
-                + "LEFT JOIN customer_deposit_account da ON da.customer_id = a.customer_id AND da.station_id = a.station_id "
-                + "GROUP BY a.customer_id, a.station_id "
-                + "HAVING SUM(COALESCE(a.right_amount, 0)) - COALESCE(MAX(da.balance), 0) > 0.009) x");
+        //
+        // [2026-09-21 已修] 本条原先把「现金单送达未收款」的时间差也算成差异（每天 03:00 报 SYSTEM 告警）。
+        //   成因与取舍写在 depositShortfallSql 的注释里；判据现在多了"该客户在本站有已逾期的未结账单"这个前提。
+        //   用户裁定（2026-09-21）：「货已送到、钱还没收是可以允许的」—— 在账期内就是时间差，过了账期才是真穿底。
+        int b3d = count(depositShortfallSql(false));
         int eq3 = b3a + b3b + b3c + b3d;
         result.put("barrelState", eq3);
         if (eq3 > 0) {
@@ -416,12 +466,9 @@ public class ReconciliationService {
                     + "若存在历史遗留的 type=6 记录（2026-09-13 之前该类型语义为'设置为N'而非增减），需人工分辨", e5);
         }
 
-        // ---- E6：穿底（权益可退金额 > 押金账户余额）----
-        int e6 = count("SELECT COUNT(*) FROM ("
-                + "SELECT a.customer_id, a.station_id FROM customer_barrel_asset a "
-                + "LEFT JOIN customer_deposit_account da ON da.customer_id = a.customer_id AND da.station_id = a.station_id "
-                + "GROUP BY a.customer_id, a.station_id "
-                + "HAVING SUM(COALESCE(a.right_amount, 0)) - COALESCE(MAX(da.balance), 0) > 0.009) x");
+        // ---- E6：穿底（权益可退金额 > 押金账户余额，**且该客户在本站有已逾期的未结账单**）----
+        // 与 V1 的 b3d、站长端的 SE6 共用同一个方法（depositShortfallSql），改口径只需改那一处。
+        int e6 = count(depositShortfallSql(false));
         r.put("E6_depositShortfall", e6);
         if (e6 > 0) {
             log.error("[对账V2 ALERT E6] 押金穿底：权益可退金额 > 押金账户余额，共 {} 个账户。"

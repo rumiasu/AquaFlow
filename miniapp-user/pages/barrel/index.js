@@ -25,6 +25,8 @@ Page({
     },
     records: [],
     customerBarrelAsset: [],
+    // 当前水站名（页面顶部提示条用）：桶权益与押金按站隔离，必须让客户看见这是哪个站的账
+    stationName: '',
     // 桶数据部分加载失败时的提示（空串 = 全部正常）。见 loadData 里的说明。
     loadError: '',
     showReturnModal: false,
@@ -55,8 +57,10 @@ Page({
   async loadData() {
     // 优先读取本地存储的水站
     let stationId = stationStorage.getId()
+    // 站名供顶部提示条使用：同 pages/deposit/records 的做法（选站时就把整个 station 存下来了）
+    const station = stationStorage.get()
 
-    this.setData({ loading: true })
+    this.setData({ loading: true, stationName: (station && station.name) || '' })
     try {
       // [2026-09-20 真机联调] 原来三个请求各自 `.catch(e => { console.warn(...); return null })`，
       // 失败被吞成 null → 页面照常渲染「权益 0 · 占用 0」，与"这客户确实没有桶"完全无法区分

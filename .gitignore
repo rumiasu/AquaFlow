@@ -122,15 +122,15 @@ docs/redesign/
 generated-images/
 .openvisio/
 
-# agent / ¹¤¾ßÁÙÊ±²úÎï£¨2026-09-17£©¡ª¡ª ¶¼²»ÊôÓÚ²Ö¿âÄÚÈİ
+# agent / å·¥å…·ä¸´æ—¶äº§ç‰©ï¼ˆ2026-09-17ï¼‰â€”â€” éƒ½ä¸å±äºä»“åº“å†…å®¹
 .dsh-code-index/
 .mcp.json
 __*.ps1
 
-# ==================== ±¾µØËØ²Ä¿â£¨ÎğÈë¿â£¬2026-09-18£©====================
-# Ç°ÃæµÄ / ÊÇÃªµã£¬Ö»ÔÚ²Ö¿â¸ùÉúĞ§£ºĞ´³É²»´øĞ±¸ÜµÄ assets/ »áÁ¬
-# miniapp-user/assets/** Óë miniapp-delivery/assets/** Ò»ÆğºöÂÔµô ¡ª¡ª ÄÇÀïÓĞ
-# tabbar Í¼±êÓëÉÌÆ·Ô¤ÉèÍ¼£¬ÊÇ±ØĞëÈë¿âµÄ°üÄÚ×ÊÔ´¡£
+# ==================== æœ¬åœ°ç´ æåº“ï¼ˆå‹¿å…¥åº“ï¼Œ2026-09-18ï¼‰====================
+# å‰é¢çš„ / æ˜¯é”šç‚¹ï¼Œåªåœ¨ä»“åº“æ ¹ç”Ÿæ•ˆï¼šå†™æˆä¸å¸¦æ–œæ çš„ assets/ ä¼šè¿
+# miniapp-user/assets/** ä¸ miniapp-delivery/assets/** ä¸€èµ·å¿½ç•¥æ‰ â€”â€” é‚£é‡Œæœ‰
+# tabbar å›¾æ ‡ä¸å•†å“é¢„è®¾å›¾ï¼Œæ˜¯å¿…é¡»å…¥åº“çš„åŒ…å†…èµ„æºã€‚
 /assets/
 
 # Created at repo root by the commands documented in AGENTS.md (Gradle --project-cache-dir
@@ -141,3 +141,17 @@ __*.ps1
 # js syntax gate (2026-09-19): duplicate const declaration silently killed a whole
 # api module and no gate caught it. Tracked like the other audit_*.py gates.
 !audit_js_syntax.py
+
+# scenario matrix gate (2026-09-21): docs/audit/*scenario matrix*.md is the designated
+# entry point for "which business scenario has coverage", but it is a hand-written doc
+# while test classes get renamed / merged / deleted. This gate makes its claims
+# machine-checkable: referenced classes+methods must exist, every OK row must point at
+# resolvable evidence, and the generated stats block must match the real test run.
+!audit_scenario_matrix.py
+# AI-assisted test analysis (2026-09-21): emits a deterministic fact pack (endpoint ->
+# test reverse index, zero-test endpoints, never-asserted invariants) so gap analysis
+# rests on checkable facts instead of guesses. Analysis tool: exit code is always 0,
+# it is deliberately NOT wired into CI.
+!ai_test_analysis.py
+# Python å­—èŠ‚ç ç¼“å­˜ï¼ˆ2026-09-22 è¡¥ï¼‰ï¼šæœªè¢«å¿½ç•¥ä¼šè¢« git add -A å·è¿›æäº¤
+__pycache__/

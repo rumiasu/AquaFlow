@@ -333,3 +333,31 @@
   font-size: 22rpx;
   color: #c0c4cc;
 }
+
+/* 处置入口按钮（2026-09-20 开放 A1）：只两个动作，且没有金额输入框的样式可言 ——
+   刻意不提供输入类控件的样式，避免后来者"顺手加个输入框"。 */
+.ex-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.ex-btn {
+  padding: 10rpx 26rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+
+.ex-btn-ghost {
+  color: #475569;
+  border: 1rpx solid rgba(71, 85, 105, 0.35);
+}
+
+.ex-btn-primary {
+  color: #fff;
+  background-color: #2E4A68;
+}

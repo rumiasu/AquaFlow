@@ -8,9 +8,11 @@
 // 同一件事拆成两张卡、两个页面，站长看到的是"两个都要点，但说的是一件事"。
 //
 // 四条口径（改这个页面时必须守住）：
-//   1. **本页只读**。后端确实有处置入口（handle / execute：同意、改判、忽略、退水票、退现金、
-//      调资产），但那些动作会**真动钱和桶账**，要不要在界面上开放是产品决定 —— 所以这里
-//      一个按钮都没有。别顺手加"一键补偿"：§8.17 那次事故就是"界面显示已补偿、账上一分没动"。
+//   1. **处置入口按「A1」开放（2026-09-20 产品决定）**。这一条原来写的是"本页只读、一个按钮都没有 ——
+//      要不要在界面上开放是产品决定"；现在产品决定开放，但**范围被钉死在两个动作**：
+//      忽略（IGNORE）与 按系统建议补偿（APPROVE，明细只能等于后端下发的建议值）。
+//      **不开放**手工改判（MODIFY）/ 升级（ESCALATE），**不做批量、不做"一键补偿全部"** ——
+//      §8.17 那次事故就是"界面显示已补偿、账上一分没动"。
 //   2. **前端不做任何判定**：状态/类别的中文用服务端下发的 `statusText` / `categoryText`，
 //      "还等着处理"用服务端下发的 `pending` 布尔（不自带状态码表，也不比对中文文案）。
 //      告警级别同理，用后端下发的 level 只做配色与筛选。
@@ -128,6 +130,142 @@ Page({
    * 用 `allSettled` 而不是 `Promise.all`：两个页签是两件互不依赖的事，一边失败不该把另一边
    * 也打成空白（"加载失败"与"确实没有异常"必须区分得开，见 §8.22）。
    */
+  /* ===== 处置入口（2026-09-20 产品批准开放「A1」）=====
+   * 上面第 1 条口径原写"本页只读、一个按钮都没有 —— 要不要开放是产品决定"。
+   * 2026-09-20 产品决定：**按 A1 开放**，即只允许两个动作 ——
+   *   ① 忽略（IGNORE，一分钱不动）；② 按系统建议补偿（APPROVE，明细**只能等于**后端建议值）。
+   * 硬约束（改这里之前先读 design/20 §9.3）：
+   *   · **界面上不提供金额 / 数量输入框** —— 人手输入金额在本仓出过事故（§8.17 同族）；
+   *   · **两步走**：先 handle 登记处理意见，再单独确认执行（第二步逐条列出将要发生的动作）；
+   *   · **一次只处理一张单**（不做批量、不做"全部同意"）；
+   *   · **失败留在页面上可重试**，不用一闪而过的 toast；
+   *   · 仍不开放 MODIFY（手工改判）与 ESCALATE —— 那是 A2 的范围。 */
+
+  /** 让站长填一句理由（必填）。返回 null = 取消或没填。 */
+  askNote(title, placeholder) {
+    return new Promise((resolve) => {
+      wx.showModal({
+        title,
+        editable: true,
+        placeholderText: placeholder,
+        confirmText: '提交',
+        success: (r) => {
+          if (!r.confirm) return resolve(null)
+          const v = (r.content || '').trim()
+          if (!v) {
+            wx.showToast({ title: '请填写原因', icon: 'none' })
+            return resolve(null)
+          }
+          resolve(v)
+        }
+      })
+    })
+  },
+
+  /** ① 忽略：最轻的动作，不动任何金额与桶账。 */
+  async onIgnore(e) {
+    const id = e.currentTarget.dataset.id
+    const note = await this.askNote('忽略这张异常单', '请填写忽略原因（会留痕）')
+    if (note === null) return
+    await this.submitHandle(id, { action: 'IGNORE', managerNote: note }, '已忽略')
+  },
+
+  /**
+   * ② 按系统建议补偿：先读详情拿建议值 → 列出"将要发生什么" → 登记处理意见 → 确认执行。
+   * ⚠️ 提交的明细与后端下发的 `suggested*` **逐字相同**，前端不做任何算术。
+   */
+  async onApproveSuggested(e) {
+    const id = e.currentTarget.dataset.id
+    let dto = null
+    try {
+      const res = await get(EXCEPTIONS + '/' + id)
+      dto = (res && res.data) || null
+    } catch (err) {
+      wx.showModal({ title: '读取异常单失败', content: (err && err.message) || '请稍后重试', showCancel: false })
+      return
+    }
+    if (!dto) return
+
+    const lines = []
+    if (dto.suggestedTicketQty) lines.push(`退水票 ${dto.suggestedTicketQty} 张`)
+    if (dto.suggestedCashAmount) lines.push(`退现金 ¥${dto.suggestedCashAmount}`)
+    if (!lines.length) {
+      wx.showModal({
+        title: '系统没有给出补偿建议',
+        content: '这张异常单没有可执行的补偿项，只能选择「忽略」。',
+        showCancel: false
+      })
+      return
+    }
+
+    const note = await this.askNote('按系统建议补偿', '请填写处理说明（会留痕）')
+    if (note === null) return
+
+    const ok = await new Promise((resolve) => {
+      wx.showModal({
+        title: '确认按系统建议补偿',
+        content: `本单将执行：${lines.join('、')}。\n\n`
+          + '金额与数量由系统算出，不能修改；执行后不可撤销，如需纠正只能另建反向调整单。',
+        confirmText: '确认执行',
+        confirmColor: '#FF3B30',
+        success: (r) => resolve(r.confirm)
+      })
+    })
+    if (!ok) return
+
+    const handled = await this.submitHandle(id, {
+      action: 'APPROVE',
+      refundTicketQty: dto.suggestedTicketQty || null,
+      refundCashAmount: dto.suggestedCashAmount || null,
+      // 退水票必须带商品（后端的有意护栏）：用该单自己的商品，前端不猜
+      adjustProductId: dto.adjustProductId || null,
+      managerNote: note
+    }, null)
+    if (!handled) return
+    await this.executeCompensation(id)
+  },
+
+  /** 第一步：登记处理意见。返回 true = 已登记，可以继续执行。 */
+  async submitHandle(id, body, okTitle) {
+    try {
+      wx.showLoading({ title: '处理中...' })
+      await post(EXCEPTIONS + '/' + id + '/handle', body)
+      wx.hideLoading()
+      if (okTitle) {
+        wx.showToast({ title: okTitle, icon: 'success' })
+        this.load()
+      }
+      return true
+    } catch (err) {
+      wx.hideLoading()
+      wx.showModal({
+        title: '处理失败',
+        content: (err && err.message) || '请稍后重试',
+        showCancel: false
+      })
+      return false
+    }
+  },
+
+  /** 第二步：执行补偿。后端失败时会整体回滚到可重试状态，所以这里给「重试」入口。 */
+  async executeCompensation(id) {
+    try {
+      wx.showLoading({ title: '执行中...' })
+      await post(EXCEPTIONS + '/' + id + '/execute')
+      wx.hideLoading()
+      wx.showToast({ title: '补偿已执行', icon: 'success' })
+      this.load()
+    } catch (err) {
+      wx.hideLoading()
+      wx.showModal({
+        title: '补偿执行失败',
+        content: ((err && err.message) || '请稍后重试') + '\n\n处理意见已登记，可在本单上重试执行。',
+        confirmText: '重试',
+        success: (r) => { if (r.confirm) this.executeCompensation(id) }
+      })
+    }
+  },
+
   async load() {
     this.setData({ loading: true })
     const today = new Date()

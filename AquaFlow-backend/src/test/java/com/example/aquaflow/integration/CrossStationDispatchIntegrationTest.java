@@ -174,6 +174,41 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
         assertTrue(specialNote(order).contains("[取消外派]"), "必须留痕，实际=" + specialNote(order));
     }
 
+    /**
+     * 召回的时间窗：**只在"还没被接单"时**（2026-09-22 产品裁定）。
+     *
+     * <p>原话：「外派出去的本单就不归本站管了，只能接单站管，联系等都是接单站执行」。
+     * 落到代码上就是：一旦接单站把单接走（状态 → 配送中(2)），归属站的「取消外派」必须关掉。</p>
+     *
+     * <p>⚠️ 修之前这里放行 配送中(2)，并且 CAS 会把状态**改回** 待配送(1) ——
+     * 那是归属站把别站正在送的单抢回来（可能出现两个配送员送同一张单），
+     * 而货已经在接单站车上，"取消外派"根本拦不住这件事。</p>
+     */
+    @Test
+    @DisplayName("已被接单的单：归属站不能再取消外派（被接单后归接单站管）")
+    void recallIsRefusedAfterTheOtherStationAccepts() {
+        seed();
+        long order = pendingOrderAtA();
+        // 放池 → B 抢单（= B 接单），状态推进到配送中
+        assertTrue(post("/api/delivery/orders/transfer/" + order + "/outsource", tokenA(), "{}").isSuccess());
+        assertTrue(post("/api/delivery/orders/" + order + "/claim-pool",
+                        staffToken(mgrB, "STATION_MANAGER", stationB),
+                        "{\"deliveryStaffId\":" + driverB + "}").isSuccess(),
+                "B 抢单应成功");
+        assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order), "抢单后应是配送中");
+
+        Api denied = post("/api/delivery/orders/" + order + "/cancel-dispatch", tokenA(), null);
+        assertFalse(denied.isSuccess(), "B 已接单后归属站不得再召回，实际=" + denied);
+        assertTrue(denied.message() != null && denied.message().contains("接单站"),
+                "拒绝文案要说清「归接单站管」，实际=" + denied.message());
+
+        // 被拒之后三列一个都不许动
+        assertEquals(stationB, longOf("SELECT delivery_station_id FROM orders WHERE id=?", order),
+                "召回被拒后履约站必须仍是接单站");
+        assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order),
+                "状态不得被改回待配送（那正是修之前的行为）");
+    }
+
     @Test
     @DisplayName("指定水站外派：履约站换人、状态不变、外派追踪列表可见；不能外派给自己")
     void outsourceToNamedStation() {

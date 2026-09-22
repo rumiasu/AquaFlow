@@ -70,6 +70,12 @@ public interface GrossProfitMapper {
             + "       and i.product_id = oi.product_id "
             + " where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "   and o.status <> 5 "
+            // [2026-09-20 产品口径] 水票支付的订单（payment_method=3）**不计订单侧收入**：
+            // 水票的钱在「买进来」那一刻就确认了（见 ticketPurchaseRevenueByProduct），
+            // 这里再按挂牌水价记一次就是重复计。
+            // ⚠️ 成本（销量×成本）与工钱**不排除**票单 —— 货确实出去了、人确实送了。
+            // 所以期间口径自洽，但**单张票单的毛利会是负的**（成本在、收入不在），看期间合计即可。
+            + "   and o.payment_method <> 3 "
             + "   and o.create_time >= #{start} and o.create_time < #{endExclusive} "
             + " group by oi.product_id "
             + " order by revenue desc")
@@ -90,6 +96,33 @@ public interface GrossProfitMapper {
     List<Map<String, Object>> listMissingCost(@Param("stationId") Long stationId);
 
     /**
+     * 期间内**买水票的实收**（按商品汇总）。
+     *
+     * <p>[2026-09-20 产品口径] 水票收入**只在买票那一刻计一次**，之后用票下单 / 配送都不再重算 ——
+     * 与"微信 / 现金每单收一次"是不同的模型。所以它是收入的**另一个来源**，必须单独统计：
+     * 只看 {@code order_item.subtotal} 会让水票收入凭空消失（票单已被上面那条排除）。</p>
+     *
+     * <p>口径三条：① 只认 {@code order_id IS NULL}（在线购票那种无订单流水，见 design/19、design/20 §7）；
+     * ② 只认 {@code status = 2 已收款}（站长确认收款才算真的收了钱）；
+     * ③ 时间窗按 {@code update_time}（= 确认收款那一刻；该列是 ON UPDATE CURRENT_TIMESTAMP），
+     * <b>不是</b> {@code create_time}（那是客户提交申请的时间）。</p>
+     *
+     * <p>⚠️ 已知边界：票的面值里可能含押金（票可抵整单），而押金是负债不是收入 ——
+     * 本版不拆这一层（要拆得逐单回溯票抵明细），所以站长看到的是"票的实收总额"。</p>
+     */
+    @Select("select ticket_water_type_id as productId, "
+            + "       round(coalesce(sum(amount), 0), 2) as ticketRevenue "
+            + "  from payment_record "
+            + " where station_id = #{stationId} "
+            + "   and order_id is null and status = 2 "
+            + "   and ticket_water_type_id is not null "
+            + "   and update_time >= #{start} and update_time < #{endExclusive} "
+            + " group by ticket_water_type_id")
+    List<Map<String, Object>> ticketPurchaseRevenueByProduct(@Param("stationId") Long stationId,
+                                                             @Param("start") java.time.LocalDateTime start,
+                                                             @Param("endExclusive") java.time.LocalDateTime endExclusive);
+
+    /**
      * 同一订单集合里的<b>单数</b>与<b>配送费 / 楼层费</b>合计（净利用）。
      *
      * <p>⚠️ 判据必须与 {@link #grossProfitByProduct} <b>逐字一致</b>（结算站 + 排除已取消 +
@@ -100,8 +133,10 @@ public interface GrossProfitMapper {
      * <p>本查询恒返回一行（{@code count(*)} 是聚合），金额字段用 coalesce 兜 0。</p>
      */
     @Select("select count(*) as orderCount, "
-            + "       round(coalesce(sum(o.delivery_fee), 0), 2) as deliveryFee, "
-            + "       round(coalesce(sum(o.floor_fee), 0), 2) as floorFee "
+            // [2026-09-20] 金额只算**非水票单**：票单的配送费 / 楼层费已被票抵掉，钱在购票时收过了
+            // （见 ticketPurchaseRevenueByProduct），算进来就是重复。单数仍是全部单（票单也是单）。
+            + "       round(coalesce(sum(case when o.payment_method <> 3 then o.delivery_fee else 0 end), 0), 2) as deliveryFee, "
+            + "       round(coalesce(sum(case when o.payment_method <> 3 then o.floor_fee else 0 end), 0), 2) as floorFee "
             + "  from orders o "
             + " where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "   and o.status <> 5 "

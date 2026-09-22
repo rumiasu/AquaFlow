@@ -5,6 +5,13 @@
     <!-- [2026-09-20] 部分桶接口失败时的提示：没有它，失败渲染出来的「权益 0 · 占用 0」
          与"确实没有桶"长得一模一样（loadError 为空串时不渲染）。 -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+
+    <!-- 当前水站：桶权益与押金按「客户 × 水站」隔离。不写清楚，客户换个站会以为桶/押金丢了。
+         文案与样式照抄 pages/deposit/records（同一条提示条，保持一致）。 -->
+    <view class="station-bar" wx:if="{{stationName}}">
+      <text class="station-bar-name">{{stationName}}</text>
+      <text class="station-bar-tip">桶与押金按水站独立，这里只显示该站的数据</text>
+    </view>
     <view class="stats-card">
       <view class="stat-col">
         <text class="stat-label">持有桶</text>

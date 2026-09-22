@@ -136,6 +136,20 @@ public interface OrderBarrelExceptionService {
     void executeCompensation(Long exceptionId);
 
     /**
+     * 拒付结案（核销认损）：客户收了货但拒不付款，站长认下这笔损失并一次性收口。
+     *
+     * <p>做三件事：① 核销那笔收不回来的应收（{@code payment_status} 待收款 → 已取消，
+     * 于是它不再计入站长的「待收款」台账）；② 撤销该单送出、客户尚未归还的桶权益；
+     * ③ 把等量的桶记成客户欠桶（占用 = 权益 + over 仍与实物一致）。</p>
+     *
+     * <p>这是「已送达不可取消」之后，拒付订单<b>唯一</b>的收口出路 ——
+     * 见 {@code OrderStatus.isCancellable} 与 {@code PaymentServiceImpl.refundOrder} 的护栏注释。</p>
+     *
+     * @param managerNote 站长备注（为空时用默认文案）；会计入异常单与订单流水
+     */
+    void writeOffForRefusal(Long exceptionId, String managerNote);
+
+    /**
      * 站长端分页查询
      */
     Page<OrderBarrelExceptionDTO> listExceptions(Long stationId, ExceptionQuery query);

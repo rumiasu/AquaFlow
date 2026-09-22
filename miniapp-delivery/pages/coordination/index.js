@@ -69,6 +69,36 @@ function feeView(o) {
   }
 }
 
+/**
+ * 给「待分配」订单补**客户信用标** —— 站长一眼看出"这单的客户欠不欠钱"。
+ *
+ * 三个字段全部由后端下发（`DeliveryController.attachCustomerRisk` → `CustomerRiskService`）：
+ *   · `customerRiskLevel`      NORMAL 正常 / WATCH 关注 / ALERT 预警 / FREEZE 冻结
+ *   · `customerRiskLevelText`  中文（正常 / 关注 / 预警 / 冻结）
+ *   · `customerRiskNote`       整句话，如"有 ¥320.00 挂账，都在账期内"
+ *
+ * ⚠️ 前端**不判断"这算不算欠钱"、也不自己拼那句话**（判据与文案都只有后端一份）。
+ * 这里只做两件纯展示的事：
+ *   ① 等级代号 → 一个 CSS 类。**颜色是"呈现"、不是口径**：红 = 预警/冻结，
+ *      黄 = 关注，其余（含将来新增的等级）走中性灰 —— 认不出来就别乱标红，也别静默不显示。
+ *   ② NORMAL 不标：后端文档化的默认等级就是"没有未结欠款"，每行都挂一个「正常」是噪音。
+ * ⚠️ 文案缺失时**什么都不标**（老版本后端没有这几个字段，页面要照旧能看），
+ * 绝不把 `ALERT` 这种代号直接甩给站长看。
+ */
+function riskView(o) {
+  const level = String(o.customerRiskLevel || '').toUpperCase()
+  const text = o.customerRiskLevelText || ''
+  const cls = (level === 'ALERT' || level === 'FREEZE') ? 'risk-danger'
+    : (level === 'WATCH' ? 'risk-warn' : 'risk-plain')
+  return {
+    ...o,
+    showRisk: !!text && level !== 'NORMAL',
+    riskText: text,
+    riskNote: o.customerRiskNote || '',
+    riskClass: cls
+  }
+}
+
 Page({
   behaviors: [stationNavbar],
 
@@ -96,6 +126,14 @@ Page({
     staffList: [],
     showAssignModal: false,
     currentOrderId: null,
+    // ===== 失败标记（[2026-09-20 真机联调]）=====
+    // loadError：本页**部分**数据没加载出来时的页面提示（空串 = 全部正常）。
+    // staffListError：配送员名单没加载出来的原因（空串 = 加载成功）。
+    // ⚠️ 后者是本页最容易骗人的地方：staffList 为空既可能是"本站真的没有配送员"，
+    // 也可能是"接口失败"—— 原来两者都渲染成「暂无配送员，请先添加配送员」（见 onClaimPool），
+    // 站长会真的去建员工，而问题在网络（AGENTS §8.22 / §8.17）。
+    loadError: '',
+    staffListError: '',
     // 「其他待办」视图模型（只含不在本页页签里的项），由 loadTodo() 组装
     todo: null
   },
@@ -284,9 +322,22 @@ Page({
       const userInfo = app.globalData.userInfo || {}
       const stationId = userInfo.stationId
 
-      // 并行加载各 tab 数据
-      // 待分配 = station-pending（未分配的）+ station-transfer（转单请求，合并进来）
-      const [pendingRes, transferRes, poolRes, dispatchRes, incomingRes, approvalsRes] = await Promise.all([
+      // [2026-09-20 真机联调] 原来这里是 Promise.all：**任何一个**请求失败都会让整页数据
+      // 一个都不落地，而页面上五个页签照旧渲染成「暂无待分配 / 暂无抢单池…」—— 与"确实没有单"
+      // 完全无法区分（AGENTS §8.22）。而且 HTTP 200 + code!=0 的业务失败原来被直接忽略
+      // （`res.data || []` 拿到 undefined → 空数组），等于把失败当成功（AGENTS §8.1）。
+      // 现在改成 allSettled + 逐个判 code：成功的那几项照常展示，失败项汇总到 loadError 提示条。
+      const failed = []
+      const unwrap = (r, tag) => {
+        if (r.status === 'fulfilled' && r.value && r.value.code === 0) return r.value
+        failed.push(tag)
+        const why = r.status === 'rejected'
+          ? ((r.reason && r.reason.message) || '网络异常')
+          : ((r.value && r.value.message) || '服务端返回异常')
+        console.warn('[coordination] ' + tag + ' 加载失败:', why)
+        return { data: null }
+      }
+      const settled = await Promise.allSettled([
         get(API.DELIVERY_ORDERS + '/station-pending'),
         get(API.DELIVERY_ORDERS + '/station-transfer'),
         getPoolOrders(),
@@ -294,17 +345,37 @@ Page({
         getDirectedIncoming(),
         getPendingApprovals()
       ])
+      const pendingRes = unwrap(settled[0], '待分配')
+      const transferRes = unwrap(settled[1], '转单请求')
+      const poolRes = unwrap(settled[2], '抢单池')
+      const dispatchRes = unwrap(settled[3], '外派追踪')
+      const incomingRes = unwrap(settled[4], '他站外派')
+      const approvalsRes = unwrap(settled[5], '待审批')
 
       let staffList = []
+      let staffListError = ''
       if (stationId) {
+        // 拉不到配送员名单时必须留下标记 —— onClaimPool 与分配弹窗都靠它区分
+        //「本站没有配送员」与「名单没查到」（见 data.staffListError 的注释）
         try {
           const staffRes = await getStaffList(stationId)
-          staffList = staffRes.data || []
-        } catch (e) { console.error('加载配送员失败:', e) }
+          if (staffRes && staffRes.code === 0 && staffRes.data) {
+            staffList = staffRes.data
+          } else {
+            staffListError = (staffRes && staffRes.message) || '服务端返回异常'
+            failed.push('配送员名单')
+          }
+        } catch (e) {
+          staffListError = (e && e.message) || '网络异常'
+          failed.push('配送员名单')
+        }
+        if (staffListError) console.error('[coordination] 加载配送员名单失败:', staffListError)
       }
 
       // 待分配：合并未分配 + 转单请求（含「转单中」订单）
       // 状态检测：special_note 带 [指定退回待确认] => 转单中，前端渲染「同意/拒绝」而非「分配/外派」
+      // 信用标（riskView）只加在这里：抢单池 / 他站外派是**跨站可见面**，
+      // "这个客户欠多少钱"是归属站的经营信息，后端也不下发（见 DeliveryController）。
       const pendingList = [
         ...(pendingRes.data || []),
         ...(transferRes.data || [])
@@ -313,7 +384,7 @@ Page({
         let transferKind = ''
         if (note.indexOf(DIRECTED_MARK) >= 0) transferKind = 'directed'
         else if (STAFF_MARKS.some(m => note.indexOf(m) >= 0)) transferKind = 'staff'
-        return { ...o, transferPending: transferKind !== '', transferKind }
+        return riskView({ ...o, transferPending: transferKind !== '', transferKind })
       })
 
       const approvalData = approvalsRes.data || {}
@@ -336,11 +407,26 @@ Page({
           : (lists[t.key] || []).length
       }))
 
-      this.setData({ lists, tabs, staffList })
+      this.setData({
+        lists,
+        tabs,
+        staffList,
+        staffListError,
+        loadError: failed.length
+          ? '有 ' + failed.length + ' 项没加载出来（' + failed.join('、') + '），下面可能是空的，别当成"确实没有"'
+          : ''
+      })
+      // ⚠️ 顺序要紧：wx.showToast 与 wx.showLoading 共用同一个浮层实例，
+      // 先 toast 再 hideLoading 会把刚弹出的提示一起关掉 —— 必须先 hideLoading。
       wx.hideLoading()
+      if (failed.length) wx.showToast({ title: '部分数据没加载出来', icon: 'none' })
     } catch (err) {
-      console.error('加载数据失败:', err)
+      // 兜底：走到这里只可能是本地代码出错（每个请求都已单独判过）
+      console.error('[coordination] 加载数据失败:', err)
       wx.hideLoading()
+      // [2026-09-20] 原来只有一句立刻消失的 toast，页面随后是五个空页签。
+      // 现在同时留下持久提示，站长不会把"没加载出来"读成"没有待办"（AGENTS §8.22）
+      this.setData({ loadError: '数据没加载出来（' + ((err && err.message) || '本地异常') + '），请稍后重试' })
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     }
   },
@@ -546,6 +632,21 @@ Page({
     const id = e.currentTarget.dataset.id
     const colleagues = this.data.staffList || []
     if (colleagues.length === 0) {
+      // [2026-09-20 真机联调] 这条链读的是**页面已加载的** staffList。原来只要它是空的就断言
+      // 「暂无配送员 / 请先添加配送员」—— 但 staffList 为空有两种原因：本站确实没有配送员，
+      // 或者 loadAllData 里那次 getStaffList **失败了**。后者被说成前者，站长会真的去重新添加
+      // 员工（人早就在库里），把人往错误方向带（AGENTS §8.17 的判据：宁可失败出声）。
+      // 所以先看 staffListError 再决定文案，并给出可执行的下一步。
+      if (this.data.staffListError) {
+        wx.showModal({
+          title: '配送员名单没加载出来',
+          content: '没能取到本站配送员名单（' + this.data.staffListError + '）。'
+            + '这不代表本站没有配送员 —— 请切到「配送」页再切回来重新加载后重试。',
+          showCancel: false,
+          confirmText: '知道了'
+        })
+        return
+      }
       wx.showModal({ title: '暂无配送员', content: '请先添加配送员', showCancel: false })
       return
     }

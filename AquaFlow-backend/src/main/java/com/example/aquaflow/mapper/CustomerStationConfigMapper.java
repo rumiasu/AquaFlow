@@ -34,4 +34,18 @@ public interface CustomerStationConfigMapper {
             "values(#{customerId}, #{stationId}, 0, NOW(), NOW()) " +
             "on duplicate key update update_time = NOW()")
     void ensureExists(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
+    /**
+     * 写该客户在该站的**账期配置**（v60）。
+     *
+     * <p>⚠️ 只改 {@code due_days} 与 {@code settlement_cycle} 两列，
+     * <b>不碰 {@code offline_payment_enabled}</b> —— "能不能赊账"与"账期多久"是两个决定，
+     * 用一条 SQL 一起改会让"我只想改账期"顺手把赊账权限也动了。</p>
+     *
+     * <p>行可能不存在（客户还没在本站开过任何配置），调用方先 {@link #ensureExists}。</p>
+     */
+    @Update("update customer_station_config set due_days = #{dueDays}, settlement_cycle = #{settlementCycle}, "
+            + "update_time = NOW() where customer_id = #{customerId} and station_id = #{stationId}")
+    int updateCreditTerms(@Param("customerId") Long customerId, @Param("stationId") Long stationId,
+                          @Param("dueDays") Integer dueDays, @Param("settlementCycle") String settlementCycle);
 }

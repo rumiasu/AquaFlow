@@ -12,6 +12,7 @@ import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.AuditLogService;
+import com.example.aquaflow.service.CustomerRiskService;
 import com.example.aquaflow.service.OrderWorkflowService;
 import com.example.aquaflow.entity.OrderItem;
 import com.example.aquaflow.dto.DeliveryOrderActionDTO;
@@ -35,10 +36,8 @@ public class DeliveryController {
 
     @Autowired
     private OrderMapper orderMapper;
-
     @Autowired
     private OrderItemMapper orderItemMapper;
-
     @Autowired
     private ProductMapper productMapper;
 
@@ -55,6 +54,15 @@ public class DeliveryController {
 
     @Autowired
     private AddressMapper addressMapper;
+
+    /**
+     * 给站长端订单列表打**客户信用标记**（黄=有挂账 / 红=逾期或超额度）。
+     *
+     * <p>它只读、只算，不写任何业务表 —— 所以不违反下面那条"不要重新注入 Mapper"的契约。
+     * 判据只有一份实现（{@code CustomerRiskService.summarizeStation}），本类不再抄一遍。</p>
+     */
+    @Autowired
+    private CustomerRiskService customerRiskService;
 
     // 注：本类曾直接注入 OrderTransferMapper（转单状态）与 BarrelLedgerService（桶权益总账）直写那两张表，
     // 已按「Controller 只做认证 + 调服务 + 包 Result，不得触碰业务表」的契约全部移入 OrderWorkflowService。
@@ -182,7 +190,52 @@ public class DeliveryController {
     public Result<?> getStationPendingOrders() {
         Long stationId = AuthContext.getStationId();
         // 只返回未分配配送员的待分配订单
-        return Result.success(maskCrossStationProfiles(orderMapper.listStationPendingUnassigned(stationId)));
+        List<Orders> rows = orderMapper.listStationPendingUnassigned(stationId);
+        maskCrossStationProfiles(rows);
+        // [2026-09-21] 给每行附上**客户信用标记**，站长端据此上色：
+        // 黄 = 有挂账；红 = 已逾期或**超额度**（2026-09-22 起列表也算额度，
+        // 与客户详情页的等级逐字同源，见 CustomerRiskService.levelOf）。
+        attachCustomerRisk(stationId, rows);
+        return Result.success(rows);
+    }
+
+    /**
+     * 给一批订单附上"这个客户欠不欠钱、是不是企业"—— 站长端列表据此上色。
+     *
+     * <p>⚠️ <b>一次批量查，不要逐行查</b>：列表可能有几十行，逐行算风险就是几十次 SQL
+     * （本仓"列表页 N+1"的老坑）。判据本身只有一份实现，在 {@code CustomerRiskService.summarizeStation}。</p>
+     *
+     * <p>⚠️ 这些是**本站**的待分配单，不受 {@link CustomerProfileMask}（跨站不下发画像）影响；
+     * 但反过来，**跨站外派 / 抢单池那两张列表绝不能调本方法** ——
+     * "这个客户欠多少钱"是归属站的经营信息，下发给别站就是跨租户泄露（AGENTS §1.1 的可见面）。</p>
+     */
+    private void attachCustomerRisk(Long stationId, List<Orders> rows) {
+        if (stationId == null || rows == null || rows.isEmpty()) {
+            return;
+        }
+        Map<Long, Map<String, Object>> summary = customerRiskService.summarizeStation(stationId);
+        for (Orders o : rows) {
+            if (o.getCustomerId() == null) {
+                continue;
+            }
+            Map<String, Object> s = summary.get(o.getCustomerId());
+            if (s == null) {
+                // 该客户在本站没有未结赊账 —— 明确置成"正常"，别留 null 让前端猜
+                o.setCustomerRiskLevel(CustomerRiskService.NORMAL);
+                o.setCustomerRiskLevelText(CustomerRiskService.textOf(CustomerRiskService.NORMAL));
+                o.setCustomerRiskNote("没有未结欠款");
+                o.setOutstandingCredit(java.math.BigDecimal.ZERO);
+                o.setOverdueDays(0);
+                continue;
+            }
+            o.setCustomerRiskLevel(String.valueOf(s.get("level")));
+            // 徽标文案与那句话都直接用服务端算好的，**前端不自己拼也不自带映射表**
+            // （同一句"欠了多少 / 逾期几天"若前端再拼一次，列表与详情迟早说成两句不同的话）。
+            o.setCustomerRiskLevelText(String.valueOf(s.get("levelText")));
+            o.setCustomerRiskNote(String.valueOf(s.get("note")));
+            o.setOutstandingCredit((java.math.BigDecimal) s.get("outstandingCredit"));
+            o.setOverdueDays((Integer) s.get("overdueDays"));
+        }
     }
 
     @RequireRole({"STATION_MANAGER"})

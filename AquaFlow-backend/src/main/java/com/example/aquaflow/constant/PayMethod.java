@@ -61,13 +61,23 @@ public class PayMethod {
                                                             boolean wechatPayEnabled) {
         List<Map<String, Object>> list = new ArrayList<>();
         // 1 微信：真实渠道未接入；只有模拟渠道开启时才可选。
+        //    ⚠️ [2026-09-20 裁定 · 别再重复提] 这一项是**新客户第一单的唯一自助通道**。
+        //    新客户此刻：0 张水票；货到付款也没开通 —— 而"开通"的闸门要求「绑定 ∪ 本站订单」，
+        //    绑定又只能靠下单产生（见 CustomerController.updateOfflinePaymentConfig），是个闭合环。
+        //    所以"模拟渠道关 + 真实渠道未接入"时三通道全灰、客户确实下不了第一单 ——
+        //    但那是**渠道未接入的部署状态**，不是判据缺陷：本地靠 app.payment.mock-wechat-pay
+        //    （点击即成功），生产靠真实渠道接入。
+        //    ⇒ 「新客户下不了第一单」已有定论，不要每轮都当新发现的 P0 报一遍。
         list.add(method(WECHAT, wechatPayEnabled,
                 wechatPayEnabled ? "模拟支付（点击即成功，仅联调期开启）" : "暂未开通"));
         // 2 现金（货到付款）：需水站开启且客户已授权
         list.add(method(CASH, offlinePaymentAllowed,
                 offlinePaymentAllowed ? "配送员送达后现金/扫码支付" : "需水站开通，暂不可用"));
-        // 3 水票：始终可选，余额不足时下单侧另行校验
-        list.add(method(TICKET, true, "使用账户水票抵扣"));
+        // 3 水票：始终可选；余额够不够由报价（ticketPay）与下单侧校验，这里只做一句引导 ——
+        // 票不够的客户原本要提交后才被后端拦下，在选项上先说清"可以先去买票"能少一次来回
+        // （购票入口：「我的 → 我的钱包与桶 → 水票」；票不足的弹窗里另有就近的「去买水票」按钮）。
+        // ⚠️ 不写"多买多折"一类话术：本站折扣档为空时那就是假话（见 docs/design/26 §26.12.5）。
+        list.add(method(TICKET, true, "使用账户水票抵扣 · 票不足可先购买水票"));
         return list;
     }
 

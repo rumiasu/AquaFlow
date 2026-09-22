@@ -296,9 +296,14 @@ Page({
           })
         }
       })
-    }).catch(() => {
+    }).catch((e) => {
+      // [2026-09-20 真机联调] 这个 catch 原来**丢掉了错误对象**（`.catch(() => ...)`），
+      // 只把 loading 关掉并弹一句光秃秃的「加载配送员失败」—— 真机上分不出是超时、断网
+      // 还是后端 500（utils/request.js 在 f9e1c09 起已把 fail 归一化成带可读 message 的 Error，
+      // 这里直接用它）。转单是配送员的核心动作，失败必须说清原因。
       wx.hideLoading()
-      wx.showToast({ title: '加载配送员失败', icon: 'none' })
+      console.error('[OrderDetail] 加载配送员名单失败:', e)
+      wx.showToast({ title: '加载配送员失败：' + ((e && e.message) || '网络异常'), icon: 'none' })
     })
   },
 
@@ -397,7 +402,10 @@ Page({
     })
   },
 
-  // 申请取消订单（配送员）：已接单订单不能自行取消，须提交申请由站长审批
+  // 申请取消订单（配送员）：**只有「配送中(2)」**能申请（wxml 的按钮条件与后端门槛一致），
+  // 提交后订单状态不变，由站长审批；站长同意才走退款链。
+  // ⚠️ 已送达(3) 申请不了（后端 isCancellable 排除，异常走「配送异常」）；
+  //    待配送(1) 也不需要申请 —— 走「拒单」即可（不经审批）。
   async onRequestCancel() {
     const id = this.data.orderId
     const confirm = await new Promise(resolve => {

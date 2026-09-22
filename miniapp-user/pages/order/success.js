@@ -13,7 +13,14 @@ Page({
     hasTemplate: false,
     paymentStatus: null,
     orderAmount: 0,
-    orderPaymentMethod: null
+    orderPaymentMethod: null,
+    // 能否在线支付 / 按钮文案 / 付款说明：**一律用后端下发的**，绝不用 paymentStatus 自己判断。
+    // 后端口径见 Orders.getCanRepay()/getRepayLabel()/getPayHint()：水票(下单即付)、
+    // 现金(货到付款)、微信(渠道未接入) 三种当前 `canRepay` 都为 false —— 即"当前没有
+    // 客户自助在线支付入口"。前端自造条件会造出一个点了没用的按钮（2026-09-20 实测）。
+    canRepay: false,
+    repayLabel: '去支付',
+    payHint: ''
   },
 
   onLoad(options) {
@@ -38,7 +45,10 @@ Page({
         this.setData({
           paymentStatus: res.data.paymentStatus,
           orderAmount: res.data.totalAmount || res.data.amount || 0,
-          orderPaymentMethod: res.data.paymentMethod
+          orderPaymentMethod: res.data.paymentMethod,
+          canRepay: res.data.canRepay === true,
+          repayLabel: res.data.repayLabel || '去支付',
+          payHint: res.data.payHint || ''
         })
       }
     } catch (e) {

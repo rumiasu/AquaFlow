@@ -505,3 +505,23 @@
   margin-top: 8rpx;
   line-height: 32rpx;
 }
+
+/* 当前水站提示条（2026-09-20）：水票/押金/桶权益按「客户 × 水站」隔离，
+   页面要能一眼看出"这是哪个站的账"。样式与 pages/deposit/records 同名类保持一致。 */
+.station-bar {
+  display: flex;
+  flex-direction: column;
+  padding: 4rpx 8rpx 20rpx;
+}
+
+.station-bar-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.station-bar-tip {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}

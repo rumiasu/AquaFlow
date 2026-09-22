@@ -23,7 +23,7 @@ echo "==================== [2/4] 后端集成测试 ===================="
 echo "==================== [3/4] 小程序静态扫描 ===================="
 PY="$(command -v python || command -v python3 || true)"
 if [ -n "$PY" ]; then
-  # 六个脚本都有真实退出码：0 通过 / 1 有致命问题。这里不再用 `|| echo` 吞掉失败，
+  # 七个脚本都有真实退出码：0 通过 / 1 有致命问题。这里不再用 `|| echo` 吞掉失败，
   # 否则脚本红着也会打印「验证全部通过」。audit_wxml_handlers.py 自带两端遍历；
   # 另两个需显式传端名，故两端各跑一次（与 .github/workflows/ci.yml 保持一致）。
   SCAN_FAILED=0
@@ -48,6 +48,11 @@ if [ -n "$PY" ]; then
   else
     echo "[verify] 未找到 node，跳过 audit_js_syntax.py（CI 上会强制执行）"
   fi
+  # 场景测试矩阵一致性门禁（2026-09-21）：矩阵是「哪个业务场景有覆盖」的指定入口，
+  # 但它是手写文档、测试类会被改名/删掉。本步让它的声称可被机器核对
+  # （引用的类/方法必须存在、✅ 行必须指得出证据、STATS 件数必须与实测一致）。
+  # ⚠️ 依赖上一步刚跑完的 build/test-results/test/*.xml，故顺序不可提前。
+  run_scan audit_scenario_matrix.py
   if [ "$SCAN_FAILED" -ne 0 ]; then
     echo "❌ 静态扫描未通过"; exit 1
   fi

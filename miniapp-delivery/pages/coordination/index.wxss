@@ -133,6 +133,37 @@
 .status-exception { background: #FFEBEE; color: #D32F2F; }
 .status-approval { background: #FFEBEE; color: #C62828; }
 
+/* ========== 客户信用标（待分配卡片，2026-09-22） ==========
+   文案与判据全在后端（CustomerRiskService），这里只有**颜色**。
+   两档就够（站长是力工，多一档就多一次误判）：
+     黄 risk-warn   = 关注：有挂账，都在账期内 —— **这是正常经营**，别做成告警的样子；
+     红 risk-danger = 预警 / 冻结：已逾期或超额度，才需要立刻处理。
+   `.order-card.risk-*` 给整张卡加一条左侧色边，扫一眼列表就知道哪几单要留意。
+   `.risk-plain` 是"后端给了个我没见过的等级"的兜底（中性灰）—— 认不出来就别乱标红。 */
+.risk-tag {
+  font-size: 22rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 8rpx;
+  font-weight: 500;
+}
+
+.risk-tag.risk-warn { background: #FFF8E1; color: #B26A00; border: 2rpx solid #FFD666; }
+.risk-tag.risk-danger { background: #FFEBEE; color: #C62828; border: 2rpx solid #FFA39E; }
+.risk-tag.risk-plain { background: #F5F5F5; color: #666666; border: 2rpx solid #E0E0E0; }
+
+.order-card.risk-warn { border-left: 8rpx solid #E6A23C; }
+.order-card.risk-danger { border-left: 8rpx solid #F56C6C; }
+
+.risk-note {
+  font-size: 24rpx;
+  line-height: 1.5;
+  margin: -8rpx 0 18rpx;
+}
+
+.risk-note.risk-warn { color: #B26A00; }
+.risk-note.risk-danger { color: #C62828; }
+.risk-note.risk-plain { color: #888888; }
+
 /* 「审批」页签内的子页签（客户 / 站内） */
 .sub-tab-bar {
   display: flex;

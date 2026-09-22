@@ -20,6 +20,7 @@ import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.service.BarrelLedgerService;
 import com.example.aquaflow.service.BarrelService;
+import com.example.aquaflow.service.CustomerRiskService;
 import com.example.aquaflow.util.PriceUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -71,6 +72,14 @@ public class BarrelServiceImpl implements BarrelService {
     /** 退桶 → 押金条核销明细，用于事后审计"这笔钱按哪几张押金条算的" */
     @Autowired
     private BarrelRecordLotMapper barrelRecordLotMapper;
+
+    /**
+     * 信用风险（验资）—— 退桶预检时问一句"这个客户还欠着钱吗"。
+     *
+     * <p>它只依赖 {@code OrderMapper}，不会与本类形成循环。</p>
+     */
+    @Autowired
+    private CustomerRiskService customerRiskService;
 
     @Override
     public List<CustomerBarrelAsset> getAssets(Long customerId, Long stationId) {
@@ -634,6 +643,26 @@ public class BarrelServiceImpl implements BarrelService {
             data.put("blocked", true);
             data.put("blockedReason", "最多只能退 " + right + " 个桶权益");
         }
+
+        // [2026-09-21 新增] 信用风险拦截：该客户在本站有**逾期未结的赊账**（或挂账超额度）时，
+        // 先别把押金退出去。**复用现成的 blocked 机制**（与「欠桶不许退桶」同一条通道），不新造拦截。
+        //
+        // 两种情形都拦，而且必须给**清楚的原因**：
+        //   ① 押金余额充足 → 退了就等于"欠着货款还能把押金拿走"；
+        //   ② 押金穿底（余额不足）→ 下一步 decreaseBalance 本来就会失败，但它报的是
+        //      「押金余额不足」，站长与客户都看不出真实原因是"他还欠着钱"。
+        //
+        // ⚠️ 只在**确实要退钱**时拦（qty > 0 且权益足够、且不欠桶）——
+        //   查询性质的调用（qty=0、或本来就退不了）不该被这件事挡住。
+        if (!Boolean.TRUE.equals(data.get("blocked")) && qty > 0 && qty <= right && over <= 0) {
+            String level = customerRiskService.levelOf(customerId, stationId);
+            if (CustomerRiskService.ALERT.equals(level) || CustomerRiskService.FREEZE.equals(level)) {
+                data.put("blocked", true);
+                data.put("blockedReason", customerRiskService.returnBlockedReason(customerId, stationId));
+                data.put("riskLevel", level);
+            }
+        }
+
         if (Boolean.TRUE.equals(data.get("blocked"))) {
             data.put("refundAmount", BigDecimal.ZERO);
             data.put("lots", java.util.Collections.emptyList());

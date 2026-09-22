@@ -246,6 +246,8 @@ CREATE TABLE IF NOT EXISTS `customer_station_config` (
   `customer_id` bigint NOT NULL COMMENT '客户ID',
   `station_id` bigint NOT NULL COMMENT '水站ID',
   `offline_payment_enabled` tinyint NOT NULL DEFAULT '0' COMMENT '该客户在该站是否允许线下支付（货到付款）。全系统唯一控制点，由站长在客户画像里逐个开通；无站点级总闸',
+  `due_days` int DEFAULT NULL COMMENT '该客户在该站的账期天数（NULL=即时结清不挂账）。2026-09-21 起账期从客户级 company_info.due_days 改为站级',
+  `settlement_cycle` varchar(16) DEFAULT NULL COMMENT '结算周期：IMMEDIATE=现结 / MONTHLY=月结（从当月最后一天起算）。NULL 视为 IMMEDIATE',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

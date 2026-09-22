@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>关键口径：</p>
  * <ul>
- *   <li>只有「待配送」可被客户取消；已送达订单必须原样保持。</li>
+ *   <li>只有「待配送(1) / 配送中(2)」可被取消；<b>已送达(3) 一律不可</b>（2026-09-21 裁定，见下条用例）。</li>
  *   <li>从未付过钱的订单取消后是「已取消」，不是「已退款」——假的退款记录比没有记录更糟。</li>
  *   <li>水票支付的订单取消要把票退回去。</li>
  * </ul>
@@ -81,31 +81,53 @@ class OrderCancelRollbackIntegrationTest extends AbstractIntegrationTest {
                 "从未付款的订单取消后应为「已取消(4)」，而非「已退款」");
     }
 
+    /**
+     * [2026-09-21 裁定改写] 已送达订单**不可再取消** —— 客户、配送员、站长三条路全被拒，且订单一动不动。
+     *
+     * <p><b>规则为什么改</b>：已送达不只是系统里的一个标记，现实里**货已经交付完成**。
+     * 交付完成的事不该靠"取消"抹掉 —— 桶权益批次是在送达那一刻建的，而取消链的桶账处理
+     * 够不着它（见 `PaymentServiceImpl.refundOrder` 的护栏注释），于是取消会留下
+     * "客户握着可退押金的权益、而我们从未收到过押金"的敞口。客户拒付等异常改走「配送异常」流程。</p>
+     *
+     * <p><b>本用例改之前的样子</b>（留档，别照旧版做）：旧版断言"已送达单客户取消 → 转为站长审批的取消申请"，
+     * 即 {@code put(/customer-cancel)} 返回成功、并落一条 {@code CANCEL_REQUEST}。那条路现已关闭。</p>
+     */
     @Test
-    @DisplayName("已送达订单客户取消 → 转为站长审批的取消申请，订单与库存均不变")
-    void deliveredOrder_cancelBecomesApprovalRequest() {
+    @DisplayName("已送达订单不可取消（2026-09-21 裁定）：客户/配送员/站长三条路都被拒，订单与库存一动不动")
+    void deliveredOrderIsNoLongerCancellable() {
         seed(true);
-        // 已送达、未付款的现金订单
+        // 已送达、待收款的现金订单（照真实形态：桶装水 + 待收款 1）
         long order = createOrderFull(customer, addr, station, product,
-                3 /* 已送达 */, 0, 2 /* 现金 */, "40.00", "0.00", "40.00", false, 2);
+                3 /* 已送达 */, 1 /* 待收款 */, 2 /* 现金 */, "40.00", "0.00", "40.00", false, 2);
+        long mgr = createStaff("M1", "STATION_MANAGER", station, 1);
+        String token = staffToken(mgr, "STATION_MANAGER", station);
         int qtyBefore = intOf("SELECT quantity FROM inventory WHERE station_id=? AND product_id=?",
                 station, product);
 
-        // [2026-09-14] 语义变更：已接单（配送中/已送达）的订单，客户不再被直接拒绝，
-        // 而是提交取消申请（order_transfer kind=CUSTOMER / subKind=CANCEL_REQUEST），
-        // 由站长审批；站长同意后才走 refundOrder 完整退款链。
-        Api res = put("/api/orders/" + order + "/customer-cancel", customerToken(customer), null);
-        assertTrue(res.isSuccess(), "已送达订单应转为提交取消申请，实际=" + res);
+        // ① 客户自助取消 → 拒，且**连取消申请都不该落库**（不是"转申请"，是根本不受理）
+        Api byCustomer = put("/api/orders/" + order + "/customer-cancel", customerToken(customer), null);
+        assertFalse(byCustomer.isSuccess(), "已送达单客户不得取消，实际=" + byCustomer);
+        assertTrue(byCustomer.message() != null && byCustomer.message().contains("配送异常"),
+                "拒绝文案必须指向异常流程（只回'不可取消'会让人反复重试），实际=" + byCustomer.message());
 
-        // 申请 ≠ 取消：订单状态与库存必须原封不动，否则就成了「申请即退款」的事故。
-        assertEquals(3, intOf("SELECT status FROM orders WHERE id=?", order),
-                "提交申请后状态必须保持已送达");
+        // ② 拒单 → 拒
+        Api byReject = post("/api/delivery/orders/reject/" + order, token, "{}");
+        assertFalse(byReject.isSuccess(), "已送达单不得拒单，实际=" + byReject);
+
+        // ③ 解决/拒单（这条会触发退款链）→ 拒
+        Api byResolve = post("/api/delivery/orders/" + order + "/resolve", token,
+                "{\"reason\":\"客户拒付\"}");
+        assertFalse(byResolve.isSuccess(), "已送达单不得走解决/拒单，实际=" + byResolve);
+
+        // 全程订单一动不动：状态、支付状态、库存、取消申请
+        assertEquals(3, intOf("SELECT status FROM orders WHERE id=?", order), "三条路都不许改订单状态");
+        assertEquals(1, intOf("SELECT payment_status FROM orders WHERE id=?", order),
+                "支付状态同样不许被动过（仍是 待收款 1）");
         assertEquals(qtyBefore, intOf("SELECT quantity FROM inventory WHERE station_id=? AND product_id=?",
-                        station, product),
-                "提交申请不得回补库存（只有站长同意后才回补）");
-        assertEquals(1, intOf("SELECT COUNT(*) FROM order_transfer WHERE order_id=? AND status='PENDING' "
-                        + "AND kind='CUSTOMER' AND sub_kind='CANCEL_REQUEST'", order),
-                "应恰好生成一条客户取消申请");
+                station, product), "不得回补库存");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM order_transfer WHERE order_id=? "
+                        + "AND status='PENDING' AND sub_kind='CANCEL_REQUEST'", order),
+                "不得留下任何待审批的取消申请（否则站长点同意时才发现拒不了）");
     }
 
     @Test

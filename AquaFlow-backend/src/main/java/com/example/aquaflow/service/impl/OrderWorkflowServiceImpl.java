@@ -643,10 +643,11 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         // [2026-09-13] 状态门槛：此前这里只校验归属、不校验状态，
         // 于是「配送员点完成」与「配送员/站长点拒单」在两个客户端上没有任何互斥，
-        // 且已完成的订单也能被拒单退款。业务上只允许 待配送/配送中/已送达 拒单。
+        // 且已完成的订单也能被拒单退款。业务上只允许 待配送/配送中 拒单
+        // （[2026-09-21] 已送达也被排除：货已交付，异常改走「配送异常」）。
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (!OrderStatus.isCancellable(cur)) {
-            throw new BusinessException("该订单当前状态不可拒单（status=" + cur + "）");
+            throw new BusinessException(OrderStatus.notCancellableReason(cur, "拒单"));
         }
         // [2026-09-14] 配送员对「已接单」订单不得直接拒单（那等于绕开站长取消了订单并触发退款），
         // 必须提交取消申请由站长审批。站长本人不受限——他就是要点头的那个人。
@@ -672,9 +673,10 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException("拒单原因必填");
         }
         // [2026-09-13] 与 rejectOrder 同款状态门槛：已完成/已取消的订单不允许再走退款
+        // （[2026-09-21] 已送达同样被排除）
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (!OrderStatus.isCancellable(cur)) {
-            throw new BusinessException("该订单当前状态不可解决/拒单（status=" + cur + "）");
+            throw new BusinessException(OrderStatus.notCancellableReason(cur, "解决/拒单"));
         }
         // [2026-09-14] 与 rejectOrder 同款收口：配送员对已接单订单不得直接取消（会触发退款），
         // 必须提交取消申请由站长审批。站长本人不受限。
@@ -699,6 +701,15 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
         if (tryDispatch) {
             int cur = order.getStatus() != null ? order.getStatus() : 0;
+            // [2026-09-21 补] 外派分支此前**没有状态门槛**，而下面的 CAS 是
+            // `outsourceToPoolIf(id, PENDING, cur)` —— 即 `set status=1 where status=cur`。
+            // 于是对一张**已送达(3)** 的单调用本端点，会把状态倒滚成 待配送(1)：
+            // 货已经交付了却又变回"待分配"，违反「状态只前进、不许倒滚」（AGENTS.md §8.18），
+            // 而且会把它重新推进抢单池、让别站去送一张已经送过的单。
+            // 入池/退回重派的语义与取消同源（都是"这单本站不送了"），故共用 isCancellable。
+            if (!OrderStatus.isCancellable(cur)) {
+                throw new BusinessException(OrderStatus.notCancellableReason(cur, "拒单外派"));
+            }
             // [2026-09-18] 这是"放进抢单池"的**第二个入口**（第一个是 outsource(targetStationId=null)），
             // 押金/桶权益的闸门必须同样装上，否则换个入口就绕过去了。
             if (involvesDepositOrBarrelRights(order)) {
@@ -716,10 +727,13 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                     "[外派] 站长拒单后外派，原因=" + r + "，原归属站=" + stationId);
         } else {
             // [2026-09-13] 取消分支原先没有任何状态门槛（外派分支靠 outsourceToPoolIf 的 CAS 兜着）。
-            // 与 rejectOrder/resolveOrder 统一：只允许 待配送/配送中/已送达。
+            // ⚠️ 与本类其它取消入口共用**同一道闸门** `OrderStatus.isCancellable`（= 待配送/配送中）。
+            //    原注释写的"只允许 待配送/配送中/已送达"是 2026-09-21 之前的口径，已送达不再可取消。
+            //    原实现还自己拼了一句"该订单当前状态不可取消（status=N）"—— 与全仓统一文案分叉，
+            //    已送达的单会收到一句**不说下一步去哪**的话（找不到「配送异常」这条出路）。
             int curCancel = order.getStatus() != null ? order.getStatus() : 0;
             if (!OrderStatus.isCancellable(curCancel)) {
-                throw new BusinessException("该订单当前状态不可取消（status=" + curCancel + "）");
+                throw new BusinessException(OrderStatus.notCancellableReason(curCancel, "拒单"));
             }
             cancelWithRefund(orderId, r, "[拒单] " + r);
             notifyCustomerRejected(order.getCustomerId(), orderId, r);
@@ -919,10 +933,20 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException("仅能取消本站外派的订单");
         }
         int cur = order.getStatus() != null ? order.getStatus() : 0;
-        if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) {
-            throw new BusinessException("该订单状态不可取消外派");
+        // [2026-09-22 产品裁定] **被接单之后这单就不归归属站管了，只能接单站管**
+        //（原话：「外派出去的本单就不归本站管了，只能接单站管，联系等都是接单站执行」）。
+        // 所以召回只允许在「还没被接单」时发起 —— 也就是状态仍是 待配送(1)：
+        //   在抢单池里（delivery_station_id 为空）、已被指定给某站但对方还没接单，两种都还是 1；
+        //   对方一接单，状态变 配送中(2)，本入口就必须关掉。
+        // ⚠️ 原实现放行 配送中(2) 并把状态**改回** 待配送(1)。两个问题：
+        //   ① 那是归属站把别站正在送的单抢回来，可能出现两个配送员送同一张单；
+        //   ② 货已经在接单站的车上，"取消外派"根本拦不住这件事 —— 它只是把账改成归属站以为的样子。
+        if (cur != OrderStatus.PENDING) {
+            throw new BusinessException(cur == OrderStatus.DELIVERING
+                    ? "该单已被接单站接单，归接单站管理，本站不能再取消外派（请与接单站联系）"
+                    : "该订单状态不可取消外派（当前 " + OrderStatus.textOf(cur) + "）");
         }
-        // 召回为本站待分配（无论当前在抢单池、已指定或已被其他站接单）
+        // 召回为本站待分配（此时只可能是"在池中"或"已指定但对方未接单"两种）
         int changed = orderMapper.recallToStationIf(orderId, stationId, OrderStatus.PENDING, cur);
         if (changed == 0) {
             throw new BusinessException("订单状态已变更，请刷新后重试");
@@ -938,13 +962,21 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     public void claimPool(Long orderId, Long targetStaffId) {
         Long stationId = AuthContext.requireStationId();
         Orders order = requireOrder(orderId);
-        // 必须是抢单池中的订单（delivery_station_id 为空）
-        if (order.getDeliveryStationId() != null) {
-            throw new BusinessException("该订单已被其他水站抢单");
-        }
+        // ⚠️ [2026-09-20] 原来先判 delivery_station_id、且文案写死"已被其他水站抢单"，
+        // 但**下单时 delivery_station_id 就等于归属站**（OrderServiceImpl:479）—— 于是任何
+        // "没被外派过"的单来抢（包括状态早已不是待配送的历史单）都会得到"被别站抢走了"这个
+        // 与事实相反的解释，把排查引向错误方向（AGENTS §8.22：不能把失败说成事实）。
+        // 现在按真实判据分两类，并且**先判状态** —— 状态不对时"在不在池里"根本不是重点。
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (cur != OrderStatus.PENDING) {
-            throw new BusinessException("该订单当前状态不可抢单");
+            throw new BusinessException("该订单当前状态不可抢单（仅" + OrderStatus.textOf(OrderStatus.PENDING)
+                    + "的单可抢，当前为" + OrderStatus.textOf(cur) + "）");
+        }
+        if (order.getDeliveryStationId() != null) {
+            // 履约站非空 = 这单**已经不在抢单池里**（池中的单该列应为 NULL）。
+            // 至于为什么不在池里（从未外派 / 已被召回 / 已被别站接单），这里给不出唯一答案，
+            // 那就**不猜**——把三种可能列出来，让站长去看「外派追踪」。
+            throw new BusinessException("该订单不在抢单池中（可能未外派、已被召回或已被其他水站接单）");
         }
         if (targetStaffId == null) throw new BusinessException("请指定配送员");
         // [2026-09-18] 池子的**出口**也装同一道闸门：入池的两个入口都堵了，这里防的是"历史遗留在池中的
@@ -959,6 +991,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         int grabbed = orderMapper.claimPoolIfFree(orderId, stationId, targetStaffId,
                 OrderStatus.DELIVERING, OrderStatus.PENDING);
         if (grabbed == 0) {
+            // ⚠️ 这一处文案**是对的**，别跟着上面那处一起改：CAS 影响 0 行 = 在读到 order 之后、
+            // 执行 CAS 之前，池里这单被别站抢走（或状态已变）。这里本来就是"被抢走"的语义。
             throw new BusinessException("该订单已被其他水站抢单");
         }
         // 抢单 = 钱货都归抢单站 → 待收款流水跟着走（否则归属站列着一笔它收不到的钱）
@@ -1320,9 +1354,20 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             checkDeliverySelf(order);
         }
         int cur = order.getStatus() != null ? order.getStatus() : 0;
-        // 待配送(1) 尚未接单，配送员可直接走 rejectOrder；只有已接单才需要审批
-        if (cur != OrderStatus.DELIVERING && cur != OrderStatus.DELIVERED) {
-            throw new BusinessException("仅已接单（配送中/已送达）的订单需提交取消申请，当前状态=" + cur);
+        // [2026-09-22 修] 本入口**只收「配送中(2)」**，三个状态各有各的正门：
+        //   待配送(1) → 还没接单，配送员直接走 `rejectOrder`（不经审批，少一步）；
+        //   配送中(2) → 本入口（提交申请 → 站长审批）；
+        //   已送达(3) → 货已交付、**不可取消**（`isCancellable` 排除），异常走「配送异常」。
+        // ⚠️ 原来这里写的是 `cur != DELIVERING && cur != DELIVERED`（**放行了已送达**），
+        //    而下游 `approveCancelRequest` 用的是 `isCancellable`（拒绝已送达）—— **两个入口口径不一致**。
+        //    后果：配送员能给一张已送达的单提交取消申请，它进了站长的 P0 审批列表，
+        //    站长点「同意」才被拒（"点了才发现拒不了"），唯一的出路是点「拒绝」——
+        //    等于凭空给站长派了一件只能驳回的活。
+        // **判据只留一处：`OrderStatus.isCancellable`。**
+        if (cur != OrderStatus.DELIVERING) {
+            throw new BusinessException(OrderStatus.isCancellable(cur)
+                    ? "待配送的订单不需要审批：请直接「拒单」"
+                    : OrderStatus.notCancellableReason(cur, "申请取消"));
         }
         OrderTransfer pending = orderTransferMapper.findPendingByOrder(orderId);
         if (pending != null && OrderTransfer.SUB_CANCEL_REQUEST.equals(pending.getSubKind())) {
@@ -1344,7 +1389,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (!OrderStatus.isCancellable(cur)) {
-            throw new BusinessException("当前订单状态不可取消，如需帮助请联系水站");
+            throw new BusinessException(OrderStatus.notCancellableReason(cur));
         }
         OrderTransfer pending = orderTransferMapper.findPendingByOrder(orderId);
         if (pending != null && OrderTransfer.SUB_CANCEL_REQUEST.equals(pending.getSubKind())) {
@@ -1368,7 +1413,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (!OrderStatus.isCancellable(cur)) {
-            throw new BusinessException("该订单当前状态不可取消（status=" + cur + "）");
+            throw new BusinessException(OrderStatus.notCancellableReason(cur));
         }
         // 先落审批结论，再走统一退款编排（refundOrder 末尾统一把订单置为已取消）
         orderTransferMapper.resolvePendingByKind(orderId, pending.getKind(),

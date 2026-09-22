@@ -66,9 +66,16 @@ class ReceivableIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, put("/api/manager/customers/" + customer + "/credit-terms",
                 mgr, "{\"dueDays\":30}").code(), "站长应能设账期");
 
+        // [v60] 算法变了：从"下单日 + N 天"改成"**当月最后一天** + N 天"（企业主流：本月消费、下月结账）。
+        // 所以期望值不能写死 30 —— 按同一规则算出来，免得把某一天的巧合当成规格。
+        int expect30 = (int) java.time.temporal.ChronoUnit.DAYS.between(
+                java.time.LocalDate.now(),
+                java.time.LocalDate.now()
+                        .withDayOfMonth(java.time.LocalDate.now().lengthOfMonth()).plusDays(30));
+
         long cashOrder = orderIdOf(order(cus, station, address, product, 2, 2, "ar-snap-cash"), "ar-snap-cash");
-        assertEquals(30, intOf("SELECT DATEDIFF(due_date, CURDATE()) FROM orders WHERE id=?", cashOrder),
-                "现金单应带上账期快照（今天 + 30 天）");
+        assertEquals(expect30, intOf("SELECT DATEDIFF(due_date, CURDATE()) FROM orders WHERE id=?", cashOrder),
+                "现金单应带上账期快照（月底 + 30 天）");
         assertEquals(1, intOf("SELECT settlement_status FROM orders WHERE id=?", cashOrder),
                 "新建单应为未结算(1)");
 
@@ -80,8 +87,8 @@ class ReceivableIntegrationTest extends AbstractIntegrationTest {
         // 账期是快照：改成 60 天，历史单的到期日必须一动不动（与地址/金额快照同源的理由）
         assertEquals(0, put("/api/manager/customers/" + customer + "/credit-terms",
                 mgr, "{\"dueDays\":60}").code(), "改账期");
-        assertEquals(30, intOf("SELECT DATEDIFF(due_date, CURDATE()) FROM orders WHERE id=?", cashOrder),
-                "改账期不得改到历史单的到期日");
+        assertEquals(expect30, intOf("SELECT DATEDIFF(due_date, CURDATE()) FROM orders WHERE id=?", cashOrder),
+                "改账期不得改到历史单的到期日（要改存量得走 /credit-terms/recalculate）");
     }
 
     @Test

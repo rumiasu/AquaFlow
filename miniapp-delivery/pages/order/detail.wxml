@@ -171,8 +171,13 @@
     <view class="transfer-btn" bindtap="onReturnToStation">
       <text>退回站长</text>
     </view>
-    <!-- 已接单订单不能自行取消：只能提交申请，由站长审批（2026-09-14） -->
-    <view class="transfer-btn" wx:if="{{order.status === 2 || order.status === 3}}" bindtap="onRequestCancel">
+    <!--
+      申请取消：**只有「配送中(2)」给这个按钮**（2026-09-22 修）。
+      待配送(1) 本来就有「拒单」这条正门（走 rejectOrder，不经审批）；
+      已送达(3) **不可取消**（后端 isCancellable 排除），原来这里也放行 status===3，
+      点下去只会给站长造一条"点了同意才发现拒不了"的审批单 —— 异常请走「配送异常」。
+    -->
+    <view class="transfer-btn" wx:if="{{order.status === 2}}" bindtap="onRequestCancel">
       <text>申请取消订单</text>
     </view>
   </block>

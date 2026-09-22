@@ -18,8 +18,11 @@ const getBarrelRecords = (stationId) => {
 }
 
 // POST /api/barrels/return (customerId 从 JWT 获取)
-const requestBarrelReturn = (data) => {
-  return post(API.BARREL_RETURN, data)
+// ⚠️ stationId **必须传**：后端对顾客只认 dto（顾客 JWT 里没有水站），漏传会恒返回
+//    「请先选择服务水站」；而同一页的退桶试算却正常 —— 观感上像"系统坏了"（2026-09-20 实测）。
+// 用**显式位置参数**而不是对象透传：对象透传没有编译期约束，少写一个字段不报错、也不易察觉。
+const requestBarrelReturn = (productId, quantity, note, stationId) => {
+  return post(API.BARREL_RETURN, { productId, waterTypeId: productId, quantity, note, stationId })
 }
 
 // GET /api/barrels/return/preview 退桶试算（只读）

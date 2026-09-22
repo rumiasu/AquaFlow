@@ -35,6 +35,44 @@ public class Orders {
     /** 地址详情(关联查询字段) */
     private String addressDetail;
 
+    // =========================================================================
+    // 客户信用标记（**关联/计算字段，不是 orders 表的列**）—— 2026-09-21 新增
+    //
+    // 用途：站长端的订单列表据此**上色**（黄=有挂账 / 红=逾期或超额度），
+    // 让他一眼看出"这单的客户欠着钱"。与上面的 customerName / addressDetail 同类：
+    // 由列表查询或控制器填充，**没有对应数据库列**，写库时会被忽略。
+    //
+    // ⚠️ 别把它们当成持久化字段：`orderMapper.save/update` 的 SQL 是显式列名，写不进去；
+    //    MyBatis 的 `select o.*` 也不会填它们（值为 null = 该行没做过信用标记）。
+    // =========================================================================
+
+    /** 客户类型：1 个人 / 2 企业（关联查询字段，见 constant 与 customer 表注释） */
+    private Integer customerType;
+
+    /** 客户在本站的信用等级：NORMAL / WATCH / ALERT / FREEZE（见 CustomerRiskService） */
+    private String customerRiskLevel;
+
+    /**
+     * 上面那个等级的中文（正常 / 关注 / 预警 / 冻结）—— <b>文案只有一个来源</b>
+     * （{@code CustomerRiskService.textOf}），列表徽标直接用，前端不许自带 NORMAL→「正常」映射表。
+     */
+    private String customerRiskLevelText;
+
+    /**
+     * 给站长看的一句话（"有 ¥320.00 挂账，都在账期内" / "有 2 笔逾期未结（最长 9 天）：不再给新的赊账单"）。
+     *
+     * <p>同样由后端拼好下发，前端**不自己拼**"欠了多少 / 逾期几天" —— 否则同一个客户
+     * 在列表上与在详情页上会变成两句不一样的话。等级为 {@code NORMAL} 时也下发（"没有未结欠款"），
+     * 前端据此判断"要不要标出来"是它自己的展示决定，不用猜字段缺失。</p>
+     */
+    private String customerRiskNote;
+
+    /** 未结赊账金额（含水费口径，**不含押金**）—— 列表上色判据之一 */
+    private java.math.BigDecimal outstandingCredit;
+
+    /** 最长逾期天数（0 = 没有逾期的）—— 列表上色判据之一 */
+    private Integer overdueDays;
+
     /**
      * 收货地址的楼层 / 是否有电梯（关联查询字段，2026-09-17 新增）。
      *

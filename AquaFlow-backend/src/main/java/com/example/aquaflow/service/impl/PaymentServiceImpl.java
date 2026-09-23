@@ -291,7 +291,7 @@ public class PaymentServiceImpl implements PaymentService {
         // #29: 乐观锁 — 用原子更新确保只有PENDING状态才能改为PAID
         // [AQ-003] 期望状态必须显式传 PaymentStatus.PENDING(=1)；
         // 旧实现在 SQL 里硬编码 status=0，与 PENDING 取值不符，导致此处恒为 0 行、支付永远确认失败。
-        int affected = paymentRecordMapper.updateStatusIf(paymentId, PaymentStatus.PAID, PaymentStatus.PENDING);
+        int affected = paymentRecordMapper.updateStatusTo(paymentId, PaymentStatus.PAID, PaymentStatus.PENDING);
         if (affected == 0) {
             throw new BusinessException("支付确认失败，状态已变更，请刷新后重试");
         }
@@ -348,7 +348,7 @@ public class PaymentServiceImpl implements PaymentService {
                     // [2026-09-16 修复] 这里原写作 (PENDING, PAID)，即"把 status 改成 PENDING、要求它现在是 PAID"，
                     // 与上面那行 `r.getStatus() == PENDING` 的判据自相矛盾，SQL 恒命中 0 行：
                     // 现金单确认收款后订单变已付款，但支付流水永远停在「待收款」。
-                    paymentRecordMapper.updateStatusIf(r.getId(), PaymentStatus.PAID, PaymentStatus.PENDING);
+                    paymentRecordMapper.updateStatusTo(r.getId(), PaymentStatus.PAID, PaymentStatus.PENDING);
                 }
             }
             orderMapper.markPaidIfCollectable(orderId);
@@ -648,7 +648,7 @@ public class PaymentServiceImpl implements PaymentService {
                 //   ① 站长在支付流水里看到一笔"已付款"，而钱其实已退回客户；
                 //   ② 对账等式2 的 p2b 项（订单非已付款却存在 status=2 的流水）会持续报差异。
                 // 正确顺序是 (id, 目标状态, 期望状态)。
-                paymentRecordMapper.updateStatusIf(r.getId(), PaymentStatus.REFUNDED, PaymentStatus.PAID);
+                paymentRecordMapper.updateStatusTo(r.getId(), PaymentStatus.REFUNDED, PaymentStatus.PAID);
 
                 // 生成退款记录（形状与站长手工退款共用同一个私有方法，见 insertRefundRecord）
                 insertRefundRecord(r, refundNoteForOrder(r.getPaymentMethod(), reason));
@@ -826,7 +826,7 @@ public class PaymentServiceImpl implements PaymentService {
         // 恒命中 0 行 —— 退款成功了，但支付流水仍显示「已付款」（本类 refundOrder 里同一处也已修）。
         // [2026-09-18] 补上 0 行检查：上面的开销（回补水票 + 建批次）是不能重复吃的副作用，
         // 而这一句正是"同一笔流水只允许退一次"的唯一闸门 —— 不检查就等于把闸门焊死在开位。
-        int refunded = paymentRecordMapper.updateStatusIf(paymentId, PaymentStatus.REFUNDED, PaymentStatus.PAID);
+        int refunded = paymentRecordMapper.updateStatusTo(paymentId, PaymentStatus.REFUNDED, PaymentStatus.PAID);
         if (refunded == 0) {
             throw new BusinessException("退款失败，该笔支付状态已变更，请刷新后重试");
         }

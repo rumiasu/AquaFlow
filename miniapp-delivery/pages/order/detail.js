@@ -2,13 +2,16 @@
 const { getOrderDetail, completeOrder, transferOrder, returnToStation, reportOrder, getStaffList, dispatchOrder, resolveOrder, requestCancel } = require('../../api/delivery')
 // ⚠️ 楼层凭证（v43）用 utils/request 直接调：路径写常量、不往 api/ 或 config/api.js 加
 // —— 那两个文件正被另一个工作流（商品图片库）改动。
-const { get, put } = require('../../utils/request')
+const { get, put, post } = require('../../utils/request')
 const ORDER_IMAGE_BY_ORDER = '/api/order-images/by-order'
 // 支付流水（2026-09-18 接线）：GET 按订单查流水（后端 PaymentController.listByOrderId），
 // PUT 单笔退款（后端 PaymentController.refund，站长专属）。
 // 与上面的 ORDER_IMAGE_BY_ORDER 同一惯例：常量写在页面 js 顶部，不加进 config/api.js。
 const PAYMENTS_BY_ORDER = '/api/payments/by-order'
 const PAYMENT_REFUND = '/api/payments/'
+// 拒付结案（v60 接线）：手工发起异常单 → 核销认损。
+// 与上面同一惯例：常量写页面顶部。`?orderId=` 是**查询参数**（后端 @RequestParam）。
+const MANAGER_EXCEPTIONS = '/api/manager/exceptions'
 // 楼层/电梯文案：与配送任务列表共用同一份实现（口径只有一处）
 const { buildFloorText } = require('../../utils/address')
 
@@ -49,7 +52,10 @@ Page({
     floorUploading: false,
     // 支付流水（2026-09-18）：只对站长展示（后端端点本身也是 STATION_MANAGER 专属）
     payments: [],
-    canRefundPayment: false
+    canRefundPayment: false,
+    // 店员角色（决定要不要给「客户拒付」入口；后端端点本身是 STATION_MANAGER 专属，前端只是别画出来）
+    isManager: false,
+    refusalBusy: false
   },
 
   onLoad(options) {
@@ -65,9 +71,86 @@ Page({
       app.routeByRole(true)
       return
     }
+    // 角色判定与其它站长页同源（coordination 的 checkRole）
+    const role = (app.globalData.userInfo || {}).role || ''
+    this.setData({ isManager: role === 'STATION_MANAGER' || role === 'manager' })
     // 从完成配送页返回时刷新
     if (this.data.orderId) {
       this.loadOrderDetail(this.data.orderId)
+    }
+  },
+
+  /**
+   * 【v60 接线】客户拒付 → 手工发起异常单 → 核销认损（**两步确认**）。
+   *
+   * <p>为什么在订单详情页做：拒付是**对着某一张单**发生的（已送达(3) + 待收款(1)），
+   * 而「异常订单」页只能看到**已经存在**的异常 —— 它没法凭空知道你指的是哪张单。</p>
+   *
+   * <p>⚠️ 为什么分两步：第一步只**建单**（把事情记下来，可反悔），第二步才**核销**
+   * ——核销会一次做完三件事（应收出账 / 撤销该单权益 / 等量记客户欠桶）且**不可撤销**。
+   * 合成一步就是"点错一下钱和桶账一起动了"。这与响应里 `WRITE_OFF` 是终态、
+   * 重复点会报错（而不是幂等跳过）是同一套口径。</p>
+   */
+  async onRefusalWriteOff() {
+    if (this.data.refusalBusy) return
+    const id = this.data.orderId
+
+    const first = await new Promise((resolve) => {
+      wx.showModal({
+        title: '客户拒付',
+        content: '第 1 步：先给这张单记一条「客户拒收」异常。\n\n记完还会再问一次 —— 真正动账（核销应收、撤桶权益、记欠桶）的是第 2 步。',
+        confirmText: '记一条异常',
+        success: resolve,
+        fail: () => resolve({ confirm: false })
+      })
+    })
+    if (!first || !first.confirm) return
+
+    this.setData({ refusalBusy: true })
+    let exId = null
+    try {
+      const res = await post(MANAGER_EXCEPTIONS + '?orderId=' + id,
+        { category: 'CUSTOMER_REFUSE', staffNote: '客户拒付' })
+      exId = res && res.data ? res.data.id : null
+    } catch (err) {
+      wx.showToast({ title: err.message || '发起异常失败', icon: 'none' })
+      this.setData({ refusalBusy: false })
+      return
+    }
+
+    if (!exId) {
+      // 建单"成功"却没拿到 id：出声，别让站长以为记上了
+      wx.showModal({ title: '异常单没有返回编号', content: '请到「异常订单」页确认这条异常是否记上了。', showCancel: false })
+      this.setData({ refusalBusy: false })
+      return
+    }
+
+    const second = await new Promise((resolve) => {
+      wx.showModal({
+        title: '核销认损（不可撤销）',
+        content: '第 2 步会把三件事一次做完：\n\n1. 这笔应收出账，不再计入「待收款」\n2. 撤销这张单送出、客户尚未归还的桶权益\n3. 等量记成客户欠桶（方便继续追桶）\n\n确定认下这笔损失吗？',
+        confirmText: '确认核销',
+        confirmColor: '#FF3B30',
+        cancelText: '先不核销',
+        success: resolve,
+        fail: () => resolve({ confirm: false })
+      })
+    })
+    if (!second || !second.confirm) {
+      wx.showToast({ title: '已记异常，未核销', icon: 'none' })
+      this.setData({ refusalBusy: false })
+      this.loadOrderDetail(id)
+      return
+    }
+
+    try {
+      await post(MANAGER_EXCEPTIONS + '/' + exId + '/write-off', { managerNote: '客户拒付，站长核销认损' })
+      wx.showToast({ title: '已核销', icon: 'success' })
+      this.loadOrderDetail(id)
+    } catch (err) {
+      wx.showToast({ title: err.message || '核销失败', icon: 'none' })
+    } finally {
+      this.setData({ refusalBusy: false })
     }
   },
 

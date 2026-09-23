@@ -138,6 +138,15 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         if (order == null) {
             throw new BusinessException("订单不存在: " + orderId);
         }
+        // [2026-09-23] 类别白名单：这个入口的 category 来自请求体（站长手工发起），
+        // 原来直接落库 ⇒ 能写进任意字符串。2026-09-22 的业务实测就真的写进过一个不在集合里的
+        // 值（REFUSAL）—— 之后所有 switch 都认不出它，界面显示代号、统计漏掉它。
+        // 判据同 AGENTS §6「请求体的枚举入参必须白名单校验」；取值正本见 constant/ExceptionCategory。
+        if (!com.example.aquaflow.constant.ExceptionCategory.isValid(input.getCategory())) {
+            throw new BusinessException("异常类别不合法，请从「"
+                    + String.join(" / ", com.example.aquaflow.constant.ExceptionCategory.ALL)
+                    + "」中选择");
+        }
 
         OrderBarrelException ex = new OrderBarrelException();
         ex.setOrderId(orderId);

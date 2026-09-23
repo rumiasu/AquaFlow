@@ -22,7 +22,7 @@ whenToUse: 要改已弃用表(customer_owed_barrel / customer_barrel_in_transit)
 
 ### A2. 已弃用表的实际停写状态未逐一复核调用链
 
-对象：`customer_owed_barrel`（旧文档称已停止写入；该文档已归档，见 `docs/audit/2026-09-18-docs-AGENTS-旧版归档.md`）与 `customer_barrel_in_transit` 的**写入点**。
+对象：`customer_owed_barrel`（旧文档称已停止写入；该文档已归档，已移出仓库）与 `customer_barrel_in_transit` 的**写入点**。
 
 **注意**：`customer_barrel_in_transit` 是**仍在用**的（桶的「配送中」口径就读它），要确认的不是"是否停写"，而是**写入点是否只在 `BarrelLedgerService` 这条唯一入口**。`customer_owed_barrel` 才是打算停写的那个，欠桶改读 `customer_barrel_over`。
 
@@ -58,7 +58,7 @@ whenToUse: 要改已弃用表(customer_owed_barrel / customer_barrel_in_transit)
 | `docs/README.md` 称归档文档在 `.docs_trash/`，但该目录不存在 | **已解决（2026-09-15）**：`docs/README.md` 已重写为只索引**实际存在**的文档，移除了 `.docs_trash/`、`roadmap/roadmap.md`、`测试阶段问题清单.md` 等悬空条目。该目录确认不存在，不再恢复。 |
 | 根 `README.md` 仍把某端列为在维护的第三端 | **已解决（2026-09-14）**：已改为「两端原生小程序」，并删除 Vue3 / `station_payment_config` 等过期内容。 |
 | 真实库表数与基线的一致性未复核 | **已完全对齐（2026-09-16）**：真实库 39 个对象 = 基线 39 张表，0 视图 / 0 备份表，两个方向差额均为 0（见 `AGENTS.md` §8.13）。计数以 `Select-String -Pattern '^CREATE TABLE' sql/schema.sql` 实测为准。 |
-| 测试件数口径混乱（曾记 28 例 / 77 例 / 90 例） | **已更新（2026-09-17）**：在按 `schema.sql` 全新重建的库上实测 215 用例 / 44 类 / 0 失败。`docs/audit/test-harness.md` 的 28 例、`docs/audit/2026-09-14-双轴评价.md` 的 90 例均为更早口径，仅作历史。**正本是 `build/test-results/test/*.xml`**（`AGENTS.md` §5 有统计口径的坑）。 |
+| 测试件数口径混乱（曾记 28 例 / 77 例 / 90 例） | **已更新（2026-09-17）**：在按 `schema.sql` 全新重建的库上实测 215 用例 / 44 类 / 0 失败。`docs/audit/test-harness.md` 的 28 例、更早的评测（已移出仓库）的 90 例均为更早口径，仅作历史。**正本是 `build/test-results/test/*.xml`**（`AGENTS.md` §5 有统计口径的坑）。 |
 | 真实库是否含真实业务数据、能否直接验证迁移 | **已探测（2026-09-14）**：`aquaflow` 有数据（`payment_record` 17 行 / `barrel_record` 4 / `deposit_record` 7 / `ticket_record` 4），**可直接用于验证迁移**；v23/v27/v28 即在其上跑完，全程先 `mysqldump` 备份、后用「事务内造数据 → 验证 → ROLLBACK」，数据零改动。 |
 | `application.yml` 曾被历史提交且含真实密钥 | **已结案**：真实密钥已轮换（仅公开的 AppID 与历史相同，不构成凭据泄露）；`application.yml` 已改为 `${ENV:}` 占位并解除 gitignore 入库，真凭据只留本机 `application-local.yml`（gitignore，**禁止回显**）。 |
 | 「新客户下不了第一单」（2026-09-20 第二轮实测又报了一次） | **已结案（2026-09-20，用户裁定）——不要再当 P0 报**：新客户的**自助首单走微信支付**（本地 `app.payment.mock-wechat-pay` 点击即成功；生产为真实渠道接入位）。货到付款的定位是「给已建立关系的客户赊账」，**不承担首单**；水票要先线下确认收款。所谓"三通道全灰"只发生在「模拟渠道关 **且** 真实渠道未接入」的**部署状态**，不是判据缺陷。判据注释正本：`PayMethod.availableMethods` 的微信项 + `CustomerController.updateOfflinePaymentConfig` 的 javadoc。 |
@@ -72,7 +72,7 @@ whenToUse: 要改已弃用表(customer_owed_barrel / customer_barrel_in_transit)
 
 | # | 悬着的问题（一句话） | 正本 | 现状 |
 |---|---|---|---|
-| C1 | 对账「押金穿底」（V1 `b3d` / V2 `E6`）要不要排除「现金单送达未收款」窗口？ | `docs/audit/2026-09-21-场景测试层与矩阵门禁-交付报告.md` §6 **T1** | ✅ **已收口（2026-09-21 实施）**：按用户口径「货到付款才会出现；货已送到钱还没收是可以允许的」取方案 A 的**收窄版** —— 判据 = 「权益 > 押金余额 **且** 该客户有已过应付日期、仍未结清的账单」，只排除"仍在履约且未收款"的在途情形，**没有一刀切**（一刀切会把真穿底一起遮掉）。代码里**已无** `TODO(待拍板)`，三处 SQL 抽成 `depositShortfallSql`，用例侧的**自失效豁免已删除**并改用例 `overdueUnsettledOrderIsReportedAsShortfall` 防回退。**不再是待拍板项。** |
+| C1 | 对账「押金穿底」（V1 `b3d` / V2 `E6`）要不要排除「现金单送达未收款」窗口？ | 当时的交付报告（已移出仓库）§6 **T1** | ✅ **已收口（2026-09-21 实施）**：按用户口径「货到付款才会出现；货已送到钱还没收是可以允许的」取方案 A 的**收窄版** —— 判据 = 「权益 > 押金余额 **且** 该客户有已过应付日期、仍未结清的账单」，只排除"仍在履约且未收款"的在途情形，**没有一刀切**（一刀切会把真穿底一起遮掉）。代码里**已无** `TODO(待拍板)`，三处 SQL 抽成 `depositShortfallSql`，用例侧的**自失效豁免已删除**并改用例 `overdueUnsettledOrderIsReportedAsShortfall` 防回退。**不再是待拍板项。** |
 | C2 | 取消一张**已送达**的单时，已经交付出去的桶权益怎么记账？ | 同上 §6 **T2** | ⛔ **已收口：不实现**（不是漏做）。T3 已把入口堵死（`isCancellable` 只剩 `{待配送(1), 配送中(2)}`）⇒ 场景**不可达**，补代码会是永远执行不到的死代码。改为在 `PaymentServiceImpl.refundOrder` 的桶账块留**护栏注释**：将来若放松取消门槛，必须同时补 ① `consumeLots` 撤销送达时建的权益 ② `customer_barrel_over` 加 delivered（记欠桶），并指明哪两条用例会因此变红。**用户已裁定（2026-09-22）**：「只有配送端可以取消配送中的订单」⇒ 已送达不可取消、配送中的实际取消动作只能由配送端做，**T2 确认不做**。 |
 | C3 | 归属站能不能对「已被别站接单、**配送中(2)**」的单「取消外派」（召回）？ | 同上 §6.11 | ✅ **已收口（2026-09-22 产品裁定）**：「外派出去的本单就不归本站管了，只能接单站管，联系等都是接单站执行」⇒ **不能召回**。`OrderWorkflowServiceImpl.cancelDispatch` 已改为只收 `待配送(1)`（在池中 / 已指定但对方未接单），拒绝文案指向"请与接单站联系"；用例 `CrossStationDispatchIntegrationTest.recallIsRefusedAfterTheOtherStationAccepts` 钉住。§8.18「状态只前进」的告警同时消除。**联系客户由接单站执行这条本来就成立**：`CustomerProfileMask` 只抹归属站的客户档案，接单站拿得到订单快照里的 `receiverName`/`receiverPhone`。 |
 

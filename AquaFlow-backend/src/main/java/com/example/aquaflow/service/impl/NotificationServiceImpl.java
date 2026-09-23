@@ -94,17 +94,14 @@ public class NotificationServiceImpl implements NotificationService {
         }
     }
 
+    /**
+     * 异常类别中文文案 —— [2026-09-23] 原来这里有一份 switch，与
+     * {@code entity/OrderBarrelException.getCategoryText()} <b>逐字相同</b>（同一套 7 个取值
+     * 存在于两个 switch 里，加一个类别要改两处）。现统一委托
+     * {@link com.example.aquaflow.constant.ExceptionCategory#textOf}。
+     */
     private String getCategoryName(String category) {
-        switch (category) {
-            case "RETURN_SHORT": return "少回桶";
-            case "RETURN_OVER": return "多回桶";
-            case "RETURN_REFUSE": return "拒收";
-            case "RETURN_DAMAGE": return "损坏";
-            case "STATION_SHORTAGE": return "站内缺水";
-            case "CUSTOMER_REFUSE": return "客户拒收";
-            case "OTHER": return "其他";
-            default: return category;
-        }
+        return com.example.aquaflow.constant.ExceptionCategory.textOf(category);
     }
 
     private String getActionName(String action) {

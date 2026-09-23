@@ -99,19 +99,15 @@ public class OrderBarrelException {
         }
     }
 
-    /** 异常类别中文文案（全系统唯一来源） */
+    /**
+     * 异常类别中文文案（**全系统唯一来源**，前端禁止自带映射表）。
+     *
+     * <p>[2026-09-23] 原来这里是本类里的一份 switch，而 {@code NotificationServiceImpl}
+     * 还各有一份<b>逐字相同</b>的副本 —— 加一个类别要改两处、漏一处只显示英文代号。
+     * 现统一委托 {@link com.example.aquaflow.constant.ExceptionCategory#textOf}。</p>
+     */
     public String getCategoryText() {
-        if (category == null) return "其他";
-        switch (category) {
-            case "RETURN_SHORT":     return "少回桶";
-            case "RETURN_OVER":      return "多回桶";
-            case "RETURN_REFUSE":    return "拒收";
-            case "RETURN_DAMAGE":    return "损坏";
-            case "STATION_SHORTAGE": return "站内缺水";
-            case "CUSTOMER_REFUSE":  return "客户拒收";
-            case "OTHER":            return "其他";
-            default:                 return category;
-        }
+        return com.example.aquaflow.constant.ExceptionCategory.textOf(category);
     }
 
     /** 创建时间 */

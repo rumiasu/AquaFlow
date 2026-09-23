@@ -156,6 +156,36 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
     }
 
+    /**
+     * 调度类动作（定向外派 / 放抢单池 / 退回池）的判权 ——
+     * <b>「还没被接单之前，这单仍算归属站的」</b>（2026-09-22 产品裁定）。
+     *
+     * <p>放行两种人：</p>
+     * <ol>
+     *   <li><b>当前履约站</b>（{@link #deliveryStation}）—— 谁在办谁说了算；</li>
+     *   <li><b>归属站，且这单还没被接单</b>（状态仍是 {@code 待配送(1)}）。</li>
+     * </ol>
+     *
+     * <p>⚠️ 为什么要加第 2 条：定向外派会把 {@code delivery_station_id} <b>直接改成目标站</b>，
+     * 而对方<b>接单</b>才会把状态推到 {@code 配送中(2)}。中间这段"已指定、没人接"的窗口里，
+     * 按第 1 条判就只剩目标站能操作 —— 归属站<b>连改派都做不到</b>：小程序上「重新外派」
+     * 点了必报"仅能操作本站订单"，而按钮又是照 {@code status === 1} 显示的。</p>
+     *
+     * <p>⚠️ 一旦被接单（状态 ≥ 2），第 2 条自动失效 —— 与「被接单后归接单站管」是同一条线：
+     * 召回（{@code cancelDispatch}）只收 {@code 待配送(1)}，两者口径一致。
+     * 见 AGENTS §1.1 的 2026-09-22 裁定。</p>
+     */
+    private void requireDispatchRight(Orders order, Long myStationId) {
+        if (myStationId != null && myStationId.equals(deliveryStation(order))) {
+            return;
+        }
+        boolean notAcceptedYet = order.getStatus() != null && order.getStatus() == OrderStatus.PENDING;
+        if (notAcceptedYet && myStationId != null && myStationId.equals(order.getStationId())) {
+            return;
+        }
+        throw new BusinessException("仅能操作本站订单；已被别站接单的，只能由接单站处理");
+    }
+
     private void log(String action, Long orderId, Map<String, Object> detail) {
         auditLogService.log("ORDER", action, "order:" + orderId, detail != null ? detail.toString() : "", null);
     }
@@ -837,9 +867,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (myStationId == null) throw new BusinessException("无法识别当前水站");
 
         Orders order = requireOrder(orderId);
-        if (!myStationId.equals(deliveryStation(order))) {
-            throw new BusinessException("仅能操作本站履约的订单");
-        }
+        requireDispatchRight(order, myStationId);
         if (targetStationId == null) throw new BusinessException("targetStationId 不能为空");
         if (targetStationId.equals(myStationId)) throw new BusinessException("不能外派给自己水站");
 
@@ -877,9 +905,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     public void outsource(Long orderId, Long targetStationId, String reason, boolean riskAcknowledged) {
         Long stationId = AuthContext.requireStationId();
         Orders order = requireOrder(orderId);
-        if (!stationId.equals(deliveryStation(order))) {
-            throw new BusinessException("仅能操作本站订单");
-        }
+        // 与 dispatchExternal 共用同一道判权：放池 / 退回池 / 定向外派都是"调度"，
+        // 都适用「还没被接单之前这单仍算归属站的」（见 requireDispatchRight）。
+        requireDispatchRight(order, stationId);
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) {
             throw new BusinessException("当前状态不可外派");

@@ -175,6 +175,57 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
     }
 
     /**
+     * **「还没被接单之前，这单仍算归属站的」**（2026-09-22 产品裁定）。
+     *
+     * <p>定向外派会把 {@code delivery_station_id} 直接改成目标站，而对方<b>接单</b>才把状态推到
+     * {@code 配送中(2)}。中间那段"已指定、没人接"的窗口里，判权若只看"是不是当前履约站"，
+     * 归属站就<b>连改派都做不到</b> —— 而小程序上「重新外派」正是照 {@code status === 1} 显示的，
+     * 点了必报"仅能操作本站订单"（本用例第 ① 步修的就是它）。</p>
+     *
+     * <p>被接单之后自动失效：与「被接单后归接单站管」是同一条线（{@code cancelDispatch} 同理）。</p>
+     */
+    @Test
+    @DisplayName("未被接单前归属站可重新外派 / 退回池；被接单后两个动作都关掉")
+    void ownerKeepsDispatchRightsUntilTheOtherStationAccepts() {
+        seed();
+        long order = pendingOrderAtA();
+
+        // A 定向外派给 B —— 状态仍是 待配送(1) = 对方还没接单
+        assertTrue(post("/api/delivery/orders/" + order + "/dispatch", tokenA(),
+                "{\"targetStationId\":" + stationB + "}").isSuccess(), "定向外派应成功");
+        assertEquals(stationB, longOf("SELECT delivery_station_id FROM orders WHERE id=?", order));
+        assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", order), "定向外派不改状态");
+
+        // ① 归属站可以**改派**（修复前这里必被拒）
+        Api reDispatch = post("/api/delivery/orders/" + order + "/dispatch", tokenA(),
+                "{\"targetStationId\":" + stationB + "}");
+        assertTrue(reDispatch.isSuccess(), "还没被接单时归属站应能重新外派，实际=" + reDispatch);
+
+        // ② 归属站也可以把它**退回抢单池**
+        Api backToPool = post("/api/delivery/orders/transfer/" + order + "/outsource", tokenA(), "{}");
+        assertTrue(backToPool.isSuccess(), "还没被接单时归属站应能退回池里，实际=" + backToPool);
+        assertEquals("NULL", deliveryStationOf(order), "退回池后没有履约站");
+        assertEquals(stationA, longOf("SELECT settle_station_id FROM orders WHERE id=?", order),
+                "退回池 = 营收回归属站");
+
+        // ③ B 接单之后：这单归 B 管，归属站两个动作都做不了了
+        assertTrue(post("/api/delivery/orders/" + order + "/dispatch", tokenA(),
+                "{\"targetStationId\":" + stationB + "}").isSuccess(), "再次定向外派应成功");
+        assertTrue(post("/api/delivery/orders/" + order + "/accept",
+                staffToken(driverB, "DELIVERY", stationB), "{}").isSuccess(), "B 接单应成功");
+        assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order), "接单后应是配送中");
+
+        Api lateRedispatch = post("/api/delivery/orders/" + order + "/dispatch", tokenA(),
+                "{\"targetStationId\":" + stationB + "}");
+        assertFalse(lateRedispatch.isSuccess(), "被接单后归属站不得再改派，实际=" + lateRedispatch);
+        Api latePool = post("/api/delivery/orders/transfer/" + order + "/outsource", tokenA(), "{}");
+        assertFalse(latePool.isSuccess(), "被接单后归属站不得再退回池，实际=" + latePool);
+        assertEquals(stationB, longOf("SELECT delivery_station_id FROM orders WHERE id=?", order),
+                "两次被拒之后履约站必须仍是 B");
+        assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order), "状态也不得被动");
+    }
+
+    /**
      * 召回的时间窗：**只在"还没被接单"时**（2026-09-22 产品裁定）。
      *
      * <p>原话：「外派出去的本单就不归本站管了，只能接单站管，联系等都是接单站执行」。

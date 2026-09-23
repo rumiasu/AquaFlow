@@ -13,9 +13,9 @@ whenToUse: 要动订单状态机 / 取消与退款链 / 桶账与押金 / 对账
 > ⚠️ **编号仍是外部引用锚点**：`docs/design/**`、测试注释与代码注释里的 `§8.15` / `§8.16` / `§8.19` / `§8.20` 等
 > **指的就是本文的条目号** —— **不要重排、不要合并条目**，改动只压正文。
 > 判据（沿用原文）：**每条只留「判据」**；发现经过、误判原因与排线时间线在
-> `docs/audit/2026-09-17-AGENTS-瘦身前全文存档.md`。
+> 仓库外的瘦身前存档。
 
-> **每条只留「判据」**；发现经过、误判原因与排错时间线在 `docs/audit/2026-09-17-AGENTS-瘦身前全文存档.md`。
+> **每条只留「判据」**；发现经过、误判原因与排错时间线在 仓库外的瘦身前存档。
 > ⚠️ **编号是外部引用锚点**（`docs/design/**` 与测试注释会写 §8.15 / §8.16 / §8.19 / §8.20 等）—— **不要重排、不要合并条目**，只压正文。
 
 1. **接口报错但 HTTP 200** —— 只判 HTTP 状态会把业务失败当成功。**一律判 body `code`。**
@@ -40,7 +40,7 @@ whenToUse: 要动订单状态机 / 取消与退款链 / 桶账与押金 / 对账
 20. **「按 id 操作记录」必须逐条验证归属，且必须检查受影响行数** —— 三处实例：`OrderTemplateServiceImpl.save` 传别人的模板 id 会**覆盖别人的模板并连带清空其明细**（[AQ-036]）；`AddressServiceImpl.delete` 的 SQL 带了 `and customer_id=?` 但 service **不看返回值**、控制器无条件 success → 客户端收到"成功"、刷新又冒出来；`setDefault` 不校验归属 → **清掉自己的默认、把别人的改成默认**。**判据：接口收客户端可编造的 id 就必须回答"这条属于调用者吗"；拿不到行数就别返回 success。** 用例 `AddressAndOrderTemplateIntegrationTest`。
 21. **「外部依赖没配 / 客户端输入问题」不得升级成系统异常** —— ① COS 未配时上传/删除抛运行时异常 → `code=500` + 一条 SYSTEM 告警，DB 行仍在；**判据：可预期的运维状态给 `code=1` + 可读文案并记 ERROR，删除路径可 WARN 后继续清 DB 记录**，用例 `FileUploadIntegrationTest`（看 body `code`）。② 客户端漏发请求体抛 `HttpMessageNotReadableException` → 落 `Exception` 分支变 `code=500` + SYSTEM 告警（`GlobalExceptionHandler:151-155` 的 400 类白名单里没有它）；且 `MethodArgumentNotValidException` 的字段级 message 被丢成「参数格式不正确：参数」，客户端拿不到"数量至少 1""请指定配送员"。
 22. **「零覆盖端点」的真实形态是「界面空白」** —— mapper JOIN 写错**不抛异常、只返回空列表**，界面"今天没有单"与"确实没有单"无法区分。已补契约级用例（这批接口本身无功能缺陷，但抓到 §8.21 与 `updateStatusIf` 参数写反那批）：`DashboardNoticeSearchFeedbackIntegrationTest`、`InventoryStaffProductIntegrationTest`、`TicketDepositNotificationIntegrationTest`、`DeliveryConsoleAndSelfServiceIntegrationTest`、`DirectedReturnAndReturnToStationIntegrationTest`、`FileUploadIntegrationTest`。
-23. **死端点评估（`docs/audit/2026-09-16-死端点评估.md`，39 条：删 8 / 接线 19 / 保留 12）—— 两个必须先处理的发现均已处置**：
+23. **死端点评估（当时 39 条：删 8 / 接线 19 / 保留 12）—— 两个必须先处理的发现均已处置**：
     - **`GET /api/files` 跨站可见 —— 已修（v45）**：原 `listAll`/`listByCategory` **无水站过滤**、`file_info` **无 `station_id` 列** → 任何站长能列出**全部水站**文件名与临时 URL。现补 `station_id`（**NULL = 平台级文件、全站可见**，不是脏数据）+ `idx_file_station`，存量按 `uploader_id → staff.station_id` 回填（**查不到保持 NULL**），查询改 `listVisible` / `listVisibleByCategory`（本站 **或** 平台级），用例 `FileUploadIntegrationTest.fileListAndDeleteAreStationScoped`。**判据：接线前必须先做站隔离（加列 + 回填 + 过滤），否则整族删掉；有语义的 NULL 不许当脏数据清。**
     - **`GET /api/delivery/orders/station-exception` 名不副实 —— 已删（2026-09-18）**，用例 `ManagerOrderControllerRemovedIntegrationTest`：它过滤 `status=5（已取消）`，一个"异常"标签返回**取消单**，与 `GET /api/orders?status=5` 重复。**判据：端点名与返回集不符必须删或改名**（同批删 `GET /api/dashboard/order-status`、`/order-trend`、`GET /api/customer/exceptions/list`，`OrderMapper` 的 `listStationExceptionOrders`/`countByStatusByStationId`/`trendLast7DaysByStationId` 一并删并留墓碑注释）。
     - **其余删除候选等产品点头**；每条都挂着契约断言或文档表格行 —— 删代码必须连带改测试与文档。

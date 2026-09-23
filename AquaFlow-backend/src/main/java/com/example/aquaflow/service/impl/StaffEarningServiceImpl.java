@@ -209,7 +209,7 @@ public class StaffEarningServiceImpl implements StaffEarningService {
         // 所以此刻的合计必须等于明细之和（对账 E-PAY 的前提）
         BigDecimal total = staffEarningMapper.sumByPayroll(payrollId);
         staffPayrollMapper.setTotalAmount(payrollId, total != null ? total : BigDecimal.ZERO);
-        int affected = staffPayrollMapper.updateStatusIf(payrollId, StaffPayroll.Status.CONFIRMED,
+        int affected = staffPayrollMapper.updateStatusTo(payrollId, StaffPayroll.Status.CONFIRMED,
                 StaffPayroll.Status.DRAFT);
         if (affected == 0) {
             throw new BusinessException("结算单状态已变更，请刷新后重试");

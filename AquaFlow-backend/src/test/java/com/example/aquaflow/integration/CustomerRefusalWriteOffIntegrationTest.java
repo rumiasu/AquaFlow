@@ -68,6 +68,37 @@ class CustomerRefusalWriteOffIntegrationTest extends AbstractScenarioTest {
         return longOf("SELECT id FROM order_barrel_exception WHERE order_id=? ORDER BY id DESC LIMIT 1", orderId);
     }
 
+    /**
+     * 异常类别必须走**白名单**（2026-09-23 修）。
+     *
+     * <p>这个入口的 {@code category} 来自请求体，原来直接落库 —— 能写进任意字符串。
+     * 2026-09-22 的业务实测就真的写进过一个不在集合里的值（{@code REFUSAL}）：
+     * 之后所有 {@code switch} 都认不出它，界面显示英文代号、统计漏掉它，
+     * 而**没有任何一处报错**。判据同 AGENTS §6「请求体的枚举入参必须白名单校验」。</p>
+     */
+    @Test
+    @DisplayName("异常类别白名单：不认识的类别必须当场拒，且不落库（不能静默洗成「其他」）")
+    void categoryMustBeWhitelisted() {
+        World w = openStation("拒付站D");
+        long order = deliveredUnpaidCashOrder(w, "wo-4", 1);
+
+        Api bad = post("/api/manager/exceptions?orderId=" + order, w.managerToken(),
+                "{\"category\":\"REFUSAL\"}");
+        assertTrue(!bad.isSuccess(), "不在白名单里的类别必须被拒，实际=" + bad);
+        assertEquals(0, intOf("SELECT COUNT(*) FROM order_barrel_exception WHERE order_id=?", order),
+                "被拒之后不得留下异常单（更不能静默改成「其他」）");
+
+        // 合法类别照常能用 —— 证明上一条不是把整条链路堵死了
+        long exId = createException(w, order, "CUSTOMER_REFUSE");
+        assertTrue(exId > 0, "合法类别应照常建单");
+        assertEquals("CUSTOMER_REFUSE",
+                jdbc.queryForObject("SELECT category FROM order_barrel_exception WHERE id=?", String.class, exId),
+                "落库的是白名单里的代号本身");
+        Api detail = get("/api/manager/exceptions/" + exId, w.managerToken());
+        assertEquals("客户拒收", detail.data().path("categoryText").asText(),
+                "中文文案由后端从 constant/ExceptionCategory 下发，前端不自带映射表");
+    }
+
     @Test
     @DisplayName("拒付结案三件事都做到：应收核销出账、权益撤销、等量记成客户欠桶（占用不变）")
     void writeOffDoesAllThreeThings() {

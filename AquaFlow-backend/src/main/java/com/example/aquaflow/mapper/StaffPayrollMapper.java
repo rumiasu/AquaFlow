@@ -58,12 +58,17 @@ public interface StaffPayrollMapper {
      *
      * @param status       目标状态
      * @param expectStatus 期望的当前状态（<b>不要凭参数名猜顺序</b>：本仓在
-     *                     {@code PaymentRecordMapper.updateStatusIf} 上因为顺序写反静默失败过 3 次）
+     *                     {@code PaymentRecordMapper} 上因为顺序写反静默失败过 3 次）
      * @return 受影响行数；0 = 状态已被改过
+     *
+     * <p>⚠️ [2026-09-23 改名] 原名 {@code updateStatusIf}，与 {@code OrderMapper.updateStatusIf}
+     * <b>同名但参数顺序相反</b>（这里是"新在前"，那里是"期望在前"）。现改名为
+     * {@code updateStatusTo}，让"第二个参数是目标状态"写在名字里。新写 CAS 请沿用：
+     * {@code updateStatusIf} = (期望, 新)、{@code updateStatusTo} = (新, 期望)。</p>
      */
     @Update("update staff_payroll set status = #{status}, update_time = NOW() "
             + "where id = #{id} and status = #{expectStatus}")
-    int updateStatusIf(@Param("id") Long id, @Param("status") Integer status,
+    int updateStatusTo(@Param("id") Long id, @Param("status") Integer status,
                        @Param("expectStatus") Integer expectStatus);
 
     /** 标记已发放：只允许从「已确认」迁入，并同时落发钱时间（留痕） */

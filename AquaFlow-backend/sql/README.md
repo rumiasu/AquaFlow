@@ -113,7 +113,7 @@ mysql -u root -p aquaflow < schema.sql
 >
 > ⚠️ 已知例外（尚未整改，执行前请先人工确认）：`migration_aq056_payment_fk.sql` 中的 `ADD CONSTRAINT` 非幂等，
 > 重跑会报 1061；且本清单第 3 步依赖 `customer_owed_barrel` 旧表名，而第 10 步已将其改名——顺序存在冲突。
-> 详见 `docs/audit/2026-09-13-全方位评价.md` 的 P0-6。
+> 详见 当时的审计报告（已移出仓库） 的 P0-6。
 
 ---
 

@@ -180,5 +180,17 @@
     <view class="transfer-btn" wx:if="{{order.status === 2}}" bindtap="onRequestCancel">
       <text>申请取消订单</text>
     </view>
+
+    <!--
+      客户拒付（v60 接线）：**已送达(3) 且还要收款**时，站长唯一的出路。
+      这正是「已送达不可取消」之后那条断头路 —— 在此之前，界面上**没有任何入口**
+      能把"客户拒付"记下来，钱会永远挂在待收款台账上（异常单只能由"少收空桶"自动生成，
+      而拒付场景桶可能一个不少地还回来了、差异为 0，永远触发不了）。
+      后端 `POST /api/manager/exceptions?orderId=` 是 STATION_MANAGER 专属，这里只对站长画。
+    -->
+    <view class="transfer-btn btn-refusal" wx:if="{{isManager && order.status === 3 && order.needCollect}}"
+          bindtap="onRefusalWriteOff">
+      <text>{{refusalBusy ? '处理中…' : '客户拒付（走异常单核销）'}}</text>
+    </view>
   </block>
 </view>

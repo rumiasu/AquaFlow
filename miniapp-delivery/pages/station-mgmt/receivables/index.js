@@ -39,7 +39,11 @@ Page({
     // 账期编辑弹层
     termsVisible: false,
     termsInput: '',
-    termsSaving: false
+    termsSaving: false,
+    // 重算未结账单（v60）：`POST /customers/{id}/credit-terms/recalculate`
+    recalcBusy: false,
+    // 验资画像（v60）：`GET /customers/{id}/risk`，null = 还没拉到 / 拉失败（不显示、不编造）
+    risk: null
   },
 
   onShow() {
@@ -177,8 +181,66 @@ Page({
     this.setData({
       termsVisible: true,
       // 留空 = 清除账期（即时结清）；0 与留空等价，UI 上不给站长制造"0 天"这种含糊值
-      termsInput: c.dueDays === null || c.dueDays === undefined ? '' : String(c.dueDays)
+      termsInput: c.dueDays === null || c.dueDays === undefined ? '' : String(c.dueDays),
+      // 验资（v60）：GET /customers/{id}/risk 下发等级 / 可赊额度 / 已用 / 逾期
+      risk: null
     })
+    this.loadRisk(c.customerId)
+  },
+
+  /**
+   * 拉该客户在本站的**信用画像**（验资）—— "设不设账期、设多少"正是要看它。
+   *
+   * ⚠️ 全部字段由服务端现算下发（`CustomerRiskService.assess`），前端**一个数都不算**：
+   * 额度是按该客户近 90 天消费规模推的、逾期是按订单应付日期算的 —— 在这里重算必然分叉。
+   * 拿不到就什么都不显示（留 `risk: null`），不编造一个"正常"。
+   */
+  async loadRisk(customerId) {
+    try {
+      const res = await get(CREDIT_TERMS + customerId + '/risk')
+      if (res && res.code === 0 && res.data) {
+        this.setData({ risk: res.data })
+      }
+    } catch (err) {
+      console.warn('[receivables] 取信用画像失败（不显示验资块）:', err && err.message)
+    }
+  },
+
+  /**
+   * **重算未结账单**（v60）：把该客户在本站「还没结清」的挂账单按当前账期重算应付日期。
+   *
+   * ⚠️ 为什么必须有这个按钮：`orders.due_date` 是**下单时快照、之后只读**（与金额/地址快照同源），
+   * 所以站长刚改完账期会发现"老单没变" —— 那是设计如此，不是坏了。想把老单也改过来，
+   * 只能走这个显式动作（服务端每张被改动的单都会在 `special_note` 留痕）。
+   */
+  async onRecalcTerms() {
+    if (this.data.recalcBusy) return
+    const c = this.data.customer
+    const res = await new Promise((resolve) => {
+      wx.showModal({
+        title: '重算未结账单',
+        content: '把「还没结清」的挂账单按当前账期重算应付日期。\n\n已付款或已取消的单不受影响；每张被改动的单都会留下记录。',
+        confirmText: '重算',
+        success: resolve,
+        fail: () => resolve({ confirm: false })
+      })
+    })
+    if (!res || !res.confirm) return
+
+    this.setData({ recalcBusy: true })
+    try {
+      const r = await post(CREDIT_TERMS + c.customerId + '/credit-terms/recalculate')
+      const n = r && r.data ? r.data.changedCount : 0
+      wx.showToast({ title: n > 0 ? ('已重算 ' + n + ' 张单') : '没有需要重算的单', icon: 'none' })
+      this.setData({ termsVisible: false })
+      this.load()
+      this.loadOrders()
+    } catch (err) {
+      // 现结客户没有可重算的挂账单时，服务端回的是业务错误（而不是 0）—— 原样显示，别静默
+      wx.showToast({ title: err.message || '重算失败', icon: 'none' })
+    } finally {
+      this.setData({ recalcBusy: false })
+    }
   },
 
   onTermsInput(e) {

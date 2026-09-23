@@ -341,6 +341,17 @@
   color: var(--text-secondary);
 }
 
+/* 客户拒付（v60）：这是「已送达不可取消」之后唯一的出路，所以给它**警示色**，
+   别混在同色的"转单/退回"里被忽略；但它不是危险按钮（真正动账在第 2 步确认弹窗）。 */
+.transfer-btn.btn-refusal {
+  border: 2rpx solid #FFA39E;
+  background: #FFF5F5;
+}
+.transfer-btn.btn-refusal text {
+  color: #C62828;
+  font-weight: 500;
+}
+
 /* ========== 楼层上报与凭证（v43） ========== */
 .floor-warn {
   margin-left: 12rpx;

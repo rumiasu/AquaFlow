@@ -77,11 +77,19 @@ public interface PaymentRecordMapper {
      * 但 PaymentStatus.PENDING = 1，导致支付确认永远只影响 0 行 —— 支付主链路是断的。
      * 改为把期望状态作为参数传入，由调用方显式给出，避免再次写死常量。
      *
+     * <p>⚠️ <b>[2026-09-23 改名] 原名 {@code updateStatusIf}，参数顺序是 (id, <b>新</b>, <b>期望</b>)</b>
+     * —— 而 {@code OrderMapper.updateStatusIf} / {@code OrderBarrelExceptionMapper.updateStatusIf}
+     * <b>同名却是 (id, 期望, 新)</b>，两派并存、没有任何编译期保护。
+     * 本仓在这一点上<b>静默失败过 3 次</b>（见 {@code StaffPayrollMapper} 的 javadoc）。
+     * 现把"新在前"的两个改名为 {@code updateStatusTo}：<b>名字里带 To，就说明第二个参数是目标状态</b>，
+     * 顺序不再靠记忆。新写 CAS 请沿用：{@code updateStatusIf} = (期望, 新)，
+     * {@code updateStatusTo} = (新, 期望)。</p>
+     *
      * @return 1=更新成功，0=状态已变更（并发下被别人改过）
      */
     @Update("update payment_record set status = #{status}, update_time = NOW() " +
             "where id = #{id} and status = #{expectStatus}")
-    int updateStatusIf(@Param("id") Long id,
+    int updateStatusTo(@Param("id") Long id,
                        @Param("status") Integer status,
                        @Param("expectStatus") Integer expectStatus);
 

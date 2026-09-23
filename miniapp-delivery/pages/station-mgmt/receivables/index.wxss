@@ -160,6 +160,38 @@
   margin-top: 12rpx;
 }
 
+/* ========== 验资块（v60，账期弹窗内） ==========
+   数字与那句话**全部来自服务端**（GET /customers/{id}/risk），这里只负责排版与配色。
+   只染"预警/冻结"为红、"关注"为黄 —— 与后端 CustomerRiskService 的两档口径一致：
+   关注是**正常经营**（月结客户天天如此），别做成告警的样子。 */
+.risk-box {
+  background: #F7F8FA;
+  border-radius: 12rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 20rpx;
+}
+.risk-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 25rpx;
+  line-height: 42rpx;
+}
+.risk-label { color: #888; }
+.risk-value { color: #222; font-weight: 500; }
+.risk-note {
+  font-size: 23rpx;
+  color: #B26A00;
+  line-height: 34rpx;
+  margin-top: 8rpx;
+}
+
+/* 「把未结账单也改成新账期」—— 与保存按钮分开一格，避免误点 */
+.btn-recalc {
+  display: block;
+  margin-top: 20rpx;
+  text-align: center;
+}
+
 /* 账期编辑弹层 */
 .mask {
   position: fixed;

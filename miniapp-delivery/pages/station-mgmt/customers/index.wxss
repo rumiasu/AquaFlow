@@ -1,0 +1,73 @@
+.container { background: var(--bg-color); min-height: 100vh; padding: 24rpx; }
+.search-bar { display: flex; gap: 16rpx; margin-bottom: 20rpx; }
+.search-input { flex: 1; background: var(--bg-card); border-radius: 40rpx; padding: 16rpx 28rpx; font-size: 28rpx; }
+.search-btn { background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 0 32rpx; display: flex; align-items: center; font-size: 28rpx; }
+
+.filter-chips { display: flex; gap: 16rpx; margin-bottom: 20rpx; }
+.chip { font-size: 26rpx; color: var(--text-secondary); padding: 10rpx 28rpx; border-radius: 30rpx; background: var(--bg-card); }
+.chip.active { color: #fff; background: var(--primary-gradient); }
+
+.customer-card { background: var(--bg-card); border-radius: 20rpx; padding: 24rpx; margin-bottom: 20rpx; box-shadow: var(--shadow-sm); display: flex; align-items: flex-start; gap: 20rpx; }
+.avatar { width: 80rpx; height: 80rpx; border-radius: 50%; color: #fff; font-size: 36rpx; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10rpx; }
+.name-row { display: flex; align-items: center; gap: 10rpx; flex-wrap: wrap; }
+.customer-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
+.badge { font-size: 22rpx; padding: 2rpx 14rpx; border-radius: 20rpx; color: #fff; }
+.badge.type { background: #8e7cf0; }
+.badge.level { color: #fff; }
+.badge.act-active { background: #67C23A; }
+.badge.act-sleeping { background: #E6A23C; }
+.badge.act-lost { background: #909399; }
+.badge.act-new { background: #409EFF; }
+.badge.cod { background: #ff9f43; }
+.customer-phone { font-size: 26rpx; color: var(--text-secondary); }
+.customer-phone.muted { color: #bbb; }
+
+.stat-row { display: flex; gap: 8rpx; background: var(--bg-color); border-radius: 12rpx; padding: 14rpx 8rpx; }
+.stat { flex: 1; display: flex; flex-direction: column; align-items: center; }
+.stat-val { font-size: 26rpx; font-weight: 600; color: var(--text-primary); }
+.stat-label { font-size: 20rpx; color: var(--text-secondary); margin-top: 4rpx; }
+
+.tags { display: flex; gap: 10rpx; flex-wrap: wrap; }
+.tag { font-size: 22rpx; color: var(--primary); background: var(--primary-bg); padding: 2rpx 14rpx; border-radius: 20rpx; }
+
+.card-actions { display: flex; flex-direction: column; gap: 12rpx; flex-shrink: 0; }
+.manage-btn { background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 26rpx; text-align: center; }
+.call-btn { background: var(--success-color); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 26rpx; text-align: center; }
+.empty, .loading { text-align: center; color: var(--text-secondary); font-size: var(--font-md); padding-top: 120rpx; }
+
+/* 货到付款设置弹窗（v48）：开通开关，并把该客户的欠款/逾期摆在眼前。
+   （v48 曾另有「首单放行 / 单笔上限」两行，v49 已按产品裁定撤回，见 migration_v49。） */
+.cod-btn { font-size: 24rpx; color: var(--text-secondary); padding: 0 12rpx; }
+.modal-mask { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
+/* max-height + overflow：企业身份审核弹窗里可能并列好几条申请，没有上界会顶破屏幕 */
+.modal-body { width: 620rpx; background: #fff; border-radius: 16rpx; padding: 28rpx; max-height: 80vh; overflow-y: auto; }
+.modal-title { font-size: 32rpx; font-weight: 600; color: var(--text-primary); }
+.modal-tip { margin-top: 12rpx; font-size: 24rpx; color: #E6A23C; line-height: 1.5; }
+.modal-row { display: flex; align-items: center; justify-content: space-between; margin-top: 20rpx; font-size: 28rpx; color: var(--text-primary); }
+.modal-input { width: 220rpx; border: 1rpx solid var(--border-color); border-radius: 8rpx; padding: 8rpx 12rpx; font-size: 26rpx; text-align: right; }
+.modal-stat { display: flex; justify-content: space-between; margin-top: 20rpx; font-size: 24rpx; color: var(--text-secondary); }
+.modal-actions { display: flex; justify-content: flex-end; margin-top: 28rpx; }
+.modal-btn { padding: 12rpx 32rpx; margin-left: 16rpx; border-radius: 8rpx; font-size: 28rpx; color: var(--text-regular); border: 1rpx solid var(--border-color); }
+.modal-btn.primary { background: var(--primary-color, #409EFF); color: #fff; border: none; }
+
+/*
+  企业身份（v50 审核 + v51 阈值）：**一行入口**，点开是同一个弹窗。
+  [2026-09-19 IA 重组 C5] 原先是 .ent-banner（待审）+ .ent-cfg（阈值）两行两个入口
+  + 两个弹窗，同一主题四处分叉；现在合成一个 .ent-entry，点哪半边决定先看哪个视图。
+*/
+.ent-entry { display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border-radius: 16rpx; padding: 20rpx 24rpx; margin-bottom: 20rpx; box-shadow: var(--shadow-sm); }
+.ent-entry-left { display: flex; flex-direction: column; gap: 6rpx; min-width: 0; flex: 1; }
+.ent-entry-title { font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
+.ent-entry-desc { font-size: 24rpx; color: var(--text-secondary); }
+.ent-entry-set { font-size: 24rpx; color: var(--primary); flex-shrink: 0; padding-left: 20rpx; }
+.ent-empty { text-align: center; padding: 40rpx 0; font-size: 26rpx; color: var(--text-secondary); }
+
+/* 审核弹窗里的逐条申请 */
+.ent-item { border-top: 1rpx solid var(--border-color); padding: 20rpx 0; }
+.ent-item:first-child { border-top: none; }
+.ent-item-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12rpx; }
+.ent-item-name { font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
+.ent-item-time { font-size: 22rpx; color: var(--text-secondary); }
+.ent-item-line { display: block; margin-top: 8rpx; font-size: 24rpx; color: var(--text-secondary); }
+.ent-item-actions { display: flex; justify-content: flex-end; margin-top: 16rpx; }

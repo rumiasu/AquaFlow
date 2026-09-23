@@ -1,0 +1,61 @@
+<!--
+  站长端「水站资料」：站名 / 电话 / 地址 / 坐标。
+  [2026-09-19 新建] 见 index.js 文件头：这几个字段此前在小程序里是死的（只能读不能改）。
+  ⚠️ 保存时四项一起提交（后端是整行覆盖）；`status`（营业/停业硬状态）由 js 原样带回，
+     本页**不提供**它的入口 —— 停业会真拒单、且不在公开选站列表里，不该藏在资料表单里顺手改掉。
+-->
+<view class="container">
+  <!-- 隐私授权弹窗：本页用 wx.chooseLocation 选水站坐标，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
+  <privacy-popup />
+
+  <view class="loading" wx:if="{{loading}}">加载中…</view>
+
+  <block wx:else>
+    <!-- ============ 基本资料 ============ -->
+    <view class="card">
+      <view class="card-title">基本资料</view>
+      <text class="card-sub">客户在下单页靠这些信息认出你，改了要让他们看得懂（如"城东店"而不是"总店"）。</text>
+
+      <view class="field">
+        <text class="field-label">水站名称<text class="required">*</text></text>
+        <input class="field-input" placeholder="如：阳光水站（城东店）" maxlength="50"
+               value="{{form.name}}" bindinput="onNameInput" />
+      </view>
+
+      <view class="field">
+        <text class="field-label">联系电话</text>
+        <input class="field-input" type="number" placeholder="客户找你用的号码" maxlength="20"
+               value="{{form.phone}}" bindinput="onPhoneInput" />
+      </view>
+
+      <view class="field">
+        <text class="field-label">水站地址</text>
+        <textarea class="field-textarea" placeholder="写清到能找得到，如：阳光小区 8 栋 1 单元 101" maxlength="200"
+                  value="{{form.address}}" bindinput="onAddressInput" />
+      </view>
+
+      <button class="btn-primary {{saving ? 'btn-disabled' : ''}}" bindtap="onSave">
+        {{saving ? '保存中…' : '保存资料'}}
+      </button>
+    </view>
+
+    <!-- ============ 水站坐标（配送范围判定用）============ -->
+    <view class="card">
+      <view class="card-head">
+        <text class="card-title">水站坐标</text>
+        <text class="badge badge-on" wx:if="{{coord.lat !== null}}">已设置</text>
+        <text class="badge badge-warn" wx:else>未设置</text>
+      </view>
+      <text class="card-sub">用于判断订单是否超出配送范围。不设置也能正常接单，只是无法做范围校验。</text>
+      <text class="card-sub" wx:if="{{coord.lat !== null}}">当前坐标：{{coord.lat}}, {{coord.lng}}</text>
+      <button class="btn-primary" bindtap="onPickCoordinates" loading="{{coordSaving}}" disabled="{{coordSaving}}">地图选点</button>
+      <button class="btn-danger-ghost" wx:if="{{coord.lat !== null}}" bindtap="onClearCoordinates">清除坐标</button>
+    </view>
+
+    <view class="page-note">
+      营业状态、给顾客的留言、公告都不在这一页 —— 它们在「营业状态与公告」里。
+      两者别混：那边是"今天开不开门"的**临时**状态，这边是水站本身的**固定**资料。
+    </view>
+  </block>
+
+</view>

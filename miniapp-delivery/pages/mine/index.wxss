@@ -1,0 +1,562 @@
+.container {
+  background: var(--bg-color);
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+.header {
+  background: var(--header-gradient);
+  padding: 60rpx 32rpx 40rpx;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+}
+
+.avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  margin-right: 28rpx;
+  border: 6rpx solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.user-info {
+  flex: 1;
+}
+
+.user-nick-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-wrap: wrap;
+  margin-bottom: 12rpx;
+}
+
+.nickname {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #fff;
+}
+
+.role-chip {
+  display: inline-block;
+  padding: 6rpx 18rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.role-chip.role-manager {
+  background: rgba(255, 193, 7, 0.95);
+  color: #5d4037;
+}
+.role-chip.role-delivery {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.bind-status {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+.bind-status.bind-ok {
+  margin-top: 10rpx;
+  color: #ffffff;
+}
+
+.bind-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: #ffd0d0;
+  flex-shrink: 0;
+}
+.bind-dot.bind-BOUND { background: #4caf50; }
+.bind-dot.bind-PENDING { background: #ffb300; }
+.bind-dot.bind-REJECTED { background: #ff5722; }
+.bind-dot.bind-PENDING_UNBIND { background: #b39ddb; }
+.bind-dot.bind-UNBOUND { background: #b0bec5; }
+
+.bind-text {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.arrow {
+  font-size: 32rpx;
+  color: rgba(255, 255, 255, 0.6);
+  padding-left: 16rpx;
+}
+
+.manager-entry-card {
+  margin-top: 28rpx;
+  background: rgba(255, 255, 255, 0.16);
+  border: 2rpx solid rgba(255, 255, 255, 0.25);
+  border-radius: 20rpx;
+  padding: 24rpx 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.manager-entry-left {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.manager-entry-icon {
+  font-size: 48rpx;
+}
+
+.manager-entry-text {
+  display: flex;
+  flex-direction: column;
+}
+.manager-entry-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+.manager-entry-desc {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 6rpx;
+}
+
+.manager-entry-arrow {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #ffd54f;
+  padding: 12rpx 24rpx;
+  background: rgba(255, 213, 79, 0.18);
+  border-radius: 999rpx;
+}
+
+/* 配送员绑定操作卡 */
+.bind-action-card {
+  background: #ffffff;
+  margin: -20rpx 24rpx 24rpx;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  z-index: 20;
+}
+
+.bind-info-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 20rpx;
+  border-radius: 14rpx;
+  background: #f4f8ff;
+  margin-bottom: 20rpx;
+}
+.bind-info-line.bind-info-warning { background: #fff8e1; }
+.bind-info-line.bind-info-wait { background: #f3e5f5; }
+.bind-info-line.bind-info-danger { background: #ffebee; }
+.bind-info-line.bind-info-none { background: #eceff1; }
+
+.bind-info-label {
+  font-size: 26rpx;
+  color: #607d8b;
+}
+.bind-info-value {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #1976d2;
+}
+.bind-info-warning .bind-info-value { color: #f57c00; }
+.bind-info-wait .bind-info-value { color: #7b1fa2; }
+.bind-info-danger .bind-info-value { color: #d32f2f; }
+.bind-info-none .bind-info-value { color: #546e7a; }
+
+.bind-actions-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.bind-action-btn {
+  flex: 1;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  padding: 20rpx 0;
+  border: none;
+}
+.bind-action-btn::after { border: none; }
+
+.bind-action-blue {
+  background: var(--primary-gradient);
+  color: #ffffff;
+}
+.bind-action-gray {
+  background: #eceff1;
+  color: #455a64;
+}
+
+.stats-card {
+  background: var(--bg-card);
+  margin: 0 24rpx 24rpx;
+  border-radius: 20rpx;
+  box-shadow: var(--shadow-md);
+  padding: 32rpx 24rpx;
+}
+
+.stats-row {
+  display: flex;
+  align-items: center;
+}
+
+.stats-item {
+  flex: 1;
+  text-align: center;
+}
+
+.stats-value {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--primary-color);
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.stats-label {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+/* 「算不出」（缺成本）与"有异常"用同一个警示色 —— 两者都表示"这个数别按 0 理解"。
+   正常态不套这个类：满屏红字会让真正需要看的那一格失去信号。**只管颜色，不改字号**。 */
+.stats-value.stats-warn {
+  color: #d9534f;
+}
+
+/* 金额格专用：三格里它是唯一可能到 5 位数的（¥12345.67），40rpx 会挤出格子。
+   nowrap 是兜底 —— 宁可让金额格窄一点也不要在数字中间换行（"¥123\n45.67" 会被读错）。 */
+.stats-value.stats-money {
+  font-size: 32rpx;
+  white-space: nowrap;
+}
+
+/* 第三格的第二行（欠桶 N 户）：比 label 更弱，且**自己可点**（catchtap）——
+   一格两数时必须让两个目标各自可点，否则用户点哪都是同一个页面。 */
+.stats-sub {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 20rpx;
+  /* 比 --text-secondary(#999) 再浅一档：它是同一格里的次要数字，不该与 label 抢注意力。
+     app.wxss 没有这一档变量，故写死色值（别引不存在的 --text-tertiary）。 */
+  color: #B0B0B5;
+}
+
+.stats-divider {
+  width: 1rpx;
+  height: 60rpx;
+  background: var(--border-light);
+}
+
+/* 站长 section card */
+.section-card {
+  background: #ffffff;
+  margin: 0 24rpx 24rpx;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #222;
+}
+.section-link {
+  font-size: 24rpx;
+  color: #1976d2;
+}
+
+.station-info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+.station-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1976d2;
+}
+.station-address {
+  font-size: 26rpx;
+  color: #546e7a;
+}
+.station-phone {
+  font-size: 24rpx;
+  color: #78909c;
+}
+.station-info-empty {
+  padding: 20rpx 0;
+  text-align: center;
+  color: #78909c;
+  font-size: 26rpx;
+}
+/* 「编辑资料 ›」：水站资料页的入口（站名/电话/地址/坐标可直接改） */
+.station-edit {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #1976d2;
+  font-weight: 500;
+}
+/* 员工入口（2026-09-19 IA 重组）：本页保留完整的「配送员管理 / 绑定申请」列表与原地操作，
+   站长端 pages/station-mgmt/staff/ 是更全的那一份（多了搜索、筛选、画像、新增），
+   两边数据同源，标题行的「更多 ›」跳过去。 */
+.staff-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 0 4rpx;
+}
+.staff-entry-text {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+.staff-entry-arrow {
+  font-size: 26rpx;
+  color: #1976d2;
+  font-weight: 500;
+}
+
+/* 管理 Tab */
+.mgmt-tabs {
+  display: flex;
+  border-bottom: 1rpx solid var(--border-light);
+  margin-bottom: 20rpx;
+}
+.mgmt-tab {
+  position: relative;
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  font-size: 28rpx;
+  color: #78909c;
+  font-weight: 500;
+}
+.mgmt-tab.active {
+  color: #1976d2;
+  font-weight: 700;
+}
+.mgmt-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: -2rpx;
+  height: 4rpx;
+  border-radius: 2rpx;
+  background: #1976d2;
+}
+
+.tab-count {
+  display: inline-block;
+  min-width: 32rpx;
+  padding: 0 10rpx;
+  height: 32rpx;
+  line-height: 32rpx;
+  text-align: center;
+  border-radius: 16rpx;
+  font-size: 20rpx;
+  font-weight: 500;
+  background: #cfd8dc;
+  color: #455a64;
+  margin-left: 8rpx;
+}
+.tab-count.tab-badge {
+  background: #ff5722;
+  color: #ffffff;
+}
+
+.mgmt-empty {
+  padding: 40rpx 0;
+  text-align: center;
+  color: #90a4ae;
+  font-size: 26rpx;
+}
+.mgmt-empty-hint {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #b0bec5;
+}
+.staff-item {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--border-light);
+}
+.staff-item:last-child { border-bottom: none; }
+.staff-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #1976d2;
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.staff-avatar.staff-avatar-blue { background: #42a5f5; }
+.staff-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+.staff-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.staff-tag {
+  font-size: 22rpx;
+  color: #1976d2;
+  font-weight: 500;
+}
+.staff-meta {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+.staff-remove-btn {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  padding: 10rpx 26rpx;
+  line-height: 1.4;
+  background: #ffebee;
+  color: #c62828;
+}
+.staff-remove-btn::after { border: none; }
+/* 站长行没有「解除」按钮，用一行灰字说明原因（不渲染任何东西会让站长以为界面坏了） */
+.staff-self-note {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: #b0bec5;
+  padding: 10rpx 12rpx;
+}
+.staff-action-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+.staff-btn {
+  border: none;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  padding: 8rpx 22rpx;
+  line-height: 1.4;
+}
+.staff-btn::after { border: none; }
+.staff-btn-green {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.staff-btn-gray {
+  background: #eceff1;
+  color: #546e7a;
+}
+.menu-list {
+  background: var(--bg-card);
+  margin: 0 24rpx 24rpx;
+  border-radius: 20rpx;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 32rpx 24rpx;
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-icon {
+  font-size: 32rpx;
+  margin-right: 20rpx;
+}
+
+.menu-text {
+  flex: 1;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+
+.menu-arrow {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+}
+
+.logout-btn {
+  margin: 0 24rpx;
+  padding: 28rpx;
+  text-align: center;
+  background: var(--bg-card);
+  border-radius: 20rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.logout-btn text {
+  font-size: 28rpx;
+  color: var(--error-color);
+}
+
+.login-tip {
+  margin: 48rpx 24rpx;
+  text-align: center;
+}
+
+.login-tip-text {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 32rpx;
+}
+
+.btn-login {
+  background: var(--primary-gradient);
+  color: #fff;
+  border: none;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  padding: 24rpx 48rpx;
+}
+
+.btn-login::after {
+  border: none;
+}
+
+.btn-login-secondary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin-top: 20rpx;
+}

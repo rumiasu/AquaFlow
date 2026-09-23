@@ -1,0 +1,80 @@
+/* 站长资产调整单列表。单位一律 rpx；通用容器/卡片沿用 app.wxss 的 .container / .card，不在此重复定义 */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 28rpx 24rpx;
+  background: var(--bg-card);
+}
+.topbar-info { display: flex; flex-direction: column; gap: 8rpx; min-width: 0; }
+.topbar-title { font-size: 34rpx; font-weight: 700; color: var(--text-primary); }
+.topbar-sub { font-size: 22rpx; color: var(--text-secondary); }
+.btn-new {
+  flex-shrink: 0;
+  padding: 16rpx 32rpx;
+  border-radius: var(--radius-round);
+  background: var(--primary-gradient);
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 600;
+  box-shadow: var(--shadow-primary);
+}
+
+.record-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  margin: 0 24rpx 20rpx;
+  padding: 24rpx;
+  box-shadow: var(--shadow-sm);
+}
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+.card-head-left { display: flex; flex-direction: column; gap: 8rpx; min-width: 0; }
+.adjust-no { font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
+.adjust-type { font-size: 24rpx; color: var(--primary-color); }
+
+/* 状态色：文案用后端下发的 statusText，这里只管配色 */
+.status { font-size: 22rpx; padding: 6rpx 16rpx; border-radius: 8rpx; flex-shrink: 0; }
+.status.pending { background: #fff3e0; color: #f57c00; }
+.status.effective { background: #e8f5e9; color: #4caf50; }
+.status.muted { background: #f4f4f5; color: #909399; }
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20rpx;
+  font-size: 26rpx;
+  padding: 8rpx 0;
+}
+.info-row .label { color: var(--text-secondary); flex-shrink: 0; }
+.info-row .value { color: var(--text-primary); text-align: right; word-break: break-all; }
+.info-row .value.strong { font-weight: 600; color: var(--primary-color); }
+
+.card-actions { display: flex; gap: 20rpx; margin-top: 20rpx; }
+.btn-ghost, .btn-exec {
+  flex: 1;
+  height: 72rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+}
+.btn-ghost { background: var(--bg-gray); color: var(--text-regular); }
+.btn-exec { background: var(--primary-gradient); color: #fff; font-weight: 600; }
+
+.denied, .empty {
+  text-align: center;
+  padding: 140rpx 40rpx;
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.list-footer { text-align: center; padding: 20rpx 0 40rpx; font-size: 24rpx; color: var(--text-secondary); }

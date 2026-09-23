@@ -1,0 +1,92 @@
+{
+  "pages": [
+    "pages/login/index",
+    "pages/role-select/index",
+    "pages/bind-wait/index",
+    "pages/station-mgmt/create-station/index",
+    "pages/station-mgmt/apply-bind/index",
+    "pages/home/index",
+    "pages/order/detail",
+    "pages/order/complete",
+    "pages/mine/index",
+    "pages/coordination/index",
+    "pages/station-mgmt/index",
+    "pages/station-mgmt/dashboard/index",
+    "pages/station-mgmt/orders/index",
+    "pages/station-mgmt/customers/index",
+    "pages/station-mgmt/customers/detail/index",
+    "pages/station-mgmt/customers/adjust/index",
+    "pages/station-mgmt/customers/adjust/edit/index",
+    "pages/station-mgmt/customers/adjust/detail/index",
+    "pages/station-mgmt/products/index",
+    "pages/station-mgmt/station-status/index",
+    "pages/station-mgmt/station-info/index",
+    "pages/station-mgmt/delivery-config/index",
+    "pages/station-mgmt/place-order/index",
+    "pages/station-mgmt/receivables/index",
+    "pages/station-mgmt/payroll/index",
+    "pages/station-mgmt/ticket-packages/index",
+    "pages/station-mgmt/gross-profit/index",
+    "pages/station-mgmt/barrel-return/index",
+    "pages/station-mgmt/owed-barrels/index",
+    "pages/station-mgmt/exceptions/index",
+    "pages/station-mgmt/customer-feedback/index",
+    "pages/station-mgmt/payments/index",
+    "pages/station-mgmt/staff/index",
+    "pages/station-mgmt/staff/profile/index",
+    "pages/barrel-records/index",
+    "pages/my-earnings/index",
+    "pages/history/index",
+    "pages/transfer/index",
+    "pages/report/index",
+    "pages/settings/index",
+    "pages/mine/edit",
+    "pages/feedback/index"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#4F8EF7",
+    "navigationBarTitleText": "AquaFlow 配送",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f0f4f8"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#4F8EF7",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/coordination/index",
+        "text": "首页",
+        "iconPath": "static/tabbar/coordination.png",
+        "selectedIconPath": "static/tabbar/coordination-active.png"
+      },
+      {
+        "pagePath": "pages/home/index",
+        "text": "配送",
+        "iconPath": "static/tabbar/delivery.png",
+        "selectedIconPath": "static/tabbar/delivery-active.png"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "static/tabbar/mine.png",
+        "selectedIconPath": "static/tabbar/mine-active.png"
+      }
+    ]
+  },
+  "requiredPrivateInfos": [
+    "chooseLocation",
+    "getLocation"
+  ],
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于导航到客户地址"
+    }
+  },
+  "usingComponents": {
+    "privacy-popup": "/components/PrivacyPopup/index"
+  },
+  "sitemapLocation": "sitemap.json"
+}

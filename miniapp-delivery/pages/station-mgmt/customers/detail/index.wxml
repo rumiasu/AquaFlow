@@ -1,0 +1,316 @@
+<view class="page">
+  <view class="loading" wx:if="{{loading}}"><text>加载中...</text></view>
+
+  <view class="error-banner" wx:if="{{error}}">
+    <text class="error-text">加载失败：{{error}}</text>
+    <text class="error-hint">若提示接口不存在/网络错误，通常是后端未部署画像接口，请重新构建并启动后端</text>
+  </view>
+
+  <block wx:if="{{!loading && profile}}">
+    <!-- 头部画像卡 -->
+    <view class="profile-header">
+      <view class="avatar" style="background:{{profile.customerLevelColor}}">{{profile.avatarText}}</view>
+      <view class="header-info">
+        <view class="name-row">
+          <text class="name">{{profile.name}}</text>
+          <text class="badge type">{{profile.customerTypeText}}</text>
+        </view>
+        <text class="phone" bindtap="onCall" data-phone="{{profile.phone}}">{{profile.phone || '未填写电话'}}</text>
+        <view class="badge-row">
+          <text class="badge level" style="background:{{profile.customerLevelColor}}">{{profile.customerLevel}}</text>
+          <text class="badge act-{{profile.activityStatus}}">{{profile.activityText}}</text>
+          <text class="badge {{profile.codEnabled ? 'cod-on' : 'cod-off'}}">{{profile.codEnabled ? '货到付款' : '无线下支付'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 核心指标 -->
+    <view class="section">
+      <view class="section-title">消费概览</view>
+      <view class="metric-grid">
+        <view class="metric">
+          <text class="metric-value">{{profile.totalOrders}}</text>
+          <text class="metric-label">累计订单</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.totalConsumptionText}}</text>
+          <text class="metric-label">累计消费</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.avgOrderAmountText}}</text>
+          <text class="metric-label">客单价</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">{{profile.ticketBalance}}</text>
+          <text class="metric-label">水票余额(张)</text>
+        </view>
+      </view>
+      <view class="metric-grid second">
+        <view class="metric">
+          <text class="metric-value">{{profile.monthOrders}}</text>
+          <text class="metric-label">本月订单</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.monthConsumptionText}}</text>
+          <text class="metric-label">本月消费</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.depositBalanceText}}</text>
+          <text class="metric-label">押金余额</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value small {{profile.owedBarrels ? 'warn' : ''}}">{{profile.owedBarrelsText}}</text>
+          <text class="metric-label">欠桶</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ==================== 本站资产 ==================== -->
+    <view class="section" wx:if="{{canViewAssets}}">
+      <view class="section-title-row">
+        <view class="section-title no-mb">本站资产</view>
+        <text class="section-note">仅统计 {{assets.stationName || '本水站'}}</text>
+      </view>
+
+      <view class="asset-loading" wx:if="{{assetsLoading}}"><text>资产加载中...</text></view>
+
+      <view class="asset-error" wx:elif="{{assetsError}}">
+        <text class="asset-error-text">{{assetsError}}</text>
+        <view class="asset-retry" bindtap="onRefreshAssets"><text>重试</text></view>
+      </view>
+
+      <block wx:elif="{{assets}}">
+        <!-- 资产概览 -->
+        <view class="metric-grid asset-grid">
+          <view class="metric">
+            <text class="metric-value">{{assets.heldBuckets}}</text>
+            <text class="metric-label">持有桶</text>
+          </view>
+          <view class="metric">
+            <text class="metric-value {{assets.inTransitBuckets > 0 ? 'transit' : ''}}">{{assets.inTransitBuckets}}</text>
+            <text class="metric-label">配送中桶</text>
+          </view>
+          <view class="metric">
+            <text class="metric-value small {{assets.hasOwed ? 'warn' : ''}}">{{assets.owedBuckets > 0 ? assets.owedBuckets : '无'}}</text>
+            <text class="metric-label">欠桶</text>
+          </view>
+          <view class="metric">
+            <text class="metric-value small">{{assets.ticketQuantity}}</text>
+            <text class="metric-label">水票(张)</text>
+          </view>
+        </view>
+        <view class="metric-grid second">
+          <view class="metric">
+            <text class="metric-value small">¥{{assets.depositBalanceText}}</text>
+            <text class="metric-label">押金余额</text>
+          </view>
+          <view class="metric">
+            <text class="metric-value small">¥{{assets.ticketValueText}}</text>
+            <text class="metric-label">水票折算</text>
+          </view>
+          <view class="metric">
+            <text class="metric-value small">¥{{assets.barrelDepositTotalText}}</text>
+            <text class="metric-label">持桶押金</text>
+          </view>
+          <view class="metric">
+            <text class="metric-value small">¥{{assets.totalAssetValueText}}</text>
+            <text class="metric-label">资产合计</text>
+          </view>
+        </view>
+
+        <!-- 空资产提示 -->
+        <view class="asset-empty" wx:if="{{assets.empty}}">
+          <text>该客户在本站暂无任何水桶、水票或押金</text>
+        </view>
+        <!-- 资产为空时「水桶明细」标题行不渲染，这里补一个入口：
+             历史漏录的客户正是最需要「资产调整」补录的人，不能让他们无路可走 -->
+        <view class="record-toggle" wx:if="{{assets.empty}}" bindtap="onOpenAdjust">
+          <text>历史漏录？去「资产调整」补录</text>
+        </view>
+
+        <block wx:else>
+          <!-- 水桶明细 -->
+          <view class="sub-title-row" wx:if="{{assets.barrels.length}}">
+            <text class="sub-title no-mb">水桶明细</text>
+            <view class="link-row">
+              <text class="link-btn" bindtap="onShowReturnEmpty">还空桶</text>
+              <text class="link-btn" bindtap="onOpenAdjust">资产调整</text>
+            </view>
+          </view>
+          <view class="asset-item" wx:for="{{assets.barrels}}" wx:key="productId">
+            <view class="asset-item-main">
+              <text class="asset-item-name">{{item.productName}}</text>
+              <text class="asset-item-spec" wx:if="{{item.productSpec}}">{{item.productSpec}}</text>
+            </view>
+            <view class="asset-item-right">
+              <text class="asset-item-qty">{{item.quantityText}}</text>
+              <text class="asset-item-sub" wx:if="{{item.heldQty > 0}}">押金 ¥{{item.depositAmountText}}（¥{{item.depositPerBucketText}}/个）</text>
+              <!-- over 文案：欠桶(正) / 水站暂存(负)。负值合法，必须如实显示，不能当 0 -->
+              <text class="asset-item-sub {{item.overQty > 0 ? 'over-owed' : 'over-storage'}}" wx:if="{{item.hasOver}}">{{item.overText}}</text>
+            </view>
+          </view>
+
+          <!-- 水票明细 -->
+          <view class="sub-title" wx:if="{{assets.tickets.length}}">水票明细</view>
+          <view class="asset-item" wx:for="{{assets.tickets}}" wx:key="productId">
+            <view class="asset-item-main">
+              <text class="asset-item-name">{{item.productName}}</text>
+              <text class="asset-item-spec" wx:if="{{item.productSpec}}">{{item.productSpec}}</text>
+            </view>
+            <view class="asset-item-right">
+              <text class="asset-item-qty">{{item.remainQuantity}} 张</text>
+              <text class="asset-item-sub">¥{{item.unitPriceText}}/张 · 折算 ¥{{item.totalValueText}}</text>
+            </view>
+          </view>
+
+          <!-- 资产流水 -->
+          <view class="sub-title" wx:if="{{assets.records.length}}">资产流水</view>
+          <view class="record-item"
+                wx:for="{{recordsExpanded ? assets.records : assets.recordsPreview}}"
+                wx:key="idx">
+            <view class="record-left">
+              <view class="record-line1">
+                <text class="record-cat {{item.category === 'BARREL' ? 'cat-barrel' : (item.category === 'TICKET' ? 'cat-ticket' : 'cat-deposit')}}">{{item.categoryText}}</text>
+                <text class="record-type">{{item.typeText}}</text>
+              </view>
+              <text class="record-meta">{{item.timeText}}<text wx:if="{{item.productName}}"> · {{item.productName}}</text><text wx:if="{{item.orderId}}"> · 订单#{{item.orderId}}</text></text>
+              <text class="record-meta" wx:if="{{item.note}}">{{item.note}}</text>
+            </view>
+            <view class="record-right">
+              <text class="record-change {{item.directionClass}}">{{item.changeText}}</text>
+              <text class="record-status" wx:if="{{item.statusText}}">{{item.statusText}}</text>
+            </view>
+          </view>
+          <view class="record-toggle" wx:if="{{assets.hasMoreRecords}}" bindtap="onToggleRecords">
+            <text>{{recordsExpanded ? '收起' : '展开全部 ' + assets.records.length + ' 条'}}</text>
+          </view>
+        </block>
+      </block>
+    </view>
+
+    <!-- 客户特权（v40）：站长给单个客户的差异化规则。
+         可授予的类型由服务端下发（只含已实现的），所以这里不会出现"配了也不生效"的开关。 -->
+    <view class="section" wx:if="{{canViewAssets}}">
+      <view class="section-title">客户特权</view>
+      <view class="asset-error" wx:if="{{privilegesError}}">
+        <text class="asset-error-text">{{privilegesError}}</text>
+      </view>
+      <block wx:elif="{{privilegesLoading}}">
+        <view class="empty-line">加载中…</view>
+      </block>
+      <block wx:else>
+        <view class="priv-row" wx:for="{{privileges}}" wx:key="type">
+          <view class="priv-main">
+            <text class="priv-name">{{item.typeText || item.type}}</text>
+            <text class="priv-note" wx:if="{{item.note}}">{{item.note}}</text>
+          </view>
+          <view class="priv-btn priv-btn-off" bindtap="onRevokePrivilege" data-type="{{item.type}}">撤销</view>
+        </view>
+        <view class="empty-line" wx:if="{{!privileges.length}}">该客户在本站暂无特权，按默认规则。</view>
+
+        <block wx:if="{{grantableTypes.length}}">
+          <view class="priv-add-label">可授予</view>
+          <view class="priv-add-row">
+            <view class="priv-btn" wx:for="{{grantableTypes}}" wx:key="type"
+                  bindtap="onGrantPrivilege" data-type="{{item.type}}">+ {{item.text}}</view>
+          </view>
+        </block>
+        <view class="priv-hint">
+          特权按「本水站 + 本客户」生效，A 站给的不在 B 站算数。
+          撤销后立即恢复默认规则；已授予的重复授予只会更新备注。
+        </view>
+      </block>
+    </view>
+
+    <!-- 消费特征 -->
+    <view class="section">
+      <view class="section-title">消费特征</view>
+      <view class="row">
+        <text class="label">首次下单</text>
+        <text class="value">{{profile.firstOrderTimeText || '暂无'}}</text>
+      </view>
+      <view class="row">
+        <text class="label">最近下单</text>
+        <text class="value">{{profile.lastOrderAgoText}}</text>
+      </view>
+      <view class="row" wx:if="{{profile.avgCycleDays}}">
+        <text class="label">平均下单周期</text>
+        <text class="value">{{profile.avgCycleDays}} 天</text>
+      </view>
+      <view class="row" wx:if="{{profile.exceptionCount}}">
+        <text class="label">桶异常</text>
+        <text class="value warn">{{profile.exceptionCount}} 次</text>
+      </view>
+      <view class="row" wx:if="{{profile.favoriteProducts.length}}">
+        <text class="label">常购商品</text>
+        <view class="value tags">
+          <text class="tag" wx:for="{{profile.favoriteProducts}}" wx:key="name">{{item.name}} ×{{item.qty}}</text>
+        </view>
+      </view>
+      <view class="row" wx:if="{{profile.defaultAddress}}">
+        <text class="label">常用地址</text>
+        <text class="value">{{profile.defaultAddress}}</text>
+      </view>
+      <view class="row" wx:if="{{profile.tagsList.length}}">
+        <text class="label">标签</text>
+        <view class="value tags">
+          <text class="tag" wx:for="{{profile.tagsList}}" wx:key="*this">{{item}}</text>
+        </view>
+      </view>
+      <view class="row" wx:if="{{profile.note}}">
+        <text class="label">备注</text>
+        <text class="value">{{profile.note}}</text>
+      </view>
+    </view>
+
+    <!-- 权限设置 -->
+    <view class="section">
+      <view class="section-title">权限设置</view>
+      <view class="row switch-row">
+        <view class="switch-info">
+          <text class="label">货到付款</text>
+          <text class="hint">开通后该客户在本站下单可选择货到付款</text>
+        </view>
+        <switch checked="{{profile.codEnabled}}" bindchange="onToggleCod" color="#409EFF" disabled="{{saving}}" />
+      </view>
+    </view>
+
+    <!-- 最近订单 -->
+    <view class="section" wx:if="{{profile.recentOrders.length}}">
+      <view class="section-title">最近订单</view>
+      <view class="order-item" wx:for="{{profile.recentOrders}}" wx:key="id">
+        <text class="order-no">#{{item.id}}</text>
+        <text class="order-status">{{item.statusText}}</text>
+        <text class="order-amount">¥{{item.totalAmount}}</text>
+      </view>
+    </view>
+  </block>
+
+  <view class="empty" wx:if="{{!loading && !profile}}"><text>暂无客户画像</text></view>
+
+  <!-- ============ 纯还桶弹窗：只冲减 over，不扣权益、不退款 ============ -->
+  <view class="modal-mask" wx:if="{{showReturnEmpty}}" bindtap="onCloseReturnEmpty"></view>
+  <view class="modal" wx:if="{{showReturnEmpty}}">
+    <view class="modal-header">
+      <text class="modal-title">还空桶</text>
+      <text class="modal-close" bindtap="onCloseReturnEmpty">×</text>
+    </view>
+    <view class="modal-tip">
+      <text>顾客交回空桶但不带走满桶。只冲减欠桶记录，<text class="strong">不退押金、不减少桶权益</text>；想拿回钱请走「退桶」。</text>
+    </view>
+    <view class="return-item" wx:for="{{returnItems}}" wx:key="productId">
+      <view class="return-item-main">
+        <text class="return-item-name">{{item.productName}}</text>
+        <text class="return-item-hint">最多可还 {{item.max}} 个<text wx:if="{{item.over > 0}}">（当前欠桶 {{item.over}} 个）</text></text>
+      </view>
+      <input class="return-item-input" type="number" value="{{item.qty}}"
+             data-idx="{{index}}" data-max="{{item.max}}" bindinput="onReturnEmptyQtyInput" />
+    </view>
+    <view class="modal-footer">
+      <view class="modal-btn cancel" bindtap="onCloseReturnEmpty"><text>取消</text></view>
+      <view class="modal-btn confirm {{returnSubmitting ? 'disabled' : ''}}" bindtap="onSubmitReturnEmpty">
+        <text>{{returnSubmitting ? '提交中...' : '确认还桶'}}</text>
+      </view>
+    </view>
+  </view>
+</view>

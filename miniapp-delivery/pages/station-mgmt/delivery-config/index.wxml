@@ -1,0 +1,138 @@
+<view class="container">
+  <view class="card">
+    <view class="card-header">
+      <text class="card-title">配送计费</text>
+      <text class="badge badge-on" wx:if="{{configured}}">已配置</text>
+      <text class="badge badge-warn" wx:else>未配置</text>
+    </view>
+    <text class="card-sub">留空表示「不限 / 不收」。费用在客户下单时快照进订单，改这里不影响历史订单。</text>
+  </view>
+
+  <!--
+    本站「配置完善度」（2026-09-19）：产品要求「所有需要/建议填写的字段，都加一层引导」。
+    规则目录在后端 StationSetupGuideService —— 这里只渲染后端给的中文（label / why / where / action），
+    前端不自建 key→文案映射。只列"还没配好的"，P0 排前面。
+  -->
+  <view class="card setup-card" wx:if="{{setupPending.length}}">
+    <view class="card-header">
+      <text class="card-title">本站还差这些</text>
+      <text class="badge badge-warn">{{setup.summaryText}}</text>
+    </view>
+    <view class="setup-item" wx:for="{{setupPending}}" wx:key="key">
+      <view class="setup-head">
+        <text class="setup-label">{{item.level}} · {{item.label}}</text>
+        <text class="setup-where">去「{{item.where}}」</text>
+      </view>
+      <text class="setup-why">{{item.why}}</text>
+      <text class="setup-action" wx:if="{{item.action}}">· {{item.action}}</text>
+    </view>
+  </view>
+
+  <!--
+    金额门槛引导（2026-09-19）：本站上架了非桶装商品（瓶装水/一次性桶/饮水器）却只配了桶数门槛时，
+    那条规则对这类订单其实**不生效** —— 非桶装不占桶。所以这里把站长引到金额字段上；
+    建议值由后端按"本站最便宜的一桶水"算好（前端只展示与回填，不自算倍数、不自造文案）。
+  -->
+  <view class="card guide-card" wx:if="{{guide.requiredAmountFields.length}}">
+    <text class="card-title">还差金额门槛</text>
+    <text class="card-sub">{{guideText}}</text>
+    <button class="btn-fill" bindtap="onFillSuggested">一键填入建议值</button>
+  </view>
+
+  <!-- ============ 起送量 ============ -->
+  <view class="card">
+    <text class="card-title">起送量</text>
+    <text class="card-sub">桶数与金额满足其一即达门槛；两项都留空 = 不限起送量。没有桶装水的订单（纯瓶装水/饮水机）只按金额核验。</text>
+
+    <view class="field">
+      <text class="label">起送桶数</text>
+      <input class="input" type="number" placeholder="如 2（留空=不限）" value="{{form.minOrderBuckets}}" bindinput="onInput" data-field="minOrderBuckets" />
+    </view>
+    <view class="field">
+      <text class="label">起送金额（元）</text>
+      <input class="input" type="digit" placeholder="{{guide.suggestedMinOrderAmount ? '建议 ' + guide.suggestedMinOrderAmount + '（留空=不限）' : '如 30（留空=不限）'}}" value="{{form.minOrderAmount}}" bindinput="onInput" data-field="minOrderAmount" />
+    </view>
+
+    <text class="label">未达起送量时</text>
+    <view class="options">
+      <view class="option {{form.minOrderMode === item.value ? 'active' : ''}}" wx:for="{{limitModes}}" wx:key="value"
+            bindtap="onPickMode" data-field="minOrderMode" data-value="{{item.value}}">
+        <text class="option-name">{{item.name}}</text>
+        <text class="option-desc">{{item.desc}}</text>
+      </view>
+    </view>
+    <view class="field" wx:if="{{form.minOrderMode === 'FEE'}}">
+      <text class="label">加收金额（元）</text>
+      <input class="input" type="digit" placeholder="如 5" value="{{form.minOrderFee}}" bindinput="onInput" data-field="minOrderFee" />
+    </view>
+  </view>
+
+  <!-- ============ 配送范围 ============ -->
+  <view class="card">
+    <text class="card-title">配送范围</text>
+    <text class="card-sub">按站点坐标到收货地址的直线距离判断。⚠️ 站点没选点或地址没定位时**跳过校验、不拦单**。</text>
+
+    <view class="field">
+      <text class="label">配送半径（米）</text>
+      <input class="input" type="number" placeholder="如 3000（留空=不限）" value="{{form.deliveryRadiusM}}" bindinput="onInput" data-field="deliveryRadiusM" />
+    </view>
+
+    <text class="label">超出范围时</text>
+    <view class="options">
+      <view class="option {{form.overRadiusMode === item.value ? 'active' : ''}}" wx:for="{{limitModes}}" wx:key="value"
+            bindtap="onPickMode" data-field="overRadiusMode" data-value="{{item.value}}">
+        <text class="option-name">{{item.name}}</text>
+        <text class="option-desc">{{item.desc}}</text>
+      </view>
+    </view>
+    <view class="field" wx:if="{{form.overRadiusMode === 'FEE'}}">
+      <text class="label">远程费（元）</text>
+      <input class="input" type="digit" placeholder="如 8" value="{{form.remoteFee}}" bindinput="onInput" data-field="remoteFee" />
+    </view>
+  </view>
+
+  <!-- ============ 运费 ============ -->
+  <view class="card">
+    <text class="card-title">配送费</text>
+    <text class="card-sub">达到免运费门槛（桶数或金额任一）即免收；两项门槛都留空 = 一直收基础配送费。</text>
+
+    <view class="field">
+      <text class="label">基础配送费（元）</text>
+      <input class="input" type="digit" placeholder="如 3（0 或留空=不收）" value="{{form.baseDeliveryFee}}" bindinput="onInput" data-field="baseDeliveryFee" />
+    </view>
+    <view class="field">
+      <text class="label">免运费桶数</text>
+      <input class="input" type="number" placeholder="如 2" value="{{form.freeDeliveryBuckets}}" bindinput="onInput" data-field="freeDeliveryBuckets" />
+    </view>
+    <view class="field">
+      <text class="label">免运费金额（元）</text>
+      <input class="input" type="digit" placeholder="{{guide.suggestedFreeDeliveryAmount ? '建议 ' + guide.suggestedFreeDeliveryAmount : '如 40'}}" value="{{form.freeDeliveryAmount}}" bindinput="onInput" data-field="freeDeliveryAmount" />
+    </view>
+  </view>
+
+  <!-- ============ 楼层费 ============ -->
+  <view class="card">
+    <text class="card-title">楼层费（向客户收）</text>
+    <text class="card-sub">只在「无电梯」且超出免费楼层时收。⚠️ 客户没填楼层或没确认电梯时**不收、只提示**。</text>
+
+    <view class="field">
+      <text class="label">免费楼层</text>
+      <input class="input" type="number" placeholder="如 1" value="{{form.floorFreeLevel}}" bindinput="onInput" data-field="floorFreeLevel" />
+    </view>
+    <view class="field">
+      <text class="label">每超一层加收（元）</text>
+      <input class="input" type="digit" placeholder="如 2（留空=不收楼层费）" value="{{form.floorFeePerLevel}}" bindinput="onInput" data-field="floorFeePerLevel" />
+    </view>
+
+    <text class="label">计费口径</text>
+    <view class="options">
+      <view class="option {{form.floorFeeMode === item.value ? 'active' : ''}}" wx:for="{{floorModes}}" wx:key="value"
+            bindtap="onPickMode" data-field="floorFeeMode" data-value="{{item.value}}">
+        <text class="option-name">{{item.name}}</text>
+        <text class="option-desc">{{item.desc}}</text>
+      </view>
+    </view>
+  </view>
+
+  <button class="btn-primary" bindtap="onSave" loading="{{saving}}" disabled="{{saving}}">保存配送计费</button>
+</view>

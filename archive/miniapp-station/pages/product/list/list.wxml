@@ -1,0 +1,82 @@
+<view class="page-container">
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <input 
+      class="search-input" 
+      placeholder="搜索商品名称/品牌" 
+      value="{{filter.keyword}}" 
+      bindinput="onSearchInput"
+      bindconfirm="onSearchConfirm"
+      confirm-type="search"
+    />
+  </view>
+
+  <!-- 筛选栏 -->
+  <view class="filter-bar">
+    <view class="filter-tab {{filter.status === '' ? 'active' : ''}}" data-value="" bindtap="onStatusChange">全部</view>
+    <view class="filter-tab {{filter.status === '1' ? 'active' : ''}}" data-value="1" bindtap="onStatusChange">在售</view>
+    <view class="filter-tab {{filter.status === '0' ? 'active' : ''}}" data-value="0" bindtap="onStatusChange">下架</view>
+    <view class="filter-tab {{filter.status === '2' ? 'active' : ''}}" data-value="2" bindtap="onStatusChange">停售</view>
+  </view>
+
+  <!-- 商品列表 -->
+  <view class="product-list" wx:if="{{products.length > 0}}">
+    <view wx:for="{{products}}" wx:key="id" class="product-card" bindtap="onProductTap" data-id="{{item.id}}">
+      <view class="card-left">
+        <!-- 优先展示标签 -->
+        <view class="priority-badge" wx:if="{{item.priorityDisplay === 1}}">优先</view>
+        <image class="product-image" src="{{item.imageUrl || '/assets/images/placeholder.png'}}" mode="aspectFill" />
+        <view class="product-info">
+          <text class="product-name">{{item.name}}</text>
+          <view class="product-meta">
+            <text class="meta-item">规格: {{item.spec || '—'}}</text>
+            <text class="meta-item">品牌: {{item.brand || '—'}}</text>
+            <text class="meta-item">库存: {{item.quantity || 0}} 桶</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="card-right">
+        <!-- 优先展示按钮 -->
+        <view 
+          class="priority-btn {{item.priorityDisplay === 1 ? 'priority-active' : ''}}"
+          data-id="{{item.id}}"
+          data-priority-display="{{item.priorityDisplay}}"
+          catchtap="onTogglePriority"
+        >
+          <text class="priority-btn-text">{{item.priorityDisplay === 1 ? '优先展示' : '设为优先'}}</text>
+        </view>
+
+        <!-- 上下架开关 -->
+        <view class="switch-group">
+          <text class="switch-label">上架</text>
+          <switch 
+            checked="{{item.enabled === 1}}" 
+            data-id="{{item.id}}" 
+            data-enabled="{{item.enabled}}"
+            bindchange="onToggleShelf"
+            color="#52c41a"
+          />
+        </view>
+
+        <view class="product-price">¥{{item.price ? item.price.toFixed(2) : '0.00'}}</view>
+        <view class="arrow">></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!loading && products.length === 0}}">
+    <image src="../../../assets/images/empty-product.png" mode="aspectFit" />
+    <text class="empty-text">暂无商品</text>
+    <text class="empty-subtext">点击右上角添加商品</text>
+  </view>
+
+  <!-- 加载更多 -->
+  <view class="load-more" wx:if="{{!noMore && products.length > 0}}">
+    <view class="loading-spinner" wx:if="{{loadingMore}}"></view>
+    <text wx:else class="load-more-text" bindtap="loadMore">上拉加载更多</text>
+  </view>
+
+  <view class="safe-area"></view>
+</view>

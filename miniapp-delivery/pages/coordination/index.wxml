@@ -1,0 +1,404 @@
+<import src="../../templates/station-navbar.wxml" />
+
+<view class="container">
+  <!--
+    自绘导航栏（b 方案）：**水站营业状态就在「首页」字样的左边**。
+    为什么自绘：原生导航栏塞不进任何东西，而站长/配送员要在最上面一眼看到"今天休息 / 配送延迟"。
+    结构与尺寸见共用件 templates/station-navbar.wxml（样式 styles/station-navbar.wxss，
+    数据与方法 behaviors/stationNavbar.js）—— 与「配送」页同一份实现。
+  -->
+  <template is="stationNavbar"
+            data="{{title: '首页', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, rightPad: true}}" />
+  <!-- 无权限提示 -->
+  <view class="no-auth" wx:if="{{!isManager}}">
+    <text class="no-auth-icon">🔒</text>
+    <text class="no-auth-title">您无权限</text>
+    <text class="no-auth-desc">首页仅站长可访问</text>
+    <button class="no-auth-btn" bindtap="onGoBack">返回配送页</button>
+  </view>
+
+  <view wx:else>
+    <!--
+      数据没加载出来的提示（空串时不渲染）。[2026-09-20 真机联调] 原来任一接口失败都会让
+      **整页**数据不落地，而下面五个页签照旧渲染成「暂无待分配 / 暂无抢单池…」—— 与"确实没有单"
+      完全无法区分（AGENTS §8.22）。现在部分失败也照常展示已拿到的数据，并在这里说清哪几项没出来。
+      样式复用 app.wxss 的 .load-error（全局，不要在本页再写一份）。
+    -->
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+    <!--
+      「其他待办」——**只列不在本页 tab 里的那几项**。
+      [2026-09-19 收敛，当天两次修订] 这里先加过一张 15 项、按 P0/P1/P2 三级铺开的大卡（密度过高），
+      随后被整张删掉 —— **但那是删过头**：15 项里有 8 项本来就不在订单页，它们不是冗余。
+      现在的口径是"**只留 tab 覆盖不到的**"：
+        · 删掉的 7 项 = 待分配 / 转单 / 客户取消 / 站内取消 / 抢单池 / 他站定向外派 / 退桶审批
+          —— 它们要么就是本页页签（角标已给数），要么已在「水站管理」宫格里有卡；
+          ⚠️ 这 7 项里**有 6 项是 P0**（只有「抢单池」是 P2），从级别看它们"应该"在这儿，
+             但它们各自的页签/页面上一眼就能看到数，再报一遍就是本卡要消除的那种重复。
+             **P0 没丢**：tab 红点算的是完整 payload 的 p0Total（这 6 项都在内），
+             只是换成"一个红点"而不是"6 个数字"。
+        · 留下的 8 项 = 只活在「水站管理」里的那些（钱 / 人 / 质量）= 5 项 P1 + 3 项 P2。
+      渲染上**不再分三级标题**：8 项一屏一格，**计数非零的项标红**。⚠️ 红的是"有几条"
+      （`hasCount`），**不是等级** —— 卡里这 8 项全是 P1/P2、一项 P0 都没有（见 `TODO_KEYS` 注释），
+      所以拿它当"P0 高亮"看会错。
+      数量为 0 的项**照样显示** —— 否则站长不知道系统里有这一项（与 tab 角标"0 就不显示"不同：
+      角标是"有几条要办"，这里是"系统有哪些事项"，语义不同）。
+    -->
+    <view class="todo-card" wx:if="{{todo && todo.items.length}}">
+      <view class="todo-head">
+        <text class="todo-title">其他待办</text>
+        <text class="todo-hint">不在订单页里的</text>
+      </view>
+      <view class="todo-row">
+        <view class="todo-item {{item.hasCount ? 'todo-item-on' : ''}}"
+              wx:for="{{todo.items}}" wx:key="key"
+              bindtap="onTodoTap" data-key="{{item.key}}">
+          <text class="todo-count">{{item.count}}</text>
+          <text class="todo-label">{{item.label}}</text>
+          <text class="todo-amount" wx:if="{{item.amountText}}">￥{{item.amountText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Tab 切换：角标即当下的待办数，点进去才展开明细 -->
+    <scroll-view class="tab-bar" scroll-x enable-flex>
+      <view class="tab-item {{activeTab === item.key ? 'active' : ''}}"
+            wx:for="{{tabs}}" wx:key="key"
+            bindtap="switchTab" data-tab="{{item.key}}">
+        <text>{{item.label}}</text>
+        <text class="tab-count" wx:if="{{item.count > 0}}">{{item.count}}</text>
+      </view>
+    </scroll-view>
+
+    <!-- 待分配：未分配配送员 + 转单请求（合并） -->
+    <view class="list" wx:if="{{activeTab === 'pending'}}">
+      <view class="order-card {{item.showRisk ? item.riskClass : ''}}" wx:for="{{lists.pending}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="card-header">
+          <view class="tag-row">
+            <text class="status-tag status-transfer" wx:if="{{item.transferPending}}">转单中</text>
+            <text class="status-tag status-pending" wx:else>待分配</text>
+            <!--
+              客户信用标（2026-09-22）：徽标文字（riskText）与下面那句话（riskNote）
+              **都由后端下发**，前端只按等级挑一个颜色（riskClass 在 index.js 的 riskView 里算）。
+              没有未结欠款的行（NORMAL）不标 —— 每行都挂一个「正常」是噪音。
+            -->
+            <text class="risk-tag {{item.riskClass}}" wx:if="{{item.showRisk}}">{{item.riskText}}</text>
+          </view>
+          <text class="order-id">#{{item.id}}</text>
+        </view>
+        <view class="risk-note {{item.riskClass}}" wx:if="{{item.showRisk}}">{{item.riskNote}}</view>
+        <view class="info-row">
+          <text class="info-label">客户</text>
+          <text class="info-value">{{item.customerName || item.receiverName}}</text>
+          <text class="info-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">商品</text>
+          <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+        </view>
+        <view class="info-row info-address">
+          <text class="info-label">地址</text>
+          <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+        </view>
+        <view class="card-actions">
+          <block wx:if="{{item.transferPending}}">
+            <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}">同意转单</button>
+            <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}">拒绝转单</button>
+          </block>
+          <block wx:else>
+            <button class="btn-primary" catchtap="onShowAssign" data-id="{{item.id}}">分配配送员</button>
+            <button class="btn-outline-small" catchtap="onOutsource" data-id="{{item.id}}">外派</button>
+          </block>
+        </view>
+      </view>
+      <view class="empty" wx:if="{{lists.pending.length === 0}}">
+        <text>暂无待分配/转单订单</text>
+      </view>
+      <!--
+        「看全部订单 ›」= 状态视角的台账（全部/待配送/配送中/已完成），
+        与本页签的动作视角互补（详见 index.js 的 onOpenOrders 注释）。
+      -->
+      <view class="list-foot-link" bindtap="onOpenOrders">
+        <text>看全部订单 ›</text>
+      </view>
+    </view>
+
+    <!-- 审批：客户 / 站内 两组待决策申请（已接单订单的取消须站长同意） -->
+    <view class="list" wx:elif="{{activeTab === 'approval'}}">
+      <!-- 子页签 -->
+      <view class="sub-tab-bar">
+        <view class="sub-tab-item {{approvalTab === 'customer' ? 'active' : ''}}"
+              bindtap="switchApprovalTab" data-tab="customer">
+          <text>客户</text>
+          <text class="tab-count" wx:if="{{lists.approvalCustomer.length > 0}}">{{lists.approvalCustomer.length}}</text>
+        </view>
+        <view class="sub-tab-item {{approvalTab === 'station' ? 'active' : ''}}"
+              bindtap="switchApprovalTab" data-tab="station">
+          <text>站内</text>
+          <text class="tab-count" wx:if="{{lists.approvalStation.length > 0}}">{{lists.approvalStation.length}}</text>
+        </view>
+      </view>
+
+      <!-- 客户发起：取消申请 -->
+      <block wx:if="{{approvalTab === 'customer'}}">
+        <view class="order-card" wx:for="{{lists.approvalCustomer}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+          <view class="card-header">
+            <view class="tag-row">
+              <text class="status-tag status-approval">客户申请取消</text>
+            </view>
+            <text class="order-id">#{{item.id}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">客户</text>
+            <text class="info-value">{{item.customerName || item.receiverName}}</text>
+            <text class="info-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">商品</text>
+            <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+          </view>
+          <view class="info-row info-address">
+            <text class="info-label">地址</text>
+            <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+          </view>
+          <view class="card-actions">
+            <button class="btn-primary-small" catchtap="onApproveCancel" data-id="{{item.id}}">同意取消</button>
+            <button class="btn-danger-small" catchtap="onRejectCancel" data-id="{{item.id}}">驳回</button>
+          </view>
+        </view>
+        <view class="empty" wx:if="{{lists.approvalCustomer.length === 0}}">
+          <text>暂无客户待审批申请</text>
+        </view>
+      </block>
+
+      <!-- 站内发起：退回站长 / 转让 / 重分配 / 取消申请 -->
+      <block wx:else>
+        <view class="order-card" wx:for="{{lists.approvalStation}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+          <view class="card-header">
+            <view class="tag-row">
+              <text class="status-tag status-transfer">转单中</text>
+            </view>
+            <text class="order-id">#{{item.id}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">客户</text>
+            <text class="info-value">{{item.customerName || item.receiverName}}</text>
+            <text class="info-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">商品</text>
+            <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+          </view>
+          <view class="info-row info-address">
+            <text class="info-label">地址</text>
+            <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+          </view>
+          <view class="card-actions">
+            <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind === 'DIRECTED' ? 'directed' : 'staff'}}">同意</button>
+            <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind === 'DIRECTED' ? 'directed' : 'staff'}}">拒绝</button>
+          </view>
+        </view>
+        <view class="empty" wx:if="{{lists.approvalStation.length === 0}}">
+          <text>暂无站内待审批申请</text>
+        </view>
+      </block>
+    </view>
+
+    <!-- 抢单池：其他水站外派的救援订单 -->
+    <view class="list" wx:elif="{{activeTab === 'pool'}}">
+      <view class="order-card pool-card" wx:for="{{lists.pool}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="card-header">
+          <view class="tag-row">
+            <text class="status-tag status-pool">抢单池</text>
+            <text class="match-tag match-{{item.productMatch.level}}" wx:if="{{item.productMatch}}">
+              {{item.productMatch.hint}}
+            </text>
+          </view>
+          <text class="order-id">#{{item.id}}</text>
+        </view>
+        <!--
+          抢单前「一眼看到钱」：抢单是花钱出力的事，值不值得抢必须在这一屏就能判断，
+          所以金额不进二级页、不折叠。三件事各占一行 —— 收多少钱 / 这个价是谁定的 / 认领后钱归谁：
+          ① 金额三个数全部取 orders 上的快照（后端下发），前端不做任何加减（否则与订单详情页会分叉）；
+          ② 费用为 0 时不单列两行（只显示总额），非 0 才展开明细，避免"¥0.00 × 2"的噪音；
+          ③ 结算去向整句由后端下发（settleNote），前端不自编「钱归你」这类口径文案。
+        -->
+        <view class="fee-box">
+          <view class="fee-row-main">
+            <text class="fee-label">本单金额</text>
+            <text class="fee-amount">￥{{item.totalAmountText}}</text>
+          </view>
+          <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
+            <text class="fee-detail-item">含配送费 ￥{{item.deliveryFeeText}}</text>
+            <text class="fee-detail-item">楼层费 ￥{{item.floorFeeText}}</text>
+          </view>
+          <view class="fee-source" wx:if="{{item.feeStationName}}">
+            <text class="fee-source-label">定价来自</text>
+            <text class="fee-source-name">{{item.feeStationName}}</text>
+          </view>
+          <view class="fee-settle" wx:if="{{item.settleNote}}">{{item.settleNote}}</view>
+        </view>
+        <!--
+          押金/桶权益风险提示：文案整段来自后端（crossStationRiskNote），前端只展示、不自编。
+          正常路径下池里不该有这种单（入池的两个入口后端都硬拦了），出现即"规则上线前放进来的历史单"，
+          这时点抢单会被后端拒 —— 先把原因摆在卡片上，别让站长点了才知道。
+          另外三个页签（待分配/他站外派/外派）是实体直出、列表里没有这个字段，
+          它们的提示在**提交前那一次确认弹窗**里给（见 index.js 的 _confirmRisk）。
+        -->
+        <view class="risk-box" wx:if="{{item.crossStationRiskNote}}">
+          <text class="risk-title">⚠️ 押金/桶权益风险</text>
+          <text class="risk-text">{{item.crossStationRiskNote}}</text>
+        </view>
+        <view class="pool-product-info">
+          <text class="pool-product-label">订单商品：</text>
+          <text class="pool-product-name">{{item.firstProductName}} × {{item.quantity}}桶</text>
+        </view>
+        <view class="pool-match-info" wx:if="{{item.productMatch}}">
+          <text class="match-label">本站匹配：</text>
+          <text class="match-name" wx:if="{{item.productMatch.matchName}}">{{item.productMatch.matchName}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">客户</text>
+          <text class="info-value">{{item.customerName || item.receiverName}}</text>
+        </view>
+        <view class="info-row info-address">
+          <text class="info-label">地址</text>
+          <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+        </view>
+        <view class="card-actions">
+          <button class="btn-outline-small" catchtap="onSkipPool" data-id="{{item.id}}">跳过</button>
+          <button class="btn-primary-small" catchtap="onClaimPool" data-id="{{item.id}}">抢单</button>
+        </view>
+      </view>
+      <view class="empty" wx:if="{{lists.pool.length === 0}}">
+        <text>暂无可抢单订单</text>
+      </view>
+    </view>
+
+    <!-- 外派追踪：本站外派出去的订单状态 -->
+    <view class="list" wx:elif="{{activeTab === 'dispatch'}}">
+      <view class="order-card dispatch-card" wx:for="{{lists.dispatch}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="card-header">
+          <view class="tag-row">
+            <text class="status-tag status-dispatch">外派中</text>
+            <text class="dispatch-status-tag" wx:if="{{item.dispatchStatus === 'pending'}}">等待接单</text>
+            <text class="dispatch-status-tag dispatch-accepted" wx:elif="{{item.dispatchStatus === 'accepted'}}">已接单</text>
+            <text class="dispatch-status-tag dispatch-rejected" wx:elif="{{item.dispatchStatus === 'rejected'}}">已拒绝</text>
+            <text class="dispatch-status-tag dispatch-completed" wx:elif="{{item.dispatchStatus === 'completed'}}">已完成</text>
+          </view>
+          <text class="order-id">#{{item.id}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">客户</text>
+          <text class="info-value">{{item.customerName || item.receiverName}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">商品</text>
+          <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+        </view>
+        <view class="dispatch-info" wx:if="{{item.deliveryStationName}}">
+          <view class="dispatch-row">
+            <text class="dispatch-label">外派至</text>
+            <text class="dispatch-value">{{item.deliveryStationName}}</text>
+          </view>
+          <view class="dispatch-row" wx:if="{{item.deliveryStaffName}}">
+            <text class="dispatch-label">配送员</text>
+            <text class="dispatch-value">{{item.deliveryStaffName}}</text>
+          </view>
+        </view>
+        <!--
+          外派追踪的两个动作按钮（2026-09-22）。
+          ① 两个按钮都只在 `待配送(1)` 给：原来写的是 `item.status === 1 || item.status === 3`，
+             那是**旧状态编号的残留**（历史编号 1/3/4/5/6，3 曾是"已接单"）。重排成 1..5 之后
+             `3` 变成「已送达」，于是这两个按钮点下去**必然报错**（后端 `cancelDispatch` 只收
+             待配送/配送中，`dispatchExternal` 只收待配送），而真正该看到按钮的「配送中(2)」反而看不到。
+             `listDispatchedOrders` 不筛状态，一张曾被外派、后来送达了的单会一直留在这个列表里，
+             所以旧条件是真的会被点到的。
+          ② 同日后端也收紧了：**被接单站接单之后，这单归接单站管，归属站不能再取消外派**
+             （产品原话：「外派出去的本单就不归本站管了，只能接单站管，联系等都是接单站执行」）。
+             即 `cancelDispatch` 只收 `待配送(1)`（在池中 / 已指定但对方还没接单）——
+             所以这里的 `status === 1` 与后端门槛逐字一致，**不要再加 `|| status === 2`**。
+        -->
+        <view class="card-actions">
+          <button class="btn-danger-small" catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">取消外派</button>
+          <button class="btn-outline-small" catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">重新外派</button>
+        </view>
+      </view>
+      <view class="empty" wx:if="{{lists.dispatch.length === 0}}">
+        <text>暂无外派订单</text>
+      </view>
+    </view>
+
+    <!-- 他站外派：其他水站指定本水站为履约站的订单 -->
+    <view class="list" wx:elif="{{activeTab === 'incoming'}}">
+      <view class="order-card incoming-card" wx:for="{{lists.incoming}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="card-header">
+          <view class="tag-row">
+            <text class="status-tag status-incoming">他站外派</text>
+          </view>
+          <text class="order-id">#{{item.id}}</text>
+        </view>
+        <!-- 与抢单池同一口径：定向外派也是"站长外派"，接不接这一单同样要先看到钱与去向 -->
+        <view class="fee-box">
+          <view class="fee-row-main">
+            <text class="fee-label">本单金额</text>
+            <text class="fee-amount">￥{{item.totalAmountText}}</text>
+          </view>
+          <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
+            <text class="fee-detail-item">含配送费 ￥{{item.deliveryFeeText}}</text>
+            <text class="fee-detail-item">楼层费 ￥{{item.floorFeeText}}</text>
+          </view>
+          <view class="fee-source" wx:if="{{item.feeStationName}}">
+            <text class="fee-source-label">定价来自</text>
+            <text class="fee-source-name">{{item.feeStationName}}</text>
+          </view>
+          <view class="fee-settle" wx:if="{{item.settleNote}}">{{item.settleNote}}</view>
+        </view>
+        <view class="info-row">
+          <text class="info-label">客户</text>
+          <text class="info-value">{{item.customerName || item.receiverName}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">商品</text>
+          <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+        </view>
+        <view class="info-row info-address">
+          <text class="info-label">地址</text>
+          <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+        </view>
+        <view class="card-actions">
+          <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}">调解退回原站</button>
+        </view>
+      </view>
+      <view class="empty" wx:if="{{lists.incoming.length === 0}}">
+        <text>暂无他站外派订单</text>
+      </view>
+    </view>
+
+  </view>
+
+  <!-- 分配弹窗 -->
+  <view class="modal-overlay" wx:if="{{showAssignModal}}" bindtap="onCloseModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <text class="modal-title">选择配送员</text>
+      <view class="modal-list">
+        <view class="modal-item" wx:for="{{staffList}}" wx:key="id" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onConfirmAssign">
+          <view class="modal-item-info">
+            <text class="modal-item-name">{{item.name}}</text>
+            <text class="modal-item-phone" wx:if="{{item.phone}}">{{item.phone}}</text>
+          </view>
+          <text class="modal-item-arrow">›</text>
+        </view>
+        <!--
+          [2026-09-20 真机联调] 空态分两种：staffList 为空可能是"本站没有配送员"，也可能是
+          loadAllData 里那次 getStaffList 失败。原来只有「暂无配送员，请先添加配送员」一句，
+          把后者说成前者 —— 站长会真的去建员工（人早就在库里）。见 onClaimPool 的同一判据。
+        -->
+        <view class="modal-empty" wx:if="{{staffList.length === 0}}">
+          <text wx:if="{{staffListError}}">配送员名单没加载出来（{{staffListError}}），不代表本站没有配送员；请切到「配送」页再切回来重试</text>
+          <text wx:else>暂无配送员，请先添加配送员</text>
+        </view>
+      </view>
+      <button class="modal-cancel" bindtap="onCloseModal">取消</button>
+    </view>
+  </view>
+</view>

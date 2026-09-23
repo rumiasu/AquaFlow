@@ -1,0 +1,32 @@
+<view class="container">
+  <view class="empty-illustration">
+    <text class="empty-icon">⏳</text>
+  </view>
+  <!-- 文案必须区分模式：申请解绑（PENDING_UNBIND）时说成"绑定申请已提交"会让人以为自己点错了 -->
+  <view class="empty-title">{{mode === 'PENDING_UNBIND' ? '解绑申请已提交' : '绑定申请已提交'}}</view>
+  <view class="empty-desc">
+    <text wx:if="{{mode === 'PENDING_UNBIND'}}">您已申请解除与当前水站的绑定，请等待站长确认。</text>
+    <text wx:else>您已申请绑定水站，请等待站长确认。</text>
+    <text wx:if="{{applyStationName}}">申请绑定：{{applyStationName}}</text>
+  </view>
+  <view class="status-card">
+    <view class="status-row">
+      <text class="status-label">当前状态</text>
+      <text class="status-value status-pending">审核中</text>
+    </view>
+    <view class="status-row" wx:if="{{applyTime}}">
+      <text class="status-label">申请时间</text>
+      <text class="status-value">{{applyTime}}</text>
+    </view>
+  </view>
+  <view class="btn-wrap">
+    <button class="btn-outline" bindtap="onWithdraw">撤回申请</button>
+    <button class="btn-primary" bindtap="onRefresh">刷新状态</button>
+  </view>
+  <view class="tip-row">
+    <text class="tip-text">💡 提示：此时无法进入订单页，请耐心等待站长审核</text>
+  </view>
+  <view class="logout-row" bindtap="onLogout">
+    <text>退出登录</text>
+  </view>
+</view>

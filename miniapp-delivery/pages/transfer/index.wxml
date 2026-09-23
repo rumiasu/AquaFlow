@@ -1,0 +1,54 @@
+<view class="container">
+  <!-- 说明头部 -->
+  <view class="info-header">
+    <text class="info-icon">🔄</text>
+    <text class="info-text">以下是您转让的订单记录，站长将重新分配给其他配送员</text>
+  </view>
+
+  <!-- 订单列表 -->
+  <view class="order-list">
+    <view class="order-card" wx:for="{{orders}}" wx:key="id" bindtap="onOrderTap" data-id="{{item.id}}">
+      <!-- 订单头部 -->
+      <view class="card-header">
+        <text class="status-tag status-transfer">已转让</text>
+        <text class="order-date">{{item.updateTime}}</text>
+      </view>
+
+      <!-- 客户信息 -->
+      <view class="customer-info">
+        <text class="customer-name">{{item.customerName}}</text>
+      </view>
+
+      <!-- 商品信息 -->
+      <view class="product-info">
+        <text class="product-name">{{item.firstProductName}}</text>
+        <text class="product-spec" wx:if="{{item.waterTypeSpec}}">{{item.waterTypeSpec}}</text>
+        <text class="product-qty">× {{item.quantity}} 桶</text>
+      </view>
+
+      <!-- 地址信息 -->
+      <view class="address-info">
+        <text class="address-icon"></text>
+        <text class="address-text">{{item.addressDetail}}</text>
+      </view>
+
+      <!-- 转让备注 -->
+      <view class="transfer-note" wx:if="{{item.specialNote}}">
+        <text class="note-label">备注：</text>
+        <text class="note-text">{{item.specialNote}}</text>
+      </view>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{!loading && orders.length === 0}}">
+      <text class="empty-icon"></text>
+      <text class="empty-text">暂无转让记录</text>
+      <text class="empty-hint">转让的订单将显示在这里</text>
+    </view>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading-state" wx:if="{{loading}}">
+    <text class="loading-text">加载中...</text>
+  </view>
+</view>

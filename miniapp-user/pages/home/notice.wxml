@@ -1,0 +1,10 @@
+<view class="container">
+  <view class="notice-detail" wx:if="{{notice.title}}">
+    <text class="notice-title">{{notice.title}}</text>
+    <text class="notice-time">{{notice.createTime}}</text>
+    <view class="notice-content">
+      <text>{{notice.content}}</text>
+    </view>
+  </view>
+  <empty wx:else text="公告不存在"></empty>
+</view>

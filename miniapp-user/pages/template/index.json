@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "常用订单",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "empty": "../../components/Empty/index",
+    "loading": "../../components/Loading/index"
+  }
+}

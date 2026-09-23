@@ -1,0 +1,161 @@
+<!-- 站长端「毛利」：进货成本 + 期间毛利报表。规格见 docs/design/20 §2。
+     金额与文案全部用服务端下发的值（含 profitText / profitRateText / costBasisNote），本页不做毛利算术。 -->
+<view class="page">
+
+  <!-- 期间 -->
+  <view class="card">
+    <view class="card-title">统计期间</view>
+    <picker mode="date" value="{{from}}" bindchange="onDate" data-field="from">
+      <view class="picker">开始：{{from || '本月 1 号'}}</view>
+    </picker>
+    <picker mode="date" value="{{to}}" bindchange="onDate" data-field="to">
+      <view class="picker">结束：{{to || '今天'}}</view>
+    </picker>
+    <view class="chips">
+      <view class="chip" bindtap="onQuickRange" data-days="1">今日</view>
+      <view class="chip" bindtap="onQuickRange" data-days="0">本月</view>
+      <view class="chip" bindtap="onQuickRange" data-days="7">近 7 天</view>
+      <view class="chip" bindtap="onQuickRange" data-days="30">近 30 天</view>
+    </view>
+    <view class="hint">结束日是闭区间（含当天）：服务端按「结束日 + 1 天」做上界，今天的销量不会漏。</view>
+  </view>
+
+  <view class="empty" wx:if="{{loading}}">加载中…</view>
+
+  <block wx:if="{{report}}">
+    <!-- 合计 -->
+    <view class="hero">
+      <view class="hero-item">
+        <text class="hero-num">¥{{report.totalRevenue}}</text>
+        <text class="hero-label">水费收入</text>
+      </view>
+      <view class="hero-item">
+        <text class="hero-num">¥{{report.totalCost}}</text>
+        <text class="hero-label">进货成本</text>
+      </view>
+      <view class="hero-item">
+        <!-- totalProfit 为 null = 有商品没填成本，此时不给数字（后端下发 null，绝不能当 0） -->
+        <text class="hero-num {{report.totalProfit === null ? 'hero-warn' : 'hero-ok'}}">
+          {{report.totalProfit === null ? '算不出' : '¥' + report.totalProfit}}
+        </text>
+        <text class="hero-label">毛利</text>
+      </view>
+    </view>
+
+    <view class="notice" wx:if="{{report.missingCostHint}}">{{report.missingCostHint}}</view>
+
+    <!--
+      收入构成与净利（[2026-09-19] 新增）：与上面的毛利是**同一批订单**（同结算站、同时间窗、排除已取消），
+      所以两个卡片里的"水费收入"必然是同一个数 —— 这是判据，不要在这里另算一套。
+      · 净利 = 水费 + 配送费 + 楼层费 − 进货成本 − 计件工钱
+      · wx:if 用 profitBasisNote 当开关：它是本次新增的字段，老响应里没有 → 整块不显示，
+        避免在字段缺失时把 undefined 渲染成"¥undefined"（那是最坏的一种"看起来正常"）
+      · netProfit 为 null = 有商品没填成本 → 显示「算不出」，**绝不能当 0**
+    -->
+    <view class="card" wx:if="{{report.profitBasisNote}}">
+      <view class="card-title">{{range === 'today' ? '今日收入与净利' : '收入与净利'}}</view>
+      <view class="ledger-row">
+        <text class="ledger-label">单数</text>
+        <text class="ledger-value">{{report.orderCount}} 单</text>
+      </view>
+      <!-- 收入按【来源】分列（2026-09-20 产品口径）：水票收入只在客户「买票」那一刻计一次，
+           用票下的单不再重复计水费与配送费 —— 所以它必须单独一行，否则站长看不出来钱从哪来。
+           明细：订单收入（水费） + 水票收入 + 配送费 + 楼层费 = 收入合计（与后端同一条加法）。 -->
+      <view class="ledger-row">
+        <text class="ledger-label">订单收入（水费）</text>
+        <text class="ledger-value">¥{{report.orderRevenue}}</text>
+      </view>
+      <view class="ledger-row">
+        <text class="ledger-label">水票收入（买票实收）</text>
+        <text class="ledger-value">¥{{report.ticketRevenue}}</text>
+      </view>
+      <view class="ledger-row">
+        <text class="ledger-label">配送费</text>
+        <text class="ledger-value">¥{{report.deliveryFee}}</text>
+      </view>
+      <view class="ledger-row">
+        <text class="ledger-label">楼层费</text>
+        <text class="ledger-value">¥{{report.floorFee}}</text>
+      </view>
+      <view class="ledger-row ledger-strong">
+        <text class="ledger-label">收入合计</text>
+        <text class="ledger-value">¥{{report.totalIncome}}</text>
+      </view>
+      <view class="ledger-row">
+        <text class="ledger-label">− 进货成本</text>
+        <text class="ledger-value">¥{{report.totalCost}}</text>
+      </view>
+      <view class="ledger-row">
+        <text class="ledger-label">− 计件工钱</text>
+        <text class="ledger-value">¥{{report.wage}}</text>
+      </view>
+      <view class="ledger-row ledger-strong">
+        <text class="ledger-label">净利</text>
+        <text class="ledger-value {{report.netProfit === null ? 'ledger-warn' : 'ledger-ok'}}">
+          {{report.netProfit === null ? '算不出' : '¥' + report.netProfit}}
+        </text>
+      </view>
+      <!-- 净利口径提示：原样展示服务端文案（按下单时间、工钱在送达时才产生、人工调整不计入） -->
+      <view class="hint">{{report.profitBasisNote}}</view>
+    </view>
+
+    <!-- 成本口径提示：原样展示服务端文案，前端不改写、不截断 -->
+    <view class="hint" wx:if="{{report.costBasisNote}}">{{report.costBasisNote}}</view>
+
+    <!-- 未填成本的商品：快速补录入口 -->
+    <view class="card" wx:if="{{missingCost.length}}">
+      <view class="card-title">未填成本的商品（{{missingCost.length}} 个）</view>
+      <view class="chips">
+        <view class="chip chip-warn" wx:for="{{missingCost}}" wx:key="productId"
+              bindtap="onOpenCostFromMissing" data-id="{{item.productId}}">+ {{item.productName}}</view>
+      </view>
+      <view class="hint">没填成本的商品只列收入、不算毛利。点商品名直接补录成本价。</view>
+    </view>
+
+    <!-- 明细 -->
+    <view class="card">
+      <view class="card-title">按商品明细（{{report.items.length}} 项）</view>
+      <view class="empty" wx:if="{{!report.items.length}}">该期间没有销售记录。</view>
+      <view class="row" wx:for="{{report.items}}" wx:key="productId"
+            bindtap="onOpenCost" data-id="{{item.productId}}">
+        <view class="row-main">
+          <view class="row-between">
+            <text class="row-title">{{item.productName}}</text>
+            <text class="row-amount">收入 ¥{{item.revenue}}</text>
+          </view>
+          <text class="row-sub">
+            卖出 {{item.soldQty}} · 成本价 {{item.costPriceText}} · 成本合计 ¥{{item.costAmount}}
+          </text>
+          <text class="row-sub {{item.profit === null ? 'row-warn' : ''}}">
+            毛利：{{item.profitText}}<text wx:if="{{item.profitRateText}}"> · 毛利率 {{item.profitRateText}}</text>
+          </text>
+        </view>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="hint" wx:if="{{report.items.length}}">点任意一行可以设置该商品的进货成本价。</view>
+    </view>
+  </block>
+
+  <view class="card">
+    <view class="btn-ghost block" bindtap="onShowHelp">毛利怎么算</view>
+  </view>
+
+  <!-- 成本编辑 -->
+  <view class="mask" wx:if="{{costVisible}}" bindtap="onCloseCost"></view>
+  <view class="dialog" wx:if="{{costVisible}}">
+    <text class="dialog-title">{{costProduct.productName}} 的进货成本</text>
+    <input class="dialog-input" type="digit" value="{{costInput}}" bindinput="onCostInput"
+           placeholder="每桶/每件的进价" />
+    <view class="hint">
+      单位与商品规格一致。未上架的商品设不了成本价（会提示先去「商品管家」上架）。
+    </view>
+    <view class="dialog-footer">
+      <view class="btn-ghost flex1" bindtap="onCloseCost">取消</view>
+      <view class="btn-ghost flex1" bindtap="onClearCost">清除成本</view>
+      <view class="btn-primary flex1 {{costSaving ? 'btn-disabled' : ''}}" bindtap="onSaveCost">
+        {{costSaving ? '保存中…' : '保存'}}
+      </view>
+    </view>
+  </view>
+
+</view>

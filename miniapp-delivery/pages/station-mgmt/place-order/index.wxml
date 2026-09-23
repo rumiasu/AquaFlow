@@ -1,0 +1,127 @@
+<!-- 代客下单（站长）：电话/口头订单当场录入。规格见 docs/design/20 §5。
+     金额一律由服务端试算下发，本页只展示（wxml 里不做任何算术）。 -->
+<view class="page">
+
+  <!-- 已选摘要：让站长在滚动到下半屏时仍知道"这单是给谁的、送到哪" -->
+  <view class="summary" wx:if="{{customer}}">
+    <view class="summary-line">
+      <text class="summary-label">客户</text>
+      <text class="summary-value">{{customer.name}}{{customer.phone ? ' · ' + customer.phone : ''}}</text>
+      <text class="summary-change" bindtap="onBackStep">切换</text>
+    </view>
+    <view class="summary-line" wx:if="{{addressText}}">
+      <text class="summary-label">送达</text>
+      <text class="summary-value">{{addressText}}</text>
+    </view>
+  </view>
+
+  <!-- 第一步：选客户（含"已建档但还没下过单"的新客户） -->
+  <view class="card" wx:if="{{step === 1}}">
+    <view class="card-title">选择客户</view>
+    <view class="search-row">
+      <input class="search-input" placeholder="搜姓名/电话/地址（地址可缩写）" value="{{keyword}}"
+             bindinput="onKeyword" bindconfirm="onSearch" confirm-type="search" />
+      <view class="search-btn" bindtap="onSearch">搜索</view>
+    </view>
+    <view class="empty" wx:if="{{loading}}">加载中…</view>
+    <view class="empty" wx:elif="{{!customers.length}}">
+      没有匹配的客户。新客户请先到「客户管理」建档，再回来下单。
+    </view>
+    <view class="row" wx:for="{{customers}}" wx:key="id"
+          bindtap="onPickCustomer" data-id="{{item.id}}">
+      <view class="row-main">
+        <text class="row-title">{{item.name}}</text>
+        <text class="row-sub">{{item.phone || '未留电话'}}</text>
+        <!-- 命中地址（后端下发）：站长"最多记个姓氏"，靠地址认出人；没有地址的客户不占位 -->
+        <text class="row-sub" wx:if="{{item.addressText}}">{{item.addressText}}</text>
+      </view>
+      <text class="row-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 第二步：选地址 -->
+  <view class="card" wx:if="{{step === 2}}">
+    <view class="card-title">选择收货地址</view>
+    <view class="empty" wx:if="{{!addresses.length}}">
+      该客户还没有收货地址。请让客户在小程序里添加，或到「客户管理」补录。
+    </view>
+    <view class="row" wx:for="{{addresses}}" wx:key="id"
+          bindtap="onPickAddress" data-id="{{item.id}}">
+      <view class="row-main">
+        <text class="row-title">{{item.name}} {{item.phone}}</text>
+        <text class="row-sub">{{item.detail}}</text>
+        <text class="row-sub" wx:if="{{item.floor}}">楼层 {{item.floor}}{{item.hasElevator ? ' · 有电梯' : ''}}</text>
+      </view>
+      <text class="row-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 第三步：选商品 + 试算 + 下单 -->
+  <block wx:if="{{step === 3}}">
+    <view class="card">
+      <view class="card-title">选择商品</view>
+      <view class="empty" wx:if="{{!products.length}}">本站还没有上架商品</view>
+      <view class="row" wx:for="{{products}}" wx:key="id">
+        <view class="row-main">
+          <text class="row-title">{{item.name}}</text>
+          <text class="row-sub">¥{{item.salePrice != null ? item.salePrice : item.price}} · 库存 {{item.availableQty}}</text>
+        </view>
+        <view class="qty">
+          <view class="qty-btn" bindtap="onQty" data-id="{{item.id}}" data-delta="{{-1}}">−</view>
+          <view class="qty-btn" bindtap="onQty" data-id="{{item.id}}" data-delta="{{1}}">+</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card" wx:if="{{cartLines.length}}">
+      <view class="card-title">本单明细（共 {{totalQty}} 件）</view>
+      <view class="row" wx:for="{{cartLines}}" wx:key="productId">
+        <view class="row-main">
+          <text class="row-title">{{item.name}}</text>
+          <text class="row-sub">参考价 ¥{{item.price}} × {{item.quantity}}</text>
+        </view>
+        <view class="qty">
+          <view class="qty-btn" bindtap="onQty" data-id="{{item.productId}}" data-delta="{{-1}}">−</view>
+          <view class="qty-btn" bindtap="onQty" data-id="{{item.productId}}" data-delta="{{1}}">+</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="btn-primary {{quoting ? 'btn-disabled' : ''}}" bindtap="onQuote">
+        {{quoting ? '试算中…' : '服务端试算'}}
+      </view>
+      <view class="hint">金额、配送费与楼层费一律由服务端计算，与顾客自助下单同口径。</view>
+    </view>
+
+    <view class="card" wx:if="{{quote}}">
+      <view class="card-title">金额（服务端计算）</view>
+      <view class="fee-line"><text>水费</text><text>¥{{quote.waterAmount}}</text></view>
+      <view class="fee-line"><text>押金</text><text>¥{{quote.depositAmount}}</text></view>
+      <view class="fee-line" wx:if="{{quote.deliveryFee}}"><text>配送费</text><text>¥{{quote.deliveryFee}}</text></view>
+      <view class="fee-line" wx:if="{{quote.floorFee}}"><text>楼层费</text><text>¥{{quote.floorFee}}</text></view>
+      <view class="fee-line fee-total"><text>合计</text><text>¥{{quote.totalAmount}}</text></view>
+
+      <view class="warn" wx:for="{{quote.warnings}}" wx:key="*this">· {{item}}</view>
+      <view class="blocked" wx:if="{{quote.blocked}}">不满足本站配送条件：{{quote.blockReason}}</view>
+
+      <view class="card-title" style="margin-top:24rpx;">支付方式</view>
+      <view class="methods">
+        <!-- 选项与文案由服务端下发，前端不自带 1/2/3 映射表 -->
+        <view class="method {{selectedMethod === item.id ? 'method-on' : ''}} {{item.enabled === false ? 'method-off' : ''}}"
+              wx:for="{{methods}}" wx:key="id"
+              bindtap="onPickMethod" data-id="{{item.id}}">
+          {{item.name}}{{item.enabled === false ? '（不可用）' : ''}}
+        </view>
+      </view>
+    </view>
+
+    <view class="card" wx:if="{{quote}}">
+      <view class="btn-primary {{submitting ? 'btn-disabled' : ''}}" bindtap="onSubmit">
+        {{submitting ? '提交中…' : '确认下单'}}
+      </view>
+      <view class="hint">下单后可在「订单」里分配配送员。缺货商品会先弹窗确认。</view>
+    </view>
+  </block>
+
+</view>

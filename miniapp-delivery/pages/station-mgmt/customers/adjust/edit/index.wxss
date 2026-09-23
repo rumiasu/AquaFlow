@@ -1,0 +1,138 @@
+/* 新建资产调整单。单位一律 rpx；.container / .card 沿用 app.wxss 既有类，不重复定义 */
+.banner {
+  margin: 24rpx;
+  padding: 20rpx 24rpx;
+  border-radius: var(--radius-md);
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+.banner.warn { background: #fef0f0; border: 1rpx solid #fbc4c4; color: #f56c6c; }
+
+.card-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 20rpx;
+  padding-left: 14rpx;
+  border-left: 6rpx solid var(--primary-color);
+  line-height: 1;
+}
+
+.field { padding: 16rpx 0; border-top: 1rpx solid var(--border-light); }
+.field:first-of-type { border-top: none; }
+.field-label { font-size: 26rpx; color: var(--text-regular); display: block; margin-bottom: 12rpx; }
+.required { color: var(--error-color); margin-left: 6rpx; }
+
+.picker-value,
+.field-input,
+.field-textarea {
+  background: var(--bg-gray);
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: var(--text-primary);
+  width: 100%;
+  box-sizing: border-box;
+}
+.field-textarea { min-height: 160rpx; }
+.picker-value .placeholder,
+.field-input .placeholder { color: var(--text-placeholder); font-size: 26rpx; }
+
+.field-hint { font-size: 22rpx; color: var(--text-secondary); margin-top: 12rpx; line-height: 1.6; }
+.field-link { font-size: 24rpx; color: var(--primary-color); margin-top: 14rpx; }
+
+/* 欠桶方向：补记 / 核销 二选一（OVER_ADJUST 的 qty 是带符号增量，必须让站长明确选） */
+.sign-row { display: flex; gap: 16rpx; }
+.sign-btn {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx 12rpx;
+  border-radius: 12rpx;
+  border: 2rpx solid var(--border-color);
+  background: #fff;
+  font-size: 24rpx;
+  color: var(--text-regular);
+}
+.sign-btn.active {
+  border-color: var(--primary-color);
+  background: var(--primary-bg);
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* 证据图 */
+.evidence-row { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.evidence-item { position: relative; width: 160rpx; height: 160rpx; }
+.evidence-img { width: 160rpx; height: 160rpx; border-radius: 12rpx; background: var(--bg-gray); }
+.evidence-del {
+  position: absolute;
+  top: -12rpx;
+  right: -12rpx;
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 28rpx;
+}
+.evidence-add {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 12rpx;
+  border: 2rpx dashed var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+/* 试算结果 */
+.preview-type { font-size: 26rpx; color: var(--primary-color); margin-bottom: 16rpx; }
+.preview-head,
+.preview-row { display: flex; align-items: center; padding: 14rpx 0; font-size: 26rpx; }
+.preview-head { color: var(--text-secondary); font-size: 22rpx; border-bottom: 1rpx solid var(--border-light); }
+.preview-row { border-bottom: 1rpx solid var(--border-light); }
+.col { flex: 1; text-align: center; color: var(--text-primary); }
+.col-name { flex: 1.2; text-align: left; color: var(--text-regular); }
+.col.after { font-weight: 600; color: var(--primary-color); }
+.preview-note {
+  font-size: 23rpx;
+  color: var(--text-regular);
+  background: var(--bg-gray);
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  margin-top: 16rpx;
+  line-height: 1.6;
+}
+.preview-note.warn { background: #fff3e0; color: #f57c00; }
+
+/* 底部操作 */
+.footer { display: flex; gap: 20rpx; margin: 0 24rpx; }
+.btn-half {
+  flex: 1;
+  height: 92rpx;
+  border-radius: var(--radius-round);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+}
+.btn-half.ghost { background: #fff; color: var(--primary-color); border: 2rpx solid var(--primary-color); }
+.btn-half.primary { background: var(--primary-gradient); color: #fff; font-weight: 600; }
+.footer-tip {
+  margin: 20rpx 24rpx 60rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  text-align: center;
+}
+
+.denied {
+  text-align: center;
+  padding: 140rpx 40rpx;
+  font-size: 28rpx;
+  color: var(--text-secondary);
+}

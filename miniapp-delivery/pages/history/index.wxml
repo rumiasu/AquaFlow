@@ -1,0 +1,54 @@
+<view class="container">
+  <!-- 统计头部 -->
+  <view class="stats-header">
+    <text class="stats-title">已完成配送</text>
+    <text class="stats-count">{{orders.length}} 单</text>
+  </view>
+
+  <!-- 订单列表 -->
+  <view class="order-list">
+    <view class="order-card" wx:for="{{orders}}" wx:key="id" bindtap="onOrderTap" data-id="{{item.id}}">
+      <!-- 订单头部 -->
+      <view class="card-header">
+        <text class="status-tag status-completed">已完成</text>
+        <text class="order-date">{{item.createTime}}</text>
+      </view>
+
+      <!-- 客户信息：跨站履约单后端**刻意不下发** customerName（画像归归属站），回落到订单收件人 -->
+      <view class="customer-info">
+        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+      </view>
+
+      <!-- 商品信息 -->
+      <view class="product-info">
+        <text class="product-name">{{item.firstProductName}}</text>
+        <text class="product-spec" wx:if="{{item.waterTypeSpec}}">{{item.waterTypeSpec}}</text>
+        <text class="product-qty">× {{item.quantity}} 桶</text>
+      </view>
+
+      <!-- 地址信息 -->
+      <view class="address-info">
+        <text class="address-icon">📍</text>
+        <text class="address-text">{{item.addressDetail}}</text>
+      </view>
+
+      <!-- 回桶信息 -->
+      <view class="barrel-info" wx:if="{{item.returnBucketQty !== null && item.returnBucketQty !== undefined}}">
+        <text class="barrel-label">回桶：</text>
+        <text class="barrel-count">{{item.returnBucketQty}} 个</text>
+      </view>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{!loading && orders.length === 0}}">
+      <text class="empty-icon">📭</text>
+      <text class="empty-text">暂无配送历史</text>
+      <text class="empty-hint">完成配送后记录将显示在这里</text>
+    </view>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading-state" wx:if="{{loading}}">
+    <text class="loading-text">加载中...</text>
+  </view>
+</view>

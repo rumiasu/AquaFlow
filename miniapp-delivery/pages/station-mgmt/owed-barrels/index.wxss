@@ -1,0 +1,62 @@
+.container { background: var(--bg-color); min-height: 100vh; padding: 24rpx; }
+
+/* 天数筛选：0 = 全部 / 7 = 欠 ≥ 7 天 */
+.filter-bar { display: flex; gap: 16rpx; margin-bottom: 20rpx; }
+.filter-item {
+  padding: 12rpx 28rpx;
+  border-radius: 999rpx;
+  background: var(--bg-card);
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  border: 1rpx solid var(--border-color);
+}
+.filter-item.active {
+  background: var(--primary-bg);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* 口径说明：把"净额"讲清楚，避免站长拿它和异常单数量对不上时以为算错了 */
+.hint {
+  background: var(--bg-card);
+  border-radius: 12rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 20rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.owe-card {
+  background: var(--bg-card);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.owe-card:active { opacity: 0.85; }
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+.customer-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
+.days { font-size: 24rpx; color: var(--text-secondary); }
+/* 已达催收线（后端判定的 ≥7 天）标红；只提示，不影响任何操作 */
+.days.urgent { color: #d32f2f; font-weight: 600; }
+
+.info-row {
+  font-size: 26rpx;
+  color: var(--text-primary);
+  margin-bottom: 8rpx;
+  display: flex;
+  justify-content: space-between;
+}
+.info-row.sub { font-size: 24rpx; color: var(--text-secondary); }
+.info-row .product { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.info-row .qty { color: #d32f2f; font-weight: 600; margin-left: 16rpx; }
+
+.empty { text-align: center; padding: 120rpx 0; font-size: 28rpx; color: var(--text-secondary); }
+.empty-hint { display: block; margin-top: 12rpx; font-size: 24rpx; color: var(--text-placeholder); }

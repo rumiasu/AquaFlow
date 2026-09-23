@@ -1,0 +1,22 @@
+<view class="page-container">
+  <!-- 标签栏 -->
+  <view class="tab-bar">
+    <view wx:for="{{tabs}}" wx:key="index"
+      class="tab-item {{currentTab === index ? 'active' : ''}}"
+      data-index="{{index}}" bindtap="onTabChange">
+      {{item.name}}
+    </view>
+  </view>
+
+  <!-- 订单列表 -->
+  <view class="order-list" wx:if="{{orders.length > 0}}">
+    <order-card wx:for="{{orders}}" wx:key="id"
+      order="{{item}}"
+      bind:reorder="onReorder"
+      bind:pay="onPay"
+      bind:cancel="onCancel" />
+  </view>
+
+  <!-- 空状态 -->
+  <empty wx:if="{{orders.length === 0}}" text="暂无订单" />
+</view>

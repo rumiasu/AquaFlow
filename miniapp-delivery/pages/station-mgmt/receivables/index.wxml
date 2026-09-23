@@ -1,0 +1,140 @@
+<!-- 站长端「应收账款」台账。规格见 docs/design/20 §1 / §1.5。
+     金额、逾期天数、核销金额**全部**由服务端下发，本页只展示与勾选（wxml 里没有任何算术）。 -->
+<view class="page">
+
+  <!-- 总览 -->
+  <view class="hero" wx:if="{{overview}}">
+    <view class="hero-item">
+      <text class="hero-num">¥{{overview.outstandingAmount}}</text>
+      <text class="hero-label">待收款合计</text>
+    </view>
+    <view class="hero-item">
+      <text class="hero-num {{overview.overdueAmount > 0 ? 'hero-danger' : ''}}">¥{{overview.overdueAmount}}</text>
+      <text class="hero-label">其中已逾期</text>
+    </view>
+    <view class="hero-item">
+      <text class="hero-num">{{overview.customerCount}}</text>
+      <text class="hero-label">欠款客户{{overview.overdueCustomerCount > 0 ? '（' + overview.overdueCustomerCount + ' 家逾期）' : ''}}</text>
+    </view>
+  </view>
+  <view class="hint" wx:if="{{overview}}">{{overview.scopeNote}}</view>
+
+  <!-- 客户列表 -->
+  <block wx:if="{{!customer}}">
+    <view class="empty" wx:if="{{loading}}">加载中…</view>
+    <view class="empty" wx:elif="{{!customers.length}}">本站当前没有待收款，账都清了。</view>
+    <view class="card" wx:for="{{customers}}" wx:key="customerId"
+          bindtap="onPickCustomer" data-id="{{item.customerId}}">
+      <view class="row-between">
+        <text class="row-title">{{item.customerName}}</text>
+        <text class="row-amount">¥{{item.outstandingAmount}}</text>
+      </view>
+      <view class="row-sub">
+        {{item.orderCount}} 单待收
+        <text wx:if="{{item.earliestDueDate}}"> · 最早 {{item.earliestDueDate}} 到期</text>
+        <text wx:else> · 未设账期</text>
+      </view>
+      <view class="overdue-tag" wx:if="{{item.overdueAmount > 0}}">
+        逾期 ¥{{item.overdueAmount}}（{{item.overdueOrderCount}} 单，最长 {{item.maxOverdueDays}} 天）
+      </view>
+    </view>
+  </block>
+
+  <!-- 某客户的待收明细 + 核销 -->
+  <block wx:else>
+    <view class="card">
+      <view class="row-between">
+        <text class="row-title">{{customer.customerName}}</text>
+        <text class="row-amount">¥{{customer.outstandingAmount}}</text>
+      </view>
+      <view class="row-sub">
+        账期：{{customer.dueDays ? customer.dueDays + ' 天（月结）' : '未设账期（即时结清）'}}
+      </view>
+      <view class="btn-row">
+        <view class="btn-ghost" bindtap="onEditTerms">设置账期</view>
+        <view class="btn-ghost" bindtap="onShowTermsHelp">账期说明</view>
+        <view class="btn-ghost" bindtap="onBack">返回列表</view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="row-between">
+        <text class="card-title">待收明细（{{orders.length}} 单）</text>
+        <text class="link" bindtap="onSelectAll">{{selectedCount > 0 ? '取消全选' : '全选'}}</text>
+      </view>
+      <view class="empty" wx:if="{{ordersLoading}}">加载中…</view>
+      <view class="empty" wx:elif="{{!orders.length}}">没有待收订单。</view>
+      <view class="row" wx:for="{{orders}}" wx:key="orderId"
+            bindtap="onToggleOrder" data-id="{{item.orderId}}">
+        <view class="check {{item.checked ? 'check-on' : ''}}">{{item.checked ? '✓' : ''}}</view>
+        <view class="row-main">
+          <text class="row-title">订单 #{{item.orderId}} · ¥{{item.totalAmount}}</text>
+          <text class="row-sub">
+            下单 {{item.createDateText}}
+            <text wx:if="{{item.dueDateText}}"> · 应付 {{item.dueDateText}}</text>
+            <text wx:else> · 无账期</text>
+          </text>
+          <text class="row-danger" wx:if="{{item.overdue}}">已逾期 {{item.overdueDays}} 天</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="btn-primary {{settling || !selectedCount ? 'btn-disabled' : ''}}" bindtap="onSettle">
+        {{settling ? '核销中…' : '核销所选（收款 + 销账）'}}
+      </view>
+      <view class="hint">
+        已选 {{selectedCount}} 单。核销会同时记账收款并销账，服务端同一事务完成；
+        失败会整批回滚并告诉你卡在哪一单，不会出现"部分核销"。
+      </view>
+    </view>
+  </block>
+
+  <!-- 账期编辑（站级，v60：同一客户在别的站可以是另一个账期） -->
+  <view class="mask" wx:if="{{termsVisible}}" bindtap="onCloseTerms"></view>
+  <view class="dialog" wx:if="{{termsVisible}}">
+    <text class="dialog-title">设置 {{customer.customerName}} 的账期</text>
+
+    <!--
+      验资（v60）：等级 / 可赊额度 / 已用 / 逾期 —— **全部是服务端算好的**（GET /customers/{id}/risk），
+      这里只渲染、不做任何算术，也不自带"关注=黄"这类映射：等级文案用后端下发的 levelText。
+      risk 为 null（还没拉到或拉失败）时整块不显示 —— 不编造一个"正常"。
+    -->
+    <view class="risk-box" wx:if="{{risk}}">
+      <view class="risk-line">
+        <text class="risk-label">信用等级</text>
+        <text class="risk-value">{{risk.levelText}}</text>
+      </view>
+      <view class="risk-line">
+        <text class="risk-label">可赊额度</text>
+        <text class="risk-value">¥{{risk.creditLimit}}</text>
+      </view>
+      <view class="risk-line">
+        <text class="risk-label">已用额度</text>
+        <text class="risk-value">¥{{risk.outstandingCredit}}</text>
+      </view>
+      <view class="risk-note">{{risk.reason}}</view>
+    </view>
+
+    <input class="dialog-input" type="number" placeholder="留空 = 未设账期（即时结清）"
+           value="{{termsInput}}" bindinput="onTermsInput" />
+    <view class="hint">
+      单位：天。只影响之后下的单 —— 下单时会按它算出应付日期并快照进订单，
+      改账期不会改动历史订单的到期日。
+    </view>
+    <view class="btn-row">
+      <view class="btn-ghost" bindtap="onCloseTerms">取消</view>
+      <view class="btn-primary btn-inline {{termsSaving ? 'btn-disabled' : ''}}" bindtap="onSaveTerms">
+        {{termsSaving ? '保存中…' : '保存'}}
+      </view>
+    </view>
+    <!--
+      重算未结账单：正因为"改账期不会改动历史订单"，才必须有这个显式动作。
+      没有它，站长改完账期只会看到"老单没变"，然后以为系统坏了。
+    -->
+    <view class="btn-ghost btn-recalc {{recalcBusy ? 'btn-disabled' : ''}}" bindtap="onRecalcTerms">
+      {{recalcBusy ? '重算中…' : '把未结账单也改成新账期'}}
+    </view>
+  </view>
+
+</view>

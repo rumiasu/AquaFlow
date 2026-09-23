@@ -1,0 +1,196 @@
+<view class="container">
+  <!-- 隐私授权弹窗：本页用 wx.chooseLocation 导航、wx.chooseImage 传图，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
+  <privacy-popup />
+  <!-- 蓝色头部 -->
+  <view class="header">
+    <view class="header-top">
+      <text class="customer-name">{{order.receiverName || order.customerName}}</text>
+      <text class="order-no">订单 {{order.orderNo || order.id}}</text>
+    </view>
+    <view class="status-row">
+      <text class="status-badge status-{{order.statusClass}}">{{order.statusText}}</text>
+      <text class="aux-tag aux-offline" wx:if="{{order.isOffline}}">🟧 线下</text>
+      <text class="aux-tag aux-{{l.type}}" wx:for="{{order.labels}}" wx:for-item="l" wx:key="type">{{l.text}}</text>
+    </view>
+  </view>
+
+  <!-- 联系信息卡片 -->
+  <view class="info-card">
+    <view class="info-row" bindtap="onCallPhone">
+      <text class="info-icon">📞</text>
+      <text class="info-text">{{order.receiverPhone || order.customerPhone}}</text>
+      <text class="info-action">拨打</text>
+    </view>
+    <view class="info-row" bindtap="onCopyAddress">
+      <text class="info-icon">📍</text>
+      <text class="info-text address">{{order.addressSnapshot || order.addressDetail}}</text>
+      <text class="info-action">复制</text>
+    </view>
+    <!-- 楼层 / 电梯：配送员据此知道要不要上楼。文案已在 js 里按三态算好，
+         不确定时整行不显示（不放假数据）。 -->
+    <view class="info-row" wx:if="{{order.floorText}}">
+      <text class="info-icon">🛗</text>
+      <text class="info-text">{{order.floorText}}</text>
+    </view>
+  </view>
+
+  <!--
+    楼层上报与凭证（v43）：站长看的"两行对照" —— 配送员上报多少、客户地址里填的是多少。
+    不一致时打提示标（防虚报）；权威的"标记"在收益明细的 note 里（后端生成）。
+    照片不强制：配送员当时没拍，站长可以在这里补传（和客户对峙时它是唯一凭证）。
+  -->
+  <view class="section" wx:if="{{order.reportedFloor || floorPhotos.length}}">
+    <text class="section-title">楼层上报</text>
+    <view class="info-row" wx:if="{{order.reportedFloorText}}">
+      <text class="info-text">{{order.reportedFloorText}}</text>
+      <text class="floor-warn" wx:if="{{order.floorMismatch}}">与地址不一致</text>
+    </view>
+    <view class="floor-proof-head">
+      <text class="floor-proof-title">楼层凭证</text>
+      <text class="floor-proof-add" bindtap="onAddFloorPhoto">{{floorUploading ? '上传中…' : '＋ 补传照片'}}</text>
+    </view>
+    <view class="floor-proof-photos" wx:if="{{floorPhotos.length}}">
+      <image class="floor-proof-img" wx:for="{{floorPhotos}}" wx:key="index" src="{{item}}"
+             mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" />
+    </view>
+    <text class="floor-proof-tip" wx:else>还没有照片（不强制，但和客户对峙时它是唯一凭证）</text>
+  </view>
+
+  <!-- 订单内容 -->
+  <view class="section">
+    <text class="section-title">订单内容</text>
+    <view class="order-content" wx:for="{{order.items}}" wx:for-item="it" wx:key="id">
+      <text class="content-name">{{it.productNameSnapshot}}</text>
+      <text class="content-spec" wx:if="{{it.specSnapshot}}">{{it.specSnapshot}}</text>
+      <text class="content-qty">× {{it.quantity}} 桶</text>
+    </view>
+  </view>
+
+  <!-- 历史订单 -->
+  <view class="section">
+    <text class="section-title">历史订单</text>
+    <view class="history-row">
+      <view class="history-item">
+        <text class="history-label">近一年配送</text>
+        <text class="history-value">{{order.historyCount || 0}}次</text>
+      </view>
+      <view class="history-divider"></view>
+      <view class="history-item">
+        <text class="history-label">最近一次</text>
+        <text class="history-value">{{order.lastOrderDays || 0}}天前</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 客户备注 -->
+  <view class="section" wx:if="{{order.notes && order.notes.length > 0}}">
+    <text class="section-title">客户备注</text>
+    <view class="notes-list">
+      <view class="note-item" wx:for="{{order.notes}}" wx:key="index">
+        <text class="note-icon">⚠</text>
+        <text class="note-text">{{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 预计回桶 -->
+  <view class="section">
+    <view class="info-row-between">
+      <text class="info-label">预计回桶</text>
+      <text class="info-value">{{order.expectedReturnBarrels || 0}}个</text>
+    </view>
+  </view>
+
+  <!-- 付款方式：文案由后端 order.payMethodText 下发，前端不自带 1/2/3 映射表、不写兜底默认值
+       （写 `|| '现金'` 等于在展示层再造一份映射，后端改口径时这里会显示错的） -->
+  <view class="section">
+    <view class="info-row-between">
+      <text class="info-label">付款方式</text>
+      <text class="info-value">{{order.paymentMethodText}}</text>
+    </view>
+  </view>
+
+  <!--
+    支付流水（2026-09-18 接线）：接的是此前两个无界面端点
+      GET /api/payments/by-order  按订单查该订单的全部支付流水（含退款冲正流水）
+      PUT /api/payments/{id}/refund 站长对**单笔已付款流水**手工退款
+    仅站长可见（后端两个端点都是 STATION_MANAGER 专属，配送员点了只会拿到权限不足）。
+    ⚠️ 方式 / 状态文案一律用后端下发的 methodText / statusText，金额用后端给的 amount 原值，
+       本页不做任何 1/2/3 映射，也不做金额加减。
+    流水为空时整块不显示（与上方"楼层上报"同一处理，不显示空壳区块）。
+  -->
+  <view class="section" wx:if="{{canRefundPayment && payments.length}}">
+    <text class="section-title">支付流水</text>
+    <view class="pay-row" wx:for="{{payments}}" wx:key="id">
+      <view class="pay-main">
+        <view class="pay-line">
+          <text class="pay-method">{{item.methodText}}</text>
+          <text class="pay-status">{{item.statusText}}</text>
+          <text class="pay-amount {{item.isRefund ? 'pay-amount-refund' : ''}}">{{item.amountText}}</text>
+        </view>
+        <text class="pay-time" wx:if="{{item.timeText}}">{{item.timeText}}</text>
+        <text class="pay-note" wx:if="{{item.note}}">{{item.note}}</text>
+      </view>
+      <!-- 只有「已付款」的流水可退；退款/已取消的流水不出现按钮，
+           避免站长对着一条已退款的流水反复点（后端也会拒，但那是白点一次） -->
+      <view class="pay-refund" wx:if="{{item.canRefund}}" data-id="{{item.id}}" data-index="{{index}}"
+            bindtap="onRefundPayment">退款</view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-bar" wx:if="{{!order.transferTarget}}">
+    <button class="action-btn action-nav" bindtap="onNavigate">
+      <text class="action-icon"></text>
+      <text>导航</text>
+    </button>
+    <button class="action-btn action-complete" bindtap="onComplete">
+      <text class="action-icon">✓</text>
+      <text>完成配送</text>
+    </button>
+    <button class="action-btn action-report" bindtap="onReport">
+      <text class="action-icon">⚠</text>
+      <text>异常反馈</text>
+    </button>
+  </view>
+
+  <view class="action-bar action-bar-confirm" wx:if="{{order.transferTarget}}">
+    <button class="action-btn action-reject" bindtap="onRejectTransfer">
+      <text>拒绝转单</text>
+    </button>
+    <button class="action-btn action-accept" bindtap="onAcceptTransfer">
+      <text>同意并接单</text>
+    </button>
+  </view>
+
+  <!-- 转给同事 / 退回站长 -->
+  <block wx:if="{{!order.transferTarget}}">
+    <view class="transfer-btn" bindtap="onTransfer">
+      <text>转单给其他配送员</text>
+    </view>
+    <view class="transfer-btn" bindtap="onReturnToStation">
+      <text>退回站长</text>
+    </view>
+    <!--
+      申请取消：**只有「配送中(2)」给这个按钮**（2026-09-22 修）。
+      待配送(1) 本来就有「拒单」这条正门（走 rejectOrder，不经审批）；
+      已送达(3) **不可取消**（后端 isCancellable 排除），原来这里也放行 status===3，
+      点下去只会给站长造一条"点了同意才发现拒不了"的审批单 —— 异常请走「配送异常」。
+    -->
+    <view class="transfer-btn" wx:if="{{order.status === 2}}" bindtap="onRequestCancel">
+      <text>申请取消订单</text>
+    </view>
+
+    <!--
+      客户拒付（v60 接线）：**已送达(3) 且还要收款**时，站长唯一的出路。
+      这正是「已送达不可取消」之后那条断头路 —— 在此之前，界面上**没有任何入口**
+      能把"客户拒付"记下来，钱会永远挂在待收款台账上（异常单只能由"少收空桶"自动生成，
+      而拒付场景桶可能一个不少地还回来了、差异为 0，永远触发不了）。
+      后端 `POST /api/manager/exceptions?orderId=` 是 STATION_MANAGER 专属，这里只对站长画。
+    -->
+    <view class="transfer-btn btn-refusal" wx:if="{{isManager && order.status === 3 && order.needCollect}}"
+          bindtap="onRefusalWriteOff">
+      <text>{{refusalBusy ? '处理中…' : '客户拒付（走异常单核销）'}}</text>
+    </view>
+  </block>
+</view>

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "企业资料",
+  "usingComponents": {
+    "loading": "../../components/Loading/index",
+    "empty": "../../components/Empty/index"
+  }
+}

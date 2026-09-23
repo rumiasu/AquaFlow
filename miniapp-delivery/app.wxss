@@ -1,0 +1,156 @@
+/* ========== AquaFlow 配送员小程序 设计系统 ========== */
+page {
+  /* 主色 - 清新蓝 */
+  --primary-color: #4F8EF7;
+  --primary-light: #7BAFF9;
+  --primary-dark: #3A7BD5;
+  --primary-bg: rgba(79, 142, 247, 0.08);
+
+  --accent-color: #4F8EF7;
+  --accent-gradient: linear-gradient(135deg, #4F8EF7 0%, #7BAFF9 100%);
+  --primary-gradient: linear-gradient(135deg, #4F8EF7 0%, #3A7BD5 100%);
+  --header-gradient: linear-gradient(135deg, #5B9BF7 0%, #4F8EF7 50%, #3A7BD5 100%);
+
+  /* 功能色 */
+  --success-color: #34C759;
+  --warning-color: #FF9500;
+  --error-color: #FF3B30;
+  --info-color: #4F8EF7;
+
+  /* 配送状态色 */
+  --status-pending: #FF9500;
+  --status-delivering: #4F8EF7;
+  --status-completed: #34C759;
+
+  /* 中性色 */
+  --text-primary: #1D1D1F;
+  --text-regular: #666666;
+  --text-secondary: #999999;
+  --text-placeholder: #C7C7CC;
+
+  /* 背景色 */
+  --bg-color: #F5F7FA;
+  --bg-white: #FFFFFF;
+  --bg-gray: #F5F5F5;
+  --bg-card: #FFFFFF;
+
+  /* 边框 */
+  --border-color: #E5E5EA;
+  --border-light: #F0F0F0;
+
+  /* 间距 */
+  --spacing-xs: 8rpx;
+  --spacing-sm: 16rpx;
+  --spacing-md: 24rpx;
+  --spacing-lg: 32rpx;
+  --spacing-xl: 48rpx;
+
+  /* 圆角 */
+  --radius-sm: 8rpx;
+  --radius-md: 16rpx;
+  --radius-lg: 24rpx;
+  --radius-xl: 32rpx;
+  --radius-round: 999rpx;
+
+  /* 字体大小 */
+  --font-xs: 20rpx;
+  --font-sm: 24rpx;
+  --font-md: 28rpx;
+  --font-lg: 32rpx;
+  --font-xl: 36rpx;
+  --font-xxl: 40rpx;
+
+  /* 阴影 */
+  --shadow-sm: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8rpx 32rpx rgba(0, 0, 0, 0.08);
+  --shadow-primary: 0 8rpx 24rpx rgba(79, 142, 247, 0.25);
+}
+
+/* 全局容器 */
+.container {
+  background: var(--bg-color);
+  min-height: 100vh;
+  padding-bottom: 120rpx;
+}
+
+/* 通用按钮 */
+.btn-primary {
+  background: var(--primary-gradient);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-round);
+  font-size: var(--font-md);
+  font-weight: 600;
+  padding: 24rpx 48rpx;
+  text-align: center;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+.btn-success {
+  background: var(--success-color);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-round);
+  font-size: var(--font-md);
+  font-weight: 600;
+  padding: 24rpx 48rpx;
+  text-align: center;
+}
+
+.btn-success::after {
+  border: none;
+}
+
+.btn-outline {
+  background: #fff;
+  color: var(--primary-color);
+  border: 2rpx solid var(--primary-color);
+  border-radius: var(--radius-round);
+  font-size: var(--font-md);
+  font-weight: 600;
+  padding: 24rpx 48rpx;
+  text-align: center;
+}
+
+.btn-outline::after {
+  border: none;
+}
+
+/* 卡片通用样式 */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  margin: var(--spacing-md);
+  padding: var(--spacing-lg);
+}
+
+/* 分割线 */
+.divider {
+  height: 1rpx;
+  background: var(--border-light);
+  margin: var(--spacing-md) 0;
+}
+
+/*
+ * [2026-09-20 真机联调] 「部分数据没加载出来」提示条（全局，各页可复用）。
+ * 为什么需要它：多个列表/汇总请求失败时被静默降级成空数据，页面渲染出的
+ * 「0 单 / 0 桶」与"确实没有"完全无法区分（AGENTS §8.22）。
+ * 用法：data 里放一个 loadError 字符串（空串 = 全部正常），wxml 写
+ * `<view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>`。
+ * 当前使用方：pages/home（配送页看板）。色值走色板变量，别写死。
+ */
+.load-error {
+  margin: 16rpx 24rpx 0;
+  padding: 16rpx 20rpx;
+  border-radius: 12rpx;
+  background: rgba(255, 149, 0, 0.12);
+  border-left: 6rpx solid var(--warning-color);
+  color: var(--text-regular);
+  font-size: 24rpx;
+  line-height: 1.5;
+}

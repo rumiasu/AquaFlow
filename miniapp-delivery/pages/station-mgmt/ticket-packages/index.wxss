@@ -1,0 +1,199 @@
+.page {
+  padding: 24rpx;
+  padding-bottom: 60rpx;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.card-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 16rpx;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+}
+.chip {
+  padding: 12rpx 24rpx;
+  border: 1rpx solid #d9d9d9;
+  border-radius: 32rpx;
+  font-size: 25rpx;
+  color: #333;
+  margin: 0 16rpx 16rpx 0;
+}
+.chip-on {
+  border-color: #1677ff;
+  color: #1677ff;
+  background: #f0f7ff;
+}
+/* [v54] 统一水票是站级设置、不是某个商品的档位 —— 用一个不同的底色把它区分出来，
+   免得站长以为"这也是某个牌子的票"。 */
+.chip-unified {
+  border-color: #ffa940;
+  color: #ad4e00;
+  background: #fff7e6;
+}
+.chip-unified.chip-on {
+  border-color: #d46b08;
+  color: #fff;
+  background: #d46b08;
+}
+.hint-unified {
+  color: #ad4e00;
+}
+
+/* [v54] 平台预设档：横排的"一键填入"卡片，数字全部来自后端，前端不做算术 */
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+.preset-chip {
+  min-width: 180rpx;
+  flex: 1;
+  padding: 16rpx 18rpx;
+  margin: 0 16rpx 16rpx 0;
+  border: 1rpx dashed #ffa940;
+  border-radius: 12rpx;
+  background: #fffaf0;
+}
+.preset-chip:last-child {
+  margin-right: 0;
+}
+.preset-qty {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #ad4e00;
+}
+.preset-price {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #222;
+  margin-top: 4rpx;
+}
+.preset-sub {
+  display: block;
+  font-size: 22rpx;
+  color: #888;
+  margin-top: 4rpx;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.field-label {
+  width: 220rpx;
+  font-size: 26rpx;
+  color: #555;
+  flex-shrink: 0;
+}
+.field-input {
+  flex: 1;
+  height: 64rpx;
+  background: #f5f6f8;
+  border-radius: 10rpx;
+  padding: 0 18rpx;
+  font-size: 26rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.row:last-child {
+  border-bottom: none;
+}
+.row-main {
+  flex: 1;
+  overflow: hidden;
+}
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.row-title {
+  font-size: 28rpx;
+  color: #222;
+}
+.row-amount {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1677ff;
+}
+.row-sub {
+  display: block;
+  font-size: 23rpx;
+  color: #888;
+  margin-top: 6rpx;
+  line-height: 34rpx;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  margin-left: 16rpx;
+}
+.mini-btn {
+  padding: 10rpx 22rpx;
+  border: 1rpx solid #d9d9d9;
+  color: #333;
+  border-radius: 28rpx;
+  font-size: 24rpx;
+  margin-bottom: 10rpx;
+  white-space: nowrap;
+  text-align: center;
+}
+.mini-btn-danger {
+  border-color: #ffa39e;
+  color: #cf1322;
+}
+
+.btn-primary {
+  height: 84rpx;
+  line-height: 84rpx;
+  text-align: center;
+  background: #1677ff;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  margin-top: 20rpx;
+}
+.btn-ghost {
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border: 1rpx solid #d9d9d9;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.btn-disabled {
+  background: #a8c7f0;
+}
+
+.empty {
+  font-size: 26rpx;
+  color: #999;
+  padding: 20rpx 0;
+  line-height: 40rpx;
+}
+.hint {
+  font-size: 23rpx;
+  color: #999;
+  line-height: 36rpx;
+  margin-top: 14rpx;
+}

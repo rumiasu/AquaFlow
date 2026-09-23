@@ -1,0 +1,131 @@
+<!-- 我的 · Step6 重构（2026-09-12）：钱包与桶四格卡 + 三组菜单
+     原则：回答「我有什么」，不陈列「本 App 还有什么功能」；措辞务实，不玩商务黑话。 -->
+<view class="page">
+  <!-- 用户行 -->
+  <view class="card user-card" bindtap="{{isLogin ? 'onEditProfile' : 'onLogin'}}">
+    <image class="avatar" src="{{isLogin && userInfo.avatarUrl ? userInfo.avatarUrl : '/assets/image/default-avatar.png'}}" mode="aspectFill" />
+    <view class="user-info">
+      <text class="nickname">{{isLogin ? (userInfo.nickName || userInfo.nickname || '用户') : '点击登录'}}</text>
+      <text class="user-tag" wx:if="{{isLogin}}">普通用户{{statsText ? ' · ' + statsText : ''}}</text>
+    </view>
+    <text class="row-arrow">›</text>
+  </view>
+
+  <block wx:if="{{isLogin}}">
+    <!-- 钱包与桶：余额/押金/水票/水桶 四格同框，每格可点 -->
+    <view class="card assets-card">
+      <view class="assets-head">
+        <text class="assets-title">我的钱包与桶</text>
+        <text class="assets-station" wx:if="{{stationName}}">{{stationName}}</text>
+      </view>
+      <view class="assets-grid">
+        <view class="asset-cell" data-url="/pages/payment/records" bindtap="onMenuTap">
+          <text class="asset-value">¥{{balanceText}}</text>
+          <text class="asset-label">余额 ›</text>
+        </view>
+        <view class="asset-cell" data-url="/pages/barrel/index" bindtap="onMenuTap">
+          <text class="asset-value">¥{{depositText}}</text>
+          <text class="asset-label">押金 ›</text>
+        </view>
+        <view class="asset-cell" data-url="/pages/ticket/index" bindtap="onMenuTap">
+          <text class="asset-value">{{ticketCount}}<text class="asset-unit"> 张</text></text>
+          <text class="asset-label">水票 ›</text>
+        </view>
+        <view class="asset-cell" data-url="/pages/barrel/index" bindtap="onMenuTap">
+          <text class="asset-value">{{barrelCount}}<text class="asset-unit"> 个</text></text>
+          <text class="asset-label">水桶权益 ›</text>
+        </view>
+      </view>
+      <!-- 还空桶说明（务实版）：还空桶≠退押金，顾客侧不用也不能自己记账 -->
+      <view class="asset-note">
+        <text class="asset-note-text">空桶怎么还？不用自己操作：送水时配送员会顺手收走，还空桶不扣押金。</text>
+        <view class="asset-note-link" data-url="/pages/barrel/index" bindtap="onMenuTap">退桶退押金 ›</view>
+      </view>
+    </view>
+
+    <!-- 账单 -->
+    <view class="group-title">账单</view>
+    <view class="card menu-card">
+      <view class="menu-row" data-url="/pages/payment/records" bindtap="onMenuTap">
+        <text class="menu-name">账单记录</text>
+        <text class="row-arrow">›</text>
+      </view>
+      <!-- 押金流水：上面四格卡里的「押金」只回答"现在多少"，这一页回答"为什么变" -->
+      <view class="menu-row" data-url="/pages/deposit/records/index" bindtap="onMenuTap">
+        <text class="menu-name">押金流水</text>
+        <text class="menu-desc">押金的每一笔增减</text>
+        <text class="row-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- 我的信息 -->
+    <view class="group-title">我的信息</view>
+    <view class="card menu-card">
+      <view class="menu-row" data-url="/pages/address/list" bindtap="onMenuTap">
+        <text class="menu-name">地址管理</text>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="menu-row" wx:if="{{isCompany}}" data-url="/pages/mine/company" bindtap="onMenuTap">
+        <text class="menu-name">企业资料</text>
+        <text class="menu-desc">月结客户</text>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="menu-row" data-url="/pages/template/index" bindtap="onMenuTap">
+        <text class="menu-name">常用订单模板</text>
+        <text class="row-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- 服务 -->
+    <view class="group-title">服务</view>
+    <view class="card menu-card">
+      <view class="menu-row" data-url="/pages/shop/index" bindtap="onMenuTap">
+        <text class="menu-name">更多商品</text>
+        <text class="menu-desc">查看水站全部在售商品</text>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="menu-row" data-url="/pages/notice/index" bindtap="onMenuTap">
+        <text class="menu-name">公告</text>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="menu-row" data-url="/pages/service/index" bindtap="onMenuTap">
+        <text class="menu-name">客服与反馈</text>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="menu-row" data-url="/pages/exception/list/list" bindtap="onMenuTap">
+        <text class="menu-name">服务记录</text>
+        <text class="menu-desc">送水异常的处理进度</text>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="menu-row" data-url="/pages/mine/about" bindtap="onMenuTap">
+        <text class="menu-name">关于我们</text>
+        <text class="row-arrow">›</text>
+      </view>
+    </view>
+
+    <view class="logout" bindtap="onLogout">退出登录</view>
+  </block>
+
+  <!-- 游客态 -->
+  <block wx:else>
+    <view class="group-title">服务</view>
+    <view class="card menu-card">
+      <view class="menu-row" data-url="/pages/shop/index" bindtap="onMenuTap">
+        <text class="menu-name">更多商品</text>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="menu-row" data-url="/pages/notice/index" bindtap="onMenuTap">
+        <text class="menu-name">公告</text>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="menu-row" data-url="/pages/service/index" bindtap="onMenuTap">
+        <text class="menu-name">联系客服</text>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="menu-row" data-url="/pages/mine/about" bindtap="onMenuTap">
+        <text class="menu-name">关于我们</text>
+        <text class="row-arrow">›</text>
+      </view>
+    </view>
+  </block>
+</view>

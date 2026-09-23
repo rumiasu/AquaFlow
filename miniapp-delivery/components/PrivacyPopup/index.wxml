@@ -1,0 +1,14 @@
+<view class="privacy-mask" wx:if="{{show}}" catchtouchmove="preventMove">
+  <view class="privacy-popup">
+    <view class="privacy-title">用户隐私保护提示</view>
+    <view class="privacy-content">
+      <text>感谢您使用本小程序。在您使用本小程序前，请仔细阅读并同意</text>
+      <text class="privacy-link">《用户隐私保护指引》</text>
+      <text>。</text>
+    </view>
+    <view class="privacy-buttons">
+      <button class="btn-reject" bindtap="onReject">不同意</button>
+      <button class="btn-agree" id="privacy-agree-btn" bindtap="onAgree">同意</button>
+    </view>
+  </view>
+</view>

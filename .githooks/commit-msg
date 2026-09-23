@@ -1,0 +1,50 @@
+#!/bin/sh
+# =============================================================================
+# commit-msg —— 提交信息格式门禁
+#
+# 目的：本仓库前段历史出现过 "添加"、"chore: clean git files" 这类零信息量的
+# message（见 commit c576ea3 之前的重排记录），事后只能靠重写历史补救。
+# 这个 hook 让规范在**提交时**生效，而不是事后返工。
+#
+# 格式：<type>(<scope>): <subject>
+#   type   : feat fix refactor test docs chore perf build ci style
+#   scope  : 可选，小写，可用逗号/斜杠组合，如 (payment) (backend,sql)
+#   subject: 一句话说清「做了什么」，不要写「修改」「更新」这类空话
+#
+# 启用（本仓库不自动启用，见下方说明）：
+#     git config core.hooksPath .githooks
+#
+# ⚠️ 为什么默认不启用：本仓库的开发环境里 Git 自带的 sh.exe 在受限沙箱下
+#    起不来（fatal error: couldn't create signal pipe, Win32 error 5），
+#    一旦 hooksPath 指向这里，该环境下的每一次 git commit 都会失败。
+#    请在能正常执行 shell 的终端里手动启用。
+# =============================================================================
+
+msg_file="$1"
+[ -n "$msg_file" ] || exit 0
+
+subject=$(head -n 1 "$msg_file")
+
+# 机器生成的提交不校验
+case "$subject" in
+    Merge*|Revert*|fixup!*|squash!*|"") exit 0 ;;
+esac
+
+pattern='^(feat|fix|refactor|test|docs|chore|perf|build|ci|style)(\([a-z0-9_,/-]+\))?: .+'
+
+if ! printf '%s' "$subject" | grep -Eq "$pattern"; then
+    echo "commit-msg: 提交信息不符合规范，已拒绝。" >&2
+    echo "           实际: $subject" >&2
+    echo "           期望: <type>(<scope>): <subject>" >&2
+    echo "           type: feat fix refactor test docs chore perf build ci style" >&2
+    echo "           例:   fix(payment): 跨站外派单退款站别混用" >&2
+    exit 1
+fi
+
+len=$(printf '%s' "$subject" | wc -c | tr -d ' ')
+if [ "$len" -gt 72 ]; then
+    echo "commit-msg: subject 过长（$len > 72 字符），细节请放到正文里。" >&2
+    exit 1
+fi
+
+exit 0

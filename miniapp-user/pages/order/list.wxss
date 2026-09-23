@@ -1,0 +1,48 @@
+.page-container {
+  background-color: var(--bg-color);
+  min-height: 100vh;
+}
+
+/* 标签栏 */
+.tab-bar {
+  display: flex;
+  background-color: #fff;
+  padding: 0 16rpx;
+  border-bottom: 1rpx solid var(--border-light);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tab-item {
+  flex: 1;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  color: var(--text-regular);
+  position: relative;
+  transition: color 0.2s;
+}
+
+.tab-item.active {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48rpx;
+  height: 6rpx;
+  background: var(--primary-gradient);
+  border-radius: 3rpx;
+}
+
+.order-list {
+  padding: 24rpx;
+}

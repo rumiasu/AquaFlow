@@ -1,0 +1,474 @@
+.container {
+  background: var(--bg-color);
+  min-height: 100vh;
+  padding-bottom: 200rpx;
+}
+
+/* 蓝色头部 */
+.header {
+  background: var(--header-gradient);
+  padding: var(--spacing-xl) var(--spacing-lg);
+  color: #fff;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.customer-name {
+  font-size: var(--font-xxl);
+  font-weight: 700;
+}
+
+.order-no {
+  font-size: var(--font-sm);
+  opacity: 0.9;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 8rpx 20rpx;
+  border-radius: var(--radius-round);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.status-delivering {
+  background: rgba(79, 142, 247, 0.3);
+}
+
+.status-pending {
+  background: rgba(255, 149, 0, 0.3);
+}
+
+.status-delivered {
+  background: rgba(79, 142, 247, 0.3);
+}
+
+.status-cancelled {
+  background: rgba(117, 117, 117, 0.3);
+}
+
+.status-completed {
+  background: rgba(52, 199, 89, 0.3);
+}
+
+.status-warning {
+  background: rgba(255, 149, 0, 0.3);
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.aux-tag {
+  display: inline-block;
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.aux-tag.aux-offline {
+  background: rgba(255, 149, 0, 0.95);
+}
+
+.aux-tag.aux-transfer {
+  background: rgba(156, 39, 176, 0.95);
+}
+
+.aux-tag.aux-return {
+  background: rgba(255, 59, 48, 0.95);
+}
+
+.aux-tag.aux-target {
+  background: rgba(79, 142, 247, 0.95);
+}
+
+/* 联系信息卡片 */
+.info-card {
+  background: var(--bg-card);
+  margin: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-lg);
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-icon {
+  font-size: var(--font-lg);
+  margin-right: var(--spacing-md);
+}
+
+.info-text {
+  flex: 1;
+  font-size: var(--font-md);
+  color: var(--text-primary);
+}
+
+.info-text.address {
+  line-height: 1.5;
+}
+
+.info-action {
+  font-size: var(--font-sm);
+  color: var(--primary-color);
+  padding: 8rpx 20rpx;
+  border: 1rpx solid var(--primary-color);
+  border-radius: var(--radius-round);
+}
+
+/* 通用区块 */
+.section {
+  background: var(--bg-card);
+  margin: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-lg);
+}
+
+.section-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+  display: block;
+}
+
+/* 订单内容 */
+.order-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.content-name {
+  font-size: var(--font-lg);
+  color: var(--text-primary);
+  margin-right: var(--spacing-sm);
+}
+
+.content-spec {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  margin-right: var(--spacing-sm);
+}
+
+.content-qty {
+  font-size: var(--font-lg);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* 历史订单 */
+.history-row {
+  display: flex;
+  align-items: center;
+}
+
+.history-item {
+  flex: 1;
+  text-align: center;
+}
+
+.history-label {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: var(--spacing-xs);
+}
+
+.history-value {
+  font-size: var(--font-xl);
+  color: var(--primary-color);
+  font-weight: 700;
+  display: block;
+}
+
+.history-divider {
+  width: 1rpx;
+  height: 60rpx;
+  background: var(--border-light);
+}
+
+/* 客户备注 */
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.note-item {
+  display: flex;
+  align-items: flex-start;
+}
+
+.note-icon {
+  color: var(--warning-color);
+  font-size: var(--font-md);
+  margin-right: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.note-text {
+  font-size: var(--font-md);
+  color: var(--text-regular);
+  line-height: 1.5;
+}
+
+/* 信息行 */
+.info-row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.info-label {
+  font-size: var(--font-md);
+  color: var(--text-regular);
+}
+
+.info-value {
+  font-size: var(--font-md);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* 操作按钮栏 */
+.action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: var(--bg-card);
+  padding: var(--spacing-md);
+  padding-bottom: calc(var(--spacing-md) + env(safe-area-inset-bottom));
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.06);
+  gap: var(--spacing-sm);
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md) 0;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.action-btn::after {
+  border: none;
+}
+
+.action-icon {
+  font-size: var(--font-lg);
+  margin-bottom: 4rpx;
+}
+
+.action-nav {
+  background: rgba(79, 142, 247, 0.1);
+  color: var(--primary-color);
+}
+
+.action-complete {
+  background: var(--primary-gradient);
+  color: #fff;
+}
+
+.action-report {
+  background: rgba(255, 149, 0, 0.1);
+  color: var(--warning-color);
+}
+
+.action-bar-confirm {
+  gap: var(--spacing-md);
+}
+
+.action-bar-confirm .action-btn {
+  padding: var(--spacing-lg) 0;
+  font-size: var(--font-md);
+  border-radius: var(--radius-round);
+}
+
+.action-accept {
+  background: var(--success-color);
+  color: #ffffff;
+}
+
+.action-reject {
+  background: #ffffff;
+  color: #FF3B30;
+  border: 2rpx solid #FFCDD2 !important;
+}
+
+/* 转让按钮 */
+.transfer-btn {
+  text-align: center;
+  padding: var(--spacing-lg);
+  margin: var(--spacing-md);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.transfer-btn text {
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+}
+
+/* 客户拒付（v60）：这是「已送达不可取消」之后唯一的出路，所以给它**警示色**，
+   别混在同色的"转单/退回"里被忽略；但它不是危险按钮（真正动账在第 2 步确认弹窗）。 */
+.transfer-btn.btn-refusal {
+  border: 2rpx solid #FFA39E;
+  background: #FFF5F5;
+}
+.transfer-btn.btn-refusal text {
+  color: #C62828;
+  font-weight: 500;
+}
+
+/* ========== 楼层上报与凭证（v43） ========== */
+.floor-warn {
+  margin-left: 12rpx;
+  padding: 4rpx 14rpx;
+  font-size: 22rpx;
+  color: #b26a00;
+  background: #fff3e0;
+  border-radius: 999rpx;
+}
+
+.floor-proof-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.floor-proof-title {
+  font-size: 26rpx;
+  color: #4e5969;
+}
+
+.floor-proof-add {
+  font-size: 24rpx;
+  color: #2f7cf6;
+}
+
+.floor-proof-photos {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12rpx;
+}
+
+.floor-proof-img {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 10rpx;
+  margin: 0 12rpx 12rpx 0;
+}
+
+.floor-proof-tip {
+  display: block;
+  font-size: 22rpx;
+  color: #a3a8b0;
+  margin-top: 8rpx;
+}
+
+/* ========== 支付流水与手工退款（2026-09-18） ========== */
+.pay-row {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.pay-row:last-child {
+  border-bottom: none;
+}
+
+.pay-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.pay-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pay-method {
+  font-size: 28rpx;
+  color: var(--text-primary);
+  margin-right: 12rpx;
+}
+
+.pay-status {
+  font-size: 22rpx;
+  color: #4e5969;
+  background: #f2f3f5;
+  border-radius: 999rpx;
+  padding: 2rpx 14rpx;
+  margin-right: 12rpx;
+}
+
+.pay-amount {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 负金额 = 退款冲正流水，标红一眼可辨 */
+.pay-amount-refund {
+  color: #FF3B30;
+}
+
+.pay-time {
+  display: block;
+  font-size: 22rpx;
+  color: #a3a8b0;
+  margin-top: 6rpx;
+}
+
+.pay-note {
+  display: block;
+  font-size: 22rpx;
+  color: #86909c;
+  margin-top: 6rpx;
+  line-height: 1.4;
+}
+
+.pay-refund {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  padding: 8rpx 26rpx;
+  font-size: 24rpx;
+  color: #FF3B30;
+  border: 1rpx solid #FFCDD2;
+  border-radius: 999rpx;
+}

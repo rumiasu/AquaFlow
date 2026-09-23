@@ -1,0 +1,40 @@
+<view class="container">
+  <view class="record-card" wx:for="{{list}}" wx:key="id">
+    <view class="card-header">
+      <text class="status pending" wx:if="{{item.status === 1}}">待审核</text>
+      <text class="status approved" wx:elif="{{item.status === 2}}">已确认</text>
+      <text class="status done" wx:elif="{{item.status === 3}}">已退押金</text>
+      <text class="status rejected" wx:elif="{{item.status === 4}}">已驳回</text>
+    </view>
+    <view class="info-row">
+      <text>客户：{{item.customerName || 'ID:' + item.customerId}}</text>
+    </view>
+    <view class="info-row">
+      <text>退桶数量：{{item.quantity}} 个</text>
+      <text>退款押金：¥{{item.depositRefund || 0}}</text>
+    </view>
+    <view class="info-row" wx:if="{{item.createTime}}">
+      <text>申请时间：{{item.createTime}}</text>
+    </view>
+    <view class="info-row" wx:if="{{item.owedQty > 0}}">
+      <text class="warn">该商品欠桶 {{item.owedQty}} 个：需先归还欠桶才能退押金</text>
+    </view>
+    <view class="info-row" wx:elif="{{item.storageQty > 0}}">
+      <text class="tip">该商品有 {{item.storageQty}} 个空桶寄存在水站（多还的桶，不影响退桶）</text>
+    </view>
+    <view class="card-actions" wx:if="{{item.status === 1}}">
+      <button class="btn-approve" data-id="{{item.id}}" bindtap="onApprove">确认收到</button>
+      <button class="btn-reject" data-id="{{item.id}}" bindtap="onReject">驳回</button>
+    </view>
+    <view class="card-actions" wx:elif="{{item.status === 2}}">
+      <button class="btn-approve" data-id="{{item.id}}" data-amount="{{item.depositRefund || 0}}" bindtap="onRefund">退押金 ¥{{item.depositRefund || 0}}</button>
+      <button class="btn-reject" data-id="{{item.id}}" bindtap="onReject">驳回</button>
+    </view>
+    <view class="card-actions" wx:elif="{{item.status === 3 && item.confirmedTime}}">
+      <text class="tip">{{item.confirmedTime}} 确认收桶</text>
+    </view>
+  </view>
+  <view class="empty" wx:if="{{list.length === 0}}">
+    <text>暂无退桶记录</text>
+  </view>
+</view>

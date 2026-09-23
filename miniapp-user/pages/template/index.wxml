@@ -1,0 +1,126 @@
+<view class="container">
+  <loading wx:if="{{loading}}"></loading>
+
+  <block wx:else>
+    <view class="info-bar">
+      <text class="info-text">设置常用订单后，首页将自动填入，一键复购</text>
+    </view>
+
+    <view class="section" wx:if="{{templates.length > 0}}">
+      <view class="template-list">
+        <view class="template-item" wx:for="{{templates}}" wx:key="id">
+          <view class="template-main">
+            <view class="template-info">
+              <text class="template-name">{{item.name || '常用订单'}}</text>
+              <text class="template-default" wx:if="{{item.isDefault === 1}}">默认</text>
+            </view>
+            <view class="template-right">
+              <view class="toggle-btn {{item.enabled === 1 ? 'on' : ''}}" bindtap="onToggleTemplate" data-id="{{item.id}}" data-enabled="{{item.enabled}}">
+                <view class="toggle-dot"></view>
+              </view>
+            </view>
+          </view>
+          <view class="template-items" wx:if="{{item.items && item.items.length > 0}}">
+            <view class="template-item-row" wx:for="{{item.items}}" wx:for-item="itm" wx:key="id">
+              <text class="item-name">{{itm.productName || itm.waterTypeName}}</text>
+              <text class="item-qty">×{{itm.quantity}}桶</text>
+            </view>
+          </view>
+          <view class="template-note" wx:if="{{item.specialNote}}">
+            <text>备注：{{item.specialNote}}</text>
+          </view>
+          <view class="template-actions">
+            <text class="action-edit" bindtap="onEditTemplate" data-template="{{item}}">编辑</text>
+            <text class="action-delete" bindtap="onDeleteTemplate" data-id="{{item.id}}">删除</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <empty wx:else text="还没有常用订单"></empty>
+
+    <view class="add-btn" bindtap="onAddTemplate">
+      <text>+ 新建常用订单</text>
+    </view>
+  </block>
+
+  <view class="modal-mask" wx:if="{{showEditModal}}" bindtap="onCloseEditModal"></view>
+  <view class="modal-content {{showEditModal ? 'show' : ''}}" catchtap="">
+    <view class="modal-header">
+      <text class="modal-title">{{isEditing ? '编辑' : '新建'}}常用订单</text>
+      <text class="modal-close" bindtap="onCloseEditModal">×</text>
+    </view>
+
+    <view class="modal-body">
+      <view class="form-section">
+        <text class="form-label">订单名称</text>
+        <input class="form-input" placeholder="如：每周一桶" value="{{form.name}}" bindinput="onNameInput" />
+      </view>
+
+      <view class="form-section">
+        <view class="form-label-row">
+          <text class="form-label">商品</text>
+          <text class="form-add-btn" bindtap="onAddItem">+ 添加</text>
+        </view>
+        <view class="item-list">
+          <view class="item-row" wx:for="{{form.items}}" wx:key="index">
+            <view class="item-select">
+              <view class="form-options compact">
+                <view
+                  class="form-option mini {{item.productId === p.id ? 'active' : ''}}"
+                  wx:for="{{products}}"
+                  wx:for-item="p"
+                  wx:key="id"
+                  bindtap="onSelectProduct"
+                  data-index="{{index}}"
+                  data-id="{{p.id}}"
+                >
+                  <text>{{p.name}}</text>
+                </view>
+              </view>
+            </view>
+            <view class="item-qty">
+              <view class="qty-btn {{item.quantity <= 1 ? 'disabled' : ''}}" bindtap="onQuantityChange" data-index="{{index}}" data-type="minus">
+                <text>-</text>
+              </view>
+              <input class="qty-input" type="number" value="{{item.quantity}}" bindinput="onQuantityInput" data-index="{{index}}" />
+              <view class="qty-btn" bindtap="onQuantityChange" data-index="{{index}}" data-type="add">
+                <text>+</text>
+              </view>
+            </view>
+            <text class="item-remove" bindtap="onRemoveItem" data-index="{{index}}" wx:if="{{form.items.length > 1}}">×</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-section">
+        <text class="form-label">配送地址</text>
+        <view class="form-options">
+          <view
+            class="form-option {{form.addressId === item.id ? 'active' : ''}}"
+            wx:for="{{addresses}}"
+            wx:key="id"
+            bindtap="onSelectAddress"
+            data-id="{{item.id}}"
+          >
+            <text>{{item.label ? item.label + ' ' : ''}}{{item.addressText || item.detail}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-section">
+        <text class="form-label">备注</text>
+        <input class="form-input" placeholder="如：放门口" value="{{form.specialNote}}" bindinput="onNoteInput" />
+      </view>
+    </view>
+
+    <view class="modal-footer">
+      <view class="modal-btn cancel" bindtap="onCloseEditModal">
+        <text>取消</text>
+      </view>
+      <view class="modal-btn confirm" bindtap="onSaveTemplate">
+        <text>保存</text>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,123 @@
+server:
+  port: 8080
+
+# 应用开关
+app:
+  # 开发模式登录开关：默认关闭（生产必须关闭，防止未授权获取角色 JWT）；开发需要时用环境变量 DEV_LOGIN_ENABLED=true 开启
+  dev-login-enabled: ${DEV_LOGIN_ENABLED:false}
+  # P4-3: CORS 允许的来源列表（逗号分隔），生产环境必须配置实际域名
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173}
+  # 登录类端点的按 IP 限流（见 interceptor/RateLimitInterceptor.java）。
+  # 与 LoginController 里的按用户名锁定 [AQ-040] 正交：换用户名绕得过后者，绕不过前者。
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:20}
+  # 订单相关开关
+  # 企业身份（v50）：**默认关闭**。关掉时报价不再下发"大额可申请企业身份"提示、
+  # /api/enterprise/** 一律返回业务错误 —— 甲方不满意可以立刻关。
+  # 关掉不影响已经是企业身份的历史客户（只是不再有新申请与新提示）。
+  # ⚠️ 这个开关**没有前端入口**（产品 2026-09-19：「平台级的暂时不做前端可视化了」），只有环境变量。
+  enterprise:
+    enabled: ${ENTERPRISE_IDENTITY_ENABLED:false}
+    # 「大额订单」= 只算水（2026-09-19 第五批裁定）：桶装水数量与"水费"两条口径，命中任一即提示，
+    # 押金/配送费/楼层费都不计。桶数是主口径（默认 30 桶）；金额口径默认关闭（0），
+    # 需要的水站可在站长端按站单独开（表 station_enterprise_config）。
+    large-order-barrels: ${ENTERPRISE_LARGE_ORDER_BARRELS:30}
+    large-order-water-amount: ${ENTERPRISE_LARGE_ORDER_WATER_AMOUNT:0}
+  order:
+    # 微信未付单超时自动取消（分钟；≤0 = 关闭）。只对微信单生效 —— 现金是货到付款、
+    # 水票要等扣票，都不适用。见 service/UnpaidWechatOrderSweeper.java 与 docs/design/04 §4.8。
+    wechat-pay-timeout-minutes: ${WECHAT_PAY_TIMEOUT_MINUTES:30}
+  payment:
+    # 微信支付**模拟渠道**（2026-09-20）：开启后顾客选「微信支付」点一下就成功，
+    # 用于真实支付渠道接入前的全链路联调。**生产必须保持 false** —— 开启等于零元购。
+    #
+    # 它**只**取代"真实付款"这一下（把 payment_record 由 PENDING 直接置为 PAID）：
+    # 金额服务端重算、活跃流水唯一键 uk_payment_active_order、水票扣减、押金入账
+    # （applyDepositOnPaid）、订单付款状态只前进（markPaidIfCollectable）、对账等式
+    # 全部照跑，一个字没放宽。退款路径随之联动，见 PaymentService 接口头的说明。
+    #
+    # ⚠️ 真实渠道接入时应**删掉**这个开关与 PaymentServiceImpl.isMockWechatPay，
+    #    而不是把它留成"永真"。本地默认在 application-local.yml 里打开。
+    mock-wechat-pay: ${MOCK_WECHAT_PAY:false}
+
+spring:
+  application:
+    name: AquaFlow
+  # 未显式指定 profile 时默认加载 local（读取 application-local.yml，内含本地密钥，已被 .gitignore 忽略）。
+  # 生产部署请用 --spring.profiles.active=prod 并全部走环境变量注入。
+  profiles:
+    default: local
+  datasource:
+    # 注意：serverTimezone 必须为 Asia/Shanghai，此前误配为 Asia/Tokyo 导致时间比北京时间快 1 小时
+    url: ${DB_URL:jdbc:mysql://localhost:3306/aquaflow?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+  jackson:
+    time-zone: Asia/Shanghai
+    # [AQ-044] 原为 non_null：null 字段会从 JSON 里静默消失（不是 null 而是键缺失），
+    # 前端 res.data.data 变 undefined 后再 .length/.map 直接崩，且难以排查。
+    # 改为 always：字段始终存在（值为 null），响应结构可预测；前端取值统一写 `res.data.data ?? fallback`。
+    default-property-inclusion: always
+    # [AQ-045] 时间统一序列化为 ISO-8601 字符串（本项目用 Jackson 3，日期时间默认即 ISO 字符串，
+    # 不再输出时间戳数组，无需显式配置 write-dates-as-timestamps —— 该枚举在 Jackson 3 已移除）。
+    # 前端约定：一律 new Date(str) 解析；禁止 .replace(/-/g,'/')（会把 ISO 的 '-' 也换掉导致 iOS 解析失败）。
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.aquaflow.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    # [AQ-047] 默认关闭 SQL 全量打印（StdOutImpl 会把 SQL 与参数打到 stdout，含手机号等敏感数据）。
+    # 本地排查需要看 SQL 时，启动加环境变量 MYBATIS_LOG_IMPL=org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: ${MYBATIS_LOG_IMPL:org.apache.ibatis.logging.nologging.NoLoggingImpl}
+
+wechat:
+  miniapp:
+    # 安全基线：敏感配置一律不提供默认值，缺失时由 RequiredConfigChecker 在启动阶段失败退出。
+    # 本地开发请通过环境变量或 application-local.yml 注入，切勿把真实密钥写回本文件。
+    # 客户端小程序（miniapp-user，顾客）
+    appid: ${WX_APP_ID:}
+    secret: ${WX_APP_SECRET:}
+    # 员工端小程序（miniapp-delivery，站长 + 配送员）——与客户端是**两个不同 appid**。
+    # [2026-09-15] 缺失只 WARN 不阻塞启动（本地可用 dev-login）；但真机员工微信登录会不可用。
+    staff-appid: ${WX_STAFF_APP_ID:}
+    staff-secret: ${WX_STAFF_APP_SECRET:}
+
+jwt:
+  # JWT 签名密钥泄露 = 任何人可伪造任意身份的 token。必须外部注入，且长度 >= 32。
+  secret: ${JWT_SECRET:}
+  access-token-expiry: 7200000
+  refresh-token-expiry: 604800000
+
+cos:
+  region: ${COS_REGION:ap-shanghai}
+  secret-id: ${COS_SECRET_ID:}
+  secret-key: ${COS_SECRET_KEY:}
+  bucket-name: ${COS_BUCKET_NAME:aquaflow-prod-1474857078}
+
+alert:
+  # 系统故障告警的外部渠道 webhook 地址（可空）。留空则只落 alert_log 表 + ERROR 日志。
+  # 分级口径：系统故障→系统管理员（本渠道）；运营故障→水站站长（站长端 /api/manager/alerts 可查）。
+  system-webhook: ${ALERT_SYSTEM_WEBHOOK:}
+
+  # 外部渠道的报文格式，必须与实际接收方匹配（各服务报文不同，猜错会静默失败）：
+  #   WECOM / DINGTALK → 企业微信群机器人 / 钉钉自定义机器人（默认，两者同格式）
+  #   SERVERCHAN       → Server酱 https://sctapi.ftqq.com/{SendKey}.send
+  #                      form-urlencoded(title/desp)，消息落到**微信「放糖服务号」**，无需建群
+  #   RAW              → 原样发 JSON {title,source,content,level}，供自建接收端/其它中介
+  # ⚠️ 无论哪种格式，都按 **body 里的业务错误码** 判定成败（企业微信/钉钉 errcode、Server酱 code）——
+  #    这三家在失败时都返回 HTTP 200，只看状态码会把"被拒绝"记成已推送。
+  webhook-format: ${ALERT_WEBHOOK_FORMAT:WECOM}
+
+catalog:
+  # 站级价护栏：本站售价/押金偏离通用库参考价超过该比例时，接口返回 warnings（**非阻断，保存照常成功**）。
+  # 产品口径（2026-09-16）：站间允许有价差，不做强制；这里只防"手滑把 25 写成 2500"。
+  # 0.5 = ±50%。设为 0 或负数则不提醒。见 docs/design/12-商品与库存重构.md §4.4。
+  price-warn-ratio: ${CATALOG_PRICE_WARN_RATIO:0.5}
+

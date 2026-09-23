@@ -1,0 +1,87 @@
+<view class="page-container">
+  <!-- 筛选栏 -->
+  <view class="filter-bar">
+    <view class="filter-tabs">
+      <view class="filter-tab {{filters.status === '' ? 'active' : ''}}" data-value="" bindtap="onStatusChange">全部状态</view>
+      <view class="filter-tab {{filters.status === 'STAFF_RECORDED' ? 'active' : ''}}" data-value="STAFF_RECORDED" bindtap="onStatusChange">待处理</view>
+      <view class="filter-tab {{filters.status === 'MANAGER_APPROVED' ? 'active' : ''}}" data-value="MANAGER_APPROVED" bindtap="onStatusChange">已审批</view>
+      <view class="filter-tab {{filters.status === 'EXECUTED' ? 'active' : ''}}" data-value="EXECUTED" bindtap="onStatusChange">已执行</view>
+    </view>
+    <view class="filter-divider"></view>
+    <view class="filter-tab {{filters.category === '' ? 'active' : ''}}" data-value="" bindtap="onCategoryChange">全部类型</view>
+    <view class="filter-tab {{filters.category === 'RETURN_SHORT' ? 'active' : ''}}" data-value="RETURN_SHORT" bindtap="onCategoryChange">少回</view>
+    <view class="filter-tab {{filters.category === 'RETURN_OVER' ? 'active' : ''}}" data-value="RETURN_OVER" bindtap="onCategoryChange">多回</view>
+    <view class="filter-tab {{filters.category === 'STATION_SHORTAGE' ? 'active' : ''}}" data-value="STATION_SHORTAGE" bindtap="onCategoryChange">缺水</view>
+  </view>
+
+  <!-- 异常列表 -->
+  <view class="exception-list" wx:if="{{exceptions.length > 0}}">
+    <view wx:for="{{exceptions}}" wx:key="id" class="exception-card" bindtap="onExceptionTap" data-id="{{item.id}}">
+      <view class="card-header">
+        <view class="order-info">
+          <text class="order-id">订单 #{{item.orderId}}</text>
+          <text class="time">{{formatTime(item.createdAt)}}</text>
+        </view>
+        <view class="status-badge {{getStatusColor(item.status)}}">{{getStatusName(item.status)}}</view>
+      </view>
+
+      <view class="card-body">
+        <view class="info-row">
+          <view class="info-item">
+            <text class="label">类型</text>
+            <text class="value category-tag">{{getCategoryName(item.category)}}</text>
+          </view>
+          <view class="info-item">
+            <text class="label">客户</text>
+            <text class="value">{{item.customerName || '未知'}}</text>
+          </view>
+        </view>
+
+        <view class="info-row" wx:if="{{item.deliveryQty > 0}}">
+          <view class="info-item">
+            <text class="label">应送</text>
+            <text class="value">{{item.deliveryQty}} 桶</text>
+          </view>
+          <view class="info-item">
+            <text class="label">实收</text>
+            <text class="value {{item.discrepancy > 0 ? 'short' : (item.discrepancy < 0 ? 'over' : '')}}">{{item.returnQty}} 桶</text>
+          </view>
+          <view class="info-item">
+            <text class="label">差异</text>
+            <text class="value {{item.discrepancy > 0 ? 'short' : (item.discrepancy < 0 ? 'over' : 'normal')}}">
+              {{item.discrepancy > 0 ? '少' : (item.discrepancy < 0 ? '多' : '无')}} {{Math.abs(item.discrepancy)}} 桶
+            </text>
+          </view>
+        </view>
+
+        <view class="info-row" wx:if="{{item.staffAction && item.staffAction !== 'FULL'}}">
+          <text class="label">现场动作</text>
+          <text class="value action-tag">{{getStaffActionName(item.staffAction)}}</text>
+        </view>
+      </view>
+
+      <view class="card-footer">
+        <view class="config-info">
+          配送员: {{item.deliveryStaffName || '未知'}} · {{formatTime(item.createdAt)}}
+        </view>
+        <view class="arrow">></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!loading && exceptions.length === 0}}">
+    <image src="../../../assets/images/empty-exception.png" mode="aspectFit" />
+    <text class="empty-text">暂无异常记录</text>
+    <text class="empty-subtext">配送员录入异常后将显示在这里</text>
+  </view>
+
+  <!-- 加载更多 -->
+  <view class="load-more" wx:if="{{!noMore && exceptions.length > 0}}">
+    <view class="loading-spinner" wx:if="{{loadingMore}}"></view>
+    <text wx:else class="load-more-text" bindtap="loadMore">上拉加载更多</text>
+  </view>
+
+  <!-- 底部安全区 -->
+  <view class="safe-area"></view>
+</view>

@@ -1,0 +1,147 @@
+<!-- 站长端「水票档位」：给本站**某款水**挂价目表（10 张 / 20 张 / 100 张各卖多少钱），
+     外加一个站级的「统一折扣」（买多少张打几折，价格按各款水自己的价现算）。
+     规格见 docs/design/19 与 docs/design/26 §26.11。均价由服务端算并快照，本页只展示服务端返回的值。 -->
+<view class="page">
+
+  <view class="card">
+    <view class="card-title">选择商品</view>
+    <view class="empty" wx:if="{{loading && !products.length}}">加载中…</view>
+    <view class="chips">
+      <view class="chip {{productId === item.id + '' ? 'chip-on' : ''}} {{item.unified ? 'chip-unified' : ''}}"
+            wx:for="{{products}}" wx:key="id"
+            bindtap="onPickProduct" data-id="{{item.id}}">{{item.name}}</view>
+    </view>
+    <view class="empty" wx:if="{{products.length <= 1}}">本站还没有上架商品。</view>
+    <view class="hint" wx:if="{{productId && !isUnified}}">
+      档位是按「本站 + 本商品」挂的。顾客买票时只看到上架的档位；没挂档位就按单张水票价散买。
+    </view>
+    <view class="hint hint-unified" wx:if="{{isUnified}}">
+      这里配的是「统一折扣」：买多少张打几折。价格不在这里填 ——
+      系统按**每款水自己的水票价**现算（农夫山泉按农夫山泉的价、娃哈哈按娃哈哈的价）。
+      配了上架的折扣档就等于开通，全部停用就等于关闭；某款水自己挂过档位时以它自己的为准。
+    </view>
+  </view>
+
+  <block wx:if="{{productId}}">
+    <!-- 平台预设档：只给统一折扣用（普通商品的档位是"这款水的价目表"，与站级折扣无关）。
+         点一下只填表单、不保存 —— 站长按自己的经营情况改完再存。 -->
+    <view class="card" wx:if="{{isUnified}}">
+      <view class="card-title">平台预设档（点一下填入，可改）</view>
+      <block wx:if="{{presets.length}}">
+        <view class="preset-row">
+          <view class="preset-chip" wx:for="{{presets}}" wx:key="qty"
+                bindtap="onApplyPreset" data-id="{{item.qty}}">
+            <text class="preset-qty">{{item.qty}} 张</text>
+            <text class="preset-price">{{item.discountText}}</text>
+            <text class="preset-sub">按各款水的价折算</text>
+          </view>
+        </view>
+        <view class="hint">
+          平台给的是建议折扣，改完点下面的「保存」才生效。
+        </view>
+      </block>
+      <view class="empty" wx:else>暂时取不到预设，直接填张数与折扣也可以。</view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">新增 / 修改{{isUnified ? '折扣档' : '档位'}}</view>
+      <view class="field">
+        <text class="field-label">张数</text>
+        <input class="field-input" type="number" value="{{form.qty}}"
+               bindinput="onInput" data-field="qty" placeholder="如 10" />
+      </view>
+      <!-- 统一折扣：填**折扣**，不填价；普通商品：填这一档的总价 -->
+      <view class="field" wx:if="{{isUnified}}">
+        <text class="field-label">折扣</text>
+        <input class="field-input" type="digit" value="{{form.discount}}"
+               bindinput="onInput" data-field="discount" placeholder="9.5 折就填 9.5" />
+      </view>
+      <view class="field" wx:else>
+        <text class="field-label">总价</text>
+        <input class="field-input" type="digit" value="{{form.price}}"
+               bindinput="onInput" data-field="price" placeholder="这一组一共多少钱" />
+      </view>
+      <view class="field">
+        <text class="field-label">名称（可选）</text>
+        <input class="field-input" value="{{form.title}}"
+               bindinput="onInput" data-field="title" placeholder="如 10 张 9.5 折" />
+      </view>
+      <view class="field">
+        <text class="field-label">排序（可选）</text>
+        <input class="field-input" type="number" value="{{form.sort}}"
+               bindinput="onInput" data-field="sort" placeholder="数字越小越靠前" />
+      </view>
+      <view class="btn-primary {{saving ? 'btn-disabled' : ''}}" bindtap="onSave">
+        {{saving ? '保存中…' : '保存'}}
+      </view>
+      <view class="hint" wx:if="{{isUnified}}">
+        折扣只发生在「购买那一刻」：系统按「该款水的价 × 折扣」算出总价与均价，
+        均价写进客户买票时的批次快照 —— 将来退票就按它退，不会"按新价退旧票"。
+        同一张数重复保存就是修改该档。
+      </view>
+      <view class="hint" wx:else>
+        均价（总价 ÷ 张数）由服务端计算，保存后在下表显示。同一张数重复保存就是修改该档位。
+      </view>
+    </view>
+
+    <!-- ===== 统一折扣列表 ===== -->
+    <view class="card" wx:if="{{isUnified}}">
+      <view class="card-title">本站统一折扣档（{{discounts.length}} 个）</view>
+      <view class="empty" wx:if="{{!discounts.length}}">
+        还没配折扣档 —— 现在本站没有统一折扣，只有自己开了水票的商品能买票。
+      </view>
+      <view class="row" wx:for="{{discounts}}" wx:key="id">
+        <view class="row-main">
+          <view class="row-between">
+            <text class="row-title">{{item.qty}} 张 · {{item.discountText}}</text>
+          </view>
+          <text class="row-sub">
+            {{item.title ? item.title + ' · ' : ''}}{{item.statusText}}
+          </text>
+        </view>
+        <view class="actions">
+          <view class="mini-btn" bindtap="onToggleStatus" data-id="{{item.id}}">
+            {{item.status === 1 ? '停用' : '启用'}}
+          </view>
+          <view class="mini-btn mini-btn-danger" bindtap="onDelete" data-id="{{item.id}}">删除</view>
+        </view>
+      </view>
+      <view class="hint" wx:if="{{discounts.length}}">
+        这里没有金额：同一个折扣，农夫山泉与娃哈哈折出来的价不一样 —— 那才是"对应水怎么统一打折"。
+      </view>
+    </view>
+
+    <!-- ===== 某款水的定制档位列表 ===== -->
+    <view class="card" wx:if="{{!isUnified}}">
+      <view class="card-title">本站该商品的档位（{{packages.length}} 个）</view>
+      <view class="empty" wx:if="{{!packages.length}}">还没挂档位。</view>
+      <view class="row" wx:for="{{packages}}" wx:key="id">
+        <view class="row-main">
+          <view class="row-between">
+            <text class="row-title">{{item.qty}} 张 · ¥{{item.price}}</text>
+            <text class="row-amount">均价 ¥{{item.unitPrice}}</text>
+          </view>
+          <text class="row-sub">
+            {{item.title ? item.title + ' · ' : ''}}{{item.statusText}}
+            <text wx:if="{{item.saveText}}"> · {{item.saveText}}</text>
+          </text>
+        </view>
+        <view class="actions">
+          <view class="mini-btn" bindtap="onToggleStatus" data-id="{{item.id}}">
+            {{item.status === 1 ? '下架' : '上架'}}
+          </view>
+          <view class="mini-btn mini-btn-danger" bindtap="onDelete" data-id="{{item.id}}">删除</view>
+        </view>
+      </view>
+      <view class="hint" wx:if="{{packages.length}}">
+        「参考节省」是拿本站单张水票价与本档位均价比较得出的展示值；
+        权威金额始终是档位的总价与均价（服务端下发）。
+      </view>
+    </view>
+  </block>
+
+  <view class="card">
+    <view class="btn-ghost block" bindtap="onHelp">档位怎么定</view>
+  </view>
+
+</view>

@@ -1,0 +1,44 @@
+<view class="container">
+  <view class="summary-card" wx:if="{{totalReturn > 0 || totalDiscrepancy !== 0}}">
+    <view class="summary-item">
+      <text class="summary-num">{{totalDeliveries}}</text>
+      <text class="summary-label">配送次数</text>
+    </view>
+    <view class="summary-item">
+      <text class="summary-num">{{totalReturn}}</text>
+      <text class="summary-label">回收空桶</text>
+    </view>
+    <view class="summary-item">
+      <text class="summary-num {{totalDiscrepancy > 0 ? 'warn' : ''}}">{{totalDiscrepancy}}</text>
+      <text class="summary-label">差异合计</text>
+    </view>
+  </view>
+
+  <view class="record-list">
+    <view class="record-card" wx:for="{{records}}" wx:key="id">
+      <view class="record-top">
+        <!-- 跨站履约单后端刻意不下发 customerName（画像归归属站）→ 回落订单收件人 -->
+        <text class="record-customer">{{item.customerName || item.receiverName || '未知客户'}}</text>
+        <text class="record-time">{{item.timeText}}</text>
+      </view>
+      <view class="record-address" wx:if="{{item.addressDetail}}">{{item.addressDetail}}</view>
+      <view class="record-meta">
+        <text class="meta-bucket">配送 {{item.quantity}}桶</text>
+        <text class="meta-divider">|</text>
+        <text class="meta-bucket">回收 {{item.returnBucketQty || 0}}桶</text>
+        <text class="meta-divider">|</text>
+        <text class="meta-bucket">{{item.firstProductName}}</text>
+      </view>
+      <view class="record-bottom" wx:if="{{item.barrelDiscrepancy !== 0}}">
+        <text class="discrepancy-tag {{item.discTagClass}}">
+          {{item.discLabel}} {{item.discAbsText}}个
+        </text>
+        <text class="discrepancy-note" wx:if="{{item.barrelDiscrepancyNote}}">{{item.barrelDiscrepancyNote}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{records.length === 0}}">
+    <text>暂无空桶回收记录</text>
+  </view>
+</view>

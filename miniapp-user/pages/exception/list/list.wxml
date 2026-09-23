@@ -1,0 +1,77 @@
+<view class="page-container">
+  <view class="header">
+    <text class="header-title">我的异常记录</text>
+    <text class="header-subtitle">查看订单异常处理进度与补偿结果</text>
+  </view>
+
+  <view class="exception-list" wx:if="{{exceptions.length > 0}}">
+    <view wx:for="{{exceptions}}" wx:key="id" class="exception-card" bindtap="onExceptionTap" data-id="{{item.id}}">
+      <view class="card-header">
+        <view class="order-info">
+          <text class="order-id">订单 #{{item.orderId}}</text>
+          <text class="time">{{item.timeText}}</text>
+        </view>
+        <view class="status-badge {{item.statusColor}}">{{item.statusText}}</view>
+      </view>
+
+      <view class="card-body">
+        <view class="info-row">
+          <view class="info-item">
+            <text class="label">类型</text>
+            <text class="value category-tag">{{item.categoryText}}</text>
+          </view>
+          <view class="info-item">
+            <text class="label">状态</text>
+            <text class="value">{{item.statusText}}</text>
+          </view>
+        </view>
+
+        <view class="info-row" wx:if="{{item.discrepancy !== 0}}">
+          <view class="info-item">
+            <text class="label">差异</text>
+            <text class="value {{item.discrepancy > 0 ? 'short' : 'over'}}">
+              {{item.discrepancy > 0 ? '少回' : '多回'}} {{item.discrepancyAbs}} 桶
+            </text>
+          </view>
+          <view class="info-item" wx:if="{{item.managerAction && item.managerAction !== 'IGNORE'}}">
+            <text class="label">补偿</text>
+            <text class="value compensation-tag">
+              {{item.compensationText}}
+            </text>
+          </view>
+        </view>
+      </view>
+
+      <view class="card-footer">
+        <view class="progress-info">
+          <view class="progress-step {{item.status === 'STAFF_RECORDED' || item.status === 'MANAGER_PENDING' || item.status === 'MANAGER_APPROVED' || item.status === 'EXECUTING' || item.status === 'EXECUTED' ? 'active' : ''}}">
+            <view class="step-dot"></view>
+            <text class="step-text">配送员录入</text>
+          </view>
+          <view class="step-line {{item.status !== 'STAFF_RECORDED' ? 'active' : ''}}"></view>
+          <view class="step {{item.status === 'MANAGER_PENDING' || item.status === 'MANAGER_APPROVED' || item.status === 'EXECUTING' || item.status === 'EXECUTED' ? 'active' : ''}}">
+            <view class="step-dot"></view>
+            <text class="step-text">站长审批</text>
+          </view>
+          <view class="step-line {{item.status === 'EXECUTED' ? 'active' : ''}}"></view>
+          <view class="step {{item.status === 'EXECUTED' ? 'active' : ''}}">
+            <view class="step-dot"></view>
+            <text class="step-text">补偿完成</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <block wx:if="{{!loading && exceptions.length === 0}}">
+    <empty text="暂无异常记录" />
+    <text class="empty-subtext">配送过程中如有问题会记录在这里</text>
+  </block>
+
+  <view class="load-more" wx:if="{{!noMore && exceptions.length > 0}}">
+    <view class="loading-spinner" wx:if="{{loadingMore}}"></view>
+    <text wx:else class="load-more-text" bindtap="loadMore">上拉加载更多</text>
+  </view>
+
+  <view class="safe-area"></view>
+</view>

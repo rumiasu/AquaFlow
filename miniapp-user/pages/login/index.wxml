@@ -1,0 +1,33 @@
+<view class="page">
+  <view class="login-bg"></view>
+  <view class="login-content">
+    <view class="logo-section">
+      <view class="logo-wrap">
+        <image class="logo" src="/assets/logo/aquaflow.jpg" mode="aspectFit"></image>
+      </view>
+      <text class="app-name">AquaFlow</text>
+      <text class="app-desc">桶装水配送服务</text>
+    </view>
+
+    <view class="login-section">
+      <!-- 微信一键登录：仅 wx.login 静默换 openid，不弹任何授权框 -->
+      <button class="wx-login-btn" bindtap="onWxLogin" disabled="{{loading}}">
+        <text wx:if="{{loading}}">登录中...</text>
+        <text wx:else>微信一键登录</text>
+      </button>
+      <view class="dev-login-btn" bindtap="onDevLogin">
+        <text>测试账号直接登录</text>
+      </view>
+    </view>
+
+    <view class="agreement">
+      <view class="checkbox {{agreed ? 'checked' : ''}}" bindtap="onToggleAgreement">
+        <text wx:if="{{agreed}}" class="check-icon">✓</text>
+      </view>
+      <text class="agreement-text">我已阅读并同意</text>
+      <text class="agreement-link">《用户协议》</text>
+      <text class="agreement-text">和</text>
+      <text class="agreement-link">《隐私政策》</text>
+    </view>
+  </view>
+</view>

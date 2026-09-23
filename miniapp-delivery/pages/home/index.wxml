@@ -1,0 +1,222 @@
+<import src="../../templates/station-navbar.wxml" />
+
+<view class="container">
+  <!--
+    自绘导航栏（b 方案）：**水站营业状态就在「配送」字样的左边** ——
+    配送员接单前第一眼看到"今天休息 / 配送延迟"。结构与尺寸见共用件
+    templates/station-navbar.wxml（样式 styles/station-navbar.wxss，数据与方法 behaviors/stationNavbar.js）。
+  -->
+  <template is="stationNavbar"
+            data="{{title: '配送', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, rightPad: true}}" />
+
+  <!--
+    [2026-09-20 真机联调] 部分列表接口失败时的显式提示。
+    没有它的话，后端没起 / 换了网时配送员看到的只是几个空白列表，会读成「今天没有单」；
+    失败与"确实没单"必须能区分（AGENTS §8.17 / §8.22）。loadError 为空串时整块不渲染。
+  -->
+  <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+
+  <!--
+    统计看板。三个数与下面的页签一一对应，点一下就是切页签。
+    [2026-09-19] 「待接单」改叫「待配送」—— 见下面 tab-bar 上方的注释（重点：站长自己也会接单）。
+  -->
+  <view class="stats-panel">
+    <view class="stat-item" bindtap="switchTab" data-tab="assigned">
+      <text class="stat-value">{{assignedOrders.length || 0}}</text>
+      <text class="stat-label">待配送</text>
+      <text class="stat-unit">单</text>
+    </view>
+    <view class="stat-item" bindtap="switchTab" data-tab="delivering">
+      <text class="stat-value">{{deliveringOrders.length || 0}}</text>
+      <text class="stat-label">配送中</text>
+      <text class="stat-unit">单</text>
+    </view>
+    <view class="stat-item" bindtap="switchTab" data-tab="completed">
+      <text class="stat-value">{{completedOrders.length || 0}}</text>
+      <text class="stat-label">已完成</text>
+      <text class="stat-unit">单</text>
+    </view>
+  </view>
+
+  <!-- 待收款 -->
+  <view class="unpaid-section" wx:if="{{deliveredUnpaidOrders.length > 0}}">
+    <view class="unpaid-header">
+      <text class="unpaid-title">待收款</text>
+      <text class="unpaid-count">{{deliveredUnpaidOrders.length}} 单</text>
+    </view>
+    <view class="order-card" wx:for="{{deliveredUnpaidOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+      <view class="card-header">
+        <view class="tag-row">
+          <text class="status-tag status-warning">已配送待付款</text>
+          <text class="aux-tag aux-offline" wx:if="{{item.isOffline}}">🟧 线下</text>
+          <text class="aux-tag aux-unpaid" wx:if="{{item.isUnpaid}}">待收款</text>
+        </view>
+        <text class="order-id">#{{item.id}}</text>
+      </view>
+      <view class="customer-info">
+        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+      </view>
+      <view class="product-info">
+        <text class="product-name">{{item.firstProductName}}</text>
+        <text class="product-qty">× {{item.quantity}} 桶</text>
+      </view>
+      <view class="unpaid-meta">
+        <text>金额：{{item.amountText}}</text>
+        <text wx:if="{{item.returnBucketQty > 0}}">回桶 {{item.returnBucketQty}} 个</text>
+      </view>
+      <view class="card-actions">
+        <button class="btn-accept" catchtap="onConfirmCollection" data-id="{{item.id}}">确认收款</button>
+      </view>
+    </view>
+  </view>
+
+  <!--
+    Tab 切换。名字与后端订单状态一一对齐（constant/OrderStatus）：
+      待配送 = status 1（还没开始送）· 配送中 = status 2 · 已完成 = status 4。
+    ⚠️ [2026-09-19] 第一个页签原叫「待接单」，改叫「待配送」：**站长自己也会接单**
+    （acceptOrder 允许 DELIVERY 与 STATION_MANAGER），一个"待接单"的标签在站长眼里
+    读起来像"还没人派单"，而它实际装的是"本站所有还没开始配送的单"
+    （= 已分配给我的 + 全站待分配的，见 index.js 的合并逻辑）。按「接单配送」= status 1→2。
+  -->
+  <view class="tab-bar">
+    <view class="tab-item {{activeTab === 'assigned' ? 'active' : ''}}" bindtap="switchTab" data-tab="assigned">
+      <text>待配送</text>
+    </view>
+    <view class="tab-item {{activeTab === 'delivering' ? 'active' : ''}}" bindtap="switchTab" data-tab="delivering">
+      <text>配送中</text>
+    </view>
+    <view class="tab-item {{activeTab === 'completed' ? 'active' : ''}}" bindtap="switchTab" data-tab="completed">
+      <text>已完成</text>
+    </view>
+  </view>
+
+  <!-- 待配送列表（站长分配给我、以及全站还没派出去的单；还没点「接单配送」） -->
+  <view class="order-list" wx:if="{{activeTab === 'assigned'}}">
+    <view class="order-card" wx:for="{{assignedOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+      <view class="card-header">
+        <view class="tag-row">
+          <text class="status-tag status-pending">待配送</text>
+        </view>
+        <text class="order-id">#{{item.id}}</text>
+      </view>
+      <view class="customer-info">
+        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+        <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+      </view>
+      <view class="product-info">
+        <text class="product-name">{{item.firstProductName}}</text>
+        <text class="product-qty">× {{item.quantity}} 桶</text>
+      </view>
+      <view class="address-info">
+        <text class="address-icon">📍</text>
+        <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
+      </view>
+      <!-- 楼层/电梯：出车前就知道要不要上楼（文案按三态算好，不确定时整行不显示） -->
+      <view class="address-info" wx:if="{{item.floorText}}">
+        <text class="address-icon">🛗</text>
+        <text class="address-text">{{item.floorText}}</text>
+      </view>
+      <view class="card-actions">
+        <button class="btn-accept" catchtap="onAcceptOrder" data-id="{{item.id}}">接单配送</button>
+      </view>
+    </view>
+    <view class="empty-state" wx:if="{{!loading && assignedOrders.length === 0}}">
+      <text class="empty-icon">📭</text>
+      <text class="empty-text">暂无待配送订单</text>
+    </view>
+  </view>
+
+  <!-- 配送中列表 -->
+  <view class="order-list" wx:elif="{{activeTab === 'delivering'}}">
+    <view class="order-card" wx:for="{{deliveringOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+      <view class="card-header">
+        <view class="tag-row">
+          <text class="status-tag status-delivering">配送中</text>
+          <text class="aux-tag aux-offline" wx:if="{{item.isOffline}}">🟧 线下</text>
+        </view>
+        <text class="order-id">#{{item.id}}</text>
+      </view>
+      <view class="customer-info">
+        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+        <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+      </view>
+      <view class="product-info">
+        <text class="product-name">{{item.firstProductName}}</text>
+        <text class="product-qty">× {{item.quantity}} 桶</text>
+      </view>
+      <view class="address-info">
+        <text class="address-icon">📍</text>
+        <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
+      </view>
+      <!-- 楼层/电梯：正在送的这一单要不要上楼 -->
+      <view class="address-info" wx:if="{{item.floorText}}">
+        <text class="address-icon">🛗</text>
+        <text class="address-text">{{item.floorText}}</text>
+      </view>
+      <view class="card-actions">
+        <button class="btn-complete" catchtap="onCompleteOrder" data-id="{{item.id}}">完成配送</button>
+        <button class="btn-mediate-small" catchtap="onMediateOrder" data-id="{{item.id}}">调解</button>
+      </view>
+    </view>
+    <view class="empty-state" wx:if="{{!loading && deliveringOrders.length === 0}}">
+      <text class="empty-icon">📭</text>
+      <text class="empty-text">暂无配送中订单</text>
+    </view>
+  </view>
+
+  <!-- 已完成列表 -->
+  <view class="order-list" wx:elif="{{activeTab === 'completed'}}">
+    <view class="order-card" wx:for="{{completedOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+      <view class="card-header">
+        <view class="tag-row">
+          <text class="status-tag status-completed">已完成</text>
+          <text class="aux-tag aux-offline" wx:if="{{item.isOffline}}">🟧 线下</text>
+          <text class="aux-tag aux-unpaid" wx:if="{{item.isUnpaid}}">待收款</text>
+        </view>
+        <text class="order-id">#{{item.id}}</text>
+        <text class="order-time" wx:if="{{item.updateTime}}">{{item.updateTime}}</text>
+      </view>
+      <view class="customer-info">
+        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+      </view>
+      <view class="product-info">
+        <text class="product-name">{{item.firstProductName}}</text>
+        <text class="product-qty">× {{item.quantity}} 桶</text>
+      </view>
+      <view class="complete-footer">
+        <text class="return-barrel" wx:if="{{item.returnBucketQty > 0}}">回桶 {{item.returnBucketQty}} 个</text>
+      </view>
+    </view>
+    <view class="empty-state" wx:if="{{!loading && completedOrders.length === 0}}">
+      <text class="empty-icon">📭</text>
+      <text class="empty-text">今日暂无已完成订单</text>
+    </view>
+  </view>
+
+  <view class="loading-state" wx:if="{{loading}}"><text class="loading-text">加载中...</text></view>
+
+  <!-- 配送员调解订单弹窗 -->
+  <view class="modal-overlay" wx:if="{{showMediateModal}}" bindtap="onCloseMediateModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <text class="modal-title">调解订单</text>
+      <text class="modal-desc">选择处理方式，需对方确认后生效</text>
+      <view class="modal-list">
+        <view class="modal-item" bindtap="onMediateToColleague">
+          <view class="modal-item-info">
+            <text class="modal-item-name">转给别的配送员</text>
+            <text class="modal-item-desc">选择同事接手，需对方同意</text>
+          </view>
+          <text class="modal-item-arrow">›</text>
+        </view>
+        <view class="modal-item" bindtap="onMediateToStation">
+          <view class="modal-item-info">
+            <text class="modal-item-name">退回给站长</text>
+            <text class="modal-item-desc">退回待分配池，需站长确认</text>
+          </view>
+          <text class="modal-item-arrow">›</text>
+        </view>
+      </view>
+      <button class="modal-cancel" bindtap="onCloseMediateModal">取消</button>
+    </view>
+  </view>
+</view>

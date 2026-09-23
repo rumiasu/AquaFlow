@@ -1,0 +1,124 @@
+.container {
+  padding-bottom: 120rpx;
+  background: var(--bg-color);
+  min-height: 100vh;
+}
+
+.product-image {
+  width: 100%;
+  height: 600rpx;
+  background-color: var(--bg-gray);
+}
+
+.product-info {
+  background-color: #fff;
+  padding: 28rpx;
+  margin: 24rpx;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.product-header {
+  margin-bottom: 16rpx;
+}
+
+.product-name {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.product-spec {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+.product-price {
+  margin-bottom: 16rpx;
+}
+
+.product-desc {
+  font-size: 26rpx;
+  color: var(--text-regular);
+  line-height: 1.6;
+}
+
+.quantity-section {
+  background-color: #fff;
+  padding: 28rpx;
+  margin: 0 24rpx 24rpx;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+}
+
+.quantity-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 12rpx;
+  background-color: var(--bg-gray);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quantity-btn.disabled {
+  opacity: 0.5;
+}
+
+.quantity-btn text {
+  font-size: 32rpx;
+  color: var(--text-primary);
+}
+
+.quantity-input {
+  width: 100rpx;
+  height: 56rpx;
+  text-align: center;
+  font-size: 28rpx;
+  font-weight: 500;
+  margin: 0 16rpx;
+  color: var(--text-primary);
+}
+
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100rpx;
+  background-color: #fff;
+  display: flex;
+  padding: 0 24rpx;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -2rpx 10rpx rgba(15, 23, 42, 0.06);
+}
+
+.buy-btn {
+  flex: 1;
+  background: var(--primary-gradient);
+  border-radius: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 600;
+  margin: 16rpx 0;
+  box-shadow: var(--shadow-primary);
+}

@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "我的水桶",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "empty": "../../components/Empty/index",
+    "loading": "../../components/Loading/index"
+  }
+}

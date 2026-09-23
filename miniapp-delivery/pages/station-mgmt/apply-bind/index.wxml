@@ -1,0 +1,70 @@
+<view class="container">
+  <!-- 申请历史（只读）。放最上面：被拒/被解绑的人进到本页，第一眼要看到"上次为什么被拒"。
+       typeName / statusName / handleNote 全部是后端下发的原文，前端不做 type/status → 中文映射；
+       没记录时不渲染整块，免得新用户看到一个空卡片。 -->
+  <view class="section-card" wx:if="{{history.length > 0}}">
+    <view class="card-header">
+      <text class="card-title">申请历史</text>
+      <text class="card-desc">共 {{history.length}} 条，含被拒绝与已解绑的记录</text>
+    </view>
+
+    <view class="history-list">
+      <view class="history-item" wx:for="{{history}}" wx:key="id">
+        <view class="history-head">
+          <text class="history-type">{{item.typeName}}</text>
+          <text class="history-station">{{item.stationLabel}}</text>
+          <text class="history-status">{{item.statusName}}</text>
+        </view>
+        <text class="history-time">申请时间：{{item.createTimeText}}</text>
+        <text class="history-time" wx:if="{{item.handleTimeText}}">处理时间：{{item.handleTimeText}}</text>
+        <text class="history-note" wx:if="{{item.handleNote}}">站长说明：{{item.handleNote}}</text>
+        <text class="history-note" wx:if="{{item.applyNote}}">申请说明：{{item.applyNote}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-card">
+    <view class="card-header">
+      <text class="card-title">选择要加入的水站</text>
+      <text class="card-desc">点击水站卡片直接申请，站长通过后生效</text>
+    </view>
+
+    <view class="station-list" wx:if="{{stationList.length > 0}}">
+      <view class="station-item station-clickable" wx:for="{{stationList}}" wx:key="id" data-id="{{item.id}}" data-station="{{item}}" bindtap="onApplyStation" hover-class="station-hover">
+        <view class="station-main">
+          <view class="station-icon-wrap">
+            <text class="station-icon">🏢</text>
+          </view>
+          <view class="station-info">
+            <text class="station-name">{{item.name}}</text>
+            <text class="station-address">{{item.province}}{{item.city}}{{item.district}} {{item.address || '暂无详细地址'}}</text>
+            <text class="station-meta" wx:if="{{item.phone}}">联系：{{item.phone}}</text>
+          </view>
+        </view>
+        <view class="station-action">
+          <text class="apply-btn-text">申请加入</text>
+          <text class="apply-arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-tip" wx:if="{{!loading && stationList.length === 0}}">
+      <text>附近还没有水站，请联系站长先创建水站</text>
+    </view>
+
+    <view class="loading-tip" wx:if="{{loading}}">
+      <text>加载水站列表中...</text>
+    </view>
+  </view>
+
+  <view class="footer">
+    <text class="footer-hint">V1 规则：配送员必须主动申请 · 站长审批后才生效 · 申请期间无法查看业务数据</text>
+    <!-- 选择身份只是登记意向，生效前允许改选；生效后后端会拒绝（按钮会给出提示） -->
+    <view class="footer-action" bindtap="onBackToRoleSelect">
+      <text>返回，重新选择身份</text>
+    </view>
+    <view class="footer-action" bindtap="onLogout">
+      <text>退出登录</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,72 @@
+/* ========== AquaFlow 设计系统（2026-09-11 锁定版） ==========
+ * 暖纸底 / 白卡 / 深灰文字 / 深靛品牌蓝 / 中圆角 / 极少阴影
+ * 硬规则：无渐变、无玻璃拟态；品牌蓝 #2E4A68 只用于
+ * 品牌桶标 · 主按钮 · 数量步进器 · 选中状态 · 配送状态点。
+ * 变量名保持兼容（其他页面仍在引用），只换值，不换名。
+ */
+page {
+  /* 品牌色 - 深靛蓝（唯一的品牌/交互色） */
+  --primary-color: #2E4A68;
+  --primary-light: #3D5E82;
+  --primary-dark: #22384F;
+  --primary-bg: rgba(46, 74, 104, 0.08);
+
+  /* 「无渐变」硬规则：历史渐变变量统一降级为纯色，变量名保留以免炸旧页面 */
+  --accent-color: #2E4A68;
+  --accent-gradient: #2E4A68;
+  --primary-gradient: #2E4A68;
+  --header-gradient: #2E4A68;
+
+  /* 功能色 */
+  --success-color: #2E9E6B;
+  --warning-color: #C9764B;
+  --error-color: #B5442C;
+  --info-color: #2E4A68;
+
+  /* 价格色：与正文同为深灰，靠字重区分，不用红色 */
+  --price-color: #2B2A26;
+
+  /* 中性色 */
+  --text-primary: #2B2A26;
+  --text-regular: #6E6A61;
+  --text-secondary: #A39E92;
+  --text-placeholder: #C9C4B8;
+
+  /* 背景色 */
+  --bg-color: #FAF7F0;
+  --bg-white: #FFFFFF;
+  --bg-gray: #F4EFE4;
+  --bg-card: #FFFFFF;
+
+  /* 边框 */
+  --border-color: #EAE4D8;
+  --border-light: #F1ECE1;
+
+  /* 间距 */
+  --spacing-xs: 8rpx;
+  --spacing-sm: 16rpx;
+  --spacing-md: 24rpx;
+  --spacing-lg: 32rpx;
+  --spacing-xl: 48rpx;
+
+  /* 圆角（中圆角） */
+  --radius-sm: 12rpx;
+  --radius-md: 16rpx;
+  --radius-lg: 24rpx;
+  --radius-xl: 32rpx;
+  --radius-round: 999rpx;
+
+  /* 字体大小 */
+  --font-xs: 20rpx;
+  --font-sm: 24rpx;
+  --font-md: 28rpx;
+  --font-lg: 32rpx;
+  --font-xl: 36rpx;
+  --font-xxl: 40rpx;
+
+  /* 阴影（极少，仅分层用） */
+  --shadow-sm: 0 2rpx 8rpx rgba(43, 42, 38, 0.04);
+  --shadow-md: 0 4rpx 16rpx rgba(43, 42, 38, 0.05);
+  --shadow-lg: 0 8rpx 24rpx rgba(43, 42, 38, 0.06);
+  --shadow-primary: 0 8rpx 24rpx rgba(46, 74, 104, 0.18);
+}

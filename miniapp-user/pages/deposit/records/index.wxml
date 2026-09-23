@@ -1,0 +1,38 @@
+<!-- 押金流水（顾客查自己在本站的押金变动）。
+     三态互斥，不许合并：
+       ① loading        —— 加载中
+       ② errorText 非空 —— 加载失败，原样展示后端 message（未选水站时后端给的是「请选择水站」）
+       ③ 其余           —— 列表；records 为空才显示「暂无押金流水」
+     ② 与 ③ 必须能一眼区分：「界面空白」和「确实没有」分不开是本仓惯犯（AGENTS.md §8.22）。 -->
+<view class="container">
+  <view class="station-bar" wx:if="{{stationName}}">
+    <text class="station-bar-name">{{stationName}}</text>
+    <text class="station-bar-tip">桶与押金按水站隔离，这里只显示该站的押金流水</text>
+  </view>
+
+  <loading wx:if="{{loading}}"></loading>
+
+  <block wx:else>
+    <view class="error-card" wx:if="{{errorText}}">
+      <text class="error-text">{{errorText}}</text>
+      <view class="error-btn" wx:if="{{needStation}}" bindtap="onGoSelectStation">去选水站</view>
+      <view class="error-btn ghost" wx:else bindtap="onRetry">重新加载</view>
+    </view>
+
+    <view class="record-list" wx:else>
+      <view class="record-item" wx:for="{{records}}" wx:key="id">
+        <view class="record-main">
+          <!-- 类型中文文案由后端下发（DepositRecord.getTypeText → DepositType.textOf）。
+               拿不到就整行不显示，前端不补中文 —— 自建映射表是本仓明令禁止的。 -->
+          <text class="record-type" wx:if="{{item.typeText}}">{{item.typeText}}</text>
+          <text class="record-time">{{item.timeText}}</text>
+          <text class="record-note" wx:if="{{item.note}}">{{item.note}}</text>
+          <text class="record-order" wx:if="{{item.orderText}}">{{item.orderText}}</text>
+        </view>
+        <!-- 金额原样带正负（增加为正 / 扣减为负），由 js 预先算好，模板不做运算 -->
+        <text class="record-amount amount-{{item.amountState}}">{{item.amountText}}</text>
+      </view>
+      <empty wx:if="{{records.length === 0}}" text="暂无押金流水"></empty>
+    </view>
+  </block>
+</view>

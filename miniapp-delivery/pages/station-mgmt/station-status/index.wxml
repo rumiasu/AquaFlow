@@ -1,0 +1,107 @@
+<view class="container">
+  <!--
+    [2026-09-19] 「水站坐标」那一块已**搬到 pages/station-mgmt/station-info/**：
+    坐标属于"水站资料"（固定信息），不是"营业状态"（临时状态）；两处各写一份会分叉。
+    本页只管：营业状态 + 留言 + 公告。
+  -->
+
+  <!-- ============ 营业状态（软状态：不阻断下单，只提示顾客）============ -->
+  <view class="card">
+    <view class="card-header">
+      <text class="card-title">营业状态</text>
+      <text class="badge badge-on" wx:if="{{current.operatingStatus === 1}}">{{current.statusText}}</text>
+      <text class="badge badge-warn" wx:else>{{current.statusText}}</text>
+    </view>
+    <text class="card-sub">顾客仍可下单，只会在商城与下单页看到下面这句话（不阻断接单）</text>
+
+    <view class="options">
+      <view
+        class="option {{picked === item.value ? 'active' : ''}}"
+        wx:for="{{statusOptions}}"
+        wx:key="value"
+        bindtap="onPickStatus"
+        data-value="{{item.value}}"
+      >
+        <text class="option-name">{{item.name}}</text>
+        <text class="option-desc">{{item.desc}}</text>
+      </view>
+    </view>
+
+    <view class="field">
+      <text class="label">留言（给顾客看的一句话，≤100 字）</text>
+      <textarea
+        class="textarea"
+        placeholder="如：今天休息，明早 8 点正常送水"
+        maxlength="100"
+        value="{{noteInput}}"
+        bindinput="onNoteInput"
+      ></textarea>
+      <text class="counter">{{noteInput.length}}/100</text>
+    </view>
+
+    <view class="preview" wx:if="{{current.customerHint}}">
+      <text class="preview-label">顾客会看到：</text>
+      <text class="preview-text">{{current.customerHint}}</text>
+    </view>
+    <view class="preview" wx:elif="{{picked !== 1}}">
+      <text class="preview-label">保存后顾客会看到：</text>
+      <text class="preview-text">水站当前：{{statusOptions[picked - 1].name}}（仍可下单，站长会按留言安排配送）</text>
+    </view>
+
+    <button class="btn-primary" bindtap="onSaveStatus" loading="{{saving}}" disabled="{{saving}}">保存营业状态</button>
+  </view>
+
+  <!-- ============ 公告 ============ -->
+  <view class="card">
+    <view class="card-header">
+      <text class="card-title">本站公告</text>
+      <text class="link" bindtap="openAddNotice">＋ 发公告</text>
+    </view>
+    <text class="card-sub">已发布的公告顾客在小程序「公告」里能看到；草稿只有你自己可见</text>
+
+    <view class="notice" wx:for="{{notices}}" wx:key="id">
+      <view class="notice-head">
+        <text class="notice-title">{{item.title}}</text>
+        <text class="badge {{item.status === 1 ? 'badge-on' : 'badge-off'}}">{{item.statusText}}</text>
+      </view>
+      <text class="notice-content">{{item.content}}</text>
+      <view class="notice-foot">
+        <text class="notice-time">{{item.timeText}}</text>
+        <view class="notice-actions">
+          <text class="btn-link" bindtap="openEditNotice" data-item="{{item}}">编辑</text>
+          <text class="btn-link" bindtap="onToggleNoticeStatus" data-item="{{item}}">{{item.status === 1 ? '下架' : '发布'}}</text>
+          <text class="btn-link danger" bindtap="onDeleteNotice" data-item="{{item}}">删除</text>
+        </view>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{!noticesLoading && notices.length === 0}}"><text>还没有公告，点右上角「＋ 发公告」</text></view>
+    <view class="empty" wx:if="{{noticesLoading}}"><text>加载中...</text></view>
+  </view>
+
+  <!-- ============ 公告编辑 ============ -->
+  <view class="modal-mask" wx:if="{{showEdit}}" catchtouchmove="preventMove" bindtap="closeEditNotice">
+    <view class="modal" catchtap="stopPropagation">
+      <view class="modal-header">{{isAdd ? '发布公告' : '编辑公告'}}</view>
+
+      <view class="field">
+        <text class="label">标题</text>
+        <input class="input" placeholder="如：春节期间配送安排" maxlength="50" value="{{editForm.title}}" data-field="title" bindinput="onNoticeFieldInput" />
+      </view>
+
+      <view class="field">
+        <text class="label">内容</text>
+        <textarea class="textarea" placeholder="写清楚时间与安排，顾客能看懂为准" maxlength="500" value="{{editForm.content}}" data-field="content" bindinput="onNoticeFieldInput"></textarea>
+      </view>
+
+      <view class="switch-row">
+        <text class="switch-label">立即发布（关掉则存为草稿）</text>
+        <switch checked="{{editForm.published}}" bindchange="onNoticePublishChange" />
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="closeEditNotice">取消</button>
+        <button class="btn-primary flex1" bindtap="onSaveNotice" loading="{{saving}}" disabled="{{saving}}">{{isAdd ? '发布' : '保存'}}</button>
+      </view>
+    </view>
+  </view>
+</view>

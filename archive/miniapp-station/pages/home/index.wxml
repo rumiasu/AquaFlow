@@ -1,0 +1,61 @@
+<view class="page-container">
+  <!-- 顶部欢迎区 -->
+  <view class="welcome-section">
+    <view class="welcome-text">
+      <text class="greeting">{{getGreeting()}}，</text>
+      <text class="station-name">{{stationName || '未选择水站'}}</text>
+    </view>
+    <view class="avatar-wrapper">
+      <image class="avatar" src="/assets/images/station-logo.png" mode="aspectFit" />
+    </view>
+  </view>
+
+  <!-- 今日数据卡片 -->
+  <view class="stats-section">
+    <view class="stats-grid">
+      <view class="stat-card" bindtap="onOrderTap">
+        <text class="stat-icon">📦</text>
+        <text class="stat-value">{{todayStats.orderCount || 0}}</text>
+        <text class="stat-label">今日订单</text>
+      </view>
+      <view class="stat-card" bindtap="onOrderTap">
+        <text class="stat-icon">🚚</text>
+        <text class="stat-value">{{todayStats.deliverCount || 0}}</text>
+        <text class="stat-label">配送中</text>
+      </view>
+      <view class="stat-card" bindtap="onOrderTap">
+        <text class="stat-icon">🔄</text>
+        <text class="stat-value">{{todayStats.returnBarrelCount || 0}}</text>
+        <text class="stat-label">回桶数</text>
+      </view>
+      <view class="stat-card" bindtap="onExceptionTap">
+        <text class="stat-icon">⚠️</text>
+        <text class="stat-value {{pendingExceptions > 0 ? 'warning' : ''}}">{{pendingExceptions}}</text>
+        <text class="stat-label">待处理异常</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 快捷入口 -->
+  <view class="quick-entry">
+    <text class="section-title">快捷功能</text>
+    <view class="entry-grid">
+      <view class="entry-item" bindtap="onProductTap">
+        <image src="/assets/icons/product.png" mode="aspectFit" />
+        <text>商品管理</text>
+      </view>
+      <view class="entry-item" bindtap="onOrderTap">
+        <image src="/assets/icons/order.png" mode="aspectFit" />
+        <text>订单管理</text>
+      </view>
+      <view class="entry-item" bindtap="onExceptionTap">
+        <image src="/assets/icons/exception.png" mode="aspectFit" />
+        <text>异常处理</text>
+      </view>
+      <view class="entry-item" bindtap="onStationTap">
+        <image src="/assets/icons/station.png" mode="aspectFit" />
+        <text>水站设置</text>
+      </view>
+    </view>
+  </view>
+</view>

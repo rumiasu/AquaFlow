@@ -1,0 +1,116 @@
+<view class="page">
+  <view class="loading" wx:if="{{loading}}"><text>加载中...</text></view>
+
+  <view class="error-banner" wx:if="{{error}}">
+    <text class="error-text">加载失败：{{error}}</text>
+    <text class="error-hint">若提示接口不存在/网络错误，通常是后端未部署画像接口，请重新构建并启动后端</text>
+  </view>
+
+  <block wx:if="{{!loading && profile}}">
+    <!-- 头部画像卡 -->
+    <view class="profile-header">
+      <view class="avatar" style="background:{{profile.performanceColor}}">{{profile.avatarText}}</view>
+      <view class="header-info">
+        <view class="name-row">
+          <text class="name">{{profile.name}}</text>
+          <text class="badge role">{{profile.roleText}}</text>
+        </view>
+        <text class="phone" bindtap="onCall" data-phone="{{profile.phone}}">{{profile.phone || '未填写电话'}}</text>
+        <view class="badge-row">
+          <text class="badge perf" style="background:{{profile.performanceColor}}">绩效 {{profile.performanceLevel}}</text>
+          <text class="badge {{profile.status == 1 ? 'status-on' : 'status-off'}}">{{profile.statusText}}</text>
+          <text class="badge rate">完成率 {{profile.completionRate}}%</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 业绩指标 -->
+    <view class="section">
+      <view class="section-title">配送业绩</view>
+      <view class="metric-grid">
+        <view class="metric">
+          <text class="metric-value">{{profile.todayOrders}}</text>
+          <text class="metric-label">今日完成</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">{{profile.monthOrders}}</text>
+          <text class="metric-label">本月完成</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">{{profile.totalOrders}}</text>
+          <text class="metric-label">累计完成</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">{{profile.deliveringOrders}}</text>
+          <text class="metric-label">进行中订单</text>
+        </view>
+      </view>
+      <view class="metric-grid second">
+        <view class="metric">
+          <text class="metric-value">¥{{profile.monthAmountText}}</text>
+          <text class="metric-label">本月配送额</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.totalAmountText}}</text>
+          <text class="metric-label">累计配送额</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">{{profile.cancelledOrders}}</text>
+          <text class="metric-label">取消订单</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">{{profile.completionRate}}%</text>
+          <text class="metric-label">完成率</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 服务质量 -->
+    <view class="section">
+      <view class="section-title">服务质量</view>
+      <view class="row">
+        <text class="label">退回站长</text>
+        <text class="value {{profile.returnCount ? 'warn' : ''}}">{{profile.returnCount}} 次</text>
+      </view>
+      <view class="row">
+        <text class="label">桶异常</text>
+        <text class="value {{profile.exceptionCount ? 'warn' : ''}}">{{profile.exceptionCount}} 次</text>
+      </view>
+    </view>
+
+    <!-- 档案信息 -->
+    <view class="section">
+      <view class="section-title">档案信息</view>
+      <view class="row">
+        <text class="label">所属水站</text>
+        <text class="value">{{profile.stationName || '未绑定'}}</text>
+      </view>
+      <view class="row">
+        <text class="label">入职时间</text>
+        <text class="value">{{profile.createTimeText || '—'}}</text>
+      </view>
+      <view class="row">
+        <text class="label">工龄</text>
+        <text class="value">{{profile.workDays}} 天</text>
+      </view>
+    </view>
+
+    <!-- 当前进行中 -->
+    <view class="section" wx:if="{{profile.currentOrders.length}}">
+      <view class="section-title">当前进行中订单 ({{profile.currentOrders.length}})</view>
+      <view class="order-item" wx:for="{{profile.currentOrders}}" wx:key="id">
+        <view class="order-left">
+          <!-- 跨站履约单后端刻意不下发 customerName（画像归归属站）→ 回落订单收件人 -->
+          <text class="order-customer">{{item.customerName || item.receiverName || '未知客户'}}</text>
+          <text class="order-address">{{item.addressSnapshot || ''}}</text>
+        </view>
+        <view class="order-right">
+          <text class="order-status">{{item.statusText}}</text>
+          <text class="order-amount">¥{{item.totalAmount}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view class="empty" wx:if="{{!loading && !profile}}"><text>暂无员工画像</text></view>
+</view>

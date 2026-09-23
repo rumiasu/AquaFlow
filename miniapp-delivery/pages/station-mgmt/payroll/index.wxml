@@ -1,0 +1,299 @@
+<!-- 站长端「计件工资」：单价配置 + 结算单 + 自定义工资条目（v44）。规格见 docs/design/18。
+     状态 / 方向文案一律用服务端下发的 statusText / directionText，本页不自带 1/2 映射表。 -->
+<view class="page">
+
+  <view class="tabs">
+    <view class="tab {{tab === 'rate' ? 'tab-on' : ''}}" bindtap="onTab" data-tab="rate">计件单价</view>
+    <view class="tab {{tab === 'settle' ? 'tab-on' : ''}}" bindtap="onTab" data-tab="settle">结算单</view>
+    <view class="tab {{tab === 'items' ? 'tab-on' : ''}}" bindtap="onTab" data-tab="items">自定义条目</view>
+    <view class="tab-help" bindtap="onShowHelp">怎么算</view>
+  </view>
+
+  <view class="empty" wx:if="{{loading}}">加载中…</view>
+
+  <!-- ============ 计件单价 ============ -->
+  <block wx:if="{{tab === 'rate'}}">
+    <view class="card">
+      <view class="card-title">选中商品后填单价</view>
+      <view class="chips">
+        <view class="chip {{rateForm.productId === '0' ? 'chip-on' : ''}}"
+              bindtap="onRateProduct" data-id="0">默认单价（所有商品兜底）</view>
+        <view class="chip {{rateForm.productId === item.id + '' ? 'chip-on' : ''}}"
+              wx:for="{{products}}" wx:key="id"
+              bindtap="onRateProduct" data-id="{{item.id}}">{{item.name}}</view>
+      </view>
+
+      <view class="field">
+        <text class="field-label">每送 1 桶</text>
+        <input class="field-input" type="digit" value="{{rateForm.perBucketAmount}}"
+               bindinput="onRateInput" data-field="perBucketAmount" placeholder="元/桶" />
+      </view>
+      <view class="field">
+        <text class="field-label">楼层补贴 / 层</text>
+        <input class="field-input" type="digit" value="{{rateForm.floorBonusPerLevel}}"
+               bindinput="onRateInput" data-field="floorBonusPerLevel" placeholder="元/层" />
+      </view>
+      <view class="field">
+        <text class="field-label">几层以内不补</text>
+        <input class="field-input" type="number" value="{{rateForm.floorFreeLevel}}"
+               bindinput="onRateInput" data-field="floorFreeLevel" placeholder="层数" />
+      </view>
+
+      <view class="btn-primary {{savingRate ? 'btn-disabled' : ''}}" bindtap="onSaveRate">
+        {{savingRate ? '保存中…' : '保存'}}
+      </view>
+      <view class="hint">
+        工资只有两项：**送水计件** + **楼层补贴**（商品专属价优先，没配的商品用「默认单价」兜底）。
+        留空等于不补（与填 0 等价，但不是同一件事：留空表示没配过，会被默认价接管）。
+        回收空桶与少收空桶都不再折算成钱 —— 少收空桶有订单差异与异常单留痕，只提醒不扣款。
+      </view>
+    </view>
+
+    <view class="card" wx:if="{{rates.length}}">
+      <view class="card-title">已配单价（{{rates.length}} 条）</view>
+      <view class="row" wx:for="{{rates}}" wx:key="id">
+        <view class="row-main">
+          <text class="row-title">{{item.productId === 0 ? '默认单价' : '商品 #' + item.productId}}</text>
+          <text class="row-sub">送桶 ¥{{item.perBucketAmount}} · 楼层 ¥{{item.floorBonusPerLevel}}/层（{{item.floorFreeLevel}} 层内免）</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ============ 结算单 ============ -->
+  <block wx:if="{{tab === 'settle'}}">
+    <view class="card">
+      <view class="card-title">生成结算单</view>
+      <view class="empty" wx:if="{{!staffList.length}}">本站还没有员工。</view>
+      <picker wx:else mode="selector" range="{{staffList}}" range-key="name" bindchange="onGenStaff">
+        <view class="picker">
+          配送员：{{genForm.staffId ? '' : '请选择'}}
+          <block wx:for="{{staffList}}" wx:key="id">
+            <text wx:if="{{item.id === genForm.staffId}}">{{item.name}}</text>
+          </block>
+        </view>
+      </picker>
+      <picker mode="date" value="{{genForm.periodStart}}" bindchange="onGenDate" data-field="periodStart">
+        <view class="picker">开始：{{genForm.periodStart || '请选择'}}</view>
+      </picker>
+      <picker mode="date" value="{{genForm.periodEnd}}" bindchange="onGenDate" data-field="periodEnd">
+        <view class="picker">结束：{{genForm.periodEnd || '请选择'}}</view>
+      </picker>
+      <input class="field-input full" value="{{genForm.note}}" bindinput="onGenNote"
+             placeholder="备注（可选）" />
+      <view class="btn-primary {{generating ? 'btn-disabled' : ''}}" bindtap="onGenerate">
+        {{generating ? '生成中…' : '生成结算单'}}
+      </view>
+      <view class="hint">
+        结算期间是闭区间（含结束日当天）：服务端按「结束日 + 1 天」做上界，
+        所以当天产生的收益不会漏掉。
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">人工调整（补一笔 / 扣一笔）</view>
+      <picker mode="selector" range="{{staffList}}" range-key="name" bindchange="onAdjustStaff">
+        <view class="picker">
+          配送员：
+          <block wx:for="{{staffList}}" wx:key="id">
+            <text wx:if="{{item.id === adjustForm.staffId}}">{{item.name}}</text>
+          </block>
+        </view>
+      </picker>
+      <input class="field-input full" type="digit" value="{{adjustForm.amount}}"
+             bindinput="onAdjustInput" data-field="amount" placeholder="金额：扣钱请填负数，如 -50" />
+      <input class="field-input full" value="{{adjustForm.note}}" bindinput="onAdjustInput"
+             data-field="note" placeholder="原因（建议写清楚，对账要看）" />
+      <view class="btn-ghost block {{adjusting ? 'btn-disabled' : ''}}" bindtap="onAdjust">
+        {{adjusting ? '提交中…' : '提交调整'}}
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">结算单（{{payrolls.length}} 张）</view>
+      <view class="empty" wx:if="{{!payrolls.length}}">还没有结算单。</view>
+      <view class="row" wx:for="{{payrolls}}" wx:key="id" bindtap="onOpenPayroll" data-id="{{item.id}}">
+        <view class="row-main">
+          <view class="row-between">
+            <text class="row-title">{{item.staffName}}</text>
+            <text class="row-amount">¥{{item.totalAmount}}</text>
+          </view>
+          <text class="row-sub">{{item.periodText}} · {{item.statusText}}</text>
+          <text class="row-sub" wx:if="{{item.paidTime}}">发放时间 {{item.paidTime}}</text>
+          <text class="row-sub" wx:if="{{item.note}}">备注：{{item.note}}</text>
+        </view>
+        <view class="actions">
+          <view class="mini-btn" wx:if="{{item.status === 1}}" catchtap="onConfirmPayroll"
+                data-id="{{item.id}}">确认</view>
+          <view class="mini-btn mini-btn-main" wx:if="{{item.status === 2}}" catchtap="onPayPayroll"
+                data-id="{{item.id}}">标记发放</view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ============ 自定义工资条目（v44） ============ -->
+  <block wx:if="{{tab === 'items'}}">
+    <view class="card">
+      <view class="card-title">{{itemForm.id ? '编辑条目' : '新增条目'}}</view>
+      <input class="field-input full" value="{{itemForm.name}}" bindinput="onItemName"
+             placeholder="条目名称，如 高温补贴 / 迟到扣款（20 字以内）" />
+      <picker mode="selector" range="{{directions}}" range-key="text" bindchange="onItemDirection">
+        <view class="picker">
+          方向：<text wx:if="{{!itemForm.direction}}">请选择</text>
+          <block wx:for="{{directions}}" wx:key="value">
+            <text wx:if="{{item.value === itemForm.direction}}">{{item.text}}</text>
+          </block>
+        </view>
+      </picker>
+      <input class="field-input full" type="number" value="{{itemForm.sort}}" bindinput="onItemSort"
+             placeholder="排序（可选，数字小的排前面）" />
+      <view class="btn-primary {{savingItem ? 'btn-disabled' : ''}}" bindtap="onSaveItem">
+        {{savingItem ? '保存中…' : (itemForm.id ? '保存修改' : '新增条目')}}
+      </view>
+      <view class="btn-ghost block" wx:if="{{itemForm.id}}" bindtap="onItemFormReset">取消编辑</view>
+      <view class="hint">
+        方向决定这笔钱是加还是扣（选项由服务端下发），所以按条目录入时只填正数金额。
+        条目只是人工调整流水上的标签：不参与自动计件，也不进对账。
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">自定义条目（{{items.length}} 条）</view>
+      <view class="empty" wx:if="{{!items.length}}">
+        还没有自定义条目。
+        加项/扣项定义一次，以后录钱选一下就行（如「高温补贴」「迟到扣款」）。
+      </view>
+      <view class="row" wx:for="{{items}}" wx:key="id">
+        <view class="row-main">
+          <view class="row-between">
+            <text class="row-title">{{item.name}}</text>
+            <text class="badge">{{item.directionText}}</text>
+          </view>
+          <text class="row-sub">
+            {{item.enabled ? '启用中 · 录钱时可选' : '已停用 · 不再出现在录钱入口（历史流水照旧）'}}
+          </text>
+          <view class="actions-row">
+            <view class="mini-btn mini-btn-main" wx:if="{{item.enabled}}" catchtap="onRecordOpen"
+                  data-id="{{item.id}}">记一笔</view>
+            <view class="mini-btn" catchtap="onItemEdit" data-id="{{item.id}}">改名/改方向</view>
+            <view class="mini-btn" catchtap="onToggleItem" data-id="{{item.id}}">{{item.enabled ? '停用' : '启用'}}</view>
+            <view class="mini-btn mini-btn-danger" catchtap="onDeleteItem" data-id="{{item.id}}">删除</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">未结算明细与条目汇总</view>
+      <view class="empty" wx:if="{{!staffList.length}}">本站还没有员工。</view>
+      <picker wx:else mode="selector" range="{{staffList}}" range-key="name" bindchange="onSummaryStaff">
+        <view class="picker">
+          配送员：<text wx:if="{{!summaryStaffId}}">请选择</text>
+          <block wx:for="{{staffList}}" wx:key="id">
+            <text wx:if="{{item.id === summaryStaffId}}">{{item.name}}</text>
+          </block>
+        </view>
+      </picker>
+
+      <view class="empty" wx:if="{{summaryLoading}}">加载中…</view>
+
+      <block wx:if="{{!summaryLoading && summaryStaffId}}">
+        <view class="sum-box" wx:if="{{itemSummary.length}}">
+          <view class="sum-title">按条目汇总（只统计带条目的流水）</view>
+          <view class="sum-row" wx:for="{{itemSummary}}" wx:key="itemId">
+            <text class="sum-name">{{item.name}}</text>
+            <text class="sum-dir">{{item.directionText}}</text>
+            <text class="sum-amount {{item.total > 0 ? 'sum-add' : 'sum-deduct'}}">{{item.total > 0 ? '+' : ''}}{{item.total}}</text>
+          </view>
+          <view class="hint">
+            有符号合计（元）：加项为正、扣项为负。
+            自由文本的人工调整没有条目，不计入这里，所以它和下面的未结合计不是一个数。
+          </view>
+        </view>
+
+        <view class="row" wx:for="{{summaryEarnings}}" wx:key="id">
+          <view class="row-main">
+            <view class="row-between">
+              <text class="row-title">{{item.displayText}}</text>
+              <text class="row-amount {{item.amount > 0 ? 'sum-add' : 'sum-deduct'}}">¥{{item.amount}}</text>
+            </view>
+            <text class="row-sub">
+              {{item.dateText}}
+              <text wx:if="{{item.qty}}"> · {{item.qty}} × ¥{{item.unitAmount}}</text>
+              <text wx:if="{{item.orderId}}"> · 订单 #{{item.orderId}}</text>
+              <text wx:if="{{item.note}}"> · {{item.note}}</text>
+            </text>
+          </view>
+        </view>
+        <view class="empty" wx:if="{{!summaryEarnings.length}}">这位配送员还没有未结算的收益。</view>
+        <view class="row-between sum-total" wx:if="{{summaryEarnings.length}}">
+          <text class="sum-dir">未结合计（含没有条目的调整）</text>
+          <text class="row-amount">¥{{unsettledTotal}}</text>
+        </view>
+      </block>
+    </view>
+  </block>
+
+  <!-- 明细 -->
+  <view class="mask" wx:if="{{detail || detailLoading}}" bindtap="onCloseDetail"></view>
+  <view class="dialog" wx:if="{{detail || detailLoading}}">
+    <text class="dialog-title">{{detailName}} 的结算明细</text>
+    <view class="empty" wx:if="{{detailLoading}}">加载中…</view>
+    <block wx:if="{{detail}}">
+      <view class="dialog-line">单号：{{detail.payroll.payrollNo}}</view>
+      <view class="dialog-line">期间：{{detail.payroll.periodText}}</view>
+      <view class="dialog-line">状态：{{detail.payroll.statusText}}</view>
+      <view class="dialog-line strong">合计：¥{{detail.payroll.totalAmount}}</view>
+      <view class="sum-box" wx:if="{{detail.itemSummary.length}}">
+        <view class="sum-title">按条目汇总（只统计带条目的流水）</view>
+        <view class="sum-row" wx:for="{{detail.itemSummary}}" wx:key="itemId">
+          <text class="sum-name">{{item.name}}</text>
+          <text class="sum-dir">{{item.directionText}}</text>
+          <text class="sum-amount {{item.total > 0 ? 'sum-add' : 'sum-deduct'}}">{{item.total > 0 ? '+' : ''}}{{item.total}}</text>
+        </view>
+      </view>
+      <scroll-view class="detail-scroll" scroll-y>
+        <view class="row" wx:for="{{detail.earnings}}" wx:key="id">
+          <view class="row-main">
+            <!-- 明细行只认服务端算好的 displayText（带条目的显示条目名，其余回落 kindText） -->
+            <text class="row-title">{{item.displayText}} · ¥{{item.amount}}</text>
+            <text class="row-sub">
+              {{item.dateText}}
+              <text wx:if="{{item.qty}}"> · {{item.qty}} × ¥{{item.unitAmount}}</text>
+              <text wx:if="{{item.orderId}}"> · 订单 #{{item.orderId}}</text>
+            </text>
+            <text class="row-sub" wx:if="{{item.note}}">{{item.note}}</text>
+          </view>
+        </view>
+        <view class="empty" wx:if="{{!detail.earnings.length}}">这张结算单没有明细。</view>
+      </scroll-view>
+      <view class="btn-ghost block" bindtap="onCloseDetail">关闭</view>
+    </block>
+  </view>
+
+  <!-- 「记一笔」：选中条目后只填正数金额，加还是扣由条目决定（v44）。 -->
+  <view class="mask" wx:if="{{record}}" bindtap="onRecordClose"></view>
+  <view class="dialog" wx:if="{{record}}">
+    <text class="dialog-title">记一笔 · {{record.itemName}}</text>
+    <view class="dialog-line">方向：{{record.directionText}}（由条目决定）</view>
+    <view class="empty" wx:if="{{!staffList.length}}">本站还没有员工。</view>
+    <picker wx:else mode="selector" range="{{staffList}}" range-key="name" bindchange="onRecordStaff">
+      <view class="picker">
+        配送员：<text wx:if="{{!record.staffId}}">请选择</text>
+        <block wx:for="{{staffList}}" wx:key="id">
+          <text wx:if="{{item.id === record.staffId}}">{{item.name}}</text>
+        </block>
+      </view>
+    </picker>
+    <input class="field-input full" type="digit" value="{{record.amount}}" bindinput="onRecordInput"
+           data-field="amount" placeholder="金额：填正数，如 50" />
+    <input class="field-input full" value="{{record.note}}" bindinput="onRecordInput"
+           data-field="note" placeholder="备注（可选，如 7 月高温补贴）" />
+    <view class="btn-primary {{recording ? 'btn-disabled' : ''}}" bindtap="onRecordSubmit">
+      {{recording ? '提交中…' : '确认记一笔'}}
+    </view>
+    <view class="btn-ghost block" bindtap="onRecordClose">取消</view>
+  </view>
+
+</view>

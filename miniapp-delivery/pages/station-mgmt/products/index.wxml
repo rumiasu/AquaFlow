@@ -1,0 +1,367 @@
+<view class="container">
+  <!-- 隐私授权弹窗：本页用 wx.chooseImage 传商品图，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
+  <privacy-popup />
+  <!-- 顶部：分段 + 搜索 + 分类筛选 -->
+  <view class="top-bar">
+    <view class="tabs">
+      <text class="tab {{tab === 'all' ? 'active' : ''}}" bindtap="onTabChange" data-tab="all">全部目录</text>
+      <text class="tab {{tab === 'selected' ? 'active' : ''}}" bindtap="onTabChange" data-tab="selected">已选用</text>
+      <text class="tab {{tab === 'mine' ? 'active' : ''}}" bindtap="onTabChange" data-tab="mine">我的商品</text>
+    </view>
+    <input class="search-input" placeholder="搜索名称/品牌/规格" value="{{keyword}}" bindinput="onKeywordInput" />
+    <view class="chips">
+      <text class="chip {{category === 0 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="0">全部</text>
+      <text class="chip {{category === 1 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="1">桶装水</text>
+      <text class="chip {{category === 2 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="2">瓶装水</text>
+      <text class="chip {{category === 3 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="3">饮水器</text>
+    </view>
+    <!-- 快捷筛选：一眼找到"该处理的"（未上架 / 低库存 / 已开水票 / 我改过价的） -->
+    <view class="chips">
+      <text class="chip quick {{quick === 'offShelf' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="offShelf">未上架</text>
+      <text class="chip quick {{quick === 'lowStock' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="lowStock">低库存(&lt;20)</text>
+      <text class="chip quick {{quick === 'ticket' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="ticket">已开水票</text>
+      <text class="chip quick {{quick === 'priceOverridden' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="priceOverridden">我改过价</text>
+    </view>
+    <view class="hint-row">
+      <text class="hint">共 {{viewList.length}} 个 · 价格与库存都是本站的设置</text>
+      <view class="hint-actions">
+        <text class="link" bindtap="onOpenSubmissions">上报记录</text>
+        <text class="link" bindtap="onOpenRecords">库存流水 ›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 选品 / 我的商品列表 -->
+  <view class="list" wx:if="{{!loading}}">
+    <view class="card" wx:for="{{viewList}}" wx:key="id" data-item="{{item}}" data-id="{{item.id}}" bindtap="onOpenSetting">
+      <view class="thumb" wx:if="{{item.imageUrl}}">
+        <image src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+      </view>
+      <view class="thumb placeholder" wx:else><text>💧</text></view>
+
+      <view class="info">
+        <view class="name-row">
+          <text class="name">{{item.displayName}}</text>
+          <text class="tag platform" wx:if="{{!item.ownerStationId}}">平台</text>
+          <text class="tag mine" wx:if="{{item.ownerStationId}}">自定义</text>
+          <text class="tag submit" wx:if="{{item.submission}}">上报·{{item.submission.statusText}}</text>
+        </view>
+        <text class="sub" wx:if="{{item.brand || item.spec}}">{{item.brand}} {{item.spec}}</text>
+        <text class="sub muted">{{item.categoryLabel}} · 参考价 ¥{{item.refPriceText}}<text wx:if="{{item.deposit > 0 && item.category === 1}}"> · 参考押金 ¥{{item.refDepositText}}</text></text>
+
+        <view class="tags">
+          <text class="tag stock" wx:if="{{item.selected}}">库存 {{item.stockText}}</text>
+          <text class="tag on" wx:if="{{item.selected && item.enabled === 1}}">已上架</text>
+          <text class="tag off" wx:if="{{item.selected && item.enabled !== 1}}">未上架</text>
+          <text class="tag price" wx:if="{{item.selected}}">本站价 ¥{{item.effectivePriceText}}</text>
+          <text class="tag ticket" wx:if="{{item.selected && item.ticketEnabled === 1}}">水票 ¥{{item.ticketPrice}}</text>
+          <text class="tag star" wx:if="{{item.selected && item.priorityDisplay === 1}}">★ 优先展示</text>
+        </view>
+      </view>
+
+      <view class="action">
+        <text class="btn-mini" wx:if="{{!item.selected}}" catchtap="onSelectProduct" data-id="{{item.id}}">选用</text>
+        <text class="btn-mini ghost" wx:else catchtap="onOpenSetting" data-item="{{item}}">设置</text>
+        <view class="mine-actions" wx:if="{{item.ownerStationId}}">
+          <text class="btn-link" catchtap="openEdit" data-item="{{item}}">编辑</text>
+          <text class="btn-link" catchtap="onSubmitToPlatform" data-item="{{item}}">上报</text>
+          <text class="btn-link danger" catchtap="onDeactivate" data-item="{{item}}">停用</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty" wx:if="{{viewList.length === 0}}">
+      <text wx:if="{{tab === 'mine'}}">还没有自定义商品，点下面的「＋ 自己定义商品」加一个</text>
+      <text wx:else>没有匹配的商品</text>
+    </view>
+  </view>
+  <view class="loading" wx:else>加载中...</view>
+
+  <!-- 底部独立入口：自己定义商品（通用库没有的品） -->
+  <view class="footer">
+    <button class="btn-define" bindtap="openAdd">＋ 自己定义商品</button>
+  </view>
+
+  <!-- ============ 本站设置 ============ -->
+  <view class="modal-mask" wx:if="{{showSetting}}" catchtouchmove="preventMove" bindtap="closeSetting">
+    <view class="modal" catchtap="stopPropagation">
+      <view class="modal-header">{{setting.name}}</view>
+      <view class="modal-sub">{{setting.categoryLabel}} {{setting.brand}} {{setting.spec}}</view>
+
+      <view class="form-row">
+        <view class="form-item">
+          <text class="label">库存(件) · 当前 {{setting.quantity}}</text>
+          <!-- 模式显式切换：原实现是"一个输入框 + 两个按钮"，点错「盘点为」会把库存直接覆盖成输入值 -->
+          <view class="seg">
+            <text class="seg-item {{stockMode === 'in' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="in">＋ 入库</text>
+            <text class="seg-item {{stockMode === 'check' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="check">＝ 盘点</text>
+          </view>
+          <input class="input" type="number" placeholder="{{stockMode === 'in' ? '要入库的数量' : '盘点后的库存数'}}" value="{{stockInput}}" bindinput="onStockInput" />
+          <view class="stock-preview" wx:if="{{stockAfterText}}">
+            <text>{{stockAfterText}}</text>
+          </view>
+          <button class="btn-inline" bindtap="onSubmitStock">{{stockMode === 'in' ? '确认入库' : '确认盘点'}}</button>
+          <text class="link" bindtap="onFilterRecordsByCurrent">只看这个商品的流水 ›</text>
+        </view>
+      </view>
+
+      <!-- 价格提醒：行内非阻断（原来一律弹阻断式 modal，把"保存成功"也变成要确认） -->
+      <view class="warn-inline" wx:if="{{warningsInline.length}}">
+        <text class="warn-title">价格提醒（不影响保存）</text>
+        <text class="warn-item" wx:for="{{warningsInline}}" wx:key="*this">· {{item}}</text>
+      </view>
+
+      <view class="form-row">
+        <view class="form-item">
+          <text class="label">本站售价(元)</text>
+          <input class="input" type="digit" placeholder="留空=平台价 ¥{{setting.refPriceText}}；填 0 = 恢复平台价" value="{{setting.salePrice}}" data-field="salePrice" bindinput="onSettingFieldInput" bindblur="onPriceBlur" />
+        </view>
+        <!-- 押金只对桶装水开放（2026-09-19）：瓶装水/一次性桶/饮水器都没有"回收退押"这件事，
+             填了也收不进来（后端按"只有桶装水能设押金"直接拒绝），所以这里不显示输入框。 -->
+        <view class="form-item" wx:if="{{setting.category === 1}}">
+          <text class="label">本站押金(元)</text>
+          <input class="input" type="digit" placeholder="留空=平台押金 ¥{{setting.refDepositText}}" value="{{setting.depositPrice}}" data-field="depositPrice" bindinput="onSettingFieldInput" bindblur="onPriceBlur" />
+        </view>
+      </view>
+
+      <view class="switch-row">
+        <view class="switch-item">
+          <text class="switch-label">上架商城</text>
+          <switch checked="{{setting.enabled}}" bindchange="onSettingShelfChange" />
+        </view>
+        <view class="switch-item">
+          <text class="switch-label">优先展示</text>
+          <switch checked="{{setting.priorityDisplay}}" bindchange="onSettingPriorityChange" />
+        </view>
+      </view>
+
+      <view class="switch-row">
+        <view class="switch-item">
+          <text class="switch-label">推出水票</text>
+          <switch checked="{{setting.ticketEnabled}}" bindchange="onSettingTicketChange" />
+        </view>
+      </view>
+      <view class="form-item" wx:if="{{setting.ticketEnabled}}">
+        <text class="label">水票散买单张价(元/张)</text>
+        <input class="input" type="digit" placeholder="如：20" value="{{setting.ticketPrice}}" data-field="ticketPrice" bindinput="onSettingFieldInput" />
+      </view>
+
+      <!--
+        水票档位（商品上架时的「基本」定义）：基本档位就在这里配完，
+        更丰富的设置（档位标题 / 排序 / 单独上下架）进「水票档位」独立模块。
+        ⚠️ 没挂档位 = 客户只能按上面的单张价散买 —— 所以这里必须有明确提示，
+           不能让人以为打开开关就自动有档位（"水票还在按张卖"就是这么来的）。
+      -->
+      <view class="pkg-block" wx:if="{{setting.ticketEnabled}}">
+        <view class="pkg-head">
+          <text class="pkg-title">水票档位（成组更便宜）</text>
+          <text class="link" catchtap="onOpenTicketPackages">更多档位设置 ›</text>
+        </view>
+        <text class="pkg-hint">填「张数 + 总价」，例如 10 张 190 元；清空总价 = 删除该档位（保存后生效）。没挂档位时客户只能按单张价买。</text>
+
+        <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
+          <input class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" placeholder="张数" />
+          <text class="pkg-unit">张</text>
+          <text class="pkg-arrow">→</text>
+          <input class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" placeholder="总价" />
+          <text class="pkg-unit">元</text>
+          <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销' : '删除'}}</text>
+        </view>
+
+        <text class="pkg-empty" wx:if="{{!pkgRows.length}}">{{pkgLoading ? '读取档位中…' : '还没有档位'}}</text>
+        <text class="link" catchtap="onAddPkgRow">＋ 加一档</text>
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="closeSetting">取消</button>
+        <button class="btn-danger" bindtap="onRemoveProduct" wx:if="{{!setting.ownerStationId}}">移除本站配置</button>
+        <button class="btn-save" bindtap="onSaveSetting" loading="{{saving}}" disabled="{{saving}}">保存</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 自己定义商品 ============ -->
+  <view class="modal-mask" wx:if="{{showEdit}}" catchtouchmove="preventMove" bindtap="closeEdit">
+    <view class="modal" catchtap="stopPropagation">
+      <view class="modal-header">{{isAdd ? '自己定义商品' : '编辑自定义商品'}}</view>
+      <view class="modal-sub">自定义商品只属于本站，不会进通用库；可以上报给开发者补充</view>
+
+      <view class="modal-img" bindtap="uploadImage">
+        <image class="preview" wx:if="{{editForm.imageUrl}}" src="{{editForm.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+        <view class="preview placeholder" wx:else><text>💧</text><text>点击上传</text></view>
+        <text class="img-hint">{{uploading ? '上传中...' : '点击换图'}}</text>
+      </view>
+
+      <!-- 平台统一图库：站长不必自己拍照，直接从平台图里挑（图在小程序包内，不依赖 COS） -->
+      <view class="preset-entry" catchtap="openPresetPicker">
+        <text class="preset-entry-text">从平台图库选择</text>
+        <text class="preset-entry-sub">平台已备好统一商品图，比自拍照更整齐</text>
+      </view>
+
+      <view class="form-item">
+        <text class="label">商品名称</text>
+        <input class="input" placeholder="如：农夫山泉18.9L" value="{{editForm.name}}" data-field="name" bindinput="onEditFieldInput" />
+      </view>
+
+      <view class="form-row">
+        <view class="form-item half">
+          <text class="label">品牌</text>
+          <input class="input" placeholder="如：农夫山泉" value="{{editForm.brand}}" data-field="brand" bindinput="onEditFieldInput" />
+        </view>
+        <view class="form-item half">
+          <text class="label">规格</text>
+          <input class="input" placeholder="如：18.9L" value="{{editForm.spec}}" data-field="spec" bindinput="onEditFieldInput" />
+        </view>
+      </view>
+
+      <view class="form-row">
+        <view class="form-item half">
+          <text class="label">类型</text>
+          <picker bindchange="onEditCategoryChange" value="{{editCategoryIndex}}" range="{{categoryNames}}">
+            <view class="picker-text">{{categoryNames[editCategoryIndex] || '请选择'}}</view>
+          </picker>
+        </view>
+        <view class="form-item half">
+          <text class="label">售价(元)</text>
+          <input class="input" type="digit" placeholder="0.00" value="{{editForm.price}}" data-field="price" bindinput="onEditFieldInput" />
+        </view>
+      </view>
+
+      <view class="form-row">
+        <view class="form-item half" wx:if="{{editForm.category === 1}}">
+          <text class="label">押金(元)</text>
+          <input class="input" type="digit" placeholder="0" value="{{editForm.deposit}}" data-field="deposit" bindinput="onEditFieldInput" />
+        </view>
+        <view class="form-item half">
+          <text class="label">库存(件)</text>
+          <input class="input" type="number" placeholder="0" value="{{editForm.quantity}}" data-field="quantity" bindinput="onEditFieldInput" />
+        </view>
+      </view>
+
+      <view class="switch-row">
+        <view class="switch-item">
+          <text class="switch-label">上架商城</text>
+          <switch checked="{{editForm.enabled}}" bindchange="onEditSwitchChange" data-field="enabled" />
+        </view>
+        <view class="switch-item" wx:if="{{editForm.category !== 3}}">
+          <text class="switch-label">推出水票</text>
+          <switch checked="{{editForm.ticketEnabled}}" bindchange="onEditSwitchChange" data-field="ticketEnabled" />
+        </view>
+      </view>
+      <view class="form-item" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
+        <text class="label">水票散买单张价(元/张)</text>
+        <input class="input" type="digit" placeholder="如：20" value="{{editForm.ticketPrice}}" data-field="ticketPrice" bindinput="onEditFieldInput" />
+      </view>
+
+      <!-- 档位：与「本站设置」共用同一份行数据（新建商品时用 create 返回的 id 挂上去） -->
+      <view class="pkg-block" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
+        <view class="pkg-head">
+          <text class="pkg-title">水票档位（成组更便宜）</text>
+          <text class="link" catchtap="onOpenTicketPackages">更多档位设置 ›</text>
+        </view>
+        <text class="pkg-hint">填「张数 + 总价」，例如 10 张 190 元；清空总价 = 删除该档位（保存后生效）。没挂档位时客户只能按单张价买。</text>
+        <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
+          <input class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" placeholder="张数" />
+          <text class="pkg-unit">张</text>
+          <text class="pkg-arrow">→</text>
+          <input class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" placeholder="总价" />
+          <text class="pkg-unit">元</text>
+          <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销' : '删除'}}</text>
+        </view>
+        <text class="pkg-empty" wx:if="{{!pkgRows.length}}">{{pkgLoading ? '读取档位中…' : '还没有档位'}}</text>
+        <text class="link" catchtap="onAddPkgRow">＋ 加一档</text>
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="closeEdit">取消</button>
+        <button class="btn-save" bindtap="onSaveEdit" loading="{{saving}}" disabled="{{saving}}">{{isAdd ? '创建' : '保存'}}</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 库存流水 ============ -->
+  <view class="modal-mask" wx:if="{{showRecords}}" catchtouchmove="preventMove" bindtap="closeRecords">
+    <view class="modal" catchtap="stopPropagation">
+      <view class="modal-header">库存流水</view>
+      <view class="modal-sub">入库/盘点/下单扣减/取消回补都会留痕（[AQ-029]）</view>
+
+      <view class="filter-row">
+        <text class="filter-chip" wx:if="{{recordsFilterName}}">
+          {{recordsFilterName}}
+          <text class="filter-clear" catchtap="onClearRecordsFilter">×</text>
+        </text>
+        <text class="filter-hint" wx:else>本站全部商品（在商品设置里可只看单品）</text>
+      </view>
+
+      <view class="records" wx:if="{{!recordsLoading}}">
+        <view class="record" wx:for="{{records}}" wx:key="id">
+          <view class="record-main">
+            <text class="record-product">{{item.productText}}</text>
+            <text class="record-meta">{{item.timeText}} · {{item.refText}}</text>
+          </view>
+          <text class="record-type">{{item.type}}</text>
+          <text class="record-delta {{item.delta > 0 ? 'plus' : 'minus'}}">{{item.deltaText}}</text>
+        </view>
+        <view class="empty" wx:if="{{records.length === 0}}"><text>暂无流水</text></view>
+        <view class="load-more" wx:if="{{records.length >= recordsLimit}}" bindtap="onLoadMoreRecords">
+          <text>加载更多（当前 {{records.length}} 条）</text>
+        </view>
+      </view>
+      <view class="loading" wx:else>加载中...</view>
+
+      <view class="modal-footer">
+        <button class="btn-save" bindtap="closeRecords">关闭</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 上报记录（自定义商品上报通用库的处理进度）============ -->
+  <view class="modal-mask" wx:if="{{showSubmissions}}" catchtouchmove="preventMove" bindtap="closeSubmissions">
+    <view class="modal" catchtap="stopPropagation">
+      <view class="modal-header">上报记录</view>
+      <view class="modal-sub">上报后由开发者人工处置：已纳入通用库的商品，别站也能选到</view>
+      <view class="records" wx:if="{{submissions.length}}">
+        <view class="record" wx:for="{{submissions}}" wx:key="id">
+          <view class="record-main">
+            <text class="record-product">{{item.productName}}</text>
+            <text class="record-meta">{{item.timeText}}<text wx:if="{{item.note}}"> · {{item.note}}</text></text>
+          </view>
+          <text class="tag {{item.status === 1 ? 'on' : (item.status === 2 ? 'star' : 'off')}}">{{item.statusText}}</text>
+        </view>
+      </view>
+      <view class="empty" wx:else><text>还没有上报记录（在「我的商品」里点「上报」）</text></view>
+      <view class="modal-footer">
+        <button class="btn-save" bindtap="closeSubmissions">关闭</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 平台统一图库（选图） ============ -->
+  <!-- 图在**小程序包内**：后端下发路径，前端直接当 src 用，不依赖 COS、不会过期 -->
+  <view class="modal-mask" wx:if="{{showPresetPicker}}" catchtouchmove="preventMove" bindtap="closePresetPicker">
+    <view class="modal" catchtap="stopPropagation">
+      <view class="modal-header">选择平台图</view>
+      <view class="modal-sub">平台统一商品图，比自拍照更整齐；选中后仍可在上方点「点击换图」改回自传</view>
+
+      <view class="preset-loading" wx:if="{{presetLoading}}"><text>加载中...</text></view>
+      <view class="preset-empty" wx:elif="{{presetImages.length === 0}}"><text>暂无可选图片</text></view>
+
+      <view class="preset-grid" wx:else>
+        <view
+          class="preset-item {{editForm.imageUrl === item.path ? 'active' : ''}}"
+          wx:for="{{presetImages}}"
+          wx:key="key"
+          data-path="{{item.path}}"
+          bindtap="onPickPresetImage"
+        >
+          <image class="preset-thumb" src="{{item.path}}" mode="aspectFit" lazy-load />
+          <text class="preset-check" wx:if="{{editForm.imageUrl === item.path}}">已选</text>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-save" bindtap="closePresetPicker">关闭</button>
+      </view>
+    </view>
+  </view>
+</view>

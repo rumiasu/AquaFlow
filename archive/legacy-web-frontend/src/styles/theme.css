@@ -1,0 +1,434 @@
+/* ============================================================
+   AquaFlow Enterprise Theme
+   ============================================================ */
+
+:root {
+  /* 主色调 - 深邃专业蓝 */
+  --color-primary: #2563eb;
+  --color-primary-light: #3b82f6;
+  --color-primary-lighter: #60a5fa;
+  --color-primary-bg: rgba(37, 99, 235, 0.06);
+  --color-success: #059669;
+  --color-success-light: #10b981;
+  --color-warning: #d97706;
+  --color-warning-light: #f59e0b;
+  --color-danger: #dc2626;
+  --color-danger-light: #ef4444;
+  --color-info: #6b7280;
+
+  /* 背景层次 */
+  --bg-body: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-sidebar: #0f172a;
+  --bg-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --bg-sidebar-active: rgba(59, 130, 246, 0.15);
+  --bg-header: #ffffff;
+  --bg-input: #f8fafc;
+  --bg-hover: #f1f5f9;
+
+  /* 文字层次 */
+  --text-primary: #0f172a;
+  --text-regular: #334155;
+  --text-secondary: #64748b;
+  --text-placeholder: #94a3b8;
+  --text-sidebar: #94a3b8;
+  --text-sidebar-active: #60a5fa;
+
+  /* 边框与阴影 */
+  --border-color: #e2e8f0;
+  --border-light: #f1f5f9;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-hover: 0 10px 25px rgba(0, 0, 0, 0.08), 0 4px 10px rgba(0, 0, 0, 0.04);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.12);
+
+  /* 圆角 */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* 过渡 */
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] {
+  --color-primary: #3b82f6;
+  --color-primary-light: #60a5fa;
+  --color-primary-bg: rgba(59, 130, 246, 0.1);
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #9ca3af;
+
+  --bg-body: #0c1222;
+  --bg-card: #1a2332;
+  --bg-sidebar: #080e1a;
+  --bg-sidebar-hover: rgba(255, 255, 255, 0.04);
+  --bg-sidebar-active: rgba(59, 130, 246, 0.15);
+  --bg-header: #1a2332;
+  --bg-input: #1e293b;
+  --bg-hover: #1e293b;
+
+  --text-primary: #f1f5f9;
+  --text-regular: #cbd5e1;
+  --text-secondary: #94a3b8;
+  --text-placeholder: #64748b;
+  --text-sidebar: #64748b;
+  --text-sidebar-active: #60a5fa;
+
+  --border-color: #1e293b;
+  --border-light: #1a2332;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-hover: 0 10px 25px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* ===== 全局基础 ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-primary);
+  transition: background-color var(--transition), color var(--transition);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== 页面过渡动画 ===== */
+.fade-transform-enter-active,
+.fade-transform-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fade-transform-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.fade-transform-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* ===== 卡片样式 ===== */
+.el-card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--shadow-card) !important;
+  transition: all var(--transition);
+  border-radius: var(--radius-md) !important;
+}
+.el-card:hover {
+  box-shadow: var(--shadow-hover) !important;
+}
+.el-card__header {
+  border-bottom-color: var(--border-light) !important;
+  color: var(--text-primary) !important;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 14px 20px;
+}
+.el-card__body {
+  padding: 20px !important;
+}
+
+/* ===== 表格样式 ===== */
+.el-table {
+  --el-table-bg-color: var(--bg-card);
+  --el-table-tr-bg-color: var(--bg-card);
+  --el-table-header-bg-color: #f1f5f9;
+  --el-table-row-hover-bg-color: var(--bg-hover);
+  --el-table-border-color: var(--border-light);
+  --el-table-text-color: var(--text-regular);
+  --el-table-header-text-color: #334155;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: var(--bg-input);
+}
+.el-table th.el-table__cell {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+}
+
+/* ===== 对话框样式 ===== */
+.el-dialog {
+  --el-dialog-bg-color: var(--bg-card);
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-modal) !important;
+}
+.el-dialog__header {
+  border-bottom: 1px solid var(--border-light);
+  padding: 18px 24px !important;
+}
+.el-dialog__title {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+  font-size: 16px;
+}
+.el-dialog__body {
+  padding: 24px !important;
+}
+
+/* ===== 输入框样式 ===== */
+.el-input__wrapper,
+.el-textarea__inner {
+  background-color: var(--bg-input) !important;
+  box-shadow: 0 0 0 1px var(--border-color) inset !important;
+  border-radius: var(--radius-sm) !important;
+  transition: all var(--transition-fast) !important;
+}
+.el-input__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px var(--color-primary-light) inset !important;
+}
+.el-input__wrapper.is-focus,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--color-primary) inset !important;
+}
+.el-input__inner {
+  color: var(--text-primary) !important;
+}
+
+/* ===== 按钮样式 ===== */
+.el-button--primary {
+  background: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+.el-button--primary:hover {
+  background: var(--color-primary-light) !important;
+  border-color: var(--color-primary-light) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+.el-button--primary:active {
+  transform: translateY(0);
+}
+
+/* ===== Tag 样式 ===== */
+.el-tag {
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* ===== 菜单样式 ===== */
+.el-menu {
+  border-right: none !important;
+}
+.el-menu-item {
+  border-radius: 8px;
+  margin: 2px 8px;
+  transition: all var(--transition-fast);
+}
+.el-menu-item:hover {
+  background: var(--bg-sidebar-hover) !important;
+}
+.el-menu-item.is-active {
+  background: var(--bg-sidebar-active) !important;
+  color: var(--text-sidebar-active) !important;
+  font-weight: 600;
+}
+
+/* ===== 面包屑 ===== */
+.el-breadcrumb__inner {
+  font-weight: 500;
+}
+
+/* ===== 下拉菜单 ===== */
+.el-dropdown-menu {
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-hover);
+  border: 1px solid var(--border-color);
+}
+
+/* ===== 骨架屏 ===== */
+.skeleton {
+  animation: skeleton-loading 1.5s infinite ease-in-out;
+  background: linear-gradient(90deg, var(--bg-input) 25%, var(--border-light) 50%, var(--bg-input) 75%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+}
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ===== 数字滚动动画 ===== */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.count-up {
+  animation: countUp 0.6s ease-out forwards;
+}
+
+/* ===== 滚动条美化 ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-placeholder);
+}
+
+/* ===== 工具栏样式 ===== */
+.header-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 24px;
+  height: 56px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-color);
+  transition: background var(--transition);
+}
+
+/* ============================================================
+   全局页面级通用样式 (所有 CRUD 页面共享)
+   ============================================================ */
+
+/* ===== 页面容器 ===== */
+.page-container {
+  max-width: 1480px;
+  margin: 0 auto;
+}
+.page-container > .el-card,
+.page-container > .el-row {
+  margin-bottom: 16px;
+}
+.page-container > .el-card:last-child {
+  margin-bottom: 0;
+}
+
+/* ===== 页头统一样式 ===== */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.page-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.page-title::before {
+  content: '';
+  width: 3px;
+  height: 16px;
+  background: var(--color-primary);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ===== 统计卡片 ===== */
+.stat-card {
+  text-align: center;
+  padding: 8px 0;
+}
+.stat-num {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+/* ===== 文字工具类 ===== */
+.text-money {
+  font-weight: 600;
+  color: var(--color-warning);
+}
+.text-success {
+  color: var(--color-success);
+}
+.text-danger {
+  color: var(--color-danger);
+}
+.text-warning {
+  color: var(--color-warning);
+}
+.text-muted {
+  color: var(--text-secondary);
+}
+.text-primary {
+  color: var(--color-primary);
+}
+.text-bold {
+  font-weight: 600;
+}
+
+/* ===== 空状态 ===== */
+.empty-state {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* ===== 过滤工具栏 ===== */
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ===== 对话框内表单间距 ===== */
+.el-dialog .el-form {
+  padding: 8px 0;
+}
+.el-dialog .el-form-item {
+  margin-bottom: 18px;
+}
+
+/* ===== 卡片内表格圆角 ===== */
+.el-card__body .el-table {
+  border-radius: var(--radius-sm);
+}
+
+/* ===== 操作列按钮间距 ===== */
+.el-table .el-button + .el-button {
+  margin-left: 4px;
+}
+
+/* ===== 卡片 header 内文字 ===== */
+.el-card__header .page-title {
+  font-size: 15px;
+}

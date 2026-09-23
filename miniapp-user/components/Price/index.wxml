@@ -1,0 +1,5 @@
+<view class="price">
+  <text class="symbol">{{symbol}}</text>
+  <text class="integer">{{integer}}</text>
+  <text class="decimal">.{{decimal}}</text>
+</view>

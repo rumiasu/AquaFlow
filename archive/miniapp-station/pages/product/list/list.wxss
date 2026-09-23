@@ -1,0 +1,251 @@
+.page-container {
+  background: #f5f5f5;
+  min-height: 100vh;
+  padding-bottom: 120rpx;
+}
+
+/* 搜索栏 */
+.search-bar {
+  padding: 20rpx 24rpx;
+  background: #fff;
+}
+.search-input {
+  width: 100%;
+  height: 72rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #333;
+  background: #f5f5f5;
+  border-radius: 36rpx;
+  border: none;
+}
+
+/* 筛选栏 */
+.filter-bar {
+  display: flex;
+  overflow-x: auto;
+  padding: 16rpx 24rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #f0f0f0;
+  white-space: nowrap;
+}
+.filter-tab {
+  display: inline-block;
+  padding: 8rpx 24rpx;
+  margin-right: 16rpx;
+  font-size: 26rpx;
+  color: #666;
+  border-radius: 20rpx;
+  background: #f5f5f5;
+}
+.filter-tab.active {
+  background: #007aff;
+  color: #fff;
+}
+
+/* 商品列表 */
+.product-list {
+  padding: 24rpx;
+}
+
+.product-card {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+  padding: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+.card-left {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+  gap: 20rpx;
+  min-width: 0;
+  position: relative;
+}
+
+.priority-badge {
+  position: absolute;
+  top: -8rpx;
+  left: -8rpx;
+  padding: 4rpx 12rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #FF6B00, #FF9500);
+  border-radius: 12rpx;
+  box-shadow: 0 2rpx 8rpx rgba(255, 107, 0, 0.3);
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.product-image {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 12rpx;
+  object-fit: cover;
+}
+
+.product-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-name {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.meta-item {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 20rpx;
+  min-width: 200rpx;
+}
+
+.switch-group {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.switch-label {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.product-price {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #007aff;
+}
+
+.arrow {
+  font-size: 28rpx;
+  color: #ccc;
+}
+
+/* 开关样式 */
+.switch-group switch {
+  transform: scale(0.9);
+}
+
+/* 优先展示按钮 */
+.priority-btn {
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  background: #f5f5f5;
+  border: 1rpx solid #d9d9d9;
+  transition: all 0.2s;
+}
+
+.priority-btn-text {
+  font-size: 22rpx;
+  color: #666;
+  font-weight: 500;
+}
+
+.priority-btn.priority-active {
+  background: linear-gradient(135deg, #FF6B00, #FF9500);
+  border-color: #FF6B00;
+}
+
+.priority-btn.priority-active .priority-btn-text {
+  color: #fff;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 24rpx;
+  color: #999;
+}
+
+.empty-state image {
+  width: 160rpx;
+  height: 160rpx;
+  margin-bottom: 24rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+}
+
+.empty-subtext {
+  font-size: 24rpx;
+  color: #ccc;
+}
+
+/* 加载更多 */
+.load-more {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40rpx 0;
+}
+
+.loading-spinner {
+  width: 40rpx;
+  height: 40rpx;
+  border: 2rpx solid #f0f0f0;
+  border-top-color: #007aff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.load-more-text {
+  font-size: 26rpx;
+  color: #999;
+}
+
+/* 底部安全区 */
+.safe-area {
+  height: 80rpx;
+}
+
+/* 底部添加按钮 */
+.add-btn {
+  position: fixed;
+  bottom: 100rpx;
+  right: 24rpx;
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+  background: #007aff;
+  color: #fff;
+  font-size: 48rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4rpx 16rpx rgba(0,122,255,0.3);
+}

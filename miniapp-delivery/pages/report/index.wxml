@@ -1,0 +1,55 @@
+<view class="container">
+  <view class="section">
+    <text class="section-title">反馈类型</text>
+    <view class="category-list">
+      <view class="category-item {{category === 'bug' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="bug">
+        <text class="cat-icon">🐛</text>
+        <text class="cat-text">功能问题</text>
+      </view>
+      <view class="category-item {{category === 'feature' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="feature">
+        <text class="cat-icon">💡</text>
+        <text class="cat-text">功能建议</text>
+      </view>
+      <view class="category-item {{category === 'ui' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="ui">
+        <text class="cat-icon">🎨</text>
+        <text class="cat-text">界面优化</text>
+      </view>
+      <view class="category-item {{category === 'other' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="other">
+        <text class="cat-icon">📝</text>
+        <text class="cat-text">其他</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <text class="section-title">反馈内容</text>
+    <textarea class="content-input" placeholder="请详细描述您遇到的问题或建议..." maxlength="500" bindinput="onContentInput" value="{{content}}" />
+    <text class="char-count">{{content.length}}/500</text>
+  </view>
+
+  <view class="section">
+    <text class="section-title">联系方式（可选）</text>
+    <input class="contact-input" placeholder="手机号或微信号，方便我们联系您" bindinput="onContactInput" value="{{contact}}" />
+  </view>
+
+  <view class="footer">
+    <button class="btn-submit" bindtap="onSubmit" disabled="{{!content}}">提交反馈</button>
+  </view>
+
+  <view class="section" wx:if="{{!historyLoading || historyList.length > 0}}">
+    <text class="section-title">反馈记录</text>
+    <view wx:if="{{historyList.length > 0}}">
+      <view class="history-item" wx:for="{{historyList}}" wx:key="id">
+        <view class="history-content">{{item.content}}</view>
+        <view class="history-meta">
+          <text class="history-cat" wx:if="{{item.category}}">{{item.category === 'bug' ? '功能问题' : item.category === 'feature' ? '功能建议' : item.category === 'ui' ? '界面优化' : '其他'}}</text>
+          <text class="history-time">{{item.createTime}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="empty" wx:elif="{{!historyLoading}}">
+      <text>暂无反馈记录</text>
+    </view>
+  </view>
+  <view class="loading" wx:if="{{historyLoading && historyList.length === 0}}">加载中...</view>
+</view>

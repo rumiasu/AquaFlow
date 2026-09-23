@@ -1,0 +1,87 @@
+<view class="container">
+  <privacy-popup />
+  <loading wx:if="{{loading}}"></loading>
+
+  <view class="addr-card" wx:else>
+    <!-- 联系人 -->
+    <view class="field-row">
+      <text class="field-label">联系人</text>
+      <input class="field-input" placeholder="姓名" value="{{formData.name}}" bindinput="onInputChange" data-field="name" />
+    </view>
+
+    <!-- 电话 -->
+    <view class="field-row">
+      <text class="field-label">电话</text>
+      <input class="field-input" placeholder="手机号码" type="number" value="{{formData.phone}}" bindinput="onInputChange" data-field="phone" />
+    </view>
+
+    <!-- 自动识别 -->
+    <view class="field-row auto-row">
+      <text class="field-label">定位</text>
+      <view class="auto-btn" bindtap="onAutoLocate">
+        <icon name="location" size="32rpx" color="#FFFFFF" />
+        <text>自动识别地址</text>
+      </view>
+    </view>
+
+    <!-- 省市区 -->
+    <view class="field-row region-row">
+      <text class="field-label">省市区</text>
+      <view class="region-fields">
+        <input class="region-input" placeholder="省" value="{{formData.province}}" bindinput="onInputChange" data-field="province" />
+        <input class="region-input" placeholder="市" value="{{formData.city}}" bindinput="onInputChange" data-field="city" />
+        <input class="region-input" placeholder="区/县" value="{{formData.district}}" bindinput="onInputChange" data-field="district" />
+      </view>
+    </view>
+
+    <!-- 详细地址 -->
+    <view class="field-row">
+      <text class="field-label">详细地址</text>
+      <input class="field-input" placeholder="小区/大厦/楼栋/单元/门牌号" value="{{formData.detail}}" bindinput="onInputChange" data-field="detail" />
+    </view>
+
+    <!-- 标签 -->
+    <view class="field-row label-row">
+      <text class="field-label">标签</text>
+      <view class="label-options">
+        <view
+          class="label-chip {{formData.label === item ? 'active' : ''}}"
+          wx:for="{{labels}}"
+          wx:key="*this"
+          bindtap="onLabelSelect"
+          data-label="{{item}}"
+        >{{item}}</view>
+      </view>
+    </view>
+
+    <!-- 楼层与电梯（2026-09-17 新增，v34）：楼层费的依据。
+         ⚠️ 「不确定」是合法选项而不是"没选"—— 后端刻意区分 NULL(未确认) 与 0(确认无电梯)：
+         把未确认当无电梯会向客户乱收钱，当有电梯会漏收。 -->
+    <view class="field-row label-row">
+      <text class="field-label">楼层</text>
+      <view class="label-options">
+        <input class="region-input" type="number" placeholder="如 6（可留空）" value="{{formData.floor}}" bindinput="onInputChange" data-field="floor" />
+      </view>
+    </view>
+
+    <view class="field-row label-row">
+      <text class="field-label">电梯</text>
+      <view class="label-options">
+        <view class="label-chip {{formData.hasElevator === 1 ? 'active' : ''}}" bindtap="onElevatorSelect" data-value="1">有电梯</view>
+        <view class="label-chip {{formData.hasElevator === 0 ? 'active' : ''}}" bindtap="onElevatorSelect" data-value="0">无电梯</view>
+        <view class="label-chip {{formData.hasElevator === null ? 'active' : ''}}" bindtap="onElevatorSelect" data-value="">不确定</view>
+      </view>
+    </view>
+
+    <!-- 默认 + 保存 -->
+    <view class="bottom-bar">
+      <view class="default-toggle" bindtap="onToggleDefault">
+        <view class="check-box {{formData.isDefault ? 'checked' : ''}}"></view>
+        <text class="default-text">设为默认地址</text>
+      </view>
+      <view class="save-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
+        <text>{{submitting ? '保存中...' : '保存'}}</text>
+      </view>
+    </view>
+  </view>
+</view>

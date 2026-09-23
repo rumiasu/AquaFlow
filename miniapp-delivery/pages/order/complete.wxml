@@ -1,0 +1,180 @@
+<view class="container">
+  <!-- 隐私授权弹窗：本页用 wx.chooseImage 选送达/回桶照片，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
+  <privacy-popup />
+  <!-- 成功提示 -->
+  <view class="success-header">
+    <view class="success-icon">✓</view>
+    <text class="success-title">完成配送</text>
+    <text class="success-subtitle">核对回桶后确认完成</text>
+  </view>
+
+  <!-- 订单信息 -->
+  <view class="section" wx:if="{{orderInfo}}">
+    <view class="order-info-row">
+      <text class="order-label">客户</text>
+      <text class="order-value">{{orderInfo.customerName || orderInfo.receiverName}}</text>
+    </view>
+    <view class="order-info-row">
+      <text class="order-label">地址</text>
+      <text class="order-value">{{orderInfo.addressDetail || orderInfo.addressSnapshot}}</text>
+    </view>
+  </view>
+
+  <!-- 按商品核对回桶 -->
+  <view class="section">
+    <!-- 首次订单：押金桶无需回桶 -->
+    <view class="first-order-tip" wx:if="{{isFirstBarrelOrder}}">
+      <text class="first-order-icon">🆕</text>
+      <text class="first-order-text">首次下单 · 押金桶无需回桶</text>
+      <text class="first-order-desc">本次送出的桶为客户新购押金桶，下次续购时需回收空桶</text>
+    </view>
+
+    <!-- 续购订单：正常回桶核对 -->
+    <block wx:else>
+      <text class="section-title">核对回桶 <text class="required">*</text></text>
+
+      <view class="item-return" wx:for="{{items}}" wx:key="id" wx:for-index="idx">
+        <view class="item-header">
+          <view class="item-name-wrap">
+            <text class="item-name">{{item.productName}}</text>
+            <text class="item-spec" wx:if="{{item.spec}}">{{item.spec}}</text>
+          </view>
+        </view>
+
+        <view class="barrel-row">
+          <text class="barrel-label">送出 <text class="num-blue">{{item.expected}}</text> 桶</text>
+          <view class="barrel-stepper">
+            <view class="step-btn {{item.actual === 0 ? 'step-btn-disabled' : ''}}" catchtap="onActualDecrease" data-idx="{{idx}}">−</view>
+            <input class="step-input" type="number" value="{{item.actual}}" bindinput="onActualChange" data-idx="{{idx}}" />
+            <view class="step-btn" catchtap="onActualIncrease" data-idx="{{idx}}">+</view>
+          </view>
+          <text class="barrel-label">回 <text class="num-blue">{{item.actual}}</text> 桶</text>
+        </view>
+
+        <!-- 差异：异常明细（必填） -->
+        <view class="discrepancy-section" wx:if="{{item.discrepancy > 0}}">
+          <view class="discrepancy-warn">
+            <text>⚠ 少回收 {{item.discrepancy}} 桶</text>
+          </view>
+
+          <view class="reason-list">
+            <view class="reason-item" wx:for="{{item.reasons}}" wx:for-item="reason" wx:for-index="ridx" wx:key="key">
+              <text class="reason-label">{{reason.key === 'customer_kept' ? '客户留存' : reason.key === 'lost' ? '路上丢失' : reason.key === 'damaged' ? '破损' : reason.key === 'wrong' ? '送错' : '其他'}}</text>
+              <view class="reason-qty-wrap">
+                <text class="reason-qty-label">×</text>
+                <input class="reason-qty-input" type="number" value="{{reason.qty}}" bindinput="onReasonQtyChange" data-idx="{{idx}}" data-ridx="{{ridx}}" />
+              </view>
+              <view class="reason-remove" catchtap="onRemoveReason" data-idx="{{idx}}" data-ridx="{{ridx}}">×</view>
+            </view>
+          </view>
+
+          <view class="add-reason-btn" catchtap="onOpenReasonPicker" data-idx="{{idx}}">
+            <text class="add-reason-icon">+</text>
+            <text class="add-reason-text">添加异常原因</text>
+          </view>
+
+          <view class="reason-hint" wx:if="{{item.reasons.length > 0}}">
+            已选 {{item.reasons.length}} 项，共 {{item.reasons.length}} 桶
+          </view>
+        </view>
+
+        <view class="item-divider" wx:if="{{idx < items.length - 1}}"></view>
+      </view>
+
+      <view class="empty-hint" wx:if="{{items.length === 0}}">
+        <text>暂无商品明细</text>
+      </view>
+    </block>
+  </view>
+
+  <!-- 货到付款收款确认 -->
+  <view class="section section-collect" wx:if="{{isCashOnDelivery}}">
+    <text class="section-title">收款确认</text>
+    <view class="collect-card">
+      <view class="collect-row">
+        <text class="collect-label">付款方式</text>
+        <text class="collect-amount-text">货到付款</text>
+      </view>
+    </view>
+    <view class="collect-selector">
+      <view class="collect-option {{collected === true ? 'active' : ''}}" catchtap="onSelectCollected" data-value="true">
+        <text class="collect-option-name">已收款</text>
+        <text class="collect-option-desc">客户已付款</text>
+      </view>
+      <view class="collect-option {{collected === false ? 'active' : ''}}" catchtap="onSelectCollected" data-value="false">
+        <text class="collect-option-name">未收款</text>
+        <text class="collect-option-desc">进入待收款列表</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 签收凭证 -->
+  <view class="section">
+    <text class="section-title">签收凭证</text>
+    <text class="section-tip">拍摄客户签收照片（可选）</text>
+    <view class="photo-grid">
+      <view class="photo-item" wx:for="{{photos}}" wx:key="index">
+        <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewPhoto" />
+        <view class="photo-remove" data-index="{{index}}" catchtap="onRemovePhoto">×</view>
+      </view>
+      <view class="photo-add" bindtap="onAddPhoto" wx:if="{{photos.length < 3}}">
+        <text class="photo-add-icon">📷</text>
+        <text class="photo-add-text">{{uploading ? '上传中...' : '添加照片'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 楼层数（选填）+ 楼层凭证（v43）：楼层补贴的依据，有楼层才填、没有就不填 -->
+  <view class="section">
+    <text class="section-title">楼层数（有就填，没有不用填）</text>
+    <text class="section-tip">填了才是楼层补贴的依据；跟客户地址里填的不一致时会标出来（防虚报）</text>
+    <view class="floor-row">
+      <input class="floor-input" type="number" placeholder="如 6" value="{{reportedFloor}}" bindinput="onFloorInput" />
+      <text class="floor-unit">层</text>
+    </view>
+
+    <text class="section-tip">楼层凭证（可选，拍一张更站得住脚；站长也能补传）</text>
+    <view class="photo-grid">
+      <view class="photo-item" wx:for="{{floorPhotos}}" wx:key="index">
+        <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" />
+        <view class="photo-remove" data-index="{{index}}" catchtap="onRemoveFloorPhoto">×</view>
+      </view>
+      <view class="photo-add" bindtap="onAddFloorPhoto" wx:if="{{floorPhotos.length < 3}}">
+        <text class="photo-add-icon">🏢</text>
+        <text class="photo-add-text">{{floorUploading ? '上传中...' : '添加照片'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 备注 -->
+  <view class="section">
+    <view class="note-header">
+      <text class="note-label">备注（可选）</text>
+      <text class="note-count">{{noteText.length}}/100</text>
+    </view>
+    <textarea class="note-input" placeholder="订单补充说明" maxlength="100" bindinput="onNoteInput" value="{{noteText}}" />
+  </view>
+
+  <!-- 确认完成按钮 -->
+  <view class="footer">
+    <button class="btn-confirm" bindtap="onConfirmComplete">确认完成配送</button>
+  </view>
+
+  <!-- 异常原因选择弹窗 -->
+  <view class="modal-overlay" wx:if="{{showReasonPicker}}" bindtap="onCloseReasonPicker">
+    <view class="modal-content" catchtap="stopPropagation">
+      <text class="modal-title">选择异常原因</text>
+      <text class="modal-desc">可多选，每个原因对应1桶</text>
+      <view class="modal-list">
+        <view class="modal-item {{item.disabled ? 'modal-item-disabled' : ''}}" wx:for="{{reasonOptions}}" wx:key="key"
+               catchtap="onSelectReason" data-key="{{item.key}}">
+          <view class="modal-item-info">
+            <text class="modal-item-name">{{item.label}}</text>
+          </view>
+          <view class="modal-check" wx:if="{{item.checked}}">✓</view>
+        </view>
+      </view>
+      <button class="modal-cancel" catchtap="onCloseReasonPicker">完成</button>
+    </view>
+  </view>
+</view>

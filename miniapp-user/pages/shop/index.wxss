@@ -1,0 +1,399 @@
+.container {
+  background-color: var(--bg-color);
+  min-height: 100vh;
+}
+
+.brand-header {
+  background: var(--accent-gradient);
+  padding: 48rpx 40rpx;
+  text-align: center;
+}
+
+.brand-icon { width: 80rpx; height: 80rpx; border-radius: 16rpx; display: block; margin: 0 auto 12rpx; box-shadow: 0 4rpx 12rpx rgba(255,255,255,0.3); }
+
+.brand-name {
+  font-size: 40rpx; font-weight: 700; color: #fff;
+  display: block; margin-bottom: 8rpx; letter-spacing: 2rpx;
+}
+
+.brand-slogan {
+  font-size: 24rpx; color: rgba(255,255,255,0.8);
+  display: block; margin-bottom: 24rpx;
+}
+
+.brand-login {
+  display: inline-flex; align-items: center;
+  background: rgba(255,255,255,0.95); border-radius: 32rpx;
+  padding: 0 32rpx; height: 56rpx; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.1);
+}
+
+.brand-login text { color: var(--primary-color); font-size: 24rpx; font-weight: 600; }
+
+/* ========== 水站选择栏 ========== */
+.station-bar {
+  display: flex;
+  align-items: center;
+  margin: 0 24rpx;
+  background: #fff;
+  border-radius: var(--radius-lg);
+  padding: 20rpx 24rpx;
+  box-shadow: var(--shadow-sm);
+  margin-top: -20rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.station-bar-label {
+  flex: 1;
+  font-size: 26rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-left: 12rpx;
+}
+
+.station-bar-empty {
+  color: var(--text-secondary);
+}
+
+.station-bar-switch {
+  background: var(--primary-bg);
+  border-radius: 20rpx;
+  padding: 8rpx 20rpx;
+}
+
+.station-bar-switch text {
+  font-size: 22rpx;
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+/* ========== 水站选择弹窗 ========== */
+.station-picker-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 100;
+}
+
+.station-picker {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  z-index: 101;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  max-height: 70vh;
+}
+
+.station-picker.show {
+  transform: translateY(0);
+}
+
+.station-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx 32rpx 20rpx;
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.station-picker-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.station-picker-close {
+  padding: 8rpx 16rpx;
+}
+
+.station-picker-close text {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+}
+
+.station-picker-list {
+  padding: 16rpx 0;
+  overflow-y: auto;
+  max-height: calc(70vh - 100rpx);
+}
+
+.station-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
+  transition: background 0.15s;
+}
+
+.station-picker-item:active {
+  background: var(--bg-gray);
+}
+
+.station-picker-item.active {
+  background: var(--primary-bg);
+}
+
+.station-picker-item-info {
+  flex: 1;
+}
+
+.station-picker-item-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: block;
+}
+
+.station-picker-item-addr {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  display: block;
+  margin-top: 4rpx;
+}
+
+.station-picker-item-check {
+  font-size: 24rpx;
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.station-picker-empty {
+  padding: 60rpx 0;
+  text-align: center;
+}
+
+.station-picker-empty text {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+.search-bar { padding: 24rpx; background-color: #fff; }
+
+.search-input-wrap {
+  display: flex; align-items: center; background-color: var(--bg-gray);
+  border-radius: 32rpx; padding: 0 24rpx; height: 64rpx;
+  border: 1rpx solid var(--border-color);
+}
+
+.search-icon { font-size: 28rpx; margin-right: 12rpx; }
+
+.search-input { flex: 1; font-size: 28rpx; color: var(--text-primary); }
+
+.search-clear { font-size: 32rpx; color: var(--text-secondary); padding: 0 8rpx; }
+
+.section {
+  background-color: #fff; margin: 24rpx; padding: 28rpx 24rpx;
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+}
+
+.section-title {
+  font-size: 30rpx; font-weight: 700; color: var(--text-primary);
+  display: block; margin-bottom: 20rpx;
+}
+
+.product-grid { display: flex; flex-direction: column; gap: 20rpx; }
+
+.product-card {
+  display: flex;
+  background: var(--bg-card);
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.product-card:active { opacity: 0.85; }
+
+.product-img {
+  position: relative;
+  width: 200rpx;
+  height: 200rpx;
+  flex-shrink: 0;
+  background: #f5f5f5;
+}
+
+.product-img-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-img-placeholder text {
+  font-size: 56rpx;
+}
+
+.owned-tag {
+  position: absolute;
+  top: 6rpx;
+  right: 6rpx;
+  background-color: rgba(5, 150, 105, 0.85);
+  color: #fff;
+  font-size: 18rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  font-weight: 500;
+}
+
+.product-info {
+  flex: 1;
+  padding: 20rpx 24rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6rpx;
+  min-width: 0;
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.product-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.product-brand {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+
+.product-price {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--price-color);
+}
+
+.product-deposit {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+.buy-btn {
+  height: 52rpx;
+  line-height: 52rpx;
+  padding: 0 28rpx;
+  background: var(--primary-gradient);
+  color: #fff;
+  border-radius: 26rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  box-shadow: 0 4rpx 12rpx rgba(30, 64, 175, 0.2);
+  text-align: center;
+  margin-top: 8rpx;
+}
+
+.buy-btn.login-required { background: var(--text-placeholder); box-shadow: none; }
+
+/* ========== 按钮行 ========== */
+.btn-row {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 8rpx;
+}
+
+.cart-btn {
+  flex: 1;
+  height: 52rpx;
+  line-height: 52rpx;
+  padding: 0 16rpx;
+  background: var(--bg-gray);
+  color: var(--primary-color);
+  border: 1rpx solid var(--primary-color);
+  border-radius: 26rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+  text-align: center;
+}
+
+.cart-btn:active {
+  opacity: 0.7;
+}
+
+.buy-btn {
+  flex: 1;
+}
+
+/* ========== 浮动购物车 ========== */
+.fab-cart {
+  position: fixed;
+  right: 32rpx;
+  bottom: 60rpx;
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: var(--primary-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(14, 165, 233, 0.4);
+  z-index: 90;
+}
+
+.fab-cart:active {
+  transform: scale(0.92);
+}
+
+.fab-cart-badge {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  border-radius: 16rpx;
+  background: var(--error-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8rpx;
+}
+
+.fab-cart-badge text {
+  font-size: 20rpx;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ===== 水站营业状态横幅（软状态：只提示，不阻断下单）===== */
+.station-status-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin: 16rpx 24rpx 0;
+  padding: 20rpx 24rpx;
+  background: #fff7e6;
+  border-radius: 16rpx;
+}
+
+.station-status-banner .banner-icon {
+  font-size: 30rpx;
+  line-height: 1.4;
+}
+
+.station-status-banner .banner-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #b26a00;
+  line-height: 1.5;
+}

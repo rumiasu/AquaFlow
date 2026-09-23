@@ -1,0 +1,59 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/exception/list",
+    "pages/exception/detail",
+    "pages/product/list",
+    "pages/product/detail",
+    "pages/login/index"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#007AFF",
+    "navigationBarTitleText": "AquaFlow 站长端",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F5F5"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#007AFF",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/product/list",
+        "text": "商品",
+        "iconPath": "static/tabbar/product.png",
+        "selectedIconPath": "static/tabbar/product-active.png"
+      },
+      {
+        "pagePath": "pages/exception/list",
+        "text": "异常",
+        "iconPath": "static/tabbar/exception.png",
+        "selectedIconPath": "static/tabbar/exception-active.png"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "static/tabbar/mine.png",
+        "selectedIconPath": "static/tabbar/mine-active.png"
+      }
+    ]
+  },
+  "requiredPrivateInfos": [
+    "chooseLocation",
+    "getLocation"
+  ],
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于获取您的水站位置"
+    }
+  },
+  "sitemapLocation": "sitemap.json"
+}

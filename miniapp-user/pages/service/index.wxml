@@ -1,0 +1,74 @@
+<view class="container">
+  <!-- 客服信息 -->
+  <view class="service-section">
+    <view class="service-item">
+      <text class="service-label">客服电话</text>
+      <view class="service-value-row">
+        <text class="service-value">{{serviceInfo.phone || '未获取到'}}</text>
+        <view class="call-btn" bindtap="onCallPhone">
+          <text>拨打</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 这里原本还有「工作时间 08:00-20:00」与「客服微信 aquaflow_service」两行，
+         都是**编造的**：Station 实体没有营业时间字段、也没有微信字段。
+         客户按假工作时间打电话、或复制一个不存在的微信号，比不显示更糟。
+         要重新展示，先给 Station 加字段并让站长可配。 -->
+    <view class="service-item">
+      <text class="service-label">其他联系方式</text>
+      <text class="service-value">请拨打上方电话向水站索取</text>
+    </view>
+  </view>
+
+  <!-- 意见反馈表单 -->
+  <view class="service-section">
+    <text class="section-title">意见反馈</text>
+    <view class="category-list">
+      <view class="category-item {{category === 'bug' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="bug">
+        <text>功能问题</text>
+      </view>
+      <view class="category-item {{category === 'feature' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="feature">
+        <text>功能建议</text>
+      </view>
+      <view class="category-item {{category === 'ui' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="ui">
+        <text>界面优化</text>
+      </view>
+      <view class="category-item {{category === 'other' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="other">
+        <text>其他</text>
+      </view>
+    </view>
+    <textarea class="content-input" placeholder="请描述您遇到的问题或建议..." maxlength="500" value="{{content}}" bindinput="onContentInput" />
+    <input class="contact-input" placeholder="联系方式（可选）" value="{{contact}}" bindinput="onContactInput" />
+
+    <!-- 匿名提交开关（v46）。默认关闭 = 实名（data.anonymous 初值 false）。
+         文案必须讲清后果，不能只写一个"匿名"了事：
+           · 匿名之后水站认不出是谁提的 —— 也就没法针对性地回复/回访他；
+           · 留了联系方式则例外：那是他主动留下的，水站仍能通过它联系。
+         ⚠️ 本页只负责如实上报用户的选择，**不做任何身份隐藏**：
+         站长端拿不到姓名/客户号是后端查询 SQL 层做的（FeedbackMapper）。
+         前端隐藏 = 没隐藏（改个 setData 就看见了）。 -->
+    <view class="anonymous-row">
+      <view class="anonymous-text">
+        <text class="anonymous-label">匿名提交</text>
+        <text class="anonymous-desc" wx:if="{{anonymous}}">已开启：这条反馈不会带上你的姓名，水站认不出是谁提的，也没法回复你；如果你填了联系方式，水站仍能通过它联系你。</text>
+        <text class="anonymous-desc" wx:else>未开启（实名）：水站能看到你的姓名，可以针对你的问题回复你。</text>
+      </view>
+      <switch checked="{{anonymous}}" bindchange="onAnonymousChange" />
+    </view>
+
+    <view class="feedback-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
+      <text>{{submitting ? '提交中...' : '提交反馈'}}</text>
+    </view>
+  </view>
+
+  <!-- 我的反馈历史 -->
+  <view class="other-section" wx:if="{{history.length > 0}}">
+    <view class="other-item" wx:for="{{history}}" wx:key="id">
+      <view class="history-main">
+        <text class="history-content">{{item.content}}</text>
+        <text class="history-time">{{item.createTime}}</text>
+      </view>
+    </view>
+  </view>
+</view>

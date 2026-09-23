@@ -1,0 +1,129 @@
+/* 配送计费配置（v36+）：沿用站内其它管理页的卡片 + 选项样式约定 */
+.container {
+  padding: 24rpx 24rpx 160rpx;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+}
+
+/* 金额门槛引导（2026-09-19）：上架非桶装商品后必须补金额门槛，这里给一条显眼的提示 */
+.guide-card {
+  border: 2rpx solid #ffd591;
+  background: #fff7e6;
+}
+.btn-fill {
+  margin-top: 20rpx;
+  background: #d46b08;
+  color: #fff;
+  font-size: 28rpx;
+  border-radius: 40rpx;
+}
+
+/* 配置完善度（2026-09-19）：逐条列"还差什么 / 为什么必须填 / 去哪填" */
+.setup-card { border: 2rpx solid #ffd591; background: #fffbe6; }
+.setup-item { border-top: 1rpx solid #ffe7ba; padding: 16rpx 0; }
+.setup-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12rpx; }
+.setup-label { font-size: 27rpx; font-weight: 600; color: #873800; }
+.setup-where { font-size: 22rpx; color: #d46b08; flex-shrink: 0; }
+.setup-why { display: block; margin-top: 6rpx; font-size: 24rpx; color: var(--text-secondary); line-height: 1.5; }
+.setup-action { display: block; margin-top: 6rpx; font-size: 24rpx; color: #d46b08; }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #222;
+}
+
+.card-sub {
+  display: block;
+  font-size: 24rpx;
+  color: #888;
+  line-height: 36rpx;
+  margin-top: 12rpx;
+}
+
+.badge {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+}
+
+.badge-on {
+  background: #e8f7ee;
+  color: #1a9c53;
+}
+
+.badge-warn {
+  background: #fff4e5;
+  color: #c47b00;
+}
+
+.field {
+  margin-top: 20rpx;
+}
+
+.label {
+  display: block;
+  font-size: 26rpx;
+  color: #444;
+  margin: 20rpx 0 12rpx;
+}
+
+.input {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 20rpx;
+  background: #f6f7f9;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+}
+
+.option {
+  border: 2rpx solid #e6e8eb;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.option.active {
+  border-color: #1a9c53;
+  background: #f2fbf6;
+}
+
+.option-name {
+  display: block;
+  font-size: 28rpx;
+  color: #222;
+}
+
+.option-desc {
+  display: block;
+  font-size: 22rpx;
+  color: #888;
+  margin-top: 6rpx;
+  line-height: 32rpx;
+}
+
+.btn-primary {
+  margin-top: 24rpx;
+  background: #1a9c53;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+}

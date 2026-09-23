@@ -1,0 +1,178 @@
+<!--
+  水站管理宫格（站长）。
+  [2026-09-19 IA 重组] 样式与分组见 docs/design/24-站长端IA重组-定稿.md。
+  版面口径（对齐运营商 App 的「查询服务」那种分区）：
+    · **每个分区头顶一条带蓝色左竖条的区标题**，竖条之下就是这个分区的全部条目
+      （A 订单 / B 资金 / C 桶 / D 客户 / E 商品与配置 / F 员工与水站）；
+    · 最后一个分区 G 用**居中分隔线 + 标题**的弱化样式（它是"看数据"，不是"办事"）；
+    · 每格 = 图标 + 名称 + 一行细述。细述是该分区的功能清单（`·` 分隔），
+      **不是营销句式** —— 它就是"不用点进去也知道里面有什么"的实现方式。
+  未设卡片的入口（有意为之）：代客下单（P6 待重新设计，页面暂不可达）、水票档位（从商品
+  「本站设置」弹窗里的「更多档位设置 ›」进）、订单台账（从首页「待分配」列表底部进）、
+  资产调整单（从客户画像「资产调整」进）、水站资料（在「我的 → 我的水站」里改）。
+-->
+<view class="container">
+
+  <!-- ============ A 订单 ============ -->
+  <view class="group">
+    <view class="group-head"><text class="group-bar"></text><text class="group-title">订单</text></view>
+    <view class="grid">
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/coordination/index">
+        <text class="module-icon">📋</text>
+        <text class="module-title">订单管理</text>
+        <text class="module-desc">待分配 · 审批 · 抢单池 · 外派</text>
+      </view>
+      <!--
+        异常订单（2026-09-19 合并）：原「运营告警」的 🔔 卡与「桶」分区里的 🛠「桶异常」卡合成本卡。
+        理由：运营告警的内容**只来自桶异常单这一个流程**（原 alerts 页的 RELATED_TEXT 只有
+        ORDER_BARREL_EXCEPTION），两张卡说的是同一件事。页内两个页签：桶异常单 / 处理留痕。
+        ⚠️ 桶损耗读数已删（2026-09-18 已定本站不做损耗出账，那张卡恒为 0）—— 见 docs/design/24 §0.11。
+      -->
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/exceptions/index">
+        <text class="module-icon">🚨</text>
+        <text class="module-title">异常订单</text>
+        <text class="module-desc">桶异常单 · 处理留痕</text>
+      </view>
+      <view class="module-card placeholder"></view>
+    </view>
+  </view>
+
+  <!-- ============ B 资金 ============ -->
+  <view class="group">
+    <view class="group-head"><text class="group-bar"></text><text class="group-title">资金</text></view>
+    <view class="grid">
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/receivables/index">
+        <text class="module-icon">🧾</text>
+        <text class="module-title">应收账款</text>
+        <text class="module-desc">待收款 · 账期 · 核销</text>
+      </view>
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/payments/index">
+        <text class="module-icon">💰</text>
+        <text class="module-title">待确认收款</text>
+        <text class="module-desc">核对到账 · 确认收款</text>
+      </view>
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/payroll/index">
+        <text class="module-icon">👷</text>
+        <text class="module-title">计件工资</text>
+        <text class="module-desc">按桶计价 · 结算单</text>
+      </view>
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/gross-profit/index">
+        <text class="module-icon">📈</text>
+        <text class="module-title">利润报表</text>
+        <text class="module-desc">收入 · 进货成本 · 净利</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ C 桶 ============ -->
+  <view class="group">
+    <view class="group-head"><text class="group-bar"></text><text class="group-title">桶</text></view>
+    <view class="grid">
+      <!--
+        桶异常卡已并入「订单」分区的「异常订单」（2026-09-19）—— 这里不再重复放一张。
+      -->
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/barrel-return/index">
+        <text class="module-icon">🔄</text>
+        <text class="module-title">退桶审批</text>
+        <text class="module-desc">审核退桶 · 退押金</text>
+      </view>
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/owed-barrels/index">
+        <text class="module-icon">⏳</text>
+        <text class="module-title">欠桶台账</text>
+        <text class="module-desc">谁欠桶 · 欠了几天</text>
+      </view>
+      <!--
+        资产调整单（C4-A）：它是**三合一**（补录/撤销 桶权益 · 订正欠桶 · 补录/扣减 押金 · 水票），
+        桶只占其中一部分 —— 所以它不是一个"桶功能"，但它动的是客户在桶上的账，放这一分区最顺手。
+        ⚠️ 新建必须锚定客户（AdjustmentCreateDTO.customerId 必填），所以「新建」仍从客户画像进；
+           这一格进的是**本站全部调整单**台账（listAdjustments 不带 customerId），已生效的还能撤销。
+      -->
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/customers/adjust/index">
+        <text class="module-icon">📝</text>
+        <text class="module-title">资产调整单</text>
+        <text class="module-desc">人工补正桶·押金·水票</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ D 客户 ============ -->
+  <view class="group">
+    <view class="group-head"><text class="group-bar"></text><text class="group-title">客户</text></view>
+    <view class="grid">
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/customers/index">
+        <text class="module-icon">👤</text>
+        <text class="module-title">客户</text>
+        <text class="module-desc">普通 · 企业 · 待审</text>
+      </view>
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/customer-feedback/index">
+        <text class="module-icon">✉️</text>
+        <text class="module-title">客户反馈</text>
+        <text class="module-desc">顾客报的问题（只读）</text>
+      </view>
+      <view class="module-card placeholder"></view>
+    </view>
+  </view>
+
+  <!-- ============ E 商品与配置 ============ -->
+  <view class="group">
+    <view class="group-head"><text class="group-bar"></text><text class="group-title">商品与配置</text></view>
+    <view class="grid">
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/products/index">
+        <text class="module-icon">💧</text>
+        <text class="module-title">商品与库存</text>
+        <text class="module-desc">上架 · 定价 · 水票</text>
+      </view>
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/delivery-config/index">
+        <text class="module-icon">🚚</text>
+        <text class="module-title">配送计费</text>
+        <text class="module-desc">起送量 · 运费 · 楼层费</text>
+      </view>
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/station-status/index">
+        <text class="module-icon">📣</text>
+        <text class="module-title">营业状态与公告</text>
+        <text class="module-desc">休息延迟 · 公告 · 坐标</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ F 员工与水站 ============ -->
+  <view class="group">
+    <view class="group-head"><text class="group-bar"></text><text class="group-title">员工与水站</text></view>
+    <view class="grid">
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/staff/index">
+        <text class="module-icon">👥</text>
+        <text class="module-title">员工</text>
+        <text class="module-desc">员工 · 画像 · 绑定申请</text>
+      </view>
+      <!--
+        水站资料（2026-09-19 做活）：原先这格指向 pages/mine/index（点了只是跳到「我的」tab，
+        那里是纯只读展示）。现在指向真正的资料页 —— 站名/电话/地址/坐标都能改。
+        ⚠️ 后端 `PUT /api/stations/{id}` 走 `getByIdAndCreator`（按**创建人**鉴权），
+           所以转让水站时必须同时转移 creator_staff_id，否则接手人"看得见、改不动"。
+      -->
+      <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/station-info/index">
+        <text class="module-icon">🏢</text>
+        <text class="module-title">水站资料</text>
+        <text class="module-desc">名称 · 地址 · 电话 · 坐标</text>
+      </view>
+      <view class="module-card placeholder"></view>
+    </view>
+  </view>
+
+  <!-- ============ G 现场数据（独立，弱化样式）============ -->
+  <view class="group-divider">
+    <text class="divider-line"></text>
+    <text class="divider-text">现场数据</text>
+    <text class="divider-line"></text>
+  </view>
+  <view class="grid">
+    <view class="module-card" bindtap="onNavigate" data-url="/pages/station-mgmt/dashboard/index">
+      <text class="module-icon">📊</text>
+      <text class="module-title">经营看板</text>
+      <text class="module-desc">趋势 · 分布 · 排行</text>
+    </view>
+    <view class="module-card placeholder"></view>
+    <view class="module-card placeholder"></view>
+  </view>
+
+</view>

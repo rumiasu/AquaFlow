@@ -1,0 +1,77 @@
+<view class="container">
+  <loading wx:if="{{loading}}"></loading>
+
+  <block wx:elif="{{info}}">
+    <view class="company-card">
+      <view class="company-name-row">
+        <view class="company-icon"><icon name="building" size="44rpx" color="#2E4A68" /></view>
+        <text class="company-name">{{info.companyName}}</text>
+      </view>
+
+      <!-- 展示模式 -->
+      <block wx:if="{{!editing}}">
+        <view class="info-row">
+          <text class="label">联系人</text>
+          <text class="value">{{info.contactPerson || '-'}}</text>
+        </view>
+        <view class="info-row">
+          <text class="label">联系电话</text>
+          <text class="value">{{info.contactPhone || '-'}}</text>
+        </view>
+        <view class="info-row">
+          <text class="label">付款方式</text>
+          <text class="value">{{info.paymentMethod || '-'}}</text>
+        </view>
+        <view class="info-row" wx:if="{{info.dueDays}}">
+          <text class="label">账期</text>
+          <text class="value">{{info.dueDays}} 天</text>
+        </view>
+      </block>
+
+      <!-- 编辑模式 -->
+      <block wx:else>
+        <view class="info-row">
+          <text class="label">公司名称</text>
+          <input class="input" value="{{form.companyName}}" data-field="companyName" bindinput="onInput" placeholder="请输入公司名称"></input>
+        </view>
+        <view class="info-row">
+          <text class="label">联系人</text>
+          <input class="input" value="{{form.contactPerson}}" data-field="contactPerson" bindinput="onInput" placeholder="请输入联系人"></input>
+        </view>
+        <view class="info-row">
+          <text class="label">联系电话</text>
+          <input class="input" value="{{form.contactPhone}}" data-field="contactPhone" bindinput="onInput" placeholder="请输入联系电话"></input>
+        </view>
+        <view class="info-row">
+          <text class="label">付款方式</text>
+          <input class="input" value="{{form.paymentMethod}}" data-field="paymentMethod" bindinput="onInput" placeholder="如：月结、现结"></input>
+        </view>
+        <view class="info-row">
+          <text class="label">账期(天)</text>
+          <input class="input" type="number" value="{{form.dueDays}}" data-field="dueDays" bindinput="onInput" placeholder="请输入账期天数"></input>
+        </view>
+      </block>
+    </view>
+
+    <!-- 操作按钮 -->
+    <view class="action-bar">
+      <block wx:if="{{!editing}}">
+        <view class="edit-btn" bindtap="onStartEdit">
+          <text>编辑资料</text>
+        </view>
+      </block>
+      <block wx:else>
+        <view class="btn-row">
+          <view class="btn cancel" bindtap="onCancelEdit">
+            <text>取消</text>
+          </view>
+          <view class="btn confirm {{saving ? 'disabled' : ''}}" bindtap="onSave">
+            <text>{{saving ? '保存中...' : '保存'}}</text>
+          </view>
+        </view>
+      </block>
+    </view>
+  </block>
+
+  <empty wx:else text="您还没有企业资料，请联系水站登记"></empty>
+</view>

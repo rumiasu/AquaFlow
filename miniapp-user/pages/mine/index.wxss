@@ -1,0 +1,153 @@
+/* 我的 · 锁定视觉系统。本页无主按钮/步进器/状态点 → 蓝色 0 处常驻，页面安静是对的。 */
+.page {
+  min-height: 100vh;
+  background: var(--bg-color);
+  padding: 24rpx 24rpx 60rpx;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.row-arrow {
+  color: var(--text-secondary);
+  font-size: 32rpx;
+  flex: none;
+}
+
+/* ── 用户行 ── */
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 32rpx 28rpx;
+}
+.avatar {
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 50%;
+  flex: none;
+  background: var(--bg-gray);
+}
+.user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.nickname {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+.user-tag {
+  font-size: var(--font-xs);
+  color: var(--text-regular);
+  margin-top: 10rpx;
+}
+
+/* ── 钱包与桶四格卡 ── */
+.assets-card {
+  margin-top: 20rpx;
+}
+.assets-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 26rpx 28rpx 8rpx;
+}
+.assets-title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+.assets-station {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+.assets-grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+.asset-cell {
+  width: 50%;
+  padding: 24rpx 28rpx;
+  display: flex;
+  flex-direction: column;
+}
+.asset-cell:nth-child(odd) {
+  border-right: 1rpx solid var(--border-color);
+}
+.asset-cell:nth-child(-n+2) {
+  border-bottom: 1rpx solid var(--border-color);
+}
+.asset-value {
+  font-size: 38rpx;
+  font-weight: 700;
+}
+.asset-unit {
+  font-size: var(--font-xs);
+  font-weight: 400;
+  color: var(--text-regular);
+}
+.asset-label {
+  font-size: var(--font-sm);
+  color: var(--text-regular);
+  margin-top: 8rpx;
+}
+/* 还空桶说明行：还空桶 ≠ 退押金，写清楚不绕弯 */
+.asset-note {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  border-top: 1rpx solid var(--border-color);
+  padding: 20rpx 28rpx;
+}
+.asset-note-text {
+  flex: 1;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.asset-note-link {
+  flex: none;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ── 分组菜单 ── */
+.group-title {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  padding: 28rpx 12rpx 12rpx;
+}
+.menu-card {
+  overflow: hidden;
+}
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 28rpx 28rpx;
+}
+.menu-row + .menu-row {
+  border-top: 1rpx solid var(--border-color);
+}
+.menu-name {
+  flex: 1;
+  font-size: var(--font-md);
+}
+.menu-desc {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  flex: none;
+}
+
+/* ── 退出登录：低频操作降级为灰字 ── */
+.logout {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  padding: 48rpx 0 16rpx;
+}

@@ -1,0 +1,306 @@
+.page {
+  padding: 24rpx;
+  padding-bottom: 60rpx;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 12rpx;
+  margin-bottom: 20rpx;
+}
+.tab {
+  flex: 1;
+  text-align: center;
+  font-size: 28rpx;
+  color: #666;
+  line-height: 68rpx;
+  border-radius: 12rpx;
+}
+.tab-on {
+  background: #f0f7ff;
+  color: #1677ff;
+  font-weight: 600;
+}
+.tab-help {
+  font-size: 24rpx;
+  color: #1677ff;
+  padding: 0 16rpx;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.card-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 16rpx;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 8rpx;
+}
+.chip {
+  padding: 12rpx 24rpx;
+  border: 1rpx solid #d9d9d9;
+  border-radius: 32rpx;
+  font-size: 25rpx;
+  color: #333;
+  margin: 0 16rpx 16rpx 0;
+}
+.chip-on {
+  border-color: #1677ff;
+  color: #1677ff;
+  background: #f0f7ff;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.field-label {
+  width: 260rpx;
+  font-size: 26rpx;
+  color: #555;
+  flex-shrink: 0;
+}
+.field-input {
+  flex: 1;
+  height: 64rpx;
+  background: #f5f6f8;
+  border-radius: 10rpx;
+  padding: 0 18rpx;
+  font-size: 26rpx;
+}
+.field-input.full {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 14rpx;
+}
+
+.picker {
+  height: 72rpx;
+  line-height: 72rpx;
+  background: #f5f6f8;
+  border-radius: 10rpx;
+  padding: 0 18rpx;
+  font-size: 26rpx;
+  color: #333;
+  margin-bottom: 14rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.row:last-child {
+  border-bottom: none;
+}
+.row-main {
+  flex: 1;
+  overflow: hidden;
+}
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.row-title {
+  font-size: 27rpx;
+  color: #222;
+}
+.row-amount {
+  font-size: 29rpx;
+  font-weight: 600;
+  color: #222;
+}
+.row-sub {
+  display: block;
+  font-size: 23rpx;
+  color: #888;
+  margin-top: 6rpx;
+  line-height: 34rpx;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  margin-left: 16rpx;
+}
+.mini-btn {
+  padding: 10rpx 22rpx;
+  border: 1rpx solid #1677ff;
+  color: #1677ff;
+  border-radius: 28rpx;
+  font-size: 24rpx;
+  margin-bottom: 10rpx;
+  white-space: nowrap;
+}
+.mini-btn-main {
+  background: #1677ff;
+  color: #fff;
+}
+.mini-btn-danger {
+  border-color: #ff4d4f;
+  color: #ff4d4f;
+}
+
+/* 条目行上的操作按钮横排换行（竖排四个按钮会把行撑得很高） */
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12rpx;
+}
+.actions-row .mini-btn {
+  margin-right: 12rpx;
+}
+
+/* ---- 自定义工资条目（v44） ---- */
+/* 方向徽标：文案来自服务端 directionText；底色不按 1/2 分 —— 加/扣的红绿只出现在
+   按条目汇总里，按服务端下发的带符号 total 判断正负。 */
+.badge {
+  font-size: 22rpx;
+  color: #1677ff;
+  background: #f0f7ff;
+  border-radius: 20rpx;
+  padding: 4rpx 18rpx;
+  flex-shrink: 0;
+  margin-left: 12rpx;
+}
+
+.sum-box {
+  background: #fafbfc;
+  border-radius: 12rpx;
+  padding: 16rpx 18rpx;
+  margin: 14rpx 0;
+}
+.sum-title {
+  font-size: 24rpx;
+  color: #666;
+  margin-bottom: 6rpx;
+}
+.sum-row {
+  display: flex;
+  align-items: center;
+  padding: 8rpx 0;
+}
+.sum-name {
+  flex: 1;
+  font-size: 26rpx;
+  color: #222;
+  overflow: hidden;
+}
+.sum-dir {
+  font-size: 22rpx;
+  color: #888;
+  margin: 0 12rpx;
+}
+.sum-amount {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+.sum-add {
+  color: #52c41a;
+}
+.sum-deduct {
+  color: #ff4d4f;
+}
+.sum-total {
+  padding-top: 16rpx;
+  border-top: 1rpx solid #f0f0f0;
+  margin-top: 6rpx;
+}
+
+.btn-primary {
+  height: 84rpx;
+  line-height: 84rpx;
+  text-align: center;
+  background: #1677ff;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  margin-top: 20rpx;
+}
+.btn-ghost {
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border: 1rpx solid #d9d9d9;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.btn-ghost.block {
+  margin-top: 18rpx;
+}
+.btn-disabled {
+  background: #a8c7f0;
+  color: #fff;
+}
+
+.empty {
+  font-size: 26rpx;
+  color: #999;
+  padding: 20rpx 0;
+  line-height: 40rpx;
+}
+.hint {
+  font-size: 23rpx;
+  color: #999;
+  line-height: 36rpx;
+  margin-top: 14rpx;
+}
+
+.mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+.dialog {
+  position: fixed;
+  left: 40rpx;
+  right: 40rpx;
+  top: 12%;
+  max-height: 76%;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 32rpx;
+  z-index: 10;
+}
+.dialog-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 16rpx;
+}
+.dialog-line {
+  font-size: 26rpx;
+  color: #555;
+  line-height: 44rpx;
+}
+.dialog-line.strong {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 10rpx;
+}
+.detail-scroll {
+  max-height: 520rpx;
+  margin-top: 8rpx;
+}

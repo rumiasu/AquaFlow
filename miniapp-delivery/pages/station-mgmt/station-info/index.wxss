@@ -1,0 +1,40 @@
+.container { background: var(--bg-color); min-height: 100vh; padding: 24rpx; }
+
+.card { background: var(--bg-card); border-radius: 20rpx; padding: 28rpx; margin-bottom: 24rpx; box-shadow: var(--shadow-sm); }
+.card-head { display: flex; align-items: center; gap: 12rpx; }
+.card-title { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
+.card-sub { display: block; font-size: 22rpx; color: var(--text-secondary); line-height: 1.5; margin-top: 10rpx; }
+
+.badge { font-size: 22rpx; padding: 2rpx 14rpx; border-radius: 20rpx; color: #fff; }
+.badge-on { background: #67C23A; }
+.badge-warn { background: #e6a23c; }
+
+.field { margin-top: 28rpx; }
+.field-label { display: block; font-size: 24rpx; color: var(--text-secondary); margin-bottom: 12rpx; }
+.required { color: #f56c6c; margin-left: 4rpx; }
+.field-input {
+  width: 100%; padding: 20rpx; border: 2rpx solid var(--border-color);
+  border-radius: 12rpx; font-size: 28rpx; box-sizing: border-box;
+  background: #fff; color: var(--text-primary);
+}
+.field-textarea {
+  width: 100%; min-height: 140rpx; padding: 20rpx; border: 2rpx solid var(--border-color);
+  border-radius: 12rpx; font-size: 28rpx; box-sizing: border-box;
+  background: #fff; color: var(--text-primary);
+}
+
+.btn-primary {
+  width: 100%; margin-top: 32rpx; padding: 22rpx;
+  background: var(--primary-gradient); color: #fff;
+  border: none; border-radius: 12rpx; font-size: 30rpx;
+}
+.btn-primary.btn-disabled { opacity: 0.6; }
+/* 清除坐标：破坏性操作，用描边按钮（不是实心红），避免误触 */
+.btn-danger-ghost {
+  width: 100%; margin-top: 16rpx; padding: 22rpx;
+  background: transparent; color: #f44336;
+  border: 1rpx solid #f44336; border-radius: 12rpx; font-size: 28rpx;
+}
+
+.page-note { font-size: 22rpx; color: var(--text-secondary); line-height: 1.6; padding: 8rpx 8rpx 40rpx; }
+.loading { text-align: center; color: var(--text-secondary); font-size: 28rpx; padding-top: 120rpx; }

@@ -1,0 +1,19 @@
+@import './styles/variable.wxss';
+@import './styles/common.wxss';
+@import './styles/theme.wxss';
+
+page {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+  font-size: 28rpx;
+  color: var(--text-primary);
+  background-color: var(--bg-color);
+  box-sizing: border-box;
+}
+
+view, text, image {
+  box-sizing: border-box;
+}
+
+image {
+  display: block;
+}

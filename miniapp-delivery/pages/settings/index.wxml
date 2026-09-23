@@ -1,0 +1,52 @@
+<view class="container">
+  <!-- 账号信息 -->
+  <view class="section">
+    <text class="section-title">账号信息</text>
+    <view class="info-row">
+      <text class="info-label">配送员ID</text>
+      <text class="info-value">{{staffId || '未登录'}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">所属水站</text>
+      <text class="info-value">{{stationName}}</text>
+    </view>
+  </view>
+
+  <!--
+    通知设置。
+    ⚠️ 这是**应用内**提醒：小程序在前台无法真推送，红点只在"打开小程序时"刷新。
+       微信订阅消息（能做到"没打开也能收到"）需要每次向用户确认授权，产品裁定暂不做 ——
+       所以副标题要如实写清"打开小程序时"，别让站长以为关掉它就收不到任何东西了。
+  -->
+  <view class="section">
+    <text class="section-title">通知设置</text>
+    <view class="setting-row">
+      <view class="setting-text">
+        <text class="setting-label">待办提醒</text>
+        <text class="setting-sub">有别人递来的申请时，首页标签亮红点（打开小程序时刷新）</text>
+      </view>
+      <switch checked="{{reminderEnabled}}" bindchange="onToggleReminder" color="#4F8EF7" />
+    </view>
+  </view>
+
+  <!-- 其他 -->
+  <view class="section">
+    <text class="section-title">其他</text>
+    <view class="setting-row" bindtap="onClearCache">
+      <text class="setting-label">清除缓存</text>
+      <text class="setting-arrow"></text>
+    </view>
+  </view>
+
+  <!-- 退出登录 -->
+  <view class="section">
+    <view class="logout-btn" bindtap="onLogout">
+      <text class="logout-text">退出登录</text>
+    </view>
+  </view>
+
+  <!-- 版本信息 -->
+  <view class="version-info">
+    <text class="version-text">AquaFlow 配送端 v1.0.0</text>
+  </view>
+</view>

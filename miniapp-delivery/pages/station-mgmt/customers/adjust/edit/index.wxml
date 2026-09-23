@@ -1,0 +1,129 @@
+<view class="container">
+  <!-- 隐私授权弹窗：本页用 wx.chooseImage 传调整凭证，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
+  <privacy-popup />
+  <view class="denied" wx:if="{{denied}}">
+    <text>资产调整仅站长可操作</text>
+  </view>
+
+  <block wx:else>
+    <view class="banner warn" wx:if="{{missingCustomer}}">
+      <text>缺少客户：本页需从客户详情页或调整单列表（带 customerId）进入，否则无法创建调整单。</text>
+    </view>
+
+    <!-- ============ 表单 ============ -->
+    <view class="card">
+      <view class="card-title">调整信息</view>
+
+      <view class="field">
+        <text class="field-label">调整类型<text class="required">*</text></text>
+        <picker mode="selector" range="{{typeLabels}}" value="{{typeIndex}}" bindchange="onTypeChange">
+          <view class="picker-value">
+            <text wx:if="{{option}}">{{option.label}}</text>
+            <text class="placeholder" wx:else>请选择调整类型</text>
+          </view>
+        </picker>
+      </view>
+
+      <!-- 桶类 / 水票类必须选商品；押金类不需要 -->
+      <block wx:if="{{option && option.needProduct}}">
+        <view class="field">
+          <text class="field-label">商品<text class="required">*</text></text>
+          <picker wx:if="{{!manualProduct}}" mode="selector" range="{{productLabels}}" value="{{productIndex}}" bindchange="onProductChange">
+            <view class="picker-value">
+              <text wx:if="{{productIndex >= 0}}">{{productLabels[productIndex]}}</text>
+              <text class="placeholder" wx:else>请选择商品</text>
+            </view>
+          </picker>
+          <input wx:else class="field-input" type="number" value="{{productIdInput}}" placeholder="手填本站商品 ID（正整数）" bindinput="onManualProductInput" />
+          <view class="field-hint" wx:if="{{productHint}}"><text>{{productHint}}</text></view>
+          <view class="field-link" bindtap="onToggleManualProduct">
+            <text>{{manualProduct ? '返回商品列表选择' : '商品不在列表里？手动填写商品 ID'}}</text>
+          </view>
+        </view>
+      </block>
+
+      <!-- 数量（OVER_ADJUST 时下面会出现「补记 / 核销」二选一） -->
+      <view class="field" wx:if="{{option && option.needQty}}">
+        <text class="field-label">数量<text class="required">*</text></text>
+        <input class="field-input" type="digit" value="{{form.qty}}" placeholder="大于 0 的整数" bindinput="onQtyInput" />
+      </view>
+
+      <view class="field" wx:if="{{option && option.isOverAdjust}}">
+        <text class="field-label">欠桶方向<text class="required">*</text></text>
+        <view class="sign-row">
+          <view class="sign-btn {{overSign === 1 ? 'active' : ''}}" bindtap="onOverSign" data-sign="1">
+            <text>补记欠桶（欠桶 +{{form.qty || 0}}）</text>
+          </view>
+          <view class="sign-btn {{overSign === -1 ? 'active' : ''}}" bindtap="onOverSign" data-sign="-1">
+            <text>核销欠桶（欠桶 -{{form.qty || 0}}）</text>
+          </view>
+        </view>
+        <view class="field-hint"><text>欠桶为正=客户欠本站桶；负=客户多还的桶寄存在本站（合法状态）。</text></view>
+      </view>
+
+      <view class="field" wx:if="{{option && option.needAmount}}">
+        <text class="field-label">金额(元)<text class="required">*</text></text>
+        <input class="field-input" type="digit" value="{{form.amount}}" placeholder="大于 0 的金额" bindinput="onAmountInput" />
+      </view>
+
+      <view class="field" wx:if="{{option && option.allowUnitPrice}}">
+        <text class="field-label">补录单价(元/个)</text>
+        <input class="field-input" type="digit" value="{{form.unitPrice}}" placeholder="留空表示按商品当前押金推断" bindinput="onUnitPriceInput" />
+        <view class="field-hint">
+          <text>留空将按商品当前押金记账，退款时需二次确认（批次会被标记为推断单价）。</text>
+        </view>
+      </view>
+
+      <view class="field">
+        <text class="field-label">调整原因<text class="required">*</text></text>
+        <textarea class="field-textarea" value="{{form.reason}}" maxlength="200" placeholder="必填，例如：2024 年历史漏录 3 个桶权益，客户提供押金条" bindinput="onReasonInput" />
+      </view>
+
+      <view class="field">
+        <text class="field-label">证据图（可选，最多 3 张）</text>
+        <view class="evidence-row">
+          <view class="evidence-item" wx:for="{{evidenceList}}" wx:key="*this">
+            <image class="evidence-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewEvidence" />
+            <text class="evidence-del" data-index="{{index}}" catchtap="onRemoveEvidence">×</text>
+          </view>
+          <view class="evidence-add" wx:if="{{evidenceList.length < 3}}" bindtap="onChooseEvidence">
+            <text>{{uploading ? '上传中...' : '+ 添加'}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ============ 试算结果（全部来自服务端，未落库） ============ -->
+    <view class="card" wx:if="{{preview}}">
+      <view class="card-title">试算结果（服务端返回，未落库）</view>
+      <view class="preview-type"><text>{{preview.adjustTypeText}}</text></view>
+      <view class="preview-head">
+        <text class="col col-name">项目</text>
+        <text class="col">调整前</text>
+        <text class="col">调整后</text>
+      </view>
+      <view class="preview-row" wx:for="{{previewRows}}" wx:key="label">
+        <text class="col col-name">{{item.label}}</text>
+        <text class="col">{{item.before}}</text>
+        <text class="col after">{{item.after}}</text>
+      </view>
+      <view class="preview-note" wx:if="{{previewExtra.estimatedRefund}}">
+        <text>预计退款金额：¥{{previewExtra.estimatedRefund}}（按批次单价核销，实际以执行为准）</text>
+      </view>
+      <view class="preview-note warn" wx:if="{{previewExtra.hasMigratedPrice}}">
+        <text>该客户存在历史推断单价的批次：退款金额可能与试算有差异，执行前请二次确认。</text>
+      </view>
+      <view class="preview-note" wx:if="{{previewExtra.estimatedRightAmount}}">
+        <text>预计计入桶权益金额：¥{{previewExtra.estimatedRightAmount}}</text>
+      </view>
+    </view>
+
+    <view class="footer">
+      <view class="btn-half ghost" bindtap="onPreview"><text>{{previewing ? '试算中...' : '试算'}}</text></view>
+      <view class="btn-half primary" bindtap="onSubmit"><text>{{submitting ? '提交中...' : '提交'}}</text></view>
+    </view>
+    <view class="footer-tip">
+      <text>提交后单据为「待执行」，需在列表或详情页点「执行」才会真正改写客户资产。</text>
+    </view>
+  </block>
+</view>

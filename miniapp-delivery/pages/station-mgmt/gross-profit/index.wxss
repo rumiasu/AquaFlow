@@ -1,0 +1,251 @@
+.page {
+  padding: 24rpx;
+  padding-bottom: 60rpx;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.card-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 16rpx;
+}
+
+.picker {
+  height: 72rpx;
+  line-height: 72rpx;
+  background: #f5f6f8;
+  border-radius: 10rpx;
+  padding: 0 18rpx;
+  font-size: 26rpx;
+  color: #333;
+  margin-bottom: 14rpx;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+}
+.chip {
+  padding: 12rpx 26rpx;
+  border: 1rpx solid #d9d9d9;
+  border-radius: 32rpx;
+  font-size: 25rpx;
+  color: #333;
+  margin: 0 16rpx 16rpx 0;
+}
+.chip-warn {
+  border-color: #ffd591;
+  color: #d46b08;
+  background: #fffbe6;
+}
+
+/* 合计：三个数字一眼看完；毛利算不出时给警示色而不是 0 */
+.hero {
+  display: flex;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 28rpx 12rpx;
+  margin-bottom: 12rpx;
+}
+.hero-item {
+  flex: 1;
+  text-align: center;
+}
+.hero-num {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #222;
+}
+.hero-ok {
+  color: #389e0d;
+}
+.hero-warn {
+  color: #d46b08;
+  font-size: 28rpx;
+}
+.hero-label {
+  display: block;
+  font-size: 23rpx;
+  color: #888;
+  margin-top: 8rpx;
+}
+
+.notice {
+  background: #fffbe6;
+  border: 1rpx solid #ffe58f;
+  border-radius: 12rpx;
+  padding: 18rpx 20rpx;
+  font-size: 24rpx;
+  color: #ad6800;
+  line-height: 38rpx;
+  margin-bottom: 12rpx;
+}
+
+/* 收入构成与净利（[2026-09-19]）：一张"减法账"，每行一个数字，合计行加重。
+   颜色沿用本页既有的语义：绿 = 正常给数（.hero-ok），橙 = 算不出/需注意（.hero-warn）。 */
+.ledger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.ledger-row:last-of-type {
+  border-bottom: none;
+}
+.ledger-label {
+  font-size: 26rpx;
+  color: #666;
+}
+.ledger-value {
+  font-size: 28rpx;
+  color: #222;
+}
+.ledger-strong {
+  border-top: 1rpx solid #f0f0f0;
+}
+.ledger-strong .ledger-label,
+.ledger-strong .ledger-value {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #222;
+}
+.ledger-ok {
+  color: #389e0d;
+}
+.ledger-warn {
+  color: #d46b08;
+  font-size: 27rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.row:last-child {
+  border-bottom: none;
+}
+.row-main {
+  flex: 1;
+  overflow: hidden;
+}
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.row-title {
+  font-size: 27rpx;
+  color: #222;
+}
+.row-amount {
+  font-size: 27rpx;
+  color: #222;
+}
+.row-sub {
+  display: block;
+  font-size: 23rpx;
+  color: #888;
+  margin-top: 6rpx;
+  line-height: 34rpx;
+}
+.row-warn {
+  color: #d46b08;
+}
+.row-arrow {
+  color: #bbb;
+  font-size: 34rpx;
+  padding-left: 12rpx;
+}
+
+.btn-primary {
+  height: 84rpx;
+  line-height: 84rpx;
+  text-align: center;
+  background: #1677ff;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+}
+.btn-ghost {
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border: 1rpx solid #d9d9d9;
+  border-radius: 12rpx;
+  font-size: 27rpx;
+  color: #333;
+}
+.btn-ghost.block {
+  margin-top: 18rpx;
+}
+.btn-disabled {
+  background: #a8c7f0;
+}
+
+.empty {
+  font-size: 26rpx;
+  color: #999;
+  padding: 20rpx 0;
+  line-height: 40rpx;
+}
+.hint {
+  font-size: 23rpx;
+  color: #999;
+  line-height: 36rpx;
+  margin-top: 12rpx;
+}
+
+.mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+.dialog {
+  position: fixed;
+  left: 48rpx;
+  right: 48rpx;
+  top: 28%;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 32rpx;
+  z-index: 10;
+}
+.dialog-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 20rpx;
+}
+.dialog-input {
+  height: 80rpx;
+  background: #f5f6f8;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+}
+.dialog-footer {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+}
+.dialog-footer .flex1 {
+  flex: 1;
+  margin-right: 12rpx;
+}
+.dialog-footer .flex1:last-child {
+  margin-right: 0;
+}

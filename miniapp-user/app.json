@@ -1,0 +1,74 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/home/notice",
+    "pages/order/list",
+    "pages/order/detail",
+    "pages/order/create",
+    "pages/order/success",
+    "pages/product/detail",
+    "pages/address/list",
+    "pages/address/edit",
+    "pages/barrel/index",
+    "pages/shop/index",
+    "pages/template/index",
+    "pages/ticket/index",
+    "pages/mine/index",
+    "pages/login/index",
+    "pages/service/index",
+    "pages/mine/about",
+    "pages/mine/edit",
+    "pages/payment/records",
+    "pages/deposit/records/index",
+    "pages/notice/index",
+    "pages/mine/company",
+    "pages/exception/list/list"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#FAF7F0",
+    "navigationBarTitleText": "AquaFlow",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#FAF7F0"
+  },
+  "tabBar": {
+    "color": "#A39E92",
+    "selectedColor": "#2E4A68",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "订水",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/order/list",
+        "text": "订单",
+        "iconPath": "static/tabbar/order.png",
+        "selectedIconPath": "static/tabbar/order-active.png"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "static/tabbar/mine.png",
+        "selectedIconPath": "static/tabbar/mine-active.png"
+      }
+    ]
+  },
+  "requiredPrivateInfos": [
+    "chooseLocation",
+    "getLocation"
+  ],
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于获取您的收货地址，方便配送"
+    }
+  },
+  "usingComponents": {
+    "privacy-popup": "/components/PrivacyPopup/index",
+    "icon": "/components/Icon/index"
+  },
+  "sitemapLocation": "sitemap.json"
+}

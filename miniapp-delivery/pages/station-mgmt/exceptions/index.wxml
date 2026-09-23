@@ -1,0 +1,152 @@
+<!--
+  站长端「异常订单」：两个页签 = 同一件事的待办面与流水面（规格 docs/design/20 §3.5 / §7）。
+  四条不要改的地方：
+    · 本页**没有处置按钮** —— 后端有 handle/execute，但那些动作会真动钱和桶账，开放与否是产品决定；
+    · 状态/类别/级别文案一律用服务端下发的字段，"待处理"用 pending 布尔；
+    · **系统告警不在这个页签里**（后端只发 OPERATION），前端不要"顺带拉全部告警"；
+    · **不显示桶损耗**：2026-09-18 已定本站不做损耗出账，那张卡恒为 0 只会让这页显乱。
+-->
+<view class="page">
+
+  <view class="empty" wx:if="{{loading}}">加载中…</view>
+
+  <block wx:if="{{!loading}}">
+    <!-- 页签。第二个带角标：有 WARN（待处置）时一眼能看见，不必点进去 -->
+    <view class="tabs">
+      <view class="tab {{activeTab === item.key ? 'tab-on' : ''}}"
+            wx:for="{{tabs}}" wx:key="key"
+            data-key="{{item.key}}" bindtap="onSwitchTab">
+        <text>{{item.label}}</text>
+        <text class="tab-badge" wx:if="{{item.key === 'alerts' && alertWarnCount > 0}}">{{alertWarnCount}}</text>
+      </view>
+    </view>
+
+    <!-- ============ 页签 1：桶异常单 ============ -->
+    <block wx:if="{{activeTab === 'exceptions'}}">
+      <!-- 近 30 天统计 -->
+      <view class="card" wx:if="{{stats}}">
+        <view class="card-title">近 30 天</view>
+        <view class="stats-row">
+          <view class="stats-item">
+            <text class="stats-value">{{stats.totalCount}}</text>
+            <text class="stats-label">异常单</text>
+          </view>
+          <view class="stats-item">
+            <text class="stats-value">{{stats.totalRefundTickets}}</text>
+            <text class="stats-label">已补水票(张)</text>
+          </view>
+          <view class="stats-item">
+            <text class="stats-value">{{stats.avgHandleHours}}</text>
+            <text class="stats-label">平均处理(小时)</text>
+          </view>
+        </view>
+        <view class="stats-note">站长端只读：这里统计的是异常单本身，补偿金额以每张单的处理记录为准。</view>
+      </view>
+      <!-- ⚠️ 统计取不到时**不能什么都不显示**：整张卡消失与"这 30 天确实 0 张"在界面上无法区分（§8.22） -->
+      <view class="card" wx:else>
+        <view class="card-title">近 30 天</view>
+        <view class="stats-note">统计暂时取不到（列表本身不受影响，下面照常显示）。</view>
+      </view>
+
+      <!-- 异常单列表 -->
+      <view class="card">
+        <view class="card-head">
+          <text class="card-title">异常单（共 {{total}} 张）</text>
+          <text class="filter {{onlyPending ? 'filter-on' : ''}}" bindtap="onTogglePending">
+            {{onlyPending ? '只看待处理' : '全部'}}
+          </text>
+        </view>
+
+        <view class="empty" wx:if="{{items.length === 0}}">这段时间没有桶异常单</view>
+
+        <block wx:for="{{items}}" wx:key="id">
+          <view class="ex {{item.pending ? 'ex-pending' : ''}}" wx:if="{{!onlyPending || item.pending}}">
+            <view class="ex-head">
+              <text class="ex-tag {{item.pending ? 'ex-tag-pending' : ''}}">{{item.statusText}}</text>
+              <text class="ex-cat">{{item.categoryText}}</text>
+              <text class="ex-id">#{{item.id}}</text>
+            </view>
+            <view class="ex-row">
+              <text class="ex-label">订单</text>
+              <text class="ex-value">#{{item.orderId}} · 客户 #{{item.customerId}}</text>
+            </view>
+            <view class="ex-row">
+              <text class="ex-label">桶</text>
+              <text class="ex-value">{{item.qtyText}}</text>
+            </view>
+            <view class="ex-row" wx:if="{{item.staffNote}}">
+              <text class="ex-label">配送员</text>
+              <text class="ex-value">{{item.staffNote}}</text>
+            </view>
+            <view class="ex-row" wx:if="{{item.suggestText}}">
+              <text class="ex-label">系统建议</text>
+              <text class="ex-value">{{item.suggestText}}</text>
+            </view>
+            <view class="ex-row" wx:if="{{item.managerNote}}">
+              <text class="ex-label">站长</text>
+              <text class="ex-value">{{item.managerNote}}</text>
+            </view>
+            <text class="ex-time">{{item.timeText}}</text>
+            <!-- 处置入口（2026-09-20 产品批准开放「A1」）：只有两个动作。
+                 ⚠️ 这里**没有任何金额/数量输入框** —— 「按系统建议补偿」的明细由后端下发、前端原样提交，
+                 人手输入金额在本仓出过事故（design/20 §9.3 的护栏之一）。 -->
+            <view class="ex-actions" wx:if="{{item.pending}}">
+              <view class="ex-btn ex-btn-ghost" data-id="{{item.id}}" bindtap="onIgnore">忽略</view>
+              <view class="ex-btn ex-btn-primary" data-id="{{item.id}}" bindtap="onApproveSuggested">按系统建议补偿</view>
+            </view>
+          </view>
+        </block>
+
+        <view class="load-hint" wx:if="{{loaded < total}}">
+          只显示了最近 {{loaded}} 张（共 {{total}} 张）
+        </view>
+      </view>
+
+      <view class="page-note">
+        本页只读：桶异常的处置（同意补偿 / 改判 / 忽略 / 退水票 / 调资产）会真正改动钱与桶账，
+        界面入口等产品确认后再开 —— 现在需要处置请走站长端资产管理流程。
+      </view>
+    </block>
+
+    <!-- ============ 页签 2：处理留痕 ============ -->
+    <block wx:else>
+      <!-- 级别筛选。计数在筛选前算好，切筛选不会把别的按钮清零 -->
+      <view class="filter-bar">
+        <view class="filter-item {{alertFilter === item.value ? 'active' : ''}}"
+              wx:for="{{alertFilters}}" wx:key="value"
+              data-value="{{item.value}}" bindtap="onAlertFilter">
+          <text>{{item.label}}</text>
+          <text class="filter-num">{{item.count}}</text>
+        </view>
+      </view>
+
+      <view class="hint">
+        <text>这里只列本站的运营告警（桶异常等待处置、补偿留痕）。系统故障类告警（对账不平、服务异常）由系统管理员处理，不会出现在此处。</text>
+      </view>
+
+      <view class="alert-card" wx:for="{{visibleAlerts}}" wx:key="id">
+        <view class="alert-head">
+          <text class="level {{item.levelClass}}">{{item.levelText}}</text>
+          <text class="time">{{item.timeText}}</text>
+        </view>
+
+        <text class="title">{{item.title}}</text>
+        <text class="content" wx:if="{{item.content}}">{{item.content}}</text>
+
+        <view class="card-foot" wx:if="{{item.sourceText || item.relatedText}}">
+          <text class="foot-item" wx:if="{{item.relatedText}}">关联：{{item.relatedText}}</text>
+          <text class="foot-item" wx:if="{{item.sourceText}}">{{item.sourceText}}</text>
+        </view>
+
+        <!-- 如实标注投递结果：LOGGED 不是"没发"，本页面就是它的送达方式 -->
+        <text class="notify">{{item.notifyText}}</text>
+      </view>
+
+      <view class="empty" wx:if="{{visibleAlerts.length === 0}}">
+        <text>{{alerts.length === 0 ? '本站暂无运营告警' : '这个级别暂时没有记录'}}</text>
+        <text class="empty-hint" wx:if="{{alerts.length > 0}}">试试切到「全部」</text>
+      </view>
+    </block>
+  </block>
+
+</view>

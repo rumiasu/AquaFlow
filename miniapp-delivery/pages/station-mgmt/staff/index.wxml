@@ -1,0 +1,106 @@
+<!--
+  站长端「员工」：员工列表 + 员工画像入口 + 绑定/解绑申请审核（两页签）。
+  [2026-09-19 IA 重组] 申请审核从「我的」tab 合并到这里（原先两份员工管理，见 index.js 文件头）。
+  文案「申请绑定 / 申请解绑」用 js 里算好的 typeText，**不在 wxml 里做 type→中文映射**。
+-->
+<view class="container">
+
+  <view class="tabs">
+    <view class="tab {{activeTab === 'staff' ? 'tab-on' : ''}}" bindtap="onTabSwitch" data-tab="staff">
+      员工<text class="tab-count" wx:if="{{list.length > 0}}">{{list.length}}</text>
+    </view>
+    <view class="tab {{activeTab === 'apply' ? 'tab-on' : ''}}" bindtap="onTabSwitch" data-tab="apply">
+      绑定申请<text class="tab-count tab-badge" wx:if="{{applications.length > 0}}">{{applications.length}}</text>
+    </view>
+  </view>
+
+  <!-- ============ 员工 ============ -->
+  <block wx:if="{{activeTab === 'staff'}}">
+    <view class="toolbar">
+      <button class="btn-add" bindtap="onShowAdd">＋ 新增配送员</button>
+    </view>
+
+    <view class="search-bar">
+      <input class="search-input" placeholder="搜索姓名/手机号" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="onSearch" />
+      <view class="search-btn" bindtap="onSearch"><text>搜索</text></view>
+    </view>
+
+    <view class="filter-chips">
+      <view class="chip {{filterStatus === 'all' ? 'active' : ''}}" data-status="all" bindtap="onFilterStatus"><text>全部</text></view>
+      <view class="chip {{filterStatus === '1' ? 'active' : ''}}" data-status="1" bindtap="onFilterStatus"><text>在职</text></view>
+      <view class="chip {{filterStatus === '0' ? 'active' : ''}}" data-status="0" bindtap="onFilterStatus"><text>离职</text></view>
+    </view>
+
+    <view class="staff-card" wx:for="{{list}}" wx:key="id">
+      <view class="avatar" style="background:{{item.avatarColor}}">{{item.avatarText}}</view>
+      <view class="staff-body">
+        <view class="name-row">
+          <text class="staff-name">{{item.name}}</text>
+          <text class="badge role">{{item.roleText}}</text>
+          <text class="badge {{item.status === 1 ? 'on' : 'off'}}">{{item.statusText}}</text>
+          <text class="badge unbind" wx:if="{{item._unbindPending}}">解绑申请中</text>
+        </view>
+        <!-- 手机号脱敏展示；要打电话点一下（脱敏是展示口径，拨号用真实值由后端下发） -->
+        <text class="staff-phone" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}">{{item.phoneMasked}} · 拨打</text>
+        <text class="staff-phone muted" wx:else>未填写电话</text>
+      </view>
+      <view class="card-actions">
+        <button class="btn-profile" data-id="{{item.id}}" bindtap="onViewProfile">画像</button>
+        <!--
+          「解除」只给配送员。⚠️ 站长**不能**被解除（2026-09-19 补的服务端护栏）：
+          解除站长 = 把水站变成没人管的孤儿（staff.station_id 置 NULL 后，
+          该站长所有 requireStationId() 端点全废、被路由去"创建水站"，
+          而站里的客户/订单/库存还在，客户照常下单却没人接；重建水站是新 id，数据搬不回来）。
+          所以这里不给按钮 —— 但**留一行字**，否则站长会以为是界面出错了。
+          水站交接属于「转让」功能，全仓还没有，等做了之后挪到「水站设置」里，别放员工列表。
+        -->
+        <button class="btn-detach" wx:if="{{item.status === 1 && item.role === 'DELIVERY'}}" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onDetach">解除</button>
+        <text class="self-note" wx:elif="{{item.status === 1}}">站长 · 不可解除</text>
+      </view>
+    </view>
+
+    <view class="empty" wx:if="{{list.length === 0}}">
+      <text>暂无员工</text>
+      <text class="empty-hint">待配送员提交绑定申请后，到「绑定申请」页签审核</text>
+    </view>
+  </block>
+
+  <!-- ============ 绑定申请（绑定 type=1 / 解绑 type=2 同一张列表） ============ -->
+  <block wx:else>
+    <view class="hint">
+      <text>配送员提交的绑定与解绑申请都在这里。绑定按「申请绑定」处理，解绑按「申请解绑」处理 —— 两者后端走不同端点，页面已按类型分流。</text>
+    </view>
+
+    <view class="staff-card" wx:for="{{applications}}" wx:key="id" wx:for-item="a">
+      <view class="avatar avatar-blue">{{a._firstChar}}</view>
+      <view class="staff-body">
+        <view class="name-row">
+          <text class="staff-name">{{a.name || '申请人'}}</text>
+          <text class="badge {{a.isUnbind ? 'off' : 'role'}}">{{a.typeText}}</text>
+        </view>
+        <text class="staff-phone">{{a.phone || '暂无电话'}}<text wx:if="{{a.applyTime}}"> · {{a.applyTime}}</text></text>
+        <text class="staff-note" wx:if="{{a.applyNote}}">备注：{{a.applyNote}}</text>
+      </view>
+      <view class="card-actions">
+        <button class="btn-approve" disabled="{{a._loading}}" data-id="{{a.id}}" bindtap="onApproveApply">{{a._loading ? '处理中' : '同意'}}</button>
+        <button class="btn-reject" disabled="{{a._loading}}" data-id="{{a.id}}" bindtap="onRejectApply">拒绝</button>
+      </view>
+    </view>
+
+    <view class="empty" wx:if="{{applications.length === 0}}">
+      <text>暂无待审申请</text>
+    </view>
+  </block>
+
+  <!-- 新增配送员弹窗 -->
+  <view class="modal-overlay" wx:if="{{showModal}}" bindtap="onCloseModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <text class="modal-title">新增配送员</text>
+      <input class="modal-input" placeholder="姓名" value="{{formName}}" bindinput="onNameInput" />
+      <input class="modal-input" placeholder="电话" type="number" value="{{formPhone}}" bindinput="onPhoneInput" />
+      <text class="modal-hint">新增后将自动归属到当前水站</text>
+      <button class="btn-submit" bindtap="onSubmitAdd">确认添加</button>
+      <button class="btn-cancel" bindtap="onCloseModal">取消</button>
+    </view>
+  </view>
+</view>

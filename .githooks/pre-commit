@@ -1,0 +1,36 @@
+#!/bin/sh
+# =============================================================================
+# pre-commit —— 防止再次出现「一口气全上交」
+#
+# 背景：本仓库历史上出现过 1099 个文件 / +148484 行的一次性提交
+# （原 commit 1a68e1a），事后无法按语义拆分，只能重写历史。
+# 暂存文件数是最容易观测的代理指标：超过阈值基本等价于「混了多件事」。
+#
+# 启用： git config core.hooksPath .githooks
+# 绕过： git commit --no-verify      （确有正当理由时使用）
+#
+# ⚠️ 与 commit-msg 同理，默认不启用 —— 受限沙箱下 sh.exe 起不来，
+#    启用后会导致该环境无法提交。详见 .githooks/commit-msg 顶部说明。
+# =============================================================================
+
+LIMIT=${AQ_COMMIT_FILE_LIMIT:-30}
+
+staged=$(git diff --cached --name-only | wc -l | tr -d ' ')
+
+if [ "$staged" -gt "$LIMIT" ]; then
+    echo "pre-commit: 本次暂存 $staged 个文件，超过阈值 $LIMIT，已拒绝。" >&2
+    echo "" >&2
+    echo "  这通常意味着把多个不相关的改动混在了一次提交里。" >&2
+    echo "  建议按语义拆开，例如：" >&2
+    echo "    git reset                      # 取消暂存" >&2
+    echo "    git add <相关文件一> && git commit -m 'fix(xxx): ...'" >&2
+    echo "    git add <相关文件二> && git commit -m 'feat(yyy): ...'" >&2
+    echo "" >&2
+    echo "  确属单次原子改动时：" >&2
+    echo "    git commit --no-verify" >&2
+    echo "  或调高阈值：" >&2
+    echo "    AQ_COMMIT_FILE_LIMIT=200 git commit ..." >&2
+    exit 1
+fi
+
+exit 0

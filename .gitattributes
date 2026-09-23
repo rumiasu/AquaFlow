@@ -1,0 +1,11 @@
+# 统一换行符：blob 一律存 LF，避免 Windows 检出 CRLF 后
+# ① `bash scripts/*.sh` 在 GitHub Actions(Linux) 上因 \r 失败
+# ② Python 脚本出现难查的语法/匹配问题
+# 仓库当前索引内已是 100% LF（git ls-files --eol 实测 701 个 i/lf + 28 个二进制），
+# 因此本文件不会引起任何既有文件的重新规范化。
+* text=auto
+*.sh   text eol=lf
+*.py   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.sql  text eol=lf

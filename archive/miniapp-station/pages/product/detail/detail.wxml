@@ -1,0 +1,103 @@
+<view class="page-container">
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+
+  <view wx:else class="content">
+    <!-- 商品基本信息 -->
+    <view class="section">
+      <view class="section-title">基本信息</view>
+      <view class="info-grid">
+        <view class="info-item">
+          <text class="label">商品名称</text>
+          <text class="value">{{product.name}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">分类</text>
+          <text class="value">{{getCategoryName(product.category)}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">品牌</text>
+          <text class="value">{{product.brand || '—'}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">规格</text>
+          <text class="value">{{product.spec || '—'}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">基础售价</text>
+          <text class="value">¥{{product.price ? product.price.toFixed(2) : '0.00'}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">押金</text>
+          <text class="value">¥{{product.deposit ? product.deposit.toFixed(2) : '0.00'}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">状态</text>
+          <text class="value status-badge {{getStatusColor(product.status)}}">{{getStatusName(product.status)}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">排序</text>
+          <text class="value">{{product.sort || 0}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 库存配置 -->
+    <view class="section" wx:if="{{inventory}}">
+      <view class="section-header">
+        <text class="section-title">库存配置</text>
+        <view class="switch-group priority-switch-group">
+          <text class="switch-label priority-label">优先展示</text>
+          <switch 
+            checked="{{inventory.priorityDisplay === 1}}" 
+            bindchange="onPriorityChange"
+            color="#007aff"
+          />
+        </view>
+      </view>
+
+      <view class="info-grid">
+        <view class="info-item">
+          <text class="label">库存数量</text>
+          <text class="value">{{inventory.quantity || 0}} 桶</text>
+        </view>
+        <view class="info-item">
+          <text class="label">是否上架</text>
+          <view class="switch-group">
+            <text class="switch-label">上架</text>
+            <switch 
+              checked="{{inventory.enabled === 1}}" 
+              bindchange="onShelfChange"
+              color="#52c41a"
+            />
+          </view>
+        </view>
+        <view class="info-item">
+          <text class="label">是否支持水票</text>
+          <view class="switch-group">
+            <text class="switch-label">支持</text>
+            <switch 
+              checked="{{inventory.ticketEnabled === 1}}" 
+              bindchange="onTicketChange"
+              color="#faad14"
+            />
+          </view>
+        </view>
+        <view class="info-item">
+          <text class="label">水票价格</text>
+          <text class="value">¥{{inventory.ticketPrice ? inventory.ticketPrice.toFixed(2) : '0.00'}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">优先展示</text>
+          <text class="value">{{inventory.priorityDisplay === 1 ? '是' : '否'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 保存按钮 -->
+    <view class="save-area" wx:if="{{inventory}}">
+      <button class="save-btn {{saving ? 'disabled' : ''}}" bindtap="onSave" disabled="{{saving}}">
+        {{saving ? '保存中...' : '保存配置'}}
+      </button>
+    </view>
+  </view>
+</view>

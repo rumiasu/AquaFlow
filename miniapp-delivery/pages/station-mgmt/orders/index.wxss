@@ -1,0 +1,33 @@
+.container { background: var(--bg-color); min-height: 100vh; padding: 24rpx; }
+.tab-bar { display: flex; background: var(--bg-card); border-radius: 16rpx; margin-bottom: 24rpx; overflow: hidden; }
+.tab-item { flex: 1; text-align: center; padding: 20rpx 0; font-size: 28rpx; color: var(--text-regular); }
+.tab-item.active { color: var(--primary); font-weight: 600; background: var(--primary-bg); }
+.order-card { background: var(--bg-card); border-radius: 20rpx; padding: 24rpx; margin-bottom: 20rpx; box-shadow: var(--shadow-sm); }
+.card-header { display: flex; align-items: center; margin-bottom: 16rpx; }
+.status-tag { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 20rpx; margin-right: 16rpx; }
+.status-pending { background: #fff3e0; color: #e65100; }
+.status-delivering { background: #e3f2fd; color: #1565c0; }
+.status-completed { background: #e8f5e9; color: #2e7d32; }
+
+.status-warning { background: #fff3e0; color: #e65100; }
+.status-cancelled { background: #f5f5f5; color: #757575; }
+.order-id { font-size: 26rpx; color: var(--text-secondary); flex: 1; }
+.order-time { font-size: 22rpx; color: var(--text-secondary); }
+.customer-info { display: flex; justify-content: space-between; margin-bottom: 12rpx; }
+.customer-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
+.customer-phone { font-size: 26rpx; color: var(--text-secondary); }
+.product-info { display: flex; justify-content: space-between; }
+.product-name { font-size: 26rpx; color: var(--text-regular); }
+.product-qty { font-size: 26rpx; color: var(--text-regular); }
+.empty, .loading { text-align: center; color: var(--text-secondary); font-size: var(--font-md); padding-top: 120rpx; }
+/* 跨站履约单：归并成一行（默认收起），点开看逐单明细。视觉上刻意与本站单区分（虚线边框） */
+.cross-card { border: 1rpx dashed var(--border-color); border-radius: 12rpx; padding: 20rpx; margin-bottom: 20rpx; background: var(--bg-page); }
+.cross-head { display: flex; align-items: baseline; justify-content: space-between; }
+.cross-title { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
+.cross-amount { font-size: 28rpx; color: var(--text-primary); }
+.cross-toggle { font-size: 24rpx; color: var(--text-secondary); }
+.cross-sub { display: flex; justify-content: space-between; margin-top: 10rpx; font-size: 24rpx; color: var(--text-secondary); }
+.cross-row { border-top: 1rpx solid var(--border-color); padding-top: 14rpx; margin-top: 14rpx; }
+.cross-row-head { display: flex; align-items: center; }
+.cross-row-body { display: flex; justify-content: space-between; margin-top: 8rpx; }
+.cross-row-addr { margin-top: 6rpx; font-size: 24rpx; color: var(--text-secondary); }

@@ -1,0 +1,103 @@
+<view class="container">
+  <loading wx:if="{{loading}}"></loading>
+  <block wx:else>
+    <view class="brand-header">
+      <image class="brand-icon" src="/assets/logo/aquaflow.jpg" mode="aspectFill" />
+      <text class="brand-name">AquaFlow</text>
+      <text class="brand-slogan">新鲜水源 · 快速配送 · 品质保障</text>
+      <view class="brand-login" wx:if="{{!isLogin}}" bindtap="onLogin">
+        <text>登录下单享优惠</text>
+      </view>
+    </view>
+
+    <!-- 水站营业状态（软状态）：只提示、不隐藏商品、不拦截下单 -->
+    <view class="station-status-banner" wx:if="{{stationStatusHint}}">
+      <text class="banner-icon">⏰</text>
+      <text class="banner-text">{{stationStatusHint}}</text>
+    </view>
+
+    <view class="station-bar" wx:if="{{isLogin}}" bindtap="onOpenStationPicker">
+      <icon name="location" size="32rpx" color="#2E4A68" />
+      <text class="station-bar-label" wx:if="{{currentStation}}">{{currentStation.name}}</text>
+      <text class="station-bar-label station-bar-empty" wx:else>请选择水站查看商品</text>
+      <view class="station-bar-switch">
+        <text>切换</text>
+      </view>
+    </view>
+
+    <view class="search-bar">
+      <view class="search-input-wrap">
+        <icon name="search" size="32rpx" color="#94A3B8" />
+        <input class="search-input" placeholder="搜索商品" value="{{keywords}}" bindinput="onSearch" focus="{{focusSearch}}" />
+        <text class="search-clear" wx:if="{{keywords}}" bindtap="onClearSearch">×</text>
+      </view>
+    </view>
+
+    <view class="section">
+      <text class="section-title">全部商品</text>
+      <view class="product-grid">
+        <view class="product-card"
+          wx:for="{{allProducts}}" wx:key="id"
+          wx:if="{{!keywords || item.name.indexOf(keywords) >= 0 || (item.brand && item.brand.indexOf(keywords) >= 0) || (item.spec && item.spec.indexOf(keywords) >= 0)}}">
+          <view class="product-img" wx:if="{{item.imageUrl}}">
+            <image src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+          </view>
+          <view class="product-img product-img-placeholder" wx:else>
+            <text>💧</text>
+          </view>
+          <view class="product-info">
+            <view class="name-row">
+              <text class="product-name">{{item.name}}</text>
+            </view>
+            <text class="product-brand" wx:if="{{item.brand}}">{{item.brand}} · {{item.spec}}</text>
+            <view class="info-row">
+              <!-- 本站有效价（站级覆盖 → 通用库参考价），后端下发，前端不再自己拼价 -->
+              <text class="product-price">¥{{item.effectivePrice}}</text>
+              <text class="product-deposit" wx:if="{{item.effectiveDeposit > 0}}">押金 ¥{{item.effectiveDeposit}}</text>
+            </view>
+            <view class="btn-row">
+              <view class="cart-btn" bindtap="onAddToCart" data-id="{{item.id}}">
+                <text>加入购物车</text>
+              </view>
+              <view class="buy-btn {{isLogin ? '' : 'login-required'}}" bindtap="onBuyNow" data-id="{{item.id}}">
+                <text>立即购买</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+      <empty wx:if="{{allProducts.length === 0}}" text="暂无商品"></empty>
+    </view>
+  </block>
+
+  <view class="fab-cart" wx:if="{{isLogin && cartCount > 0}}" bindtap="onGoCheckout">
+    <icon name="cart" size="40rpx" color="#FFFFFF" />
+    <view class="fab-cart-badge">
+      <text>{{cartCount}}</text>
+    </view>
+  </view>
+
+  <view class="station-picker-mask" wx:if="{{showStationPicker}}" bindtap="onCloseStationPicker"></view>
+  <view class="station-picker {{showStationPicker ? 'show' : ''}}">
+    <view class="station-picker-header">
+      <text class="station-picker-title">选择水站</text>
+      <view class="station-picker-close" bindtap="onCloseStationPicker">
+        <text>关闭</text>
+      </view>
+    </view>
+    <view class="station-picker-list">
+      <view class="station-picker-item" wx:for="{{stationList}}" wx:key="id"
+            bindtap="onSelectStation" data-id="{{item.id}}"
+            class="{{item.id === currentStationId ? 'active' : ''}}">
+        <view class="station-picker-item-info">
+          <text class="station-picker-item-name">{{item.name}}</text>
+          <text class="station-picker-item-addr" wx:if="{{item.address}}">{{item.address}}</text>
+        </view>
+        <text class="station-picker-item-check" wx:if="{{item.id === currentStationId}}">当前</text>
+      </view>
+      <view class="station-picker-empty" wx:if="{{stationList.length === 0}}">
+        <text>暂无可用水站</text>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,15 @@
+.price {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--price-color);
+  font-weight: 700;
+}
+.symbol {
+  font-size: 24rpx;
+}
+.integer {
+  font-size: 36rpx;
+}
+.decimal {
+  font-size: 24rpx;
+}

@@ -1,0 +1,515 @@
+/* 商品与库存（站长）：选品目录 + 本站设置 + 自己定义商品。
+   2026-09-16 重构后本页承担 11 项功能中的：选品、本站设置（上架/价格/水票/优先展示）、
+   库存入库与盘点、库存流水、自定义商品增删改、上报通用库。 */
+
+.container {
+  background: var(--bg-color);
+  min-height: 100vh;
+  padding: 24rpx;
+  padding-bottom: 220rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 顶部：分段 / 搜索 / 分类 ===== */
+.top-bar {
+  background: var(--bg-card);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.tabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12rpx;
+  padding: 6rpx;
+  margin-bottom: 18rpx;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  padding: 12rpx 0;
+  border-radius: 10rpx;
+}
+
+.tab.active {
+  background: var(--primary, #4F8EF7);
+  color: #fff;
+  font-weight: 600;
+}
+
+.search-input {
+  width: 100%;
+  height: 72rpx;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 26rpx;
+  box-sizing: border-box;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.chip {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 999rpx;
+  padding: 8rpx 20rpx;
+}
+
+.chip.active {
+  background: var(--primary, #4F8EF7);
+  color: #fff;
+}
+
+.hint-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16rpx;
+}
+
+.hint { font-size: 22rpx; color: var(--text-secondary); }
+.link { font-size: 24rpx; color: var(--primary, #4F8EF7); }
+
+/* ===== 列表 ===== */
+.card {
+  display: flex;
+  align-items: flex-start;
+  background: var(--bg-card);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 18rpx;
+}
+
+.thumb {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+}
+
+.thumb.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44rpx;
+}
+
+.info { flex: 1; min-width: 0; margin-left: 20rpx; }
+
+.name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8rpx; }
+.name { font-size: 30rpx; font-weight: 600; }
+
+.sub { display: block; font-size: 24rpx; color: var(--text-secondary); margin-top: 6rpx; }
+
+.tags { display: flex; flex-wrap: wrap; gap: 10rpx; margin-top: 12rpx; }
+
+.tag {
+  font-size: 22rpx;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-secondary);
+}
+
+.tag.platform { background: #eef4ff; color: #2E4A68; }
+.tag.mine { background: #fff7e6; color: #b26a00; }
+.tag.on { background: #e8f7ee; color: #1a7f45; }
+.tag.off { background: rgba(0, 0, 0, 0.04); color: #98a2b3; }
+.tag.stock { background: #f4f0ff; color: #6b4ee6; }
+.tag.price { background: #eef4ff; color: #2E4A68; }
+.tag.ticket { background: #fff7e6; color: #b26a00; }
+.tag.star { background: #ffeceb; color: #d92d20; }
+
+.action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10rpx;
+  margin-left: 12rpx;
+}
+
+.btn-mini {
+  font-size: 24rpx;
+  color: #fff;
+  background: var(--primary, #4F8EF7);
+  border-radius: 999rpx;
+  padding: 10rpx 24rpx;
+}
+
+.btn-mini.ghost { background: #eef4ff; color: #2E4A68; }
+
+.mine-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6rpx; }
+.btn-link { font-size: 22rpx; color: var(--text-secondary); }
+.btn-link.danger { color: #d92d20; }
+
+.empty, .loading {
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  padding: 80rpx 0;
+}
+
+/* ===== 底部独立入口（自己定义商品）===== */
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--bg-card);
+  border-top: 1rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.btn-define {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: var(--primary, #4F8EF7);
+  color: #fff;
+  border-radius: 44rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  border: none;
+}
+
+/* ===== 弹窗 ===== */
+.modal-mask {
+  position: fixed;
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  z-index: 20;
+}
+
+.modal {
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border-radius: 28rpx 28rpx 0 0;
+  padding: 32rpx 28rpx calc(32rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.modal-header { font-size: 32rpx; font-weight: 600; }
+.modal-sub { font-size: 24rpx; color: var(--text-secondary); margin-top: 8rpx; }
+
+.form-row { display: flex; gap: 20rpx; margin-top: 20rpx; }
+.form-item { flex: 1; margin-top: 20rpx; }
+.form-item.half { margin-top: 0; }
+
+.label { display: block; font-size: 24rpx; color: var(--text-secondary); margin-bottom: 10rpx; }
+
+.input, .picker-text {
+  width: 100%;
+  height: 76rpx;
+  line-height: 76rpx;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.stock-row { display: flex; align-items: center; gap: 16rpx; }
+.stock-now { font-size: 32rpx; font-weight: 600; color: #2E4A68; }
+.stock-btns { display: flex; gap: 16rpx; margin-top: 12rpx; }
+
+.switch-row { display: flex; gap: 40rpx; margin-top: 24rpx; }
+.switch-item { display: flex; align-items: center; gap: 12rpx; }
+.switch-label { font-size: 26rpx; }
+
+.modal-img {
+  position: relative;
+  height: 220rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.03);
+  margin-top: 20rpx;
+}
+
+/* 平台图库入口：紧跟在自传图下方的一条轻量入口 */
+.preset-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  margin-top: 16rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid var(--border-color);
+  background: rgba(0, 0, 0, 0.02);
+}
+.preset-entry-text {
+  font-size: 26rpx;
+  color: var(--primary-color);
+}
+.preset-entry-sub {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+/* 预设图网格 */
+.preset-loading,
+.preset-empty {
+  padding: 48rpx 0;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+.preset-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+.preset-item {
+  position: relative;
+  width: calc((100% - 32rpx) / 3);
+  height: 200rpx;
+  border-radius: 12rpx;
+  overflow: hidden;
+  border: 2rpx solid var(--border-color);
+  background: rgba(0, 0, 0, 0.03);
+  box-sizing: border-box;
+}
+.preset-item.active {
+  border-color: var(--primary-color);
+}
+.preset-thumb {
+  width: 100%;
+  height: 100%;
+}
+.preset-check {
+  position: absolute;
+  right: 8rpx;
+  bottom: 8rpx;
+  font-size: 20rpx;
+  color: #fff;
+  background: var(--primary-color);
+  border-radius: 6rpx;
+  padding: 2rpx 10rpx;
+}
+
+.preview { width: 100%; height: 100%; }
+
+.preview.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+.img-hint {
+  position: absolute;
+  right: 16rpx;
+  bottom: 12rpx;
+  font-size: 22rpx;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+}
+
+.modal-footer { display: flex; gap: 16rpx; margin-top: 32rpx; }
+
+.btn-cancel, .btn-save, .btn-danger {
+  flex: 1;
+  height: 84rpx;
+  line-height: 84rpx;
+  border-radius: 42rpx;
+  font-size: 28rpx;
+  border: none;
+}
+
+.btn-cancel { background: rgba(0, 0, 0, 0.05); color: var(--text-secondary); }
+.btn-save { background: var(--primary, #4F8EF7); color: #fff; font-weight: 600; }
+.btn-danger { background: #ffeceb; color: #d92d20; }
+
+/* ===== 库存流水 ===== */
+.records { margin-top: 20rpx; max-height: 60vh; overflow-y: auto; }
+
+.record {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid rgba(0, 0, 0, 0.05);
+}
+
+.record-type { font-size: 22rpx; color: var(--text-secondary); width: 200rpx; }
+.record-delta { font-size: 26rpx; font-weight: 600; width: 100rpx; }
+.record-delta.plus { color: #1a7f45; }
+.record-delta.minus { color: #d92d20; }
+.record-note { flex: 1; font-size: 22rpx; color: var(--text-secondary); text-align: right; }
+
+/* ===== P0 优化新增样式 ===== */
+.chip.quick { background: #fff; border: 1rpx solid rgba(0,0,0,0.08); }
+.chip.quick.active { background: #2E4A68; color: #fff; border-color: #2E4A68; }
+
+.tag.submit { background: #f4f0ff; color: #6b4ee6; }
+.tag.on { background: #e8f7ee; color: #1a7f45; }
+.tag.off { background: rgba(0,0,0,0.04); color: #98a2b3; }
+.tag.star { background: #ffeceb; color: #d92d20; }
+
+.hint-actions { display: flex; gap: 20rpx; }
+
+.seg {
+  display: flex;
+  background: rgba(0,0,0,0.04);
+  border-radius: 12rpx;
+  padding: 6rpx;
+  margin-bottom: 12rpx;
+}
+.seg-item {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  padding: 12rpx 0;
+  border-radius: 10rpx;
+  color: var(--text-secondary);
+}
+.seg-item.active { background: var(--primary, #4F8EF7); color: #fff; font-weight: 600; }
+
+.stock-preview { margin-top: 10rpx; font-size: 24rpx; color: #2E4A68; }
+
+.btn-inline {
+  margin-top: 16rpx;
+  height: 76rpx;
+  line-height: 76rpx;
+  background: var(--primary, #4F8EF7);
+  color: #fff;
+  border-radius: 38rpx;
+  font-size: 28rpx;
+  border: none;
+}
+
+.warn-inline {
+  margin-top: 20rpx;
+  padding: 18rpx 20rpx;
+  background: #fff7e6;
+  border-radius: 12rpx;
+}
+.warn-title { display: block; font-size: 22rpx; color: #b26a00; margin-bottom: 6rpx; }
+.warn-item { display: block; font-size: 24rpx; color: #b26a00; line-height: 1.5; }
+
+.filter-row { display: flex; align-items: center; margin-top: 16rpx; }
+.filter-chip {
+  font-size: 24rpx;
+  background: #eef4ff;
+  color: #2E4A68;
+  border-radius: 999rpx;
+  padding: 8rpx 18rpx;
+}
+.filter-clear { margin-left: 10rpx; font-size: 26rpx; }
+.filter-hint { font-size: 22rpx; color: var(--text-secondary); }
+
+.record-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.record-product { font-size: 24rpx; color: #1a1a1a; }
+.record-meta { font-size: 20rpx; color: var(--text-secondary); margin-top: 4rpx; }
+.record-type { font-size: 20rpx; color: var(--text-secondary); width: 180rpx; }
+
+.load-more {
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--primary, #4F8EF7);
+  padding: 24rpx 0;
+}
+
+/* ========== 水票档位（商品上架快捷定义） ==========
+   基本档位在这里配完，更丰富的设置跳「水票档位」独立模块 */
+.pkg-block {
+  margin: 8rpx 0 4rpx;
+  padding: 16rpx 20rpx 20rpx;
+  background: #f7f8fa;
+  border-radius: 12rpx;
+}
+
+.pkg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pkg-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.pkg-hint {
+  display: block;
+  font-size: 22rpx;
+  color: #8a9099;
+  line-height: 1.5;
+  margin-top: 8rpx;
+}
+
+.pkg-row {
+  display: flex;
+  align-items: center;
+  margin-top: 12rpx;
+}
+
+.pkg-row-deleted {
+  opacity: 0.45;
+}
+
+.pkg-input {
+  background: #ffffff;
+  border-radius: 8rpx;
+  padding: 8rpx 12rpx;
+  font-size: 26rpx;
+  color: #1f2329;
+  text-align: center;
+}
+
+.pkg-input.qty {
+  width: 110rpx;
+}
+
+.pkg-input.price {
+  width: 160rpx;
+}
+
+.pkg-unit {
+  font-size: 22rpx;
+  color: #8a9099;
+  margin: 0 8rpx;
+}
+
+.pkg-arrow {
+  font-size: 24rpx;
+  color: #a3a8b0;
+  margin: 0 6rpx;
+}
+
+.pkg-del {
+  margin-left: auto;
+  font-size: 22rpx;
+  color: #d4380d;
+  padding: 6rpx 12rpx;
+}
+
+.pkg-empty {
+  display: block;
+  font-size: 22rpx;
+  color: #a3a8b0;
+  margin-top: 12rpx;
+}

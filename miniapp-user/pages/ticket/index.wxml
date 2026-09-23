@@ -1,0 +1,188 @@
+<view class="container">
+  <loading wx:if="{{loading}}"></loading>
+
+  <view class="ticket-content" wx:else>
+    <!--
+      数据没加载出来的提示（空串时不渲染）。[2026-09-20 真机联调] 原来任一请求失败都被静默吞掉，
+      页面照旧显示「0 张 / 暂无水票 / 暂无记录」。样式复用 styles/common.wxss 的 .load-error。
+    -->
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+
+    <!-- 当前水站：水票按「客户 × 水站」隔离（A 站买的票不能抵 B 站的单，也不在 B 站显示）。
+         不写清楚，客户换个站就会以为"我的票少了" —— 站长接到这种电话也解释不了。
+         文案与样式照抄 pages/deposit/records（那里已有同一条提示条，保持一致）。 -->
+    <view class="station-bar" wx:if="{{currentStation && currentStation.name}}">
+      <text class="station-bar-name">{{currentStation.name}}</text>
+      <text class="station-bar-tip">水票按水站独立，这里只显示该站的水票</text>
+    </view>
+
+    <!-- 可用水票卡片 -->
+    <view class="ticket-balance-card">
+      <view class="balance-left">
+        <text class="balance-label">可用水票</text>
+        <view class="balance-amount">
+          <!-- [2026-09-20] 余额没拉到就显示「—」：显示 0 张会让客户以为票没了（钱的事，宁可不显示数） -->
+          <text class="balance-count">{{accountsFailed ? '—' : totalTickets}}</text>
+          <text class="balance-unit">张</text>
+        </view>
+        <text class="balance-total" wx:if="{{totalValue > 0}}">共计 ¥{{totalValue}}</text>
+      </view>
+      <view class="balance-icon"><icon name="ticket" size="56rpx" color="rgba(255,255,255,0.9)" /></view>
+    </view>
+
+    <!-- 标签切换 -->
+    <view class="tabs">
+      <view
+        class="tab-item {{currentTab === item.id ? 'active' : ''}}"
+        wx:for="{{tabs}}"
+        wx:key="id"
+        bindtap="onTabChange"
+        data-id="{{item.id}}"
+      >
+        <text>{{item.name}}</text>
+      </view>
+    </view>
+
+    <!-- 水票明细 -->
+    <view class="tab-content" wx:if="{{currentTab === 0}}">
+      <view class="section-title">水票明细</view>
+      <view class="ticket-list">
+        <view class="ticket-item" wx:for="{{accounts}}" wx:key="id">
+          <view class="ticket-info">
+            <text class="ticket-name">{{item.productName || item.waterTypeName}}</text>
+            <text class="ticket-spec" wx:if="{{item.productSpec || item.waterTypeSpec}}">{{item.productSpec || item.waterTypeSpec}}</text>
+            <text class="ticket-expire" wx:if="{{item.expireTime}}">有效期至 {{item.expireTime}}</text>
+          </view>
+          <view class="ticket-quantity">
+            <text class="quantity-value">{{item.remainQuantity}}</text>
+            <text class="quantity-unit">张</text>
+          </view>
+        </view>
+        <empty wx:if="{{accounts.length === 0}}" text="暂无水票"></empty>
+      </view>
+    </view>
+
+    <!-- 消费记录 -->
+    <view class="tab-content" wx:if="{{currentTab === 1}}">
+      <view class="section-title">消费记录</view>
+      <view class="record-list">
+        <view class="record-item" wx:for="{{records}}" wx:key="id">
+          <view class="record-info">
+            <text class="record-name">{{item.productName || item.waterTypeName}}</text>
+            <text class="record-time">{{item.createTime}}</text>
+          </view>
+          <view class="record-quantity">
+            <text class="quantity-change {{item.increaseQty > 0 ? 'increase' : 'decrease'}}">
+              {{item.increaseQty > 0 ? '+' : ''}}{{item.increaseQty > 0 ? item.increaseQty : -item.decreaseQty}}
+            </text>
+          </view>
+        </view>
+        <empty wx:if="{{records.length === 0}}" text="暂无记录"></empty>
+      </view>
+    </view>
+
+    <!-- 购买水票按钮 -->
+    <view class="buy-ticket-section">
+      <view class="buy-ticket-btn" bindtap="onShowPurchase">
+        <text>购买水票</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 购买水票弹窗 -->
+  <view class="modal-mask" wx:if="{{showPurchase}}" bindtap="onClosePurchase"></view>
+  <view class="modal-body {{showPurchase ? 'show' : ''}}" wx:if="{{showPurchase}}" catchtap="stopPropagation">
+    <view class="modal-header">
+      <text class="modal-title">购买水票</text>
+      <text class="modal-close" bindtap="onClosePurchase">×</text>
+    </view>
+
+    <scroll-view scroll-y class="modal-scroll">
+      <!-- 选择商品。
+           ⚠️ 这里**只有真实商品**，没有"统一水票"这种东西 —— 产品口径「统一水票在站长端是特殊化的，
+           但在**用户端看起来没区别**…不是专门卖统一水票」。某款水按不按统一折扣卖，
+           体现在下面拉到的档位上，不体现在商品名上。 -->
+      <text class="modal-label">选择商品</text>
+      <view class="product-list">
+        <view
+          class="product-item {{buyForm.productId === item.id ? 'active' : ''}}"
+          wx:for="{{buyProducts}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onBuyProductSelect"
+        >
+          <text class="product-name">{{item.name}}</text>
+          <!-- 面值 = 本站水票价（后端 effectiveTicketPrice），与扣款同源 -->
+          <text class="product-price" wx:if="{{item.effectiveTicketPrice}}">¥{{item.effectiveTicketPrice}}/张</text>
+        </view>
+      </view>
+
+      <!-- 档位（价目表）。两种来源在界面上**长得一样**：
+             · CUSTOM  = 站长给这款水挂的定制档位；
+             · UNIFIED = 站级统一折扣按**这款水自己的价**折算出来的档位。
+           总价与均价全部用服务端下发的值，这里不做 price/qty 的算术。 -->
+      <block wx:if="{{buyPackages.length}}">
+        <text class="modal-label">按档位买（越买越便宜）</text>
+        <view class="pkg-list">
+          <view
+            class="pkg-item {{(buyForm.packageId && buyForm.packageId === item.packageId) || (buyForm.unifiedQty && buyForm.unifiedQty === item.qty && item.source === 'UNIFIED') ? 'active' : ''}}"
+            wx:for="{{buyPackages}}"
+            wx:key="qty"
+            data-id="{{item.packageId || item.qty}}"
+            data-source="{{item.source}}"
+            bindtap="onBuyPackageSelect"
+          >
+            <text class="pkg-title">{{item.title || item.qty + ' 张'}}</text>
+            <text class="pkg-price">¥{{item.price}}</text>
+            <text class="pkg-sub">{{item.qty}} 张 · 均价 ¥{{item.unitPrice}}/张</text>
+          </view>
+        </view>
+        <view class="pkg-clear" bindtap="onBuyPackageClear">
+          {{buyForm.packageId || buyForm.unifiedQty ? '不按档位，改为散买' : '当前：按单张散买'}}
+        </view>
+      </block>
+
+      <!-- 数量：张数由所选档位决定（后端会校验张数必须等于档位张数） -->
+      <text class="modal-label">购买数量</text>
+      <view class="qty-row">
+        <view class="qty-btn {{buyForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onBuyQtyStep" data-type="minus">
+          <text>-</text>
+        </view>
+        <input class="qty-input" type="number" value="{{buyForm.quantity}}" bindinput="onBuyQuantityInput" />
+        <view class="qty-btn" bindtap="onBuyQtyStep" data-type="add">
+          <text>+</text>
+        </view>
+      </view>
+      <text class="pkg-lock" wx:if="{{buyForm.packageId || buyForm.unifiedQty}}">
+        已按档位锁定张数；改数量会自动退回「按单张散买」。
+      </text>
+
+      <!-- 支付方式 -->
+      <text class="modal-label">支付方式</text>
+      <view class="method-list">
+        <view
+          class="method-item {{buyForm.paymentMethod === item.id ? 'active' : ''}}"
+          wx:for="{{buyMethods}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onBuyPaymentMethodSelect"
+        >
+          <view class="method-info">
+            <text class="method-name">{{item.name}}</text>
+            <text class="method-desc">{{item.desc}}</text>
+          </view>
+          <view class="method-radio {{buyForm.paymentMethod === item.id ? 'checked' : ''}}"></view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="modal-footer">
+      <view class="modal-btn cancel" bindtap="onClosePurchase">
+        <text>取消</text>
+      </view>
+      <view class="modal-btn confirm {{submitting ? 'disabled' : ''}}" bindtap="onBuySubmit">
+        <text>{{submitting ? '购买中...' : '确认购买 ¥' + buyForm.totalPrice}}</text>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,227 @@
+.page {
+  padding: 24rpx;
+  padding-bottom: 60rpx;
+}
+
+/* 总览：三个数字一眼看完，逾期标红 */
+.hero {
+  display: flex;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 28rpx 12rpx;
+  margin-bottom: 12rpx;
+}
+.hero-item {
+  flex: 1;
+  text-align: center;
+}
+.hero-num {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #222;
+}
+.hero-danger {
+  color: #cf1322;
+}
+.hero-label {
+  display: block;
+  font-size: 23rpx;
+  color: #888;
+  margin-top: 8rpx;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.card-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #222;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.row-title {
+  font-size: 28rpx;
+  color: #222;
+}
+.row-amount {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #222;
+}
+.row-sub {
+  font-size: 24rpx;
+  color: #888;
+  margin-top: 8rpx;
+  line-height: 36rpx;
+}
+.row-danger {
+  display: block;
+  font-size: 24rpx;
+  color: #cf1322;
+  margin-top: 6rpx;
+}
+
+.overdue-tag {
+  margin-top: 12rpx;
+  background: #fff1f0;
+  color: #cf1322;
+  font-size: 23rpx;
+  line-height: 44rpx;
+  padding: 0 16rpx;
+  border-radius: 8rpx;
+  display: inline-block;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.row:last-child {
+  border-bottom: none;
+}
+.row-main {
+  flex: 1;
+  overflow: hidden;
+}
+
+.check {
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  text-align: center;
+  border: 1rpx solid #d9d9d9;
+  border-radius: 8rpx;
+  margin-right: 20rpx;
+  font-size: 28rpx;
+  color: #fff;
+  flex-shrink: 0;
+}
+.check-on {
+  background: #1677ff;
+  border-color: #1677ff;
+}
+
+.link {
+  color: #1677ff;
+  font-size: 26rpx;
+}
+
+.btn-row {
+  display: flex;
+  align-items: center;
+  margin-top: 20rpx;
+}
+.btn-ghost {
+  padding: 12rpx 28rpx;
+  border: 1rpx solid #d9d9d9;
+  border-radius: 32rpx;
+  font-size: 25rpx;
+  color: #333;
+  margin-right: 16rpx;
+}
+.btn-primary {
+  height: 84rpx;
+  line-height: 84rpx;
+  text-align: center;
+  background: #1677ff;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+}
+.btn-inline {
+  flex: 1;
+  margin-left: 16rpx;
+}
+.btn-disabled {
+  background: #a8c7f0;
+}
+
+.empty {
+  font-size: 26rpx;
+  color: #999;
+  padding: 24rpx 0;
+  line-height: 40rpx;
+}
+.hint {
+  font-size: 23rpx;
+  color: #999;
+  line-height: 36rpx;
+  margin-top: 12rpx;
+}
+
+/* ========== 验资块（v60，账期弹窗内） ==========
+   数字与那句话**全部来自服务端**（GET /customers/{id}/risk），这里只负责排版与配色。
+   只染"预警/冻结"为红、"关注"为黄 —— 与后端 CustomerRiskService 的两档口径一致：
+   关注是**正常经营**（月结客户天天如此），别做成告警的样子。 */
+.risk-box {
+  background: #F7F8FA;
+  border-radius: 12rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 20rpx;
+}
+.risk-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 25rpx;
+  line-height: 42rpx;
+}
+.risk-label { color: #888; }
+.risk-value { color: #222; font-weight: 500; }
+.risk-note {
+  font-size: 23rpx;
+  color: #B26A00;
+  line-height: 34rpx;
+  margin-top: 8rpx;
+}
+
+/* 「把未结账单也改成新账期」—— 与保存按钮分开一格，避免误点 */
+.btn-recalc {
+  display: block;
+  margin-top: 20rpx;
+  text-align: center;
+}
+
+/* 账期编辑弹层 */
+.mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+.dialog {
+  position: fixed;
+  left: 48rpx;
+  right: 48rpx;
+  top: 30%;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 32rpx;
+  z-index: 10;
+}
+.dialog-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 20rpx;
+}
+.dialog-input {
+  height: 80rpx;
+  background: #f5f6f8;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+}

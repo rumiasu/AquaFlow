@@ -1,0 +1,157 @@
+# ==================== IDE 配置 ====================
+.idea/
+**/*.iml
+project.private.config.json
+
+# ==================== 编译构建产物 ====================
+out/
+target/
+AquaFlow-backend/build/
+AquaFlow-backend/.gradle/
+AquaFlow-backend/.gradle_alt/
+AquaFlow-backend/.gradle_alt2/
+AquaFlow-backend/.gradle_b/
+AquaFlow-frontend/dist/
+miniapp-user/dist/
+
+# ==================== 依赖目录 ====================
+AquaFlow-frontend/node_modules/
+miniapp-user/node_modules/
+
+# ==================== 日志、临时文件 ====================
+*.log
+boot.log
+*.tmp
+*.bak
+.DS_Store
+
+# ==================== 调试截图（临时截图不上传，项目展示图手动放到docs/images再取消本条）
+screenshot_*.png
+
+# ==================== 敏感配置（不提交）====================
+# 说明（2026-09-13 更新）：application.yml 已改为**脱敏入库**（全部取值为 ${ENV:...} 占位符，
+# 不含任何真实密钥），因此不再忽略它 —— 否则新克隆既起不来、CI 也无法运行。
+# 真实密钥只存在于本地的 application-local.yml / 生产环境变量中。
+# 注意：历史提交里的 application.yml 曾含真实密钥，仅 ignore 无法消除历史泄露，
+# 按 docs/SECURITY-密钥处置指南.md 吊销轮换 + 清理 git 历史。
+application-prod.yml
+application-local.yml
+.env
+.env.*
+!.env.example
+*.db
+
+# ==================== 密钥相关（补充）====================
+# 小程序端本地环境文件（IDE 生成，避免混入密钥）
+.env.local
+miniapp-*/.env.local
+# 后端本地启动脚本（可能内嵌密钥）
+*-local.sh
+run-local.*
+
+# ==================== 展示 / 审计类（按用户要求不提交）====================
+# 安全审计报告与测试问题清单：含系统漏洞细节，不进仓库
+docs/上线前业务级审计报告.md
+docs/测试阶段问题清单.md
+# 演示/展示材料
+docs/showcase/
+showcase/
+demo/
+演示/
+
+# ==================== 测试脚本（含硬编码密钥）====================
+*.py
+# 例外：这三个静态审计脚本无任何密钥/绝对路径，被 scripts/verify.sh 与 CI 引用，
+# 必须入库——否则新克隆的 CI 机器上文件不存在，扫描步骤必然失败。
+!audit_wxml_handlers.py
+!page_reach_audit.py
+!static_audit_user.py
+!audit_comments.py
+# 例外（2026-09-17 补）：双向接口审计（后端端点 → 前端调用），补足上面三个只做正向的盲区。
+# 此前被 *.py 静默忽略 —— 表现为"文件在本地、git status 里也看不到"，极易误以为已入库。
+!api_reverse_audit.py
+test_*.bat
+test.bat
+run_migration.bat
+dev_login.json
+req.json
+body.json
+test_order.json
+fixture_*.sql
+
+# ==================== 构建缓存目录 ====================
+AquaFlow-backend/.gradle_alt*/
+AquaFlow-backend/.gradle*/
+AquaFlow-backend/.gradle-user/
+# 仓库根下为绕开 Gradle 锁而复制出来的缓存/项目缓存（临时产物，勿提交）
+.gradlehome/
+.gradle_alt*/
+.gradle-user/
+
+# ==================== 编译输出 ====================
+compile_output*.txt
+AquaFlow-backend/out/
+
+# 数据库备份（本地，勿提交）
+backup/
+
+# git-filter-repo 的密钥替换表（含真实旧密钥，勿提交）
+replacements.txt
+
+# 本地 agent 记忆/工作区状态（本地专用，勿提交）
+.workbuddy/
+
+# ==================== AI 编码工具的本地产出（磁盘保留，不入库）====================
+# 这些目录是 CodeBuddy / Lingma / Roo 等 AI 工具在工作区生成的技能库与规则文件
+# （miniapp-delivery 下约 318 个文件 / 2.7 MB），属**个人工具产物**而非项目资产：
+# 既不是构建输入，也不被任何代码引用。2026-09-13 以 `git rm -r --cached` 从索引移除，
+# **文件仍保留在本地工作区**，仅不再纳入版本管理。
+# 用限定路径而非通配，避免误伤其它目录下的同名文件。
+miniapp-delivery/.agents/
+miniapp-delivery/.codebuddy/
+miniapp-delivery/.lingma/
+miniapp-delivery/.roo/
+miniapp-delivery/.rules/
+miniapp-delivery/.workbuddy/
+miniapp-delivery/codebuddy-plugin/
+
+# ==================== 生成预览 / 生成图片 ====================
+docs/design/step*.html
+docs/design/tabbar-icons-preview.png
+docs/redesign/
+generated-images/
+.openvisio/
+
+# agent / 工具临时产物（2026-09-17）—— 都不属于仓库内容
+.dsh-code-index/
+.mcp.json
+__*.ps1
+
+# ==================== 本地素材库（勿入库，2026-09-18）====================
+# 前面的 / 是锚点，只在仓库根生效：写成不带斜杠的 assets/ 会连
+# miniapp-user/assets/** 与 miniapp-delivery/assets/** 一起忽略掉 —— 那里有
+# tabbar 图标与商品预设图，是必须入库的包内资源。
+/assets/
+
+# Created at repo root by the commands documented in AGENTS.md (Gradle --project-cache-dir
+# and the isolated git worktree used for full-suite verification). Never commit these.
+/.gradle_eval/
+/.verify-*/
+
+# js syntax gate (2026-09-19): duplicate const declaration silently killed a whole
+# api module and no gate caught it. Tracked like the other audit_*.py gates.
+!audit_js_syntax.py
+
+# scenario matrix gate (2026-09-21): docs/audit/*scenario matrix*.md is the designated
+# entry point for "which business scenario has coverage", but it is a hand-written doc
+# while test classes get renamed / merged / deleted. This gate makes its claims
+# machine-checkable: referenced classes+methods must exist, every OK row must point at
+# resolvable evidence, and the generated stats block must match the real test run.
+!audit_scenario_matrix.py
+# AI-assisted test analysis (2026-09-21): emits a deterministic fact pack (endpoint ->
+# test reverse index, zero-test endpoints, never-asserted invariants) so gap analysis
+# rests on checkable facts instead of guesses. Analysis tool: exit code is always 0,
+# it is deliberately NOT wired into CI.
+!ai_test_analysis.py
+# Python 字节码缓存（2026-09-22 补）：未被忽略会被 git add -A 卷进提交
+__pycache__/

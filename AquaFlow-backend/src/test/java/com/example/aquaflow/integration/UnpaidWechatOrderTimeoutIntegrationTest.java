@@ -59,16 +59,24 @@ class UnpaidWechatOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
         return intOf("SELECT quantity FROM inventory WHERE station_id=? AND product_id=?", station, goods);
     }
 
+    /** 本站该商品"活跃预留"总量（[2026-09-25 库存预留模型]：下单占的是它，不是实物）。 */
+    private int reserved() {
+        return intOf("SELECT COALESCE(SUM(reserved_qty),0) FROM inventory_reservation "
+                + "WHERE station_id=? AND product_id=? AND status=1", station, goods);
+    }
+
     @Test
-    @DisplayName("超时的微信未付单被取消并回补库存；未超时的、现金的、已付的都不动")
+    @DisplayName("超时的微信未付单被取消并释放预留；未超时的、现金的、已付的都不动")
     void onlyTimedOutUnpaidWechatOrdersAreCancelled() {
         seed();
         int stockBefore = stock();
 
-        // ① 超时未付的微信单（31 分钟前下的）→ 取消 + 回补库存
+        // ① 超时未付的微信单（31 分钟前下的）→ 取消 + 释放预留
         long timedOut = place(1, "timeout-wechat-old");
         backdate(timedOut, 31);
-        assertEquals(stockBefore - 1, stock(), "下单即扣库存");
+        // [2026-09-25 库存预留模型] 下单只预留、不动实物（旧口径这里是 stockBefore-1）
+        assertEquals(stockBefore, stock(), "下单不动实物");
+        assertEquals(1, reserved(), "下单应预留 1 件");
 
         // ② 刚下的微信单（不该被动）
         long fresh = place(1, "timeout-wechat-fresh");
@@ -87,15 +95,20 @@ class UnpaidWechatOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
                 "站长确认到账（微信渠道未接入时的人工通道）");
         assertEquals(2, intOf("SELECT payment_status FROM orders WHERE id=?", paid), "应已置已付");
 
-        // 四张单各扣 1 件库存（此时还没取消任何一张）
-        assertEquals(stockBefore - 4, stock(), "下单各扣 1 件库存");
+        // 四张单各预留 1 件（此时还没取消任何一张），实物一件都没动
+        assertEquals(4, reserved(), "四张单各预留 1 件");
+        assertEquals(stockBefore, stock(), "下单不动实物");
 
         int cancelled = sweeper.sweepOnce();
         assertEquals(1, cancelled, "只应取消那一张超时的微信未付单");
 
         assertEquals(5, intOf("SELECT status FROM orders WHERE id=?", timedOut), "超时单应已取消");
-        assertEquals(stockBefore - 3, stock(),
-                "取消必须回补库存（走取消订单的唯一编排入口）：四张单扣 4、取消一张还 1");
+        // [2026-09-25 库存预留模型] 取消走的是"释放预留"，**不回补库存**（实物从没减过）——
+        // 旧口径在这里断言 stockBefore-3（四张扣 4、取消还 1），新模型下实物全程是 stockBefore。
+        assertEquals(3, reserved(), "取消必须释放那张单的预留：四张占 4、释放 1 ⇒ 剩 3");
+        assertEquals(stockBefore, stock(), "取消不得回补库存（实物从没被扣过）");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM inventory_reservation "
+                + "WHERE order_id=? AND status=1", timedOut), "超时单的预留必须已释放");
 
         assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", fresh), "刚下的单不该被动");
         assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", cash), "现金单（货到付款）永远不自动取消");
@@ -104,7 +117,8 @@ class UnpaidWechatOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
 
         // 幂等：再扫一轮没有可取消的（已取消的单不再命中判据）
         assertEquals(0, sweeper.sweepOnce(), "重复扫描不得重复取消");
-        assertEquals(stockBefore - 3, stock(), "重复扫描不得重复回补库存");
+        assertEquals(3, reserved(), "重复扫描不得重复释放预留");
+        assertEquals(stockBefore, stock(), "实物始终不变");
     }
 
     @Test

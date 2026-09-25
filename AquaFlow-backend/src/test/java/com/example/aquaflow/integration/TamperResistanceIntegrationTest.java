@@ -162,11 +162,11 @@ class TamperResistanceIntegrationTest extends AbstractIntegrationTest {
         // 注意：角色拦截的实际契约是 HTTP 200 + body code=1（业务错误），**不是真 403** ——
         // RequireRoleAspect 抛 BusinessException，由 GlobalExceptionHandler 统一兜成 code=1/200。
         // 只有"未认证"才是真 401（见 AbstractIntegrationTest 的说明）。
-        Api save = post("/api/orders", t, "{}");
-        assertFalse(save.isSuccess(), "代客录单（save）必须被拒，实际=" + save);
-        assertTrue(save.message().contains("权限不足"), "拒绝原因应是权限不足，实际=" + save.message());
-        assertEquals(0, intOf("SELECT COUNT(*) FROM orders"), "被拒后不得落库");
-
+        //
+        // [2026-09-25 架构评审问题 2] 这里原本打的是 `POST /api/orders`（代客录单 save）——
+        // 该端点已删除（零调用方），它的"已删除"守卫在
+        // ArchReviewFixesIntegrationTest#genericOrderUpdateEndpoint_isGone（断言 **code=404**：
+        // 只断言"不成功"是不够的，越权拒绝与端点不存在都会让 !isSuccess 成立）。
         assertFalse(get("/api/manager/owed-barrels", t).isSuccess(), "欠桶台账必须被拒");
         assertFalse(get("/api/manager/reconciliation", t).isSuccess(), "对账必须被拒");
         assertFalse(post("/api/manager/adjustments", t, "{}").isSuccess(), "资产调整单必须被拒");

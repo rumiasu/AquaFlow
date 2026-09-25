@@ -58,8 +58,11 @@ class OrderCancelRollbackIntegrationTest extends AbstractIntegrationTest {
         seed(true);
         long order = createOrderViaApi(2 /* 现金 */, 2);
 
-        assertEquals(8, intOf("SELECT quantity FROM inventory WHERE station_id=? AND product_id=?",
-                station, product));
+        // [2026-09-25 库存预留模型] 下单只**预留**、不动实物（旧口径这里是 8）
+        assertEquals(10, intOf("SELECT quantity FROM inventory WHERE station_id=? AND product_id=?",
+                station, product), "下单不动实物");
+        assertEquals(2, intOf("SELECT COALESCE(SUM(reserved_qty),0) FROM inventory_reservation "
+                + "WHERE order_id=? AND status=1", order), "下单必须留下 2 桶的预留凭据");
         assertEquals(1, intOf("SELECT COUNT(*) FROM customer_barrel_in_transit WHERE related_order_id=?", order));
 
         Api res = put("/api/orders/" + order + "/customer-cancel", customerToken(customer), null);
@@ -74,7 +77,9 @@ class OrderCancelRollbackIntegrationTest extends AbstractIntegrationTest {
         assertEquals(5, intOf("SELECT status FROM orders WHERE id=?", order), "订单应置已取消");
         assertEquals(10, intOf("SELECT quantity FROM inventory WHERE station_id=? AND product_id=?",
                         station, product),
-                "库存必须回补到 10");
+                "取消只释放预留、不回补库存：实物从头到尾都是 10（旧口径的『必须回补到 10』已不适用）");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM inventory_reservation WHERE order_id=? AND status=1", order),
+                "取消必须把预留释放掉（否则这 2 桶永远占着可用量）");
         assertEquals(0, intOf("SELECT COUNT(*) FROM customer_barrel_in_transit WHERE related_order_id=?", order),
                 "配送中桶必须清理");
         assertEquals(4, intOf("SELECT payment_status FROM orders WHERE id=?", order),

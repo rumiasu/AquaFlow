@@ -197,24 +197,41 @@ public class Orders {
     }
 
     /**
-     * 是否展示支付入口。
-     * <p>只有在「点了就能真的付掉」时才返回 true：
+     * 是否展示支付入口（**客户自助在线支付**）。
+     *
+     * <p>只有在「点了就能真的付掉」时才返回 true。本类的默认判断是**保守的 false**
+     * （不知道该部署到底开了哪些渠道）；真实结论由服务端按当前渠道能力投影进来
+     * （{@code PaymentService.canSelfPay} → {@link #selfPayAllowed}）：
      * <ul>
-     *   <li>订单已取消 / 已付款 / 已退款 → false</li>
-     *   <li>水票(3)：下单即视同已付，客户无需再操作 → false</li>
-     *   <li>现金(2)：货到付款，由配送员送达时收款 → false</li>
-     *   <li>微信(1)：尚未接入微信支付渠道，没有在线支付入口 → false</li>
+     *   <li>水票(3)：下单即视同已付；但若支付流水那次请求失败/超时导致仍是未付，
+     *       客户可以**对同一张单**重试扣票 → 允许</li>
+     *   <li>现金(2)：货到付款，配送员送达时收款 → 不允许自助在线付</li>
+     *   <li>微信(1)：只有**模拟渠道开启**时才允许（真实微信渠道未接入，
+     *       开着模拟渠道却给"去支付"= 假支付；见 {@code app.payment.mock-wechat-pay}）</li>
+     *   <li>已取消 / 已付款 / 已退款 → false</li>
      * </ul>
      * 旧实现对「未付款/待收款」一律返回 true，前端按钮点了只是建一条 PENDING 流水，
      * 却提示"支付成功"，客户以为付了款、配送员上门按未付处理 —— 典型假支付。</p>
      */
     public Boolean getCanRepay() {
+        if (selfPayAllowed != null) {
+            return selfPayAllowed;
+        }
         if (status != null && status == OrderStatus.CANCELLED) return false;
         String s = getPayState();
         if (!("UNPAID".equals(s) || "PENDING".equals(s) || "CANCELLED".equals(s))) return false;
-        // 三种支付方式当前都没有客户自助在线支付入口，见 payHint 的说明
+        // 没被投影过（例如列表接口、内部调用）：保守地不给入口
         return false;
     }
+
+    /**
+     * 客户自助支付能力（瞬时字段，非数据库列）：由服务端按**当前实际启用的渠道**判定后填充
+     * （{@code PaymentService.canSelfPay(order)}，在订单详情端点里写入）。
+     * <p>{@code null} = 没有投影过 ⇒ {@link #getCanRepay()} 回落到保守的 false。
+     * 标 {@code @JsonIgnore} 是为了只下发计算后的 {@code canRepay}，不下发这个内部开关。</p>
+     */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private transient Boolean selfPayAllowed;
 
     /** 支付入口按钮文案：支付被取消过显示为「重新支付」，否则「去支付」 */
     public String getRepayLabel() {
@@ -224,6 +241,8 @@ public class Orders {
     /**
      * 付款状态说明（客户侧展示，全系统唯一文案来源）。
      * 没有支付入口时，前端渲染这段话解释"钱怎么付"，而不是留一个点了也没用的按钮。
+     * <p>⚠️ 与 {@link #getCanRepay()} 一样，微信那句的"有没有入口"取决于**当前渠道能力**，
+     * 所以不在这里写死"暂未开通"：能付的时候说能付，不能付的时候说清楚去哪儿付。</p>
      */
     public String getPayHint() {
         if (status != null && status == OrderStatus.CANCELLED) return "订单已取消";
@@ -236,7 +255,11 @@ public class Orders {
         if (paymentMethod != null) {
             if (paymentMethod == PayMethod.TICKET) return "水票支付，下单即视同已付";
             if (paymentMethod == PayMethod.CASH)   return "货到付款，配送员送达时收款";
-            if (paymentMethod == PayMethod.WECHAT) return "微信支付暂未开通，请联系水站改用货到付款或水票支付";
+            if (paymentMethod == PayMethod.WECHAT) {
+                return Boolean.TRUE.equals(selfPayAllowed)
+                        ? "还未付款，可在本页继续支付"
+                        : "微信支付暂未开通，请联系水站改用货到付款或水票支付";
+            }
         }
         return "待付款";
     }
@@ -449,6 +472,21 @@ public class Orders {
      * 所以文案由填充它的方法决定，前端只负责原样展示。</p>
      */
     private transient String settleNote;
+
+    /**
+     * 备货情况（瞬时字段，非数据库列）：配送端「已备齐 / 还缺哪些商品」的只读投影，
+     * 由 {@code InventoryReservationService.prepInfoOfOrder} 生成、
+     * {@code DeliveryController} 在订单详情里填充（契约工作包 C4）。
+     *
+     * <p>形状：{@code ready}（布尔）/ {@code shortageTotal}（还缺几桶）/
+     * {@code itemsWithoutCredential}（连凭据都没有的明细数）/
+     * {@code items:[{productId, productName, needQty, reservedQty, shortage}]}。</p>
+     *
+     * <p>⚠️ 口径是"实物 − 活跃预留"，**不是** {@code inventory.quantity}；
+     * 而且它只是**展示**：真正拦住"少扣一点先把单结了"的是完成配送时那次出库校验
+     * （提示可能过期，写动作必须再校验）。</p>
+     */
+    private transient java.util.Map<String, Object> stockPrep;
 
     /**
      * 本单营收是否计入当前登录水站（瞬时字段，非数据库列）。

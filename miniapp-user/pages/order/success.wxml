@@ -1,23 +1,35 @@
 <view class="page">
-  <!-- 成功动画区 -->
-  <view class="success-hero">
-    <view class="success-circle">
-      <view class="success-ring"></view>
-      <icon name="check" size="56rpx" color="#FFFFFF" />
+  <!-- 加载失败（契约 A3）：**不走"下单成功/尽快配送"的兜底** ——
+       订单可能压根不存在（比如上次那个把响应对象当订单号的旧版本），
+       说"尽快配送"就是拿一个没查到的事实去承诺。 -->
+  <view class="success-hero" wx:if="{{loadState === 'failed'}}">
+    <view class="success-circle warn">
+      <icon name="warn" size="56rpx" color="#FFFFFF" />
     </view>
-    <text class="success-title">下单成功</text>
-    <text class="success-desc" wx:if="{{paymentStatus === 0 || paymentStatus === 1}}">订单已创建，待支付 ¥{{orderAmount}}</text>
-    <text class="success-desc" wx:elif="{{paymentStatus === 4}}">支付已取消，请重新支付 ¥{{orderAmount}}</text>
-    <text class="success-desc" wx:elif="{{paymentStatus === 2}}">支付已完成，我们会尽快为您配送</text>
-    <text class="success-desc" wx:else>我们会尽快为您配送</text>
+    <text class="success-title">没查到这张订单</text>
+    <text class="success-desc">{{loadErrorText}}</text>
+    <view class="pay-btn retry" bindtap="onReload">
+      <text class="pay-btn-text">重试查一次</text>
+    </view>
+  </view>
+
+  <block wx:else>
+  <!-- 结果区：标题与说明**按服务端事实**渲染（订单状态 + 支付状态），
+       未知/已取消/已退款/没查完都不许落到"下单成功，尽快配送"。 -->
+  <view class="success-hero">
+    <view class="success-circle {{heroTone === 'warn' ? 'warn' : ''}}">
+      <icon name="{{heroTone === 'warn' ? 'warn' : 'check'}}" size="56rpx" color="#FFFFFF" />
+    </view>
+    <text class="success-title">{{heroTitle}}</text>
+    <text class="success-desc" wx:if="{{heroDesc}}">{{heroDesc}}</text>
     <!-- 付款说明由后端下发（payHint）：没有在线支付入口时，用它解释"钱怎么付"，
          而不是留一个点了没用的按钮。 -->
     <text class="success-desc" wx:if="{{payHint}}">{{payHint}}</text>
+    <text class="success-desc" wx:if="{{statusText}}">订单状态：{{statusText}}</text>
   </view>
 
-  <!-- 去支付按钮：条件一律用后端下发的 canRepay，不用 paymentStatus 自己判断。
-       原写法 paymentStatus in (0,1,4) 会让现金单（货到付款，payment_status=1）
-       也显示「去支付」：客户点一下就多一条待收款流水，而现金本该当面收。 -->
+  <!-- 去支付按钮：条件一律用后端下发的 canRepay（= 当前渠道真的能付掉），
+       不用 paymentStatus 自己判断。现金单（货到付款）不给在线支付入口。 -->
   <view class="pay-section" wx:if="{{canRepay}}">
     <view class="pay-btn" bindtap="onPayNow">
       <text class="pay-btn-text">{{repayLabel}} ¥{{orderAmount}}</text>
@@ -79,8 +91,11 @@
     </view>
   </view>
 
-  <!-- 底部提示 -->
+  <!-- 底部提示：**不再承诺"30 分钟内送达"** ——
+       没有任何时间来源（水站没配时效、系统也没有排班），写一个具体分钟数就是在替水站承诺。
+       想知道进度就点上面的「查看订单」。 -->
   <view class="bottom-tip">
-    <text class="tip-text">配送员会在 30 分钟内送达</text>
+    <text class="tip-text">配送时间以水站安排为准，进度可在「查看订单」里看到</text>
   </view>
+  </block>
 </view>

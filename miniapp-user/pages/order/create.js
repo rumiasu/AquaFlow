@@ -11,7 +11,22 @@ const { storage, stationStorage, payMethodStorage } = require('../../utils/stora
 const { resolveStationId } = require('../../utils/station')
 const { getCustomerId } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
+const orderIntent = require('../../utils/orderIntent')
 const app = getApp()
+
+/**
+ * 从建单响应里取**合法订单号**（契约 A1 的硬要求）。
+ * <p>形状以实际 API 为准：`OrderCreateResult.orderId` 是 Long ⇒ JSON 里是数字；
+ * 兼容服务端可能把它序列化成数字字符串的情况，但**绝不接受**对象 / 空值 / 非法字符串。
+ * 旧写法 `orderRes.data?.orderId || orderRes.data || null` 会把整个响应对象当成订单号。</p>
+ */
+function pickOrderId(data) {
+  if (!data || typeof data !== 'object') return null
+  const v = data.orderId
+  if (typeof v === 'number' && isFinite(v) && v > 0) return v
+  if (typeof v === 'string' && /^[0-9]+$/.test(v) && Number(v) > 0) return Number(v)
+  return null
+}
 
 Page({
   data: {
@@ -56,17 +71,27 @@ Page({
     payableAmountText: '0.00',// 计费区展示的"这次要付"的金额；真实订单金额看 totalAmountText
     isTicketPay: false,       // 当前是否选中水票（决定计费区怎么渲染）
     submitting: false,
-    // 幂等键：onLoad 生成一次，下单成功后才刷新（保证同一意图只产生一单）
+    // 幂等键：**一次下单意图 = 一个键**。见 utils/orderIntent.js 的说明：
+    // 只有"明确换了站/地址/商品/付款方式"或"这一单已经成功建出来"才换新键；
+    // 缺货未确认、超时、响应丢失、点了重试都继续用同一个键（否则重试会变成第二张单）。
     idempotencyKey: '',
+    // ===== 缺货确认（契约 A1）：needConfirm=true 表示**还没建单**，绝不能当成功 =====
+    showShortageConfirm: false,
+    shortageItems: [],
+    shortageText: '',
+    // ===== 提交结果三态：'idle' / 'creating' / 'unknown'（服务端可能已建单但响应没回来）=====
+    submitState: 'idle',
+    unknownResultText: '',
     // 支付方式确认弹窗
     showOfflineConfirm: false,
-    // 首次资产业务确认弹窗
+    // 首次资产业务确认弹窗（契约 A2：**建单之前**弹，取消 = 零请求）
     showAssetConfirm: false,
     assetConfirmed: false,
+    // 首次资产告知的内容（全部来自 /api/payments/quote，前端不另写资产规则）
+    assetNotice: { stationName: '', depositAmount: '0.00', buckets: 0, totalAmountText: '0.00' },
     // 资产使用说明详情弹窗
     showAssetDetail: false,
     stationPhone: '',
-    pendingOrderRes: null,
     // 费用明细弹窗
     showDetailPopup: false,
     // 配送中桶提醒弹窗
@@ -89,8 +114,11 @@ Page({
       return
     }
 
-    // 一次下单意图 = 一个幂等键（提交失败重试也复用），避免重复下单
-    this.setData({ idempotencyKey: this.genIdempotencyKey() })
+    // 一次下单意图 = 一个幂等键（提交失败/缺货重提/超时重试都复用）。
+    // 键的持久化与比对在 utils/orderIntent.js：**按客户隔离**（换账号不会继承上一位客户的待确认请求），
+    // 意图五要素（客户/站/地址/商品/支付方式）任一变化才换新键。
+    // 这里不再"进页面就生成一个新键"—— 那正是"离页重进 = 新意图 = 又下一单"的根因。
+    this.setData({ idempotencyKey: '' })
 
     // 优先级：URL参数 > 全局临时站点 > 本地存储
     let stationId = null
@@ -658,7 +686,20 @@ this.setData({ products, stationName: effectiveStationName })
           feeWarnings,
           blocked,
           blockReason,
-          enterpriseHint
+          enterpriseHint,
+          // ===== 首次资产/押金告知（契约 A2）=====
+          // 判据（firstStationAsset）与金额（depositAmount = 本次缺桶押金，totalAmount 含它）
+          // 全部来自服务端 quote —— 与下单侧同一个 AssetService / 同一套计价，前端不另写资产规则。
+          firstStationAsset: d.firstStationAsset === true,
+          assetNotice: {
+            stationName: d.stationName || '',
+            depositAmount: (Number(d.depositAmount) || 0).toFixed(2),
+            buckets: Number(d.depositBuckets) || 0,
+            totalAmountText: totalAmount.toFixed(2)
+          },
+          // 报价一刷新就作废上一次的"已确认"：站/商品/数量/支付方式变了，告知里的金额与归属就变了，
+          // 旧确认不能继续有效（契约 A2 最后一条）。
+          assetConfirmed: false
         }
 
         this.setData(updates)
@@ -683,8 +724,11 @@ this.setData({ products, stationName: effectiveStationName })
   },
 
   // 生成一个下单幂等键（仅在"新的一次下单意图"时调用：进入页面 / 下单成功后）
+  // ⚠️ 现在由 utils/orderIntent.js 统一管理（一次意图一个键、按客户隔离、成功后才清），
+  // 这里保留一个薄封装给可能的老调用方，**不要**再绕过 orderIntent 直接用随机键：
+  // 那样每次重试都会生成新键，缺货确认/超时重试就会变成第二张单。
   genIdempotencyKey() {
-    return 'order_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+    return orderIntent.newKey()
   },
 
   async onSubmit() {
@@ -773,13 +817,60 @@ this.setData({ products, stationName: effectiveStationName })
       return
     }
 
-    // 复用本次下单意图的幂等键：失败重试不会产生第二单
-    const idempotencyKey = this.data.idempotencyKey || this.genIdempotencyKey()
+    // ===== 建单之前必须做完的确认（契约 A2）=====
+    // 首次资产/押金告知原来在**建单之后**弹：客户点"取消"时订单已经存在，只能提示他
+    // "订单已创建，可在我的订单里取消"。现在改到这里 —— 取消 = 一个写请求都不发。
+    // 判据来自 /api/payments/quote 的 firstStationAsset（与下单侧同一个 AssetService），
+    // 前端不另写资产规则。
+    if (this.data.firstStationAsset === true && !this.data.assetConfirmed) {
+      this.setData({ showAssetConfirm: true })
+      return
+    }
 
-    this.setData({ submitting: true, showOfflineConfirm: false, idempotencyKey })
+    await this._createOrder(false)
+  },
 
-    // 资产确认弹窗未处理完前保持 submitting=true，防止用户重复点击造成重复下单
-    let keepSubmitting = false
+  /**
+   * 本次下单意图（幂等键的作用域）：这五项任一变化 = 新意图 = 新键。
+   * 与 utils/orderIntent.js 的 fingerprint 一一对应。
+   */
+  _currentIntent() {
+    return {
+      customerId: getCustomerId(),
+      stationId: this.data.stationId,
+      addressId: this.data.address && this.data.address.id,
+      paymentMethod: this.data.selectedMethod,
+      items: (this.data.products || []).map(p => ({ productId: p.id, quantity: p.quantity || 1 }))
+    }
+  },
+
+  /**
+   * 真正发建单请求。**只有这里会建单**。
+   *
+   * @param {boolean} confirmShortage 缺货弹窗里客户选了"同意等待安排"才为 true；
+   *        它进的是同一个幂等键 + 同一份业务请求（服务端 requestDigest 不含这个标记，
+   *        所以"同键带标记重提"天然可用）。
+   */
+  async _createOrder(confirmShortage) {
+    // 防连点（契约：重复点击不重复下单）。闸门放在**这里**而不是只放在 onSubmit：
+    // 押金确认、缺货同意、结果未知重试都会调本方法，任何一处被连点都会变成第二次建单请求。
+    // 服务端还有幂等键兜底，但"根本别发出去"更省事、也不会让客户看到两次 loading。
+    if (this.data.submitting) {
+      return
+    }
+    const idempotencyKey = orderIntent.keyFor(this._currentIntent())
+    // 「提交结果未知」是个**要留在页面上**的状态：说明本次响应没带回订单号、可以重试。
+    // 只有普通失败（网络异常）才把它归位，否则那条提示会被 finally 冲掉。
+    let unknownResult = false
+    this.setData({
+      submitting: true,
+      submitState: 'creating',
+      showOfflineConfirm: false,
+      showAssetConfirm: false,
+      showShortageConfirm: false,
+      idempotencyKey
+    })
+
     try {
       const items = this.data.products.map(p => ({
         productId: p.id,
@@ -799,73 +890,122 @@ this.setData({ products, stationName: effectiveStationName })
         paymentMethod: this.data.selectedMethod,
         stationId: this.data.stationId,
         extraDeposit: this.data.extraDepositAmount || 0,
-        idempotencyKey: idempotencyKey
+        idempotencyKey: idempotencyKey,
+        // 只有客户明确同意等待才为 true；否则服务端返回 needConfirm（**不建单**）
+        confirmShortage: confirmShortage === true
       })
 
-      // 订单已创建成功 -> 刷新幂等键，之后再主动下单才是新的一单
-      this.setData({ idempotencyKey: this.genIdempotencyKey() })
+      const data = (orderRes && orderRes.data) || null
 
-      // [2026-09-19] 记下这次用的支付方式（**只存本地**，产品口径「前端记一下就好，不用写进后端」）。
-      // 放在这里而不是提交前：提交失败/被拒时不该污染"上次成功用过的"那一项。
-      payMethodStorage.set(this.data.selectedMethod)
-
-      if (orderRes.data && orderRes.data.firstStationAsset) {
-        keepSubmitting = true
-        this.setData({ showAssetConfirm: true, assetConfirmed: false, pendingOrderRes: orderRes })
+      // ① 缺货：**还没有建单**（服务端在 INSERT 之前就返回了，见 OrderServiceImpl 的缺货分支）。
+      //    绝不能当成功、不能付款、不能跳成功页 —— 幂等键也**保留**，等客户表态。
+      if (data && data.needConfirm === true) {
+        this._showShortageConfirm(data.shortages)
         return
       }
 
-      this.proceedToPayment(orderRes)
+      // ② 建单成功：必须拿到一个**合法订单号**才算成功。
+      //    旧代码写 `orderRes.data?.orderId || orderRes.data || null` —— 缺货时把整个响应对象
+      //    当成了订单号，水票路径拿它去发支付请求（Long 反序列化失败 → 500），
+      //    现金路径把它拼进 success 页 URL（订单根本不存在，页面却显示"等待配送"）。
+      const orderId = pickOrderId(data)
+      if (orderId == null) {
+        // ③ 无法确认提交结果：**不支付、不跳成功页**，把判断权交回客户。
+        //    服务端可能已经建单（响应丢了），所以**保留幂等键** —— 点"重试查一次"会用同一个键
+        //    重新提交，服务端按幂等命中返回原单，不会产生第二张单。
+        //    ⚠️ 这个状态**不能被下面的 finally 冲掉**（submitState 归位要判一下），
+        //       否则页面上那条"结果未知 + 重试"的提示永远不会出现（流程测试抓过这一条）。
+        unknownResult = true
+        this.setData({
+          submitState: 'unknown',
+          unknownResultText: '没能确认这次提交的结果。点"重试查一次"会用同一次提交的标识重新查询，'
+            + '不会重复下单；也可以先到「我的订单」看看有没有这张单。'
+        })
+        return
+      }
+
+      // 这一单确实建出来了 ⇒ 本次意图了结，下一次提交是新的一单
+      orderIntent.clear()
+      // [2026-09-19] 记下这次用的支付方式（只存本地）。放在成功之后：失败/被拒不该污染"上次成功用过的"。
+      payMethodStorage.set(this.data.selectedMethod)
+
+      await this.proceedToPayment(orderId, data)
     } catch (error) {
-      console.error('[OrderCreate] 下单失败:', error)
-      wx.showToast({ title: '下单失败: ' + (error.message || ''), icon: 'none', duration: 3000 })
+      // 网络失败/超时：同样**可能已经建单**，所以不动幂等键，只是把状态说清楚
+      console.error('[OrderCreate] 下单失败（可能未建单，也可能已建单但响应丢失）:', error)
+      this.setData({ submitState: 'idle' })
+      wx.showModal({
+        title: '下单没提交成功',
+        content: (error && error.message ? error.message + '\n\n' : '')
+          + '如果刚才网络中断，这张单可能已经建出来了。点「重试」会沿用同一次提交的标识，'
+          + '不会重复下单。',
+        confirmText: '重试',
+        cancelText: '先不提交',
+        success: (r) => {
+          if (r.confirm) this._createOrder(false)
+        }
+      })
     } finally {
-      if (!keepSubmitting) this.setData({ submitting: false })
+      this.setData(unknownResult ? { submitting: false } : { submitting: false, submitState: 'idle' })
     }
   },
 
-  async proceedToPayment(orderRes) {
-    const orderId = orderRes.data?.orderId || orderRes.data || null
-    if (!orderId) return
+  /** 缺货确认弹窗（契约 A1）：说清"哪些商品、要多少、现在有多少、等货的含义"。 */
+  _showShortageConfirm(shortages) {
+    const list = Array.isArray(shortages) ? shortages : []
+    const lines = list.map(s => {
+      const name = s.productName || '商品'
+      const need = s.requested == null ? '' : `要 ${s.requested} 桶`
+      const stock = s.stock == null ? '当前缺货' : `现有 ${s.stock} 桶`
+      return `${name}：${need}${need && stock ? '，' : ''}${stock}`
+    })
+    this.setData({
+      showShortageConfirm: true,
+      shortageItems: list,
+      shortageText: lines.join('\n') || '部分商品当前库存不足',
+      submitting: false,
+      submitState: 'idle'
+    })
+  },
 
+  /** 缺货后"返回调整"：关掉弹窗，页面仍可编辑；**没有建单、没有付款**（契约 A1）。 */
+  onShortageBack() {
+    this.setData({ showShortageConfirm: false })
+    wx.showToast({ title: '已返回，可调整数量或换个商品', icon: 'none' })
+  },
+
+  /** 缺货后"同意等待安排"：同一幂等键 + confirmShortage=true 重提（只可能产生一张单）。 */
+  onShortageAgree() {
+    this.setData({ showShortageConfirm: false })
+    this._createOrder(true)
+  },
+
+  /** 「提交结果未知」时的重试：同一个键重提，服务端命中幂等就返回原单。 */
+  onRetryUnknown() {
+    this._createOrder(false)
+  },
+
+  async proceedToPayment(orderId, data) {
     // 下单响应里的 warnings（水站营业状态提示 / 欠桶提醒 / 缺货提示）**必须让客户看到**：
-    // 后端一直在下发，前端从来没读过，等于白提醒。营业状态是"不阻断但要说清楚"的软状态，
-    // 所以这里只弹提示，订单已经在库里了，点"知道了"继续走支付/成功页。
-    await this.showOrderWarnings(orderRes)
+    // 后端一直在下发，前端从来没读过，等于白提醒。营业状态是"不阻断但要说清楚"的软状态。
+    await this.showOrderWarnings(data)
 
     // 3 = PayMethod.TICKET（水票支付）：下单即视同已付，补一条支付流水用于对账
     if (this.data.selectedMethod === 3) {
-      let ticketPayError = null
-      try {
-        await createPayment({
-          orderId,
-          customerId: getCustomerId(),
-          amount: this.data.totalAmount,
-          waterAmount: this.data.totalWaterCost,
-          barrelDeposit: this.data.totalDeposit,
-          extraDepositBuckets: this.data.extraDepositBuckets,
-          extraDepositAmount: this.data.extraDepositAmount,
-          paymentMethod: 3,
-          ticketProductId: null,
-          ticketQty: null
-        })
-      } catch (e) {
-        // [2026-09-20 真机联调] 原来只 `console.warn`：这一步失败 = 订单建了但**没有支付流水**，
-        // payment_status 停在 0（未付），而按派单判据"只有收到钱的单才进站长/配送员视野"——
-        // 客户却会被照常跳到"下单成功"页，以为万事大吉（AGENTS §8.17：用户以为做成了、账上没动）。
-        // 钱的事宁可打断：把原因摆出来，让客户拿着订单号去找水站，而不是静默跳走。
-        ticketPayError = e
-        console.error('[OrderCreate] 水票支付流水创建失败（订单已建，支付未登记）:', e)
-      }
-      if (ticketPayError) {
+      const outcome = await this._payByTicket(orderId)
+      if (!outcome.ok) {
+        // 失败/超时不等于"没下单"：**先回查原单的支付事实**（契约 A3），再决定怎么说。
+        // 已扣票但响应丢失的情况绝不能再次扣票 —— 这里只是回读，不做任何写动作。
         await new Promise((resolve) => {
           wx.showModal({
-            title: '订单已创建，但支付没登记上',
-            content: '原因：' + ((ticketPayError && ticketPayError.message) || '网络异常')
-              + '。订单已提交成功，但水票扣款/到账可能没记上，请到「我的订单」核对，'
-              + '或联系水站报订单号处理。',
+            title: outcome.state === 'paid' ? '已经付好了' : '订单已提交，但支付还没成功',
+            content: outcome.state === 'paid'
+              ? '水票已经扣款成功，可以放心等配送。'
+              : ((outcome.error && outcome.error.message) || '网络异常')
+                + '。订单已经建好了（订单号 ' + orderId + '），但水票可能没扣上。'
+                + '到结果页可以再试一次支付，或联系水站报订单号处理。',
             showCancel: false,
-            confirmText: '知道了',
+            confirmText: '去看这张订单',
             complete: () => resolve()
           })
         })
@@ -874,6 +1014,47 @@ this.setData({ products, stationName: effectiveStationName })
 
     wx.setStorageSync('lastOrderId', orderId)
     wx.redirectTo({ url: `/pages/order/success?id=${orderId}&stationId=${this.data.stationId}` })
+  },
+
+  /**
+   * 用水票付这一单（**同一张订单**，不建新单、不重复扣票）。
+   * 失败时回查原单支付事实，返回 {ok, state, error}：
+   *   state = 'paid'（已付）/ 'unpaid'（确实没扣）/ 'closed'（已退款或取消）/ 'unknown'（查不到）。
+   */
+  async _payByTicket(orderId) {
+    try {
+      await createPayment({
+        orderId,
+        customerId: getCustomerId(),
+        amount: this.data.totalAmount,
+        waterAmount: this.data.totalWaterCost,
+        barrelDeposit: this.data.totalDeposit,
+        extraDepositBuckets: this.data.extraDepositBuckets,
+        extraDepositAmount: this.data.extraDepositAmount,
+        paymentMethod: 3,
+        ticketProductId: null,
+        ticketQty: null
+      })
+      return { ok: true, state: 'paid' }
+    } catch (e) {
+      console.error('[OrderCreate] 水票支付失败，先回查原单支付事实:', e)
+      const state = await this._verifyOrderPayment(orderId)
+      return { ok: state === 'paid', state, error: e }
+    }
+  },
+
+  /** 回查原单的支付事实（只读；失败就说"查不到"，不猜）。 */
+  async _verifyOrderPayment(orderId) {
+    try {
+      const res = await getOrderDetail(orderId)
+      const ps = res && res.data ? Number(res.data.paymentStatus) : null
+      if (ps === 2) return 'paid'
+      if (ps === 3 || ps === 4) return 'closed'
+      return 'unpaid'
+    } catch (e) {
+      console.warn('[OrderCreate] 回查订单支付状态失败:', e && e.message)
+      return 'unknown'
+    }
   },
 
   /**
@@ -895,37 +1076,17 @@ this.setData({ products, stationName: effectiveStationName })
     })
   },
 
-  // ===== 首次资产业务确认弹窗 =====
-  // 注意：订单在弹窗出现之前就已创建成功。这里的"取消"只是不继续支付，
-  // 必须明确提示订单已存在，否则用户会以为没下单而再次提交，造成重复下单。
+  // ===== 首次资产业务确认弹窗（契约 A2：**建单之前**）=====
+  // 原来的"取消"发生在建单之后，只能告诉客户"订单已创建"；现在取消 = 一个写请求都不发。
   onAssetConfirmCancel() {
-    this.setData({
-      showAssetConfirm: false,
-      assetConfirmed: false,
-      pendingOrderRes: null,
-      submitting: false
-    })
-    wx.showModal({
-      title: '订单已创建',
-      content: '订单已提交成功，可在「我的订单」中查看或取消。',
-      showCancel: false,
-      confirmText: '查看订单',
-      success: () => wx.switchTab({ url: '/pages/order/list' })
-    })
-  },
-
-  onAssetCheckboxChange(e) {
-    this.setData({ assetConfirmed: e.detail.value.length > 0 })
+    this.setData({ showAssetConfirm: false, assetConfirmed: false })
+    wx.showToast({ title: '没有提交订单，可以继续修改', icon: 'none' })
   },
 
   onAssetConfirmOk() {
-    if (!this.data.assetConfirmed) {
-      wx.showToast({ title: '请勾选确认后继续', icon: 'none' })
-      return
-    }
-    const orderRes = this.data.pendingOrderRes
-    this.setData({ showAssetConfirm: false, assetConfirmed: false, pendingOrderRes: null })
-    this.proceedToPayment(orderRes)
+    // 客户点了"确认下单"才建单（顺序就是契约要的那一条）
+    this.setData({ assetConfirmed: true, showAssetConfirm: false })
+    this._createOrder(false)
   },
 
   // ===== 企业身份申请（v50）=====

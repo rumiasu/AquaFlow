@@ -24,6 +24,23 @@ public interface StaffMapper {
     @Select("SELECT * FROM staff WHERE id = #{id}")
     Staff getById(@Param("id") Long id);
 
+    /**
+     * 读员工并**加行锁**（`FOR UPDATE`）—— 绑定/解绑审批统一锁序的第一步。
+     *
+     * <p>[2026-09-25 返工 R6] 为什么审批类流程必须**先锁员工行、再动申请行**：
+     * 「同意绑定」原来先 CAS 申请行、再写 {@code staff.station_id}、最后
+     * {@link StaffStationApplicationMapper#cancelOtherPending} 去锁该员工的**其它**申请行。
+     * 两个站的站长同时同意同一个配送员时，时序可以是
+     * 「T1 锁申请甲 → T2 锁申请乙 → T1 拿到员工行 → T2 等员工行 → T1 的 cancelOtherPending 等申请乙」
+     * ⇒ **循环等待**，MySQL 挑一个回滚，用户看到 500/SYSTEM 告警（本仓约定：业务竞争必须是 code=1）。
+     * 员工行是这段关系的聚合根：谁要改 {@code staff.station_id} 或该员工的申请状态，都先锁它，
+     * 冲突就退化成"排队"，不再有环。</p>
+     *
+     * @return 员工行（不存在返回 null）；锁持有到事务结束
+     */
+    @Select("SELECT * FROM staff WHERE id = #{id} FOR UPDATE")
+    Staff getByIdForUpdate(@Param("id") Long id);
+
     @Update("UPDATE staff SET name=#{name}, phone=#{phone}, openid=#{openid}, password_hash=#{passwordHash}, " +
             "role=#{role}, station_id=#{stationId}, status=#{status}, update_time=NOW() WHERE id=#{id}")
     void update(Staff staff);

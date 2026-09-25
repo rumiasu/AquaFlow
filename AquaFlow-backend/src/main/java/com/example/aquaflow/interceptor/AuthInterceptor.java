@@ -57,6 +57,23 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        // [2026-09-25 返工 R7] **先清上一次的身份**（Tomcat 复用线程，ThreadLocal 不会自己消失）。
+        // 为什么非清不可：本方法返回 false 时 Spring **不会**回调 afterCompletion（它只对
+        // "preHandle 曾返回 true"的拦截器生效，见 HandlerExecutionChain.applyPreHandle + triggerAfterCompletion），
+        // 于是拒绝路径上设过的 AuthContext 会一直留在线程里；下一条落在**本拦截器管辖范围之外**
+        // 的请求（登录 / 静态资源 / 白名单路径）恰好复用同一线程时，业务代码读到的是**上一个人的身份**。
+        AuthContext.clear();
+        try {
+            return doPreHandle(request, response);
+        } catch (Exception | Error e) {
+            // 响应写失败（客户端提前断开 → getWriter().write 抛 IOException）也走这里：
+            // 异常会让 preHandle 抛出，同样没有 afterCompletion 兜底。
+            AuthContext.clear();
+            throw e;
+        }
+    }
+
+    private boolean doPreHandle(HttpServletRequest request, HttpServletResponse response) throws Exception {
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
@@ -121,6 +138,8 @@ public class AuthInterceptor implements HandlerInterceptor {
         // （HTTP 200 + code=1 —— 本仓"业务错误仍是 200"的约定，见 AGENTS §2；
         //   客户端一律判 body code，不判 HTTP 状态）。
         if (isUnselectedSession && !UNSELECTED_ALLOWED_PATHS.contains(request.getRequestURI())) {
+            // 拒绝前先清身份：这条路径上没有 afterCompletion 兜底（见 preHandle 的注释）
+            AuthContext.clear();
             sendBusinessError(response, "请先完成身份选择（站长 / 配送员）后再使用该功能");
             return false;
         }

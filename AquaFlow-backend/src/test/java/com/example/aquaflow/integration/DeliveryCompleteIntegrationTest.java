@@ -64,7 +64,7 @@ class DeliveryCompleteIntegrationTest extends AbstractIntegrationTest {
         String total = new BigDecimal(water).add(new BigDecimal(deposit)).toPlainString();
         long order = createOrderFull(customer, addr, station, product,
                 2 /* 配送中 */, 1 /* 待收款 */, 2 /* 现金 */, water, deposit, total, true, qty);
-        createOrderItem(order, product, "桶装水18.9L", qty, "20.00", "30.00", 1);
+        createReservedItem(order, product, "桶装水18.9L", qty, "20.00", "30.00");
         if (shortage > 0) {
             createBarrelInTransit(customer, station, product, shortage, "30.00", order, "PENDING");
         }
@@ -185,11 +185,16 @@ class DeliveryCompleteIntegrationTest extends AbstractIntegrationTest {
         seed();
         long station2 = createStation("S2");
         long mgr2 = createStaff("M2", "STATION_MANAGER", station2, 1);
+        // ⚠️ 履约站 S2 必须**自己有货**：新模型下完成配送是从**履约站**的实物里出库
+        // （旧模型在下单那一刻就扣了归属站，履约站根本没有库存行 —— 那时"完成配送不碰库存"所以没暴露）。
+        // 流水与数量成对造，保证 V1-4 等式两边同时变。
+        createInventoryFull(station2, product, 10, 1, "18.00");
+        createInventoryRecord(station2, product, 10, "INIT", product);
 
         // 归属站 S1、履约站 S2（结算站 = S2）：谁送谁收钱谁确认
         long order = createOrderCrossStation(customer, addr, station, station2, product,
                 2 /* 配送中 */, 1 /* 待收款 */, 2 /* 现金 */, "20.00", "30.00", "50.00");
-        createOrderItem(order, product, "桶装水18.9L", 1, "20.00", "30.00", 1);
+        createReservedItem(order, product, "桶装水18.9L", 1, "20.00", "30.00");
         createBarrelInTransit(customer, station, product, 1, "30.00", order, "PENDING");
 
         // ① 归属站 S1 来确认 → 拒（他不是履约站；这笔钱也已经不归他）

@@ -296,7 +296,7 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
         // 归属站 A、履约站 B（A 指派给 B 去送）
         long order = createOrderCrossStation(customer, addr, stationA, stationB, product,
                 2 /* 配送中 */, 1 /* 待收款 */, 2 /* 现金 */, "40.00", "60.00", "100.00");
-        long itemId = createOrderItem(order, product, "桶装水18.9L", 2, "20.00", "30.00", 1);
+        long itemId = createReservedItem(order, product, "桶装水18.9L", 2, "20.00", "30.00");
         createBarrelInTransit(customer, stationA, product, 2, "30.00", order, "PENDING");
 
         // 谁操作：完成配送与确认收款都只认【履约站】(checkStationOwnership)，归属站连完成都做不了

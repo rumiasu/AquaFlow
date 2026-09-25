@@ -188,10 +188,12 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
         long orderId = createOrderFull(customer, address, station, product,
                 2, 1, 2, "40.00", "0.00", "40.00", false, 2);
         // ⚠️ 必须有 order_item：毛利的水费收入与计件的送桶收益都是**按明细行**产生的
-        insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
+        long itemId = insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
                         + "VALUES (?,?,?,?,?,?,?)",
                 orderId, product, "净利水", new BigDecimal("20.00"), 2,
                 new BigDecimal("0.00"), new BigDecimal("40.00"));
+        // 新模型：完成配送要过出库完整性检查（每条明细都要配一条活跃预留凭据）
+        reserveExistingItem(itemId);
         // 配送费/楼层费：下单链路的金额由计费配置决定，这里只验证净利的加法，直接写库
         jdbc.update("UPDATE orders SET delivery_staff_id=?, delivery_fee=5.00, floor_fee=2.00 WHERE id=?",
                 rider, orderId);

@@ -285,10 +285,13 @@ class StaffEarningAndPayrollIntegrationTest extends AbstractIntegrationTest {
                 "40.00", "60.00", "100.00", true, buckets);
         // ⚠️ 必须造 order_item：计件的送桶收益是**按 order_item 逐商品**产生的
         // （不同品类单价可以不同），没有明细就一分钱工钱都不会产生。
-        insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
+        long itemId = insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
                         + "VALUES (?,?,?,?,?,?,?)",
                 order, product, "计件水", new BigDecimal("20.00"), buckets,
                 new BigDecimal("30.00"), new BigDecimal("40.00"));
+        // ⚠️ 还必须补一条活跃预留凭据：新模型下"完成配送"要过出库完整性检查
+        // （每条明细都得有凭据、且预留量 = 需求量），否则一律被拒（见 AbstractIntegrationTest.reserveExistingItem）
+        reserveExistingItem(itemId);
         jdbc.update("UPDATE orders SET delivery_staff_id=? WHERE id=?", deliveryStaff, order);
         return order;
     }

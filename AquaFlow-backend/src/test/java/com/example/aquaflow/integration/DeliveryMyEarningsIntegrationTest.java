@@ -177,10 +177,12 @@ class DeliveryMyEarningsIntegrationTest extends AbstractIntegrationTest {
         long order = createOrderFull(customer, address, station, product, 2, 1, 2,
                 "40.00", "60.00", "100.00", true, 2);
         // ⚠️ 必须造 order_item：送桶计件是**按 order_item 逐商品**产生的，没有明细一分钱都不会有
-        insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
+        long itemId = insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
                         + "VALUES (?,?,?,?,?,?,?)",
                 order, product, "工资水", new BigDecimal("20.00"), 2,
                 new BigDecimal("30.00"), new BigDecimal("40.00"));
+        // 新模型：完成配送要过出库完整性检查（每条明细都要有活跃预留凭据）
+        reserveExistingItem(itemId);
         jdbc.update("UPDATE orders SET delivery_staff_id=? WHERE id=?", deliveryStaff, order);
         assertEquals(0, post("/api/delivery/orders/" + order + "/complete",
                 staffToken(deliveryStaff, "DELIVERY", station), "{\"collected\":true}").code(),

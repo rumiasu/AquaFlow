@@ -67,8 +67,8 @@ class CrossStationRefundIntegrationTest extends AbstractIntegrationTest {
         // 真实链路的终点状态是"客户在 A 下单时凭据挂 A → 外派给 B 时搬到 B"（见
         // InventoryReservationIntegrationTest 的 E3）；这里为了聚焦"钱票在 A、货在 B"直接造终点。
         insert("INSERT INTO inventory_reservation(order_id, order_item_id, product_id, station_id, "
-                        + "reserved_qty, shipped_qty, released_qty, status, create_time, update_time) "
-                        + "VALUES (?,?,?,?,4,0,0,1,NOW(),NOW())",
+                        + "need_qty, need_time, reserved_qty, shipped_qty, released_qty, status, create_time, update_time) "
+                        + "VALUES (?,?,?,?,4,NOW(),4,0,0,1,NOW(),NOW())",
                 order, itemId, product, stationB);
         // 水票扣在归属站 A，且唯一键是 (order_id, product_id, source)
         // 注意 helper 签名是 (customerId, stationId, productId, remainQuantity)

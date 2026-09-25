@@ -1,0 +1,86 @@
+<view class="page">
+  <!-- 成功动画区 -->
+  <view class="success-hero">
+    <view class="success-circle">
+      <view class="success-ring"></view>
+      <icon name="check" size="56rpx" color="#FFFFFF" />
+    </view>
+    <text class="success-title">下单成功</text>
+    <text class="success-desc" wx:if="{{paymentStatus === 0 || paymentStatus === 1}}">订单已创建，待支付 ¥{{orderAmount}}</text>
+    <text class="success-desc" wx:elif="{{paymentStatus === 4}}">支付已取消，请重新支付 ¥{{orderAmount}}</text>
+    <text class="success-desc" wx:elif="{{paymentStatus === 2}}">支付已完成，我们会尽快为您配送</text>
+    <text class="success-desc" wx:else>我们会尽快为您配送</text>
+    <!-- 付款说明由后端下发（payHint）：没有在线支付入口时，用它解释"钱怎么付"，
+         而不是留一个点了没用的按钮。 -->
+    <text class="success-desc" wx:if="{{payHint}}">{{payHint}}</text>
+  </view>
+
+  <!-- 去支付按钮：条件一律用后端下发的 canRepay，不用 paymentStatus 自己判断。
+       原写法 paymentStatus in (0,1,4) 会让现金单（货到付款，payment_status=1）
+       也显示「去支付」：客户点一下就多一条待收款流水，而现金本该当面收。 -->
+  <view class="pay-section" wx:if="{{canRepay}}">
+    <view class="pay-btn" bindtap="onPayNow">
+      <text class="pay-btn-text">{{repayLabel}} ¥{{orderAmount}}</text>
+    </view>
+  </view>
+
+  <!-- 常用订单保存区 -->
+  <view class="template-section" wx:if="{{!isDefaultSet}}">
+    <view class="template-card" bindtap="onSaveTemplate">
+      <view class="template-left">
+        <view class="template-icon-wrap">
+          <icon name="zap" size="40rpx" color="#2E4A68" />
+        </view>
+        <view class="template-text">
+          <text class="template-title">存为常用订单</text>
+          <text class="template-hint">下次一键复购，省时省力</text>
+        </view>
+      </view>
+      <text class="template-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 已保存提示 -->
+  <view class="template-section" wx:if="{{isDefaultSet}}">
+    <view class="template-card saved">
+      <view class="template-left">
+        <view class="template-icon-wrap saved">
+          <icon name="check" size="40rpx" color="#10B981" />
+        </view>
+        <view class="template-text">
+          <text class="template-title saved">已存为常用订单</text>
+          <text class="template-hint">首页可一键复购</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="actions">
+    <view class="action-row">
+      <view class="action-card primary" bindtap="onViewOrders">
+        <view class="action-icon-wrap primary">
+          <icon name="order" size="44rpx" color="#2E4A68" />
+        </view>
+        <view class="action-info">
+          <text class="action-title">查看订单</text>
+          <text class="action-desc">追踪配送状态</text>
+        </view>
+      </view>
+      <view class="action-card secondary" bindtap="onBackHome">
+        <view class="action-icon-wrap secondary">
+          <icon name="home" size="44rpx" color="#475569" />
+        </view>
+        <view class="action-info">
+          <text class="action-title">返回首页</text>
+          <text class="action-desc">继续下单</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部提示 -->
+  <view class="bottom-tip">
+    <text class="tip-text">配送员会在 30 分钟内送达</text>
+  </view>
+</view>

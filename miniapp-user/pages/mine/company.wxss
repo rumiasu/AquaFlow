@@ -1,0 +1,97 @@
+.container {
+  background-color: var(--bg-color);
+  min-height: 100vh;
+  padding: 24rpx;
+}
+
+.company-card {
+  background-color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 32rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.company-name-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 28rpx;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.company-icon {
+  font-size: 40rpx;
+  margin-right: 16rpx;
+}
+
+.company-name {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 18rpx 0;
+}
+
+.info-row .label {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+}
+
+.info-row .value {
+  font-size: 28rpx;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.info-row .input {
+  flex: 1;
+  text-align: right;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+
+.action-bar {
+  margin-top: 32rpx;
+}
+
+.edit-btn {
+  background-color: #2E4A68;
+  color: #fff;
+  border-radius: 16rpx;
+  padding: 22rpx 0;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.btn-row {
+  display: flex;
+  gap: 24rpx;
+}
+
+.btn {
+  flex: 1;
+  text-align: center;
+  padding: 22rpx 0;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.btn.cancel {
+  background-color: #F1F5F9;
+  color: var(--text-secondary);
+}
+
+.btn.confirm {
+  background-color: #2E4A68;
+  color: #fff;
+}
+
+.btn.disabled {
+  opacity: 0.6;
+}

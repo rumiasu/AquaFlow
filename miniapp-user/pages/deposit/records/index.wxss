@@ -1,0 +1,121 @@
+.container {
+  background-color: var(--bg-color);
+  min-height: 100vh;
+  padding: 24rpx;
+}
+
+.station-bar {
+  display: flex;
+  flex-direction: column;
+  padding: 4rpx 8rpx 20rpx;
+}
+
+.station-bar-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.station-bar-tip {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+/* 加载失败卡片：与「暂无押金流水」严格分开，且文案是后端 message 原文 */
+.error-card {
+  background-color: #fff;
+  border: 1rpx solid rgba(181, 68, 44, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 40rpx 32rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.error-text {
+  display: block;
+  font-size: 28rpx;
+  color: var(--error-color);
+  line-height: 1.6;
+}
+
+.error-btn {
+  margin-top: 28rpx;
+  height: 76rpx;
+  line-height: 76rpx;
+  text-align: center;
+  border-radius: var(--radius-round);
+  background-color: var(--primary-color);
+  color: #fff;
+  font-size: 28rpx;
+}
+
+.error-btn.ghost {
+  background-color: transparent;
+  border: 1rpx solid var(--border-color);
+  color: var(--primary-color);
+}
+
+.record-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background-color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 28rpx 32rpx;
+  margin-bottom: 20rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.record-main {
+  flex: 1;
+  padding-right: 20rpx;
+}
+
+.record-type {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8rpx;
+}
+
+.record-time {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.record-note {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: var(--text-regular);
+  line-height: 1.5;
+}
+
+.record-order {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--text-placeholder);
+}
+
+.record-amount {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--price-color);
+  white-space: nowrap;
+}
+
+/* 方向配色：正 = 入账，负 = 扣减。字号与字重一致，只有颜色不同（金额本身已带符号） */
+.record-amount.amount-in {
+  color: var(--success-color);
+}
+
+.record-amount.amount-out {
+  color: var(--error-color);
+}
+
+.record-amount.amount-flat {
+  color: var(--text-secondary);
+}

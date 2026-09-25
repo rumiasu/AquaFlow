@@ -1,0 +1,192 @@
+.page {
+  padding: 24rpx;
+  padding-bottom: 60rpx;
+}
+
+/* 已选摘要：滚动到下半屏时仍能确认"这单给谁、送到哪" */
+.summary {
+  background: #eef6ff;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 20rpx;
+}
+.summary-line {
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  line-height: 44rpx;
+}
+.summary-label {
+  color: #888;
+  width: 90rpx;
+  flex-shrink: 0;
+}
+.summary-value {
+  color: #222;
+  flex: 1;
+}
+.summary-change {
+  color: #1677ff;
+  font-size: 24rpx;
+  padding-left: 16rpx;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.card-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 16rpx;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+.search-input {
+  flex: 1;
+  height: 72rpx;
+  background: #f5f6f8;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 26rpx;
+}
+.search-btn {
+  margin-left: 16rpx;
+  padding: 0 28rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  background: #1677ff;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.row:last-child {
+  border-bottom: none;
+}
+.row-main {
+  flex: 1;
+  overflow: hidden;
+}
+.row-title {
+  display: block;
+  font-size: 28rpx;
+  color: #222;
+}
+.row-sub {
+  display: block;
+  font-size: 24rpx;
+  color: #888;
+  margin-top: 4rpx;
+}
+.row-arrow {
+  color: #bbb;
+  font-size: 34rpx;
+  padding-left: 12rpx;
+}
+
+.qty {
+  display: flex;
+  align-items: center;
+}
+.qty-btn {
+  width: 60rpx;
+  height: 60rpx;
+  line-height: 56rpx;
+  text-align: center;
+  border: 1rpx solid #d9d9d9;
+  border-radius: 50%;
+  font-size: 34rpx;
+  color: #333;
+  margin-left: 16rpx;
+}
+
+.empty {
+  font-size: 26rpx;
+  color: #999;
+  padding: 20rpx 0;
+  line-height: 40rpx;
+}
+
+.fee-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 26rpx;
+  color: #555;
+  line-height: 48rpx;
+}
+.fee-total {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #222;
+  border-top: 1rpx solid #f0f0f0;
+  margin-top: 8rpx;
+  padding-top: 8rpx;
+}
+
+.warn {
+  font-size: 24rpx;
+  color: #d48806;
+  line-height: 40rpx;
+  margin-top: 8rpx;
+}
+.blocked {
+  font-size: 24rpx;
+  color: #cf1322;
+  line-height: 40rpx;
+  margin-top: 8rpx;
+}
+
+.methods {
+  display: flex;
+  flex-wrap: wrap;
+}
+.method {
+  padding: 12rpx 28rpx;
+  border: 1rpx solid #d9d9d9;
+  border-radius: 32rpx;
+  font-size: 26rpx;
+  color: #333;
+  margin: 0 16rpx 16rpx 0;
+}
+.method-on {
+  border-color: #1677ff;
+  color: #1677ff;
+  background: #f0f7ff;
+}
+.method-off {
+  color: #bbb;
+  border-color: #eee;
+}
+
+.btn-primary {
+  height: 84rpx;
+  line-height: 84rpx;
+  text-align: center;
+  background: #1677ff;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+}
+.btn-disabled {
+  background: #a8c7f0;
+}
+.hint {
+  font-size: 23rpx;
+  color: #999;
+  line-height: 36rpx;
+  margin-top: 12rpx;
+}

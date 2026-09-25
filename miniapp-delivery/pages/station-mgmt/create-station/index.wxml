@@ -1,0 +1,52 @@
+<view class="container">
+  <!-- 隐私授权弹窗：本页用 wx.chooseLocation 选水站坐标，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
+  <privacy-popup />
+  <view class="form-card">
+    <view class="form-header">
+      <text class="form-title">创建我的水站</text>
+      <text class="form-subtitle">名称、联系电话、位置三项必填</text>
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">水站名称 <text class="required">*</text></text>
+      <input class="form-input" placeholder="给您的水站起个名字" value="{{stationName}}" bindinput="onStationNameInput" maxlength="30" />
+    </view>
+
+    <!-- [2026-09-19] 联系电话改为必填（产品裁定）：客户下单、退桶、催单都靠它，缺了页面只能显示「请咨询客服」。
+         此前这里没有输入框，提交时写死 phone:''（见 index.js），后端也不校验。 -->
+    <view class="form-group">
+      <text class="form-label">联系电话 <text class="required">*</text></text>
+      <input class="form-input" type="number" placeholder="客户联系你用的号码" value="{{phone}}" bindinput="onPhoneInput" maxlength="20" />
+    </view>
+
+    <view class="form-group location-group {{locationText ? 'location-filled' : ''}}" bindtap="onChooseLocation">
+      <text class="form-label">定位水站位置 <text class="required">*</text></text>
+      <view class="location-value {{locationText ? '' : 'placeholder'}}">
+        <view class="location-text-wrap">
+          <text class="location-text">{{locationText || '点击选择地图位置'}}</text>
+          <!-- 省市区由定位结果自动解析回填，不需要站长再手选（见 index.js onChooseLocation） -->
+          <text class="location-sub" wx:if="{{regionText}}">省市区：{{regionText}}</text>
+          <!-- 标了必填就要真的校验：没坐标 = 算不出距离 = 你设的配送范围整段失效 -->
+          <text class="location-sub warn" wx:else>必须选点：没有坐标，配送范围与距离都无法判断</text>
+        </view>
+        <text class="location-icon">📍</text>
+      </view>
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">水站简介</text>
+      <textarea class="form-textarea" placeholder="简介、营业时间、配送范围等（可选）" value="{{description}}" bindinput="onDescInput" maxlength="200"></textarea>
+    </view>
+  </view>
+
+  <view class="footer">
+    <button class="btn-submit" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">创建水站</button>
+    <!-- 选择身份只是登记意向，生效前允许改选；生效后后端会拒绝（按钮会给出提示） -->
+    <view class="footer-action" bindtap="onBackToRoleSelect">
+      <text>返回，重新选择身份</text>
+    </view>
+    <view class="footer-action" bindtap="onLogout">
+      <text>退出登录</text>
+    </view>
+  </view>
+</view>

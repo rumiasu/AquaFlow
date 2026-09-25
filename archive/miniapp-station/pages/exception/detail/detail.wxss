@@ -1,0 +1,371 @@
+.page-container {
+  background: #f5f5f5;
+  min-height: 100vh;
+  padding-bottom: 120rpx;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 28rpx;
+  color: #999;
+}
+
+.content {
+  padding: 24rpx;
+}
+
+.section {
+  background: #fff;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+  padding: 24rpx;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.status-badge {
+  padding: 4rpx 16rpx;
+  font-size: 22rpx;
+  border-radius: 20rpx;
+  font-weight: 500;
+}
+.status-badge.warning { background: #fff1f0; color: #ff4d4f; }
+.status-badge.primary { background: #e6f7ff; color: #1890ff; }
+.status-badge.success { background: #f6ffed; color: #52c41a; }
+.status-badge.info { background: #f0f9ff; color: #2f54eb; }
+.status-badge.default { background: #f5f5f5; color: #999; }
+
+/* 信息网格 */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx 24rpx;
+}
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+.info-item.full-width {
+  grid-column: span 2;
+}
+.label {
+  font-size: 22rpx;
+  color: #999;
+}
+.value {
+  font-size: 26rpx;
+  color: #333;
+  word-break: break-word;
+}
+.value.short { color: #ff4d4f; font-weight: 600; }
+.value.over { color: #52c41a; font-weight: 600; }
+.value.owe-tag { color: #faad14; font-weight: 600; }
+.value.ticket-tag { color: #007aff; font-weight: 600; }
+.value.cash-tag { color: #52c41a; font-weight: 600; }
+.value.asset-tag { color: #722ed1; font-weight: 600; }
+.value.note-text { white-space: pre-wrap; }
+
+.category-tag {
+  display: inline-block;
+  padding: 2rpx 12rpx;
+  font-size: 22rpx;
+  border-radius: 12rpx;
+  background: #f0f9ff;
+  color: #007aff;
+}
+.action-tag {
+  display: inline-block;
+  padding: 2rpx 12rpx;
+  font-size: 22rpx;
+  border-radius: 12rpx;
+  background: #fff1f0;
+  color: #ff4d4f;
+}
+.owe-tag {
+  background: #fffbe6;
+  color: #faad14;
+  padding: 2rpx 12rpx;
+  border-radius: 12rpx;
+  font-size: 22rpx;
+}
+.ticket-tag { background: #e6f7ff; color: #1890ff; padding: 2rpx 12rpx; border-radius: 12rpx; font-size: 22rpx; }
+.cash-tag { background: #f6ffed; color: #52c41a; padding: 2rpx 12rpx; border-radius: 12rpx; font-size: 22rpx; }
+.asset-tag { background: #f9f0ff; color: #722ed1; padding: 2rpx 12rpx; border-radius: 12rpx; font-size: 22rpx; }
+
+/* 详情卡片 */
+.detail-cards {
+  display: flex;
+  gap: 16rpx;
+}
+.detail-card {
+  flex: 1;
+  padding: 20rpx;
+  background: #fafafa;
+  border-radius: 12rpx;
+  text-align: center;
+}
+.detail-card.short { background: #fff1f0; border: 1rpx solid #ffccc7; }
+.detail-card.over { background: #f6ffed; border: 1rpx solid #b7eb8f; }
+.detail-card.normal { background: #f0f9ff; border: 1rpx solid #91d5ff; }
+.card-label {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+}
+.card-value {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #333;
+}
+.detail-card.short .card-value { color: #ff4d4f; }
+.detail-card.over .card-value { color: #52c41a; }
+.detail-card.normal .card-value { color: #007aff; }
+
+/* 建议卡片 */
+.suggestion-card {
+  background: #f0f9ff;
+  border: 1rpx solid #91d5ff;
+  border-radius: 12rpx;
+  padding: 20rpx;
+}
+.suggestion-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12rpx 0;
+  border-bottom: 1rpx dashed #91d5ff;
+}
+.suggestion-row:last-child { border-bottom: none; }
+.suggestion-tag {
+  padding: 4rpx 12rpx;
+  font-size: 22rpx;
+  border-radius: 12rpx;
+  font-weight: 500;
+}
+.suggestion-tag.ticket { background: #e6f7ff; color: #1890ff; }
+.suggestion-tag.cash { background: #f6ffed; color: #52c41a; }
+.suggestion-value {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+/* 操作区域 */
+.action-area {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24rpx;
+  background: #fff;
+  border-top: 1rpx solid #f0f0f0;
+  box-sizing: border-box;
+}
+.handle-btn {
+  width: 100%;
+  height: 96rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #fff;
+  background: #007aff;
+  border: none;
+  border-radius: 12rpx;
+}
+
+/* 模态框 */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal {
+  width: 92%;
+  max-width: 680rpx;
+  max-height: 85vh;
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.confirm-modal {
+  max-width: 500rpx;
+  max-height: auto;
+  padding: 32rpx;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.modal-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+.modal-close {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 36rpx;
+  color: #999;
+}
+.modal-body {
+  padding: 24rpx;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+.confirm-modal .modal-body { padding: 0; }
+.modal-content {
+  font-size: 28rpx;
+  color: #666;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  margin-bottom: 28rpx;
+}
+
+.modal-label {
+  display: block;
+  font-size: 24rpx;
+  color: #666;
+  margin: 20rpx 0 8rpx;
+}
+.modal-section {
+  margin-bottom: 24rpx;
+}
+
+.action-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.modal-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx;
+  border: 1rpx solid #e0e0e0;
+  border-radius: 12rpx;
+  background: #fafafa;
+}
+.modal-action.selected {
+  border-color: #007aff;
+  background: #f0f9ff;
+}
+.action-main { flex: 1; }
+.action-label { display: block; font-size: 26rpx; font-weight: 600; color: #333; margin-bottom: 4rpx; }
+.action-desc { font-size: 22rpx; color: #999; }
+.action-radio {
+  width: 24rpx; height: 24rpx;
+  border: 2rpx solid #ddd; border-radius: 50%;
+}
+.action-radio.checked { border-color: #007aff; }
+.action-radio.checked::after {
+  content: ''; position: absolute; top: 4rpx; left: 4rpx;
+  width: 12rpx; height: 12rpx; background: #007aff; border-radius: 50%;
+}
+
+.modal-input-group {
+  display: flex;
+  gap: 16rpx;
+}
+.modal-input-group .input-item { flex: 1; }
+.input-item { display: flex; flex-direction: column; gap: 6rpx; }
+.input-label { font-size: 24rpx; color: #666; }
+.input-number {
+  padding: 16rpx;
+  font-size: 28rpx;
+  border: 1rpx solid #e0e0e0;
+  border-radius: 8rpx;
+  box-sizing: border-box;
+}
+.textarea {
+  width: 100%;
+  min-height: 120rpx;
+  padding: 16rpx;
+  font-size: 26rpx;
+  color: #333;
+  border: 1rpx solid #e0e0e0;
+  border-radius: 8rpx;
+  box-sizing: border-box;
+  font-family: inherit;
+  resize: vertical;
+}
+.char-count {
+  display: block;
+  text-align: right;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #ccc;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 16rpx;
+  padding: 24rpx;
+  border-top: 1rpx solid #f0f0f0;
+  background: #fafafa;
+  border-radius: 0 0 16rpx 16rpx;
+}
+.modal-btn {
+  flex: 1;
+  height: 88rpx;
+  font-size: 28rpx;
+  border-radius: 12rpx;
+  border: none;
+}
+.modal-btn.cancel { background: #f5f5f5; color: #666; }
+.modal-btn.confirm { background: #007aff; color: #fff; }
+.modal-btn.confirm.disabled { background: #ccc; }
+
+.modal-actions {
+  display: flex;
+  gap: 16rpx;
+  padding: 24rpx;
+}
+.modal-btn { flex: 1; height: 88rpx; font-size: 28rpx; border-radius: 12rpx; }
+.modal-btn.cancel { background: #f5f5f5; color: #666; }
+.modal-btn.confirm { background: #007aff; color: #fff; }
+
+.suggestion-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12rpx 0;
+}
+.suggestion-tag {
+  padding: 4rpx 12rpx;
+  font-size: 22rpx;
+  border-radius: 12rpx;
+  font-weight: 500;
+}
+.suggestion-tag.ticket { background: #e6f7ff; color: #1890ff; }
+.suggestion-tag.cash { background: #f6ffed; color: #52c41a; }
+.suggestion-value { font-size: 26rpx; font-weight: 600; color: #333; }

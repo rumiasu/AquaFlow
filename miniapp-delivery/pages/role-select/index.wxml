@@ -1,0 +1,31 @@
+<view class="container">
+  <view class="header">
+    <text class="title">欢迎使用 AquaFlow</text>
+    <text class="subtitle">请选择您的角色（站长/配送员）继续</text>
+  </view>
+
+  <view class="role-list">
+    <view class="role-card station-manager" bindtap="onSelectStationManager">
+      <view class="role-icon">🏢</view>
+      <view class="role-info">
+        <text class="role-name">我是站长</text>
+        <text class="role-desc">创建水站、管理配送员、协调订单</text>
+      </view>
+      <text class="role-arrow">›</text>
+    </view>
+
+    <view class="role-card delivery" bindtap="onSelectDelivery">
+      <view class="role-icon">🚚</view>
+      <view class="role-info">
+        <text class="role-name">我是配送员</text>
+        <text class="role-desc">接单配送、完成订单、申请绑定水站</text>
+      </view>
+      <text class="role-arrow">›</text>
+    </view>
+  </view>
+
+  <view class="footer-tip">
+    <text>选择身份只是登记意向，还需完成「创建水站」或「申请绑定水站」才算生效。</text>
+    <text>生效前可以返回重新选择；生效后如需更换请联系管理员。</text>
+  </view>
+</view>

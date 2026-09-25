@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "确认订单",
+  "usingComponents": {
+    "loading": "../../components/Loading/index",
+    "price": "../../components/Price/index"
+  }
+}

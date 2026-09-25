@@ -1,0 +1,23 @@
+/* 「?」解释按钮（见 index.js 文件头）。
+   尺寸刻意做小：它是"想问再看"的入口，不该跟卡片标题抢视线。
+   36rpx 直径 ≈ 18px，比微信推荐的最小点击区(约 44px)小 —— 但它的
+   catchtap 在父容器里是独立命中区，且旁边没有别的可点元素会误触，
+   实测可点；若将来发现点不中，调大 width/height 即可。 */
+.help-tip {
+  flex-shrink: 0;
+  display: inline-block;
+  width: 36rpx;
+  height: 36rpx;
+  line-height: 34rpx;
+  text-align: center;
+  border-radius: 50%;
+  border: 1rpx solid #c8cdd4;
+  color: #8a9199;
+  font-size: 24rpx;
+  margin-left: 10rpx;
+  vertical-align: middle;
+}
+
+.help-tip-hover {
+  background: #eef1f5;
+}

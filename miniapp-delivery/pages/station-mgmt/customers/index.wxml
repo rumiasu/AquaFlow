@@ -1,0 +1,151 @@
+<view class="container">
+  <view class="search-bar">
+    <input class="search-input" placeholder="搜姓名/手机号/地址（地址可缩写）" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="onSearch" />
+    <view class="search-btn" bindtap="onSearch"><text>搜索</text></view>
+  </view>
+
+  <view class="filter-chips">
+    <view class="chip {{filterType === 'all' ? 'active' : ''}}" data-type="all" bindtap="onFilterType"><text>全部</text></view>
+    <view class="chip {{filterType === '1' ? 'active' : ''}}" data-type="1" bindtap="onFilterType"><text>普通客户</text></view>
+    <view class="chip {{filterType === '2' ? 'active' : ''}}" data-type="2" bindtap="onFilterType"><text>企业客户</text></view>
+  </view>
+
+  <!--
+    企业身份（v50 审核 + v51 阈值）—— **本页与企业身份有关的全部操作都在这一个弹窗里**。
+    [2026-09-19 IA 重组 C5] 原先是两个弹窗（审核一个、阈值一个）加两处入口（待审横幅 + 设置行），
+    同一个主题四处分叉；现在只留一行入口，点开同一个弹窗，弹窗内两个视图切换。
+    ⚠️ `entCfg.enabled` 为 false（平台总开关关着）时整行不显示 —— 功能关掉就该连设置都看不到，
+       而不是留一个点了会报错的入口。
+    ⚠️ 待审条数为 0 时这一行**照样显示**（否则站长不知道本站开没开企业身份、阈值是多少）。
+  -->
+  <view class="ent-entry" wx:if="{{entCfg.enabled}}">
+    <view class="ent-entry-left" bindtap="onEntOpen" data-view="review">
+      <text class="ent-entry-title">企业身份</text>
+      <text class="ent-entry-desc" wx:if="{{entApplies.length}}">有 {{entApplies.length}} 条申请待审核</text>
+      <text class="ent-entry-desc" wx:else>暂无待审申请</text>
+    </view>
+    <text class="ent-entry-set" bindtap="onEntOpen" data-view="settings">提示阈值 ›</text>
+  </view>
+
+  <view class="customer-list" wx:if="{{!loading}}">
+    <view class="customer-card" wx:for="{{list}}" wx:key="id">
+      <view class="avatar" style="background:{{item.avatarColor}}">{{item.avatarText}}</view>
+      <view class="card-body">
+        <view class="name-row">
+          <text class="customer-name">{{item.name}}</text>
+          <text class="badge type">{{item.customerTypeText}}</text>
+          <text class="badge level" style="background:{{item.customerLevelColor}}">{{item.customerLevel}}</text>
+          <text class="badge act-{{item.activityStatus}}">{{item.activityText}}</text>
+          <text class="badge cod" wx:if="{{item.codEnabled}}">货到付款</text>
+        </view>
+        <text class="customer-phone" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}">{{item.phoneMasked}} ›</text>
+        <text class="customer-phone muted" wx:else>未填写电话</text>
+        <!-- 命中地址：站长是靠地址认人的（搜「阳光81301」时得看得出命中的是哪一家）。
+             只有带关键字搜索时后端才下发 addressText，普通列表恒为空、不占位。 -->
+        <text class="customer-phone" wx:if="{{item.addressText}}">{{item.addressText}}</text>
+
+        <view class="stat-row">
+          <view class="stat"><text class="stat-val">{{item.totalOrders}}</text><text class="stat-label">订单</text></view>
+          <view class="stat"><text class="stat-val">¥{{item.totalConsumptionText}}</text><text class="stat-label">累计消费</text></view>
+          <view class="stat"><text class="stat-val">¥{{item.depositBalanceText}}</text><text class="stat-label">押金</text></view>
+          <view class="stat"><text class="stat-val">{{item.firstOrderTimeText}}</text><text class="stat-label">首单</text></view>
+        </view>
+
+        <view class="tags" wx:if="{{item.tagsList.length}}">
+          <text class="tag" wx:for="{{item.tagsList}}" wx:for-item="t" wx:key="*this">{{t}}</text>
+        </view>
+      </view>
+      <view class="card-actions">
+        <view class="manage-btn" data-id="{{item.id}}" bindtap="onManage"><text>画像</text></view>
+        <!-- 货到付款的开关与约束（v48）：站长在这里开通；v49 已撤回「首单是否放行 / 单笔上限」 -->
+        <view class="cod-btn" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onCod"><text>货到付款</text></view>
+        <view class="call-btn" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall"><text>致电</text></view>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{list.length === 0}}"><text>未找到客户</text></view>
+  </view>
+  <view class="loading" wx:if="{{loading}}">加载中...</view>
+
+  <!--
+    货到付款设置弹窗：开关，以及该客户的欠款/逾期与"此刻为什么用不了"。
+    ⚠️ v48 曾有「首单是否放行 / 单笔上限」两行，v49 按产品裁定撤回（货到付款本来就由站长逐个审核开通，
+    这两层是重复设防）；`migration_v49_drop_cod_limits.sql` 里有完整理由。
+  -->
+  <view class="modal-mask" wx:if="{{codModal.visible}}" bindtap="onCodClose">
+    <view class="modal-body" catchtap="onCodNoop">
+      <view class="modal-title">货到付款 · {{codModal.customerName}}</view>
+      <view class="modal-tip" wx:if="{{codModal.blockReason}}">{{codModal.blockReason}}</view>
+      <view class="modal-row">
+        <text>开通货到付款</text>
+        <switch checked="{{codForm.enabled}}" bindchange="onCodToggle" />
+      </view>
+      <view class="modal-stat">
+        <text>历史订单 {{codModal.orderCount}} 笔</text>
+        <text>逾期未结 {{codModal.overdueCount}} 笔 · ¥{{codModal.overdueAmount}}</text>
+      </view>
+      <view class="modal-actions">
+        <view class="modal-btn" bindtap="onCodClose"><text>取消</text></view>
+        <view class="modal-btn primary" bindtap="onCodSave"><text>保存</text></view>
+      </view>
+    </view>
+  </view>
+
+  <!--
+    企业身份弹窗：**审核视图**与**阈值视图**共用一个弹窗（v50 审核 + v51 阈值）。
+    [2026-09-19 IA 重组 C5] 原先这是两个独立弹窗 + 两个 visible 状态；合成一个之后
+    站长不会在两个长得很像的弹窗之间迷失，也不需要记住"阈值在哪一个里"。
+    · 审核视图：客户填的信息原样展示，通过/驳回各一个按钮 —— **不做"批量通过"**：
+      通过 = 认下一家企业客户，逐条看是应该的。
+    · 阈值视图：两项都可留空（留空 = 不用这条口径，两项都留空 = 本站不提示）。
+    ⚠️ 平台级总开关**不在这里**（产品：平台级不做前端可视化），站长能改的只有本站阈值。
+  -->
+  <view class="modal-mask" wx:if="{{entVisible}}" bindtap="onEntClose">
+    <view class="modal-body" catchtap="onEntNoop">
+      <view class="modal-title">
+        <text wx:if="{{entView === 'review'}}">企业身份申请（{{entApplies.length}}）</text>
+        <text wx:else>企业身份提示 · 本站阈值</text>
+      </view>
+
+      <!-- ===== 审核视图 ===== -->
+      <block wx:if="{{entView === 'review'}}">
+        <view class="ent-item" wx:for="{{entApplies}}" wx:key="id">
+          <view class="ent-item-head">
+            <text class="ent-item-name">{{item.companyName}}</text>
+            <text class="ent-item-time">{{item.applyTimeText}}</text>
+          </view>
+          <text class="ent-item-line" wx:if="{{item.contactPerson}}">联系人：{{item.contactPerson}}</text>
+          <text class="ent-item-line" wx:if="{{item.contactPhone}}">电话：{{item.contactPhone}}</text>
+          <text class="ent-item-line" wx:if="{{item.taxNo}}">税号：{{item.taxNo}}</text>
+          <text class="ent-item-line" wx:if="{{item.contactPhone}}" data-phone="{{item.contactPhone}}" bindtap="onCall">拨号核实 ›</text>
+          <view class="ent-item-actions">
+            <view class="modal-btn" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntReject"><text>驳回</text></view>
+            <view class="modal-btn primary" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntApprove"><text>通过</text></view>
+          </view>
+        </view>
+        <view class="ent-empty" wx:if="{{!entApplies.length}}">暂无待审申请</view>
+      </block>
+
+      <!-- ===== 阈值视图 ===== -->
+      <block wx:else>
+        <view class="modal-tip">下单时达到任一条就提示客户「可申请企业身份」。只算桶装水：押金、配送费、楼层费都不计。</view>
+        <view class="modal-row">
+          <text>桶数达到</text>
+          <input class="modal-input" type="number" placeholder="留空=不用这条" value="{{entCfgForm.barrels}}" bindinput="onEntCfgBarrelInput" />
+        </view>
+        <view class="modal-row">
+          <text>水费达到（元）</text>
+          <input class="modal-input" type="digit" placeholder="留空=不用这条" value="{{entCfgForm.amount}}" bindinput="onEntCfgAmountInput" />
+        </view>
+        <view class="modal-tip">两条都填 = 满足任一条就提示；两条都留空 = 本站不提示。不改就是平台默认（{{entCfg.defaultBarrels}} 桶）。</view>
+        <view class="modal-tip" wx:if="{{entCfgText}}">当前：{{entCfgText}}</view>
+      </block>
+
+      <view class="modal-actions">
+        <view class="modal-btn" wx:if="{{entView === 'review'}}" bindtap="onEntSwitch" data-view="settings"><text>提示阈值 ›</text></view>
+        <view class="modal-btn" wx:else bindtap="onEntSwitch" data-view="review"><text>‹ 返回待审</text></view>
+        <view class="modal-btn" bindtap="onEntClose"><text>关闭</text></view>
+        <view class="modal-btn primary" wx:if="{{entView === 'settings'}}" bindtap="onEntCfgSave"><text>{{entCfgSaving ? '保存中…' : '保存'}}</text></view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "我的水票",
+  "usingComponents": {
+    "loading": "../../components/Loading/index",
+    "empty": "../../components/Empty/index"
+  }
+}

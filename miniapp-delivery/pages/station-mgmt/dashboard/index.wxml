@@ -1,0 +1,159 @@
+<view class="page">
+  <!-- 时间范围切换 -->
+  <view class="range-bar">
+    <view class="range-item {{range === item.key ? 'active' : ''}}"
+          wx:for="{{ranges}}" wx:key="key"
+          bindtap="onRangeChange" data-key="{{item.key}}">{{item.label}}</view>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">加载中...</view>
+
+  <view class="error-banner" wx:if="{{!loading && error}}">
+    <text>{{error}}</text>
+    <view class="retry" bindtap="loadData"><text>重试</text></view>
+  </view>
+
+  <block wx:if="{{!loading && report}}">
+    <!--
+      [2026-09-19 IA 重组 C2] 这里原有一块「本周期有 ¥X 待收款，请及时安排收取」的横幅，
+      与首页「待办」卡的 overdueReceivable（逾期应收，**带金额**）是同一件事的两处展示，
+      已删除。看板只负责"这段时间经营怎么样"，「今天该收哪笔钱」归首页待办卡。
+      别再加回来 —— 同一笔钱两个入口，站长会以为系统有两笔账。
+    -->
+
+    <!-- 核心指标 + 环比 -->
+    <view class="section">
+      <view class="section-head">
+        <view class="section-title">{{report.label}}经营指标</view>
+        <text class="section-note">对比上一周期</text>
+      </view>
+      <view class="metric-grid">
+        <view class="metric-card" wx:for="{{report.metricCards}}" wx:key="key">
+          <text class="metric-value">{{item.valueText}}</text>
+          <text class="metric-label">{{item.label}}</text>
+          <view class="delta {{item.deltaDir}} {{item.good === true ? 'good' : (item.good === false ? 'bad' : '')}}">
+            <text class="delta-arrow" wx:if="{{item.deltaDir === 'up'}}">↑</text>
+            <text class="delta-arrow" wx:elif="{{item.deltaDir === 'down'}}">↓</text>
+            <text class="delta-arrow" wx:else>—</text>
+            <text class="delta-text">{{item.deltaText}}</text>
+          </view>
+          <text class="delta-prev">上期 {{item.previousText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 空数据提示 -->
+    <view class="section" wx:if="{{!report.hasData}}">
+      <view class="empty-tip">所选周期内暂无订单数据，换一个时间范围看看</view>
+    </view>
+
+    <!-- 趋势图 -->
+    <view class="section" wx:if="{{report.hasData}}">
+      <view class="section-head">
+        <view class="section-title">{{trendTitle}}</view>
+        <view class="metric-switch" wx:if="{{metricSwitchable}}">
+          <text class="ms-item {{trendMetric === 'orders' ? 'on' : ''}}" bindtap="onMetricChange" data-key="orders">单量</text>
+          <text class="ms-item {{trendMetric === 'amount' ? 'on' : ''}}" bindtap="onMetricChange" data-key="amount">金额</text>
+        </view>
+      </view>
+      <canvas type="2d" id="trendCanvas" class="chart-canvas trend"></canvas>
+    </view>
+
+    <!-- 订单状态分布 + 支付方式 -->
+    <view class="two-col" wx:if="{{report.hasData}}">
+      <view class="section col">
+        <view class="section-title">订单状态分布</view>
+        <view class="hbar-item" wx:for="{{report.statusDistribution}}" wx:key="idx">
+          <text class="hbar-label">{{item.statusText}}</text>
+          <view class="hbar-track">
+            <view class="hbar-fill" style="width:{{item.width}}%"></view>
+          </view>
+          <text class="hbar-value">{{item.cnt}}/{{item.share}}%</text>
+        </view>
+      </view>
+
+      <view class="section col">
+        <view class="section-title">支付方式</view>
+        <block wx:if="{{payChart.hasData}}">
+          <canvas type="2d" id="payCanvas" class="chart-canvas donut"></canvas>
+          <view class="legend">
+            <view class="legend-item" wx:for="{{payChart.segs}}" wx:key="idx">
+              <view class="legend-dot" style="background:{{item.color}}"></view>
+              <text class="legend-name">{{item.methodText}}</text>
+              <text class="legend-val">{{item.share}}%</text>
+            </view>
+          </view>
+        </block>
+        <view class="empty-tip" wx:else>暂无数据</view>
+      </view>
+    </view>
+
+    <!-- 热销商品 -->
+    <view class="section" wx:if="{{report.topProducts.length}}">
+      <view class="section-title">热销商品 TOP{{report.topProducts.length}}</view>
+      <view class="rank-item" wx:for="{{report.topProducts}}" wx:key="idx">
+        <view class="rank-no rank-{{item.rank}}">{{item.rank}}</view>
+        <view class="rank-body">
+          <view class="rank-line1">
+            <text class="rank-name">{{item.productName}}</text>
+            <text class="rank-val">{{item.qty}} 件 · ¥{{item.revenueText}}</text>
+          </view>
+          <view class="rank-track">
+            <view class="rank-fill" style="width:{{item.width}}%"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 客户消费排行 -->
+    <view class="section" wx:if="{{report.topCustomers.length}}">
+      <view class="section-title">客户消费排行 TOP{{report.topCustomers.length}}</view>
+      <view class="rank-item" wx:for="{{report.topCustomers}}" wx:key="idx">
+        <view class="rank-no rank-{{item.rank}}">{{item.rank}}</view>
+        <view class="rank-body">
+          <view class="rank-line1">
+            <text class="rank-name">{{item.customerName || '客户#' + item.customerId}}</text>
+            <text class="rank-val">{{item.orders}} 单 · ¥{{item.amountText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 配送员业绩 -->
+    <view class="section" wx:if="{{report.staffPerformance.length}}">
+      <view class="section-title">配送员业绩</view>
+      <view class="rank-item" wx:for="{{report.staffPerformance}}" wx:key="idx">
+        <view class="rank-body full">
+          <view class="rank-line1">
+            <text class="rank-name">{{item.staffName || '配送员#' + item.staffId}}</text>
+            <text class="rank-val">{{item.totalOrders}} 单 · 完成 {{item.completedOrders}}</text>
+          </view>
+          <view class="rank-track">
+            <view class="rank-fill green" style="width:{{item.width}}%"></view>
+          </view>
+          <text class="rank-sub">完成率 {{item.completeRate}}%</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 下单时段分布 -->
+    <view class="section" wx:if="{{hourChart}}">
+      <view class="section-head">
+        <view class="section-title">下单时段分布</view>
+        <text class="section-note">0-23 点，用于安排运力</text>
+      </view>
+      <view class="hour-chart">
+        <view class="hour-col" wx:for="{{hourChart.bars}}" wx:key="label">
+          <view class="hour-bar" style="height:{{item.height}}%"></view>
+          <text class="hour-label">{{item.label}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!--
+      [2026-09-19 IA 重组 C2] 这里原有「欠桶客户 TOP N」一块，与「欠桶台账」页
+      （按欠得最久排序的完整台账）重复，且首页待办卡已有欠桶相关待办，已删除。
+      欠桶是一个独立模块的事，看板不复制它。
+    -->
+  </block>
+</view>

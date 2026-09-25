@@ -1,0 +1,587 @@
+/* 首页 · 锁定视觉系统：暖纸底 #FAF7F0 / 白卡 / 深灰 #2B2A26 / 深靛 #2E4A68
+   蓝色全页仅 4 处：品牌桶标 / 主按钮 / 步进器 / 配送状态点。无渐变、无玻璃、无 Banner。 */
+.page {
+  min-height: 100vh;
+  background: var(--bg-color);
+  padding: 0 24rpx 180rpx; /* 底部留给合计下单栏 */
+}
+
+/* ── 通用卡片：白卡 + 暖灰描边 + 中圆角，阴影≈0 ── */
+.card {
+  background: var(--bg-card);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin-top: 20rpx;
+}
+
+.row-arrow {
+  color: var(--text-secondary);
+  font-size: 32rpx;
+  flex: none;
+}
+
+/* ══ 头部卡：左文右美术图（110×146 → 220×292rpx，3:4） ══ */
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 28rpx 28rpx 24rpx;
+  gap: 24rpx;
+}
+.hero-l {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+/* 品牌桶标（纯 CSS 几何桶：提手弧 + 桶身两道棱线，单色深靛）——蓝色合法出现处 ① */
+.brand-mark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+}
+.brand-mark-handle {
+  width: 20rpx;
+  height: 10rpx;
+  border: 3rpx solid var(--primary-color);
+  border-bottom: none;
+  border-radius: 10rpx 10rpx 0 0;
+}
+.brand-mark-body {
+  width: 34rpx;
+  height: 40rpx;
+  border: 3rpx solid var(--primary-color);
+  border-radius: 6rpx 6rpx 10rpx 10rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 6rpx;
+}
+.brand-mark-line {
+  width: 18rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: var(--primary-color);
+}
+.station-chip {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 6rpx 16rpx;
+}
+.station-chip-name {
+  font-size: var(--font-sm);
+  color: var(--text-regular);
+}
+.station-chip-arrow {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+.hero-hi {
+  font-size: 40rpx;
+  font-weight: 600;
+  margin-top: 24rpx;
+  letter-spacing: 0.5rpx;
+}
+.hero-sub {
+  font-size: var(--font-sm);
+  color: var(--text-regular);
+  margin-top: 12rpx;
+  line-height: 1.6;
+}
+.hero-img {
+  width: 220rpx;
+  height: 292rpx;
+  border-radius: var(--radius-md);
+  flex: none;
+  background: var(--bg-gray);
+}
+.hero-img-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ══ 游客 / 状态卡 ══ */
+.guest-card, .state-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48rpx 32rpx;
+  text-align: center;
+}
+.guest-title, .state-title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+.guest-desc, .state-desc {
+  font-size: var(--font-sm);
+  color: var(--text-regular);
+  margin-top: 12rpx;
+  line-height: 1.7;
+}
+.guest-cta {
+  margin-top: 32rpx;
+}
+.state-btn {
+  margin-top: 32rpx;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: var(--font-md);
+  font-weight: 600;
+  border-radius: 20rpx;
+  padding: 20rpx 64rpx;
+  letter-spacing: 2rpx;
+}
+.state-btn.off {
+  background: var(--text-placeholder);
+}
+
+/* ══ 配送状态条：蓝点 = 蓝色合法出现处 ③ ══ */
+.ship {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 28rpx;
+}
+.dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: var(--primary-color);
+  flex: none;
+  position: relative;
+}
+.dot::after {
+  content: '';
+  position: absolute;
+  left: -8rpx;
+  top: -8rpx;
+  right: -8rpx;
+  bottom: -8rpx;
+  border-radius: 50%;
+  border: 1rpx solid var(--primary-color);
+  opacity: 0.35;
+}
+.ship-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ship-title {
+  font-size: var(--font-md);
+  line-height: 1.5;
+}
+.ship-sub {
+  font-size: var(--font-sm);
+  color: var(--text-regular);
+  margin-top: 4rpx;
+}
+
+/* ══ 再来一单：64×84 → 128×168rpx 缩略图 ══ */
+.again {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 24rpx 28rpx;
+}
+.again-img {
+  width: 128rpx;
+  height: 168rpx;
+  border-radius: var(--radius-md);
+  flex: none;
+  background: var(--bg-gray);
+}
+.again-img-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.again-mid {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.again-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+.again-sub {
+  font-size: var(--font-sm);
+  color: var(--text-regular);
+  margin-top: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.again-btn {
+  flex: none;
+  font-size: var(--font-md);
+  color: var(--text-primary);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12rpx 32rpx;
+  background: #fff;
+}
+
+/* ══ 订水区：左图右文，72×96 → 144×192rpx 商品图 ══ */
+.shop-sec {
+  padding-bottom: 4rpx;
+}
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 16rpx;
+  padding: 28rpx 32rpx 8rpx;
+}
+.sec-title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+.sec-note {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  /* 右侧现有「搜索 ›」+「更多商品 ›」两个入口，窄屏时让说明文案优先收缩为省略号，
+     避免换行把 sec-head 撑成两行 */
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sec-more {
+  font-size: var(--font-sm);
+  color: var(--text-regular);
+  flex: none;
+  padding: 4rpx 0 4rpx 16rpx;
+}
+.prod {
+  display: flex;
+  gap: 24rpx;
+  padding: 28rpx 32rpx;
+  align-items: center;
+}
+.prod + .prod {
+  border-top: 1rpx solid var(--border-color);
+}
+.prod-img {
+  width: 144rpx;
+  height: 192rpx;
+  border-radius: var(--radius-md);
+  flex: none;
+  background: var(--bg-gray);
+}
+.prod-img-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.prod-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.prod-name {
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+.prod-spec {
+  font-size: var(--font-sm);
+  color: var(--text-regular);
+  margin-top: 6rpx;
+}
+.prod-deposit {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-top: 6rpx;
+}
+.prod-price-row {
+  display: flex;
+  align-items: baseline;
+  margin-top: 16rpx;
+}
+.prod-price {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--price-color);
+}
+.prod-price-unit {
+  font-size: var(--font-xs);
+  color: var(--text-regular);
+  margin-left: 4rpx;
+}
+/* 步进器：蓝色合法出现处 ④ */
+.stepper {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.stepper-btn {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--border-color);
+  background: #fff;
+  font-size: 30rpx;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stepper-btn.on {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+}
+.stepper-qty {
+  min-width: 68rpx;
+  text-align: center;
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+.stepper-hint {
+  min-width: 68rpx;
+  text-align: center;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+/* ══ 桶账一行 ══ */
+.barrel {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 24rpx 28rpx;
+}
+.barrel-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.barrel-line {
+  font-size: var(--font-sm);
+  color: var(--text-regular);
+  line-height: 1.6;
+}
+.barrel-sub {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-top: 4rpx;
+  line-height: 1.6;
+}
+
+/* ══ 合计下单栏（吸底） ══ */
+.checkout {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+  background: var(--bg-color);
+  border-top: 1rpx solid var(--border-color);
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+}
+.sum {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sum-total-row {
+  display: flex;
+  align-items: baseline;
+}
+.sum-total {
+  font-size: 38rpx;
+  font-weight: 700;
+}
+.sum-total-empty {
+  color: var(--text-regular);
+}
+.sum-detail {
+  font-size: var(--font-xs);
+  color: var(--text-regular);
+  margin-left: 8rpx;
+}
+.sum-sub {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-top: 4rpx;
+}
+/* 主按钮：蓝色合法出现处 ②；置灰 #C9C4B8 不是浅蓝 */
+.cta {
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 20rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  padding: 24rpx 68rpx;
+  letter-spacing: 2rpx;
+  flex: none;
+  text-align: center;
+}
+.cta.off {
+  background: var(--text-placeholder);
+}
+
+/* ══ 水站选择弹层 ══ */
+.station-picker-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(43, 42, 38, 0.4);
+  z-index: 98;
+}
+.station-picker {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  transform: translateY(100%);
+  transition: transform 0.25s ease;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+.station-picker.show {
+  transform: translateY(0);
+}
+.station-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
+  border-bottom: 1rpx solid var(--border-color);
+}
+.station-picker-title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+.station-picker-close {
+  font-size: var(--font-sm);
+  color: var(--text-regular);
+  padding: 8rpx 16rpx;
+}
+.station-picker-list {
+  overflow-y: auto;
+  padding: 12rpx 0 calc(24rpx + env(safe-area-inset-bottom));
+}
+.station-picker-item {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  gap: 16rpx;
+}
+.station-picker-item.active {
+  background: var(--primary-bg);
+}
+.station-picker-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.station-picker-item-name {
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+.station-picker-item-addr {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-top: 6rpx;
+}
+.station-picker-item-check {
+  font-size: var(--font-xs);
+  color: var(--primary-color);
+  flex: none;
+}
+.station-picker-empty {
+  padding: 48rpx;
+  text-align: center;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+/* ========== 水站营业状态（软状态）：页面最顶部、左对齐 ==========
+   只提示不阻断；配色由 customerHint 决定（warn = 后端说需要提醒），前端不做 1..4 映射 */
+.station-status-row {
+  display: flex;
+  justify-content: flex-start;
+  padding: 12rpx 24rpx 0;
+}
+
+.status-chip {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 10rpx 20rpx;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 999rpx;
+}
+
+.status-chip-warn {
+  background: #fff3e0;
+}
+
+.status-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #4caf50;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.status-chip-warn .status-dot {
+  background: #f57c00;
+}
+
+.status-chip-text {
+  font-size: 24rpx;
+  color: #4a4a4a;
+  flex-shrink: 0;
+}
+
+.status-chip-warn .status-chip-text {
+  color: #b26a00;
+}
+
+.status-chip-note {
+  font-size: 24rpx;
+  color: #8a8a8a;
+  margin-left: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-chip-warn .status-chip-note {
+  color: #b26a00;
+}
+
+.status-chip-arrow {
+  font-size: 24rpx;
+  color: #b0b0b0;
+  margin-left: 8rpx;
+}

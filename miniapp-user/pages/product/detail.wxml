@@ -1,0 +1,50 @@
+<view class="container">
+  <loading wx:if="{{loading}}"></loading>
+
+  <view class="product-detail" wx:else>
+    <image class="product-image" src="{{product.imageUrl || '/assets/image/default-product.png'}}" mode="aspectFill" style="width:100%;height:100%;"></image>
+
+    <view class="product-info">
+      <view class="product-header">
+        <view class="product-brand" wx:if="{{product.brand}}">{{product.brand}}</view>
+        <text class="product-name">{{product.name}}</text>
+        <text class="product-spec">{{product.spec}}</text>
+      </view>
+
+      <view class="product-price">
+        <price price="{{product.price}}"></price>
+      </view>
+
+      <view class="product-deposit" wx:if="{{product.deposit}}">
+        <text>押金 ¥{{product.deposit}}/桶</text>
+      </view>
+
+      <view class="product-desc" wx:if="{{product.description}}">
+        <text>{{product.description}}</text>
+      </view>
+
+      <view class="product-note" wx:if="{{product.note}}">
+        <text>{{product.note}}</text>
+      </view>
+    </view>
+
+    <view class="quantity-section">
+      <text class="section-title">数量</text>
+      <view class="quantity-control">
+        <view class="quantity-btn minus {{quantity <= 1 ? 'disabled' : ''}}" bindtap="onQuantityChange" data-type="minus">
+          <text>-</text>
+        </view>
+        <input class="quantity-input" type="number" value="{{quantity}}" bindinput="onQuantityInput"></input>
+        <view class="quantity-btn add" bindtap="onQuantityChange" data-type="add">
+          <text>+</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="bottom-bar">
+    <view class="buy-btn" bindtap="onBuyNow">
+      <text>立即下单</text>
+    </view>
+  </view>
+</view>

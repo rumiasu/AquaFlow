@@ -1,0 +1,240 @@
+<view class="page-container">
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+
+  <view wx:else class="content">
+    <!-- 异常基本信息 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">异常信息</text>
+        <view class="status-badge {{getStatusColor(exception.status)}}">{{getStatusName(exception.status)}}</view>
+      </view>
+
+      <view class="info-grid">
+        <view class="info-item">
+          <text class="label">异常ID</text>
+          <text class="value">{{exception.id}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">关联订单</text>
+          <text class="value">#{{exception.orderId}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">异常类型</text>
+          <text class="value category-tag">{{getCategoryName(exception.category)}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">具体类型</text>
+          <text class="value">{{exception.type || '无'}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">创建时间</text>
+          <text class="value">{{formatTime(exception.createdAt)}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">处理时间</text>
+          <text class="value">{{exception.decidedAt ? formatTime(exception.decidedAt) : '未处理'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 订单信息 -->
+    <view class="section" wx:if="{{order}}">
+      <view class="section-title">关联订单</view>
+      <view class="info-grid">
+        <view class="info-item">
+          <text class="label">客户</text>
+          <text class="value">{{order.receiverName}} {{order.receiverPhone}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">地址</text>
+          <text class="value">{{order.addressSnapshot}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">应送桶数</text>
+          <text class="value">{{order.deliveryBucketQty || 0}} 桶</text>
+        </view>
+        <view class="info-item">
+          <text class="label">支付方式</text>
+          <text class="value">{{getPaymentMethodName(order.paymentMethod)}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 回桶差异详情 -->
+    <view class="section" wx:if="{{exception.deliveryQty > 0}}">
+      <view class="section-title">回桶详情</view>
+      <view class="detail-cards">
+        <view class="detail-card">
+          <text class="card-label">应送桶数</text>
+          <text class="card-value">{{exception.deliveryQty}}</text>
+        </view>
+        <view class="detail-card">
+          <text class="card-label">实收桶数</text>
+          <text class="card-value">{{exception.returnQty}}</text>
+        </view>
+        <view class="detail-card {{exception.discrepancy > 0 ? 'short' : (exception.discrepancy < 0 ? 'over' : 'normal')}}">
+          <text class="card-label">差异</text>
+          <text class="card-value">
+            {{exception.discrepancy > 0 ? '少回' : (exception.discrepancy < 0 ? '多回' : '无')}} {{Math.abs(exception.discrepancy)}} 桶
+          </text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 配送员现场记录 -->
+    <view class="section" wx:if="{{exception.staffAction}}">
+      <view class="section-title">配送员现场记录</view>
+      <view class="info-grid">
+        <view class="info-item">
+          <text class="label">现场动作</text>
+          <text class="value action-tag">{{getStaffActionName(exception.staffAction)}}</text>
+        </view>
+        <view class="info-item" wx:if="{{exception.waterGiven > 0}}">
+          <text class="label">实给水桶数</text>
+          <text class="value">{{exception.waterGiven}} 桶</text>
+        </view>
+        <view class="info-item" wx:if="{{exception.waterOwed > 0}}">
+          <text class="label">欠水桶数</text>
+          <text class="value owe-tag">{{exception.waterOwed}} 桶</text>
+        </view>
+        <view class="info-item" wx:if="{{exception.staffNote}}">
+          <text class="label">配送员备注</text>
+          <text class="value note-text">{{exception.staffNote}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 站长处理记录 -->
+    <view class="section" wx:if="{{exception.managerAction && exception.managerAction !== 'IGNORE'}}">
+      <view class="section-title">站长处理记录</view>
+      <view class="info-grid">
+        <view class="info-item">
+          <text class="label">处理动作</text>
+          <text class="value action-tag">{{getManagerActionName(exception.managerAction)}}</text>
+        </view>
+        <view class="info-item" wx:if="{{exception.refundTicketQty > 0}}">
+          <text class="label">退水票数</text>
+          <text class="value ticket-tag">{{exception.refundTicketQty}} 张</text>
+        </view>
+        <view class="info-item" wx:if="{{exception.refundCashAmount && exception.refundCashAmount > 0}}">
+          <text class="label">退现金金额</text>
+          <text class="value cash-tag">¥{{exception.refundCashAmount}}</text>
+        </view>
+        <view class="info-item" wx:if="{{exception.adjustAssetQty != 0}}">
+          <text class="label">调整桶资产</text>
+          <text class="value asset-tag">{{exception.adjustAssetQty > 0 ? '+' : ''}}{{exception.adjustAssetQty}} 桶</text>
+        </view>
+        <view class="info-item" wx:if="{{exception.managerNote}}">
+          <text class="label">处理备注</text>
+          <text class="value note-text">{{exception.managerNote}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">处理时间</text>
+          <text class="value">{{exception.decidedAt ? formatTime(exception.decidedAt) : '未处理'}}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">执行时间</text>
+          <text class="value">{{exception.executedAt ? formatTime(exception.executedAt) : '未执行'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 系统补偿建议 -->
+    <view class="section" wx:if="{{exception.suggestedTicketQty > 0 || (exception.suggestedCashAmount && exception.suggestedCashAmount > 0)}}">
+      <view class="section-title">系统补偿建议</view>
+      <view class="suggestion-card">
+        <view class="suggestion-row" wx:if="{{exception.suggestedTicketQty > 0}}">
+          <view class="suggestion-tag ticket">退水票</view>
+          <text class="suggestion-value">{{exception.suggestedTicketQty}} 张</text>
+        </view>
+        <view class="suggestion-row" wx:if="{{exception.suggestedCashAmount && exception.suggestedCashAmount > 0}}">
+          <view class="suggestion-tag cash">退现金</view>
+          <text class="suggestion-value">¥{{exception.suggestedCashAmount}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 处理操作按钮 -->
+    <view class="action-area" wx:if="{{exception.status === 'STAFF_RECORDED' || exception.status === 'MANAGER_PENDING'}}">
+      <button class="handle-btn" bindtap="onHandleTap">{{exception.status === 'STAFF_RECORDED' ? '处理异常' : '修改处理'}}</button>
+    </view>
+  </view>
+
+  <!-- 处理弹窗 -->
+  <view wx:if="{{showHandleModal}}" class="modal-overlay" bindtap="onCloseModal">
+    <view class="modal" bindtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">处理异常</text>
+        <view class="modal-close" bindtap="onCloseModal">×</view>
+      </view>
+
+      <view class="modal-body">
+        <!-- 处理动作选择 -->
+        <view class="modal-section">
+          <text class="modal-label">处理动作</text>
+          <view class="action-options">
+            <view wx:for="{{handleOptions}}" wx:key="value" class="modal-action {{handleAction === item.value ? 'selected' : ''}}" data-value="{{item.value}}" bindtap="onActionChange">
+              <view class="action-main">
+                <text class="action-label">{{item.label}}</text>
+                <text class="action-desc">{{item.desc}}</text>
+              </view>
+              <view class="action-radio {{handleAction === item.value ? 'checked' : ''}}"></view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 补偿详情（仅非IGNORE/ESCALATE显示） -->
+        <view class="modal-section" wx:if="{{handleAction !== 'IGNORE' && handleAction !== 'ESCALATE'}}">
+          <text class="modal-label">补偿方案</text>
+          
+          <view class="modal-input-group" wx:if="{{handleAction === 'APPROVE' || handleAction === 'MODIFY'}}">
+            <view class="input-item">
+              <text class="input-label">退水票数量</text>
+              <input class="input-number" type="number" value="{{refundTicketQty}}" bindinput="onTicketQtyChange" placeholder="0" />
+            </view>
+            <view class="input-item">
+              <text class="input-label">退现金金额(元)</text>
+              <input class="input-number" type="digit" value="{{refundCashAmount}}" bindinput="onCashAmountChange" placeholder="0.00" />
+            </view>
+          </view>
+
+          <view class="modal-input-group" wx:if="{{handleAction === 'MODIFY'}}">
+            <view class="input-item">
+              <text class="input-label">调整桶资产(正增负减)</text>
+              <input class="input-number" type="number" value="{{adjustAssetQty}}" bindinput="onAssetQtyChange" placeholder="0" />
+            </view>
+            <view class="input-item">
+              <text class="input-label">产品ID</text>
+              <input class="input-number" type="number" value="{{adjustProductId}}" bindinput="onProductIdChange" placeholder="可选" />
+            </view>
+          </view>
+        </view>
+
+        <view class="modal-input-group">
+          <text class="modal-label">处理备注</text>
+          <textarea class="textarea" placeholder="必填：记录处理理由、依据等" value="{{managerNote}}" bindinput="onNoteInput" maxlength="300" />
+          <text class="char-count">{{managerNote.length}}/300</text>
+        </view>
+      </view>
+
+      <view class="modal-actions">
+        <button class="modal-btn cancel" bindtap="onCloseModal">取消</button>
+        <button class="modal-btn confirm {{submitting ? 'disabled' : ''}}" bindtap="onConfirmHandle" disabled="{{submitting}}">
+          {{submitting ? '处理中...' : '确认处理'}}
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 处理确认弹窗 -->
+  <view wx:if="{{showConfirmModal}}" class="modal-overlay" bindtap="onCancelConfirm">
+    <view class="modal confirm-modal" bindtap="stopPropagation">
+      <view class="modal-title">确认处理</view>
+      <view class="modal-content">{{confirmMsg}}</view>
+      <view class="modal-actions">
+        <button class="modal-btn cancel" bindtap="onCancelConfirm">取消</button>
+        <button class="modal-btn confirm" bindtap="onConfirmHandle">确认</button>
+      </view>
+    </view>
+  </view>
+</view>

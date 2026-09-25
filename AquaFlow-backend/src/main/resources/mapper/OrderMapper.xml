@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.aquaflow.mapper.OrderMapper">
+
+    <!--
+        ⚠️ 这里曾有两个 <sql id="orderColumns"> / <sql id="orderValues"> 片段，全仓 0 处 <include>，
+        是纯粹的死代码 —— 但它们**长得像下面 save 的列清单**，改列的人会先改它们、然后发现没生效
+        （2026-09-17 加 due_date 时确认零引用后删除）。别再照着它们的形状复制一份。
+    -->
+
+    <!--
+        ⚠️ delivery_fee / floor_fee 必须用 IFNULL 兜住，不要改成裸 #{deliveryFee}：
+        这两列是 v34 加的 NOT NULL DEFAULT 0.00，而 SQL 里的 DEFAULT **只在「该列没出现在
+        INSERT 里」时才生效** —— 一旦显式列出却又传 NULL，MySQL 直接报
+        「Column 'delivery_fee' cannot be null」，下单整条链路全挂。
+        payment_record 那边已经因为这个坑一次性红了 29 个用例（见 v34/v35 的迁移头注释）。
+
+        ⚠️ settle_station_id（v47，结算站 = 本单营收归谁）必须在下单这一刻就写死为归属站：
+        它是"钱归谁"的**唯一显式表达**，漏写不会报错，只会让这单的营收从所有站的报表里
+        **同时**消失（读侧 coalesce 只兜得住"与 delivery_station_id 同值"的那些行的旧行为，
+        兜不住刻意分开的语义）。取值规则与写入点全清单见 v47 迁移文件头。
+    -->
+    <insert id="save" parameterType="com.example.aquaflow.entity.Orders" useGeneratedKeys="true" keyProperty="id">
+        insert into orders
+        (customer_id, address_id, station_id, delivery_station_id, settle_station_id, delivery_staff_id,
+        source, status, payment_method, payment_status, total_amount, water_amount, deposit_amount,
+        delivery_fee, floor_fee,
+        receiver_name, receiver_phone, address_snapshot, address_snapshot_lat, address_snapshot_lng,
+        guard_info, delivery_time_request, special_note, delivery_bucket_qty, return_bucket_qty,
+        barrel_discrepancy, barrel_discrepancy_note, first_barrel_order, quantity, create_time, update_time,
+        due_date,
+        idempotency_key)
+        values
+        (#{customerId}, #{addressId}, #{stationId}, #{deliveryStationId}, #{settleStationId}, #{deliveryStaffId},
+        #{source}, #{status}, #{paymentMethod}, #{paymentStatus}, #{totalAmount}, #{waterAmount}, #{depositAmount},
+        IFNULL(#{deliveryFee}, 0.00), IFNULL(#{floorFee}, 0.00),
+        #{receiverName}, #{receiverPhone}, #{addressSnapshot}, #{addressSnapshotLat}, #{addressSnapshotLng},
+        #{guardInfo}, #{deliveryTimeRequest}, #{specialNote}, #{deliveryBucketQty}, #{returnBucketQty},
+        #{barrelDiscrepancy}, #{barrelDiscrepancyNote}, #{firstBarrelOrder}, #{quantity}, #{createTime}, #{updateTime},
+        #{dueDate},
+        #{idempotencyKey})
+    </insert>
+
+    <!--
+        ⚠️ settle_station_id **刻意没有 <if>**（唯一一列如此）：本 update 由
+        `POST /api/orders`（OrderServiceImpl.save，整行选择性写）驱动，请求体是裸 Orders，
+        **客户端可编造任意字段**。若在这里加 `<if test="settleStationId != null">`，
+        任何站长都能把自己站的营收随手改到别站名下 —— 营收归属只许由 OrderMapper 里
+        那些带 expected-state 的 CAS（抢单/外派/召回/退回池）改，不接受客户端直传。
+        反过来，delivery_station_id 一旦被本语句改写，settle_station_id 必须**跟着一起走**
+        （v47 的口径：改了履约站就是改了结算站），否则两列分叉、营收停在旧站
+        —— 这正是本迁移要消灭的"隐式推导"。
+    -->
+    <update id="update" parameterType="com.example.aquaflow.entity.Orders">
+        update orders
+        <set>
+            <if test="customerId != null">customer_id=#{customerId},</if>
+            <if test="addressId != null">address_id=#{addressId},</if>
+            <if test="stationId != null">station_id=#{stationId},</if>
+            <if test="deliveryStationId != null">delivery_station_id=#{deliveryStationId}, settle_station_id=#{deliveryStationId},</if>
+            <if test="deliveryStaffId != null">delivery_staff_id=#{deliveryStaffId},</if>
+            <if test="source != null">source=#{source},</if>
+            <if test="status != null">status=#{status},</if>
+            <if test="paymentMethod != null">payment_method=#{paymentMethod},</if>
+            <if test="paymentStatus != null">payment_status=#{paymentStatus},</if>
+            <if test="totalAmount != null">total_amount=#{totalAmount},</if>
+            <if test="waterAmount != null">water_amount=#{waterAmount},</if>
+            <if test="depositAmount != null">deposit_amount=#{depositAmount},</if>
+            <if test="deliveryFee != null">delivery_fee=#{deliveryFee},</if>
+            <if test="floorFee != null">floor_fee=#{floorFee},</if>
+            <if test="receiverName != null">receiver_name=#{receiverName},</if>
+            <if test="receiverPhone != null">receiver_phone=#{receiverPhone},</if>
+            <if test="addressSnapshot != null">address_snapshot=#{addressSnapshot},</if>
+            <if test="addressSnapshotLat != null">address_snapshot_lat=#{addressSnapshotLat},</if>
+            <if test="addressSnapshotLng != null">address_snapshot_lng=#{addressSnapshotLng},</if>
+            <if test="guardInfo != null">guard_info=#{guardInfo},</if>
+            <if test="deliveryTimeRequest != null">delivery_time_request=#{deliveryTimeRequest},</if>
+            <if test="specialNote != null">special_note=#{specialNote},</if>
+            <if test="deliveryBucketQty != null">delivery_bucket_qty=#{deliveryBucketQty},</if>
+            <if test="returnBucketQty != null">return_bucket_qty=#{returnBucketQty},</if>
+            <if test="barrelDiscrepancy != null">barrel_discrepancy=#{barrelDiscrepancy},</if>
+            <if test="barrelDiscrepancyNote != null">barrel_discrepancy_note=#{barrelDiscrepancyNote},</if>
+            <if test="firstBarrelOrder != null">first_barrel_order=#{firstBarrelOrder},</if>
+            <if test="idempotencyKey != null">idempotency_key=#{idempotencyKey},</if>
+            <if test="barrelExceptionId != null">barrel_exception_id=#{barrelExceptionId},</if>
+            <if test="exceptionFlag != null">exception_flag=#{exceptionFlag},</if>
+            <if test="exceptionCategory != null">exception_category=#{exceptionCategory},</if>
+            <if test="exceptionCount != null">exception_count=#{exceptionCount},</if>
+            update_time=NOW()
+        </set>
+        where id=#{id}
+    </update>
+
+    <select id="list" resultType="com.example.aquaflow.entity.Orders">
+        select o.*, c.name as customerName, c.phone as customerPhone,
+               a.detail as addressDetail, a.name as addressName, a.phone as addressPhone,
+               a.lat as addressLat, a.lng as addressLng,
+               (select oi.product_name_snapshot from order_item oi where oi.order_id = o.id order by oi.id limit 1) as firstProductName
+        from orders o
+        left join customer c on o.customer_id = c.id
+        left join address a on o.address_id = a.id
+        <where>
+            <if test="stationId != null">
+                and o.station_id = #{stationId}
+            </if>
+            <if test="customerId != null">
+                and o.customer_id = #{customerId}
+            </if>
+            <if test="status != null">
+                and o.status = #{status}
+            </if>
+            <if test="createTimeStart != null and createTimeStart != ''">
+                and o.create_time &gt;= #{createTimeStart}
+            </if>
+            <if test="createTimeEnd != null and createTimeEnd != ''">
+                and o.create_time &lt;= #{createTimeEnd}
+            </if>
+        </where>
+        order by o.create_time desc
+        <!-- [AQ-046] 分页兜底：limit 非空时生效，避免单站上万单一次性全量返回拖垮接口 -->
+        <if test="limit != null">
+            limit #{limit}
+            <if test="offset != null">
+                offset #{offset}
+            </if>
+        </if>
+    </select>
+
+    <select id="getLatestStationByCustomerId" resultType="map">
+        select o.station_id as stationId, s.name as stationName
+        from orders o
+        inner join station s on o.station_id = s.id
+        where o.customer_id = #{customerId}
+        order by o.create_time desc
+        limit 1
+    </select>
+</mapper>

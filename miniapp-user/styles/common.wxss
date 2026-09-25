@@ -1,0 +1,121 @@
+/* ========== AquaFlow 通用工具类 ========== */
+
+/* Flex 布局 */
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-row { display: flex; flex-direction: row; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-1 { flex: 1; }
+.flex-shrink-0 { flex-shrink: 0; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-around { justify-content: space-around; }
+.justify-end { justify-content: flex-end; }
+
+/* 间距 */
+.m-0 { margin: 0; }
+.mt-xs { margin-top: var(--spacing-xs); }
+.mt-sm { margin-top: var(--spacing-sm); }
+.mt-md { margin-top: var(--spacing-md); }
+.mt-lg { margin-top: var(--spacing-lg); }
+.mb-xs { margin-bottom: var(--spacing-xs); }
+.mb-sm { margin-bottom: var(--spacing-sm); }
+.mb-md { margin-bottom: var(--spacing-md); }
+.mb-lg { margin-bottom: var(--spacing-lg); }
+.ml-sm { margin-left: var(--spacing-sm); }
+.mr-sm { margin-right: var(--spacing-sm); }
+.p-0 { padding: 0; }
+.p-sm { padding: var(--spacing-sm); }
+.p-md { padding: var(--spacing-md); }
+.p-lg { padding: var(--spacing-lg); }
+.px-md { padding-left: var(--spacing-md); padding-right: var(--spacing-md); }
+.py-md { padding-top: var(--spacing-md); padding-bottom: var(--spacing-md); }
+
+/* 文字 */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-primary { color: var(--text-primary); }
+.text-regular { color: var(--text-regular); }
+.text-secondary { color: var(--text-secondary); }
+.text-theme { color: var(--primary-color); }
+.text-price { color: var(--price-color); }
+.text-success { color: var(--success-color); }
+.text-warning { color: var(--warning-color); }
+.text-error { color: var(--error-color); }
+.text-bold { font-weight: 600; }
+.text-xs { font-size: var(--font-xs); }
+.text-sm { font-size: var(--font-sm); }
+.text-md { font-size: var(--font-md); }
+.text-lg { font-size: var(--font-lg); }
+.text-xl { font-size: var(--font-xl); }
+
+/* 省略 */
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 圆角 */
+.rounded-sm { border-radius: var(--radius-sm); }
+.rounded-md { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+.rounded-full { border-radius: var(--radius-round); }
+
+/* 背景 */
+.bg-white { background-color: var(--bg-white); }
+.bg-gray { background-color: var(--bg-gray); }
+.bg-primary { background-color: var(--primary-color); }
+
+/* 通用容器 */
+.container {
+  padding: var(--spacing-md);
+}
+
+/* 卡片 */
+.card {
+  background-color: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 分割线 */
+.divider {
+  height: 1rpx;
+  background-color: var(--border-color);
+  margin: var(--spacing-md) 0;
+}
+
+/* 安全区底部 */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 隐藏 */
+.hidden { display: none; }
+
+/*
+ * [2026-09-20 真机联调] 「部分数据没加载出来」提示条。
+ * 为什么需要它：多处列表/汇总请求失败时被静默降级成空数据，页面渲染出的
+ * 「余额 0 / 权益 0 / 暂无记录」与"确实没有"完全无法区分（AGENTS §8.22）。
+ * 用法：data 里放一个 loadError 字符串（空串 = 全部正常），wxml 写
+ * `<view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>`。
+ * 色值一律走 variable.wxss 的变量，别写死。
+ */
+.load-error {
+  margin: 16rpx 24rpx 0;
+  padding: 16rpx 20rpx;
+  border-radius: 12rpx;
+  background: rgba(201, 118, 75, 0.12);
+  border-left: 6rpx solid var(--warning-color);
+  color: var(--text-regular);
+  font-size: 24rpx;
+  line-height: 1.5;
+}

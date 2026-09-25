@@ -1,0 +1,110 @@
+<!--
+  自绘导航栏（b 方案）：**水站营业状态就坐在「配送 / 首页」字样的左边**。
+  为什么自绘：原生导航栏塞不进任何东西，而站长/配送员要在最上面一眼看到"今天休息 / 待上线"。
+  尺寸来自 utils/navbar.js（状态栏高度 + 微信胶囊算法），右侧留白避开微信胶囊按钮。
+  数据与方法来自 behaviors/stationNavbar.js，样式来自 styles/station-navbar.wxss。
+
+  用法（两页完全一致）：
+    <import src="../../templates/station-navbar.wxml" />
+    <template is="stationNavbar" data="{{title: '配送', statusBarHeight: statusBarHeight, ...}}" />
+
+  ⚠️ 模板拥有自己的作用域：页面 data 里的字段（尺寸、营业状态）**必须逐个 data 传入**，
+     不传就是 undefined。
+  ⚠️ 模板里的 bindtap 由**使用它的页面**解析（onStationStatusTap 来自 behavior），
+     处理函数必须真实存在，否则点击静默无反应。
+  ⚠️ `rightPad` 只用 `!== false` 判否：不传（undefined）时**默认保留**右侧胶囊留白，
+     避免将来新调用方忘了传就压住微信胶囊按钮。
+-->
+<template name="stationNavbar">
+  <view class="navbar" style="padding-top:{{statusBarHeight}}px;">
+    <view class="navbar-inner" style="height:{{navBarHeight}}px;">
+      <view class="navbar-left">
+        <!-- 变黄的判据有两条：① 后端下发的客户提示（customerHint）非空；② **有待填项**
+             （2026-09-24：条件项刚成立时营业状态本身是正常的，必须靠徽标提醒）。 -->
+        <view class="status-chip {{(stationStatusHint || stationPendingCount > 0) ? 'status-chip-warn' : ''}}"
+              wx:if="{{stationStatusText}}" bindtap="onStationStatusTap">
+          <text class="status-dot"></text>
+          <text class="status-chip-text">{{stationStatusText}}</text>
+          <!-- 「待填 N 项」徽标：排在留言**前面**且 flex-shrink:0 永不截断 —— 要截断的是后面的
+               留言（.navbar-left 只有 42% 宽）。数字来自后端 setup-guide 的 pendingCount。 -->
+          <text class="status-chip-badge" wx:if="{{stationPendingCount > 0}}">待填{{stationPendingCount}}</text>
+          <text class="status-chip-note" wx:if="{{stationStatusNote}}">· {{stationStatusNote}}</text>
+        </view>
+      </view>
+      <view class="navbar-title">{{title}}</view>
+      <view class="navbar-right" wx:if="{{rightPad !== false}}"></view>
+    </view>
+  </view>
+
+  <!-- ============ 营业状态小框（2026-09-23）============
+       点上面的状态胶囊弹出（站长才有；配送员仍只弹一句话，见 behaviors/stationNavbar.js）。
+       里面三块：① 当前状态 + 留言；② **待填项**（点一条直达对应页面）；③ 「设置营业状态」入口。
+       ⚠️ 数据用 behaviors/stationNavbar.js 的 data 字段，由使用本模板的页面逐个传进来
+          （模板有自己的作用域，不传就是 undefined）。 -->
+  <view class="st-mask" wx:if="{{stationPanelShow}}" bindtap="closeStationPanel" catchtouchmove="preventMove">
+    <view class="st-panel" catchtap="preventMove">
+      <view class="st-panel-head">
+        <text class="st-panel-title">水站状态</text>
+      </view>
+
+      <view class="st-status {{stationStatusHint ? 'st-status-warn' : ''}}">
+        <text class="st-status-text">{{stationStatusText}}</text>
+        <text class="st-status-note" wx:if="{{stationStatusNote}}">{{stationStatusNote}}</text>
+      </view>
+
+      <view class="st-body">
+        <text class="st-sub" wx:if="{{stationPanelLoading}}">正在检查待填项…</text>
+
+        <block wx:elif="{{stationPanelItems && stationPanelItems.length > 0}}">
+          <!-- ⚠️ 这里原来还有一行 st-sub「下面这些还没配好，点一下直接去填」。2026-09-24 删掉：
+               每行末尾已有「去填写 ›」，再说一遍是废话；腾出的位置给下面那句**下一步**
+               （onlineHint，后端下发，见 StationSetupGuideService#onlineHintOf）。 -->
+          <scroll-view class="st-list" scroll-y>
+            <view class="st-item" wx:for="{{stationPanelItems}}" wx:key="key">
+              <view class="st-item-row" bindtap="onPanelGoFill" data-route="{{item.route}}">
+                <text class="st-item-title {{item.done ? 'st-item-title-done' : ''}}">{{item.label}} · {{item.levelText}}</text>
+                <!-- 「?」默认收起说明（2026-09-24 产品反馈："每一项都详细解释，好啰嗦"）。
+                     ⚠️ 必须 **catchtap**：用 bindtap 会冒泡到整行的 onPanelGoFill，
+                        用户想看一眼原因就被直接拽到别的页面去了。 -->
+                <text class="st-item-help" catchtap="onPanelToggleWhy" data-key="{{item.key}}">?</text>
+                <!-- 已配好的行不给「去填写」—— 它已经完成了，再给入口等于暗示"还得再填一遍"。
+                     但整行**仍然可点**：进去复核、或者改主意，都是正当需求。 -->
+                <text class="st-item-done" wx:if="{{item.done}}">已配好</text>
+                <text class="st-item-go" wx:elif="{{item.route}}">去填写 ›</text>
+              </view>
+              <view class="st-item-why-box" wx:if="{{item.whyOpen}}">
+                <text class="st-item-why">{{item.why}}</text>
+                <!-- 说明藏在「?」里之后，这里顺带把原来**根本没露过面**的 suggestion 也放进来：
+                     收起状态下它没地方显示，而它正是"具体该怎么做"。 -->
+                <text class="st-item-suggestion" wx:if="{{item.suggestion}}">{{item.suggestion}}</text>
+              </view>
+            </view>
+          </scroll-view>
+          <text class="st-summary">{{stationPanelSummary}}</text>
+          <!-- 「下一步」由后端下发（三种站况三句话，见 StationSetupGuideService#onlineHintOf）：
+               待上线的站说"配好就能上线"；已经在营业的站说"不填也能接单，配好才算得准"——
+               对已在营业的站说"配好就能上线"是**假话**，会让人以为自己的站还没上线。 -->
+          <text class="st-online-hint" wx:if="{{stationPanelOnlineHint}}">{{stationPanelOnlineHint}}</text>
+        </block>
+
+        <!-- 拉不到时**不许**说"都配好了"（那正是本仓最忌讳的静默失效：没拉到 ≠ 没问题） -->
+        <text class="st-sub" wx:elif="{{stationPanelError}}">{{stationPanelError}}</text>
+
+        <!-- 全配好时不再重复 summaryText（这时它只是"N/N 已完成"），只留那句可执行的下一步 -->
+        <text class="st-online-hint" wx:else>{{stationPanelOnlineHint || '待填项都配好了'}}</text>
+      </view>
+
+      <!-- 「显示已配好的 N 项 / 只看没配好的」开关（2026-09-24 产品要求：配过的项也要能切回来看）。
+           文案在 js 里拼好（见 behaviors/stationNavbar.js#toggleTextOf）；没有已配好的项时是空串 → 不渲染。
+           ⚠️ 放在两个分支**外面**：全配好时（列表走 else 分支）它同样要出现，否则就再也切不回去了。 -->
+      <view class="st-toggle" wx:if="{{stationPanelToggleText}}" bindtap="onPanelToggleAll">
+        <text>{{stationPanelToggleText}}</text>
+      </view>
+
+      <view class="st-actions">
+        <view class="st-btn st-btn-ghost" bindtap="closeStationPanel">关闭</view>
+        <view class="st-btn st-btn-primary" bindtap="goStationStatus">设置营业状态</view>
+      </view>
+    </view>
+  </view>
+</template>

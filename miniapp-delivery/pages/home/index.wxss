@@ -1,0 +1,257 @@
+/* 自绘导航栏 + 状态胶囊（.navbar* / .status-chip*）：与「首页」共用一份样式 */
+@import "../../styles/station-navbar.wxss";
+
+/* ========== 统计看板 ========== */
+.stats-panel {
+  display: flex; background: var(--header-gradient); padding: 32rpx 16rpx 48rpx;
+  border-radius: 0 0 32rpx 32rpx; margin-bottom: 0;
+}
+
+.stat-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  position: relative; color: #fff;
+}
+
+.stat-value { font-size: 44rpx; font-weight: 700; line-height: 1.1; }
+.stat-label { font-size: 22rpx; opacity: 0.85; margin-top: 4rpx; }
+.stat-unit { font-size: 20rpx; opacity: 0.6; }
+
+/* ========== Tab 栏 ========== */
+.tab-bar {
+  display: flex; background: #fff; margin: -24rpx 24rpx 0; border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06); overflow: hidden; position: relative; z-index: 2;
+}
+
+.tab-item {
+  flex: 1; text-align: center; padding: 24rpx 0; font-size: 26rpx; color: var(--text-secondary); font-weight: 500; position: relative; transition: all 0.2s;
+}
+
+.tab-item.active { color: var(--primary-color); font-weight: 600; }
+.tab-item.active::after {
+  content: ''; position: absolute; bottom: 0; left: 20%; right: 20%; height: 4rpx;
+  background: var(--primary-color); border-radius: 2rpx;
+}
+
+/* ========== 订单列表 ========== */
+.order-list { padding: 16rpx 24rpx; }
+
+.order-card {
+  background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04); transition: transform 0.15s;
+}
+
+.order-card:active { transform: scale(0.98); }
+
+.card-header { display: flex; align-items: center; gap: 12rpx; margin-bottom: 16rpx; }
+
+.status-tag {
+  font-size: 20rpx; padding: 4rpx 14rpx; border-radius: 20rpx; font-weight: 500; flex-shrink: 0;
+}
+
+.status-pending { background: rgba(255,149,0,0.1); color: var(--status-pending); }
+.status-delivering { background: rgba(79,142,247,0.1); color: var(--status-delivering); }
+.status-completed { background: rgba(52,199,89,0.1); color: var(--status-completed); }
+
+.order-id { font-size: 22rpx; color: var(--text-secondary); font-weight: 500; }
+.order-time { font-size: 20rpx; color: var(--text-placeholder); margin-left: auto; }
+
+.customer-info { display: flex; align-items: center; gap: 12rpx; margin-bottom: 8rpx; }
+.customer-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
+.customer-phone { font-size: 24rpx; color: var(--primary-color); }
+
+.product-info { display: flex; align-items: baseline; gap: 8rpx; margin-bottom: 8rpx; }
+.product-name { font-size: 26rpx; color: var(--text-regular); }
+.product-qty { font-size: 24rpx; color: var(--text-secondary); }
+
+.address-info { display: flex; align-items: flex-start; gap: 6rpx; margin-bottom: 16rpx; }
+.address-icon { font-size: 22rpx; flex-shrink: 0; }
+.address-text { font-size: 24rpx; color: var(--text-secondary); line-height: 1.4; }
+
+.card-actions { display: flex; gap: 16rpx; margin-top: 8rpx; }
+.btn-accept {
+  flex: 1; height: 64rpx; line-height: 64rpx; background: var(--primary-gradient); color: #fff;
+  border-radius: 32rpx; font-size: 26rpx; font-weight: 600; border: none;
+  box-shadow: 0 4rpx 16rpx rgba(79,142,247,0.25);
+}
+.btn-accept::after { border: none; }
+
+.btn-complete {
+  flex: 1; height: 64rpx; line-height: 64rpx; background: var(--success-color); color: #fff;
+  border-radius: 32rpx; font-size: 26rpx; font-weight: 600; border: none;
+  box-shadow: 0 4rpx 16rpx rgba(52,199,89,0.25);
+}
+.btn-complete::after { border: none; }
+
+.btn-outline-small {
+  height: 64rpx; line-height: 64rpx; padding: 0 24rpx;
+  background: #fff; color: var(--text-secondary);
+  border-radius: 32rpx; font-size: 24rpx; border: 2rpx solid var(--border-color);
+}
+.btn-outline-small::after { border: none; }
+
+.complete-footer { margin-top: 8rpx; }
+.return-barrel { font-size: 24rpx; color: var(--success-color); font-weight: 500; }
+
+/* ========== 待收款 ========== */
+.unpaid-section { margin: 0 24rpx 16rpx; }
+.unpaid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
+.unpaid-title { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
+.unpaid-count { font-size: 24rpx; color: var(--text-placeholder); }
+.unpaid-meta { display: flex; gap: 24rpx; margin-top: 8rpx; font-size: 24rpx; color: var(--text-secondary); }
+.status-warning { background: rgba(255,149,0,0.1); color: var(--status-pending); }
+
+/* ========== 空状态 ========== */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; padding: 80rpx 0;
+}
+.empty-icon { font-size: 80rpx; margin-bottom: 16rpx; }
+.empty-text { font-size: 28rpx; color: var(--text-placeholder); }
+
+/* ========== 辅助小标签 ========== */
+.tag-row { display: flex; align-items: center; gap: 10rpx; flex-wrap: wrap; flex: 1; }
+
+.aux-tag {
+  display: inline-block;
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.aux-tag.aux-offline {
+  background: rgba(255, 149, 0, 0.12);
+  color: #FF7A00;
+}
+
+.aux-tag.aux-unpaid {
+  background: rgba(255, 59, 48, 0.1);
+  color: #E53935;
+}
+
+.aux-tag.aux-transfer {
+  background: rgba(123, 31, 162, 0.1);
+  color: #7B1FA2;
+}
+
+.aux-tag.aux-return {
+  background: rgba(255, 59, 48, 0.1);
+  color: #C62828;
+}
+
+.aux-tag.aux-target {
+  background: rgba(79, 142, 247, 0.12);
+  color: #1976D2;
+}
+
+/* ========== 按钮补充 ========== */
+.btn-outline {
+  height: 72rpx;
+  line-height: 72rpx;
+  flex: 1;
+  background: #ffffff;
+  color: #666666;
+  border: 2rpx solid #e0e0e0;
+  border-radius: 36rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+.btn-outline::after { border: none; }
+
+.btn-primary {
+  height: 72rpx;
+  line-height: 72rpx;
+  flex: 1;
+  background: #4F8EF7;
+  color: #ffffff;
+  border-radius: 36rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  border: none;
+}
+.btn-primary::after { border: none; }
+
+.btn-primary-small {
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 24rpx;
+  background: #4F8EF7;
+  color: #ffffff;
+  border-radius: 32rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  border: none;
+}
+.btn-primary-small::after { border: none; }
+
+/* ========== 加载 ========== */
+.loading-state { text-align: center; padding: 40rpx 0; }
+.loading-text { font-size: 24rpx; color: var(--text-placeholder); }
+
+/* ========== 调解按钮（橙色系） ========== */
+.btn-mediate {
+  flex: 1; height: 64rpx; line-height: 64rpx;
+  background: #FFF3E0; color: #E65100;
+  border-radius: 32rpx; font-size: 26rpx; font-weight: 600; border: none;
+}
+.btn-mediate::after { border: none; }
+
+.btn-mediate-small {
+  height: 64rpx; line-height: 64rpx; padding: 0 24rpx;
+  background: #FFF3E0; color: #E65100;
+  border-radius: 32rpx; font-size: 24rpx; font-weight: 500; border: none;
+}
+.btn-mediate-small::after { border: none; }
+
+/* ========== 拒绝按钮（红色系） ========== */
+.btn-reject {
+  flex: 1; height: 64rpx; line-height: 64rpx;
+  background: #FFEBEE; color: #C62828;
+  border-radius: 32rpx; font-size: 26rpx; font-weight: 600; border: none;
+}
+.btn-reject::after { border: none; }
+
+/* ========== 自定义弹窗 ========== */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5); display: flex; align-items: flex-end;
+  z-index: 1000;
+}
+
+.modal-content {
+  width: 100%; background: #fff; border-radius: 32rpx 32rpx 0 0;
+  padding: 40rpx 32rpx calc(env(safe-area-inset-bottom) + 24rpx);
+}
+
+.modal-title {
+  display: block; font-size: 34rpx; font-weight: 700; color: var(--text-primary);
+  text-align: center; margin-bottom: 8rpx;
+}
+
+.modal-desc {
+  display: block; font-size: 24rpx; color: var(--text-placeholder);
+  text-align: center; margin-bottom: 32rpx;
+}
+
+.modal-list { margin-bottom: 24rpx; }
+
+.modal-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 28rpx 24rpx; background: #F8F9FA; border-radius: 16rpx;
+  margin-bottom: 16rpx; transition: background 0.15s;
+}
+.modal-item:active { background: #EEF0F2; }
+
+.modal-item-info { flex: 1; }
+.modal-item-name { display: block; font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
+.modal-item-desc { display: block; font-size: 22rpx; color: var(--text-placeholder); margin-top: 4rpx; }
+.modal-item-arrow { font-size: 36rpx; color: var(--text-placeholder); margin-left: 16rpx; }
+
+.modal-cancel {
+  width: 100%; height: 88rpx; line-height: 88rpx; background: #F5F5F5;
+  color: var(--text-secondary); border-radius: 16rpx; font-size: 30rpx;
+  font-weight: 500; border: none; margin-top: 8rpx;
+}
+.modal-cancel::after { border: none; }
+
+/* 提示条 `.load-error` 的样式定义在 app.wxss（全局，多个页面都会用），此处不要再写一份。 */

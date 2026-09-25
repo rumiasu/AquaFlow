@@ -1,0 +1,17 @@
+.empty {
+  padding: 100rpx 0 80rpx;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+}
+.empty-img {
+  width: 240rpx;
+  height: 240rpx;
+  opacity: 0.9;
+}
+.empty-text {
+  color: var(--text-secondary);
+  font-size: 26rpx;
+}

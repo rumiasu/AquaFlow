@@ -1,0 +1,15 @@
+<view class="container">
+  <view class="feedback-list" wx:if="{{!loading}}">
+    <view class="feedback-item" wx:for="{{list}}" wx:key="id">
+      <view class="feedback-content">{{item.content}}</view>
+      <view class="feedback-meta">
+        <text class="feedback-cat" wx:if="{{item.category}}">{{item.category}}</text>
+        <text class="feedback-time">{{item.createTime}}</text>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{list.length === 0}}">
+      <text>暂无反馈记录</text>
+    </view>
+  </view>
+  <view class="loading" wx:if="{{loading}}">加载中...</view>
+</view>

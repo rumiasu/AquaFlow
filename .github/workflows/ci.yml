@@ -1,0 +1,120 @@
+name: CI
+
+# 本 workflow 必须位于**仓库根** `.github/workflows/` 才会被 GitHub Actions 读取。
+# （2026-09-13 之前它位于 AquaFlow-backend/.github/workflows/，从未被执行过。）
+#
+# 门禁内容：真实 MySQL + 真 HTTP 的集成测试、小程序静态扫描、敏感信息扫描。
+# 三者任一失败即红，目的是把「改完忘了跑测试」挡住，而不是替代本地开发。
+
+on:
+  push:
+    branches: ["main", "master", "dev"]
+  pull_request:
+    branches: ["main", "master"]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        # 与本机开发库同版本（MySQL 8.4.8）；schema.sql 即从 8.4 导出，
+        # 用 8.0 会引入「8.4 能建、8.0 建不出」的隐性版本漂移。
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: aquaflow_test
+          TZ: Asia/Shanghai
+        ports:
+          - "3306:3306"
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      # 库名必须含 test：AbstractIntegrationTest 每用例前会断言当前库名含 test 再 TRUNCATE 全表，
+      # 用 aquaflow 会被护栏直接拒绝（这是防误清真实库的最后一道防线）。
+      TEST_DB_URL: "jdbc:mysql://127.0.0.1:3306/aquaflow_test?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false"
+      DB_URL: "jdbc:mysql://127.0.0.1:3306/aquaflow_test?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false"
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      # RequiredConfigChecker 在启动期强制校验以下三项，缺失或 JWT_SECRET 短于 32 位即拒绝启动。
+      # 这里是只指向临时容器的丢弃值，不指向任何真实环境。
+      # 注意：故意写成**不带引号**的裸标量——scripts/scan-secrets.sh 的规则是
+      # 「键名 + 冒号 + 带引号的 12 位以上值」，带引号会被自己的密钥扫描判为硬编码密钥而拦红 CI。
+      JWT_SECRET: ci-placeholder-jwt-secret-not-used-anywhere-min-32-chars
+      WX_APP_ID: ci-dummy-appid
+      WX_APP_SECRET: ci-dummy
+      DEV_LOGIN_ENABLED: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+
+      # 项目未启用 Flyway，schema.sql 是权威基线，必须显式建表，否则集成测试上下文加载即失败。
+      - name: 初始化测试库（schema.sql 为权威基线）
+        run: |
+          if ! command -v mysql >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y mysql-client
+          fi
+          for i in $(seq 1 30); do
+            mysqladmin ping -h 127.0.0.1 -uroot -proot --silent && break
+            echo "waiting for mysql... ($i)"; sleep 2
+          done
+          mysql -h 127.0.0.1 -uroot -proot -e "DROP DATABASE IF EXISTS aquaflow_test; CREATE DATABASE aquaflow_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+          mysql -h 127.0.0.1 -uroot -proot aquaflow_test < AquaFlow-backend/sql/schema.sql
+          echo "表数：$(mysql -h 127.0.0.1 -uroot -proot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='aquaflow_test';")"
+
+      - name: 后端集成测试（真实 MySQL + 真 HTTP）
+        working-directory: AquaFlow-backend
+        run: |
+          chmod +x gradlew
+          ./gradlew test --no-daemon --console=plain
+
+      # 五个脚本均有真实退出码（0 通过 / 1 有致命问题），失败会拦红：
+      #   audit_wxml_handlers.py：wxml 绑定的事件处理函数是否真实存在（缺失=点击静默无反应），自动扫两端
+      #   page_reach_audit.py  ：app.json 注册页缺失 .js、跳转到未注册页；需传端名，故两端各跑一次
+      #   static_audit_user.py ：require 相对层级错、wxml 里调全局对象/Page 方法；同上
+      #   audit_comments.py    ：悬空 javadoc —— 无归属的注释会误导读代码的人（已有三次真实事故，见 AGENTS.md §8 第 14 条），自动扫两端
+      #   audit_js_syntax.py   ：js 解析期错误（重复 const 声明/少括号）会让整个模块加载失败，其余脚本都不解析 js
+      - name: 小程序静态扫描（两端）
+        run: |
+          python3 audit_wxml_handlers.py
+          python3 page_reach_audit.py miniapp-user
+          python3 page_reach_audit.py miniapp-delivery
+          python3 static_audit_user.py miniapp-user
+          python3 static_audit_user.py miniapp-delivery
+          python3 audit_comments.py
+          python3 audit_js_syntax.py
+
+      # 场景测试矩阵门禁（2026-09-21 新增）。
+      # 为什么需要它：docs/audit/2026-09-16-场景测试矩阵.md 是 AGENTS.md §5 指定的
+      # 「新增用例前先看它找空白」入口，但它是一份**手写文档**，而测试类会被改名、合并、删除
+      # —— 文档说「这条有断言」，人就会信；那个类其实没了，覆盖就是一个洞
+      # （同 §8 第 14 条「被信任的文本比没有文本更危险」）。
+      # 它查三件事：① 引用的测试类/方法必须真实存在；② 标 ✅ 的行必须指得出可核对的证据
+      # （测试类/方法/脚本/报告，或显式写明「live 实测」）；③ 件数 STATS 块必须与本次实测一致。
+      # ⚠️ 必须放在集成测试**之后**：③ 依赖 build/test-results/test/*.xml。
+      - name: 场景测试矩阵一致性门禁
+        run: python3 audit_scenario_matrix.py
+
+      - name: 敏感信息扫描（只报位置，不回显内容）
+        run: bash scripts/scan-secrets.sh
+
+      - name: 上传测试报告（失败时也保留，便于排查）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: AquaFlow-backend/build/test-results/test/*.xml
+          if-no-files-found: warn

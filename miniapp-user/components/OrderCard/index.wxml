@@ -1,0 +1,39 @@
+<view class="order-card" bindtap="onOrderTap">
+  <view class="card-header">
+    <text class="order-id">订单 #{{order.id}}</text>
+    <view class="status-group">
+      <text class="status-tag {{statusClass}}">{{statusText}}</text>
+      <text class="pay-tag {{payStatusClass}}">{{payStatusText}}</text>
+    </view>
+  </view>
+  <view class="card-content">
+    <view class="product-info">
+      <block wx:if="{{order.items && order.items.length > 0}}">
+        <view wx:for="{{order.items}}" wx:for-item="itm" wx:key="id" class="order-item-row">
+          <text class="product-name">{{itm.productName || itm.waterTypeName}}</text>
+          <text class="product-spec" wx:if="{{itm.productSpec || itm.waterTypeSpec}}">{{itm.productSpec || itm.waterTypeSpec}}</text>
+          <text class="product-qty">×{{itm.quantity}}桶</text>
+        </view>
+      </block>
+      <block wx:else>
+        <text class="product-name">{{order.productName || order.waterTypeName}}</text>
+        <text class="product-spec" wx:if="{{order.productSpec || order.waterTypeSpec}}">{{order.productSpec || order.waterTypeSpec}}</text>
+        <text class="product-qty">×{{order.quantity}}桶</text>
+      </block>
+    </view>
+    <view class="delivery-info">
+      <text class="address">{{order.addressDetail}}</text>
+      <text class="time">{{order.createTime}}</text>
+    </view>
+  </view>
+  <view class="card-footer">
+    <view class="footer-left">
+      <text class="amount" wx:if="{{order.amount || order.totalAmount}}">¥{{order.amount || order.totalAmount}}</text>
+    </view>
+    <view class="footer-actions">
+      <button wx:if="{{canRepay}}" class="btn-pay" catchtap="onPayNow">{{repayLabel}}</button>
+      <button wx:if="{{order.status === 1}}" class="btn-cancel" catchtap="onCancel">取消订单</button>
+      <button wx:if="{{order.status === 5}}" class="btn-reorder" catchtap="onReorder">再次购买</button>
+    </view>
+  </view>
+</view>

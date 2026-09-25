@@ -1,0 +1,363 @@
+.page {
+  min-height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  background: #f5f6f8;
+}
+
+/* ===== 页签 ===== */
+.tabs {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 20rpx;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 14rpx 30rpx;
+  border-radius: 999rpx;
+  background: #ffffff;
+  font-size: 27rpx;
+  color: #4e5969;
+  border: 1rpx solid #e5e6eb;
+}
+
+.tab-on {
+  color: #ffffff;
+  background: #2f7cf6;
+  border-color: #2f7cf6;
+  font-weight: 600;
+}
+
+/* 角标只在 WARN 非零时才渲染（wxml 里判断）：有数就是提醒，没有就不占位置 */
+.tab-badge {
+  min-width: 30rpx;
+  height: 30rpx;
+  line-height: 30rpx;
+  text-align: center;
+  padding: 0 8rpx;
+  border-radius: 999rpx;
+  background: #d4380d;
+  color: #ffffff;
+  font-size: 20rpx;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.filter {
+  font-size: 24rpx;
+  color: #4e5969;
+  padding: 6rpx 18rpx;
+  background: #f2f3f5;
+  border-radius: 999rpx;
+}
+
+.filter-on {
+  color: #ffffff;
+  background: #2f7cf6;
+}
+
+.empty {
+  font-size: 26rpx;
+  color: #a3a8b0;
+  padding: 30rpx 0;
+  text-align: center;
+}
+
+.empty-hint {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #c0c4cc;
+}
+
+/* ===== 统计 ===== */
+.stats-row {
+  display: flex;
+  margin-top: 16rpx;
+}
+
+.stats-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stats-value {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.stats-label {
+  font-size: 22rpx;
+  color: #8a9099;
+  margin-top: 6rpx;
+}
+
+.stats-note {
+  font-size: 22rpx;
+  color: #a3a8b0;
+  line-height: 1.5;
+  margin-top: 16rpx;
+}
+
+/* ===== 异常单 ===== */
+.ex {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f2f5;
+}
+
+.ex:last-child {
+  border-bottom: none;
+}
+
+.ex-pending {
+  background: #fff7f5;
+  margin: 0 -24rpx;
+  padding: 20rpx 24rpx;
+}
+
+.ex-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.ex-tag {
+  font-size: 22rpx;
+  color: #4e5969;
+  background: #f2f3f5;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+}
+
+.ex-tag-pending {
+  color: #ffffff;
+  background: #d4380d;
+}
+
+.ex-cat {
+  font-size: 24rpx;
+  color: #1f2329;
+  margin-left: 14rpx;
+}
+
+.ex-id {
+  font-size: 22rpx;
+  color: #a3a8b0;
+  margin-left: auto;
+}
+
+.ex-row {
+  display: flex;
+  margin-top: 8rpx;
+}
+
+.ex-label {
+  width: 120rpx;
+  font-size: 24rpx;
+  color: #8a9099;
+  flex-shrink: 0;
+}
+
+.ex-value {
+  flex: 1;
+  font-size: 24rpx;
+  color: #1f2329;
+  word-break: break-all;
+}
+
+.ex-time {
+  display: block;
+  font-size: 22rpx;
+  color: #a3a8b0;
+  margin-top: 10rpx;
+}
+
+.load-hint {
+  font-size: 22rpx;
+  color: #a3a8b0;
+  text-align: center;
+  padding-top: 16rpx;
+}
+
+.page-note {
+  font-size: 22rpx;
+  color: #8a9099;
+  line-height: 1.6;
+  padding: 0 8rpx 40rpx;
+}
+
+/* ===== 处理留痕（原「运营告警」页，2026-09-19 并入本页页签 2） =====
+   颜色统一成本页的字面色值（原来那页用的是 --var 变量）：同一页面里两种色板混用，
+   以后调色必然只改到一半。 */
+.filter-bar {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 12rpx 24rpx;
+  border-radius: 999rpx;
+  background: #ffffff;
+  font-size: 25rpx;
+  color: #4e5969;
+  border: 1rpx solid #e5e6eb;
+}
+
+.filter-item.active {
+  background: #eaf2ff;
+  color: #2f7cf6;
+  border-color: #2f7cf6;
+  font-weight: 600;
+}
+
+.filter-num {
+  font-size: 22rpx;
+  color: #a3a8b0;
+}
+
+.filter-item.active .filter-num {
+  color: #2f7cf6;
+}
+
+/* 口径说明：把"只列运营告警"讲清楚，避免站长找不到系统故障告警时以为漏了数据 */
+.hint {
+  background: #ffffff;
+  border-radius: 12rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 20rpx;
+  font-size: 22rpx;
+  color: #8a9099;
+  line-height: 1.6;
+}
+
+.alert-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.alert-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+/* 级别标签：颜色只表达"要不要处理"，不参与任何逻辑判断 */
+.level {
+  font-size: 22rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+}
+
+.level.level-error {
+  background: #fce4ec;
+  color: #d32f2f;
+}
+
+.level.level-warn {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.level.level-info {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.time {
+  font-size: 22rpx;
+  color: #c0c4cc;
+}
+
+.title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1f2329;
+  line-height: 1.5;
+  margin-bottom: 8rpx;
+}
+
+.content {
+  display: block;
+  font-size: 25rpx;
+  color: #666666;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.card-foot {
+  margin-top: 12rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+
+.foot-item {
+  font-size: 22rpx;
+  color: #8a9099;
+}
+
+.notify {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #c0c4cc;
+}
+
+/* 处置入口按钮（2026-09-20 开放 A1）：只两个动作，且没有金额输入框的样式可言 ——
+   刻意不提供输入类控件的样式，避免后来者"顺手加个输入框"。 */
+.ex-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.ex-btn {
+  padding: 10rpx 26rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+
+.ex-btn-ghost {
+  color: #475569;
+  border: 1rpx solid rgba(71, 85, 105, 0.35);
+}
+
+.ex-btn-primary {
+  color: #fff;
+  background-color: #2E4A68;
+}

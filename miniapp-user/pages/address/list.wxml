@@ -1,0 +1,43 @@
+<view class="container">
+  <loading wx:if="{{loading}}"></loading>
+
+  <view class="address-list" wx:else>
+    <view
+      class="address-item {{from === 'home' ? 'selectable' : ''}}"
+      wx:for="{{addresses}}"
+      wx:key="id"
+      bindtap="onSelectAddress"
+      data-item="{{item}}"
+    >
+      <view class="address-info">
+        <view class="address-header">
+          <text class="address-name">{{item.name}}</text>
+          <text class="address-phone">{{item.phone}}</text>
+          <text class="default-tag" wx:if="{{item.isDefault}}">默认</text>
+        </view>
+        <view class="address-detail">
+          <text>{{item.addressText || item.detail}}</text>
+        </view>
+      </view>
+      <view class="address-actions" wx:if="{{from !== 'home'}}">
+        <view class="action-btn" bindtap="onSetDefault" catchtap="onSetDefault" data-id="{{item.id}}">
+          <text>设为默认</text>
+        </view>
+        <view class="action-btn" bindtap="onEditAddress" catchtap="onEditAddress" data-id="{{item.id}}">
+          <text>编辑</text>
+        </view>
+        <view class="action-btn delete" bindtap="onDeleteAddress" catchtap="onDeleteAddress" data-id="{{item.id}}">
+          <text>删除</text>
+        </view>
+      </view>
+      <text class="select-hint" wx:if="{{from === 'home'}}">选择 ›</text>
+    </view>
+
+    <empty wx:if="{{addresses.length === 0}}" text="暂无地址"></empty>
+  </view>
+
+  <!-- 添加按钮 -->
+  <view class="add-btn" bindtap="onAddAddress">
+    <text>+ 新增地址</text>
+  </view>
+</view>

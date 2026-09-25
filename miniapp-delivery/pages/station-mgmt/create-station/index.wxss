@@ -1,0 +1,153 @@
+.container {
+  min-height: 100vh;
+  /* 底部留白要盖过固定 footer 的总高（提交按钮 + 两行操作），否则最后一段表单会被遮住 */
+  padding: 32rpx 32rpx 340rpx;
+  background: #f5f7fb;
+  box-sizing: border-box;
+}
+
+.form-card {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 40rpx 36rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.04);
+}
+
+.form-header {
+  margin-bottom: 40rpx;
+}
+
+.form-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 12rpx;
+}
+
+.form-subtitle {
+  font-size: 26rpx;
+  color: #888888;
+}
+
+.form-group {
+  margin-bottom: 36rpx;
+}
+
+.form-label {
+  display: block;
+  font-size: 28rpx;
+  color: #333333;
+  font-weight: 500;
+  margin-bottom: 16rpx;
+}
+
+.required {
+  color: #FF3B30;
+  margin-left: 4rpx;
+}
+
+.form-input {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 28rpx;
+  background: #f7f8fb;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  color: #1a1a1a;
+  box-sizing: border-box;
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 180rpx;
+  padding: 24rpx 28rpx;
+  background: #f7f8fb;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  color: #1a1a1a;
+  box-sizing: border-box;
+}
+
+/* [2026-09-16] .form-picker / .picker-arrow 随「补充省/市/区」级联选择器一并删除：
+   省市区改为从定位结果自动解析（见 index.js onChooseLocation），不再有手选项 */
+
+.location-group .location-value {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* 有省市区副行时自动长高（原为固定 88rpx，会把副行压掉） */
+  min-height: 88rpx;
+  height: auto;
+  padding: 18rpx 28rpx;
+  background: #f7f8fb;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: #1a1a1a;
+  box-sizing: border-box;
+}
+
+/* 地址文案可与省市区副行折行，故取 flex:1 + min-width:0，避免长地址把图标挤出容器 */
+.location-text-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.location-text {
+  font-size: 28rpx;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location-sub {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: #8a94a6;
+}
+
+.location-value.placeholder {
+  color: #999999;
+}
+
+.location-icon {
+  font-size: 32rpx;
+}
+
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 24rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
+  background: #ffffff;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.btn-submit {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  background: #4F8EF7;
+  color: #ffffff;
+  border-radius: 48rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  border: none;
+}
+
+/* 退出出口：本页是 reLaunch 进来的（页面栈无上一页），没有它站长就出不去 */
+.footer-action {
+  margin-top: 16rpx;
+  padding: 18rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #e5e5ea;
+  text-align: center;
+  font-size: 28rpx;
+  color: #999999;
+}
+.footer-action:active { opacity: 0.8; }

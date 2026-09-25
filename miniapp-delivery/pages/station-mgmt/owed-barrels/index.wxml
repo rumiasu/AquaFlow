@@ -1,0 +1,42 @@
+<view class="container">
+  <view class="filter-bar">
+    <view class="filter-item {{minDays === item.value ? 'active' : ''}}"
+          wx:for="{{filters}}"
+          wx:key="value"
+          data-value="{{item.value}}"
+          bindtap="onFilter">
+      <text>{{item.label}}</text>
+    </view>
+  </view>
+
+  <view class="hint">
+    <text>此表列的是「当前仍欠桶」的净额（已被回收的部分不在其中）。欠桶只提醒、不拦截下单；点一行可看该客户的完整桶账。</text>
+  </view>
+
+  <view class="owe-card"
+        wx:for="{{list}}"
+        wx:key="_key"
+        data-id="{{item.customerId}}"
+        bindtap="onOpenCustomer">
+    <view class="card-head">
+      <text class="customer-name">{{item._name}}</text>
+      <text class="days {{item._urgent ? 'urgent' : ''}}">{{item._daysText}}</text>
+    </view>
+    <view class="info-row">
+      <text class="product">{{item._product}}</text>
+      <text class="qty">欠 {{item.overQty}} 个</text>
+    </view>
+    <view class="info-row sub" wx:if="{{item.phone || item._sinceText}}">
+      <text>{{item.phone || '无电话'}}</text>
+      <text wx:if="{{item._sinceText}}">自 {{item._sinceText}}</text>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+  <view class="empty" wx:elif="{{list.length === 0}}">
+    <text>本站暂无欠桶客户</text>
+    <text class="empty-hint" wx:if="{{minDays > 0}}">试试切到「全部」</text>
+  </view>
+</view>

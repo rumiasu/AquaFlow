@@ -1,0 +1,61 @@
+<view class="container">
+  <view class="tab-bar">
+    <view class="tab-item {{currentTab === item.id ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="id" data-id="{{item.id}}" bindtap="onTabChange">
+      <text>{{item.name}}</text>
+    </view>
+  </view>
+
+  <view class="order-list" wx:if="{{!loading}}">
+    <!--
+      跨站履约单**归并成一行**（2026-09-18 产品裁定）：本站接下的别站单不逐个铺在列表里，
+      先给一行「跨站履约 N 单 · 合计 ¥X」，点开才看逐单明细。
+      ⚠️ 明细里没有客户姓名/电话（后端刻意不下发：那是归属站的客户画像），只有订单自身信息
+      —— 收件人、地址、金额，够送货即可。
+    -->
+    <view class="cross-card" wx:if="{{crossStation && crossStation.count > 0}}" bindtap="onToggleCrossStation">
+      <view class="cross-head">
+        <text class="cross-title">跨站履约 {{crossStation.count}} 单</text>
+        <text class="cross-amount">合计 ¥{{crossStation.amountTotal}}</text>
+        <text class="cross-toggle">{{crossExpanded ? '收起' : '展开'}}</text>
+      </view>
+      <view class="cross-sub">
+        <text>待配送 {{crossStation.pending}}</text>
+        <text>配送中 {{crossStation.delivering}}</text>
+        <text>已完成 {{crossStation.completed}}</text>
+      </view>
+      <view class="cross-row" wx:if="{{crossExpanded}}" wx:for="{{crossStation.orders}}" wx:key="id">
+        <view class="cross-row-head">
+          <text class="status-tag status-{{item.statusCls}}">{{item.statusText}}</text>
+          <text class="order-id">#{{item.id}}</text>
+        </view>
+        <view class="cross-row-body">
+          <text class="customer-name">{{item.receiverName || '收货人待补充'}}</text>
+          <text class="order-amount">¥{{item.totalAmount}}</text>
+        </view>
+        <view class="cross-row-addr" wx:if="{{item.addressSnapshot || item.addressDetail}}">
+          <text>{{item.addressSnapshot || item.addressDetail}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 卡片上的状态文案取后端下发的 item.statusText（Orders.getStatusText → OrderStatus.textOf），
+         前端不写状态码→中文映射；statusCls 只负责配色 -->
+    <view class="order-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+      <view class="card-header">
+        <text class="status-tag status-{{item.statusCls}}">{{item.statusText}}</text>
+        <text class="order-id">#{{item.id}}</text>
+        <text class="order-time" wx:if="{{item.createTime}}">{{item.createTime}}</text>
+      </view>
+      <view class="customer-info">
+        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+        <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+      </view>
+      <view class="product-info">
+        <text class="product-name">{{item.firstProductName}}</text>
+        <text class="product-qty">× {{item.quantity}} 桶</text>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{list.length === 0 && (!crossStation || crossStation.count === 0)}}"><text>暂无订单</text></view>
+  </view>
+  <view class="loading" wx:if="{{loading}}">加载中...</view>
+</view>

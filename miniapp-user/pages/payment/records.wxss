@@ -1,0 +1,75 @@
+.container {
+  background-color: var(--bg-color);
+  min-height: 100vh;
+  padding: 24rpx;
+}
+
+.record-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 28rpx 32rpx;
+  margin-bottom: 20rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.record-main {
+  flex: 1;
+}
+
+.record-title-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.record-method {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: 16rpx;
+}
+
+.record-order {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.record-time {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.record-right {
+  text-align: right;
+}
+
+.record-amount {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--price-color);
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.record-status {
+  font-size: 24rpx;
+}
+
+.status-2 {
+  color: var(--success-color);
+}
+
+.status-1 {
+  color: #FF9500;
+}
+
+.status-3 {
+  color: var(--text-secondary);
+}
+
+.status-4 {
+  color: var(--text-placeholder);
+}

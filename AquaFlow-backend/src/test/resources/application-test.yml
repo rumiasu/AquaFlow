@@ -1,0 +1,38 @@
+# =============================================================================
+# 集成测试专用 profile（可安全提交：本文件不含任何密钥）。
+#
+# 依据改造执行任务书 Phase A.4 / Phase B：本机无 Docker，Testcontainers 不可用，
+# 故采用任务书认可的降级方案 —— 使用「独立、可重建的测试库」aquaflow_test。
+#
+# 关键安全约定：
+#   * 本文件只把数据源指向 aquaflow_test，绝不写死用户名/密码；
+#     凭据由 local profile（application-local.yml，已 gitignore）继承。
+#   * 测试基类 AbstractIntegrationTest 会在每个用例前 TRUNCATE 当前库全部业务表，
+#     并断言「当前库名必须含 test」，杜绝误清真实库 aquaflow。
+#
+# 运行前置：先执行 scripts/provision-test-db.sh 重建 aquaflow_test（从 sql/schema.sql）。
+# =============================================================================
+spring:
+  datasource:
+    # 允许用 TEST_DB_URL 覆盖（例如 MySQL 不在 127.0.0.1:3306）；默认即指向测试库。
+    url: ${TEST_DB_URL:jdbc:mysql://127.0.0.1:3306/aquaflow_test?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
+
+# 登录类端点限流在整套集成测试里默认关闭：
+#   ① 所有用例都从 127.0.0.1 发请求，共享同一个计数器，开着会让"跑全量顺序不同 → 结果不同"；
+#   ② 验证限流本身的那个用例用 @TestPropertySource 单独把开关打开，并把阈值调到 3。
+app:
+  rate-limit:
+    enabled: false
+
+  # [2026-09-20] 集成测试一律按**真实口径**跑：微信渠道未接入。
+  #
+  # 为什么必须显式写这一行：真机联调会在 application-local.yml 里把
+  # app.payment.mock-wechat-pay 打开，而集成测试也带 local profile
+  # （AbstractIntegrationTest 是 @ActiveProfiles({"local","test"})，后写的 test 覆盖 local）——
+  # 不覆盖的话，本机跑测试会整个跑成"模拟渠道"版本：微信单一律当场变已付款，于是
+  # PaidBeforeDispatch / PaymentRefundOriginalRoute / UnpaidWechatOrderTimeout 三个类的
+  # 既有断言集体变红（实测 20 例里红 5 例），而 CI 上（没有 application-local.yml）却是绿的。
+  # 这正是 AGENTS §5 第三条的教训：**用例依赖什么就自己声明什么**，别继承开发机的配置。
+  # 要测模拟渠道的用例自己加 @TestPropertySource 打开（见 MockWechatPayIntegrationTest）。
+  payment:
+    mock-wechat-pay: false

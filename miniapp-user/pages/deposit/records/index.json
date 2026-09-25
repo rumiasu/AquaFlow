@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "押金流水",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "loading": "../../../components/Loading/index",
+    "empty": "../../../components/Empty/index"
+  }
+}

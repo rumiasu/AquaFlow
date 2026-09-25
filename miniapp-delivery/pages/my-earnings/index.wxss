@@ -1,0 +1,195 @@
+.page {
+  min-height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  background: #f5f6f8;
+}
+
+.summary {
+  display: flex;
+  align-items: stretch;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.summary-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-side {
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  border-left: 1rpx solid #eef0f3;
+  padding-left: 20rpx;
+}
+
+.summary-label {
+  font-size: 24rpx;
+  color: #8a9099;
+}
+
+.summary-value {
+  font-size: 56rpx;
+  font-weight: 600;
+  color: #1f2329;
+  margin-top: 8rpx;
+}
+
+.summary-value-sm {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1f2329;
+  margin-top: 12rpx;
+}
+
+.summary-hint {
+  font-size: 22rpx;
+  color: #a3a8b0;
+  margin-top: 8rpx;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 16rpx;
+}
+
+.chip {
+  padding: 10rpx 24rpx;
+  margin: 0 16rpx 12rpx 0;
+  font-size: 26rpx;
+  color: #4e5969;
+  background: #ffffff;
+  border-radius: 999rpx;
+}
+
+.chip-on {
+  color: #ffffff;
+  background: #2f7cf6;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2329;
+  margin-bottom: 16rpx;
+}
+
+.empty {
+  font-size: 26rpx;
+  color: #a3a8b0;
+  padding: 20rpx 0;
+  text-align: center;
+}
+
+.payroll {
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f0f2f5;
+}
+
+.payroll:last-child {
+  border-bottom: none;
+}
+
+.payroll-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.payroll-no {
+  font-size: 28rpx;
+  color: #1f2329;
+}
+
+.payroll-status {
+  font-size: 24rpx;
+  color: #2f7cf6;
+}
+
+.payroll-period {
+  font-size: 24rpx;
+  color: #8a9099;
+  margin-top: 8rpx;
+}
+
+.payroll-amount {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2329;
+  margin-top: 8rpx;
+}
+
+.payroll-paid {
+  font-size: 22rpx;
+  color: #8a9099;
+  margin-top: 8rpx;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f0f2f5;
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.item-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-right: 20rpx;
+}
+
+.item-kind {
+  font-size: 28rpx;
+  color: #1f2329;
+}
+
+.item-meta {
+  font-size: 22rpx;
+  color: #8a9099;
+  margin-top: 6rpx;
+}
+
+.item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.item-amount {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.item-detail {
+  font-size: 22rpx;
+  color: #a3a8b0;
+  margin-top: 6rpx;
+}
+
+.note {
+  font-size: 22rpx;
+  color: #8a9099;
+  line-height: 1.6;
+  padding: 0 8rpx 40rpx;
+}

@@ -1,0 +1,14 @@
+<view class="privacy-mask" wx:if="{{show}}">
+  <view class="privacy-dialog">
+    <view class="privacy-title">隐私保护提示</view>
+    <view class="privacy-content">
+      在使用小程序前，请阅读并同意
+      <navigator class="privacy-link" open-type="openPrivacyContract">《隐私保护指引》</navigator>
+      。我们将获取您的位置信息用于收货地址定位。
+    </view>
+    <view class="privacy-btns">
+      <view class="privacy-btn reject" bindtap="onReject">拒绝</view>
+      <view class="privacy-btn agree" id="privacy-agree-btn" bindtap="onAgree">同意</view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,147 @@
+<view class="page-container" wx:if="{{order}}">
+  <view class="status-card status-{{order.status}}">
+    <view class="status-main">{{statusText}}</view>
+    <view class="status-sub">
+      <text class="pay-badge {{payStatusClass}}">{{payStatusText}}</text>
+      <text wx:if="{{order.amount}}"> · 金额 ¥{{order.amount}}</text>
+    </view>
+  </view>
+
+  <view class="collect-banner" wx:if="{{order.status === 4 && order.paymentStatus !== 2}}">
+    <text>订单已配送，货款待收款确认，请与配送员确认付款金额</text>
+  </view>
+
+  <view class="info-section">
+    <view class="section-title">订单信息</view>
+    <view class="info-row">
+      <text class="label">订单编号</text>
+      <text class="value">{{order.id}}</text>
+    </view>
+    <view class="info-row">
+      <text class="label">下单时间</text>
+      <text class="value">{{order.createTime}}</text>
+    </view>
+    <view class="info-row" wx:if="{{order.deliveryStationName || order.stationName}}">
+      <text class="label">配送水站</text>
+      <text class="value">{{order.deliveryStationName || order.stationName}}</text>
+    </view>
+  </view>
+
+  <view class="info-section">
+    <view class="section-title">商品信息</view>
+    <view class="items-list">
+      <view class="item-row" wx:for="{{items}}" wx:key="productId">
+        <view class="item-thumb" wx:if="{{item.imageUrl}}">
+          <image src="{{item.imageUrl}}" mode="aspectFill" class="item-thumb-img" />
+        </view>
+        <view class="item-thumb item-thumb-placeholder" wx:else>
+          <text>💧</text>
+        </view>
+        <view class="item-info">
+          <text class="item-name">{{item.productName || item.waterTypeName}}</text>
+          <text class="item-spec" wx:if="{{item.productSpec || item.waterTypeSpec}}">{{item.productSpec || item.waterTypeSpec}}</text>
+        </view>
+        <view class="item-right">
+          <text class="item-price" wx:if="{{item.price}}">¥{{item.price}}</text>
+          <text class="item-qty">×{{item.quantity}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 费用明细：水费 / 桶押金 / 额外桶押金 / 配送费 / 楼层费 → 合计。
+       ⚠️ 配送费与楼层费必须逐项显示：只并进合计而不列出来，客户会以为算错了钱。 -->
+  <view class="info-section" wx:if="{{fee}}">
+    <view class="section-title">费用明细</view>
+    <view class="info-row">
+      <text class="label">水费</text>
+      <text class="value">¥{{fee.waterText}}</text>
+    </view>
+    <view class="info-row" wx:if="{{fee.hasDeposit}}">
+      <text class="label">桶押金</text>
+      <text class="value">¥{{fee.depositText}}</text>
+    </view>
+    <view class="info-row" wx:if="{{fee.hasDeliveryFee}}">
+      <text class="label">配送费</text>
+      <text class="value">¥{{fee.deliveryFeeText}}</text>
+    </view>
+    <view class="info-row" wx:if="{{fee.hasFloorFee}}">
+      <text class="label">楼层费</text>
+      <text class="value">¥{{fee.floorFeeText}}</text>
+    </view>
+    <view class="info-row fee-total">
+      <text class="label">合计</text>
+      <text class="value">¥{{fee.totalText}}</text>
+    </view>
+  </view>
+
+  <view class="info-section" wx:if="{{bucketInfo}}">
+    <view class="section-title">桶资产（本订单）</view>
+    <view class="bucket-card">
+      <view class="bucket-row">
+        <text class="bucket-label">本次配送</text>
+        <text class="bucket-value">{{bucketInfo.deliveredQty}} 桶</text>
+      </view>
+      <view class="bucket-row">
+        <text class="bucket-label">已回收空桶</text>
+        <text class="bucket-value">{{bucketInfo.returnedQty}} 桶</text>
+      </view>
+      <view class="bucket-row pending">
+        <text class="bucket-label">暂未回收</text>
+        <text class="bucket-value highlight">{{bucketInfo.pendingUnreturned}} 桶</text>
+      </view>
+      <view class="bucket-row" wx:if="{{bucketInfo.extraDepositBuckets > 0}}">
+        <text class="bucket-label">额外桶押金</text>
+        <text class="bucket-value">{{bucketInfo.extraDepositBuckets}}桶 · ¥{{bucketInfo.extraDepositAmount}}</text>
+      </view>
+      <view class="bucket-tip" wx:if="{{bucketInfo.pendingUnreturned > 0}}">
+        <text>请下次配送时配合配送员回收 {{bucketInfo.pendingUnreturned}} 个空桶</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="info-section">
+    <view class="section-title">配送信息</view>
+    <view class="info-row">
+      <text class="label">配送地址</text>
+      <text class="value">{{order.addressDetail}}</text>
+    </view>
+    <view class="info-row" wx:if="{{order.deliveryTimeRequest}}">
+      <text class="label">配送时间</text>
+      <text class="value">{{order.deliveryTimeRequest}}</text>
+    </view>
+    <!-- 配送员上报的楼层（v43）：双向可见 —— 客户在订单里也能看到"他报了几层"，
+         楼层凭证照片（如上传过）在同页「配送凭证」里。这样楼层争议双方都有据可查。 -->
+    <view class="info-row" wx:if="{{order.reportedFloor}}">
+      <text class="label">楼层</text>
+      <text class="value">配送员上报 {{order.reportedFloor}} 层</text>
+    </view>
+    <view class="info-row" wx:if="{{order.specialNote}}">
+      <text class="label">备注</text>
+      <text class="value">{{order.specialNote}}</text>
+    </view>
+  </view>
+
+  <view class="info-section" wx:if="{{images.length > 0}}">
+    <view class="section-title">配送凭证</view>
+    <view class="image-grid">
+      <image
+        wx:for="{{images}}"
+        wx:key="id"
+        class="order-image"
+        src="{{item.url}}"
+        mode="aspectFill"
+        data-url="{{item.url}}"
+        bindtap="onPreviewImage"
+      ></image>
+    </view>
+  </view>
+
+  <view class="action-section">
+    <button wx:if="{{canRepay}}" class="btn-action btn-pay" bindtap="onPayNow">{{repayLabel}}</button>
+    <text wx:else class="pay-hint">{{payHint}}</text>
+    <button wx:if="{{canCancel}}" class="btn-action btn-cancel" bindtap="onCancel">取消订单</button>
+    <button wx:if="{{order.status === 5}}" class="btn-action btn-reorder" bindtap="onReorder">再次购买</button>
+    <button class="btn-action btn-call" bindtap="onCallPhone">联系配送员</button>
+  </view>
+</view>

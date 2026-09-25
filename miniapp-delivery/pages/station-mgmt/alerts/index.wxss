@@ -1,0 +1,90 @@
+.container { background: var(--bg-color); min-height: 100vh; padding: 24rpx; }
+
+/* 级别筛选：全部 / 待处置(WARN) / 留痕(INFO) */
+.filter-bar { display: flex; gap: 16rpx; margin-bottom: 20rpx; }
+.filter-item {
+  padding: 12rpx 28rpx;
+  border-radius: 999rpx;
+  background: var(--bg-card);
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  border: 1rpx solid var(--border-color);
+}
+.filter-item.active {
+  background: var(--primary-bg);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* 口径说明：把"只列运营告警"讲清楚，避免站长找不到系统故障告警时以为漏了数据 */
+.hint {
+  background: var(--bg-card);
+  border-radius: 12rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 20rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.alert-card {
+  background: var(--bg-card);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+/* 级别标签：颜色只表达"要不要处理"，不参与任何逻辑判断 */
+.level {
+  font-size: 22rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+}
+.level.level-error { background: #fce4ec; color: #d32f2f; }
+.level.level-warn { background: #fff3e0; color: #f57c00; }
+.level.level-info { background: #e3f2fd; color: #1976d2; }
+
+.time { font-size: 22rpx; color: var(--text-placeholder); }
+
+.title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin-bottom: 8rpx;
+}
+
+.content {
+  display: block;
+  font-size: 25rpx;
+  color: var(--text-regular);
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.card-foot {
+  margin-top: 12rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+.foot-item { font-size: 22rpx; color: var(--text-secondary); }
+
+.notify {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: var(--text-placeholder);
+}
+
+.empty { text-align: center; padding: 120rpx 0; font-size: 28rpx; color: var(--text-secondary); }
+.empty-hint { display: block; margin-top: 12rpx; font-size: 24rpx; color: var(--text-placeholder); }

@@ -1,0 +1,13 @@
+.container { background: var(--bg-color); min-height: 100vh; padding: 24rpx; }
+.record-card { background: var(--bg-card); border-radius: 16rpx; padding: 24rpx; margin-bottom: 20rpx; }
+.card-header { margin-bottom: 12rpx; display: flex; align-items: center; gap: 12rpx; }
+.status { font-size: 22rpx; padding: 4rpx 14rpx; border-radius: 8rpx; display: inline-block; }
+.status.pending { background: #fff3e0; color: #f57c00; }
+.status.ticket { background: #e3f2fd; color: #1976d2; }
+.info-row { font-size: 26rpx; color: var(--text-primary); margin-bottom: 8rpx; display: flex; justify-content: space-between; }
+.info-row .label { color: var(--text-secondary); }
+.info-row .amount { font-weight: 700; }
+.card-actions { margin-top: 16rpx; display: flex; gap: 16rpx; }
+.btn-confirm { flex: 1; padding: 16rpx; border-radius: 12rpx; font-size: 26rpx; border: none; background: var(--primary-gradient); color: #fff; }
+.hint { font-size: 24rpx; color: var(--text-secondary); line-height: 1.6; padding: 8rpx 4rpx 20rpx; }
+.empty { text-align: center; padding: 120rpx 0; font-size: 28rpx; color: var(--text-secondary); }

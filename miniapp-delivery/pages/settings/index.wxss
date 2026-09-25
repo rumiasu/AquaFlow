@@ -1,0 +1,96 @@
+.container {
+  background: var(--bg-color);
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+/* 通用区块 */
+.section {
+  background: var(--bg-card);
+  margin: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-lg);
+}
+
+.section-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-lg);
+  display: block;
+}
+
+/* 信息行 */
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) 0;
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: var(--font-md);
+  color: var(--text-regular);
+}
+
+.info-value {
+  font-size: var(--font-md);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* 设置行 */
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) 0;
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+/* 带副标题的设置行（如「待办提醒」）：文字竖排、开关靠右 */
+.setting-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  flex: 1;
+  min-width: 0;
+  padding-right: 20rpx;
+}
+
+.setting-sub {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.setting-label {
+  font-size: var(--font-md);
+  color: var(--text-primary);
+}
+
+.setting-arrow {
+  font-size: var(--font-lg);
+  color: var(--text-secondary);
+}
+
+/* 版本信息 */
+.version-info {
+  text-align: center;
+  padding: var(--spacing-xl) var(--spacing-lg);
+}
+
+.version-text {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}

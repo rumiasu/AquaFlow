@@ -638,19 +638,36 @@ public class OrderServiceImpl implements OrderService {
         //（InventoryReservationService.shipForOrder，预留不足直接拒绝完成）。
         // 规格见 docs/design/28-库存预留与履约凭据.md。
         List<String> warnings = new java.util.ArrayList<>();
+        // ⚠️ **按 productId 升序取锁**（返工 V05）：reserveForItem 会锁住 (站,商品) 的 inventory 行，
+        // 若照请求顺序逐条取锁，两张商品顺序相反的单（甲 p1→p2、乙 p2→p1）就会形成固定锁环互相等死锁
+        // （MySQL 只会回滚其中一个 → 用户看到系统错误，而不是"库存不足"这类可读拒绝）。
+        // 提示文案仍按**请求顺序**下发：用数组暂存，循环结束后再按原序 add（不改变客户端看到的顺序）。
+        Integer[] reserveOrder = new Integer[dto.getItems().size()];
         for (int i = 0; i < dto.getItems().size(); i++) {
-            OrderCreateDTO.OrderItemDTO item = dto.getItems().get(i);
-            OrderItem oi = createdItems.get(i);
+            reserveOrder[i] = i;
+        }
+        java.util.Arrays.sort(reserveOrder, java.util.Comparator.comparing(
+                i -> dto.getItems().get(i).getProductId(),
+                java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+        String[] itemWarnings = new String[dto.getItems().size()];
+        for (int idx : reserveOrder) {
+            OrderCreateDTO.OrderItemDTO item = dto.getItems().get(idx);
+            OrderItem oi = createdItems.get(idx);
             int reserved = inventoryReservationService.reserveForItem(
                     orders.getId(), oi.getId(), stationId, item.getProductId(), item.getQuantity());
             if (reserved < item.getQuantity()) {
                 Product p = productCache.get(item.getProductId());
                 int lack = item.getQuantity() - reserved;
                 if (reserved == 0) {
-                    warnings.add(p.getName() + " 暂时没货，需要等待配送");
+                    itemWarnings[idx] = p.getName() + " 暂时没货，需要等待配送";
                 } else {
-                    warnings.add(p.getName() + " 库存不足(仅剩" + reserved + "桶)，缺" + lack + "桶需等待配送");
+                    itemWarnings[idx] = p.getName() + " 库存不足(仅剩" + reserved + "桶)，缺" + lack + "桶需等待配送";
                 }
+            }
+        }
+        for (String w : itemWarnings) {
+            if (w != null) {
+                warnings.add(w);
             }
         }
 

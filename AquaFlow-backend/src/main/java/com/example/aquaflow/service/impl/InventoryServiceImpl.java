@@ -7,7 +7,8 @@ import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.entity.InventoryRecord;
 import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.mapper.InventoryRecordMapper;
-import com.example.aquaflow.mapper.InventoryReservationMapper;
+import com.example.aquaflow.service.InventoryLedgerService;
+import com.example.aquaflow.service.InventoryReservationService;
 import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,20 +26,36 @@ public class InventoryServiceImpl implements InventoryService {
     @Autowired
     private InventoryRecordMapper inventoryRecordMapper;
 
-    /** 入库补预留要读"哪张单在等货"（只经它的 CAS 方法改 reserved_qty，见 backfillReservations） */
+    /**
+     * 库存流水唯一写入口（拆出来是为了打断与预留服务的循环依赖：入库后要补预留，
+     * 而出库/补位要写流水 —— 两边直接互指会在 Spring Boot 2.6+ 的"禁止循环引用"下启动失败）。
+     */
     @Autowired
-    private InventoryReservationMapper inventoryReservationMapper;
+    private InventoryLedgerService inventoryLedgerService;
+
+    /**
+     * 唯一分配入口（{@code InventoryReservationService}）：入库/盘点增加之后调它的
+     * {@code backfillReservations} 把新货补给等货的单；盘点减少前用它检查不变量。
+     * <p>⚠️ 分配算法**只有它一份实现**（返工 R4：首版把补位放在本类，导致"取消释放"那条路径天然漏了补位）。</p>
+     */
+    @Autowired
+    private InventoryReservationService inventoryReservationService;
 
     @Override
     public List<Inventory> list(Long stationId) {
         return inventoryMapper.listByStationId(stationId);
     }
 
+    /**
+     * ⚠️ 判据是**可用量**（实物 − 活跃预留），不是实物：已被别的单预留下的货不能再卖一次。
+     * <p>下单路径**不用**本方法（2026-09-25 库存预留模型）：下单缺货是允许的（先预留、到货补位），
+     * 见 {@code InventoryReservationService.reserveForItem}。</p>
+     */
     @Override
     public void checkStock(Long stationId, Long productId, Integer needQuantity) {
-        Inventory inventory = inventoryMapper.getByStationAndProduct(stationId, productId);
-        if (inventory == null || inventory.getQuantity() < needQuantity) {
-            throw new BusinessException("水站库存不足，还差 " + needQuantity + " 桶，请先入库后再接单");
+        int available = inventoryReservationService.availableQty(stationId, productId);
+        if (available < needQuantity) {
+            throw new BusinessException("水站可用库存不足，还差 " + (needQuantity - available) + " 桶，请先入库后再接单");
         }
     }
 
@@ -46,7 +63,13 @@ public class InventoryServiceImpl implements InventoryService {
     @Transactional(rollbackFor = Exception.class)
     public void inbound(Long stationId, List<InventoryInboundDTO.ItemDTO> items) {
         Long operatorId = AuthContext.getUserId();
-        for (InventoryInboundDTO.ItemDTO item : items) {
+        // ⚠️ 按 productId 升序处理（返工 V05）：每轮都会锁住 (站,商品) 的 inventory 行并做补位，
+        // 照请求顺序处理时，两张商品顺序相反的入库单会互相等锁（固定锁环 → 死锁，MySQL 只回滚其中一个，
+        // 用户看到系统错误）。入库结果与处理顺序无关，故可以重排。
+        List<InventoryInboundDTO.ItemDTO> ordered = new java.util.ArrayList<>(items);
+        ordered.sort(java.util.Comparator.comparing(InventoryInboundDTO.ItemDTO::getProductId,
+                java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+        for (InventoryInboundDTO.ItemDTO item : ordered) {
             if (item.getQuantity() == null || item.getQuantity() <= 0) {
                 throw new BusinessException("入库数量必须大于0");
             }
@@ -54,9 +77,9 @@ public class InventoryServiceImpl implements InventoryService {
             // [AQ-029] 入库写流水，与库存变动同事务
             recordChange(stationId, item.getProductId(), item.getQuantity(), InventoryChangeType.INBOUND,
                     null, operatorId, "入库");
-            // [2026-09-25 库存预留模型] 新到的货先补给"等货的单"（按 FIFO），否则那些单
-            // 完成配送时会被 shipForOrder 拦下（缺货待补没落账），站长会以为"明明入了库还不能送"
-            backfillReservations(stationId, item.getProductId());
+            // [2026-09-25 库存预留模型] 新到的货先补给"等货的单"（按业务需求时间 FIFO），
+            // 否则那些单完成配送时会被 shipForOrder 拦下（站长会以为"明明入了库还不能送"）
+            inventoryReservationService.backfillReservations(stationId, item.getProductId());
         }
     }
 
@@ -91,68 +114,30 @@ public class InventoryServiceImpl implements InventoryService {
         if (delta == 0) {
             return 0;
         }
+        if (delta < 0) {
+            // [2026-09-25 返工 R6/V06] 盘亏不得把实物盘到"活跃预留"以下：那会让 Δ(实物 − 预留) 变负
+            // （= 已卖出去的货凭空消失），而站长看到的只是"保存成功"。真实盘亏本轮不做专用命令 ⇒ 明确拒绝。
+            // 本方法已锁 inventory 行，这里再取活跃凭据的当前读，与预留服务的取锁顺序一致（先库存后凭据）。
+            inventoryReservationService.assertStockNotBelowReserved(stationId, productId, targetQuantity);
+        }
         inventoryMapper.upsertQuantity(stationId, productId, delta);
         recordChange(stationId, productId, delta, type, refId, AuthContext.getUserId(), note);
         if (delta > 0) {
-            // 盘点增加 / 入库同样要把新货补给等货的单（见 backfillReservations 的注释）
-            backfillReservations(stationId, productId);
+            // 盘点增加 / 入库同样要把新货补给等货的单（分配算法在预留服务里，见其类注释）
+            inventoryReservationService.backfillReservations(stationId, productId);
         }
         return delta;
     }
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void backfillReservations(Long stationId, Long productId) {
-        if (stationId == null || productId == null) {
-            return;
-        }
-        Inventory inv = inventoryMapper.getByStationAndProductForUpdate(stationId, productId);
-        if (inv == null) {
-            return;
-        }
-        int free = (inv.getQuantity() == null ? 0 : inv.getQuantity())
-                - inventoryReservationMapper.sumReserved(stationId, productId);
-        if (free <= 0) {
-            return;   // 没有新增可用量，或全都已经被别的单预留着
-        }
-        // 按 id 升序（= 下单先后）补，补到可用量用完为止：不得让 Σ预留 > 实物
-        for (java.util.Map<String, Object> row : inventoryReservationMapper
-                .listShortageNeedForUpdate(stationId, productId)) {
-            if (free <= 0) {
-                break;
-            }
-            Object needRaw = row.get("needQty");
-            Object idRaw = row.get("id");
-            if (needRaw == null || idRaw == null) {
-                continue;
-            }
-            int need = ((Number) needRaw).intValue();
-            if (need <= 0) {
-                continue;
-            }
-            int add = Math.min(need, free);
-            if (inventoryReservationMapper.addReservedIfActive(((Number) idRaw).longValue(), add) == 0) {
-                continue;   // 这份凭据已被出库/释放，跳过
-            }
-            free -= add;
-        }
-    }
-
+    /**
+     * [AQ-029] 库存流水写入**委托**给 {@link InventoryLedgerService}（唯一写入口）。
+     * <p>为什么要有这一跳：本类与预留服务互有调用需求，两边都能写流水就会互相注入 ⇒ 循环依赖启动失败。
+     * 流水口径与事务语义都还在这一层（{@code delta = 0} 静默跳过、与库存变动同事务）。</p>
+     */
     @Override
     public void recordChange(Long stationId, Long productId, Integer delta, String type,
                              Long refId, Long operatorId, String note) {
-        if (stationId == null || productId == null || delta == null || delta == 0) {
-            return;
-        }
-        InventoryRecord record = new InventoryRecord();
-        record.setStationId(stationId);
-        record.setProductId(productId);
-        record.setDelta(delta);
-        record.setType(type);
-        record.setRefId(refId);
-        record.setOperatorId(operatorId);
-        record.setNote(note);
-        inventoryRecordMapper.insert(record);
+        inventoryLedgerService.recordChange(stationId, productId, delta, type, refId, operatorId, note);
     }
 
     @Override

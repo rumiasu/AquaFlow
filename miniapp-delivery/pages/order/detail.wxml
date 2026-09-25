@@ -32,6 +32,12 @@
       <text class="info-icon">🛗</text>
       <text class="info-text">{{order.floorText}}</text>
     </view>
+    <!-- 备货情况（契约 C4）：出发前就知道"这单备齐了没、还缺哪些商品"。
+         口径由后端给（需求快照 − 已预留），不是库存实物量；最终仍以后端出库校验为准。 -->
+    <view class="info-row" wx:if="{{order.stockPrepText}}">
+      <text class="info-icon">📦</text>
+      <text class="info-text">{{order.stockPrepText}}</text>
+    </view>
   </view>
 
   <!--

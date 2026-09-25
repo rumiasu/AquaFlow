@@ -15,6 +15,22 @@ const MANAGER_EXCEPTIONS = '/api/manager/exceptions'
 // 楼层/电梯文案：与配送任务列表共用同一份实现（口径只有一处）
 const { buildFloorText } = require('../../utils/address')
 
+/**
+ * 备货情况文案（契约 C4）：后端 `stockPrep` 投影 → 一句话。
+ * 判据 = 凭据上的需求快照 − 已预留（不是 `inventory.quantity`）；这里**只展示**，
+ * 真正拦住"少扣一点先把单结了"的是完成配送时那次出库校验（提示可能过期）。
+ */
+function buildStockPrepText(prep) {
+  if (!prep) return ''
+  if (prep.ready === true) return '已备齐'
+  const parts = []
+  ;(prep.items || []).forEach((it) => {
+    parts.push(`${it.productName || '商品'} 还缺 ${it.shortage} 桶`)
+  })
+  if (prep.itemsWithoutCredential > 0) parts.push('有商品还没登记备货')
+  return parts.length ? ('还缺：' + parts.join('、')) : ''
+}
+
 // 纯展示用：订单状态数字 → 徽章 CSS class（仅控制颜色，不承载业务逻辑）
 const STATUS_CLASS_MAP = {
   1: 'pending',     // 待配送
@@ -186,6 +202,9 @@ Page({
           labels,
           isTransfer: !!order.transferPending,
           floorText: buildFloorText(order),
+          // 备货情况（契约 C4）：出发前/上门前用一句话说清"这单备齐了没、还缺哪些商品"。
+          // 与金额、状态文案一样取自后端投影（stockPrep），前端不拿 inventory.quantity 自己推算。
+          stockPrepText: buildStockPrepText(order.stockPrep),
           // 楼层上报（v43）：显示成两行（配送员上报 / 地址里填的），不一致时打一个提示标。
           // ⚠️ 这只是**给人看的提示**；"标记"的权威记录在收益明细的 note 里（后端生成，见 docs/design/18 §4）。
           reportedFloorText: order.reportedFloor ? ('配送员上报 ' + order.reportedFloor + ' 层') : '',

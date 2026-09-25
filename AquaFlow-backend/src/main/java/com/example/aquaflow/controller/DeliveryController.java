@@ -13,6 +13,7 @@ import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.AuditLogService;
 import com.example.aquaflow.service.CustomerRiskService;
+import com.example.aquaflow.service.InventoryReservationService;
 import com.example.aquaflow.service.OrderWorkflowService;
 import com.example.aquaflow.entity.OrderItem;
 import com.example.aquaflow.dto.DeliveryOrderActionDTO;
@@ -63,6 +64,14 @@ public class DeliveryController {
      */
     @Autowired
     private CustomerRiskService customerRiskService;
+
+    /**
+     * 只读投影：订单详情里的「备货情况」（已备齐 / 还缺哪些商品，契约工作包 C4）。
+     * <p>它只读、只算、不写任何业务表 —— 与上面的 customerRiskService 同理，
+     * 不违反"Controller 不得触碰业务表"的契约；分配与出库仍然只走服务层。</p>
+     */
+    @Autowired
+    private InventoryReservationService inventoryReservationService;
 
     // 注：本类曾直接注入 OrderTransferMapper（转单状态）与 BarrelLedgerService（桶权益总账）直写那两张表，
     // 已按「Controller 只做认证 + 调服务 + 包 Result，不得触碰业务表」的契约全部移入 OrderWorkflowService。
@@ -334,6 +343,10 @@ public class DeliveryController {
         order.setItems(orderItemMapper.listByOrderId(id));
         // 「待我确认的转单」由后端按登录人判定（前端此前读的 isTransferTarget 后端并不存在）
         order.setTransferTarget(isTransferTarget(order));
+        // 备货情况（契约工作包 C4）：配送员出发前要知道"这单备齐了没、还缺哪些商品"。
+        // 口径 = 凭据上的需求快照 − 已预留（**不是** inventory.quantity），只读、不下发他站数据；
+        // 它只是提示 —— 真正拦住"少扣一点先把单结了"的是完成配送时那次出库校验。
+        order.setStockPrep(inventoryReservationService.prepInfoOfOrder(id));
         // 楼层 / 电梯：送货的人要知道这一单要不要上楼。
         // orderMapper.getById 是纯 orders 查询（不带 address 关联），所以在这里补一次读；
         // 取的是**当前地址**的值而不是下单快照 —— 详见 Orders.addressFloor 的字段注释。

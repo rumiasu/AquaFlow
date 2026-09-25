@@ -440,6 +440,11 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (returnBucketQty < 0) {
             throw new BusinessException("回收空桶数不能为负数");
         }
+        // 少回桶原因必须**按数量之和**对上少桶数（契约工作包 C2）：
+        // 前端原来按"原因条数"记数与校验（1 条原因×3 桶被当成 1 桶），服务端则完全不校验 ——
+        // 于是"少 3 桶、只勾 1 条原因"能提交成功，异常单上的原因与真实缺口对不上。
+        // 放在桶账写入**之前**：不满足就不动账。
+        assertReturnReasonsMatchGap(itemReturns);
 
         // ===== 桶账（全系统唯一写入口）=====
         // newOver = oldOver + (delivered − returned) − rightPurchase，按商品结算；
@@ -511,9 +516,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         // ===== [2026-09-25 库存预留模型] 出库：**完成配送**才是实物离开仓库的那一刻 =====
         // 位置刻意放在状态 CAS **之前**：预留不足（缺货待补没补上）或本站实物不够时直接拒绝，
         // 让站长先去入库补足 —— 绝不允许"少扣一点先把单结了"（问题 4b 的病根就是那 7 桶永不落账）。
-        // 站别取凭据自己记的那个站（跨站外派后 = 履约站），不是订单的归属站。
+        // 站别必须是**履约站**（跨站外派后 = 接单站），不是订单的归属站：货当初记在哪个站、这次就从哪个站出。
         // 放在这里也顺带保证：本方法前半段对桶账/工钱做的事，在这一步失败时一并回滚。
-        inventoryReservationService.shipForOrder(orderId);
+        // 站别传"当前履约站"（`StationUtil.deliveryStation` = `coalesce(delivery_station_id, station_id)`）：
+        // shipForOrder 会拿它逐条核对凭据站别，凭据挂错站（例如换站那步没搬凭据）是**明确失败**，
+        // 不是"扣另一站的货"（返工 V10）。
+        inventoryReservationService.shipForOrder(orderId, StationUtil.deliveryStation(order));
 
         // 处理桶差异异常录入
         Long exceptionId = null;
@@ -614,6 +622,54 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         d.put("collected", collected);
         d.put("finalStatus", finalStatus);
         log("COMPLETE", orderId, d);
+    }
+
+    /**
+     * 少回桶原因必须**按数量之和**对上少桶数（契约工作包 C2）。
+     *
+     * <p>判据逐条明细算：{@code 少桶数 = expected − actual}，要求
+     * {@code Σ(reason.qty) == 少桶数}，且每个 {@code qty ≥ 0}。这是"按 SUM 而不是按原因条数"的
+     * <b>服务端那一半</b>（前端展示与选择闸门也要按 SUM，见 {@code miniapp-delivery/pages/order/complete}）：
+     * 只在前端校验等于没校验 —— 请求可以绕过页面直接发。</p>
+     *
+     * <p>不给"自动补齐差额"的兜底：原因代表现场事实（客户留存 / 丢失 / 破损 / 送错），
+     * 替配送员猜一个原因会把异常单写成假话，站长照它处置就错了。</p>
+     *
+     * <p>首单（{@code firstBarrelOrder}）不核对回桶，调用点已经在 {@code if (!isFirstBarrelOrder)} 里
+     * 只对非首单收集 itemReturns，所以这里不需要再判一次首单。</p>
+     */
+    private void assertReturnReasonsMatchGap(List<Map<String, Object>> itemReturns) {
+        if (itemReturns == null || itemReturns.isEmpty()) {
+            return;
+        }
+        for (Map<String, Object> item : itemReturns) {
+            String productName = item.get("productName") != null ? item.get("productName").toString() : "该商品";
+            int exp = item.get("expected") instanceof Number n ? n.intValue() : 0;
+            int act = item.get("actual") instanceof Number n ? n.intValue() : 0;
+            int gap = exp - act;
+            if (gap <= 0) {
+                continue;   // 没少回桶就不需要原因（多回桶的场景不在这里判）
+            }
+            int reasonSum = 0;
+            Object reasonsObj = item.get("reasons");
+            if (reasonsObj instanceof List<?> reasons) {
+                for (Object o : reasons) {
+                    if (!(o instanceof Map<?, ?> reason)) {
+                        continue;
+                    }
+                    Object qtyObj = reason.get("qty");
+                    int qty = qtyObj instanceof Number n ? n.intValue() : 0;
+                    if (qty < 0) {
+                        throw new BusinessException("「" + productName + "」的少桶原因数量不能为负数，请重新填写");
+                    }
+                    reasonSum += qty;
+                }
+            }
+            if (reasonSum != gap) {
+                throw new BusinessException("「" + productName + "」少 " + gap + " 桶，但少桶原因合计 "
+                        + reasonSum + " 桶，两者必须一致，请重新填写原因");
+            }
+        }
     }
 
     /**

@@ -19,7 +19,7 @@
 
 | Controller（前缀） | 写端点 | 直接写资产 | 事务 | 备注 |
 |---|---|---|---|---|
-| OrderController `/api/orders` | POST `/create`、PUT `/{id}/status`、PUT `/{id}/customer-cancel` | Orders（经 service） | 视 service | 顾客端入口 |
+| OrderController `/api/orders` | POST `/create`、PUT `/{id}/customer-cancel` | Orders（经 service） | 视 service | 顾客端入口。**⚠️ 本表此前漏登记了 `POST /api/orders`（裸 `Orders` 实体整行更新）** —— 它正是 2026-09-25 架构评审问题 2 的旁路，已于同日删除（六项报备见[删除登记表](删除登记表.md) §3.1）。**判据：本表是"我已知的写入口"清单，不是"全部写入口"的证明** —— 盘点时按 `@RequestMapping` + `@PostMapping/@PutMapping` 全量对照一遍，别只照本表核对。`PUT /{id}/status` 已于 2026-09-14 删除（同表 §3） |
 | DeliveryController `/api/delivery` | 10 个订单状态变更写端点（reject/dispatch/resolve/transfer/return/assign/outsource/claim-pool/station-reject/complete）由 `Map` 改为 `DeliveryOrderActionDTO` 嵌套 DTO + `@Valid`（D-C2）；其余写端点（accept/confirm-offline-pay/cancel-transfer/claim-transfer/reject-transfer/approve-return/reject-return/cancel-dispatch/directed-*）本就仅 `@PathVariable`，无 Map 入参 | Orders + 桶/库存 | 部分 `@Transactional` | **P0 已收敛**：请求体 Map 风险归零 |
 | ManagerOrderController `/api/manager` | 见 §2（8 个订单写端点） | Orders | 均 `@Transactional` | **P0 前端零调用** |
 | PaymentController `/api/payments` | quote/create/refund 已 DTO 化（@Valid + jakarta.validation）；confirm/cash-confirm 仅路径变量；updateConfig 保留 Map（动态配置 blob） | PaymentRecord（经 service） | 视 service | Phase D-A 完成：写端点强类型化 + Bean Validation |

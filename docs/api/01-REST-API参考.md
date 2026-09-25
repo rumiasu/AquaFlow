@@ -222,7 +222,6 @@
 | `PUT` | `/api/order-templates/{id}/default` | — | `OrderTemplateController.setDefault` |
 | `PUT` | `/api/order-templates/{id}/toggle` | — | `OrderTemplateController.toggleEnabled` |
 | `GET` | `/api/orders` | {"STATION_MANAGER","DELIVERY"} | `OrderController.list` |
-| `POST` | `/api/orders` | {"STATION_MANAGER","DELIVERY"} | `OrderController.save` |
 | `POST` | `/api/orders/create` | {"STATION_MANAGER","DELIVERY"} | `OrderController.createOrder` |
 | `GET` | `/api/orders/my-station` | {"STATION_MANAGER","DELIVERY"} | `OrderController.getMyLatestStation` |
 | `GET` | `/api/orders/{id}` | {"STATION_MANAGER","DELIVERY"} | `OrderController.getById` |
@@ -461,6 +460,7 @@
 | 端点 | 删除原因 |
 |---|---|
 | `PUT /api/orders/{id}/status` | 状态改写只允许经 `OrderWorkflowServiceImpl` 编排，不开放通用改状态入口 |
+| `POST /api/orders`（裸实体整行更新） | 由客户端直传 `Orders` 实体，可改金额 / 履约站（连带结算站）/ 配送员 / 支付方式，且无状态 CAS。订单修改一律走具名业务命令或带 expected-state 的专用列更新（2026-09-25，架构评审问题 2；零调用方） |
 | `POST /api/manager/reconciliation/run` | 会写**全平台**对账结果 = 跨租户泄露；现只保留只读的 `GET`，运维记录由定时任务落表 |
 | `GET /api/payments/config` | 站点级线下支付总开关已移除，货到付款收敛为客户级授权 |
 | `GET /api/barrels/assets` | 被桶权益批次模型取代 |

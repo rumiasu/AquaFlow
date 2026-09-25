@@ -14,6 +14,12 @@ Page({
     products: [],
     addresses: [],
     stationId: null,
+    // ===== 失败标记（[2026-09-20 真机联调]，空串 = 一切正常）=====
+    // 为什么需要：列表与弹窗里的商品/地址原来都是 `.catch(() => null)`，失败时页面渲染成
+    // 「还没有常用订单」、弹窗里商品/地址一片空白 —— 把"没查到"说成"你确实没有"（AGENTS §8.22），
+    // 后者更糟：用户会在空列表里反复点"添加"却永远选不出商品来（保存时还被拦"请选择至少一种商品"）。
+    loadError: '',
+    formLoadError: '',
     form: {
       name: '',
       addressId: null,
@@ -32,10 +38,31 @@ Page({
     this.setData({ loading: true })
     try {
       const sid = this.data.stationId || await resolveStationId()
-      const tplRes = sid ? await getTemplates(sid).catch(() => null) : null
+      // [2026-09-20 真机联调] 原来是 `.catch(() => null)`：模板列表拉不到时 templates 为空数组，
+      // 页面渲染成「还没有常用订单」—— 与"这个客户确实没设过常用订单"完全无法区分（AGENTS §8.22），
+      // 客户会以为自己的常用订单丢了，转头去重设一遍。
       let templates = []
-      if (tplRes && tplRes.data) templates = tplRes.data
-      this.setData({ templates })
+      let templateError = ''
+      if (sid) {
+        try {
+          const tplRes = await getTemplates(sid)
+          if (tplRes && tplRes.code === 0 && tplRes.data) {
+            templates = tplRes.data
+          } else {
+            templateError = (tplRes && tplRes.message) || '服务端返回异常'
+          }
+        } catch (e) {
+          templateError = (e && e.message) || '网络异常'
+        }
+      }
+      if (templateError) {
+        console.warn('[Template] 常用订单列表加载失败:', templateError)
+        // 失败时保留上一次的列表内容不动（不清空），只把失败说出来
+        this.setData({ loadError: '常用订单没加载出来（' + templateError + '），下面是旧内容，请下拉刷新' })
+        wx.showToast({ title: '常用订单没加载出来，请下拉刷新', icon: 'none' })
+      } else {
+        this.setData({ templates, loadError: '' })
+      }
     } finally {
       this.setData({ loading: false })
     }
@@ -82,16 +109,37 @@ Page({
     // 现改为与首页 checkStation 同一套来源：stationStorage 优先，回退 my-station。
     const currentStationId = await resolveStationId()
 
+    // [2026-09-20 真机联调] 商品与地址原来是各自的 `.catch(() => null)`：拉不到时弹窗里
+    // 商品/地址选项**一片空白**，用户点"+"也好、点保存也好都只会撞上"请选择至少一种商品"——
+    // 把"没查到"说成了"你没选"（AGENTS §8.22）。现在仍然不阻断（拿到什么用什么），
+    // 但把失败原因摆在弹窗里，用户才知道该重试而不是干瞪眼。
+    let formLoadError = ''
     let productRes = null
     if (currentStationId) {
-      productRes = await getStationProducts(currentStationId).catch(() => null)
+      try {
+        productRes = await getStationProducts(currentStationId)
+      } catch (e) {
+        formLoadError = (e && e.message) || '网络异常'
+        console.warn('[Template] 商品列表加载失败:', e && (e.message || e.errMsg))
+      }
     }
     if (!productRes || !productRes.data) {
       // 没有选水站时的兜底：只取**通用库**商品（带 stationId 才能看到本站自定义商品；
       // 模板页只需要 id/name，不显示价格，所以这里不涉及站级价）。
-      productRes = await getProducts(currentStationId ? { stationId: currentStationId } : {}).catch(() => null)
+      try {
+        productRes = await getProducts(currentStationId ? { stationId: currentStationId } : {})
+      } catch (e) {
+        formLoadError = formLoadError || (e && e.message) || '网络异常'
+        console.warn('[Template] 通用库商品加载失败:', e && (e.message || e.errMsg))
+      }
     }
-    const addressRes = await getAddresses().catch(() => null)
+    let addressRes = null
+    try {
+      addressRes = await getAddresses()
+    } catch (e) {
+      formLoadError = formLoadError || (e && e.message) || '网络异常'
+      console.warn('[Template] 收货地址加载失败:', e && (e.message || e.errMsg))
+    }
 
     if (productRes && productRes.data) {
       this.setData({ products: productRes.data, stationId: currentStationId })
@@ -106,6 +154,11 @@ Page({
         'form.addressId': this.data.form.addressId || (defaultAddr ? defaultAddr.id : null)
       })
     }
+    this.setData({
+      formLoadError: formLoadError
+        ? '商品/地址没加载出来（' + formLoadError + '），下面可能是空的，请关掉弹窗重新打开'
+        : ''
+    })
   },
 
   onNameInput(e) {
@@ -202,7 +255,10 @@ Page({
       await toggleTemplate(id, newEnabled)
       this.loadData()
     } catch (error) {
-      wx.showToast({ title: '操作失败', icon: 'none' })
+      // [2026-09-20] 原来只有一句「操作失败」，原因是丢掉的 —— utils/request.js 起 e.message
+      // 已是可读文案（超时/连接失败分开说），带上它才能判断是重试还是该找站长（AGENTS §8.15 同款判据）
+      console.error('[Template] 启用/停用失败:', error)
+      wx.showToast({ title: '操作失败：' + ((error && error.message) || '请重试'), icon: 'none' })
     }
   },
 
@@ -218,7 +274,9 @@ Page({
             wx.showToast({ title: '删除成功', icon: 'success' })
             this.loadData()
           } catch (error) {
-            wx.showToast({ title: '删除失败', icon: 'none' })
+            // [2026-09-20] 同 onToggleTemplate：带上可读原因（见 utils/request.js 的 fail 归一化）
+            console.error('[Template] 删除失败:', error)
+            wx.showToast({ title: '删除失败：' + ((error && error.message) || '请重试'), icon: 'none' })
           }
         }
       }

@@ -12,7 +12,11 @@
       <text class="badge badge-on" wx:if="{{current.operatingStatus === 1}}">{{current.statusText}}</text>
       <text class="badge badge-warn" wx:else>{{current.statusText}}</text>
     </view>
-    <text class="card-sub">顾客仍可下单，只会在商城与下单页看到下面这句话（不阻断接单）</text>
+    <!-- ⚠️ 这一句**保持可见**：它是本页的核心语义（软状态 = 顾客照样能下单）。
+         站长若以为"休息中"会挡住下单，就永远不敢用这个功能 —— 那是会做出错决定的信息，
+         不能藏进「?」（判据见 components/HelpTip/index.js 边界 1）。
+         [2026-09-24] 从 30 字压到 20 字，语义不变。 -->
+    <text class="card-sub">不阻断接单 —— 顾客照样能下单，只会在商城看到下面这句话</text>
 
     <view class="options">
       <view
@@ -54,10 +58,13 @@
   <!-- ============ 公告 ============ -->
   <view class="card">
     <view class="card-header">
-      <text class="card-title">本站公告</text>
+      <view class="card-title-row">
+        <text class="card-title">本站公告</text>
+        <!-- [2026-09-24] 纯说明（"发布 vs 草稿谁看得见"），藏进「?」 -->
+        <help-tip title="本站公告" text="已发布的公告，顾客在小程序「公告」里能看到；草稿只有你自己可见。" />
+      </view>
       <text class="link" bindtap="openAddNotice">＋ 发公告</text>
     </view>
-    <text class="card-sub">已发布的公告顾客在小程序「公告」里能看到；草稿只有你自己可见</text>
 
     <view class="notice" wx:for="{{notices}}" wx:key="id">
       <view class="notice-head">

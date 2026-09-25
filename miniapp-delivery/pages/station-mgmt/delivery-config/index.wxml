@@ -1,11 +1,15 @@
 <view class="container">
   <view class="card">
     <view class="card-header">
-      <text class="card-title">配送计费</text>
+      <view class="card-title-row">
+        <text class="card-title">配送计费</text>
+        <!-- [2026-09-24] 各段说明藏进「?」：原来本页 5 张卡各平铺一整句，字段反被挤没了。
+             藏什么、不藏什么见 components/HelpTip/index.js 文件头。 -->
+        <help-tip title="配送计费" text="留空表示「不限 / 不收」。费用在客户下单时快照进订单，改这里不影响历史订单。" />
+      </view>
       <text class="badge badge-on" wx:if="{{configured}}">已配置</text>
       <text class="badge badge-warn" wx:else>未配置</text>
     </view>
-    <text class="card-sub">留空表示「不限 / 不收」。费用在客户下单时快照进订单，改这里不影响历史订单。</text>
   </view>
 
   <!--
@@ -20,11 +24,18 @@
     </view>
     <view class="setup-item" wx:for="{{setupPending}}" wx:key="key">
       <view class="setup-head">
-        <text class="setup-label">{{item.level}} · {{item.label}}</text>
-        <text class="setup-where">去「{{item.where}}」</text>
+        <!-- ⚠️ 渲染 levelText（必填/建议/可选）而不是 level（P0/P1/P2）—— 后者是内部代号，
+             摆给站长看等于让他读开发文档（同营业状态小框，2026-09-24）。 -->
+        <text class="setup-label">{{item.levelText}} · {{item.label}}</text>
+        <view class="setup-head-right">
+          <!-- 说明同样藏进「?」：原来每条 why + action 平铺，一屏放不下三项。
+               ⚠️ 正文用 js 拼好的 item.helpText —— **不要**写成
+               `text="{{item.why}}{{item.suggestion ? '\n\n' + item.suggestion : ''}}"`
+               （WXML 表达式解析器吃不下带换行的拼接，会直接编译报错，2026-09-24 实测）。 -->
+          <help-tip title="{{item.label}}" text="{{item.helpText}}" />
+          <text class="setup-where">去「{{item.where}}」</text>
+        </view>
       </view>
-      <text class="setup-why">{{item.why}}</text>
-      <text class="setup-action" wx:if="{{item.action}}">· {{item.action}}</text>
     </view>
   </view>
 
@@ -41,8 +52,10 @@
 
   <!-- ============ 起送量 ============ -->
   <view class="card">
-    <text class="card-title">起送量</text>
-    <text class="card-sub">桶数与金额满足其一即达门槛；两项都留空 = 不限起送量。没有桶装水的订单（纯瓶装水/饮水机）只按金额核验。</text>
+    <view class="card-title-row">
+      <text class="card-title">起送量</text>
+      <help-tip title="起送量" text="桶数与金额满足其一即达门槛；两项都留空 = 不限起送量。没有桶装水的订单（纯瓶装水/饮水机）只按金额核验。" />
+    </view>
 
     <view class="field">
       <text class="label">起送桶数</text>
@@ -69,8 +82,12 @@
 
   <!-- ============ 配送范围 ============ -->
   <view class="card">
-    <text class="card-title">配送范围</text>
-    <text class="card-sub">按站点坐标到收货地址的直线距离判断。⚠️ 站点没选点或地址没定位时**跳过校验、不拦单**。</text>
+    <view class="card-title-row">
+      <text class="card-title">配送范围</text>
+      <!-- 正文在 js 里拼好（wxml 里不许做字符串拼接，见 delivery-config/index.js 的 ⚠️）。
+           2026-09-24 产品要求：坐标这类概念也藏起来 → 原来那句可见警告并进这里。 -->
+      <help-tip title="配送范围" text="{{rangeHelpText}}" />
+    </view>
 
     <view class="field">
       <text class="label">配送半径（米）</text>
@@ -93,8 +110,10 @@
 
   <!-- ============ 运费 ============ -->
   <view class="card">
-    <text class="card-title">配送费</text>
-    <text class="card-sub">达到免运费门槛（桶数或金额任一）即免收；两项门槛都留空 = 一直收基础配送费。</text>
+    <view class="card-title-row">
+      <text class="card-title">配送费</text>
+      <help-tip title="配送费" text="达到免运费门槛（桶数或金额任一）即免收；两项门槛都留空 = 一直收基础配送费。" />
+    </view>
 
     <view class="field">
       <text class="label">基础配送费（元）</text>
@@ -112,8 +131,10 @@
 
   <!-- ============ 楼层费 ============ -->
   <view class="card">
-    <text class="card-title">楼层费（向客户收）</text>
-    <text class="card-sub">只在「无电梯」且超出免费楼层时收。⚠️ 客户没填楼层或没确认电梯时**不收、只提示**。</text>
+    <view class="card-title-row">
+      <text class="card-title">楼层费（向客户收）</text>
+      <help-tip title="楼层费" text="只在「无电梯」且超出免费楼层时收。客户没填楼层、或没确认电梯时，不收、只在结算页提示。" />
+    </view>
 
     <view class="field">
       <text class="label">免费楼层</text>

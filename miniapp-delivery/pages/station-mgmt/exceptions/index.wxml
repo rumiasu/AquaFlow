@@ -40,7 +40,7 @@
             <text class="stats-label">平均处理(小时)</text>
           </view>
         </view>
-        <view class="stats-note">站长端只读：这里统计的是异常单本身，补偿金额以每张单的处理记录为准。</view>
+        <view class="stats-note">这里统计的是异常单本身；补偿金额以每张单的处理记录为准（处置入口在下面每张待处理的单上）。</view>
       </view>
       <!-- ⚠️ 统计取不到时**不能什么都不显示**：整张卡消失与"这 30 天确实 0 张"在界面上无法区分（§8.22） -->
       <view class="card" wx:else>

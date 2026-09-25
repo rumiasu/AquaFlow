@@ -28,9 +28,9 @@
 .setup-item { border-top: 1rpx solid #ffe7ba; padding: 16rpx 0; }
 .setup-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12rpx; }
 .setup-label { font-size: 27rpx; font-weight: 600; color: #873800; }
-.setup-where { font-size: 22rpx; color: #d46b08; flex-shrink: 0; }
-.setup-why { display: block; margin-top: 6rpx; font-size: 24rpx; color: var(--text-secondary); line-height: 1.5; }
-.setup-action { display: block; margin-top: 6rpx; font-size: 24rpx; color: #d46b08; }
+.setup-where { font-size: 22rpx; color: #d46b08; flex-shrink: 0; margin-left: 12rpx; }
+/* .setup-why / .setup-action 已删（2026-09-24）：那两行说明搬进 help-tip 的「?」里了，
+   留着规则会变成"看起来还有一处说明"的误导。 */
 
 .card-header {
   display: flex;
@@ -42,6 +42,23 @@
   font-size: 30rpx;
   font-weight: 600;
   color: #222;
+}
+
+/* 标题 + 「?」：问号紧贴标题，不要用 .card-header 的 space-between 把它甩到最右边
+   （那样它离标题太远，看不出是在解释哪个字段）。2026-09-24 */
+.card-title-row {
+  display: flex;
+  align-items: center;
+}
+
+/* .card-sub-warn 已删（2026-09-24）：产品要求"坐标这类概念也藏起来"，
+   那句"没选点会被跳过"并进了「配送范围 ?」里。 */
+
+/* 完善度条目右侧那一组（? + 去哪填） */
+.setup-head-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .card-sub {

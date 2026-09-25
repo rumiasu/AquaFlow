@@ -94,3 +94,231 @@
 .status-chip-warn .status-chip-note {
   color: #b26a00;
 }
+
+/* 「待填 N 项」徽标（2026-09-24）：条件项刚成立时（例：刚加了配送员 → 工资结构必填）
+   必须一眼看见，所以 flex-shrink:0 —— 宁可截断后面的留言，也不截断它。
+   ⚠️ 数字由后端算（setup-guide 的 pendingCount），前端不自己加总。 */
+.status-chip-badge {
+  flex-shrink: 0;
+  margin-left: 10rpx;
+  padding: 0 12rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  line-height: 32rpx;
+  background: #f57c00;
+  color: #ffffff;
+}
+
+/* ===========================================================================
+   营业状态小框（2026-09-23）：点状态胶囊弹出。
+   结构见 templates/station-navbar.wxml，数据与方法见 behaviors/stationNavbar.js。
+   为什么用 position:fixed 自绘而不 wx.showModal：showModal 塞不进列表，
+   而「待填项」必须可点、可滚动。
+   =========================================================================== */
+.st-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 60rpx;
+}
+
+.st-panel {
+  width: 100%;
+  max-width: 640rpx;
+  max-height: 74vh;
+  background: #fff;
+  border-radius: 20rpx;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.st-panel-head {
+  padding: 28rpx 32rpx 8rpx;
+}
+
+.st-panel-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* 当前状态：与胶囊同一套配色，正常=绿、需要提醒=橙 */
+.st-status {
+  margin: 12rpx 32rpx 0;
+  padding: 20rpx 24rpx;
+  border-radius: 12rpx;
+  background: #eef7ee;
+}
+
+.st-status-warn {
+  background: #fff5e6;
+}
+
+.st-status-text {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f7a1f;
+}
+
+.st-status-warn .st-status-text {
+  color: #b26a00;
+}
+
+.st-status-note {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #6b7280;
+}
+
+.st-body {
+  flex: 1;
+  min-height: 0;
+  padding: 20rpx 32rpx 0;
+}
+
+.st-sub {
+  display: block;
+  font-size: 24rpx;
+  color: #6b7280;
+  margin-bottom: 12rpx;
+}
+
+.st-list {
+  max-height: 44vh;
+}
+
+/* 一条待填项：默认只占一行（项名 + 级别 + ? + 去填写），说明点「?」才展开。
+   [2026-09-24] 产品反馈"每一项都详细解释，好啰嗦" —— 原来每行固定挂一整句 why，
+   4 项就能占掉半个弹窗；而站长多数时候只想知道"还差哪几项"。 */
+.st-item {
+  padding: 20rpx 0;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.st-item-row {
+  display: flex;
+  align-items: center;
+}
+
+.st-item-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 28rpx;
+  color: #1f2937;
+}
+
+/* 「?」按钮：32rpx 直径够手指点，又不抢视线 */
+.st-item-help {
+  flex-shrink: 0;
+  margin-left: 12rpx;
+  width: 36rpx;
+  height: 36rpx;
+  line-height: 34rpx;
+  text-align: center;
+  border-radius: 50%;
+  border: 1rpx solid #d1d5db;
+  color: #9ca3af;
+  font-size: 24rpx;
+}
+
+.st-item-go {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  font-size: 26rpx;
+  color: #1f7a1f;
+}
+
+/* 已配好的行（2026-09-24）：标题压灰、右侧换「已配好」而不是「去填写」。
+   目的：一眼分出"还差什么"与"已经弄好了什么"，而不是让两类长得一模一样。 */
+.st-item-title-done {
+  color: #9ca3af;
+}
+
+.st-item-done {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  font-size: 24rpx;
+  color: #67c23a;
+}
+
+/* 「显示已配好的 N 项 / 只看没配好的」开关：夹在列表与底部按钮之间的一条细栏 */
+.st-toggle {
+  padding: 18rpx 32rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #6b7280;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+/* 展开后的说明块：why（为什么必须填）+ suggestion（具体怎么做） */
+.st-item-why-box {
+  margin-top: 14rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 10rpx;
+  background: #f9fafb;
+}
+
+.st-item-why {
+  display: block;
+  font-size: 22rpx;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.st-item-suggestion {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #1f7a1f;
+  line-height: 1.6;
+}
+
+.st-summary {
+  display: block;
+  padding: 12rpx 0 0;
+  font-size: 22rpx;
+  color: #9ca3af;
+}
+
+/* 「下一步」（后端下发的 onlineHint，2026-09-24）：区别于上面的计数灰字 ——
+   它是**可执行的下一步**（"配好就能上线" / "点下面就能上线"），所以用绿色、稍大。 */
+.st-online-hint {
+  display: block;
+  padding: 10rpx 0 0;
+  font-size: 24rpx;
+  color: #1f7a1f;
+  line-height: 1.5;
+}
+
+.st-actions {
+  display: flex;
+  border-top: 1rpx solid #f0f0f0;
+  margin-top: 20rpx;
+}
+
+.st-btn {
+  flex: 1;
+  text-align: center;
+  padding: 28rpx 0;
+  font-size: 30rpx;
+}
+
+.st-btn-ghost {
+  color: #6b7280;
+}
+
+.st-btn-primary {
+  color: #1f7a1f;
+  font-weight: 600;
+  border-left: 1rpx solid #f0f0f0;
+}

@@ -155,3 +155,15 @@ __*.ps1
 !ai_test_analysis.py
 # Python 字节码缓存（2026-09-22 补）：未被忽略会被 git add -A 卷进提交
 __pycache__/
+
+# 本机 IDE / 误提交的微信工程文件（根目录不属于任何一端）
+/gradle.xml
+/modules.xml
+/project.config.json
+
+# ⚠️ git 目录备份（2026-09-24 重建仓库时留下）：**必须忽略**。
+# 它里面有几千个 git 对象文件；不忽略的话 `git add -A` 会把整份旧历史当普通文件提交进去，
+# 而旧历史里 application.yml 含过真实密钥 —— 等于绕开 .gitignore 把密钥重新塞回仓库。
+# 确认新仓库推送成功后可以整个删掉。
+/.git_backup*/
+

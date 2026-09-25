@@ -242,13 +242,23 @@ public interface OrderMapper {
                             @Param("returnBucketQty") Integer returnBucketQty,
                             @Param("barrelDiscrepancy") Integer barrelDiscrepancy);
 
-    /**
-     * 整行选择性更新。
-     * <p><b>[Phase C] 禁止 Controller 调用</b>：只能在 Service 内部用于「非状态、非支付状态」的业务字段回写。
-     * 状态请用 {@link #updateStatusIf}，支付状态请用 {@link #updatePaymentStatusIf}，
-     * 配送员请用 {@link #setDeliveryStaffIf}。</p>
+    /*
+     * 已删除：void update(Orders orders) + XML 的 update 语句（2026-09-25，架构评审问题 2）。
+     *
+     * 它原来是"整行选择性更新"：XML 里几十个 if 判空，只有 id 进 WHERE。
+     * 唯一调用方 OrderService.save（端点 POST /api/orders）本身就是客户端直传实体的入口，
+     * 两条一起删（登记见 docs/audit/删除登记表.md）。
+     *
+     * ⚠️ 删除后**不要**为了"某个字段不好改"重新加回来 —— 每个可改字段都有自己的正门：
+     *   状态 → updateStatusIf；支付状态 → updatePaymentStatusIf；配送员 → setDeliveryStaffIf；
+     *   履约站 / 结算站 → 那几个 outsource / claim / recall 开头的 CAS；
+     *   桶数 / 差异 / 异常号 → updateDeliveryOutcome；备注 → appendSpecialNote。
+     *   需要新字段时**加专用列更新**（可带 expected-state），不要恢复"实体整行写"。
+     *
+     * （写作提示：本块第一版在注释里写了 `outsource*`/`claim*` 这种带斜杠的写法，
+     *   其中的 * 加斜杠把注释**提前闭合**了，javac 一次性报 100 个错。写通配符时别让
+     *   星号紧挨斜杠。）
      */
-    void update(Orders orders);
 
     List<Orders> list(@Param("stationId") Long stationId,
                       @Param("customerId") Long customerId,
@@ -621,8 +631,17 @@ public interface OrderMapper {
     @Select("select count(*) from orders where station_id = #{stationId} and date(create_time) = curdate()")
     int countTodayByStationId(@Param("stationId") Long stationId);
 
-    @Select("select * from orders where idempotency_key = #{key} limit 1")
-    Orders findByIdempotencyKey(@Param("key") String idempotencyKey);
+    /**
+     * 幂等命中查询：<b>按 (客户, 幂等键) 查</b>，不是只按键查。
+     *
+     * <p>[2026-09-25 架构评审问题 5] 旧实现 {@code findByIdempotencyKey(key)} 是全局单列查询，
+     * 配合当时"单列唯一键"的口径 ⇒ 两个客户用同一个键时：轻则第二个客户建不了单，
+     * 重则**返回第一个客户的订单 id**（越权信息泄露）。作用域必须与唯一键一致，
+     * 见迁移 {@code v62_orders_idempotency_scope}（唯一键改为 {@code (customer_id, idempotency_key)}）。</p>
+     */
+    @Select("select * from orders where customer_id = #{customerId} and idempotency_key = #{key} limit 1")
+    Orders findByCustomerAndIdempotencyKey(@Param("customerId") Long customerId,
+                                           @Param("key") String idempotencyKey);
 
     // [2026-09-18 删除] countByStatusByStationId / trendLast7DaysByStationId：只服务于
     // GET /api/dashboard/order-status 与 /order-trend，两个端点零前端调用且与 /report 口径分叉

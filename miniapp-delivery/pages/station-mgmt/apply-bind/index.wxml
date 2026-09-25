@@ -58,7 +58,12 @@
   </view>
 
   <view class="footer">
-    <text class="footer-hint">V1 规则：配送员必须主动申请 · 站长审批后才生效 · 申请期间无法查看业务数据</text>
+    <!-- [2026-09-24] 这条规则说明原来是页脚一整行平铺的；改成「?」，
+         页脚只留"返回重选身份"这个真动作。 -->
+    <view class="footer-hint-row">
+      <text class="footer-hint">绑定规则</text>
+      <help-tip title="绑定规则" text="V1 规则：配送员必须主动申请 · 站长审批后才生效 · 申请期间无法查看业务数据。" />
+    </view>
     <!-- 选择身份只是登记意向，生效前允许改选；生效后后端会拒绝（按钮会给出提示） -->
     <view class="footer-action" bindtap="onBackToRoleSelect">
       <text>返回，重新选择身份</text>

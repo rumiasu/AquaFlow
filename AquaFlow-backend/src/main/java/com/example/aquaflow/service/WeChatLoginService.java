@@ -81,17 +81,95 @@ public class WeChatLoginService {
             int errcode = errcodeObj instanceof Number ? ((Number) errcodeObj).intValue() : Integer.parseInt(errcodeObj.toString());
             if (errcode != 0) {
                 String errmsg = result.getOrDefault("errmsg", "未知错误").toString();
-                // 带上端名：40013(invalid appid) 的根因几乎总是"端与 appid 配错"，不写端名根本无从判断
-                log.error("微信code2Session失败: app={}, errcode={}, errmsg={}", app, errcode, errmsg);
-                throw new BusinessException("微信登录失败: " + errmsg);
+                // 带上端名：40013(invalid appid) 的根因几乎总是"端与 appid 配错"，不写端名根本无从判断。
+                // 再带上**实际用的 appid**（appid 是公开信息，不是密钥）：这类故障现场最需要的一句话就是
+                // "后端拿的是哪个 appid"，好和开发者工具详情页里显示的那个逐字对比（2026-09-24 加）。
+                log.error("微信code2Session失败: app={}, appid={}, errcode={}, errmsg={}", app, appid, errcode, errmsg);
+                if (errcode == 40029) {
+                    probeOtherApp(app, code);
+                }
+                // ⚠️ **不要把 errmsg 抛给用户**（2026-09-24 改）：它是微信的内部话术，
+                //    形如 "invalid code, rid: 6ab491dd-7e32e260-0eb5aef1" —— 顾客/站长看不懂，
+                //    而且小程序那边是 `wx.showToast`，两行就截断，用户实际只看到半句。
+                //    **errcode 与原文都在上面那行 log 里**，排障看日志；抛给用户的是"下一步能做什么"。
+                throw new BusinessException(userMessageOf(errcode));
             }
         }
 
         if (!result.containsKey("openid")) {
-            throw new BusinessException("微信登录失败: 未获取到openid");
+            // 走到这里说明微信没回 errcode 却也没给 openid（协议异常），不是用户能处理的
+            log.error("微信code2Session响应缺少openid且无errcode: {}", maskSessionKey(response));
+            throw new BusinessException("微信登录失败，请稍后再试");
         }
 
         return result;
+    }
+
+    /**
+     * 40029（invalid code）的**定点诊断**（2026-09-24 加）。
+     *
+     * <p>微信既然认下了 appid+secret（否则回 40125 且**不带 rid**），却说不认识这个 code，
+     * 那就只剩一个解释：**这个 code 是另一个 appid 签发的**。本地最常见的情形是开发者工具里
+     * 打开的项目其实挂着另一端，或者项目还停留在改 appid **之前**的旧绑定 ——
+     * ⚠️ 后者的关键是**点「编译」不会重新绑定，必须关掉项目重新打开**。</p>
+     *
+     * <p>所以这里拿**同一个 code** 去试另一端的 appid+secret：换到了就说明 code 属于那一端，
+     * 日志直接给结论，省掉"到底哪一端配错了"的来回猜。</p>
+     *
+     * <p>⚠️ **只诊断、绝不改变行为**：换回来的 openid 一律丢弃，失败路径上也绝不据此放行登录；
+     * 诊断自身出任何错都被吞掉（只留一行 warn），不能连累主流程。</p>
+     */
+    private void probeOtherApp(WeChatApp failed, String code) {
+        WeChatApp other = failed == WeChatApp.CUSTOMER ? WeChatApp.STAFF : WeChatApp.CUSTOMER;
+        try {
+            String otherAppid = appidOf(other);
+            String url = String.format(
+                    "https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
+                    otherAppid, secretOf(other), code);
+            String response = restTemplate.getForObject(url, String.class);
+            // ⚠️ 只看有没有 openid，**绝不打印响应体**（里面是 session_key）
+            boolean matched = response != null && response.contains("\"openid\"");
+            if (matched) {
+                log.error("[登录诊断] 这个 code 用【{}】的 appid({}) 换到了 openid —— 说明它是**那一端**签发的。"
+                        + "请检查开发者工具当前项目的 appid：点「编译」不会重新绑定，**要关掉项目重新打开**。",
+                        other, otherAppid);
+            } else {
+                log.error("[登录诊断] 这个 code 用【{}】的 appid({}) 也换不到。说明它不是本仓库任何一端签发的："
+                        + "请核对①工具「详情」里显示的 appid；②当前登录的微信号是不是**那个 appid** 的开发者/体验者"
+                        + "（是员工端的开发者 ≠ 是顾客端的开发者，两个小程序各有一份成员名单）。", other, otherAppid);
+            }
+        } catch (Exception e) {
+            log.warn("[登录诊断] 试另一端 appid 时出错（忽略，不影响登录结果）: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 把微信的 errcode 翻成**用户能照着做**的一句话（2026-09-24 加）。
+     *
+     * <p>⚠️ 判据：给出的必须是**下一步动作**，不能只是"失败了"。原始 errmsg 与 errcode
+     * 一律只进日志（见 {@link #code2Session}）。</p>
+     *
+     * <p>⚠️ {@code 40029 invalid code} 在本地开发时几乎只有一个原因：**开发者工具当前登录的
+     * 微信号，不是这个小程序的开发者 / 体验者** —— 于是 {@code wx.login} 发出的 code
+     * 根本不是该 appid 签发的（微信能认 appid+secret，所以回的是 invalid code 而不是
+     * invalid appsecret，响应里还带 rid）。这一条**没法从提示语里指导用户解决**（顾客也做不到），
+     * 所以提示语只说"重开再试"，真正的原因看日志。</p>
+     */
+    private static String userMessageOf(int errcode) {
+        switch (errcode) {
+            case 40029:
+                return "微信登录失败：凭证已失效，请重开小程序再试";
+            case 40013:
+            case 40125:
+                // 配置问题（appid/secret 与端配错），用户改不了 → 如实告诉他找谁，别让他反复重试
+                return "微信登录配置有误，请联系管理员";
+            case -1:
+                return "微信服务繁忙，请稍后再试";
+            case 45011:
+                return "操作太频繁，请稍后再试";
+            default:
+                return "微信登录失败，请稍后再试";
+        }
     }
 
     /**

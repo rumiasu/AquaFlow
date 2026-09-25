@@ -16,6 +16,10 @@ const { createStaff, detachStaff } = require('../../../api/station-mgmt')
 const { get, post } = require('../../../utils/request')
 const { API } = require('../../../config/api')
 const { STORAGE_KEYS } = require('../../../utils/storage-keys')
+// [2026-09-24] 本页是「条件项刚成立」的两个源头：① 站长直接添加配送员；
+// ② 同意配送员的绑定申请。两处成功之后立刻查一次待填项 —— 例：本站从"没有配送员"
+// 变成"有配送员"时，「员工工资结构」会从"不用填"变成"必须填"，要当场提醒（产品要求）。
+const { checkSetupReminder } = require('../../../utils/setup-reminder')
 
 const AVATAR_COLORS = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6B', '#909399', '#9254DE']
 
@@ -169,6 +173,9 @@ Page({
       wx.showToast({ title: '添加成功', icon: 'success' })
       this.setData({ showModal: false })
       this.loadData()
+      // 加了配送员 → 「员工工资结构」可能刚变成必填（条件项刚成立）：当场提醒。
+      // 不 await：它自己会弹窗，别让"添加成功"的流程等一个网络往返。
+      checkSetupReminder()
     } catch (err) {
       wx.hideLoading()
       wx.showToast({ title: err.message || '添加失败', icon: 'none' })
@@ -213,6 +220,9 @@ Page({
       await post(isUnbind ? API.MANAGER_BIND_UNBIND_CONFIRM : API.MANAGER_BIND_APPROVE, { applicationId: id })
       wx.showToast({ title: isUnbind ? '已同意解绑' : '已同意绑定', icon: 'success' })
       this.loadData()
+      // 同意**绑定**= 本站多了一名配送员 → 与"直接添加"同一后果，同样当场提醒。
+      // 同意**解绑**不用查：人走了只会让条件项**退回不要求**，不会冒出新的待填项。
+      if (!isUnbind) checkSetupReminder()
     } catch (err) {
       if (idx >= 0) { apps[idx]._loading = false; this.setData({ applications: [...apps] }) }
       wx.showToast({ title: err.message || '操作失败', icon: 'none' })

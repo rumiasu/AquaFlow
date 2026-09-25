@@ -3,6 +3,9 @@
 .card { background: var(--bg-card); border-radius: 20rpx; padding: 28rpx; margin-bottom: 24rpx; box-shadow: var(--shadow-sm); }
 .card-head { display: flex; align-items: center; gap: 12rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
+/* 卡片标题 + 「?」（2026-09-24，同 delivery-config）：说明藏进问号，页面只剩字段本身。
+   .card-sub 保留 —— 「当前坐标：x, y」那行是**数据**不是解释，不藏（HelpTip 边界 1）。 */
+.card-title-row { display: flex; align-items: center; }
 .card-sub { display: block; font-size: 22rpx; color: var(--text-secondary); line-height: 1.5; margin-top: 10rpx; }
 
 .badge { font-size: 22rpx; padding: 2rpx 14rpx; border-radius: 20rpx; color: #fff; }
@@ -12,6 +15,8 @@
 .field { margin-top: 28rpx; }
 .field-label { display: block; font-size: 24rpx; color: var(--text-secondary); margin-bottom: 12rpx; }
 .required { color: #f56c6c; margin-left: 4rpx; }
+/* 字段下方的补充说明（2026-09-23：地址栏要说明"地图选点会顺带填这一栏"） */
+.field-hint { display: block; font-size: 22rpx; color: var(--text-secondary); line-height: 1.5; margin-top: 10rpx; }
 .field-input {
   width: 100%; padding: 20rpx; border: 2rpx solid var(--border-color);
   border-radius: 12rpx; font-size: 28rpx; box-sizing: border-box;

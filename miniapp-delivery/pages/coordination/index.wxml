@@ -8,7 +8,7 @@
     数据与方法 behaviors/stationNavbar.js）—— 与「配送」页同一份实现。
   -->
   <template is="stationNavbar"
-            data="{{title: '首页', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, rightPad: true}}" />
+            data="{{title: '首页', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, stationPendingCount: stationPendingCount, rightPad: true, stationPanelShow: stationPanelShow, stationPanelLoading: stationPanelLoading, stationPanelItems: stationPanelItems, stationPanelSummary: stationPanelSummary}}" />
   <!-- 无权限提示 -->
   <view class="no-auth" wx:if="{{!isManager}}">
     <text class="no-auth-icon">🔒</text>

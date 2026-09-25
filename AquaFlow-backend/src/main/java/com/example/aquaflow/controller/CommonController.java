@@ -61,7 +61,9 @@ public class CommonController {
             return Result.success(url);
         } catch (Exception e) {
             log.error("文件上传失败: {}", e.getMessage(), e);
-            return Result.error("文件上传失败");
+            // [2026-09-20] 文案由 CosUtil 统一给：未配密钥时直接说"对象存储未配置"，
+            // 否则只有一句笼统的"文件上传失败"，联调的人分不清是没配还是配错了。
+            return Result.error(cosUtil.uploadFailureMessage());
         }
     }
 }

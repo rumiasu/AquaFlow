@@ -61,7 +61,24 @@ public class ProductImageResolver {
     private java.util.function.Function<String, String> testSigner;
 
     /**
-     * 把 {@code image_object_name} 解析成前端可直接使用的 URL。
+     * 把 {@code image_object_name} 解析成前端可直接使用的 URL —— <b>全系统唯一判据</b>，
+     * 调用点不要各自写"是不是本地路径 / 签不出来怎么办"。
+     *
+     * <p><b>契约（三条，逐条都有确定性用例钉住，见 {@code ProductImageResolverTest}）：</b></p>
+     * <ol>
+     *   <li>以 {@link #LOCAL_PREFIX}（{@code /}）开头 = **小程序包内本地资源，原样返回**，
+     *       且<b>绝不调用签名器</b>（本地图与 COS 配没配无关，这是商品图能显示的根本）；</li>
+     *   <li>其它非空值 = COS 对象键，返回签名 URL；</li>
+     *   <li>无法签名（COS 未配置 / 网络失败 / 对象不存在）→ <b>返回 {@code null}，绝不抛异常</b>。
+     *       这是刻意的降级：一张图签不出来不能让整个选品列表失败（判据同 AGENTS §8.21）。</li>
+     * </ol>
+     *
+     * <p>⚠️ <b>{@code null} 的语义是「这张图当前不可用」而不是「没有配图」</b>，两者在数据层
+     * 是可区分的（{@code image_object_name IS NULL} vs 有值但签不出来），所以前端一律渲染
+     * 占位图即可，<b>不要</b>试图在调用点用"是不是 null"去反推原因。
+     * [2026-09-20] 此前这条口径只写在实现里的 catch 注释上、测试又允许"签成 http 或 null"
+     * 两种结果（因为跑测试的机器 COS 配没配不确定），等于没有确定性地验证过任何一支；
+     * 现在成功支与失败支都在单测里用可注入签名器钉死了。</p>
      *
      * @param imageObjectName 本地资源路径、COS 对象键，或 null/空
      * @return 本地路径原样返回；COS 对象键返回签名 URL；无法解析时返回 null（绝不抛异常）

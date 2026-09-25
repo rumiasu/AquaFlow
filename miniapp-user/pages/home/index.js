@@ -19,6 +19,11 @@ const fmtMoney = (n) => {
 Page({
   data: {
     loading: true,
+    // 数据没加载出来时的提示（空串 = 全部正常）。见 _noteLoadError 的说明。
+    loadError: '',
+    // 选站弹窗里"水站列表没拉出来"的原因（空串 = 拉到了或还没拉）。
+    // 与 loadError 分开：选站列表在 noStation 状态下才是主角，混在一处会互相覆盖。
+    stationListError: '',
     statusBarHeight: 44,
     isLogin: false,
     state: 'guest', // guest / noStation / claimPending / ready
@@ -133,6 +138,22 @@ Page({
     return '晚上好'
   },
 
+  /**
+   * 记一条"某项数据没加载出来"的页面提示（页面级 helper，多处失败汇总成顶部一条）。
+   *
+   * [2026-09-20 真机联调] 为什么需要它：本页一次要打 5～6 个接口，原来每处都是
+   * `.catch(() => null)` —— 失败被吞成 null，页面照常渲染成「订水区空 / 桶账一行不显示 /
+   * 配送状态条消失 / 再来一单消失」，与"这客户确实没有商品、没有在途订单"**完全无法区分**
+   * （AGENTS §8.22：零覆盖端点的真实形态是界面空白，不是报错）。
+   * 为什么不各自 wx.showToast：弱网下会连弹好几个 toast，反而盖住页面；这里汇成一条，
+   * 样式复用 styles/common.wxss 的 .load-error（全局 app.wxss 已 import，不要再写一份）。
+   */
+  _noteLoadError(text) {
+    const cur = this.data.loadError || ''
+    if (!text || cur.indexOf(text) >= 0) return
+    this.setData({ loadError: cur ? cur + '；' + text : text })
+  },
+
   async checkStation() {
     this.setData({ loading: true })
     let completed = false
@@ -182,7 +203,14 @@ Page({
   /** 检查未读通知，逐条弹窗提醒（拒单/临时外派） */
   async checkNotifications() {
     try {
-      const res = await getUnreadNotifications().catch(() => null)
+      // [2026-09-20 真机联调] 原来是 `.catch(() => null)`：拉不到与"没有未读消息"长得一模一样。
+      // 未读里可能有「订单被拒」「被临时外派」这类客户必须当场知道的事，静默 = 他永远不会知道。
+      // 仍然不阻断首页（这是附加提醒），但必须在页面顶部留下痕迹。
+      const res = await getUnreadNotifications().catch((e) => {
+        console.warn('[home] 未读通知拉取失败:', e && (e.message || e.errMsg))
+        this._noteLoadError('未读消息没加载出来（' + ((e && e.message) || '网络异常') + '），可能漏掉订单提醒')
+        return null
+      })
       if (res && res.code === 0 && res.data && res.data.length > 0) {
         const notifications = res.data
         for (let i = 0; i < notifications.length; i++) {
@@ -197,7 +225,12 @@ Page({
             })
           })
         }
-        await markAllRead().catch(() => {})
+        // 标记已读是**写操作**、不是"我们向用户断言了某个事实"，所以只留日志不弹提示：
+        // 它失败的后果是"同一批提醒下次进首页会再弹一遍"，用户当场无从处置，弹 toast 只会添乱。
+        // 但不能继续空 catch（原来是 `.catch(() => {})`）—— 否则排查时连"写失败"都看不见。
+        await markAllRead().catch((e) => {
+          console.warn('[home] 标记通知已读失败（下次进页面会重复提醒）:', e && (e.message || e.errMsg))
+        })
       }
     } catch (e) {
       console.error('检查通知失败:', e)
@@ -205,14 +238,24 @@ Page({
   },
 
   async loadStationList() {
+    // [2026-09-20 真机联调] 原来是 `.catch(() => null)` + 外层只 console.error：
+    // 接口失败时列表为空，弹窗渲染成「暂无可用水站」—— 把"没查到"说成了"平台真的没有水站"，
+    // 客户会以为整个平台都没水站可选。现在把失败原因记进 stationListError，由 wxml 分开说。
     try {
-      const res = await getPublicStations().catch(() => null)
+      const res = await getPublicStations()
+      // 业务失败仍是 HTTP 200，一律判 body.code（AGENTS §8.1）；code!=0 也要出声，不能沿用旧列表
       if (res && res.code === 0 && res.data) {
         const activeStations = res.data.filter(s => s.status === 1)
-        this.setData({ stationList: activeStations })
+        this.setData({ stationList: activeStations, stationListError: '' })
+      } else {
+        const msg = (res && res.message) || '服务端返回异常'
+        console.warn('[home] 水站列表返回非成功响应:', msg)
+        this.setData({ stationListError: msg })
       }
     } catch (e) {
-      console.error('加载水站列表失败:', e)
+      console.error('[home] 加载水站列表失败:', e)
+      this.setData({ stationListError: (e && e.message) || '网络异常' })
+      wx.showToast({ title: '水站列表没加载出来，请重试', icon: 'none' })
     }
   },
 
@@ -283,13 +326,40 @@ Page({
       // 营业状态跟着首页一起刷新（站长刚改成"休息中"，客户回到首页就该看到）
       this.loadStationStatus(stationId)
 
+      // [2026-09-20 真机联调] 下面五个请求原来各自 `.catch(() => null)`：任何一个失败都静默降级成
+      // null，页面照常渲染 —— 订水区变空（商品拉不到）、桶账一行整块消失（summary 拉不到）、
+      // 配送状态条与「再来一单」消失（订单拉不到），与"这客户确实没有商品/没有在途单"长得一模一样
+      //（AGENTS §8.22）。现在仍然降级（部分成功的数据照旧可用），但把失败项收集起来显示在页面顶部。
+      const failed = []
+      const softCatch = (tag) => (e) => {
+        failed.push(tag)
+        console.warn('[home] ' + tag + ' 加载失败:', e && (e.message || e.errMsg))
+        return null
+      }
+
       const [ordersRes, addressRes, summaryRes, rightsRes, productsRes] = await Promise.all([
-        getOrders({}).catch(() => null),
-        getAddresses().catch(() => null),
-        getBarrelSummary(stationId).catch(() => null),
-        stationId ? getBarrelSummaryByType(stationId).catch(() => null) : Promise.resolve(null),
-        stationId ? getStationProducts(stationId).catch(() => null) : Promise.resolve(null)
+        getOrders({}).catch(softCatch('订单')),
+        getAddresses().catch(softCatch('地址')),
+        getBarrelSummary(stationId).catch(softCatch('桶账')),
+        stationId ? getBarrelSummaryByType(stationId).catch(softCatch('桶权益')) : Promise.resolve(null),
+        stationId ? getStationProducts(stationId).catch(softCatch('商品')) : Promise.resolve(null)
       ])
+
+      // 失败出声（但**不阻断**渲染：部分成功的数据仍然是可用的，弱网下把整页拦死更糟）。
+      if (failed.length) {
+        // 记下"这条提示是 loadData 写的"，供下面精确清除用：
+        // checkNotifications() 与 loadData() 在 onShow 里是**并发**的，若无条件 setData({loadError:''})
+        // 会把它刚写进去的"未读消息没加载出来"一起抹掉（注释通知失败 = 又变回静默）。
+        const note = '有 ' + failed.length + ' 项数据没加载出来（' + failed.join('、')
+          + '），下面显示的内容可能不全，请下拉刷新'
+        this._loadDataNote = note
+        this._noteLoadError(note)
+        wx.showToast({ title: '部分数据没加载出来，请下拉刷新', icon: 'none' })
+      } else if (this._loadDataNote && this.data.loadError === this._loadDataNote) {
+        // 这次全部成功，且当前红条正是上一次 loadData 留下的 → 清掉，避免"修好了还挂着旧提示"
+        this._loadDataNote = ''
+        this.setData({ loadError: '' })
+      }
 
       // 地址：只决定头部卡提示与下单参数，不再单独占一张卡
       let address = this.data.address
@@ -384,7 +454,13 @@ Page({
     }
     const title = order.status === 2 ? '配送中 · 师傅正在送来' : '待配送 · 水站备货中'
     let sub = ''
-    const detail = await getOrderDetail(order.id).catch(() => null)
+    // [2026-09-20] 原来 `.catch(() => null)`：明细拉不到时 sub 是空串 —— 与"这单确实没有商品明细"
+    // 无法区分（状态条本身还在，只是没有商品那一行，客户看不出来是没网）。
+    const detail = await getOrderDetail(order.id).catch((e) => {
+      console.warn('[home] 进行中订单明细加载失败:', e && (e.message || e.errMsg))
+      this._noteLoadError('进行中订单的商品明细没加载出来，请下拉刷新')
+      return null
+    })
     if (detail && detail.data && detail.data.items && detail.data.items.length > 0) {
       sub = detail.data.items
         .map(it => `${it.productNameSnapshot || '桶装水'} ×${it.quantity || 0}`)
@@ -399,7 +475,13 @@ Page({
       this.setData({ againOrder: null })
       return
     }
-    const detail = await getOrderDetail(order.id).catch(() => null)
+    // [2026-09-20] 原来 `.catch(() => null)`：失败与"上次那单没有商品明细"都让整张卡消失，
+    // 客户会以为"再来一单"这个功能没了。失败必须说清是没加载出来。
+    const detail = await getOrderDetail(order.id).catch((e) => {
+      console.warn('[home] 上次订单明细加载失败:', e && (e.message || e.errMsg))
+      this._noteLoadError('上次订单的明细没加载出来，「再来一单」暂时用不了，请下拉刷新')
+      return null
+    })
     if (!detail || !detail.data || !detail.data.items || detail.data.items.length === 0) {
       this.setData({ againOrder: null })
       return

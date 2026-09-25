@@ -17,6 +17,14 @@
     </view>
   </view>
 
+  <!--
+    数据没加载出来的提示（loadError 为空串时不渲染）。
+    [2026-09-20 真机联调] 原来首页任何接口失败都是静默降级 —— 弱网下整屏可能同时变成
+    「订水区空 / 桶账一行消失 / 配送状态条与再来一单消失」，与"确实没有数据"长得一模一样
+    （AGENTS §8.22）。样式复用 styles/common.wxss 的 .load-error（全局已 import，别在这里再写一份）。
+  -->
+  <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>
@@ -184,8 +192,14 @@
         </view>
         <text class="station-picker-item-check" wx:if="{{item.id === currentStationId}}">当前</text>
       </view>
+      <!--
+        空态要分两种：[2026-09-20] 原来只有「暂无可用水站」一句 —— 接口失败时列表也是空的，
+        于是"没查到"被说成"平台确实没有水站"，客户会以为整平台都没站可下单（AGENTS §8.22）。
+        stationListError 由 loadStationList 在失败时写入（含可读原因）。
+      -->
       <view class="station-picker-empty" wx:if="{{stationList.length === 0}}">
-        <text>暂无可用水站</text>
+        <text wx:if="{{stationListError}}">水站列表没加载出来（{{stationListError}}），请稍后重试</text>
+        <text wx:else>暂无可用水站</text>
       </view>
     </view>
   </view>

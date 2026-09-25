@@ -453,13 +453,14 @@
   color: #1f2329;
 }
 
-.pkg-hint {
-  display: block;
-  font-size: 22rpx;
-  color: #8a9099;
-  line-height: 1.5;
-  margin-top: 8rpx;
+/* 标题 + 「?」成组靠左，右侧留给「更多档位设置 ›」（.pkg-head 是 space-between）2026-09-24 */
+.pkg-title-row {
+  display: flex;
+  align-items: center;
 }
+
+/* .pkg-hint 已删（2026-09-24）：那两行说明搬进 help-tip 的「?」里，规则留着会显得
+   还有一处平铺说明。 */
 
 .pkg-row {
   display: flex;

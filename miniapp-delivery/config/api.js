@@ -1,15 +1,48 @@
 // API配置
-// [2026-09-15] dev.baseUrl 必须是「运行后端那台电脑的局域网 IP」，不能是 127.0.0.1/localhost。
-//   真机（预览二维码扫出来的开发版）上的 127.0.0.1 指的是**手机自己**，请求必然失败，
-//   且失败表现为「网络错误」而非业务报错，极难定位。换网络/换路由器后 IP 会变，需同步改这里。
-//   真机预览还需在手机上打开「调试」（右上角 ... → 打开调试）跳过域名校验，
-//   因为 request 合法域名只接受已 ICP 备案的 HTTPS 域名，本机 HTTP 地址无法配置。
-//   体验版(trial)/正式版(release) 都必须走 prod 的真实域名 —— 见下方 getBaseUrl 的判定。
-//   [2026-09-20] 本机 WLAN 是 DHCP（租约由 192.168.0.1 发放），地址会变，**不是 bug**。
-//   固定办法与改地址的脚本见 miniapp-user/config/api.js 头部注释（两端必须一起改）。
+// [2026-09-22 结论] 与顾客端一致：这一行的值由 `scripts/set-dev-api-host.ps1 -Apply` 维护，**不要手改** ——
+//   热点开着 → 写 `192.168.137.1`（笔记本移动热点，恒定）；热点关着 → 写**当前 WLAN 地址**（现在就是它）。
+//   09-21 曾写死笔记本热点地址，但 09-21、09-22 实测热点一直是**关的** → 那个地址没人连得上、真机全废；
+//   **判据：默认值要指向「现在真能用」的那个地址，不是「配置上最优雅」的那个**
+//   （详见 miniapp-user/config/api.js 头部注释）。
+//   ⚠️ **真机要求手机与笔记本连同一个 Wi-Fi**（真机走的就是这一行）。
+//   真机上的 127.0.0.1 指的是**手机自己**，必然失败且只报「网络错误」，所以回环只给开发者工具用。
+//   真机预览还需在手机上打开「调试」（右上角 ... → 打开调试）跳过域名校验；
+//   体验版(trial)/正式版(release) 都走 prod 的真实域名 —— 见下方 getBaseUrl 的判定。
+//   ⚠️ 换地址跑 `scripts/set-dev-api-host.ps1 -Apply`（同时改两端；**只改一端那一端会白屏**，
+//      现象同样是"网络错误"）。
 const API_CONFIG = {
-  dev: { baseUrl: 'http://192.168.0.243:8080' },
+  // devtoolsBaseUrl：开发者工具跑在**同一台笔记本**上，走回环即可 —— 换网络、开关热点都不影响写代码。
+  dev: { baseUrl: 'http://192.168.0.243:8080', devtoolsBaseUrl: 'http://127.0.0.1:8080' },
   prod: { baseUrl: 'https://your-domain.com' }
+}
+
+/**
+ * 当前是否运行在**微信开发者工具**里（不是真机）。
+ *
+ * <p>[2026-09-22 修正判据] 原来只认 `platform === 'devtools'`，但开发者工具在 Windows / macOS 上
+ * 跑的其实是个 **PC 客户端**，`platform` 可能报 `devtools`、也可能报成 `windows` / `mac`
+ * （都是 `getDeviceInfo` 的合法值）→ 只认 devtools 会**漏判**，工具里白白走局域网地址。
+ * 现在三个都算「工具」。</p>
+ *
+ * <p>⚠️ 真机（手机预览 / **真机调试**）报的是 `ios` / `android`，不会被误判
+ * （本仓 `miniapp-user/pages/login/index.js` 2026-09-20 已核实过这一点）。</p>
+ *
+ * <p>代价：真在微信 PC 客户端里跑小程序时也会命中（那时 127.0.0.1 指那台 PC）—— 本项目不发 PC 端，
+ * 且这条只在非 release 生效，可接受。</p>
+ *
+ * <p>⚠️ **取不到设备信息时返回 false（= 当作真机）**：误判成工具会把真机指到 127.0.0.1
+ * （= 手机自己），必然失败且只报「网络错误」；误判成真机只是多走一次局域网地址，本来就该走它。</p>
+ */
+const PC_PLATFORMS = ['devtools', 'windows', 'mac']
+
+const isDevtools = () => {
+  try {
+    // getDeviceInfo 需要基础库 2.20.1+；取不到就退回 getSystemInfoSync。
+    const info = wx.getDeviceInfo ? wx.getDeviceInfo() : wx.getSystemInfoSync()
+    return PC_PLATFORMS.indexOf(info.platform) !== -1
+  } catch (e) {
+    return false
+  }
 }
 
 const getBaseUrl = () => {
@@ -24,12 +57,38 @@ const getBaseUrl = () => {
   // 注意：体验版(envVersion='trial') 与开发版('develop') 都落到 dev。
   // 曾因此让「上传后的体验版」静默指向本机地址，扫码后一片网络错误。
   const env = envVersion === 'release' ? 'prod' : 'dev'
-  const baseUrl = API_CONFIG[env].baseUrl
+  const envConfig = API_CONFIG[env]
+  // 只有 dev 才分「工具 / 真机」；prod 两端都走真实域名。
+  // ⚠️ 顺序是「**先确认是工具**才用回环」，不是「猜不到就用回环」—— 失败必须朝向真机地址，
+  //    反了会把真机指到 127.0.0.1（手机自己），必然失败且只报「网络错误」。
+  const baseUrl = env === 'dev' && envConfig.devtoolsBaseUrl && isDevtools()
+    ? envConfig.devtoolsBaseUrl
+    : envConfig.baseUrl
   // 占位域名直接拦下来报清楚，否则真机上只看到超时/网络错误，排查成本极高。
   if (baseUrl.indexOf('your-domain.com') !== -1) {
     throw new Error('正式环境域名还是占位符 https://your-domain.com，请先在 config/api.js 里替换为已备案的真实域名')
   }
   return baseUrl
+}
+
+/**
+ * 当前是否处于**正式版**（`envVersion === 'release'`）。
+ *
+ * <p>[2026-09-20] 供登录页决定要不要显示「开发者登录」按钮用：正式版必须藏起来
+ * （按钮直连 `/api/auth/dev-login`，该端点在 prod profile 下**根本不存在**，
+ * 但让站长/配送员在正式版看到"开发者登录"本身就是事故级观感）。</p>
+ *
+ * <p>⚠️ **取不到环境时返回 false（= 当作非正式版）**，这是刻意的"失败开口"：
+ * 真机联调时 `dev-login` 是微信登录不通时的唯一退路（见 AGENTS §9.4），
+ * 宁可在正式版上多显示一个点了会报错的按钮，也不能因为读不到 `__wxConfig`
+ * 就把真机联调的退路悄悄藏掉 —— 后者会让人在客户现场无路可走。</p>
+ */
+const isReleaseEnv = () => {
+  try {
+    return __wxConfig.envVersion === 'release'
+  } catch (e) {
+    return false
+  }
 }
 
 // AquaFlow V1 配送端 API 配置
@@ -152,7 +211,15 @@ const API = {
 
   // 水站营业状态（软状态，2026-09-17）：**不阻断下单**，只给顾客弹提示；
   // 站长可写一句留言（如"今天休息，明早正常送"）。硬状态（停业）是另一套，见 station.status。
+  // [2026-09-23] 新注册水站默认 **3 待上线**（原 3 是「配送延迟」，已改名），
+  // 状态取值/文案/选项一律由后端下发，前端不要自带 1..4 映射表。
   MANAGER_STATION_STATUS: '/api/manager/station-status',
+
+  // 站长「信息完善引导」（后端 StationSetupGuideService）：逐条给
+  // {key,label,level,done,where,route,why,suggestion,action}。
+  // ⚠️ `route` 是**机器可读的跳转目标**（后端按 key 下发），营业状态页的「待填项」
+  // 直接 wx.navigateTo(route) —— 前端**不要**自己维护 key→路由映射表（改页面路径时必然对不上）。
+  MANAGER_SETUP_GUIDE: '/api/manager/setup-guide',
 
   // 公告：站长发本站公告（顾客端只读已发布的；员工端 /all 只看本站）
   NOTICES: '/api/notices',
@@ -238,4 +305,4 @@ const BINDING_STATUS = {
   PENDING_UNBIND: 'PENDING_UNBIND' // 配送员主动申请解绑,等待站长确认
 }
 
-module.exports = { getBaseUrl, API, BINDING_STATUS }
+module.exports = { getBaseUrl, isReleaseEnv, API, BINDING_STATUS }

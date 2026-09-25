@@ -139,6 +139,14 @@ public class CustomerController {
      * <p>[2026-09-18] 与 {@link #getOfflinePaymentConfig} 同一道闸门：这里同样会
      * {@code ensureExists} 建绑定行，缺了校验就能拿任意 id 给本站"认领"一个别站客户。</p>
      *
+     * <p>⚠️ [2026-09-20 裁定 · 别再当 P0 提] 这道闸门与 {@code ensureExists} 的唯一调用点
+     * 构成一个闭合环（无绑定开不了授权 → 没授权就没有绑定 → 绑定只能靠下单产生），
+     * 但它**不会让新客户下不了第一单**：新客户的自助首单走的是**微信支付**
+     * （说明见 {@code PayMethod.availableMethods} 里微信那一项的注释）。
+     * 货到付款的定位是「给已建立关系的客户赊账」，**不承担首单**。
+     * 真要放宽这道闸门，先回答"拿任意 id 认领别站客户"这个后门怎么堵 ——
+     * {@code CrossStationPoolRiskAndProfileIsolationIntegrationTest} 正钉着这一点。</p>
+     *
      */
     @RequireRole({"STATION_MANAGER"})
     @PutMapping("/{id}/offline-payment")

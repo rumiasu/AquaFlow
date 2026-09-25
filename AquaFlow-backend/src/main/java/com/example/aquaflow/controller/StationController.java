@@ -2,6 +2,7 @@ package com.example.aquaflow.controller;
 
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
+import com.example.aquaflow.constant.StationOperatingStatus;
 import com.example.aquaflow.dto.StationCoordinateDTO;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.Station;
@@ -114,10 +115,16 @@ public class StationController {
     /**
      * 公开搜索水站（配送员申请绑定前用，无需登录）
      * keyword 匹配名称或地址
+     *
+     * <p>⚠️ 这里取的是 {@code listAll()}（不带硬状态过滤，与 {@code /public} 口径不同），
+     * 但**待上线（operating_status=3）必须滤掉**（2026-09-24）：还没配齐、没转正的站
+     * 既不该被顾客发现，也不该被配送员申请绑定 —— 能不能被发现是一件事，营业与否是另一件。</p>
      */
     @GetMapping("/search")
     public Result<List<Station>> search(@RequestParam(required = false) String keyword) {
-        List<Station> all = stationMapper.listAll();
+        List<Station> all = stationMapper.listAll().stream()
+                .filter(s -> !StationOperatingStatus.isPendingLaunch(s.getOperatingStatus()))
+                .collect(Collectors.toList());
         if (keyword == null || keyword.trim().isEmpty()) {
             all = all.stream().limit(50).collect(Collectors.toList());
             return Result.success(all);

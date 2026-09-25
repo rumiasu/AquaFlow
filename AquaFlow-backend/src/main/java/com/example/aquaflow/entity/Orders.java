@@ -403,8 +403,18 @@ public class Orders {
     /** 关联的桶异常记录ID */
     private Long barrelExceptionId;
 
-    /** 幂等键：防止重复下单 */
+    /**
+     * 幂等键：防止重复下单。作用域是 {@code (customer_id, idempotency_key)}（迁移 v62 起），
+     * 由客户端生成、**跨重试复用**；缺键的下单请求会被直接拒掉（不再由服务端代生成）。
+     */
     private String idempotencyKey;
+
+    /**
+     * 幂等请求摘要（SHA-256 十六进制，迁移 v62 起）：同键第二次请求用来判断"是不是同一件事"。
+     * <p>相等 → 返回原单；不等 → 拒绝（见 {@code OrderServiceImpl.requestDigest}）。
+     * 只覆盖业务字段，**不含**服务端算出的金额，也不含 {@code confirmShortage} 这类控制字段。</p>
+     */
+    private String requestDigest;
 
     /** 创建时间 */
     private LocalDateTime createTime;

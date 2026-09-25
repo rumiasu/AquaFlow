@@ -1,5 +1,7 @@
 # 更新日志
 
+> **本文写给：使用者与评审者** —— 能力变更记录。项目是什么见 [README](./README.md)。
+
 本文件记录本项目的**能力变更**。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号将遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 

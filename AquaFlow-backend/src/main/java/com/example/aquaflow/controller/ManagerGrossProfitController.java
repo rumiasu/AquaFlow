@@ -14,6 +14,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -53,10 +54,19 @@ public class ManagerGrossProfitController {
      * <b>不要写 Markdown 记号</b>。</p>
      */
     private static final String PROFIT_BASIS_NOTE =
-            "净利 = 水费收入 + 配送费 + 楼层费 − 进货成本 − 配送员计件工钱。"
+            "净利 = 收入 − 进货成本 − 配送员计件工钱；收入 = 订单收入（水费 + 配送费 + 楼层费）"
+                    + " + 水票收入（客户买票时的实收）。"
                     + "按「下单时间」统计这一批订单（不是按哪天送完），所以是这批生意本身的账，"
                     + "不是当天进账的现金。工钱在该单送到时产生：还没送完的单暂时不计工钱，"
-                    + "那几天净利会偏高。迟到扣款、高温补贴这类人工调整不计入日净利。";
+                    + "那几天净利会偏高。迟到扣款、高温补贴这类人工调整不计入日净利。"
+                    + "「水票收入只在客户买票那一刻计一次」：用票下的单不再重复计水费与配送费，"
+                    + "所以单看某一张水票单的毛利会是负的（成本在、收入不在它身上），请看期间合计。"
+                    // [2026-09-25 评审问题 6] 明细行的口径也要说清，否则站长看到"卖出 2、收入 0"
+                    // 会以为报表坏了：卖出与成本覆盖全部履约明细（含用票兑出去的），
+                    // 而「收入」是把该商品本期购票实收也算进来的（票款已在下行单独标出）。
+                    + "明细里「卖出」与「成本合计」算的是本期实际履约的货（含用票兑出去的），"
+                    + "所以商品行的收入 = 本期订单水费 + 该商品本期购票实收；"
+                    + "只卖票、本期还没兑货的商品会单列一行，只显示票款收入。";
 
     @Autowired
     private GrossProfitMapper grossProfitMapper;
@@ -135,10 +145,26 @@ public class ManagerGrossProfitController {
         // [2026-09-20 产品口径] 水票收入**只在买票那一刻计一次**，用票下单/配送不再重算。
         // 所以收入有两个来源，必须分开统计再相加：漏了它水票收入就凭空消失（票单已从订单侧排除），
         // 按挂牌价再算一次又是重复计。
+        //
+        // [2026-09-25 架构评审问题 6] 这里按**商品**把票款与订单侧明细合并成同一张表：
+        //   · 行「收入」= 订单侧水费 + 该商品本期购票实收（两个来源，同一维度）；
+        //   · 行「成本」= 该商品本期全部履约销量 × 成本价（含用票兑出去的那些，见 GrossProfitMapper）；
+        //   · 只有购票、本期没兑票的商品也要出行（否则站长看不到这笔收入的去向）。
+        // 合计口径不变：totalRevenue = 订单侧 + 票款，totalCost = 全部履约成本。
         BigDecimal ticketRevenue = BigDecimal.ZERO;
+        Map<Long, BigDecimal> ticketRevenueByProduct = new LinkedHashMap<>();
+        Map<Long, String> ticketProductNames = new LinkedHashMap<>();
         for (Map<String, Object> tr : grossProfitMapper.ticketPurchaseRevenueByProduct(
                 stationId, start.atStartOfDay(), end.plusDays(1).atStartOfDay())) {
-            ticketRevenue = ticketRevenue.add(dec(tr.get("ticketRevenue")));
+            Object pidRaw = tr.get("productId");
+            if (pidRaw == null) continue;
+            Long pid = ((Number) pidRaw).longValue();
+            BigDecimal amount = dec(tr.get("ticketRevenue"));
+            ticketRevenueByProduct.merge(pid, amount, BigDecimal::add);
+            if (tr.get("productName") != null) {
+                ticketProductNames.put(pid, tr.get("productName").toString());
+            }
+            ticketRevenue = ticketRevenue.add(amount);
         }
 
         BigDecimal totalRevenue = BigDecimal.ZERO;
@@ -150,23 +176,51 @@ public class ManagerGrossProfitController {
             BigDecimal costAmount = dec(row.get("costAmount"));
             boolean missing = row.get("missingCost") != null
                     && Integer.valueOf(1).equals(((Number) row.get("missingCost")).intValue());
+            Long pid = row.get("productId") == null ? null : ((Number) row.get("productId")).longValue();
+            BigDecimal rowTicketRevenue = pid == null
+                    ? BigDecimal.ZERO : ticketRevenueByProduct.getOrDefault(pid, BigDecimal.ZERO);
+            if (pid != null) ticketRevenueByProduct.remove(pid);   // 已并入本行，剩下的就是"只卖票没兑票"的
+            BigDecimal revenueTotal = revenue.add(rowTicketRevenue);
             // ⚠️ 缺成本时**不给出毛利数字**：把 costAmount 当 0 直接相减，站长会以为
             // 这一单赚了整整一个售价 —— 那是最坏的一种"看起来正确"。
-            BigDecimal profit = missing ? null : revenue.subtract(costAmount);
+            BigDecimal profit = missing ? null : revenueTotal.subtract(costAmount);
 
             Map<String, Object> item = new HashMap<>(row);
+            item.put("revenue", revenue);                  // 订单侧水费（不含票款）—— 保持原字段语义
+            item.put("ticketRevenue", rowTicketRevenue);    // 该商品本期购票实收
+            item.put("revenueTotal", revenueTotal);         // 上两者之和：行毛利用的就是它
             item.put("costPriceText", missing ? "未填" : dec(row.get("costPrice")).toPlainString());
             item.put("profit", profit);
             item.put("profitText", missing ? "未填成本，无法计算"
                     : profit.toPlainString());
-            item.put("profitRateText", missing || revenue.signum() == 0 ? "—"
+            item.put("profitRateText", missing || revenueTotal.signum() == 0 ? "—"
                     : profit.multiply(BigDecimal.valueOf(100))
-                            .divide(revenue, 1, RoundingMode.HALF_UP).toPlainString() + "%");
+                            .divide(revenueTotal, 1, RoundingMode.HALF_UP).toPlainString() + "%");
             items.add(item);
 
             totalRevenue = totalRevenue.add(revenue);
             totalCost = totalCost.add(costAmount);
             if (missing) missingCostKinds++;
+        }
+
+        // 只卖了票、本期没有兑票记录的商品：也要成行，否则这笔收入的去向在明细里查不到。
+        // 它的毛利口径特殊 —— 钱已确认、货还没出，所以给 null + 说明，**不**编一个 100% 毛利率。
+        for (Map.Entry<Long, BigDecimal> e : ticketRevenueByProduct.entrySet()) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("productId", e.getKey());
+            item.put("productName", ticketProductNames.getOrDefault(e.getKey(), "商品" + e.getKey()));
+            item.put("soldQty", 0);
+            item.put("revenue", BigDecimal.ZERO);
+            item.put("ticketRevenue", e.getValue());
+            item.put("revenueTotal", e.getValue());
+            item.put("costPrice", null);
+            item.put("costPriceText", "未填");
+            item.put("costAmount", BigDecimal.ZERO);
+            item.put("missingCost", 0);
+            item.put("profit", null);
+            item.put("profitText", "本期只有购票收入，没有兑票记录");
+            item.put("profitRateText", "—");
+            items.add(item);
         }
 
         Map<String, Object> data = new HashMap<>();
@@ -201,8 +255,10 @@ public class ManagerGrossProfitController {
         BigDecimal deliveryFee = fees == null ? BigDecimal.ZERO : dec(fees.get("deliveryFee"));
         BigDecimal floorFee = fees == null ? BigDecimal.ZERO : dec(fees.get("floorFee"));
         BigDecimal wage = wageRow == null ? BigDecimal.ZERO : dec(wageRow.get("wage"));
-        // 收入合计 = 水费 + 配送费 + 楼层费。⚠️ **不含押金**（押金是可退的负债，不是收入）。
-        BigDecimal totalIncome = totalRevenue.add(deliveryFee).add(floorFee);
+        // 收入合计 = 订单收入（水费 + 配送费 + 楼层费）+ 水票收入（买票实收）。
+        // ⚠️ **不含押金**（押金是可退的负债，不是收入）。
+        // 配送费 / 楼层费只算非水票单 —— 票单的那部分已被票抵掉、钱在购票时收过（见 GrossProfitMapper）。
+        BigDecimal totalIncome = revenueAll.add(deliveryFee).add(floorFee);
         // ⚠️ 缺成本时净利**也必须为 null**（与 totalProfit 同一条命）：
         // 成本按 0 计会让净利凭空多出整整一个进货成本，那比不显示更糟。
         BigDecimal netProfit = missingCostKinds > 0

@@ -267,6 +267,13 @@
   color: #ffffff;
 }
 
+/* 「绑定规则 ?」一行（2026-09-24）：说明收进问号后，这行只剩标签 + 问号，居中即可 */
+.footer-hint-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .footer-hint {
   display: block;
   text-align: center;

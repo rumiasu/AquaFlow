@@ -43,6 +43,9 @@ Page({
     // 营业状态跟着首页刷新：站长刚改成"休息中"，配送员回到这页就该看到
     // （软状态 v32：只提示不阻断；实现与「首页」共用，见 behaviors/stationNavbar.js）
     this.loadStationStatus(userInfo.stationId)
+    // 待填项徽标 + 「条件项刚成立」提醒（见 behaviors/stationNavbar.js；
+    // 非站长会直接 return，不发请求 —— setup-guide 是站长专属接口）
+    this.loadStationPending()
     this.loadData()
   },
 

@@ -2,6 +2,13 @@
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>
+    <!--
+      数据没加载出来的提示（空串时不渲染）。[2026-09-20 真机联调] 原来列表/商品/地址拉失败都只
+      console 一下就完了：列表显示「还没有常用订单」、弹窗里商品与地址一片空白，与"确实没有"
+      无法区分（AGENTS §8.22）。样式复用 styles/common.wxss 的 .load-error。
+    -->
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+
     <view class="info-bar">
       <text class="info-text">设置常用订单后，首页将自动填入，一键复购</text>
     </view>
@@ -62,6 +69,9 @@
           <text class="form-label">商品</text>
           <text class="form-add-btn" bindtap="onAddItem">+ 添加</text>
         </view>
+        <!-- [2026-09-20] 商品没拉到时要说明白：否则这里是**一片空白**，用户点"+"也选不出东西，
+             最后被"请选择至少一种商品"拦住，看起来像界面坏了。 -->
+        <view class="load-error" wx:if="{{formLoadError}}">{{formLoadError}}</view>
         <view class="item-list">
           <view class="item-row" wx:for="{{form.items}}" wx:key="index">
             <view class="item-select">

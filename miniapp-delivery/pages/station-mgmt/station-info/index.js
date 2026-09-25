@@ -111,6 +111,13 @@ Page({
    * 选完**立即保存**而不是"改了再点保存"：坐标这一项走的是独立端点
    * （`PUT /api/stations/mine/coordinates`），没有别的可改字段，
    * 多一步确认只会让站长以为还需要按别处的按钮。
+   *
+   * [2026-09-23 与建站页统一] 选点会**同时带回地址文本**，建站页就是这么用的
+   * （`create-station/index.js` 一次选点同时产出 address + lat/lng）。本页原来只存 lat/lng，
+   * 于是站长看到"地址注册时已经填过了，为什么还让我再选一次点"（用户原话）—— 两页口径分叉。
+   * 现在：地址框**为空**时用选点结果回填并顺手一起保存（一次动作把「位置」这条引导项清掉）；
+   * 地址框**已有内容**时只存坐标、**绝不覆盖** —— 站长可能特意写得更细（"院内 3 号楼东侧"），
+   * 选点给的地址通常更粗，覆盖等于把他的信息删了。
    */
   onPickCoordinates() {
     wx.chooseLocation({
@@ -118,8 +125,24 @@ Page({
         this.setData({ coordSaving: true })
         try {
           await updateStationCoordinates(res.latitude, res.longitude)
-          this.setData({ 'coord.lat': res.latitude, 'coord.lng': res.longitude })
-          wx.showToast({ title: '坐标已保存', icon: 'success' })
+
+          const typed = (this.data.form.address || '').trim()
+          const picked = ((res.name || '') + (res.address || '')).trim()
+          const fillAddress = !typed && !!picked
+
+          const patch = { 'coord.lat': res.latitude, 'coord.lng': res.longitude }
+          if (fillAddress) {
+            patch['form.address'] = picked
+          }
+          this.setData(patch)
+
+          if (fillAddress) {
+            // 地址框本来是空的 → 不存在覆盖风险，顺手一起存掉，
+            // 省掉"再点一次保存资料"（站长会以为又要填两遍）
+            await this.onSave()
+          } else {
+            wx.showToast({ title: '坐标已保存', icon: 'success' })
+          }
         } catch (err) {
           wx.showToast({ title: err.message || '坐标保存失败', icon: 'none' })
         } finally {

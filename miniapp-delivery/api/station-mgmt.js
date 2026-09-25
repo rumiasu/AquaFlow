@@ -169,6 +169,17 @@ const updateStationStatus = (operatingStatus, note) => {
   return put(API.MANAGER_STATION_STATUS, { operatingStatus, note: note || '' })
 }
 
+/**
+ * 站长「信息完善引导」：未配好的项逐条列出来（key / label / level / done / where / route / why）。
+ *
+ * 返回到页面后**只渲染后端给的中文**；跳转用后端下发的 `route`（空串 = 没有直达页面，
+ * 那就别显示「去填写」）。规则目录正本是后端 `StationSetupGuideService`，
+ * 前端不要自建 key→文案 / key→路由 映射表（见 `docs/design/25-站长信息完善引导.md` §2）。
+ */
+const getSetupGuide = () => {
+  return get(API.MANAGER_SETUP_GUIDE)
+}
+
 // ===== 水站坐标（地图选点，2026-09-17 / v34）=====
 //
 // 坐标是**配送范围判定**的前提：没有它，「这单超没超范围」根本无从判断，
@@ -436,5 +447,6 @@ module.exports = {
   getEnterpriseApplies,
   reviewEnterpriseApply,
   getEnterpriseConfig,
-  updateEnterpriseConfig
+  updateEnterpriseConfig,
+  getSetupGuide
 }

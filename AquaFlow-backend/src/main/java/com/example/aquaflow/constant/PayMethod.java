@@ -22,16 +22,40 @@ public class PayMethod {
     public static final int TICKET = 3;
 
     /**
+     * 全部合法支付方式（<b>白名单正本</b>）。
+     * <p>请求体里的 {@code paymentMethod} 一律用它校验：DTO 的 {@code @Min/@Max} 只是第一道，
+     * 应用服务边界还要再判一次（见 {@code OrderServiceImpl.createOrder} 与
+     * {@code PaymentServiceImpl.createPayment}）—— 注解会被新的调用路径绕过，白名单不会。</p>
+     */
+    public static final List<Integer> ALL = List.of(WECHAT, CASH, TICKET);
+
+    /**
+     * 是否为合法支付方式。<b>null 与集合外的值一律 false</b>。
+     *
+     * <p>⚠️ [2026-09-25 架构评审问题 7] 这条判据必须存在于**入口**：原实现只判"非空"，
+     * 于是 {@code paymentMethod=99} 也能建单成功（2026-09-20 实测 order 29）——
+     * 它既不走现金分支（绕开"现金需水站开通"校验）、也不走水票分支，付款状态停在待收款，
+     * 而站长/配送员列表的判据是"已付款 或 现金"，所以这单**谁也看不见**，却照样扣了库存、
+     * 建了配送中桶。判据来源：AGENTS §6「请求体的枚举入参必须白名单校验」。</p>
+     */
+    public static boolean isValid(Integer method) {
+        return method != null && ALL.contains(method);
+    }
+
+    /**
      * 支付方式中文文案（全系统唯一文案来源）。
      * 前端一律渲染后端下发的 payMethodText，禁止自行写映射表。
      */
     public static String textOf(Integer method) {
-        if (method == null) return "现金";
+        if (method == null) return "未指定";
         switch (method) {
             case WECHAT: return "微信";
             case CASH:   return "现金";
             case TICKET: return "水票";
-            default:     return "现金";
+            // [2026-09-25] 兜底**不许**把未知值说成某个已知值：原实现 default 返回「现金」，
+            // 于是非法值 99 的订单在小程序里显示成"货到付款"（AGENTS §6 明令）。
+            // 入口已加白名单，这里只兜历史脏数据。
+            default:     return "未知支付方式";
         }
     }
 
@@ -41,7 +65,7 @@ public class PayMethod {
             case WECHAT: return "微信支付";
             case CASH:   return "货到付款";
             case TICKET: return "水票支付";
-            default:     return "货到付款";
+            default:     return "未知支付方式";
         }
     }
 

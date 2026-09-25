@@ -119,36 +119,18 @@
   border: none;
 }
 
+/* [2026-09-24] 「点击即同意」的告知行：贴在登录按钮正下方，居中。
+   原来是 margin-bottom（它当时是页面最后一个块）；现在它夹在按钮与"开发者登录"之间，
+   改成上下留白，避免和按钮挤在一起。
+   ⚠️ .checkbox / .checkbox.checked / .check-icon 三条规则已删 —— 必须勾选的复选框
+   随产品要求去掉了，规则留着会让人以为界面上还有个勾选框。 */
 .agreement {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 60rpx;
+  margin: 24rpx 0;
   flex-wrap: wrap;
   padding: 0 20rpx;
-}
-
-.checkbox {
-  width: 32rpx;
-  height: 32rpx;
-  border: 2rpx solid #999;
-  border-radius: 50%;
-  margin-right: 12rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.checkbox.checked {
-  background: #4F8EF7;
-  border-color: #4F8EF7;
-}
-
-.check-icon {
-  color: #fff;
-  font-size: 22rpx;
-  line-height: 1;
 }
 
 .agreement-text {

@@ -174,7 +174,12 @@ public abstract class AbstractIntegrationTest {
     }
 
     protected long createStation(String name) {
-        return insert("INSERT INTO station(name, status) VALUES (?, 1)", name);
+        // ⚠️ `operating_status` **显式写 1（正常运营）**，不要图省事省略它去吃列默认值：
+        //    2026-09-23 起列默认值是 **3「待上线」**（新注册水站的默认，见
+        //    sql/migration_v61_station_pending_launch.sql），省略会让**所有用例建的站**都变成
+        //    "尚未上线"，进而给每个下单响应塞一条 `warnings`，污染一大批契约断言。
+        //    "新站默认待上线"由 StationOperatingStatusIntegrationTest 里那条刻意不写该列的用例验。
+        return insert("INSERT INTO station(name, status, operating_status) VALUES (?, 1, 1)", name);
     }
 
     protected long createStaff(String name, String role, Long stationId, int status) {

@@ -75,7 +75,12 @@ Page({
     hasInTransitBarrels: false,
     // 企业身份提示（v50）：由服务端在报价里下发（金额达阈值且客户还不是企业身份时才有值），
     // 前端不自算阈值、不自造文案。**不做独立入口** —— 只在拿到它的那一刻弹一次。
-    enterpriseHint: ''
+    enterpriseHint: '',
+    // 数据没加载出来时的页面提示（空串 = 全部正常），见 _noteLoadError。
+    loadError: '',
+    // 收货地址**没加载出来**的原因（空串 = 拉到了）。与"确实没有地址"分开：
+    // 两者都让 address 为空，但一句"请选择配送地址"会把接口失败说成用户没设地址。
+    addressLoadError: ''
   },
 
   onLoad(options) {
@@ -142,7 +147,13 @@ Page({
     } else if (options.items) {
       try {
         items = JSON.parse(decodeURIComponent(options.items)) || []
-      } catch (e) { items = [] }
+      } catch (e) {
+        // [2026-09-20 真机联调] 原来 `catch (e) { items = [] }`：跳转参数解析失败时商品清单直接为空，
+        // 页面渲染成一张**空白结算页**，提交时再拦一句"请选择商品" —— 把"参数坏了"说成"你没选商品"。
+        items = []
+        console.error('[OrderCreate] 下单参数 items 解析失败:', e)
+        this._noteLoadError('下单参数解析失败，商品清单可能是空的，请返回上一页重新下单')
+      }
     }
     if (options.productId && items.length === 0) {
       items = [{ productId: parseInt(options.productId), quantity: parseInt(options.quantity) || 1 }]
@@ -166,6 +177,20 @@ Page({
       })
       storage.remove('selectedAddress')
     }
+  },
+
+  /**
+   * 记一条"某项数据没加载出来"的页面提示（页面级 helper，多处失败汇总成顶部一条）。
+   *
+   * [2026-09-20 真机联调] 本页原来失败一律只 console.warn/error：商品详情缺件、地址拉不到、
+   * 桶权益拉不到都表现为"页面上少一块 / 数字是 0"，与真实业务状态无法区分（AGENTS §8.22）。
+   * 汇总成一条而不是各处 toast：本页一次会打 4~5 个请求，弱网下连弹几个 toast 会盖住页面。
+   * 样式复用 styles/common.wxss 的 .load-error（全局 app.wxss 已 import，不要另写一份）。
+   */
+  _noteLoadError(text) {
+    const cur = this.data.loadError || ''
+    if (!text || cur.indexOf(text) >= 0) return
+    this.setData({ loadError: cur ? cur + '；' + text : text })
   },
 
 async loadItemsProducts() {
@@ -208,6 +233,12 @@ async loadItemsProducts() {
     }
 
     // 加载商品详情
+    // [2026-09-20 真机联调] 原来每件商品各自 `catch (e) { console.warn('Load product error:', e.message) }`：
+    // 拉不到的**那一件会静默从清单里消失** —— 客户看到"我明明加了 3 样，结算页只剩 2 样"，
+    // 与"这件商品本站下架了"完全无法区分；全部失败时页面还照旧提示"请选择商品"（把加载失败
+    // 说成"你没选商品"）。仍然降级（其余商品照常可下单），但必须把失败件数与原因说出来。
+    let productFailCount = 0
+    let productFailReason = ''
     for (const it of items) {
       try {
         // 必须带 stationId：本站自定义商品只有该站能读（后端按 owner_station_id 过滤）
@@ -227,10 +258,22 @@ async loadItemsProducts() {
           p.subtotal = (parseFloat(p.price) || 0) * (p.quantity || 1)
           p.subtotalText = p.subtotal.toFixed(2)
           products.push(p)
+        } else {
+          // HTTP 200 但没 data（业务失败 / 商品已下架）：同样算一件没加载出来，不能当"加载成功且为空"
+          productFailCount++
+          productFailReason = (res && res.message) || productFailReason
+          console.warn('[OrderCreate] 商品详情返回空:', it.productId, res && res.message)
         }
       } catch (e) {
-        console.warn('Load product error:', e.message)
+        productFailCount++
+        productFailReason = (e && e.message) || productFailReason
+        console.warn('[OrderCreate] 商品详情加载失败:', it.productId, e && (e.message || e.errMsg))
       }
+    }
+    if (productFailCount > 0) {
+      this._noteLoadError(productFailCount + ' 件商品的信息没加载出来（'
+        + (productFailReason || '网络异常') + '），清单里会缺这几行，请退出重进本页重试')
+      wx.showToast({ title: '部分商品信息没加载出来', icon: 'none' })
     }
 
 this.setData({ products, stationName: effectiveStationName })
@@ -238,6 +281,35 @@ this.setData({ products, stationName: effectiveStationName })
     this.syncBarrelSummary()
     this.refreshQuote()
     this.setData({ loading: false })
+  },
+
+  /**
+   * 水站营业状态（软状态 v32）：横幅文案由后端下发，前端不做 operatingStatus 1..4 的映射
+   * （本仓明文禁止自带映射表）。本页 data 只用到 customerHint，就只取它。
+   *
+   * [2026-09-20 真机联调 · 补漏] 原来本页**调用了这个方法却从未定义它**（c215b2a 2026-09-17
+   * 加营业状态横幅时只加了上面那行调用与 data/wxml 字段，漏了方法本体）。后果不是"少个横幅"：
+   * 它抛的是 TypeError，且抛在 `loadItemsProducts()` 的 await 链中段 —— 后面的
+   * `syncBarrelSummary()` / `refreshQuote()` / `setData({ loading: false })` **一行都不会执行**，
+   * 下单页永久停在 `<loading>` 转圈（走「再来一单」时异常被 loadReorder 的 catch 吃掉，
+   * 只剩一句 console.error，页面渲染成**商品清单全空**）。静态门禁查不到：audit_wxml_handlers
+   * 只管 wxml→js 的绑定，不管 js→js 的调用。
+   * 口径与 home/index.js 的同名方法一致：**拉不到就不显示**（宁可不显示，也不编造一个"营业中"），
+   * 且绝不把失败抛出去连累后面的渲染。
+   */
+  async loadStationStatus(stationId) {
+    if (!stationId) {
+      this.setData({ stationStatusHint: '' })
+      return
+    }
+    try {
+      const res = await getStationStatus(stationId)
+      const d = (res && res.data) || {}
+      this.setData({ stationStatusHint: d.customerHint || '' })
+    } catch (e) {
+      console.warn('[OrderCreate] 取水站营业状态失败（按"无额外提醒"继续）:', e && (e.message || e.errMsg))
+      this.setData({ stationStatusHint: '' })
+    }
   },
 
   onSelectMethod(e) {
@@ -252,8 +324,23 @@ this.setData({ products, stationName: effectiveStationName })
     this.refreshQuote()
   },
 
+  /**
+   * 货到付款确认弹窗的「确认」—— 确认后**必须继续提交**。
+   *
+   * ⚠️ [2026-09-20 实测修] 原实现只有 `setData({ showOfflineConfirm: false })`：
+   *   而 onSubmit 的闸门是 `selectedMethod === 2 && !showOfflineConfirm`（在本文件 onSubmit 内，
+   *   搜这个条件即可定位；**不要在这里写行号** —— 加注释本身就会让行号失效）：
+   *   于是「点立即下单 → 弹窗 → 点确认」只把弹窗关掉、**什么都没发生**；
+   *   再点「立即下单」时标记已被置回 false → 又弹同一个窗 ——
+   *   **现金单永远提交不出去**，而后台报错是看不到的（前端根本没发请求）。
+   *   判据：确认按钮必须让流程**继续往下走**，不能只改 UI 状态。
+   *
+   * 为什么不再加一个 offlineConfirmed 标记：showOfflineConfirm 本身就是那个标记 ——
+   *   弹窗之所以显示就是因为它为 true；真正开始提交时（onSubmit 里 setData submitting 那一处）
+   *   才清零，所以提交失败后下次点击会重新弹窗确认，正是想要的语义。
+   */
   onOfflineConfirmOk() {
-    this.setData({ showOfflineConfirm: false })
+    this.onSubmit()
   },
 
   onOfflineConfirmCancel() {
@@ -307,8 +394,15 @@ this.setData({ products, stationName: effectiveStationName })
 
       await this._doLoadFromOrder(order)
     } catch (error) {
-      console.error('Load reorder error:', error)
-      this.setData({ loading: false })
+      // [2026-09-20 真机联调] 原实现只 console.error + 把 loading 关掉：订单详情拉不到时
+      // 页面渲染成**一张空白的结算页**（商品清单空、金额 0），客户看到的是"这单不能再来一单了"，
+      // 完全不知道是断网还是这单真的没了。
+      console.error('[OrderCreate] 再来一单取订单详情失败:', error)
+      this.setData({
+        loading: false,
+        loadError: '没能取到原订单（' + ((error && error.message) || '网络异常') + '），本页内容不可用，请返回重进'
+      })
+      wx.showToast({ title: '原订单没加载出来，请重试', icon: 'none' })
     }
   },
 
@@ -344,10 +438,15 @@ this.setData({ products, stationName: effectiveStationName })
         const picked = list.find(a => a.id === preferId)
         const fallback = list.find(a => a.isDefault) || list[0]
         const addr = picked || fallback
-        this.setData({ address: addr, addressText: addr ? formatAddress(addr) : '' })
+        this.setData({ address: addr, addressText: addr ? formatAddress(addr) : '', addressLoadError: '' })
       }
     } catch (error) {
-      console.error('Load address error:', error)
+      // [2026-09-20 真机联调] 原来只 console.error：拉不到地址时页面照旧显示「请选择配送地址」，
+      // 而提交时又拦一句「请选择配送地址」—— 把"接口失败"说成了"你没设地址"，客户会去反复
+      // 重设地址而问题根本不在那儿。现在把失败标记出来，空态与提交拦截的文案都据此区分。
+      console.error('[OrderCreate] 加载收货地址失败:', error)
+      this.setData({ addressLoadError: (error && error.message) || '网络异常' })
+      this._noteLoadError('收货地址没加载出来（' + ((error && error.message) || '网络异常') + '），可能显示成"未设置地址"')
     }
   },
 
@@ -367,7 +466,13 @@ this.setData({ products, stationName: effectiveStationName })
         this.setData({ hasInTransitBarrels: pending > 0 })
       }
     } catch (error) {
-      console.error('Load barrel error:', error)
+      // [2026-09-20 真机联调] 原来只 console.error：桶权益拉不到时 barrelByType 为空，
+      // syncBarrelSummary 会把"已有权益"一律算成 0 → 页面按**全额押金**估算，而提交时后端
+      // 按真实权益算 —— 又是"界面一个价、结算另一个价"（本仓计价双轨的老坑）。
+      // 拿不到就不假装知道：明确告诉客户这笔押金估算可能偏高。
+      console.error('[OrderCreate] 加载桶权益失败:', error)
+      this._noteLoadError('桶权益没加载出来（' + ((error && error.message) || '网络异常')
+        + '），押金估算可能偏高（真实金额由后端算）')
     }
   },
 
@@ -601,7 +706,15 @@ this.setData({ products, stationName: effectiveStationName })
     const { products, address, note, stationId, selectedMethod } = this.data
 
     if (!address) {
-      wx.showToast({ title: '请选择配送地址', icon: 'none' })
+      // [2026-09-20 真机联调] address 为空有两种原因：客户确实没设地址 / 地址接口没拉到。
+      // 原来一律说「请选择配送地址」，把后者也说成前者 —— 客户会去反复重设地址，
+      // 而问题根本不在那儿（AGENTS §8.22 的"失败被当成事实"）。这里按 addressLoadError 分开说。
+      wx.showToast({
+        title: this.data.addressLoadError
+          ? '收货地址没加载出来，请退出重进本页重试'
+          : '请选择配送地址',
+        icon: 'none'
+      })
       return
     }
 
@@ -722,6 +835,7 @@ this.setData({ products, stationName: effectiveStationName })
 
     // 3 = PayMethod.TICKET（水票支付）：下单即视同已付，补一条支付流水用于对账
     if (this.data.selectedMethod === 3) {
+      let ticketPayError = null
       try {
         await createPayment({
           orderId,
@@ -736,7 +850,25 @@ this.setData({ products, stationName: effectiveStationName })
           ticketQty: null
         })
       } catch (e) {
-        console.warn('水票支付记录创建失败:', e.message)
+        // [2026-09-20 真机联调] 原来只 `console.warn`：这一步失败 = 订单建了但**没有支付流水**，
+        // payment_status 停在 0（未付），而按派单判据"只有收到钱的单才进站长/配送员视野"——
+        // 客户却会被照常跳到"下单成功"页，以为万事大吉（AGENTS §8.17：用户以为做成了、账上没动）。
+        // 钱的事宁可打断：把原因摆出来，让客户拿着订单号去找水站，而不是静默跳走。
+        ticketPayError = e
+        console.error('[OrderCreate] 水票支付流水创建失败（订单已建，支付未登记）:', e)
+      }
+      if (ticketPayError) {
+        await new Promise((resolve) => {
+          wx.showModal({
+            title: '订单已创建，但支付没登记上',
+            content: '原因：' + ((ticketPayError && ticketPayError.message) || '网络异常')
+              + '。订单已提交成功，但水票扣款/到账可能没记上，请到「我的订单」核对，'
+              + '或联系水站报订单号处理。',
+            showCancel: false,
+            confirmText: '知道了',
+            complete: () => resolve()
+          })
+        })
       }
     }
 
@@ -900,7 +1032,11 @@ this.setData({ products, stationName: effectiveStationName })
         this.setData({ stationPhone: res.data.phone })
       }
     } catch (e) {
-      console.warn('获取水站电话失败:', e)
+      // [2026-09-20 真机联调] 原来只 console.warn：拉不到时「资产使用说明」弹窗里就**没有水站电话**，
+      // 与"这个水站确实没留电话"看起来一样 —— 而客户正是要在这时联系水站问押金/桶的事。
+      // 不阻断弹窗（说明文字本身仍要看），但要告诉他电话是没取到、不是没有。
+      console.warn('[OrderCreate] 获取水站电话失败:', e && (e.message || e.errMsg))
+      wx.showToast({ title: '水站电话没取到，请稍后重试', icon: 'none' })
     }
   },
 

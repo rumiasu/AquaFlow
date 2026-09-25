@@ -101,6 +101,13 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired
     private InventoryMapper inventoryMapper;
 
+    /**
+     * 库存预留凭据（唯一写入口）：取消订单时**释放**预留，而不是回补库存 ——
+     * 实物从没被扣过（出库发生在完成配送）。见 {@code docs/design/28-库存预留与履约凭据.md}。
+     */
+    @Autowired
+    private com.example.aquaflow.service.InventoryReservationService inventoryReservationService;
+
     @Autowired
     private OrderItemMapper orderItemMapper;
 
@@ -161,6 +168,13 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentRecord createPayment(Long orderId, Long customerId, BigDecimal amount, BigDecimal waterAmount,
                                         BigDecimal barrelDeposit, Integer excessBarrels, Integer paymentMethod,
                                         Long ticketWaterTypeId, Integer ticketQty, String note) {
+        // [2026-09-25 架构评审问题 7] 枚举白名单（第二道：DTO 上有 @Min/@Max）：
+        // 传 99 原来会落一条 payment_method=99 的待收款流水（既不是水票也不置已付），
+        // 站长端「待收款」里多一笔永远处理不了的钱。白名单正本在 constant/PayMethod。
+        if (!PayMethod.isValid(paymentMethod)) {
+            throw new BusinessException("不支持的支付方式：" + paymentMethod);
+        }
+
         // 防重复支付：该订单已有「已支付」或「待收款」记录时直接返回，不再新建。
         // [DEF-3] 必须连同 PENDING 一起拦：payment_record 原来靠
         // uk_payment_order_status(order_id, status) 唯一键兜底防重，但该唯一键与
@@ -718,27 +732,15 @@ public class PaymentServiceImpl implements PaymentService {
                 customerBarrelInTransitMapper.deleteByOrderId(orderId);
             }
 
-            // 3. 回补库存：按下单时"实际扣减量"回补，而不是订单数量。
-            //    下单时库存不足只扣了现有库存（deducted_qty < quantity），若按 quantity 回补会凭空多出库存，
-            //    反复"下单-取消"即可刷出无限库存。
-            //    站别：回到【履约站】—— 下单扣的就是履约站的库存。
-            List<OrderItem> items = orderItemMapper.listByOrderId(orderId);
-            if (items != null) {
-                for (OrderItem item : items) {
-                    if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity() <= 0) {
-                        continue;
-                    }
-                    int restoreQty = item.getDeductedQty() != null
-                            ? Math.min(item.getDeductedQty(), item.getQuantity())
-                            : item.getQuantity();
-                    if (restoreQty > 0) {
-                        inventoryMapper.increaseStock(fulfillStation, item.getProductId(), restoreQty);
-                        // [AQ-029] 退款回补库存写流水
-                        inventoryService.recordChange(fulfillStation, item.getProductId(), restoreQty,
-                                InventoryChangeType.REFUND_RESTORE, orderId, AuthContext.getUserId(), "退款回补");
-                    }
-                }
-            }
+            // 3. 释放库存**预留**（[2026-09-25 库存预留模型] —— **不是**回补库存！）
+            //    下单只"预留"、不动实物；实物在完成配送时才出库（InventoryReservationService.shipForOrder）。
+            //    所以取消要做的是把这份承诺释放掉，`inventory.quantity` 一个数都不该变。
+            //    ⚠️ 这里原来写的是 `inventoryMapper.increaseStock(fulfillStation, ...)` +
+            //    `REFUND_RESTORE` 流水 —— 新模型下那样会**凭空造出库存**（实物从没减过），
+            //    而且补给的站别还是"当时的履约站"（跨站外派后就是错的站）。**不要加回来。**
+            //    边界：`status >= 已送达(3)` 的单进不到本块（isCancellable 已把 3/4/5 排除），
+            //    所以"已出库的单被取消"不可达；将来若放松取消门槛，必须同时处理已出库凭据的冲销。
+            inventoryReservationService.releaseForOrder(orderId);
         }
 
         // [Phase C] CAS：以读取到的当前状态为 expected，防止取消期间订单状态被并发改动。

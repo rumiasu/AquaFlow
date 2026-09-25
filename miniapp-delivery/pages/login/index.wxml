@@ -11,19 +11,22 @@
       <text wx:if="{{loading}}">登录中...</text>
       <text wx:else>微信一键登录</text>
     </button>
-    <button class="btn-dev" bindtap="onDevLogin" disabled="{{loading}}">
+
+    <!-- [2026-09-24] 协议改成「点击即同意」：原来是个**必须先勾选**的复选框（不勾就 toast 拦住），
+         产品要求"别再费劲点了"。告知贴在按钮正下方，点按钮本身即表示同意。
+         ⚠️ 这行提示**不能删** —— 删了就只剩"沉默同意"。顾客端 pages/login 同口径。 -->
+    <view class="agreement">
+      <text class="agreement-text">登录即代表你已阅读并同意</text>
+      <text class="agreement-link">《用户协议》</text>
+      <text class="agreement-text">和</text>
+      <text class="agreement-link">《隐私政策》</text>
+    </view>
+
+    <!-- [2026-09-20] 仅非正式版显示：直连 /api/auth/dev-login，该端点在 prod 下不存在。
+         开发版/体验版保留（真机联调微信登录不通时的唯一退路），判断见 index.js 的注释。 -->
+    <button class="btn-dev" bindtap="onDevLogin" disabled="{{loading}}" wx:if="{{showDevLogin}}">
       开发者登录
     </button>
-  </view>
-
-  <view class="agreement">
-    <view class="checkbox {{agreed ? 'checked' : ''}}" bindtap="onToggleAgreement">
-      <text wx:if="{{agreed}}" class="check-icon">✓</text>
-    </view>
-    <text class="agreement-text">我已阅读并同意</text>
-    <text class="agreement-link">《用户协议》</text>
-    <text class="agreement-text">和</text>
-    <text class="agreement-link">《隐私政策》</text>
   </view>
 
   <view class="tips">

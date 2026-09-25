@@ -10,13 +10,21 @@ Page({
     // 站长三格（[2026-09-19] 按角色分叉，见 loadManagerStats）：
     // 今日净利与单数（净利为 null 时要显示「算不出」）、桶异常 / 欠桶客户数
     todayProfit: null,
-    risk: { barrelExceptionCount: 0, owedCustomerCount: 0 },
+    // [2026-09-20 真机联调] 两个**失败标记**：接口拉不到时绝不能把两格显示成 0。
+    // 原来失败只 console.warn，risk 保留默认值 { 0, 0 } —— 界面上「0 桶异常」「欠桶 0 户」
+    // 与"真的没有异常/没有欠桶"完全无法区分（AGENTS §8.22），站长会据此直接跳过这两项待办。
+    risk: { barrelExceptionCount: 0, owedCustomerCount: 0, barrelExceptionFailed: false, owedCustomerFailed: false },
     roleLabel: '配送员',
     isManager: false,
     isDelivery: false,
     bindStatusText: '未绑定水站',
     bindStatus: null,
     stationInfo: null,
+    // [2026-09-20 真机联调] 水站信息**没查到**的原因（空串 = 查到了）。
+    // 原来失败只 console.error，stationInfo 停在 null，而 wxml 的 else 分支写死
+    // 「暂未创建水站，请前往创建」—— 把"没查到"说成了"你还没建站"，站长可能真的去重复建站
+    // （AGENTS §8.22：同一句断言性文案，两种完全不同的原因）。
+    stationInfoError: '',
     staffList: [],
     bindApplications: [],
     mgmtActiveTab: 0,
@@ -131,23 +139,35 @@ Page({
       next.todayProfit = { netProfitText: '—', netProfitWarn: false, orderCount: '—' }
     }
 
-    const risk = { barrelExceptionCount: 0, owedCustomerCount: 0 }
+    const risk = { barrelExceptionCount: 0, owedCustomerCount: 0, barrelExceptionFailed: false, owedCustomerFailed: false }
     if (pendingRes.status === 'fulfilled' && pendingRes.value && pendingRes.value.code === 0) {
       const items = ((pendingRes.value.data || {}).items) || []
       const hit = items.find(i => i.key === 'barrelException')
       risk.barrelExceptionCount = hit ? Number(hit.count) || 0 : 0
     } else {
+      // [2026-09-20 真机联调] 原来只 console.warn，risk 留在 0 —— 界面照旧显示「0 桶异常」。
+      // 桶异常是"要处理的事"，显示成 0 = 告诉站长"今天没事"，而事实是**没查到**。
+      // 现在打上失败标记，wxml 那格显示「—」（与今日净利"算不出"同一套口径：宁可显示没数，
+      // 也不显示一个会被当成事实的 0）。
       console.warn('[Mine] 桶异常数加载失败:', pendingRes.reason && pendingRes.reason.message)
+      risk.barrelExceptionFailed = true
     }
     if (owedRes.status === 'fulfilled' && owedRes.value && owedRes.value.code === 0) {
       // 欠桶端点是"客户列表"（没有专门的计数），这里数的是**欠桶客户数**，不是欠桶个数
       risk.owedCustomerCount = ((owedRes.value.data) || []).length
     } else {
+      // 同上：欠桶 0 户 与 "没查到" 必须分开，否则站长会以为没有欠桶客户要收
       console.warn('[Mine] 欠桶客户加载失败:', owedRes.reason && owedRes.reason.message)
+      risk.owedCustomerFailed = true
     }
     next.risk = risk
 
     this.setData(next)
+
+    // 失败时额外出声一次：这两格在卡片里很小，「—」容易被忽略，而它代表"今天该收的账没看到"
+    if (risk.barrelExceptionFailed || risk.owedCustomerFailed || next.todayProfit.netProfitText === '—') {
+      wx.showToast({ title: '部分经营数据没加载出来', icon: 'none' })
+    }
   },
 
   /**
@@ -192,9 +212,13 @@ Page({
     if (this.data.isManager) {
       try {
         const s = await get(API.STATION_GET)
-        this.setData({ stationInfo: s.data || null })
+        this.setData({ stationInfo: s.data || null, stationInfoError: '' })
       } catch (e) {
+        // [2026-09-20 真机联调] 原来只 console.error：stationInfo 为空时页面显示
+        // 「暂未创建水站，请前往创建」—— 把接口失败说成"你没建站"（AGENTS §8.22）。
+        // 现在留下失败原因，wxml 的空态据此分开说。
         console.error('[Mine] 水站信息加载失败:', e)
+        this.setData({ stationInfoError: (e && e.message) || '网络异常' })
       }
       this.loadStaffList()
       this.loadBindApplications()

@@ -8,6 +8,13 @@
       <text class="banner-text">{{stationStatusHint}}</text>
     </view>
 
+    <!--
+      数据没加载出来的提示（空串时不渲染）。[2026-09-20 真机联调] 原来加载失败一律只
+      console.warn/error：商品详情缺件、地址与桶权益拉不到都表现为"页面上少一块 / 押金是全额"，
+      与真实业务状态无法区分（AGENTS §8.22）。样式复用 styles/common.wxss 的 .load-error。
+    -->
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+
     <view class="section">
       <view class="section-header"><text class="section-title">商品清单</text></view>
       <view class="product-list">
@@ -52,8 +59,14 @@
         </view>
         <text class="address-detail">{{addressText || address.detail}}</text>
       </view>
+      <!--
+        空态分两种：[2026-09-20] 原来只有「请选择配送地址」一句 —— 地址接口失败时 address
+        同样是空的，于是"没查到"被写成"你没设地址"，客户会反复去重设地址（问题根本不在那儿）。
+        addressLoadError 由 loadAddress 在失败时写入（含可读原因）。
+      -->
       <view class="address-empty" wx:else>
-        <text>请选择配送地址</text>
+        <text wx:if="{{addressLoadError}}">收货地址没加载出来（{{addressLoadError}}），点这里重试</text>
+        <text wx:else>请选择配送地址</text>
       </view>
       <text class="address-arrow">›</text>
     </view>

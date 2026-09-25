@@ -28,6 +28,16 @@ public class CosUtil {
     private final String bucketName;
     private final String region;
 
+    /**
+     * 密钥是否**真的配了**（[2026-09-20]）。
+     *
+     * <p>为什么要在构造期算一次并留着：`BasicCOSCredentials("", "")` **不会抛异常** ——
+     * 空密钥的客户端能正常造出来、应用照常启动（`RequiredConfigChecker` 也只 warn），
+     * 失败要等到第一次真正调 COS 才发生。于是上传接口只能回一句笼统的「文件上传失败」，
+     * 运维/联调的人看不出"是密钥没配"还是"密钥配错了/被拒"。这个标记就是为了把前者说出来。</p>
+     */
+    private final boolean credentialsConfigured;
+
     private static final int PUBLIC_EXPIRY_SECONDS = 24 * 3600;
     private static final int PRIVATE_EXPIRY_SECONDS = 3600;
 
@@ -38,9 +48,29 @@ public class CosUtil {
     public CosUtil(String region, String secretId, String secretKey, String bucketName) {
         this.region = region;
         this.bucketName = bucketName;
+        this.credentialsConfigured = secretId != null && !secretId.isBlank()
+                && secretKey != null && !secretKey.isBlank();
         COSCredentials cred = new BasicCOSCredentials(secretId, secretKey);
         ClientConfig clientConfig = new ClientConfig(new Region(region));
         this.cosClient = new COSClient(cred, clientConfig);
+    }
+
+    /** 密钥是否已配置。见字段 {@link #credentialsConfigured} 的说明。 */
+    public boolean isCredentialsConfigured() {
+        return credentialsConfigured;
+    }
+
+    /**
+     * 上传失败时给用户看的文案 —— **全系统唯一实现**，三个上传接口共用，别各写一套。
+     *
+     * <p>判据：未配密钥时把原因说清楚（这是**可预期的运维状态**，不是系统故障，
+     * 见 AGENTS §8.21）；已配密钥仍失败就保持中性文案，不把 SDK/云厂商的原始报文
+     * 透给前端（可能含 bucket、账号等内部信息）。</p>
+     */
+    public String uploadFailureMessage() {
+        return credentialsConfigured
+                ? "文件上传失败，请稍后重试"
+                : "对象存储未配置，图片上传不可用（请补 COS_SECRET_ID / COS_SECRET_KEY）";
     }
 
     // ==================== 上传 ====================

@@ -1,23 +1,55 @@
 // API配置
-// [2026-09-15] dev.baseUrl 必须是「运行后端那台电脑的局域网 IP」，不能是 127.0.0.1/localhost。
-//   真机（预览二维码扫出来的开发版）上的 127.0.0.1 指的是**手机自己**，请求必然失败，
-//   且失败表现为「网络错误」而非业务报错，极难定位。换网络/换路由器后 IP 会变，需同步改这里。
+// [2026-09-22 结论] 下面这一行的值**不要手改**，由 `scripts/set-dev-api-host.ps1 -Apply` 维护：
+//   热点开着 → 写 `192.168.137.1`（笔记本移动热点，恒定）；
+//   热点关着 → 写**当前 WLAN 地址**（现在就是这一行里的那个值）。
+//   为什么不在代码里写死成"最优雅"的那个值：09-21 曾写死笔记本热点的 `192.168.137.1`，
+//   但 09-21、09-22 两次实测热点都是**关的** → 那个地址**没人连得上**、真机全废，
+//   而当下真实可用的 WLAN 地址反倒没被用上。
+//   **判据：默认值必须指向「现在真能用」的那个地址，不是「配置上最优雅」的那个。**
+//   ⚠️ **真机要求手机与笔记本连同一个 Wi-Fi**（真机走的就是这一行）。
+//   真机（预览扫码）上的 127.0.0.1 指的是**手机自己**，必然失败且只报「网络错误」，极难定位 ——
+//   所以回环只给开发者工具用（见 devtoolsBaseUrl）。
 //   真机预览还需在手机上打开「调试」（右上角 ... → 打开调试）跳过域名校验，
 //   因为 request 合法域名只接受已 ICP 备案的 HTTPS 域名，本机 HTTP 地址无法配置。
 //   体验版(trial)/正式版(release) 都必须走 prod 的真实域名 —— 见下方 getBaseUrl 的判定。
-//   [2026-09-20 第二次过期] 192.168.0.243 ⇄ 10.213.244.181 来回变过一次（今天是 192.168.0.243）。
-//   根因：本机 WLAN 网卡是 **DHCP**（`netsh interface ipv4 show config name="WLAN"` → DHCP enabled: Yes），
-//   地址由路由器 192.168.0.1 按租约发放（当天 10:41 取的租约、22:55 到期）。换网络/路由器重启/
-//   租约重分配都会换地址，**这不是 bug、也不是后端的问题**。
-//   彻底解决（三选一，见 docs/本地运行-笔记本当服务器.md §1）：
-//     ① 路由器里给本机 MAC `2C-98-11-4E-67-2B` 做 **DHCP 地址保留** → 永久固定成 192.168.0.243（推荐）；
-//     ② 把 WLAN 网卡改成**静态 IP**（换到别的网络要记得改回 DHCP，否则上不了网）；
-//     ③ 改用 **Windows 移动热点**：笔记本自己当 DHCP 服务端，地址恒为 `192.168.137.1`
-//        （手机连笔记本热点，不依赖任何路由器，最适合实机测试）。
-//   改之前先跑 `scripts/set-dev-api-host.ps1`：它按当前 WLAN 地址同时改写两端这一行，省得"只改一端"。
+//   ⚠️ 换地址跑 `scripts/set-dev-api-host.ps1 -Apply`（它**同时改两端**；只改一端会让那一端白屏，
+//      现象同样是"网络错误"，很难联想到是 IP 不对）。
 const API_CONFIG = {
-  dev: { baseUrl: 'http://192.168.0.243:8080' },
+  // devtoolsBaseUrl：开发者工具跑在**同一台笔记本**上，走回环即可 —— 换网络、开关热点都不影响写代码。
+  dev: { baseUrl: 'http://192.168.0.243:8080', devtoolsBaseUrl: 'http://127.0.0.1:8080' },
   prod: { baseUrl: 'https://your-domain.com' }
+}
+
+/**
+ * 当前是否运行在**微信开发者工具**里（不是真机）。
+ *
+ * <p>[2026-09-21] 只用于把 dev 拆成「工具走回环、真机走上面那个 dev 地址」两个地址。</p>
+ *
+ * <p>[2026-09-22 修正判据] 原来只认 `platform === 'devtools'`，但开发者工具在 Windows / macOS 上
+ * 跑的其实是个 **PC 客户端**，`platform` 可能报 `devtools`、也可能报成 `windows` / `mac`
+ * （都是 `getDeviceInfo` 的合法值）→ 只认 devtools 会**漏判**，工具里白白走局域网地址。
+ * 现在三个都算「工具」。</p>
+ *
+ * <p>⚠️ 真机（手机预览 / **真机调试**）报的是 `ios` / `android`，不会被误判
+ * （本仓 `miniapp-user/pages/login/index.js` 2026-09-20 已核实过这一点）。</p>
+ *
+ * <p>代价：真在微信 PC 客户端里跑小程序时也会命中（那时 127.0.0.1 指那台 PC）—— 本项目不发 PC 端，
+ * 且这条只在非 release 生效，可接受。</p>
+ *
+ * <p>⚠️ **取不到设备信息时返回 false（= 当作真机）**，这是刻意的"失败开口"：
+ * 误判成真机只是多走一次局域网地址（真机上本来就该走它）；
+ * 误判成工具则会把真机指到 127.0.0.1（= 手机自己）—— 必然失败，且只报"网络错误"。</p>
+ */
+const PC_PLATFORMS = ['devtools', 'windows', 'mac']
+
+const isDevtools = () => {
+  try {
+    // getDeviceInfo 需要基础库 2.20.1+；取不到就退回 getSystemInfoSync（同 pages/home 的防御写法）。
+    const info = wx.getDeviceInfo ? wx.getDeviceInfo() : wx.getSystemInfoSync()
+    return PC_PLATFORMS.indexOf(info.platform) !== -1
+  } catch (e) {
+    return false
+  }
 }
 
 const getBaseUrl = () => {
@@ -32,12 +64,38 @@ const getBaseUrl = () => {
   // 注意：体验版(envVersion='trial') 与开发版('develop') 都落到 dev。
   // 曾因此让「上传后的体验版」静默指向本机地址，扫码后一片网络错误。
   const env = envVersion === 'release' ? 'prod' : 'dev'
-  const baseUrl = API_CONFIG[env].baseUrl
+  const envConfig = API_CONFIG[env]
+  // 只有 dev 才分「工具 / 真机」；prod 两端都走真实域名。
+  // ⚠️ 顺序是「**先确认是工具**才用回环」，不是「猜不到就用回环」—— 失败必须朝向真机地址，
+  //    反了会把真机指到 127.0.0.1（手机自己），必然失败且只报「网络错误」。
+  const baseUrl = env === 'dev' && envConfig.devtoolsBaseUrl && isDevtools()
+    ? envConfig.devtoolsBaseUrl
+    : envConfig.baseUrl
   // 占位域名直接拦下来报清楚，否则真机上只看到超时/网络错误，排查成本极高。
   if (baseUrl.indexOf('your-domain.com') !== -1) {
     throw new Error('正式环境域名还是占位符 https://your-domain.com，请先在 config/api.js 里替换为已备案的真实域名')
   }
   return baseUrl
+}
+
+/**
+ * 当前是否处于**正式版**（`envVersion === 'release'`）。
+ *
+ * <p>[2026-09-20] 供登录页决定要不要显示「测试账号直接登录」按钮用：正式版必须藏起来
+ * （那个按钮直连 `/api/auth/dev-login`，虽然该端点在 prod profile 下**根本不存在**，
+ * 但让顾客看到"测试账号直接登录"本身就是事故级观感）。</p>
+ *
+ * <p>⚠️ **取不到环境时返回 false（= 当作非正式版）**，这是刻意的"失败开口"：
+ * 真机联调时 `dev-login` 是微信登录不通时的唯一退路（见 AGENTS §9.4），
+ * 宁可在正式版上多显示一个点了会报错的按钮，也不能因为读不到 `__wxConfig`
+ * 就把真机联调的退路悄悄藏掉 —— 后者会让人在客户现场无路可走。</p>
+ */
+const isReleaseEnv = () => {
+  try {
+    return __wxConfig.envVersion === 'release'
+  } catch (e) {
+    return false
+  }
 }
 
 // 与后端 Controller 路径一一对应
@@ -148,4 +206,4 @@ const getCustomerId = () => {
   return id
 }
 
-module.exports = { getBaseUrl, API, getCustomerId }
+module.exports = { getBaseUrl, isReleaseEnv, API, getCustomerId }

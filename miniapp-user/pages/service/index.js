@@ -20,6 +20,15 @@ Page({
     anonymous: false,
     // 历史
     history: [],
+    // ===== 失败标记（[2026-09-20 真机联调]，空串 = 一切正常）=====
+    // phoneError：水站公开电话**没查到**的原因（空串 = 查到了，或本地缓存里本来就有）。
+    //   为什么要单独一个字段：下面 onCallPhone 原来无论什么原因都只说「暂未获取到客服电话，
+    //   请稍后再试」—— 把"接口失败"与"这个水站确实没登记电话"混成一句，客户只会反复重试
+    //   （或者以为水站不接电话）。两者必须分开说（AGENTS §8.22 的"失败被当成事实"）。
+    // historyError：反馈历史没加载出来的原因（空串 = 正常）。原来只 console.warn，
+    //   区块直接不渲染 —— 提过反馈的客户会以为自己的记录丢了。
+    phoneError: '',
+    historyError: '',
     submitting: false
   },
 
@@ -40,23 +49,40 @@ Page({
     const cached = stationStorage.get() || {}
     const info = { phone: cached.phone || '', stationName: cached.name || '' }
     const stationId = cached.id || cached.stationId
+    let phoneError = ''
     if (stationId) {
       try {
         const res = await getStationPublicPhone(stationId)
         const phone = res && res.data && res.data.phone
         if (phone) info.phone = phone
       } catch (err) {
-        // 拿不到就退回缓存值；两者都没有时按钮会给出可读提示（不当成页面故障）
-        console.warn('[Service] 读取水站公开电话失败:', err && err.message)
+        // [2026-09-20 真机联调] 原来这里只 console.warn —— 于是"电话接口失败"与"水站没配电话"
+        // 在界面上长得完全一样（都显示「未获取到」+ 点拨打弹「暂未获取到客服电话，请稍后再试」）。
+        // 拿不到就退回缓存值（老行为不变），但**必须把失败原因记下来**，由 onCallPhone/页面据此区分。
+        console.warn('[Service] 读取水站公开电话失败:', err && (err.message || err.errMsg))
+        phoneError = (err && err.message) || '网络异常'
       }
     }
-    this.setData({ serviceInfo: info })
+    this.setData({ serviceInfo: info, phoneError })
   },
 
   onCallPhone() {
     const phone = this.data.serviceInfo.phone
     if (!phone) {
-      wx.showToast({ title: '暂未获取到客服电话，请稍后再试', icon: 'none' })
+      // [2026-09-20 真机联调] 这里原来是一句断言：「暂未获取到客服电话，请稍后再试」——
+      // 把两种完全不同的情况说成同一件事，客户无从判断是自己网络的问题还是水站没留电话。
+      // 现在分开：接口失败 → 说明原因 + 不谎称"没有电话"；查到了但确实为空 → 直说没登记。
+      if (this.data.phoneError) {
+        wx.showModal({
+          title: '电话没查出来',
+          content: '没能取到水站的客服电话（' + this.data.phoneError + '）。'
+            + '这不代表水站没有留电话 —— 请稍后重试，或换个网络再试。',
+          showCancel: false,
+          confirmText: '知道了'
+        })
+        return
+      }
+      wx.showToast({ title: '该水站暂未登记客服电话', icon: 'none' })
       return
     }
     wx.makePhoneCall({
@@ -97,11 +123,14 @@ Page({
     try {
       const res = await getMyFeedback()
       if (res.data) {
-        this.setData({ history: res.data })
+        this.setData({ history: res.data, historyError: '' })
       }
     } catch (err) {
-      // 未登录或加载失败时不强提示
-      console.warn('[Feedback] 加载历史失败:', err.message)
+      // [2026-09-20 真机联调] 原来是「未登录或加载失败时不强提示」只 console.warn：失败时
+      // 历史区块整块不渲染，提过反馈的客户会以为记录丢了（与"确实没提过反馈"无法区分，AGENTS §8.22）。
+      // 仍然不用弹窗打断（本页主任务是提交反馈），但空态要改成"没加载出来"。
+      console.warn('[Service] 反馈历史加载失败:', err && (err.message || err.errMsg))
+      this.setData({ historyError: (err && err.message) || '网络异常' })
     }
   },
 

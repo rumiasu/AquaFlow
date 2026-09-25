@@ -14,7 +14,13 @@ Page({
     showStationPicker: false,
     cartCount: 0,
     // 由首页「搜索 ›」入口带参进入时自动聚焦搜索框（/pages/shop/index?focus=1）
-    focusSearch: false
+    focusSearch: false,
+    // ===== 失败标记（[2026-09-20 真机联调]，空串 = 一切正常）=====
+    // 为什么需要：原来商品与水站两个请求都是 `.catch(() => null)`，失败时页面渲染成
+    // 「暂无商品」/「暂无可用水站」—— 把"没查到"说成"平台上确实没有"（AGENTS §8.22），
+    // 顾客会以为这个站/这个平台没货可买。
+    loadError: '',
+    stationListError: ''
   },
   onLoad(options) {
     if (options && (options.focus === '1' || options.focus === 'true')) {
@@ -54,9 +60,25 @@ Page({
       if (currentStationId) {
         // 2026-09-16：sale-by-station 现在下发的是**本站有效价**（effectivePrice/effectiveDeposit），
         // 即"站级覆盖 → 通用库参考价"，与结算价同口径（原实现只给平台参考价）。
-        const productsRes = await getStationProducts(currentStationId).catch(() => null)
-        if (productsRes && productsRes.data) {
-          allProducts = productsRes.data
+        // [2026-09-20 真机联调] 原来这里是 `.catch(() => null)`：失败时 allProducts 为空数组，
+        // 页面渲染成「暂无商品」—— 与"这个水站确实没上架商品"完全无法区分（AGENTS §8.22），
+        // 顾客会以为整站没货。商品是商城页的全部内容，失败必须出声。
+        try {
+          const productsRes = await getStationProducts(currentStationId)
+          // 业务失败仍是 HTTP 200，一律判 body.code（AGENTS §8.1）；code!=0 也不能当"没有商品"
+          if (productsRes && productsRes.code === 0 && productsRes.data) {
+            allProducts = productsRes.data
+            this.setData({ loadError: '' })
+          } else {
+            const msg = (productsRes && productsRes.message) || '服务端返回异常'
+            console.warn('[Shop] 商品列表返回非成功响应:', msg)
+            this.setData({ loadError: '商品没加载出来（' + msg + '），下面可能是空的，请下拉刷新' })
+            wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
+          }
+        } catch (e) {
+          console.error('[Shop] 加载商品失败:', e)
+          this.setData({ loadError: '商品没加载出来（' + ((e && e.message) || '网络异常') + '），下面可能是空的，请下拉刷新' })
+          wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
         }
       }
 
@@ -87,13 +109,21 @@ Page({
   },
 
   async loadStationList() {    try {
-      const res = await getPublicStations().catch(() => null)
+      // [2026-09-20 真机联调] 原来是 `.catch(() => null)` + 外层只 console.error：失败时列表为空，
+      // 弹窗渲染成「暂无可用水站」—— 把"没查到"说成"平台真的没有水站"。
+      const res = await getPublicStations()
       if (res && res.code === 0 && res.data) {
         const activeStations = res.data.filter(s => s.status === 1)
-        this.setData({ stationList: activeStations })
+        this.setData({ stationList: activeStations, stationListError: '' })
+      } else {
+        const msg = (res && res.message) || '服务端返回异常'
+        console.warn('[Shop] 水站列表返回非成功响应:', msg)
+        this.setData({ stationListError: msg })
       }
     } catch (e) {
-      console.error('加载水站列表失败:', e)
+      console.error('[Shop] 加载水站列表失败:', e)
+      this.setData({ stationListError: (e && e.message) || '网络异常' })
+      wx.showToast({ title: '水站列表没加载出来，请重试', icon: 'none' })
     }
   },
   onOpenStationPicker() {
@@ -153,13 +183,25 @@ Page({
       allProducts: []
     })
     try {
-      const productsRes = await getStationProducts(id).catch(() => null)
+      // [2026-09-20 真机联调] 原来是 `.catch(() => null)`：切站后商品拉不到时 allProducts 为空，
+      // 页面渲染成「暂无商品」—— 顾客会以为**刚切的这个站**没货（与 loadData 里同一处坑）。
+      const productsRes = await getStationProducts(id)
       let allProducts = []
-      if (productsRes && productsRes.data) {
+      if (productsRes && productsRes.code === 0 && productsRes.data) {
         allProducts = productsRes.data
+        this.setData({ loadError: '' })
+      } else {
+        const msg = (productsRes && productsRes.message) || '服务端返回异常'
+        console.warn('[Shop] 切站后商品返回非成功响应:', msg)
+        this.setData({ loadError: '商品没加载出来（' + msg + '），下面可能是空的，请下拉刷新' })
+        wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
       }
       this.setData({ allProducts })
       this.loadStationStatus(id)
+    } catch (e) {
+      console.error('[Shop] 切站后加载商品失败:', e)
+      this.setData({ loadError: '商品没加载出来（' + ((e && e.message) || '网络异常') + '），下面可能是空的，请下拉刷新' })
+      wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }

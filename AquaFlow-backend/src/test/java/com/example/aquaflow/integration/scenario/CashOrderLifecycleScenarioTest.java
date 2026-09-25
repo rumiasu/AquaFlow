@@ -74,10 +74,16 @@ class CashOrderLifecycleScenarioTest extends AbstractScenarioTest {
         assertEquals(2, intOf("SELECT IFNULL(SUM(qty),0) FROM customer_barrel_in_transit "
                 + "WHERE customer_id=? AND station_id=? AND status='PENDING'", w.customerId(), w.stationId()),
                 "下单应记 2 桶「配送中」");
-        assertEquals(stockBefore - 2,
+        // [2026-09-25 库存预留模型] 下单只**预留**、不动实物：实物在完成配送时才出库
+        //（旧口径断言的是 stockBefore-2；见 docs/design/28-库存预留与履约凭据.md）
+        assertEquals(stockBefore,
                 intOf("SELECT quantity FROM inventory WHERE station_id=? AND product_id=?",
                         w.stationId(), w.productId()),
-                "下单应扣 2 件库存");
+                "下单不动实物");
+        assertEquals(2, intOf("SELECT COALESCE(SUM(reserved_qty),0) FROM inventory_reservation "
+                        + "WHERE station_id=? AND product_id=? AND status=1",
+                        w.stationId(), w.productId()),
+                "下单必须预留 2 件");
         assertEquals(0, depositBalance(w).compareTo(BigDecimal.ZERO), "下单时客户一分未付，押金不得入账");
 
         assertTrue(inList("/api/delivery/orders/station-pending", w.managerToken(), order),

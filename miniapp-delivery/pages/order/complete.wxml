@@ -126,8 +126,14 @@
 
   <!-- 楼层数（选填）+ 楼层凭证（v43）：楼层补贴的依据，有楼层才填、没有就不填 -->
   <view class="section">
-    <text class="section-title">楼层数（有就填，没有不用填）</text>
-    <text class="section-tip">填了才是楼层补贴的依据；跟客户地址里填的不一致时会标出来（防虚报）</text>
+    <view class="section-title-row">
+      <text class="section-title">楼层数（有就填，没有不用填）</text>
+      <!-- [2026-09-24] 原来这里平铺一整句。但**不能全藏**：这句关系到配送员自己的钱
+           （填了才有楼层补贴），藏没了人会跳过不填 = 少拿钱。
+           所以留一句指标题级的短激励，把"怎么核对/防虚报"的细节收进「?」。 -->
+      <help-tip title="楼层数" text="填了才是楼层补贴的依据。跟客户地址里填的楼层不一致时会标出来（防虚报）。" />
+    </view>
+    <text class="section-tip">填了才算楼层补贴</text>
     <view class="floor-row">
       <input class="floor-input" type="number" placeholder="如 6" value="{{reportedFloor}}" bindinput="onFloorInput" />
       <text class="floor-unit">层</text>

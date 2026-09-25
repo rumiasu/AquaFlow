@@ -1,6 +1,7 @@
 package com.example.aquaflow.dto;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.NotEmpty;
@@ -24,7 +25,30 @@ public class OrderCreateDTO {
      */
     private Long addressId;
     private Long stationId;
+
+    /**
+     * 订单来源：1 电话 / 2 微信 / 3 小程序（取值正本是 {@code sql/schema.sql} 里
+     * {@code orders.source} 的列注释）。
+     *
+     * <p>⚠️ [2026-09-25 架构评审问题 7] 原为无约束的裸 {@code Integer}，客户端传任意值都落库。
+     * 它只是来源标记（没有业务分支读它），但"枚举入参必须白名单校验"是本仓已立的规则
+     * （AGENTS §6）—— 顺带一提：员工代客下单页显式传 1（电话），客户端小程序传 3。</p>
+     */
+    @Min(value = 1, message = "订单来源非法")
+    @Max(value = 3, message = "订单来源非法")
     private Integer source;
+
+    /**
+     * 支付方式：1 微信 / 2 现金(货到付款) / 3 水票 —— <b>白名单正本在 {@code constant/PayMethod}</b>。
+     *
+     * <p>⚠️ [2026-09-25 架构评审问题 7] 原先只判"非空"，实测传 99 也能建单成功：它既不走现金
+     * 分支（于是绕开"现金需水站开通"的校验），也不走水票分支，付款状态停在待收款，而站长/
+     * 配送员列表的可见性判据是"已付款 或 现金" ⇒ 这单**谁也看不见**，却照样扣了库存、
+     * 建了配送中桶。这里的注解是第一道，应用服务边界还有一次 {@code PayMethod.isValid} 校验
+     * （注解会被新的调用路径绕过，白名单不会）。</p>
+     */
+    @Min(value = 1, message = "不支持的支付方式")
+    @Max(value = 3, message = "不支持的支付方式")
     private Integer paymentMethod;
     private String receiverName;
     private String receiverPhone;

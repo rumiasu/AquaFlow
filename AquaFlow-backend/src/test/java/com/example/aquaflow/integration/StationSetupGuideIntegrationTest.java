@@ -60,6 +60,16 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
         return "";
     }
 
+    /** 取某一项的任意字符串字段（key 不存在直接失败，见 done 的说明）。 */
+    private String fieldOf(JsonNode guide, String key, String field) {
+        for (JsonNode it : guide.path("items")) {
+            if (key.equals(it.path("key").asText())) {
+                return it.path(field).asText("");
+            }
+        }
+        throw new AssertionError("完善度清单里没有这一项: " + key + "，实际=" + guide.path("items"));
+    }
+
     @Test
     @DisplayName("新站：坐标/商品/配送费三项 P0 未完善，且每项都给出能感知的后果与去处")
     void freshStationListsP0GapsWithReasons() {
@@ -67,25 +77,55 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
         JsonNode g = guide();
 
         assertEquals(3, g.path("p0PendingCount").asInt(),
-                "新站应有 3 项 P0 未完善（坐标 / 上架商品 / 配送计费），实际清单=" + g.path("items"));
+                "新站应有 3 项 P0 未完善（位置 / 上架商品 / 配送计费），实际清单=" + g.path("items"));
         assertTrue(g.path("summaryText").asText("").contains("3 项必填"),
                 "汇总文案由后端给，实际=" + g.path("summaryText"));
 
         assertTrue(done(g, "stationPhone"), "夹具已填电话 → 该项应算完成");
-        assertFalse(done(g, "stationLocation"), "没坐标 → 未完善");
-        assertTrue(why(g, "stationLocation").contains("配送距离") || why(g, "stationLocation").contains("配送范围"),
-                "未完善的后果要写清（范围校验失效），实际=" + why(g, "stationLocation"));
+        assertFalse(done(g, "stationPosition"), "地址与坐标都空 → 未完善");
+        assertTrue(why(g, "stationPosition").contains("配送距离") || why(g, "stationPosition").contains("配送范围"),
+                "未完善的后果要写清（范围校验失效），实际=" + why(g, "stationPosition"));
+        assertEquals("必填", fieldOf(g, "stationPosition", "levelText"),
+                "给人看的级别由后端下发中文（P0/P1/P2 是内部代号，不该摆到页面上）");
+        assertEquals("/pages/station-mgmt/station-info/index", fieldOf(g, "stationPosition", "route"),
+                "route 是机器可读的跳转目标，前端靠它决定「去填写」按钮");
         assertFalse(done(g, "catalogOnShelf"), "没有在架商品 → 未完善");
         assertFalse(done(g, "deliveryFee"), "没保存过配送计费 → 未完善");
         // 没有配送员时，工资结构不该报未完善（不打扰没有员工的站）
         assertTrue(done(g, "staffPayroll"), "没有配送员 → 工资结构不该提示");
+
+        // 胶囊徽标「待填 N 项」用它：**未完成总数（含 P1/P2）**，与小框列表行数一致。
+        // ⚠️ 它与 p0PendingCount 是两个数（后者只数 P0，是 tab 红点的判据），别混用。
+        //    本夹具里 P1/P2 恰好都算完成，所以这里两者相等 —— **真正区分它们的是
+        //    payrollItemRequiresPieceRateWhenStaffExists**（那边多一条 P1 未完成）。
+        assertEquals(g.path("totalCount").asInt() - g.path("doneCount").asInt(),
+                g.path("pendingCount").asInt(),
+                "pendingCount 必须等于 总数 − 已完成数，实际=" + g);
+        assertEquals(3, g.path("pendingCount").asInt(),
+                "新站未完成 3 项，实际清单=" + g.path("items"));
+
+        // ---- 「下一步」文案按**站况**分支，不是一句"配好就能上线"打天下（2026-09-24）----
+        // 夹具站是"正常运营 + 还有必填没配"（AbstractIntegrationTest.createStation 显式写 operating_status=1）：
+        // 这时说"配好就能上线"是**假话** —— 它早就在营业了。必须说"不影响接单"。
+        String hintNormal = g.path("onlineHint").asText("");
+        assertTrue(hintNormal.contains("不填也能接单"),
+                "已在营业的站不许说'配好就能上线'（会让人以为自己的站还没上线），实际=" + hintNormal);
+
+        // 同一份清单、只把营业状态改成「待上线」→ 文案必须跟着变
+        jdbc.update("UPDATE station SET operating_status = 3 WHERE id = ?", station);
+        String hintPending = guide().path("onlineHint").asText("");
+        assertTrue(hintPending.contains("上线"),
+                "待上线的站才该说'配好就能上线'，实际=" + hintPending);
+        assertNotEquals(hintNormal, hintPending,
+                "两种站况必须给不同的话，否则等于没分支");
     }
 
     @Test
-    @DisplayName("补一项就少一项：坐标 + 商品 + 配送费补齐后 P0 归零")
+    @DisplayName("补一项就少一项：位置 + 商品 + 配送费补齐后 P0 归零")
     void completedItemsDisappear() {
         seed();
-        jdbc.update("UPDATE station SET lat=36.65, lng=117.12 WHERE id=?", station);
+        // 「位置」一条要地址 + 坐标都非空才算完成（判据见 StationSetupGuideService），故两个字段一起补
+        jdbc.update("UPDATE station SET address=?, lat=36.65, lng=117.12 WHERE id=?", "引导目录站地址", station);
         long water = createProduct("引导目录桶装水", 1, "12.00", "50.00", 0, "0.00");
         createInventoryFull(station, water, 100, 0, "0.00");   // enabled=1 = 已上架
         assertEquals(0, put("/api/manager/delivery-config", mgrToken,
@@ -96,6 +136,10 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
                 "三项都补了 → P0 应归零，实际清单=" + g.path("items"));
         assertTrue(g.path("summaryText").asText("").contains("都已配好"),
                 "汇总文案要跟着变，实际=" + g.path("summaryText"));
+        // 必填都齐了 → 那句话要指向**可执行的下一步**（面板底部就有那个按钮），
+        // 不能只说"已完成"（本仓口径：文案要给出下一步）
+        assertTrue(g.path("onlineHint").asText("").contains("设置营业状态"),
+                "配齐后应指向「设置营业状态」这个动作，实际=" + g.path("onlineHint"));
     }
 
     @Test
@@ -109,6 +153,11 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
         assertFalse(done(before, "staffPayroll"), "有员工 + 没单价 → 未完善");
         assertTrue(why(before, "staffPayroll").contains("0 元"),
                 "后果要说清（送的水会按 0 元记工钱），实际=" + why(before, "staffPayroll"));
+        // 本条是「条件项刚成立」的样板：本站原来没有配送员（工资结构算完成），
+        // 加了一个人之后它才变成未完成。徽标用的是 pendingCount（含 P1），
+        // 所以它 **大于** p0PendingCount —— 把徽标接到 p0PendingCount 上会在这里被测出来。
+        assertEquals(before.path("p0PendingCount").asInt() + 1, before.path("pendingCount").asInt(),
+                "P1 的「工资结构」也要进徽标数，实际=" + before);
 
         assertEquals(0, put("/api/manager/piece-rate", mgrToken, "{\"perBucketAmount\":3.00}").code(),
                 "配站级默认计件单价");
@@ -135,20 +184,21 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("越权与隔离：站长只看本站的完善度（拿不到别站的电话/坐标）")
+    @DisplayName("越权与隔离：站长只看本站的完善度（拿不到别站的电话/位置）")
     void guideIsStationScoped() {
         seed();
         long otherStation = createStation("引导目录别站");
         long otherMgr = createStaff("引导目录别站站长", "STATION_MANAGER", otherStation, 1);
-        jdbc.update("UPDATE station SET phone=?, lat=1.11, lng=2.22 WHERE id=?",
-                "0531-99999999", otherStation);
+        // 位置项 = 地址 + 坐标都在才算完成，故两个字段一起给
+        jdbc.update("UPDATE station SET phone=?, address=?, lat=1.11, lng=2.22 WHERE id=?",
+                "0531-99999999", "引导目录别站地址", otherStation);
 
         JsonNode other = get("/api/manager/setup-guide",
                 staffToken(otherMgr, "STATION_MANAGER", otherStation)).data();
         assertTrue(done(other, "stationPhone"), "别站自己填了电话");
-        assertTrue(done(other, "stationLocation"), "别站自己设了坐标 → 该项完成");
-        // 本站在同一时刻仍是"没坐标"，两项互不影响
-        assertFalse(done(guide(), "stationLocation"), "本站没坐标，不能被别站带成完成");
+        assertTrue(done(other, "stationPosition"), "别站自己设了地址与坐标 → 该项完成");
+        // 本站在同一时刻仍是"没地址没坐标"，两项互不影响
+        assertFalse(done(guide(), "stationPosition"), "本站没位置，不能被别站带成完成");
     }
 
     @Test

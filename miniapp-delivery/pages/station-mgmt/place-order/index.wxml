@@ -89,13 +89,15 @@
 
     <view class="card">
       <view class="btn-primary {{quoting ? 'btn-disabled' : ''}}" bindtap="onQuote">
-        {{quoting ? '试算中…' : '服务端试算'}}
+        <!-- [2026-09-24] 原文是"服务端试算"。站长不需要知道谁算的，
+             他需要知道"算出来的钱跟顾客自己下单时一模一样"（产品反馈："接口这些有些专业了"）。 -->
+        {{quoting ? '正在算…' : '先算一下要多少钱'}}
       </view>
-      <view class="hint">金额、配送费与楼层费一律由服务端计算，与顾客自助下单同口径。</view>
+      <view class="hint">算出来的金额与顾客自己下单时完全一样，可以放心报给客户。</view>
     </view>
 
     <view class="card" wx:if="{{quote}}">
-      <view class="card-title">金额（服务端计算）</view>
+      <view class="card-title">金额明细</view>
       <view class="fee-line"><text>水费</text><text>¥{{quote.waterAmount}}</text></view>
       <view class="fee-line"><text>押金</text><text>¥{{quote.depositAmount}}</text></view>
       <view class="fee-line" wx:if="{{quote.deliveryFee}}"><text>配送费</text><text>¥{{quote.deliveryFee}}</text></view>

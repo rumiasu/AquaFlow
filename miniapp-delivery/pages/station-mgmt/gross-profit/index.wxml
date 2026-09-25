@@ -17,7 +17,9 @@
       <view class="chip" bindtap="onQuickRange" data-days="7">近 7 天</view>
       <view class="chip" bindtap="onQuickRange" data-days="30">近 30 天</view>
     </view>
-    <view class="hint">结束日是闭区间（含当天）：服务端按「结束日 + 1 天」做上界，今天的销量不会漏。</view>
+    <!-- [2026-09-24] 原文"服务端按「结束日 + 1 天」做上界"是实现口径（对应 AGENTS §8.19），
+         站长只需要知道"结束日当天算在内、今天的销量不会漏"这一条结论。 -->
+    <view class="hint">结束日当天算在内，今天的销量不会漏。</view>
   </view>
 
   <view class="empty" wx:if="{{loading}}">加载中…</view>
@@ -27,7 +29,10 @@
     <view class="hero">
       <view class="hero-item">
         <text class="hero-num">¥{{report.totalRevenue}}</text>
-        <text class="hero-label">水费收入</text>
+        <!-- [2026-09-25] 标签从「水费收入」改成「收入合计」：这个数是 totalRevenue，
+             它=订单收入（水费）+ 水票收入（买票实收），下面那张卡会逐项拆开。
+             老标签会让站长把票款也算进"水费"，正好是报表口径最容易混的一处。 -->
+        <text class="hero-label">收入合计</text>
       </view>
       <view class="hero-item">
         <text class="hero-num">¥{{report.totalCost}}</text>
@@ -46,8 +51,9 @@
 
     <!--
       收入构成与净利（[2026-09-19] 新增）：与上面的毛利是**同一批订单**（同结算站、同时间窗、排除已取消），
-      所以两个卡片里的"水费收入"必然是同一个数 —— 这是判据，不要在这里另算一套。
-      · 净利 = 水费 + 配送费 + 楼层费 − 进货成本 − 计件工钱
+      所以两张卡的数字必须对得上 —— 上面「收入合计」= 这里的 订单收入 + 水票收入
+      （[2026-09-25] 顺带把上面那个标签从"水费收入"改成了"收入合计"：它本来就含票款）。
+      · 净利 = 订单收入 + 水票收入 + 配送费 + 楼层费 − 进货成本 − 计件工钱
       · wx:if 用 profitBasisNote 当开关：它是本次新增的字段，老响应里没有 → 整块不显示，
         避免在字段缺失时把 undefined 渲染成"¥undefined"（那是最坏的一种"看起来正常"）
       · netProfit 为 null = 有商品没填成本 → 显示「算不出」，**绝不能当 0**
@@ -121,10 +127,16 @@
         <view class="row-main">
           <view class="row-between">
             <text class="row-title">{{item.productName}}</text>
-            <text class="row-amount">收入 ¥{{item.revenue}}</text>
+            <!-- [2026-09-25 评审问题 6] 行收入用 revenueTotal = 订单水费 + 该商品本期购票实收
+                 （票款在下面单独标一行）。用旧的 item.revenue 会让"用票兑出去的商品"显示成
+                 "卖出 2、收入 0、毛利负"，看起来像报表坏了 —— 钱其实在买票那一刻收过了。 -->
+            <text class="row-amount">收入 ¥{{item.revenueTotal}}</text>
           </view>
           <text class="row-sub">
             卖出 {{item.soldQty}} · 成本价 {{item.costPriceText}} · 成本合计 ¥{{item.costAmount}}
+          </text>
+          <text class="row-sub" wx:if="{{item.ticketRevenue > 0}}">
+            其中水票收入 ¥{{item.ticketRevenue}}（客户买票时已收款）
           </text>
           <text class="row-sub {{item.profit === null ? 'row-warn' : ''}}">
             毛利：{{item.profitText}}<text wx:if="{{item.profitRateText}}"> · 毛利率 {{item.profitRateText}}</text>

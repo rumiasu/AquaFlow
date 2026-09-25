@@ -89,7 +89,8 @@ public class FileManageController {
             return Result.success(fileInfo);
         } catch (Exception e) {
             log.error("文件上传失败", e);
-            return Result.error("文件上传失败");
+            // [2026-09-20] 文案统一由 CosUtil 给，未配密钥时明确说出来（见其 javadoc）。
+            return Result.error(cosUtil.uploadFailureMessage());
         }
     }
 

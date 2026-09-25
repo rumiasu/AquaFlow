@@ -72,17 +72,22 @@ const request = (options) => {
  * 把 wx 的失败对象归一化成带可读 message 的 Error。
  *
  * <p>[2026-09-20 真机联调] 这不是美化文案，是修一个**系统性根因**：`wx.request` 的 `fail`
- * 回调拿到的是 `{errMsg: "request:fail timeout"}` 这种**没有 `message` 字段**的对象，
+ * 回调拿到的是 `{errMsg: "request:fail fail:time out", errno: 5}` 这种**没有 `message` 字段**的对象，
  * 原样 `reject` 出去后，全端约 150 处 `err.message || 'xxx失败'` 会**全部走兜底分支** ——
  * 于是真机弱网/后端没起时，用户看到的是「下单失败: 」（冒号后面什么都没有）、
  * 「保存失败: 」这类**没有原因**的提示，排查时也拿不到任何线索。</p>
  *
  * <p>⚠️ 别把这里改回 `reject(err)`：`err.message` 恒为 `undefined` 是 wx 的既定形状，
  * 不是偶发。要加新文案就在这里加分支，不要在调用点各写一套。</p>
+ *
+ * <p>⚠️⚠️ **[2026-09-22 真机实测] 超时判据必须同时匹配 `timeout` 与 `time out`（两个词）。**
+ * 微信实际给的是 `"request:fail fail:time out"` —— 原来的 `/timeout/i` **匹配不上**，
+ * 于是**超时被误报成「网络连接失败」**，把最有用的那句"请确认手机与后端在同一网络"吞掉了；
+ * 而"超时"恰恰是"手机路由不到后端"最典型的症状（跨网段时对方不回 RST，只会静默丢包）。</p>
  */
 function toNetworkError(err) {
   const raw = (err && (err.errMsg || err.message)) || ''
-  if (/timeout/i.test(raw)) {
+  if (/time\s*out/i.test(raw)) {
     return new Error('网络超时，请确认手机与后端在同一网络后重试')
   }
   if (/fail/i.test(raw)) {

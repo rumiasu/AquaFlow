@@ -260,6 +260,178 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
                 "必须下发净利口径文案: " + report.data().path("profitBasisNote").asText());
     }
 
+    // ==================== [2026-09-25 架构评审问题 6] 水票单的成本不得被过滤 ====================
+    //
+    // 原实现把 `o.payment_method <> 3` 写在 SQL 的 WHERE 里 —— 那一行的原意是"票单的**收入**
+    // 不重复计"（票款在买票那一刻已确认），但它同时把整行**成本事实**也滤掉了：
+    // 期间内兑票配送的货确实出去了，报表里却只有售票实收与工钱 ⇒ 毛利虚高。
+    // 下面四条覆盖报告要求的算例：只有兑票、只售票未兑票、跨期兑票、票单专属商品缺成本。
+
+    @Test
+    @DisplayName("问题6：水票单的成本计入，收入仍不重复计（毛利 36 − 24 = 12）")
+    void ticketOrderCostIsCountedWhileItsRevenueIsExcluded() {
+        long station = createStation("票成本站");
+        long manager = createStaff("票成本站长", "STATION_MANAGER", station, 1);
+        long customer = createCustomer("票成本客户", "gp-ticket-openid");
+        long address = createAddress(customer, "票成本小区 1 号");
+        long product = createProduct("票成本水", 1, "20.00", "30.00", 1, "18.00");
+        createInventoryFull(station, product, 100, 1, "18.00");
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+        assertEquals(0, put("/api/manager/gross-profit/cost", mgr,
+                "{\"productId\":" + product + ",\"costPrice\":12.00}").code(), "成本 12/桶");
+
+        seedTicketPurchase(customer, station, product, "36.00", "NOW()");          // 本期买票实收 36
+        seedTicketOrder(customer, address, station, product, 2, "18.00");          // 本期用票兑出去 2 桶
+
+        String today = java.time.LocalDate.now().toString();
+        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
+        assertEquals(0, report.code(), "毛利报表: " + report);
+        assertEquals(0, new BigDecimal("0.00").compareTo(
+                        new BigDecimal(report.data().path("orderRevenue").asText())),
+                "票单不再按挂牌水价重复计一次收入");
+        assertEquals(0, new BigDecimal("36.00").compareTo(
+                        new BigDecimal(report.data().path("ticketRevenue").asText())),
+                "票款只在买票那一刻计一次");
+        // ⚠️ 本条的核心断言：原实现这里会是 0.00（整张票单被 WHERE 滤掉，成本一起消失）
+        assertEquals(0, new BigDecimal("24.00").compareTo(
+                        new BigDecimal(report.data().path("totalCost").asText())),
+                "水票单的履约成本必须计入（货确实出去了）");
+        assertEquals(0, new BigDecimal("12.00").compareTo(
+                        new BigDecimal(report.data().path("totalProfit").asText())),
+                "毛利 36 − 24 = 12");
+
+        var row = itemOf(report, product);
+        assertEquals(2, row.path("soldQty").asInt(), "「卖出」是履约事实，含用票兑出去的 2 桶");
+        assertEquals(0, new BigDecimal("24.00").compareTo(new BigDecimal(row.path("costAmount").asText())),
+                "该商品成本 = 2 × 12");
+        assertEquals(0, new BigDecimal("36.00").compareTo(new BigDecimal(row.path("revenueTotal").asText())),
+                "行收入 = 订单侧 0 + 该商品本期票款 36");
+    }
+
+    @Test
+    @DisplayName("问题6：只卖票、本期没兑货的商品也要出行（否则这笔收入的去向在明细里查不到）")
+    void ticketPurchaseWithoutDeliveryStillAppears() {
+        long station = createStation("只售票站");
+        long manager = createStaff("只售票站长", "STATION_MANAGER", station, 1);
+        long customer = createCustomer("只售票客户", "gp-ticket-only-openid");
+        long product = createProduct("只售票水", 1, "20.00", "30.00", 1, "18.00");
+        createInventoryFull(station, product, 100, 1, "18.00");
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+
+        seedTicketPurchase(customer, station, product, "36.00", "NOW()");          // 只有买票，没有兑票
+
+        String today = java.time.LocalDate.now().toString();
+        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
+        assertEquals(0, new BigDecimal("36.00").compareTo(
+                new BigDecimal(report.data().path("ticketRevenue").asText())), "票款照实计入");
+        assertEquals(0, new BigDecimal("0.00").compareTo(
+                new BigDecimal(report.data().path("totalCost").asText())), "没有履约就没有成本");
+
+        var row = itemOf(report, product);
+        assertEquals(0, row.path("soldQty").asInt(), "本期没兑货，卖出为 0");
+        assertEquals(0, new BigDecimal("36.00").compareTo(new BigDecimal(row.path("revenueTotal").asText())),
+                "票款要出现在这一行上（金额来源单列，便于对账）");
+        assertEquals("本期只有购票收入，没有兑票记录", row.path("profitText").asText(),
+                "钱已确认、货还没出，不给毛利数字也不编一个 100% 毛利率: " + row);
+    }
+
+    @Test
+    @DisplayName("问题6：跨期兑票 —— 上期买的票、本期兑货：本期只认成本，不重复认收入")
+    void crossPeriodTicketDeliveryCountsCostOnly() {
+        long station = createStation("跨期票站");
+        long manager = createStaff("跨期票站长", "STATION_MANAGER", station, 1);
+        long customer = createCustomer("跨期票客户", "gp-ticket-cross-openid");
+        long address = createAddress(customer, "跨期票小区 1 号");
+        long product = createProduct("跨期票水", 1, "20.00", "30.00", 1, "18.00");
+        createInventoryFull(station, product, 100, 1, "18.00");
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+        assertEquals(0, put("/api/manager/gross-profit/cost", mgr,
+                "{\"productId\":" + product + ",\"costPrice\":12.00}").code());
+
+        // 票是 40 天前买的（在上期确认了收入），货是本期兑出去的
+        seedTicketPurchase(customer, station, product, "36.00", "NOW() - INTERVAL 40 DAY");
+        seedTicketOrder(customer, address, station, product, 2, "18.00");
+
+        String today = java.time.LocalDate.now().toString();
+        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
+        assertEquals(0, new BigDecimal("0.00").compareTo(
+                new BigDecimal(report.data().path("ticketRevenue").asText())),
+                "上期的票款不得落进本期（时间窗按确认收款那一刻）");
+        assertEquals(0, new BigDecimal("24.00").compareTo(
+                new BigDecimal(report.data().path("totalCost").asText())),
+                "本期的货本期认成本");
+        assertEquals(0, new BigDecimal("-24.00").compareTo(
+                new BigDecimal(report.data().path("totalProfit").asText())),
+                "本期只有成本没有对应收入 ⇒ 毛利为负，这是**正确**的跨期口径，不是坏数");
+    }
+
+    @Test
+    @DisplayName("问题6：只由水票单销售、且没填成本的商品，也必须被判定为「缺成本」")
+    void ticketOnlyProductWithMissingCostIsReported() {
+        long station = createStation("票缺成本站");
+        long manager = createStaff("票缺成本站长", "STATION_MANAGER", station, 1);
+        long customer = createCustomer("票缺成本客户", "gp-ticket-missing-openid");
+        long address = createAddress(customer, "票缺成本小区 1 号");
+        long product = createProduct("票缺成本水", 1, "20.00", "30.00", 1, "18.00");
+        createInventoryFull(station, product, 100, 1, "18.00");
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+        // 故意不设成本价
+        seedTicketPurchase(customer, station, product, "36.00", "NOW()");
+        seedTicketOrder(customer, address, station, product, 2, "18.00");
+
+        String today = java.time.LocalDate.now().toString();
+        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
+        // 原实现：票单被 WHERE 滤掉 ⇒ 这一行根本不出行 ⇒ missingCostKinds=0 ⇒
+        // 报表会给出一个"没有缺成本、毛利很漂亮"的假结论。这正是最坏的一种"看起来正确"。
+        assertEquals(1, report.data().path("missingCostKinds").asInt(),
+                "只由票单销售的商品没填成本，也必须被标出来: " + report);
+        assertTrue(report.data().path("totalProfit").isNull(),
+                "有商品没填成本时，合计毛利不得给出数字");
+        assertEquals("未填成本，无法计算", itemOf(report, product).path("profitText").asText(),
+                "该行必须明确写「算不出来」");
+    }
+
+    /** 从报表 items 里按商品取行（找不到就断言失败，避免 NPE 把问题掩盖成空指针）。 */
+    private com.fasterxml.jackson.databind.JsonNode itemOf(Api report, long productId) {
+        for (com.fasterxml.jackson.databind.JsonNode row : report.data().path("items")) {
+            if (row.path("productId").asLong() == productId) {
+                return row;
+            }
+        }
+        throw new AssertionError("报表明细里没有商品 " + productId + "：" + report);
+    }
+
+    /**
+     * 造一张「水票已付、已完成」的订单 + 明细。
+     * <p>票单的钱在买票那一刻就收过了，所以订单侧的 {@code water_amount} 只是**挂牌水价快照**，
+     * 报表不把它算作本期收入（见 GrossProfitMapper 的 revenue 表达式）。</p>
+     */
+    private long seedTicketOrder(long customer, long address, long station, long product,
+                                 int qty, String unitPrice) {
+        BigDecimal total = new BigDecimal(unitPrice).multiply(BigDecimal.valueOf(qty));
+        long order = createOrderFull(customer, address, station, product,
+                4 /* 已完成 */, 2 /* 已付款 */, 3 /* 水票 */,
+                total.toPlainString(), "0.00", total.toPlainString(), false, qty);
+        insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
+                        + "VALUES (?,?,?,?,?,?,?)",
+                order, product, "票单水", new BigDecimal(unitPrice), qty,
+                new BigDecimal("0.00"), total);
+        return order;
+    }
+
+    /**
+     * 造一笔「在线购票」实收（{@code order_id IS NULL}，站长确认收款 = status 2）。
+     *
+     * @param updateTimeExpr 直接拼进 SQL 的时间表达式（如 {@code NOW()} / {@code NOW() - INTERVAL 40 DAY}）——
+     *                       报表按 {@code update_time}（确认收款那一刻）划时间窗，测试必须能控制它
+     */
+    private void seedTicketPurchase(long customer, long station, long product,
+                                    String amount, String updateTimeExpr) {
+        long paymentId = createPaymentRecord(null, customer, station, amount, 1, 2);
+        jdbc.update("UPDATE payment_record SET ticket_water_type_id=?, ticket_qty=1, update_time="
+                + updateTimeExpr + " WHERE id=?", product, paymentId);
+    }
+
     private Api order(String customerToken, long stationId, long addressId, long productId,
                       int qty, String key) {
         return post("/api/orders/create", customerToken,

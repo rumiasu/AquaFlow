@@ -16,8 +16,14 @@ const {
  *   · 留言是配合状态的一句话说明（≤100 字），会原样展示给顾客。
  *   · 公告是本站通知（顾客端只读已发布的），支持草稿。
  *
- * 状态文案（1 正常运营 / 2 休息中 / 3 配送延迟 / 4 暂停配送可预约）**由后端下发**，
- * 前端只用 options 里的 value 提交，不要自己写一套 1..4 的中文映射表。
+ * 状态文案由后端下发，前端只用 value 提交。⚠️ 下面那张 `STATUS_OPTIONS` 是**兜底**
+ * （后端拉不到时用），能拉到 `GET /api/manager/station-status` 的 `options` 就以它为准
+ * （value/text/desc 同源于 `constant/StationOperatingStatus`）—— 手写表最容易在改名/
+ * 增删取值时静默过期。
+ *
+ * [2026-09-24] **兜底表里没有「待上线」**：它是**系统状态**（只有刚注册的站才是它，
+ * 配齐资料后转正、且再也回不去），后端下发的 `options` 已不含它，手动提交 3 也会被拒。
+ * ⚠️ 别因为"兜底表少了 3"就把它加回来 —— 出现了就等于告诉站长他能设，而后端会拒。
  *
  * [2026-09-19] 本页原先还管**水站坐标**（地图选点），已整块搬到
  * `pages/station-mgmt/station-info/` —— 坐标是"水站资料"（固定信息），不是"营业状态"（临时状态）。
@@ -27,7 +33,6 @@ const {
 const STATUS_OPTIONS = [
   { value: 1, name: '正常运营', desc: '照常接单配送' },
   { value: 2, name: '休息中', desc: '打烊/午休，稍后恢复' },
-  { value: 3, name: '配送延迟', desc: '照常接单，送达会晚' },
   { value: 4, name: '暂停配送，可预约', desc: '今天不送，订单明天统一处理' }
 ]
 
@@ -67,7 +72,7 @@ Page({
     try {
       const res = await getStationStatus()
       const d = res.data || {}
-      this.setData({
+      const patch = {
         current: {
           operatingStatus: d.operatingStatus || 1,
           statusText: d.statusText || '正常运营',
@@ -77,7 +82,12 @@ Page({
         },
         picked: d.operatingStatus || 1,
         noteInput: d.note || ''
-      })
+      }
+      // 选项**以后端下发为准**（value/text/desc 三者同源于 constant/StationOperatingStatus）；
+      // 后端还没这个字段时（旧后端）才用文件头那张兜底表，别让它成为唯一来源。
+      const opts = (d.options || []).map(o => ({ value: o.value, name: o.text, desc: o.desc }))
+      if (opts.length) patch.statusOptions = opts
+      this.setData(patch)
     } catch (err) {
       wx.showToast({ title: err.message || '营业状态加载失败', icon: 'none' })
     } finally {

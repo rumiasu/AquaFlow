@@ -84,11 +84,16 @@
           <view class="bucket-info">
             <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#2E4A68" /></view>
             <view class="bucket-detail">
-              <text class="bucket-id">{{item.barrelNo || ('桶号 #' + item.id)}}</text>
+              <!-- ⚠️ BarrelRecord 没有 barrelNo 字段，原写法 item.barrelNo || ('桶号 #' + item.id)
+                   永远走兜底分支，把流水主键当成"桶号"报给客户（假桶号）。
+                   类型/数量/备注后端都已下发（typeText/quantity/note），照实展示即可。 -->
+              <text class="bucket-id">{{item.typeText}}<text wx:if="{{item.quantity > 0}}"> · {{item.quantity}} 桶</text></text>
+              <text class="bucket-time" wx:if="{{item.note}}">{{item.note}}</text>
               <text class="bucket-time" wx:if="{{item.createTime}}">{{item.createTime}}</text>
             </view>
           </view>
-          <view class="bucket-status status-{{item.status || 0}}">
+          <!-- statusText 只对退桶申请（type=2）有值，其余类型后端不下发（见 BarrelRecord.getStatusText） -->
+          <view class="bucket-status status-{{item.status || 0}}" wx:if="{{item.statusText}}">
             <text>{{item.statusText}}</text>
           </view>
         </view>

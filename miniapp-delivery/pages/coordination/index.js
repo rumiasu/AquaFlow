@@ -301,6 +301,9 @@ Page({
     if (this.checkRole()) {
       // 营业状态（软状态 v32：只提示不阻断）：与「配送」页共用实现，见 behaviors/stationNavbar.js
       this.loadStationStatus((app.globalData.userInfo || {}).stationId)
+      // 待填项徽标 + 「条件项刚成立」提醒（见 behaviors/stationNavbar.js；
+      // 非站长会直接 return，不发请求 —— setup-guide 是站长专属接口）
+      this.loadStationPending()
       this.loadTodo()
       this.loadAllData()
     }

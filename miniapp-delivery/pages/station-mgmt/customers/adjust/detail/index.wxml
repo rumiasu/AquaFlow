@@ -35,7 +35,9 @@
         <text class="value">{{detail.isMigratedText}}</text>
       </view>
       <view class="row">
-        <text class="label">单价来源(后端原值)</text>
+        <!-- [2026-09-24] 去掉"(后端原值)"：站长不需要知道值是谁给的，
+             这里只是把系统记下的原始来源照实显示。 -->
+        <text class="label">单价来源（原始记录）</text>
         <text class="value">{{detail.priceSource}}</text>
       </view>
       <view class="row">

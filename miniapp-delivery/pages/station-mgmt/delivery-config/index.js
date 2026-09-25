@@ -37,6 +37,9 @@ Page({
     loading: true,
     saving: false,
     configured: false,
+    // 「配送范围」那段说明的正文（在 loadSetup 里拼好）。为什么不在 wxml 里拼：
+    // 见 loadSetup 的 ⚠️（WXML 表达式解析器不支持带换行的字符串拼接，会编译报错）。
+    rangeHelpText: '按站点坐标到收货地址的直线距离判断。',
     limitModes: LIMIT_MODES,
     floorModes: FLOOR_MODES,
     // 表单值一律用字符串存：留空表示"不限/不收"，用 '' 才能与数字 0 区分开
@@ -94,7 +97,26 @@ Page({
       const res = await getSetupGuide()
       const d = (res && res.data) || {}
       const items = Array.isArray(d.items) ? d.items : []
+      // 待填项每条要显示的两段说明，**在这里拼好**（`helpText`）——
+      // ⚠️ 不要写进 wxml 的 `{{a}}{{b ? '\n\n' + b : ''}}`：WXML 表达式解析器吃不下
+      //    带换行的字符串拼接，直接**编译报错**（Bad attr `text`，2026-09-24 实测）。
+      //     本仓口径也是"wxml 里不做计算"（禁止调 Page 方法 / Math. / Date. 的同一条理由）。
+      const pending = items
+        .filter(i => !i.done)
+        .sort((a, b) => String(a.level).localeCompare(String(b.level)))
+        .map(it => Object.assign({}, it, {
+          helpText: (it.why || '') + (it.suggestion ? '\n\n' + it.suggestion : '')
+        }))
+
+      // 「配送范围」那句说明要不要带上"没选点会被跳过"（2026-09-24 产品要求：坐标这类概念也藏）：
+      // 判据取完善度清单里的 `stationPosition` —— 它未完成 ⇔ 地址或坐标缺 ⇔ 算不出距离
+      // ⇔ 范围校验整段跳过。⚠️ 别自己再写一套"查坐标"的请求：两处判据一定会分叉。
+      const pos = items.find(i => i && i.key === 'stationPosition')
+      const rangeHelp = '按站点坐标到收货地址的直线距离判断。'
       this.setData({
+        rangeHelpText: (pos && !pos.done)
+          ? rangeHelp + '本站还没选点，所以现在这条校验会被跳过、不拦单。'
+          : rangeHelp,
         setup: {
           items,
           summaryText: d.summaryText || '',
@@ -102,12 +124,12 @@ Page({
           doneCount: Number(d.doneCount || 0),
           totalCount: Number(d.totalCount || items.length)
         },
-        // 只把"没配好的"列出来（P0 在前、已完成的收起来），否则卡片会很长且没人看
-        setupPending: items.filter(i => !i.done).sort((a, b) => String(a.level).localeCompare(String(b.level)))
+        setupPending: pending
       })
     } catch (err) {
       console.warn('[DeliveryConfig] 完善度清单获取失败（当作没有）:', err.message)
-      this.setData({ setup: { items: [], summaryText: '', p0PendingCount: 0, doneCount: 0, totalCount: 0 }, setupPending: [] })
+      // 拉不到就**不显示**那句"没选点"：宁可不提醒，也不要凭空断言"你没选点"（说错了更糟）
+      this.setData({ rangeHelpText: '按站点坐标到收货地址的直线距离判断。', setup: { items: [], summaryText: '', p0PendingCount: 0, doneCount: 0, totalCount: 0 }, setupPending: [] })
     }
   },
 

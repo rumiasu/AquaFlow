@@ -154,10 +154,15 @@
       -->
       <view class="pkg-block" wx:if="{{setting.ticketEnabled}}">
         <view class="pkg-head">
-          <text class="pkg-title">水票档位（成组更便宜）</text>
+          <view class="pkg-title-row">
+            <text class="pkg-title">水票档位（成组更便宜）</text>
+            <!-- [2026-09-24] 这段说明原来在本文件里**原样出现了两次**（另一处在独立档位模块），
+                 每次都平铺一整行。现在统一收进「?」；两处文字必须保持逐字一致 ——
+                 改一处要一起改，否则同一条规则两个说法。 -->
+            <help-tip title="水票档位" text="填「张数 + 总价」，例如 10 张 190 元；清空总价 = 删除该档位（保存后生效）。没挂档位时客户只能按单张价买。" />
+          </view>
           <text class="link" catchtap="onOpenTicketPackages">更多档位设置 ›</text>
         </view>
-        <text class="pkg-hint">填「张数 + 总价」，例如 10 张 190 元；清空总价 = 删除该档位（保存后生效）。没挂档位时客户只能按单张价买。</text>
 
         <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
           <input class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" placeholder="张数" />
@@ -256,10 +261,15 @@
       <!-- 档位：与「本站设置」共用同一份行数据（新建商品时用 create 返回的 id 挂上去） -->
       <view class="pkg-block" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
         <view class="pkg-head">
-          <text class="pkg-title">水票档位（成组更便宜）</text>
+          <view class="pkg-title-row">
+            <text class="pkg-title">水票档位（成组更便宜）</text>
+            <!-- [2026-09-24] 这段说明原来在本文件里**原样出现了两次**（另一处在独立档位模块），
+                 每次都平铺一整行。现在统一收进「?」；两处文字必须保持逐字一致 ——
+                 改一处要一起改，否则同一条规则两个说法。 -->
+            <help-tip title="水票档位" text="填「张数 + 总价」，例如 10 张 190 元；清空总价 = 删除该档位（保存后生效）。没挂档位时客户只能按单张价买。" />
+          </view>
           <text class="link" catchtap="onOpenTicketPackages">更多档位设置 ›</text>
         </view>
-        <text class="pkg-hint">填「张数 + 总价」，例如 10 张 190 元；清空总价 = 删除该档位（保存后生效）。没挂档位时客户只能按单张价买。</text>
         <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
           <input class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" placeholder="张数" />
           <text class="pkg-unit">张</text>

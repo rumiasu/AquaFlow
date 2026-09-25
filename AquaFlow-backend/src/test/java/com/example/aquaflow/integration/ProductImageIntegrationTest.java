@@ -78,8 +78,13 @@ class ProductImageIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, list.code(), "一张图签不出来不能让整个选品列表失败（§8.21 口径）");
 
         String url = imageUrlOf(list.data(), productId);
+        // [2026-09-20] 这里**刻意允许两种结果**，不是偷懒：跑测试的机器 COS 配没配不确定
+        // （CI 上没配 → null；本地配了 → http），钉死任一支都会让另一套环境红。
+        // 这一层要守的是**集成级不变量**：不抛异常、且**绝不把 COS 对象键原样当 URL 下发**
+        // （那会让前端拿一个不存在的相对路径去请求，静默无图）。两支各自的精确行为由
+        // ProductImageResolverTest 用可注入签名器确定性覆盖 —— 分工不要搞混。
         assertTrue(url == null || url.startsWith("http"),
-                "COS 对象键要么签成 http 临时 URL、要么降级为 null，实际=" + url);
+                "COS 对象键要么签成 http 临时 URL、要么降级为 null，绝不能原样下发对象键，实际=" + url);
     }
 
     @Test

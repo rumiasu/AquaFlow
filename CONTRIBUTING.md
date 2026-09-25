@@ -60,7 +60,35 @@ cd AquaFlow-backend
 
 ---
 
-## 3. 测试
+## 3. 项目结构
+
+```
+AquaFlow-backend/         后端（Spring Boot）
+├── src/main/java/com/example/aquaflow/
+│   ├── controller/       REST 入口
+│   ├── service/          业务逻辑与事务编排
+│   ├── mapper/           MyBatis 数据访问（注解 SQL + XML）
+│   ├── constant/         枚举（订单状态 / 支付方式 / 支付状态 …）
+│   ├── util/             纯规则（配送计费、客户画像抹除 …）
+│   └── interceptor/ aspect/ config/   横切关注点
+├── src/test/java/.../integration/     集成测试（真实 MySQL + 真 HTTP）
+│   └── scenario/         业务链路级用例
+└── sql/                  schema.sql（基线）+ 迁移脚本 + README.md（清单正本）
+
+miniapp-user/             顾客端小程序
+miniapp-delivery/         站长 + 配送员端小程序
+
+docs/                     面向读者的文档（入口 docs/README.md）
+scripts/                  开发与验证脚本
+archive/                  历史留档（不维护、不引用）
+.github/workflows/ci.yml  CI（必须在仓库根）
+```
+
+> 目录与符号的最新结构**问工具**（`code_map` / `code_search`），不要照抄这份手写清单 —— 它会漂移。
+
+---
+
+## 4. 测试
 
 集成测试位于 `AquaFlow-backend/src/test/java/com/example/aquaflow/integration/`，基类 `support/AbstractIntegrationTest` 会启动完整 Spring 容器、发**真实 HTTP**（JDK `HttpClient`），每个用例前 TRUNCATE 数据表并**断言当前连接的库名含 `test`**（防止误清开发库）。
 
@@ -79,7 +107,7 @@ cd AquaFlow-backend
 
 ---
 
-## 4. 静态门禁
+## 5. 静态门禁
 
 仓库根目录的 Python 脚本是 CI 的一部分，**新克隆的仓库若缺少它们，CI 必然失败**：
 
@@ -100,9 +128,9 @@ bash scripts/verify.sh
 
 ---
 
-## 5. 提交规范
+## 6. 提交规范
 
-### 5.1 信息格式
+### 6.1 信息格式
 
 ```
 <type>(<scope>): <subject>
@@ -112,7 +140,7 @@ bash scripts/verify.sh
 
 标题写**改了什么**，正文写**为什么**。判据：这条信息对三个月后来排查问题的人有用吗？**不写过程叙述，不记录工具、环境或个人账号变动。**
 
-### 5.2 粒度
+### 6.2 粒度
 
 **一次提交只做一件事。** 不要顺手混入无关改动 —— 用 `git status` 核对后再提交，工作区常有并行改动。
 
@@ -124,9 +152,9 @@ git config core.hooksPath .githooks
 
 ---
 
-## 6. 代码约定
+## 7. 代码约定
 
-### 6.1 分层
+### 7.1 分层
 
 ```
 Controller  →  认证 + DTO 校验 + 调服务 + 返回 Result<T>
@@ -136,7 +164,7 @@ Mapper      →  数据访问（注解 SQL + XML）
 
 **Controller 只做这四件事**：禁止直接写 `orders` / `payment_record` / 库存 / 桶资产表；订单状态与副作用只能经由 `OrderWorkflowServiceImpl` 这类编排服务完成。
 
-### 6.2 必须遵守的硬约束
+### 7.2 必须遵守的硬约束
 
 - **所有状态改写必须 CAS 并检查受影响行数。** 无 expected-state 的 `updateStatus` 属待清除的旧路径。
   ⚠️ 本仓库 CAS 方法有**两派参数顺序**，靠名字区分：`updateStatusIf(id, 期望, 新)`（`OrderMapper` / `OrderBarrelExceptionMapper`）与 `updateStatusTo(id, 新, 期望)`（`PaymentRecordMapper` / `StaffPayrollMapper`）。**传反了恒命中 0 行，不报错、静默什么都没改。**
@@ -146,7 +174,7 @@ Mapper      →  数据访问（注解 SQL + XML）
 - **请求体的枚举入参必须白名单校验**。兜底文案不许把未知值说成某个已知值。
 - **金额、客户与订单归属、水票数量一律服务端推导或强校验。**
 
-### 6.3 注释约定
+### 7.3 注释约定
 
 本仓库的注释是工程资产，不是可选项。
 
@@ -155,13 +183,13 @@ Mapper      →  数据访问（注解 SQL + XML）
 - **修完缺陷就地留评论**：在出问题的源头注明「原来是什么 / 为什么错 / 后果是什么 / 正确做法」并标日期。
 - 纯 getter/setter、显而易见的循环**不补**注释。注释的价值是降低误用概率，不是覆盖率。
 
-### 6.4 日志
+### 7.4 日志
 
 **禁止记录**密码、JWT、微信授权码、完整手机号与地址、任何密钥。回复与文档中同样不回显密钥，一律写 `<redacted>`。
 
 ---
 
-## 7. 数据库迁移
+## 8. 数据库迁移
 
 **项目未启用 Flyway**，`sql/**` 全部靠手工执行，没有版本表、没有自动校验。
 
@@ -176,7 +204,7 @@ Mapper      →  数据访问（注解 SQL + XML）
 
 ---
 
-## 8. 小程序约定
+## 9. 小程序约定
 
 - **`wxml` 内禁止调用 Page 方法、`Math.`、`Date.`**；绑定的事件处理函数必须真实存在，否则点击**静默无反应**。
 - 注意 `require` 的相对层级。改完 JS 必须过 `audit_js_syntax.py`。
@@ -185,7 +213,7 @@ Mapper      →  数据访问（注解 SQL + XML）
 
 ---
 
-## 9. 不要做的事
+## 10. 不要做的事
 
 - **不要改 `archive/**`** —— `legacy-web-frontend` 与 `miniapp-station` 均为历史留档，不维护、不引用。
 - **不要提交生成物**：`build/`、`out/`、`.gradle*`、`*.log`、`backup/`、`generated-images/`、`*.html` 预览文件、`project.private.config.json`。
@@ -194,6 +222,6 @@ Mapper      →  数据访问（注解 SQL + XML）
 
 ---
 
-## 10. 许可证
+## 11. 许可证
 
 提交即表示同意以本仓库的 [MIT License](./LICENSE) 授权你的贡献。

@@ -14,25 +14,98 @@ package com.example.aquaflow.constant;
  *
  * <p>产品口径（2026-09-17 与站长确认）：「正常运营、休息等」，**不做强制拦截**，
  * 所以这里不做任何下单校验，只负责文案与提示。文案由后端下发，前端禁止自带映射表。</p>
+ *
+ * <p>⚠️ <b>默认值于 2026-09-23 改成 {@link #PENDING_LAUNCH 待上线}</b>：新注册水站一律「待上线」，
+ * 资料配齐后由站长手动切「正常运营」（列默认值改动见
+ * {@code sql/migration_v61_station_pending_launch.sql}）。在那之前默认是 {@link #NORMAL}。</p>
  */
 public final class StationOperatingStatus {
 
-    /** 正常运营（默认） */
+    /** 正常运营 */
     public static final int NORMAL = 1;
 
     /** 休息中（打烊/午休等，稍后恢复；留言里写恢复时间） */
     public static final int RESTING = 2;
 
-    /** 配送延迟（照常接单，但送达会比平时晚：爆单/天气/人手不足） */
-    public static final int DELAYED = 3;
+    /**
+     * <b>待上线</b> —— <b>新注册水站的默认状态</b>（2026-09-23 起；列默认值改动见
+     * {@code sql/migration_v61_station_pending_launch.sql}）。
+     *
+     * <p>含义：这家站还没把上线必需的资料配好（缺坐标 / 没上架商品 / 没保存过配送计费…）。
+     * 站长端在营业状态下方列出**待填项**并支持点击直达，清单判据在
+     * {@code StationSetupGuideService} —— <b>不在这里重复</b>（本仓"规则目录是单一数据源"）。</p>
+     *
+     * <p>⚠️ <b>墓碑（2026-09-23）</b>：本值 3 原为「<b>配送延迟</b>」（照常接单、送达会比平时晚：
+     * 爆单 / 天气 / 人手不足）。产品裁定**用它换「待上线」**，该表达从此不存在 ——
+     * 要表达"晚送"请用 {@link #RESTING 休息中}，或写进 {@code status_note} 留言。
+     * <b>不要再把 3 当「配送延迟」用。</b></p>
+     */
+    public static final int PENDING_LAUNCH = 3;
 
     /** 暂停接单、可预约（今天不送了，订单统一明天处理） */
     public static final int APPOINTMENT_ONLY = 4;
 
     private StationOperatingStatus() {}
 
+    /**
+     * 全部合法取值（含 {@link #PENDING_LAUNCH}）。**校验合法性**用它，
+     * **给站长做选择器**不要用它 —— 见 {@link #SELECTABLE}。
+     */
+    public static final int[] ALL = { NORMAL, RESTING, PENDING_LAUNCH, APPOINTMENT_ONLY };
+
+    /**
+     * 站长**可以自己设**的取值 = 选择器选项（2026-09-24 产品裁定）。
+     *
+     * <p>⚠️ 与 {@link #ALL} 的差别只有一项：**「待上线」不在里面**。它是**系统状态** ——
+     * 只有刚注册的站才会是它，配齐必填项后转正成「正常运营」，**且再也回不去**
+     * （判据与单向门在 {@code ManagerStationStatusController#update}）。
+     * 让站长能手动设/取消它，等于给了他一个"把自家站从客户视野里摘掉再放回来"的开关，
+     * 那不是这个状态要表达的东西。</p>
+     *
+     * <p>后台报「取值非法」也用这一份：错误提示是站长唯一能看到的"合法取值说明书"，
+     * 上面列出一个他本来就设不了的值只会让人困惑。</p>
+     */
+    public static final int[] SELECTABLE = { NORMAL, RESTING, APPOINTMENT_ONLY };
+
+    /** 给用户看的**可选**取值清单（用于「取值非法」这类错误提示） */
+    public static String selectableText() {
+        return textOf(SELECTABLE);
+    }
+
+    /** 给用户看的取值清单（含系统状态；仅在需要罗列全部取值时用） */
+    public static String allText() {
+        return textOf(ALL);
+    }
+
+    private static String textOf(int[] values) {
+        StringBuilder sb = new StringBuilder();
+        for (int v : values) {
+            if (sb.length() > 0) sb.append(" / ");
+            sb.append(v).append(' ').append(textOf(v));
+        }
+        return sb.toString();
+    }
+
     public static boolean isValid(Integer status) {
         return status != null && status >= NORMAL && status <= APPOINTMENT_ONLY;
+    }
+
+    /** 站长能不能自己把它设成营业状态（{@link #PENDING_LAUNCH} 不能）。 */
+    public static boolean isSelectable(Integer status) {
+        if (!isValid(status)) {
+            return false;
+        }
+        for (int v : SELECTABLE) {
+            if (v == status) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 是否「待上线」（新站默认；站长端据此展示待填项引导）。 */
+    public static boolean isPendingLaunch(Integer status) {
+        return status != null && status == PENDING_LAUNCH;
     }
 
     /** 状态中文文案（全系统唯一来源：后端下发，前端不要自己写 1..4 映射表） */
@@ -41,9 +114,24 @@ public final class StationOperatingStatus {
         switch (status) {
             case NORMAL: return "正常运营";
             case RESTING: return "休息中";
-            case DELAYED: return "配送延迟";
+            case PENDING_LAUNCH: return "待上线";
             case APPOINTMENT_ONLY: return "暂停配送，可预约";
             default: return "正常运营";
+        }
+    }
+
+    /**
+     * 选项的一句话说明（站长端「营业状态」选择器用，前端不要自带映射表）。
+     * <p>与 {@link #textOf} 同源，改文案只改这里。</p>
+     */
+    public static String descOf(Integer status) {
+        if (status == null) return "";
+        switch (status) {
+            case NORMAL: return "照常接单、照常配送";
+            case RESTING: return "暂时打烊，稍后恢复（留言里写恢复时间）";
+            case PENDING_LAUNCH: return "资料还没配齐，尚未正式营业（下方列了待填项）";
+            case APPOINTMENT_ONLY: return "今天不送了，订单统一明天处理";
+            default: return "";
         }
     }
 
@@ -53,7 +141,13 @@ public final class StationOperatingStatus {
      */
     public static String customerHint(Integer status, String note) {
         if (status == null || status == NORMAL) return null;
-        String base = "水站当前：" + textOf(status);
+        String base;
+        if (status == PENDING_LAUNCH) {
+            // 待上线是"这家站还没准备好"，语气与"休息中/暂停配送"不同，单独给一句
+            base = "水站正在完善上线资料，尚未正式营业";
+        } else {
+            base = "水站当前：" + textOf(status);
+        }
         if (note != null && !note.trim().isEmpty()) {
             base += " · " + note.trim();
         }

@@ -13,8 +13,10 @@
   <block wx:else>
     <!-- ============ 基本资料 ============ -->
     <view class="card">
-      <view class="card-title">基本资料</view>
-      <text class="card-sub">客户在下单页靠这些信息认出你，改了要让他们看得懂（如"城东店"而不是"总店"）。</text>
+      <view class="card-title-row">
+        <text class="card-title">基本资料</text>
+        <help-tip title="基本资料" text="客户在下单页靠这些信息认出你，改了要让他们看得懂（如「城东店」而不是「总店」）。" />
+      </view>
 
       <view class="field">
         <text class="field-label">水站名称<text class="required">*</text></text>
@@ -32,6 +34,9 @@
         <text class="field-label">水站地址</text>
         <textarea class="field-textarea" placeholder="写清到能找得到，如：阳光小区 8 栋 1 单元 101" maxlength="200"
                   value="{{form.address}}" bindinput="onAddressInput" />
+        <!-- [2026-09-23] 点明"地址与坐标是一次选点同时得到的"，否则站长会以为要填两遍。
+             [2026-09-24] 压成一行 —— 产品反馈"界面好啰嗦"，细节留给下面的坐标卡说。 -->
+        <text class="field-hint">也可以点下面的「地图选点」自动填入</text>
       </view>
 
       <button class="btn-primary {{saving ? 'btn-disabled' : ''}}" bindtap="onSave">
@@ -43,10 +48,12 @@
     <view class="card">
       <view class="card-head">
         <text class="card-title">水站坐标</text>
+        <!-- [2026-09-24] 说明藏进「?」：本页是"来填字段"的，为什么必须填已经在
+             引导项里说过一遍了，不必每次重述。 -->
+        <help-tip title="水站坐标" text="算配送距离用，和上面的「地址」不是一回事（地址给客户看，坐标给系统算范围）。缺它不会拒单，只是范围校验会整段跳过。" />
         <text class="badge badge-on" wx:if="{{coord.lat !== null}}">已设置</text>
         <text class="badge badge-warn" wx:else>未设置</text>
       </view>
-      <text class="card-sub">用于判断订单是否超出配送范围。不设置也能正常接单，只是无法做范围校验。</text>
       <text class="card-sub" wx:if="{{coord.lat !== null}}">当前坐标：{{coord.lat}}, {{coord.lng}}</text>
       <button class="btn-primary" bindtap="onPickCoordinates" loading="{{coordSaving}}" disabled="{{coordSaving}}">地图选点</button>
       <button class="btn-danger-ghost" wx:if="{{coord.lat !== null}}" bindtap="onClearCoordinates">清除坐标</button>

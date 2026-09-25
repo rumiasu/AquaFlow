@@ -58,7 +58,10 @@
             <text class="quantity-unit">张</text>
           </view>
         </view>
-        <empty wx:if="{{accounts.length === 0}}" text="暂无水票"></empty>
+        <!-- [2026-09-20] 空态必须分两种：拉失败时 accounts 也是空的，一句「暂无水票」会把
+             "没查到"说成"你确实没有票"（AGENTS §8.22）。 -->
+        <empty wx:if="{{accounts.length === 0 && !accountsFailed}}" text="暂无水票"></empty>
+        <empty wx:elif="{{accountsFailed}}" text="水票明细没加载出来，请退出重进本页重试"></empty>
       </view>
     </view>
 
@@ -77,7 +80,9 @@
             </text>
           </view>
         </view>
-        <empty wx:if="{{records.length === 0}}" text="暂无记录"></empty>
+        <!-- [2026-09-20] 同上：记录拉失败时 records 也是空的，别把"没查到"说成"确实没有记录" -->
+        <empty wx:if="{{records.length === 0 && !recordsFailed}}" text="暂无记录"></empty>
+        <empty wx:elif="{{recordsFailed}}" text="消费记录没加载出来，请退出重进本页重试"></empty>
       </view>
     </view>
 
@@ -141,6 +146,13 @@
           {{buyForm.packageId || buyForm.unifiedQty ? '不按档位，改为散买' : '当前：按单张散买'}}
         </view>
       </block>
+
+      <!--
+        [2026-09-20] 档位（优惠价目表）没拉到时的说明。原来这里什么都不显示 ——
+        客户看到的就是"这款水没有优惠档位"，与"确实没配档位"无法区分（AGENTS §8.22）。
+        不阻断买票（照旧可以按单张散买），只把实情说出来。
+      -->
+      <view class="load-error" wx:if="{{packagesError}}">{{packagesError}}</view>
 
       <!-- 数量：张数由所选档位决定（后端会校验张数必须等于档位张数） -->
       <text class="modal-label">购买数量</text>

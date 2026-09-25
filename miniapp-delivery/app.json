@@ -86,7 +86,8 @@
     }
   },
   "usingComponents": {
-    "privacy-popup": "/components/PrivacyPopup/index"
+    "privacy-popup": "/components/PrivacyPopup/index",
+    "help-tip": "/components/HelpTip/index"
   },
   "sitemapLocation": "sitemap.json"
 }

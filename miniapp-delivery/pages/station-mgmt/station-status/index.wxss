@@ -21,6 +21,8 @@
 }
 
 .card-title { font-size: 32rpx; font-weight: 600; }
+/* 标题 + 「?」：问号紧贴标题，不用 .card-header 的 space-between 把它甩到最右边（2026-09-24） */
+.card-title-row { display: flex; align-items: center; }
 .card-sub { display: block; font-size: 22rpx; color: var(--text-secondary); margin-top: 10rpx; line-height: 1.5; }
 
 .badge {

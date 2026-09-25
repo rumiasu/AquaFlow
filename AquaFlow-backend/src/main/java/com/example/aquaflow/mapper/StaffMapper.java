@@ -64,16 +64,36 @@ public interface StaffMapper {
     Staff findByPhone(@Param("phone") String phone);
 
     /**
-     * 仅更新 staff.station_id。
-     * 场景:
-     * <ul>
-     *   <li>站长审批同意绑定: station_id 设为目标站</li>
-     *   <li>站长审批同意解绑: station_id 置 NULL</li>
-     *   <li>站长单方面解除配送员: station_id 置 NULL (同时写 audit_log module=STAFF_BINDING action=FORCE_UNBIND)</li>
-     * </ul>
+     * 绑定归属水站（**CAS：仅当该员工当前没有归属站**）。
+     *
+     * <p>场景：站长审批同意绑定申请。为什么必须带条件 —— 一个配送员可以对多个站各留一条
+     * 待审批申请，两个站同时点「同意」时，双方都会先读到 {@code station_id IS NULL} 而放行；
+     * 无条件的 {@code UPDATE ... WHERE id=?} 会让**后写者覆盖前写者**，
+     * 于是审批记录显示两站都同意了，员工归属却只剩一个（2026-09-25 架构评审问题 8）。</p>
+     *
+     * @return 受影响行数；0 = 已被别人绑走 —— 调用方必须据此拒绝本次审批
      */
-    @Update("UPDATE staff SET station_id = #{stationId}, update_time = NOW() WHERE id = #{id}")
-    void updateStationId(@Param("id") Long id, @Param("stationId") Long stationId);
+    @Update("UPDATE staff SET station_id = #{stationId}, update_time = NOW() WHERE id = #{id} AND station_id IS NULL")
+    int updateStationIdIfUnbound(@Param("id") Long id, @Param("stationId") Long stationId);
+
+    /**
+     * 清空归属水站（**CAS：仅当当前归属确实是这一站**）。
+     *
+     * <p>场景：同意解绑申请 / 站长单方面解除。带 expected 站别是为了防"同意解绑"与
+     * "员工已被调走/已被别站接管"并发时把**新的归属**一并抹掉 ——
+     * 那会让一个正在给 B 站送货的配送员突然变成无归属，所有 requireStationId() 端点全废。</p>
+     *
+     * @return 受影响行数；0 = 归属已变（已解绑 / 已调站）—— 调用方必须据此拒绝
+     */
+    @Update("UPDATE staff SET station_id = NULL, update_time = NOW() WHERE id = #{id} AND station_id = #{expectedStationId}")
+    int clearStationIdIf(@Param("id") Long id, @Param("expectedStationId") Long expectedStationId);
+
+    /*
+     * 已删除：void updateStationId(id, stationId)（2026-09-25，架构评审问题 8）。
+     * 它是无条件写归属（无 expected、无受影响行数），三个调用点全在 DeliveryBindingController，
+     * 现已换成上面两个 CAS 方法。判据同 AGENTS §6「所有状态改写必须 CAS 并检查受影响行数」——
+     * 归属也算状态，无条件的等价于"最后写的人说了算"。
+     */
 
     // ==================== 员工画像聚合 ====================
 

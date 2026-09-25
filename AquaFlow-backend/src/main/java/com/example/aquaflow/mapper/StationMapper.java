@@ -65,7 +65,18 @@ public interface StationMapper {
     @Delete("DELETE FROM station WHERE id = #{id}")
     void delete(@Param("id") Long id);
 
-    @Select("SELECT * FROM station WHERE status = 1")
+    /**
+     * 公开可选水站（顾客选站用）。
+     *
+     * <p>过滤两条：① 硬状态 {@code status = 1}（2 停业 = 下单会被拒，不该出现在选站列表）；
+     * ② **待上线（{@code operating_status = 3}）不出现**（2026-09-24 产品裁定：待上线的站
+     * "不能被发现"，配齐必填项转正后才可见）。</p>
+     *
+     * <p>⚠️ {@code operating_status IS NULL} 要放行：该列是 v61 才加默认值的，
+     * 判据写成 {@code <> 3} 会把 NULL 一起滤掉（SQL 三值逻辑），等于把所有老站从选站列表里删掉。</p>
+     */
+    @Select("SELECT * FROM station WHERE status = 1 "
+            + "AND (operating_status IS NULL OR operating_status <> 3)")
     List<Station> listPublic();
 
     @Select("SELECT * FROM station WHERE id IN (SELECT station_id FROM staff WHERE id = #{creatorId} AND role = 'STATION_MANAGER')")

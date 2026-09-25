@@ -241,10 +241,18 @@ Page({
       return
     }
 
+    // 水站是提交的必需上下文（后端对顾客只认 dto；顾客 JWT 里没有站）。
+    // 拿不到站就**别发请求** —— 后端只会回一句「请先选择服务水站」，让顾客白等一次失败。
+    const stationId = stationStorage.getId()
+    if (!stationId) {
+      wx.showToast({ title: '请先选择服务水站', icon: 'none' })
+      return
+    }
+
     this.setData({ submitting: true })
     try {
       // 不传 depositRefund：金额由服务端按押金条批次核销决定，顾客填多少都不算数
-      await requestBarrelReturn({ productId, waterTypeId: productId, quantity, note })
+      await requestBarrelReturn(productId, quantity, note, stationId)
       wx.showToast({ title: '退桶申请已提交', icon: 'success' })
       this.setData({ showReturnModal: false })
       this.loadData()

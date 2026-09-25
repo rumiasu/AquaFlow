@@ -95,7 +95,9 @@
 
     <!-- ============ 试算结果（全部来自服务端，未落库） ============ -->
     <view class="card" wx:if="{{preview}}">
-      <view class="card-title">试算结果（服务端返回，未落库）</view>
+      <!-- [2026-09-24] 原文"试算结果（服务端返回，未落库）"—— "落库"是开发词。
+           站长关心的只有一件事：**这个还没生效**。 -->
+      <view class="card-title">试算结果（还没保存，确认后才生效）</view>
       <view class="preview-type"><text>{{preview.adjustTypeText}}</text></view>
       <view class="preview-head">
         <text class="col col-name">项目</text>

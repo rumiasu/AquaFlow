@@ -7,7 +7,7 @@
     templates/station-navbar.wxml（样式 styles/station-navbar.wxss，数据与方法 behaviors/stationNavbar.js）。
   -->
   <template is="stationNavbar"
-            data="{{title: '配送', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, rightPad: true}}" />
+            data="{{title: '配送', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, stationPendingCount: stationPendingCount, rightPad: true, stationPanelShow: stationPanelShow, stationPanelLoading: stationPanelLoading, stationPanelItems: stationPanelItems, stationPanelSummary: stationPanelSummary}}" />
 
   <!--
     [2026-09-20 真机联调] 部分列表接口失败时的显式提示。

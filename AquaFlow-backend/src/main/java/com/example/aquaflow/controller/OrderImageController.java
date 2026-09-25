@@ -100,7 +100,10 @@ public class OrderImageController {
             // GlobalExceptionHandler → code=500（系统故障 + 一条 SYSTEM 告警）。
             // 上传失败是可预期的运维状态，应给业务错误让用户看懂；记录一条 ERROR 便于运维定位。
             log.error("[OrderImage] 图片上传失败: orderId={}, error={}", orderId, e.getMessage(), e);
-            return Result.error("图片上传失败");
+            // [2026-09-20] 文案统一由 CosUtil 给：未配密钥时明确说"对象存储未配置"，
+            // 而不是让配送员/站长看到一句无从下手的"图片上传失败"。（上面那个 IOException
+            // 分支读的是 multipart 字节、与 COS 无关，保持原文案。）
+            return Result.error(cosUtil.uploadFailureMessage());
         }
     }
 

@@ -22,7 +22,11 @@ public interface OrderService {
 
     OrderCreateResult createOrder(OrderCreateDTO dto);
 
-    void save(Orders orders);
+    // 已删除：void save(Orders orders)（2026-09-25，架构评审问题 2）。
+    // 它是 POST /api/orders 的服务端实现：接收裸实体、走 OrderMapper.xml 的选择性整行更新，
+    // 客户端可借此改金额 / 履约站（连带结算站）/ 配送员 / 支付方式，且没有状态 CAS。
+    // 该端点零调用方，已随端点一并删除（登记见 docs/audit/删除登记表.md）。
+    // 订单修改一律走具名业务命令或带 expected-state 的专用列更新。
 
     List<Orders> list(Long stationId, Long customerId, Integer status, String createTimeStart, String createTimeEnd,
                       Integer limit, Integer offset);

@@ -256,4 +256,129 @@ class DeliveryBindingIntegrationTest extends AbstractIntegrationTest {
         assertNotEquals(0, post("/api/manager/bind/approve", mgrB, "{\"applicationId\":1}").code(),
                 "没有待审申请时审批应报错");
     }
+
+    // ==================== [2026-09-25 架构评审问题 8] 审批的并发与状态机 ====================
+    // 旧实现：四个审批端点都是「先查 status 再按 id 无条件 UPDATE」（handle 无 status 条件、
+    // 返回 void；updateStationId 无 expected 条件）。两个站同时点「同意」时双方都能通过前置查询，
+    // 后写者覆盖前写者 —— 审批记录显示两站都同意，员工归属却只剩一个。
+    // 现在两步都是 CAS + 检查行数（申请 WHERE status=1；归属 WHERE station_id IS NULL / = 期望站）。
+
+    @Test
+    @DisplayName("问题8：同一员工被两个站同时同意 → 恰好一个成功，归属与成功的那条申请一致")
+    void twoStationsApprovingSameStaff_concurrently_onlyOneWins() throws Exception {
+        long stationA = createStation("并发站A");
+        long stationB = createStation("并发站B");
+        long managerA = createStaff("并发站长A", "STATION_MANAGER", stationA, 1);
+        long managerB = createStaff("并发站长B", "STATION_MANAGER", stationB, 1);
+        long delivery = createStaff("并发配送员", "DELIVERY", null, 1);
+        // 同一配送员对两个站各留一条待审批申请（去重判据是 staff_id + station_id + type，防不住跨站）
+        long appA = insert("INSERT INTO staff_station_application(staff_id, station_id, type, status) VALUES (?,?,1,1)",
+                delivery, stationA);
+        long appB = insert("INSERT INTO staff_station_application(staff_id, station_id, type, status) VALUES (?,?,1,1)",
+                delivery, stationB);
+        String mgrA = staffToken(managerA, "STATION_MANAGER", stationA);
+        String mgrB = staffToken(managerB, "STATION_MANAGER", stationB);
+
+        java.util.List<Api> results = fireTogether(java.util.List.of(
+                () -> post("/api/manager/bind/approve", mgrA, "{\"applicationId\":" + appA + "}"),
+                () -> post("/api/manager/bind/approve", mgrB, "{\"applicationId\":" + appB + "}")));
+
+        long okCount = results.stream().filter(Api::isSuccess).count();
+        assertEquals(1, okCount, "两个站同时同意同一个配送员，只允许一个成功，实际=" + results);
+
+        long finalStation = longOf("SELECT station_id FROM staff WHERE id=?", delivery);
+        assertTrue(finalStation == stationA || finalStation == stationB,
+                "归属必须落在其中一个站上，实际=" + finalStation);
+        // 审批记录必须与最终归属一致：胜方那条是已同意(2)，败方那条**不能**也是已同意
+        int approved = intOf("SELECT COUNT(*) FROM staff_station_application "
+                + "WHERE staff_id=? AND status=2", delivery);
+        assertEquals(1, approved, "只允许一条申请处于已同意(2)，实际=" + approved);
+        assertEquals(finalStation, longOf("SELECT station_id FROM staff_station_application "
+                + "WHERE staff_id=? AND status=2", delivery), "已同意那条必须就是最终归属的那个站");
+        // 败方那条要么被拒(3)、要么被本方法同事务作废(4)，但绝不能还是待审批(1)挂着
+        assertEquals(0, intOf("SELECT COUNT(*) FROM staff_station_application WHERE staff_id=? AND status=1",
+                delivery), "归属已定，其余待审批申请必须一并作废（否则对方站长永远批不掉）");
+    }
+
+    @Test
+    @DisplayName("问题8：同一条申请被重复审批 → 第二次被拒，申请状态与归属都不再变")
+    void approvingSameApplicationTwice_secondIsRejected() {
+        long stationA = createStation("重复审批站A");
+        long stationB = createStation("重复审批站B");
+        long managerA = createStaff("重复审批站长A", "STATION_MANAGER", stationA, 1);
+        long managerB = createStaff("重复审批站长B", "STATION_MANAGER", stationB, 1);
+        long delivery = createStaff("重复审批配送员", "DELIVERY", null, 1);
+        long appA = insert("INSERT INTO staff_station_application(staff_id, station_id, type, status) VALUES (?,?,1,1)",
+                delivery, stationA);
+        String mgrA = staffToken(managerA, "STATION_MANAGER", stationA);
+        String mgrB = staffToken(managerB, "STATION_MANAGER", stationB);
+
+        assertEquals(0, post("/api/manager/bind/approve", mgrA, "{\"applicationId\":" + appA + "}").code(),
+                "第一次同意应成功");
+        assertEquals(stationA, longOf("SELECT station_id FROM staff WHERE id=?", delivery));
+
+        // ① 同一条申请再同意一次（跨站审批会被"不属于本站"拒，所以这里用 A 站站长重放）
+        assertNotEquals(0, post("/api/manager/bind/approve", mgrA, "{\"applicationId\":" + appA + "}").code(),
+                "已处理的申请不得被重复同意");
+        // ② 同意之后再拒绝同一条申请，同样必须被拒（旧实现会无条件覆盖成已拒绝）
+        assertNotEquals(0, post("/api/manager/bind/reject", mgrA, "{\"applicationId\":" + appA + "}").code(),
+                "已同意的申请不得再被拒绝（否则审批记录与归属自相矛盾）");
+        assertEquals(2, intOf("SELECT status FROM staff_station_application WHERE id=?", appA),
+                "申请状态必须仍是已同意(2)");
+        assertEquals(stationA, longOf("SELECT station_id FROM staff WHERE id=?", delivery),
+                "归属不得被后续动作改写");
+        // B 站站长对这条已经生效的申请动手：必须被拒（不属于本站 / 已处理）
+        assertNotEquals(0, post("/api/manager/bind/approve", mgrB, "{\"applicationId\":" + appA + "}").code(),
+                "他站站长不得审批别站的申请");
+    }
+
+    @Test
+    @DisplayName("问题8：解绑确认带 expected 归属 —— 员工已被解绑/调站时不得再抹一次")
+    void unbindConfirm_requiresExpectedStation() {
+        long stationA = createStation("解绑CAS站A");
+        long managerA = createStaff("解绑CAS站长A", "STATION_MANAGER", stationA, 1);
+        long delivery = createStaff("解绑CAS配送员", "DELIVERY", stationA, 1);
+        long unbindApp = insert("INSERT INTO staff_station_application(staff_id, station_id, type, status) "
+                + "VALUES (?,?,2,1)", delivery, stationA);
+        String mgrA = staffToken(managerA, "STATION_MANAGER", stationA);
+
+        // 员工已经被"站长强制解除"先一步解绑 → 此时再确认那条解绑申请
+        assertEquals(0, post("/api/manager/bind/release", mgrA, "{\"staffId\":" + delivery + "}").code(),
+                "先强制解除，制造'归属已变'的并发形态");
+        assertNull(jdbc.queryForObject("SELECT station_id FROM staff WHERE id=?", Object.class, delivery));
+
+        Api confirm = post("/api/manager/bind/unbind-confirm", mgrA,
+                "{\"applicationId\":" + unbindApp + ",\"handleNote\":\"同意解绑\"}");
+
+        assertTrue(!confirm.isSuccess(), "归属已变的解绑确认必须被拒，实际=" + confirm);
+        assertEquals(1, intOf("SELECT status FROM staff_station_application WHERE id=?", unbindApp),
+                "被拒时申请必须仍是待审批(1)，不得留下'已同意但什么也没发生'的记录");
+    }
+
+    /** 真并发小助手（只在上面那条竞态用例里需要；跑法与 ConcurrencyIntegrationTest 同形）。 */
+    private java.util.List<Api> fireTogether(java.util.List<java.util.concurrent.Callable<Api>> tasks)
+            throws Exception {
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(tasks.size());
+        java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(tasks.size());
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        java.util.List<java.util.concurrent.Future<Api>> futures = new java.util.ArrayList<>();
+        try {
+            for (java.util.concurrent.Callable<Api> t : tasks) {
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    start.await();
+                    return t.call();
+                }));
+            }
+            ready.await(10, java.util.concurrent.TimeUnit.SECONDS);
+            start.countDown();
+            java.util.List<Api> out = new java.util.ArrayList<>();
+            for (java.util.concurrent.Future<Api> f : futures) {
+                out.add(f.get(20, java.util.concurrent.TimeUnit.SECONDS));
+            }
+            return out;
+        } finally {
+            pool.shutdownNow();
+        }
+    }
 }

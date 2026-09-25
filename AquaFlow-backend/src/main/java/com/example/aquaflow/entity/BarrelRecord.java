@@ -50,13 +50,19 @@ public class BarrelRecord {
      * 新增状态时两处都要改、极易漏改。统一由后端下发，前端直接渲染 statusText。</p>
      */
     public String getStatusText() {
-        if (status == null) return "使用中";
+        // ⚠️ [2026-09-20] status 是「退桶申请状态」（见上方字段注释：仅 type=2 退桶有意义）。
+        // 其它类型的 status 是写入方留的处理流水标记（配送收发 type=8、纯还桶 type=7 都写 3），
+        // 一旦照原样映射成文案，客户会在「水桶记录」里看到**一条配送流水写着"已退押金"** ——
+        // 而那次配送根本没退过押金（AGENTS §8.22：不能把没发生的事说成发生了）。
+        // 所以非退桶类型一律**不下发**状态文案，由前端按 typeText / 数量 / 备注展示。
+        if (type == null || type != 2) return null;
+        if (status == null) return null;
         switch (status) {
             case 1: return "待处理";
             case 2: return "已确认";
             case 3: return "已退押金";
             case 4: return "已驳回";
-            default: return "使用中";
+            default: return null;
         }
     }
 

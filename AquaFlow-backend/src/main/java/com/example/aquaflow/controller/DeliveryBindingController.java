@@ -5,6 +5,7 @@ import com.example.aquaflow.common.Result;
 import com.example.aquaflow.dto.BindingActionDTO;
 import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.entity.StaffStationApplication;
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.StaffMapper;
 import com.example.aquaflow.mapper.StaffStationApplicationMapper;
 import com.example.aquaflow.mapper.StationMapper;
@@ -284,10 +285,23 @@ public class DeliveryBindingController {
             return Result.error("该配送员当前已绑定其他水站");
         }
 
-        // 事务: 1) 更新申请为已同意  2) 写审批人/时间  3) 改 staff.station_id
-        appMapper.handle(app.getId(), StaffStationApplication.STATUS_APPROVED, myStaffId,
+        // [2026-09-25 架构评审问题 8] 两步都是 **CAS + 检查行数**，不再"先查再无条件写"。
+        // 顺序固定：先落申请（它才是本次动作的对象），再改归属；任一步拿不到行数就抛异常
+        // ——@Transactional 会把前一步一起回滚，绝不会留下"申请已同意但归属没变"的半截状态。
+        int handled = appMapper.handleIfPending(app.getId(), StaffStationApplication.STATUS_APPROVED, myStaffId,
                 params.getHandleNote() != null ? params.getHandleNote() : "");
-        staffMapper.updateStationId(staff.getId(), myStationId);
+        if (handled == 0) {
+            throw new BusinessException("该申请已被处理（可能已被其他站长同意或拒绝），请刷新后重试");
+        }
+        int bound = staffMapper.updateStationIdIfUnbound(staff.getId(), myStationId);
+        if (bound == 0) {
+            // 同一员工的两个站的申请被同时同意：只有一个能真正拿到这个人。
+            // 归属只许有一个，所以这里必须整笔失败（上面那条"申请已同意"随之回滚）。
+            throw new BusinessException("该配送员已被其他水站接收，请刷新列表");
+        }
+        // 归属已定 ⇒ 该员工在别站挂着的待审批申请**不可能再生效**，同事务内一并作废，
+        // 免得对方站长的待办里留一条永远批不掉的申请（与 select-role 改选时的处理同口径）。
+        appMapper.cancelOtherPending(staff.getId(), app.getId());
 
         Map<String, Object> detail = new HashMap<>();
         detail.put("applicationId", app.getId());
@@ -339,7 +353,12 @@ public class DeliveryBindingController {
             return Result.error("该申请不属于本站");
         }
 
-        appMapper.handle(app.getId(), StaffStationApplication.STATUS_REJECTED, myStaffId, reason);
+        // [2026-09-25 架构评审问题 8] CAS + 检查行数：与"同意"并发时只有一个能落，
+        // 否则会出现"同意 8 秒后又被拒绝覆盖"而归属已经改了的矛盾状态。
+        int handled = appMapper.handleIfPending(app.getId(), StaffStationApplication.STATUS_REJECTED, myStaffId, reason);
+        if (handled == 0) {
+            return Result.error("该申请已被处理，请刷新后重试");
+        }
         // 注意: 拒绝绑定不修改 staff.station_id (仍为 NULL)
 
         Map<String, Object> detail = new HashMap<>();
@@ -399,8 +418,17 @@ public class DeliveryBindingController {
             return Result.error("配送员当前归属与申请不一致");
         }
 
-        appMapper.handle(app.getId(), StaffStationApplication.STATUS_APPROVED, myStaffId, handleNote);
-        staffMapper.updateStationId(staff.getId(), null);
+        // [2026-09-25 架构评审问题 8] 同"同意绑定"：先落申请、再清归属，两步都 CAS + 检查行数。
+        // 清归属必须带 expected（当前归属 = 申请里的那一站）：员工若已被调走/别站接管，
+        // 这里绝不能把**新归属**抹掉（那会让正在送货的配送员突然变成无归属）。
+        int handled = appMapper.handleIfPending(app.getId(), StaffStationApplication.STATUS_APPROVED, myStaffId, handleNote);
+        if (handled == 0) {
+            throw new BusinessException("该申请已被处理（可能已被其他站长同意或拒绝），请刷新后重试");
+        }
+        int cleared = staffMapper.clearStationIdIf(staff.getId(), app.getStationId());
+        if (cleared == 0) {
+            throw new BusinessException("该配送员当前归属已变更，解绑未执行，请刷新后重试");
+        }
 
         Map<String, Object> detail = new HashMap<>();
         detail.put("applicationId", app.getId());
@@ -451,7 +479,11 @@ public class DeliveryBindingController {
             return Result.error("该申请不属于本站");
         }
 
-        appMapper.handle(app.getId(), StaffStationApplication.STATUS_REJECTED, myStaffId, reason);
+        // [2026-09-25 架构评审问题 8] CAS + 检查行数（同"拒绝绑定申请"）
+        int handled = appMapper.handleIfPending(app.getId(), StaffStationApplication.STATUS_REJECTED, myStaffId, reason);
+        if (handled == 0) {
+            return Result.error("该申请已被处理，请刷新后重试");
+        }
         // 拒绝解绑不修改 staff.station_id (保持已绑定状态)
 
         Map<String, Object> detail = new HashMap<>();
@@ -514,7 +546,13 @@ public class DeliveryBindingController {
             return Result.error("不能解除自己");
         }
 
-        staffMapper.updateStationId(staffId, null);
+        // [2026-09-25 架构评审问题 8] 置空归属也走 CAS + 检查行数：
+        // 与"同意解绑申请"并发时，谁先到谁生效，后到者拿 0 行、直接拒绝，
+        // 不再出现"两个动作都返回成功、但归属到底谁清的说不清"。
+        int cleared = staffMapper.clearStationIdIf(staffId, myStationId);
+        if (cleared == 0) {
+            return Result.error("该员工当前归属已变更，请刷新后重试");
+        }
 
         Map<String, Object> detail = new HashMap<>();
         detail.put("staffId", staffId);

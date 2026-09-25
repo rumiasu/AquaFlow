@@ -1,6 +1,7 @@
 package com.example.aquaflow.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -29,8 +30,17 @@ public class PaymentCreateDTO {
     @Min(value = 0, message = "超额桶数不能为负")
     private Integer excessBarrels;
 
+    /**
+     * 支付方式：1 微信 / 2 现金(货到付款) / 3 水票 —— 白名单正本在 {@code constant/PayMethod}。
+     *
+     * <p>⚠️ [2026-09-25 架构评审问题 7] 原先只有 {@code @Min(1)}、**没有上界**，于是 99 能一路
+     * 走到 {@code PaymentServiceImpl.createPayment}：它既不是水票（不扣票）、也不是模拟微信
+     * （不置已付），最后落一条 {@code payment_method=99} 的**待收款**流水 —— 站长端「待收款」
+     * 列表里出现一笔永远处理不了的钱。上界与 {@code PayMethod.isValid} 一起补齐。</p>
+     */
     @NotNull(message = "支付方式不能为空")
     @Min(value = 1, message = "支付方式非法")
+    @Max(value = 3, message = "支付方式非法")
     private Integer paymentMethod;
 
     private Long ticketProductId;

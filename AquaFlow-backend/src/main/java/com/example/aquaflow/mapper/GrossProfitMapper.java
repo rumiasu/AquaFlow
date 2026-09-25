@@ -51,6 +51,10 @@ public interface GrossProfitMapper {
      *   <li><b>排除已取消(5)</b>：取消单不该进营收，也不该进毛利。</li>
      *   <li>时间上界用「结束日 + 1 天」（调用方传 {@code endExclusive}）——
      *       写 {@code <= 结束日} 会让当天的销量一条都统计不到（AGENTS §8.19）。</li>
+     *   <li><b>[2026-09-25 修正] 收入排除水票单，成本不排除</b>（评审问题 6）：{@code revenue} 只累计
+     *       非水票单的 {@code subtotal}；{@code soldQty} / {@code costAmount} 覆盖<b>全部</b>履约明细
+     *       ——「卖出多少、货出去多少」是事实，不因收钱方式而变。原实现用 WHERE 过滤票单，
+     *       把成本事实一起滤掉了（毛利虚高），详见 {@code revenue} 那行的注释。</li>
      * </ol>
      *
      * <p>{@code costPrice} 为 NULL 的商品，{@code costAmount} 按 0 计、
@@ -60,7 +64,13 @@ public interface GrossProfitMapper {
     @Select("select oi.product_id as productId, "
             + "       max(oi.product_name_snapshot) as productName, "
             + "       sum(oi.quantity) as soldQty, "
-            + "       round(sum(oi.subtotal), 2) as revenue, "
+            // ⚠️ [2026-09-25 架构评审问题 6] 收入与成本**必须分开过滤**：
+            //    收入排除水票单（票款在买票那一刻已计，见 ticketPurchaseRevenueByProduct），
+            //    成本**不排除**水票单 —— 货确实出去了、人确实送了。
+            //    原实现把 `o.payment_method <> 3` 写在 WHERE 里，等于把整张票单（含成本事实）
+            //    一起滤掉：报表只剩售票实收与工钱，兑票配送的进货成本凭空消失、毛利虚高。
+            //    改法就是下面这一行 CASE WHEN（只过滤"收入"这一个聚合，不过滤行）。
+            + "       round(sum(case when o.payment_method <> 3 then oi.subtotal else 0 end), 2) as revenue, "
             + "       max(i.cost_price) as costPrice, "
             + "       round(sum(oi.quantity * coalesce(i.cost_price, 0)), 2) as costAmount, "
             + "       case when max(i.cost_price) is null then 1 else 0 end as missingCost "
@@ -70,12 +80,6 @@ public interface GrossProfitMapper {
             + "       and i.product_id = oi.product_id "
             + " where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "   and o.status <> 5 "
-            // [2026-09-20 产品口径] 水票支付的订单（payment_method=3）**不计订单侧收入**：
-            // 水票的钱在「买进来」那一刻就确认了（见 ticketPurchaseRevenueByProduct），
-            // 这里再按挂牌水价记一次就是重复计。
-            // ⚠️ 成本（销量×成本）与工钱**不排除**票单 —— 货确实出去了、人确实送了。
-            // 所以期间口径自洽，但**单张票单的毛利会是负的**（成本在、收入不在），看期间合计即可。
-            + "   and o.payment_method <> 3 "
             + "   and o.create_time >= #{start} and o.create_time < #{endExclusive} "
             + " group by oi.product_id "
             + " order by revenue desc")
@@ -109,15 +113,21 @@ public interface GrossProfitMapper {
      *
      * <p>⚠️ 已知边界：票的面值里可能含押金（票可抵整单），而押金是负债不是收入 ——
      * 本版不拆这一层（要拆得逐单回溯票抵明细），所以站长看到的是"票的实收总额"。</p>
+     *
+     * <p>[2026-09-25] 多带一个 {@code productName}：调用方要把这张表与
+     * {@link #grossProfitByProduct} 的订单侧明细**按商品合并**（评审问题 6），
+     * 而"本期只卖了票、还没兑票"的商品在订单侧根本不出行，没有名字就没法显示。</p>
      */
-    @Select("select ticket_water_type_id as productId, "
-            + "       round(coalesce(sum(amount), 0), 2) as ticketRevenue "
-            + "  from payment_record "
-            + " where station_id = #{stationId} "
-            + "   and order_id is null and status = 2 "
-            + "   and ticket_water_type_id is not null "
-            + "   and update_time >= #{start} and update_time < #{endExclusive} "
-            + " group by ticket_water_type_id")
+    @Select("select p.ticket_water_type_id as productId, "
+            + "       max(pr.name) as productName, "
+            + "       round(coalesce(sum(p.amount), 0), 2) as ticketRevenue "
+            + "  from payment_record p "
+            + "  left join product pr on pr.id = p.ticket_water_type_id "
+            + " where p.station_id = #{stationId} "
+            + "   and p.order_id is null and p.status = 2 "
+            + "   and p.ticket_water_type_id is not null "
+            + "   and p.update_time >= #{start} and p.update_time < #{endExclusive} "
+            + " group by p.ticket_water_type_id")
     List<Map<String, Object>> ticketPurchaseRevenueByProduct(@Param("stationId") Long stationId,
                                                              @Param("start") java.time.LocalDateTime start,
                                                              @Param("endExclusive") java.time.LocalDateTime endExclusive);

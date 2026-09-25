@@ -14,6 +14,7 @@ import com.example.aquaflow.mapper.*;
 import com.example.aquaflow.service.AssetService;
 import com.example.aquaflow.service.AuditLogService;
 import com.example.aquaflow.service.InventoryService;
+import com.example.aquaflow.service.InventoryReservationService;
 import com.example.aquaflow.service.OrderService;
 import com.example.aquaflow.service.OrderWorkflowService;
 import com.example.aquaflow.service.PaymentService;
@@ -60,6 +61,13 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private InventoryMapper inventoryMapper;
+
+    /**
+     * 库存预留凭据（唯一写入口）：下单时"预留"而不是扣实物 —— 见
+     * {@code docs/design/28-库存预留与履约凭据.md} 与下方 reserveForItem 调用处的注释。
+     */
+    @Autowired
+    private InventoryReservationService inventoryReservationService;
 
     @Autowired
     private ProductMapper productMapper;
@@ -184,21 +192,36 @@ public class OrderServiceImpl implements OrderService {
         if (dto.getPaymentMethod() == null) {
             throw new BusinessException("支付方式不能为空");
         }
+        // [2026-09-25 架构评审问题 7] 枚举入口白名单（第二道：DTO 上有 @Min/@Max）：
+        // 原实现只判非空，传 99 也能建单 —— 详情与后果见 constant/PayMethod.isValid 的注释。
+        // 白名单正本在 PayMethod，不要在这里写 1/2/3 字面量。
+        if (!PayMethod.isValid(dto.getPaymentMethod())) {
+            throw new BusinessException("不支持的支付方式：" + dto.getPaymentMethod());
+        }
+        if (dto.getSource() != null && (dto.getSource() < 1 || dto.getSource() > 3)) {
+            // 来源取值正本：sql/schema.sql 的 orders.source 列注释（1 电话 / 2 微信 / 3 小程序）。
+            // 它只是标记、没有业务分支读它，所以这里只拒绝越界值，不新建枚举类。
+            throw new BusinessException("订单来源非法：" + dto.getSource());
+        }
         if (dto.getStationId() == null) {
             throw new BusinessException("请先选择服务水站");
         }
 
-        // 幂等性检查：防止重复下单。客户端未传则服务端生成 UUID，确保任何请求都强制幂等，
-        // 杜绝因 idempotencyKey 为 null 而跳过查重（AQ-019）
+        // 幂等键：**必传**（评审问题 5）。
+        // 旧实现"客户端不传就服务端生成一个 UUID"看起来是"强制幂等"，实际等于**没有幂等**：
+        // 同一个请求重试两次会拿到两个不同的键 ⇒ 建两张单（AQ-019 解决了 null 跳过查重，
+        // 但没解决"每次都是新键"）。而"断网后重试"正是幂等唯一的用途。
+        // 契约：键由客户端生成、**跨重试复用**，长度 ≤ 64（列宽）。
+        //   两端小程序都已按这个契约发（miniapp-user/pages/order/create.js 复用 this.data.idempotencyKey，
+        //   成功后才换新；员工端 place-order 也带 staff- 前缀的键）。
+        // ⚠️ 命中幂等的时机见下面「幂等命中」块 —— **在鉴权之后**（报告 §5.5：先鉴权再命中幂等）。
         String idempotencyKey = dto.getIdempotencyKey();
-        if (idempotencyKey == null || idempotencyKey.isEmpty()) {
-            idempotencyKey = java.util.UUID.randomUUID().toString();
+        if (idempotencyKey == null || idempotencyKey.trim().isEmpty()) {
+            throw new BusinessException("缺少幂等键（idempotencyKey），请由客户端生成并在重试时复用");
         }
-        Orders existing = orderMapper.findByIdempotencyKey(idempotencyKey);
-        if (existing != null) {
-            // 幂等命中同样是"一次下单"，欠桶提醒照发（客户可能只看到这一次响应）
-            List<String> warnings = buildOwedWarnings(dto.getCustomerId(), dto.getStationId());
-            return OrderCreateResult.success(existing.getId(), warnings, false);
+        idempotencyKey = idempotencyKey.trim();
+        if (idempotencyKey.length() > 64) {
+            throw new BusinessException("幂等键过长（最多 64 个字符）");
         }
 
         Customer customer = customerMapper.getById(dto.getCustomerId());
@@ -219,9 +242,25 @@ public class OrderServiceImpl implements OrderService {
         //（countCustomerOfStation = 绑定 或 本站订单）：老客户完全可能没有绑定行，
         // 而"客户列表里点得到、下单却说他不是本站客户"是最难排查的一类拒绝。
         // 放宽是安全的：只有与本水站已有关系的客户才放行，他站客户两条都不满足。
-        if ("staff".equals(AuthContext.getUserType())
-                && customerMapper.countCustomerOfStation(dto.getCustomerId(), stationId) == 0) {
-            throw new BusinessException("该客户不属于本水站，无法代客下单");
+        //
+        // [2026-09-25 架构评审问题 3 · 产品裁定「跨站代客下单不合法」]
+        // 上面那条判据只回答"客户与目标站有没有关系"，**不回答"调用者有没有资格替这个站下单"**：
+        // dto.stationId 由请求体传入，所以 A 站员工（乃至任何持 UNSELECTED 引导会话的微信用户）
+        // 只要挑一个"与该站有关系的客户 + 该客户的地址"，就能在 B 站建单、扣 B 站库存、
+        // 动 B 站客户的票与押金。实测（探针用例 2026-09-25）：A 站站长 stationId=B 建单成功。
+        //
+        // 正确做法：**员工站别一律取登录态**（AuthContext，服务端刷新过），与请求里的目标站
+        // 必须相等；跨站业务只走专门的外派/抢单流程（那时货由接单站自己的库存出）。
+        // 与 AGENTS §6「跨站校验一律以 AuthContext 为准，不信任请求参数」同一条判据。
+        if ("staff".equals(AuthContext.getUserType())) {
+            Long myStationId = AuthContext.requireStationId();   // 未绑站（含 UNSELECTED）直接拒
+            if (!myStationId.equals(stationId)) {
+                throw new BusinessException("只能为本站客户下单：当前账号属于其他水站，"
+                        + "跨站业务请走外派流程");
+            }
+            if (customerMapper.countCustomerOfStation(dto.getCustomerId(), stationId) == 0) {
+                throw new BusinessException("该客户不属于本水站，无法代客下单");
+            }
         }
 
         Address addr = addressMapper.getById(dto.getAddressId());
@@ -231,6 +270,29 @@ public class OrderServiceImpl implements OrderService {
         // [AQ-011] 地址必须归属当前下单客户，否则可填他人地址并读出姓名/电话/门牌（隐私泄露）
         if (!dto.getCustomerId().equals(addr.getCustomerId())) {
             throw new BusinessException("该地址不属于当前客户");
+        }
+
+        // ===== 幂等命中（评审问题 5）=====
+        // 位置是刻意的：**身份与归属都验完之后**才允许命中幂等（报告 §5.5「先鉴权再命中幂等」），
+        // 但**早于**商品/库存/票价/计费那一串校验 —— 那种"重试时商品刚好下架了"的情况
+        // 应当仍然拿回原来那单，而不是被一句"商品已下架"挡住（幂等的全部意义就在这里）。
+        //
+        // 作用域 = (customer_id, idempotency_key)：旧实现只按 key 全局查，
+        // 于是"跨客户复用同一个键"会把**别人的订单 id** 返回给调用者（越权信息泄露）。
+        // ⚠️ 唯一键也必须跟着带上 customer_id，否则数据库那层仍然把两个客户的同名键当冲突
+        //（迁移 v62；只改代码不改键 = 第二个客户永远建不了单）。
+        String requestDigest = requestDigest(dto, dto.getCustomerId(), stationId);
+        Orders existing = orderMapper.findByCustomerAndIdempotencyKey(dto.getCustomerId(), idempotencyKey);
+        if (existing != null) {
+            // 同键同内容 → 返回原单（这才是"重试"）；同键**不同内容** → 拒绝，
+            // 否则客户端换个金额/商品用同一个键提交，会拿回一张与本次请求无关的旧单，
+            // 而它以为自己下单成功了。
+            if (existing.getRequestDigest() == null || existing.getRequestDigest().equals(requestDigest)) {
+                // 幂等命中同样是"一次下单"，欠桶提醒照发（客户可能只看到这一次响应）
+                List<String> warnings = buildOwedWarnings(dto.getCustomerId(), stationId);
+                return OrderCreateResult.success(existing.getId(), warnings, false);
+            }
+            throw new BusinessException("该幂等键已用于另一笔内容不同的下单请求，请重新发起");
         }
 
         // [2026-09-15] 这里原本是 [AQ-030]/[DEF-3] 的欠桶硬拦（Σ max(0, over) ≥ 5 即拒绝下单）。
@@ -323,7 +385,9 @@ public class OrderServiceImpl implements OrderService {
             productCache.put(item.getProductId(), product);
             invCache.put(item.getProductId(), inv);
 
-            int stock = inv.getQuantity() != null ? inv.getQuantity() : 0;
+            // [2026-09-25 库存预留模型] 缺货判断读**可用量**（在库实物 − 本站已预留），不是实物：
+            // 下单不再减实物，若不扣掉"已被别的单预留的量"，两个客户会各自把同一批货承诺出去。
+            int stock = inventoryReservationService.availableQty(stationId, item.getProductId());
             if (stock < item.getQuantity()) {
                 OrderCreateResult.ShortageItem s = new OrderCreateResult.ShortageItem();
                 s.setProductId(item.getProductId());
@@ -511,6 +575,9 @@ public class OrderServiceImpl implements OrderService {
         orders.setDeliveryBucketQty(totalNeededBuckets > 0 ? totalNeededBuckets : null);
         orders.setFirstBarrelOrder(firstStationAsset && totalNeededBuckets > 0);
         orders.setIdempotencyKey(idempotencyKey);
+        // 请求摘要：与幂等键一起落库，用来回答"同键的第二次请求内容是否相同"（评审问题 5）。
+        // 见 requestDigest 的注释：只取**业务字段**，不取控制字段与任何服务端算出来的金额。
+        orders.setRequestDigest(requestDigest);
         // 账期快照：该客户在**本站**设了账期、且本单是现金(货到付款)时才有应付日期，其余为 null（即时结清）。
         // 只有下单这一次会算它，之后 due_date 只读（见 ReceivableService.resolveDueDate）。
         // ⚠️ 必须传 stationId：账期是**站级**的（v60），同一家公司在 A 站月结、在 B 站可能只能现结。
@@ -518,13 +585,23 @@ public class OrderServiceImpl implements OrderService {
         orders.setStatus(1);
         orders.setCreateTime(LocalDateTime.now());
         orders.setUpdateTime(LocalDateTime.now());
-        orderMapper.save(orders);
+        try {
+            orderMapper.save(orders);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 并发同键：两个请求同时通过了上面的存在性检查，数据库唯一键
+            // uk_orders_idem_customer(customer_id, idempotency_key) 拦住了第二个。
+            // 必须抛出、不能吞：走到这里时本事务已经写过配送中桶等行，只有回滚才干净
+            //（吞掉后继续提交会因事务被标记 rollback-only 而抛 UnexpectedRollbackException，
+            //  把一次正常的并发拒绝伪装成 500 —— PaymentServiceImpl 里有同形的教训）。
+            throw new BusinessException("该请求已提交过（同一幂等键），请到订单列表查看结果");
+        }
 
         // 更新配送中桶资产记录的关联订单ID（仅关联本次创建的配送中桶记录）
         if (!createdInTransitIds.isEmpty()) {
             customerBarrelInTransitMapper.linkPendingToOrder(orders.getId(), createdInTransitIds);
         }
 
+        List<OrderItem> createdItems = new java.util.ArrayList<>();
         for (OrderCreateDTO.OrderItemDTO item : dto.getItems()) {
             Product product = productCache.get(item.getProductId());
             Inventory inv = invCache.get(item.getProductId());
@@ -533,11 +610,6 @@ public class OrderServiceImpl implements OrderService {
             // 0 视为"无快照"，退押金时回退到押金条上的买入价）；非桶装本来就不收押金 → 同样记 0。
             // 于是这个字段现在**恒为 0**，留着是因为 BarrelLedgerService.depositByProduct 会读它做兜底。
             BigDecimal itemDeposit = BigDecimal.ZERO;
-
-            // 本次实际能扣减的库存量：库存不足时只能扣到 min(stock, quantity)
-            // 落库到 deducted_qty，取消/退款时按此回补，避免"下单10桶库存只有3桶，取消却回补10桶"刷出库存
-            int stock = inv != null && inv.getQuantity() != null ? inv.getQuantity() : 0;
-            int toDecrease = Math.max(0, Math.min(stock, item.getQuantity()));
 
             OrderItem oi = new OrderItem();
             oi.setOrderId(orders.getId());
@@ -548,33 +620,36 @@ public class OrderServiceImpl implements OrderService {
             oi.setPrice(unitPrice);
             oi.setQuantity(item.getQuantity());
             oi.setDeposit(itemDeposit);
-            oi.setDeductedQty(toDecrease);
+            // 先记 0：真正的"下单实际占用库存量"由下面 reserveForItem 写回（它才是唯一知道
+            // 锁到多少可用量的人）。旧实现先算 min(stock, qty) 再落库，口径是"已扣减量"，已废。
+            oi.setDeductedQty(0);
             oi.setSubtotal(unitPrice.multiply(BigDecimal.valueOf(item.getQuantity())));
             oi.setCreateTime(LocalDateTime.now());
             orderItemMapper.insert(oi);
+            createdItems.add(oi);
         }
 
-        // ===== 扣减库存: 库存充足扣全量, 不足扣 min(stock, requested), 为0不扣 =====
+        // ===== [2026-09-25 库存预留模型] 下单**预留**（占可用量），不再扣减实物 =====
+        // 旧实现：`inventoryMapper.decreaseStock` + CONSUME 流水（下单即减实物），取消再 increaseStock 加回去。
+        // 它有两个洞（架构评审问题 4）：
+        //   ① "扣在哪一站"从未落库 → 跨站外派后取消会把货补到履约站（扣的却是归属站），A 站凭空少、B 站凭空多；
+        //   ② 库存不足时只扣 min(stock, qty)，剩下的部分**永远不落账**（补货后完成配送也不再补扣）。
+        // 现在：预留 = 一条 inventory_reservation 凭据（记站别与数量），实物在**完成配送**时才出库
+        //（InventoryReservationService.shipForOrder，预留不足直接拒绝完成）。
+        // 规格见 docs/design/28-库存预留与履约凭据.md。
         List<String> warnings = new java.util.ArrayList<>();
-        for (OrderCreateDTO.OrderItemDTO item : dto.getItems()) {
-            Inventory inv = invCache.get(item.getProductId());
-            int stock = inv.getQuantity() != null ? inv.getQuantity() : 0;
-            int toDecrease = Math.min(stock, item.getQuantity());
-            if (toDecrease > 0) {
-                int affected = inventoryMapper.decreaseStock(stationId, item.getProductId(), toDecrease);
-                if (affected <= 0) {
-                    throw new BusinessException("扣减库存失败: " + productCache.get(item.getProductId()).getName());
-                }
-                // [AQ-029] 扣减库存写流水，与库存变动同事务
-                inventoryService.recordChange(stationId, item.getProductId(), -toDecrease,
-                        InventoryChangeType.CONSUME, orders.getId(), AuthContext.getUserId(), "下单扣减");
-            }
-            if (stock < item.getQuantity()) {
+        for (int i = 0; i < dto.getItems().size(); i++) {
+            OrderCreateDTO.OrderItemDTO item = dto.getItems().get(i);
+            OrderItem oi = createdItems.get(i);
+            int reserved = inventoryReservationService.reserveForItem(
+                    orders.getId(), oi.getId(), stationId, item.getProductId(), item.getQuantity());
+            if (reserved < item.getQuantity()) {
                 Product p = productCache.get(item.getProductId());
-                if (stock == 0) {
+                int lack = item.getQuantity() - reserved;
+                if (reserved == 0) {
                     warnings.add(p.getName() + " 暂时没货，需要等待配送");
                 } else {
-                    warnings.add(p.getName() + " 库存不足(仅剩" + stock + "桶)，缺" + (item.getQuantity() - stock) + "桶需等待配送");
+                    warnings.add(p.getName() + " 库存不足(仅剩" + reserved + "桶)，缺" + lack + "桶需等待配送");
                 }
             }
         }
@@ -617,63 +692,67 @@ public class OrderServiceImpl implements OrderService {
         return OrderCreateResult.success(orders.getId(), warnings, firstStationAsset);
     }
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void save(Orders orders) {
-        // #9: save接口限制 — 只允许更新已存在的订单，不允许通过此接口创建新订单
-        if (orders.getId() == null) {
-            throw new BusinessException("不允许通过此接口创建订单，请使用下单接口");
-        }
-        Orders existing = orderMapper.getById(orders.getId());
-        if (existing == null) {
-            throw new BusinessException("订单不存在");
-        }
+    /*
+     * 已删除：save(Orders)（2026-09-25，架构评审问题 2 · 端点 POST /api/orders）。
+     *
+     * 它曾经做过的三道防护（订单必须已存在 / 调用方属该单履约站 / 回填 station_id·status·
+     * payment_status·createTime）**不足以**让"客户端直传实体"变安全：delivery_station_id
+     * （连带 settle_station_id）、delivery_staff_id、payment_method、四个金额列、
+     * first_barrel_order、桶数字段仍然照写，而 where id=#{id} 没有状态 CAS ——
+     * 与并发业务动作互相覆盖时会把状态写回旧值（AGENTS §8.18「状态不许倒滚」）。
+     * 实测：A 站站长 POST {"id":N,"deliveryStationId":B,"totalAmount":0.01} 三处全部生效。
+     *
+     * 不修成"再屏蔽几个字段"的原因：这条路的存在本身就是"实体全量写入口"，
+     * 而订单的每个可改字段都对应一条具名业务命令（改备注 / 改预约 / 重新报价 / 分配配送员…），
+     * 每条都要有自己的状态门槛与副作用。该端点零调用方，故直接删除（登记见删除登记表）。
+     */
 
-        // AQ-005: 跨站改价/搬单防护 — 调用方必须是订单所属水站的员工；且本接口不允许改站。
-        Long myStationId = AuthContext.requireStationId();
-        Long orderStation = StationUtil.deliveryStation(existing);
-        if (myStationId == null || orderStation == null || !myStationId.equals(orderStation)) {
-            throw new BusinessException("无权修改他站订单");
+    /**
+     * 幂等请求摘要：把"这一次下单意图"规范化成一个 SHA-256 十六进制串（评审问题 5）。
+     *
+     * <p>用途只有一个：回答"同一个幂等键的第二次请求，内容是不是同一件事"。
+     * 同键同内容 → 返回原单；同键不同内容 → 拒绝（否则客户端改了金额/商品再用同一个键提交，
+     * 会拿回一张与本次请求无关的旧单，而它以为自己下单成功了）。</p>
+     *
+     * <p><b>只取业务字段</b>，且必须满足两条：</p>
+     * <ol>
+     *   <li><b>不含服务端算出来的金额</b>（水费/押金/配送费/总额）—— 那些由本站配置与库存推导，
+     *       改了配置不该让"重试"变成"内容不同"；</li>
+     *   <li><b>不含控制字段 {@code confirmShortage}</b> —— 缺货时客户端第一次不带该标记
+     *       （后端只回 needConfirm、**不建单**），弹窗确认后用**同一个键**带标记重提。
+     *       把它算进摘要，第二次提交就会被判成"内容不同"而永远下不了单。</li>
+     * </ol>
+     */
+    private static String requestDigest(OrderCreateDTO dto, Long customerId, Long stationId) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(customerId).append('|').append(stationId).append('|')
+                .append(dto.getAddressId()).append('|')
+                .append(dto.getPaymentMethod()).append('|')
+                .append(dto.getSource()).append('|')
+                .append(nz(dto.getReceiverName())).append('|')
+                .append(nz(dto.getReceiverPhone())).append('|')
+                .append(nz(dto.getGuardInfo())).append('|')
+                .append(nz(dto.getDeliveryTimeRequest())).append('|')
+                .append(nz(dto.getSpecialNote())).append('|')
+                .append(dto.getReturnBucketQty()).append('|');
+        // 商品按 productId 排序后拼接：同一次下单里商品顺序不同不该算"另一件事"
+        dto.getItems().stream()
+                .sorted(java.util.Comparator.comparing(OrderCreateDTO.OrderItemDTO::getProductId,
+                        java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
+                .forEach(i -> sb.append(i.getProductId()).append(':').append(i.getQuantity()).append(','));
+        try {
+            byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(hash);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            // SHA-256 是 JDK 必备算法，走不到这里；真走到了说明运行环境坏了，
+            // 此时**必须失败**而不是退化成"没有摘要"（那会让同键不同内容被静默放过）
+            throw new IllegalStateException("无法计算请求摘要", e);
         }
+    }
 
-        if (orders.getCustomerId() != null) {
-            var customer = customerMapper.getById(orders.getCustomerId());
-            if (customer == null) {
-                throw new BusinessException("客户不存在");
-            }
-        }
-
-        if (orders.getAddressId() != null) {
-            Address addr = addressMapper.getById(orders.getAddressId());
-            if (addr == null) {
-                throw new BusinessException("地址不存在");
-            }
-            // AQ-011: 地址归属校验 — 不允许把订单地址改成他人地址（泄露隐私）。
-            if (orders.getCustomerId() != null && !orders.getCustomerId().equals(addr.getCustomerId())) {
-                throw new BusinessException("地址不属于该客户");
-            }
-            orders.setReceiverName(addr.getName());
-            orders.setReceiverPhone(addr.getPhone());
-            orders.setAddressSnapshot(addr.getDetail());
-            orders.setAddressSnapshotLat(addr.getLat());
-            orders.setAddressSnapshotLng(addr.getLng());
-        }
-
-        // AQ-005/012: 归属锁定 — 不允许通过此接口改站、改客户归属；代客改单的客户必须归属本站。
-        orders.setStationId(existing.getStationId());
-        if (orders.getCustomerId() == null) {
-            orders.setCustomerId(existing.getCustomerId());
-        } else if (customerStationConfigMapper.getByCustomerAndStation(orders.getCustomerId(), myStationId) == null) {
-            throw new BusinessException("该客户不属于当前水站");
-        }
-
-        // 保留原有状态和支付状态，不允许通过此接口修改
-        orders.setStatus(existing.getStatus());
-        orders.setPaymentStatus(existing.getPaymentStatus());
-        orders.setCreateTime(existing.getCreateTime());
-        orders.setUpdateTime(LocalDateTime.now());
-
-        orderMapper.update(orders);
+    private static String nz(String s) {
+        return s == null ? "" : s;
     }
 
     @Override

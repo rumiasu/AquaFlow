@@ -32,7 +32,7 @@
         guard_info, delivery_time_request, special_note, delivery_bucket_qty, return_bucket_qty,
         barrel_discrepancy, barrel_discrepancy_note, first_barrel_order, quantity, create_time, update_time,
         due_date,
-        idempotency_key)
+        idempotency_key, request_digest)
         values
         (#{customerId}, #{addressId}, #{stationId}, #{deliveryStationId}, #{settleStationId}, #{deliveryStaffId},
         #{source}, #{status}, #{paymentMethod}, #{paymentStatus}, #{totalAmount}, #{waterAmount}, #{depositAmount},
@@ -41,58 +41,22 @@
         #{guardInfo}, #{deliveryTimeRequest}, #{specialNote}, #{deliveryBucketQty}, #{returnBucketQty},
         #{barrelDiscrepancy}, #{barrelDiscrepancyNote}, #{firstBarrelOrder}, #{quantity}, #{createTime}, #{updateTime},
         #{dueDate},
-        #{idempotencyKey})
+        #{idempotencyKey}, #{requestDigest})
     </insert>
 
     <!--
-        ⚠️ settle_station_id **刻意没有 <if>**（唯一一列如此）：本 update 由
-        `POST /api/orders`（OrderServiceImpl.save，整行选择性写）驱动，请求体是裸 Orders，
-        **客户端可编造任意字段**。若在这里加 `<if test="settleStationId != null">`，
-        任何站长都能把自己站的营收随手改到别站名下 —— 营收归属只许由 OrderMapper 里
-        那些带 expected-state 的 CAS（抢单/外派/召回/退回池）改，不接受客户端直传。
-        反过来，delivery_station_id 一旦被本语句改写，settle_station_id 必须**跟着一起走**
-        （v47 的口径：改了履约站就是改了结算站），否则两列分叉、营收停在旧站
-        —— 这正是本迁移要消灭的"隐式推导"。
+        已删除：<update id="update">（2026-09-25，架构评审问题 2）。
+
+        它原来是"整行选择性更新"（几十个 <if>、WHERE 只有 id），唯一调用方是
+        OrderServiceImpl.save —— 而那个 service 方法只服务于 POST /api/orders
+        （裸 Orders 实体入口）。两者一起删，理由与证据见 docs/audit/删除登记表.md。
+
+        ⚠️ 特别注意它原来的第 63 行：<if test="deliveryStationId != null">
+              delivery_station_id=#{deliveryStationId}, settle_station_id=#{deliveryStationId}
+        —— 客户端传一个 deliveryStationId 就能把**营收归属（结算站）**搬到别站。
+        要改这两列，只能走 OrderMapper.java 里那几个带 expected-state 的
+        claimPoolIfFree / outsourceToStationIf / outsourceToPoolIf / recallToStationIf。
     -->
-    <update id="update" parameterType="com.example.aquaflow.entity.Orders">
-        update orders
-        <set>
-            <if test="customerId != null">customer_id=#{customerId},</if>
-            <if test="addressId != null">address_id=#{addressId},</if>
-            <if test="stationId != null">station_id=#{stationId},</if>
-            <if test="deliveryStationId != null">delivery_station_id=#{deliveryStationId}, settle_station_id=#{deliveryStationId},</if>
-            <if test="deliveryStaffId != null">delivery_staff_id=#{deliveryStaffId},</if>
-            <if test="source != null">source=#{source},</if>
-            <if test="status != null">status=#{status},</if>
-            <if test="paymentMethod != null">payment_method=#{paymentMethod},</if>
-            <if test="paymentStatus != null">payment_status=#{paymentStatus},</if>
-            <if test="totalAmount != null">total_amount=#{totalAmount},</if>
-            <if test="waterAmount != null">water_amount=#{waterAmount},</if>
-            <if test="depositAmount != null">deposit_amount=#{depositAmount},</if>
-            <if test="deliveryFee != null">delivery_fee=#{deliveryFee},</if>
-            <if test="floorFee != null">floor_fee=#{floorFee},</if>
-            <if test="receiverName != null">receiver_name=#{receiverName},</if>
-            <if test="receiverPhone != null">receiver_phone=#{receiverPhone},</if>
-            <if test="addressSnapshot != null">address_snapshot=#{addressSnapshot},</if>
-            <if test="addressSnapshotLat != null">address_snapshot_lat=#{addressSnapshotLat},</if>
-            <if test="addressSnapshotLng != null">address_snapshot_lng=#{addressSnapshotLng},</if>
-            <if test="guardInfo != null">guard_info=#{guardInfo},</if>
-            <if test="deliveryTimeRequest != null">delivery_time_request=#{deliveryTimeRequest},</if>
-            <if test="specialNote != null">special_note=#{specialNote},</if>
-            <if test="deliveryBucketQty != null">delivery_bucket_qty=#{deliveryBucketQty},</if>
-            <if test="returnBucketQty != null">return_bucket_qty=#{returnBucketQty},</if>
-            <if test="barrelDiscrepancy != null">barrel_discrepancy=#{barrelDiscrepancy},</if>
-            <if test="barrelDiscrepancyNote != null">barrel_discrepancy_note=#{barrelDiscrepancyNote},</if>
-            <if test="firstBarrelOrder != null">first_barrel_order=#{firstBarrelOrder},</if>
-            <if test="idempotencyKey != null">idempotency_key=#{idempotencyKey},</if>
-            <if test="barrelExceptionId != null">barrel_exception_id=#{barrelExceptionId},</if>
-            <if test="exceptionFlag != null">exception_flag=#{exceptionFlag},</if>
-            <if test="exceptionCategory != null">exception_category=#{exceptionCategory},</if>
-            <if test="exceptionCount != null">exception_count=#{exceptionCount},</if>
-            update_time=NOW()
-        </set>
-        where id=#{id}
-    </update>
 
     <select id="list" resultType="com.example.aquaflow.entity.Orders">
         select o.*, c.name as customerName, c.phone as customerPhone,

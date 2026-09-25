@@ -108,6 +108,36 @@ public class GlobalExceptionHandler {
         return Result.error("数据提交失败，请检查输入");
     }
 
+    /**
+     * 请求方法 / Content-Type 不受支持 —— <b>客户端问题，不是系统故障</b>。
+     *
+     * <p>[2026-09-25 架构评审] 实测：删掉 {@code POST /api/orders} 之后，同一个路径上仍有
+     * {@code GET}（订单列表），于是客户端再发 POST 时 Spring 抛 {@code HttpRequestMethodNotSupportedException}
+     * —— 它此前<b>没有分支</b>，落进最下面的 {@code Exception} 处理器：对外 code=500「系统错误」，
+     * 同时给系统管理员发一条 SYSTEM 告警。一个客户端把方法写错，被报成后端故障，
+     * 既把排查引向错误方向，也会淹掉真故障（同 AGENTS §8.21 的判据）。</p>
+     *
+     * <p>这里返回可读的 code=1 并把该路径真正支持的方法列出来 ——
+     * 客户端据此能自己改对，不必来问后端。</p>
+     */
+    @ExceptionHandler({
+            org.springframework.web.HttpRequestMethodNotSupportedException.class,
+            org.springframework.web.HttpMediaTypeNotSupportedException.class
+    })
+    public Result handleMethodOrMediaTypeNotSupported(Exception e) {
+        log.warn("请求方法或内容类型不受支持: {}", e.getMessage());
+        if (e instanceof org.springframework.web.HttpRequestMethodNotSupportedException m
+                && m.getSupportedHttpMethods() != null && !m.getSupportedHttpMethods().isEmpty()) {
+            java.util.List<String> names = new java.util.ArrayList<>();
+            for (org.springframework.http.HttpMethod hm : m.getSupportedHttpMethods()) {
+                names.add(hm.name());
+            }
+            java.util.Collections.sort(names);
+            return Result.error("请求方法不支持：该路径只接受 " + String.join(" / ", names));
+        }
+        return Result.error("请求方法或内容类型不受支持，请检查请求方式与 Content-Type");
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public Result handleRuntimeException(RuntimeException e) {
         // 安全：绝不把原始异常信息（NPE 堆栈、SQL 错误等）直接回传给前端，

@@ -60,6 +60,13 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Autowired
     private OrderMapper orderMapper;
 
+    /**
+     * 库存预留凭据：① 完成配送时**出库**（本类唯一扣实物的地方）；② 换站（放池/外派/抢单/召回）
+     * 时把凭据搬到新的履约站。见 {@code docs/design/28-库存预留与履约凭据.md}。
+     */
+    @Autowired
+    private com.example.aquaflow.service.InventoryReservationService inventoryReservationService;
+
     @Autowired
     private OrderItemMapper orderItemMapper;
 
@@ -501,6 +508,13 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException("该订单尚未完成支付，请先完成支付再配送（微信需支付回调，水票需先扣减）");
         }
 
+        // ===== [2026-09-25 库存预留模型] 出库：**完成配送**才是实物离开仓库的那一刻 =====
+        // 位置刻意放在状态 CAS **之前**：预留不足（缺货待补没补上）或本站实物不够时直接拒绝，
+        // 让站长先去入库补足 —— 绝不允许"少扣一点先把单结了"（问题 4b 的病根就是那 7 桶永不落账）。
+        // 站别取凭据自己记的那个站（跨站外派后 = 履约站），不是订单的归属站。
+        // 放在这里也顺带保证：本方法前半段对桶账/工钱做的事，在这一步失败时一并回滚。
+        inventoryReservationService.shipForOrder(orderId);
+
         // 处理桶差异异常录入
         Long exceptionId = null;
         if (owed != 0) {
@@ -508,13 +522,22 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             input.setActualReturn(returnBucketQty);
             input.setStaffAction(owed > 0 ? "PARTIAL" : "FULL");
             input.setStaffNote(discrepancyNote);
-            try {
-                OrderBarrelExceptionService.OrderBarrelExceptionDTO ex =
-                        orderBarrelExceptionService.recordReturn(orderId, input);
-                exceptionId = ex.getId();
-            } catch (Exception e) {
-                log.error("[OrderWorkflow] 录入回桶异常失败: orderId={}", orderId, e);
-            }
+            // ⚠️ [2026-09-25 架构评审问题 9] 这里**原来包着 try/catch，catch 里只 log.error 后继续**。
+            // 为什么那是错的：recordReturn 是 @Transactional 方法、经接口代理调用 ⇒ 它**参与同一个事务**；
+            // 一旦它抛异常，Spring 已经把共享事务标记成 rollback-only，外层 catch 解除不了 ——
+            // 后面的语句照跑，最终 commit 抛 UnexpectedRollbackException，用户看到的是"系统错误"，
+            // 而且日志里那条"录入回桶异常失败"并不是真正的原因（真正的原因是事务已被判死）。
+            // 判据（AGENTS §6）：**不要在被 @Transactional 的方法里 catch 业务异常**；
+            // PaymentServiceImpl 里处理唯一键冲突那段就是正确写法（必须抛出）。
+            //
+            // 正确做法：异常单是**本次业务事实**（缺桶/多桶要留痕、要站长处置），写不成就是这一单
+            // 没完成 —— 整笔回滚，异常照常往上抛：
+            //   · recordReturn 自己抛的 BusinessException（带可读文案）→ GlobalExceptionHandler 兜成 code=1；
+            //   · 真正意外的异常 → 500 + SYSTEM 告警（这正是它该有的分类，不要吞掉）。
+            // 可以延后到"提交之后再做"的只有外部通知一类动作，不是账务事实。
+            OrderBarrelExceptionService.OrderBarrelExceptionDTO ex =
+                    orderBarrelExceptionService.recordReturn(orderId, input);
+            exceptionId = ex.getId();
         }
 
         // ===== 决定最终状态（付款动作只能由支付链路写）=====
@@ -753,6 +776,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             }
             // 退回池 = 这单又回归属站 → 待收款流水跟着回归属站
             movePendingCollectionTo(orderId, order.getStationId());
+            // [2026-09-25 库存预留模型] 库存凭据跟着履约站走：池中的单没人履约 ⇒ 预留回**归属站**
+            // （若不搬，这单的货就会一直挂在上一个站名下，取消时释放到错站 —— 问题 4a 的形状）
+            inventoryReservationService.transferForOrder(orderId, order.getStationId());
             orderMapper.appendSpecialNote(orderId,
                     "[外派] 站长拒单后外派，原因=" + r + "，原归属站=" + stationId);
         } else {
@@ -927,6 +953,10 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             }
             // 定向外派 = 钱货都归目标站 → 待收款流水跟着走
             movePendingCollectionTo(orderId, targetStationId);
+            // [2026-09-25 库存预留模型] 库存凭据也跟着履约站走：旧站释放、新站按**新站可用量**重建。
+            // 新站不够就是"到新站后仍缺货待补"（不阻断接单，保留"缺货可预订"）；
+            // 但它完成配送时会被 shipForOrder 拦下（那 7 桶必须先在接单站入库补上）。
+            inventoryReservationService.transferForOrder(orderId, targetStationId);
             orderMapper.appendSpecialNote(orderId,
                     "[外派] 站长指定外派至 " + targetStationId + "，原因：" + r + "，原归属站=" + stationId);
             if (risky) appendRiskAckNote(orderId, "外派方", stationId);
@@ -947,6 +977,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             }
             // 放入池中 = 又回归属站 → 待收款流水跟着回归属站
             movePendingCollectionTo(orderId, order.getStationId());
+            // [2026-09-25 库存预留模型] 同上：池中的单没人履约 ⇒ 预留回**归属站**
+            inventoryReservationService.transferForOrder(orderId, order.getStationId());
             orderMapper.appendSpecialNote(orderId, "[外派] 站长放入抢单池，原归属站=" + stationId);
             log("OUTSOURCE", orderId, serviceMap("stationId", stationId));
         }
@@ -981,6 +1013,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         // 召回 = 回归属站 → 待收款流水跟着回归属站
         movePendingCollectionTo(orderId, stationId);
+        // [2026-09-25 库存预留模型] 预留一并召回本站（否则这单的货还挂在被取消外派的那个站名下）
+        inventoryReservationService.transferForOrder(orderId, stationId);
         orderMapper.appendSpecialNote(orderId, "[取消外派] 站长取消外派，恢复本站");
         log("CANCEL_DISPATCH", orderId, null);
     }
@@ -1025,6 +1059,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         // 抢单 = 钱货都归抢单站 → 待收款流水跟着走（否则归属站列着一笔它收不到的钱）
         movePendingCollectionTo(orderId, stationId);
+        // [2026-09-25 库存预留模型] 库存凭据跟着抢单站走（旧站释放、本站在**本站可用量**内重建）。
+        // 本站没货也能抢（保留"缺货可预订"），但完成配送时 shipForOrder 会要求先入库补足。
+        inventoryReservationService.transferForOrder(orderId, stationId);
         orderMapper.appendSpecialNote(orderId, " [抢单] " + stationId + "站抢单成功，配送员=" + target.getName());
         notifyCustomerTempDispatch(order.getCustomerId(), orderId, stationId);
         log("CLAIM_POOL", orderId, serviceMap("stationId", stationId, "staffId", targetStaffId));
@@ -1337,6 +1374,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         // 同意指定退回 = 回归属站 → 待收款流水跟着回归属站
         movePendingCollectionTo(orderId, stationId);
+        // [2026-09-25 库存预留模型] 预留一并退回归属站（同"召回"：货跟着履约站走）
+        inventoryReservationService.transferForOrder(orderId, stationId);
         orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_DIRECTED,
                 OrderTransfer.STATUS_APPROVED, AuthContext.getUserId());
         log("DIRECTED_RETURN_APPROVE", orderId, null);

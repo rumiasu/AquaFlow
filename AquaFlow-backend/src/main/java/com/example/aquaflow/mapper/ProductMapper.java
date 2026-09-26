@@ -108,11 +108,17 @@ public interface ProductMapper {
     /**
      * 本站可售商品（顾客商城/首页/水票页用）：本站已上架 ∩ 在售 ∩ (通用库或本站自定义)。
      * <p>排序把"优先展示"放最前 —— 重构前该字段只影响站长列表，顾客完全看不出来（缺陷 8）。</p>
+     * <p>{@code available_qty} = <b>可用量</b>＝实物 − 本站该商品活跃预留之和（契约工作包 C4）：
+     * 原来直接下发 {@code i.quantity}（实物），"已下单、还没出库"的那部分会被显示成还有货，
+     * 顾客照它下单只会拿到"缺货待补"。判据正本：{@code InventoryReservationService.availableQty}
+     * （{@code status = 1} 即 {@code ReservationStatus.RESERVED}）。</p>
      */
     @Select("select p.id, p.name, p.category, p.brand, p.spec, p.image_object_name, p.description, " +
             "p.price, p.deposit, p.max_per_order, " +
             "i.sale_price, i.deposit_price, i.ticket_enabled, i.ticket_price, i.priority_display, " +
-            "i.quantity as available_qty " +
+            "(i.quantity - coalesce((select sum(r.reserved_qty) from inventory_reservation r " +
+            "   where r.station_id = i.station_id and r.product_id = i.product_id and r.status = 1), 0)) " +
+            "  as available_qty " +
             "from product p " +
             "join inventory i on i.product_id = p.id " +
             "where i.station_id = #{stationId} and i.enabled = 1 and p.status = 1 " +
@@ -124,11 +130,14 @@ public interface ProductMapper {
      * 单个商品的"本站视角"（详情/下单页用）。
      * <p>本站没配置过时 {@code i.*} 全为 NULL：生效价回落通用库参考价、{@code inStock=false}；
      * <b>可见性</b>（这个商品能不能给他看）由 Controller 按 {@code owner_station_id} + {@code status} 判定。</p>
+     * <p>{@code available_qty} 口径同 {@link #listSellableByStationWithInventory}（实物 − 活跃预留，C4）。</p>
      */
     @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, p.image_object_name, p.description, " +
             "p.price, p.deposit, p.max_per_order, p.status, " +
             "i.sale_price, i.deposit_price, i.ticket_enabled, i.ticket_price, i.priority_display, " +
-            "i.quantity as available_qty " +
+            "(i.quantity - coalesce((select sum(r.reserved_qty) from inventory_reservation r " +
+            "   where r.station_id = i.station_id and r.product_id = i.product_id and r.status = 1), 0)) " +
+            "  as available_qty " +
             "from product p " +
             "left join inventory i on i.product_id = p.id and i.station_id = #{stationId} " +
             "where p.id = #{id}")

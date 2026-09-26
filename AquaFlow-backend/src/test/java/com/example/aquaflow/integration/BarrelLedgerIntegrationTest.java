@@ -69,7 +69,7 @@ class BarrelLedgerIntegrationTest extends AbstractIntegrationTest {
         // 下单时算出的 shortage=1：钱已付、桶还没送到 → 记在「配送中」
         long order = createOrderFull(customer, addr, station, product,
                 2 /* 配送中 */, 0, 2 /* 现金 */, "20.00", "30.00", "50.00", true /* 首次桶装水订单 */, 1);
-        createOrderItem(order, product, "桶装水18.9L", 1, "20.00", "30.00", 1);
+        createReservedItem(order, product, "桶装水18.9L", 1, "20.00", "30.00");
         createBarrelInTransit(customer, station, product, 1, "30.00", order, "PENDING");
 
         Api res = post("/api/delivery/orders/" + order + "/complete", mgrToken(), "{}");
@@ -103,7 +103,7 @@ class BarrelLedgerIntegrationTest extends AbstractIntegrationTest {
 
         long order = createOrderFull(customer, addr, station, product,
                 2 /* 配送中 */, 0, 2 /* 现金 */, "20.00", "0.00", "20.00", false, 1);
-        long itemId = createOrderItem(order, product, "桶装水18.9L", 1, "20.00", "30.00", 1);
+        long itemId = createReservedItem(order, product, "桶装水18.9L", 1, "20.00", "30.00");
 
         // 送 1 个满桶、收回 1 个空桶、本单新购 0 → delta = 1-1-0 = 0
         Api res = post("/api/delivery/orders/" + order + "/complete", mgrToken(),

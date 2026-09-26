@@ -57,6 +57,10 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
+    /** 自助支付能力投影用（{@code canSelfPay}）：渠道能力只有支付侧知道（见 PaymentServiceImpl）。 */
+    @Autowired
+    private com.example.aquaflow.service.PaymentService paymentService;
+
     @Autowired
     private OrderMapper orderMapper;
 
@@ -154,6 +158,9 @@ public class OrderController {
                 return Result.error("无权查看他站订单");
             }
         }
+        // 能否自助支付由**服务端按当前渠道能力**投影（契约 A3）：实体自己不知道这个部署开了哪些渠道，
+        // 一律 false 会让"模拟渠道开着时未付微信单"没有入口，一律 true 又会给出现金单的假支付按钮。
+        order.setSelfPayAllowed(paymentService.canSelfPay(order));
         return Result.success(order);
     }
 

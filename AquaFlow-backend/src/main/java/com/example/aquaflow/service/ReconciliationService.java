@@ -280,6 +280,50 @@ public class ReconciliationService {
         // 判据与 V1 的 b3d、V2 的 E6 共用同一个方法 —— 三处不可能分叉，见 depositShortfallSql 的注释。
         r.put("SE6_depositShortfall", count(depositShortfallSql(true), stationId));
 
+        // SE7~SE10：本站的库存预留凭据（2026-09-25 库存预留模型）—— E11~E14 的按站版。
+        // 站长能看到本站的这四项，才有办法自己处置（先入库 / 先补凭据），不必等平台运维。
+        // 判据与全平台版**同源**（同样的四种形状），只是多一个站过滤条件：
+        //   SE7 = E11（本站 Σ活跃预留 > 在库实物）、SE8 = E12（本站履约的在途明细漏凭据）、
+        //   SE9 = E13（凭据站别 ≠ 该单当前履约站，进/出本站两个方向都算）、SE10 = E14（预留量越界）
+        r.put("SE7_reservedExceedsStock", count("SELECT COUNT(*) FROM ("
+                + "SELECT r.station_id, r.product_id FROM inventory_reservation r "
+                + "JOIN inventory i ON i.station_id = r.station_id AND i.product_id = r.product_id "
+                + "WHERE r.status = 1 AND r.station_id = ? GROUP BY r.station_id, r.product_id "
+                + "HAVING SUM(r.reserved_qty) > MAX(i.quantity)) x", stationId));
+
+        // 只看"本站正在履约"的单：判据同全平台版（coalesce 履约站，不是归属站）
+        r.put("SE8_inflightItemsWithoutCredential", count(
+                "SELECT COUNT(*) FROM order_item oi JOIN orders o ON o.id = oi.order_id "
+                + "WHERE o.status IN (1, 2) AND COALESCE(o.delivery_station_id, o.station_id) = ? "
+                + "AND NOT EXISTS (SELECT 1 FROM inventory_reservation r "
+                + "  WHERE r.order_item_id = oi.id AND r.status = 1)", stationId));
+
+        // 两个方向都算：货挂在别站而本站该履约（要拉回凭据）、货挂在本站而单已换到别站（要让位）
+        r.put("SE9_credentialWrongStation", count(
+                "SELECT COUNT(*) FROM inventory_reservation r JOIN orders o ON o.id = r.order_id "
+                + "WHERE r.status = 1 AND r.station_id <> COALESCE(o.delivery_station_id, o.station_id) "
+                + "AND (r.station_id = ? OR COALESCE(o.delivery_station_id, o.station_id) = ?)",
+                stationId, stationId));
+
+        r.put("SE10_reservedOutOfRange", count(
+                "SELECT COUNT(*) FROM inventory_reservation r JOIN order_item oi ON oi.id = r.order_item_id "
+                + "WHERE r.status = 1 AND r.station_id = ? "
+                + "AND (r.reserved_qty < 0 OR r.reserved_qty > r.need_qty)", stationId));
+
+        // SE11/SE12：E15/E16 的按站版（二次收口 B2/B3）
+        r.put("SE11_needSnapshotMismatch", count(
+                "SELECT COUNT(*) FROM inventory_reservation r JOIN order_item oi ON oi.id = r.order_item_id "
+                + "WHERE r.status = 1 AND r.station_id = ? "
+                + "AND (r.need_qty <> oi.quantity OR r.reserved_qty > oi.quantity)", stationId));
+
+        // SE12：E16 的按站版（同样带 `reserved_qty > 0`：外派到"没配这个商品"的站是合法动作，
+        // 那边的凭据 reserved=0 属缺货待补，不能算成差异）
+        r.put("SE12_credentialWithoutInventoryRow", count(
+                "SELECT COUNT(*) FROM inventory_reservation r WHERE r.status = 1 AND r.station_id = ? "
+                + "AND r.reserved_qty > 0 "
+                + "AND NOT EXISTS (SELECT 1 FROM inventory i "
+                + "  WHERE i.station_id = r.station_id AND i.product_id = r.product_id)", stationId));
+
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("stationId", stationId);
         out.put("checks", r);
@@ -534,6 +578,90 @@ public class ReconciliationService {
             log.error("[对账V2 ALERT E10] 已核销却未收款的订单 {} 条。示例={}",
                     e10, sampleIds("SELECT id FROM orders WHERE settlement_status = 2 "
                             + "AND (payment_status IS NULL OR payment_status <> 2)"));
+        }
+
+        // ---- E11~E14：库存预留凭据（2026-09-25 库存预留模型，迁移 v63）----
+        // 为什么"等式4（quantity == Σ inventory_record.delta）"还不够：预留**不动 quantity、不写流水**，
+        // 所以实物账平完全可能与"已经卖出去的货"矛盾。这四条覆盖的正是等式4 看不见的那一面：
+        //   E11 预留超实物：本站该商品 Σ活跃预留 > 在库实物（= 把不存在的货卖了，返工 R1 的形状）
+        //   E12 在途单漏凭据：状态 1/2 的订单明细没有活跃凭据 ⇒ 完成配送时会被 shipForOrder 拒绝，
+        //       站长只会看到"凭据不完整"，得先知道是哪几单（迁移漏行 / 手工改库的形状）
+        //   E13 凭据挂错站：凭据站别 ≠ 该单当前履约站（换站没搬凭据的形状，跨站外派后取消补错站的那类）
+        //   E14 预留量越界：reserved_qty 为负或超过订单需求量（补位的加数算错 / 明细被改过的形状）
+        // 只读校验，与 V1/V2 其余条目同级：不平 = 系统故障，投系统管理员（站长既看不懂也修不了）。
+        int e11 = count("SELECT COUNT(*) FROM ("
+                + "SELECT r.station_id, r.product_id FROM inventory_reservation r "
+                + "JOIN inventory i ON i.station_id = r.station_id AND i.product_id = r.product_id "
+                + "WHERE r.status = 1 GROUP BY r.station_id, r.product_id "
+                + "HAVING SUM(r.reserved_qty) > MAX(i.quantity)) x");
+        r.put("E11_reservedExceedsStock", e11);
+        if (e11 > 0) {
+            log.error("[对账V2 ALERT E11] 库存预留超过在库实物：{} 个(站,商品)。示例={}",
+                    e11, sampleIds("SELECT CONCAT(r.station_id, '/', r.product_id) FROM inventory_reservation r "
+                            + "JOIN inventory i ON i.station_id = r.station_id AND i.product_id = r.product_id "
+                            + "WHERE r.status = 1 GROUP BY r.station_id, r.product_id "
+                            + "HAVING SUM(r.reserved_qty) > MAX(i.quantity) LIMIT 20"));
+        }
+
+        int e12 = count("SELECT COUNT(*) FROM order_item oi JOIN orders o ON o.id = oi.order_id "
+                + "WHERE o.status IN (1, 2) AND NOT EXISTS (SELECT 1 FROM inventory_reservation r "
+                + "  WHERE r.order_item_id = oi.id AND r.status = 1)");
+        r.put("E12_inflightItemsWithoutCredential", e12);
+        if (e12 > 0) {
+            log.error("[对账V2 ALERT E12] 在途订单明细缺少库存预留凭据：{} 条。示例={}",
+                    e12, sampleIds("SELECT oi.id FROM order_item oi JOIN orders o ON o.id = oi.order_id "
+                            + "WHERE o.status IN (1, 2) AND NOT EXISTS (SELECT 1 FROM inventory_reservation r "
+                            + "  WHERE r.order_item_id = oi.id AND r.status = 1) LIMIT 20"));
+        }
+
+        // ⚠️ 站别取 orders 当前履约站 `coalesce(delivery_station_id, station_id)`，与
+        // StationUtil.deliveryStation / InventoryReservationMapper 的判据同源；写死 o.station_id
+        // 会把"外派到别站履约"的正常单全算成错站。
+        int e13 = count("SELECT COUNT(*) FROM inventory_reservation r JOIN orders o ON o.id = r.order_id "
+                + "WHERE r.status = 1 AND r.station_id <> COALESCE(o.delivery_station_id, o.station_id)");
+        r.put("E13_credentialWrongStation", e13);
+        if (e13 > 0) {
+            log.error("[对账V2 ALERT E13] 库存预留凭据挂在非履约站：{} 条（换站时没搬凭据 / 被手工改过）。示例={}",
+                    e13, sampleIds("SELECT r.order_id FROM inventory_reservation r JOIN orders o ON o.id = r.order_id "
+                            + "WHERE r.status = 1 AND r.station_id <> COALESCE(o.delivery_station_id, o.station_id) LIMIT 20"));
+        }
+
+        int e14 = count("SELECT COUNT(*) FROM inventory_reservation r "
+                + "WHERE r.status = 1 AND (r.reserved_qty < 0 OR r.reserved_qty > r.need_qty)");
+        r.put("E14_reservedOutOfRange", e14);
+        if (e14 > 0) {
+            log.error("[对账V2 ALERT E14] 库存预留量越界（负数或超过需求量快照）：{} 条。示例={}",
+                    e14, sampleIds("SELECT r.id FROM inventory_reservation r "
+                            + "WHERE r.status = 1 AND (r.reserved_qty < 0 OR r.reserved_qty > r.need_qty) LIMIT 20"));
+        }
+
+        // ---- E15：需求量快照与真相源不一致（v65，二次收口 B2）----
+        // need_qty 是"下单那一刻 order_item.quantity"的副本，补位**只读它** —— 副本一旦与真相源分叉，
+        // 分配就会按错的量走。这条把它钉住：既查"快照 ≠ 明细量"，也查"明细量被改小后预留反而超过它"。
+        int e15 = count("SELECT COUNT(*) FROM inventory_reservation r JOIN order_item oi ON oi.id = r.order_item_id "
+                + "WHERE r.status = 1 AND (r.need_qty <> oi.quantity OR r.reserved_qty > oi.quantity)");
+        r.put("E15_needSnapshotMismatch", e15);
+        if (e15 > 0) {
+            log.error("[对账V2 ALERT E15] 预留凭据的需求量快照与订单明细不一致：{} 条。示例={}",
+                    e15, sampleIds("SELECT r.id FROM inventory_reservation r JOIN order_item oi ON oi.id = r.order_item_id "
+                            + "WHERE r.status = 1 AND (r.need_qty <> oi.quantity OR r.reserved_qty > oi.quantity) LIMIT 20"));
+        }
+
+        // ---- E16：活跃凭据所在的 (站,商品) 没有库存行（v65，二次收口 B3）----
+        // ⚠️ E11 是 `join inventory` 按 (站,商品) 分组比较 —— 一份挂在"根本没有库存行"的站上的凭据
+        // 会被内连接直接过滤掉，**永远不被 E11 看见**，于是它可以长期保留一个没有实物支撑的承诺。
+        // 这类凭据正是"可分配量算错"的产物（迁移时原扣减站库存行缺失、或绕过服务写库）。
+        int e16 = count("SELECT COUNT(*) FROM inventory_reservation r WHERE r.status = 1 "
+                + "AND r.reserved_qty > 0 "
+                + "AND NOT EXISTS (SELECT 1 FROM inventory i "
+                + "  WHERE i.station_id = r.station_id AND i.product_id = r.product_id)");
+        r.put("E16_credentialWithoutInventoryRow", e16);
+        if (e16 > 0) {
+            log.error("[对账V2 ALERT E16] 活跃预留凭据挂在没有库存行的 (站,商品) 上、且承诺了数量：{} 条。示例={}",
+                    e16, sampleIds("SELECT r.id FROM inventory_reservation r WHERE r.status = 1 "
+                            + "AND r.reserved_qty > 0 "
+                            + "AND NOT EXISTS (SELECT 1 FROM inventory i "
+                            + "  WHERE i.station_id = r.station_id AND i.product_id = r.product_id) LIMIT 20"));
         }
 
         // ---- E9（E-PAY）：工资结算单合计 vs 本期明细之和（v37）----

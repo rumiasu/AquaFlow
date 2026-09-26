@@ -230,7 +230,10 @@ public class LoginController {
         // token 走的是 generateAccessToken(userId, userType, role, stationId) **四参重载**
         // → pendingOpenid 为 null；若把 openid 校验放在本分支之前，改选会永远以
         // 「身份信息缺失」失败（这正是初版实现过的错）。
-        Staff exist = (userId != null && userId > 0) ? staffMapper.getById(userId) : null;
+        // [2026-09-25 返工 R6] 用**行锁读**（统一锁序：员工聚合 → 申请行）。改选这一步要
+        // "撤掉该员工挂着的待审批申请 + 改 role"，若按"先锁申请行、再锁员工行"来做，
+        // 就与站长审批（员工 → 申请）正好相反，两者并发即可构成循环等待。
+        Staff exist = (userId != null && userId > 0) ? staffMapper.getByIdForUpdate(userId) : null;
         if (exist != null) {
             if (exist.getStationId() != null) {
                 return Result.error("身份已生效（已绑定水站），如需更换请联系管理员处理");

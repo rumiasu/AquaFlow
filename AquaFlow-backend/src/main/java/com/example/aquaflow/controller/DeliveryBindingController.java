@@ -56,7 +56,10 @@ public class DeliveryBindingController {
         Long stationId = params.getStationId();
         String applyNote = params.getApplyNote() != null ? params.getApplyNote() : "";
 
-        Staff staff = staffMapper.getById(staffId);
+        // [2026-09-25 返工 R6] 加锁读员工行（统一锁序：员工聚合 → 申请行）。
+        // 不加锁时"读 station_id 为空 → 插一条待审批申请"与"另一站正好批准（把归属写上了）"
+        // 会交错，插出一条对已绑定员工永远批不掉的申请（对方站长点同意只会得到"已被其他水站接收"）。
+        Staff staff = staffMapper.getByIdForUpdate(staffId);
         if (staff == null) {
             return Result.error("员工不存在");
         }
@@ -102,8 +105,13 @@ public class DeliveryBindingController {
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
     @PostMapping("/api/delivery/bind/cancel")
+    @Transactional(rollbackFor = Exception.class)
     public Result<Void> cancelApply(@RequestBody(required = false) Map<String, Object> params) {
         Long staffId = AuthContext.getUserId();
+
+        // [2026-09-25 返工 R6] 先锁自己的员工行（统一锁序：员工聚合 → 申请行）：
+        // 撤回与"站长同意"并发时，两边都按同一顺序取锁 ⇒ 不会形成环，胜者由状态 CAS 决定。
+        staffMapper.getByIdForUpdate(staffId);
 
         Long applicationId = null;
         if (params != null && params.get("applicationId") != null) {
@@ -135,7 +143,11 @@ public class DeliveryBindingController {
             return Result.error("当前申请状态不允许取消");
         }
 
-        appMapper.cancel(target.getId());
+        // 上面是"读后判断"，这里必须再 CAS 一次并检查行数：读与写之间站长可能已经同意了这条申请
+        //（本轮返工 R6）。无条件 update 会把"已同意"改写成"已取消"，而归属已经改了 —— 静默不一致。
+        if (appMapper.cancelIfPending(target.getId()) == 0) {
+            return Result.error("该申请已被处理，请刷新后重试");
+        }
 
         Map<String, Object> detail = new HashMap<>();
         detail.put("applicationId", target.getId());
@@ -154,7 +166,8 @@ public class DeliveryBindingController {
         Long staffId = AuthContext.getUserId();
         String applyNote = params != null && params.get("applyNote") != null ? params.get("applyNote").toString() : "";
 
-        Staff staff = staffMapper.getById(staffId);
+        // [2026-09-25 返工 R6] 加锁读员工行（统一锁序），见 applyBind 的注释
+        Staff staff = staffMapper.getByIdForUpdate(staffId);
         if (staff == null) {
             return Result.error("员工不存在");
         }
@@ -274,7 +287,13 @@ public class DeliveryBindingController {
             return Result.error("该申请不属于本站");
         }
 
-        Staff staff = staffMapper.getById(app.getStaffId());
+        // [2026-09-25 返工 R6] **先锁员工行**（聚合根），再动申请行。
+        // 这一步是本方法唯一的取锁顺序声明：下面是"改申请 → 改归属 → 取消该员工其它申请"，
+        // 三步横跨两张表；若并发方走的是相反顺序（先申请后员工），两者就会互相等待成环。
+        // 统一成"员工 → 申请"后，同一员工的审批/撤回/解绑全部退化为排队；拿不到锁的一方等到
+        // 前者提交，再被 CAS 判成"已被处理"→ code=1（**可读业务拒绝**，不是 500 / SYSTEM 告警）。
+        // 这里必须重新读一次：加锁前读到的那份可能是旧的（role / station_id 正是下面要判的字段）。
+        Staff staff = staffMapper.getByIdForUpdate(app.getStaffId());
         if (staff == null) {
             return Result.error("员工不存在");
         }
@@ -353,6 +372,11 @@ public class DeliveryBindingController {
             return Result.error("该申请不属于本站");
         }
 
+        // [2026-09-25 返工 R6] 统一锁序：员工聚合（行锁）在前、申请行在后。
+        // 本方法只写一条申请行，看似不需要；但"同意/撤回"两步走的是这个顺序，
+        // 拒绝若反着来（先申请后员工）就会给它们制造环 —— 锁序是全组的约定，不是单点的选择。
+        staffMapper.getByIdForUpdate(app.getStaffId());
+
         // [2026-09-25 架构评审问题 8] CAS + 检查行数：与"同意"并发时只有一个能落，
         // 否则会出现"同意 8 秒后又被拒绝覆盖"而归属已经改了的矛盾状态。
         int handled = appMapper.handleIfPending(app.getId(), StaffStationApplication.STATUS_REJECTED, myStaffId, reason);
@@ -410,7 +434,7 @@ public class DeliveryBindingController {
             return Result.error("该申请不属于本站");
         }
 
-        Staff staff = staffMapper.getById(app.getStaffId());
+        Staff staff = staffMapper.getByIdForUpdate(app.getStaffId());
         if (staff == null) {
             return Result.error("员工不存在");
         }
@@ -479,6 +503,9 @@ public class DeliveryBindingController {
             return Result.error("该申请不属于本站");
         }
 
+        // [2026-09-25 返工 R6] 统一锁序：员工聚合（行锁）在前、申请行在后（同 rejectBind 的注释）
+        staffMapper.getByIdForUpdate(app.getStaffId());
+
         // [2026-09-25 架构评审问题 8] CAS + 检查行数（同"拒绝绑定申请"）
         int handled = appMapper.handleIfPending(app.getId(), StaffStationApplication.STATUS_REJECTED, myStaffId, reason);
         if (handled == 0) {
@@ -530,7 +557,7 @@ public class DeliveryBindingController {
         Long staffId = params.getStaffId();
         String reason = params.getReason() != null ? params.getReason() : "站长强制解除绑定";
 
-        Staff staff = staffMapper.getById(staffId);
+        Staff staff = staffMapper.getByIdForUpdate(staffId);
         if (staff == null) {
             return Result.error("员工不存在");
         }

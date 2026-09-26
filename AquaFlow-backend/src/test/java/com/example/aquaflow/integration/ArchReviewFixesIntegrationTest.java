@@ -304,7 +304,7 @@ class ArchReviewFixesIntegrationTest extends AbstractIntegrationTest {
         long order = createOrderFull(customer, addr, station, product,
                 2 /* 配送中 */, 1 /* 待收款 */, 2 /* 现金 */, "40.00", "0.00", "40.00",
                 false /* 非首单：必须走回桶核对 */, deliveredQty);
-        createOrderItemFull(order, product, "桶装水18.9L", deliveredQty, deliveredQty, "10.00", "30.00");
+        createReservedItem(order, product, "桶装水18.9L", deliveredQty, "10.00", "30.00");
         return order;
     }
 

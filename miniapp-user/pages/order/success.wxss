@@ -26,6 +26,13 @@
   box-shadow: 0 12rpx 40rpx rgba(5, 150, 105, 0.3);
 }
 
+/* 结果不是"成功"时（已取消 / 已退款 / 没查到 / 还没付款）换暖色，
+   避免"绿勾 + 尽快配送"的视觉暗示与真实状态相反（契约 A3） */
+.success-circle.warn {
+  background: #F59E0B;
+  box-shadow: 0 12rpx 40rpx rgba(245, 158, 11, 0.3);
+}
+
 .success-ring {
   position: absolute;
   width: 160rpx;
@@ -258,4 +265,10 @@
   font-size: 32rpx;
   font-weight: 700;
   color: #fff;
+}
+
+/* 「重试查一次」（加载失败时）：与去支付按钮同形，但语义是"重新读一次"，不是付款 */
+.pay-btn.retry {
+  background: #64748B;
+  box-shadow: 0 6rpx 24rpx rgba(100, 116, 139, 0.3);
 }

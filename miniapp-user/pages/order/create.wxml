@@ -133,6 +133,12 @@
           <text class="detail-arrow">明细›</text>
         </view>
       </view>
+      <!-- 提交结果无法确认（契约 A1/A3）：**不跳成功页、不支付**，把"重试会沿用同一次提交"
+           说清楚 —— 服务端可能已经建单，同键重提会命中幂等拿回原单，不会重复下单。 -->
+      <view class="submit-unknown" wx:if="{{submitState === 'unknown'}}">
+        <text class="submit-unknown-text">{{unknownResultText}}</text>
+        <view class="submit-unknown-btn" bindtap="onRetryUnknown">重试查一次</view>
+      </view>
       <view class="submit-btn {{(submitting || blocked) ? 'disabled' : ''}}" bindtap="onSubmit">
         <text>{{blocked ? '暂不可下单' : (submitting ? '提交中...' : '立即下单')}}</text>
       </view>
@@ -168,28 +174,55 @@
     </view>
   </view>
 
-  <!-- 首次资产业务确认弹窗 -->
+  <!-- 首次资产业务确认弹窗（契约 A2：**建单之前**；取消 = 一个写请求都不发）
+       内容里必须能回答"这笔钱是什么、多少钱、归哪个站"，所以金额/站名全部取服务端报价。 -->
   <view class="asset-popup {{showAssetConfirm ? 'show' : ''}}" wx:if="{{showAssetConfirm}}">
     <view class="popup-mask" bindtap="onAssetConfirmCancel"></view>
     <view class="popup-content asset-warning">
-      <view class="popup-title warning">⚠️ 首次资产业务重要提醒</view>
-      <text class="popup-desc">为避免水桶、水票、押金等资产产生误解，请在首次产生相关资产前确认以下规则：</text>
-      <view class="asset-rules">
-        <view class="rule-item"><text class="rule-num">1.</text><text>资产按水站分别记录，仅适用于本水站相关业务。</text></view>
-        <view class="rule-item"><text class="rule-num">2.</text><text>更换水站不清除原有资产，但原水站资产不能在新水站使用。</text></view>
-        <view class="rule-item"><text class="rule-num">3.</text><text>不同水站间水桶、水票、押金等资产不互通。</text></view>
+      <view class="popup-title warning">下单前确认（首次资产业务）</view>
+      <view class="asset-fact">
+        <view class="asset-fact-row">
+          <text class="asset-fact-label">水站</text>
+          <text class="asset-fact-value">{{assetNotice.stationName || '当前水站'}}</text>
+        </view>
+        <view class="asset-fact-row" wx:if="{{assetNotice.buckets > 0}}">
+          <text class="asset-fact-label">本次押金</text>
+          <text class="asset-fact-value strong">¥{{assetNotice.depositAmount}}（{{assetNotice.buckets}} 个押金桶，可退）</text>
+        </view>
+        <view class="asset-fact-row">
+          <text class="asset-fact-label">本单合计</text>
+          <text class="asset-fact-value strong">¥{{assetNotice.totalAmountText}}</text>
+        </view>
       </view>
+      <text class="popup-desc">水桶、水票、押金按「客户 × 水站」分别记录，本站的资产只能在本站使用。</text>
       <view class="asset-detail-link" bindtap="onAssetDetailTap">
         <text class="detail-link-text">查看完整《资产使用说明》</text>
         <icon name="right" size="28rpx" color="#999" />
       </view>
-      <view class="checkbox-group">
-        <checkbox class="asset-checkbox" bindchange="onAssetCheckboxChange" />
-        <text class="checkbox-label">我已阅读并理解上述资产使用规则</text>
-      </view>
       <view class="popup-btns">
-        <button class="btn-cancel" bindtap="onAssetConfirmCancel">取消</button>
-        <button class="btn-ok {{assetConfirmed ? '' : 'disabled'}}" bindtap="onAssetConfirmOk">确认下单</button>
+        <button class="btn-cancel" bindtap="onAssetConfirmCancel">返回修改</button>
+        <button class="btn-ok" bindtap="onAssetConfirmOk">确认下单</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 缺货确认弹窗（契约 A1）：needConfirm 表示**还没建单** —— 返回调整不建单，
+       "同意等待安排"用同一次提交的标识重提（只可能产生一张单）。不承诺到货时间。 -->
+  <view class="asset-popup {{showShortageConfirm ? 'show' : ''}}" wx:if="{{showShortageConfirm}}">
+    <view class="popup-mask" bindtap="onShortageBack"></view>
+    <view class="popup-content asset-warning">
+      <view class="popup-title warning">部分商品库存不足</view>
+      <text class="popup-desc">下面这些商品当前备货不够（订单还没有提交）：</text>
+      <view class="asset-rules">
+        <view class="rule-item" wx:for="{{shortageItems}}" wx:key="productId">
+          <text class="rule-num">·</text>
+          <text>{{item.productName}}：要 {{item.requested}} 桶，现有 {{item.stock}} 桶</text>
+        </view>
+      </view>
+      <text class="popup-desc">同意等待的话，水站到货后会按顺序安排配送（具体时间以水站通知为准）；也可以返回调整数量或换个商品。</text>
+      <view class="popup-btns">
+        <button class="btn-cancel" bindtap="onShortageBack">返回调整</button>
+        <button class="btn-ok" bindtap="onShortageAgree">同意等待安排</button>
       </view>
     </view>
   </view>

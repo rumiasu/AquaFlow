@@ -1,5 +1,6 @@
 package com.example.aquaflow.service;
 
+import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.entity.PaymentRecord;
 import java.math.BigDecimal;
 import java.util.List;
@@ -189,4 +190,14 @@ public interface PaymentService {
      * 双开关：水站总开关 + 客户授权
      */
     boolean canUseOfflinePayment(Long customerId, Long stationId);
+
+    /**
+     * 这张单**现在**能不能由客户自助在线付掉（结果页/详情页"去支付"按钮的唯一判据）。
+     *
+     * <p>判据 = 未取消 + 支付状态仍是待付类（UNPAID / PENDING / 支付被取消）
+     * + 渠道真的可用：水票(3) 可对同一张单重试扣票；现金(2) 只能货到付款；
+     * 微信(1) 仅在**模拟渠道开启**时可用（真实微信渠道未接入，给入口 = 假支付）。
+     * 由本方法统一判定，实体 {@code Orders.getCanRepay()} 只负责取投影结果。</p>
+     */
+    boolean canSelfPay(Orders order);
 }

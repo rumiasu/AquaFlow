@@ -75,7 +75,7 @@ class ReconciliationAfterNewFeaturesIntegrationTest extends AbstractIntegrationT
         long order1 = createOrderFull(customer, address, station, product,
                 2 /* 配送中 */, 1 /* 待收款 */, 2 /* 现金 */,
                 "40.00", "60.00", "100.00", true /* 首单：跳过回桶核对 */, 2 /* 送出桶数 */);
-        createOrderItem(order1, product, "对账水 18.9L", 2, "20.00", "30.00", 1);
+        createReservedItem(order1, product, "对账水 18.9L", 2, "20.00", "30.00");
         createBarrelInTransit(customer, station, product, 2, "30.00", order1, "PENDING");
 
         assertEquals(0, post("/api/delivery/orders/" + order1 + "/complete", mgr,

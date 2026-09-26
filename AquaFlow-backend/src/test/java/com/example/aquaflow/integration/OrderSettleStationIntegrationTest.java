@@ -376,7 +376,7 @@ class OrderSettleStationIntegrationTest extends AbstractIntegrationTest {
                 2 /* 配送中 */, 1 /* 待收款 */, 2 /* 现金 */, "40.00", "60.00", "100.00");
         jdbc.update("UPDATE orders SET settle_station_id = delivery_station_id WHERE id=?", order);
         assertEquals(stationB, settleOf(order), "这是跨站单：营收归履约站 B");
-        long itemId = createOrderItem(order, barrels, "结算桶装水", 2, "20.00", "30.00", 1);
+        long itemId = createReservedItem(order, barrels, "结算桶装水", 2, "20.00", "30.00");
         createBarrelInTransit(customer, stationA, barrels, 2, "30.00", order, "PENDING");
         createTicketAccount(customer, stationA, barrels, 5);
 
@@ -496,7 +496,7 @@ class OrderSettleStationIntegrationTest extends AbstractIntegrationTest {
                 "应有一条待收款流水");
 
         // 推到配送中，配送员送达并现场收款
-        createOrderItem(order, goods, "结算饮水机", 1, "20.00", "0.00", 0);
+        createReservedItem(order, goods, "结算饮水机", 1, "20.00", "0.00");
         jdbc.update("UPDATE orders SET status = 2 WHERE id = ?", order);
         Api done = post("/api/delivery/orders/" + order + "/complete", tokenA, "{\"collected\":true}");
         assertTrue(done.isSuccess(), "现场收款完成配送应成功: " + done);

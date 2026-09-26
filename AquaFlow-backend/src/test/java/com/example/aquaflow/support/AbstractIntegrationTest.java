@@ -155,6 +155,145 @@ public abstract class AbstractIntegrationTest {
         return exchange("DELETE", path, token, null);
     }
 
+    /* ==================== 裸事务与"锁证据"（并发用例） ==================== */
+
+    /**
+     * 开一条**会话级裸事务**连接（autocommit=false），用来扮演"另一个并发事务"。
+     *
+     * <p>⚠️ 用完必须 {@code close()}：未提交的事务在连接关闭时由 InnoDB 回滚，
+     * 否则行锁会泄漏给同一用例类里的下一个测试（实测过：下一个用例会莫名其妙地等锁超时）。</p>
+     */
+    protected Connection openRawTransaction() throws Exception {
+        Connection c = jdbc.getDataSource().getConnection();
+        c.setAutoCommit(false);
+        return c;
+    }
+
+    /** 这条裸连接的连接 id（`CONNECTION_ID()` 必须在它自己的连接上查）。 */
+    protected long rawConnectionId(Connection c) throws Exception {
+        try (PreparedStatement ps = c.prepareStatement("SELECT CONNECTION_ID()");
+             java.sql.ResultSet rs = ps.executeQuery()) {
+            rs.next();
+            return rs.getLong(1);
+        }
+    }
+
+    /**
+     * 这条裸连接当前**活跃事务**的 InnoDB 事务号（用于把"谁挡住了谁"钉到具体事务上）。
+     * <p>⚠️ 只有"已经开始且还没提交"的事务才在 {@code information_schema.innodb_trx} 里；
+     * 因此在裸连接上先执行一条语句（例如取锁）再调本方法。</p>
+     */
+    protected long rawTrxId(Connection c) throws Exception {
+        Long trxId = jdbc.queryForObject(
+                "SELECT trx_id FROM information_schema.innodb_trx WHERE trx_mysql_thread_id = ?",
+                Long.class, rawConnectionId(c));
+        if (trxId == null) {
+            throw new IllegalStateException("裸连接上还没有活跃事务（先在它上面执行一条语句再加锁判定）");
+        }
+        return trxId;
+    }
+
+    /** 在指定连接上执行写语句，返回受影响行数。 */
+    protected int executeRaw(Connection c, String sql, Object... args) throws Exception {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            for (int i = 0; i < args.length; i++) {
+                ps.setObject(i + 1, args[i]);
+            }
+            return ps.executeUpdate();
+        }
+    }
+
+    /**
+     * 在指定连接上执行**加锁读**（`SELECT ... FOR UPDATE` 这类会返回结果集的语句）。
+     * <p>⚠️ 别用 {@link #executeRaw} 跑 SELECT：JDBC 会报
+     * "Can not issue executeUpdate() with statements that produce result sets"。</p>
+     */
+    protected void lockRowsRaw(Connection c, String sql, Object... args) throws Exception {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            for (int i = 0; i < args.length; i++) {
+                ps.setObject(i + 1, args[i]);
+            }
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    // 只需要"锁住"，不需要行内容
+                }
+            }
+        }
+    }
+
+    /** 在指定连接上插入并返回自增主键。 */
+    protected long insertRaw(Connection c, String sql, Object... args) throws Exception {
+        try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            for (int i = 0; i < args.length; i++) {
+                ps.setObject(i + 1, args[i]);
+            }
+            ps.executeUpdate();
+            try (java.sql.ResultSet keys = ps.getGeneratedKeys()) {
+                if (!keys.next()) {
+                    throw new IllegalStateException("未取到自增主键: " + sql);
+                }
+                return keys.getLong(1);
+            }
+        }
+    }
+
+    /**
+     * 等"**确实有事务被 `blockingTrxId` 这把锁挡在 `expectTable` 上**"。
+     *
+     * <p>为什么不用"实例里有锁等待"或"某查询跑了 ≥2 秒"（二次收口契约 §3 明确否掉了这两种）：
+     * 它们证明不了**哪个请求**停在**哪把锁**上。这里的判据把三件事绑在一起：
+     * ① 等待方的事务出现在 {@code performance_schema.data_lock_waits} 里；
+     * ② 阻塞方事务 = 我们那条裸连接的 trx_id（不是"某个事务"）；
+     * ③ 等待的锁对象 = 指定的表（例如 {@code inventory}）。</p>
+     *
+     * <p>断言"两个请求的第一把锁都是 inventory 行"就是这么做的：如果实现改成先锁凭据，
+     * 等待的锁对象会是 {@code inventory_reservation}，这里的计数就凑不满。</p>
+     *
+     * @return 实际观察到的等待条数（≥ expected 时返回）
+     */
+    protected int awaitBlockedBy(long blockingTrxId, String expectTable, int expected, long timeoutMs)
+            throws Exception {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        int last = -1;
+        while (System.currentTimeMillis() < deadline) {
+            last = waitingLocksBlockedBy(blockingTrxId, expectTable);
+            if (last >= expected) {
+                return last;
+            }
+            Thread.sleep(50);
+        }
+        throw new IllegalStateException("屏障不成立：被 trx " + blockingTrxId + " 挡在 `" + expectTable
+                + "` 上的等待数 = " + last + "（期望 ≥ " + expected + "）。当前锁等待快照=" + lockWaitSnapshot());
+    }
+
+    /** 当前被 `blockingTrxId` 挡在 `table` 上的等待条数。 */
+    protected int waitingLocksBlockedBy(long blockingTrxId, String table) {
+        Integer n = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM performance_schema.data_lock_waits w "
+                        + "JOIN performance_schema.data_locks l "
+                        + "  ON l.ENGINE_TRANSACTION_ID = w.REQUESTING_ENGINE_TRANSACTION_ID "
+                        + " AND l.LOCK_STATUS = 'WAITING' "
+                        + "WHERE w.BLOCKING_ENGINE_TRANSACTION_ID = ? AND l.OBJECT_NAME = ?",
+                Integer.class, blockingTrxId, table);
+        return n == null ? 0 : n;
+    }
+
+    /** 锁等待快照（诊断用；只在失败信息里贴出来，不作判据）。 */
+    protected String lockWaitSnapshot() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(jdbc.queryForList("SELECT w.REQUESTING_ENGINE_TRANSACTION_ID AS waiter, "
+                + "w.BLOCKING_ENGINE_TRANSACTION_ID AS blocker, l.OBJECT_NAME AS obj, "
+                + "l.LOCK_TYPE AS type, l.LOCK_MODE AS mode, l.LOCK_DATA AS data "
+                + "FROM performance_schema.data_lock_waits w "
+                + "LEFT JOIN performance_schema.data_locks l "
+                + "  ON l.ENGINE_TRANSACTION_ID = w.REQUESTING_ENGINE_TRANSACTION_ID "
+                + " AND l.LOCK_STATUS = 'WAITING'"));
+        sb.append(" innodb_trx=").append(jdbc.queryForList(
+                "SELECT trx_id, trx_state, trx_mysql_thread_id AS conn, LEFT(trx_query, 60) AS q "
+                        + "FROM information_schema.innodb_trx"));
+        return sb.toString();
+    }
+
     /* ==================== 造数 ==================== */
 
     protected long insert(String sql, Object... args) {
@@ -272,16 +411,79 @@ public abstract class AbstractIntegrationTest {
                 + "VALUES (?,?,?,?,?,?)", stationId, productId, delta, type, refId, "测试造数");
     }
 
+    /**
+     * 库存预留凭据（`inventory_reservation`，v63 起；v65 起带 `need_qty`/`need_time` 快照列）。
+     *
+     * <p>⚠️ <b>SQL 造出来的在途单必须显式补一份凭据</b>，否则完成配送会被完整性检查拒绝
+     * （{@code shipForOrder}：凭据必须覆盖每一条明细）。这不是"生产绕过逻辑"，而是模型的一部分：
+     * 「这份货为哪张单留在哪个站」本身就是一条要落库的事实。</p>
+     *
+     * <p>{@code status} 用 {@code constant/ReservationStatus}（1 预留中 / 2 已出库 / 3 已释放）；
+     * 同一明细只允许**一条** status=1（唯一键 {@code uk_reservation_active_item} 建在生成列上，
+     * 插第二条会撞 1062 —— 这正是要测的行为，别为了绕过它去掉唯一键）。</p>
+     *
+     * <p>需求量/需求时间快照从**真相源**取（`order_item.quantity` / `orders.create_time`）——
+     * 夹具不该另编一个值，否则 E15（快照 ≠ 真相源）会红。</p>
+     */
+    protected long createReservation(long orderId, long orderItemId, long productId, long stationId,
+                                     int reservedQty, int status) {
+        Integer need = intOf("SELECT quantity FROM order_item WHERE id=?", orderItemId);
+        java.time.LocalDateTime needTime = jdbc.queryForObject(
+                "SELECT create_time FROM orders WHERE id=?", java.time.LocalDateTime.class, orderId);
+        return insert("INSERT INTO inventory_reservation(order_id, order_item_id, product_id, station_id, "
+                        + "need_qty, need_time, reserved_qty, shipped_qty, released_qty, status) "
+                        + "VALUES (?,?,?,?,?,?,?,0,0,?)",
+                orderId, orderItemId, productId, stationId, need, needTime, reservedQty, status);
+    }
+
     protected long createOrderItem(long orderId, long productId, String productName, int quantity,
                                    String price, String deposit, int category) {
         return createOrderItemFull(orderId, productId, productName, quantity, 0, price, deposit);
     }
 
     /**
+     * 造一条**"完成配送能过完整性检查"**的订单明细：明细 + 一条活跃预留凭据（站别 = 该单当前履约站）。
+     *
+     * <p>为什么需要它（2026-09-25 库存预留模型）：{@code shipForOrder} 对在途单的检查是
+     * 「每条明细都要有一份活跃凭据、且凭据预留量 = 需求量」——用 SQL 直接造订单**不会**产生凭据，
+     * 于是"造单 → 点完成配送"的老写法现在必然被拒（契约 §5 原话：原来插订单却不创建凭据的夹具应补完整，
+     * 不能为了迁就夹具在生产里开兼容分支）。</p>
+     *
+     * <p>⚠️ 它**不**替调用方造实物：履约站的 {@code inventory.quantity} 必须由测试自己声明
+     * （库存是业务事实，夹具不该凭空编）。实物不够时完成配送会被"本站库存不足"拒绝 —— 那是对的。</p>
+     */
+    protected long createReservedItem(long orderId, long productId, String productName, int quantity,
+                                      String price, String deposit) {
+        long itemId = createOrderItemFull(orderId, productId, productName, quantity, quantity, price, deposit);
+        long stationId = longOf("SELECT COALESCE(delivery_station_id, station_id) FROM orders WHERE id=?", orderId);
+        createReservation(orderId, itemId, productId, stationId, quantity, 1);
+        return itemId;
+    }
+
+    /**
+     * 给一条**已经用 SQL 直接插进去**的明细补上活跃预留凭据（预留量 = 需求量，站别 = 该单当前履约站）。
+     * <p>与 {@link #createReservedItem} 的区别只是"明细已经存在"；返回明细 id 方便链式使用。</p>
+     */
+    protected long reserveExistingItem(long orderItemId) {
+        long orderId = longOf("SELECT order_id FROM order_item WHERE id=?", orderItemId);
+        long productId = longOf("SELECT product_id FROM order_item WHERE id=?", orderItemId);
+        int qty = intOf("SELECT quantity FROM order_item WHERE id=?", orderItemId);
+        long stationId = longOf("SELECT COALESCE(delivery_station_id, station_id) FROM orders WHERE id=?", orderId);
+        jdbc.update("UPDATE order_item SET deducted_qty=? WHERE id=?", qty, orderItemId);
+        createReservation(orderId, orderItemId, productId, stationId, qty, 1);
+        return orderItemId;
+    }
+
+    /**
      * 订单明细（可控 deducted_qty）。
-     * <p>{@code deductedQty} 是"下单时实际扣减的库存量"：库存不足时它 &lt; quantity，
-     * 取消退款按它回补而不是按 quantity。凡是要验证库存回补的用例都必须显式设定它，
-     * 否则默认 0 会让用例看起来"没有回补"，实为正确行为（一桶都没扣过）。</p>
+     *
+     * <p>⚠️ {@code deductedQty} 现在是 <b>{@code inventory_reservation} 里该明细那条活跃凭据
+     * {@code reserved_qty} 的镜像</b>（2026-09-25 库存预留模型，返工 R5），不再是"下单时扣了多少实物"
+     * —— 下单不再减实物。旧语义下"取消按它 increaseStock 回补"的逻辑已随 v63 删除。</p>
+     *
+     * <p>⚠️ 用 SQL 造在途单时，<b>实物既没被扣、凭据也不存在</b>：要让这张单能被完成配送，
+     * 必须自己调 {@link #createReservation} 补一条凭据（并把本参数设成同一个数保持镜像一致）。
+     * 只想验证"没有凭据就完不成"的用例，则刻意什么都不补。</p>
      */
     protected long createOrderItemFull(long orderId, long productId, String productName, int quantity,
                                        int deductedQty, String price, String deposit) {

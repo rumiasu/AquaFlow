@@ -138,6 +138,14 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired
     private com.example.aquaflow.service.DeliveryFeeService deliveryFeeService;
 
+    /** 首次资产业务判据（与下单侧共用同一个服务；报价要在建单前给出同样的"要不要告知"） */
+    @Autowired
+    private com.example.aquaflow.service.AssetService assetService;
+
+    /** 首次资产告知里要说清"归哪个站"，站名从这里取 */
+    @Autowired
+    private com.example.aquaflow.mapper.StationMapper stationMapper;
+
     /** 履约站口径取 {@link StationUtil#deliveryStation}（唯一实现，本类不自留副本）。 */
     private static Long stationOf(Orders o) {
         if (o == null) return null;
@@ -1200,6 +1208,18 @@ public class PaymentServiceImpl implements PaymentService {
                 ? ticketPayPreview(ticketLines, ticketTotalQty, ticketCoveredAmount, totalAmount)
                 : null);
 
+        // ===== 首次资产业务告知（契约 A2：必须能在**建单之前**说清楚）=====
+        // 判据与下单侧**同一个服务**（AssetService.hasStationAsset），保证"报价说要告知、
+        // 下单就真的会告知"，不会两处各写一套规则（本仓铁律：判断只有一份实现）。
+        // 只有涉及桶装水（BarrelScope）才谈"首次资产"——瓶装水/饮水机不产生桶与押金。
+        boolean firstStationAsset = !barrelByProduct.isEmpty()
+                && !assetService.hasStationAsset(customerId, stationId);
+        result.put("firstStationAsset", firstStationAsset);
+        // 告知里要能说清"多少钱、归哪个站"，所以这三个键一起下发（金额仍是后端算的同一个数）
+        result.put("stationId", stationId);
+        result.put("stationName", stationNameOf(stationId));
+        result.put("depositAmount", totalExtraDeposit);
+        result.put("depositBuckets", totalExtraBuckets);
         // 企业身份提示（v51）：**只算水** —— 桶装水数量与"水费"（不含押金/配送费/楼层费）两条口径，
         // 命中任一即提示；阈值按站配、没配过用平台默认（30 桶）。开关关着时连字段都不下发（前端也就没有入口）。
         // ⚠️ 传的是 totalWaterAmount（水费），不是 totalAmount（含押金与费用的合计）——
@@ -1352,6 +1372,58 @@ public class PaymentServiceImpl implements PaymentService {
         // 只判"开关层"（老调用方：试算/报价里决定要不要把"货到付款"这个选项放出来）。
         // 欠款那一层见 offlinePaymentBlockReason —— 那里是**唯一判据**。
         return offlinePaymentBlockReason(customerId, stationId) == null;
+    }
+
+    /**
+     * 水站名（首次资产告知用）：取不到就返回 null，前端退回"本站"这种不含细节的措辞。
+     * <p>只下发**站名**，不下发地址/电话 —— 告知要回答"这笔押金归哪个站"，不是发客户档案。</p>
+     */
+    private String stationNameOf(Long stationId) {
+        if (stationId == null) {
+            return null;
+        }
+        try {
+            com.example.aquaflow.entity.Station s = stationMapper.getById(stationId);
+            return s == null ? null : s.getName();
+        } catch (RuntimeException e) {
+            log.warn("报价取站名失败（不影响报价）：stationId={}", stationId, e);
+            return null;
+        }
+    }
+
+    /**
+     * 这张单现在能不能由客户自助在线付掉（结果页/详情页「去支付」的唯一判据）。
+     *
+     * <p>修的是"投影与实际能力矛盾"（契约 A3）：实体 {@code Orders.getCanRepay()} 原本一律 false，
+     * 于是模拟渠道开着时未付微信单也没有入口，客户只能干等；反过来一律 true 更糟 ——
+     * 现金单/已取消单会拿到一个点了没用的按钮（2026-09-20 实测过的"假支付"）。</p>
+     */
+    @Override
+    public boolean canSelfPay(Orders order) {
+        if (order == null || order.getStatus() == null) {
+            return false;
+        }
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            return false;
+        }
+        String state = order.getPayState();
+        if (!("UNPAID".equals(state) || "PENDING".equals(state) || "CANCELLED".equals(state))) {
+            return false;
+        }
+        Integer method = order.getPaymentMethod();
+        if (method == null) {
+            return false;
+        }
+        // 水票：客户可对**同一张单**重试扣票（不重建单；重复扣票由 uk_ticket_consume 与
+        // deductTickets 自身的幂等兜底）。现金：只能货到付款，给线上入口就是误导。
+        // 微信：只有**模拟渠道开着**才算"真能付掉"（真实渠道未接入）。
+        if (method == PayMethod.TICKET) {
+            return true;
+        }
+        if (method == PayMethod.WECHAT) {
+            return mockWechatPay;
+        }
+        return false;
     }
 
     /**

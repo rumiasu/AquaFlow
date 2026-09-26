@@ -70,7 +70,7 @@ class BarrelExceptionFlowIntegrationTest extends AbstractIntegrationTest {
         long order = createOrderFull(customer, addr, station, product,
                 2 /* 配送中 */, 1 /* 待收款 */, 2 /* 现金 */,
                 "40.00", "60.00", "100.00", true /* 首次桶装水订单 */, 2);
-        long itemId = createOrderItem(order, product, "桶装水18.9L", 2, "20.00", "30.00", 1);
+        long itemId = createReservedItem(order, product, "桶装水18.9L", 2, "20.00", "30.00");
         // 下单时算出的 shortage=2 记在「配送中」，送达时由 applyDelivery 转成权益
         createBarrelInTransit(customer, station, product, 2, "30.00", order, "PENDING");
 
@@ -96,7 +96,7 @@ class BarrelExceptionFlowIntegrationTest extends AbstractIntegrationTest {
         long order = createOrderFull(customer, addr, station, product,
                 2 /* 配送中 */, 1 /* 待收款 */, 2 /* 现金 */,
                 "40.00", "0.00", "40.00", false, 2 /* delivery_bucket_qty = 应收 2 */);
-        long itemId = createOrderItem(order, product, "桶装水18.9L", 2, "20.00", "0.00", 1);
+        long itemId = createReservedItem(order, product, "桶装水18.9L", 2, "20.00", "0.00");
 
         Api res = post("/api/delivery/orders/" + order + "/complete", mgrToken(),
                 completeBody(itemId, 2, 0, true));

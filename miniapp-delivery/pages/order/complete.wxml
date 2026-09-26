@@ -8,7 +8,7 @@
     <text class="success-subtitle">核对回桶后确认完成</text>
   </view>
 
-  <!-- 订单信息 -->
+  <!-- 订单信息 + 本单钱货事实（金额与文案全部来自后端投影，前端不自己算） -->
   <view class="section" wx:if="{{orderInfo}}">
     <view class="order-info-row">
       <text class="order-label">客户</text>
@@ -17,6 +17,33 @@
     <view class="order-info-row">
       <text class="order-label">地址</text>
       <text class="order-value">{{orderInfo.addressDetail || orderInfo.addressSnapshot}}</text>
+    </view>
+    <view class="order-info-row">
+      <text class="order-label">付款方式</text>
+      <text class="order-value">{{orderInfo.payMethodText || '—'}}</text>
+    </view>
+    <view class="order-info-row">
+      <text class="order-label">{{needCollect ? '本单尚应收' : '本单金额'}}</text>
+      <text class="order-value amount">¥{{orderInfo.totalAmount}}</text>
+    </view>
+    <!-- 押金属于客户应付、但会退：说清它包含在里面，避免配送员把它当收入、也避免客户以为多收 -->
+    <view class="order-info-row" wx:if="{{orderInfo.depositAmount > 0}}">
+      <text class="order-label">其中押金</text>
+      <text class="order-value">¥{{orderInfo.depositAmount}}（可退）</text>
+    </view>
+    <view class="order-info-row">
+      <text class="order-label">付款状态</text>
+      <text class="order-value">{{orderInfo.payStateText || ''}} {{orderInfo.payHint || ''}}</text>
+    </view>
+    <!-- 备货情况（后端按"实物 − 活跃预留"算，契约 C4）：出发前先看这一行。
+         缺货时给站长一个去既有「商品与库存」补货的入口（配送员点了只会得到一句提示）。 -->
+    <view class="order-info-row" wx:if="{{stockPrepText}}">
+      <text class="order-label">备货</text>
+      <text class="order-value">{{stockPrepText}}</text>
+    </view>
+    <view class="order-info-row" wx:if="{{stockPrep && stockPrep.ready !== true}}">
+      <text class="order-label"></text>
+      <text class="order-value link" bindtap="onGoInventory">去「商品与库存」补货 ›</text>
     </view>
   </view>
 
@@ -74,7 +101,7 @@
           </view>
 
           <view class="reason-hint" wx:if="{{item.reasons.length > 0}}">
-            已选 {{item.reasons.length}} 项，共 {{item.reasons.length}} 桶
+            已选 {{item.reasons.length}} 项，共 {{item.reasonQtySum}} 桶（需等于少回收的 {{item.discrepancy}} 桶）
           </view>
         </view>
 
@@ -87,50 +114,45 @@
     </block>
   </view>
 
-  <!-- 货到付款收款确认 -->
-  <view class="section section-collect" wx:if="{{isCashOnDelivery}}">
-    <text class="section-title">收款确认</text>
+  <!-- 现场收款（契约 C1）：只说"这单还要收多少 + 收了没"。
+       · 只在**后端说还要收**（needCollect：现金单且未付）时出现 —— 付过款的单不再问一遍；
+       · 金额取服务端 totalAmount（含水费/押金/配送费/楼层费），不在这里另算；
+       · "已收齐 / 未收款"**必须人选**（默认两边都不选），不许自动默认已收。 -->
+  <view class="section section-collect" wx:if="{{needCollect}}">
+    <text class="section-title">现场收款</text>
     <view class="collect-card">
       <view class="collect-row">
+        <text class="collect-label">本单尚应收</text>
+        <text class="collect-amount-text">¥{{orderInfo.totalAmount}}</text>
+      </view>
+      <view class="collect-row" wx:if="{{orderInfo.depositAmount > 0}}">
+        <text class="collect-label">含押金（可退）</text>
+        <text class="collect-sub-text">¥{{orderInfo.depositAmount}}</text>
+      </view>
+      <view class="collect-row">
         <text class="collect-label">付款方式</text>
-        <text class="collect-amount-text">货到付款</text>
+        <text class="collect-sub-text">{{orderInfo.payMethodText || '货到付款'}}</text>
       </view>
     </view>
     <view class="collect-selector">
       <view class="collect-option {{collected === true ? 'active' : ''}}" catchtap="onSelectCollected" data-value="true">
-        <text class="collect-option-name">已收款</text>
-        <text class="collect-option-desc">客户已付款</text>
+        <text class="collect-option-name">已收齐</text>
+        <text class="collect-option-desc">钱已到手，这单结清</text>
       </view>
       <view class="collect-option {{collected === false ? 'active' : ''}}" catchtap="onSelectCollected" data-value="false">
         <text class="collect-option-name">未收款</text>
-        <text class="collect-option-desc">进入待收款列表</text>
+        <text class="collect-option-desc">记为"已送达，待收款"</text>
       </view>
     </view>
+    <text class="collect-tip" wx:if="{{!collectedChosen}}">请选择实际收款情况（不能空着提交）</text>
+    <text class="collect-tip" wx:elif="{{collected === false}}">只收了一部分时：先按"未收款"提交，再让站长按实际金额核对。</text>
   </view>
 
-  <!-- 签收凭证 -->
-  <view class="section">
-    <text class="section-title">签收凭证</text>
-    <text class="section-tip">拍摄客户签收照片（可选）</text>
-    <view class="photo-grid">
-      <view class="photo-item" wx:for="{{photos}}" wx:key="index">
-        <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewPhoto" />
-        <view class="photo-remove" data-index="{{index}}" catchtap="onRemovePhoto">×</view>
-      </view>
-      <view class="photo-add" bindtap="onAddPhoto" wx:if="{{photos.length < 3}}">
-        <text class="photo-add-icon">📷</text>
-        <text class="photo-add-text">{{uploading ? '上传中...' : '添加照片'}}</text>
-      </view>
-    </view>
-  </view>
-
-  <!-- 楼层数（选填）+ 楼层凭证（v43）：楼层补贴的依据，有楼层才填、没有就不填 -->
+  <!-- 楼层数（选填，**常显**，不折叠）：填了才算楼层补贴，是配送员自己的钱 ——
+       藏进"更多"里人会跳过不填 = 少拿钱（2026-09-24 的同一判据）。 -->
   <view class="section">
     <view class="section-title-row">
       <text class="section-title">楼层数（有就填，没有不用填）</text>
-      <!-- [2026-09-24] 原来这里平铺一整句。但**不能全藏**：这句关系到配送员自己的钱
-           （填了才有楼层补贴），藏没了人会跳过不填 = 少拿钱。
-           所以留一句指标题级的短激励，把"怎么核对/防虚报"的细节收进「?」。 -->
       <help-tip title="楼层数" text="填了才是楼层补贴的依据。跟客户地址里填的楼层不一致时会标出来（防虚报）。" />
     </view>
     <text class="section-tip">填了才算楼层补贴</text>
@@ -138,28 +160,59 @@
       <input class="floor-input" type="number" placeholder="如 6" value="{{reportedFloor}}" bindinput="onFloorInput" />
       <text class="floor-unit">层</text>
     </view>
-
-    <text class="section-tip">楼层凭证（可选，拍一张更站得住脚；站长也能补传）</text>
-    <view class="photo-grid">
-      <view class="photo-item" wx:for="{{floorPhotos}}" wx:key="index">
-        <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" />
-        <view class="photo-remove" data-index="{{index}}" catchtap="onRemoveFloorPhoto">×</view>
-      </view>
-      <view class="photo-add" bindtap="onAddFloorPhoto" wx:if="{{floorPhotos.length < 3}}">
-        <text class="photo-add-icon">🏢</text>
-        <text class="photo-add-text">{{floorUploading ? '上传中...' : '添加照片'}}</text>
-      </view>
-    </view>
   </view>
 
-  <!-- 备注 -->
+  <!-- 更多（选填）：签收照片 / 楼层凭证 / 备注（契约 C2 —— 正常送达只要"商品 + 回桶 + 收钱"三件事，
+       其余按需展开，减少无意义翻页与必读段落）。 -->
   <view class="section">
-    <view class="note-header">
-      <text class="note-label">备注（可选）</text>
-      <text class="note-count">{{noteText.length}}/100</text>
+    <view class="more-toggle" bindtap="onToggleMore">
+      <text class="more-toggle-text">{{showMore ? '收起选填内容' : '更多（签收照片 / 楼层凭证 / 备注，选填）'}}</text>
+      <text class="more-toggle-icon">{{showMore ? '▲' : '▼'}}</text>
     </view>
-    <textarea class="note-input" placeholder="订单补充说明" maxlength="100" bindinput="onNoteInput" value="{{noteText}}" />
   </view>
+
+  <block wx:if="{{showMore}}">
+    <!-- 签收凭证 -->
+    <view class="section">
+      <text class="section-title">签收凭证</text>
+      <text class="section-tip">拍摄客户签收照片（可选）</text>
+      <view class="photo-grid">
+        <view class="photo-item" wx:for="{{photos}}" wx:key="index">
+          <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewPhoto" />
+          <view class="photo-remove" data-index="{{index}}" catchtap="onRemovePhoto">×</view>
+        </view>
+        <view class="photo-add" bindtap="onAddPhoto" wx:if="{{photos.length < 3}}">
+          <text class="photo-add-icon">📷</text>
+          <text class="photo-add-text">{{uploading ? '上传中...' : '添加照片'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 楼层凭证（v43）：可选，拍一张更站得住脚；**不影响**向客户收的楼层费（那笔在下单时按地址快照） -->
+    <view class="section">
+      <text class="section-title">楼层凭证</text>
+      <text class="section-tip">可选，拍一张更站得住脚；站长也能补传</text>
+      <view class="photo-grid">
+        <view class="photo-item" wx:for="{{floorPhotos}}" wx:key="index">
+          <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" />
+          <view class="photo-remove" data-index="{{index}}" catchtap="onRemoveFloorPhoto">×</view>
+        </view>
+        <view class="photo-add" bindtap="onAddFloorPhoto" wx:if="{{floorPhotos.length < 3}}">
+          <text class="photo-add-icon">🏢</text>
+          <text class="photo-add-text">{{floorUploading ? '上传中...' : '添加照片'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 备注 -->
+    <view class="section">
+      <view class="note-header">
+        <text class="note-label">备注（可选）</text>
+        <text class="note-count">{{noteText.length}}/100</text>
+      </view>
+      <textarea class="note-input" placeholder="订单补充说明" maxlength="100" bindinput="onNoteInput" value="{{noteText}}" />
+    </view>
+  </block>
 
   <!-- 确认完成按钮 -->
   <view class="footer">
@@ -170,7 +223,7 @@
   <view class="modal-overlay" wx:if="{{showReasonPicker}}" bindtap="onCloseReasonPicker">
     <view class="modal-content" catchtap="stopPropagation">
       <text class="modal-title">选择异常原因</text>
-      <text class="modal-desc">可多选，每个原因对应1桶</text>
+      <text class="modal-desc">可多选；各项数量之和要等于少回收的桶数（选一项会先预填剩余缺口，可再改）</text>
       <view class="modal-list">
         <view class="modal-item {{item.disabled ? 'modal-item-disabled' : ''}}" wx:for="{{reasonOptions}}" wx:key="key"
                catchtap="onSelectReason" data-key="{{item.key}}">

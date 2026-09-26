@@ -34,7 +34,24 @@ public class InventoryReservation {
     /** ★ 这份凭据当前挂在哪个站：换站时改的是它，不是订单的归属站 */
     private Long stationId;
 
-    /** 已预留在库量（≤ 订单量；差额 = 缺货待补，由入库按 FIFO 补齐） */
+    /**
+     * ★ **需求量快照** = 下单那一刻的 `order_item.quantity`（v65）。
+     *
+     * <p>为什么要在凭据上再存一份（二次验收 B2）：补位要按"需求量"分配，而原来是用
+     * `listItemNeedAndTime`（普通 SELECT join `orders`/`order_item`）现读的 —— REPEATABLE READ 下，
+     * 当前读能看到**刚提交的新凭据**，普通读却看不到**同一批提交里刚插入的订单明细**，
+     * 于是新等待单被当成 need=0 静默跳过（有货不分给它）。
+     * 快照写在凭据行上 ⇒ 补位只读 `inventory_reservation`（当前读），数据视图永远自洽。</p>
+     *
+     * <p>真相源仍是 `order_item.quantity`（下单后不再变化）；本列是它的**只读副本**，
+     * 一致性由对账 `E15` 校验、由 v63/v64/v65 迁移回填。**不要**把它当成第二份账去单独改。</p>
+     */
+    private Integer needQty;
+
+    /** ★ **业务需求时间快照** = 下单那一刻的 `orders.create_time`（v65）：FIFO 排序依据；换站重建时从旧凭据复制 */
+    private LocalDateTime needTime;
+
+    /** 已预留在库量（≤ {@link #needQty}；差额 = 缺货待补，由入库按 FIFO 补齐） */
     private Integer reservedQty;
 
     /** 已出库量（完成配送时一次性写满） */

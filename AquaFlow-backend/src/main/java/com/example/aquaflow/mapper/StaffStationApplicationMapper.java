@@ -64,6 +64,20 @@ public interface StaffStationApplicationMapper {
             ", handle_time = NOW() WHERE id = #{id}")
     void cancel(@Param("id") Long id);
 
+    /**
+     * 配送员撤回自己的申请（**CAS：仅当仍是待审批**）。
+     *
+     * <p>[2026-09-25 返工 R6] 原来用的是无条件 {@link #cancel(Long)}：配送员点「撤回」与站长点「同意」
+     * 并发时，撤回会把**已经生效的"已同意"**改写成"已取消"，而 {@code staff.station_id} 已经改了
+     * —— 审批记录与归属对不上，且没有任何报错。调用方必须检查行数（0 = 已被处理）。</p>
+     *
+     * @return 受影响行数
+     */
+    @Update("UPDATE staff_station_application SET status = " + StaffStationApplication.STATUS_CANCELLED +
+            ", handle_time = NOW() WHERE id = #{id} AND status = " +
+            StaffStationApplication.STATUS_PENDING)
+    int cancelIfPending(@Param("id") Long id);
+
     /** 某配送员的所有申请 (按时间倒序) */
     @Select("SELECT * FROM staff_station_application WHERE staff_id = #{staffId} ORDER BY id DESC")
     List<StaffStationApplication> listByStaff(@Param("staffId") Long staffId);

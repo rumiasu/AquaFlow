@@ -65,17 +65,4 @@ public interface InventoryService {
      * <p>站长核对"某一种商品"的进出时用；{@code productId} 为 null 等价于 {@link #listRecords(Long, int)}。</p>
      */
     List<InventoryRecord> listRecords(Long stationId, Long productId, int limit);
-
-    /**
-     * 入库/盘点增加之后，把新增的可用量按**下单先后（FIFO）**补给本站"缺货待补"的订单预留。
-     *
-     * <p>为什么放在库存服务里而不是预留服务里：入库入口在本类（{@code inbound} / {@code setStock}），
-     * 而预留服务要回调 {@link #recordChange} 写出库流水 —— 反过来放会形成两个服务互相依赖的环。
-     * 两边都只经 {@code InventoryReservationMapper} 的 CAS 方法改 {@code reserved_qty}，
-     * 语义见 {@code docs/design/28-库存预留与履约凭据.md} §4。</p>
-     *
-     * <p>规则：只补到"可用量用完"为止（不得让 Σ预留 &gt; 实物）；一份凭据只补一次；
-     * 没有等货的单时是空操作。</p>
-     */
-    void backfillReservations(Long stationId, Long productId);
 }

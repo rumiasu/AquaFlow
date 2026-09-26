@@ -65,6 +65,17 @@
 .collect-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8rpx; }
 .collect-label { font-size: 26rpx; color: #666666; }
 .collect-amount-text { font-size: 30rpx; font-weight: 700; color: #FF7A00; }
+/* 收款区补充（契约 C1）：尚应收金额给足字号；押金/付款方式用次级文字；提示句压在小字里 */
+.order-value.amount { font-size: 34rpx; font-weight: 700; color: #FF7A00; }
+/* 可点的跳转文字（如「去商品与库存补货」）：一眼看出能点 */
+.order-value.link { color: #2563EB; }
+.collect-sub-text { font-size: 26rpx; color: var(--text-secondary); }
+.collect-tip { display: block; margin-top: 12rpx; font-size: 22rpx; color: #CC7700; }
+
+/* 「更多（选填）」折叠条（契约 C2）：正常路径只留"商品 / 回桶 / 收钱"三件事 */
+.more-toggle { display: flex; justify-content: space-between; align-items: center; padding: 20rpx 24rpx; background: var(--bg-card); border: 2rpx solid var(--border-color); border-radius: var(--radius-md); }
+.more-toggle-text { font-size: 26rpx; color: var(--text-regular); }
+.more-toggle-icon { font-size: 22rpx; color: var(--text-secondary); }
 
 .collect-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; }
 .collect-option { text-align: center; padding: 20rpx 0; border: 2rpx solid var(--border-color); border-radius: var(--radius-md); background: #fff; transition: all .2s; }

@@ -108,6 +108,14 @@ jobs:
       - name: 场景测试矩阵一致性门禁
         run: python3 audit_scenario_matrix.py
 
+      # 小程序「流程测试」（2026-09-25 新增，契约工作包 B/C）。
+      # 为什么静态扫描不够：它只能看出"页面里写没写 needConfirm"这样的字面量，
+      # 而下单这批事故全是**流程错**——缺货当成功去付款、重试换键变成第二张单、
+      # 把整个响应对象当订单号拼进 URL。只有真的执行处理函数、模拟 API 回调、
+      # 断言"发了几次请求 / 用的哪个幂等键 / 跳去哪一页"才抓得住（见 tests/js/harness.js）。
+      - name: 小程序流程测试（下单闭环 + 送达页）
+        run: node tests/js/run-all.js
+
       - name: 敏感信息扫描（只报位置，不回显内容）
         run: bash scripts/scan-secrets.sh
 

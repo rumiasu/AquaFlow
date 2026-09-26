@@ -141,7 +141,8 @@ class InventoryReservationIntegrationTest extends AbstractIntegrationTest {
         Api blocked = post("/api/delivery/orders/" + order + "/complete",
                 staffToken(rider, "DELIVERY", station), "{}");
         assertFalse(blocked.isSuccess(), "预留不足时必须拒绝完成，实际=" + blocked);
-        assertTrue(blocked.message().contains("预留不足"), "拒绝原因要说清是预留不足，实际=" + blocked.message());
+        assertTrue(blocked.message().contains("还缺"), "拒绝原因要说清还缺几桶（C3：可读文案），实际=" + blocked.message());
+        assertTrue(blocked.message().contains(String.valueOf(order)), "拒绝文案要带订单号，实际=" + blocked.message());
         assertEquals(3, qty(), "被拒后实物不得变动");
         assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order), "被拒后订单仍停在配送中(2)");
         assertEquals(0, intOf("SELECT COUNT(*) FROM inventory_record WHERE ref_id=? AND type='CONSUME'", order),

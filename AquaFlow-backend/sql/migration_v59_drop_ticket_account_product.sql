@@ -32,8 +32,16 @@ SET @has_col := (SELECT COUNT(*) FROM information_schema.COLUMNS
                    AND COLUMN_NAME='account_product_id');
 
 -- 护栏：列内有值就中止（那时说明形态收口还没做完，DROP 会丢信息）
-SET @has_value := IF(@has_col>0,
-  (SELECT COUNT(*) FROM ticket_record WHERE account_product_id IS NOT NULL), 0);
+-- ⚠️ **必须走 PREPARE**（2026-09-26 真实库执行时发现）：写成
+--   `SET @has_value := IF(@has_col>0, (SELECT COUNT(*) FROM ticket_record WHERE account_product_id IS NOT NULL), 0)`
+--   看着"短路"，但 MySQL 会**先把子查询解析出来** ⇒ 列已经被删掉之后再跑本脚本，
+--   整条语句直接 `ERROR 1054 Unknown column 'account_product_id' in 'where clause'`，
+--   于是"可重复执行"变成"第二遍必报错"（同 AGENTS §4 与探针第一版踩的是同一个坑）。
+--   走 PREPARE 时列不存在就走另一条常量语句，重跑打印 skip、退出码 0。
+SET @s := IF(@has_col>0,
+  "SELECT COUNT(*) INTO @has_value FROM ticket_record WHERE account_product_id IS NOT NULL",
+  "SET @has_value := 0");
+PREPARE st_guard FROM @s; EXECUTE st_guard; DEALLOCATE PREPARE st_guard;
 
 SELECT @has_col AS column_exists, @has_value AS rows_with_value,
        IF(@has_col=0, 'skip: 列本就不存在',

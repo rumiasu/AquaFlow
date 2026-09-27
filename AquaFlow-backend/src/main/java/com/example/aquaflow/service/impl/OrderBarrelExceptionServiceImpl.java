@@ -4,6 +4,7 @@ import com.example.aquaflow.entity.OrderBarrelException;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.entity.DepositRecord;
 import com.example.aquaflow.constant.DepositType;
+import com.example.aquaflow.constant.ExceptionCategory;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.OrderBarrelExceptionMapper;
 import com.example.aquaflow.mapper.OrderMapper;
@@ -172,6 +173,69 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         orderMapper.markBarrelException(orderId, input.getCategory(), ex.getId(), null, null);
 
         log.info("[OrderBarrelException] 配送员录入异常: orderId={}, exceptionId={}, category={}", orderId, ex.getId(), input.getCategory());
+        return toDTO(ex);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderBarrelExceptionDTO recordDeliveryProblem(Long orderId, String reasonKey, String staffNote, String noteText) {
+        Orders order = orderMapper.getById(orderId);
+        if (order == null) {
+            throw new BusinessException("订单不存在: " + orderId);
+        }
+        // 类别由**服务端**按原因 key 映射（不由客户端传类别）：配送员分不清 RETURN_REFUSE（当场拒收）
+        // 与 CUSTOMER_REFUSE（收了但不给钱），也不该关心。非法 key 直接拒 —— 不猜、不兜底成"其他"，
+        // 否则"上报了一个不存在的现场原因"这件事永远查不出来（同 ExceptionCategory.textOf 的 default 教训）。
+        String category = ExceptionCategory.ReportReason.categoryOf(reasonKey);
+        if (category == null) {
+            throw new BusinessException("配送问题类型不合法，请从小程序给的原因里选一项");
+        }
+        String label = ExceptionCategory.ReportReason.textOf(reasonKey);
+
+        OrderBarrelException ex = new OrderBarrelException();
+        ex.setOrderId(orderId);
+        ex.setCustomerId(order.getCustomerId());
+        ex.setStationId(order.getStationId());
+        ex.setDeliveryStaffId(AuthContext.getUserId());
+        // ⚠️ 三处数量**恒为 0**：现场问题不是"数量对不上"。这保证所有「取 discrepancy > 0」的
+        //    欠桶下钻（CustomerMapper.getOwedBarrels / CustomerBarrelOverMapper 等）不会把它算成欠桶
+        //    —— 复用同一张表的前提就是这个。
+        ex.setDeliveryQty(0);
+        ex.setReturnQty(0);
+        ex.setDiscrepancy(0);
+        ex.setCategory(category);
+        ex.setType("DELIVERY_PROBLEM");
+        ex.setStaffAction("FULL");
+        // 备注：现场看到的那句话 + 配送员可补一句说明。站长端「异常订单」列表直接读它。
+        ex.setStaffNote(staffNote == null || staffNote.isBlank() ? label : label + "：" + staffNote);
+        // 不生成补偿建议：没有数量差异，可补的数是 0（suggested_* 走列默认值）。
+        ex.setStatus("STAFF_RECORDED");
+        ex.setCreatedAt(LocalDateTime.now());
+
+        // ⚠️ 订单备注**在这里写**、不留在控制器里：上面那个"非法 key 直接拒"的 throw 会让整个事务回滚，
+        //    若备注已由调用方先落库，就会留下"备注说上报了、异常单没建"的半成品
+        //    （§8.17 判据：用户以为做成了、账上没动，一律算缺陷）。
+        if (noteText != null && !noteText.isBlank()) {
+            orderMapper.appendSpecialNote(orderId, noteText);
+        }
+
+        exceptionMapper.insert(ex);
+
+        // 订单异常标记：让订单本身带得住"这单有异常"（与 recordException 同一条专用列更新）。
+        orderMapper.markBarrelException(orderId, category, ex.getId(), null, null);
+
+        // 站长端可见性（产品裁定：本次**不做真推送**，靠站长端列表 / 待办数字暴露）：
+        // 这条异常单 status=STAFF_RECORDED，而「待处理桶异常」那个待办数字正是按它计数的，
+        // 所以站长自己就会看到多了一条 —— 不需要 NotificationService（它 6 个方法目前全是空壳）。
+        alertService.stationFault(order.getStationId(), "WARN", "OrderBarrelException",
+                "配送员上报现场问题：" + label,
+                "订单 " + orderId + " 由配送员上报「" + label + "」"
+                        + (staffNote == null || staffNote.isBlank() ? "" : "（补充：" + staffNote + "）")
+                        + "，请及时处置。异常单号=" + ex.getId(),
+                "ORDER_BARREL_EXCEPTION", ex.getId());
+
+        log.info("[OrderBarrelException] 配送员现场上报建单: orderId={}, exceptionId={}, reasonKey={}, category={}",
+                orderId, ex.getId(), reasonKey, category);
         return toDTO(ex);
     }
 

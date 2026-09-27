@@ -57,6 +57,9 @@ public class DeliveryController {
     /** 订单写操作唯一入口：状态/支付/桶副作用全部由它编排，Controller 不再直写任何表 */
     @Autowired
     private OrderWorkflowService orderWorkflowService;
+    /** 配送员现场上报要落异常单（见 reportOrder）：调用它的 recordDeliveryProblem，控制器自己不写表。 */
+    @Autowired
+    private com.example.aquaflow.service.OrderBarrelExceptionService orderBarrelExceptionService;
 
     @Autowired
     private AddressMapper addressMapper;
@@ -574,6 +577,13 @@ public class DeliveryController {
      * <p>边界（刻意做小）：只做「校验归属 → 写 special_note 留痕 → 通知站长」，
      * <b>不改订单状态、不动钱/票/桶账</b>。回桶差异补偿是另一条链路
      * （{@code order_barrel_exception} + 站长审批），不要在这里混。</p>
+     *
+     * <p>⚠️ [2026-09-27 改] 带 {@code reasonKey} 时**同时落一条异常单**（{@code STAFF_RECORDED}，
+     * 进站长「待处置」）。产品口径原话：「配送遇到问题，不应该是异常单处理吗，为什么会是转让处理」——
+     * 在这之前配送员上报现场问题只写一行备注，站长端「异常订单」里永远是"少回桶/多回桶"，
+     * "破损/拒收"这类必须处置的问题只能等站长自己翻到那条备注再手工补录
+     * （配送员能识别问题，系统却不收"问题是什么"）。类别由服务端按 reasonKey 映射，
+     * 客户端**不传类别**；省略 reasonKey 时保持旧行为（只留痕），老客户端不会被这次改动打断。</p>
      */
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
     @PostMapping("/orders/report/{id}")
@@ -597,21 +607,27 @@ public class DeliveryController {
         }
         Long staffId = AuthContext.getUserId();
 
-        orderMapper.appendSpecialNote(id, "[配送异常] " + reason + "（上报人ID=" + staffId + "）");
-
         Map<String, Object> detail = new HashMap<>();
         detail.put("orderId", id);
         detail.put("reason", reason);
+        detail.put("reasonKey", body.getReasonKey());
         detail.put("staffId", staffId);
         log("REPORT_EXCEPTION", id, detail);
+
+        // 留痕 + 建异常单**一起交给 service 的同一个事务**（见方法上的说明）：非法 reasonKey 会让它
+        // 抛业务异常（code=1 可读文案），此时备注与异常单一起回滚，不留半成品。
+        // 控制器不写库、也不开事务 —— 与全仓其它 controller 的形状一致。
+        orderBarrelExceptionService.recordDeliveryProblem(id, body.getReasonKey(),
+                body.getNote(), "[配送异常] " + reason + "（上报人ID=" + staffId + "）");
 
         // 【为什么这里没有推送站长】NotificationService 的 6 个方法目前**全是空壳**：
         // 只按站长列表打日志，拼好的 message 从未发出（其余 5 个方法连调用方都没有，
         // OrderBarrelExceptionServiceImpl 里那一处也是注释掉的）。
         // 在这里调 pushBatchSummary 只会得到一行日志，却让人误以为"已经通知站长了" ——
         // 与其做这种假动作，不如把事实写清楚：
-        //   现状：配送异常只落在 orders.special_note 与 audit_log 里；
-        //   影响：站长不会主动收到提醒，需要自己翻订单详情才能看到；
+        //   现状：配送异常落在 orders.special_note、audit_log，以及一条 STAFF_RECORDED 异常单；
+        //   站长可见性：异常单会让站长端「待处理桶异常」的待办数字 +1、异常列表多一条
+        //               （产品裁定：本次不做真推送，靠列表/待办数字暴露）；
         //   待办：接入真实推送渠道（微信订阅消息）后，在这里补一次真正的通知。
         return Result.success();
     }

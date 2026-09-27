@@ -125,6 +125,29 @@ public interface OrderBarrelExceptionService {
     OrderBarrelExceptionDTO recordException(Long orderId, ExceptionInput input);
 
     /**
+     * 配送员**现场上报**配送问题 → 直接落一条异常单（{@code STAFF_RECORDED}，站长待处置）。
+     *
+     * <p>[2026-09-27 产品裁定] 原先生成的异常单只有两条路：完成配送时"回桶数量对不上"自动建，
+     * 或**站长手工**发起。配送员上报现场问题（客户不接电话 / 地址找不到 / 客户拒收 / 水桶破损）
+     * 只写一行 {@code special_note}，**不生成异常单** —— 于是站长端「异常订单」里永远是
+     * "少回桶/多回桶"，而"破损/拒收"这类必须处置的现场问题只能等站长自己翻到那条备注再补录。
+     * 配送员能识别问题，系统却不收"问题是什么"。</p>
+     *
+     * <p>口径：类别由 {@code ExceptionCategory.ReportReason} 按原因 key 映射（**不由客户端传类别**，
+     * 配送员分不清 {@code RETURN_REFUSE} 与 {@code CUSTOMER_REFUSE}，也不该关心）；
+     * 本方法**不涉桶账**：{@code discrepancy} 恒为 0，所以"取 {@code discrepancy > 0}"的欠桶下钻
+     * 不会把它算成欠桶 —— 这是复用同一张表的前提。补偿建议也不生成（不是数量差异，没有可补的数）。</p>
+     *
+     * <p>⚠️ **订单备注也由本方法写**（不留在控制器里写）：非法 reasonKey 会让本方法抛业务异常，
+     * 若备注在调用方先写，就会出现"备注说上报了、异常单没建"的半成品。写备注与建单必须同一个事务。</p>
+     *
+     * @param reasonKey 见 {@code ExceptionCategory.ReportReason}；非法 key 直接拒（不猜、不兜底）
+     * @param staffNote 配送员补的说明，可为空
+     * @param noteText  写进 {@code orders.special_note} 的整行文案（控制器拼好，含上报人 id）
+     */
+    OrderBarrelExceptionDTO recordDeliveryProblem(Long orderId, String reasonKey, String staffNote, String noteText);
+
+    /**
      * 站长审批处理
      */
     void handleException(Long exceptionId, HandleInput input);

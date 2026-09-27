@@ -1,5 +1,6 @@
 package com.example.aquaflow.service.impl;
 
+import com.example.aquaflow.constant.DispatchKind;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.constant.PayMethod;
 import com.example.aquaflow.constant.PaymentStatus;
@@ -56,6 +57,12 @@ import java.util.Map;
 @Service
 @Slf4j
 public class OrderWorkflowServiceImpl implements OrderWorkflowService {
+
+    // 外派备注标记（一键外派 / 指定外派）的正本是 constant/DispatchKind 的 NOTE_* 常量 ——
+    // 站长端「外派」页签按它把外派分成两个子页签（见 DispatchKind.ofNote 的注释：
+    // 这两种形态在库里没有结构化标记，唯一判据就是备注文案，所以拼备注必须用那份常量）。
+    // ⚠️ 不要在本类里另抄一份字符串字面量：抄一份 = 又开一个口径，而判错的后果是
+    // 订单在站长端落进错误的子页签（一键外派 vs 指定外派），且全程不报错。
 
     @Autowired
     private OrderMapper orderMapper;
@@ -299,6 +306,13 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         if (order.getDeliveryStaffId() != null && !order.getDeliveryStaffId().equals(staffId)) {
             throw new BusinessException("该订单已分配给其他配送员");
+        }
+        // [2026-09-26 产品裁定] **配送员只能接派给自己的单**：产品原话「如果是未分配的订单，
+        // 不应该直接显示给配送员吧 —— 现在站长还没分配，刚同意入站就能看见订单了，就能接单了」。
+        // 站长不受这条限制：他自己也送水，"看到未分配就自己接了"是正常动作（前台的接单按钮
+        // 对站长同样开放），所以这里按角色分叉，而不是一刀切要求"必须先被分配"。
+        if (AuthContext.isDelivery() && order.getDeliveryStaffId() == null) {
+            throw new BusinessException("该订单还没分配配送员，请联系站长分配后再接单");
         }
 
         // 原子接单：仅当 status=1 才更新，返回受影响行数（乐观锁）
@@ -836,7 +850,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             // （若不搬，这单的货就会一直挂在上一个站名下，取消时释放到错站 —— 问题 4a 的形状）
             inventoryReservationService.transferForOrder(orderId, order.getStationId());
             orderMapper.appendSpecialNote(orderId,
-                    "[外派] 站长拒单后外派，原因=" + r + "，原归属站=" + stationId);
+                    DispatchKind.NOTE_POOL_BY_REJECT + "，原因=" + r + "，原归属站=" + stationId);
         } else {
             // [2026-09-13] 取消分支原先没有任何状态门槛（外派分支靠 outsourceToPoolIf 的 CAS 兜着）。
             // ⚠️ 与本类其它取消入口共用**同一道闸门** `OrderStatus.isCancellable`（= 待配送/配送中）。
@@ -904,11 +918,11 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
      * </ol>
      *
      * <p><b>为什么第 2 项必须带上 {@code delivery_bucket_qty > 0}</b>：{@code first_barrel_order}
-     * 的写入口径是 {@code OrderServiceImpl:493} 的
-     * {@code firstStationAsset && totalNeededBuckets > 0} —— <b>不含桶装水的单（瓶装水 / 饮水机）
+     * 的写入口径是 {@code OrderServiceImpl} 的
+     * {@code totalNeededBuckets > 0 && !hasBarrelAsset(...)} —— <b>不含桶装水的单（瓶装水 / 饮水机）
      * 恒为 0</b>，只看它会把这类"根本碰不到桶"的普通单也一并拦死，违反产品
      * 「普通单保持原状、不要给所有外派加摩擦」。{@code delivery_bucket_qty} 同为下单时写死的快照
-     * （无桶写 NULL/0，{@code OrderServiceImpl:492}），两列一起看才等价于"本单真的要动桶"。</p>
+     * （无桶写 NULL/0，{@code OrderServiceImpl#setDeliveryBucketQty}），两列一起看才等价于"本单真的要动桶"。</p>
      *
      * <p>⚠️ 反过来说：<b>桶装水单几乎都会被判为风险单</b>（首单收押金 → 命中第 1 项；
      * 老客换水 → 命中第 2 项），这正是产品要的效果 —— 抢单池只剩"不碰桶"的单，
@@ -973,7 +987,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         // 履约站 = 结算站 = 目标站 → 待收款流水跟着走
         movePendingCollectionTo(orderId, targetStationId);
         orderMapper.appendSpecialNote(orderId,
-                "[外派] 从水站 " + myStationId + " 外派至 " + targetStationId + "，原因：" + r);
+                DispatchKind.NOTE_DIRECT + myStationId + " 外派至 " + targetStationId + "，原因：" + r);
         if (risky) appendRiskAckNote(orderId, "外派方", myStationId);
         notifyCustomerTempDispatch(order.getCustomerId(), orderId, targetStationId);
         log("DISPATCH", orderId,
@@ -1014,7 +1028,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             // 但它完成配送时会被 shipForOrder 拦下（那 7 桶必须先在接单站入库补上）。
             inventoryReservationService.transferForOrder(orderId, targetStationId);
             orderMapper.appendSpecialNote(orderId,
-                    "[外派] 站长指定外派至 " + targetStationId + "，原因：" + r + "，原归属站=" + stationId);
+                    DispatchKind.NOTE_DIRECTED + targetStationId + "，原因：" + r + "，原归属站=" + stationId);
             if (risky) appendRiskAckNote(orderId, "外派方", stationId);
             notifyCustomerTempDispatch(order.getCustomerId(), orderId, targetStationId);
             log("OUTSOURCE_DIRECT", orderId,

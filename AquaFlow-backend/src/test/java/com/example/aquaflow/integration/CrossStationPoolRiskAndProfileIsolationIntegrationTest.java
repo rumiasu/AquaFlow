@@ -238,6 +238,10 @@ class CrossStationPoolRiskAndProfileIsolationIntegrationTest extends AbstractInt
         assertTrue(post("/api/delivery/orders/" + cross + "/accept", driver, "{}").isSuccess(), "配送员接单应成功");
         assertProfileMasked(rowById(get("/api/delivery/orders/delivering", driver).data(), cross),
                 "配送中列表");
+        // 详情同样只下发订单快照；原实现只在列表遮蔽，按 id 读详情会泄露归属站客户档案。
+        JsonNode crossDetail = get("/api/delivery/orders/" + cross, driver).data();
+        assertProfileMasked(crossDetail, "跨站订单详情");
+        assertEquals(ADDRESS_TEXT, crossDetail.path("addressSnapshot").asText(), "配送地址快照照常下发");
         // ③ 回桶记录（同一批 status=2 的单，另一张列表）
         assertProfileMasked(rowById(get("/api/delivery/barrel-records", driver).data(), cross),
                 "回桶记录列表");
@@ -258,6 +262,9 @@ class CrossStationPoolRiskAndProfileIsolationIntegrationTest extends AbstractInt
         assertNotNull(mineRow, "本站自己的单应在配送员待接单列表里");
         assertEquals("本站客户丙", mineRow.path("customerName").asText(),
                 "本站自己的单必须照常显示客户姓名");
+        JsonNode mineDetail = get("/api/delivery/orders/" + mine, tokenB).data();
+        assertEquals("本站客户丙", mineDetail.path("customerName").asText(),
+                "本站自己的订单详情必须照常显示客户姓名");
     }
 
     /* ==================================================================

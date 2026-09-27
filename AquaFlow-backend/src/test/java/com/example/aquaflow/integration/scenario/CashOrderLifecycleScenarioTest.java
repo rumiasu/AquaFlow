@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -88,9 +89,13 @@ class CashOrderLifecycleScenarioTest extends AbstractScenarioTest {
 
         assertTrue(inList("/api/delivery/orders/station-pending", w.managerToken(), order),
                 "货到付款是例外：钱还没到也要推进站长视野，否则没人去送、也就收不到钱");
-        assertTrue(inList("/api/delivery/orders/pending", w.driverToken(), order), "配送员同样应看得到");
+        assertTrue(inList("/api/delivery/orders/pending", w.managerToken(), order),
+                "站长的「未分配」列表里同样看得到");
+        // [2026-09-26 产品裁定] 配送员看不到未分配的单，也不能自己接走 —— 链路多一步「站长派单」
+        assertNotEquals(0, acceptOrder(w, order).code(), "没派给他的单，配送员不得自己接走");
 
-        // ---- 2) 配送员接单（1 待配送 → 2 配送中）----
+        // ---- 2) 站长派单 → 配送员接单（1 待配送 → 2 配送中）----
+        assertEquals(0, assignOrder(w, order).code(), "站长派单应成功");
         assertEquals(0, acceptOrder(w, order).code(), "已支付的现金单应可接单");
         assertEquals(2, status(order), "接单后应为 配送中(2)");
 
@@ -126,6 +131,7 @@ class CashOrderLifecycleScenarioTest extends AbstractScenarioTest {
 
         assertEquals(0, placeOrder(w, "sc-cash-2", CASH, 1).code(), "下单应成功");
         long order = orderIdOf("sc-cash-2");
+        assertEquals(0, assignOrder(w, order).code(), "站长先派单（[2026-09-26] 起配送员只能接派给自己的单）");
         assertEquals(0, acceptOrder(w, order).code(), "接单应成功");
 
         // ---- 送达但不收款：停在 已送达(3) + 待收款(1) ----
@@ -183,6 +189,7 @@ class CashOrderLifecycleScenarioTest extends AbstractScenarioTest {
 
         assertEquals(0, placeOrder(w, "sc-cash-3", CASH, 1).code(), "下单应成功");
         long order = orderIdOf("sc-cash-3");
+        assertEquals(0, assignOrder(w, order).code(), "站长先派单（[2026-09-26] 起配送员只能接派给自己的单）");
         assertEquals(0, acceptOrder(w, order).code(), "接单应成功");
 
         assertEquals(0, completeDeliveryNoCollectedField(w, order, 1, 0).code(),
@@ -223,6 +230,7 @@ class CashOrderLifecycleScenarioTest extends AbstractScenarioTest {
 
         assertEquals(0, placeOrder(w, "sc-cash-4", CASH, 1).code(), "下单应成功");
         long order = orderIdOf("sc-cash-4");
+        assertEquals(0, assignOrder(w, order).code(), "站长先派单（[2026-09-26] 起配送员只能接派给自己的单）");
         assertEquals(0, acceptOrder(w, order).code(), "接单应成功");
         assertEquals(0, completeDelivery(w, order, 1, 0, false, null).code(), "送达（不收款）应成功");
         assertEquals(3, status(order), "应停在 已送达(3)");
@@ -316,6 +324,7 @@ class CashOrderLifecycleScenarioTest extends AbstractScenarioTest {
         long order = orderIdOf("sc-cash-5");
         assertEquals(1, intOf("SELECT COUNT(*) FROM orders WHERE id=? AND due_date IS NOT NULL", order),
                 "挂了账期的单，下单时必须快照出应付日期");
+        assertEquals(0, assignOrder(w, order).code(), "站长先派单（[2026-09-26] 起配送员只能接派给自己的单）");
         assertEquals(0, acceptOrder(w, order).code(), "接单应成功");
         assertEquals(0, completeDelivery(w, order, 1, 0, false, null).code(), "送达（不收款）应成功");
         assertEquals(3, status(order), "应停在 已送达(3)");

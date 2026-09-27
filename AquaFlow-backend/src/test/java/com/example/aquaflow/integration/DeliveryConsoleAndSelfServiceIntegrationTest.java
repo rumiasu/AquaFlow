@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -53,7 +54,6 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
 
         // 两种角色都允许的端点
         String[] bothRoles = {
-                "/api/delivery/orders/pending",
                 "/api/delivery/orders/assigned-to-me",
                 "/api/delivery/orders/delivering",
                 "/api/delivery/orders/completed-today",
@@ -74,6 +74,10 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
 
         // 站长专属的端点
         String[] managerOnly = {
+                // [2026-09-26 产品裁定] 「未分配的单」是站长专属：配送员看不到，也不许自己接走
+                //（原话：「如果是未分配的订单，不应该直接显示给配送员吧 —— 现在站长还没分配，
+                //  刚同意入站就能看见订单了，就能接单了」）
+                "/api/delivery/orders/pending",
                 "/api/delivery/orders/station-pending",
                 "/api/delivery/orders/station-delivering",
                 "/api/delivery/orders/station-completed",
@@ -99,6 +103,56 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
         assertTrue(mine.data().toString().contains("\"id\":" + assigned), "待接单列表应含分配给我的单");
         assertTrue(get("/api/delivery/orders/delivering", del).data().toString().contains("\"id\":" + delivering),
                 "配送中列表应含我配送中的单");
+    }
+
+    /**
+     * 未分配的单：配送员**既看不到、也接不走**；站长派给他之后才能接（[2026-09-26] 产品裁定）。
+     *
+     * <p>产品原话：「如果是未分配的订单，不应该直接显示给配送员吧 —— 现在站长还没分配，
+     * 刚同意入站就能看见订单了，就能接单了」。两条必须一起守：列表端点（改成站长专属）
+     * 只是不给他看，**接单闸门**才是真正拦住"拿 id 编造去接"的那道
+     * （本仓"列表看不到但 id 可编造"的老坑，见 AGENTS §1.1）。</p>
+     */
+    @Test
+    @DisplayName("未分配的单：配送员看不到也接不走；站长派给他之后才能接")
+    void unassignedOrderCannotBeSeenOrTakenByDelivery() {
+        long station = createStation("未分配站");
+        long manager = createStaff("未分配站长", "STATION_MANAGER", station, 1);
+        long delivery = createStaff("未分配配送员", "DELIVERY", station, 1);
+        long customer = createCustomer("未分配客户", "unassigned-openid");
+        long product = createProduct("未分配水", 1, "10.00", "30.00", 0, "0.00");
+        long address = createAddress(customer, "未分配地址");
+        createInventory(station, product, 20);
+        // 现金单（下单即待收款）：把"钱到没到"那条规则与本用例要盯的"分配"解耦
+        long order = createOrderFull(customer, address, station, product, 1, 1, 2,
+                "10.00", "30.00", "40.00", false, 0);
+        jdbc.update("UPDATE orders SET delivery_staff_id=NULL WHERE id=?", order);
+
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+        String del = staffToken(delivery, "DELIVERY", station);
+
+        // 站长看得到 —— 他得派单
+        assertTrue(get("/api/delivery/orders/pending", mgr).data().toString().contains("\"id\":" + order),
+                "站长的「未分配」列表里应有这一单");
+        // 配送员：列表本身打不开，另一条列表里也没有它
+        assertNotEquals(0, get("/api/delivery/orders/pending", del).code(),
+                "配送员不该读「未分配」列表（站长专属）");
+        assertFalse(get("/api/delivery/orders/assigned-to-me", del).data().toString().contains("\"id\":" + order),
+                "还没派给他，就不该出现在「派给我的」里");
+        // 配送员：拿 id 编造也接不走（真正的闸门）
+        Api taken = post("/api/delivery/orders/" + order + "/accept", del, "{}");
+        assertNotEquals(0, taken.code(), "没派给他的单不得自己接走，实际=" + taken);
+        assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", order), "被拒后状态不得变");
+        assertEquals(1, intOf("SELECT COUNT(*) FROM orders WHERE id=? AND delivery_staff_id IS NULL", order),
+                "被拒后不得产生配送员归属（他连「先占上」都做不到）");
+
+        // 站长派单 → 配送员才看得到、才接得动
+        assertEquals(0, post("/api/delivery/orders/assign/" + order, mgr,
+                "{\"deliveryStaffId\":" + delivery + "}").code(), "站长派单应成功");
+        assertTrue(get("/api/delivery/orders/assigned-to-me", del).data().toString().contains("\"id\":" + order),
+                "派给他之后要出现在「派给我的」列表里");
+        assertEquals(0, post("/api/delivery/orders/" + order + "/accept", del, "{}").code(),
+                "派给他之后应可接单");
     }
 
     @Test
@@ -137,7 +191,7 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
 
     @Test
     @DisplayName("登录态自助：me / 改资料 / refresh 轮换 / logout 后旧 refresh 失效")
-    void loginSelfServiceLifecycle() throws InterruptedException {
+    void loginSelfServiceLifecycle() {
         // dev-login 由本类的 @TestPropertySource 显式打开（**不能**再依赖 application-local.yml：
         // 那份配置已 gitignore、CI 上不存在，而 CI 的 DEV_LOGIN_ENABLED 是有意设成 false 的），
         // 它能一次给齐 access + refresh，正是要验证 refresh 轮换所需要的
@@ -166,14 +220,17 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
         String refresh2 = refreshed.data().path("refreshToken").asText();
         assertEquals(0, get("/api/auth/me", access2).code(), "新 access 可用");
 
-        // 轮换语义要跨秒才可验证：generateRefreshToken 用**秒级** iat/exp 且没有 jti，
-        // 同一秒内签发的两个 refresh token 完全一样（此时"旧 token 失效"实际不成立）。
-        // 这里睡过一秒再刷，验证的是真实轮换；那段同秒局限如实写在注释里，不当作缺陷。
-        Thread.sleep(1100);
+        // [2026-09-26 修正] 这里原先 sleep(1100) 并注释说"同一秒签发的两个 refresh token 完全一样，
+        // 那段同秒局限不当成缺陷" —— 那个判断**是错的**，真机实测把它证伪了：
+        // 同秒两次签发得到逐字节相同的 token，落进 user_token 就是**两行同值记录**，
+        // 而刷新走的是单行查询 → TooManyResultsException（code=500），客户端登录态卡死。
+        // 真实库上留有 id 113/114、129/130 两对重复行，并落过一条 SYSTEM 告警。
+        // 根因已修（JwtUtil.generateRefreshToken 加 jti），所以现在**不需要跨秒**也能验证轮换：
+        // 下面这一刷与上一次刷新在同一秒内完成，新的 token 仍必须与旧的**不同**。
         Api refreshed2 = post("/api/auth/refresh", null, "{\"refreshToken\":\"" + refresh2 + "\"}");
         assertEquals(0, refreshed2.code(), "第二次刷新: " + refreshed2);
         String refresh3 = refreshed2.data().path("refreshToken").asText();
-        assertNotEquals(refresh2, refresh3, "跨秒后 refresh token 必须轮换");
+        assertNotEquals(refresh2, refresh3, "同一秒内刷新也必须换出不同的 token（加 jti 之前这里是相同的）");
         assertNotEquals(0, post("/api/auth/refresh", null, "{\"refreshToken\":\"" + refresh2 + "\"}").code(),
                 "轮换后上一个 refresh 必须失效（防重放）");
 
@@ -183,6 +240,32 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
         // access token 是自包含 JWT，登出不会让它立刻失效（无黑名单）—— 如实记录，不当成缺陷
         assertEquals(0, get("/api/auth/me", access2).code(),
                 "access token 仍有效：本项目没有 access 级黑名单，登出只清 refresh 记录");
+    }
+
+    @Test
+    @DisplayName("refresh 签发必须唯一 + 真实库遗留的同值重复行不得把刷新打成 500")
+    void refreshTokenIsUniqueAndSurvivesLegacyDuplicateRows() {
+        // ① 根因护栏：同一秒内两次签发必须是**不同**的字符串。
+        //    旧实现只有秒级 iat/exp、没有 jti，同秒两次签发逐字节相同 → 落库成两行同值记录。
+        assertNotEquals(jwtUtil.generateRefreshToken(1L, "customer"), jwtUtil.generateRefreshToken(1L, "customer"),
+                "两次签发的 refresh token 必须不同：同值会落成重复行，刷新时单行查询直接抛 TooManyResults");
+
+        // ② 存量数据护栏：真实库里已经存在同值重复行（id 113/114、129/130），
+        //    这些 token 还都在有效期内 —— 刷新必须照常成功，而不是 500。
+        Api login = post("/api/auth/dev-login", null, "{\"role\":\"CUSTOMER\",\"openid\":\"dup-token-openid\"}");
+        assertEquals(0, login.code(), "开发登录: " + login);
+        String refresh = login.data().path("refreshToken").asText();
+        long customerId = login.data().path("customerId").asLong();
+        insert("INSERT INTO user_token(user_id, user_type, refresh_token, expire_time, create_time) "
+                        + "VALUES (?,?,?, DATE_ADD(NOW(), INTERVAL 7 DAY), NOW())",
+                customerId, "customer", refresh);
+        assertEquals(2, intOf("SELECT COUNT(*) FROM user_token WHERE refresh_token=?", refresh),
+                "先把真实库的历史形态摆出来：两行同值记录");
+
+        Api refreshed = post("/api/auth/refresh", null, "{\"refreshToken\":\"" + refresh + "\"}");
+        assertEquals(0, refreshed.code(), "同值重复行不得让刷新变成 code=500（客户端会卡死在登录态）: " + refreshed);
+        assertEquals(0, intOf("SELECT COUNT(*) FROM user_token WHERE refresh_token=?", refresh),
+                "轮换要把同值的重复行一并清掉，否则下次刷新又会撞上");
     }
 
     @Test

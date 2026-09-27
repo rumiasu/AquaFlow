@@ -22,6 +22,8 @@ Page({
     items: [],
     /** 本单有没有要核对回桶的明细；false 时整块不渲染（瓶装水单没有"回桶"这回事） */
     hasBarrelItems: false,
+    /** 有押金且有旧桶回收建议时，明确说明默认数不含本单新付押金桶 */
+    hasDepositOldBarrelHint: false,
     /** 顶部副标题：没有回桶这件事时不能还说"核对回桶后确认完成" */
     successSubtitle: '核对回桶后确认完成',
     noteText: '',
@@ -93,7 +95,10 @@ Page({
       //     报错是「回收空桶数(2)超过该客户当前持有数(0)」，配送员看不懂；
       //   · 混合单（桶装水 + 瓶装水）必踩 —— 只要不手动把瓶装水那行改成 0 就提交不了。
       const barrelItems = orderItems.filter(it => it.barrelItem === true)
-      const items = barrelItems.map(item => {
+      // 首次产生押金的单（含桶装水 + 其他商品的混合单）本次没有旧桶可回：
+      // 页面虽展示说明，但不创建回桶输入项，也不向完成接口发送回桶明细。
+      // 普通混合续购仍由后端 suggestedReturnQty 决定旧桶默认回收数。
+      const items = isFirstBarrelOrder ? [] : barrelItems.map(item => {
         // 默认回桶数 = 后端算好的 `suggestedReturnQty`（= 客户手上**已有的旧桶**，
         // 上限「占用 = 权益 + over」且不超过送出桶数）。
         //
@@ -123,6 +128,9 @@ Page({
           reasonQtySum: 0
         }
       })
+      const hasDepositOldBarrelHint = !isFirstBarrelOrder
+        && Number(order.depositAmount || 0) > 0
+        && items.some(item => item.expected > 0)
 
       // 收款口径一律取**后端投影**（Orders.getNeedCollect / getPayMethodText / getPayStateText）：
       // 前端此前自己按 1/2/3 重算（`pm !== 1 && ps !== 2`），水票未付会被显示成「货到付款」——
@@ -146,6 +154,7 @@ Page({
         isFirstBarrelOrder,
         items,
         hasBarrelItems: items.length > 0,
+        hasDepositOldBarrelHint,
         // 首单 / 纯瓶装水单都没有"核对回桶"这一步，副标题不能再说"核对回桶后确认完成"
         successSubtitle: (isFirstBarrelOrder || items.length === 0) ? '确认交付后完成' : '核对回桶后确认完成',
         isCashOnDelivery: needCollect,

@@ -93,24 +93,31 @@ console.log('配送送达页 · 流程测试（真实执行页面处理函数）
 const doneWatchdog = armWatchdog()
 
 // ---------------------------------------------------------------- C1 首单
-await test('首单（押金桶）：不再弹"全部为 0 是否确认"，直接进最终确认', async () => {
-  // 首单的默认回桶数是 0（整单都是本单新买的押金桶，后端的 suggestedReturnQty = 0）
-  const { page, wx } = newPage(baseOrder({
+await test('首次产生押金的混合单：不生成回桶项，也不向后端提交回桶明细', async () => {
+  // 首单即使同时买了其他商品也不回桶；即使后端建议数非零（例如并发首单已先送达），首单标记优先。
+  const { page, wx, calls } = newPage(baseOrder({
     firstBarrelOrder: true, needCollect: false, payMethodText: '水票支付', paymentStatus: 2,
-    items: [barrelItem({ suggestedReturnQty: 0 })]
+    items: [
+      barrelItem({ suggestedReturnQty: 2 }),
+      { id: 502, productNameSnapshot: '550ml瓶装水', quantity: 2, barrelItem: false, suggestedReturnQty: null }
+    ]
   }))
   await page.loadOrder(55)
   assert.strictEqual(page.data.isFirstBarrelOrder, true)
-  assert.strictEqual(page.data.items[0].actual, 0)
+  assert.deepStrictEqual(page.data.items, [], '首单不应创建隐藏的回桶输入项')
+  assert.strictEqual(page.data.hasBarrelItems, false)
   await page.onConfirmComplete()
   const titles = wx.__calls.modal.map(m => m.title)
-  assert.ok(!titles.some(t => t.indexOf('确认回桶数') > -1), '首单不该再问"全部为 0"：' + JSON.stringify(titles))
+  await new Promise((r) => setTimeout(r, 10))
+  assert.ok(!titles.some(t => t.indexOf('确认回桶数') > -1), '首单不该再问回桶数：' + JSON.stringify(titles))
   assert.ok(titles.some(t => t.indexOf('确认完成配送') > -1), '应直接进最终确认：' + JSON.stringify(titles))
+  assert.deepStrictEqual(calls.completeOrder[0].body.itemReturns, [], '首单完成配送不得提交回桶明细')
 })
 
 // ---------------------------------------------------------------- 回桶口径（[2026-09-26] 混合单 / 新买押金桶）
 await test('混合单：瓶装水不进回桶块，只留桶装水那一行（默认值取后端口径）', async () => {
   const { page, calls } = newPage(baseOrder({
+    depositAmount: 60,
     items: [
       barrelItem({ id: 501, quantity: 3, suggestedReturnQty: 1 }),          // 旧桶 1 个换新水，另 2 个是本单新买押金桶
       { id: 502, productNameSnapshot: '农夫山泉 550ml', quantity: 2, barrelItem: false, suggestedReturnQty: null }
@@ -119,6 +126,7 @@ await test('混合单：瓶装水不进回桶块，只留桶装水那一行（�
   await page.loadOrder(55)
   assert.strictEqual(page.data.items.length, 1, '瓶装水不该出现在回桶块里：' + JSON.stringify(page.data.items))
   assert.strictEqual(page.data.hasBarrelItems, true)
+  assert.strictEqual(page.data.hasDepositOldBarrelHint, true, '本单有新押金桶且有旧桶回收时，应明确说明口径')
   assert.strictEqual(page.data.items[0].sentQty, 3, '「送出 N 桶」仍要显示真实送出数')
   assert.strictEqual(page.data.items[0].expected, 1, '该回数 = 客户手上的旧桶，不含本单新买押金桶')
   assert.strictEqual(page.data.items[0].actual, 1, '默认值 = 该回数')
@@ -133,8 +141,9 @@ await test('混合单：瓶装水不进回桶块，只留桶装水那一行（�
 })
 
 await test('新买押金的桶不参与回收：送出 4、客户手上 2 个旧桶 ⇒ 该回 2（不是 4）', async () => {
-  const { page } = newPage(baseOrder({ items: [barrelItem({ quantity: 4, suggestedReturnQty: 2 })] }))
+  const { page } = newPage(baseOrder({ depositAmount: 60, items: [barrelItem({ quantity: 4, suggestedReturnQty: 2 })] }))
   await page.loadOrder(55)
+  assert.strictEqual(page.data.hasDepositOldBarrelHint, true)
   assert.strictEqual(page.data.items[0].sentQty, 4)
   assert.strictEqual(page.data.items[0].expected, 2)
   // 用送出数当 expected 会立刻要求填"少回收 2 桶"的原因 —— 这正是要避免的假异常

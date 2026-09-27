@@ -72,6 +72,7 @@
     <text class="required" wx:if="{{!isFirstBarrelOrder}}">*</text>
   </view>
   <view class="section" wx:if="{{isFirstBarrelOrder || hasBarrelItems}}">
+    <text class="section-tip old-barrel-hint" wx:if="{{hasDepositOldBarrelHint}}">默认数只算客户以前的旧桶；本单新付押金的桶不回收</text>
     <!-- 本次送的桶是**本单新买押金**的：不要求本次回收（§7：不能说成"首次下单"，
          客户可能早就买过水票 —— 那与"有没有桶权益"不是一回事） -->
     <view class="first-order-tip" wx:if="{{isFirstBarrelOrder}}">
@@ -96,7 +97,7 @@
             <input class="step-input" type="number" value="{{item.actual}}" bindinput="onActualChange" data-idx="{{idx}}" />
             <view class="step-btn" catchtap="onActualIncrease" data-idx="{{idx}}">+</view>
           </view>
-          <text class="barrel-label">回 <text class="num-blue">{{item.actual}}</text> 桶</text>
+          <text class="barrel-label">收回旧桶 <text class="num-blue">{{item.actual}}</text> 桶</text>
         </view>
 
         <!-- 差异：异常明细（必填） -->

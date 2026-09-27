@@ -98,6 +98,11 @@ function loadPage(relPagePath, opts) {
   global.Page = (cfg) => { captured = cfg }
   global.getCurrentPages = () => [{}]
 
+  // 页面级 Behavior：`Behavior({data, methods})` 在真机上会被合并进页面（data 并入、methods 平铺），
+  // 这里补一个同形状的最小实现 —— 少了它，任何 `behaviors: [xxx]` 的页面（如 coordination 用了
+  // behaviors/stationNavbar）一 loadPage 就抛 `Behavior is not defined`。
+  global.Behavior = (cfg) => cfg
+
   // 拦掉网络模块：只按"请求路径的后半段"匹配，避免写死相对层级
   const stubs = options.stubs || {}
   const originalLoad = Module._load
@@ -125,6 +130,15 @@ function loadPage(relPagePath, opts) {
   // 实例：data 深拷贝一份，方法直接绑上（与小程序运行时足够像）
   const instance = Object.assign({}, captured)
   instance.data = JSON.parse(JSON.stringify(captured.data || {}))
+  // ⚠️ 先并入 behavior 的 data，再并入页面自己的 data —— **页面优先**（真机也是页面覆盖 behavior）。
+  const behaviors = Array.isArray(captured.behaviors) ? captured.behaviors : []
+  behaviors.forEach((b) => {
+    if (!b) return
+    Object.keys(b.data || {}).forEach((k) => {
+      if (!(k in instance.data)) instance.data[k] = JSON.parse(JSON.stringify(b.data[k]))
+    })
+  })
+  instance.__behaviors = behaviors
   instance.__wx = wx
   instance.__app = app
   instance.setData = function (patch, cb) {
@@ -134,6 +148,15 @@ function loadPage(relPagePath, opts) {
   // 页面上挂的非 data 字段（如 this.enterprisePrompted）
   Object.keys(captured).forEach((k) => {
     if (typeof captured[k] === 'function') instance[k] = captured[k].bind(instance)
+  })
+  // behavior 的 methods 平铺到实例上（页面自己的同名方法优先）—— 真机就是这么合并的
+  behaviors.forEach((b) => {
+    const methods = (b && b.methods) || {}
+    Object.keys(methods).forEach((k) => {
+      if (typeof methods[k] === 'function' && typeof instance[k] !== 'function') {
+        instance[k] = methods[k].bind(instance)
+      }
+    })
   })
   return instance
 }

@@ -300,6 +300,14 @@ Page({
    * 提交前的「风险提示 → 用户确认」两步（产品要求：押金/桶权益风险文案由后端出，
    * 外派方与接收站**双方都特别提醒后同意**才提交）。
    *
+   * ⚠️ **confirmText 必须 ≤ 4 个字符**（2026-09-27 实测事故）：微信 `wx.showModal` 的
+   * confirmText / cancelText 超过 4 字时**既不弹窗、也不走 fail 回调** —— 本方法等的是一个
+   * 永不 resolve 的 Promise，于是调用方（点配送员 / 抢单 / 外派）**点击后毫无反应**，
+   * 连一句"分配失败"的 toast 都不会出现。当时「分配」传的是 6 个字的 `'已确认，分配'`。
+   * 这里按上限硬截断：文案短一点，总比"点了没反应"可诊断。**别把这段护栏删掉。**
+   * （同一约束的静态扫描见 tests/js/modal-copy-limit.test.js；
+   * 真流程用例见 tests/js/coordination-assign-flow.test.js。）
+   *
    * @returns {{ok: boolean, acknowledged: boolean}} ok=false 表示用户点了取消，
    *          调用方必须直接返回、**不要提交**；acknowledged=true 表示本次提交要带
    *          riskAcknowledged=true（后端只对涉押金/桶权益的单校验这个字段，
@@ -308,11 +316,18 @@ Page({
   async _confirmRisk(orderId, confirmText) {
     const risk = await fetchCrossStationRisk(orderId)
     if (!risk.note) return { ok: true, acknowledged: false }
+    const MAX_MODAL_BTN = 4
+    let confirmLabel = confirmText || '确认'
+    if ([...confirmLabel].length > MAX_MODAL_BTN) {
+      console.warn('[coordination] showModal 的 confirmText「' + confirmLabel
+        + '」超过平台上限 ' + MAX_MODAL_BTN + ' 字，已截断 —— 超长时微信既不弹窗也不报错')
+      confirmLabel = [...confirmLabel].slice(0, MAX_MODAL_BTN).join('')
+    }
     const res = await new Promise((resolve) => {
       wx.showModal({
         title: '押金/桶权益风险',
         content: risk.note,
-        confirmText: confirmText || '我已确认',
+        confirmText: confirmLabel,
         cancelText: '取消',
         success: resolve,
         fail: () => resolve({ confirm: false })
@@ -645,7 +660,9 @@ Page({
 
     // 接收站确认：别站**指定外派**给本站的涉押金/桶权益单，分配（= 本站受理这一单）前要再确认一次。
     // 文案来自后端；不涉风险的普通单这里什么都不会弹（_confirmRisk 拿不到文案就放行）。
-    const risk = await this._confirmRisk(orderId, '已确认，分配')
+    // ⚠️ confirmText 上限 4 字：这里原先是 6 个字的「已确认，分配」⇒ 真机上弹窗被平台丢弃、
+    //    Promise 永不 resolve，点配送员**完全没反应**（2026-09-27 实测）。别再加长。
+    const risk = await this._confirmRisk(orderId, '确认分配')
     if (!risk.ok) return
 
     wx.showLoading({ title: '分配中...' })

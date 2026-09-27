@@ -19,6 +19,7 @@ const SUITES = [
   { file: 'delivery-detail-return-row.test.js', name: '订单详情页回桶行（首单不给默认回桶值）' },
   { file: 'ticket-purchase-flow.test.js', name: '水票购买（自助预付，不需要水站同意）' },
   { file: 'notice-draft-flow.test.js', name: '公告发布/草稿（站长端）' },
+  { file: 'coordination-assign-flow.test.js', name: '待分配→分配配送员（站长端，2026-09-27 真机事故回归）' },
   { file: 'modal-copy-limit.test.js', name: '弹窗按钮文案长度（两端静态扫描）' }
 ]
 

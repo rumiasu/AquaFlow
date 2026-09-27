@@ -298,8 +298,20 @@ public interface OrderMapper {
      * 所以**不要**在这里加"渠道未接入"之类的特例，也不要在别处另写一套推送判据
      * （全仓三处：本方法、{@link #listStationPendingUnassigned}、接单/分配的业务闸门）。</p>
      */
+    // ⚠️ itemSummary / itemKindCount 的单位判据与 util/BarrelScope **同源**（product.category：
+    //    1 桶装水 / 2 瓶装水 / 3 饮水器 → 桶/瓶/台，认不出的品类回落「件」）。
+    //    BarrelScope 是 Java 侧唯一判据、这里是它的 SQL 镜像 —— **改一处必须改两处**。
+    // ⚠️ group_concat 受 group_concat_max_len（MySQL 默认 1024 **字节**）限制，超长会**静默截断**
+    //    （不报错、只是摘要少半截）。判断：本仓一单明细数是个位数、名称也短，离 1024 字节很远，
+    //    暂不处理；若将来出现"长名称 × 十几条明细"的单，要么调大会话变量要么改成两段查询。
+    // ⚠️ 别名用 oi2/p2，**不要**用 oi —— 同一个 select 里已有 firstProductName 的 oi 子查询。
+    // 楼层/电梯按 LEFT JOIN 补（address 已经是 left join，不会漏行，也不用新增 join）——
+    // 「本站未分配」列表是站长分派的依据，他要一眼看出哪些单要爬楼、有没有电梯，
+    // 否则只能凭记忆分派（三态语义见 Orders#addressFloor 的注释：null ≠ 0）。
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail " +
+            "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
+            "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
+            "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
@@ -472,7 +484,12 @@ public interface OrderMapper {
 
     // ⚠️ 比同族查询多带 a.floor / a.has_elevator：这是**配送员自己的任务列表**，
     // 他要据此知道这一单要不要上楼（P0-2 的楼层字段此前只有计价在用，见 Orders 的字段注释）。
+    // ⚠️ itemSummary / itemKindCount 的 case 与 util/BarrelScope 同源（product.category：
+    //    1 桶装水 / 2 瓶装水 / 3 饮水器），改一处要改两处；group_concat 的
+    //    group_concat_max_len（默认 1024 字节）截断风险与别名约定见 listPendingByStationId 上方注释。
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+            "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
+            "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
             "a.detail as addressDetail, a.name as addressName, a.phone as addressPhone, " +
             "a.floor as addressFloor, a.has_elevator as addressHasElevator " +
             "from orders o " +
@@ -500,8 +517,12 @@ public interface OrderMapper {
             "order by o.create_time asc")
     List<Orders> listByStationIdAndStatus(@Param("stationId") Long stationId, @Param("status") Integer status);
 
+    // 「今日完成」：itemSummary / itemKindCount 见 listPendingByStationId 上方的单位与截断说明；
+    // 楼层/电梯照抄 listByDeliveryStaffId —— 配送员回到站里复盘/补录时同样要知道这单上没上楼。
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail " +
+            "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
+            "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
+            "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
@@ -659,8 +680,15 @@ public interface OrderMapper {
      * （现金与水票除外，理由见该方法的 javadoc）。改一处必须改另一处，否则
      * 「站长看得到、配送员看不到」两边分叉。</p>
      */
+    // ⚠️ itemSummary / itemKindCount 的 case 与 util/BarrelScope 同源（product.category：
+    //    1 桶装水 / 2 瓶装水 / 3 饮水器），改一处要改两处；group_concat_max_len 的截断风险
+    //    与别名 oi2/p2 的约定见 listPendingByStationId 上方注释。
+    // 楼层/电梯同样按 LEFT JOIN 补（address 已经是 left join，不会漏行）——「待分配」列表里
+    // 站长要一眼看出哪些单要爬楼，否则分派时只能凭记忆。
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, c.customer_type as customerType, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail, " +
+            "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
+            "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
+            "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
@@ -682,9 +710,20 @@ public interface OrderMapper {
 
     /**
      * 配送员待接单列表：分配给我但还未接单的订单
+     *
+     * <p>⚠️ 本方法是配送端首页「待配送」页签的<b>唯一数据来源</b>。它比同族列表多下发
+     * {@code itemSummary} / {@code itemKindCount}（逐明细摘要）+ {@code addressFloor} /
+     * {@code addressHasElevator}（要不要爬楼）—— 卡片原先只能拿
+     * {@code firstProductName × quantity} 拼，混合单会显示成「纯净水 × 4桶」。
+     * 单位判据与 {@code util.BarrelScope} <b>同源</b>（{@code product.category}：
+     * 1 桶装水 / 2 瓶装水 / 3 饮水器），改一处要改两处；
+     * {@code group_concat_max_len}（默认 1024 字节）的静默截断风险与别名 oi2/p2 的约定
+     * 见 {@link #listPendingByStationId} 上方注释。</p>
      */
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
-            "a.detail as addressDetail, " +
+            "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
+            "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
+            "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +

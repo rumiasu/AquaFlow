@@ -7,6 +7,7 @@ import com.example.aquaflow.dto.TicketConsumeDTO;
 import com.example.aquaflow.dto.TicketPurchaseDTO;
 import com.example.aquaflow.entity.TicketAccount;
 import com.example.aquaflow.mapper.TicketAccountMapper;
+import com.example.aquaflow.service.PaymentService;
 import com.example.aquaflow.service.TicketAccountService;
 import com.example.aquaflow.util.AuthContext;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,9 @@ public class TicketAccountController {
 
     @Autowired
     private TicketAccountMapper ticketAccountMapper;
+
+    @Autowired
+    private PaymentService paymentService;
 
     /**
      * 我的水票账户。
@@ -97,6 +101,12 @@ public class TicketAccountController {
      * order_id 为 NULL 时生成列也是 NULL，而 MySQL 唯一键中 NULL 互不冲突 —— 也就是这条路径
      * 没有任何数据库级兜底。缺了幂等键，连点两次「买 100 张票」就会落两条待收款流水，
      * 站长在「待确认收款」里看到两行、两条都确认即<b>入账两次</b>。见 v33 迁移头注释。</p>
+     *
+     * <p><b>[2026-09-26] 购票不是审批</b>（产品口径：「水票购买不需要水站同意，直接微信收款就行，
+     * 现在只是没做收款实现而已」）：客户自己下单、自己付钱，水站只负责「收到钱」这个事实。
+     * 因此微信购票在<b>模拟渠道</b>下当场确认（{@code confirmMockChannelIfApplicable}），
+     * 返回的 {@code status} 就是流水的真实状态（2 = 已到账）；
+     * 现金购票仍是待收款(1)，等站长确认收到钱后才入账 —— 那一步是收款确认，不是同意购买。</p>
      */
     @PostMapping("/purchase")
     public Result<java.util.Map<String, Object>> purchase(@RequestBody TicketPurchaseDTO dto) {
@@ -115,6 +125,15 @@ public class TicketAccountController {
         com.example.aquaflow.entity.PaymentRecord pr = ticketAccountService.purchaseTicket(
                 customerId, dto.getProductId(), dto.getQuantity(), dto.getPaymentMethod(), stationId,
                 dto.getIdempotencyKey(), dto.getPackageId(), dto.getUnifiedQty());
+        if (pr == null) {
+            // 理论上不会有（purchaseTicket 要么返回流水要么抛业务异常），但不留一条能 NPE 成 500 的路。
+            return Result.error("购票未成功，请重试");
+        }
+        // 模拟渠道下当场把收款确认掉，并把**重新读出的**流水回给客户端：
+        // 直接回 purchaseTicket 返回的那个对象会带着"未确认"的旧状态，客户端就只能提示"等待到账"。
+        // TODO(微信支付接入)：真实渠道到位后这里不再调它 —— 改为统一下单，由**支付回调**调 confirmPayment；
+        //   本行与 PaymentService.confirmMockChannelIfApplicable 一起删（别留成"永真"的开关）。
+        pr = paymentService.confirmMockChannelIfApplicable(pr.getId());
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("paymentId", pr.getId());
         result.put("amount", pr.getAmount());

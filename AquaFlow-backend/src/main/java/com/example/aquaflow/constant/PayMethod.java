@@ -79,7 +79,8 @@ public class PayMethod {
      *
      * @param offlinePaymentAllowed 该客户在该水站是否具备货到付款（现金）权限
      * @param wechatPayEnabled      微信支付渠道当前是否可用（真实接入前 = 模拟渠道开关）
-     * @return 每项含 id/name/desc/enabled
+     * @return 每项含 id/name/desc/enabled。⚠️ **用不了的方式可能整项不在列表里**（现金未开通时），
+     *         调用方（前端）按收到的列表渲染即可，**不要**假定它一定是三项、也不要自己补一项灰的。
      */
     public static List<Map<String, Object>> availableMethods(boolean offlinePaymentAllowed,
                                                             boolean wechatPayEnabled) {
@@ -92,11 +93,21 @@ public class PayMethod {
         //    但那是**渠道未接入的部署状态**，不是判据缺陷：本地靠 app.payment.mock-wechat-pay
         //    （点击即成功），生产靠真实渠道接入。
         //    ⇒ 「新客户下不了第一单」已有定论，不要每轮都当新发现的 P0 报一遍。
+        //    ⚠️ 这一项**保持"灰着显示 + 暂未开通"**，与现金那一项**故意不同**：
+        //       微信是"渠道以后会上线"的事，客户先看到它才知道还有这条路；
+        //       而货到付款是**按客户逐户开通**的经营权限，没开通的客户看到它只会以为系统坏了。
         list.add(method(WECHAT, wechatPayEnabled,
                 wechatPayEnabled ? "模拟支付（点击即成功，仅联调期开启）" : "暂未开通"));
-        // 2 现金（货到付款）：需水站开启且客户已授权
-        list.add(method(CASH, offlinePaymentAllowed,
-                offlinePaymentAllowed ? "配送员送达后现金/扫码支付" : "需水站开通，暂不可用"));
+        // 2 现金（货到付款）：**没开通就整项不下发**（2026-09-26 产品裁定原话：
+        //    「货到付款不给开通的话，用户端直接不显示」）。
+        //    原来它是"灰着显示 + 需水站开通，暂不可用"：客户看到一个点不动的选项，
+        //    既不知道为什么、也不知道该找谁 —— 那正是"前端自带映射表/假可用性"要避免的形态。
+        //    ⚠️ 判据只有这一处（allowOfflinePayment 来自 PaymentServiceImpl.offlinePaymentBlockReason：
+        //       开关 + 欠款即停）；前端**只渲染收到的列表，不许按 id 自己过滤**；
+        //       下单侧照样会拦（OrderServiceImpl 对 method=2 再查一次 blockReason）。
+        if (offlinePaymentAllowed) {
+            list.add(method(CASH, true, "配送员送达后现金/扫码支付"));
+        }
         // 3 水票：始终可选；余额够不够由报价（ticketPay）与下单侧校验，这里只做一句引导 ——
         // 票不够的客户原本要提交后才被后端拦下，在选项上先说清"可以先去买票"能少一次来回
         // （购票入口：「我的 → 我的钱包与桶 → 水票」；票不足的弹窗里另有就近的「去买水票」按钮）。
@@ -105,14 +116,47 @@ public class PayMethod {
         return list;
     }
 
-    /** 第一个可用的支付方式；全部不可用时回退为现金（下单侧会给出明确报错） */
+    /**
+     * 第一个可用的支付方式。
+     *
+     * <p>水票恒为可用，所以循环一定有结果；兜底值刻意取**水票**而不是现金 ——
+     * 现金可能压根不在 {@link #availableMethods} 里（未开通就整项不下发），
+     * 让默认值指向一个没下发的选项，前端会出现"没有任何一项选中"的空状态。</p>
+     */
     public static int defaultMethod(boolean offlinePaymentAllowed, boolean wechatPayEnabled) {
         for (Map<String, Object> m : availableMethods(offlinePaymentAllowed, wechatPayEnabled)) {
             if (Boolean.TRUE.equals(m.get("enabled"))) {
                 return ((Integer) m.get("id"));
             }
         }
-        return CASH;
+        return TICKET;
+    }
+
+    /**
+     * 「这个支付方式当前走的是哪条收款渠道」—— 报价下发给前端，供它决定<b>建单之后要不要发起付款</b>。
+     *
+     * <p><b>为什么需要它（2026-09-26）</b>：服务端的「模拟微信渠道」只在
+     * {@code PaymentServiceImpl.createPayment} 里成形（{@code paymentMethod=1} 且开关开着 → 当场置已付款）。
+     * 前端如果自己按 {@code id === 1} 就发付款请求，等于把"渠道能力"复制到了客户端 ——
+     * 生产上开关是关的，客户建完单就会对着一个必然失败的付款请求；反过来（只建单不付款）
+     * 订单会停在待收款、站长端看不见，正是这次要修的缺陷。所以判据仍只有一处
+     * （{@code app.payment.mock-wechat-pay}），这里只负责把它<b>下发</b>出去。</p>
+     *
+     * @param wechatPayEnabled 模拟微信渠道开关（真实渠道接入后换成"渠道是否可用"）
+     * @return 每项含 {@code enabled} / {@code simulated} / {@code label}；水票与现金恒为"不走在线渠道"
+     */
+    public static Map<String, Object> payChannel(Integer method, boolean wechatPayEnabled) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        boolean wechat = Integer.valueOf(WECHAT).equals(method);
+        m.put("method", method);
+        m.put("enabled", wechat && wechatPayEnabled);
+        // simulated 是**给客户看的口径**：这一笔钱没有真实渠道，别让人以为真扣了款。
+        // 前端文案也由这里下发，禁止在客户端写「模拟支付」这类字符串。
+        m.put("simulated", wechat && wechatPayEnabled);
+        m.put("label", wechat
+                ? (wechatPayEnabled ? "模拟微信支付（点击即成功，仅联调期开启）" : "微信支付暂未开通")
+                : (Integer.valueOf(TICKET).equals(method) ? "水票支付（下单即视同已付）" : "现金支付（无在线渠道）"));
+        return m;
     }
 
     private static Map<String, Object> method(int id, boolean enabled, String desc) {

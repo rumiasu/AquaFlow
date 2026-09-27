@@ -98,6 +98,64 @@ class OrderCreationIntegrationTest extends AbstractIntegrationTest {
         assertEquals(1, intOf("SELECT COUNT(*) FROM customer_barrel_in_transit"), "配送中桶只应建一次");
     }
 
+    // ==================== [2026-09-26] 并发同键：只许落一单 ====================
+    // 背景：客户在开发者工具里点了 3 下「立即下单」成交 3 单（订单 37/38/39，request_digest 相同、
+    // 幂等键三个都不同）。**那一半是前端的缺陷**（成功即清键 ⇒ 再点就是新键），已在小程序侧修
+    // （见 create.js 的 RECENT_ORDER_WINDOW_MS 闸门）。但本条要钉的是**服务端这一半**：
+    // 当前端真的用**同一个键**并发发多次时，必须只落一单、只扣一次库存与押金；
+    // 其余请求要么按幂等拿回原单，要么拿到可读的业务拒绝 —— **绝不能建出第二张单**，
+    // 也绝不能把并发拒绝伪装成 500（那是 §8.21 的老坑）。
+    @Test
+    @DisplayName("并发同键下单：三路齐发只落一单，其余返回原单或可读拒绝")
+    void concurrentSameKeyCreatesExactlyOneOrder() throws Exception {
+        seed();
+
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(3);
+        java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(3);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        java.util.List<java.util.concurrent.Future<Api>> futures = new java.util.ArrayList<>();
+        try {
+            for (int i = 0; i < 3; i++) {
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    start.await();
+                    return createOrderApi("idem-concurrent", 2);
+                }));
+            }
+            ready.await(10, java.util.concurrent.TimeUnit.SECONDS);
+            start.countDown();
+            java.util.List<Api> results = new java.util.ArrayList<>();
+            for (java.util.concurrent.Future<Api> f : futures) {
+                results.add(f.get(30, java.util.concurrent.TimeUnit.SECONDS));
+            }
+
+            assertEquals(1, intOf("SELECT COUNT(*) FROM orders"), "三路并发同键只许落一单：" + results);
+            assertEquals(2, intOf("SELECT COALESCE(SUM(reserved_qty),0) FROM inventory_reservation "
+                            + "WHERE station_id=? AND product_id=? AND status=1", station, product),
+                    "预留只许发生一次（2 桶，不是 6 桶）");
+            assertEquals(1, intOf("SELECT COUNT(*) FROM customer_barrel_in_transit"),
+                    "配送中桶只许建一次");
+
+            // 每一路都必须是"可读结果"：要么成功（含幂等命中返回原单），要么 code=1 业务拒绝。
+            // 出现 HTTP 5xx / code=500 就是并发拒绝被伪装成系统错误（§8.21）。
+            for (Api r : results) {
+                assertTrue(r.status() == 200, "并发同键不该返回非 200：" + r);
+                assertTrue(r.code() == 0 || r.code() == 1,
+                        "并发同键只许是成功或业务拒绝，不许是系统错误：" + r);
+            }
+            // 成功的那些必须指向**同一张单**
+            java.util.Set<Long> ids = new java.util.HashSet<>();
+            for (Api r : results) {
+                if (r.code() == 0 && r.data() != null) {
+                    ids.add(r.data().path("orderId").asLong());
+                }
+            }
+            assertEquals(1, ids.size(), "所有成功的响应必须指向同一张订单：" + ids);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
     // ==================== [2026-09-25 架构评审问题 5] 幂等的作用域与内容契约 ====================
     // 旧实现：键为空即服务端自造 UUID（重试 = 新键 = 新单）；命中查询只按 key 全局查
     //（跨客户复用同一个键会拿回**别人的订单 id**）；同键不同内容没有任何冲突语义。

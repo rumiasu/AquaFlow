@@ -168,11 +168,46 @@ class TicketPurchaseIdempotencyIntegrationTest extends AbstractIntegrationTest {
         assertTrue(results.stream().anyMatch(Api::isSuccess), "至少要有一个请求成功，实际=" + results);
     }
 
+    @Test
+    @DisplayName("模拟渠道关闭时微信购票仍是待收款：真实渠道没接入就不许替客户「假装收到钱」")
+    void wechatPurchaseStaysPendingWhenMockChannelOff() {
+        // 本类**没有** app.payment.mock-wechat-pay=true（application-test.yml 是 false），
+        // 跑的就是生产默认形态。与 MockWechatPayIntegrationTest 里那条"当场到账"互为对照：
+        // 自动确认只能由开关带来，不能顺手把默认行为也改了。
+        long station = createStation("关渠道站");
+        long manager = createStaff("关渠道站长", "STATION_MANAGER", station, 1);
+        long customer = createCustomer("关渠道客户", "mockoff-openid");
+        long product = createProduct("关渠道水", 1, "20.00", "30.00", 1, "8.00");
+        createInventoryFull(station, product, 100, 1, "8.00");
+
+        Api res = post("/api/tickets/purchase", customerToken(customer),
+                body(product, 2, station, "mock-off-key", 1));
+        assertEquals(0, res.code(), "购票应成功: " + res);
+        assertEquals(1, res.data().path("status").asInt(),
+                "渠道关闭时只能是待收款(1) —— 给 2 就等于零元拿票");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM ticket_account WHERE customer_id=?", customer),
+                "钱没确认之前不得入账");
+
+        // 站长确认「收到这笔钱」之后才入账 —— 这一步是收款确认，不是"同意购买"
+        // （全库没有购票审批表/审批状态，见 docs/design/19 §8.1）
+        long paymentId = res.data().path("paymentId").asLong();
+        Api confirmed = put("/api/payments/" + paymentId + "/confirm",
+                staffToken(manager, "STATION_MANAGER", station), null);
+        assertEquals(0, confirmed.code(), "站长确认收款: " + confirmed);
+        assertEquals(2, intOf("SELECT remain_quantity FROM ticket_account WHERE customer_id=? AND station_id=? "
+                        + "AND product_id=?", customer, station, product),
+                "确认收款后才到账 2 张");
+    }
+
     // ---------- helpers ----------
 
     private String body(long productId, int qty, long stationId, String idempotencyKey) {
+        return body(productId, qty, stationId, idempotencyKey, 2);
+    }
+
+    private String body(long productId, int qty, long stationId, String idempotencyKey, int paymentMethod) {
         String base = "{\"productId\":" + productId + ",\"quantity\":" + qty
-                + ",\"paymentMethod\":2,\"stationId\":" + stationId;
+                + ",\"paymentMethod\":" + paymentMethod + ",\"stationId\":" + stationId;
         // key 为 null 时**不带该字段**，模拟旧客户端/绕过客户端的调用
         if (idempotencyKey == null) {
             return base + "}";

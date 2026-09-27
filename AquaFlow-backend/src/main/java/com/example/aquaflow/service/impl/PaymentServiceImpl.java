@@ -348,6 +348,41 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    /**
+     * [2026-09-26] 模拟微信渠道下把在线购票的待收款流水当场确认掉。
+     *
+     * <p>口径与取舍见 {@link PaymentService#confirmMockChannelIfApplicable}：购票是客户的<b>自助预付</b>，
+     * 模拟渠道开着时"付钱"这一下没有任何真实渠道可等，不确认就一直挂在站长「待确认收款」里，
+     * 界面看起来像"买票要水站同意"。现金购票不走这里（站长确认收到钱才算入账）。</p>
+     *
+     * <p>⚠️ 不用 {@code REQUIRES_NEW}：本方法自身带事务，与它调用的 {@code confirmPayment}
+     * 在同一事务里（自调用不走代理），CAS 与入账要么都成要么都退 —— 这正是"票到账了状态却没变"
+     * 这类半截结果不能出现的地方。</p>
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public PaymentRecord confirmMockChannelIfApplicable(Long paymentId) {
+        if (paymentId == null) {
+            return null;
+        }
+        PaymentRecord record = paymentRecordMapper.getById(paymentId);
+        if (record == null) {
+            return null;
+        }
+        // 只认这条流水自己的收款方式：现金购票仍留在待收款，等站长确认收到钱。
+        if (!isMockWechatPay(record.getPaymentMethod())) {
+            return record;
+        }
+        if (!Integer.valueOf(PaymentStatus.PENDING).equals(record.getStatus())) {
+            // 幂等重放（同一 idempotencyKey 拿回已付款的那条）走这里：原样返回，不抛异常。
+            return record;
+        }
+        log.warn("[模拟微信支付] 开关 app.payment.mock-wechat-pay=true，购票当场置为已付款并入账水票: paymentId={}, customerId={}, qty={}",
+                paymentId, record.getCustomerId(), record.getTicketQty());
+        confirmPayment(paymentId);
+        return paymentRecordMapper.getById(paymentId);
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void confirmOrderCollection(Long orderId) {
@@ -1058,6 +1093,11 @@ public class PaymentServiceImpl implements PaymentService {
         // 否则再次出现"前端 2=水票、后端 2=现金"这类错位。
         result.put("methods", PayMethod.availableMethods(allowOffline, mockWechatPay));
         result.put("defaultMethod", PayMethod.defaultMethod(allowOffline, mockWechatPay));
+        // [2026-09-26] 「微信这一项当前走哪条渠道」下发给前端：建单成功后要不要对**同一张单**
+        // 发起 createPayment，取决于服务端的渠道能力，不是前端按 id==1 猜。
+        // 判据唯一实现在 PaymentServiceImpl.isMockWechatPay（同一个 mockWechatPay 开关），
+        // 与 canSelfPay 里微信那一支同源 —— 两边不可能分叉。
+        result.put("wechatPay", PayMethod.payChannel(PayMethod.WECHAT, mockWechatPay));
 
         if (items == null || items.isEmpty() || stationId == null) {
             result.put("waterAmount", BigDecimal.ZERO);
@@ -1070,6 +1110,8 @@ public class PaymentServiceImpl implements PaymentService {
             result.put("warnings", java.util.Collections.emptyList());
             // 键名与下方同形：前端读 d.ticketPay 时不必判 undefined（本仓对"判 undefined 就会长出第二套默认值"有记录）
             result.put("ticketPay", null);
+            // 空单也要下发渠道能力（同上面的键名理由）：前端据它决定"微信建单后发不发付款请求"
+            result.put("wechatPay", PayMethod.payChannel(PayMethod.WECHAT, mockWechatPay));
             result.put("blocked", false);
             result.put("blockReason", null);
             result.put("totalAmount", BigDecimal.ZERO);

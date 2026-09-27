@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -25,7 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       "支付已成功"之后，模拟渠道必须一样落 {@code deposit_record} ——
  *       漏掉就是 AGENTS §8.4 那条老坑（票付了、押金账户是 0，退桶退不出钱）；</li>
  *   <li><b>退款联动</b>：模拟收到的钱要能模拟退回去，且备注写明"模拟"，
- *       否则测试期的资金记录会被后人当成真实凭据。</li>
+ *       否则测试期的资金记录会被后人当成真实凭据；</li>
+ *   <li><b>买水票不用等水站</b>（2026-09-26 产品口径「水票购买不需要水站同意，直接微信收款就行」）：
+ *       在线购票走的是无订单支付，原先只会落一条待收款流水，于是模拟渠道下这笔钱"已经收到"
+ *       却要站长去「待确认收款」点一下 —— 界面看起来正是"买票要水站审批"。现在当场确认并入账。</li>
  * </ol>
  *
  * <p><b>与既有用例的分工</b>：{@code PaidBeforeDispatchIntegrationTest.unpaidWechatOrderIsInvisibleUntilPaid}
@@ -100,6 +104,20 @@ class MockWechatPayIntegrationTest extends AbstractIntegrationTest {
                 "模拟渠道开启时微信必须可选，否则顾客根本点不到: " + wechat);
         assertTrue(wechat.get("desc").asText().contains("模拟"),
                 "文案必须写明是模拟，否则联调的人会以为真接了微信支付: " + wechat.get("desc").asText());
+
+        // [2026-09-26 返工契约 P0-b] 报价还要把**收款渠道能力**单独下发一份（wechatPay）：
+        // 客户端的判据是"建单成功后要不要对同一张单发起 createPayment"，这件事只有服务端知道
+        // （唯一实现在 PayMethod.payChannel）。前端若按 id===1 自己猜，生产上开关是关的，
+        // 客户建完单就会对着一个必然失败的付款请求；反过来只建单不付款，订单会停在待收款、
+        // 站长端看不见 —— 那正是这次要修的缺陷。
+        JsonNode capability = res.data().get("wechatPay");
+        assertTrue(capability != null && !capability.isNull(),
+                "报价必须下发 wechatPay 渠道能力：前端据此决定建单后发不发付款请求: " + res.data());
+        assertEquals(1, capability.path("method").asInt(), "渠道能力要标明是哪种支付方式: " + capability);
+        assertTrue(capability.path("enabled").asBoolean(),
+                "模拟渠道开着 ⇒ enabled 必须为 true，否则前端不会发起同单付款: " + capability);
+        assertTrue(capability.path("simulated").asBoolean(),
+                "simulated 必须为 true：这笔钱没有真实渠道，界面必须照实说: " + capability);
     }
 
     @Test
@@ -126,6 +144,54 @@ class MockWechatPayIntegrationTest extends AbstractIntegrationTest {
         // 判据是查询时现算的（payment_status=2），所以这条同时证明了"钱到了就进视野"没被绕过
         assertTrue(inList("/api/delivery/orders/station-pending", mgr, order),
                 "已付款后必须自动出现在站长待分配里");
+    }
+
+    @Test
+    @DisplayName("买水票不用等水站：模拟渠道下微信购票当场到账，站长「待确认收款」里不留东西")
+    void wechatTicketPurchaseCreditsWithoutStationAction() {
+        long[] s = seed();
+        String mgr = staffToken(s[1], "STATION_MANAGER", s[0]);
+        // seed() 那款水没开水票；购票判据在 TicketTierService.usesCustomTicket（站级库存的水票开关 + 水票价）
+        long product = createProduct("模拟微信水票", 1, "20.00", "30.00", 1, "8.00");
+        createInventoryFull(s[0], product, 100, 1, "8.00");
+
+        Api res = post("/api/tickets/purchase", customerToken(s[2]),
+                "{\"productId\":" + product + ",\"quantity\":3,\"paymentMethod\":1,"
+                        + "\"stationId\":" + s[0] + ",\"idempotencyKey\":\"mock-ticket-buy-1\"}");
+
+        assertEquals(0, res.code(), "购票应成功: " + res);
+        long paymentId = res.data().path("paymentId").asLong();
+        // [2026-09-26 产品口径]「水票购买不需要水站同意，直接微信收款就行」——
+        // 所以这里回给客户端的必须已经是已付款(2)，而不是"等站长点确认"的待收款(1)。
+        assertEquals(2, res.data().path("status").asInt(),
+                "模拟渠道下买票必须当场是已付款(2)，否则界面只能提示「等待到账」，看着就像要水站审批");
+        assertEquals(2, intOf("SELECT status FROM payment_record WHERE id=?", paymentId),
+                "流水必须落在已付款(2)");
+        assertEquals(3, intOf("SELECT remain_quantity FROM ticket_account WHERE customer_id=? AND station_id=? "
+                        + "AND product_id=?", s[2], s[0], product),
+                "水票必须当场到账 3 张（模拟渠道跳过的是「真实付款」这一下，不是入账那一步）");
+        // 入账必须过批次账（E8）：账户余额 == Σ 批次余量，且批次单价 = 实付均价（8.00 × 3 = 24.00）
+        assertEquals(8.00, decimalOf("SELECT unit_price FROM ticket_lot WHERE customer_id=? AND station_id=? "
+                        + "AND product_id=?", s[2], s[0], product).doubleValue(), 0.001,
+                "批次单价必须是实付均价，否则退票时会按错价退钱");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM ticket_account a WHERE a.customer_id=? AND a.station_id=? "
+                        + "AND a.product_id=? AND a.right_amount <> (SELECT coalesce(sum(l.remain_qty * l.unit_price), 0) "
+                        + "FROM ticket_lot l WHERE l.customer_id=a.customer_id AND l.station_id=a.station_id "
+                        + "AND l.product_id=a.product_id)", s[2], s[0], product), 0,
+                "对账等式 E8：余额价值必须等于 Σ 批次余量 × 批次单价");
+
+        // 站长侧没有任何待办 —— 这正是"不需要水站同意"的落地形态
+        Api pending = get("/api/payments/pending", mgr);
+        assertEquals(0, pending.code(), "待确认收款列表应可读: " + pending);
+        for (JsonNode node : pending.data()) {
+            assertTrue(node.path("id").asLong() != paymentId,
+                    "已到账的购票流水不该出现在站长「待确认收款」里: " + node);
+        }
+        // 想"补确认"也不行：已付款的流水不得再确认一次（否则就是重复入账）
+        assertNotEquals(0, put("/api/payments/" + paymentId + "/confirm", mgr, null).code(),
+                "已付款的流水不得再确认一次");
+        assertEquals(3, intOf("SELECT remain_quantity FROM ticket_account WHERE customer_id=? AND station_id=? "
+                        + "AND product_id=?", s[2], s[0], product), "重复确认后水票不得再涨");
     }
 
     @Test

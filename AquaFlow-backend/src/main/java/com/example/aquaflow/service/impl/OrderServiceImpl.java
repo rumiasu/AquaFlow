@@ -339,7 +339,9 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // 首次站点资产业务检查
+        // 首次站点资产业务检查（**客户告知**口径：票 / 押金 / 桶任一为有就不算新客户；
+        // 所以它下发给报价页用于"首次资产业务告知"，与 PaymentServiceImpl 里那条同名判据同源）。
+        // ⚠️ 它**不**是「站点第一笔买桶订单」的判据 —— 那一列只看桶，见下面 setFirstBarrelOrder 的注释。
         boolean firstStationAsset = false;
         if (needStationAsset) {
             firstStationAsset = !assetService.hasStationAsset(dto.getCustomerId(), stationId);

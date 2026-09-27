@@ -71,11 +71,29 @@ public String generateAccessToken(Long userId, String userType, String role,
                 .compact();
     }
 
+    /**
+     * 签一个 refresh token。
+     *
+     * <p>⚠️ <b>`jti` 不能去掉</b>（2026-09-26 真机实测事故）：本方法原先只有
+     * {@code userId / userType / tokenType} 三个 claim，而 {@code iat} 与 {@code exp}
+     * 都是<b>秒级</b> —— 同一个人在同一秒内签发两次，两个 token 会<b>逐字节相同</b>。
+     * 后果不是"轮换不生效"这么轻：{@code user_token} 上只有<b>非唯一</b>索引
+     * {@code idx_refresh_token}，于是同一秒的两次登录/刷新会落下<b>两行同值记录</b>，
+     * 而 {@code UserTokenMapper.findByRefreshToken} 是单行查询 —— 下一次刷新直接抛
+     * {@code TooManyResultsException}（HTTP 200 + code=500「系统错误」），
+     * 客户端的 401 自动刷新失败 = 登录态卡死，只能重新登录。
+     * 真实库上确实留下了这样的重复行（user_token id 113/114、129/130），
+     * 并落了一条 SYSTEM 告警。</p>
+     *
+     * <p>因此这里显式加一个随机 {@code jti}：每次都不同 → 重复行不可能再产生，
+     * 顺带让"轮换后旧 token 立刻失效"在同一秒内也成立。</p>
+     */
     public String generateRefreshToken(Long userId, String userType) {
         // Set iat to 1 hour ago to avoid clock skew issues
         Date issuedAt = new Date(System.currentTimeMillis() - 3600000);
         return Jwts.builder()
                 .subject(userType + ":" + userId)
+                .id(java.util.UUID.randomUUID().toString())
                 .claims(Map.of(
                         "userId", userId,
                         "userType", userType,

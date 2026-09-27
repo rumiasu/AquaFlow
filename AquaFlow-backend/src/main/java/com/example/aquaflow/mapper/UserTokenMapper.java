@@ -13,7 +13,21 @@ public interface UserTokenMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(UserToken userToken);
 
-    @Select("select * from user_token where refresh_token = #{refreshToken} and expire_time > NOW()")
+    /**
+     * 按 refresh token 取那一行（旋转的入口）。
+     *
+     * <p>⚠️ <b>`order by id desc limit 1` 不是装饰</b>（2026-09-26 真机实测事故）：
+     * {@code idx_refresh_token} 是<b>非唯一</b>索引，而历史上（加 {@code jti} 之前）
+     * 同一秒内两次签发会得到<b>完全相同的 token 字符串</b> —— 真实库里因此存在重复行
+     * （{@code user_token} id 113/114、129/130）。没有这个 {@code limit 1}，
+     * 这条单行查询会抛 {@code TooManyResultsException}，表现为刷新登录态时
+     * HTTP 200 + {@code code=500}「系统错误」，客户端只能重新登录。</p>
+     *
+     * <p>取最新一行即可：重复行的 token 值相同、语义也相同；
+     * 轮换走 {@link #deleteByRefreshToken} 会把同值的行一并清掉。</p>
+     */
+    @Select("select * from user_token where refresh_token = #{refreshToken} and expire_time > NOW() "
+            + "order by id desc limit 1")
     UserToken findByRefreshToken(@Param("refreshToken") String refreshToken);
 
     @Delete("delete from user_token where id = #{id}")

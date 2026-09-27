@@ -5,61 +5,82 @@
   <view class="success-header">
     <view class="success-icon">✓</view>
     <text class="success-title">完成配送</text>
-    <text class="success-subtitle">核对回桶后确认完成</text>
+    <text class="success-subtitle">{{successSubtitle}}</text>
   </view>
 
-  <!-- 订单信息 + 本单钱货事实（金额与文案全部来自后端投影，前端不自己算） -->
-  <view class="section" wx:if="{{orderInfo}}">
-    <view class="order-info-row">
-      <text class="order-label">客户</text>
-      <text class="order-value">{{orderInfo.customerName || orderInfo.receiverName}}</text>
+  <!--
+    [2026-09-26] 本页按 §4 收敛成**三段**（仍是一页）：本次送货 / 实际收回空桶 / 本次收款。
+    这三段的标题由页面上方的 .seg-head 给出，段的边界就是"标题 + 它下面那块卡"；
+    「送达凭证」与「更多（楼层 / 备注）」是这三段之外的附加块，排在它们后面 ——
+    正常送达的动线因此只有：认人认钱 → 核对回桶 → 表态收款 → 确认完成。
+    客户与钱货事实（[2026-09-26] 按"常用软件"的卡片风格重排）。
+    原来是 7 行「标签 + 值」平铺（客户 / 地址 / 付款方式 / 金额 / 押金 / 付款状态 / 备货）——
+    又长又平：每一单都要从上往下把标签读一遍才找得到自己要看的那一项，金额也埋在中间。
+    现在只留两层信息，顺序就是配送员在这儿的动作顺序（先认人、再认钱）：
+      · **客户卡**：名字（+ 付款方式标签）、电话（可拨）、地址（可复制）—— 与订单详情页同一套动作；
+      · **钱卡**：本单尚应收用大字，押金/付款状态降级成一行小字；备货只在**没备齐**时出声。
+  -->
+  <view class="seg-head">
+    <text class="seg-title">本次送货</text>
+  </view>
+  <view class="cust-card" wx:if="{{orderInfo}}">
+    <view class="cust-main">
+      <text class="cust-name">{{orderInfo.customerName || orderInfo.receiverName || '客户'}}</text>
+      <text class="cust-tag" wx:if="{{orderInfo.payMethodText}}">{{orderInfo.payMethodText}}</text>
     </view>
-    <view class="order-info-row">
-      <text class="order-label">地址</text>
-      <text class="order-value">{{orderInfo.addressDetail || orderInfo.addressSnapshot}}</text>
+    <!--
+      电话与地址：客户不一定在门口等着，能一键拨、一键复制比"把号码摆在那儿让你背"有用。
+      `contactPhone` 取 receiverPhone（订单快照）优先 —— 跨站履约单**刻意不下发** customerPhone
+      （画像归归属站，见 util/CustomerProfileMask），快照里的收件人电话照常可用。
+      [2026-09-26] 行首的 📞 / 📍 装饰图标按 §6（员工端逐步去除表情符号）去掉：
+      「拨打」「复制」两个动作文字本来就在，图标只是抢视觉。
+    -->
+    <view class="cust-row" wx:if="{{contactPhone}}" bindtap="onCallPhone">
+      <text class="cust-row-text">{{contactPhone}}</text>
+      <text class="cust-row-action">拨打</text>
     </view>
-    <view class="order-info-row">
-      <text class="order-label">付款方式</text>
-      <text class="order-value">{{orderInfo.payMethodText || '—'}}</text>
-    </view>
-    <view class="order-info-row">
-      <text class="order-label">{{needCollect ? '本单尚应收' : '本单金额'}}</text>
-      <text class="order-value amount">¥{{orderInfo.totalAmount}}</text>
-    </view>
-    <!-- 押金属于客户应付、但会退：说清它包含在里面，避免配送员把它当收入、也避免客户以为多收 -->
-    <view class="order-info-row" wx:if="{{orderInfo.depositAmount > 0}}">
-      <text class="order-label">其中押金</text>
-      <text class="order-value">¥{{orderInfo.depositAmount}}（可退）</text>
-    </view>
-    <view class="order-info-row">
-      <text class="order-label">付款状态</text>
-      <text class="order-value">{{orderInfo.payStateText || ''}} {{orderInfo.payHint || ''}}</text>
-    </view>
-    <!-- 备货情况（后端按"实物 − 活跃预留"算，契约 C4）：出发前先看这一行。
-         缺货时给站长一个去既有「商品与库存」补货的入口（配送员点了只会得到一句提示）。 -->
-    <view class="order-info-row" wx:if="{{stockPrepText}}">
-      <text class="order-label">备货</text>
-      <text class="order-value">{{stockPrepText}}</text>
-    </view>
-    <view class="order-info-row" wx:if="{{stockPrep && stockPrep.ready !== true}}">
-      <text class="order-label"></text>
-      <text class="order-value link" bindtap="onGoInventory">去「商品与库存」补货 ›</text>
+    <view class="cust-row" wx:if="{{addressText}}" bindtap="onCopyAddress">
+      <text class="cust-row-text">{{addressText}}</text>
+      <text class="cust-row-action">复制</text>
     </view>
   </view>
 
-  <!-- 按商品核对回桶 -->
-  <view class="section">
-    <!-- 首次订单：押金桶无需回桶 -->
+  <view class="money-card" wx:if="{{orderInfo}}">
+    <view class="money-line">
+      <text class="money-label">{{needCollect ? '本单尚应收' : '本单金额'}}</text>
+      <text class="money-amount">¥{{orderInfo.totalAmount}}</text>
+    </view>
+    <view class="money-meta">
+      <text class="money-meta-item" wx:if="{{orderInfo.depositAmount > 0}}">含押金 ¥{{orderInfo.depositAmount}}（可退）</text>
+      <text class="money-meta-item">{{orderInfo.payStateText || ''}} {{orderInfo.payHint || ''}}</text>
+    </view>
+    <!-- 备货：**备齐了不占位置**（正常单不该多一行字），没备齐时才说清还差什么 + 给站长一个补货入口 -->
+    <view class="money-prep" wx:if="{{stockPrep && stockPrep.ready !== true}}">
+      <text class="money-prep-text">{{stockPrepText}}</text>
+      <text class="money-prep-link" catchtap="onGoInventory">去补货 ›</text>
+    </view>
+  </view>
+
+  <!-- ============ 段二 · 实际收回空桶 ============
+       按商品核对回桶：**只对桶装水**（后端 barrelItem / util/BarrelScope 一个判据）。
+       瓶装水 / 饮水机既没有押金条也没有还桶入口，整块不渲染 —— 以前它们也在这里画步进器、
+       默认值还等于送出数，提交上去会被桶账的物理上限拒掉（混合单必踩）。
+       标题从卡里提到段头（§4 的段名就叫「实际收回空桶」）：`*` 表示这一单必须填，
+       首单（整单都是新买的押金桶、本次不回桶）不挂这个星号 —— 与原来的分支口径一致。 -->
+  <view class="seg-head" wx:if="{{isFirstBarrelOrder || hasBarrelItems}}">
+    <text class="seg-title">实际收回空桶</text>
+    <text class="required" wx:if="{{!isFirstBarrelOrder}}">*</text>
+  </view>
+  <view class="section" wx:if="{{isFirstBarrelOrder || hasBarrelItems}}">
+    <!-- 本次送的桶是**本单新买押金**的：不要求本次回收（§7：不能说成"首次下单"，
+         客户可能早就买过水票 —— 那与"有没有桶权益"不是一回事） -->
     <view class="first-order-tip" wx:if="{{isFirstBarrelOrder}}">
-      <text class="first-order-icon">🆕</text>
-      <text class="first-order-text">首次下单 · 押金桶无需回桶</text>
-      <text class="first-order-desc">本次送出的桶为客户新购押金桶，下次续购时需回收空桶</text>
+      <text class="first-order-text">本单新押金桶无需回收</text>
+      <text class="first-order-desc">本次送出的桶是本次新买押金的水桶，本次不用回收；下次换水时把空桶带回来</text>
     </view>
 
     <!-- 续购订单：正常回桶核对 -->
     <block wx:else>
-      <text class="section-title">核对回桶 <text class="required">*</text></text>
-
       <view class="item-return" wx:for="{{items}}" wx:key="id" wx:for-index="idx">
         <view class="item-header">
           <view class="item-name-wrap">
@@ -69,7 +90,7 @@
         </view>
 
         <view class="barrel-row">
-          <text class="barrel-label">送出 <text class="num-blue">{{item.expected}}</text> 桶</text>
+          <text class="barrel-label">送出 <text class="num-blue">{{item.sentQty}}</text> 桶</text>
           <view class="barrel-stepper">
             <view class="step-btn {{item.actual === 0 ? 'step-btn-disabled' : ''}}" catchtap="onActualDecrease" data-idx="{{idx}}">−</view>
             <input class="step-input" type="number" value="{{item.actual}}" bindinput="onActualChange" data-idx="{{idx}}" />
@@ -107,19 +128,18 @@
 
         <view class="item-divider" wx:if="{{idx < items.length - 1}}"></view>
       </view>
-
-      <view class="empty-hint" wx:if="{{items.length === 0}}">
-        <text>暂无商品明细</text>
-      </view>
     </block>
   </view>
 
-  <!-- 现场收款（契约 C1）：只说"这单还要收多少 + 收了没"。
+  <!-- ============ 段三 · 本次收款 ============
+       现场收款（契约 C1）：只说"这单还要收多少 + 收了没"。
        · 只在**后端说还要收**（needCollect：现金单且未付）时出现 —— 付过款的单不再问一遍；
        · 金额取服务端 totalAmount（含水费/押金/配送费/楼层费），不在这里另算；
        · "已收齐 / 未收款"**必须人选**（默认两边都不选），不许自动默认已收。 -->
+  <view class="seg-head" wx:if="{{needCollect}}">
+    <text class="seg-title">本次收款</text>
+  </view>
   <view class="section section-collect" wx:if="{{needCollect}}">
-    <text class="section-title">现场收款</text>
     <view class="collect-card">
       <view class="collect-row">
         <text class="collect-label">本单尚应收</text>
@@ -148,59 +168,79 @@
     <text class="collect-tip" wx:elif="{{collected === false}}">只收了一部分时：先按"未收款"提交，再让站长按实际金额核对。</text>
   </view>
 
-  <!-- 楼层数（选填，**常显**，不折叠）：填了才算楼层补贴，是配送员自己的钱 ——
-       藏进"更多"里人会跳过不填 = 少拿钱（2026-09-24 的同一判据）。 -->
+  <!--
+    送达凭证（原名「签收凭证」，[2026-09-26] 改名）：**客户不一定在现场签收**，
+    所以这里不要求签字，照片只用来证明"水送到了"（放好了 / 门口 / 客户留的条）。
+    ⚠️ 常显、不折叠：它是"这单到底交付了没有"唯一能拿出来看的东西（原来这个名字
+      逼着配送员去找客户签字，客户不在就干脆不拍 —— 凭据反而没了）。
+  -->
   <view class="section">
     <view class="section-title-row">
-      <text class="section-title">楼层数（有就填，没有不用填）</text>
-      <help-tip title="楼层数" text="填了才是楼层补贴的依据。跟客户地址里填的楼层不一致时会标出来（防虚报）。" />
+      <text class="section-title">送达凭证</text>
+      <help-tip title="送达凭证"
+        text="拍一张送达现场就行（水放好了 / 门口 / 客户留的条），不要求客户签字 —— 客户不一定在现场。拍了以后站长也能看到，客户说没收到时这是唯一的凭据。" />
     </view>
-    <text class="section-tip">填了才算楼层补贴</text>
-    <view class="floor-row">
-      <input class="floor-input" type="number" placeholder="如 6" value="{{reportedFloor}}" bindinput="onFloorInput" />
-      <text class="floor-unit">层</text>
+    <text class="section-tip">可选：拍一张送达现场，客户不在场也能证明送到了</text>
+    <view class="photo-grid">
+      <view class="photo-item" wx:for="{{photos}}" wx:key="index">
+        <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewPhoto" />
+        <view class="photo-remove" data-index="{{index}}" catchtap="onRemovePhoto">×</view>
+      </view>
+      <view class="photo-add" bindtap="onAddPhoto" wx:if="{{photos.length < 3}}">
+        <text class="photo-add-text">{{uploading ? '上传中...' : '添加照片'}}</text>
+      </view>
     </view>
   </view>
 
-  <!-- 更多（选填）：签收照片 / 楼层凭证 / 备注（契约 C2 —— 正常送达只要"商品 + 回桶 + 收钱"三件事，
+  <!-- 更多（选填）：楼层与楼梯凭证 / 备注（契约 C2 —— 正常送达只要"商品 + 回桶 + 收钱"三件事，
        其余按需展开，减少无意义翻页与必读段落）。 -->
   <view class="section">
     <view class="more-toggle" bindtap="onToggleMore">
-      <text class="more-toggle-text">{{showMore ? '收起选填内容' : '更多（签收照片 / 楼层凭证 / 备注，选填）'}}</text>
+      <text class="more-toggle-text">{{showMore ? '收起选填内容' : '更多（楼层与楼梯凭证 / 备注，选填）'}}</text>
       <text class="more-toggle-icon">{{showMore ? '▲' : '▼'}}</text>
     </view>
   </view>
 
   <block wx:if="{{showMore}}">
-    <!-- 签收凭证 -->
-    <view class="section">
-      <text class="section-title">签收凭证</text>
-      <text class="section-tip">拍摄客户签收照片（可选）</text>
-      <view class="photo-grid">
-        <view class="photo-item" wx:for="{{photos}}" wx:key="index">
-          <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewPhoto" />
-          <view class="photo-remove" data-index="{{index}}" catchtap="onRemovePhoto">×</view>
-        </view>
-        <view class="photo-add" bindtap="onAddPhoto" wx:if="{{photos.length < 3}}">
-          <text class="photo-add-icon">📷</text>
-          <text class="photo-add-text">{{uploading ? '上传中...' : '添加照片'}}</text>
-        </view>
+    <!--
+      楼层与楼梯凭证（v43）—— [2026-09-26] 由「常显」改成「**默认收起、有争议才展开**」：
+        · 楼层一般不会"不清楚"（客户地址里就写着），常显等于每次送达都问一遍"你爬了几层"；
+        · 但它关系到配送员自己的**楼层补贴**，所以不能埋得找不着，两种情况会展开：
+          ① 客户地址**没写清有没有电梯**（`addressHasElevator` 为空 = 三态里的"没确认过"）
+             → 载入时自动展开，并在下面说明原因；
+          ② 现场起了争议（跟客户对楼层/爬楼说法不一致）→ 点下面那行「楼梯有争议」展开。
+        ⚠️ 它**不影响**向客户收的楼层费 —— 那笔钱在下单时就按地址快照了。
+        ⚠️ 展开后不提供"收起"：填了一半又收起来只会让人以为白填了。
+    -->
+    <view class="section" wx:if="{{floorBlockOpen}}">
+      <view class="section-title-row">
+        <text class="section-title">楼层与楼梯凭证</text>
+        <help-tip title="楼层与楼梯凭证"
+          text="填了才是楼层补贴的依据；跟客户地址里填的楼层不一致时会标出来（防虚报）。照片可选，但和客户就楼层/爬楼有争议时它是唯一的凭据 —— 站长也能事后补传。" />
       </view>
-    </view>
-
-    <!-- 楼层凭证（v43）：可选，拍一张更站得住脚；**不影响**向客户收的楼层费（那笔在下单时按地址快照） -->
-    <view class="section">
-      <text class="section-title">楼层凭证</text>
-      <text class="section-tip">可选，拍一张更站得住脚；站长也能补传</text>
+      <text class="section-tip" wx:if="{{elevatorUnknown}}">这单地址没写清有没有电梯：要爬楼就填一下楼层，才算楼层补贴</text>
+      <text class="section-tip" wx:else>有争议才需要填；不填就沿用客户地址里的楼层</text>
+      <view class="floor-row">
+        <input class="floor-input" type="number" placeholder="如 6" value="{{reportedFloor}}" bindinput="onFloorInput" />
+        <text class="floor-unit">层</text>
+      </view>
+      <text class="floor-proof-title">楼梯凭证（可选）</text>
       <view class="photo-grid">
         <view class="photo-item" wx:for="{{floorPhotos}}" wx:key="index">
           <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" />
           <view class="photo-remove" data-index="{{index}}" catchtap="onRemoveFloorPhoto">×</view>
         </view>
         <view class="photo-add" bindtap="onAddFloorPhoto" wx:if="{{floorPhotos.length < 3}}">
-          <text class="photo-add-icon">🏢</text>
           <text class="photo-add-text">{{floorUploading ? '上传中...' : '添加照片'}}</text>
         </view>
+      </view>
+    </view>
+
+    <!-- 争议入口（只有收起时才给）：现场跟客户就楼层/爬楼说法不一致时点它展开 -->
+    <view class="section" wx:else>
+      <view class="dispute-entry" bindtap="onOpenFloorDispute">
+        <text class="dispute-entry-text">楼梯 / 楼层有争议？记楼层并拍照</text>
+        <text class="dispute-entry-arrow">›</text>
       </view>
     </view>
 
@@ -214,7 +254,12 @@
     </view>
   </block>
 
-  <!-- 确认完成按钮 -->
+  <!--
+    确认完成配送（主按钮）。⚠️ 它**固定**在屏幕底部（.footer 是 position: fixed，见 complete.wxss），
+    所以无论页面上面的三段 —— 包括常显的「送达凭证」—— 有多长，按钮都在眼前，
+    **不需要先滚过凭证**；底部留白（.container 的 padding-bottom）按它的实际高度留足，
+    免得最后一块被它压住。
+  -->
   <view class="footer">
     <button class="btn-confirm" bindtap="onConfirmComplete">确认完成配送</button>
   </view>

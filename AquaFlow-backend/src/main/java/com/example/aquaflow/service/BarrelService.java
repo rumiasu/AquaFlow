@@ -68,4 +68,37 @@ public interface BarrelService {
      *                天数未知（历史存量未回填 {@code owed_since}）的行**一并保留**：宁可多提醒，不可漏催收。
      */
     List<com.example.aquaflow.vo.OwedBarrelVO> listOwedCustomers(Long stationId, Integer minDays);
+
+    /**
+     * 「完成配送页」的回桶计划：本单**每条桶装水明细**该默认收回几个空桶。
+     *
+     * <p>为什么要后端算：默认值和钱一样是**口径**，不能让小程序自己推。
+     * 判据 = 客户手上已有的旧桶（上限「占用 = 权益 + over」，再以本明细送出桶数为上限），
+     * <b>本单新买押金的桶不参与</b> —— 那些桶还在配送中（PENDING），本来就还没进权益，
+     * 所以产品口径「新付押金买的桶不需要计入回收，非本次订单产生押金的桶则默认计入回收」
+     * 由这一个减法自然成立（见 {@code docs/design/18} §2.4）。</p>
+     *
+     * <p>⚠️ 只返回**桶装水**明细（判据 {@code util/BarrelScope}）：瓶装水 / 饮水机不涉及回桶，
+     * 完成页据此不画它们的回桶行、也不把它们提交上去（提交了必然被桶账的物理上限拒掉）。</p>
+     *
+     * <p>⚠️ 默认值不是校验：配送员可以改；服务端唯一的硬判据仍是
+     * {@code BarrelLedgerService.applyDelivery} 的 {@code returned ≤ 占用}。</p>
+     *
+     * @param stationId <b>归属站</b>（客户资产认归属站，不是履约站）
+     */
+    List<ReturnPlanItem> returnPlanOfOrder(Long orderId, Long customerId, Long stationId);
+
+    /**
+     * 回桶计划的一行：一条桶装水明细 + 它的默认回桶数。
+     * 只为下发而存在，不落库（{@code order_item} 没有这两列）。
+     */
+    @lombok.Data
+    class ReturnPlanItem {
+        /** 订单明细 id（完成页按它把默认值贴回对应的 item） */
+        private Long orderItemId;
+        /** 本明细送出桶数（= {@code order_item.quantity}） */
+        private Integer sentQty;
+        /** 默认收回的空桶数（0 表示这行全是本单新买的押金桶，没有旧桶可回） */
+        private Integer suggestedQty;
+    }
 }

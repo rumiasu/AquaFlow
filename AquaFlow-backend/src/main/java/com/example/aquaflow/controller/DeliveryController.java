@@ -12,6 +12,7 @@ import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.AuditLogService;
+import com.example.aquaflow.service.BarrelService;
 import com.example.aquaflow.service.CustomerRiskService;
 import com.example.aquaflow.service.InventoryReservationService;
 import com.example.aquaflow.service.OrderWorkflowService;
@@ -42,7 +43,7 @@ public class DeliveryController {
     @Autowired
     private ProductMapper productMapper;
 
-    /** 抢单池/他站外派要下发「定价来源站名」，站名从这里取（见 loadStationNames 的批量做法）。 */
+    /** 抢单池 / 指定外派（别站指定本店）要下发「定价来源站名」，站名从这里取（见 loadStationNames 的批量做法）。 */
     @Autowired
     private StationMapper stationMapper;
 
@@ -72,6 +73,16 @@ public class DeliveryController {
      */
     @Autowired
     private InventoryReservationService inventoryReservationService;
+
+    /**
+     * 只读投影：完成配送页的「核对回桶」各行该默认填几（[2026-09-26]）。
+     *
+     * <p>与上面两个同理 —— 只读、只算、不写业务表，所以不违反"不要在本类重新注入 Mapper"的契约。
+     * 默认值属于**口径**（本单新买押金的桶不参与回收、旧桶才默认回），只能由后端算，
+     * 实现与判据在 {@code BarrelService#returnPlanOfOrder}。</p>
+     */
+    @Autowired
+    private BarrelService barrelService;
 
     // 注：本类曾直接注入 OrderTransferMapper（转单状态）与 BarrelLedgerService（桶权益总账）直写那两张表，
     // 已按「Controller 只做认证 + 调服务 + 包 Result，不得触碰业务表」的契约全部移入 OrderWorkflowService。
@@ -139,7 +150,7 @@ public class DeliveryController {
      *
      * <p>用在「同一张表里混着本站单与他站履约单」的列表上：只抹跨站行，本站自己的单照常显示客户姓名
      * （那是本站客户，站长与配送员本来就该看到）。**整表都是别站客户**的列表
-     * （抢单池 / 他站外派给我）不走这里，它们在各自端点里无条件置 null。</p>
+     * （抢单池 / 指定外派：别站指定本店）不走这里，它们在各自端点里无条件置 null。</p>
      *
      * <p>⚠️ 配送员侧的列表也要过这一道：跨站单一旦被抢单/接收，它就以
      * {@code delivery_staff_id = 本站配送员} 的形态出现在任务、历史、回桶记录里 ——
@@ -154,7 +165,18 @@ public class DeliveryController {
         return rows;
     }
 
-    @RequireRole({"DELIVERY", "STATION_MANAGER"})
+    /**
+     * 本站**还没分配配送员**的待配送单。
+     *
+     * <p>⚠️ [2026-09-26 产品裁定] <b>只有站长能读</b>：产品原话「如果是未分配的订单，不应该直接
+     * 显示给配送员吧 —— 现在站长还没分配，刚同意入站就能看见订单了，就能接单了」。
+     * 配送员那一侧只保留 {@code /orders/assigned-to-me}（派给我的），别再让配送员的页面合并这一支 ——
+     * 那会让刚通过绑定的配送员立刻看到全站未分配的单并直接接走，站长的"分配"这一步等于不存在。</p>
+     *
+     * <p>⚠️ 与接单闸门（{@code OrderWorkflowServiceImpl.acceptOrder}）必须一致：列表看不到、
+     * 但拿 id 编造去接单同样要被拒（本仓"列表看不到但 id 可编造"的老坑）。</p>
+     */
+    @RequireRole({"STATION_MANAGER"})
     @GetMapping("/orders/pending")
     public Result<?> getPendingOrders() {
         Long stationId = AuthContext.getStationId();
@@ -189,7 +211,7 @@ public class DeliveryController {
      * 站长待分配列表。
      *
      * <p>⚠️ 这张列表里<b>混着"他站定向外派给本站"的单</b>（SQL 的 {@code o.delivery_station_id = 本站}
-     * 那一支）：它们带的是<b>归属站</b>客户的姓名/手机号。若不一并抹掉，刚在抢单池 / 他站外派两个
+     * 那一支）：它们带的是<b>归属站</b>客户的姓名/手机号。若不一并抹掉，刚在抢单池 / 指定外派两个
      * 端点上堵住的画像泄露，换个端点（{@code GET /orders/station-pending}）就原样漏出来。
      * 本站自己的单保持原样 —— 那是本站客户的画像，站长本来就该看到
      * （口径与唯一实现见 {@link CustomerProfileMask}）。</p>
@@ -341,6 +363,12 @@ public class DeliveryController {
             checkStationOwnership(order);
         }
         order.setItems(orderItemMapper.listByOrderId(id));
+        // 回桶行（[2026-09-26]）：标明哪些明细是桶装水、并给出**默认回桶数**。
+        // 完成页据此只对桶装水画回桶步进器 —— 以前它对每条明细都画，默认值还等于送出数，
+        // 于是瓶装水那行也会被提交成"回桶 N"，撞上桶账的物理上限（占用 0）——
+        // 报错是"回收空桶数(2)超过该客户当前持有数(0)"，配送员看不懂，混合单更是必踩。
+        // 归属站取 order.getStationId()：客户资产（权益/over）认**归属站**，不是履约站。
+        decorateReturnPlan(order);
         // 「待我确认的转单」由后端按登录人判定（前端此前读的 isTransferTarget 后端并不存在）
         order.setTransferTarget(isTransferTarget(order));
         // 备货情况（契约工作包 C4）：配送员出发前要知道"这单备齐了没、还缺哪些商品"。
@@ -357,7 +385,34 @@ public class DeliveryController {
                 order.setAddressHasElevator(addr.getHasElevator());
             }
         }
+        // [2026-09-26] 列表已遮蔽客户档案，但详情此前漏了这一步；履约权限不等于读取归属站客户画像的权限。
+        // 保留 receiverName/receiverPhone 等订单快照供配送联系客户，只清除关联客户档案字段。
+        CustomerProfileMask.maskIfCrossStation(order);
         return Result.success(order);
+    }
+
+    /**
+     * 把「回桶计划」贴到订单明细上（只读投影，不落库）：
+     * 桶装水明细 → {@code barrelItem=true} + {@code suggestedReturnQty=默认回收数}；
+     * 其余明细（瓶装水 / 饮水机）→ {@code barrelItem=false}、默认值为 null，完成页不为它们画回桶行。
+     *
+     * <p>口径的唯一实现在 {@code BarrelService#returnPlanOfOrder}（本方法只做搬运）。</p>
+     */
+    private void decorateReturnPlan(Orders order) {
+        List<OrderItem> items = order.getItems();
+        if (items == null || items.isEmpty()) return;
+        Map<Long, Integer> suggestedByItem = new HashMap<>();
+        for (BarrelService.ReturnPlanItem row
+                : barrelService.returnPlanOfOrder(order.getId(), order.getCustomerId(), order.getStationId())) {
+            if (row.getOrderItemId() != null) {
+                suggestedByItem.put(row.getOrderItemId(), row.getSuggestedQty());
+            }
+        }
+        for (OrderItem it : items) {
+            Integer suggested = it.getId() == null ? null : suggestedByItem.get(it.getId());
+            it.setBarrelItem(suggested != null);
+            it.setSuggestedReturnQty(suggested);
+        }
     }
 
     /**
@@ -434,7 +489,7 @@ public class DeliveryController {
      * 跨站外派风险查询（员工端「提交前提示」用）：本单涉不涉押金/桶权益、后端下发的提示文案是什么。
      *
      * <p><b>为什么要一个只读端点</b>：会出现「外派 / 接单」按钮的四张列表形状不一（抢单池是 Map，
-     * 他站外派 / 待分配 / 外派追踪是实体直出），而风险文案的判据与文案都只该在服务端有一份
+     * 指定外派 / 待分配 / 外派追踪是实体直出），而风险文案的判据与文案都只该在服务端有一份
      * （{@code OrderWorkflowServiceImpl.involvesDepositOrBarrelRights} / {@code DEPOSIT_BARREL_RISK_TEXT}）。
      * 前端在**点了操作之后、真正提交之前**问一次，把 {@code riskNote} 原样展示，
      * 确认后再带 {@code riskAcknowledged=true} 提交 —— 前端不自己判断"这单算不算涉押金"。</p>
@@ -786,7 +841,7 @@ public class DeliveryController {
     }
 
     /**
-     * 下发给「待本站履约」列表（抢单池 / 他站外派）的金额与钱去向信息。
+     * 下发给「待本站履约」列表（抢单池 / 指定外派）的金额与钱去向信息。
      *
      * <p>字段与来源（<b>全是快照，无一处重算</b>）：</p>
      * <ul>
@@ -794,7 +849,7 @@ public class DeliveryController {
      *       / {@code orders.floor_fee} / {@code orders.total_amount}（归属站下单那一刻算出并快照的）；</li>
      *   <li>{@code pricingStationId} / {@code feeStationName} ← {@code orders.station_id}（<b>归属站</b>）
      *       查到的站名：跨站单的费用就是按它的站级计费配置算的，所以它是"定价来源站"；</li>
-     *   <li>{@code settleNote} ← 后端按语境生成的文案（抢单池是"认领后"，他站外派是"接单后"）；</li>
+     *   <li>{@code settleNote} ← 后端按语境生成的文案（抢单池是"认领后"，指定外派是"接单后"）；</li>
      *   <li>{@code settleToMyStation} ← 恒 true：能力/权限上这里的单一旦被本站承接，营收就计入本站。</li>
      * </ul>
      *
@@ -928,13 +983,33 @@ public class DeliveryController {
     }
 
     /**
-     * 外派追踪列表：本站外派出去的订单状态
+     * 外派列表：本站外派出去的订单状态。
+     *
+     * <p>[2026-09-26] 首页「外派」页签内置两个子页签（<b>一键外派</b> / <b>指定外派</b>），
+     * 由本端点下发的 {@code dispatchKind} 分流 —— 归类实现只有一处
+     * （{@code constant.DispatchKind.ofNote}，判据是备注文案，理由见那个枚举的注释），
+     * <b>前端不要自己解析 specialNote</b>：自由文本一旦在两端各判一次，迟早分叉。</p>
+     *
+     * <p>顺带补 {@code deliveryStationName}（外派至哪个站）：该字段不是数据库列，
+     * 本列表的 SQL 也没有 join 站表 —— 不在这里填，界面上的「外派至」整行永远不显示
+     * （实测就是这样：站长只能看到一个订单号，判断不了这单派给了谁）。池中还没人接的单
+     * {@code delivery_station_id} 为空，站点名保持 null，前端据此显示"等别站接单"。</p>
      */
     @RequireRole("STATION_MANAGER")
     @GetMapping("/orders/dispatch-tracking")
     public Result<?> getDispatchTracking() {
         Long stationId = AuthContext.requireStationId();
         List<Orders> dispatched = orderMapper.listDispatchedOrders(stationId);
+        if (dispatched != null && !dispatched.isEmpty()) {
+            Map<Long, String> stationNames = loadStationNames();
+            for (Orders o : dispatched) {
+                o.setDispatchKind(com.example.aquaflow.constant.DispatchKind.ofNote(o.getSpecialNote()).name());
+                Long to = o.getDeliveryStationId();
+                if (to != null && !to.equals(stationId)) {
+                    o.setDeliveryStationName(stationNames.get(to));
+                }
+            }
+        }
         return Result.success(dispatched);
     }
 
@@ -992,7 +1067,7 @@ public class DeliveryController {
     }
 
     /**
-     * 目标水站视角：被其他水站指定为履约站的订单列表（他站外派给我）
+     * 目标水站视角：被其他水站指定为履约站的订单列表（首页「外派 → 指定外派」子页签）
      *
      * <p>[2026-09-18] 与抢单池同一口径：定向外派也是"站长外派"，接收站同样要在动手前
      * 一眼看到这单值多少钱、定价来自哪站、接单后钱归谁。字段与来源见 {@link #feeInfoOf}
@@ -1019,7 +1094,7 @@ public class DeliveryController {
     }
 
     /**
-     * 给他站外派列表（{@code Orders} 直出，不像抢单池那样映射成 Map）补上金额与去向信息。
+     * 给「指定外派（别站指定本店）」列表（{@code Orders} 直出，不像抢单池那样映射成 Map）补上金额与去向信息。
      * 抢单池走 Map（它还要叠商品匹配结果），这里走实体的瞬时字段 —— 两处的
      * {@code feeStationName} / {@code settleNote} / {@code settleToMyStation} 语义必须逐字一致。
      */

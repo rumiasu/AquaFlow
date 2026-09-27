@@ -68,6 +68,43 @@
   display: block;
 }
 
+/* 结果区的金额（后端总额，前端只格式化）：与状态说明分行、字号小一档，
+   让"现在是哪一步"优先于"多少钱"。 */
+.success-amount {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: var(--text-regular);
+  font-weight: 500;
+}
+
+/* ========== 不能在线支付时的付款说明行 ==========
+   后端 payHint（"货到付款，配送员送达时收款" / "水票支付，下单即视同已付"）
+   原来只在"有支付按钮"的分支里被读，现金单反而看不到付款方式。 */
+.pay-hint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+  background: var(--bg-gray);
+  border-radius: var(--radius-md);
+}
+
+.pay-hint-text {
+  flex: 1;
+  font-size: 26rpx;
+  color: var(--text-regular);
+  line-height: 1.5;
+}
+
+.pay-hint-amount {
+  flex-shrink: 0;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 /* ========== 常用订单区 ========== */
 .template-section {
   width: 100%;

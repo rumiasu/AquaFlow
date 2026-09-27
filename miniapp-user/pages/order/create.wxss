@@ -1,8 +1,18 @@
-/* ========== 确认订单页 ========== */
+/* ========== 确认订单页 ==========
+   [2026-09-26 Wave1 轨道 E] 本页容器自带左右 24rpx 内边距（与已验收的首页同一口径），
+   所以下面各区块**一律不再写左右外边距** —— 否则会变成 48rpx 的双份缩进。
+   ⚠️ .container 与 styles/common.wxss 的同名类是隐性双写（全局那条只给 padding）：
+   改本页这条没问题，**别去改全局文件**。底部内边距留给吸底栏（含它偶尔多出的提示行）。 */
 .container {
-  padding-bottom: 140rpx;
+  padding: 16rpx 24rpx 240rpx;
   background: var(--bg-color);
   min-height: 100vh;
+}
+
+/* 全局 .load-error（styles/common.wxss）自带左右 24rpx 外边距，与本页容器的内边距叠加
+   会变成 48rpx 缩进；只在本页覆盖外边距，不动全局文件。 */
+.load-error {
+  margin: 0 0 16rpx;
 }
 
 /* ========== 金额校准展示 ========== */
@@ -59,13 +69,14 @@
   font-weight: 700;
 }
 
-/* ========== 支付方式选择 ========== */
+/* ========== 支付方式选择 ==========
+   白卡外观与 .section 同一套（卡内分隔线、无阴影、不卡套卡），这里只保留本块的类名与标题。 */
 .payment-method-section {
-  background-color: #fff;
-  margin: 0 24rpx 24rpx;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin: 0 0 24rpx;
   padding: 28rpx 24rpx;
-  border-radius: 20rpx;
-  box-shadow: var(--shadow-sm);
 }
 
 .payment-method-section .section-title {
@@ -121,20 +132,24 @@
   display: block;
 }
 
+/* 支付方式的说明文字（如"配送员送达后现金/扫码支付"）是判断"什么时候付钱"的依据，
+   字号走辅助地板 24rpx（§6：禁止用 20rpx 承载关键规则）。 */
 .method-desc {
-  font-size: 22rpx;
-  color: var(--text-secondary);
+  font-size: 24rpx;
+  color: var(--text-regular);
   display: block;
   margin-top: 4rpx;
 }
 
-/* ========== 通用区块 ========== */
+/* ========== 通用区块（白卡）==========
+   卡内用分隔线、卡不套卡、阴影≈0（§6：视觉差异靠留白/对齐/字号/状态，不靠每块换颜色）。
+   ⚠️ .section / .section-title 在别的页面有同名但独立的定义，改本页不影响别页。 */
 .section {
-  background-color: #fff;
-  margin: 0 24rpx 24rpx;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin: 0 0 24rpx;
   padding: 28rpx 24rpx;
-  border-radius: 20rpx;
-  box-shadow: var(--shadow-sm);
 }
 
 .section-header {
@@ -156,26 +171,38 @@
   margin-bottom: 20rpx;
 }
 
-/* ========== 商品清单 ========== */
+/* 费用摘要标题右侧的「费用明细 ›」入口（§2：复核依据要给可达入口）。
+   外观沿用全局 .section-link（theme.wxss 里已定义，本页不另写一套色值），
+   只在本页把点击热区放大 —— 24rpx 的字直接点太小。 */
+.section-header .section-link {
+  padding: 8rpx 0 8rpx 16rpx;
+}
+
+/* ========== 商品清单 ==========
+   行与行之间用分隔线，不再"白卡里再套一张白卡"（§6：卡内用分隔线，避免卡套卡）。 */
 .product-list {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
 }
 
 .product-card {
   display: flex;
   align-items: center;
-  background: var(--bg-card);
-  border-radius: 16rpx;
-  padding: 20rpx;
-  box-shadow: var(--shadow-sm);
+  padding: 24rpx 0;
+}
+
+.product-card:first-child {
+  padding-top: 0;
+}
+
+.product-card + .product-card {
+  border-top: 1rpx solid var(--border-light);
 }
 
 .product-image {
-  width: 160rpx;
-  height: 160rpx;
-  border-radius: 16rpx;
+  width: 128rpx;
+  height: 168rpx;
+  border-radius: var(--radius-md);
   background-color: var(--bg-gray);
   margin-right: 20rpx;
   flex-shrink: 0;
@@ -185,12 +212,12 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  gap: 6rpx;
   min-width: 0;
 }
 
 .product-name {
-  font-size: 28rpx;
+  font-size: 30rpx;
   font-weight: 600;
   color: var(--text-primary);
   overflow: hidden;
@@ -200,42 +227,44 @@
 
 .product-spec {
   font-size: 24rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
 }
 
 .product-price {
   display: flex;
   align-items: baseline;
-  margin-top: 8rpx;
+  margin-top: 10rpx;
 }
 
+/* ⚠️ .price-symbol / .price-value 是 styles/theme.wxss 同名类的本页覆盖（隐性双写）：
+   改本页这两条没问题，别去改 theme。 */
 .price-symbol {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--price-color);
   font-weight: 600;
 }
 
 .price-value {
-  font-size: 36rpx;
+  font-size: 34rpx;
   color: var(--price-color);
   font-weight: 700;
 }
 
 .price-unit {
-  font-size: 22rpx;
-  color: var(--text-secondary);
+  font-size: 24rpx;
+  color: var(--text-regular);
   margin-left: 4rpx;
 }
 
 .product-subtotal {
   display: flex;
   align-items: baseline;
-  margin-top: 4rpx;
+  margin-top: 6rpx;
 }
 
 .subtotal-label {
-  font-size: 22rpx;
-  color: var(--text-secondary);
+  font-size: 24rpx;
+  color: var(--text-regular);
   margin-right: 8rpx;
 }
 
@@ -245,23 +274,34 @@
   font-weight: 600;
 }
 
-/* ========== 数量步进器 ========== */
+/* ========== 数量步进器 ==========
+   图形 52rpx、**热区 84×88rpx**（§6：数字加减目标至少 88rpx，图形可小）。
+   ⚠️ bindtap 与 data-index/data-type 必须挂在 .qty-hit（外层热区）上 —— 挂在里面那个
+   52rpx 图形上时，手指落在留白里点不动（点击事件不会从父元素传给子元素）。 */
 .stepper-wrap {
   flex-shrink: 0;
-  margin-left: 16rpx;
+  margin-left: 12rpx;
 }
 
 .quantity-control {
   display: flex;
   align-items: center;
   background: var(--bg-gray);
-  border-radius: 16rpx;
-  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+
+.qty-hit {
+  width: 84rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .qty-btn {
-  width: 56rpx;
-  height: 56rpx;
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -271,7 +311,7 @@
   opacity: 0.3;
 }
 
-.qty-btn:active {
+.qty-hit:active .qty-btn {
   background: var(--border-color);
 }
 
@@ -283,24 +323,24 @@
 }
 
 .qty-input {
-  width: 72rpx;
-  height: 56rpx;
+  width: 64rpx;
+  height: 88rpx;
   text-align: center;
-  font-size: 28rpx;
+  font-size: 30rpx;
   font-weight: 600;
   color: var(--text-primary);
   background: transparent;
 }
 
-/* ========== 地址卡片 ========== */
+/* ========== 地址卡片（§3：确认订单页的第一个区块）========== */
 .address-card {
   display: flex;
   align-items: center;
-  background-color: #fff;
-  margin: 0 24rpx 24rpx;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin: 0 0 24rpx;
   padding: 28rpx 24rpx;
-  border-radius: 20rpx;
-  box-shadow: var(--shadow-sm);
 }
 
 .address-card:active {
@@ -333,7 +373,7 @@
 }
 
 .address-name {
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 600;
   color: var(--text-primary);
   margin-right: 16rpx;
@@ -344,9 +384,12 @@
   color: var(--text-regular);
 }
 
+/* 地址不能拿浅灰占位色承载（§6：灰色占位不承载价格、地址、警告）——
+   它是这一屏要核对的第一件事，用正文色 + 正文偏上字号。 */
 .address-detail {
-  font-size: 26rpx;
-  color: var(--text-secondary);
+  font-size: 28rpx;
+  color: var(--text-regular);
+  line-height: 1.5;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -354,8 +397,9 @@
 
 .address-empty {
   flex: 1;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   font-size: 28rpx;
+  line-height: 1.5;
 }
 
 .address-arrow {
@@ -368,9 +412,9 @@
 /* ========== 备注输入 ========== */
 .note-input {
   width: 100%;
-  height: 72rpx;
+  height: 88rpx;
   background-color: var(--bg-gray);
-  border-radius: 12rpx;
+  border-radius: var(--radius-sm);
   padding: 0 20rpx;
   font-size: 28rpx;
   color: var(--text-primary);
@@ -381,20 +425,87 @@
   border-color: var(--primary-color);
 }
 
-/* ========== 底部提交栏 ========== */
+/* ========== 费用摘要（正文区块，2026-09-26 轨道 E 新增）==========
+   §3：水费 / 新增桶押金 / 配送费 / 楼层费 / 合计 五项都在这一块里，
+   金额与文案全部来自同一次服务端报价（create.js 的 refreshQuote），本文件只排版。
+   ⚠️ 条数与内容别在这里"顺手整理"：这五项是客户判断"这单多少钱"的唯一依据，
+      而流程测试没有一条断言检查费用文案（见 wxml 里那段护栏注释）。 */
+.fee-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 10rpx 0;
+}
+
+.fee-label {
+  font-size: 28rpx;
+  color: var(--text-regular);
+}
+
+.fee-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 合计行：与上方各项用一条分隔线隔开，字重与字号抬上去 */
+.fee-row.total {
+  margin-top: 12rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid var(--border-color);
+}
+
+.fee-label.total {
+  font-size: 30rpx;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.fee-value.total {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--price-color);
+}
+
+/* 水票整单结清时的抵扣行（绿=完成，"这笔已经付过了"，不是"要额外付"） */
+.fee-cover {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--success-color);
+  line-height: 1.6;
+}
+
+/* 金额出处 / 状态说明：辅助字号地板 24rpx，不用 20rpx 承载关键规则 */
+.fee-hint {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ========== 底部提交栏（§3：只放三样 —— 实付 / 需扣水票 + 明细入口 + 当前主动作）==========
+   「结果未知」与「已下单提示」两条仍在这个容器里，但只在对应状态出现（它们防的是
+   "重试变第二单"，不许删）。逐项费用已于 2026-09-26 搬到正文「费用摘要」，底栏不再重复列。 */
 .bottom-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  display: flex;
-  align-items: center;
+  background-color: var(--bg-card);
+  border-top: 1rpx solid var(--border-color);
   padding: 16rpx 24rpx;
   padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
-  box-shadow: 0 -2rpx 16rpx rgba(0, 0, 0, 0.06);
   z-index: 100;
+}
+
+/* 实付 + 主动作同一行；上面可能压着「结果未知 / 已下单」两条提示 */
+.bar-main {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
 }
 
 .total-info {
@@ -408,6 +519,9 @@
   opacity: 0.85;
 }
 
+/* ⚠️ [2026-09-26 轨道 E] 下面两条现在**没有元素使用**（逐项费用已从底栏搬到正文「费用摘要」）：
+   .total-detail 原是底栏的费用行容器，.detail-item.extra 原是底栏里的额外桶押金行。
+   按仓库删除协议**先保留、不删**，确认无用的登记见本轮回传。 */
 .total-detail {
   display: flex;
   flex-wrap: wrap;
@@ -415,13 +529,20 @@
   margin-bottom: 4rpx;
 }
 
-.detail-item {
-  font-size: 22rpx;
-  color: var(--text-secondary);
-}
-
 .detail-item.extra {
   color: var(--warning-color);
+}
+
+/* 水票抵扣行（只有整单能被票结清时才有值）：它是"扣几张票"的结论，字号走辅助地板以上 */
+.detail-item {
+  font-size: 26rpx;
+  color: var(--text-regular);
+}
+
+.detail-item.ticket-cover {
+  color: var(--success-color);
+  font-weight: 600;
+  margin-bottom: 4rpx;
 }
 
 .total-row {
@@ -431,12 +552,12 @@
 
 .total-label {
   font-size: 26rpx;
-  color: var(--text-primary);
+  color: var(--text-regular);
   margin-right: 8rpx;
 }
 
 .total-price {
-  font-size: 36rpx;
+  font-size: 38rpx;
   font-weight: 700;
   color: var(--price-color);
 }
@@ -446,28 +567,28 @@
 }
 
 .detail-arrow {
-  font-size: 22rpx;
-  color: var(--text-secondary);
-  margin-left: 8rpx;
+  font-size: 24rpx;
+  color: var(--primary-color);
+  margin-left: 12rpx;
 }
 
+/* 主按钮：蓝色合法出现处；置灰用 --text-placeholder（不是浅蓝）。高 92rpx（§6：88–96rpx） */
 .submit-btn {
   width: 260rpx;
-  height: 88rpx;
-  background: var(--primary-gradient);
-  border-radius: 44rpx;
+  height: 92rpx;
+  flex: none;
+  background: var(--primary-color);
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-size: 30rpx;
   font-weight: 600;
-  box-shadow: var(--shadow-primary);
 }
 
 .submit-btn.disabled {
   background: var(--text-placeholder);
-  box-shadow: none;
 }
 
 .submit-btn:active {
@@ -503,7 +624,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: #fff;
+  background-color: var(--bg-card);
   border-radius: 32rpx 32rpx 0 0;
   padding: 32rpx;
   padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
@@ -538,8 +659,8 @@
 
 .popup-btns .btn-cancel {
   flex: 1;
-  height: 80rpx;
-  border-radius: 40rpx;
+  height: 88rpx;
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -547,7 +668,7 @@
   background: var(--bg-gray);
   color: var(--text-regular);
   border: none;
-  line-height: 80rpx;
+  line-height: 88rpx;
   padding: 0;
 }
 
@@ -557,16 +678,16 @@
 
 .popup-btns .btn-ok {
   flex: 1;
-  height: 80rpx;
-  border-radius: 40rpx;
+  height: 88rpx;
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 30rpx;
-  background: var(--primary-gradient);
+  background: var(--primary-color);
   color: #fff;
   border: none;
-  line-height: 80rpx;
+  line-height: 88rpx;
   padding: 0;
 }
 
@@ -593,20 +714,51 @@
   visibility: visible;
 }
 
-.asset-warning .popup-content {
+/* ⚠️ 选择器必须是 .popup-content.asset-warning（**同一个元素**），不能写成
+   `.asset-warning .popup-content`（要求 asset-warning 是 popup-content 的**祖先**）。
+   WXML 里是 class="popup-content asset-warning" 两个类挂在同一个 view 上，子孙选择器
+   永远匹配不到 —— 于是这里整套定位失效，只剩基础 .popup-content 的
+   `bottom:0; transform: translateY(100%)`：白色卡片被推到屏幕外，
+   而兄弟节点 .popup-mask 照常盖住整屏。现象就是「整屏灰白、看不到卡片和按钮、
+   点一下就关」——2026-09-26 实测的客户首单阻塞。 */
+.popup-content.asset-warning {
   max-width: 90%;
   margin: auto;
+  /* 同时写 top/bottom 时 top 生效（bottom 失效），这里显式清零避免残留 */
   top: 50%;
   left: 50%;
+  right: auto;
+  bottom: auto;
   transform: translate(-50%, -50%) scale(0.9);
   border-radius: 24rpx;
   box-shadow: var(--shadow-lg);
   padding: 36rpx 32rpx;
-  min-width: 600rpx;
+  /* ⚠️ 不能给居中弹窗写 min-width: 600rpx(≈300px)：窄屏(320px)下它比可视区还宽，
+     卡片会被挤出屏幕 —— 那和"被 translateY 推到屏幕外"是同一种失败形态。
+     改为 flex 列 + 让长文案自己滚动，保证任何屏宽下按钮都留在屏幕内。 */
+  width: calc(100% - 64rpx);
+  max-width: 640rpx;
   max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  /* 卡片外的点击要落到遮罩上（= 取消），不能被卡片自己吞掉 */
+  pointer-events: auto;
 }
 
-.asset-popup.show .asset-warning .popup-content {
+/* 卡片内"文案多到放不下"时只让正文滚动：标题与按钮始终可见可点，
+   ⚠️ 这同时修掉小屏上"按钮被顶出屏幕、只能点遮罩取消"的形态。 */
+.asset-warning .asset-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.asset-warning .popup-title.warning,
+.asset-warning .popup-btns {
+  flex-shrink: 0;
+}
+
+.asset-popup.show .popup-content.asset-warning {
   transform: translate(-50%, -50%) scale(1);
   animation: popupFadeIn 0.25s ease;
 }
@@ -616,13 +768,14 @@
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
+/* 弹窗标题（.warning 同时给首次确认与缺货确认用）。
+   [2026-09-26 轨道 E] 原来是一整条 #DC2626 的红底：红色在本仓口径里是"失败/危险动作"，
+   而"下单前请确认"是一次正常的确认、不是危险动作；大面积色块也与 §6「不靠每块换颜色」相反。
+   现在标题是普通深色居中标题，真正的警示由正文与按钮表达。 */
 .asset-warning .popup-title.warning {
-  background: #DC2626;
-  color: #fff;
-  border-radius: 16rpx 16rpx 0 0;
-  padding: 24rpx;
-  margin: -36rpx -32rpx 24rpx;
-  font-size: 30rpx;
+  color: var(--text-primary);
+  margin: 0 0 24rpx;
+  font-size: 32rpx;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -632,26 +785,30 @@
 
 .asset-warning .popup-desc {
   font-size: 26rpx;
-  color: #374151;
+  color: var(--text-regular);
   text-align: left;
   display: block;
   margin-bottom: 24rpx;
   line-height: 1.6;
 }
 
+/* 缺货清单的容器：走"要留意"的警示族（与 .load-error / .fee-warn 同一套 token），
+   不再是另一套红粉色（§6：不要在本页另立一套色值）。 */
 .asset-rules {
-  background: #FEF2F2;
-  border: 1rpx solid #FECACA;
-  border-radius: 16rpx;
+  background: rgba(201, 118, 75, 0.10);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-md);
   padding: 24rpx;
   margin-bottom: 24rpx;
 }
 
-/* 首次资产告知里的"事实"区（契约 A2）：水站 / 本次押金 / 本单合计 —— 三行都要看得清 */
+/* 首次资产告知里的"事实"区（契约 A2）：水站 / 本次押金 / 本单合计 —— 三行都要看得清。
+   [2026-09-26 轨道 E] 底色由琥珀改为中性（--bg-gray）：这一块是"事实"，不是警告；
+   金额用价格色 + 字重强调，不靠背景色。 */
 .asset-fact {
-  background: #FFFBEB;
-  border: 1rpx solid #FDE68A;
-  border-radius: 16rpx;
+  background: var(--bg-gray);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-md);
   padding: 20rpx 24rpx;
   margin-bottom: 20rpx;
 }
@@ -669,34 +826,36 @@
 
 .asset-fact-label {
   font-size: 26rpx;
-  color: #6B7280;
+  color: var(--text-regular);
 }
 
 .asset-fact-value {
   font-size: 26rpx;
-  color: #1F2937;
+  color: var(--text-primary);
   text-align: right;
 }
 
 .asset-fact-value.strong {
   font-size: 30rpx;
   font-weight: 700;
-  color: #B45309;
+  color: var(--price-color);
 }
 
 /* 提交结果无法确认时的提示条（契约 A1/A3）：说清"重试会沿用同一次提交"，并给一个重试入口 */
+/* 提交结果无法确认时的提示条（契约 A1/A3）：说清"重试会沿用同一次提交"，并给一个重试入口。
+   配色走"要留意"的警示族 token（原来是另一套黄）。 */
 .submit-unknown {
-  background: #FEF3C7;
-  border: 1rpx solid #FCD34D;
-  border-radius: 16rpx;
+  background: rgba(201, 118, 75, 0.12);
+  border: 1rpx solid var(--warning-color);
+  border-radius: var(--radius-md);
   padding: 20rpx 24rpx;
   margin-bottom: 16rpx;
 }
 
 .submit-unknown-text {
   display: block;
-  font-size: 24rpx;
-  color: #92400E;
+  font-size: 26rpx;
+  color: var(--text-regular);
   line-height: 1.6;
   margin-bottom: 12rpx;
 }
@@ -704,10 +863,38 @@
 .submit-unknown-btn {
   display: inline-block;
   padding: 10rpx 28rpx;
-  background: #F59E0B;
+  background: var(--warning-color);
   color: #fff;
-  font-size: 24rpx;
-  border-radius: 999rpx;
+  font-size: 26rpx;
+  border-radius: var(--radius-round);
+}
+
+/* "已下单"提示行（2026-09-26）：购物车没动时替代「立即下单」——
+   客户一眼看到"你刚才下的单还没付款"，并可点进那一单。
+   配色走品牌蓝的浅底（--primary-bg），与"这是你自己的单"这一信息层级一致。 */
+.pending-order-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  background: var(--primary-bg);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 20rpx 24rpx;
+  margin-bottom: 16rpx;
+}
+
+.pending-order-text {
+  font-size: 26rpx;
+  color: var(--text-regular);
+  line-height: 1.5;
+}
+
+.pending-order-sub {
+  flex-shrink: 0;
+  font-size: 26rpx;
+  color: var(--primary-color);
+  font-weight: 600;
 }
 
 .rule-item {
@@ -716,7 +903,7 @@
   gap: 10rpx;
   margin-bottom: 16rpx;
   font-size: 26rpx;
-  color: #1F2937;
+  color: var(--text-primary);
   line-height: 1.6;
 }
 
@@ -725,7 +912,7 @@
 }
 
 .rule-num {
-  color: #EF4444;
+  color: var(--warning-color);
   font-weight: 700;
   flex-shrink: 0;
   margin-top: 2rpx;
@@ -771,25 +958,57 @@
 }
 
 .asset-popup .popup-btns .btn-ok.disabled {
-  background: #D1D5DB;
-  color: #9CA3AF;
+  background: var(--text-placeholder);
+  color: var(--text-regular);
 }
 
-/* ========== 资产使用说明详情弹窗 ========== */
-.asset-detail-popup .popup-content {
+/* ========== 详细说明的展开区（2026-09-26 轨道 E：并进首次确认弹窗，不再是第二层弹窗）==========
+   §3：必需勾选与确认放同一层、详细条款按需展开。开关行复用原来的说明入口
+   （.asset-detail-link / .detail-link-text，见下面那一组），这里只加展开/收起的方向提示。 */
+.asset-more-glyph {
+  font-size: 28rpx;
+  line-height: 1;
+  color: var(--primary-color);
+  transform: rotate(90deg);
+}
+
+.asset-more-glyph.up {
+  transform: rotate(-90deg);
+}
+
+/* ⚠️ 展开区在 .asset-scroll 里：内容再长也只是把滚动区撑长，
+   勾选行与「确认下单」始终留在滚动区外、任何字号下都够得着（见 wxml 的护栏注释）。 */
+.asset-detail {
+  padding-top: 4rpx;
+  border-top: 1rpx solid var(--border-light);
+}
+
+/* ========== 资产使用说明（原「第二层弹窗」的样式；说明现已并进首次确认弹窗）==========
+   ⚠️ [2026-09-26 轨道 E] 下面这组 .asset-detail-popup / .asset-detail-content 规则
+   **现在没有元素使用**（为满足"勾选与确认同一层"，说明改成了上面的展开区）。
+   按仓库删除协议**先保留、不删**；确认无用的登记见本轮回传。
+   这段历史坑留着（它记的是"为什么必须写 .popup-content.asset-detail-popup"）：
+   WXML 曾是 class="popup-content asset-detail-popup"（同一个元素），子孙选择器匹配不到，
+   整套定位失效 → 卡片留在 translateY(100%) 的屏幕外，点说明入口只看到整屏灰白。 */
+.popup-content.asset-detail-popup {
   top: 50%;
   left: 50%;
+  right: auto;
+  bottom: auto;
   transform: translate(-50%, -50%) scale(0.9);
   border-radius: 24rpx;
   box-shadow: var(--shadow-lg);
   padding: 0;
-  width: 92%;
+  width: calc(100% - 64rpx);
   max-width: 700rpx;
   max-height: 90vh;
   overflow: hidden;
+  /* 列布局：标题固定、正文占满剩余高度并自己滚动、底部按钮固定（长内容/窄屏都够得着） */
+  display: flex;
+  flex-direction: column;
 }
 
-.asset-popup.show .asset-detail-popup .popup-content {
+.asset-popup.show .popup-content.asset-detail-popup {
   transform: translate(-50%, -50%) scale(1);
   animation: popupFadeIn 0.25s ease;
 }
@@ -802,22 +1021,28 @@
   font-size: 32rpx;
   font-weight: 700;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .asset-detail-content {
   padding: 32rpx;
-  max-height: 70vh;
-  scroll-y: scroll;
+  /* ⚠️ 不能用 max-height: 70vh + 依赖 scroll-view 自己滚：卡片本身还有标题与按钮，
+     两者相加会超过 90vh，把「我知道了」顶出屏幕。改为占满剩余高度并 min-height: 0
+     （flex 子项默认 min-height:auto，不给 0 就不会收缩、也就滚不起来）。 */
+  flex: 1;
+  min-height: 0;
 }
 
 .detail-intro {
   font-size: 26rpx;
-  color: #4B5563;
+  color: var(--text-regular);
   display: block;
   margin-bottom: 24rpx;
   line-height: 1.6;
 }
 
+/* 下面两条的宿主元素随说明弹窗一起没了（同上：保留不删）。
+   展开区里的说明文字用 .detail-intro / .detail-rule-item / .detail-bold，仍在用。 */
 .detail-rule {
   padding: 20rpx;
   background: #FEF3C7;
@@ -826,8 +1051,8 @@
 }
 
 .detail-checkbox {
-  color: #F59E0B;
-  font-size: 24rpx;
+  color: var(--text-secondary);
+  font-size: 28rpx;
   margin-right: 8rpx;
 }
 
@@ -843,8 +1068,8 @@
   gap: 8rpx;
   margin-bottom: 24rpx;
   padding: 20rpx;
-  background: #F9FAFB;
-  border-radius: 12rpx;
+  background: var(--bg-gray);
+  border-radius: var(--radius-sm);
   border-left: 4rpx solid var(--primary-color);
 }
 
@@ -857,26 +1082,72 @@
 
 .detail-rule-text {
   font-size: 26rpx;
-  color: #374151;
+  color: var(--text-regular);
   line-height: 1.7;
 }
 
 .detail-bold {
   font-weight: 700;
-  color: #111827;
+  color: var(--text-primary);
 }
 
+/* 首次确认弹窗里的勾选行（**真的闸门**，不是装饰性 ☐）：
+   未勾选 = 中性灰，勾选后 = 品牌蓝（§6：蓝色用于选中状态，不靠彩虹色）。
+   它在 wxml 里与「确认下单」同在滚动区外的一层 —— 见 create.wxml 的护栏注释。 */
 .detail-agree {
   display: flex;
   align-items: center;
-  gap: 10rpx;
+  gap: 12rpx;
   padding: 20rpx;
-  background: #F0FDF4;
-  border-radius: 12rpx;
-  border: 1rpx solid #BBF7D0;
-  margin-bottom: 0;
+  background: var(--bg-gray);
+  border-radius: var(--radius-sm);
+  border: 1rpx solid var(--border-color);
+  margin-bottom: 24rpx;
 }
 
+/* 勾选后变蓝：让"已经确认过"看得见（按钮的灰/亮也随之变化） */
+.detail-agree.is-checked {
+  border-color: var(--primary-color);
+  background: var(--primary-bg);
+}
+
+.detail-agree.is-checked .detail-checkbox {
+  color: var(--primary-color);
+}
+
+.detail-agree-text {
+  font-size: 26rpx;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+/* 未勾选说明时「确认下单」变灰（仍可点，点了给提示 —— 见 onAssetConfirmOk） */
+.asset-warning .popup-btns .btn-ok.disabled {
+  background: var(--text-placeholder);
+  color: #FFFFFF;
+}
+
+/* 说明展开区底部的「问水站」入口（2026-09-26 随文案重写新增）：
+   取到电话就是拨号行，取不到就跳客服页 —— 两态都要看得懂、点得动。 */
+.detail-call {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-top: 8rpx;
+  padding: 24rpx;
+  background: var(--primary-bg);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.detail-call-text {
+  font-size: 28rpx;
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* 同上一组：宿主元素（原说明弹窗的按钮区）已不存在，保留不删 */
 .asset-detail-popup .popup-btns {
   padding: 24rpx 32rpx;
   border-top: 1rpx solid var(--border-light);
@@ -908,7 +1179,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: #fff;
+  background-color: var(--bg-card);
   border-radius: 32rpx 32rpx 0 0;
   max-height: 75vh;
   display: flex;
@@ -993,8 +1264,8 @@
 }
 
 .detail-item-spec {
-  font-size: 22rpx;
-  color: var(--text-secondary);
+  font-size: 24rpx;
+  color: var(--text-regular);
   flex-shrink: 0;
 }
 
@@ -1043,7 +1314,7 @@
   padding: 20rpx 32rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   border-top: 1rpx solid var(--border-light);
-  background: #FAFAFA;
+  background: var(--bg-gray);
   flex-shrink: 0;
 }
 
@@ -1064,53 +1335,55 @@
   font-weight: 700;
   color: var(--price-color);
 }
-/* ===== 水站营业状态横幅（软状态：只提示，不阻断下单）===== */
+/* ===== 水站营业状态横幅（软状态：只提示，不阻断下单）=====
+   [2026-09-26 轨道 E] 底色/文字改用全局 token（原来是一组硬编码的琥珀色），
+   与 .load-error / .fee-warn 这类"要留意但不阻断"的提示同族。
+   ⚠️ 图标颜色只能写字面色：Icon 组件把颜色烘进 SVG data-uri，写 var(...) 不生效。 */
 .station-status-banner {
   display: flex;
   align-items: flex-start;
   gap: 12rpx;
-  margin: 16rpx 24rpx 0;
+  margin: 0 0 16rpx;
   padding: 20rpx 24rpx;
-  background: #fff7e6;
-  border-radius: 16rpx;
+  background: rgba(201, 118, 75, 0.10);
+  border-radius: var(--radius-md);
 }
 
 .station-status-banner .banner-icon {
-  font-size: 30rpx;
-  line-height: 1.4;
+  flex: none;
+  margin-top: 4rpx;
 }
 
 .station-status-banner .banner-text {
   flex: 1;
-  font-size: 24rpx;
-  color: #b26a00;
+  font-size: 26rpx;
+  color: var(--warning-color);
   line-height: 1.5;
 }
 
 /* 配送计费提示（v35）：起送量未达 / 超范围 / 楼层未填 / 硬拦原因。
-   文案由后端下发，这里只管排版。 */
+   文案由后端下发，这里只管排版；字号走辅助地板 24–26rpx（关键规则不许用 20rpx 承载）。 */
 .fee-warn {
-  margin: 0 24rpx 12rpx;
+  margin: 0 0 16rpx;
   padding: 16rpx 20rpx;
-  background: #fff8e6;
-  border-left: 6rpx solid #f5a623;
-  border-radius: 8rpx;
+  background: rgba(201, 118, 75, 0.12);
+  border-left: 6rpx solid var(--warning-color);
+  border-radius: var(--radius-sm);
 }
 .fee-warn-text {
   display: block;
-  font-size: 24rpx;
-  color: #a86a00;
-  line-height: 36rpx;
+  font-size: 26rpx;
+  color: var(--text-regular);
+  line-height: 1.6;
 }
 
-/* 水票抵扣（2026-09-19）：水票支付且整单能被票结清时，计费区不再逐项列水费/押金/配送费
-   （它们随票一并结清），只显示这一行抵扣 + 「本次需付 ¥0.00」。
-   用绿色与黄色的"提示"区分开：这是"已经付过了"，不是"要额外付"。 */
-.detail-item.ticket-cover,
+/* 水票抵扣（2026-09-19）：水票支付且整单能被票结清时，明细弹窗里各项之和 = 票抵扣 + 需付，
+   合计显示「本次需付」（= 0）—— 各项随票一并结清，明细里不再重复列它们。
+   用绿色区分开：这是"已经付过了"，不是"要额外付"；底栏那一行同色，见上面 .detail-item.ticket-cover。 */
 .ticket-cover-row .detail-total-label {
-  color: #16a34a;
+  color: var(--success-color);
 }
 .ticket-cover-row .detail-total-value {
-  color: #16a34a;
+  color: var(--success-color);
   font-size: 26rpx;
 }

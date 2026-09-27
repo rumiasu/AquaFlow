@@ -9,7 +9,12 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* 状态卡片配色：与本端「状态色 = 绿完成 / 琥珀需关注 / 红失败」的规则一致。
+   ⚠️ [2026-09-26] 补 .status-card.status-2（配送中）—— 原来只定义了 1/3/4/5/6/7，
+   而 OrderStatus 的 2 = 配送中（constant/OrderStatus.java），于是**配送中的单整张卡
+   没有任何状态配色**：客户最关心"到哪一步了"的那个状态反而最不显眼。 */
 .status-card.status-1 { border-left: 8rpx solid var(--warning-color); }
+.status-card.status-2 { border-left: 8rpx solid var(--info-color); }
 .status-card.status-3 { border-left: 8rpx solid var(--primary-color); }
 .status-card.status-4 { border-left: 8rpx solid #7c3aed; }
 .status-card.status-5 { border-left: 8rpx solid var(--success-color); }

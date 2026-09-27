@@ -50,6 +50,15 @@
         <view class="ticket-item" wx:for="{{accounts}}" wx:key="id">
           <view class="ticket-info">
             <text class="ticket-name">{{item.productName || item.waterTypeName}}</text>
+            <!--
+              [2026-09-26 Wave3 H1] 让持有明细也能看出"这张票能买哪款水"（docs/design/29 §3）。
+              只说得出前面那款水，是因为**账本本身就这么记的**：一条 ticket_account 就是
+              (客户, 水站, 商品) 一个账户（TicketAccountMapper.listByCustomerAndStationWithDetail
+              按 product_id 一对一，票的适用范围就是该商品），票没有"通用"这一档。
+              本行只用后端随这条账户一起下发的字段，**没有新请求、没有任何猜测**：
+              productName 为空时不渲染这一行（宁可不显示，也不承诺适用范围）。
+            -->
+            <text class="ticket-use" wx:if="{{item.productName || item.waterTypeName}}">本票可用于购买该款水</text>
             <text class="ticket-spec" wx:if="{{item.productSpec || item.waterTypeSpec}}">{{item.productSpec || item.waterTypeSpec}}</text>
             <text class="ticket-expire" wx:if="{{item.expireTime}}">有效期至 {{item.expireTime}}</text>
           </view>

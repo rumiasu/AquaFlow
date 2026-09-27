@@ -16,7 +16,12 @@ Page({
       // { name: '待认领', status: 7 },
       { name: '已取消', status: 5 }
     ],
-    orders: []
+    orders: [],
+    // ===== [2026-09-26] 「没有订单」与「没加载出来」必须不同（设计 29 §2）=====
+    // 此前只有 wx.showToast：toast 一消失，屏幕上是空列表 + empty「暂无订单」，
+    // 与"确实没有订单"完全无法区分（AGENTS §8.22 的同一类坑）。
+    loading: true,        // 页面还没有数据时的加载态（首屏 / 上次失败后的重试）
+    loadError: ''         // 非空 = 这次没取到，渲染成页面顶部的 .load-error 提示条
   },
 
   onLoad() {
@@ -37,11 +42,25 @@ Page({
     const { currentTab, tabs } = this.data
     const params = {}
     if (currentTab > 0) params.status = tabs[currentTab].status
+    // ⚠️ 本函数只加了 loading / loadError 两个展示状态，**取数逻辑（参数、接口、返回结构解析）
+    //    一行都没动** —— 这页只有 89 行，顺手重构取数是最容易出事的地方。
+    // 加载态只在"页面上还没有东西"时占位（首屏、上一次失败）：本页是 tabBar 页，
+    // onShow 每次回来都会重拉，无条件转圈会让已经看到的列表每次闪一下、下拉时还叠两个圈。
+    const showLoading = this.data.orders.length === 0
+    if (showLoading) this.setData({ loading: true })
+    this.setData({ loadError: '' })
     return getOrders(params).then(res => {
       const orders = Array.isArray(res) ? res : (res.data || [])
-      this.setData({ orders })
+      this.setData({ orders, loading: false })
     }).catch(err => {
-      wx.showToast({ title: err.message || '加载失败', icon: 'none' })
+      // 失败必须**留在页面上**（不是一条会消失的 toast）：清空旧数据避免拿上一次页签的
+      // 订单冒充本次结果，同时保留可读原因与"怎么重试"。
+      const msg = (err && err.message) || '网络异常'
+      this.setData({
+        orders: [],
+        loading: false,
+        loadError: '订单没加载出来（' + msg + '），下拉可重试'
+      })
     })
   },
 

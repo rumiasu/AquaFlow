@@ -37,12 +37,13 @@ Page({
     },
     // 当前商品在本站能买的档位（定制档位 or 站级统一折扣折算出来的档位，见后端 TicketTierService）
     buyPackages: [],
-    // 购票是「提交申请 → 水站确认收款 → 水票到账」，**本身没有在线支付渠道**。
-    // 原来这里写死 name:'微信支付'，会让客户以为能在线付款（微信渠道其实未接入），
-    // 而本仓明令「支付方式文案由服务端下发、前端不自带映射表」—— 购票页曾是唯一例外。
-    // 收款方式目前没有可选项（都是线下确认收款），所以如实描述这件事，不冒充任何渠道。
+    // [2026-09-26 产品口径] 购票是**自助预付**，不是「向水站申请、等水站同意」：
+    // 客户自己下单、自己付钱，水站只负责「收到钱」这个事实。
+    // 文案两处都要真：**不能**写「提交申请后由水站确认收款」（把收款确认说成审批，已改），
+    // **也不能**写「无需水站确认」—— 真实微信渠道还没接入，当前部署里"到账"这一步确实由站长
+    // 确认收到钱才完成。所以只描述渠道与结果，到没到账由提交后返回的真实 status 决定（见 onBuySubmit）。
     buyMethods: [
-      { id: 1, name: '水站确认收款', desc: '提交购票申请后由水站确认收款，到账后水票可用' }
+      { id: 1, name: '微信支付', desc: '微信收款，付款到账后水票即可使用' }
     ],
     submitting: false,
     // 在线购票幂等键：同一笔购买意图（含失败重试）复用同一个值，购买成功后才重新生成。
@@ -191,7 +192,7 @@ Page({
         wx.showModal({
           title: '切换水站提醒',
           content: '不同水站的水票、桶及押金等资产不互通，请确认后再切换。',
-          confirmText: '知道了，继续',
+          confirmText: '继续',
           cancelText: '取消',
           showCancel: true,
           success: (r) => resolve(r.confirm)
@@ -205,7 +206,7 @@ Page({
           title: '提示',
           content: '下次不再提示？',
           confirmText: '不再提示',
-          cancelText: '每次都提示',
+          cancelText: '继续提示',
           success: (r) => resolve(r.confirm)
         })
       })
@@ -364,6 +365,11 @@ Page({
   },
 
   async onBuySubmit() {
+    // 连点保护：按钮上的 `disabled` 只改背景色，**拦不住 tap**（见 index.wxss 的 .modal-btn.disabled）。
+    // 同一个幂等键虽然能兜住"库里落两条流水"，但第二次请求会再弹一次结果、再刷新一次页面。
+    if (this.data.submitting) {
+      return
+    }
     const { productId, quantity, paymentMethod, packageId, unifiedQty } = this.data.buyForm
     if (!productId && productId !== 0) {
       wx.showToast({ title: '请选择商品', icon: 'none' })
@@ -397,9 +403,9 @@ Page({
         // 统一折扣档：**只传张数**，价格由服务端按"这款水自己的价 × 该档折扣"现算
         unifiedQty: unifiedQty || null
       })
-      // 后端此时只创建了待支付流水，水票要等支付确认后才入账。
-      // 旧实现无条件提示"购买成功"，客户看到余额为空会以为系统吞了钱。
-      // 这里按真实 status 区分：2=已支付(票已到账)，1=待支付(等水站确认)。
+      // 后端返回的是流水的**真实状态**，不要替它猜：
+      //   2 = 已支付（票已入账，模拟微信渠道下当场就是这个）
+      //   1 = 待收款（真实微信渠道未接入的部署里等水站确认收到钱 —— 那是收款确认，不是审批）
       const status = (res && res.data && res.data.status) != null ? res.data.status : 1
       this.onClosePurchase()
       // 本次购买意图已落库，换一个新键，避免「下一次购买」被当成重放而返回上一笔
@@ -409,8 +415,8 @@ Page({
         wx.showToast({ title: '购买成功，水票已到账', icon: 'success' })
       } else {
         wx.showModal({
-          title: '已提交，等待到账',
-          content: '购买申请已提交给水站，水站确认收款后水票才会到账。如长时间未到账请联系水站。',
+          title: '等待到账',
+          content: '水站还没确认收到这笔钱，确认后水票自动到账。如已付款较长时间仍未到账，请联系水站。',
           showCancel: false,
           confirmText: '知道了'
         })

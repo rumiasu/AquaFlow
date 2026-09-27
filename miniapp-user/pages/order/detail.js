@@ -16,6 +16,11 @@ Page({
     canRepay: false,
     repayLabel: '去支付',
     payHint: '',
+    // 可拨号码（没有 = 不显示「联系配送员」按钮）。
+    // [2026-09-26] 见下面 onCallPhone 的核实结论：后端顾客端订单详情不下发配送员电话，
+    // 而原来的实现会去拨 order.customerPhone —— **下单人自己**的号码，是个假入口。
+    // 这里只把"到底有没有号可拨"变成显式判据，不给它编一个号码、也不新增请求。
+    callPhone: '',
     images: [],
     bucketInfo: null
   },
@@ -107,7 +112,7 @@ Page({
         hasFloorFee: Number(order.floorFee || 0) > 0
       }
 
-      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, payHint, bucketInfo, fee })
+      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, payHint, bucketInfo, fee, callPhone: this.resolveCallablePhone(order) })
 
       this.loadItemImages(items)
     } catch (err) {
@@ -131,10 +136,40 @@ Page({
     }
   },
 
+  /**
+   * 「联系配送员」按钮**到底拨谁** —— [2026-09-26 核实结论]
+   *
+   * <p>核实过程（只读，没动后端）：顾客端订单详情是 {@code GET /api/orders/{id}}
+   * → {@code OrderController.getById} → {@code OrderServiceImpl.getById}
+   * → {@code OrderMapper.getById}，SQL 只 join {@code customer} 与 {@code address}，
+   * **没有任何 staff / 电话列**；Orders 实体里与配送员有关的只有
+   * {@code deliveryStaffId} 与 {@code deliveryStaffName}（后者**全仓没有一处查询给它赋值**），
+   * 而 {@code customerPhone} / {@code addressPhone} 都是**客户自己**的号码。
+   * 结论：<b>后端目前不下发配送员电话</b>，不加请求就取不到。</p>
+   *
+   * <p>所以这里**不假装**：只有真拿到配送员电话才返回（→ 按钮显示且拨的是配送员）；
+   * 拿不到就返回空串，wxml 据此**不渲染**该按钮 —— 原来无条件常显、点了拨的是客户自己的号，
+   * 属于"看起来能联系配送员、实际打给自己"的假入口（本轮按卡要求改成不发假的形态）。</p>
+   *
+   * <p>⚠️ 缺口（留给后端，本轮不改）：要让客户真的能联系配送员，需要顾客端订单详情投影一个
+   * <b>配送员电话</b>字段（并确认跨站/抢单池场景下允许对客户下发谁的联系方式）；
+   * 或者把入口改成"拨打水站电话"（水站电话在报价接口里已有，见 create.js 的 stationPhone）。
+   * 字段定了再改这里的判据，**不要**新加请求去取号码。</p>
+   */
+  resolveCallablePhone(order) {
+    if (!order) return ''
+    // 配送员电话：后端将来下发才有值，现在恒为空（不是忘写，是没有来源）。
+    return order.deliveryStaffPhone || order.deliveryPhone || ''
+  },
+
   onCallPhone() {
-    if (this.data.order && this.data.order.customerPhone) {
-      wx.makePhoneCall({ phoneNumber: this.data.order.customerPhone })
+    const phone = this.data.callPhone || ''
+    if (!phone) {
+      // 双保险：按钮已按 wx:if 隐藏，这里再挡一次，避免将来有人把按钮改回常显时又拨错号。
+      console.warn('没有可拨打的配送员电话，已跳过拨号')
+      return
     }
+    wx.makePhoneCall({ phoneNumber: phone })
   },
 
   loadImages(id) {

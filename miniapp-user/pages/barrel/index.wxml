@@ -22,7 +22,13 @@
       </view>
       <view class="stat-divider"></view>
       <view class="stat-col" bindtap="onDepositRecords">
-        <text class="stat-label">押金</text>
+        <!--
+          「押金余额」不是「押金」也不是「可退押金」（docs/design/29 §7）：
+          这个数是 customer_deposit_account.balance，回答"现在账上还有多少"，
+          退桶能拿回多少要看退桶预览的「本次可退」（后端按押金条批次 FIFO 算），两者不是一个数。
+          ⚠️ 也**不许**写成"现在即可退"—— 余额里有配送中桶的预收部分，当下退不出来。
+        -->
+        <text class="stat-label">押金余额</text>
         <view class="stat-value-row">
           <text class="stat-number deposit">¥{{summary.depositBalance}}</text>
         </view>
@@ -40,7 +46,7 @@
     </view>
 
     <view class="owed-tip" wx:if="{{summary.owedBuckets > 0}}">
-      <text>欠桶 {{summary.owedBuckets}} 桶：配送应回收未回收的空桶，不参与购买上限，退桶请与水站确认</text>
+      <text>欠桶 {{summary.owedBuckets}} 个：不影响下单；退桶前需先还清对应商品的欠桶</text>
     </view>
 
     <!-- 多还的桶寄在水站：over<0 是合法状态，以前被当成 0 完全不显示，
@@ -107,7 +113,7 @@
         <text class="info-value">¥{{summary.depositPerBucket}}</text>
       </view>
       <view class="info-tip">
-        <text>不同商品的押金不同，退桶时可申请退还押金，退桶后押金将从余额中扣除</text>
+        <text>不同商品的押金不同，申请前可查看预计金额；水站确认收到空桶后再处理退款</text>
       </view>
     </view>
 

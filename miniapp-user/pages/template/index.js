@@ -49,7 +49,7 @@ Page({
           if (tplRes && tplRes.code === 0 && tplRes.data) {
             templates = tplRes.data
           } else {
-            templateError = (tplRes && tplRes.message) || '服务端返回异常'
+            templateError = (tplRes && tplRes.message) || '返回异常，请稍后重试'
           }
         } catch (e) {
           templateError = (e && e.message) || '网络异常'

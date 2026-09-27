@@ -8,7 +8,11 @@
  */
 
 const assert = require('assert')
-const { loadPage, createWx, createApp } = require('./harness')
+const { loadPage, createWx, createApp, armWatchdog } = require('./harness')
+
+// 完成哨兵：**只用 ASCII**。受限沙箱下子进程往文件描述符写中文会被编码毁成 `?`，
+// 于是中文完成标记匹配不到、正常套件被误判成"未跑完"（2026-09-27 实测）。
+const MARK_ASCII = 'AQUAFLOW_SUITE_OK'
 
 let passed = 0
 const failures = []
@@ -65,17 +69,36 @@ const baseOrder = (extra) => Object.assign({
   payHint: '货到付款，配送员送达时收款',
   totalAmount: 40,
   depositAmount: 0,
-  items: [{ id: 501, productNameSnapshot: '农夫山泉 19L', quantity: 2 }]
+  // 明细口径（[2026-09-26]）：`barrelItem` / `suggestedReturnQty` 由后端下发 ——
+  // 完成页只对桶装水画回桶行，默认回桶数取后端算好的旧桶数（本合同批新买押金的不算）。
+  // 这里是一条"旧桶换新水"的普通行：送出 2、该回 2（客户手上正好有 2 个旧桶）。
+  items: [{
+    id: 501,
+    productNameSnapshot: '农夫山泉 19L',
+    quantity: 2,
+    barrelItem: true,
+    suggestedReturnQty: 2
+  }]
+}, extra || {})
+
+/** 一条桶装水明细（完成页的回桶行只认 barrelItem=true）。 */
+const barrelItem = (extra) => Object.assign({
+  id: 501, productNameSnapshot: '农夫山泉 19L', quantity: 2, barrelItem: true, suggestedReturnQty: 2
 }, extra || {})
 
 console.log('配送送达页 · 流程测试（真实执行页面处理函数）')
 
 // Node 24 不允许"顶层 await + require"混用，所以用例统一在 async 主函数里顺序执行
 ;(async () => {
+const doneWatchdog = armWatchdog()
 
 // ---------------------------------------------------------------- C1 首单
 await test('首单（押金桶）：不再弹"全部为 0 是否确认"，直接进最终确认', async () => {
-  const { page, wx } = newPage(baseOrder({ firstBarrelOrder: true, needCollect: false, payMethodText: '水票支付', paymentStatus: 2 }))
+  // 首单的默认回桶数是 0（整单都是本单新买的押金桶，后端的 suggestedReturnQty = 0）
+  const { page, wx } = newPage(baseOrder({
+    firstBarrelOrder: true, needCollect: false, payMethodText: '水票支付', paymentStatus: 2,
+    items: [barrelItem({ suggestedReturnQty: 0 })]
+  }))
   await page.loadOrder(55)
   assert.strictEqual(page.data.isFirstBarrelOrder, true)
   assert.strictEqual(page.data.items[0].actual, 0)
@@ -83,6 +106,57 @@ await test('首单（押金桶）：不再弹"全部为 0 是否确认"，直接
   const titles = wx.__calls.modal.map(m => m.title)
   assert.ok(!titles.some(t => t.indexOf('确认回桶数') > -1), '首单不该再问"全部为 0"：' + JSON.stringify(titles))
   assert.ok(titles.some(t => t.indexOf('确认完成配送') > -1), '应直接进最终确认：' + JSON.stringify(titles))
+})
+
+// ---------------------------------------------------------------- 回桶口径（[2026-09-26] 混合单 / 新买押金桶）
+await test('混合单：瓶装水不进回桶块，只留桶装水那一行（默认值取后端口径）', async () => {
+  const { page, calls } = newPage(baseOrder({
+    items: [
+      barrelItem({ id: 501, quantity: 3, suggestedReturnQty: 1 }),          // 旧桶 1 个换新水，另 2 个是本单新买押金桶
+      { id: 502, productNameSnapshot: '农夫山泉 550ml', quantity: 2, barrelItem: false, suggestedReturnQty: null }
+    ]
+  }))
+  await page.loadOrder(55)
+  assert.strictEqual(page.data.items.length, 1, '瓶装水不该出现在回桶块里：' + JSON.stringify(page.data.items))
+  assert.strictEqual(page.data.hasBarrelItems, true)
+  assert.strictEqual(page.data.items[0].sentQty, 3, '「送出 N 桶」仍要显示真实送出数')
+  assert.strictEqual(page.data.items[0].expected, 1, '该回数 = 客户手上的旧桶，不含本单新买押金桶')
+  assert.strictEqual(page.data.items[0].actual, 1, '默认值 = 该回数')
+  page.onSelectCollected({ currentTarget: { dataset: { value: 'true' } } })
+  await page.onConfirmComplete()
+  await new Promise((r) => setTimeout(r, 10))
+  const body = calls.completeOrder[0].body
+  assert.strictEqual(body.itemReturns.length, 1, '只提交桶装水那一行：' + JSON.stringify(body.itemReturns))
+  assert.strictEqual(body.itemReturns[0].orderItemId, 501)
+  assert.strictEqual(body.itemReturns[0].expected, 1)
+  assert.strictEqual(body.itemReturns[0].actual, 1)
+})
+
+await test('新买押金的桶不参与回收：送出 4、客户手上 2 个旧桶 ⇒ 该回 2（不是 4）', async () => {
+  const { page } = newPage(baseOrder({ items: [barrelItem({ quantity: 4, suggestedReturnQty: 2 })] }))
+  await page.loadOrder(55)
+  assert.strictEqual(page.data.items[0].sentQty, 4)
+  assert.strictEqual(page.data.items[0].expected, 2)
+  // 用送出数当 expected 会立刻要求填"少回收 2 桶"的原因 —— 这正是要避免的假异常
+  assert.strictEqual(page.data.items[0].discrepancy, 0)
+  page.onSelectCollected({ currentTarget: { dataset: { value: 'true' } } })
+  assert.strictEqual(page._validate(), true, '默认值本身必须是可提交的，不该逼人填异常原因')
+})
+
+await test('纯瓶装水单：没有回桶这回事 —— 整块不渲染，也不弹"回桶数为 0"', async () => {
+  const { page, calls, wx } = newPage(baseOrder({
+    needCollect: false, paymentStatus: 2, payMethodText: '水票支付',
+    items: [{ id: 502, productNameSnapshot: '农夫山泉 550ml', quantity: 2, barrelItem: false, suggestedReturnQty: null }]
+  }))
+  await page.loadOrder(55)
+  assert.strictEqual(page.data.items.length, 0)
+  assert.strictEqual(page.data.hasBarrelItems, false)
+  assert.strictEqual(page.data.successSubtitle, '确认交付后完成', '没有回桶这一步就别再说"核对回桶后确认完成"')
+  await page.onConfirmComplete()
+  const titles = wx.__calls.modal.map(m => m.title)
+  assert.ok(!titles.some(t => t.indexOf('确认回桶数') > -1), '不涉及桶就别问回桶：' + JSON.stringify(titles))
+  await new Promise((r) => setTimeout(r, 10))
+  assert.deepStrictEqual(calls.completeOrder[0].body.itemReturns, [], '不该给瓶装水报回桶（服务端会拒）')
 })
 
 // ---------------------------------------------------------------- C1 现金未收
@@ -203,7 +277,7 @@ await test('备货信息不可用（老后端没这个字段）时：不显示�
 
 // 契约 §4「同一原因 3 桶显示 3 而非 1」
 await test('同一原因 3 桶：按数量之和显示 3（不是按原因条数显示 1）', async () => {
-  const { page, calls } = newPage(paidOrder({ items: [{ id: 501, productNameSnapshot: '农夫山泉 19L', quantity: 3 }] }))
+  const { page, calls } = newPage(paidOrder({ items: [barrelItem({ quantity: 3, suggestedReturnQty: 3 })] }))
   await page.loadOrder(55)
   page._updateItemActual(0, 0)                        // 送出 3、回 0 ⇒ 少 3
   page.onOpenReasonPicker({ currentTarget: { dataset: { idx: 0 } } })
@@ -220,7 +294,7 @@ await test('同一原因 3 桶：按数量之和显示 3（不是按原因条数
 
 // 契约 §4「多原因数量匹配」
 await test('多原因：数量之和等于缺口才放行（1 + 2 = 3）', async () => {
-  const { page, calls } = newPage(paidOrder({ items: [{ id: 501, productNameSnapshot: '农夫山泉 19L', quantity: 3 }] }))
+  const { page, calls } = newPage(paidOrder({ items: [barrelItem({ quantity: 3, suggestedReturnQty: 3 })] }))
   await page.loadOrder(55)
   page._updateItemActual(0, 0)
   page.onOpenReasonPicker({ currentTarget: { dataset: { idx: 0 } } })
@@ -264,11 +338,61 @@ await test('连点"确认完成"：只发一次提交请求', async () => {
   assert.strictEqual(calls.completeOrder.length, 1, '连点只能提交一次')
 })
 
+/* ==========================================================================
+ * 楼层与楼梯凭证（2026-09-26 产品口径：楼层一般不会"不清楚"，**有争议才展开**）
+ * ========================================================================== */
+
+await test('普通单（地址写清了有无电梯）：楼层块默认收起，点「楼梯有争议」才展开', async () => {
+  const { page } = newPage(paidOrder({ addressFloor: 6, addressHasElevator: 1 }))
+  await page.loadOrder(55)
+  assert.strictEqual(page.data.elevatorUnknown, false, '写了有电梯就不是"没写清"')
+  assert.strictEqual(page.data.floorBlockOpen, false, '默认收起 —— 不该每次送达都问爬了几层')
+  assert.strictEqual(page.data.reportedFloor, '6', '地址里的楼层仍要带出来（展开后直接用）')
+
+  page.onOpenFloorDispute()
+  assert.strictEqual(page.data.floorBlockOpen, true, '点了争议入口要展开楼层 + 楼梯凭证')
+})
+
+await test('地址没写清有没有电梯（hasElevator 为空）：载入即自动展开并说明原因', async () => {
+  const { page } = newPage(paidOrder({ addressFloor: 6, addressHasElevator: null }))
+  await page.loadOrder(55)
+  assert.strictEqual(page.data.elevatorUnknown, true)
+  assert.strictEqual(page.data.floorBlockOpen, true, '电梯未知 = 楼层补贴最容易扯皮的情况，不能让人找不到入口')
+  assert.strictEqual(page.data.showMore, true,
+    '楼层块在「更多」里面：不同时展开「更多」= 等于没展开（人根本看不到）')
+})
+
+await test('普通单不会顺手把「更多」也撑开（正常送达仍只有商品 + 回桶 + 收钱）', async () => {
+  const { page } = newPage(paidOrder({ addressFloor: 6, addressHasElevator: 1 }))
+  await page.loadOrder(55)
+  assert.strictEqual(page.data.showMore, false)
+  assert.strictEqual(page.data.floorBlockOpen, false)
+})
+
+await test('明确"无电梯"不算没写清：仍然默认收起', async () => {
+  const { page } = newPage(paidOrder({ addressFloor: 6, addressHasElevator: 0 }))
+  await page.loadOrder(55)
+  assert.strictEqual(page.data.elevatorUnknown, false)
+  assert.strictEqual(page.data.floorBlockOpen, false)
+})
+
+await test('展开后填的楼层照旧上报（改名/收起都不影响上报口径）', async () => {
+  const { page, calls } = newPage(paidOrder({ addressFloor: 6, addressHasElevator: 1 }))
+  await page.loadOrder(55)
+  page.onOpenFloorDispute()
+  page.onFloorInput({ detail: { value: '8' } })
+  page.onConfirmComplete()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.strictEqual(calls.completeOrder[0].body.reportedFloor, 8, '上报值必须是配送员填的那个数')
+})
+
 console.log('')
+doneWatchdog()
 if (failures.length) {
   console.log('失败 ' + failures.length + ' 项 / 通过 ' + passed + ' 项')
   process.exitCode = 1
 } else {
   console.log('全部通过：' + passed + ' 项（流程测试，真实执行页面处理函数）')
+  console.log(MARK_ASCII + ' ' + passed)
 }
 })()

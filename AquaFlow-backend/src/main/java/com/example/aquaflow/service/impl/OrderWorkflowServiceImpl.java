@@ -1049,7 +1049,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             movePendingCollectionTo(orderId, order.getStationId());
             // [2026-09-25 库存预留模型] 同上：池中的单没人履约 ⇒ 预留回**归属站**
             inventoryReservationService.transferForOrder(orderId, order.getStationId());
-            orderMapper.appendSpecialNote(orderId, "[外派] 站长放入抢单池，原归属站=" + stationId);
+            orderMapper.appendSpecialNote(orderId, DispatchKind.NOTE_POOL + "，原归属站=" + stationId);
             log("OUTSOURCE", orderId, serviceMap("stationId", stationId));
         }
     }

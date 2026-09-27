@@ -26,9 +26,19 @@
   flex-shrink: 0;
 }
 
+/*
+ * [2026-09-26 修复] 原来这两行**都渲染不出品牌色**：
+ *   ① `color: var(--primary)` —— 本端根本没有 `--primary` 这个变量（正本在 styles/variable.wxss，
+ *      名字是 `--primary-color`），且没写 fallback ⇒ **整条声明被丢弃**、颜色退回继承值。
+ *      这类"写了却完全没生效"比渲染成旧色更难发现，同一根因在员工端也有 5 处（已修）。
+ *   ② `rgba(79, 142, 247, .12)` 是旧亮蓝 `#4F8EF7` 的十进制写法 —— 变量换了它不会跟着换。
+ *   现按 theme.wxss 的 `.tag` 同款写法收口：色走 --primary-color、底走 --primary-bg。
+ *   ⚠️ 同文件的 `.type-station`/`.type-promo` 仍是调色板外色值（#67C23A / #FF9500），
+ *      属"公告类型标签"而非状态色，本轮未动（见 docs/audit 的交接文档：语义色收口另立项）。
+ */
 .type-system {
-  color: var(--primary);
-  background-color: rgba(79, 142, 247, 0.12);
+  color: var(--primary-color);
+  background-color: var(--primary-bg);
 }
 
 .type-station {

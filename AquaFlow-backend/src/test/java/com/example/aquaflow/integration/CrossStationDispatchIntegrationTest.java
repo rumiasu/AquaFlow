@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -97,6 +98,22 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
         return s == null ? "" : s;
     }
 
+    /**
+     * 外派列表（{@code /orders/dispatch-tracking}）里这一单那一行；不在列表里返回 {@code null}。
+     *
+     * <p>2026-09-26 起该端点每行还带两个瞬时字段，站长端首页「外派」页签靠它们渲染：
+     * {@code dispatchKind}（{@code POOL} = 一键外派 / {@code DIRECTED} = 指定外派）与
+     * {@code deliveryStationName}（派给了哪个站）。</p>
+     */
+    private JsonNode trackingRow(String token, long orderId) {
+        Api res = get("/api/delivery/orders/dispatch-tracking", token);
+        assertTrue(res.isSuccess(), "外派列表应可读，实际=" + res);
+        for (JsonNode n : res.data()) {
+            if (n.path("id").asLong() == orderId) return n;
+        }
+        return null;
+    }
+
     private boolean poolContains(String token, long orderId) {
         Api res = get("/api/delivery/orders/pool", token);
         assertTrue(res.isSuccess(), "抢单池列表应可读，实际=" + res);
@@ -125,6 +142,14 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
         assertFalse(poolContains(tokenA(), order), "归属站自己的池子里不该看到自己的单");
         assertTrue(poolContains(tokenB(), order), "目标站应能在抢单池里看到这一单");
 
+        // 形态 = 一键外派（放抢单池）；还没人接，所以没有"外派至哪个站"
+        JsonNode rowInPool = trackingRow(tokenA(), order);
+        assertNotNull(rowInPool, "放池后应出现在站长端「外派」列表里");
+        assertEquals("POOL", rowInPool.path("dispatchKind").asText(),
+                "放进抢单池 = 一键外派（dispatchKind=POOL），首页「外派」页签靠它分两个子页签");
+        assertTrue(rowInPool.path("deliveryStationName").isNull(),
+                "还没人接单时不该编一个站名，实际=" + rowInPool.path("deliveryStationName"));
+
         Api claim = post("/api/delivery/orders/" + order + "/claim-pool", tokenB(),
                 "{\"deliveryStaffId\":" + driverB + "}");
         assertTrue(claim.isSuccess(), "抢单应成功，实际=" + claim);
@@ -135,6 +160,14 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
         assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order), "抢单即接单，状态推到配送中(2)");
         assertEquals(stationA, ownerStationOf(order), "抢单不得改动归属站");
         assertTrue(specialNote(order).contains("[抢单]"), "必须留痕，实际=" + specialNote(order));
+
+        // 被别站抢走之后形态**不变**（还是"一键外派"发起的），但要能看出派给了谁 ——
+        // 派给了谁此前整行都是空的（deliveryStationName 不是数据库列，列表 SQL 也没 join 站表）
+        JsonNode rowClaimed = trackingRow(tokenA(), order);
+        assertNotNull(rowClaimed, "被抢走的单仍留在归属站的外派列表里（要能看到状态）");
+        assertEquals("POOL", rowClaimed.path("dispatchKind").asText(), "形态由发起方式决定，不因被抢走而改变");
+        assertEquals("B站", rowClaimed.path("deliveryStationName").asText(),
+                "归属站要能看出这单派给了哪个站，实际=" + rowClaimed);
     }
 
     @Test
@@ -211,6 +244,10 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
         // ③ B 接单之后：这单归 B 管，归属站两个动作都做不了了
         assertTrue(post("/api/delivery/orders/" + order + "/dispatch", tokenA(),
                 "{\"targetStationId\":" + stationB + "}").isSuccess(), "再次定向外派应成功");
+        // [2026-09-26] 配送员只能接**派给自己**的单：接收站先派单，配送员再接
+        //（"定向外派给 B" 只定了履约站，没定配送员）
+        assertTrue(post("/api/delivery/orders/assign/" + order, tokenB(),
+                "{\"deliveryStaffId\":" + driverB + "}").isSuccess(), "B 站派单应成功");
         assertTrue(post("/api/delivery/orders/" + order + "/accept",
                 staffToken(driverB, "DELIVERY", stationB), "{}").isSuccess(), "B 接单应成功");
         assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order), "接单后应是配送中");
@@ -287,6 +324,15 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
             if (n.path("id").asLong() == order) seen = true;
         }
         assertTrue(seen, "归属站的外派追踪列表里应能看到这一单");
+
+        // 形态 = 指定外派（与"放进抢单池"的一键外派分属首页「外派」页签的两个子页签），
+        // 且必须能看出派给了哪个站
+        JsonNode row = trackingRow(tokenA(), order);
+        assertNotNull(row, "指定外派的单应出现在站长端「外派」列表里");
+        assertEquals("DIRECTED", row.path("dispatchKind").asText(),
+                "指定水站 = 指定外派（dispatchKind=DIRECTED）");
+        assertEquals("B站", row.path("deliveryStationName").asText(),
+                "「外派至」要能显示站名，实际=" + row);
     }
 
     @Test

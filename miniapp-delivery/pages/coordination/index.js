@@ -29,9 +29,14 @@ const crossStationRiskUrl = (id) => `/api/delivery/orders/${id}/cross-station-ri
 /**
  * 取「跨站外派风险」提示 —— **文案与判据都来自后端**，前端只负责原样展示。
  *
- * 后端口径：涉押金/桶权益的单（押金不好划定、水站间的欠桶无处登记）返回 riskNote（含出路：
- * 建议直接拒单 / 如确需外派只能定向外派并由双方确认）；不涉风险的普通单返回 null。
+ * 后端口径：涉押金/桶权益的单返回 riskNote（含出路：建议直接拒单 / 如确需外派只能定向外派
+ * 并由双方确认）；不涉风险的普通单返回 null。
  * 前端**绝不自己判断"这单算不算涉押金"**（那就是把后端规则抄成第二份，本仓"计价双轨"的同款形状）。
+ *
+ * ⚠️ `crossStation` 与 `riskNote` **不是一回事**（2026-09-27 产品裁定）：riskNote 只说"涉不涉押金"，
+ * 而**本站单从来不需要确认**（后端 assignToStaff 的 risky = 跨站 && 涉押金）。
+ * 早先拿 `note` 当"要不要弹框"的判据 ⇒ 站内部分配也弹一次押金提醒（纯摩擦）。
+ * 这里只透传事实，**要不要弹由调用方按本次操作声明**（见 _confirmRisk 的 intent）。
  *
  * 拿不到就算了：不阻断提交，后端会按同一判据拦下并把同一段文案回给用户（仍是后端下发的文案）。
  */
@@ -39,10 +44,16 @@ async function fetchCrossStationRisk(orderId) {
   try {
     const res = await get(crossStationRiskUrl(orderId))
     const d = res.data || {}
-    return { risky: !!d.depositBarrelRisk, note: d.riskNote || '' }
+    return {
+      risky: !!d.depositBarrelRisk,
+      note: d.riskNote || '',
+      // 归属站不是当前站（后端算的事实）。老版本后端没这个字段时回落到 true ——
+      // 保守（宁可多弹一次），也不会把该确认的跨站单静默放过去。
+      crossStation: d.crossStation === undefined ? true : !!d.crossStation
+    }
   } catch (err) {
     console.warn('[cross-station-risk] 取风险提示失败，按"无提示"继续:', err && err.message)
-    return { risky: false, note: '' }
+    return { risky: false, note: '', crossStation: false }
   }
 }
 
@@ -298,7 +309,17 @@ Page({
 
   /**
    * 提交前的「风险提示 → 用户确认」两步（产品要求：押金/桶权益风险文案由后端出，
-   * 外派方与接收站**双方都特别提醒后同意**才提交）。
+   * 跨站外派**双方都特别提醒后同意**才提交）。
+   *
+   * ⚠️ **弹不弹由「本次操作」+「后端下发的事实」一起决定，不看 `note` 有没有值**
+   * （2026-09-27 产品裁定：「涉及押金的提醒，只在外派时提醒就好，内部分配不需要提醒」）：
+   *   · intent='outsource'（本站主动把单外派出去）⇒ 涉押金就提醒；
+   *   · intent='assign'（本站受理并派给自己人）⇒ **只在这单其实是别站的时候才提醒**
+   *     （对应后端 assignToStaff 的闸门 `跨站 && 涉押金`；本站单 risky 恒 false，从不要求确认）。
+   * 早先按 `note` 弹框，站内部分配会白弹一次押金提醒；而现在真正需要确认的跨站单
+   * 与不需要确认的本站单**长得一样**，前端只能靠后端下发的事实，不能自己猜。
+   *
+   * @param {string} intent 'assign' | 'outsource'
    *
    * ⚠️ **confirmText 必须 ≤ 4 个字符**（2026-09-27 实测事故）：微信 `wx.showModal` 的
    * confirmText / cancelText 超过 4 字时**既不弹窗、也不走 fail 回调** —— 本方法等的是一个
@@ -310,12 +331,13 @@ Page({
    *
    * @returns {{ok: boolean, acknowledged: boolean}} ok=false 表示用户点了取消，
    *          调用方必须直接返回、**不要提交**；acknowledged=true 表示本次提交要带
-   *          riskAcknowledged=true（后端只对涉押金/桶权益的单校验这个字段，
-   *          普通单不看不加摩擦）。
+   *          riskAcknowledged=true（后端只对涉押金/桶权益的**跨站**单校验这个字段，
+   *          本站单不看不加摩擦）。
    */
-  async _confirmRisk(orderId, confirmText) {
+  async _confirmRisk(orderId, confirmText, intent) {
     const risk = await fetchCrossStationRisk(orderId)
-    if (!risk.note) return { ok: true, acknowledged: false }
+    const needConfirm = risk.note && (intent === 'assign' ? risk.crossStation : true)
+    if (!needConfirm) return { ok: true, acknowledged: false }
     const MAX_MODAL_BTN = 4
     let confirmLabel = confirmText || '确认'
     if ([...confirmLabel].length > MAX_MODAL_BTN) {
@@ -658,11 +680,13 @@ Page({
     const name = e.currentTarget.dataset.name
     const orderId = this.data.currentOrderId
 
-    // 接收站确认：别站**指定外派**给本站的涉押金/桶权益单，分配（= 本站受理这一单）前要再确认一次。
-    // 文案来自后端；不涉风险的普通单这里什么都不会弹（_confirmRisk 拿不到文案就放行）。
+    // 风险确认**只对「别站指定外派给本站」的押金/桶权益单**弹（后端 needsConfirm 说了算，
+    // 见 _confirmRisk）：本站单是站内部分配，不弹 —— 后端 risky = 跨站 && 涉押金，
+    // 本站单恒 false，本来也不要求确认（[2026-09-27] 产品裁定「内部分配不需要提醒」）。
+    // 不弹时 _confirmRisk 直接返回 ok，这一行对本站单是空操作。
     // ⚠️ confirmText 上限 4 字：这里原先是 6 个字的「已确认，分配」⇒ 真机上弹窗被平台丢弃、
     //    Promise 永不 resolve，点配送员**完全没反应**（2026-09-27 实测）。别再加长。
-    const risk = await this._confirmRisk(orderId, '确认分配')
+    const risk = await this._confirmRisk(orderId, '确认分配', 'assign')
     if (!risk.ok) return
 
     wx.showLoading({ title: '分配中...' })
@@ -740,7 +764,9 @@ Page({
   async _doOutsource(id, targetStationId) {
     // 提交前把后端下发的风险提示摆给站长看，确认后才提交（押金风险文案由后端出，前端不自编）。
     // 涉押金/桶权益的单：入池会被后端直接拒（文案里写着出路），指定外派则带上这次确认。
-    const risk = await this._confirmRisk(id, targetStationId != null ? '确认外派' : '仍要入池')
+    // 这两条都是**本站主动外派**（外派方视角），后端 needsConfirm 为真 —— 与产品口径
+    // 「涉及押金的提醒只在外派时提醒」一致。
+    const risk = await this._confirmRisk(id, targetStationId != null ? '确认外派' : '仍要入池', 'outsource')
     if (!risk.ok) return
     wx.showLoading({ title: '外派中...' })
     try {
@@ -799,7 +825,7 @@ Page({
             if (modalRes.confirm) {
               // 押金/桶权益单在池里是**历史遗留**（新规则下入不了池）：后端会拒并回同一段文案，
               // 这里先把文案摆出来，避免"点了才被拒、还不知道为什么"。
-              const risk = await this._confirmRisk(id, '确认抢单')
+              const risk = await this._confirmRisk(id, '确认抢单', 'outsource')
               if (!risk.ok) return
               wx.showLoading({ title: '抢单中...' })
               try {
@@ -870,7 +896,7 @@ Page({
             success: async (modalRes) => {
               if (modalRes.confirm) {
                 // 重新外派同样要过风险确认那一步（与 _doOutsource 同一口径）
-                const risk = await this._confirmRisk(id, '确认外派')
+                const risk = await this._confirmRisk(id, '确认外派', 'outsource')
                 if (!risk.ok) return
                 wx.showLoading({ title: '外派中...' })
                 try {

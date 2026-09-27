@@ -510,9 +510,19 @@ public class DeliveryController {
             return Result.error("无权查看他站订单");
         }
         String note = orderWorkflowService.crossStationRiskNote(order);
+        // `crossStation` = 这一单的**归属站不是当前站**（事实，不是"要不要弹框"的建议）。
+        //
+        // ⚠️ [2026-09-27 产品裁定] 前端**不能**拿 `riskNote != null` 当"要不要弹框"的判据：
+        //    riskNote 只看"涉不涉押金"，而**本站单从来不需要确认**（后端 assignToStaff 的
+        //    risky = 跨站 && 涉押金）。拿它当判据的后果是：站内部分配也弹一次押金提醒（纯摩擦），
+        //    而真正需要确认的跨站单与不需要确认的本站单**长得一模一样**——前端只能靠猜。
+        //    所以这里下发事实，**由前端按本次操作声明意图**（外派要确认 / 受理本站内分配只在跨站时要），
+        //    口径仍然只有服务端一份（涉不涉押金、是不是跨站都由这里算）。
+        boolean crossStationHere = order.getStationId() != null && !order.getStationId().equals(stationId);
         Map<String, Object> data = new HashMap<>();
         data.put("depositBarrelRisk", note != null);
         data.put("riskNote", note);
+        data.put("crossStation", crossStationHere);
         return Result.success(data);
     }
 

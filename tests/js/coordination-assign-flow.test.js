@@ -36,7 +36,14 @@ async function test(name, fn) {
 
 const RISK_NOTE = '该单涉及押金/桶权益，跨站结算口径不清（押金记归属站、回桶也记回归属站的桶账）。'
 
-/** 造一个页面实例 + 可编排的假后端。风险端点默认返回「涉押金」的提示（最坏路径）。 */
+/**
+ * 造一个页面实例 + 可编排的假后端。
+ *
+ * 风险端点默认返回**跨站外派场景**（涉押金 + crossStation=true，最坏路径）。
+ * `crossStation: false` 用来模拟**本站单**：后端 assignToStaff 的闸门是 `跨站 && 涉押金`，
+ * 本站单 risky 恒 false、从不要求确认 —— 这时「分配」不该弹框
+ * （[2026-09-27] 产品裁定「涉及押金的提醒，只在外派时提醒就好，内部分配不需要提醒」）。
+ */
 function makePage(overrides) {
   const o = overrides || {}
   const calls = { get: [], post: [] }
@@ -48,9 +55,14 @@ function makePage(overrides) {
     get: (url, params) => {
       calls.get.push({ url, params })
       if (String(url).includes('cross-station-risk')) {
+        if (o.riskNote === null) return Promise.resolve({ code: 0, data: {} })
         return Promise.resolve({
           code: 0,
-          data: o.riskNote === null ? {} : { depositBarrelRisk: true, riskNote: o.riskNote || RISK_NOTE }
+          data: {
+            depositBarrelRisk: true,
+            riskNote: o.riskNote || RISK_NOTE,
+            crossStation: o.crossStation !== false
+          }
         })
       }
       return Promise.resolve({ code: 0, data: [] })
@@ -106,7 +118,7 @@ const tapEvent = (id, name) => ({ currentTarget: { dataset: { id, name } } })
     assert.strictEqual(page.data.currentOrderId, 4, 'currentOrderId 应记成被点的那一单')
   })
 
-  await test('涉押金单：点配送员 ⇒ 先弹风险确认，确认后**真的下发分配请求**（本次事故的回归点）', async () => {
+  await test('跨站外派来的涉押金单：点配送员 ⇒ 先弹风险确认，确认后**真的下发分配请求**（本次事故的回归点）', async () => {
     const { page, wx, calls } = makePage()
     page.onShowAssign(tapEvent(4))
     await page.onConfirmAssign(tapEvent(2, '配送员'))
@@ -116,10 +128,35 @@ const tapEvent = (id, name) => ({ currentTarget: { dataset: { id, name } } })
       '分配请求应打到该订单：实际 ' + calls.post[0].url)
     assert.strictEqual(calls.post[0].body.deliveryStaffId, 2, '应带被选中的配送员 id')
     assert.strictEqual(calls.post[0].body.riskAcknowledged, true,
-      '涉押金单必须带 riskAcknowledged，漏传后端会拒（§8.15 静默丢字段同款）')
+      '跨站涉押金单必须带 riskAcknowledged，漏传后端会拒（§8.15 静默丢字段同款）')
     assert.strictEqual(page.data.showAssignModal, false, '成功后弹窗应关闭')
     assert.ok(wx.__calls.toast.some((t) => String(t.title || '').indexOf('配送员') >= 0),
       '应给出「已分配给 xxx」的反馈')
+  })
+
+  await test('【2026-09-27 裁定】站内部分配：涉押金也**不弹框**、不带确认标记（后端本站单 risky 恒 false）', async () => {
+    const { page, wx, calls } = makePage({ crossStation: false })
+    page.onShowAssign(tapEvent(7))
+    await page.onConfirmAssign(tapEvent(2, '配送员'))
+
+    assert.strictEqual(wx.__calls.modal.length, 0,
+      '本站单是站内部分配，不该弹押金/桶权益提醒（弹了就是纯摩擦）')
+    assert.strictEqual(calls.post.length, 1, '仍应正常下发分配请求')
+    assert.strictEqual(calls.post[0].body.riskAcknowledged, undefined,
+      '本站单后端不校验该字段，不该带（带了等于把"已确认"当成默认）')
+  })
+
+  await test('【2026-09-27 裁定】本站主动外派：即使单是本站的，也**必须**弹（提醒只在外派时出现）', async () => {
+    const { page, wx, calls } = makePage({ crossStation: false })
+    await page._doOutsource(9, 3)
+
+    assert.strictEqual(wx.__calls.modal.length, 1,
+      '外派是跨站风险真正发生的那一刻，无论单是不是本站的都要提醒（别把 intent 写反）')
+    assert.strictEqual(calls.post.length, 1, '确认后应下发外派请求')
+    assert.ok(/\/api\/delivery\/orders\/transfer\/9\/outsource$/.test(calls.post[0].url),
+      '外派请求应打到该订单：实际 ' + calls.post[0].url)
+    assert.strictEqual(calls.post[0].body.targetStationId, 3, '应带目标水站')
+    assert.strictEqual(calls.post[0].body.riskAcknowledged, true, '外派涉押金单必须带确认标记')
   })
 
   await test('弹窗按钮文案必须 ≤ 4 字（超了微信既不弹窗也不报错，Promise 永不 resolve）', async () => {

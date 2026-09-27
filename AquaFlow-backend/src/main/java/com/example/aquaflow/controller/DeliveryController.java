@@ -7,6 +7,7 @@ import com.example.aquaflow.entity.Address;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.AddressMapper;
+import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.OrderItemMapper;
 import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.mapper.ProductMapper;
@@ -20,6 +21,7 @@ import com.example.aquaflow.entity.OrderItem;
 import com.example.aquaflow.dto.DeliveryOrderActionDTO;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.CustomerProfileMask;
+import com.example.aquaflow.util.StationUtil;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -38,6 +40,8 @@ public class DeliveryController {
 
     @Autowired
     private OrderMapper orderMapper;
+    @Autowired
+    private CustomerMapper customerMapper;
     @Autowired
     private OrderItemMapper orderItemMapper;
     @Autowired
@@ -383,6 +387,22 @@ public class DeliveryController {
             if (addr != null) {
                 order.setAddressFloor(addr.getFloor());
                 order.setAddressHasElevator(addr.getHasElevator());
+            }
+        }
+        // 历史订单两个数（2026-09-27 真机反馈「刚刚配送过，还显示近一年配送 0 次」）：
+        // 模板里 `{{order.historyCount || 0}}` / `{{order.lastOrderDays || 0}}` 一直在渲染，
+        // 而后端**从来没下发过这两个字段** ⇒ 恒等于 0。口径与文案都在服务端定：
+        //   · 近一年配送 = 近 365 天**送到过**的单数（含 status=3 已送达，见 Orders#historyCount）；
+        //   · 最近一次 = 最近一次下单距今天数。
+        // 站别一律用结算站口径（coalesce(settle, delivery, station)），跨站外派出去的单不该算给别站。
+        if (order.getCustomerId() != null) {
+            Long statStation = StationUtil.settleStation(order);
+            if (statStation != null) {
+                order.setHistoryCount(customerMapper.countDeliveredOrdersWithinDays(
+                        order.getCustomerId(), statStation, 365));
+                java.time.LocalDateTime last = customerMapper.getLastOrderTime(order.getCustomerId(), statStation);
+                order.setLastOrderDays(last == null ? null
+                        : (int) java.time.temporal.ChronoUnit.DAYS.between(last.toLocalDate(), java.time.LocalDate.now()));
             }
         }
         // [2026-09-26] 列表已遮蔽客户档案，但详情此前漏了这一步；履约权限不等于读取归属站客户画像的权限。

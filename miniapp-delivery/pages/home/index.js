@@ -103,24 +103,23 @@ Page({
       const pendingRes = manager ? unwrap(results[4]) : { data: [] }
 
       // 商品摘要（§4「混合商品必须准确」）—— 三张页签的列表 SQL 都下发了 itemSummary；
-      // 「待收款」那条（OrderMapper.listByStationIdAndStatus）没有，走下面的回落分支。
+      // 「待收款」那条（OrderMapper.listByStationIdAndStatus）同样下发。
       //   ① 有 `itemSummary` → **直接用**（服务端逐明细拼好，单位也是它判的：桶/瓶/台/件）；
-      //   ② 为空（老数据 / 该列表没下发）→ 回落 `firstProductName`，但 ⚠️ **绝不再拿
+      //   ② 为空（老数据）→ 回落 `firstProductName`，但 ⚠️ **绝不再拿
       //      `quantity` 去配「桶」**：`quantity` 是**全单总件数**（含瓶装水、饮水机），
-      //      配上「第一条明细的名字」正是本次要修掉的那个错（实测 3 桶水 + 1 瓶水
+      //      配上「第一条明细的名字」正是要修掉的那个错（实测 3 桶水 + 1 瓶水
       //      显示成「纯净水 × 4 桶」）。数量只认后端记的 `deliveryBucketQty`（本单桶装水桶数），
       //      连它都没有才退到 `quantity` 并说「件」（不硬写单位）。
-      //   ③ 摘要过长会挤掉地址与金额：**多种商品**时降级成「共 N 种商品 · 查看」——
-      //      点卡片就是详情页，**不为每张卡新增详情请求**（§4 明令）。
-      const SUMMARY_MAX_LEN = 20
+      //   ③ ⚠️ **不要再把摘要降级成「共 N 种商品 · 查看」**（2026-09-27 产品反馈：
+      //      「怎么还是隐藏的」）。原先 `summary.length > 20 && kindCount > 1` 时整段换成
+      //      「共 N 种商品 · 查看」，配送员在列表上**一个商品名都看不到**，还得先点进详情才知道送什么 ——
+      //      而列表正是他决定接不接这一单的地方。现在一律显示完整摘要（CSS 允许换行，见 .product-name）。
+      //      多出来的那行「共 N 种商品」只作辅助信息（kindCount > 1 时）。
       const summaryOf = (o) => {
         const summary = (o.itemSummary || '').trim()
         const kindCount = Number(o.itemKindCount || 0)
         if (summary) {
-          if (summary.length > SUMMARY_MAX_LEN && kindCount > 1) {
-            return { text: `共 ${kindCount} 种商品 · 查看`, meta: '' }
-          }
-          return { text: summary, meta: kindCount > 1 ? `共 ${kindCount} 种商品` : '' }
+          return { text: summary, meta: kindCount > 1 ? `共 ${kindCount} 种` : '' }
         }
         const barrelQty = Number(o.deliveryBucketQty || 0)
         const pieces = Number(o.quantity || 0)

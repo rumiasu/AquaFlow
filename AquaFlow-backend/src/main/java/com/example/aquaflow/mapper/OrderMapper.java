@@ -507,7 +507,12 @@ public interface OrderMapper {
             "order by o.create_time desc")
     List<Orders> listHistoryByDeliveryStaffId(@Param("staffId") Long staffId, @Param("status") Integer status);
 
+    // ⚠️ 补 itemSummary / itemKindCount（2026-09-27）：这是「待收款」页签的取数，
+    //    原先只给 firstProductName，前端只好回落成「第一款 × 件数」——混合单会漏商品。
+    //    单位判据与 listPendingByStationId 同源（product.category：1 桶/2 瓶/3 台/其余件）。
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+            "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
+            "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
             "a.detail as addressDetail " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +

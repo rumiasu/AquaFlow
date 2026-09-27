@@ -489,6 +489,26 @@ public class Orders {
     private String itemSummary;
 
     /**
+     * 「近一年配送」次数 —— 该客户在**本站**近 365 天内**送到过**的单数
+     * （{@code status in (3 已送达, 4 已完成)}）。
+     *
+     * <p>⚠️ 判据是"送过"，**不是**"成交了"：{@code status = 4} 只代表客户已收货且钱已结清，
+     * 刚送达还没确认收款的单停在 3 —— 只数 4 会让配送员刚送完一单就看到「0 次」
+     * （2026-09-27 真机反馈的原话）。与 {@code CustomerMapper.countCompletedOrders}（只认 4，
+     * 用于消费统计）**是两回事，别互相替代**。</p>
+     *
+     * <p>仅由配送端**订单详情**填充（关联/计算字段，不是 orders 表的列）。</p>
+     */
+    private transient Integer historyCount;
+
+    /**
+     * 「最近一次」距今天数 —— 该客户在**本站**最近一次下单距现在多少天（无单为 null）。
+     *
+     * <p>与 {@link #historyCount} 同一批下发；同样是关联/计算字段。</p>
+     */
+    private transient Integer lastOrderDays;
+
+    /**
      * 本单商品<b>种类数</b>（{@code order_item} 行数；不是件数）。
      *
      * <p>前端据此决定是否显示"共 N 种商品"这类提示；与 {@link #itemSummary} 同一批 SQL 下发，

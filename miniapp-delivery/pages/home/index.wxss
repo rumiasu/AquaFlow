@@ -62,9 +62,11 @@
 .customer-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
 .customer-phone { font-size: 24rpx; color: var(--primary-color); padding: 4rpx 0; }
 
-.product-info { display: flex; align-items: baseline; gap: 8rpx; margin-bottom: 8rpx; }
-.product-name { font-size: 28rpx; color: var(--text-regular); }
-.product-qty { font-size: 24rpx; color: var(--text-secondary); }
+.product-info { display: flex; align-items: baseline; gap: 8rpx; margin-bottom: 8rpx; flex-wrap: wrap; }
+/* ⚠️ 商品摘要**不截断**（2026-09-27 产品口径：商品信息不要隐藏省略）——允许换行、长词可断。
+   `flex: 1` 让它占满剩余宽度后再换行，`min-width: 0` 是 flex 子项能收缩的前提（别删）。 */
+.product-name { font-size: 28rpx; color: var(--text-regular); flex: 1; min-width: 0; word-break: break-all; }
+.product-qty { font-size: 24rpx; color: var(--text-secondary); flex-shrink: 0; }
 
 /* 「已付 / 需收 ¥X」：这一单要不要现场收钱，扫一眼就知道（§4 的字段顺序里排在商品之后、
    联系人之前）。钱还没到手时用琥珀色挑出来，已付就是普通深色 —— 不靠颜色独立传意（§6）。 */

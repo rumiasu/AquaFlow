@@ -29,9 +29,10 @@
 - **客户是全局身份**：`customer` 表**没有 `station_id` 列**；订单/桶/水票/押金一律按 `(customer_id, station_id)` 隔离。**经营归属** = 「绑定（`customer_station_config`）∪ 本站订单」并集（目的是保护水站已开发的客户不被别站抢走），是口径不是字段：`customer` 表**永远不加** `station_id` / `owner_station_id`（后者只属于 `product`，NULL = 通用商品库）。【仓】
 - **三站语义（2026-09-18 起取代旧「双水站模型」）**：`orders.station_id` = **归属站**（客户选定的站，**定价方**，`DeliveryFeeUtil` 按它算费）；`delivery_station_id` = **履约站**（库存扣它、配送员清单、计件工钱记它）；`settle_station_id` = **结算站** = 本单营收（水费 + 配送费 + 楼层费）归谁（v47 新增列，正本 `sql/migration_v47_order_settle_station.sql` 文件头）。取值：下单 = 归属站；**抢单 / 定向外派成功后 = 履约站**；召回 / 退回池 / 指定退回-同意 = 回归属站。【仓 `StationUtil.settleStation`】
   - **钱认结算站**：看板、毛利报表（**成本 join 也按结算站**）、应收账款与核销、**确认收款判权**、**退款判权**（`PaymentController.requireRefundStation`，旧名 `requirePaymentOwnerStation` 已废）、`payment_record.station_id` 写入（`recordCashCollection`）。⚠️ **客户资产认归属站**：押金账户 / 水票 / 桶权益（`customer_deposit_account` / `ticket_*` / `customer_barrel_*`）一律**不动**。**SQL 读取一律 `coalesce(o.settle_station_id, o.delivery_station_id, o.station_id)`**（末级是**防御**，正常写入必须落 `settle_station_id`）。
-  - **抢单池 / 他站外派 = 跨租户可见面**：下发给别站站长的字段**只许带"钱货去向"文案与快照金额**（`DeliveryController.feeInfoOf`），**不许带归属站的成本 / 库存 / 联系方式**，**不许下发客户画像**（`customerName` / `customerPhone`）；与本站既无绑定又无本站订单的客户，画像端点一律不可见。**含押金 / 桶权益的单禁止进抢单池**（直接拒）；**定向外派必须双方确认**（外派方先勾知悉风险 → 接收站接单再确认，两处留痕）；不涉押金的普通单不加摩擦。**被接单之后这单归接单站管**（2026-09-22 裁定「外派出去的本单就不归本站管了，只能接单站管，联系等都是接单站执行」）：归属站只能在**还没被接单**时召回（`cancelDispatch` 只收 `待配送(1)`，放行 `配送中(2)` 会把状态倒滚、且货已在别站车上）；接单之后拒单 / 解决 / 送达 / 收款一律按**履约站**判权，归属站唯一还能做的是「指定退回」审批。**联系客户由接单站执行**：快照里的 `receiverName` / `receiverPhone` 照常下发，抹掉的只是**归属站的客户档案**。**认领之后同样不含画像**：履约站侧配送员面（待接单 / 配送中 / 今日完成 / 历史 / 回桶记录 / 转给我的单）与站长端「员工画像 · 当前进行中」只带订单快照，**唯一实现** `util/CustomerProfileMask`（只抹 `customerName` / `customerPhone`；Map 形态调用方 SQL **必须显式 as 出** `stationId` / `deliveryStationId`，读不到即静默不抹）。
+  - **抢单池 / 指定外派（别站指定本店，旧称「他站外派」）= 跨租户可见面**：下发给别站站长的字段**只许带"钱货去向"文案与快照金额**（`DeliveryController.feeInfoOf`），**不许带归属站的成本 / 库存 / 联系方式**，**不许下发客户画像**（`customerName` / `customerPhone`）；与本站既无绑定又无本站订单的客户，画像端点一律不可见。**含押金 / 桶权益的单禁止进抢单池**（直接拒）；**定向外派必须双方确认**（外派方先勾知悉风险 → 接收站接单再确认，两处留痕）；不涉押金的普通单不加摩擦。**被接单之后这单归接单站管**（2026-09-22 裁定「外派出去的本单就不归本站管了，只能接单站管，联系等都是接单站执行」）：归属站只能在**还没被接单**时召回（`cancelDispatch` 只收 `待配送(1)`，放行 `配送中(2)` 会把状态倒滚、且货已在别站车上）；接单之后拒单 / 解决 / 送达 / 收款一律按**履约站**判权，归属站唯一还能做的是「指定退回」审批。**联系客户由接单站执行**：快照里的 `receiverName` / `receiverPhone` 照常下发，抹掉的只是**归属站的客户档案**。**认领之后同样不含画像**：履约站侧配送员面（待接单 / 配送中 / 今日完成 / 历史 / 回桶记录 / 转给我的单）与站长端「员工画像 · 当前进行中」只带订单快照，**唯一实现** `util/CustomerProfileMask`（只抹 `customerName` / `customerPhone`；Map 形态调用方 SQL **必须显式 as 出** `stationId` / `deliveryStationId`，读不到即静默不抹）。
   - **`payment_record` 待收款流水跟着结算站走**：站别在「发起收款」时写死，换站由 `movePendingToStation` 搬（**只搬 `PENDING`**）；收款走 `confirmPendingToPaid` **就地确认**。`uk_payment_active_order` = **一单一条活跃流水**，已有待收款再插 PAID 必撞 1062、整笔送达回滚。
-  - **只有收到钱的单才进站长 / 配送员视野**：判据两条 —— `payment_status = 2`，或 `payment_method = 2`（现金＝货到付款；客户没开通时**下单即被拒**）。水票扣票在下单后那次支付请求里，故"没扣票的水票单进不了站长端"由判据本身保证，**别**改成下单时扣票（会让票不够的客户连单都下不出来）。**判据三处必须一致**（两张列表 SQL + 接单/分配闸门，防"列表看不到但 id 可编造"）；未付微信单"当不存在"，回调置 2 即自动出现（`TODO(微信支付接入)` 在那三处）。转单状态一律查 `order_transfer` 结构化表，`special_note LIKE` 只许出现在「外派追踪」列表（且必须排除 `[指定退回待确认]`）。
+  - **只有收到钱的单才进站长 / 配送员视野**：判据两条 —— `payment_status = 2`，或 `payment_method = 2`（现金＝货到付款；客户没开通时**下单即被拒**）。水票扣票在下单后那次支付请求里，故"没扣票的水票单进不了站长端"由判据本身保证，**别**改成下单时扣票（会让票不够的客户连单都下不出来）。**判据三处必须一致**（两张列表 SQL + 接单/分配闸门，防"列表看不到但 id 可编造"）；未付微信单"当不存在"，回调置 2 即自动出现（`TODO(微信支付接入)` 在那三处）。转单状态一律查 `order_transfer` 结构化表，`special_note LIKE` 只许出现在「外派」列表（首页「外派」页签读的 `listDispatchedOrders`，且必须排除 `[指定退回待确认]`）
+  - **未分配的单不进配送员视野，配送员只能接「派给自己」的单**（2026-09-26 产品裁定，原话「如果是未分配的订单，不应该直接显示给配送员吧 —— 现在站长还没分配，刚同意入站就能看见订单了，就能接单了」）：`GET /api/delivery/orders/pending`（本站未分配）**站长专属**；配送员的「待配送」只有 `assigned-to-me`（`delivery_staff_id = 我`）。**接单闸门与列表必须一起守**：`OrderWorkflowServiceImpl.acceptOrder` 对 `AuthContext.isDelivery()` 要求 `delivery_staff_id` 非空（否则"列表看不到、拿 id 编造照样接走"）。**站长不在此限**（他自己也送水，看到未分配的自己接是正常动作）。用例 `PaidBeforeDispatchIntegrationTest` + `DeliveryConsoleAndSelfServiceIntegrationTest.unassignedOrderCannotBeSeenOrTakenByDelivery`；任何"配送员接单"的链路用例都必须先 `assign`（`CashOrderLifecycleScenarioTest` 即此形状）。
 - **订单状态**以 `constant/OrderStatus.java` 为准：`1 待配送 / 2 配送中 / 3 已送达 / 4 已完成 / 5 已取消`（连续编号；历史 1/3/4/5/6 已废弃）；非法流转由 `isValidTransition` 拒绝。
 - **支付方式**以 `constant/PayMethod.java` 为准：`1 微信 / 2 现金(货到付款) / 3 水票`（**水票 = 扣票成功即视同已付**）。**微信渠道未接入**：本地只有模拟渠道（`app.payment.mock-wechat-pay`，生产关闭），它是**新客户第一单的唯一自助通道** —— 判据见 `PayMethod.availableMethods` 微信项注释（**别再当"新客户死锁"报一遍**）。
 - **支付状态**以 `constant/PaymentStatus.java` 为准：`0 未付 / 1 待收款 / 2 已付 / 3 已退款 / 4 已取消`；唯一真值是 `orders.payment_status`。
@@ -39,7 +40,8 @@
 - **桶的四个数**（正本 `docs/architecture/02-领域模型.md` §4）：权益 = 已到手（`customer_barrel_asset.quantity`，送达入账）；配送中 = `customer_barrel_in_transit` 的 `PENDING`；持有 = 权益 + 配送中（**仅展示**）；占用 = 权益 + over = **还桶上限**（**不含配送中**）。**下单抵扣与退押金只认权益**：`shortage = max(0, needed − 权益)`，逐桶型（`PaymentServiceImpl.quote` 与 `create.js` 同口径）；配送中的桶结束前**不参与抵扣、也不可退**（取代原 [DEF-5] 的 `− pending`）。
 - **任何「按商品 / 按桶型」的桶汇总，必须取 `assets ∪ 配送中(PENDING) ∪ over` 并集**：`customer_barrel_asset` 只记**已到手**的桶，只遍历它会让「首单还在配送途中」的商品**整行消失**（惯犯，见 §8.16）。**还桶上限一律用「占用」不用「持有」**。
 - **退桶（退押金）与欠桶互斥：「欠着空桶就不许退桶，先还清」**（`BarrelReturnGuardIntegrationTest`）：硬拦两处 —— `BarrelServiceImpl.previewReturn` 返回 blocked（控制器直接拒、不建申请单）、`doRefund` 再查一次 over；按商品各算（A 水的多不能抵 B 水的欠）。**绕开通道**：`StationAdjustmentServiceImpl` / `OrderBarrelExceptionServiceImpl` 撤桶权益都走 `consumeLots` 直连 —— 只应由站长人工发起并留调整单/异常单痕迹。**退桶审批两步 `1→2→3`**（2 = 确认收到空桶、3 = 已退押金，不允许跳步），界面必须给到「退押金」那一步，否则顾客押金退不出来。
-- **「首单」是两处口径的合称**（`docs/architecture/02-领域模型.md` §7.1）：下单时 `OrderServiceImpl:453` 写 `orders.first_barrel_order = firstStationAsset && totalNeededBuckets > 0`（本站第一笔**买桶**订单）；`OrderWorkflowServiceImpl:296` 读它，为真则**整段跳过回桶核对**；押金口径同源（首单权益 0 → 收满押金）。用例 `OrderEntryAndInjectionIntegrationTest`。**查写入点必须连 XML mapper 一起查**。
+- **「首单」是两处口径的合称**（正本 `docs/architecture/02-领域模型.md` §7.1）：下单时 `OrderServiceImpl` 写 `orders.first_barrel_order = 送桶 && 客户在本站还没有桶权益`（`AssetService.hasBarrelAsset`，**只看桶**；2026-09-26 前误用 `hasStationAsset`，票/押金会把先买过水票的客户判成老客 → 第一笔买桶单被要求核对回桶、回桶数默认"送出多少回多少"）；`OrderWorkflowServiceImpl.completeDelivery` 读它，为真则**整段跳过回桶核对**；押金口径同源（首单权益 0 → 收满押金）。用例 `OrderEntryAndInjectionIntegrationTest`。**查写入点必须连 XML mapper 一起查**。
+- **回桶默认值逐行算**（[2026-09-26] 产品口径「混合单只填入已有的：新付押金买的桶不计入回收，非本次订单产生的桶才默认回收」）：每行桶装水明细 `默认回桶数 = min(送出桶数, 占用)`（`占用 = 权益 + over` = 客户手上的旧桶，也是还桶物理上限）；**本合同批新买押金的桶在 PENDING 里、不算**。唯一实现 `BarrelService#returnPlanOfOrder`，经订单详情下发（`order_item` 投影 `barrelItem` / `suggestedReturnQty`），**前端不得自己推**、**不许拿送出桶数当"该回数"**（会逼出"少回收"的假异常原因）。回桶只对**桶装水**成立（`util/BarrelScope`）。正本 `docs/design/18` §2.4。
 - **支付状态只前进、不倒滚**：`0 未付 / 1 待收款` = 钱还没到手，`2 已付款` = 收钱的结果，`3/4` 是终态。现金单**下单即 待收款(1)**；**发起收款**（`createPayment`）与**送达未收款**（`completeDelivery`）都**不许改写它**；唯一写 2 的入口是 `OrderMapper.markPaidIfCollectable`（从 0 或 1 迁入，绝不复活 3/4）。**禁止写 `updatePaymentStatusIf(..., UNPAID, PAID)`**（现金单现值是 1，CAS `expected=0` 恒不命中）；**未收款时不要动 `payment_status`**。`DashboardMapper` 待收款口径 = `payment_status=1 且未取消`。
 - **CAS 改状态有「两派」参数顺序，靠名字区分（2026-09-23 改名收口）**：`updateStatusIf(id, 期望, 新)`（`OrderMapper` / `OrderBarrelExceptionMapper`）vs **`updateStatusTo(id, 新, 期望)`**（`PaymentRecordMapper` / `StaffPayrollMapper` —— 这两个**原名也叫 `updateStatusIf`、顺序却相反**，本仓因此在这一点上**静默失败过 3 次**）。**判据：名字带 `To` 的第二个参数就是目标状态，带 `If` 的第二个是期望状态。写 CAS 前先看 mapper 的 SQL —— 传反了恒命中 0 行，不报错、静默什么都没改。**
 - **登录类端点必须按 IP 限流**（`interceptor/RateLimitInterceptor`）：[AQ-040] 锁定按**用户名**计数，换用户名即可绕开（撞库/枚举），**两层正交、按来源 IP 那层不可省**。覆盖 `/api/auth/{login,wx-login,wx-login-staff,dev-login,refresh,change-password}`；计数**按 IP 聚合**；超限 **HTTP 429 + `{code:1,message}`**。默认 20 次/分钟（`RATE_LIMIT_*`）；多实例须先换集中式计数器（Redis）。**集成测试默认关闭**，只有 `RateLimitIntegrationTest` 用 `@TestPropertySource` 打开。
@@ -47,7 +49,7 @@
 - **押金/桶记录方向由类型决定，调用方金额一律传正数**：`DepositType` 收敛为 `isIncrease`（`1/5/9`）/ `isDecrease`（`2/3/4/6/7/8`），**扣减类以负数落库**（`DepositRecordServiceImpl.java:56-64`）—— 对账等式1（`balance == SUM(deposit_record.amount)`）的前提。`BarrelRecordType` = `6 人工调整(增)` / `9 人工调整(减)` 已纳入守恒对账 E5（`ReconciliationService.java:258-259`），不纳入则每次补录都误报。**`BarrelRecord.getStatusText()` 只对 `type=2` 下发**（其它类型的 `status` 只是处理标记，照原样映射会让配送流水显示"已退押金"）。
 - **三张流水表的调整场景唯一键**：`uk_deposit_adjustment`、`uk_record_adjustment`、`uk_ticket_adjustment`，配套可空列 `adjustment_id`。`ticket_record` 的 `uk_ticket_consume(order_id, product_id, source)` 在 `order_id IS NULL` 时**零保护**。
 - **退款只有两个入口，都必须「原路径返回」**（正本 `docs/architecture/02-领域模型.md` §5）：① **取消订单** → `refundOrder`（门槛 `OrderStatus.isCancellable`：**已完成/已取消不得再取消**），也是取消/拒单的单一编排入口（退水票 → 退流水 → 退押金 → 清配送中桶 → 回补库存 → 置已取消）；② **只退这一笔钱** → `refundPayment`，**不取消订单**。**原路径返回**：水票 → 回补 `ticket_lot` 批次（不过批次账 E8 就平不了）；现金 → 记**负金额**冲正流水；**微信未接入 → 不许假装已退**（手工退款直接拒；取消链不阻断但要在 `note` 写明需线下退款）。两条路径共用 `insertRefundRecord` / `restoreTicketsForOrder`；无订单的在线购票退款（`order_id IS NULL` 且 `ticket_qty > 0`）**当前不做**，只给明确拒绝。⚠️ **收款与退款都认结算站**（取代旧「退款认归属站、确认收款认履约站」），原 [AQ-043] **已作废**。⚠️ **押金与欠桶仍记归属站**。
-- **客户端与员工端是「两套代码 / 两个小程序」，appid 各自独立**（顾客端 `wx12632a1cdca9fbcc`、员工端 `wxc6211615c79da9f9`，2026-09-23 起）：`wx.login` 的 code 只能用**签发它的那个 appid+secret** 换 openid（配错只回 `40013 invalid appid`，日志无指向性），故 `WeChatLoginService.code2Session(WeChatApp, code)` **强制显式传端**（`CUSTOMER` / `STAFF`）。配置键：客户端 `wechat.miniapp.appid/secret`、员工端 `wechat.miniapp.staff-appid/staff-secret`；**员工端这对本地缺失只 `log.warn`（dev-login 兜底），`prod` 必填（缺即拒启）**。⚠️ **顾客端 appid 的三段历史**（别照旧文档做）：① 起初用开发者工具「**小程序测试号**」`wxdf1b2dca1f4c56d0` → **换不出 openid**（真机 `wx.login` 拿得到 code，`jscode2session` 却回 `invalid code`/40029，见 §9.4）；② 2026-09-22 **临时借用员工端那对 appid** 验证登录；③ **2026-09-23 换成顾客端自有的正式 appid** `wx12632a1cdca9fbcc`。借用的过渡期有两条代价（一个 appid 只能发布一个小程序 / openid 不再按端隔离），**现在都不存在了**：两端可各自发布、openid 天然隔离。⚠️ **测试号分「小程序」「小游戏」两种**，小游戏号填进小程序项目会**编译失败**（见 §9）。
+- **客户端与员工端是「两套代码 / 两个小程序」，appid 各自独立**（顾客端 `wx12632a1cdca9fbcc`、员工端 `wxc6211615c79da9f9`，2026-09-23 起）：`wx.login` 的 code 只能用**签发它的那个 appid+secret** 换 openid（配错只回 `40013 invalid appid`，日志无指向性），故 `WeChatLoginService.code2Session(WeChatApp, code)` **强制显式传端**（`CUSTOMER` / `STAFF`）。配置键：客户端 `wechat.miniapp.appid/secret`、员工端 `wechat.miniapp.staff-appid/staff-secret`；**员工端这对本地缺失只 `log.warn`（dev-login 兜底），`prod` 必填（缺即拒启）**。⚠️ **别再照旧文档做**：顾客端先试过「小程序测试号」（换不出 openid）→ 过渡期借用过员工端那对 appid，**2026-09-23 起已各自独立**（两端可各自发布、openid 天然隔离）；沿革与「测试号分小程序/小游戏」两条正本见 §9.4 / §9.5。
 - **站长治理类入口**：资产调整单 `/api/manager/adjustments`（6 端点，类级 `@RequireRole("STATION_MANAGER")`）；`/api/manager/reconciliation` **只读**本站即时对账（**只有 `GET /`**；原 `POST /run` 写全平台结果 = 跨租户泄露，已删除、**不要加回**；运维记录由 03:00 定时任务落表），结果落 `reconciliation_result` 表。
 - **公告（v32 起站长可发）**：`notice.status` = `0 下架 / 1 发布`，`type` = `1 系统公告 / 2 水站通知 / 3 活动`。**站长端管理列表必须含草稿与已下架**（带上 `status = 1` 会让"存草稿后列表里没有它""点下架后从列表消失、再也点不回来"）。状态文案由 `Notice.getStatusText()` 下发（正本 `constant/NoticeStatus.java`），前端禁止自带映射表。⚠️ **`GET /api/notices`（顾客端列表）不做站过滤**，任何顾客能看到**所有水站**的已发布公告（`[AQ-038]` 只修了"按 id 读草稿"）—— 未修，见 `docs/design/13` §9。
 - **欠桶「只提醒、不阻断」**：原硬拦 `MAX_OWED_BUCKETS = 5` 已**移除**、**不要再加回**；下单响应 `warnings` 每次都提醒（幂等命中路径同样下发），**物理护栏不变**（占用 = 权益 + over ≥ 0）。`customer_barrel_over.owed_since`（v29）只用于展示、**不参与任何校验**；唯一维护点 `CustomerBarrelOverMapper.syncOwedSince`（≤0 变 >0 写入、回到 ≤0 清空、已是正数再增加不重置）。站长端 `GET /api/manager/owed-barrels`（只读）。
@@ -76,6 +78,7 @@
   - `archive/**` 不维护；`backup/` 是本机备份、已被 gitignore，**勿提交**。
 - 后端 API 统一响应 `{ code, message, data }`：`code 0` 成功 / `1` 业务错误 / `404` 路由不存在 / `500` 系统异常；**业务错误 HTTP 状态仍是 200**（唯一例外：未认证返回真 401）。【仓 `common/Result.java`】
 - 小程序 API 基址在各自的 `config/api.js`；**两端 `prod.baseUrl` 目前都是占位符** `https://your-domain.com`（见 §8.10）。
+- **`miniapp-delivery` 的底栏是自绘的**（`app.json` 的 `tabBar.custom = true` + `custom-tab-bar/`，2026-09-26 为了让「首页」只对站长显示 —— 微信没有隐藏原生单项的 API）。**新增 tab 页要动两处**：`app.json` 的 `tabBar.list` **和** `custom-tab-bar/index.js` 的 `TABS_*`；tab 页根容器加 `custom-tabbar-page`、`onShow` 调 `syncTabBar(this, '<路径>')`（组件按页各一份）；站长 P0 红点由组件画（`utils/pending-reminder.js#syncTabBarDot`）。判据与踩坑见 `docs/design/24` §2.6。
 - **「不校验合法域名」= 两个位置，缺一不可**：① `project.config.json` 的 `urlCheck` —— **两端都已是 `false`**（2026-09-23 实测；旧文档写"`miniapp-delivery` 仍是 `true`、靠 gitignore 的 `project.private.config.json` 覆盖"**已过期**，manifest 里本来就是 false）；② 真机上右上角 `…` →「打开调试」。少任何一个，本机 `http://<局域网IP>:8080` 的请求都会报「不在以下 request 合法域名列表中」。【仓】
 
 ## 3. 技术栈与本地运行 / 构建命令
@@ -107,8 +110,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 - **`schema.sql` 导入必须走字节级重定向**：`cmd /c "mysql -uroot --default-character-set=utf8mb4 库名 < schema.sql"`（CI 上是 bash 的 `<`）。**不要用 PowerShell 管道**（`Get-Content -Raw | mysql` 按控制台代码页重编码会把中文注释变乱码）。⚠️ **核对是否写坏要比字节（`HEX(TABLE_COMMENT)`），不要看控制台**。【仓】
 - **老库升级**必须按 `sql/README.md`「基线之后必须补跑的迁移」顺序补跑（**该清单为唯一权威**）。执行务必带库名：`mysql -uroot <库名> < 脚本.sql`。⚠️ **清单已知缺陷**：漏列 `v3`/`fix_schema_alignment`，且 `v25` 改名与 `v1_backfill` 依赖旧表名导致顺序冲突 —— **执行前人工核对**。【仓】
 - **迁移脚本必须幂等**：MySQL 8.4 无 `DROP ... IF EXISTS`，统一用 `information_schema` 预检 + `PREPARE`。**破坏性 DROP 必须先上代码、再执行 SQL**；新建脚本前先 `ls sql/` 看命名是否占用。【会】
-- **严禁在生产执行**：`sql/reset_data.sql`（TRUNCATE 多表）、`sql/clear_data.sql`、`reconcile_order_814.sql`、`seed_dev_account.sql`、`seed_new_user_83.sql`、`sql/archive/**`（已过期且不可执行）。【仓】
-- `sql/` 里**大量脚本是 SUPERSEDED/DUPLICATE**（见 `sql/README.md` 表格），已被 `schema.sql` 吸收，**不要在新环境执行**。
+- **严禁在生产执行**：`sql/reset_data.sql`（TRUNCATE 多表）、`sql/clear_data.sql`、`reconcile_order_814.sql`、`seed_dev_account.sql`、`seed_new_user_83.sql`、`sql/archive/**`（已过期且不可执行）。**`sql/` 里大量脚本是 SUPERSEDED/DUPLICATE**（见 `sql/README.md` 表格），已被 `schema.sql` 吸收，不要在新环境执行。【仓】
 
 ```powershell
 # —— 全新库初始化（只建结构，空库）——
@@ -123,6 +125,8 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend\sql
 - **运行前置（硬要求）**：必须显式设置 `GRADLE_USER_HOME='D:\backend\project\AquaFlow\.gradlehome'`，否则 Gradle 往沙箱外的用户目录写缓存、被拒后直接失败；`--project-cache-dir .gradle_alt`（旧文档给的）**不足以**解决。【仓】
 - **Gradle 锁坑**：后端 `bootRun`（8080）在跑时直接 `gradlew` 会因 `fileHashes.lock` 失败 —— 统一加 `--no-daemon`；换个 `--project-cache-dir` 可与在跑的 `bootRun` 并存（必要时先停后端）。
 - **bash 用 Git 自带的** `D:\backend\Git\bin\bash.exe`（`Get-Command bash` 会解析到 `WindowsApps\bash.exe` 存根，报 `E_ACCESSDENIED`）；**受限沙箱下 Cygwin 起不来**（`couldn't create signal pipe, Win32 error 5`）。`python` 用 `D:\agent\python\python.exe`。⚠️ **跑含 `↔` 等非 GBK 字符的 python 脚本前先设 `$env:PYTHONIOENCODING='utf-8'`**（否则 `print` 抛 `UnicodeEncodeError`，表现为"脚本没问题却 exit=1"）；**别把脚本路径写进自定义函数的 `$args`**（自动变量，会让 python 无参启动、进 REPL 后 exit 0）。【仓】
+- **受限沙箱下「拿不到子进程输出」是环境限制，不是测试挂了**：进程建不了 named pipe ⇒ `spawnSync` 回 `status=null` + `EPERM`、`Start-Process -RedirectStandardOutput` 报"拒绝访问"、`bash scripts/*.sh` 起不来 —— 都是同一条。`tests/js/run-all.js` 已内置降级（管道 → 文件描述符重定向），跑流程测试仍是一条命令；**但判据必须建在 ASCII 哨兵上**（`AQUAFLOW_SUITE_OK`），中文在 fd 里会被编码毁成 `?`。**bash 脚本（`scan-secrets.sh`、`verify.sh`）在本机跑不了时，用等价实现逐条复刻并说明"哪条没跑到"，不许当成通过。** 详见 skill §8.31。【仓】
+- **判端口占用用 `netstat -ano | Select-String ':8080'`**（看 `0.0.0.0:8080 … LISTENING`），**别用 `Get-NetTCPConnection`** —— 它会静默返回空集，据此起 `bootRun` 只会白跑一次并拿到 `Port 8080 was already in use`（2026-09-27 实测，见 skill §8.32）。【仓】
 
 ```powershell
 # —— 后端集成测试（本机唯一可跑通的入口）——
@@ -133,7 +137,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 
 - **断言看响应体 `code`，不看 HTTP 状态**（业务错误仍 200；未认证才是 401）。新增用例：继承 `AbstractIntegrationTest`，用 `createStation/createStaff/createCustomer/createProduct/createOrderFull/createOrderCrossStation` 造数，`customerToken(id)` / `staffToken(id, role, stationId)` 取令牌，`get/post/put/delete` 发请求，`intOf/decimalOf` 查库；并发参考 `ConcurrencyIntegrationTest.fireTogether`。【仓】
 - **统计测试件数**：把所有 XML 相加，用 `$d = New-Object System.Xml.XmlDocument; $d.Load($path)` —— **不要 `Get-Content -Raw` 再转 `[xml]`**（按 ANSI 解码会弄坏测试名、**静默少算**）。【仓】
-- **验证 CI 会不会绿，就在本机复现 CI 三步**：① `DROP DATABASE aquaflow_test; CREATE DATABASE aquaflow_test;` 后**字节级重定向**导入 `sql/schema.sql`；② `.gradlew.bat cleanTest test`（必须 `cleanTest`，否则报 `:test UP-TO-DATE` 而**根本没跑**）；③ **把 CI 环境变量也照抄一遍**（尤其 `DEV_LOGIN_ENABLED=false` —— 本机是 `true`，不一致会让"只在 CI 上红"的用例长期隐身，见 §8.27 末段）。【仓】
+- **验证 CI 会不会绿，就在本机复现 CI 三步**：① `DROP DATABASE aquaflow_test; CREATE DATABASE aquaflow_test;` 后**字节级重定向**导入 `sql/schema.sql`；② `.gradlew.bat cleanTest test`（`cleanTest` 不可省）；③ **把 CI 环境变量也照抄一遍**（尤其 `DEV_LOGIN_ENABLED=false` —— 本机是 `true`，不一致会让"只在 CI 上红"的用例长期隐身，见 §8.27 末段）。⚠️ `test` **不加** `cleanTest` 时会报 `:test UP-TO-DATE` 而**根本没跑**。【仓】
 - **按业务场景组织的覆盖地图见 `docs/audit/2026-09-16-场景测试矩阵.md`** —— 新增用例前先看它找空白。
 
 ## 6. 代码约定与风格
@@ -144,7 +148,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 - 权限：`@RequireRole({"STATION_MANAGER"})` + `@RequireStation`，由 AOP 切面 `execution(public * controller..*.*(..))` 统一保护，新增方法自动生效。**跨站校验一律以 `AuthContext` 中服务端刷新的 `stationId` 为准，不信任请求参数**；客户 ID 必须由登录态覆盖或与订单所有者严格比对。
 - MyBatis：注解 SQL 用下划线列名（配 `map-underscore-to-camel-case: true`）；**注解 SQL 无编译期校验，新写必须手工在真实 MySQL 上跑过**。
 - 金额、客户、订单归属、水票数量一律服务端推导或强校验。展示文案（`statusText` / `payMethodText` / `payStateText`）由后端下发，**前端禁止自带 1/2/3 映射表**（两端各写一套曾导致新客下单 100% 失败）。
-- **请求体的枚举入参必须白名单校验**（2026-09-20 实测：`OrderCreateDTO.paymentMethod` 无校验，传 99 也建单成功）；兜底文案**不许把未知值说成某个已知值** —— **已修（2026-09-25）**：`PayMethod.textOf` 的 `default` 原来返回「现金」（幽灵单在客户端显示成货到付款），现返回「未知支付方式」、`null` 返回「未指定」；同日给 `OrderCreateDTO.paymentMethod/source` 与 `PaymentCreateDTO.paymentMethod` 补了 `@Min/@Max` 边界、并在 `OrderServiceImpl` / `PaymentServiceImpl` 各加一道 `PayMethod.isValid` 服务端白名单（注解会被新调用路径绕过，白名单不会）。
+- **请求体的枚举入参必须白名单校验**（2026-09-20 实测：`OrderCreateDTO.paymentMethod` 传 99 也建单成功），且**兜底文案不许把未知值说成某个已知值**（`PayMethod.textOf` 原 `default` 返回「现金」，幽灵单在客户端显示成货到付款）。**判据：注解边界会被新调用路径绕过，服务端白名单不会** —— `OrderServiceImpl` / `PaymentServiceImpl` 各留一道 `PayMethod.isValid`。
 - 写库顺序：先 `getByClientToken` 判断幂等再动手；Controller 调 service 后再写库必须 `@Transactional`。
 - 日志禁止记录密码、JWT、微信授权码、完整手机号/地址、任何密钥。**回复中也不回显密钥**（用 `<redacted>`）。
 - 术语统一：**配送中**（= 已付款买下桶权益但未送到，旧称「在途」**已禁用**）、**进行中**（= 待配送 1 + 配送中 2）。表名 `customer_barrel_in_transit` / 类名 `CustomerBarrelInTransit` 仅为兼容历史命名保留，注释与文案一律写「配送中」。`customer_owed_barrel` 已停止写入，欠桶改读 `customer_barrel_over`。
@@ -203,7 +207,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 - **不要改 `archive/**`**（`legacy-web-frontend`、`miniapp-station` 均为历史留档，后者缺 `app.js`、页面残缺）。**不要引用 `miniapp-station`**。
 - **生成物 / 勿手改**：`AquaFlow-backend/build/`、`out/`、`.gradle*`、`*.log`、`backup/`、`generated-images/`、`docs/design/*.html`、`tabbar-icons-preview.png`、`project.private.config.json`。另 `.gradlehome/`、`.gradle_alt2/`、`.gradle-user`、`.gradle_alt3`、`.dsh-code-index/`、`.openvisio/` 都是工具缓存。
 - **`.gitattributes` 已加入**（`* text=auto` + `*.sh/*.py/*.yml/*.sql eol=lf`）：blob 一律存 LF，防止 Windows 检出 CRLF 后 `bash scripts/*.sh` 在 CI（Linux）上因 `\r` 失败。
-- **根目录 `*.py` 分两类**：**6 个已入库**（`audit_wxml_handlers.py`、`page_reach_audit.py`、`static_audit_user.py`、`audit_comments.py`、`audit_js_syntax.py`、`audit_scenario_matrix.py` —— CI 与 `scripts/verify.sh` 的静态门禁，`.gitignore` 对 `*.py` 开了 `!` 例外，**不入库则新克隆的 CI 必然失败**；前两个需传端名，`page_reach_audit.py` 还能识别 js 的 `url:` 与 wxml 的 `data-url="/pages/..."`）；另若干（`e2e_user_test.py`、`gen_tabbar_icons.py`、`api_reverse_audit.py`）属调试/审计残留，不可作为项目入口或规范依据。
+- **根目录 `*.py` 分两类**：**7 个已入库**（`audit_wxml_handlers.py`、`page_reach_audit.py`、`static_audit_user.py`、`audit_comments.py`、`audit_js_syntax.py`、`audit_scenario_matrix.py`、`audit_wxss_selectors.py` —— CI 与 `scripts/verify.sh` 的静态门禁，`.gitignore` 对 `*.py` 开了 `!` 例外，**不入库则新克隆的 CI 必然失败**；前两个需传端名，`page_reach_audit.py` 还能识别 js 的 `url:` 与 wxml 的 `data-url="/pages/..."`；最后一个查「同元素两个类被写成子孙选择器」（`.A .B`）—— 2026-09-26 实测它让首次资产弹窗的卡片留在 `translateY(100%)` 屏幕外、只剩遮罩，客户首单被挡死，而其余门禁全绿）；另若干（`e2e_user_test.py`、`gen_tabbar_icons.py`、`api_reverse_audit.py`）属调试/审计残留，不可作为项目入口或规范依据。
 - **`api_reverse_audit.py` 的已知偏差**：① 行号按**剥离注释后**计，**系统性偏早**（报 `:182`／实际 `:198`）—— 引用前回原文件核对；② 判定**只看路径、不看 HTTP 方法**，**报的数字是下界**；③ 认不出「**页面内路径常量拼接**」与「路径段由**函数参数**传入」的调用（前者已修：45→34，后者仍看不见），**在用端点会被判死**。**清单是候选、不是结论** —— 要动"删除端点"这类决定，必须自己重新证一遍零引用（见 §0.3）。
 
 ## 8. 已知坑与历史教训
@@ -211,21 +215,9 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 > ### ⚠️ 这 30 条的**正本已移出本文件**（2026-09-22 第三轮瘦身）
 >
 > 体积原因（本文件 ≤ 65536 字节，超出会被**静默削尾**），按 §9 当年的同一先例搬成按需加载的 skill：
-> **`.dsh/skills/aquaflow-known-traps/`** —— **动手改代码前加载它**。
+> **`.dsh/skills/aquaflow-known-traps/`** —— **动手改代码前加载它**，别靠记忆。
 > 条目号没变：`docs/design/**` 与测试注释里的 `§8.15` / `§8.16` / `§8.19` / `§8.20` 仍指那些条目。
->
-> **最常踩的 10 条（全文见 skill，这里只给一行版防"没加载就动手"）**：
->
-> 1. **报错但 HTTP 200** —— 一律判 body `code`，不判 HTTP 状态（§8.1）。
-> 2. **请求体从裸 `Map` 收敛成 DTO 会静默丢字段** —— Jackson 忽略未知字段，改 DTO 必须逐字段核对调用点并补走 HTTP 的用例（§8.15）。
-> 3. **只遍历 `customer_barrel_asset` 是本仓惯犯（第 4 次）** —— 桶汇总必须取 `assets ∪ 配送中 ∪ over` 并集；还桶上限用「占用」不用「持有」（§8.16）。
-> 4. **状态不许倒滚** —— 只前进；要表达异常态就新设状态（§8.18）。
-> 5. **时间区间上界写 `<= 当天` 会漏掉一整天** —— 一律 `>= 起始 AND < 结束+1天`（§8.19）。
-> 6. **按 id 操作记录必须验归属 + 看受影响行数** —— 拿不到行数就别返回 success（§8.20）。
-> 7. **「要求了补偿却没执行」也必须失败** —— "用户以为做成了、账上没动"一律算缺陷（§8.17）。
-> 8. **隔离 worktree 跑全量证明不了"应用能起来"** —— 收尾三步：真实工作区编译 → 真起一次上下文 → 再隔离跑全量（§8.26）。
-> 9. **改完小程序 js 必须过解析器**（`audit_js_syntax.py`）；**小程序文件别写出 BOM**（§8.27 / §8.28）。
-> 10. **弹窗的「确认」必须让流程继续走** —— 只改 UI 状态的确认按钮 = 静默失败（§8.30）。
+> 覆盖面：状态倒滚、桶汇总并集、时间区间上界、DTO 丢字段、隔离 worktree 假绿、小程序 js/BOM、弹窗确认没接上、本机沙箱限制（§8.31 / §8.32）…
 
 ## 9. 待确认 / 未验证清单
 
@@ -236,7 +228,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 1. **「水厂端已彻底移除」是 2026-09-11 的复核结论**，此后未重新全库检索 `factory` 残留。
 2. **已弃用表的实际停写状态未逐一复核调用链**：`customer_owed_barrel`（已停止写入）与 `customer_barrel_in_transit` 的写入点。
 3. **`ManagerOrderController` 确已删除**（文件不存在，有 `ManagerOrderControllerRemovedIntegrationTest`），但 `.workbuddy/memory/MEMORY.md` 仍把它列为「仍未做」的高危项 —— **该记忆已过期**，也不排除有其他等效写入口。
-4. ~~**开发者工具「测试号」是否支持 `wx.login` / `jscode2session`**~~ —— **已实测（2026-09-22）：换不出 openid，已弃用测试号。** 真机 `wx.login` **拿得到 code**（拿不到的话前端根本不会去请求后端），但后端拿它调 `jscode2session` 时微信回 **`invalid code`（errcode 40029）** —— 即该 code 不是以这个 appid 签发的。**顾客端已弃用测试号**：先临时借员工端那对 appid 过渡（2026-09-22），**2026-09-23 换成顾客端自有的正式 appid `wx12632a1cdca9fbcc`**（沿革见 §1.1）。测试号**确定不能上传代码 / 发布 / 设为体验版**；**`dev-login` 仍是登录不通时的退路**（代码注释里的 `AGENTS §9.4` 指的就是本条）。
+4. ~~**开发者工具「测试号」是否支持 `wx.login` / `jscode2session`**~~ —— **已实测（2026-09-22）：换不出 openid，已弃用测试号**（真机 `wx.login` 拿得到 code，`jscode2session` 却回 `invalid code`／40029）；顾客端此后先用员工端那对 appid 过渡，**2026-09-23 换成自有的 `wx12632a1cdca9fbcc`**（沿革见 §1.1）。测试号**确定不能上传代码 / 发布 / 设为体验版**；**`dev-login` 仍是登录不通时的退路**（代码注释里的 `AGENTS §9.4` 指本条）。
 5. **测试号分「小程序」与「小游戏」两种，不可混用**：把**小游戏**测试号的 appid 填进小程序项目（`compileType: "miniprogram"`）会**编译失败**。
 6. **微信订阅消息对本项目不可行**：除少数行业（政务/医疗/交通等）外都是**一次性授权** —— 推一条要用户当面点一次「允许」，`wx.requestSubscribeMessage` **无法静默获取**；水站这种高频提醒摩擦过大，**产品裁定不做**（站长端只有应用内红点，见 `miniapp-delivery/utils/pending-reminder.js`）。另注：`WeChatNotifyService` 骨架读的是**客户端** appid，推员工要用员工端那对。**同族缺口**：客户侧正向进度（接单 / 配送中 / 已送达 / 已收款 / 退桶结果 / 水票到账）**一条通知都没有** —— `OrderWorkflowServiceImpl` 只写"被拒单"与"临时外派"两种负面通知，`NotificationServiceImpl` 六个方法全是拼文案写 log 的空壳。
 
@@ -245,11 +237,8 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 - 原则：**能验证才写，不能验证就放进 §9**。任何一条若与本仓库当前代码冲突，**以代码为准**，并回来改本文件。
 - 维护建议：做大改动/重构后核对 §1 的常量清单（`OrderStatus` / `PayMethod` / `PaymentStatus` / `DepositType` / `BarrelRecordType`）与 `sql/README.md` 的迁移清单；**新增枚举或迁移后必须同步 §1**（枚举值正本在 `constant/*.java`）；§9 被证实的条目应上移进正文并删除。
 - **体积约束**：≤ 65536 字节，超出会被**静默削尾**。**规则**：① 加段前先量体积（用 `node`/`read`，别用 `Get-Content`），**余量 < 4 KB 先瘦身**；② 瘦身**只压正文、不删条目、不重排 §8 编号**，瘦身前先留全文字节级存档（放仓库外的工作记录，已三份）；③ 叙事写工作记录、规格写 `docs/architecture/`；④ 别手写会漂移的计数。
-- **第三轮瘦身（2026-09-22）**：瘦身前正本为仓库外的工作记录（第三轮存档）。
-  就地压正文只省 ~2 KB、余量仍只剩 2.7 KB（微调已到边际），于是按 §9 的先例做**结构整理**：
-  **§8 的 30 条整体搬进 skill `aquaflow-known-traps`**（逐条校验过「内容零丢失、编号不变」），
-  本文 §8 只留**指针 + 最常踩的 10 条一行版**。结果 64.8 KB → 50.4 KB，**余量 ~15 KB**。
-  ⚠️ **下一次要瘦就动 §1（23 KB / 占 36%）** —— 但那是领域不变量，压之前先逐条确认判据没被压没。
+- **历次瘦身（判据留、叙事外移）**：第二轮因 66579 字节超预算被**静默削尾**；第三轮（2026-09-22）把 **§8 的 30 条整体搬进 skill**（逐条校验「内容零丢失、编号不变」，编号仍是 `docs/design/**` 与测试注释的引用锚点），本文 §8 只留**指针 + 最常踩的 10 条一行版**；2026-09-27 在此处加了两条环境判据后又顶到 66060 ⇒ 就地压正文（**余量已是硬约束，加段必先量体积**）。
+  ⚠️ **下一次要瘦就动 §1（约占 36%）** —— 但那是领域不变量，压之前先逐条确认判据没被压没。
 - 已知待决策项：工作区未提交改动是否先 review 再按语义拆成数个提交（见 §7）。
 - **`docs/AGENTS.md` 已作废并移出仓库**：口径是**过期文档要"离开会被自动加载的位置"**（DSH 会把 `docs/AGENTS.md` 当附加指令全文注入，改名等于留在原地）—— **该待决策项已关闭：不改名**。
 
@@ -269,7 +258,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 
 | skill | 什么时候加载 |
 |---|---|
-| `aquaflow-known-traps` | **动手写 / 改代码前** —— §8 那 30 条坑与判据的正本（状态倒滚、桶汇总并集、时间区间上界、DTO 丢字段、隔离 worktree 假绿、小程序 js/BOM、弹窗确认没接上…） |
+| `aquaflow-known-traps` | **动手写 / 改代码前** —— 坑与判据的正本（`§8.1`–`§8.32`：状态倒滚、桶汇总并集、时间区间上界、DTO 丢字段、隔离 worktree 假绿、小程序 js/BOM、弹窗确认没接上、本机沙箱拿不到子进程输出 / `Get-NetTCPConnection` 漏报端口…） |
 | `aquaflow-open-questions` | 要动已弃用表 / 水厂端残留 / 微信测试号登录 / 判断 `.workbuddy` 记忆是否过期时 |
 
 > ⚠️ skill 名（frontmatter 的 `name`）必须是 **ASCII 小写 + 连字符**（DSH 校验 `^[a-z0-9]+(?:-[a-z0-9]+)*$`）—— 中文名**不会报错，只会被静默忽略**（仅留一条 log warning）。

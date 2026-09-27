@@ -59,6 +59,30 @@ public interface PaymentService {
     void confirmPayment(Long paymentId);
 
     /**
+     * [2026-09-26] 收款渠道是<b>模拟微信</b>时，当场把这条待收款流水确认掉，并返回<b>重新读出</b>的流水。
+     *
+     * <p><b>为什么需要它：</b>水票购买是客户的<b>自助预付</b>，不是「等水站同意」
+     * （产品口径：「水票购买不需要水站同意，直接微信收款就行，现在只是没做收款实现而已」）。
+     * 下单类支付走 {@code createPayment}，在模拟渠道下当场就是 PAID；而在线购票走的是
+     * {@code TicketAccountServiceImpl.purchaseTicket}，它只落一条 PENDING 流水 ——
+     * 于是模拟渠道下这笔钱明明"已经收到"，却要站长去「待确认收款」点一下，
+     * 界面看起来正是"买票要水站审批"。这个不对称是缺陷，不是设计。</p>
+     *
+     * <p><b>判据只认流水自己：</b>{@code payment_method = 微信} <b>且</b>模拟开关开着
+     * <b>且</b>仍是待收款(1)。现金购票（{@code payment_method = 现金}）<b>照旧留在待收款</b> ——
+     * 那一步是「确认收到钱」，站长没收到钱就不能入账（与水站是否"同意"无关）。
+     * 非待收款状态（已付款 / 已退款 / 已取消）原样返回，不抛异常 —— 幂等重放走的就是这条路。</p>
+     *
+     * <p><b>副作用一律走 {@link #confirmPayment}</b>（CAS + 水票入账 + 批次单价快照），
+     * 这里不另写一套入账逻辑。真实微信渠道接入后，本方法应与 {@code mockWechatPay} 开关一起删除：
+     * 那时"付款成功"由回调驱动（回调里调 {@code confirmPayment}）。</p>
+     *
+     * @param paymentId 待确认的流水 id；{@code null} 或查不到时返回 {@code null}
+     * @return 确认后的流水（确认过/无需确认时即原样返回该条）
+     */
+    PaymentRecord confirmMockChannelIfApplicable(Long paymentId);
+
+    /**
      * 配送完成收款确认：线下订单标记已收款 → 订单真正完成（COMPLETED）。
      * 仅线下方式（现金/微信转账）可被确认；水票视同已付。
      */

@@ -144,6 +144,14 @@
   color: var(--text-secondary);
 }
 
+/* 「本票可用于购买该款水」—— 说明的是适用范围（一条账户 = 一款水），是整句信息不是占位灰。
+   颜色用 --text-regular(#6E6A61，对白底 5.39:1)，不用 --text-secondary(#A39E92，2.67:1)。
+   字号 24rpx：§6 允许辅助信息 24–26rpx，这里不是关键规则。 */
+.ticket-use {
+  font-size: 24rpx;
+  color: var(--text-regular);
+}
+
 .ticket-expire {
   font-size: 22rpx;
   color: var(--text-placeholder);
@@ -317,7 +325,7 @@
 
 .product-item.active {
   border-color: var(--primary-color);
-  background: rgba(79,142,247,0.06);
+  background: var(--primary-bg);
 }
 
 .product-name {
@@ -374,7 +382,7 @@
 
 .method-item.active {
   border-color: var(--primary-color);
-  background: rgba(79,142,247,0.06);
+  background: var(--primary-bg);
 }
 
 .method-info {
@@ -467,7 +475,7 @@
 
 .pkg-item.active {
   border-color: var(--primary-color);
-  background: rgba(79, 142, 247, 0.06);
+  background: var(--primary-bg);
 }
 
 .pkg-title {

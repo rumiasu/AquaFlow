@@ -4,7 +4,7 @@
    结构在 templates/station-navbar.wxml，数据与方法在 behaviors/stationNavbar.js。
    两页统一 @import "../../styles/station-navbar.wxss"; —— 改这里两页一起变。 */
 .navbar {
-  background: #4F8EF7;
+  background: var(--primary-color);
 }
 
 .navbar-inner {
@@ -202,7 +202,7 @@
    4 项就能占掉半个弹窗；而站长多数时候只想知道"还差哪几项"。 */
 .st-item {
   padding: 20rpx 0;
-  border-top: 1rpx solid #f0f0f0;
+  border-top: 1rpx solid #F1ECE1;
 }
 
 .st-item-row {
@@ -238,26 +238,34 @@
   color: #1f7a1f;
 }
 
-/* 已配好的行（2026-09-24）：标题压灰、右侧换「已配好」而不是「去填写」。
-   目的：一眼分出"还差什么"与"已经弄好了什么"，而不是让两类长得一模一样。 */
+/* 已配好的行（2026-09-24）：标题压灰即可 —— "是否完成"靠标题颜色与所在页签表达。
+   ⚠️ 右侧那个位置只放**动作**（「去修改 / 去填写」），不再放「已配好」这种状态标签：
+   状态标签看着不可点，用户就不知道能点进去改（产品反馈："填错了想回去重填却没了"）。 */
 .st-item-title-done {
   color: #9ca3af;
 }
 
-.st-item-done {
-  flex-shrink: 0;
-  margin-left: 16rpx;
-  font-size: 24rpx;
-  color: #67c23a;
+/* 小框顶部「待填 / 已配好」两个页签（2026-09-24）。
+   为什么放这里：上一版把切换做成列表**下面**的一句灰字，实测没人发现 —— 页签必须在打开小框的第一眼就看到。 */
+.st-tabs {
+  display: flex;
+  border-bottom: 1rpx solid #F1ECE1;
+  margin-bottom: 8rpx;
 }
 
-/* 「显示已配好的 N 项 / 只看没配好的」开关：夹在列表与底部按钮之间的一条细栏 */
-.st-toggle {
-  padding: 18rpx 32rpx;
+.st-tab {
+  flex: 1;
   text-align: center;
-  font-size: 24rpx;
-  color: #6b7280;
-  border-top: 1rpx solid #f0f0f0;
+  padding: 16rpx 0;
+  font-size: 26rpx;
+  color: #9ca3af;
+  border-bottom: 4rpx solid transparent;
+}
+
+.st-tab-on {
+  color: #1f7a1f;
+  font-weight: 600;
+  border-bottom-color: #1f7a1f;
 }
 
 /* 展开后的说明块：why（为什么必须填）+ suggestion（具体怎么做） */
@@ -302,7 +310,7 @@
 
 .st-actions {
   display: flex;
-  border-top: 1rpx solid #f0f0f0;
+  border-top: 1rpx solid #F1ECE1;
   margin-top: 20rpx;
 }
 
@@ -320,5 +328,5 @@
 .st-btn-primary {
   color: #1f7a1f;
   font-weight: 600;
-  border-left: 1rpx solid #f0f0f0;
+  border-left: 1rpx solid #F1ECE1;
 }

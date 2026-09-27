@@ -1,109 +1,155 @@
+/*
+ * 站长端「计件工资」样式。[2026-09-26 视觉重排]
+ *
+ * 产品反馈「结算单也别做成这样的 ui 了，好难看」。原来这一页自己造了一套规格：
+ * 硬编码 #1677ff、10~12rpx 圆角、64rpx 输入框、没有阴影 —— 与站内其它管理页
+ * （见 pages/station-mgmt/delivery-config/index.wxss）长得不像一家人。
+ *
+ * 现在的口径：**沿用站内其它管理页的规格**
+ *   · 卡片：白底 / 16rpx 圆角 / 24rpx 内边距 / 24rpx 间距（与 delivery-config 一致）
+ *   · 输入与选择器：80rpx 高 / #f6f7f9 底 / 12rpx 圆角 / 28rpx 字
+ *   · 标签用 pill（999rpx 圆角），按钮 12rpx 圆角、30rpx 字
+ *   · 颜色一律走主题变量（--primary-color / --primary-gradient / --success-color …），
+ *     不再在本文件里写死主色 —— 改主题时这一页才会跟着变。
+ *   · 长解释收进 <help-tip> 的「?」（见 index.js 的 data.tips），屏幕上只留与钱有关的那句。
+ */
 .page {
-  padding: 24rpx;
-  padding-bottom: 60rpx;
+  padding: 24rpx 24rpx 160rpx;
 }
 
+/* ============ 顶部页签（分段控件） ============ */
 .tabs {
   display: flex;
   align-items: center;
   background: #fff;
   border-radius: 16rpx;
-  padding: 12rpx;
-  margin-bottom: 20rpx;
+  padding: 8rpx;
+  margin-bottom: 24rpx;
 }
 .tab {
   flex: 1;
   text-align: center;
-  font-size: 28rpx;
+  font-size: 27rpx;
   color: #666;
-  line-height: 68rpx;
+  line-height: 64rpx;
   border-radius: 12rpx;
 }
 .tab-on {
-  background: #f0f7ff;
-  color: #1677ff;
+  background: var(--primary-gradient);
+  color: #fff;
   font-weight: 600;
 }
 .tab-help {
   font-size: 24rpx;
-  color: #1677ff;
+  color: var(--primary-color);
   padding: 0 16rpx;
+  flex-shrink: 0;
 }
 
+/* ============ 卡片 ============ */
 .card {
   background: #fff;
   border-radius: 16rpx;
   padding: 24rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: 24rpx;
+}
+.card-title-row {
+  display: flex;
+  align-items: center;
 }
 .card-title {
-  font-size: 28rpx;
+  font-size: 30rpx;
   font-weight: 600;
   color: #222;
-  margin-bottom: 16rpx;
+}
+/* 标题右侧的计数/单位（弱化，不与标题抢注意力） */
+.card-count {
+  margin-left: auto;
+  font-size: 23rpx;
+  color: #999;
+  flex-shrink: 0;
+}
+/* 标题下的一句话：**与钱有关或说清后果**的才放这里，概念解释进 help-tip */
+.card-sub {
+  display: block;
+  font-size: 24rpx;
+  color: #888;
+  line-height: 36rpx;
+  margin-top: 10rpx;
 }
 
+/* ============ 商品 chip ============ */
 .chips {
   display: flex;
   flex-wrap: wrap;
-  margin-bottom: 8rpx;
+  margin: 16rpx 0 4rpx;
 }
 .chip {
   padding: 12rpx 24rpx;
-  border: 1rpx solid #d9d9d9;
-  border-radius: 32rpx;
+  border: 1rpx solid #e6e8eb;
+  border-radius: 999rpx;
   font-size: 25rpx;
   color: #333;
+  background: #fff;
   margin: 0 16rpx 16rpx 0;
 }
 .chip-on {
-  border-color: #1677ff;
-  color: #1677ff;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
   background: #f0f7ff;
+  font-weight: 600;
 }
 
+/* ============ 表单：标签在上、控件在下 ============ */
 .field {
-  display: flex;
-  align-items: center;
-  padding: 14rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
+  margin-top: 20rpx;
 }
-.field-label {
-  width: 260rpx;
-  font-size: 26rpx;
-  color: #555;
-  flex-shrink: 0;
-}
-.field-input {
+.field.col {
   flex: 1;
-  height: 64rpx;
-  background: #f5f6f8;
-  border-radius: 10rpx;
-  padding: 0 18rpx;
-  font-size: 26rpx;
+  margin-top: 0;
 }
-.field-input.full {
+.field-2col {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 20rpx;
+}
+.label {
+  display: block;
+  font-size: 25rpx;
+  color: #555;
+  margin-bottom: 10rpx;
+}
+.input {
   width: 100%;
+  height: 80rpx;
+  padding: 0 20rpx;
+  background: #f6f7f9;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #222;
   box-sizing: border-box;
-  margin-top: 14rpx;
 }
-
 .picker {
-  height: 72rpx;
-  line-height: 72rpx;
-  background: #f5f6f8;
-  border-radius: 10rpx;
-  padding: 0 18rpx;
-  font-size: 26rpx;
-  color: #333;
-  margin-bottom: 14rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  background: #f6f7f9;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+  color: #222;
+  box-sizing: border-box;
+}
+/* 还没选：与"已经选了一个值"必须看得出区别（原来两者同色，等于没提示） */
+.picker-empty {
+  color: #b0b6bd;
 }
 
+/* ============ 列表行 ============ */
 .row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   padding: 20rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid #f2f3f5;
 }
 .row:last-child {
   border-bottom: none;
@@ -134,62 +180,122 @@
   line-height: 34rpx;
 }
 
-.actions {
-  display: flex;
-  flex-direction: column;
-  margin-left: 16rpx;
+/* ============ pill：状态标签与行内按钮 ============ */
+.pill {
+  font-size: 22rpx;
+  padding: 4rpx 18rpx;
+  border-radius: 999rpx;
+  flex-shrink: 0;
+  margin-left: 12rpx;
 }
-.mini-btn {
-  padding: 10rpx 22rpx;
-  border: 1rpx solid #1677ff;
-  color: #1677ff;
-  border-radius: 28rpx;
+.pill-on {
+  background: #e8f7ee;
+  color: #1a9c53;
+}
+.pill-off {
+  background: #f2f3f5;
+  color: #8a9099;
+}
+/* 结算单状态（颜色由 js 的 statusPillClass 挑，文案来自服务端 statusText） */
+.pill-draft {
+  background: #fff4e5;
+  color: #c47b00;
+}
+.pill-confirmed {
+  background: #f0f7ff;
+  color: var(--primary-color);
+}
+.pill-paid {
+  background: #e8f7ee;
+  color: #1a9c53;
+}
+
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 14rpx;
+}
+.pill-btn {
+  padding: 10rpx 24rpx;
+  border: 1rpx solid var(--primary-color);
+  color: var(--primary-color);
+  border-radius: 999rpx;
   font-size: 24rpx;
-  margin-bottom: 10rpx;
+  margin: 0 12rpx 10rpx 0;
   white-space: nowrap;
 }
-.mini-btn-main {
-  background: #1677ff;
+.pill-btn-main {
+  background: var(--primary-color);
   color: #fff;
 }
-.mini-btn-danger {
+.pill-btn-danger {
   border-color: #ff4d4f;
   color: #ff4d4f;
 }
 
-/* 条目行上的操作按钮横排换行（竖排四个按钮会把行撑得很高） */
-.actions-row {
+/* ============ 结算单卡片 ============ */
+.slip {
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid #f2f3f5;
+}
+.slip:last-child {
+  border-bottom: none;
+}
+.slip-top {
   display: flex;
-  flex-wrap: wrap;
-  margin-top: 12rpx;
+  align-items: baseline;
+  justify-content: space-between;
 }
-.actions-row .mini-btn {
-  margin-right: 12rpx;
+.slip-name {
+  font-size: 29rpx;
+  font-weight: 600;
+  color: #222;
 }
-
-/* ---- 自定义工资条目（v44） ---- */
-/* 方向徽标：文案来自服务端 directionText；底色不按 1/2 分 —— 加/扣的红绿只出现在
-   按条目汇总里，按服务端下发的带符号 total 判断正负。 */
-.badge {
-  font-size: 22rpx;
-  color: #1677ff;
-  background: #f0f7ff;
-  border-radius: 20rpx;
-  padding: 4rpx 18rpx;
-  flex-shrink: 0;
+.slip-amount {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--primary-color);
+  white-space: nowrap;
+}
+.slip-mid {
+  display: flex;
+  align-items: center;
+  margin-top: 10rpx;
+}
+.slip-period {
+  font-size: 23rpx;
+  color: #888;
   margin-left: 12rpx;
 }
+.slip-sub {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 6rpx;
+  line-height: 32rpx;
+}
+.slip-actions {
+  display: flex;
+  align-items: center;
+  margin-top: 14rpx;
+}
+.slip-hint {
+  margin-left: auto;
+  font-size: 22rpx;
+  color: #b0b6bd;
+}
 
+/* ============ 按条目汇总 ============ */
 .sum-box {
   background: #fafbfc;
   border-radius: 12rpx;
-  padding: 16rpx 18rpx;
-  margin: 14rpx 0;
+  padding: 18rpx;
+  margin: 16rpx 0;
 }
 .sum-title {
-  font-size: 24rpx;
-  color: #666;
-  margin-bottom: 6rpx;
+  font-size: 23rpx;
+  color: #888;
+  margin-bottom: 8rpx;
 }
 .sum-row {
   display: flex;
@@ -212,57 +318,52 @@
   font-weight: 600;
 }
 .sum-add {
-  color: #52c41a;
+  color: #1a9c53;
 }
 .sum-deduct {
   color: #ff4d4f;
 }
 .sum-total {
   padding-top: 16rpx;
-  border-top: 1rpx solid #f0f0f0;
-  margin-top: 6rpx;
+  border-top: 1rpx solid #f2f3f5;
+  margin-top: 8rpx;
 }
 
+/* ============ 按钮 ============ */
 .btn-primary {
-  height: 84rpx;
-  line-height: 84rpx;
+  height: 88rpx;
+  line-height: 88rpx;
   text-align: center;
-  background: #1677ff;
+  background: var(--primary-gradient);
   color: #fff;
   border-radius: 12rpx;
   font-size: 30rpx;
-  margin-top: 20rpx;
+  font-weight: 600;
+  margin-top: 28rpx;
 }
 .btn-ghost {
-  height: 80rpx;
-  line-height: 80rpx;
+  height: 84rpx;
+  line-height: 84rpx;
   text-align: center;
-  border: 1rpx solid #d9d9d9;
+  border: 1rpx solid #dcdfe3;
   border-radius: 12rpx;
   font-size: 28rpx;
-  color: #333;
-}
-.btn-ghost.block {
+  color: #444;
   margin-top: 18rpx;
 }
 .btn-disabled {
-  background: #a8c7f0;
-  color: #fff;
+  opacity: 0.55;
 }
 
+/* ============ 空态 / 加载 ============ */
 .empty {
   font-size: 26rpx;
   color: #999;
   padding: 20rpx 0;
   line-height: 40rpx;
 }
-.hint {
-  font-size: 23rpx;
-  color: #999;
-  line-height: 36rpx;
-  margin-top: 14rpx;
-}
 
+/* ============ 弹窗（明细 / 记一笔） ============ */
 .mask {
   position: fixed;
   left: 0;
@@ -275,30 +376,53 @@
   position: fixed;
   left: 40rpx;
   right: 40rpx;
-  top: 12%;
-  max-height: 76%;
+  top: 10%;
+  max-height: 78%;
   background: #fff;
-  border-radius: 16rpx;
+  border-radius: 20rpx;
   padding: 32rpx;
   z-index: 10;
+  box-sizing: border-box;
 }
 .dialog-title {
   display: block;
-  font-size: 30rpx;
+  font-size: 31rpx;
   font-weight: 600;
   color: #222;
-  margin-bottom: 16rpx;
+  margin-bottom: 12rpx;
 }
-.dialog-line {
+/* 明细弹窗顶部的合计（"这张单多少钱"第一眼就要看到） */
+.slip-hero {
+  text-align: center;
+  padding: 16rpx 0 20rpx;
+}
+.slip-hero-amount {
+  display: block;
+  font-size: 52rpx;
+  font-weight: 700;
+  color: var(--primary-color);
+  line-height: 1.2;
+}
+.slip-hero-label {
+  font-size: 23rpx;
+  color: #999;
+}
+.kv {
+  display: flex;
+  align-items: flex-start;
+  padding: 8rpx 0;
+}
+.kv-k {
+  width: 120rpx;
+  font-size: 25rpx;
+  color: #999;
+  flex-shrink: 0;
+}
+.kv-v {
+  flex: 1;
   font-size: 26rpx;
-  color: #555;
-  line-height: 44rpx;
-}
-.dialog-line.strong {
-  font-size: 30rpx;
-  font-weight: 600;
   color: #222;
-  margin-bottom: 10rpx;
+  word-break: break-all;
 }
 .detail-scroll {
   max-height: 520rpx;

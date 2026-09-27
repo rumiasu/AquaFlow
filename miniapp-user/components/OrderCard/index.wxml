@@ -7,18 +7,25 @@
     </view>
   </view>
   <view class="card-content">
+    <!--
+      商品一行的三种形态（[2026-09-27] 产品口径「商品信息需要显示好，不要隐藏省略」）：
+        ① `itemSummary`（后端逐明细拼好：`纯净水 3桶，矿泉水 1瓶`）—— 列表接口现在会下发，**优先用它**；
+        ② `order.items` 有明细对象时逐条渲染（详情接口那种形态）；
+        ③ 兜底：只有 `firstProductName` 时只报第一款。⚠️ **绝不**再写 `×{{order.quantity}}桶` ——
+           `quantity` 是**全单总件数**（含瓶装水/饮水器），3 桶水 + 1 瓶水也会显示成「×4桶」，
+           既漏商品又报错数量（`itemSummary` 的存在就是为了消灭这条错误口径）。
+    -->
     <view class="product-info">
-      <block wx:if="{{order.items && order.items.length > 0}}">
+      <text class="product-summary" wx:if="{{order.itemSummary}}">{{order.itemSummary}}</text>
+      <block wx:elif="{{order.items && order.items.length > 0}}">
         <view wx:for="{{order.items}}" wx:for-item="itm" wx:key="id" class="order-item-row">
-          <text class="product-name">{{itm.productName || itm.waterTypeName}}</text>
-          <text class="product-spec" wx:if="{{itm.productSpec || itm.waterTypeSpec}}">{{itm.productSpec || itm.waterTypeSpec}}</text>
-          <text class="product-qty">×{{itm.quantity}}桶</text>
+          <text class="product-name">{{itm.productName || itm.productNameSnapshot || itm.waterTypeName}}</text>
+          <text class="product-spec" wx:if="{{itm.productSpec || itm.specSnapshot || itm.waterTypeSpec}}">{{itm.productSpec || itm.specSnapshot || itm.waterTypeSpec}}</text>
+          <text class="product-qty">×{{itm.quantity}}</text>
         </view>
       </block>
       <block wx:else>
-        <text class="product-name">{{order.productName || order.waterTypeName}}</text>
-        <text class="product-spec" wx:if="{{order.productSpec || order.waterTypeSpec}}">{{order.productSpec || order.waterTypeSpec}}</text>
-        <text class="product-qty">×{{order.quantity}}桶</text>
+        <text class="product-name">{{order.firstProductName || order.productName || order.waterTypeName || '商品'}}</text>
       </block>
     </view>
     <view class="delivery-info">

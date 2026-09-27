@@ -108,6 +108,62 @@ class BarrelExceptionFlowIntegrationTest extends AbstractIntegrationTest {
         return longOf("SELECT id FROM order_barrel_exception ORDER BY id DESC LIMIT 1");
     }
 
+    /**
+     * [2026-09-27 产品裁定] 配送员**现场上报**配送问题 → 直接生成一条异常单进站长待处置。
+     *
+     * <p>产品原话：「配送遇到问题，不应该是异常单处理吗，为什么会是转让处理」。
+     * 在此之前异常单只有两条来源：完成配送时"回桶数量对不上"自动建（类别写死少回桶/多回桶），
+     * 或站长手工发起 —— 配送员上报现场问题只往 special_note 写一行，站长端「异常订单」里
+     * 永远只有"少回桶/多回桶"，"破损/拒收"这类必须处置的问题只能等站长自己翻到那条备注再补录。</p>
+     *
+     * <p>本用例盯四件事：① 真的建单且类别按原因映射对；② 进站长待处置（{@code STAFF_RECORDED}）；
+     * ③ **不涉桶账**（{@code discrepancy=0}，所以"取 {@code discrepancy > 0}"的欠桶下钻不会算它）；
+     * ④ 非法原因 key 必须被拒且**不留半截痕迹**（备注与异常单在同一事务里回滚）。</p>
+     */
+    @Test
+    @DisplayName("配送员现场上报 → 生成异常单（类别按原因映射、不涉桶账）；非法原因被拒且不留痕")
+    void deliveryProblemReportCreatesException() {
+        seed();
+        long order = createOrderFull(customer, addr, station, product,
+                1 /* 待配送 */, 2 /* 已付 */, 2 /* 现金 */,
+                "40.00", "0.00", "40.00", false, 2);
+        String token = mgrToken();
+
+        // ⚠️ 路径是 /orders/report/{id}（报表在前、id 在后），不是 /orders/{id}/report ——
+        // 写成后者拿到的是 code=404「接口不存在」，而不是任何业务错误。
+        Api res = post("/api/delivery/orders/report/" + order, token,
+                "{\"reason\":\"水桶破损\",\"reasonKey\":\"barrel_damaged\"}");
+        assertTrue(res.isSuccess(), "上报应成功，实际=" + res);
+
+        long exId = onlyExceptionId();
+        assertEquals(order, longOf("SELECT order_id FROM order_barrel_exception WHERE id=?", exId));
+        assertEquals("RETURN_DAMAGE", jdbc.queryForObject(
+                "SELECT category FROM order_barrel_exception WHERE id=?", String.class, exId),
+                "「水桶破损」应映射成 损坏(RETURN_DAMAGE)");
+        assertEquals("DELIVERY_PROBLEM", jdbc.queryForObject(
+                "SELECT type FROM order_barrel_exception WHERE id=?", String.class, exId),
+                "现场上报要有自己的 type，便于与回桶差异区分");
+        assertEquals("STAFF_RECORDED", statusOf(exId), "必须进站长「待处置」，否则站长看不到");
+        assertEquals(0, intOf("SELECT discrepancy FROM order_barrel_exception WHERE id=?", exId),
+                "现场问题不是数量差异 ⇒ discrepancy 必须为 0，否则会被欠桶下钻算成欠桶");
+        assertEquals(0, over(), "上报不得动桶账（over 保持 0）");
+        assertTrue(String.valueOf(jdbc.queryForObject(
+                        "SELECT staff_note FROM order_barrel_exception WHERE id=?", String.class, exId))
+                        .contains("水桶破损"),
+                "原因要写进异常单备注，站长端列表直接读它");
+
+        // 非法原因 key：拒绝 + **不留半截痕迹**（备注与异常单同一个事务）
+        int before = intOf("SELECT COUNT(*) FROM order_barrel_exception");
+        Api bogus = post("/api/delivery/orders/report/" + order, token,
+                "{\"reason\":\"伪造类别\",\"reasonKey\":\"bogus_key\"}");
+        assertFalse(bogus.isSuccess(), "非法原因 key 必须被拒，实际=" + bogus);
+        assertEquals(before, intOf("SELECT COUNT(*) FROM order_barrel_exception"), "被拒不得留下异常单");
+        assertFalse(String.valueOf(jdbc.queryForObject(
+                        "SELECT IFNULL(special_note,'') FROM orders WHERE id=?", String.class, order))
+                        .contains("伪造类别"),
+                "被拒时订单备注也必须一起回滚（否则留下'备注说上报了、异常单没建'的半成品）");
+    }
+
     private String statusOf(long exceptionId) {
         return jdbc.queryForObject("SELECT status FROM order_barrel_exception WHERE id=?", String.class, exceptionId);
     }

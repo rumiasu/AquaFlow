@@ -1,5 +1,6 @@
 package com.example.aquaflow.integration;
 
+import com.example.aquaflow.constant.PayMethod;
 import com.example.aquaflow.support.AbstractIntegrationTest;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.DisplayName;
@@ -9,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -68,6 +70,16 @@ class OfflinePaymentGuardIntegrationTest extends AbstractIntegrationTest {
         return res.data();
     }
 
+    /** 报价里找某个支付方式（找不到返回 null —— 那是"整项不下发"，与"下发了但 enabled=false"不同）。 */
+    private JsonNode findMethod(JsonNode quoteData, int id) {
+        for (JsonNode m : quoteData.path("methods")) {
+            if (m.path("id").asInt() == id) {
+                return m;
+            }
+        }
+        return null;
+    }
+
     @Test
     @DisplayName("未开通不能下现金单；开通后立刻能下（不再有首单/上限这两层）")
     void switchIsTheOnlyGate() {
@@ -114,11 +126,21 @@ class OfflinePaymentGuardIntegrationTest extends AbstractIntegrationTest {
         assertNotNull(q0.path("offlinePaymentBlockReason").asText(null), "要给原因，而不是只给 false");
         assertTrue(q0.path("offlinePaymentBlockReason").asText("").contains("不支持"),
                 "原因应指向「未开通」，实际=" + q0.path("offlinePaymentBlockReason").asText(""));
+        // ⭐ 2026-09-26 产品裁定：「货到付款不给开通的话，用户端直接不显示」
+        //   ⇒ 现金那一项**整项不下发**，不是"灰着显示 + 需水站开通"（客户会看到一个点不动的选项）
+        assertNull(findMethod(q0, PayMethod.CASH), "未开通时现金项必须整项不出现: " + q0.path("methods"));
+        assertNotNull(findMethod(q0, PayMethod.TICKET), "水票恒在列表里（否则客户无路可走）");
+        assertNotEquals(PayMethod.CASH, q0.path("defaultMethod").asInt(),
+                "默认项不能指向一个没下发的选项（否则前端会出现「没有任何一项选中」）");
 
         setCod(true);
         JsonNode q1 = quote();
         assertTrue(q1.path("allowOfflinePayment").asBoolean(), "开通后报价应放出货到付款");
         assertTrue(q1.path("offlinePaymentBlockReason").isNull(), "可用时不下发原因");
+        JsonNode cash1 = findMethod(q1, PayMethod.CASH);
+        assertNotNull(cash1, "开通后应出现现金项: " + q1.path("methods"));
+        assertTrue(cash1.path("enabled").asBoolean(), "开通后现金项应可用");
+        assertEquals("配送员送达后现金/扫码支付", cash1.path("desc").asText(), "文案由后端下发");
 
         // 开通弹窗的依据：欠款/逾期/历史订单数/能否使用
         JsonNode summary = get("/api/customers/" + customer + "/offline-payment/summary", mgrToken).data();

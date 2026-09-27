@@ -61,7 +61,7 @@ Page({
     wx.showModal({
       title: '清除缓存',
       content: '清除本地缓存，不影响登录状态。确定继续吗？',
-      confirmColor: '#FF9500',
+      confirmColor: '#C9764B',
       success: (res) => {
         if (res.confirm) {
           const accessToken = wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
@@ -81,7 +81,7 @@ Page({
     wx.showModal({
       title: '退出登录',
       content: '确定要退出登录吗？',
-      confirmColor: '#FF3B30',
+      confirmColor: '#B5442C',
       success: (res) => {
         if (res.confirm) {
           app.logout()

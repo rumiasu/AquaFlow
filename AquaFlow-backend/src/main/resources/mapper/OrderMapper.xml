@@ -58,11 +58,22 @@
         claimPoolIfFree / outsourceToStationIf / outsourceToPoolIf / recallToStationIf。
     -->
 
+    <!--
+      ⚠️ 本查询给顾客端「我的订单」列表用。`itemSummary` 是**逐明细**摘要（`纯净水 3桶，矿泉水 1瓶`），
+      单位判据与 util/BarrelScope 同源（product.category：1 桶装水 / 2 瓶装水 / 3 饮水器 → 桶/瓶/台）。
+      **为什么必须有它**（2026-09-27 产品反馈「商品信息不要隐藏省略」）：
+      原先这里只查 `firstProductName`（第一条明细），前端在拿不到 items 时又回落到
+      `firstProductName × quantity`，而 `quantity` 是**全单总件数**（含瓶装水/饮水器）——
+      混合单会显示成「纯净水 ×4桶」（3 桶水 + 1 瓶水的 quantity 也是 4），既漏商品又报错数量。
+      改一处必须连 util/BarrelScope 与配送端那两处 SQL 一起看（全仓四处同源）。
+    -->
     <select id="list" resultType="com.example.aquaflow.entity.Orders">
         select o.*, c.name as customerName, c.phone as customerPhone,
                a.detail as addressDetail, a.name as addressName, a.phone as addressPhone,
                a.lat as addressLat, a.lng as addressLng,
-               (select oi.product_name_snapshot from order_item oi where oi.order_id = o.id order by oi.id limit 1) as firstProductName
+               (select oi.product_name_snapshot from order_item oi where oi.order_id = o.id order by oi.id limit 1) as firstProductName,
+               (select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary,
+               (select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount
         from orders o
         left join customer c on o.customer_id = c.id
         left join address a on o.address_id = a.id

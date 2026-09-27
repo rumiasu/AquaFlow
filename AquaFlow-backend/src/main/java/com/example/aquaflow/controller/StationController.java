@@ -113,33 +113,31 @@ public class StationController {
     }
 
     /**
-     * 公开搜索水站（配送员申请绑定前用，无需登录）
-     * keyword 匹配名称或地址
+     * 公开搜索水站（配送员申请绑定前用，无需登录）。
+     * keyword 匹配名称或地址。
      *
-     * <p>⚠️ 这里取的是 {@code listAll()}（不带硬状态过滤，与 {@code /public} 口径不同），
-     * 但**待上线（operating_status=3）必须滤掉**（2026-09-24）：还没配齐、没转正的站
-     * 既不该被顾客发现，也不该被配送员申请绑定 —— 能不能被发现是一件事，营业与否是另一件。</p>
+     * <p><b>[2026-09-26 就近找站]</b> 新增可选的 {@code lat}/{@code lng}：配送员申请绑定前
+     * 先把手机定位传上来，服务端按<b>直线距离</b>排序并下发 {@code distanceKm} ——
+     * 让他在自己跑单的片区里挑站，而不是从全量名单里挑一个"跑不到"的站
+     * （那种申请必然被站长拒，白占一次审批）。</p>
+     *
+     * <p><b>不传坐标时行为与以前逐字一致</b>（按名称/地址过滤、顺序即库里的顺序）：
+     * 定位被拒、未授权、老版本客户端都必须照常可用 —— 位置只是"更好的排序"，不是门槛。
+     * 判定用的是 {@link com.example.aquaflow.util.GeoUtil#distanceMeters}（全仓唯一的距离算法）。</p>
+     *
+     * <p><b>⚠️ 关于"没设坐标的站"</b>：{@code station.lat/lng} 允许为 NULL（站长没在地图上选点），
+     * 此时距离<b>算不出来</b>。这类站**不静默丢弃**，而是排在带距离的站之后照常返回
+     * （{@code distanceKm=null}）—— 同 {@code GeoUtil} 的判据：把"没有数据"当成"超出范围"
+     * 会让一家真实存在的站凭空消失。</p>
+     *
+     * <p>可达性：本端点仍在 {@code WebMvcConfig} 的免认证白名单里（顾客端"找水站"是同一个发现面，
+     * 见 {@code /public}），所以**不能**在这里加 {@code @RequireRole}。</p>
      */
     @GetMapping("/search")
-    public Result<List<Station>> search(@RequestParam(required = false) String keyword) {
-        List<Station> all = stationMapper.listAll().stream()
-                .filter(s -> !StationOperatingStatus.isPendingLaunch(s.getOperatingStatus()))
-                .collect(Collectors.toList());
-        if (keyword == null || keyword.trim().isEmpty()) {
-            all = all.stream().limit(50).collect(Collectors.toList());
-            return Result.success(all);
-        }
-        String kw = keyword.trim();
-        List<Station> filtered = all.stream()
-                .filter(s -> {
-                    if (s.getName() != null && s.getName().contains(kw)) return true;
-                    if (s.getAddress() != null && s.getAddress().contains(kw)) return true;
-                    if (s.getPhone() != null && s.getPhone().contains(kw)) return true;
-                    return false;
-                })
-                .limit(50)
-                .collect(Collectors.toList());
-        return Result.success(filtered);
+    public Result<List<Map<String, Object>>> search(@RequestParam(required = false) String keyword,
+                                                    @RequestParam(required = false) java.math.BigDecimal lat,
+                                                    @RequestParam(required = false) java.math.BigDecimal lng) {
+        return Result.success(stationService.searchForBinding(keyword, lat, lng));
     }
 
     /**

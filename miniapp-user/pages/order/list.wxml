@@ -8,6 +8,15 @@
     </view>
   </view>
 
+  <!-- 加载态：页面上还没有内容时（首屏 / 上次失败后的重试）给出明确反馈，而不是一片空白 -->
+  <loading wx:if="{{loading}}"></loading>
+
+  <!-- 失败态（设计 29 §2「『没有事项』与『数据没加载出来』必须不同」）：
+       没有它，请求失败时屏幕上就是下面的 empty「暂无订单」，与"确实没有订单"长得一模一样
+       （AGENTS §8.22）。文案里给"怎么重试"，不出现接口/后端这类开发词。
+       样式复用 styles/common.wxss 的 .load-error（全局已 import，不要再写一份）。 -->
+  <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+
   <!-- 订单列表 -->
   <view class="order-list" wx:if="{{orders.length > 0}}">
     <order-card wx:for="{{orders}}" wx:key="id"
@@ -17,6 +26,7 @@
       bind:cancel="onCancel" />
   </view>
 
-  <!-- 空状态 -->
-  <empty wx:if="{{orders.length === 0}}" text="暂无订单" />
+  <!-- 空状态：只在**确实取到了、且列表为空**时才说"暂无订单"；
+       加载中与加载失败都不许落到这句（!loading && !loadError 两道闸门）。 -->
+  <empty wx:if="{{!loading && !loadError && orders.length === 0}}" text="暂无订单" />
 </view>

@@ -146,6 +146,10 @@ public class ManagerStationStatusController {
         // 前端原先在 pages/station-mgmt/station-status/index.js 里自己写了一份
         // `{value:3, name:'配送延迟', ...}`，枚举一改名它就静默对不上（本仓明令禁止自带映射表）。
         data.put("options", options());
+        // 当前状态对顾客意味着什么（点选项前先显示这一句）。**待上线不在可选项里**，
+        // 所以它只能从这里下发 —— 页面打开时若本站是待上线，显示的就是它。
+        data.put("currentEffect", StationOperatingStatus.effectOf(
+                station.getOperatingStatus() == null ? StationOperatingStatus.NORMAL : station.getOperatingStatus()));
         return data;
     }
 
@@ -163,6 +167,9 @@ public class ManagerStationStatusController {
             o.put("value", v);
             o.put("text", StationOperatingStatus.textOf(v));
             o.put("desc", StationOperatingStatus.descOf(v));
+            // 「选了它，顾客那边会怎样」—— 页面点哪个就显示哪句（2026-09-24）。
+            // ⚠️ 必须后端下发：前端原先自己拼 `name + '（仍可下单…）'`，对待上线是错的。
+            o.put("effect", StationOperatingStatus.effectOf(v));
             list.add(o);
         }
         return list;

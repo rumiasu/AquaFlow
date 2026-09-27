@@ -18,7 +18,7 @@ function formatTime(value) {
 }
 
 // V1: 配送员申请绑定水站（极简流程，不填任何个人信息）
-// - 页面进入即自动拉取所有水站列表
+// - 页面进入即拉取水站列表；**拿到定位后按距离就近排序**（2026-09-26）
 // - 点击任意水站卡片 = 直接提交绑定申请
 // - 提交后 bind_status=PENDING, 跳转到 bind-wait 等候站长审批
 Page({
@@ -26,7 +26,15 @@ Page({
     loading: false,
     stationList: [],
     applyingId: null, // 正在提交申请的水站ID，防重复点击
-    history: []       // 申请历史（只读，见 loadHistory）
+    history: [],      // 申请历史（只读，见 loadHistory）
+    keyword: '',      // 名称搜索
+    // ===== 就近找站（2026-09-26）=====
+    // 配送员是在某个片区跑单的人：让他从全量名单里挑，很容易挑到"自己跑不到"的站，
+    // 那种申请必然被站长拒、白占一次审批。所以先定位、按距离排序。
+    located: false,   // 是否已拿到定位
+    hasLocation: false, // 本页坐标是否已随请求下发（= 列表是按距离排的）
+    locDenied: false, // 定位被拒/失败：显示一句说明与重试入口，**不阻断**按名称搜索
+    loaded: false     // 列表是否已成功拉过一次（用于"只自动定位一次"）
   },
 
   // 不用 onLoad：进页面先向服务器确认真实状态 —— 可能已经在别处完成了绑定
@@ -47,6 +55,104 @@ Page({
     // 顺序有意义：申请历史里的水站名要用 stationList 反查，先有列表再有历史
     await this.loadStations()
     this.loadHistory()
+  },
+
+  /**
+   * 拿一次定位（**可选**，失败就用全量 + 名称搜索）。
+   *
+   * <p>定位只影响"排序"，从不做"按半径裁掉"—— 判据与后端 {@code StationService.searchForBinding}
+   * 一致：把"没有位置"当成"没有资格"会把人挡在门外（定位权限、室内无信号都是常态）。</p>
+   */
+  onRequestLocation() {
+    // 只自动定位一次：重复弹权限/重复请求没有意义（失败时页面有"重试定位"入口）
+    if (this.data.located) return
+    wx.getLocation({
+      type: 'gcj02',
+      success: (res) => {
+        this.location = { lat: res.latitude, lng: res.longitude }
+        this.setData({ located: true, locDenied: false })
+        this.loadStations()
+      },
+      fail: (err) => {
+        // 不弹「去设置」的强制窗：他完全可以按名称搜到那家站，硬要权限只会卡住流程
+        console.warn('[apply-bind] 定位不可用，退回名称搜索:', err && err.errMsg)
+        this.setData({ locDenied: true, located: false })
+      }
+    })
+  },
+
+  async onPullDownRefresh() {
+    await this.loadStations()
+    await this.loadHistory()
+    wx.stopPullDownRefresh()
+  },
+
+  /**
+   * 拉水站列表。
+   *
+   * <p>[2026-09-26] 坐标随请求下发 ⇒ 服务端按直线距离升序返回并带 {@code distanceKm}；
+   * 没拿到定位（或站长没给水站设过坐标）时 {@code distanceKm} 为 null —— 卡片上显示"位置未设置"，
+   * **不是**把它藏起来。</p>
+   */
+  async loadStations() {
+    this.setData({ loading: true })
+    try {
+      const query = {}
+      if (this.data.keyword) query.keyword = this.data.keyword
+      if (this.location) {
+        query.lat = this.location.lat
+        query.lng = this.location.lng
+      }
+      const res = await get(API.STATION_SEARCH, query)
+      const list = (res.data || []).map(s => ({
+        ...s,
+        distanceText: (s.distanceKm === null || s.distanceKm === undefined)
+          ? (this.location ? '位置未设置' : '')
+          : (Number(s.distanceKm) < 1
+              ? Math.max(1, Math.round(Number(s.distanceKm) * 1000)) + ' 米'
+              : Number(s.distanceKm).toFixed(1) + ' 公里')
+      }))
+      this.setData({
+        stationList: list,
+        hasLocation: !!this.location,
+        loading: false,
+        loaded: true
+      })
+    } catch (err) {
+      this.setData({ loading: false, stationList: [], loaded: true })
+      wx.showToast({ title: err.message || '加载水站列表失败', icon: 'none' })
+    }
+  },
+
+  /** 搜索框输入：防抖 300ms（每敲一个字就请求一次既浪费也会让列表乱跳）。 */
+  onKeywordInput(e) {
+    const keyword = (e.detail && e.detail.value) || ''
+    this.setData({ keyword })
+    if (this._kwTimer) clearTimeout(this._kwTimer)
+    this._kwTimer = setTimeout(() => { this.loadStations() }, 300)
+  },
+
+  onKeywordClear() {
+    if (this._kwTimer) clearTimeout(this._kwTimer)
+    this.setData({ keyword: '' })
+    this.loadStations()
+  },
+
+  /** 「在地图上看看在哪」：用服务端下发的坐标打开地图 —— 判断"远不远"最直观的方式。 */
+  onOpenStationMap(e) {
+    const id = Number(e.currentTarget.dataset.id)
+    const s = this.data.stationList.find(x => x.id === id)
+    if (!s || s.lat == null || s.lng == null) {
+      wx.showToast({ title: '该水站还没设置位置', icon: 'none' })
+      return
+    }
+    wx.openLocation({
+      latitude: Number(s.lat),
+      longitude: Number(s.lng),
+      name: s.name || '',
+      address: s.address || '',
+      scale: 15
+    })
   },
 
   /**
@@ -79,26 +185,6 @@ Page({
         if (res.confirm) getApp().logout()
       }
     })
-  },
-
-  async onPullDownRefresh() {
-    await this.loadStations()
-    await this.loadHistory()
-    wx.stopPullDownRefresh()
-  },
-
-  async loadStations() {
-    this.setData({ loading: true })
-    try {
-      const res = await get(API.STATION_SEARCH, {})
-      this.setData({
-        stationList: res.data || [],
-        loading: false
-      })
-    } catch (err) {
-      this.setData({ loading: false, stationList: [] })
-      wx.showToast({ title: err.message || '加载水站列表失败', icon: 'none' })
-    }
   },
 
   /**

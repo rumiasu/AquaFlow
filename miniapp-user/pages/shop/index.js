@@ -70,7 +70,7 @@ Page({
             allProducts = productsRes.data
             this.setData({ loadError: '' })
           } else {
-            const msg = (productsRes && productsRes.message) || '服务端返回异常'
+            const msg = (productsRes && productsRes.message) || '返回异常，请稍后重试'
             console.warn('[Shop] 商品列表返回非成功响应:', msg)
             this.setData({ loadError: '商品没加载出来（' + msg + '），下面可能是空的，请下拉刷新' })
             wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
@@ -116,7 +116,7 @@ Page({
         const activeStations = res.data.filter(s => s.status === 1)
         this.setData({ stationList: activeStations, stationListError: '' })
       } else {
-        const msg = (res && res.message) || '服务端返回异常'
+        const msg = (res && res.message) || '返回异常，请稍后重试'
         console.warn('[Shop] 水站列表返回非成功响应:', msg)
         this.setData({ stationListError: msg })
       }
@@ -148,7 +148,7 @@ Page({
         wx.showModal({
           title: '切换水站提醒',
           content: '不同水站的水票、桶及押金等资产不互通，请确认后再切换。',
-          confirmText: '知道了，继续',
+          confirmText: '继续',
           cancelText: '取消',
           showCancel: true,
           success: (r) => resolve(r.confirm)
@@ -163,7 +163,7 @@ Page({
           title: '提示',
           content: '下次不再提示？',
           confirmText: '不再提示',
-          cancelText: '每次都提示',
+          cancelText: '继续提示',
           success: (r) => resolve(r.confirm)
         })
       })
@@ -191,7 +191,7 @@ Page({
         allProducts = productsRes.data
         this.setData({ loadError: '' })
       } else {
-        const msg = (productsRes && productsRes.message) || '服务端返回异常'
+        const msg = (productsRes && productsRes.message) || '返回异常，请稍后重试'
         console.warn('[Shop] 切站后商品返回非成功响应:', msg)
         this.setData({ loadError: '商品没加载出来（' + msg + '），下面可能是空的，请下拉刷新' })
         wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })

@@ -20,6 +20,70 @@ const PENDING_SUMMARY = '/api/manager/pending-summary'
 const REMINDER_KEY = 'todoReminderEnabled'
 const HOME_TAB_INDEX = 0 // 首页 tab 的位置（见 app.json 的 tabBar.list 顺序）
 
+/**
+ * 红点当前该不该亮的**标记位**（[2026-09-26] 自绘底栏加）。
+ *
+ * 为什么需要它：`wx.showTabBarRedDot` 只对**原生** tabBar 有效，而本端已改成自绘
+ * （`tabBar.custom = true`，为了让「首页」只对站长显示 —— 微信没有隐藏单项的 API）。
+ * 自绘底栏是**按页各一份**的组件实例，它得有个地方读"现在要不要亮"：
+ * 写 storage，组件 onShow 时读一次；同时本文件直接把状态推给当前页那一份。
+ */
+const DOT_FLAG_KEY = 'homeTabDotOn'
+
+/** 组件读标记位用（别在别处写这个键；要改就调 syncTabBarDot） */
+function readDotFlag() {
+  try {
+    return wx.getStorageSync(DOT_FLAG_KEY) === true
+  } catch (e) {
+    return false
+  }
+}
+
+/** 当前页那一份自绘底栏组件；拿不到（非 tab 页 / 还没登录）返回 null */
+function currentTabBar() {
+  try {
+    if (typeof getCurrentPages !== 'function') return null
+    const pages = getCurrentPages()
+    const page = pages && pages[pages.length - 1]
+    if (!page || typeof page.getTabBar !== 'function') return null
+    return page.getTabBar() || null
+  } catch (e) {
+    // getTabBar 在非 tab 页上可能直接抛；取不到就当没有，绝不因此让待办刷新失败
+    return null
+  }
+}
+
+/**
+ * 红点状态**唯一**的写入口：storage 标记 + 当前页的自绘底栏 + 原生 API（回退用）。
+ *
+ * ⚠️ 原生那条路不要删：`app.json` 的 `tabBar.list` 仍留着当低版本基础库的回退，
+ * 那种环境下渲染的是原生三项，红点只有 `wx.showTabBarRedDot` 能画。
+ */
+function syncTabBarDot(on) {
+  const flag = !!on
+  try {
+    wx.setStorageSync(DOT_FLAG_KEY, flag)
+  } catch (e) { /* storage 写失败不影响下面两条路 */ }
+
+  // 原生 API：自绘模式下会失败（没有原生条目），回退模式下才有用 —— 一律吞掉，绝不抛。
+  // ⚠️ 本函数会从 app.onShow 里被调用，**抛异常等于拖垮启动路径**，所以连同步异常都兜住。
+  try {
+    if (flag) {
+      wx.showTabBarRedDot({ index: HOME_TAB_INDEX, fail: () => {} })
+    } else {
+      wx.hideTabBarRedDot({ index: HOME_TAB_INDEX, fail: () => {} })
+    }
+  } catch (e) { /* 自绘底栏下这条 API 无效，红点由下面的组件路径画 */ }
+
+  const bar = currentTabBar()
+  if (!bar) return
+  if (typeof bar.setDot === 'function') {
+    bar.setDot(flag)
+  } else {
+    bar.setData({ showDot: flag })
+  }
+}
+
 /** 用户是否开着待办提醒（默认开） */
 function isReminderEnabled() {
   return wx.getStorageSync(REMINDER_KEY) !== false
@@ -30,8 +94,12 @@ function setReminderEnabled(enabled) {
   wx.setStorageSync(REMINDER_KEY, !!enabled)
   if (!enabled) {
     // 立刻清掉，不然关掉开关后红点还在，看起来像没生效（下次 onShow 也不会再点亮）
-    wx.hideTabBarRedDot({ index: HOME_TAB_INDEX, fail: () => {} })
+    syncTabBarDot(false)
+    return
   }
+  // 重新打开时立刻拉一次：不拉的话要等下一次 onShow 才亮，用户会以为开关坏了
+  //（失败只是不亮，不抛错 —— 同 fetchPendingSummary 的降级口径）
+  syncPendingReminder()
 }
 
 /**
@@ -69,16 +137,16 @@ async function syncPendingReminder() {
 function applyRedDot(data) {
   if (!isReminderEnabled()) return
   const hasP0 = Number(data && data.p0Total) > 0
-  if (hasP0) {
-    wx.showTabBarRedDot({ index: HOME_TAB_INDEX, fail: () => {} })
-  } else {
-    wx.hideTabBarRedDot({ index: HOME_TAB_INDEX, fail: () => {} })
-  }
+  // 一个写入口管三处（原生 API / storage 标记 / 当前页的自绘底栏），见 syncTabBarDot
+  syncTabBarDot(hasP0)
 }
 
 module.exports = {
   PENDING_SUMMARY,
   REMINDER_KEY,
+  DOT_FLAG_KEY,
+  readDotFlag,
+  syncTabBarDot,
   isReminderEnabled,
   setReminderEnabled,
   fetchPendingSummary,

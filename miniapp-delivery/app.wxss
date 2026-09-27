@@ -1,42 +1,51 @@
 /* ========== AquaFlow 配送员小程序 设计系统 ========== */
+/*
+ * [2026-09-26 轨道 D] 品牌色统一：色值照抄 miniapp-user/styles/variable.wxss，
+ * 同一套品牌语法（暖纸底 / 白卡 / 深灰文字 / 深靛品牌蓝 #2E4A68 / 中圆角 / 极少阴影）。
+ * 两端各自维护自己的 token、没有共享层 —— 这里是**同值**，不是引用。
+ * ⚠️ --accent-gradient / --primary-gradient / --header-gradient 三个名字是历史包袱：
+ * 「无渐变」硬规则下**只降级值、不改名**（客户端 variable.wxss:14-18 是先例）——
+ * 改名会炸全端 25 处 var(--*-gradient) 引用，引用侧一处都不用动。
+ */
 page {
-  /* 主色 - 清新蓝 */
-  --primary-color: #4F8EF7;
-  --primary-light: #7BAFF9;
-  --primary-dark: #3A7BD5;
-  --primary-bg: rgba(79, 142, 247, 0.08);
+  /* 主色 - 深靛蓝（唯一的品牌/交互色） */
+  --primary-color: #2E4A68;
+  --primary-light: #3D5E82;
+  --primary-dark: #22384F;
+  --primary-bg: rgba(46, 74, 104, 0.08);
 
-  --accent-color: #4F8EF7;
-  --accent-gradient: linear-gradient(135deg, #4F8EF7 0%, #7BAFF9 100%);
-  --primary-gradient: linear-gradient(135deg, #4F8EF7 0%, #3A7BD5 100%);
-  --header-gradient: linear-gradient(135deg, #5B9BF7 0%, #4F8EF7 50%, #3A7BD5 100%);
+  /* 「无渐变」硬规则：历史渐变变量统一降级为纯色（名字保留，见文件头注释） */
+  --accent-color: #2E4A68;
+  --accent-gradient: #2E4A68;
+  --primary-gradient: #2E4A68;
+  --header-gradient: #2E4A68;
 
   /* 功能色 */
-  --success-color: #34C759;
-  --warning-color: #FF9500;
-  --error-color: #FF3B30;
-  --info-color: #4F8EF7;
+  --success-color: #2E9E6B;
+  --warning-color: #C9764B;
+  --error-color: #B5442C;
+  --info-color: #2E4A68;
 
   /* 配送状态色 */
-  --status-pending: #FF9500;
-  --status-delivering: #4F8EF7;
-  --status-completed: #34C759;
+  --status-pending: #C9764B;
+  --status-delivering: #2E4A68;
+  --status-completed: #2E9E6B;
 
   /* 中性色 */
-  --text-primary: #1D1D1F;
-  --text-regular: #666666;
-  --text-secondary: #999999;
-  --text-placeholder: #C7C7CC;
+  --text-primary: #2B2A26;
+  --text-regular: #6E6A61;
+  --text-secondary: #A39E92;
+  --text-placeholder: #C9C4B8;
 
   /* 背景色 */
-  --bg-color: #F5F7FA;
+  --bg-color: #FAF7F0;
   --bg-white: #FFFFFF;
-  --bg-gray: #F5F5F5;
+  --bg-gray: #F4EFE4;
   --bg-card: #FFFFFF;
 
   /* 边框 */
-  --border-color: #E5E5EA;
-  --border-light: #F0F0F0;
+  --border-color: #EAE4D8;
+  --border-light: #F1ECE1;
 
   /* 间距 */
   --spacing-xs: 8rpx;
@@ -46,7 +55,7 @@ page {
   --spacing-xl: 48rpx;
 
   /* 圆角 */
-  --radius-sm: 8rpx;
+  --radius-sm: 12rpx;
   --radius-md: 16rpx;
   --radius-lg: 24rpx;
   --radius-xl: 32rpx;
@@ -60,11 +69,11 @@ page {
   --font-xl: 36rpx;
   --font-xxl: 40rpx;
 
-  /* 阴影 */
-  --shadow-sm: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8rpx 32rpx rgba(0, 0, 0, 0.08);
-  --shadow-primary: 0 8rpx 24rpx rgba(79, 142, 247, 0.25);
+  /* 阴影（极少，仅分层用） */
+  --shadow-sm: 0 2rpx 12rpx rgba(43, 42, 38, 0.04);
+  --shadow-md: 0 4rpx 20rpx rgba(43, 42, 38, 0.05);
+  --shadow-lg: 0 8rpx 32rpx rgba(43, 42, 38, 0.06);
+  --shadow-primary: 0 8rpx 24rpx rgba(46, 74, 104, 0.18);
 }
 
 /* 全局容器 */
@@ -72,6 +81,15 @@ page {
   background: var(--bg-color);
   min-height: 100vh;
   padding-bottom: 120rpx;
+}
+
+/*
+ * [2026-09-26] 自绘底栏（tabBar.custom = true）下，tab 页的根容器要**自己**留出导航条的高度：
+ * 原生 tabBar 会占掉视口，自绘的是浮在内容上（position: fixed），不留白最后一张卡片会被压住。
+ * 高度 = 100rpx 导航条 + 底部安全区 + 一点余量。用法：三个 tab 页的根 view 加这个类。
+ */
+.custom-tabbar-page {
+  padding-bottom: calc(200rpx + env(safe-area-inset-bottom));
 }
 
 /* 通用按钮 */

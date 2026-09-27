@@ -153,6 +153,23 @@ public class BarrelLedgerService {
             }
         }
 
+        // 2.5) [2026-09-26] 非桶装明细**不许报回桶**：上面只把 category=1 计进 delivered，
+        // 而 returned 是照收的 —— 于是瓶装水那行报"回桶 2"会走成 returned(2) > 占用(0)，
+        // 报错文案是「超过该客户当前持有数(0)」，配送员完全看不懂（混合单尤其容易踩：
+        // 完成页以前给每条明细都画回桶行、默认值就等于送出数）。
+        // 判据同样只认 BarrelScope —— 与上面 delivered 的过滤保持对称。
+        // 只拦"报了正数"的：0 是正常的（没回桶），不要把它也当成错误。
+        if (returnedByProduct != null) {
+            for (Map.Entry<Long, Integer> e : returnedByProduct.entrySet()) {
+                if (e.getKey() == null || e.getValue() == null || e.getValue() == 0) continue;
+                Product returnedProduct = productMapper.getById(e.getKey());
+                if (!BarrelScope.isBarrel(returnedProduct)) {
+                    throw new BusinessException((returnedProduct != null ? returnedProduct.getName() : "该商品")
+                            + "不涉及回桶（只有桶装水要回收空桶），请把它的回桶数改为 0 或更新小程序");
+                }
+            }
+        }
+
         // 3) 按商品逐个结算 over
         Set<Long> productIdSet = new LinkedHashSet<>();
         productIdSet.addAll(deliveredByProduct.keySet());

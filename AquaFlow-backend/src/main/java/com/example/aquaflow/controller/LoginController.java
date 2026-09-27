@@ -633,8 +633,13 @@ public class LoginController {
         String newAccessToken = jwtUtil.generateAccessToken(userId, userType, role, stationId);
 
         // #2: Refresh Token轮换 — 生成新的refresh token，废弃旧的
+        // ⚠️ [2026-09-26 真机事故] 这里**不能**改成 saveRefreshToken()（它会 deleteByUser 全清）：
+        //   客户端 401 时可能并发发起两次刷新，两次都会落一行新 token；
+        //   全清会让"客户端实际留下的那个 token"被另一次请求删掉 —— 登录态直接失效，只能重新登录。
+        //   按 token 精确删除则是幂等的：两次并发刷新各自留下一个可用 token，旧的那个被删掉。
+        //   同秒签发导致"两行同值"的根本原因已在 JwtUtil.generateRefreshToken 用 jti 消除。
         String newRefreshToken = jwtUtil.generateRefreshToken(userId, userType);
-        // 删除旧token记录
+        // 删除旧token记录（同值的重复行一并清掉，见 UserTokenMapper.findByRefreshToken 的说明）
         userTokenMapper.deleteByRefreshToken(refreshToken);
         // 保存新token
         saveRefreshToken(userId, userType, newRefreshToken);

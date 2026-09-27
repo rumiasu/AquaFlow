@@ -110,9 +110,6 @@
   gap: 20rpx;
 }
 
-.manager-entry-icon {
-  font-size: 48rpx;
-}
 
 .manager-entry-text {
   display: flex;
@@ -232,8 +229,9 @@
   color: var(--text-secondary);
 }
 
-/* 「算不出」（缺成本）与"有异常"用同一个警示色 —— 两者都表示"这个数别按 0 理解"。
-   正常态不套这个类：满屏红字会让真正需要看的那一格失去信号。**只管颜色，不改字号**。 */
+/* 「未填成本」（缺成本，见 _decorateProfit）与"有异常"用同一个警示色 ——
+   两者都表示"这个数别按 0 理解"。正常态不套这个类：满屏红字会让真正需要看的那一格失去信号。
+   **只管颜色，不改字号**。 */
 .stats-value.stats-warn {
   color: #d9534f;
 }
@@ -286,6 +284,23 @@
   font-size: 24rpx;
   color: #1976d2;
 }
+/* 标题行右侧那一簇（[2026-09-26 Wave1 轨道 G]「员工」改成可折叠后加的）：
+   摘要文字 + 展开/收起 + 「更多 ›」三者一行，别各自换行把标题挤掉。 */
+.section-head-right {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+/* 「配送员 N · 待审批 M」——**折叠时也必须在**（AGENTS §8.22：看不见 ≠ 没有） */
+.staff-summary {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+.section-toggle {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--primary-color);
+}
 
 .station-info-row {
   display: flex;
@@ -311,13 +326,14 @@
   color: #78909c;
   font-size: 26rpx;
 }
-/* 「编辑资料 ›」：水站资料页的入口（站名/电话/地址/坐标可直接改） */
-.station-edit {
+/* [2026-09-26 Wave1 轨道 G] 原 `.station-edit`（「编辑资料 ›」蓝色链接）随入口一起去掉，
+   换成一行**不可点**的灰字提示：本页只留水站摘要，改资料走「水站管理 → 水站资料」。
+   ⚠️ 别再把它改成可点跳转 —— 那正好把刚收掉的重复入口加回来。 */
+.station-edit-hint {
   display: block;
   margin-top: 16rpx;
-  font-size: 26rpx;
-  color: #1976d2;
-  font-weight: 500;
+  font-size: 24rpx;
+  color: var(--text-secondary);
 }
 /* 员工入口（2026-09-19 IA 重组）：本页保留完整的「配送员管理 / 绑定申请」列表与原地操作，
    站长端 pages/station-mgmt/staff/ 是更全的那一份（多了搜索、筛选、画像、新增），
@@ -398,6 +414,13 @@
   margin-top: 10rpx;
   font-size: 24rpx;
   color: #b0bec5;
+}
+/* 折叠态那一行（[2026-09-26 Wave1 轨道 G]）：有待审批时点名条数，
+   与标题行的 `.staff-summary` 一起保证"收起来也看得见有几条要办"。 */
+.staff-folded-hint {
+  padding: 8rpx 0 4rpx;
+  font-size: 26rpx;
+  color: var(--text-secondary);
 }
 .staff-item {
   display: flex;
@@ -500,10 +523,6 @@
   border-bottom: none;
 }
 
-.menu-icon {
-  font-size: 32rpx;
-  margin-right: 20rpx;
-}
 
 .menu-text {
   flex: 1;
@@ -557,6 +576,6 @@
 }
 
 .btn-login-secondary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--primary-gradient);
   margin-top: 20rpx;
 }

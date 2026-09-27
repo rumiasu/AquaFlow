@@ -1,6 +1,8 @@
 const { getTodayStats } = require('../../api/delivery')
 const { get, post } = require('../../utils/request')
 const { API, BINDING_STATUS } = require('../../config/api')
+// 自绘底栏（tabBar.custom=true）：本页是 tab 页，onShow 必须同步一次（见 utils/tabbar.js）
+const { syncTabBar } = require('../../utils/tabbar')
 
 Page({
   data: {
@@ -8,7 +10,8 @@ Page({
     userInfo: null,
     todayStats: {},
     // 站长三格（[2026-09-19] 按角色分叉，见 loadManagerStats）：
-    // 今日净利与单数（净利为 null 时要显示「算不出」）、桶异常 / 欠桶客户数
+    // 今日净利与单数（净利为 null = 有商品没填成本 → 显示「未填成本」+ 一行说明，
+    // 见 _decorateProfit）、桶异常 / 欠桶客户数
     todayProfit: null,
     // [2026-09-20 真机联调] 两个**失败标记**：接口拉不到时绝不能把两格显示成 0。
     // 原来失败只 console.warn，risk 保留默认值 { 0, 0 } —— 界面上「0 桶异常」「欠桶 0 户」
@@ -28,10 +31,21 @@ Page({
     staffList: [],
     bindApplications: [],
     mgmtActiveTab: 0,
+    /**
+     * 「员工」区块是否展开（[2026-09-26 Wave1 轨道 G]；docs/design/29 §5「员工列表可折叠」）。
+     *
+     * ⚠️ 默认**收起**，但**待审批申请一旦存在就自动展开一次**（见 loadBindApplications）——
+     * 折叠最危险的地方是"收起来 = 把待审批藏了"（AGENTS §8.22：看不见 ≠ 没有）。
+     * 用户自己点过「展开/收起」之后（`_staffTouched`）不再自动改他的选择，只靠标题行的
+     * 「待审批 M」把话说清楚（那一行**始终**可见，与展开与否无关）。
+     */
+    staffExpanded: false,
     canAccessBusiness: false
   },
 
   _initialized: false,
+  // 用户是否手动点过「展开/收起」：点过就不再被"有待审批就自动展开"打扰
+  _staffTouched: false,
 
   onLoad() {
     this._initialized = true
@@ -39,6 +53,8 @@ Page({
   },
 
   onShow() {
+    // 自绘底栏：角色变了（站长 ↔ 配送员）底栏项数也跟着变，所以每次 onShow 都重算一遍
+    syncTabBar(this, '/pages/mine/index')
     if (!this._initialized) {
       this.checkLogin()
       if (this.data.isLogin) {
@@ -102,8 +118,8 @@ Page({
   /**
    * 今日统计 —— **按角色取两个不同来源**（[2026-09-19]）：
    *   · 配送员：`/api/delivery/stats/today`（backend 按**人**统计完成/配送中/回桶）；
-   *   · 站长：净利走毛利端点（按**站**、按下单时间），异常/欠桶走另外两个站长只读端点。
-   * ⚠️ 站长分支**不能**去请求毛利端点以外的东西来凑数：毛利端点带 @RequireRole("STATION_MANAGER")，
+   *   · 站长：净利走利润端点（按**站**、按下单时间），异常/欠桶走另外两个站长只读端点。
+   * ⚠️ 站长分支**不能**去请求利润端点以外的东西来凑数：利润端点带 @RequireRole("STATION_MANAGER")，
    * 配送员调用只会拿到一个权限错误（不是"显示 0"）。
    */
   async loadStats(isManager) {
@@ -136,7 +152,7 @@ Page({
     } else {
       // 取不到就给"—"而不是 0：0 会被读成"今天一分没赚"
       console.warn('[Mine] 今日净利加载失败:', profitRes.reason && profitRes.reason.message)
-      next.todayProfit = { netProfitText: '—', netProfitWarn: false, orderCount: '—' }
+      next.todayProfit = { netProfitText: '—', netProfitWarn: false, costMissing: false, orderCount: '—' }
     }
 
     const risk = { barrelExceptionCount: 0, owedCustomerCount: 0, barrelExceptionFailed: false, owedCustomerFailed: false }
@@ -173,15 +189,22 @@ Page({
   /**
    * 净利 → 展示模型。
    *
-   * ⚠️ `netProfit` 为 null = 有商品没填进货成本，**必须显示「算不出」**：
-   * 把它当 0 相减会让站长以为自己净赚了整整一个售价（同毛利页的判据）。
+   * ⚠️ `netProfit` 为 null = 有商品没填进货成本，**必须显示「未填成本」**：
+   *   · 把它当 0 相减会让站长以为自己净赚了整整一个售价（同利润报表页的判据）；
+   *   · 只说「算不出」等于让站长自己猜原因。这一格就长在首页上，
+   *     [2026-09-26 产品口径] 要求的是"没填成本就说没填成本、算不出来的利润不给数字"，
+   *     **不是**把这一格藏起来（藏了他只会以为功能没了）。
+   *   · 字段缺失（undefined，旧版后端）显示「—」：那是"没数"，不能编成"你没填成本"。
    * 金额格式化放在 js 里做（wxml 不能调方法）。
    */
   _decorateProfit(d) {
-    const isNull = d.netProfit === null || d.netProfit === undefined
+    const missing = d.netProfit === null
+    const unknown = d.netProfit === undefined
     return {
-      netProfitText: isNull ? '算不出' : '¥' + Number(d.netProfit).toFixed(2),
-      netProfitWarn: isNull,
+      netProfitText: missing ? '未填成本' : (unknown ? '—' : '¥' + Number(d.netProfit).toFixed(2)),
+      netProfitWarn: missing || unknown,
+      // 缺成本才多显示一行说明（见 wxml）；「没拉到数据」不给这种解释，那是另一回事
+      costMissing: missing,
       orderCount: Number(d.orderCount) || 0
     }
   },
@@ -194,7 +217,7 @@ Page({
       String(d.getDate()).padStart(2, '0')
   },
 
-  /** 点「今日净利 / 今日单数」→ 毛利页，并把期间锁定为今天（页面据 range=today 设 from/to）。 */
+  /** 点「今日净利 / 今日单数」→ 利润报表页，并把期间锁定为今天（页面据 range=today 设 from/to）。 */
   onGoTodayProfit() {
     wx.navigateTo({ url: '/pages/station-mgmt/gross-profit/index?range=today' })
   },
@@ -268,17 +291,20 @@ Page({
       // createTime / applyNote，此前前端读 name / phone / applyTime / remark，
       // 字段全不匹配 → 所有申请人都显示成「申请人 · 暂无电话 · 今天」，无法分辨。
       // 这里统一归一到视图字段名（真实字段优先，兼容旧写法）。
-      this.setData({
-        bindApplications: (r.data || []).map(a => ({
-          ...a,
-          name: a.staffName || a.nickname || a.name || '',
-          phone: a.staffPhone || a.phone || '',
-          applyTime: a.createTime || a.applyTime || '',
-          applyNote: a.applyNote || a.remark || a.skill || '',
-          _loading: false,
-          _firstChar: firstChar(a.staffName || a.nickname || a.name || a.nickName || '申')
-        }))
-      })
+      const list = (r.data || []).map(a => ({
+        ...a,
+        name: a.staffName || a.nickname || a.name || '',
+        phone: a.staffPhone || a.phone || '',
+        applyTime: a.createTime || a.applyTime || '',
+        applyNote: a.applyNote || a.remark || a.skill || '',
+        _loading: false,
+        _firstChar: firstChar(a.staffName || a.nickname || a.name || a.nickName || '申')
+      }))
+      const next = { bindApplications: list }
+      // [2026-09-26] 有待审批申请就**自动展开一次**「员工」区块：折叠的默认态不能把
+      // 「有人等着我同意」藏起来（AGENTS §8.22 同款判据）。站长手动收过就不再自动展开。
+      if (list.length > 0 && !this._staffTouched) next.staffExpanded = true
+      this.setData(next)
       this.syncStaffUnbindFlags()
     } catch (e) {
       console.error('[Mine] 绑定申请加载失败:', e)
@@ -308,7 +334,12 @@ Page({
     wx.navigateTo({ url: '/pages/station-mgmt/staff/index' })
   },
 
-  /** 水站资料（站名/电话/地址/坐标）——2026-09-19 起有真页面可改，不再只是只读展示 */
+  /**
+   * 水站资料页（站名/电话/地址/坐标）。
+   * ⚠️ [2026-09-26 Wave1 轨道 G] 本页的「编辑资料 ›」入口已按去重要求**收掉**（水站只留摘要，
+   * 编辑走「水站管理 → 水站资料」；目标页与端点在宫格那一格里原样还在）。
+   * 处理函数**按 00 卡「先保留处理函数与入口，只调布局」保留**，不要顺手删。
+   */
   onGoStationInfo() {
     wx.navigateTo({ url: '/pages/station-mgmt/station-info/index' })
   },
@@ -379,6 +410,18 @@ Page({
     this.setData({ mgmtActiveTab: Number(e.currentTarget.dataset.tab || 0) })
   },
 
+  /**
+   * 「员工」区块展开 / 收起（[2026-09-26 Wave1 轨道 G]）。
+   *
+   * ⚠️ 收起**只是折叠渲染**，不改任何数据、不重新请求：解除、同意、拒绝这些有副作用的动作
+   * 在展开后照旧原地可点（本卡的要求是"收起来时仍可达、仍能审批"）。
+   * `_staffTouched` 一置位，loadBindApplications 就不再自动展开（尊重要收起来的用户）。
+   */
+  onToggleStaff() {
+    this._staffTouched = true
+    this.setData({ staffExpanded: !this.data.staffExpanded })
+  },
+
   // 站长单方解除配送员
   async onRemoveStaff(e) {
     const id = e.currentTarget.dataset.id
@@ -386,7 +429,7 @@ Page({
     wx.showModal({
       title: '解除配送员',
       content: '确定解除该配送员？该操作不可撤销。',
-      confirmColor: '#FF3B30',
+      confirmColor: '#B5442C',
       confirmText: '解除',
       success: async (res) => {
         if (!res.confirm) return
@@ -455,6 +498,8 @@ Page({
         if (res.confirm) {
           const app = getApp()
           app.logout()
+          // 折叠态与"手动收过"的标记一起复位：换个人登录时不该继承上一个人的选择
+          this._staffTouched = false
           this.setData({
             isLogin: false,
             userInfo: null,
@@ -463,7 +508,8 @@ Page({
             risk: { barrelExceptionCount: 0, owedCustomerCount: 0 },
             stationInfo: null,
             staffList: [],
-            bindApplications: []
+            bindApplications: [],
+            staffExpanded: false
           })
           wx.showToast({ title: '已退出登录', icon: 'success' })
         }

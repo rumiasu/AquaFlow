@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>本类盯四件事：</p>
  * <ol>
- *   <li><b>未支付的微信单不进任何一张待办列表</b>（站长待分配、配送员待接单），
+ *   <li><b>未支付的微信单不进任何一张待办列表</b>（站长待分配、站长未分配），
  *       也不能被接单 / 被分配（列表看不到但 id 可编造，所以业务闸门必须另守一道）；</li>
  *   <li><b>支付成功后自动出现</b>——判据是查询时算的，不靠推送、不需要回填；</li>
  *   <li><b>货到付款是例外</b>：客户在本站开通货到付款后，现金单下单即进列表；
@@ -27,6 +27,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li><b>水票单在下单那一刻就已经扣票并记已付</b>（票不足则整笔下单失败、订单不存在），
  *       否则"水票算已付"就只是句口号 —— 客户端不补那次支付请求时，货送出去而票一分没动。</li>
  * </ol>
+ *
+ * <p>⚠️ [2026-09-26 产品裁定] 叠加了一条**独立的**规则：<b>未分配的单不进配送员视野、
+ * 他也不许自己接走</b>（站长必须先把单派给他）。所以本类里"配送员看得到 / 接得动"的断言
+ * 都多了一步「站长派单」—— 两条规则叠加后的正确链路是：
+ * 收款（或现金单）→ 站长派单 → 配送员接单 → 配送。</p>
  */
 @DisplayName("先付款后派单：未支付的单不推给站长/配送员，也不能接单（货到付款与水票例外）")
 class PaidBeforeDispatchIntegrationTest extends AbstractIntegrationTest {
@@ -89,8 +94,14 @@ class PaidBeforeDispatchIntegrationTest extends AbstractIntegrationTest {
 
         assertFalse(inList("/api/delivery/orders/station-pending", tokenMgr, order),
                 "没收到钱的单不该出现在站长待分配里");
-        assertFalse(inList("/api/delivery/orders/pending", tokenDriver, order),
-                "没收到钱的单不该出现在配送员待接单里");
+        assertFalse(inList("/api/delivery/orders/pending", tokenMgr, order),
+                "没收到钱的单也不该出现在站长的「未分配」列表里");
+        // [2026-09-26 产品裁定] 配送员**没有**"未分配列表"这个入口了：
+        // 「如果是未分配的订单，不应该直接显示给配送员吧」—— 列表看不到，接单也要另守一道。
+        assertNotEquals(0, get("/api/delivery/orders/pending", tokenDriver).code(),
+                "未分配列表是站长专属，配送员读不到");
+        assertFalse(inList("/api/delivery/orders/assigned-to-me", tokenDriver, order),
+                "既没派给他、也还没收钱的单，配送员那边更不该有");
 
         // 列表看不到 ≠ 接口调不动：id 是客户端可编造的，所以业务闸门要另守一道
         assertNotEquals(0, post("/api/delivery/orders/" + order + "/accept", tokenDriver, "{}").code(),
@@ -109,10 +120,16 @@ class PaidBeforeDispatchIntegrationTest extends AbstractIntegrationTest {
 
         assertTrue(inList("/api/delivery/orders/station-pending", tokenMgr, order),
                 "收到钱之后必须自动出现在站长待分配里（判据是查询时算的，不靠推送回填）");
-        assertTrue(inList("/api/delivery/orders/pending", tokenDriver, order),
-                "收到钱之后必须自动出现在配送员待接单里");
+        assertTrue(inList("/api/delivery/orders/pending", tokenMgr, order),
+                "收到钱之后也要出现在站长的「未分配」列表里（等站长派单）");
+
+        // [2026-09-26] 配送员只能接**派给自己**的单：链路多一步「站长派单」
+        assertEquals(0, post("/api/delivery/orders/assign/" + order, tokenMgr,
+                "{\"deliveryStaffId\":" + driver + "}").code(), "已支付的单调派配送员应成功");
+        assertTrue(inList("/api/delivery/orders/assigned-to-me", tokenDriver, order),
+                "派给他之后，配送员才在自己的列表里看到这一单");
         assertTrue(post("/api/delivery/orders/" + order + "/accept", tokenDriver, "{}").isSuccess(),
-                "已支付的单应可接单");
+                "已支付且已派给他的单应可接单");
     }
 
     /* ==================================================================
@@ -129,9 +146,15 @@ class PaidBeforeDispatchIntegrationTest extends AbstractIntegrationTest {
                 "现金单下单即待收款（钱要当面收）");
         assertTrue(inList("/api/delivery/orders/station-pending", tokenMgr, order),
                 "货到付款是例外：钱还没到也要推进站长视野（否则没人去送、也就收不到钱）");
-        assertTrue(inList("/api/delivery/orders/pending", tokenDriver, order), "配送员同样看得到");
+        assertTrue(inList("/api/delivery/orders/pending", tokenMgr, order), "站长的未分配列表里同样看得到");
+        // [2026-09-26] 现金单也一样要**先派单再接单**：站长没派的单不进配送员视野，也接不走
+        assertNotEquals(0, post("/api/delivery/orders/" + order + "/accept", tokenDriver, "{}").code(),
+                "未派给配送员的单，配送员不得自己接走");
+        assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", order), "被拒后状态不得变");
+        assertEquals(0, post("/api/delivery/orders/assign/" + order, tokenMgr,
+                "{\"deliveryStaffId\":" + driver + "}").code(), "站长派单应成功");
         assertTrue(post("/api/delivery/orders/" + order + "/accept", tokenDriver, "{}").isSuccess(),
-                "货到付款单应可直接接单");
+                "派给他之后，货到付款单可直接接单");
     }
 
     @Test

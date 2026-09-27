@@ -6,6 +6,7 @@ import com.example.aquaflow.entity.CustomerBarrelAsset;
 import com.example.aquaflow.entity.CustomerBarrelInTransit;
 import com.example.aquaflow.entity.CustomerBarrelOver;
 import com.example.aquaflow.entity.DepositRecord;
+import com.example.aquaflow.entity.OrderItem;
 import com.example.aquaflow.entity.Product;
 import com.example.aquaflow.constant.DepositType;
 import com.example.aquaflow.exception.BusinessException;
@@ -17,10 +18,12 @@ import com.example.aquaflow.mapper.CustomerBarrelOverMapper;
 import com.example.aquaflow.mapper.CustomerDepositAccountMapper;
 import com.example.aquaflow.mapper.DepositRecordMapper;
 import com.example.aquaflow.mapper.InventoryMapper;
+import com.example.aquaflow.mapper.OrderItemMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.service.BarrelLedgerService;
 import com.example.aquaflow.service.BarrelService;
 import com.example.aquaflow.service.CustomerRiskService;
+import com.example.aquaflow.util.BarrelScope;
 import com.example.aquaflow.util.PriceUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -64,6 +67,10 @@ public class BarrelServiceImpl implements BarrelService {
 
     @Autowired
     private CustomerBarrelInTransitMapper customerBarrelInTransitMapper;
+
+    /** 完成配送页的回桶计划要按订单明细逐行给默认值（见 {@link #returnPlanOfOrder}） */
+    @Autowired
+    private OrderItemMapper orderItemMapper;
 
     /** 桶账唯一写入口（权益/批次/over），退桶核销必须走它 */
     @Autowired
@@ -223,6 +230,59 @@ public class BarrelServiceImpl implements BarrelService {
             result.add(map);
         }
         return result;
+    }
+
+    @Override
+    public List<ReturnPlanItem> returnPlanOfOrder(Long orderId, Long customerId, Long stationId) {
+        List<ReturnPlanItem> plan = new ArrayList<>();
+        if (orderId == null || customerId == null || stationId == null) {
+            return plan;
+        }
+        List<OrderItem> items = orderItemMapper.listByOrderId(orderId);
+        if (items == null || items.isEmpty()) {
+            return plan;
+        }
+
+        // 权益（已到手）与 over（可正可负）都按商品取；两者之和 = **占用** = 客户手上实际有几个桶，
+        // 也正是服务端的还桶物理上限（BarrelLedgerService.applyDelivery 的 returned <= 占用）。
+        Map<Long, Integer> rightByProduct = new HashMap<>();
+        List<CustomerBarrelAsset> assets = customerBarrelAssetMapper.listByCustomerAndStation(customerId, stationId);
+        if (assets != null) {
+            for (CustomerBarrelAsset a : assets) {
+                if (a.getProductId() == null) continue;
+                rightByProduct.merge(a.getProductId(), a.getQuantity() == null ? 0 : a.getQuantity(), Integer::sum);
+            }
+        }
+        Map<Long, Integer> overByProduct = new HashMap<>();
+        List<CustomerBarrelOver> overs = customerBarrelOverMapper.listByCustomerAndStation(customerId, stationId);
+        if (overs != null) {
+            for (CustomerBarrelOver o : overs) {
+                if (o.getProductId() == null || o.getOverQty() == null) continue;
+                overByProduct.put(o.getProductId(), o.getOverQty());
+            }
+        }
+
+        for (OrderItem it : items) {
+            if (it == null || it.getId() == null || it.getProductId() == null) continue;
+            // 瓶装水 / 饮水机不进回桶计划 —— 它们既没有押金条也没有还桶入口（判据只认 BarrelScope）
+            Product product = productMapper.getById(it.getProductId());
+            if (!BarrelScope.isBarrel(product)) continue;
+
+            int sent = it.getQuantity() == null ? 0 : it.getQuantity();
+            int occupied = rightByProduct.getOrDefault(it.getProductId(), 0)
+                    + overByProduct.getOrDefault(it.getProductId(), 0);
+            // 「默认回桶数」= 客户手上的旧桶，且不超过本行送出桶数（交换是 1:1 的）。
+            // 本单新买的押金桶此刻还在配送中(PENDING)，不在权益里 —— 所以不需要额外减一次。
+            // occupied 可能是负数（多还了桶寄存在水站），故先钳到 0：负数没有"默认回桶"可言。
+            int suggested = Math.min(sent, Math.max(0, occupied));
+
+            ReturnPlanItem row = new ReturnPlanItem();
+            row.setOrderItemId(it.getId());
+            row.setSentQty(sent);
+            row.setSuggestedQty(suggested);
+            plan.add(row);
+        }
+        return plan;
     }
 
     @Override

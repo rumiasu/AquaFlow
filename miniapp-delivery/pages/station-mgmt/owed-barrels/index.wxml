@@ -22,7 +22,7 @@
       <text class="customer-name">{{item._name}}</text>
       <text class="days {{item._urgent ? 'urgent' : ''}}">{{item._daysText}}</text>
     </view>
-    <view class="info-row">
+    <view class="info-row product-row">
       <text class="product">{{item._product}}</text>
       <text class="qty">欠 {{item.overQty}} 个</text>
     </view>

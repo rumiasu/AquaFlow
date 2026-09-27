@@ -83,7 +83,7 @@ const request = (options) => {
 function toNetworkError(err) {
   const raw = (err && (err.errMsg || err.message)) || ''
   if (/time\s*out/i.test(raw)) {
-    return new Error('网络超时，请确认手机与后端在同一网络后重试')
+    return new Error('网络超时，请检查手机网络后重试')
   }
   if (/fail/i.test(raw)) {
     return new Error('网络连接失败，请检查网络后重试')

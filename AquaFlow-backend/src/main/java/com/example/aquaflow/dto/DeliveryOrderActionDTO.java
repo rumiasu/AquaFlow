@@ -109,14 +109,25 @@ public final class DeliveryOrderActionDTO {
     }
 
     /**
-     * reportOrder：配送员上报「非桶账类」配送异常（客户不接电话 / 地址找不到 / 客户拒收 / 水桶破损 / 其他）。
-     * <p>它与「回桶差异」是两条线：回桶差异走 {@code order_barrel_exception} 与站长补偿流程，
-     * 这里只做上报留痕 + 通知站长，不改订单状态、不动任何账。</p>
+     * reportOrder：配送员上报「配送现场问题」（客户不接电话 / 地址找不到 / 客户拒收 / 水桶破损 / 其他）。
+     *
+     * <p>⚠️ [2026-09-27 改] 它**不再是"只留痕"**：带 {@code reasonKey} 时会在
+     * {@code order_barrel_exception} 落一条 {@code STAFF_RECORDED} 的异常单，进站长"待处置"。
+     * 产品口径原话：「配送遇到问题，不应该是异常单处理吗」—— 配送员能识别现场问题，
+     * 而在这之前系统只收"回桶数量对不上"，现场问题只能靠站长事后手工补录。</p>
+     *
+     * <p>{@code reasonKey} 取值为 {@code constant/ExceptionCategory.ReportReason} 的常量
+     * （**不由客户端传类别**：配送员分不清"当场拒收"与"收了但不给钱"，映射只有服务端一份）。
+     * 省略 {@code reasonKey} 时仍按旧行为只写 {@code special_note}（兼容未更新的客户端）。</p>
      */
     @Data
     public static class Report {
         @NotNull(message = "异常原因必填")
         private String reason;
+        /** 现场原因 key（见 ExceptionCategory.ReportReason）：给了就建异常单，省略则只留痕。 */
+        private String reasonKey;
+        /** 配送员可补一句说明，写进异常单备注。 */
+        private String note;
     }
 
     // ==================== complete（回桶明细，Map 直传 service，需结构化） ====================
@@ -172,8 +183,11 @@ public final class DeliveryOrderActionDTO {
          * 配送员**上报的楼层**（选填，v43）：有的填、没有的不填。
          *
          * <p>不填（null）→ 楼层补贴沿用**地址**里的楼层；填了 → 以他上报的为准，
-         * 与地址不一致时在收益明细里标记。照片不强制，但可传（{@code order_image.type=3} 楼层凭证），
-         * 供站长与客户对峙时核对（见 docs/design/18 §4）。</p>
+         * 与地址不一致时在收益明细里标记。照片不强制，但可传（{@code order_image.type=3} 楼梯凭证，
+         * [2026-09-26] 由"楼层凭证"改名），供站长与客户就楼层/爬楼有争议时核对（见 docs/design/18 §4）。</p>
+         *
+         * <p>⚠️ 完成配送页只在**有争议**时才让配送员看到这一项（默认收起；地址没写清有没有电梯时自动展开），
+         * 所以这里收到 null 是**常态**，不是"他没填就是漏了"。</p>
          *
          * <p>⚠️ 同样必须同步 {@code DeliveryController.toCompleteParams} —— 漏了不会报错，
          * 只会静默丢掉上报值（本文件里 {@code collected} 就是这么丢过一次，见上面的注释）。</p>

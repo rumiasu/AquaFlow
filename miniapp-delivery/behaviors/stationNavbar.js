@@ -53,11 +53,10 @@ module.exports = Behavior({
     stationPanelShow: false,
     stationPanelLoading: false,
     stationPanelItems: [],
-    // 未完成 / 已完成两份源数据（开关切换时在 js 里合成 stationPanelItems，见 onPanelToggleAll）
+    // 未完成 / 已完成两份源数据（切页签时在 js 里合成 stationPanelItems，见 switchPanelTab）
     stationPanelPending: [],
     stationPanelDone: [],
     stationPanelShowAll: false,
-    stationPanelToggleText: '',
     stationPanelSummary: '',
     // 「下一步」那句话（后端下发，三种站况三句 —— 见 StationSetupGuideService#onlineHintOf）。
     // 单独一个字段而不是并进 summaryText：summaryText 是"还差几项"的计数，这句是"接下来做什么"。
@@ -152,10 +151,9 @@ module.exports = Behavior({
         stationPendingCount: r.pendingCount || 0,
         stationPanelPending: pending,
         stationPanelDone: done,
-        // 渲染用的那一份：**跟着当前开关走**（见 onPanelToggleAll）。
+        // 渲染用的那一份：**跟着当前页签走**（见 switchPanelTab）。
         // ⚠️ 在 js 里拼好、wxml 只渲染 —— 别写成 `wx:for="{{showAll ? a : b}}"`。
         stationPanelItems: this.data.stationPanelShowAll ? pending.concat(done) : pending,
-        stationPanelToggleText: this.toggleTextOf(done.length, this.data.stationPanelShowAll),
         stationPanelSummary: pending.length ? (r.summaryText || '') : '',
         stationPanelOnlineHint: r.onlineHint || '',
         stationPanelError: '',
@@ -164,31 +162,24 @@ module.exports = Behavior({
     },
 
     /**
-     * 「显示已配好的 N 项 / 只看没配好的」那个开关的文案。**在 js 里拼**：
-     * wxml 里做带 `+` 的三元拼接既容易踩解析器（见 AGENTS §6），也不好读。
-     * 一条已完成的都没有时返回空串 → 模板据此不渲染这个开关（没什么可切的）。
-     */
-    toggleTextOf(doneCount, showAll) {
-      if (!doneCount) return ''
-      return showAll ? '只看没配好的' : '显示已配好的 ' + doneCount + ' 项'
-    },
-
-    /**
-     * 小框里切换「只看待填 / 显示全部」。
+     * 小框顶部「待填 / 已配好」两个页签。
      *
-     * [2026-09-24 产品要求]「即使是已经填写过的项，也应该通过点击按钮来切回来显示」——
-     * 原来小框**只列未完成项**，配好的项查不到，站长想确认"我到底配过没"没有入口。
-     * ⚠️ 一次 setData 把开关与列表一起改（见 setupPatchOf 的 ⚠️），中间不要插第二次。
+     * [2026-09-24 产品反馈]「待上线点击后，没法看到已完成的项 —— 我填错了，想回去重新填却没了，
+     * 只能回去设置里找」。原因有两个，这次一起修：
+     *   ① 上一版的开关在**列表下面**（summary 与"下一步"之下）的一句灰字里，实测发现不了 → 挪到列表上方做成页签；
+     *   ② 已配好的行右侧写的是「已配好」这个**状态标签**，看着不可点 → 改成「去修改 ›」。
      */
-    onPanelToggleAll() {
-      if (!(this.data.stationPanelDone || []).length) return
-      const showAll = !this.data.stationPanelShowAll
+    onPanelShowPending() { this.switchPanelTab(false) },
+    onPanelShowDone() { this.switchPanelTab(true) },
+
+    switchPanelTab(showAll) {
+      if (showAll === this.data.stationPanelShowAll) return
       const pending = this.data.stationPanelPending || []
       const done = this.data.stationPanelDone || []
+      // ⚠️ 一次 setData 把开关与列表一起改（见 setupPatchOf 的 ⚠️），中间不要插第二次
       this.setData({
         stationPanelShowAll: showAll,
-        stationPanelItems: showAll ? pending.concat(done) : pending,
-        stationPanelToggleText: this.toggleTextOf(done.length, showAll)
+        stationPanelItems: showAll ? pending.concat(done) : pending
       })
     },
 

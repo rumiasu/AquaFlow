@@ -18,14 +18,33 @@ Page({
     from: 'detail',
     orderInfo: null,
     orderLoaded: false,
+    /** 回桶核对行 —— **只含桶装水明细**（后端 barrelItem=true），瓶装水/饮水机不进这一块 */
     items: [],
+    /** 本单有没有要核对回桶的明细；false 时整块不渲染（瓶装水单没有"回桶"这回事） */
+    hasBarrelItems: false,
+    /** 有押金且有旧桶回收建议时，明确说明默认数不含本单新付押金桶 */
+    hasDepositOldBarrelHint: false,
+    /** 顶部副标题：没有回桶这件事时不能还说"核对回桶后确认完成" */
+    successSubtitle: '核对回桶后确认完成',
     noteText: '',
+    // 客户卡（[2026-09-26] 卡片式重排）：这两个值在 loadOrder 里算好，wxml 不做拼接/兜底
+    contactPhone: '',
+    addressText: '',
+    // 送达凭证（原名「签收凭证」，[2026-09-26] 改名）：**客户不一定在现场签收**，
+    // 所以不要求签字，照片只证明"水送到了"。上传 type=1（正常送达），与后端 order_image.type 一致。
     photos: [],
     uploading: false,
-    // v43：楼层数（选填）+ 楼层凭证照片（不强制，和客户对峙时用）
+    // v43：楼层数（选填）+ 楼梯凭证照片（有争议时用；不影响向客户收的楼层费）
     reportedFloor: '',
     floorPhotos: [],
     floorUploading: false,
+    /**
+     * 楼层块是否展开（[2026-09-26] 产品口径：楼层一般不会"不清楚"，改成**有争议才展开**）。
+     * 两种途径展开：① 载入时发现**地址没写清有没有电梯**（见 elevatorUnknown）；② 点「楼梯有争议」。
+     */
+    floorBlockOpen: false,
+    /** 地址有楼层、但 `addressHasElevator` 是空（三态里的"没确认过"，见 utils/address.js） */
+    elevatorUnknown: false,
     isCashOnDelivery: false,
     // 本单**是否还要现场收钱**（后端 needCollect 投影：现金单且未付）。
     // 与 isCashOnDelivery 分开：现金单付过款之后就不该再问一次"收了没"（契约 C1）。
@@ -38,7 +57,7 @@ Page({
     // 备货情况（后端 stockPrep 投影，契约 C4）
     stockPrep: null,
     stockPrepText: '',
-    // 「更多（选填）」：备注 / 签收照片 / 楼层凭证（契约 C2：正常路径简短，异常与选填再展开）
+    // 「更多（选填）」：备注 / 楼层与楼梯凭证（契约 C2：正常路径简短，异常与选填再展开）
     showMore: false,
     // 防连点：提交在途时不再发第二次（服务端有状态 CAS 兜底，但第二次会让已经成功的人看到报错）
     submittingComplete: false,
@@ -70,17 +89,48 @@ Page({
 
       const isFirstBarrelOrder = order.firstBarrelOrder === true
       const orderItems = order.items || []
-      const items = orderItems.map(item => ({
-        id: item.id,
-        productName: item.productNameSnapshot || item.productName || '未知商品',
-        brand: item.brandSnapshot || '',
-        spec: item.specSnapshot || '',
-        expected: isFirstBarrelOrder ? 0 : (item.quantity || 0),
-        actual: isFirstBarrelOrder ? 0 : (item.quantity || 0),
-        discrepancy: 0,
-        reasons: [],
-        reasonQtySum: 0
-      }))
+      // 回桶只对**桶装水**成立（判据由后端下发 `barrelItem`，来自 util/BarrelScope 这一个实现）。
+      // 以前这里把每条明细都画成回桶行、默认值还等于送出数，两个后果：
+      //   · 瓶装水 / 饮水机被提交成"回桶 N" → 桶账的物理上限（占用 0）直接拒掉整笔完成配送，
+      //     报错是「回收空桶数(2)超过该客户当前持有数(0)」，配送员看不懂；
+      //   · 混合单（桶装水 + 瓶装水）必踩 —— 只要不手动把瓶装水那行改成 0 就提交不了。
+      const barrelItems = orderItems.filter(it => it.barrelItem === true)
+      // 首次产生押金的单（含桶装水 + 其他商品的混合单）本次没有旧桶可回：
+      // 页面虽展示说明，但不创建回桶输入项，也不向完成接口发送回桶明细。
+      // 普通混合续购仍由后端 suggestedReturnQty 决定旧桶默认回收数。
+      const items = isFirstBarrelOrder ? [] : barrelItems.map(item => {
+        // 默认回桶数 = 后端算好的 `suggestedReturnQty`（= 客户手上**已有的旧桶**，
+        // 上限「占用 = 权益 + over」且不超过送出桶数）。
+        //
+        // ⚠️ [2026-09-26 产品口径] **本单新买押金的桶不参与回收**：买桶是买桶、换水是换水，
+        // 只有"旧桶换新水"那部分默认回（原话：「新付押金买的桶不需要计入回收，
+        // 但是非本次订单产生押金的桶则默认计入回收」）。首单全是新买的押金桶 ⇒ 默认 0；
+        // 混合单只默认回客户原本就有的那几个。这个减法**只在后端算**
+        // （BarrelService#returnPlanOfOrder），前端不自己推。
+        const suggested = item.suggestedReturnQty || 0
+        return {
+          id: item.id,
+          productName: item.productNameSnapshot || item.productName || '未知商品',
+          brand: item.brandSnapshot || '',
+          spec: item.specSnapshot || '',
+          /**
+           * 本行**送出**桶数 —— 只用于显示「送出 N 桶」。
+           * ⚠️ 不要拿它当 `expected`：那是「该回几桶」，本单新买的押金桶不该回，
+           * 用送出数当 expected 会立刻触发"少回收 N 桶、请填异常原因"（首单必卡）。
+           */
+          sentQty: item.quantity || 0,
+          /** 该回几桶（后端口径：客户手上的旧桶） */
+          expected: suggested,
+          /** 实际回桶数，默认 = 该回数；配送员可改（改小要填少桶原因） */
+          actual: suggested,
+          discrepancy: 0,
+          reasons: [],
+          reasonQtySum: 0
+        }
+      })
+      const hasDepositOldBarrelHint = !isFirstBarrelOrder
+        && Number(order.depositAmount || 0) > 0
+        && items.some(item => item.expected > 0)
 
       // 收款口径一律取**后端投影**（Orders.getNeedCollect / getPayMethodText / getPayStateText）：
       // 前端此前自己按 1/2/3 重算（`pm !== 1 && ps !== 2`），水票未付会被显示成「货到付款」——
@@ -88,21 +138,46 @@ Page({
       const needCollect = order.needCollect === true
       const prep = order.stockPrep || null
 
+      // 楼层 / 电梯（[2026-09-26]）：`addressHasElevator` 是**三态**（null = 客户没确认过 /
+      // 0 = 无电梯 / 1 = 有电梯，见 utils/address.js）。**只有"知道楼层但电梯未知"**才算
+      // "客户没写清楚" —— 那种单最容易就楼层补贴扯皮，所以自动把楼层块露出来；
+      // 有电梯 / 明确无电梯 / 连楼层都没填的普通单保持收起（产品口径：楼层一般没有不清楚的现象）。
+      const floorRaw = order.addressFloor
+      const floorKnown = floorRaw !== null && floorRaw !== undefined && floorRaw !== ''
+      const liftRaw = order.addressHasElevator
+      const liftKnown = liftRaw === 0 || liftRaw === '0' || liftRaw === 1 || liftRaw === '1'
+      const elevatorUnknown = floorKnown && !liftKnown
+
       this.setData({
         orderInfo: order,
         orderLoaded: true,
         isFirstBarrelOrder,
         items,
+        hasBarrelItems: items.length > 0,
+        hasDepositOldBarrelHint,
+        // 首单 / 纯瓶装水单都没有"核对回桶"这一步，副标题不能再说"核对回桶后确认完成"
+        successSubtitle: (isFirstBarrelOrder || items.length === 0) ? '确认交付后完成' : '核对回桶后确认完成',
         isCashOnDelivery: needCollect,
         needCollect,
         collected: null,          // 交付事实由人确认，不预选
         collectedChosen: false,
         stockPrep: prep,
         stockPrepText: this._prepText(prep),
+        // 客户卡上的两个可点动作（[2026-09-26]）：与订单详情页同一套口径 ——
+        // 电话取 receiverPhone（订单快照）优先：跨站履约单的 customerPhone 是**刻意置空**的
+        //（画像归归属站，见 util/CustomerProfileMask），快照里的收件人电话照常可用。
+        contactPhone: order.receiverPhone || order.customerPhone || '',
+        addressText: order.addressSnapshot || order.addressDetail || '',
         // 楼层数**默认带出地址里的楼层**（客户填过就省得配送员再输一遍）；
         // 地址没填就留空 —— 有楼层才填，没有就不填（空 = 沿用地址，两边都没有就不补）。
-        reportedFloor: order.addressFloor === null || order.addressFloor === undefined
-          ? '' : String(order.addressFloor)
+        reportedFloor: floorKnown ? String(floorRaw) : '',
+        elevatorUnknown,
+        // 电梯未知 → 直接展开楼层块（并让 wxml 说明为什么展开）；否则收起，等"楼梯有争议"再展开
+        floorBlockOpen: elevatorUnknown,
+        // ⚠️ 楼层块在「更多」里面：只置 floorBlockOpen 而不同时展开「更多」= **等于没展开**
+        //    （站长/配送员根本看不到那一块）。只有"电梯未知"这一种自动展开，所以这里只跟着它走；
+        //    普通单仍然保持"更多"收起 —— 正常送达只有商品 + 回桶 + 收钱（契约 C2）。
+        showMore: elevatorUnknown
       })
     } catch (err) {
       this.setData({ orderLoaded: false })
@@ -132,6 +207,33 @@ Page({
 
   onToggleMore() {
     this.setData({ showMore: !this.data.showMore })
+  },
+
+  /* ==================== 客户卡上的两个动作（[2026-09-26]） ====================
+   * 与订单详情页逐字同源：拨号用 order.receiverPhone || customerPhone，
+   * 复制用地址快照优先（客户改了地址也不能导错/抄错）。
+   * ⚠️ 在门口点了没反应比没有这个按钮更糟：拿不到值就**不出声地不动作**是不行的，
+   *    这里给一句 toast（wxml 上这两行本来也是 wx:if 有值才渲染，正常不会走到）。
+   */
+  onCallPhone() {
+    const phone = this.data.contactPhone
+    if (!phone) {
+      wx.showToast({ title: '这单没有可拨的电话', icon: 'none' })
+      return
+    }
+    wx.makePhoneCall({ phoneNumber: phone, fail: () => {} })
+  },
+
+  onCopyAddress() {
+    const address = this.data.addressText
+    if (!address) {
+      wx.showToast({ title: '这单没有地址', icon: 'none' })
+      return
+    }
+    wx.setClipboardData({
+      data: address,
+      success: () => wx.showToast({ title: '地址已复制', icon: 'success' })
+    })
   },
 
   /**
@@ -261,15 +363,26 @@ Page({
     this.setData({ noteText: e.detail.value })
   },
 
-  /* ==================== 楼层数（选填）+ 楼层凭证（v43）====================
+  /* ==================== 楼层数 + 楼梯凭证（v43）====================
    * 为什么要有这两样：楼层补贴是给配送员的钱，只有他知道自己爬了几层 ——
    *   ① 楼层数**选填**：有楼层就填、没有就不填；不填时后端沿用客户地址里的楼层；
    *   ② 照片**不强制**（产品决定），但拍一张站得住脚 —— 与客户扯皮时（"你不是说 6 楼吗"）
    *      这是唯一的凭证，站长也可以事后补传。
    * ⚠️ 它不影响向客户收的楼层费 —— 那笔钱在下单时就按地址快照了。
+   *
+   * [2026-09-26 产品口径] 这一块**从"常显"改成"有争议才展开"**（原注释记的是旧判据
+   * "藏进更多里人会跳过不填 = 少拿钱"）。产品原话：「楼层数藏在下面吧……不过楼层我觉得
+   * 一般没有不清楚的现象，做成楼梯有争议时触发吧，楼梯凭证也一起」。
+   * 兜底（防止"该填而没人提醒"）：地址**没写清有没有电梯**时载入即自动展开并说明原因，
+   * 见 loadOrder 里的 elevatorUnknown。**改回常显前先回去读这句产品原话。**
    */
   onFloorInput(e) {
     this.setData({ reportedFloor: e.detail.value })
+  },
+
+  /** 「楼梯 / 楼层有争议」→ 展开楼层块（同时把楼梯凭证一起给出来） */
+  onOpenFloorDispute() {
+    this.setData({ floorBlockOpen: true })
   },
 
   onAddFloorPhoto() {
@@ -285,7 +398,7 @@ Page({
           filePath: p,
           url: API.ORDER_IMAGE_UPLOAD,
           name: 'file',
-          // 3 = 楼层凭证（1 正常送达 / 2 异常），后端 order_image.type 的注释里有
+          // 3 = 楼梯凭证（1 正常送达 / 2 异常），后端 order_image.type 的注释里有
           formData: { orderId: this.data.orderId, type: 3 }
         }).then(r => r.data))
         try {
@@ -386,7 +499,7 @@ Page({
     if (!isFirstBarrelOrder && !hasAnyReturn && items.length > 0) {
       wx.showModal({
         title: '确认回桶数',
-        content: '所有商品回桶数均为 0，是否确认无误？',
+        content: '本单桶装水的回桶数都是 0，是否确认无误？',
         confirmText: '确认无误',
         success: (res) => {
           if (res.confirm) this._showConfirmDialog()
@@ -427,7 +540,7 @@ Page({
       title: '确认完成配送',
       content: s.trim(),
       confirmText: '确认完成',
-      confirmColor: '#34C759',
+      confirmColor: '#2E9E6B',
       success: async (res) => {
         if (!res.confirm) return
         this._doSubmit()

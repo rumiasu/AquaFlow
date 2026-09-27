@@ -369,7 +369,9 @@ public class Orders {
      * <p>⚠️ 三态语义：{@code null} = 没上报（楼层补贴沿用<b>地址</b>里的楼层）／有值 = 以他上报的为准。
      * 与地址里的楼层不一致时，收益明细的 note 会打上"与地址 N 层不一致"的标记 ——
      * 楼层补贴是给配送员的钱，只有他知道自己爬了几层，所以要有他自己的口径 + 可核对的凭证
-     * （{@code order_image.type=3} 楼层凭证，配送员与站长都可传），见 docs/design/18 §4。</p>
+     * （{@code order_image.type=3} <b>楼梯凭证</b>，[2026-09-26] 由"楼层凭证"改名；配送员与站长都可传），
+     * 见 docs/design/18 §4。⚠️ 完成配送页只在"有争议 / 地址没写清有无电梯"时才让配送员填，
+     * 所以 {@code null} 是常态。</p>
      *
      * <p>⚠️ 它<b>不影响向客户收的楼层费</b>（那是下单时按地址快照的 {@link #floorFee}）。</p>
      */
@@ -414,7 +416,23 @@ public class Orders {
     /** 是否有异常标记 */
     private Boolean exceptionFlag;
 
-    /** 是否首次桶装水订单（押金桶无需回桶） */
+    /**
+     * 是否**本站第一笔买桶订单**（押金桶无需回桶）。
+     *
+     * <p>下单时由 {@code OrderServiceImpl} 写成「本单要送桶 <b>且</b> 客户在本站还没有桶权益
+     * （{@code AssetService.hasBarrelAsset}）」。完成配送时读它：为真则**整段跳过回桶核对**
+     * （客户刚从水站买下桶，手上没有空桶可还），见 {@code OrderWorkflowServiceImpl.completeDelivery}。</p>
+     *
+     * <p>⚠️ [2026-09-26] 判据**只看桶**，不要拿 {@code AssetService.hasStationAsset}（票/押金/桶任一）
+     * 来算：先买过水票的客户会被判成"老客户"，于是他的第一笔买桶单要核对回桶、回桶数还被默认填成
+     * "送出多少回多少" —— 他手里一个空桶都没有。产品原话：「第一次送达桶确实不需要回收，
+     * 把第一次桶送达时的默认回桶值取消掉」。</p>
+     *
+     * <p>⚠️ <b>有意为之的边界</b>：桶权益只认**已到手**（{@code customer_barrel_asset}，送达入账），
+     * 所以"第一单还在配送途中就先下了第二单"时，两单<b>都会</b>被打上首单 —— 那一刻客户手上
+     * 确实一个空桶都没有（送出去的桶还在路上），两单各是一批新押金桶，本来就无从回收。
+     * <b>不要为了"只让第一单是首单"改成数在途桶</b>：那会让第二单在送达时被要求核对回桶。</p>
+     */
     private Boolean firstBarrelOrder;
 
     /** 首个异常类别 */
@@ -449,6 +467,60 @@ public class Orders {
     private String firstProductName;
 
     /**
+     * 本单**逐明细**摘要，服务端算好（含单位），列表卡直接用。
+     *
+     * <p>形状：{@code 商品名 数量单位}，多明细以全角逗号 {@code ，} 相连，
+     * 按明细 id 升序（例：{@code 纯净水 3桶，矿泉水 1瓶}）。</p>
+     *
+     * <p>⚠️ <b>为什么会多出这个字段</b>：配送端首页 / 协同页原先用
+     * {@code firstProductName × quantity} 渲染，而 {@code quantity} 是<b>全单总件数</b>
+     * （含瓶装水/饮水器）、{@code firstProductName} 只取第一条明细 —— 混合单会显示成
+     * 「纯净水 × 4桶」（实测 3 桶水 + 1 瓶水）。列表接口没有 {@code items[]}，
+     * 而逐个拉详情是设计明令禁止的 N+1，所以只能由后端补这个投影列。</p>
+     *
+     * <p>⚠️ <b>单位判据与 {@code util/BarrelScope} 同源</b>（{@code product.category}：
+     * 1 桶装水 / 2 瓶装水 / 3 饮水器），SQL 侧是它的镜像 —— 改一处必须改两处，
+     * 见 {@code OrderMapper} 各列表 SQL 上方的注释。</p>
+     *
+     * <p>⚠️ 仅由下面那 5 个配送端列表 SQL 填充（**关联/计算字段，不是 orders 表的列**，
+     * 写库会被忽略）。其它列表端点保持 {@code null} = "这个端点没下发摘要"，
+     * 前端**不要**在 null 时回退到 {@code firstProductName × quantity} 那套旧渲染。</p>
+     */
+    private String itemSummary;
+
+    /**
+     * 「近一年配送」次数 —— 该客户在**本站**近 365 天内**送到过**的单数
+     * （{@code status in (3 已送达, 4 已完成)}）。
+     *
+     * <p>⚠️ 判据是"送过"，**不是**"成交了"：{@code status = 4} 只代表客户已收货且钱已结清，
+     * 刚送达还没确认收款的单停在 3 —— 只数 4 会让配送员刚送完一单就看到「0 次」
+     * （2026-09-27 真机反馈的原话）。与 {@code CustomerMapper.countCompletedOrders}（只认 4，
+     * 用于消费统计）**是两回事，别互相替代**。</p>
+     *
+     * <p>仅由配送端**订单详情**填充（关联/计算字段，不是 orders 表的列）。</p>
+     */
+    private transient Integer historyCount;
+
+    /**
+     * 「最近一次」距今天数 —— 该客户在**本站**最近一次下单距现在多少天（无单为 null）。
+     *
+     * <p>与 {@link #historyCount} 同一批下发；同样是关联/计算字段。</p>
+     */
+    private transient Integer lastOrderDays;
+
+    /**
+     * 本单商品<b>种类数</b>（{@code order_item} 行数；不是件数）。
+     *
+     * <p>前端据此决定是否显示"共 N 种商品"这类提示；与 {@link #itemSummary} 同一批 SQL 下发，
+     * 同样是**关联/计算字段，不是 orders 表的列**。</p>
+     *
+     * <p>⚠️ 它与 {@code orders.quantity}（全单总件数）<b>不是一回事</b>：混合单里
+     * 3 桶水 + 1 瓶水的 {@code quantity} 是 4、{@code itemKindCount} 是 2。
+     * 单商品单两者都可能为 1，别用其中一个冒充另一个。</p>
+     */
+    private Integer itemKindCount;
+
+    /**
      * 是否「转给我、待我确认」（瞬时字段，非数据库列）。
      * <p>由后端按当前登录人 + 订单转单标记判定后填充，前端详情页据此决定显示
      * 「同意并接单/拒绝转单」还是常规操作栏。此前前端读取并不存在的 isTransferTarget，
@@ -461,14 +533,41 @@ public class Orders {
      * （{@code station_id}）当时的站级配置算出来、并快照进 {@link #deliveryFee} / {@link #floorFee} 的，
      * 即"站长外派也按本站定价"。认领/接单前要让目标站一眼看到这个价是谁定的
      * （{@code docs/design/17} 的配送计费 + 2026-09-18 的产品裁定）。
-     * <p>由 {@code DeliveryController} 在抢单池 / 他站外派两个列表里填充，其它端点不下发。</p>
+     * <p>由 {@code DeliveryController} 在抢单池 / 指定外派（别站指定给我）两个列表里填充，其它端点不下发。</p>
      */
     private transient String feeStationName;
 
     /**
+     * 外派形态（瞬时字段，非数据库列）：{@code POOL} = <b>一键外派</b>（放进抢单池，谁抢谁送）、
+     * {@code DIRECTED} = <b>指定外派</b>（指定到具体水站）。
+     *
+     * <p>前端首页的「外派」页签按它分两个子页签：一键外派不用管（等别站来抢），
+     * 指定外派有业务牵扯（要盯对方接不接、还能召回改派）。</p>
+     *
+     * <p>⚠️ <b>为什么由后端下发而不是前端自己判断</b>：这两种形态在库里<b>没有结构化标记</b>
+     * （{@code order_transfer} 只记转单申请与指定退回，放池 / 指定外派都不写它），
+     * 唯一判据是 {@code special_note} 里的 {@code [外派]} 文案 —— 归类只能有**一处**实现，
+     * 即 {@code constant.DispatchKind.ofNote}；前端解析自由文本必然与后端分叉。</p>
+     */
+    private transient String dispatchKind;
+
+    /**
+     * 履约站名（瞬时字段，非数据库列）：<b>这单派给了哪个水站</b>。
+     *
+     * <p>⚠️ 前端首页「外派」列表那一行写的是 {@code item.deliveryStationName}，而这个字段
+     * 此前**根本不存在**（{@code listDispatchedOrders} 的 SQL 也没 join 站表）→ 站长的外派列表里
+     * 「外派至」整行永远不渲染，只剩一个订单号，判断不了这单派给了谁。
+     * 现由 {@code DeliveryController#getDispatchTracking} 按 {@code delivery_station_id} 填。</p>
+     *
+     * <p>池中还没人接的单 {@code delivery_station_id} 为空 → 本字段保持 null，
+     * 前端据此显示"等别站接单"（**不要**在这里编一个"待认领"之类的假站名）。</p>
+     */
+    private transient String deliveryStationName;
+
+    /**
      * 结算去向文案（瞬时字段，非数据库列）：<b>由后端下发，前端不得自造</b>
      * （本仓铁律：金额与口径文案只有一个来源，见 AGENTS.md §6）。
-     * <p>抢单池是"认领后"，他站外派是"接单后"—— 两种语境下这句话不一样，
+     * <p>抢单池是"认领后"，指定外派（别站指定本店）是"接单后"—— 两种语境下这句话不一样，
      * 所以文案由填充它的方法决定，前端只负责原样展示。</p>
      */
     private transient String settleNote;
@@ -490,7 +589,7 @@ public class Orders {
 
     /**
      * 本单营收是否计入当前登录水站（瞬时字段，非数据库列）。
-     * <p>抢单池/他站外派列表里恒为 {@code true}（这些列表本身就是"待本站履约"的单），
+     * <p>抢单池 / 指定外派（别站指定本店）列表里恒为 {@code true}（这些列表本身就是"待本站履约"的单），
      * 下发它是为了让前端不必自己推导"钱归谁"，只按它决定要不要把结算文案显示成强调色。</p>
      */
     private transient Boolean settleToMyStation;

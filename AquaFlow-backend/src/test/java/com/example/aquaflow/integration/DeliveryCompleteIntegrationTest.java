@@ -88,6 +88,38 @@ class DeliveryCompleteIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("历史订单两个数必须在详情里下发：刚送达的单立刻计入「近一年配送」")
+    void orderDetailCarriesCustomerHistoryStats() {
+        seed();
+        long order = deliveringCashOrder(1, 1);
+
+        Api done = post("/api/delivery/orders/" + order + "/complete", mgrToken(),
+                returnBody(order, 1, 0, "\"collected\":true"));
+        assertTrue(done.isSuccess(), "先完成这一单，实际=" + done);
+
+        Api detail = get("/api/delivery/orders/" + order, mgrToken());
+        assertEquals(0, detail.code(), "订单详情应可读: " + detail);
+
+        // ⚠️ 本条盯的是**字段存在且口径为"送到过"**（2026-09-27 真机反馈「刚刚配送过，
+        //    还显示近一年配送 0 次」）：模板一直在渲染 `{{order.historyCount || 0}}`，
+        //    而后端从来没下发过它 ⇒ 恒为 0。只数 status=4（已完成）也会漏掉刚送达、
+        //    钱还没确认的单（那正是"刚刚配送过"的那一刻）。
+        assertFalse(detail.data().path("historyCount").isMissingNode(),
+                "详情必须下发 historyCount（缺了前端就显示 0 次）: " + detail.data());
+        assertTrue(detail.data().path("historyCount").asInt() >= 1,
+                "刚送达的这一单必须立刻计入近一年配送次数，实际=" + detail.data().path("historyCount"));
+        assertEquals(0, detail.data().path("lastOrderDays").asInt(),
+                "这一单就是刚下的，最近一次应为 0 天前，实际=" + detail.data().path("lastOrderDays"));
+
+        // 与库里的"送到过"口径对齐（status 3/4，含刚被置成 4 的这一单），避免"随时会漂"的软断言
+        int expected = intOf("SELECT COUNT(*) FROM orders o WHERE o.customer_id=? AND o.status IN (3,4) "
+                + "AND coalesce(o.settle_station_id, o.delivery_station_id, o.station_id)=? "
+                + "AND o.create_time >= date_sub(now(), interval 365 day)", customer, station);
+        assertEquals(expected, detail.data().path("historyCount").asInt(),
+                "近一年配送次数应与库内 status in (3,4) 的口径一致");
+    }
+
+    @Test
     @DisplayName("现金单 + collected=true：订单直接已完成+已付，并补写现场收款流水与押金")
     void cashCollectedAtDelivery_completesAndBooksCash() {
         seed();

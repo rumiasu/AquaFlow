@@ -7,18 +7,22 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 进货成本与毛利（v39，Phase 3）。
+ * 进货成本与利润（v39，Phase 3）。
  *
- * <p>盯三件事：成本能落到**站级**、毛利算得对（且排除取消单）、
- * <b>没填成本时必须显示"算不出来"而不是全额毛利</b>。</p>
+ * <p>盯三件事：成本能落到**站级**、利润算得对（且排除取消单）、
+ * <b>没填成本时必须明说"未填成本、这一项算不出来"而不是给全额利润</b>。</p>
  *
  * <p>最后一条是本用例里最重要的：把缺失成本当 0 相减，站长会以为自己赚了整整一个售价 ——
  * 那是最坏的一种"看起来正确"。</p>
+ *
+ * <p>⚠️ 用词：类名/端点/表名里的 GrossProfit 是代码里的历史命名，<b>下发给站长的文案一律叫「利润」</b>
+ * （[2026-09-26] 产品口径：本仓用户是小水站，"毛利"是财务术语）。</p>
  */
 class GrossProfitIntegrationTest extends AbstractIntegrationTest {
 
@@ -93,6 +97,15 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
                 "有商品没填成本时，合计毛利不得给出数字（把成本当 0 会显示成赚了整个售价）");
         assertTrue(report.data().path("missingCostHint").asText().contains("没填进货成本"),
                 "必须给出可读提示: " + report.data().path("missingCostHint").asText());
+
+        // [2026-09-26 产品口径] 缺成本**不是"把这一块藏起来"**：
+        // 报表照常下发、口径提示照常下发，只是把给不出的数字换成 null（前端渲染成「未填成本」）。
+        // 前端要是因为缺成本就整块不显示，站长会以为功能没了，而不是"还差一个成本价"。
+        assertTrue(report.data().path("missingCostHint").asText().contains("利润"),
+                "面向站长的用词是「利润」不是「毛利」: " + report.data().path("missingCostHint").asText());
+        assertFalse(report.data().path("costBasisNote").asText().isEmpty(), "成本口径提示必须照常下发");
+        assertFalse(report.data().path("profitBasisNote").asText().isEmpty(), "净利口径提示必须照常下发");
+        assertTrue(report.data().path("netProfit").isNull(), "缺成本时净利也必须为 null（与利润同一条命）");
 
         // 单商品行也不得给出毛利数字
         assertEquals("未填成本，无法计算",

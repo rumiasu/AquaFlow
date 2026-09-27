@@ -90,7 +90,7 @@
   display: flex;
   align-items: center;
   padding: 14rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid #F1ECE1;
 }
 .field-label {
   width: 220rpx;
@@ -111,7 +111,7 @@
   display: flex;
   align-items: center;
   padding: 20rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid #F1ECE1;
 }
 .row:last-child {
   border-bottom: none;

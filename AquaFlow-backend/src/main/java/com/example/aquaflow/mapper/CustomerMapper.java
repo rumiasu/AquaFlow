@@ -195,6 +195,26 @@ public interface CustomerMapper {
             "and coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId}")
     int countCompletedOrders(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
+    /**
+     * 近 N 天**送到过**的单数（{@code status in (3 已送达, 4 已完成)}）。
+     *
+     * <p>⚠️ 与 {@link #countCompletedOrders} 不是一回事，**别互相替代**：那个只数 {@code status = 4}，
+     * 而「刚送达、钱还没确认」的单停在 3 —— 用它填「近一年配送 N 次」会让配送员
+     * 刚送完一单就看到「0 次」（2026-09-27 真机反馈：刚刚配送过，还显示近一年配送 0 次）。
+     * 「配送次数」这个标签问的是"送过几次"，所以必须含 3；
+     * 「消费/完成单数」问的是"成交了几单"，才只认 4。
+     *
+     * <p>站别口径与同族一致：{@code coalesce(settle_station_id, delivery_station_id, station_id)}
+     * （末级是防御，正常写入落 settle_station_id）。</p>
+     */
+    @Select("select count(*) from orders o where o.customer_id = #{customerId} " +
+            "and o.status in (3, 4) " +
+            "and coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} " +
+            "and o.create_time >= date_sub(now(), interval #{days} day)")
+    int countDeliveredOrdersWithinDays(@Param("customerId") Long customerId,
+                                       @Param("stationId") Long stationId,
+                                       @Param("days") int days);
+
     /** 本站累计消费金额 */
     @Select("select coalesce(sum(o.total_amount),0) from orders o where o.customer_id = #{customerId} and o.status = 4 " +
             "and coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId}")

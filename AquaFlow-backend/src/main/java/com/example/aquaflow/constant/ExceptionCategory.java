@@ -66,6 +66,69 @@ public final class ExceptionCategory {
         return category != null && ALL.contains(category);
     }
 
+    /**
+     * 配送员「上报配送问题」的**原因 → 异常类别**映射（2026-09-27 立）—— 全系统唯一正本。
+     *
+     * <h3>为什么需要它</h3>
+     * <p>在此之前配送员上报现场问题（{@code POST /api/delivery/orders/report/{id}}）**不生成异常单**，
+     * 只往 {@code orders.special_note} 写一行备注 —— 于是站长端「异常订单」里永远只有
+     * 「回桶数量对不上」这一种（{@code recordReturn} 自动建的单，类别写死少回桶/多回桶），
+     * 而「拒收 / 损坏 / 客户拒付」这些真正需要站长处置的现场问题**只能靠站长事后手工补录**
+     * （{@code POST /api/manager/exceptions}）。配送员能识别问题，系统却不收"问题是什么"。</p>
+     *
+     * <h3>设计取舍</h3>
+     * <ul>
+     *   <li><b>原因 key 由服务端定，不由客户端传类别</b>：给配送员一个"从 7 个类别里选"的下拉，
+     *       他既分不清 {@code RETURN_REFUSE}（当场拒收）与 {@code CUSTOMER_REFUSE}（收了但不给钱），
+     *       也不该关心；这里把"现场他看到的那句话"直接落成类别，映射只有这一份。</li>
+     *   <li><b>不涉桶账</b>：这类异常单的 {@code discrepancy} 恒为 0，所以
+     *       {@code OwedBarrel} 那族「取 {@code discrepancy > 0}」的下钻不会把它算进欠桶
+     *       —— 这是它能安全复用同一张表的前提。</li>
+     *   <li>话术与前端 {@code utils/delivery-problem.js} 的选择列表**一一对应**，
+     *       加一项要同时改两处（那是给配送员看的，这里是给库看的）。</li>
+     * </ul>
+     */
+    public static final class ReportReason {
+        public static final String CUSTOMER_UNREACHABLE = "customer_unreachable";
+        public static final String ADDRESS_NOT_FOUND = "address_not_found";
+        public static final String CUSTOMER_REFUSE = "customer_refuse";
+        public static final String BARREL_DAMAGED = "barrel_damaged";
+        public static final String OTHER = "other";
+
+        /** 现场原因 key → 异常类别。未知 key 一律 {@code null}（调用方据此拒绝，不猜）。 */
+        public static String categoryOf(String key) {
+            if (key == null) return null;
+            switch (key) {
+                case CUSTOMER_UNREACHABLE: return ExceptionCategory.OTHER;
+                case ADDRESS_NOT_FOUND:    return ExceptionCategory.OTHER;
+                case CUSTOMER_REFUSE:      return ExceptionCategory.RETURN_REFUSE;
+                case BARREL_DAMAGED:       return ExceptionCategory.RETURN_DAMAGE;
+                case OTHER:                return ExceptionCategory.OTHER;
+                default:                   return null;
+            }
+        }
+
+        /** 现场原因 key → 中文（写进异常单备注。与前端选择列表逐字一致）。 */
+        public static String textOf(String key) {
+            if (key == null) return "其他";
+            switch (key) {
+                case CUSTOMER_UNREACHABLE: return "客户不接电话";
+                case ADDRESS_NOT_FOUND:    return "地址找不到";
+                case CUSTOMER_REFUSE:      return "客户拒收";
+                case BARREL_DAMAGED:       return "水桶破损";
+                case OTHER:                return "其他";
+                default:                   return "其他";
+            }
+        }
+
+        public static boolean isValid(String key) {
+            return categoryOf(key) != null;
+        }
+
+        private ReportReason() {
+        }
+    }
+
     private ExceptionCategory() {
     }
 }

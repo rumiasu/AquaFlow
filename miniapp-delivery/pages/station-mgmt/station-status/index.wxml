@@ -16,7 +16,7 @@
          站长若以为"休息中"会挡住下单，就永远不敢用这个功能 —— 那是会做出错决定的信息，
          不能藏进「?」（判据见 components/HelpTip/index.js 边界 1）。
          [2026-09-24] 从 30 字压到 20 字，语义不变。 -->
-    <text class="card-sub">不阻断接单 —— 顾客照样能下单，只会在商城看到下面这句话</text>
+    <text class="card-sub">不阻断接单 —— 只改顾客看到的提示，不会拦住下单（「待上线」除外：那种状态下顾客看不到这家站）</text>
 
     <view class="options">
       <view
@@ -43,13 +43,14 @@
       <text class="counter">{{noteInput.length}}/100</text>
     </view>
 
-    <view class="preview" wx:if="{{current.customerHint}}">
-      <text class="preview-label">顾客会看到：</text>
-      <text class="preview-text">{{current.customerHint}}</text>
-    </view>
-    <view class="preview" wx:elif="{{picked !== 1}}">
-      <text class="preview-label">保存后顾客会看到：</text>
-      <text class="preview-text">水站当前：{{statusOptions[picked - 1].name}}（仍可下单，站长会按留言安排配送）</text>
+    <!-- 「顾客那边会怎样」：**点哪个状态显示哪句**（2026-09-24 产品要求）。
+         ⚠️ 原来这里是两条固定预览（`current.customerHint` 与前端自己拼的
+            `statusOptions[picked-1].name + '（仍可下单…）'`）——产品反馈"有些重复了"，而且
+            拼出来的"仍可下单"对**待上线**是假话（待上线的站对顾客不可见、下不了单）。
+         现在文案一律由后端下发（`options[].effect` / `currentEffect`），前端只渲染。 -->
+    <view class="preview" wx:if="{{effectText}}">
+      <text class="preview-label">{{effectLabel}}</text>
+      <text class="preview-text">{{effectText}}</text>
     </view>
 
     <button class="btn-primary" bindtap="onSaveStatus" loading="{{saving}}" disabled="{{saving}}">保存营业状态</button>
@@ -86,9 +87,11 @@
   </view>
 
   <!-- ============ 公告编辑 ============ -->
+  <!-- 弹窗只有"存为草稿 / 发布"两个按钮（见下）；**点遮罩关掉 = 什么都不保存**（原样返回），
+       这是"我填错了、不想留痕"的出口 —— 别把它接到某个保存动作上。 -->
   <view class="modal-mask" wx:if="{{showEdit}}" catchtouchmove="preventMove" bindtap="closeEditNotice">
     <view class="modal" catchtap="stopPropagation">
-      <view class="modal-header">{{isAdd ? '发布公告' : '编辑公告'}}</view>
+      <view class="modal-header">{{isAdd ? '新建公告' : '编辑公告'}}</view>
 
       <view class="field">
         <text class="label">标题</text>
@@ -97,17 +100,21 @@
 
       <view class="field">
         <text class="label">内容</text>
-        <textarea class="textarea" placeholder="写清楚时间与安排，顾客能看懂为准" maxlength="500" value="{{editForm.content}}" data-field="content" bindinput="onNoticeFieldInput"></textarea>
+        <textarea class="textarea" placeholder="写清楚时间与安排，顾客能看懂为准（点「发布」顾客才看得到）" maxlength="500" value="{{editForm.content}}" data-field="content" bindinput="onNoticeFieldInput"></textarea>
       </view>
 
-      <view class="switch-row">
-        <text class="switch-label">立即发布（关掉则存为草稿）</text>
-        <switch checked="{{editForm.published}}" bindchange="onNoticePublishChange" />
-      </view>
+      <!-- [2026-09-26 产品裁定] **一步两键**：右键「发布」= 直接上线（顾客立刻可见）；
+           左键「存为草稿」= 先留着（顾客看不到），之后可在列表里点「发布」。
+           ⚠️ 历史沿革（别改回去）：先是有个「立即发布（关掉则存为草稿）」开关，它和按钮文案对不上
+              （按钮写「发布」、toast 写死「已发布」，存草稿照样说已发布）；后来改成"新建即草稿 +
+              发布是列表里那个动作"，又变成两步。现在是两键一步，**默认方向是右键发布**。
+           ⚠️ 编辑一条**已发布**的公告时，左键等于把它**下架**（顾客立刻看不到）——
+              所以 js 里对这一步加了二次确认（见 _submitNotice）。 -->
+      <text class="card-sub" wx:if="{{saveHint}}">{{saveHint}}</text>
 
       <view class="modal-footer">
-        <button class="btn-cancel" bindtap="closeEditNotice">取消</button>
-        <button class="btn-primary flex1" bindtap="onSaveNotice" loading="{{saving}}" disabled="{{saving}}">{{isAdd ? '发布' : '保存'}}</button>
+        <button class="btn-cancel" bindtap="onSaveDraft" disabled="{{saving}}">存为草稿</button>
+        <button class="btn-primary flex1" bindtap="onSaveNotice" loading="{{saving}}" disabled="{{saving}}">发布</button>
       </view>
     </view>
   </view>

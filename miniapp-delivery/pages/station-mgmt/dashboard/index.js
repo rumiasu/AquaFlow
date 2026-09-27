@@ -167,7 +167,7 @@ Page({
 
     // 2) 支付方式环形图
     const pay = report.payMethodDistribution || []
-    const palette = ['#4f8ef7', '#e6a23c', '#67c23a', '#909399', '#f56c6c']
+    const palette = ['#2E4A68', '#e6a23c', '#67c23a', '#909399', '#f56c6c']
     const total = pay.reduce((sum, x) => sum + (Number(x.cnt) || 0), 0)
     let acc = 0
     const segs = pay.map((x, i) => {
@@ -232,8 +232,8 @@ Page({
       const max = Math.max(1, chart.max)
 
       // 网格 + 纵轴刻度
-      ctx.strokeStyle = '#eef1f5'
-      ctx.fillStyle = '#8a9099'
+      ctx.strokeStyle = '#F1ECE1'
+      ctx.fillStyle = '#A39E92'
       ctx.lineWidth = 1
       ctx.font = '10px sans-serif'
       ctx.textAlign = 'right'
@@ -253,7 +253,7 @@ Page({
           const bh = max > 0 ? (v / max) * ch : 0
           const x = padL + slot * i + (slot - barW) / 2
           const y = padT + ch - bh
-          ctx.fillStyle = v > 0 ? '#4f8ef7' : '#e3e8ef'
+          ctx.fillStyle = v > 0 ? '#2E4A68' : '#F1ECE1'
           this.roundRect(ctx, x, y, barW, Math.max(bh, 1), Math.min(3, barW / 2))
           ctx.fill()
         })
@@ -266,7 +266,7 @@ Page({
         }))
         ctx.beginPath()
         pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
-        ctx.strokeStyle = '#4f8ef7'
+        ctx.strokeStyle = '#2E4A68'
         ctx.lineWidth = 2
         ctx.lineJoin = 'round'
         ctx.stroke()
@@ -278,12 +278,12 @@ Page({
         g.addColorStop(1, 'rgba(79,142,247,0)')
         ctx.fillStyle = g
         ctx.fill()
-        ctx.fillStyle = '#4f8ef7'
+        ctx.fillStyle = '#2E4A68'
         pts.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2); ctx.fill() })
       }
 
       // 横轴标签（点太多时隔一个显示）
-      ctx.fillStyle = '#8a9099'
+      ctx.fillStyle = '#A39E92'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'top'
       const skip = n > 16 ? 3 : (n > 8 ? 2 : 1)
@@ -311,12 +311,12 @@ Page({
         ctx.arc(cx, cy, rad, s.start - Math.PI / 2, s.start + s.sweep - Math.PI / 2)
         ctx.stroke()
       })
-      ctx.fillStyle = '#1f2329'
+      ctx.fillStyle = '#2B2A26'
       ctx.font = 'bold 16px sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(String(chart.total), cx, cy - 8)
-      ctx.fillStyle = '#8a9099'
+      ctx.fillStyle = '#A39E92'
       ctx.font = '10px sans-serif'
       ctx.fillText('总单数', cx, cy + 10)
     })

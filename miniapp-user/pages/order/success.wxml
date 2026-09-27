@@ -15,24 +15,34 @@
 
   <block wx:else>
   <!-- 结果区：标题与说明**按服务端事实**渲染（订单状态 + 支付状态），
-       未知/已取消/已退款/没查完都不许落到"下单成功，尽快配送"。 -->
-  <view class="success-hero">
+       未知/已取消/已退款/没查完都不许落到"下单成功，尽快配送"。
+       [2026-09-26] 文案一律来自后端（statusText / payHint / payStateText）：
+       原来前端自己把 1/2/3 翻成中文，与同一屏渲染的 statusText 是两套说法，已拆掉。 -->
+  <view class="success-hero" wx:if="{{loadState === 'ok'}}">
     <view class="success-circle {{heroTone === 'warn' ? 'warn' : ''}}">
       <icon name="{{heroTone === 'warn' ? 'warn' : 'check'}}" size="56rpx" color="#FFFFFF" />
     </view>
-    <text class="success-title">{{heroTitle}}</text>
+    <!-- 标题 = 后端下发的 statusText（待配送 / 配送中 / 已送达 / 已完成 / 已取消）。
+         后端没给状态文案时这条不渲染 —— 宁可少一句话，也不自己编一句"下单成功"。
+         此时状态由下面的付款说明行承载（同一事实只出现一次）。 -->
+    <text class="success-title" wx:if="{{heroTitle}}">{{heroTitle}}</text>
     <text class="success-desc" wx:if="{{heroDesc}}">{{heroDesc}}</text>
-    <!-- 付款说明由后端下发（payHint）：没有在线支付入口时，用它解释"钱怎么付"，
-         而不是留一个点了没用的按钮。 -->
-    <text class="success-desc" wx:if="{{payHint}}">{{payHint}}</text>
-    <text class="success-desc" wx:if="{{statusText}}">订单状态：{{statusText}}</text>
+    <text class="success-amount" wx:if="{{heroTitle && amountText}}">本单金额 {{amountText}}</text>
   </view>
 
-  <!-- 去支付按钮：条件一律用后端下发的 canRepay（= 当前渠道真的能付掉），
-       不用 paymentStatus 自己判断。现金单（货到付款）不给在线支付入口。 -->
-  <view class="pay-section" wx:if="{{canRepay}}">
-    <view class="pay-btn" bindtap="onPayNow">
-      <text class="pay-btn-text">{{repayLabel}} ¥{{orderAmount}}</text>
+  <!-- 付款说明区：两种形态二选一 ——
+       ① 能在线付：按钮（条件一律用后端下发的 canRepay = 当前渠道真的能付掉），
+          现金单（货到付款）不给在线支付入口；
+       ② 不能在线付：把后端下发的 payHint（"货到付款，配送员送达时收款" 这类"钱怎么付"）
+          连同后端订单状态一起显示出来，金额也在这一行 —— 原来 payHint 只在 ① 里被读，
+          现金单反而看不到"送到再付"，只能靠前端自己拼一句。 -->
+  <view class="pay-section">
+    <view class="pay-btn" wx:if="{{canRepay}}" bindtap="onPayNow">
+      <text class="pay-btn-text">{{repayLabel}} {{amountText}}</text>
+    </view>
+    <view class="pay-hint-row" wx:else>
+      <text class="pay-hint-text" wx:if="{{statusText || payHint}}">{{statusText}}{{statusText && payHint ? ' · ' : ''}}{{payHint}}</text>
+      <text class="pay-hint-amount" wx:if="{{amountText}}">{{amountText}}</text>
     </view>
   </view>
 

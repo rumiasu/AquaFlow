@@ -88,28 +88,52 @@
   margin-bottom: 16rpx;
 }
 
+/* 多明细时：`product-info` 的 `align-items: center` 会让长名字换行后跟数量错位，改成顶对齐 */
 .product-info {
   display: flex;
-  align-items: center;
-  gap: 12rpx;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8rpx;
   margin-bottom: 8rpx;
 }
 
+/* 逐明细摘要（后端下发，含每款的单位与数量）—— 允许换行，不截断 */
+.product-summary {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.order-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  width: 100%;
+}
+
+/* ⚠️ 商品名不许截断（[2026-09-27] 产品口径），长名字换行显示；规格**不换行**（"19L" 被拆开没意义） */
 .product-name {
   font-size: 30rpx;
   font-weight: 600;
   color: var(--text-primary);
+  word-break: break-all;
 }
 
 .product-spec {
   font-size: 24rpx;
   color: var(--text-secondary);
+  flex-shrink: 0;
+  padding-top: 6rpx;
 }
 
 .product-qty {
   font-size: 26rpx;
   color: var(--text-regular);
   margin-left: auto;
+  flex-shrink: 0;
+  padding-top: 4rpx;
 }
 
 .delivery-info {

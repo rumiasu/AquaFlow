@@ -1,4 +1,4 @@
-<view class="container">
+<view class="container custom-tabbar-page">
   <!-- 蓝色头部 -->
   <view class="header">
     <view class="user-row" bindtap="{{isLogin ? 'onEditProfile' : 'onLogin'}}">
@@ -23,7 +23,6 @@
     <!-- 站长模式入口（高亮） -->
     <view class="manager-entry-card" bindtap="onGoCoordination" wx:if="{{isLogin && isManager}}">
       <view class="manager-entry-left">
-        <text class="manager-entry-icon">🎯</text>
         <view class="manager-entry-text">
           <text class="manager-entry-title">站长模式 · 协调订单</text>
           <text class="manager-entry-desc">分配订单 / 转单池 / 退回处理</text>
@@ -88,15 +87,22 @@
       · 配送员 = 自己的活三格：今日完成 / 配送中 / 回桶数
     为什么站长那三格不显示"今日完成/待配送"：那两件事在「配送」tab 上就是页签与角标
     （tab 名已由「待接单」改为「待配送」，与 OrderStatus 1 同名），在「我的」再报一遍就是重复。
-    ⚠️ 净利是**站长专属**（毛利端点是 @RequireRole("STATION_MANAGER")），
+    ⚠️ 净利是**站长专属**（利润端点是 @RequireRole("STATION_MANAGER")），
     配送员那一支绝不能去请求它 —— 那不是显示成 0，而是直接拿一个权限错误。
   -->
   <view class="stats-card" wx:if="{{isLogin && canAccessBusiness}}">
     <!-- 站长：经营 -->
     <view class="stats-row" wx:if="{{isManager}}">
+      <!--
+        [2026-09-26 产品口径] 缺成本时**这一格照常显示**，不许整块藏起来：
+        数字位写「未填成本」（js 里算好的展示态，缺字段时是「—」），
+        下面再加一行"利润算不了"把后果说清 —— 只说「算不出」等于让站长自己猜。
+        整格 bindtap 进的是利润报表页，那里能给「未填成本的商品」直接补录成本价。
+      -->
       <view class="stats-item" bindtap="onGoTodayProfit">
         <text class="stats-value stats-money {{todayProfit.netProfitWarn ? 'stats-warn' : ''}}">{{todayProfit.netProfitText}}</text>
         <text class="stats-label">今日净利</text>
+        <text class="stats-sub" wx:if="{{todayProfit.costMissing}}">利润算不了 ›</text>
       </view>
       <view class="stats-divider"></view>
       <view class="stats-item" bindtap="onGoTodayProfit">
@@ -140,23 +146,27 @@
     </view>
   </view>
 
-  <!-- 站长：水站信息 + 配送员管理 / 绑定申请 Tab -->
+  <!-- 站长：水站摘要 + 配送员管理 / 绑定申请 Tab -->
   <block wx:if="{{isLogin && isManager}}">
+    <!--
+      水站 = **纯摘要**（[2026-09-26 Wave1 轨道 G 去重]；docs/design/29 §5「我的页保留个人资料、
+      工资（本人）、设置和水站摘要」）。
+      ⚠️ 原来这里有两个进「水站资料」页的入口（标题行的「管理 ›」+ 摘要里的「编辑资料 ›」），
+         而站长端宫格（station-mgmt/index.wxml 的「水站资料」卡）已经有一个**同名同目标**的入口 ——
+         这正是本卡要收的那 6 处重复之一。现在本卡只显示摘要，**改资料去「水站管理 → 水站资料」**；
+         页面、端点、宫格那一格全都照旧（不是删功能，是把重复入口收成摘要）。
+      ⚠️ 摘要下方那行**故意不可点**：再挂一个跳转就等于把刚去掉的重复入口又加回来（宫格入口在下面
+         菜单列表的「水站管理」一行，本页只保留那一处）。
+    -->
     <view class="section-card">
       <view class="section-header">
-        <text class="section-title">🏢 我的水站</text>
-        <!--
-          「管理 ›」进的是站长端宫格（订单/桶/客户/配置的总入口）；
-          「编辑资料 ›」进的是水站资料页（站名/电话/地址/坐标，可直接改）。
-          两个入口语义不同，别合并成一个 —— 宫格不是"资料"的编辑处。
-        -->
-        <text class="section-link" bindtap="onGoStationMgmt">管理 ›</text>
+        <text class="section-title">我的水站</text>
       </view>
       <view class="station-info-row" wx:if="{{stationInfo}}">
         <text class="station-name">{{stationInfo.name || '未命名水站'}}</text>
         <text class="station-address">{{stationInfo.address || '未填写地址'}}</text>
         <text class="station-phone" wx:if="{{stationInfo.phone}}">联系电话：{{stationInfo.phone}}</text>
-        <text class="station-edit" bindtap="onGoStationInfo">编辑资料 ›</text>
+        <text class="station-edit-hint">站名 · 地址 · 电话在「水站管理 → 水站资料」里修改</text>
       </view>
       <view class="station-info-empty" wx:else>
         <!-- [2026-09-20] 空态分两种：stationInfo 为空可能是"还没建站"，也可能是这次没查到。
@@ -167,17 +177,27 @@
     </view>
 
     <!--
-      配送员管理 / 绑定申请（原样保留）。
-      [2026-09-19 IA 重组] 站长端「员工」页也有一份更全的（多了搜索、在职/离职筛选、
-      员工画像、新增配送员），两处数据同源。**这里保留列表与审批的原地操作**，
-      只在标题行加一个「更多 ›」进站长端员工页 —— 不要把它删成一个纯跳转，
-      也别再往这里加功能（新功能加在 station-mgmt/staff/）。
+      配送员管理 / 绑定申请 —— [2026-09-26 Wave1 轨道 G] 按 §5「员工列表可折叠」**收成折叠块**，
+      内容是**原样保留**的：列表、解除、绑定/解绑审批（有副作用的动作）一个都没删，
+      展开后仍在本页原地操作。站长端「员工」页也有一份更全的（多了搜索、在职/离职筛选、
+      员工画像、新增配送员），两处数据同源。标题行的「更多 ›」进站长端员工页 ——
+      不要把它删成一个纯跳转，也别再往这里加功能（新功能加在 station-mgmt/staff/）。
+      ⚠️ 折叠的**唯一危险面**是"收起来 = 把待审批藏了"（AGENTS §8.22：看不见 ≠ 没有）：
+         · 标题行**始终**显示「配送员 N · 待审批 M」，收着也看得见有几条要办；
+         · 一旦有待审批申请，js 会自动展开一次（用户手动收过就不再自动展开，见 onToggleStaff）。
+      ⚠️ 本页是 tabBar 页，`wx:if` 只切渲染、不重建页面，收起不会丢已加载的列表数据。
     -->
     <view class="section-card">
       <view class="section-header">
-        <text class="section-title">👥 员工</text>
-        <text class="section-link" bindtap="onGoStaff">更多 ›</text>
+        <text class="section-title">员工</text>
+        <view class="section-head-right">
+          <text class="staff-summary">配送员 {{staffList.length}} · 待审批 {{bindApplications.length}}</text>
+          <text class="section-toggle" bindtap="onToggleStaff">{{staffExpanded ? '收起' : '展开'}}</text>
+          <text class="section-link" bindtap="onGoStaff">更多 ›</text>
+        </view>
       </view>
+
+      <block wx:if="{{staffExpanded}}">
       <view class="mgmt-tabs">
         <text class="mgmt-tab {{mgmtActiveTab === 0 ? 'active' : ''}}" bindtap="onMgmtTabSwitch" data-tab="0">配送员管理 <text class="tab-count" wx:if="{{staffList.length > 0}}">{{staffList.length}}</text></text>
         <text class="mgmt-tab {{mgmtActiveTab === 1 ? 'active' : ''}}" bindtap="onMgmtTabSwitch" data-tab="1">绑定申请 <text class="tab-count tab-badge" wx:if="{{bindApplications.length > 0}}">{{bindApplications.length}}</text></text>
@@ -225,45 +245,45 @@
           </view>
         </view>
       </view>
+      </block>
+
+      <!-- 折叠态：给一句能行动的实话（有待审批时点名条数，别让站长以为没事） -->
+      <view class="staff-folded-hint" wx:else>
+        <text wx:if="{{bindApplications.length > 0}}">有 {{bindApplications.length}} 条绑定 / 解绑申请待审批，展开后可同意或拒绝</text>
+        <text wx:else>已收起，展开可管理配送员与审批绑定申请</text>
+      </view>
     </view>
   </block>
 
   <!-- 菜单列表 -->
   <view class="menu-list" wx:if="{{isLogin}}">
     <view class="menu-item" bindtap="onGoStationMgmt" wx:if="{{isManager}}">
-      <text class="menu-icon">🏢</text>
       <text class="menu-text">水站管理</text>
       <text class="menu-arrow">></text>
     </view>
     <block wx:if="{{canAccessBusiness}}">
       <view class="menu-item" bindtap="onMyEarnings">
-        <text class="menu-icon">💰</text>
         <text class="menu-text">我的工资</text>
         <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" bindtap="onBarrelRecords">
-        <text class="menu-icon">🛢</text>
         <text class="menu-text">空桶记录</text>
         <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" bindtap="onHistory">
-        <text class="menu-icon">📋</text>
         <text class="menu-text">配送历史</text>
         <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" bindtap="onTransfer">
-        <text class="menu-icon">🔄</text>
         <text class="menu-text">转让记录</text>
         <text class="menu-arrow">></text>
       </view>
     </block>
     <view class="menu-item" bindtap="onReport">
-      <text class="menu-icon">💬</text>
       <text class="menu-text">意见反馈</text>
       <text class="menu-arrow">></text>
     </view>
     <view class="menu-item" bindtap="onSettings">
-      <text class="menu-icon">⚙</text>
       <text class="menu-text">设置</text>
       <text class="menu-arrow">></text>
     </view>

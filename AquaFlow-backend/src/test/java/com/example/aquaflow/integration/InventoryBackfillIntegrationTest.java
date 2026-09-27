@@ -59,6 +59,11 @@ class InventoryBackfillIntegrationTest extends AbstractIntegrationTest {
         return staffToken(managerA, "STATION_MANAGER", stationA);
     }
 
+    /** B 站站长 token（[2026-09-26] 起"换站后由新站派单"要用它）。 */
+    private String tokenB() {
+        return staffToken(managerB, "STATION_MANAGER", stationB);
+    }
+
     private Api placeOrder(int qty, String key) {
         return placeOrder(qty, key, false);
     }
@@ -136,6 +141,9 @@ class InventoryBackfillIntegrationTest extends AbstractIntegrationTest {
         assertInventoryMatchesRecords("V03 取消后");
 
         // 乙能完成：补足后出库 5
+        // [2026-09-26] 配送员只能接**派给自己**的单（产品裁定），链路补一步「站长派单」
+        assertEquals(0, post("/api/delivery/orders/assign/" + yi, tokenA(),
+                "{\"deliveryStaffId\":" + riderA + "}").code(), "站长派单");
         assertEquals(0, post("/api/delivery/orders/" + yi + "/accept",
                 staffToken(riderA, "DELIVERY", stationA), "{}").code(), "乙接单");
         Api done = post("/api/delivery/orders/" + yi + "/complete",
@@ -172,6 +180,9 @@ class InventoryBackfillIntegrationTest extends AbstractIntegrationTest {
 
         // 缺货提示真实：此时的 X 归 B 站履约，B 站只有 3 桶货 —— 接单可以（缺货可预订），
         // 但完成配送必须被拒，且要说清是预留不足（不许静默少扣着把单结了）
+        // [2026-09-26] 先由 B 站站长派单，配送员才能接（配送员只能接派给自己的单）
+        assertEquals(0, post("/api/delivery/orders/assign/" + x, tokenB(),
+                "{\"deliveryStaffId\":" + riderB + "}").code(), "B 站站长派单");
         assertEquals(0, post("/api/delivery/orders/" + x + "/accept",
                 staffToken(riderB, "DELIVERY", stationB), "{}").code(), "B 站配送员接单");
         Api blocked = post("/api/delivery/orders/" + x + "/complete",

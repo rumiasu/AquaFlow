@@ -58,4 +58,31 @@ public class OrderItem {
 
     /** 创建时间 */
     private LocalDateTime createTime;
+
+    // =========================================================================
+    // 以下两个字段**不是数据库列**，只在「完成配送页」下发时填充
+    // （写入点：DeliveryController#getOrderDetail，口径来自 BarrelService#returnPlanOfOrder）。
+    // order_item 的 insert 是显式列名清单，故加字段不会影响落库。
+    // =========================================================================
+
+    /**
+     * 该明细是不是**桶装水**（判据 {@code util/BarrelScope}，唯一实现）。
+     *
+     * <p>为什么完成页必须知道：回桶只对桶装水成立 —— 瓶装水 / 饮水机既没有押金条也没有还桶入口，
+     * 报回桶会被桶账的物理上限拒掉（{@code returned > 占用 = 0}），而那句报错配送员看不懂。
+     * 完成页据此只对桶装水画回桶步进器。</p>
+     */
+    private Boolean barrelItem;
+
+    /**
+     * 完成配送页的**默认回桶数**（桶装水明细才有值，其余为 {@code null}）。
+     *
+     * <p>= 客户手上已有的旧桶数，上限「占用 = 权益 + over」，且不超过本明细送出桶数。
+     * <b>本合同批新买押金的桶不算</b>（那些桶还在 {@code customer_barrel_in_transit} 的 PENDING 里，
+     * 本来就进不了权益/占用）：买桶是买桶、换水是换水，只对"旧桶换新水"那部分默认回收。</p>
+     *
+     * <p>⚠️ 这是**默认值不是校验**：配送员可以改；服务端唯一的硬判据仍是
+     * {@code BarrelLedgerService.applyDelivery} 的 {@code returned ≤ 占用}。</p>
+     */
+    private Integer suggestedReturnQty;
 }

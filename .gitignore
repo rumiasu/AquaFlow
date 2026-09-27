@@ -148,6 +148,11 @@ __*.ps1
 # machine-checkable: referenced classes+methods must exist, every OK row must point at
 # resolvable evidence, and the generated stats block must match the real test run.
 !audit_scenario_matrix.py
+# WXSS selector-vs-WXML gate (2026-09-26): `class="popup-content asset-warning"` on ONE element
+# while the stylesheet wrote `.asset-warning .popup-content` (descendant) — the rule silently never
+# matched, the card stayed at translateY(100%) off-screen and only the mask showed, hard-blocking
+# first orders in DevTools. Neither wxml-handler nor js-syntax gate parses wxss, so this needs its own.
+!audit_wxss_selectors.py
 # AI-assisted test analysis (2026-09-21): emits a deterministic fact pack (endpoint ->
 # test reverse index, zero-test endpoints, never-asserted invariants) so gap analysis
 # rests on checkable facts instead of guesses. Analysis tool: exit code is always 0,

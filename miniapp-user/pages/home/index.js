@@ -1,5 +1,6 @@
 // 首页 · Step4 锁稿落地（2026-09-11）
-// 六区块：头部卡 / 再来一单 / 配送状态条 / 订水区 / 桶账一行 / 合计下单栏
+// [2026-09-26 Wave1 轨道 B] 信息顺序重排为：水站与营业状态 / 收货地址 / 当前订单（有才显示）/
+// 再买上次 / 商品列表 / 水桶与押金入口。顺序与文案见 docs/design/29 §3「订水首页」。
 // 原则：桶账与金额口径只读后端派生字段，前端不做业务加减（合计栏除外——那是基于后端下发单价的选购预估）。
 const { getStationProducts } = require('../../api/product')
 const { getOrders, getOrderDetail, getMyLatestStation } = require('../../api/order')
@@ -37,6 +38,7 @@ Page({
     total: { count: 0, waterText: '0', depositText: '0', grandText: '0' },
     againOrder: null,   // { img, summary, items:[{productId, quantity}] }
     activeShip: null,   // { id, title, sub }
+    activeOrderCount: 0, // 进行中订单张数（>1 时当前订单条给「查看全部」入口，不在首页堆多张大卡）
     barrelVisible: false,
     barrelLine1: '',
     barrelLine2: '',
@@ -279,7 +281,7 @@ Page({
           wx.showModal({
             title: '切换水站提醒',
             content: '不同水站的水票、桶及押金等资产不互通，请确认后再切换。',
-            confirmText: '知道了，继续',
+            confirmText: '继续',
             cancelText: '取消',
             showCancel: true,
             success: (r) => resolve(r.confirm)
@@ -291,7 +293,7 @@ Page({
             title: '提示',
             content: '下次不再提示？',
             confirmText: '不再提示',
-            cancelText: '每次都提示',
+            cancelText: '继续提示',
             success: (r) => resolve(r.confirm)
           })
         })
@@ -398,22 +400,30 @@ Page({
       const summary = (summaryRes && summaryRes.data) ? summaryRes.data : {}
       this.renderBarrelLine(summary)
 
-      // 进行中订单 → 配送状态条（最多展示 1 条）
+      // 进行中订单 → 当前订单条（首页最多展示 1 条）
       const orders = (ordersRes && ordersRes.data) ? ordersRes.data : []
-      const active = orders.find(o => o.status === 1 || o.status === 2)
-      await this.renderActiveShip(active)
+      const actives = orders.filter(o => o.status === 1 || o.status === 2)
+      await this.renderActiveShip(actives[0], actives.length)
 
       // 最近一笔已送达/已完成订单 → 再来一单
       const lastDone = orders.find(o => o.status === 3 || o.status === 4)
       await this.renderAgainOrder(lastDone, products)
 
       this.setData({ state: 'ready' })
+    } catch (e) {
+      // [2026-09-26 Wave1 轨道 B] 白屏守卫：这里抛异常时 state 永远不会落到 'ready'
+      // （上面那行是唯一赋值点），而结算栏与整块内容都挂在 state === 'ready' 上 ——
+      // 页面只剩一张 hero 卡，看起来跟"这个站什么都没有"一模一样（AGENTS §8.22）。
+      // 复用现有 loadError 机制给出可读失败态，不重构 loadData。
+      console.error('[home] 首页数据加载失败:', e)
+      this._noteLoadError('首页数据没加载出来（' + ((e && e.message) || '网络异常') + '），请下拉刷新')
+      this.setData({ state: 'ready' })
     } finally {
       this.setData({ loading: false })
     }
   },
 
-  /** 桶账一行：只读后端派生口径，前端不加减 */
+  /** 水桶与押金入口：首页只留入口 + 必要欠桶提醒，前端不加减、也不改口径名 */
   renderBarrelLine(s) {
     // [2026-09-16 修复] 三个数各有其源，不能混用：
     //   rightBuckets    = 权益（已到手）—— 下单抵扣 / 退押金认的是这个
@@ -421,6 +431,9 @@ Page({
     //   occupiedBuckets = 占用 = 权益 + over（物理在手，不含配送中）
     // 此前第一项取的是 heldBuckets 却标成"权益"，把在途算进了权益；
     // 配送中取的是 deliveryBuckets（含已送达的 DELIVERED 行），送达后仍会显示"配送中 N"。
+    // [2026-09-26 Wave1 轨道 B] 本页不再铺开这四个数：首页只做「水桶与押金」入口
+    //（口径明细在桶账页分真实口径展示，见 docs/design/29 §3/§7）。欠桶是必须当场看见的事，
+    // 所以只有它留在首页当提醒；**权益/占用/持有/欠 是四个不同口径，别在别处合并成"手里有几个桶"**。
     const right = s.rightBuckets != null ? s.rightBuckets : (s.heldBuckets || 0)
     const occupied = s.occupiedBuckets != null ? s.occupiedBuckets : right
     const delivery = s.pendingDeliveryBuckets || 0  // 配送中：只含 PENDING
@@ -434,25 +447,24 @@ Page({
       return
     }
 
-    let line1 = `权益 ${right} · 占用 ${occupied}`
-    if (delivery > 0) line1 += ` · 配送中 ${delivery}`
-    if (storageN > 0) line1 += ` · 水站暂存 ${storageN} 个`
-    if (owed > 0) line1 += ` · 欠 ${owed} 个`
+    let line1 = '水桶与押金'
 
     const parts = []
-    if (storageN > 0) parts.push('暂存桶下次订水自动抵扣')
-    if (balance > 0) parts.push(`可退押金 ¥${fmtMoney(balance)}（退桶按买入价退）`)
+    if (owed > 0) parts.push(`欠 ${owed} 个空桶，还清前不能退桶`)
+    if (balance > 0) parts.push(`押金余额 ¥${fmtMoney(balance)}`)
 
     this.setData({ barrelVisible: true, barrelLine1: line1, barrelLine2: parts.join(' · ') })
   },
 
-  /** 配送状态条：进行中订单（待配送1/配送中2），附商品摘要 */
-  async renderActiveShip(order) {
+  /** 当前订单条：进行中订单（待配送1/配送中2），附商品摘要；activeCount = 进行中总张数 */
+  async renderActiveShip(order, activeCount) {
     if (!order) {
-      this.setData({ activeShip: null })
+      this.setData({ activeShip: null, activeOrderCount: 0 })
       return
     }
-    const title = order.status === 2 ? '配送中 · 师傅正在送来' : '待配送 · 水站备货中'
+    // ⚠️ 只陈述后端已下发的事实：不写"备货中"（待配送≠已备货）、不写"正在赶来/马上到"
+    //（配送中≠承诺到达时间）。两条都曾是本页的过度承诺（docs/design/29 §3）。
+    const title = order.status === 2 ? '配送中' : '待配送'
     let sub = ''
     // [2026-09-20] 原来 `.catch(() => null)`：明细拉不到时 sub 是空串 —— 与"这单确实没有商品明细"
     // 无法区分（状态条本身还在，只是没有商品那一行，客户看不出来是没网）。
@@ -466,7 +478,7 @@ Page({
         .map(it => `${it.productNameSnapshot || '桶装水'} ×${it.quantity || 0}`)
         .join('、')
     }
-    this.setData({ activeShip: { id: order.id, title, sub } })
+    this.setData({ activeShip: { id: order.id, title, sub }, activeOrderCount: Number(activeCount) || 1 })
   },
 
   /** 再来一单：取最近一笔已送达/已完成订单的商品组合；「加入」直接写进步进器，不跳页 */
@@ -546,10 +558,13 @@ Page({
           const held = Number(heldMap[String(p.id)]) || 0
           const shortage = Math.max(0, qty - held)
           deposit += shortage * unitDeposit
+          // [2026-09-26 Wave1 轨道 B] 商品行只留"与本次购买有关的一行押金说明"，
+          // 措辞按 docs/design/29 §7 的对照表：不暗示"本次回收就能退押金"，
+          // 也不把桶权益口径搬到商品行铺开（明细在桶账页）。
           if (held > 0 && shortage === 0) {
-            depositNote = `已享 ${held} 个桶权益，无需再付押金`
+            depositNote = '本次无需加收桶押金'
           } else if (held > 0) {
-            depositNote = `已享 ${held} 个桶权益，另需 ${shortage} 个桶押金 ¥${fmtMoney(shortage * unitDeposit)}`
+            depositNote = `本次另需 ${shortage} 个桶押金 ¥${fmtMoney(shortage * unitDeposit)}`
           } else if (unitDeposit > 0) {
             depositNote = `桶押金 ¥${fmtMoney(unitDeposit)}/个`
           }
@@ -617,6 +632,12 @@ Page({
     if (activeShip) {
       wx.navigateTo({ url: `/pages/order/detail?id=${activeShip.id}` })
     }
+  },
+
+  /** 多张进行中订单时的「查看全部」：订单列表是 tabBar 页，只能用 switchTab
+      （navigateTo 跳 tab 页必然 fail，点了静默无反应） */
+  onGoActiveOrders() {
+    wx.switchTab({ url: '/pages/order/list' })
   },
 
   onGoBarrel() {

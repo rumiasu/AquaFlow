@@ -339,7 +339,9 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // 首次站点资产业务检查
+        // 首次站点资产业务检查（**客户告知**口径：票 / 押金 / 桶任一为有就不算新客户；
+        // 所以它下发给报价页用于"首次资产业务告知"，与 PaymentServiceImpl 里那条同名判据同源）。
+        // ⚠️ 它**不**是「站点第一笔买桶订单」的判据 —— 那一列只看桶，见下面 setFirstBarrelOrder 的注释。
         boolean firstStationAsset = false;
         if (needStationAsset) {
             firstStationAsset = !assetService.hasStationAsset(dto.getCustomerId(), stationId);
@@ -573,7 +575,16 @@ public class OrderServiceImpl implements OrderService {
         orders.setSpecialNote(dto.getSpecialNote());
         orders.setReturnBucketQty(dto.getReturnBucketQty());
         orders.setDeliveryBucketQty(totalNeededBuckets > 0 ? totalNeededBuckets : null);
-        orders.setFirstBarrelOrder(firstStationAsset && totalNeededBuckets > 0);
+        // ⚠️ [2026-09-26 产品口径] 「本站第一笔**买桶**订单」的判据**只看桶权益**（hasBarrelAsset），
+        //    不能复用上面的 firstStationAsset —— 后者把水票账户与押金账户也算作"已有资产"
+        //    （那是给客户的"首次资产告知"用的）。用错的后果很具体：**先买过水票的客户**
+        //    第一次买桶时被判成非首单 → 完成配送页要求核对回桶、并把回桶数默认成"送出多少回多少"，
+        //    可他手里一个空桶都没有（原话：「第一次送达桶确实不需要回收，把第一次桶送达时的
+        //    默认回桶值取消掉」）；照默认提交还会凭空给他记上欠桶。
+        //    读它的地方：OrderWorkflowServiceImpl.completeDelivery（为真则整段跳过回桶核对）
+        //    与 involvesDepositOrBarrelRights 的第 2 项。
+        orders.setFirstBarrelOrder(totalNeededBuckets > 0
+                && !assetService.hasBarrelAsset(dto.getCustomerId(), stationId));
         orders.setIdempotencyKey(idempotencyKey);
         // 请求摘要：与幂等键一起落库，用来回答"同键的第二次请求内容是否相同"（评审问题 5）。
         // 见 requestDigest 的注释：只取**业务字段**，不取控制字段与任何服务端算出来的金额。

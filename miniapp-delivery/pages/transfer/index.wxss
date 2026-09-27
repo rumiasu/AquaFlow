@@ -15,10 +15,6 @@
   gap: var(--spacing-sm);
 }
 
-.info-icon {
-  font-size: var(--font-xl);
-  flex-shrink: 0;
-}
 
 .info-text {
   font-size: var(--font-sm);
@@ -108,11 +104,6 @@
   margin-bottom: var(--spacing-sm);
 }
 
-.address-icon {
-  font-size: var(--font-md);
-  flex-shrink: 0;
-  margin-top: 4rpx;
-}
 
 .address-text {
   font-size: var(--font-sm);
@@ -144,11 +135,6 @@
   padding: 120rpx var(--spacing-lg);
 }
 
-.empty-icon {
-  font-size: 100rpx;
-  display: block;
-  margin-bottom: var(--spacing-lg);
-}
 
 .empty-text {
   font-size: var(--font-lg);

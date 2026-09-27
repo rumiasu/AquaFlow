@@ -54,6 +54,8 @@ class CustomerRefusalWriteOffIntegrationTest extends AbstractScenarioTest {
     private long deliveredUnpaidCashOrder(World w, String key, int qty) {
         assertEquals(0, placeOrder(w, key, CASH, qty).code(), "下单应成功");
         long order = orderIdOf(key);
+        // [2026-09-26 产品裁定] 未分配的单配送员看不到、也不能自己接走 —— 链路多一步「站长派单」
+        assertEquals(0, assignOrder(w, order).code(), "站长派单应成功");
         assertEquals(0, acceptOrder(w, order).code(), "接单应成功");
         assertEquals(0, completeDelivery(w, order, qty, 0, false, null).code(), "送达（不收款）应成功");
         assertEquals(3, status(order), "应停在 已送达(3)");

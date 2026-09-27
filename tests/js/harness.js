@@ -30,6 +30,18 @@ function createWx() {
     hideLoading() {},
     showModal(o) {
       const opt = o || {}
+      // ===== 平台契约校验：弹窗按钮文案最多 4 个字符 =====
+      // 微信 `wx.showModal` 的 confirmText / cancelText **最多 4 个字符**；超了既不弹窗、
+      // 也不报错（线上同症状报告：confirmText/cancelText 超过四个字时"没有反应也没有任何错误"）。
+      // 2026-09-26 真机反馈"点存为草稿毫无反应"就是这个原因 —— 当时写的是「下架为草稿」(5 字)，
+      // 那次调用被平台直接丢弃，而页面既没有 fail 回调、也没有任何日志。
+      // 这里**直接抛**：让流程测试红掉，而不是让这类问题在测试里静默通过。
+      ['confirmText', 'cancelText'].forEach((k) => {
+        const v = opt[k]
+        if (typeof v === 'string' && [...v].length > 4) {
+          throw new Error(`showModal 的 ${k}「${v}」有 ${[...v].length} 个字符，超过平台上限 4 —— 真机上会既不弹窗也不报错`)
+        }
+      })
       calls.modal.push(opt)
       if (opt.__manual) return
       const confirm = wx.__modalAutoConfirm
@@ -86,6 +98,11 @@ function loadPage(relPagePath, opts) {
   global.Page = (cfg) => { captured = cfg }
   global.getCurrentPages = () => [{}]
 
+  // 页面级 Behavior：`Behavior({data, methods})` 在真机上会被合并进页面（data 并入、methods 平铺），
+  // 这里补一个同形状的最小实现 —— 少了它，任何 `behaviors: [xxx]` 的页面（如 coordination 用了
+  // behaviors/stationNavbar）一 loadPage 就抛 `Behavior is not defined`。
+  global.Behavior = (cfg) => cfg
+
   // 拦掉网络模块：只按"请求路径的后半段"匹配，避免写死相对层级
   const stubs = options.stubs || {}
   const originalLoad = Module._load
@@ -113,6 +130,15 @@ function loadPage(relPagePath, opts) {
   // 实例：data 深拷贝一份，方法直接绑上（与小程序运行时足够像）
   const instance = Object.assign({}, captured)
   instance.data = JSON.parse(JSON.stringify(captured.data || {}))
+  // ⚠️ 先并入 behavior 的 data，再并入页面自己的 data —— **页面优先**（真机也是页面覆盖 behavior）。
+  const behaviors = Array.isArray(captured.behaviors) ? captured.behaviors : []
+  behaviors.forEach((b) => {
+    if (!b) return
+    Object.keys(b.data || {}).forEach((k) => {
+      if (!(k in instance.data)) instance.data[k] = JSON.parse(JSON.stringify(b.data[k]))
+    })
+  })
+  instance.__behaviors = behaviors
   instance.__wx = wx
   instance.__app = app
   instance.setData = function (patch, cb) {
@@ -123,7 +149,36 @@ function loadPage(relPagePath, opts) {
   Object.keys(captured).forEach((k) => {
     if (typeof captured[k] === 'function') instance[k] = captured[k].bind(instance)
   })
+  // behavior 的 methods 平铺到实例上（页面自己的同名方法优先）—— 真机就是这么合并的
+  behaviors.forEach((b) => {
+    const methods = (b && b.methods) || {}
+    Object.keys(methods).forEach((k) => {
+      if (typeof methods[k] === 'function' && typeof instance[k] !== 'function') {
+        instance[k] = methods[k].bind(instance)
+      }
+    })
+  })
   return instance
 }
 
-module.exports = { loadPage, createWx, createApp, ROOT }
+/**
+ * 「卡死即失败」看门狗：套件开头 `const done = armWatchdog()`，结尾 `done()`。
+ *
+ * <p><b>为什么必须有</b>：用例 await 的 Promise 若永远不 resolve（假后端忘了 resolve、
+ * 页面的分支根本没走到），Node 的事件循环会空转然后<b>静默退出、退出码 0</b> ——
+ * 输出停在半截，CI 判绿。这不是假设：2026-09-26 给「连点只发一次请求」做反向验证时实测到了
+ * （把保护摘掉后第一个请求的 resolver 被第二次调用覆盖，套件打印到第 4 条就退出、退出码 0）。
+ * 假绿比红贵得多，所以宁可让整个套件超时失败。</p>
+ *
+ * <p>定时器**故意保持事件循环存活**（不 unref）：卡住时它才有机会开火。
+ * {@code tests/js/run-all.js} 另有外部超时（spawnSync）兜底。</p>
+ */
+function armWatchdog(ms) {
+  const timer = setTimeout(() => {
+    console.error('\n套件超时未结束：有用例卡住了（多数是假后端没 resolve，或页面分支没走到）。判为失败。')
+    process.exit(1)
+  }, ms || 120000)
+  return () => clearTimeout(timer)
+}
+
+module.exports = { loadPage, createWx, createApp, armWatchdog, ROOT }

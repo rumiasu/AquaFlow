@@ -1,18 +1,23 @@
 <view class="container">
   <loading wx:if="{{loading}}"></loading>
   <block wx:else>
-    <view class="brand-header">
-      <image class="brand-icon" src="/assets/logo/aquaflow.jpg" mode="aspectFill" />
-      <text class="brand-name">AquaFlow</text>
-      <text class="brand-slogan">新鲜水源 · 快速配送 · 品质保障</text>
-      <view class="brand-login" wx:if="{{!isLogin}}" bindtap="onLogin">
-        <text>登录下单享优惠</text>
+    <!--
+      游客登录入口。[2026-09-26 Wave3 H1] 原来这页顶部是一整块品牌头（logo + AquaFlow + 口号
+      「新鲜水源 · 快速配送 · 品质保障」），登录入口是它里面那个小胶囊，文案「登录下单享优惠」——
+      全仓没有任何优惠事实来源（js 里没有优惠/券字段），属于无凭据承诺，整块一并去掉（docs/design/29 §1/§3）。
+      ⚠️ 登录入口本身**不能跟着删**：本页没有独立的游客卡（首页 pages/home 有），
+      这块是游客在本页唯一的登录入口，删了游客就只剩「请先登录」的 toast、无处可点。
+    -->
+    <view class="guest-login" wx:if="{{!isLogin}}" bindtap="onLogin">
+      <view class="guest-login-text">
+        <text class="guest-login-title">登录后可下单</text>
+        <text class="guest-login-desc">先选服务水站，再看本站商品与价格</text>
       </view>
+      <text class="guest-login-arrow">›</text>
     </view>
 
     <!-- 水站营业状态（软状态）：只提示、不隐藏商品、不拦截下单 -->
     <view class="station-status-banner" wx:if="{{stationStatusHint}}">
-      <text class="banner-icon">⏰</text>
       <text class="banner-text">{{stationStatusHint}}</text>
     </view>
 
@@ -41,7 +46,8 @@
     </view>
 
     <view class="section">
-      <text class="section-title">全部商品</text>
+      <!-- 商品目录：入口在首页「更多商品 ›」/「搜索 ›」（两者都落到本页，?focus=1 时自动聚焦搜索框） -->
+      <text class="section-title">商品目录</text>
       <view class="product-grid">
         <view class="product-card"
           wx:for="{{allProducts}}" wx:key="id"
@@ -50,7 +56,6 @@
             <image src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
           </view>
           <view class="product-img product-img-placeholder" wx:else>
-            <text>💧</text>
           </view>
           <view class="product-info">
             <view class="name-row">

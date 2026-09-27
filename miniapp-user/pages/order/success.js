@@ -24,10 +24,17 @@ Page({
     // loadState: 'loading' | 'ok' | 'failed' —— failed 时**不许**落到"下单成功 / 尽快配送"
     loadState: 'loading',
     loadErrorText: '',
-    heroTitle: '订单已提交',
-    heroDesc: '',
-    heroTone: 'ok',            // 'ok' | 'warn'
-    statusText: ''
+    // 结果区的**每一句业务文案都来自后端**（Orders 派生字段）：
+    //   statusText → 标题（本单现在处于哪一步：待配送 / 配送中 / 已送达 / 已完成 / 已取消）
+    //   payHint    → 付款说明；payStateText → 支付状态
+    // 前端**只做展示决策**（有没有文案、要不要提示色），不再把数字翻成中文。
+    // 为什么拆成 heroTitle/heroDesc 而不复用一个字符串：wxml 要按"有没有"分别控制渲染。
+    heroTitle: '',             // order.statusText
+    heroDesc: '',              // order.payHint
+    heroTone: 'ok',            // 'ok' | 'warn'，只由后端状态编码选配色
+    statusText: '',
+    payStateText: '',
+    amountText: ''             // 预格式化金额，wxml 里不做算术
   },
 
   onLoad(options) {
@@ -77,58 +84,47 @@ Page({
   },
 
   /**
-   * 把订单事实映射成结果页文案（契约 A3 的「响应 → 页面」映射）：
-   *   订单是否存在（拿到了 order）/ 支付是否确定 / 下一步动作。
-   * 判据只用**服务端下发的字段**（status / paymentStatus / payMethodText / payHint / canRepay），
-   * 不在前端另写一套状态含义。
+   * 把后端下发的订单事实渲染成结果页文案（契约 A3）。
+   *
+   * <p><b>[2026-09-26] 拆掉前端自建的 1/2/3 → 中文映射表。</b>原来这里用
+   * `status===5→'订单已取消'` / `payStatus===3→'已退款'` / `payStatus===2→'下单成功'` ……
+   * 在前端把数字翻成中文，而同页又渲染后端下发的 `statusText` —— 同一屏两套状态文案，
+   * 后端改叫法前端不跟，客户就会看到互相矛盾的句子（AGENTS §6：前端禁止自带映射表）。</p>
+   *
+   * <p>现在只做两件事：<b>取</b>后端字段（statusText / payHint / payStateText）、
+   * <b>决定</b>展示形态（标题用哪个字段、要不要换暖色、金额怎么排）。</p>
+   *
+   * <p>⚠️ 保留的硬护栏，一条都不许回退：① 文案为空时**标题留空**，绝不用"下单成功"
+   * 之类的兜底去盖住一个没查到的事实（AGENTS §8.22 的同一类坑：`data` 为空只 warn、
+   * 页面照旧渲染"尽快配送"）；② 已取消 / 已退款 / 支付已取消一律换暖色，不用绿勾暗示成功。</p>
    */
   applyOrderFacts(order) {
-    const status = order.status == null ? null : Number(order.status)
-    const payStatus = order.paymentStatus == null ? null : Number(order.paymentStatus)
-    const payMethod = order.paymentMethod == null ? null : Number(order.paymentMethod)
     const amount = order.totalAmount || order.amount || 0
 
-    let heroTitle = '订单已提交'
-    let heroDesc = ''
-    let heroTone = 'ok'
+    const statusText = order.statusText || ''
+    const payHint = order.payHint || ''
+    const payState = order.payState || ''
 
-    if (status === 5) {
-      // 已取消：绝不能显示"尽快配送"
-      heroTitle = '订单已取消'
-      heroDesc = '这张订单已经取消，不需要付款。'
-      heroTone = 'warn'
-    } else if (payStatus === 3) {
-      heroTitle = '已退款'
-      heroDesc = '这张订单的钱已经退回。'
-      heroTone = 'warn'
-    } else if (payStatus === 2) {
-      heroTitle = '下单成功'
-      heroDesc = '付款已完成，水站会按顺序安排配送。'
-    } else if (status === 3 || status === 4) {
-      heroTitle = status === 4 ? '订单已完成' : '订单已送达'
-      heroDesc = payStatus === 2 ? '本次订单已完成。' : '货物已送达，款项按订单说明结清。'
-    } else if (payMethod === 2 && payStatus === 1) {
-      // 现金单：说清"送到再付"，不给在线支付入口
-      heroTitle = '下单成功'
-      heroDesc = '订单已提交，送到再付 ¥' + amount
-    } else if (payStatus === 0 || payStatus === 4) {
-      heroTitle = '订单已提交'
-      heroDesc = '还没付款' + (amount ? '：应付 ¥' + amount : '')
-      heroTone = 'warn'
-    } else {
-      heroTitle = '订单已提交'
-      heroDesc = '正在核实这张订单的付款情况。'
-    }
+    // 标题就是**后端给的状态文案**；没给就留空（wxml 不渲染标题），不自己编一句。
+    const heroTitle = statusText
+    // 付款说明：后端没给 payHint 时，退到后端给的支付状态文案（同样是后端字段）。
+    const heroDesc = payHint || order.payStateText || ''
+    // 配色（不是文案）：已取消 / 退款类 / 支付被取消 = 需要客户留意，其余用常态色。
+    const heroTone = (order.status === 5 || payState === 'REFUNDED'
+      || payState === 'CANCELLED' || payState === 'UNPAID') ? 'warn' : 'ok'
 
     this.setData({
       loadState: 'ok',
-      paymentStatus: payStatus,
+      paymentStatus: order.paymentStatus == null ? null : Number(order.paymentStatus),
       orderAmount: amount,
-      orderPaymentMethod: payMethod,
+      orderPaymentMethod: order.paymentMethod == null ? null : Number(order.paymentMethod),
       canRepay: order.canRepay === true,
       repayLabel: order.repayLabel || '去支付',
-      payHint: order.payHint || '',
-      statusText: order.statusText || '',
+      payHint,
+      statusText,
+      payStateText: order.payStateText || '',
+      // 金额只做格式化，口径仍是后端总额（前端不参与任何金额计算）。
+      amountText: amount ? '¥' + Number(amount).toFixed(2) : '',
       heroTitle,
       heroDesc,
       heroTone

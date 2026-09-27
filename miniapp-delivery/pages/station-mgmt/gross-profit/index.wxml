@@ -1,5 +1,6 @@
-<!-- 站长端「毛利」：进货成本 + 期间毛利报表。规格见 docs/design/20 §2。
-     金额与文案全部用服务端下发的值（含 profitText / profitRateText / costBasisNote），本页不做毛利算术。 -->
+<!-- 站长端「利润」：进货成本 + 期间报表。规格见 docs/design/20 §2。
+     用词 [2026-09-26 产品口径]：面向站长写「利润」不写"毛利"（本仓用户是小水站，"毛利"是财务术语）。
+     金额与文案全部用服务端下发的值（含 profitText / profitRateText / costBasisNote），本页不做利润算术。 -->
 <view class="page">
 
   <!-- 期间 -->
@@ -39,24 +40,25 @@
         <text class="hero-label">进货成本</text>
       </view>
       <view class="hero-item">
-        <!-- totalProfit 为 null = 有商品没填成本，此时不给数字（后端下发 null，绝不能当 0） -->
-        <text class="hero-num {{report.totalProfit === null ? 'hero-warn' : 'hero-ok'}}">
-          {{report.totalProfit === null ? '算不出' : '¥' + report.totalProfit}}
+        <!-- 缺成本时后端把 totalProfit 下发成 null：这里显示「未填成本」（js 里算好的展示态），
+             下面的 missingCostHint 会接着说清是哪些商品 —— 既不显示 0，也不整块不显示。 -->
+        <text class="hero-num {{profitView.totalProfitWarn ? 'hero-warn' : 'hero-ok'}}">
+          {{profitView.totalProfitText}}
         </text>
-        <text class="hero-label">毛利</text>
+        <text class="hero-label">利润</text>
       </view>
     </view>
 
     <view class="notice" wx:if="{{report.missingCostHint}}">{{report.missingCostHint}}</view>
 
     <!--
-      收入构成与净利（[2026-09-19] 新增）：与上面的毛利是**同一批订单**（同结算站、同时间窗、排除已取消），
+      收入构成与净利（[2026-09-19] 新增）：与上面的利润是**同一批订单**（同结算站、同时间窗、排除已取消），
       所以两张卡的数字必须对得上 —— 上面「收入合计」= 这里的 订单收入 + 水票收入
       （[2026-09-25] 顺带把上面那个标签从"水费收入"改成了"收入合计"：它本来就含票款）。
-      · 净利 = 订单收入 + 水票收入 + 配送费 + 楼层费 − 进货成本 − 计件工钱
+      · 净利 = 订单收入 + 水票收入 + 配送费 + 楼层费 − 进货成本 − 计件工钱（= 上面的利润再扣工钱）
       · wx:if 用 profitBasisNote 当开关：它是本次新增的字段，老响应里没有 → 整块不显示，
         避免在字段缺失时把 undefined 渲染成"¥undefined"（那是最坏的一种"看起来正常"）
-      · netProfit 为 null = 有商品没填成本 → 显示「算不出」，**绝不能当 0**
+      · netProfit 为 null = 有商品没填成本 → 显示「未填成本」（profitView 里算好），**绝不能当 0**
     -->
     <view class="card" wx:if="{{report.profitBasisNote}}">
       <view class="card-title">{{range === 'today' ? '今日收入与净利' : '收入与净利'}}</view>
@@ -97,25 +99,30 @@
       </view>
       <view class="ledger-row ledger-strong">
         <text class="ledger-label">净利</text>
-        <text class="ledger-value {{report.netProfit === null ? 'ledger-warn' : 'ledger-ok'}}">
-          {{report.netProfit === null ? '算不出' : '¥' + report.netProfit}}
+        <text class="ledger-value {{profitView.netProfitWarn ? 'ledger-warn' : 'ledger-ok'}}">
+          {{profitView.netProfitText}}
         </text>
       </view>
-      <!-- 净利口径提示：原样展示服务端文案（按下单时间、工钱在送达时才产生、人工调整不计入） -->
+      <!--
+        [2026-09-26 产品反馈"利润里太罗嗦了"] 这两段口径提示从"铺在屏幕上"改成**一行版**，
+        完整解释（为什么一张水票单的利润是负的、工钱什么时候产生、人工调整为何不计入…）
+        由服务端下发 helpNote，收进页面底部的「利润怎么算」。
+        ⚠️ 别把长文搬回这里，也别在前端 js 里抄一份口径。
+      -->
       <view class="hint">{{report.profitBasisNote}}</view>
     </view>
 
-    <!-- 成本口径提示：原样展示服务端文案，前端不改写、不截断 -->
+    <!-- 成本口径：一行版（长解释同上，见「利润怎么算」） -->
     <view class="hint" wx:if="{{report.costBasisNote}}">{{report.costBasisNote}}</view>
 
-    <!-- 未填成本的商品：快速补录入口 -->
+    <!-- 未填成本的商品：快速补录入口（状态与出路都摆在这一行里，别藏） -->
     <view class="card" wx:if="{{missingCost.length}}">
       <view class="card-title">未填成本的商品（{{missingCost.length}} 个）</view>
       <view class="chips">
         <view class="chip chip-warn" wx:for="{{missingCost}}" wx:key="productId"
               bindtap="onOpenCostFromMissing" data-id="{{item.productId}}">+ {{item.productName}}</view>
       </view>
-      <view class="hint">没填成本的商品只列收入、不算毛利。点商品名直接补录成本价。</view>
+      <view class="hint">点商品名就能补录成本价，补完利润立刻算得出来。</view>
     </view>
 
     <!-- 明细 -->
@@ -129,7 +136,7 @@
             <text class="row-title">{{item.productName}}</text>
             <!-- [2026-09-25 评审问题 6] 行收入用 revenueTotal = 订单水费 + 该商品本期购票实收
                  （票款在下面单独标一行）。用旧的 item.revenue 会让"用票兑出去的商品"显示成
-                 "卖出 2、收入 0、毛利负"，看起来像报表坏了 —— 钱其实在买票那一刻收过了。 -->
+                 "卖出 2、收入 0、利润负"，看起来像报表坏了 —— 钱其实在买票那一刻收过了。 -->
             <text class="row-amount">收入 ¥{{item.revenueTotal}}</text>
           </view>
           <text class="row-sub">
@@ -138,18 +145,20 @@
           <text class="row-sub" wx:if="{{item.ticketRevenue > 0}}">
             其中水票收入 ¥{{item.ticketRevenue}}（客户买票时已收款）
           </text>
+          <!-- 行利润的文案整句来自后端（缺成本那行是「未填成本，无法计算」）—— 前端只标警示色 -->
           <text class="row-sub {{item.profit === null ? 'row-warn' : ''}}">
-            毛利：{{item.profitText}}<text wx:if="{{item.profitRateText}}"> · 毛利率 {{item.profitRateText}}</text>
+            利润：{{item.profitText}}<text wx:if="{{item.profitRateText}}"> · 利润率 {{item.profitRateText}}</text>
           </text>
         </view>
         <text class="row-arrow">›</text>
       </view>
-      <view class="hint" wx:if="{{report.items.length}}">点任意一行可以设置该商品的进货成本价。</view>
+      <!-- 操作提示只留一处（上面「未填成本的商品」那张卡已说清「点商品名补录」）：
+           同一句在两张卡里各写一遍，正是产品说的"太罗嗦"。 -->
     </view>
   </block>
 
   <view class="card">
-    <view class="btn-ghost block" bindtap="onShowHelp">毛利怎么算</view>
+    <view class="btn-ghost block" bindtap="onShowHelp">利润怎么算</view>
   </view>
 
   <!-- 成本编辑 -->

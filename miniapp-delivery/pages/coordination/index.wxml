@@ -1,6 +1,6 @@
 <import src="../../templates/station-navbar.wxml" />
 
-<view class="container">
+<view class="container custom-tabbar-page">
   <!--
     自绘导航栏（b 方案）：**水站营业状态就在「首页」字样的左边**。
     为什么自绘：原生导航栏塞不进任何东西，而站长/配送员要在最上面一眼看到"今天休息 / 配送延迟"。
@@ -8,10 +8,9 @@
     数据与方法 behaviors/stationNavbar.js）—— 与「配送」页同一份实现。
   -->
   <template is="stationNavbar"
-            data="{{title: '首页', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, stationPendingCount: stationPendingCount, rightPad: true, stationPanelShow: stationPanelShow, stationPanelLoading: stationPanelLoading, stationPanelItems: stationPanelItems, stationPanelSummary: stationPanelSummary}}" />
+            data="{{title: '首页', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, stationPendingCount: stationPendingCount, rightPad: true, stationPanelShow: stationPanelShow, stationPanelLoading: stationPanelLoading, stationPanelItems: stationPanelItems, stationPanelPending: stationPanelPending, stationPanelDone: stationPanelDone, stationPanelShowAll: stationPanelShowAll, stationPanelSummary: stationPanelSummary, stationPanelOnlineHint: stationPanelOnlineHint, stationPanelError: stationPanelError}}" />
   <!-- 无权限提示 -->
   <view class="no-auth" wx:if="{{!isManager}}">
-    <text class="no-auth-icon">🔒</text>
     <text class="no-auth-title">您无权限</text>
     <text class="no-auth-desc">首页仅站长可访问</text>
     <button class="no-auth-btn" bindtap="onGoBack">返回配送页</button>
@@ -20,17 +19,34 @@
   <view wx:else>
     <!--
       数据没加载出来的提示（空串时不渲染）。[2026-09-20 真机联调] 原来任一接口失败都会让
-      **整页**数据不落地，而下面五个页签照旧渲染成「暂无待分配 / 暂无抢单池…」—— 与"确实没有单"
+      **整页**数据不落地，而下面四个页签照旧渲染成「暂无待分配 / 暂无抢单池…」—— 与"确实没有单"
       完全无法区分（AGENTS §8.22）。现在部分失败也照常展示已拿到的数据，并在这里说清哪几项没出来。
       样式复用 app.wxss 的 .load-error（全局，不要在本页再写一份）。
     -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
     <!--
-      「其他待办」——**只列不在本页 tab 里的那几项**。
+      常驻「水站管理」入口（[2026-09-26] Wave1 轨道 G；docs/design/29 §5
+      「首页以站名/营业状态开头，常驻"水站管理"入口」「完整功能入口另行常驻，零待办不占提醒区」）。
+      三件必须同时成立的判据（改这里之前逐条确认）：
+        ① **与任何服务端事项无关**：直跳宫格，不读 `todo`、不读任何计数、不发请求；
+        ② **永远在**：它写在 `wx:else`（站长分支）里、**在下面任何 `wx:if` 之外** ——
+           提醒区取不到数、零待办、部分加载失败时，它照旧渲染。此前「水站管理」只在
+           「我的」页有门（mine 的「管理 ›」与菜单项），**工作台自己反而没有**；
+        ③ **不附功能清单**（§6：同级入口不用每个附一串功能清单）。
+      位置：紧跟自绘导航栏（站名 + 营业状态胶囊）之后、提醒区之前 —— 即 §5 的层级
+      「站名/营业状态开头 → 常驻水站管理 → 待分配与审批 → 其他待处理」。
+    -->
+    <view class="mgmt-entry" bindtap="onGoStationMgmt">
+      <text class="mgmt-entry-title">水站管理</text>
+      <text class="mgmt-entry-arrow">›</text>
+    </view>
+
+    <!--
+      「其他待处理」——**只列不在本页 tab 里的那几项**。
       [2026-09-19 收敛，当天两次修订] 这里先加过一张 15 项、按 P0/P1/P2 三级铺开的大卡（密度过高），
       随后被整张删掉 —— **但那是删过头**：15 项里有 8 项本来就不在订单页，它们不是冗余。
       现在的口径是"**只留 tab 覆盖不到的**"：
-        · 删掉的 7 项 = 待分配 / 转单 / 客户取消 / 站内取消 / 抢单池 / 他站定向外派 / 退桶审批
+        · 删掉的 7 项 = 待分配 / 转单 / 客户取消 / 站内取消 / 抢单池 / 指定外派待确认 / 退桶审批
           —— 它们要么就是本页页签（角标已给数），要么已在「水站管理」宫格里有卡；
           ⚠️ 这 7 项里**有 6 项是 P0**（只有「抢单池」是 P2），从级别看它们"应该"在这儿，
              但它们各自的页签/页面上一眼就能看到数，再报一遍就是本卡要消除的那种重复。
@@ -45,8 +61,14 @@
     -->
     <view class="todo-card" wx:if="{{todo && todo.items.length}}">
       <view class="todo-head">
-        <text class="todo-title">其他待办</text>
-        <text class="todo-hint">不在订单页里的</text>
+        <!--
+          [2026-09-26 文案] 标题「其他待办」→「其他待处理」，并按 docs/design/29 §7 去掉副标题
+          「不在订单页里的」（那是"关于页面分类"的解释，站长不需要）。
+          ⚠️ **只改文案**：卡的显隐条件（仍是 `wx:if="{{todo && todo.items.length}}"`）、
+          收录的 8 项、以及"零计数照样显示"的口径**一律没动** ——
+          「零计数时是否仍显示」是已登记的产品冲突（§9 待拍板第 1 条），未拍板前不许改代码。
+        -->
+        <text class="todo-title">其他待处理</text>
       </view>
       <view class="todo-row">
         <view class="todo-item {{item.hasCount ? 'todo-item-on' : ''}}"
@@ -93,11 +115,11 @@
         </view>
         <view class="info-row">
           <text class="info-label">商品</text>
-          <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+          <text class="info-value">{{item.goodsText}}</text>
         </view>
         <view class="info-row info-address">
           <text class="info-label">地址</text>
-          <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+          <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
         </view>
         <view class="card-actions">
           <block wx:if="{{item.transferPending}}">
@@ -154,11 +176,11 @@
           </view>
           <view class="info-row">
             <text class="info-label">商品</text>
-            <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+            <text class="info-value">{{item.goodsText}}</text>
           </view>
           <view class="info-row info-address">
             <text class="info-label">地址</text>
-            <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+            <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
           </view>
           <view class="card-actions">
             <button class="btn-primary-small" catchtap="onApproveCancel" data-id="{{item.id}}">同意取消</button>
@@ -186,11 +208,11 @@
           </view>
           <view class="info-row">
             <text class="info-label">商品</text>
-            <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+            <text class="info-value">{{item.goodsText}}</text>
           </view>
           <view class="info-row info-address">
             <text class="info-label">地址</text>
-            <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+            <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
           </view>
           <view class="card-actions">
             <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind === 'DIRECTED' ? 'directed' : 'staff'}}">同意</button>
@@ -241,16 +263,21 @@
           押金/桶权益风险提示：文案整段来自后端（crossStationRiskNote），前端只展示、不自编。
           正常路径下池里不该有这种单（入池的两个入口后端都硬拦了），出现即"规则上线前放进来的历史单"，
           这时点抢单会被后端拒 —— 先把原因摆在卡片上，别让站长点了才知道。
-          另外三个页签（待分配/他站外派/外派）是实体直出、列表里没有这个字段，
+          另外两个页签（待分配 / 外派）是实体直出、列表里没有这个字段，
           它们的提示在**提交前那一次确认弹窗**里给（见 index.js 的 _confirmRisk）。
         -->
         <view class="risk-box" wx:if="{{item.crossStationRiskNote}}">
           <text class="risk-title">⚠️ 押金/桶权益风险</text>
           <text class="risk-text">{{item.crossStationRiskNote}}</text>
         </view>
+        <!--
+          商品行：文案由 js 算好（`goodsView`，全页签同一份判据）。
+          ⚠️ 别改回 `{{item.firstProductName}} × {{item.quantity}}桶` —— `quantity` 是**全单总件数**
+          （含瓶装水 / 饮水器），混合单会显示成「纯净水 × 4桶」（3 桶水 + 1 瓶水的 quantity 也是 4）。
+        -->
         <view class="pool-product-info">
           <text class="pool-product-label">订单商品：</text>
-          <text class="pool-product-name">{{item.firstProductName}} × {{item.quantity}}桶</text>
+          <text class="pool-product-name">{{item.goodsText}}</text>
         </view>
         <view class="pool-match-info" wx:if="{{item.productMatch}}">
           <text class="match-label">本站匹配：</text>
@@ -262,7 +289,7 @@
         </view>
         <view class="info-row info-address">
           <text class="info-label">地址</text>
-          <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+          <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
         </view>
         <view class="card-actions">
           <button class="btn-outline-small" catchtap="onSkipPool" data-id="{{item.id}}">跳过</button>
@@ -274,104 +301,156 @@
       </view>
     </view>
 
-    <!-- 外派追踪：本站外派出去的订单状态 -->
+    <!--
+      外派：**一个页签内置两个子页签**（[2026-09-26] 产品口径）。
+        · 一键外派 = 放进抢单池的单（谁抢谁送、归属站不用管；只在还没被接单前能召回）；
+        · 指定外派 = 指定到具体水站：本站指定给别站的**以及**别站指定本店的。
+      原来那个「他站外派」页签并进这里 —— 别站指定本店，本来就是"指定外派"的一种，
+      单开一个页签会让站长以为系统里有两套外派。
+      ⚠️ 两种形态由**后端**在 /orders/dispatch-tracking 里下发 dispatchKind 分好
+      （判据是备注，见 constant/DispatchKind）—— 前端不解析 specialNote：同一段自由文本
+      两端各判一次，迟早分叉。
+    -->
     <view class="list" wx:elif="{{activeTab === 'dispatch'}}">
-      <view class="order-card dispatch-card" wx:for="{{lists.dispatch}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
-        <view class="card-header">
-          <view class="tag-row">
-            <text class="status-tag status-dispatch">外派中</text>
-            <text class="dispatch-status-tag" wx:if="{{item.dispatchStatus === 'pending'}}">等待接单</text>
-            <text class="dispatch-status-tag dispatch-accepted" wx:elif="{{item.dispatchStatus === 'accepted'}}">已接单</text>
-            <text class="dispatch-status-tag dispatch-rejected" wx:elif="{{item.dispatchStatus === 'rejected'}}">已拒绝</text>
-            <text class="dispatch-status-tag dispatch-completed" wx:elif="{{item.dispatchStatus === 'completed'}}">已完成</text>
-          </view>
-          <text class="order-id">#{{item.id}}</text>
+      <view class="sub-tab-bar">
+        <view class="sub-tab-item {{dispatchTab === 'pool' ? 'active' : ''}}"
+              bindtap="switchDispatchTab" data-tab="pool">
+          <text>一键外派</text>
+          <text class="tab-count" wx:if="{{dispatchCount.pool > 0}}">{{dispatchCount.pool}}</text>
         </view>
-        <view class="info-row">
-          <text class="info-label">客户</text>
-          <text class="info-value">{{item.customerName || item.receiverName}}</text>
-        </view>
-        <view class="info-row">
-          <text class="info-label">商品</text>
-          <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
-        </view>
-        <view class="dispatch-info" wx:if="{{item.deliveryStationName}}">
-          <view class="dispatch-row">
-            <text class="dispatch-label">外派至</text>
-            <text class="dispatch-value">{{item.deliveryStationName}}</text>
-          </view>
-          <view class="dispatch-row" wx:if="{{item.deliveryStaffName}}">
-            <text class="dispatch-label">配送员</text>
-            <text class="dispatch-value">{{item.deliveryStaffName}}</text>
-          </view>
-        </view>
-        <!--
-          外派追踪的两个动作按钮（2026-09-22）。
-          ① 两个按钮都只在 `待配送(1)` 给：原来写的是 `item.status === 1 || item.status === 3`，
-             那是**旧状态编号的残留**（历史编号 1/3/4/5/6，3 曾是"已接单"）。重排成 1..5 之后
-             `3` 变成「已送达」，于是这两个按钮点下去**必然报错**（后端 `cancelDispatch` 只收
-             待配送/配送中，`dispatchExternal` 只收待配送），而真正该看到按钮的「配送中(2)」反而看不到。
-             `listDispatchedOrders` 不筛状态，一张曾被外派、后来送达了的单会一直留在这个列表里，
-             所以旧条件是真的会被点到的。
-          ② 同日后端也收紧了：**被接单站接单之后，这单归接单站管，归属站不能再取消外派**
-             （产品原话：「外派出去的本单就不归本站管了，只能接单站管，联系等都是接单站执行」）。
-             即 `cancelDispatch` 只收 `待配送(1)`（在池中 / 已指定但对方还没接单）——
-             所以这里的 `status === 1` 与后端门槛逐字一致，**不要再加 `|| status === 2`**。
-        -->
-        <view class="card-actions">
-          <button class="btn-danger-small" catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">取消外派</button>
-          <button class="btn-outline-small" catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">重新外派</button>
+        <view class="sub-tab-item {{dispatchTab === 'directed' ? 'active' : ''}}"
+              bindtap="switchDispatchTab" data-tab="directed">
+          <text>指定外派</text>
+          <text class="tab-count" wx:if="{{dispatchCount.directed > 0}}">{{dispatchCount.directed}}</text>
         </view>
       </view>
-      <view class="empty" wx:if="{{lists.dispatch.length === 0}}">
-        <text>暂无外派订单</text>
-      </view>
-    </view>
 
-    <!-- 他站外派：其他水站指定本水站为履约站的订单 -->
-    <view class="list" wx:elif="{{activeTab === 'incoming'}}">
-      <view class="order-card incoming-card" wx:for="{{lists.incoming}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
-        <view class="card-header">
-          <view class="tag-row">
-            <text class="status-tag status-incoming">他站外派</text>
+      <!-- 一键外派：放进抢单池、等别站来抢（不用管，出事了才需要召回） -->
+      <block wx:if="{{dispatchTab === 'pool'}}">
+        <view class="order-card dispatch-card" wx:for="{{lists.dispatchPool}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+          <view class="card-header">
+            <view class="tag-row">
+              <text class="status-tag status-dispatch">一键外派</text>
+              <!-- 订单状态文案由后端下发（Orders.statusText），前端不写 1..5 映射表 -->
+              <text class="dispatch-status-tag" wx:if="{{item.statusText}}">{{item.statusText}}</text>
+            </view>
+            <text class="order-id">#{{item.id}}</text>
           </view>
-          <text class="order-id">#{{item.id}}</text>
-        </view>
-        <!-- 与抢单池同一口径：定向外派也是"站长外派"，接不接这一单同样要先看到钱与去向 -->
-        <view class="fee-box">
-          <view class="fee-row-main">
-            <text class="fee-label">本单金额</text>
-            <text class="fee-amount">￥{{item.totalAmountText}}</text>
+          <view class="info-row">
+            <text class="info-label">客户</text>
+            <text class="info-value">{{item.customerName || item.receiverName}}</text>
           </view>
-          <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
-            <text class="fee-detail-item">含配送费 ￥{{item.deliveryFeeText}}</text>
-            <text class="fee-detail-item">楼层费 ￥{{item.floorFeeText}}</text>
+          <view class="info-row">
+            <text class="info-label">商品</text>
+            <text class="info-value">{{item.goodsText}}</text>
           </view>
-          <view class="fee-source" wx:if="{{item.feeStationName}}">
-            <text class="fee-source-label">定价来自</text>
-            <text class="fee-source-name">{{item.feeStationName}}</text>
+          <!--
+            外派至哪个站：deliveryStationName 由后端在 dispatch-tracking 里按 delivery_station_id 填。
+            还没人接的单它是空的 —— 这时**不要**编一个站名，按 _inPool / _backHome 说实话：
+            在池里等别站抢，或者已经被召回、回到本站待分配（这个列表是"曾外派过"的台账，召回的单也留着）。
+          -->
+          <view class="dispatch-info" wx:if="{{item.deliveryStationName}}">
+            <view class="dispatch-row">
+              <text class="dispatch-label">已被接单</text>
+              <text class="dispatch-value">{{item.deliveryStationName}}</text>
+            </view>
           </view>
-          <view class="fee-settle" wx:if="{{item.settleNote}}">{{item.settleNote}}</view>
+          <view class="dispatch-info" wx:elif="{{item._inPool}}">
+            <view class="dispatch-row">
+              <text class="dispatch-label">当前</text>
+              <text class="dispatch-value">在抢单池里，等别站来抢</text>
+            </view>
+          </view>
+          <view class="dispatch-info" wx:else>
+            <view class="dispatch-row">
+              <text class="dispatch-label">当前</text>
+              <text class="dispatch-value">已回到本站，待分配</text>
+            </view>
+          </view>
+          <!--
+            召回/改派只在「待配送(1)」给：被接单站接单之后这单归接单站管（与后端门槛逐字一致）。
+            ⚠️ 已经召回回来的行（_backHome）不给「取消外派」—— 它本来就不在池里/不在别站手上，
+            点了后端会当一次空召回成功，界面却像"取消掉了什么"（假动作比没有动作更糟）。
+          -->
+          <view class="card-actions">
+            <button class="btn-danger-small" catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1 && !item._backHome}}">取消外派</button>
+            <button class="btn-outline-small" catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">重新外派</button>
+          </view>
         </view>
-        <view class="info-row">
-          <text class="info-label">客户</text>
-          <text class="info-value">{{item.customerName || item.receiverName}}</text>
+        <view class="empty" wx:if="{{lists.dispatchPool.length === 0}}">
+          <text>暂无放进抢单池的订单</text>
         </view>
-        <view class="info-row">
-          <text class="info-label">商品</text>
-          <text class="info-value">{{item.firstProductName}} × {{item.quantity}}桶</text>
+      </block>
+
+      <!-- 指定外派：本站指定给别站的（_dir='out'）+ 别站指定本店的（_dir='in'），别站指定的排前面 -->
+      <block wx:else>
+        <view class="order-card dispatch-card {{item._dir === 'in' ? 'incoming-card' : ''}}" wx:for="{{lists.dispatchDirected}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+          <view class="card-header">
+            <view class="tag-row">
+              <!-- 方向标签：别站指定给我要回话（可退回原水站），本站指定给别站的可召回/改派 -->
+              <text class="status-tag {{item._dir === 'in' ? 'status-incoming' : 'status-dispatch'}}">{{item._dir === 'in' ? '别站指定给我' : '本站指定给别站'}}</text>
+              <text class="dispatch-status-tag" wx:if="{{item.statusText}}">{{item.statusText}}</text>
+            </view>
+            <text class="order-id">#{{item.id}}</text>
+          </view>
+          <!-- 别站指定本店的：与抢单池同一口径，接不接这一单同样要先看到钱与去向（金额全由后端下发） -->
+          <view class="fee-box" wx:if="{{item._dir === 'in'}}">
+            <view class="fee-row-main">
+              <text class="fee-label">本单金额</text>
+              <text class="fee-amount">￥{{item.totalAmountText}}</text>
+            </view>
+            <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
+              <text class="fee-detail-item">含配送费 ￥{{item.deliveryFeeText}}</text>
+              <text class="fee-detail-item">楼层费 ￥{{item.floorFeeText}}</text>
+            </view>
+            <view class="fee-source" wx:if="{{item.feeStationName}}">
+              <text class="fee-source-label">定价来自</text>
+              <text class="fee-source-name">{{item.feeStationName}}</text>
+            </view>
+            <view class="fee-settle" wx:if="{{item.settleNote}}">{{item.settleNote}}</view>
+          </view>
+          <view class="info-row">
+            <text class="info-label">客户</text>
+            <text class="info-value">{{item.customerName || item.receiverName}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">商品</text>
+            <text class="info-value">{{item.goodsText}}</text>
+          </view>
+          <view class="info-row info-address">
+            <text class="info-label">地址</text>
+            <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
+          </view>
+          <view class="dispatch-info" wx:if="{{item.deliveryStationName}}">
+            <view class="dispatch-row">
+              <text class="dispatch-label">外派至</text>
+              <text class="dispatch-value">{{item.deliveryStationName}}</text>
+            </view>
+          </view>
+          <view class="dispatch-info" wx:elif="{{item._dir === 'in'}}">
+            <view class="dispatch-row">
+              <text class="dispatch-label">指定方</text>
+              <text class="dispatch-value">{{item.feeStationName || '别站'}}</text>
+            </view>
+          </view>
+          <view class="card-actions" wx:if="{{item._dir === 'in'}}">
+            <!--
+              [2026-09-26 文案] 原文「调解退回原站」——「调解」是开发/旧文档的说法，站长看不懂
+              （docs/design/29 §7：前端静态标签可局部改，服务端业务状态不动）。
+              动作、端点、判据**全不变**：仍是 index.js 的 onMediateReturn → POST /api/orders/{id}/directed-return
+              （只打「指定退回待确认」标记，等原站长同意/拒绝）。
+            -->
+            <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}">退回原水站</button>
+          </view>
+          <view class="card-actions" wx:else>
+            <button class="btn-danger-small" catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">取消外派</button>
+            <button class="btn-outline-small" catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">重新外派</button>
+          </view>
         </view>
-        <view class="info-row info-address">
-          <text class="info-label">地址</text>
-          <text class="info-value">📍 {{item.addressDetail || item.addressSnapshot}}</text>
+        <view class="empty" wx:if="{{lists.dispatchDirected.length === 0}}">
+          <text>暂无指定外派订单</text>
         </view>
-        <view class="card-actions">
-          <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}">调解退回原站</button>
-        </view>
-      </view>
-      <view class="empty" wx:if="{{lists.incoming.length === 0}}">
-        <text>暂无他站外派订单</text>
-      </view>
+      </block>
     </view>
 
   </view>

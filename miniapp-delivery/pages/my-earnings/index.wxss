@@ -71,7 +71,7 @@
 
 .chip-on {
   color: #ffffff;
-  background: #2f7cf6;
+  background: var(--primary-color);
 }
 
 .card {
@@ -117,7 +117,7 @@
 
 .payroll-status {
   font-size: 24rpx;
-  color: #2f7cf6;
+  color: var(--primary-color);
 }
 
 .payroll-period {

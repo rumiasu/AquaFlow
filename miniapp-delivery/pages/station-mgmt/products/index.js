@@ -503,7 +503,7 @@ Page({
       title: '移除本站配置',
       content: '移除后顾客在本站看不到该商品；库存必须先盘点为 0。确认移除？',
       confirmText: '移除',
-      confirmColor: '#f44336',
+      confirmColor: '#B5442C',
       success: (res) => {
         if (!res.confirm) return
         removeCatalogProduct(s.id)
@@ -725,7 +725,7 @@ Page({
       title: '停用商品',
       content: '停用后本站顾客看不到它，历史订单不受影响。确认停用？',
       confirmText: '停用',
-      confirmColor: '#f44336',
+      confirmColor: '#B5442C',
       success: (res) => {
         if (!res.confirm) return
         deleteMyProduct(item.id)

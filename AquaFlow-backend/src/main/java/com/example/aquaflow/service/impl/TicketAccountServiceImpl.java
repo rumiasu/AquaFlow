@@ -543,7 +543,14 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         // 水票入账由 PaymentServiceImpl.confirmPayment 在支付确认成功后执行。
         // ⚠️ 它的乐观锁（CAS PENDING→PAID）只保证**单条流水**只入账一次，管不住"重复流水"——
         // 这正是上面必须从源头挡住第二条流水的原因。
-        // 真实环境微信支付到位后，这里应改为：统一下单 -> 等待支付回调 -> 回调中确认支付并入账。
+        //
+        // [2026-09-26 产品口径] 购票是客户的**自助预付**，不是「等水站同意」：
+        //   · 微信：模拟渠道下由 `PaymentService.confirmMockChannelIfApplicable` 当场确认
+        //     （调用点在 TicketAccountController.purchase），客户不需要任何水站操作；
+        //   · 现金：留在待收款，等站长确认**收到钱**后再入账 —— 那是收款确认，不是审批；
+        //   · 真实微信渠道接入时，本方法**不动**：把"统一下单"放在调用方（或本方法末尾发起），
+        //     "付款成功"由支付回调调 `confirmPayment` 驱动 —— 别把入账写到这里来，
+        //     那会和回调里的入账路径形成两条入账口（重复入账就是这么来的）。
 
         return record;
     }

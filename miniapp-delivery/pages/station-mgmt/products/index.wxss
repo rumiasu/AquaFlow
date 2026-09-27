@@ -36,7 +36,7 @@
 }
 
 .tab.active {
-  background: var(--primary, #4F8EF7);
+  background: var(--primary-color);
   color: #fff;
   font-weight: 600;
 }
@@ -67,7 +67,7 @@
 }
 
 .chip.active {
-  background: var(--primary, #4F8EF7);
+  background: var(--primary-color);
   color: #fff;
 }
 
@@ -79,7 +79,7 @@
 }
 
 .hint { font-size: 22rpx; color: var(--text-secondary); }
-.link { font-size: 24rpx; color: var(--primary, #4F8EF7); }
+.link { font-size: 24rpx; color: var(--primary-color); }
 
 /* ===== 列表 ===== */
 .card {
@@ -144,7 +144,7 @@
 .btn-mini {
   font-size: 24rpx;
   color: #fff;
-  background: var(--primary, #4F8EF7);
+  background: var(--primary-color);
   border-radius: 999rpx;
   padding: 10rpx 24rpx;
 }
@@ -177,7 +177,7 @@
   width: 100%;
   height: 88rpx;
   line-height: 88rpx;
-  background: var(--primary, #4F8EF7);
+  background: var(--primary-color);
   color: #fff;
   border-radius: 44rpx;
   font-size: 30rpx;
@@ -339,7 +339,7 @@
 }
 
 .btn-cancel { background: rgba(0, 0, 0, 0.05); color: var(--text-secondary); }
-.btn-save { background: var(--primary, #4F8EF7); color: #fff; font-weight: 600; }
+.btn-save { background: var(--primary-color); color: #fff; font-weight: 600; }
 .btn-danger { background: #ffeceb; color: #d92d20; }
 
 /* ===== 库存流水 ===== */
@@ -385,7 +385,7 @@
   border-radius: 10rpx;
   color: var(--text-secondary);
 }
-.seg-item.active { background: var(--primary, #4F8EF7); color: #fff; font-weight: 600; }
+.seg-item.active { background: var(--primary-color); color: #fff; font-weight: 600; }
 
 .stock-preview { margin-top: 10rpx; font-size: 24rpx; color: #2E4A68; }
 
@@ -393,7 +393,7 @@
   margin-top: 16rpx;
   height: 76rpx;
   line-height: 76rpx;
-  background: var(--primary, #4F8EF7);
+  background: var(--primary-color);
   color: #fff;
   border-radius: 38rpx;
   font-size: 28rpx;
@@ -428,7 +428,7 @@
 .load-more {
   text-align: center;
   font-size: 24rpx;
-  color: var(--primary, #4F8EF7);
+  color: var(--primary-color);
   padding: 24rpx 0;
 }
 

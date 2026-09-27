@@ -124,7 +124,7 @@ const resolveOrder = (id, data) => {
   return post(`${API.DELIVERY_ORDERS}/${id}/resolve`, data)
 }
 
-// ==================== 抢单池 & 外派追踪 ====================
+// ==================== 抢单池 & 外派 ====================
 
 // 获取抢单池列表
 const getPoolOrders = () => {
@@ -136,7 +136,8 @@ const claimPoolOrder = (id, data) => {
   return post(`${API.DELIVERY_ORDERS}/${id}/claim-pool`, data)
 }
 
-// 获取外派追踪列表
+// 本站外派出去的单（首页「外派」页签的两个子页签都读它）：
+// 每行带后端下发的 dispatchKind（POOL = 一键外派 / DIRECTED = 指定外派）与 deliveryStationName。
 const getDispatchTracking = () => {
   return get(API.DELIVERY_DISPATCH_TRACKING)
 }
@@ -168,7 +169,7 @@ const getDirectedReturns = () => {
   return get(API.DELIVERY_DIRECTED_RETURNS)
 }
 
-// 目标水站：被其他水站指定为履约站的订单列表（他站外派给我）
+// 目标水站：被其他水站**指定外派**给本站的订单列表（首页「外派 → 指定外派」子页签）
 const getDirectedIncoming = () => {
   return get(API.DELIVERY_DIRECTED_INCOMING)
 }

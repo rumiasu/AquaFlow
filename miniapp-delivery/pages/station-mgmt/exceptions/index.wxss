@@ -26,8 +26,8 @@
 
 .tab-on {
   color: #ffffff;
-  background: #2f7cf6;
-  border-color: #2f7cf6;
+  background: var(--primary-color);
+  border-color: var(--primary-color);
   font-weight: 600;
 }
 
@@ -73,7 +73,7 @@
 
 .filter-on {
   color: #ffffff;
-  background: #2f7cf6;
+  background: var(--primary-color);
 }
 
 .empty {
@@ -231,9 +231,9 @@
 }
 
 .filter-item.active {
-  background: #eaf2ff;
-  color: #2f7cf6;
-  border-color: #2f7cf6;
+  background: var(--primary-bg);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
   font-weight: 600;
 }
 
@@ -243,7 +243,7 @@
 }
 
 .filter-item.active .filter-num {
-  color: #2f7cf6;
+  color: var(--primary-color);
 }
 
 /* 口径说明：把"只列运营告警"讲清楚，避免站长找不到系统故障告警时以为漏了数据 */

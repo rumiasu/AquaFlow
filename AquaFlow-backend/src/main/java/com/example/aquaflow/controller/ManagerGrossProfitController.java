@@ -37,36 +37,63 @@ import java.util.Map;
 public class ManagerGrossProfitController {
 
     /**
-     * 成本口径提示：前端必须原样展示，不能让站长以为这是"当时的真实毛利"。
+     * 成本口径提示：前端必须原样展示，不能让站长以为这是"当时的真实利润"。
+     *
+     * <p>⚠️ 这里是<b>画面上的那一行小字</b>，不是文档：[2026-09-26] 产品反馈"利润里太罗嗦了"，
+     * 原来的四句长解释已**收进小程序页面的「利润怎么算」帮助弹窗**，这里只留一句最重要的
+     * （成本不是批次快照、改了就变）。**不要再把这行写回一段话** —— 站长要的是数字，
+     * 不是每次打开报表都读一遍口径论文。</p>
      *
      * <p>⚠️ 这里<b>不要写 Markdown 记号</b>（曾出现 {@code **当前**}）：这段文案是直接渲染到
      * 小程序界面上的，星号会原样显示成乱码一样的字符。要强调就用中文书名号或「」。</p>
+     *
+     * <p>⚠️ [2026-09-26 产品口径] 面向站长的用词是<b>利润</b>，不是「毛利」——
+     * 本仓的用户是小水站（"不是大公司，都是一些小买卖"），"毛利"是财务术语。
+     * 代码 / 端点 / 表名里的 GrossProfit 保持不变（改的是下发给站长看的文案）。</p>
      */
     private static final String COST_BASIS_NOTE =
-            "毛利按当前的成本价计算：改了成本价之后，历史期间的毛利也会跟着变（本版不做批次成本核算）。"
-                    + "未填成本的商品不计入毛利，只列收入。";
+            "利润按当前成本价算：改了成本价，历史期间的利润也会跟着变。";
 
     /**
      * 净利口径提示。[2026-09-19 新增净利] 前端必须原样展示 ——
-     * 净利比毛利更容易被误读成"今天到手的钱"。
+     * 净利比利润更容易被误读成"今天到手的钱"。
+     *
+     * <p>⚠️ 同 {@link #COST_BASIS_NOTE}：这是<b>画面上的那一行</b>，只留"最容易被误读的那一句"
+     * （按哪个时间统计、工钱什么时候产生）。明细口径、票单为何为负、人工调整为何不计入，
+     * 都收进了页面的「利润怎么算」弹窗。</p>
      *
      * <p>⚠️ 与 {@link #COST_BASIS_NOTE} 同一个坑：这段文案直接渲染在小程序界面上，
      * <b>不要写 Markdown 记号</b>。</p>
      */
     private static final String PROFIT_BASIS_NOTE =
-            "净利 = 收入 − 进货成本 − 配送员计件工钱；收入 = 订单收入（水费 + 配送费 + 楼层费）"
-                    + " + 水票收入（客户买票时的实收）。"
-                    + "按「下单时间」统计这一批订单（不是按哪天送完），所以是这批生意本身的账，"
-                    + "不是当天进账的现金。工钱在该单送到时产生：还没送完的单暂时不计工钱，"
-                    + "那几天净利会偏高。迟到扣款、高温补贴这类人工调整不计入日净利。"
-                    + "「水票收入只在客户买票那一刻计一次」：用票下的单不再重复计水费与配送费，"
-                    + "所以单看某一张水票单的毛利会是负的（成本在、收入不在它身上），请看期间合计。"
-                    // [2026-09-25 评审问题 6] 明细行的口径也要说清，否则站长看到"卖出 2、收入 0"
-                    // 会以为报表坏了：卖出与成本覆盖全部履约明细（含用票兑出去的），
-                    // 而「收入」是把该商品本期购票实收也算进来的（票款已在下行单独标出）。
-                    + "明细里「卖出」与「成本合计」算的是本期实际履约的货（含用票兑出去的），"
-                    + "所以商品行的收入 = 本期订单水费 + 该商品本期购票实收；"
-                    + "只卖票、本期还没兑货的商品会单列一行，只显示票款收入。";
+            "净利 = 收入 − 进货成本 − 计件工钱。按下单时间统计，工钱在送达时才产生（没送完的单先不计工钱）。";
+
+    /**
+     * 「利润怎么算」帮助弹窗里的**长解释**（[2026-09-26] 从上面两条口径提示里搬出来的）。
+     *
+     * <p>产品反馈"利润里太罗嗦了"：这两段原文加起来三百多字，每次打开报表都铺在屏幕上。
+     * 现在屏幕上是两条**一行版**（{@link #COST_BASIS_NOTE} / {@link #PROFIT_BASIS_NOTE}），
+     * 完整解释（含"为什么一张水票单的利润会是负的""人工调整为什么不计入"这些会被误读成
+     * 报表坏了的口径）收进页面底部的「利润怎么算」，需要时点一下才看。</p>
+     *
+     * <p>⚠️ 口径文案只有这一个来源，<b>前端不要自己抄一份进 js</b>：抄一份就是两处口径，
+     * 改了一边另一边必然漂移（本仓"计价双轨"的同形问题）。</p>
+     *
+     * <p>⚠️ 同样不要写 Markdown 记号（渲染在 wx.showModal 里，星号会原样显示）。</p>
+     */
+    private static final String HELP_NOTE =
+            "利润 = 该期间的销售收入 − 卖出数量 × 当前进货成本价；"
+                    + "净利 = 收入 − 进货成本 − 计件工钱。\n\n"
+                    + "1. 按「下单时间」统计这一批订单（不是按哪天送完）：它是这批生意本身的账，"
+                    + "不是当天进账的现金。\n"
+                    + "2. 工钱在该单送到时才产生，还没送完的单暂时不计工钱 —— 那几天净利会偏高。\n"
+                    + "3. 迟到扣款、高温补贴这类人工调整不计入净利。\n"
+                    + "4. 水票收入只在客户买票那一刻计一次：用票下的单不再重复计水费与配送费，"
+                    + "所以单看某一张水票单的利润会是负的（成本在、收入不在它身上），请看期间合计。\n"
+                    + "5. 明细里「卖出」与「成本合计」算的是本期实际履约的货（含用票兑出去的）；"
+                    + "只卖票、本期还没兑货的商品会单列一行，只显示票款收入。\n"
+                    + "6. 利润按当前成本价算：本版不做批次成本核算，改了成本价，历史期间的利润也会跟着变。\n"
+                    + "7. 未填成本的商品不计入利润，只列收入（报表上写「未填成本」）。";
 
     @Autowired
     private GrossProfitMapper grossProfitMapper;
@@ -106,23 +133,26 @@ public class ManagerGrossProfitController {
         return Result.success();
     }
 
-    /** 本站已上架但没填成本价的商品（报表里要显式提示"这些没算进毛利"）。 */
+    /** 本站已上架但没填成本价的商品（报表里要显式提示"这些没算进利润"）。 */
     @GetMapping("/missing-cost")
     public Result<List<Map<String, Object>>> missingCost() {
         return Result.success(grossProfitMapper.listMissingCost(AuthContext.requireStationId()));
     }
 
     /**
-     * 期间毛利 + 净利报表。
+     * 期间利润 + 净利报表。
      *
-     * <p>毛利的构成：{@code totalRevenue}（水费，来自 {@code order_item.subtotal}）与
-     * {@code totalCost}（销量 × 进货成本）。<b>2026-09-19 起同一响应里再给出净利</b>：
+     * <p>利润（字段名仍是 {@code totalProfit}）的构成：{@code totalRevenue}（水费，来自
+     * {@code order_item.subtotal}）与 {@code totalCost}（销量 × 进货成本）。
+     * <b>2026-09-19 起同一响应里再给出净利</b>：
      * {@code orderCount} / {@code deliveryFee} / {@code floorFee} / {@code totalIncome}
      * / {@code wage} / {@code netProfit} —— 六个字段全部取自<b>同一订单集合</b>，
      * 看 {@code profitBasisNote} 了解口径。</p>
      *
      * <p>⚠️ 两个 null 语义：{@code totalProfit} 与 {@code netProfit} 在"有商品没填成本"时
-     * <b>一起为 null</b>。只 null 一个会让站长拿另一个数字继续算，等于把缺失的成本当成 0。</p>
+     * <b>一起为 null</b>。只 null 一个会让站长拿另一个数字继续算，等于把缺失的成本当成 0。
+     * 前端把这两个 null 渲染成「未填成本」并原样展示 {@code missingCostHint} ——
+     * <b>不允许</b>因此把整张卡藏起来（站长会以为功能没了，而不是"还差一个成本价"）。</p>
      *
      * @param from 起始日（含），缺省 = 本月 1 号
      * @param to   结束日（含），缺省 = 今天
@@ -181,14 +211,14 @@ public class ManagerGrossProfitController {
                     ? BigDecimal.ZERO : ticketRevenueByProduct.getOrDefault(pid, BigDecimal.ZERO);
             if (pid != null) ticketRevenueByProduct.remove(pid);   // 已并入本行，剩下的就是"只卖票没兑票"的
             BigDecimal revenueTotal = revenue.add(rowTicketRevenue);
-            // ⚠️ 缺成本时**不给出毛利数字**：把 costAmount 当 0 直接相减，站长会以为
-            // 这一单赚了整整一个售价 —— 那是最坏的一种"看起来正确"。
+            // ⚠️ 缺成本时**不给出行利润数字**（前端把它渲染成「未填成本」）：把 costAmount 当 0 直接相减，
+            // 站长会以为这一单赚了整整一个售价 —— 那是最坏的一种"看起来正确"。
             BigDecimal profit = missing ? null : revenueTotal.subtract(costAmount);
 
             Map<String, Object> item = new HashMap<>(row);
             item.put("revenue", revenue);                  // 订单侧水费（不含票款）—— 保持原字段语义
             item.put("ticketRevenue", rowTicketRevenue);    // 该商品本期购票实收
-            item.put("revenueTotal", revenueTotal);         // 上两者之和：行毛利用的就是它
+            item.put("revenueTotal", revenueTotal);         // 上两者之和：行利润用的就是它
             item.put("costPriceText", missing ? "未填" : dec(row.get("costPrice")).toPlainString());
             item.put("profit", profit);
             item.put("profitText", missing ? "未填成本，无法计算"
@@ -204,7 +234,7 @@ public class ManagerGrossProfitController {
         }
 
         // 只卖了票、本期没有兑票记录的商品：也要成行，否则这笔收入的去向在明细里查不到。
-        // 它的毛利口径特殊 —— 钱已确认、货还没出，所以给 null + 说明，**不**编一个 100% 毛利率。
+        // 它的利润口径特殊 —— 钱已确认、货还没出，所以给 null + 说明，**不**编一个 100% 利润率。
         for (Map.Entry<Long, BigDecimal> e : ticketRevenueByProduct.entrySet()) {
             Map<String, Object> item = new HashMap<>();
             item.put("productId", e.getKey());
@@ -235,12 +265,14 @@ public class ManagerGrossProfitController {
         data.put("ticketRevenue", ticketRevenue);
         data.put("totalRevenue", revenueAll);
         data.put("totalCost", totalCost);
-        // 合计毛利只在**所有商品都有成本**时才给，否则给出 null + 提示
+        // 合计利润只在**所有商品都有成本**时才给，否则给出 null + 提示
         data.put("totalProfit", missingCostKinds > 0 ? null : revenueAll.subtract(totalCost));
         data.put("missingCostKinds", missingCostKinds);
         data.put("costBasisNote", COST_BASIS_NOTE);
+        // 缺成本时下发给站长看的那句话要**说清是哪一项**算不出来（前端原样展示，
+        // 不许把 null 渲染成 0，也不许自己拼一句"算不出"就完事 —— 站长得知道去补什么）
         data.put("missingCostHint", missingCostKinds > 0
-                ? "有 " + missingCostKinds + " 个商品没填进货成本，它们的毛利算不出来（收入已计入合计，成本按 0 计）"
+                ? "有 " + missingCostKinds + " 个商品没填进货成本，它们的利润算不出来（收入已计入合计，成本按 0 计）"
                 : null);
 
         // ===== 净利（2026-09-19）：同一批订单的 收入 − 成本 − 工钱 =====
@@ -271,6 +303,8 @@ public class ManagerGrossProfitController {
         data.put("wage", wage);
         data.put("netProfit", netProfit);
         data.put("profitBasisNote", PROFIT_BASIS_NOTE);
+        // 长解释：只给页面底部的「利润怎么算」弹窗用，**不要**铺在报表正文里（[2026-09-26] 产品反馈太罗嗦）
+        data.put("helpNote", HELP_NOTE);
         return Result.success(data);
     }
 

@@ -3,19 +3,15 @@
     <text class="section-title">反馈类型</text>
     <view class="category-list">
       <view class="category-item {{category === 'bug' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="bug">
-        <text class="cat-icon">🐛</text>
         <text class="cat-text">功能问题</text>
       </view>
       <view class="category-item {{category === 'feature' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="feature">
-        <text class="cat-icon">💡</text>
         <text class="cat-text">功能建议</text>
       </view>
       <view class="category-item {{category === 'ui' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="ui">
-        <text class="cat-icon">🎨</text>
         <text class="cat-text">界面优化</text>
       </view>
       <view class="category-item {{category === 'other' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="other">
-        <text class="cat-icon">📝</text>
         <text class="cat-text">其他</text>
       </view>
     </view>

@@ -6,7 +6,7 @@
 
   <view class="role-list">
     <view class="role-card station-manager" bindtap="onSelectStationManager">
-      <view class="role-icon">🏢</view>
+      <view class="role-icon"></view>
       <view class="role-info">
         <text class="role-name">我是站长</text>
         <text class="role-desc">创建水站、管理配送员、协调订单</text>
@@ -15,7 +15,7 @@
     </view>
 
     <view class="role-card delivery" bindtap="onSelectDelivery">
-      <view class="role-icon">🚚</view>
+      <view class="role-icon"></view>
       <view class="role-info">
         <text class="role-name">我是配送员</text>
         <text class="role-desc">接单配送、完成订单、申请绑定水站</text>

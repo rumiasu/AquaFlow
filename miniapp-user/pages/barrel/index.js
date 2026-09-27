@@ -258,7 +258,7 @@ Page({
       this.loadData()
     } catch (error) {
       console.error('[Barrel] 退桶失败:', error)
-      wx.showToast({ title: '提交失败: ' + (error.message || '请检查后端'), icon: 'none', duration: 3000 })
+      wx.showToast({ title: '提交失败: ' + (error.message || '请稍后重试'), icon: 'none', duration: 3000 })
     } finally {
       this.setData({ submitting: false })
     }
@@ -267,7 +267,9 @@ Page({
   onEcoRuleTap() {
     wx.showModal({
       title: '水桶回收规则',
-      content: '1. 水桶需保持完好，无严重破损\n2. 退桶时请联系配送员或到站点办理\n3. 押金将在确认后退还至您的账户\n4. 请勿将水桶用于非饮用水用途',
+      // TODO(待拍板)：退桶扣减押金后的客户实际收款方式，是站内余额留用还是水站线下返还？
+      // 两者分别影响余额展示、退款凭据与客服指引；拍板后统一修改本弹窗、index.wxml 押金说明及退桶完成页。
+      content: '1. 水桶需保持完好，无严重破损\n2. 提交申请后，水站会先确认收到空桶\n3. 每桶金额以页面预览为准，具体退款方式请向水站确认\n4. 请勿将水桶用于非饮用水用途',
       showCancel: false,
       confirmText: '我知道了'
     })

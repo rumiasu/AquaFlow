@@ -3,31 +3,45 @@
   min-height: 100vh;
 }
 
-.brand-header {
-  background: var(--accent-gradient);
-  padding: 48rpx 40rpx;
-  text-align: center;
+/* ========== 游客登录入口 ==========
+   [2026-09-26 Wave3 H1] 原为渐变品牌头（.brand-header / .brand-icon / .brand-name /
+   .brand-slogan / .brand-login 五条规则），随「删品牌头与口号」一并去掉 ——
+   本页不许出现大面积品牌色与渐变页头（docs/design/29 §6）。
+   这条是游客在本页**唯一**的登录入口，样式按 §6 的普通容器规格走：白面、16rpx 圆角、无渐变。 */
+.guest-login {
+  display: flex;
+  align-items: center;
+  margin: 24rpx 24rpx 0;
+  padding: 24rpx 24rpx;
+  background: var(--bg-card);
+  border-radius: 16rpx;
+  box-shadow: var(--shadow-sm);
 }
 
-.brand-icon { width: 80rpx; height: 80rpx; border-radius: 16rpx; display: block; margin: 0 auto 12rpx; box-shadow: 0 4rpx 12rpx rgba(255,255,255,0.3); }
+.guest-login-text { flex: 1; min-width: 0; }
 
-.brand-name {
-  font-size: 40rpx; font-weight: 700; color: #fff;
-  display: block; margin-bottom: 8rpx; letter-spacing: 2rpx;
+.guest-login-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.brand-slogan {
-  font-size: 24rpx; color: rgba(255,255,255,0.8);
-  display: block; margin-bottom: 24rpx;
+.guest-login-desc {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  /* 这里不用 --text-secondary(#A39E92)：对白底只有 2.67:1，达不到 §6「灰色占位不承载
+     价格、地址、警告」的可读要求。--text-regular(#6E6A61) 是 5.39:1，且客户端已在本页
+     .station-picker-close 等处用它做整句提示。 */
+  color: var(--text-regular);
 }
 
-.brand-login {
-  display: inline-flex; align-items: center;
-  background: rgba(255,255,255,0.95); border-radius: 32rpx;
-  padding: 0 32rpx; height: 56rpx; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.1);
+.guest-login-arrow {
+  font-size: 32rpx;
+  color: var(--text-placeholder);
+  margin-left: 12rpx;
 }
-
-.brand-login text { color: var(--primary-color); font-size: 24rpx; font-weight: 600; }
 
 /* ========== 水站选择栏 ========== */
 .station-bar {
@@ -38,7 +52,6 @@
   border-radius: var(--radius-lg);
   padding: 20rpx 24rpx;
   box-shadow: var(--shadow-sm);
-  margin-top: -20rpx;
   position: relative;
   z-index: 1;
 }
@@ -256,15 +269,14 @@
   justify-content: space-between;
 }
 
+/* 商城列表的商品名也不截断（2026-09-27 产品口径）——`flex:1 + min-width:0` 保留，它让长名字换行而不是把卡片撑破 */
 .product-name {
   font-size: 28rpx;
   font-weight: 600;
   color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   flex: 1;
   min-width: 0;
+  word-break: break-all;
 }
 
 .product-brand {

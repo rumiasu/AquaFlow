@@ -28,6 +28,23 @@ function pickOrderId(data) {
   return null
 }
 
+/**
+ * 「刚才已经下过一模一样的一单」的保护窗口（毫秒）。
+ *
+ * <p>[2026-09-26 实测缺陷] 客户在开发者工具里点了 3 下「立即下单」，**成交 3 单**
+ * （订单 37/38/39，`request_digest` 完全相同、幂等键三个都不一样，各扣一次库存与押金）。
+ * 根因不是"连点没防住"——`submitting` 闸门只管"请求还没回来的那几秒"；而
+ * `orderIntent.clear()` 在**建单成功那一刻**就把键清了，于是同一页面上再点一次 =
+ * 新键 = 新单（旧用例「成功建单之后：下一次提交是新意图」正是在守护这个行为）。</p>
+ *
+ * <p>窗口取 10 分钟：比"手滑连点"宽得多，又短于正常复购的间隔。窗口内提交**同一份内容**
+ * 时不再静默下单，而是先问一句；选了"再下一单"才换新键（见 {@link #_createOrder}）。</p>
+ */
+const RECENT_ORDER_WINDOW_MS = 10 * 60 * 1000
+
+/** 「刚刚下过的那一单」在本地的存放键（页面重进后闸门仍要生效，见 _rememberSubmittedOrder）。 */
+const RECENT_ORDER_KEY = 'recentOrder.v1'
+
 Page({
   data: {
     loading: true,
@@ -62,6 +79,10 @@ Page({
     // 首次下单没有记录时回到 3（水票），再由 refreshQuote 按后端下发的 enabled 校正。
     selectedMethod: payMethodStorage.get() || 3,
     payMethods: [],
+    // [2026-09-26] 收款渠道能力（后端 quote 的 wechatPay 原样存下来）：建单成功后要不要对
+    // **同一张订单**发起 createPayment，判据是这里的 enabled（= 服务端模拟渠道开着），
+    // 前端不按 id===1 猜渠道、也不碰真实 wx.requestPayment。null = 还没报价，按"不可用"处理。
+    wechatPay: null,
     // [2026-09-19] 水票抵扣预览（后端 quote 下发，仅当选中水票时有值）：
     // 产品口径「水票支付时不显示计费，只计费除去水票的部分」靠它实现 ——
     // 金额一律后端算，前端只渲染，绝不在前端做抵扣算术。
@@ -75,6 +96,14 @@ Page({
     // 只有"明确换了站/地址/商品/付款方式"或"这一单已经成功建出来"才换新键；
     // 缺货未确认、超时、响应丢失、点了重试都继续用同一个键（否则重试会变成第二张单）。
     idempotencyKey: '',
+    // 刚刚成功建出来的那一单（{orderId, fingerprint, at, paid}）；**购物车没动时**页面据此显示
+    // "已下单"态（按钮变「继续支付/查看订单」）。做成业内主流形态的关键：
+    // 重复提交不是靠确认框拦，而是**这个状态让"再下一单"没有入口**。
+    // 判据见 _pendingOrderForCurrentCart（指纹 = 客户+水站+地址+商品+支付方式）。
+    lastSubmittedOrder: null,
+    // 投影给 wxml 的两个值（按钮文案与提示行都读它们）：pendingOrderId 为 null = 正常「立即下单」
+    pendingOrderId: null,
+    pendingOrderPaid: false,
     // ===== 缺货确认（契约 A1）：needConfirm=true 表示**还没建单**，绝不能当成功 =====
     showShortageConfirm: false,
     shortageItems: [],
@@ -87,9 +116,12 @@ Page({
     // 首次资产业务确认弹窗（契约 A2：**建单之前**弹，取消 = 零请求）
     showAssetConfirm: false,
     assetConfirmed: false,
+    // 客户是否在水桶与押金说明里勾了"我已阅读并了解"（说明弹窗里的那个 ☐）。
+    // 它是「确认下单」的前置：未勾选时按钮是灰的、点了会给提示（见 onAssetConfirmOk）。
+    assetReadAgreed: false,
     // 首次资产告知的内容（全部来自 /api/payments/quote，前端不另写资产规则）
     assetNotice: { stationName: '', depositAmount: '0.00', buckets: 0, totalAmountText: '0.00' },
-    // 资产使用说明详情弹窗
+    // 桶与押金说明弹窗
     showAssetDetail: false,
     stationPhone: '',
     // 费用明细弹窗
@@ -120,6 +152,10 @@ Page({
     // 这里不再"进页面就生成一个新键"—— 那正是"离页重进 = 新意图 = 又下一单"的根因。
     this.setData({ idempotencyKey: '' })
 
+    // 「刚刚下过的那一单」从本地读回来：不然"跳结果页 → 返回下单页"之后页面实例是新的、
+    // "已下单"态就没了 —— 实测那次"点 3 下成交 3 单"正是这个形状。
+    // 过期或指纹不符（换了内容/换了客户）都不会生效，判据见 _pendingOrderForCurrentCart。
+    this._restorePendingOrderFromStorage()
     // 优先级：URL参数 > 全局临时站点 > 本地存储
     let stationId = null
     if (options.stationId) {
@@ -143,7 +179,7 @@ Page({
       this.setData({ loading: false })
       wx.showModal({
         title: '请选择服务水站',
-        content: '下单前需先选择一个水站。资产（桶、水票、押金）按水站隔离，互不干扰。',
+        content: '下单前要先选一家水站。水桶、水票和押金都算在这家水站名下，别家水站用不了。',
         confirmText: '去选站',
         cancelText: '取消',
         success: (res) => {
@@ -235,7 +271,7 @@ async loadItemsProducts() {
       const confirm = await new Promise(resolve => {
         wx.showModal({
           title: '请选择服务水站',
-          content: '下单前需先选择一个水站。资产（桶、水票、押金）按水站隔离，互不干扰。',
+          content: '下单前要先选一家水站。水桶、水票和押金都算在这家水站名下，别家水站用不了。',
           confirmText: '去选站',
           cancelText: '取消',
           success: (res) => resolve(res.confirm)
@@ -676,6 +712,9 @@ this.setData({ products, stationName: effectiveStationName })
           isTicketPay: nextMethod === 3,
           allowOfflinePayment,
           payMethods,
+          // [2026-09-26] 服务端下发的**收款渠道能力**（PayMethod.payChannel）：
+          // 建单成功后要不要对同一张单发起 createPayment，判据在这里，不在前端按 id 猜。
+          wechatPay: d.wechatPay || null,
           selectedMethod: nextMethod,
           deliveryFee,
           floorFee,
@@ -699,10 +738,15 @@ this.setData({ products, stationName: effectiveStationName })
           },
           // 报价一刷新就作废上一次的"已确认"：站/商品/数量/支付方式变了，告知里的金额与归属就变了，
           // 旧确认不能继续有效（契约 A2 最后一条）。
-          assetConfirmed: false
+          assetConfirmed: false,
+          // 勾选一并作废：这次的金额/水站可能已经不同，不能拿上次的勾选顶过去
+          assetReadAgreed: false
         }
 
         this.setData(updates)
+        // "已下单"态跟着这次报价重算：客户改了数量/地址/支付方式 ⇒ 指纹变了 ⇒ 提示行与按钮文案
+        // 自动回到常态「立即下单」，**不需要**在每个改内容的入口手动清状态。
+        this._syncPendingOrderState()
         // 弹窗放在 setData 之后、不 await：提示而已，绝不能拖住报价渲染或下单按钮
         this.maybePromptEnterprise(enterpriseHint)
       }
@@ -733,6 +777,15 @@ this.setData({ products, stationName: effectiveStationName })
 
   async onSubmit() {
     if (this.data.submitting) return
+
+    // ===== 购物车没动 = 按钮此刻显示的是「继续支付/查看这笔订单」⇒ 去那张单，不建新单 =====
+    // 放在最前面（先于地址/商品校验）：这是"去看已有订单"，不是一次新的提交，
+    // 不该因为"这一单的商品刚好下架了"之类的校验被拦下。
+    const pending = this._pendingOrderForCurrentCart()
+    if (pending) {
+      this.onViewPendingOrder()
+      return
+    }
 
     // [v35] 硬拦（起送量/配送范围被站长配成不接单）在前端就地挡住：
     // 让客户填完地址、点了提交才被后端拒，体验上像是"系统坏了"。
@@ -823,7 +876,9 @@ this.setData({ products, stationName: effectiveStationName })
     // 判据来自 /api/payments/quote 的 firstStationAsset（与下单侧同一个 AssetService），
     // 前端不另写资产规则。
     if (this.data.firstStationAsset === true && !this.data.assetConfirmed) {
-      this.setData({ showAssetConfirm: true })
+      // 弹之前先把勾选清掉：这条路径可能被重复走到（下单失败重试、客户点「返回修改」后再提交），
+      // 留着上次的勾选等于"新的一次确认不需要读说明" —— 那是装饰性勾选框，不是确认。
+      this.setData({ showAssetConfirm: true, assetReadAgreed: false })
       return
     }
 
@@ -845,6 +900,85 @@ this.setData({ products, stationName: effectiveStationName })
   },
 
   /**
+   * 刚刚下的那一单是否仍然对应**当前这个购物车**（= 页面该显示"已下单"态）。
+   *
+   * <p>判据两条：① 五要素指纹完全相同；② 在 {@link RECENT_ORDER_WINDOW_MS} 内。</p>
+   *
+   * <p><b>为什么用指纹而不是"键"</b>：指纹里就是客户 + 水站 + 地址 + 商品明细 + 支付方式 ——
+   * 客户只要动过其中任何一项，就是另一笔生意，这里自动为 false，"立即下单"照常可用。
+   * 于是**不需要**在改数量/改地址的每个入口去手动清理状态（那种"记得清"的写法迟早漏一处）。</p>
+   */
+  _pendingOrderForCurrentCart() {
+    const last = this.data.lastSubmittedOrder
+    if (!last || !last.orderId) return null
+    if ((Date.now() - (last.at || 0)) >= RECENT_ORDER_WINDOW_MS) return null
+    if (last.fingerprint !== orderIntent.fingerprint(this._currentIntent())) return null
+    return last
+  },
+
+  /** 把"已下单"态投影到页面（按钮文案与提示行都读它）。改内容/离开页面后自行失效。 */
+  _syncPendingOrderState() {
+    const pending = this._pendingOrderForCurrentCart()
+    this.setData({
+      pendingOrderId: pending ? pending.orderId : null,
+      pendingOrderPaid: pending ? pending.paid === true : false
+    })
+  },
+
+  /**
+   * 从本地读回"刚刚下过的那一单"（进页面时调一次）。**过期的一律丢弃**。
+   * 单独抽成方法是为了让流程测试能驱动它 —— 真机上它由 onLoad 调用，而测试不跑 onLoad。
+   */
+  _restorePendingOrderFromStorage() {
+    try {
+      const saved = wx.getStorageSync(RECENT_ORDER_KEY)
+      if (saved && saved.orderId && saved.fingerprint
+          && (Date.now() - (saved.at || 0)) < RECENT_ORDER_WINDOW_MS) {
+        this.setData({ lastSubmittedOrder: saved })
+      }
+    } catch (e) {
+      // 读不到 = 没有这层保护，不影响下单
+    }
+  },
+
+  /** 「看订单详情 ›」：去那一单的结果页（那里有付款/取消等全部入口）。 */
+  onViewPendingOrder() {
+    const pending = this._pendingOrderForCurrentCart()
+    if (!pending) return
+    wx.setStorageSync('lastOrderId', pending.orderId)
+    wx.redirectTo({ url: `/pages/order/success?id=${pending.orderId}&stationId=${this.data.stationId}` })
+  },
+
+  /** 记下"刚刚成功建出来的这一单"，供 _pendingOrderForCurrentCart 判定。 */
+  _rememberSubmittedOrder(orderId, fingerprint, paid) {
+    const snapshot = {
+      orderId: orderId,
+      fingerprint: fingerprint,
+      at: Date.now(),
+      // paid 决定按钮文案：还没结清 ⇒「继续支付」；已付/水票结清 ⇒「查看这笔订单」
+      paid: paid === true
+    }
+    this.setData({ lastSubmittedOrder: snapshot })
+    this._syncPendingOrderState()
+    // 也写一份到本地：客户会在"跳结果页"与"回下单页"之间来回，页面实例会重建 ——
+    // 只放内存里，"已下单"态在重进页面后就没了（而这正是实测那次"点 3 下成交 3 单"的场景）。
+    // ⚠️ 读回时不另判客户：指纹第一段就是 customerId，换账号后指纹必然不同、状态自然不生效
+    //    （与 utils/orderIntent.js「按客户隔离」同一纪律）。
+    try {
+      wx.setStorageSync(RECENT_ORDER_KEY, snapshot)
+    } catch (e) {
+      // 存不下就只保内存版：宁可少一层保护，也不阻断下单
+    }
+  },
+
+  /** 这一次提交最终有没有把钱结清（决定"已下单"态显示「继续支付」还是「查看这笔订单」）。 */
+  _markPendingOrderPaid(paid) {
+    const last = this.data.lastSubmittedOrder
+    if (!last || !last.orderId) return
+    this._rememberSubmittedOrder(last.orderId, last.fingerprint, paid)
+  },
+
+  /**
    * 真正发建单请求。**只有这里会建单**。
    *
    * @param {boolean} confirmShortage 缺货弹窗里客户选了"同意等待安排"才为 true；
@@ -855,9 +989,22 @@ this.setData({ products, stationName: effectiveStationName })
     // 防连点（契约：重复点击不重复下单）。闸门放在**这里**而不是只放在 onSubmit：
     // 押金确认、缺货同意、结果未知重试都会调本方法，任何一处被连点都会变成第二次建单请求。
     // 服务端还有幂等键兜底，但"根本别发出去"更省事、也不会让客户看到两次 loading。
+    // ⚠️ 这道闸门只管"请求还没回来的那几秒" —— "成功之后又点一次"由下面的"已下单态"负责。
     if (this.data.submitting) {
       return
     }
+
+    // ===== 购物车没动 = 这一单已经下好了：直接去那张单，**不再建单、也不弹任何确认框** =====
+    // 业内主流形态：下单成功后页面进入"已下单"态（按钮变「继续支付/查看订单」），
+    // 重复提交这个动作**根本没有入口**；只有改动了购物车内容才会回到「立即下单」。
+    // 这里再判一次是因为"押金确认/缺货同意/结果未知重试"也走本方法，任何一条路都不许重复建单。
+    const pending = this._pendingOrderForCurrentCart()
+    if (pending) {
+      wx.setStorageSync('lastOrderId', pending.orderId)
+      wx.redirectTo({ url: `/pages/order/success?id=${pending.orderId}&stationId=${this.data.stationId}` })
+      return
+    }
+
     const idempotencyKey = orderIntent.keyFor(this._currentIntent())
     // 「提交结果未知」是个**要留在页面上**的状态：说明本次响应没带回订单号、可以重试。
     // 只有普通失败（网络异常）才把它归位，否则那条提示会被 finally 冲掉。
@@ -924,8 +1071,12 @@ this.setData({ products, stationName: effectiveStationName })
         return
       }
 
-      // 这一单确实建出来了 ⇒ 本次意图了结，下一次提交是新的一单
-      orderIntent.clear()
+      // 这一单确实建出来了 ⇒ 本次意图了结。
+      // ⚠️ [2026-09-26 修正] 原来这里**立刻** orderIntent.clear()，于是同一页面上再点一次就是
+      //   新键 ⇒ 新单（实测点 3 下成交 3 单）。现在键留着、并记下"刚下过这一单"，
+      //   页面据此进入"已下单"态（按钮变「继续支付/查看订单」）；
+      //   真正的"再下一单"是**改了购物车内容**（指纹一变，状态自动失效）。
+      this._rememberSubmittedOrder(orderId, orderIntent.fingerprint(this._currentIntent()), false)
       // [2026-09-19] 记下这次用的支付方式（只存本地）。放在成功之后：失败/被拒不该污染"上次成功用过的"。
       payMethodStorage.set(this.data.selectedMethod)
 
@@ -988,27 +1139,73 @@ this.setData({ products, stationName: effectiveStationName })
   async proceedToPayment(orderId, data) {
     // 下单响应里的 warnings（水站营业状态提示 / 欠桶提醒 / 缺货提示）**必须让客户看到**：
     // 后端一直在下发，前端从来没读过，等于白提醒。营业状态是"不阻断但要说清楚"的软状态。
+    //
+    // ⚠️ [2026-09-26 修] 这里传的必须是**已解包的 data**（本函数第二参数就是解包后的 data）：
+    //   原实现两边形状不一致 —— 调用方传 `data`，而 showOrderWarnings 又去读 `orderRes.data.warnings`，
+    //   等于读 `data.data.warnings`（恒 undefined），营业中/欠桶这类软提醒被**静默丢掉**。
+    //   现在两侧统一为"解包后的 data"（形参已改名 orderData，免得再被当成响应体）。
     await this.showOrderWarnings(data)
 
-    // 3 = PayMethod.TICKET（水票支付）：下单即视同已付，补一条支付流水用于对账
-    if (this.data.selectedMethod === 3) {
-      const outcome = await this._payByTicket(orderId)
+    // ===== 3 = PayMethod.TICKET（水票支付）：下单即视同已付，补一条支付流水用于对账 =====
+    // ===== 1 = PayMethod.WECHAT（微信）：**只有服务端确认走模拟渠道**时才发这一笔 =====
+    //
+    // [2026-09-26] 原来只有水票那一支会调 createPayment，微信建完单直接去结果页 ——
+    //   于是"选微信 → 订单停在待收款(1) → 站长/配送员列表里看不见这张单"，
+    //   而服务端的模拟渠道**只在 PaymentServiceImpl.createPayment 里成形**
+    //   （方式=微信 且 app.payment.mock-wechat-pay=true → 服务端重算金额、写 PAID 流水、
+    //   订单置 payment_status=2、入账押金），光建单永远不会触发它。
+    //   现在两支走**同一条**同单付款路径：金额/流水/押金/库存预留全部沿用服务端原路径，
+    //   前端不自己置已付、也不碰真实 wx.requestPayment。
+    //
+    // 判据来自服务端报价下发的 wechatPay.enabled（唯一实现在 PayMethod.payChannel），
+    // 前端**不按 id===1 猜**渠道能力 —— 那等于把渠道开关复制到客户端。
+    const payMethod = this.data.selectedMethod
+    const wechatReady = !!(this.data.wechatPay && this.data.wechatPay.enabled)
+    if (payMethod === 3 || (payMethod === 1 && wechatReady)) {
+      const outcome = await this._paySameOrder(orderId, payMethod)
+      // "已下单"态的按钮文案跟着真实结果走：结清了就显示「查看这笔订单」，没结清显示「继续支付」
+      this._markPendingOrderPaid(outcome.ok === true)
       if (!outcome.ok) {
         // 失败/超时不等于"没下单"：**先回查原单的支付事实**（契约 A3），再决定怎么说。
-        // 已扣票但响应丢失的情况绝不能再次扣票 —— 这里只是回读，不做任何写动作。
+        // 已扣票或已入账的情况绝不能再次扣款 —— _paySameOrder 只是回读，不做任何写动作。
         await new Promise((resolve) => {
+          // paid：票/模拟渠道其实成功了，只是响应没回来；否则是**确实还没付**，
+          // 必须给"再试一次"这条同单恢复路径，而不是把人丢到一个点不动的结果页。
+          const title = outcome.state === 'paid' ? '已经付好了' : '订单已提交，但支付还没成功'
+          const body = outcome.state === 'paid'
+            ? '款项已经结清，可以放心等配送。'
+            : ((outcome.error && outcome.error.message) || '网络异常')
+              + '。订单已经建好了（订单号 ' + orderId + '），但这一笔支付没有完成。'
           wx.showModal({
-            title: outcome.state === 'paid' ? '已经付好了' : '订单已提交，但支付还没成功',
-            content: outcome.state === 'paid'
-              ? '水票已经扣款成功，可以放心等配送。'
-              : ((outcome.error && outcome.error.message) || '网络异常')
-                + '。订单已经建好了（订单号 ' + orderId + '），但水票可能没扣上。'
-                + '到结果页可以再试一次支付，或联系水站报订单号处理。',
-            showCancel: false,
-            confirmText: '去看这张订单',
+            title,
+            content: body,
+            showCancel: outcome.state !== 'paid',
+            confirmText: outcome.state === 'paid' ? '看订单' : '再试一次',
+            cancelText: '看订单',
+            success: (r) => {
+              if (!r.confirm) {
+                // 取消 = 去结果页（那里有后端下发的「去支付」，仍是同一张单）
+                this.retryPaymentAfterFailure = false
+                return
+              }
+              this.retryPaymentAfterFailure = outcome.state !== 'paid'
+            },
             complete: () => resolve()
           })
         })
+        if (this.retryPaymentAfterFailure) {
+          this.retryPaymentAfterFailure = false
+          // 同一个订单号重试：服务端一单一条活跃流水（uk_payment_active_order）兜底，
+          // 已有待收款流水时 createPayment 会把它原样返回，不会落第二条、也不会双扣。
+          const retry = await this._paySameOrder(orderId, payMethod)
+          if (!retry.ok) {
+            // 重试仍不成功：停在结果页（有「去支付」入口 + 后端下发的付款说明），不假报成功
+            wx.showToast({
+              title: retry.state === 'paid' ? '已经付好了' : '还没付成功，可在本页继续支付',
+              icon: 'none'
+            })
+          }
+        }
       }
     }
 
@@ -1017,11 +1214,18 @@ this.setData({ products, stationName: effectiveStationName })
   },
 
   /**
-   * 用水票付这一单（**同一张订单**，不建新单、不重复扣票）。
-   * 失败时回查原单支付事实，返回 {ok, state, error}：
-   *   state = 'paid'（已付）/ 'unpaid'（确实没扣）/ 'closed'（已退款或取消）/ 'unknown'（查不到）。
+   * 对**同一张订单**发起付款（水票 / 模拟微信），并回读订单的真实支付事实。
+   *
+   * <p>失败时返回 {@code {ok:false, state}}，{@code state} 取值：
+   * {@code 'paid'}（款项其实已结清，只是响应丢了）/ {@code 'unpaid'}（确实没付）/
+   * {@code 'closed'}（已退款或已取消）/ {@code 'unknown'}（查不到，不猜）。</p>
+   *
+   * <p><b>⚠️ 只有服务端回读到的 {@code paymentStatus === 2} 才算成功</b>
+   * （{@link #_verifyOrderPayment}）：后端对已存在的活跃流水是**幂等返回**，
+   * 真渠道下那条是 {@code PENDING(1)} —— 若拿"请求成功了"当"钱收到了"，
+   * 就是在没有真实渠道的部署里假报已付（本仓最忌讳的"界面说做了、账上没动"）。</p>
    */
-  async _payByTicket(orderId) {
+  async _paySameOrder(orderId, paymentMethod) {
     try {
       await createPayment({
         orderId,
@@ -1031,13 +1235,14 @@ this.setData({ products, stationName: effectiveStationName })
         barrelDeposit: this.data.totalDeposit,
         extraDepositBuckets: this.data.extraDepositBuckets,
         extraDepositAmount: this.data.extraDepositAmount,
-        paymentMethod: 3,
+        paymentMethod: paymentMethod,
         ticketProductId: null,
         ticketQty: null
       })
-      return { ok: true, state: 'paid' }
+      // 请求成功 ≠ 钱到账：一律回读订单的支付事实（服务端重算的金额与状态才是真相）
+      return { ok: (await this._verifyOrderPayment(orderId)) === 'paid' }
     } catch (e) {
-      console.error('[OrderCreate] 水票支付失败，先回查原单支付事实:', e)
+      console.error('[OrderCreate] 同单支付失败，先回查原单支付事实:', e)
       const state = await this._verifyOrderPayment(orderId)
       return { ok: state === 'paid', state, error: e }
     }
@@ -1061,10 +1266,15 @@ this.setData({ products, stationName: effectiveStationName })
    * 展示下单响应里的 warnings（非阻断）。
    * wx.showModal 是**回调式** API（本仓没有 promisify），所以这里包一层 Promise
    * 以便在跳转前把提示显示完 —— 直接 await wx.showModal(...) 会恒得 undefined。
+   *
+   * ⚠️ [2026-09-26 修] 入参是**已经解包的业务 data**（`_createOrder` 里的 `data`），
+   *   不是整个响应体。原实现的形参叫 `orderRes` 且读 `orderRes.data.warnings`，
+   *   而调用方传进来的就是 data ⇒ 实际读的是 `data.data.warnings`，恒 undefined，
+   *   于是营业中/欠桶这类软提醒**静默消失**。形参与名字现在都对齐"解包后的 data"。
    */
-  showOrderWarnings(orderRes) {
-    const warnings = (orderRes && orderRes.data && orderRes.data.warnings) || []
-    if (!warnings.length) return Promise.resolve()
+  showOrderWarnings(orderData) {
+    const warnings = (orderData && orderData.warnings) || []
+    if (!Array.isArray(warnings) || !warnings.length) return Promise.resolve()
     return new Promise((resolve) => {
       wx.showModal({
         title: '下单成功，请注意',
@@ -1084,6 +1294,24 @@ this.setData({ products, stationName: effectiveStationName })
   },
 
   onAssetConfirmOk() {
+    // [2026-09-26] 说明弹窗里那个勾选是**真的闸门**，但**不能**做成"灰按钮点了没反应"：
+    // 弹窗刚打开时勾选一定是 false（每次弹都重置），此时按钮若是死的，客户看到的就是
+    // 一个点不动的按钮 —— 正是本仓 §8.30 那类最难排查的形态。
+    // 所以这里改成**给出下一步**：说清为什么、并直接把他送到说明那一屏（两下就能继续）。
+    if (!this.data.assetReadAgreed) {
+      wx.showModal({
+        title: '请先看使用说明',
+        content: '下单前请先了解水桶与押金的使用说明，确认后即可继续下单。',
+        confirmText: '看说明',
+        cancelText: '再想想',
+        success: (r) => {
+          if (r.confirm) {
+            this.onAssetDetailTap()
+          }
+        }
+      })
+      return
+    }
     // 客户点了"确认下单"才建单（顺序就是契约要的那一条）
     this.setData({ assetConfirmed: true, showAssetConfirm: false })
     this._createOrder(false)
@@ -1110,7 +1338,7 @@ this.setData({ products, stationName: effectiveStationName })
       wx.showModal({
         title: '企业订水',
         content: hint,
-        confirmText: '申请企业身份',
+        confirmText: '申请企业',
         cancelText: '暂不',
         success: (r) => {
           if (r.confirm) this.askEnterpriseName()
@@ -1174,11 +1402,20 @@ this.setData({ products, stationName: effectiveStationName })
     }
   },
 
-  // ===== 资产使用说明详情弹窗 =====
+  // ===== 桶与押金说明弹窗 =====
   onAssetDetailTap() {
     // 获取水站电话
     this.fetchStationPhone()
     this.setData({ showAssetDetail: true })
+  },
+
+  /**
+   * 说明弹窗里的勾选（真的闸门）：勾上之后上一屏的「确认下单」才可点。
+   * ⚠️ 每次重新弹**首次确认**时都要重置成 false（见 refreshQuote 里 setData 的 assetReadAgreed），
+   * 否则"上次勾过"会让这次的新金额/新水站不再需要确认。
+   */
+  onAssetReadAgree() {
+    this.setData({ assetReadAgreed: !this.data.assetReadAgreed })
   },
 
   onAssetDetailClose() {
@@ -1193,12 +1430,25 @@ this.setData({ products, stationName: effectiveStationName })
         this.setData({ stationPhone: res.data.phone })
       }
     } catch (e) {
-      // [2026-09-20 真机联调] 原来只 console.warn：拉不到时「资产使用说明」弹窗里就**没有水站电话**，
-      // 与"这个水站确实没留电话"看起来一样 —— 而客户正是要在这时联系水站问押金/桶的事。
-      // 不阻断弹窗（说明文字本身仍要看），但要告诉他电话是没取到、不是没有。
+      // [2026-09-26] 这里原来还弹一句「水站电话没取到，请稍后重试」的 toast ——
+      // 而拉电话是**进页面时顺手做的**，客户此刻并没有在要打电话：一句自己没触发的失败提示
+      // 只会让人以为下单出了问题。现在只记 console，真正的兜底在 onCallStation：
+      // 取不到电话就带他去「客服」页（那里会区分"没查到"与"没登记"）。
       console.warn('[OrderCreate] 获取水站电话失败:', e && (e.message || e.errMsg))
-      wx.showToast({ title: '水站电话没取到，请稍后重试', icon: 'none' })
     }
+  },
+
+  /**
+   * 「桶和押金怎么算？」弹窗里的电话行：取到就拨号，取不到就跳「客服」页。
+   * ⚠️ 不要在取不到时干点什么也不做 —— 那一行是客户问押金的唯一入口（同 §8.30 判据）。
+   */
+  onCallStation() {
+    if (this.data.stationPhone) {
+      wx.makePhoneCall({ phoneNumber: this.data.stationPhone })
+      return
+    }
+    this.setData({ showAssetDetail: false })
+    wx.navigateTo({ url: '/pages/service/index' })
   },
 
   // ===== 费用明细弹窗 =====

@@ -55,10 +55,13 @@ class CancelRequestIntegrationTest extends AbstractIntegrationTest {
     }
 
     /**
-     * 走<b>真实链路</b>造一条「配送中(2) + 已付」的订单：下单 → 水票支付 → 配送员接单。
+     * 走<b>真实链路</b>造一条「配送中(2) + 已付」的订单：下单 → 水票支付 → 站长派单 → 配送员接单。
      *
      * <p>刻意不用 {@code createOrderFull} 手工插表：退款链要读支付流水、订单明细、库存扣减量等
      * 一串关联数据，手工造容易缺项，届时用例失败会分不清是"业务错"还是"造数不完整"。</p>
+     *
+     * <p>⚠️ [2026-09-26 产品裁定] 「站长派单」这一步不能省：配送员只能接**派给自己**的单
+     * （未分配的单他既看不到也接不走），链路正本见 {@code PaidBeforeDispatchIntegrationTest}。</p>
      */
     private long deliveringPaidOrder() {
         String body = "{\"addressId\":" + addr + ",\"stationId\":" + station
@@ -71,6 +74,10 @@ class CancelRequestIntegrationTest extends AbstractIntegrationTest {
         Api paid = post("/api/payments", customerToken(customer),
                 "{\"orderId\":" + order + ",\"paymentMethod\":3}");
         assertTrue(paid.isSuccess(), "前置：水票支付应成功，实际=" + paid);
+
+        Api assigned = post("/api/delivery/orders/assign/" + order, mgrToken(),
+                "{\"deliveryStaffId\":" + driver + "}");
+        assertTrue(assigned.isSuccess(), "前置：站长派单应成功，实际=" + assigned);
 
         Api accepted = post("/api/delivery/orders/" + order + "/accept", driverToken(), null);
         assertTrue(accepted.isSuccess(), "前置：配送员接单应成功，实际=" + accepted);

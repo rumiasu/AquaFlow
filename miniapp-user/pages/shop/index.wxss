@@ -269,15 +269,14 @@
   justify-content: space-between;
 }
 
+/* 商城列表的商品名也不截断（2026-09-27 产品口径）——`flex:1 + min-width:0` 保留，它让长名字换行而不是把卡片撑破 */
 .product-name {
   font-size: 28rpx;
   font-weight: 600;
   color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   flex: 1;
   min-width: 0;
+  word-break: break-all;
 }
 
 .product-brand {

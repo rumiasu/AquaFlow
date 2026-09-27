@@ -216,13 +216,15 @@
   min-width: 0;
 }
 
+/*
+ * ⚠️ 商品名**不许截断**（2026-09-27 产品口径：商品信息不要隐藏省略）——
+ * 下单页要核对的第一件事就是"我买的哪款水"，截成省略号等于让人对着「…」确认。
+ */
 .product-name {
   font-size: 30rpx;
   font-weight: 600;
   color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-all;
 }
 
 .product-spec {
@@ -1255,12 +1257,11 @@
   min-width: 0;
 }
 
+/* 确认弹窗里的明细行：同样不截断（2026-09-27 产品口径） */
 .detail-item-name {
   font-size: 26rpx;
   color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-all;
 }
 
 .detail-item-spec {

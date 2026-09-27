@@ -206,14 +206,18 @@
   min-width: 0;
 }
 
+/*
+ * ⚠️ 商品名**不许截断**（2026-09-27 产品口径：「商品信息需要显示好，不要隐藏省略」）：
+ * 原先这里是 `overflow:hidden + text-overflow:ellipsis + white-space:nowrap`，
+ * 名字长一点就变成「农夫山泉 19L 桶装水（整箱…」——客户看不出自己买的到底哪款。
+ * 改成允许换行；`.item-info` 已有 `min-width: 0`（flex 子项能收缩的前提），别删它。
+ */
 .item-name {
   font-size: 28rpx;
   font-weight: 600;
   color: var(--text-primary);
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-all;
 }
 
 .item-spec {

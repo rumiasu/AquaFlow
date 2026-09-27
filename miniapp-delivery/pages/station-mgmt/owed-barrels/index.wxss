@@ -55,8 +55,12 @@
   justify-content: space-between;
 }
 .info-row.sub { font-size: 24rpx; color: var(--text-secondary); }
-.info-row .product { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.info-row .qty { color: #d32f2f; font-weight: 600; margin-left: 16rpx; }
+/* 商品行：商品名**不截断**（2026-09-27 产品口径：商品信息不要隐藏省略）。
+   原名会被截成「…」，站长看不出欠的是哪款水。允许换行后「欠 N 个」会顶到行首，
+   所以只给这一行顶对齐（**不要**改 .info-row 的基线，那会连累下面的电话/日期行）。 */
+.info-row.product-row { align-items: flex-start; }
+.info-row .product { flex: 1; min-width: 0; word-break: break-all; }
+.info-row .qty { color: #d32f2f; font-weight: 600; margin-left: 16rpx; flex-shrink: 0; margin-top: 2rpx; }
 
 .empty { text-align: center; padding: 120rpx 0; font-size: 28rpx; color: var(--text-secondary); }
 .empty-hint { display: block; margin-top: 12rpx; font-size: 24rpx; color: var(--text-placeholder); }

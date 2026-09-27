@@ -45,14 +45,15 @@
   ],
   "window": {
     "backgroundTextStyle": "dark",
-    "navigationBarBackgroundColor": "#4F8EF7",
+    "navigationBarBackgroundColor": "#2E4A68",
     "navigationBarTitleText": "AquaFlow 配送",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#f0f4f8"
+    "backgroundColor": "#FAF7F0"
   },
   "tabBar": {
+    "custom": true,
     "color": "#999999",
-    "selectedColor": "#4F8EF7",
+    "selectedColor": "#2E4A68",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [

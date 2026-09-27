@@ -16,10 +16,6 @@
   text-align: center;
 }
 
-.no-auth-icon {
-  font-size: 140rpx;
-  margin-bottom: 36rpx;
-}
 
 .no-auth-title {
   display: block;
@@ -40,11 +36,44 @@
   width: 360rpx;
   height: 88rpx;
   line-height: 88rpx;
-  background: #4F8EF7;
+  background: var(--primary-color);
   color: #ffffff;
   border-radius: 44rpx;
   font-size: 30rpx;
   border: none;
+}
+
+/* ========== 常驻「水站管理」入口（首页，紧跟自绘导航栏） ==========
+   [2026-09-26 Wave1 轨道 G] 它是本页**唯一不受服务端事项影响**的入口（零待办、部分加载失败
+   都照旧在），所以不吃 `.todo-card` 的显隐、也不放在那张卡里 —— 见 index.wxml 里那段注释。
+   一条干净的行：图标 + 名称 + 箭头；**不附功能清单**（§6：同级入口不用每个附一串功能清单）。
+   左右 20rpx 与它下面那张 `.todo-card` 对齐（两张卡是相邻的一对，别一个 20 一个 24）。 */
+.mgmt-entry {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 16rpx 20rpx 0;
+  padding: 28rpx 24rpx;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.mgmt-entry:active {
+  opacity: 0.7;
+}
+
+
+.mgmt-entry-title {
+  flex: 1;
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mgmt-entry-arrow {
+  font-size: var(--font-lg);
+  color: var(--text-secondary);
 }
 
 .tab-bar {
@@ -74,7 +103,7 @@
 .tab-item.active {
   color: #ffffff;
   font-weight: 600;
-  background: #4F8EF7;
+  background: var(--primary-color);
 }
 
 .tab-count {
@@ -185,7 +214,7 @@
 .sub-tab-item.active {
   color: #ffffff;
   font-weight: 600;
-  background: #4F8EF7;
+  background: var(--primary-color);
 }
 
 .sub-tab-item.active .tab-count {
@@ -225,7 +254,7 @@
 }
 
 .info-phone {
-  color: #4F8EF7;
+  color: var(--primary-color);
   margin-left: 8rpx;
 }
 
@@ -310,7 +339,7 @@
 }
 
 .btn-primary, .btn-primary-small {
-  background: #4F8EF7;
+  background: var(--primary-color);
   color: #ffffff;
 }
 
@@ -336,7 +365,7 @@
   text-align: center;
   padding: 32rpx 0 16rpx;
   font-size: 26rpx;
-  color: #4F8EF7;
+  color: var(--primary-color);
 }
 .list-foot-link:active { opacity: 0.6; }
 
@@ -427,10 +456,10 @@
 
 /* ========== 抢单池样式 ========== */
 .pool-card {
-  border-left: 6rpx solid #4F8EF7;
+  border-left: 6rpx solid var(--primary-color);
 }
 
-/* ========== 「一眼看到钱」金额块（抢单池 / 他站外派共用） ========== */
+/* ========== 「一眼看到钱」金额块（抢单池 / 指定外派里别站指定本店的那些行共用） ========== */
 /* 放在卡片最上面（标题行之下、商品行之前）：抢单决策的第一信息是钱，不是商品名 */
 .fee-box {
   padding: 14rpx 16rpx;
@@ -591,7 +620,7 @@
   color: #1976D2;
 }
 
-/* ========== 外派追踪样式 ========== */
+/* ========== 外派样式（「外派」页签：一键外派 / 指定外派两个子页签共用） ========== */
 .dispatch-card {
   border-left: 6rpx solid #FF9800;
 }
@@ -601,6 +630,11 @@
   color: #E65100;
 }
 
+/* 订单状态小标（等待接单 / 已接单 …）：文案是后端下发的 Orders.statusText。
+   ⚠️ 原来的 .dispatch-accepted / .dispatch-rejected / .dispatch-completed 已删
+   （[2026-09-26]）：它们配的是 `item.dispatchStatus`，而后端**从来没下发过这个字段**
+   （DeliveryController 的 dispatch-tracking 只填 dispatchKind / deliveryStationName），
+   那四个分支恒不渲染 —— 是死代码。要按状态配色就用后端 statusText + 这个通用小标。 */
 .dispatch-status-tag {
   font-size: 20rpx;
   padding: 4rpx 12rpx;
@@ -608,21 +642,6 @@
   font-weight: 500;
   background: #FFF8E1;
   color: #F57F17;
-}
-
-.dispatch-accepted {
-  background: #E8F5E9;
-  color: #2E7D32;
-}
-
-.dispatch-rejected {
-  background: #FFEBEE;
-  color: #C62828;
-}
-
-.dispatch-completed {
-  background: #E8F5E9;
-  color: #2E7D32;
 }
 
 .dispatch-info {
@@ -658,7 +677,7 @@
   color: #E8590C;
 }
 
-/* ========== 他站外派样式 ========== */
+/* ========== 指定外派里"别站指定本店"那几行（蓝色左边条，与本站派出去的橙色区分） ========== */
 .incoming-card {
   border-left: 6rpx solid #007AFF;
 }
@@ -677,12 +696,14 @@
   flex: 1;
 }
 
-/* ========== 其他待办（首页顶部，只列不在本页 tab 里的项） ==========
+/* ========== 其他待处理（首页顶部，只列不在本页 tab 里的项） ==========
    [2026-09-19 收敛] 原先是 15 项分三级带分组标题的大卡，现在只留 8 项、**不分级标题**。
    `.todo-item-on` 标的是"**这个计数非零**"（wxml 绑的是 `hasCount`），**不是等级** ——
    卡里 8 项全是 P1/P2，一项 P0 都没有；P0 只体现在「首页」tab 红点上（走 `p0Total`）。
    ⚠️ 别再加回 `.todo-group` / `.todo-group-title` / `.todo-item-p0` 那几条 ——
       它们是给"三级分组"用的，那套结构已经去掉（要恢复三级显示时再从 git 历史取）。
+   [2026-09-26 文案] 标题改成「其他待处理」，原副标题（`不在订单页里的`）按 §7 去掉，
+   那条 `.todo-hint` 规则一并删掉（留着就是死样式）。**显隐条件与 8 项口径都没动**。
 */
 .todo-card {
   margin: 16rpx 20rpx 4rpx;
@@ -702,11 +723,6 @@
   font-size: 30rpx;
   font-weight: 600;
   color: #1f2329;
-}
-
-.todo-hint {
-  font-size: 22rpx;
-  color: #8a9099;
 }
 
 .todo-row {

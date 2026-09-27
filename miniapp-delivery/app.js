@@ -77,8 +77,11 @@ App({
     const u = this.globalData.userInfo || {}
     const role = this._normalizeRole(u)
     if (!this.globalData.isLogin || role !== ROLE_STATION_MANAGER || !u.stationId) {
-      // 不是站长 / 没绑定水站：确保不留上一次登录遗留的红点
-      wx.hideTabBarRedDot({ index: 0, fail: () => {} })
+      // 不是站长 / 没绑定水站：确保不留上一次登录遗留的红点。
+      // ⚠️ 必须走 pending-reminder 的 syncTabBarDot，不能直接调 wx.hideTabBarRedDot：
+      //    本端已改自绘底栏（tabBar.custom=true，为了让「首页」只对站长显示），
+      //    原生 API 在自绘模式下**无效** —— 直接调会让红点留在自绘那一份上清不掉。
+      require('./utils/pending-reminder').syncTabBarDot(false)
       return
     }
     require('./utils/pending-reminder').syncPendingReminder()
@@ -329,6 +332,8 @@ App({
       header,
       complete: () => {
         this.clearLoginState()
+        // 退出登录顺手把红点标记清掉：留着的话下一个登录的人（哪怕是配送员）会看到上一任的红点
+        require('./utils/pending-reminder').syncTabBarDot(false)
         wx.reLaunch({ url: '/pages/login/index' })
       }
     })

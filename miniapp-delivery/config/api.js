@@ -281,10 +281,13 @@ const API = {
   ORDER_IMAGE_UPLOAD: '/api/order-images/upload',
   GENERAL_UPLOAD: '/api/common/upload',
 
-  // 抢单池 & 外派追踪
+  // 抢单池 & 外派
   DELIVERY_POOL: '/api/delivery/orders/pool',
+  // 本站外派出去的单：响应里带 dispatchKind（POOL 一键外派 / DIRECTED 指定外派）与 deliveryStationName，
+  // 首页「外派」页签按它分成两个子页签（形态由后端判，前端不解析 specialNote）。
   DELIVERY_DISPATCH_TRACKING: '/api/delivery/orders/dispatch-tracking',
   DELIVERY_DIRECTED_RETURNS: '/api/delivery/orders/directed-returns',
+  // 别站指定外派给本站的单（首页「外派 → 指定外派」里的一个方向）
   DELIVERY_DIRECTED_INCOMING: '/api/delivery/orders/directed-incoming',
   // 站长「审批」页：客户 / 站内 两组待决策申请（已接单订单的取消须站长同意）
   DELIVERY_PENDING_APPROVALS: '/api/delivery/orders/pending-approvals',

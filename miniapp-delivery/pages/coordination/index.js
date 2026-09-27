@@ -1,6 +1,10 @@
 const { get, post } = require('../../utils/request')
 const { API } = require('../../config/api')
-// directedReturn 必须在这里 import：本页的「调解退回原站」按钮调的就是它，
+// 自绘底栏（tabBar.custom=true）：本页是 tab 页，onShow 必须同步一次 —— 各页组件实例独立，
+// 不调就会出现"切过来了高亮还在别的页签"，而且角色是登录后才确定的（见 utils/tabbar.js）
+const { syncTabBar } = require('../../utils/tabbar')
+// directedReturn 必须在这里 import：本页的「退回原水站」按钮调的就是它
+// （后端 javadoc 里叫「调解退回」），
 // 漏了 import 会让 onMediateReturn 抛 ReferenceError —— 点击**静默无反应**（AGENTS §6）。
 const { getStaffList, getPoolOrders, claimPoolOrder, getDispatchTracking, cancelDispatch, directedReturn, approveDirectedReturn, rejectDirectedReturn, getDirectedIncoming, approveStaffReturn, rejectStaffReturn, getPendingApprovals, approveCancelRequest, rejectCancelRequest } = require('../../api/delivery')
 // 自绘导航栏 + 水站营业状态胶囊（本页 navigationStyle=custom）：与「配送」页共用一份实现
@@ -43,7 +47,7 @@ async function fetchCrossStationRisk(orderId) {
 }
 
 /**
- * 给「抢单池 / 他站外派」的订单补三个**纯展示**字段（金额与去向全部由后端下发）：
+ * 给「抢单池 / 指定外派」的订单补三个**纯展示**字段（金额与去向全部由后端下发）：
  *
  * 1. `deliveryFeeText` / `floorFeeText` / `totalAmountText` —— 金额文本。**只做定长格式化，
  *    不做任何算术**：配送费与楼层费是"下单那一刻按归属站站级配置算出来、快照进 orders 的"，
@@ -54,7 +58,7 @@ async function fetchCrossStationRisk(orderId) {
  * 4. `crossStationRiskNote`（后端只在抢单池下发；其它列表在提交前用
  *    `_confirmRisk` 现取）—— 同样是原样透传，本函数**不做任何判断**，`...o` 带过去即可。
  *
- * ⚠️ 必须做空值兜底：这两个页签的数据来自两个不同端点（抢单池返回 Map、他站外派返回实体），
+ * ⚠️ 必须做空值兜底：这两个页签的数据来自两个不同端点（抢单池返回 Map、指定外派返回实体），
  * 老版本后端没有这些字段时页面要照旧能看，不能显示成 ¥undefined。
  */
 function feeView(o) {
@@ -66,6 +70,32 @@ function feeView(o) {
     floorFeeText: money(o.floorFee),
     totalAmountText: money(o.totalAmount),
     hasFeeDetail: has(o.deliveryFee) || has(o.floorFee)
+  }
+}
+
+/**
+ * 给订单卡补「商品」一行的文案（`goodsText`）—— [2026-09-26] 后端新增逐明细摘要投影。
+ *
+ * 三个判据（改这里之前逐条确认）：
+ *  1. **`itemSummary` 有值就用它**（后端按 `order_item` 逐行拼：`纯净水 3桶，矿泉水 1瓶`，
+ *     单位由 `product.category` 决定 —— 1 桶装水 / 2 瓶装水 / 3 饮水器，与 `util/BarrelScope` 同源）。
+ *     ⚠️ 目前**只有 `GET /api/delivery/orders/station-pending` 与配送员「待接单」这两个端点下发**它，
+ *     抢单池 / 外派追踪 / 转单 / 待审批这几张列表是 **null**（见 `Orders#itemSummary` 的 javadoc）。
+ *  2. **`itemSummary` 为 null 时只报第一个商品名**，数量**绝不**再拿 `quantity` 乘「桶」：
+ *     `quantity` 是**全单总件数**（含瓶装水 / 饮水器），混合单会显示成「纯净水 × 4桶」——
+ *     那是错的（3 桶水 + 1 瓶水的 quantity 也是 4）。这就是本函数存在的唯一理由。
+ *  3. `deliveryBucketQty`（配送桶数，`orders` 的真实列）**有值才**敢写「等 N 桶」；
+ *     它由完成配送时写入，未配送的单是空的 —— 空就只显示商品名，不编数量。
+ *
+ * ⚠️ 这是纯展示映射，不做任何请求、不改变任何列表的取数口径。
+ */
+function goodsView(o) {
+  const qty = Number(o.deliveryBucketQty)
+  return {
+    ...o,
+    goodsText: o.itemSummary
+      ? o.itemSummary
+      : (qty > 0 ? o.firstProductName + ' 等 ' + qty + ' 桶' : (o.firstProductName || '—'))
   }
 }
 
@@ -107,22 +137,39 @@ Page({
     activeTab: 'pending',
     // 「审批」大页签内的子页签：customer 客户发起 / station 站内（配送员）发起
     approvalTab: 'customer',
+    /**
+     * 首页四个大页签（[2026-09-26] 从五个收敛：原独立的「他站外派」页签并进「外派」）。
+     *
+     * ⚠️ 「外派」**一个页签内置两个子页签**（见 dispatchTab）：一键外派 / 指定外派。
+     * 别站指定本店为履约站，本来就是"指定外派"的一种，单开一个页签会让站长以为系统里有两套外派。
+     */
     tabs: [
       { key: 'pending', label: '待分配', count: 0 },
       { key: 'approval', label: '审批', count: 0 },
       { key: 'pool', label: '抢单池', count: 0 },
-      { key: 'dispatch', label: '外派', count: 0 },
-      { key: 'incoming', label: '他站外派', count: 0 }
+      // 角标 = 一键外派 + 指定外派（两个方向）之和，由 loadAllData 算好（wxml 不做算术）
+      { key: 'dispatch', label: '外派', count: 0 }
     ],
+    /**
+     * 「外派」页签内的子页签（[2026-09-26] 产品原话："正常外派有两种形式，
+     * 一种是一键外派不用管的，一种是指定外派水站，可能往往有一些业务牵扯"）：
+     *   · `pool` —— 一键外派：放进抢单池，谁抢谁送，归属站不用管（只在还没被接单前能召回）；
+     *   · `directed` —— 指定外派：指定到具体水站（本站指定给别站的 + 别站指定本店的）。
+     */
+    dispatchTab: 'pool',
     lists: {
       pending: [],
       pool: [],
-      dispatch: [],
-      incoming: [],
+      // 本站外派出去的单，按**后端下发**的 dispatchKind 分成两份（前端不解析 specialNote）
+      dispatchPool: [],
+      // 指定外派一个列表装两个方向，靠 _dir 区分动作（in = 别站指定本店 / out = 本站指定给别站）
+      dispatchDirected: [],
       // 待审批申请：客户发起（取消申请）/ 站内发起（退回站长、转让、重分配、取消申请）
       approvalCustomer: [],
       approvalStation: []
     },
+    // 外派子页签的角标（在 js 里算好：wxml 里不做加法，也别让它读到 undefined.length）
+    dispatchCount: { pool: 0, directed: 0 },
     staffList: [],
     showAssignModal: false,
     currentOrderId: null,
@@ -134,12 +181,12 @@ Page({
     // 站长会真的去建员工，而问题在网络（AGENTS §8.22 / §8.17）。
     loadError: '',
     staffListError: '',
-    // 「其他待办」视图模型（只含不在本页页签里的项），由 loadTodo() 组装
+    // 「其他待处理」视图模型（只含不在本页页签里的项），由 loadTodo() 组装
     todo: null
   },
 
   /**
-   * 「其他待办」**收录哪些 key** —— 这是首页顶部唯一需要维护的清单。
+   * 「其他待处理」**收录哪些 key** —— 这是首页顶部唯一需要维护的清单。
    *
    * [2026-09-19 收敛，当天两次修订] 判据只有一条：**本页 tab 覆盖不到、且没有立刻可见的计数**。
    * ⚠️ 修订前先**把整张卡删光了**，产品随即质疑"都是那种重复的吗" —— 不是：15 项里只有 7 项
@@ -147,11 +194,15 @@ Page({
    *   · **剔除**（本页页签已有角标 / 宫格已有卡）：pendingAssign · pendingTransfer · customerCancel ·
    *     stationCancel · poolClaimable · directedIncoming · barrelReturn；
    *   · **保留**（只活在「水站管理」里，首页不报就没人知道）：下面这 8 项。
+   * ⚠️ [2026-09-26 Wave1 轨道 G] 本清单与 `decorateTodo` 的"**0 也保留**"口径**都没动**：
+   * 「卡在零计数时是否仍显示」是已登记的产品冲突（docs/design/29 §9 待拍板第 1 条），未拍板前不改代码。
    *
-   * ⚠️ 被剔除的 7 项里 **6 项是 P0**（待分配/转单/客户取消/站内取消/他站定向外派/退桶审批，
+   * ⚠️ 被剔除的 7 项里 **6 项是 P0**（待分配/转单/客户取消/站内取消/指定外派待确认/退桶审批，
    * 只有「抢单池」是 P2）—— 按级别它们"应该"在首页。之所以仍剔除：它们各自的页签/页面上一眼
    * 就能看到数，在这里再报一遍正是本次要消除的那种重复。**P0 并没有丢**：tab 红点算的是完整
    * payload 的 p0Total（这 6 项全在内），只是换成"一个红点"而不是"6 个数字"。
+   * [2026-09-26] 「指定外派待确认」（key 仍是 directedIncoming，后端标签已改）现在落在
+   * 「外派 → 指定外派」子页签的角标里 —— 角标按两个方向之和算，P0 照样一眼能看到。
    * 若产品认为 P0 必须逐项上门，**加回一项要动两处**：本清单添 key **且** TODO_ROUTES 补路由 ——
    * 其中 4 项（待分配/转单/客户取消/站内取消）本身就是本页页签，得走 switchTab 而非 navigateTo。
    */
@@ -177,7 +228,7 @@ Page({
   },
 
   /**
-   * 拉待办汇总，两件事：① 组装「其他待办」卡；② 刷新首页 tab 红点。
+   * 拉待办汇总，两件事：① 组装「其他待处理」卡；② 刷新首页 tab 红点。
    *
    * 刻意**不阻塞**主列表、失败也不弹红字：它只是附加信号，取不到就不显示卡、不亮红点，
    * 由下面 console.warn 留痕（静默失败会让"没数据"与"真没待办"无法区分）。
@@ -203,7 +254,7 @@ Page({
   },
 
   /**
-   * 待办数据 → 「其他待办」视图模型。
+   * 待办数据 → 「其他待处理」视图模型。
    *
    * ⚠️ 只收 {@link #TODO_KEYS} 里的项 —— 其余项由 tab 角标负责，不在这里重复。
    * 金额格式化放在这里做（wxml 不能调方法）。
@@ -294,6 +345,8 @@ Page({
 
   onShow() {
     const app = getApp()
+    // 自绘底栏：站长看到 首页/配送/我的，配送员只看到 配送/我的（本页对配送员不显示）
+    syncTabBar(this, '/pages/coordination/index')
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
       return
@@ -326,7 +379,7 @@ Page({
       const stationId = userInfo.stationId
 
       // [2026-09-20 真机联调] 原来这里是 Promise.all：**任何一个**请求失败都会让整页数据
-      // 一个都不落地，而页面上五个页签照旧渲染成「暂无待分配 / 暂无抢单池…」—— 与"确实没有单"
+      // 一个都不落地，而页面上四个页签照旧渲染成「暂无待分配 / 暂无抢单池…」—— 与"确实没有单"
       // 完全无法区分（AGENTS §8.22）。而且 HTTP 200 + code!=0 的业务失败原来被直接忽略
       // （`res.data || []` 拿到 undefined → 空数组），等于把失败当成功（AGENTS §8.1）。
       // 现在改成 allSettled + 逐个判 code：成功的那几项照常展示，失败项汇总到 loadError 提示条。
@@ -351,8 +404,8 @@ Page({
       const pendingRes = unwrap(settled[0], '待分配')
       const transferRes = unwrap(settled[1], '转单请求')
       const poolRes = unwrap(settled[2], '抢单池')
-      const dispatchRes = unwrap(settled[3], '外派追踪')
-      const incomingRes = unwrap(settled[4], '他站外派')
+      const dispatchRes = unwrap(settled[3], '外派')
+      const incomingRes = unwrap(settled[4], '指定外派（别站指定本店）')
       const approvalsRes = unwrap(settled[5], '待审批')
 
       let staffList = []
@@ -377,7 +430,7 @@ Page({
 
       // 待分配：合并未分配 + 转单请求（含「转单中」订单）
       // 状态检测：special_note 带 [指定退回待确认] => 转单中，前端渲染「同意/拒绝」而非「分配/外派」
-      // 信用标（riskView）只加在这里：抢单池 / 他站外派是**跨站可见面**，
+      // 信用标（riskView）只加在这里：抢单池 / 指定外派是**跨站可见面**，
       // "这个客户欠多少钱"是归属站的经营信息，后端也不下发（见 DeliveryController）。
       const pendingList = [
         ...(pendingRes.data || []),
@@ -387,32 +440,75 @@ Page({
         let transferKind = ''
         if (note.indexOf(DIRECTED_MARK) >= 0) transferKind = 'directed'
         else if (STAFF_MARKS.some(m => note.indexOf(m) >= 0)) transferKind = 'staff'
-        return riskView({ ...o, transferPending: transferKind !== '', transferKind })
+        // goodsView：本页签是两个端点合并的 —— station-pending 有 itemSummary，转单那份没有，
+        // 所以逐行判空（见 goodsView 注释，别在这里假设一定有摘要）
+        return goodsView(riskView({ ...o, transferPending: transferKind !== '', transferKind }))
       })
+
+      // ===== 外派：一键外派 / 指定外派 =====
+      // 形态由**后端**下发（`dispatchKind`：POOL / DIRECTED，判据是备注，见 constant/DispatchKind）——
+      // 前端**不解析 specialNote**：同一段自由文本两端各判一次，迟早分叉（本仓"计价双轨"的同形问题）。
+      const dispatchRows = dispatchRes.data || []
+      // ⚠️ 这个列表是"**曾经**外派过的单"的台账（后端不按当前状态筛），所以召回回来的单也留在里面。
+      // 召回后 delivery_station_id 又变回本站 —— 那种行**不能说成"在抢单池里"**（它已回到本站待分配）。
+      // 两个纯展示标记在这里一次算好（wxml 不写比较逻辑）：
+      //   `_inPool`   = 还没人接（delivery_station_id 为空）→ 在池中等别站抢
+      //   `_backHome` = 履约站已经是本站 → 已召回/已退回，本站待分配
+      const dispatchPool = dispatchRows
+        .filter(o => o.dispatchKind === 'POOL')
+        .map(o => goodsView({
+          ...o,
+          _inPool: o.deliveryStationId == null,
+          _backHome: o.deliveryStationId != null && String(o.deliveryStationId) === String(stationId)
+        }))
+      // 除 POOL 之外一律归「指定外派」：**与后端 DispatchKind.ofNote 的兜底同向**
+      //（认不出的备注默认判成"指定外派"—— 需要站长盯着的那一栏，比静默藏进"不用管"安全），
+      // 顺带让"老版本后端没下发 dispatchKind"时单子仍全部可见（只是都落在指定外派里）。
+      const dispatchDirectedOut = dispatchRows
+        .filter(o => o.dispatchKind !== 'POOL')
+        .map(o => goodsView({ ...o, _dir: 'out' }))   // 本站指定给别站：可召回 / 重新指定
+      // 「指定外派」子页签 = 两个方向合成一个列表，靠 _dir 区分动作与标签：
+      //   in  = 别站指定本店（可退回原水站，钱与去向整块由后端下发）
+      //   out = 本站指定给别站
+      // 别站指定本店的那些排前面：它们等本站回话（P0），本站派出去的只需盯着。
+      const dispatchDirected = [
+        ...(incomingRes.data || []).map(o => goodsView({ ...feeView(o), _dir: 'in' })),
+        ...dispatchDirectedOut
+      ]
 
       const approvalData = approvalsRes.data || {}
       const lists = {
         pending: pendingList,
-        // 「抢单池」与「他站外派」是同一件事的两个入口（放池谁都能抢 / 定向派给某个站），
+        // 「抢单池」与「指定外派」是同一件事的两个入口（放池谁都能抢 / 指定派给某个站），
         // 两个页签都必须在动手前看到"这单值多少钱、价是谁定的、钱归谁" —— 同一份映射，不各写一遍。
-        pool: (poolRes.data || []).map(feeView),
-        dispatch: dispatchRes.data || [],
-        incoming: (incomingRes.data || []).map(feeView),
-        approvalCustomer: approvalData.customer || [],
-        approvalStation: approvalData.station || []
+        // goodsView 同理：商品行全页签同一份文案（这几个端点都没有 itemSummary，见其注释）
+        pool: (poolRes.data || []).map(feeView).map(goodsView),
+        dispatchPool,
+        dispatchDirected,
+        approvalCustomer: (approvalData.customer || []).map(goodsView),
+        approvalStation: (approvalData.station || []).map(goodsView)
       }
 
       const tabs = this.data.tabs.map(t => ({
         ...t,
-        // 「审批」角标 = 客户 + 站内 两组待审批之和
+        // 「审批」角标 = 客户 + 站内 两组待审批之和；
+        // 「外派」角标 = 两个子页签之和（一键外派 + 指定外派两个方向）——
+        // P0 的"指定外派待确认"就在这个数里，别改成只看某一个子页签。
         count: t.key === 'approval'
           ? lists.approvalCustomer.length + lists.approvalStation.length
-          : (lists[t.key] || []).length
+          : (t.key === 'dispatch'
+            ? lists.dispatchPool.length + lists.dispatchDirected.length
+            : (lists[t.key] || []).length)
       }))
+      const dispatchCount = {
+        pool: lists.dispatchPool.length,
+        directed: lists.dispatchDirected.length
+      }
 
       this.setData({
         lists,
         tabs,
+        dispatchCount,
         staffList,
         staffListError,
         loadError: failed.length
@@ -443,6 +539,11 @@ Page({
     this.setData({ approvalTab: e.currentTarget.dataset.tab })
   },
 
+  // 「外派」页签内切换子页签：pool 一键外派（放抢单池）/ directed 指定外派
+  switchDispatchTab(e) {
+    this.setData({ dispatchTab: e.currentTarget.dataset.tab })
+  },
+
   // 审批 · 同意取消申请 —— 同意即走完整退款链并取消订单，不可撤销
   onApproveCancel(e) {
     const id = e.currentTarget.dataset.id
@@ -450,7 +551,7 @@ Page({
       title: '同意取消',
       content: '同意后将取消该订单，并退还水票/押金、回补库存。此操作不可撤销。',
       confirmText: '同意取消',
-      confirmColor: '#FF3B30',
+      confirmColor: '#B5442C',
       success: async (res) => {
         if (!res.confirm) return
         wx.showLoading({ title: '处理中...' })
@@ -498,8 +599,8 @@ Page({
   /**
    * 「看全部订单 ›」→ 站长端订单台账（pages/station-mgmt/orders）。
    *
-   * 这是**状态视角**的台账（全部/待配送/配送中/已完成），与本页五个页签的**动作视角**
-   * （待分配/审批/抢单池/外派/他站外派）互补：一个订单可能同时在"待分配"和台账里，
+   * 这是**状态视角**的台账（全部/待配送/配送中/已完成），与本页页签的**动作视角**
+   * （待分配/审批/抢单池/外派[一键外派·指定外派]）互补：一个订单可能同时在"待分配"和台账里，
    * 所以不要指望它们互斥，也别把状态页签并进本页那一排（两种维度混排会让站长分不清
    * "待配送"与"待分配"的差别）。
    *
@@ -518,6 +619,18 @@ Page({
     wx.navigateTo({ url: '/pages/station-mgmt/orders/index' })
   },
 
+  /**
+   * 常驻「水站管理」入口（wxml 里紧跟导航栏的那一条）→ 站长端宫格（完整功能目录）。
+   *
+   * ⚠️ 它是本页**唯一不受服务端事项影响**的入口：**不要**给它接任何计数、也不要在 wxml 里
+   * 加 `wx:if` —— 提醒区（「其他待处理」卡 / 页签角标）取不到数或全为零时它也必须照旧在，
+   * 否则站长一遇到加载失败就再也进不去完整功能（docs/design/29 §5「完整功能入口另行常驻」）。
+   * 宫格是**非 tabBar 页**，只能用 navigateTo（`switchTab` 只认 app.json 里的 tab 页）。
+   */
+  onGoStationMgmt() {
+    wx.navigateTo({ url: '/pages/station-mgmt/index' })
+  },
+
   onShowAssign(e) {
     this.setData({
       showAssignModal: true,
@@ -530,7 +643,7 @@ Page({
     const name = e.currentTarget.dataset.name
     const orderId = this.data.currentOrderId
 
-    // 接收站确认：他站定向外派给本站的涉押金/桶权益单，分配（= 本站受理这一单）前要再确认一次。
+    // 接收站确认：别站**指定外派**给本站的涉押金/桶权益单，分配（= 本站受理这一单）前要再确认一次。
     // 文案来自后端；不涉风险的普通单这里什么都不会弹（_confirmRisk 拿不到文案就放行）。
     const risk = await this._confirmRisk(orderId, '已确认，分配')
     if (!risk.ok) return
@@ -551,15 +664,18 @@ Page({
     }
   },
 
-  // 外派：从待分配tab触发，可选「放入抢单池」或「指定水站外派」
+  /**
+   * 外派：从「待分配」页签触发，两个选项就是「外派」页签里的两个子页签
+   * （[2026-09-26] 统一叫法：一键外派 = 放进抢单池 / 指定外派 = 指定水站）。
+   */
   onOutsource(e) {
     const id = e.currentTarget.dataset.id
     wx.showActionSheet({
-      itemList: ['放入抢单池', '指定水站外派'],
+      itemList: ['一键外派（放抢单池）', '指定外派（选水站）'],
       success: async (res) => {
         if (res.tapIndex === 0) {
           wx.showModal({
-            title: '外派抢单池',
+            title: '一键外派',
             content: '将此订单放入抢单池，附近水站可抢单配送。是否继续？',
             confirmText: '确认外派',
             success: async (m) => { if (m.confirm) await this._doOutsource(id, null) }
@@ -571,7 +687,7 @@ Page({
     })
   },
 
-  // 指定水站外派：拉取其他营业中的水站并选择
+  // 指定外派：拉取其他营业中的水站并选择
   async _pickStationAndOutsource(id) {
     const app = getApp()
     const myStationId = (app.globalData.userInfo || {}).stationId
@@ -590,10 +706,10 @@ Page({
         success: async (r) => {
           const target = stationList[r.tapIndex]
           wx.showModal({
-            title: '外派确认',
-            content: `将订单外派给「${target.name}」配送。确定吗？`,
+            title: '指定外派确认',
+            content: `将订单指定外派给「${target.name}」配送。确定吗？`,
             confirmText: '确定外派',
-            confirmColor: '#34C759',
+            confirmColor: '#2E9E6B',
             success: async (m) => { if (m.confirm) await this._doOutsource(id, target.id) }
           })
         }
@@ -615,7 +731,7 @@ Page({
       if (risk.acknowledged) body.riskAcknowledged = true
       await post(`${API.DELIVERY_TRANSFER}/${id}/outsource`, body)
       wx.hideLoading()
-      wx.showToast({ title: targetStationId != null ? '已指定水站外派' : '已放入抢单池', icon: 'success' })
+      wx.showToast({ title: targetStationId != null ? '已指定外派' : '已放入抢单池', icon: 'success' })
       this.loadAllData()
     } catch (err) {
       wx.hideLoading()
@@ -685,14 +801,15 @@ Page({
     })
   },
 
-  // 外派追踪 - 取消外派
+  // 外派页签 - 取消外派（召回）。一键外派 / 指定外派两种形态共用：
+  // 后端只收「待配送(1)」—— 被接单站接单之后这单归接单站管，本站不能再召回。
   async onCancelDispatch(e) {
     const id = e.currentTarget.dataset.id
     wx.showModal({
       title: '取消外派',
       content: '确定取消此订单的外派？订单将恢复为本站待分配。',
       confirmText: '确认取消',
-      confirmColor: '#FF3B30',
+      confirmColor: '#B5442C',
       success: async (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '取消中...' })
@@ -710,7 +827,7 @@ Page({
     })
   },
 
-  // 外派追踪 - 重新外派
+  // 外派页签 - 重新外派（改指定别的站；一键外派的单也可以直接改成指定外派）
   onReDispatch(e) {
     const id = e.currentTarget.dataset.id
     const app = getApp()
@@ -729,10 +846,10 @@ Page({
         success: async (res) => {
           const targetStation = stationList[res.tapIndex]
           wx.showModal({
-            title: '外派确认',
-            content: `将订单外派给「${targetStation.name}」配送。确定吗？`,
+            title: '指定外派确认',
+            content: `将订单指定外派给「${targetStation.name}」配送。确定吗？`,
             confirmText: '确定外派',
-            confirmColor: '#34C759',
+            confirmColor: '#2E9E6B',
             success: async (modalRes) => {
               if (modalRes.confirm) {
                 // 重新外派同样要过风险确认那一步（与 _doOutsource 同一口径）
@@ -772,7 +889,7 @@ Page({
       title: '同意转单',
       content: '同意后订单将变为普通待分配状态，届时可分配配送员或外派。',
       confirmText: '同意',
-      confirmColor: '#34C759',
+      confirmColor: '#2E9E6B',
       success: async (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '处理中...' })
@@ -798,7 +915,7 @@ Page({
       title: '拒绝转单',
       content: '拒绝后订单将回到配送中，由原配送员继续完成配送。',
       confirmText: '拒绝',
-      confirmColor: '#FF3B30',
+      confirmColor: '#B5442C',
       success: async (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '处理中...' })
@@ -816,14 +933,22 @@ Page({
     })
   },
 
-  // 他站外派给我：作为目标水站，将订单「调解退回」原归属站，等待原站长同意
+  /**
+   * 指定外派（别站指定本店）：作为目标水站，把这单退回原归属站（后端叫「调解退回」，
+   * 只打「指定退回待确认」标记），等原站长同意 / 拒绝。
+   *
+   * [2026-09-26 文案] 按钮与弹窗原文「调解退回原站」——「调解」是后端 javadoc 与旧文档的词，
+   * 站长看不懂（docs/design/29 §7）。**只改文案**：动作、端点、判据全不变，
+   * 仍是 POST /api/orders/{id}/directed-return（`api/delivery.js` 的 `directedReturn`）。
+   * ⚠️ `confirmText` 必须 ≤ 4 字（超了真机上既不弹窗也不报错，见 tests/js/modal-copy-limit.test.js）。
+   */
   async onMediateReturn(e) {
     const id = e.currentTarget.dataset.id
     wx.showModal({
-      title: '调解退回原站',
-      content: '将此订单退回原归属水站，由其站长决定是否重新分配。',
-      confirmText: '退回原站',
-      confirmColor: '#FF9500',
+      title: '退回原水站',
+      content: '本单由别站指定给本站配送。退回后等原水站站长决定：他同意就由原水站重新安排配送，不同意则仍由本站继续配送。',
+      confirmText: '确定退回',
+      confirmColor: '#C9764B',
       success: async (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '退回中...' })

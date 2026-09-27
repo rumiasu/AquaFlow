@@ -1,0 +1,18 @@
+<!--
+  自绘底部导航（app.json 的 tabBar.custom = true + 本组件；目录名 custom-tab-bar 是微信写死的）。
+  为什么要自绘：微信没有"隐藏原生 tabBar 某一项"的 API，而产品要求「首页 tab 在普通配送员那里
+  直接不显示」—— 站长看到 首页/配送/我的 三项，配送员只看到 配送/我的 两项。
+  数据与角色判定见 index.js；⚠️ 模板作用域独立，data 由组件自身提供（不经页面传参）。
+-->
+<view class="tabbar">
+  <view class="tabbar-item {{item.pagePath === selectedPath ? 'on' : ''}}"
+        wx:for="{{tabs}}" wx:key="pagePath"
+        data-path="{{item.pagePath}}" bindtap="onTap">
+    <view class="tabbar-icon-wrap">
+      <image class="tabbar-icon" src="{{item.pagePath === selectedPath ? item.selectedIconPath : item.iconPath}}" mode="aspectFit" />
+      <!-- 站长的 P0 待办红点：自绘模式下 wx.showTabBarRedDot 无效，只能自己画（见 index.js 顶部说明） -->
+      <text class="tabbar-dot" wx:if="{{showDot && item.pagePath === '/pages/coordination/index'}}"></text>
+    </view>
+    <text class="tabbar-text">{{item.text}}</text>
+  </view>
+</view>

@@ -1,0 +1,62 @@
+/*
+ * 自绘底部导航的样式。
+ * 口径：**照着原生 tabBar 的观感做**（固定底部、白底、一条顶边、图标 48rpx + 文字 20rpx），
+ * 颜色取 app.json 里那对（未选 #999999 / 选中 #2E4A68），别在这里另立一套色板。
+ * ⚠️ 这里写字面量、不用 CSS 变量：自绘底栏是**组件**，不赌 app.wxss 的 page 变量在组件里能继承到。
+ * 高度 = 100rpx + 底部安全区；tab 页的根容器用 app.wxss 的 `.custom-tabbar-page` 留出等高空白，
+ * 否则最后一张卡片会被压在导航条下面。
+ */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  background: #ffffff;
+  border-top: 1rpx solid #eceef1;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tabbar-item {
+  flex: 1;
+  height: 100rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabbar-icon-wrap {
+  position: relative;
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.tabbar-icon {
+  width: 48rpx;
+  height: 48rpx;
+  display: block;
+}
+
+/* P0 待办红点（站长专属）：贴在图标右上角，与原生红点位置一致 */
+.tabbar-dot {
+  position: absolute;
+  top: -4rpx;
+  right: -8rpx;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: #ff3b30;
+}
+
+.tabbar-text {
+  font-size: 20rpx;
+  line-height: 28rpx;
+  margin-top: 2rpx;
+  color: #999999;
+}
+
+.tabbar-item.on .tabbar-text {
+  color: #2E4A68;
+}

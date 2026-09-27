@@ -1,6 +1,6 @@
 // 订单详情页
 const { getOrderDetail, completeOrder, transferOrder, returnToStation, reportOrder, getStaffList, dispatchOrder, resolveOrder, requestCancel } = require('../../api/delivery')
-// ⚠️ 楼层凭证（v43）用 utils/request 直接调：路径写常量、不往 api/ 或 config/api.js 加
+// ⚠️ 楼梯凭证（v43；原名"楼层凭证"，[2026-09-26] 改名）用 utils/request 直接调：路径写常量、不往 api/ 或 config/api.js 加
 // —— 那两个文件正被另一个工作流（商品图片库）改动。
 const { get, put, post } = require('../../utils/request')
 const ORDER_IMAGE_BY_ORDER = '/api/order-images/by-order'
@@ -29,6 +29,41 @@ function buildStockPrepText(prep) {
   })
   if (prep.itemsWithoutCredential > 0) parts.push('有商品还没登记备货')
   return parts.length ? ('还缺：' + parts.join('、')) : ''
+}
+
+/**
+ * 「回桶」这一行的标签与数值。
+ *
+ * ⚠️ [2026-09-26] 这里以前读的是 `order.expectedReturnBarrels` —— **后端从来没有这个字段**
+ * （全仓 grep 零命中），于是"预计回桶"永远渲染 `0个`：续购单看着像"不用回桶"。
+ * 现改用真实字段，三种情形分别是：
+ *   · **首单**（`firstBarrelOrder`，与完成配送页同一判据）：压根没有旧桶可回 —— 只说"无需回桶"、
+ *     不给数字。产品原话：「第一次送达桶确实不需要回收，把第一次桶送达时的默认回桶值取消掉」。
+ *   · **还没送到**：给的是**默认回收数**，逐条明细取后端算好的 `suggestedReturnQty`
+ *     （= 客户手上已有的旧桶；**本单新买押金的桶不算**，见下面 buildReturnPlan 的注释），
+ *     与完成配送页默认填的那个数是同一个口径。它是默认值、不是规则，实际收回多少由配送员填。
+ *   · **已送达 / 已完成**：`returnBucketQty` 这时已被完成配送写成**实际回收数**，再叫"预计"就错了
+ *     —— 改成"已回桶"，差量见桶异常单。
+ */
+function buildReturnPlan(order) {
+  if (order.firstBarrelOrder === true) {
+    return { returnLabel: '回桶', returnValue: '押金桶 · 无需回桶' }
+  }
+  const delivered = order.status === 3 || order.status === 4
+  if (delivered) {
+    const actual = Number(order.returnBucketQty) || 0
+    return { returnLabel: '已回桶', returnValue: actual + ' 个' }
+  }
+  // 逐条累加后端的默认回收数（`barrelItem` 由后端按 util/BarrelScope 下发）。
+  // ⚠️ 不能用 `deliveryBucketQty`（本单送出总桶数）：本单**新买押金**的那几个不回收，
+  // 混合单（旧桶换水 + 新买押金桶）用送出数会多报 —— 产品口径：「新付押金买的桶不需要计入回收，
+  // 但是非本次订单产生押金的桶则默认计入回收」。
+  const expected = (order.items || [])
+    .filter(it => it.barrelItem === true)
+    .reduce((sum, it) => sum + (Number(it.suggestedReturnQty) || 0), 0)
+  // 没有旧桶可回（首单之外：瓶装水单、客户手上没桶）→ 没有"回桶"这回事，整行留空由 wxml 隐藏
+  if (expected <= 0) return { returnLabel: '', returnValue: '' }
+  return { returnLabel: '预计回桶', returnValue: expected + ' 个' }
 }
 
 // 纯展示用：订单状态数字 → 徽章 CSS class（仅控制颜色，不承载业务逻辑）
@@ -63,9 +98,16 @@ Page({
     orderId: null,
     order: {},
     loading: true,
-    // 楼层凭证（v43）：站长与配送员都能看、都能补传；不强制，所以"没有也不拦"
+    // 楼梯凭证（v43）：站长与配送员都能看、都能补传；不强制，所以"没有也不拦"
     floorPhotos: [],
     floorUploading: false,
+    /**
+     * 送达凭证（[2026-09-26] 原名「签收凭证」）：配送员在完成配送页拍的 `order_image.type = 1`
+     * 那几张。**只读**（站长要看"到底送到了没有"，不该由站长替配送员补拍送达现场）。
+     */
+    deliveryPhotos: [],
+    /** 已送达/已完成但没有送达照片时，给一句实话（判据在 loadOrderDetail 里算，见那里的注释） */
+    showNoDeliveryProofTip: false,
     // 支付流水（2026-09-18）：只对站长展示（后端端点本身也是 STATION_MANAGER 专属）
     payments: [],
     canRefundPayment: false,
@@ -115,7 +157,7 @@ Page({
       wx.showModal({
         title: '客户拒付',
         content: '第 1 步：先给这张单记一条「客户拒收」异常。\n\n记完还会再问一次 —— 真正动账（核销应收、撤桶权益、记欠桶）的是第 2 步。',
-        confirmText: '记一条异常',
+        confirmText: '记异常',
         success: resolve,
         fail: () => resolve({ confirm: false })
       })
@@ -146,7 +188,7 @@ Page({
         title: '核销认损（不可撤销）',
         content: '第 2 步会把三件事一次做完：\n\n1. 这笔应收出账，不再计入「待收款」\n2. 撤销这张单送出、客户尚未归还的桶权益\n3. 等量记成客户欠桶（方便继续追桶）\n\n确定认下这笔损失吗？',
         confirmText: '确认核销',
-        confirmColor: '#FF3B30',
+        confirmColor: '#B5442C',
         cancelText: '先不核销',
         success: resolve,
         fail: () => resolve({ confirm: false })
@@ -209,11 +251,21 @@ Page({
           // ⚠️ 这只是**给人看的提示**；"标记"的权威记录在收益明细的 note 里（后端生成，见 docs/design/18 §4）。
           reportedFloorText: order.reportedFloor ? ('配送员上报 ' + order.reportedFloor + ' 层') : '',
           floorMismatch: !!(order.reportedFloor && order.addressFloor
-            && Number(order.reportedFloor) !== Number(order.addressFloor))
+            && Number(order.reportedFloor) !== Number(order.addressFloor)),
+          // 「送达凭证」的空态提示条件（[2026-09-26]）：只在这单**已经送到**（已送达 3 / 已完成 4）
+          // 却又没有照片时，才说"配送员没拍"。
+          // ⚠️ 这是**展示判据**，不是状态文案映射表 —— 状态中文仍一律渲染后端下发的 `statusText`；
+          //    在 js 里比而不是在 wxml 里比，是为了让 wxml 不出现数字含义（改状态编号时只改这一处）。
+          showNoDeliveryProofTip: order.status === 3 || order.status === 4,
+          // 回桶行（见 buildReturnPlan 的注释：这一行以前永远显示 0 个）
+          ...buildReturnPlan(order)
         },
         loading: false
       })
       this.loadFloorPhotos(id)
+      // 送达凭证（原名"签收凭证"，[2026-09-26] 改名）：配送员在完成配送页拍的那几张，
+      // 客户说"没收到水"时站长能在这里看到（此前只有顾客端能看到，站长端一张都看不到）
+      this.loadDeliveryPhotos(id)
       this.loadPayments(id)
     } catch (err) {
       console.error('加载订单详情失败:', err)
@@ -337,7 +389,7 @@ Page({
     wx.showModal({
       title: '拒绝转单',
       content: '确定拒绝此转单申请？',
-      confirmColor: '#FF3B30',
+      confirmColor: '#B5442C',
       success: async (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '处理中...' })
@@ -483,7 +535,7 @@ Page({
               '3. 外派站仅负责本次配送，不建立客户归属关系\n\n' +
               '确定外派吗？',
             confirmText: '确定外派',
-            confirmColor: '#34C759',
+            confirmColor: '#2E9E6B',
             cancelText: '取消',
             success: (r) => resolve(r.confirm)
           })
@@ -561,8 +613,8 @@ Page({
           '建议优先考虑：「外派」给其他水站，或内部协调配送。\n\n' +
           '确定要解决（拒单）吗？',
         confirmText: '确定解决',
-        confirmColor: '#FF3B30',
-        cancelText: '取消，去外派',
+        confirmColor: '#B5442C',
+        cancelText: '去外派',
         success: (r) => resolve(r.confirm)
       })
     })
@@ -596,10 +648,11 @@ Page({
     }
   },
 
-  /* ==================== 楼层凭证（v43）====================
-   * 为什么站长也要能传：楼层补贴是给配送员的钱，与客户扯皮时（"你说的 6 楼呢"）
+  /* ==================== 楼梯凭证（v43；[2026-09-26] 由「楼层凭证」改名）====================
+   * 为什么站长也要能传：楼层补贴是给配送员的钱，与客户就楼层/爬楼有争议时（"你说的 6 楼呢"）
    * 这张照片是唯一的凭证；配送员当时没拍，站长可以事后补。
    * 照片**不强制**（产品决定），所以这里没有也不拦、只提示。
+   * ⚠️ 名字跟配送员端对齐（那边叫「楼层与楼梯凭证」），别一处叫楼层、一处叫楼梯。
    */
   async loadFloorPhotos(orderId) {
     if (!orderId) return
@@ -619,6 +672,37 @@ Page({
   onPreviewFloorPhoto(e) {
     const { index } = e.currentTarget.dataset
     wx.previewImage({ current: this.data.floorPhotos[index], urls: this.data.floorPhotos })
+  },
+
+  /**
+   * 送达凭证（[2026-09-26] 加）：配送员完成配送时拍的 `order_image.type = 1`。
+   *
+   * <p>为什么站长端要能看：客户打电话说"没收到水"时，站长此前**一张照片都看不到**
+   * （只有顾客端订单详情会列出全部图片）—— 这个凭证就成了只写给配送员自己看的东西。
+   * 这里只读：送达现场该由当时在场的人拍，站长补拍没有证明力。</p>
+   *
+   * <p>与楼梯凭证共用同一个端点（`/api/order-images/by-order/{id}`，按 type 过滤），
+   * 所以同一个响应查两次是无意义的重复请求 —— 但两个块的判据不同（type 1 / type 3），
+   * 合成一个方法会让"哪个 type 是哪张图"散在参数里，宁可两次小请求。</p>
+   */
+  async loadDeliveryPhotos(orderId) {
+    if (!orderId) return
+    try {
+      const res = await get(ORDER_IMAGE_BY_ORDER + '/' + orderId)
+      const photos = (res.data || [])
+        .filter(img => Number(img.type) === 1)
+        .map(img => img.url || img.objectName)
+        .filter(Boolean)
+      this.setData({ deliveryPhotos: photos })
+    } catch (e) {
+      // 拉不到就不显示，不编造"没照片"（同 loadFloorPhotos 的口径）
+      this.setData({ deliveryPhotos: [] })
+    }
+  },
+
+  onPreviewDeliveryPhoto(e) {
+    const { index } = e.currentTarget.dataset
+    wx.previewImage({ current: this.data.deliveryPhotos[index], urls: this.data.deliveryPhotos })
   },
 
   onAddFloorPhoto() {
@@ -709,7 +793,7 @@ Page({
         + '\n\n退款按原支付方式退回：水票支付的会把票原路补回客户账户；'
         + '现金由你当面退还客户；微信渠道未接入，无法自动退回。',
       confirmText: '确认退款',
-      confirmColor: '#FF3B30',
+      confirmColor: '#B5442C',
       success: (res) => {
         if (!res.confirm) return
         this.doRefundPayment(id)

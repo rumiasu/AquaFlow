@@ -439,7 +439,10 @@ Page({
                 try {
                   await transferOrder(that.data.orderId, { deliveryStaffId: target.id, reason: '配送员转让' })
                   wx.hideLoading()
-                  wx.showToast({ title: '已转给 ' + target.name, icon: 'success' })
+                  // [2026-09-27] 口径改对了：后端**不再立即改派**，只落一条待确认的转单
+                  // （订单仍挂在我名下）。原来这里说"已转给 XX"，而当时后端确实立刻改派了 ——
+                  // 现在两者一致，都指向"等对方同意"。别再改成"已转给"。
+                  wx.showToast({ title: '已申请，等 ' + target.name + ' 同意', icon: 'none' })
                   setTimeout(() => { wx.navigateBack() }, 1500)
                 } catch (err) {
                   wx.hideLoading()

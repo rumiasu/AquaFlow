@@ -42,6 +42,22 @@
 
 .order-card:active { transform: scale(0.98); }
 
+/* ===== 「转给我的单」（待我确认的转单，[2026-09-27] 双方同意）=====
+   与普通待配送卡刻意区分：左侧一道琥珀色边 + 浅底，因为它是一张**要我决定**的卡，
+   不是"等着我去送"的卡。同意后它变成下面的普通卡（后端把归属改到我名下）。 */
+.transfer-in-card {
+  background: #FFFBF2; border-radius: 16rpx; padding: 24rpx; margin-bottom: 16rpx;
+  border-left: 8rpx solid #F0A020; box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04);
+}
+.status-transfer { background: rgba(240,160,32,0.14); color: #A9660A; }
+.transfer-from { font-size: 22rpx; color: var(--text-secondary); }
+/* 不接受：次要动作，不做成和"同意"抢视线的实心按钮 */
+.btn-reject-transfer {
+  flex: 1; background: #fff; color: var(--text-regular); border: 1rpx solid var(--border-light);
+  border-radius: 40rpx; font-size: 28rpx; padding: 16rpx 0; line-height: 1.4;
+}
+.btn-reject-transfer::after { border: none; }
+
 .card-header { display: flex; align-items: center; gap: 12rpx; margin-bottom: 16rpx; }
 
 .status-tag {

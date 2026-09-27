@@ -81,7 +81,11 @@ Page({
         getAssignedToMe(),
         getDeliveringOrders(),
         getCompletedToday(),
-        getDeliveredUnpaid()
+        getDeliveredUnpaid(),
+        // [2026-09-27] 待我确认的同事转单。**必须与上面四个一起拉**：它决定"待配送"页签顶部
+        // 那张卡出不出现，而那张卡是一张**要我决定**的卡（同意/不接受）——漏了它，
+        // 发起方那边会一直停在"已转出、等对方同意"，接收方却什么都看不到。
+        getTransferList()
       ]
       if (manager) requests.push(getPendingOrders())
       const results = await Promise.allSettled(requests)
@@ -100,7 +104,11 @@ Page({
       const deliveringRes = unwrap(results[1])
       const completedRes = unwrap(results[2])
       const unpaidRes = unwrap(results[3])
-      const pendingRes = manager ? unwrap(results[4]) : { data: [] }
+      // ⚠️ 下标跟着 requests 数组走：转单列表固定在第 5 位（索引 4），
+      //    站长的「本站未分配」在它之后（索引 5）。**插入/删除 requests 项时必须同步改这里**，
+      //    否则会静默串位（拿转单当未分配单渲染，页面看着"有单"但按钮全是错的）。
+      const transferRes = unwrap(results[4])
+      const pendingRes = manager ? unwrap(results[5]) : { data: [] }
 
       // 商品摘要（§4「混合商品必须准确」）—— 三张页签的列表 SQL 都下发了 itemSummary；
       // 「待收款」那条（OrderMapper.listByStationIdAndStatus）同样下发。
@@ -175,6 +183,9 @@ Page({
         deliveringOrders: (deliveringRes.data || []).map(enrichOrder),
         completedOrders: (completedRes.data || []).map(enrichOrder),
         deliveredUnpaidOrders: unpaidOrders,
+        // 待我确认的同事转单（后端只返回「待确认且指向我」的那些，见 listIncomingTransfers）。
+        // 走同一个 enrichOrder：金额/收款口径、商品摘要、楼层文案全部同一套映射，不另写一份。
+        incomingTransfers: (transferRes.data || []).map(enrichOrder),
         loadError: failedCount
           ? '有 ' + failedCount + ' 项没加载出来（网络或后端异常），下面列表可能不完整'
           : '',
@@ -226,7 +237,10 @@ Page({
             await acceptOrder(id)
             wx.hideLoading()
             wx.showToast({ title: '接单成功', icon: 'success' })
-            this.loadData()
+            // ⚠️ 必须显式传 isManager（loadData 的第一句就是 setData({onlyAssigned: !manager})）：
+            // 漏传 → manager=undefined → 站长点完接单就被切成"配送员视角"
+            // （onlyAssigned=true、空态文案也变成"等站长分配"），而他明明还是站长。
+            this.loadData(this.data.isManager)
           } catch (err) {
             wx.hideLoading()
             wx.showToast({ title: err.message || '接单失败', icon: 'none' })
@@ -235,6 +249,70 @@ Page({
         this._accepting = false
       },
       fail: () => { this._accepting = false }
+    })
+  },
+
+  /**
+   * 同意同事转给我的单（[2026-09-27] 双方同意的第二半）。
+   *
+   * 后端在这一步才把 delivery_staff_id 改到我名下（CAS：要求订单仍挂在发起人名下），
+   * 所以成功之后这单会从「待我确认」那张卡变成下面的普通待配送卡 —— 再点一次「接单配送」
+   * 才进入配送中（与站长派单过来的单完全同一条路，不另开分支）。
+   */
+  async onAcceptTransfer(e) {
+    const id = e.currentTarget.dataset.id
+    if (this._transferBusy) return
+    this._transferBusy = true
+    wx.showModal({
+      title: '确认接收',
+      content: '同意后这单归你配送，确定吗？',
+      confirmText: '同意',
+      success: async (res) => {
+        if (res.confirm) {
+          wx.showLoading({ title: '确认中...' })
+          try {
+            await respondTransfer(id, { action: 'claim' })
+            wx.hideLoading()
+            wx.showToast({ title: '已接收，请尽快配送', icon: 'success' })
+          } catch (err) {
+            wx.hideLoading()
+            wx.showToast({ title: err.message || '接收失败', icon: 'none' })
+          }
+          // 成功失败都重拉：失败多半是"这条转单已被处理/订单已被改派"（后端 CAS 拒绝），
+          // 重拉一次列表就能自愈，而不是让配送员对着一条已经不存在的待确认卡反复点。
+          this.loadData(this.data.isManager)
+        }
+        this._transferBusy = false
+      },
+      fail: () => { this._transferBusy = false }
+    })
+  },
+
+  /** 不接受同事转来的单：订单原地留在原配送员名下（待确认期间归属从没改过），我这边卡片消失。 */
+  async onRejectTransfer(e) {
+    const id = e.currentTarget.dataset.id
+    if (this._transferBusy) return
+    this._transferBusy = true
+    wx.showModal({
+      title: '不接受转单',
+      content: '这单会留在对方名下，确定不接受吗？',
+      confirmText: '不接受',
+      success: async (res) => {
+        if (res.confirm) {
+          wx.showLoading({ title: '处理中...' })
+          try {
+            await respondTransfer(id, { action: 'reject' })
+            wx.hideLoading()
+            wx.showToast({ title: '已回绝，这单仍归对方', icon: 'none' })
+          } catch (err) {
+            wx.hideLoading()
+            wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+          }
+          this.loadData(this.data.isManager)
+        }
+        this._transferBusy = false
+      },
+      fail: () => { this._transferBusy = false }
     })
   },
 
@@ -257,7 +335,7 @@ Page({
             await confirmCollection(id)
             wx.hideLoading()
             wx.showToast({ title: '收款成功', icon: 'success' })
-            this.loadData()
+            this.loadData(this.data.isManager)
           } catch (err) {
             wx.hideLoading()
             wx.showToast({ title: err.message || '收款失败', icon: 'none' })
@@ -321,7 +399,7 @@ Page({
                 await transferOrder(id, { deliveryStaffId: target.id, reason: '配送员调解转单' })
                 wx.hideLoading()
                 wx.showToast({ title: '已申请转单，等待对方确认', icon: 'success' })
-                this.loadData()
+                this.loadData(this.data.isManager)
               } catch (err) {
                 wx.hideLoading()
                 wx.showToast({ title: err.message || '转单失败', icon: 'none' })
@@ -347,7 +425,7 @@ Page({
             await returnToStation(id, { reason: '配送员调解退回' })
             wx.hideLoading()
             wx.showToast({ title: '已申请退回，等待站长确认', icon: 'success' })
-            this.loadData()
+            this.loadData(this.data.isManager)
           } catch (err) {
             wx.hideLoading()
             wx.showToast({ title: err.message || '退回失败', icon: 'none' })

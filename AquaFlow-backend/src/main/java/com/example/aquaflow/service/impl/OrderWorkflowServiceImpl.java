@@ -1209,15 +1209,22 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         Staff target = requireDelivery(targetStaffId, stationId);
         String r = reason != null ? reason : "配送员转让";
 
-        // [AQ-015] 结构化转单记录（转让），须在改派前取原配送员
+        // ⚠️ [2026-09-27 产品裁定：**转单必须双方同意**] 这里**不再**直接改 delivery_staff_id。
+        // 原实现是"发起方单方面改派"——一提交订单就换人，接收方甚至不知道；
+        // 产品口径是「如果双方都同意是可以转单的」，所以改成：
+        //   ① 只落一条 **PENDING** 的 order_transfer（sub_kind=TRANSFER，from=我、to=他）；
+        //   ② 订单**仍挂在发起人名下**（同意之前不该改归属），他在"我的单"里照常看得到；
+        //   ③ 接收方在「转给我的单」里同意 → claimTransfer 里才改归属；
+        //      拒绝 → rejectTransfer 把这条记录置 REJECTED，订单原地不动。
+        // 这样"谁名下的单"与"待确认的转单"永远是两个独立事实，不会出现"记录说转出去了、
+        // 但订单还挂在原配送员名下"的中间态假象（旧实现正是靠立即改派来掩盖这一点）。
+        if (orderTransferMapper.findPendingByOrderAndKind(orderId, OrderTransfer.KIND_STAFF) != null) {
+            throw new BusinessException("该订单已有一条待接收方确认的转单，请等对方处理或先撤回");
+        }
         insertTransfer(orderId, OrderTransfer.KIND_STAFF, OrderTransfer.SUB_TRANSFER,
                 order.getDeliveryStaffId(), targetStaffId, deliveryStation(order), r);
-        int changed = orderMapper.setDeliveryStaffIf(orderId, targetStaffId, cur);
-        if (changed == 0) {
-            throw new BusinessException("订单状态已变更，请刷新后重试");
-        }
-        orderMapper.appendSpecialNote(orderId, "[转让] " + r + " -> 配送员 " + target.getName());
-        log("TRANSFER", orderId, null);
+        orderMapper.appendSpecialNote(orderId, "[转让待确认] " + r + " -> 配送员 " + target.getName());
+        log("TRANSFER_REQUEST", orderId, null);
     }
 
     /**
@@ -1270,6 +1277,25 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         Long staffId = AuthContext.getUserId();
         Long stationId = AuthContext.getStationId();
         Orders order = requireOrder(orderId);
+
+        // ===== ① 同事转单的"同意"（[2026-09-27] 双方同意的第二半）=====
+        // 待确认期间订单还挂在**发起人**名下，所以这一段必须在"订单是不是我的"那道校验**之前**判断
+        // —— 否则接收方会看到「该订单已分配给其他配送员」，永远同意不了。
+        OrderTransfer pending = orderTransferMapper.findPendingByOrderAndKind(orderId, OrderTransfer.KIND_STAFF);
+        if (pending != null && staffId.equals(pending.getToStaffId())) {
+            Long from = pending.getFromStaffId();
+            // CAS：只有订单仍挂在发起人名下才改（防"两个人都点了同意"/中途被转给别人）
+            int moved = orderMapper.reassignStaffIf(orderId, staffId, from);
+            if (moved == 0) {
+                throw new BusinessException("这条转单已经不作数了（订单已被改派或状态已变），请刷新后重试");
+            }
+            orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_STAFF,
+                    OrderTransfer.STATUS_APPROVED, staffId);
+            orderMapper.appendSpecialNote(orderId, "[转让已接收]");
+            log("TRANSFER_ACCEPT", orderId, null);
+            return;
+        }
+
         if (stationId != null && !stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能认领本站订单");
         }
@@ -1293,6 +1319,23 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public void rejectTransfer(Long orderId) {
         Orders order = requireOrder(orderId);
+        Long myStaffId = AuthContext.getUserId();
+
+        // ===== 同事转单的"不同意"（[2026-09-27]）=====
+        // 判据与同意对称：**待确认的转单指向我**才轮到我拒绝。拒绝后订单原地不动
+        // （待确认期间它一直挂在发起人名下），发起人那边照常继续送。
+        OrderTransfer pending = orderTransferMapper.findPendingByOrderAndKind(orderId, OrderTransfer.KIND_STAFF);
+        if (pending != null && myStaffId != null && myStaffId.equals(pending.getToStaffId())) {
+            int affected = orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_STAFF,
+                    OrderTransfer.STATUS_REJECTED, myStaffId);
+            if (affected == 0) {
+                throw new BusinessException("这条转单已被处理，请刷新后重试");
+            }
+            orderMapper.appendSpecialNote(orderId, "[转让被拒]");
+            log("TRANSFER_REJECT", orderId, null);
+            return;
+        }
+
         // [AQ-034] 旧实现零校验：任意配送员可拒绝任意水站任意订单，并往 special_note 里塞标记污染数据。
         Long stationId = AuthContext.getStationId();
         if (stationId == null) throw new BusinessException("无法识别当前水站");

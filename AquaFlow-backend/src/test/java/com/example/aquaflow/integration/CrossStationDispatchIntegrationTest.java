@@ -386,7 +386,7 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("站内转单：改派配送员并落结构化 order_transfer；配送员只能转自己名下的单")
+    @DisplayName("站内转单：**需接收方同意** —— 待确认期间归属不变，同意后才改派")
     void transferToStaffIsRecordedAndScoped() {
         seed();
         long driverA1 = createStaff("DA1", "DELIVERY", stationA, 1);
@@ -407,49 +407,75 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
         assertFalse(notMine.isSuccess(), "配送员不得转让别人名下的单，实际=" + notMine);
         assertEquals(driverA1, longOf("SELECT delivery_staff_id FROM orders WHERE id=?", order), "被拒后配送员不变");
 
-        // DA1 转给 DA2 → 成功、结构化记录落库
-        Api ok = post("/api/delivery/orders/transfer/" + order, t1,
+        // ===== [2026-09-27 产品裁定：转单必须双方同意] =====
+        // DA1 转给 DA2 → 只落一条**待确认**记录；**订单仍挂在 DA1 名下**（同意之前不该改归属）
+        Api req = post("/api/delivery/orders/transfer/" + order, t1,
                 "{\"deliveryStaffId\":" + driverA2 + ",\"reason\":\"我请假\"}");
-        assertTrue(ok.isSuccess(), "转让自己的单应成功，实际=" + ok);
-        assertEquals(driverA2, longOf("SELECT delivery_staff_id FROM orders WHERE id=?", order), "配送员应换成 DA2");
-        assertEquals(1, intOf("SELECT COUNT(*) FROM order_transfer WHERE order_id=? AND kind='STAFF' "
-                + "AND sub_kind='TRANSFER'", order), "应落一条结构化转单记录（事后可追溯，而不是只写备注）");
-        assertTrue(specialNote(order).contains("[转让]"), "必须留痕，实际=" + specialNote(order));
-
-        // ===== 撤回转让：[2026-09-18 修] 旧实现只有站级校验，缺两条判据 =====
-        // ① 没有校验"调用者是不是发起人"：转单后 delivery_staff_id 立即变成 DA2，
-        //    于是**同站任意第三个配送员**都能把这条转单撤掉 —— DA2 的"待接收"里静默少一条，
-        //    而订单还挂在 DA2 名下、状态不变。
-        // ② 丢弃 resolvePendingByKind 的受影响行数（它自己的 javadoc 写着"0 表示无待决策转单"）：
-        //    对没有待决策转单的订单也返回成功，只往 special_note 塞一行「[取消转让]」（会显示在转单页的"备注"里）。
-        long driverA3 = createStaff("DA3", "DELIVERY", stationA, 1);
-        String t3 = staffToken(driverA3, "DELIVERY", stationA);
-        String noteBefore = specialNote(order);
-
-        Api byOther = post("/api/delivery/orders/transfer/" + order + "/cancel", t3, null);
-        assertFalse(byOther.isSuccess(), "同站非发起人不得撤回别人的转单，实际=" + byOther);
+        assertTrue(req.isSuccess(), "转让自己的单应成功（发起待确认），实际=" + req);
+        assertEquals(driverA1, longOf("SELECT delivery_staff_id FROM orders WHERE id=?", order),
+                "⚠️ 待确认期间归属不得改变 —— 原实现立即改派，那等于发起方单方面就能把单转走");
         assertEquals("PENDING", jdbc.queryForObject(
                 "SELECT status FROM order_transfer WHERE order_id=? AND sub_kind='TRANSFER'", String.class, order),
+                "应落一条待确认的转单记录");
+        assertTrue(specialNote(order).contains("[转让待确认]"), "必须留痕，实际=" + specialNote(order));
+
+        // 同一条待确认还没处理完，再发一次 → 拒（否则会堆出两条待确认，接收方点了哪条都说不清）
+        assertFalse(post("/api/delivery/orders/transfer/" + order, t1,
+                        "{\"deliveryStaffId\":" + driverA2 + ",\"reason\":\"再来一次\"}").isSuccess(),
+                "已有一条待确认转单时不得重复发起");
+
+        // 待确认的单要出现在**接收方**的「转给我的单」里（判据是记录指向我，不是"订单归我"）
+        assertTrue(get("/api/delivery/transfers/incoming", t2).data().toString().contains("\"id\":" + order),
+                "DA2 的「转给我的单」里应看到这一单（待确认期间订单不归他，靠记录判定）");
+        assertFalse(get("/api/delivery/transfers/incoming", t1).data().toString().contains("\"id\":" + order),
+                "发起人自己不该在「转给我的单」里看到它");
+
+        // 接收方同意 → 归属改成 DA2、记录置 APPROVED
+        assertTrue(post("/api/delivery/orders/transfer/" + order + "/claim", t2, null).isSuccess(),
+                "接收方同意应成功");
+        assertEquals(driverA2, longOf("SELECT delivery_staff_id FROM orders WHERE id=?", order), "同意后归属才变成 DA2");
+        assertEquals("APPROVED", jdbc.queryForObject(
+                "SELECT status FROM order_transfer WHERE order_id=? AND sub_kind='TRANSFER'", String.class, order),
+                "记录应置已同意");
+
+        // ===== 撤回转让：[2026-09-18 修] 旧实现只有站级校验，缺两条判据 =====
+        // ① 没有校验"调用者是不是发起人"：于是**同站任意第三个配送员**都能把这条转单撤掉。
+        // ② 丢弃 resolvePendingByKind 的受影响行数：对没有待决策转单的订单也返回成功。
+        long driverA3 = createStaff("DA3", "DELIVERY", stationA, 1);
+        String t3 = staffToken(driverA3, "DELIVERY", stationA);
+
+        // 先让 DA2 转给 DA3（留一条待确认），再验撤回的归属校验
+        assertTrue(post("/api/delivery/orders/transfer/" + order, t2,
+                "{\"deliveryStaffId\":" + driverA3 + ",\"reason\":\"转给 DA3\"}").isSuccess(), "DA2 转给 DA3 应成功");
+        String noteBefore = specialNote(order);
+
+        Api byOther = post("/api/delivery/orders/transfer/" + order + "/cancel", t1, null);
+        assertFalse(byOther.isSuccess(), "非发起人（DA1）不得撤回 DA2 发起的转单，实际=" + byOther);
+        assertEquals("PENDING", jdbc.queryForObject(
+                "SELECT status FROM order_transfer WHERE order_id=? AND status='PENDING'", String.class, order),
                 "被拒之后转单必须还是待决策");
         assertEquals(noteBefore, specialNote(order), "被拒不得往 special_note 里塞「[取消转让]」");
 
-        // 发起人 DA1 撤回 → 成功，待决策的转单记录置为已取消
-        Api cancel = post("/api/delivery/orders/transfer/" + order + "/cancel", t1, null);
+        // 发起人 DA2 撤回 → 成功，待决策的转单记录置为已取消
+        Api cancel = post("/api/delivery/orders/transfer/" + order + "/cancel", t2, null);
         assertTrue(cancel.isSuccess(), "发起人撤回自己的转单应成功，实际=" + cancel);
-        assertEquals("CANCELLED", jdbc.queryForObject(
-                "SELECT status FROM order_transfer WHERE order_id=? AND sub_kind='TRANSFER'", String.class, order),
+        assertEquals(0, intOf("SELECT COUNT(*) FROM order_transfer WHERE order_id=? AND status='PENDING'", order),
                 "待决策的转单应被置为已取消");
 
         // 已经没有待决策转单了 → 必须**报错**，不能静默成功（§8.17「用户以为做成了、账上没动」）
-        Api again = post("/api/delivery/orders/transfer/" + order + "/cancel", t1, null);
-        assertFalse(again.isSuccess(), "没有待决策转单时必须拒绝，实际=" + again);
+        assertFalse(post("/api/delivery/orders/transfer/" + order + "/cancel", t2, null).isSuccess(),
+                "没有待决策转单时必须拒绝");
 
-        // 站长代撤：站务常态，保留（既有断言用的就是站长令牌）
-        Api back = post("/api/delivery/orders/transfer/" + order, t2,
-                "{\"deliveryStaffId\":" + driverA1 + ",\"reason\":\"转回去\"}");
-        assertTrue(back.isSuccess(), "DA2 转回 DA1 应成功，实际=" + back);
-        assertTrue(post("/api/delivery/orders/transfer/" + order + "/cancel", tokenA(), null).isSuccess(),
-                "站长应能代撤本站的待决策转单");
+        // 拒绝支线：DA2 转给 DA1 → DA1 不同意 → 订单**仍在 DA2 名下**、记录置已拒
+        assertTrue(post("/api/delivery/orders/transfer/" + order, t2,
+                "{\"deliveryStaffId\":" + driverA1 + ",\"reason\":\"还给你\"}").isSuccess(), "DA2 转回 DA1 应成功");
+        assertTrue(post("/api/delivery/orders/transfer/" + order + "/reject", t1, null).isSuccess(),
+                "接收方有权拒绝");
+        assertEquals(driverA2, longOf("SELECT delivery_staff_id FROM orders WHERE id=?", order),
+                "被拒之后订单原地不动，仍归发起人 DA2");
+        assertEquals("REJECTED", jdbc.queryForObject(
+                "SELECT status FROM order_transfer WHERE order_id=? AND sub_kind='TRANSFER' ORDER BY id DESC LIMIT 1",
+                String.class, order), "记录应置已拒绝");
     }
 
     @Test

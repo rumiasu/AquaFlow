@@ -103,6 +103,44 @@
        §4 的字段顺序：小区/街道与楼栋门牌 → 楼层/电梯（知道才显示）→ 本单商品与数量
        → 「需收 / 已付 ¥X」→ 联系人 → 主动作；订单号留在卡头当次要信息（报问题用）。 -->
   <view class="order-list" wx:if="{{activeTab === 'assigned'}}">
+    <!--
+      「转给我的单」（[2026-09-27] 产品裁定：**转单必须双方同意**）。
+      ⚠️ 为什么放在这里而不是单开一个页签：转单只有一种终态 —— 同意后它**就是我的待配送单**，
+      拒绝后它留在原配送员名下、与我再无关系。单开页签会让"待配送"与"待接收"两张表长期并存，
+      配送员得自己记住"先看哪个"。放在待配送最上方、且**只在我有待接收时才出现**，
+      就是要它显眼但会消失。
+      待确认期间订单还挂在发起人名下（后端 transferToStaff 不改归属），所以这些单**不在**
+      assignedOrders 里 —— 两个列表是互斥的，同一单不会同时出现两次。
+    -->
+    <view class="transfer-in-card" wx:for="{{incomingTransfers}}" wx:key="id">
+      <view class="card-header">
+        <view class="tag-row">
+          <text class="status-tag status-transfer">待我确认</text>
+          <text class="transfer-from" wx:if="{{item.fromStaffName}}">来自 {{item.fromStaffName}}</text>
+        </view>
+        <text class="order-id">#{{item.id}}</text>
+      </view>
+      <view class="address-info" wx:if="{{item.addressDetail || item.addressSnapshot}}">
+        <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
+      </view>
+      <view class="product-info">
+        <text class="product-name">{{item.itemSummaryText}}</text>
+        <text class="product-qty" wx:if="{{item.itemMetaText}}">{{item.itemMetaText}}</text>
+      </view>
+      <view class="pay-line">
+        <text class="pay-label {{item.isUnpaid ? 'pay-need' : ''}}">{{item.payLabel}}</text>
+        <text class="pay-amount {{item.isUnpaid ? 'pay-need' : ''}}">{{item.amountText}}</text>
+      </view>
+      <view class="contact-row">
+        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+        <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}"
+              catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+      </view>
+      <view class="card-actions">
+        <button class="btn-accept" catchtap="onAcceptTransfer" data-id="{{item.id}}">同意，我来送</button>
+        <button class="btn-reject-transfer" catchtap="onRejectTransfer" data-id="{{item.id}}">不接受</button>
+      </view>
+    </view>
     <view class="order-card" wx:for="{{assignedOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
       <view class="card-header">
         <view class="tag-row">
@@ -134,7 +172,7 @@
         <button class="btn-accept" catchtap="onAcceptOrder" data-id="{{item.id}}">接单配送</button>
       </view>
     </view>
-    <view class="empty-state" wx:if="{{!loading && assignedOrders.length === 0}}">
+    <view class="empty-state" wx:if="{{!loading && assignedOrders.length === 0 && incomingTransfers.length === 0}}">
       <!-- [2026-09-26] 配送员看不到"本站还没派出去的单"（产品裁定：未分配的不该出现在配送员面前），
            所以空态要说清"等站长派单"，否则他会以为自己今天真的没活干。 -->
       <text class="empty-text" wx:if="{{onlyAssigned}}">还没有派给你的单，等站长分配</text>

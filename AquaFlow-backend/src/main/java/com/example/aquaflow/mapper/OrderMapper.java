@@ -146,6 +146,23 @@ public interface OrderMapper {
     int setDeliveryStaffIf(@Param("id") Long id, @Param("staffId") Long staffId,
                            @Param("expectedStatus") Integer expectedStatus);
 
+    /**
+     * 转单**被接收方同意**时改派配送员（CAS，要求当前配送员仍是发起人）。
+     *
+     * <p>⚠️ 为什么不能复用上面那个 {@link #setDeliveryStaffIf}：它的乐观锁条件是 {@code status}，
+     * 而转单场景里**状态压根没变**（一直是"待配送/配送中"）—— 于是"两个人都点了同意"、
+     * 或"原配送员中途把单转给了别人"这两种情况它都拦不住，后到的请求会把先到的结果覆盖掉。
+     * 所以这里用 {@code delivery_staff_id = fromStaffId} 当乐观锁：只有当前配送员仍是发起人时才改。
+     * 受影响行数为 0 表示这条转单已经不作数了，调用方必须拒绝并提示刷新（别静默当成功）。</p>
+     *
+     * <p>[2026-09-27 立] 待确认期间订单仍挂在原配送员名下（同意之前不该改归属），
+     * 所以"同意"这一步才是唯一改归属的地方。</p>
+     */
+    @Update("update orders set delivery_staff_id = #{toStaffId}, update_time = NOW() " +
+            "where id = #{id} and delivery_staff_id = #{fromStaffId} and status in (1, 2)")
+    int reassignStaffIf(@Param("id") Long id, @Param("toStaffId") Long toStaffId,
+                        @Param("fromStaffId") Long fromStaffId);
+
     /** [Phase C] 指定水站外派（CAS）：履约站=目标站、清空配送员、状态=新状态，仅当当前状态 = expectedStatus。
      *  <p>[v47] 营收随履约站走（结算站=目标站，见 {@link #claimPoolIfFree}）。</p> */
     @Update("update orders set delivery_station_id = #{targetStationId}, settle_station_id = #{targetStationId}, " +
@@ -627,9 +644,14 @@ public interface OrderMapper {
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
-            "where o.delivery_staff_id = #{staffId} " +
-            // [AQ-015] 转让给我（待确认）改由 order_transfer 判定
-            "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.sub_kind='TRANSFER') " +
+            // ⚠️ [2026-09-27 改成"需要接收方同意"] 判据不再是 `o.delivery_staff_id = 我`，
+            //    而是**待确认的转单记录指向我**：待确认期间订单仍挂在**原配送员**名下
+            //    （同意之前不该改归属），所以拿"订单归我"筛会把待我确认的单**全部筛掉**。
+            //    同时要求订单确实还挂在发起人手上（delivery_staff_id = from_staff_id），
+            //    否则站长代发起的转单会列进一条已经不在他名下的单。
+            "where exists (select 1 from order_transfer t where t.order_id = o.id and t.status = 'PENDING' " +
+            "  and t.sub_kind = 'TRANSFER' and t.to_staff_id = #{staffId} " +
+            "  and o.delivery_staff_id = t.from_staff_id) " +
             "order by o.update_time desc")
     List<Orders> listIncomingTransfers(@Param("staffId") Long staffId);
 

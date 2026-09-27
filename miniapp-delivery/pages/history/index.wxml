@@ -28,7 +28,6 @@
 
       <!-- 地址信息 -->
       <view class="address-info">
-        <text class="address-icon">📍</text>
         <text class="address-text">{{item.addressDetail}}</text>
       </view>
 
@@ -41,7 +40,6 @@
 
     <!-- 空状态 -->
     <view class="empty-state" wx:if="{{!loading && orders.length === 0}}">
-      <text class="empty-icon">📭</text>
       <text class="empty-text">暂无配送历史</text>
       <text class="empty-hint">完成配送后记录将显示在这里</text>
     </view>

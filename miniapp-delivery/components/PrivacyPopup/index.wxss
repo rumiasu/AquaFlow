@@ -36,7 +36,7 @@
 }
 
 .privacy-link {
-  color: #4F8EF7;
+  color: var(--primary-color);
 }
 
 .privacy-buttons {
@@ -46,7 +46,7 @@
 
 .btn-reject {
   flex: 1;
-  background: #F5F5F5;
+  background: #F4EFE4;
   color: #666666;
   border: none;
   border-radius: 999rpx;
@@ -60,7 +60,7 @@
 
 .btn-agree {
   flex: 1;
-  background: linear-gradient(135deg, #4F8EF7 0%, #3A7BD5 100%);
+  background: var(--primary-gradient);
   color: #fff;
   border: none;
   border-radius: 999rpx;

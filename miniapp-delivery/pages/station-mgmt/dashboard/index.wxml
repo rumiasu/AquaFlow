@@ -32,8 +32,8 @@
           <text class="metric-value">{{item.valueText}}</text>
           <text class="metric-label">{{item.label}}</text>
           <view class="delta {{item.deltaDir}} {{item.good === true ? 'good' : (item.good === false ? 'bad' : '')}}">
-            <text class="delta-arrow" wx:if="{{item.deltaDir === 'up'}}">↑</text>
-            <text class="delta-arrow" wx:elif="{{item.deltaDir === 'down'}}">↓</text>
+            <text class="delta-arrow" wx:if="{{item.deltaDir === 'up'}}"></text>
+            <text class="delta-arrow" wx:elif="{{item.deltaDir === 'down'}}"></text>
             <text class="delta-arrow" wx:else>—</text>
             <text class="delta-text">{{item.deltaText}}</text>
           </view>

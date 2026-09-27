@@ -355,7 +355,7 @@ Page({
       title: '确认创建调整单',
       content: content,
       confirmText: '创建',
-      confirmColor: '#4F8EF7',
+      confirmColor: '#2E4A68',
       success: (res) => {
         // 回调式确认：只有确认为真才发请求，且复用同一个 clientToken（防重复提交）
         if (res.confirm) this.doSubmit(payload)

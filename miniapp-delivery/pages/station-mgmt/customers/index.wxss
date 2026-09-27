@@ -29,7 +29,7 @@
 .stat-label { font-size: 20rpx; color: var(--text-secondary); margin-top: 4rpx; }
 
 .tags { display: flex; gap: 10rpx; flex-wrap: wrap; }
-.tag { font-size: 22rpx; color: var(--primary); background: var(--primary-bg); padding: 2rpx 14rpx; border-radius: 20rpx; }
+.tag { font-size: 22rpx; color: var(--primary-color); background: var(--primary-bg); padding: 2rpx 14rpx; border-radius: 20rpx; }
 
 .card-actions { display: flex; flex-direction: column; gap: 12rpx; flex-shrink: 0; }
 .manage-btn { background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 26rpx; text-align: center; }
@@ -49,7 +49,7 @@
 .modal-stat { display: flex; justify-content: space-between; margin-top: 20rpx; font-size: 24rpx; color: var(--text-secondary); }
 .modal-actions { display: flex; justify-content: flex-end; margin-top: 28rpx; }
 .modal-btn { padding: 12rpx 32rpx; margin-left: 16rpx; border-radius: 8rpx; font-size: 28rpx; color: var(--text-regular); border: 1rpx solid var(--border-color); }
-.modal-btn.primary { background: var(--primary-color, #409EFF); color: #fff; border: none; }
+.modal-btn.primary { background: var(--primary-color); color: #fff; border: none; }
 
 /*
   企业身份（v50 审核 + v51 阈值）：**一行入口**，点开是同一个弹窗。
@@ -60,7 +60,7 @@
 .ent-entry-left { display: flex; flex-direction: column; gap: 6rpx; min-width: 0; flex: 1; }
 .ent-entry-title { font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
 .ent-entry-desc { font-size: 24rpx; color: var(--text-secondary); }
-.ent-entry-set { font-size: 24rpx; color: var(--primary); flex-shrink: 0; padding-left: 20rpx; }
+.ent-entry-set { font-size: 24rpx; color: var(--primary-color); flex-shrink: 0; padding-left: 20rpx; }
 .ent-empty { text-align: center; padding: 40rpx 0; font-size: 26rpx; color: var(--text-secondary); }
 
 /* 审核弹窗里的逐条申请 */

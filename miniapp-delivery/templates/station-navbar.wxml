@@ -53,6 +53,14 @@
       </view>
 
       <view class="st-body">
+        <!-- 顶部页签：待填 / 已配好（2026-09-24 产品反馈："已完成的项看不到，填错了想回去重填却没了，
+             只能回设置里找"）。⚠️ 原来那个开关是**列表下面的一句灰字**，实测根本没人发现 —— 挪到列表**上方**。
+             ⚠️ 只在**确实有已配好的项**时才渲染：没有就不给这个页签（切过去是空列表，等于骗人）。 -->
+        <view class="st-tabs" wx:if="{{stationPanelDone.length > 0}}">
+          <view class="st-tab {{stationPanelShowAll ? '' : 'st-tab-on'}}" bindtap="onPanelShowPending">待填 {{stationPanelPending.length}}</view>
+          <view class="st-tab {{stationPanelShowAll ? 'st-tab-on' : ''}}" bindtap="onPanelShowDone">已配好 {{stationPanelDone.length}}</view>
+        </view>
+
         <text class="st-sub" wx:if="{{stationPanelLoading}}">正在检查待填项…</text>
 
         <block wx:elif="{{stationPanelItems && stationPanelItems.length > 0}}">
@@ -67,10 +75,11 @@
                      ⚠️ 必须 **catchtap**：用 bindtap 会冒泡到整行的 onPanelGoFill，
                         用户想看一眼原因就被直接拽到别的页面去了。 -->
                 <text class="st-item-help" catchtap="onPanelToggleWhy" data-key="{{item.key}}">?</text>
-                <!-- 已配好的行不给「去填写」—— 它已经完成了，再给入口等于暗示"还得再填一遍"。
-                     但整行**仍然可点**：进去复核、或者改主意，都是正当需求。 -->
-                <text class="st-item-done" wx:if="{{item.done}}">已配好</text>
-                <text class="st-item-go" wx:elif="{{item.route}}">去填写 ›</text>
+                <!-- ⚠️ 已配好的行写「**去修改**」而不是「已配好」：产品反馈要的是"填错了能回去重填"，
+                     而「已配好」是个**状态标签**、看着不可点 —— 用户压根不知道能点进去。
+                     "是否完成"由**灰色标题 + 它落在哪个页签下**表达，右边这个位置只放**动作**。
+                     整行 bindtap 对两种行都生效，所以已配好的项照样点得进去。 -->
+                <text class="st-item-go" wx:if="{{item.route}}">{{item.done ? '去修改' : '去填写'}} ›</text>
               </view>
               <view class="st-item-why-box" wx:if="{{item.whyOpen}}">
                 <text class="st-item-why">{{item.why}}</text>
@@ -94,12 +103,9 @@
         <text class="st-online-hint" wx:else>{{stationPanelOnlineHint || '待填项都配好了'}}</text>
       </view>
 
-      <!-- 「显示已配好的 N 项 / 只看没配好的」开关（2026-09-24 产品要求：配过的项也要能切回来看）。
-           文案在 js 里拼好（见 behaviors/stationNavbar.js#toggleTextOf）；没有已配好的项时是空串 → 不渲染。
-           ⚠️ 放在两个分支**外面**：全配好时（列表走 else 分支）它同样要出现，否则就再也切不回去了。 -->
-      <view class="st-toggle" wx:if="{{stationPanelToggleText}}" bindtap="onPanelToggleAll">
-        <text>{{stationPanelToggleText}}</text>
-      </view>
+      <!-- ⚠️ 原来这里有个「显示已配好的 N 项 / 只看没配好的」开关 —— 2026-09-24 删掉。
+           它在列表**下面**、summary 与「下一步」之下，是一句灰色小字，实测没人发现；
+           已改成列表**上方**的「待填 / 已配好」两个页签（见 st-body 开头）。 -->
 
       <view class="st-actions">
         <view class="st-btn st-btn-ghost" bindtap="closeStationPanel">关闭</view>

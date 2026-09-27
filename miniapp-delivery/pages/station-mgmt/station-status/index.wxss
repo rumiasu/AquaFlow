@@ -50,8 +50,8 @@
 }
 
 .option.active {
-  border-color: var(--primary, #4F8EF7);
-  background: rgba(79, 142, 247, 0.08);
+  border-color: var(--primary-color);
+  background: rgba(46, 74, 104, 0.08);
 }
 
 .option-name { display: block; font-size: 28rpx; font-weight: 600; }
@@ -87,7 +87,7 @@
   margin-top: 28rpx;
   height: 88rpx;
   line-height: 88rpx;
-  background: var(--primary, #4F8EF7);
+  background: var(--primary-color);
   color: #fff;
   border-radius: 44rpx;
   font-size: 30rpx;
@@ -96,7 +96,7 @@
 }
 .btn-primary.flex1 { flex: 1; margin-top: 0; }
 
-.link { font-size: 26rpx; color: var(--primary, #4F8EF7); }
+.link { font-size: 26rpx; color: var(--primary-color); }
 
 .notice {
   border-top: 1rpx solid rgba(0, 0, 0, 0.05);
@@ -116,7 +116,7 @@
 }
 .notice-time { font-size: 22rpx; color: var(--text-secondary); }
 .notice-actions { display: flex; gap: 24rpx; }
-.btn-link { font-size: 24rpx; color: var(--primary, #4F8EF7); }
+.btn-link { font-size: 24rpx; color: var(--primary-color); }
 .btn-link.danger { color: #d92d20; }
 
 .empty { text-align: center; font-size: 24rpx; color: var(--text-secondary); padding: 40rpx 0; }

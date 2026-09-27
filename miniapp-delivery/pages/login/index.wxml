@@ -1,6 +1,6 @@
 <view class="login-page">
   <view class="logo-area">
-    <view class="logo-icon">💧</view>
+    <view class="logo-icon"></view>
     <text class="title">AquaFlow 员工登录</text>
     <text class="subtitle">请使用微信登录</text>
   </view>

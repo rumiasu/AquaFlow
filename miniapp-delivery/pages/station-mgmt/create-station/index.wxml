@@ -29,7 +29,6 @@
           <!-- 标了必填就要真的校验：没坐标 = 算不出距离 = 你设的配送范围整段失效 -->
           <text class="location-sub warn" wx:else>必须选点：没有坐标，配送范围与距离都无法判断</text>
         </view>
-        <text class="location-icon">📍</text>
       </view>
     </view>
 

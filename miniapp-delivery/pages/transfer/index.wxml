@@ -1,7 +1,6 @@
 <view class="container">
   <!-- 说明头部 -->
   <view class="info-header">
-    <text class="info-icon">🔄</text>
     <text class="info-text">以下是您转让的订单记录，站长将重新分配给其他配送员</text>
   </view>
 
@@ -28,7 +27,6 @@
 
       <!-- 地址信息 -->
       <view class="address-info">
-        <text class="address-icon"></text>
         <text class="address-text">{{item.addressDetail}}</text>
       </view>
 
@@ -41,7 +39,6 @@
 
     <!-- 空状态 -->
     <view class="empty-state" wx:if="{{!loading && orders.length === 0}}">
-      <text class="empty-icon"></text>
       <text class="empty-text">暂无转让记录</text>
       <text class="empty-hint">转让的订单将显示在这里</text>
     </view>

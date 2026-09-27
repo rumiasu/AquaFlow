@@ -1,6 +1,5 @@
 <view class="container">
   <view class="empty-illustration">
-    <text class="empty-icon">⏳</text>
   </view>
   <!-- 文案必须区分模式：申请解绑（PENDING_UNBIND）时说成"绑定申请已提交"会让人以为自己点错了 -->
   <view class="empty-title">{{mode === 'PENDING_UNBIND' ? '解绑申请已提交' : '绑定申请已提交'}}</view>
@@ -24,7 +23,7 @@
     <button class="btn-primary" bindtap="onRefresh">刷新状态</button>
   </view>
   <view class="tip-row">
-    <text class="tip-text">💡 提示：此时无法进入订单页，请耐心等待站长审核</text>
+    <text class="tip-text">提示：此时无法进入订单页，请耐心等待站长审核</text>
   </view>
   <view class="logout-row" bindtap="onLogout">
     <text>退出登录</text>

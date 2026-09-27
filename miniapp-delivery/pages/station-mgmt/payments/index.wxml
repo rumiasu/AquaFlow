@@ -1,5 +1,5 @@
 <view class="container">
-  <view class="hint">这里列出「钱已收到但系统还未确认」的款项：订单的现金/微信待收款，以及客户线上购买水票的待确认收款（微信支付渠道未接入，需人工核对到账后确认）。确认前请先核实款项确实已到账。</view>
+  <view class="hint">这里列出「钱已收到但系统还未确认」的款项：订单的现金/微信待收款，以及客户线上购买水票的待确认收款（微信支付渠道未接入，需人工核对到账后确认）。客户买水票不需要你同意，你只需在确实收到这笔钱后确认。</view>
 
   <view class="record-card" wx:for="{{list}}" wx:key="id">
     <view class="card-header">

@@ -1,7 +1,7 @@
 {
   "navigationBarTitleText": "配送历史",
-  "navigationBarBackgroundColor": "#4F8EF7",
+  "navigationBarBackgroundColor": "#2E4A68",
   "navigationBarTextStyle": "white",
-  "backgroundColor": "#f0f4f8",
+  "backgroundColor": "#FAF7F0",
   "enablePullDownRefresh": true
 }

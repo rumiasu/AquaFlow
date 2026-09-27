@@ -151,7 +151,37 @@ public final class StationOperatingStatus {
         if (note != null && !note.trim().isEmpty()) {
             base += " · " + note.trim();
         }
+        if (status == PENDING_LAUNCH) {
+            // ⚠️ **待上线的站对顾客不可见**（`StationMapper.listPublic` 与 `StationController.search`
+            //    都把 3 滤掉了）—— 顾客根本发现不了这家站，**所以这里不能说"仍可下单"**。
+            //    2026-09-24 修：原先把"（仍可下单…）"无条件拼在所有非正常状态后面，对待上线是假话。
+            return base + "（暂不对外营业，顾客在小程序里找不到这家水站）";
+        }
         // 明确的"不阻断"口径：让客户知道还能下单，避免误以为下不了单
         return base + "（仍可下单，站长会按上面的说明安排配送）";
+    }
+
+    /**
+     * 「这个状态对顾客意味着什么」—— 站长端「营业状态」页**点哪个状态就显示哪一句**（2026-09-24 产品要求）。
+     *
+     * <p>它取代了原来那条固定的「顾客会看到：…」预览栏：那条既与选项自身的说明重复，
+     * 又是**前端自己拼的句子**（`statusOptions[picked-1].name + '（仍可下单…）'`），
+     * 而拼出来的"仍可下单"对待上线恰恰是错的。文案一律由后端下发，前端只渲染。</p>
+     */
+    public static String effectOf(Integer status) {
+        if (status == null) return "";
+        switch (status) {
+            case NORMAL:
+                return "顾客正常下单，商城与下单页都不显示任何提示。";
+            case RESTING:
+                return "顾客照常下单，但会在商城与下单页看到「休息中」和你的留言。";
+            case PENDING_LAUNCH:
+                return "顾客看不到这家水站 —— 选站列表与搜索里都没有它，也就无法下单。"
+                        + "等你把资料配齐、转成「正常运营」之后，它才会出现在顾客面前。";
+            case APPOINTMENT_ONLY:
+                return "顾客照常下单，但会看到「暂停配送，可预约」和你的留言。";
+            default:
+                return "";
+        }
     }
 }

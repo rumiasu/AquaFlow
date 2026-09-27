@@ -207,7 +207,7 @@ Page({
         content: `本单将执行：${lines.join('、')}。\n\n`
           + '金额与数量由系统算出，不能修改；执行后不可撤销，如需纠正只能另建反向调整单。',
         confirmText: '确认执行',
-        confirmColor: '#FF3B30',
+        confirmColor: '#B5442C',
         success: (r) => resolve(r.confirm)
       })
     })
@@ -331,7 +331,7 @@ Page({
           : '',
         // 投递状态如实标注：LOGGED = 已落库（**本页面就是它的送达方式**，不是"没发出去"）
         notifyText: a.notifyStatus === 'PUSHED' ? '已推送'
-          : (a.notifyStatus === 'FAILED' ? '推送失败（已落库）' : '已落库')
+          : (a.notifyStatus === 'FAILED' ? '推送失败，记录已保存' : '已保存')
       }))
       next.alerts = all
       next.visibleAlerts = filterAlerts(all, this.data.alertFilter)

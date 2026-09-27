@@ -25,7 +25,7 @@
         <text class="setting-label">待办提醒</text>
         <text class="setting-sub">有别人递来的申请时，首页标签亮红点（打开小程序时刷新）</text>
       </view>
-      <switch checked="{{reminderEnabled}}" bindchange="onToggleReminder" color="#4F8EF7" />
+      <switch checked="{{reminderEnabled}}" bindchange="onToggleReminder" color="#2E4A68" />
     </view>
   </view>
 

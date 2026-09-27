@@ -38,7 +38,7 @@
 }
 
 .status-delivering {
-  background: rgba(79, 142, 247, 0.3);
+  background: rgba(46, 74, 104, 0.3);
 }
 
 .status-pending {
@@ -46,7 +46,7 @@
 }
 
 .status-delivered {
-  background: rgba(79, 142, 247, 0.3);
+  background: rgba(46, 74, 104, 0.3);
 }
 
 .status-cancelled {
@@ -91,7 +91,7 @@
 }
 
 .aux-tag.aux-target {
-  background: rgba(79, 142, 247, 0.95);
+  background: rgba(46, 74, 104, 0.95);
 }
 
 /* 联系信息卡片 */
@@ -114,10 +114,6 @@
   border-bottom: none;
 }
 
-.info-icon {
-  font-size: var(--font-lg);
-  margin-right: var(--spacing-md);
-}
 
 .info-text {
   flex: 1;
@@ -152,6 +148,15 @@
   color: var(--text-primary);
   margin-bottom: var(--spacing-md);
   display: block;
+}
+
+/* 区块标题下的一句说明（[2026-09-26] 送达凭证那一块要说明"几张、谁拍的"）。
+   与 pages/order/complete.wxss 的同名类保持同一规格 —— 同一端里两页不一致会显得像没做完。 */
+.section-tip {
+  display: block;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-md);
 }
 
 /* 订单内容 */
@@ -285,13 +290,9 @@
   border: none;
 }
 
-.action-icon {
-  font-size: var(--font-lg);
-  margin-bottom: 4rpx;
-}
 
 .action-nav {
-  background: rgba(79, 142, 247, 0.1);
+  background: rgba(46, 74, 104, 0.1);
   color: var(--primary-color);
 }
 
@@ -352,7 +353,7 @@
   font-weight: 500;
 }
 
-/* ========== 楼层上报与凭证（v43） ========== */
+/* ========== 楼层上报与楼梯凭证（v43；凭证 [2026-09-26] 由「楼层凭证」改名） ========== */
 .floor-warn {
   margin-left: 12rpx;
   padding: 4rpx 14rpx;
@@ -376,7 +377,7 @@
 
 .floor-proof-add {
   font-size: 24rpx;
-  color: #2f7cf6;
+  color: var(--primary-color);
 }
 
 .floor-proof-photos {

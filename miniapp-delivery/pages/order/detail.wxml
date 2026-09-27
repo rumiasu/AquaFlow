@@ -9,7 +9,7 @@
     </view>
     <view class="status-row">
       <text class="status-badge status-{{order.statusClass}}">{{order.statusText}}</text>
-      <text class="aux-tag aux-offline" wx:if="{{order.isOffline}}">🟧 线下</text>
+      <text class="aux-tag aux-offline" wx:if="{{order.isOffline}}">线下</text>
       <text class="aux-tag aux-{{l.type}}" wx:for="{{order.labels}}" wx:for-item="l" wx:key="type">{{l.text}}</text>
     </view>
   </view>
@@ -17,33 +17,31 @@
   <!-- 联系信息卡片 -->
   <view class="info-card">
     <view class="info-row" bindtap="onCallPhone">
-      <text class="info-icon">📞</text>
       <text class="info-text">{{order.receiverPhone || order.customerPhone}}</text>
       <text class="info-action">拨打</text>
     </view>
     <view class="info-row" bindtap="onCopyAddress">
-      <text class="info-icon">📍</text>
       <text class="info-text address">{{order.addressSnapshot || order.addressDetail}}</text>
       <text class="info-action">复制</text>
     </view>
     <!-- 楼层 / 电梯：配送员据此知道要不要上楼。文案已在 js 里按三态算好，
          不确定时整行不显示（不放假数据）。 -->
     <view class="info-row" wx:if="{{order.floorText}}">
-      <text class="info-icon">🛗</text>
       <text class="info-text">{{order.floorText}}</text>
     </view>
     <!-- 备货情况（契约 C4）：出发前就知道"这单备齐了没、还缺哪些商品"。
          口径由后端给（需求快照 − 已预留），不是库存实物量；最终仍以后端出库校验为准。 -->
     <view class="info-row" wx:if="{{order.stockPrepText}}">
-      <text class="info-icon">📦</text>
       <text class="info-text">{{order.stockPrepText}}</text>
     </view>
   </view>
 
   <!--
-    楼层上报与凭证（v43）：站长看的"两行对照" —— 配送员上报多少、客户地址里填的是多少。
+    楼层上报与楼梯凭证（v43）：站长看的"两行对照" —— 配送员上报多少、客户地址里填的是多少。
     不一致时打提示标（防虚报）；权威的"标记"在收益明细的 note 里（后端生成）。
-    照片不强制：配送员当时没拍，站长可以在这里补传（和客户对峙时它是唯一凭证）。
+    照片不强制：配送员当时没拍，站长可以在这里补传（和客户就楼层/爬楼有争议时它是唯一凭证）。
+    ⚠️ [2026-09-26] 「楼层凭证」统一改名「楼梯凭证」—— 配送员端那一块同时改名叫「楼层与楼梯凭证」，
+       两端口径必须一致（同一张照片在两个端叫两个名字，站长与配送员对话时会对不上）。
   -->
   <view class="section" wx:if="{{order.reportedFloor || floorPhotos.length}}">
     <text class="section-title">楼层上报</text>
@@ -52,14 +50,33 @@
       <text class="floor-warn" wx:if="{{order.floorMismatch}}">与地址不一致</text>
     </view>
     <view class="floor-proof-head">
-      <text class="floor-proof-title">楼层凭证</text>
+      <text class="floor-proof-title">楼梯凭证</text>
       <text class="floor-proof-add" bindtap="onAddFloorPhoto">{{floorUploading ? '上传中…' : '＋ 补传照片'}}</text>
     </view>
     <view class="floor-proof-photos" wx:if="{{floorPhotos.length}}">
       <image class="floor-proof-img" wx:for="{{floorPhotos}}" wx:key="index" src="{{item}}"
              mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" />
     </view>
-    <text class="floor-proof-tip" wx:else>还没有照片（不强制，但和客户对峙时它是唯一凭证）</text>
+    <text class="floor-proof-tip" wx:else>还没有照片（不强制，但和客户就楼层有争议时它是唯一凭证）</text>
+  </view>
+
+  <!--
+    送达凭证（[2026-09-26] 原名「签收凭证」）：配送员完成配送时拍的照片（`order_image.type = 1`）。
+    客户打电话说"没收到水"时，站长在这里能看到当时拍下来的现场；**只读**（送达现场该由当时在场的人拍）。
+    ⚠️ 只在**有照片**时成块显示；已送达/已完成却没有照片时给一句实话 ——
+       "有照片"与"没拍"必须能区分（否则站长会以为配送员每次都拍了）。
+  -->
+  <view class="section" wx:if="{{deliveryPhotos.length}}">
+    <text class="section-title">送达凭证</text>
+    <text class="section-tip">配送员送达时拍的现场照片（{{deliveryPhotos.length}} 张）</text>
+    <view class="floor-proof-photos">
+      <image class="floor-proof-img" wx:for="{{deliveryPhotos}}" wx:key="index" src="{{item}}"
+             mode="aspectFill" data-index="{{index}}" bindtap="onPreviewDeliveryPhoto" />
+    </view>
+  </view>
+  <view class="section" wx:elif="{{showNoDeliveryProofTip}}">
+    <text class="section-title">送达凭证</text>
+    <text class="floor-proof-tip">配送员没有上传送达照片（不强制；客户说没收到时就没有现场凭据了）</text>
   </view>
 
   <!-- 订单内容 -->
@@ -99,11 +116,12 @@
     </view>
   </view>
 
-  <!-- 预计回桶 -->
-  <view class="section">
+  <!-- 回桶：标签与数值都由 js 算好（见 detail.js#buildReturnPlan）。
+       首单是「押金桶 · 无需回桶」、送达后是「已回桶 N 个」，不下发桶的单整行不渲染 -->
+  <view class="section" wx:if="{{order.returnValue}}">
     <view class="info-row-between">
-      <text class="info-label">预计回桶</text>
-      <text class="info-value">{{order.expectedReturnBarrels || 0}}个</text>
+      <text class="info-label">{{order.returnLabel}}</text>
+      <text class="info-value">{{order.returnValue}}</text>
     </view>
   </view>
 
@@ -147,7 +165,6 @@
   <!-- 操作按钮 -->
   <view class="action-bar" wx:if="{{!order.transferTarget}}">
     <button class="action-btn action-nav" bindtap="onNavigate">
-      <text class="action-icon"></text>
       <text>导航</text>
     </button>
     <button class="action-btn action-complete" bindtap="onComplete">

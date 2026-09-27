@@ -60,7 +60,7 @@ Page({
       title: '确认收款',
       content: what,
       confirmText: '确认到账',
-      confirmColor: '#34C759',
+      confirmColor: '#2E9E6B',
       success: async (res) => {
         if (!res.confirm) return
         wx.showLoading({ title: '确认中...' })

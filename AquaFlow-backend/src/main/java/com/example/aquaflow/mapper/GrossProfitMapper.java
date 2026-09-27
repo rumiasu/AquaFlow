@@ -58,7 +58,8 @@ public interface GrossProfitMapper {
      * </ol>
      *
      * <p>{@code costPrice} 为 NULL 的商品，{@code costAmount} 按 0 计、
-     * 并由 {@code missingCost} 标出 —— <b>调用方必须据此把毛利显示为"未填成本"而不是全额</b>，
+     * 并由 {@code missingCost} 标出 —— <b>调用方必须据此把该行利润显示成「未填成本」而不是全额</b>
+     * （站长的界面用词是「利润」，不是「毛利」，见 {@code ManagerGrossProfitController}），
      * 否则站长会以为自己赚了整整一个售价。</p>
      */
     @Select("select oi.product_id as productId, "

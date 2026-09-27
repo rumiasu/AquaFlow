@@ -270,6 +270,13 @@
 
 .modal-list { margin-bottom: 24rpx; }
 
+/* 「这单我确实送不了」的分组标题（[2026-09-27]）：把"上报问题"与"把单交出去"分开，
+   避免配送员把两组动作读成一件事。 */
+.modal-sub-title {
+  display: block; font-size: 22rpx; color: var(--text-placeholder);
+  margin: 8rpx 0 12rpx; padding-left: 4rpx;
+}
+
 .modal-item {
   display: flex; align-items: center; justify-content: space-between;
   padding: 28rpx 24rpx; background: #F8F9FA; border-radius: 16rpx;

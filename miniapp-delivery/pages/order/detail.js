@@ -1,5 +1,7 @@
 // 订单详情页
-const { getOrderDetail, completeOrder, transferOrder, returnToStation, reportOrder, getStaffList, dispatchOrder, resolveOrder, requestCancel } = require('../../api/delivery')
+const { getOrderDetail, completeOrder, transferOrder, returnToStation, getStaffList, dispatchOrder, resolveOrder, requestCancel } = require('../../api/delivery')
+// 配送异常上报（原因文案 + 上报实现）：与首页「配送遇到问题」共用一份，见 utils/delivery-problem.js
+const { reportDeliveryProblem } = require('../../utils/delivery-problem')
 // ⚠️ 楼梯凭证（v43；原名"楼层凭证"，[2026-09-26] 改名）用 utils/request 直接调：路径写常量、不往 api/ 或 config/api.js 加
 // —— 那两个文件正被另一个工作流（商品图片库）改动。
 const { get, put, post } = require('../../utils/request')
@@ -332,31 +334,11 @@ Page({
     })
   },
 
-  // 异常反馈
+  // 异常反馈（[2026-09-27] 改为调用共享实现：原因文案与上报逻辑与首页「配送遇到问题」共用一份，
+  // 见 utils/delivery-problem.js —— 原因会被后端原样写进订单备注、站长照着那行字看，
+  // 两处各维护一份迟早对不上。）
   onReport() {
-    wx.showActionSheet({
-      itemList: ['客户不接电话', '地址找不到', '客户拒收', '水桶破损', '其他'],
-      success: (res) => {
-        const reasons = ['客户不接电话', '地址找不到', '客户拒收', '水桶破损', '其他']
-        const reason = reasons[res.tapIndex]
-
-        wx.showModal({
-          title: '异常反馈',
-          content: `反馈原因：${reason}`,
-          confirmText: '确认反馈',
-          success: async (modalRes) => {
-            if (modalRes.confirm) {
-              try {
-                await reportOrder(this.data.orderId, { reason })
-                wx.showToast({ title: '反馈已提交', icon: 'success' })
-              } catch (err) {
-                wx.showToast({ title: err.message || '反馈失败', icon: 'none' })
-              }
-            }
-          }
-        })
-      }
-    })
+    reportDeliveryProblem(this.data.orderId)
   },
 
   async onAcceptTransfer() {

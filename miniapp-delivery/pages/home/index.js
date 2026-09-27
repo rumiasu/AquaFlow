@@ -6,6 +6,8 @@ const { buildFloorText } = require('../../utils/address')
 const stationNavbar = require('../../behaviors/stationNavbar')
 // 自绘底栏（tabBar.custom=true）：本页是 tab 页，onShow 必须同步一次（见 utils/tabbar.js）
 const { syncTabBar } = require('../../utils/tabbar')
+// 配送异常上报（原因文案与上报实现与订单详情页共用一份）
+const { reportDeliveryProblem } = require('../../utils/delivery-problem')
 
 Page({
   behaviors: [stationNavbar],
@@ -123,12 +125,12 @@ Page({
       //      「共 N 种商品 · 查看」，配送员在列表上**一个商品名都看不到**，还得先点进详情才知道送什么 ——
       //      而列表正是他决定接不接这一单的地方。现在一律显示完整摘要（CSS 允许换行，见 .product-name）。
       //      多出来的那行「共 N 种商品」只作辅助信息（kindCount > 1 时）。
+      //   ④ ⚠️ 有完整摘要时**不再另外显示「共 N 种」**（2026-09-27 真机）：它本来就含在摘要里
+      //      （「…1桶，…2桶」一眼就是两种），挂成第二个 flex 子项还会把"共 2 种"挤到下一行，
+      //      看着像排版坏了。**只有回落分支**（没有 itemSummary、只知道总数）才用它报数量。
       const summaryOf = (o) => {
         const summary = (o.itemSummary || '').trim()
-        const kindCount = Number(o.itemKindCount || 0)
-        if (summary) {
-          return { text: summary, meta: kindCount > 1 ? `共 ${kindCount} 种` : '' }
-        }
+        if (summary) return { text: summary, meta: '' }
         const barrelQty = Number(o.deliveryBucketQty || 0)
         const pieces = Number(o.quantity || 0)
         return {
@@ -352,6 +354,23 @@ Page({
 
   onCloseMediateModal() {
     this.setData({ showMediateModal: false, currentOrderId: null })
+  },
+
+  /**
+   * 配送遇到问题的**主项**：上报异常（[2026-09-27] 产品口径「配送遇到问题不应该是异常单处理吗，
+   * 为什么会是转让处理，改一下，转让可以做成里面的一小部分」）。
+   *
+   * 原先这个入口点开只有两个动作，而且**第一个就是转单** —— 配送员把"送不到"当成"换个人送"，
+   * 现场问题反而没有留痕。现在异常上报排在最前、说明也最直白；
+   * 转单与退回站长降为"这单我确实送不了"的后续安排，排在后面。
+   *
+   * 上报只落备注 + 审计（不生成异常单），订单仍在我名下 —— 所以上报完不刷新列表（没有任何字段变），
+   * 只给一句"站长看得到"。实现与原因文案见 utils/delivery-problem.js（与详情页共用一份）。
+   */
+  onReportProblem() {
+    const id = this.data.currentOrderId
+    this.setData({ showMediateModal: false })
+    reportDeliveryProblem(id)
   },
 
   async onMediateToColleague() {

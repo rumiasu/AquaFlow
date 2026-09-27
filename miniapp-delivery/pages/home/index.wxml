@@ -258,16 +258,28 @@
   <view class="loading-state" wx:if="{{loading}}"><text class="loading-text">加载中...</text></view>
 
   <!--
-    配送员「配送遇到问题」弹层（原名「调解订单」，§7：「调解」这个词配送员看不懂）。
-    两个动作都有**真实端点**（转单 / 退回站长），这里只说会发生什么；
-    **具体后果在选中之后那一步说明**（见 index.js 的转单确认 / 退回确认弹窗）。
+    配送员「配送遇到问题」弹层。
+    ⚠️ [2026-09-27 产品口径] **异常上报是主项，排在最前**，转单与退回站长降为"这单我确实送不了"
+    之后的安排。原先把"请同事接手"排在第一项，配送员遇到"客户不接电话"这类**现场问题**时
+    第一眼看到的是"把单转走"—— 于是问题本身没有留痕，只是换了个人去撞同一堵墙。
+    三行的顺序不是排版偏好：它决定配送员第一反应点哪一个。
     ⚠️ index.js 传给后端的 reason 字符串（'配送员调解转单' / '配送员调解退回'）是业务标识，
        可能被后端或站长端读取 —— 改文案**不许**跟着改它。
   -->
   <view class="modal-overlay" wx:if="{{showMediateModal}}" bindtap="onCloseMediateModal">
     <view class="modal-content" catchtap="stopPropagation">
       <text class="modal-title">配送遇到问题</text>
-      <text class="modal-desc">选一个方式，下一步会说清会发生什么；都要对方确认后才生效</text>
+      <text class="modal-desc">先上报问题留痕，再决定这单怎么安排</text>
+      <view class="modal-list">
+        <view class="modal-item" bindtap="onReportProblem">
+          <view class="modal-item-info">
+            <text class="modal-item-name">上报配送问题</text>
+            <text class="modal-item-desc">客户不接电话 / 地址找不到 / 客户拒收 / 水桶破损 —— 让站长知道现场发生了什么</text>
+          </view>
+          <text class="modal-item-arrow">›</text>
+        </view>
+      </view>
+      <text class="modal-sub-title">这单我确实送不了</text>
       <view class="modal-list">
         <view class="modal-item" bindtap="onMediateToColleague">
           <view class="modal-item-info">

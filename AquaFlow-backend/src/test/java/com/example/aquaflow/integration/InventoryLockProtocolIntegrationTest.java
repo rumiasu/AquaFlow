@@ -125,6 +125,9 @@ class InventoryLockProtocolIntegrationTest extends AbstractIntegrationTest {
         Api created = placeOrder(stationA, 2, "lock-b1-a", false);
         assertTrue(created.isSuccess(), "下单 2 桶，实际=" + created);
         long order = lastOrderId();
+        // [2026-09-26] 配送员只能接**派给自己**的单（产品裁定）：先由 A 站站长派单再接
+        assertEquals(0, post("/api/delivery/orders/assign/" + order, tokenA(),
+                "{\"deliveryStaffId\":" + riderA + "}").code(), "站长派单");
         assertEquals(0, post("/api/delivery/orders/" + order + "/accept",
                 staffToken(riderA, "DELIVERY", stationA), "{}").code(), "接单 → 配送中(2)");
 
@@ -331,7 +334,6 @@ class InventoryLockProtocolIntegrationTest extends AbstractIntegrationTest {
             // 新单的事务：先锁库存行（= 新模型里下单的第一把锁），再插订单/明细/0 预留凭据
             lockRowsRaw(newOrderTx, "SELECT quantity FROM inventory WHERE station_id=? AND product_id=? FOR UPDATE",
                     stationA, product);
-            long trx = rawTrxId(newOrderTx);
             long newOrder = insertRaw(newOrderTx,
                     "INSERT INTO orders(customer_id, address_id, quantity, source, status, payment_status, "
                             + "payment_method, station_id, delivery_station_id, product_id, water_amount, "
@@ -348,6 +350,8 @@ class InventoryLockProtocolIntegrationTest extends AbstractIntegrationTest {
                             + "need_qty, need_time, reserved_qty, shipped_qty, released_qty, status) "
                             + "VALUES (?,?,?,?,5,NOW(),0,0,0,1)",
                     newOrder, newItem, product, stationA);
+            // 事务只执行锁定读时，MySQL/InnoDB 可能尚未分配可见 trx_id；先完成写入再识别阻塞事务。
+            long trx = rawTrxId(newOrderTx);
 
             // 被测：取消老单（它在排队前就读过订单/支付等数据 ⇒ 读视图早于下面这次提交建立）
             Future<Api> pending = callAsync(() -> put("/api/orders/" + oldOrder + "/customer-cancel",

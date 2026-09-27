@@ -104,6 +104,9 @@ class InventoryReservationIntegrationTest extends AbstractIntegrationTest {
                 "下单不得写 CONSUME 流水（实物没动）");
 
         // 接单 → 完成配送（非桶装：没有回桶核对，完成即出库）
+        // [2026-09-26] 配送员只能接**派给自己**的单（产品裁定），链路补一步「站长派单」
+        assertEquals(0, post("/api/delivery/orders/assign/" + order, managerToken(),
+                "{\"deliveryStaffId\":" + rider + "}").code(), "站长派单");
         assertEquals(0, post("/api/delivery/orders/" + order + "/accept",
                 staffToken(rider, "DELIVERY", station), "{}").code(), "配送员接单");
         Api done = post("/api/delivery/orders/" + order + "/complete",
@@ -136,6 +139,8 @@ class InventoryReservationIntegrationTest extends AbstractIntegrationTest {
                 "缺 7 桶必须被凭据记下来（旧实现这 7 桶根本不落账）");
 
         // 接单后直接完成 → 必须被拦（E8：预留不足不许静默少扣）
+        assertEquals(0, post("/api/delivery/orders/assign/" + order, managerToken(),
+                "{\"deliveryStaffId\":" + rider + "}").code(), "站长派单（[2026-09-26] 起配送员只能接派给自己的单）");
         assertEquals(0, post("/api/delivery/orders/" + order + "/accept",
                 staffToken(rider, "DELIVERY", station), "{}").code(), "配送员接单");
         Api blocked = post("/api/delivery/orders/" + order + "/complete",

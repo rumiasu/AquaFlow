@@ -8,7 +8,7 @@ import com.example.aquaflow.mapper.BarrelRecordMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.service.BarrelService;
 import com.example.aquaflow.service.BarrelLedgerService;
-import com.example.aquaflow.dto.BarrelRecordStatusDTO;
+import com.example.aquaflow.dto.BarrelRefundDTO;
 import com.example.aquaflow.dto.BarrelReturnEmptyDTO;
 import com.example.aquaflow.dto.BarrelReturnRequestDTO;
 import com.example.aquaflow.util.AuthContext;
@@ -184,12 +184,25 @@ public class BarrelController {
 
     /**
      * 站长审批退桶申请 —— 状态机 1 → 2 → 3，<b>不允许跳步</b>（DEF-7）。
-     * status: 2=确认收到空桶 3=已退押金（按押金条批次核销） 4=驳回
+     * status: 2=确认收到空桶 3=退押金并当面交付（按押金条批次核销） 4=驳回
+     *
+     * <p><b>[v66] 第 3 步是「退押金<b>并</b>当面交付」</b>：核销与"钱交到顾客手上"在这一次调用里
+     * 一起完成（产品口径"不现场给钱的不要退"，{@code docs/design/35} §7.2）。
+     * {@code refund_paid_time} 与 status=3 由后端写进同一条 UPDATE，客户端<b>无法</b>只退钱不交付。</p>
+     *
+     * <p>入参 {@code refundChannel}：{@code CASH}（现金当面交付）/ {@code ONLINE}（线上原路退回）。
+     * {@code ONLINE} 在微信退款通道未接入时<b>明确拒绝</b>并说明原因，不会假装已退（AGENTS §1.1）。
+     * <b>不传 = CASH</b>（旧客户端的等价行为；不默认 ONLINE，见 §7.3）。
+     * {@code refundPaidBy}：把押金交到顾客手上的人（{@code staff.id}），不传 = 操作人自己 ——
+     * 站长核销、配送员下次上门代交时才会传它。</p>
      */
     @RequireRole("STATION_MANAGER")
     @PutMapping("/records/{id}/status")
-    public Result<Void> handleReturn(@PathVariable Long id, @RequestBody @Valid BarrelRecordStatusDTO dto) {
+    public Result<Void> handleReturn(@PathVariable Long id, @RequestBody(required = false) BarrelRefundDTO dto) {
         Long stationId = AuthContext.requireStationId();
+        if (dto == null) {
+            return Result.error("请求体不能为空");
+        }
         Integer status = dto.getStatus();
         String handleNote = dto.getHandleNote() != null ? dto.getHandleNote() : "";
         if (status == null) {
@@ -206,11 +219,62 @@ public class BarrelController {
 
         Long operatorId = AuthContext.getUserId();
         try {
-            barrelService.handleBarrelReturn(id, status, handleNote, operatorId);
+            barrelService.handleBarrelReturn(id, status, handleNote, operatorId,
+                    dto.getRefundChannel(), dto.getRefundPaidBy());
         } catch (RuntimeException e) {
             return Result.error(e.getMessage());
         }
         return Result.success();
+    }
+
+    /**
+     * 交付确认（v66）：登记「这笔押金已经交到顾客手上」——只补事实，<b>不动金额、不动状态</b>。
+     *
+     * <p><b>幂等</b>：已登记过再点只回成功，且<b>不改原交付时间</b>（那是事实，重试不该改写它）。
+     * 返回 {@code alreadyPaid=true} 表示本次没有写入。</p>
+     *
+     * <p>谁需要它：正常流程下第 3 步（{@code /status}）已经写好了交付时间，
+     * 无需再点；它服务于<b>升级 v66 之前退过的历史单</b>（那时系统没记过交付）
+     * 与站长端「已核销未交付」计数里那些单的逐笔补登记。</p>
+     *
+     * <p>判权：站长专属；水站按 {@code AuthContext} 取（不信任请求参数），
+     * 服务层还会用 CAS 的 {@code station_id} 条件再挡一次跨站。
+     * 顾客端不可调。</p>
+     */
+    @RequireRole("STATION_MANAGER")
+    @PutMapping("/records/{id}/refund-paid")
+    public Result<Map<String, Object>> confirmRefundPaid(@PathVariable Long id,
+                                                         @RequestBody(required = false) BarrelRefundDTO dto) {
+        Long stationId = AuthContext.requireStationId();
+        Long operatorId = AuthContext.getUserId();
+        Long paidBy = dto != null ? dto.getRefundPaidBy() : null;
+        boolean firstTime;
+        try {
+            firstTime = barrelService.confirmRefundPaid(id, stationId, operatorId, paidBy);
+        } catch (RuntimeException e) {
+            return Result.error(e.getMessage());
+        }
+        Map<String, Object> data = new java.util.HashMap<>();
+        // 幂等命中也是成功（前端重复点击/超时重试都该看到"已登记"），但要把这件事说清楚，
+        // 免得"什么都没发生"被当成"又记了一次"。
+        data.put("alreadyPaid", !firstTime);
+        return Result.success(data);
+    }
+
+    /**
+     * 站长端「已核销未交付」只读计数与明细（v66）。
+     *
+     * <p>按拍板口径，{@code status=3} 而 {@code refund_paid_time} 为空<b>不允许出现</b> ——
+     * 它是"没给钱就先核销"的违规数据（含升级 v66 之前退过的历史单，那是事实、不是错误），
+     * 所以这里只读、只呈现，给站长一个自查入口。</p>
+     *
+     * <p>返回 {@code {count, amount, records, truncated}}；水站按 {@code AuthContext} 取，顾客端不可调。</p>
+     */
+    @RequireRole("STATION_MANAGER")
+    @GetMapping("/refund-undelivered")
+    public Result<Map<String, Object>> refundUndelivered(@RequestParam(required = false) Integer limit) {
+        Long stationId = AuthContext.requireStationId();
+        return Result.success(barrelService.listRefundUndelivered(stationId, limit));
     }
 
     /**

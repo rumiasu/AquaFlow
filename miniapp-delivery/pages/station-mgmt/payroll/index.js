@@ -79,6 +79,24 @@ Page({
     // 原来的「每回收 1 个空桶 / 每单固定补贴 / 少收 1 桶扣」已随库列删除；
     // 后端 DTO 也删了这三个字段，前端若还传会被 Jackson **静默忽略**（不报错，见 AGENTS §8.15）。
     rates: [],
+    // 「这套单价配置会不会算出工钱」—— 见 decorateRates 的注释。
+    // rateReady=false 时页面必须说清后果：完成配送既没有计件工资、也没有楼层补贴。
+    rateReady: false,
+    // 站级默认价那一行的金额（空 = 没配过）。仅用于提示文案，不参与任何计算。
+    defaultRateText: '',
+    // 有商品的**专属价**被配成 0/空 ⇒ 那几款水完成配送是 0 元（专属价优先，默认价兜不住）。见 decorateRates。
+    hasProductZero: false,
+    // 未配单价时的空态文案。**在 js 里拼好再下发** —— wxml 的属性里做带 \n 的拼接会
+    // 直接编译报错（Bad attr），而本地门禁查不出来（AGENTS §6）。
+    // ⚠️ 纯文本，不要写 markdown 的 ** 粗体 —— <text> 会原样渲染成星号。
+    rateEmptyText: '还没有配过单价。\n\n'
+      + '这种情况下，配送员完成配送不会产生计件工资，也没有楼层补贴 —— 收入台账会是空的。\n\n'
+      + '要发工钱：先点「默认单价（所有商品兜底）」填每桶多少钱并保存；'
+      + '只想给某一款水单独定价，就点那款商品再填。只填默认价也能覆盖所有商品。',
+    // 有商品专属价为 0 时的说明。判据：专属价优先，默认价兜不住它（见 decorateRates）。
+    productZeroText: '有商品的单价是 0 —— 那几款水完成配送算 0 元。\n\n'
+      + '商品单独配过价就按那个价算，不会再回落到「默认单价」。'
+      + '要给它们算钱，点那款商品把每桶金额填上。',
     rateForm: {
       productId: String(DEFAULT_PRODUCT_ID),
       perBucketAmount: '',
@@ -140,10 +158,14 @@ Page({
         get(EARNING_ITEMS),
         get(ITEM_DIRECTIONS)
       ])
+      const decorated = this.decorateRates((rateRes.data || {}).rates || [], prodRes.data || [])
       this.setData({
         staffList: staffRes.data || [],
         products: prodRes.data || [],
-        rates: (rateRes.data || {}).rates || [],
+        rates: decorated.rates,
+        rateReady: decorated.rateReady,
+        defaultRateText: decorated.defaultRateText,
+        hasProductZero: decorated.hasProductZero,
         payrolls: (payrollRes.data || []).map(p => Object.assign({}, p, {
           staffName: this.staffName((staffRes.data || []), p.staffId),
           periodText: (p.periodStart || '') + ' ~ ' + (p.periodEnd || ''),
@@ -194,6 +216,51 @@ Page({
   staffName(staffList, staffId) {
     const s = (staffList || []).find(x => x.id === staffId)
     return s ? s.name : ('员工#' + staffId)
+  },
+
+  /**
+   * 商品 id → 名字。写法与 {@link #staffName}、`station-mgmt/products` 的 `nameById` 同形：
+   * **后端下发的名字优先，仅当没给才兜底**，避免「商品 #5」这种半成品展示。
+   *
+   * ⚠️ `productId === 0` 是**站级默认价**（该站所有商品的兜底价），不是某个商品 —— 它有自己的文案。
+   */
+  productName(products, productId) {
+    if (Number(productId) === 0) return '默认单价'
+    const p = (products || []).find(x => String(x.id) === String(productId))
+    return p && p.name ? p.name : ('商品 #' + productId)
+  },
+
+  /**
+   * 给单价列表补上商品名，并算出「有没有任何一笔工钱算得出来」。
+   *
+   * 判据正本在服务端 `StaffEarningServiceImpl`：
+   *   `rateOf(stationId, productId)`（**商品专属价优先，没配该商品才回落 `product_id=0` 的默认价**；
+   *   两处都没有返回全 0 的 `defaults()`）⇒ `:69` 单桶价 ≤ 0 的**该商品不计件**；
+   *   `:78-80` **楼层补贴也只读 `product_id=0` 那一行**，`<= 0` 就整块跳过。
+   *
+   * ⚠️ 所以「有没有工钱」**不能只看默认价**：默认价 > 0、但某个商品被专门配成 0 时，
+   * 那款水照样不计件（专属价说了算）。而**楼层补贴只认默认价那一行**（专属价配了也不用于楼层）。
+   * 本函数返回的两个标记要分开用：
+   *   - `rateReady` = 默认价 > 0 **或** 有任一商品专属价 > 0 ⇒ 至少有一条计件路径会算出钱；
+   *   - `hasProductZero` = 有商品专属价被配成 0/空 ⇒ 那几款水完成配送**是 0 元**，页面要单独说明。
+   *
+   * 为什么在前端算：只决定**要不要给站长显示说明**（呈现，不是账务口径），真正的钱仍由服务端算。
+   * **别在这里替站长伪造一个默认价** —— 那会让「没配」与「配了 1 元」再也分不开。
+   */
+  decorateRates(rates, products) {
+    const list = (rates || []).map(r => Object.assign({}, r, {
+      productName: this.productName(products, r.productId)
+    }))
+    const def = list.find(r => Number(r.productId) === 0)
+    const defAmount = def ? Number(def.perBucketAmount) : 0
+    const productRates = list.filter(r => Number(r.productId) !== 0)
+    const hasProductZero = productRates.some(r => !(Number(r.perBucketAmount) > 0))
+    return {
+      rates: list,
+      rateReady: defAmount > 0 || productRates.some(r => Number(r.perBucketAmount) > 0),
+      defaultRateText: def ? String(def.perBucketAmount) : '',
+      hasProductZero: hasProductZero
+    }
   },
 
   /**

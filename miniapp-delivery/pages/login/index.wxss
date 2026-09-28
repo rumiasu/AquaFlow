@@ -138,9 +138,11 @@
   color: #999;
 }
 
-.agreement-link {
+/* [2026-09-27 走查 X01] `.agreement-link` 已删：两个协议名原先看起来可点、实际没有点击处理。
+   协议正文到位前按普通说明文字渲染（顾客端 pages/login 同口径）。 */
+.agreement-strong {
   font-size: 24rpx;
-  color: var(--primary-color);
+  color: #fff;
 }
 
 .tips {

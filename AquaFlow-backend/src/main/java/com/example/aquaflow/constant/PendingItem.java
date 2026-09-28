@@ -56,6 +56,18 @@ public enum PendingItem {
     DIRECTED_INCOMING("directedIncoming", "指定外派待确认", Level.P0),
     /** 客户已提交退桶申请、等站长确认收桶（{@code barrel_record.status = 1}）。 */
     BARREL_RETURN("barrelReturn", "待审退桶", Level.P0),
+    /*
+     * [2026-09-27 决定：**不做成本目录里的一条**] 原计划加 `DISPATCH_STALE("dispatchStale", "外派久未接单")`
+     * 来承载产品那句「长时间没人接还是给站长弹提示是否按照挂牌价」（docs/design/31 §8.3）。
+     * 试做后撤回，因为**这条待办没有可导航的落点**：
+     *   · 它的动作（「按挂牌价结这单」）与外派追踪列表都在**首页**（`pages/coordination/index`）；
+     *   · 而首页是 tabBar 页，`onTodoTap` 走的是 `wx.navigateTo`，**跳不到 tab 页**
+     *     （本文件所在这套待办卡与首页是同一个页面）；
+     *   · 若标 P0，`p0Total` 会让 tab 红点亮起来，而站长点遍卡片也找不到那件事 ——
+     *     正是本目录注释里反复警告的"角标说 3、点进去 0 条"。
+     * 所以提示改放在**外派追踪列表自己那一行**（后端下发一个瞬时标记），不做成待办项。
+     * 判据与落点见 docs/design/31 §8.3 / §8.7。
+     */
 
     // ===== P1：影响钱或他人，但客户不会干等 =====
 
@@ -69,6 +81,21 @@ public enum PendingItem {
     ENTERPRISE_APPLY("enterpriseApply", "企业身份待审", Level.P1),
     /** 已生成但还没确认的配送员工资结算单。 */
     DRAFT_PAYROLL("draftPayroll", "待确认结算单", Level.P1),
+    /**
+     * 跨站单里**还没结清**的那几笔（钱收在本站、营收算接单站，或反过来）—— 落点
+     * 「水站管理 → 收款与工资 → 站间结算」（`pages/station-mgmt/inter-station/index`，v67）。
+     *
+     * <p>为什么是 P1：它**是钱**但两侧站长都不会干等（客户的水照常送、照常收钱），
+     * 与「逾期应收」同级；按判据 P0 要求"不处理就卡住今天的配送"，它不满足。</p>
+     *
+     * <p>⚠️ 与上面撤回的 `DISPATCH_STALE` 的区别（**别再照那条的理由撤掉这一条**）：
+     * 那一条的动作在**首页**（tabBar 页，待办卡跳不过去）；这一条有真正的落点 ——
+     * 「站间结算」是**非 tabBar 页**，`navigateTo` 跳得到，而且那一页整页就是这件事的答案。</p>
+     *
+     * <p>计数取 `InterStationSettlementService` 的**同一个读数入口**（与页面同源），
+     * 避免"角标说 3、点进去 0 条"（本文件所在控制器的头号纪律）。</p>
+     */
+    INTER_STATION_UNSETTLED("interStationUnsettled", "站间未结清", Level.P1),
 
     // ===== P2：不处理也不出事 =====
 

@@ -135,7 +135,13 @@ public class OrderController {
         int size = (pageSize == null || pageSize <= 0) ? 200 : Math.min(pageSize, 500);
         int p = (page == null || page <= 0) ? 1 : page;
         int offset = (p - 1) * size;
-        return Result.success(orderService.list(stationId, customerId, status, createTimeStart, createTimeEnd, size, offset));
+        // [2026-09-27 产品裁定] 员工视野要挡掉"还没收到钱"的单（`payment_status = 2 或 payment_method = 2`）：
+        // 原先把未付款的微信单也列给站长，他既不该派单也不知道该不该管 —— 产品原话「不应该，减少杂乱度」。
+        // ⚠️ **顾客端传 false**：客户自己那张没付钱的单必须看得见（他要在列表里点进去继续付款，
+        //    挡掉等于钱收不到）。身份判据用上面那段已经归一化过的分支结果，不重新解析请求参数。
+        boolean staffScope = !"customer".equals(userType);
+        return Result.success(orderService.list(stationId, customerId, status, createTimeStart, createTimeEnd,
+                size, offset, staffScope));
     }
 
     @GetMapping("/{id}")

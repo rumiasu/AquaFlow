@@ -306,6 +306,10 @@
 | `GET` | `/api/manager/receivables` | {"STATION_MANAGER"} | `ManagerReceivableController.overview` |
 | `GET` | `/api/manager/receivables/orders` | {"STATION_MANAGER"} | `ManagerReceivableController.orders` |
 | `POST` | `/api/manager/receivables/settle` | {"STATION_MANAGER"} | `ManagerReceivableController.settle` |
+| `GET` | `/api/manager/inter-station-settlements` | {"STATION_MANAGER"} | `ManagerInterStationSettlementController.ledger` —— 站间应收应付台账（**谁欠谁、欠多少、按什么价、结没结清**；"欠多少"实时算，表只记人工动作） |
+| `POST` | `/api/manager/inter-station-settlements/{orderId}/settle` | {"STATION_MANAGER"} | `ManagerInterStationSettlementController.settle` —— 登记**结清**（幂等；快照当时的金额与计价口径） |
+| `POST` | `/api/manager/inter-station-settlements/{orderId}/price-by-listed` | {"STATION_MANAGER"} | `ManagerInterStationSettlementController.priceByListed` —— 改按**挂牌价**结（差价由卖票站承担，写改价快照） |
+| `POST` | `/api/manager/inter-station-settlements/{orderId}/reverse` | {"STATION_MANAGER"} | `ManagerInterStationSettlementController.reverse` —— **冲销**已结清的那笔（订单取消后留在台账里等人点，冲销不删原记录） |
 | `GET` | `/api/payments` | {"STATION_MANAGER"} | `PaymentController.listAll` |
 | `POST` | `/api/payments` | {"STATION_MANAGER"} | `PaymentController.create` |
 | `GET` | `/api/payments/all` | {"STATION_MANAGER"} | `PaymentController.listAllBackup` |
@@ -344,7 +348,9 @@
 |---|---|---|---|
 | `GET` | `/api/barrels/all-records` | {"STATION_MANAGER"} | `BarrelController.getAllRecords` |
 | `GET` | `/api/barrels/records` | {"STATION_MANAGER"} | `BarrelController.listRecords` |
-| `PUT` | `/api/barrels/records/{id}/status` | "STATION_MANAGER" | `BarrelController.handleReturn` |
+| `PUT` | `/api/barrels/records/{id}/status` | "STATION_MANAGER" | `BarrelController.handleReturn`（`status=3` 时**必须**带 `refundChannel`：`CASH` 当面交付 / `ONLINE` 原路退回；微信退款通道未接入 ⇒ `ONLINE` 明确拒绝，不假装已退） |
+| `PUT` | `/api/barrels/records/{id}/refund-paid` | "STATION_MANAGER" | `BarrelController.markRefundPaid` —— 「押金已交顾客」**幂等**确认（重复调用不改原交付时间，只补事实，不动金额与状态） |
+| `GET` | `/api/barrels/refund-undelivered` | "STATION_MANAGER" | `BarrelController.refundUndelivered` —— 「已核销未交付」**违规数据**只读清单（口径：`type=2 且 status=3 且 refund_paid_time IS NULL`） |
 | `POST` | `/api/barrels/return` | {"STATION_MANAGER"} | `BarrelController.requestReturn` |
 | `POST` | `/api/barrels/return-empty` | {"STATION_MANAGER"} | `BarrelController.returnEmpty` |
 | `GET` | `/api/barrels/return/preview` | {"STATION_MANAGER"} | `BarrelController.previewReturn` |
@@ -409,9 +415,7 @@
 
 | 方法 | 路径 | 角色 | 说明 |
 |---|---|---|---|
-| `GET` | `/api/dashboard/overview` | {"STATION_MANAGER"} | `DashboardController.overview` |
 | `GET` | `/api/dashboard/report` | {"STATION_MANAGER"} | `DashboardController.report` |
-| `GET` | `/api/dashboard/today` | {"STATION_MANAGER"} | `DashboardController.today` |
 | `GET` | `/api/manager/alerts` | "STATION_MANAGER" | `ManagerAlertController.list` |
 | `GET` | `/api/manager/customers/{customerId}/privileges` | {"STATION_MANAGER"} | `ManagerCustomerPrivilegeController.list` |
 | `POST` | `/api/manager/customers/{customerId}/privileges` | {"STATION_MANAGER"} | `ManagerCustomerPrivilegeController.grant` |
@@ -466,6 +470,8 @@
 | `GET /api/barrels/assets` | 被桶权益批次模型取代 |
 | `POST /api/barrels/handle-exception` | 被桶异常单闭环取代 |
 | `GET /api/dashboard/station-exception*` | 同上 |
+| `GET /api/dashboard/today` | 零消费端点，且其 `pendingOrders` 只按状态数、与待分配列表的付款闸门口径分叉（2026-09-27 产品批准，守护用例断言 `code=404`） |
+| `GET /api/dashboard/overview` | 同一批删除：只服务于已删的 Vue 管理后台看板 |
 
 ---
 

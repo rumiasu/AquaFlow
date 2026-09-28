@@ -10,4 +10,7 @@
 .card-actions { margin-top: 16rpx; display: flex; gap: 16rpx; }
 .btn-confirm { flex: 1; padding: 16rpx; border-radius: 12rpx; font-size: 26rpx; border: none; background: var(--primary-gradient); color: #fff; }
 .hint { font-size: 24rpx; color: var(--text-secondary); line-height: 1.6; padding: 8rpx 4rpx 20rpx; }
+/* 加载失败提示条（[2026-09-27 走查 U01 同族]）：常驻到重试成功为止，不是一闪而过的 toast */
+.load-error { background: #FFF8E1; border-radius: 12rpx; padding: 20rpx; margin-bottom: 20rpx; font-size: 24rpx; color: #E65100; line-height: 1.6; }
+.load-error-retry { display: block; margin-top: 12rpx; color: #E65100; font-weight: 700; }
 .empty { text-align: center; padding: 120rpx 0; font-size: 28rpx; color: var(--text-secondary); }

@@ -51,8 +51,7 @@
         <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
       </view>
       <view class="product-info">
-        <text class="product-name">{{item.firstProductName}}</text>
-        <text class="product-qty">× {{item.quantity}} 桶</text>
+        <text class="product-name">{{item.itemSummary || '商品明细暂不可用'}}</text>
       </view>
     </view>
     <view class="empty" wx:if="{{list.length === 0 && (!crossStation || crossStation.count === 0)}}"><text>暂无订单</text></view>

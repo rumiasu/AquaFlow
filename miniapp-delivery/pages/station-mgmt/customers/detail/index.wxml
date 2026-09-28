@@ -290,7 +290,12 @@
     </view>
   </block>
 
-  <view class="empty" wx:if="{{!loading && !profile}}"><text>暂无客户画像</text></view>
+  <!--
+    [2026-09-27 走查 M06] 空态原文「暂无客户画像」——「画像」是建模/运营术语，站长要的是
+    "这个客户的情况"。入口按钮已统一改成「详情」（customers/index 与 staff/index），
+    空态跟着说人话；判定条件（`!loading && !profile`）一个字没动。
+  -->
+  <view class="empty" wx:if="{{!loading && !profile}}"><text>没查到这个客户的情况</text></view>
 
   <!-- ============ 纯还桶弹窗：只冲减 over，不扣权益、不退款 ============ -->
   <view class="modal-mask" wx:if="{{showReturnEmpty}}" bindtap="onCloseReturnEmpty"></view>

@@ -45,7 +45,7 @@
         <text class="staff-phone muted" wx:else>未填写电话</text>
       </view>
       <view class="card-actions">
-        <button class="btn-profile" data-id="{{item.id}}" bindtap="onViewProfile">画像</button>
+        <button class="btn-profile" data-id="{{item.id}}" bindtap="onViewProfile">详情</button>
         <!--
           「解除」只给配送员。⚠️ 站长**不能**被解除（2026-09-19 补的服务端护栏）：
           解除站长 = 把水站变成没人管的孤儿（staff.station_id 置 NULL 后，

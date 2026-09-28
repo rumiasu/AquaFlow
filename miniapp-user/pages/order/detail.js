@@ -4,6 +4,7 @@ const { getOrderImages } = require('../../api/orderImage')
 const { getProductDetail } = require('../../api/product')
 const { getCustomerId } = require('../../utils/token')
 const { notifyPayResult } = require('../../utils/pay')
+const { getStationPublicPhone } = require('../../api/station')
 
 Page({
   data: {
@@ -16,10 +17,7 @@ Page({
     canRepay: false,
     repayLabel: '去支付',
     payHint: '',
-    // 可拨号码（没有 = 不显示「联系配送员」按钮）。
-    // [2026-09-26] 见下面 onCallPhone 的核实结论：后端顾客端订单详情不下发配送员电话，
-    // 而原来的实现会去拨 order.customerPhone —— **下单人自己**的号码，是个假入口。
-    // 这里只把"到底有没有号可拨"变成显式判据，不给它编一个号码、也不新增请求。
+    // 只拨本单服务水站公开电话；不暴露员工通讯录或客户档案。
     callPhone: '',
     images: [],
     bucketInfo: null
@@ -69,15 +67,11 @@ Page({
         }]
       }
 
-      const bucketInfo = {
-        deliveredQty: order.deliveredBuckets || order.deliveredQty || 0,
-        returnedQty: order.returnedBuckets || order.returnedQty || 0,
-        pendingUnreturned: Math.max(0, (order.deliveredBuckets || order.deliveredQty || 0) - (order.returnedBuckets || order.returnedQty || 0))
-      }
-      if (order.extraDepositBuckets != null && order.extraDepositBuckets > 0) {
-        bucketInfo.extraDepositBuckets = order.extraDepositBuckets
-        bucketInfo.extraDepositAmount = order.extraDepositAmount || 0
-      }
+      // 只展示 type=8 配送流水的真实数据；绝不以送出-收回推欠桶（新押金桶不属于回收义务）。
+      const bucketInfo = order.bucketDeliveryRecorded ? {
+        deliveredQty: Number(order.deliveredBarrelQty || 0),
+        returnedQty: Number(order.returnedBarrelQty || 0)
+      } : null
 
       // 订单归属站：补商品图/详情时带上它，才能读到本站自定义商品（后端按 owner_station_id 过滤）
       this.stationIdOfOrder = order.stationId || order.ownerStationId || null
@@ -112,7 +106,8 @@ Page({
         hasFloorFee: Number(order.floorFee || 0) > 0
       }
 
-      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, payHint, bucketInfo, fee, callPhone: this.resolveCallablePhone(order) })
+      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, payHint, bucketInfo, fee, callPhone: '', legacyNoteUnavailable: !order.customerNote && !!order.specialNote })
+      this.loadCallableStationPhone(order)
 
       this.loadItemImages(items)
     } catch (err) {
@@ -136,37 +131,27 @@ Page({
     }
   },
 
-  /**
-   * 「联系配送员」按钮**到底拨谁** —— [2026-09-26 核实结论]
-   *
-   * <p>核实过程（只读，没动后端）：顾客端订单详情是 {@code GET /api/orders/{id}}
-   * → {@code OrderController.getById} → {@code OrderServiceImpl.getById}
-   * → {@code OrderMapper.getById}，SQL 只 join {@code customer} 与 {@code address}，
-   * **没有任何 staff / 电话列**；Orders 实体里与配送员有关的只有
-   * {@code deliveryStaffId} 与 {@code deliveryStaffName}（后者**全仓没有一处查询给它赋值**），
-   * 而 {@code customerPhone} / {@code addressPhone} 都是**客户自己**的号码。
-   * 结论：<b>后端目前不下发配送员电话</b>，不加请求就取不到。</p>
-   *
-   * <p>所以这里**不假装**：只有真拿到配送员电话才返回（→ 按钮显示且拨的是配送员）；
-   * 拿不到就返回空串，wxml 据此**不渲染**该按钮 —— 原来无条件常显、点了拨的是客户自己的号，
-   * 属于"看起来能联系配送员、实际打给自己"的假入口（本轮按卡要求改成不发假的形态）。</p>
-   *
-   * <p>⚠️ 缺口（留给后端，本轮不改）：要让客户真的能联系配送员，需要顾客端订单详情投影一个
-   * <b>配送员电话</b>字段（并确认跨站/抢单池场景下允许对客户下发谁的联系方式）；
-   * 或者把入口改成"拨打水站电话"（水站电话在报价接口里已有，见 create.js 的 stationPhone）。
-   * 字段定了再改这里的判据，**不要**新加请求去取号码。</p>
-   */
-  resolveCallablePhone(order) {
-    if (!order) return ''
-    // 配送员电话：后端将来下发才有值，现在恒为空（不是忘写，是没有来源）。
-    return order.deliveryStaffPhone || order.deliveryPhone || ''
+  async loadCallableStationPhone(order) {
+    // 已接单后联系履约站；未接单时联系归属站。使用公开电话端点，不读取员工电话。
+    const stationId = order && (order.deliveryStationId || order.stationId)
+    if (!stationId) return
+    try {
+      const res = await getStationPublicPhone(stationId)
+      const data = res && (res.data || res)
+      const current = this.data.order
+      if (current && String(current.id) === String(order.id)) {
+        this.setData({ callPhone: data && data.phone ? String(data.phone) : '' })
+      }
+    } catch (_) {
+      // 联系入口不可用时不显示假按钮；订单本身仍可正常查看。
+    }
   },
 
   onCallPhone() {
     const phone = this.data.callPhone || ''
     if (!phone) {
       // 双保险：按钮已按 wx:if 隐藏，这里再挡一次，避免将来有人把按钮改回常显时又拨错号。
-      console.warn('没有可拨打的配送员电话，已跳过拨号')
+      console.warn('没有可拨打的水站公开电话，已跳过拨号')
       return
     }
     wx.makePhoneCall({ phoneNumber: phone })
@@ -216,12 +201,12 @@ Page({
   onCancel() {
     wx.showModal({
       title: '取消订单',
-      content: '确定取消此订单吗？取消后将自动释放库存、退水票、退款。',
+      content: '确定取消此订单吗？取消成功表示订单已取消，不代表退款已到账。水票会按原路径退回；现金或微信款项请与水站确认退款进度。',
       confirmColor: '#f5222d',
       success: (res) => {
         if (res.confirm) {
           cancelOrder(this.data.order.id).then(() => {
-            wx.showToast({ title: '订单已取消', icon: 'success' })
+            wx.showToast({ title: this.data.order.status === 2 ? '取消申请已提交' : '订单已取消', icon: 'success' })
             this.loadOrder(this.data.order.id)
           }).catch(err => {
             wx.showToast({ title: err.message || '取消失败', icon: 'none' })

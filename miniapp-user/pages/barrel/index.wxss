@@ -303,6 +303,9 @@
   background-color: #fff;
   border-radius: 24rpx 24rpx 0 0;
   z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
   transform: translateY(100%);
   transition: transform 0.3s ease;
 }
@@ -317,6 +320,7 @@
   align-items: center;
   padding: 28rpx 32rpx;
   border-bottom: 1rpx solid var(--border-light);
+  flex-shrink: 0;
 }
 
 .modal-title {
@@ -333,6 +337,14 @@
 
 .modal-body {
   padding: 32rpx;
+  min-height: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  flex-shrink: 0;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
 }
 
 .return-tip {
@@ -437,6 +449,23 @@
   color: var(--text-secondary);
 }
 
+/*
+  试算算不出来时的原因说明（2026-09-27 加）。与 .preview-blocked 同色同形：
+  「还没选商品数量」是中性灰，而「缺一个前置条件，你得去做一件事」要更醒目。
+  ⚠️ 与 .preview-blocked 是并列的两块，改配色时两处一起改。
+*/
+.preview-hint {
+  background-color: #FFF4E5;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.preview-hint text {
+  font-size: 26rpx;
+  color: #B45309;
+}
+
 .preview-blocked {
   background-color: #FFF4E5;
   border-radius: 12rpx;
@@ -491,6 +520,7 @@
 
 .note-input {
   width: 100%;
+  box-sizing: border-box;
   height: 72rpx;
   background-color: var(--bg-gray);
   border-radius: 12rpx;

@@ -1,0 +1,158 @@
+/* 站长端「站间结算」台账（v67）。与 receivable / owed-barrels 页保持同一观感：
+   一张卡 = 一笔，金额在右上，口径与状态用浅色小标签，动作按钮在底部。 */
+
+.page {
+  padding: 20rpx 24rpx 60rpx;
+  background: #f5f6f8;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* ===== 三个汇总数 ===== */
+.sum-grid {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.sum-card {
+  flex: 1;
+  background: #ffffff;
+  border-radius: 14rpx;
+  padding: 22rpx 12rpx;
+  margin-right: 12rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sum-card:last-child {
+  margin-right: 0;
+}
+
+.sum-value {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #222222;
+}
+
+.sum-value.receive {
+  color: #1a7f37;
+}
+
+.sum-value.pay {
+  color: #b5442c;
+}
+
+.sum-label {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #888888;
+}
+
+.scope-note {
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: #8a8a8a;
+  padding: 0 6rpx 16rpx;
+}
+
+/* ===== 分区 ===== */
+.section {
+  margin-bottom: 24rpx;
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333333;
+  padding: 6rpx 6rpx 12rpx;
+}
+
+.hint {
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #999999;
+  padding: 8rpx 6rpx 12rpx;
+}
+
+/* ===== 卡片 ===== */
+.card {
+  background: #ffffff;
+  border-radius: 14rpx;
+  padding: 22rpx 24rpx;
+  margin-bottom: 14rpx;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.row-main {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.row-amount {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #222222;
+}
+
+.row-sub {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 10rpx;
+}
+
+.tag {
+  font-size: 22rpx;
+  color: #666666;
+  background: #f0f1f4;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+  margin: 0 10rpx 8rpx 0;
+}
+
+.sub-text {
+  font-size: 23rpx;
+  line-height: 1.6;
+  color: #8a8a8a;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16rpx;
+}
+
+.btn-outline-small {
+  font-size: 24rpx;
+  line-height: 2.2;
+  padding: 0 24rpx;
+  margin-left: 12rpx;
+  border: 1rpx solid #d0d3d9;
+  border-radius: 10rpx;
+  background: #ffffff;
+  color: #444444;
+}
+
+.btn-outline-small::after {
+  border: none;
+}
+
+.btn-ok-small {
+  font-size: 24rpx;
+  line-height: 2.2;
+  padding: 0 24rpx;
+  margin-left: 12rpx;
+  border-radius: 10rpx;
+  background: #2b6cb0;
+  color: #ffffff;
+}
+
+.btn-ok-small::after {
+  border: none;
+}

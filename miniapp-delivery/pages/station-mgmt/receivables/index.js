@@ -14,12 +14,16 @@ const CREDIT_TERMS = '/api/manager/customers/'
  *   · 账期   = 下单时**快照**进订单的应付日期（due_date）；没设账期的客户为 null（即时结清）
  *   · 逾期   = 有应付日期且已过期的那部分；**逾期只提醒、不改任何金额**
  *
- * 本页只做两件事：
+ * 本页只做三件事：
  *   1. 读台账（总览 / 按客户 / 按订单），逾期的那部分标红；
- *   2. **核销**：把选中的挂账订单「收款 + 核销」一次做完（服务端同一事务）。
+ *   2. 在「全部待收 / 只看逾期」之间切换（[2026-09-27 走查 M05] 见 _applyOverdueFilter）；
+ *   3. **核销**：把选中的挂账订单「收款 + 核销」一次做完（服务端同一事务）。
  *
- * ⚠️ 三条不要改的地方：
+ * ⚠️ 四条不要改的地方：
  *   · **不要在这里自己算钱**（合计、逾期金额一律用服务端下发的值）。两条算法迟早算出两个数。
+ *   · 「只看逾期」**只过滤列表的行**（按服务端下发的 `overdueAmount` / `overdueOrderCount`），
+ *     顶部三个总览数字**照旧是全量** —— 那三个数由服务端算好，前端不重算，
+ *     所以筛选时在标题上说清"列表按逾期筛过"，不假装总额变了。
  *   · 核销的入参是**订单集合**，收款与核销由服务端一起完成 —— 前端不做两次调用，
  *     否则中间失败会留下「钱收了、账没销」。
  *   · 「已核销」的订单会被服务端跳过而不是报错（幂等重放），所以重复点不该当成失败。
@@ -27,13 +31,23 @@ const CREDIT_TERMS = '/api/manager/customers/'
 Page({
   data: {
     loading: true,
+    loadError: '',
+    /**
+     * [2026-09-27 走查 M05] true = 只显示有逾期的客户。
+     * 由 `?overdue=1` 打开（首页「逾期应收」待办带参进来，见 coordination/index.js 的 TODO_ROUTES）。
+     * 原来是写死的 false 且**没有任何界面开关** —— 首页"逾期"入口与页面视图因此对不上：
+     * 站长点的是逾期，落地看到的却是一张不做任何筛选的全部待收表（走查 M05）。
+     */
     onlyOverdue: false,
     overview: null,
+    /** 服务端下发的**全量**客户列表（`customers` 是它按筛选后的展示副本） */
+    allCustomers: [],
     customers: [],
     // 选中的客户（null = 停留在客户列表）
     customer: null,
     orders: [],
     ordersLoading: false,
+    ordersError: '',
     selectedCount: 0,
     settling: false,
     // 账期编辑弹层
@@ -46,6 +60,18 @@ Page({
     risk: null
   },
 
+  /**
+   * [2026-09-27 走查 M05 修] `?overdue=1` = 首页「逾期应收」入口落地的视图。
+   *
+   * 原来入口只传页面路径、本页 `onlyOverdue` 写死 false ⇒ "点逾期、看到全部"，
+   * 而页面上**没有任何筛选提示**，站长不知道自己在看哪个集合（走查 M05）。
+   * 不认的参数一律退回"全部待收"（同 exceptions/staff 两页的口径）：拼错的参数不该把页面打成空白。
+   */
+  onLoad(options) {
+    const overdue = options && (options.overdue === '1' || options.overdue === 1)
+    if (overdue) this.setData({ onlyOverdue: true })
+  },
+
   onShow() {
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
@@ -53,6 +79,31 @@ Page({
       return
     }
     this.load()
+  },
+
+  /**
+   * 按 `onlyOverdue` 从**全量**客户里挑出展示副本。
+   *
+   * 判据只用服务端下发的字段（`overdueAmount` / `overdueOrderCount`），前端不自己按日期算 ——
+   * "哪些单算逾期"的算法只有服务端一份（due_date 快照 + 当前日期）。
+   * ⚠️ 过滤**只影响客户列表**，不影响顶部三个总览数字（它们是全量口径，见文件头）。
+   */
+  _applyOverdueFilter() {
+    const all = this.data.allCustomers || []
+    const customers = this.data.onlyOverdue
+      ? all.filter(c => Number(c.overdueAmount) > 0 || Number(c.overdueOrderCount) > 0)
+      : all
+    this.setData({ customers })
+  },
+
+  onFilterAll() {
+    if (!this.data.onlyOverdue) return
+    this.setData({ onlyOverdue: false }, () => this._applyOverdueFilter())
+  },
+
+  onFilterOverdue() {
+    if (this.data.onlyOverdue) return
+    this.setData({ onlyOverdue: true }, () => this._applyOverdueFilter())
   },
 
   /** json 里开了 enablePullDownRefresh，就必须有对应的处理函数，否则下拉只转圈不停。 */
@@ -75,22 +126,30 @@ Page({
   },
 
   async load() {
-    this.setData({ loading: true })
+    this.setData({ loading: true, loadError: '' })
     try {
       const res = await get(AR)
       const d = res.data || {}
       this.setData({
         overview: d,
-        customers: d.customers || []
+        // 全量留一份：筛选是**展示层**的事，切来切去不该重新请求（也不该动总览数字）
+        allCustomers: d.customers || []
       })
+      this._applyOverdueFilter()
     } catch (err) {
+      this.setData({ loadError: err.message || '待收账款没加载出来，请重试' })
       wx.showToast({ title: err.message || '台账加载失败', icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
   },
 
+  onRetryLoad() {
+    return this.load()
+  },
+
   async onPickCustomer(e) {
+    if (this.data.loadError) return
     const id = Number(e.currentTarget.dataset.id)
     const customer = this.data.customers.find(c => c.customerId === id)
     if (!customer) return
@@ -101,7 +160,7 @@ Page({
   async loadOrders() {
     const c = this.data.customer
     if (!c) return
-    this.setData({ ordersLoading: true })
+    this.setData({ ordersLoading: true, ordersError: '' })
     try {
       const res = await get(AR + '/orders?customerId=' + c.customerId)
       // 展示用的截断放在这里做：wxml 里不能调方法/函数，而 ISO 串直接渲染又太长
@@ -112,10 +171,15 @@ Page({
       }))
       this.setData({ orders })
     } catch (err) {
+      this.setData({ ordersError: err.message || '待收明细没加载出来，请重试' })
       wx.showToast({ title: err.message || '明细加载失败', icon: 'none' })
     } finally {
       this.setData({ ordersLoading: false })
     }
+  },
+
+  onRetryOrders() {
+    return this.loadOrders()
   },
 
   /**
@@ -125,6 +189,7 @@ Page({
    * WXML 里按动态键取对象属性容易踩解析差异，而"勾了没反应"是静默失败，最难查。
    */
   onToggleOrder(e) {
+    if (this.data.loadError || this.data.ordersError) return
     const id = Number(e.currentTarget.dataset.id)
     const orders = this.data.orders.map(o =>
       o.orderId === id ? Object.assign({}, o, { checked: !o.checked }) : o)
@@ -144,6 +209,10 @@ Page({
    * 回显用服务端返回的 settledAmount，不用前端累加（少一处会算出两个数的地方）。
    */
   async onSettle() {
+    if (this.data.loadError || this.data.ordersError) {
+      wx.showToast({ title: '数据尚未成功刷新，请先重新加载', icon: 'none' })
+      return
+    }
     if (this.data.settling) return
     const c = this.data.customer
     const ids = (this.data.orders || []).filter(o => o.checked).map(o => o.orderId)

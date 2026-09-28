@@ -506,11 +506,21 @@ Page({
       return
     }
     const names = items.slice(0, 2).map(it => `${it.name} ×${it.quantity}`)
-    const summary = items.length > 2 ? `${names.join('、')} 等${items.length}件` : names.join('、')
+    // [2026-09-27 走查 C02 修] 卡片标题下面那句摘要要说清**「加入清单」会加什么**。
+    // 原文在超过两件时写「等N件」—— N 是**明细行数（种数）**，而客户数的是"几瓶几桶"
+    //（截图 09/10：两种商品共 3 件，卡片上只说得出一个商品名 + 一个含糊的"件"）。
+    // 现在拆成两句：第一句按种数与件数把规模说清，第二句列前两款的名称与数量。
+    // 判据：数字全部由 items 现算，不猜、不写死；"件"与"种"分别用各自的单位。
+    const kinds = items.length
+    const pieces = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0)
+    const scaleText = `上次共 ${kinds} 种 / ${pieces} 件`
+    const previewText = items.length > 2
+      ? `${names.join('、')} 等${kinds}种`
+      : names.join('、')
     // 缩略图取第一件商品的本站档案照（商品可能已下架，下架则占位）
     const first = products.find(p => String(p.id) === String(items[0].productId))
     const img = first && first.imageUrl ? first.imageUrl : ''
-    this.setData({ againOrder: { img, summary, items } })
+    this.setData({ againOrder: { img, summary: scaleText, preview: previewText, items } })
   },
 
   /**
@@ -703,8 +713,22 @@ Page({
     }
     const items = this.collectCartItems()
     const itemsParam = items.map(it => ({ productId: it.productId, quantity: it.quantity }))
+    // [2026-09-27 走查 U01 定位] **url 太长会让 wx.navigateTo 直接失败**（小程序对页面路径+
+    // 参数有长度上限，超限时既不跳转也没有任何提示）。本页把整份商品清单 + 地址文本塞进 query，
+    // 实测口径：3 件商品约 60 字符，而 `addressDetail` 是**未截断**的用户地址（中文经
+    // encodeURIComponent 后每字 9 字符），长地址 + 大车就能把整串顶到上限附近。
+    // 现象与走查 U01 记录的"点击后暂不跳转 / 无业务错误"完全一致，而本地没有任何门禁能发现。
+    // 两条处置（不动 create.js —— 它被另一条工作流占着）：
+    //   ① 加 `fail` 回调：真失败时**出声**（toast + console），不再静默无反应；
+    //   ② 打一行 url 长度与商品行数，下一次走查能把"点了没反应"直接对上号（只记长度，不记地址内容）。
+    const url = `/pages/order/create?items=${encodeURIComponent(JSON.stringify(itemsParam))}&addressId=${address.id}&addressDetail=${encodeURIComponent(address.detail || '')}&source=3&stationId=${this.data.currentStationId || ''}`
+    console.log('[home] 去结算：url 长度=' + url.length + '，商品行=' + itemsParam.length)
     wx.navigateTo({
-      url: `/pages/order/create?items=${encodeURIComponent(JSON.stringify(itemsParam))}&addressId=${address.id}&addressDetail=${encodeURIComponent(address.detail || '')}&source=3&stationId=${this.data.currentStationId || ''}`
+      url,
+      fail: (err) => {
+        console.error('[home] 去结算跳转失败:', err && err.errMsg, 'url 长度=' + url.length)
+        wx.showToast({ title: '打开结算页失败，请重试', icon: 'none' })
+      }
     })
   }
 })

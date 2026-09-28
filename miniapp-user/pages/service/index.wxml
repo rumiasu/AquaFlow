@@ -16,30 +16,23 @@
     <!-- 电话没查出来时给一条显式说明：别让客户以为"水站没有电话" -->
     <view class="load-error" wx:if="{{phoneError && !serviceInfo.phone}}">水站电话没查出来（{{phoneError}}），不代表水站没留电话，可稍后重试</view>
 
-    <!-- 这里原本还有「工作时间 08:00-20:00」与「客服微信 aquaflow_service」两行，
-         都是**编造的**：Station 实体没有营业时间字段、也没有微信字段。
-         客户按假工作时间打电话、或复制一个不存在的微信号，比不显示更糟。
-         要重新展示，先给 Station 加字段并让站长可配。 -->
-    <view class="service-item">
-      <text class="service-label">其他联系方式</text>
-      <text class="service-value">请拨打上方电话向水站索取</text>
-    </view>
+    <!-- Station 当前没有其他联系方式字段，避免重复引导客户拨同一号码。 -->
   </view>
 
   <!-- 意见反馈表单 -->
   <view class="service-section">
     <text class="section-title">意见反馈</text>
     <view class="category-list">
-      <view class="category-item {{category === 'bug' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="bug">
-        <text>功能问题</text>
+      <view class="category-item {{category === '配送服务' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="配送服务">
+        <text>配送服务</text>
       </view>
-      <view class="category-item {{category === 'feature' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="feature">
-        <text>功能建议</text>
+      <view class="category-item {{category === '商品与水' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="商品与水">
+        <text>商品与水</text>
       </view>
-      <view class="category-item {{category === 'ui' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="ui">
-        <text>界面优化</text>
+      <view class="category-item {{category === '水桶押金' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="水桶押金">
+        <text>水桶押金</text>
       </view>
-      <view class="category-item {{category === 'other' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="other">
+      <view class="category-item {{category === '其他' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="其他">
         <text>其他</text>
       </view>
     </view>

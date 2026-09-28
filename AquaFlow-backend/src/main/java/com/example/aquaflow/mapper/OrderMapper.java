@@ -277,23 +277,40 @@ public interface OrderMapper {
      *   星号紧挨斜杠。）
      */
 
+    /**
+     * 通用订单列表（XML mapper）。
+     *
+     * @param staffScope <b>[2026-09-27 产品裁定]</b> 为 true 时追加「还没收到钱、且订单还活着的单不进站长 /
+     *                   配送员视野」那道闸门
+     *                   （{@code payment_status = 2 或 payment_method = 2 或 status in (3,4,5)}）。
+     *                   产品原话：「2. 不应该，减少杂乱度，规整一下，所以不应该」——
+     *                   问的是「未付款的微信单要不要出现在站长的订单列表里」。
+     *                   ⚠️ 第三个条件是**历史**（已送达/已完成/已取消）：微信单取消后
+     *                   {@code payment_status} 会变成 3/4，只留前两个条件会让它从站长的历史列表里凭空消失。
+     *                   ⚠️ <b>顾客端必须传 false</b>：客户自己那张没付钱的单**要**看得见，
+     *                   否则他在列表里找不到刚下的单、也就无从继续付款。
+     *                   ⚠️ 这条判据在仓库里已有两处同源实现（{@code listPendingByStationId}、
+     *                   {@code listStationPendingUnassigned} 与接单/分配闸门），本参数是**第四处**
+     *                   —— 改口径时必须四处一起改（AGENTS §1.1 的"判据三处必须一致"）。
+     */
     List<Orders> list(@Param("stationId") Long stationId,
                       @Param("customerId") Long customerId,
                       @Param("status") Integer status,
                       @Param("createTimeStart") String createTimeStart,
                       @Param("createTimeEnd") String createTimeEnd,
                       @Param("limit") Integer limit,
-                      @Param("offset") Integer offset);
+                      @Param("offset") Integer offset,
+                      @Param("staffScope") Boolean staffScope);
 
     // [清理 2026-09-12] 删除三个全平台口径的死统计方法：countAll / countToday / countByStatus。
     // 它们不带 station_id 过滤，一旦被某个新页面顺手调用就是全平台数据泄露；
-    // 而它们当前零调用（站内皮只有 countByStationId / countByStationIdAndStatus），属永久废案。
+    // 而它们当前零调用（站内皮当时只有 countByStationId / countByStationIdAndStatus），属永久废案。
 
-    @Select("select count(*) from orders where station_id = #{stationId}")
-    int countByStationId(@Param("stationId") Long stationId);
-
-    @Select("select count(*) from orders where station_id = #{stationId} and status = #{status}")
-    int countByStationIdAndStatus(@Param("stationId") Long stationId, @Param("status") Integer status);
+    // [清理 2026-09-27] 删除下面三个站内皮统计方法：countByStationId / countByStationIdAndStatus /
+    // countTodayByStationId —— 它们只服务于已删的 GET /api/dashboard/today 与 /overview，
+    // 端点一去它们零调用（核实见 DashboardController 里那段删除记录）。
+    // ⚠️ 删除登记表原写"countByStationIdAndStatus 另有他用、不能删"，**该判定是错的**：
+    //    2026-09-27 逐处重证，它的真调用全在那两个端点里。**旧判定会过期，删前必须自己重证一遍。**
 
     /**
      * 配送员待接单列表：本站 status=1、未分配配送员、且**钱已经到手**的订单。
@@ -676,8 +693,7 @@ public interface OrderMapper {
     // [清理 2026-09-12] 删除 updateClaimStation：全仓零调用（抢单/外派已统一走 claimPoolIfFree /
     // dispatchIfStatus / outsourceTo*If 等带 expected-state 的 CAS 方法），属永久废案。
 
-    @Select("select count(*) from orders where station_id = #{stationId} and date(create_time) = curdate()")
-    int countTodayByStationId(@Param("stationId") Long stationId);
+    // [清理 2026-09-27] 删除 countTodayByStationId：只服务于已删的 GET /api/dashboard/today。
 
     /**
      * 幂等命中查询：<b>按 (客户, 幂等键) 查</b>，不是只按键查。

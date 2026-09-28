@@ -34,7 +34,17 @@ screenshot_*.png
 # 真实密钥只存在于本地的 application-local.yml / 生产环境变量中。
 # 注意：历史提交里的 application.yml 曾含真实密钥，仅 ignore 无法消除历史泄露，
 # 按 docs/SECURITY-密钥处置指南.md 吊销轮换 + 清理 git 历史。
-application-prod.yml
+#
+# [2026-09-28 订正] application-prod.yml **也从忽略名单里移出**（原来它同时被 ignore 且未被跟踪）。
+# 后果实测过两条，都不是"能不能跑起来"那么轻：
+#   ① **新克隆的仓库根本没有生产配置** ⇒ `.github/workflows/ci.yml` 里那条
+#      `node scripts/check-prod-config.js` **直接失败**（它在文件缺失时 exit 1）；
+#   ② 真部署时 `--spring.profiles.active=prod` 找不到该文件，会**静默退化成 application.yml 的默认值** ——
+#      其中 `cors-allowed-origins` 的默认是 `http://localhost:5173,...`（生产前端来源会被拒），
+#      `WX_STAFF_APP_ID/SECRET` 的默认是空（员工端微信登录静默不可用），
+#      而 prod yml 存在的意义正是让这几项**缺失即拒启**。
+# 它**不含任何密钥**（通篇只有 `${VAR}` 占位符，可自行核对）：拿"怕泄密"当理由把它忽略，
+# 换来的是"生产配置不在版本库里"——比泄密更难发现。真实密钥仍然只在 application-local.yml 与环境变量里。
 application-local.yml
 .env
 .env.*
@@ -126,6 +136,19 @@ generated-images/
 .dsh-code-index/
 .mcp.json
 __*.ps1
+#
+# [2026-09-28] `__` 前缀的临时脚本**一律不入库**，所以在 .gitignore 里补齐（原来只有
+# `.git/info/exclude` 里的 `__*.py / __*.md / __*.txt / __*.json`，**漏了 js**）：
+#   · `scripts/__check-no-bom.js`、`scripts/__make-fake-jar-with-local.js` 等当时处于
+#     "未被忽略、也未跟踪"的状态 —— 一次 `git add -A` 就会被卷进提交；
+#   · 而后者**按设计装着假密钥**（用来反向验证"jar 里不许有本地配置"那道护栏），
+#     一旦入库，`scripts/scan-secrets.sh` 会在 CI 里把它判成硬编码密钥 ⇒ **CI 直接红**。
+# 为什么不只加在 `.git/info/exclude`：那个文件**不进版本库**，`git init` / 重建仓库 / 换机器都会丢
+# （2026-09-24 重建时真的丢过一次，靠备份 .git 才救回来）。规则写在这里才对每个克隆生效。
+# ⚠️ 确认过：当前没有任何以 `__` 开头的**已跟踪**文件，所以这条不会误伤。
+__*.js
+__*.mjs
+__*.cjs
 
 # ==================== 本地素材库（勿入库，2026-09-18）====================
 # 前面的 / 是锚点，只在仓库根生效：写成不带斜杠的 assets/ 会连
@@ -172,3 +195,6 @@ __pycache__/
 # 确认新仓库推送成功后可以整个删掉。
 /.git_backup*/
 
+
+# Local verification transcripts and generated artifacts
+/build/

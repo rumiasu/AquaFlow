@@ -53,20 +53,25 @@
              **P0 没丢**：tab 红点算的是完整 payload 的 p0Total（这 6 项都在内），
              只是换成"一个红点"而不是"6 个数字"。
         · 留下的 8 项 = 只活在「水站管理」里的那些（钱 / 人 / 质量）= 5 项 P1 + 3 项 P2。
-      渲染上**不再分三级标题**：8 项一屏一格，**计数非零的项标红**。⚠️ 红的是"有几条"
-      （`hasCount`），**不是等级** —— 卡里这 8 项全是 P1/P2、一项 P0 都没有（见 `TODO_KEYS` 注释），
-      所以拿它当"P0 高亮"看会错。
-      数量为 0 的项**照样显示** —— 否则站长不知道系统里有这一项（与 tab 角标"0 就不显示"不同：
-      角标是"有几条要办"，这里是"系统有哪些事项"，语义不同）。
+      ⚠️ [2026-09-27 走查 M02 修] **零计数不再占位**：`decorateTodo` 只把 count>0 的项放进
+      `todo.items`，全为零时 `todo.items.length === 0` ⇒ 整张卡不渲染（下面的显隐条件没改）。
+      原来 8 项零值常驻、两行八格，把「待分配」挤到半屏以下（走查截图 04 / 06）——
+      站长打开首页要的是"今天给谁派水"，先看到的却是一堆 0。
+      三条不能被改坏：
+        ① **P0 红点**由 `loadTodo` 的 `applyRedDot(d)` 按完整 payload 的 `p0Total` 算，
+           与本卡内容**无关**（别改成拿 todo.items 推）；
+        ② **功能没删**：完整功能目录「水站管理」是常驻入口（在本卡之外），零值照样进得去；
+        ③ **失败 ≠ 零**：汇总取不到时 `todo` 停在 null，卡不渲染 —— 不会把"没加载出来"
+           说成"没事要办"（decorateTodo 只处理**拿到**的数据）。
+      数量非零的项标红（`hasCount`）—— 现在能进卡的项恒为非零，这个类是"提醒色"不是"等级色"。
     -->
     <view class="todo-card" wx:if="{{todo && todo.items.length}}">
       <view class="todo-head">
         <!--
           [2026-09-26 文案] 标题「其他待办」→「其他待处理」，并按 docs/design/29 §7 去掉副标题
           「不在订单页里的」（那是"关于页面分类"的解释，站长不需要）。
-          ⚠️ **只改文案**：卡的显隐条件（仍是 `wx:if="{{todo && todo.items.length}}"`）、
-          收录的 8 项、以及"零计数照样显示"的口径**一律没动** ——
-          「零计数时是否仍显示」是已登记的产品冲突（§9 待拍板第 1 条），未拍板前不许改代码。
+          ⚠️ 卡的显隐条件（`todo && todo.items.length`）本身没改 —— 变的是 items 的收录口径
+          （零计数不再进来），见上面那段与 index.js 的 decorateTodo。
         -->
         <text class="todo-title">其他待处理</text>
       </view>
@@ -91,8 +96,12 @@
       </view>
     </scroll-view>
 
-    <!-- 待分配：未分配配送员 + 转单请求（合并） -->
+    <!-- pending 页签仅保留此处一个查单入口，空列表时仍可进入完整订单台账。 -->
     <view class="list" wx:if="{{activeTab === 'pending'}}">
+      <view class="queue-head">
+        <text class="queue-title">待分配</text>
+        <text class="queue-link" bindtap="onOpenOrders">查全部订单 ›</text>
+      </view>
       <view class="order-card {{item.showRisk ? item.riskClass : ''}}" wx:for="{{lists.pending}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
         <view class="card-header">
           <view class="tag-row">
@@ -134,13 +143,6 @@
       </view>
       <view class="empty" wx:if="{{lists.pending.length === 0}}">
         <text>暂无待分配/转单订单</text>
-      </view>
-      <!--
-        「看全部订单 ›」= 状态视角的台账（全部/待配送/配送中/已完成），
-        与本页签的动作视角互补（详见 index.js 的 onOpenOrders 注释）。
-      -->
-      <view class="list-foot-link" bindtap="onOpenOrders">
-        <text>看全部订单 ›</text>
       </view>
     </view>
 
@@ -426,6 +428,17 @@
               <text class="dispatch-label">外派至</text>
               <text class="dispatch-value">{{item.deliveryStationName}}</text>
             </view>
+          </view>
+          <!--
+            外派久未接单的提示 + 「按挂牌价结这单」（2026-09-27 产品裁定，正本 docs/design/31 §8.2/§8.3）。
+            ⚠️ 文案由**后端下发**（`dispatchStaleHint`，见 DeliveryController#staleDispatchHint）：
+            阈值（默认 4 小时）与判据只在服务端一处，前端不自己算时间、也不自己拼这句话 ——
+            否则"后端说超时了、前端说没超"会分叉，而且产品改阈值时前端要跟着改。
+            有没有值就是判据：没值 = 不渲染（刚外派出去的单不该看到这一行）。
+          -->
+          <view class="dispatch-stale" wx:if="{{item.dispatchStaleHint}}">
+            <text class="dispatch-stale-text">{{item.dispatchStaleHint}}</text>
+            <button class="btn-outline-small" catchtap="onPriceByListed" data-id="{{item.id}}">按挂牌价结这单</button>
           </view>
           <view class="dispatch-info" wx:elif="{{item._dir === 'in'}}">
             <view class="dispatch-row">

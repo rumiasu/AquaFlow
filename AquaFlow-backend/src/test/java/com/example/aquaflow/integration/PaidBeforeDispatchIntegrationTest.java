@@ -234,4 +234,51 @@ class PaidBeforeDispatchIntegrationTest extends AbstractIntegrationTest {
         }
         return false;
     }
+
+    /* ==================================================================
+     *  5. [2026-09-27 产品裁定] 通用订单列表也守同一道闸门
+     * ================================================================== */
+
+    /**
+     * 通用订单列表（{@code GET /api/orders}）原先**没有**守「只有收到钱的单才进站长视野」这道闸门：
+     * 未付的微信单在「站长待分配 / 未分配」两张列表里看不到，却在订单列表里能看到
+     * （同一个单、同一时刻、两个相反答案 —— 演练实测 order 44/46 那批）。
+     * 产品 2026-09-27 裁定：「**不应该**，减少杂乱度，规整一下」。
+     *
+     * <p>本用例同时钉住**三条**边界，缺一条都会改坏：</p>
+     * <ol>
+     *   <li>员工视野：未付款的微信单**不出现**；</li>
+     *   <li>顾客视野：**必须出现** —— 客户要在「我的订单」里点进去继续付款，
+     *       挡住他就等于这笔钱永远收不到；</li>
+     *   <li>历史视野：取消/退款之后（{@code payment_status} 变成 3/4）**仍要能查到** ——
+     *       只判"已付或现金"会让退款单从站长的历史列表里凭空消失，客户来问"我那单呢"就查不到了。</li>
+     * </ol>
+     */
+    @Test
+    @DisplayName("[2026-09-27 裁定] 未付微信单不进站长的订单列表，但顾客看得到、退款后历史仍看得到")
+    void unpaidWechatOrderIsHiddenFromStaffOrderList() {
+        seed(true);
+        assertEquals(0, place(goods, 1 /* 微信 */, "paid-wechat-list").code(), "下单应成功");
+        long order = orderIdOf("paid-wechat-list");
+        assertEquals(1, intOf("SELECT payment_status FROM orders WHERE id=?", order), "前置：还没付钱");
+
+        assertFalse(inList("/api/orders?status=1", tokenMgr, order),
+                "未付款的微信单不该出现在站长的订单列表里（产品裁定「不应该，减少杂乱度」）");
+        assertFalse(inList("/api/orders", tokenMgr, order),
+                "不指定 status 的「全部订单」也不该带出它");
+
+        assertTrue(inList("/api/orders", cus, order),
+                "★ 客户自己那张没付钱的单**必须**看得见 —— 他要在列表里点进去继续付款，"
+                        + "挡住等于这笔钱永远收不到");
+
+        // 客户自助取消（待配送单当场取消，走完整退款链）→ payment_status 变 3/4
+        assertEquals(0, put("/api/orders/" + order + "/customer-cancel", cus, null).code(),
+                "前置：待配送单客户可自助取消");
+        assertEquals(5, intOf("SELECT status FROM orders WHERE id=?", order), "前置：订单应已取消");
+        assertNotEquals(2, intOf("SELECT payment_status FROM orders WHERE id=?", order),
+                "前置：取消后不再是「已付款」");
+        assertTrue(inList("/api/orders?status=5", tokenMgr, order),
+                "★ 历史必须留得住：取消/退款后的单前台看不到可以，但站长的历史列表里必须查得到，"
+                        + "否则客户来问「我那单呢」站长无从回答");
+    }
 }

@@ -4,7 +4,18 @@ const { getPendingPayments, confirmPayment } = require('../../../api/station-mgm
 // 真相源为 PayMethod.java / PaymentStatus.java）。前端不再自建 1/2/3 映射表。
 
 Page({
-  data: { list: [], loading: false },
+  data: {
+    list: [],
+    loading: false,
+    /**
+     * [2026-09-27 走查 C05/U01 同族修] 加载失败的原因（空串 = 成功）。
+     *
+     * 原来失败只有一句 `wx.showToast`：toast 两三秒后消失，页面剩一句「暂无待确认收款」——
+     * 与"本站真的没有待收款"一模一样（AGENTS §8.22 的老形状），而且这里**没有下拉刷新之外的重试路**。
+     * 现在把失败原因常驻在页面上，并给一个「重新加载」。
+     */
+    loadError: ''
+  },
 
   onShow() {
     const app = getApp()
@@ -26,19 +37,31 @@ Page({
       // wxml 里不能做函数调用与三元嵌套，所有展示字段在 JS 里预计算好。
       const list = (res.data || []).map(item => Object.assign({}, item, {
         methodText: item.methodText || '—',
-        statusText: item.statusText || '—',
+        // [2026-09-27 走查 M01 修] 兜底从 `'—'` 改成 `'待核实到账'`：
+        // 本列表按 `status = 1`（待收款）过滤，缺文案时写"待核实到账"是**照实说**，
+        // 与页面顶部说明、按钮（确认已到账）同口径；写 `'—'` 则等于把这一格的信息丢掉，
+        // 而写"已收到"会与事实相反。⚠️ 这**不是**前端自带映射表 ——
+        // 文案正本仍是后端 PaymentStatus.textOf（有值就用它），这里只是缺值时的兜底。
+        statusText: item.statusText || '待核实到账',
         amountText: Number(item.amount || 0).toFixed(2),
         // 无订单号 = 线上买水票这类"不挂在订单上"的收款
         isTicketPurchase: !item.orderId,
         // 备注后端带的是「线上购买水票」等中文，直接展示；为空时给个兜底
         noteText: item.note || (item.orderId ? '订单待收款' : '线上购票待确认')
       }))
-      this.setData({ list })
+      this.setData({ list, loadError: '' })
     } catch (err) {
+      // 失败必须**常驻可见**（不是只弹一次 toast）：见 data.loadError 的注释
+      this.setData({ loadError: (err && err.message) || '网络异常' })
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
+  },
+
+  /** 失败提示条上的「重新加载」（wxml 绑定，不存在会导致点击静默无反应） */
+  onRetryLoad() {
+    this.loadData()
   },
 
   /**

@@ -45,6 +45,15 @@
   font-weight: 500;
 }
 
+/* 「所属水站」缺名称时的重试入口（[2026-09-27 走查 D06]）：
+   已绑定但名字没拉到时，说的是「名称暂未加载」+ 可点这一下补拉，不再写成「未分配」。 */
+.info-retry {
+  font-size: var(--font-sm);
+  color: var(--primary-color);
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+
 /* 设置行 */
 .setting-row {
   display: flex;

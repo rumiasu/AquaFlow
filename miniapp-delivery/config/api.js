@@ -255,6 +255,15 @@ const API = {
   // （口径、为什么与 todo-summary 并存见 ManagerPendingSummaryController 文件头）。
   MANAGER_PENDING_SUMMARY: '/api/manager/pending-summary',
 
+  // 站间结算台账（v67 / 2026-09-27 产品拍板 4.a+4.b）：跨站单的「谁欠谁、欠多少、什么时候算办完」。
+  // 站长专属（后端整类 @RequireRole("STATION_MANAGER")）。
+  MANAGER_INTER_STATION_SETTLEMENTS: '/api/manager/inter-station-settlements',
+  // {orderId} 在路径中间 —— 一律用下面三个构造函数，**不要**在页面里手拼字符串
+  // （路径的 SSOT 就在这一张表里，散落的字面量在端点改名时改不干净）。
+  MANAGER_INTER_STATION_SETTLE: (orderId) => `/api/manager/inter-station-settlements/${orderId}/settle`,
+  MANAGER_INTER_STATION_REVERSE: (orderId) => `/api/manager/inter-station-settlements/${orderId}/reverse`,
+  MANAGER_INTER_STATION_PRICE_LISTED: (orderId) => `/api/manager/inter-station-settlements/${orderId}/price-by-listed`,
+
   // 毛利 + 净利报表（v39 / 2026-09-19 加净利）：站长专属 —— 成本价是站长的商业机密，
   // 这个路径**不要**出现在顾客端或配送员会调的地方（后端整类带 @RequireRole("STATION_MANAGER")）。
   // 期间由 from/to 决定（缺省本月 1 号~今天）；「今日净利」= from=to=今天。
@@ -275,6 +284,12 @@ const API = {
   // 水桶
   BARRELS_ALL_RECORDS: '/api/barrels/all-records',
   BARRELS_RECORDS_STATUS: (id) => `/api/barrels/records/${id}/status`,
+  // [v66 / 2026-09-27 产品拍板 5.a] 押金**实际交付**确认：站长（或代交的配送员）确认
+  // "这笔押金已经交到顾客手上了"。⚠️ 与 status 那一步是**两件事**：status 是核销（钱从账户扣掉），
+  // 这一条才是把钱交出去 —— 见 docs/design/35 §7.2「不现场给钱的不要退」。
+  BARRELS_RECORDS_REFUND_PAID: (id) => `/api/barrels/records/${id}/refund-paid`,
+  // 只读：已核销但**没记交付**的退押金（不合规数据，站长要能查出来）
+  BARRELS_REFUND_UNDELIVERED: '/api/barrels/refund-undelivered',
   BARRELS_RETURN_EMPTY: '/api/barrels/return-empty',
 
   // 上传

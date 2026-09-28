@@ -661,6 +661,18 @@ this.setData({ products, stationName: effectiveStationName })
           ? '水票抵扣 ' + ticketPay.coverQty + ' 张 · ¥' + (Number(ticketPay.coverAmount) || 0).toFixed(2)
           : ''
         const ticketShortfallHint = (ticketPay && !ticketPay.fullyCovered) ? (ticketPay.hint || '') : ''
+        // [2026-09-27 走查 C03] 票不足时页面上直接给出**下一步的两个动作**（不再只留一句结论）：
+        //   ① 能不能"去买水票"：只有**余额不够**（reason=INSUFFICIENT）才给 ——
+        //      商品根本不能用票时补票没用，把人引去买票是错的（走查原文的硬要求）。
+        //   ② 能不能"改用 X 支付"：从**后端下发且 enabled** 的方式里挑第一个非水票的；
+        //      标签也用后端下发的 name（前端禁止自带 1/2/3 映射表）。
+        //      ⚠️ 它只**切换页面上的选择**并重走一次报价，**绝不自动提交**
+        //      （走查验收原文：「不得自动改变支付方式并提交」）。
+        const ticketCanBuy = !!(ticketPay && !ticketPay.fullyCovered
+          && ticketPay.reason === 'INSUFFICIENT')
+        const ticketAlt = (payMethods || []).find(m => m.enabled && m.id !== 3)
+        const ticketAltMethod = ticketAlt ? ticketAlt.id : null
+        const ticketAltLabel = ticketAlt ? ('改用' + (ticketAlt.name || '其它支付方式')) : ''
         // 客户这次**实际要付**的钱：票能全抵 → 0（水费/押金/配送费随票一并结清）；
         // 抵不掉 → 订单全额（本单用不了票，改选方式后就是全额付）。
         // ⚠️ 只用于展示，不参与任何提交参数 —— 提交金额一律由后端按订单重算。
@@ -710,6 +722,10 @@ this.setData({ products, stationName: effectiveStationName })
           ticketCoverText,
           ticketShortfallHint,
           isTicketPay: nextMethod === 3,
+          // [走查 C03] 票不足时的两个下一步动作（可用性与标签都由后端数据推导，见上面的注释）
+          ticketCanBuy,
+          ticketAltMethod,
+          ticketAltLabel,
           allowOfflinePayment,
           payMethods,
           // [2026-09-26] 服务端下发的**收款渠道能力**（PayMethod.payChannel）：
@@ -734,7 +750,16 @@ this.setData({ products, stationName: effectiveStationName })
             stationName: d.stationName || '',
             depositAmount: (Number(d.depositAmount) || 0).toFixed(2),
             buckets: Number(d.depositBuckets) || 0,
-            totalAmountText: totalAmount.toFixed(2)
+            totalAmountText: totalAmount.toFixed(2),
+            // [2026-09-27 产品裁定，正本 docs/design/34] 押金收款方式的两句话
+            // （「建议第一单押金单走线上」+「线下提示风险，系统无法检测，纠纷自负」）。
+            // ⚠️ **文案由服务端下发**（PaymentServiceImpl.quote 的 depositOnlineAdvice /
+            //   depositOfflineRiskNote），前端一个字都不自己拼 —— 文案属口径、不属呈现。
+            // ⚠️ 线上渠道当前不可用时服务端不下发 onlineAdvice（不给走不通的建议），
+            //   所以这里只做"有没有值"的判断，不在前端判渠道。
+            onlineAdvice: d.depositOnlineAdvice || '',
+            // 恒有值（只要本单收押金）；由 wxml 按"客户当前选了现金没有"决定显不显示
+            offlineRiskNote: d.depositOfflineRiskNote || ''
           },
           // 报价一刷新就作废上一次的"已确认"：站/商品/数量/支付方式变了，告知里的金额与归属就变了，
           // 旧确认不能继续有效（契约 A2 最后一条）。
@@ -775,6 +800,44 @@ this.setData({ products, stationName: effectiveStationName })
     return orderIntent.newKey()
   },
 
+  /**
+   * [2026-09-27 走查 C03] 票不足 → 去购票页补齐。
+   * ⚠️ 只有"余额不够"才会露出这个入口（wxml 的 `ticketCanBuy`）：商品根本不能用票时
+   * 补票也没用，把人引去买票是错的。购票页是全仓唯一的自助购票入口。
+   */
+  onGoBuyTicket() {
+    wx.navigateTo({ url: '/pages/ticket/index' })
+  },
+
+  /**
+   * [2026-09-27 走查 C03] 票不足 → 改用其它支付方式。
+   *
+   * <p>⚠️ **只改页面上的选择、再走一次报价，绝不自动提交** ——
+   * 走查的验收原文是「不得自动改变支付方式并提交」：替客户改支付方式还替他下单，
+   * 等于替他做了一笔钱的决定。所以这里只 setData + refreshQuote，提交仍要他自己点。</p>
+   *
+   * <p>id 来自后端下发的可用方式列表（`methods[].id`），前端**不自造** 1/2/3 映射；
+   * 页面里再校验一次"它确实在可用列表里"，防止拿数据集的旧值来切。</p>
+   */
+  onSwitchPayMethod(e) {
+    const id = Number(e.currentTarget.dataset.id)
+    if (!id) return
+    const available = (this.data.payMethods || []).some(m => m.enabled && m.id === id)
+    if (!available) {
+      wx.showToast({ title: '这个支付方式当前不可用', icon: 'none' })
+      return
+    }
+    if (id === this.data.selectedMethod) return
+    // 现金要弹"送达后付款"的确认，切换过去时先清掉上一次的确认态，由 onSubmit 重新触发
+    this.setData({ selectedMethod: id, showOfflineConfirm: false })
+    // 金额/费用/票预览都要按新的支付方式重算 —— 走页面既有的报价入口，不在前端自己算
+    this.refreshQuote()
+  },
+
+  /**
+   * 提交下单。⚠️ 这里的闸门顺序（报价新鲜度 → 支付方式确认 → 水票是否够 → 押金告知）
+   * 是**防"钱与单不一致"**的，改动前先读方法体里的注释，别为了少点一次弹窗调整顺序。
+   */
   async onSubmit() {
     if (this.data.submitting) return
 

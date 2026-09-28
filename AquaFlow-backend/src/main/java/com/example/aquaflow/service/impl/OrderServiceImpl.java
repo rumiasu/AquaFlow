@@ -54,6 +54,9 @@ public class OrderServiceImpl implements OrderService {
     private OrderItemMapper orderItemMapper;
 
     @Autowired
+    private BarrelRecordMapper barrelRecordMapper;
+
+    @Autowired
     private AddressMapper addressMapper;
 
     @Autowired
@@ -573,6 +576,7 @@ public class OrderServiceImpl implements OrderService {
         orders.setGuardInfo(dto.getGuardInfo());
         orders.setDeliveryTimeRequest(dto.getDeliveryTimeRequest());
         orders.setSpecialNote(dto.getSpecialNote());
+        orders.setCustomerNote(dto.getSpecialNote());
         orders.setReturnBucketQty(dto.getReturnBucketQty());
         orders.setDeliveryBucketQty(totalNeededBuckets > 0 ? totalNeededBuckets : null);
         // ⚠️ [2026-09-26 产品口径] 「本站第一笔**买桶**订单」的判据**只看桶权益**（hasBarrelAsset），
@@ -785,8 +789,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public List<Orders> list(Long stationId, Long customerId, Integer status, String createTimeStart, String createTimeEnd,
-                             Integer limit, Integer offset) {
-        return orderMapper.list(stationId, customerId, status, createTimeStart, createTimeEnd, limit, offset);
+                             Integer limit, Integer offset, boolean staffScope) {
+        return orderMapper.list(stationId, customerId, status, createTimeStart, createTimeEnd, limit, offset,
+                staffScope);
     }
 
     @Override
@@ -795,6 +800,17 @@ public class OrderServiceImpl implements OrderService {
         if (order != null) {
             List<OrderItem> items = orderItemMapper.listByOrderId(id);
             order.setItems(items);
+            List<BarrelRecord> deliveryRecords = barrelRecordMapper.listDeliveryByOrder(
+                    id, order.getCustomerId(), order.getStationId());
+            if (deliveryRecords != null && !deliveryRecords.isEmpty()) {
+                order.setBucketDeliveryRecorded(true);
+                order.setDeliveredBarrelQty(deliveryRecords.stream()
+                        .mapToInt(r -> r.getDeliveredQty() == null ? 0 : r.getDeliveredQty()).sum());
+                order.setReturnedBarrelQty(deliveryRecords.stream()
+                        .mapToInt(r -> r.getReturnedQty() == null ? 0 : r.getReturnedQty()).sum());
+            } else {
+                order.setBucketDeliveryRecorded(false);
+            }
         }
         return order;
     }

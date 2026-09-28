@@ -70,6 +70,27 @@ public class PaymentServiceImpl implements PaymentService {
         return mockWechatPay && Integer.valueOf(PayMethod.WECHAT).equals(paymentMethod);
     }
 
+    /**
+     * 押金走线上的**建议**文案（2026-09-27 产品裁定，正本 {@code docs/design/34}）。
+     *
+     * <p>⚠️ 这是**顾客界面上的正文**：不许出现开发词（AGENTS §6），也不许写 markdown 星号（会原样渲染）。
+     * 文案属口径、不属呈现 —— 只有这一份，前端原样展示、不得自造同义句。</p>
+     */
+    private static final String DEPOSIT_ONLINE_ADVICE =
+            "这单要先付桶押金。建议用微信支付：付款有渠道流水可查，退押金时也说得清；"
+                    + "现金押金只能由水站手工登记，过后对不上账时不好分辨。";
+
+    /**
+     * 押金选线下的**风险与责任**文案（同一次裁定）。
+     *
+     * <p>产品原话：「线下的提示风险，**系统无法检测**，产生纠纷时自负」——
+     * 所以这句话必须点破两件事：① 系统核实不了这笔钱收没收到；② 出了纠纷由双方自行解决。
+     * 只写"注意风险"而不写清"系统管不了这一段"，等于把责任含糊过去。</p>
+     */
+    private static final String DEPOSIT_OFFLINE_RISK_NOTE =
+            "现金押金由水站当面收取并手工登记，系统无法核实这笔钱是否已收到。"
+                    + "请向水站索取收据；发生纠纷时需双方自行协商解决。";
+
     @Autowired
     private PaymentRecordMapper paymentRecordMapper;
 
@@ -1115,6 +1136,10 @@ public class PaymentServiceImpl implements PaymentService {
             result.put("blocked", false);
             result.put("blockReason", null);
             result.put("totalAmount", BigDecimal.ZERO);
+            // 空单同样把这两键下发成 null（同上面的键名理由：前端读 d.depositOnlineAdvice 时
+            // 不必判 undefined；判 undefined 就会长出第二套默认值）
+            result.put("depositOnlineAdvice", null);
+            result.put("depositOfflineRiskNote", null);
             return result;
         }
 
@@ -1262,6 +1287,22 @@ public class PaymentServiceImpl implements PaymentService {
         result.put("stationName", stationNameOf(stationId));
         result.put("depositAmount", totalExtraDeposit);
         result.put("depositBuckets", totalExtraBuckets);
+
+        // ===== 押金收款方式：线上建议 / 线下风险（2026-09-27 产品裁定，正本 docs/design/34）=====
+        // 产品原话：「建议第一单押金单走线上吧，弹个建议。线下的提示风险，系统无法检测，产生纠纷时自负。」
+        // 三条实现判据：
+        //   ① 只有**本次真要收押金**（totalExtraDeposit > 0）才谈这件事 —— 不收押金的单没有这个选择；
+        //   ② **线上渠道当前不可用就不给线上建议**：生产上真实微信支付尚未接入（mockWechatPay 关），
+        //      建议一条走不通的路比不建议更糟 —— 新客户第一单会直接卡死
+        //      （AGENTS §1.1：「新客户下不了第一单」= 渠道未接入的部署状态，已有定论，别当缺陷修）；
+        //   ③ 文案**由服务端下发**（AGENTS §6：前端禁止自带文案映射表），且正文不许出现开发词。
+        // ⚠️ 判的是"这一单要不要收押金"，**不是**"是不是第一单" —— 老客户换个水种仍可能产生新押金。
+        //   这个偏差已登记在 docs/design/16 §8（待确认），别把它当成实现漏洞改一遍。
+        // ⚠️ 线下风险提示**恒下发**（只要收押金），由前端按"客户当前选了现金没有"决定显不显示 ——
+        //   选哪个方式是界面状态，不属口径；口径（这句话该怎么说）只有这里一份。
+        boolean depositDue = totalExtraDeposit != null && totalExtraDeposit.compareTo(BigDecimal.ZERO) > 0;
+        result.put("depositOnlineAdvice", depositDue && mockWechatPay ? DEPOSIT_ONLINE_ADVICE : null);
+        result.put("depositOfflineRiskNote", depositDue ? DEPOSIT_OFFLINE_RISK_NOTE : null);
         // 企业身份提示（v51）：**只算水** —— 桶装水数量与"水费"（不含押金/配送费/楼层费）两条口径，
         // 命中任一即提示；阈值按站配、没配过用平台默认（30 桶）。开关关着时连字段都不下发（前端也就没有入口）。
         // ⚠️ 传的是 totalWaterAmount（水费），不是 totalAmount（含押金与费用的合计）——

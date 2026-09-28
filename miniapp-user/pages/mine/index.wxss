@@ -85,6 +85,35 @@
   font-size: 38rpx;
   font-weight: 700;
 }
+/* [2026-09-27 走查 C05 修] 未加载的格子：**不能长得像 0** —— 字号调小、用中性灰、
+   文案是「暂未加载」。样式与文案一起表达"这一项没拿到"，而不是"这一项是零"。 */
+.asset-value-unloaded {
+  font-size: var(--font-md);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+/* 未加载提示条：toast 会消失，这一条常驻到数据补齐为止，点一下重新加载 */
+.assets-unloaded-tip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  border-top: 1rpx solid var(--border-color);
+  background: #FFF8E1;
+  padding: 18rpx 28rpx;
+}
+.assets-unloaded-text {
+  flex: 1;
+  font-size: var(--font-xs);
+  color: #E65100;
+  line-height: 1.5;
+}
+.assets-unloaded-retry {
+  flex: none;
+  font-size: var(--font-sm);
+  color: #E65100;
+  font-weight: 600;
+}
 .asset-unit {
   font-size: var(--font-xs);
   font-weight: 400;

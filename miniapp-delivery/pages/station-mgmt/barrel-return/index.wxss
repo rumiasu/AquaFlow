@@ -6,11 +6,20 @@
 .status.approved { background: #e3f2fd; color: #1976d2; }
 .status.done { background: #e8f5e9; color: #4caf50; }
 .status.rejected { background: #fce4ec; color: #f44336; }
+/* 非退桶流水（纯还桶 / 配送收发）的类型标签：中性色，别让它看起来像审批状态 */
+.status.other { background: #eceff1; color: #607d8b; }
 .info-row { font-size: 26rpx; color: var(--text-primary); margin-bottom: 8rpx; display: flex; justify-content: space-between; }
 .card-actions { margin-top: 16rpx; display: flex; gap: 16rpx; }
 .btn-approve, .btn-reject { flex: 1; padding: 16rpx; border-radius: 12rpx; font-size: 26rpx; border: none; }
 .btn-approve { background: var(--primary-gradient); color: #fff; }
 .btn-reject { background: #fce4ec; color: #f44336; }
+/* 已核销未交付的自查提示（违规数据，只读 + 逐笔补登记） */
+.alert-card { background: #fff8e1; border: 2rpx solid #ffe082; border-radius: 16rpx; padding: 24rpx; margin-bottom: 20rpx; }
+.alert-title { display: block; font-size: 26rpx; color: #e65100; font-weight: bold; margin-bottom: 8rpx; }
+.alert-tip { display: block; font-size: 24rpx; color: var(--text-secondary); margin-bottom: 12rpx; }
+.alert-row { display: flex; align-items: center; justify-content: space-between; padding: 8rpx 0; }
+.alert-row-text { font-size: 24rpx; color: var(--text-primary); flex: 1; }
+.btn-mini { font-size: 24rpx; padding: 8rpx 20rpx; margin: 0; border-radius: 10rpx; border: none; background: var(--primary-gradient); color: #fff; line-height: 1.6; }
 /* 欠桶提醒（over>0）与暂存提醒（over<0）——两者都是合法状态，必须如实显示 */
 .info-row .warn { color: #d32f2f; font-size: 24rpx; }
 .info-row .tip { color: var(--text-secondary); font-size: 24rpx; }

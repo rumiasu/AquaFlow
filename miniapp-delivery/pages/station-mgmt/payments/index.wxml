@@ -1,5 +1,23 @@
 <view class="container">
-  <view class="hint">这里列出「钱已收到但系统还未确认」的款项：订单的现金/微信待收款，以及客户线上购买水票的待确认收款（微信支付渠道未接入，需人工核对到账后确认）。客户买水票不需要你同意，你只需在确实收到这笔钱后确认。</view>
+  <!--
+    [2026-09-27 走查 M01 修] 原文是「这里列出『钱已收到但系统还未确认』的款项」——
+    与列表的真实口径**相反**：本页取的是 `payment_record.status = 1`（待收款）的流水，
+    而待收款只说明"这单该收钱/客户发起了支付"，**不是到账证明**
+    （现金单在下单那一刻就落 PENDING，见 PaymentServiceImpl）。
+    原文让人读成"钱已经在我账上了，点一下确认就行"，站长会据此跳过对账。
+    现在按事实写：钱还没核实到账，确认动作才是"核对之后登记"。
+    文案口径与页面按钮（确认已到账）一致，不再自造一个没有证据的"已到账"状态。
+  -->
+  <view class="hint">这里列出「还没核实到账」的款项：订单的现金/微信待收款，以及客户线上购买水票的待确认收款（微信支付渠道未接入）。客户买水票不需要你同意，你只需在确实收到这笔钱之后再确认。</view>
+
+  <!--
+    [2026-09-27 走查 U01 同族修] 加载失败**常驻可见**（原来只有一句会消失的 toast，
+    toast 过后页面剩「暂无待确认收款」，与"真的没有待收款"无法区分 —— AGENTS §8.22）。
+  -->
+  <view class="load-error" wx:if="{{loadError}}">
+    <text>待确认收款没加载出来（{{loadError}}）—— 这不代表没有待收款。</text>
+    <text class="load-error-retry" bindtap="onRetryLoad">重新加载</text>
+  </view>
 
   <view class="record-card" wx:for="{{list}}" wx:key="id">
     <view class="card-header">
@@ -39,7 +57,7 @@
     </view>
   </view>
 
-  <view class="empty" wx:if="{{!loading && list.length === 0}}">
+  <view class="empty" wx:if="{{!loading && !loadError && list.length === 0}}">
     <text>暂无待确认收款</text>
   </view>
 </view>

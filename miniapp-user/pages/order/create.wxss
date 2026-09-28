@@ -411,9 +411,15 @@
   flex-shrink: 0;
 }
 
-/* ========== 备注输入 ========== */
+/* ========== 备注输入 ==========
+   [2026-09-27 走查 C04 修] 原来只有 `width: 100%` + 左右 `padding: 0 20rpx`，
+   而全局 `box-sizing: border-box` 只覆盖 `view,text,image`（app.wxss）—— **不含 `input`**。
+   默认 content-box 下 100% 宽 + 40rpx 内边距 ⇒ 输入框实际比卡片宽 40rpx，右侧溢出白卡（截图 11）。
+   ⚠️ 修法是**显式声明盒模型**，不是 `overflow: hidden` 掩盖：
+   掩盖会把右侧 40rpx 的输入区裁掉，客户打长备注时看不到光标位置。 */
 .note-input {
   width: 100%;
+  box-sizing: border-box;
   height: 88rpx;
   background-color: var(--bg-gray);
   border-radius: var(--radius-sm);
@@ -424,8 +430,7 @@
 }
 
 .note-input:focus {
-  border-color: var(--primary-color);
-}
+  border-color: var(--primary-color);}
 
 /* ========== 费用摘要（正文区块，2026-09-26 轨道 E 新增）==========
    §3：水费 / 新增桶押金 / 配送费 / 楼层费 / 合计 五项都在这一块里，
@@ -1376,6 +1381,26 @@
   font-size: 26rpx;
   color: var(--text-regular);
   line-height: 1.6;
+}
+
+/* [2026-09-27 走查 C03] 票不足提示下面的**下一步动作**：
+   走查原文是"主按钮没有说明下一步"—— 所以这里给两个可直接点的动作。
+   ⚠️ 它们与主按钮（立即下单）**视觉上必须不同**：主按钮是填充色，这两个是描边文字 ——
+   否则客户会把"去买水票"当成"下单并买票"。 */
+.warn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 14rpx;
+}
+.warn-action {
+  font-size: 24rpx;
+  line-height: 2.1;
+  padding: 0 22rpx;
+  margin: 0 14rpx 8rpx 0;
+  border: 1rpx solid var(--warning-color);
+  border-radius: 8rpx;
+  color: var(--warning-color);
+  background: transparent;
 }
 
 /* 水票抵扣（2026-09-19）：水票支付且整单能被票结清时，明细弹窗里各项之和 = 票抵扣 + 需付，

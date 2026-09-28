@@ -28,12 +28,54 @@ public interface BarrelService {
      * <p><b>状态机（DEF-7，不允许跳步）：</b>1 待处理 → 2 已确认收到空桶 → 3 已退押金，
      * 另可从 1 / 2 走到 4 驳回。直接从 1 跳 3 会被拒绝——否则会出现"桶没收到就把钱退了"。</p>
      *
-     * @param id          退桶记录ID
-     * @param status      2=确认收到空桶 3=已退押金 4=驳回
-     * @param handleNote  处理备注
-     * @param operatorId  站长ID
+     * <p><b>[2026-09-27 v66] 第 3 步的语义已收窄为「押金已核销<b>并且</b>已经交到顾客手上」</b>
+     * （产品裁定"不现场给钱的不要退"，正本 {@code docs/design/35} §7.2）：
+     * 核销与交付在<b>同一次点击</b>里完成，{@code refund_paid_time} 与 status=3 写在同一条 UPDATE 里。
+     * <b>不许</b>做成"先点退押金、钱以后再给"。{@code deposit_record} 的负数流水仍在这一步写
+     * （不挪到别处，否则对账等式 1 会在中间态不平）。</p>
+     *
+     * @param id            退桶记录ID
+     * @param status        2=确认收到空桶 3=退押金并当面交付 4=驳回
+     * @param handleNote    处理备注
+     * @param operatorId    操作人（<b>核销这笔账的人</b>，通常就是站长）
+     * @param refundChannel 退款通道（仅 status=3 有意义）：{@code CASH} / {@code ONLINE}；
+     *                      <b>不传 = CASH</b>（不默认 ONLINE，见 {@code docs/design/35} §7.3）。
+     *                      非法值一律拒；{@code ONLINE} 在微信退款通道未接入时<b>明确拒绝</b>，
+     *                      绝不假装已退（AGENTS §1.1）。
+     * @param refundPaidBy  把押金交到顾客手上的人（{@code staff.id}）；不传 = {@code operatorId}。
+     *                      必须属于本记录的水站 —— 核销的人与交钱的人可以是两个，
+     *                      但"交钱的人"不能是别站的员工。
      */
-    void handleBarrelReturn(Long id, Integer status, String handleNote, Long operatorId);
+    void handleBarrelReturn(Long id, Integer status, String handleNote, Long operatorId,
+                            String refundChannel, Long refundPaidBy);
+
+    /**
+     * 交付确认（{@code PUT /api/barrels/records/{id}/refund-paid}）：补登记"押金已交到顾客手上"。
+     *
+     * <p><b>幂等</b>：已登记过再调只回成功、<b>不改原交付时间</b>（CAS 条件含
+     * {@code refund_paid_time is null}）。它只补事实，<b>不动金额、不动状态</b>。</p>
+     *
+     * <p>用途：① 升级 v66 之前退过的历史单（那时系统没记过交付，属"历史欠账"）；
+     * ② 站长端把违规计数里的单逐笔补登记。正常流程下第 3 步已经写好了交付，无需再点。</p>
+     *
+     * @param stationId 调用者所在水站（跨站防线，必须与记录一致）
+     * @param paidBy    实际交钱的人；null = {@code operatorId}
+     * @return {@code true} = 本次写入；{@code false} = 之前已登记过（幂等命中，仍是成功）
+     * @throws com.example.aquaflow.exception.BusinessException 记录不存在 / 不属于该站 / 尚未核销(status≠3)
+     */
+    boolean confirmRefundPaid(Long id, Long stationId, Long operatorId, Long paidBy);
+
+    /**
+     * 站长端「已核销未交付」只读清单（违规数据，正本 {@code docs/design/35} §7.2）。
+     *
+     * <p>口径：{@code type=2 且 status=3 且 refund_paid_time IS NULL} ——
+     * 按拍板口径这<b>不允许出现</b>，它是一条<b>异常计数</b>，用来抓"没给钱就先核销"的站。
+     * （⚠️ 必须带 {@code type=2}：type=7/8 也把 status 写成 3，那是处理标记、不是"已退押金"。）</p>
+     *
+     * <p>返回键：{@code count}（笔数，权威值）/ {@code amount}（压着的押金合计）/
+     * {@code records}（明细，最多 {@code limit} 条）/ {@code truncated}（明细被截断时 true）。</p>
+     */
+    java.util.Map<String, Object> listRefundUndelivered(Long stationId, Integer limit);
 
     /**
      * 退桶试算（只读，不落库）：按押金条批次 FIFO 算出「退 N 个桶能拿回多少钱」。

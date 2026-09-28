@@ -44,15 +44,64 @@ public interface BarrelRecordMapper {
                         @Param("handleNote") String handleNote);
 
     /**
-     * 2 → 3 已退押金。
+     * 2 → 3 <b>退押金并当面交付</b>（两件事同一次点击，见 {@code docs/design/35} §7.2）。
      * <p>必须已经确认收桶（status=2）才能退钱，杜绝"桶没收到就先退钱"。
      * 同时把 {@code deposit_refund} 刷成<b>实际核销出来的金额</b>——
      * 申请单上那个数是客户申请时按当时批次算的估值，实际退款以核销为准。</p>
+     *
+     * <p>⚠️ <b>{@code refund_paid_time} / {@code refund_paid_by}（v66）必须与 status=3 在同一条
+     * UPDATE 里写</b>：产品口径是"不现场给钱的不要退"，`status=3` 而交付时间为 NULL
+     * 是<b>违规数据</b>。拆成两条语句（先置 3、再单独 markRefundPaid）会重新打开
+     * "先核销、钱以后再给"的中间态 —— 那正是本次要消灭的情形。</p>
+     *
+     * @param paidBy 把押金交到顾客手上的人（staff.id）；可以≠核销人
      */
     @Update("update barrel_record set status = 3, handle_note = #{handleNote}, " +
-            "deposit_refund = #{refund} where id = #{id} and status = 2")
+            "deposit_refund = #{refund}, refund_paid_time = now(), refund_paid_by = #{paidBy} " +
+            "where id = #{id} and status = 2")
     int finishRefund(@Param("id") Long id, @Param("handleNote") String handleNote,
-                     @Param("refund") java.math.BigDecimal refund);
+                     @Param("refund") java.math.BigDecimal refund, @Param("paidBy") Long paidBy);
+
+    /**
+     * 交付确认（v66）：只补"押金已交到顾客手上"这一事实，<b>不动金额、不动状态</b>。
+     *
+     * <p>CAS 三条件缺一不可：{@code status = 3}（没核销就谈不上交付）、
+     * {@code refund_paid_time is null}（已登记过就不覆盖 —— 幂等的实现点）、
+     * {@code station_id}（跨站防线第二道，与控制器那道重复是故意的）。</p>
+     *
+     * <p>受影响 0 行<b>必须</b>由调用方分辨原因（已登记 = 幂等成功；非 3 或非本站 = 拒绝），
+     * 不能一律当成功（AGENTS §8.20：拿不到行数就别返回 success）。</p>
+     *
+     * @return 受影响行数：1 = 本次写入；0 = 状态不符 / 已登记过 / 跨站
+     */
+    @Update("update barrel_record set refund_paid_time = now(), refund_paid_by = #{paidBy} " +
+            "where id = #{id} and station_id = #{stationId} and status = 3 and refund_paid_time is null")
+    int markRefundPaid(@Param("id") Long id, @Param("stationId") Long stationId,
+                       @Param("paidBy") Long paidBy);
+
+    // =========================================================================
+    // 「已核销未交付」= 违规数据的只读查询（v66 / docs/design/35 §7.2）
+    //
+    // ⚠️ 三条 SQL 都必须带 `type = 2`：type=7（纯还桶）与 type=8（配送收发）也把
+    //    status 写成 3，那是写入方留的处理标记、**不是**"已退押金"
+    //    （判据同 BarrelRecord.getStatusText 为什么只对 type=2 下发文案）。
+    //    漏了 type 条件会把正常流水全算成"没给钱就核销"，计数立刻失去意义。
+    // =========================================================================
+
+    /** 本站"已核销未交付"笔数（违规数据；历史存量单必然命中，那是事实不是错误）。 */
+    @Select("select count(*) from barrel_record where station_id = #{stationId} " +
+            "and type = 2 and status = 3 and refund_paid_time is null")
+    int countRefundUndelivered(@Param("stationId") Long stationId);
+
+    /** 见 {@link #countRefundUndelivered}：同口径的金额合计（站长要看到"压着多少钱"）。 */
+    @Select("select coalesce(sum(deposit_refund), 0) from barrel_record where station_id = #{stationId} " +
+            "and type = 2 and status = 3 and refund_paid_time is null")
+    java.math.BigDecimal sumRefundUndelivered(@Param("stationId") Long stationId);
+
+    /** 见 {@link #countRefundUndelivered}：违规明细（只读展示，供站长逐笔补登记交付）。 */
+    @Select("select * from barrel_record where station_id = #{stationId} " +
+            "and type = 2 and status = 3 and refund_paid_time is null order by id desc limit #{limit}")
+    List<BarrelRecord> listRefundUndelivered(@Param("stationId") Long stationId, @Param("limit") int limit);
 
     /** 1 或 2 → 4 驳回（已退押金的 3 不允许再驳回） */
     @Update("update barrel_record set status = 4, handle_note = #{handleNote} " +
@@ -68,6 +117,14 @@ public interface BarrelRecordMapper {
 
     @Select("select * from barrel_record where customer_id = #{customerId} and product_id = #{productId} and station_id = #{stationId} order by create_time desc")
     List<BarrelRecord> listByCustomerAndProduct(@Param("customerId") Long customerId, @Param("productId") Long productId, @Param("stationId") Long stationId);
+
+    /** 订单详情只汇总该订单、客户和桶权益归属站的配送凭据，避免跨单/跨站串数。 */
+    @Select("select delivered_qty as deliveredQty, returned_qty as returnedQty from barrel_record " +
+            "where related_order_id = #{orderId} and customer_id = #{customerId} and station_id = #{stationId} " +
+            "and type = 8 order by id")
+    List<BarrelRecord> listDeliveryByOrder(@Param("orderId") Long orderId,
+                                           @Param("customerId") Long customerId,
+                                           @Param("stationId") Long stationId);
 
     @Select("select * from barrel_record where station_id = #{stationId} order by create_time desc limit #{limit}")
     List<BarrelRecord> listByStationId(@Param("stationId") Long stationId, @Param("limit") int limit);

@@ -625,6 +625,21 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         // 混进去会让每天 03:00 的日结必然报不平、淹没真问题。
         staffEarningService.recordDeliveryEarnings(orderId);
 
+        // [2026-09-27] 订单一旦离开"可取消"状态（1 待配送 / 2 配送中），还挂着的**客户取消申请**
+        // 就再也没有出口了：`approveCancelRequest` 用的是同一道 `OrderStatus.isCancellable` 门槛，
+        // 必然拒掉它 —— 而申请行仍是 PENDING，于是它**永远留在站长的 P0「客户取消申请」待办里**
+        // （实测：order 27 就是这么挂了 7 天，站长点"同意"只会看到"订单已完成，不能再取消"）。
+        // 所以在这里如实收尾：**驳回**（不是 CANCELLED —— 撤回是发起方的动作，
+        // 这里发生的事实是"申请没能生效，水已经送出去了"）。
+        // ⚠️ 只用 resolvePendingByKind 碰 CUSTOMER 这一类：STAFF 转单 / 退回 / 站间指定退回
+        //    各有自己的决策点，一起清掉会让配送员的转单申请凭空消失。
+        int staleCancelRequests = orderTransferMapper.resolvePendingByKind(orderId,
+                OrderTransfer.KIND_CUSTOMER, OrderTransfer.STATUS_REJECTED, staffId);
+        if (staleCancelRequests > 0) {
+            log("CANCEL_REQUEST_AUTO_REJECTED", orderId,
+                    serviceMap("reason", "订单已完成配送，取消申请自动关闭"));
+        }
+
         if (params != null && params.containsKey("note")) {
             orderMapper.appendSpecialNote(orderId, "[配送备注] " + params.get("note"));
         }

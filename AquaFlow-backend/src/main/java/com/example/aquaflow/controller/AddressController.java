@@ -42,7 +42,11 @@ public class AddressController {
         // 检查客户是否在当前站长的站点有过订单
         Long myStationId = AuthContext.getStationId();
         if (myStationId != null) {
-            List<com.example.aquaflow.entity.Orders> orders = orderMapper.list(myStationId, customerId, null, null, null, null, null);
+            // ⚠️ 最后一个参数是「员工视野：只算已收到钱的单」，这里**必须传 false**：
+            //    本方法判的是**归属**（"这客户与本站有没有关系"），不是"要不要展示给他看"。
+            //    带上收付款过滤会漏判 —— 客户在本站只有一张还没付款的单时会被判成"他站客户"，
+            //    连自己那张单的地址都改不了。同 CustomerMapper.countCustomerOfStation 的并集判据。
+            List<com.example.aquaflow.entity.Orders> orders = orderMapper.list(myStationId, customerId, null, null, null, null, null, false);
             if (orders.isEmpty()) {
                 return Result.error("无权操作他站客户");
             }
@@ -115,7 +119,9 @@ public class AddressController {
             Customer c = customerMapper.getById(address.getCustomerId());
             if (c == null) return Result.error("客户不存在");
             Long myStationId = AuthContext.requireStationId();
-            List<com.example.aquaflow.entity.Orders> orders = orderMapper.list(myStationId, c.getId(), null, null, null, null, null);
+            // ⚠️ 同 checkCustomerStation：这里是**归属**判权，不是展示，最后一个参数必须 false
+            //    （带上"只算已付款单"会把只有未付款单的客户误判成他站客户）。
+            List<com.example.aquaflow.entity.Orders> orders = orderMapper.list(myStationId, c.getId(), null, null, null, null, null, false);
             if (orders.isEmpty()) {
                 return Result.error("无权查看他站客户地址");
             }

@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DashboardNoticeSearchFeedbackIntegrationTest extends AbstractIntegrationTest {
 
     @Test
-    @DisplayName("看板 5 个端点：站长拿到数字，顾客被拒，匿名 401")
+    @DisplayName("看板端点：站长拿到数字，顾客被拒，匿名 401")
     void dashboardEndpointsAreManagerOnly() {
         long station = createStation("看板站");
         long manager = createStaff("看板站长", "STATION_MANAGER", station, 1);
@@ -34,11 +34,12 @@ class DashboardNoticeSearchFeedbackIntegrationTest extends AbstractIntegrationTe
         String mgr = staffToken(manager, "STATION_MANAGER", station);
         String cus = customerToken(customer);
 
+        // [2026-09-27] 原 4 条路径里的 /api/dashboard/today 与 /overview **已删**（产品批准）：
+        // 两端小程序零真调用（前端包装函数 2026-09-19 就删了），且它们的 pendingOrders 只有
+        // "按状态数"、与待分配列表的付款闸门口径分叉。删除记录见 DashboardController 的墓碑注释。
+        // ⚠️ 那两条路径的 404 断言**不在这里** —— 它们和 /order-status、/order-trend 一样，
+        // 属"删掉即不存在"，无需断言（不像 ManagerOrderController 那条，是要防止被加回来）。
         String[] paths = {
-                "/api/dashboard/today",
-                "/api/dashboard/overview",
-                // [2026-09-18] order-status / order-trend 已按死端点评估删除（口径与 /report 分叉），
-                // 它们的 404 断言在 ManagerOrderControllerRemovedIntegrationTest 里。
                 "/api/dashboard/report?range=7d",
                 "/api/dashboard/report?range=30d"
         };
@@ -48,6 +49,75 @@ class DashboardNoticeSearchFeedbackIntegrationTest extends AbstractIntegrationTe
             Api denied = get(path, cus);
             assertNotEquals(0, denied.code(), path + " 顾客不该读站长看板: " + denied);
             assertEquals(401, get(path, null).status(), path + " 匿名应是真 401");
+        }
+    }
+
+    @Test
+    @DisplayName("已删的两个看板端点：路径不存在（防止被加回来）")
+    void removedDashboardEndpointsAreGone() {
+        long station = createStation("看板站2");
+        long manager = createStaff("看板站长2", "STATION_MANAGER", station, 1);
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+
+        // [2026-09-27 删除] GET /today 与 /overview。判据：路由不存在 ⇒ body.code=404。
+        // ⚠️ 断言看 **body 的 code**，不看 HTTP 状态 —— 本仓"路由不存在"走的是
+        // Result.error(404)，HTTP 仍是 200（唯一例外是未认证的真 401）。
+        for (String path : new String[]{"/api/dashboard/today", "/api/dashboard/overview"}) {
+            Api res = get(path, mgr);
+            assertEquals(404, res.code(), path + " 应已删除（路由不存在），实际=" + res);
+        }
+    }
+
+    @Test
+    @DisplayName("看板报表必须下发口径说明（否则站长会以为外派单算错了）")
+    void dashboardReportCarriesScopeNote() {
+        long station = createStation("口径站");
+        long manager = createStaff("口径站长", "STATION_MANAGER", station, 1);
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+
+        Api res = get("/api/dashboard/report?range=today", mgr);
+        assertEquals(0, res.code(), "看板报表应可读: " + res);
+
+        // [2026-09-27] 报表按**结算站**统计（营收归谁），订单列表按**归属站**；
+        // 站里一旦发生外派，两个数就不一样。没有这行说明，站长只能猜哪个是错的。
+        String note = res.data().path("scopeNote").asText(null);
+        assertNotNull(note, "报表必须下发 scopeNote —— 口径说明是这一页的一部分，不是可选项");
+        assertTrue(note.contains("营收归属"),
+                "说明要讲清'按营收归属统计'这一层，实际=" + note);
+        assertTrue(note.contains("外派"),
+                "说明要讲清外派单为什么不计入本站（那正是两个数不一样的唯一原因），实际=" + note);
+        // ⚠️ 这是**站长界面上的正文**：不许出现 markdown 的星号（会原样渲染），也不许出现开发词
+        assertTrue(!note.contains("*"), "画面文案不许带星号（会原样显示），实际=" + note);
+        for (String devWord : new String[]{"接口", "后端", "字段", "落库", "端点"}) {
+            assertTrue(!note.contains(devWord), "画面文案不许出现开发词「" + devWord + "」，实际=" + note);
+        }
+    }
+
+    @Test
+    @DisplayName("看板「订单已付款」必须下发口径说明（它不等于本站收到的钱）")
+    void dashboardReportCarriesPaidAmountNote() {
+        long station = createStation("已付款口径站");
+        long manager = createStaff("已付款口径站长", "STATION_MANAGER", station, 1);
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+
+        Api res = get("/api/dashboard/report?range=today", mgr);
+        assertEquals(0, res.code(), "看板报表应可读: " + res);
+
+        // [2026-09-27 产品裁定 1.b，正本 docs/design/32] 这一格原名叫「已收款」，
+        // 站长读它 = "本站收到了多少钱"，而算法是"已付款订单的金额合计"（payment_status = 2）。
+        // 两者在没有外派、也没有预售时数值相同 ⇒ 一直没被看出来；
+        // 实测反例：接单站显示 ¥168 而它名下**一条流水都没有**。
+        // 拍板选的是"保留算法、改名 + 在画面上写清口径"，所以名字的解释必须**真的下发**，
+        // 否则改名只是把误导从"读错名字"挪到"看不见名字旁边那句话"。
+        String note = res.data().path("paidAmountNote").asText(null);
+        assertNotNull(note, "报表必须下发 paidAmountNote —— 它替代的是原来的「已收款」这个名字");
+        assertTrue(note.contains("不等于"),
+                "说明必须点破「不等于本站收到的钱」，那正是原名的误导点，实际=" + note);
+        assertTrue(note.contains("外派") || note.contains("接单站"),
+                "说明要讲清外派单为什么不算本站收的钱，实际=" + note);
+        assertTrue(!note.contains("*"), "画面文案不许带星号（会原样显示），实际=" + note);
+        for (String devWord : new String[]{"接口", "后端", "字段", "落库", "端点"}) {
+            assertTrue(!note.contains(devWord), "画面文案不许出现开发词「" + devWord + "」，实际=" + note);
         }
     }
 

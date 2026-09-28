@@ -17,13 +17,50 @@
       <text class="hero-label">欠款客户{{overview.overdueCustomerCount > 0 ? '（' + overview.overdueCustomerCount + ' 家逾期）' : ''}}</text>
     </view>
   </view>
-  <view class="hint" wx:if="{{overview}}">{{overview.scopeNote}}</view>
+  <!--
+    [2026-09-27 走查 M05 修] 这一行原来是 `overview.scopeNote` —— 后端下发的口径说明
+    原文是「待收款 = 支付状态为待收款且未取消的订单合计；逾期 = 其中已过应付日期的部分」，
+    读起来像数据库注释（"支付状态为待收款"是列值口径，不是站长的话）。
+    现在两件事分开：
+      · 常显的一句用人话（"客户还没付的订单款"），只讲**这一页装的是什么**；
+      · 后端那句口径收进「?」（HelpTip 已在本端 app.json 全局注册），要较真的人点开看。
+    ⚠️ 后端仍在下发 scopeNote，本页不再直接铺在页面上 —— 口径的**数值**判据一个字没改。
+  -->
+  <view class="hint" wx:if="{{overview}}">
+    <text>这里只算客户还没付的订单款；逾期只是提醒，不额外加钱。</text>
+    <help-tip title="这一页的口径" text="{{overview.scopeNote}}" />
+  </view>
+  <view class="load-error" wx:if="{{loadError}}">
+    <text>待收账款没加载出来，不能据此判断已经结清。</text>
+    <text>{{loadError}}</text>
+    <view class="link" bindtap="onRetryLoad">重新加载</view>
+  </view>
+
+  <!--
+    [2026-09-27 走查 M05 修] **当前筛选必须看得见**：首页「逾期应收」入口带 `?overdue=1`
+    进来（coordination/index.js 的 TODO_ROUTES.overdueReceivable），落地就是逾期集合；
+    原来入口不带参数、页面也没有任何筛选提示，站长不知道自己看的是全部还是逾期。
+    两个按钮互斥、随时可切回全部 —— 报告明确要求"保留未逾期应收的查询能力"。
+  -->
+  <view class="filter-bar" wx:if="{{overview}}">
+    <view class="filter-item {{onlyOverdue ? '' : 'active'}}" bindtap="onFilterAll">
+      <text>全部待收</text>
+    </view>
+    <view class="filter-item {{onlyOverdue ? 'active' : ''}}" bindtap="onFilterOverdue">
+      <text>只看逾期</text>
+    </view>
+  </view>
 
   <!-- 客户列表 -->
   <block wx:if="{{!customer}}">
     <view class="empty" wx:if="{{loading}}">加载中…</view>
-    <view class="empty" wx:elif="{{!customers.length}}">本站当前没有待收款，账都清了。</view>
-    <view class="card" wx:for="{{customers}}" wx:key="customerId"
+    <!-- 空态分三种：逾期筛选下没结果 / 本站真的没有待收 / 列表为空。
+         [2026-09-27 走查 M05] 逾期视图的空态必须给出回「全部待收」的路，否则站长会以为本站账全清了。 -->
+    <view class="empty" wx:elif="{{!loadError && !customers.length && onlyOverdue}}">
+      当前没有逾期的欠款客户；点上面的「全部待收」可以看还没到期的那部分。
+    </view>
+    <view class="empty" wx:elif="{{!loadError && !customers.length}}">本站当前没有待收款。</view>
+    <view class="card" wx:for="{{loadError ? [] : customers}}" wx:key="customerId"
           bindtap="onPickCustomer" data-id="{{item.customerId}}">
       <view class="row-between">
         <text class="row-title">{{item.customerName}}</text>
@@ -60,11 +97,16 @@
     <view class="card">
       <view class="row-between">
         <text class="card-title">待收明细（{{orders.length}} 单）</text>
-        <text class="link" bindtap="onSelectAll">{{selectedCount > 0 ? '取消全选' : '全选'}}</text>
+        <text class="link" wx:if="{{!ordersError && !loadError}}" bindtap="onSelectAll">{{selectedCount > 0 ? '取消全选' : '全选'}}</text>
       </view>
       <view class="empty" wx:if="{{ordersLoading}}">加载中…</view>
+      <view class="load-error" wx:elif="{{ordersError}}">
+        <text>明细没加载出来，不能把它当作没有待收订单。</text>
+        <text>{{ordersError}}</text>
+        <view class="link" bindtap="onRetryOrders">重新加载明细</view>
+      </view>
       <view class="empty" wx:elif="{{!orders.length}}">没有待收订单。</view>
-      <view class="row" wx:for="{{orders}}" wx:key="orderId"
+      <view class="row" wx:for="{{ordersError || loadError ? [] : orders}}" wx:key="orderId"
             bindtap="onToggleOrder" data-id="{{item.orderId}}">
         <view class="check {{item.checked ? 'check-on' : ''}}"></view>
         <view class="row-main">
@@ -80,14 +122,19 @@
     </view>
 
     <view class="card">
-      <view class="btn-primary {{settling || !selectedCount ? 'btn-disabled' : ''}}" bindtap="onSettle">
-        {{settling ? '核销中…' : '核销所选（收款 + 销账）'}}
+      <view class="btn-primary {{settling || loadError || ordersError || !selectedCount ? 'btn-disabled' : ''}}" bindtap="onSettle">
+        {{settling ? '登记中…' : '登记已收款（收款 + 销账）'}}
       </view>
       <view class="hint">
-        <!-- [2026-09-24] 原文"服务端同一事务完成"是开发词。站长只需要知道
-             "要么全成、要么全不成"，这句话的判据不变。 -->
-        已选 {{selectedCount}} 单。核销会一次性记好收款并销账，要么全成功、要么全不动；
-        失败会告诉你卡在哪一单，不会出现"只销了一半"。
+        <!--
+          [2026-09-27 走查 M06 修] 按钮原文「核销所选（收款 + 销账）」：「核销」是账务术语
+          （POS/ERP 里的写法），站长要表达的动作是"这钱我收到了、给他销掉"。
+          按钮改说动作；解释里**保留"核销"这个词**并当场解释它是什么意思 ——
+          报告的原话是"收钱动作写『登记已收款』，解释里保留核销含义"。
+          ⚠️ 只改文案：请求体、幂等口径、整批回滚的语义一个字没动。
+        -->
+        已选 {{selectedCount}} 单。登记就是核销：一次性把"钱已收到"记好并销掉这几笔账，
+        要么全成功、要么全不动；失败会告诉你卡在哪一单，不会出现"只销了一半"。
       </view>
     </view>
   </block>

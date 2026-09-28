@@ -43,6 +43,18 @@
 .section-head .section-title { margin-bottom: 0; }
 .section-note { font-size: 22rpx; color: var(--text-secondary); }
 
+/*
+  口径说明（2026-09-27 加）：紧跟在指标卡下面，说清"这几个数按什么口径统计的"。
+  为什么单独一个类、不复用 .section-note：那个是标题行里的短标签（单行、右对齐），
+  这句是**正文**（可能折两行），行高与上边距都要另给，否则会贴着卡片、很难读。
+*/
+.scope-note {
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  line-height: 34rpx;
+  color: var(--text-secondary);
+}
+
 /* ===== 指标卡 ===== */
 .metric-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .metric-card {

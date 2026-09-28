@@ -14,8 +14,9 @@
   未设入口者（有意为之，共 5 项 —— 都是**从业务流程里的上下文入口进**，不是漏做）：
     ① 代客下单：页面 pages/station-mgmt/place-order 目前**零入口**（产品未拍板是否保留，本页不补）；
     ② 水票档位：从「水站设置 → 商品与库存」里的「更多档位设置 ›」进；
-    ③ 订单台账：从首页「待分配」列表底部进（本页「订单管理」进的是 tab 协调页）；
-    ④ 资产调整单**新建**：必须锚定客户（customerId 必填），故从「订单与客户 → 客户 → 客户画像」进
+    ③ 订单台账：本页「订单管理」直达（[2026-09-27 走查 M04] 修 —— 原先这一格指向首页协调页，
+       台账只能从待分配队列底部进；改动见下面那一行的注释）；
+    ④ 资产调整单**新建**：必须锚定客户（customerId 必填），故从「订单与客户 → 客户 → 客户详情」进
        —— 本页「资产调整单」进的是本站全部调整单台账（已生效的还能撤销）；
     ⑤ 水站资料**改**：本页「水站资料」已直达 station-info 页，可改名称/电话/地址/坐标。
 -->
@@ -25,10 +26,18 @@
   <view class="group">
     <view class="group-head"><text class="group-bar"></text><text class="group-title">订单与客户</text></view>
     <view class="entry-card">
-      <view class="entry-row" bindtap="onNavigate" data-url="/pages/coordination/index">
+      <!--
+        [2026-09-27 走查 M04 修] 这一行原指向 pages/coordination/index（首页 tab 协调页）——
+        而「订单管理」这个名字意味着**订单台账**，点进去却是刚才那个待分配队列，
+        台账只能从队列底部滚到最后才点得到（截图 05 / 06，报告 M04）。
+        现在直指台账页 pages/station-mgmt/orders/index（全部/待配送/配送中/已完成 四个页签）。
+        ⚠️ orders/index **不是** tabBar 页，走 onNavigate 的 navigateTo 分支（含页面栈去重），
+           不要把它加进 index.js 的 TAB_BAR_PAGES。
+      -->
+      <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/orders/index">
         <view class="entry-main">
           <text class="entry-title">订单管理</text>
-          <text class="entry-desc">待分配、审批、抢单池、外派</text>
+          <text class="entry-desc">查全部订单、按状态筛选</text>
         </view>
         <text class="entry-arrow">›</text>
       </view>
@@ -41,7 +50,7 @@
       <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/exceptions/index">
         <view class="entry-main">
           <text class="entry-title">异常订单</text>
-          <text class="entry-desc">桶异常单与处理留痕</text>
+          <text class="entry-desc">桶异常单与处理记录</text>
         </view>
         <text class="entry-arrow">›</text>
       </view>
@@ -82,7 +91,18 @@
       <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/receivables/index">
         <view class="entry-main">
           <text class="entry-title">应收账款</text>
-          <text class="entry-desc">待收款、账期、核销</text>
+          <!-- [2026-09-27 走查 M06] 原文「待收款、账期、核销」三个词里两个是行话：
+               站长要的动作是"登记收到钱了"。 -->
+          <text class="entry-desc">待收款、账期、登记已收款</text>
+        </view>
+        <text class="entry-arrow">›</text>
+      </view>
+      <!-- [2026-09-27 v67] 站间结算：跨站单的钱在归属站、营收算接单站，这一页回答
+           「谁欠我、我欠谁、什么时候算办完」。放在「收款与工资」组里 —— 站长找它的心态是找钱。 -->
+      <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/inter-station/index">
+        <view class="entry-main">
+          <text class="entry-title">站间结算</text>
+          <text class="entry-desc">别站欠本站、本站欠别站、登记结清</text>
         </view>
         <text class="entry-arrow">›</text>
       </view>
@@ -162,7 +182,9 @@
       <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/staff/index">
         <view class="entry-main">
           <text class="entry-title">员工</text>
-          <text class="entry-desc">员工、画像、绑定申请</text>
+          <!-- [2026-09-27 走查 M06] 「画像」→「详情」（按钮与空态同步改了，见 staff/index 与
+               staff/profile 两处）。 -->
+          <text class="entry-desc">员工、详情、绑定申请</text>
         </view>
         <text class="entry-arrow">›</text>
       </view>

@@ -120,6 +120,28 @@ public class BarrelRecord {
      */
     private Long adjustmentId;
 
+    /**
+     * 押金<b>实际交付</b>给顾客的时间（v66）。
+     *
+     * <p>与 {@code handleTime}（审批时间）是两件事：审批刻的是"账核销了"，
+     * 本字段刻的是"钱到顾客手上了"。{@code status=3} 而本字段为 NULL = <b>违规数据</b>
+     * （先核销未交付），站长端只读计数会把它筛出来（见 {@code listRefundUndelivered}）。</p>
+     *
+     * <p>⚠️ 从 v66 起 {@code doRefund} 在置 status=3 的<b>同一条 SQL</b> 里写本字段 ——
+     * 即"核销"与"交付"是同一次点击，不存在"先点退押金、钱以后再给"的中间态
+     * （产品裁定见 {@code docs/design/35-退押金实际交付-决策件.md} §7.2）。</p>
+     */
+    private LocalDateTime refundPaidTime;
+
+    /**
+     * 把押金交到顾客手上的人（{@code staff.id}，v66）。
+     *
+     * <p>⚠️ <b>不是</b> {@link #operatorId}（核销这笔账的人）：两者可以是两个 ——
+     * 站长在店里核销、配送员下次上门时把现金交给顾客。复用 {@code operatorId}
+     * 会让"谁核销的"与"谁交的钱"再也分不开（同 §8.16「两个概念共用一个量」的形状）。</p>
+     */
+    private Long refundPaidBy;
+
     /** 客户当前欠桶数（瞬时字段，不映射数据库，仅用于站长审批页提醒） */
     private transient Integer owedBuckets;
 }

@@ -55,16 +55,19 @@ class ManagerPendingSummaryIntegrationTest extends AbstractIntegrationTest {
             assertNotNull(it.path("label").asText(), "label 必须由后端下发，前端不自带映射表");
         }
 
-        // —— 分级目录必须一条不少（15 条），且 P0 的 6 条按产品裁定归位 ——
-        assertEquals(15, empty.data().path("items").size(),
-                "待办条目目录有 15 条，少了下发说明 PendingItem 被改过而端点没跟上");
+        // —— 分级目录必须一条不少（16 条），且每一级的关键条目按产品裁定归位 ——
+        // [2026-09-28] 15 → 16：新增 `interStationUnsettled`（站间未结清，v67）。
+        // 这条断言的作用就是**逼着改 PendingItem 的人同时改端点**（漏了 case 会少一条、这里立刻红），
+        // 所以数字必须跟着改 —— 但别改成 `>= 15` 那种写法，那等于把这道闸门拆了。
+        assertEquals(16, empty.data().path("items").size(),
+                "待办条目目录有 16 条，少了下发说明 PendingItem 被改过而端点没跟上");
         for (String key : new String[]{"pendingAssign", "pendingTransfer", "customerCancel",
                 "stationCancel", "directedIncoming", "barrelReturn"}) {
             assertEquals("P0", itemOf(empty, key).path("level").asText(),
                     key + " 应归 P0（不处理就卡住今天的配送）");
         }
         for (String key : new String[]{"pendingPayment", "overdueReceivable", "staffBinding",
-                "enterpriseApply", "draftPayroll"}) {
+                "enterpriseApply", "draftPayroll", "interStationUnsettled"}) {
             assertEquals("P1", itemOf(empty, key).path("level").asText(),
                     key + " 应归 P1（影响钱或他人，但客户不会干等）");
         }

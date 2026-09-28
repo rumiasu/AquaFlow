@@ -188,9 +188,20 @@
     </view>
 
     <!-- 水票不足提示（后端下发结论，前端只展示）。
-         它必须说清"不支持票 + 现金/微信混合支付、票不会被扣"，否则客户会以为可以补差价。 -->
+         它必须说清"不支持票 + 现金/微信混合支付、票不会被扣"，否则客户会以为可以补差价。
+         [2026-09-27 走查 C03] 结论下面再加**下一步的两个动作**，而不是只留一句结论：
+           ① 「去买水票」——只在 `reason === 'INSUFFICIENT'`（余额不够）时出现；
+              **商品根本不能用票时补票没用**，把人引去买票是错的（走查原文的硬要求）。
+           ② 「改用 X 支付」——只**切换页面上的选择**并重走一次报价，**绝不自动提交**
+              （走查验收原文：「不得自动改变支付方式并提交」）。
+         两个动作的可用性与文案都出自后端下发的数据（`ticketPay.reason` / `methods[].name`），
+         前端既不自判也不自造标签。 -->
     <view class="fee-warn" wx:if="{{isTicketPay && ticketShortfallHint}}">
       <text class="fee-warn-text">{{ticketShortfallHint}}</text>
+      <view class="warn-actions">
+        <view class="warn-action" wx:if="{{ticketAltMethod}}" bindtap="onSwitchPayMethod" data-id="{{ticketAltMethod}}">{{ticketAltLabel}}</view>
+        <view class="warn-action" wx:if="{{ticketCanBuy}}" bindtap="onGoBuyTicket">去买水票</view>
+      </view>
     </view>
 
     <!-- ══ ⑤ 备注（可选）：§3 里它排在费用摘要之后、底部主动作之前 ══ -->
@@ -248,6 +259,12 @@
     <view class="popup-content">
       <view class="popup-title">确认货到付款</view>
       <text class="popup-desc">配送员送达后现金/扫码支付，确认下单后将锁定订单</text>
+      <!-- 押金走线下的风险与责任（2026-09-27 产品裁定，正本 docs/design/34）：
+           产品原话「线下的提示风险，系统无法检测，产生纠纷时自负」。
+           文案由**服务端下发**（报价的 depositOfflineRiskNote），这里只判"这次要不要收押金" ——
+           属口径的话术只有服务端一份，前端自造同义句就会与它分叉。
+           ⚠️ 有押金才说：没有押金的货到付款单不该背一句"押金风险"。 -->
+      <text class="popup-desc" wx:if="{{assetNotice.offlineRiskNote}}">{{assetNotice.offlineRiskNote}}</text>
       <view class="popup-btns">
         <button class="btn-cancel" bindtap="onOfflineConfirmCancel">取消</button>
         <button class="btn-ok" bindtap="onOfflineConfirmOk">确认</button>
@@ -308,6 +325,12 @@
              ⚠️ 只谈**桶押金**，不写成"押金都能退"这种笼统承诺 —— 退还条件是把空桶还回水站。 -->
         <text class="popup-desc" wx:if="{{assetNotice.buckets > 0}}">水桶需付押金，归还空桶后押金退还给你。</text>
         <text class="popup-desc" wx:else>本次无需再付水桶押金。</text>
+        <!-- 押金收款方式的建议（2026-09-27 产品裁定，正本 docs/design/34）：
+             产品原话「建议第一单押金单走线上吧，弹个建议」——**是建议不是硬拦**，
+             所以这里只说一句，支付方式选项一个都不动（客户仍可选现金）。
+             文案由**服务端下发**（报价的 depositOnlineAdvice）：线上渠道当前不可用时服务端
+             **不下发它**（建议一条走不通的路比不建议更糟），所以这里只判有没有值。 -->
+        <text class="popup-desc" wx:if="{{assetNotice.onlineAdvice}}">{{assetNotice.onlineAdvice}}</text>
         <text class="popup-desc">你的水桶、水票和押金都记在这个水站名下，其他水站无法使用。</text>
 
         <!-- 详细条款：按需展开（默认收起）—— 要读的人点得开，不读的人不被一屏规则挡住。

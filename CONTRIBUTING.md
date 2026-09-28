@@ -126,6 +126,18 @@ cd AquaFlow-backend
 bash scripts/verify.sh
 ```
 
+⚠️ **Windows 上 bash 可能起不来**（Cygwin 建不了 signal pipe，报 `couldn't create signal pipe, Win32 error 5`）——
+那时用**等价实现**，它跑的是同一批门禁 + 几条额外的（列出跳过项，不会假装通过）：
+
+```powershell
+node scripts/verify-local.js
+```
+
+> 两个入口的**门禁清单由机器盯着**：`node scripts/check-gate-parity.js` 会解析
+> `ci.yml` / `verify.sh` / `verify-local.js` 三处、逐道门禁比对，
+> **新加门禁只接进其中一处就会红**（有意的不对称必须带理由登记在脚本里）。
+> 所以：**加了门禁就三处一起接**，别只接你手上那一个。
+
 ---
 
 ## 6. 提交规范

@@ -110,6 +110,39 @@ public class DashboardServiceImpl implements DashboardService {
         summary.put("cancelRate", rate(num(cur.get("cancelledOrders")), num(cur.get("orderCount"))));
         result.put("summary", summary);
 
+        /*
+         * 口径说明（下发给站长界面原样展示）。
+         *
+         * 为什么必须有：看板上的「订单数 / 营业额」按**结算站**统计（营收归谁，见
+         * {@code DashboardMapper.RANGE} 的 coalesce），而订单列表按**归属站**（单挂在谁名下）。
+         * 站里一旦发生外派，两个数就不一样 —— **两个口径各自都对**，但页面上一句说明都没有，
+         * 站长只能猜其中一个错了。2026-09-27 实测：站1 当天报表 80 单、订单列表 92 单，
+         * 差的 12 张正是外派给站2 的单（结算站=2）。
+         *
+         * ⚠️ 这是**画面上的那一行**：只留"最容易被误读的那一句"，不要写成财务口径教材；
+         * 也不要写 markdown 的星号（会原样渲染）。同 ManagerGrossProfitController 的两条提示。
+         */
+        result.put("scopeNote",
+                "这里按营收归属统计：外派给别站配送的单，钱算接单站的，不计入本站。"
+                        + "所以单数可能和订单列表不一样 —— 那边显示的是挂在本站名下的单。");
+
+        /*
+         * 「订单已付款」这一格的口径说明（2026-09-27 产品裁定 1.b，正本 docs/design/32）。
+         *
+         * 为什么改的不是算法而是名字：`paidAmount` 的实现
+         * （`sum(case when payment_status = 2 then total_amount else 0 end)`，见 DashboardMapper 类注释）
+         * **与设计口径逐字一致**，是"已付款订单的金额合计"。错的是界面上的中文名「已收款」——
+         * 站长读它 = "本站收到了多少钱"，而两者在**没有外派、也没有预售**时数值相同，
+         * 所以一直没被看出来；一旦发生外派（接单站虚增 ¥168 而它一条流水都没有）或有在线购票
+         * （¥960 完全看不到）就会分叉。改算法会牵出退款口径与预售口径两问（docs/design/32 §4.3/4.4），
+         * 故按 §5 的方案 B：**保留算法、改名、把口径写在画面上**。
+         *
+         * ⚠️ 同 scopeNote：只留"最容易被误读的那一句"，不写财务教材，也不写 markdown 星号（会原样渲染）。
+         */
+        result.put("paidAmountNote",
+                "「订单已付款」= 已付款订单的金额合计，不等于本站收到的现金："
+                        + "外派出去的单算接单站的，客户先买票、还没兑水的钱也不在内。");
+
         // 环比对比表：key -> {current, previous, deltaText, deltaDir}
         Map<String, Map<String, Object>> compare = new LinkedHashMap<>();
         compare.put("orderCount", deltaCount(num(cur.get("orderCount")), num(prev.get("orderCount")), "单", false));

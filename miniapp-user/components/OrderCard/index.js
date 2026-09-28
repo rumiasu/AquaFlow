@@ -53,12 +53,12 @@ Component({
     onCancel() {
       wx.showModal({
         title: '取消订单',
-        content: '确定取消此订单吗？取消后将自动退款。',
+        content: '确定取消此订单吗？取消成功不代表退款已到账。水票会按原路径退回；现金或微信款项请与水站确认退款进度。',
         success: (res) => {
           if (res.confirm) {
             const { cancelOrder } = require('../../api/order')
             cancelOrder(this.data.order.id).then(() => {
-              wx.showToast({ title: '已取消', icon: 'success' })
+              wx.showToast({ title: this.data.order.status === 2 ? '取消申请已提交' : '订单已取消', icon: 'success' })
               this.triggerEvent('cancel', { order: this.data.order })
             }).catch(err => {
               wx.showToast({ title: err.message || '取消失败', icon: 'none' })

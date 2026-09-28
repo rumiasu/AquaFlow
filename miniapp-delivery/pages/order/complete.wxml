@@ -1,12 +1,29 @@
 <view class="container">
   <!-- 隐私授权弹窗：本页用 wx.chooseImage 选送达/回桶照片，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
   <privacy-popup />
-  <!-- 成功提示 -->
-  <view class="success-header">
-    <view class="success-icon">✓</view>
-    <text class="success-title">完成配送</text>
-    <text class="success-subtitle">{{successSubtitle}}</text>
+  <!--
+    [2026-09-27 走查 D03 修] 页头**只在服务端确认成功之后**才画大绿勾 +「完成配送」。
+    原来这两个元素是一进页面就渲染的静态占位：还没提交，页面已经在说"完成配送"了，
+    提交失败的红色弹窗与大绿勾同时出现在一屏上（判据见 resultState 的注释）。
+    提交前说的是动作与后果；提交中/失败/结果未知各有自己的文案，都不带绿勾。
+  -->
+  <view class="head-card">
+    <block wx:if="{{resultState === 'success'}}">
+      <view class="success-icon">✓</view>
+      <text class="success-title">完成配送</text>
+      <text class="success-subtitle">{{successSubtitle}}</text>
+    </block>
+    <block wx:else>
+      <text class="head-title">{{resultState === 'submitting' ? '正在提交…' : '确认送达'}}</text>
+      <text class="head-subtitle" wx:if="{{resultState !== 'submitting'}}">核对本单送达的商品、收回的空桶与收款情况，确认后订单立即结算为已完成</text>
+      <text class="head-subtitle" wx:else>请稍等，别重复点击</text>
+    </block>
   </view>
+  <!--
+    结果未知（网络断开/超时，提交可能已经生效）：必须常驻可见 —— 只弹一次窗，
+    下一次进来看页面与"什么都没发生"一样，人会直接再点一次提交。
+  -->
+  <view class="load-error" wx:if="{{resultState === 'unknown' && unknownHint}}">{{unknownHint}}</view>
 
   <!--
     [2026-09-26] 本页按 §4 收敛成**三段**（仍是一页）：本次送货 / 实际收回空桶 / 本次收款。
@@ -29,6 +46,17 @@
       <text class="cust-tag" wx:if="{{orderInfo.payMethodText}}">{{orderInfo.payMethodText}}</text>
     </view>
     <!--
+      [2026-09-27 走查 D02 修] **送货清单**（原来这里只有客户与金额，商品名只出现在下面的回桶行里，
+      而回桶行只对桶装水画、首单整块不画 ⇒ 新押金单 / 纯瓶装水单上看不到任何商品）。
+      ⚠️ 它读的是 deliveryItems（= 整单 order.items 全量），**不是** items（只含要回桶的桶装水行）。
+      ⚠️ 它不参与提交：该回几桶仍取后端 suggestedReturnQty，别拿这里的"送出数量"当默认回桶数。
+    -->
+    <view class="goods-row" wx:for="{{deliveryItems}}" wx:key="id">
+      <text class="goods-name">{{item.name}}</text>
+      <text class="goods-qty" wx:if="{{item.qtyText}}">{{item.qtyText}}</text>
+    </view>
+    <view class="goods-empty" wx:if="{{deliveryItems.length === 0}}">这单没有商品明细</view>
+    <!--
       电话与地址：客户不一定在门口等着，能一键拨、一键复制比"把号码摆在那儿让你背"有用。
       `contactPhone` 取 receiverPhone（订单快照）优先 —— 跨站履约单**刻意不下发** customerPhone
       （画像归归属站，见 util/CustomerProfileMask），快照里的收件人电话照常可用。
@@ -45,14 +73,32 @@
     </view>
   </view>
 
+  <!--
+    [2026-09-27 走查 D01 修] 钱卡：**先给结论，再给数字**。
+    · 本次要收钱（后端 needCollect）→ 红字大字 = 要上门收的金额（唯一需要行动的那种）；
+    · 已付款 / 不归本次收 → 主结论一句话（"已付款"等，全部由后端 payStateText/payHint 下发），
+      总额降级成小字 —— 原来无论哪种都用 56rpx 红字，看着像"还要收这么多钱"。
+    ⚠️ 别为了好看把 needCollect 或 paymentStatus 改掉，也别默认勾成已收（契约 C1）。
+  -->
   <view class="money-card" wx:if="{{orderInfo}}">
-    <view class="money-line">
-      <text class="money-label">{{needCollect ? '本单尚应收' : '本单金额'}}</text>
+    <view class="money-line" wx:if="{{moneyMode === 'collect'}}">
+      <text class="money-label">本单尚应收</text>
       <text class="money-amount">¥{{orderInfo.totalAmount}}</text>
     </view>
+    <block wx:else>
+      <view class="money-head">
+        <text class="money-headline {{moneyMode === 'paid' ? 'money-headline-paid' : 'money-headline-wait'}}">{{moneyHeadline}}</text>
+        <text class="money-amount-muted" wx:if="{{moneyMode === 'paid'}}">本单总额 ¥{{orderInfo.totalAmount}}</text>
+      </view>
+      <!-- 不归本次收的钱（水票/微信未付、已退款…）：总额照实列，但**降级**，不冒充要收的款 -->
+      <view class="money-line money-line-muted" wx:if="{{moneyMode !== 'paid'}}">
+        <text class="money-label">本单总额</text>
+        <text class="money-amount-muted">¥{{orderInfo.totalAmount}}</text>
+      </view>
+      <text class="money-meta-item" wx:if="{{moneySub}}">{{moneySub}}</text>
+    </block>
     <view class="money-meta">
       <text class="money-meta-item" wx:if="{{orderInfo.depositAmount > 0}}">含押金 ¥{{orderInfo.depositAmount}}（可退）</text>
-      <text class="money-meta-item">{{orderInfo.payStateText || ''}} {{orderInfo.payHint || ''}}</text>
     </view>
     <!-- 备货：**备齐了不占位置**（正常单不该多一行字），没备齐时才说清还差什么 + 给站长一个补货入口 -->
     <view class="money-prep" wx:if="{{stockPrep && stockPrep.ready !== true}}">
@@ -262,7 +308,14 @@
     免得最后一块被它压住。
   -->
   <view class="footer">
-    <button class="btn-confirm" bindtap="onConfirmComplete">确认完成配送</button>
+    <!--
+      [2026-09-27 走查 D03 修] 按钮文字反映**当前状态**：提交前是动作（「确认送达」），
+      提交中不能让人再点，结果未知时明确说"要不要重试先看列表"。
+      服务端确认成功后按钮所在页会跳走（见 complete.js 的 setTimeout 跳转）。
+    -->
+    <button class="btn-confirm {{submittingComplete ? 'btn-confirm-busy' : ''}}" bindtap="onConfirmComplete" disabled="{{submittingComplete}}">
+      {{resultState === 'submitting' ? '提交中…' : (resultState === 'success' ? '已完成' : (resultState === 'unknown' ? '再提交一次（先确认列表）' : '确认送达'))}}
+    </button>
   </view>
 
   <!-- 异常原因选择弹窗 -->

@@ -169,10 +169,8 @@ public interface CustomerMapper {
 
     // [清理 2026-09-12] 删除 countAll()：全平台客户总数，零调用，且一旦被新页面顺手调用即跨站泄露。
 
-    @Select("select count(distinct c.id) from customer c " +
-            "join orders o on c.id = o.customer_id " +
-            "where o.station_id = #{stationId}")
-    int countByStationId(@Param("stationId") Long stationId);
+    // [清理 2026-09-27] 删除 countByStationId()：只服务于已删的 GET /api/dashboard/overview，
+    // 端点一去即零调用（核实见 DashboardController 里那段删除记录）。
 
     // ==================== 客户画像聚合 ====================
     //

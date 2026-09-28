@@ -8,7 +8,13 @@
     </view>
     <view class="info-row">
       <text class="info-label">所属水站</text>
-      <text class="info-value">{{stationName}}</text>
+      <!--
+        [2026-09-27 走查 D06 修] 原来缺站名一律渲染「未分配」，与「我的」页的「已绑定」自相矛盾
+        （走查截图 02 / 03），配送员会以为自己没绑上。现在由 js 分成三种事实：
+        有名字 / 已绑定但名称暂未加载（可重试）/ 确实未绑定或审核中。
+      -->
+      <text class="info-value">{{stationStateText}}</text>
+      <text class="info-retry" wx:if="{{stationNameRetry}}" bindtap="onRetryStationName">{{stationNameLoading ? '加载中…' : '重试'}}</text>
     </view>
   </view>
 
@@ -17,8 +23,13 @@
     ⚠️ 这是**应用内**提醒：小程序在前台无法真推送，红点只在"打开小程序时"刷新。
        微信订阅消息（能做到"没打开也能收到"）需要每次向用户确认授权，产品裁定暂不做 ——
        所以副标题要如实写清"打开小程序时"，别让站长以为关掉它就收不到任何东西了。
+    ⚠️ [2026-09-27 走查 D07 修] 整块**只对站长**渲染：
+       `/api/manager/pending-summary` 带 @RequireRole("STATION_MANAGER")，配送员打开这个开关
+       不会有任何红点（请求只会拿到权限错误）；而原副标题写的「首页标签亮红点」对配送员更是
+       指向一个**不存在的页签** —— 配送员的底栏只有「配送 / 我的」（首页只对站长显示）。
+       配送员那一支改成一句事实说明：不提供无作用的开关。
   -->
-  <view class="section">
+  <view class="section" wx:if="{{isManager}}">
     <text class="section-title">通知设置</text>
     <view class="setting-row">
       <view class="setting-text">
@@ -26,6 +37,15 @@
         <text class="setting-sub">有别人递来的申请时，首页标签亮红点（打开小程序时刷新）</text>
       </view>
       <switch checked="{{reminderEnabled}}" bindchange="onToggleReminder" color="#2E4A68" />
+    </view>
+  </view>
+  <view class="section" wx:else>
+    <text class="section-title">通知设置</text>
+    <view class="setting-row">
+      <view class="setting-text">
+        <text class="setting-label">待办提醒</text>
+        <text class="setting-sub">待办提醒只对站长开放：配送端没有「首页」页签，这条提醒在配送员身份下不起作用</text>
+      </view>
     </view>
   </view>
 

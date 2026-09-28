@@ -99,7 +99,13 @@ Page({
     r.metricCards = [
       mk('orderCount', '订单数', String(Number(s.orderCount) || 0)),
       mk('grossAmount', '营业额', '¥' + r.grossAmountText),
-      mk('paidAmount', '已收款', '¥' + r.paidAmountText),
+      // [2026-09-27 产品裁定 1.b，正本 docs/design/32] 标签原为「已收款」——
+      // 站长读它 = "本站收到了多少钱"，而这格的算法是"**已付款订单**的金额合计"
+      // （payment_status = 2），两者在没有外派、也没有预售时数值相同，所以一直没被看出来。
+      // 改的是名字不是算法；口径说明由服务端下发（report.paidAmountNote），前端不自造这句话。
+      // 标签取 5 个字是**版式限制**（指标卡那一格只有那么大，22rpx 字号），
+      // 完整口径在下面那行说明里 —— 两处合起来读才不会误解。
+      mk('paidAmount', '订单已付款', '¥' + r.paidAmountText),
       mk('newCustomers', '新客户', String(Number(s.newCustomers) || 0)),
       mk('cancelledOrders', '取消单', String(Number(s.cancelledOrders) || 0)),
       mk('barrelsIn', '新增桶', String(Number(s.barrelsIn) || 0))

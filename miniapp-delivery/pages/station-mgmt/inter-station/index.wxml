@@ -1,0 +1,81 @@
+<!--
+  站长端「站间结算」台账（v67 / docs/design/31 §8）。
+
+  ⚠️ 页面里**不做任何计算与口径判断**：
+    · 金额、方向（谁欠谁）、计价口径、状态、能不能结清/改价，全部用后端下发的字段；
+    · 展示用的串（`_amountText` / `_ruleText` / `_routeText` / `_settledText`）在 index.js 里算好；
+    · 口径说明那一行（scopeNote）也是服务端下发的整句，前端不自造同义句
+      （同 statusText / payMethodText 的既定判据：文案属口径、不属呈现）。
+-->
+<view class="page">
+
+  <!-- 三个数：别人欠本站 / 本站欠别人 / 净额 -->
+  <view class="sum-grid">
+    <view class="sum-card">
+      <text class="sum-value receive">¥{{summary.receivableText}}</text>
+      <text class="sum-label">别人欠本站</text>
+    </view>
+    <view class="sum-card">
+      <text class="sum-value pay">¥{{summary.payableText}}</text>
+      <text class="sum-label">本站欠别人</text>
+    </view>
+    <view class="sum-card">
+      <text class="sum-value">{{summary.netPositive ? '+' : '-'}}¥{{summary.netText}}</text>
+      <text class="sum-label">{{summary.netLabel}}</text>
+    </view>
+  </view>
+
+  <view class="scope-note" wx:if="{{scopeNote}}">{{scopeNote}}</view>
+
+  <!-- 需要冲销的那一批：已登记结清、但订单后来被取消/退款。
+       ⚠️ 它们**不在正常列表里**（那批单已经不算数了），所以必须单独一块 ——
+       不显示的话，站长结过的那笔会凭空消失，"冲销"也就无从下手。 -->
+  <view class="section" wx:if="{{dangling.length > 0}}">
+    <view class="section-title">需要冲销（{{dangling.length}} 笔）</view>
+    <view class="hint">这些单已经取消或退款，当时登记的站间应付不再成立。若钱已经真的付给对方了，请先协商。</view>
+    <view class="card" wx:for="{{dangling}}" wx:key="_key">
+      <view class="row">
+        <text class="row-main">{{item._routeText}}</text>
+        <text class="row-amount">¥{{item._amountText}}</text>
+      </view>
+      <view class="row-sub">
+        <text class="tag">{{item.directionText}}</text>
+        <text class="tag">{{item._ruleText}}</text>
+      </view>
+      <view class="row-sub" wx:if="{{item._settledText}}"><text class="sub-text">{{item._settledText}}</text></view>
+      <view class="actions">
+        <button class="btn-outline-small" catchtap="onReverse" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">冲销</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 正常台账 -->
+  <view class="section">
+    <view class="section-title">跨站单明细</view>
+    <view class="hint" wx:if="{{loaded && items.length === 0}}">
+      目前没有需要结算的跨站单。客户在别站下单、由本站配送的单会出现在这里。
+    </view>
+    <view class="hint" wx:elif="{{loading && !loaded}}">正在加载…</view>
+
+    <view class="card" wx:for="{{items}}" wx:key="_key">
+      <view class="row">
+        <text class="row-main">订单 #{{item.orderId}}</text>
+        <text class="row-amount">¥{{item._amountText}}</text>
+      </view>
+      <view class="row-sub">
+        <text class="tag">{{item.directionText}}</text>
+        <text class="tag">{{item.statusText}}</text>
+        <text class="tag" wx:if="{{item._payMethodText}}">{{item._payMethodText}}</text>
+      </view>
+      <view class="row-sub"><text class="sub-text">{{item._routeText}}</text></view>
+      <view class="row-sub"><text class="sub-text">{{item._ruleText}}</text></view>
+      <view class="row-sub" wx:if="{{item._settledText}}"><text class="sub-text">{{item._settledText}}</text></view>
+      <view class="actions">
+        <button class="btn-outline-small" catchtap="onOpenOrder" data-id="{{item.orderId}}">看订单</button>
+        <button class="btn-outline-small" wx:if="{{item.canChangePrice}}" catchtap="onPriceByListed" data-id="{{item.orderId}}">按挂牌价结</button>
+        <button class="btn-ok-small" wx:if="{{item.canSettle}}" catchtap="onSettle" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">登记结清</button>
+      </view>
+    </view>
+  </view>
+
+</view>

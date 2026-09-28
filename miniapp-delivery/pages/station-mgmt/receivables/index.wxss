@@ -160,6 +160,30 @@
   margin-top: 12rpx;
 }
 
+/* ========== 当前筛选（[2026-09-27 走查 M05]） ==========
+   首页「逾期应收」入口带 ?overdue=1 进来 ⇒ 落地就是逾期视图，这里必须让人**看得见**
+   自己正在看哪个集合，并且一键切回全部（报告要求保留未逾期应收的查询能力）。
+   样式与站内其他页签条同族：选中项用主色底。 */
+.filter-bar {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+.filter-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border-radius: 12rpx;
+  background: #F2F4F7;
+  color: #666;
+  font-size: 26rpx;
+}
+.filter-item.active {
+  background: var(--primary-color, #2E4A68);
+  color: #fff;
+  font-weight: 600;
+}
+
 /* ========== 验资块（v60，账期弹窗内） ==========
    数字与那句话**全部来自服务端**（GET /customers/{id}/risk），这里只负责排版与配色。
    只染"预警/冻结"为红、"关注"为黄 —— 与后端 CustomerRiskService 的两档口径一致：

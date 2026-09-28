@@ -149,6 +149,13 @@ const cancelDispatch = (id) => {
   return post(`${API.DELIVERY_ORDERS}/${id}/cancel-dispatch`)
 }
 
+// [2026-09-27 产品裁定 docs/design/31 §8.2/§8.3] 把本单的**站间计价**改成「按挂牌价」。
+// 只有**卖票站**（本单归属站）调得动 —— 差价由它自己承担，所以改价权只该在它手上（后端判权）。
+// {orderId} 在路径中间，走 config/api.js 的构造函数（路径只有那一处定义）。
+const priceByListed = (orderId) => {
+  return post(API.MANAGER_INTER_STATION_PRICE_LISTED(orderId))
+}
+
 // 指定水站外派：目标水站将订单调解退回原归属站
 const directedReturn = (id) => {
   return post(`${API.DELIVERY_ORDERS}/${id}/directed-return`)

@@ -20,7 +20,15 @@ const SUITES = [
   { file: 'ticket-purchase-flow.test.js', name: '水票购买（自助预付，不需要水站同意）' },
   { file: 'notice-draft-flow.test.js', name: '公告发布/草稿（站长端）' },
   { file: 'coordination-assign-flow.test.js', name: '待分配→分配配送员（站长端，2026-09-27 真机事故回归）' },
-  { file: 'modal-copy-limit.test.js', name: '弹窗按钮文案长度（两端静态扫描）' }
+  { file: 'barrel-preview-station.test.js', name: '退桶试算的服务水站上下文（2026-09-27 静默失败回归）' },
+  { file: 'barrel-return-refund.test.js', name: '退桶审批 · 退押金并当面交付（v66 第 3 步语义收窄）' },
+  { file: 'inter-station-ledger.test.js', name: '站间结算台账（v67：谁欠谁 / 欠多少 / 什么时候算办完）' },
+  { file: 'modal-copy-limit.test.js', name: '弹窗按钮文案长度（两端静态扫描）' },
+  // [2026-09-27] 两端运行时体验走查（docs/audit/2026-09-27-GPT-两端运行时体验走查.md）的修复回归：
+  { file: 'customer-assets-state.test.js', name: '顾客资产加载态与文案（走查 C05 / C06 / C07）' },
+  { file: 'customer-order-receivables-truth.test.js', name: '订单事实与应收失败态（体验复核 N02/N03/N09）' },
+  { file: 'delivery-runtime-copy.test.js', name: '员工端运行时事实表达（走查 M01–M06 / D01–D07）' },
+  { file: 'entry-landing-consistency.test.js', name: '入口 → 落地视图一致性 + 文案禁开发词（走查 M04 / M05 / M06）' }
 ]
 
 // 每个套件跑到底都会打印两行收尾：中文的「全部通过：N 项…」给人看，

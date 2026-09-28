@@ -254,8 +254,32 @@ const getAllBarrelRecords = () => {
   return get(API.BARRELS_ALL_RECORDS)
 }
 
-const updateBarrelRecordStatus = (id, status) => {
-  return put(API.BARRELS_RECORDS_STATUS(id), { status })
+/**
+ * 改退桶记录状态（第 2 步「确认收到空桶」传 status=2；第 3 步传 status=3）。
+ *
+ * @param extra 可选附加字段，与 status 一起提交。**v66 起第 3 步必须带
+ *              `{refundChannel:'CASH'|'ONLINE'}`**：核销与"当面交付"是同一次动作，
+ *              不选通道就无法表达这笔钱怎么交出去（产品口径「不现场给钱的不要退」，
+ *              正本 `docs/design/35` §7.2/§7.3）。传 2 步（确认收桶）时不要带它。
+ */
+const updateBarrelRecordStatus = (id, status, extra) => {
+  return put(API.BARRELS_RECORDS_STATUS(id), Object.assign({ status }, extra || {}))
+}
+
+/**
+ * [v66 / 2026-09-27 产品拍板 5.a] 确认押金**已经交到顾客手上**。
+ *
+ * <p>与 {@link updateBarrelRecordStatus} 是**两件事**：那个是核销（钱从客户押金账户扣掉），
+ * 这个是"钱交出去了"。产品口径「不现场给钱的不要退」—— 退押金那一步本身就要求当面交付，
+ * 所以新界面在同一个动作里带上交付事实；本函数用于**补登记**（例如代交的配送员事后确认）。</p>
+ */
+const markRefundPaid = (id) => {
+  return put(API.BARRELS_RECORDS_REFUND_PAID(id), {})
+}
+
+/** 只读：已核销但没记交付的退押金（不合规数据，站长要能查出来）。 */
+const getRefundUndelivered = () => {
+  return get(API.BARRELS_REFUND_UNDELIVERED)
 }
 
 /**
@@ -264,6 +288,30 @@ const updateBarrelRecordStatus = (id, status) => {
  */
 const returnEmptyBuckets = (customerId, items, clientToken, note) => {
   return post(API.BARRELS_RETURN_EMPTY, { customerId, items, clientToken, note })
+}
+
+// ===== 站间结算台账（v67 / 2026-09-27 产品拍板 4.a+4.b）=====
+//
+// 「谁欠谁、欠多少、什么时候算办完」：跨站单的钱收在**归属站**、营收算**接单站**，
+// 这个差额以前系统里没有任何一处能回答（实测接单站名下 0 条流水、看板却显示一笔"已收款"）。
+// 正本口径见 docs/design/31；"欠多少"由后端**实时算**，台账表只记人工动作（改价/结清/冲销）。
+
+/** 本站站间台账：逐单「谁欠谁 + 金额 + 口径 + 结没结清」+ 两个方向的合计 + 需冲销的那批。 */
+const getInterStationSettlements = () => {
+  return get(API.MANAGER_INTER_STATION_SETTLEMENTS)
+}
+
+/**
+ * 登记结清（**付款方**才能做：钱在谁手上谁登记）。
+ * `note` = 结清凭据说明（转账流水号/经手人），可空 —— 钱是线下走的，系统只留痕、不假装打款。
+ */
+const settleInterStation = (orderId, note) => {
+  return post(API.MANAGER_INTER_STATION_SETTLE(orderId), { note: note || '' })
+}
+
+/** 冲销：订单取消/退款后那笔应付不再成立（改状态、不删行）。 */
+const reverseInterStation = (orderId) => {
+  return post(API.MANAGER_INTER_STATION_REVERSE(orderId))
 }
 
 // ===== 站长资产调整单（人工补录 / 代客订正，站长专属）=====
@@ -431,6 +479,11 @@ module.exports = {
   getInventoryRecords,
   getAllBarrelRecords,
   updateBarrelRecordStatus,
+  markRefundPaid,
+  getRefundUndelivered,
+  getInterStationSettlements,
+  settleInterStation,
+  reverseInterStation,
   returnEmptyBuckets,
   listAdjustments,
   getAdjustment,

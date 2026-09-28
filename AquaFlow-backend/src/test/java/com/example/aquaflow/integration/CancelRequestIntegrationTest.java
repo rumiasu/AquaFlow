@@ -226,4 +226,52 @@ class CancelRequestIntegrationTest extends AbstractIntegrationTest {
         assertEquals(2, orderStatus(order), "越权被拒后订单必须保持原状");
         assertEquals(1, pendingCancelRequests(order, "STAFF"), "申请应仍处于待审批");
     }
+
+    /* ==================== 申请"过期"的收尾（2026-09-27 实测缺口） ==================== */
+
+    /**
+     * 订单离开「可取消」状态后，还挂着的**客户**取消申请必须自动收尾。
+     *
+     * <p><b>为什么这条非有不可</b>：申请提交时订单是「配送中(2)」（可取消），
+     * 但只要配送照常完成，订单就变成「已送达(3)」——而 {@code OrderStatus.isCancellable} 只放行 1/2，
+     * 于是那条申请**永远批不掉**（站长点"同意"只会看到"订单已完成，不能再取消"），
+     * 却仍然以 PENDING 留在站长「客户取消申请」这个 **P0 待办**里。
+     * 实测就是这个形状：真实库里 order 27 的申请从 2026-09-20 一直挂到 2026-09-27，
+     * 站长的 P0 红点永远亮着一条点不掉的项（P0 红点只报 P0，多一条假的就废掉整个信号）。</p>
+     *
+     * <p>判据是 **REJECTED 而不是 CANCELLED**：撤回（CANCELLED）是发起方的动作，
+     * 这里发生的事实是"申请没能生效、水已经送出去了"——记成撤回会篡改事实。</p>
+     */
+    @Test
+    @DisplayName("订单完成配送后：还挂着的客户取消申请自动驳回（不再占着站长 P0 待办）")
+    void staleCustomerCancelRequestIsClosedOnDelivery() {
+        seed();
+        long order = deliveringPaidOrder();
+
+        Api requested = put("/api/orders/" + order + "/customer-cancel", customerToken(customer), null);
+        assertTrue(requested.isSuccess(), "前置：客户取消申请应提交成功，实际=" + requested);
+        assertEquals(1, pendingCancelRequests(order, "CUSTOMER"), "前置：应有一条待审批的客户取消申请");
+
+        Api done = post("/api/delivery/orders/" + order + "/complete", driverToken(), "{}");
+        assertTrue(done.isSuccess(), "前置：完成配送应成功，实际=" + done);
+        // ⚠️ 是 **4 已完成** 而不是 3 已送达：这单是**水票支付**（钱在下单那次支付里就收了），
+        //    完成配送时没有"待收款"要等，所以直接到终态；只有现金单才会停在 3（等确认收款）。
+        assertEquals(4, orderStatus(order), "前置：水票单送达即完成（现金单才会停在 3）");
+
+        assertEquals(0, pendingCancelRequests(order, "CUSTOMER"),
+                "订单一旦不可取消，那条申请就再也没有出口 —— 必须在这里收尾，"
+                        + "否则它永远留在站长的 P0 待办里（点不掉的项会让整个 P0 红点失效）");
+        assertEquals("REJECTED", cancelRequestStatus(order, "CUSTOMER"),
+                "如实记为「驳回」：水已经送出去了、申请没能生效。记成 CANCELLED 会把"
+                        + "「申请方主动撤回」这个事实改掉");
+    }
+
+    /** 该订单最后一条取消申请的状态（没有则返回 null）。 */
+    private String cancelRequestStatus(long orderId, String kind) {
+        java.util.List<String> rows = jdbc.queryForList(
+                "SELECT status FROM order_transfer WHERE order_id=? AND kind=? "
+                        + "AND sub_kind='CANCEL_REQUEST' ORDER BY id DESC LIMIT 1",
+                String.class, orderId, kind);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
 }

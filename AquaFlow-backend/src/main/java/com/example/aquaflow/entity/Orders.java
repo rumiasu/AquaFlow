@@ -401,6 +401,18 @@ public class Orders {
     /** 特殊说明 */
     private String specialNote;
 
+    /** 客户下单时填写的备注；与配送/站长写入的 special_note 分开保存。 */
+    private String customerNote;
+
+    /** 本订单 type=8 配送凭据是否存在（不存在时不得把未知显示为 0）。 */
+    private transient Boolean bucketDeliveryRecorded;
+
+    /** 本订单配送凭据累计送出桶数，仅由订单详情服务填充。 */
+    private transient Integer deliveredBarrelQty;
+
+    /** 本订单配送凭据累计回收空桶数，仅由订单详情服务填充。 */
+    private transient Integer returnedBarrelQty;
+
     /** 配送桶数量 */
     private Integer deliveryBucketQty;
 
@@ -563,6 +575,25 @@ public class Orders {
      * 前端据此显示"等别站接单"（**不要**在这里编一个"待认领"之类的假站名）。</p>
      */
     private transient String deliveryStationName;
+
+    /**
+     * 「外派久未接单」提示（瞬时字段，非数据库列，[2026-09-27] 产品裁定
+     * 「长时间没人接还是给站长弹提示是否按照挂牌价」，正本 {@code docs/design/31} §8.3）。
+     *
+     * <p>由 {@code DeliveryController#getDispatchTracking} 在**外派追踪列表**里按判据填充：
+     * 本站外派出去 + 还在待配送(1) + 没有配送员({@code delivery_staff_id IS NULL})
+     * + 距**最后一次变动**超过阈值小时数。命中时给一句**后端下发的文案**（前端原样展示），
+     * 未命中保持 null（前端不渲染那一行）。</p>
+     *
+     * <p>⚠️ 用 {@code update_time} 而不是 {@code create_time}：站长「召回 → 改派」之后计时应当
+     * <b>重新开始</b>；拿建单时间会把刚下就被召回一次的新单报成"久未接单"。</p>
+     *
+     * <p>⚠️ <b>为什么不做成待办项（{@code PendingItem}）</b>：这条提示的动作（按挂牌价结这单）
+     * 与外派列表都在**首页**（`pages/coordination/index`），而首页是 tabBar 页 ——
+     * 待办卡走 `wx.navigateTo` 跳不过去；标成 P0 只会让 tab 红点亮起来却找不到那件事。
+     * 详见 {@code PendingItem} 里那段撤回说明。</p>
+     */
+    private transient String dispatchStaleHint;
 
     /**
      * 结算去向文案（瞬时字段，非数据库列）：<b>由后端下发，前端不得自造</b>

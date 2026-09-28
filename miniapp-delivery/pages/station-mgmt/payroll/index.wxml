@@ -61,10 +61,31 @@
       </view>
       <view class="row" wx:for="{{rates}}" wx:key="id">
         <view class="row-main">
-          <text class="row-title">{{item.productId === 0 ? '默认单价' : '商品 #' + item.productId}}</text>
+          <text class="row-title">{{item.productName}}</text>
           <text class="row-sub">送桶 ¥{{item.perBucketAmount}} · 楼层 ¥{{item.floorBonusPerLevel}}/层（{{item.floorFreeLevel}} 层内免）</text>
         </view>
       </view>
+    </view>
+    <!--
+      未配单价时的空态：必须说清后果，否则站长看到空台账分不清「没配」与「这月没人送水」。
+      后果的判据在服务端 StaffEarningServiceImpl（rateOf 商品专属价优先、回落 product_id=0；
+      两处都没有即全 0；楼层补贴同样只读 product_id=0 那一行）—— 见 index.js 的 decorateRates。
+      文案在 js 里拼好（rateEmptyText）再下发：wxml 属性里做带 \n 的拼接会编译报错，且门禁查不出。
+      文案不许出现开发词（接口/后端/字段/落库…），也不许写 markdown 的星号粗体 —— text 会原样渲染。
+    -->
+    <view class="card" wx:if="{{!rates.length}}">
+      <view class="card-title-row">
+        <text class="card-title">已配单价</text>
+        <text class="card-count">0 条</text>
+      </view>
+      <view class="empty">{{rateEmptyText}}</view>
+    </view>
+    <!-- 有商品的专属价是 0：默认价兜不住它（专属价优先），那款水完成配送就是 0 元 -->
+    <view class="card" wx:if="{{hasProductZero}}">
+      <view class="card-title-row">
+        <text class="card-title">注意</text>
+      </view>
+      <view class="empty">{{productZeroText}}</view>
     </view>
   </block>
 

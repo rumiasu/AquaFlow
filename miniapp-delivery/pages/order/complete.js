@@ -9,6 +9,41 @@ const REASON_OPTIONS = [
   { key: 'other', label: '其他' }
 ]
 
+/**
+ * [2026-09-27 走查 D02 修] 本单**到底送什么** —— 送货清单**唯一**的数据源。
+ *
+ * 原来「本次送货」这一段只有客户与金额：商品名**只**出现在下面的回桶行里，而回桶行
+ * 只对桶装水画（`barrelItem`），首单（本单新买押金桶）更是整块不画 ——
+ * 于是配送员在新押金单 / 纯瓶装水单上看不到任何商品，只能凭记忆与订单号搬货。
+ *
+ * ⚠️ 三条口径，改这里之前逐条确认：
+ *   ① 它**只读** `order.items`，不是回桶行（`data.items`）的拷贝 —— 后者首单恒为空数组；
+ *   ② 件数**照实写**商品自己的数量单位（桶 / 瓶 / 台 / 件），
+ *      **不**把 `quantity` 一律说成"桶"（`quantity` 是全单总件数，含瓶装水/饮水机）；
+ *   ③ 它**不参与**任何提交：回桶该回几桶仍取后端 `suggestedReturnQty`，
+ *      前端绝不拿这里的"送出数量"去当默认回桶数（会逼出"少回收"的假异常原因）。
+ */
+function buildDeliveryItems(order) {
+  const rows = (order && order.items) || []
+  return rows.map(it => {
+    const name = it.productNameSnapshot || it.productName || '未知商品'
+    const spec = it.specSnapshot || it.productSpec || ''
+    const qty = Number(it.quantity) || 0
+    // 单位按商品类别：1 桶装水 / 2 瓶装水 / 3 饮水器（后端 product.category，与 util/BarrelScope 同源）。
+    // 认不出的类别退回中性的「件」，**不猜成桶**。
+    const unit = Number(it.category) === 1 ? '桶' : (Number(it.category) === 2 ? '瓶' : (Number(it.category) === 3 ? '台' : '件'))
+    return {
+      id: it.id,
+      name,
+      spec,
+      qty,
+      // wxml 不做拼接与算术：整行文案在这里算好
+      qtyText: qty > 0 ? (qty + ' ' + unit) : '',
+      metaText: [spec, qty > 0 ? (qty + ' ' + unit) : ''].filter(Boolean).join(' · ')
+    }
+  })
+}
+
 Page({
   /** 弹窗内容区吞掉点击（wxml 用 catchtap 绑定，此处为空实现，避免未定义方法告警） */
   stopPropagation() {},
@@ -20,6 +55,11 @@ Page({
     orderLoaded: false,
     /** 回桶核对行 —— **只含桶装水明细**（后端 barrelItem=true），瓶装水/饮水机不进这一块 */
     items: [],
+    /**
+     * [2026-09-27 走查 D02 修] 本次送货清单（= `order.items` 全量，含瓶装水 / 饮水器 / 混合单）。
+     * 与 `items`（回桶行）**不是一回事**：`items` 首单恒为空数组，只靠它会让新押金单看不到商品。
+     */
+    deliveryItems: [],
     /** 本单有没有要核对回桶的明细；false 时整块不渲染（瓶装水单没有"回桶"这回事） */
     hasBarrelItems: false,
     /** 有押金且有旧桶回收建议时，明确说明默认数不含本单新付押金桶 */
@@ -49,6 +89,29 @@ Page({
     // 本单**是否还要现场收钱**（后端 needCollect 投影：现金单且未付）。
     // 与 isCashOnDelivery 分开：现金单付过款之后就不该再问一次"收了没"（契约 C1）。
     needCollect: false,
+    /**
+     * [2026-09-27 走查 D01 修] 钱卡上的展示态，**在 js 里算好**（wxml 不做判断与拼接）：
+     *   · `collect`   —— 本次要收钱：主数字是「本单尚应收」，红字大字（这是配送员要行动的数）；
+     *   · `paid`      —— 已付款/无需收钱：主结论是"已付款，无需收钱"，总额降级成小字（不再用最大红字）；
+     *   · `uncollected` —— 钱还没到手但不归本次收（微信/水票未付、已退款等，后端 payStateText 说了算）：
+     *                    照实说，并把总额降级 —— 不能让人以为"这单要收这笔钱"。
+     * 判据只有一个来源：后端的 `needCollect` + `payStateText`，前端不自己按 1/2/3 推。
+     */
+    moneyMode: 'collect',
+    /** 钱卡主文案（一句话结论） */
+    moneyHeadline: '',
+    /** 钱卡补充说明（只在它与主结论不同时才有值，空串 = 不渲染那一行） */
+    moneySub: '',
+    /** true = 钱卡用警示色大字（只有"本次要收的钱"才配） */
+    moneyEmphasis: true,
+    /**
+     * [2026-09-27 走查 D03 修] 提交结果态：idle 未提交 / submitting 提交中 / failed 失败 /
+     * unknown 结果未知 / success 已完成。页头的大绿勾与"完成配送"只在 success 出现 ——
+     * 原来一进页面就是绿勾 + 「完成配送」，还没提交就已经"完成"了。
+     */
+    resultState: 'idle',
+    /** 结果未知（网络断开/超时，提交可能已经生效）时的可见提示，空串 = 不显示 */
+    unknownHint: '',
     // 现场是否已收款：**必须由人明确选择**（null = 还没选）。
     // 原来默认 false（未收款）且预先选中 —— 等于替配送员答了题；反过来默认 true 更糟
     //（把没收到的钱记成已收）。所以两边都不默认，提交前强制表态（契约 C1）。
@@ -138,6 +201,12 @@ Page({
       const needCollect = order.needCollect === true
       const prep = order.stockPrep || null
 
+      // [2026-09-27 走查 D01 修] 钱卡文案与配色**在这里定**，wxml 只渲染：
+      // 原来无论需不需要收钱，总额一律用 `.money-amount`（56rpx + #FF3B30 红字），
+      // 于是"已付款"的单看起来像"还要收 ¥40"，配送员要读小字才知道不用收
+      //（实际那行小字里还出现了两次"已付款"：payStateText 与 payHint 都是它）。
+      const money = this._moneyView(order, needCollect)
+
       // 楼层 / 电梯（[2026-09-26]）：`addressHasElevator` 是**三态**（null = 客户没确认过 /
       // 0 = 无电梯 / 1 = 有电梯，见 utils/address.js）。**只有"知道楼层但电梯未知"**才算
       // "客户没写清楚" —— 那种单最容易就楼层补贴扯皮，所以自动把楼层块露出来；
@@ -153,12 +222,21 @@ Page({
         orderLoaded: true,
         isFirstBarrelOrder,
         items,
+        // 本次送货清单：整单全量明细（与回桶行无关），见 buildDeliveryItems
+        deliveryItems: buildDeliveryItems(order),
         hasBarrelItems: items.length > 0,
         hasDepositOldBarrelHint,
         // 首单 / 纯瓶装水单都没有"核对回桶"这一步，副标题不能再说"核对回桶后确认完成"
         successSubtitle: (isFirstBarrelOrder || items.length === 0) ? '确认交付后完成' : '核对回桶后确认完成',
         isCashOnDelivery: needCollect,
         needCollect,
+        moneyMode: money.mode,
+        moneyHeadline: money.headline,
+        moneySub: money.sub || '',
+        moneyEmphasis: money.emphasis,
+        // 重新加载订单 = 回到"还没提交"，不能把上一单的绿勾/未知态带过来
+        resultState: 'idle',
+        unknownHint: '',
         collected: null,          // 交付事实由人确认，不预选
         collectedChosen: false,
         stockPrep: prep,
@@ -203,6 +281,39 @@ Page({
     }
     if (!parts.length) return ''
     return '还差：' + parts.join('、') + '（完成配送时系统会再核对一次）'
+  },
+
+  /**
+   * [2026-09-27 走查 D01 修] 钱卡的展示态 —— **本次要不要收钱**必须一眼看出来。
+   *
+   * 实际表单里已付款的单曾经也把 `totalAmount` 用 56rpx 红字摆在最显眼处，
+   * 付款状态却只在小字里（而且小字里"已付款"还印了两遍：payStateText 与 payHint 同值），
+   * 配送员得读小字才能判断"这单收不收钱"——这是钱的事实，不该靠小字。
+   *
+   * 三种形态（判据全部来自后端下发，前端不推）：
+   *   · needCollect        → 主结论「本次要收」+ 红字大字（唯一需要行动的那种）；
+   *   · 已付款（PAID）      → 主结论「已付款，无需收钱」+ 总额降级成小字；
+   *   · 其余（未付/已退款等）→ 照实说 payStateText，总额同样降级 —— 它**不归本次收**，
+   *     用红字大字会让人以为要上门收钱（水票/微信未付都不是现金单）。
+   */
+  _moneyView(order, needCollect) {
+    const payState = String(order.payState || '')
+    const payStateText = order.payStateText || ''
+    const payHint = order.payHint || ''
+    if (needCollect) {
+      return { mode: 'collect', headline: '本次要收', emphasis: true }
+    }
+    if (payState === 'PAID') {
+      // payHint 与 payStateText 在 PAID 下是同一句（后端都是「已付款」），只留一句，别印两遍
+      return { mode: 'paid', headline: payHint || payStateText || '已付款', emphasis: false }
+    }
+    return {
+      mode: 'uncollected',
+      headline: payStateText || '钱还没收到',
+      // 补充说明只在它与主结论不同的时候才带上（同值时重复渲染没有信息量）
+      sub: payHint && payHint !== payStateText ? payHint : '',
+      emphasis: false
+    }
   },
 
   onToggleMore() {
@@ -556,7 +667,7 @@ Page({
       return
     }
     const { orderId, items, noteText, collected, needCollect, reportedFloor } = this.data
-    this.setData({ submittingComplete: true })
+    this.setData({ submittingComplete: true, resultState: 'submitting' })
 
     const itemReturns = items.map(it => ({
       orderItemId: it.id,
@@ -579,6 +690,9 @@ Page({
         reportedFloor: reportedFloor === '' || reportedFloor === null ? null : Number(reportedFloor)
       })
       wx.hideLoading()
+      // [2026-09-27 走查 D03 修] 成功态**只在这里**置位：页头的大绿勾与「完成配送」由它驱动。
+      // 原来这两个视觉元素是一进页面就画的，"还没提交就已经成功"。
+      this.setData({ resultState: 'success' })
       wx.showToast({ title: '配送完成！', icon: 'success' })
       setTimeout(() => {
         if (this.data.from === 'home') {
@@ -591,12 +705,34 @@ Page({
       // 停在原页、保留现场填写的内容，让人按提示改（契约 C3：给能做的下一步，不吞异常）。
       // 服务端文案已按 C3 改成"一句事实 + 订单号"，内部术语只留在后端日志里。
       wx.hideLoading()
-      wx.showModal({
-        title: '没能完成配送',
-        content: (err && err.message) || '提交失败，请检查网络后重试',
-        showCancel: false,
-        confirmText: '知道了'
-      })
+      // [2026-09-27 走查 D03 修] 失败与**结果未知**必须分开：
+      //   · 网络断开/超时 ⇒ 请求可能已经送到服务端（订单可能已经完成），
+      //     这时**不能**显示失败、更不能让人盲目重提交（重复提交虽被 CAS 挡住，但那会给出误导性的报错）；
+      //   · 业务拒绝（备货不齐、状态已变）⇒ 服务端明确回了"没做成"，是失败，可以改了再提交。
+      // 判据用请求层归一化过的文案（utils/request 的 toNetworkError 只产出这两句网络类 message）。
+      const msg = (err && err.message) || ''
+      const isNetwork = msg.indexOf('网络') === 0 || msg.indexOf('网络超时') >= 0
+      if (isNetwork) {
+        this.setData({
+          resultState: 'unknown',
+          unknownHint: '这次提交没等到回应（' + msg + '）。订单可能已经完成，'
+            + '请先回到配送列表刷新看一眼再决定要不要重提 —— 直接重提会被系统挡下并报"该订单当前状态不可完成配送"。'
+        })
+        wx.showModal({
+          title: '结果未知',
+          content: '这次提交没等到回应（' + msg + '）。订单可能已经完成，请回配送列表刷新确认后再决定要不要重试。',
+          showCancel: false,
+          confirmText: '知道了'
+        })
+      } else {
+        this.setData({ resultState: 'failed' })
+        wx.showModal({
+          title: '没能完成配送',
+          content: msg || '提交失败，请检查网络后重试',
+          showCancel: false,
+          confirmText: '知道了'
+        })
+      }
     } finally {
       // 成功/失败都要放开闸门，否则失败后连重试都点不动
       this.setData({ submittingComplete: false })

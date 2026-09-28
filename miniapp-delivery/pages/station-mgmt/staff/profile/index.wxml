@@ -114,5 +114,6 @@
     </view>
   </block>
 
-  <view class="empty" wx:if="{{!loading && !profile}}"><text>暂无员工画像</text></view>
+  <!-- [2026-09-27 走查 M06] 空态原文「暂无员工画像」：「画像」→ 说人话（同 customers/detail） -->
+  <view class="empty" wx:if="{{!loading && !profile}}"><text>没查到这个员工的情况</text></view>
 </view>

@@ -55,3 +55,53 @@ tasks.named('test') {
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs << '-parameters'
 }
+
+/*
+ * 发布物里**不许带** application-local.yml。
+ *
+ * 为什么：那个文件是本地开发配置（含真实 DB 口令等密钥），被 `.gitignore` 忽略、
+ * 也被 `scripts/scan-secrets.sh` 排除 —— 也就是说**两道防线都不会看它**。
+ * 而 `src/main/resources/**` 默认会被打进 `BOOT-INF/classes/`，实测（2026-09-27，44887868 字节的 jar）
+ * 确实含 `BOOT-INF/classes/application-local.yml`（7954 字节，比 application.yml 还大）。
+ * 结论：一旦把这个 jar 传到服务器/交给别人，密钥就跟着走了。
+ *
+ * ⚠️ **只排除 bootJar 里的那一份，不要写进 processResources**：
+ * bootRun 与 test 用的都是 processResources 的输出目录（build/resources/main），
+ * 在那里排除会让本地 `--spring.profiles.active=local` 直接起不来 ——
+ * 等于为了堵一个发布漏洞把开发环境弄坏。bootJar 只是从该目录**再打包一次**，
+ * 在打包这一步过滤，两边都保住。
+ *
+ * 判据：改完必须实测 `jar tf` 里没有它，且 `bootRun` 仍能起（见验收命令）。
+ */
+tasks.named('bootJar') {
+    exclude 'application-local.yml'
+
+    /*
+     * 双重保险：打包后**再回读一次产物**，确认本地配置真的没进去。
+     *
+     * 为什么光有上面那行 `exclude` 不够：一个"从未失败过"的护栏等于没有护栏
+     * （本仓对门禁的一贯要求是"摘掉它即红"）。将来若有人把 profile 文件改名
+     * （application-dev.yml）、或换用别的打包方式，单条 exclude 会被绕过而无人察觉。
+     * 这一步让"发布物带密钥"在 `gradlew bootJar` 当场就红，而不是等上线才发现。
+     */
+    doLast {
+        def jarFile = archiveFile.get().asFile
+        def forbidden = ['application-local.yml', 'application-local.yaml', 'application-local.properties',
+                         'application-dev.yml', 'application-dev.yaml', 'application-dev.properties']
+        def found = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { e ->
+                if (forbidden.contains(new File(e.name).name)) {
+                    found << e.name
+                }
+            }
+        }
+        if (!found.isEmpty()) {
+            throw new GradleException(
+                    "发布物里含本地/开发专用配置，禁止出包：${found}\n" +
+                    "修法：确认 bootJar 的 exclude 规则覆盖了它们；" +
+                    "且**不要**改到 processResources（bootRun 与 test 用的是它的输出目录）。")
+        }
+        logger.lifecycle("[bootJar] ✓ 发布物不含本地开发配置（${jarFile.name}）")
+    }
+}

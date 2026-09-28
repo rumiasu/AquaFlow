@@ -21,7 +21,7 @@ import java.util.Set;
  * <p><b>为什么不用 {@code @annotation(requireRole) || @within(requireRole)} 作为切点：</b>
  * 实测该写法下只有<b>类级</b>注解会被拦截，<b>方法级</b>注解一律不生效 ——
  * 于是所有只在方法上标注的接口（/api/delivery/orders/pending、/api/inventory、
- * /api/dashboard/today、/api/payments/* 等）实际上处于"无鉴权"状态：
+ * /api/payments/* 等）实际上处于"无鉴权"状态：
  * 顾客 token 请求 /api/delivery/orders/pending 直接返回 code=0 并读到配送端订单数据。</p>
  *
  * <p>现改为对全部 Controller 方法统一织入，再在通知内按「方法注解优先、类注解兜底」自行解析，

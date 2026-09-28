@@ -24,6 +24,7 @@
     "pages/station-mgmt/delivery-config/index",
     "pages/station-mgmt/place-order/index",
     "pages/station-mgmt/receivables/index",
+    "pages/station-mgmt/inter-station/index",
     "pages/station-mgmt/payroll/index",
     "pages/station-mgmt/ticket-packages/index",
     "pages/station-mgmt/gross-profit/index",

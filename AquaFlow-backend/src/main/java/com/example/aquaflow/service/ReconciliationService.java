@@ -106,9 +106,33 @@ public class ReconciliationService {
         this.alertService = alertService;
     }
 
-    /** 每日 03:00 执行日结对账。 */
+    /**
+     * 每日 03:00 执行日结对账。
+     *
+     * <p>⚠️ [2026-09-27] 定时任务**自己跑挂了必须落一条 SYSTEM 告警**，只打日志等于没人知道。
+     * 此前 {@code dailyReconcile()} 没有任何 try/catch：方法里有十几处 DB 调用，
+     * 任何一处抛错（库重启、连接池耗尽、SQL 回归）都会让异常直接飞出定时任务 ——
+     * 结果只有一行 Spring 的 error 日志、**{@code alert_log} 里一条都没有**，
+     * 而运维唯一的入口就是查那张表（系统告警没有 HTTP 入口）。
+     * 于是"日结没跑"这件事在系统里完全不可见，与"日结跑了且全平"长得一模一样。</p>
+     *
+     * <p>为什么不违反「不在 {@code @Transactional} 方法内 catch」那条判据：本方法**不是事务方法**，
+     * 而是任务的入口；catch 之后异常不再上抛，正是这里想要的（任务不能把异常丢给调度器了事）。</p>
+     */
     @Scheduled(cron = "0 0 3 * * ?")
     public void dailyReconcile() {
+        try {
+            runDailyReconcile();
+        } catch (Exception e) {
+            log.error("[日结对账] 执行失败（已发系统告警）", e);
+            alertService.systemFault("DailyReconcile", "日结对账任务执行失败",
+                    "日结对账未完成，本次结果不可用：" + e.getClass().getSimpleName()
+                            + " - " + e.getMessage(), null, null);
+        }
+    }
+
+    /** 对账主体。与 {@link #dailyReconcile()} 拆开，纯粹为了给"任务自己挂了"留一个 catch。 */
+    private void runDailyReconcile() {
         log.info("[日结对账] 开始执行");
         Map<String, Integer> result = runReconcile();
         boolean allOk = result.values().stream().allMatch(v -> v == 0);

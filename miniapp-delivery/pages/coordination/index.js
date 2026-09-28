@@ -6,7 +6,7 @@ const { syncTabBar } = require('../../utils/tabbar')
 // directedReturn 必须在这里 import：本页的「退回原水站」按钮调的就是它
 // （后端 javadoc 里叫「调解退回」），
 // 漏了 import 会让 onMediateReturn 抛 ReferenceError —— 点击**静默无反应**（AGENTS §6）。
-const { getStaffList, getPoolOrders, claimPoolOrder, getDispatchTracking, cancelDispatch, directedReturn, approveDirectedReturn, rejectDirectedReturn, getDirectedIncoming, approveStaffReturn, rejectStaffReturn, getPendingApprovals, approveCancelRequest, rejectCancelRequest } = require('../../api/delivery')
+const { getStaffList, getPoolOrders, claimPoolOrder, getDispatchTracking, cancelDispatch, priceByListed, directedReturn, approveDirectedReturn, rejectDirectedReturn, getDirectedIncoming, approveStaffReturn, rejectStaffReturn, getPendingApprovals, approveCancelRequest, rejectCancelRequest } = require('../../api/delivery')
 // 自绘导航栏 + 水站营业状态胶囊（本页 navigationStyle=custom）：与「配送」页共用一份实现
 // —— 结构与样式见 templates/station-navbar.wxml、styles/station-navbar.wxss
 const stationNavbar = require('../../behaviors/stationNavbar')
@@ -205,8 +205,13 @@ Page({
    *   · **剔除**（本页页签已有角标 / 宫格已有卡）：pendingAssign · pendingTransfer · customerCancel ·
    *     stationCancel · poolClaimable · directedIncoming · barrelReturn；
    *   · **保留**（只活在「水站管理」里，首页不报就没人知道）：下面这 8 项。
-   * ⚠️ [2026-09-26 Wave1 轨道 G] 本清单与 `decorateTodo` 的"**0 也保留**"口径**都没动**：
-   * 「卡在零计数时是否仍显示」是已登记的产品冲突（docs/design/29 §9 待拍板第 1 条），未拍板前不改代码。
+   * ⚠️ [2026-09-27 走查 M02] 本清单与 `decorateTodo` 的**显示口径已改**：
+   * 原来"零计数也显示"（依据 docs/design/24 §:86/:90/:293），走查判定它占了首页上半屏、
+   * 把真正要办的「待分配」挤下去，验收标准是"所有次要事项为零时没有八个零"。
+   * 现在 = **零计数不进卡**；`docs/design/29 §9 待拍板第 1 条`里的"只把 count==0 的条目移出提醒区、
+   * 卡本身仍在"这一档已落地，另一档（零待办时整张卡不出现 + 完整功能目录另设常驻入口）
+   * **两半都已成立**：卡在全零时不渲染，而「水站管理」本来就是常驻入口（见 wxml）。
+   * 若产品要回到"零也显示"，改 `decorateTodo` 一处即可（别动 TODO_ROUTES 与红点）。
    *
    * ⚠️ 被剔除的 7 项里 **6 项是 P0**（待分配/转单/客户取消/站内取消/指定外派待确认/退桶审批，
    * 只有「抢单池」是 P2）—— 按级别它们"应该"在首页。之所以仍剔除：它们各自的页签/页面上一眼
@@ -219,7 +224,11 @@ Page({
    */
   TODO_KEYS: [
     'overdueReceivable', 'pendingPayment', 'staffBinding', 'enterpriseApply',
-    'draftPayroll', 'costNotFilled', 'barrelException', 'operationAlert'
+    'draftPayroll', 'costNotFilled', 'barrelException', 'operationAlert',
+    // [2026-09-28] 站间未结清（v67）：落点是「水站管理 → 收款与工资 → 站间结算」。
+    // ⚠️ 它与上面被剔除的那 7 项**不是一回事**：那些各自有页签角标，在这里再报一遍是重复；
+    //    这一笔**别处看不到**（站间结算页没有角标），不在这里报，站长就不知道有笔钱挂在那儿。
+    'interStationUnsettled'
   ],
 
   /**
@@ -227,15 +236,22 @@ Page({
    * **这里只做路由**（后端不认识小程序路径），所以它不是"前端自带映射表"。
    */
   TODO_ROUTES: {
-    overdueReceivable: '/pages/station-mgmt/receivables/index',
+    overdueReceivable: '/pages/station-mgmt/receivables/index?overdue=1',
     pendingPayment: '/pages/station-mgmt/payments/index',
-    staffBinding: '/pages/station-mgmt/staff/index',
+    // [2026-09-27 走查 M03 修] 带 `?tab=apply` 直达「绑定申请」页签。
+    // 原来只传页面路径 ⇒ 落在员工名单（staff/index.js 默认 activeTab='staff'），
+    // 站长点"有 N 条绑定申请"却看不到那 N 条，还得自己找页签切过去。
+    // ⚠️ 页签参数名/取值由 staff 页 onLoad 解析（见其注释），改一处必须改两处。
+    staffBinding: '/pages/station-mgmt/staff/index?tab=apply',
     enterpriseApply: '/pages/station-mgmt/customers/index',
     draftPayroll: '/pages/station-mgmt/payroll/index',
     costNotFilled: '/pages/station-mgmt/gross-profit/index',
     barrelException: '/pages/station-mgmt/exceptions/index',
     // 处理留痕（原「运营告警」页，2026-09-19 并入「异常订单」页的页签 2）
-    operationAlert: '/pages/station-mgmt/exceptions/index?tab=alerts'
+    operationAlert: '/pages/station-mgmt/exceptions/index?tab=alerts',
+    // [2026-09-28] 站间结算是**非 tabBar 页**，`navigateTo` 跳得到（这正是它能做成待办项的
+    // 前提 —— 外派久未接单那条因为动作在首页(tabBar)而只能贴在列表行上，见 PendingItem 注释）。
+    interStationUnsettled: '/pages/station-mgmt/inter-station/index'
   },
 
   /**
@@ -269,8 +285,23 @@ Page({
    *
    * ⚠️ 只收 {@link #TODO_KEYS} 里的项 —— 其余项由 tab 角标负责，不在这里重复。
    * 金额格式化放在这里做（wxml 不能调方法）。
-   * 保留项**按 0 也显示**（与 tab 角标"0 就不显示"语义不同：角标是"有几条要办"，
-   * 这里是"系统有哪些事项"，不显示站长就不知道有这个功能）。
+   *
+   * [2026-09-27 走查 M02 修] **零计数不再占位**：全为零时整张卡不渲染（wxml 的
+   * `todo.items.length` 判据不变），有可处理事项时才露出、并按业务紧急度排前面。
+   * 原来 8 项零值常驻，两行八格把「待分配」压到半屏以下（截图 04 / 06）——
+   * 站长打开首页问的是"今天要给谁派水"，先看到的却是一堆 0。
+   *
+   * 三条不能改坏的边界（改这里之前逐条确认）：
+   *   ① **P0 红点不受本卡影响**：红点算的是完整 payload 的 `p0Total`（见 loadTodo 里
+   *      `applyRedDot(d)`）—— 那 8 项本来一项 P0 都没有，被本卡剔除的 6 个 P0 也从没在这张卡里。
+   *      **别改成用 `todo.items` 推红点**；
+   *   ② **功能没被删**：完整功能目录「水站管理」是常驻入口（wxml 里在任何 wx:if 之外），
+   *      零值时照样进得去每一项；本卡只是"提醒区"，不是"功能清单"；
+   *   ③ **失败不能被当成零**：loadTodo 拿不到汇总时 `todo` 保持 null ⇒ 卡根本不渲染
+   *      （而不是渲染出一张"什么都没有"的卡，那会把"没加载出来"说成"没事要办"）。
+   *
+   * 排序：`order` 是后端给的固定顺序（钱 → 人 → 质量），这里只做**稳定**的"非零在前"，
+   * 不重新发明优先级 —— 后端要调顺序就调 payload 里的 order。
    */
   decorateTodo(d) {
     const byKey = {}
@@ -279,9 +310,12 @@ Page({
     this.TODO_KEYS.forEach(key => {
       const it = byKey[key]
       if (!it) return   // 后端没下发这一项（如企业身份功能关着）→ 不硬造
+      const count = Number(it.count) || 0
+      // [M02] 零值不展示：它除了一格"0"没有任何可处理事项
+      if (count <= 0) return
       items.push(Object.assign({}, it, {
         amountText: (it.amount === null || it.amount === undefined) ? '' : Number(it.amount).toFixed(2),
-        hasCount: Number(it.count) > 0
+        hasCount: count > 0
       }))
     })
     return { items }
@@ -870,9 +904,44 @@ Page({
     })
   },
 
-  // 外派页签 - 重新外派（改指定别的站；一键外派的单也可以直接改成指定外派）
-  onReDispatch(e) {
+  /**
+   * 外派页签 - 「按挂牌价结这单」（2026-09-27 产品裁定，正本 docs/design/31 §8.2/§8.3）。
+   *
+   * <p>回应的是后端在**外派久未接单**那一行下发的提示：「有没有人接」卡住时，
+   * 卖票站可以按挂牌价结这一单，提高接单站的收益以促成接单。</p>
+   *
+   * <p>⚠️ <b>是站长点，不是系统自动改</b> —— 产品原话是「弹提示**是否**按照挂牌价」。
+   * 所以这里必须先弹窗讲清"改了会怎样"（差价由本站承担）再提交；</p>
+   * <p>⚠️ 判权在**服务端**（只有卖票站 = 本单归属站调得动）。本页是"本站外派出去的单"，
+   * 归属站就是本站，所以按钮在前端看起来恒可用；真越权时后端会拒，这里如实把原文透出。</p>
+   */
+  onPriceByListed(e) {
     const id = e.currentTarget.dataset.id
+    wx.showModal({
+      title: '按挂牌价结这一单',
+      content: '改成按挂牌价结后，接单站能拿到更多，多出来的差价由本站承担。'
+        + '系统不会自动改价，也不会改动客户已付的钱。确定要改吗？',
+      // ⚠️ confirmText 只有 4 个字的位置（微信 showModal 的按钮文案超过 4 字真机上会出问题，
+      // 本仓有静态门禁 `modal-copy-limit.test.js` 拦着 —— 它就是把这个改动拦下来的那道闸）。
+      confirmText: '按挂牌价',
+      success: async (res) => {
+        if (!res.confirm) return
+        wx.showLoading({ title: '处理中...' })
+        try {
+          await priceByListed(id)
+          wx.hideLoading()
+          wx.showToast({ title: '已改为按挂牌价结', icon: 'success' })
+          this.loadAllData()
+        } catch (err) {
+          wx.hideLoading()
+          wx.showToast({ title: err.message || '改价失败', icon: 'none' })
+        }
+      }
+    })
+  },
+
+  // 外派页签 - 重新外派（改指定别的站；一键外派的单也可以直接改成指定外派）
+  onReDispatch(e) {    const id = e.currentTarget.dataset.id
     const app = getApp()
     const myStationId = (app.globalData.userInfo || {}).stationId
 

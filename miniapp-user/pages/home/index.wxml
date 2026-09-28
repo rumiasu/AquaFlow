@@ -104,7 +104,9 @@
         </view>
 
         <!-- ══ 再买上次：快捷下单入口（与上方"这单正在发生"区分开），不跳页，
-             「加入清单」只恢复选择并重新报价 —— 不直接付款 ══ -->
+             「加入清单」只恢复选择并重新报价 —— 不直接付款。
+             [2026-09-27 走查 C02 修] 摘要分两句：规模（共 N 种 / M 件）+ 具体是哪几款。
+             原文只有一句"等N件"（N 是种数、单位写成"件"），客户点之前说不清会加进什么。 -->
         <view class="card again" wx:if="{{againOrder}}">
           <image class="again-img" wx:if="{{againOrder.img}}" src="{{againOrder.img}}" mode="aspectFill" />
           <view class="again-img again-img-empty" wx:else>
@@ -113,6 +115,7 @@
           <view class="again-mid">
             <text class="again-title">再买上次</text>
             <text class="again-sub">{{againOrder.summary}}</text>
+            <text class="again-preview" wx:if="{{againOrder.preview}}">{{againOrder.preview}}</text>
           </view>
           <view class="again-btn" bindtap="onAgainTap">加入清单</view>
         </view>

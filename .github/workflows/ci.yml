@@ -54,6 +54,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 「克隆得到吗」门禁（2026-09-28 新增，**故意放在最前面**：它最便宜，且失败原因最直白）。
+      #
+      # 为什么必须有：`application-prod.yml` 一度同时被 .gitignore 忽略、又没被 git 跟踪。
+      # 本机所有门禁全绿（文件在工作区里就在，构建也从工作树读），但**新克隆的仓库没有它** ⇒
+      # 下面那条「生产配置覆盖门禁」会在 checkout 之后立刻 exit 1（找不到文件），CI 必红；
+      # 真部署时 prod profile 还会静默退化成 application.yml 的默认值（CORS 变 localhost、员工端 appid 变空）。
+      # ⇒ 判据：**"文件存在"不等于"别人 clone 得到"**。本步按 git 视角查：
+      #    被忽略的必需件 = 失败；未跟踪的 = 警告（提交时别忘 git add）。
+      - name: 「克隆得到吗」门禁（CI/发布依赖件是否入库）
+        run: node scripts/check-tracked-inputs.js
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -101,6 +112,52 @@ jobs:
           python3 audit_js_syntax.py
           python3 audit_wxss_selectors.py
 
+      # 生产配置覆盖门禁（2026-09-27 新增）。
+      # 为什么需要它：「生产缺哪个变量会拒启」此前只能靠人读 yml，而这里有个**容易搞错的机制差异** ——
+      # RequiredConfigChecker 用 @Value("${x:}") 带空默认值、只硬校验 3 项；
+      # 其余 10 项是 application-prod.yml 里无默认占位符导致的启动失败。两套机制、别混成一个数。
+      # 本步查四件事：① prod 要求的变量在 .env.example 都有**定义行**（否则运维不知道要配它）；
+      # ② .env.example 里没有"代码根本不读"的幽灵变量；③ 留空的必须属"有意留空"白名单（每条带理由）；
+      # ④ prod 里没开 dev-login / mock-wechat-pay 这两个致命开关。
+      - name: 生产配置覆盖门禁
+        run: node scripts/check-prod-config.js
+
+      # 迁移清单门禁（2026-09-28 新增）：`sql/README.md` 是迁移清单的**正本**（AGENTS §4 指定），
+      # 它一旦与 `sql/` 目录脱节，运维会在**改生产库**时做错决定：
+      #   · 正向（文件有、README 没有）：脚本没有出处，分不清"废弃 / 一次性 / 我漏跑了"
+      #     —— 运维文档自称「当前最可能踩的运维坑」就是它。实测曾有 **83 个 .sql 里 21 个无出处**，
+      #     其中还包括 `clear_data.sql`（清全库）与 `reset_passwords.sql`（重置全部员工密码）两个最危险的。
+      #   · 反向（README 指向不存在的文件）：照必跑清单执行时走到某行才发现文件不在，
+      #     最坏是**跳过一个必跑的迁移还不自知**。
+      - name: 迁移清单与 sql/ 目录一致性门禁
+        run: node scripts/check-sql-catalog.js
+
+      # 三处验证入口的门禁清单一致性（2026-09-28 新增）：ci.yml / verify.sh / verify-local.js
+      # 是同一条事实的三份实现，漂移的形状是"新加门禁只接了其中一处"——
+      # 那时另一个入口**永远不会告诉你它漏了**，表现为本仓记录过的「本机全绿、CI 红」且本地复现不出。
+      # 本步解析三处文本（**剥掉注释与 echo 提示行**，否则"提示里提了一句"会被当成"这道门禁跑了"），
+      # 逐道门禁比对；有意的不对称必须带理由登记在脚本的 KNOWN_ASYMMETRY 里。
+      - name: 三处入口的门禁清单一致性
+        run: node scripts/check-gate-parity.js
+
+      # 「待拍板」标记的可追溯性（2026-09-28 新增）：AGENTS §0.6 是强制项 —— 改动取决于产品拍板时，
+      # 当场要① 在代码/文档对应位置留「待拍板」标记、② 在文档清单登记（一处正本）、③ 回复里列出。
+      # ⚠️ 上面这句**故意不写成标记的字面量**（写成字面量它自己就会被本步判成"悬着的决定没登记"——
+      #    本文件是 .yml，属代码侧；这条注释接进来的当天就被门禁抓到过，是这道门禁真会叫的现场证据）。
+      # 实测事故：退桶押金"钱怎么回到客户手上"只挂在小程序一行注释里，全仓文档查无此问。
+      # 本步只判**代码侧**（每个标记必须指向真实存在的 docs/** 正本）；文档侧只列出来给人过
+      #（`.md` 里的命中多半是"提及标记本身"的句子或历史审计记录，机械规则分不出使用与提及）。
+      - name: 待拍板标记的可追溯性
+        run: node scripts/check-pending-decisions.js
+
+      # 端点契约对账（2026-09-28 新增）：controller 注解里的实路径 ↔ `docs/api/01-REST-API参考.md` 的登记，
+      # **双向**都必须为空。两者是同一条事实的两处表述（同 `sql/README.md` ↔ `sql/` 那对），必然会漂：
+      # 实测当天漂了 6 条（本轮新加的站间结算 4 条 + 押金交付 2 条），而文档是给运维/接手人看的契约 ——
+      # 漏登记 ⇒ 新人不知道有这个能力（站间结算这种"钱"的能力尤其不能漏）；多登记 ⇒ 照它调用必然 404。
+      # 校准后当前是 283 ↔ 283 零假阳性（解析坑：数组别名 `@RequestMapping({...})`、裸 `@GetMapping`）。
+      - name: 端点契约与 API 参考一致性
+        run: node scripts/check-api-doc.js
+
       # 场景测试矩阵门禁（2026-09-21 新增）。
       # 为什么需要它：docs/audit/2026-09-16-场景测试矩阵.md 是 AGENTS.md §5 指定的
       # 「新增用例前先看它找空白」入口，但它是一份**手写文档**，而测试类会被改名、合并、删除
@@ -124,6 +181,30 @@ jobs:
 
       - name: 敏感信息扫描（只报位置，不回显内容）
         run: bash scripts/scan-secrets.sh
+
+      # 发布物检查（2026-09-27 新增）：**打出来的 jar 里不许有本地开发配置**。
+      # 为什么必须单独一步：`application-local.yml` 被 .gitignore 忽略、也被 scan-secrets.sh
+      # **显式排除**（那个脚本用 git grep，只看已跟踪的文本文件）—— 两道防线都不看它。
+      # 而 src/main/resources/** 默认会被打进 BOOT-INF/classes/，实测旧 jar 里确实有它（7954 字节）。
+      # ⚠️ 这一步要真的打个包，所以放在最后；build.gradle 的 bootJar 里另有一道同样的护栏
+      #    （doLast 回读产物），两者互为独立检查 —— 一个管"构建时"，一个管"CI 里"。
+      - name: 发布物检查（jar 里不许有本地配置）
+        working-directory: AquaFlow-backend
+        run: |
+          chmod +x gradlew
+          ./gradlew bootJar --no-daemon --console=plain
+          cd ..
+          node scripts/check-jar-no-local-config.js
+
+      # 生产启动姿态（2026-09-28 新增）：**拿上一步刚打出来的 jar 真起 13 次**，
+      # 每次摘掉一个环境变量，看是"拒启"还是"能起"。
+      # 为什么必须有：静态比对键名（上一条 check-prod-config.js）证明不了"真的会拒启"，
+      # 也发现不了"声明了却没人读"的键 —— 实测就抓到过两处：
+      #   · COS_SECRET_ID/KEY 原来无默认值 ⇒ 没配对象存储整个系统起不来（而代码本为它设计了优雅降级）；
+      #   · COS_REGION/COS_BUCKET_NAME 没有任何代码读 ⇒ 声明成"缺失即失败"，实际根本不会失败。
+      # 它自建/自清一次性库（aquaflow_prodstartup_check），只用上面已有的 mysql 服务，不需要额外资源。
+      - name: 生产启动姿态（必需变量缺失必须拒启、COS 缺失只降级）
+        run: node scripts/prod-startup-check.js
 
       - name: 上传测试报告（失败时也保留，便于排查）
         if: always()

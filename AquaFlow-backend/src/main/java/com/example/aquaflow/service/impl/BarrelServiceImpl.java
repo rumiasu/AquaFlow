@@ -8,7 +8,9 @@ import com.example.aquaflow.entity.CustomerBarrelOver;
 import com.example.aquaflow.entity.DepositRecord;
 import com.example.aquaflow.entity.OrderItem;
 import com.example.aquaflow.entity.Product;
+import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.constant.DepositType;
+import com.example.aquaflow.dto.BarrelRefundDTO;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.BarrelRecordLotMapper;
 import com.example.aquaflow.mapper.BarrelRecordMapper;
@@ -20,6 +22,7 @@ import com.example.aquaflow.mapper.DepositRecordMapper;
 import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.mapper.OrderItemMapper;
 import com.example.aquaflow.mapper.ProductMapper;
+import com.example.aquaflow.mapper.StaffMapper;
 import com.example.aquaflow.service.BarrelLedgerService;
 import com.example.aquaflow.service.BarrelService;
 import com.example.aquaflow.service.CustomerRiskService;
@@ -67,6 +70,10 @@ public class BarrelServiceImpl implements BarrelService {
 
     @Autowired
     private CustomerBarrelInTransitMapper customerBarrelInTransitMapper;
+
+    /** 交付人校验（v66）：refund_paid_by 是客户端可编造的值，必须确认它属于本站 */
+    @Autowired
+    private StaffMapper staffMapper;
 
     /** 完成配送页的回桶计划要按订单明细逐行给默认值（见 {@link #returnPlanOfOrder}） */
     @Autowired
@@ -539,7 +546,7 @@ public class BarrelServiceImpl implements BarrelService {
      * 站长审批退桶申请 —— <b>状态机 1 → 2 → 3，不允许跳步</b>（DEF-7）。
      *
      * <pre>
-     *   1 待处理 --确认收桶--> 2 已确认收到空桶 --退押金--> 3 已退押金
+     *   1 待处理 --确认收桶--> 2 已确认收到空桶 --退押金并当面交付--> 3 已退押金(已核销+已交付)
      *   1 或 2  ----------------驳回--------------> 4 已驳回
      * </pre>
      *
@@ -554,7 +561,8 @@ public class BarrelServiceImpl implements BarrelService {
      */
     @Override
     @Transactional
-    public void handleBarrelReturn(Long id, Integer status, String handleNote, Long operatorId) {
+    public void handleBarrelReturn(Long id, Integer status, String handleNote, Long operatorId,
+                                   String refundChannel, Long refundPaidBy) {
         BarrelRecord record = barrelRecordMapper.getById(id);
         if (record == null) {
             throw new BusinessException("退桶记录不存在");
@@ -586,12 +594,12 @@ public class BarrelServiceImpl implements BarrelService {
             return;
         }
 
-        // ---- 2 → 3：退押金（真正动账） ----
+        // ---- 2 → 3：退押金并当面交付（真正动账，v66 起核销与交付同一次完成） ----
         if (Integer.valueOf(3).equals(status)) {
             if (cur != 2) {
                 throw new BusinessException("请先确认已收到空桶，再退押金（当前：" + record.getStatusText() + "）");
             }
-            doRefund(record, handleNote, operatorId);
+            doRefund(record, handleNote, operatorId, refundChannel, refundPaidBy);
             return;
         }
 
@@ -599,10 +607,71 @@ public class BarrelServiceImpl implements BarrelService {
     }
 
     /**
-     * 退押金落账：按押金条批次 FIFO 核销 → 同步权益 → 扣押金账户 → 写流水与核销明细。
-     * 任一步失败都会抛异常，由 {@link Transactional} 整体回滚。
+     * 交付确认（补登记）：只补"押金已交到顾客手上"这一事实，不动金额、不动状态。
+     *
+     * <p>幂等判据落在 SQL 的 CAS 上（{@code status=3 and refund_paid_time is null}）：
+     * 重复调用受影响 0 行 —— 此时<b>必须回读记录分辨原因</b>，
+     * 已登记 = 幂等成功；状态不对 = 明确拒绝。一律当成功会让"给错单号"得到"成功"（AGENTS §8.20）。</p>
      */
-    private void doRefund(BarrelRecord record, String handleNote, Long operatorId) {
+    @Override
+    @Transactional
+    public boolean confirmRefundPaid(Long id, Long stationId, Long operatorId, Long paidBy) {
+        BarrelRecord record = barrelRecordMapper.getById(id);
+        if (record == null) {
+            throw new BusinessException("退桶记录不存在");
+        }
+        if (!Integer.valueOf(2).equals(record.getType())) {
+            throw new BusinessException("仅退桶记录可登记交付");
+        }
+        if (stationId == null || !stationId.equals(record.getStationId())) {
+            throw new BusinessException("无权处理他站退桶记录");
+        }
+        // 幂等：已登记过就直接回成功，**不覆盖原交付时间**（那是事实，重试不该改写它）
+        if (record.getRefundPaidTime() != null) {
+            return false;
+        }
+        if (!Integer.valueOf(3).equals(record.getStatus())) {
+            throw new BusinessException("该申请尚未退押金（当前：" + record.getStatusText()
+                    + "），没有可登记的交付；退押金时会同时登记交付");
+        }
+        Long payer = resolveRefundPaidBy(record.getStationId(), paidBy, operatorId);
+        if (barrelRecordMapper.markRefundPaid(id, stationId, payer) == 0) {
+            // 0 行只可能是并发下别人刚登记完（CAS 的 is null 条件）—— 回读确认，是则幂等成功
+            BarrelRecord after = barrelRecordMapper.getById(id);
+            if (after != null && after.getRefundPaidTime() != null) {
+                return false;
+            }
+            throw new BusinessException("该申请状态已被变更，请刷新后重试");
+        }
+        log.info("[退桶] 补登记押金交付. recordId={}, station={}, paidBy={}", id, stationId, payer);
+        return true;
+    }
+
+    @Override
+    public Map<String, Object> listRefundUndelivered(Long stationId, Integer limit) {
+        int n = (limit == null || limit <= 0) ? 200 : Math.min(limit, 1000);
+        int count = barrelRecordMapper.countRefundUndelivered(stationId);
+        List<BarrelRecord> records = barrelRecordMapper.listRefundUndelivered(stationId, n);
+        Map<String, Object> data = new HashMap<>();
+        data.put("count", count);
+        data.put("amount", barrelRecordMapper.sumRefundUndelivered(stationId));
+        data.put("records", records);
+        data.put("truncated", count > records.size());
+        return data;
+    }
+
+    /**
+     * 退押金落账：按押金条批次 FIFO 核销 → 同步权益 → 扣押金账户 → 写流水与核销明细
+     * → 置「已退押金」<b>并同时登记交付</b>。
+     * 任一步失败都会抛异常，由 {@link Transactional} 整体回滚。
+     *
+     * <p><b>[v66] 两件事在同一次点击里完成</b>（产品口径"不现场给钱的不要退"，{@code docs/design/35} §7.2）：
+     * 「押金已核销」与「已经交到顾客手上」不可分离，故 {@code refund_paid_*} 与 status=3 同一条 UPDATE。
+     * ⚠️ {@code deposit_record} 的负数流水<b>留在本方法内</b>，不要挪到"交付"那一步 ——
+     * 一挪，对账等式 1（{@code balance == SUM(deposit_record.amount)}）会在中间态不平。</p>
+     */
+    private void doRefund(BarrelRecord record, String handleNote, Long operatorId,
+                          String refundChannel, Long refundPaidBy) {
         Long cid = record.getCustomerId();
         Long sid = record.getStationId();
         Long pid = record.getProductId();
@@ -613,6 +682,25 @@ public class BarrelServiceImpl implements BarrelService {
         if (returnQty <= 0) {
             throw new BusinessException("退桶数量不合法");
         }
+
+        // 0) 退款通道白名单（AGENTS §6：请求体的枚举入参必须白名单校验）。
+        //    放在所有写操作之前 —— 非法值/不可用通道必须"什么都没发生"。
+        String channel = BarrelRefundDTO.normalizeChannel(refundChannel);
+        if (channel == null) {
+            throw new BusinessException("退款方式不合法：" + refundChannel + "（仅支持 CASH 现金当面交付 / ONLINE 线上原路退回）");
+        }
+        // [2026-09-27 §7.3] 优先原路返回，通道不可用就**明确拒绝**，不许假装已退（AGENTS §1.1）。
+        // 微信退款通道尚未接入（与 refundPayment 的"手工退款直接拒"同一条口径）：
+        //   能给的只有"现金当面交付"，且钱必须当场到顾客手上 —— 所以这里不是"稍后再退"，而是"换通道"。
+        // ⚠️ 不在这里做"这笔押金当初是不是线上收的"判定：deposit_record 没有通道列、
+        //   customer_barrel_lot.price_source 说的是**单价怎么来的**（实付/当时押金/兜底推断）而不是收款渠道，
+        //   现算一个"看起来对"的渠道只会给出错误理由。通道一接入，本分支改成真正的原路退回。
+        if (BarrelRefundDTO.CHANNEL_ONLINE.equals(channel)) {
+            throw new BusinessException("微信退款通道未接入，本单不能假装已退，请改用现金当面交付或线下退款");
+        }
+
+        // 交付人：站内校验（跨站第二道防线；第一道在控制器按登录态比对记录归属）
+        Long paidBy = resolveRefundPaidBy(sid, refundPaidBy, operatorId);
 
         // [DEF-3] 该商品上还有欠桶时不允许退桶：权益可以退，但占着的桶得先还回来。
         // 按商品判断（A 水的多还桶不能抵 B 水的欠桶）；over<0（多还桶）不拦，那是水站暂存，合法。
@@ -640,6 +728,19 @@ public class BarrelServiceImpl implements BarrelService {
             barrelRecordLotMapper.insert(row);
         }
 
+        // 3.5) [§7.4 第二道闸] 申请(status=1)到审批(status=3)之间客户风险可能变化：
+        //      `previewReturn` 拦的是申请那一刻，这里必须**再查一次**，否则那笔钱照样退出去
+        //      （与"欠桶"硬拦两处的形状一致，见 BarrelReturnGuardIntegrationTest）。
+        //      ⚠️ **只在确实要退钱时（refund > 0）拦**：查询性质、或本来就退不出钱的调用不该被它挡住
+        //         —— 与 previewReturn 同判据（那边是 qty>0 且权益足够且不欠桶）。
+        //      文案复用 customerRiskService.returnBlockedReason（全系统唯一来源，别另写一句）。
+        if (refund.compareTo(BigDecimal.ZERO) > 0) {
+            String level = customerRiskService.levelOf(cid, sid);
+            if (CustomerRiskService.ALERT.equals(level) || CustomerRiskService.FREEZE.equals(level)) {
+                throw new BusinessException(customerRiskService.returnBlockedReason(cid, sid));
+            }
+        }
+
         // 4) 扣押金账户：必须真的扣到钱。旧实现 affected==0 时只是静默跳过，
         //    导致"记录显示已退押金，但顾客账户一分钱没多/没少"。
         if (refund.compareTo(BigDecimal.ZERO) > 0) {
@@ -652,20 +753,49 @@ public class BarrelServiceImpl implements BarrelService {
             dr.setStationId(sid);
             dr.setType(DepositType.RETURN_BARREL);
             dr.setAmount(refund.negate());
+            // 通道写进备注：事后要回答"这笔钱当初是怎么退的"（线上原路 / 现金当面）
             dr.setNote("退桶退押金: recordId=" + record.getId()
+                    + "（" + BarrelRefundDTO.textOf(channel) + "）"
                     + (consumption.isHasMigratedPrice() ? "（含历史推断单价批次）" : ""));
             dr.setOperatorId(operatorId);
             dr.setCreateTime(LocalDateTime.now());
             depositRecordMapper.insert(dr);
         }
 
-        // 5) 置为已退押金，并把实退金额写回记录
-        if (barrelRecordMapper.finishRefund(record.getId(), handleNote, refund) == 0) {
+        // 5) 置为已退押金，并把实退金额写回记录；**同一条 SQL 里登记交付**
+        //    （refund_paid_time/by）—— 分开写会重新打开"先核销、钱以后再给"的中间态。
+        if (barrelRecordMapper.finishRefund(record.getId(), handleNote, refund, paidBy) == 0) {
             throw new BusinessException("该申请状态已被变更，请刷新后重试");
         }
 
-        log.info("[退桶] 已退押金. recordId={}, customer={}, product={}, qty={}, refund={}, migratedPrice={}",
-                record.getId(), cid, pid, returnQty, refund, consumption.isHasMigratedPrice());
+        log.info("[退桶] 已退押金并登记交付. recordId={}, customer={}, product={}, qty={}, refund={}, "
+                        + "channel={}, paidBy={}, migratedPrice={}",
+                record.getId(), cid, pid, returnQty, refund, channel, paidBy, consumption.isHasMigratedPrice());
+    }
+
+    /**
+     * 交付人解析：显式传入则校验"是本站员工"，否则回落到操作人自己。
+     *
+     * <p>为什么允许显式传：核销的人（站长）与交钱的人（下次上门的配送员）<b>可以是两个</b>，
+     * 复用 {@code operator_id} 会让这两件事再也分不开（{@code docs/design/35} §4 方案 A）。
+     * 为什么必须校验站别：{@code refundPaidBy} 是客户端可编造的值，
+     * 不校验就能把"经谁的手交的钱"记成别站员工（同 §8.20「按 id 操作必须验归属」）。</p>
+     */
+    private Long resolveRefundPaidBy(Long stationId, Long refundPaidBy, Long operatorId) {
+        Long payer = refundPaidBy != null ? refundPaidBy : operatorId;
+        if (payer == null) {
+            throw new BusinessException("无法确定押金交付人，请重新登录后重试");
+        }
+        if (refundPaidBy != null) {
+            Staff staff = staffMapper.getById(refundPaidBy);
+            if (staff == null) {
+                throw new BusinessException("交付人不存在");
+            }
+            if (staff.getStationId() == null || !staff.getStationId().equals(stationId)) {
+                throw new BusinessException("交付人必须是本站员工");
+            }
+        }
+        return payer;
     }
 
     /**

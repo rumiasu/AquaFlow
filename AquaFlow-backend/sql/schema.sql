@@ -104,6 +104,8 @@ CREATE TABLE IF NOT EXISTS `barrel_record` (
   `delivered_qty` int NOT NULL DEFAULT '0' COMMENT '本单送出满桶数(仅type=8配送收发明细)',
   `returned_qty` int NOT NULL DEFAULT '0' COMMENT '本单收回空桶数(仅type=8配送收发明细)',
   `adjustment_id` bigint DEFAULT NULL COMMENT '站长资产调整单ID（station_adjustment.id），NULL=非调整产生',
+  `refund_paid_time` datetime DEFAULT NULL COMMENT '押金**实际交付**给顾客的时间(v66); NULL 且 status=3 = 违规数据(先核销未交付)',
+  `refund_paid_by` bigint DEFAULT NULL COMMENT '把押金交到顾客手上的人(staff.id, v66); 可以与 operator_id(核销人)不同——配送员代交',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_record_client_token` (`client_token`),
   -- [AQ-ADJ] 一张调整单最多一条桶流水，作为「重复执行」的数据库级兜底
@@ -514,6 +516,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `guard_info` varchar(200) DEFAULT NULL COMMENT '门卫信息',
   `delivery_time_request` varchar(100) DEFAULT NULL COMMENT '配送时间要求',
   `special_note` varchar(200) DEFAULT NULL COMMENT '特殊说明',
+  `customer_note` varchar(500) DEFAULT NULL COMMENT '客户备注快照，与内部处理记录分开',
   `receiver_name` varchar(50) DEFAULT NULL COMMENT '收件人姓名快照',
   `receiver_phone` varchar(20) DEFAULT NULL COMMENT '收件人电话快照',
   `address_snapshot` varchar(500) DEFAULT NULL COMMENT '地址快照',
@@ -1031,3 +1034,39 @@ CREATE TABLE IF NOT EXISTS `station_enterprise_config` (
   PRIMARY KEY (`station_id`),
   CONSTRAINT `fk_sec_station` FOREIGN KEY (`station_id`) REFERENCES `station` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站级企业身份提示阈值(v51); 无行=用平台默认, 有行且两项空=本站不提示';
+-- =============================================================================
+-- [v67] 站间结算台账 —— 跨站单的「谁欠谁、欠多少、什么时候算办完」
+--   · 跨站外派单（归属 A / 履约 B）的**钱在 A**（`payment_record.station_id`=归属站）、
+--     **营收算 B**（`coalesce(settle_station_id, delivery_station_id, station_id)`），
+--     本表就是把这两者的差额记下来。正本说明见 migration_v67_inter_station_settlement.sql
+--     与 `docs/design/31-站间结算算例-水票计价-决策件.md`（§6.2 算法 / §8 已拍板口径）。
+--   · **金额由代码算好后写快照，本表不自算任何金额、不参与客户侧对账**；
+--     两站净额相加恒为 0（闭合）是可作断言的不变式。
+--   · `basis`：1 本单营收（非票单）/ 2 水票折算实付（默认）/ 3 水票按挂牌价（卖票站可选）。
+--   · `fee_amount` **v67 不计入 amount**（「票覆盖的配送费/楼层费要不要一起结」仍是
+--     `docs/design/31` §8.4 第 3 问，产品未答）—— 单独记一列，拍板后一个 UPDATE 即启用。
+--   · 不加外键：与 `orders.station_id` / `barrel_record.station_id` 一致（本来就没有）。
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `inter_station_settlement` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `order_id` bigint NOT NULL COMMENT '订单ID（一单一笔，见 uk_inter_settle_order）',
+  `from_station_id` bigint NOT NULL COMMENT '付款方 = 归属站（票钱/微信款收在它手上）',
+  `to_station_id` bigint NOT NULL COMMENT '收款方 = 结算站 = coalesce(settle_station_id, delivery_station_id, station_id)（谁送谁收）',
+  `amount` decimal(10,2) NOT NULL COMMENT '本单应付金额（一律正数；方向由 from→to 表达）',
+  `basis` tinyint NOT NULL COMMENT '计价依据: 1本单营收(非票单,水费+配送费+楼层费) 2水票折算实付(默认) 3水票按挂牌价(卖票站可选)',
+  `ticket_qty` int NOT NULL DEFAULT '0' COMMENT '本单用票张数（仅 basis=2/3）',
+  `unit_price` decimal(10,4) DEFAULT NULL COMMENT '采用的单价快照（仅 basis=2/3）: 2=逐张 ticket_record.unit_price 求和后折算, 3=order_item.price',
+  `fee_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '票覆盖的配送费+楼层费（仅 basis=2/3）; ⚠️ v67 不计入 amount —— 「费用要不要一起结」待拍板(docs/design/31 §8.4 第3问), 单独记以便拍板后一个 UPDATE 启用',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '1待结清 2已结清 3已冲销(订单取消)',
+  `snapshot_time` datetime NOT NULL COMMENT '计价快照时间; 此后批次被消耗/回补都不改本行金额',
+  `settled_time` datetime DEFAULT NULL COMMENT '**什么时候算办完**: 付款方登记结清的时间',
+  `settled_by` bigint DEFAULT NULL COMMENT '登记结清的人（staff.id）',
+  `settle_note` varchar(200) DEFAULT NULL COMMENT '结清凭据说明（转账流水号/经手人）—— 线下动作只留痕, 系统不假装打款',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_inter_settle_order` (`order_id`),
+  KEY `idx_inter_settle_from` (`from_station_id`,`status`),
+  KEY `idx_inter_settle_to` (`to_station_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='站间结算台账(v67): 跨站单的谁欠谁/欠多少/什么时候算办完; 金额由代码算, 本表只存快照, 不参与客户侧对账';

@@ -9,7 +9,7 @@ Page({
       stationName: ''
     },
     // 反馈表单
-    category: 'bug',
+    category: '配送服务',
     content: '',
     contact: '',
     // 匿名提交开关（v46，产品裁定 2026-09-18）：**默认 false = 实名**。

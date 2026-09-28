@@ -29,7 +29,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 20rpx;
-  padding: 24rpx 28rpx;
+  padding: 16rpx 24rpx;
 }
 .hero-l {
   display: flex;
@@ -120,7 +120,7 @@
   display: flex;
   align-items: center;
   gap: 16rpx;
-  padding: 24rpx 28rpx;
+  padding: 16rpx 24rpx;
 }
 .addr-label {
   font-size: var(--font-sm);
@@ -182,7 +182,7 @@
   display: flex;
   align-items: center;
   gap: 20rpx;
-  padding: 24rpx 28rpx;
+  padding: 16rpx 24rpx;
 }
 .dot {
   width: 16rpx;
@@ -238,12 +238,12 @@
 .again {
   display: flex;
   align-items: center;
-  gap: 24rpx;
-  padding: 24rpx 28rpx;
+  gap: 16rpx;
+  padding: 14rpx 20rpx;
 }
 .again-img {
-  width: 128rpx;
-  height: 168rpx;
+  width: 80rpx;
+  height: 100rpx;
   border-radius: var(--radius-md);
   flex: none;
   background: var(--bg-gray);
@@ -271,13 +271,21 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* [2026-09-27 走查 C02] 具体是哪几款商品（第二行）：比规模那句更次要，但**允许换行** ——
+   截断在这里正是 C02 抱怨的"加了什么不够清楚"（原来只有一行且会被 ellipsis 吃掉）。 */
+.again-preview {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-top: 4rpx;
+  line-height: 1.5;
+}
 .again-btn {
   flex: none;
   font-size: var(--font-md);
   color: var(--text-primary);
   border: 1rpx solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 12rpx 32rpx;
+  padding: 10rpx 20rpx;
   background: #fff;
 }
 
@@ -289,7 +297,7 @@
   display: flex;
   align-items: baseline;
   gap: 16rpx;
-  padding: 28rpx 32rpx 8rpx;
+  padding: 18rpx 24rpx 6rpx;
 }
 .sec-title {
   font-size: var(--font-lg);
@@ -310,15 +318,15 @@
 .prod {
   display: flex;
   gap: 20rpx;
-  padding: 28rpx 32rpx;
+  padding: 18rpx 24rpx;
   align-items: center;
 }
 .prod + .prod {
   border-top: 1rpx solid var(--border-color);
 }
 .prod-img {
-  width: 144rpx;
-  height: 192rpx;
+  width: 112rpx;
+  height: 144rpx;
   border-radius: var(--radius-md);
   flex: none;
   background: var(--bg-gray);

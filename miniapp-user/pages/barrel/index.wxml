@@ -57,7 +57,14 @@
 
     <view class="section">
       <view class="section-header">
-        <text class="section-title">长期桶资产（按商品聚合）</text>
+        <!--
+          [2026-09-27 走查 C07 修] 原标题「长期桶资产（按商品聚合）」是**建模语言**
+          （"资产"是表名口径："按商品聚合"是实现方式），顾客不需要知道系统怎么存的。
+          顾客要回答的是"我有哪些桶、几个、能不能退" —— 换成「我的水桶」，一句人话。
+          ⚠️ 只改标题与空态文案：分组口径（`customerBarrelAsset` 由后端下发）、
+             数量与"押金 ¥X/桶"一律没动。
+        -->
+        <text class="section-title">我的水桶</text>
         <view class="return-btn-small" bindtap="onShowReturnModal" wx:if="{{maxReturnQty > 0}}">
           <text>申请退桶</text>
         </view>
@@ -78,7 +85,8 @@
         </view>
       </view>
 
-      <empty wx:else text="暂无长期桶资产"></empty>
+      <!-- 空态：原文「暂无长期桶资产」同样是建模语言；改成顾客视角的一句话 -->
+      <empty wx:else text="还没有可退的水桶"></empty>
     </view>
 
     <view class="section">
@@ -176,8 +184,17 @@
         <view class="preview-row">
           <text class="preview-amount" wx:if="{{preview && !preview.blocked}}">¥{{preview.refundAmount}}</text>
           <text class="preview-placeholder" wx:elif="{{previewing}}">计算中...</text>
-          <text class="preview-placeholder" wx:else>请选择商品和数量</text>
+          <text class="preview-placeholder" wx:else>{{previewHint || '请选择商品和数量'}}</text>
         </view>
+      </view>
+
+      <!--
+        算不出来的**原因**要常驻显示，不能只弹一次 toast：
+        最典型是「还没选服务水站」（试算必须带 waterStationId，后端只认请求参数）。
+        以前这里失败被静默吞掉，顾客看到的是一个空白金额框，与「后端算不出」分不清。
+      -->
+      <view class="preview-hint" wx:if="{{previewHint}}">
+        <text>{{previewHint}}</text>
       </view>
 
       <view class="preview-blocked" wx:if="{{preview && preview.blocked}}">
@@ -185,9 +202,9 @@
       </view>
 
       <view class="preview-lots" wx:if="{{preview && preview.lots.length > 0}}">
-        <text class="preview-lots-title">金额依据（按买入时的押金条核销）</text>
+        <text class="preview-lots-title">预计金额明细</text>
         <view class="preview-lot" wx:for="{{preview.lots}}" wx:key="lotId">
-          <text>押金条 #{{item.lotId}}：{{item.qty}} 个 × ¥{{item.unitPrice}}</text>
+          <text>{{item.qty}} 个 × ¥{{item.unitPrice}}</text>
         </view>
       </view>
 

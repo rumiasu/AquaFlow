@@ -54,3 +54,16 @@ whenToUse: 要动订单状态机 / 取消与退款链 / 桶账与押金 / 对账
 31. **受限沙箱里「进程输出拿不到」会把正常套件判成失败**（2026-09-27 实测）—— 本机 DSH 的 `workspace-write` 模式下进程**不能创建 named pipe**：`spawnSync` 回 `status=null` + `error.code='EPERM'`，**子进程根本没跑**，而 `tests/js/run-all.js` 旧版把"没跑"当"未通过"，六个套件齐报红（`Start-Process -RedirectStandardOutput`、bash 的 `couldn't create signal pipe` 同理，都是这一条）。**判据一：`EPERM` 要单独判并降级**，别混进"失败"里 —— 把环境限制说成"测试挂了"，下一个人会去改测试。**判据二：降级用「文件描述符重定向」而不是 `stdio:'inherit'`**（`fs.openSync` 拿 fd 传给子进程，文件照写）—— `inherit` 能让测试跑起来、也保住退出码，但输出只落终端、**拿不到字符串**，"打印一半就静默退出"再也抓不到。**判据三：判据别建立在中文上** —— 同一环境下子进程往 fd 里写的中文会被编码毁成 `?`（实测 `全部通过：3 项` 变成 `?????3 ???????`），**ASCII 哨兵**（`AQUAFLOW_SUITE_OK <n>`）不受代码页影响。**判据四（本仓铁律）：只判退出码不算判过** —— 用例 await 的 Promise 永不 resolve 时 Node 空转后**静默退出、退出码 0**；必须要求套件打印收尾哨兵。⚠️ 配哨兵时的两个坑：正则**不要加 `g`**（`lastIndex` 残留会让某个套件莫名匹配不到）；文件描述符路径**故意不给 `timeout`**（Windows 上被杀的子进程仍握着句柄，`spawnSync` 会一直等到句柄关闭并留下半截输出 ⇒ 正常套件反被误判）。**CI 跑在 Linux 上，不受本机沙箱限制**，别为它改 CI 语义。
 32. **`Get-NetTCPConnection` 会静默漏报监听端口**（2026-09-27 实测）—— 对 8080 返回空集，据此判"端口空闲"并起 `bootRun`，实际 `netstat -ano` 显示 `0.0.0.0:8080 LISTENING`（PID 一直在跑）⇒ 白跑一次启动、只拿到 `Port 8080 was already in use`。**判据：判端口占用用 `netstat -ano | Select-String ':8080'`**（看 `0.0.0.0:<port> ... LISTENING` 那两行），或直接 `Invoke-WebRequest http://127.0.0.1:<port>/...` 打一发；**别拿 `Get-NetTCPConnection` 的空结果当"没人占用"**。相关：已有实例在跑时 `gradlew` 还会撞 `fileHashes.lock`（见 AGENTS §5 的 Gradle 锁坑）。
 
+
+33. **本机用 mysql CLI 跑「大 SQL」的三个坑（2026-09-28 实测，一个脚本里连踩三个）** ——
+    ① **SQL 里的换行会被吞**：带换行的语句经 node → `cmd.exe` → mysql 那层，换行被当**命令分隔**，
+    于是 mysql 只收到半句、报出**指向完全错误**的错（实测见过 `Unknown table 'c' in field list`、
+    甚至 `Table 'aquaflow.innodb_table_stats' doesn't exist`）⇒ 送进 `-e` 前把 SQL **压成一行**。
+    ② **命令行有长度上限**：50 多段 `union all` 拼起来直接超限，**报错信息是空的**（看着像 SQL 写错，
+    其实是命令太长）⇒ 改**分批（每批 ~15 段）+ 子查询**（用 `in (select …)` 代替内联长 id 列表），
+    每段长度恒定。③ `mysql … < 文件` 的重定向在 `shell:true` 那层**同样会被吞**（同 ①，别指望它绕开长度限制）。
+    另：**中文输出必须带 `--default-character-set=utf8mb4`**，并在 PowerShell 里设
+    `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`；否则看到的是乱码，
+    **会让你误判成"库里的数据是坏的"**（实测差点据此去查编码问题）。
+    配套 scratch 工具：`scripts/__dbq.js`（只读查询跑手：凭据从 `application-local.yml` 内读、
+    **输出不回显密钥**、语句里出现写动作关键字**直接拒绝**）。

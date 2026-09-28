@@ -726,6 +726,108 @@ await test('服务端下发了现金项（已开通）⇒ 页面就有它且可�
   assert.strictEqual(page.data.allowOfflinePayment, true)
 })
 
+/* ==================================================================
+ *  [2026-09-27 走查 C03/C04] 水票不足时给出下一步 + 备注框盒模型
+ * ================================================================== */
+
+await test('C03 票够：不给"去买水票/换支付方式"这两个动作（它们只在票不足时才有意义）', async () => {
+  const { page } = newPage({
+    quote: { ticketPay: { fullyCovered: true, coverQty: 2, coverAmount: 20, payableAmount: 0 } }
+  })
+  await page.refreshQuote()
+  assert.strictEqual(page.data.ticketShortfallHint, '', '票够时不该有不足提示')
+  assert.strictEqual(page.data.ticketCanBuy, false)
+  assert.strictEqual(page.data.ticketAltMethod, null)
+})
+
+await test('C03 余额不够：给「去买水票」+「改用 X 支付」，且标签用后端下发的名字', async () => {
+  const { page } = newPage({
+    quote: {
+      methods: [
+        { id: 1, name: '微信支付', enabled: true },
+        { id: 3, name: '水票支付', enabled: true }
+      ],
+      defaultMethod: 3,
+      ticketPay: { fullyCovered: false, reason: 'INSUFFICIENT', hint: '本单还缺 1 张水票' }
+    }
+  })
+  await page.refreshQuote()
+  assert.strictEqual(page.data.ticketCanBuy, true, '余额不够 ⇒ 补票有意义，要给购票入口')
+  assert.strictEqual(page.data.ticketAltMethod, 1, '替代方式要从后端下发且 enabled 的列表里挑非水票的第一个')
+  assert.strictEqual(page.data.ticketAltLabel, '改用微信支付',
+    '标签用后端下发的 name，前端不自造映射表，实际=' + page.data.ticketAltLabel)
+})
+
+await test('C03 商品不支持用票：**不给**「去买水票」（补票没用），但仍可换支付方式', async () => {
+  const { page } = newPage({
+    quote: {
+      methods: [
+        { id: 2, name: '货到付款', enabled: true },
+        { id: 3, name: '水票支付', enabled: true }
+      ],
+      defaultMethod: 3,
+      allowOfflinePayment: true,
+      ticketPay: { fullyCovered: false, reason: 'NOT_SUPPORTED', hint: '本单含不支持水票的商品，票不会被扣' }
+    }
+  })
+  await page.refreshQuote()
+  assert.strictEqual(page.data.ticketCanBuy, false,
+    '★ 商品根本不能用票时补票没用 —— 把人引去买票是错的（走查原文的硬要求）')
+  assert.strictEqual(page.data.ticketAltMethod, 2, '仍要给出可换的支付方式')
+  assert.strictEqual(page.data.ticketAltLabel, '改用货到付款')
+})
+
+await test('C03 「改用 X 支付」只切换选择、不提交（不许替客户改支付方式还替他下单）', async () => {
+  const { page, calls } = newPage({
+    quote: {
+      methods: [
+        { id: 1, name: '微信支付', enabled: true },
+        { id: 3, name: '水票支付', enabled: true }
+      ],
+      defaultMethod: 3,
+      ticketPay: { fullyCovered: false, reason: 'INSUFFICIENT', hint: '本单还缺 1 张水票' }
+    }
+  })
+  await page.refreshQuote()
+  const before = calls.createOrder.length
+  page.onSwitchPayMethod({ currentTarget: { dataset: { id: 1 } } })
+  await new Promise(r => setTimeout(r, 30))
+  assert.strictEqual(page.data.selectedMethod, 1, '应切到微信')
+  assert.ok(calls.getQuote.length > 0, '切换后要重走报价（金额与费用都按新方式算）')
+  assert.strictEqual(calls.createOrder.length, before,
+    '★ 只有切换，**绝不能顺手建单** —— 走查验收原文「不得自动改变支付方式并提交」')
+})
+
+await test('C03 「换支付方式」不接受可用列表之外的 id（拿页面旧数据也切不过去）', async () => {
+  const { page, wx } = newPage({
+    quote: {
+      methods: [{ id: 3, name: '水票支付', enabled: true }],
+      defaultMethod: 3,
+      ticketPay: { fullyCovered: false, reason: 'INSUFFICIENT', hint: '本单还缺 1 张水票' }
+    }
+  })
+  await page.refreshQuote()
+  page.onSwitchPayMethod({ currentTarget: { dataset: { id: 2 } } })
+  await new Promise(r => setTimeout(r, 10))
+  assert.strictEqual(page.data.selectedMethod, 3, '不可用的方式不该被切过去')
+  assert.ok(wx.__calls.toast.length > 0, '要给一句可读提示，不能静默无反应')
+})
+
+await test('C04 备注输入框必须显式 border-box（否则 100% 宽 + 内边距会横溢出卡片）', async () => {
+  const fs = require('fs')
+  const path = require('path')
+  const wxss = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxss'), 'utf8')
+  // 只看 .note-input 那一条规则体（到第一个右花括号）
+  const start = wxss.indexOf('.note-input {')
+  assert.ok(start >= 0, 'create.wxss 里应能找到 .note-input')
+  const body = wxss.slice(start, wxss.indexOf('}', start))
+  assert.ok(/width:\s*100%/.test(body), '前提：它仍是 100% 宽（占满卡片）')
+  assert.ok(/box-sizing:\s*border-box/.test(body),
+    '★ 必须显式 border-box —— 全局只有 view,text,image 有（app.wxss），input 不在其中：'
+    + 'content-box 下 100% + 左右 padding 会比卡片宽，右侧溢出（走查 C04 截图 11）')
+  assert.ok(!/overflow:\s*hidden/.test(body), '不许用 overflow:hidden 掩盖（会把输入区裁掉）')
+})
+
 console.log('')
 doneWatchdog()
 if (failures.length) {

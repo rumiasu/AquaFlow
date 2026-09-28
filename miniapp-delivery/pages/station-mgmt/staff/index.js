@@ -64,6 +64,24 @@ Page({
     this.loadData()
   },
 
+  /**
+   * [2026-09-27 走查 M03 修] 支持 `?tab=apply` 直接落在「绑定申请」页签。
+   *
+   * 原来首页待办「员工绑定申请」只传页面路径，落到这里就是默认页签 `staff`（员工名单）——
+   * 站长点的是"有 N 条申请要审"，看到的却是一张人名表，还得自己找到页签切过去
+   *（走查截图 08）。常规「员工管理」入口**不带参数**，仍然默认名单，两个入口落点因此分开。
+   *
+   * ⚠️ 参数名与取值是**调用方契约**：`pages/coordination/index.js` 的 TODO_ROUTES.staffBinding
+   *    写的就是 `?tab=apply`，改这里必须同时改那一处。
+   * ⚠️ 不认的参数一律退回默认页签（同 exceptions 页的口径）：拼错的参数不该把页面打成空白。
+   */
+  onLoad(options) {
+    const key = options && options.tab
+    if (key === 'apply') {
+      this.setData({ activeTab: 'apply' })
+    }
+  },
+
   onTabSwitch(e) {
     this.setData({ activeTab: e.currentTarget.dataset.tab })
   },

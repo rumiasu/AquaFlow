@@ -28,8 +28,16 @@ public interface OrderService {
     // 该端点零调用方，已随端点一并删除（登记见 docs/audit/删除登记表.md）。
     // 订单修改一律走具名业务命令或带 expected-state 的专用列更新。
 
+    /**
+     * 通用订单列表。
+     *
+     * @param staffScope <b>[2026-09-27 产品裁定]</b> true = 员工视野，追加「只有收到钱的单才进视野」
+     *                   （{@code payment_status = 2 或 payment_method = 2}）。
+     *                   ⚠️ <b>顾客端必须传 false</b> —— 客户那张没付钱的单要看得见，否则无从继续付款。
+     *                   判据正本与另外三处同源实现见 {@code OrderMapper.list} 的注释。
+     */
     List<Orders> list(Long stationId, Long customerId, Integer status, String createTimeStart, String createTimeEnd,
-                      Integer limit, Integer offset);
+                      Integer limit, Integer offset, boolean staffScope);
 
     Orders getById(Long id);
 

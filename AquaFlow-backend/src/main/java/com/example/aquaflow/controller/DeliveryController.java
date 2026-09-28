@@ -51,6 +51,16 @@ public class DeliveryController {
     @Autowired
     private StationMapper stationMapper;
 
+    /**
+     * 「外派久未接单」的阈值小时数（见 {@link #staleDispatchHint}）。
+     *
+     * <p>TODO(待拍板) <b>「长时间」到底是多久，产品还没定</b>（{@code docs/design/31} §8.4 第 1 问）。
+     * 默认 4 小时只是"半天工作时间，再晚今天就送不到了"，**不是产品口径**；定了改这里或配环境变量。
+     * ≤0 = 本条不启用（同"0 关掉"的既有约定，而不是"0 小时后就提示"—— 那会让每张刚外派的单立刻变提示）。</p>
+     */
+    @org.springframework.beans.factory.annotation.Value("${aquaflow.dispatch.stale-hours:4}")
+    private int dispatchStaleHours;
+
     @Autowired
     private AuditLogService auditLogService;
 
@@ -1054,9 +1064,43 @@ public class DeliveryController {
                 if (to != null && !to.equals(stationId)) {
                     o.setDeliveryStationName(stationNames.get(to));
                 }
+                o.setDispatchStaleHint(staleDispatchHint(o));
             }
         }
         return Result.success(dispatched);
+    }
+
+    /**
+     * 「外派久未接单」的提示文案；不该提示时返回 null。
+     *
+     * <p>[2026-09-27] 产品原话：「长时间没人接还是给站长弹提示**是否**按照挂牌价」（{@code docs/design/31} §8.3）。
+     * 提示放在**外派追踪列表的这一行**上（不是待办卡：那条动作与这张列表都在首页，而首页是 tabBar 页，
+     * 待办卡跳不过去 —— 详见 {@code PendingItem} 里那段撤回说明）。</p>
+     *
+     * <p><b>判据四条，缺一条都会误报</b>：① 还在待配送(1)（已出车/已送达不用站长操心）；
+     * ② {@code delivery_staff_id == null}（还没派到具体的人 —— 这就是"没人接"的可判据形态，
+     * 比去解析 {@code special_note} 里的双方确认留痕可靠）；③ 距**最后一次变动**超过阈值；
+     * ④ 阈值 &gt; 0（≤0 = 本条不启用，同"0 关掉"的既有约定）。</p>
+     *
+     * <p>⚠️ <b>是提示，不是自动改价</b>：文案只说"要不要按挂牌价结"，改不改由站长点
+     * （改价端点在 {@code ManagerInterStationSettlementController}）。</p>
+     *
+     * <p>TODO(待拍板) 「长时间」到底是几小时，产品还没定（{@code docs/design/31} §8.4 第 1 问），
+     * 所以阈值配在 {@code aquaflow.dispatch.stale-hours}（默认 4 小时）而不是写死在判据里。</p>
+     */
+    private String staleDispatchHint(Orders o) {
+        if (dispatchStaleHours <= 0 || o == null) {
+            return null;
+        }
+        if (o.getStatus() == null || o.getStatus() != OrderStatus.PENDING || o.getDeliveryStaffId() != null) {
+            return null;
+        }
+        if (o.getUpdateTime() == null
+                || !o.getUpdateTime().isBefore(java.time.LocalDateTime.now().minusHours(dispatchStaleHours))) {
+            return null;
+        }
+        return "这单外派出去已超过 " + dispatchStaleHours + " 小时还没人接。"
+                + "可以按挂牌价结这一单来提高接单站的收益（改不改由你决定，系统不会自动改）。";
     }
 
     /**

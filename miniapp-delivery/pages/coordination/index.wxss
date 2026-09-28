@@ -369,6 +369,23 @@
 }
 .list-foot-link:active { opacity: 0.6; }
 
+/* [2026-09-27 走查 M04 修] 「待分配」队列标题行 + 常驻「查全部订单 ›」。
+   两件事必须同时看得见：标题说明这一列是什么（动作视角），链接把人送到状态台账；
+   原来只有沉在列表末尾的那一条，20 条待分配时得滚到底才找得到。 */
+.queue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 8rpx 20rpx;
+}
+.queue-title { font-size: 30rpx; font-weight: 700; color: var(--text-primary); }
+.queue-link {
+  font-size: 26rpx;
+  color: var(--primary-color);
+  padding: 8rpx 0 8rpx 24rpx;
+}
+.queue-link:active { opacity: 0.6; }
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -665,6 +682,23 @@
 .dispatch-value {
   color: #333333;
   font-weight: 500;
+}
+
+/* 外派久未接单的提示块（2026-09-27 产品裁定 docs/design/31 §8.3）。
+   与上面 .dispatch-info 同一形状，只是底色偏暖表示"要你决定"，与"信息展示"区分开。 */
+.dispatch-stale {
+  padding: 12rpx 16rpx;
+  background: #fff7e6;
+  border-radius: 10rpx;
+  margin-bottom: 12rpx;
+}
+
+.dispatch-stale-text {
+  display: block;
+  font-size: 25rpx;
+  line-height: 1.5;
+  color: #8a5a00;
+  margin-bottom: 12rpx;
 }
 
 /* ========== 退回待确认样式 ========== */

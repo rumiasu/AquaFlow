@@ -117,6 +117,10 @@ public class ManagerPendingSummaryController {
     @Autowired
     private GrossProfitMapper grossProfitMapper;
 
+    /** 站间未结清（v67）：计数走它，与「站间结算」页同一个读数入口。 */
+    @Autowired
+    private com.example.aquaflow.service.InterStationSettlementService interStationSettlementService;
+
     /**
      * 按级别分组的待办（顺序与 {@link PendingItem} 的声明顺序一致）。
      *
@@ -171,6 +175,9 @@ public class ManagerPendingSummaryController {
                 case ENTERPRISE_APPLY -> customerEnterpriseApplyMapper.listPendingByStation(stationId).size();
                 // 待确认结算单：与 todo-summary 同一个 mapper 计数（保证两处一致）
                 case DRAFT_PAYROLL -> staffPayrollMapper.countByStatus(stationId, StaffPayroll.Status.DRAFT);
+                // 站间未结清（v67）：与「站间结算」页**同一个读数入口** —— 角标与落地页必须同源，
+                // 否则就是本类最怕的"角标说 3、点进去 0 条"
+                case INTER_STATION_UNSETTLED -> interStationSettlementService.unsettledCountOf(stationId);
 
                 // —— P2 ——
                 // 抢单池：与「抢单池」页签同一个方法。**机会不是义务**，故归 P2

@@ -29,7 +29,7 @@
         source, status, payment_method, payment_status, total_amount, water_amount, deposit_amount,
         delivery_fee, floor_fee,
         receiver_name, receiver_phone, address_snapshot, address_snapshot_lat, address_snapshot_lng,
-        guard_info, delivery_time_request, special_note, delivery_bucket_qty, return_bucket_qty,
+        guard_info, delivery_time_request, special_note, customer_note, delivery_bucket_qty, return_bucket_qty,
         barrel_discrepancy, barrel_discrepancy_note, first_barrel_order, quantity, create_time, update_time,
         due_date,
         idempotency_key, request_digest)
@@ -38,7 +38,7 @@
         #{source}, #{status}, #{paymentMethod}, #{paymentStatus}, #{totalAmount}, #{waterAmount}, #{depositAmount},
         IFNULL(#{deliveryFee}, 0.00), IFNULL(#{floorFee}, 0.00),
         #{receiverName}, #{receiverPhone}, #{addressSnapshot}, #{addressSnapshotLat}, #{addressSnapshotLng},
-        #{guardInfo}, #{deliveryTimeRequest}, #{specialNote}, #{deliveryBucketQty}, #{returnBucketQty},
+        #{guardInfo}, #{deliveryTimeRequest}, #{specialNote}, #{customerNote}, #{deliveryBucketQty}, #{returnBucketQty},
         #{barrelDiscrepancy}, #{barrelDiscrepancyNote}, #{firstBarrelOrder}, #{quantity}, #{createTime}, #{updateTime},
         #{dueDate},
         #{idempotencyKey}, #{requestDigest})
@@ -92,6 +92,23 @@
             </if>
             <if test="createTimeEnd != null and createTimeEnd != ''">
                 and o.create_time &lt;= #{createTimeEnd}
+            </if>
+            <!--
+              [2026-09-27 产品裁定] 员工视野：**还没收到钱、且订单还活着**的单不进站长的订单列表。
+              判据是仓库既有的那一条 —— `payment_status = 2`（已付款）或 `payment_method = 2`（现金＝货到付款，
+              钱当面收）—— 与 listPendingByStationId / listStationPendingUnassigned / 接单分配闸门**同源**。
+              为什么要有：原先这条列表把**未付款的微信单**也列出来（演练实测 order 44/46 那批），
+              站长看到一张没人付钱的单，既不该派单也不知道该不该管；产品裁定「不应该，减少杂乱度」。
+
+              ⚠️ **第三个条件 `o.status in (3,4,5)` 不能省**：这条判据的本意是"这单还没成立、别拿给员工看"，
+                 而不是"没付过钱的单永远不许看"。已送达/已完成/已取消的单是**历史**——
+                 一张微信单取消后 `payment_status` 变成 3/4，只留前两个条件的话它会从站长的历史列表里
+                 **凭空消失**（客户来问"我那单呢"，站长查不到）。所以只挡"未付款 **且** 还活着"的单。
+              ⚠️ **顾客端不走这个分支**（staffScope 传 false/null）：客户自己那张没付钱的单必须看得见，
+                 否则他在「我的订单」里找不到刚下的单，也就无从继续付款 —— 那会变成"钱收不到"。
+            -->
+            <if test="staffScope != null and staffScope">
+                and (o.payment_status = 2 or o.payment_method = 2 or o.status in (3, 4, 5))
             </if>
         </where>
         order by o.create_time desc

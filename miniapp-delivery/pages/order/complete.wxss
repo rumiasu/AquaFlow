@@ -2,6 +2,12 @@
    安全区），否则最后一块（备注 / 送达凭证）会被它压住。原来是 200rpx，比按钮栏矮了一截。 */
 .container { background: var(--bg-color); min-height: 100vh; padding-bottom: calc(240rpx + env(safe-area-inset-bottom)); }
 
+/* [2026-09-27 走查 D03 修] 页头卡片：原来只有"成功态"一种样式，
+   现在同一个卡位承载 提交前 / 提交中 / 成功 三态（见 wxml 的 resultState 分支）。 */
+.head-card { background: var(--bg-card); margin: var(--spacing-md); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: var(--spacing-lg); }
+.head-title { font-size: var(--font-xl); font-weight: 700; color: var(--text-primary); display: block; margin-bottom: var(--spacing-xs); }
+.head-subtitle { font-size: var(--font-sm); color: var(--text-secondary); line-height: 36rpx; }
+/* 成功态样式保留原名（.success-header 已并入 .head-card，成功时用的是同一张卡） */
 .success-header { background: var(--bg-card); margin: var(--spacing-md); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: var(--spacing-xl) var(--spacing-lg); text-align: center; }
 .success-icon { width: 100rpx; height: 100rpx; background: var(--success-color); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 52rpx; font-weight: 700; margin: 0 auto var(--spacing-md); }
 .success-title { font-size: var(--font-xxl); font-weight: 700; color: var(--success-color); display: block; margin-bottom: var(--spacing-sm); }
@@ -65,7 +71,23 @@
 }
 .money-line { display: flex; align-items: baseline; justify-content: space-between; }
 .money-label { font-size: var(--font-md); color: var(--text-regular); }
+/* 红字大字**只**给"本次要收的钱"（.money-line 里的 collect 分支）。
+   [2026-09-27 走查 D01 修] 已付款的单原来也走这一条 ⇒ 看着像还要收这么多钱。 */
 .money-amount { font-size: 56rpx; font-weight: 700; color: #FF3B30; line-height: 1.1; }
+/* 已付款 / 不归本次收：主结论是一句话，总额降级成普通字号、中性色 */
+.money-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16rpx; }
+.money-headline { font-size: 34rpx; font-weight: 700; line-height: 1.2; }
+.money-headline-paid { color: var(--success-color); }
+.money-headline-wait { color: #E65100; }
+.money-amount-muted { font-size: var(--font-md); color: var(--text-regular); }
+.money-line-muted { margin-top: 8rpx; }
+
+/* [2026-09-27 走查 D02 修] 送货清单：商品名 + 数量，常显（新押金单 / 纯瓶装水单也要看得到送什么） */
+.goods-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16rpx; padding: 14rpx 0; border-top: 2rpx solid #f5f5f5; }
+.goods-row:first-of-type { border-top: none; }
+.goods-name { flex: 1; font-size: 30rpx; color: var(--text-primary); word-break: break-all; }
+.goods-qty { flex-shrink: 0; font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
+.goods-empty { padding: 14rpx 0; font-size: var(--font-sm); color: var(--text-secondary); }
 .money-meta { margin-top: 8rpx; }
 .money-meta-item { display: block; font-size: var(--font-sm); color: var(--text-secondary); line-height: 36rpx; }
 /* 备货没齐：单独一条醒目提示 + 补货入口（齐了整块不渲染） */
@@ -164,6 +186,9 @@
 .footer { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-card); padding: var(--spacing-lg) var(--spacing-md); padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom)); box-shadow: 0 -4rpx 20rpx rgba(0,0,0,.06); }
 .btn-confirm { width: 100%; background: var(--success-color); color: #fff; border: none; border-radius: var(--radius-round); font-size: var(--font-lg); font-weight: 700; padding: var(--spacing-lg) 0; }
 .btn-confirm::after { border: none; }
+/* [2026-09-27 走查 D03 修] 提交在途：按钮必须**看起来不能再点**（disabled 属性之外再给视觉，
+   否则"点了没反应"与"正在提交"分不清 —— 本仓"静默无反应"的老毛病）。 */
+.btn-confirm-busy { background: #9BB0C4; }
 
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; z-index: 1000; }
 .modal-content { width: 100%; background: var(--bg-card); border-radius: var(--radius-xl) var(--radius-xl) 0 0; padding: var(--spacing-xl) var(--spacing-lg) calc(var(--spacing-xl) + env(safe-area-inset-bottom)); max-height: 80vh; overflow-y: auto; }

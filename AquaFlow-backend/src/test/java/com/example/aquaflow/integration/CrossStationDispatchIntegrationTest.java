@@ -336,6 +336,40 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("[2026-09-27 裁定] 外派久未接单：外派追踪列表下发提示（是提示，不是自动改价）")
+    void staleDispatchCarriesHint() {
+        seed();
+        long order = pendingOrderAtA();
+        assertEquals(0, post("/api/delivery/orders/transfer/" + order + "/outsource", tokenA(),
+                "{\"targetStationId\":" + stationB + "}").code(), "前置：指定外派应成功");
+
+        // 刚外派出去不该提示 —— 阈值默认 4 小时
+        JsonNode fresh = trackingRow(tokenA(), order);
+        assertNotNull(fresh, "前置：外派追踪列表里应有这一单");
+        assertEquals("", fresh.path("dispatchStaleHint").asText(""),
+                "刚外派的单不该报「久未接单」，实际=" + fresh.path("dispatchStaleHint"));
+
+        // 把这单"最后一次变动"推到 5 小时前 = 久无接单
+        jdbc.update("update orders set update_time = date_sub(now(), interval 5 hour) where id = ?", order);
+        String hint = trackingRow(tokenA(), order).path("dispatchStaleHint").asText("");
+        assertTrue(hint.contains("挂牌价"),
+                "提示必须说清动作是「要不要按挂牌价结」（产品原话：弹提示**是否**按挂牌价），实际=" + hint);
+        assertTrue(hint.contains("不会自动改"),
+                "提示必须写明系统**不会自动改价** —— 否则站长会以为系统已经改过了（那会变成"
+                        + "在站长不知情时改掉一笔支出），实际=" + hint);
+        // 站长界面上的正文：不许出现开发词（AGENTS §6），也不许带 markdown 星号（会原样渲染）
+        assertFalse(hint.contains("*"), "画面文案不许带星号，实际=" + hint);
+        for (String devWord : new String[]{"接口", "后端", "字段", "落库", "端点"}) {
+            assertFalse(hint.contains(devWord), "画面文案不许出现开发词「" + devWord + "」，实际=" + hint);
+        }
+
+        // 一旦派到了具体的人，「没人接」就不成立 ⇒ 不再提示（更新 update_time 也只是让时间更旧）
+        jdbc.update("update orders set delivery_staff_id = ? where id = ?", driverB, order);
+        assertEquals("", trackingRow(tokenA(), order).path("dispatchStaleHint").asText(""),
+                "已经派到配送员的单不该再报「久未接单」");
+    }
+
+    @Test
     @DisplayName("跨站现金单：履约站完成配送并确认收款，但钱/押金/桶账全部记在归属站")
     void crossStationCashFlowsToOwnerStation() {
         seed();

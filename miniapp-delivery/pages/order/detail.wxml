@@ -89,25 +89,22 @@
     </view>
   </view>
 
-  <!-- 历史订单 -->
-  <view class="section">
-    <text class="section-title">历史订单</text>
-    <view class="history-row">
-      <view class="history-item">
-        <text class="history-label">近一年配送</text>
-        <text class="history-value">{{order.historyCount || 0}}次</text>
-      </view>
-      <view class="history-divider"></view>
-      <view class="history-item">
-        <text class="history-label">最近一次</text>
-        <text class="history-value">{{order.lastOrderDays || 0}}天前</text>
-      </view>
-    </view>
-  </view>
-
-  <!-- 客户备注 -->
+  <!--
+    [2026-09-27 走查 D04 修] 标题原文是「客户备注」—— 而 `order.notes` 是把
+    `orders.special_note`（**一个自由文本列**）按换行拆出来的全部内容，里面既有客户下单时
+    自己写的留言，也有系统追加的操作留痕（`[分配] 站长分配给 配送5`、`[接单] 配送员ID=4`、
+    `[外派]`、`[配送备注]`…，写入点见 OrderMapper.appendSpecialNote 的全部调用方）。
+    挂到「客户备注」下面，等于**把系统记录冒称成客户说的话**：站长照着它去质问客户
+    （"你不是备注了要放门口吗"），而那句话根本不是客户写的。
+    ⚠️ 在这里**不许**用"像不像系统标记"的字符串规则去过滤/截断（会把客户原话一起切掉，
+      而且标记形态没有契约保证）。后端 DTO 现在也**没有**区分客户留言与操作记录两个字段
+      （`orders.special_note` 一列兼两用，见 docs/audit/2026-09-27-GPT-两端运行时体验走查.md 的 D04），
+      所以这里退到报告允许的做法：**如实标成中性的「订单备注」**，内容原样保留、一条不删。
+      等后端补下发"客户留言"字段后，这一块再拆成两段（需后端配合，已登记）。
+  -->
   <view class="section" wx:if="{{order.notes && order.notes.length > 0}}">
-    <text class="section-title">客户备注</text>
+    <text class="section-title">订单备注</text>
+    <text class="section-tip">客户下单时写的话与系统的处理记录都在这里，逐行如实显示</text>
     <view class="notes-list">
       <view class="note-item" wx:for="{{order.notes}}" wx:key="index">
         <text class="note-icon">⚠</text>
@@ -131,6 +128,29 @@
     <view class="info-row-between">
       <text class="info-label">付款方式</text>
       <text class="info-value">{{order.paymentMethodText}}</text>
+    </view>
+  </view>
+
+  <!--
+    历史订单（[2026-09-27 走查 D05 修]：**从配送正文里挪到后面**）。
+    它回答的是"这个客户值不值得多照顾"（客户经营分析），而配送员上门的动作顺序是
+    "认人认地址 → 搬什么货 → 有没有客户交待 → 收几只旧桶 → 收不收钱"。
+    原先这一卡夹在「订单内容」与「客户备注」之间：常规送达要先滚过两个经营指标
+    才能看到客户到底交代了什么（放门口 / 先打电话），那是本页最该被先看到的一句话。
+    改法只动了**位置**：数值口径（historyCount / lastOrderDays）与展示形态一律没变。
+  -->
+  <view class="section">
+    <text class="section-title">历史订单</text>
+    <view class="history-row">
+      <view class="history-item">
+        <text class="history-label">近一年配送</text>
+        <text class="history-value">{{order.historyCount || 0}}次</text>
+      </view>
+      <view class="history-divider"></view>
+      <view class="history-item">
+        <text class="history-label">最近一次</text>
+        <text class="history-value">{{order.lastOrderDays || 0}}天前</text>
+      </view>
     </view>
   </view>
 

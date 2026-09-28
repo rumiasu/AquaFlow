@@ -1,5 +1,9 @@
 const { getBarrelSummary, getBarrelRecords, getBarrelSummaryByType, requestBarrelReturn, previewBarrelReturn } = require('../../api/barrel')
 const { stationStorage } = require('../../utils/storage')
+// 「当前服务水站」的**统一解析入口**（本地 → 回落 /api/orders/my-station）。
+// 本页原先直接用 stationStorage.getId()，少了回落那一级：下过单但没在首页选过站的顾客
+// 会被判成"没选水站"，而其实他的水站是查得出来的（utils/station.js 文件头写了为什么统一到这里）。
+const { resolveStationId } = require('../../utils/station')
 
 Page({
   data: {
@@ -37,6 +41,9 @@ Page({
     },
     // 退桶试算结果（后端按押金条批次 FIFO 算出，前端不自行计算金额）
     preview: null,
+    // 试算算不出来时的**可读原因**（常驻在试算框里，比只弹一次 toast 更容易被看到）。
+    // 典型场景：顾客还没选服务水站 ⇒ 见 refreshPreview 的注释（2026-09-27 修）。
+    previewHint: '',
     previewing: false,
     maxReturnQty: 0,
     submitting: false
@@ -160,33 +167,53 @@ Page({
       'returnForm.productId': first ? first.productId : null,
       'returnForm.quantity': 1,
       'returnForm.note': '',
-      preview: null
+      preview: null,
+      previewHint: ''
     })
     if (first) this.refreshPreview()
   },
 
   onCloseReturnModal() {
-    this.setData({ showReturnModal: false })
+    // 连提示一起清掉：下次打开时不该看到上一次留下的原因
+    this.setData({ showReturnModal: false, preview: null, previewHint: '' })
   },
 
   /**
    * 退桶试算：调后端 /return/preview。
    * 退款金额只认后端按押金条批次算出来的值 —— 前端自己用「数量 × 押金单价」估是错的：
    * 顾客当年买桶的价和现在不一定一样，那是柜台吵架的经典导火索。
+   *
+   * ⚠️ [2026-09-27 修] 这里必须**先解析出服务水站**，与提交路径（{@link #onSubmitReturn}）同一判据：
+   * 后端对顾客只认 dto（顾客 JWT 里没有水站），漏传恒回「请先选择服务水站」，而
+   * `api/barrel.js` 的 `previewBarrelReturn` 拿不到站就**不传该参数** ⇒ 必然失败。
+   * 旧实现既不判空、也不走回落，失败又被下面这个 catch 吞成 `preview: null`，
+   * 顾客看到的是**「押金金额算不出来」**，而真正的原因是没选水站 —— 两件事长得一模一样（本仓惯犯形状）。
+   *
+   * 用 `resolveStationId()` 而不是 `stationStorage.getId()`：本地没选过站时它会回落到
+   * 「上次下单的水站」，能救回"下过单但没在首页显式选过站"的顾客；
+   * 它**只读不写**，不会把首页的用户选择改掉。
    */
   async refreshPreview() {
     const { productId, quantity } = this.data.returnForm
     if (!productId || !quantity || quantity <= 0) {
-      this.setData({ preview: null })
+      this.setData({ preview: null, previewHint: '' })
       return
     }
-    this.setData({ previewing: true })
+    const stationId = await resolveStationId()
+    if (!stationId) {
+      // 不发请求，并把原因**写在试算框里**（比只弹一次 toast 更持久，顾客回头还能看到）
+      this.setData({ preview: null, previewHint: '要算能退多少押金，得先选服务水站：回首页点顶部水站名选一个。' })
+      wx.showToast({ title: '请先选择服务水站', icon: 'none' })
+      return
+    }
+    this.setData({ previewing: true, previewHint: '' })
     try {
-      const res = await previewBarrelReturn(productId, quantity, stationStorage.getId())
+      const res = await previewBarrelReturn(productId, quantity, stationId)
       this.setData({ preview: (res && res.data) || null })
     } catch (e) {
+      // 出声，但**别把技术原因糊给顾客**：后端给的话术已经面向用户，优先用它。
       console.warn('[Barrel] 退桶试算失败:', e.message)
-      this.setData({ preview: null })
+      this.setData({ preview: null, previewHint: (e && e.message) || '暂时算不出能退多少，请稍后重试' })
     } finally {
       this.setData({ previewing: false })
     }
@@ -243,7 +270,9 @@ Page({
 
     // 水站是提交的必需上下文（后端对顾客只认 dto；顾客 JWT 里没有站）。
     // 拿不到站就**别发请求** —— 后端只会回一句「请先选择服务水站」，让顾客白等一次失败。
-    const stationId = stationStorage.getId()
+    // [2026-09-27] 与 refreshPreview 统一走 resolveStationId()：多一级「上次下单的水站」回落，
+    // 少一次"明明查得到却提示没选站"。
+    const stationId = await resolveStationId()
     if (!stationId) {
       wx.showToast({ title: '请先选择服务水站', icon: 'none' })
       return
@@ -267,8 +296,11 @@ Page({
   onEcoRuleTap() {
     wx.showModal({
       title: '水桶回收规则',
-      // TODO(待拍板)：退桶扣减押金后的客户实际收款方式，是站内余额留用还是水站线下返还？
-      // 两者分别影响余额展示、退款凭据与客服指引；拍板后统一修改本弹窗、index.wxml 押金说明及退桶完成页。
+      // 退桶扣减押金后的钱**不留站内余额**（原「待拍板」项已于 2026-09-27 拍板收口，勿再挂）：
+      // 产品口径「不现场给钱的不要退」= 核销与"钱交到顾客手上"是同一次操作 —— 优先原路退回，
+      // 通道不可用（微信退款未接入）就由水站在确认收桶时当面交付现金（refundChannel=CASH）。
+      // 正本 `docs/design/35-退押金实际交付-决策件.md` §7.2/§7.3。故本弹窗只说"以页面预览为准、
+      // 具体退款方式向水站确认"，不承诺"退到余额"；index.wxml 的押金说明同此口径。
       content: '1. 水桶需保持完好，无严重破损\n2. 提交申请后，水站会先确认收到空桶\n3. 每桶金额以页面预览为准，具体退款方式请向水站确认\n4. 请勿将水桶用于非饮用水用途',
       showCancel: false,
       confirmText: '我知道了'

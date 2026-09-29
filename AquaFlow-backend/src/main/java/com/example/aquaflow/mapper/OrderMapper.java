@@ -579,7 +579,11 @@ public interface OrderMapper {
 
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
-            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind, " +
+            // [2026-09-29 清单2] sub_kind 同源下发：kind='STAFF' 下还分 退回站长/转让/取消申请，
+            // 首页「转单请求」栏要按它分流动作（转让行给「撤回」、退回站长行给「同意/拒绝」，
+            // 取消申请归审批页签）—— 只有 kind 分不出来，文本标记又与实际写入的 [转让待确认] 对不上。
+            "(select t.sub_kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingSubKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
@@ -732,7 +736,9 @@ public interface OrderMapper {
             "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
             "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
             "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator, " +
-            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind, " +
+            // [2026-09-29 清单2] 与 listTransferredOrders 同源下发 sub_kind（首页转单栏按它分流动作）
+            "(select t.sub_kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingSubKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +

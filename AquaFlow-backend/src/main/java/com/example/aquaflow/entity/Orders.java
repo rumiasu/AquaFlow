@@ -276,6 +276,17 @@ public class Orders {
      */
     private String transferPendingKind;
 
+    /**
+     * 待决策转单的**子类型**（{@code TRANSFER} 转让 / {@code RETURN_STATION} 退回站长 /
+     * {@code CANCEL_REQUEST} 取消申请 / {@code DIRECTED_RETURN} 指定退回）。
+     *
+     * <p>[2026-09-29 清单2] 与 {@link #transferPendingKind} 同源：kind='STAFF' 一个值底下
+     * 分着三种请求、各有各的决策动作，首页「转单请求」栏靠它分流（转让行给「撤回」、
+     * 退回站长行给「同意/拒绝」）。列表走两条 SQL 的子查询，详情由
+     * {@code DeliveryController#getOrderDetail} 从 order_transfer 记录回填；不落库。</p>
+     */
+    private String transferPendingSubKind;
+
     /** 转单类型：NONE 无 / STAFF 配送员转单 / DIRECTED 站间指定外派退回 */
     public String getTransferKind() {
         // [AQ-015] 优先使用结构化转单记录（order_transfer，权威状态源）

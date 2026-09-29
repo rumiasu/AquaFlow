@@ -1,5 +1,5 @@
 // 订单详情页
-const { getOrderDetail, completeOrder, transferOrder, returnToStation, getStaffList, dispatchOrder, resolveOrder, requestCancel } = require('../../api/delivery')
+const { getOrderDetail, completeOrder, transferOrder, cancelTransferOrder, returnToStation, getStaffList, dispatchOrder, resolveOrder, requestCancel } = require('../../api/delivery')
 // 配送异常上报（原因文案 + 上报实现）：与首页「配送遇到问题」共用一份，见 utils/delivery-problem.js
 const { reportDeliveryProblem } = require('../../utils/delivery-problem')
 // ⚠️ 楼梯凭证（v43；原名"楼层凭证"，[2026-09-26] 改名）用 utils/request 直接调：路径写常量、不往 api/ 或 config/api.js 加
@@ -115,7 +115,9 @@ Page({
     canRefundPayment: false,
     // 店员角色（决定要不要给「客户拒付」入口；后端端点本身是 STATION_MANAGER 专属，前端只是别画出来）
     isManager: false,
-    refusalBusy: false
+    refusalBusy: false,
+    // 撤回转单（2026-09-29 清单2）：防连点，文案在按钮上换「撤回中…」
+    cancelTransferBusy: false
   },
 
   onLoad(options) {
@@ -385,6 +387,43 @@ Page({
           } catch (err) {
             wx.hideLoading()
             wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+          }
+        }
+      }
+    })
+  },
+
+  // 撤回转单（2026-09-29 拍板 清单2）：双方同意制下发起人反悔的正门。
+  // 详情此前只有「转给同事」没有任何反悔出口 —— 转单申请发出去就只能等对方拒绝。
+  // 后端判权：发起人本人或本站站长（cancelTransfer），前端不判、点了由后端回话。
+  // 入口只画在 transferPendingSubKind === 'TRANSFER'（同事转让）时：退回站长 / 站内取消申请
+  // 同为 STAFF 类型但各有各的决策路径（审批页签的同意/拒绝、取消申请的撤销），
+  // 站间指定退回走协调页的「召回/退回」另一套动作 —— 都不挂这个按钮。
+  onCancelTransfer() {
+    const id = this.data.orderId
+    wx.showModal({
+      title: '撤回转单',
+      // 看这条的人可能是发起人、也可能是站长代撤 —— 文案用「原配送员」，两边都读得通
+      content: '撤回后这单仍归原配送员配送，对方的待确认列表里也不会再有这条申请。',
+      confirmText: '撤回',
+      confirmColor: '#B5442C',
+      success: async (res) => {
+        if (res.confirm) {
+          if (this.data.cancelTransferBusy) return
+          this.setData({ cancelTransferBusy: true })
+          wx.showLoading({ title: '撤回中...' })
+          try {
+            await cancelTransferOrder(id)
+            wx.hideLoading()
+            // 成功后**刷新详情**：「转单中」标签与转单按钮要跟着消失，
+            // 不刷新的话界面还挂着撤回入口，再点一次只会拿到「没有待决策的转单」。
+            await this.loadOrderDetail(id)
+            wx.showToast({ title: '已撤回，订单仍归你配送', icon: 'success' })
+          } catch (err) {
+            wx.hideLoading()
+            wx.showToast({ title: err.message || '撤回失败', icon: 'none' })
+          } finally {
+            this.setData({ cancelTransferBusy: false })
           }
         }
       }

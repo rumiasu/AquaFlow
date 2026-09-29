@@ -1,5 +1,6 @@
 package com.example.aquaflow.service;
 
+import com.example.aquaflow.entity.OrderTransfer;
 import com.example.aquaflow.entity.Orders;
 
 import java.util.Map;
@@ -131,6 +132,17 @@ public interface OrderWorkflowService {
 
     /** 拒绝认领。 */
     void rejectTransfer(Long orderId);
+
+    /**
+     * 本单当前**待决策**的转单记录（没有则返回 {@code null}）—— 订单详情回填转单状态用。
+     *
+     * <p>[2026-09-29] 详情走单条 {@code getById}，不带 {@code order_transfer} 子查询，
+     * 转单状态只能靠 {@code special_note} 文本回退；而转让实际写入的标记是
+     * {@code [转让待确认]}，与回退判据 {@code [转让]} 对不上 ⇒ 发起人打开自己的详情
+     * 看不到「转单中」，撤回入口无处可挂。读路径经本方法取结构化记录 ——
+     * Controller 不直接注入 {@code OrderTransferMapper}（分层门禁只减不增）。</p>
+     */
+    OrderTransfer pendingTransferOf(Long orderId);
 
     /* ========== 退回站长 ========== */
 

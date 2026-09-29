@@ -208,8 +208,22 @@
 
   <!-- 转给同事 / 退回站长 -->
   <block wx:if="{{!order.transferTarget}}">
-    <view class="transfer-btn" bindtap="onTransfer">
+    <!-- 转单待对方确认期间收起「转给同事」：后端本来就拒绝第二条待确认转单，
+         两个按钮并排只会让人先点错一个（2026-09-29 清单2）。 -->
+    <view class="transfer-btn" bindtap="onTransfer" wx:if="{{!order.transferPending}}">
       <text>转单给其他配送员</text>
+    </view>
+    <!--
+      撤回转单（2026-09-29 拍板 清单2）：转单改双方同意制后，发起人此前**没有任何反悔出口**
+      （申请发出去只能等对方拒绝）。详情是发起人最自然的「发起处」。
+      只画**转让行**（transferPendingSubKind === 'TRANSFER'，由详情接口从 order_transfer 回填）：
+      退回站长 / 站内取消申请虽同为 STAFF 类型、撤回端点也能解析，但它们各有各的决策路径
+      （审批页签的同意/拒绝、取消申请的撤销），这里混进来只会挂错文案；
+      站间指定退回（DIRECTED）走协调页那套「召回/退回」动作，不在这条路上。
+    -->
+    <view class="transfer-btn" wx:if="{{order.transferPendingSubKind === 'TRANSFER'}}"
+          bindtap="onCancelTransfer">
+      <text>{{cancelTransferBusy ? '撤回中…' : '撤回转单'}}</text>
     </view>
     <view class="transfer-btn" bindtap="onReturnToStation">
       <text>退回站长</text>

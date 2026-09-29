@@ -298,14 +298,18 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
     /**
      * 算这一单该结多少。**优先级：显式指定口径 &gt; 台账里已存的快照 &gt; 按支付方式取默认口径**。
      *
-     * <p>三种口径的算式：</p>
+     * <p>三种口径的<b>票面/营收基数</b>：</p>
      * <ul>
      *   <li>{@link SettleBasis#REVENUE} = 水费 + 配送费 + 楼层费（**不含押金**）；</li>
      *   <li>{@link SettleBasis#TICKET_ACTUAL} = Σ 逐张 {@code ticket_record.unit_price × decrease_qty}；</li>
      *   <li>{@link SettleBasis#TICKET_LISTED} = {@code orders.water_amount}（挂牌价合计）。</li>
      * </ul>
-     * <p>⚠️ {@code feeAmount} 只记账、**不加进 amount**（"费用要不要一起结"仍待拍板，
-     * 见 {@code docs/design/31} §8.4 第 3 问）。</p>
+     * <p>✅ [2026-09-29 拍板，原 {@code docs/design/31} §8.4 第 3 问] <b>票覆盖的配送费/楼层费一起结</b>：
+     * 两种票口径的 {@code amount} = 上表基数 + {@code feeAmount}（= {@code delivery_fee + floor_fee}），
+     * 否则接单站按票面折算只收到水钱、白送一趟配送（§3 例4 的差额）。
+     * 三条护栏：① REVENUE 的费用<b>本来就在营收里</b>（此处 {@code feeAmount = 0}，不会重复计）；
+     * ② {@code unitPrice} 仍只按<b>票面部分</b> ÷ 张数（费用不摊进单价，否则改口径会动到票的单价语义）；
+     * ③ {@code feeAmount} 仍<b>单独记一列</b>（页面展示"这个数怎么来的"），存量快照原样用、不回溯改写。</p>
      *
      * @param forcedBasis 显式指定口径（改价时用；传 null = 不强制）。
      *                    ⚠️ <b>金额必须与口径一起算</b> —— 曾经写成"先按默认口径算金额、
@@ -329,9 +333,10 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         if (forcedBasis != null) {
             basis = forcedBasis;
             ticketQty = intOf(live.get("ticketQty"));
-            amount = amountOfBasis(live, basis);
-            unitPrice = unitPriceOf(amount, ticketQty);
+            BigDecimal baseAmount = amountOfBasis(live, basis);
             feeAmount = SettleBasis.isTicketBased(basis) ? dec(live.get("coveredFeeAmount")) : BigDecimal.ZERO;
+            amount = baseAmount.add(feeAmount);
+            unitPrice = unitPriceOf(baseAmount, ticketQty);
         } else if (row != null && row.getBasis() != null) {
             basis = row.getBasis();
             amount = dec(row.getAmount());
@@ -341,9 +346,10 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         } else {
             basis = SettleBasis.defaultFor(paymentMethod);
             ticketQty = intOf(live.get("ticketQty"));
-            amount = amountOfBasis(live, basis);
-            unitPrice = unitPriceOf(amount, ticketQty);
+            BigDecimal baseAmount = amountOfBasis(live, basis);
             feeAmount = SettleBasis.isTicketBased(basis) ? dec(live.get("coveredFeeAmount")) : BigDecimal.ZERO;
+            amount = baseAmount.add(feeAmount);
+            unitPrice = unitPriceOf(baseAmount, ticketQty);
         }
 
         out.put("basis", basis);

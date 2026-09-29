@@ -3,9 +3,6 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.BarrelRecord;
-import com.example.aquaflow.entity.Product;
-import com.example.aquaflow.mapper.BarrelRecordMapper;
-import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.service.BarrelService;
 import com.example.aquaflow.service.BarrelLedgerService;
 import com.example.aquaflow.dto.BarrelRefundDTO;
@@ -16,12 +13,17 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 桶资产管理接口
+ * 桶资产管理接口。
+ *
+ * <p><b>分层（2026-09-29 收口）：本类不再注入任何 Mapper</b> —— 读走 {@link BarrelService#listStationRecords}，
+ * 写走 {@code requestReturn} / {@code returnEmptyWithRecord}（事务在服务层）。
+ * 此前 {@code barrelRecordMapper.insert} 直插流水、{@code @Transactional} 开在 HTTP 层，
+ * 与「桶账唯一写入口是 BarrelLedgerService、编排只在 service」的不变量相抵触。
+ * {@code LayeringArchitectureTest} 用零容忍断言盯着这条，别加回来。</p>
  */
 @RestController
 @RequestMapping("/api/barrels")
@@ -29,12 +31,6 @@ public class BarrelController {
 
     @Autowired
     private BarrelService barrelService;
-
-    @Autowired
-    private BarrelRecordMapper barrelRecordMapper;
-
-    @Autowired
-    private ProductMapper productMapper;
 
     /**
      * 获取当前登录客户的桶资产摘要（按水类型分组）
@@ -79,17 +75,8 @@ public class BarrelController {
     @GetMapping("/all-records")
     public Result<List<BarrelRecord>> getAllRecords(@RequestParam(required = false) Integer limit) {
         Long stationId = AuthContext.requireStationId();
-        // [AQ-046] 分页兜底：默认最近 500 条、上限 2000，避免记录量增大后一次全量返回
-        int n = (limit == null || limit <= 0) ? 500 : Math.min(limit, 2000);
-        List<BarrelRecord> records = barrelRecordMapper.listByStationId(stationId, n);
-        // 为每条退桶申请(type=2)补充客户当前欠桶数，用于站长审批提醒
-        for (BarrelRecord r : records) {
-            // 欠桶改为按商品统计：退的是哪种桶，就看那种桶欠不欠（A 水多还不能抵 B 水欠桶）
-            if (r.getType() != null && r.getType() == 2 && r.getCustomerId() != null && r.getProductId() != null) {
-                r.setOwedBuckets(barrelLedgerService.overQty(r.getCustomerId(), stationId, r.getProductId()));
-            }
-        }
-        return Result.success(records);
+        // [AQ-046] 分页兜底与 type=2 欠桶补充都在服务端（listStationRecords）
+        return Result.success(barrelService.listStationRecords(stationId, limit));
     }
 
     /**
@@ -133,53 +120,12 @@ public class BarrelController {
         Long productId = dto.getProductId();
         Integer quantity = dto.getQuantity();
         String note = dto.getNote() != null ? dto.getNote() : "";
-
         if (productId == null || quantity == null || quantity <= 0) {
             return Result.error("商品和数量不能为空");
         }
-        if (productMapper.getById(productId) == null) {
-            return Result.error("商品不存在");
-        }
-
-        // 试算（只读）：既拿到预估退款额，也顺便把「权益不足 / 有欠桶」在申请阶段就拦掉，
-        // 而不是等站长审批时才失败——那样顾客会以为申请成功了，白等一场。
-        Map<String, Object> preview;
-        try {
-            preview = barrelService.previewReturn(customerId, stationId, productId, quantity);
-        } catch (RuntimeException e) {
-            return Result.error(e.getMessage());
-        }
-        if (Boolean.TRUE.equals(preview.get("blocked"))) {
-            return Result.error(String.valueOf(preview.get("blockedReason")));
-        }
-        int effectiveQty = preview.get("effectiveQty") == null
-                ? quantity : ((Number) preview.get("effectiveQty")).intValue();
-        if (effectiveQty <= 0) {
-            return Result.error("可退权益不足");
-        }
-        BigDecimal depositRefund = preview.get("refundAmount") instanceof BigDecimal
-                ? (BigDecimal) preview.get("refundAmount")
-                : new BigDecimal(String.valueOf(preview.get("refundAmount")));
-
-        BarrelRecord record = new BarrelRecord();
-        record.setCustomerId(customerId);
-        record.setStationId(stationId);
-        record.setProductId(productId);
-        record.setType(2); // 退桶
-        record.setQuantity(quantity);
-        record.setNote(note);
-        record.setDepositRefund(depositRefund);
-        record.setStatus(1); // 待审批
-        record.setCreateTime(java.time.LocalDateTime.now());
-        barrelRecordMapper.insert(record);
-
-        // 回传试算结果，前端可即时展示「预计退回 ¥X」与提示，不用再自己按押金单价乘一遍
-        Map<String, Object> data = new java.util.HashMap<>();
-        data.put("recordId", record.getId());
-        data.put("quantity", quantity);
-        data.put("refundAmount", depositRefund);
-        data.put("hasMigratedPrice", preview.get("hasMigratedPrice"));
-        return Result.success(data);
+        // 试算 → 拦截 → 落 type=2 申请单，整段在服务端（2026-09-29 下沉）；
+        // 被拦时服务层抛 BusinessException，由 GlobalExceptionHandler 转 code=1，文案不变
+        return Result.success(barrelService.requestReturn(customerId, stationId, productId, quantity, note));
     }
 
     /**
@@ -209,17 +155,11 @@ public class BarrelController {
             return Result.error("status 不能为空");
         }
 
-        BarrelRecord record = barrelRecordMapper.getById(id);
-        if (record == null) {
-            return Result.error("退桶记录不存在");
-        }
-        if (!stationId.equals(record.getStationId())) {
-            return Result.error("无权处理他站退桶申请");
-        }
-
+        // 记录存在性与跨站校验（原先在这里用 Mapper 查）已下沉到 handleBarrelReturn：
+        // 站别取登录态传入，文案「退桶记录不存在 / 无权处理他站退桶申请」一字未变
         Long operatorId = AuthContext.getUserId();
         try {
-            barrelService.handleBarrelReturn(id, status, handleNote, operatorId,
+            barrelService.handleBarrelReturn(id, stationId, status, handleNote, operatorId,
                     dto.getRefundChannel(), dto.getRefundPaidBy());
         } catch (RuntimeException e) {
             return Result.error(e.getMessage());
@@ -288,14 +228,13 @@ public class BarrelController {
      * 所以这里<b>不做任何"结果必须非负"的校验</b>；唯一校验是物理上限「交回数 ≤ 持有数」。
      * 真正想拿回钱要走退桶（/return），那才会按押金条批次核销退款。</p>
      *
-     * <p><b>⚠️ 必须加事务</b>：改 over 和写流水必须是原子的。
-     * {@code BarrelLedgerService.returnEmpty} 自带 {@code @Transactional}，但若此处没有外层事务，
-     * 它一返回就提交；之后 insert 流水失败（例如 clientToken 撞唯一键）时 over 已经落库、回滚不了——
-     * 结果是「桶账少了一个桶，却没有任何流水」，对账 E5 立刻就不平。</p>
+     * <p><b>事务在服务层</b>（2026-09-29 下沉）：改 over 和写流水必须是原子的 ——
+     * {@code BarrelService#returnEmptyWithRecord} 带 {@code @Transactional} 把两件事捆在一起；
+     * 本方法只做 DTO 解析与登录态取值，别把编排或事务搬回这里
+     * （完整理由见该方法 javadoc：流水写失败时 over 已落库回滚不了 ⇒ 对账 E5 不平）。</p>
      */
     @RequireRole({"STATION_MANAGER", "DELIVERY"})
     @PostMapping("/return-empty")
-    @org.springframework.transaction.annotation.Transactional
     public Result<Map<String, Object>> returnEmpty(@RequestBody @Valid BarrelReturnEmptyDTO dto) {
         Long stationId = AuthContext.requireStationId();
         Long customerId = dto.getCustomerId();
@@ -309,55 +248,11 @@ public class BarrelController {
             items.add(new BarrelLedgerService.ItemQty(it.getProductId(), it.getQty()));
         }
 
-        // 幂等：同一 token 已处理过就直接返回成功，绝不再动一次账。
-        // 为什么必须先查而不是靠唯一键兜底：唯一键冲突是在【账已经改完、准备写流水时】才炸，
-        // 那时 over 已经减了；事务回滚虽能救回来，但前端拿到的是一句"请勿重复提交"的错误，
-        // 对超时重试的场景毫无帮助。先查则能给出明确的成功响应。
-        if (!items.isEmpty()) {
-            BarrelRecord existed = barrelRecordMapper.getByClientToken(
-                    clientToken + "#" + items.get(0).getProductId());
-            if (existed != null) {
-                Map<String, Object> dup = new java.util.HashMap<>();
-                dup.put("changes", java.util.Collections.emptyList());
-                dup.put("refundAmount", BigDecimal.ZERO);
-                dup.put("duplicate", true);
-                return Result.success(dup);
-            }
-        }
-
-        // [DEF-4] 不在此处 catch 业务异常：
-        // 本方法带 @Transactional，若把异常吞掉再返回 Result.error，Spring 仍会把事务标记为
-        // rollback-only，提交时抛 UnexpectedRollbackException —— 于是「交回数超过持有数」这种
-        // 正常业务拒绝会被伪装成 code=500。交给 GlobalExceptionHandler 统一转 code=1 才正确。
-        Long operatorId = AuthContext.getUserId();
-        List<BarrelLedgerService.OverChange> changes =
-                barrelLedgerService.returnEmpty(customerId, stationId, items, operatorId);
-
-        // 留痕：纯还桶 type=7，refund_amount 恒为 0（它不产生任何退款），over 前后值可负
-        for (BarrelLedgerService.OverChange c : changes) {
-            BarrelRecord record = new BarrelRecord();
-            record.setCustomerId(customerId);
-            record.setStationId(stationId);
-            record.setProductId(c.getProductId());
-            record.setType(7); // 纯还桶
-            record.setQuantity(c.getQty());
-            record.setStatus(3); // 纯还桶即时生效，无需审批
-            record.setDepositRefund(BigDecimal.ZERO);
-            record.setClientToken(clientToken + "#" + c.getProductId());
-            record.setOverBefore(c.getOverBefore());
-            record.setOverAfter(c.getOverAfter());
-            record.setNote(note);
-            record.setOperatorId(operatorId);
-            record.setCreateTime(java.time.LocalDateTime.now());
-            barrelRecordMapper.insert(record);
-        }
-
-        Map<String, Object> data = new java.util.HashMap<>();
-        data.put("changes", changes);
-        data.put("refundAmount", BigDecimal.ZERO);
-        return Result.success(data);
+        // 幂等判定 → 桶账 → type=7 留痕，**事务在服务层**（2026-09-29 下沉）：
+        // 原来 @Transactional 挂在本方法上，「桶账唯一写入口」的编排散在 HTTP 层；
+        // 事务语义与 DEF-4（不 catch 事务内业务异常）的完整理由都在
+        // BarrelService#returnEmptyWithRecord 的 javadoc 里。
+        return Result.success(barrelService.returnEmptyWithRecord(
+                stationId, customerId, items, clientToken, note, AuthContext.getUserId()));
     }
-
-    @Autowired
-    private BarrelLedgerService barrelLedgerService;
 }

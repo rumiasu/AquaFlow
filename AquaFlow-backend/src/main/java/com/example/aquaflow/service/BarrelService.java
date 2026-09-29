@@ -20,6 +20,18 @@ public interface BarrelService {
 
     List<BarrelRecord> listRecords(Long customerId, Long stationId);
 
+    /**
+     * 站长端「全部桶流水」（{@code GET /api/barrels/all-records}，分页兜底 AQ-046）
+     * 并给 type=2 的申请补 {@code owedBuckets}（该客户**按商品**当前欠几个桶，供审批提醒）。
+     *
+     * <p>为什么补欠桶要在服务端做：欠桶按商品隔离（A 水多不能抵 B 水欠），
+     * 前端拿不到跨桶型口径；挪到小程序算 = 又一处"钱和数量自己推"。</p>
+     *
+     * @param stationId 取登录态（站长专属端点）
+     * @param limit     null/≤0 = 默认 500，上限 2000
+     */
+    List<BarrelRecord> listStationRecords(Long stationId, Integer limit);
+
     void handleBarrelException(Long customerId, Long stationId, Long productId, Integer type, Integer quantity, Long relatedOrderId, String note, Long operatorId);
 
     /**
@@ -35,6 +47,7 @@ public interface BarrelService {
      * （不挪到别处，否则对账等式 1 会在中间态不平）。</p>
      *
      * @param id            退桶记录ID
+     * @param stationId     调用者所在水站（<b>取登录态</b>，跨站防线；记录不存在/非本站在这里就拒）
      * @param status        2=确认收到空桶 3=退押金并当面交付 4=驳回
      * @param handleNote    处理备注
      * @param operatorId    操作人（<b>核销这笔账的人</b>，通常就是站长）
@@ -46,7 +59,7 @@ public interface BarrelService {
      *                      必须属于本记录的水站 —— 核销的人与交钱的人可以是两个，
      *                      但"交钱的人"不能是别站的员工。
      */
-    void handleBarrelReturn(Long id, Integer status, String handleNote, Long operatorId,
+    void handleBarrelReturn(Long id, Long stationId, Integer status, String handleNote, Long operatorId,
                             String refundChannel, Long refundPaidBy);
 
     /**
@@ -84,6 +97,40 @@ public interface BarrelService {
      * 返回 {@code hasMigratedPrice=true} 表示这批单价是历史迁移时推断的、不是真实成交价，前端应提示复核。</p>
      */
     Map<String, Object> previewReturn(Long customerId, Long stationId, Long productId, Integer quantity);
+
+    /**
+     * 顾客申请退桶（{@code POST /api/barrels/return}）：试算 → 拦截 → 落 type=2 待审批单。
+     *
+     * <p>整段逻辑从 {@code BarrelController} 下沉（2026-09-29 分层收口）：
+     * 申请单是流水，Controller 不该直接 {@code insert}。**先试算后落单**的顺序别改 ——
+     * 「权益不足 / 有欠桶 / 信用风险」要在申请阶段就拒（{@code blocked} ⇒
+     * {@link com.example.aquaflow.exception.BusinessException}），而不是等站长审批才失败，
+     * 否则顾客以为申请成功、白等一场。</p>
+     *
+     * @return 下发体 {@code {recordId, quantity, refundAmount, hasMigratedPrice}}（金额来自试算）
+     * @throws com.example.aquaflow.exception.BusinessException 商品不存在 / 数量非法 / 试算 blocked 的原因
+     */
+    Map<String, Object> requestReturn(Long customerId, Long stationId, Long productId, Integer quantity, String note);
+
+    /**
+     * 纯还桶编排（{@code POST /api/barrels/return-empty}）：幂等判定 → 桶账 → type=7 流水留痕，
+     * <b>同一事务</b>。
+     *
+     * <p><b>为什么事务必须在这里而不是 Controller</b>（2026-09-29 下沉，注释随代码一起搬）：
+     * {@code BarrelLedgerService.returnEmpty} 自带 {@code @Transactional}，若外层事务在 Controller，
+     * 它一返回就提交；之后写流水失败（clientToken 撞唯一键）时 over 已落库、回滚不了 ——
+     * 「桶账少一个桶却没有任何流水」，对账 E5 立刻不平。</p>
+     *
+     * <p><b>幂等</b>：同一 token 先查再动账（唯一键冲突发生时账已改完，回滚虽能救但前端只得到
+     * 「请勿重复提交」，对超时重试毫无帮助）。<b>不在本方法内 catch 业务异常</b>：本方法带事务，
+     * 吞掉异常会让 Spring 标记 rollback-only，提交时抛 UnexpectedRollbackException，
+     * 把「交回数超过持有数」这种正常拒绝伪装成 code=500（DEF-4）。</p>
+     *
+     * @return 正常 {@code {changes, refundAmount:0}}；幂等命中 {@code {changes:[], refundAmount:0, duplicate:true}}
+     */
+    Map<String, Object> returnEmptyWithRecord(Long stationId, Long customerId,
+                                              List<BarrelLedgerService.ItemQty> items,
+                                              String clientToken, String note, Long operatorId);
 
     /**
      * 获取按水类型分组的桶资产摘要（用于首页展示）

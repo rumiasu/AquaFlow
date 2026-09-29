@@ -83,9 +83,9 @@ cd AquaFlow-backend
 **当前结果（2026-09-12 恢复后复测）**：**28 用例（27 回归 + 1 ContextLoad）全绿，失败 0、错误 0**。
 
 > 历史说明：Phase B 首次跑出的是「27 用例，23 绿 / 4 红」，4 条红灯是 4 个**真实缺陷**
-> （详见 `phase-b-report.md` §4）。DEF-1~4 修复后已全绿；
+> （详见 `history/incident/phase-b-report.md` §4）。DEF-1~4 修复后已全绿；
 > `src/test/**` 曾随删除事故一并丢失，后又按 `javap` 常量池 + JUnit XML 逐条还原，
-> 还原过程与验收见 `incident-src-restore.md`。
+> 还原过程与验收见 `history/incident/incident-src-restore.md`。
 >
 > 稳定性：两次连续运行（第二次带 `--rerun-tasks` 全量重编重跑）均为 28/28。
 

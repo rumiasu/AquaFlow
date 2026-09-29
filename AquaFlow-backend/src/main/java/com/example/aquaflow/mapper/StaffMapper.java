@@ -57,6 +57,20 @@ public interface StaffMapper {
                         @Param("phone") String phone,
                         @Param("status") Integer status);
 
+    /**
+     * 只给**还没有密码**的账号补初始密码（CAS：{@code password_hash} 仍为空才写）。
+     *
+     * <p>为什么不用 {@link #update(Staff)}（2026-09-29 收口）：那是**整行覆盖**（含 role /
+     * station_id / status），一个"只配补个密码"的启动任务不该握着改员工归属与角色的能力 ——
+     * 同 {@link #updateBaseInfo} 的白名单思路。带条件的 UPDATE 还让"先到者填、后到者不覆盖"：
+     * 用户自己改过的密码永远不会被启动逻辑冲掉。</p>
+     *
+     * @return 受影响行数；0 = 已有密码（**不是错误**，调用方不要当失败处理）
+     */
+    @Update("UPDATE staff SET password_hash = #{passwordHash}, update_time = NOW() "
+            + "WHERE id = #{id} AND (password_hash IS NULL OR password_hash = '')")
+    int updatePasswordIfEmpty(@Param("id") Long id, @Param("passwordHash") String passwordHash);
+
     @Delete("DELETE FROM staff WHERE id = #{id}")
     void delete(@Param("id") Long id);
 

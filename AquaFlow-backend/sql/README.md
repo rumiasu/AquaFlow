@@ -322,4 +322,4 @@ mysql -u root -p aquaflow < schema.sql
 | seed_dev_account.sql | 开发测试账号 |
 | seed_new_user_83.sql | 测试用户数据 |
 | clear_data.sql | **分批 `DELETE` 清空所有业务表数据**（表结构不动、自增重置）—— 比 `reset_data.sql` 更「安静」，但效果同样是全库清空 |
-| reset_passwords.sql | 把**所有员工密码**重置为 `123456`（清空 `password_hash` 交给 `PasswordInitializer` 重发）—— 在生产执行等于把全部员工账号交给任何知道这六个数字的人 |
+| reset_passwords.sql | 把**所有员工密码**重置为 `123456`（清空 `password_hash` 交给 `PasswordInitializer` 重发）—— **仍严禁在生产执行**，且后果自 2026-09-29 起变了：`PasswordInitializer` 已带 `@Profile("!prod")`（关雷记录见 `config/PasswordInitializer.java` 与 `docs/design/16` §9.3），生产**不再重发任何默认口令**，清空 = 员工全部失去密码登录；在本地/测试库执行则是把账号交给任何知道这六个数字的人 |

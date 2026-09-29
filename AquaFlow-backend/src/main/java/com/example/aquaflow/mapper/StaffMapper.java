@@ -71,6 +71,27 @@ public interface StaffMapper {
             + "WHERE id = #{id} AND (password_hash IS NULL OR password_hash = '')")
     int updatePasswordIfEmpty(@Param("id") Long id, @Param("passwordHash") String passwordHash);
 
+    /**
+     * 本人改密的按列更新（2026-09-29 下沉收口）：与 {@link #updatePasswordIfEmpty} 的区别是
+     * **不做"只填空"CAS** —— 旧密码已在服务层验过，这里就是要覆盖。与 {@link #update(Staff)}
+     * 的区别是只碰 password_hash 一列：全量写会把读改写窗口内的 role / station_id 快照写回去（lost update）。
+     *
+     * @return 受影响行数（应恒为 1；0 = 员工行在验证后被删，调用方按失败处理）
+     */
+    @Update("UPDATE staff SET password_hash = #{passwordHash}, update_time = NOW() WHERE id = #{id}")
+    int updatePassword(@Param("id") Long id, @Param("passwordHash") String passwordHash);
+
+    /**
+     * 绑定微信 openid 的按列 CAS（2026-09-29 下沉收口，替代 bind-staff 里的全量 {@link #update(Staff)}）。
+     * WHERE 带「空或同值」条件：服务层先判过「已绑定其他微信」就拒绝，但判与写之间可能有人抢先绑了
+     * **别的** openid —— 那时本语句拿 0 行，调用方报同一条文案，而不是把别人的绑定覆盖掉。
+     *
+     * @return 1 = 绑定成功；0 = 已被其他微信绑定（不是错误条件缺失）
+     */
+    @Update("UPDATE staff SET openid = #{openid}, update_time = NOW() "
+            + "WHERE id = #{id} AND (openid IS NULL OR openid = #{openid})")
+    int bindOpenid(@Param("id") Long id, @Param("openid") String openid);
+
     @Delete("DELETE FROM staff WHERE id = #{id}")
     void delete(@Param("id") Long id);
 

@@ -37,6 +37,20 @@ public interface CustomerMapper {
     @Update("update customer set customer_type = #{customerType}, update_time = NOW() where id = #{id}")
     int updateCustomerType(@Param("id") Long id, @Param("customerType") Integer customerType);
 
+    /**
+     * 改资料的白名单更新（2026-09-29 下沉收口）：只碰 name / phone，空串或 null = 保持原值
+     * （与 LoginController 原逻辑「非空才改」同口径）。
+     *
+     * <p>⚠️ 不要拿 {@link #update(Customer)} 顶上（原 update-profile 就是这么干的）：那是
+     * **整行覆盖写**，读与写之间 openid / customer_type / note / first_order_time 的并发改动
+     * 会被这份旧快照冲掉（lost update）。同 {@link #updateCustomerType} 的窄方法思路。</p>
+     */
+    @Update("update customer set "
+            + "name = CASE WHEN #{name} IS NULL OR #{name} = '' THEN name ELSE #{name} END, "
+            + "phone = CASE WHEN #{phone} IS NULL OR #{phone} = '' THEN phone ELSE #{phone} END, "
+            + "update_time = NOW() where id = #{id}")
+    int updateProfileInfo(@Param("id") Long id, @Param("name") String name, @Param("phone") String phone);
+
     @Select("select * from customer")
     List<Customer> list();
 

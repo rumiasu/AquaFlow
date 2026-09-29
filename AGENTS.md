@@ -133,7 +133,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 ```
 
 - **断言看响应体 `code`，不看 HTTP 状态**（业务错误仍 200；未认证才是 401）。新增用例：继承 `AbstractIntegrationTest`，用 `createStation/createStaff/createCustomer/createProduct/createOrderFull/createOrderCrossStation` 造数，`customerToken(id)` / `staffToken(id, role, stationId)` 取令牌，`get/post/put/delete` 发请求，`intOf/decimalOf` 查库；并发参考 `ConcurrencyIntegrationTest.fireTogether`。【仓】
-- **分层门禁 `architecture/LayeringArchitectureTest` 违规即红**：Controller 不得新增注入 Mapper / 直写库 / `@Transactional`（基线 34 字段 / 17 写调用 / 10 注解，只减不增），`BarrelController` 零容忍（2026-09-29 下沉后不许回潮）。改基线前先证明是"又下沉了一批"，不是"又多了一处违规"。
+- **分层门禁 `architecture/LayeringArchitectureTest` 违规即红**：Controller 不得新增注入 Mapper / 直写库 / `@Transactional`（基线 32 字段 / 15 写调用 / **0 注解**，只减不增），`BarrelController` 零容忍（2026-09-29 下沉后不许回潮）。改基线前先证明是"又下沉了一批"，不是"又多了一处违规"。2026-09-29 第二批：登录/绑定编排入 `AuthTokenService` / `StaffStationApplicationService`，HTTP 层事务已清零（**再出现控制器 `@Transactional` 即红**）。
 - **统计测试件数**：把所有 XML 相加，用 `$d = New-Object System.Xml.XmlDocument; $d.Load($path)`；**不要 `Get-Content -Raw` 再转 `[xml]`**（按 ANSI 解码弄坏测试名、**静默少算**）。【仓】
 - **验证 CI 会不会绿，就在本机复现 CI 三步**：① `DROP DATABASE aquaflow_test; CREATE DATABASE aquaflow_test;` 后**字节级重定向**导入 `sql/schema.sql`；② `.gradlew.bat cleanTest test`（`cleanTest` 不可省：不加会报 `:test UP-TO-DATE` 而**根本没跑**）；③ **把 CI 环境变量也照抄一遍**（尤其 `DEV_LOGIN_ENABLED=false` —— 本机是 `true`，不一致会让"只在 CI 上红"的用例长期隐身，见 §8.27 末段）。【仓】
 - **按业务场景组织的覆盖地图见 `docs/audit/2026-09-16-场景测试矩阵.md`** —— 新增用例前先看它找空白。

@@ -55,14 +55,15 @@ class LayeringArchitectureTest {
             "(?m)^\\s*(?:@org\\.springframework\\.transaction\\.annotation\\.)?@?Transactional\\b");
 
     /**
-     * 基线（2026-09-29 实测，BarrelController 下沉后的值）：注入 Mapper 字段的 Controller。
+     * 基线（2026-09-29 实测，BarrelController 下沉后的值；同日第二批把
+     * LoginController / DeliveryBindingController 也清干净后由 34 减到 32）。
      * 只许减不许增。
      */
     private static final Set<String> BASELINE_MAPPER_FIELDS = Set.of(
             "AddressController", "CompanyInfoController", "CustomerController",
-            "CustomerNotificationController", "DeliveryBindingController", "DeliveryController",
+            "CustomerNotificationController", "DeliveryController",
             "DeliveryEarningController", "DepositRecordController", "DevLoginController",
-            "FeedbackController", "FileManageController", "LoginController", "ManagerAlertController",
+            "FeedbackController", "FileManageController", "ManagerAlertController",
             "ManagerBarrelLossController", "ManagerCustomerPrivilegeController",
             "ManagerDeliveryConfigController", "ManagerGrossProfitController",
             "ManagerOrderAssistController", "ManagerPayrollController", "ManagerPendingSummaryController",
@@ -71,23 +72,27 @@ class LayeringArchitectureTest {
             "SearchController", "StaffController", "StationController", "StationTicketDiscountController",
             "TicketAccountController", "TicketPackageController", "TicketRecordController");
 
-    /** 基线：直接调用 Mapper **写方法**的 Controller（17 个）。只许减不许增。 */
+    /** 基线：直接调用 Mapper **写方法**的 Controller（15 个，2026-09-29 第二批下沉后由 17 减到 15）。只许减不许增。 */
     private static final Set<String> BASELINE_WRITE_CALLS = Set.of(
-            "CompanyInfoController", "CustomerNotificationController", "DeliveryBindingController",
-            "DevLoginController", "FeedbackController", "FileManageController", "LoginController",
+            "CompanyInfoController", "CustomerNotificationController",
+            "DevLoginController", "FeedbackController", "FileManageController",
             "ManagerCustomerPrivilegeController", "ManagerDeliveryConfigController",
             "ManagerGrossProfitController", "ManagerPayrollController", "ManagerStationStatusController",
             "NoticeController", "StaffController", "StationController", "StationTicketDiscountController",
             "TicketPackageController");
 
-    /** 基线：HTTP 层开事务的 Controller（共 10 处注解，分布在两个类）。只许减不许增。 */
-    private static final Set<String> BASELINE_TX = Set.of("DeliveryBindingController", "LoginController");
+    /**
+     * 基线：HTTP 层开事务的 Controller。2026-09-29 第二批下沉（selectRole / createStationAndBind →
+     * AuthTokenService，绑定 8 流程 → StaffStationApplicationService）后**已清空** ——
+     * 这里保持空集：再出现一个带 {@code @Transactional} 的 Controller 就是红。
+     */
+    private static final Set<String> BASELINE_TX = Set.of();
 
-    /** 这两个数是 {@code BASELINE_TX} 里所有注解的总数，防止"从 A 挪 5 处到 B"后集合没变。 */
-    private static final int BASELINE_TX_ANNOTATIONS = 10;
+    /** {@code BASELINE_TX} 里所有注解的总数，防止"从 A 挪 5 处到 B"后集合没变。基线 0 处。 */
+    private static final int BASELINE_TX_ANNOTATIONS = 0;
 
     @Test
-    @DisplayName("Controller 不得新增注入 Mapper 的类（基线 34，只减不增）")
+    @DisplayName("Controller 不得新增注入 Mapper 的类（基线 32，只减不增）")
     void controllersMustNotInjectNewMappers() {
         Set<String> actual = new TreeSet<>();
         for (Path f : controllerSources()) {
@@ -106,7 +111,7 @@ class LayeringArchitectureTest {
     }
 
     @Test
-    @DisplayName("Controller 不得新增直接调用 Mapper 写方法的类（基线 17，只减不增）")
+    @DisplayName("Controller 不得新增直接调用 Mapper 写方法的类（基线 15，只减不增）")
     void controllersMustNotCallMapperWrites() {
         Set<String> actual = new TreeSet<>();
         for (Path f : controllerSources()) {
@@ -125,7 +130,7 @@ class LayeringArchitectureTest {
     }
 
     @Test
-    @DisplayName("HTTP 层不得新增 @Transactional（基线 10 处 / 2 类，只减不增）")
+    @DisplayName("HTTP 层不得新增 @Transactional（基线 0 处 / 0 类，出现即红）")
     void controllersMustNotOpenNewTransactions() {
         Set<String> classes = new TreeSet<>();
         int total = 0;

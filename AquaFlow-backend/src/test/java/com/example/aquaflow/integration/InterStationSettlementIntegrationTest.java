@@ -188,6 +188,42 @@ class InterStationSettlementIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("[2026-09-29 拍板] 票覆盖的配送费/楼层费一起结：amount = 票面折算 + 费用，单价仍按票面部分")
+    void ticketBasisIncludesCoveredFee() {
+        base();
+        // 挂牌 24.00、票实付 20.00（10.00×2 张）、配送费 1.00 —— 费用原来不计入 amount，
+        // 接单站会只收到水钱、白送一趟配送（docs/design/31 §3 例4 的差额，2026-09-29 拍板一起结）
+        long orderId = crossOrder(1, 2, 3, "24.00", "0.00", "1.00", "25.00", 2, stationA);
+        insert("INSERT INTO ticket_record(customer_id, order_id, product_id, station_id, source, "
+                        + "decrease_qty, unit_price) VALUES (?,?,?,?,?,?,?)",
+                customerId, orderId, productId, stationA, "消费", 2, new BigDecimal("10.00"));
+
+        com.fasterxml.jackson.databind.JsonNode it = itemOf(ledger(managerA, stationA), orderId);
+        assertNotNull(it);
+        assertEquals(SettleBasis.TICKET_ACTUAL, it.path("basis").asInt());
+        assertEquals(0, new BigDecimal("21.00").compareTo(dec(it.path("amount"))),
+                "票面 20.00 + 配送费 1.00 = 21.00（费用一起结），实际=" + it.path("amount"));
+        assertEquals(0, new BigDecimal("10.0000").compareTo(dec(it.path("unitPrice"))),
+                "单价仍只按票面部分（20.00 ÷ 2 张 = 10.0000），费用不摊进单价");
+        assertEquals(0, new BigDecimal("1.00").compareTo(dec(it.path("feeAmount"))),
+                "费用仍单独记一列，供页面解释金额怎么来");
+
+        // 登记结清按同一口径落快照（结清与实时算不许分叉）
+        Api ok = post("/api/manager/inter-station-settlements/" + orderId + "/settle",
+                staffToken(managerA, "STATION_MANAGER", stationA), null);
+        assertTrue(ok.isSuccess(), ok.message());
+        assertEquals(0, new BigDecimal("21.00").compareTo(dec(ok.data().path("amount"))),
+                "结清落库的金额也必须含费用，实际=" + ok.data().path("amount"));
+
+        // 反面护栏：非票单（REVENUE）的费用本来就在营收里，不许重复加
+        long cashOrder = crossOrder(1, 2, 1, "12.00", "0.00", "1.00", "13.00", 2, stationA);
+        com.fasterxml.jackson.databind.JsonNode ic = itemOf(ledger(managerA, stationA), cashOrder);
+        assertNotNull(ic);
+        assertEquals(0, new BigDecimal("13.00").compareTo(dec(ic.path("amount"))),
+                "REVENUE 口径 = 水费 12 + 费用 1，费用已含、不许再加一遍（实际=" + ic.path("amount") + "）");
+    }
+
+    @Test
     @DisplayName("卖票站可改按挂牌价（§8.2）：落快照、金额变挂牌价；履约站不能改")
     void onlyTicketSellerCanSwitchToListedPrice() {
         base();

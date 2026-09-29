@@ -4,6 +4,7 @@ import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.entity.Address;
+import com.example.aquaflow.entity.OrderTransfer;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.AddressMapper;
@@ -52,14 +53,15 @@ public class DeliveryController {
     private StationMapper stationMapper;
 
     /**
-     * 「外派久未接单」的阈值小时数（见 {@link #staleDispatchHint}）。
+     * 「外派久未接单」的阈值分钟数（见 {@link #staleDispatchHint}）。
      *
-     * <p>TODO(待拍板) <b>「长时间」到底是多久，产品还没定</b>（{@code docs/design/31} §8.4 第 1 问）。
-     * 默认 4 小时只是"半天工作时间，再晚今天就送不到了"，**不是产品口径**；定了改这里或配环境变量。
-     * ≤0 = 本条不启用（同"0 关掉"的既有约定，而不是"0 小时后就提示"—— 那会让每张刚外派的单立刻变提示）。</p>
+     * <p>[2026-09-29 已拍板，原 {@code docs/design/31} §8.4 第 1 问] 产品定为<b>分钟级三档
+     * 10 / 30 / 60（默认 60）</b>，按 {@code aquaflow.dispatch.stale-minutes} 配置。
+     * 原 {@code stale-hours:4}（4 小时）作废 —— 桶装水是半天时效，外派 4 小时才提示等于当天已经送不到了。
+     * ≤0 = 本条不启用（同"0 关掉"的既有约定，而不是"0 分钟后就提示"—— 那会让每张刚外派的单立刻变提示）。</p>
      */
-    @org.springframework.beans.factory.annotation.Value("${aquaflow.dispatch.stale-hours:4}")
-    private int dispatchStaleHours;
+    @org.springframework.beans.factory.annotation.Value("${aquaflow.dispatch.stale-minutes:60}")
+    private int dispatchStaleMinutes;
 
     @Autowired
     private AuditLogService auditLogService;
@@ -315,7 +317,7 @@ public class DeliveryController {
     }
 
     // [2026-09-18 删除] GET /orders/station-exception：名字叫"异常"、实际返回 status=5 的**取消单**，
-    // 与 GET /api/orders?status=5 重复，且两端小程序都没调用（docs/audit/2026-09-16-死端点评估.md 判"删除"，已执行）。
+    // 与 GET /api/orders?status=5 重复，且两端小程序都没调用（docs/audit/history/review/2026-09-16-死端点评估.md 判"删除"，已执行）。
     // 站长的待办/外派等查询用 /orders/station-pending、/orders/dispatch-tracking 等既有端点。
     // 回归：ManagerOrderControllerRemovedIntegrationTest 断言该路径返回 404。
 
@@ -386,8 +388,18 @@ public class DeliveryController {
         // 报错是"回收空桶数(2)超过该客户当前持有数(0)"，配送员看不懂，混合单更是必踩。
         // 归属站取 order.getStationId()：客户资产（权益/over）认**归属站**，不是履约站。
         decorateReturnPlan(order);
-        // 「待我确认的转单」由后端按登录人判定（前端此前读的 isTransferTarget 后端并不存在）
-        order.setTransferTarget(isTransferTarget(order));
+        // 「待我确认的转单」由后端按登录人判定（前端此前读的 isTransferTarget 后端并不存在）。
+        // [2026-09-29 清单2] 详情是单条 getById，不带 order_transfer 子查询，转单状态只能靠
+        // special_note 文本回退 —— 而转让实际写入的标记是 [转让待确认]，与回退判据 [转让]
+        // 对不上 ⇒ 发起人打开自己的详情永远看不到「转单中」，撤回入口也无处可挂。
+        // 这里按结构化记录回填（顺序：先回填 kind，再判 transferTarget，它要读 transferKind）。
+        OrderTransfer pendingTransfer = orderWorkflowService.pendingTransferOf(id);
+        if (pendingTransfer != null) {
+            order.setTransferPendingKind(pendingTransfer.getKind());
+            // sub_kind 同源回填：详情页「撤回转单」只对 TRANSFER 挂（退回站长/取消申请各有各的动作）
+            order.setTransferPendingSubKind(pendingTransfer.getSubKind());
+        }
+        order.setTransferTarget(isTransferTarget(order, pendingTransfer));
         // 备货情况（契约工作包 C4）：配送员出发前要知道"这单备齐了没、还缺哪些商品"。
         // 口径 = 凭据上的需求快照 − 已预留（**不是** inventory.quantity），只读、不下发他站数据；
         // 它只是提示 —— 真正拦住"少扣一点先把单结了"的是完成配送时那次出库校验。
@@ -450,16 +462,25 @@ public class DeliveryController {
 
     /**
      * 判定订单是否为「转给当前登录人、待其确认」的转单。
-     * <p>站间指定退回 -> 归属站站长决策；配送员转单 -> 本站站长可决策，
-     * 或未分配/已分配给本人的配送员可认领（与 claimTransfer 的校验口径保持一致）。</p>
+     * <p>站间指定退回 -> 归属站站长决策；配送员转单 -> <b>只有接收方</b>看确认条
+     * （与 claimTransfer 的口径一致：只有 {@code toStaffId} 能同意）。</p>
+     *
+     * <p>[2026-09-29 修] 配送员转单旧实现按「本站的人」一刀切，发起人自己也会被判成
+     * transferTarget ⇒ 详情条切成「同意转单/拒绝转单」，而 claimTransfer 只认接收方 ——
+     * 他点下去待确认记录不会被消解，转单永远悬着（发起人真正该看到的是「撤回转单」）。
+     * 现口径：接收方 = 确认条；发起人 = 撤回入口；站长 = 标签 + 可代撤（cancelTransfer 放行）。</p>
      */
-    private boolean isTransferTarget(Orders order) {
+    private boolean isTransferTarget(Orders order, OrderTransfer pending) {
         if (!order.getTransferPending()) return false;
         Long staffId = AuthContext.getUserId();
         Long stationId = AuthContext.getStationId();
         if ("DIRECTED".equals(order.getTransferKind())) {
             return stationId != null && stationId.equals(order.getStationId());
         }
+        if (pending != null) {
+            return staffId != null && staffId.equals(pending.getToStaffId());
+        }
+        // 兼容：没有结构化记录（历史备注判定出来的「转单中」）时维持旧口径
         if (stationId != null && stationId.equals(deliveryStation(order))) return true;
         return order.getDeliveryStaffId() == null
                 || (staffId != null && staffId.equals(order.getDeliveryStaffId()));
@@ -783,7 +804,7 @@ public class DeliveryController {
         // [2026-09-19 删除] pendingCount（本站 status=1 的单数）：
         // 唯一消费方是「我的」页的「待配送」格，该格已在统计卡按角色分叉时撤掉（配送页本身就是那个页签）。
         // 它每次都要跑一遍 listStationPending 只为了取 .size()，而且**站级口径混在一个按人统计的响应里**，
-        // 正是口径混淆的温床。证据与核实过程见 docs/audit/2026-09-16-死端点评估.md「删除登记表」#9。
+        // 正是口径混淆的温床。证据与核实过程见 docs/audit/history/review/2026-09-16-死端点评估.md「删除登记表」#9。
 
         return Result.success(stats);
     }
@@ -1085,21 +1106,22 @@ public class DeliveryController {
      * <p>⚠️ <b>是提示，不是自动改价</b>：文案只说"要不要按挂牌价结"，改不改由站长点
      * （改价端点在 {@code ManagerInterStationSettlementController}）。</p>
      *
-     * <p>TODO(待拍板) 「长时间」到底是几小时，产品还没定（{@code docs/design/31} §8.4 第 1 问），
-     * 所以阈值配在 {@code aquaflow.dispatch.stale-hours}（默认 4 小时）而不是写死在判据里。</p>
+     * <p>[2026-09-29 已拍板] 「长时间」= 分钟级三档 10 / 30 / 60（默认 60），配在
+     * {@code aquaflow.dispatch.stale-minutes}（≤0 不启用）；原待拍板项与 {@code stale-hours}
+     * 键一并作废（见 {@link #dispatchStaleMinutes} 字段注释）。</p>
      */
     private String staleDispatchHint(Orders o) {
-        if (dispatchStaleHours <= 0 || o == null) {
+        if (dispatchStaleMinutes <= 0 || o == null) {
             return null;
         }
         if (o.getStatus() == null || o.getStatus() != OrderStatus.PENDING || o.getDeliveryStaffId() != null) {
             return null;
         }
         if (o.getUpdateTime() == null
-                || !o.getUpdateTime().isBefore(java.time.LocalDateTime.now().minusHours(dispatchStaleHours))) {
+                || !o.getUpdateTime().isBefore(java.time.LocalDateTime.now().minusMinutes(dispatchStaleMinutes))) {
             return null;
         }
-        return "这单外派出去已超过 " + dispatchStaleHours + " 小时还没人接。"
+        return "这单外派出去已超过 " + dispatchStaleMinutes + " 分钟还没人接。"
                 + "可以按挂牌价结这一单来提高接单站的收益（改不改由你决定，系统不会自动改）。";
     }
 

@@ -343,15 +343,17 @@ class CrossStationDispatchIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, post("/api/delivery/orders/transfer/" + order + "/outsource", tokenA(),
                 "{\"targetStationId\":" + stationB + "}").code(), "前置：指定外派应成功");
 
-        // 刚外派出去不该提示 —— 阈值默认 4 小时
+        // 刚外派出去不该提示 —— 阈值默认 60 分钟（2026-09-29 拍板：分钟级三档 10/30/60）
         JsonNode fresh = trackingRow(tokenA(), order);
         assertNotNull(fresh, "前置：外派追踪列表里应有这一单");
         assertEquals("", fresh.path("dispatchStaleHint").asText(""),
                 "刚外派的单不该报「久未接单」，实际=" + fresh.path("dispatchStaleHint"));
 
-        // 把这单"最后一次变动"推到 5 小时前 = 久无接单
-        jdbc.update("update orders set update_time = date_sub(now(), interval 5 hour) where id = ?", order);
+        // 把这单"最后一次变动"推到 90 分钟前 = 久无接单（> 默认阈值 60 分钟）
+        jdbc.update("update orders set update_time = date_sub(now(), interval 90 minute) where id = ?", order);
         String hint = trackingRow(tokenA(), order).path("dispatchStaleHint").asText("");
+        assertTrue(hint.contains("分钟"),
+                "阈值已改分钟级（stale-minutes），文案必须用分钟表述，实际=" + hint);
         assertTrue(hint.contains("挂牌价"),
                 "提示必须说清动作是「要不要按挂牌价结」（产品原话：弹提示**是否**按挂牌价），实际=" + hint);
         assertTrue(hint.contains("不会自动改"),

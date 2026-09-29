@@ -4,7 +4,7 @@ const { API } = require('../config/api')
 
 // [2026-09-19 删除] 这里原有 getDashboardToday / getDashboardOverview 两个包装函数
 // （→ /api/dashboard/today、/api/dashboard/overview）。删除理由与证据见
-// docs/audit/2026-09-16-死端点评估.md 的「删除登记表」#1：
+// docs/audit/history/review/2026-09-16-死端点评估.md 的「删除登记表」#1：
 //   · 全端 grep 只命中它们自身的定义与导出，**没有任何页面调用**；
 //   · 看板页早已改用下面的 getDashboardReport（/api/dashboard/report）；
 //   · 它们还接受客户端传的 stationId —— 后端只看登录态、传了会被忽略，

@@ -6,7 +6,7 @@ const { syncTabBar } = require('../../utils/tabbar')
 // directedReturn 必须在这里 import：本页的「退回原水站」按钮调的就是它
 // （后端 javadoc 里叫「调解退回」），
 // 漏了 import 会让 onMediateReturn 抛 ReferenceError —— 点击**静默无反应**（AGENTS §6）。
-const { getStaffList, getPoolOrders, claimPoolOrder, getDispatchTracking, cancelDispatch, priceByListed, directedReturn, approveDirectedReturn, rejectDirectedReturn, getDirectedIncoming, approveStaffReturn, rejectStaffReturn, getPendingApprovals, approveCancelRequest, rejectCancelRequest } = require('../../api/delivery')
+const { getStaffList, getPoolOrders, claimPoolOrder, getDispatchTracking, cancelDispatch, priceByListed, directedReturn, approveDirectedReturn, rejectDirectedReturn, getDirectedIncoming, approveStaffReturn, rejectStaffReturn, cancelTransferOrder, getPendingApprovals, approveCancelRequest, rejectCancelRequest } = require('../../api/delivery')
 // 自绘导航栏 + 水站营业状态胶囊（本页 navigationStyle=custom）：与「配送」页共用一份实现
 // —— 结构与样式见 templates/station-navbar.wxml、styles/station-navbar.wxss
 const stationNavbar = require('../../behaviors/stationNavbar')
@@ -508,9 +508,27 @@ Page({
         ...(transferRes.data || [])
       ].map(o => {
         const note = o.specialNote || o.special_note || ''
+        // [2026-09-29 清单2] 结构化字段优先：两个列表 SQL（listTransferredOrders /
+        // listStationPendingUnassigned）都带 transferPendingKind 子查询。文本标记判据
+        // 里的 '[转让]' 与实际写入的 '[转让待确认]' 对不上 —— 转让中的行会被判成"无转单"，
+        // 于是既没有同意/拒绝，也没有撤回。老后端没下发该字段时再回退文本判据。
+        const kindRaw = String(o.transferPendingKind || '').toUpperCase()
+        const subRaw = String(o.transferPendingSubKind || '').toUpperCase()
         let transferKind = ''
-        if (note.indexOf(DIRECTED_MARK) >= 0) transferKind = 'directed'
-        else if (STAFF_MARKS.some(m => note.indexOf(m) >= 0)) transferKind = 'staff'
+        // kind='STAFF' 底下分三种请求、动作各不同（2026-09-29 清单2）：
+        // · TRANSFER（转让）→ 'staff-transfer'：接收方在自己列表里决策，这里只给站长「撤回」
+        //   （同意/拒绝那对按钮走的是 return 决策端点，对转让行会错解成退回语义）；
+        // · RETURN_STATION（退回站长）→ 'staff'：站长「同意/拒绝」（沿用原样）；
+        // · CANCEL_REQUEST（取消申请）→ 留空：归「审批」页签管，本栏维持普通行外观（分配/外派），
+        //   与老文本判据的行为一致（'[取消申请]' 本来就不在 STAFF_MARKS 里）。
+        if (kindRaw === 'DIRECTED' || (!kindRaw && note.indexOf(DIRECTED_MARK) >= 0)) transferKind = 'directed'
+        else if (kindRaw === 'STAFF') {
+          if (subRaw === 'TRANSFER') transferKind = 'staff-transfer'
+          else if (subRaw === 'CANCEL_REQUEST') transferKind = ''
+          else if (subRaw) transferKind = 'staff'
+          // 老后端没下发 subKind 时回退文本判据（原行为）
+          else if (STAFF_MARKS.some(m => note.indexOf(m) >= 0)) transferKind = 'staff'
+        } else if (STAFF_MARKS.some(m => note.indexOf(m) >= 0)) transferKind = 'staff'
         // goodsView：本页签是两个端点合并的 —— station-pending 有 itemSummary，转单那份没有，
         // 所以逐行判空（见 goodsView 注释，别在这里假设一定有摘要）
         return goodsView(riskView({ ...o, transferPending: transferKind !== '', transferKind }))
@@ -1039,6 +1057,35 @@ Page({
           } catch (err) {
             wx.hideLoading()
             wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+          }
+        }
+      }
+    })
+  },
+
+  // 转单请求栏 - 撤回（2026-09-29 拍板 清单2 的「发起处」之一）。
+  // 后端放行两类人：转单发起人本人、本站站长（站务代撤，OrderWorkflowServiceImpl#cancelTransfer）
+  // —— 本页是站长面，点撤回走的就是代撤那条。
+  // 只画在**转让行**（transferKind === 'staff-transfer'，即 sub_kind=TRANSFER）上：退回站长 /
+  // 取消申请虽同为 STAFF 类型，但各有各的决策端点（同意/拒绝、审批页签），不挂这个动作。
+  onCancelTransferRow(e) {
+    const id = e.currentTarget.dataset.id
+    wx.showModal({
+      title: '撤回转单',
+      content: '撤回后订单仍归原配送员配送，对方的待确认列表里也不会再有这条申请。',
+      confirmText: '撤回',
+      confirmColor: '#B5442C',
+      success: async (res) => {
+        if (res.confirm) {
+          wx.showLoading({ title: '撤回中...' })
+          try {
+            await cancelTransferOrder(id)
+            wx.hideLoading()
+            wx.showToast({ title: '已撤回', icon: 'success' })
+            this.loadAllData()
+          } catch (err) {
+            wx.hideLoading()
+            wx.showToast({ title: err.message || '撤回失败', icon: 'none' })
           }
         }
       }

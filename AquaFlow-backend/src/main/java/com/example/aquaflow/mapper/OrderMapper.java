@@ -579,7 +579,11 @@ public interface OrderMapper {
 
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
-            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind, " +
+            // [2026-09-29 清单2] sub_kind 同源下发：kind='STAFF' 下还分 退回站长/转让/取消申请，
+            // 首页「转单请求」栏要按它分流动作（转让行给「撤回」、退回站长行给「同意/拒绝」，
+            // 取消申请归审批页签）—— 只有 kind 分不出来，文本标记又与实际写入的 [转让待确认] 对不上。
+            "(select t.sub_kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingSubKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
@@ -651,7 +655,7 @@ public interface OrderMapper {
 
     // [2026-09-18 删除] listStationExceptionOrders(stationId)：只服务于
     // GET /api/delivery/orders/station-exception —— 那个端点名字叫"异常"、实际过滤 status=5 返回**取消单**，
-    // 与 GET /api/orders?status=5 重复，两端小程序都没调用（docs/audit/2026-09-16-死端点评估.md 判"删除"，已执行）。
+    // 与 GET /api/orders?status=5 重复，两端小程序都没调用（docs/audit/history/review/2026-09-16-死端点评估.md 判"删除"，已执行）。
     // 要看本站取消单请走订单列表接口；不要再按"异常"这个名字把本方法加回来。
     // 回归：ManagerOrderControllerRemovedIntegrationTest 断言该路径返回 404。
 
@@ -709,7 +713,7 @@ public interface OrderMapper {
 
     // [2026-09-18 删除] countByStatusByStationId / trendLast7DaysByStationId：只服务于
     // GET /api/dashboard/order-status 与 /order-trend，两个端点零前端调用且与 /report 口径分叉
-    // （同一指标两套算法，见 docs/audit/2026-09-16-死端点评估.md §5.2/§5.4，判"删除"，已执行）。
+    // （同一指标两套算法，见 docs/audit/history/review/2026-09-16-死端点评估.md §5.2/§5.4，判"删除"，已执行）。
     // 看板一律走 DashboardService.report()；不要再把这两个"同名不同算法"的查询加回来。
 
     // ==================== 抢单池 & 外派追踪 ====================
@@ -732,7 +736,9 @@ public interface OrderMapper {
             "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
             "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
             "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator, " +
-            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind, " +
+            // [2026-09-29 清单2] 与 listTransferredOrders 同源下发 sub_kind（首页转单栏按它分流动作）
+            "(select t.sub_kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingSubKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +

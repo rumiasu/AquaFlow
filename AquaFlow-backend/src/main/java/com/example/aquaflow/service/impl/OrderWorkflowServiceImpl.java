@@ -1365,6 +1365,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         log("REJECT_TRANSFER", orderId, null);
     }
 
+    @Override
+    public OrderTransfer pendingTransferOf(Long orderId) {
+        // 只读：详情页回填转单状态用（为何经服务不进 Controller，见接口 javadoc）
+        return orderTransferMapper.findPendingByOrder(orderId);
+    }
+
     /* ==================================================================
      *  退回站长
      * ================================================================== */

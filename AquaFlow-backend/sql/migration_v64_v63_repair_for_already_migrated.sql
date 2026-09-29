@@ -112,7 +112,7 @@ SELECT oi.id                                   AS order_item_id,
 --   完成配送时 `OrderWorkflowServiceImpl.completeDelivery` 先调 `shipForOrder`（实物已减、凭据置为已出库），
 --   现金未收时订单停在**已送达(3)**（`:572`），之后再收款只做 3→4（`:345-346`），**不会再出库**。
 --   所以"状态 3 没有活跃凭据"是**正确状态**，给它补一条活跃凭据 = 把已经送出门的货又占住一次。
---   演练实测（`docs/audit/drill/drill_r1_delivered_cash_unpaid.sql`）：实物 8、已送达单 2 桶
+--   演练实测（`docs/audit/history/drill/drill_r1_delivered_cash_unpaid.sql`）：实物 8、已送达单 2 桶
 --   ⇒ 上一版 v64 补出 ACTIVE(reserved=2)，可用量 8 → **6**，且后续 3→4 收款不会清掉它。
 
 DROP TEMPORARY TABLE IF EXISTS `tmp_v64_move`;
@@ -229,7 +229,7 @@ SELECT COUNT(*) AS preexisting_diffs_left_to_reconcile FROM `tmp_v64_viol_before
 
 -- ★★ 2-0c) **脏需求快照 → DML 之前直接拒绝**（契约 A2 / 验收 R2）
 --     需求快照（`need_qty`）是补位分配的依据，坏快照会被当成"这条要 10 桶"而**扩大错误预留**。
---     演练实测（`docs/audit/drill/drill_r2_dirty_need_snapshot.sql`）：实物 10、真实需求 2、预留 2、
+--     演练实测（`docs/audit/history/drill/drill_r2_dirty_need_snapshot.sql`）：实物 10、真实需求 2、预留 2、
 --     坏快照 10 ⇒ 上一版把预留补到 10、可用量归 0，而差异键没变、门禁看不出。
 --     与"历史账实差额"分开对待：差额不参与本次分配（可以留给对账），坏快照直接决定分配多少（不能放行）。
 DROP TEMPORARY TABLE IF EXISTS `tmp_v64_dirty_need`;

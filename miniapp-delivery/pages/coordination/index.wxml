@@ -131,7 +131,15 @@
           <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
         </view>
         <view class="card-actions">
-          <block wx:if="{{item.transferPending}}">
+          <!--
+            转让中（transferKind=staff-transfer）：接收方在「转给我的单」里决策，站长这只剩「撤回」
+            （2026-09-29 清单2）—— 同意/拒绝按钮走的是退回站长决策端点，对转让行会错解。
+            退回站长/指定退回（transferPending）：沿用同意/拒绝；其余普通行：分配/外派。
+          -->
+          <block wx:if="{{item.transferKind === 'staff-transfer'}}">
+            <button class="btn-danger-small" catchtap="onCancelTransferRow" data-id="{{item.id}}">撤回转单</button>
+          </block>
+          <block wx:elif="{{item.transferPending}}">
             <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}">同意转单</button>
             <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}">拒绝转单</button>
           </block>

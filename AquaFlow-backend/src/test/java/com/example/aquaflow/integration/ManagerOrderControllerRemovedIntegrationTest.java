@@ -70,7 +70,7 @@ class ManagerOrderControllerRemovedIntegrationTest extends AbstractIntegrationTe
     }
 
     /**
-     * [2026-09-18] 死端点评估（{@code docs/audit/2026-09-16-死端点评估.md}）里的 4 条已执行删除。
+     * [2026-09-18] 死端点评估（{@code docs/audit/history/review/2026-09-16-死端点评估.md}）里的 4 条已执行删除。
      *
      * <p>为什么钉在这里：其中两条（{@code station-exception} / {@code customer/exceptions/list}）
      * 不是"多余"，而是**会误导人** —— 前者名字叫"异常"、实际返回**取消单**（谁按名字接线，

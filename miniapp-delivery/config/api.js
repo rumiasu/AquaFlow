@@ -243,7 +243,7 @@ const API = {
   // 站长端桶异常单（只读列表 + 近 30 天统计；`/stats` 是同前缀的另一个只读端点）。
   // [2026-09-19] 唯一消费方 = 「异常订单」页的页签 1。
   // ⚠️ 损耗读数 `/api/manager/barrel-loss` 已无任何页面调用（同一批合并时删掉了那张恒为 0 的卡），
-  //    后端端点仍在 —— 见 docs/audit/2026-09-16-死端点评估.md「删除登记表」#12。
+  //    后端端点仍在 —— 见 docs/audit/history/review/2026-09-16-死端点评估.md「删除登记表」#12。
   MANAGER_EXCEPTIONS: '/api/manager/exceptions',
 
   // 本站运营告警（v30）：只读。后端固定只返回 alert_type='OPERATION' 且本站的记录 ——
@@ -272,7 +272,7 @@ const API = {
   // 仪表盘
   // [2026-09-19 删除] DASHBOARD_TODAY / DASHBOARD_OVERVIEW 两个常量（连同 api/station-mgmt.js
   // 里的包装函数）已删，看板一律走下面的 DASHBOARD_REPORT。
-  // 证据见 docs/audit/2026-09-16-死端点评估.md「删除登记表」#1；⚠️ 它们在时会让审计脚本
+  // 证据见 docs/audit/history/review/2026-09-16-死端点评估.md「删除登记表」#1；⚠️ 它们在时会让审计脚本
   // 以为端点"有人调"（**定义 ≠ 调用**），所以那条登记特意注明是用 grep 逐条证的。
 
   // 反馈

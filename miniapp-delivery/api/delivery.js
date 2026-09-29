@@ -47,6 +47,14 @@ const transferOrder = (id, data) => {
   return post(`${API.DELIVERY_TRANSFER}/${id}`, data)
 }
 
+// 撤回转单（2026-09-29 拍板：转单是双方同意制，发起人反悔的正门在「发起处 + 订单详情」）。
+// 后端判权 = 发起人本人或本站站长（OrderWorkflowServiceImpl#cancelTransfer）。
+// ⚠️ 路径形状是 /orders/transfer/{id}/cancel —— id 段在 transfer 之后，
+// 别按 /orders/{id}/xxx 的惯例拼，否则 404（同 cancel-dispatch 注释那条坑）。
+const cancelTransferOrder = (id) => {
+  return post(`${API.DELIVERY_ORDERS}/transfer/${id}/cancel`)
+}
+
 // 退回站长
 const returnToStation = (id, data) => {
   return post(`${API.DELIVERY_RETURN}/${id}`, data)
@@ -229,6 +237,7 @@ module.exports = {
   confirmCollection,
   rejectOrder,
   transferOrder,
+  cancelTransferOrder,
   returnToStation,
   reportOrder,
   getTodayStats,

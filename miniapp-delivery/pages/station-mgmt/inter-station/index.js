@@ -101,6 +101,11 @@ Page({
     } else if (basis === 3) {
       rule += `（${it.ticketQty} 张 × 约 ${money(it.unitPrice)}，比折算实付多出的部分由本单卖票站承担）`
     }
+    // [2026-09-29 拍板] 票覆盖的配送费/楼层费一起结进金额：费用 > 0 必须点破，
+    // 否则站长拿「张数 × 单价」一乘对不上金额，差的正是这笔费用（谁也不解释）
+    if ((basis === 2 || basis === 3) && Number(it.feeAmount || 0) > 0) {
+      rule += `，另含配送/楼层费 ${money(it.feeAmount)}`
+    }
     // 结清了就把"什么时候算办完、凭据是什么"显示出来 —— 那正是这一页的验收标准
     let settledText = ''
     if (Number(it.status) === 2 && it.settledTime) {

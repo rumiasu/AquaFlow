@@ -25,7 +25,7 @@ public class DashboardController {
 
     // [2026-09-18 删除] GET /order-status 与 GET /order-trend：两个端点零前端调用，且口径与
     // GET /api/dashboard/report 分叉 —— 同一个指标两套算法，正是本仓"口径分叉"的老来源
-    // （docs/audit/2026-09-16-死端点评估.md 判"删除"，已执行）。看板数据一律走下面的 /report。
+    // （docs/audit/history/review/2026-09-16-死端点评估.md 判"删除"，已执行）。看板数据一律走下面的 /report。
     // 回归：ManagerOrderControllerRemovedIntegrationTest 断言这两条路径返回 404。
 
     // [2026-09-27 删除] GET /today 与 GET /overview —— 同源的第二批，产品批准后执行。
@@ -33,7 +33,7 @@ public class DashboardController {
     // **原来为什么存在**：站长端**最早的**看板读数入口（今日单量/库存；客户数/订单数汇总）。
     // 后来看板页改用 /report（含环比、趋势、多维分布）之后，它没跟着删。
     //
-    // **为什么删**（核实见 docs/audit/2026-09-16-死端点评估.md #2 与演练报告 §9.1）：
+    // **为什么删**（核实见 docs/audit/history/review/2026-09-16-死端点评估.md #2 与演练报告 §9.1）：
     //   ① 两端小程序**零真调用**；前端包装函数已于 2026-09-19 显式删除
     //      （miniapp-delivery/api/station-mgmt.js:5-13 留了墓碑、config/api.js:264 删了两个常量）；
     //   ② 它带的 pendingOrders 只有"按状态数"，与待分配列表的付款闸门**口径分叉** ——

@@ -36,7 +36,7 @@ public class StationExceptionConfigServiceImpl implements StationExceptionConfig
     private static final List<String> CONFIG_KEYS =
             List.of("compensationPriority", "autoSuggestRules", "notifyTemplates");
 
-    /** Jackson 2（与 WeChatLoginService / WeChatNotifyService 同款用法）；配置完成后线程安全 */
+    /** Jackson 2（与 WeChatLoginService 同款用法）；配置完成后线程安全 */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired

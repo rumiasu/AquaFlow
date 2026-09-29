@@ -19,10 +19,11 @@ import java.time.LocalDateTime;
  * "欠多少"平时是**实时算**的（见 Service 口径说明），本表只在两种情况下落行：
  * 站长改价（要留快照，否则下次实时算就改回去了）、站长登记结清（要留"办完了"这个事实）。</p>
  *
- * <p>⚠️ {@code feeAmount}（票覆盖的配送费/楼层费）<b>不计入 amount</b>：
- * 「这两笔要不要一起结给履约站」是 {@code docs/design/31} §8.4 第 3 问，产品尚未回答。
- * 单独记一列是为了拍板后<b>一个 UPDATE 就能启用</b>，不必回头补历史数据。
- * <b>不要</b>在没有拍板前把它加进 amount。</p>
+ * <p>✅ {@code feeAmount}（票覆盖的配送费/楼层费）<b>计入 amount</b>
+ * （2026-09-29 拍板，原 {@code docs/design/31} §8.4 第 3 问已拍：费用一起结给履约站）：
+ * 两种票口径的 {@code amount} = 票面折算 + {@code feeAmount}；REVENUE 口径的费用本来就在营收里
+ * （该列为 0），不会重复计。该列仍<b>单独保留</b>供页面展示"金额怎么来的"；
+ * {@code unit_price} 只按票面部分算、费用不摊进单价。历史行不回溯改写（现库该列均为 0）。</p>
  */
 @Data
 public class InterStationSettlement {
@@ -50,7 +51,7 @@ public class InterStationSettlement {
     /** 采用的单价快照（仅 basis = 2/3） */
     private BigDecimal unitPrice;
 
-    /** 票覆盖的配送费 + 楼层费（仅 basis = 2/3）；⚠️ 不计入 amount，见类注释 */
+    /** 票覆盖的配送费 + 楼层费（仅 basis = 2/3）；已计入 amount（2026-09-29 拍板），单独记一列供展示，见类注释 */
     private BigDecimal feeAmount;
 
     /** 状态，取值见 {@link com.example.aquaflow.constant.SettleStatus} */

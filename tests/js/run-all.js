@@ -24,7 +24,7 @@ const SUITES = [
   { file: 'barrel-return-refund.test.js', name: '退桶审批 · 退押金并当面交付（v66 第 3 步语义收窄）' },
   { file: 'inter-station-ledger.test.js', name: '站间结算台账（v67：谁欠谁 / 欠多少 / 什么时候算办完）' },
   { file: 'modal-copy-limit.test.js', name: '弹窗按钮文案长度（两端静态扫描）' },
-  // [2026-09-27] 两端运行时体验走查（docs/audit/2026-09-27-GPT-两端运行时体验走查.md）的修复回归：
+  // [2026-09-27] 两端运行时体验走查（docs/audit/history/review/2026-09-27-GPT-两端运行时体验走查.md）的修复回归：
   { file: 'customer-assets-state.test.js', name: '顾客资产加载态与文案（走查 C05 / C06 / C07）' },
   { file: 'customer-order-receivables-truth.test.js', name: '订单事实与应收失败态（体验复核 N02/N03/N09）' },
   { file: 'delivery-runtime-copy.test.js', name: '员工端运行时事实表达（走查 M01–M06 / D01–D07）' },

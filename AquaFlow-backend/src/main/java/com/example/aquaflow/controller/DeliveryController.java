@@ -315,7 +315,7 @@ public class DeliveryController {
     }
 
     // [2026-09-18 删除] GET /orders/station-exception：名字叫"异常"、实际返回 status=5 的**取消单**，
-    // 与 GET /api/orders?status=5 重复，且两端小程序都没调用（docs/audit/2026-09-16-死端点评估.md 判"删除"，已执行）。
+    // 与 GET /api/orders?status=5 重复，且两端小程序都没调用（docs/audit/history/review/2026-09-16-死端点评估.md 判"删除"，已执行）。
     // 站长的待办/外派等查询用 /orders/station-pending、/orders/dispatch-tracking 等既有端点。
     // 回归：ManagerOrderControllerRemovedIntegrationTest 断言该路径返回 404。
 
@@ -783,7 +783,7 @@ public class DeliveryController {
         // [2026-09-19 删除] pendingCount（本站 status=1 的单数）：
         // 唯一消费方是「我的」页的「待配送」格，该格已在统计卡按角色分叉时撤掉（配送页本身就是那个页签）。
         // 它每次都要跑一遍 listStationPending 只为了取 .size()，而且**站级口径混在一个按人统计的响应里**，
-        // 正是口径混淆的温床。证据与核实过程见 docs/audit/2026-09-16-死端点评估.md「删除登记表」#9。
+        // 正是口径混淆的温床。证据与核实过程见 docs/audit/history/review/2026-09-16-死端点评估.md「删除登记表」#9。
 
         return Result.success(stats);
     }

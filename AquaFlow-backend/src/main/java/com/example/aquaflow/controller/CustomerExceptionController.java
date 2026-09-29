@@ -50,6 +50,6 @@ public class CustomerExceptionController {
     }
 
     // [2026-09-18 删除] GET /list（"兼容：部分调用方按裸数组处理"）：与上面的分页端点返回同一批数据，
-    // 属冗余读端点（docs/audit/2026-09-16-死端点评估.md 判"删除"，已执行）。调用方一律用
+    // 属冗余读端点（docs/audit/history/review/2026-09-16-死端点评估.md 判"删除"，已执行）。调用方一律用
     // GET /api/customer/exceptions（分页）。回归：ManagerOrderControllerRemovedIntegrationTest 断言 404。
 }

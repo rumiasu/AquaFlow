@@ -651,7 +651,7 @@ public interface OrderMapper {
 
     // [2026-09-18 删除] listStationExceptionOrders(stationId)：只服务于
     // GET /api/delivery/orders/station-exception —— 那个端点名字叫"异常"、实际过滤 status=5 返回**取消单**，
-    // 与 GET /api/orders?status=5 重复，两端小程序都没调用（docs/audit/2026-09-16-死端点评估.md 判"删除"，已执行）。
+    // 与 GET /api/orders?status=5 重复，两端小程序都没调用（docs/audit/history/review/2026-09-16-死端点评估.md 判"删除"，已执行）。
     // 要看本站取消单请走订单列表接口；不要再按"异常"这个名字把本方法加回来。
     // 回归：ManagerOrderControllerRemovedIntegrationTest 断言该路径返回 404。
 
@@ -709,7 +709,7 @@ public interface OrderMapper {
 
     // [2026-09-18 删除] countByStatusByStationId / trendLast7DaysByStationId：只服务于
     // GET /api/dashboard/order-status 与 /order-trend，两个端点零前端调用且与 /report 口径分叉
-    // （同一指标两套算法，见 docs/audit/2026-09-16-死端点评估.md §5.2/§5.4，判"删除"，已执行）。
+    // （同一指标两套算法，见 docs/audit/history/review/2026-09-16-死端点评估.md §5.2/§5.4，判"删除"，已执行）。
     // 看板一律走 DashboardService.report()；不要再把这两个"同名不同算法"的查询加回来。
 
     // ==================== 抢单池 & 外派追踪 ====================

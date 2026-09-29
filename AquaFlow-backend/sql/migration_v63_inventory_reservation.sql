@@ -232,7 +232,7 @@ DEALLOCATE PREPARE st_abort2;
 -- 2-4b) **脏需求快照预检**（契约 A2 / 验收 R2）：需求快照是本次分配的依据
 --       （3-4 的缺口 = `need_qty − reserved_qty`），快照与真相源不一致或预留越界时**绝不能**
 --       拿它继续分配 —— 那会把错误放大，而且门禁看不出来。
---       演练实测（`docs/audit/drill/drill_r2_dirty_need_snapshot.sql`）：实物 10、真实需求 2、
+--       演练实测（`docs/audit/history/drill/drill_r2_dirty_need_snapshot.sql`）：实物 10、真实需求 2、
 --       预留 2、镜像 2、坏快照 `need_qty = 10` ⇒ 上一版 v63 按坏快照给它再补 8，
 --       预留与镜像都变 10、可用量 8 → **0**；差异键还是原来那一个 ⇒ `newly_created_violations = 0`
 --       ⇒ **照样提交**。一个只要 2 桶的订单占满了整站可用量。

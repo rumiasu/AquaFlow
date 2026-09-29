@@ -225,7 +225,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 3. **`ManagerOrderController` 确已删除**（文件不存在，有 `ManagerOrderControllerRemovedIntegrationTest`），但 `.workbuddy/memory/MEMORY.md` 仍列为「仍未做」高危项 —— **该记忆已过期**，也不排除有其他等效写入口。
 4. ~~**开发者工具「测试号」是否支持 `wx.login` / `jscode2session`**~~ —— **已实测（2026-09-22）：换不出 openid，已弃用**（真机 `wx.login` 拿得到 code，`jscode2session` 回 `invalid code`／40029）；顾客端先借员工端那对 appid 过渡，**2026-09-23 换成自有的 `wx12632a1cdca9fbcc`**（见 §1.1）。测试号**不能上传代码 / 发布 / 设为体验版**；**`dev-login` 是登录不通时的退路**（代码注释 `AGENTS §9.4` 指本条）。
 5. **测试号分「小程序」与「小游戏」两种，不可混用**：把**小游戏**测试号的 appid 填进小程序项目（`compileType: "miniprogram"`）会**编译失败**。
-6. **微信订阅消息对本项目不可行**：除少数行业（政务/医疗/交通等）外都是**一次性授权**，`wx.requestSubscribeMessage` **无法静默获取**（推一条要当面点「允许」）；水站高频提醒摩擦大，**产品裁定不做**（站长端只有应用内红点 `miniapp-delivery/utils/pending-reminder.js`）。另注：`WeChatNotifyService` 骨架读**客户端** appid，推员工用员工端那对。**同族缺口**：客户侧进度（接单 / 配送中 / 已送达 / 已收款 / 退桶结果 / 水票到账）**一条通知都没有** —— `OrderWorkflowServiceImpl` 只写"被拒单"与"临时外派"两种负面通知，`NotificationServiceImpl` 六个方法全是拼文案写 log 的空壳。
+6. **微信订阅消息对本项目不可行**：除少数行业（政务/医疗/交通等）外都是**一次性授权**，`wx.requestSubscribeMessage` **无法静默获取**（推一条要当面点「允许」）；水站高频提醒摩擦大，**产品裁定不做**（站长端只有应用内红点 `miniapp-delivery/utils/pending-reminder.js`）。另注：原 `WeChatNotifyService` 骨架（读客户端 appid）已于 2026-09-29 删除（零调用，登记 `docs/audit/删除登记表.md` §6.2），真做推送按员工端那对 appid 新写。**同族缺口**：客户侧进度（接单 / 配送中 / 已送达 / 已收款 / 退桶结果 / 水票到账）**一条通知都没有** —— `OrderWorkflowServiceImpl` 只写"被拒单"与"临时外派"两种负面通知，`NotificationServiceImpl` 六个方法全是拼文案写 log 的空壳。
 
 ## 10. 本文件的来源与维护
 

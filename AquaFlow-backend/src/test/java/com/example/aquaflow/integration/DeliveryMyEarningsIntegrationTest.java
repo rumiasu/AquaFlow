@@ -1,11 +1,13 @@
 package com.example.aquaflow.integration;
 
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.support.TestBusinessClock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,7 +29,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * </ol>
  */
 @DisplayName("配送员自助 · 我的工资（只读 / 只看自己）")
+@Import(TestBusinessClock.Config.class)
 class DeliveryMyEarningsIntegrationTest extends AbstractIntegrationTest {
+
+    /**
+     * [F-43] 把业务"现在"钉在**数据库当前时刻**：Java 侧（区间端点）与 SQL 侧（造数/断言）
+     * 从此读同一个值，跨零点不会一边说今天、一边说明天。见 {@link TestBusinessClock}。
+     */
+    @BeforeEach
+    void freezeClockAtDbNow() {
+        TestBusinessClock.freezeAtDbNow(jdbc);
+    }
 
     @Test
     @DisplayName("看得到自己的工钱：明细 + 期间合计 + 未结合计，且今天产生的算得进来")
@@ -60,7 +72,7 @@ class DeliveryMyEarningsIntegrationTest extends AbstractIntegrationTest {
                 "明细要能追溯到订单（配送员问「这笔是哪来的」时唯一的凭据）");
 
         // ⚠️ 时间窗上界：今天产生的工钱必须算得进来（<= 结束日 会漏掉今天）
-        String today = LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         Api todayOnly = get("/api/delivery/earnings?from=" + today + "&to=" + today, tokenA);
         assertTrue(todayOnly.isSuccess(), "按当天查询应成功，实际=" + todayOnly);
         assertEquals(0, new BigDecimal("16.00").compareTo(todayOnly.data().path("periodTotal").decimalValue()),
@@ -100,7 +112,7 @@ class DeliveryMyEarningsIntegrationTest extends AbstractIntegrationTest {
         long mgr = ids[4], deliveryA = ids[5];
         completeOneOrder(station, customer, address, product, mgr, deliveryA);
         String tokenA = staffToken(deliveryA, "DELIVERY", station);
-        String today = LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
 
         assertEquals(0, post("/api/manager/payroll", staffToken(mgr, "STATION_MANAGER", station),
                         "{\"staffId\":" + deliveryA + ",\"periodStart\":\"" + today + "\",\"periodEnd\":\""

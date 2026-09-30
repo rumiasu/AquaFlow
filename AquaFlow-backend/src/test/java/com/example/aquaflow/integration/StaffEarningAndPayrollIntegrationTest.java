@@ -1,8 +1,11 @@
 package com.example.aquaflow.integration;
 
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.support.TestBusinessClock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
 
@@ -23,7 +26,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>结算单合计 == 本期明细之和（对账 E-PAY），且「算出来」与「发出去」是两个状态。</li>
  * </ol>
  */
+@Import(TestBusinessClock.Config.class)
 class StaffEarningAndPayrollIntegrationTest extends AbstractIntegrationTest {
+
+    /**
+     * [F-43] 把业务"现在"钉在**数据库当前时刻**：Java 侧（区间端点）与 SQL 侧（造数/断言）
+     * 从此读同一个值，跨零点不会一边说今天、一边说明天。见 {@link TestBusinessClock}。
+     */
+    @BeforeEach
+    void freezeClockAtDbNow() {
+        TestBusinessClock.freezeAtDbNow(jdbc);
+    }
 
     @Test
     @DisplayName("完成配送产生计件收益：送桶 + 楼层补贴 + 单奖，且归属履约站")
@@ -128,7 +141,7 @@ class StaffEarningAndPayrollIntegrationTest extends AbstractIntegrationTest {
                                 delivery)), "三笔未结算合计 100 - 20 + 5.50 = 85.50");
 
         // 生成结算单（期间取今天，覆盖刚造的明细）
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         Api gen = post("/api/manager/payroll", mgr,
                 "{\"staffId\":" + delivery + ",\"periodStart\":\"" + today + "\",\"periodEnd\":\"" + today + "\"}");
         assertEquals(0, gen.code(), "生成结算单: " + gen);

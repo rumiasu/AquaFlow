@@ -1,8 +1,11 @@
 package com.example.aquaflow.integration;
 
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.support.TestBusinessClock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
 
 import java.time.LocalDateTime;
 
@@ -30,7 +33,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>断言语义一律看 body {@code code}（业务错误 HTTP 仍是 200），只有"未认证"才是真 401。</p>
  */
 @DisplayName("F-14 · 顾客侧零覆盖只读端点（/api/customers/stats、/api/orders/my-station）")
+@Import(TestBusinessClock.Config.class)
 class CustomerStatsAndMyStationIntegrationTest extends AbstractIntegrationTest {
+
+    /**
+     * [F-43] 把业务"现在"钉在**数据库当前时刻**：Java 侧（区间端点）与 SQL 侧（造数/断言）
+     * 从此读同一个值，跨零点不会一边说今天、一边说明天。见 {@link TestBusinessClock}。
+     */
+    @BeforeEach
+    void freezeClockAtDbNow() {
+        TestBusinessClock.freezeAtDbNow(jdbc);
+    }
 
     private static final String STATS = "/api/customers/stats";
 
@@ -135,8 +148,8 @@ class CustomerStatsAndMyStationIntegrationTest extends AbstractIntegrationTest {
         long oldOrder = createOrder(customer, address, oldStation, product, 1, 1);
         long newOrder = createOrder(customer, address, newStation, product, 1, 1);
         // orders.create_time 默认 CURRENT_TIMESTAMP，同秒插入会让「最近一笔」失去判据 —— 显式错开两天
-        jdbc.update("UPDATE orders SET create_time=? WHERE id=?", LocalDateTime.now().minusDays(2), oldOrder);
-        jdbc.update("UPDATE orders SET create_time=? WHERE id=?", LocalDateTime.now().minusDays(1), newOrder);
+        jdbc.update("UPDATE orders SET create_time=? WHERE id=?", TestBusinessClock.now().minusDays(2), oldOrder);
+        jdbc.update("UPDATE orders SET create_time=? WHERE id=?", TestBusinessClock.now().minusDays(1), newOrder);
 
         // 落库断言锚点：库里"这个客户最近一笔订单的归属站"
         long dbLatestStation = longOf(
@@ -202,9 +215,9 @@ class CustomerStatsAndMyStationIntegrationTest extends AbstractIntegrationTest {
 
         long aliceOrder = createOrder(alice, aliceAddr, stationA, product, 1, 1);
         long bobOrder = createOrder(bob, bobAddr, stationB, product, 1, 1);
-        jdbc.update("UPDATE orders SET create_time=? WHERE id=?", LocalDateTime.now().minusDays(2), aliceOrder);
+        jdbc.update("UPDATE orders SET create_time=? WHERE id=?", TestBusinessClock.now().minusDays(2), aliceOrder);
         // 乙那笔**更新**：如果查询漏了 customer_id 过滤，甲就会被告知"服务水站是乙的站"
-        jdbc.update("UPDATE orders SET create_time=? WHERE id=?", LocalDateTime.now().minusDays(1), bobOrder);
+        jdbc.update("UPDATE orders SET create_time=? WHERE id=?", TestBusinessClock.now().minusDays(1), bobOrder);
 
         Api asAlice = get(MY_STATION, customerToken(alice));
         assertEquals(0, asAlice.code(), "甲应能查到自己的站：" + asAlice);

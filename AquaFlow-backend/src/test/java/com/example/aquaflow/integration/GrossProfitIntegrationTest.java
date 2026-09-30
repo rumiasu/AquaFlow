@@ -1,8 +1,11 @@
 package com.example.aquaflow.integration;
 
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.support.TestBusinessClock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
 
@@ -24,7 +27,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>⚠️ 用词：类名/端点/表名里的 GrossProfit 是代码里的历史命名，<b>下发给站长的文案一律叫「利润」</b>
  * （[2026-09-26] 产品口径：本仓用户是小水站，"毛利"是财务术语）。</p>
  */
+@Import(TestBusinessClock.Config.class)
 class GrossProfitIntegrationTest extends AbstractIntegrationTest {
+
+    /**
+     * [F-43] 把业务"现在"钉在**数据库当前时刻**：Java 侧（区间端点）与 SQL 侧（造数/断言）
+     * 从此读同一个值，跨零点不会一边说今天、一边说明天。见 {@link TestBusinessClock}。
+     */
+    @BeforeEach
+    void freezeClockAtDbNow() {
+        TestBusinessClock.freezeAtDbNow(jdbc);
+    }
 
     @Test
     @DisplayName("毛利 = 收入 − 销量×成本，且只算本站、排除取消单")
@@ -52,7 +65,7 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
         // 下一单：2 桶 × 20 = 40 收入
         assertEquals(0, order(customerToken(customer), station, address, product, 2, "gp-1").code());
 
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
         assertEquals(0, report.code(), "毛利报表: " + report);
         assertEquals(0, new BigDecimal("40.00").compareTo(
@@ -85,7 +98,7 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
         String mgr = staffToken(manager, "STATION_MANAGER", station);
 
         assertEquals(0, order(customerToken(customer), station, address, product, 2, "gp-2").code());
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
 
         Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
         assertEquals(0, report.code(), "毛利报表: " + report);
@@ -172,7 +185,7 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
                 "{\"productId\":" + product + ",\"costPrice\":12.00}").code());
         assertEquals(0, order(customerToken(customer), station, address, product, 1, "gp-today").code());
 
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         // ⚠️ 时间上界若写成 <= 结束日，今天的单一条都统计不到（AGENTS §8.19）——
         // 站长看到的会是"今天没卖出去"，而这最容易被误读成"确实没卖"
         Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
@@ -218,7 +231,7 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
                 "SELECT COALESCE(SUM(amount),0) FROM staff_earning WHERE order_id=?", orderId);
         assertTrue(wage.signum() > 0, "完成配送后必须有计件工钱，否则这个用例证明不了减法");
 
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
         assertEquals(0, report.code(), "净利报表: " + report);
         assertEquals(1, report.data().path("orderCount").asInt(), "单数按订单数，不按明细行数");
@@ -263,7 +276,7 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
                 orderId, product, "缺成本净利水", new BigDecimal("20.00"), 2,
                 new BigDecimal("0.00"), new BigDecimal("40.00"));
 
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
         assertEquals(0, report.code(), "净利报表: " + report);
         assertTrue(report.data().path("totalProfit").isNull(), "合计毛利必须是 null");
@@ -295,10 +308,10 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, put("/api/manager/gross-profit/cost", mgr,
                 "{\"productId\":" + product + ",\"costPrice\":12.00}").code(), "成本 12/桶");
 
-        seedTicketPurchase(customer, station, product, "36.00", "NOW()");          // 本期买票实收 36
+        seedTicketPurchase(customer, station, product, "36.00", TestBusinessClock.now());          // 本期买票实收 36
         seedTicketOrder(customer, address, station, product, 2, "18.00");          // 本期用票兑出去 2 桶
 
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
         assertEquals(0, report.code(), "毛利报表: " + report);
         assertEquals(0, new BigDecimal("0.00").compareTo(
@@ -333,9 +346,9 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
         createInventoryFull(station, product, 100, 1, "18.00");
         String mgr = staffToken(manager, "STATION_MANAGER", station);
 
-        seedTicketPurchase(customer, station, product, "36.00", "NOW()");          // 只有买票，没有兑票
+        seedTicketPurchase(customer, station, product, "36.00", TestBusinessClock.now());          // 只有买票，没有兑票
 
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
         assertEquals(0, new BigDecimal("36.00").compareTo(
                 new BigDecimal(report.data().path("ticketRevenue").asText())), "票款照实计入");
@@ -364,10 +377,10 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
                 "{\"productId\":" + product + ",\"costPrice\":12.00}").code());
 
         // 票是 40 天前买的（在上期确认了收入），货是本期兑出去的
-        seedTicketPurchase(customer, station, product, "36.00", "NOW() - INTERVAL 40 DAY");
+        seedTicketPurchase(customer, station, product, "36.00", TestBusinessClock.now().minusDays(40));
         seedTicketOrder(customer, address, station, product, 2, "18.00");
 
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
         assertEquals(0, new BigDecimal("0.00").compareTo(
                 new BigDecimal(report.data().path("ticketRevenue").asText())),
@@ -391,10 +404,10 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
         createInventoryFull(station, product, 100, 1, "18.00");
         String mgr = staffToken(manager, "STATION_MANAGER", station);
         // 故意不设成本价
-        seedTicketPurchase(customer, station, product, "36.00", "NOW()");
+        seedTicketPurchase(customer, station, product, "36.00", TestBusinessClock.now());
         seedTicketOrder(customer, address, station, product, 2, "18.00");
 
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
         // 原实现：票单被 WHERE 滤掉 ⇒ 这一行根本不出行 ⇒ missingCostKinds=0 ⇒
         // 报表会给出一个"没有缺成本、毛利很漂亮"的假结论。这正是最坏的一种"看起来正确"。
@@ -437,14 +450,15 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
     /**
      * 造一笔「在线购票」实收（{@code order_id IS NULL}，站长确认收款 = status 2）。
      *
-     * @param updateTimeExpr 直接拼进 SQL 的时间表达式（如 {@code NOW()} / {@code NOW() - INTERVAL 40 DAY}）——
-     *                       报表按 {@code update_time}（确认收款那一刻）划时间窗，测试必须能控制它
+     * @param updateTime 确认收款的时刻。<b>[F-43] 由冻结时钟给值，不要再拼 SQL 的 {@code NOW()}</b> ——
+     *                   报表按 {@code update_time}（确认收款那一刻）划时间窗，而窗口端点是 Java 侧算的；
+     *                   两侧各读一个时钟时，跨零点就会"窗口说昨天、数据落今天"（偶发红、无法复现）
      */
     private void seedTicketPurchase(long customer, long station, long product,
-                                    String amount, String updateTimeExpr) {
+                                    String amount, java.time.LocalDateTime updateTime) {
         long paymentId = createPaymentRecord(null, customer, station, amount, 1, 2);
-        jdbc.update("UPDATE payment_record SET ticket_water_type_id=?, ticket_qty=1, update_time="
-                + updateTimeExpr + " WHERE id=?", product, paymentId);
+        jdbc.update("UPDATE payment_record SET ticket_water_type_id=?, ticket_qty=1, update_time=? WHERE id=?",
+                product, updateTime, paymentId);
     }
 
     private Api order(String customerToken, long stationId, long addressId, long productId,

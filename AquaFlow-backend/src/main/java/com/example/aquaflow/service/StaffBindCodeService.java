@@ -5,6 +5,7 @@ import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.StaffBindCodeMapper;
 import com.example.aquaflow.mapper.StaffMapper;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.BusinessTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,12 @@ import java.util.Map;
  * ② **码是一次性的**：消费走 {@link StaffBindCodeMapper#markUsed} 的 CAS，看受影响行数；
  *    不要改回"先查能用、再写已用"。<br>
  * ③ **已经绑过微信的员工不再签发**：真要换微信得先走解绑流程，别让"再发一个码"变成绕过解绑的通道。</p>
+ *
+ * <p>⚠️ <b>[F-44 2026-09-30] 签发与校验必须是同一个时钟</b>：{@code expires_at} 由本类的
+ * {@link BusinessTime} 算出，校验侧的时效比较也由同一个 {@code now} 作为**入参**传进 Mapper
+ * —— 别再让 Mapper 写 {@code expires_at > NOW()}（那读的是**库的时钟**）：两侧不同源时，
+ * 冻结 Java 时钟会表现为"刚签发的码被拒"，而拨快 Java 时钟就是**过期码仍可用**。
+ * 边界用例见 {@code StaffBindCodeIntegrationTest#codeValidityFollowsInjectedClock}。</p>
  */
 @Slf4j
 @Service
@@ -53,11 +60,17 @@ public class StaffBindCodeService {
 
     private final StaffBindCodeMapper bindCodeMapper;
     private final StaffMapper staffMapper;
+
+    /** 全仓唯一的"取现在"入口（F-16）；本类的签发与校验都从它取值，见类注释的 F-44 说明。 */
+    private final BusinessTime businessTime;
+
     private final SecureRandom random = new SecureRandom();
 
-    public StaffBindCodeService(StaffBindCodeMapper bindCodeMapper, StaffMapper staffMapper) {
+    public StaffBindCodeService(StaffBindCodeMapper bindCodeMapper, StaffMapper staffMapper,
+                               BusinessTime businessTime) {
         this.bindCodeMapper = bindCodeMapper;
         this.staffMapper = staffMapper;
+        this.businessTime = businessTime;
     }
 
     /**
@@ -87,11 +100,14 @@ public class StaffBindCodeService {
         // 一员工同时只有一个有效码：先清旧的，否则旧码在有效期内还能用（等于多把钥匙）
         bindCodeMapper.deleteUnusedForStaff(staffId);
 
+        // [F-44] 业务"此刻"只取一次，撞码探测与 expires_at 都用它 —— 两次取时间会跨零点分叉。
+        LocalDateTime now = businessTime.now();
+
         String code = null;
         for (int i = 0; i < GEN_RETRY; i++) {
             // 6 位数字、允许前导 0（%06d）：不要把码当成整数处理，否则 "012345" 会变成 5 位。
             String candidate = String.format("%06d", random.nextInt(1_000_000));
-            if (bindCodeMapper.findUsableStaffId(candidate) == null) {
+            if (bindCodeMapper.findUsableStaffId(candidate, now) == null) {
                 code = candidate;
                 break;
             }
@@ -100,7 +116,7 @@ public class StaffBindCodeService {
             throw new BusinessException("生成绑定码失败，请重试");
         }
 
-        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(VALID_MINUTES);
+        LocalDateTime expiresAt = now.plusMinutes(VALID_MINUTES);
         bindCodeMapper.insert(staffId, stationId, code, expiresAt, AuthContext.getUserId());
 
         // ⚠️ 日志只记"给谁发了"与到期时间，**不记码本身**（本仓 §6：日志不许落可用于登录的凭据）。
@@ -124,12 +140,15 @@ public class StaffBindCodeService {
         if (code == null || code.isBlank()) {
             throw new BusinessException(INVALID_CODE);
         }
-        Long staffId = bindCodeMapper.findUsableStaffId(code.trim());
+        // [F-44] 同一个 now 同时用于"查得到吗"与"标记已用"这两步 —— 中间的零点跨越会让
+        // 第一步说还有效、第二步却因过期而 CAS 命中 0 行，表现成"码明明在有效期内却被拒"。
+        LocalDateTime now = businessTime.now();
+        Long staffId = bindCodeMapper.findUsableStaffId(code.trim(), now);
         if (staffId == null) {
             throw new BusinessException(INVALID_CODE);
         }
         // CAS：两个请求拿同一个码同时进来时，只有先到的能拿到 1 行
-        if (bindCodeMapper.markUsed(code.trim(), openid) == 0) {
+        if (bindCodeMapper.markUsed(code.trim(), openid, now) == 0) {
             throw new BusinessException(INVALID_CODE);
         }
         return staffId;

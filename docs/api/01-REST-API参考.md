@@ -151,6 +151,7 @@
 | `POST` | `/api/manager/bind/unbind-confirm` | "STATION_MANAGER" | `DeliveryBindingController.unbindConfirm` |
 | `POST` | `/api/manager/bind/unbind-reject` | "STATION_MANAGER" | `DeliveryBindingController.unbindReject` |
 | `GET` | `/api/manager/staff` | "STATION_MANAGER" | `DeliveryBindingController.getManagerStaff` |
+| `POST` | `/api/manager/staff/{staffId}/bind-code` | "STATION_MANAGER" | `DeliveryBindingController.generateBindCode`（F-03③：为本站员工签发绑微信的**一次性**码，10 分钟有效、用一次即废；站别只认登录态） |
 
 ### 客户与地址
 

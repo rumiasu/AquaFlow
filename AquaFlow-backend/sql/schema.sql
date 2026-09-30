@@ -654,6 +654,20 @@ CREATE TABLE IF NOT EXISTS `staff` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_staff_openid` (`openid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS `staff_bind_code` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `staff_id` bigint NOT NULL COMMENT '要绑定微信的员工（staff.id）',
+  `station_id` bigint NOT NULL COMMENT '签发它的站长所属水站；用于审计「哪个站给谁发了码」',
+  `code` varchar(16) NOT NULL COMMENT '一次性绑定码（6 位数字；用一次即废）',
+  `expires_at` datetime NOT NULL COMMENT '过期时间（签发后 10 分钟）',
+  `used_at` datetime DEFAULT NULL COMMENT '被使用的时间；NULL = 还没用过',
+  `used_openid` varchar(64) DEFAULT NULL COMMENT '用掉它的那个微信 openid（留痕：谁绑的）',
+  `created_by` bigint DEFAULT NULL COMMENT '签发人（staff.id，站长）',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_staff_bind_code` (`code`),
+  KEY `idx_staff_bind_code_staff` (`staff_id`,`used_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 CREATE TABLE IF NOT EXISTS `staff_station_application` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `staff_id` bigint NOT NULL COMMENT '申请人 staff.id (必须 DELIVERY)',

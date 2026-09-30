@@ -121,6 +121,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend\sql
 - **本机无 Docker**，不用 Testcontainers；测试库 `aquaflow_test` 是独立可重建库。
 - **运行前置（硬要求）**：必须显式设置 `GRADLE_USER_HOME='D:\backend\project\AquaFlow\.gradlehome'`，否则 Gradle 往沙箱外的用户目录写缓存、被拒后直接失败；`--project-cache-dir .gradle_alt` **不足以**解决。【仓】
 - **Gradle 锁坑**：`bootRun`（8080）在跑时直接 `gradlew` 会因 `fileHashes.lock` 失败 —— 统一加 `--no-daemon`；换 `--project-cache-dir` 可与在跑的 `bootRun` 并存（必要时先停后端）。
+- **并发构建互删 `build/`（2026-09-30 实测，5 个独立会话各撞一次）**：`AquaFlow-backend/build/` 是**多会话共用**的，一个进程删掉 `in-progress-results-generic*.bin` 会让另一个正在跑的整套测试以 `NoSuchFileException` **整体 FAILED** —— 看着像"代码改坏了"，其实是被邻居删了构建目录。**判据：同一台机器上只要不止一个会话会跑 Gradle，就必须用 init script 把 `layout.buildDirectory` 指到会话专属目录**（如 `AquaFlow-backend/build_cont`）。详见 skill §8.34。
 - **bash 用 Git 自带的** `D:\backend\Git\bin\bash.exe`（`Get-Command bash` 解析到 `WindowsApps\bash.exe` 存根，报 `E_ACCESSDENIED`）；**受限沙箱下 Cygwin 起不来**（`couldn't create signal pipe, Win32 error 5`）。`python` 用 `D:\agent\python\python.exe`。⚠️ **含 `↔` 等非 GBK 字符的 python 脚本先设 `$env:PYTHONIOENCODING='utf-8'`**（否则 `print` 抛 `UnicodeEncodeError`，表现为"脚本没问题却 exit=1"）；**别把脚本路径写进自定义函数的 `$args`**（自动变量，会让 python 无参启动、进 REPL 后 exit 0）。【仓】
 - **受限沙箱下「拿不到子进程输出」是环境限制，不是测试挂了**：进程建不了 named pipe ⇒ `spawnSync` 回 `status=null` + `EPERM`、`Start-Process -RedirectStandardOutput` 报"拒绝访问"、`bash scripts/*.sh` 起不来 —— 同一条。`tests/js/run-all.js` 已内置降级（管道 → 文件描述符重定向），跑流程测试仍是一条命令；**判据必须建在 ASCII 哨兵上**（`AQUAFLOW_SUITE_OK`，中文在 fd 里会被编码毁成 `?`）。**bash 脚本（`scan-secrets.sh`、`verify.sh`）在本机跑不了时用等价实现逐条复刻并说明"哪条没跑到"，不许当成通过。** 详见 skill §8.31。【仓】
 - **判端口占用用 `netstat -ano | Select-String ':8080'`**（看 `0.0.0.0:8080 … LISTENING`），**别用 `Get-NetTCPConnection`** —— 它静默返回空集，据此起 `bootRun` 只会白跑一次并拿到 `Port 8080 was already in use`（见 skill §8.32）。【仓】
@@ -255,7 +256,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 
 | skill | 何时加载 |
 |---|---|
-| `aquaflow-known-traps` | **动手写 / 改代码前** —— 坑与判据正本（`§8.1`–`§8.32`：状态倒滚、桶汇总并集、时间区间上界、DTO 丢字段、隔离 worktree 假绿、小程序 js/BOM、弹窗确认没接上、沙箱拿不到子进程输出 / `Get-NetTCPConnection` 漏报端口…） |
+| `aquaflow-known-traps` | **动手写 / 改代码前** —— 坑与判据正本（`§8.1`–`§8.34`：状态倒滚、桶汇总并集、时间区间上界、DTO 丢字段、隔离 worktree 假绿、小程序 js/BOM、弹窗确认没接上、沙箱拿不到子进程输出 / `Get-NetTCPConnection` 漏报端口、并发构建互删 `build/`…） |
 | `aquaflow-open-questions` | 动已弃用表 / 水厂端残留 / 微信测试号登录 / 判断 `.workbuddy` 记忆是否过期时 |
 
 > ⚠️ skill 名（frontmatter 的 `name`）必须是 **ASCII 小写 + 连字符**（DSH 校验 `^[a-z0-9]+(?:-[a-z0-9]+)*$`）—— 中文名**不报错，只被静默忽略**（仅留一条 log warning）。

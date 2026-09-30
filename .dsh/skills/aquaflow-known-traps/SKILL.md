@@ -67,3 +67,23 @@ whenToUse: 要动订单状态机 / 取消与退款链 / 桶账与押金 / 对账
     **会让你误判成"库里的数据是坏的"**（实测差点据此去查编码问题）。
     配套 scratch 工具：`scripts/debug/__dbq.js`（只读查询跑手：凭据从 `application-local.yml` 内读、
     **输出不回显密钥**、语句里出现写动作关键字**直接拒绝**）。
+
+34. **并发构建会互删 `build/`，让"另一个会话的整套测试"整体 FAILED（2026-09-30 实测，一轮里 5 个独立代理各撞一次）** ——
+    `AquaFlow-backend/build/` 是**多个会话共用**的目录。Gradle 在一次构建里会**删掉并重建** `build/test-results/`、
+    `build/classes/`、以及 `build/tmp/…/in-progress-results-generic*.bin` 之类的中间产物；另一个进程正在跑的
+    整套测试读到被删掉的文件，就以 `java.nio.file.NoSuchFileException` **整体 FAILED**。
+    **形态极具误导性**：失败发生在"别人的测试"上、堆栈指向 Gradle 内部，看起来像"我把代码改坏了"或"这批改动不可合并"，
+    而实际代码一行没错 —— 据它回滚会白白丢掉一整批工作。
+    **判据一（预防）**：**同一台机器上只要不止一个会话可能跑 Gradle，每个会话都必须用 init script 把
+    `layout.buildDirectory` 指到会话专属目录**，例如：
+    ```groovy
+    // .gradle_cont/builddir-init.gradle
+    allprojects { p -> p.layout.buildDirectory.set(new File('D:/backend/project/AquaFlow/AquaFlow-backend/build_cont')) }
+    ```
+    调用：`.\gradlew.bat test --no-daemon --project-cache-dir <仓库根>/.gradle_cont -I <仓库根>/.gradle_cont/builddir-init.gradle`
+    （`--project-cache-dir` 只隔离 Gradle 自己的锁与缓存，**不隔离 `build/`** —— 两个都要给）。
+    **判据二（诊断）**：见到 `NoSuchFileException` + `in-progress-results-generic` / `test-results` 路径，
+    **先怀疑邻居在跑构建**（`Get-Process java` 看进程数），换独立 `build` 目录复跑一遍再下结论；
+    **不要**据此判定"代码改坏了"、更不要回滚。
+    **判据三**：隔离目录别写进 `.gitignore`（那是要入库的公共文件）：放到 **`.git/info/exclude`**（本机件清单，见 `AGENTS.md` §6.3）。
+    相关：`--project-cache-dir` 与在跑的 `bootRun` 并存是 §5「Gradle 锁坑」；本条是它的**第二个**独立故障源。

@@ -3,6 +3,14 @@
 > **性质声明**：本文件是 **2026-09-12 对 `AquaFlow-backend` 源码与两个小程序的静态扫描快照**，不是业务规范。
 > 若与 `schema.sql`、运行测试或实际接口行为冲突，**以代码与数据库验证为准**，并在本文“待复核”一节记录差异、提请决策。
 > 扫描方式：Grep 全仓端点注解 + 关键写方法调用点 + 部分 Controller 源码通读。未逐行读每个方法体。
+>
+> ⚠️ **2026-09-30 更正（接手集成者）——本文 §2.4 / §2.5 点名的三个 `OrderMapper` 方法在 `OrderMapper` 里已不存在**：
+> `updateStatus(id, status)`、`updatePaymentStatus(id, paymentStatus)`、`update(order)` 三者**都已删除**
+> （`update(order)` 随 `POST /api/orders` 一起走，`updateStatus` / `updatePaymentStatus` 属「无 expected-state 旧路径」）。
+> 现行正本以 `mapper/OrderMapper.java` 的方法清单为准：状态改写只有
+> `updateStatusIf` / `updatePaymentStatusIf` / `updateStatusIfPENDING` / `markPaidIfCollectable` / `settleIfCollected`
+> 与 `*If` 系列具名命令，**没有**任何无期望值的整列改写。下文表格保留扫描当时的样子（历史快照），
+> 但**照它去找这三个方法会扑空** —— 已在该两节就地标注。
 
 ## 0. 范围与方法
 
@@ -16,6 +24,7 @@
 
 > 角色列仅标注已读到的 `@RequireRole`；其余以全局切点 + 方法内 `AuthContext.requireStationId()` 为准，需逐个读 `@RequireRole`。
 > “直接写 Orders”指该方法体内出现 `orderMapper.update/ updateStatus/ updatePaymentStatus` 等。
+> ⚠️ 这三个方法**现在都已不存在**（见文首更正），本列只剩历史意义。
 
 | Controller（前缀） | 写端点 | 直接写资产 | 事务 | 备注 |
 |---|---|---|---|---|
@@ -46,6 +55,9 @@
 ### 2.2 DeliveryController —— 18 处非 CAS 直写（P0）
 
 以下均为 `orderMapper.update(order)`（全行选择性 UPDATE，**read-modify-write、无 WHERE status、无 affected-row 检查**），或 1 处 `updateStatus(id, status)`（非 CAS）：
+> ⚠️ **两者都已不存在**（2026-09-30 更正）：`orderMapper.update(order)` 与 `orderMapper.updateStatus(id, status)` 在 `OrderMapper` 里已删除。
+> 本表是 **2026-09-12 的扫描快照**，行号与写点均不再可复现；历史结论仍有效 ——
+> 它记录的 18 处非 CAS 直写**已全部收敛**到 `OrderWorkflowService` 具名命令 / `*If` CAS 原语（台账 §3.3「历史 P0 已关闭」）。
 
 | 行号 | 所在方法（端点） | 写内容 |
 |---|---|---|
@@ -87,19 +99,25 @@
 
 ### 2.4 PaymentServiceImpl —— 3 处非 CAS `orderMapper.updateStatus`
 
+> ⚠️ **本节结论已作废（2026-09-30 更正）**：`OrderMapper.updateStatus` **该方法不存在**（`OrderMapper` 里没有 `updateStatus` / `updatePaymentStatus` / `update`，实测见文首更正）。
+> 下面三行是 2026-09-12 的扫描结果，**照它去核对会扑空**；对应的收敛目标已随方法删除而消失。
+
 - line 242 `updateStatus(orderId, COMPLETED)`
 - line 254 `updateStatus(orderId, DELIVERED)`
 - line 531 `updateStatus(orderId, CANCELLED)`
 
-均为 `OrderMapper.updateStatus(id, status)`（line 25，**无 expected status** → 非 CAS）。✓ 即 Phase C 目标“确认无合法调用后删除或限制为私有”的候选。
+均为 `OrderMapper.updateStatus(id, status)`（**该方法已删除**，扫描当时是"无 expected status"的非 CAS）。✓ Phase C 目标"确认无合法调用后删除"**已完成**。
 
 ### 2.5 非 CAS Mapper 方法清单（Phase C 清理对象）
 
-- `OrderMapper.updateStatus(id, status)`（line 25，`where id=#{id}` 无 expected）→ 非 CAS
-- `OrderMapper.updatePaymentStatus(id, paymentStatus)`（line 62，同上）→ 非 CAS
-- `OrderMapper.update(order)`（选择性全行更新）→ read-modify-write，Controller 禁用
+> ⚠️ **本节三条**（2026-09-30 更正）：`OrderMapper` 现在**一个都没有** ——
+> - ~~`OrderMapper.updateStatus(id, status)`~~ → **已删除**
+> - ~~`OrderMapper.updatePaymentStatus(id, paymentStatus)`~~ → **已删除**
+> - ~~`OrderMapper.update(order)`~~ → **已删除**（随 `POST /api/orders` 一起，六项报备见[删除登记表](删除登记表.md)）
 
-> 对应的 CAS 版本 `updateStatusIf` / `updatePaymentStatusIf` / `updateStatusIfPENDING` 已存在，收敛时直接替换。
+**现行清单请直接读 `mapper/OrderMapper.java`**：写方法全部是带 expected-state 的 CAS（`updateStatusIf` /
+`updatePaymentStatusIf` / `updateStatusIfPENDING` / `markPaidIfCollectable` / `settleIfCollected` / `*If` 系列）。
+本仓库的判据不变：**无 expected-state 的 `updateStatus` / `updatePaymentStatus` 属待清除的旧路径**（`AGENTS.md` §6）。
 
 ## 3. PaymentRecord 写点
 
@@ -139,13 +157,14 @@
 2. `PaymentController` 是否直写 `paymentRecordMapper` 需逐读（§3）。
 3. `DeliveryController` 桶账写是否全经 `BarrelLedgerService`（§4）。
 4. `InventoryController.inbound` 跨站校验与事务边界。
-5. `OrderMapper.update(order)` 选择性更新在 `NULL` 到 `NOT NULL DEFAULT 0` 列的丢失更新/空值问题（工作记忆已知 MySQL DEFAULT 仅省略列时生效）。
+5. ~~`OrderMapper.update(order)` 选择性更新在 `NULL` 到 `NOT NULL DEFAULT 0` 列的丢失更新/空值问题（工作记忆已知 MySQL DEFAULT 仅省略列时生效）。~~ → **已消解（2026-09-30 更正）**：`OrderMapper.update(order)` 已删除，不存在"选择性整行更新"入口。
 6. `ManagerOrderController.offline-exception` 的 `CORRECT_PAYMENT` 允许前端传 `paymentStatus` 直写，属越权/记错账高危，Phase C 必须删除或强校验。
 
 ## 7. Phase A 验收对照
 
 - [x] 所有订单/支付/桶/库存写入口均有明确归属（§1-§4 已列）。
 - [x] 无“可能存在”的写接口：已用 Grep 全仓定位 `orderMapper.update/ updateStatus/ updatePaymentStatus` 全部调用点（§2）。
+      ⚠️ **2026-09-30 更正**：这三个方法本身已从 `OrderMapper` 删除，本条现在自然成立，但**不能再用它们当检索关键词**。
 - [x] 小程序对 `/api/manager/**`、`/api/delivery/**` 调用已映射，无调用接口已标记（§5）。
 - [x] 测试护栏基架（§Phase A.4）：**已建立**（2026-09-12，转由 Phase B 完成）。本机无 Docker→弃用 Testcontainers，改用独立可重建测试库 `aquaflow_test` + 真实 Spring 上下文 + 真实 HTTP。详见 `docs/audit/test-harness.md`，一键脚本 `scripts/verify.sh`。
 - [x] `docs/audit/write-path-inventory.md` 已产出，并显式声明“代码扫描快照而非业务规范”。

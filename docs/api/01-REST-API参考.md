@@ -339,7 +339,7 @@
 | `GET` | `/api/ticket-records/customer/{customerId}` | {"STATION_MANAGER"} | `TicketRecordController.listByCustomerIdForStaff` |
 | `GET` | `/api/tickets` | {"STATION_MANAGER"} | `TicketAccountController.listByCustomerId` |
 | `POST` | `/api/tickets/add` | {"STATION_MANAGER"} | `TicketAccountController.add` |
-| `POST` | `/api/tickets/consume` | {"STATION_MANAGER"} | `TicketAccountController.consume` |
+| `POST` | `/api/tickets/consume` | {"STATION_MANAGER"} | `TicketAccountController.consume`（站长手工扣票）。**`idempotencyKey` 必传**（v70，缺失/空白 → `code=1`「缺少幂等键 idempotencyKey」）：`orderId` 可空，而不带订单的扣票在数据库层没有兜底（`uk_ticket_consume` 对 `order_id IS NULL` 零保护）⇒ 重复提交会重复扣。服务端按 `(customer_id, idempotencyKey)` 幂等，重试复用同一个键即原样返回、不再扣一次 |
 | `GET` | `/api/tickets/customer/{customerId}` | {"STATION_MANAGER"} | `TicketAccountController.listByCustomerIdForStaff` |
 | `POST` | `/api/tickets/purchase` | {"STATION_MANAGER"} | `TicketAccountController.purchase` |
 

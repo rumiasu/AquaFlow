@@ -151,8 +151,10 @@ class TicketPackageAndLotIntegrationTest extends AbstractIntegrationTest {
         assertTicketBookConsistent(customer, station, product);
 
         // 扣 8 张 → 批次剩余 12、金额 84
+        // idempotencyKey 必传（v70）：手工扣票是无订单扣票，uk_ticket_consume 对它零保护
         assertEquals(0, post("/api/tickets/consume", mgr,
-                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":8}").code());
+                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":8"
+                        + ",\"idempotencyKey\":\"lot-consume-1\"}").code());
         assertEquals(12, intOf("SELECT remain_quantity FROM ticket_account WHERE customer_id=?", customer));
         assertEquals(12, intOf("SELECT remain_qty FROM ticket_lot WHERE customer_id=?", customer));
         assertEquals(0, new BigDecimal("84.00").compareTo(
@@ -162,16 +164,18 @@ class TicketPackageAndLotIntegrationTest extends AbstractIntegrationTest {
 
         // 扣光 → 批次状态置为「已退完」
         assertEquals(0, post("/api/tickets/consume", mgr,
-                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":12}").code());
+                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":12"
+                        + ",\"idempotencyKey\":\"lot-consume-2\"}").code());
         assertEquals(0, intOf("SELECT remain_quantity FROM ticket_account WHERE customer_id=?", customer));
         assertEquals(2, intOf("SELECT status FROM ticket_lot WHERE customer_id=?", customer), "批次应置为已退完");
         assertEquals(0, new BigDecimal("0.00").compareTo(
                         decimalOf("SELECT right_amount FROM ticket_account WHERE customer_id=?", customer)));
         assertTicketBookConsistent(customer, station, product);
 
-        // 余额不足必须被拒，且不得动批次
+        // 余额不足必须被拒，且不得动批次（用新键，否则会命中幂等而"成功"返回）
         assertNotEquals(0, post("/api/tickets/consume", mgr,
-                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":1}").code(),
+                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":1"
+                        + ",\"idempotencyKey\":\"lot-consume-3\"}").code(),
                 "余额不足必须被拒");
         assertTicketBookConsistent(customer, station, product);
     }
@@ -203,7 +207,8 @@ class TicketPackageAndLotIntegrationTest extends AbstractIntegrationTest {
 
         // 扣 10 张：应只动第一个批次（FIFO）
         assertEquals(0, post("/api/tickets/consume", mgr,
-                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":10}").code());
+                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":10"
+                        + ",\"idempotencyKey\":\"lot-fifo-1\"}").code());
         assertEquals(0, intOf("SELECT remain_qty FROM ticket_lot WHERE customer_id=? ORDER BY id ASC LIMIT 1",
                 customer), "先买的批次应先被扣光");
         assertEquals(10, intOf("SELECT remain_qty FROM ticket_lot WHERE customer_id=? ORDER BY id DESC LIMIT 1",

@@ -49,8 +49,27 @@ public interface TicketAccountService {
      *
      * <p><b>账户恒为该商品</b>（{@code product_id}）—— 不存在"从别的账户扣"的情况：
      * 统一折扣只是**买票时的定价规则**，买到的票进的是这一款水自己的账户。</p>
+     *
+     * <p><b>两条调用路径的幂等判据不同</b>（v70，台账 F-24）：</p>
+     * <ul>
+     *   <li>{@code orderId != null}（订单内扣票，调用方 {@code PaymentServiceImpl}）：
+     *       幂等由唯一键 {@code uk_ticket_consume(order_id, product_id, source)} 承担，
+     *       此时 {@code idempotencyKey} 传 {@code null} 即可，不参与防重。</li>
+     *   <li>{@code orderId == null}（<b>站长手工扣票</b>）：这条路径上上面那条唯一键
+     *       <b>零保护</b>（MySQL 唯一键中 NULL 互不冲突）—— 连点两次就把票扣两次。
+     *       因此 {@code idempotencyKey} <b>必传</b>，幂等由
+     *       {@code uk_ticket_consume_idem(customer_id, idempotency_key)} 兜底，
+     *       且方法会**先按 (customer_id, key) 命中即原样返回、不再扣一次**。</li>
+     * </ul>
+     *
+     * <p>⚠️ 唯一键带 {@code customer_id} 是判据的一部分（同 v33/v62）：只按 key 查重会让
+     * 调用方传别人的 key 取回别人的流水（跨客户信息泄露）。</p>
+     *
+     * @param idempotencyKey 客户端幂等键（同一次扣票意图重试时复用同一个值）；
+     *                       仅在 {@code orderId == null} 时必传
      */
-    void consumeTicket(Long customerId, Long productId, Integer qty, Long orderId, Long stationId);
+    void consumeTicket(Long customerId, Long productId, Integer qty, Long orderId, Long stationId,
+                       String idempotencyKey);
 
     /** 退款归还水票：回补客户水票账户余额并记一条"退款"流水（AQ-008） */
     void refundTicket(Long customerId, Long productId, Integer qty, Long orderId, Long stationId);
@@ -97,7 +116,8 @@ public interface TicketAccountService {
      *
      * <p>与 {@link #addTicket} / {@link #consumeTicket} 的区别：</p>
      * <ul>
-     *   <li>不依赖订单：{@code consumeTicket} 要求 orderId，调整场景没有订单；</li>
+     *   <li>幂等键是<b>服务端签发的调整单号</b>（不是客户端幂等键）：调整场景不需要调用方传 key，
+     *       这一点与 {@code consumeTicket}（无订单扣票时由调用方传 key）不同；</li>
      *   <li>幂等：靠 {@code uk_ticket_adjustment(adjustment_id, product_id, source)} 兜底，
      *       重复执行同一张调整单会命中唯一键而失败（由调用方在同一事务内回滚），
      *       不像 {@code addTicket} 那样完全没有幂等键；</li>

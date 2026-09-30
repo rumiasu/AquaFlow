@@ -9,13 +9,27 @@ import java.util.Map;
 @Mapper
 public interface TicketRecordMapper {
 
-    @Insert("insert into ticket_record(customer_id, product_id, station_id, increase_qty, decrease_qty, order_id, source, ticket_source, unit_price, ticket_lot_id, create_time, adjustment_id) " +
-            "values(#{customerId}, #{productId}, #{stationId}, #{increaseQty}, #{decreaseQty}, #{orderId}, #{source}, #{ticketSource}, #{unitPrice}, #{ticketLotId}, #{createTime}, #{adjustmentId})")
+    @Insert("insert into ticket_record(customer_id, product_id, station_id, increase_qty, decrease_qty, order_id, idempotency_key, source, ticket_source, unit_price, ticket_lot_id, create_time, adjustment_id) " +
+            "values(#{customerId}, #{productId}, #{stationId}, #{increaseQty}, #{decreaseQty}, #{orderId}, #{idempotencyKey}, #{source}, #{ticketSource}, #{unitPrice}, #{ticketLotId}, #{createTime}, #{adjustmentId})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(TicketRecord ticketRecord);
 
     @Select("select * from ticket_record where id = #{id}")
     TicketRecord getById(@Param("id") Long id);
+
+    /**
+     * 按客户端幂等键查已有的扣票流水（{@code uk_ticket_consume_idem(customer_id, idempotency_key)}，v70）。
+     *
+     * <p><b>作用域必须带 {@code customer_id}</b>：只按 key 全局查，调用方传别人的 key
+     * 就会拿回别人的流水（跨客户信息泄露）。这与 v33 的
+     * {@code PaymentRecordMapper.getByCustomerAndIdempotencyKey} 是同一条判据。</p>
+     *
+     * <p>只服务于<b>无订单扣票</b>（站长手工扣票）：订单内扣票不写该列（NULL），
+     * 其幂等仍归 {@link #countConsumeByOrderAndProduct} 与 {@code uk_ticket_consume} 管。</p>
+     */
+    @Select("select * from ticket_record where customer_id = #{customerId} and idempotency_key = #{idempotencyKey} order by id desc limit 1")
+    TicketRecord getByCustomerAndIdempotencyKey(@Param("customerId") Long customerId,
+                                                @Param("idempotencyKey") String idempotencyKey);
 
     /**
      * 取某订单某商品的**消费**流水（v36）。

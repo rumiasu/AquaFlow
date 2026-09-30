@@ -32,6 +32,21 @@ public class TicketRecord {
     /** 关联订单ID */
     private Long orderId;
 
+    /**
+     * 客户端幂等键（v70，台账 F-24）：<b>仅「无订单扣票」（站长手工扣票）写它</b>。
+     *
+     * <p>为什么必须有：站长手工扣票不传 {@code orderId}，而
+     * {@code uk_ticket_consume(order_id, product_id, source)} 在 {@code order_id IS NULL} 时
+     * <b>零保护</b>（MySQL 唯一键中 NULL 互不冲突）⇒ 连点两次扣两次。兜底唯一键是
+     * {@code uk_ticket_consume_idem(customer_id, idempotency_key)}，作用域必须带 customer_id
+     * （只按 key 全局查会把别人的流水返回给调用者）。形状照抄 v33 的
+     * {@code payment_record.idempotency_key}，见 migration_v70。</p>
+     *
+     * <p>{@code NULL} = 不参与防重：存量行、以及所有<b>订单内扣票</b>（{@code PaymentServiceImpl}
+     * 那条，其幂等由 {@code uk_ticket_consume} 承担）都是 NULL。别为了"统一"给它们编一个键。</p>
+     */
+    private String idempotencyKey;
+
     /** 来源说明 */
     private String source;
 

@@ -160,8 +160,8 @@ public class TicketAccountServiceImpl implements TicketAccountService {
     /**
      * 站长资产调整单专用：按 delta 调整水票（正=补录，负=扣减）。
      *
-     * <p>不复用 {@link #addTicket}（无幂等键）与 {@link #consumeTicket}（要求 orderId）：
-     * 调整场景没有订单，且必须能挡住"同一张单重复执行"。
+     * <p>不复用 {@link #addTicket}（无幂等键）与 {@link #consumeTicket}（它的幂等键是**客户端**传的，
+     * 调整场景的键必须由服务端签发、客户端编不出来）：调整由站长发起、键是调整单号本身，
      * 幂等由 {@code uk_ticket_adjustment(adjustment_id, product_id, source)} 兜底 ——
      * 重复执行会命中唯一键抛异常并回滚整个事务，而不是静默再加一次。</p>
      */
@@ -350,12 +350,61 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         ticketRecordMapper.insert(record);
     }
 
+    /**
+     * 扣票（订单内扣票 + 站长手工扣票共用）。
+     *
+     * <p><b>[v70 / 台账 F-24] 判据不是"有没有订单"，而是"有没有客户端幂等键"</b>：</p>
+     * <ul>
+     *   <li><code>idempotencyKey</code> 非空（HTTP 端点 {@code /api/tickets/consume} 一律如此，
+     *       DTO 上有 {@code @NotBlank}）⇒ 走<b>键幂等</b>：先按 {@code (customer_id, key)} 命中即
+     *       原样返回、不再扣一次；并发由 {@code uk_ticket_consume_idem} 兜底。这条路径
+     *       <b>不区分有没有 orderId</b> —— 端点允许客户端传 orderId，那条分支上
+     *       {@code uk_ticket_consume} 只在"插入第二条同 (order,product,'消费') 流水"时报错，
+     *       而余额<b>已经扣过一次了</b>，靠它兜不住。</li>
+     *   <li><code>idempotencyKey</code> 为空 ⇒ 只允许订单内扣票（调用方 {@code PaymentServiceImpl}），
+     *       幂等交给 {@code uk_ticket_consume(order_id, product_id, source)}（它自己会先查
+     *       {@code countConsumeByOrderAndProduct}）。<b>无订单又不给键 = 数据库层零保护</b>
+     *       （MySQL 唯一键中 NULL 互不冲突），故直接拒绝。</li>
+     * </ul>
+     *
+     * <p><b>为什么带键路径撞 1062 时必须抛异常</b>：本方法在事务内，而余额扣减与批次 FIFO 消耗
+     * <b>已经发生</b>。若像旧实现那样捕获后继续提交，结果是"扣了两次、只留一条流水" ——
+     * 正是 F-24 要修的重复扣。抛出即整笔回滚，输掉竞争的那一次连同它的扣减与批次消耗一起撤销
+     * （v33 的 {@code purchaseTicket} 同一选择）。</p>
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void consumeTicket(Long customerId, Long productId, Integer qty, Long orderId, Long stationId) {
+    public void consumeTicket(Long customerId, Long productId, Integer qty, Long orderId, Long stationId,
+                              String idempotencyKey) {
         if (qty == null || qty <= 0) {
             throw new BusinessException("水票扣减张数必须大于 0");
         }
+        // ===== [v70] 客户端幂等键：无订单扣票必传；给了键就一律走键幂等 =====
+        // 判据与其他无订单写路径一致（v33 在线购票 / v62 下单）：**必传而不是可选** ——
+        // "可选"等于默认没有保护，而漏传的代价是真金白银。
+        String key = (idempotencyKey == null) ? null : idempotencyKey.trim();
+        if (key != null && key.isEmpty()) {
+            key = null;
+        }
+        if (key == null) {
+            if (orderId == null) {
+                throw new BusinessException("缺少幂等键 idempotencyKey");
+            }
+            // 订单内扣票：保持升级前的行为不变（键为 NULL → 不参与 uk_ticket_consume_idem 的判定）
+        } else {
+            if (key.length() > 64) {
+                throw new BusinessException("幂等键长度不能超过 64");
+            }
+            // 幂等命中：同一笔扣票意图的重放，原样返回、**不再扣一次**。
+            // 放在余额校验之前：这笔若已扣成功过，此后余额被别处花掉也不该让重放报"余额不足"。
+            TicketRecord existing = ticketRecordMapper.getByCustomerAndIdempotencyKey(customerId, key);
+            if (existing != null) {
+                log.info("[v70] 扣票幂等命中: customerId={}, idempotencyKey={}, recordId={}",
+                        customerId, key, existing.getId());
+                return;
+            }
+        }
+
         // 账户恒为**该商品**：统一折扣只是买票时的定价规则，买到的票进的是这一款水自己的账户，
         // 所以这里不再有"选账户"这一步（v54 的 util/TicketScope 已随形态收口删除）。
         // 水票按水站隔离：A 站买的票不能在 B 站用。
@@ -381,15 +430,28 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         record.setIncreaseQty(0);
         record.setDecreaseQty(qty);
         record.setOrderId(orderId);
+        // 有客户端键就落库；订单内扣票（PaymentServiceImpl）保持 NULL（它的幂等归 uk_ticket_consume）
+        record.setIdempotencyKey(key);
         record.setSource("消费");
         record.setTicketSource(1);
         record.setUnitPrice(cr.getWeightedUnitPrice());
         record.setTicketLotId(cr.getSingleLotId());
         record.setCreateTime(LocalDateTime.now());
-        // 唯一键 uk_ticket_consume(order_id, product_id, source) 兜底并发双扣：冲突即视为已扣，幂等跳过（AQ-019）
         try {
             ticketRecordMapper.insert(record);
         } catch (DuplicateKeyException e) {
+            if (key != null) {
+                // [v70] 真并发：两个请求都通过了上面的存在性检查（check-then-act），
+                // 由 uk_ticket_consume_idem(customer_id, idempotency_key) 拦住第二条。
+                // ⚠️ 必须抛出 —— 见方法 javadoc：不抛就会留下"扣了两次、只记一条流水"。
+                // 客户端用同一个 key 重试即会命中上面的幂等分支拿回原结果。
+                log.warn("[v70] 手工扣票并发重复提交被唯一键拦截: customerId={}, idempotencyKey={}", customerId, key);
+                throw new BusinessException("该笔扣票已提交，请勿重复提交");
+            }
+            // 订单内扣票：唯一键 uk_ticket_consume(order_id, product_id, source) 兜底并发双扣，
+            // 冲突即视为已扣、幂等跳过（AQ-019）。调用方 PaymentServiceImpl 在同一事务内已先查过
+            // countConsumeByOrderAndProduct；这里保留原行为不变（本条路径的 1062 语义**不同**于上面那条，
+            // 别为了"统一"把它一起改成抛异常 —— 那会改动订单支付路径的回滚语义）。
             log.warn("[TicketAccount] 水票消费记录已存在(并发幂等跳过): orderId={}, productId={}", orderId, productId);
         }
     }

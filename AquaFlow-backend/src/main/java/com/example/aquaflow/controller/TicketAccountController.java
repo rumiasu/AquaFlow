@@ -10,6 +10,7 @@ import com.example.aquaflow.mapper.TicketAccountMapper;
 import com.example.aquaflow.service.PaymentService;
 import com.example.aquaflow.service.TicketAccountService;
 import com.example.aquaflow.util.AuthContext;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -80,15 +81,31 @@ public class TicketAccountController {
         return Result.success();
     }
 
+    /**
+     * 站长手工扣票
+     * POST /api/tickets/consume  { customerId, productId, quantity, orderId?, idempotencyKey }
+     *
+     * <p><b>idempotencyKey 必传</b>（v70，台账 F-24）：{@code orderId} 可空，站长手工扣票时它就是
+     * NULL，而唯一键 {@code uk_ticket_consume(order_id, product_id, source)} 在 {@code order_id IS NULL}
+     * 时<b>零保护</b>（MySQL 唯一键中 NULL 互不冲突）—— 连点两次就把客户的票扣两次。
+     * 缺键由 DTO 上的 {@code @NotBlank} 在 HTTP 边界拦下（本仓 {@code GlobalExceptionHandler}
+     * 会把字段级 message 原样回给调用方，见 {@code handleBeanValidation}）。
+     * 幂等判据与唯一键形状照抄 v33 的在线购票（{@code purchase}），见迁移 v70 头注释。</p>
+     *
+     * <p><b>唯一调用方是站长端</b>（{@code @RequireRole("STATION_MANAGER")}）；顾客端不能调。
+     * 截至 v70，两端小程序**都没有调用本端点**（原计划的人工扣票入口尚未接）。
+     * 与本任务无关的那条无订单扣票路径是「资产调整单」（{@code adjustTicket}），不在这里。</p>
+     */
     @RequireRole({"STATION_MANAGER"})
     @PostMapping("/consume")
-    public Result consume(@RequestBody TicketConsumeDTO dto) {
+    public Result consume(@RequestBody @Valid TicketConsumeDTO dto) {
         if (dto.getCustomerId() == null) {
             return Result.error("客户ID不能为空");
         }
         // stationId 以 JWT 当前站长所属水站为准，禁止信任请求体（防跨站扣水票）
         Long stationId = AuthContext.requireStationId();
-        ticketAccountService.consumeTicket(dto.getCustomerId(), dto.getProductId(), dto.getQuantity(), dto.getOrderId(), stationId);
+        ticketAccountService.consumeTicket(dto.getCustomerId(), dto.getProductId(), dto.getQuantity(),
+                dto.getOrderId(), stationId, dto.getIdempotencyKey());
         return Result.success();
     }
 

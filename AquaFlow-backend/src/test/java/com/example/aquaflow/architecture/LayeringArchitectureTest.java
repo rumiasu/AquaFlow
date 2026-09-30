@@ -113,11 +113,17 @@ class LayeringArchitectureTest {
      * （{@code private final CustomerMapper}，构造函数注入）、{@code ManagerExceptionController}
      * （全限定名 {@code com.example.aquaflow.mapper.OrderMapper}）。32 → <b>34</b>。</p>
      *
+     * <p>[2026-09-30，F-18] {@code DeliveryController}（1236 行 / 48 端点 / 6 处 Mapper 字段）
+     * 按读者拆成 {@code DeliveryTaskController} / {@code StationDeliveryConsoleController} /
+     * {@code CrossStationDispatchController} 三个薄壳，只读取数一律下沉到
+     * {@code service/DeliveryConsoleService} —— 新类<b>零 Mapper 字段</b>，
+     * 于是本类从集合里消失、字段总数 68 → 62。基线按规矩<b>只减</b>，已同步删掉这一行。</p>
+     *
      * <p>只许减不许增。</p>
      */
     private static final Set<String> BASELINE_MAPPER_FIELDS = Set.of(
             "AddressController", "CompanyInfoController", "CustomerController",
-            "CustomerNotificationController", "DeliveryController",
+            "CustomerNotificationController",
             "DeliveryEarningController", "DepositRecordController", "DevLoginController",
             "FeedbackController", "FileManageController", "ManagerAlertController",
             "ManagerBarrelLossController", "ManagerCustomerPrivilegeController",
@@ -130,11 +136,12 @@ class LayeringArchitectureTest {
             "TicketRecordController");
 
     /**
-     * {@code BASELINE_MAPPER_FIELDS} 里所有 Mapper 字段声明的总数（2026-10-01 实测 68 处）。
-     * 与 {@link #BASELINE_TX_ANNOTATIONS} 同理：防止"从 A 挪几处到 B"、或"同一个类里再多注入几处"
-     * 之后类集合没变。口径是<b>匹配到的声明处数</b>（同一行声明多个字段只算 1 处，本仓无此写法）。
+     * {@code BASELINE_MAPPER_FIELDS} 里所有 Mapper 字段声明的总数（2026-10-01 实测 68 处；
+     * 2026-09-30 F-18 拆分后实测 <b>62</b>）。与 {@link #BASELINE_TX_ANNOTATIONS} 同理：
+     * 防止"从 A 挪几处到 B"、或"同一个类里再多注入几处"之后类集合没变。
+     * 口径是<b>匹配到的声明处数</b>（同一行声明多个字段只算 1 处，本仓无此写法）。
      */
-    private static final int BASELINE_MAPPER_FIELDS_COUNT = 68;
+    private static final int BASELINE_MAPPER_FIELDS_COUNT = 62;
 
     /**
      * 基线：直接调用 Mapper <b>写方法</b>的 Controller（15 个，2026-09-29 第二批下沉后由 17 减到 15）。

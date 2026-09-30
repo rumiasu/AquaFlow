@@ -11,12 +11,12 @@ import java.util.List;
  * 是注释掉的）。</p>
  *
  * <p><b>因此请勿因为"服务里有这个方法"就在业务流程或界面上承诺"已通知站长 / 客户"</b>，
- * 那会变成假承诺。{@code DeliveryController#reportOrder} 就是正确示范：它不调用本服务，
+ * 那会变成假承诺。{@code DeliveryTaskController#reportOrder} 就是正确示范：它不调用本服务，
  * 而是在注释里如实写明"现状：异常只落在 {@code orders.special_note} 与 {@code audit_log}；
  * 影响：站长不会主动收到提醒，需自己翻订单详情"。</p>
  *
  * <p><b>TODO（待补，尚未排期）</b>：接入微信订阅消息 / 模板消息后，在此补发真实通知；
- * 届时须同步更新 {@code DeliveryController#reportOrder} 与
+ * 届时须同步更新 {@code DeliveryTaskController#reportOrder} 与
  * {@code OrderBarrelExceptionServiceImpl} 里的说明与调用点。</p>
  */
 public interface NotificationService {

@@ -650,7 +650,7 @@
 /* 订单状态小标（等待接单 / 已接单 …）：文案是后端下发的 Orders.statusText。
    ⚠️ 原来的 .dispatch-accepted / .dispatch-rejected / .dispatch-completed 已删
    （[2026-09-26]）：它们配的是 `item.dispatchStatus`，而后端**从来没下发过这个字段**
-   （DeliveryController 的 dispatch-tracking 只填 dispatchKind / deliveryStationName），
+   （CrossStationDispatchController 的 dispatch-tracking 只填 dispatchKind / deliveryStationName），
    那四个分支恒不渲染 —— 是死代码。要按状态配色就用后端 statusText + 这个通用小标。 */
 .dispatch-status-tag {
   font-size: 20rpx;

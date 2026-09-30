@@ -41,7 +41,7 @@ import java.util.Map;
 /**
  * {@link OrderWorkflowService} 实现。
  *
- * <p><b>Phase C 变更要点</b>：本类的方法体由 {@code DeliveryController} 与
+ * <p><b>Phase C 变更要点</b>：本类的方法体由拆分前的 {@code DeliveryController} 与
  * {@code ManagerOrderController} 原样迁移而来（校验顺序、错误文案、副作用次序均保持不变），
  * 只做了三类改造：</p>
  * <ol>

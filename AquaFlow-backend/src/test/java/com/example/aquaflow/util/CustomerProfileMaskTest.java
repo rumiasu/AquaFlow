@@ -230,7 +230,7 @@ class CustomerProfileMaskTest {
     }
 
     /* ==================================================================
-     *  顺带钉住 Orders 形态（同一规则的另一半；调用方见 DeliveryController）
+     *  顺带钉住 Orders 形态（同一规则的另一半；调用方见 DeliveryConsoleServiceImpl）
      * ================================================================== */
 
     @Test

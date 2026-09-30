@@ -61,7 +61,7 @@ public class OrderItem {
 
     // =========================================================================
     // 以下两个字段**不是数据库列**，只在「完成配送页」下发时填充
-    // （写入点：DeliveryController#getOrderDetail，口径来自 BarrelService#returnPlanOfOrder）。
+    // （写入点：DeliveryTaskController#getOrderDetail，口径来自 BarrelService#returnPlanOfOrder）。
     // order_item 的 insert 是显式列名清单，故加字段不会影响落库。
     // =========================================================================
 

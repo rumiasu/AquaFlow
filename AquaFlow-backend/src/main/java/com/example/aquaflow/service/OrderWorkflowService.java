@@ -9,7 +9,7 @@ import java.util.Map;
  * 订单工作流服务 —— 全系统**唯一的订单状态写入口**。
  *
  * <p>本服务存在的唯一理由：订单的「状态 / 支付状态 / 配送员 / 履约站」这四类字段，
- * 此前散落在 {@code DeliveryController}（18 处）与 {@code ManagerOrderController}（8 处）
+ * 此前散落在拆分前的 {@code DeliveryController}（F-18，18 处）与 {@code ManagerOrderController}（8 处）
  * 里被直接 {@code orderMapper.update(order)} 或 {@code updateStatus(...)} 改写。
  * 那些写法绕开了状态机、绕开了 CAS、也绕开了退款与押金入账的副作用，
  * 导致同一张订单可以经不同 HTTP 路径被写坏，并发下还会互相覆盖（lost update）。</p>

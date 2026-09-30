@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 订单接口 —— <b>顾客侧的订单入口</b>（员工侧的写在 {@code DeliveryController} 与
+ * 订单接口 —— <b>顾客侧的订单入口</b>（员工侧的写在 {@code DeliveryTaskController} / {@code StationDeliveryConsoleController} / {@code CrossStationDispatchController} 与
  * {@code OrderWorkflowService} 里）。
  *
  * <p><b>本类全部端点都靠 {@code AuthContext} 取身份</b>（顾客自助端点用

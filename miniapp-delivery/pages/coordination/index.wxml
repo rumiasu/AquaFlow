@@ -439,7 +439,7 @@
           </view>
           <!--
             外派久未接单的提示 + 「按挂牌价结这单」（2026-09-27 产品裁定，正本 docs/design/31 §8.2/§8.3）。
-            ⚠️ 文案由**后端下发**（`dispatchStaleHint`，见 DeliveryController#staleDispatchHint）：
+            ⚠️ 文案由**后端下发**（`dispatchStaleHint`，见 DeliveryConsoleServiceImpl#staleDispatchHint）：
             阈值（默认 4 小时）与判据只在服务端一处，前端不自己算时间、也不自己拼这句话 ——
             否则"后端说超时了、前端说没超"会分叉，而且产品改阈值时前端要跟着改。
             有没有值就是判据：没值 = 不渲染（刚外派出去的单不该看到这一行）。

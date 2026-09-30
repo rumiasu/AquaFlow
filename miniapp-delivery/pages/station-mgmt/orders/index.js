@@ -25,7 +25,7 @@ Page({
     // 「已完成」页签（2026-09-18 接线）刻意走**通用列表** `GET /api/orders?status=4`，
     // 而不是 `GET /api/delivery/orders/station-completed`：两者读的是同一张 orders 表、
     // 同一组条件（station_id + status），后端 station-completed 的 SQL 就是
-    // OrderMapper.listByStationIdAndStatus（DeliveryController:158-163）。同一个界面接两条
+    // OrderMapper.listByStationIdAndStatus（StationDeliveryConsoleController#getStationCompletedOrders）。同一个界面接两条
     // 同源读路径 = 口径分叉的土壤（改一侧忘另一侧，两边显示不一致且没人发现），
     // 所以这里复用已在用的通用列表；站别由后端按登录态强制覆盖（OrderController:90-95），
     // 前端传的 stationId 只用于后端比对、传错会被覆盖，不构成越权读取他站数据的通道。

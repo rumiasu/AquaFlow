@@ -56,8 +56,9 @@ public interface ProductMapper {
     @Update("update product set status = 0, update_time = NOW() where id = #{id} and owner_station_id = #{ownerStationId}")
     int softDeleteOwned(@Param("id") Long id, @Param("ownerStationId") Long ownerStationId);
 
-    @Update("update product set status = #{status}, update_time = NOW() where id = #{id}")
-    void updateStatus(@Param("id") Long id, @Param("status") Integer status);
+    // [2026-09-30 F-19] 已删除无归属限定的 updateStatus(id, status)：全仓零调用。
+    // 它 `where id = #{id}`、不带 owner_station_id —— 任何站长只要猜到 id 就能改**别站**自定义商品的上架状态。
+    // 商品状态只有两个入口：本站软删 softDeleteOwned（带 owner_station_id）与本站整行更新 updateOwned。
 
     /** 全部商品（<b>仅开发者/运维与测试造数使用</b>；任何面向站长或顾客的接口都不许调它）。 */
     @Select("select * from product order by sort asc, id asc")

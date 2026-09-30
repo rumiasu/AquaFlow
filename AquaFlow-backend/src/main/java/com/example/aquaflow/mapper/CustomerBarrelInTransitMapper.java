@@ -29,17 +29,10 @@ public interface CustomerBarrelInTransitMapper {
     @Select("select * from customer_barrel_in_transit where related_order_id = #{orderId} and status = 'PENDING'")
     List<CustomerBarrelInTransit> listPendingByOrderId(@Param("orderId") Long orderId);
 
-    /**
-     * 无期望态的无守卫写入（历史遗留原语）。
-     *
-     * <p>⚠️ [F-32] <b>"配送中 → 已送达"的状态流转一律走 {@link #updateStatusIf}</b>：
-     * 本方法 SQL 里没有 {@code status} 条件、返回 {@code void}（调用方连受影响行数都拿不到），
-     * 在「同一行被并发或重复推进」时照样返回成功 —— 而调用点（{@code BarrelLedgerService.applyDelivery}）
-     * 在改状态之前就已经把权益/押金条记过一遍了，重复入账会被这次"静默成功"掩盖。
-     * 本仓另有 3 次 CAS 参数写反 ⇒ 恒命中 0 行 ⇒ 不报错、静默没改的事故（AGENTS.md §1.1）。</p>
-     */
-    @Update("update customer_barrel_in_transit set status = #{status}, updated_at = NOW() where id = #{id}")
-    void updateStatus(@Param("id") Long id, @Param("status") String status);
+    // [2026-09-30 F-32/F-19] 已删除无期望态的 updateStatus(id, status)：全仓零调用。
+    // 原调用点 BarrelLedgerService.applyDelivery 已改走下面的 updateStatusIf 并检查受影响行数
+    // —— 旧版 SQL 没有 status 条件、返回 void，调用方连行数都拿不到，"静默成功"会掩盖重复入账。
+    // 要改状态一律用 updateStatusIf（AGENTS §8.20：拿不到行数就别返回 success）。
 
     /**
      * CAS：只有该行<b>仍是</b> {@code expectedStatus} 时才改写成 {@code newStatus}，返回受影响行数。
@@ -54,8 +47,11 @@ public interface CustomerBarrelInTransitMapper {
     int updateStatusIf(@Param("id") Long id, @Param("expectedStatus") String expectedStatus,
                        @Param("newStatus") String newStatus);
 
-    @Update("update customer_barrel_in_transit set status = #{status}, updated_at = NOW() where related_order_id = #{orderId}")
-    void updateStatusByOrderId(@Param("orderId") Long orderId, @Param("status") String status);
+    // [2026-09-30 F-32/F-19] 已删除 updateStatusByOrderId(orderId, status)：全仓零调用。
+    // 它是「按 related_order_id 把多行一次改成同一状态」的整批改写，且无期望态、返回 void ——
+    // 与台账 F-42（applyDelivery 顺序重放会把"本单新购权益"漏算）是同一类风险形状：
+    // 批量状态改写没有"这行本来是什么状态"的概念，重放时会再改一遍。
+    // 按订单操作请用 linkPendingToOrder / deleteByOrderId；改单行状态用 updateStatusIf。
 
     @Delete("delete from customer_barrel_in_transit where related_order_id = #{orderId}")
     void deleteByOrderId(@Param("orderId") Long orderId);

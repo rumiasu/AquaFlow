@@ -41,6 +41,18 @@ public interface StaffEarningItemMapper {
             + "where id = #{id} and station_id = #{stationId}")
     int update(StaffEarningItem item);
 
+    /**
+     * 启用 / 停用（1 / 0）—— <b>幂等的绝对置值，不是状态机流转</b>，所以这里没有也不该有
+     * {@code status = #{expectedStatus}} 这个条件。
+     *
+     * <p>⚠️ [F-32] 不加 CAS 是有意的：客户端只提交目标状态（{@code PayrollDTO.EarningItemStatus}），
+     * 把"当前值"当期望态写进 SQL 会把「重复点启用 / 重复点停用」这种合法幂等操作判成 0 行错误 ——
+     * 那是改业务口径，不是补守卫（该提醒不要顺手把它"CAS 化"）。</p>
+     *
+     * <p>真正要防的两件事各有一道：<b>归属</b>（{@code station_id} 与 id 写在同一条 SQL 里，
+     * id 是客户端可编造的也改不到别站的条目）+ <b>静默成功</b>（调用方
+     * {@code StaffEarningItemServiceImpl.setStatus} 检查受影响行数，0 行即抛，AGENTS.md §8.20）。</p>
+     */
     @Update("update staff_earning_item set status = #{status} where id = #{id} and station_id = #{stationId}")
     int updateStatus(@Param("id") Long id, @Param("stationId") Long stationId, @Param("status") Integer status);
 

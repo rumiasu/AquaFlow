@@ -6,7 +6,6 @@
     "pages/order/detail",
     "pages/order/create",
     "pages/order/success",
-    "pages/product/detail",
     "pages/address/list",
     "pages/address/edit",
     "pages/barrel/index",

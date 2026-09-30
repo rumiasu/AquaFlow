@@ -6,10 +6,15 @@ import lombok.Data;
  * 客户线上购买水票的请求体（{@code POST /api/tickets/purchase}）。
  *
  * <p>与 {@link TicketConsumeDTO} 分开而不是复用：那个 DTO 服务于站长的
- * {@code /api/tickets/consume}（按客户扣票），既不需要幂等键，也不需要支付方式。
+ * {@code /api/tickets/consume}（按客户扣票），customerId 由站长指定、且不需要档位与支付方式。
  * 混用一个 DTO 会让「这个字段在哪个端点上有效」变成靠记忆判断的事——本仓已经因为
  * 「请求体从裸 Map 收敛成强类型 DTO 时漏抄字段」出过一次真事故（配送端 collected/note
  * 被 Jackson 静默丢弃，见 AGENTS.md §8 第 15 条）。</p>
+ *
+ * <p>⚠️ 两者的 {@code idempotencyKey} <b>形状相同但不是同一件事</b>：本 DTO 的是「无订单<b>支付</b>」
+ * 的键（v33，兜底唯一键 {@code uk_payment_idempotency}），{@link TicketConsumeDTO} 的是
+ * 「无订单<b>扣票</b>」的键（v70，台账 F-24，兜底唯一键 {@code uk_ticket_consume_idem}）。
+ * 两者都**必传**，别因为"看起来一样"就合并成一个字段或一张流水。</p>
  *
  * <p>customerId <b>不在此 DTO 中</b>：一律取自 {@code AuthContext}，禁止信任请求体。</p>
  */

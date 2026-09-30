@@ -283,7 +283,7 @@ public class Orders {
      * <p>[2026-09-29 清单2] 与 {@link #transferPendingKind} 同源：kind='STAFF' 一个值底下
      * 分着三种请求、各有各的决策动作，首页「转单请求」栏靠它分流（转让行给「撤回」、
      * 退回站长行给「同意/拒绝」）。列表走两条 SQL 的子查询，详情由
-     * {@code DeliveryController#getOrderDetail} 从 order_transfer 记录回填；不落库。</p>
+     * {@code DeliveryTaskController#getOrderDetail} 从 order_transfer 记录回填；不落库。</p>
      */
     private String transferPendingSubKind;
 
@@ -556,7 +556,7 @@ public class Orders {
      * （{@code station_id}）当时的站级配置算出来、并快照进 {@link #deliveryFee} / {@link #floorFee} 的，
      * 即"站长外派也按本站定价"。认领/接单前要让目标站一眼看到这个价是谁定的
      * （{@code docs/design/17} 的配送计费 + 2026-09-18 的产品裁定）。
-     * <p>由 {@code DeliveryController} 在抢单池 / 指定外派（别站指定给我）两个列表里填充，其它端点不下发。</p>
+     * <p>由 {@code DeliveryConsoleServiceImpl} 在抢单池 / 指定外派（别站指定给我）两个列表里填充，其它端点不下发。</p>
      */
     private transient String feeStationName;
 
@@ -580,7 +580,7 @@ public class Orders {
      * <p>⚠️ 前端首页「外派」列表那一行写的是 {@code item.deliveryStationName}，而这个字段
      * 此前**根本不存在**（{@code listDispatchedOrders} 的 SQL 也没 join 站表）→ 站长的外派列表里
      * 「外派至」整行永远不渲染，只剩一个订单号，判断不了这单派给了谁。
-     * 现由 {@code DeliveryController#getDispatchTracking} 按 {@code delivery_station_id} 填。</p>
+     * 现由 {@code CrossStationDispatchController#getDispatchTracking} 按 {@code delivery_station_id} 填。</p>
      *
      * <p>池中还没人接的单 {@code delivery_station_id} 为空 → 本字段保持 null，
      * 前端据此显示"等别站接单"（**不要**在这里编一个"待认领"之类的假站名）。</p>
@@ -591,7 +591,7 @@ public class Orders {
      * 「外派久未接单」提示（瞬时字段，非数据库列，[2026-09-27] 产品裁定
      * 「长时间没人接还是给站长弹提示是否按照挂牌价」，正本 {@code docs/design/31} §8.3）。
      *
-     * <p>由 {@code DeliveryController#getDispatchTracking} 在**外派追踪列表**里按判据填充：
+     * <p>由 {@code CrossStationDispatchController#getDispatchTracking} 在**外派追踪列表**里按判据填充（判据实现在 {@code DeliveryConsoleServiceImpl#staleDispatchHint}）：
      * 本站外派出去 + 还在待配送(1) + 没有配送员({@code delivery_staff_id IS NULL})
      * + 距**最后一次变动**超过阈值小时数。命中时给一句**后端下发的文案**（前端原样展示），
      * 未命中保持 null（前端不渲染那一行）。</p>
@@ -617,7 +617,7 @@ public class Orders {
     /**
      * 备货情况（瞬时字段，非数据库列）：配送端「已备齐 / 还缺哪些商品」的只读投影，
      * 由 {@code InventoryReservationService.prepInfoOfOrder} 生成、
-     * {@code DeliveryController} 在订单详情里填充（契约工作包 C4）。
+     * {@code DeliveryTaskController#getOrderDetail} 在订单详情里填充（契约工作包 C4）。
      *
      * <p>形状：{@code ready}（布尔）/ {@code shortageTotal}（还缺几桶）/
      * {@code itemsWithoutCredential}（连凭据都没有的明细数）/

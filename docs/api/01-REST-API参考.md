@@ -16,7 +16,7 @@
 > | 下位文档 | 无 |
 
 > ⚠️ **端点清单的真相源是 `controller/**` 上的注解，不是本文。**
-> 下表由脚本从注解直读生成（268 个端点映射 / 49 个 controller）。
+> 下表由脚本从注解直读生成（284 个端点映射 / 51 个 controller）。
 > 代码改动后本文会过期 —— 冲突时以注解为准。
 
 ---
@@ -151,6 +151,7 @@
 | `POST` | `/api/manager/bind/unbind-confirm` | "STATION_MANAGER" | `DeliveryBindingController.unbindConfirm` |
 | `POST` | `/api/manager/bind/unbind-reject` | "STATION_MANAGER" | `DeliveryBindingController.unbindReject` |
 | `GET` | `/api/manager/staff` | "STATION_MANAGER" | `DeliveryBindingController.getManagerStaff` |
+| `POST` | `/api/manager/staff/{staffId}/bind-code` | "STATION_MANAGER" | `DeliveryBindingController.generateBindCode`（F-03③：为本站员工签发绑微信的**一次性**码，10 分钟有效、用一次即废；站别只认登录态） |
 
 ### 客户与地址
 
@@ -231,55 +232,55 @@
 
 | 方法 | 路径 | 角色 | 说明 |
 |---|---|---|---|
-| `GET` | `/api/delivery/barrel-records` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getBarrelRecords` |
+| `GET` | `/api/delivery/barrel-records` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getBarrelRecords` |
 | `GET` | `/api/delivery/earnings` | {"DELIVERY","STATION_MANAGER"} | `DeliveryEarningController.myEarnings` |
-| `GET` | `/api/delivery/history` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getDeliveryHistory` |
-| `POST` | `/api/delivery/orders/assign/{id}` | "STATION_MANAGER" | `DeliveryController.assignOrder` |
-| `GET` | `/api/delivery/orders/assigned-to-me` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getAssignedToMeOrders` |
-| `POST` | `/api/delivery/orders/cancel-request/{id}/approve` | "STATION_MANAGER" | `DeliveryController.approveCancelRequest` |
-| `POST` | `/api/delivery/orders/cancel-request/{id}/reject` | "STATION_MANAGER" | `DeliveryController.rejectCancelRequest` |
-| `GET` | `/api/delivery/orders/completed-today` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getCompletedToday` |
-| `GET` | `/api/delivery/orders/cross-station` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getCrossStationOrders` |
-| `GET` | `/api/delivery/orders/delivered-unpaid` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getDeliveredUnpaid` |
-| `GET` | `/api/delivery/orders/delivering` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getDeliveringOrders` |
-| `GET` | `/api/delivery/orders/directed-incoming` | "STATION_MANAGER" | `DeliveryController.getDirectedIncoming` |
-| `GET` | `/api/delivery/orders/directed-returns` | "STATION_MANAGER" | `DeliveryController.getDirectedReturns` |
-| `GET` | `/api/delivery/orders/dispatch-tracking` | "STATION_MANAGER" | `DeliveryController.getDispatchTracking` |
-| `GET` | `/api/delivery/orders/pending` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getPendingOrders` |
-| `GET` | `/api/delivery/orders/pending-approvals` | "STATION_MANAGER" | `DeliveryController.getPendingApprovals` |
-| `GET` | `/api/delivery/orders/pool` | "STATION_MANAGER" | `DeliveryController.getPoolOrders` |
-| `POST` | `/api/delivery/orders/reject/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.rejectOrder` |
-| `POST` | `/api/delivery/orders/report/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.reportOrder` |
-| `POST` | `/api/delivery/orders/return/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.returnToStation` |
-| `POST` | `/api/delivery/orders/return/{id}/approve` | "STATION_MANAGER" | `DeliveryController.approveReturn` |
-| `POST` | `/api/delivery/orders/return/{id}/reject` | "STATION_MANAGER" | `DeliveryController.rejectReturn` |
-| `GET` | `/api/delivery/orders/station-completed` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getStationCompletedOrders` |
-| `GET` | `/api/delivery/orders/station-delivering` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getStationDeliveringOrders` |
-| `GET` | `/api/delivery/orders/station-pending` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getStationPendingOrders` |
-| `GET` | `/api/delivery/orders/station-return` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getStationReturnOrders` |
-| `GET` | `/api/delivery/orders/station-transfer` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getStationTransferOrders` |
-| `POST` | `/api/delivery/orders/transfer/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.transferOrder` |
-| `POST` | `/api/delivery/orders/transfer/{id}/cancel` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.cancelTransfer` |
-| `POST` | `/api/delivery/orders/transfer/{id}/claim` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.claimTransfer` |
-| `POST` | `/api/delivery/orders/transfer/{id}/outsource` | "STATION_MANAGER" | `DeliveryController.outsourceOrder` |
-| `POST` | `/api/delivery/orders/transfer/{id}/reject` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.rejectTransfer` |
-| `GET` | `/api/delivery/orders/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getOrderDetail` |
-| `POST` | `/api/delivery/orders/{id}/accept` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.acceptOrder` |
-| `POST` | `/api/delivery/orders/{id}/cancel-dispatch` | "STATION_MANAGER" | `DeliveryController.cancelDispatch` |
-| `POST` | `/api/delivery/orders/{id}/cancel-request` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.requestCancel` |
-| `POST` | `/api/delivery/orders/{id}/claim-pool` | "STATION_MANAGER" | `DeliveryController.claimPoolOrder` |
-| `POST` | `/api/delivery/orders/{id}/complete` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.completeOrder` |
-| `POST` | `/api/delivery/orders/{id}/confirm-offline-pay` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.confirmOfflinePay` |
-| `GET` | `/api/delivery/orders/{id}/cross-station-risk` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getCrossStationRisk` |
-| `POST` | `/api/delivery/orders/{id}/directed-return` | "STATION_MANAGER" | `DeliveryController.directedReturn` |
-| `POST` | `/api/delivery/orders/{id}/directed-return/approve` | "STATION_MANAGER" | `DeliveryController.directedReturnApprove` |
-| `POST` | `/api/delivery/orders/{id}/directed-return/reject` | "STATION_MANAGER" | `DeliveryController.directedReturnReject` |
-| `POST` | `/api/delivery/orders/{id}/dispatch` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.dispatchOrder` |
-| `POST` | `/api/delivery/orders/{id}/resolve` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.resolveOrder` |
-| `POST` | `/api/delivery/orders/{id}/station-reject` | "STATION_MANAGER" | `DeliveryController.stationReject` |
-| `GET` | `/api/delivery/stats/today` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getTodayStats` |
-| `GET` | `/api/delivery/transfers` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getTransferRecords` |
-| `GET` | `/api/delivery/transfers/incoming` | {"DELIVERY","STATION_MANAGER"} | `DeliveryController.getIncomingTransfers` |
+| `GET` | `/api/delivery/history` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getDeliveryHistory` |
+| `POST` | `/api/delivery/orders/assign/{id}` | "STATION_MANAGER" | `StationDeliveryConsoleController.assignOrder` |
+| `GET` | `/api/delivery/orders/assigned-to-me` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getAssignedToMeOrders` |
+| `POST` | `/api/delivery/orders/cancel-request/{id}/approve` | "STATION_MANAGER" | `StationDeliveryConsoleController.approveCancelRequest` |
+| `POST` | `/api/delivery/orders/cancel-request/{id}/reject` | "STATION_MANAGER" | `StationDeliveryConsoleController.rejectCancelRequest` |
+| `GET` | `/api/delivery/orders/completed-today` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getCompletedToday` |
+| `GET` | `/api/delivery/orders/cross-station` | {"DELIVERY","STATION_MANAGER"} | `StationDeliveryConsoleController.getCrossStationOrders` |
+| `GET` | `/api/delivery/orders/delivered-unpaid` | {"DELIVERY","STATION_MANAGER"} | `StationDeliveryConsoleController.getDeliveredUnpaid` |
+| `GET` | `/api/delivery/orders/delivering` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getDeliveringOrders` |
+| `GET` | `/api/delivery/orders/directed-incoming` | "STATION_MANAGER" | `CrossStationDispatchController.getDirectedIncoming` |
+| `GET` | `/api/delivery/orders/directed-returns` | "STATION_MANAGER" | `CrossStationDispatchController.getDirectedReturns` |
+| `GET` | `/api/delivery/orders/dispatch-tracking` | "STATION_MANAGER" | `CrossStationDispatchController.getDispatchTracking` |
+| `GET` | `/api/delivery/orders/pending` | {"DELIVERY","STATION_MANAGER"} | `StationDeliveryConsoleController.getPendingOrders` |
+| `GET` | `/api/delivery/orders/pending-approvals` | "STATION_MANAGER" | `StationDeliveryConsoleController.getPendingApprovals` |
+| `GET` | `/api/delivery/orders/pool` | "STATION_MANAGER" | `CrossStationDispatchController.getPoolOrders` |
+| `POST` | `/api/delivery/orders/reject/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.rejectOrder` |
+| `POST` | `/api/delivery/orders/report/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.reportOrder` |
+| `POST` | `/api/delivery/orders/return/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.returnToStation` |
+| `POST` | `/api/delivery/orders/return/{id}/approve` | "STATION_MANAGER" | `StationDeliveryConsoleController.approveReturn` |
+| `POST` | `/api/delivery/orders/return/{id}/reject` | "STATION_MANAGER" | `StationDeliveryConsoleController.rejectReturn` |
+| `GET` | `/api/delivery/orders/station-completed` | {"DELIVERY","STATION_MANAGER"} | `StationDeliveryConsoleController.getStationCompletedOrders` |
+| `GET` | `/api/delivery/orders/station-delivering` | {"DELIVERY","STATION_MANAGER"} | `StationDeliveryConsoleController.getStationDeliveringOrders` |
+| `GET` | `/api/delivery/orders/station-pending` | {"DELIVERY","STATION_MANAGER"} | `StationDeliveryConsoleController.getStationPendingOrders` |
+| `GET` | `/api/delivery/orders/station-return` | {"DELIVERY","STATION_MANAGER"} | `StationDeliveryConsoleController.getStationReturnOrders` |
+| `GET` | `/api/delivery/orders/station-transfer` | {"DELIVERY","STATION_MANAGER"} | `StationDeliveryConsoleController.getStationTransferOrders` |
+| `POST` | `/api/delivery/orders/transfer/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.transferOrder` |
+| `POST` | `/api/delivery/orders/transfer/{id}/cancel` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.cancelTransfer` |
+| `POST` | `/api/delivery/orders/transfer/{id}/claim` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.claimTransfer` |
+| `POST` | `/api/delivery/orders/transfer/{id}/outsource` | "STATION_MANAGER" | `CrossStationDispatchController.outsourceOrder` |
+| `POST` | `/api/delivery/orders/transfer/{id}/reject` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.rejectTransfer` |
+| `GET` | `/api/delivery/orders/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getOrderDetail` |
+| `POST` | `/api/delivery/orders/{id}/accept` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.acceptOrder` |
+| `POST` | `/api/delivery/orders/{id}/cancel-dispatch` | "STATION_MANAGER" | `CrossStationDispatchController.cancelDispatch` |
+| `POST` | `/api/delivery/orders/{id}/cancel-request` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.requestCancel` |
+| `POST` | `/api/delivery/orders/{id}/claim-pool` | "STATION_MANAGER" | `CrossStationDispatchController.claimPoolOrder` |
+| `POST` | `/api/delivery/orders/{id}/complete` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.completeOrder` |
+| `POST` | `/api/delivery/orders/{id}/confirm-offline-pay` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.confirmOfflinePay` |
+| `GET` | `/api/delivery/orders/{id}/cross-station-risk` | {"DELIVERY","STATION_MANAGER"} | `CrossStationDispatchController.getCrossStationRisk` |
+| `POST` | `/api/delivery/orders/{id}/directed-return` | "STATION_MANAGER" | `CrossStationDispatchController.directedReturn` |
+| `POST` | `/api/delivery/orders/{id}/directed-return/approve` | "STATION_MANAGER" | `CrossStationDispatchController.directedReturnApprove` |
+| `POST` | `/api/delivery/orders/{id}/directed-return/reject` | "STATION_MANAGER" | `CrossStationDispatchController.directedReturnReject` |
+| `POST` | `/api/delivery/orders/{id}/dispatch` | {"DELIVERY","STATION_MANAGER"} | `CrossStationDispatchController.dispatchOrder` |
+| `POST` | `/api/delivery/orders/{id}/resolve` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.resolveOrder` |
+| `POST` | `/api/delivery/orders/{id}/station-reject` | "STATION_MANAGER" | `StationDeliveryConsoleController.stationReject` |
+| `GET` | `/api/delivery/stats/today` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getTodayStats` |
+| `GET` | `/api/delivery/transfers` | {"DELIVERY","STATION_MANAGER"} | `StationDeliveryConsoleController.getTransferRecords` |
+| `GET` | `/api/delivery/transfers/incoming` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getIncomingTransfers` |
 | `GET` | `/api/manager/delivery-config` | {"STATION_MANAGER"} | `ManagerDeliveryConfigController.get` |
 | `PUT` | `/api/manager/delivery-config` | {"STATION_MANAGER"} | `ManagerDeliveryConfigController.save` |
 
@@ -338,7 +339,7 @@
 | `GET` | `/api/ticket-records/customer/{customerId}` | {"STATION_MANAGER"} | `TicketRecordController.listByCustomerIdForStaff` |
 | `GET` | `/api/tickets` | {"STATION_MANAGER"} | `TicketAccountController.listByCustomerId` |
 | `POST` | `/api/tickets/add` | {"STATION_MANAGER"} | `TicketAccountController.add` |
-| `POST` | `/api/tickets/consume` | {"STATION_MANAGER"} | `TicketAccountController.consume` |
+| `POST` | `/api/tickets/consume` | {"STATION_MANAGER"} | `TicketAccountController.consume`（站长手工扣票）。**`idempotencyKey` 必传**（v70，缺失/空白 → `code=1`「缺少幂等键 idempotencyKey」）：`orderId` 可空，而不带订单的扣票在数据库层没有兜底（`uk_ticket_consume` 对 `order_id IS NULL` 零保护）⇒ 重复提交会重复扣。服务端按 `(customer_id, idempotencyKey)` 幂等，重试复用同一个键即原样返回、不再扣一次 |
 | `GET` | `/api/tickets/customer/{customerId}` | {"STATION_MANAGER"} | `TicketAccountController.listByCustomerIdForStaff` |
 | `POST` | `/api/tickets/purchase` | {"STATION_MANAGER"} | `TicketAccountController.purchase` |
 

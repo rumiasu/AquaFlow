@@ -654,6 +654,20 @@ CREATE TABLE IF NOT EXISTS `staff` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_staff_openid` (`openid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS `staff_bind_code` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `staff_id` bigint NOT NULL COMMENT '要绑定微信的员工（staff.id）',
+  `station_id` bigint NOT NULL COMMENT '签发它的站长所属水站；用于审计「哪个站给谁发了码」',
+  `code` varchar(16) NOT NULL COMMENT '一次性绑定码（6 位数字；用一次即废）',
+  `expires_at` datetime NOT NULL COMMENT '过期时间（签发后 10 分钟）',
+  `used_at` datetime DEFAULT NULL COMMENT '被使用的时间；NULL = 还没用过',
+  `used_openid` varchar(64) DEFAULT NULL COMMENT '用掉它的那个微信 openid（留痕：谁绑的）',
+  `created_by` bigint DEFAULT NULL COMMENT '签发人（staff.id，站长）',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_staff_bind_code` (`code`),
+  KEY `idx_staff_bind_code_staff` (`staff_id`,`used_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 CREATE TABLE IF NOT EXISTS `staff_station_application` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `staff_id` bigint NOT NULL COMMENT '申请人 staff.id (必须 DELIVERY)',
@@ -814,6 +828,11 @@ CREATE TABLE IF NOT EXISTS `ticket_record` (
   `increase_qty` int DEFAULT '0' COMMENT '增加数量',
   `decrease_qty` int DEFAULT '0' COMMENT '消费数量',
   `order_id` bigint DEFAULT NULL COMMENT '关联订单',
+  -- [v70] 客户端幂等键：站长手工扣票（/api/tickets/consume 不传 orderId）没有订单可依，
+  -- 而 uk_ticket_consume(order_id, product_id, source) 在 order_id IS NULL 时零保护
+  -- （MySQL 唯一键中 NULL 互不冲突）。NULL = 不参与防重（存量行与所有订单内扣票都走 NULL）。
+  -- 形状照抄 v33（payment_record.idempotency_key），见 migration_v70。
+  `idempotency_key` varchar(64) DEFAULT NULL COMMENT '客户端幂等键（站长手工扣票等无订单扣票用）；NULL=不参与防重。见 migration_v70',
   `source` varchar(50) DEFAULT NULL COMMENT '来源：购买/赠送/消费',
   `ticket_source` tinyint DEFAULT '1' COMMENT '票据来源: 1=线上 2=线下',
   `unit_price` decimal(10,2) DEFAULT NULL COMMENT '本次变动的单价（购买=实付均价；消耗=所消耗批次的加权均价；退款=回补批次单价）',
@@ -829,6 +848,10 @@ CREATE TABLE IF NOT EXISTS `ticket_record` (
   -- 纳入 source 后，消费/退款各一条互不冲突；同时"消费"维度仍唯一，
   -- 仍能兜底并发双扣（consumeTicket 捕获 DuplicateKeyException 幂等跳过）。
   UNIQUE KEY `uk_ticket_consume` (`order_id`,`product_id`,`source`),
+  -- [v70] 无订单扣票（站长手工扣票）的唯一兜底：uk_ticket_consume 上面那条对 order_id IS NULL
+  -- 【零保护】。必须带 customer_id —— 只按 key 唯一会让客户端传别人的 key 取回别人的流水。
+  -- idempotency_key 为 NULL 时整行不参与唯一性判定，故存量行与订单内扣票完全不受影响。
+  UNIQUE KEY `uk_ticket_consume_idem` (`customer_id`,`idempotency_key`),
   -- [AQ-ADJ] 调整单幂等键。注意 uk_ticket_consume 对调整记录【零保护】：
   -- 调整场景 order_id 为 NULL，而 MySQL 唯一键中 NULL 互不冲突。
   UNIQUE KEY `uk_ticket_adjustment` (`adjustment_id`,`product_id`,`source`),

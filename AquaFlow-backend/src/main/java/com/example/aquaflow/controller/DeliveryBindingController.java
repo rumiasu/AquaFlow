@@ -4,6 +4,7 @@ import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.dto.BindingActionDTO;
 import com.example.aquaflow.entity.Staff;
+import com.example.aquaflow.service.StaffBindCodeService;
 import com.example.aquaflow.service.StaffStationApplicationService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,10 @@ public class DeliveryBindingController {
 
     @Autowired
     private StaffStationApplicationService bindingService;
+
+    /** [2026-09-30 F-03③] 员工绑定码的签发（站长端）。 */
+    @Autowired
+    private StaffBindCodeService bindCodeService;
 
     // ==================== 配送员: 申请绑定水站 (C) ====================
 
@@ -122,6 +127,25 @@ public class DeliveryBindingController {
     @GetMapping("/api/manager/staff")
     public Result<List<Staff>> getManagerStaff() {
         return Result.success(bindingService.getManagerStaff());
+    }
+
+    // ==================== 站长: 为本站员工签发一次性绑定码 (F-03③) ====================
+
+    /**
+     * 生成员工绑定微信要用的**一次性绑定码**（决策正本 {@code docs/design/16} §9.3）。
+     *
+     * <p>为什么不能沿用「姓名 + 手机号」当凭据：那是公开信息，而 {@code POST /api/auth/bind-staff}
+     * 是**免认证**端点、签发的却是员工会话 —— 谁拿到这两项，就能在该员工还没绑微信时把账号
+     * 绑到自己微信上。绑定码只有本站站长能签发、10 分钟有效、用一次即废。</p>
+     *
+     * <p>⚠️ 站别判定在 {@code StaffBindCodeService.generate} 里走 {@code AuthContext}，
+     * **不接受**请求参数里的站别；本方法只做认证注解 + 转发（本类对 Mapper 注入是基线外零容忍，
+     * 别把 mapper 搬进来）。</p>
+     */
+    @RequireRole("STATION_MANAGER")
+    @PostMapping("/api/manager/staff/{staffId}/bind-code")
+    public Result<Map<String, Object>> generateBindCode(@PathVariable Long staffId) {
+        return Result.success(bindCodeService.generate(staffId));
     }
 
     // ==================== 配送员: 列出自己的申请历史 ====================

@@ -1,8 +1,10 @@
 package com.example.aquaflow.integration;
 
+import com.example.aquaflow.mapper.CustomerBarrelInTransitMapper;
 import com.example.aquaflow.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
 
@@ -24,6 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @DisplayName("Phase B · 桶账（首购/换桶/纯还桶/退桶FIFO/隔离）")
 class BarrelLedgerIntegrationTest extends AbstractIntegrationTest {
+
+    @Autowired
+    private CustomerBarrelInTransitMapper inTransitMapper;
 
     private long station;
     private long product;
@@ -91,6 +96,30 @@ class BarrelLedgerIntegrationTest extends AbstractIntegrationTest {
                 jdbc.queryForObject("SELECT status FROM customer_barrel_in_transit WHERE related_order_id=?",
                         String.class, order),
                 "配送中桶应标记 DELIVERED 而非删除");
+    }
+
+    /**
+     * [F-32] 配送中桶的「转正」（PENDING → DELIVERED）必须是 CAS，并检查受影响行数。
+     *
+     * <p>为什么单独立一条：{@code applyDelivery} 是<b>先</b> {@code createLot}（权益 + 押金条落库）、
+     * <b>再</b>把这行标 DELIVERED。若把 SQL 里的 {@code status} 条件摘掉、或把
+     * (期望态, 目标态) 两个参数写反，<b>首次</b>调用照样"成功"，既有用例（含
+     * {@link #firstPurchase_createsLotOnDelivery} 对 DELIVERED 的断言）全绿 ——
+     * 只有"第二次以 PENDING 为期望态必须命中 0 行"能把这道守卫证伪。
+     * 参数顺序判据见 AGENTS.md §1.1：带 {@code If} 的第二个参数是期望状态。</p>
+     */
+    @Test
+    @DisplayName("[F-32] 配送中桶转正是 CAS：同一行第二次以 PENDING 为期望态必须命中 0 行")
+    void inTransitFlipIsCasGuarded() {
+        seed();
+        long order = createOrderFull(customer, addr, station, product,
+                2 /* 配送中 */, 0, 2 /* 现金 */, "20.00", "30.00", "50.00", true /* 首次桶装水订单 */, 1);
+        long transitId = createBarrelInTransit(customer, station, product, 1, "30.00", order, "PENDING");
+
+        assertEquals(1, inTransitMapper.updateStatusIf(transitId, "PENDING", "DELIVERED"),
+                "首次转正应命中 1 行（第二个参数是期望状态 PENDING —— 传反这里就会是 0）");
+        assertEquals(0, inTransitMapper.updateStatusIf(transitId, "PENDING", "DELIVERED"),
+                "该行已是 DELIVERED，再以 PENDING 为期望态必须命中 0 行：守卫必须真的写在 WHERE 里");
     }
 
     @Test

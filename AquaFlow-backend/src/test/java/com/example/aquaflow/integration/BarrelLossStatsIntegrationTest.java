@@ -1,8 +1,11 @@
 package com.example.aquaflow.integration;
 
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.support.TestBusinessClock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,7 +27,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * "没登记过"读成"没损耗"。这条也在用例里钉住。</p>
  */
 @DisplayName("桶损耗统计 · 只读汇总 / 按站隔离 / 时间上界含当天")
+@Import(TestBusinessClock.Config.class)
 class BarrelLossStatsIntegrationTest extends AbstractIntegrationTest {
+
+    /**
+     * [F-43] 把业务"现在"钉在**数据库当前时刻**：Java 侧（区间端点）与 SQL 侧（造数/断言）
+     * 从此读同一个值，跨零点不会一边说今天、一边说明天。见 {@link TestBusinessClock}。
+     */
+    @BeforeEach
+    void freezeClockAtDbNow() {
+        TestBusinessClock.freezeAtDbNow(jdbc);
+    }
 
     /** 直接造一条桶损耗流水（3 丢失 / 4 损坏）。quantity 存绝对值，方向由 type 决定。 */
     private void lossRecord(long stationId, long customerId, long productId, int type, int qty, String when) {
@@ -42,7 +55,7 @@ class BarrelLossStatsIntegrationTest extends AbstractIntegrationTest {
         long productA = createProduct("损耗水A", 1, "20.00", "30.00", 0, "0.00");
         long productB = createProduct("损耗水B", 1, "20.00", "30.00", 0, "0.00");
         String mgr = staffToken(manager, "STATION_MANAGER", station);
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
 
         lossRecord(station, customer, productA, 3, 2, today + " 09:00:00");  // A 丢失 2
         lossRecord(station, customer, productA, 4, 1, today + " 10:00:00");  // A 损坏 1
@@ -78,7 +91,7 @@ class BarrelLossStatsIntegrationTest extends AbstractIntegrationTest {
         long customer = createCustomer("损耗客户2", "loss-openid2");
         long product = createProduct("损耗水C", 1, "20.00", "30.00", 0, "0.00");
         String mgrA = staffToken(managerA, "STATION_MANAGER", stationA);
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
 
         lossRecord(stationA, customer, product, 3, 3, today + " 08:30:00");   // 本站，今天
         lossRecord(stationB, customer, product, 3, 99, today + " 08:30:00");  // 他站，不能被算进来

@@ -4,6 +4,7 @@ import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.mapper.GrossProfitMapper;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.BusinessTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -99,6 +100,13 @@ public class ManagerGrossProfitController {
     private GrossProfitMapper grossProfitMapper;
 
     /**
+     * [F-16] 业务时钟（时间源统一收在 util 里，Controller 不直接持有 {@code Clock}，
+     * 见 {@code config/ClockConfig}）。报表缺省区间"本月 1 日 ~ 今天"由它给出。
+     */
+    @Autowired
+    private BusinessTime businessTime;
+
+    /**
      * 设置某商品在本站的进货成本价。
      *
      * <p>清除成本要**显式传 {@code clear: true}**；缺 {@code costPrice} 且没声明 clear 一律报错 ——
@@ -161,8 +169,10 @@ public class ManagerGrossProfitController {
     public Result<Map<String, Object>> report(@RequestParam(required = false) String from,
                                               @RequestParam(required = false) String to) {
         Long stationId = AuthContext.requireStationId();
-        LocalDate start = (from == null || from.isEmpty()) ? LocalDate.now().withDayOfMonth(1) : LocalDate.parse(from);
-        LocalDate end = (to == null || to.isEmpty()) ? LocalDate.now() : LocalDate.parse(to);
+        // [F-16] 原先是 LocalDate.now() 直连：缺省区间"本月 1 日 ~ 今天"取 JVM 真实日期，
+        // 跨零点会让"本月"和"今天"各自漂移（月初 0 点最明显），测试也无法固定这段期间。
+        LocalDate start = (from == null || from.isEmpty()) ? businessTime.today().withDayOfMonth(1) : LocalDate.parse(from);
+        LocalDate end = (to == null || to.isEmpty()) ? businessTime.today() : LocalDate.parse(to);
         if (end.isBefore(start)) {
             return Result.error("结束日期不能早于开始日期");
         }

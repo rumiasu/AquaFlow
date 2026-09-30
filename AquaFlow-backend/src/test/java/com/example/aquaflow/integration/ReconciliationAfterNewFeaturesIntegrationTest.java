@@ -2,9 +2,12 @@ package com.example.aquaflow.integration;
 
 import com.example.aquaflow.service.ReconciliationService;
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.support.TestBusinessClock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 
 import java.util.Map;
 
@@ -26,7 +29,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>⚠️ 失败信息里带上**全量 map**：哪一项不平、差多少，一次运行就能定位，不用猜。</p>
  */
 @DisplayName("对账回归 · 新增写路径跑完后 V1 与 V2 的每条等式仍为 0")
+@Import(TestBusinessClock.Config.class)
 class ReconciliationAfterNewFeaturesIntegrationTest extends AbstractIntegrationTest {
+
+    /**
+     * [F-43] 把业务"现在"钉在**数据库当前时刻**：Java 侧（区间端点）与 SQL 侧（造数/断言）
+     * 从此读同一个值，跨零点不会一边说今天、一边说明天。见 {@link TestBusinessClock}。
+     */
+    @BeforeEach
+    void freezeClockAtDbNow() {
+        TestBusinessClock.freezeAtDbNow(jdbc);
+    }
 
     @Autowired
     private ReconciliationService reconciliationService;
@@ -83,7 +96,7 @@ class ReconciliationAfterNewFeaturesIntegrationTest extends AbstractIntegrationT
         assertEquals(4, intOf("SELECT status FROM orders WHERE id=?", order1), "订单应已完成");
 
         // ---- 3) 结算单：生成 → 确认 → 标记发放（E-PAY 的两端）----
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         Api gen = post("/api/manager/payroll", mgr,
                 "{\"staffId\":" + rider + ",\"periodStart\":\"" + today + "\",\"periodEnd\":\"" + today + "\"}");
         assertEquals(0, gen.code(), "生成结算单: " + gen);

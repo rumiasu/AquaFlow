@@ -5,6 +5,7 @@ import com.example.aquaflow.common.Result;
 import com.example.aquaflow.service.OrderBarrelExceptionService;
 import com.example.aquaflow.service.StationExceptionConfigService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.BusinessTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +29,13 @@ public class ManagerExceptionController {
     /** 只用于「手工发起异常单」时的订单归属校验（别在这里写业务）。 */
     @Autowired
     private com.example.aquaflow.mapper.OrderMapper orderMapper;
+
+    /**
+     * [F-16] 业务时钟（时间源统一收在 util 里，Controller 不直接持有 {@code Clock}，
+     * 见 {@code config/ClockConfig}）。异常统计缺省区间"近 30 天 ~ 今天"由它给出。
+     */
+    @Autowired
+    private BusinessTime businessTime;
 
     /** 异常列表（分页筛选） */
     @GetMapping
@@ -144,8 +152,10 @@ public class ManagerExceptionController {
             @RequestParam(required = false) String endDate
     ) {
         Long stationId = AuthContext.requireStationId();
-        LocalDate start = startDate != null ? LocalDate.parse(startDate) : LocalDate.now().minusDays(30);
-        LocalDate end = endDate != null ? LocalDate.parse(endDate) : LocalDate.now();
+        // [F-16] 原先是 LocalDate.now() 直连：缺省区间"近 30 天 ~ 今天"取 JVM 真实日期，
+        // 跨零点会让上界落到第二天、下界也跟着漂，且测试无法把窗口钉死在某一天。
+        LocalDate start = startDate != null ? LocalDate.parse(startDate) : businessTime.today().minusDays(30);
+        LocalDate end = endDate != null ? LocalDate.parse(endDate) : businessTime.today();
         return Result.success(exceptionService.getStats(stationId, start, end));
     }
 

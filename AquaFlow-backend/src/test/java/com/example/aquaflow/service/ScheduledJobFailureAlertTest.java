@@ -155,7 +155,10 @@ class ScheduledJobFailureAlertTest {
     @DisplayName("日结对账：底层抛错 ⇒ 不抛出 + 落 SYSTEM 告警 + 正文含原因")
     void reconcileFailureIsAlerted() {
         RecordingAlertService alerts = new RecordingAlertService();
-        ReconciliationService svc = new ReconciliationService(new ExplodingJdbcTemplate(), alerts);
+        // [F-16] ReconciliationService 现在从注入的 Clock 取业务时间；本类是纯单测、不起 Spring 上下文，
+        // 所以显式给一个时钟（这里走不到 persistResults —— jdbc 桩先炸，时钟只是为了让构造器成立）。
+        ReconciliationService svc = new ReconciliationService(new ExplodingJdbcTemplate(), alerts,
+                new com.example.aquaflow.util.BusinessTime(java.time.Clock.systemDefaultZone()));
 
         // 关键：**不许抛出**（抛了就等于丢给调度器，谁都看不到）
         svc.dailyReconcile();

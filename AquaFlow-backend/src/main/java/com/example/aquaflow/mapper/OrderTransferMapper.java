@@ -42,9 +42,10 @@ public interface OrderTransferMapper {
     @Select("select kind from order_transfer where order_id = #{orderId} and status = 'PENDING' order by id desc limit 1")
     String findPendingKindByOrder(@Param("orderId") Long orderId);
 
-    /** 按ID置状态 */
-    @Update("update order_transfer set status = #{status}, update_time = NOW() where id = #{id}")
-    int updateStatus(@Param("id") Long id, @Param("status") String status);
+    // [2026-09-30 F-19] 已删除「按 ID 置状态」updateStatus(id, status)：全仓零调用。
+    // 它虽然返回受影响行数，但 where 只有 id、没有 `status = 'PENDING'` —— 也就是没有
+    // "这条转单还能不能被决策"的前置校验，重复调用会把已决策的转单再改一次。
+    // 决策点一律走下面的 resolvePending / resolvePendingByKind（SQL 里写死 status='PENDING'）。
 
     /**
      * 把某订单所有待决策转单置为指定状态（决策点用）。

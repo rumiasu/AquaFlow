@@ -2,9 +2,12 @@ package com.example.aquaflow.integration;
 
 import com.example.aquaflow.service.ReconciliationService;
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.support.TestBusinessClock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 
 import java.util.Map;
 
@@ -24,7 +27,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * </ol>
  */
 @DisplayName("应收账款 · 账期快照 / 逾期 / 核销 / E10 不变量")
+@Import(TestBusinessClock.Config.class)
 class ReceivableIntegrationTest extends AbstractIntegrationTest {
+
+    /**
+     * [F-43] 把业务"现在"钉在**数据库当前时刻**：Java 侧（区间端点）与 SQL 侧（造数/断言）
+     * 从此读同一个值，跨零点不会一边说今天、一边说明天。见 {@link TestBusinessClock}。
+     */
+    @BeforeEach
+    void freezeClockAtDbNow() {
+        TestBusinessClock.freezeAtDbNow(jdbc);
+    }
 
     @Autowired
     private ReconciliationService reconciliationService;
@@ -68,13 +81,14 @@ class ReceivableIntegrationTest extends AbstractIntegrationTest {
 
         // [v60] 算法变了：从"下单日 + N 天"改成"**当月最后一天** + N 天"（企业主流：本月消费、下月结账）。
         // 所以期望值不能写死 30 —— 按同一规则算出来，免得把某一天的巧合当成规格。
+        // [F-43] 基准日取**冻结时钟**的"今天"，断言侧不再读 SQL 的 CURDATE()：两侧同源，
+        // 跨零点也不会"端点算在前一天、下单落在后一天"。
+        java.time.LocalDate baseDay = TestBusinessClock.today();
         int expect30 = (int) java.time.temporal.ChronoUnit.DAYS.between(
-                java.time.LocalDate.now(),
-                java.time.LocalDate.now()
-                        .withDayOfMonth(java.time.LocalDate.now().lengthOfMonth()).plusDays(30));
+                baseDay, baseDay.withDayOfMonth(baseDay.lengthOfMonth()).plusDays(30));
 
         long cashOrder = orderIdOf(order(cus, station, address, product, 2, 2, "ar-snap-cash"), "ar-snap-cash");
-        assertEquals(expect30, intOf("SELECT DATEDIFF(due_date, CURDATE()) FROM orders WHERE id=?", cashOrder),
+        assertEquals(expect30, intOf("SELECT DATEDIFF(due_date, ?) FROM orders WHERE id=?", TestBusinessClock.today(), cashOrder),
                 "现金单应带上账期快照（月底 + 30 天）");
         assertEquals(1, intOf("SELECT settlement_status FROM orders WHERE id=?", cashOrder),
                 "新建单应为未结算(1)");
@@ -87,7 +101,7 @@ class ReceivableIntegrationTest extends AbstractIntegrationTest {
         // 账期是快照：改成 60 天，历史单的到期日必须一动不动（与地址/金额快照同源的理由）
         assertEquals(0, put("/api/manager/customers/" + customer + "/credit-terms",
                 mgr, "{\"dueDays\":60}").code(), "改账期");
-        assertEquals(expect30, intOf("SELECT DATEDIFF(due_date, CURDATE()) FROM orders WHERE id=?", cashOrder),
+        assertEquals(expect30, intOf("SELECT DATEDIFF(due_date, ?) FROM orders WHERE id=?", TestBusinessClock.today(), cashOrder),
                 "改账期不得改到历史单的到期日（要改存量得走 /credit-terms/recalculate）");
     }
 
@@ -133,7 +147,7 @@ class ReceivableIntegrationTest extends AbstractIntegrationTest {
                 .compareTo(amount), "客户级待收款应等于该订单金额: " + all);
 
         // 把到期日改成 5 天前 → 应判为逾期，且**不改任何金额**
-        jdbc.update("UPDATE orders SET due_date = DATE_SUB(CURDATE(), INTERVAL 5 DAY) WHERE id=?", id);
+        jdbc.update("UPDATE orders SET due_date = ? WHERE id=?", TestBusinessClock.today().minusDays(5), id);
         Api overdue = get("/api/manager/receivables", mgr);
         assertEquals(0, overdue.data().path("overdueAmount").decimalValue().compareTo(amount),
                 "逾期金额应等于该订单金额: " + overdue);

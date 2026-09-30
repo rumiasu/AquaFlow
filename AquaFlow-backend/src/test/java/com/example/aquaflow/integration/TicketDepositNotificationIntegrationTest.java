@@ -51,13 +51,17 @@ class TicketDepositNotificationIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, staffView.code(), "站长按客户查水票: " + staffView);
         assertNotEquals(0, get("/api/tickets/customer/" + customer, cus).code(), "顾客不得用管理端接口");
 
+        // idempotencyKey 必传（v70）：手工扣票是**无订单扣票**，唯一键 uk_ticket_consume 对它零保护
         Api consumed = post("/api/tickets/consume", mgr,
-                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":2}");
+                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":2"
+                        + ",\"idempotencyKey\":\"consume-dep-1\"}");
         assertEquals(0, consumed.code(), "站长扣票: " + consumed);
         assertEquals(3, intOf("SELECT remain_quantity FROM ticket_account WHERE customer_id=? AND station_id=? "
                 + "AND product_id=?", customer, station, product));
+        // 换个键才是"另一次扣票"：同一把键会命中幂等、原样返回成功，测不出"余额不足必须被拒"
         assertNotEquals(0, post("/api/tickets/consume", mgr,
-                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":99}").code(),
+                "{\"customerId\":" + customer + ",\"productId\":" + product + ",\"quantity\":99"
+                        + ",\"idempotencyKey\":\"consume-dep-2\"}").code(),
                 "余额不足必须被拒");
 
         assertNotEquals(0, post("/api/tickets/add", cus,

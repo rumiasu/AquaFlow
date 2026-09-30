@@ -7,6 +7,7 @@ import com.example.aquaflow.entity.StaffEarning;
 import com.example.aquaflow.mapper.StaffEarningMapper;
 import com.example.aquaflow.mapper.StaffPayrollMapper;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.BusinessTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -48,6 +49,14 @@ public class DeliveryEarningController {
     private StaffPayrollMapper staffPayrollMapper;
 
     /**
+     * [F-16] 业务时钟（不是 {@code Clock} 本体 —— 时间源统一收在 util 里，
+     * Controller 保持"认证 + DTO 校验 + 调服务"的单薄形态，见 {@code config/ClockConfig}）。
+     * 缺省的"本月 1 日 ~ 今天"由它给出，测试才能把期间钉死。
+     */
+    @Autowired
+    private BusinessTime businessTime;
+
+    /**
      * 我的收益：期间明细 + 期间合计 + 未结合计 + 我的结算单。
      *
      * @param from 起始日（含），缺省 = 本月 1 日
@@ -57,9 +66,11 @@ public class DeliveryEarningController {
     public Result<Map<String, Object>> myEarnings(@RequestParam(required = false) String from,
                                                   @RequestParam(required = false) String to) {
         Long staffId = AuthContext.getUserId();
+        // [F-16] 原先是 LocalDate.now() 直连：缺省区间"本月 1 日 ~ 今天"取的是 JVM 真实日期，
+        // 跨零点时"本月"与"今天"可能落在不同月（月初 0 点），且测试无法固定这段期间。
         LocalDate startDate = (from == null || from.isEmpty())
-                ? LocalDate.now().withDayOfMonth(1) : LocalDate.parse(from);
-        LocalDate endDate = (to == null || to.isEmpty()) ? LocalDate.now() : LocalDate.parse(to);
+                ? businessTime.today().withDayOfMonth(1) : LocalDate.parse(from);
+        LocalDate endDate = (to == null || to.isEmpty()) ? businessTime.today() : LocalDate.parse(to);
         if (endDate.isBefore(startDate)) {
             return Result.error("结束日期不能早于开始日期");
         }

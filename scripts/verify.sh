@@ -10,9 +10,17 @@
 # 说明：
 #   * 集成测试只连 aquaflow_test（独立可重建），不会触碰真实库 aquaflow。
 #   * 用 --project-cache-dir .gradle_alt 规避「后端 bootRun 运行中导致 gradle 锁冲突」。
+#
+# 退出码：0 = 真的全跑且全过；1 = 有门禁失败，**或**有整组门禁因缺依赖没跑（见下）。
+#   ⚠️ 缺 python/node 时本脚本**不再返回 0**（2026-09-30 修 F-02）：那时会打印 ASCII 哨兵
+#   `AQUAFLOW_VERIFY_INCOMPLETE` 并 exit 1 —— 原版只 echo 一句、结尾仍无条件打印「全部通过」，
+#   在 PATH 被裁剪的机器上给出**假绿**（本仓反复记录过的"本机全绿、CI 红"形状）。
 # =============================================================================
 set -euo pipefail
 cd "$(cd "$(dirname "$0")/.." && pwd)"
+
+# 「整组门禁根本没跑」与「某个门禁跑红了」是两回事，但**都不许返回 0**（见文件头 F-02 说明）。
+MISSING_DEP=0
 
 echo "==================== [1/7] 重建测试库 ===================="
 bash scripts/provision-test-db.sh
@@ -23,8 +31,8 @@ echo "==================== [2/7] 后端集成测试 ===================="
 echo "==================== [3/7] 小程序静态扫描 ===================="
 PY="$(command -v python || command -v python3 || true)"
 if [ -n "$PY" ]; then
-  # 七个脚本都有真实退出码：0 通过 / 1 有致命问题。这里不再用 `|| echo` 吞掉失败，
-  # 否则脚本红着也会打印「验证全部通过」。audit_wxml_handlers.py 自带两端遍历；
+  # 九个脚本都有真实退出码：0 通过 / 1 有致命问题（check-miniapp-text.js 遇"环境不允许"退 3）。
+  # 这里不再用 `|| echo` 吞掉失败，否则脚本红着也会打印「验证全部通过」。audit_wxml_handlers.py 自带两端遍历；
   # 另两个需显式传端名，故两端各跑一次（与 .github/workflows/ci.yml 保持一致）。
   SCAN_FAILED=0
   run_scan() {
@@ -53,6 +61,13 @@ if [ -n "$PY" ]; then
   # 首次资产告知的卡片被留在 translateY(100%) 屏幕外、只剩遮罩，客户首单被挡死，
   # 而上面六个脚本全绿（没有一个解析 wxss）。自带两端遍历，无需传参。
   run_scan audit_wxss_selectors.py
+  # 小程序文本体检（2026-09-30 新增，F-33 + F-13 的一半）：按扩展名**全仓遍历**两端小程序的
+  # .js/.wxml/.wxss/.json，查 ① UTF-8 BOM（带 BOM 的 .wxss 让开发者工具报编译错且不指名文件，
+  # 而当时四个门禁全绿，见 skill §8.28）② `<text>` 内出现开发词（面向站长/顾客的文案禁令，
+  # AGENTS §6；注释里随便写，脚本先剥注释再匹配）。
+  # ⚠️ 它取代了 scripts/debug/__check-no-bom.js 那个**没有任何入口**的孤儿脚本（check-gate-parity.js
+  #    的 GATE_PATTERN 认不出 `__` 前缀；旧脚本是硬编码 16 文件清单）。旧脚本有意留着，别再往它清单里加文件。
+  node scripts/check-miniapp-text.js || { echo "❌ 小程序文本体检未通过"; SCAN_FAILED=1; }
   # 场景测试矩阵一致性门禁（2026-09-21）：矩阵是「哪个业务场景有覆盖」的指定入口，
   # 但它是手写文档、测试类会被改名/删掉。本步让它的声称可被机器核对
   # （引用的类/方法必须存在、✅ 行必须指得出证据、STATS 件数必须与实测一致）。
@@ -62,7 +77,8 @@ if [ -n "$PY" ]; then
     echo "❌ 静态扫描未通过"; exit 1
   fi
 else
-  echo "[verify] 未找到 python，跳过静态扫描（CI 上会强制执行）"
+  echo "[verify] 未找到 python，跳过静态扫描整组（CI 上会强制执行）"
+  MISSING_DEP=1
 fi
 
 echo "==================== [4/7] 小程序流程测试 ===================="
@@ -73,6 +89,7 @@ if command -v node >/dev/null 2>&1; then
   node tests/js/run-all.js || { echo "❌ 小程序流程测试未通过"; exit 1; }
 else
   echo "[verify] 未找到 node，跳过流程测试（CI 上会强制执行）"
+  MISSING_DEP=1
 fi
 
 echo "==================== [5/7] 生产配置 / 发布物 / 冒烟（2026-09-27 新增） ===================="
@@ -126,7 +143,18 @@ if command -v node >/dev/null 2>&1; then
     echo "[verify] 本机 8080 没有服务，跳过冒烟检查（部署后必须单独跑：node scripts/smoke-check.js <URL> --prod）"
   fi
 else
-  echo "[verify] 未找到 node，跳过这三个门禁（CI 上会强制执行 make check-prod-config / 发布物检查）"
+  # F-29（2026-09-30 修）：原文引用 `make check-prod-config`，而**仓库没有 Makefile** ——
+  # 照着提示敲必然报 "No rule to make target"，还得回头猜真实命令。改成实际的 node 调用写法；
+  # 同时把「这三个门禁」改成真的数得出来的清单（本步实际是下面这 7 道 node 门禁，加 bootJar 的
+  # 发布物检查、生产启动姿态、冒烟检查）：
+  #   node scripts/check-prod-config.js / check-tracked-inputs.js / check-sql-catalog.js /
+  #   check-gate-parity.js / check-pending-decisions.js / check-api-doc.js / check-jar-no-local-config.js
+  #   node scripts/prod-startup-check.js / node scripts/smoke-check.js
+  # ⚠️ 上面这 9 个路径**故意写在 `#` 注释里**：`check-gate-parity.js` 会剥掉注释与 `echo` 提示行，
+  #    只剩"真的会执行"的行 —— 把脚本名写进 `echo` 的续行会被它当成"这道门禁跑了"（假绿）。
+  echo "[verify] 未找到 node，跳过本步的 7 道 node 门禁与生产启动姿态、冒烟检查（CI 上会强制执行）。"
+  echo "         手动补跑：node scripts/check-prod-config.js（其余见本步上方注释）"
+  MISSING_DEP=1
 fi
 
 echo "==================== [6/7] 敏感信息扫描 ===================="
@@ -139,4 +167,14 @@ echo "==================== [7/7] 备份 / 恢复演练（可选，需显式开�
 echo "[verify] 未自动执行。上线前请单独跑：node scripts/backup-restore-drill.js drill"
 
 echo ""
-echo "✅ 本地验证全部通过"
+# 结尾判据（2026-09-30 修 F-02）：**只有真的全跑且全过才打印成功并返回 0**。
+# 原版此处**无条件**打印「✅ 本地验证全部通过」，于是缺 python/node（整组门禁根本没跑）时
+# 仍给绿结论、退出码 0 —— 在 PATH 被裁剪的机器/镜像上就是"本机全绿、CI 红"的假绿形状。
+if [ "$MISSING_DEP" -ne 0 ]; then
+  echo "⚠️  本次验证**不完整**：有整组门禁因缺少依赖没有跑（见上方 [verify] 行）。"
+  echo "   判据：**「没跑」不许当成「通过」**（AGENTS §5）—— 这些门禁在 CI 上会强制执行。"
+  echo "AQUAFLOW_VERIFY_INCOMPLETE 1"
+  exit 1
+fi
+echo "✅ 本地验证全部通过（全部门禁都真的跑过，无跳过项）"
+

@@ -28,6 +28,17 @@
       </view>
     </view>
 
+    <!--
+      [2026-09-30 F-26] 代客下单入口 —— 产品裁定「**做进客户里，不单独拎出来**」。
+      放在画像卡正下方（而不是塞进底部的 link-row）：它是这一页唯一会**写库**的动作，
+      且是电话单进系统的唯一入口 —— 不录，这批桶就不入桶账（理由见 place-order 页头）。
+    -->
+    <view class="section">
+      <view class="link-row">
+        <text class="link-btn" bindtap="onPlaceOrder">用他下单（电话/口头订单）</text>
+      </view>
+    </view>
+
     <!-- 核心指标 -->
     <view class="section">
       <view class="section-title">消费概览</view>

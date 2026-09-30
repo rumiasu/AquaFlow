@@ -41,7 +41,12 @@ mysql -uroot -p aquaflow_test < schema.sql
 | `WX_APP_ID` | 微信小程序 appid |
 | `WX_APP_SECRET` | 对应 secret |
 
-其余变量缺失时由各自组件决定后果（多数只 `log.warn`），不会导致启动失败。生产环境额外要求见 [`SECURITY.md`](./SECURITY.md)。
+其余变量缺失时由各自组件决定后果（多数只 `log.warn`），不会导致启动失败。
+
+⚠️ **上面这 3 项之外还有两道"仅在 `prod` profile 生效"的启动期校验**（同样由 `RequiredConfigChecker` 抛 `IllegalStateException` 拒启）：
+① 后门开关必须关闭（`app.payment.mock-wechat-pay` / `app.dev-login-enabled` = false）；
+② `spring.datasource.url/username/password` 必须解析出真值（Spring 7 懒初始化不再让缺占位符在解析期失败）。
+本地/CI 不受影响（这两道只在 prod 生效）。生产环境额外要求见 [`SECURITY.md`](./SECURITY.md)。
 
 本地开发可把密钥写进 `AquaFlow-backend/src/main/resources/application-local.yml` —— 该文件**已 gitignore，禁止提交、禁止在任何回复或日志中回显**。
 

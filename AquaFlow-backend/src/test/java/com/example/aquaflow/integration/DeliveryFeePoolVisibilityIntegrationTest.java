@@ -1,9 +1,12 @@
 package com.example.aquaflow.integration;
 
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.support.TestBusinessClock;
 import com.fasterxml.jackson.databind.JsonNode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
 
@@ -40,7 +43,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 这里只锁"钱的计算结果不因认领而改变"。相关取证见交付报告。</p>
  */
 @DisplayName("配送费可见性 · 认领不重算 / 抢单池与他站外派下发金额 / 同站单两口径一致")
+@Import(TestBusinessClock.Config.class)
 class DeliveryFeePoolVisibilityIntegrationTest extends AbstractIntegrationTest {
+
+    /**
+     * [F-43] 把业务"现在"钉在**数据库当前时刻**：Java 侧（区间端点）与 SQL 侧（造数/断言）
+     * 从此读同一个值，跨零点不会一边说今天、一边说明天。见 {@link TestBusinessClock}。
+     */
+    @BeforeEach
+    void freezeClockAtDbNow() {
+        TestBusinessClock.freezeAtDbNow(jdbc);
+    }
 
     /** 归属站的站级计费：基础配送费 5 元；无电梯 9 层收 2 元/层（1 层免费）→ 楼层费 16 元。 */
     private static final String BASE_DELIVERY_FEE = "5.00";
@@ -343,7 +356,7 @@ class DeliveryFeePoolVisibilityIntegrationTest extends AbstractIntegrationTest {
 
         String ownerToken = staffToken(mgrOwner, "STATION_MANAGER", stationOwner);
         String claimToken = staffToken(mgrClaim, "STATION_MANAGER", stationClaim);
-        String today = java.time.LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
 
         // (a) 按归属站统计的两条链路（毛利 / 应收）
         Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, ownerToken);

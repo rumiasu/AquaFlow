@@ -16,6 +16,7 @@ import com.example.aquaflow.mapper.UserTokenMapper;
 import com.example.aquaflow.service.impl.StationServiceImpl;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.JwtUtil;
+import com.example.aquaflow.util.MaskUtil;
 import com.example.aquaflow.util.PasswordUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,6 +66,10 @@ public class AuthTokenService {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    /** [2026-09-30 F-03③] 员工绑定的凭据来源：站长签发的一次性绑定码。 */
+    @Autowired
+    private StaffBindCodeService staffBindCodeService;
 
     // ==================== 微信小程序登录 ====================
 
@@ -134,7 +139,7 @@ public class AuthTokenService {
             throw new BusinessException("微信登录失败: " + e.getMessage());
         }
         String openid = (String) wxSession.get("openid");
-        log.info("[wx-login-staff] openid={}", maskOpenid(openid));
+        log.info("[wx-login-staff] openid={}", MaskUtil.maskOpenid(openid));
 
         Staff staff = staffMapper.findByOpenid(openid);
         log.info("[wx-login-staff] staff查询结果: staffId={}, role={}, status={}, stationId={}",
@@ -177,10 +182,10 @@ public class AuthTokenService {
             data.put("needSelectRole", true);
             data.put("_pendingOpenid", openid);
 
-            log.info("[wx-login-staff] 返回UNSELECTED结果, openid={}", maskOpenid(openid));
+            log.info("[wx-login-staff] 返回UNSELECTED结果, openid={}", MaskUtil.maskOpenid(openid));
             return data;
         } catch (Exception e) {
-            log.error("[wx-login-staff] UNSELECTED流程异常: openid={}, error={}", maskOpenid(openid), e.getMessage(), e);
+            log.error("[wx-login-staff] UNSELECTED流程异常: openid={}, error={}", MaskUtil.maskOpenid(openid), e.getMessage(), e);
             throw new BusinessException("登录失败(UNSELECTED): " + e.getMessage());
         }
     }
@@ -400,41 +405,48 @@ public class AuthTokenService {
     }
 
     /**
-     * 员工绑定微信：输入姓名+手机号，匹配 staff 记录并绑定当前微信 openid
+     * 员工绑定微信 —— [2026-09-30 F-03③] 凭据已由「姓名 + 手机号」改为**站长签发的一次性绑定码**。
+     *
+     * <p>⚠️ {@code POST /api/auth/bind-staff} 是**免认证**端点，所以"拿什么证明你是这名员工"
+     * 就是这条端点的全部安全性。原来的凭据是姓名 + 手机号 —— 两项**公开信息**，却能签发员工会话：
+     * 谁拿到某在职员工的这两项，就能在该员工还没绑微信的窗口期内把账号绑到自己微信上，
+     * 随后读到本站订单与客户数据。当时只能做两层缓解（失败文案统一以消除姓名枚举 + 按来源 IP 限流），
+     * 而**限流只能减慢、不能阻止** —— 凭据本身是公开信息时，防线就不存在。</p>
+     *
+     * <p><b>现在</b>：站长在员工管理里点「生成绑定码」（{@link StaffBindCodeService#generate}：
+     * 10 分钟有效、一次性、一员工同时只有一个），当面或电话交给该员工；员工输码绑定。
+     * 攻击面收敛到"拿到实时的那 6 位数"。决策正本 {@code docs/design/16} §9.3；
+     * 表见 {@code sql/migration_v69_staff_bind_code.sql}。</p>
+     *
+     * <p>⚠️ 三条别改回去：① 码的**一次性**由 {@link StaffBindCodeMapper#markUsed} 的 CAS 保证，
+     * 别改成"先查再写"；② 这里**不再**按凭据做失败锁定（那个 {@code "bind:"+name+phone} 的键
+     * 随凭据一起废了 —— 姓名+手机号不再参与判定），但**按 IP 限流必须留着**
+     * （注册名单在 {@code WebMvcConfig}）；③ 「该账号已绑定其他微信」**不要**与"码无效"合并 ——
+     * 它是"码确实有效、只是这账号已有微信"的合法回执，员工换微信号重进时要看得懂自己为什么绑不上，
+     * 而且这种账号也抢不走。</p>
      */
     public Map<String, Object> bindStaff(AuthRequestDTO.BindStaff params) {
-        String code = params.getCode();
-        String name = params.getName();
-        String phone = params.getPhone();
+        String wxCode = params.getCode();
+        String bindCode = params.getBindCode();
 
-        Map<String, Object> wxSession = weChatLoginService.code2Session(WeChatApp.STAFF, code);
+        Map<String, Object> wxSession = weChatLoginService.code2Session(WeChatApp.STAFF, wxCode);
         String openid = wxSession.get("openid").toString();
 
-        // [AQ-040] 绑定失败限流：同一 姓名+手机 组合 15 分钟内失败超限即锁定，
-        // 防止攻击者用"姓名+手机"暴力抢绑从未绑定过微信的员工账号。
-        String bindKey = "bind:" + name + ":" + phone;
-        if (tooManyAttempts(bindKey)) {
-            throw new BusinessException("尝试次数过多，请 15 分钟后再试");
-        }
+        // 先消费码、再动 staff：码无效 / 已过期 / 已被用过 ⇒ 直接拒，且三种情况同一条文案
+        // （分开报就成了"码存在性预言机"，理由见 StaffBindCodeService.INVALID_CODE）。
+        Long staffId = staffBindCodeService.consume(bindCode, openid);
 
-        Staff staff = staffMapper.findByName(name);
+        Staff staff = staffMapper.getById(staffId);
         if (staff == null) {
-            recordFailure(bindKey);
-            throw new BusinessException("未找到该员工账号");
+            // 码指向的员工在签发后被删了：极罕见，但要说清楚 —— 否则调用方只看到一句"绑定失败"
+            throw new BusinessException("该绑定码对应的员工不存在，请让站长重新生成");
         }
         if (staff.getStatus() != null && !Integer.valueOf(1).equals(staff.getStatus())) {
-            recordFailure(bindKey);
             throw new BusinessException("该账号已停用");
         }
-        if (staff.getPhone() == null || !staff.getPhone().equals(phone)) {
-            recordFailure(bindKey);
-            throw new BusinessException("手机号不匹配");
-        }
         if (staff.getOpenid() != null && !staff.getOpenid().equals(openid)) {
-            recordFailure(bindKey);
             throw new BusinessException("该账号已绑定其他微信");
         }
-        clearFailures(bindKey);
 
         staff.setOpenid(openid);
         // [2026-09-29 下沉收口] 原来是全量 update()（把整行旧快照写回去：读改写窗口内
@@ -444,7 +456,7 @@ public class AuthTokenService {
             throw new BusinessException("该账号已绑定其他微信");
         }
 
-        log.info("[AQ-040] 员工微信绑定成功: staffId={}, name={}", staff.getId(), staff.getName());
+        log.info("[F-03③] 员工微信绑定成功(凭绑定码): staffId={}, name={}", staff.getId(), staff.getName());
 
         return buildStaffWxLoginResult(staff, true);
     }
@@ -766,12 +778,8 @@ public class AuthTokenService {
         return "delivery";
     }
 
-    /** [AQ-047] openid 脱敏，避免日志明文泄露微信用户标识 */
-    private static String maskOpenid(String openid) {
-        if (openid == null) return "null";
-        if (openid.length() <= 4) return "***";
-        return openid.substring(0, 4) + "****";
-    }
+    // [AQ-047] openid 脱敏 —— [2026-09-30 修 F-35] 实现已收到 util/MaskUtil（全仓唯一实现），
+    // 本类不再自建副本（原先这里有一个 private maskOpenid，与 WeChatLoginService 靠注释同步 —— F-35 就是这么分叉的）。
 
     /**
      * V1: bindingStatus 不再是 DB 列，而是按 "station_id + 申请表待审批项" 派生.

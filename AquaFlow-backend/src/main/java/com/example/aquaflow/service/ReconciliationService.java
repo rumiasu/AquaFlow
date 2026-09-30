@@ -1,6 +1,7 @@
 package com.example.aquaflow.service;
 
 import com.example.aquaflow.exception.BusinessException;
+import com.example.aquaflow.util.BusinessTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -27,6 +28,13 @@ public class ReconciliationService {
 
     /** 分级告警：对账不平属**系统故障** → 投给系统管理员（见 constant/AlertType） */
     private final AlertService alertService;
+
+    /**
+     * [F-16] 注入时钟：本类的"今天"决定对账结果落在哪一天（{@code reconciliation_result.run_date}）。
+     * 原先是 {@code LocalDate.now()} 直连 —— 跨零点重跑时"同一天的结果"会分裂成两天，
+     * 且测试没法把对账日期钉在指定某天。
+     */
+    private final BusinessTime businessTime;
 
     /**
      * V2 检查项里属于「站长台账」而不是「客户账」的键 —— 它们不平是**运营故障**
@@ -101,9 +109,10 @@ public class ReconciliationService {
                 + "HAVING SUM(COALESCE(a.right_amount, 0)) - COALESCE(MAX(da.balance), 0) > 0.009) x";
     }
 
-    public ReconciliationService(JdbcTemplate jdbcTemplate, AlertService alertService) {
+    public ReconciliationService(JdbcTemplate jdbcTemplate, AlertService alertService, BusinessTime businessTime) {
         this.jdbcTemplate = jdbcTemplate;
         this.alertService = alertService;
+        this.businessTime = businessTime;
     }
 
     /**
@@ -182,7 +191,9 @@ public class ReconciliationService {
      * 例如 E-PAY 落表是 ERROR，但投递对象是站长。别把两者当成一个字段。</p>
      */
     public void persistResults(Map<String, Integer> v1, Map<String, Integer> v2) {
-        java.time.LocalDate today = java.time.LocalDate.now();
+        // [F-16] 原先是 java.time.LocalDate.now() 直连：跨零点重跑会让"今天"的结果落到明天那一行，
+        // 且测试无法把对账日期固定在指定某天（同一天重跑覆盖的前提也就没法验证）。
+        java.time.LocalDate today = businessTime.today();
         try {
             writeRows(today, v1, "ERROR");
             writeRows(today, v2, "WARN_KEYS");
@@ -352,7 +363,9 @@ public class ReconciliationService {
         out.put("stationId", stationId);
         out.put("checks", r);
         out.put("totalDiff", r.values().stream().mapToInt(Integer::intValue).sum());
-        out.put("checkedAt", java.time.LocalDateTime.now().toString());
+        // [F-16] 原先是 java.time.LocalDateTime.now() 直连：跨零点前后两次调用会拿到相差一天的时间戳，
+        // 站长端按它判断"这份读数是什么时候的"就会指向错误的那一天。
+        out.put("checkedAt", businessTime.now().toString());
         return out;
     }
 
@@ -595,13 +608,19 @@ public class ReconciliationService {
         // ⚠️ 这里**只查单向**：反向（收了钱还没核销）是正常的 —— 现金单送货上门当场收钱，
         // 站长之后才走月结核销。谁把它改成双向比较，日结就会天天报不平、淹没真问题。
         // payment_status 为 NULL 也要算进来（NULL <> 2 在 SQL 里是 NULL，不是 true）。
+        // ⚠️ [F-23 2026-09-30] 必须**排除「已退款(3)」**：先核销、后单笔退款是一条**合法**链路 ——
+        // refundPayment 只把 orders.payment_status 置成 REFUNDED(3)、**不回退 settlement_status**
+        // （那要动 PaymentServiceImpl，不在本次写权内），于是 E10 每 03:00 都为一张完全正常的单报一条
+        // SYSTEM 告警，正是"淹没真故障"的形态。「已退款」不是"核销了却没收到钱"：钱到过账，之后按原
+        // 路径退回去了。排除条件写成 NOT IN (2, 3)（而不是再叠一个 <> 3）是为了不把 IS NULL 那支弄丢 ——
+        // NULL NOT IN (...) 求值为 NULL 而非 true。
         int e10 = count("SELECT COUNT(*) FROM orders "
-                + "WHERE settlement_status = 2 AND (payment_status IS NULL OR payment_status <> 2)");
+                + "WHERE settlement_status = 2 AND (payment_status IS NULL OR payment_status NOT IN (2, 3))");
         r.put("E10_settledButUnpaid", e10);
         if (e10 > 0) {
-            log.error("[对账V2 ALERT E10] 已核销却未收款的订单 {} 条。示例={}",
+            log.error("[对账V2 ALERT E10] 已核销却未收款（已排除已退款）的订单 {} 条。示例={}",
                     e10, sampleIds("SELECT id FROM orders WHERE settlement_status = 2 "
-                            + "AND (payment_status IS NULL OR payment_status <> 2)"));
+                            + "AND (payment_status IS NULL OR payment_status NOT IN (2, 3))"));
         }
 
         // ---- E11~E14：库存预留凭据（2026-09-25 库存预留模型，迁移 v63）----

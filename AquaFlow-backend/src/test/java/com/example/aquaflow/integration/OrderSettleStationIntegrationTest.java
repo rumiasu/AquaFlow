@@ -1,11 +1,13 @@
 package com.example.aquaflow.integration;
 
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.support.TestBusinessClock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,7 +41,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 否则本用例会因为"另一条规则改了"而红/绿，测不出 settle 到底对不对。</p>
  */
 @DisplayName("订单结算站 · 营收归谁（v47：水费+配送费+楼层费）")
+@Import(TestBusinessClock.Config.class)
 class OrderSettleStationIntegrationTest extends AbstractIntegrationTest {
+
+    /**
+     * [F-43] 把业务"现在"钉在**数据库当前时刻**：Java 侧（区间端点）与 SQL 侧（造数/断言）
+     * 从此读同一个值，跨零点不会一边说今天、一边说明天。见 {@link TestBusinessClock}。
+     */
+    @BeforeEach
+    void freezeClockAtDbNow() {
+        TestBusinessClock.freezeAtDbNow(jdbc);
+    }
 
     private long stationA;
     private long stationB;
@@ -111,7 +123,7 @@ class OrderSettleStationIntegrationTest extends AbstractIntegrationTest {
     }
 
     private com.fasterxml.jackson.databind.JsonNode grossProfit(String token) {
-        String today = LocalDate.now().toString();
+        String today = TestBusinessClock.today().toString();
         Api r = get("/api/manager/gross-profit?from=" + today + "&to=" + today, token);
         assertEquals(0, r.code(), "毛利报表应可读: " + r);
         return r.data();

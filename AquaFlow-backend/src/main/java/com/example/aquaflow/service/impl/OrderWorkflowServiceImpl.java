@@ -41,7 +41,7 @@ import java.util.Map;
 /**
  * {@link OrderWorkflowService} 实现。
  *
- * <p><b>Phase C 变更要点</b>：本类的方法体由 {@code DeliveryController} 与
+ * <p><b>Phase C 变更要点</b>：本类的方法体由拆分前的 {@code DeliveryController} 与
  * {@code ManagerOrderController} 原样迁移而来（校验顺序、错误文案、副作用次序均保持不变），
  * 只做了三类改造：</p>
  * <ol>
@@ -347,17 +347,41 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException("当前状态不可确认线下收款");
         }
 
-        // 支付状态 CAS：待收款/未付 → 已付（重复确认时幂等跳过）
+        // 支付状态守卫：[2026-09-30 修 F-00] 只接受「钱还没到手」(0 未付 / 1 待收款) → 已付(2)。
+        //
+        // 原实现是 `updatePaymentStatusIf(orderId, payCur, PAID)`，而 payCur 是**刚读到的当前值**
+        // ⇒ expected 恒等于现值，这个 CAS 对"从哪个状态迁入"没有任何限制，等于没有守卫。
+        // 后果链完整可复现：PaymentServiceImpl.refundPayment 把 payment_status 置 3（已退款）
+        // 但**不动 status**，而本方法上面的状态守卫只要求 status ∈ {配送中(2), 已送达(3)}
+        // ⇒ 已退款单能在这里被改回已付款(2)；随后 recordCashCollection 的幂等判据
+        // `countByOrderIdAndStatus(orderId, PAID)` 已被改写成 0，于是它会**再插一条全额 PAID 流水** ——
+        // 客户拿到了退款，报表上却显示这笔钱又被收了一次，而对账等式2 不会报
+        // （"已付款"与"有 PAID 凭证"同时成立）。这违反不变量「支付状态只前进、不倒滚，
+        // 3/4 是终态；唯一写 2 的入口是 markPaidIfCollectable，绝不复活 3/4」(AGENTS.md §1.1)。
+        //
+        // 正确做法：走 markPaidIfCollectable —— 它的 SQL 写死 `payment_status in (0, 1)`，
+        // 终态由数据库那一层保证，调用方改不动。3/4 单独给可读文案，不要笼统报"状态已变更"。
         int payCur = order.getPaymentStatus() != null ? order.getPaymentStatus() : PaymentStatus.UNPAID;
+        if (payCur == PaymentStatus.REFUNDED) {
+            throw new BusinessException("该订单已退款，不能重复收款");
+        }
+        if (payCur == PaymentStatus.CANCELLED) {
+            throw new BusinessException("该订单已取消，不能确认收款");
+        }
+        // 已付(2) 即幂等跳过 —— 这条短路不能丢：重复点确认时若不跳过就会拿到 0 行、
+        // 把一次正常的重复操作报成错误（详见 markPaidIfCollectable 的 javadoc）。
         if (payCur != PaymentStatus.PAID) {
-            int payAffected = orderMapper.updatePaymentStatusIf(orderId, payCur, PaymentStatus.PAID);
-            if (payAffected == 0) {
+            if (orderMapper.markPaidIfCollectable(orderId) == 0) {
                 throw new BusinessException("支付状态已变更，请刷新后重试");
             }
         }
-        // 已送达则顺带闭环为已完成
+        // 已送达则顺带闭环为已完成；[2026-09-30 修 F-11] 必须取受影响行数 ——
+        // 并发下订单可能已被别的路径改走（CAS 命中 0 行），若继续往下走收款/押金，订单会
+        // 静默停在已送达、界面却说已完成。
         if (cur == OrderStatus.DELIVERED) {
-            orderMapper.updateStatusIf(orderId, OrderStatus.DELIVERED, OrderStatus.COMPLETED);
+            if (orderMapper.updateStatusIf(orderId, OrderStatus.DELIVERED, OrderStatus.COMPLETED) == 0) {
+                throw new BusinessException("订单状态已变更，请刷新后重试");
+            }
         }
         orderMapper.appendSpecialNote(orderId, "[线下收款确认] 配送员ID=" + staffId);
 
@@ -609,6 +633,20 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         // 状态只前进：只有真的收到钱才写 已付款(2)（见 OrderMapper.markPaidIfCollectable）。
         int payCur = order.getPaymentStatus() != null ? order.getPaymentStatus() : PaymentStatus.UNPAID;
         if (markPaid && payCur != PaymentStatus.PAID) {
+            // [2026-09-30 修 F-39] 两件事，都不许省：
+            //   ① **终态不能被当成"可收款"**：3(已退款) / 4(已取消) 的单如果继续走「送达 + 记收款」，
+            //      后面会照常 `applyDepositOnPaid` 入押金、并产生**计件工钱** —— 等于给一张已经退过钱
+            //      或已取消的单发工资。这里**失败出声**（抛业务错误 ⇒ 整笔回滚），不要静默继续。
+            //   ② **0 行不一定错**：`payCur ∈ {0,1}` 时 CAS 命中 0 行只可能来自"并发的另一条收款路径
+            //      刚把它置为 已付(2)"（`refundPayment` 要求原状态是 PAID，不可能把 0/1 改成 3），
+            //      那是良性竞态，继续往下走是对的 ⇒ 所以这里**不**把返回值当错误。
+            //   ⚠️ **也不要用 `getById` 回读来判断**：REPEATABLE READ 下普通 SELECT 读到的是本事务
+            //      开始时的快照（就是上面的 `order`），会把良性竞态误判成异常；要当前读就得 `FOR UPDATE`，
+            //      为这点事给订单行加锁不值 —— 用快照里的 `payCur` 判 ① 已经足够。
+            if (payCur == PaymentStatus.REFUNDED || payCur == PaymentStatus.CANCELLED) {
+                throw new BusinessException("该订单支付状态为「" + PaymentStatus.textOf(payCur)
+                        + "」，不能按「已收款」完成配送，请刷新后重试");
+            }
             orderMapper.markPaidIfCollectable(orderId);
         }
         // [AQ-009] 只要订单最终为已付款，就在此刻入账预收桶押金（幂等，重复调用安全）
@@ -1501,8 +1539,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (order.getSpecialNote() == null || !order.getSpecialNote().contains("[指定退回待确认]")) {
             throw new BusinessException("该订单无需确认退回");
         }
-        // CAS 守卫在备注标记上：并发两次「同意」只有一个能改到
-        int changed = orderMapper.directedReturnApproveIf(orderId, stationId, OrderStatus.PENDING);
+        // CAS 守卫在**备注标记 + 状态**上：并发两次「同意」只有一个能改到；
+        // [2026-09-30 修 F-05] 状态条件不可省 —— 备注标记不会随状态前进消失，只看标记会让
+        // 「等待期间已被收货」的单被改回待配送(1) 并搬走营收归属（详见 OrderMapper 那条 SQL 的注释）。
+        // 审批时状态必为 待配送(1)：发起端只放行 {1,2} 且把状态归一为 PENDING。
+        int changed = orderMapper.directedReturnApproveIf(orderId, stationId, OrderStatus.PENDING,
+                OrderStatus.PENDING);
         if (changed == 0) {
             throw new BusinessException("该订单状态已变更，请刷新后重试");
         }
@@ -1527,7 +1569,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException("该订单无需确认退回");
         }
         // 拒绝转单 -> 回到配送中；delivery_station_id / delivery_staff_id 保持原样
-        int changed = orderMapper.directedReturnRejectIf(orderId, OrderStatus.DELIVERING);
+        // [2026-09-30 修 F-05] 同样带状态守卫（期望仍是 待配送(1)），理由同 approve。
+        int changed = orderMapper.directedReturnRejectIf(orderId, OrderStatus.DELIVERING,
+                OrderStatus.PENDING);
         if (changed == 0) {
             throw new BusinessException("该订单状态已变更，请刷新后重试");
         }

@@ -10,6 +10,7 @@ import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.mapper.ReceivableMapper;
+import com.example.aquaflow.util.BusinessTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,13 +59,21 @@ public class ReceivableService {
     /** 收款一律走支付链路（PAID 只能由它写入，见 recordCashCollection 的注释）。 */
     private final PaymentService paymentService;
 
+    /**
+     * [F-16] 注入时钟：账期锚点取"下单日所在月"（{@link #resolveDueDate}）。
+     * 原先是 {@code LocalDate.now()} 直连 —— 跨零点（尤其跨月末那一次）会让同一批订单
+     * 因为"晚算了几毫秒"落到不同月份，到期日整整差一个月，而测试无法固定"下单日"。
+     */
+    private final BusinessTime businessTime;
+
     public ReceivableService(ReceivableMapper receivableMapper, OrderMapper orderMapper,
                              CustomerStationConfigMapper customerStationConfigMapper,
-                             PaymentService paymentService) {
+                             PaymentService paymentService, BusinessTime businessTime) {
         this.receivableMapper = receivableMapper;
         this.orderMapper = orderMapper;
         this.customerStationConfigMapper = customerStationConfigMapper;
         this.paymentService = paymentService;
+        this.businessTime = businessTime;
     }
 
     /**
@@ -277,7 +286,9 @@ public class ReceivableService {
         if (!SettlementCycle.MONTHLY.equals(cfg.getSettlementCycle())) {
             return null;
         }
-        LocalDate today = LocalDate.now();
+        // [F-16] 原先是 LocalDate.now() 直连：这里是账期锚点的"下单日"，跨零点会让同一笔账
+        // 因为晚算几毫秒而锚到另一个月（到期日差一个月）；口径本身（月末 + dueDays）一个字没动。
+        LocalDate today = businessTime.today();
         return today.withDayOfMonth(today.lengthOfMonth()).plusDays(cfg.getDueDays());
     }
 

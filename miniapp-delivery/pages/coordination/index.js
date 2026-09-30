@@ -113,7 +113,7 @@ function goodsView(o) {
 /**
  * 给「待分配」订单补**客户信用标** —— 站长一眼看出"这单的客户欠不欠钱"。
  *
- * 三个字段全部由后端下发（`DeliveryController.attachCustomerRisk` → `CustomerRiskService`）：
+ * 三个字段全部由后端下发（`DeliveryConsoleServiceImpl.attachCustomerRisk` → `CustomerRiskService`）：
  *   · `customerRiskLevel`      NORMAL 正常 / WATCH 关注 / ALERT 预警 / FREEZE 冻结
  *   · `customerRiskLevelText`  中文（正常 / 关注 / 预警 / 冻结）
  *   · `customerRiskNote`       整句话，如"有 ¥320.00 挂账，都在账期内"
@@ -502,7 +502,7 @@ Page({
       // 待分配：合并未分配 + 转单请求（含「转单中」订单）
       // 状态检测：special_note 带 [指定退回待确认] => 转单中，前端渲染「同意/拒绝」而非「分配/外派」
       // 信用标（riskView）只加在这里：抢单池 / 指定外派是**跨站可见面**，
-      // "这个客户欠多少钱"是归属站的经营信息，后端也不下发（见 DeliveryController）。
+      // "这个客户欠多少钱"是归属站的经营信息，后端也不下发（见 DeliveryConsoleServiceImpl）。
       const pendingList = [
         ...(pendingRes.data || []),
         ...(transferRes.data || [])

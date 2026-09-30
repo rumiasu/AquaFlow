@@ -146,7 +146,14 @@ public class FileManageController {
             log.warn("[FileManage] 对象存储删除失败，仍清除数据库记录: objectName={}, error={}",
                     file.getObjectName(), e.getMessage());
         }
-        fileInfoMapper.deleteById(id);
+        // [F-25 2026-09-30] 必须看受影响行数：上面 getById 的判空只覆盖"这条早就没了"，
+        // 覆盖不了"读出来到删下去之间被另一个请求删掉"（并发双击 / 两端同时点删除）——
+        // 那时 DELETE 命中 0 行，旧实现照样返回 success（界面说删掉了）。与 AGENTS §8.20
+        // 「按 id 操作必须检查受影响行数」同形。COS 那一步无论如何都已尽力删过（失败只 WARN），
+        // 所以这里回业务错误只影响"哪句话说给用户"，不会留下没删的对象。
+        if (fileInfoMapper.deleteById(id) == 0) {
+            return Result.error("文件不存在或已被删除");
+        }
         return Result.success();
     }
 

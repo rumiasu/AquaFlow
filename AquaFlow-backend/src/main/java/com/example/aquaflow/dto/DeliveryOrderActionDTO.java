@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * 配送端订单状态变更写请求的强类型载体集合（Phase D-C2）。
  *
- * <p>原来这些端点在 {@code DeliveryController} 内用 {@code Map<String,Object>} 接参并强转，
+ * <p>原来这些端点在 {@code DeliveryController}（F-18 拆分前）内用 {@code Map<String,Object>} 接参并强转，
  * 缺字段/类型错时静默 NPE 或记错账。现统一改为强类型 + {@code jakarta.validation}，
  * 非法入参在边界被 {@code MethodArgumentNotValidException} → {@code Result.error} 拒回。</p>
  *
@@ -171,7 +171,7 @@ public final class DeliveryOrderActionDTO {
          * 在 HTTP 路径上不可达**：现金单点「配送完成」只会停在 已送达(3) 且 payment_status 被写成
          * 未付(0)，钱不入账；配送备注也写不进 `special_note`。
          *
-         * <p>⚠️ 改这里必须同步 `DeliveryController.toCompleteParams`；漏一个字段不会报错，
+         * <p>⚠️ 改这里必须同步 `DeliveryTaskController.toCompleteParams`；漏一个字段不会报错，
          * 只会静默丢功能。新增字段后请补一条走 HTTP 的用例（见 DeliveryCompleteIntegrationTest）。
          */
         private Boolean collected;
@@ -189,7 +189,7 @@ public final class DeliveryOrderActionDTO {
          * <p>⚠️ 完成配送页只在**有争议**时才让配送员看到这一项（默认收起；地址没写清有没有电梯时自动展开），
          * 所以这里收到 null 是**常态**，不是"他没填就是漏了"。</p>
          *
-         * <p>⚠️ 同样必须同步 {@code DeliveryController.toCompleteParams} —— 漏了不会报错，
+         * <p>⚠️ 同样必须同步 {@code DeliveryTaskController.toCompleteParams} —— 漏了不会报错，
          * 只会静默丢掉上报值（本文件里 {@code collected} 就是这么丢过一次，见上面的注释）。</p>
          */
         private Integer reportedFloor;

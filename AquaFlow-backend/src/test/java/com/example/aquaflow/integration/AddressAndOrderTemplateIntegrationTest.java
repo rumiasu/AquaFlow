@@ -135,9 +135,17 @@ class AddressAndOrderTemplateIntegrationTest extends AbstractIntegrationTest {
         // Bob 在 A 站没有任何订单 → A 站站长不得读他的地址
         Api cross = get("/api/addresses/" + bobAddr, mgrToken());
         assertFalse(cross.isSuccess(), "站长不得读他站客户的地址，实际=" + cross);
+        // [F-31 2026-09-30] 原来只断言 !isSuccess：任何拒绝（客户不存在 / 参数问题）都能通过，
+        // 而本用例要证明的是"归属判权"这条判据。现钉住 AddressController 里那一条的具体文案。
+        assertTrue(cross.message() != null && cross.message().contains("无权查看他站客户地址"),
+                "拒绝必须来自站长口的归属判权分支，实际=" + cross.message());
 
-        assertFalse(get("/api/addresses/" + aliceAddr, staffToken(driverA, "DELIVERY", stationA)).isSuccess(),
-                "配送员不得通过地址簿读取客户地址");
+        Api byDelivery = get("/api/addresses/" + aliceAddr, staffToken(driverA, "DELIVERY", stationA));
+        assertFalse(byDelivery.isSuccess(), "配送员不得通过地址簿读取客户地址");
+        // [F-31 2026-09-30] 同上：配送员会话缺 stationId 也会被别处拒，光看"不成功"证明不了
+        // 是「配送员一律不给地址」这条规则在起作用。现钉住那条分支的文案。
+        assertTrue(byDelivery.message() != null && byDelivery.message().contains("权限不足"),
+                "拒绝必须来自『配送员禁读地址簿』那条分支，实际=" + byDelivery.message());
     }
 
     @Test
@@ -222,5 +230,12 @@ class AddressAndOrderTemplateIntegrationTest extends AbstractIntegrationTest {
         Api others = post("/api/order-templates/from-order?orderId=" + aliceOrder + "&stationId=" + stationA,
                 customerToken(bob), null);
         assertFalse(others.isSuccess(), "不得用别人的订单建模板，实际=" + others);
+        // [F-31 2026-09-30] 原来只断言 !isSuccess：本条唯一能证伪的东西是**有没有凭空建出模板**，
+        // 而"不成功"在 orderId 传错、参数被拒时同样成立。现直接查库钉住双方模板数：
+        // Alice 仍然只有她自己建的 1 条，Bob 一条都没有（旧实现会拿别人的订单给 Bob 造一条）。
+        assertEquals(1, intOf("SELECT COUNT(*) FROM order_template WHERE customer_id=?", alice),
+                "Alice 的模板数不得因越权调用而改变");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM order_template WHERE customer_id=?", bob),
+                "Bob 不得借别人的订单凭空建出模板");
     }
 }

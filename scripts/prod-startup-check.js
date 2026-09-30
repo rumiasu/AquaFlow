@@ -16,14 +16,14 @@
  *
  * - **必需（缺失即拒启）**：`DB_URL` / `DB_USERNAME` / `DB_PASSWORD` / `JWT_SECRET`（另需长度 ≥ 32）/
  *   `WX_APP_ID` / `WX_APP_SECRET` / `WX_STAFF_APP_ID` / `WX_STAFF_APP_SECRET` / `CORS_ALLOWED_ORIGINS`。
- *   机制是 `application-prod.yml` 里写成 `${VAR}`（**无默认值**）⇒ Spring 解析占位符就失败。
- *   ⚠️ **2026-09-29 本机复测推翻了其中 `DB_URL` 那组**：`spring.datasource.url` 的占位符启动期
- *   **并不解析**（Spring Boot 4.0.6 + Hikari 懒初始化：摘掉 DB_URL 后 profile=prod 照样打印
- *   Started AquaFlowApplication，`information_schema.processlist` 里应用连接数为 0）——
- *   场景「摘掉 DB_URL」实测判 **start** 而非 refuse，缺 DB_URL 的真实后果是**服务起得来、
- *   首个查库请求才炸**。JWT/微信三项走 `RequiredConfigChecker` 不受影响（同日复测通过）。
- *   TODO(待拍板)：A = 启动期强校验（数据源注入点强制解析，恢复"缺失即拒启"）；B = 承认懒初始化、
- *   改本脚本场景11判据与 `application-prod.yml` 头注释。差别与拍板后落点见 docs/design/16 §9.3。
+ *   机制分两档，别再混成一句"占位符无默认值就拒启"：
+ *   · `JWT_SECRET` / 微信 / `CORS_ALLOWED_ORIGINS` 等**有人读的键** —— 由 `RequiredConfigChecker`
+ *     的 `@Value` 与 `environment.getProperty` 在启动期解析，缺了即抛、拒启。
+ *   · **数据源三件（`DB_URL`/`DB_USERNAME`/`DB_PASSWORD`）有个坑，2026-09-30 实测**：
+ *     `spring.datasource.url` 的占位符**启动期本没人读**（Hikari 懒初始化，摘掉 DB_URL 服务照样
+ *     Started、`processlist` 连接 0），yml 写 `${DB_URL}` 拦不住 —— 已按拍板 A 由
+ *     `RequiredConfigChecker#checkProdDatasource()` **显式读一次**补上（缺了在启动期拒，
+ *     错误信息点名缺失的变量）。用例 `RequiredConfigCheckerGuardTest`；本脚本场景 11 即它的端到端验证。
  * - **可选（缺失只降级）**：**COS 四件套**。缺任一项时图片上传不可用（接口回「对象存储未配置」），
  *   订单/配送/桶账/水票/对账照常 —— 别把它做成启动前置条件。
  *   ⚠️ 这条是**修出来的**：原先 `COS_SECRET_ID/KEY` 无默认值 ⇒ 没配对象存储整个系统起不来；

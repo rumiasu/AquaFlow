@@ -76,17 +76,23 @@ public class AuthRequestDTO {
         private java.math.BigDecimal longitude;
     }
 
-    /** POST /api/auth/bind-staff：员工绑定微信（姓名+手机号+wx code） */
+    /**
+     * POST /api/auth/bind-staff：员工绑定微信（wx 登录 code + **站长签发的一次性绑定码**）。
+     *
+     * <p>[2026-09-30 F-03③] 原来的凭据是「姓名 + 手机号」—— 两项都是**公开信息**，却能签发员工会话，
+     * 已换成绑定码（决策正本 {@code docs/design/16} §9.3）。
+     * <b>两个 code 别混</b>：{@code code} 是 {@code wx.login} 拿到的临时登录凭证（用来换 openid），
+     * {@code bindCode} 是站长在员工管理里生成的 6 位数字码（用来证明"你是这名员工"）。</p>
+     */
     @Data
     public static class BindStaff {
+        /** {@code wx.login} 的临时登录凭证（换 openid 用）—— **不是**绑定码。 */
         @NotBlank(message = "登录code不能为空")
         private String code;
 
-        @NotBlank(message = "姓名不能为空")
-        private String name;
-
-        @NotBlank(message = "手机号不能为空")
-        private String phone;
+        /** 站长签发的一次性绑定码（6 位数字、10 分钟有效、用一次即废）。 */
+        @NotBlank(message = "绑定码不能为空")
+        private String bindCode;
     }
 
     /** POST /api/auth/update-profile：更新资料（两字段均可选，仅强类型化） */

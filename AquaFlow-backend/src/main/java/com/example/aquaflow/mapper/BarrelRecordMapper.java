@@ -20,13 +20,10 @@ public interface BarrelRecordMapper {
     @Select("select * from barrel_record where id = #{id}")
     BarrelRecord getById(@Param("id") Long id);
 
-    /**
-     * 无条件的通用状态更新。
-     * ⚠️ 只允许用于「不需要前置状态保证」的场景（如纯还桶留痕、数据修复）。
-     * 审批流转一律用下面三个 CAS 方法，避免并发下把已处理的单子改回去。
-     */
-    @Update("update barrel_record set status = #{status}, handle_note = #{handleNote} where id = #{id}")
-    void updateStatus(@Param("id") Long id, @Param("status") Integer status, @Param("handleNote") String handleNote);
+    // [2026-09-30 F-19] 已删除无守卫的 updateStatus(id, status, handleNote)：全仓零调用。
+    // 原注释要求"只用于不需要前置状态保证的场景"，但那种场景**从来没有出现过** ——
+    // 实际流转全部走下面的 CAS 三件套（confirmReceived / finishRefund / reject）。
+    // 留着它等于给下一个人一条现成的无守卫旁路（无 expected-state 的 updateStatus 属待清除旧路径，AGENTS §6）。
 
     // =========================================================================
     // 退桶状态机 1 → 2 → 3（DEF-7）：全部走 CAS，affected==0 代表状态已被别人改过

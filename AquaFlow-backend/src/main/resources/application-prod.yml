@@ -7,8 +7,11 @@
 #    见 `__verify_prod_startup.py` 的输出）。这两类**机制不同**，别混：
 #   · **必需（缺失即拒启）**：DB_URL / DB_USERNAME / DB_PASSWORD / JWT_SECRET /
 #     WX_APP_ID / WX_APP_SECRET / WX_STAFF_APP_ID / WX_STAFF_APP_SECRET / CORS_ALLOWED_ORIGINS。
-#     前 1 组与最后 1 项靠**占位符无默认值**（Spring 解析期就失败）；JWT/客户端微信那三项
-#     另有一道 `RequiredConfigChecker`（JWT 还要求长度 ≥ 32）。
+#     ⚠️ 本文件的 `${X}`（无默认值）只对**启动期有人读的键**（JWT/微信/CORS → 解析期就失败）有效；
+#     数据源三件**启动期本没人读**（Hikari 懒初始化 —— 2026-09-30 实测摘掉 DB_URL 服务照样起来、
+#     连接池首个查库请求才建立），由 `RequiredConfigChecker#checkProdDatasource()` **显式读一次兜底**
+#     （2026-09-30 拍板 A）。改本文件的占位符 ≠ 有护栏，护栏在那个类里。
+#     JWT 另有一道 `RequiredConfigChecker`（JWT 还要求长度 ≥ 32）。
 #   · **可选（缺失只降级，不阻断启动）**：COS 四件套。**这里必须给默认值** ——
 #     第一版写的是 `${COS_SECRET_ID}`（无默认值），于是"没配对象存储"会让**整个水站系统起不来**，
 #     而代码本来是为它设计了优雅降级的（`CosUtil.uploadFailureMessage` 有专门的"对象存储未配置"
@@ -44,5 +47,15 @@ cos:
   bucket-name: ${COS_BUCKET_NAME:}
 
 app:
+  # [F-06 2026-09-30] 生产后门开关：dev-login 必须字面 false。
+  # ⚠️ 写在这里**不是**闸 —— 命令行参数（--app.dev-login-enabled=true）/ SPRING_APPLICATION_JSON /
+  #    直接映射的环境变量（APP_DEV_LOGIN_ENABLED）优先级都高于配置文件，照样能覆盖它。
+  #    真正的闸是启动期硬校验 `config/RequiredConfigChecker#checkProdSafetySwitches`：
+  #    prod profile 生效时，只要解析出的 app.dev-login-enabled 或 app.payment.mock-wechat-pay 为 true，
+  #    直接 `IllegalStateException` 拒绝启动（与"缺变量"那套 Spring 解析期失败是两回事）。
   dev-login-enabled: false
+  # ⚠️ `app.payment.mock-wechat-pay` **故意不写在本文件**：它由 `application.yml` 的
+  #    `${MOCK_WECHAT_PAY:false}` 提供，闸同样只有上面那道启动期硬校验。
+  #    若在这里写死 false，`MOCK_WECHAT_PAY=true` 会被配置层静默覆盖 —— 看着"有闸"，
+  #    实则那道校验再也不会触发（F-06 的验收场景随之失效）。要收紧就改 Checker，别改这里。
   cors-allowed-origins: ${CORS_ALLOWED_ORIGINS}

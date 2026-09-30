@@ -284,11 +284,19 @@ gate('发布物不含本地开发配置（需先 bootJar）',
   'node', ['scripts/check-jar-no-local-config.js'])
 gate('部署冒烟检查（打本机 8080）',
   'node', ['scripts/smoke-check.js'])
+// 小程序文本体检（2026-09-30 新增，合成 F-33 + F-13 的一半）：按扩展名**全仓遍历**两端小程序的
+// `.js/.wxml/.wxss/.json`，查 ① UTF-8 BOM（skill §8.28：带 BOM 的 .wxss 让开发者工具报编译错且
+// 不指名文件，而当时四个门禁全绿）② `<text>` 内出现开发词（AGENTS §6 的面向用户文案禁令；
+// 注释里随便写，脚本先剥注释再匹配）。退出码 3 = 环境不允许（找不到两端小程序目录），故按跳过处理。
+// ⚠️ 它取代了 `scripts/debug/__check-no-bom.js` 这个**没有任何入口**的孤儿脚本（check-gate-parity.js 的
+//    GATE_PATTERN 认不出 `__` 前缀；旧脚本还是硬编码 16 文件清单）。旧脚本有意保留，别再往它清单里加文件。
+gate('小程序文本体检（BOM / 面向用户文案的开发词）',
+  'node', ['scripts/check-miniapp-text.js'], { skipCodes: [3] })
 
 // ---------------------------------------------------------------------------
-// ④ 需要显式给出的两项（不自动跑）
+// ⑤ 需要显式给出的三项（不自动跑）
 // ---------------------------------------------------------------------------
-console.log('\n[4] 需要显式执行的三项（本脚本不自动跑）')
+console.log('\n[5] 需要显式执行的三项（本脚本不自动跑）')
 console.log('  · 备份 / 恢复演练：node scripts/backup-restore-drill.js drill')
 console.log('    （会写演练库 aquaflow_restoredrill；成功会自己清理）')
 console.log('  · 生产启动姿态：node scripts/prod-startup-check.js')

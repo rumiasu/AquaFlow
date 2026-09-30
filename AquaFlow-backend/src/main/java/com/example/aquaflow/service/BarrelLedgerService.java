@@ -219,7 +219,14 @@ public class BarrelLedgerService {
                 BigDecimal unitPrice = resolveUnitPrice(t, depositByProduct);
                 createLot(customerId, stationId, t.getProductId(), unitPrice, qty,
                         t.getRelatedOrderId() != null ? t.getRelatedOrderId() : orderId, operatorId);
-                inTransitMapper.updateStatus(t.getId(), "DELIVERED");
+                // [F-32] CAS：期望态就是上面 listPendingByOrderId 取到的 'PENDING'，并检查受影响行数。
+                // 原来这里是无期望态、不看行数的更新：同一个 orderId 的送达被并发/重复执行时，
+                // 上面 createLot 已经把权益与押金条写了一遍，无守卫 UPDATE 照样"成功"、0 行也不报错
+                // ⇒ 重复入账被静默掩盖。现在 0 行 = 这一行已被另一次执行流转过，直接抛业务异常，
+                // 让整笔事务回滚（重复建出来的押金条随事务一起消失）—— 失败出声，不静默。
+                if (inTransitMapper.updateStatusIf(t.getId(), "PENDING", "DELIVERED") == 0) {
+                    throw new BusinessException("配送中桶记录已被其他操作转正（订单可能正在被重复完成或已取消），请刷新后重试");
+                }
             }
         }
         return outcome;

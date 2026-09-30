@@ -98,11 +98,10 @@ public interface OrderBarrelExceptionMapper {
                          @Param("managerNote") String managerNote,
                          @Param("status") String status);
 
-    @Update("update order_barrel_exception set " +
-            "status = #{status}, " +
-            "executed_at = NOW() " +
-            "where id = #{id}")
-    void updateStatus(@Param("id") Long id, @Param("status") String status);
+    // [2026-09-30 F-19] 已删除无期望态的 updateStatus(id, status)：全仓零调用。
+    // 它与紧邻的 updateStatusIf 干的是同一件事（status + executed_at），只差一个
+    // `and status = #{expectedStatus}`；两条并存必然有人用错那条无守卫的。
+    // 异常单的状态流转一律走下面的 updateStatusIf / updateDecisionIf（affected=0 必须当失败处理）。
 
     /**
      * 带预期状态的状态流转（CAS），用于「执行中 / 已执行」这两个终态守卫。

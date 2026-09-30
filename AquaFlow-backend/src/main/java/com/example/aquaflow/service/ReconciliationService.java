@@ -1,6 +1,7 @@
 package com.example.aquaflow.service;
 
 import com.example.aquaflow.exception.BusinessException;
+import com.example.aquaflow.util.BusinessTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -27,6 +28,13 @@ public class ReconciliationService {
 
     /** 分级告警：对账不平属**系统故障** → 投给系统管理员（见 constant/AlertType） */
     private final AlertService alertService;
+
+    /**
+     * [F-16] 注入时钟：本类的"今天"决定对账结果落在哪一天（{@code reconciliation_result.run_date}）。
+     * 原先是 {@code LocalDate.now()} 直连 —— 跨零点重跑时"同一天的结果"会分裂成两天，
+     * 且测试没法把对账日期钉在指定某天。
+     */
+    private final BusinessTime businessTime;
 
     /**
      * V2 检查项里属于「站长台账」而不是「客户账」的键 —— 它们不平是**运营故障**
@@ -101,9 +109,10 @@ public class ReconciliationService {
                 + "HAVING SUM(COALESCE(a.right_amount, 0)) - COALESCE(MAX(da.balance), 0) > 0.009) x";
     }
 
-    public ReconciliationService(JdbcTemplate jdbcTemplate, AlertService alertService) {
+    public ReconciliationService(JdbcTemplate jdbcTemplate, AlertService alertService, BusinessTime businessTime) {
         this.jdbcTemplate = jdbcTemplate;
         this.alertService = alertService;
+        this.businessTime = businessTime;
     }
 
     /**
@@ -182,7 +191,9 @@ public class ReconciliationService {
      * 例如 E-PAY 落表是 ERROR，但投递对象是站长。别把两者当成一个字段。</p>
      */
     public void persistResults(Map<String, Integer> v1, Map<String, Integer> v2) {
-        java.time.LocalDate today = java.time.LocalDate.now();
+        // [F-16] 原先是 java.time.LocalDate.now() 直连：跨零点重跑会让"今天"的结果落到明天那一行，
+        // 且测试无法把对账日期固定在指定某天（同一天重跑覆盖的前提也就没法验证）。
+        java.time.LocalDate today = businessTime.today();
         try {
             writeRows(today, v1, "ERROR");
             writeRows(today, v2, "WARN_KEYS");
@@ -352,7 +363,9 @@ public class ReconciliationService {
         out.put("stationId", stationId);
         out.put("checks", r);
         out.put("totalDiff", r.values().stream().mapToInt(Integer::intValue).sum());
-        out.put("checkedAt", java.time.LocalDateTime.now().toString());
+        // [F-16] 原先是 java.time.LocalDateTime.now() 直连：跨零点前后两次调用会拿到相差一天的时间戳，
+        // 站长端按它判断"这份读数是什么时候的"就会指向错误的那一天。
+        out.put("checkedAt", businessTime.now().toString());
         return out;
     }
 

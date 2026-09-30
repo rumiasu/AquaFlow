@@ -7,6 +7,7 @@ import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.*;
 import com.example.aquaflow.service.StaffEarningService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.BusinessTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,15 @@ public class StaffEarningServiceImpl implements StaffEarningService {
     @Autowired private StaffPayrollMapper staffPayrollMapper;
     @Autowired private StaffMapper staffMapper;
     @Autowired private StaffEarningItemMapper staffEarningItemMapper;
+
+    /**
+     * [F-16] 业务时钟。本类只有一处取"今天"：结算单号里的日期段
+     * （{@code PRyyyyMMdd-######}）。原先是 {@code LocalDate.now()} 直连 ——
+     * 跨零点生成的两张单会带上不同日期，而测试没法固定这个日期段。
+     * ⚠️ 结算期间本身（{@code periodStart}/{@code periodEnd}）由调用方传入，与本时钟无关；
+     * "结束日 + 1 天"的排他上界也照旧不改（AGENTS §8.19）。
+     */
+    @Autowired private BusinessTime businessTime;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -182,7 +192,7 @@ public class StaffEarningServiceImpl implements StaffEarningService {
         p.setNote(note);
         staffPayrollMapper.insert(p);
 
-        String no = String.format("PR%s-%06d", LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE), p.getId());
+        String no = String.format("PR%s-%06d", businessTime.today().format(DateTimeFormatter.BASIC_ISO_DATE), p.getId());
         staffPayrollMapper.setPayrollNo(p.getId(), no);
 
         // ⚠️ 时间上界用「结束日 +1 天」而不是 <= 结束日：endDate 为当天时 <= 当天 在 SQL 里

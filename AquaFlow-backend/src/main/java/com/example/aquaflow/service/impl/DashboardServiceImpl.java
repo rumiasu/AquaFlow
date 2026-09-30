@@ -4,6 +4,7 @@ import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.constant.PayMethod;
 import com.example.aquaflow.mapper.DashboardMapper;
 import com.example.aquaflow.service.DashboardService;
+import com.example.aquaflow.util.BusinessTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -40,9 +41,13 @@ public class DashboardServiceImpl implements DashboardService {
     @Autowired
     private DashboardMapper dashboardMapper;
 
+    /** [F-16] 注入时钟：这里原先是 {@code LocalDateTime.now()} 直连，跨零点会让"今天/近7天/近30天"的区间端点跟着 JVM 真实时间漂移，测试无法固定。 */
+    @Autowired
+    private BusinessTime businessTime;
+
     @Override
     public Map<String, Object> report(Long stationId, String range) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = businessTime.now();
         LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
 
         LocalDateTime start;

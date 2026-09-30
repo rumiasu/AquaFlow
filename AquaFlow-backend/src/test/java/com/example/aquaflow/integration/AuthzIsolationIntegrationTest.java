@@ -56,6 +56,12 @@ class AuthzIsolationIntegrationTest extends AbstractIntegrationTest {
         Api res = post("/api/delivery/orders/" + order + "/accept", customerToken(alice), null);
 
         assertFalse(res.isSuccess(), "客户不应能调用员工专属接口，实际=" + res);
+        // [F-31 2026-09-30] 原来只断言 !isSuccess：把 @RequireRole 摘掉后，acceptOrder 自己的
+        // 「订单不属于本站 / 没派给这个配送员」闸门同样会拒 —— 用例对"权限检查还在不在"毫无察觉。
+        // 现在钉住两件事：拒绝必须来自角色切面（权限不足），且订单状态一个字节都没动。
+        assertTrue(res.message() != null && res.message().contains("权限不足"),
+                "拒绝必须来自 RequireRoleAspect 而不是撞上别的前置校验，实际=" + res.message());
+        assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", order), "被越权拒绝后订单状态必须保持原状");
     }
 
     @Test

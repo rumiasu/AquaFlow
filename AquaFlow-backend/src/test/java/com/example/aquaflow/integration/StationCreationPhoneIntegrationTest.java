@@ -81,5 +81,11 @@ class StationCreationPhoneIntegrationTest extends AbstractIntegrationTest {
         Api res = post("/api/stations", staffToken(manager, "STATION_MANAGER", station),
                 "{\"name\":\"   \",\"phone\":\"0531-55555555\"}");
         assertNotEquals(0, res.code(), "空白名称必须被拒，实际=" + res);
+        // [F-31 2026-09-30] 原来只断言 code != 0：同一条链路上电话为空、坐标非法、无权限
+        // 都会给出"非 0"，证明不了拒的是**名称**。现在钉住 requireContactFields 的首条判据，
+        // 与本文件另两条「没电话必须被拒」的文案断言对齐。
+        assertTrue(res.message() != null && res.message().contains("请填写水站名称"),
+                "拒绝必须点名缺的是水站名称，实际=" + res.message());
+        assertEquals(0, intOf("SELECT COUNT(*) FROM station WHERE TRIM(name)=''"), "被拒的站不得留痕");
     }
 }

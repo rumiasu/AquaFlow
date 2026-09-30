@@ -29,6 +29,11 @@ class AuthBindingDtoValidationIntegrationTest extends AbstractIntegrationTest {
     void loginMissingUsernameRejected() {
         Api res = post("/api/auth/login", null, "{\"password\":\"whatever\"}");
         assertTrue(!res.isSuccess(), "缺 username 应被拒: " + res);
+        // [F-31 2026-09-30] 原来只断言 !isSuccess —— 密码是假的，登录本来就会失败，
+        // 于是把 username 的 @NotBlank 摘掉这条用例照样绿（走错分支也算过）。
+        // 现钉住拒绝文案来自 Bean Validation，而不是"用户名或密码错误"那条业务分支。
+        assertTrue(res.message() != null && res.message().contains("用户名和密码不能为空"),
+                "拒绝必须来自 username 的 @NotBlank，实际=" + res.message());
     }
 
     @Test
@@ -39,6 +44,10 @@ class AuthBindingDtoValidationIntegrationTest extends AbstractIntegrationTest {
         Api res = post("/api/auth/change-password", token,
                 "{\"oldPassword\":\"123456\",\"newPassword\":\"123\"}");
         assertTrue(!res.isSuccess(), "过短新密码应被拒: " + res);
+        // [F-31 2026-09-30] 原来只断言 !isSuccess —— staffToken 造的会话本身也可能被别的
+        // 前置校验挡下，只说"不成功"证明不了 @Size(min=6) 还在。现钉住字段级文案。
+        assertTrue(res.message() != null && res.message().contains("新密码长度不能少于6位"),
+                "拒绝必须来自 newPassword 的 @Size(min=6)，实际=" + res.message());
     }
 
     // ---- 绑定族 ----
@@ -61,6 +70,10 @@ class AuthBindingDtoValidationIntegrationTest extends AbstractIntegrationTest {
         String token = staffToken(mgr, "STATION_MANAGER", station);
         Api res = post("/api/manager/bind/release", token, "{\"reason\":\"走吧\"}");
         assertTrue(!res.isSuccess(), "缺 staffId 应被拒: " + res);
+        // [F-31 2026-09-30] 原来只断言 !isSuccess —— 该站长尚未绑任何配送员，
+        // 「找不到员工」同样会拒，摘掉 staffId 的 @NotNull 这条用例仍是绿的。现钉住文案。
+        assertTrue(res.message() != null && res.message().contains("staffId 不能为空"),
+                "拒绝必须来自 staffId 的 @NotNull，实际=" + res.message());
     }
 
     // ---- 反馈 ----

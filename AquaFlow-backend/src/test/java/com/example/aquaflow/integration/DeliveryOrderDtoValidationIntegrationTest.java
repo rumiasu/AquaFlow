@@ -103,5 +103,10 @@ class DeliveryOrderDtoValidationIntegrationTest extends AbstractIntegrationTest 
                 2 /* 配送中 */, 0, 2 /* 现金 */, "20.00", "30.00", "50.00", true, 1);
         Api res = post("/api/delivery/orders/" + order + "/complete", token, "{}");
         assertTrue(res.isSuccess(), "complete 合法空体应通过 @Valid 边界并落库，实际=" + res);
+        // [F-31 2026-09-30] 原来只断言 isSuccess：本用例真正要证明的是"空体**确实到达了 service**"，
+        // 而"返回 code=0"不能排除端点提前 return、被幂等短路或事务回滚。
+        // 现金单未收款（collected 缺省）→ 按 OrderWorkflowServiceImpl 的最终状态判定应停在 已送达(3)。
+        assertEquals(3, intOf("SELECT status FROM orders WHERE id=?", order),
+                "空体 complete 必须真的推进到 已送达(3)，而不是只回一个 code=0");
     }
 }

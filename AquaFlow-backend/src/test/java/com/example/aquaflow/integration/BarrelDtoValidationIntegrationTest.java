@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Phase D-B 契约测试：桶/押金写路径改为强类型 DTO + Bean Validation 后，
@@ -66,6 +67,10 @@ class BarrelDtoValidationIntegrationTest extends AbstractIntegrationTest {
                 "{\"customerId\":1,\"items\":[{\"productId\":1,\"qty\":1}]}");
 
         assertFalse(api.isSuccess(), "缺 clientToken 应被拒: " + api);
+        // [F-31 2026-09-30] 原来只断言 !isSuccess —— customerId=1 在空库里不存在，
+        // 「客户不存在」同样会拒，把 clientToken 的 @NotNull 摘掉这条用例照样绿。现钉住文案。
+        assertTrue(api.message() != null && api.message().contains("缺少幂等 token"),
+                "拒绝必须点名缺的是 clientToken，实际=" + api.message());
     }
 
     @Test
@@ -79,6 +84,10 @@ class BarrelDtoValidationIntegrationTest extends AbstractIntegrationTest {
                 "{\"customerId\":1,\"clientToken\":\"tok-y\",\"items\":[]}");
 
         assertFalse(api.isSuccess(), "空 items 应被拒: " + api);
+        // [F-31 2026-09-30] 同上：customerId=1 不存在会先被业务层挡下，光看"不成功"分不清
+        // 是 @NotEmpty 生效还是走了别的分支。现钉住字段级文案。
+        assertTrue(api.message() != null && api.message().contains("请填写还桶明细"),
+                "拒绝必须来自 items 的 @NotEmpty，实际=" + api.message());
     }
 
     @Test

@@ -54,6 +54,14 @@ public interface InterStationSettlementService {
     /**
      * 改价：**卖票站**（= 订单归属站 = 收票钱的那一站）把默认的「折算实付」改成「按挂牌价」。
      * 差价由它自己承担（{@code docs/design/31} §8.2）。
+     *
+     * <p>TODO(待拍板) <b>改价的时窗</b>：只许「未被接单」时改，还是送达之后也能补改？
+     * （正本 {@code docs/design/16} §9.3 第 1 行的派生第 2 问；完整事实见 {@code docs/design/31} §8.4。）
+     * 两种选择的差别：<b>只许未接单时改</b> = 价钱在接单前谈定，接单站不会被事后改账，代价是
+     * 接单后发现价不对只能先冲销再重结；<b>送达后也能补改</b> = 能按实际协商的价结清
+     * （<b>现在就是这一支</b>：只挡「已结清 / 已冲销」，不挡接单或送达之后），代价是已结过的款
+     * 要能冲销重结。拍板后改这里：{@code InterStationSettlementServiceImpl.priceByListed} 加一道
+     * 状态闸（接单/送达事实取 {@code orders}），或反过来把"随时可改"写死并删掉本标记。</p>
      */
     Map<String, Object> priceByListed(Long stationId, Long orderId, Long operatorId);
 

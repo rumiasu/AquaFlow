@@ -13,6 +13,35 @@
 SET @db := DATABASE();
 
 -- -----------------------------------------------------------------------------
+-- 0.0) v25 顺序门禁（F-07②，2026-09-30 加 · 不要删）
+--   本脚本第 6.1 步要读旧欠桶表 `customer_owed_barrel`；而必跑清单第 10 步的
+--   `migration_v25_retire_customer_owed_barrel.sql` 已把它 RENAME（且刻意不改回）。
+--   ⇒ 先跑过 v25、再回来跑本脚本，原来必报 1146；更糟的是第 1 步会先 `DELETE FROM
+--   customer_barrel_over`（那是**运行期欠桶真相源**），把在跑的库的欠桶擦掉再按旧口径重建。
+--   判据：**旧表不在原名下、且新表 `customer_barrel_over` 已在** ⇒ v25 已跑过、桶权益
+--   模型也已落地 ⇒ 本脚本无需再跑。
+--   实现：`@gate = 0` 时**全部 DML 都被门住**（步 1–6.1 各语句都带 `@gate = 1`），第 6.1
+--   步改用 `PREPARE` 生成（旧表不存在时不解析那个表名）⇒ skip 分支是一串合法空操作，
+--   脚本**正常退出（退出码 0）**、不报 1146、不动任何数据、重复执行等价于没跑。
+--   为什么不是 `EXIT`：**纯 SQL 脚本没有提前返回**，mysql 客户端只在报错时中止（退出码 1）；
+--   门控是仓内既有写法（`information_schema` 预检 + `PREPARE`）能表达"整体跳过"的最稳形式。
+--   ⚠️ 反过来：旧表**在**原名下、新表**不在**（`@gate = 1`）时**不跳过** —— 那是"DDL 还没跑"，
+--   必须让它照旧报错暴露出来，不许静默 skip。
+-- -----------------------------------------------------------------------------
+SET @old_owed := (SELECT COUNT(*) FROM information_schema.TABLES
+                  WHERE TABLE_SCHEMA=@db AND TABLE_NAME='customer_owed_barrel');
+SET @new_over := (SELECT COUNT(*) FROM information_schema.TABLES
+                  WHERE TABLE_SCHEMA=@db AND TABLE_NAME='customer_barrel_over');
+SET @gate := IF(@old_owed = 0 AND @new_over > 0, 0, 1);
+SELECT CASE
+         WHEN @gate = 0
+           THEN 'skip: v25 已执行（customer_owed_barrel 已退役、customer_barrel_over 已在），本脚本无需再跑（本次不写任何数据）'
+         WHEN @old_owed > 0
+           THEN '继续: 旧表 customer_owed_barrel 仍在原名下，执行 S2 回填（前置：先跑过 migration_aq_bucket_right_v1_ddl.sql）'
+         ELSE '注意: 两张表都不在 —— 旧表已无从读取（若确实跑过 v25 则属预期），而 S2 需要 _ddl.sql 建的表；缺表处会照旧报错，请先确认库名与前置'
+       END AS precheck_v25;
+
+-- -----------------------------------------------------------------------------
 -- 0) 差异登记表
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS migration_diff_bucket_right (
@@ -27,11 +56,13 @@ CREATE TABLE IF NOT EXISTS migration_diff_bucket_right (
 
 -- -----------------------------------------------------------------------------
 -- 1) 清掉上一轮回填结果（保证幂等；只删迁移批次，不碰后续业务写入的 lot）
+--    ⚠️ 每条 DML 都带 `@gate = 1`（v25 顺序门禁，见文件头 0.0）：
+--       v25 已跑过的库上 @gate = 0 ⇒ 这些 DELETE/INSERT/UPDATE 全是 0 行空操作
 -- -----------------------------------------------------------------------------
-DELETE FROM barrel_record_lot WHERE lot_id IN (SELECT id FROM customer_barrel_lot WHERE is_migrated=1);
-DELETE FROM customer_barrel_lot   WHERE is_migrated=1;
-DELETE FROM customer_barrel_over;
-DELETE FROM migration_diff_bucket_right;
+DELETE FROM barrel_record_lot WHERE @gate = 1 AND lot_id IN (SELECT id FROM customer_barrel_lot WHERE is_migrated=1);
+DELETE FROM customer_barrel_lot   WHERE @gate = 1 AND is_migrated=1;
+DELETE FROM customer_barrel_over  WHERE @gate = 1;
+DELETE FROM migration_diff_bucket_right WHERE @gate = 1;
 
 -- -----------------------------------------------------------------------------
 -- 2) Lot 回填：每个 (customer, station, product) 一个迁移批次
@@ -70,7 +101,7 @@ LEFT JOIN (
 ) ref ON ref.customer_id = a.customer_id
      AND ref.station_id  = a.station_id
      AND ref.product_id  = a.product_id
-WHERE a.quantity > 0;
+WHERE @gate = 1 AND a.quantity > 0;
 
 -- -----------------------------------------------------------------------------
 -- 3) 占用回填：只统计【已送达(3)/已完成(4)】订单的 (送出 − 收回)
@@ -87,6 +118,7 @@ JOIN (SELECT order_id, SUM(quantity) AS total_qty FROM order_item GROUP BY order
      ON oi2.order_id = o.id
 WHERE o.status IN (3, 4)
   AND o.delivery_bucket_qty IS NOT NULL
+  AND @gate = 1
 GROUP BY o.customer_id, o.station_id, oi.product_id;
 
 -- -----------------------------------------------------------------------------
@@ -103,7 +135,7 @@ FROM (
 ) r
 LEFT JOIN tmp_occupied o
        ON o.customer_id = r.customer_id AND o.station_id = r.station_id AND o.product_id = r.product_id
-WHERE COALESCE(o.occupied, 0) - r.right_qty <> 0;
+WHERE @gate = 1 AND COALESCE(o.occupied, 0) - r.right_qty <> 0;
 
 -- 顾客有占用但没有任何权益记录（历史上权益没进 asset 的漏账）也要登记
 INSERT INTO customer_barrel_over (customer_id, station_id, product_id, over_qty, create_time, update_time)
@@ -112,7 +144,7 @@ FROM tmp_occupied o
 LEFT JOIN customer_barrel_lot l
        ON l.customer_id = o.customer_id AND l.station_id = o.station_id
       AND l.product_id = o.product_id AND l.status = 1
-WHERE l.id IS NULL AND o.occupied <> 0;
+WHERE @gate = 1 AND l.id IS NULL AND o.occupied <> 0;
 
 -- -----------------------------------------------------------------------------
 -- 5) right_amount 回填：可退桶款 = Σ remain_qty × unit_price
@@ -123,27 +155,33 @@ JOIN (
   FROM customer_barrel_lot WHERE status = 1
   GROUP BY customer_id, station_id, product_id
 ) t ON t.customer_id = a.customer_id AND t.station_id = a.station_id AND t.product_id = a.product_id
-SET a.right_amount = t.amt, a.update_time = NOW();
+SET a.right_amount = t.amt, a.update_time = NOW()
+WHERE @gate = 1;
 
 UPDATE customer_barrel_asset SET right_amount = 0
-WHERE right_amount IS NULL;
+WHERE @gate = 1 AND right_amount IS NULL;
 
 -- -----------------------------------------------------------------------------
 -- 6) 差异登记（只登记，不强行对齐）
 -- -----------------------------------------------------------------------------
 
 -- 6.1 旧欠桶表 vs 新 over（站点级 vs 商品级，本身不可完全对齐，仅供人工参考）
-INSERT INTO migration_diff_bucket_right (customer_id, station_id, product_id, kind, expected_val, actual_val, diff_val, note)
-SELECT ow.customer_id, ow.station_id, NULL,
-       'OVER_VS_OLD_OWED', ow.owed_qty, COALESCE(s.over_sum, 0),
-       COALESCE(s.over_sum, 0) - ow.owed_qty,
-       '旧 customer_owed_barrel 为站点级(不分商品), 新 over 为商品级; 差额需人工核对'
-FROM customer_owed_barrel ow
-LEFT JOIN (
-  SELECT customer_id, station_id, SUM(over_qty) AS over_sum
-  FROM customer_barrel_over GROUP BY customer_id, station_id
-) s ON s.customer_id = ow.customer_id AND s.station_id = ow.station_id
-WHERE ow.owed_qty <> 0 OR COALESCE(s.over_sum, 0) <> 0;
+--      ⚠️ 本脚本**唯一**必须动态执行的一处：v25 已退役旧表时写死表名会在**解析期**报 1146，
+--         所以整条语句走 `PREPARE`（与 migration_v25 同一写法），旧表不在原名下就不生成它
+SET @s := IF(@gate = 1,
+  "INSERT INTO migration_diff_bucket_right (customer_id, station_id, product_id, kind, expected_val, actual_val, diff_val, note)
+   SELECT ow.customer_id, ow.station_id, NULL,
+          'OVER_VS_OLD_OWED', ow.owed_qty, COALESCE(s.over_sum, 0),
+          COALESCE(s.over_sum, 0) - ow.owed_qty,
+          '旧 customer_owed_barrel 为站点级(不分商品), 新 over 为商品级; 差额需人工核对'
+   FROM customer_owed_barrel ow
+   LEFT JOIN (
+     SELECT customer_id, station_id, SUM(over_qty) AS over_sum
+     FROM customer_barrel_over GROUP BY customer_id, station_id
+   ) s ON s.customer_id = ow.customer_id AND s.station_id = ow.station_id
+   WHERE ow.owed_qty <> 0 OR COALESCE(s.over_sum, 0) <> 0",
+  "SELECT 'skip: 旧表 customer_owed_barrel 已退役（v25 已跑过），跳过 6.1 的旧欠桶差异登记' AS r");
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 
 -- 6.2 权益金额 > 押金账户余额（退款会穿底，必须人工处理）
 INSERT INTO migration_diff_bucket_right (customer_id, station_id, product_id, kind, expected_val, actual_val, diff_val, note)
@@ -157,10 +195,10 @@ FROM (
 ) a
 LEFT JOIN customer_deposit_account acc
        ON acc.customer_id = a.customer_id AND acc.station_id = a.station_id
-WHERE a.right_amt > COALESCE(acc.balance, 0);
+WHERE @gate = 1 AND a.right_amt > COALESCE(acc.balance, 0);
 
 -- -----------------------------------------------------------------------------
--- 7) 只读校验
+-- 7) 只读校验（skip 分支下也照跑：此时它校验的是"当前库就这么个状态"，不写入任何东西）
 -- -----------------------------------------------------------------------------
 SELECT '=== E3 权益数量/金额 vs lot ===' AS t;
 SELECT a.customer_id, a.station_id, a.product_id,
@@ -203,4 +241,6 @@ SELECT (SELECT COUNT(*) FROM customer_barrel_lot)  AS lots,
        (SELECT COUNT(*) FROM customer_barrel_over) AS overs,
        (SELECT COUNT(*) FROM migration_diff_bucket_right) AS diffs;
 
-SELECT 'S2 回填完成' AS result;
+SELECT IF(@gate = 1,
+          'S2 回填完成',
+          'skip: v25 已执行（旧表已退役），本次未回填任何数据（退出码 0）') AS result;

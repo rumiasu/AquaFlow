@@ -45,9 +45,20 @@ public class GlobalExceptionHandler {
         return Result.error(e.getMessage());
     }
 
+    /**
+     * 业务拒绝（前置条件不满足、权限不足、状态不允许…）。
+     *
+     * <p>[2026-09-30 修 F-17] <b>级别从 ERROR 降为 WARN，且不再打堆栈</b>：本仓有 271 个端点，
+     * "权限不足""库存不足""该订单无需确认退回"这类**正常业务拒绝**每天都在发生，用 ERROR + 完整堆栈
+     * 记录会把真正的故障淹没（运维扫日志时无从分辨）。只留异常类型 + message，够定位是哪条路径拒的；
+     * 真需要堆栈时，把 {@code com.example.aquaflow} 的日志级别临时调 DEBUG 即可。</p>
+     *
+     * <p>注意：这里**不触发告警**（{@code AlertService} 只接未预期异常）—— 业务拒绝不是故障，
+     * 这条判据不能被"顺手补一条告警"改掉。</p>
+     */
     @ExceptionHandler(BusinessException.class)
     public Result handleBusiness(BusinessException e) {
-        log.error("业务异常: {}", e.getMessage(), e);
+        log.warn("业务拒绝[{}]: {}", e.getClass().getSimpleName(), e.getMessage());
         return Result.error(e.getMessage());
     }
 
@@ -174,21 +185,43 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 参数类型不匹配（如 stationId 传了 "None"、id 传了非数字）。
+     * 参数**类型**不匹配（如 stationId 传了 "None"、id 传了非数字）。
      * <p>同样是客户端参数问题，此前会落到 RuntimeException/Exception 分支变成 code=500
      * 「操作失败，请稍后重试」——把前端的拼串错误伪装成后端故障。</p>
+     *
+     * <p>[2026-09-30 修 F-17] {@code MethodArgumentNotValidException}（Bean Validation 失败）
+     * <b>已从这里拆走</b>：两者共用一个处理器时，字段级 message 会被一起压成
+     * 「参数格式不正确：参数」，客户端拿不到"数量至少 1""请指定配送员"这类可操作信息
+     * （同 skill §8.21②）。拆开后本处理器只负责"类型/格式不对"。</p>
      */
-    @ExceptionHandler({
-            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
-            org.springframework.web.bind.MethodArgumentNotValidException.class
-    })
-    public Result handleTypeMismatch(Exception e) {
-        String param = "参数";
-        if (e instanceof org.springframework.web.method.annotation.MethodArgumentTypeMismatchException m) {
-            param = m.getName();
-        }
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public Result handleTypeMismatch(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException e) {
         log.warn("参数格式不正确: {}", e.getMessage());
-        return Result.error("参数格式不正确：" + param);
+        return Result.error("参数格式不正确：" + e.getName());
+    }
+
+    /**
+     * [2026-09-30 修 F-17] Bean Validation 失败：把**字段级** message 原样回给调用方。
+     *
+     * <p>为什么必须单独一个处理器：DTO 上的 {@code @NotNull(message = "请指定配送员")} /
+     * {@code @Min(value = 1, message = "数量至少 1")} 写的就是"该怎么改"，而旧实现与类型不匹配
+     * 共用一个处理器，把它们一起压成「参数格式不正确：参数」——前端只能看到一句无从下手的提示。</p>
+     *
+     * <p>多条字段错误用「；」一次给全（只报第一条会逼调用方反复试）。<b>不要在文案里带字段名以外的
+     * 内部信息</b>（如 DTO 类名、校验注解名）——这些是给客户端看的。</p>
+     */
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public Result handleBeanValidation(
+            org.springframework.web.bind.MethodArgumentNotValidException e) {
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        for (org.springframework.validation.FieldError fe : e.getBindingResult().getFieldErrors()) {
+            String m = fe.getDefaultMessage();
+            parts.add(m != null && !m.isBlank() ? m : (fe.getField() + " 参数不合法"));
+        }
+        String msg = parts.isEmpty() ? "参数校验失败" : String.join("；", parts);
+        log.warn("参数校验失败: {}", msg);
+        return Result.error(msg);
     }
 
     /**

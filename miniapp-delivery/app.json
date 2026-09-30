@@ -41,8 +41,7 @@
     "pages/transfer/index",
     "pages/report/index",
     "pages/settings/index",
-    "pages/mine/edit",
-    "pages/feedback/index"
+    "pages/mine/edit"
   ],
   "window": {
     "backgroundTextStyle": "dark",

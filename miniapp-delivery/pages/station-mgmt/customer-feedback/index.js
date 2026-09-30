@@ -4,7 +4,10 @@
 //   顾客端 `miniapp-user/utils/request.js` 在接口 `code=500` 时会弹「要把这个问题告诉水站吗？」，
 //   用户点「上报」就真的 `POST /api/feedback` 落库。在后端 `GET /api/feedback/customers` 被接进本页
 //   之前，水站侧**没有任何页面能读到它** —— 顾客以为"告诉水站了"，水站永远看不到。
-//   「我的反馈」(`pages/feedback/index`) 是另一回事，那是员工自己提的反馈，与本页人群不重叠。
+//   「我的反馈」(`pages/feedback/index`) 原是**员工自己提的**反馈，与本页人群不重叠 —— 该页已于
+//   2026-09-30 **删除**（零入口的孤儿页，登记见 `docs/audit/删除登记表.md`）。
+//   注意别误会：后端 `POST /api/feedback` 仍在使用（顾客端 `code=500` 时的「上报」就调它，
+//   本页读的正是它落库的数据）；删掉的只是那个没有入口的员工端页面。
 //
 // 三条口径（改这个页面时必须守住）：
 //   1. **只读**。后端目前没有回复/处置端点（`FeedbackController` 只有 POST 提交、GET /my、GET /customers），

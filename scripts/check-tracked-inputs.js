@@ -61,6 +61,9 @@ const REQUIRED_TRACKED = [
   'scripts/check-jar-no-local-config.js',
   'scripts/check-sql-catalog.js',
   'scripts/check-gate-parity.js',
+  // 2026-09-30 新增（WP3/F-33+F-13）：小程序文本体检 —— 三处入口都调它，
+  // 不入库则新克隆的 CI 在「小程序文本体检」那一步直接找不到文件（本仓 2026-09-28 那次事故同形）。
+  'scripts/check-miniapp-text.js',
   'scripts/prod-startup-check.js',
   'scripts/smoke-check.js',
   'scripts/backup-restore-drill.js',

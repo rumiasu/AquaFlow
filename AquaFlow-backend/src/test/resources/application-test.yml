@@ -8,7 +8,16 @@
 #   * 本文件只把数据源指向 aquaflow_test，绝不写死用户名/密码；
 #     凭据由 local profile（application-local.yml，已 gitignore）继承。
 #   * 测试基类 AbstractIntegrationTest 会在每个用例前 TRUNCATE 当前库全部业务表，
-#     并断言「当前库名必须含 test」，杜绝误清真实库 aquaflow。
+#     并断言「当前库名必须以 aquaflow_test 开头、或以 _test 结尾」（2026-09-30 由
+#     「含 test」收紧：latest / contest / attest 这类名字不再通过），杜绝误清真实库 aquaflow。
+#     ⚠️ 残余：以 aquaflow_test 开头的备份库（aquaflow_test_backup）仍会通过 —— 前缀支是为了
+#     放行并行开发的 aquaflow_test_wp<编号>，见 AbstractIntegrationTest#isTestSchema 的说明。
+#
+# ⚠️ CI 上没有本文件所「继承」的那份配置：基类是 @ActiveProfiles({"local","test"})，
+#    而 application-local.yml **只在开发机上存在**（已 gitignore）。凡是两处取值不同的
+#    开关，都必须在下面 app: 段里显式钉死，否则会出现「本地绿、只在 CI 红」且本地复现不出。
+#    用例需要打开某个开关时，请**自己**用 @TestPropertySource 声明（它的优先级高于本文件），
+#    不要依赖本机的 application-local.yml（AGENTS §5 第三条 / skill §8.27）。
 #
 # 运行前置：先执行 scripts/provision-test-db.sh 重建 aquaflow_test（从 sql/schema.sql）。
 # =============================================================================
@@ -21,6 +30,21 @@ spring:
 #   ① 所有用例都从 127.0.0.1 发请求，共享同一个计数器，开着会让"跑全量顺序不同 → 结果不同"；
 #   ② 验证限流本身的那个用例用 @TestPropertySource 单独把开关打开，并把阈值调到 3。
 app:
+  # ── 配置差集：逐条钉死（2026-09-30，F-15）─────────────────────────────────────────
+  # 口径：**只钉「本地与 CI 取值不同」的开关**。当前全部差集就是下面三个 ——
+  #   ① app.dev-login-enabled       本地 true（application-local.yml）/ CI false（application.yml 默认）
+  #   ② app.rate-limit.enabled      本地 false                    / 默认 true
+  #   ③ app.payment.mock-wechat-pay 本地 true                     / 默认 false
+  # 其余 app.* 键两处同值，不再重复钉（钉下来只会多出第二份要维护的"默认值"）。
+  # 不钉 ① 的后果本仓已踩过一次：任何「本地靠 dev-login 换到 token、自己又没声明属性」的
+  # 用例都会**只在 CI 红**，本地复现不出 —— CI 那边 DEV_LOGIN_ENABLED=false，且没有
+  # application-local.yml。它改变的还有 DevLoginController 的 @ConditionalOnProperty：
+  # 为 false 时该 Bean 根本不存在，/api/auth/dev-login 是 404，而不是"存在但拒绝"。
+  # ⚠️ 要打开某个开关的用例**请自己用 @TestPropertySource 声明**（它的优先级高于本文件，
+  #    不会被这一行钉死）—— 唯一使用 dev-login 的 DeliveryConsoleAndSelfServiceIntegrationTest
+  #    就是这么做的；不要把本机那份不入库的 application-local.yml 当依赖（AGENTS §5 第三条）。
+  dev-login-enabled: false
+
   rate-limit:
     enabled: false
 

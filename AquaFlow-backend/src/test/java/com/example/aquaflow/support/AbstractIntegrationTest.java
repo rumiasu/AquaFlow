@@ -23,6 +23,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 集成测试基类 —— 真实 Spring 上下文 + 真实 MySQL + 真实 HTTP。
@@ -30,8 +31,10 @@ import java.util.List;
  * <p>三条不妥协的原则：</p>
  * <ol>
  *   <li><b>不用 Mock</b>：事务、CAS、唯一键、行锁这些正是被测对象，Mock 会把它们全掩盖掉。</li>
- *   <li><b>不碰真实库</b>：每个用例前断言库名含 {@code test}，不符直接抛异常中止，
- *       杜绝误 TRUNCATE 生产库 {@code aquaflow}。</li>
+ *   <li><b>不碰真实库</b>：每个用例前断言库名<b>以 {@code aquaflow_test} 开头、或以 {@code _test} 结尾</b>
+ *       （2026-09-30 由 {@code contains("test")} 收紧，判据与**残余风险**见 {@link #isTestSchema}），
+ *       不符直接抛异常中止，杜绝误 TRUNCATE 生产库 {@code aquaflow} 与
+ *       {@code latest} / {@code contest} / {@code attest} 这类只是"含 test"的库。</li>
  *   <li><b>真 token</b>：用 {@link JwtUtil} 现签 JWT，走真实的 AuthInterceptor + RequireRoleAspect。</li>
  * </ol>
  *
@@ -46,6 +49,24 @@ import java.util.List;
 public abstract class AbstractIntegrationTest {
 
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
+
+    /**
+     * 集成测试库名的**允许形态**：前缀 {@link #TEST_SCHEMA_PREFIX}，或后缀 {@link #TEST_SCHEMA_SUFFIX}。
+     * <p>判据与「为什么必须是这两种、为什么不能再用 {@code contains("test")}」写在 {@link #isTestSchema}。</p>
+     */
+    private static final String TEST_SCHEMA_PREFIX = "aquaflow_test";
+
+    private static final String TEST_SCHEMA_SUFFIX = "_test";
+
+    /**
+     * **永不接受**的库名关键词（子串匹配，大小写不敏感）—— 见 {@link #isTestSchema} 的 F-38 说明。
+     * <p>为什么用"排除"而不是"白名单"：白名单要写死允许的形态，会把 {@code aquaflow_test_ci}
+     * 这类合法并行库名一起拒掉；而这层防的是"看起来就是备份 / 旧库 / 生产"的名字，定点排除更准。
+     * 加词前先想一遍：本仓真实用到、且**应该**被 TRUNCATE 的库名里有没有会撞上它的
+     * （现已核对：{@code aquaflow_test}、{@code aquaflow_test_wp<N>}、{@code aquaflow_test_ci} 都不含下列词）。</p>
+     */
+    private static final List<String> TEST_SCHEMA_DENY =
+            List.of("backup", "bak", "old", "prod", "archive", "restore", "_pre");
 
     @Value("${local.server.port}")
     protected int port;
@@ -62,8 +83,10 @@ public abstract class AbstractIntegrationTest {
     @BeforeEach
     void resetDatabase() {
         String schema = jdbc.queryForObject("SELECT DATABASE()", String.class);
-        if (schema == null || !schema.toLowerCase().contains("test")) {
-            throw new IllegalStateException("安全护栏：集成测试只允许在 *test 库上运行，当前库=" + schema);
+        if (!isTestSchema(schema)) {
+            throw new IllegalStateException("安全护栏：集成测试只允许在测试库上运行（本方法会 TRUNCATE 该库全部表）"
+                    + "—— 库名需以 " + TEST_SCHEMA_PREFIX + " 开头或以 " + TEST_SCHEMA_SUFFIX
+                    + " 结尾，当前库=" + schema);
         }
         List<String> tables = jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'",
@@ -86,6 +109,51 @@ public abstract class AbstractIntegrationTest {
             }
             return null;
         });
+    }
+
+    /**
+     * 库名判据（2026-09-30 收紧）：<b>以 {@value #TEST_SCHEMA_PREFIX} 开头，或以 {@value #TEST_SCHEMA_SUFFIX} 结尾</b>。
+     *
+     * <p><b>为什么从 {@code contains("test")} 收紧</b>：子串判据是"含就好"，不排他 ——
+     * {@code latest}、{@code contest}、{@code attest}、{@code aquaflow_test_backup} 全都通过，
+     * 而它的下游是 {@link #resetDatabase()} 对该库<b>全部 BASE TABLE 的无条件 TRUNCATE</b>。
+     * 这几类库名在真实机器上都不是"可以随便清空"的库，{@code *_backup} 尤其致命：
+     * 清掉的就是最后一份数据。要清库的护栏必须"只放行认识的名字"，不能"看着像就行"。</p>
+     *
+     * <p><b>为什么仍然必须放行 {@code aquaflow_test_*} 这一支</b>（三个真实用例，少一个都会误伤）：</p>
+     * <ol>
+     *   <li>CI：{@code .github/workflows/ci.yml} 的 {@code MYSQL_DATABASE}/{@code TEST_DB_URL} 就是 {@code aquaflow_test}；</li>
+     *   <li>本机常规：{@code aquaflow_test}（{@code scripts/provision-test-db.sh} 重建的那个）；</li>
+     *   <li><b>并行开发</b>：多会话同时跑测试时每个会话要用各自的库（{@code aquaflow_test_wp1}、
+     *       {@code aquaflow_test_wp6} …，见 docs/audit/并行推进任务包.md §1.1 第 3 条 ——
+     *       两个会话共用同一个库会互相 TRUNCATE，现象是"我的用例莫名红了"）。
+     *       前缀判据天然覆盖 {@code aquaflow_test_wp<编号>}。</li>
+     * </ol>
+     *
+     * <p><b>[2026-09-30 修 F-38] 再加一层"定点排除"</b>：前缀判据必须放行 {@code aquaflow_test_wp<编号>}
+     * 供并行开发，于是 {@code aquaflow_test_backup} 这类"同样以 {@code aquaflow_test} 开头"的名字也顺带通过
+     * —— 而它的下游是对全库 BASE TABLE 的<b>无条件 TRUNCATE</b>，清掉的可能就是最后一份数据。
+     * 收紧成白名单（只放行 {@code aquaflow_test} / {@code *_test} / {@code aquaflow_test_wp\d+}）
+     * 会把 {@code aquaflow_test_ci} 之类合法并行库名一起拒掉，代价更大；因此改用
+     * {@link #TEST_SCHEMA_DENY} 的<b>子串排除</b>：含 backup/bak/old/prod/… 一律拒绝，
+     * 不管它是否满足前缀（{@code aquaflow_test_backup_2026} 也挡得住）。
+     * 判据取向是"要清库的护栏宁可多拒一个，不可少拒一个"。</p>
+     *
+     * <p>⚠️ 改本判据时留意另外两处**只是文字引用、不参与判据**的地方，它们现在仍写着旧的
+     * 「库名含 {@code test}」：{@code application-test.yml} 顶部（已同步）与
+     * {@code AquaFlowApplicationTests} 的类注释（未同步，属其他文件的范围）。</p>
+     */
+    private static boolean isTestSchema(String schema) {
+        if (schema == null) {
+            return false;
+        }
+        String s = schema.toLowerCase(Locale.ROOT);
+        for (String bad : TEST_SCHEMA_DENY) {
+            if (s.contains(bad)) {
+                return false;
+            }
+        }
+        return s.startsWith(TEST_SCHEMA_PREFIX) || s.endsWith(TEST_SCHEMA_SUFFIX);
     }
 
     /* ==================== 令牌 ==================== */

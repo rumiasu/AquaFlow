@@ -595,13 +595,19 @@ public class ReconciliationService {
         // ⚠️ 这里**只查单向**：反向（收了钱还没核销）是正常的 —— 现金单送货上门当场收钱，
         // 站长之后才走月结核销。谁把它改成双向比较，日结就会天天报不平、淹没真问题。
         // payment_status 为 NULL 也要算进来（NULL <> 2 在 SQL 里是 NULL，不是 true）。
+        // ⚠️ [F-23 2026-09-30] 必须**排除「已退款(3)」**：先核销、后单笔退款是一条**合法**链路 ——
+        // refundPayment 只把 orders.payment_status 置成 REFUNDED(3)、**不回退 settlement_status**
+        // （那要动 PaymentServiceImpl，不在本次写权内），于是 E10 每 03:00 都为一张完全正常的单报一条
+        // SYSTEM 告警，正是"淹没真故障"的形态。「已退款」不是"核销了却没收到钱"：钱到过账，之后按原
+        // 路径退回去了。排除条件写成 NOT IN (2, 3)（而不是再叠一个 <> 3）是为了不把 IS NULL 那支弄丢 ——
+        // NULL NOT IN (...) 求值为 NULL 而非 true。
         int e10 = count("SELECT COUNT(*) FROM orders "
-                + "WHERE settlement_status = 2 AND (payment_status IS NULL OR payment_status <> 2)");
+                + "WHERE settlement_status = 2 AND (payment_status IS NULL OR payment_status NOT IN (2, 3))");
         r.put("E10_settledButUnpaid", e10);
         if (e10 > 0) {
-            log.error("[对账V2 ALERT E10] 已核销却未收款的订单 {} 条。示例={}",
+            log.error("[对账V2 ALERT E10] 已核销却未收款（已排除已退款）的订单 {} 条。示例={}",
                     e10, sampleIds("SELECT id FROM orders WHERE settlement_status = 2 "
-                            + "AND (payment_status IS NULL OR payment_status <> 2)"));
+                            + "AND (payment_status IS NULL OR payment_status NOT IN (2, 3))"));
         }
 
         // ---- E11~E14：库存预留凭据（2026-09-25 库存预留模型，迁移 v63）----

@@ -32,6 +32,12 @@ Page({
     stationId: null,
     // 1 选客户 → 2 选地址 → 3 选商品并试算
     step: 1,
+    // [2026-09-30 F-26] 从**客户详情页**「用他下单」带进来的客户 id（`?customerId=`）。
+    // 产品裁定：代客下单入口做进客户里、不再单独拎一张卡 ⇒ 站长是在某个客户页上点的，
+    // 不该再让他回第 1 步搜一遍。`presetApplied` 保证**只应用一次**：站长手动返回第 1 步
+    // 改选别的客户时，不能被反复拽回原来那个。
+    presetCustomerId: null,
+    presetApplied: false,
     keyword: '',
     customers: [],
     customer: null,
@@ -47,6 +53,18 @@ Page({
     loading: true,
     quoting: false,
     submitting: false
+  },
+
+  /**
+   * [2026-09-30 F-26] 只认 `?customerId=` —— 那是**客户详情页**「用他下单」的入参。
+   * 其它入参一律忽略（本页没有别的入口传参，别在这里顺手扩参）。
+   */
+  onLoad(options) {
+    const raw = options && options.customerId
+    const id = raw ? Number(raw) : NaN
+    if (Number.isFinite(id) && id > 0) {
+      this.setData({ presetCustomerId: id })
+    }
   },
 
   onShow() {
@@ -71,6 +89,7 @@ Page({
       const kw = this.data.keyword ? '?keyword=' + encodeURIComponent(this.data.keyword) : ''
       const res = await get(ASSIST + '/customers' + kw)
       this.setData({ customers: res.data || [] })
+      this.applyPresetCustomer()
     } catch (err) {
       wx.showToast({ title: err.message || '客户加载失败', icon: 'none' })
     } finally {
@@ -99,6 +118,29 @@ Page({
     const id = Number(e.currentTarget.dataset.id)
     const customer = this.data.customers.find(c => c.id === id)
     if (!customer) return
+    this.pickCustomer(customer)
+  },
+
+  /**
+   * [2026-09-30 F-26] 把「带客户进来」落到第 2 步。
+   *
+   * <p>只在**第一次**成功后应用（`presetApplied`），否则站长手动返回第 1 步改客户时会被拽回来。
+   * 带进来的客户不在名单里（不属于本站 / 已被删）时**明确告知**并停在第一步 —— 静默停在第一步
+   * 会让人以为"点了没反应"（本仓对"点击静默无反应"有过多次事故记录）。</p>
+   */
+  applyPresetCustomer() {
+    if (this.data.presetApplied || !this.data.presetCustomerId) return
+    const c = this.data.customers.find(x => x.id === this.data.presetCustomerId)
+    this.setData({ presetApplied: true })
+    if (!c) {
+      wx.showToast({ title: '该客户不属于本水站，不能代下单', icon: 'none' })
+      return
+    }
+    this.pickCustomer(c)
+  },
+
+  /** 选定客户后的公共流程（列表点选与「带客户进来」共用，别再写第二份）。 */
+  async pickCustomer(customer) {
     // 换客户要清空下游选择：地址与报价都是"跟着客户走"的
     this.setData({
       customer,

@@ -90,8 +90,25 @@
             <if test="createTimeStart != null and createTimeStart != ''">
                 and o.create_time &gt;= #{createTimeStart}
             </if>
+            <!--
+              [2026-09-30 修 F-36] **"按某天（含）筛"不能直接写 `create_time <= 结束日`**：
+              `create_time` 是 datetime，传 'yyyy-MM-dd' 会被当成「那天 00:00:00」，
+              于是**当天新增的一条都统计不到**（同 skill §8.19 的坑；这也是"日结永远差一天"的经典成因）。
+              判据按入参**形状**分流：
+                · 长度 10（纯日期 'yyyy-MM-dd'）⇒ 取 `< 结束日 + 1 天`，把整天包进来；
+                · 其它（带时间的 datetime 串）⇒ 保持 `<=`，尊重调用方给出的**时刻**上界。
+              ⚠️ 别退化成"一律 +1 天"：那会把 datetime 入参的行为多放一天（跨天重复统计）。
+              ⚠️ 也无调用方依赖旧语义（两端小程序与测试树 grep `createTimeEnd` 均 0 命中）。
+            -->
             <if test="createTimeEnd != null and createTimeEnd != ''">
-                and o.create_time &lt;= #{createTimeEnd}
+                <choose>
+                    <when test="createTimeEnd.length() == 10">
+                        and o.create_time &lt; date_add(#{createTimeEnd}, interval 1 day)
+                    </when>
+                    <otherwise>
+                        and o.create_time &lt;= #{createTimeEnd}
+                    </otherwise>
+                </choose>
             </if>
             <!--
               [2026-09-27 产品裁定] 员工视野：**还没收到钱、且订单还活着**的单不进站长的订单列表。

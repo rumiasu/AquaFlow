@@ -2,6 +2,7 @@ package com.example.aquaflow.service;
 
 import com.example.aquaflow.constant.WeChatApp;
 import com.example.aquaflow.exception.BusinessException;
+import com.example.aquaflow.util.MaskUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -62,17 +63,32 @@ public class WeChatLoginService {
                 "https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
                 appid, secret, code);
 
-        String response = restTemplate.getForObject(url, String.class);
-        // #56: 不打印完整响应（包含session_key敏感信息），仅打印脱敏后的部分
-        log.info("微信code2Session响应[{}]: {}", app, maskSessionKey(response));
+        String response;
+        try {
+            response = restTemplate.getForObject(url, String.class);
+        } catch (Exception e) {
+            // [F-08 2026-09-30] ⚠️ **这里绝不记录异常消息，也绝不记录 URL / js_code / secret**：
+            // Spring 的 ResourceAccessException / RestClientException 的 message 里含**完整请求 URL**
+            // （即 `secret=…&js_code=…` 原样在内），一旦带上它，就会顺着 GlobalExceptionHandler 的
+            // `log.error(..., e)` 落进日志文件 = 微信凭据泄露。只留 app 与异常类型，够定位"网络/微信侧故障"。
+            log.error("微信code2Session调用失败（URL 已省略，避免泄露 secret / js_code）: app={}, 异常类型={}",
+                    app, e.getClass().getName());
+            // 转成**可预期的业务错误**（code=1）：外部依赖/网络故障属于可预期故障，
+            // 不该升级成 500 兜底 + 一条 SYSTEM 告警（同 AGENTS §8.21 的判据）。
+            // ⚠️ 不 attach cause —— BusinessException 也会被 GlobalExceptionHandler 打堆栈，
+            //    带上 cause 等于把含 URL 的原始异常又写回日志。
+            throw new BusinessException("微信登录服务暂时不可用，请稍后重试");
+        }
+        // #56: 不打印完整响应（含 session_key / openid 等敏感信息），仅打印脱敏后的部分
+        log.info("微信code2Session响应[{}]: {}", app, MaskUtil.maskCode2SessionResponse(response));
 
         Map<String, Object> result;
         try {
             result = objectMapper.readValue(response, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
-            // 同样必须脱敏：解析失败的响应里 session_key 是原样出现的，
+            // 同样必须脱敏：解析失败的响应里 session_key / openid 是原样出现的，
             // 而这一支恰恰只在异常时触发，最容易被忽略而泄漏。
-            log.error("解析微信响应失败: {}", maskSessionKey(response), e);
+            log.error("解析微信响应失败: {}", MaskUtil.maskCode2SessionResponse(response), e);
             throw new BusinessException("微信登录响应解析失败");
         }
 
@@ -98,7 +114,7 @@ public class WeChatLoginService {
 
         if (!result.containsKey("openid")) {
             // 走到这里说明微信没回 errcode 却也没给 openid（协议异常），不是用户能处理的
-            log.error("微信code2Session响应缺少openid且无errcode: {}", maskSessionKey(response));
+            log.error("微信code2Session响应缺少openid且无errcode: {}", MaskUtil.maskCode2SessionResponse(response));
             throw new BusinessException("微信登录失败，请稍后再试");
         }
 
@@ -139,7 +155,16 @@ public class WeChatLoginService {
                         + "（是员工端的开发者 ≠ 是顾客端的开发者，两个小程序各有一份成员名单）。", other, otherAppid);
             }
         } catch (Exception e) {
-            log.warn("[登录诊断] 试另一端 appid 时出错（忽略，不影响登录结果）: {}", e.getMessage());
+            // [F-08 2026-09-30] ⚠️ 这里**不能**打 e.getMessage()：这一支调的是另一端的 appid+secret，
+            // RestTemplate 的网络异常 message 里含完整 URL（即另一端的 secret=）。
+            // 只对**本仓自己抛的** BusinessException 记文案（例如"员工端未配置"，是给人看的、不含 URL），
+            // 其余一律只记异常类型。
+            if (e instanceof BusinessException) {
+                log.warn("[登录诊断] 试另一端 appid 时未完成（忽略，不影响登录结果）: {}", e.getMessage());
+            } else {
+                log.warn("[登录诊断] 试另一端 appid 时出错（忽略，不影响登录结果）: app={}, 异常类型={}",
+                        other, e.getClass().getName());
+            }
         }
     }
 
@@ -172,14 +197,10 @@ public class WeChatLoginService {
         }
     }
 
-    /**
-     * code2Session 的响应含 {@code session_key}（可解密用户敏感数据），落日志前必须打码。
-     * 所有打印该响应的地方都要过这一层 —— 包括异常分支。
-     */
-    private static String maskSessionKey(String response) {
-        if (response == null) return "null";
-        return response.replaceAll("\"session_key\":\"[^\"]*\"", "\"session_key\":\"***\"");
-    }
+    // [2026-09-30 修 F-35] 本文件原先自己维护 maskSensitive / maskOpenid 两个**副本**
+    // （靠注释要求与 AuthTokenService 同步）。现已抽到 {@code util/MaskUtil} 的**唯一实现**，
+    // 调用点一律写 {@code MaskUtil.maskCode2SessionResponse(...)}。
+    // ⚠️ 不要再在本文件里重造这两个方法 —— F-35（本文件明文 openid）正是"两份口径分叉"的产物。
 
     private String appidOf(WeChatApp app) {
         if (app == WeChatApp.STAFF) {

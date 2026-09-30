@@ -65,5 +65,5 @@ whenToUse: 要动订单状态机 / 取消与退款链 / 桶账与押金 / 对账
     另：**中文输出必须带 `--default-character-set=utf8mb4`**，并在 PowerShell 里设
     `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`；否则看到的是乱码，
     **会让你误判成"库里的数据是坏的"**（实测差点据此去查编码问题）。
-    配套 scratch 工具：`scripts/__dbq.js`（只读查询跑手：凭据从 `application-local.yml` 内读、
+    配套 scratch 工具：`scripts/debug/__dbq.js`（只读查询跑手：凭据从 `application-local.yml` 内读、
     **输出不回显密钥**、语句里出现写动作关键字**直接拒绝**）。

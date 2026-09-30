@@ -35,6 +35,15 @@ public interface FileInfoMapper {
             + "order by create_time desc")
     List<FileInfo> listVisibleByCategory(@Param("stationId") Long stationId, @Param("category") String category);
 
+    /**
+     * 按 id 删除登记行，返回<b>受影响行数</b>（{@code @Delete} 的 int 返回值就是行数）。
+     *
+     * <p>⚠️ [F-25 2026-09-30] 这里原为 {@code void}，调用方因此无法判断"到底删掉了没有"：
+     * 站长端删除端点先校验站别/上传人、再删，而校验通过到 DELETE 落地之间该行可能已被另一个请求
+     * 删掉（并发双击 / 两端同时点）—— 命中 0 行时旧实现照样返回 success（AGENTS §8.20
+     * 「按 id 操作必须检查受影响行数」）。<b>别改回 void</b>，全仓只有 {@code FileManageController#delete}
+     * 一个调用方，它在 0 行时返回业务错误。</p>
+     */
     @Delete("delete from file_info where id = #{id}")
-    void deleteById(@Param("id") Long id);
+    int deleteById(@Param("id") Long id);
 }

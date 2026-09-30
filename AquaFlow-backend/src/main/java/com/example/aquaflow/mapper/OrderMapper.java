@@ -191,23 +191,39 @@ public interface OrderMapper {
                           @Param("newStatus") Integer newStatus, @Param("expectedStatus") Integer expectedStatus);
 
     /**
-     * [Phase C] 指定退回-同意（CAS 守卫在备注标记上）：仅当订单仍带「[指定退回待确认]」标记时才生效，
-     * 原子地把标记替换为「[指定退回-同意]」、履约站改回原归属站、清空配送员、状态=新状态。
+     * [Phase C] 指定退回-同意（CAS 守卫在**状态**上，不再只看备注标记）：仅当订单仍带
+     * 「[指定退回待确认]」标记**且状态仍是期望那一个**时，才原子地把标记替换为「[指定退回-同意]」、
+     * 履约站改回原归属站、清空配送员、状态=新状态。
      * <p>并发下两个站长同时点「同意」只有一个能改到（affected=1），另一个为 0。</p>
      * <p>[v47] 营收随之退回归属站（同 {@link #outsourceToPoolIf}：退回 = 这单又归原站）。</p>
+     *
+     * <p>⚠️ [2026-09-30 修 F-05] <b>为什么必须加状态条件</b>：原来守卫只有
+     * {@code special_note like '%[指定退回待确认]%'}，而备注标记只表达「有一笔待确认的指定退回」，
+     * 它**不会随订单状态前进而消失**。于是：一张单在等待期间被客户收货 → 状态已到 已送达(3)/已完成(4)，
+     * 原 SQL 仍会命中，把 {@code status} 改回 待配送(1)、并把 {@code delivery_station_id} /
+     * {@code settle_station_id} 一起搬回归属站 ⇒ **状态倒滚 + 营收归属被改**（违反
+     * 「状态只前进」与三站语义）。加了 {@code status = #{expectedStatus}} 之后，只有仍停在
+     * 待配送(1) 的单才能被这条路径改 —— 审批时状态必为 1，因为发起端
+     * {@code OrderWorkflowServiceImpl.directedReturn} 只放行 {待配送(1), 配送中(2)} 且会把状态
+     * <b>归一为待配送(1)</b>。</p>
      */
     @Update("update orders set special_note = concat(replace(replace(coalesce(special_note, ''), '[指定退回待确认]', ''), '[外派]', ''), ' [指定退回-同意]'), " +
             "delivery_station_id = #{stationId}, settle_station_id = #{stationId}, " +
             "delivery_staff_id = null, status = #{newStatus}, update_time = NOW() " +
-            "where id = #{id} and special_note like '%[指定退回待确认]%'")
+            "where id = #{id} and status = #{expectedStatus} and special_note like '%[指定退回待确认]%'")
     int directedReturnApproveIf(@Param("id") Long id, @Param("stationId") Long stationId,
-                                @Param("newStatus") Integer newStatus);
+                                @Param("newStatus") Integer newStatus,
+                                @Param("expectedStatus") Integer expectedStatus);
 
-    /** [Phase C] 指定退回-拒绝（CAS 守卫在备注标记上）：标记替换为「[指定退回-拒绝]」、状态回到配送中。 */
+    /**
+     * [Phase C] 指定退回-拒绝（同样的状态守卫，理由见 {@link #directedReturnApproveIf}）：
+     * 标记替换为「[指定退回-拒绝]」、状态回到配送中。
+     */
     @Update("update orders set special_note = concat(replace(coalesce(special_note, ''), '[指定退回待确认]', ''), ' [指定退回-拒绝]'), " +
             "status = #{newStatus}, update_time = NOW() " +
-            "where id = #{id} and special_note like '%[指定退回待确认]%'")
-    int directedReturnRejectIf(@Param("id") Long id, @Param("newStatus") Integer newStatus);
+            "where id = #{id} and status = #{expectedStatus} and special_note like '%[指定退回待确认]%'")
+    int directedReturnRejectIf(@Param("id") Long id, @Param("newStatus") Integer newStatus,
+                               @Param("expectedStatus") Integer expectedStatus);
 
     /**
      * 配送员上报楼层（选填，v43）。

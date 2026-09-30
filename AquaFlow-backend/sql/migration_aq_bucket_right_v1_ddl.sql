@@ -30,10 +30,42 @@
 SET @db := DATABASE();
 
 -- -----------------------------------------------------------------------------
+-- 0.0) v25 顺序门禁（F-07②，2026-09-30 加 · 不要删）
+--   本脚本第 0 步要备份旧欠桶表 `customer_owed_barrel`；而必跑清单第 10 步的
+--   `migration_v25_retire_customer_owed_barrel.sql` 已把它 RENAME（且刻意不改回）。
+--   ⇒ 先跑过 v25、再回来跑本脚本，原来会在下面那条备份语句上直接报 1146。
+--   判据：**旧表不在原名下、且新表 `customer_barrel_over` 已在** ⇒ v25 已跑过、
+--   桶权益模型也已落地 ⇒ 本脚本无需再跑：打印 skip，并且**唯一碰旧表的那条备份
+--   语句改用 `PREPARE` 生成**（旧表不存在时根本不解析那个表名）。
+--   ⚠️ 本脚本余下语句全是 `CREATE TABLE IF NOT EXISTS` / `information_schema` 预检 +
+--   `PREPARE` 的 ALTER / 末尾 3 条与 `schema.sql` 逐字一致的 MODIFY·COMMENT 复述
+--   ⇒ skip 分支下是**一串幂等空操作**：不写数据、不改定义，脚本**正常退出（退出码 0）**。
+--   （为什么不写 `EXIT`/`RETURN`：纯 SQL 脚本没有提前返回；mysql 客户端只在报错时
+--     中止 —— 见 F-07② 的取舍，宁可让余下语句都是空操作，也不制造一个"看起来失败"的退出码。）
+-- -----------------------------------------------------------------------------
+SET @old_owed := (SELECT COUNT(*) FROM information_schema.TABLES
+                  WHERE TABLE_SCHEMA=@db AND TABLE_NAME='customer_owed_barrel');
+SET @new_over := (SELECT COUNT(*) FROM information_schema.TABLES
+                  WHERE TABLE_SCHEMA=@db AND TABLE_NAME='customer_barrel_over');
+SELECT CASE
+         WHEN @old_owed > 0 AND @new_over > 0
+           THEN '继续: 旧表 customer_owed_barrel 仍在原名下、新表也已在（重复执行或首迁后复查），按清单执行 S1 DDL'
+         WHEN @old_owed > 0
+           THEN '继续: 旧表 customer_owed_barrel 在、新表还没建 —— 正常的首次迁移，按清单执行 S1 DDL'
+         WHEN @new_over > 0
+           THEN 'skip: v25 已执行（customer_owed_barrel 已退役）且 customer_barrel_over 已在，本脚本无需再跑；后续语句均为幂等空操作'
+         ELSE '注意: 两张表都不在 —— 本脚本仍会建新表，但旧欠桶数据已无从备份（若确实跑过 v25 则属预期）；请先确认库名'
+       END AS precheck_v25;
+
+-- -----------------------------------------------------------------------------
 -- 0) 备份（只建一次，重复执行不会覆盖）
+--    ⚠️ 旧表那一条必须走 PREPARE：旧表已随 v25 退役时，直接写表名会在**解析期**报 1146
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS bak_bkt_customer_barrel_asset     AS SELECT * FROM customer_barrel_asset;
-CREATE TABLE IF NOT EXISTS bak_bkt_customer_owed_barrel      AS SELECT * FROM customer_owed_barrel;
+SET @s := IF(@old_owed > 0,
+  "CREATE TABLE IF NOT EXISTS bak_bkt_customer_owed_barrel AS SELECT * FROM customer_owed_barrel",
+  "SELECT 'skip: customer_owed_barrel 不存在（v25 已退役旧表），跳过该备份' AS r");
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 CREATE TABLE IF NOT EXISTS bak_bkt_customer_barrel_in_transit AS SELECT * FROM customer_barrel_in_transit;
 CREATE TABLE IF NOT EXISTS bak_bkt_barrel_record             AS SELECT * FROM barrel_record;
 CREATE TABLE IF NOT EXISTS bak_bkt_deposit_record            AS SELECT * FROM deposit_record;

@@ -433,7 +433,12 @@ public class PaymentServiceImpl implements PaymentService {
             // [AQ-009] 收款成功时入账预收桶押金
             applyDepositOnPaid(orderId);
         }
-        orderMapper.updateStatusIf(orderId, OrderStatus.DELIVERED, OrderStatus.COMPLETED);
+        // [2026-09-30 修 F-11] 原实现不看受影响行数：CAS 命中 0 行（订单已被并发路径改走）时
+        // 静默当成功，而上面已经把待收款流水置成已付款、押金也已入账 ⇒ 状态停在已送达、
+        // 界面与流水却都说"已完成/已收款"。拿不到行数就不能返回成功（AGENTS §8.20）。
+        if (orderMapper.updateStatusIf(orderId, OrderStatus.DELIVERED, OrderStatus.COMPLETED) == 0) {
+            throw new BusinessException("订单状态已变更，请刷新后重试");
+        }
     }
 
     // [2026-09-16 按产品决定删除] 原 `unconfirmOrderCollection`：把 已完成(4) 倒回 已送达(3)。
@@ -652,8 +657,11 @@ public class PaymentServiceImpl implements PaymentService {
                 continue; // 已扣过，幂等跳过
             }
             // consumeTicket 内部使用 remain_quantity >= qty 的原子 SQL，扣减失败（余额不足）直接抛异常
+            // 幂等键传 null：**订单内扣票不是「无订单扣票」**，它的幂等由
+            // uk_ticket_consume(order_id, product_id, source) 承担（上面那行 countConsume 是同一道闸门）。
+            // 客户端幂等键（v70）是给站长手工扣票那条 orderId 为 NULL 的路径用的，别在这里瞎编一个。
             ticketAccountService.consumeTicket(order.getCustomerId(), item.getProductId(),
-                    item.getQuantity(), orderId, stationId);
+                    item.getQuantity(), orderId, stationId, null);
         }
     }
 

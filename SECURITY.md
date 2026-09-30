@@ -52,6 +52,13 @@
 - `WX_STAFF_APP_ID` / `WX_STAFF_APP_SECRET` —— `application-prod.yml` 中无默认值，缺失即拒绝启动。
 - `DEV_LOGIN_ENABLED` **必须为 `false`**。该开关提供免微信的开发者登录通道，本地默认开启（并同时按 IP 关闭登录限流），**绝不可带入生产**。
 
+⚠️ **除上表 3 项外，`prod` profile 下还有两道启动期硬校验**（同一个 `RequiredConfigChecker`，都在启动期抛 `IllegalStateException` 拒启；非 prod 一律跳过，故本地与 CI 不受影响）：
+
+| 校验 | 判据 | 为什么需要 |
+|---|---|---|
+| `checkProdSafetySwitches()` | `app.payment.mock-wechat-pay` 与 `app.dev-login-enabled` 解析后必须为 `false` | 模拟支付开着 = 全站「微信支付」点一下就成功（零元购）；dev-login 是免微信授权的后门。**读解析后的值**，所以写死 yml 也拦不住命令行 / `SPRING_APPLICATION_JSON` 覆盖 |
+| `checkProdDatasource()` | `spring.datasource.url/username/password` 必须解析出真值 | Spring 7 起 Hikari 懒初始化 ⇒ 缺 `DB_URL` 时应用照样 `Started`、只是首个查库请求失败。这条把失败**提前到启动期** |
+
 ## 5. 已实施的安全控制
 
 ### 5.1 认证

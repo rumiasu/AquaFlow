@@ -52,6 +52,24 @@ function placeholders(text) {
   return out
 }
 
+/**
+ * 剥掉 YAML 注释（`#` 到行尾；`#` 需在行首或前面是空白，这是 YAML 的规则）。
+ *
+ * <p>⚠️ **为什么必须剥（2026-09-30 实测打红过一次 CI）**：抽取占位符是按**全文**正则扫的，
+ * 于是 `application-prod.yml` 注释里举的那个例子
+ * 「本文件的 `${X}`（无默认值）…」被当成真变量 ⇒ 门禁凭空要求 `.env.example`
+ * 定义一个字面量 `X`，CI 直接红。**注释里举例子是正常的写文档方式，不该被门禁惩罚。**
+ * 顺带把「prod yml 不许出现 `dev-login-enabled: true`」那条也变准了 —— 它此前同样会被注释误触。</p>
+ *
+ * <p>判据与 `.env.example` 那侧一致：那边也是只看未被注释的定义行（见 `envExampleDefined`）。</p>
+ */
+function stripYamlComments(text) {
+  return text.split(/\r?\n/).map(line => {
+    const m = /(^|\s)#/.exec(line)
+    return m ? line.slice(0, m.index) : line
+  }).join('\n')
+}
+
 /** `.env.example` 里"定义行"（`NAME=...`），不含被注释掉的示例。 */
 function envExampleDefined(text) {
   const out = new Map()
@@ -62,8 +80,8 @@ function envExampleDefined(text) {
   return out
 }
 
-const prod = read(prodYml)
-const base = read(baseYml)
+const prod = stripYamlComments(read(prodYml))
+const base = stripYamlComments(read(baseYml))
 const env = read(envExample)
 
 const prodVars = placeholders(prod)

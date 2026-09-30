@@ -69,8 +69,10 @@ public interface OrderMapper {
             + "where id = #{id} and settlement_status = 1 and payment_status = 2")
     int settleIfCollected(@Param("id") Long id);
 
-    @Update("update orders set delivery_staff_id = #{staffId}, status = #{status}, update_time = NOW() where id = #{id}")
-    void updateDeliveryStaff(@Param("id") Long id, @Param("staffId") Long staffId, @Param("status") Integer status);
+    // [2026-09-30 F-19] 已删除 updateDeliveryStaff：零调用（复核见 docs/audit/删除登记表.md §6.4）。
+    // 若将来需要"无 CAS 的整列改写"，请先说明为什么 CAS 版不够用 —— 本仓无 expected-state 的
+    // updateStatus/updatePaymentStatus 属待清除的旧路径。改配送员 / 接单请走带 expected-state 的
+    // claimIfUnassigned / setDeliveryStaffIf / reassignStaffIf / updateStatusIfPENDING。
 
     /**
      * 显式清空配送员。

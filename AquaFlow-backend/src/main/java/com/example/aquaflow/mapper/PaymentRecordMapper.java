@@ -67,8 +67,10 @@ public interface PaymentRecordMapper {
     @Select("select * from payment_record where station_id = #{stationId} order by create_time desc")
     List<PaymentRecord> listByStationId(@Param("stationId") Long stationId);
 
-    @Update("update payment_record set status = #{status}, update_time = NOW() where id = #{id}")
-    void updateStatus(@Param("id") Long id, @Param("status") Integer status);
+    // [2026-09-30 F-19] 已删除 updateStatus：零调用（复核见 docs/audit/删除登记表.md §6.4）。
+    // 若将来需要"无 CAS 的整列改写"，请先说明为什么 CAS 版不够用 —— 本仓无 expected-state 的
+    // updateStatus/updatePaymentStatus 属待清除的旧路径。改本表状态一律走下面的 updateStatusTo
+    // （参数顺序 (id, 新, 期望) —— 名字带 To 的第二个参数才是目标状态）。
 
     /**
      * 乐观锁更新（CAS）：仅当当前状态为 expectStatus 时才更新为目标 status，返回受影响行数。

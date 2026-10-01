@@ -15,6 +15,7 @@ const {
   getInventoryRecords
 } = require('../../../api/station-mgmt')
 const { upload } = require('../../../utils/upload')
+const businessRules = require('../../../api/business-rules')
 const { API } = require('../../../config/api')
 // ⚠️ 水票档位这两个路径直接写常量、不往 api/station-mgmt.js 里加：那个文件正被另一个
 // 工作流（商品图片库）改动，加函数会让两边未提交的改动纠缠在一起。
@@ -406,6 +407,19 @@ Page({
     }
     if (stockMode === 'in') {
       this.doInbound(qty)
+      return
+    }
+    if (stockMode === 'loss') {
+      if (qty >= (setting.quantity || 0)) { wx.showToast({ title: '盘亏数须低于当前库存', icon: 'none' }); return }
+      wx.showModal({ title: '登记实盘亏损', editable: true, placeholderText: '请填写实际损失原因及凭据（必填）',
+        content: '实物将由 ' + setting.quantity + ' 改为 ' + qty + '；较晚预留订单会变为缺货待补。请联系受影响客户协商延期或取消。',
+        success: async res => { if (!res.confirm) return
+          try {
+            const r = await businessRules.recordLoss(setting.id, { targetQuantity: qty, expectedQuantity: setting.quantity, note: res.content })
+            this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': qty }); this.loadData()
+            wx.showModal({ title: '实盘亏损已登记', content: '受影响预留 ' + (r.data.affectedOrders || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
+          } catch (err) { wx.showToast({ title: err.message || '登记未成功', icon: 'none' }) }
+        } })
       return
     }
     const after = qty

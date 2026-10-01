@@ -26,6 +26,12 @@ spring:
     # 允许用 TEST_DB_URL 覆盖（例如 MySQL 不在 127.0.0.1:3306）；默认即指向测试库。
     url: ${TEST_DB_URL:jdbc:mysql://127.0.0.1:3306/aquaflow_test?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
 
+# 旧业务用例验证兼容路径；新模型场景用 @TestPropertySource 明确开启并走真实 HTTP。
+aquaflow:
+  barrel:
+    independent-rights-enabled: false
+    maintenance-enabled: false
+
 # 登录类端点限流在整套集成测试里默认关闭：
 #   ① 所有用例都从 127.0.0.1 发请求，共享同一个计数器，开着会让"跑全量顺序不同 → 结果不同"；
 #   ② 验证限流本身的那个用例用 @TestPropertySource 单独把开关打开，并把阈值调到 3。

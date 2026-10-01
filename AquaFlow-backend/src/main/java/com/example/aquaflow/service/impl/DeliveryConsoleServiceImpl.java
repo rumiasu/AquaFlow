@@ -44,6 +44,9 @@ import java.util.Map;
  */
 @Service
 public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.DispatchAgreementService dispatchAgreements;
 
     /** 见 {@link DeliveryConsoleService} 类注释：时间源照搬原状，未纳入 F-16 的 BusinessTime 改造。 */
     @Autowired
@@ -203,6 +206,8 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
         // 口径 = 凭据上的需求快照 − 已预留（**不是** inventory.quantity），只读、不下发他站数据；
         // 它只是提示 —— 真正拦住"少扣一点先把单结了"的是完成配送时那次出库校验。
         order.setStockPrep(inventoryReservationService.prepInfoOfOrder(orderId));
+        order.setDispatchAgreement(dispatchAgreements.info(orderId));
+        order.setIndependentBusinessRules(barrelPolicy.isEnabled() || barrelLedger.independentOrder(orderId));
         // 楼层 / 电梯：送货的人要知道这一单要不要上楼。
         // orderMapper.getById 是纯 orders 查询（不带 address 关联），所以在这里补一次读；
         // 取的是**当前地址**的值而不是下单快照 —— 详见 Orders.addressFloor 的字段注释。
@@ -495,6 +500,7 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
         Map<Long, String> stationNames = loadStationNames();
         for (Orders o : orders) {
             Map<String, Object> info = feeInfoOf(o, myStationId, stationNames, claimContext);
+            o.setDispatchAgreement(dispatchAgreements.info(o.getId()));
             o.setFeeStationName((String) info.get("feeStationName"));
             o.setSettleNote((String) info.get("settleNote"));
             o.setSettleToMyStation((Boolean) info.get("settleToMyStation"));
@@ -522,6 +528,7 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
     private Map<String, Object> feeInfoOf(Orders order, Long myStationId, Map<Long, String> stationNames,
                                           boolean claimContext) {
         Map<String, Object> info = new HashMap<>();
+        info.put("dispatchAgreement",dispatchAgreements.info(order.getId()));
         info.put("deliveryFee", order.getDeliveryFee() != null ? order.getDeliveryFee() : java.math.BigDecimal.ZERO);
         info.put("floorFee", order.getFloorFee() != null ? order.getFloorFee() : java.math.BigDecimal.ZERO);
         info.put("totalAmount", order.getTotalAmount() != null ? order.getTotalAmount() : java.math.BigDecimal.ZERO);

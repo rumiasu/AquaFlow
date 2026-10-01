@@ -36,6 +36,48 @@ import java.util.Map;
 @RequireRole({"STATION_MANAGER"})
 @Slf4j
 public class ManagerInterStationSettlementController {
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.UnusedTicketRefundService ticketExits;
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
+    @GetMapping("/ticket-exit-batches") public Result<java.util.List<Map<String,Object>>> ticketExitBatches() {
+        return Result.success(barrelPolicy.hasSchema()?ticketExits.candidates(AuthContext.requireStationId()):java.util.List.of());
+    }
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.BusinessWaitingService businessWaiting;
+    /** 站长端业务待办页：缺货待补及审批/退款超时，只提示，不抹去已收桶事实。 */
+    @GetMapping("/business-waiting") public Result<Map<String,Object>> waiting() { return Result.success(businessWaiting.waiting(AuthContext.requireStationId())); }
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.DispatchAgreementService dispatchAgreements;
+    /** 员工端每单外包报价；来源站提价，接收站接单时固定，只含钱货去向。 */
+    @GetMapping("/dispatch-agreements/{orderId}") public Result<Map<String,Object>> agreement(@PathVariable Long orderId) {
+        return Result.success(dispatchAgreements.authorizedInfo(orderId,AuthContext.requireStationId()));
+    }
+    @PutMapping("/dispatch-agreements/{orderId}") public Result<Void> quote(@PathVariable Long orderId,@jakarta.validation.Valid @RequestBody com.example.aquaflow.dto.DispatchQuoteDTO dto) {
+        dispatchAgreements.quote(orderId,dto); return Result.success();
+    }
+    @GetMapping("/station-barrel-balances") public Result<java.util.List<Map<String,Object>>> barrelBalances() {
+        return Result.success(dispatchAgreements.barrelBalances(AuthContext.requireStationId()));
+    }
+    @PostMapping("/station-barrel-balances/{orderId}/dispute") public Result<Void> dispute(@PathVariable Long orderId,@RequestBody Map<String,String> body) {
+        dispatchAgreements.dispute(orderId,AuthContext.requireStationId(),body.get("note")); return Result.success();
+    }
+    @PutMapping("/station-barrel-balances/{orderId}/proposal") public Result<Void> proposal(@PathVariable Long orderId,@jakarta.validation.Valid @RequestBody com.example.aquaflow.dto.BarrelResolutionDTO dto) {
+        dispatchAgreements.propose(orderId,AuthContext.requireStationId(),dto); return Result.success();
+    }
+    @PostMapping("/station-barrel-balances/{orderId}/agree") public Result<Void> agree(@PathVariable Long orderId) {
+        dispatchAgreements.agree(orderId,AuthContext.requireStationId()); return Result.success();
+    }
+    @PostMapping("/station-barrel-balances/{orderId}/received") public Result<Void> barrelReceived(@PathVariable Long orderId,@RequestBody Map<String,String> body) {
+        dispatchAgreements.closeBarrels(orderId,AuthContext.requireStationId(),body.get("note")); return Result.success();
+    }
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.StationRecoveryService recoveries;
+    /** 员工端站间台账：冲销后已交付资金的追收，不把改状态当成打款。 */
+    @GetMapping("/inter-station-recoveries") public Result<java.util.List<Map<String,Object>>> recoveries() {
+        return Result.success(recoveries.list(AuthContext.requireStationId()));
+    }
+    @PostMapping("/inter-station-recoveries/{orderId}/sent") public Result<Void> recoverySent(@PathVariable Long orderId,@RequestBody Map<String,String> body) {
+        recoveries.sent(orderId,AuthContext.requireStationId(),body.get("note")); return Result.success();
+    }
+    @PostMapping("/inter-station-recoveries/{orderId}/received") public Result<Void> recoveryReceived(@PathVariable Long orderId) {
+        recoveries.received(orderId,AuthContext.requireStationId()); return Result.success();
+    }
 
     private final InterStationSettlementService service;
 

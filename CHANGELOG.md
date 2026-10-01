@@ -44,7 +44,7 @@
 
 **安全**
 
-- JWT 双 Token（access 30 分钟 / refresh 7 天）与 `@RequireRole` + `@RequireStation` 的 AOP 统一授权。
+- JWT 双 Token（access 2 小时 / refresh 7 天，正本 `application.yml` 的 `jwt.*-expiry`）与 `@RequireRole` + `@RequireStation` 的 AOP 统一授权。
 - 登录类端点按来源 IP 限流（超限 429）。
 - 跨租户可见面收窄：外派字段只带钱货去向，客户画像由 `CustomerProfileMask` 单点抹除。
 - 密钥全量转为环境变量，`application-local.yml` 与 `.env*` 一律不入库；CI 增加敏感信息扫描步骤。

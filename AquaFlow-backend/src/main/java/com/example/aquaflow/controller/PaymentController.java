@@ -61,6 +61,15 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/payments")
 @Slf4j
 public class PaymentController {
+    /** 员工端退款范围菜单；金额由服务端按退款组成凭据计算。 */
+    @RequireRole("STATION_MANAGER")
+    @GetMapping("/{id}/refund-preview") public Result<Map<String,Object>> refundPreview(@PathVariable Long id) {
+        Result<Void> check=requireRefundStation(id); if(check!=null)return Result.error(check.getMessage());
+        if(!consumptionRefunds.usesIndependentRules(id))return Result.success(Map.of("notice","原路径退回该笔付款", "scopes",java.util.List.of(Map.of("scope","WATER","label","退该笔付款"))));
+        return Result.success(consumptionRefunds.preview(id));
+    }
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.ConsumptionRefundService consumptionRefunds;
 
     @Autowired
     private PaymentService paymentService;
@@ -286,6 +295,7 @@ public class PaymentController {
         for (Map<String, Object> r : rows) {
             r.put("methodText", com.example.aquaflow.constant.PayMethod.textOf(asInt(r.get("paymentMethod"))));
             r.put("statusText", com.example.aquaflow.constant.PaymentStatus.textOf(asInt(r.get("status"))));
+            r.put("purposeText", paymentPurposeOf(r));
         }
         return Result.success(rows);
     }
@@ -293,6 +303,17 @@ public class PaymentController {
     /** Map 结果里的数值列可能来自不同数值类型，统一取 Integer */
     private static Integer asInt(Object v) {
         return v instanceof Number ? ((Number) v).intValue() : null;
+    }
+
+    private static String paymentPurposeOf(Map<String, Object> row) {
+        if (row.get("orderId") != null) return "订单消费款";
+        Integer ticketQty = asInt(row.get("ticketQty"));
+        if (ticketQty != null && ticketQty > 0) return "购买水票 " + ticketQty + " 张";
+        Object deposit = row.get("barrelDeposit");
+        if (deposit != null && new BigDecimal(deposit.toString()).signum() > 0) return "独立桶押金";
+        Object fee = row.get("deliveryFee");
+        if (fee != null && new BigDecimal(fee.toString()).signum() > 0) return "上门收桶费";
+        return "独立款项（请核实用途）";
     }
 
     /**
@@ -311,7 +332,8 @@ public class PaymentController {
     public Result refund(@PathVariable Long id, @RequestBody @Valid PaymentRefundDTO dto) {
         Result<Void> check = requireRefundStation(id);
         if (check != null) return check;
-        paymentService.refundPayment(id, dto.getNote());
+        if (consumptionRefunds.usesIndependentRules(id)) consumptionRefunds.refund(id,dto.getScope(),dto.getNote(),dto.getExpectedTicketQty(),dto.getExpectedTicketAmount());
+        else paymentService.refundPayment(id, dto.getNote());
         return Result.success();
     }
 

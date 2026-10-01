@@ -56,6 +56,7 @@ public class BarrelRecord {
         // 而那次配送根本没退过押金（AGENTS §8.22：不能把没发生的事说成发生了）。
         // 所以非退桶类型一律**不下发**状态文案，由前端按 typeText / 数量 / 备注展示。
         if (type == null || type != 2) return null;
+        if (returnDetail != null) return returnDetail.getStatusText();
         if (status == null) return null;
         switch (status) {
             case 1: return "待处理";
@@ -144,4 +145,6 @@ public class BarrelRecord {
 
     /** 客户当前欠桶数（瞬时字段，不映射数据库，仅用于站长审批页提醒） */
     private transient Integer owedBuckets;
+    /** 新申请的批准/双确认/取桶费信息；旧记录为 null。 */
+    private transient BarrelReturnDetail returnDetail;
 }

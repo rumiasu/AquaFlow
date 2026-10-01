@@ -26,6 +26,8 @@ import org.slf4j.LoggerFactory;
 
 @Service
 public class TicketAccountServiceImpl implements TicketAccountService {
+    @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
+    @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
 
     private static final Logger log = LoggerFactory.getLogger(TicketAccountServiceImpl.class);
 
@@ -506,6 +508,10 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         Product product = productMapper.getById(productId);
         if (product == null) {
             throw new BusinessException("商品不存在");
+        }
+        if (barrelPolicy.isEnabled() && com.example.aquaflow.util.BarrelScope.isBarrel(product)
+                && barrelLedger.rightQty(customerId, stationId, productId) <= 0) {
+            throw new BusinessException("请先办理本站该商品的桶押金，再购买水票");
         }
         // 水票开关与票价以「站级库存」为准（与下单/试算走的 PriceUtil 同一口径）。
         // 注意 product.ticket_enabled 是商品级默认值，水站可对本站单独开启，因此必须查 inventory。

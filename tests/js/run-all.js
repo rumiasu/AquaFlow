@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'independent-right-purchase.test.js', name: '独立押金购买与未知付款恢复' },
   { file: 'order-create-flow.test.js', name: '客户下单闭环（工作包 B）' },
   { file: 'delivery-complete-flow.test.js', name: '配送送达页（工作包 C）' },
   { file: 'delivery-detail-return-row.test.js', name: '订单详情页回桶行（首单不给默认回桶值）' },

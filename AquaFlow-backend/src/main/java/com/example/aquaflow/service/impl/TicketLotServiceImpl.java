@@ -27,6 +27,25 @@ import java.util.UUID;
 @Service
 @Slf4j
 public class TicketLotServiceImpl implements TicketLotService {
+    @Override
+    @Transactional
+    public ConsumeResult consumePurchasedBalance(Long customerId,Long stationId,Long productId,Long paymentId) {
+        TicketAccount account=ticketAccountMapper.lockAccount(customerId,stationId,productId);
+        if (account==null) throw new BusinessException("本批没有可退的水票余额");
+        List<TicketLot> lots=ticketLotMapper.purchasedBalanceForUpdate(paymentId);
+        int quantity=0; BigDecimal amount=BigDecimal.ZERO;
+        for (TicketLot lot:lots) {
+            if (!customerId.equals(lot.getCustomerId()) || !stationId.equals(lot.getStationId()) || !productId.equals(lot.getProductId())) throw new BusinessException("水票批次归属不符");
+            int q=lot.getRemainQty();
+            if (ticketLotMapper.decrementRemain(lot.getId(),q)!=1) throw new BusinessException("水票余额已变动，请刷新后重试");
+            quantity+=q; amount=amount.add(lot.getUnitPrice().multiply(BigDecimal.valueOf(q)));
+        }
+        if (quantity<=0 || ticketAccountMapper.decrementQuantity(account.getId(),quantity)!=1) throw new BusinessException("本批余额不足或已经退完");
+        refreshRightAmount(customerId,stationId,productId);
+        ConsumeResult result=new ConsumeResult(); result.setTotalAmount(amount); result.setQuantity(quantity);
+        result.setWeightedUnitPrice(amount.divide(BigDecimal.valueOf(quantity),4,RoundingMode.HALF_UP));
+        result.setSingleLotId(lots.size()==1?lots.get(0).getId():null); return result;
+    }
 
     @Autowired
     private TicketLotMapper ticketLotMapper;
@@ -131,7 +150,7 @@ public class TicketLotServiceImpl implements TicketLotService {
             // 账户建好后会再调一次。
             return;
         }
-        BigDecimal right = ticketLotMapper.sumRightAmount(customerId, stationId, productId);
+        BigDecimal right = ticketLotMapper.currentRightAmount(customerId, stationId, productId);
         ticketAccountMapper.setRightAmount(account.getId(), right != null ? right : BigDecimal.ZERO);
     }
 }

@@ -95,6 +95,7 @@
           <view class="seg">
             <text class="seg-item {{stockMode === 'in' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="in">＋ 入库</text>
             <text class="seg-item {{stockMode === 'check' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="check">＝ 盘点</text>
+            <text class="seg-item {{stockMode === 'loss' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="loss">实盘亏损</text>
           </view>
           <input class="input" type="number" placeholder="{{stockMode === 'in' ? '要入库的数量' : '盘点后的库存数'}}" value="{{stockInput}}" bindinput="onStockInput" />
           <view class="stock-preview" wx:if="{{stockAfterText}}">
@@ -293,7 +294,7 @@
   <view class="modal-mask" wx:if="{{showRecords}}" catchtouchmove="preventMove" bindtap="closeRecords">
     <view class="modal" catchtap="stopPropagation">
       <view class="modal-header">库存流水</view>
-      <view class="modal-sub">入库/盘点/下单扣减/取消回补都会留痕（[AQ-029]）</view>
+      <view class="modal-sub">入库、盘点、实盘亏损和配送出库都会留痕；下单预留及取消释放不改变实物</view>
 
       <view class="filter-row">
         <text class="filter-chip" wx:if="{{recordsFilterName}}">

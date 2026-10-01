@@ -15,6 +15,12 @@
   </view>
 
   <!-- 联系信息卡片 -->
+  <view class="info-card" wx:if="{{order.dispatchAgreement && order.dispatchAgreement.serviceAmount !== undefined}}">
+    <text>本单外包服务报价 ¥{{order.dispatchAgreement.serviceAmount}}（含水费及配送费用）</text>
+    <text>{{order.dispatchAgreement.barrelNote}} · {{order.dispatchAgreement.barrelItems}} · 桶折款 ¥{{order.dispatchAgreement.barrelAmount}}</text>
+    <button wx:if="{{isManager && order.status === 1 && order.dispatchAgreement.canEditQuote}}" bindtap="onEditDispatchQuote">调整本单外包报价</button>
+    <button wx:if="{{isManager && order.status === 1 && order.dispatchAgreement.canEditQuote && order.dispatchAgreement.netBarrels > 0}}" bindtap="onEditBarrelTerms">明确净送桶补偿安排</button>
+  </view>
   <view class="info-card">
     <view class="info-row" bindtap="onCallPhone">
       <text class="info-text">{{order.receiverPhone || order.customerPhone}}</text>
@@ -247,7 +253,7 @@
     -->
     <view class="transfer-btn btn-refusal" wx:if="{{isManager && order.status === 3 && order.needCollect}}"
           bindtap="onRefusalWriteOff">
-      <text>{{refusalBusy ? '处理中…' : '客户拒付（走异常单核销）'}}</text>
+      <text>{{refusalBusy ? '处理中…' : (order.independentBusinessRules ? '确认客户拒付（保留欠款）' : '客户拒付（走历史核销）')}}</text>
     </view>
   </block>
 </view>

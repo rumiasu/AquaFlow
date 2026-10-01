@@ -164,6 +164,7 @@ public interface PaymentRecordMapper {
     @Select("select p.id, p.order_id as orderId, p.customer_id as customerId, "
             + "c.name as customerName, c.phone as customerPhone, "
             + "p.station_id as stationId, p.amount, p.payment_method as paymentMethod, "
+            + "p.barrel_deposit as barrelDeposit,p.delivery_fee as deliveryFee, "
             + "p.ticket_water_type_id as ticketProductId, p.ticket_qty as ticketQty, "
             + "p.note, p.create_time as createTime, "
             + "(select oi.product_name_snapshot from order_item oi where oi.order_id = p.order_id order by oi.id limit 1) as productName "

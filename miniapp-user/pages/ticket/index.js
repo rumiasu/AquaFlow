@@ -1,11 +1,13 @@
 const { getTicketAccounts, getTicketRecords, getTicketPackages, purchaseTicket } = require('../../api/ticket')
 const { getStationProducts } = require('../../api/product')
+const { getBarrelSummaryByType } = require('../../api/barrel')
 const { getPublicStations } = require('../../api/station')
 const { getBaseUrl, API } = require('../../config/api')
 const { getAccessToken } = require('../../utils/token')
 const { stationStorage } = require('../../utils/storage')
 
 Page({
+  onExitHelp() { wx.showModal({ title:'剩余水票退出',content:'请联系原购买水站，站长核实原购买批次、剩余张数及退款金额后办理。已用票不退；赠票及没有原款来源的批次须另行核实。退票与退桶、退押金分别办理。',showCancel:false }) },
   data: {
     loading: true,
     accounts: [],
@@ -391,6 +393,10 @@ Page({
     const idempotencyKey = this.data.purchaseIdempotencyKey || this.genPurchaseIdempotencyKey()
     this.setData({ submitting: true, purchaseIdempotencyKey: idempotencyKey })
     try {
+      const rights = await getBarrelSummaryByType(this.data.currentStationId)
+      const holding = (rights.data || []).find(h => (h.productId || h.waterTypeId) === productId)
+      // 无权益的商品可能没有汇总行；由购票端后端硬拦作最终判断。
+      if (holding && holding.independentRights && !(holding.assetQty > 0)) throw new Error('请先购买该桶权益')
       const res = await purchaseTicket({
         productId: productId,
         waterTypeId: productId, // 兼容旧字段
@@ -423,7 +429,11 @@ Page({
       }
     } catch (error) {
       console.error('Purchase ticket error:', error)
-      wx.showToast({ title: error.message || '购买失败', icon: 'none' })
+      if ((error.message || '').includes('先') && (error.message || '').includes('桶')) {
+        wx.showModal({ title: '先交桶押金', content: error.message, confirmText: '交桶押金', success: (r) => {
+          if (r.confirm) wx.navigateTo({ url: '/pages/barrel/purchase?stationId=' + this.data.currentStationId + '&productId=' + productId })
+        } })
+      } else wx.showToast({ title: error.message || '购买失败', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
     }

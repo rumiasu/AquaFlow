@@ -13,10 +13,11 @@
       <text class="station-bar-tip">桶与押金按水站独立，这里只显示该站的数据</text>
     </view>
     <view class="stats-card">
+      <button wx:if="{{summary.independentRights}}" bindtap="onPurchaseRights">交桶押金（不含水）</button>
       <view class="stat-col">
-        <text class="stat-label">持有桶</text>
+        <text class="stat-label">{{summary.independentRights ? '用桶权益' : '持有桶'}}</text>
         <view class="stat-value-row">
-          <text class="stat-number">{{summary.heldBuckets}}</text>
+          <text class="stat-number">{{summary.independentRights ? summary.rightBuckets : summary.heldBuckets}}</text>
           <text class="stat-unit">个</text>
         </view>
       </view>
@@ -51,7 +52,7 @@
 
     <!-- 多还的桶寄在水站：over<0 是合法状态，以前被当成 0 完全不显示，
          于是顾客还了 3 个只拿走 1 个却看不出来，这是"我的桶呢"类咨询的直接来源 -->
-    <view class="storage-tip" wx:if="{{summary.storageBuckets > 0}}">
+    <view class="storage-tip" wx:if="{{summary.storageBuckets > 0 && !summary.independentRights}}">
       <text>另有 {{summary.storageBuckets}} 个空桶寄存在水站（您多还的桶，可随时取回或用于下次换水）</text>
     </view>
 
@@ -76,7 +77,8 @@
             <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#2E4A68" /></view>
             <view class="bucket-detail">
               <text class="bucket-id">{{item.productName}} {{item.productSpec}}</text>
-              <text class="bucket-time">持有 {{item.heldTotalQty || 0}} 桶<text wx:if="{{item.inTransitQty > 0}}">（含配送中 {{item.inTransitQty}}）</text> / 欠桶 {{item.owedQty || 0}}</text>
+              <text class="bucket-time" wx:if="{{!summary.independentRights}}">持有 {{item.heldTotalQty || 0}} 桶<text wx:if="{{item.inTransitQty > 0}}">（含配送中 {{item.inTransitQty}}）</text> / 欠桶 {{item.owedQty || 0}}</text>
+              <text class="bucket-time" wx:if="{{summary.independentRights}}">实际在手 {{item.occupiedQty}} 桶 · 可用权益 {{item.availableRights}} 个</text>
             </view>
           </view>
           <view class="bucket-status">
@@ -109,6 +111,11 @@
           <!-- statusText 只对退桶申请（type=2）有值，其余类型后端不下发（见 BarrelRecord.getStatusText） -->
           <view class="bucket-status status-{{item.status || 0}}" wx:if="{{item.statusText}}">
             <text>{{item.statusText}}</text>
+          </view>
+          <view wx:if="{{item.returnDetail}}">
+            <text>{{item.returnDetail.pickupModeText}} · 应交回 {{item.returnDetail.requiredBarrels}} 桶 · 取桶费 ¥{{item.returnDetail.pickupFee}}</text>
+            <button wx:if="{{item.returnDetail.status === 'APPROVED' && !item.returnDetail.customerConfirmedTime}}" data-id="{{item.id}}" bindtap="onReturnConfirm">确认批准的安排</button>
+            <button wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnWithdraw">撤回申请</button>
           </view>
         </view>
       </view>
@@ -160,7 +167,7 @@
             <text>{{item.productName}}{{item.productSpec ? ' ' + item.productSpec : ''}}</text>
             <!-- 退桶选择处显示「可退」而不是「持有」：可退 = 占用（权益 + over），
                  配送中的桶还没到手、退不了；欠桶时占用也会小于权益。 -->
-            <text class="water-type-qty">可退 {{item.occupiedQty || 0}} 桶</text>
+            <text class="water-type-qty">可退 {{summary.independentRights ? item.availableRights : (item.occupiedQty || 0)}} {{summary.independentRights ? '份权益' : '桶'}}</text>
           </view>
         </view>
       </view>
@@ -213,13 +220,15 @@
       </view>
 
       <view class="preview-storage" wx:if="{{preview && preview.storageQty > 0}}">
-        <text>另有 {{preview.storageQty}} 个空桶寄存在水站，不影响本次退款</text>
+        <text>{{summary.independentRights ? '另有待领取或暂存容量' : '另有空桶寄存在水站'}} {{preview.storageQty}} 个；本次应交桶数量以批准安排为准</text>
       </view>
 
       <view class="form-row">
         <text class="form-label">备注</text>
         <input class="note-input" placeholder="如：搬家、换地址等" value="{{returnForm.note}}" bindinput="onReturnNoteInput"></input>
       </view>
+      <view class="form-row" wx:if="{{summary.independentRights}}" bindtap="onPickupMode"><text>交接方式：{{returnForm.pickupModeText || '到店退桶'}} ›</text></view>
+      <view wx:if="{{summary.independentRights}}">必须先批准并确认安排，再交桶。未领桶的权益也可申请退还；仅退还当前未被订单占用的权益。</view>
     </view>
 
     <view class="modal-footer">

@@ -33,6 +33,9 @@ import java.util.*;
 @Service
 @Slf4j
 public class InterStationSettlementServiceImpl implements InterStationSettlementService {
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.DispatchAgreementService dispatchAgreements;
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.StationRecoveryService recoveries;
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.mapper.ConsumptionRefundMapper businessLocks;
 
     /** 单价快照的标度（与 `inter_station_settlement.unit_price decimal(10,4)` 一致）。 */
     private static final int UNIT_PRICE_SCALE = 4;
@@ -157,6 +160,10 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
     @Override
     @Transactional
     public Map<String, Object> settle(Long stationId, Long orderId, String note, Long operatorId) {
+        businessLocks.lockOrder(orderId);
+        Map<String,Object> agreement=dispatchAgreements.info(orderId);
+        if(!agreement.isEmpty() && !Set.of("ACCEPTED","BARREL_CLOSED").contains(String.valueOf(agreement.get("status"))))
+            throw new BusinessException("请等待履约站接受本单报酬和桶安排后再登记站间结清");
         Map<String, Object> live = requireLive(orderId);
         Long payStation = longOf(live.get("payStationId"));
         Long receiveStation = longOf(live.get("settleStationId"));
@@ -202,6 +209,8 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
     @Override
     @Transactional
     public Map<String, Object> priceByListed(Long stationId, Long orderId, Long operatorId) {
+        businessLocks.lockOrder(orderId);
+        if (!dispatchAgreements.info(orderId).isEmpty()) return dispatchAgreements.raiseToListed(orderId);
         Map<String, Object> live = requireLive(orderId);
         Long ownerStation = longOf(live.get("ownerStationId"));
         Integer paymentMethod = intOf(live.get("paymentMethod"));
@@ -247,6 +256,7 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         if (orderId == null) {
             throw new BusinessException("缺少订单号");
         }
+        businessLocks.lockOrder(orderId);
         // ⚠️ **这里不能先 requireLive(orderId)**：冲销要处理的情形正是"订单已经取消/退款"，
         //    而 live 的 WHERE 会把那种单排除掉 —— 于是这条唯一该走冲销的路会永远报
         //    「该订单不在站间结算台账里」，冲销成了点不动的按钮（实现时踩到，用例锁住了）。
@@ -264,6 +274,7 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
                 && !Objects.equals(existing.getToStationId(), stationId)) {
             throw new BusinessException("本单与本站无关，不能冲销");
         }
+        recoveries.preserveSettledPayment(existing);
         int n = mapper.reverse(orderId);
         log.info("[站间结算] 冲销. order={}, station={}, affected={}", orderId, stationId, n);
         Map<String, Object> data = new LinkedHashMap<>();
@@ -357,6 +368,8 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         out.put("ticketQty", ticketQty == null ? 0 : ticketQty);
         out.put("unitPrice", unitPrice);
         out.put("feeAmount", feeAmount);
+        BigDecimal agreed=dispatchAgreements.acceptedServiceAmount(longOf(live.get("orderId")));
+        if (agreed!=null && row==null) { out.put("amount",agreed); out.put("unitPrice",null); }
         return out;
     }
 

@@ -1,4 +1,5 @@
-const { getAllBarrelRecords, updateBarrelRecordStatus, markRefundPaid, getRefundUndelivered } = require('../../../api/station-mgmt')
+const { getAllBarrelRecords, updateBarrelRecordStatus, markRefundPaid, getRefundUndelivered, approveBarrelReturn, confirmPayment } = require('../../../api/station-mgmt')
+const businessRules = require('../../../api/business-rules')
 
 /**
  * 退桶审批页（站长端）。
@@ -20,6 +21,13 @@ const CHANNEL_CASH = 'CASH'
 const CHANNEL_ONLINE = 'ONLINE'
 
 Page({
+  onRefundPickupFee(e) {
+    wx.showModal({ title: '单独退收桶服务费', content: '请先向客户实际交付退款，再确认。本操作不退押金，也不抹去已经收桶的事实。未交接申请可在退服务费后撤回。', success: async r => {
+      if (!r.confirm) return
+      try { await businessRules.refundService(e.currentTarget.dataset.id, '站长确认实际退还收桶服务费'); await this.loadData() }
+      catch (err) { wx.showModal({ title: '退款未成功', content: err.message || '请核实原款', showCancel: false }) }
+    } })
+  },
   data: {
     list: [],
     // 「已核销未交付」只读自查：升级前退过的押金没有交付时间，属历史欠账（后端给计数与明细）
@@ -103,6 +111,27 @@ Page({
         }
       }
     })
+  },
+  onApproveArrangement(e) {
+    const record = this.data.list.find(r => r.id === Number(e.currentTarget.dataset.id))
+    if (!record || !record.returnDetail) return
+    const needsFee = record.returnDetail.pickupMode === 'PICKUP' && record.returnDetail.requiredBarrels > 0
+    wx.showModal({ title: '批准退桶安排', editable: needsFee, placeholderText: '独立上门费（元，可填 0）',
+      content: needsFee ? '先填写本次独立上门费，客户确认后才能收桶。' : '本次不另收上门费。批准后等待客户确认安排。',
+      success: async (r) => {
+        if (!r.confirm) return
+        const fee = needsFee ? Number(r.content) : 0
+        if (!Number.isFinite(fee) || fee < 0 || fee > 10000) { wx.showToast({ title: '费用不合法', icon: 'none' }); return }
+        try { await approveBarrelReturn(record.id, fee, '批准交接安排'); await this.loadData() }
+        catch (err) { wx.showToast({ title: err.message || '批准失败', icon: 'none' }) }
+      } })
+  },
+  onCollectPickupFee(e) {
+    wx.showModal({ title: '确认收到取桶费', content: '须已经实际收到这笔上门收桶费，才可确认。', success: async (r) => {
+      if (!r.confirm) return
+      try { await confirmPayment(e.currentTarget.dataset.id); wx.showToast({ title: '已登记收款' }); this.loadData() }
+      catch (err) { wx.showToast({ title: err.message || '登记失败', icon: 'none' }) }
+    } })
   },
 
   /**

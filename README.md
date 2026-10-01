@@ -100,14 +100,14 @@
 
 | 指标 | 值 | 真相源 |
 |---|---|---|
-| 后端 Controller / 端点映射 | 49 / 268 | `AquaFlow-backend/src/main/java/com/example/aquaflow/controller/` |
-| 数据表 | 50 | `AquaFlow-backend/sql/schema.sql` |
-| 迁移脚本 | v1 〜 v61 | `AquaFlow-backend/sql/README.md` |
-| 集成测试 | 95 个类 / 470 个用例 / 0 失败 | `AquaFlow-backend/build/test-results/test/*.xml` |
-| 小程序注册页面 | 顾客端 23 / 员工端 42 | 各自 `app.json` 的 `pages` |
+| 后端 Controller / 端点映射 | 53 / 285 | `AquaFlow-backend/src/main/java/com/example/aquaflow/controller/`（端点数 `node scripts/check-api-doc.js` 实跑） |
+| 数据表 | 53 | `AquaFlow-backend/sql/schema.sql` |
+| 迁移脚本 | v1 〜 v70 | `AquaFlow-backend/sql/README.md` |
+| 集成测试 | 121 个类 / 631 个用例 / 0 失败 | `AquaFlow-backend/build/test-results/test/*.xml` |
+| 小程序注册页面 | 顾客端 22 / 员工端 42 | 各自 `app.json` 的 `pages` |
 
 > **这些数字会随开发漂移，冲突时以上述真相源为准** —— 本仓库的文档规则要求会漂移的计数只在
-> 真相源处定义（见 [`docs/README.md`](./docs/README.md)）。上表为 2026-09-24 的 `main` 分支实测状态。
+> 真相源处定义（见 [`docs/README.md`](./docs/README.md)）。上表为 2026-09-30 的 `main` 分支实测状态。
 
 ## 6. 质量体系
 

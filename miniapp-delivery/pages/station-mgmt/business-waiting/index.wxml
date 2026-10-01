@@ -1,0 +1,36 @@
+<view class="page">
+  <text class="error" wx:if="{{error}}">{{error}}</text><text wx:if="{{loading}}">加载中…</text>
+  <view class="section"><text class="title">缺货待补</text>
+    <view class="row" wx:for="{{stock}}" wx:key="orderId" data-id="{{item.orderId}}" bindtap="onOrder">订单 {{item.orderNo || item.orderId}} · 还缺 {{item.shortageQty}} 件 · {{item.createTime}} ›</view>
+    <text wx:if="{{!stock.length}}">暂无缺货待办</text>
+  </view>
+  <view class="section"><text class="title">原购买批次剩余水票退出</text>
+    <text>仅在客户要求退出并核实原款后办理；赠票及无来源批次由站长另行裁决。</text>
+    <view class="row" wx:for="{{tickets}}" wx:key="paymentId">{{item.customerName}} · {{item.productName}} · 剩余 {{item.remainingQty}} 张 · 原渠道 {{item.paymentMethodText}} · ¥{{item.refundAmount}}
+      <button data-id="{{item.paymentId}}" bindtap="onTicketRefund">核实并退本批剩余票</button>
+    </view><text wx:if="{{!tickets.length}}">暂无有原款凭据的可退剩余批次</text>
+  </view>
+  <view class="section" bindtap="onReturns"><text class="title">审批或押金交付超时 ›</text><view wx:for="{{returns}}" wx:key="recordId">申请 {{item.recordId}} · ¥{{item.refundAmount}} · {{item.refundDueTime || '审批已超过2小时'}}</view><text wx:if="{{!returns.length}}">暂无超时申请</text></view>
+  <view class="section"><text class="title">确认拒付与资产冻结</text>
+    <view class="row" wx:for="{{refusals}}" wx:key="order_id">订单 {{item.order_id}} · 欠款 ¥{{item.debtAmount}} · {{item.paymentStatus === 1 ? '待追款，押金未扣' : '欠款已收口'}}
+      <button wx:if="{{item.asset_station_id === stationId && !item.asset_freeze_confirmed && item.paymentStatus === 1}}" data-id="{{item.order_id}}" data-action="freeze" bindtap="action">核实后冻结本站退押金资格</button>
+      <button data-id="{{item.order_id}}" bindtap="onOrder">查看本单追款</button>
+    </view><text wx:if="{{!refusals.length}}">暂无确认拒付记录</text>
+  </view>
+  <view class="section"><text class="title">冲销后的已付款追收</text>
+    <view class="row" wx:for="{{recoveries}}" wx:key="order_id">订单 {{item.order_id}} · 站 {{item.from_station_id}} 向站 {{item.to_station_id}} 返还 ¥{{item.amount}} · {{item.status === 'RECEIVED' ? '双方已确认到账' : '仍待实际返还'}}
+      <button wx:if="{{item.status === 'PENDING' && item.from_station_id === stationId && !item.sender_confirmed_time}}" data-id="{{item.order_id}}" data-action="sent" bindtap="action">登记已交付返还款</button>
+      <button wx:if="{{item.status === 'PENDING' && item.to_station_id === stationId && item.sender_confirmed_time}}" data-id="{{item.order_id}}" data-action="received" bindtap="action">确认实际到账</button>
+    </view><text wx:if="{{!recoveries.length}}">暂无待追回款项</text>
+  </view>
+  <view class="section"><text class="title">外派净领桶补偿</text>
+    <view class="row" wx:for="{{barrels}}" wx:key="orderId">订单 {{item.orderId}} · 归属站 {{item.sourceStationId}} / 履约站 {{item.targetStationId}} · 实际净送 {{item.netBarrels}} 桶（负数反向）
+      <text>{{item.barrelItems}} · {{item.barrelMode === 'RETURN_EMPTY' ? '补同型空桶' : '按约定折款'}} · 桶折款 ¥{{item.barrelAmount}}</text>
+      <text wx:if="{{item.disputed}}">待双方确认争议：{{item.disputeNote}}</text><text wx:if="{{item.resolutionNote}}">方案：{{item.resolutionNote}}</text>
+      <button wx:if="{{item.disputed && item.sourceStationId === stationId}}" data-id="{{item.orderId}}" bindtap="onProposal">提出桶争议处理方案</button>
+      <button wx:if="{{item.disputed && item.proposedBy && item.targetStationId === stationId}}" data-id="{{item.orderId}}" data-action="agree" bindtap="action">同意桶争议处理方案</button>
+      <button wx:if="{{!item.disputed && ((item.targetStationId === stationId && !item.targetConfirmedBy) || (item.sourceStationId === stationId && !item.sourceConfirmedBy))}}" data-id="{{item.orderId}}" data-action="barrels" bindtap="action">确认本方实物或桶款已交接</button>
+      <button data-id="{{item.orderId}}" data-action="dispute" bindtap="action">报告桶损或交接争议</button>
+    </view><text wx:if="{{!barrels.length}}">暂无净领桶补偿待办</text>
+  </view>
+</view>

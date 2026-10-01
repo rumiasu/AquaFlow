@@ -1,0 +1,18 @@
+<view class="page">
+  <text class="title">先交桶押金，再买票或订水</text>
+  <text class="tip">{{stationName}} · 押金由所选水站保管。这里仅购买用桶权益，不含水；水桶随下次送水送达。</text>
+  <text class="error" wx:if="{{error}}">{{error}}</text>
+  <picker range="{{products}}" range-key="name" value="{{index}}" bindchange="onProduct" disabled="{{busy}}"><view class="field">商品：{{products[index].name || '请选择'}}</view></picker>
+  <view class="field">数量 <input type="number" value="{{quantity}}" bindinput="onQuantity" disabled="{{busy}}" /></view>
+  <view wx:if="{{quote}}">
+    <text class="amount">本次押金 ¥{{quote.amount}}</text>
+    <text class="tip">{{quote.notice}}</text>
+    <button data-method="2" bindtap="onMethod" disabled="{{busy}}">{{paymentMethod === 2 ? '已选：' : ''}}向水站交现金，等收款确认</button>
+    <button wx:if="{{quote.onlineAvailable}}" data-method="1" bindtap="onMethod" disabled="{{busy}}">{{paymentMethod === 1 ? '已选：' : ''}}微信支付</button>
+  </view>
+  <button bindtap="onPurchase" disabled="{{busy || !quote}}" loading="{{busy}}">确认购买桶权益</button>
+  <button bindtap="onBack">返回继续下单</button>
+  <view class="record" wx:for="{{purchases}}" wx:key="id">购买 {{item.quantity}} 个 · ¥{{item.amount}} · {{item.statusText}}
+    <button wx:if="{{item.status === 'PENDING'}}" data-id="{{item.id}}" bindtap="onWithdraw">撤回尚未交款的购买</button>
+  </view>
+</view>

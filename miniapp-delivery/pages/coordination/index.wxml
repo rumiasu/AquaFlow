@@ -280,6 +280,10 @@
           <text class="risk-title">⚠️ 押金/桶权益风险</text>
           <text class="risk-text">{{item.crossStationRiskNote}}</text>
         </view>
+        <view class="risk-box" wx:if="{{item.dispatchAgreement && item.dispatchAgreement.serviceAmount !== undefined}}">
+          <text>本单服务报酬 ¥{{item.dispatchAgreement.serviceAmount}}（含配送费用）</text>
+          <text>{{item.dispatchAgreement.barrelNote}}；桶折款 ¥{{item.dispatchAgreement.barrelAmount}}；接受后固定</text>
+        </view>
         <!--
           商品行：文案由 js 算好（`goodsView`，全页签同一份判据）。
           ⚠️ 别改回 `{{item.firstProductName}} × {{item.quantity}}桶` —— `quantity` 是**全单总件数**
@@ -404,6 +408,10 @@
             <text class="order-id">#{{item.id}}</text>
           </view>
           <!-- 别站指定本店的：与抢单池同一口径，接不接这一单同样要先看到钱与去向（金额全由后端下发） -->
+          <view class="risk-box" wx:if="{{item.dispatchAgreement && item.dispatchAgreement.serviceAmount !== undefined}}">
+            <text>本单服务报酬 ¥{{item.dispatchAgreement.serviceAmount}}（含配送费用）</text>
+            <text>{{item.dispatchAgreement.barrelNote}}；桶折款 ¥{{item.dispatchAgreement.barrelAmount}}；接受后固定</text>
+          </view>
           <view class="fee-box" wx:if="{{item._dir === 'in'}}">
             <view class="fee-row-main">
               <text class="fee-label">本单金额</text>

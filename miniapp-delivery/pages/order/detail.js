@@ -2,6 +2,7 @@
 const { getOrderDetail, completeOrder, transferOrder, cancelTransferOrder, returnToStation, getStaffList, dispatchOrder, resolveOrder, requestCancel } = require('../../api/delivery')
 // 配送异常上报（原因文案 + 上报实现）：与首页「配送遇到问题」共用一份，见 utils/delivery-problem.js
 const { reportDeliveryProblem } = require('../../utils/delivery-problem')
+const businessRules = require('../../api/business-rules')
 // ⚠️ 楼梯凭证（v43；原名"楼层凭证"，[2026-09-26] 改名）用 utils/request 直接调：路径写常量、不往 api/ 或 config/api.js 加
 // —— 那两个文件正被另一个工作流（商品图片库）改动。
 const { get, put, post } = require('../../utils/request')
@@ -160,7 +161,7 @@ Page({
     const first = await new Promise((resolve) => {
       wx.showModal({
         title: '客户拒付',
-        content: '第 1 步：先给这张单记一条「客户拒收」异常。\n\n记完还会再问一次 —— 真正动账（核销应收、撤桶权益、记欠桶）的是第 2 步。',
+        content: this.data.order.independentBusinessRules ? '第 1 步：登记客户收货后拒付的异常证据，随后由站长确认风险。' : '登记客户拒付异常，随后由站长确认结案。',
         confirmText: '记异常',
         success: resolve,
         fail: () => resolve({ confirm: false })
@@ -189,9 +190,9 @@ Page({
 
     const second = await new Promise((resolve) => {
       wx.showModal({
-        title: '核销认损（不可撤销）',
-        content: '第 2 步会把三件事一次做完：\n\n1. 这笔应收出账，不再计入「待收款」\n2. 撤销这张单送出、客户尚未归还的桶权益\n3. 等量记成客户欠桶（方便继续追桶）\n\n确定认下这笔损失吗？',
-        confirmText: '确认核销',
+        title: this.data.order.independentBusinessRules ? '确认拒付风险' : '核销认损',
+        content: this.data.order.independentBusinessRules ? '欠款继续保留并追收；关闭线下付款，支付新单前须补款；暂停退押金，不扣押金、不撤桶权益。跨站押金冻结另由归属站核实。' : '确认后应收出账、撤销未归还桶权益并等量记欠桶。请核实本次实际损失。',
+        confirmText: '确认处理',
         confirmColor: '#B5442C',
         cancelText: '先不核销',
         success: resolve,
@@ -206,8 +207,8 @@ Page({
     }
 
     try {
-      await post(MANAGER_EXCEPTIONS + '/' + exId + '/write-off', { managerNote: '客户拒付，站长核销认损' })
-      wx.showToast({ title: '已核销', icon: 'success' })
+      await post(MANAGER_EXCEPTIONS + '/' + exId + '/write-off', { managerNote: this.data.order.independentBusinessRules ? '客户拒付，站长确认信用风险；欠款继续追收' : '客户拒付，站长核销认损' })
+      wx.showToast({ title: '已登记处理', icon: 'success' })
       this.loadOrderDetail(id)
     } catch (err) {
       wx.showToast({ title: err.message || '核销失败', icon: 'none' })
@@ -809,6 +810,10 @@ Page({
     const { id, index } = e.currentTarget.dataset
     const pay = this.data.payments[index]
     if (!pay) return
+    if (this.data.order.independentBusinessRules) {
+      this.chooseRefundScope(id)
+      return
+    }
 
     wx.showModal({
       title: '退款确认',
@@ -825,10 +830,57 @@ Page({
     })
   },
 
-  async doRefundPayment(paymentId) {
+  async chooseRefundScope(paymentId) {
+    try {
+      const res = await businessRules.refundPreview(paymentId)
+      const scopes = res.data.scopes || []
+      if (!scopes.length) { wx.showToast({ title: '消费费用已经退完', icon: 'none' }); return }
+      wx.showActionSheet({ itemList: scopes.map(s => s.label), success: (picked) => {
+        const selected = scopes[picked.tapIndex]
+        wx.showModal({ title: selected.label, content: res.data.notice, confirmText: '实际退款', success: (r) => {
+          if (r.confirm) this.doRefundPayment(paymentId, selected.scope)
+        } })
+      } })
+    } catch (err) { wx.showModal({ title: '暂不能退款', content: err.message || '金额核实失败', showCancel: false }) }
+  },
+  async onEditDispatchQuote() {
+    try {
+      const res = await businessRules.getAgreement(this.data.orderId)
+      const current = res.data
+      if (!current || !Object.keys(current).length) { wx.showToast({ title: '请先外派本单，再调整外包报价', icon: 'none' }); return }
+      wx.showModal({ title: '调整本单外包服务报价', editable: true, content: '当前 ¥' + current.serviceAmount + '，含水费、配送费、楼层费。桶补偿安排：' + current.barrelNote + '。接收站确认后报价固定。', placeholderText: '本单服务总报价（元）',
+        success: async (r) => {
+          if (!r.confirm) return
+          const value = Number(r.content)
+          if (!Number.isFinite(value) || value < 0) { wx.showToast({ title: '报价不合法', icon: 'none' }); return }
+          try { await businessRules.quoteAgreement(this.data.orderId, { serviceAmount: value, barrelMode: current.barrelMode,
+            barrelAmount: current.barrelAmount, note: '归属站调整本单外包报价' }); this.loadOrderDetail(this.data.orderId) }
+          catch (err) { wx.showToast({ title: err.message || '报价未修改', icon: 'none' }) }
+        } })
+    } catch (err) { wx.showToast({ title: err.message || '报价不可用', icon: 'none' }) }
+  },
+  async onEditBarrelTerms() {
+    try {
+      const current=(await businessRules.getAgreement(this.data.orderId)).data
+      wx.showActionSheet({ itemList: ['净送桶补同型空桶', '净送桶按约定总金额折款'], success: picked => {
+        const mode=picked.tapIndex===0?'RETURN_EMPTY':'SETTLE_BARREL'
+        const save=async amount=>{
+          try { await businessRules.quoteAgreement(this.data.orderId,{serviceAmount:current.serviceAmount,barrelMode:mode,barrelAmount:amount,note:'归属站明确本单净送桶补偿安排'}); this.loadOrderDetail(this.data.orderId) }
+          catch(err){wx.showToast({title:err.message||'安排未修改',icon:'none'})}
+        }
+        wx.showModal({title:'确定净送桶补偿安排',editable:mode==='SETTLE_BARREL',placeholderText:'桶折款总金额（元）',content:'预计净送 '+current.netBarrels+' 个桶；服务报酬仍为 ¥'+current.serviceAmount+'；客户押金仍在归属站。接收站确认后固定安排。',success:r=>{
+          if(!r.confirm)return
+          if(mode==='RETURN_EMPTY'){save(0);return}
+          if(!/^\d+(\.\d{1,2})?$/.test(r.content||'')){wx.showToast({title:'金额不合法',icon:'none'});return}
+          save(Number(r.content))
+        }})
+      }})
+    }catch(err){wx.showToast({title:err.message||'安排不可用',icon:'none'})}
+  },
+  async doRefundPayment(paymentId, scope) {
     wx.showLoading({ title: '退款中...' })
     try {
-      await put(PAYMENT_REFUND + paymentId + '/refund', { note: '站长手工退款' })
+      await put(PAYMENT_REFUND + paymentId + '/refund', { note: '站长手工退款', ...(scope ? { scope } : {}) })
       wx.hideLoading()
       wx.showToast({ title: '已退款', icon: 'success' })
       // 刷新支付流水区块（订单支付状态可能一起变了）

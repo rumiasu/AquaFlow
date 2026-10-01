@@ -35,10 +35,16 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @Slf4j
 public class PaymentServiceImpl implements PaymentService {
+    @Autowired private com.example.aquaflow.mapper.ConsumptionRefundMapper paymentLocks;
+    @Autowired private com.example.aquaflow.service.ConfirmedRefusalService confirmedRefusals;
+    @Autowired private com.example.aquaflow.service.IndependentBarrelService independentBarrelService;
+    @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
+    @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedgerService;
 
     /**
      * 微信支付**模拟渠道**开关（{@code app.payment.mock-wechat-pay}，**默认 false**）。
@@ -203,6 +209,13 @@ public class PaymentServiceImpl implements PaymentService {
         if (!PayMethod.isValid(paymentMethod)) {
             throw new BusinessException("不支持的支付方式：" + paymentMethod);
         }
+        if (orderId!=null && (barrelPolicy.isEnabled() || barrelLedgerService.independentOrder(orderId))) {
+            Orders current=paymentLocks.lockOrder(orderId);
+            if(current==null || !Objects.equals(current.getCustomerId(),customerId))throw new BusinessException("订单不存在或不属于当前客户");
+            if(Integer.valueOf(OrderStatus.CANCELLED).equals(current.getStatus()) || Integer.valueOf(PaymentStatus.REFUNDED).equals(current.getPaymentStatus())
+                    || Integer.valueOf(PaymentStatus.CANCELLED).equals(current.getPaymentStatus()))throw new BusinessException("订单已取消或退款，不能重新收款");
+            confirmedRefusals.requireOldDebtPaid(current);
+        }
 
         // 防重复支付：该订单已有「已支付」或「待收款」记录时直接返回，不再新建。
         // [DEF-3] 必须连同 PENDING 一起拦：payment_record 原来靠
@@ -235,9 +248,14 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         // 货到付款（现金）权限二次校验：需要水站开启且客户已授权
+        if (order != null) confirmedRefusals.requireOldDebtPaid(order);
         // 注意：旧代码这里判断的是 3（老语义"线下支付"），与 PayMethod 的 2=现金冲突，已按 PayMethod 统一
         if (Integer.valueOf(PayMethod.CASH).equals(paymentMethod) && orderStationId != null) {
-            if (!canUseOfflinePayment(customerId, orderStationId)) {
+            boolean collectingExistingDebt=barrelPolicy.isEnabled() && order!=null
+                    && Integer.valueOf(PayMethod.CASH).equals(order.getPaymentMethod())
+                    && Integer.valueOf(PaymentStatus.PENDING).equals(order.getPaymentStatus())
+                    && (order.getStatus()==OrderStatus.DELIVERED || order.getStatus()==OrderStatus.COMPLETED);
+            if (!collectingExistingDebt && !canUseOfflinePayment(customerId, orderStationId)) {
                 throw new BusinessException("当前客户暂不支持货到付款");
             }
         }
@@ -326,6 +344,12 @@ public class PaymentServiceImpl implements PaymentService {
         // 而不是 RuntimeException —— 后者会被兜底处理器转成 code=500「系统错误」，
         // 让"重复点击确认"这类正常场景看起来像后端崩了。
         if (record == null) throw new BusinessException("支付记录不存在");
+        if(record.getOrderId()!=null && (barrelPolicy.isEnabled() || barrelLedgerService.independentOrder(record.getOrderId()))) {
+            Orders current=paymentLocks.lockOrder(record.getOrderId());
+            if(current==null || current.getStatus()==OrderStatus.CANCELLED || current.getPaymentStatus()==PaymentStatus.REFUNDED || current.getPaymentStatus()==PaymentStatus.CANCELLED)
+                throw new BusinessException("订单已经取消或退款，不能再确认收款");
+            confirmedRefusals.requireOldDebtPaid(current);
+        }
         if (record.getStatus() != PaymentStatus.PENDING) {
             throw new BusinessException(record.getStatus() == PaymentStatus.PAID
                     ? "该笔支付已确认，请勿重复操作"
@@ -338,6 +362,8 @@ public class PaymentServiceImpl implements PaymentService {
         if (affected == 0) {
             throw new BusinessException("支付确认失败，状态已变更，请刷新后重试");
         }
+        record.setStatus(PaymentStatus.PAID);
+        independentBarrelService.activate(record);
 
         // 水票支付：确认收款时补齐扣减（deductTickets 内部幂等，已扣过会跳过）
         if (Integer.valueOf(PayMethod.TICKET).equals(record.getPaymentMethod()) && record.getOrderId() != null) {
@@ -699,6 +725,7 @@ public class PaymentServiceImpl implements PaymentService {
         // 因此回补必须回到履约站，否则履约站库存凭空少、归属站凭空多。
         Long ownerStation = ownerStation(order);
         Long fulfillStation = StationUtil.deliveryStation(order);
+        barrelLedgerService.releaseRights("ORDER", orderId);
 
         // AQ-008: 退还订单已消费的水票（按实际扣减记录回补，避免重复还/漏还）
         // [2026-09-18] 抽成 restoreTicketsForOrder：站长手工退款（refundPayment）要对水票支付的
@@ -857,6 +884,9 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentRecord record = paymentRecordMapper.getById(paymentId);
         if (record == null) throw new BusinessException("支付记录不存在");
         // #32: 校验当前状态，只有PAID才能退款
+        if (record.getOrderId() == null && independentBarrelService.isPurchasePayment(paymentId)) {
+            throw new BusinessException("桶押金须走权益退还申请，不能通过消费退款保留可用权益");
+        }
         if (record.getStatus() != PaymentStatus.PAID) {
             throw new BusinessException("仅已支付记录可退款，当前状态: " + record.getStatus());
         }
@@ -1217,7 +1247,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         // 桶装水押金：按商品独立计算，缺多少桶交多少押金
-        if (!barrelByProduct.isEmpty()) {
+        if (!barrelByProduct.isEmpty() && !barrelPolicy.isEnabled()) {
             List<CustomerBarrelAsset> assets = customerBarrelAssetMapper.listByCustomerAndStation(customerId, stationId);
             Map<Long, Integer> heldByProduct = new java.util.HashMap<>();
             if (assets != null) {
@@ -1277,6 +1307,24 @@ public class PaymentServiceImpl implements PaymentService {
         // blocked/blockReason 让前端在提交前就能拦住并显示原因，与下单侧的拒绝判据同源
         result.put("blocked", fee.isBlocked());
         result.put("blockReason", fee.getBlockReason());
+        result.put("independentRights", barrelPolicy.isEnabled());
+        if (barrelPolicy.isEnabled()) {
+            List<Map<String,Object>> missingRights = new java.util.ArrayList<>();
+            for (Map.Entry<Long,Integer> e : barrelByProduct.entrySet()) {
+                int available = barrelLedgerService.availableRights(customerId, stationId, e.getKey());
+                if (available < e.getValue()) {
+                    Map<String,Object> missing = new java.util.LinkedHashMap<>();
+                    missing.put("productId", e.getKey()); missing.put("quantity", e.getValue() - available);
+                    missing.put("availableRights", available);
+                    missingRights.add(missing);
+                }
+            }
+            result.put("missingRights", missingRights);
+            if (!missingRights.isEmpty()) {
+                result.put("blocked", true);
+                result.put("blockReason", "可用桶权益不足，请先交对应桶押金，或等待正在配送/退桶的申请结束");
+            }
+        }
         result.put("totalAmount", totalAmount);
 
         result.put("ticketPay", payByTicket

@@ -23,6 +23,9 @@ import java.util.Map;
 @Slf4j
 @Service
 public class ReconciliationService {
+    @org.springframework.beans.factory.annotation.Autowired private BarrelBusinessPolicy barrelPolicy;
+    private String newReturnExclusion(String alias) { return barrelPolicy!=null && barrelPolicy.hasSchema()?" AND NOT EXISTS(select 1 from barrel_return_detail d where d.record_id="+alias+".id) ":" "; }
+    private String newReceiptExclusions(String alias) { return barrelPolicy!=null && barrelPolicy.hasSchema()?" AND NOT EXISTS(select 1 from barrel_right_purchase bp where bp.payment_id="+alias+".id) AND NOT EXISTS(select 1 from barrel_return_detail bd where bd.fee_payment_id="+alias+".id) AND NOT EXISTS(select 1 from barrel_purchase_refund br where br.payment_id="+alias+".id) AND NOT EXISTS(select 1 from barrel_return_fee_refund bf where bf.refund_payment_id="+alias+".id) ":" "; }
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -298,7 +301,7 @@ public class ReconciliationService {
                 + "SELECT u.customer_id, u.station_id, u.product_id FROM ("
                 + "  SELECT customer_id, station_id, product_id, (delivered_qty - returned_qty) AS delta, 0 AS book FROM barrel_record WHERE type = 8 AND station_id = ? "
                 + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type = 7 AND station_id = ? "
-                + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type = 2 AND status = 3 AND station_id = ? "
+                + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record b WHERE type = 2 AND status = 3 " + newReturnExclusion("b") + " AND station_id = ? "
                 + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type IN (3, 4) AND station_id = ? "
                 + "  UNION ALL SELECT customer_id, station_id, product_id,  quantity, 0 FROM barrel_record WHERE type = 1 AND station_id = ? "
                 + "  UNION ALL SELECT customer_id, station_id, product_id,  quantity, 0 FROM barrel_record WHERE type = 6 AND station_id = ? "
@@ -400,7 +403,8 @@ public class ReconciliationService {
         // （v33 起在线购票必然产生无订单流水）→ 天天误报 SYSTEM 告警，真问题被淹没。
         // 真正的孤儿 = 既没有订单、也不是购票（ticket_qty 由 TicketAccountServiceImpl 落库）。
         int p2c = count("SELECT COUNT(*) FROM payment_record p LEFT JOIN orders o ON o.id = p.order_id "
-                + "WHERE o.id IS NULL AND p.ticket_qty IS NULL");
+                + "WHERE o.id IS NULL AND p.ticket_qty IS NULL "
+                + "" + newReceiptExclusions("p") + "");
         int p2d = count("SELECT COUNT(*) FROM orders o WHERE o.payment_status = 3 "
                 + "AND NOT EXISTS (SELECT 1 FROM payment_record p WHERE p.order_id = o.id AND p.status = 3)");
         int eq2 = p2a + p2b + p2c + p2d;
@@ -530,7 +534,7 @@ public class ReconciliationService {
                 + "FROM ("
                 + "  SELECT customer_id, station_id, product_id, (delivered_qty - returned_qty) AS delta, 0 AS book FROM barrel_record WHERE type = 8 "
                 + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type = 7 "
-                + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type = 2 AND status = 3 "
+                + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record b WHERE type = 2 AND status = 3 " + newReturnExclusion("b") + " "
                 + "  UNION ALL SELECT customer_id, station_id, product_id, -quantity, 0 FROM barrel_record WHERE type IN (3, 4) "
                 + "  UNION ALL SELECT customer_id, station_id, product_id,  quantity, 0 FROM barrel_record WHERE type = 1 "
                 + "  UNION ALL SELECT customer_id, station_id, product_id,  quantity, 0 FROM barrel_record WHERE type = 6 "
@@ -728,6 +732,12 @@ public class ReconciliationService {
                             + "WHERE ABS(COALESCE(p.total_amount, 0) - COALESCE(e.s, 0)) > 0.009"));
         }
 
+        if(barrelPolicy!=null && barrelPolicy.hasSchema()) {
+            r.put("E17_rightReservation",count("select count(*) from (select r.customer_id,r.station_id,r.product_id from barrel_right_reservation r left join customer_barrel_asset a on a.customer_id=r.customer_id and a.station_id=r.station_id and a.product_id=r.product_id where r.status='ACTIVE' group by r.customer_id,r.station_id,r.product_id having sum(r.quantity)>coalesce(max(a.quantity),0)) x"));
+            r.put("E18_rightOwner",count("select count(*) from barrel_right_reservation r left join orders o on r.owner_type='ORDER' and o.id=r.owner_id left join barrel_return_detail d on r.owner_type='RETURN' and d.record_id=r.owner_id where r.status='ACTIVE' and (r.quantity<=0 or r.pickup_qty<0 or r.pickup_qty>r.quantity or r.owner_type='ORDER' and (o.id is null or o.status not in (1,2)) or r.owner_type='RETURN' and (d.record_id is null or d.status not in ('APPLIED','APPROVED','RECEIVED')))"));
+            r.put("E19_purchaseReceipt",count("select count(*) from barrel_right_purchase b left join payment_record p on p.id=b.payment_id left join customer_barrel_lot l on l.id=b.lot_id where b.status='PAID' and (p.id is null or p.status<>2 or p.amount<>b.amount or p.station_id<>b.station_id or l.id is null or l.qty<>b.quantity or l.station_id<>b.station_id)"));
+            r.put("E20_returnHold",count("select count(*) from (select h.lot_id from barrel_return_lot_hold h join barrel_return_detail d on d.record_id=h.record_id left join customer_barrel_lot l on l.id=h.lot_id where d.status in ('APPLIED','APPROVED','RECEIVED') group by h.lot_id having sum(h.quantity)>coalesce(max(l.remain_qty),0)) x"));
+        }
         return r;
     }
 

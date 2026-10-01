@@ -253,6 +253,7 @@ const getInventoryRecords = (limit, productId) => {
 const getAllBarrelRecords = () => {
   return get(API.BARRELS_ALL_RECORDS)
 }
+const approveBarrelReturn = (id, pickupFee, note) => put(API.BARRELS_RETURN_APPROVE(id), { pickupFee, note })
 
 /**
  * 改退桶记录状态（第 2 步「确认收到空桶」传 status=2；第 3 步传 status=3）。
@@ -478,6 +479,7 @@ module.exports = {
   inboundProducts,
   getInventoryRecords,
   getAllBarrelRecords,
+  approveBarrelReturn,
   updateBarrelRecordStatus,
   markRefundPaid,
   getRefundUndelivered,

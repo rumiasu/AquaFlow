@@ -7,6 +7,7 @@
       页面照旧显示「0 张 / 暂无水票 / 暂无记录」。样式复用 styles/common.wxss 的 .load-error。
     -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+    <button bindtap="onExitHelp">剩余水票退出说明</button>
 
     <!-- 当前水站：水票按「客户 × 水站」隔离（A 站买的票不能抵 B 站的单，也不在 B 站显示）。
          不写清楚，客户换个站就会以为"我的票少了" —— 站长接到这种电话也解释不了。

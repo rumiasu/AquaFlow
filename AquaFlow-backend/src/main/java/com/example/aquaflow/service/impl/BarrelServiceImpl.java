@@ -46,6 +46,8 @@ import java.util.Set;
 @Service
 @lombok.extern.slf4j.Slf4j
 public class BarrelServiceImpl implements BarrelService {
+    @Autowired private com.example.aquaflow.service.ApprovedBarrelReturnService approvedReturnService;
+    @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
 
     @Autowired
     private BarrelRecordMapper barrelRecordMapper;
@@ -102,7 +104,9 @@ public class BarrelServiceImpl implements BarrelService {
 
     @Override
     public List<BarrelRecord> listRecords(Long customerId, Long stationId) {
-        return barrelRecordMapper.listByCustomerAndStation(customerId, stationId);
+        List<BarrelRecord> records = barrelRecordMapper.listByCustomerAndStation(customerId, stationId);
+        for (BarrelRecord r : records) if (Integer.valueOf(2).equals(r.getType())) r.setReturnDetail(approvedReturnService.detail(r.getId()));
+        return records;
     }
 
     /**
@@ -119,6 +123,7 @@ public class BarrelServiceImpl implements BarrelService {
         for (BarrelRecord r : records) {
             if (r.getType() != null && r.getType() == 2 && r.getCustomerId() != null && r.getProductId() != null) {
                 r.setOwedBuckets(barrelLedgerService.overQty(r.getCustomerId(), stationId, r.getProductId()));
+                r.setReturnDetail(approvedReturnService.detail(r.getId()));
             }
         }
         return records;
@@ -238,6 +243,8 @@ public class BarrelServiceImpl implements BarrelService {
             map.put("productName", product != null ? product.getName() : "未知商品");
             map.put("productSpec", product != null ? product.getSpec() : "");
             map.put("assetQty", assetQty);
+            map.put("independentRights",barrelPolicy.isEnabled());
+            map.put("availableRights",barrelPolicy.isEnabled()?barrelLedgerService.availableRights(customerId,stationId,pid):assetQty);
             map.put("inTransitQty", inTransitQty);
             // [2026-09-15] 展示口径的"持有" = 权益 + 配送中（买了就是你的）。
             // 注意 assetQty 必须保持"权益（已到手）"不变：小程序下单页用它算"我还差几个桶"
@@ -301,6 +308,14 @@ public class BarrelServiceImpl implements BarrelService {
             // 本单新买的押金桶此刻还在配送中(PENDING)，不在权益里 —— 所以不需要额外减一次。
             // occupied 可能是负数（多还了桶寄存在水站），故先钳到 0：负数没有"默认回桶"可言。
             int suggested = Math.min(sent, Math.max(0, occupied));
+            if (barrelLedgerService.independentOrder(orderId)) {
+                for (com.example.aquaflow.entity.BarrelRightReservation r : barrelLedgerService.orderRights(orderId)) {
+                    if (r.getProductId().equals(it.getProductId())) {
+                        suggested = Math.min(sent, Math.max(0, r.getQuantity() - r.getPickupQty()));
+                        break;
+                    }
+                }
+            }
 
             ReturnPlanItem row = new ReturnPlanItem();
             row.setOrderItemId(it.getId());
@@ -455,7 +470,11 @@ public class BarrelServiceImpl implements BarrelService {
         // occupiedBuckets = 权益 + over → 物理在手（还桶上限），不含配送中
         summary.put("heldBuckets", heldBuckets);
         summary.put("rightBuckets", rightBuckets);
-        summary.put("actualBuckets", heldBuckets);
+        summary.put("independentRights",barrelPolicy.isEnabled());
+        int availableRights=0;
+        for (Long pid:occupiedProductIds) availableRights+=barrelPolicy.isEnabled()?barrelLedgerService.availableRights(customerId,stationId,pid):assetQtyByProduct.getOrDefault(pid,0);
+        summary.put("availableRights",availableRights);
+        summary.put("actualBuckets", barrelPolicy.isEnabled()?occupiedBuckets:heldBuckets);
         summary.put("owedBuckets", owedBuckets);
         // 实际持有（权益 + over，顾客手上真有几个桶）与水站暂存（多还的桶）
         summary.put("occupiedBuckets", occupiedBuckets);
@@ -582,6 +601,10 @@ public class BarrelServiceImpl implements BarrelService {
     @Transactional
     public void handleBarrelReturn(Long id, Long stationId, Integer status, String handleNote, Long operatorId,
                                    String refundChannel, Long refundPaidBy) {
+        if (approvedReturnService.detail(id) != null) {
+            approvedReturnService.handle(id,stationId,status,handleNote,operatorId,refundChannel,refundPaidBy);
+            return;
+        }
         BarrelRecord record = barrelRecordMapper.getById(id);
         if (record == null) {
             throw new BusinessException("退桶记录不存在");
@@ -841,6 +864,15 @@ public class BarrelServiceImpl implements BarrelService {
         data.put("overQty", over);
         data.put("occupiedQty", occupied);
         data.put("quantity", qty);
+        if (barrelPolicy.isEnabled()) {
+            int available = barrelLedgerService.availableRights(customerId,stationId,productId);
+            data.put("availableRights",available);
+            data.put("requiredBarrels",Math.max(0,qty-barrelLedgerService.availablePickup(customerId,stationId,productId)));
+            if (qty>available) {
+                data.put("blocked",true);
+                data.put("blockedReason","该数量已被配送或退还申请占用，当前最多可申请 " + available + " 份");
+            }
+        }
 
         // 展示语义：over<0 是"多还的桶寄在水站"，over>0 是欠桶。两者都如实告知，不要和 0 混为一谈。
         if (over > 0) {

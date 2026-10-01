@@ -16,7 +16,7 @@
 > | 下位文档 | 无 |
 
 > ⚠️ **端点清单的真相源是 `controller/**` 上的注解，不是本文。**
-> 下表由脚本从注解直读生成（284 个端点映射 / 51 个 controller）。
+> 下表按注解登记；当前数量和双向一致性由 `scripts/check-api-doc.js` 读取源码核对。
 > 代码改动后本文会过期 —— 冲突时以注解为准。
 
 ---
@@ -92,6 +92,7 @@
 | `/api/stations/search`、`/api/station/search` | 搜站 |
 | `/api/stations/{id}/public-phone`、`/api/station/{id}/public-phone` | 水站公开电话 |
 | `/api/stations/{id}/status`、`/api/station/{id}/status` | 营业状态横幅（顾客端未登录时也要能看到；只返回 id / 名称 / 状态文案，**不含站长私有字段**） |
+| `/api/system/health` | 存活探针（F-46）：不查库、固定结构；网关/容器 liveness 与 `scripts/smoke-check.js` 的存活判据用 |
 
 其余 `/api/**` 全部需要登录。
 
@@ -108,7 +109,9 @@
 ## 4. 授权与站点归属
 
 - 授权由 AOP 切面统一保护，切点 `execution(public * controller..*.*(..))`，
-  校验 `@RequireRole` 与 `@RequireStation`；**新增方法自动生效**，不依赖开发者记得加校验。
+  校验 `@RequireRole` 与 `@RequireStation`；**切面对每个方法都会执行，但无注解 = 放行**
+  （`RequireRoleAspect` 的 `requireRole == null` 分支）—— 新增方法**不写注解就是裸的**，
+  这不是"自动获得保护"，恰恰是要开发者主动二选一（历史越权事故见 `SECURITY.md` §5.2）。
 - 角色只有两种：`STATION_MANAGER`（站长）、`DELIVERY`（配送员）；顾客身份走 `customer` 体系。
 - **跨站隔离**：涉及本站数据的端点以登录态 `stationId` 校验归属。
 - **跨租户可见面收窄**：下发给其他水站的字段只带「钱货去向」文案与快照金额，
@@ -121,7 +124,7 @@
 以下按业务域分组。**方法 / 路径 / 角色 / 实现方法**四列中，
 「实现方法」的格式是 `Controller.方法名`，可直接定位到源码。
 
-（脚本抽取：268 个端点映射，49 个 controller 文件）
+（脚本抽取：285 个端点映射，53 个 controller 文件 —— 数字以 `node scripts/check-api-doc.js` 实跑为准，它绿即双向一致）
 
 ### 认证与账号
 
@@ -454,6 +457,7 @@
 |---|---|---|---|
 | `POST` | `/api/common/upload` | — | `CommonController.upload` |
 | `GET` | `/api/search` | {"STATION_MANAGER"} | `SearchController.search` |
+| `GET` | `/api/system/health` | — | `SystemController.health`（公开，见 §3 白名单；静态存活探针，不查库） |
 
 ---
 
@@ -492,3 +496,41 @@
 - [`../architecture/02-领域模型.md`](../architecture/02-领域模型.md) —— 三站语义、状态机与判权表
 - [`../development/01-测试体系.md`](../development/01-测试体系.md) —— 断言约定（为什么判 `code` 而不是 HTTP 状态）
 - [`../audit/删除登记表.md`](../audit/删除登记表.md) —— 删除登记表正本
+
+## 2026-10-01 v71 业务调整入口
+
+| 方法 | 路径 | 身份与用途 |
+|---|---|---|
+| `GET` | `/api/barrel-rights/quote` | 客户本人，独立押金报价 |
+| `POST` | `/api/barrel-rights/purchase` | 客户本人，创建独立购买意图 |
+| `GET` | `/api/barrel-rights` | 客户本人，购买历史与未知结果查询 |
+| `PUT` | `/api/barrel-rights/{id}/withdraw` | 客户本人，撤回未确认未交款意图 |
+| `PUT` | `/api/barrels/records/{id}/withdraw` | 客户本人，撤回未交接申请 |
+| `PUT` | `/api/barrels/records/{id}/approve` | 归属站站长，批准取桶/退款安排 |
+| `PUT` | `/api/barrels/records/{id}/customer-confirm` | 客户本人，确认批准安排 |
+| `GET` | `/api/payments/{id}/refund-preview` | 授权站长，退款组成与余额预览 |
+| `GET` | `/api/manager/business-waiting` | 站长，本站缺货和超时退款 |
+| `GET` | `/api/manager/ticket-exit-batches` | 原款站站长，可按真实批次退剩余票 |
+| `GET` | `/api/manager/refusal-cases` | 当事站站长，拒付事实台账 |
+| `PUT` | `/api/manager/refusal-cases/{orderId}/confirm-freeze` | 资产站站长，核实冻结本站退款资格 |
+| `GET` | `/api/manager/dispatch-agreements/{orderId}` | 当事站/池接收站站长，服务和桶报价 |
+| `PUT` | `/api/manager/dispatch-agreements/{orderId}` | 归属站站长，接受前修改完整报价 |
+| `GET` | `/api/manager/station-barrel-balances` | 当事站站长，实际净送桶和争议待办 |
+| `POST` | `/api/manager/station-barrel-balances/{orderId}/dispute` | 当事站站长，记录桶争议 |
+| `PUT` | `/api/manager/station-barrel-balances/{orderId}/proposal` | 归属站站长，提出处理方案 |
+| `POST` | `/api/manager/station-barrel-balances/{orderId}/agree` | 履约站站长，确认处理方案 |
+| `POST` | `/api/manager/station-barrel-balances/{orderId}/received` | 双方站长，各确认本方实际交接 |
+| `GET` | `/api/manager/inter-station-recoveries` | 当事站站长，冲销后的返还债务 |
+| `POST` | `/api/manager/inter-station-recoveries/{orderId}/sent` | 返还付款站站长，实际交付返还款 |
+| `POST` | `/api/manager/inter-station-recoveries/{orderId}/received` | 收款站站长，实际收到返还款 |
+| `POST` | `/api/inventory/{productId}/loss` | 本站站长，实物损失与受影响预留 |
+
+独立桶权益：`GET /api/barrel-rights/quote`、`POST /api/barrel-rights/purchase`、`GET /api/barrel-rights`、`PUT /api/barrel-rights/{id}/withdraw`。仅实际款确认后生效；请求站/商品/数量及幂等键不可自算金额。
+
+新退还：`PUT /api/barrels/records/{id}/approve` 批准安排；`PUT /api/barrels/records/{id}/customer-confirm` 客户确认；旧 status 收桶/退款命令对新凭据强制阶段闸门。收桶费单独支付和退款。
+
+消费：`GET /api/payments/{id}/refund-preview`、`PUT /api/payments/{id}/refund`，scope 为 WATER/SERVICE/ALL_CONSUMPTION；购票剩余退款还须 expectedTicketQty、expectedTicketAmount，与已确认余额变化不符时整笔回滚。
+
+站长：`GET /api/manager/business-waiting`、`GET /api/manager/ticket-exit-batches`、`GET /api/manager/refusal-cases`、`PUT /api/manager/refusal-cases/{orderId}/confirm-freeze`；`GET/PUT /api/manager/dispatch-agreements/{orderId}` 每单报酬和桶安排；`GET /api/manager/station-barrel-balances` 与 `{orderId}/dispute`、`proposal`、`agree`、`received` 处理实际桶争议及双方交接；`GET /api/manager/inter-station-recoveries` 与 `{orderId}/sent`、`received` 处理已付款返还。新库存损失 `POST /api/inventory/{productId}/loss` 必传预期实物、目标实物及原因。
+
+注解、DTO 与当前源码为端点正本；资金手工登记要求实际已交付，系统不自动转账。

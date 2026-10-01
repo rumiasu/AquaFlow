@@ -11,6 +11,9 @@ import java.util.List;
  */
 @Mapper
 public interface CustomerBarrelLotMapper {
+    /** 只补独立购买的来源，不改已有历史收款凭据。 */
+    @Update("update customer_barrel_lot set deposit_record_id=#{recordId} where id=#{id} and deposit_record_id is null")
+    int linkDepositRecord(@Param("id") Long id,@Param("recordId") Long recordId);
 
     @Insert("insert into customer_barrel_lot" +
             "(lot_no, customer_id, station_id, product_id, unit_price, qty, remain_qty," +

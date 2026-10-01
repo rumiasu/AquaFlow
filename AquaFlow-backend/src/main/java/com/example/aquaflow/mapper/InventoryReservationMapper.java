@@ -131,6 +131,8 @@ public interface InventoryReservationMapper {
     @Update("update inventory_reservation set reserved_qty = reserved_qty + #{delta}, update_time = NOW() "
             + "where id = #{id} and status = " + ReservationStatus.RESERVED)
     int addReservedIfActive(@Param("id") Long id, @Param("delta") Integer delta);
+    @Update("update inventory_reservation set reserved_qty=#{qty},update_time=now() where id=#{id} and status=1 and reserved_qty=#{expected} and #{qty}>=0 and #{qty}<=reserved_qty")
+    int reduceIfActive(@Param("id") Long id,@Param("expected") int expected,@Param("qty") int qty);
 
     /**
      * 换站重建：把这条凭据改挂到新站并写入新站算出的预留量（CAS：仅当仍是活跃凭据）。

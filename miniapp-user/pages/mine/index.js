@@ -138,7 +138,7 @@ Page({
     if (summaryRes && summaryRes.data) {
       // 押金与"我的桶"来自**同一个**接口：一起成功、一起缺席（它们同属"桶与押金"那一项）
       v.deposit = Number(summaryRes.data.depositBalance) || 0
-      v.barrel = Number(summaryRes.data.heldBuckets) || 0
+      v.barrel = Number(summaryRes.data.independentRights?summaryRes.data.occupiedBuckets:summaryRes.data.heldBuckets) || 0
     }
 
     if (ticketsRes && ticketsRes.code === 0 && ticketsRes.data) {

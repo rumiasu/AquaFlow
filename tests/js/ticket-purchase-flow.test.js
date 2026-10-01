@@ -41,6 +41,7 @@ function newPage(scenario) {
   const calls = { purchase: [], accounts: 0, records: 0 }
 
   const stubs = {
+    'api/barrel': { getBarrelSummaryByType: async () => ({ code: 0, data: sc.rights === undefined ? [{ productId: 5, quantity: 1, rightQty: 1 }] : sc.rights }) },
     'api/ticket': {
       getTicketAccounts: async () => { calls.accounts++; return { code: 0, data: sc.accounts || [] } },
       getTicketRecords: async () => { calls.records++; return { code: 0, data: [] } },
@@ -82,6 +83,13 @@ function newPage(scenario) {
 ;(async () => {
   const doneWatchdog = armWatchdog()
   console.log('水票购买流程 · 流程测试（真实执行页面处理函数）')
+  await test('该桶型没有汇总行时：服务端拒绝无权益购票，明确引导先交押金', async () => {
+    const {page,calls,wx}=newPage({rights:[],purchase:[{throw:'请先购买该桶权益'}]})
+    await page.onBuySubmit()
+    assert.strictEqual(calls.purchase.length,1)
+    assert.ok(wx.__calls.modal.some(m=>m.content.includes('权益')))
+    assert.ok(wx.__calls.nav.some(n=>n.url.includes('/pages/barrel/purchase')))
+  })
 
   await test('支付方式文案：叫「微信支付」，且不把收款确认说成"申请/审批"', async () => {
     const { page } = newPage()
@@ -139,6 +147,7 @@ function newPage(scenario) {
     const { page, calls } = newPage(sc)
     const first = page.onBuySubmit()
     const second = page.onBuySubmit()   // 用户在请求还没回来时又点了一下
+    await Promise.resolve() // 新前置查询结束，购票请求才进入可控的等待。
     sc.resolvers.forEach((r) => r())
     await first
     await second

@@ -63,20 +63,20 @@
 
 ### 5.1 认证
 
-- JWT 双 Token：access token 30 分钟 + refresh token 7 天，401 由客户端自动续期。
+- JWT 双 Token：access token 2 小时（`jwt.access-token-expiry: 7200000` ms）+ refresh token 7 天（`604800000` ms），401 由客户端自动续期。时长正本是 `application.yml` 的 `jwt.*-expiry`，本文档从实（F-53：此处原写「30 分钟」，与实测不符）。
 - Token 记录在 `user_token` 表，可服务端失效。
 - 密码使用哈希存储，不落明文。
 
 ### 5.2 授权
 
-- 统一由 AOP 切面保护：`@RequireRole` 标注角色、`@RequireStation` 标注水站归属，切点为 `execution(public * controller..*.*(..))`，**新增方法自动生效**，不依赖开发者记得加校验。
+- 统一由 AOP 切面保护：`@RequireRole` 标注角色、`@RequireStation` 标注水站归属，切点为 `execution(public * controller..*.*(..))`。⚠️ **切点是「无注解即放行」**（`aspect/RequireRoleAspect.java`：方法上与类上都没有 `@RequireRole` ⇒ 直接放行），所以**新增端点不会自动获得任何保护**，必须二选一：员工端点标 `@RequireRole`，顾客自助端点在方法体内用 `AuthContext.requireCustomerId()` / `requireStationId()` 强制取登录身份。不标 = 不设防（F-67：本文此处原写「新增方法自动生效，不依赖开发者记得加校验」，与实现相反）。
 - **跨站隔离**：服务端从 `AuthContext` 取当前登录态里的 `stationId` 做归属校验，**不信任任何请求参数里的站点标识**。客户 ID 必须由登录态覆盖，或与订单所有者严格比对。
 - **跨租户可见面收窄**：下发给其他水站的字段只带「钱货去向」文案与快照金额，不带本站的成本、库存与联系方式；客户画像字段由 `util/CustomerProfileMask` 统一抹除，与本站既无绑定又无本站订单的客户，画像端点一律不可见。
 
 ### 5.3 限流
 
 - `RateLimitInterceptor` 对登录类端点按**来源 IP** 限流，超限返回 **HTTP 429**。
-- 覆盖 `/api/auth/{login,wx-login,wx-login-staff,dev-login,refresh,change-password}`，默认 20 次/分钟（`RATE_LIMIT_*` 可调）。
+- 覆盖 `/api/auth/{login,wx-login,wx-login-staff,dev-login,refresh,change-password,bind-staff}` 共 7 条（正本 `config/WebMvcConfig.java` 的注册表），默认 20 次/分钟（`RATE_LIMIT_*` 可调）。
 - ⚠️ 该计数是**单实例内存态**：多实例部署前必须先换成集中式计数器（如 Redis），否则限流可被分摊绕过。
 
 ### 5.4 审计与告警

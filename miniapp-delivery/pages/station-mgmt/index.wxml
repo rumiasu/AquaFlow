@@ -106,6 +106,7 @@
         </view>
         <text class="entry-arrow">›</text>
       </view>
+      <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index"><view class="entry-main"><text class="entry-title">业务待办与退出</text><text class="entry-desc">缺货、超时退款、拒付核实、站间交接与剩余票退出</text></view><text class="entry-arrow">›</text></view>
       <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/payments/index">
         <view class="entry-main">
           <text class="entry-title">待确认收款</text>

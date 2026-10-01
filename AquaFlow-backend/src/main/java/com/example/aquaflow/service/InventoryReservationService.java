@@ -36,6 +36,8 @@ package com.example.aquaflow.service;
  * <p>⚠️ 与旧实现的根本差别：旧代码"下单就减 quantity、取消就加回去"，"扣在哪一站"从未被记录。</p>
  */
 public interface InventoryReservationService {
+    /** 实盘亏损命令专用；按原需求时间保留较早预留，受影响需求继续等货。 */
+    java.util.List<java.util.Map<String,Object>> reduceForPhysicalLoss(Long stationId,Long productId,int targetQuantity);
 
     /**
      * 可用量 = 在库实物 − 本站该商品**活跃**预留之和（&ge;0）。**仅供参考展示**；

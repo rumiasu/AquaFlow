@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  F-66（2026-09-30 第六批）：日志策略 —— 滚动 + 保留，prod/local 分档。
+
+  ⚠️ 本文件**整体替换** Boot 自带的默认 logback 配置 —— console appender 必须自己写。
+  漏写的症状不是报错，而是"前台一行日志都看不到"（bootRun / 本地排查直接变哑巴），
+  这正是台账 F-66 修复方向里点名的坑。
+
+  ⚠️ 不要用 <springProperty> 去接 app.* 配置：logback-spring.xml 在 Spring 上下文早期
+  解析，能用 ${...} 的只有 JVM 系统属性 / 环境变量。需要区分档位一律用 <springProfile>。
+
+  分档口径：
+    · prod  = console + 滚动文件（logs/，按天 + 单文件 100MB，留 14 天、总上限 1GB）
+    · 其余（local/test 等）= 只要 console —— 本地前台跑 bootRun 看的就是它，
+      落盘文件在本地只会变成没人看的膨胀产物（真要留文件给 LOG_DIR 之类的需求，另行拍板）。
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <springProfile name="prod">
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>logs/aquaflow.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>logs/aquaflow.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+                <maxFileSize>100MB</maxFileSize>
+                <maxHistory>14</maxHistory>
+                <totalSizeCap>1GB</totalSizeCap>
+            </rollingPolicy>
+            <encoder>
+                <pattern>${FILE_LOG_PATTERN}</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+</configuration>

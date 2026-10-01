@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # =============================================================================
 # 本地一键验证（改造执行任务书 Phase E.5）。
 # 步骤：重建测试库 → 后端集成测试 → 小程序静态扫描 → 敏感信息扫描。
@@ -113,6 +113,10 @@ if command -v node >/dev/null 2>&1; then
   #     实测曾有 83 个 .sql 里 21 个无出处，含 clear_data.sql（清全库）与 reset_passwords.sql（重置全部员工密码）。
   node scripts/check-tracked-inputs.js || { echo "❌ 入库件检查未通过"; exit 1; }
   node scripts/check-sql-catalog.js || { echo "❌ 迁移清单一致性未通过"; exit 1; }
+  #   check-ledger-claims.js：台账 §2 的「度量方法」列落成可执行断言（F-49，2026-09-30 第六批）。
+  #     MUST（领域不变量）不达标即红；FINDING 与 §4 状态位互证 —— 台账标 FIXED 却实测不达标 = 红。
+  #     为什么要有：台账自己栽过三次「判据写在表里、没有一条能跑」（"全有用例"错 4 条等）。
+  node scripts/check-ledger-claims.js || { echo "❌ 台账判据可执行化未通过"; exit 1; }
   #   check-gate-parity.js：三处验证入口（ci.yml / verify.sh / verify-local.js）的门禁清单是否一致 ——
   #     新加门禁只接一处时，另一处**永远不会告诉你它漏了**，表现为「本机全绿、CI 红」且本地复现不出。
   node scripts/check-gate-parity.js || { echo "❌ 门禁清单不一致"; exit 1; }
@@ -145,14 +149,15 @@ if command -v node >/dev/null 2>&1; then
 else
   # F-29（2026-09-30 修）：原文引用 `make check-prod-config`，而**仓库没有 Makefile** ——
   # 照着提示敲必然报 "No rule to make target"，还得回头猜真实命令。改成实际的 node 调用写法；
-  # 同时把「这三个门禁」改成真的数得出来的清单（本步实际是下面这 7 道 node 门禁，加 bootJar 的
+  # 同时把「这三个门禁」改成真的数得出来的清单（本步实际是下面这 8 道 node 门禁，加 bootJar 的
   # 发布物检查、生产启动姿态、冒烟检查）：
   #   node scripts/check-prod-config.js / check-tracked-inputs.js / check-sql-catalog.js /
-  #   check-gate-parity.js / check-pending-decisions.js / check-api-doc.js / check-jar-no-local-config.js
+  #   check-ledger-claims.js / check-gate-parity.js / check-pending-decisions.js /
+  #   check-api-doc.js / check-jar-no-local-config.js
   #   node scripts/prod-startup-check.js / node scripts/smoke-check.js
-  # ⚠️ 上面这 9 个路径**故意写在 `#` 注释里**：`check-gate-parity.js` 会剥掉注释与 `echo` 提示行，
+  # ⚠️ 上面这 10 个路径**故意写在 `#` 注释里**：`check-gate-parity.js` 会剥掉注释与 `echo` 提示行，
   #    只剩"真的会执行"的行 —— 把脚本名写进 `echo` 的续行会被它当成"这道门禁跑了"（假绿）。
-  echo "[verify] 未找到 node，跳过本步的 7 道 node 门禁与生产启动姿态、冒烟检查（CI 上会强制执行）。"
+  echo "[verify] 未找到 node，跳过本步的 8 道 node 门禁与生产启动姿态、冒烟检查（CI 上会强制执行）。"
   echo "         手动补跑：node scripts/check-prod-config.js（其余见本步上方注释）"
   MISSING_DEP=1
 fi

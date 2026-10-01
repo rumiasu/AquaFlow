@@ -212,6 +212,13 @@ UNREGISTERED_TESTS = {
     'WechatChannelDisabledIntegrationTest',
 }
 
+# ⚠️ 棘轮（2026-10-01 补）：**集合大小也冻结** —— 上面那句"只能减"原来只写在注释里，
+# 而代码只校验"这个名字此刻存在于 src/test"，所以"把新用例塞进欠账表、而不是登记进矩阵"
+# **不会红**（实测本月新增的回归用例正是躺在下面这张表里）⇒ 棘轮名存实亡。
+# 判据：len 超过冻结值即红；把类登记进矩阵后从这里删名 = 正常减小，不红。
+# 确需新增豁免时**必须同时调大这个数并在同一行写清理由**（那是一次 review，不是顺手加一行）。
+UNREGISTERED_TESTS_FROZEN = 62
+
 
 def iter_java(root):
     if not os.path.isdir(root):
@@ -611,6 +618,18 @@ def main():
         print('              或确属"无场景可映射"时加进 audit_scenario_matrix.py 的')
         print(f'              UNREGISTERED_TESTS（当前冻结 {len(UNREGISTERED_TESTS)} 个，只能减不能增，'
               '加一个必须带理由）。')
+
+    if len(UNREGISTERED_TESTS) > UNREGISTERED_TESTS_FROZEN:
+        over = len(UNREGISTERED_TESTS) - UNREGISTERED_TESTS_FROZEN
+        problems += over
+        print()
+        print(f'[C·棘轮] UNREGISTERED_TESTS 涨了 {over} 个'
+              f'（{len(UNREGISTERED_TESTS)} > 冻结值 {UNREGISTERED_TESTS_FROZEN}）：')
+        print('      → 欠账表**只能减不能增**。涨了说明有测试类"没登记进矩阵、直接塞进豁免集"，')
+        print('        那正是这条棘轮要拦的事（否则矩阵越用越假，而门禁一直绿）。')
+        print('        处理二选一：① 把那个类登记进矩阵对应场景行（正道）；')
+        print('        ② 确属"无场景可映射"时，改 audit_scenario_matrix.py 的')
+        print('           UNREGISTERED_TESTS_FROZEN 并在同一行写清为什么（走 review）。')
 
     if stale_exempt:
         # ⚠️ 只**提醒**、不判红（2026-10 定）：豁免表里的名字"已经登记进矩阵"或"源码里已不存在"

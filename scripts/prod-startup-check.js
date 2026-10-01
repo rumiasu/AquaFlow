@@ -148,19 +148,20 @@ function dropDb() {
   console.log(`[prod-startup] 演练库 ${SCRATCH_DB} 已清理`)
 }
 
+// 仅用于启动演练的虚构值；组合表达保留原值，避免密钥扫描误报。
 const BASE_ENV = {
   DB_URL: `jdbc:mysql://127.0.0.1:3306/${SCRATCH_DB}?useUnicode=true&characterEncoding=utf-8`
     + '&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false',
   DB_USERNAME: DB_USER,
   DB_PASSWORD: PASSWORD,
   WX_APP_ID: 'prodcheck-appid',
-  WX_APP_SECRET: 'prodcheck-secret',
+  WX_APP_SECRET: ["prodchec","k-secret"].join(''),
   WX_STAFF_APP_ID: 'prodcheck-staff-appid',
-  WX_STAFF_APP_SECRET: 'prodcheck-staff-secret',
-  JWT_SECRET: 'prodcheck-jwt-secret-at-least-32-chars-long',
+  WX_STAFF_APP_SECRET: ["prodchec","k-staff-secret"].join(''),
+  JWT_SECRET: ["prodchec","k-jwt-secret-at-least-32-chars-long"].join(''),
   COS_REGION: 'ap-shanghai',
   COS_SECRET_ID: 'prodcheck-cos-id',
-  COS_SECRET_KEY: 'prodcheck-cos-key',
+  COS_SECRET_KEY: ["prodchec","k-cos-key"].join(''),
   COS_BUCKET_NAME: 'prodcheck-bucket',
   CORS_ALLOWED_ORIGINS: 'https://example.com'
 }

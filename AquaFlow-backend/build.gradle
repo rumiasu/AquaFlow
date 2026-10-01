@@ -18,16 +18,43 @@ repositories {
     mavenCentral()
 }
 
+// [F-63] 依赖锁定 + 供应链校验：仓库根 `gradle.lockfile` 与 `gradle/verification-metadata.xml`。
+//
+// 为什么：此前所有坐标（含 cos_api/jjwt/mybatis 的**传递**依赖）全浮动 —— 上游静默发版后，
+// 同一提交在两个时点解析出不同构件，「本机绿、CI 红」分不清是代码坏了还是依赖变了；
+// 且没有任何 checksum 门禁能拦"仓库被投毒"。
+//
+// 改依赖时的两个坑（都会**当场构建失败**，这是特性不是 bug）：
+//   · 升/降任何版本后必须跑 `gradlew --write-locks`（否则 lock state 对不上，报 Did not resolve ...）；
+//   · 引入新构件后必须跑 `gradlew --write-verification-metadata sha256`
+//     （新构件无 checksum ⇒ Dependency verification failed）。
+// 两个命令都会**整体重写**对应文件 —— 生成后 diff 一遍，别混进无关变更。
+//
+// 范围说明：只锁**本项目**的 configurations；settings/pluginManagement 侧的插件解析
+// 不在 gradle.lockfile 里，但插件构件的 sha256 在 verification-metadata.xml 中有记。
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-    implementation 'org.aspectj:aspectjweaver:1.9.22'
+    // [F-64] 版本一律交给 Boot BOM 管（原钉 1.9.22 / 6.5.3 —— 与 BOM 里的版本各不相同，
+    // 两处升级不同步时"以为受管、其实钉死"，这正是 F-64 登记的漂移形状）。
+    // 仅限 **BOM 有管理**的坐标才允许不写版本号；BOM 不管的（jjwt / cos / bcprov / mybatis）必须继续钉死。
+    implementation 'org.aspectj:aspectjweaver'
+    // [F-64] 这行**不能删**（删了靠 BOM 补版本）：本仓是 Jackson 双栈共存 ——
+    //   com.fasterxml.*（jackson-databind 本行 + 注解包）= 业务代码直接 new 的两个类
+    //   （WeChatLoginService / StationExceptionConfigServiceImpl）；
+    //   tools.jackson.* = Boot 4 框架 HTTP 层自用，仓库里 0 处显式引用。
+    // 两侧版本各自由 Boot BOM / Spring Framework 自带，互不牵扯；**不要**顺手迁去 Jackson 3
+    // （asText→asString 等 API 断裂，且落点是登录路径，风险/收益不划算 —— 见台账 F-64）。
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:4.0.1'
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
-    implementation 'org.springframework.security:spring-security-crypto:6.5.3'
+    implementation 'org.springframework.security:spring-security-crypto'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'com.mysql:mysql-connector-j'

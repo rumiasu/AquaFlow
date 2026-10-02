@@ -1,0 +1,2949 @@
+{
+  "policy": "All recoverable source commit objects mapped to consolidated phases; source author and committer dates retained. Local credentials, generated files and personal materials excluded. Old Git objects are not uploaded.",
+  "sources": [
+    {
+      "id": "original",
+      "commit_objects": 356,
+      "bundle_name": null
+    },
+    {
+      "id": "legacy",
+      "commit_objects": 400,
+      "bundle_name": null
+    },
+    {
+      "id": "bundle-0",
+      "commit_objects": 34,
+      "bundle_name": "aquaflow-history-20260915-133325.bundle"
+    },
+    {
+      "id": "bundle-1",
+      "commit_objects": 329,
+      "bundle_name": "legacy-full-records.bundle"
+    },
+    {
+      "id": "bundle-2",
+      "commit_objects": 64,
+      "bundle_name": "orig-workspace-main.bundle"
+    },
+    {
+      "id": "bundle-3",
+      "commit_objects": 228,
+      "bundle_name": "archived-lineage.bundle"
+    },
+    {
+      "id": "bundle-4",
+      "commit_objects": 64,
+      "bundle_name": "original-history.bundle"
+    },
+    {
+      "id": "bundle-5",
+      "commit_objects": 319,
+      "bundle_name": "AquaFlow-full-20260923-0904.bundle"
+    },
+    {
+      "id": "bundle-6",
+      "commit_objects": 328,
+      "bundle_name": "AquaFlow-full-20260923-1222.bundle"
+    }
+  ],
+  "source_commit_objects": 528,
+  "phases": [
+    {
+      "phase": 1,
+      "day": "2026-05-29",
+      "title": "feat(customer): 建立客户、地址与水类型初版",
+      "snapshot_source": "34a07cefef85eaf85070ab1b9675c7436231e537",
+      "source_records": [
+        {
+          "sha": "c3640b438ba608829c61f068cc63d9694544291a",
+          "author_date": "2026-05-29T21:14:04+08:00",
+          "committer_date": "2026-05-29T21:14:04+08:00"
+        },
+        {
+          "sha": "34a07cefef85eaf85070ab1b9675c7436231e537",
+          "author_date": "2026-05-29T22:20:50+08:00",
+          "committer_date": "2026-05-29T22:20:50+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 2,
+      "day": "2026-05-31",
+      "title": "feat(order): 建立库存与订单初版",
+      "snapshot_source": "7437d8e8cc6f0e438815c578478a45a74534ebfd",
+      "source_records": [
+        {
+          "sha": "cdb1f25c10abf0c47e5a17e66d32910646349b0b",
+          "author_date": "2026-05-31T09:38:08+08:00",
+          "committer_date": "2026-05-31T09:38:08+08:00"
+        },
+        {
+          "sha": "7437d8e8cc6f0e438815c578478a45a74534ebfd",
+          "author_date": "2026-05-31T21:57:24+08:00",
+          "committer_date": "2026-05-31T21:57:24+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 3,
+      "day": "2026-06-02",
+      "title": "feat(batch): 建立批次模块初版",
+      "snapshot_source": "b4ebed0786c9a8c7c1ed6cea0393752aa8b366d6",
+      "source_records": [
+        {
+          "sha": "b4ebed0786c9a8c7c1ed6cea0393752aa8b366d6",
+          "author_date": "2026-06-02T22:20:18+08:00",
+          "committer_date": "2026-06-02T22:20:18+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 4,
+      "day": "2026-06-04",
+      "title": "refactor(dto): 整理内部传输模型",
+      "snapshot_source": "bfe1008f7744421b91a0c5b60bdb412e9cd4b769",
+      "source_records": [
+        {
+          "sha": "bfe1008f7744421b91a0c5b60bdb412e9cd4b769",
+          "author_date": "2026-06-04T20:56:37+08:00",
+          "committer_date": "2026-06-04T20:56:37+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 5,
+      "day": "2026-06-14",
+      "title": "chore(project): 保存模块初版快照",
+      "snapshot_source": "6e2f3422b4a469787396226edaa33852706aa698",
+      "source_records": [
+        {
+          "sha": "6e2f3422b4a469787396226edaa33852706aa698",
+          "author_date": "2026-06-14T17:01:19+08:00",
+          "committer_date": "2026-06-14T17:01:19+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 6,
+      "day": "2026-06-15",
+      "title": "feat(inventory): 连携库存与类型查询",
+      "snapshot_source": "be761cf9a075cae1867485a6956978477eb7267a",
+      "source_records": [
+        {
+          "sha": "be761cf9a075cae1867485a6956978477eb7267a",
+          "author_date": "2026-06-15T18:14:45+08:00",
+          "committer_date": "2026-06-15T18:14:45+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 7,
+      "day": "2026-07-11",
+      "title": "docs(project): 补充模块注释和说明",
+      "snapshot_source": "bf42764b70265c305ac5c57ebb6332c58b0ec164",
+      "source_records": [
+        {
+          "sha": "bf42764b70265c305ac5c57ebb6332c58b0ec164",
+          "author_date": "2026-07-11T21:27:02+08:00",
+          "committer_date": "2026-07-11T21:27:02+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 8,
+      "day": "2026-07-17",
+      "title": "docs(project): 整理整合前模块说明",
+      "snapshot_source": "4e539efa3b6ad8a6538dd0a7fdf21026b302af0e",
+      "source_records": [
+        {
+          "sha": "4e539efa3b6ad8a6538dd0a7fdf21026b302af0e",
+          "author_date": "2026-07-17T23:53:40+08:00",
+          "committer_date": "2026-07-17T23:53:40+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 9,
+      "day": "2026-07-21",
+      "title": "chore(integration): 添加后端模块 AquaFlow-backend，前后端统一存放",
+      "snapshot_source": "ae00329e256f5d03401608b33ffa246753e99433",
+      "source_records": [
+        {
+          "sha": "ae00329e256f5d03401608b33ffa246753e99433",
+          "author_date": "2026-07-21T09:07:19+08:00",
+          "committer_date": "2026-07-21T09:07:19+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 10,
+      "day": "2026-07-21",
+      "title": "chore(integration): 本地完整代码快照：前端+后端+SQL脚本",
+      "snapshot_source": "eb9a8362d04da81c488dc28e737e99af006ba5a2",
+      "source_records": [
+        {
+          "sha": "eb9a8362d04da81c488dc28e737e99af006ba5a2",
+          "author_date": "2026-07-21T10:27:02+08:00",
+          "committer_date": "2026-07-21T10:27:02+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 11,
+      "day": "2026-07-21",
+      "title": "chore(integration): 移除前端/小程序内嵌git，转为普通目录，修复子仓库箭头问题",
+      "snapshot_source": "72e6651648cacc0982d5f746ee34cc5ac6c56f14",
+      "source_records": [
+        {
+          "sha": "72e6651648cacc0982d5f746ee34cc5ac6c56f14",
+          "author_date": "2026-07-21T10:28:39+08:00",
+          "committer_date": "2026-07-21T10:28:39+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 12,
+      "day": "2026-07-22",
+      "title": "chore(repo): 初始化后端和小程序项目基础",
+      "snapshot_source": "84363b619d6aedefa037d1eba9b34da5d9bb23b9",
+      "source_records": [
+        {
+          "sha": "279ce699e608c29175972315b887cab37948c51c",
+          "author_date": "2026-07-22T21:21:48+08:00",
+          "committer_date": "2026-07-22T21:21:48+08:00"
+        },
+        {
+          "sha": "829e81f606b3a5a2d2dcd0aba05ddbb87d54dd76",
+          "author_date": "2026-07-22T21:21:48+08:00",
+          "committer_date": "2026-07-22T21:21:48+08:00"
+        },
+        {
+          "sha": "99c9739a6df56767c72814a6daa00d0bbf767a4d",
+          "author_date": "2026-07-22T21:21:48+08:00",
+          "committer_date": "2026-07-22T21:21:48+08:00"
+        },
+        {
+          "sha": "e95c84b3f676d75434d6aa89f9d3d9d9c828f7a9",
+          "author_date": "2026-07-22T21:21:48+08:00",
+          "committer_date": "2026-07-22T21:21:48+08:00"
+        },
+        {
+          "sha": "0aec3f628d26c778ad46be625fb9bf20285066c8",
+          "author_date": "2026-07-22T21:22:16+08:00",
+          "committer_date": "2026-07-22T21:22:16+08:00"
+        },
+        {
+          "sha": "5969f763963bcac722aeaf5d0ccac9760b3b99b2",
+          "author_date": "2026-07-22T21:22:16+08:00",
+          "committer_date": "2026-07-22T21:22:16+08:00"
+        },
+        {
+          "sha": "7c5f3647a02595d062bdaf47514e84053b4d26bd",
+          "author_date": "2026-07-22T21:22:16+08:00",
+          "committer_date": "2026-07-22T21:22:16+08:00"
+        },
+        {
+          "sha": "95d6d602cf7262d91d16aeef67c60268ad7935a4",
+          "author_date": "2026-07-22T21:22:16+08:00",
+          "committer_date": "2026-07-22T21:22:16+08:00"
+        },
+        {
+          "sha": "352476be8bf46daa4d8ba6c915710b1131042362",
+          "author_date": "2026-07-22T21:24:47+08:00",
+          "committer_date": "2026-07-22T21:24:47+08:00"
+        },
+        {
+          "sha": "17e29e63999e5428647dafbecd4aecf5eff081d6",
+          "author_date": "2026-07-22T21:27:13+08:00",
+          "committer_date": "2026-07-22T21:27:13+08:00"
+        },
+        {
+          "sha": "117ce4b194e509e90547f78a2332f91250eae47b",
+          "author_date": "2026-07-22T22:05:26+08:00",
+          "committer_date": "2026-07-22T22:05:26+08:00"
+        },
+        {
+          "sha": "1835df04eb3115523fb07e27228b071a0ce6d9e5",
+          "author_date": "2026-07-22T22:05:26+08:00",
+          "committer_date": "2026-07-22T22:05:26+08:00"
+        },
+        {
+          "sha": "2e8708f67251a31854485847f8c6b41ce9b84097",
+          "author_date": "2026-07-22T22:05:26+08:00",
+          "committer_date": "2026-07-22T22:05:26+08:00"
+        },
+        {
+          "sha": "84363b619d6aedefa037d1eba9b34da5d9bb23b9",
+          "author_date": "2026-07-22T22:05:26+08:00",
+          "committer_date": "2026-07-22T22:05:26+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 13,
+      "day": "2026-07-24",
+      "title": "feat(auth): 建立权限体系与订单配送主流程",
+      "snapshot_source": "928d93de4290fe450269b6ab3cf6d3d1745a24ba",
+      "source_records": [
+        {
+          "sha": "53b3ba436297c1d3bf07306c8f931d1693b1baa1",
+          "author_date": "2026-07-24T00:31:05+08:00",
+          "committer_date": "2026-07-24T00:31:05+08:00"
+        },
+        {
+          "sha": "6263de869bc5c2f96e4a22c23ee99bab8fe44bc0",
+          "author_date": "2026-07-24T00:31:05+08:00",
+          "committer_date": "2026-07-24T00:31:05+08:00"
+        },
+        {
+          "sha": "7541e7643e5f6e63954048e4e5de762fad27ba30",
+          "author_date": "2026-07-24T00:31:05+08:00",
+          "committer_date": "2026-07-24T00:31:05+08:00"
+        },
+        {
+          "sha": "928d93de4290fe450269b6ab3cf6d3d1745a24ba",
+          "author_date": "2026-07-24T00:31:05+08:00",
+          "committer_date": "2026-07-24T00:31:05+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 14,
+      "day": "2026-09-05",
+      "title": "fix(order): 完善退款、桶异常和外派编排",
+      "snapshot_source": "ebccf2c8e1b32cbebd9910f2d81fb1c5f2512856",
+      "source_records": [
+        {
+          "sha": "2a92ddcedbdf5a862754ebf585e6a6e392e94f77",
+          "author_date": "2026-09-05T11:48:36+08:00",
+          "committer_date": "2026-09-05T11:48:36+08:00"
+        },
+        {
+          "sha": "2f6c0e5cd10b01db26ea16cb8b233723244eb92a",
+          "author_date": "2026-09-05T11:49:13+08:00",
+          "committer_date": "2026-09-05T11:49:13+08:00"
+        },
+        {
+          "sha": "74b49a24011fad64dd06192ac8cc004d584bf4f4",
+          "author_date": "2026-09-05T11:49:13+08:00",
+          "committer_date": "2026-09-05T11:49:13+08:00"
+        },
+        {
+          "sha": "8db0123b8984af23bd8607133a0b1886bd53fab7",
+          "author_date": "2026-09-05T11:49:13+08:00",
+          "committer_date": "2026-09-05T11:49:13+08:00"
+        },
+        {
+          "sha": "b881cec5d9d0f2b15e521e5f32740708a3a8ead5",
+          "author_date": "2026-09-05T11:49:13+08:00",
+          "committer_date": "2026-09-05T11:49:13+08:00"
+        },
+        {
+          "sha": "bde62170f3bcfc5b9051e7fade14d0e6a3808daa",
+          "author_date": "2026-09-05T11:49:13+08:00",
+          "committer_date": "2026-09-05T11:49:13+08:00"
+        },
+        {
+          "sha": "1a68e1a8b8931b5c0a2d5cbd0a7baac35d529e21",
+          "author_date": "2026-09-05T12:20:41+08:00",
+          "committer_date": "2026-09-05T12:20:41+08:00"
+        },
+        {
+          "sha": "23ad22c965edb712e06a4594d63a58a30171a01c",
+          "author_date": "2026-09-05T12:20:41+08:00",
+          "committer_date": "2026-09-05T12:20:41+08:00"
+        },
+        {
+          "sha": "416120477b19c686d42af5de341437dffa34405b",
+          "author_date": "2026-09-05T12:20:41+08:00",
+          "committer_date": "2026-09-05T12:20:41+08:00"
+        },
+        {
+          "sha": "87270aa7251f003d5cf01e332dbfe60ab09f200a",
+          "author_date": "2026-09-05T12:20:41+08:00",
+          "committer_date": "2026-09-05T12:20:41+08:00"
+        },
+        {
+          "sha": "eef1e6f15dd6508956c20eaa48dc85928b49aa8f",
+          "author_date": "2026-09-05T12:20:41+08:00",
+          "committer_date": "2026-09-05T12:20:41+08:00"
+        },
+        {
+          "sha": "3bced3af96dd6d237872951b4d6ed3f3b63c4aef",
+          "author_date": "2026-09-05T18:02:36+08:00",
+          "committer_date": "2026-09-05T18:02:36+08:00"
+        },
+        {
+          "sha": "6b8998eafc076914feb2faa48be8e63dee05da55",
+          "author_date": "2026-09-05T18:02:36+08:00",
+          "committer_date": "2026-09-05T18:02:36+08:00"
+        },
+        {
+          "sha": "9eb9c2d8b75bf288dda9005b0734e627844aef66",
+          "author_date": "2026-09-05T18:02:36+08:00",
+          "committer_date": "2026-09-05T18:02:36+08:00"
+        },
+        {
+          "sha": "d8f4c35d708cf52c07a7de004f88d5d942925a19",
+          "author_date": "2026-09-05T18:02:36+08:00",
+          "committer_date": "2026-09-05T18:02:36+08:00"
+        },
+        {
+          "sha": "ebccf2c8e1b32cbebd9910f2d81fb1c5f2512856",
+          "author_date": "2026-09-05T18:02:36+08:00",
+          "committer_date": "2026-09-05T18:02:36+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 15,
+      "day": "2026-09-06",
+      "title": "feat(manager): 合并桶管理并完善通知与反馈",
+      "snapshot_source": "fd7ad9fc2806b7db8851e5636bc4c92e709ab055",
+      "source_records": [
+        {
+          "sha": "8279fa263512b0daa5a6bbdafd53de7d2827679f",
+          "author_date": "2026-09-06T20:11:36+08:00",
+          "committer_date": "2026-09-06T20:11:36+08:00"
+        },
+        {
+          "sha": "fd7ad9fc2806b7db8851e5636bc4c92e709ab055",
+          "author_date": "2026-09-06T20:16:08+08:00",
+          "committer_date": "2026-09-06T20:16:08+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 16,
+      "day": "2026-09-09",
+      "title": "feat(manager): 建立客户、员工和桶管理流程",
+      "snapshot_source": "06e5082913d092b8c04884dbec89925f6b041a8e",
+      "source_records": [
+        {
+          "sha": "5c82a37b69cedeb8f2cd8a1890d71fdd48e5cf47",
+          "author_date": "2026-09-09T13:05:26+08:00",
+          "committer_date": "2026-09-09T13:05:26+08:00"
+        },
+        {
+          "sha": "fbef366f0b1e8eaf9e85d1ab0c2bbeedcabb45cb",
+          "author_date": "2026-09-09T14:17:02+08:00",
+          "committer_date": "2026-09-09T14:17:02+08:00"
+        },
+        {
+          "sha": "06e5082913d092b8c04884dbec89925f6b041a8e",
+          "author_date": "2026-09-09T14:54:38+08:00",
+          "committer_date": "2026-09-09T14:54:38+08:00"
+        },
+        {
+          "sha": "8fa583859ad753fc27878ddfc1cf160f0dc31efa",
+          "author_date": "2026-09-09T14:54:38+08:00",
+          "committer_date": "2026-09-09T14:54:38+08:00"
+        },
+        {
+          "sha": "a39010a39448afef10104d06d3a179fd7ae876b2",
+          "author_date": "2026-09-09T14:54:38+08:00",
+          "committer_date": "2026-09-09T14:54:38+08:00"
+        },
+        {
+          "sha": "dbbfda3cb41acfab5702614f918d0fd13fecf0ff",
+          "author_date": "2026-09-09T14:54:38+08:00",
+          "committer_date": "2026-09-09T14:54:38+08:00"
+        },
+        {
+          "sha": "ea33b1ed394d0465f5976ceca06f6638f62b61a0",
+          "author_date": "2026-09-09T14:54:38+08:00",
+          "committer_date": "2026-09-09T14:54:38+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 17,
+      "day": "2026-09-11",
+      "title": "refactor(domain): 移除水厂业务并整理设计入口",
+      "snapshot_source": "3193f793854d3b89c7a0ea93d05e4490dd54ab70",
+      "source_records": [
+        {
+          "sha": "3193f793854d3b89c7a0ea93d05e4490dd54ab70",
+          "author_date": "2026-09-11T19:53:46+08:00",
+          "committer_date": "2026-09-11T19:53:46+08:00"
+        },
+        {
+          "sha": "474f95fafd5ab25a07e13a407aabe958854293a6",
+          "author_date": "2026-09-11T19:53:46+08:00",
+          "committer_date": "2026-09-11T19:53:46+08:00"
+        },
+        {
+          "sha": "89b683a70978a4fc54f16a1506166c153fcc364c",
+          "author_date": "2026-09-11T19:53:46+08:00",
+          "committer_date": "2026-09-11T19:53:46+08:00"
+        },
+        {
+          "sha": "e1bfd34fa3f874b832995f5efb6b6953ad214cd8",
+          "author_date": "2026-09-11T19:53:46+08:00",
+          "committer_date": "2026-09-11T19:53:46+08:00"
+        },
+        {
+          "sha": "e9dcd49fac28d3d9d2bb7b388657a3ed70d711a3",
+          "author_date": "2026-09-11T19:53:46+08:00",
+          "committer_date": "2026-09-11T19:53:46+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 18,
+      "day": "2026-09-12",
+      "title": "refactor(order): 收敛状态写入与请求校验",
+      "snapshot_source": "2462232bc19da1354137163c06407d54b5a30a23",
+      "source_records": [
+        {
+          "sha": "71e7eb829ec1277a48869c054898c033dfc1921d",
+          "author_date": "2026-09-12T11:53:42+08:00",
+          "committer_date": "2026-09-12T11:53:42+08:00"
+        },
+        {
+          "sha": "46e4b9b62f0924b6a978baa53a0f48d08ccbe55e",
+          "author_date": "2026-09-12T20:07:19+08:00",
+          "committer_date": "2026-09-12T20:07:19+08:00"
+        },
+        {
+          "sha": "5044cc24fc80b172d9e2a09a45760a3ab19a14e8",
+          "author_date": "2026-09-12T20:07:19+08:00",
+          "committer_date": "2026-09-12T20:07:19+08:00"
+        },
+        {
+          "sha": "91c2282427e0c6ef044f5a9c85473ebfea5f5fd7",
+          "author_date": "2026-09-12T20:07:19+08:00",
+          "committer_date": "2026-09-12T20:07:19+08:00"
+        },
+        {
+          "sha": "b9a6d551c40cc1ae610a01efc1ecdbe5fa274fe0",
+          "author_date": "2026-09-12T20:07:19+08:00",
+          "committer_date": "2026-09-12T20:07:19+08:00"
+        },
+        {
+          "sha": "cee39b1a6df586a27c1b9e1c644ab83cbfb0439e",
+          "author_date": "2026-09-12T20:07:19+08:00",
+          "committer_date": "2026-09-12T20:07:19+08:00"
+        },
+        {
+          "sha": "28782951fc314912d0b34267870e9fedd7febd14",
+          "author_date": "2026-09-12T20:07:20+08:00",
+          "committer_date": "2026-09-12T20:07:20+08:00"
+        },
+        {
+          "sha": "0c6ede4c90972a22e7810e89249873ff04d5490a",
+          "author_date": "2026-09-12T20:07:21+08:00",
+          "committer_date": "2026-09-12T20:07:21+08:00"
+        },
+        {
+          "sha": "17e3169c9f5e7dfb2a2b7c913dd8478a212640de",
+          "author_date": "2026-09-12T20:07:21+08:00",
+          "committer_date": "2026-09-12T20:07:21+08:00"
+        },
+        {
+          "sha": "42673cd72b9829c6df5f1b2e55c6fb0e6c3baa01",
+          "author_date": "2026-09-12T20:07:21+08:00",
+          "committer_date": "2026-09-12T20:07:21+08:00"
+        },
+        {
+          "sha": "8a5585648ec35ff05b85d7de5feb83758ab90396",
+          "author_date": "2026-09-12T20:07:21+08:00",
+          "committer_date": "2026-09-12T20:07:21+08:00"
+        },
+        {
+          "sha": "8c6b17c99b90a81344e4adf638ac8a617a134abf",
+          "author_date": "2026-09-12T20:07:21+08:00",
+          "committer_date": "2026-09-12T20:07:21+08:00"
+        },
+        {
+          "sha": "67c002feeb0d256b97f7f83759b8291aa6337ac1",
+          "author_date": "2026-09-12T20:07:49+08:00",
+          "committer_date": "2026-09-12T20:07:49+08:00"
+        },
+        {
+          "sha": "1c293e2b71989035b62d1bf0c36eef6e031ad61a",
+          "author_date": "2026-09-12T20:08:21+08:00",
+          "committer_date": "2026-09-12T20:08:21+08:00"
+        },
+        {
+          "sha": "1cfb9ab81ef3e653bee8bffef38b430327f167b9",
+          "author_date": "2026-09-12T20:08:21+08:00",
+          "committer_date": "2026-09-12T20:08:21+08:00"
+        },
+        {
+          "sha": "765a56a420fc6ea8a971d8476591e10d0bc174ed",
+          "author_date": "2026-09-12T20:08:21+08:00",
+          "committer_date": "2026-09-12T20:08:21+08:00"
+        },
+        {
+          "sha": "90e6fda8aeed82ee8da4e89130b257b814843aca",
+          "author_date": "2026-09-12T20:08:21+08:00",
+          "committer_date": "2026-09-12T20:08:21+08:00"
+        },
+        {
+          "sha": "a7fad2917afe9e5c59e51e53d8e0f6567613e7a7",
+          "author_date": "2026-09-12T20:08:21+08:00",
+          "committer_date": "2026-09-12T20:08:21+08:00"
+        },
+        {
+          "sha": "3f98b467a81bbb12cf43a28fea7013d1d0a601d6",
+          "author_date": "2026-09-12T20:33:52+08:00",
+          "committer_date": "2026-09-12T20:33:52+08:00"
+        },
+        {
+          "sha": "2129b27e0b0b4c6667219f8c0551166282f38af7",
+          "author_date": "2026-09-12T20:50:38+08:00",
+          "committer_date": "2026-09-12T20:50:38+08:00"
+        },
+        {
+          "sha": "8def418710edb8d5bb5c297ac5fc1a1d490b5a37",
+          "author_date": "2026-09-12T21:02:54+08:00",
+          "committer_date": "2026-09-12T21:02:54+08:00"
+        },
+        {
+          "sha": "23764fe28b94e38f7e0fba4b348bc7ec6dfa6724",
+          "author_date": "2026-09-12T21:26:53+08:00",
+          "committer_date": "2026-09-12T21:26:53+08:00"
+        },
+        {
+          "sha": "9fa6f72cc42a83e1580defe0dda64fe102f897f5",
+          "author_date": "2026-09-12T21:30:04+08:00",
+          "committer_date": "2026-09-12T21:30:04+08:00"
+        },
+        {
+          "sha": "2462232bc19da1354137163c06407d54b5a30a23",
+          "author_date": "2026-09-12T21:53:33+08:00",
+          "committer_date": "2026-09-12T21:53:33+08:00"
+        },
+        {
+          "sha": "2a1674c7a7b6cead6640af6e579538c625218f36",
+          "author_date": "2026-09-12T21:53:33+08:00",
+          "committer_date": "2026-09-12T21:53:33+08:00"
+        },
+        {
+          "sha": "36d92137b3f9996ef19d42a8aedd9b200d16e942",
+          "author_date": "2026-09-12T21:53:33+08:00",
+          "committer_date": "2026-09-12T21:53:33+08:00"
+        },
+        {
+          "sha": "e2fe99988f6da1abd9870766dd00422bfe943c11",
+          "author_date": "2026-09-12T21:53:33+08:00",
+          "committer_date": "2026-09-12T21:53:33+08:00"
+        },
+        {
+          "sha": "f3e702faa4a6cca92bbcd2060d9798cec94b9a38",
+          "author_date": "2026-09-12T21:53:33+08:00",
+          "committer_date": "2026-09-12T21:53:33+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 19,
+      "day": "2026-09-13",
+      "title": "fix(ledger): 修复资产资金与跨站授权边界",
+      "snapshot_source": "3beac75a15356e88d568406a1f9adebdd79bb69a",
+      "source_records": [
+        {
+          "sha": "f6cde857e756c8da6532d96fe3f3c66d9ff3f516",
+          "author_date": "2026-09-13T14:49:55+08:00",
+          "committer_date": "2026-09-13T14:49:55+08:00"
+        },
+        {
+          "sha": "a418bad487d7e39198c9851857194922155472d4",
+          "author_date": "2026-09-13T14:50:21+08:00",
+          "committer_date": "2026-09-13T14:50:21+08:00"
+        },
+        {
+          "sha": "3ab1449721d6ee89d195351fbb70fa61046a7b28",
+          "author_date": "2026-09-13T14:50:47+08:00",
+          "committer_date": "2026-09-13T14:50:47+08:00"
+        },
+        {
+          "sha": "1078ead4767364c7afdd815c0e7f7398d14f97e6",
+          "author_date": "2026-09-13T14:51:23+08:00",
+          "committer_date": "2026-09-13T14:51:23+08:00"
+        },
+        {
+          "sha": "12b63de5099eaa1430cbd6c5e9df9eb4062d2a34",
+          "author_date": "2026-09-13T14:51:23+08:00",
+          "committer_date": "2026-09-13T14:51:23+08:00"
+        },
+        {
+          "sha": "44cbea17e0d934381ed0f9e388af0d2ce9bf2892",
+          "author_date": "2026-09-13T14:51:23+08:00",
+          "committer_date": "2026-09-13T14:51:23+08:00"
+        },
+        {
+          "sha": "b6fae219e9c38e7bd8a4ce3ab987f272000fba91",
+          "author_date": "2026-09-13T14:51:23+08:00",
+          "committer_date": "2026-09-13T14:51:23+08:00"
+        },
+        {
+          "sha": "c576ea3a07b13e3dffd43726fc8590816db9ec27",
+          "author_date": "2026-09-13T14:51:23+08:00",
+          "committer_date": "2026-09-13T14:51:23+08:00"
+        },
+        {
+          "sha": "c0af98e63545823dfaf60a8e92645152a4210ec3",
+          "author_date": "2026-09-13T14:51:42+08:00",
+          "committer_date": "2026-09-13T14:51:42+08:00"
+        },
+        {
+          "sha": "2de55518c6a85f505deca3cf3c819ff7bd2750cc",
+          "author_date": "2026-09-13T14:52:19+08:00",
+          "committer_date": "2026-09-13T14:52:19+08:00"
+        },
+        {
+          "sha": "3beac75a15356e88d568406a1f9adebdd79bb69a",
+          "author_date": "2026-09-13T14:52:19+08:00",
+          "committer_date": "2026-09-13T14:52:19+08:00"
+        },
+        {
+          "sha": "43f0858a899821106dbf6a454f51bfd16daed21c",
+          "author_date": "2026-09-13T14:52:19+08:00",
+          "committer_date": "2026-09-13T14:52:19+08:00"
+        },
+        {
+          "sha": "4e198d64068da8500a41e9f70dc0909c0c79c42d",
+          "author_date": "2026-09-13T14:52:19+08:00",
+          "committer_date": "2026-09-13T14:52:19+08:00"
+        },
+        {
+          "sha": "8b7f0b24226aaec9d1e48dd570f0b15ec7178b16",
+          "author_date": "2026-09-13T14:52:19+08:00",
+          "committer_date": "2026-09-13T14:52:19+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 20,
+      "day": "2026-09-15",
+      "title": "feat(ledger): 建立资产调整、幂等约束和双端登录",
+      "snapshot_source": "3df2024340ce910d6abb24fd4d6efe9addfa4c36",
+      "source_records": [
+        {
+          "sha": "094c9ef7d1a7e327307c9830a7d3913ccd1512e0",
+          "author_date": "2026-09-15T13:35:05+08:00",
+          "committer_date": "2026-09-15T13:35:05+08:00"
+        },
+        {
+          "sha": "2cdb4d7e489eb24ca318f57e7d469f0a3637a0f3",
+          "author_date": "2026-09-15T13:35:05+08:00",
+          "committer_date": "2026-09-15T13:35:05+08:00"
+        },
+        {
+          "sha": "470210c0e0accbb27884f08edfbc10520d350ec7",
+          "author_date": "2026-09-15T13:35:05+08:00",
+          "committer_date": "2026-09-15T13:35:05+08:00"
+        },
+        {
+          "sha": "6264fdbe6af3d439c7158779a3aeb763d98a3a26",
+          "author_date": "2026-09-15T13:35:05+08:00",
+          "committer_date": "2026-09-15T13:35:05+08:00"
+        },
+        {
+          "sha": "a2b9ff7ca6176cd17800827751a93073c6f3b63b",
+          "author_date": "2026-09-15T13:35:05+08:00",
+          "committer_date": "2026-09-15T13:35:05+08:00"
+        },
+        {
+          "sha": "b0b82232c62b8376d3a79ce12523ec36ae95c3ee",
+          "author_date": "2026-09-15T13:35:05+08:00",
+          "committer_date": "2026-09-15T13:35:05+08:00"
+        },
+        {
+          "sha": "d9837fdaeeb870e3e7ca929f2cfe9edcfe16217e",
+          "author_date": "2026-09-15T13:35:05+08:00",
+          "committer_date": "2026-09-15T13:35:05+08:00"
+        },
+        {
+          "sha": "0376d8fcfbb0954ad4cfed857df894e3dc850078",
+          "author_date": "2026-09-15T13:35:26+08:00",
+          "committer_date": "2026-09-15T13:35:26+08:00"
+        },
+        {
+          "sha": "08046abb2130df0ca2bae7fc53134c4d7505421a",
+          "author_date": "2026-09-15T13:35:26+08:00",
+          "committer_date": "2026-09-15T13:35:26+08:00"
+        },
+        {
+          "sha": "3e2daf571bd7a00dc7a3d6830d4e03f53b2038cb",
+          "author_date": "2026-09-15T13:35:26+08:00",
+          "committer_date": "2026-09-15T13:35:26+08:00"
+        },
+        {
+          "sha": "41d68276e58e638595bbf25d39ad102839fca5c5",
+          "author_date": "2026-09-15T13:35:26+08:00",
+          "committer_date": "2026-09-15T13:35:26+08:00"
+        },
+        {
+          "sha": "923975421046cf77f80f86da3f0f15cdfb54f6f3",
+          "author_date": "2026-09-15T13:35:26+08:00",
+          "committer_date": "2026-09-15T13:35:26+08:00"
+        },
+        {
+          "sha": "d8b811ff4d296c965b1bed96c40b0df821d63b88",
+          "author_date": "2026-09-15T13:35:26+08:00",
+          "committer_date": "2026-09-15T13:35:26+08:00"
+        },
+        {
+          "sha": "db29c5b218175942974a729bbbb8494f16375564",
+          "author_date": "2026-09-15T13:35:26+08:00",
+          "committer_date": "2026-09-15T13:35:26+08:00"
+        },
+        {
+          "sha": "0c8b4d87943b543aa8f116ffdef370badeab1a6f",
+          "author_date": "2026-09-15T13:35:55+08:00",
+          "committer_date": "2026-09-15T13:35:55+08:00"
+        },
+        {
+          "sha": "711c03e6c2a130ad2e8605e721c740bdfbd583f4",
+          "author_date": "2026-09-15T13:35:55+08:00",
+          "committer_date": "2026-09-15T13:35:55+08:00"
+        },
+        {
+          "sha": "8cf6b92db3e88a482ed07eed9d1446189933c67a",
+          "author_date": "2026-09-15T13:35:55+08:00",
+          "committer_date": "2026-09-15T13:35:55+08:00"
+        },
+        {
+          "sha": "b962bbbd65808b576b262cca1908b3502768bba2",
+          "author_date": "2026-09-15T13:35:55+08:00",
+          "committer_date": "2026-09-15T13:35:55+08:00"
+        },
+        {
+          "sha": "e5cc9081011d8cf799f98d4dddd61e7603117154",
+          "author_date": "2026-09-15T13:35:55+08:00",
+          "committer_date": "2026-09-15T13:35:55+08:00"
+        },
+        {
+          "sha": "eb1cefe8dcf745de3aacd745472c705c35f97b2b",
+          "author_date": "2026-09-15T13:35:55+08:00",
+          "committer_date": "2026-09-15T13:35:55+08:00"
+        },
+        {
+          "sha": "f734ad9479534d00b1ee85b572c4fec19f6fa83d",
+          "author_date": "2026-09-15T13:35:55+08:00",
+          "committer_date": "2026-09-15T13:35:55+08:00"
+        },
+        {
+          "sha": "2203c63c82a0337e05647810d74ffd8855222b60",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "6749a18a9088d6241d012c101f9aaa93e5c68961",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "779265c77456704d0ffc676979467cdb56574c74",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "7ed669e53b8c2467db3bdabb6a312e79d195ab07",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "a018b06d4108128fa5aaa5b582a3bf4b7520d19d",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "b048a55346738d3e4404cb2e29ac9d16521a8cc6",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "b9d68d051c57d486a1c8ef25410966ac005876c9",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "bb92b3455ec2ba6eba70c65e63d80dcdebe354ff",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "ce95ba9979b54e01e2e4e1127adacf05a699aeb2",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "d993bde53a1a407782730f16c072cdb8f6720aa1",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "dc7f621de9cbf791f23c5ab863c610d2aed5374d",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "dfe50b44e0e91913aeae3ba35eba72a6dfea61d8",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "f03a5545c5519839eaf30b0f44d38274b26d87cf",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "f8b4dfb21546e1b87ddca7dacb8c0f2a1edb53b0",
+          "author_date": "2026-09-15T13:36:05+08:00",
+          "committer_date": "2026-09-15T13:36:05+08:00"
+        },
+        {
+          "sha": "20d2fdb211c7be201bef3e445463c14647e06add",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "2377f538bf28434885415abd9eed77c69b2c99ae",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "3011f9e7a70dfd5d4c5df54944a7e557f163aada",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "4a9146ff178b5d1c9aea0a07e4db6eb74490bd39",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "52810fd8abccf9b42029124468688009a0416ebc",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "661010c1a3d0a53b59b3f2c4ad7f91caab42b5d9",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "76261f501686ec26485bb0c241a7b0cabee52474",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "7c8bbd1fc589f106d99870e4315594eff3909f03",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "8c2d4160e48f9562ad09c508945d8dae8d90b0e0",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "8d32051de0cbc6f005646e4a3d0a61545a0752b0",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "95c256d73e48c4bb4bef7eb224c345a6572cc18c",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "d3b0d8327ed617638371f73776c492e0dfa0b946",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "d5b51240d6f9ae8a5983ef08fa839163709137f5",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "e2e64f8813218ea01f5bd97a8baccec9f95b7a80",
+          "author_date": "2026-09-15T13:36:15+08:00",
+          "committer_date": "2026-09-15T13:36:15+08:00"
+        },
+        {
+          "sha": "457903b18f2809b1ada6fe8e146e027cd900d261",
+          "author_date": "2026-09-15T13:36:16+08:00",
+          "committer_date": "2026-09-15T13:36:16+08:00"
+        },
+        {
+          "sha": "4fc0dc10ab205b92aaea7bc65254bc1923d154b0",
+          "author_date": "2026-09-15T13:36:16+08:00",
+          "committer_date": "2026-09-15T13:36:16+08:00"
+        },
+        {
+          "sha": "53225abc418e649c8784e8bc6784247e22b176bd",
+          "author_date": "2026-09-15T13:36:16+08:00",
+          "committer_date": "2026-09-15T13:36:16+08:00"
+        },
+        {
+          "sha": "5fa66dc8048e510b19778e2e47c314478843899a",
+          "author_date": "2026-09-15T13:36:16+08:00",
+          "committer_date": "2026-09-15T13:36:16+08:00"
+        },
+        {
+          "sha": "96c06b33cd5a15fef6c020a5c3b98078afa03416",
+          "author_date": "2026-09-15T13:36:16+08:00",
+          "committer_date": "2026-09-15T13:36:16+08:00"
+        },
+        {
+          "sha": "b68910d352212fa4fb1c488af5417084454f2937",
+          "author_date": "2026-09-15T13:36:16+08:00",
+          "committer_date": "2026-09-15T13:36:16+08:00"
+        },
+        {
+          "sha": "dd6343590c901ffd6048a0f5a1a9955916989ffc",
+          "author_date": "2026-09-15T13:36:16+08:00",
+          "committer_date": "2026-09-15T13:36:16+08:00"
+        },
+        {
+          "sha": "09a6b57a0dbf62b2869d4c82139ab50029e57f15",
+          "author_date": "2026-09-15T13:48:34+08:00",
+          "committer_date": "2026-09-15T13:48:34+08:00"
+        },
+        {
+          "sha": "0b4174dbb18451849bec50f3e8659de8fa929d24",
+          "author_date": "2026-09-15T13:48:34+08:00",
+          "committer_date": "2026-09-15T13:50:13+08:00"
+        },
+        {
+          "sha": "59468870df1d50d60cef4013089c9fb57fd2b840",
+          "author_date": "2026-09-15T13:48:34+08:00",
+          "committer_date": "2026-09-15T13:48:34+08:00"
+        },
+        {
+          "sha": "5ca2cf17afd951daa42f57c52694ec6476d18605",
+          "author_date": "2026-09-15T13:48:34+08:00",
+          "committer_date": "2026-09-15T13:48:34+08:00"
+        },
+        {
+          "sha": "fdfe7f22a95f9776853c83ba435d82cc05cad6dd",
+          "author_date": "2026-09-15T13:48:34+08:00",
+          "committer_date": "2026-09-15T13:48:34+08:00"
+        },
+        {
+          "sha": "75153b12e90035b88d9283d168250fcbbe45dd3b",
+          "author_date": "2026-09-15T13:51:06+08:00",
+          "committer_date": "2026-09-15T13:51:06+08:00"
+        },
+        {
+          "sha": "ab6261a57eb2d88c2b2881f5f466551090cf9896",
+          "author_date": "2026-09-15T13:51:06+08:00",
+          "committer_date": "2026-09-15T13:51:06+08:00"
+        },
+        {
+          "sha": "cc5359337df8c731eadd14adb40dcec19908e64b",
+          "author_date": "2026-09-15T13:51:06+08:00",
+          "committer_date": "2026-09-15T13:51:06+08:00"
+        },
+        {
+          "sha": "ec310e1f7a2d93ce272b1ace2febdc74ef1e791a",
+          "author_date": "2026-09-15T13:51:06+08:00",
+          "committer_date": "2026-09-15T13:51:06+08:00"
+        },
+        {
+          "sha": "980acc71cd907051855113445e9866653e210371",
+          "author_date": "2026-09-15T14:21:24+08:00",
+          "committer_date": "2026-09-15T14:21:24+08:00"
+        },
+        {
+          "sha": "a2ec5ffedca80afa0d84d53568ddeb3f48830ed0",
+          "author_date": "2026-09-15T14:21:24+08:00",
+          "committer_date": "2026-09-15T14:21:24+08:00"
+        },
+        {
+          "sha": "bc2a773427ef4ef88233cc424da751bd79f575cf",
+          "author_date": "2026-09-15T14:21:24+08:00",
+          "committer_date": "2026-09-15T14:21:24+08:00"
+        },
+        {
+          "sha": "dca59525d9744e11b8dff84c838668146fdcbf94",
+          "author_date": "2026-09-15T14:21:24+08:00",
+          "committer_date": "2026-09-15T14:21:24+08:00"
+        },
+        {
+          "sha": "11d08f0fad151a83f6c9cd33ceea6e31a8c5759d",
+          "author_date": "2026-09-15T14:45:26+08:00",
+          "committer_date": "2026-09-15T14:45:26+08:00"
+        },
+        {
+          "sha": "a7a3b8cbed1a27404f88c3adc9d3fdd82ee9cf39",
+          "author_date": "2026-09-15T14:45:26+08:00",
+          "committer_date": "2026-09-15T14:45:26+08:00"
+        },
+        {
+          "sha": "c15f4ca0bdce103ddc9cbfe09bbec1fea09f5470",
+          "author_date": "2026-09-15T14:45:26+08:00",
+          "committer_date": "2026-09-15T14:45:26+08:00"
+        },
+        {
+          "sha": "c1113af5e9241097856e23f3a9ba079e07f3b17a",
+          "author_date": "2026-09-15T15:11:02+08:00",
+          "committer_date": "2026-09-15T15:11:02+08:00"
+        },
+        {
+          "sha": "50e39372f0d80b4b11b278aee72d862291cc13d6",
+          "author_date": "2026-09-15T15:37:10+08:00",
+          "committer_date": "2026-09-15T15:37:10+08:00"
+        },
+        {
+          "sha": "8ef86a0fb9d2aa7b9b47276000a486e6a852609c",
+          "author_date": "2026-09-15T15:37:10+08:00",
+          "committer_date": "2026-09-15T15:37:10+08:00"
+        },
+        {
+          "sha": "7961c2051248c847a85babba8810ebab85159493",
+          "author_date": "2026-09-15T15:37:11+08:00",
+          "committer_date": "2026-09-15T15:37:11+08:00"
+        },
+        {
+          "sha": "7e94d73c8f00a4d178b6409f53173a20d0ca1e0b",
+          "author_date": "2026-09-15T15:37:11+08:00",
+          "committer_date": "2026-09-15T15:37:11+08:00"
+        },
+        {
+          "sha": "27b2ab85c0ede1b791f5d38322d0d33ee8d6aafa",
+          "author_date": "2026-09-15T21:41:17+08:00",
+          "committer_date": "2026-09-15T21:41:17+08:00"
+        },
+        {
+          "sha": "086d38b65cef4762a26bc35cbba304fe93f215e6",
+          "author_date": "2026-09-15T21:41:18+08:00",
+          "committer_date": "2026-09-15T21:41:18+08:00"
+        },
+        {
+          "sha": "46a11319b1bd2218bffaa4b73d3f10c86409ea12",
+          "author_date": "2026-09-15T21:41:26+08:00",
+          "committer_date": "2026-09-15T21:41:26+08:00"
+        },
+        {
+          "sha": "b68cf14eb925b2bb4a954df6d778923f8b39b648",
+          "author_date": "2026-09-15T21:41:27+08:00",
+          "committer_date": "2026-09-15T21:41:27+08:00"
+        },
+        {
+          "sha": "471dda1e48218967452c56b3b89c30b1776be40f",
+          "author_date": "2026-09-15T21:41:28+08:00",
+          "committer_date": "2026-09-15T21:41:28+08:00"
+        },
+        {
+          "sha": "3df2024340ce910d6abb24fd4d6efe9addfa4c36",
+          "author_date": "2026-09-15T21:50:31+08:00",
+          "committer_date": "2026-09-15T21:50:31+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 21,
+      "day": "2026-09-17",
+      "title": "feat(operation): 完善商品、配送计费、水票和计件账务",
+      "snapshot_source": "cd95ca80e1b7539289b60f1d2f1fe0ab1b25c1bc",
+      "source_records": [
+        {
+          "sha": "3c23a37b40325d03ab3fa37d0b62c8c8fddde8b5",
+          "author_date": "2026-09-17T20:50:24+08:00",
+          "committer_date": "2026-09-17T20:50:24+08:00"
+        },
+        {
+          "sha": "0416a5308ee5864c4ccfa1c6f26b7d9ae5e233a0",
+          "author_date": "2026-09-17T20:50:38+08:00",
+          "committer_date": "2026-09-17T20:50:38+08:00"
+        },
+        {
+          "sha": "a580bbd653e12e0cbca36e53190215d7a98355f6",
+          "author_date": "2026-09-17T20:50:49+08:00",
+          "committer_date": "2026-09-17T20:50:49+08:00"
+        },
+        {
+          "sha": "b1a04e381b0d02587328a209175b34e8f674616d",
+          "author_date": "2026-09-17T20:50:50+08:00",
+          "committer_date": "2026-09-17T20:50:50+08:00"
+        },
+        {
+          "sha": "c60d2446c5c0d89aaeffd190437320dd6af0f332",
+          "author_date": "2026-09-17T20:50:50+08:00",
+          "committer_date": "2026-09-17T20:50:50+08:00"
+        },
+        {
+          "sha": "3238768f3969f5491b7b562626a04f76f174b030",
+          "author_date": "2026-09-17T20:50:51+08:00",
+          "committer_date": "2026-09-17T20:50:51+08:00"
+        },
+        {
+          "sha": "85627a329df5aea3e794d00e42a70dd420782c47",
+          "author_date": "2026-09-17T20:50:51+08:00",
+          "committer_date": "2026-09-17T20:50:51+08:00"
+        },
+        {
+          "sha": "11794ba12d53554ea28a353cba712ef01764a9a5",
+          "author_date": "2026-09-17T20:51:18+08:00",
+          "committer_date": "2026-09-17T20:51:18+08:00"
+        },
+        {
+          "sha": "20a69e596d425ec707a7834bf447e1da48261fa3",
+          "author_date": "2026-09-17T20:51:19+08:00",
+          "committer_date": "2026-09-17T20:51:19+08:00"
+        },
+        {
+          "sha": "9eea2963d476fe775fd9a8cf713a72f7f0b0de9c",
+          "author_date": "2026-09-17T20:51:19+08:00",
+          "committer_date": "2026-09-17T20:51:19+08:00"
+        },
+        {
+          "sha": "3a1c0f94988388e1ea428266ce047bfb36cca1ac",
+          "author_date": "2026-09-17T20:51:20+08:00",
+          "committer_date": "2026-09-17T20:51:20+08:00"
+        },
+        {
+          "sha": "e94a9565838cd58ae39115cdfc38bfc2d468ae6e",
+          "author_date": "2026-09-17T20:51:20+08:00",
+          "committer_date": "2026-09-17T20:51:20+08:00"
+        },
+        {
+          "sha": "59bb20e5a820aa6a63456ae7834dc1e01a41fd80",
+          "author_date": "2026-09-17T20:51:36+08:00",
+          "committer_date": "2026-09-17T20:51:36+08:00"
+        },
+        {
+          "sha": "a4f788c602ac7501316a240d4631a1717c3abbaa",
+          "author_date": "2026-09-17T20:51:36+08:00",
+          "committer_date": "2026-09-17T20:51:36+08:00"
+        },
+        {
+          "sha": "b905ad720233ea5aedcd6b18b936293cd7c9fc92",
+          "author_date": "2026-09-17T20:51:37+08:00",
+          "committer_date": "2026-09-17T20:51:37+08:00"
+        },
+        {
+          "sha": "c75f0f5d79969a159d60980dd2f6c452a5ef927c",
+          "author_date": "2026-09-17T20:51:37+08:00",
+          "committer_date": "2026-09-17T20:51:37+08:00"
+        },
+        {
+          "sha": "d8b4ca65e1bec066f19bf67973a993d9aedc5574",
+          "author_date": "2026-09-17T20:51:38+08:00",
+          "committer_date": "2026-09-17T20:51:38+08:00"
+        },
+        {
+          "sha": "9b0198c44ece6cf38502d38ea4fe30f839613cc9",
+          "author_date": "2026-09-17T20:51:56+08:00",
+          "committer_date": "2026-09-17T20:51:56+08:00"
+        },
+        {
+          "sha": "c215b2a5641b0c11b843923f25b7908962e686d0",
+          "author_date": "2026-09-17T20:51:57+08:00",
+          "committer_date": "2026-09-17T20:51:57+08:00"
+        },
+        {
+          "sha": "3eb9bb4b43781feb8f5009d4ef8f20f915a6e003",
+          "author_date": "2026-09-17T20:51:58+08:00",
+          "committer_date": "2026-09-17T20:51:58+08:00"
+        },
+        {
+          "sha": "72b45681a199feb9fc67818bb6dd70500dc196bd",
+          "author_date": "2026-09-17T20:51:58+08:00",
+          "committer_date": "2026-09-17T20:51:58+08:00"
+        },
+        {
+          "sha": "a0ec389843efcd71dd95f544969239421eed16a1",
+          "author_date": "2026-09-17T20:52:22+08:00",
+          "committer_date": "2026-09-17T20:52:22+08:00"
+        },
+        {
+          "sha": "7d304905e98654c48cb9d5b59bfdc37a7031c86b",
+          "author_date": "2026-09-17T20:52:41+08:00",
+          "committer_date": "2026-09-17T20:52:41+08:00"
+        },
+        {
+          "sha": "bd7d8424f9562688e7885795f6185b972d231c91",
+          "author_date": "2026-09-17T21:18:48+08:00",
+          "committer_date": "2026-09-17T21:18:48+08:00"
+        },
+        {
+          "sha": "1805d857bf6f7beabf2c06548c4e0c3d2ba23096",
+          "author_date": "2026-09-17T21:25:18+08:00",
+          "committer_date": "2026-09-17T21:25:18+08:00"
+        },
+        {
+          "sha": "8f838b55300a959c19834d975f1c8dfa9bdae044",
+          "author_date": "2026-09-17T21:46:44+08:00",
+          "committer_date": "2026-09-17T21:46:44+08:00"
+        },
+        {
+          "sha": "7f69f0652433a8297283d043646f8d933312813c",
+          "author_date": "2026-09-17T21:46:52+08:00",
+          "committer_date": "2026-09-17T21:46:52+08:00"
+        },
+        {
+          "sha": "8b11411ad9259c800a5218441415eb36b6feb41a",
+          "author_date": "2026-09-17T22:01:29+08:00",
+          "committer_date": "2026-09-17T22:01:29+08:00"
+        },
+        {
+          "sha": "649da0d75578a561057329f026eaa160bd927071",
+          "author_date": "2026-09-17T22:01:40+08:00",
+          "committer_date": "2026-09-17T22:01:40+08:00"
+        },
+        {
+          "sha": "7e1a9c230b1fae8d8c71d1f6241267aa3d3b2f1e",
+          "author_date": "2026-09-17T22:02:02+08:00",
+          "committer_date": "2026-09-17T22:02:02+08:00"
+        },
+        {
+          "sha": "a1844b8bda057f0f295db89ec4f0587ce6e6924d",
+          "author_date": "2026-09-17T22:33:10+08:00",
+          "committer_date": "2026-09-17T22:33:10+08:00"
+        },
+        {
+          "sha": "ccb5515a1c50abc8ed4a9e668a8ec987809291ec",
+          "author_date": "2026-09-17T22:47:36+08:00",
+          "committer_date": "2026-09-17T22:47:36+08:00"
+        },
+        {
+          "sha": "154d1e5b13c71847659e6058c1c46fd4f053e0ed",
+          "author_date": "2026-09-17T23:00:37+08:00",
+          "committer_date": "2026-09-17T23:00:37+08:00"
+        },
+        {
+          "sha": "d0e99c16ce6fc05be692226294c78ee9c63a61f8",
+          "author_date": "2026-09-17T23:08:01+08:00",
+          "committer_date": "2026-09-17T23:08:01+08:00"
+        },
+        {
+          "sha": "4cf3ba757f9533a828a3d70972f6b291c152345a",
+          "author_date": "2026-09-17T23:10:34+08:00",
+          "committer_date": "2026-09-17T23:10:34+08:00"
+        },
+        {
+          "sha": "b56bdff34a25419fa08eee85fc688f775eeb5b44",
+          "author_date": "2026-09-17T23:22:52+08:00",
+          "committer_date": "2026-09-17T23:22:52+08:00"
+        },
+        {
+          "sha": "f09301aecdd12d257642f4c041ca9ab07219b49b",
+          "author_date": "2026-09-17T23:38:07+08:00",
+          "committer_date": "2026-09-17T23:38:07+08:00"
+        },
+        {
+          "sha": "a3ff2b3b7ed75f68dfe22188b0f3c30156275dcb",
+          "author_date": "2026-09-17T23:38:29+08:00",
+          "committer_date": "2026-09-17T23:38:29+08:00"
+        },
+        {
+          "sha": "cd95ca80e1b7539289b60f1d2f1fe0ab1b25c1bc",
+          "author_date": "2026-09-17T23:51:00+08:00",
+          "committer_date": "2026-09-17T23:51:00+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 22,
+      "day": "2026-09-18",
+      "title": "feat(dispatch): 建立三站结算与站长经营流程",
+      "snapshot_source": "a99f3521321b30b08faced6383e7677684f58b8f",
+      "source_records": [
+        {
+          "sha": "bbf19976a3e1a10fe854b1eb12be85a274de5b97",
+          "author_date": "2026-09-18T00:00:59+08:00",
+          "committer_date": "2026-09-18T00:00:59+08:00"
+        },
+        {
+          "sha": "0ee1aecfe0e24f404c5691bd0843a4df9d8b6b5e",
+          "author_date": "2026-09-18T00:03:47+08:00",
+          "committer_date": "2026-09-18T00:03:47+08:00"
+        },
+        {
+          "sha": "225a3b1cf3246a170789ed9fcd7599fc6bb00917",
+          "author_date": "2026-09-18T00:04:22+08:00",
+          "committer_date": "2026-09-18T00:04:22+08:00"
+        },
+        {
+          "sha": "10d830f8b9ad3c663be07d6537ce5e91df8e3263",
+          "author_date": "2026-09-18T00:08:32+08:00",
+          "committer_date": "2026-09-18T00:08:32+08:00"
+        },
+        {
+          "sha": "d467ec8ddef623459c3359158a5f3364d170e265",
+          "author_date": "2026-09-18T00:18:44+08:00",
+          "committer_date": "2026-09-18T00:18:44+08:00"
+        },
+        {
+          "sha": "ef9b04e1057e589939bf2380cb82a4207d02d464",
+          "author_date": "2026-09-18T00:32:01+08:00",
+          "committer_date": "2026-09-18T00:32:01+08:00"
+        },
+        {
+          "sha": "027213b873c5853a4b0b9eb879b735625ac8ca62",
+          "author_date": "2026-09-18T00:33:53+08:00",
+          "committer_date": "2026-09-18T00:33:53+08:00"
+        },
+        {
+          "sha": "3e3976ae2de038c4752aa138e32373f6a3f55546",
+          "author_date": "2026-09-18T00:34:35+08:00",
+          "committer_date": "2026-09-18T00:34:35+08:00"
+        },
+        {
+          "sha": "2e97245cc9a1df9957397290cd5c05d1e0d1fbb3",
+          "author_date": "2026-09-18T00:46:56+08:00",
+          "committer_date": "2026-09-18T00:46:56+08:00"
+        },
+        {
+          "sha": "d765bbf90e1b14b0eb8473299d43d7355b1e2077",
+          "author_date": "2026-09-18T00:48:36+08:00",
+          "committer_date": "2026-09-18T00:48:36+08:00"
+        },
+        {
+          "sha": "cbe02bfe86a88c0f3cbcef6fd7e36a5f79353ace",
+          "author_date": "2026-09-18T00:50:37+08:00",
+          "committer_date": "2026-09-18T00:50:37+08:00"
+        },
+        {
+          "sha": "92f84265ac10d2f358d9320edf82a12d391fc036",
+          "author_date": "2026-09-18T07:31:35+08:00",
+          "committer_date": "2026-09-18T07:31:35+08:00"
+        },
+        {
+          "sha": "fed8a0fbd032ddf0023b2c9771bd745a4b7e113a",
+          "author_date": "2026-09-18T07:31:35+08:00",
+          "committer_date": "2026-09-18T07:31:59+08:00"
+        },
+        {
+          "sha": "a0c9f6a37fa664e38766d38177606910c730ee5e",
+          "author_date": "2026-09-18T07:39:11+08:00",
+          "committer_date": "2026-09-18T07:39:11+08:00"
+        },
+        {
+          "sha": "8ce207a0600dcd2b0498e10e85d5d9faf9b9c104",
+          "author_date": "2026-09-18T07:39:24+08:00",
+          "committer_date": "2026-09-18T07:39:24+08:00"
+        },
+        {
+          "sha": "268527fda6d5eea684e8915ec6785697d255b6b8",
+          "author_date": "2026-09-18T07:39:33+08:00",
+          "committer_date": "2026-09-18T07:39:33+08:00"
+        },
+        {
+          "sha": "3e244fd5531474693581a1aca4be6a92b1103fa4",
+          "author_date": "2026-09-18T10:01:36+08:00",
+          "committer_date": "2026-09-18T10:01:36+08:00"
+        },
+        {
+          "sha": "7a752528308147afb7c15b3f282ce6a39dc06717",
+          "author_date": "2026-09-18T10:01:46+08:00",
+          "committer_date": "2026-09-18T10:01:46+08:00"
+        },
+        {
+          "sha": "e19465ef70d7d4cad81ae5b3f358f64c42e994cc",
+          "author_date": "2026-09-18T10:01:55+08:00",
+          "committer_date": "2026-09-18T10:01:55+08:00"
+        },
+        {
+          "sha": "fb2c33a5f9fbcc2b70be860aa56929a32b9ccb9b",
+          "author_date": "2026-09-18T10:02:05+08:00",
+          "committer_date": "2026-09-18T10:02:05+08:00"
+        },
+        {
+          "sha": "d27304295c8fc1a2b270bd9b9d990b737cbd09fb",
+          "author_date": "2026-09-18T10:24:53+08:00",
+          "committer_date": "2026-09-18T10:24:53+08:00"
+        },
+        {
+          "sha": "15780af57cea7ff7033547d5f5cfd7c0ab72e552",
+          "author_date": "2026-09-18T10:33:20+08:00",
+          "committer_date": "2026-09-18T10:33:20+08:00"
+        },
+        {
+          "sha": "d8b129bdad55a70219f7ddcb3b0d24f7ca57b131",
+          "author_date": "2026-09-18T10:33:33+08:00",
+          "committer_date": "2026-09-18T10:33:33+08:00"
+        },
+        {
+          "sha": "e659df4a7012ecc9498dedd1250bed7ac6236907",
+          "author_date": "2026-09-18T10:45:54+08:00",
+          "committer_date": "2026-09-18T10:45:54+08:00"
+        },
+        {
+          "sha": "00425fae7523af50a0daaa01e7232582bafe59a0",
+          "author_date": "2026-09-18T10:50:19+08:00",
+          "committer_date": "2026-09-18T10:50:19+08:00"
+        },
+        {
+          "sha": "43127c33ae1b56677c3bd9b5ecb604c062693c72",
+          "author_date": "2026-09-18T11:41:31+08:00",
+          "committer_date": "2026-09-18T11:41:31+08:00"
+        },
+        {
+          "sha": "6ca060ba0ab95e4ec2983465cf047bb0f7d9e209",
+          "author_date": "2026-09-18T11:41:32+08:00",
+          "committer_date": "2026-09-18T11:41:32+08:00"
+        },
+        {
+          "sha": "79303505db6d6068dae2f8c8652907dd28ea6daa",
+          "author_date": "2026-09-18T11:41:32+08:00",
+          "committer_date": "2026-09-18T11:41:32+08:00"
+        },
+        {
+          "sha": "4e59515012b13486f00f69afa04315c50c1f4857",
+          "author_date": "2026-09-18T12:41:41+08:00",
+          "committer_date": "2026-09-18T12:41:41+08:00"
+        },
+        {
+          "sha": "d5a8f090b12535d146eb4b80193d3d4febb8d59c",
+          "author_date": "2026-09-18T12:55:12+08:00",
+          "committer_date": "2026-09-18T12:55:12+08:00"
+        },
+        {
+          "sha": "4cd1eda44db4fe5ec0c4ab94a170c5b5e4dd18a2",
+          "author_date": "2026-09-18T12:55:47+08:00",
+          "committer_date": "2026-09-18T12:55:47+08:00"
+        },
+        {
+          "sha": "0677f21e3cba1251c024c167c4ef6969026852fb",
+          "author_date": "2026-09-18T12:59:08+08:00",
+          "committer_date": "2026-09-18T12:59:08+08:00"
+        },
+        {
+          "sha": "3672d008ad505b77dce9602274a54c4f12323fcc",
+          "author_date": "2026-09-18T15:31:29+08:00",
+          "committer_date": "2026-09-18T15:31:29+08:00"
+        },
+        {
+          "sha": "176536c317cb2e4088d4baf01afbb72cd75d97f9",
+          "author_date": "2026-09-18T15:49:23+08:00",
+          "committer_date": "2026-09-18T15:49:23+08:00"
+        },
+        {
+          "sha": "82a5a6d47a2a3ac579d887a88d3e5ac25e16dce4",
+          "author_date": "2026-09-18T15:49:45+08:00",
+          "committer_date": "2026-09-18T15:49:45+08:00"
+        },
+        {
+          "sha": "bd2dba0ad393c617f7836c388e0aaa258a016fa2",
+          "author_date": "2026-09-18T16:03:10+08:00",
+          "committer_date": "2026-09-18T16:03:10+08:00"
+        },
+        {
+          "sha": "6508e24287dd2322e091964f1b53be2dd9971c95",
+          "author_date": "2026-09-18T16:03:33+08:00",
+          "committer_date": "2026-09-18T16:03:33+08:00"
+        },
+        {
+          "sha": "1ae4129831b7ba57993f7de60b625d4c9e5829e7",
+          "author_date": "2026-09-18T16:04:28+08:00",
+          "committer_date": "2026-09-18T16:04:28+08:00"
+        },
+        {
+          "sha": "770f475c258305f0bb1df053355b0fac8dad6a98",
+          "author_date": "2026-09-18T16:38:15+08:00",
+          "committer_date": "2026-09-18T16:38:15+08:00"
+        },
+        {
+          "sha": "1313bf960f36f2ee8d5568c5a6ed4a085b181d0d",
+          "author_date": "2026-09-18T16:40:25+08:00",
+          "committer_date": "2026-09-18T16:40:25+08:00"
+        },
+        {
+          "sha": "175913810f56af285e73e20a3f096bf89c00cc39",
+          "author_date": "2026-09-18T16:40:25+08:00",
+          "committer_date": "2026-09-18T16:40:25+08:00"
+        },
+        {
+          "sha": "98938c51e0dc6aed9b4695c9931ed95bec95806f",
+          "author_date": "2026-09-18T16:40:25+08:00",
+          "committer_date": "2026-09-18T16:40:25+08:00"
+        },
+        {
+          "sha": "3ea2b71c4d5d0ab3c16e7654bd3e50c51e384e18",
+          "author_date": "2026-09-18T16:41:49+08:00",
+          "committer_date": "2026-09-18T16:41:49+08:00"
+        },
+        {
+          "sha": "23977d87f94cbe35748da4c59d572f237ca4c69c",
+          "author_date": "2026-09-18T16:53:29+08:00",
+          "committer_date": "2026-09-18T16:53:29+08:00"
+        },
+        {
+          "sha": "3eb03f9aa66f2c7c90b4c0c53dac9be6079df84a",
+          "author_date": "2026-09-18T16:53:29+08:00",
+          "committer_date": "2026-09-18T16:53:29+08:00"
+        },
+        {
+          "sha": "ee17cd47a2ceb805d7656c448731d111c846ec99",
+          "author_date": "2026-09-18T16:53:29+08:00",
+          "committer_date": "2026-09-18T16:53:29+08:00"
+        },
+        {
+          "sha": "723521103c60d1619c1e5bab9bb45c4974be5669",
+          "author_date": "2026-09-18T16:55:44+08:00",
+          "committer_date": "2026-09-18T16:55:44+08:00"
+        },
+        {
+          "sha": "48486e28339dd5fb9aa776d47637748ab598276f",
+          "author_date": "2026-09-18T16:55:55+08:00",
+          "committer_date": "2026-09-18T16:55:55+08:00"
+        },
+        {
+          "sha": "2243c67e9ccbf6120c08f697e845392b42b5ff61",
+          "author_date": "2026-09-18T17:21:33+08:00",
+          "committer_date": "2026-09-18T17:21:33+08:00"
+        },
+        {
+          "sha": "3c08472e95bf31248a6bcba9f699befaa868c06d",
+          "author_date": "2026-09-18T17:27:43+08:00",
+          "committer_date": "2026-09-18T17:27:43+08:00"
+        },
+        {
+          "sha": "c319ee706d0938095afb7cfb0a5546886362b8a0",
+          "author_date": "2026-09-18T17:27:44+08:00",
+          "committer_date": "2026-09-18T17:27:44+08:00"
+        },
+        {
+          "sha": "bc1c8c7dcb923cf4829f4a4268c0c6065f669694",
+          "author_date": "2026-09-18T18:17:44+08:00",
+          "committer_date": "2026-09-18T18:17:44+08:00"
+        },
+        {
+          "sha": "e38317a5542b208a5d19da2b943d3b806b7900cb",
+          "author_date": "2026-09-18T18:18:02+08:00",
+          "committer_date": "2026-09-18T18:18:02+08:00"
+        },
+        {
+          "sha": "14bdc49e7bf562e12c615eb1c91b647f2fd18459",
+          "author_date": "2026-09-18T18:26:47+08:00",
+          "committer_date": "2026-09-18T18:26:47+08:00"
+        },
+        {
+          "sha": "91f4e42dfa39be085b880091f1859122894b9add",
+          "author_date": "2026-09-18T18:48:36+08:00",
+          "committer_date": "2026-09-18T18:48:36+08:00"
+        },
+        {
+          "sha": "38189bdfc9136a2f3ca53079915e61652573fb85",
+          "author_date": "2026-09-18T18:48:41+08:00",
+          "committer_date": "2026-09-18T18:48:41+08:00"
+        },
+        {
+          "sha": "947c9e054a634ffd66feecde49cb3b17ed2357cb",
+          "author_date": "2026-09-18T18:48:48+08:00",
+          "committer_date": "2026-09-18T18:48:48+08:00"
+        },
+        {
+          "sha": "fb88a6b83038d647f87947d43afb072ddc93d827",
+          "author_date": "2026-09-18T18:49:02+08:00",
+          "committer_date": "2026-09-18T18:49:02+08:00"
+        },
+        {
+          "sha": "32089af18269910a4ceb681761def6b4c9e438aa",
+          "author_date": "2026-09-18T18:49:09+08:00",
+          "committer_date": "2026-09-18T18:49:09+08:00"
+        },
+        {
+          "sha": "1541389fb253bf28b9a857bac6500f907a4bbed7",
+          "author_date": "2026-09-18T18:49:15+08:00",
+          "committer_date": "2026-09-18T18:49:15+08:00"
+        },
+        {
+          "sha": "5f33f3a20d5ec29993f92db5855cbb2b38f1e538",
+          "author_date": "2026-09-18T18:49:22+08:00",
+          "committer_date": "2026-09-18T18:49:22+08:00"
+        },
+        {
+          "sha": "16dbfde7c39e994bdc963c0dcd81ce5523e558ab",
+          "author_date": "2026-09-18T18:49:28+08:00",
+          "committer_date": "2026-09-18T18:49:28+08:00"
+        },
+        {
+          "sha": "de1656b62a31bc49214e927343e084bcca0f80a8",
+          "author_date": "2026-09-18T18:49:37+08:00",
+          "committer_date": "2026-09-18T18:49:37+08:00"
+        },
+        {
+          "sha": "6696fcd6b4f55d2a213bc8ab87149ae1166d0d5a",
+          "author_date": "2026-09-18T18:59:43+08:00",
+          "committer_date": "2026-09-18T18:59:43+08:00"
+        },
+        {
+          "sha": "6c0dde71c998f902938c6856caae16b6bf1262c6",
+          "author_date": "2026-09-18T19:37:10+08:00",
+          "committer_date": "2026-09-18T19:37:10+08:00"
+        },
+        {
+          "sha": "68f529712f89c16d8da7a0ee3ffc4844d57ccf2d",
+          "author_date": "2026-09-18T19:37:29+08:00",
+          "committer_date": "2026-09-18T19:37:29+08:00"
+        },
+        {
+          "sha": "9920e4cf32ec4ff7f948da4eb92ca3a6571280dc",
+          "author_date": "2026-09-18T19:37:39+08:00",
+          "committer_date": "2026-09-18T19:37:39+08:00"
+        },
+        {
+          "sha": "815f2db7ccccc0faf2d8dd8d3d9d944fdc112c03",
+          "author_date": "2026-09-18T19:37:57+08:00",
+          "committer_date": "2026-09-18T19:37:57+08:00"
+        },
+        {
+          "sha": "ca62e628d4ab07a363a4a0f72cd4d9ef90bf152f",
+          "author_date": "2026-09-18T19:37:57+08:00",
+          "committer_date": "2026-09-18T19:37:57+08:00"
+        },
+        {
+          "sha": "21bd07f2fc9851c873ae7af5637e3dc370283a01",
+          "author_date": "2026-09-18T19:38:37+08:00",
+          "committer_date": "2026-09-18T19:38:37+08:00"
+        },
+        {
+          "sha": "2a9864e0aba65bdd0d1b935417a410e3feddbf93",
+          "author_date": "2026-09-18T19:38:51+08:00",
+          "committer_date": "2026-09-18T19:38:51+08:00"
+        },
+        {
+          "sha": "ae10cd7ca619f28a6a61739be6982c0f1d5bf20d",
+          "author_date": "2026-09-18T20:59:43+08:00",
+          "committer_date": "2026-09-18T20:59:43+08:00"
+        },
+        {
+          "sha": "7c377baaa11a8ef91f95d862ef11f84c0b8bcc6e",
+          "author_date": "2026-09-18T21:00:35+08:00",
+          "committer_date": "2026-09-18T21:00:35+08:00"
+        },
+        {
+          "sha": "d123073e6d374f2afd4ec0b9ea11ce698474d67d",
+          "author_date": "2026-09-18T21:00:51+08:00",
+          "committer_date": "2026-09-18T21:00:51+08:00"
+        },
+        {
+          "sha": "4172b522e9dacd307e88bddfd18fcbcd1242f26d",
+          "author_date": "2026-09-18T21:01:21+08:00",
+          "committer_date": "2026-09-18T21:01:21+08:00"
+        },
+        {
+          "sha": "b34b6a7647262e54c388704d8c47cdb1280c3a97",
+          "author_date": "2026-09-18T21:01:41+08:00",
+          "committer_date": "2026-09-18T21:01:41+08:00"
+        },
+        {
+          "sha": "f38bb8d0239777f3dd00b41c2d8cdc313d39e559",
+          "author_date": "2026-09-18T21:01:42+08:00",
+          "committer_date": "2026-09-18T21:01:42+08:00"
+        },
+        {
+          "sha": "353481c12024591be0934668a5d8c756815ce1a1",
+          "author_date": "2026-09-18T21:01:59+08:00",
+          "committer_date": "2026-09-18T21:01:59+08:00"
+        },
+        {
+          "sha": "396d76dff6bd09b7ceeab5617d0fce12c717f7b9",
+          "author_date": "2026-09-18T21:35:07+08:00",
+          "committer_date": "2026-09-18T21:35:07+08:00"
+        },
+        {
+          "sha": "4f7a537cdc56cf2d2839873d1ac74cfc1d58470d",
+          "author_date": "2026-09-18T21:35:13+08:00",
+          "committer_date": "2026-09-18T21:35:13+08:00"
+        },
+        {
+          "sha": "631218c78c91a3c62e48013018412d5736c09661",
+          "author_date": "2026-09-18T21:47:22+08:00",
+          "committer_date": "2026-09-18T21:47:22+08:00"
+        },
+        {
+          "sha": "e400244ae56f5c17ded2cfbadaa3073931375309",
+          "author_date": "2026-09-18T21:47:22+08:00",
+          "committer_date": "2026-09-18T21:49:14+08:00"
+        },
+        {
+          "sha": "63cd5fdbcfb5cf1a8988d8e26a4659f5c5cf10a8",
+          "author_date": "2026-09-18T21:50:02+08:00",
+          "committer_date": "2026-09-18T21:50:02+08:00"
+        },
+        {
+          "sha": "175186a379197aab61197a1afae8ec36ca6c04df",
+          "author_date": "2026-09-18T22:40:31+08:00",
+          "committer_date": "2026-09-18T22:40:31+08:00"
+        },
+        {
+          "sha": "685b1634ab7158c08c692a0857f15474620e6806",
+          "author_date": "2026-09-18T22:40:32+08:00",
+          "committer_date": "2026-09-18T22:40:32+08:00"
+        },
+        {
+          "sha": "658f7885ad7958619f849a2a1fde93e4353c2545",
+          "author_date": "2026-09-18T22:53:20+08:00",
+          "committer_date": "2026-09-18T22:53:20+08:00"
+        },
+        {
+          "sha": "024ac15e80b65a3281d9780e70c67136823eb103",
+          "author_date": "2026-09-18T23:04:20+08:00",
+          "committer_date": "2026-09-18T23:04:20+08:00"
+        },
+        {
+          "sha": "7bf296a2bc0ba45a0c2b1e432cb873063a5c8c19",
+          "author_date": "2026-09-18T23:09:03+08:00",
+          "committer_date": "2026-09-18T23:09:03+08:00"
+        },
+        {
+          "sha": "ea9bf136c756023d9d1362d4c95edd0fe689cc9e",
+          "author_date": "2026-09-18T23:09:03+08:00",
+          "committer_date": "2026-09-18T23:09:03+08:00"
+        },
+        {
+          "sha": "31a64658e4867a69857c9b63c91bb13d421b13b0",
+          "author_date": "2026-09-18T23:20:17+08:00",
+          "committer_date": "2026-09-18T23:20:17+08:00"
+        },
+        {
+          "sha": "48009cc8b0225c882d3eed4958e6c4aaded86049",
+          "author_date": "2026-09-18T23:24:58+08:00",
+          "committer_date": "2026-09-18T23:24:58+08:00"
+        },
+        {
+          "sha": "ba07bc91fba3d08526fd697940efe0e0f696f031",
+          "author_date": "2026-09-18T23:24:58+08:00",
+          "committer_date": "2026-09-18T23:24:58+08:00"
+        },
+        {
+          "sha": "0a714ba3df92cc7cda8a569b8ac9d85a2569188a",
+          "author_date": "2026-09-18T23:47:45+08:00",
+          "committer_date": "2026-09-18T23:47:45+08:00"
+        },
+        {
+          "sha": "5df3352c5d5a776efdde83564f290a6f6cd630c9",
+          "author_date": "2026-09-18T23:47:45+08:00",
+          "committer_date": "2026-09-18T23:47:45+08:00"
+        },
+        {
+          "sha": "a99f3521321b30b08faced6383e7677684f58b8f",
+          "author_date": "2026-09-18T23:58:34+08:00",
+          "committer_date": "2026-09-18T23:58:34+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 23,
+      "day": "2026-09-19",
+      "title": "feat(manager): 完善企业身份和经营配置引导",
+      "snapshot_source": "e6b18ed5f1f2358cfc95121d296391560393ac12",
+      "source_records": [
+        {
+          "sha": "446a2f653345acc67d4f60d50f7a717b3e215e1e",
+          "author_date": "2026-09-19T07:37:38+08:00",
+          "committer_date": "2026-09-19T07:37:38+08:00"
+        },
+        {
+          "sha": "04742f05f736251a68ab116ce4205ece3c98363d",
+          "author_date": "2026-09-19T07:52:51+08:00",
+          "committer_date": "2026-09-19T07:52:51+08:00"
+        },
+        {
+          "sha": "8629ad68d31f93920d2dde979eb0fc442358ee17",
+          "author_date": "2026-09-19T08:13:08+08:00",
+          "committer_date": "2026-09-19T08:13:08+08:00"
+        },
+        {
+          "sha": "8d989e5ab9ca568e731e95515cecec018d75eef6",
+          "author_date": "2026-09-19T08:13:08+08:00",
+          "committer_date": "2026-09-19T08:13:08+08:00"
+        },
+        {
+          "sha": "6b875476f4b9d860176854dcd1c46091df404ae0",
+          "author_date": "2026-09-19T08:29:02+08:00",
+          "committer_date": "2026-09-19T08:29:02+08:00"
+        },
+        {
+          "sha": "374482a6bbbfd27f7a16ec9ba5a4b658c1ec23c7",
+          "author_date": "2026-09-19T08:39:21+08:00",
+          "committer_date": "2026-09-19T08:39:21+08:00"
+        },
+        {
+          "sha": "fc767a41824fbe3267326a3ba8978f1d35eda5d0",
+          "author_date": "2026-09-19T08:41:02+08:00",
+          "committer_date": "2026-09-19T08:41:02+08:00"
+        },
+        {
+          "sha": "13f2534c3f5713c64ca023e0c3ba5582b8690c38",
+          "author_date": "2026-09-19T09:15:07+08:00",
+          "committer_date": "2026-09-19T09:15:07+08:00"
+        },
+        {
+          "sha": "90cb3448bd9546e1884e89f32d822ea925ffe21e",
+          "author_date": "2026-09-19T09:15:08+08:00",
+          "committer_date": "2026-09-19T09:15:08+08:00"
+        },
+        {
+          "sha": "32fd07926be60485440442022066d1be03a985d8",
+          "author_date": "2026-09-19T09:30:05+08:00",
+          "committer_date": "2026-09-19T09:30:05+08:00"
+        },
+        {
+          "sha": "6f2a4585c639913c7b2afbe8412801389b219e36",
+          "author_date": "2026-09-19T09:41:34+08:00",
+          "committer_date": "2026-09-19T09:41:34+08:00"
+        },
+        {
+          "sha": "5d762994e13f91d798991ac9fd3afd2d781266d9",
+          "author_date": "2026-09-19T19:40:27+08:00",
+          "committer_date": "2026-09-19T19:40:27+08:00"
+        },
+        {
+          "sha": "d5d3a80821dcdff832fe624440d6f2ea7cd462cc",
+          "author_date": "2026-09-19T20:18:06+08:00",
+          "committer_date": "2026-09-19T20:18:06+08:00"
+        },
+        {
+          "sha": "a739e43e08395d6648de066ac3b7780107153345",
+          "author_date": "2026-09-19T20:32:44+08:00",
+          "committer_date": "2026-09-19T20:32:44+08:00"
+        },
+        {
+          "sha": "5b2b9a42fd7c9d82ebf7f3c46df19b856bc2ff93",
+          "author_date": "2026-09-19T20:44:54+08:00",
+          "committer_date": "2026-09-19T20:44:54+08:00"
+        },
+        {
+          "sha": "0c636b1d8cb009adb51564215f9b163553a8b885",
+          "author_date": "2026-09-19T21:16:33+08:00",
+          "committer_date": "2026-09-19T21:16:33+08:00"
+        },
+        {
+          "sha": "7959d07bb289a5dc97c7e13c4ad6d51f73c70ac1",
+          "author_date": "2026-09-19T21:20:28+08:00",
+          "committer_date": "2026-09-19T21:20:28+08:00"
+        },
+        {
+          "sha": "11005c883fb3e4eef45355302bb77f030068ea30",
+          "author_date": "2026-09-19T21:36:01+08:00",
+          "committer_date": "2026-09-19T21:36:01+08:00"
+        },
+        {
+          "sha": "97a710c2b29ccac08fd686d27f5b90399a93be02",
+          "author_date": "2026-09-19T21:59:45+08:00",
+          "committer_date": "2026-09-19T21:59:45+08:00"
+        },
+        {
+          "sha": "6835d9f31ae53613b0e852e425bdbad7aa66afa4",
+          "author_date": "2026-09-19T22:16:55+08:00",
+          "committer_date": "2026-09-19T22:16:55+08:00"
+        },
+        {
+          "sha": "9bb783d50a45b83679305616f4e86fce75d2cb9c",
+          "author_date": "2026-09-19T22:42:59+08:00",
+          "committer_date": "2026-09-19T22:42:59+08:00"
+        },
+        {
+          "sha": "2d08e8b4dfca19343420750c30a29418ece75454",
+          "author_date": "2026-09-19T22:56:49+08:00",
+          "committer_date": "2026-09-19T22:56:49+08:00"
+        },
+        {
+          "sha": "81bb221cad75566731f40015853316c7a2dbb8b2",
+          "author_date": "2026-09-19T23:07:23+08:00",
+          "committer_date": "2026-09-19T23:07:23+08:00"
+        },
+        {
+          "sha": "ef4d27c33e03722d853989760e73198a740714ac",
+          "author_date": "2026-09-19T23:15:55+08:00",
+          "committer_date": "2026-09-19T23:15:55+08:00"
+        },
+        {
+          "sha": "e6b18ed5f1f2358cfc95121d296391560393ac12",
+          "author_date": "2026-09-19T23:27:29+08:00",
+          "committer_date": "2026-09-19T23:27:29+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 24,
+      "day": "2026-09-20",
+      "title": "refactor(ticket): 采用按商品账户与站级统一折扣",
+      "snapshot_source": "f9e1c09fdde023351f9caf69992bb11d3cf4b1d4",
+      "source_records": [
+        {
+          "sha": "3c240bc3e1403699afde99eab86e1e94f28044dc",
+          "author_date": "2026-09-20T08:20:30+08:00",
+          "committer_date": "2026-09-20T08:20:30+08:00"
+        },
+        {
+          "sha": "928d5e714080dd44c6979e0da2eee680b52c7615",
+          "author_date": "2026-09-20T08:22:42+08:00",
+          "committer_date": "2026-09-20T08:22:42+08:00"
+        },
+        {
+          "sha": "8885b302952a947ec6cfc8523331309638560699",
+          "author_date": "2026-09-20T08:42:29+08:00",
+          "committer_date": "2026-09-20T08:42:29+08:00"
+        },
+        {
+          "sha": "e2f882c1e7a81d20dfb259d549fe1e8f08925053",
+          "author_date": "2026-09-20T09:07:34+08:00",
+          "committer_date": "2026-09-20T09:07:34+08:00"
+        },
+        {
+          "sha": "36b48fbc50c42c86d2595d97d46a91b484c3eb15",
+          "author_date": "2026-09-20T10:41:11+08:00",
+          "committer_date": "2026-09-20T10:41:11+08:00"
+        },
+        {
+          "sha": "64ade0bdfc9f8691ae5b14bc8306a89be649b2fd",
+          "author_date": "2026-09-20T10:41:24+08:00",
+          "committer_date": "2026-09-20T10:41:24+08:00"
+        },
+        {
+          "sha": "c1f7202ab5531e14e730502d98ed810497b09554",
+          "author_date": "2026-09-20T10:56:32+08:00",
+          "committer_date": "2026-09-20T10:56:32+08:00"
+        },
+        {
+          "sha": "c93feeb03435074ed1264ae143af505432ca1ab3",
+          "author_date": "2026-09-20T14:52:20+08:00",
+          "committer_date": "2026-09-20T14:52:20+08:00"
+        },
+        {
+          "sha": "658ed5b0c91aaf72269b52f1881f212f112e0cf2",
+          "author_date": "2026-09-20T14:52:21+08:00",
+          "committer_date": "2026-09-20T14:52:21+08:00"
+        },
+        {
+          "sha": "13305a63f79ff215ccd1370e1bf9b6a0bae37625",
+          "author_date": "2026-09-20T14:52:32+08:00",
+          "committer_date": "2026-09-20T14:52:32+08:00"
+        },
+        {
+          "sha": "90896718a28194c8ee2b53d5e11d1a07385fed8e",
+          "author_date": "2026-09-20T14:52:41+08:00",
+          "committer_date": "2026-09-20T14:52:41+08:00"
+        },
+        {
+          "sha": "de2625cc7df089313e159a73c64937885e0038cb",
+          "author_date": "2026-09-20T14:52:41+08:00",
+          "committer_date": "2026-09-20T14:52:41+08:00"
+        },
+        {
+          "sha": "c58d1e3f2593d6883f2db13f7fae7041bd34cd4e",
+          "author_date": "2026-09-20T14:52:51+08:00",
+          "committer_date": "2026-09-20T14:52:51+08:00"
+        },
+        {
+          "sha": "0624d48ba35a25b0c786c6a4138d00634b71959a",
+          "author_date": "2026-09-20T14:52:52+08:00",
+          "committer_date": "2026-09-20T14:52:52+08:00"
+        },
+        {
+          "sha": "86ad07497fde39029bbe2a0d92f029c7b4b82b42",
+          "author_date": "2026-09-20T14:53:12+08:00",
+          "committer_date": "2026-09-20T14:53:12+08:00"
+        },
+        {
+          "sha": "b58cb1328b53eb87b5292e0b24f4facca2028888",
+          "author_date": "2026-09-20T14:53:12+08:00",
+          "committer_date": "2026-09-20T14:53:12+08:00"
+        },
+        {
+          "sha": "f9e1c09fdde023351f9caf69992bb11d3cf4b1d4",
+          "author_date": "2026-09-20T14:53:13+08:00",
+          "committer_date": "2026-09-20T14:53:13+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 25,
+      "day": "2026-09-22",
+      "title": "fix(workflow): 明确付款派单和跨站订单处置",
+      "snapshot_source": "ee63507f16afd0afd8d9caa4aab56d02e36ff896",
+      "source_records": [
+        {
+          "sha": "fab0c870e9ba66e2605cbb38d023f828b81d9c19",
+          "author_date": "2026-09-22T09:18:55+08:00",
+          "committer_date": "2026-09-22T09:18:55+08:00"
+        },
+        {
+          "sha": "0ce297bc6d6e93d836fb8e4d50680ef7c8b342d2",
+          "author_date": "2026-09-22T09:19:07+08:00",
+          "committer_date": "2026-09-22T09:19:07+08:00"
+        },
+        {
+          "sha": "3d8acf28dddf48c760c1485f928e77beda8b3f02",
+          "author_date": "2026-09-22T09:19:18+08:00",
+          "committer_date": "2026-09-22T09:19:18+08:00"
+        },
+        {
+          "sha": "a5bb1d3cddd77424ffb644e3e5dcbaf784b78c0d",
+          "author_date": "2026-09-22T09:19:30+08:00",
+          "committer_date": "2026-09-22T09:19:30+08:00"
+        },
+        {
+          "sha": "ad6fd0d88dc1cd8f3a9192d79bda3d58b634fa9a",
+          "author_date": "2026-09-22T09:19:30+08:00",
+          "committer_date": "2026-09-22T09:24:49+08:00"
+        },
+        {
+          "sha": "8ee829333102e8c84a79ff9e3c3e2e3cfe0da74a",
+          "author_date": "2026-09-22T09:19:43+08:00",
+          "committer_date": "2026-09-22T09:24:49+08:00"
+        },
+        {
+          "sha": "dbee4e51eb7a56459d48a7960a218196d70ce991",
+          "author_date": "2026-09-22T09:19:43+08:00",
+          "committer_date": "2026-09-22T09:19:43+08:00"
+        },
+        {
+          "sha": "cb6195bcc581c59574d24d82d40f2295ec06b67f",
+          "author_date": "2026-09-22T09:19:53+08:00",
+          "committer_date": "2026-09-22T09:20:15+08:00"
+        },
+        {
+          "sha": "e6964135d61ed3ef655acaefe4d73f78025c8029",
+          "author_date": "2026-09-22T09:19:53+08:00",
+          "committer_date": "2026-09-22T09:24:50+08:00"
+        },
+        {
+          "sha": "f59bce1f9c4d0f661a24b2eab87e109917867d11",
+          "author_date": "2026-09-22T09:19:53+08:00",
+          "committer_date": "2026-09-22T09:19:53+08:00"
+        },
+        {
+          "sha": "f4e02483d4d65389a0213f4aa3bde94e1170df38",
+          "author_date": "2026-09-22T09:24:21+08:00",
+          "committer_date": "2026-09-22T09:24:21+08:00"
+        },
+        {
+          "sha": "dedb25260a2865db8472e7780d13872efaeca4ba",
+          "author_date": "2026-09-22T09:24:38+08:00",
+          "committer_date": "2026-09-22T09:24:38+08:00"
+        },
+        {
+          "sha": "46181e99e6700416e42cf9dfe172beabdaa49cae",
+          "author_date": "2026-09-22T09:27:39+08:00",
+          "committer_date": "2026-09-22T10:00:05+08:00"
+        },
+        {
+          "sha": "90c7ddf8612eccd901941c8cf279dd38088baf9a",
+          "author_date": "2026-09-22T09:27:39+08:00",
+          "committer_date": "2026-09-22T09:27:39+08:00"
+        },
+        {
+          "sha": "576f757de27cf245227ba72fbbed72917329b35b",
+          "author_date": "2026-09-22T10:00:27+08:00",
+          "committer_date": "2026-09-22T10:00:27+08:00"
+        },
+        {
+          "sha": "3bdef53f01b4c95950de6f60982238db29ead3cd",
+          "author_date": "2026-09-22T10:12:15+08:00",
+          "committer_date": "2026-09-22T10:12:15+08:00"
+        },
+        {
+          "sha": "facffd1a30c7a3d2054af1ce00cf8345e7328b93",
+          "author_date": "2026-09-22T11:08:34+08:00",
+          "committer_date": "2026-09-22T11:08:34+08:00"
+        },
+        {
+          "sha": "3bfcfd83a1aa30e82c1e1113e3c9511ae1942ca9",
+          "author_date": "2026-09-22T11:08:43+08:00",
+          "committer_date": "2026-09-22T11:08:43+08:00"
+        },
+        {
+          "sha": "a54d32f5fe866be60b6f2ff9b0ea51118ed7a6f4",
+          "author_date": "2026-09-22T11:43:14+08:00",
+          "committer_date": "2026-09-22T11:43:14+08:00"
+        },
+        {
+          "sha": "ee63507f16afd0afd8d9caa4aab56d02e36ff896",
+          "author_date": "2026-09-22T11:43:43+08:00",
+          "committer_date": "2026-09-22T11:43:43+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 26,
+      "day": "2026-09-23",
+      "title": "docs(repository): 整理接口契约和公开文档",
+      "snapshot_source": "8cf28131423f85570849a66efcab40eff58bd1b4",
+      "source_records": [
+        {
+          "sha": "74984975ff3580050991e788bb2cd6730800800b",
+          "author_date": "2026-09-23T08:49:20+08:00",
+          "committer_date": "2026-09-23T08:49:20+08:00"
+        },
+        {
+          "sha": "edc20a2e9389773338a70ed7a80229c4fdb2da47",
+          "author_date": "2026-09-23T08:49:26+08:00",
+          "committer_date": "2026-09-23T08:49:26+08:00"
+        },
+        {
+          "sha": "3f41504a7dcd86db0d582704ea59a3b7031fb2df",
+          "author_date": "2026-09-23T08:49:27+08:00",
+          "committer_date": "2026-09-23T08:49:27+08:00"
+        },
+        {
+          "sha": "b19c0e39343bccd29645d643e46865c2f41d6d10",
+          "author_date": "2026-09-23T08:49:34+08:00",
+          "committer_date": "2026-09-23T08:49:34+08:00"
+        },
+        {
+          "sha": "0a12b8bd1fc17ea2190e07108ad9b65cc060ddb7",
+          "author_date": "2026-09-23T08:49:35+08:00",
+          "committer_date": "2026-09-23T08:49:35+08:00"
+        },
+        {
+          "sha": "cdb1d0d40e527b5ed8bee38cc59fd9777e8da161",
+          "author_date": "2026-09-23T09:10:00+08:00",
+          "committer_date": "2026-09-23T09:10:00+08:00"
+        },
+        {
+          "sha": "41f69b8e3d93536677c9000e7fa718fc7b01e03e",
+          "author_date": "2026-09-23T09:10:29+08:00",
+          "committer_date": "2026-09-23T09:10:29+08:00"
+        },
+        {
+          "sha": "cc34591845609185047f0b659ccfebec632f61f7",
+          "author_date": "2026-09-23T09:10:51+08:00",
+          "committer_date": "2026-09-23T09:10:51+08:00"
+        },
+        {
+          "sha": "c131d2759b27a05b280a173827a560882fba6316",
+          "author_date": "2026-09-23T09:13:49+08:00",
+          "committer_date": "2026-09-23T09:13:49+08:00"
+        },
+        {
+          "sha": "cfa4a47ce51891772d4024dc954bc1075889e716",
+          "author_date": "2026-09-23T09:13:58+08:00",
+          "committer_date": "2026-09-23T09:13:58+08:00"
+        },
+        {
+          "sha": "baa55e6f7963e6394d342850a1307d2f6bfa6df1",
+          "author_date": "2026-09-23T09:21:06+08:00",
+          "committer_date": "2026-09-23T09:21:06+08:00"
+        },
+        {
+          "sha": "b6b90c96dcc449e468bbbfc31b5e835da800f94c",
+          "author_date": "2026-09-23T09:24:45+08:00",
+          "committer_date": "2026-09-23T09:24:45+08:00"
+        },
+        {
+          "sha": "ea2b114b9cc76734894fc706a69de4aecb1137fb",
+          "author_date": "2026-09-23T09:26:41+08:00",
+          "committer_date": "2026-09-23T09:26:41+08:00"
+        },
+        {
+          "sha": "57f26ee1237d8cbf296fba3e14420c6e9f6dd0f6",
+          "author_date": "2026-09-23T09:26:51+08:00",
+          "committer_date": "2026-09-23T09:26:51+08:00"
+        },
+        {
+          "sha": "0c796e195c7a85278f588424cc7e20d5b2bc7404",
+          "author_date": "2026-09-23T09:32:41+08:00",
+          "committer_date": "2026-09-23T09:32:41+08:00"
+        },
+        {
+          "sha": "3d3991788116196ad3e93e455aaa2acc3daa8243",
+          "author_date": "2026-09-23T12:17:43+08:00",
+          "committer_date": "2026-09-23T12:17:43+08:00"
+        },
+        {
+          "sha": "8cf28131423f85570849a66efcab40eff58bd1b4",
+          "author_date": "2026-09-23T12:21:44+08:00",
+          "committer_date": "2026-09-23T12:21:44+08:00"
+        },
+        {
+          "sha": "397f4943f66833bea257587637a4ffa8dfbbc8ea",
+          "author_date": "2026-09-23T12:23:05+08:00",
+          "committer_date": "2026-09-23T12:23:05+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 27,
+      "day": "2026-09-25",
+      "title": "fix(architecture): 收口领域守卫和跨站经营口径",
+      "snapshot_source": "83db27ab1b9f3b1b009ea06be076069145fd0dd5",
+      "source_records": [
+        {
+          "sha": "8136871a596a3044771c4c5aad68b1cad0ce87a5",
+          "author_date": "2026-09-25T14:46:31+08:00",
+          "committer_date": "2026-09-25T14:46:31+08:00"
+        },
+        {
+          "sha": "d7035152675a5d83ae2f137717db9a4eb59c9521",
+          "author_date": "2026-09-25T14:46:31+08:00",
+          "committer_date": "2026-09-25T14:46:31+08:00"
+        },
+        {
+          "sha": "4f9aa9d1f91809ff923df73b06b8ae7942b5ab78",
+          "author_date": "2026-09-25T14:46:42+08:00",
+          "committer_date": "2026-09-25T14:46:42+08:00"
+        },
+        {
+          "sha": "e098eb2b57470147a02c99518a10406756452471",
+          "author_date": "2026-09-25T14:46:42+08:00",
+          "committer_date": "2026-09-25T14:46:42+08:00"
+        },
+        {
+          "sha": "546ba12e02b6db61387ca2209bbab49d9408fba9",
+          "author_date": "2026-09-25T14:46:50+08:00",
+          "committer_date": "2026-09-25T14:46:50+08:00"
+        },
+        {
+          "sha": "96852a82245a2ccc06d6b163a528a9b8da3a68b5",
+          "author_date": "2026-09-25T14:46:50+08:00",
+          "committer_date": "2026-09-25T14:46:50+08:00"
+        },
+        {
+          "sha": "0464583bd8b74bca45d28792237fce72fe9f5293",
+          "author_date": "2026-09-25T14:46:51+08:00",
+          "committer_date": "2026-09-25T14:46:51+08:00"
+        },
+        {
+          "sha": "83db27ab1b9f3b1b009ea06be076069145fd0dd5",
+          "author_date": "2026-09-25T14:46:51+08:00",
+          "committer_date": "2026-09-25T14:46:51+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 28,
+      "day": "2026-09-26",
+      "title": "feat(inventory): 引入预留凭据和缺货履约流程",
+      "snapshot_source": "f764c2905e01eb2f28dbc3361d4bafaec18622b6",
+      "source_records": [
+        {
+          "sha": "c09f16626753bfcbbed918bb3a2f6341b57942b6",
+          "author_date": "2026-09-26T07:49:52+08:00",
+          "committer_date": "2026-09-26T07:49:52+08:00"
+        },
+        {
+          "sha": "fc019ee9d222d543ada513e7a60d6b5e2d0e42fb",
+          "author_date": "2026-09-26T07:49:52+08:00",
+          "committer_date": "2026-09-26T07:49:52+08:00"
+        },
+        {
+          "sha": "4c3867503b6f998303fd39cfa2fa07561382f3ae",
+          "author_date": "2026-09-26T07:49:59+08:00",
+          "committer_date": "2026-09-26T07:49:59+08:00"
+        },
+        {
+          "sha": "a998b31e3bdff03e64bad9362186f478bc980a17",
+          "author_date": "2026-09-26T07:49:59+08:00",
+          "committer_date": "2026-09-26T07:49:59+08:00"
+        },
+        {
+          "sha": "c3300731e236108597958fd82db711bf2011034c",
+          "author_date": "2026-09-26T07:49:59+08:00",
+          "committer_date": "2026-09-26T07:49:59+08:00"
+        },
+        {
+          "sha": "efebe043a0be610e6e9f48f31c70084ee056334b",
+          "author_date": "2026-09-26T07:49:59+08:00",
+          "committer_date": "2026-09-26T07:49:59+08:00"
+        },
+        {
+          "sha": "2412bb2c918fc5aad78f48f9fa6da9b733a33bcc",
+          "author_date": "2026-09-26T07:50:07+08:00",
+          "committer_date": "2026-09-26T07:50:07+08:00"
+        },
+        {
+          "sha": "683a72ec08f6fc1243cf70350ce5213b63a02305",
+          "author_date": "2026-09-26T07:50:07+08:00",
+          "committer_date": "2026-09-26T07:50:07+08:00"
+        },
+        {
+          "sha": "a74ebe568adf4a976ea5a0f81d711ae1806dfe92",
+          "author_date": "2026-09-26T07:50:07+08:00",
+          "committer_date": "2026-09-26T07:50:07+08:00"
+        },
+        {
+          "sha": "c637420dadf8b2f7917cb68e5e46c0d650ac1564",
+          "author_date": "2026-09-26T07:50:07+08:00",
+          "committer_date": "2026-09-26T07:50:07+08:00"
+        },
+        {
+          "sha": "4c09d3485e1cb16cfa368cb4c01b337c9f52c709",
+          "author_date": "2026-09-26T07:50:08+08:00",
+          "committer_date": "2026-09-26T07:50:08+08:00"
+        },
+        {
+          "sha": "60cf66060e2b9cedeae3fcc409fe8e8fabdac3d3",
+          "author_date": "2026-09-26T07:50:08+08:00",
+          "committer_date": "2026-09-26T07:50:08+08:00"
+        },
+        {
+          "sha": "d607445df570a2a0a318ba53d4e1dee855b4d338",
+          "author_date": "2026-09-26T07:50:08+08:00",
+          "committer_date": "2026-09-26T07:50:08+08:00"
+        },
+        {
+          "sha": "d9272457e6f8b08e6a0f9c293c4270f60daab939",
+          "author_date": "2026-09-26T07:50:08+08:00",
+          "committer_date": "2026-09-26T07:50:08+08:00"
+        },
+        {
+          "sha": "5616ca4cf51efb0d2cd6976cdd633d7aa29ac382",
+          "author_date": "2026-09-26T08:13:53+08:00",
+          "committer_date": "2026-09-26T08:13:53+08:00"
+        },
+        {
+          "sha": "d134258debe61a9e95179fcd285bf30125d8d1ca",
+          "author_date": "2026-09-26T08:13:53+08:00",
+          "committer_date": "2026-09-26T08:13:53+08:00"
+        },
+        {
+          "sha": "cffa2a9932bbac68342dae3a7a567e46c29e30bb",
+          "author_date": "2026-09-26T08:20:14+08:00",
+          "committer_date": "2026-09-26T08:20:14+08:00"
+        },
+        {
+          "sha": "f764c2905e01eb2f28dbc3361d4bafaec18622b6",
+          "author_date": "2026-09-26T08:20:14+08:00",
+          "committer_date": "2026-09-26T08:20:14+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 29,
+      "day": "2026-09-27",
+      "title": "feat(miniapp): 完善购票、任务分配和配送异常流程",
+      "snapshot_source": "9a5ae44f71d3fb671d553da24c8c4fdb0c85d8a7",
+      "source_records": [
+        {
+          "sha": "60aa4387aac11a642824789deb713fe3b584328e",
+          "author_date": "2026-09-27T09:29:04+08:00",
+          "committer_date": "2026-09-27T09:29:04+08:00"
+        },
+        {
+          "sha": "8184f2cc82bb32cb39119fa39bd4beaa89b9d672",
+          "author_date": "2026-09-27T09:29:04+08:00",
+          "committer_date": "2026-09-27T09:29:04+08:00"
+        },
+        {
+          "sha": "984ae060df21d1d4a14db2cea85c161c1e5e10a0",
+          "author_date": "2026-09-27T09:29:21+08:00",
+          "committer_date": "2026-09-27T09:29:21+08:00"
+        },
+        {
+          "sha": "cba14ee5159a63f138e9c06de1258999131a1417",
+          "author_date": "2026-09-27T09:29:21+08:00",
+          "committer_date": "2026-09-27T09:29:21+08:00"
+        },
+        {
+          "sha": "0f1c848ebfe6a1677907c984475a6fff7fc677b5",
+          "author_date": "2026-09-27T09:30:27+08:00",
+          "committer_date": "2026-09-27T09:30:27+08:00"
+        },
+        {
+          "sha": "d2213fbd24efe85f647c5afe628e17b893f226cf",
+          "author_date": "2026-09-27T09:30:27+08:00",
+          "committer_date": "2026-09-27T09:30:27+08:00"
+        },
+        {
+          "sha": "5d767e9813cafbd407daee89c750672b99f74b84",
+          "author_date": "2026-09-27T09:31:30+08:00",
+          "committer_date": "2026-09-27T09:31:30+08:00"
+        },
+        {
+          "sha": "9f1e303bbbc5bc1a95003fbf32c74ad4ef54879d",
+          "author_date": "2026-09-27T09:31:30+08:00",
+          "committer_date": "2026-09-27T09:31:30+08:00"
+        },
+        {
+          "sha": "c2daa24446752859e2bb0e522b5fa06891fb80df",
+          "author_date": "2026-09-27T09:31:40+08:00",
+          "committer_date": "2026-09-27T09:31:40+08:00"
+        },
+        {
+          "sha": "f591c8142f2ccf5633b22a93fc590a83196a3ebe",
+          "author_date": "2026-09-27T09:31:40+08:00",
+          "committer_date": "2026-09-27T09:31:40+08:00"
+        },
+        {
+          "sha": "26b9723e60f3420bc835c808665998547af9a137",
+          "author_date": "2026-09-27T09:31:49+08:00",
+          "committer_date": "2026-09-27T09:31:49+08:00"
+        },
+        {
+          "sha": "daf42cdc2e4a8ae8bbf875834084adc512a9928e",
+          "author_date": "2026-09-27T09:31:49+08:00",
+          "committer_date": "2026-09-27T09:31:49+08:00"
+        },
+        {
+          "sha": "5199c859683ff2c24dd59e3e5a3d1e8d3427eab9",
+          "author_date": "2026-09-27T09:31:57+08:00",
+          "committer_date": "2026-09-27T09:31:57+08:00"
+        },
+        {
+          "sha": "ae38f287c17d5b58f102975ac4122692259eb2d3",
+          "author_date": "2026-09-27T09:31:57+08:00",
+          "committer_date": "2026-09-27T09:31:57+08:00"
+        },
+        {
+          "sha": "8d9d513d0a33cdc55b068660be1f3340d32bace4",
+          "author_date": "2026-09-27T09:32:35+08:00",
+          "committer_date": "2026-09-27T09:32:35+08:00"
+        },
+        {
+          "sha": "a1780e9fd8ff76d3d4679da0d745f6a391f3d873",
+          "author_date": "2026-09-27T09:32:35+08:00",
+          "committer_date": "2026-09-27T09:32:35+08:00"
+        },
+        {
+          "sha": "0dfff6ae77fff1de206d08743e69e4c77433237b",
+          "author_date": "2026-09-27T09:32:42+08:00",
+          "committer_date": "2026-09-27T09:32:42+08:00"
+        },
+        {
+          "sha": "0e6c251a38717638ab67dea3159d05dccfa5915c",
+          "author_date": "2026-09-27T09:32:42+08:00",
+          "committer_date": "2026-09-27T09:32:42+08:00"
+        },
+        {
+          "sha": "59d4604a40f24f58eb5b760f05793b17f2f1e8f5",
+          "author_date": "2026-09-27T09:32:50+08:00",
+          "committer_date": "2026-09-27T09:32:50+08:00"
+        },
+        {
+          "sha": "925f671adfa7a0aa5721ca331f80f14c8930e568",
+          "author_date": "2026-09-27T09:32:50+08:00",
+          "committer_date": "2026-09-27T09:32:50+08:00"
+        },
+        {
+          "sha": "7c9c720917d5bd0f46f467f1fce821cd92976f2b",
+          "author_date": "2026-09-27T09:32:57+08:00",
+          "committer_date": "2026-09-27T09:32:57+08:00"
+        },
+        {
+          "sha": "b6e04a749530b2897e898c68e0595185b78bb197",
+          "author_date": "2026-09-27T09:32:57+08:00",
+          "committer_date": "2026-09-27T09:32:57+08:00"
+        },
+        {
+          "sha": "96267def407d73f183ad66a820049c889824dee0",
+          "author_date": "2026-09-27T09:33:29+08:00",
+          "committer_date": "2026-09-27T09:33:29+08:00"
+        },
+        {
+          "sha": "ceb7055c28be44acaf273353c578f0da1217d098",
+          "author_date": "2026-09-27T09:33:29+08:00",
+          "committer_date": "2026-09-27T09:33:29+08:00"
+        },
+        {
+          "sha": "23a8441856798937d9313e9b6cdfb8dad4de958d",
+          "author_date": "2026-09-27T10:17:44+08:00",
+          "committer_date": "2026-09-27T10:17:44+08:00"
+        },
+        {
+          "sha": "d1e8ddd95b0d584a181c1d756d3c63dfc6e76a0c",
+          "author_date": "2026-09-27T10:17:44+08:00",
+          "committer_date": "2026-09-27T10:17:44+08:00"
+        },
+        {
+          "sha": "9bcadd3a2276722eb9c2a76d95cac2fd662b90fb",
+          "author_date": "2026-09-27T10:18:10+08:00",
+          "committer_date": "2026-09-27T10:18:10+08:00"
+        },
+        {
+          "sha": "b350b374685f2e62fe06ca88334270acd5e58856",
+          "author_date": "2026-09-27T10:18:10+08:00",
+          "committer_date": "2026-09-27T10:18:10+08:00"
+        },
+        {
+          "sha": "4205af1d3e45695ba4f19459af61f15b05dc31ad",
+          "author_date": "2026-09-27T10:46:13+08:00",
+          "committer_date": "2026-09-27T10:46:13+08:00"
+        },
+        {
+          "sha": "f098427d2345de3fefef8cff13057383d1c0808a",
+          "author_date": "2026-09-27T10:46:13+08:00",
+          "committer_date": "2026-09-27T10:46:13+08:00"
+        },
+        {
+          "sha": "5ff25deea1c5fe0d2ab6ce7ef3628fbe17df7702",
+          "author_date": "2026-09-27T11:11:47+08:00",
+          "committer_date": "2026-09-27T11:11:47+08:00"
+        },
+        {
+          "sha": "d460360affab467d5274e6d55c839660add0ae01",
+          "author_date": "2026-09-27T11:11:47+08:00",
+          "committer_date": "2026-09-27T11:11:47+08:00"
+        },
+        {
+          "sha": "95851910196d4920fc2d7936eaa0bdb5acda5b3e",
+          "author_date": "2026-09-27T11:29:46+08:00",
+          "committer_date": "2026-09-27T11:29:46+08:00"
+        },
+        {
+          "sha": "fb2fd534416a84e6eccb9e21e28e5f38b7c47dd9",
+          "author_date": "2026-09-27T11:29:46+08:00",
+          "committer_date": "2026-09-27T11:29:46+08:00"
+        },
+        {
+          "sha": "6755afda6da1c8cb96ba635151aa967dbc7788b7",
+          "author_date": "2026-09-27T12:22:42+08:00",
+          "committer_date": "2026-09-27T12:22:42+08:00"
+        },
+        {
+          "sha": "74bc8fb199a532b7f192257dc13f46fbadba20aa",
+          "author_date": "2026-09-27T12:22:42+08:00",
+          "committer_date": "2026-09-27T12:22:42+08:00"
+        },
+        {
+          "sha": "837e7a7378fad307f98ca9578e713cf2b161e448",
+          "author_date": "2026-09-27T13:02:55+08:00",
+          "committer_date": "2026-09-27T13:02:55+08:00"
+        },
+        {
+          "sha": "f0a1af4b59074316c2cee08b0c6e3452b1ee3e6a",
+          "author_date": "2026-09-27T13:02:55+08:00",
+          "committer_date": "2026-09-27T13:02:55+08:00"
+        },
+        {
+          "sha": "9a5ae44f71d3fb671d553da24c8c4fdb0c85d8a7",
+          "author_date": "2026-09-27T16:09:50+08:00",
+          "committer_date": "2026-09-27T16:09:50+08:00"
+        },
+        {
+          "sha": "a89ea209c3c2a5b2f96b479dcea6e5407bc45505",
+          "author_date": "2026-09-27T16:09:50+08:00",
+          "committer_date": "2026-09-27T16:09:50+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 30,
+      "day": "2026-09-28",
+      "title": "feat(settlement): 收口站间结算与两端体验",
+      "snapshot_source": "b0bff2caacebbdb64dc5f279a9502297b392ec48",
+      "source_records": [
+        {
+          "sha": "7154e59c6d885ea1f8bd9c279e4453395d204f89",
+          "author_date": "2026-09-28T19:34:22+08:00",
+          "committer_date": "2026-09-28T19:34:22+08:00"
+        },
+        {
+          "sha": "b0bff2caacebbdb64dc5f279a9502297b392ec48",
+          "author_date": "2026-09-28T19:34:22+08:00",
+          "committer_date": "2026-09-28T19:34:22+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 31,
+      "day": "2026-09-29",
+      "title": "refactor(service): 收敛登录与桶账编排",
+      "snapshot_source": "5f2bc3c240918df01bc35f940436e1b3e7eaf490",
+      "source_records": [
+        {
+          "sha": "06e543664c665f1e9d9fbc037d64f9d3246b724d",
+          "author_date": "2026-09-29T10:34:47+08:00",
+          "committer_date": "2026-09-29T10:34:47+08:00"
+        },
+        {
+          "sha": "25a6cf01c5deccda7ac63078ebee95719c9ad7f7",
+          "author_date": "2026-09-29T10:34:47+08:00",
+          "committer_date": "2026-09-29T10:34:47+08:00"
+        },
+        {
+          "sha": "f6cd4001fe3840ba17ebe0d623b50b95721141b8",
+          "author_date": "2026-09-29T10:34:47+08:00",
+          "committer_date": "2026-09-29T10:34:47+08:00"
+        },
+        {
+          "sha": "fd2d4aaf5f68b982620d29a5c18fe0dfbca7dac4",
+          "author_date": "2026-09-29T10:34:47+08:00",
+          "committer_date": "2026-09-29T10:34:47+08:00"
+        },
+        {
+          "sha": "b8d5960fcae4adec4599357397fc825917dc2231",
+          "author_date": "2026-09-29T19:48:01+08:00",
+          "committer_date": "2026-09-29T19:48:01+08:00"
+        },
+        {
+          "sha": "bab9fe0d2bb0242891a4c8e580e1c6ae96a6d328",
+          "author_date": "2026-09-29T19:48:01+08:00",
+          "committer_date": "2026-09-29T19:48:01+08:00"
+        },
+        {
+          "sha": "3e407e5da27f05bf9d5f590c353fadde62e1777a",
+          "author_date": "2026-09-29T19:48:45+08:00",
+          "committer_date": "2026-09-29T19:48:45+08:00"
+        },
+        {
+          "sha": "e0769f99bafac2cf31e5071ad9834478918a06bd",
+          "author_date": "2026-09-29T19:48:45+08:00",
+          "committer_date": "2026-09-29T19:48:45+08:00"
+        },
+        {
+          "sha": "02e8b134260dd2b096eac9141828256d2db2f054",
+          "author_date": "2026-09-29T19:49:22+08:00",
+          "committer_date": "2026-09-29T19:49:22+08:00"
+        },
+        {
+          "sha": "5ca8f326a6e516fa7dad32afa9b256dea7796e25",
+          "author_date": "2026-09-29T19:49:22+08:00",
+          "committer_date": "2026-09-29T19:49:22+08:00"
+        },
+        {
+          "sha": "153ae633e71aa2b4d055274422d1e2ade89a27a9",
+          "author_date": "2026-09-29T20:19:26+08:00",
+          "committer_date": "2026-09-29T20:19:26+08:00"
+        },
+        {
+          "sha": "6cc7744237c95fa8263fbb1fb1809e2808c21492",
+          "author_date": "2026-09-29T20:19:26+08:00",
+          "committer_date": "2026-09-29T20:19:26+08:00"
+        },
+        {
+          "sha": "129573f7e2355e9bf53087fc73d9326353f500f9",
+          "author_date": "2026-09-29T20:34:23+08:00",
+          "committer_date": "2026-09-29T20:34:23+08:00"
+        },
+        {
+          "sha": "1c8b09279d4965e5872e318aa61a69c9d36da544",
+          "author_date": "2026-09-29T20:34:23+08:00",
+          "committer_date": "2026-09-29T20:34:23+08:00"
+        },
+        {
+          "sha": "8f298e72956ffd40b152aa9fcce8f77091ed1e04",
+          "author_date": "2026-09-29T22:06:33+08:00",
+          "committer_date": "2026-09-29T22:06:33+08:00"
+        },
+        {
+          "sha": "b3d4bc573f66876dd827926aeda1daaafbe168e6",
+          "author_date": "2026-09-29T22:06:33+08:00",
+          "committer_date": "2026-09-29T22:06:33+08:00"
+        },
+        {
+          "sha": "6262f8d3cb2c7da1a4e08cbe0f9758933ca5b411",
+          "author_date": "2026-09-29T22:34:58+08:00",
+          "committer_date": "2026-09-29T22:34:58+08:00"
+        },
+        {
+          "sha": "a75e152b1c6ea6711635331495cbfd87c5e99c86",
+          "author_date": "2026-09-29T22:34:58+08:00",
+          "committer_date": "2026-09-29T22:34:58+08:00"
+        },
+        {
+          "sha": "566f0592468fbc054e9914f306d8b57d19023132",
+          "author_date": "2026-09-29T22:37:37+08:00",
+          "committer_date": "2026-09-29T22:37:37+08:00"
+        },
+        {
+          "sha": "5f2bc3c240918df01bc35f940436e1b3e7eaf490",
+          "author_date": "2026-09-29T22:37:37+08:00",
+          "committer_date": "2026-09-29T22:37:37+08:00"
+        }
+      ]
+    },
+    {
+      "phase": 32,
+      "day": "2026-09-30",
+      "title": "fix(consistency): 加固配置、资产幂等和业务时钟",
+      "snapshot_source": "b5ca2d18f4dd19cc3781eec5d37741becc6aaae9",
+      "source_records": [
+        {
+          "sha": "b1a046c2c3b8f31289feb04c28f578820bdf50ee",
+          "author_date": "2026-09-30T09:08:17+08:00",
+          "committer_date": "2026-09-30T09:08:17+08:00"
+        },
+        {
+          "sha": "bc49d61b937537a6aa6b86dd34a131ed1ae2cdd4",
+          "author_date": "2026-09-30T09:08:17+08:00",
+          "committer_date": "2026-09-30T09:08:17+08:00"
+        },
+        {
+          "sha": "575db61c98ee10067148cbebd0a4b2ddcabc7be6",
+          "author_date": "2026-09-30T09:08:31+08:00",
+          "committer_date": "2026-09-30T09:08:31+08:00"
+        },
+        {
+          "sha": "98159fd2e30f78f16c5452f8f20bbe2fb5da56c6",
+          "author_date": "2026-09-30T09:08:31+08:00",
+          "committer_date": "2026-09-30T09:08:31+08:00"
+        },
+        {
+          "sha": "ad8aeeba6a52ccd44d5a97871b2520c9a7b3e793",
+          "author_date": "2026-09-30T09:08:31+08:00",
+          "committer_date": "2026-09-30T09:08:31+08:00"
+        },
+        {
+          "sha": "ca5c39964235d8fb46250714758fe5d716a72778",
+          "author_date": "2026-09-30T09:08:31+08:00",
+          "committer_date": "2026-09-30T09:08:31+08:00"
+        },
+        {
+          "sha": "5fad768d199730d1ad999030fec78afe0ba5e699",
+          "author_date": "2026-09-30T12:10:06+08:00",
+          "committer_date": "2026-09-30T12:10:06+08:00"
+        },
+        {
+          "sha": "6b671be9594456361aed2d8fb19dbf3fad8ba233",
+          "author_date": "2026-09-30T12:10:06+08:00",
+          "committer_date": "2026-09-30T12:10:06+08:00"
+        },
+        {
+          "sha": "9bd80a4c89cb7c40bddf76d1549e02061b533542",
+          "author_date": "2026-09-30T12:57:28+08:00",
+          "committer_date": "2026-09-30T12:57:28+08:00"
+        },
+        {
+          "sha": "d2baca70304392d50c670fc459821eb5fa5bdb29",
+          "author_date": "2026-09-30T12:57:28+08:00",
+          "committer_date": "2026-09-30T12:57:28+08:00"
+        },
+        {
+          "sha": "01fc7e5107d8ce68d19d439f3ee204f96183b5af",
+          "author_date": "2026-09-30T13:21:42+08:00",
+          "committer_date": "2026-09-30T13:21:42+08:00"
+        },
+        {
+          "sha": "a9e8bde8b17c327777325d401fac9d6d64cc28a5",
+          "author_date": "2026-09-30T13:21:42+08:00",
+          "committer_date": "2026-09-30T13:21:42+08:00"
+        },
+        {
+          "sha": "164b32b992dd2dedaac751459e629e03bfc30dc9",
+          "author_date": "2026-09-30T14:37:35+08:00",
+          "committer_date": "2026-09-30T14:37:35+08:00"
+        },
+        {
+          "sha": "eb1795288b409dd1ef3e29dfc39cb65845842735",
+          "author_date": "2026-09-30T14:37:35+08:00",
+          "committer_date": "2026-09-30T14:37:35+08:00"
+        },
+        {
+          "sha": "51f7666b79817787ad8d46ef439cc8519c7940d2",
+          "author_date": "2026-09-30T14:37:36+08:00",
+          "committer_date": "2026-09-30T14:37:36+08:00"
+        },
+        {
+          "sha": "5f5d357841818db4901431c6eedb4db49d29cd0b",
+          "author_date": "2026-09-30T14:37:36+08:00",
+          "committer_date": "2026-09-30T14:37:36+08:00"
+        },
+        {
+          "sha": "89b903e8bfb1296f318373c5bc39e26f8ee702d1",
+          "author_date": "2026-09-30T14:37:36+08:00",
+          "committer_date": "2026-09-30T14:37:36+08:00"
+        },
+        {
+          "sha": "ee3d6d465d97f6987fb20722563c56e0591b578c",
+          "author_date": "2026-09-30T14:37:36+08:00",
+          "committer_date": "2026-09-30T14:37:36+08:00"
+        },
+        {
+          "sha": "a54e68579d2362f28214c3b25570a7d51b418634",
+          "author_date": "2026-09-30T15:53:15+08:00",
+          "committer_date": "2026-09-30T15:53:15+08:00"
+        },
+        {
+          "sha": "b53b5555955973ed5b04d963e82a40395056787c",
+          "author_date": "2026-09-30T15:53:15+08:00",
+          "committer_date": "2026-09-30T15:53:15+08:00"
+        },
+        {
+          "sha": "935ea26cd6aa87e089a7262f5d2262efe1531862",
+          "author_date": "2026-09-30T15:53:16+08:00",
+          "committer_date": "2026-09-30T15:53:16+08:00"
+        },
+        {
+          "sha": "ea75358625344e4d7cd362aec5ddc5fa4af76643",
+          "author_date": "2026-09-30T15:53:16+08:00",
+          "committer_date": "2026-09-30T15:53:16+08:00"
+        },
+        {
+          "sha": "0978c3baccc00fab0782545a2e8506dcad7479a4",
+          "author_date": "2026-09-30T18:12:56+08:00",
+          "committer_date": "2026-09-30T18:12:56+08:00"
+        },
+        {
+          "sha": "f61910def96c9274e14f77907659051ba83c716a",
+          "author_date": "2026-09-30T18:12:56+08:00",
+          "committer_date": "2026-09-30T18:12:56+08:00"
+        },
+        {
+          "sha": "300e8267029e2deb5079b07ac848298aa35426a6",
+          "author_date": "2026-09-30T18:34:46+08:00",
+          "committer_date": "2026-09-30T18:34:46+08:00"
+        },
+        {
+          "sha": "44d9cebf70fea454952e50a7430ba33c0b4edb3f",
+          "author_date": "2026-09-30T18:34:46+08:00",
+          "committer_date": "2026-09-30T18:34:46+08:00"
+        },
+        {
+          "sha": "0dcbe1bba56a40c7bb10764bee9b47b45e3f2cab",
+          "author_date": "2026-09-30T20:39:59+08:00",
+          "committer_date": "2026-09-30T20:39:59+08:00"
+        },
+        {
+          "sha": "d4414049ea51de1a548cfe6efdc9829f292a6958",
+          "author_date": "2026-09-30T20:39:59+08:00",
+          "committer_date": "2026-09-30T20:39:59+08:00"
+        },
+        {
+          "sha": "090dd00425ffaec9f95a4e9d6cbdb96cad3f5717",
+          "author_date": "2026-09-30T21:13:10+08:00",
+          "committer_date": "2026-09-30T21:13:10+08:00"
+        },
+        {
+          "sha": "191963e3cefe7f03ada0349c3e2b7c36d2aac853",
+          "author_date": "2026-09-30T21:13:10+08:00",
+          "committer_date": "2026-09-30T21:13:10+08:00"
+        },
+        {
+          "sha": "001fbe49bc9e2e59fabb898d05230786dd7e2738",
+          "author_date": "2026-09-30T21:43:23+08:00",
+          "committer_date": "2026-09-30T21:43:23+08:00"
+        },
+        {
+          "sha": "a1c77f1ca19b67a98f9a9d9b93854b808be0c561",
+          "author_date": "2026-09-30T21:43:23+08:00",
+          "committer_date": "2026-09-30T21:43:23+08:00"
+        },
+        {
+          "sha": "6af10968e40a976ca8f4063cb20ffc9e1b6fc40a",
+          "author_date": "2026-09-30T21:47:06+08:00",
+          "committer_date": "2026-09-30T21:47:06+08:00"
+        },
+        {
+          "sha": "e2acc77ad6dc33ace045e5fbfc57bbd2a71d7f02",
+          "author_date": "2026-09-30T21:47:06+08:00",
+          "committer_date": "2026-09-30T21:47:06+08:00"
+        },
+        {
+          "sha": "379e758d19ceb981f5f5935182a71d7898bccdc5",
+          "author_date": "2026-09-30T21:47:53+08:00",
+          "committer_date": "2026-09-30T21:47:53+08:00"
+        },
+        {
+          "sha": "af006d6e101be71521d612797891898b69c20fad",
+          "author_date": "2026-09-30T21:47:53+08:00",
+          "committer_date": "2026-09-30T21:47:53+08:00"
+        },
+        {
+          "sha": "359180cfa19b0bbdca70b851a45e35acbb81d77c",
+          "author_date": "2026-09-30T22:25:44+08:00",
+          "committer_date": "2026-09-30T22:25:44+08:00"
+        },
+        {
+          "sha": "d6841dc67236533850d39a0ad899d2fe877b84f2",
+          "author_date": "2026-09-30T22:25:44+08:00",
+          "committer_date": "2026-09-30T22:25:44+08:00"
+        },
+        {
+          "sha": "b5ca2d18f4dd19cc3781eec5d37741becc6aaae9",
+          "author_date": "2026-09-30T22:26:47+08:00",
+          "committer_date": "2026-09-30T22:26:47+08:00"
+        },
+        {
+          "sha": "daa331c265c8be88cc66ca5b12570a58077eaeab",
+          "author_date": "2026-09-30T22:26:47+08:00",
+          "committer_date": "2026-09-30T22:26:47+08:00"
+        }
+      ]
+    }
+  ]
+}

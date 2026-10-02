@@ -16,7 +16,7 @@
 > | 下位文档 | 无 |
 
 > ⚠️ **端点清单的真相源是 `controller/**` 上的注解，不是本文。**
-> 下表由脚本从注解直读生成（284 个端点映射 / 51 个 controller）。
+> 下表按注解登记；当前数量和双向一致性由 `scripts/check-api-doc.js` 读取源码核对。
 > 代码改动后本文会过期 —— 冲突时以注解为准。
 
 ---
@@ -50,7 +50,7 @@
 ### 1.3 幂等
 
 - 下单等创建类接口带客户端幂等键（`idempotencyKey`）。
-- **无订单支付**（在线购票，`order_id` 为 NULL）**必须传幂等键** —— 这条路径没有数据库层的唯一键保护。
+- **无订单支付**（在线购票及独立资产款，`order_id` 为 NULL）必须传客户端幂等键；一单一活跃流水键不保护 NULL 订单，须由带客户作用域的支付/购买幂等键保护。
 
 ---
 
@@ -92,6 +92,7 @@
 | `/api/stations/search`、`/api/station/search` | 搜站 |
 | `/api/stations/{id}/public-phone`、`/api/station/{id}/public-phone` | 水站公开电话 |
 | `/api/stations/{id}/status`、`/api/station/{id}/status` | 营业状态横幅（顾客端未登录时也要能看到；只返回 id / 名称 / 状态文案，**不含站长私有字段**） |
+| `/api/system/health` | 存活探针（F-46）：不查库、固定结构；网关/容器 liveness 与 `scripts/smoke-check.js` 的存活判据用 |
 
 其余 `/api/**` 全部需要登录。
 
@@ -108,7 +109,9 @@
 ## 4. 授权与站点归属
 
 - 授权由 AOP 切面统一保护，切点 `execution(public * controller..*.*(..))`，
-  校验 `@RequireRole` 与 `@RequireStation`；**新增方法自动生效**，不依赖开发者记得加校验。
+  校验 `@RequireRole` 与 `@RequireStation`；**切面对每个方法都会执行，但无注解 = 放行**
+  （`RequireRoleAspect` 的 `requireRole == null` 分支）—— 新增方法**不写注解就是裸的**，
+  这不是"自动获得保护"，恰恰是要开发者主动二选一（历史越权事故见 `SECURITY.md` §5.2）。
 - 角色只有两种：`STATION_MANAGER`（站长）、`DELIVERY`（配送员）；顾客身份走 `customer` 体系。
 - **跨站隔离**：涉及本站数据的端点以登录态 `stationId` 校验归属。
 - **跨租户可见面收窄**：下发给其他水站的字段只带「钱货去向」文案与快照金额，
@@ -121,7 +124,7 @@
 以下按业务域分组。**方法 / 路径 / 角色 / 实现方法**四列中，
 「实现方法」的格式是 `Controller.方法名`，可直接定位到源码。
 
-（脚本抽取：268 个端点映射，49 个 controller 文件）
+（脚本抽取：285 个端点映射，53 个 controller 文件 —— 数字以 `node scripts/check-api-doc.js` 实跑为准，它绿即双向一致）
 
 ### 认证与账号
 
@@ -341,7 +344,11 @@
 | `POST` | `/api/tickets/add` | {"STATION_MANAGER"} | `TicketAccountController.add` |
 | `POST` | `/api/tickets/consume` | {"STATION_MANAGER"} | `TicketAccountController.consume`（站长手工扣票）。**`idempotencyKey` 必传**（v70，缺失/空白 → `code=1`「缺少幂等键 idempotencyKey」）：`orderId` 可空，而不带订单的扣票在数据库层没有兜底（`uk_ticket_consume` 对 `order_id IS NULL` 零保护）⇒ 重复提交会重复扣。服务端按 `(customer_id, idempotencyKey)` 幂等，重试复用同一个键即原样返回、不再扣一次 |
 | `GET` | `/api/tickets/customer/{customerId}` | {"STATION_MANAGER"} | `TicketAccountController.listByCustomerIdForStaff` |
-| `POST` | `/api/tickets/purchase` | {"STATION_MANAGER"} | `TicketAccountController.purchase` |
+| `POST` | `/api/tickets/purchase` | 客户会话 | `TicketAccountController.purchase`；同客户同编号必须保持站、商品、数量、方式、档位不变。摘要不含现价；命中原款先验内容，再跳过商品/价格现状校验。 |
+| `GET` | `/api/tickets/purchase-result` | 客户会话 | `TicketAccountController.purchaseResult`；`idempotencyKey` 必传，只查当前客户原购票款。`data=null` 表示当次未查到，不授权换编号重付；有结果含 `paymentId/amount/status/statusText/stationId/productId/quantity/paymentMethod/packageId/unifiedQty`，不发起/确认收款。 |
+| `POST` | `/api/tickets/purchase-intent/close` | 客户会话 | `TicketAccountController.closePurchaseIntent`；请求 `{idempotencyKey}`，只结束尚未登记任何款项的原编号，客户身份取登录态；不取消或退款已有款。 |
+
+购票恢复：普通错误、超时、一次空查询与本地缓存均不证明原请求已结束。结束接口在事务内与建款共用同客户/编号锁，当前读无任何原款才返回 `{idempotencyKey,closed:true,payment:null}` 并永久封锁此编号；已有购票原款返回 `{idempotencyKey,closed:false,payment:<原款结果>}`，已有非购票款则业务拒绝。已有款的金额、状态和资产不因该端点改变。客户端须核原编号、内容与会话周期，存储保存/删除失败继续保留原凭据；`unifiedQty` 区分统一档与同数量散买。部署协议及结构前提见运维说明，不能把未查到或失败文案当作可换键依据。
 
 ### 桶资产
 
@@ -425,6 +432,7 @@
 | `PUT` | `/api/manager/gross-profit/cost` | {"STATION_MANAGER"} | `ManagerGrossProfitController.setCost` |
 | `GET` | `/api/manager/gross-profit/missing-cost` | {"STATION_MANAGER"} | `ManagerGrossProfitController.missingCost` |
 | `GET` | `/api/manager/pending-summary` | {"STATION_MANAGER"} | `ManagerPendingSummaryController.summary` |
+| `GET` | `/api/manager/pending-summary/return-record/{recordId}` | {"STATION_MANAGER"} | `ManagerPendingSummaryController.returnRecord`；只读本站原退桶申请 |
 | `GET` | `/api/manager/reconciliation` | "STATION_MANAGER" | `ManagerReconciliationController.check` |
 | `GET` | `/api/manager/setup-guide` | {"STATION_MANAGER"} | `ManagerSetupGuideController.guide` |
 | `GET` | `/api/manager/station-status` | "STATION_MANAGER" | `ManagerStationStatusController.get` |
@@ -454,6 +462,7 @@
 |---|---|---|---|
 | `POST` | `/api/common/upload` | — | `CommonController.upload` |
 | `GET` | `/api/search` | {"STATION_MANAGER"} | `SearchController.search` |
+| `GET` | `/api/system/health` | — | `SystemController.health`（公开，见 §3 白名单；静态存活探针，不查库） |
 
 ---
 
@@ -492,3 +501,49 @@
 - [`../architecture/02-领域模型.md`](../architecture/02-领域模型.md) —— 三站语义、状态机与判权表
 - [`../development/01-测试体系.md`](../development/01-测试体系.md) —— 断言约定（为什么判 `code` 而不是 HTTP 状态）
 - [`../audit/删除登记表.md`](../audit/删除登记表.md) —— 删除登记表正本
+
+## 2026-10-01 v71 业务调整入口
+
+| 方法 | 路径 | 身份与用途 |
+|---|---|---|
+| `GET` | `/api/barrel-rights/quote` | 客户本人，独立押金报价 |
+| `POST` | `/api/barrel-rights/purchase` | 客户本人，创建独立购买意图 |
+| `GET` | `/api/barrel-rights` | 客户本人，购买历史与未知结果查询 |
+| `PUT` | `/api/barrel-rights/{id}/withdraw` | 客户本人，撤回未确认未交款意图 |
+| `PUT` | `/api/barrels/records/{id}/withdraw` | 客户本人，撤回未交接申请 |
+| `PUT` | `/api/barrels/records/{id}/approve` | 归属站站长，批准取桶/退款安排 |
+| `PUT` | `/api/barrels/records/{id}/customer-confirm` | 客户本人，确认批准安排 |
+| `GET` | `/api/payments/{id}/refund-preview` | 授权站长，退款组成与余额预览 |
+| `GET` | `/api/manager/business-waiting` | 站长，本站当前缺货、退桶审批提醒、已收桶待退款及站间返还/净桶责任 |
+| `GET` | `/api/manager/ticket-exit-batches` | 原款站站长，可按真实批次退剩余票 |
+| `GET` | `/api/manager/refusal-cases` | 当事站站长，拒付事实台账 |
+| `PUT` | `/api/manager/refusal-cases/{orderId}/confirm-freeze` | 资产站站长，核实冻结本站退款资格 |
+| `GET` | `/api/manager/dispatch-agreements/{orderId}` | 当事站/池接收站站长，服务和桶报价 |
+| `PUT` | `/api/manager/dispatch-agreements/{orderId}` | 归属站站长，接受前修改完整报价 |
+| `GET` | `/api/manager/station-barrel-balances` | 当事站站长，实际净送桶和争议待办 |
+| `POST` | `/api/manager/station-barrel-balances/{orderId}/dispute` | 当事站站长，记录桶争议 |
+| `PUT` | `/api/manager/station-barrel-balances/{orderId}/proposal` | 归属站站长，提出处理方案 |
+| `POST` | `/api/manager/station-barrel-balances/{orderId}/agree` | 履约站站长，确认处理方案 |
+| `POST` | `/api/manager/station-barrel-balances/{orderId}/received` | 双方站长，各确认本方实际交接 |
+| `GET` | `/api/manager/inter-station-recoveries` | 当事站站长，冲销后的返还债务 |
+| `POST` | `/api/manager/inter-station-recoveries/{orderId}/sent` | 返还付款站站长，实际交付返还款 |
+| `POST` | `/api/manager/inter-station-recoveries/{orderId}/received` | 收款站站长，实际收到返还款 |
+| `POST` | `/api/inventory/{productId}/loss` | 本站站长，实物损失与受影响预留 |
+
+独立桶权益：`GET /api/barrel-rights/quote`、`POST /api/barrel-rights/purchase`、`GET /api/barrel-rights`、`PUT /api/barrel-rights/{id}/withdraw`。仅实际款确认后生效；请求站/商品/数量及幂等键不可自算金额。
+
+新退还：`PUT /api/barrels/records/{id}/approve` 批准安排；`PUT /api/barrels/records/{id}/customer-confirm` 客户确认；旧 status 收桶/退款命令对新凭据强制阶段闸门。收桶费单独支付和退款。
+
+消费：`GET /api/payments/{id}/refund-preview`、`PUT /api/payments/{id}/refund`，scope 为 WATER/SERVICE/ALL_CONSUMPTION；购票剩余退款还须 expectedTicketQty、expectedTicketAmount，与已确认余额变化不符时整笔回滚。
+
+站长：`GET /api/manager/business-waiting`、`GET /api/manager/ticket-exit-batches`、`GET /api/manager/refusal-cases`、`PUT /api/manager/refusal-cases/{orderId}/confirm-freeze`；`GET/PUT /api/manager/dispatch-agreements/{orderId}` 每单报酬和桶安排；`GET /api/manager/station-barrel-balances` 与 `{orderId}/dispute`、`proposal`、`agree`、`received` 处理实际桶争议及双方交接；`GET /api/manager/inter-station-recoveries` 与 `{orderId}/sent`、`received` 处理已付款返还。新库存损失 `POST /api/inventory/{productId}/loss` 必传预期实物、目标实物及原因。
+
+注解、DTO 与当前源码为端点正本；资金手工登记要求实际已交付，系统不自动转账。
+
+### 站长日常责任读数（2026-10-02）
+
+`GET /api/manager/pending-summary` 与业务等待页使用同源的责任计数。新增 `waitingStock` 默认 P0；`returnRefund`、`recoverySend`、`recoveryReceive`、`barrelHandover`、`barrelDispute` 默认 P1，保留现有级别覆盖。每项 `available` 表示数量已核对；结构未就绪时相关 `count` 为 null、`available=false`，整体 `complete=false`。`p0Total` 仍是非零 P0 项的数量，不能当各项总单数。读取失败或未知不能解释为已全部处理完。
+
+`GET /api/manager/business-waiting` 返回 `stock`、`returns`、`recoveries`、`barrels` 当前责任列表，以及 `counts`、`limit`、`schemaAvailable`。`counts` 含 `waitingStock`、`returnsTotal`、`returnRefund`、`recoveriesTotal`、`recoverySend`、`recoveryReceive`、`barrelsTotal`、`barrelHandover`、`barrelDispute`；总数不受列表展示上限影响。行保留原 `orderId` 或 `recordId`，附 `responsibleStationId`、`waitingSinceTime`、`waitingSinceLabel`、`waitingReason`、`nextAction`、`nextActionText`。各站只见自己当前可办理的动作，历史终态不计入责任；缺货按履约站，客户资产退款仍按归属站。
+
+`GET /api/manager/pending-summary/return-record/{recordId}` 仅站长可调，站别取登录态；查询限制本站且 `type=2`，返回原 `BarrelRecord`、`returnDetail` 与沿用桶账的 `owedBuckets`。已收口原申请仍可查看，不受历史列表上限影响。此端点只读，审批、收桶、退款继续调用原业务命令；其他站的编号不能穿透读取。

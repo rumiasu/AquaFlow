@@ -3,7 +3,11 @@
  * 本地一键验证（**Windows 版**）：把仓库既有的静态门禁 + 本轮新增的门禁串起来跑一遍。
  *
  * 跑法：node scripts/verify-local.js
- * 退出码：0 = 全部通过（跳过的项会明确列出）；1 = 有失败
+ * 退出码：0 = 全部门禁都**真的跑过**且全过；1 = 有失败，**或**有整组门禁因缺工具（python / git）
+ *         根本没跑（会打印 `AQUAFLOW_VERIFY_LOCAL_INCOMPLETE`）—— 判据与 `verify.sh` 的 F-02 修复一致：
+ *         **「没跑」不许当成「通过」**（AGENTS §5）。
+ *         ⚠️ 与"本机这次没验"有关的**前置条件缺失**（后端没起、没打 jar）走 skip 且**不**算 incomplete：
+ *         那是"这次没验"，不是"工具没了" —— 前者只列出并给出补跑命令（CI 上两项都会被真的跑到）。
  *
  * ---------------------------------------------------------------------------
  * 为什么需要它，而不是直接用 scripts/verify.sh
@@ -63,6 +67,18 @@ function runStream(cmd, args, opts) {
 }
 
 const results = []
+
+/**
+ * 「整组门禁根本没跑」位（对齐 `verify.sh` 的 F-02 修复，2026-10-01 补）。
+ *
+ * ⚠️ 这一位**必须有**：原实现只在 `fail` 时 `exit 1`，skip 一律不影响退出码，
+ * 于是缺 python / git 时（PATH 被裁剪、受限沙箱）整组门禁跳过、结尾仍打印
+ * `AQUAFLOW_VERIFY_LOCAL_OK` 且 exit 0 —— 与 F-02 在 `verify.sh` 上修掉的那个假绿**逐字相同**，
+ * 只是换了入口（而本仓真正在本机跑的是这一个）。
+ * 置位只认**工具缺失 / 子进程起不来**；"后端没起、jar 没打"属前置条件，只 skip。
+ */
+let MISSING_DEP = 0
+
 function record(name, status, detail) {
   results.push({ name, status, detail })
   const mark = status === 'pass' ? '✓' : status === 'skip' ? '−' : '✗'
@@ -73,7 +89,9 @@ function record(name, status, detail) {
 function gate(name, cmd, args, opts) {
   const o = Object.assign({ okCodes: [0], skipCodes: [] }, opts || {})
   const r = runStream(cmd, args, o)
-  if (r.eperm) { record(name, 'skip', 'EPERM：沙箱不允许该子进程（不是门禁失败）'); return }
+  // ⚠️ EPERM = 子进程**根本没跑**（沙箱建不了 named pipe，skill §8.31）。它确实"不是门禁失败"，
+  //    但也**不是通过** —— 按 F-02 判据置 MISSING_DEP，否则在受限环境里整轮全 skip 仍是绿灯。
+  if (r.eperm) { record(name, 'skip', 'EPERM：沙箱不允许该子进程（没跑成，不算通过）'); MISSING_DEP = 1; return }
   if (r.signaled) { record(name, 'fail', `被信号 ${r.signaled} 终止`); return }
   if (o.skipCodes.includes(r.status)) { record(name, 'skip', `退出码 ${r.status} = 跳过`); return }
   if (o.okCodes.includes(r.status)) {
@@ -92,6 +110,25 @@ function have(cmd) {
   return !r.eperm && r.status === 0
 }
 
+/**
+ * 探一个本机 HTTP 地址是否有人应答（等价于 `verify.sh:139-144` 那句
+ * `curl -s -o /dev/null --max-time 3 http://127.0.0.1:8080/...`）。
+ *
+ * <p>为什么必须探：`smoke-check.js` 在服务没起时是 `exit 1`（它答不出"库通不通 / 认证拦没拦"，
+ * 那是**判不了**而不是**不通过**）。不探就直跑 ⇒ 每次没起后端都报"有门禁失败"，
+ * 这条命令很快就会被当成永远红、没人再看（`verify.sh:139-144` 早就探了，本文件漏了）。</p>
+ *
+ * <p>同步实现、不引依赖：起一个 `node -e` 子进程，只看退出码（不建管道，符合 skill §8.31）。
+ * URL 用 `JSON.stringify` 生成 JS 字面量，不拼 shell。</p>
+ */
+function httpAlive(url) {
+  const code = 'const h=require("http");const q=h.get(' + JSON.stringify(url) + ',s=>process.exit(s.statusCode?0:1));'
+    + 'q.on("error",()=>process.exit(1));'
+    + 'q.setTimeout(3000,()=>{q.destroy();process.exit(1)});'
+  const r = spawnSync(process.execPath, ['-e', code], { stdio: 'ignore', timeout: 15000 })
+  return r.status === 0
+}
+
 console.log('='.repeat(74))
 console.log('AquaFlow 本地验证（Windows / node 版）')
 console.log('='.repeat(74))
@@ -103,6 +140,7 @@ console.log('\n[1] 仓库既有静态门禁')
 if (!have(PY)) {
   console.log('  − python 不可用，跳过整组（CI 上会强制执行）')
   record('python 静态门禁（整组）', 'skip', '没有 python')
+  MISSING_DEP = 1
 } else {
   gate('wxml 事件绑定（两端）', PY, ['audit_wxml_handlers.py'])
   gate('页面可达性（顾客端）', PY, ['page_reach_audit.py', 'miniapp-user'])
@@ -189,7 +227,9 @@ function checkSecretsEquivalent() {
   //    而那看起来像环境限制、不像自己写错（本文件这一版就踩了一次）。
   const r = runStream(`git ls-files --cached --others --exclude-standard > "${tmp}"`, [], { shell: true })
   if (!fs.existsSync(tmp) || fs.statSync(tmp).size === 0) {
-    record(NAME, 'skip', `拿不到 git 文件清单（退出码 ${r.status}），CI 上由 scan-secrets.sh 强制执行`)
+    // git 是**工具**（不是"这次没验"）：拿不到清单 = 这条扫描根本没做 ⇒ 不许算通过。
+    record(NAME, 'skip', `拿不到 git 文件清单（退出码 ${r.status}）—— git 不可用，本机这条**没跑成**`)
+    MISSING_DEP = 1
     return
   }
   const PAT = /(jwt[_-]?secret|app[_-]?secret|secret[_-]?key|secret-id|access[_-]?key|password|passwd|wx[_-]?app[_-]?secret)["']?[ \t]*[:=][ \t]*["'][^"'${}\s]{12,}["']/g
@@ -262,6 +302,11 @@ gate('CI/发布依赖件是否入库（防"克隆后缺失"）',
 // 反向"必跑清单点到的脚本必须真实存在"。README 是迁移清单的正本，脱节会让运维在改生产库时做错决定。
 gate('迁移清单与 sql/ 目录双向一致',
   'node', ['scripts/check-sql-catalog.js'])
+// 台账判据可执行化（2026-09-30 新增，第六批 F-49）：台账 §2 的「度量方法」列落成断言 ——
+// MUST（领域不变量）不达标即红；FINDING 与 §4 状态位互证（标 FIXED 却不达标 = 红）。
+// 为什么要有：判据写在表里没有一条能跑 ⇒ 下一轮既证明不了这维涨了、也证明不了跌了。
+gate('台账判据可执行化（MUST 不变量 + 登记项互证）',
+  'node', ['scripts/check-ledger-claims.js'])
 // 三处验证入口（ci.yml / verify.sh / 本文件）的**门禁清单**是否一致（2026-09-28 新增）。
 // 为什么要有：新加一道门禁只接进其中一处，另一处**永远不会告诉你它漏了** ——
 // 表现出来就是本仓记录过的「本机全绿、CI 红」（或反过来），且本地反复重跑也复现不出。
@@ -280,10 +325,27 @@ gate('端点契约与 API 参考双向一致',
   'node', ['scripts/check-api-doc.js'])
 gate('生产配置覆盖（prod 必需变量都在 .env.example 有定义）',
   'node', ['scripts/check-prod-config.js'])
-gate('发布物不含本地开发配置（需先 bootJar）',
-  'node', ['scripts/check-jar-no-local-config.js'])
-gate('部署冒烟检查（打本机 8080）',
-  'node', ['scripts/smoke-check.js'])
+// 发布物检查：**前置条件是先 bootJar**。`check-jar-no-local-config.js` 在 jar 不在时故意 `exit 1`
+// （fail-closed 是对的：它宁可报错也不肯说"没发现问题"）。所以这里先判前置条件：
+// 没打 jar 就 skip 并写明补跑命令，而不是把"这次没打 jar"渲染成"有门禁失败"。
+// （CI / verify.sh 的 [5] 步会先 `gradlew bootJar` 再跑它，那边永远不会走到这个 skip 分支。）
+const jarDir = path.join(repoRoot, 'AquaFlow-backend', 'build', 'libs')
+const hasJar = fs.existsSync(jarDir) && fs.readdirSync(jarDir).some(f => f.endsWith('.jar'))
+if (hasJar) {
+  gate('发布物不含本地开发配置（需先 bootJar）',
+    'node', ['scripts/check-jar-no-local-config.js'])
+} else {
+  record('发布物不含本地开发配置（需先 bootJar）', 'skip',
+    'build/libs 下没有 jar → 先 `cd AquaFlow-backend && gradlew.bat bootJar` 再重跑')
+}
+// 部署冒烟检查：**先探端口再决定跑不跑**（与 verify.sh 同判据，见 httpAlive 的注释）。
+if (httpAlive('http://127.0.0.1:8080/api/stations/public')) {
+  gate('部署冒烟检查（打本机 8080）',
+    'node', ['scripts/smoke-check.js'])
+} else {
+  record('部署冒烟检查（打本机 8080）', 'skip',
+    '本机 8080 没有服务 → 不跑；部署后单独跑：node scripts/smoke-check.js <URL> --prod')
+}
 // 小程序文本体检（2026-09-30 新增，合成 F-33 + F-13 的一半）：按扩展名**全仓遍历**两端小程序的
 // `.js/.wxml/.wxss/.json`，查 ① UTF-8 BOM（skill §8.28：带 BOM 的 .wxss 让开发者工具报编译错且
 // 不指名文件，而当时四个门禁全绿）② `<text>` 内出现开发词（AGENTS §6 的面向用户文案禁令；
@@ -298,6 +360,7 @@ gate('小程序文本体检（BOM / 面向用户文案的开发词）',
 // ---------------------------------------------------------------------------
 console.log('\n[5] 需要显式执行的三项（本脚本不自动跑）')
 console.log('  · 备份 / 恢复演练：node scripts/backup-restore-drill.js drill')
+console.log('    （先确认目标可清空，再设置 AQUAFLOW_ALLOW_DB_RESET=实际演练库名；启动姿态检查同样要求）')
 console.log('    （会写演练库 aquaflow_restoredrill；成功会自己清理）')
 console.log('  · 生产启动姿态：node scripts/prod-startup-check.js')
 console.log('    （拿 build/libs 的 jar 真起 13 次：必需变量缺失必须拒启、COS 四件套缺失只降级；')
@@ -321,6 +384,15 @@ if (fail) {
   console.log('失败：')
   results.filter(r => r.status === 'fail').forEach(r => console.log(`  ✗ ${r.name}：${r.detail}`))
   console.log('\n[verify-local] ✗ 有门禁未通过')
+  process.exit(1)
+}
+// 结尾判据（2026-10-01 补，对齐 verify.sh 的 F-02 修复）：
+// **缺工具导致整组没跑时不许返回 0**，否则 PATH 被裁剪的机器上会给出假绿。
+if (MISSING_DEP) {
+  console.log('')
+  console.log('⚠️  本次验证**不完整**：有门禁因缺工具（python / git）或子进程起不来而没跑成（见上方 skip 行）。')
+  console.log('   判据：**「没跑」不许当成「通过」**（AGENTS §5）—— 这些门禁在 CI 上会强制执行。')
+  console.log('AQUAFLOW_VERIFY_LOCAL_INCOMPLETE 1')
   process.exit(1)
 }
 // ASCII 哨兵：受限沙箱里子进程写的中文可能被编码毁掉，判据别建在中文上

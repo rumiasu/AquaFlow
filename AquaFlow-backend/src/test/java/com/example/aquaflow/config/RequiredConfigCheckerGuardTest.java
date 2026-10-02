@@ -68,7 +68,12 @@ class RequiredConfigCheckerGuardTest {
     void nonProdSkipsDatasourceCheck() {
         MockEnvironment env = new MockEnvironment();
         env.setActiveProfiles("local");
-        env.setProperty("spring.datasource.url", "jdbc:mysql://localhost:3306/aquaflow");
+        // [F-31 2026-09-30] 原来这里塞的是**已解析**的 url —— 于是本用例名字里的
+        // "非 prod 跳过校验"根本没被验证：把 checkProdDatasource 的 profile 闸整个删掉、
+        // 让它对 local 也生效，这个输入照样不抛（走错分支也算过）。
+        // 现改用与 prodUnresolvedUrlRejected **完全相同**的未解析占位符：
+        // 只有"非 prod 提前 return"这条闸真的在，才可能不抛。
+        env.setProperty("spring.datasource.url", "${DB_URL}");
         env.setProperty("spring.datasource.username", "root");
         env.setProperty("spring.datasource.password", "");
 

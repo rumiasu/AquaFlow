@@ -81,13 +81,14 @@ async function main() {
   console.log(`[smoke] 目标：${BASE}${REQUIRE_PROD ? '（要求生产姿态）' : ''}`)
   console.log('='.repeat(64))
 
-  // ① 活着 + ② 连得上库：一个只读的公开端点同时覆盖两层 ——
-  //    它要读 station 表才答得出来，所以 body.code=0 即"HTTP 通 + 库读通"。
-  const health = await get('/api/stations/public')
-  const healthCode = codeOf(health.body)
-  const alive = health.status !== null
-  req_('存活：HTTP 有应答', alive,
-    alive ? `HTTP ${health.status}` : `无响应（${health.error}）`)
+  // ① 活着：**静态探针** /api/system/health（F-46，2026-09-30）——
+  //    为什么不能拿别的端点当 liveness：本仓业务错/系统错都包成 HTTP 200（GlobalExceptionHandler，
+  //    业务契约不许改）⇒ 按状态码的探针在别处恒绿；而 /api/stations/public 依赖 DB，
+  //    "进程活着但库断"时分不出是哪层坏了。三态分层：本端点=进程活着，下面 ②=连得上库。
+  const probe = await get('/api/system/health')
+  const alive = probe.status !== null
+  req_('存活：静态探针有应答（/api/system/health）', alive,
+    alive ? `HTTP ${probe.status}` : `无响应（${probe.error}）`)
 
   // 服务都没起来时，"库通不通 / 认证拦没拦"问不出结论 ——
   // 硬跑只会把"无应答"印成"未通过"，让人以为查出了别的问题。
@@ -102,8 +103,19 @@ async function main() {
     process.exit(1)
   }
 
-  req_('数据库：公开端点能读到数据（body.code=0）', healthCode === 0,
-    healthCode === undefined ? `响应不是预期的 JSON：${health.body.slice(0, 80)}` : `code=${healthCode}`)
+  // 探针本身要真的工作：静态端点必须 200 + code=0。
+  // code=404 通常是"后端还是老进程、新端点没起来"（本轮实测的旧 bootRun 形状）——
+  // 这条判据不许放宽成"有应答就算过"，否则探针永远不会发现自己不存在。
+  const probeCode = codeOf(probe.body)
+  req_('存活探针：HTTP 200 + code=0（静态、不查库）',
+    probe.status === 200 && probeCode === 0,
+    `HTTP ${probe.status}, code=${probeCode}`)
+
+  // ② 连得上库：只读公开端点要读 station 表才答得出来 ⇒ body.code=0 即"HTTP 通 + 库读通"。
+  const db = await get('/api/stations/public')
+  const dbCode = codeOf(db.body)
+  req_('数据库：公开端点能读到数据（body.code=0）', dbCode === 0,
+    dbCode === undefined ? `响应不是预期的 JSON：${db.body.slice(0, 80)}` : `code=${dbCode}`)
 
   // ③ 认证确实在拦：未带 token 访问受保护端点必须**真 401**（不是 200+code=1）
   const guarded = await get('/api/manager/alerts')
@@ -131,7 +143,7 @@ async function main() {
   const actuator = await get('/actuator/health')
   const actCode = codeOf(actuator.body)
   pos('可观测性：actuator 健康端点', true,
-    actCode === 404 ? '未引入（用 /api/stations/public 当探针）'
+    actCode === 404 ? '未引入（存活探针用 /api/system/health，连库判据用 /api/stations/public）'
       : actCode === undefined ? `无法判定（HTTP ${actuator.status}，响应非预期 JSON）`
         : `存在（HTTP ${actuator.status}，code=${actCode}）`,
     '')

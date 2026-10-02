@@ -12,6 +12,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.math.BigDecimal;
 import java.net.URI;
@@ -31,10 +34,9 @@ import java.util.Locale;
  * <p>三条不妥协的原则：</p>
  * <ol>
  *   <li><b>不用 Mock</b>：事务、CAS、唯一键、行锁这些正是被测对象，Mock 会把它们全掩盖掉。</li>
- *   <li><b>不碰真实库</b>：每个用例前断言库名<b>以 {@code aquaflow_test} 开头、或以 {@code _test} 结尾</b>
- *       （2026-09-30 由 {@code contains("test")} 收紧，判据与**残余风险**见 {@link #isTestSchema}），
- *       不符直接抛异常中止，杜绝误 TRUNCATE 生产库 {@code aquaflow} 与
- *       {@code latest} / {@code contest} / {@code attest} 这类只是"含 test"的库。</li>
+ *   <li><b>不碰未经确认的库</b>：启动前须确认完整 TCP 地址与库名，清表前在同一实际连接
+ *       核对 metadata URL 与当前库；原 {@link #isTestSchema} 名称护栏作为额外拒绝条件保留。
+ *       仅库名像测试库不足以允许清表，见 {@link TestDatabaseTargetGuard}。</li>
  *   <li><b>真 token</b>：用 {@link JwtUtil} 现签 JWT，走真实的 AuthInterceptor + RequireRoleAspect。</li>
  * </ol>
  *
@@ -42,11 +44,19 @@ import java.util.Locale;
  * 先跑 {@code scripts/provision-test-db.sh} 从 {@code sql/schema.sql} 重建 {@code aquaflow_test}。</p>
  *
  * <p>profile 同时激活 {@code local}（提供数据源凭据与 JWT 密钥，该文件已 gitignore）
- * 与 {@code test}（把数据源指向测试库）。顺序不可颠倒：后声明的 profile 覆盖前者。</p>
+ * 与 {@code test}；数据源地址由精确确认的 DynamicPropertySource 绑定，凭据不由本保护器读取或输出。</p>
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"local", "test"})
+@ContextConfiguration(initializers = TestDatabaseTargetGuard.Initializer.class)
 public abstract class AbstractIntegrationTest {
+
+    /** F-68: even direct Gradle must confirm the exact TCP target before Spring can connect. */
+    @DynamicPropertySource
+    static void confirmedTestDatasource(DynamicPropertyRegistry registry) {
+        var target = TestDatabaseTargetGuard.current();
+        TestDatabaseTargetGuard.registerDatasource(registry, target);
+    }
 
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
 
@@ -82,15 +92,7 @@ public abstract class AbstractIntegrationTest {
     /** 每个用例开始前清空测试库全部业务表，保证用例自包含、可重复运行。 */
     @BeforeEach
     void resetDatabase() {
-        String schema = jdbc.queryForObject("SELECT DATABASE()", String.class);
-        if (!isTestSchema(schema)) {
-            throw new IllegalStateException("安全护栏：集成测试只允许在测试库上运行（本方法会 TRUNCATE 该库全部表）"
-                    + "—— 库名需以 " + TEST_SCHEMA_PREFIX + " 开头或以 " + TEST_SCHEMA_SUFFIX
-                    + " 结尾，当前库=" + schema);
-        }
-        List<String> tables = jdbc.queryForList(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'",
-                String.class);
+        var target = TestDatabaseTargetGuard.current();
         // ⚠️ 必须把 SET FOREIGN_KEY_CHECKS 与随后的 TRUNCATE **放在同一条连接上**。
         // 该设置是**会话级**的：原实现用 jdbc.execute(...) 逐条发（SET → 循环 TRUNCATE → SET），
         // 每条都可能从连接池拿到**另一条**连接 —— 于是 TRUNCATE 在"外键检查仍开着"的连接上执行，
@@ -100,15 +102,34 @@ public abstract class AbstractIntegrationTest {
         // 2026-09-18 隔离区全量回归里 314 例中恰有 1 例红在这里，排查成本远高于本修复。
         // ConnectionCallback 保证整段跑在同一条连接上。
         jdbc.execute((ConnectionCallback<Void>) con -> {
-            try (Statement st = con.createStatement()) {
-                st.execute("SET FOREIGN_KEY_CHECKS=0");
-                for (String t : tables) {
-                    st.execute("TRUNCATE TABLE `" + t + "`");
-                }
-                st.execute("SET FOREIGN_KEY_CHECKS=1");
-            }
+            resetConfirmedDatabase(con, target);
             return null;
         });
+    }
+
+    /** Same connection owns validation, table discovery and clearing; fake-connection tests execute this path. */
+    static void resetConfirmedDatabase(Connection con, TestDatabaseTargetGuard.Target target) throws java.sql.SQLException {
+        // [2026-10-02 F-68] 原来只认名字像测试库，别站地址或另一可清空库也能被清表。
+        // 配置确认、实际 metadata URL、当前 catalog 与清表共用同一连接，任一错配即停止。
+        TestDatabaseTargetGuard.assertConnection(con, target);
+        try (Statement st = con.createStatement()) {
+            String schema;
+            try (var result = st.executeQuery("SELECT DATABASE()")) {
+                if (!result.next()) throw new IllegalStateException("无法核实当前测试库");
+                schema = result.getString(1);
+            }
+            TestDatabaseTargetGuard.assertSchema(schema, target);
+            if (!isTestSchema(schema)) throw new IllegalStateException("原测试库名护栏拒绝清表");
+            List<String> tables = new java.util.ArrayList<>();
+            try (var result = st.executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'")) {
+                while (result.next()) tables.add(result.getString(1));
+            }
+            st.execute("SET FOREIGN_KEY_CHECKS=0");
+            for (String t : tables) {
+                st.execute("TRUNCATE TABLE `" + t + "`");
+            }
+            st.execute("SET FOREIGN_KEY_CHECKS=1");
+        }
     }
 
     /**
@@ -143,7 +164,7 @@ public abstract class AbstractIntegrationTest {
      * 「库名含 {@code test}」：{@code application-test.yml} 顶部（已同步）与
      * {@code AquaFlowApplicationTests} 的类注释（未同步，属其他文件的范围）。</p>
      */
-    private static boolean isTestSchema(String schema) {
+    static boolean isTestSchema(String schema) {
         if (schema == null) {
             return false;
         }

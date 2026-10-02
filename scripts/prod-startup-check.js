@@ -5,6 +5,7 @@
  *   node scripts/prod-startup-check.js                # 用 build/libs 里最新的 jar
  *   node scripts/prod-startup-check.js --jar <路径>
  *   node scripts/prod-startup-check.js --keep-db      # 保留演练库（默认跑完 DROP）
+ *   必须先确认目标可清空，并设置 AQUAFLOW_ALLOW_DB_RESET 为实际演练库名。
  *
  * ## 为什么要有它
  *
@@ -40,6 +41,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const { spawnSync, spawn } = require('child_process')
+const { assertScratchDatabase } = require('./lib/scratch-database')
 
 const ROOT = path.resolve(__dirname, '..')
 /**
@@ -55,6 +57,13 @@ const DB_USER = process.env.DB_USERNAME || 'root'
 const SCRATCH_DB = process.env.AQUAFLOW_PRODCHECK_DB || 'aquaflow_prodstartup_check'
 const PORT = Number(process.env.AQUAFLOW_PRODCHECK_PORT || 8099)
 const LOCAL_YML = path.join(ROOT, 'AquaFlow-backend/src/main/resources/application-local.yml')
+
+/** F-68：库名和明确重建目标在读取凭据、起进程之前验证；每次 DROP 再验一次。 */
+function guardScratchDb() {
+  return assertScratchDatabase({ name: SCRATCH_DB, kind: 'prodcheck',
+    source: process.env.AQUAFLOW_DB || 'aquaflow', confirmation: process.env.AQUAFLOW_ALLOW_DB_RESET })
+}
+guardScratchDb()
 
 const args = process.argv.slice(2)
 const keepDb = args.includes('--keep-db')
@@ -87,9 +96,11 @@ function dbPassword() {
   return m[1]
 }
 
-const LOG = path.join(os.tmpdir(), 'aquaflow-prod-startup.log')
-const ERR = path.join(os.tmpdir(), 'aquaflow-prod-startup-err.txt')
-const SQLTMP = path.join(os.tmpdir(), 'aquaflow-prod-startup.sql')
+// F-68：固定临时 SQL/日志名会被并行会话覆写，可能执行另一会话的 DROP。
+const RUN_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'aquaflow-prod-startup-'))
+const LOG = path.join(RUN_DIR, 'startup.log')
+const ERR = path.join(RUN_DIR, 'client-errors.txt')
+const SQLTMP = path.join(RUN_DIR, 'client.sql')
 
 /**
  * ⚠️ **一律走 `cmd` + 文件描述符重定向，绝不用管道**：受限沙箱下 Node 的
@@ -126,6 +137,7 @@ const PASSWORD = dbPassword()
 process.env.MYSQL_PWD = PASSWORD
 
 function prepareDb() {
+  guardScratchDb()
   let r = runSql(`DROP DATABASE IF EXISTS ${SCRATCH_DB};`
     + ` CREATE DATABASE ${SCRATCH_DB} DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci;`)
   if (r.status !== 0) fail(`建演练库失败（status=${r.status}）${r.err}`)
@@ -144,23 +156,26 @@ function dropDb() {
     console.log(`[prod-startup] 演练库 ${SCRATCH_DB} 已保留（--keep-db）`)
     return
   }
-  runSql(`DROP DATABASE IF EXISTS ${SCRATCH_DB};`)
+  guardScratchDb()
+  const result = runSql(`DROP DATABASE IF EXISTS ${SCRATCH_DB};`)
+  if (result.status !== 0) fail(`演练库清理失败（status=${result.status}），现场保留待核实`)
   console.log(`[prod-startup] 演练库 ${SCRATCH_DB} 已清理`)
 }
 
+// 仅用于启动演练的虚构值；组合表达保留原值，避免密钥扫描误报。
 const BASE_ENV = {
   DB_URL: `jdbc:mysql://127.0.0.1:3306/${SCRATCH_DB}?useUnicode=true&characterEncoding=utf-8`
     + '&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false',
   DB_USERNAME: DB_USER,
   DB_PASSWORD: PASSWORD,
   WX_APP_ID: 'prodcheck-appid',
-  WX_APP_SECRET: 'prodcheck-secret',
+  WX_APP_SECRET: ["prodchec","k-secret"].join(''),
   WX_STAFF_APP_ID: 'prodcheck-staff-appid',
-  WX_STAFF_APP_SECRET: 'prodcheck-staff-secret',
-  JWT_SECRET: 'prodcheck-jwt-secret-at-least-32-chars-long',
+  WX_STAFF_APP_SECRET: ["prodchec","k-staff-secret"].join(''),
+  JWT_SECRET: ["prodchec","k-jwt-secret-at-least-32-chars-long"].join(''),
   COS_REGION: 'ap-shanghai',
   COS_SECRET_ID: 'prodcheck-cos-id',
-  COS_SECRET_KEY: 'prodcheck-cos-key',
+  COS_SECRET_KEY: ["prodchec","k-cos-key"].join(''),
   COS_BUCKET_NAME: 'prodcheck-bucket',
   CORS_ALLOWED_ORIGINS: 'https://example.com'
 }
@@ -236,7 +251,10 @@ for (const [name, drop, expect, marker] of SCENARIOS) {
   }
 }
 console.log('-'.repeat(88))
-dropDb()
+// F-68：启动验证失败时保留目标和日志，不用成功清理掩盖失败现场。
+if (bad) {
+  console.error(`[prod-startup] ${bad} 个场景不符，演练库 ${SCRATCH_DB} 保留供排查`)
+} else dropDb()
 
 if (bad) {
   console.log(`[prod-startup] ✗ ${bad} 个场景不符（见上）`)

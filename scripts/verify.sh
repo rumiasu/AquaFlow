@@ -1,10 +1,12 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # =============================================================================
 # 本地一键验证（改造执行任务书 Phase E.5）。
 # 步骤：重建测试库 → 后端集成测试 → 小程序静态扫描 → 敏感信息扫描。
 #
 # 用法：
 #   export MYSQL_PWD='***'         # 本地 root 密码，勿提交
+#   export AQUAFLOW_ALLOW_DB_RESET=aquaflow_test
+#   export AQUAFLOW_ALLOW_TEST_DB_TARGET=127.0.0.1:3306/aquaflow_test
 #   bash scripts/verify.sh
 #
 # 说明：
@@ -22,7 +24,19 @@ cd "$(cd "$(dirname "$0")/.." && pwd)"
 # 「整组门禁根本没跑」与「某个门禁跑红了」是两回事，但**都不许返回 0**（见文件头 F-02 说明）。
 MISSING_DEP=0
 
+# [2026-10-02 F-68] 原来 SQL 清空一个库，Gradle 却继承另一个 JDBC 目标。
+# 先校验完整地址/驱动参数/所有受支持的配置入口，再规范化并原样交给两条链。
+TARGET_OUTPUT="$(node scripts/lib/test-database-target.js --verify)"
+mapfile -t TARGET_FIELDS <<< "$TARGET_OUTPUT"
+export MYSQL_HOST="${TARGET_FIELDS[0]}" MYSQL_PORT="${TARGET_FIELDS[1]}"
+export TEST_DB_NAME="${TARGET_FIELDS[2]}" TEST_DB_URL="${TARGET_FIELDS[3]}"
+
+# F-68：整轮会重建两个不同目标，分别显式确认；预检失败时不得先清测试库。
+AQUAFLOW_ALLOW_DB_RESET="${AQUAFLOW_ALLOW_PRODCHECK_RESET:-}" node scripts/lib/scratch-database.js \
+  prodcheck "${AQUAFLOW_PRODCHECK_DB:-aquaflow_prodstartup_check}" "${AQUAFLOW_DB:-aquaflow}"
+
 echo "==================== [1/7] 重建测试库 ===================="
+# F-68：调用者须先确认 TEST_DB_NAME 对应可清空库，并显式设置 AQUAFLOW_ALLOW_DB_RESET。
 bash scripts/provision-test-db.sh
 
 echo "==================== [2/7] 后端集成测试 ===================="
@@ -113,6 +127,10 @@ if command -v node >/dev/null 2>&1; then
   #     实测曾有 83 个 .sql 里 21 个无出处，含 clear_data.sql（清全库）与 reset_passwords.sql（重置全部员工密码）。
   node scripts/check-tracked-inputs.js || { echo "❌ 入库件检查未通过"; exit 1; }
   node scripts/check-sql-catalog.js || { echo "❌ 迁移清单一致性未通过"; exit 1; }
+  #   check-ledger-claims.js：台账 §2 的「度量方法」列落成可执行断言（F-49，2026-09-30 第六批）。
+  #     MUST（领域不变量）不达标即红；FINDING 与 §4 状态位互证 —— 台账标 FIXED 却实测不达标 = 红。
+  #     为什么要有：台账自己栽过三次「判据写在表里、没有一条能跑」（"全有用例"错 4 条等）。
+  node scripts/check-ledger-claims.js || { echo "❌ 台账判据可执行化未通过"; exit 1; }
   #   check-gate-parity.js：三处验证入口（ci.yml / verify.sh / verify-local.js）的门禁清单是否一致 ——
   #     新加门禁只接一处时，另一处**永远不会告诉你它漏了**，表现为「本机全绿、CI 红」且本地复现不出。
   node scripts/check-gate-parity.js || { echo "❌ 门禁清单不一致"; exit 1; }
@@ -134,7 +152,8 @@ if command -v node >/dev/null 2>&1; then
   # 断言「必需项缺失必须拒启、COS 四件套缺失只降级」。约 3.5 分钟。
   # 为什么用真 jar 起：静态比对键名证明不了「真的会拒启」，也发现不了「声明了却没人读」的键 ——
   # 实测就抓到过 COS_SECRET_ID/KEY 假必需、COS_REGION/BUCKET_NAME 悬空两处。
-  node scripts/prod-startup-check.js || { echo "❌ 生产启动姿态未通过"; exit 1; }
+  AQUAFLOW_ALLOW_DB_RESET="${AQUAFLOW_ALLOW_PRODCHECK_RESET:-}" node scripts/prod-startup-check.js \
+    || { echo "❌ 生产启动姿态未通过"; exit 1; }
 
   echo "--- 冒烟检查（仅当本机 8080 有服务时跑）---"
   if command -v curl >/dev/null 2>&1 && curl -s -o /dev/null --max-time 3 http://127.0.0.1:8080/api/stations/public; then
@@ -145,14 +164,15 @@ if command -v node >/dev/null 2>&1; then
 else
   # F-29（2026-09-30 修）：原文引用 `make check-prod-config`，而**仓库没有 Makefile** ——
   # 照着提示敲必然报 "No rule to make target"，还得回头猜真实命令。改成实际的 node 调用写法；
-  # 同时把「这三个门禁」改成真的数得出来的清单（本步实际是下面这 7 道 node 门禁，加 bootJar 的
+  # 同时把「这三个门禁」改成真的数得出来的清单（本步实际是下面这 8 道 node 门禁，加 bootJar 的
   # 发布物检查、生产启动姿态、冒烟检查）：
   #   node scripts/check-prod-config.js / check-tracked-inputs.js / check-sql-catalog.js /
-  #   check-gate-parity.js / check-pending-decisions.js / check-api-doc.js / check-jar-no-local-config.js
+  #   check-ledger-claims.js / check-gate-parity.js / check-pending-decisions.js /
+  #   check-api-doc.js / check-jar-no-local-config.js
   #   node scripts/prod-startup-check.js / node scripts/smoke-check.js
-  # ⚠️ 上面这 9 个路径**故意写在 `#` 注释里**：`check-gate-parity.js` 会剥掉注释与 `echo` 提示行，
+  # ⚠️ 上面这 10 个路径**故意写在 `#` 注释里**：`check-gate-parity.js` 会剥掉注释与 `echo` 提示行，
   #    只剩"真的会执行"的行 —— 把脚本名写进 `echo` 的续行会被它当成"这道门禁跑了"（假绿）。
-  echo "[verify] 未找到 node，跳过本步的 7 道 node 门禁与生产启动姿态、冒烟检查（CI 上会强制执行）。"
+  echo "[verify] 未找到 node，跳过本步的 8 道 node 门禁与生产启动姿态、冒烟检查（CI 上会强制执行）。"
   echo "         手动补跑：node scripts/check-prod-config.js（其余见本步上方注释）"
   MISSING_DEP=1
 fi
@@ -165,6 +185,7 @@ echo "==================== [7/7] 备份 / 恢复演练（可选，需显式开�
 # 不该混进每次日常验证。上线前与改动迁移后各跑一次：
 #   node scripts/backup-restore-drill.js drill
 echo "[verify] 未自动执行。上线前请单独跑：node scripts/backup-restore-drill.js drill"
+echo "         先核实目标可清空，再将 AQUAFLOW_ALLOW_DB_RESET 设置为本次演练库名。"
 
 echo ""
 # 结尾判据（2026-09-30 修 F-02）：**只有真的全跑且全过才打印成功并返回 0**。
@@ -177,4 +198,3 @@ if [ "$MISSING_DEP" -ne 0 ]; then
   exit 1
 fi
 echo "✅ 本地验证全部通过（全部门禁都真的跑过，无跳过项）"
-

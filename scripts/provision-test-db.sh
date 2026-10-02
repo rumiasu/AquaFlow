@@ -9,12 +9,15 @@
 #
 # 用法：
 #   export MYSQL_PWD='***'          # 本地 root 密码，勿提交
+#   export AQUAFLOW_ALLOW_DB_RESET=aquaflow_test # 必须先确认此目标可清空
+#   export AQUAFLOW_ALLOW_TEST_DB_TARGET=127.0.0.1:3306/aquaflow_test # 同时确认服务器/端口
 #   bash scripts/provision-test-db.sh
 #
 # 可覆盖的环境变量：
 #   MYSQL_BIN     mysql 客户端路径（默认自动探测 D:/backend/MySQL/bin/mysql.exe 或 PATH 中的 mysql）
 #   MYSQL_USER    默认 root
 #   TEST_DB_NAME  默认 aquaflow_test
+#   MYSQL_HOST / MYSQL_PORT 默认 127.0.0.1 / 3306；须与 TEST_DB_URL 一致
 # =============================================================================
 set -euo pipefail
 
@@ -23,6 +26,13 @@ SCHEMA="$HERE/AquaFlow-backend/sql/schema.sql"
 
 MYSQL_USER="${MYSQL_USER:-root}"
 TEST_DB_NAME="${TEST_DB_NAME:-aquaflow_test}"
+
+# F-68：先拒绝非法/业务/备份目标；不能等 mysql 启动后才检查，也不靠名字含 test。
+node "$HERE/scripts/lib/scratch-database.js" test "$TEST_DB_NAME" "${AQUAFLOW_DB:-aquaflow}"
+TARGET_OUTPUT="$(node "$HERE/scripts/lib/test-database-target.js")"
+mapfile -t TARGET_FIELDS <<< "$TARGET_OUTPUT"
+MYSQL_HOST="${TARGET_FIELDS[0]}"
+MYSQL_PORT="${TARGET_FIELDS[1]}"
 
 # 探测 mysql 客户端
 if [ -n "${MYSQL_BIN:-}" ]; then
@@ -50,8 +60,11 @@ fi
 echo "[provision-test-db] 使用客户端: $MYSQL"
 echo "[provision-test-db] 重建库: $TEST_DB_NAME（来源 schema.sql）"
 
-"$MYSQL" -u"$MYSQL_USER" -e "DROP DATABASE IF EXISTS \`$TEST_DB_NAME\`; CREATE DATABASE \`$TEST_DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
-"$MYSQL" -u"$MYSQL_USER" "$TEST_DB_NAME" < "$SCHEMA"
+node "$HERE/scripts/lib/scratch-database.js" test "$TEST_DB_NAME" "${AQUAFLOW_DB:-aquaflow}"
+# F-68：不读取隐藏的客户端选项/登录文件，三次调用共享同一显式 TCP 地址。
+MYSQL_ARGS=(--no-defaults --no-login-paths --protocol=TCP --host="$MYSQL_HOST" --port="$MYSQL_PORT" -u"$MYSQL_USER")
+"$MYSQL" "${MYSQL_ARGS[@]}" -e "DROP DATABASE IF EXISTS \`$TEST_DB_NAME\`; CREATE DATABASE \`$TEST_DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+"$MYSQL" "${MYSQL_ARGS[@]}" "$TEST_DB_NAME" < "$SCHEMA"
 
-COUNT="$("$MYSQL" -u"$MYSQL_USER" -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$TEST_DB_NAME';")"
+COUNT="$("$MYSQL" "${MYSQL_ARGS[@]}" -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$TEST_DB_NAME';")"
 echo "[provision-test-db] 完成：$TEST_DB_NAME 现有 $COUNT 个表/视图"

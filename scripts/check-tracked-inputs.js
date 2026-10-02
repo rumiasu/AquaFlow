@@ -26,7 +26,11 @@
  *   · **被忽略 ⇒ 失败**：克隆后必然不存在，CI/部署一定出问题（就是上面那次事故的形状）；
  *   · **不存在 ⇒ 失败**：CI 点名了一个仓库里没有的件；
  *   · **存在但未跟踪 ⇒ 警告**：本地看起来一切正常、提交时忘了 `git add` 就会变成上一条
- *     —— 不判红（正在进行的工作必然如此），但**每次都会念一遍**。
+ *     —— 不判红（正在进行的工作必然如此），但**每次都会念一遍**；
+ *   · **git 不可用 ⇒ 失败**：拿不到 `git ls-files` 的输出（退出码非 0）时**必须中止**，不许继续 ——
+ *     那一刻 `tracked` 是空集、`git check-ignore` 也会一律返回"未忽略"，本门禁会**静默降级成
+ *     "文件存在性检查"**（正是它自己要防的那种假结论）并给出绿灯。判据与 F-02「缺依赖/工具不可用
+ *     不许判绿」同源；哨兵 `AQUAFLOW_TRACKED_INPUTS_UNKNOWN`。
  *
  * ⚠️ 有意留空的例外写在 `ALLOWED_IGNORED` 里（每条带理由）：本机密钥、备份、生成物。
  *
@@ -61,12 +65,44 @@ const REQUIRED_TRACKED = [
   'scripts/check-jar-no-local-config.js',
   'scripts/check-sql-catalog.js',
   'scripts/check-gate-parity.js',
+  // 2026-09-30 新增（第六批 F-49）：台账 §2 判据可执行化 —— 三处入口都调它，
+  // 不入库则新克隆的 CI 在该步找不到文件（同 check-miniapp-text 的事故形状）。
+  'scripts/check-ledger-claims.js',
   // 2026-09-30 新增（WP3/F-33+F-13）：小程序文本体检 —— 三处入口都调它，
   // 不入库则新克隆的 CI 在「小程序文本体检」那一步直接找不到文件（本仓 2026-09-28 那次事故同形）。
   'scripts/check-miniapp-text.js',
   'scripts/prod-startup-check.js',
   'scripts/smoke-check.js',
   'scripts/backup-restore-drill.js',
+  'scripts/lib/scratch-database.js',
+  'scripts/lib/transaction-catches.js',
+  'tests/js/verification-safety.test.js',
+  'tests/js/customer-history-recovery.test.js',
+  'tests/js/page-failure-recovery.test.js',
+  'tests/js/independent-purchase-recovery.test.js',
+  'miniapp-user/utils/independent-purchase-intent.js',
+  'AquaFlow-backend/src/test/java/com/example/aquaflow/service/AuthRefreshRotationTest.java',
+  'tests/js/business-pending-flow.test.js',
+  'AquaFlow-backend/src/test/java/com/example/aquaflow/service/BusinessPendingSummaryTest.java',
+  'AquaFlow-backend/src/test/java/com/example/aquaflow/integration/BusinessPendingSummaryIntegrationTest.java',
+  'AquaFlow-backend/sql/migration_v72_ticket_purchase_intent.sql',
+  // 2026-10-02：购票恢复与永久编号封锁，公共流程跑手及后端协议的必要交付件。
+  'tests/js/ticket-purchase-recovery-boundary.test.js',
+  'tests/js/request-session-boundary.test.js',
+  'tests/js/request-malformed-envelope.test.js',
+  'AquaFlow-backend/sql/migration_v73_ticket_purchase_fence.sql',
+  'AquaFlow-backend/src/main/java/com/example/aquaflow/entity/TicketPurchaseFence.java',
+  'AquaFlow-backend/src/main/java/com/example/aquaflow/mapper/TicketPurchaseFenceMapper.java',
+  'AquaFlow-backend/src/main/java/com/example/aquaflow/service/TicketPurchaseFenceService.java',
+  'AquaFlow-backend/src/test/java/com/example/aquaflow/service/TicketPurchaseFenceTest.java',
+  'AquaFlow-backend/src/test/java/com/example/aquaflow/service/IndependentBarrelPurchaseFenceTest.java',
+  'AquaFlow-backend/src/test/java/com/example/aquaflow/config/PaymentSchemaGuardShapeTest.java',
+  'AquaFlow-backend/src/test/java/com/example/aquaflow/integration/TicketPurchaseFenceIntegrationTest.java',
+  // F-68：目标库保护通过既有 verification-safety 套件执行，不重复注册套件。
+  'scripts/lib/test-database-target.js',
+  'AquaFlow-backend/src/test/java/com/example/aquaflow/support/TestDatabaseTargetGuard.java',
+  'AquaFlow-backend/src/test/java/com/example/aquaflow/support/TestDatabaseTargetGuardTest.java',
+  'AquaFlow-backend/src/test/resources/META-INF/spring.factories',
   'scripts/scan-secrets.sh',
   // 7 个静态门禁（CI 与 verify.sh 都直接调它们；不入库则新克隆的 CI 必然失败）
   'audit_wxml_handlers.py',
@@ -105,7 +141,26 @@ function allowedIgnored(rel) {
   return ALLOWED_IGNORED.some(([p]) => rel === p || rel.startsWith(p))
 }
 
-const tracked = new Set(gitOutput('git ls-files').out.split('\n').map(s => s.trim()).filter(Boolean))
+/*
+ * ⚠️ 判据：**git 不可用 = 什么也不知道**，绝不许降级成绿灯。
+ * 原实现只看 `out` 不看退出码 —— git 缺失/不可执行时 `out` 为空、`tracked` 变空集，
+ * 每个件都会被印成"存在但未跟踪"（只 warn 不 fail），结尾照样 `AQUAFLOW_TRACKED_INPUTS_OK`
+ * 且 exit 0。本门禁存在的全部意义（"文件在工作区里在" ≠ "别人 clone 得到"）在那条路径上归零，
+ * 而它看起来像"检查过了、只有几处提醒"。
+ * 判据同 F-02（`scripts/verify.sh` 缺 python/node 时打 `AQUAFLOW_VERIFY_INCOMPLETE` 并 exit 1）：
+ * **没跑 ≠ 通过**。这里用 `AQUAFLOW_TRACKED_INPUTS_UNKNOWN` 明确区分"没跑成"与"跑出来有问题"。
+ */
+const lsFiles = gitOutput('git ls-files')
+if (lsFiles.status !== 0) {
+  console.error(`[tracked-inputs] ✗ 拿不到 git 文件清单（\`git ls-files\` 退出码 ${lsFiles.status}）——`)
+  console.error('  本门禁的判据是「按 **git** 视角看这个件克隆得到吗」，git 不可用时它答不了任何一项：')
+  console.error('  `tracked` 会是空集、`git check-ignore` 也一律返回"未忽略"，继续跑只会把每个件')
+  console.error('  印成"存在但未跟踪"并给出绿灯（假绿）。故中止，而不是降级成"文件存在性检查"。')
+  console.error('  修法：确认 git 可用（`git --version` 有输出）后重跑；CI 上这一步必然可用。')
+  console.log('AQUAFLOW_TRACKED_INPUTS_UNKNOWN')
+  process.exit(1)
+}
+const tracked = new Set(lsFiles.out.split('\n').map(s => s.trim()).filter(Boolean))
 
 /** 从 ci.yml 的 run 块与 path: 里抽出被点名的仓库内件。 */
 function ciReferenced() {

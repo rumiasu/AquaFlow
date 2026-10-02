@@ -61,7 +61,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         // 水站营业状态（软状态）+ 站长留言：顾客端商城/下单页横幅要在**未登录**时也能看到，
                         // 所以必须是公开端点（只返回 id/名称/状态文案，不含任何站长私有字段）。
                         "/api/stations/{id}/status",
-                        "/api/station/{id}/status"
+                        "/api/station/{id}/status",
+                        // [2026-09-30 F-46] 存活探针：网关/容器探针不可能带 token，且它不查库、
+                        // 只回固定状态串（见 SystemController javadoc）。加进这个名单 = 允许匿名访问，
+                        // 请勿顺手把它挪去需要鉴权的一侧 —— 那会让 liveness 恒 401。
+                        "/api/system/health"
                 );
     }
 }

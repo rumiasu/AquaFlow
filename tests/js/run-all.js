@@ -14,10 +14,19 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'verification-safety.test.js', name: '验证脚本目标库保护与事务门禁反向样例' },
+  { file: 'independent-right-purchase.test.js', name: '独立押金购买与未知付款恢复' },
+  { file: 'independent-purchase-recovery.test.js', name: '独立押金原请求、存储与跨会话恢复' },
+  { file: 'customer-history-recovery.test.js', name: '独立押金历史凭据与失败恢复' },
+  { file: 'page-failure-recovery.test.js', name: '五页加载、失败重试与请求竞态' },
+  { file: 'business-pending-flow.test.js', name: '站长业务责任：首页待办、原申请定位与失败重试' },
   { file: 'order-create-flow.test.js', name: '客户下单闭环（工作包 B）' },
   { file: 'delivery-complete-flow.test.js', name: '配送送达页（工作包 C）' },
   { file: 'delivery-detail-return-row.test.js', name: '订单详情页回桶行（首单不给默认回桶值）' },
   { file: 'ticket-purchase-flow.test.js', name: '水票购买（自助预付，不需要水站同意）' },
+  { file: 'ticket-purchase-recovery-boundary.test.js', name: '购票原请求恢复、存储失败与永久结束回执' },
+  { file: 'request-session-boundary.test.js', name: '客户会话周期、迟到401与启动刷新边界' },
+  { file: 'request-malformed-envelope.test.js', name: '两端异步响应损坏、续期与重发收尾' },
   { file: 'notice-draft-flow.test.js', name: '公告发布/草稿（站长端）' },
   { file: 'coordination-assign-flow.test.js', name: '待分配→分配配送员（站长端，2026-09-27 真机事故回归）' },
   { file: 'barrel-preview-station.test.js', name: '退桶试算的服务水站上下文（2026-09-27 静默失败回归）' },

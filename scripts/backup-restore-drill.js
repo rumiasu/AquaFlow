@@ -8,6 +8,7 @@
  *   node scripts/backup-restore-drill.js verify <备份文件> <库名>   # 校验某库是否与备份一致
  *   node scripts/backup-restore-drill.js drill             # 全流程：备份 → 灌进临时库 → 逐项校验
  *   node scripts/backup-restore-drill.js cleanup           # 删掉演练用临时库
+ *   drill/cleanup 必须先确认目标可清空，再将 AQUAFLOW_ALLOW_DB_RESET 设为目标库名。
  *
  * ---------------------------------------------------------------------------
  * 为什么必须有"恢复成功的判据"，而不能只看退出码
@@ -32,6 +33,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const { spawnSync } = require('child_process')
+const { assertIdentifier, assertScratchDatabase } = require('./lib/scratch-database')
 
 const repoRoot = path.resolve(__dirname, '..')
 const MYSQL_BIN = process.env.AQUAFLOW_MYSQL_BIN || 'D:\\backend\\MySQL\\bin'
@@ -41,6 +43,15 @@ const MYSQLDUMP = path.join(MYSQL_BIN, 'mysqldump.exe')
 const SRC_DB = process.env.AQUAFLOW_DB || 'aquaflow'
 const DRILL_DB = process.env.AQUAFLOW_DRILL_DB || 'aquaflow_restoredrill'
 const BACKUP_DIR = path.join(repoRoot, 'backup', 'dryrun')
+
+/** F-68：恢复不能覆盖源库；先拒绝不合法目标，再读口令/导出备份。 */
+function guardDrillDb() {
+  return assertScratchDatabase({ name: DRILL_DB, kind: 'restoredrill', source: SRC_DB,
+    confirmation: process.env.AQUAFLOW_ALLOW_DB_RESET })
+}
+assertIdentifier(SRC_DB)
+if (['drill', 'cleanup'].includes(process.argv[2])) guardDrillDb()
+if (process.argv[2] === 'verify') assertIdentifier(process.argv[4])
 
 /** 从 gitignore 的本地配置取口令。**绝不打印它。** */
 function localDbPassword() {
@@ -183,6 +194,7 @@ function applyRetention(keep) {
 // backup
 // ---------------------------------------------------------------------------
 function doBackup(label, keep) {
+  if (label && !/^[a-zA-Z0-9_-]+$/.test(label)) throw new Error('备份标签只允许字母、数字、下划线或连字符')
   fs.mkdirSync(BACKUP_DIR, { recursive: true })
   const tag = label || 'manual'
   const file = path.join(BACKUP_DIR, `${SRC_DB}_${tag}_${nowStamp()}.sql`)
@@ -234,6 +246,7 @@ function doBackup(label, keep) {
 // verify：逐项核对某库与某备份是否一致
 // ---------------------------------------------------------------------------
 function doVerify(backupSql, db) {
+  assertIdentifier(db)
   const mf = backupSql.replace(/\.sql$/, '.manifest.json')
   if (!fs.existsSync(mf)) {
     console.error(`[verify] 找不到清单 ${mf} —— 清单是"恢复成功"的判据来源，不能省`)
@@ -320,6 +333,7 @@ function report(name, ok, detail) {
 // drill：备份 → 灌进临时库 → 逐项校验
 // ---------------------------------------------------------------------------
 function doDrill() {
+  guardDrillDb()
   console.log('='.repeat(70))
   console.log(`恢复演练：${SRC_DB} → ${DRILL_DB}（只写演练库，不碰 aquaflow / aquaflow_test）`)
   console.log('='.repeat(70))
@@ -327,6 +341,7 @@ function doDrill() {
   const backupFile = doBackup('drill')
   console.log('')
   console.log(`[drill] 重建演练库 ${DRILL_DB}…`)
+  guardDrillDb()
   sql('information_schema', `DROP DATABASE IF EXISTS \`${DRILL_DB}\``)
   sql('information_schema',
     `CREATE DATABASE \`${DRILL_DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci`)
@@ -359,11 +374,13 @@ function doDrill() {
   console.log('[drill] ✓ 全部通过：这份备份**可以**恢复出与源库一致的数据')
   console.log(`        备份：${path.relative(repoRoot, backupFile)}`)
   // 成功就自动收掉演练库：不留垃圾（失败的路径上面已经 return，会留着给人排查）
+  guardDrillDb()
   sql('information_schema', `DROP DATABASE \`${DRILL_DB}\``)
   console.log(`        演练库 ${DRILL_DB} 已清理`)
 }
 
 function doCleanup() {
+  guardDrillDb()
   if (!DRILL_DB.includes('restoredrill')) {
     console.error(`[cleanup] 拒绝执行：演练库名 "${DRILL_DB}" 不含 restoredrill —— 防误删真实库`)
     process.exit(1)
@@ -407,5 +424,6 @@ if (cmd === 'backup') {
   node scripts/backup-restore-drill.js cleanup                   删除演练库
 
 源库默认 ${SRC_DB}（只读），演练库默认 ${DRILL_DB}（唯一被写的库）。
+drill/cleanup 要求 AQUAFLOW_ALLOW_DB_RESET 精确等于演练库名，且目标与源库不同。
 备份落在 ${path.relative(repoRoot, BACKUP_DIR)}。`)
 }

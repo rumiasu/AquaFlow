@@ -42,8 +42,12 @@ jobs:
           --health-retries=10
 
     env:
-      # 库名必须含 test：AbstractIntegrationTest 每用例前会断言当前库名含 test 再 TRUNCATE 全表，
-      # 用 aquaflow 会被护栏直接拒绝（这是防误清真实库的最后一道防线）。
+      # 只确认本 job 的丢弃 MySQL 容器；准备脚本、直接 Gradle 与实际清表连接共享精确 TCP 目标。
+      MYSQL_HOST: "127.0.0.1"
+      MYSQL_PORT: "3306"
+      TEST_DB_NAME: aquaflow_test
+      AQUAFLOW_ALLOW_DB_RESET: aquaflow_test
+      AQUAFLOW_ALLOW_TEST_DB_TARGET: "127.0.0.1:3306/aquaflow_test"
       TEST_DB_URL: "jdbc:mysql://127.0.0.1:3306/aquaflow_test?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false"
       DB_URL: "jdbc:mysql://127.0.0.1:3306/aquaflow_test?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false"
       DB_USERNAME: root
@@ -82,6 +86,7 @@ jobs:
       # 项目未启用 Flyway，schema.sql 是权威基线，必须显式建表，否则集成测试上下文加载即失败。
       - name: 初始化测试库（schema.sql 为权威基线）
         run: |
+          node scripts/lib/test-database-target.js > /dev/null
           if ! command -v mysql >/dev/null 2>&1; then
             sudo apt-get update && sudo apt-get install -y mysql-client
           fi
@@ -89,9 +94,7 @@ jobs:
             mysqladmin ping -h 127.0.0.1 -uroot -proot --silent && break
             echo "waiting for mysql... ($i)"; sleep 2
           done
-          mysql -h 127.0.0.1 -uroot -proot -e "DROP DATABASE IF EXISTS aquaflow_test; CREATE DATABASE aquaflow_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
-          mysql -h 127.0.0.1 -uroot -proot aquaflow_test < AquaFlow-backend/sql/schema.sql
-          echo "表数：$(mysql -h 127.0.0.1 -uroot -proot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='aquaflow_test';")"
+          MYSQL_PWD="$DB_PASSWORD" bash scripts/provision-test-db.sh
 
       - name: 后端集成测试（真实 MySQL + 真 HTTP）
         working-directory: AquaFlow-backend
@@ -148,6 +151,14 @@ jobs:
       #     最坏是**跳过一个必跑的迁移还不自知**。
       - name: 迁移清单与 sql/ 目录一致性门禁
         run: node scripts/check-sql-catalog.js
+
+      # 台账判据可执行化（2026-09-30 新增，第六批 F-49）：`docs/audit/项目健康度台账.md` §2 的
+      # 「度量方法」列过去只是散文 —— 判据写在表里、没有一条能跑，于是台账自己漂过三次
+      # （"高风险端点全有用例"错 4 条、断言强度 295 处粗 grep、SECURITY.md 反着说）。
+      # 本步把能静态判的落成断言：MUST（领域不变量）不达标即红；FINDING 与 §4 状态位互证
+      # —— 台账标 FIXED 却实测不达标 = 红（说谎或回归），标 OPEN 的不达标只提示、不红。
+      - name: 台账判据可执行化（MUST 不变量 + 登记项互证）
+        run: node scripts/check-ledger-claims.js
 
       # 三处验证入口的门禁清单一致性（2026-09-28 新增）：ci.yml / verify.sh / verify-local.js
       # 是同一条事实的三份实现，漂移的形状是"新加门禁只接了其中一处"——
@@ -221,6 +232,9 @@ jobs:
       #   · COS_REGION/COS_BUCKET_NAME 没有任何代码读 ⇒ 声明成"缺失即失败"，实际根本不会失败。
       # 它自建/自清一次性库（aquaflow_prodstartup_check），只用上面已有的 mysql 服务，不需要额外资源。
       - name: 生产启动姿态（必需变量缺失必须拒启、COS 缺失只降级）
+        env:
+          # 当前 job 的丢弃容器，明确允许清空本工具的目标；不继承到其他操作。
+          AQUAFLOW_ALLOW_DB_RESET: aquaflow_prodstartup_check
         run: node scripts/prod-startup-check.js
 
       - name: 上传测试报告（失败时也保留，便于排查）

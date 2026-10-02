@@ -1,4 +1,6 @@
 <view class="container">
+  <view class="page-state" wx:if="{{loading}}"><text class="page-state-text">{{loaded ? '正在刷新...' : '加载中...'}}</text></view>
+  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button class="page-state-retry" bindtap="onRetry">重试</button></view>
   <view class="summary-card" wx:if="{{totalReturn > 0 || totalDiscrepancy !== 0}}">
     <view class="summary-item">
       <text class="summary-num">{{totalDeliveries}}</text>
@@ -38,7 +40,7 @@
     </view>
   </view>
 
-  <view class="empty" wx:if="{{records.length === 0}}">
+  <view class="empty" wx:if="{{loaded && !loading && !error && records.length === 0}}">
     <text>暂无空桶回收记录</text>
   </view>
 </view>

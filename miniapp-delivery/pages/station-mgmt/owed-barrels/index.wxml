@@ -1,4 +1,6 @@
 <view class="container">
+  <view class="page-state" wx:if="{{loading}}"><text class="page-state-text">{{loaded ? '正在刷新...' : '加载中...'}}</text></view>
+  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button class="page-state-retry" bindtap="onRetry">重试</button></view>
   <view class="filter-bar">
     <view class="filter-item {{minDays === item.value ? 'active' : ''}}"
           wx:for="{{filters}}"
@@ -32,10 +34,7 @@
     </view>
   </view>
 
-  <view class="empty" wx:if="{{loading}}">
-    <text>加载中...</text>
-  </view>
-  <view class="empty" wx:elif="{{list.length === 0}}">
+<view class="empty" wx:if="{{loaded && !loading && !error && list.length === 0}}">
     <text>本站暂无欠桶客户</text>
     <text class="empty-hint" wx:if="{{minDays > 0}}">试试切到「全部」</text>
   </view>

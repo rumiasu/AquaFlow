@@ -1,4 +1,6 @@
 <view class="container">
+  <view class="page-state" wx:if="{{loading}}"><text class="page-state-text">{{loaded ? '正在刷新...' : '加载中...'}}</text></view>
+  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button class="page-state-retry" bindtap="onRetry">重试</button></view>
   <!-- 说明头部 -->
   <view class="info-header">
     <text class="info-text">以下是您转让的订单记录，站长将重新分配给其他配送员</text>
@@ -38,14 +40,11 @@
     </view>
 
     <!-- 空状态 -->
-    <view class="empty-state" wx:if="{{!loading && orders.length === 0}}">
+    <view class="empty-state" wx:if="{{loaded && !loading && !error && orders.length === 0}}">
       <text class="empty-text">暂无转让记录</text>
       <text class="empty-hint">转让的订单将显示在这里</text>
     </view>
   </view>
 
-  <!-- 加载中 -->
-  <view class="loading-state" wx:if="{{loading}}">
-    <text class="loading-text">加载中...</text>
-  </view>
+
 </view>

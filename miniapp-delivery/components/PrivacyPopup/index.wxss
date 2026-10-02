@@ -35,8 +35,11 @@
   margin-bottom: 48rpx;
 }
 
+/* display: inline 是必需的：链接已由 <text> 改成 <navigator>（open-type="openPrivacyContract"），
+   navigator 默认块级，不加这一行「…请仔细阅读并同意《用户隐私保护指引》。」会被拆成三行。 */
 .privacy-link {
   color: var(--primary-color);
+  display: inline;
 }
 
 .privacy-buttons {

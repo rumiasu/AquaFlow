@@ -39,13 +39,15 @@ const request = (options) => {
       header,
       timeout: 15000,
       success: (res) => {
+        const error = responseError(res)
+        if (error) { reject(error); return }
         if (res.statusCode === 200) {
           if (res.data.code === 0 || res.data.code === 200) {
             resolve(res.data)
           } else if (res.data.code === 401) {
             handle401(options, resolve, reject)
           } else {
-            reject(new Error(res.data.message || '请求失败'))
+            reject(new Error(responseMessage(res.data)))
           }
         } else if (res.statusCode === 401) {
           handle401(options, resolve, reject)
@@ -61,6 +63,27 @@ const request = (options) => {
       }
     })
   })
+}
+
+// 2026-10-02：平台 success 在 Promise executor 结束后触发；直接读空 body 曾异步抛错，页面永久加载。
+// 只检查响应外壳/code；message 是错误元数据，不能给合法成功新增业务门槛。
+function responseError(res) {
+  if (!res || typeof res !== 'object' || Array.isArray(res) || !Number.isInteger(res.statusCode)) return malformedResponseError()
+  if (res.statusCode !== 200) return null // 真 HTTP401 即使无 body 仍须进入原续期路径。
+  const body = res.data
+  return !body || typeof body !== 'object' || Array.isArray(body) || !Number.isInteger(body.code) ? malformedResponseError() : null
+}
+
+function malformedResponseError() { return new Error('收到的数据不完整，请重试') }
+
+function responseMessage(body, fallback = '请求失败') {
+  return body && typeof body.message === 'string' && body.message.trim() ? body.message : fallback
+}
+
+function validRefreshData(data) {
+  return data && typeof data === 'object' && !Array.isArray(data)
+    && typeof data.accessToken === 'string' && !!data.accessToken.trim()
+    && (data.refreshToken == null || typeof data.refreshToken === 'string')
 }
 
 /**
@@ -128,7 +151,12 @@ function handle401(originalOptions, resolve, reject) {
     // 有了超时会走 fail 分支，processQueue 才会把排队的请求放掉。
     timeout: 15000,
     success: (res) => {
-      if (res.statusCode === 200 && res.data && res.data.code === 0) {
+      const error = responseError(res)
+        || (res.statusCode === 200 && res.data.code === 0 && !validRefreshData(res.data.data) ? malformedResponseError() : null)
+      if (error) {
+        clearAndRedirect(); reject(error); processQueue(error); return
+      }
+      if (res.statusCode === 200 && res.data.code === 0) {
         const { accessToken, refreshToken: newRefreshToken } = res.data.data
         const app = getApp()
         app.globalData.accessToken = accessToken
@@ -140,8 +168,9 @@ function handle401(originalOptions, resolve, reject) {
         processQueue(null, accessToken)
       } else {
         clearAndRedirect()
-        reject(new Error('登录已过期'))
-        processQueue(new Error('refresh failed'))
+        const error = new Error(responseMessage(res.data, '登录已过期'))
+        reject(error)
+        processQueue(error)
       }
     },
     fail: (err) => {
@@ -184,10 +213,12 @@ function retryRequest(options, newToken) {
       // 原实现漏了这一个，续期后的重试会走系统默认超时（60s），弱网下表现为长时间卡死。
       timeout: 15000,
       success: (res) => {
+        const error = responseError(res)
+        if (error) { reject(error); return }
         if (res.statusCode === 200 && (res.data.code === 0 || res.data.code === 200)) {
           resolve(res.data)
         } else {
-          reject(new Error(res.data.message || '请求失败'))
+          reject(new Error(responseMessage(res.data, res.statusCode === 401 ? '登录已过期' : '请求失败')))
         }
       },
       fail: (err) => reject(toNetworkError(err))

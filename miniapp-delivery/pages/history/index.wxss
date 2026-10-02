@@ -163,3 +163,9 @@
   font-size: var(--font-md);
   color: var(--text-secondary);
 }
+
+/* 2026-10-02：失败状态常驻，刷新失败时旧记录不能冒充本次结果。 */
+.page-state { margin: 24rpx; padding: 28rpx; background: #fff; border-radius: 16rpx; text-align: center; }
+.page-state-text { display: block; font-size: 28rpx; color: #666; line-height: 1.6; }
+.page-state-error { color: #b33b32; }
+.page-state-retry { margin-top: 20rpx; font-size: 28rpx; color: #fff; background: var(--primary-color); }

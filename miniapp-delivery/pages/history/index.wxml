@@ -1,6 +1,8 @@
 <view class="container">
+  <view class="page-state" wx:if="{{loading}}"><text class="page-state-text">{{loaded ? '正在刷新...' : '加载中...'}}</text></view>
+  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button class="page-state-retry" bindtap="onRetry">重试</button></view>
   <!-- 统计头部 -->
-  <view class="stats-header">
+  <view class="stats-header" wx:if="{{loaded}}">
     <text class="stats-title">已完成配送</text>
     <text class="stats-count">{{orders.length}} 单</text>
   </view>
@@ -39,14 +41,11 @@
     </view>
 
     <!-- 空状态 -->
-    <view class="empty-state" wx:if="{{!loading && orders.length === 0}}">
+    <view class="empty-state" wx:if="{{loaded && !loading && !error && orders.length === 0}}">
       <text class="empty-text">暂无配送历史</text>
       <text class="empty-hint">完成配送后记录将显示在这里</text>
     </view>
   </view>
 
-  <!-- 加载中 -->
-  <view class="loading-state" wx:if="{{loading}}">
-    <text class="loading-text">加载中...</text>
-  </view>
+
 </view>

@@ -38,6 +38,8 @@ import java.util.Map;
 @Service
 @Slf4j
 public class OrderServiceImpl implements OrderService {
+    @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
+    @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
 
     /**
      * 取消申请的编排入口（已接单订单的取消须站长审批）。
@@ -456,7 +458,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         List<Long> createdInTransitIds = new java.util.ArrayList<>();
-        if (totalNeededBuckets > 0) {
+        if (totalNeededBuckets > 0 && !barrelPolicy.isEnabled()) {
             List<CustomerBarrelAsset> assets = customerBarrelAssetMapper.listByCustomerAndStation(dto.getCustomerId(), stationId);
             Map<Long, Integer> heldByProduct = new HashMap<>();
             if (assets != null) {
@@ -553,7 +555,8 @@ public class OrderServiceImpl implements OrderService {
         orders.setSettleStationId(stationId);
         orders.setSource(dto.getSource() != null ? dto.getSource() : 2);
         orders.setPaymentMethod(dto.getPaymentMethod());
-        orders.setPaymentStatus(PaymentStatus.PENDING);
+        orders.setPaymentStatus(barrelPolicy.isEnabled() && !Integer.valueOf(PayMethod.CASH).equals(dto.getPaymentMethod())
+                ? PaymentStatus.UNPAID : PaymentStatus.PENDING);
         orders.setWaterAmount(waterAmount);
         orders.setDepositAmount(depositAmount);
         // ⚠️ 费用**单独成列**，绝不并入 water_amount（污染水费口径）或 deposit_amount
@@ -587,7 +590,7 @@ public class OrderServiceImpl implements OrderService {
         //    默认回桶值取消掉」）；照默认提交还会凭空给他记上欠桶。
         //    读它的地方：OrderWorkflowServiceImpl.completeDelivery（为真则整段跳过回桶核对）
         //    与 involvesDepositOrBarrelRights 的第 2 项。
-        orders.setFirstBarrelOrder(totalNeededBuckets > 0
+        orders.setFirstBarrelOrder(!barrelPolicy.isEnabled() && totalNeededBuckets > 0
                 && !assetService.hasBarrelAsset(dto.getCustomerId(), stationId));
         orders.setIdempotencyKey(idempotencyKey);
         // 请求摘要：与幂等键一起落库，用来回答"同键的第二次请求内容是否相同"（评审问题 5）。
@@ -614,6 +617,14 @@ public class OrderServiceImpl implements OrderService {
         // 更新配送中桶资产记录的关联订单ID（仅关联本次创建的配送中桶记录）
         if (!createdInTransitIds.isEmpty()) {
             customerBarrelInTransitMapper.linkPendingToOrder(orders.getId(), createdInTransitIds);
+        }
+
+        // [2026-10-01] 新单只分配已成立权益；水单永远不代收独立资产款。
+        if (barrelPolicy.isEnabled()) {
+            for (Long pid : new java.util.TreeSet<>(barrelByProduct.keySet())) {
+                barrelLedger.reserveRights(dto.getCustomerId(), stationId, pid,
+                        barrelByProduct.get(pid), "ORDER", orders.getId());
+            }
         }
 
         List<OrderItem> createdItems = new java.util.ArrayList<>();

@@ -20,6 +20,8 @@ import java.math.BigDecimal;
  * </ol>
  */
 public interface TicketLotService {
+    /** 仅退有购票原款凭据且仍未使用的本批票，人工赠票不换现金。 */
+    ConsumeResult consumePurchasedBalance(Long customerId,Long stationId,Long productId,Long paymentId);
 
     /**
      * 建批次（入账）。所有"水票变多"的路径都走这里：在线购票确认、站长加票、退款回补、历史迁移。
@@ -49,6 +51,9 @@ public interface TicketLotService {
 
     /** FIFO 消耗结果 */
     class ConsumeResult {
+        private int quantity;
+        public int getQuantity() { return quantity; }
+        public void setQuantity(int quantity) { this.quantity=quantity; }
         /** 本次消耗的总金额 = Σ 取用张数 × 该批次单价 */
         private BigDecimal totalAmount = BigDecimal.ZERO;
         /** 加权平均单价（跨批次时用它记流水；单价带 4 位小数避免反复四舍五入失真） */

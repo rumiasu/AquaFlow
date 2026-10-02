@@ -86,6 +86,9 @@ public interface TicketAccountService {
     void creditPurchasedTickets(Long customerId, Long productId, Integer qty, Long stationId,
                                 Long paymentRecordId, java.math.BigDecimal paidAmount);
 
+    /** 顾客身份由控制器提供；只查同客户的购票流水，既不发起也不确认收款。 */
+    com.example.aquaflow.entity.PaymentRecord findPurchaseResult(Long customerId, String idempotencyKey);
+
     /**
      * 客户线上购买水票：生成待支付流水（无订单），支付确认后再入账水票。
      *

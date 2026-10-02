@@ -7,6 +7,9 @@ import java.util.List;
 
 @Mapper
 public interface BarrelRecordMapper {
+    /** 独立申请固定批次后写入试算金额，审批后不得重新报价。 */
+    @Update("update barrel_record set deposit_refund=#{amount} where id=#{id} and status=1")
+    int setPendingRefund(@Param("id") Long id,@Param("amount") java.math.BigDecimal amount);
 
     @Insert("insert into barrel_record(customer_id, station_id, product_id, type, quantity, related_order_id, note, operator_id, create_time, status, handle_note, deposit_refund, client_token, over_before, over_after, delivered_qty, returned_qty, adjustment_id) " +
             // delivered_qty / returned_qty 只有 type=8（配送收发明细）才有业务值，

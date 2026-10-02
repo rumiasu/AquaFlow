@@ -628,6 +628,10 @@ public class Orders {
      * （提示可能过期，写动作必须再校验）。</p>
      */
     private transient java.util.Map<String, Object> stockPrep;
+    /** 本单外包约定，仅含本单金额和净桶安排，不含客户画像/来源站成本。 */
+    private transient java.util.Map<String,Object> dispatchAgreement;
+    /** 新规则用于员工端展示动作语义，历史资产仍按原凭据结算。 */
+    private transient Boolean independentBusinessRules;
 
     /**
      * 本单营收是否计入当前登录水站（瞬时字段，非数据库列）。

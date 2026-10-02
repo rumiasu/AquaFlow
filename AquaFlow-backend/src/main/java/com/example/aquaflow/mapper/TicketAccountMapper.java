@@ -8,6 +8,8 @@ import java.util.Map;
 
 @Mapper
 public interface TicketAccountMapper {
+    @Select("select * from ticket_account where customer_id=#{customer} and station_id=#{station} and product_id=#{product} for update")
+    TicketAccount lockAccount(@Param("customer") Long customer,@Param("station") Long station,@Param("product") Long product);
 
     @Insert("insert into ticket_account(customer_id, product_id, station_id, remain_quantity, update_time) " +
             "values(#{customerId}, #{productId}, #{stationId}, #{remainQuantity}, #{updateTime})")

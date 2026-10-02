@@ -32,6 +32,9 @@ public class PaymentRecord {
      */
     private String idempotencyKey;
 
+    /** v72：购票请求内容摘要，永久快照；不含服务端价格，存量为空。 */
+    private String purchaseRequestDigest;
+
     /** 客户ID */
     private Long customerId;
 

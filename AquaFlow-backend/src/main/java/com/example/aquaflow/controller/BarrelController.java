@@ -3,6 +3,7 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.BarrelRecord;
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.service.BarrelService;
 import com.example.aquaflow.service.BarrelLedgerService;
 import com.example.aquaflow.dto.BarrelRefundDTO;
@@ -28,9 +29,17 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/barrels")
 public class BarrelController {
+    /** 顾客端撤回尚未实际交接的申请，身份从登录态取得。 */
+    @PutMapping("/records/{id}/withdraw")
+    public Result<Void> withdrawReturn(@PathVariable Long id) {
+        if (!"customer".equals(AuthContext.getUserType())) throw new BusinessException("仅客户本人可撤回申请");
+        approvedReturnService.withdraw(id,AuthContext.getUserId()); return Result.success();
+    }
 
     @Autowired
     private BarrelService barrelService;
+    @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
+    @Autowired private com.example.aquaflow.service.ApprovedBarrelReturnService approvedReturnService;
 
     /**
      * 获取当前登录客户的桶资产摘要（按水类型分组）
@@ -125,7 +134,26 @@ public class BarrelController {
         }
         // 试算 → 拦截 → 落 type=2 申请单，整段在服务端（2026-09-29 下沉）；
         // 被拦时服务层抛 BusinessException，由 GlobalExceptionHandler 转 code=1，文案不变
+        if (barrelPolicy.isEnabled()) {
+            dto.setStationId(stationId);
+            return Result.success(approvedReturnService.request(customerId,dto));
+        }
         return Result.success(barrelService.requestReturn(customerId, stationId, productId, quantity, note));
+    }
+
+    /** 归属站站长批准申请及独立上门费；批准本身不登记收到实物。 */
+    @RequireRole({"STATION_MANAGER"})
+    @PutMapping("/records/{id}/approve")
+    public Result<Void> approveReturn(@PathVariable Long id,@Valid @RequestBody com.example.aquaflow.dto.BarrelReturnApprovalDTO dto) {
+        approvedReturnService.approve(id,AuthContext.requireStationId(),dto);
+        return Result.success();
+    }
+
+    /** 顾客端确认本人的交接安排和应退金额，资金到账由实际退款结果证明。 */
+    @PutMapping("/records/{id}/customer-confirm")
+    public Result<Void> confirmReturn(@PathVariable Long id) {
+        approvedReturnService.confirm(id,AuthContext.requireCustomerId());
+        return Result.success();
     }
 
     /**

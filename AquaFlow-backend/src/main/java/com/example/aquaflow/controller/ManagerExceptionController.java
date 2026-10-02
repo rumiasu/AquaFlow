@@ -19,6 +19,7 @@ import java.util.Map;
 @RequestMapping("/api/manager/exceptions")
 @RequireRole("STATION_MANAGER")
 public class ManagerExceptionController {
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
 
     @Autowired
     private OrderBarrelExceptionService exceptionService;
@@ -89,7 +90,9 @@ public class ManagerExceptionController {
         }
         // 归属校验：拿订单实体比对站别，避免用别站的 orderId 建单（跨租户写入面）
         com.example.aquaflow.entity.Orders order = orderMapper.getById(orderId);
-        if (order == null || !stationId.equals(order.getStationId())) {
+        Long responsibleStation=order==null?null:barrelPolicy.isEnabled() && "CUSTOMER_REFUSE".equals(body.getCategory())
+                ? com.example.aquaflow.util.StationUtil.settleStation(order):order.getStationId();
+        if (order == null || !stationId.equals(responsibleStation)) {
             return Result.error("订单不存在或不属于本水站");
         }
         return Result.success(exceptionService.recordException(orderId, body));

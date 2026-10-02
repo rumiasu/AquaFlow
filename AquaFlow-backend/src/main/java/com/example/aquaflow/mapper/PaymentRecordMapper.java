@@ -21,8 +21,8 @@ public interface PaymentRecordMapper {
      * 注意 SQL 里的 {@code DEFAULT 0.00} 只在「列没出现在 INSERT 里」时生效，
      * 显式传 NULL 时它救不了你。</p>
      */
-    @Insert("insert into payment_record(order_id, idempotency_key, customer_id, station_id, amount, payment_method, status, transaction_no, operator_id, note, create_time, update_time, water_amount, barrel_deposit, delivery_fee, floor_fee, excess_barrels, ticket_water_type_id, ticket_qty, ticket_package_id) " +
-            "values(#{orderId}, #{idempotencyKey}, #{customerId}, #{stationId}, #{amount}, #{paymentMethod}, #{status}, #{transactionNo}, #{operatorId}, #{note}, #{createTime}, #{updateTime}, #{waterAmount}, #{barrelDeposit}, IFNULL(#{deliveryFee}, 0.00), IFNULL(#{floorFee}, 0.00), #{excessBarrels}, #{ticketWaterTypeId}, #{ticketQty}, #{ticketPackageId})")
+    @Insert("insert into payment_record(order_id, idempotency_key, purchase_request_digest, customer_id, station_id, amount, payment_method, status, transaction_no, operator_id, note, create_time, update_time, water_amount, barrel_deposit, delivery_fee, floor_fee, excess_barrels, ticket_water_type_id, ticket_qty, ticket_package_id) " +
+            "values(#{orderId}, #{idempotencyKey}, #{purchaseRequestDigest}, #{customerId}, #{stationId}, #{amount}, #{paymentMethod}, #{status}, #{transactionNo}, #{operatorId}, #{note}, #{createTime}, #{updateTime}, #{waterAmount}, #{barrelDeposit}, IFNULL(#{deliveryFee}, 0.00), IFNULL(#{floorFee}, 0.00), #{excessBarrels}, #{ticketWaterTypeId}, #{ticketQty}, #{ticketPackageId})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(PaymentRecord record);
 
@@ -39,6 +39,11 @@ public interface PaymentRecordMapper {
     @Select("select * from payment_record where customer_id = #{customerId} and idempotency_key = #{idempotencyKey} order by id desc limit 1")
     PaymentRecord getByCustomerAndIdempotencyKey(@Param("customerId") Long customerId,
                                                  @Param("idempotencyKey") String idempotencyKey);
+
+    /** 购票编号锁内当前读；不得在 RR 快照下把刚提交的原款判成不存在。 */
+    @Select("select * from payment_record where customer_id = #{customerId} and idempotency_key = #{idempotencyKey} order by id desc limit 1 for update")
+    PaymentRecord getByCustomerAndIdempotencyKeyForUpdate(@Param("customerId") Long customerId,
+                                                        @Param("idempotencyKey") String idempotencyKey);
 
     @Select("select * from payment_record where id = #{id}")
     PaymentRecord getById(@Param("id") Long id);
@@ -164,6 +169,7 @@ public interface PaymentRecordMapper {
     @Select("select p.id, p.order_id as orderId, p.customer_id as customerId, "
             + "c.name as customerName, c.phone as customerPhone, "
             + "p.station_id as stationId, p.amount, p.payment_method as paymentMethod, "
+            + "p.barrel_deposit as barrelDeposit,p.delivery_fee as deliveryFee, "
             + "p.ticket_water_type_id as ticketProductId, p.ticket_qty as ticketQty, "
             + "p.note, p.create_time as createTime, "
             + "(select oi.product_name_snapshot from order_item oi where oi.order_id = p.order_id order by oi.id limit 1) as productName "

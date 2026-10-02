@@ -27,6 +27,11 @@ public class InventoryController {
 
     @Autowired
     private InventoryService inventoryService;
+    @Autowired private com.example.aquaflow.service.InventoryLossService lossService;
+    @RequireRole({"STATION_MANAGER"})
+    @PostMapping("/{productId}/loss") public Result<java.util.Map<String,Object>> loss(@PathVariable Long productId,@jakarta.validation.Valid @RequestBody com.example.aquaflow.dto.InventoryLossDTO dto) {
+        return Result.success(lossService.record(productId,AuthContext.requireStationId(),dto));
+    }
 
     @RequireRole({"STATION_MANAGER"})
     @GetMapping

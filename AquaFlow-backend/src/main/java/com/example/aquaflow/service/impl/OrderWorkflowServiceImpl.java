@@ -57,6 +57,7 @@ import java.util.Map;
 @Service
 @Slf4j
 public class OrderWorkflowServiceImpl implements OrderWorkflowService {
+    @Autowired private com.example.aquaflow.service.DispatchAgreementService dispatchAgreements;
 
     // 外派备注标记（一键外派 / 指定外派）的正本是 constant/DispatchKind 的 NOTE_* 常量 ——
     // 站长端「外派」页签按它把外派分成两个子页签（见 DispatchKind.ofNote 的注释：
@@ -320,6 +321,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (affected == 0) {
             throw new BusinessException("接单失败，订单状态已变更，请刷新后重试");
         }
+        dispatchAgreements.accepted(order,stationId);
         // 旧实现把 "[接单]" 只写进内存对象、从未落库（没有后续 update），此处改为原子追加。
         orderMapper.appendSpecialNote(orderId, "[接单] 配送员ID=" + staffId);
 
@@ -407,7 +409,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
 
         // 首次桶装水订单：押金桶无需回桶，直接跳过回桶核对
-        boolean isFirstBarrelOrder = Boolean.TRUE.equals(order.getFirstBarrelOrder());
+        boolean isFirstBarrelOrder = Boolean.TRUE.equals(order.getFirstBarrelOrder())
+                && !barrelLedgerService.independentOrder(orderId);
 
         // ===== 配送员上报楼层（选填，v43）=====
         // 楼层补贴是给配送员的钱，只有他知道自己爬了几层 —— 所以有他自己的口径 + 可核对的凭证。
@@ -491,6 +494,10 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                 barrelLedgerService.applyDelivery(orderId, order.getCustomerId(), order.getStationId(),
                         returnedByProduct, staffId);
         int owed = ledgerOutcome.totalOverDelta();
+        if(barrelLedgerService.independentOrder(orderId)) {
+            // 正常领取已付押金的桶只改变实物，不是欠桶，也不应触发差异异常。
+            owed-=barrelLedgerService.orderRights(orderId).stream().mapToInt(com.example.aquaflow.entity.BarrelRightReservation::getPickupQty).sum();
+        }
 
         // 物理桶流水留痕（type=8 配送收发明细）：让对账能用流水反推占用，与「权益 + over」交叉验证
         recordDeliveryBarrels(order, ledgerOutcome, staffId);
@@ -656,6 +663,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
         // 纯数据字段回写（回桶数 / 欠桶数 / 差异说明 / 异常单号），不含状态
         orderMapper.updateDeliveryOutcome(orderId, returnBucketQty, owed, discrepancyNote, exceptionId);
+        dispatchAgreements.delivered(order,ledgerOutcome);
 
         // [v37] 配送员计件工资：状态 CAS 已成功 → 这一单确实送达了，这才产生工钱。
         // 幂等由 uk_earning_auto（生成列唯一键）兜底，重复完成配送会被拦。
@@ -991,7 +999,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
     @Override
     public String crossStationRiskNote(Orders order) {
-        return involvesDepositOrBarrelRights(order) ? DEPOSIT_BARREL_RISK_TEXT : null;
+        if(!involvesDepositOrBarrelRights(order))return null;
+        if(!barrelLedgerService.independentOrder(order.getId()))return DEPOSIT_BARREL_RISK_TEXT;
+        String note="客户押金、权益和桶账仍归原水站；本单服务、联系客户和消费收款由履约站负责。净送桶另有两站交接约定；历史桶损不自动判给履约站，争议须两站确认。";
+        Map<String,Object> agreement=dispatchAgreements.info(order.getId());
+        if(!agreement.isEmpty())note+="本单服务报酬 "+agreement.get("serviceAmount")+" 元；"+agreement.get("barrelNote")+"；桶折款 "+agreement.get("barrelAmount")+" 元。接收后报价固定。";
+        return note;
     }
 
     /**
@@ -1037,6 +1050,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (dispatched == 0) {
             throw new BusinessException("订单状态已变更，请刷新后重试");
         }
+        dispatchAgreements.prepare(order,targetStationId);
+        inventoryReservationService.transferForOrder(orderId,targetStationId);
         // 履约站 = 结算站 = 目标站 → 待收款流水跟着走
         movePendingCollectionTo(orderId, targetStationId);
         orderMapper.appendSpecialNote(orderId,
@@ -1074,6 +1089,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             if (changed == 0) {
                 throw new BusinessException("订单状态已变更，请刷新后重试");
             }
+            dispatchAgreements.recallIfUnstarted(orderId);
+            dispatchAgreements.prepare(order,null);
+            dispatchAgreements.prepare(order,targetStationId);
             // 定向外派 = 钱货都归目标站 → 待收款流水跟着走
             movePendingCollectionTo(orderId, targetStationId);
             // [2026-09-25 库存预留模型] 库存凭据也跟着履约站走：旧站释放、新站按**新站可用量**重建。
@@ -1135,6 +1153,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException("订单状态已变更，请刷新后重试");
         }
         // 召回 = 回归属站 → 待收款流水跟着回归属站
+        dispatchAgreements.recallIfUnstarted(orderId);
         movePendingCollectionTo(orderId, stationId);
         // [2026-09-25 库存预留模型] 预留一并召回本站（否则这单的货还挂在被取消外派的那个站名下）
         inventoryReservationService.transferForOrder(orderId, stationId);
@@ -1180,6 +1199,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             // 执行 CAS 之前，池里这单被别站抢走（或状态已变）。这里本来就是"被抢走"的语义。
             throw new BusinessException("该订单已被其他水站抢单");
         }
+        dispatchAgreements.accepted(order,stationId);
         // 抢单 = 钱货都归抢单站 → 待收款流水跟着走（否则归属站列着一笔它收不到的钱）
         movePendingCollectionTo(orderId, stationId);
         // [2026-09-25 库存预留模型] 库存凭据跟着抢单站走（旧站释放、本站在**本站可用量**内重建）。
@@ -1231,6 +1251,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (changed == 0) {
             throw new BusinessException("订单状态已变更，请刷新后重试");
         }
+        if (crossStation) dispatchAgreements.accepted(order,stationId);
         orderMapper.appendSpecialNote(orderId, "[分配] 站长分配给 " + target.getName());
         if (risky) appendRiskAckNote(orderId, "接收站", stationId);
         log("ASSIGN", orderId, serviceMap("targetStaffId", targetStaffId,
@@ -1548,6 +1569,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (changed == 0) {
             throw new BusinessException("该订单状态已变更，请刷新后重试");
         }
+        dispatchAgreements.recallIfUnstarted(orderId);
         // 同意指定退回 = 回归属站 → 待收款流水跟着回归属站
         movePendingCollectionTo(orderId, stationId);
         // [2026-09-25 库存预留模型] 预留一并退回归属站（同"召回"：货跟着履约站走）

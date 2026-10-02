@@ -201,6 +201,48 @@ class TicketPurchaseIdempotencyIntegrationTest extends AbstractIntegrationTest {
 
     // ---------- helpers ----------
 
+    @Test
+    @DisplayName("F-75 同编号不同内容全部拒绝；下架改价后原请求和查询仍返回原款")
+    void changedIntentRejectedAndOriginalSurvivesCatalogChanges() {
+        long station = createStation("原购票站");
+        long customer = createCustomer("原购票客户", "intent-customer");
+        long product = createProduct("原购票水", 2, "20.00", "0.00", 1, "8.00");
+        createInventoryFull(station, product, 100, 1, "8.00");
+        String token = customerToken(customer);
+        String request = body(product, 3, station, "lost-response");
+        Api first = post("/api/tickets/purchase", token, request);
+        assertEquals(0, first.code());
+        long payment = first.data().path("paymentId").asLong();
+        assertTrue(payment > 0);
+        for (String changed : List.of(
+                body(product, 4, station, "lost-response"),
+                body(product + 1, 3, station, "lost-response"),
+                body(product, 3, station + 1, "lost-response"),
+                body(product, 3, station, "lost-response", 1),
+                request.substring(0, request.length() - 1) + ",\"packageId\":999}",
+                request.substring(0, request.length() - 1) + ",\"unifiedQty\":3}")) {
+            assertEquals(1, post("/api/tickets/purchase", token, changed).code(), "同编号改内容必须拒绝");
+        }
+        jdbc.update("UPDATE inventory SET ticket_enabled=0,ticket_price=99 WHERE station_id=? AND product_id=?", station, product);
+        jdbc.update("UPDATE product SET ticket_enabled=0,ticket_price=99,status=0 WHERE id=?", product);
+        Api replay = post("/api/tickets/purchase", token, request);
+        assertEquals(0, replay.code());
+        assertEquals(payment, replay.data().path("paymentId").asLong());
+        assertEquals(24.0, replay.data().path("amount").asDouble());
+        Api lookup = get("/api/tickets/purchase-result?idempotencyKey=lost-response", token);
+        assertEquals(0, lookup.code());
+        assertEquals(payment, lookup.data().path("paymentId").asLong());
+        assertEquals(3, lookup.data().path("quantity").asInt());
+        assertEquals(station, lookup.data().path("stationId").asLong());
+        assertEquals(1, intOf("SELECT COUNT(*) FROM payment_record WHERE customer_id=?", customer));
+        assertEquals(0, intOf("SELECT COUNT(*) FROM ticket_lot WHERE customer_id=?", customer));
+        assertEquals(64, intOf("SELECT LENGTH(purchase_request_digest) FROM payment_record WHERE id=?", payment));
+        long other = createCustomer("他人", "intent-other");
+        Api invisible = get("/api/tickets/purchase-result?idempotencyKey=lost-response", customerToken(other));
+        assertEquals(0, invisible.code());
+        assertTrue(invisible.data().isNull());
+    }
+
     private String body(long productId, int qty, long stationId, String idempotencyKey) {
         return body(productId, qty, stationId, idempotencyKey, 2);
     }

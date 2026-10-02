@@ -53,6 +53,7 @@ import java.util.Map;
 @Service
 @Slf4j
 public class CustomerServiceImpl implements CustomerService {
+    @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
 
     /** 资产流水单次返回上限（避免长年在站客户把响应撑爆） */
     private static final int RECORDS_LIMIT = 30;
@@ -365,10 +366,15 @@ public class CustomerServiceImpl implements CustomerService {
         // getStationCustomer 的 SQL 同时带 customer_id 与 station_id，查不到即为无权查看。
         CustomerStationVO base = customerMapper.getStationCustomer(customerId, stationId);
         if (base == null) {
-            return null;
+            // 独立资产购买可以先于第一张水单；仅在绑定∪本站订单范围内查询本站资产。
+            if(customerMapper.countCustomerOfStation(customerId,stationId)==0) return null;
+            Customer customer=customerMapper.getById(customerId);
+            if(customer==null)return null;
+            base=new CustomerStationVO();base.setName(customer.getName());base.setPhone(customer.getPhone());
         }
 
         CustomerStationAssetVO vo = new CustomerStationAssetVO();
+        vo.setIndependentRights(barrelPolicy.isEnabled());
         vo.setCustomerId(customerId);
         vo.setCustomerName(base.getName());
         vo.setPhone(base.getPhone());
@@ -487,6 +493,7 @@ public class CustomerServiceImpl implements CustomerService {
                     .add(pendingAmountByProduct.getOrDefault(e.getKey(), BigDecimal.ZERO));
 
             CustomerStationAssetVO.BarrelItem item = new CustomerStationAssetVO.BarrelItem();
+            item.setIndependentRights(barrelPolicy.isEnabled());
             item.setProductId(e.getKey());
             item.setProductName(p != null ? p.getName() : "未知商品");
             item.setProductSpec(p != null ? p.getSpec() : "");

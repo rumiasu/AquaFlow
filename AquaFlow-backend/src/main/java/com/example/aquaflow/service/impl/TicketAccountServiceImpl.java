@@ -26,6 +26,8 @@ import org.slf4j.LoggerFactory;
 
 @Service
 public class TicketAccountServiceImpl implements TicketAccountService {
+    @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
+    @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
 
     private static final Logger log = LoggerFactory.getLogger(TicketAccountServiceImpl.class);
 
@@ -40,6 +42,9 @@ public class TicketAccountServiceImpl implements TicketAccountService {
 
     @Autowired
     private PaymentRecordMapper paymentRecordMapper;
+
+    @Autowired
+    private com.example.aquaflow.service.TicketPurchaseFenceService purchaseFenceService;
 
     @Autowired
     private com.example.aquaflow.mapper.InventoryMapper inventoryMapper;
@@ -456,6 +461,17 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         }
     }
 
+    /** 2026-10-02：原查回在 Controller 注入 mapper 越过分层；只读归入现有购票服务，不依赖在售价。 */
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentRecord findPurchaseResult(Long customerId, String idempotencyKey) {
+        if (customerId == null || idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.trim().length() > 64) {
+            throw new BusinessException("购买编号不正确");
+        }
+        PaymentRecord original = paymentRecordMapper.getByCustomerAndIdempotencyKey(customerId, idempotencyKey.trim());
+        return original == null || original.getOrderId() != null || original.getTicketQty() == null ? null : original;
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PaymentRecord purchaseTicket(Long customerId, Long productId, Integer qty, Integer paymentMethod,
@@ -475,11 +491,16 @@ public class TicketAccountServiceImpl implements TicketAccountService {
             throw new BusinessException("幂等键长度不能超过 64");
         }
 
+        // 2026-10-02：结束空意图与迟到建款共用永久主键锁；锁须覆盖下面插款的整个事务。
+        purchaseFenceService.requireOpen(customerId, key);
+
         // ===== 幂等命中：同一笔购买意图的重放，返回原流水 =====
         // 放在所有业务校验**之前**：这笔购买若已成功创建过流水，那么此后站长即使把该商品的
         // 水票开关关掉、或改了价，重放也应当返回原流水，而不是报"未开启水票"或按新价再建一笔。
-        PaymentRecord existing = paymentRecordMapper.getByCustomerAndIdempotencyKey(customerId, key);
+        PaymentRecord existing = paymentRecordMapper.getByCustomerAndIdempotencyKeyForUpdate(customerId, key);
         if (existing != null) {
+            com.example.aquaflow.util.TicketPurchaseIntent.requireSame(existing, customerId, stationId,
+                    productId, qty, paymentMethod, packageId, unifiedQty);
             log.info("[v33] 在线购票幂等命中: customerId={}, idempotencyKey={}, paymentId={}, status={}",
                     customerId, key, existing.getId(), existing.getStatus());
             return existing;
@@ -506,6 +527,10 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         Product product = productMapper.getById(productId);
         if (product == null) {
             throw new BusinessException("商品不存在");
+        }
+        if (barrelPolicy.isEnabled() && com.example.aquaflow.util.BarrelScope.isBarrel(product)
+                && barrelLedger.rightQty(customerId, stationId, productId) <= 0) {
+            throw new BusinessException("请先办理本站该商品的桶押金，再购买水票");
         }
         // 水票开关与票价以「站级库存」为准（与下单/试算走的 PriceUtil 同一口径）。
         // 注意 product.ticket_enabled 是商品级默认值，水站可对本站单独开启，因此必须查 inventory。
@@ -568,6 +593,8 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         PaymentRecord record = new PaymentRecord();
         record.setCustomerId(customerId);
         record.setIdempotencyKey(key);
+        record.setPurchaseRequestDigest(com.example.aquaflow.util.TicketPurchaseIntent.digest(
+                customerId, stationId, productId, qty, paymentMethod, packageId, unifiedQty));
         record.setStationId(stationId);
         record.setAmount(totalAmount);
         record.setPaymentMethod(paymentMethod);

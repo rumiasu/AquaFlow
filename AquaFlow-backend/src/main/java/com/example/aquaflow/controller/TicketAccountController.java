@@ -42,6 +42,49 @@ public class TicketAccountController {
     @Autowired
     private PaymentService paymentService;
 
+    @Autowired
+    private com.example.aquaflow.service.TicketPurchaseFenceService purchaseFenceService;
+
+    /** 顾客自助结束未登记的请求编号，客户取自 AuthContext；已有款项只查回，不改付款状态。 */
+    @PostMapping("/purchase-intent/close")
+    public Result<Map<String, Object>> closePurchaseIntent(@RequestBody Map<String, String> body) {
+        var closed = purchaseFenceService.closeUnregistered(AuthContext.requireCustomerId(), body.get("idempotencyKey"));
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("idempotencyKey", closed.idempotencyKey());
+        result.put("closed", closed.closed());
+        result.put("payment", closed.payment() == null ? null : purchaseResultOf(closed.payment()));
+        return Result.success(result);
+    }
+
+    /** 只读查回原购票款；客户来自会话，不依赖当前商品/档位是否仍在售。 */
+    @GetMapping("/purchase-result")
+    public Result<java.util.Map<String, Object>> purchaseResult(@RequestParam String idempotencyKey) {
+        Long customerId = AuthContext.requireCustomerId();
+        if (idempotencyKey == null || idempotencyKey.trim().isEmpty() || idempotencyKey.trim().length() > 64) {
+            return Result.error("购买编号不正确");
+        }
+        var pr = ticketAccountService.findPurchaseResult(customerId, idempotencyKey.trim());
+        if (pr == null) return Result.success(null);
+        return Result.success(purchaseResultOf(pr));
+    }
+
+    private java.util.Map<String, Object> purchaseResultOf(com.example.aquaflow.entity.PaymentRecord pr) {
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("paymentId", pr.getId());
+        result.put("amount", pr.getAmount());
+        result.put("status", pr.getStatus());
+        result.put("statusText", pr.getStatusText());
+        result.put("stationId", pr.getStationId());
+        result.put("productId", pr.getTicketWaterTypeId());
+        result.put("quantity", pr.getTicketQty());
+        result.put("paymentMethod", pr.getPaymentMethod());
+        result.put("packageId", pr.getTicketPackageId());
+        // 统一档张数必须随原款返回，不能把同张数的散买误认成原档位。
+        String unifiedNote = "线上购买水票（站级统一折扣 " + pr.getTicketQty() + " 张档）";
+        result.put("unifiedQty", unifiedNote.equals(pr.getNote()) ? pr.getTicketQty() : null);
+        return result;
+    }
+
     /**
      * 我的水票账户。
      * <p>stationId 可选：客户尚未选水站时返回空列表，而不是 400「缺少必填参数：stationId」
@@ -151,10 +194,6 @@ public class TicketAccountController {
         // TODO(微信支付接入)：真实渠道到位后这里不再调它 —— 改为统一下单，由**支付回调**调 confirmPayment；
         //   本行与 PaymentService.confirmMockChannelIfApplicable 一起删（别留成"永真"的开关）。
         pr = paymentService.confirmMockChannelIfApplicable(pr.getId());
-        java.util.Map<String, Object> result = new java.util.HashMap<>();
-        result.put("paymentId", pr.getId());
-        result.put("amount", pr.getAmount());
-        result.put("status", pr.getStatus());
-        return Result.success(result);
+        return Result.success(purchaseResultOf(pr));
     }
 }

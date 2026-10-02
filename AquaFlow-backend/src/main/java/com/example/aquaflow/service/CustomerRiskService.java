@@ -40,6 +40,8 @@ import java.util.Map;
 @Service
 @Slf4j
 public class CustomerRiskService {
+    @org.springframework.beans.factory.annotation.Autowired
+    private ConfirmedRefusalService confirmedRefusals;
 
     /** 正常：没有未结赊账 */
     public static final String NORMAL = "NORMAL";
@@ -148,6 +150,10 @@ public class CustomerRiskService {
 
         String level = levelOf(overdueCount, maxOverdueDays, outstanding, limit);
         String reason = reasonOf(level, overdueCount, maxOverdueDays, outstanding, limit);
+        if (confirmedRefusals != null && confirmedRefusals.frozen(customerId,stationId)) {
+            level = FREEZE;
+            reason = "水站已确认拒付，结清该笔欠款后恢复退押金资格（押金未被扣除）";
+        }
 
         out.put("level", level);
         out.put("levelText", textOf(level));
@@ -222,6 +228,7 @@ public class CustomerRiskService {
                 water90.put(((Number) cid).longValue(), nz(asDecimal(r.get("water90"))));
             }
         }
+        java.util.Set<Long> refused = confirmedRefusals == null ? java.util.Set.of() : confirmedRefusals.frozenCustomers(stationId);
         for (Map<String, Object> r : orderMapper.creditSummaryByStation(stationId)) {
             Object cid = r.get("customerId");
             if (cid == null) {
@@ -233,6 +240,7 @@ public class CustomerRiskService {
             BigDecimal outstanding = nz(asDecimal(r.get("outstandingCredit")));
             BigDecimal limit = limitOf(water90.get(customerId));
             String level = levelOf(overdueCount, maxOverdue, outstanding, limit);
+            if (refused.contains(customerId)) level = FREEZE;
             Map<String, Object> one = new LinkedHashMap<>();
             one.put("level", level);
             one.put("levelText", textOf(level));
@@ -242,7 +250,11 @@ public class CustomerRiskService {
             // 给用户看的那句话也一并下发：前端**不自己拼**「欠了多少 / 逾期几天」，
             // 否则同一个客户在列表上与在详情页上会是两句不一样的话。
             one.put("note", reasonOf(level, overdueCount, maxOverdue, outstanding, limit));
+            if (refused.contains(customerId)) one.put("note","水站已确认拒付，请结清欠款后退押金（押金未扣除）");
             out.put(customerId, one);
+        }
+        for(Long id:refused) {
+            if(!out.containsKey(id))out.put(id,new LinkedHashMap<>(Map.of("level",FREEZE,"levelText",textOf(FREEZE),"note","他站拒付已由本站核实，退押金资格冻结")));
         }
         return out;
     }

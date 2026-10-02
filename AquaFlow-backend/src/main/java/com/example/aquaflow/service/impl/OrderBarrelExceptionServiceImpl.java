@@ -34,6 +34,8 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionService {
+    @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
+    @Autowired private com.example.aquaflow.service.ConfirmedRefusalService confirmedRefusals;
 
     @Autowired
     private OrderBarrelExceptionMapper exceptionMapper;
@@ -155,6 +157,8 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         ex.setStationId(order.getStationId());
         ex.setDeliveryStaffId(AuthContext.getUserId());
         ex.setDeliveryQty(input.getExpectedValue() != null ? input.getExpectedValue() : 0);
+        if (barrelPolicy.isEnabled() && "CUSTOMER_REFUSE".equals(input.getCategory()))
+            ex.setStationId(com.example.aquaflow.util.StationUtil.settleStation(order));
         ex.setReturnQty(input.getActualValue() != null ? input.getActualValue() : 0);
         ex.setDiscrepancy((input.getExpectedValue() != null ? input.getExpectedValue() : 0) - 
                           (input.getActualValue() != null ? input.getActualValue() : 0));
@@ -198,6 +202,7 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         ex.setStationId(order.getStationId());
         ex.setDeliveryStaffId(AuthContext.getUserId());
         // ⚠️ 三处数量**恒为 0**：现场问题不是"数量对不上"。这保证所有「取 discrepancy > 0」的
+        if (barrelPolicy.isEnabled()) ex.setStationId(com.example.aquaflow.util.StationUtil.deliveryStation(order));
         //    欠桶下钻（CustomerMapper.getOwedBarrels / CustomerBarrelOverMapper 等）不会把它算成欠桶
         //    —— 复用同一张表的前提就是这个。
         ex.setDeliveryQty(0);
@@ -449,6 +454,11 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         Long operatorId = AuthContext.getUserId();
 
         // ---- ① 核销应收 ----
+        if (barrelPolicy.isEnabled()) {
+            confirmedRefusals.record(order,ex.getId(),note);
+            orderMapper.appendSpecialNote(order.getId(),"[确认拒付] 欠款保留、关闭线下付款、冻结退押金资格；"+note);
+            return;
+        }
         int payCur = order.getPaymentStatus() != null
                 ? order.getPaymentStatus() : com.example.aquaflow.constant.PaymentStatus.UNPAID;
         if (payCur == com.example.aquaflow.constant.PaymentStatus.PENDING) {

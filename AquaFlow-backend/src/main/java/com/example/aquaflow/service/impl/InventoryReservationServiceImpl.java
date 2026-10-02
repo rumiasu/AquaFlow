@@ -167,6 +167,21 @@ public class InventoryReservationServiceImpl implements InventoryReservationServ
     }
 
     /* ==================== 分配命令 ==================== */
+    @Override @Transactional(rollbackFor=Exception.class)
+    public List<Map<String,Object>> reduceForPhysicalLoss(Long stationId,Long productId,int targetQuantity) {
+        if(targetQuantity<0 || inventoryMapper.getByStationAndProductForUpdate(stationId,productId)==null)
+            throw new BusinessException("盘亏库存目标不合法");
+        List<InventoryReservation> active=reservationMapper.listActiveForUpdate(stationId,productId);
+        List<Map<String,Object>> affected=new ArrayList<>(); int left=targetQuantity;
+        for(InventoryReservation r:orderedByBusinessNeed(active)) {
+            int before=nz(r.getReservedQty()),after=Math.min(left,before); left-=after;
+            if(before==after)continue;
+            if(reservationMapper.reduceIfActive(r.getId(),before,after)!=1)throw new BusinessException("预留已变化，本次盘亏回滚，请刷新后重试");
+            syncDeductedQty(r.getOrderItemId(),after);
+            affected.add(Map.of("orderId",r.getOrderId(),"lostReservation",before-after));
+        }
+        return affected;
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)

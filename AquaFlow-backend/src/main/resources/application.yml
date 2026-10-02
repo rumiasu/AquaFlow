@@ -121,3 +121,7 @@ catalog:
   # 0.5 = ±50%。设为 0 或负数则不提醒。见 docs/design/12-商品与库存重构.md §4.4。
   price-warn-ratio: ${CATALOG_PRICE_WARN_RATIO:0.5}
 
+aquaflow:
+  barrel:
+    # 新建订单使用独立押金；历史单通过权益分配凭据识别，不受此开关重新解释。
+    independent-rights-enabled: ${INDEPENDENT_BARREL_RIGHTS_ENABLED:true}

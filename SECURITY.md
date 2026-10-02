@@ -1,113 +1,27 @@
-# 安全策略
+# 安全与凭据管理
 
-> **本文写给：部署者与运维** —— 上线前的安全要求与检查清单。项目是什么见 [README](./README.md)。
+写给维护和部署人员，说明现有控制及发布责任。安全控制不替经营方决定收款主体、资产担保或纠纷责任。
 
-## 1. 报告安全问题
+## 凭据
 
-如果你发现了安全漏洞，**请不要开公开的 Issue**，改用 GitHub 的
-[私密漏洞报告](https://github.com/rumiasu/AquaFlow/security/advisories/new)
-或直接联系仓库维护者。
+真实 JWT、数据库、微信和 COS 凭据只从受控环境或被忽略的本机配置注入，不入仓库、不回显、不进入 JAR。AppID 是应用标识，Secret 是凭据；两端应用不能混用登录 code 的配置。
 
-报告时请尽量给出：
+仓库曾有凭据处置历史；生成全新 Git 历史只能避免再次带出旧对象，不能使曾经公开的凭据失效。真实凭据状态以已执行轮换和当前受控配置为准，不凭“删了 GitHub”判断。
 
-- 受影响的端点或组件，以及复现步骤；
-- 影响范围（能否越权读取他站数据、能否篡改资金与桶账）；
-- 你使用的版本或提交哈希。
+## 现有控制
 
-本仓库是单人维护的项目，**不承诺修复时限**。已确认的问题会以私密安全公告的形式处理，修复后再公开。
+认证、角色/站别、未选身份限制、跨站客户档案遮罩、员工一次性绑定码、来源 IP 限流、服务端金额计算、幂等及流水依据分别控制相应风险。授权校验以实际入口和用例为准，不能因有一套切面就假设所有方法都已保护。
 
-## 2. 支持的版本
+生产拒绝开发登录和模拟支付，默认密码初始化不在 prod 执行。本机/CI 丢弃值只服务对应测试环境。发布检查须包含本机配置未入包、prod 配置齐全及认证真实生效。
 
-只有 `master` 分支的最新提交接受安全修复。本项目尚未发布正式版本，不维护历史版本分支。
+## 资金和线下事实
 
-## 3. 凭据管理规则
+现金确认、线下退款、工资发放和站间结清是人员登记真实事实，不是平台已经转款。真实微信退款尚未接通，不能返回自动成功；拒付冻结复核和退款回执仍有产品未决目标，见 design/16。
 
-这是本项目最重要的一条安全约定：
+## 发布检查
 
-- **所有凭据只走环境变量。** 变量清单的权威来源是 `AquaFlow-backend/.env.example`（只列名、不含值）。
-- **以下内容永不入库**：`AquaFlow-backend/src/main/resources/application-local.yml`、任何 `.env*` 文件、`backup/*.sql`（含真实数据）。它们全部在 `.gitignore` 内。
-- **密钥不得出现在任何文档、Issue、提交信息、日志或对话回复中。** 需要指代时一律写 `<redacted>`。
-- **提交前执行一次密钥扫描**：
+按 CONTRIBUTING 和 operations/01 执行入库依赖、敏感信息、发布包、启动姿态和探针检查；只报告文件/位置，不把疑似值抄到日志。当前秘密扫描有明确排除范围，不能把它通过解释成历史和全部文档都无任何敏感数据。
 
-  ```bash
-  bash scripts/scan-secrets.sh
-  ```
+## 问题报告
 
-  CI 也会执行同样的一步（**只报告位置，不回显内容**）。
-
-- 生产环境用 `--spring.profiles.active=prod` 加**纯环境变量**启动，不落地任何配置文件。
-
-## 4. 启动期的强制校验
-
-`RequiredConfigChecker` 在启动时硬校验三项，缺失即抛 `IllegalStateException` 拒绝启动：
-
-| 变量 | 约束 |
-|---|---|
-| `JWT_SECRET` | 长度必须 ≥ 32 |
-| `WX_APP_ID` | 必填 |
-| `WX_APP_SECRET` | 必填 |
-
-其余变量不被硬校验，缺失后果由各自组件决定（多数只 `log.warn`）。生产环境另有两项为必填：
-
-- `WX_STAFF_APP_ID` / `WX_STAFF_APP_SECRET` —— `application-prod.yml` 中无默认值，缺失即拒绝启动。
-- `DEV_LOGIN_ENABLED` **必须为 `false`**。该开关提供免微信的开发者登录通道，本地默认开启（并同时按 IP 关闭登录限流），**绝不可带入生产**。
-
-⚠️ **除上表 3 项外，`prod` profile 下还有两道启动期硬校验**（同一个 `RequiredConfigChecker`，都在启动期抛 `IllegalStateException` 拒启；非 prod 一律跳过，故本地与 CI 不受影响）：
-
-| 校验 | 判据 | 为什么需要 |
-|---|---|---|
-| `checkProdSafetySwitches()` | `app.payment.mock-wechat-pay` 与 `app.dev-login-enabled` 解析后必须为 `false` | 模拟支付开着 = 全站「微信支付」点一下就成功（零元购）；dev-login 是免微信授权的后门。**读解析后的值**，所以写死 yml 也拦不住命令行 / `SPRING_APPLICATION_JSON` 覆盖 |
-| `checkProdDatasource()` | `spring.datasource.url/username/password` 必须解析出真值 | Spring 7 起 Hikari 懒初始化 ⇒ 缺 `DB_URL` 时应用照样 `Started`、只是首个查库请求失败。这条把失败**提前到启动期** |
-
-## 5. 已实施的安全控制
-
-### 5.1 认证
-
-- JWT 双 Token：access token 2 小时（`jwt.access-token-expiry: 7200000` ms）+ refresh token 7 天（`604800000` ms），401 由客户端自动续期。时长正本是 `application.yml` 的 `jwt.*-expiry`，本文档从实（F-53：此处原写「30 分钟」，与实测不符）。
-- Token 记录在 `user_token` 表，可服务端失效。
-- 密码使用哈希存储，不落明文。
-
-### 5.2 授权
-
-- 统一由 AOP 切面保护：`@RequireRole` 标注角色、`@RequireStation` 标注水站归属，切点为 `execution(public * controller..*.*(..))`。⚠️ **切点是「无注解即放行」**（`aspect/RequireRoleAspect.java`：方法上与类上都没有 `@RequireRole` ⇒ 直接放行），所以**新增端点不会自动获得任何保护**，必须二选一：员工端点标 `@RequireRole`，顾客自助端点在方法体内用 `AuthContext.requireCustomerId()` / `requireStationId()` 强制取登录身份。不标 = 不设防（F-67：本文此处原写「新增方法自动生效，不依赖开发者记得加校验」，与实现相反）。
-- **跨站隔离**：服务端从 `AuthContext` 取当前登录态里的 `stationId` 做归属校验，**不信任任何请求参数里的站点标识**。客户 ID 必须由登录态覆盖，或与订单所有者严格比对。
-- **跨租户可见面收窄**：下发给其他水站的字段只带「钱货去向」文案与快照金额，不带本站的成本、库存与联系方式；客户画像字段由 `util/CustomerProfileMask` 统一抹除，与本站既无绑定又无本站订单的客户，画像端点一律不可见。
-
-### 5.3 限流
-
-- `RateLimitInterceptor` 对登录类端点按**来源 IP** 限流，超限返回 **HTTP 429**。
-- 覆盖 `/api/auth/{login,wx-login,wx-login-staff,dev-login,refresh,change-password,bind-staff}` 共 7 条（正本 `config/WebMvcConfig.java` 的注册表），默认 20 次/分钟（`RATE_LIMIT_*` 可调）。
-- ⚠️ 该计数是**单实例内存态**：多实例部署前必须先换成集中式计数器（如 Redis），否则限流可被分摊绕过。
-
-### 5.4 审计与告警
-
-- `audit_log` 表记录管理侧写操作。
-- `alert_log` 表按类型分级投递：**系统故障 → 系统管理员**（`alert_type = 'SYSTEM'`，不落任何水站），**运营故障 → 该站站长**（`alert_type = 'OPERATION'`）。系统告警**没有 HTTP 入口**，避免跨租户越权知情。
-- 告警落库走独立事务，失败绝不连累业务。
-
-### 5.5 日志
-
-禁止记录密码、JWT、微信授权码、完整手机号与地址、任何密钥。
-
-## 6. 部署侧检查清单
-
-上线前逐条确认：
-
-- [ ] `DEV_LOGIN_ENABLED=false`
-- [ ] `spring.profiles.active=prod`，且配置文件不落地
-- [ ] `JWT_SECRET` 为长度 ≥ 32 的随机串，且与开发环境不同
-- [ ] `WX_STAFF_APP_ID` / `WX_STAFF_APP_SECRET` 已配置
-- [ ] 微信支付模拟渠道已关闭（`MOCK_WECHAT_PAY` 为假）—— ⚠️ 真实微信支付渠道**尚未接入**，生产暂只开放现金与水票两种支付方式
-- [ ] `CORS_ALLOWED_ORIGINS` 收敛到实际来源，不使用通配
-- [ ] 数据库账号为最小权限账号，不使用 `root`
-- [ ] `scripts/scan-secrets.sh` 无输出
-- [ ] 备份可恢复（见 `docs/operations/`）
-
-## 7. 已知边界
-
-这些是**有意接受的现状**，不是漏洞，无需报告：
-
-- **微信支付未接入**：没有真实的第三方支付回调面，因此不存在回调伪造风险；本地模拟渠道仅用于开发。
-- **微信订阅消息未接入**：客户端正向进度通知全程为 TODO，不涉及用户授权数据处理。
-- **多实例未支持**：限流计数与部分定时任务假定单实例部署。
-- **`GET /api/notices`（顾客端公告列表）不做水站过滤** —— 任一顾客能看到所有水站的已发布公告。这是已知的功能缺口，会影响信息隔离预期，但公告内容由各站站长自行发布，不含客户数据。
+发现风险先在受控环境保留文件位置、可复核后果和修复建议；涉及实际凭据立即核实并按现有受控渠道处置，不在公开 Issue 粘贴密钥或客户个人数据。仓库重建后再配置正式报告渠道。

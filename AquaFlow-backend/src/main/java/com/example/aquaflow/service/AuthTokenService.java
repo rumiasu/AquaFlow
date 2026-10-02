@@ -603,8 +603,9 @@ public class AuthTokenService {
         String newRefreshToken = jwtUtil.generateRefreshToken(userId, userType);
         // 删除旧token记录（同值的重复行一并清掉，见 UserTokenMapper.findByRefreshToken 的说明）
         userTokenMapper.deleteByRefreshToken(refreshToken);
-        // 保存新token
-        saveRefreshToken(userId, userType, newRefreshToken);
+        // [2026-10-02 F-78] 原误调登录用的 saveRefreshToken 会全清，删掉并发请求已返回的新 token。
+        // 轮换只追加本次凭据；同用户全清仍由登录入口负责。
+        insertRefreshToken(userId, userType, newRefreshToken);
 
         Map<String, Object> data = new HashMap<>();
         data.put("accessToken", newAccessToken);
@@ -764,6 +765,11 @@ public class AuthTokenService {
     private void saveRefreshToken(Long userId, String userType, String refreshToken) {
         // #3: 清理该用户旧的refresh token，防止累积
         userTokenMapper.deleteByUser(userId, userType);
+        insertRefreshToken(userId, userType, refreshToken);
+    }
+
+    /** 只追加凭据；刷新不得通过登录的清旧逻辑撤销其它已通过校验的并发轮换。 */
+    private void insertRefreshToken(Long userId, String userType, String refreshToken) {
         UserToken userToken = new UserToken();
         userToken.setUserId(userId);
         userToken.setUserType(userType);

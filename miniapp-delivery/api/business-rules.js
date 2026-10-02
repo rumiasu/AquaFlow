@@ -1,0 +1,22 @@
+const { get, put, post } = require('../utils/request')
+const { API } = require('../config/api')
+module.exports = {
+  getWaiting: () => get(API.MANAGER_BUSINESS_WAITING),
+  getTicketExitBatches: () => get(API.MANAGER_TICKET_EXIT_BATCHES),
+  refundTickets: (id, qty, amount) => put(API.PAYMENT_REFUND_COMPONENT(id), { scope: 'WATER', expectedTicketQty: qty, expectedTicketAmount: amount, note: '站长核实原款批次后退剩余票' }),
+  recordLoss: (id, data) => post(API.INVENTORY_LOSS(id), data),
+  getRefusals: () => get(API.MANAGER_REFUSAL_CASES),
+  confirmFreeze: (id) => put(API.MANAGER_REFUSAL_FREEZE(id), {}),
+  getRecoveries: () => get(API.MANAGER_STATION_RECOVERIES),
+  recoverySent: (id, note) => post(API.MANAGER_RECOVERY_SENT(id), { note }),
+  recoveryReceived: (id) => post(API.MANAGER_RECOVERY_RECEIVED(id), {}),
+  getBarrelBalances: () => get(API.MANAGER_STATION_BARREL_BALANCES),
+  barrelReceived: (id, note) => post(API.MANAGER_BARREL_BALANCE_RECEIVED(id), { note }),
+  disputeBarrels: (id, note) => post(API.MANAGER_BARREL_DISPUTE(id), { note }),
+  proposeBarrels: (id, data) => put(API.MANAGER_BARREL_PROPOSAL(id), data),
+  agreeBarrels: (id) => post(API.MANAGER_BARREL_AGREE(id), {}),
+  getAgreement: (id) => get(API.MANAGER_DISPATCH_AGREEMENT(id)),
+  quoteAgreement: (id, data) => put(API.MANAGER_DISPATCH_AGREEMENT(id), data),
+  refundPreview: (id) => get(API.PAYMENT_REFUND_PREVIEW(id)),
+  refundService: (id, note) => put(API.PAYMENT_REFUND_COMPONENT(id), { scope: 'SERVICE', note })
+}

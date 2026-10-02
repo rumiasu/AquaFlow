@@ -11,6 +11,7 @@
     "pages/mine/index",
     "pages/coordination/index",
     "pages/station-mgmt/index",
+    "pages/station-mgmt/business-waiting/index",
     "pages/station-mgmt/dashboard/index",
     "pages/station-mgmt/orders/index",
     "pages/station-mgmt/customers/index",

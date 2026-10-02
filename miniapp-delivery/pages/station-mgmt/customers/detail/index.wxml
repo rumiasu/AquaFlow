@@ -98,8 +98,8 @@
         <!-- 资产概览 -->
         <view class="metric-grid asset-grid">
           <view class="metric">
-            <text class="metric-value">{{assets.heldBuckets}}</text>
-            <text class="metric-label">持有桶</text>
+            <text class="metric-value">{{assets.independentRights ? assets.actualBuckets : assets.heldBuckets}}</text>
+            <text class="metric-label">{{assets.independentRights ? '实际在手桶' : '持有桶'}}</text>
           </view>
           <view class="metric">
             <text class="metric-value {{assets.inTransitBuckets > 0 ? 'transit' : ''}}">{{assets.inTransitBuckets}}</text>

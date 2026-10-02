@@ -29,6 +29,8 @@ public enum PendingItem {
 
     /** 与「配送/待办」页的 station-pending 同一方法（含"没收到钱的单不进视野"那道闸门）。 */
     PENDING_ASSIGN("pendingAssign", "待分配订单", Level.P0),
+    /** 已付款/货到付款且活跃预留不足；按履约站计，不把客户资产归属站当补货责任站。 */
+    WAITING_STOCK("waitingStock", "缺货待补", Level.P0),
     /**
      * 配送员发起的**转单类**申请（退回站长 / 转让 / 重分配）。
      *
@@ -96,6 +98,14 @@ public enum PendingItem {
      * 避免"角标说 3、点进去 0 条"（本文件所在控制器的头号纪律）。</p>
      */
     INTER_STATION_UNSETTLED("interStationUnsettled", "站间未结清", Level.P1),
+    /** 收桶不是已退款；含未超提醒时间的 RECEIVED，现有期限只用于提示。 */
+    RETURN_REFUND("returnRefund", "已收桶待退款", Level.P1),
+    /** 已付冲销款按当前可办理责任分两项，不重复计对方的动作。 */
+    RECOVERY_SEND("recoverySend", "返还款待交付", Level.P1),
+    RECOVERY_RECEIVE("recoveryReceive", "返还款待确认", Level.P1),
+    /** 本方确认后移出本方待办；另一方仍需分别确认，客户押金不参与交接。 */
+    BARREL_HANDOVER("barrelHandover", "净桶交接待确认", Level.P1),
+    BARREL_DISPUTE("barrelDispute", "净桶争议待协商", Level.P1),
 
     // ===== P2：不处理也不出事 =====
 

@@ -61,11 +61,10 @@
         ① **P0 红点**由 `loadTodo` 的 `applyRedDot(d)` 按完整 payload 的 `p0Total` 算，
            与本卡内容**无关**（别改成拿 todo.items 推）；
         ② **功能没删**：完整功能目录「水站管理」是常驻入口（在本卡之外），零值照样进得去；
-        ③ **失败 ≠ 零**：汇总取不到时 `todo` 停在 null，卡不渲染 —— 不会把"没加载出来"
-           说成"没事要办"（decorateTodo 只处理**拿到**的数据）。
+        ③ 失败时保留上次卡并显示未核对提示，首次失败也能重试。
       数量非零的项标红（`hasCount`）—— 现在能进卡的项恒为非零，这个类是"提醒色"不是"等级色"。
     -->
-    <view class="todo-card" wx:if="{{todo && todo.items.length}}">
+    <view class="todo-card" wx:if="{{todoError || todoLoading || (todo && todo.items.length)}}">
       <view class="todo-head">
         <!--
           [2026-09-26 文案] 标题「其他待办」→「其他待处理」，并按 docs/design/29 §7 去掉副标题
@@ -75,6 +74,9 @@
         -->
         <text class="todo-title">其他待处理</text>
       </view>
+      <text wx:if="{{todoLoading}}">正在核对待办…</text>
+      <text wx:if="{{todoError}}">{{todoError}}</text>
+      <button wx:if="{{todoError}}" bindtap="onRetryTodo" disabled="{{todoLoading}}">重新核对</button>
       <view class="todo-row">
         <view class="todo-item {{item.hasCount ? 'todo-item-on' : ''}}"
               wx:for="{{todo.items}}" wx:key="key"
@@ -280,6 +282,10 @@
           <text class="risk-title">⚠️ 押金/桶权益风险</text>
           <text class="risk-text">{{item.crossStationRiskNote}}</text>
         </view>
+        <view class="risk-box" wx:if="{{item.dispatchAgreement && item.dispatchAgreement.serviceAmount !== undefined}}">
+          <text>本单服务报酬 ¥{{item.dispatchAgreement.serviceAmount}}（含配送费用）</text>
+          <text>{{item.dispatchAgreement.barrelNote}}；桶折款 ¥{{item.dispatchAgreement.barrelAmount}}；接受后固定</text>
+        </view>
         <!--
           商品行：文案由 js 算好（`goodsView`，全页签同一份判据）。
           ⚠️ 别改回 `{{item.firstProductName}} × {{item.quantity}}桶` —— `quantity` 是**全单总件数**
@@ -404,6 +410,10 @@
             <text class="order-id">#{{item.id}}</text>
           </view>
           <!-- 别站指定本店的：与抢单池同一口径，接不接这一单同样要先看到钱与去向（金额全由后端下发） -->
+          <view class="risk-box" wx:if="{{item.dispatchAgreement && item.dispatchAgreement.serviceAmount !== undefined}}">
+            <text>本单服务报酬 ¥{{item.dispatchAgreement.serviceAmount}}（含配送费用）</text>
+            <text>{{item.dispatchAgreement.barrelNote}}；桶折款 ¥{{item.dispatchAgreement.barrelAmount}}；接受后固定</text>
+          </view>
           <view class="fee-box" wx:if="{{item._dir === 'in'}}">
             <view class="fee-row-main">
               <text class="fee-label">本单金额</text>

@@ -177,7 +177,7 @@ console.log('员工端运行时事实表达（真实执行页面处理函数）'
     assert.strictEqual(todo.items[0].hasCount, true)
   })
 
-  await test('M02 修 P0 红点这件事不能改坏：卡里永远不含 P0 项，红点只认 payload 的 p0Total', async () => {
+  await test('M02 既有页签的六项 P0 不在卡里重复展示，红点仍认完整 payload 的 p0Total', async () => {
     const page = todoPage()
     const payload = {
       // 6 个 P0 项（待分配/转单/客户取消/站内取消/指定外派/退桶）即使非零也不进这张卡

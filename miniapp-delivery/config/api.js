@@ -155,6 +155,7 @@ const API = {
   // 待确认收款：订单待收款 + 线上买水票的无订单待收款（微信支付未接入，只能人工核对到账后确认）
   PAYMENTS_PENDING: '/api/payments/pending',
   PAYMENT_CONFIRM: (id) => `/api/payments/${id}/confirm`,
+  PAYMENT_REFUND_COMPONENT: (id) => `/api/payments/${id}/refund`,
 
   // 客户
   CUSTOMERS: '/api/customers',
@@ -195,6 +196,7 @@ const API = {
   INVENTORY: '/api/inventory',
   INVENTORY_INBOUND: '/api/inventory/inbound',
   INVENTORY_RECORDS: '/api/inventory/records',
+  INVENTORY_LOSS: (id) => `/api/inventory/${id}/loss`,
 
   // ===== 商品与库存（2026-09-16 重构）：通用商品库 + 本站设置 + 自定义商品 =====
   // 站长能改的只有"本站"的东西（上架/库存/本站售价/水票/优先展示）；
@@ -290,6 +292,21 @@ const API = {
   BARRELS_RECORDS_REFUND_PAID: (id) => `/api/barrels/records/${id}/refund-paid`,
   // 只读：已核销但**没记交付**的退押金（不合规数据，站长要能查出来）
   BARRELS_REFUND_UNDELIVERED: '/api/barrels/refund-undelivered',
+  BARRELS_RETURN_APPROVE: (id) => `/api/barrels/records/${id}/approve`,
+  MANAGER_BUSINESS_WAITING: '/api/manager/business-waiting',
+  MANAGER_TICKET_EXIT_BATCHES: '/api/manager/ticket-exit-batches',
+  MANAGER_REFUSAL_CASES: '/api/manager/refusal-cases',
+  MANAGER_REFUSAL_FREEZE: (id) => `/api/manager/refusal-cases/${id}/confirm-freeze`,
+  MANAGER_STATION_RECOVERIES: '/api/manager/inter-station-recoveries',
+  MANAGER_RECOVERY_SENT: (id) => `/api/manager/inter-station-recoveries/${id}/sent`,
+  MANAGER_RECOVERY_RECEIVED: (id) => `/api/manager/inter-station-recoveries/${id}/received`,
+  MANAGER_STATION_BARREL_BALANCES: '/api/manager/station-barrel-balances',
+  MANAGER_BARREL_DISPUTE: (id) => `/api/manager/station-barrel-balances/${id}/dispute`,
+  MANAGER_BARREL_PROPOSAL: (id) => `/api/manager/station-barrel-balances/${id}/proposal`,
+  MANAGER_BARREL_AGREE: (id) => `/api/manager/station-barrel-balances/${id}/agree`,
+  MANAGER_BARREL_BALANCE_RECEIVED: (id) => `/api/manager/station-barrel-balances/${id}/received`,
+  MANAGER_DISPATCH_AGREEMENT: (id) => `/api/manager/dispatch-agreements/${id}`,
+  PAYMENT_REFUND_PREVIEW: (id) => `/api/payments/${id}/refund-preview`,
   BARRELS_RETURN_EMPTY: '/api/barrels/return-empty',
 
   // 上传

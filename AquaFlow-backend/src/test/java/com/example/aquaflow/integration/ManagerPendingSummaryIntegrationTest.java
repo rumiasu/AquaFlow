@@ -1,8 +1,17 @@
 package com.example.aquaflow.integration;
 
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.service.BarrelBusinessPolicy;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -20,7 +29,60 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * ② 权限被放开（待办里含本站欠款与人事申请，跨站可见等于漏经营底细）；
  * ③ 空库时炸掉（新库、刚建站、真的没事做，这三种情况都会走到）。</p>
  */
+@TestPropertySource(properties = {
+        "aquaflow.barrel.independent-rights-enabled=true",
+        "aquaflow.barrel.maintenance-enabled=false",
+        "aquaflow.pending.level-overrides="
+})
 class ManagerPendingSummaryIntegrationTest extends AbstractIntegrationTest {
+
+    // 2026-10-02：仅枚举长度相等挡不住“漏一项、重复另一项”或错级别；
+    // 独立列出业务契约，按实际 HTTP 返回检查唯一键、完整目录与默认分级。
+    private static final Map<String, List<String>> EXPECTED_KEYS_BY_LEVEL = Map.of(
+            "P0", List.of("pendingAssign", "waitingStock", "pendingTransfer", "customerCancel",
+                    "stationCancel", "directedIncoming", "barrelReturn"),
+            "P1", List.of("pendingPayment", "overdueReceivable", "staffBinding", "enterpriseApply",
+                    "draftPayroll", "interStationUnsettled", "returnRefund", "recoverySend",
+                    "recoveryReceive", "barrelHandover", "barrelDispute"),
+            "P2", List.of("poolClaimable", "costNotFilled", "barrelException", "operationAlert"));
+
+    @Autowired
+    private BarrelBusinessPolicy barrelBusinessPolicy;
+
+    /** HTTP 契约包括未知读数；不能把 null 强转成 0 后当作已经核对。 */
+    private static void assertSummaryContract(Api res) {
+        assertEquals(0, res.code(), "汇总应成功返回: " + res);
+        assertTrue(res.data().path("items").isArray(), "必须下发条目数组");
+        assertTrue(res.data().path("complete").isBoolean(), "complete 必须明确表示是否全部核对");
+        assertTrue(res.data().path("p0Total").isIntegralNumber(), "必须明确下发整数红点计数，缺值不能默认为 0");
+        Set<String> actual = new HashSet<>();
+        Set<String> expected = new HashSet<>();
+        EXPECTED_KEYS_BY_LEVEL.values().forEach(expected::addAll);
+        int nonzeroP0 = 0;
+        boolean allAvailable = true;
+        for (com.fasterxml.jackson.databind.JsonNode row : res.data().path("items")) {
+            String key = row.path("key").asText();
+            assertTrue(actual.add(key), "条目键不得重复: " + key);
+            assertTrue(expected.contains(key), "不得静默加入未登记条目: " + key);
+            assertTrue(row.path("label").isTextual() && !row.path("label").asText().isBlank(),
+                    "条目必须有服务提供的可读标签: " + key);
+            assertTrue(row.path("available").isBoolean(), "每项必须声明 available: " + key);
+            if (row.path("available").asBoolean()) {
+                assertTrue(row.path("count").isIntegralNumber() && row.path("count").asInt() >= 0,
+                        "已核对项必须有非负整数计数: " + key);
+                if ("P0".equals(row.path("level").asText()) && row.path("count").asInt() > 0) nonzeroP0++;
+            } else {
+                allAvailable = false;
+                assertTrue(row.has("count") && row.path("count").isNull(),
+                        "未核对项必须保留未知，不能显示 0: " + key);
+            }
+        }
+        assertEquals(expected, actual, "目录必须完整且唯一，不能仅比较条目件数");
+        EXPECTED_KEYS_BY_LEVEL.forEach((level, keys) -> keys.forEach(key ->
+                assertEquals(level, itemOf(res, key).path("level").asText(), key + " 的默认业务级别漂移")));
+        assertEquals(allAvailable, res.data().path("complete").asBoolean(), "complete 必须与实际核对范围一致");
+        assertEquals(nonzeroP0, res.data().path("p0Total").asInt(), "红点只数已核对的非零 P0 项，不加总订单数");
+    }
 
     /** 取 items 里某个 key 的那一项；不存在返回 null。 */
     private static com.fasterxml.jackson.databind.JsonNode itemOf(Api res, String key) {
@@ -41,6 +103,7 @@ class ManagerPendingSummaryIntegrationTest extends AbstractIntegrationTest {
 
         // —— 空库：不该炸，且 p0Total 必须是 0 ——
         Api empty = get("/api/manager/pending-summary", mgr);
+        assertSummaryContract(empty);
         assertEquals(0, empty.code(), "空库时应正常返回: " + empty);
         assertNotNull(empty.data().path("items"), "必须下发 items");
         assertEquals(0, empty.data().path("p0Total").asInt(), "没有任何待办时 p0Total 应为 0");
@@ -55,30 +118,11 @@ class ManagerPendingSummaryIntegrationTest extends AbstractIntegrationTest {
             assertNotNull(it.path("label").asText(), "label 必须由后端下发，前端不自带映射表");
         }
 
-        // —— 分级目录必须一条不少（16 条），且每一级的关键条目按产品裁定归位 ——
-        // [2026-09-28] 15 → 16：新增 `interStationUnsettled`（站间未结清，v67）。
-        // 这条断言的作用就是**逼着改 PendingItem 的人同时改端点**（漏了 case 会少一条、这里立刻红），
-        // 所以数字必须跟着改 —— 但别改成 `>= 15` 那种写法，那等于把这道闸门拆了。
-        assertEquals(16, empty.data().path("items").size(),
-                "待办条目目录有 16 条，少了下发说明 PendingItem 被改过而端点没跟上");
-        for (String key : new String[]{"pendingAssign", "pendingTransfer", "customerCancel",
-                "stationCancel", "directedIncoming", "barrelReturn"}) {
-            assertEquals("P0", itemOf(empty, key).path("level").asText(),
-                    key + " 应归 P0（不处理就卡住今天的配送）");
-        }
-        for (String key : new String[]{"pendingPayment", "overdueReceivable", "staffBinding",
-                "enterpriseApply", "draftPayroll", "interStationUnsettled"}) {
-            assertEquals("P1", itemOf(empty, key).path("level").asText(),
-                    key + " 应归 P1（影响钱或他人，但客户不会干等）");
-        }
-        for (String key : new String[]{"poolClaimable", "costNotFilled",
-                "barrelException", "operationAlert"}) {
-            assertEquals("P2", itemOf(empty, key).path("level").asText(),
-                    key + " 应归 P2（不处理也不出事）");
-        }
+        assertTrue(empty.data().path("complete").asBoolean(), "已安装结构的空站应全部核对完成");
 
         // 空库时每一项的 count 都是 0（否则 p0Total 的语义就不成立了）
         for (com.fasterxml.jackson.databind.JsonNode it : empty.data().path("items")) {
+            assertTrue(it.path("available").asBoolean(), "空站已核对项仍应 available=true: " + it.path("key").asText());
             assertEquals(0, it.path("count").asInt(),
                     "空库时 count 应为 0: " + it.path("key").asText());
         }
@@ -131,6 +175,7 @@ class ManagerPendingSummaryIntegrationTest extends AbstractIntegrationTest {
                 Boolean.class, order), "前置：该单必须处于未分配状态");
 
         Api after = get("/api/manager/pending-summary", mgr);
+        assertSummaryContract(after);
         assertEquals(0, after.code(), "有单时也应正常返回: " + after);
 
         com.fasterxml.jackson.databind.JsonNode assign = itemOf(after, "pendingAssign");
@@ -141,5 +186,35 @@ class ManagerPendingSummaryIntegrationTest extends AbstractIntegrationTest {
 
         assertTrue(after.data().path("p0Total").asInt() > before,
                 "多了一条 P0 待办，p0Total 必须变大（它是红点判据）");
+    }
+
+    @Test
+    @DisplayName("待办汇总：新凭据读取不可用保留未知，恢复后重新核对，不伪装为零")
+    void unavailableBusinessCountsStayUnknownUntilRetry() {
+        long station = createStation("未核对责任站");
+        long manager = createStaff("责任站长", "STATION_MANAGER", station, 1);
+        String mgr = staffToken(manager, "STATION_MANAGER", station);
+        Object installed = ReflectionTestUtils.getField(barrelBusinessPolicy, "schemaInstalled");
+        assertEquals(Boolean.TRUE, installed, "前置：测试目标须安装新业务结构");
+        try {
+            // 只模拟读数不可用；不改真实表，不切换业务写模型，finally 恢复共享 Bean。
+            ReflectionTestUtils.setField(barrelBusinessPolicy, "schemaInstalled", false);
+            Api unavailable = get("/api/manager/pending-summary", mgr);
+            assertSummaryContract(unavailable);
+            assertTrue(!unavailable.data().path("complete").asBoolean(), "部分未知不能说全部完成核对");
+            for (String key : List.of("returnRefund", "recoverySend", "recoveryReceive", "barrelHandover", "barrelDispute")) {
+                assertTrue(!itemOf(unavailable, key).path("available").asBoolean(), key + " 应明确未核对");
+                assertTrue(itemOf(unavailable, key).path("count").isNull(), key + " 不得转换成 0");
+            }
+            assertTrue(itemOf(unavailable, "waitingStock").path("available").asBoolean(), "可用的库存责任仍须正常核对");
+        } finally {
+            ReflectionTestUtils.setField(barrelBusinessPolicy, "schemaInstalled", installed);
+        }
+        Api retry = get("/api/manager/pending-summary", mgr);
+        assertSummaryContract(retry);
+        assertTrue(retry.data().path("complete").asBoolean(), "恢复后重新核对完成");
+        for (String key : EXPECTED_KEYS_BY_LEVEL.get("P1")) {
+            assertTrue(itemOf(retry, key).path("available").asBoolean(), "恢复后可用性须重新计算: " + key);
+        }
     }
 }

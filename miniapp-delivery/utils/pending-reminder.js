@@ -20,6 +20,41 @@ const PENDING_SUMMARY = '/api/manager/pending-summary'
 const REMINDER_KEY = 'todoReminderEnabled'
 const HOME_TAB_INDEX = 0 // 首页 tab 的位置（见 app.json 的 tabBar.list 顺序）
 
+// 2026-10-02：新责任仍落到已有办理页；首页白名单/点击路由须复用这份路径，
+// 标签、计数和级别一律由待办汇总提供。顾客端不能调用这些员工页面。
+const BUSINESS_PENDING_ROUTES = {
+  waitingStock: '/pages/station-mgmt/business-waiting/index?section=stock',
+  returnRefund: '/pages/station-mgmt/business-waiting/index?section=returns',
+  recoverySend: '/pages/station-mgmt/business-waiting/index?section=recoveries',
+  recoveryReceive: '/pages/station-mgmt/business-waiting/index?section=recoveries',
+  barrelHandover: '/pages/station-mgmt/business-waiting/index?section=barrels',
+  barrelDispute: '/pages/station-mgmt/business-waiting/index?section=barrels'
+}
+
+/**
+ * [2026-10-02 F-76/B1/B2] 旧目录缺键或 unknown 不能代表没有待办。
+ * 首页和应用红点共用此校验；原共享入口只看 p0Total，启动时会把旧红点清掉。
+ * 必须完整核对协议及本批六键后才替换已知结果，不为缺项补零。
+ */
+function isPendingSummaryComplete(data) {
+  if (!data || !Array.isArray(data.items) || data.complete !== true ||
+      !Number.isSafeInteger(data.p0Total) || data.p0Total < 0) return false
+  const keys = new Set()
+  const verified = data.items.every(it => {
+    if (!it || typeof it !== 'object' || Array.isArray(it) ||
+        typeof it.key !== 'string' || !it.key.trim() || keys.has(it.key) ||
+        it.available !== true || !Number.isSafeInteger(it.count) || it.count < 0 ||
+        typeof it.label !== 'string' || !it.label.trim() ||
+        !['P0', 'P1', 'P2'].includes(it.level)) return false
+    keys.add(it.key)
+    return true
+  })
+  return verified && Object.keys(BUSINESS_PENDING_ROUTES).every(key => keys.has(key))
+}
+
+/** 站长只读定位原申请；不从最多 500 条的历史列表里猜“申请不存在”。 */
+const getPendingReturnRecord = (id) => get(PENDING_SUMMARY + '/return-record/' + encodeURIComponent(id))
+
 /**
  * 红点当前该不该亮的**标记位**（[2026-09-26] 自绘底栏加）。
  *
@@ -98,14 +133,14 @@ function setReminderEnabled(enabled) {
     return
   }
   // 重新打开时立刻拉一次：不拉的话要等下一次 onShow 才亮，用户会以为开关坏了
-  //（失败只是不亮，不抛错 —— 同 fetchPendingSummary 的降级口径）
+  //（失败保留原红点，不抛错 —— 同 fetchPendingSummary 的降级口径）
   syncPendingReminder()
 }
 
 /**
  * 取待办汇总。失败**不抛**：它挂在 app.onShow 与各页面 onShow 上，
- * 一次网络抖动不该让页面弹红字（取不到就不亮红点，属于"安静地降级"）。
- * 但会 console.warn 留痕 —— 静默失败会让"红点不亮"与"真没待办"无法区分。
+ * 一次网络抖动不该让页面弹红字；失败或未核对响应返回 null，保留原红点。
+ * console.warn 留痕；调用方需要失败展示时仍自行维护未核对提示。
  */
 async function fetchPendingSummary() {
   if (!isReminderEnabled()) return null
@@ -115,9 +150,13 @@ async function fetchPendingSummary() {
       console.warn('[pending-summary] 非成功响应:', res && res.message)
       return null
     }
-    return res.data || null
+    if (!isPendingSummaryComplete(res.data)) {
+      console.warn('[pending-summary] 待办尚未完整核对，保留原提醒')
+      return null
+    }
+    return res.data
   } catch (err) {
-    console.warn('[pending-summary] 取待办汇总失败（不亮红点）:', err && err.message)
+    console.warn('[pending-summary] 取待办汇总失败（保留原提醒）:', err && err.message)
     return null
   }
 }
@@ -135,13 +174,16 @@ async function syncPendingReminder() {
 
 /** 按已拿到的汇总数据亮/灭红点（不请求）。纯红点，不带数字 —— 见文件头边界 2 */
 function applyRedDot(data) {
-  if (!isReminderEnabled()) return
-  const hasP0 = Number(data && data.p0Total) > 0
+  if (!isReminderEnabled() || !isPendingSummaryComplete(data)) return
+  const hasP0 = data.p0Total > 0
   // 一个写入口管三处（原生 API / storage 标记 / 当前页的自绘底栏），见 syncTabBarDot
   syncTabBarDot(hasP0)
 }
 
 module.exports = {
+  BUSINESS_PENDING_ROUTES,
+  isPendingSummaryComplete,
+  getPendingReturnRecord,
   PENDING_SUMMARY,
   REMINDER_KEY,
   DOT_FLAG_KEY,

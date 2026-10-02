@@ -15,10 +15,12 @@ import com.example.aquaflow.mapper.StaffPayrollMapper;
 import com.example.aquaflow.mapper.StaffStationApplicationMapper;
 import com.example.aquaflow.service.OrderBarrelExceptionService;
 import com.example.aquaflow.service.ReceivableService;
+import com.example.aquaflow.service.BusinessWaitingService;
 import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -121,6 +123,15 @@ public class ManagerPendingSummaryController {
     @Autowired
     private com.example.aquaflow.service.InterStationSettlementService interStationSettlementService;
 
+    @Autowired
+    private BusinessWaitingService businessWaitingService;
+
+    /** 站长待办穿透到本站原退桶申请；顾客端不可调，写操作仍走原审批/退款流程。 */
+    @GetMapping("/return-record/{recordId}")
+    public Result<com.example.aquaflow.entity.BarrelRecord> returnRecord(@PathVariable Long recordId) {
+        return Result.success(businessWaitingService.returnRecord(AuthContext.requireStationId(), recordId));
+    }
+
     /**
      * 按级别分组的待办（顺序与 {@link PendingItem} 的声明顺序一致）。
      *
@@ -139,11 +150,15 @@ public class ManagerPendingSummaryController {
         // 有金额含义的那一项（逾期应收）需要它；只取一次，避免每条各查一遍
         Map<String, Object> ar = receivableService.overview(stationId);
         Map<String, PendingItem.Level> overrides = parseOverrides();
+        Map<String, Integer> businessCounts = businessWaitingService.pendingCounts(stationId);
 
         List<Map<String, Object>> items = new ArrayList<>();
         for (PendingItem def : PendingItem.values()) {
             BigDecimal amount = null;
-            int count = switch (def) {
+            Integer count = switch (def) {
+                // 2026-10-02：办理页和首页使用同一责任谓词的 COUNT，不扫描截断列表。
+                case WAITING_STOCK, RETURN_REFUND, RECOVERY_SEND, RECOVERY_RECEIVE,
+                        BARREL_HANDOVER, BARREL_DISPUTE -> businessCounts.get(def.key());
                 // —— P0 ——
                 // 待分配：与「待办/配送」页 station-pending 同一方法，**同一道推送闸门**
                 // （已收款 或 货到付款 —— "没收到钱的单不进站长视野"由该方法自己保证）
@@ -210,6 +225,7 @@ public class ManagerPendingSummaryController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("items", items);
         data.put("p0Total", p0Total);
+        data.put("complete", items.stream().allMatch(i -> Boolean.TRUE.equals(i.get("available"))));
         return Result.success(data);
     }
 
@@ -256,12 +272,13 @@ public class ManagerPendingSummaryController {
     }
 
     private static Map<String, Object> item(String level, String key, String label,
-                                           int count, BigDecimal amount) {
+                                           Integer count, BigDecimal amount) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("level", level);
         row.put("key", key);
         row.put("label", label);
         row.put("count", count);
+        row.put("available", count != null);
         // 金额只给"有金额含义"的那一项，其余为 null —— 前端不必猜哪一项该显示钱
         row.put("amount", amount);
         return row;

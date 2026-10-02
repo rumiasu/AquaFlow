@@ -1,4 +1,8 @@
 <view class="container">
+  <text wx:if="{{recordId}}">原退桶申请 {{recordId}}</text>
+  <text wx:if="{{loading}}">正在核对申请…</text>
+  <text wx:if="{{loadError}}">{{loadError}}</text>
+  <button wx:if="{{loadError}}" bindtap="onRetry" disabled="{{loading}}">重新核对原申请</button>
   <!-- 已核销未交付 = 违规数据的只读自查（升级前退过的押金没有交付时间，属历史欠账）。
        有它才看得见"钱到底给没给"，因此只在计数 > 0 时出现，不占正常页面的位置。 -->
   <view class="alert-card" wx:if="{{undeliveredCount > 0}}">
@@ -12,9 +16,10 @@
 
   <view class="record-card" wx:for="{{list}}" wx:key="id">
     <view class="card-header">
+      <text wx:if="{{item.returnDetail}}">{{item.statusText}}</text>
       <!-- 非退桶流水（纯还桶 / 配送收发）照原样显示它自己的类型文案：
            它们的 status=3 只是处理标记，写成"已退押金"就是把没发生的事说成发生了 -->
-      <text class="status other" wx:if="{{!item.isReturn}}">{{item.typeText}}</text>
+      <text class="status other" wx:elif="{{!item.isReturn}}">{{item.typeText}}</text>
       <text class="status pending" wx:elif="{{item.status === 1}}">待审核</text>
       <text class="status approved" wx:elif="{{item.status === 2}}">已确认</text>
       <text class="status done" wx:elif="{{item.status === 3}}">已退押金</text>
@@ -45,19 +50,32 @@
     <view class="info-row" wx:if="{{item.noDeliveryRecord}}">
       <text class="warn">这笔押金没有交付记录：请核对钱是否已交给顾客，并补登记</text>
     </view>
-    <view class="card-actions" wx:if="{{item.isReturn && item.status === 1}}">
+    <view wx:if="{{recordsReady && !loading && item.returnDetail}}">
+      <text>{{item.returnDetail.pickupModeText}} · 需实际收到 {{item.returnDetail.requiredBarrels}} 个桶 · 取桶费 ¥{{item.returnDetail.pickupFee}}</text>
+      <button wx:if="{{item.returnDetail.status === 'APPLIED'}}" data-id="{{item.id}}" bindtap="onApproveArrangement">批准交接安排</button>
+      <view wx:if="{{item.returnDetail.status === 'APPROVED'}}">
+        <text wx:if="{{!item.returnDetail.customerConfirmedTime}}">等待客户线上确认安排</text>
+        <button wx:if="{{item.returnDetail.customerConfirmedTime && item.returnDetail.feePaymentId && item.returnDetail.feePaymentStatus === 1}}" data-id="{{item.returnDetail.feePaymentId}}" bindtap="onCollectPickupFee">确认实际收到上门费</button>
+        <button wx:if="{{item.returnDetail.customerConfirmedTime}}" data-id="{{item.id}}" bindtap="onApprove">确认实际交接</button>
+      </view>
+      <button wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReject">驳回未交接申请</button>
+      <button wx:if="{{item.returnDetail.feePaymentStatus === 2}}" data-id="{{item.returnDetail.feePaymentId}}" bindtap="onRefundPickupFee">单独退收桶服务费</button>
+      <button wx:if="{{item.returnDetail.status === 'RECEIVED'}}" data-id="{{item.id}}" data-amount="{{item.depositRefund}}" bindtap="onRefund">退押金并登记实际交付</button>
+      <text wx:if="{{item.returnDetail.status === 'RECEIVED'}}">退款提醒时间：{{item.returnDetail.refundDueTime}}</text>
+    </view>
+    <view class="card-actions" wx:elif="{{recordsReady && !loading && item.isReturn && item.status === 1}}">
       <button class="btn-approve" data-id="{{item.id}}" bindtap="onApprove">确认收到</button>
       <button class="btn-reject" data-id="{{item.id}}" bindtap="onReject">驳回</button>
     </view>
-    <view class="card-actions" wx:elif="{{item.isReturn && item.status === 2}}">
+    <view class="card-actions" wx:elif="{{recordsReady && !loading && item.isReturn && item.status === 2}}">
       <button class="btn-approve" data-id="{{item.id}}" data-amount="{{item.depositRefund || 0}}" bindtap="onRefund">退押金并当面交付 ¥{{item.depositRefund || 0}}</button>
       <button class="btn-reject" data-id="{{item.id}}" bindtap="onReject">驳回</button>
     </view>
-    <view class="card-actions" wx:elif="{{item.isReturn && item.status === 3}}">
+    <view class="card-actions" wx:elif="{{recordsReady && !loading && item.isReturn && item.status === 3}}">
       <text class="tip">{{item.confirmedTime}} 确认收桶</text>
     </view>
   </view>
-  <view class="empty" wx:if="{{list.length === 0}}">
+  <view class="empty" wx:if="{{recordsReady && !loading && list.length === 0}}">
     <text>暂无退桶记录</text>
   </view>
 </view>

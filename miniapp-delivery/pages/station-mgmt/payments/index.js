@@ -44,10 +44,11 @@ Page({
         // 文案正本仍是后端 PaymentStatus.textOf（有值就用它），这里只是缺值时的兜底。
         statusText: item.statusText || '待核实到账',
         amountText: Number(item.amount || 0).toFixed(2),
-        // 无订单号 = 线上买水票这类"不挂在订单上"的收款
-        isTicketPurchase: !item.orderId,
+        // 无订单收款还包括独立押金和上门收桶费，不能统一当成购票。
+        isTicketPurchase: !item.orderId && item.ticketQty > 0,
+        purposeText: item.purposeText || item.note || '请核实款项用途',
         // 备注后端带的是「线上购买水票」等中文，直接展示；为空时给个兜底
-        noteText: item.note || (item.orderId ? '订单待收款' : '线上购票待确认')
+        noteText: item.note || item.purposeText || '独立款项待核实',
       }))
       this.setData({ list, loadError: '' })
     } catch (err) {
@@ -66,9 +67,8 @@ Page({
 
   /**
    * 确认某笔收款已到账。
-   * 两种语义，由后端按是否有 order_id 分派：
-   *   · 订单类 → 订单支付状态置已付 + 入账预收桶押金（幂等）
-   *   · 购票类 → 水票入账（幂等，乐观锁保证只入一次）
+   * 后端按订单、购票、独立押金及收桶费来源分派实际入账，
+   * 无订单款项不能提示“订单已付款”。
    * 因此重复点击是安全的，但仍要提示清楚"确认的是钱已到手"，避免误把未到账的钱点成已确认。
    */
   onConfirm(e) {
@@ -77,7 +77,9 @@ Page({
     if (!item) return
     const what = item.isTicketPurchase
       ? `确认已收到该客户购买 ${item.ticketQty || 0} 张水票的款项 ¥${item.amountText}？确认后水票立即入账。`
-      : `确认已收到该客户支付 ¥${item.amountText}？确认后订单将标记为已付款。`
+      : item.orderId
+        ? `确认已收到该客户支付 ¥${item.amountText}？确认后订单将标记为已付款。`
+        : `确认已收到该客户的${item.purposeText} ¥${item.amountText}？请核对款项用途和实际到账后登记。`
 
     wx.showModal({
       title: '确认收款',

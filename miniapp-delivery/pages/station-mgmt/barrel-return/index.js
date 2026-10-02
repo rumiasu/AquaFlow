@@ -1,4 +1,6 @@
-const { getAllBarrelRecords, updateBarrelRecordStatus, markRefundPaid, getRefundUndelivered } = require('../../../api/station-mgmt')
+const { getAllBarrelRecords, updateBarrelRecordStatus, markRefundPaid, getRefundUndelivered, approveBarrelReturn, confirmPayment } = require('../../../api/station-mgmt')
+const businessRules = require('../../../api/business-rules')
+const { getPendingReturnRecord, syncPendingReminder } = require('../../../utils/pending-reminder')
 
 /**
  * 退桶审批页（站长端）。
@@ -20,12 +22,28 @@ const CHANNEL_CASH = 'CASH'
 const CHANNEL_ONLINE = 'ONLINE'
 
 Page({
+  onRefundPickupFee(e) {
+    wx.showModal({ title: '单独退收桶服务费', content: '请先向客户实际交付退款，再确认。本操作不退押金，也不抹去已经收桶的事实。未交接申请可在退服务费后撤回。', success: async r => {
+      if (!r.confirm) return
+      try { await businessRules.refundService(e.currentTarget.dataset.id, '站长确认实际退还收桶服务费'); await this.loadData() }
+      catch (err) { wx.showModal({ title: '退款未成功', content: err.message || '请核实原款', showCancel: false }) }
+    } })
+  },
   data: {
     list: [],
+    recordId: null,
+    loading: false,
+    recordsReady: false,
+    loadError: '',
     // 「已核销未交付」只读自查：升级前退过的押金没有交付时间，属历史欠账（后端给计数与明细）
     undelivered: [],
     undeliveredCount: 0,
     undeliveredAmount: '0'
+  },
+
+  onLoad(options) {
+    const id = options && options.recordId
+    this.setData({ recordId: id && /^\d+$/.test(String(id)) ? String(id) : null })
   },
 
   onShow() {
@@ -34,17 +52,27 @@ Page({
       app.routeByRole(true)
       return
     }
-    this.loadData()
+    const loading = this.loadData()
     this.loadUndelivered()
+    return loading
   },
 
+  onRetry() { return this.loadData() },
+
   async loadData() {
+    const seq = this._recordsSeq = (this._recordsSeq || 0) + 1
+    this.setData({ loading: true, recordsReady: false, loadError: '' })
     try {
-      const res = await getAllBarrelRecords()
+      // 2026-10-02：按首页原申请编号读取，历史列表可能被新流水挤出上限，不能据此说“已办完”。
+      const res = this.data.recordId ? await getPendingReturnRecord(this.data.recordId) : await getAllBarrelRecords()
+      if (seq !== this._recordsSeq) return
+      if (!res || res.code !== 0 || res.data == null) throw new Error('退桶申请未能核对，请重试')
+      const records = this.data.recordId ? [res.data] : res.data
+      if (!Array.isArray(records)) throw new Error('退桶申请未能核对，请重试')
       // owedBuckets 后端给的是 over（可为负）。负数=顾客多还的桶寄存在水站，是合法状态，
       // 不能当成 0 显示——那是顾客打电话来问"我的桶呢"的直接来源。
       // wxml 里不能做取负运算，所以在 JS 里预先拆成两个非负字段。
-      const list = (res.data || []).map(item => {
+      const list = records.map(item => {
         const over = item.owedBuckets || 0
         // ⚠️ 退桶审批的按钮/文案只对 **type=2（退桶）** 成立：type=7 纯还桶、type=8 配送收发
         //    也把 status 写成 3，直接按 status 渲染会给出"退押金"按钮，
@@ -58,9 +86,11 @@ Page({
           noDeliveryRecord: isReturn && item.status === 3 && !item.refundPaidTime
         })
       })
-      this.setData({ list })
+      this.setData({ list, recordsReady: true })
     } catch (err) {
-      wx.showToast({ title: err.message || '加载失败', icon: 'none' })
+      if (seq === this._recordsSeq) this.setData({ loadError: '退桶申请未能核对，请重试；已有记录是上次读取的结果' })
+    } finally {
+      if (seq === this._recordsSeq) this.setData({ loading: false })
     }
   },
 
@@ -103,6 +133,27 @@ Page({
         }
       }
     })
+  },
+  onApproveArrangement(e) {
+    const record = this.data.list.find(r => r.id === Number(e.currentTarget.dataset.id))
+    if (!record || !record.returnDetail) return
+    const needsFee = record.returnDetail.pickupMode === 'PICKUP' && record.returnDetail.requiredBarrels > 0
+    wx.showModal({ title: '批准退桶安排', editable: needsFee, placeholderText: '独立上门费（元，可填 0）',
+      content: needsFee ? '先填写本次独立上门费，客户确认后才能收桶。' : '本次不另收上门费。批准后等待客户确认安排。',
+      success: async (r) => {
+        if (!r.confirm) return
+        const fee = needsFee ? Number(r.content) : 0
+        if (!Number.isFinite(fee) || fee < 0 || fee > 10000) { wx.showToast({ title: '费用不合法', icon: 'none' }); return }
+        try { await approveBarrelReturn(record.id, fee, '批准交接安排'); await this.loadData() }
+        catch (err) { wx.showToast({ title: err.message || '批准失败', icon: 'none' }) }
+      } })
+  },
+  onCollectPickupFee(e) {
+    wx.showModal({ title: '确认收到取桶费', content: '须已经实际收到这笔上门收桶费，才可确认。', success: async (r) => {
+      if (!r.confirm) return
+      try { await confirmPayment(e.currentTarget.dataset.id); wx.showToast({ title: '已登记收款' }); this.loadData() }
+      catch (err) { wx.showToast({ title: err.message || '登记失败', icon: 'none' }) }
+    } })
   },
 
   /**
@@ -150,6 +201,8 @@ Page({
       wx.showToast({ title: '已退押金并登记交付', icon: 'success' })
       this.loadData()
       this.loadUndelivered()
+      // 原写流程成功后仅刷新应用内提醒；不另造退款或桶账写入口。
+      syncPendingReminder()
     } catch (err) {
       wx.hideLoading()
       // 线上通道未接入时后端会把原因写清楚（"微信退款通道未接入…"），

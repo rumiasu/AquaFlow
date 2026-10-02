@@ -22,6 +22,7 @@ const STAFF_MARKS = ['[退回站长]', '[转让]', '[重分配]']
 // "别人递过来的申请"（待分配/转单/取消/退桶/绑定申请…）。todo-summary 仍被保留在后端
 // （它的 4 项与本站点部分重叠，桶异常那一项两边刻意用同一个服务方法保证一致）。
 const PENDING_SUMMARY = API.MANAGER_PENDING_SUMMARY
+const { BUSINESS_PENDING_ROUTES, isPendingSummaryComplete } = require('../../utils/pending-reminder')
 
 /** 跨站外派风险查询（后端路由 /api/delivery/orders/{id}/cross-station-risk）。 */
 const crossStationRiskUrl = (id) => `/api/delivery/orders/${id}/cross-station-risk`
@@ -193,7 +194,9 @@ Page({
     loadError: '',
     staffListError: '',
     // 「其他待处理」视图模型（只含不在本页页签里的项），由 loadTodo() 组装
-    todo: null
+    todo: null,
+    todoLoading: false,
+    todoError: ''
   },
 
   /**
@@ -204,7 +207,7 @@ Page({
    * 真重复。别再删整卡（wxml 里那段注释记着同一件事）：
    *   · **剔除**（本页页签已有角标 / 宫格已有卡）：pendingAssign · pendingTransfer · customerCancel ·
    *     stationCancel · poolClaimable · directedIncoming · barrelReturn；
-   *   · **保留**（只活在「水站管理」里，首页不报就没人知道）：下面这 8 项。
+   *   · **保留**（只活在「水站管理」里，首页不报就没人知道）：下面的经营与业务责任项。
    * ⚠️ [2026-09-27 走查 M02] 本清单与 `decorateTodo` 的**显示口径已改**：
    * 原来"零计数也显示"（依据 docs/design/24 §:86/:90/:293），走查判定它占了首页上半屏、
    * 把真正要办的「待分配」挤下去，验收标准是"所有次要事项为零时没有八个零"。
@@ -228,7 +231,8 @@ Page({
     // [2026-09-28] 站间未结清（v67）：落点是「水站管理 → 收款与工资 → 站间结算」。
     // ⚠️ 它与上面被剔除的那 7 项**不是一回事**：那些各自有页签角标，在这里再报一遍是重复；
     //    这一笔**别处看不到**（站间结算页没有角标），不在这里报，站长就不知道有笔钱挂在那儿。
-    'interStationUnsettled'
+    'interStationUnsettled',
+    ...Object.keys(BUSINESS_PENDING_ROUTES)
   ],
 
   /**
@@ -236,6 +240,7 @@ Page({
    * **这里只做路由**（后端不认识小程序路径），所以它不是"前端自带映射表"。
    */
   TODO_ROUTES: {
+    ...BUSINESS_PENDING_ROUTES,
     overdueReceivable: '/pages/station-mgmt/receivables/index?overdue=1',
     pendingPayment: '/pages/station-mgmt/payments/index',
     // [2026-09-27 走查 M03 修] 带 `?tab=apply` 直达「绑定申请」页签。
@@ -257,27 +262,42 @@ Page({
   /**
    * 拉待办汇总，两件事：① 组装「其他待处理」卡；② 刷新首页 tab 红点。
    *
-   * 刻意**不阻塞**主列表、失败也不弹红字：它只是附加信号，取不到就不显示卡、不亮红点，
-   * 由下面 console.warn 留痕（静默失败会让"没数据"与"真没待办"无法区分）。
+   * 2026-10-02：原来失败只留日志，站长会漏掉资金/交接责任；现在保留旧卡并标为未核对，
+   * 给重试入口，成功读取后再替换。红点仍只认完整响应中的 P0。
    */
   async loadTodo() {
     const app = getApp()
     const stationId = (app.globalData.userInfo || {}).stationId
     if (!stationId) return
+    const seq = this._todoSeq = (this._todoSeq || 0) + 1
+    this.setData({ todoLoading: true })
     try {
       const res = await get(PENDING_SUMMARY)
+      if (seq !== this._todoSeq) return
       if (!res || res.code !== 0) {
-        console.warn('[pending-summary] 非成功响应:', res && res.message)
-        return
+        throw new Error('待办未能核对，请重试')
       }
-      const d = res.data || {}
-      this.setData({ todo: this.decorateTodo(d) })
+      const d = res.data
+      if (!this.isTodoSummaryComplete(d)) throw new Error('待办未能核对，请重试')
+      this.setData({ todo: this.decorateTodo(d), todoError: '' })
       // 红点判据（P0 且非零）由 utils/pending-reminder 统一持有，页面不自己判断。
-      // ⚠️ 红点看的是**全部** P0（含被本卡剔除的那几项），不是只看卡里这 8 项 —— 别改成用 todo.items 推。
+      // ⚠️ 红点看的是全部 P0（含被本卡剔除的项），不能只用 todo.items 推。
       require('../../utils/pending-reminder').applyRedDot(d)
     } catch (err) {
-      console.warn('[pending-summary] 取待办汇总失败（不显示卡、不亮红点）:', err && err.message)
+      if (seq === this._todoSeq) this.setData({ todoError: '待办未能核对，请重试；已有数字是上次读取的结果' })
+    } finally {
+      if (seq === this._todoSeq) this.setData({ todoLoading: false })
     }
+  },
+  onRetryTodo() { return this.loadTodo() },
+
+  /**
+   * [2026-10-02 F-76/B1] 原来只验数组、只认 complete=false；旧目录缺六个新键、
+   * 或未核对项会被 decorateTodo 跳过，卡片随即隐藏，错报为没有待办。
+   * 必须逐项确认协议及本批必需键；B2 后与应用红点共用工具校验，避免入口漂移。
+   */
+  isTodoSummaryComplete(d) {
+    return isPendingSummaryComplete(d)
   },
 
   /**
@@ -288,17 +308,15 @@ Page({
    *
    * [2026-09-27 走查 M02 修] **零计数不再占位**：全为零时整张卡不渲染（wxml 的
    * `todo.items.length` 判据不变），有可处理事项时才露出、并按业务紧急度排前面。
-   * 原来 8 项零值常驻，两行八格把「待分配」压到半屏以下（截图 04 / 06）——
+   * 原来零值常驻把「待分配」压到半屏以下（截图 04 / 06）——
    * 站长打开首页问的是"今天要给谁派水"，先看到的却是一堆 0。
    *
    * 三条不能改坏的边界（改这里之前逐条确认）：
-   *   ① **P0 红点不受本卡影响**：红点算的是完整 payload 的 `p0Total`（见 loadTodo 里
-   *      `applyRedDot(d)`）—— 那 8 项本来一项 P0 都没有，被本卡剔除的 6 个 P0 也从没在这张卡里。
-   *      **别改成用 `todo.items` 推红点**；
+   *   ① P0 红点算完整 payload 的 p0Total；2026-10-02 缺货责任可在本卡显示 P0，
+   *      既有页签的 P0 也继续计入，不能只用 todo.items 推红点。
    *   ② **功能没被删**：完整功能目录「水站管理」是常驻入口（wxml 里在任何 wx:if 之外），
    *      零值时照样进得去每一项；本卡只是"提醒区"，不是"功能清单"；
-   *   ③ **失败不能被当成零**：loadTodo 拿不到汇总时 `todo` 保持 null ⇒ 卡根本不渲染
-   *      （而不是渲染出一张"什么都没有"的卡，那会把"没加载出来"说成"没事要办"）。
+   *   ③ 失败/未就绪的计数不能当零；loadTodo 显示未核对提示并保留上次卡。
    *
    * 排序：`order` 是后端给的固定顺序（钱 → 人 → 质量），这里只做**稳定**的"非零在前"，
    * 不重新发明优先级 —— 后端要调顺序就调 payload 里的 order。
@@ -309,7 +327,7 @@ Page({
     const items = []
     this.TODO_KEYS.forEach(key => {
       const it = byKey[key]
-      if (!it) return   // 后端没下发这一项（如企业身份功能关着）→ 不硬造
+      if (!it || it.available === false || it.count == null) return
       const count = Number(it.count) || 0
       // [M02] 零值不展示：它除了一格"0"没有任何可处理事项
       if (count <= 0) return

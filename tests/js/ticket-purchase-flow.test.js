@@ -38,13 +38,27 @@ async function test(name, fn) {
 /** 组织一次页面加载：可控的购票假后端 + 记录调用。 */
 function newPage(scenario) {
   const sc = scenario || {}
-  const calls = { purchase: [], accounts: 0, records: 0 }
+  const calls = { purchase: [], query: [], rights: 0, accounts: 0, records: 0 }
+  const responseFor = (body, extra) => Object.assign({ paymentId: 900, amount: 24, status: 2,
+    stationId: body.stationId, productId: body.productId, quantity: body.quantity,
+    paymentMethod: body.paymentMethod, packageId: body.packageId, unifiedQty: body.unifiedQty }, extra)
 
   const stubs = {
+    'api/barrel': { getBarrelSummaryByType: async () => {
+      calls.rights++
+      if (sc.rightsThrow) throw new Error('权益查询失败')
+      return { code: 0, data: sc.rights === undefined ? [{ productId: 5, quantity: 1, rightQty: 1 }] : sc.rights }
+    } },
     'api/ticket': {
       getTicketAccounts: async () => { calls.accounts++; return { code: 0, data: sc.accounts || [] } },
       getTicketRecords: async () => { calls.records++; return { code: 0, data: [] } },
       getTicketPackages: async () => ({ code: 0, data: [] }),
+      getTicketPurchaseResult: async (key) => {
+        calls.query.push(key)
+        const step = (sc.query || [])[calls.query.length - 1] || {}
+        if (step.throw) throw new Error(step.throw)
+        return { code: 0, data: step.data || null }
+      },
       purchaseTicket: async (body) => {
         calls.purchase.push(body)
         // 需要"请求还没回来"的用例（连点）：给一个由用例自己放行的 Promise。
@@ -53,22 +67,23 @@ function newPage(scenario) {
         if (sc.hold) {
           return new Promise((resolve) => {
             sc.resolvers = sc.resolvers || []
-            sc.resolvers.push(() => resolve({ code: 0, data: sc.holdData || { paymentId: 900, amount: 24, status: 2 } }))
+            sc.resolvers.push(() => resolve({ code: 0, data: responseFor(body, sc.holdData) }))
           })
         }
         const step = (sc.purchase || [])[calls.purchase.length - 1]
         if (step && step.throw) throw new Error(step.throw)
-        return { code: 0, data: (step && step.data) || { paymentId: 900, amount: 24, status: 2 } }
+        return { code: 0, data: responseFor(body, step && step.data) }
       }
     },
     'api/product': { getStationProducts: async () => ({ code: 0, data: sc.products || [] }) },
     'api/station': { getPublicStations: async () => ({ code: 0, data: [] }) }
   }
 
-  const wx = createWx()
+  const wx = sc.wx || createWx()
   // 已选水站（真实 utils/storage 读的就是这个键）
   wx.setStorageSync('selectedStation', { id: 1, name: '测试水站' })
-  const page = loadPage('miniapp-user/pages/ticket/index.js', { stubs, wx, app: createApp() })
+  const app = sc.app || createApp()
+  const page = loadPage('miniapp-user/pages/ticket/index.js', { stubs, wx, app })
 
   // 把页面摆到"商品已选、张数已定、可以提交"的状态（本来由 onShow/选商品填）
   page.data.currentStationId = 1
@@ -76,12 +91,19 @@ function newPage(scenario) {
   page.data.buyForm = Object.assign({}, page.data.buyForm, {
     productId: 5, productName: '测试水', faceValue: 8, quantity: 3, totalPrice: 24
   })
-  return { page, calls, wx }
+  return { page, calls, wx, app }
 }
 
 ;(async () => {
   const doneWatchdog = armWatchdog()
   console.log('水票购买流程 · 流程测试（真实执行页面处理函数）')
+  await test('该桶型没有汇总行时：服务端拒绝无权益购票，明确引导先交押金', async () => {
+    const {page,calls,wx}=newPage({rights:[],purchase:[{throw:'请先购买该桶权益'}]})
+    await page.onBuySubmit()
+    assert.strictEqual(calls.purchase.length,1)
+    assert.ok(wx.__calls.modal.some(m=>m.content.includes('权益')))
+    assert.ok(wx.__calls.nav.some(n=>n.url.includes('/pages/barrel/purchase')))
+  })
 
   await test('支付方式文案：叫「微信支付」，且不把收款确认说成"申请/审批"', async () => {
     const { page } = newPage()
@@ -139,6 +161,7 @@ function newPage(scenario) {
     const { page, calls } = newPage(sc)
     const first = page.onBuySubmit()
     const second = page.onBuySubmit()   // 用户在请求还没回来时又点了一下
+    await Promise.resolve() // 新前置查询结束，购票请求才进入可控的等待。
     sc.resolvers.forEach((r) => r())
     await first
     await second
@@ -164,6 +187,135 @@ function newPage(scenario) {
     assert.strictEqual(calls.purchase.length, 2)
     assert.notStrictEqual(calls.purchase[0].idempotencyKey, calls.purchase[1].idempotencyKey,
       '成功后键要重新生成，否则第二次购买会被后端当成重放、返回上一笔（客户以为买了其实没买）')
+  })
+
+  // F-75 反向旅程：模拟服务端已成功、仅客户端丢响应。不会把“假后端绿”称为 MySQL 已验。
+  await test('丢响应退出后查回原款，商品已下架也不再次付款', async () => {
+    const first = newPage({ purchase: [{ throw: '响应丢失' }] })
+    await first.page.onBuySubmit()
+    const key = first.calls.purchase[0].idempotencyKey
+    const second = newPage({ wx: first.wx, products: [], query: [{ data: {
+      paymentId: 900, status: 2, amount: 24, stationId: 1, productId: 5, quantity: 3, paymentMethod: 1, packageId: null
+    } }] })
+    await second.page.onShow()
+    assert.deepStrictEqual(second.calls.query, [key])
+    assert.strictEqual(second.calls.purchase.length, 0)
+    assert.strictEqual(second.page.data.pendingPurchase, null)
+    assert.ok(second.wx.__calls.toast.some(t => t.title === '购买成功，水票已到账'))
+  })
+
+  await test('退出重进未查到时保留原请求，权益查询失败也可原键重试', async () => {
+    const first = newPage({ purchase: [{ throw: '响应丢失' }] })
+    await first.page.onBuySubmit()
+    const original = first.calls.purchase[0]
+    const second = newPage({ wx: first.wx, rightsThrow: true })
+    await second.page.onShow()
+    assert.ok(second.page.data.pendingPurchase)
+    await second.page.onRetryOriginalPurchase()
+    assert.deepStrictEqual(second.calls.purchase[0], original)
+    assert.strictEqual(second.calls.rights, 0, '原款恢复不得依赖新的权益/商品配置')
+  })
+
+  for (const field of ['stationId', 'productId', 'quantity', 'paymentMethod', 'packageId', 'unifiedQty']) {
+    await test('未知结果后修改 ' + field + ' 不得拿旧键当新购买', async () => {
+      const t = newPage({ purchase: [{ throw: '超时' }] })
+      await t.page.onBuySubmit()
+      if (field === 'stationId') t.page.data.currentStationId = 2
+      else t.page.data.buyForm[field] = field === 'packageId' ? 99 : 8
+      await t.page.onBuySubmit()
+      assert.strictEqual(t.calls.purchase.length, 1)
+      assert.ok(t.page.data.pendingPurchase)
+    })
+  }
+
+  await test('关弹窗不遗忘未知购买，修改 handler 被阻止', async () => {
+    const t = newPage({ purchase: [{ throw: '超时' }] })
+    await t.page.onBuySubmit()
+    const before = t.page.data.pendingPurchase.body
+    t.page.onClosePurchase()
+    t.page.onBuyPaymentMethodSelect({ currentTarget: { dataset: { id: 2 } } })
+    t.page.applyLooseQty(10)
+    assert.deepStrictEqual(t.page.data.pendingPurchase.body, before)
+    assert.strictEqual(t.page.data.buyForm.quantity, 1)
+    assert.strictEqual(t.page.data.buyForm.paymentMethod, 1)
+    await t.page.onRetryOriginalPurchase()
+    assert.strictEqual(t.calls.purchase[1].quantity, 3)
+  })
+
+  await test('查回失败不显示成功、不丢原购买、也不换编号', async () => {
+    const t = newPage({ purchase: [{ throw: '超时' }], query: [{ throw: '查询超时' }] })
+    await t.page.onBuySubmit()
+    await t.page.onQueryPurchaseResult()
+    assert.strictEqual(t.page.data.pendingPurchase.body.idempotencyKey, t.calls.purchase[0].idempotencyKey)
+    assert.ok(t.page.data.purchaseRecoveryText.includes('查询失败'))
+    assert.ok(!t.wx.__calls.toast.some(n => n.title.includes('成功')))
+  })
+
+  await test('收到不完整状态不谎称已登记，原购买仍可恢复', async () => {
+    const t = newPage({ purchase: [{ data: { paymentId: 900, amount: 24, status: null } }] })
+    await t.page.onBuySubmit()
+    assert.ok(t.page.data.pendingPurchase && !t.page.data.pendingPurchase.result)
+    assert.ok(!t.wx.__calls.modal.some(n => n.title === '等待到账'))
+  })
+
+  await test('身份切换后保留各自原购买，新客户不用旧客户的编号', async () => {
+    const t = newPage({ purchase: [{ throw: '超时' }, { throw: '超时' }] })
+    await t.page.onBuySubmit()
+    t.app.globalData.customerId = 8
+    await t.page.onBuySubmit()
+    assert.notStrictEqual(t.calls.purchase[0].idempotencyKey, t.calls.purchase[1].idempotencyKey)
+    t.app.globalData.customerId = 7
+    t.page.restorePurchaseIntent()
+    assert.strictEqual(t.page.data.pendingPurchase.body.idempotencyKey, t.calls.purchase[0].idempotencyKey)
+  })
+
+  await test('持久化失败时不发送购票，避免退出后丢失编号', async () => {
+    const t = newPage()
+    t.wx.setStorageSync = () => { throw new Error('存储空间不足') }
+    await t.page.onBuySubmit()
+    assert.strictEqual(t.calls.purchase.length, 0)
+    assert.strictEqual(t.page.data.submitting, false)
+  })
+
+  await test('已登记待收款必须明确另买一笔才生成新编号', async () => {
+    const t = newPage({ purchase: [{ data: { paymentId: 900, status: 1, amount: 24 } }], query: [{ data: {
+      paymentId: 900, amount: 24, status: 1, stationId: 1, productId: 5, quantity: 3, paymentMethod: 1, packageId: null
+    } }] })
+    await t.page.onBuySubmit()
+    t.page.data.buyForm.productId = 5
+    await t.page.onBuySubmit()
+    assert.strictEqual(t.calls.purchase.length, 1)
+    t.wx.__modalAutoConfirm = false
+    await t.page.onStartNextPurchase()
+    assert.ok(t.page.data.pendingPurchase)
+    t.wx.__modalAutoConfirm = true
+    await t.page.onStartNextPurchase()
+    t.page.data.buyForm.productId = 5
+    await t.page.onBuySubmit()
+    assert.strictEqual(t.calls.purchase.length, 2)
+    assert.notStrictEqual(t.calls.purchase[0].idempotencyKey, t.calls.purchase[1].idempotencyKey)
+  })
+
+  await test('原款内容不一致不能显示购票成功', async () => {
+    const t = newPage({ purchase: [{ throw: '超时' }], query: [{ data: {
+      paymentId: 900, amount: 24, status: 2, stationId: 2, productId: 5, quantity: 3, paymentMethod: 1
+    } }] })
+    await t.page.onBuySubmit()
+    await t.page.onQueryPurchaseResult()
+    assert.ok(t.page.data.pendingPurchase)
+    assert.ok(!t.wx.__calls.toast.some(n => n.title.includes('成功')))
+  })
+
+  await test('原购买记录损坏或读取失败不能覆盖成新购买', async () => {
+    const t = newPage()
+    t.wx.setStorageSync('aq_user_ticketPurchaseIntent:7', { customerId: 7 })
+    await t.page.onShow()
+    await t.page.onBuySubmit()
+    assert.strictEqual(t.calls.purchase.length, 0)
+    assert.ok(t.page.data.purchaseStorageError)
+    t.wx.getStorageSync = () => { throw new Error('存储不可用') }
+    await t.page.onBuySubmit()
+    assert.strictEqual(t.calls.purchase.length, 0)
   })
 
   console.log('')

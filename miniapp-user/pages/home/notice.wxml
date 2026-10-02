@@ -1,10 +1,16 @@
 <view class="container">
-  <view class="notice-detail" wx:if="{{notice.title}}">
+  <view class="page-state" wx:if="{{loading}}">
+    <text class="page-state-text">{{notice ? '正在刷新...' : '加载中...'}}</text>
+  </view>
+  <view class="page-state" wx:if="{{error}}">
+    <text class="page-state-text page-state-error">{{error}}</text>
+    <button class="page-state-retry" wx:if="{{canRetry}}" bindtap="onRetry">重试</button>
+  </view>
+  <view class="notice-detail" wx:if="{{notice}}">
     <text class="notice-title">{{notice.title}}</text>
     <text class="notice-time">{{notice.createTime}}</text>
     <view class="notice-content">
       <text>{{notice.content}}</text>
     </view>
   </view>
-  <empty wx:else text="公告不存在"></empty>
 </view>

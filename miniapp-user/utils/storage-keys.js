@@ -3,7 +3,8 @@ const STORAGE_KEYS = {
   ACCESS_TOKEN: 'aq_user_accessToken',
   REFRESH_TOKEN: 'aq_user_refreshToken',
   USER_INFO: 'aq_user_userInfo',
-  CUSTOMER_ID: 'aq_user_customerId'
+  CUSTOMER_ID: 'aq_user_customerId',
+  TICKET_PURCHASE_INTENT: 'aq_user_ticketPurchaseIntent:'
 }
 
 module.exports = { STORAGE_KEYS }

@@ -1,5 +1,6 @@
 const { STORAGE_KEYS } = require('./utils/storage-keys')
 const { stationStorage } = require('./utils/storage')
+const { captureSession, isCurrentSession, isCurrentCredentials, beginSession } = require('./utils/token')
 
 App({
   globalData: {
@@ -31,6 +32,8 @@ App({
   },
 
   validateToken() {
+    // 启动旧结果可能晚于新登录或同周期续期；身份与凭据都须仍是当前版本。
+    const session = captureSession()
     const { getBaseUrl, API } = require('./config/api')
     const baseUrl = getBaseUrl()
     wx.request({
@@ -40,13 +43,16 @@ App({
         'Authorization': 'Bearer ' + this.globalData.accessToken
       },
       success: (res) => {
-        if (res.statusCode === 200 && res.data.code === 0) {
+        if (!isCurrentCredentials(session)) return
+        if (res.statusCode === 200 && res.data && res.data.code === 0) {
           this.globalData.isLogin = true
           this.globalData.userInfo = res.data.data
         } else if (res.statusCode === 401 || (res.data && res.data.code === 401)) {
-          this.tryRefresh().then(() => {
+          this.tryRefresh(session).then(() => {
+            if (!isCurrentSession(session)) return
             this.globalData.isLogin = true
           }).catch(() => {
+            if (!isCurrentCredentials(session)) return
             this.clearLoginInfo()
             wx.redirectTo({ url: '/pages/login/index' })
           })
@@ -61,35 +67,13 @@ App({
     })
   },
 
-  tryRefresh() {
-    return new Promise((resolve, reject) => {
-      const refreshToken = this.globalData.refreshToken || wx.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
-      if (!refreshToken) return reject(new Error('no refresh token'))
-
-      const { getBaseUrl, API } = require('./config/api')
-      wx.request({
-        // 统一走 API.REFRESH，勿硬编码路径；同文件 validateToken 用 API.ME。
-        url: getBaseUrl() + API.REFRESH,
-        method: 'POST',
-        data: { refreshToken },
-        success: (res) => {
-          if (res.statusCode === 200 && res.data && res.data.code === 0) {
-            const { accessToken, refreshToken: newRefreshToken } = res.data.data
-            this.globalData.accessToken = accessToken
-            if (newRefreshToken) this.globalData.refreshToken = newRefreshToken
-            wx.setStorageSync(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
-            if (newRefreshToken) wx.setStorageSync(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken)
-            resolve()
-          } else {
-            reject(new Error('refresh failed'))
-          }
-        },
-        fail: reject
-      })
-    })
+  tryRefresh(session = captureSession()) {
+    // 与页面401共用同一份凭据的刷新；迟到启动401不再另送旧 refreshToken。
+    return require('./utils/request').refreshLogin(session).then(() => undefined)
   },
 
   setLoginInfo(accessToken, refreshToken, userInfo) {
+    beginSession()
     this.globalData.accessToken = accessToken
     this.globalData.refreshToken = refreshToken
     this.globalData.userInfo = userInfo
@@ -100,6 +84,7 @@ App({
   },
 
   clearLoginInfo() {
+    beginSession()
     this.globalData.accessToken = null
     this.globalData.refreshToken = null
     this.globalData.userInfo = null

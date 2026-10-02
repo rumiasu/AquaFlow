@@ -9,6 +9,7 @@
     "pages/address/list",
     "pages/address/edit",
     "pages/barrel/index",
+    "pages/barrel/purchase",
     "pages/shop/index",
     "pages/template/index",
     "pages/ticket/index",

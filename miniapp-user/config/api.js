@@ -141,6 +141,12 @@ const API = {
   BARREL_SUMMARY_BY_TYPE: '/api/barrels/summary-by-type',
   BARREL_RECORDS: '/api/barrels/records',
   BARREL_RETURN: '/api/barrels/return',
+  BARREL_RIGHTS: '/api/barrel-rights',
+  BARREL_RIGHT_QUOTE: '/api/barrel-rights/quote',
+  BARREL_RIGHT_PURCHASE: '/api/barrel-rights/purchase',
+  BARREL_RIGHT_WITHDRAW: (id) => `/api/barrel-rights/${id}/withdraw`,
+  BARREL_RETURN_CONFIRM: (id) => `/api/barrels/records/${id}/customer-confirm`,
+  BARREL_RETURN_WITHDRAW: (id) => `/api/barrels/records/${id}/withdraw`,
   BARREL_RETURN_PREVIEW: '/api/barrels/return/preview',
 
   // 支付（后端: PaymentController）

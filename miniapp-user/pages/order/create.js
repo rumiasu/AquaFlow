@@ -233,6 +233,7 @@ Page({
   },
 
   onShow() {
+    if ((this.data.products || []).length) { this.loadBarrel(); this.refreshQuote() }
     const selectedAddress = storage.get('selectedAddress')
     if (selectedAddress) {
       this.setData({
@@ -740,6 +741,7 @@ this.setData({ products, stationName: effectiveStationName })
           feeTotalText: (deliveryFee + floorFee) > 0 ? (deliveryFee + floorFee).toFixed(2) : '',
           feeWarnings,
           blocked,
+          missingRights: d.missingRights || [],
           blockReason,
           enterpriseHint,
           // ===== 首次资产/押金告知（契约 A2）=====
@@ -854,11 +856,15 @@ this.setData({ products, stationName: effectiveStationName })
     // 让客户填完地址、点了提交才被后端拒，体验上像是"系统坏了"。
     // reason 由后端下发（与 createOrder 的拒绝判据同源），前端不自己判断该不该拦。
     if (this.data.blocked) {
+      const missing = (this.data.missingRights || [])[0]
       wx.showModal({
         title: '暂不可下单',
         content: this.data.blockReason || '当前订单暂不满足下单条件，请调整后重试',
-        showCancel: false,
-        confirmText: '知道了'
+        showCancel: !!missing,
+        confirmText: missing ? '交桶押金' : '知道了',
+        success: (res) => {
+          if (missing && res.confirm) wx.navigateTo({ url: '/pages/barrel/purchase?stationId=' + this.data.stationId + '&productId=' + missing.productId + '&quantity=' + missing.quantity })
+        }
       })
       return
     }

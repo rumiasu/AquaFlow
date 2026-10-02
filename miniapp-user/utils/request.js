@@ -1,15 +1,29 @@
 // 网络请求封装（JWT 双 Token + 自动续期）
 const { getBaseUrl, API } = require('../config/api')
 const { STORAGE_KEYS } = require('../utils/storage-keys')
+const { captureSession, isCurrentSession, isCurrentCredentials, acceptRefreshedTokens, beginSession } = require('./token')
 
-let isRefreshing = false
-let refreshQueue = []
+const refreshFlights = new Map()
 
 const request = (options) => {
+  // 2026-10-02：旧 401 曾用新客户 refreshToken 重发原购票。第一次发送时固定周期和请求体。
+  const session = captureSession()
+  const original = Object.assign({}, options, { header: Object.assign({}, options.header),
+    query: options.query && Object.assign({}, options.query),
+    data: options.data === undefined ? undefined : JSON.parse(JSON.stringify(options.data)) })
+  return sendRequest(original, session, session.accessToken, false)
+}
+
+function sessionChangedError() {
+  const error = new Error('登录身份已变化，请重新进入后查询原购买')
+  error.sessionChanged = true
+  return error
+}
+
+function sendRequest(options, session, accessToken, retried) {
   return new Promise((resolve, reject) => {
-    const app = getApp()
+    if (!isCurrentSession(session)) { reject(sessionChangedError()); return }
     const baseUrl = getBaseUrl()
-    const accessToken = app.globalData.accessToken || wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
 
     const header = {
       'Content-Type': 'application/json',
@@ -39,22 +53,27 @@ const request = (options) => {
       header,
       timeout: 15000,
       success: (res) => {
+        if (!isCurrentSession(session)) { reject(sessionChangedError()); return }
+        const error = responseError(res)
+        if (error) { reject(error); return }
         if (res.statusCode === 200) {
           if (res.data.code === 0 || res.data.code === 200) {
             resolve(res.data)
           } else if (res.data.code === 401) {
             // access_token 过期，尝试自动续期
-            handle401(options, resolve, reject)
+            if (retried) reject(new Error('登录已过期'))
+            else handle401(options, session).then(resolve, reject)
           } else {
-            const msg = res.data.message || '请求失败'
+            const msg = responseMessage(res.data)
             // [2026-09-14] 系统级错误（后端 code=500）用户既看不懂也做不了，
             // 主动询问是否上报给水站；业务错误（code=1）的文案本身已"能看懂、能处理"，
             // 不再弹窗打扰（见 offerErrorReport 的说明）。
-            if (res.data.code === 500) offerErrorReport(msg, options)
+            if (res.data.code === 500) offerErrorReport(msg, options, session)
             reject(new Error(msg))
           }
         } else if (res.statusCode === 401) {
-          handle401(options, resolve, reject)
+          if (retried) reject(new Error('登录已过期'))
+          else handle401(options, session).then(resolve, reject)
         } else {
           // [2026-09-20] 原来直接把状态码拼给用户看（「网络错误 500」）—— 顾客看不懂也没法处理。
           // 保留状态码在括号里，排查时仍能一眼看出是 4xx 还是 5xx。
@@ -62,7 +81,7 @@ const request = (options) => {
         }
       },
       fail: (err) => {
-        reject(toNetworkError(err))
+        reject(isCurrentSession(session) ? toNetworkError(err) : sessionChangedError())
       }
     })
   })
@@ -124,7 +143,7 @@ const offeredReports = new Set()
  * ⚠️ 要改成匿名只是一个参数的事（{@code data} 里加 {@code anonymous: true}），
  * 属于**产品决定**，不要在排查问题时顺手改掉。</p>
  */
-function offerErrorReport(message, options) {
+function offerErrorReport(message, options, session) {
   if (!message || offeredReports.has(message)) return
   offeredReports.add(message)
 
@@ -134,7 +153,7 @@ function offerErrorReport(message, options) {
     confirmText: '上报',
     cancelText: '不用了',
     success: (r) => {
-      if (r.confirm) submitErrorReport(message, options)
+      if (r.confirm && isCurrentSession(session)) submitErrorReport(message, options)
     }
   })
 }
@@ -173,139 +192,108 @@ function submitErrorReport(message, options) {
   })
 }
 
-// 401 自动续期处理
-function handle401(originalOptions, resolve, reject) {
-  // 如果是刷新或登录请求，不重试
-  if (originalOptions.url.includes('/auth/refresh') ||
-      originalOptions.url.includes('/auth/login') ||
-      originalOptions.url.includes('/auth/wx-login') ||
-      originalOptions.url.includes('/auth/dev-login')) {
-    clearAndRedirect()
-    reject(new Error('登录已过期'))
-    return
+// 启动与页面共用续期；新会话不进入旧队列，同周期旧凭据也不能清理新令牌。
+function handle401(options, session) {
+  if (!isCurrentSession(session)) return Promise.reject(sessionChangedError())
+  if (['/auth/refresh', '/auth/login', '/auth/wx-login', '/auth/dev-login'].some(path => options.url.includes(path))) {
+    clearAndRedirect(session)
+    return Promise.reject(new Error('登录已过期'))
   }
-
-  if (isRefreshing) {
-    // 正在刷新，排队等待
-    refreshQueue.push({ resolve, reject, options: originalOptions })
-    return
-  }
-
-  isRefreshing = true
-  const refreshToken = wx.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
-
-  if (!refreshToken) {
-    clearAndRedirect()
-    reject(new Error('登录已过期'))
-    isRefreshing = false
-    return
-  }
-
-  const { getBaseUrl, API } = require('../config/api')
-  wx.request({
-    // 统一走 API.REFRESH。勿硬编码 '/api/auth/refresh'——本项目出现过
-    // "常量定义了没人用、路径却散落硬编码在四处"的不一致（2026-09-14 已统一）。
-    url: getBaseUrl() + API.REFRESH,
-    method: 'POST',
-    data: { refreshToken },
-    // [2026-09-20] 必须带 timeout：refresh 请求原本没有任何超时，真机切网/弱网时可能
-    // 既不 success 也不 fail → refreshQueue 里的 promise 永不 settle → 按钮一直转圈。
-    // 有了超时会走 fail 分支，processQueue 才会把排队的请求放掉。
-    timeout: 15000,
-    success: (res) => {
-      if (res.statusCode === 200 && res.data && res.data.code === 0) {
-        const { accessToken, refreshToken: newRefreshToken } = res.data.data
-        const app = getApp()
-        app.globalData.accessToken = accessToken
-        if (newRefreshToken) app.globalData.refreshToken = newRefreshToken
-        wx.setStorageSync(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
-        if (newRefreshToken) wx.setStorageSync(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken)
-
-        // 重试原始请求
-        retryRequest(originalOptions, accessToken).then(resolve).catch(reject)
-        // 处理排队中的请求
-        processQueue(null, accessToken)
-      } else {
-        clearAndRedirect()
-        reject(new Error('登录已过期'))
-        processQueue(new Error('refresh failed'))
-      }
-    },
-    fail: (err) => {
-      clearAndRedirect()
-      reject(new Error('网络错误'))
-      // 排队的请求也要拿到**可读**的错误：原来是原样透传 wx 的 `{errMsg}` 对象，
-      // 那些请求的 catch 里 `err.message` 同样是 undefined。
-      processQueue(toNetworkError(err))
-    },
-    complete: () => {
-      isRefreshing = false
-    }
-  })
+  return refreshLogin(session).then(token => sendRequest(options, session, token, true))
 }
 
-// 重试请求（用新 token）
-function retryRequest(options, newToken) {
+// 2026-10-02：平台 success 已离开 Promise executor；空 body 直接读 code 曾抛错并让页面永久加载。
+// 仅守响应外壳/code，错误元数据 message 不得成为合法成功的新门槛。
+function responseError(res) {
+  if (!res || typeof res !== 'object' || Array.isArray(res) || !Number.isInteger(res.statusCode)) return malformedResponseError()
+  if (res.statusCode !== 200) return null // 真 HTTP401 无 body 也走原续期；会话检查仍先执行。
+  const body = res.data
+  return !body || typeof body !== 'object' || Array.isArray(body) || !Number.isInteger(body.code) ? malformedResponseError() : null
+}
+
+function malformedResponseError() { return new Error('收到的数据不完整，请重试') }
+
+function responseMessage(body, fallback = '请求失败') {
+  return body && typeof body.message === 'string' && body.message.trim() ? body.message : fallback
+}
+
+function validRefreshData(data) {
+  return data && typeof data === 'object' && !Array.isArray(data)
+    && typeof data.accessToken === 'string' && !!data.accessToken.trim()
+    && (data.refreshToken == null || typeof data.refreshToken === 'string')
+}
+
+function refreshLogin(session = captureSession()) {
+  if (!isCurrentSession(session)) return Promise.reject(sessionChangedError())
+  // 同周期已有成功续期：迟到401直接复用当前令牌，即使 access 文本没有变化。
+  if (!isCurrentCredentials(session)) return Promise.resolve(captureSession().accessToken)
+  const key = session.epoch + ':' + session.credentialVersion
+  let flight = refreshFlights.get(key)
+  if (!flight) {
+    flight = refreshSession(session)
+    refreshFlights.set(key, flight)
+    const done = () => { if (refreshFlights.get(key) === flight) refreshFlights.delete(key) }
+    flight.then(done, done)
+  }
+  return flight
+}
+
+function refreshSession(session) {
   return new Promise((resolve, reject) => {
-    const app = getApp()
-    const baseUrl = getBaseUrl()
-    const header = {
-      'Content-Type': 'application/json',
-      ...options.header,
-      'Authorization': `Bearer ${newToken}`
+    const superseded = () => {
+      if (!isCurrentSession(session)) { reject(sessionChangedError()); return true }
+      if (!isCurrentCredentials(session)) { resolve(captureSession().accessToken); return true }
+      return false
     }
-
-    let url = baseUrl + options.url
-    if (options.query) {
-      const qs = Object.keys(options.query)
-        .filter(k => options.query[k] !== undefined && options.query[k] !== null)
-        .map(k => `${k}=${encodeURIComponent(options.query[k])}`)
-        .join('&')
-      if (qs) url += (url.includes('?') ? '&' : '?') + qs
+    if (superseded()) return
+    if (!session.refreshToken) {
+      clearAndRedirect(session); reject(new Error('登录已过期')); return
     }
-
     wx.request({
-      url,
-      method: options.method || 'GET',
-      data: options.data,
-      header,
-      // [2026-09-20] 与首次请求（上面的 `timeout: 15000`）保持一致。
-      // 原实现漏了这一个，续期后的重试会走系统默认超时（60s），弱网下表现为长时间卡死。
+      url: getBaseUrl() + API.REFRESH, method: 'POST', data: { refreshToken: session.refreshToken },
       timeout: 15000,
-      success: (res) => {
-        if (res.statusCode === 200 && (res.data.code === 0 || res.data.code === 200)) {
-          resolve(res.data)
+      success: res => {
+        if (superseded()) return
+        const error = responseError(res)
+        if (error) { clearAndRedirect(session); reject(error); return }
+        if (res.statusCode === 200 && res.data.code === 0) {
+          if (!validRefreshData(res.data.data)) {
+            if (!res.data.data) clearAndRedirect(session) // 保留原来缺少 payload 时的失效清理。
+            reject(malformedResponseError()); return
+          }
+          const { accessToken, refreshToken } = res.data.data
+          try {
+            if (!acceptRefreshedTokens(session, accessToken, refreshToken)) {
+              reject(new Error('登录续期未成功，请重新登录')); return
+            }
+            resolve(accessToken)
+          } catch (error) { reject(new Error('登录信息保存失败，请重新登录')) }
         } else {
-          reject(new Error(res.data.message || '请求失败'))
+          clearAndRedirect(session); reject(new Error('登录已过期'))
         }
       },
-      fail: (err) => reject(toNetworkError(err))
+      fail: err => {
+        if (superseded()) return
+        clearAndRedirect(session); reject(toNetworkError(err))
+      }
     })
   })
 }
 
-// 处理排队中的请求
-function processQueue(error, token) {
-  refreshQueue.forEach(item => {
-    if (error) {
-      item.reject(error)
-    } else {
-      retryRequest(item.options, token).then(item.resolve).catch(item.reject)
-    }
-  })
-  refreshQueue = []
-}
-
-function clearAndRedirect() {
-  wx.removeStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
-  wx.removeStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
-  wx.removeStorageSync(STORAGE_KEYS.USER_INFO)
+function clearAndRedirect(session) {
+  if (!isCurrentCredentials(session)) return
+  beginSession()
   const app = getApp()
   if (app) {
     app.globalData.accessToken = null
     app.globalData.refreshToken = null
     app.globalData.userInfo = null
     app.globalData.isLogin = false
+    app.globalData.customerId = null
+  }
+  // 清理存储失败也必须让所有等待者 settle；已结束的内存会话不回退成旧缓存令牌。
+  for (const key of [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.USER_INFO, STORAGE_KEYS.CUSTOMER_ID]) {
+    try { wx.removeStorageSync(key) } catch (error) { /* 已结束会话；登录页可重新覆盖缓存 */ }
   }
   wx.redirectTo({ url: '/pages/login/index' })
 }
@@ -315,4 +303,4 @@ const post = (url, data, query) => request({ url, method: 'POST', data, query })
 const put = (url, data, query) => request({ url, method: 'PUT', data, query })
 const del = (url, query) => request({ url, method: 'DELETE', query })
 
-module.exports = { request, get, post, put, del }
+module.exports = { request, get, post, put, del, refreshLogin }

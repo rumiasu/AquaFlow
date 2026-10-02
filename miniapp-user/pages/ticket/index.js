@@ -1,11 +1,14 @@
-const { getTicketAccounts, getTicketRecords, getTicketPackages, purchaseTicket } = require('../../api/ticket')
+const { getTicketAccounts, getTicketRecords, getTicketPackages, purchaseTicket, getTicketPurchaseResult, closeTicketPurchaseIntent } = require('../../api/ticket')
 const { getStationProducts } = require('../../api/product')
+const { getBarrelSummaryByType } = require('../../api/barrel')
 const { getPublicStations } = require('../../api/station')
 const { getBaseUrl, API } = require('../../config/api')
-const { getAccessToken } = require('../../utils/token')
+const { getAccessToken, getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
+const { STORAGE_KEYS } = require('../../utils/storage-keys')
 const { stationStorage } = require('../../utils/storage')
 
 Page({
+  onExitHelp() { wx.showModal({ title:'剩余水票退出',content:'请联系原购买水站，站长核实原购买批次、剩余张数及退款金额后办理。已用票不退；赠票及没有原款来源的批次须另行核实。退票与退桶、退押金分别办理。',showCancel:false }) },
   data: {
     loading: true,
     accounts: [],
@@ -46,10 +49,14 @@ Page({
       { id: 1, name: '微信支付', desc: '微信收款，付款到账后水票即可使用' }
     ],
     submitting: false,
-    // 在线购票幂等键：同一笔购买意图（含失败重试）复用同一个值，购买成功后才重新生成。
+    // 在线购票幂等键：持久原购买的编号；未知结果复用，明确发起下一笔才新建。
     // 后端 v33 起必传 —— 无订单支付在数据库层没有任何防重，缺了它连点两次「买票」
     // 会落两条待收款流水，站长两条都确认就会入账两次。
     purchaseIdempotencyKey: '',
+    pendingPurchase: null,
+    purchaseRecoveryText: '',
+    purchaseStorageError: '',
+    recoveringPurchase: false,
     currentStationId: null,
     currentStation: null,
     showStationPicker: false,
@@ -64,11 +71,202 @@ Page({
     packagesError: '',      // 档位没拉到（不影响买散票，只在购票弹窗里说明）
   },
 
-  onShow() {
-    this.loadData()
+  async onShow() {
+    this.restorePurchaseIntent()
+    await Promise.all([this.loadData(), this.onQueryPurchaseResult()])
   },
 
-  // 生成一个购票幂等键（仅在"新的一次购买意图"时调用：进入页面 / 购买成功后）
+  // 2026-10-02 F-75：原键只活在页面中，丢响应/退出会重复记款。
+  // 先持久化完整原请求，未知结果不换键、不覆盖；每个客户单独保存，存储失败就不提交。
+  purchaseStorageKey(customerId) { return STORAGE_KEYS.TICKET_PURCHASE_INTENT + customerId },
+  purchasePositiveInteger(value) {
+    return (typeof value === 'number' || (typeof value === 'string' && /^[1-9]\d*$/.test(value)))
+      && Number.isSafeInteger(Number(value)) && Number(value) > 0
+  },
+  validPurchaseIntent(saved, customerId) {
+    const positive = value => this.purchasePositiveInteger(value)
+    const b = saved && saved.body
+    if (!b || String(saved.customerId) !== String(customerId) || !positive(customerId)
+      || !['stationId', 'productId', 'quantity'].every(k => positive(b[k]))
+      || !positive(b.paymentMethod) || ![1, 2].includes(Number(b.paymentMethod))
+      || typeof b.idempotencyKey !== 'string' || !b.idempotencyKey.trim()
+      || b.idempotencyKey.trim() !== b.idempotencyKey || b.idempotencyKey.length > 64
+      || (b.packageId != null && !positive(b.packageId)) || (b.unifiedQty != null && !positive(b.unifiedQty))
+      || (b.packageId != null && b.unifiedQty != null)
+      || (b.unifiedQty != null && Number(b.unifiedQty) !== Number(b.quantity))) return false
+    return !Object.prototype.hasOwnProperty.call(saved, 'result') || this.validPurchaseResult(saved, saved.result)
+  },
+  validPurchaseResult(saved, result) {
+    if (!result || !this.purchasePositiveInteger(result.paymentId)
+      || !['stationId', 'productId', 'quantity', 'paymentMethod', 'status'].every(k => this.purchasePositiveInteger(result[k]))
+      || ![1, 2, 3, 4].includes(Number(result.status))
+      || (result.packageId != null && !this.purchasePositiveInteger(result.packageId))
+      || (result.unifiedQty != null && !this.purchasePositiveInteger(result.unifiedQty))
+      || !['number', 'string'].includes(typeof result.amount) || result.amount === ''
+      || !Number.isFinite(Number(result.amount)) || Number(result.amount) < 0) return false
+    return ['stationId', 'productId', 'quantity', 'paymentMethod', 'packageId', 'unifiedQty']
+      .every(k => String(result[k] == null ? '' : result[k]) === String(saved.body[k] == null ? '' : saved.body[k]))
+  },
+  restorePurchaseIntent() {
+    let customerId
+    let saved
+    try {
+      customerId = getCustomerId()
+      this._purchaseOwner = customerId
+      saved = customerId && wx.getStorageSync(this.purchaseStorageKey(customerId))
+      // 2026-10-02：删除抛错/读回失败后不能因下一次读取为空就放行另一款；保留本周期原凭据。
+      if (!saved && this._purchaseSafetyHolds && this._purchaseSafetyHolds[String(customerId)]) {
+        saved = this._purchaseSafetyHolds[String(customerId)]
+        wx.setStorageSync(this.purchaseStorageKey(customerId), saved)
+        if (!this.sameStoredIntent(saved, wx.getStorageSync(this.purchaseStorageKey(customerId)))) throw new Error('保存未成功')
+      }
+      if (saved && !this.validPurchaseIntent(saved, customerId)) throw new Error('原购买记录不完整')
+    } catch (err) {
+      this.setData({ pendingPurchase: saved && saved.body ? saved : null,
+        purchaseStorageError: '原购买记录读取失败或不完整，请重试或联系水站核实；暂不能另买。' })
+      return null
+    }
+    this.setData({ pendingPurchase: saved || null, purchaseIdempotencyKey: saved ? saved.body.idempotencyKey : '',
+      purchaseStorageError: '', purchaseRecoveryText: saved ? this.purchaseSummary(saved) : '' })
+    return saved || null
+  },
+  purchaseSummary(saved) {
+    return '原购票：' + (saved.productName || '水票') + ' ' + saved.body.quantity + ' 张（' + (saved.stationName || '原水站') + '）。'
+      + (saved.result ? (saved.result.statusText || '已登记，等待核实到账') + '，金额 ¥' + saved.result.amount
+        : '结果尚未确认，请先查询或重试原购买。')
+  },
+  samePurchaseBody(a, b) {
+    return ['stationId', 'productId', 'quantity', 'paymentMethod', 'packageId', 'unifiedQty']
+      .every(k => String(a[k] == null ? '' : a[k]) === String(b[k] == null ? '' : b[k]))
+  },
+  sameStoredIntent(a, b) { return !!b && JSON.stringify(a) === JSON.stringify(b) },
+  holdPurchaseStorageError(saved) {
+    if (!this._purchaseSafetyHolds) this._purchaseSafetyHolds = {}
+    this._purchaseSafetyHolds[String(saved.customerId)] = saved
+    this.setData({ pendingPurchase: saved, purchaseIdempotencyKey: saved.body.idempotencyKey,
+      purchaseRecoveryText: this.purchaseSummary(saved),
+      purchaseStorageError: '原购买记录保存或清理未成功，请重新读取或联系水站核实；暂不能另买。' })
+  },
+  savePurchaseIntent(saved) {
+    try {
+      const latest = wx.getStorageSync(this.purchaseStorageKey(saved.customerId))
+      if (latest && (!this.validPurchaseIntent(latest, saved.customerId)
+        || latest.body.idempotencyKey !== saved.body.idempotencyKey || !this.samePurchaseBody(latest.body, saved.body))) {
+        throw new Error('原记录已变化')
+      }
+      wx.setStorageSync(this.purchaseStorageKey(saved.customerId), saved)
+      if (!this.sameStoredIntent(saved, wx.getStorageSync(this.purchaseStorageKey(saved.customerId)))) throw new Error('保存未成功')
+    } catch (err) { this.holdPurchaseStorageError(saved); throw new Error('原购买记录保存失败，请重试；暂不能另买') }
+    if (this._purchaseSafetyHolds) delete this._purchaseSafetyHolds[String(saved.customerId)]
+    this.setData({ pendingPurchase: saved, purchaseIdempotencyKey: saved.body.idempotencyKey,
+      purchaseStorageError: '', purchaseRecoveryText: this.purchaseSummary(saved) })
+  },
+  clearPurchaseIntent(saved) {
+    try {
+      const key = this.purchaseStorageKey(saved.customerId)
+      const latest = wx.getStorageSync(key)
+      if (!latest || !this.validPurchaseIntent(latest, saved.customerId)
+        || latest.body.idempotencyKey !== saved.body.idempotencyKey || !this.samePurchaseBody(latest.body, saved.body)) throw new Error('原记录已变化')
+      wx.removeStorageSync(key)
+      if (wx.getStorageSync(key)) throw new Error('清理未成功')
+    } catch (err) { this.holdPurchaseStorageError(saved); throw new Error('原购买记录清理失败，请重试；暂不能另买') }
+    if (this._purchaseSafetyHolds) delete this._purchaseSafetyHolds[String(saved.customerId)]
+    this.setData({ pendingPurchase: null, purchaseIdempotencyKey: '', purchaseRecoveryText: '', purchaseStorageError: '' })
+  },
+  applyPurchaseResult(saved, result) {
+    if (String(getCustomerId()) !== String(saved.customerId)) return
+    if (!this.validPurchaseResult(saved, result)) throw new Error('购买结果或内容暂不能确认，请保留原购买并查询')
+    if (Number(result.status) === 2) {
+      this.clearPurchaseIntent(saved)
+      wx.showToast({ title: '购买成功，水票已到账', icon: 'success' })
+    } else this.savePurchaseIntent(Object.assign({}, saved, { result }))
+  },
+  async onQueryPurchaseResult() {
+    if (this.data.recoveringPurchase || this.data.submitting) return
+    const saved = this.restorePurchaseIntent()
+    if (!saved) return
+    const session = captureSession()
+    this.setData({ recoveringPurchase: true })
+    try {
+      const res = await getTicketPurchaseResult(saved.body.idempotencyKey)
+      if (!isCurrentSession(session)) return
+      if (!res || res.code !== 0) throw new Error((res && res.message) || '购买结果查询失败')
+      if (res.data) { this.applyPurchaseResult(saved, res.data); await this.loadData() }
+      else {
+        // 缓存的登记结果不能压过本次未查到；降回待核实，但仍永久保留原 body/key。
+        const unconfirmed = Object.assign({}, saved)
+        delete unconfirmed.result
+        this.savePurchaseIntent(unconfirmed)
+        this.setData({ purchaseRecoveryText: this.purchaseSummary(unconfirmed) + ' 暂未查到原款，可重试原购买或核实后结束原购买。' })
+      }
+    } catch (err) {
+      if (isCurrentSession(session)) this.setData({ purchaseRecoveryText: this.purchaseSummary(saved) + ' 查询失败，可稍后重试。' })
+    } finally { this.setData({ recoveringPurchase: false }) }
+  },
+  async onRetryOriginalPurchase() {
+    const saved = this.restorePurchaseIntent()
+    if (saved && !saved.result) await this.submitPurchaseIntent(saved, true)
+  },
+  onCloseOriginalPurchase() {
+    const saved = this.restorePurchaseIntent()
+    if (!saved || saved.result || this.data.submitting || this.data.recoveringPurchase) return
+    const session = captureSession()
+    wx.showModal({ title: '结束原购买', content: '仅在确认原购买没有登记款项后才能结束；如已登记款项，将为你查回原款，不办理取消或退款。',
+      confirmText: '核实结束', success: r => {
+        if (r.confirm && isCurrentSession(session)) this.closeOriginalPurchase(saved, session)
+      } })
+  },
+  async closeOriginalPurchase(saved, session = captureSession()) {
+    if (!isCurrentSession(session) || this.data.submitting || this.data.recoveringPurchase) return
+    const latest = this.restorePurchaseIntent()
+    if (!latest || latest.body.idempotencyKey !== saved.body.idempotencyKey || latest.result) return
+    this.setData({ recoveringPurchase: true })
+    try {
+      const res = await closeTicketPurchaseIntent(saved.body.idempotencyKey)
+      if (!isCurrentSession(session)) return
+      const receipt = res && res.code === 0 && res.data
+      // 关闭必须收到同一原编号的永久封锁凭据；普通拒绝、查询空结果、超时都不能清键。
+      if (!receipt || receipt.idempotencyKey !== saved.body.idempotencyKey) throw new Error('原购买暂不能结束，请保留原记录')
+      if (receipt.closed === true && receipt.payment == null) {
+        this.clearPurchaseIntent(saved)
+        wx.showToast({ title: '原购买已结束，可重新选择', icon: 'none' })
+      } else if (receipt.closed === false && receipt.payment) this.applyPurchaseResult(saved, receipt.payment)
+      else throw new Error('原购买暂不能结束，请保留原记录')
+    } catch (err) {
+      if (isCurrentSession(session)) wx.showToast({ title: err.message || '原购买结束未确认，请查询', icon: 'none' })
+    } finally { this.setData({ recoveringPurchase: false }) }
+  },
+  async onStartNextPurchase() {
+    const saved = this.restorePurchaseIntent()
+    if (!saved || !saved.result || this.data.submitting || this.data.recoveringPurchase) return
+    const session = captureSession()
+    const confirmed = await new Promise(resolve => wx.showModal({ title: '另买一笔水票', content: this.purchaseSummary(saved)
+      + ' 继续将登记另一笔购买，请勿为等待到账的原款重复购买。', confirmText: '另买一笔',
+      success: r => resolve(r.confirm), fail: () => resolve(false) }))
+    if (!confirmed || !isCurrentSession(session) || this.data.submitting || this.data.recoveringPurchase) return
+    const latest = this.restorePurchaseIntent()
+    if (!latest || latest.body.idempotencyKey !== saved.body.idempotencyKey || !latest.result) return
+    this.setData({ recoveringPurchase: true })
+    let ready = false
+    try {
+      // 2026-10-02：合法形状的缓存也可能损坏；另买前须再次查回原款，不能仅信本地 result。
+      const res = await getTicketPurchaseResult(saved.body.idempotencyKey)
+      if (!isCurrentSession(session)) return
+      if (!res || res.code !== 0 || !this.validPurchaseResult(saved, res.data)) throw new Error('原款暂未核实，请先查询原购买')
+      this.clearPurchaseIntent(latest)
+      ready = true
+    } catch (err) { if (isCurrentSession(session)) wx.showToast({ title: err.message, icon: 'none' }) }
+    finally { this.setData({ recoveringPurchase: false }) }
+    if (ready && isCurrentSession(session)) this.onShowPurchase()
+  },
+  purchaseEditBlocked() {
+    if (this.data.submitting || this.data.recoveringPurchase || this.data.pendingPurchase || this.data.purchaseStorageError) {
+      wx.showToast({ title: '请先处理原购买结果', icon: 'none' }); return true
+    }
+    return false
+  },
+
+  // 只在明确提交新购买且没有原购买占用时生成编号。
   genPurchaseIdempotencyKey() {
     return 'ticket_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
   },
@@ -226,6 +424,8 @@ Page({
   },
 
   onShowPurchase() {
+    this.restorePurchaseIntent()
+    if (this.purchaseEditBlocked()) return
     if (!this.data.currentStationId) {
       wx.showToast({ title: '请先选择水站', icon: 'none' })
       return
@@ -241,6 +441,7 @@ Page({
   stopPropagation() {},
 
   onBuyProductSelect(e) {
+    if (this.purchaseEditBlocked()) return
     const { id } = e.currentTarget.dataset
     // dataset 类型可能是 string/number，统一按字符串比较，避免 === 恒 false
     const product = this.data.buyProducts.find(p => String(p.id) === String(id))
@@ -298,6 +499,7 @@ Page({
    * （价格由服务端按该款水的价 × 折扣现算，客户端传不了价也不该传）。</p>
    */
   onBuyPackageSelect(e) {
+    if (this.purchaseEditBlocked()) return
     const { id, source } = e.currentTarget.dataset
     // 统一档没有 packageId，只能按 qty 找；定制档按 id 找
     const pkg = this.data.buyPackages.find(p => source === 'UNIFIED'
@@ -316,6 +518,7 @@ Page({
 
   /** 退回散买：张数与单价都回到按单张水票价的口径。 */
   onBuyPackageClear() {
+    if (this.purchaseEditBlocked()) return
     const loose = this.data.buyForm.looseFaceValue || 0
     this.setData({
       'buyForm.packageId': null,
@@ -348,6 +551,7 @@ Page({
    * 与其让客户撞一次错误，不如在这里直接退回散买并把单价换回单张水票价。
    */
   applyLooseQty(qty) {
+    if (this.purchaseEditBlocked()) return
     const loose = this.data.buyForm.looseFaceValue || 0
     this.setData({
       'buyForm.packageId': null,
@@ -360,6 +564,7 @@ Page({
 
   /** 选择支付方式（tap 事件，data-id） */
   onBuyPaymentMethodSelect(e) {
+    if (this.purchaseEditBlocked()) return
     const { id } = e.currentTarget.dataset
     this.setData({ 'buyForm.paymentMethod': parseInt(id) || 1 })
   },
@@ -384,36 +589,48 @@ Page({
       return
     }
 
-    // 幂等键：同一笔购买意图（含失败重试）必须复用同一个值，否则「连点两次」或
-    // 「超时后重试」都会各落一条待收款流水，站长两条都确认就会入账两次。
-    // 与 pages/order/create.js 的差别：那里失败后重新生成键（下一单是新意图），
-    // 这里失败时**保留**原键 —— 购票只有「买成」与「没买成」两种结果，重试就是在重试同一件事。
-    const idempotencyKey = this.data.purchaseIdempotencyKey || this.genPurchaseIdempotencyKey()
-    this.setData({ submitting: true, purchaseIdempotencyKey: idempotencyKey })
+    const saved = this.restorePurchaseIntent()
+    if (this.data.purchaseStorageError) { wx.showToast({ title: '请先核实原购买记录', icon: 'none' }); return }
+    const customerId = this._purchaseOwner
+    if (!customerId) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
+    const body = { stationId: this.data.currentStationId, productId, quantity, paymentMethod,
+      packageId: packageId || null, unifiedQty: unifiedQty || null }
+    if (saved) {
+      if (saved.result || !this.samePurchaseBody(saved.body, body)) {
+        wx.showToast({ title: '请先处理原购买结果', icon: 'none' }); return
+      }
+      return this.submitPurchaseIntent(saved, true)
+    }
+    body.idempotencyKey = this.genPurchaseIdempotencyKey()
+    return this.submitPurchaseIntent({ customerId, body, productName: this.data.buyForm.productName || '水票',
+      stationName: (this.data.currentStation && this.data.currentStation.name) || '水站 ' + body.stationId }, false)
+  },
+
+  async submitPurchaseIntent(saved, replay) {
+    if (this.data.submitting || this.data.recoveringPurchase) return
+    const { productId } = saved.body
+    const session = captureSession()
+    this.setData({ submitting: true })
     try {
-      const res = await purchaseTicket({
-        productId: productId,
-        waterTypeId: productId, // 兼容旧字段
-        quantity: quantity,
-        paymentMethod: paymentMethod,
-        stationId: this.data.currentStationId,
-        idempotencyKey: idempotencyKey,
-        // 定制档：张数与总价一律以服务端档位配置为准（客户端传的价格会被忽略）
-        packageId: packageId || null,
-        // 统一折扣档：**只传张数**，价格由服务端按"这款水自己的价 × 该档折扣"现算
-        unifiedQty: unifiedQty || null
-      })
+      if (!replay) {
+        const rights = await getBarrelSummaryByType(saved.body.stationId)
+        const holding = (rights.data || []).find(h => String(h.productId || h.waterTypeId) === String(productId))
+        if (holding && holding.independentRights && !(holding.assetQty > 0)) throw new Error('请先购买该桶权益')
+      }
+      if (!isCurrentSession(session) || String(getCustomerId()) !== String(saved.customerId)) throw new Error('登录身份已变化，请重新进入')
+      this.savePurchaseIntent(saved)
+      const res = await purchaseTicket(saved.body)
+      if (!isCurrentSession(session)) return
+      if (!res || res.code !== 0) throw new Error((res && res.message) || '购买结果尚未确认')
       // 后端返回的是流水的**真实状态**，不要替它猜：
       //   2 = 已支付（票已入账，模拟微信渠道下当场就是这个）
       //   1 = 待收款（真实微信渠道未接入的部署里等水站确认收到钱 —— 那是收款确认，不是审批）
-      const status = (res && res.data && res.data.status) != null ? res.data.status : 1
+      this.applyPurchaseResult(saved, res.data)
+      const status = Number(res.data.status)
       this.onClosePurchase()
-      // 本次购买意图已落库，换一个新键，避免「下一次购买」被当成重放而返回上一笔
-      this.setData({ purchaseIdempotencyKey: this.genPurchaseIdempotencyKey() })
       await this.loadData()
-      if (status === 2) {
-        wx.showToast({ title: '购买成功，水票已到账', icon: 'success' })
-      } else {
+      if (!isCurrentSession(session)) return
+      if (status === 1) {
         wx.showModal({
           title: '等待到账',
           content: '水站还没确认收到这笔钱，确认后水票自动到账。如已付款较长时间仍未到账，请联系水站。',
@@ -422,8 +639,13 @@ Page({
         })
       }
     } catch (error) {
+      if (!isCurrentSession(session)) return
       console.error('Purchase ticket error:', error)
-      wx.showToast({ title: error.message || '购买失败', icon: 'none' })
+      if ((error.message || '').includes('先') && (error.message || '').includes('桶')) {
+        wx.showModal({ title: '先交桶押金', content: error.message, confirmText: '交桶押金', success: (r) => {
+          if (r.confirm) wx.navigateTo({ url: '/pages/barrel/purchase?stationId=' + saved.body.stationId + '&productId=' + productId })
+        } })
+      } else wx.showToast({ title: error.message || '结果未确认，请查询原购买', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
     }

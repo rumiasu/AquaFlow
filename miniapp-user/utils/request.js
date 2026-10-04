@@ -69,7 +69,9 @@ function sendRequest(options, session, accessToken, retried) {
             // 主动询问是否上报给水站；业务错误（code=1）的文案本身已"能看懂、能处理"，
             // 不再弹窗打扰（见 offerErrorReport 的说明）。
             if (res.data.code === 500) offerErrorReport(msg, options, session)
-            reject(new Error(msg))
+            const failure = new Error(msg)
+            if (res.data.code === 1) failure.businessRejected = true
+            reject(failure)
           }
         } else if (res.statusCode === 401) {
           if (retried) reject(new Error('登录已过期'))

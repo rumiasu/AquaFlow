@@ -8,7 +8,9 @@ const { getAddresses } = require('../../api/address')
 const { getBarrelSummary, getBarrelSummaryByType } = require('../../api/barrel')
 const { getUnreadNotifications, markAllRead } = require('../../api/notification')
 const { getPublicStations, getStationStatus } = require('../../api/station')
-const { storage, stationStorage } = require('../../utils/storage')
+const { getQuote } = require('../../api/payment')
+const { storage, stationStorage, payMethodStorage } = require('../../utils/storage')
+const { captureSession, isCurrentSession } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
 
 // 金额展示：整数不带小数点，非整数保留两位（纯展示，不涉及计算口径）
@@ -51,8 +53,7 @@ Page({
     stationStatusHint: '',
     showStationList: false,
     stationList: [],
-    // 桶权益按商品：{ productId: 权益数量 }，来自后端 /api/barrels/summary-by-type
-    // 用途：合计栏计算「缺桶押金」时抵扣已有权益，口径与后端 payments/quote 一致
+    // 桶权益按商品：仅供服务端确认历史模式后的旧押金预估使用。
     barrelRights: {}
   },
 
@@ -371,8 +372,7 @@ Page({
       }
       const addressHint = address ? `配送至：${formatAddress(address)}` : '点击设置配送地址'
 
-      // 后端下发的是**本站有效价**（站级覆盖 → 通用库参考价）；统一映射回 price/deposit，
-      // 让本页下方那段"价格/押金文案 + 押金合计"的既有算法用上站级价（否则首页显示的价与结算价不一致）。
+      // 后端下发本站有效价；商品小计不包含独立押金、配送费和楼层费。
       const products = ((stationId && productsRes && productsRes.data) ? productsRes.data : []).map(p => ({
         ...p,
         price: p.effectivePrice != null ? p.effectivePrice : p.price,
@@ -390,7 +390,7 @@ Page({
         this._pendingProductId = null
       }
 
-      // 桶权益按商品（合计栏抵扣缺桶押金用，口径与后端 payments/quote 一致）
+      // 桶权益按商品；独立模式的可用容量另取服务端本次报价，不由权益总数推断。
       const barrelRights = this.parseBarrelRights(rightsRes)
 
       this.setData({ address, addressHint, products, cart, heroImage, barrelRights })
@@ -526,7 +526,7 @@ Page({
   /**
    * 桶权益按商品归集：{ productId: 权益数量 }
    * 数据源 /api/barrels/summary-by-type（后端 BarrelServiceImpl，驼峰键 assetQty）。
-   * 拿不到就返回空对象 —— 退化成"全额收押金"，与后端 quote 在拿不到资产时的行为一致（不会算少）。
+   * 独立模式不用这个汇总推算押金或可用容量；历史预估仍由服务端模式确认后启用。
    */
   parseBarrelRights(res) {
     const list = (res && res.data) ? res.data : []
@@ -542,7 +542,9 @@ Page({
   /**
    * 合并 cart → productsView + 合计栏。
    *
-   * 【押金口径必须与后端 PaymentServiceImpl.quote() 保持一致】
+   * 新模式：水款与本次新增押金分项展示，合计取服务端逐商品报价；结算时明确确认。
+   * 未核实模式：只报商品款预估并明确提示，不把押金混入或假称无需押金。
+   * 以下旧计算只在服务端明确 independentRights=false 时启用。
    *  - 桶装水（category === 1）：只为「缺的桶」付押金 → shortage = max(0, 需要 − 该商品已持有权益)。
    *    顾客已拥有的桶权益【不重复收押金】，这是"押金 = 买桶权益"的定义决定的。
    *  - 非桶商品：无权益概念，按数量全额收押金。
@@ -550,9 +552,18 @@ Page({
    * 旧实现无脑 deposit += qty × p.deposit，导致有桶权益的顾客在首页看到虚高押金，
    * 跳到下单页（走后端 quote）数字又变正确 —— 同一个购物车两个价。已在 2026-09-12 对齐。
    */
-  refreshDerived(rights) {
+  refreshDerived(rights, refreshQuote = true) {
+    if (rights) this.setData({ barrelRights: rights })
+    if (refreshQuote) {
+      this._homeQuoteSeq = (this._homeQuoteSeq || 0) + 1
+      this._homeQuote = null
+    }
     const { products, cart } = this.data
     const heldMap = rights || this.data.barrelRights || {}
+    const quote = this._homeQuote
+    const independent = quote && quote.independentRights === true
+    const legacy = quote && quote.independentRights === false
+    const hasBarrel = products.some(p => Number(p.category) === 1 && (parseInt(cart[p.id]) || 0) > 0)
     let count = 0, water = 0, deposit = 0
     const productsView = products.map(p => {
       const qty = parseInt(cart[p.id]) || 0
@@ -563,7 +574,15 @@ Page({
         count += qty
         water += qty * (Number(p.price) || 0)
 
-        if (Number(p.category) === 1) {
+        if (Number(p.category) === 1 && independent) {
+          const missing = quote.barrelPurchases.find(it => String(it.productId) === String(p.id))
+          if (missing) deposit += Number(missing.amount)
+          depositNote = missing
+            ? `容量不足 ${missing.quantity} 份，本次新增押金 ¥${fmtMoney(missing.amount)}；结算时确认` + (missing.busyRights > 0 ? '，也可等待已有容量释放' : '')
+            : '本次无需加收桶押金'
+        } else if (Number(p.category) === 1 && !legacy) {
+          depositNote = '桶押金办理方式未核实，请到结算页确认'
+        } else if (Number(p.category) === 1) {
           // 桶装水：已有权益的桶不再收押金
           const held = Number(heldMap[String(p.id)]) || 0
           const shortage = Math.max(0, qty - held)
@@ -578,7 +597,7 @@ Page({
           } else if (unitDeposit > 0) {
             depositNote = `桶押金 ¥${fmtMoney(unitDeposit)}/个`
           }
-        } else {
+        } else if (legacy) {
           deposit += qty * unitDeposit
           if (unitDeposit > 0) depositNote = `押金 ¥${fmtMoney(unitDeposit)}/个`
         }
@@ -605,9 +624,47 @@ Page({
         // wxml 不能做三元拼接，文案在 JS 里算好
         detailText: count === 0
           ? '选中数量后自动合计'
-          : (deposit > 0 ? `（水款 ¥${waterText} + 押金 ¥${depositText}）` : `（水款 ¥${waterText}）`)
+          : (independent && hasBarrel ? (deposit > 0
+              ? `（水款 ¥${waterText} + 本次新增押金 ¥${depositText}，结算时确认）` : `（水款 ¥${waterText}，无需加收桶押金）`)
+            : (!legacy && hasBarrel ? `（水款 ¥${waterText}，桶押金未核实）`
+              : (deposit > 0 ? `（水款 ¥${waterText} + 押金 ¥${depositText}）` : `（水款 ¥${waterText}）`)))
       }
     })
+    if (refreshQuote) return this.refreshRightsQuote(this._homeQuoteSeq)
+  },
+
+  /** 首页展示商品与新增押金预估；实际支付方式和配送费用在结算页核实。 */
+  async refreshRightsQuote(seq) {
+    const { currentStationId: stationId, address, products, cart } = this.data
+    const items = products.filter(p => (parseInt(cart[p.id]) || 0) > 0)
+      .map(p => ({ productId: p.id, quantity: parseInt(cart[p.id]) }))
+    if (!stationId || !items.length) return
+    const session = captureSession()
+    if (!session.loggedIn || !session.customerId) return
+    const current = () => seq === this._homeQuoteSeq && stationId === this.data.currentStationId && isCurrentSession(session)
+    try {
+      const res = await getQuote({ stationId, items, addressId: address && address.id,
+        paymentMethod: 1 })
+      if (!current()) return
+      const quote = res && res.data
+      if (!res || (res.code !== undefined && ![0, 200].includes(res.code)) || !quote
+        || typeof quote.independentRights !== 'boolean'
+        || (quote.independentRights && (!Array.isArray(quote.barrelPurchases)
+          || quote.barrelPurchases.some(it => !it || !Number.isInteger(it.productId)
+            || !Number.isInteger(it.quantity) || it.quantity < 1
+            || !Number.isFinite(Number(it.unitPrice)) || Number(it.unitPrice) <= 0
+            || !Number.isFinite(Number(it.amount)) || Number(it.amount) <= 0
+            || Math.abs(Number(it.amount)-Number(it.unitPrice)*it.quantity) > 0.009
+            || !items.some(l => l.productId === it.productId && l.quantity >= it.quantity))
+          || new Set(quote.barrelPurchases.map(it => it.productId)).size !== quote.barrelPurchases.length))) {
+        throw new Error('桶押金办理方式暂未核实')
+      }
+      this._homeQuote = quote
+      this.refreshDerived(undefined, false)
+    } catch (error) {
+      // 保留水款预估和“未核实”，不把查询失败解释成无需押金或全额收押金。
+      if (current()) console.warn('[home] 桶押金报价未核实:', error && error.message)
+    }
   },
 
   onAddressTap() {

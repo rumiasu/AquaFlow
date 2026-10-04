@@ -837,8 +837,21 @@ Page({
       if (!scopes.length) { wx.showToast({ title: '消费费用已经退完', icon: 'none' }); return }
       wx.showActionSheet({ itemList: scopes.map(s => s.label), success: (picked) => {
         const selected = scopes[picked.tapIndex]
+        if (!selected) return
+        const confirmation = {}
+        if (selected.expectedRefundAmount != null) {
+          const amount = Number(selected.expectedRefundAmount)
+          if (!Number.isFinite(amount) || amount <= 0) {
+            wx.showModal({ title: '重新核实', content: '退款金额无效，请重新预览并确认', showCancel: false }); return
+          }
+          confirmation.expectedRefundAmount = selected.expectedRefundAmount
+        } else if (selected.confirmationRequired === true) {
+          wx.showModal({ title: '重新核实', content: '未取得确认金额，请重新预览并确认', showCancel: false }); return
+        }
+        if (res.data.expectedTicketQty != null) confirmation.expectedTicketQty = res.data.expectedTicketQty
+        if (res.data.expectedTicketAmount != null) confirmation.expectedTicketAmount = res.data.expectedTicketAmount
         wx.showModal({ title: selected.label, content: res.data.notice, confirmText: '实际退款', success: (r) => {
-          if (r.confirm) this.doRefundPayment(paymentId, selected.scope)
+          if (r.confirm) this.doRefundPayment(paymentId, selected.scope, confirmation)
         } })
       } })
     } catch (err) { wx.showModal({ title: '暂不能退款', content: err.message || '金额核实失败', showCancel: false }) }
@@ -877,10 +890,10 @@ Page({
       }})
     }catch(err){wx.showToast({title:err.message||'安排不可用',icon:'none'})}
   },
-  async doRefundPayment(paymentId, scope) {
+  async doRefundPayment(paymentId, scope, confirmation = {}) {
     wx.showLoading({ title: '退款中...' })
     try {
-      await put(PAYMENT_REFUND + paymentId + '/refund', { note: '站长手工退款', ...(scope ? { scope } : {}) })
+      await put(PAYMENT_REFUND + paymentId + '/refund', { note: '站长手工退款', ...(scope ? { scope } : {}), ...confirmation })
       wx.hideLoading()
       wx.showToast({ title: '已退款', icon: 'success' })
       // 刷新支付流水区块（订单支付状态可能一起变了）

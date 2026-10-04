@@ -126,4 +126,6 @@
     </view>
   </block>
 
+  <button wx:if="{{unknownOrder}}" bindtap="onRetryOriginal" disabled="{{submitting}}">核实原下单请求</button>
+
 </view>

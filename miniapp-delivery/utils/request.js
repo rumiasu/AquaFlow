@@ -47,7 +47,9 @@ const request = (options) => {
           } else if (res.data.code === 401) {
             handle401(options, resolve, reject)
           } else {
-            reject(new Error(responseMessage(res.data)))
+            const businessError = new Error(responseMessage(res.data))
+            businessError.businessRejected = res.data.code === 1
+            reject(businessError)
           }
         } else if (res.statusCode === 401) {
           handle401(options, resolve, reject)
@@ -218,7 +220,9 @@ function retryRequest(options, newToken) {
         if (res.statusCode === 200 && (res.data.code === 0 || res.data.code === 200)) {
           resolve(res.data)
         } else {
-          reject(new Error(responseMessage(res.data, res.statusCode === 401 ? '登录已过期' : '请求失败')))
+          const businessError = new Error(responseMessage(res.data, res.statusCode === 401 ? '登录已过期' : '请求失败'))
+          businessError.businessRejected = res.statusCode === 200 && res.data.code === 1
+          reject(businessError)
         }
       },
       fail: (err) => reject(toNetworkError(err))

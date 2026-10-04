@@ -122,6 +122,7 @@
 
 .method-info {
   flex: 1;
+  min-width: 0;
   margin-left: 16rpx;
 }
 
@@ -138,7 +139,9 @@
   font-size: 24rpx;
   color: var(--text-regular);
   display: block;
-  margin-top: 4rpx;
+  margin-top: 8rpx;
+  line-height: 1.5;
+  word-break: break-all;
 }
 
 /* ========== 通用区块（白卡）==========
@@ -187,8 +190,8 @@
 
 .product-card {
   display: flex;
-  align-items: center;
-  padding: 24rpx 0;
+  align-items: flex-start;
+  padding: 28rpx 0;
 }
 
 .product-card:first-child {
@@ -235,7 +238,7 @@
 .product-price {
   display: flex;
   align-items: baseline;
-  margin-top: 10rpx;
+  flex-shrink: 0;
 }
 
 /* ⚠️ .price-symbol / .price-value 是 styles/theme.wxss 同名类的本页覆盖（隐性双写）：
@@ -277,12 +280,12 @@
 }
 
 /* ========== 数量步进器 ==========
-   图形 52rpx、**热区 84×88rpx**（§6：数字加减目标至少 88rpx，图形可小）。
+   图形 52rpx、**热区 88×88rpx**（§6：数字加减目标至少 88rpx，图形可小）。
    ⚠️ bindtap 与 data-index/data-type 必须挂在 .qty-hit（外层热区）上 —— 挂在里面那个
    52rpx 图形上时，手指落在留白里点不动（点击事件不会从父元素传给子元素）。 */
 .stepper-wrap {
   flex-shrink: 0;
-  margin-left: 12rpx;
+  margin-left: auto;
 }
 
 .quantity-control {
@@ -293,7 +296,7 @@
 }
 
 .qty-hit {
-  width: 84rpx;
+  width: 88rpx;
   height: 88rpx;
   display: flex;
   align-items: center;
@@ -371,14 +374,18 @@
 }
 
 .address-top {
-  margin-bottom: 8rpx;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6rpx 16rpx;
+  margin-bottom: 12rpx;
+  word-break: break-all;
 }
 
 .address-name {
   font-size: 32rpx;
   font-weight: 600;
   color: var(--text-primary);
-  margin-right: 16rpx;
 }
 
 .address-phone {
@@ -389,12 +396,13 @@
 /* 地址不能拿浅灰占位色承载（§6：灰色占位不承载价格、地址、警告）——
    它是这一屏要核对的第一件事，用正文色 + 正文偏上字号。 */
 .address-detail {
+  display: block;
+  width: 100%;
   font-size: 28rpx;
   color: var(--text-regular);
-  line-height: 1.5;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.6;
+  white-space: normal;
+  word-break: break-all;
 }
 
 .address-empty {
@@ -442,7 +450,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 16rpx;
-  padding: 10rpx 0;
+  padding: 14rpx 0;
 }
 
 .fee-label {
@@ -454,6 +462,7 @@
   font-size: 28rpx;
   font-weight: 600;
   color: var(--text-primary);
+  flex-shrink: 0;
 }
 
 /* 合计行：与上方各项用一条分隔线隔开，字重与字号抬上去 */
@@ -554,7 +563,9 @@
 
 .total-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
+  row-gap: 4rpx;
 }
 
 .total-label {
@@ -1393,12 +1404,15 @@
   margin-top: 14rpx;
 }
 .warn-action {
-  font-size: 24rpx;
-  line-height: 2.1;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  line-height: 1.5;
   padding: 0 22rpx;
   margin: 0 14rpx 8rpx 0;
   border: 1rpx solid var(--warning-color);
-  border-radius: 8rpx;
+  border-radius: var(--radius-md);
   color: var(--warning-color);
   background: transparent;
 }
@@ -1412,4 +1426,48 @@
 .ticket-cover-row .detail-total-value {
   color: var(--success-color);
   font-size: 26rpx;
+}
+
+/* 商品名占满内容宽度，价格与数量在下一行对齐；窄屏仍可换行。 */
+.product-purchase-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 12rpx;
+}
+
+.fee-label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  min-width: 0;
+}
+
+.fee-caption {
+  font-size: 24rpx;
+  color: var(--text-regular);
+  line-height: 1.5;
+}
+
+.fee-row.fee-deposit {
+  align-items: flex-start;
+  margin-top: 8rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid var(--border-light);
+}
+
+.standalone-link {
+  display: flex;
+  align-items: center;
+  min-height: 88rpx;
+}
+
+.fee-warn-text + .fee-warn-text {
+  margin-top: 12rpx;
+}
+
+.total-row .total-label {
+  flex-basis: 100%;
+  margin-right: 0;
 }

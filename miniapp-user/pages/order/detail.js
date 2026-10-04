@@ -17,6 +17,7 @@ Page({
     canRepay: false,
     repayLabel: '去支付',
     payHint: '',
+    deliveredAwaitingCollection: false,
     // 只拨本单服务水站公开电话；不暴露员工通讯录或客户档案。
     callPhone: '',
     images: [],
@@ -88,7 +89,12 @@ Page({
       const canCancel = !!order.canCancel
       const canRepay = !!order.canRepay
       const repayLabel = order.repayLabel || '去支付'
-      const payHint = order.payHint || ''
+      // 仅调整已送达现金单的展示；后端支付终态与按钮权限仍照原值使用。
+      const deliveredAwaitingCollection = order.status === 3 && order.needCollect === true
+        && (order.payState === 'PENDING' || order.payState === 'UNPAID')
+      const payHint = deliveredAwaitingCollection
+        ? '本单已送达，货款待确认收款。请与配送员或水站核对收款情况。'
+        : order.payHint || ''
 
       // 费用明细：全部用后端下发的金额字段，前端口径只做格式化
       // ⚠️ 配送费/楼层费是 v34/v35 加的列，**必须在明细里逐项出现** —— 只把它们并进合计
@@ -106,7 +112,7 @@ Page({
         hasFloorFee: Number(order.floorFee || 0) > 0
       }
 
-      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, payHint, bucketInfo, fee, callPhone: '', legacyNoteUnavailable: !order.customerNote && !!order.specialNote })
+      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, payHint, deliveredAwaitingCollection, bucketInfo, fee, callPhone: '', legacyNoteUnavailable: !order.customerNote && !!order.specialNote })
       this.loadCallableStationPhone(order)
 
       this.loadItemImages(items)

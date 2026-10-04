@@ -92,6 +92,72 @@ console.log('员工端运行时事实表达（真实执行页面处理函数）'
 ;(async () => {
   const doneWatchdog = armWatchdog()
 
+  // 布局约束直接读取实际 WXSS：检查底栏叠放与窄屏尺寸，不把静态检查冒称模拟器验收。
+  const completeCss = readFile('miniapp-delivery/pages/order/complete.wxss').replace(/\/\*[\s\S]*?\*\//g, '')
+  const appCss = readFile('miniapp-delivery/app.wxss')
+  const cssRule = selector => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const match = completeCss.match(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]+)\\}`))
+    assert.ok(match, `缺少布局规则 ${selector}`)
+    return match[1]
+  }
+  const cssValue = (selector, property) => {
+    const match = cssRule(selector).match(new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`))
+    return match ? match[1].trim() : ''
+  }
+  const rpx = value => {
+    const resolved = value.replace(/var\((--[\w-]+)\)/g, (_, token) => {
+      const match = appCss.match(new RegExp(`${token}:\\s*([^;]+)`))
+      assert.ok(match, `缺少尺寸变量 ${token}`)
+      return match[1]
+    })
+    assert.match(resolved, /^\d+(?:\.\d+)?rpx$/)
+    return Number(resolved.slice(0, -3))
+  }
+  await test('D08 固定底栏明确盖住回桶输入，异常弹窗继续在底栏上方', async () => {
+    assert.strictEqual(cssValue('.footer', 'position'), 'fixed')
+    assert.strictEqual(cssValue('.barrel-stepper', 'position'), 'relative')
+    const footerZ = Number(cssValue('.footer', 'z-index'))
+    const stepperZ = Number(cssValue('.barrel-stepper', 'z-index'))
+    const modalZ = Number(cssValue('.modal-overlay', 'z-index'))
+    assert.ok(footerZ > stepperZ, '回桶输入所在局部层必须低于固定底栏')
+    assert.ok(modalZ > footerZ, '异常原因弹窗不能被底栏盖住')
+  })
+  await test('D08 小屏回桶区可换行，数量加减与输入不被挤小或横向溢出', async () => {
+    assert.strictEqual(cssValue('.barrel-row', 'flex-wrap'), 'wrap')
+    assert.strictEqual(cssValue('.barrel-stepper', 'flex-shrink'), '0')
+    const available = 750 - 2 * rpx('var(--spacing-md)') - 2 * rpx('var(--spacing-lg)')
+    const stepperWidth = 2 * rpx(cssValue('.step-btn', 'width')) + rpx(cssValue('.step-input', 'width'))
+      + 2 * rpx(cssValue('.barrel-stepper', 'gap'))
+      + 4 * rpx(cssValue('.step-btn', 'border').split(/\s+/)[0])
+      + 2 * rpx(cssValue('.step-input', 'border').split(/\s+/)[0])
+    assert.ok(stepperWidth <= available, '320px 屏幕内容列必须容得下完整数量控件')
+    assert.ok(rpx(cssValue('.step-btn', 'width')) >= 88)
+    assert.ok(rpx(cssValue('.step-input', 'height')) >= 88)
+  })
+  await test('D08 一至两行底栏文字与安全区均被底部留白覆盖，长内容保留页面滚动', async () => {
+    const padding = cssValue('.container', 'padding-bottom')
+    const reserve = Number(padding.match(/calc\((\d+)rpx/)[1])
+    assert.ok(padding.includes('env(safe-area-inset-bottom)'))
+    assert.ok(cssValue('.footer', 'padding-bottom').includes('env(safe-area-inset-bottom)'))
+    const font = rpx(cssValue('.btn-confirm', 'font-size'))
+    const lineHeight = Number(cssValue('.btn-confirm', 'line-height'))
+    assert.ok(lineHeight >= 1 && lineHeight <= 2, '按钮须显式设置可计算的行高')
+    const buttonPadding = rpx(cssValue('.btn-confirm', 'padding').split(/\s+/)[0])
+    const footerPadding = rpx(cssValue('.footer', 'padding').split(/\s+/)[0])
+    for (const lines of [1, 2]) {
+      for (const safeCssPx of [0, 34]) {
+        const scale = 320 / 750
+        const footerHeight = (2 * footerPadding + 2 * buttonPadding + lines * font * lineHeight) * scale + safeCssPx
+        const bottomSpace = reserve * scale + safeCssPx
+        assert.ok(bottomSpace >= footerHeight + 16 * scale, '全部内容滚到底后仍须避开底栏并留间距')
+      }
+    }
+    const config = JSON.parse(readFile('miniapp-delivery/pages/order/complete.json'))
+    assert.notStrictEqual(config.disableScroll, true)
+    assert.ok(!/(?:overflow(?:-y)?\s*:\s*(?:hidden|clip)|(?:^|;)\s*height\s*:\s*100vh)/.test(cssRule('.container')))
+  })
+
   /* ============================ M01 待确认收款 ============================ */
   await test('M01 待确认收款页不得说"钱已收到"（status=1 是待收款，不是到账证明）', async () => {
     const wxml = renderedWxml('miniapp-delivery/pages/station-mgmt/payments/index.wxml')
@@ -362,7 +428,8 @@ console.log('员工端运行时事实表达（真实执行页面处理函数）'
     const head = wxml.slice(wxml.indexOf('head-card'), wxml.indexOf('本次送货'))
     assert.ok(head.indexOf("resultState === 'success'") > -1,
       '大绿勾必须只在 success 分支里（原来一进页面就画着）')
-    assert.ok(head.indexOf('确认送达') > -1, '提交前说的是动作与后果')
+    assert.ok(head.includes('{{completionTitle}}'), '提交前标题必须绑定本单配送状态')
+    assert.strictEqual(page.data.completionTitle, '确认完成配送', '已付订单应确认完成配送')
 
     // 提交成功 ⇒ success
     await page._doSubmit()
@@ -377,8 +444,8 @@ console.log('员工端运行时事实表达（真实执行页面处理函数）'
     await net.page._doSubmit()
     await new Promise(r => setTimeout(r, 10))
     assert.strictEqual(net.page.data.resultState, 'unknown',
-      '网络类失败 = 结果未知（订单可能已完成），不能说成失败让人直接重提')
-    assert.ok(net.page.data.unknownHint.indexOf('可能已经完成') > -1, '要说清订单可能已经完成')
+      '网络类失败 = 结果未知（配送结果可能已登记），不能说成失败让人直接重提')
+    assert.ok(net.page.data.unknownHint.includes('配送结果可能已登记'), '未知结果只说明可能已登记配送，不假定款项已结清')
     assert.strictEqual(net.wx.__calls.nav.length, 0, '结果未知不许跳走')
 
     // 业务拒绝 ⇒ failed（服务端明确说没做成）

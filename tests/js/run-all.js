@@ -14,6 +14,11 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'checkout-presentation.test.js', name: '结算展示规格、提示去重与原报价守卫' },
+  { file: 'combined-order-deposit.test.js', name: '随单新增押金明确确认、等待与原请求恢复' },
+  { file: 'payment-quote-capability.test.js', name: '权威报价失败阻断、重试与独立押金渠道能力' },
+  { file: 'first-water-deposit-flow.test.js', name: '首次订水水款、独立押金与原结算返回' },
+  { file: 'jar-verification-target.test.js', name: '隔离构建发布物目标与污染包拒绝' },
   { file: 'verification-safety.test.js', name: '验证脚本目标库保护与事务门禁反向样例' },
   { file: 'independent-right-purchase.test.js', name: '独立押金购买与未知付款恢复' },
   { file: 'independent-purchase-recovery.test.js', name: '独立押金原请求、存储与跨会话恢复' },
@@ -176,7 +181,7 @@ if (failed) {
   console.log('流程测试失败：' + failed + ' 个套件未通过')
   process.exitCode = 1
 } else {
-  console.log('流程测试全部通过：' + SUITES.length + ' 个套件，共 ' + total + ' 项断言')
+  console.log('流程测试全部通过：' + SUITES.length + ' 个套件，共 ' + total + ' 个计数项')
 }
 
 // 收尾清一次历史遗留：每次跑完都会删自己的日志，但被强杀（Ctrl+C / 超时）的那次会留下空文件。

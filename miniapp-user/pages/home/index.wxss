@@ -4,7 +4,7 @@
 .page {
   min-height: 100vh;
   background: var(--bg-color);
-  padding: 0 24rpx 180rpx; /* 底部留给结算栏 */
+  padding: 0 24rpx calc(300rpx + env(safe-area-inset-bottom)); /* 为完整说明分行后的结算栏留空间 */
 }
 
 /* ── 通用卡片：白卡 + 暖灰描边 + 中圆角，阴影≈0 ──
@@ -133,9 +133,9 @@
   font-size: var(--font-md);
   font-weight: 600;
   color: var(--text-primary);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-all;
 }
 .addr-empty {
   font-weight: 400;
@@ -467,11 +467,16 @@
 }
 .sum-total-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
+  column-gap: 8rpx;
+  row-gap: 8rpx;
 }
 .sum-total {
   font-size: 38rpx;
   font-weight: 700;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .sum-total-empty {
   color: var(--text-regular);
@@ -479,15 +484,24 @@
 .sum-detail {
   font-size: var(--font-sm);
   color: var(--text-regular);
-  margin-left: 8rpx;
+  line-height: 1.5;
 }
+/* 标签与金额保留主行；最后一项完整说明单独换行，不截断费用信息。 */
 .sum-detail:first-child {
-  margin-left: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.sum-detail:last-child {
+  flex-basis: 100%;
+  min-width: 0;
+  white-space: normal;
+  word-break: break-all;
 }
 .sum-sub {
   font-size: var(--font-sm);
   color: var(--text-secondary);
-  margin-top: 4rpx;
+  margin-top: 8rpx;
+  line-height: 1.5;
 }
 /* 主按钮：蓝色合法出现处 ②；置灰 #C9C4B8 不是浅蓝 */
 .cta {

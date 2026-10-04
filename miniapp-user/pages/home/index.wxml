@@ -176,7 +176,7 @@
     </block>
   </block>
 
-  <!-- ══ 结算栏：合计 = 水款 + 新购桶押金，是**商品小计**预估，不是最终实付 ══ -->
+  <!-- 商品小计是预估：独立押金模式仅含商品款；历史模式按报价确认后保留旧押金预估。 -->
   <view class="checkout" wx:if="{{isLogin && state === 'ready'}}">
     <view class="sum">
       <view class="sum-total-row" wx:if="{{total.count > 0}}">

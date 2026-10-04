@@ -10,12 +10,13 @@
   <view class="head-card">
     <block wx:if="{{resultState === 'success'}}">
       <view class="success-icon">✓</view>
-      <text class="success-title">完成配送</text>
+      <text class="success-title">{{successTitle}}</text>
       <text class="success-subtitle">{{successSubtitle}}</text>
     </block>
     <block wx:else>
-      <text class="head-title">{{resultState === 'submitting' ? '正在提交…' : '确认送达'}}</text>
-      <text class="head-subtitle" wx:if="{{resultState !== 'submitting'}}">核对本单送达的商品、收回的空桶与收款情况，确认后订单立即结算为已完成</text>
+      <text class="head-title" wx:if="{{resultState === 'submitting'}}">正在提交…</text>
+      <text class="head-title" wx:else>{{completionTitle}}</text>
+      <text class="head-subtitle" wx:if="{{resultState !== 'submitting'}}">{{completionHint}}</text>
       <text class="head-subtitle" wx:else>请稍等，别重复点击</text>
     </block>
   </view>
@@ -208,11 +209,11 @@
       </view>
       <view class="collect-option {{collected === false ? 'active' : ''}}" catchtap="onSelectCollected" data-value="false">
         <text class="collect-option-name">未收款</text>
-        <text class="collect-option-desc">记为"已送达，待收款"</text>
+        <text class="collect-option-desc">{{cashUncollectedDesc}}</text>
       </view>
     </view>
-    <text class="collect-tip" wx:if="{{!collectedChosen}}">请选择实际收款情况（不能空着提交）</text>
-    <text class="collect-tip" wx:elif="{{collected === false}}">只收了一部分时：先按"未收款"提交，再让站长按实际金额核对。</text>
+    <text class="collect-tip" wx:if="{{!collectedChosen}}">{{collectionChoiceHint}}</text>
+    <text class="collect-tip" wx:elif="{{collected === false}}">{{cashUncollectedHint}}</text>
   </view>
 
   <!--
@@ -313,8 +314,8 @@
       提交中不能让人再点，结果未知时明确说"要不要重试先看列表"。
       服务端确认成功后按钮所在页会跳走（见 complete.js 的 setTimeout 跳转）。
     -->
-    <button class="btn-confirm {{submittingComplete ? 'btn-confirm-busy' : ''}}" bindtap="onConfirmComplete" disabled="{{submittingComplete}}">
-      {{resultState === 'submitting' ? '提交中…' : (resultState === 'success' ? '已完成' : (resultState === 'unknown' ? '再提交一次（先确认列表）' : '确认送达'))}}
+    <button class="btn-confirm {{(submittingComplete || completionBlocked) ? 'btn-confirm-busy' : ''}}" bindtap="onConfirmComplete" disabled="{{submittingComplete || completionBlocked}}">
+      {{resultState === 'submitting' ? '提交中…' : (resultState === 'success' ? successButtonText : (resultState === 'unknown' ? '再提交一次（先确认列表）' : completionButtonText))}}
     </button>
   </view>
 

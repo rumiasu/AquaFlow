@@ -97,6 +97,7 @@ function newPage(scenario) {
   page.data.totalAmount = 20
   page.data.selectedMethod = sc.method == null ? 3 : sc.method
   page.data.blocked = false
+  page.data.quoteReady = true // 此夹具明确模拟已核实报价的可提交状态；未核实路径另有专门回归。
   // [2026-09-26] 「确认下单」现在要求先在《水桶与押金说明》里勾选（assetReadAgreed）。
   // 默认按"客户已经看过说明并勾选"摆好 —— 否则每个涉及首次押金的用例都要先补一次勾选，
   // 而那些用例测的是别的分支。**专门测这个闸门的用例会自己把它置回 false**（见"未勾选说明"）。

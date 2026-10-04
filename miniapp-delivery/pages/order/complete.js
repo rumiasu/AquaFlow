@@ -44,6 +44,43 @@ function buildDeliveryItems(order) {
   })
 }
 
+// 配送展示仅认服务端 needCollect 与本单押金凭据事实，不从政策开关或金额推断新旧订单。
+function deliveryCompletionView(order, needCollect, collected, collectedChosen) {
+  const requiresDepositCollection = needCollect && !!order && order.hasOrderBarrelPurchase === true
+  const completionBlocked = requiresDepositCollection && collected !== true
+  const deliveredUnpaid = needCollect && !requiresDepositCollection && collected !== true
+  let completionTitle = '确认完成配送'
+  let completionHint = '核对本单商品与实际交付情况，提交成功后登记配送完成。'
+  let completionButtonText = '确认完成'
+  if (completionBlocked) {
+    completionTitle = '先收齐款项，再交桶'
+    completionHint = '本单有新增桶押金，请先收齐水款和本单押金，再确认交桶；未收齐不能登记送达。'
+    completionButtonText = '先收齐款项'
+  } else if (deliveredUnpaid) {
+    completionTitle = collectedChosen ? '登记送达，待收款' : '确认送达'
+    completionHint = collectedChosen
+      ? '本次仅登记送达，款项仍待收；实际收到钱后再确认收款。'
+      : '核对送货、回桶与实际收款情况；本单未收款时可登记送达，款项仍待收。'
+    completionButtonText = '确认送达'
+  }
+  return {
+    requiresDepositCollection, completionBlocked, completionTitle, completionHint, completionButtonText,
+    cashUncollectedDesc: requiresDepositCollection ? '未收齐，暂不能交桶' : '记为“已送达，待收款”',
+    cashUncollectedHint: requiresDepositCollection
+      ? '本单须收齐水款和新增押金后才能交桶；未收齐时请如实选未收款，暂不提交送达。'
+      : '只收了一部分时：先按“未收款”提交，再让站长按实际金额核对。',
+    collectionChoiceHint: requiresDepositCollection
+      ? '本单须先收齐水款和新增押金，请如实选择实际收款情况。'
+      : '请选择实际收款情况（不能空着提交）',
+    confirmationResultText: deliveredUnpaid
+      ? '提交成功后，订单记为「已送达」，仍待收款。实际收到钱后，请再确认收款。'
+      : '提交成功后，订单记为「已完成」。',
+    successTitle: deliveredUnpaid ? '已送达，待收款' : '配送已完成',
+    successSubtitle: deliveredUnpaid ? '款项仍待收，实际收款后再确认收款。' : '本单配送已完成。',
+    successButtonText: deliveredUnpaid ? '已送达' : '已完成'
+  }
+}
+
 Page({
   /** 弹窗内容区吞掉点击（wxml 用 catchtap 绑定，此处为空实现，避免未定义方法告警） */
   stopPropagation() {},
@@ -89,6 +126,16 @@ Page({
     // 本单**是否还要现场收钱**（后端 needCollect 投影：现金单且未付）。
     // 与 isCashOnDelivery 分开：现金单付过款之后就不该再问一次"收了没"（契约 C1）。
     needCollect: false,
+    requiresDepositCollection: false,
+    completionBlocked: false,
+    completionTitle: '确认送达',
+    completionHint: '请先加载并核对本单送货、回桶与收款情况。',
+    completionButtonText: '确认送达',
+    cashUncollectedDesc: '记为“已送达，待收款”',
+    cashUncollectedHint: '',
+    collectionChoiceHint: '请选择实际收款情况（不能空着提交）',
+    successTitle: '配送已登记',
+    successButtonText: '已登记',
     /**
      * [2026-09-27 走查 D01 修] 钱卡上的展示态，**在 js 里算好**（wxml 不做判断与拼接）：
      *   · `collect`   —— 本次要收钱：主数字是「本单尚应收」，红字大字（这是配送员要行动的数）；
@@ -227,7 +274,7 @@ Page({
         hasBarrelItems: items.length > 0,
         hasDepositOldBarrelHint,
         // 首单 / 纯瓶装水单都没有"核对回桶"这一步，副标题不能再说"核对回桶后确认完成"
-        successSubtitle: (isFirstBarrelOrder || items.length === 0) ? '确认交付后完成' : '核对回桶后确认完成',
+        ...deliveryCompletionView(order, needCollect, null, false),
         isCashOnDelivery: needCollect,
         needCollect,
         moneyMode: money.mode,
@@ -467,7 +514,8 @@ Page({
 
   onSelectCollected(e) {
     const val = e.currentTarget.dataset.value === 'true'
-    this.setData({ collected: val, collectedChosen: true })
+    this.setData({ collected: val, collectedChosen: true,
+      ...deliveryCompletionView(this.data.orderInfo, this.data.needCollect, val, true) })
   },
 
   onNoteInput(e) {
@@ -571,12 +619,20 @@ Page({
     this.setData({ photos: this.data.photos.filter((_, i) => i !== index) })
   },
 
+  _canCompleteWithCollection() {
+    const view = deliveryCompletionView(this.data.orderInfo, this.data.needCollect, this.data.collected, this.data.collectedChosen)
+    if (!view.completionBlocked) return true
+    wx.showToast({ title: '请先收齐水款和本单押金，再确认交桶', icon: 'none' })
+    return false
+  },
+
   _validate() {
     // 钱的事实必须先被确认（契约 C1）：本单还要收款时，"收了没"不许有默认值。
     if (this.data.needCollect && !this.data.collectedChosen) {
       wx.showToast({ title: '请先确认这单收到钱没有', icon: 'none' })
       return false
     }
+    if (!this._canCompleteWithCollection()) return false
     for (let i = 0; i < this.data.items.length; i++) {
       const item = this.data.items[i]
       const missing = item.expected - item.actual
@@ -625,7 +681,9 @@ Page({
   },
 
   _showConfirmDialog() {
+    if (!this._canCompleteWithCollection()) return
     const { items, needCollect, collected, orderInfo } = this.data
+    const view = deliveryCompletionView(orderInfo, needCollect, collected, this.data.collectedChosen)
     let s = ''
     items.forEach(it => {
       if (it.expected === 0 && it.actual === 0) return   // 首单押金桶：不占摘要
@@ -637,15 +695,17 @@ Page({
     })
     if (needCollect) {
       // 现金未收时**不许**写成"订单已结清"（契约 C2）：账户上这单还是待收款。
-      s += collected ? '✓ 已收款' : '⚠ 已送达，待收款'
+      const amountText = orderInfo && orderInfo.totalAmount != null ? ` ¥${orderInfo.totalAmount}` : ''
+      s += collected ? `✓ 已收款${amountText}` : `⚠ 已送达，待收款${amountText}`
       s += '\n'
+      if (orderInfo && orderInfo.depositAmount > 0) s += `含押金 ¥${orderInfo.depositAmount}\n`
     } else if (orderInfo && orderInfo.payStateText) {
       s += `${orderInfo.payStateText}\n`
     }
-    // [2026-09-20 预防层] 只列明细还不够：配送员要知道「点下去会发生什么、能不能撤」。
-    // 「完成配送」是**不可逆**动作 —— 订单立刻闭环、计件工钱同时产生，事后没有系统内的回退通道
-    // （订单类误操作只能线下联系客户协商，见 AGENTS §0.6 / design/20 §5.2）。
-    s += '\n订单将立即结算为「已完成」，计件工钱同时产生，且不能撤回。'
+    // 配送结果遵循后端 completeDelivery：现金未收记为 DELIVERED，已收/已付记为 COMPLETED。
+    // 两种结果都会在配送状态 CAS 成功后记计件工钱；本次配送操作没有撤回通道。
+    s += '\n' + view.confirmationResultText
+    s += '\n计件工钱在配送完成后记账，本次配送操作不能撤回。'
 
     wx.showModal({
       title: '确认完成配送',
@@ -660,6 +720,8 @@ Page({
   },
 
   async _doSubmit() {
+    // 模板禁用与确认摘要之外再守一次，旧弹窗回调或直接触发也不能提交未收齐的新押金单。
+    if (!this._canCompleteWithCollection()) return
     // 防连点（契约：重复点击不重复出库/回桶/计件）。服务端还有状态 CAS 兜底
     // （第二次会拿到"该订单当前状态不可完成配送"），但那会让配送员在**已经成功**之后
     // 看到一个红色报错弹窗——所以闸门放在客户端这里。
@@ -715,12 +777,12 @@ Page({
       if (isNetwork) {
         this.setData({
           resultState: 'unknown',
-          unknownHint: '这次提交没等到回应（' + msg + '）。订单可能已经完成，'
+          unknownHint: '这次提交没等到回应（' + msg + '）。配送结果可能已登记，'
             + '请先回到配送列表刷新看一眼再决定要不要重提 —— 直接重提会被系统挡下并报"该订单当前状态不可完成配送"。'
         })
         wx.showModal({
           title: '结果未知',
-          content: '这次提交没等到回应（' + msg + '）。订单可能已经完成，请回配送列表刷新确认后再决定要不要重试。',
+          content: '这次提交没等到回应（' + msg + '）。配送结果可能已登记，请回配送列表刷新确认后再决定要不要重试。',
           showCancel: false,
           confirmText: '知道了'
         })

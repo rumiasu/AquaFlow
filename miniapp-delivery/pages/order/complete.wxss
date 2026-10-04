@@ -1,5 +1,5 @@
-/* ⚠️ 底部留白必须 ≥ 主按钮那条固定栏的实际高度（.footer = 32+32rpx 内边距 + 按钮本身 +
-   安全区），否则最后一块（备注 / 送达凭证）会被它压住。原来是 200rpx，比按钮栏矮了一截。 */
+/* 底部留白覆盖固定栏：两行按钮文字 96rpx + 按钮内边距 64rpx + 栏内边距 64rpx
+   + 16rpx 间隔 = 240rpx；安全区在内容与底栏两处同时预留，长内容保持自然滚动。 */
 .container { background: var(--bg-color); min-height: 100vh; padding-bottom: calc(240rpx + env(safe-area-inset-bottom)); }
 
 /* [2026-09-27 走查 D03 修] 页头卡片：原来只有"成功态"一种样式，
@@ -109,13 +109,14 @@
 .item-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
 .item-spec { font-size: 24rpx; color: var(--text-secondary); background: #f0f4f8; padding: 4rpx 12rpx; border-radius: 8rpx; }
 
-.barrel-row { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
+.barrel-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16rpx; }
 .barrel-label { font-size: 28rpx; color: var(--text-primary); }
 .num-blue { font-weight: 700; color: var(--primary-color); }
 
 /* 加减是这一页**唯一的数字输入动作**（在门口一边数桶一边点），按 §6 的控件尺寸给到 88rpx：
    64rpx 那一版在真机上偏小、还容易点空（点了没反应最容易被当成"坏了"）。 */
-.barrel-stepper { display: flex; align-items: center; gap: 12rpx; }
+/* 数量输入在局部层内绘制，滚经固定底栏时随控件一起被盖住；窄屏不压缩加减触区。 */
+.barrel-stepper { position: relative; z-index: 0; display: flex; flex-shrink: 0; align-items: center; gap: 12rpx; }
 .step-btn { width: 88rpx; height: 88rpx; border-radius: 50%; background: #f0f4f8; display: flex; align-items: center; justify-content: center; font-size: 40rpx; font-weight: 300; color: var(--text-primary); border: 2rpx solid #e0e0e0; }
 .step-btn:active { background: #e0e7ef; }
 .step-btn-disabled { opacity: 0.4; }
@@ -155,7 +156,7 @@
    平铺信息行的大号金额与"去补货"着色用，而那块已经换成 .money-card（金额 56rpx 独占一行、
    补货入口自带 .money-prep-link）。留着就是"看起来还有一处旧样式"的误导。 */
 .collect-sub-text { font-size: 26rpx; color: var(--text-secondary); }
-.collect-tip { display: block; margin-top: 12rpx; font-size: 22rpx; color: #CC7700; }
+.collect-tip { display: block; margin-top: 12rpx; font-size: 26rpx; color: var(--text-regular); line-height: 1.6; }
 
 /* 「更多（选填）」折叠条（契约 C2）：正常路径只留"商品 / 回桶 / 收钱"三件事 */
 .more-toggle { display: flex; justify-content: space-between; align-items: center; padding: 20rpx 24rpx; background: var(--bg-card); border: 2rpx solid var(--border-color); border-radius: var(--radius-md); }
@@ -167,7 +168,7 @@
 .collect-option.active { border-color: #FF9500; background: rgba(255, 149, 0, 0.1); }
 .collect-option-name { font-size: 28rpx; font-weight: 600; color: var(--text-primary); display: block; }
 .collect-option.active .collect-option-name { color: #CC7700; }
-.collect-option-desc { font-size: 20rpx; color: var(--text-secondary); display: block; margin-top: 4rpx; }
+.collect-option-desc { font-size: 24rpx; color: var(--text-regular); display: block; margin-top: 8rpx; line-height: 1.5; padding: 0 8rpx; }
 
 .section-tip { display: block; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: var(--spacing-md); }
 .photo-grid { display: flex; gap: var(--spacing-md); flex-wrap: wrap; }
@@ -183,8 +184,8 @@
 .note-count { font-size: var(--font-sm); color: var(--text-secondary); }
 .note-input { width: 100%; min-height: 140rpx; padding: var(--spacing-md); border: 2rpx solid var(--border-color); border-radius: var(--radius-md); font-size: var(--font-md); box-sizing: border-box; }
 
-.footer { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-card); padding: var(--spacing-lg) var(--spacing-md); padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom)); box-shadow: 0 -4rpx 20rpx rgba(0,0,0,.06); }
-.btn-confirm { width: 100%; background: var(--success-color); color: #fff; border: none; border-radius: var(--radius-round); font-size: var(--font-lg); font-weight: 700; padding: var(--spacing-lg) 0; }
+.footer { position: fixed; z-index: 20; bottom: 0; left: 0; right: 0; background: var(--bg-card); padding: var(--spacing-lg) var(--spacing-md); padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom)); box-shadow: 0 -4rpx 20rpx rgba(0,0,0,.06); }
+.btn-confirm { width: 100%; background: var(--success-color); color: #fff; border: none; border-radius: var(--radius-round); font-size: var(--font-lg); font-weight: 700; line-height: 1.5; padding: var(--spacing-lg) 0; }
 .btn-confirm::after { border: none; }
 /* [2026-09-27 走查 D03 修] 提交在途：按钮必须**看起来不能再点**（disabled 属性之外再给视觉，
    否则"点了没反应"与"正在提交"分不清 —— 本仓"静默无反应"的老毛病）。 */

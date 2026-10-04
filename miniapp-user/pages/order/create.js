@@ -9,10 +9,27 @@ const { getStationPublicPhone, getStationStatus } = require('../../api/station')
 const { submitEnterpriseApply, getMyEnterpriseApplies } = require('../../api/enterprise')
 const { storage, stationStorage, payMethodStorage } = require('../../utils/storage')
 const { resolveStationId } = require('../../utils/station')
-const { getCustomerId } = require('../../utils/token')
+const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
 const orderIntent = require('../../utils/orderIntent')
 const app = getApp()
+
+// 只清理展示占位值，原始规格和报价/提交字段保持原样。
+function specTextOf(value) {
+  if (value == null) return ''
+  const text = String(value).trim()
+  return /^(null|undefined)$/i.test(text) ? '' : text
+}
+
+// 同一次报价的不同告知全部保留；完全相同的提示只展示一次。
+function checkoutWarningsOf(blocked, blockReason, feeWarnings, ticketShortfallHint) {
+  const seen = new Set()
+  return [blocked ? blockReason : '', ...feeWarnings, ticketShortfallHint].filter(text => {
+    if (typeof text !== 'string' || !text.trim() || seen.has(text.trim())) return false
+    seen.add(text.trim())
+    return true
+  })
+}
 
 /**
  * 从建单响应里取**合法订单号**（契约 A1 的硬要求）。
@@ -52,6 +69,7 @@ Page({
     products: [],
     address: null,
     addressText: '',
+    checkoutWarnings: [],
     note: '',
     barrelByType: [],
     barrelSummary: [],
@@ -79,6 +97,10 @@ Page({
     // 首次下单没有记录时回到 3（水票），再由 refreshQuote 按后端下发的 enabled 校正。
     selectedMethod: payMethodStorage.get() || 3,
     payMethods: [],
+    quoteLoading: false,
+    quoteReady: false,
+    barrelPurchases: [], barrelPurchaseConfirmed: false,
+    quoteError: '',
     // [2026-09-26] 收款渠道能力（后端 quote 的 wechatPay 原样存下来）：建单成功后要不要对
     // **同一张订单**发起 createPayment，判据是这里的 enabled（= 服务端模拟渠道开着），
     // 前端不按 id===1 猜渠道、也不碰真实 wx.requestPayment。null = 还没报价，按"不可用"处理。
@@ -315,6 +337,7 @@ async loadItemsProducts() {
           // 避免"有的地方改了、有的地方没改"又变成双口径（本仓计价双轨的历史事故）。
           const p = {
             ...d,
+            specText: specTextOf(d.spec),
             price: d.effectivePrice != null ? d.effectivePrice : d.price,
             deposit: d.effectiveDeposit != null ? d.effectiveDeposit : d.deposit,
             quantity: it.quantity || 1,
@@ -603,9 +626,15 @@ this.setData({ products, stationName: effectiveStationName })
 
   async refreshQuote() {
     const { products, selectedMethod, stationId, barrelSummary, address } = this.data
-    if (!products || products.length === 0 || !stationId) return
+    const seq = this._quoteRequestSeq = (this._quoteRequestSeq || 0) + 1
+    const session = captureSession()
+    const current = () => seq === this._quoteRequestSeq && isCurrentSession(session)
+    this.setData({ quoteLoading: true, quoteReady: false, quoteError: '', blocked: true, checkoutWarnings: [],
+      blockReason: '正在核实最新报价，请稍候', payMethods: [], wechatPay: null, missingRights: [], barrelPurchases: [], barrelPurchaseConfirmed: false })
 
     try {
+      if (!session.loggedIn || !session.customerId) throw new Error('请先登录后重新报价')
+      if (!products || products.length === 0 || !stationId) throw new Error('请先确认水站和商品')
       const quoteItems = products.map(p => ({
         productId: p.id,
         quantity: p.quantity || 1
@@ -619,7 +648,11 @@ this.setData({ products, stationName: effectiveStationName })
         // 而**下单时是带地址的** → 报价与订单金额就会不一致（本仓记过的"计价双轨"事故）。
         addressId: address && address.id ? address.id : undefined
       })
-      if (res.data) {
+      if (!current()) return false
+      if (!res || (res.code !== undefined && ![0, 200].includes(res.code)) || !res.data) {
+        throw new Error('报价结果未核实，请重试')
+      }
+      {
         const d = res.data
         const totalWaterCost = d.waterAmount || 0
         const totalDeposit = d.barrelDeposit || 0
@@ -638,18 +671,30 @@ this.setData({ products, stationName: effectiveStationName })
         const enterpriseHint = d.enterpriseHint || ''
 
         // 支付方式列表由服务端下发（含文案、可用性、默认项），前端不再硬编码 1/2/3 的含义
-        // ⚠️ 这个兜底本身有隐患，已登记待处理（审计报告 §6.5）：methods 缺失时它只造出"水票支付"一项 ——
-        // 客户会看到一个唯一选项而票可能是 0 张，且现金/微信凭空消失，比"明确提示报价失败并重试"更误导。
-        // 本轮只同步文案（不扩大改动范围）。
-        const payMethods = Array.isArray(d.methods) && d.methods.length
-          ? d.methods
-          : [{ id: 3, name: '水票支付', desc: '使用账户水票抵扣 · 票不足可先购买水票', enabled: true }]
+        // 缺失/损坏列表不能被客户端补成可用渠道；金额与支付方式须一起核实。
+        // 当前页面仅能执行 PayMethod.java ALL 中的渠道；名称与可用性仍取服务端。
+        const payMethods = d.methods
+        if (!Array.isArray(payMethods) || !payMethods.length || payMethods.some(m => !m
+          || !Number.isInteger(m.id) || ![1, 2, 3].includes(m.id) || typeof m.enabled !== 'boolean'
+          || typeof m.name !== 'string' || !m.name.trim())
+          || new Set(payMethods.map(m => m.id)).size !== payMethods.length
+          || !payMethods.some(m => m.enabled)) throw new Error('支付方式未核实，请重试报价或联系水站')
         // 当前选中项若已不可用（权限被收回），回退到服务端给的默认值。
         // [2026-09-19] selectedMethod 的初值来自"上次用过的支付方式"（本地偏好），
         // 所以这一句同时也是**记住的方式在本站不可用时的回退点**。
         const selectedStillOk = payMethods.some(m => m.id === selectedMethod && m.enabled)
-        const nextMethod = selectedStillOk ? selectedMethod : (d.defaultMethod || payMethods[0].id)
+        const defaultMethod = payMethods.find(m => m.id === d.defaultMethod && m.enabled)
+        const nextMethod = selectedStillOk ? selectedMethod : (defaultMethod || payMethods.find(m => m.enabled)).id
 
+        const barrelPurchases = d.barrelPurchases === undefined && d.independentRights !== true ? [] : d.barrelPurchases
+        if (!Number.isFinite(Number(d.extraDeposit || 0)) || !Array.isArray(barrelPurchases) || barrelPurchases.some(l => !l || !Number.isInteger(l.productId)
+          || !Number.isInteger(l.quantity) || l.quantity < 1 || !Number.isFinite(Number(l.unitPrice)) || Number(l.unitPrice) <= 0
+          || !Number.isFinite(Number(l.amount)) || Number(l.amount) <= 0
+          || Math.abs(Number(l.amount) - Number(l.unitPrice) * l.quantity) > 0.009
+          || !quoteItems.some(it => it.productId === l.productId && it.quantity >= l.quantity))
+          || new Set(barrelPurchases.map(l => l.productId)).size !== barrelPurchases.length
+          || Math.abs(barrelPurchases.reduce((sum,l) => sum+Number(l.amount),0)-Number(d.extraDeposit || 0)) > 0.009)
+          throw new Error('本次桶押金明细未核实，请重试报价')
         // ===== 水票抵扣预览（产品口径：水票支付时不显示计费，只计费除去水票的部分）=====
         // 金额一律后端算好下发（quote.ticketPay），前端只渲染，绝不在前端做抵扣算术 ——
         // 前端算一遍就会出现"结算页一个价、扣票另一个价"（本仓记过的计价双轨）。
@@ -686,7 +731,11 @@ this.setData({ products, stationName: effectiveStationName })
           let shortage = 0
           let shortageDeposit = 0
 
-          if (isBarrel) {
+          if (isBarrel && d.independentRights === true) {
+            const line = barrelPurchases.find(l => l.productId === p.id)
+            shortage = line ? line.quantity : 0
+            shortageDeposit = line ? Number(line.amount) : 0
+          } else if (isBarrel) {
             // 桶装水：只对缺少的空桶收押金
             const held = (barrelSummary || []).find(s => s.productId === p.id)
             const actualBuckets = held ? held.actualBuckets : 0
@@ -706,6 +755,9 @@ this.setData({ products, stationName: effectiveStationName })
         })
 
         const updates = {
+          quoteReady: true,
+          quoteError: '',
+          barrelPurchases, barrelPurchaseConfirmed: false,
           products: updatedProducts,
           totalWaterCost,
           totalDeposit,
@@ -722,6 +774,7 @@ this.setData({ products, stationName: effectiveStationName })
           ticketPay,
           ticketCoverText,
           ticketShortfallHint,
+          checkoutWarnings: checkoutWarningsOf(blocked, blockReason, feeWarnings, ticketShortfallHint),
           isTicketPay: nextMethod === 3,
           // [走查 C03] 票不足时的两个下一步动作（可用性与标签都由后端数据推导，见上面的注释）
           ticketCanBuy,
@@ -776,23 +829,32 @@ this.setData({ products, stationName: effectiveStationName })
         this._syncPendingOrderState()
         // 弹窗放在 setData 之后、不 await：提示而已，绝不能拖住报价渲染或下单按钮
         this.maybePromptEnterprise(enterpriseHint)
+        return true
       }
     } catch (e) {
+      if (!current()) return false
       // [2026-09-20 真机联调] 原来只 console.warn 就完了：报价失败时页面停在
       // 「合计 ¥0.00」、支付方式还是上一轮的，而**下单按钮照样可点** ——
       // 真机弱网下会提交一张金额陈旧的订单（钱的事，宁可挡住）。
-      // 这里复用页面**既有的**硬拦闸门：onSubmit 开头就查 this.data.blocked 并 return，
-      // 所以不用新增一套判断。下次报价成功时，成功分支会用后端下发的 blocked/blockReason
-      // 覆盖掉这里的值（见上面 setData 的 updates），不会把页面永久锁死。
+      // 失败保持 quoteReady=false；点击与提交前等待两处都检查，只有重试成功才能重新提交。
       console.error('[OrderCreate] refreshQuote 失败:', e)
       this.setData({
         blocked: true,
-        blockReason: '没能取到最新报价（' + ((e && e.message) || '网络异常')
-          + '），为避免金额出错已暂停下单，请下拉刷新后重试'
+        quoteReady: false,
+        payMethods: [], wechatPay: null, ticketPay: null, ticketCoverText: '',
+        ticketShortfallHint: '', ticketCanBuy: false, ticketAltMethod: null, missingRights: [],
+        barrelPurchases: [], barrelPurchaseConfirmed: false,
+        quoteError: '没能核实最新金额和支付方式（' + ((e && e.message) || '网络异常') + '），已暂停下单，请重试报价',
+        blockReason: '最新金额和支付方式尚未核实，请重试报价',
+        checkoutWarnings: ['最新金额和支付方式尚未核实，请重试报价']
       })
       wx.showToast({ title: '报价加载失败，已暂停下单', icon: 'none' })
+      return false
+    } finally {
+      if (current()) this.setData({ quoteLoading: false })
     }
   },
+  onRetryQuote() { return this.refreshQuote() },
 
   // 生成一个下单幂等键（仅在"新的一次下单意图"时调用：进入页面 / 下单成功后）
   // ⚠️ 现在由 utils/orderIntent.js 统一管理（一次意图一个键、按客户隔离、成功后才清），
@@ -852,6 +914,16 @@ this.setData({ products, stationName: effectiveStationName })
       return
     }
 
+    if (this.data.quoteLoading) {
+      wx.showToast({ title: '正在核实报价，请稍候', icon: 'none' }); return
+    }
+    if (this.data.quoteError || !this.data.quoteReady) {
+      wx.showModal({ title: '报价尚未核实', content: this.data.quoteError || '请先核实最新金额和支付方式，再提交订单。',
+        confirmText: '重试报价', cancelText: '留在本页',
+        success: result => { if (result.confirm) this.onRetryQuote() } })
+      return
+    }
+
     // [v35] 硬拦（起送量/配送范围被站长配成不接单）在前端就地挡住：
     // 让客户填完地址、点了提交才被后端拒，体验上像是"系统坏了"。
     // reason 由后端下发（与 createOrder 的拒绝判据同源），前端不自己判断该不该拦。
@@ -863,7 +935,7 @@ this.setData({ products, stationName: effectiveStationName })
         showCancel: !!missing,
         confirmText: missing ? '交桶押金' : '知道了',
         success: (res) => {
-          if (missing && res.confirm) wx.navigateTo({ url: '/pages/barrel/purchase?stationId=' + this.data.stationId + '&productId=' + missing.productId + '&quantity=' + missing.quantity })
+          if (missing && res.confirm) wx.navigateTo({ url: '/pages/barrel/purchase?stationId=' + this.data.stationId + '&productId=' + missing.productId + '&quantity=' + missing.quantity + '&from=order' })
         }
       })
       return
@@ -905,7 +977,12 @@ this.setData({ products, stationName: effectiveStationName })
     // 提交前**重跑一次报价**再判定：客户可能刚在别处补了票，用页面上的旧数据会误伤。
     // 重跑不会重复弹企业身份窗（maybePromptEnterprise 有 this.enterprisePrompted 闸门）。
     if (selectedMethod === 3) {
-      await this.refreshQuote()
+      const verified = await this.refreshQuote()
+      // 报价错误已转为可读状态；await 返回后仍须检查，不能继续使用旧票预览建单。
+      if (!verified || !this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) return
+      if (this.data.selectedMethod !== selectedMethod) {
+        wx.showToast({ title: '支付方式已变化，请确认后再提交', icon: 'none' }); return
+      }
       const tp = this.data.ticketPay
       if (tp && !tp.fullyCovered) {
         // 标题与结论都由后端下发：它要区分"某商品根本不能用票（补票也没用）"
@@ -939,6 +1016,9 @@ this.setData({ products, stationName: effectiveStationName })
       return
     }
 
+    if ((this.data.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) {
+      this.confirmBarrelPurchase(); return
+    }
     // ===== 建单之前必须做完的确认（契约 A2）=====
     // 首次资产/押金告知原来在**建单之后**弹：客户点"取消"时订单已经存在，只能提示他
     // "订单已创建，可在我的订单里取消"。现在改到这里 —— 取消 = 一个写请求都不发。
@@ -952,6 +1032,28 @@ this.setData({ products, stationName: effectiveStationName })
     }
 
     await this._createOrder(false)
+  },
+
+  /** 同次付款仍分项记账；占用中的旧容量可等待，不静默多收一份押金。 */
+  confirmBarrelPurchase() {
+    const session = captureSession(), seq = this._quoteRequestSeq
+    const lines = this.data.barrelPurchases || []
+    const busy = lines.some(l => Number(l.busyRights) > 0)
+    const text = lines.map(l => (l.productName || '桶装水') + '：新增 ' + l.quantity + ' 份押金 ¥' + Number(l.amount).toFixed(2)).join('；')
+    wx.showModal({ title: '确认本次新增押金',
+      content: text + '。与本单水款一起付款，收齐款项后押金生效。' + (busy ? '已有容量正在办理其他订单，可等待释放，或明确再买一份。' : '也可返回，在水桶与押金页单独办理。'),
+      confirmText: '一起付款', cancelText: busy ? '等待释放' : '返回修改',
+      success: result => {
+        if (!result.confirm || seq !== this._quoteRequestSeq || !isCurrentSession(session) || !this.data.quoteReady || this.data.blocked) return
+        this.setData({ barrelPurchaseConfirmed: true }); this.onSubmit()
+      }
+    })
+  },
+
+  onStandalonePurchase() {
+    const missing = (this.data.barrelPurchases || this.data.missingRights || [])[0]
+    if (!missing || this.data.submitting || this.data.quoteLoading) return
+    wx.navigateTo({ url: '/pages/barrel/purchase?stationId=' + this.data.stationId + '&productId=' + missing.productId + '&quantity=' + missing.quantity + '&from=order' })
   },
 
   /**
@@ -1098,7 +1200,7 @@ this.setData({ products, stationName: effectiveStationName })
         quantity: p.quantity || 1
       }))
 
-      const orderRes = await createOrder({
+      const freshRequest = {
         items: items,
         addressId: this.data.address.id,
         specialNote: this.data.note,
@@ -1106,10 +1208,21 @@ this.setData({ products, stationName: effectiveStationName })
         paymentMethod: this.data.selectedMethod,
         stationId: this.data.stationId,
         extraDeposit: this.data.extraDepositAmount || 0,
+        barrelPurchases: (this.data.barrelPurchases || []).map(l => ({ productId: l.productId, quantity: l.quantity, unitPrice: Number(l.unitPrice) })),
         idempotencyKey: idempotencyKey,
         // 只有客户明确同意等待才为 true；否则服务端返回 needConfirm（**不建单**）
         confirmShortage: confirmShortage === true
-      })
+      }
+      // 2026-10-03：报价失败会清明细，但未知建单重试必须重放原补购快照，不能变成另一请求。
+      if (!this._originalOrderRequest || this._originalOrderRequest.body.idempotencyKey !== idempotencyKey) {
+        if ((freshRequest.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) { this.confirmBarrelPurchase(); return }
+        this._originalOrderRequest = { body: JSON.parse(JSON.stringify(freshRequest)), session: captureSession() }
+      }
+      if (!isCurrentSession(this._originalOrderRequest.session)) return
+      const request = JSON.parse(JSON.stringify(this._originalOrderRequest.body))
+      if (confirmShortage === true) request.confirmShortage = true
+      this._originalOrderRequest.body = request
+      const orderRes = await createOrder(request)
 
       const data = (orderRes && orderRes.data) || null
 
@@ -1153,6 +1266,7 @@ this.setData({ products, stationName: effectiveStationName })
     } catch (error) {
       // 网络失败/超时：同样**可能已经建单**，所以不动幂等键，只是把状态说清楚
       console.error('[OrderCreate] 下单失败（可能未建单，也可能已建单但响应丢失）:', error)
+      if (error && error.businessRejected) this._originalOrderRequest = null
       this.setData({ submitState: 'idle' })
       wx.showModal({
         title: '下单没提交成功',
@@ -1196,6 +1310,9 @@ this.setData({ products, stationName: effectiveStationName })
 
   /** 缺货后"同意等待安排"：同一幂等键 + confirmShortage=true 重提（只可能产生一张单）。 */
   onShortageAgree() {
+    if (!this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
+      wx.showToast({ title: '请先核实最新报价', icon: 'none' }); return
+    }
     this.setData({ showShortageConfirm: false })
     this._createOrder(true)
   },
@@ -1363,6 +1480,9 @@ this.setData({ products, stationName: effectiveStationName })
   },
 
   onAssetConfirmOk() {
+    if (!this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
+      wx.showToast({ title: '请先核实最新报价', icon: 'none' }); return
+    }
     // [2026-09-26] 说明弹窗里那个勾选是**真的闸门**，但**不能**做成"灰按钮点了没反应"：
     // 弹窗刚打开时勾选一定是 false（每次弹都重置），此时按钮若是死的，客户看到的就是
     // 一个点不动的按钮 —— 正是本仓 §8.30 那类最难排查的形态。

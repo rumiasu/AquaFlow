@@ -12,7 +12,8 @@ Page({
     quoteLoading: false, quoteError: '', purchasesLoading: false,
     purchasesLoaded: false, purchasesError: '', withdrawingId: null,
     recoveryEntries: [], recoveryError: '', recoveryHint: '', recoveryBusy: false,
-    originalActive: false, safetyBlocked: false, canAnother: false },
+    originalActive: false, safetyBlocked: false, canAnother: false, fromOrder: false,
+    onlinePayEnabled: false, onlinePayLabel: '', onlinePayHint: '' },
   syncRecovery() {
     let session
     try { session = captureSession() }
@@ -23,7 +24,8 @@ Page({
     if (this._viewEpoch !== session.epoch) {
       this._viewEpoch = session.epoch
       for (const field of ['_submitSeq', '_recoverySeq', '_anotherSeq', '_quoteSeq', '_purchasesSeq', '_productsSeq']) this[field] = (this[field] || 0) + 1
-      this.setData({ busy: false, recoveryBusy: false, quote: null, quoteLoading: false, recoveryEntries: [], recoveryError: '', recoveryHint: '',
+      this.setData({ busy: false, recoveryBusy: false, quote: null, quoteLoading: false,
+        onlinePayEnabled: false, onlinePayLabel: '', onlinePayHint: '', recoveryEntries: [], recoveryError: '', recoveryHint: '',
         productsLoading: false, purchases: [], purchasesLoading: false, purchasesLoaded: false, purchasesError: '' })
     }
     try {
@@ -51,7 +53,7 @@ Page({
   async onLoad(options) {
     const { session } = this.syncRecovery()
     this.initialProductId = Number(options.productId) || null
-    this.setData({ quantity: Math.max(1, Math.min(1000, Number(options.quantity) || 1)) })
+    this.setData({ quantity: Math.max(1, Math.min(1000, Number(options.quantity) || 1)), fromOrder: options.from === 'order' })
     try {
       const stationId = Number(options.stationId) || await resolveStationId()
       if (!isCurrentSession(session)) return
@@ -90,14 +92,22 @@ Page({
     const session = captureSession()
     const product = this.data.products[this.data.index]
     const seq = this._quoteSeq = (this._quoteSeq || 0) + 1
-    this.setData({ quote: null, quoteError: '', quoteLoading: false })
+    this.setData({ quote: null, quoteError: '', quoteLoading: false, onlinePayEnabled: false, onlinePayLabel: '', onlinePayHint: '' })
     if (!product || !this.data.productsLoaded || this.data.productsError || this.data.productsLoading) return
     this.setData({ quoteLoading: true })
     try {
       const res = await quoteBarrelRight(this.data.stationId, product.id, this.data.quantity)
       if (!isCurrentSession(session) || seq !== this._quoteSeq) return
       if (!res.data) throw new Error('金额暂时不可用，请重试')
-      this.setData({ quote: res.data, stationName: res.data.stationName })
+      const channel = res.data.wechatPay
+      const labelled = !!channel && channel.method === 1 && typeof channel.enabled === 'boolean'
+        && typeof channel.simulated === 'boolean' && typeof channel.label === 'string' && !!channel.label.trim()
+        && typeof res.data.onlineAvailable === 'boolean' && res.data.onlineAvailable === channel.enabled
+      this.setData({ quote: res.data, stationName: res.data.stationName,
+        onlinePayEnabled: res.data.onlineAvailable === true && labelled && channel.enabled === true,
+        onlinePayLabel: labelled ? channel.label : '',
+        onlinePayHint: !labelled ? '线上付款方式尚未核实，可重试确认金额或向水站交现金。'
+          : (!channel.enabled ? channel.label : '') })
     } catch (err) {
       if (isCurrentSession(session) && seq === this._quoteSeq) this.setData({ quoteError: err.message || '金额暂时不可用，请重试' })
     } finally { if (isCurrentSession(session) && seq === this._quoteSeq) this.setData({ quoteLoading: false }) }
@@ -139,7 +149,14 @@ Page({
   },
   onProduct(e) { if (!this.mayEdit()) return; this.setData({ index: Number(e.detail.value) }); return this.refreshQuote() },
   onQuantity(e) { if (!this.mayEdit()) return; this.setData({ quantity: Math.max(1, Math.min(1000, parseInt(e.detail.value) || 1)) }); return this.refreshQuote() },
-  onMethod(e) { if (this.mayEdit()) this.setData({ paymentMethod: Number(e.currentTarget.dataset.method) }) },
+  onMethod(e) {
+    if (!this.mayEdit()) return
+    const method = Number(e.currentTarget.dataset.method)
+    if (method === 1 && (!this.data.onlinePayEnabled || this.data.quoteLoading)) {
+      wx.showToast({ title: '线上付款方式尚未确认或不可用', icon: 'none' }); return
+    }
+    if (method === 1 || method === 2) this.setData({ paymentMethod: method })
+  },
   onWithdraw(e) {
     if (this.data.busy || this.data.withdrawingId || this._withdrawPromptOpen || this.data.purchasesLoading || this.data.purchasesError) return
     const id = e.currentTarget.dataset.id
@@ -185,6 +202,10 @@ Page({
       || !this.data.productsLoaded || this.data.productsLoading || this.data.productsError) return
     const product = this.data.products[this.data.index]
     if (!product) return
+    // 仅拦新的在线购买；未知原请求仍按原 body/key 恢复，不受现价/现渠道展示影响。
+    if (this.data.paymentMethod === 1 && !this.data.onlinePayEnabled) {
+      wx.showToast({ title: '请先核实线上付款方式', icon: 'none' }); return
+    }
     const draft = { stationId: this.data.stationId, productId: product.id, quantity: this.data.quantity,
       paymentMethod: this.data.paymentMethod }
     if (registry.entries.length) {
@@ -220,9 +241,9 @@ Page({
     if (!intents.validBody(body)) { wx.showToast({ title: '请核实水站、商品、数量和付款方式', icon: 'none' }); return }
     const next = intents.clone(registry)
     next.entries.push({ body, record: null }); next.activeKey = key
-    return this.submitOriginal(state, body, session, next)
+    return this.submitOriginal(state, body, session, next, false)
   },
-  async submitOriginal(state, body, session, registry) {
+  async submitOriginal(state, body, session, registry, recovering = true) {
     if (!isCurrentSession(session) || this.data.busy || this.data.recoveryBusy) return
     const seq = this._submitSeq = (this._submitSeq || 0) + 1
     this.setData({ busy: true })
@@ -239,9 +260,17 @@ Page({
         : record.status === 'CANCELLED'
           ? '原购买已撤回，恢复原请求不会重新购买。原凭据仍保留；如需购买，请明确另买一笔。'
           : record.status === 'PAID'
-            ? '原押金已确认，当前可用权益以资产页为准。若仍有待领取容量，水桶随下一次送水送达，本次新领的桶无需回空桶。'
+            ? (recovering ? '原押金已确认' : '本次桶押金已确认') + '，当前可用权益以资产页为准。若仍有待领取容量，水桶随下一次送水送达，本次新领的桶无需回空桶。押金与水款分别办理，本次仅办理桶押金，订水需另行提交。'
             : '请向该水站交付押金并索取收据。水站确认实际收款后，才可以使用这份权益买票和下单。'
-      wx.showModal({ title: '原桶押金购买已查回', content, showCancel: false })
+      const returnToOrder = record.status === 'PAID' && res.data.status === 2 && this.canReturnToOrder(body.stationId)
+      wx.showModal({
+        title: recovering || res.data.status === 3 || record.status === 'CANCELLED'
+          ? '原桶押金购买已查回' : (record.status === 'PAID' ? '桶押金已确认' : '桶押金待确认'),
+        content, showCancel: returnToOrder, confirmText: returnToOrder ? '继续订水' : '确定',
+        ...(returnToOrder ? { cancelText: '留在此页', success: result => {
+          if (result.confirm && isCurrentSession(session) && this.canReturnToOrder(body.stationId)) this.onBack()
+        } } : {})
+      })
       if (body.stationId === this.data.stationId) await this.loadPurchases()
     } catch (err) {
       if (isCurrentSession(session) && seq === this._submitSeq) {
@@ -317,6 +346,11 @@ Page({
         this.syncRecovery(); this.setData({ recoveryError: error.message || '暂不能另买，请核实原购买', canAnother: false })
       }
     } finally { if (isCurrentSession(context.session) && seq === this._anotherSeq) this.setData({ recoveryBusy: false }) }
+  },
+  canReturnToOrder(stationId) {
+    const pages = getCurrentPages(), previous = pages[pages.length - 2]
+    return this.data.fromOrder && previous && previous.route === 'pages/order/create'
+      && Number(previous.data.stationId) === Number(stationId)
   },
   onBack() { wx.navigateBack() }
 })

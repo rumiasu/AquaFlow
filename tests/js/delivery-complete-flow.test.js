@@ -160,7 +160,7 @@ await test('纯瓶装水单：没有回桶这回事 —— 整块不渲染，也
   await page.loadOrder(55)
   assert.strictEqual(page.data.items.length, 0)
   assert.strictEqual(page.data.hasBarrelItems, false)
-  assert.strictEqual(page.data.successSubtitle, '确认交付后完成', '没有回桶这一步就别再说"核对回桶后确认完成"')
+  assert.ok(!page.data.successSubtitle.includes('回桶'), '没有回桶这一步就别再说核对回桶后确认完成')
   await page.onConfirmComplete()
   const titles = wx.__calls.modal.map(m => m.title)
   assert.ok(!titles.some(t => t.indexOf('确认回桶数') > -1), '不涉及桶就别问回桶：' + JSON.stringify(titles))
@@ -201,6 +201,136 @@ await test('现金已收齐：请求带 collected=true，摘要写"已收款"', 
   assert.ok(summary.indexOf('已收款') > -1, summary)
   await new Promise((r) => setTimeout(r, 10))
   assert.strictEqual(calls.completeOrder[0].body.collected, true)
+})
+
+// GUI 回归：最终弹窗的配送结果、金额和确认动作必须与已收/未收选择一致。
+for (const collected of [false, true]) {
+  await test(`现金${collected ? '已收' : '未收'}最终确认：正确说明结果，保留总额、押金和取消闸门`, async () => {
+    const { page, wx, calls } = newPage(baseOrder({ totalAmount: 140, depositAmount: 100 }))
+    await page.loadOrder(55)
+    wx.__modalAutoConfirm = false
+    page.onSelectCollected({ currentTarget: { dataset: { value: String(collected) } } })
+    await page.onConfirmComplete()
+    const modal = wx.__calls.modal.find(m => m.title === '确认完成配送')
+    assert.ok(modal, '仍需最终人工确认')
+    const summary = modal.content
+    assert.ok(summary.includes('¥140'), '本单总额必须取服务端：' + summary)
+    assert.ok(summary.includes('含押金 ¥100'), '押金金额必须保留：' + summary)
+    assert.ok(summary.includes('计件工钱'), '须说明配送后的计件记账')
+    assert.ok(summary.includes('不能撤回'), '须保留不可撤回告知')
+    assert.strictEqual(modal.confirmText, '确认完成')
+    assert.strictEqual(calls.completeOrder.length, 0, '取消确认不能提交')
+    if (collected) {
+      assert.ok(summary.includes('已收款'), summary)
+      assert.ok(summary.includes('记为「已完成」'), summary)
+      assert.ok(!summary.includes('待收款'), summary)
+    } else {
+      assert.ok(summary.includes('记为「已送达」'), summary)
+      assert.ok(summary.includes('仍待收款'), summary)
+      assert.ok(summary.includes('实际收到钱后') && summary.includes('再确认收款'), summary)
+      assert.ok(!summary.includes('已完成') && !summary.includes('结算'), summary)
+    }
+    modal.success({ confirm: true })
+    await new Promise(resolve => setTimeout(resolve, 10))
+    assert.strictEqual(calls.completeOrder.length, 1)
+    assert.strictEqual(calls.completeOrder[0].body.collected, collected, '原收款事实原样提交')
+  })
+}
+
+await test('现金摘要缺失金额时不伪造零元或显示 undefined/null', async () => {
+  const { page, wx, calls } = newPage(baseOrder({ totalAmount: undefined, depositAmount: undefined }))
+  await page.loadOrder(55); wx.__modalAutoConfirm = false
+  page.onSelectCollected({ currentTarget: { dataset: { value: 'false' } } })
+  await page.onConfirmComplete()
+  const summary = wx.__calls.modal.find(m => m.title === '确认完成配送').content
+  assert.ok(!summary.includes('undefined') && !summary.includes('null') && !summary.includes('¥0'), summary)
+  assert.strictEqual(calls.completeOrder.length, 0)
+})
+
+// 三态体验回归：真实 Page 加载/选择事件驱动页头、按钮和最终确认。
+await test('配送三态：已付、普通现金未收、新押金未收的页面提示和按钮一致', async () => {
+  const scenarios = [
+    { order: paidOrder({ hasOrderBarrelPurchase: false }), selected: null, blocked: false, title: '确认完成配送', action: '确认完成' },
+    { order: baseOrder({ hasOrderBarrelPurchase: false }), selected: false, blocked: false, title: '登记送达，待收款', action: '确认送达' },
+    { order: baseOrder({ hasOrderBarrelPurchase: true, totalAmount: 90, depositAmount: 50 }), selected: false, blocked: true, title: '先收齐款项，再交桶', action: '先收齐款项' },
+    { order: paidOrder({ hasOrderBarrelPurchase: true, totalAmount: 90, depositAmount: 50 }), selected: null, blocked: false, title: '确认完成配送', action: '确认完成' }
+  ]
+  for (const scenario of scenarios) {
+    const { page, wx, calls } = newPage(scenario.order)
+    await page.loadOrder(55); wx.__modalAutoConfirm = false
+    assert.strictEqual(page.data.collected, null, '不预选收款事实')
+    if (scenario.selected !== null) page.onSelectCollected({ currentTarget: { dataset: { value: String(scenario.selected) } } })
+    assert.strictEqual(page.data.completionTitle, scenario.title)
+    assert.strictEqual(page.data.completionButtonText, scenario.action)
+    assert.strictEqual(page.data.completionBlocked, scenario.blocked)
+    assert.ok(!page.data.completionHint.includes('结算'))
+    await page.onConfirmComplete()
+    const final = wx.__calls.modal.find(m => m.title === '确认完成配送')
+    if (scenario.blocked) {
+      assert.strictEqual(final, undefined, '未收齐新增押金不能弹可送达确认')
+      assert.ok(page.data.completionHint.includes('收齐水款和本单押金'))
+      assert.ok(page.data.cashUncollectedDesc.includes('不能交桶'))
+    } else {
+      assert.ok(final)
+      assert.ok(final.content.includes(scenario.selected === false ? '记为「已送达」' : '记为「已完成」'))
+    }
+    assert.strictEqual(calls.completeOrder.length, 0)
+  }
+})
+
+await test('新押金未收不能绕过确认直接提交；明确收齐后同一页恢复原有确认和一次提交', async () => {
+  const { page, wx, calls } = newPage(baseOrder({ hasOrderBarrelPurchase: true, totalAmount: 90, depositAmount: 50 }))
+  await page.loadOrder(55); wx.__modalAutoConfirm = false
+  assert.strictEqual(page.data.completionBlocked, true, '尚未选择也不能交桶')
+  page.onSelectCollected({ currentTarget: { dataset: { value: 'false' } } })
+  await page.onConfirmComplete(); page._showConfirmDialog(); await page._doSubmit()
+  assert.strictEqual(calls.completeOrder.length, 0)
+  assert.ok(!wx.__calls.modal.some(m => m.title === '确认完成配送'))
+  assert.ok(wx.__calls.toast.some(m => m.title.includes('先收齐水款和本单押金')))
+  page.onSelectCollected({ currentTarget: { dataset: { value: 'true' } } })
+  assert.strictEqual(page.data.completionBlocked, false)
+  assert.strictEqual(page.data.completionButtonText, '确认完成')
+  await page.onConfirmComplete()
+  const final = wx.__calls.modal.find(m => m.title === '确认完成配送')
+  assert.ok(final.content.includes('已收款 ¥90') && final.content.includes('含押金 ¥50'))
+  assert.ok(final.content.includes('记为「已完成」') && !final.content.includes('仍待收款'))
+  assert.strictEqual(calls.completeOrder.length, 0)
+  final.success({ confirm: true }); await new Promise(resolve => setTimeout(resolve, 10))
+  assert.strictEqual(calls.completeOrder.length, 1)
+  assert.strictEqual(calls.completeOrder[0].body.collected, true)
+  assert.strictEqual(page.data.resultState, 'success')
+  assert.strictEqual(page.data.successTitle, '配送已完成')
+})
+
+await test('历史押金现金单不因全局新规则开关被误拦；普通未收成功仍显示待收款', async () => {
+  const { page, wx, calls } = newPage(baseOrder({ independentBusinessRules: true, hasOrderBarrelPurchase: false,
+    totalAmount: 90, depositAmount: 50 }))
+  await page.loadOrder(55)
+  page.onSelectCollected({ currentTarget: { dataset: { value: 'false' } } })
+  assert.strictEqual(page.data.requiresDepositCollection, false)
+  assert.strictEqual(page.data.completionBlocked, false)
+  await page.onConfirmComplete(); await new Promise(resolve => setTimeout(resolve, 10))
+  assert.strictEqual(calls.completeOrder.length, 1)
+  assert.strictEqual(calls.completeOrder[0].body.collected, false)
+  assert.strictEqual(page.data.resultState, 'success')
+  assert.strictEqual(page.data.successTitle, '已送达，待收款')
+  assert.strictEqual(page.data.successButtonText, '已送达')
+  assert.ok(page.data.successSubtitle.includes('实际收款'))
+})
+
+await test('三态文案绑定到实际 WXML，交桶禁用和选择事件均可达，未知重试保留', async () => {
+  const fs = require('fs'), path = require('path'), { ROOT } = require('./harness')
+  const template = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/order/complete.wxml'), 'utf8').replace(/<!--[\s\S]*?-->/g, '')
+  for (const binding of ['{{completionTitle}}', '{{completionHint}}', '{{cashUncollectedDesc}}', '{{cashUncollectedHint}}',
+    '{{successTitle}}', '{{successSubtitle}}']) assert.ok(template.includes(binding), binding)
+  assert.ok(/disabled="{{submittingComplete \|\| completionBlocked}}"/.test(template))
+  assert.ok(template.includes('completionButtonText') && template.includes('successButtonText'))
+  assert.ok(template.includes('catchtap="onSelectCollected" data-value="false"'))
+  assert.ok(template.includes('bindtap="onConfirmComplete"'))
+  assert.ok(template.includes("resultState === 'unknown'") && template.includes('再提交一次（先确认列表）'))
+  assert.ok(!template.includes('立即结算') && !template.includes('先按"未收款"提交'))
+  const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/order/complete.json'), 'utf8'))
+  assert.strictEqual(config.navigationBarTitleText, '确认送达')
 })
 
 // ---------------------------------------------------------------- C2 原因按数量之和

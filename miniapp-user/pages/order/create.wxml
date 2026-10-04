@@ -58,32 +58,29 @@
           <image class="product-image" src="{{item.imageUrl || '/assets/image/default-product.jpg'}}" mode="aspectFill"></image>
           <view class="product-info">
             <text class="product-name">{{item.name}}</text>
-            <text class="product-spec">{{item.spec}}</text>
-            <view class="product-price" wx:if="{{item.price}}">
-              <text class="price-symbol">¥</text>
-              <text class="price-value">{{item.price}}</text>
-              <text class="price-unit">/桶</text>
+            <text class="product-spec" wx:if="{{item.specText}}">{{item.specText}}</text>
+            <view class="product-purchase-row">
+              <view class="product-price" wx:if="{{item.price}}">
+                <text class="price-symbol">¥</text>
+                <text class="price-value">{{item.price}}</text>
+                <text class="price-unit">/桶</text>
+              </view>
+              <!-- 数量步进器：事件绑定在 88×88rpx 热区上，留白也可点击。 -->
+              <view class="stepper-wrap">
+                <view class="quantity-control">
+                  <view class="qty-hit" bindtap="onQtyChange" data-index="{{index}}" data-type="minus">
+                    <view class="qty-btn {{item.quantity <= 1 ? 'disabled' : ''}}"><text>−</text></view>
+                  </view>
+                  <input class="qty-input" type="number" value="{{item.quantity}}" bindinput="onQtyInput" data-index="{{index}}" />
+                  <view class="qty-hit" bindtap="onQtyChange" data-index="{{index}}" data-type="add">
+                    <view class="qty-btn"><text>+</text></view>
+                  </view>
+                </view>
+              </view>
             </view>
             <view class="product-subtotal" wx:if="{{item.quantity > 1}}">
               <text class="subtotal-label">小计</text>
               <text class="subtotal-value">¥{{item.subtotalText}}</text>
-            </view>
-          </view>
-          <!-- 数量步进器：绑定点挂在**热区**（84rpx）上而不是图形（52rpx）上 ——
-               绑在小图形上时，手指落在留白里点不动（§6：数字加减目标至少 88rpx，图形可小）。 -->
-          <view class="stepper-wrap">
-            <view class="quantity-control">
-              <view class="qty-hit" bindtap="onQtyChange" data-index="{{index}}" data-type="minus">
-                <view class="qty-btn {{item.quantity <= 1 ? 'disabled' : ''}}">
-                  <text>−</text>
-                </view>
-              </view>
-              <input class="qty-input" type="number" value="{{item.quantity}}" bindinput="onQtyInput" data-index="{{index}}" />
-              <view class="qty-hit" bindtap="onQtyChange" data-index="{{index}}" data-type="add">
-                <view class="qty-btn">
-                  <text>+</text>
-                </view>
-              </view>
             </view>
           </view>
         </view>
@@ -98,6 +95,9 @@
         <text class="section-title">支付方式</text>
       </view>
       <view class="payment-methods">
+        <text wx:if="{{quoteLoading}}">正在核实金额和支付方式…</text>
+        <view class="load-error" wx:if="{{quoteError}}">{{quoteError}}</view>
+        <button wx:if="{{quoteError}}" bindtap="onRetryQuote" disabled="{{quoteLoading}}">重试报价</button>
         <view class="payment-method {{selectedMethod === item.id ? 'selected' : ''}} {{item.enabled ? '' : 'disabled'}}"
               wx:for="{{payMethods}}" wx:key="id"
               bindtap="onSelectMethod" data-id="{{item.id}}" data-enabled="{{item.enabled}}">
@@ -147,10 +147,14 @@
         <!-- 新增桶押金：只有本次**缺桶**时才收（extraDepositBuckets > 0）。
              押金的性质（可退、按站记录）在下单前的确认弹窗里说清，这里只报数，
              不写"随时可退"这类承诺。 -->
-        <view class="fee-row" wx:if="{{extraDepositBuckets > 0}}">
-          <text class="fee-label">新增桶押金</text>
+        <view class="fee-row fee-deposit" wx:if="{{extraDepositBuckets > 0}}">
+          <view class="fee-label-group">
+            <text class="fee-label">新增桶押金</text>
+            <text class="fee-caption">本次新增 {{extraDepositBuckets}} 份</text>
+          </view>
           <text class="fee-value">¥{{extraDepositAmountText}}</text>
         </view>
+        <view class="section-link standalone-link" wx:if="{{barrelPurchases.length > 0}}" bindtap="onStandalonePurchase">也可单独办理桶押金 ›</view>
         <view class="fee-row" wx:if="{{deliveryFeeText}}">
           <text class="fee-label">配送费</text>
           <text class="fee-value">¥{{deliveryFeeText}}</text>
@@ -180,13 +184,6 @@
     <!-- 配送计费提示（v35）：起送量未达 / 超范围 / 楼层未填等。
          ⚠️ 计费文案一律由后端下发（DeliveryFeeUtil 产出），前端不自造 ——
          前后端各写一套必然对不上。 -->
-    <view class="fee-warn" wx:if="{{blocked}}">
-      <text class="fee-warn-text">{{blockReason}}</text>
-    </view>
-    <view class="fee-warn" wx:elif="{{feeWarnings.length > 0}}">
-      <text class="fee-warn-text" wx:for="{{feeWarnings}}" wx:key="*this">{{item}}</text>
-    </view>
-
     <!-- 水票不足提示（后端下发结论，前端只展示）。
          它必须说清"不支持票 + 现金/微信混合支付、票不会被扣"，否则客户会以为可以补差价。
          [2026-09-27 走查 C03] 结论下面再加**下一步的两个动作**，而不是只留一句结论：
@@ -196,9 +193,10 @@
               （走查验收原文：「不得自动改变支付方式并提交」）。
          两个动作的可用性与文案都出自后端下发的数据（`ticketPay.reason` / `methods[].name`），
          前端既不自判也不自造标签。 -->
-    <view class="fee-warn" wx:if="{{isTicketPay && ticketShortfallHint}}">
-      <text class="fee-warn-text">{{ticketShortfallHint}}</text>
-      <view class="warn-actions">
+    <!-- 只合并相同提示的展示；阻断判据、服务端文案与客户下一步动作保持原样。 -->
+    <view class="fee-warn" wx:if="{{checkoutWarnings.length > 0}}">
+      <text class="fee-warn-text" wx:for="{{checkoutWarnings}}" wx:key="*this">{{item}}</text>
+      <view class="warn-actions" wx:if="{{isTicketPay && ticketShortfallHint}}">
         <view class="warn-action" wx:if="{{ticketAltMethod}}" bindtap="onSwitchPayMethod" data-id="{{ticketAltMethod}}">{{ticketAltLabel}}</view>
         <view class="warn-action" wx:if="{{ticketCanBuy}}" bindtap="onGoBuyTicket">去买水票</view>
       </view>
@@ -236,7 +234,7 @@
                与正文费用摘要、明细弹窗同口径。 -->
           <text class="detail-item ticket-cover" wx:if="{{ticketCoverText}}">{{ticketCoverText}}</text>
           <view class="total-row">
-            <text class="total-label">{{isTicketPay ? '本次需付' : '实付'}}</text>
+            <text class="total-label">本次需付</text>
             <text class="total-price">¥{{payableAmountText}}</text>
             <text class="detail-arrow">明细›</text>
           </view>
@@ -423,7 +421,7 @@
           <view class="detail-row" wx:for="{{products}}" wx:key="id">
             <view class="detail-row-left">
               <text class="detail-item-name">{{item.name}}</text>
-              <text class="detail-item-spec" wx:if="{{item.spec}}">{{item.spec}}</text>
+              <text class="detail-item-spec" wx:if="{{item.specText}}">{{item.specText}}</text>
             </view>
             <view class="detail-row-right">
               <text class="detail-item-qty">x{{item.quantity}}</text>

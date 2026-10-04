@@ -7,8 +7,8 @@
     </view>
   </view>
 
-  <view class="collect-banner" wx:if="{{order.status === 4 && order.paymentStatus !== 2}}">
-    <text>订单已配送，货款待收款确认，请与配送员确认付款金额</text>
+  <view class="collect-banner" wx:if="{{deliveredAwaitingCollection}}">
+    <text>已送达，待确认收款</text>
   </view>
 
   <view class="info-section">

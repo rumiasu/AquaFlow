@@ -21,7 +21,7 @@ const SOURCE_PHONE = 1
  *
  * ⚠️ 三条口径，改这个页面时必须守住：
  *   1. **金额一律由服务端算**（/api/manager/order-assist/quote 与建单共用同一个实现），
- *      前端只展示。本文件里没有任何金额算术。
+ *      前端只展示并核验明细一致性，不承担定价。
  *   2. **支付方式的选项与文案由服务端下发**（quote 返回的 methods / defaultMethod），
  *      前端禁止自带 1/2/3 映射表 —— 历史上两端各写一套，导致新客下单 100% 失败。
  *   3. 缺货（needConfirm）必须让站长明确确认后才带 confirmShortage 重提；
@@ -50,9 +50,11 @@ Page({
     methods: [],
     selectedMethod: null,
     quote: null,
+    barrelPurchaseConfirmed: false,
     loading: true,
     quoting: false,
-    submitting: false
+    submitting: false,
+    unknownOrder: false
   },
 
   /**
@@ -153,7 +155,7 @@ Page({
       selectedMethod: null
     })
     try {
-      const res = await get(ASSIST + '/customers/' + id + '/addresses')
+      const res = await get(ASSIST + '/customers/' + customer.id + '/addresses')
       const addresses = res.data || []
       this.setData({ addresses })
       if (!addresses.length) {
@@ -225,7 +227,7 @@ Page({
       return
     }
 
-    this.setData({ quoting: true })
+    this.setData({ quoting: true, quote: null, barrelPurchaseConfirmed: false })
     try {
       const body = {
         stationId: this.data.stationId,
@@ -237,6 +239,15 @@ Page({
       }
       const res = await post(ASSIST + '/quote?customerId=' + customer.id, body)
       const d = res.data || {}
+      if (d.independentRights === true && (!Array.isArray(d.barrelPurchases)
+        || d.barrelPurchases.some(l => !l || !Number.isInteger(l.productId) || !Number.isInteger(l.quantity) || l.quantity < 1
+          || !Number.isFinite(Number(l.unitPrice)) || Number(l.unitPrice) <= 0
+          || !Number.isFinite(Number(l.amount)) || Math.abs(Number(l.amount)-Number(l.unitPrice)*l.quantity) > 0.009
+          || !cartLines.some(it => it.productId === l.productId && it.quantity >= l.quantity))
+        || new Set(d.barrelPurchases.map(l => l.productId)).size !== d.barrelPurchases.length
+        || !Number.isFinite(Number(d.extraDeposit || 0))
+        || Math.abs(d.barrelPurchases.reduce((s,l) => s+Number(l.amount),0)-Number(d.extraDeposit || 0)) > 0.009))
+        throw Error('本次新增押金尚未核实，请重新试算')
       const methods = Array.isArray(d.methods) ? d.methods : []
       const stillOk = methods.some(m => m.id === this.data.selectedMethod && m.enabled !== false)
       const nextMethod = stillOk ? this.data.selectedMethod : (d.defaultMethod || (methods[0] && methods[0].id))
@@ -269,10 +280,23 @@ Page({
       wx.showModal({ title: '本单不能下', content: quote.blockReason || '不满足本站配送条件', showCancel: false })
       return
     }
+    if ((quote.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) {
+      const busy = quote.barrelPurchases.some(l => Number(l.busyRights) > 0)
+      wx.showModal({ title: '客户确认本次新增押金',
+        content: quote.barrelPurchases.map(l => (l.productName || '桶装水') + '：新增 ' + l.quantity + ' 份押金 ¥' + l.amount).join('；')
+          + '。请向客户确认与水款一起支付，收齐款项后生效。' + (busy ? '客户也可等待已有容量释放。' : '也可单独办理押金。'),
+        confirmText: '已确认', cancelText: busy ? '等待释放' : '返回修改',
+        success: r => {
+          if (!r.confirm || quote !== this.data.quote) return
+          this.setData({ barrelPurchaseConfirmed: true }); this.onSubmit()
+        } })
+      return
+    }
     await this.doCreate(false)
   },
 
   async doCreate(confirmShortage) {
+    if (this.data.submitting) return
     const { customer, addressId, cartLines, selectedMethod, stationId } = this.data
     // 幂等键在"一次提交动作"内保持稳定：缺货确认后重提必须复用同一个键，
     // 否则"第一次其实建成功了、只是响应丢了"会变成两单。
@@ -283,15 +307,25 @@ Page({
 
     this.setData({ submitting: true })
     try {
-      const body = {
+      const fresh = {
         customerId: customer.id,
         addressId,
         stationId,
         paymentMethod: selectedMethod,
         source: SOURCE_PHONE,
         idempotencyKey: this.idempotencyKey,
-        items: cartLines.map(l => ({ productId: l.productId, quantity: l.quantity }))
+        items: cartLines.map(l => ({ productId: l.productId, quantity: l.quantity })),
+        barrelPurchases: ((this.data.quote && this.data.quote.barrelPurchases) || []).map(l => ({ productId: l.productId, quantity: l.quantity, unitPrice: Number(l.unitPrice) }))
       }
+      if (!this._originalOrderRequest || this._originalOrderRequest.idempotencyKey !== this.idempotencyKey) {
+        if (fresh.barrelPurchases.length && !this.data.barrelPurchaseConfirmed) return
+        this._originalOrderRequest = fresh
+      }
+      const original = this._originalOrderRequest
+      if (original.customerId !== fresh.customerId || original.addressId !== fresh.addressId || original.stationId !== fresh.stationId
+        || original.paymentMethod !== fresh.paymentMethod || JSON.stringify(original.items) !== JSON.stringify(fresh.items))
+        throw Error('原下单结果尚待核实，请恢复原客户、地址、商品和支付方式后重试原请求')
+      const body = JSON.parse(JSON.stringify(original))
       if (confirmShortage) body.confirmShortage = true
 
       const res = await post(ORDER_CREATE_PATH, body)
@@ -313,7 +347,13 @@ Page({
         return
       }
 
+      if (!Number.isInteger(d.orderId) || d.orderId <= 0) {
+        this.setData({ unknownOrder: true })
+        wx.showModal({ title: '下单结果待核实', content: '未收到有效订单号，请重试原请求核实，避免重复下单。', showCancel: false })
+        return
+      }
       const warnings = Array.isArray(d.warnings) ? d.warnings : []
+      this.setData({ unknownOrder: false })
       wx.showModal({
         title: '下单成功',
         content: '订单号 ' + d.orderId + (warnings.length ? '\n\n' + warnings.join('\n') : ''),
@@ -323,9 +363,13 @@ Page({
         }
       })
     } catch (err) {
+      if (err && err.businessRejected) this._originalOrderRequest = null
+      this.setData({ unknownOrder: !!this._originalOrderRequest })
       wx.showToast({ title: err.message || '下单失败', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
     }
-  }
+  },
+
+  onRetryOriginal() { return this.doCreate(false) }
 })

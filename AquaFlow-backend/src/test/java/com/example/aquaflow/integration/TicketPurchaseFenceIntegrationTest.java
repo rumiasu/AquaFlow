@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 真实 HTTP/MySQL 锁与回滚回归；需明确可清空的隔离测试库授权，本轮只编译，未执行。 */
+/** 真实 HTTP/MySQL 锁与回滚回归；须确认完整隔离目标，执行范围以准确版本 XML 与阶段交付为准。 */
 class TicketPurchaseFenceIntegrationTest extends AbstractIntegrationTest {
     String purchase(long station, long product, String key) {
         return "{\"stationId\":" + station + ",\"productId\":" + product

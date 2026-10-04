@@ -21,7 +21,7 @@ mysql --default-character-set=utf8mb4 -u <本地用户> -p aquaflow_test -e "sou
 
 配置项见 [AquaFlow-backend/.env.example](AquaFlow-backend/.env.example)。该文件只是清单，不会自动加载；用环境变量或本机 `application-local.yml` 注入。后者被忽略，不能打入 JAR。微信客户端和员工端分别配对应 AppID/Secret。
 
-独立权益默认开启，新库必须包含 v71。测试 profile 默认验证历史路径，新业务集成用例显式开启新模型。模型开启后的真实业务不能靠关闭开关继续按旧流程营业。
+独立权益默认开启，新库使用当前完整基线；存量库须满足启动保护器及购买/退款服务要求，适用增量只按 SQL 清单核对，不把“已有 v71”当作当前版本结构齐备。测试 profile 默认验证历史路径，新业务集成用例显式开启新模型。模型开启后的真实业务不能靠关闭开关继续按旧流程营业。
 
 ## 3. 启动和小程序
 

@@ -120,7 +120,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend\sql
 
 ## 5. 测试与验证方式
 
-- 集成测试在 `AquaFlow-backend/src/test/java/com/example/aquaflow/integration/`；基类 `support/AbstractIntegrationTest` 启完整 Spring 容器、发真实 HTTP（JDK `HttpClient`）、每用例前 TRUNCATE 且**断言库名以 `aquaflow_test` 开头或以 `_test` 结尾**（2026-09-30 由 `contains("test")` 收紧 —— 后者会误放行 `latest` / `contest`；新前缀规则仍会放行 `aquaflow_test_backup`，库名不能证明可清空，然后被清空；`aquaflow_test_wp1` 这类**并发隔离库名仍放行**）；件数看 `build/test-results/test/*.xml`。
+- 集成测试基类 `support/AbstractIntegrationTest` 启完整 Spring 容器、发真实 HTTP，每例前清表。**允许目标只认 `TestDatabaseTargetGuard`：`aquaflow_test` 或允许的会话后缀，拒绝业务/备份标记及泛化的 `*_test`；必须有精确库名和 IPv4/端口/库确认**。启动前核配置，清表前在同一实际连接核 URL、catalog 与当前库；名字像测试库不授权删除数据。配置见 CONTRIBUTING §4，件数读实际构建目录 `test-results/test/*.xml`。
 - **本机无 Docker**，不用 Testcontainers；测试库 `aquaflow_test` 是独立可重建库。
 - **运行前置（硬要求）**：必须显式设置 `GRADLE_USER_HOME='D:\backend\project\AquaFlow\.gradlehome'`，否则 Gradle 往沙箱外的用户目录写缓存、被拒后直接失败；`--project-cache-dir .gradle_alt` **不足以**解决。【仓】
 - **Gradle 锁坑**：`bootRun`（8080）在跑时直接 `gradlew` 会因 `fileHashes.lock` 失败 —— 统一加 `--no-daemon`；换 `--project-cache-dir` 可与在跑的 `bootRun` 并存（必要时先停后端）。

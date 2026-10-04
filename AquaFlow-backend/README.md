@@ -15,11 +15,11 @@
 3. 按 `.env.example` 设置环境变量；本机可使用被忽略的 `src/main/resources/application-local.yml`。环境文件不会由 Gradle 自动加载。
 4. Windows 运行 `./gradlew.bat bootRun`，其他系统运行 `./gradlew bootRun`。
 
-独立权益开启时须安装完整 v71 结构。该开关用于初次部署切换，产生新业务之后不能关闭开关继续按旧模型营业。
+独立权益开启时须有完整凭据结构，购买幂等和随单新增押金还需当前版本要求的增量；具体安装要求以 `sql/README.md`、启动结构保护器及相应服务为准，不只核对最初 v71 表组。该开关用于初次部署切换，产生新业务之后不能关闭开关继续按旧模型营业。
 
 ## 验证与发布
 
-`./gradlew.bat test --rerun-tasks --no-daemon` 执行后端验证；只连接 `aquaflow_test` 开头或 `_test` 结尾的独立测试库，每用例会清空该库表。结果读取 `build/test-results/test/TEST-*.xml`；构建输出被改目录时读取对应目录，不能把 UP-TO-DATE 当作重跑。
+`./gradlew.bat test --rerun-tasks --no-daemon` 执行后端验证；只连接目标保护器允许的 `aquaflow_test` 或会话后缀，须同时明确确认可清空的库名和完整 IPv4/端口/库目标；`*_test`、业务/备份标记及仅凭名称相似均不放行。每用例在同一实际连接核对目标后清表，配置要求见根 CONTRIBUTING §4。结果读取 `build/test-results/test/TEST-*.xml`；构建输出被改目录时读取对应目录，不能把 UP-TO-DATE 当作重跑。
 
 `./gradlew.bat bootJar --no-daemon` 生成发布包，之后按根贡献指南执行发布检查。真实凭据不能入版本库或 JAR。真实微信支付/退款目前不可用，生产必须关闭模拟支付和开发登录。
 

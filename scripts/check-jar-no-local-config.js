@@ -3,7 +3,8 @@
  * 发布物检查：确认打出来的 jar **不含本地开发配置**。
  *
  * 跑法：node scripts/check-jar-no-local-config.js
- * 退出码：0 = 通过；1 = 发现本地配置被打进包（或找不到 jar）
+ * 隔离构建：node scripts/check-jar-no-local-config.js --jar <本次生成的完整 JAR 路径>
+ * 退出码：0 = 通过；1 = 含本地配置、目标缺失、损坏或格式不受支持
  *
  * ---------------------------------------------------------------------------
  * 背景（2026-09-27 实测）
@@ -31,6 +32,7 @@
 
 const fs = require('fs')
 const path = require('path')
+const { TextDecoder } = require('util')
 
 const repoRoot = path.resolve(__dirname, '..')
 const libsDir = path.join(repoRoot, 'AquaFlow-backend', 'build', 'libs')
@@ -51,55 +53,94 @@ const FORBIDDEN = [
 const EXPECTED = ['BOOT-INF/classes/application.yml', 'BOOT-INF/classes/application-prod.yml']
 
 /**
- * 不引入 zip 库，直接读中央目录里的条目名。
- *
- * 做法：找 End of Central Directory（EOCD，签名 PK\x05\x06）→ 拿中央目录偏移与条数 →
- * 逐个读中央目录头（PK\x01\x02），取其中的文件名。只读名字与大小，不碰文件内容。
- * 为什么不用现成库：本仓没有 node_modules，为一个门禁引依赖不划算。
+ * 只检查单卷 ZIP32 的完整中央目录，支持 STORED/DEFLATED、ASCII 或标记为 UTF-8 的名称。
+ * ZIP64、多卷、加密、不明名称编码及额外目录尾记录不在支持范围，明确拒绝。
+ * 此处不解压文件，也不验证压缩内容/CRC；它只为配置文件名检查提供完整条目列表。
  */
 function readZipEntries(file) {
   const buf = fs.readFileSync(file)
-  const eocdSig = 0x06054b50
+  const refuse = message => { throw new Error(message) }
   let eocd = -1
-  // EOCD 在文件末尾，注释最长 65535 字节；从后往前找第一条签名
+  // EOCD 必须以其声明的注释长度结束于文件末尾；注释里的伪签名不能抢走真实 EOCD。
   const from = Math.max(0, buf.length - 65557)
   for (let i = buf.length - 22; i >= from; i--) {
-    if (buf.readUInt32LE(i) === eocdSig) { eocd = i; break }
+    if (buf.readUInt32LE(i) !== 0x06054b50) continue
+    if (i + 22 + buf.readUInt16LE(i + 20) !== buf.length) continue
+    if (buf.readUInt32LE(i + 16) + buf.readUInt32LE(i + 12) !== i) continue
+    eocd = i
+    break
   }
-  if (eocd < 0) throw new Error('不是有效的 zip（找不到 EOCD）：' + file)
+  if (eocd < 0) refuse('EOCD 缺失、截断或中央目录边界不受支持')
 
   const entryCount = buf.readUInt16LE(eocd + 10)
+  const diskCount = buf.readUInt16LE(eocd + 8)
+  const directorySize = buf.readUInt32LE(eocd + 12)
   let off = buf.readUInt32LE(eocd + 16)
+  if (entryCount === 0xffff || directorySize === 0xffffffff || off === 0xffffffff) refuse('不支持 ZIP64')
+  if (buf.readUInt16LE(eocd + 4) !== 0 || buf.readUInt16LE(eocd + 6) !== 0 || diskCount !== entryCount) refuse('不支持多卷或条数不一致的 ZIP')
+
   const entries = []
+  // 2026-10-03：原实现遇到坏签名就 break，未读完的污染包仍获通过；任何解析失败必须拒绝。
   for (let n = 0; n < entryCount; n++) {
-    if (buf.readUInt32LE(off) !== 0x02014b50) break
+    if (off + 46 > eocd) refuse('中央目录条目头被截断或声明条数过多')
+    if (buf.readUInt32LE(off) !== 0x02014b50) refuse('中央目录条目签名无效')
+    const flags = buf.readUInt16LE(off + 8)
+    const method = buf.readUInt16LE(off + 10)
     const compressedSize = buf.readUInt32LE(off + 20)
     const nameLen = buf.readUInt16LE(off + 28)
     const extraLen = buf.readUInt16LE(off + 30)
     const commentLen = buf.readUInt16LE(off + 32)
-    const name = buf.toString('utf8', off + 46, off + 46 + nameLen)
+    if (flags & 0x0041) refuse('不支持加密 ZIP')
+    if (method !== 0 && method !== 8) refuse('不支持该压缩方法')
+    if (compressedSize === 0xffffffff || buf.readUInt32LE(off + 24) === 0xffffffff || buf.readUInt32LE(off + 42) === 0xffffffff) refuse('不支持 ZIP64 条目')
+    if (buf.readUInt16LE(off + 34) !== 0) refuse('不支持跨卷条目')
+    const end = off + 46 + nameLen + extraLen + commentLen
+    if (nameLen === 0 || end > eocd) refuse('中央目录名称/扩展/注释长度无效或被截断')
+    const nameBytes = buf.subarray(off + 46, off + 46 + nameLen)
+    if (!(flags & 0x0800) && nameBytes.some(b => b >= 0x80)) refuse('不支持未标记 UTF-8 的非 ASCII 名称')
+    const name = new TextDecoder('utf-8', { fatal: true }).decode(nameBytes)
+    if (name.includes('\0')) refuse('ZIP 名称含无效 NUL 字符')
     entries.push({ name, compressedSize })
-    off += 46 + nameLen + extraLen + commentLen
+    off = end
   }
+  if (off !== eocd || entries.length !== entryCount) refuse('中央目录大小与条数不一致，条目列表不完整')
   return { entries, size: buf.length }
 }
 
+/** 默认检查 build/libs；显式指定产物时不回退，避免误验其他会话留下的 JAR。 */
 function main() {
-  if (!fs.existsSync(libsDir)) {
-    console.error(`[jar-check] 找不到 ${libsDir} —— 先执行 AquaFlow-backend\\gradlew.bat bootJar`)
+  const args = process.argv.slice(2)
+  if (args.length && (args.length !== 2 || args[0] !== '--jar' || !args[1])) {
+    console.error('用法：node scripts/check-jar-no-local-config.js [--jar <JAR 路径>]')
     process.exit(1)
   }
-  const jars = fs.readdirSync(libsDir).filter(f => f.endsWith('.jar'))
-  if (jars.length === 0) {
-    console.error(`[jar-check] ${libsDir} 下没有 jar —— 先执行 bootJar`)
-    process.exit(1)
+  // 2026-10-03：原脚本忽略目标参数，隔离构建时会检查共享目录的旧包并错误放行。
+  // 显式产物必须存在且是文件，不能静默退回 build/libs；不改变无参的 CI 用法。
+  let jarFiles
+  if (args.length) {
+    const full = path.resolve(args[1])
+    if (!full.endsWith('.jar') || !fs.existsSync(full) || !fs.statSync(full).isFile()) {
+      console.error(`[jar-check] 指定 JAR 不存在或不是 JAR 文件：${full}`)
+      process.exit(1)
+    }
+    jarFiles = [full]
+  } else {
+    if (!fs.existsSync(libsDir)) {
+      console.error(`[jar-check] 找不到 ${libsDir} —— 先执行 AquaFlow-backend\\gradlew.bat bootJar`)
+      process.exit(1)
+    }
+    jarFiles = fs.readdirSync(libsDir).filter(f => f.endsWith('.jar')).map(f => path.join(libsDir, f))
+    if (jarFiles.length === 0) {
+      console.error(`[jar-check] ${libsDir} 下没有 jar —— 先执行 bootJar`)
+      process.exit(1)
+    }
   }
 
   const bad = []
-  for (const jar of jars) {
-    const full = path.join(libsDir, jar)
+  for (const full of jarFiles) {
+    const jar = path.basename(full)
     const { entries, size } = readZipEntries(full)
-    console.log(`[jar-check] ${jar}  (${size.toLocaleString('en-US')} 字节)`)
+    console.log(`[jar-check] ${full}  (${size.toLocaleString('en-US')} 字节)`)
     for (const e of entries) {
       const base = path.basename(e.name)
       if (FORBIDDEN.includes(base)) {
@@ -133,4 +174,9 @@ function main() {
   process.exit(0)
 }
 
-main()
+try {
+  main()
+} catch (error) {
+  console.error('[jar-check] 无法可信解析 JAR，拒绝通过：' + error.message)
+  process.exit(1)
+}

@@ -60,6 +60,13 @@ dependencies {
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
 
+    // Notification-only SDK: transport dependencies stay out until real API calls are integrated.
+    implementation('com.github.wechatpay-apiv3:wechatpay-java-core:0.2.17') {
+        transitive = false
+    }
+    implementation 'com.google.code.gson:gson'
+    implementation 'org.slf4j:slf4j-api'
+
     // Tencent COS
     implementation 'com.qcloud:cos_api:5.6.227'
     implementation 'org.bouncycastle:bcprov-jdk15on:1.70'

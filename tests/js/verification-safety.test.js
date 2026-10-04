@@ -195,7 +195,19 @@ for (const failVerify of [false, true]) {
   const errors = path.join(temp, 'err.txt')
   const shellPath = value => process.platform === 'win32'
     ? value.replace(/\\/g, '/').replace(/^([A-Za-z]):/, (_, drive) => '/' + drive.toLowerCase()) : value
-  fs.writeFileSync(mysql, '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$FAKE_DB_CALLS"\nif [[ " $* " == *" -N "* ]]; then printf "0\\n"; fi\n', { mode: 0o700 })
+  fs.writeFileSync(mysql, `#!/usr/bin/env bash
+# Check both the capability probe and every SQL invocation before recording anything.
+if [[ -z "$MYSQL_TEST_LOGIN_FILE" || -e "$MYSQL_TEST_LOGIN_FILE" || "$MYSQL_TEST_LOGIN_FILE" == "$FAKE_UNTRUSTED_LOGIN" ]]; then exit 92; fi
+if [[ "$1" != "--no-defaults" ]]; then exit 93; fi
+if [[ " $* " == *" --version "* ]]; then
+  if [[ "$FAKE_MYSQL_CAPABILITY" == "broken" ]]; then exit 94; fi
+  if [[ "$FAKE_MYSQL_CAPABILITY" == "legacy" && " $* " == *" --no-login-paths "* ]]; then exit 2; fi
+  exit 0
+fi
+if [[ "$FAKE_MYSQL_CAPABILITY" == "legacy" && " $* " == *" --no-login-paths "* ]]; then exit 2; fi
+printf "%s\\n" "$*" >> "$FAKE_DB_CALLS"
+if [[ " $* " == *" -N "* ]]; then printf "0\\n"; fi
+`, { mode: 0o700 })
   try {
     const run = (name, confirmation, source = 'aquaflow', entry = 'scripts/provision-test-db.sh', changes = {}) => {
       fs.writeFileSync(calls, '')
@@ -222,6 +234,24 @@ for (const failVerify of [false, true]) {
     check(() => { const r = run(base.name, base.name, base.name); assert.notStrictEqual(r.status, 0); assert.strictEqual(r.calls, '') })
     check(() => { const r = run(base.name, ''); assert.notStrictEqual(r.status, 0); assert.strictEqual(r.calls, '') })
     check(() => { const r = run(base.name, base.name); assert.strictEqual(r.status, 0, r.errors); assert.strictEqual(r.calls.trim().split('\n').length, 3); assert(r.calls.includes('DROP DATABASE IF EXISTS `' + base.name + '`')) })
+    for (const capability of ['modern', 'legacy']) check(() => {
+      const untrustedLogin = path.join(temp, 'untrusted-login.cnf')
+      fs.writeFileSync(untrustedLogin, 'synthetic login file must never be read')
+      try {
+        const r = run(base.name, base.name, 'aquaflow', 'scripts/provision-test-db.sh', {
+          FAKE_MYSQL_CAPABILITY: capability, FAKE_UNTRUSTED_LOGIN: shellPath(untrustedLogin),
+          MYSQL_TEST_LOGIN_FILE: shellPath(untrustedLogin)
+        })
+        assert.equal(r.status, 0, r.errors)
+        assert.equal(r.calls.trim().split('\n').length, 3)
+        assert(r.calls.trim().split('\n').every(line => line.startsWith('--no-defaults ')))
+        assert.equal(r.calls.includes('--no-login-paths'), capability === 'modern')
+      } finally { fs.unlinkSync(untrustedLogin) }
+    })
+    check(() => {
+      const r = run(base.name, base.name, 'aquaflow', 'scripts/provision-test-db.sh', { FAKE_MYSQL_CAPABILITY: 'broken' })
+      assert.notEqual(r.status, 0); assert.equal(r.calls, '')
+    })
     check(() => { const r = run(base.name, base.name, 'aquaflow', 'scripts/verify.sh'); assert.notStrictEqual(r.status, 0); assert.strictEqual(r.calls, '') })
     for (const changes of [
       { TEST_DB_URL: 'jdbc:mysql://review.invalid:3306/customer_business_test?useSSL=false' },

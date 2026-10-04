@@ -61,8 +61,21 @@ echo "[provision-test-db] 使用客户端: $MYSQL"
 echo "[provision-test-db] 重建库: $TEST_DB_NAME（来源 schema.sql）"
 
 node "$HERE/scripts/lib/scratch-database.js" test "$TEST_DB_NAME" "${AQUAFLOW_DB:-aquaflow}"
-# F-68：不读取隐藏的客户端选项/登录文件，三次调用共享同一显式 TCP 地址。
-MYSQL_ARGS=(--no-defaults --no-login-paths --protocol=TCP --host="$MYSQL_HOST" --port="$MYSQL_PORT" -u"$MYSQL_USER")
+# F-68：--no-defaults 不阻止 MySQL 8.0 读取 .mylogin.cnf。
+# 在能力探测之前，把登录文件固定到私有临时目录中的不存在文件；不继承用户的覆盖。
+# 官方语义：https://dev.mysql.com/doc/refman/8.0/en/environment-variables.html
+MYSQL_ISOLATION_DIR="$(mktemp -d)"
+trap 'rmdir "$MYSQL_ISOLATION_DIR"' EXIT
+export MYSQL_TEST_LOGIN_FILE="$MYSQL_ISOLATION_DIR/disabled-login.cnf"
+MYSQL_DEFAULT_ARGS=(--no-defaults)
+if "$MYSQL" --no-defaults --no-login-paths --version >/dev/null 2>&1; then
+  MYSQL_DEFAULT_ARGS+=(--no-login-paths)
+elif ! "$MYSQL" --no-defaults --version >/dev/null 2>&1; then
+  echo "[provision-test-db] 客户端能力探测失败，未执行数据库命令" >&2
+  exit 1
+fi
+# 新客户端仍显式禁登录路径；旧客户端靠受控不存在路径禁用。三次调用共享同一显式 TCP 地址。
+MYSQL_ARGS=("${MYSQL_DEFAULT_ARGS[@]}" --protocol=TCP --host="$MYSQL_HOST" --port="$MYSQL_PORT" -u"$MYSQL_USER")
 "$MYSQL" "${MYSQL_ARGS[@]}" -e "DROP DATABASE IF EXISTS \`$TEST_DB_NAME\`; CREATE DATABASE \`$TEST_DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
 "$MYSQL" "${MYSQL_ARGS[@]}" "$TEST_DB_NAME" < "$SCHEMA"
 

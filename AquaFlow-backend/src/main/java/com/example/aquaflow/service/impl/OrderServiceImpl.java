@@ -38,6 +38,7 @@ import java.util.Map;
 @Service
 @Slf4j
 public class OrderServiceImpl implements OrderService {
+    @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderPurchases;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
 
@@ -457,6 +458,12 @@ public class OrderServiceImpl implements OrderService {
             return OrderCreateResult.needConfirm(shortages);
         }
 
+        List<com.example.aquaflow.service.OrderBarrelPurchaseService.Line> purchasePlan = barrelPolicy.isEnabled()
+                ? orderPurchases.plan(dto.getCustomerId(),stationId,barrelByProduct,true) : List.of();
+        if(barrelPolicy.isEnabled()) {
+            orderPurchases.validate(purchasePlan,dto.getBarrelPurchases(),dto.getPaymentMethod());
+            depositAmount=purchasePlan.stream().map(com.example.aquaflow.service.OrderBarrelPurchaseService.Line::amount).reduce(BigDecimal.ZERO,BigDecimal::add);
+        }
         List<Long> createdInTransitIds = new java.util.ArrayList<>();
         if (totalNeededBuckets > 0 && !barrelPolicy.isEnabled()) {
             List<CustomerBarrelAsset> assets = customerBarrelAssetMapper.listByCustomerAndStation(dto.getCustomerId(), stationId);
@@ -619,13 +626,8 @@ public class OrderServiceImpl implements OrderService {
             customerBarrelInTransitMapper.linkPendingToOrder(orders.getId(), createdInTransitIds);
         }
 
-        // [2026-10-01] 新单只分配已成立权益；水单永远不代收独立资产款。
-        if (barrelPolicy.isEnabled()) {
-            for (Long pid : new java.util.TreeSet<>(barrelByProduct.keySet())) {
-                barrelLedger.reserveRights(dto.getCustomerId(), stationId, pid,
-                        barrelByProduct.get(pid), "ORDER", orders.getId());
-            }
-        }
+        // 2026-10-03：允许随水单一次收款；未付补购不成立权益，已有容量仍按数量分配。
+        if (barrelPolicy.isEnabled()) orderPurchases.create(orders,barrelByProduct,purchasePlan);
 
         List<OrderItem> createdItems = new java.util.ArrayList<>();
         for (OrderCreateDTO.OrderItemDTO item : dto.getItems()) {
@@ -783,6 +785,11 @@ public class OrderServiceImpl implements OrderService {
                 .sorted(java.util.Comparator.comparing(OrderCreateDTO.OrderItemDTO::getProductId,
                         java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
                 .forEach(i -> sb.append(i.getProductId()).append(':').append(i.getQuantity()).append(','));
+        if(dto.getBarrelPurchases()!=null && !dto.getBarrelPurchases().isEmpty()) {
+            sb.append("|barrel:");
+            dto.getBarrelPurchases().stream().sorted(java.util.Comparator.comparing(OrderCreateDTO.BarrelPurchaseConfirmation::getProductId))
+                    .forEach(c -> sb.append(c.getProductId()).append(':').append(c.getQuantity()).append(':').append(c.getUnitPrice().stripTrailingZeros().toPlainString()).append(','));
+        }
         try {
             byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
                     .digest(sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));

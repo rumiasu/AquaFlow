@@ -28,10 +28,12 @@ public interface BusinessWaitingMapper {
     @Select("select distinct o.id from orders o join barrel_right_reservation r on r.owner_type='ORDER' and r.owner_id=o.id where o.status=1 and o.payment_status=0 and o.payment_method<>2 and o.create_time<date_sub(now(),interval #{minutes} minute) and not exists(select 1 from payment_record p where p.order_id=o.id and p.status in (1,2)) order by o.id limit 100")
     List<Long> unpaidExpired(int minutes);
     @Select("select count(*) from payment_record where order_id=#{order} and status in (1,2)") int hasActivePayment(Long order);
-    @Select("select o.id as orderId,o.order_no as orderNo,o.create_time as createTime,"
+    // 2026-10-03：orders 以 id 编号，没有 order_no 列；旧查询连空列表也报 500。
+    // 保留前端 orderNo 别名，按现有订单 ID 展示，不新增第二套编号。
+    @Select("select o.id as orderId,cast(o.id as char) as orderNo,o.create_time as createTime,"
             + "o.create_time as waitingSinceTime,coalesce(o.delivery_station_id,o.station_id) as responsibleStationId,"
             + "sum(greatest(0,r.need_qty-r.reserved_qty)) as shortageQty" + STOCK_FROM
-            + " group by o.id,o.order_no,o.create_time,o.delivery_station_id,o.station_id order by o.create_time,o.id limit " + WAITING_LIMIT)
+            + " group by o.id,o.create_time,o.delivery_station_id,o.station_id order by o.create_time,o.id limit " + WAITING_LIMIT)
     List<Map<String,Object>> waitingStock(Long station);
     @Select("select count(distinct o.id)" + STOCK_FROM)
     int countWaitingStock(Long station);

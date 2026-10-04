@@ -14,6 +14,8 @@ public class BarrelRightReservation {
     private Long ownerId;
     private Integer quantity;
     private Integer pickupQty;
+    private Integer pendingQty = 0;
+    private Integer pendingPickupQty = 0;
     private String status;
     private LocalDateTime createTime;
 }

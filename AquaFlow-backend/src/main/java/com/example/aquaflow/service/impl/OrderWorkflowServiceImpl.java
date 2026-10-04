@@ -57,6 +57,7 @@ import java.util.Map;
 @Service
 @Slf4j
 public class OrderWorkflowServiceImpl implements OrderWorkflowService {
+    @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderBarrelPurchases;
     @Autowired private com.example.aquaflow.service.DispatchAgreementService dispatchAgreements;
 
     // 外派备注标记（一键外派 / 指定外派）的正本是 constant/DispatchKind 的 NOTE_* 常量 ——
@@ -487,6 +488,14 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         // 放在桶账写入**之前**：不满足就不动账。
         assertReturnReasonsMatchGap(itemReturns);
 
+        // 2026-10-03：现场现金先实收、激活本单容量，再交桶；后续失败整笔事务回滚。
+        if(orderBarrelPurchases.hasPurchase(orderId) && Integer.valueOf(PayMethod.CASH).equals(order.getPaymentMethod())
+                && !paymentService.hasPaidRecord(orderId)) {
+            if(params==null || !Boolean.TRUE.equals(params.get("collected")))throw new BusinessException("请先收齐水款和本单押金，再确认交桶");
+            if(!java.util.Objects.equals(StationUtil.settleStation(order),AuthContext.getStationId()))throw new BusinessException("仅结算站可以确认现场收款");
+            paymentService.recordCashCollection(orderId);
+            paymentService.applyDepositOnPaid(orderId);
+        }
         // ===== 桶账（全系统唯一写入口）=====
         // newOver = oldOver + (delivered − returned) − rightPurchase，按商品结算；
         // 唯一校验是【物理上限】returned <= 占用_before(权益+over)，over 允许为负（多还桶/水站暂存）。

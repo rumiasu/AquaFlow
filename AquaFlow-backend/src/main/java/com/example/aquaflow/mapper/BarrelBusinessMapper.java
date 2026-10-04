@@ -42,13 +42,13 @@ public interface BarrelBusinessMapper {
     @Update("update barrel_right_purchase set status='PAID',lot_id=#{lotId} where id=#{id} and status='PENDING'")
     int activatePurchase(@Param("id") Long id, @Param("lotId") Long lotId);
 
-    @Select("select coalesce(sum(quantity),0) from barrel_right_reservation where customer_id=#{customerId} and station_id=#{stationId} and product_id=#{productId} and status='ACTIVE'")
+    @Select("select coalesce(sum(quantity-pending_qty),0) from barrel_right_reservation where customer_id=#{customerId} and station_id=#{stationId} and product_id=#{productId} and status='ACTIVE'")
     int reserved(@Param("customerId") Long customerId,@Param("stationId") Long stationId,@Param("productId") Long productId);
 
-    @Select("select coalesce(sum(pickup_qty),0) from barrel_right_reservation where customer_id=#{customerId} and station_id=#{stationId} and product_id=#{productId} and status='ACTIVE'")
+    @Select("select coalesce(sum(pickup_qty-pending_pickup_qty),0) from barrel_right_reservation where customer_id=#{customerId} and station_id=#{stationId} and product_id=#{productId} and status='ACTIVE'")
     int reservedPickup(@Param("customerId") Long customerId,@Param("stationId") Long stationId,@Param("productId") Long productId);
 
-    @Insert("insert into barrel_right_reservation(customer_id,station_id,product_id,owner_type,owner_id,quantity,pickup_qty,status,create_time) values(#{customerId},#{stationId},#{productId},#{ownerType},#{ownerId},#{quantity},#{pickupQty},'ACTIVE',now())")
+    @Insert("insert into barrel_right_reservation(customer_id,station_id,product_id,owner_type,owner_id,quantity,pickup_qty,pending_qty,pending_pickup_qty,status,create_time) values(#{customerId},#{stationId},#{productId},#{ownerType},#{ownerId},#{quantity},#{pickupQty},#{pendingQty},#{pendingPickupQty},'ACTIVE',now())")
     @Options(useGeneratedKeys=true,keyProperty="id")
     int insertReservation(BarrelRightReservation reservation);
 
@@ -60,6 +60,9 @@ public interface BarrelBusinessMapper {
 
     @Select("select count(*) from barrel_right_reservation where owner_type='ORDER' and owner_id=#{orderId}")
     int hasOrder(@Param("orderId") Long orderId);
+
+    @Update("update barrel_right_reservation set pending_qty=0,pending_pickup_qty=0,pickup_qty=#{pickup} where id=#{id} and status='ACTIVE' and pending_qty=#{expected}")
+    int fundReservation(@Param("id") Long id,@Param("expected") int expected,@Param("pickup") int pickup);
 
     @Update("update barrel_right_reservation set status=#{status} where owner_type=#{type} and owner_id=#{ownerId} and status='ACTIVE'")
     int release(@Param("type") String type,@Param("ownerId") Long ownerId,@Param("status") String status);

@@ -47,6 +47,7 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
     @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
     @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.DispatchAgreementService dispatchAgreements;
+    @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderBarrelPurchases;
 
     /** 见 {@link DeliveryConsoleService} 类注释：时间源照搬原状，未纳入 F-16 的 BusinessTime 改造。 */
     @Autowired
@@ -208,6 +209,8 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
         order.setStockPrep(inventoryReservationService.prepInfoOfOrder(orderId));
         order.setDispatchAgreement(dispatchAgreements.info(orderId));
         order.setIndependentBusinessRules(barrelPolicy.isEnabled() || barrelLedger.independentOrder(orderId));
+        // 仅详情下发凭据存在事实；前端据 needCollect 提示先收齐现金，不改后端交桶守卫。
+        order.setHasOrderBarrelPurchase(orderBarrelPurchases.hasPurchase(orderId));
         // 楼层 / 电梯：送货的人要知道这一单要不要上楼。
         // orderMapper.getById 是纯 orders 查询（不带 address 关联），所以在这里补一次读；
         // 取的是**当前地址**的值而不是下单快照 —— 详见 Orders.addressFloor 的字段注释。

@@ -1172,6 +1172,8 @@ CREATE TABLE IF NOT EXISTS barrel_right_reservation (
   owner_id bigint NOT NULL,
   quantity int NOT NULL,
   pickup_qty int NOT NULL DEFAULT 0 COMMENT '本请求占用的未领取/暂存容量',
+  pending_qty int NOT NULL DEFAULT 0 COMMENT '尚未实收的本单补购数量',
+  pending_pickup_qty int NOT NULL DEFAULT 0 COMMENT '尚未实收部分的预计领取量',
   status varchar(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE / RELEASED / DELIVERED / REFUNDED',
   create_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY(id), UNIQUE KEY uk_right_reservation_owner(owner_type,owner_id,product_id),
@@ -1223,4 +1225,27 @@ CREATE TABLE IF NOT EXISTS dispatch_agreement (
   closed_by BIGINT NULL, closed_time DATETIME NULL, close_note VARCHAR(500) NULL,
   note VARCHAR(500) NULL, create_time DATETIME NOT NULL,
   KEY idx_dispatch_parties (source_station_id,target_station_id,status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 随单押金与独立购买并存。仅增表/列，不改写任何历史订单或资产。
+-- 执行前备份并核实目标；先安装结构，再部署一致后端与小程序。
+CREATE TABLE IF NOT EXISTS order_barrel_purchase (
+  id bigint NOT NULL AUTO_INCREMENT,
+  order_id bigint NOT NULL, customer_id bigint NOT NULL, station_id bigint NOT NULL,
+  product_id bigint NOT NULL, quantity int NOT NULL,
+  unit_price decimal(10,2) NOT NULL, amount decimal(10,2) NOT NULL,
+  payment_id bigint DEFAULT NULL, lot_id bigint DEFAULT NULL,
+  refunded_qty int NOT NULL DEFAULT 0, refunded_amount decimal(10,2) NOT NULL DEFAULT 0,
+  status varchar(16) NOT NULL DEFAULT 'PENDING',
+  PRIMARY KEY(id), UNIQUE KEY uk_order_barrel_product(order_id,product_id),
+  UNIQUE KEY uk_order_barrel_lot(lot_id), KEY idx_order_barrel_payment(payment_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS order_barrel_refund (
+  id bigint NOT NULL AUTO_INCREMENT, purchase_id bigint NOT NULL,
+  original_payment_id bigint NOT NULL, refund_payment_id bigint NOT NULL,
+  return_record_id bigint DEFAULT NULL, quantity int NOT NULL, amount decimal(10,2) NOT NULL,
+  reason varchar(16) NOT NULL COMMENT 'CANCEL / RETURN',
+  PRIMARY KEY(id), UNIQUE KEY uk_order_barrel_refund(refund_payment_id,purchase_id),
+  UNIQUE KEY uk_order_barrel_return(purchase_id,return_record_id),
+  KEY idx_order_barrel_original(original_payment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -71,6 +71,17 @@ public class OrderCreateDTO {
      */
     private Boolean confirmShortage;
 
+    /** 客户明确确认的逐商品补购快照；服务端重算并校验，不接受未确认的新增押金。 */
+    @Valid
+    private List<@NotNull(message = "新增押金确认项不能为空") BarrelPurchaseConfirmation> barrelPurchases;
+
+    @Data
+    public static class BarrelPurchaseConfirmation {
+        @NotNull private Long productId;
+        @NotNull @Min(1) private Integer quantity;
+        @NotNull private BigDecimal unitPrice;
+    }
+
     /** 幂等键：防止重复下单 */
     private String idempotencyKey;
 

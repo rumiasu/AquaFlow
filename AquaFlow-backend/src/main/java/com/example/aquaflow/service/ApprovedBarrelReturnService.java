@@ -18,6 +18,7 @@ import java.util.*;
 /** 申请制退还编排；审批不代表收桶，收桶不代表已经交付退款。 */
 @Service
 public class ApprovedBarrelReturnService {
+    @Autowired private OrderBarrelPurchaseService orderPurchases;
     @Autowired private BarrelBusinessPolicy policy;
     @Autowired private BarrelReturnDetailMapper detailMapper;
     @Autowired private BarrelRecordMapper recordMapper;
@@ -120,7 +121,9 @@ public class ApprovedBarrelReturnService {
         Set<Integer> channels=new HashSet<>();
         for(Map<String,Object> held:detailMapper.heldLots(record.getId())) {
             BarrelRightPurchase purchase=businessMapper.purchaseByLot(((Number)held.get("lotId")).longValue());
-            channels.add(purchase==null?PayMethod.CASH:paymentMapper.getById(purchase.getPaymentId()).getPaymentMethod());
+            OrderBarrelPurchase combined=orderPurchases.byLot(((Number)held.get("lotId")).longValue());
+            channels.add(purchase!=null?paymentMapper.getById(purchase.getPaymentId()).getPaymentMethod()
+                    :combined!=null?paymentMapper.getById(combined.getPaymentId()).getPaymentMethod():PayMethod.CASH);
         }
         if(channels.size()>1)throw new BusinessException("这次退还跨越现金和微信押金批次，请减少数量、按渠道分次申请，再交桶");
         if (recordMapper.setPendingRefund(record.getId(),amount) != 1)
@@ -172,6 +175,12 @@ public class ApprovedBarrelReturnService {
     public void handle(Long id, Long stationId, Integer status, String note, Long operatorId,
                        String refundChannel, Long refundPaidBy) {
         BarrelRecord record = owned(id,stationId);
+        if(Integer.valueOf(3).equals(status)) {
+            List<OrderBarrelPurchase> originals=detailMapper.heldLots(id).stream()
+                    .map(held -> orderPurchases.byLot(((Number)held.get("lotId")).longValue()))
+                    .filter(Objects::nonNull).toList();
+            orderPurchases.lockReturnSources(originals);
+        }
         ledger.lockRights(record.getCustomerId(),stationId,record.getProductId());
         BarrelReturnDetail detail = requireDetail(id);
         if (Integer.valueOf(4).equals(status)) {
@@ -195,8 +204,9 @@ public class ApprovedBarrelReturnService {
         if (staff==null || !Objects.equals(staff.getStationId(),stationId)) throw new BusinessException("押金交付人须为归属站员工");
         for (Map<String,Object> held : detailMapper.heldLots(id)) {
             BarrelRightPurchase purchase = businessMapper.purchaseByLot(((Number)held.get("lotId")).longValue());
-            if (purchase!=null) {
-                PaymentRecord original = paymentMapper.getById(purchase.getPaymentId());
+            OrderBarrelPurchase combined=orderPurchases.byLot(((Number)held.get("lotId")).longValue());
+            if (purchase!=null || combined!=null) {
+                PaymentRecord original = paymentMapper.getById(purchase!=null?purchase.getPaymentId():combined.getPaymentId());
                 boolean online = original.getPaymentMethod()==PayMethod.WECHAT;
                 if (online != BarrelRefundDTO.CHANNEL_ONLINE.equals(channel))
                     throw new BusinessException("该批押金须按原收款方式退回，请按不同渠道分别申请");
@@ -212,7 +222,9 @@ public class ApprovedBarrelReturnService {
             BarrelRecordLot row = new BarrelRecordLot(); row.setRecordId(id); row.setLotId(d.getLotId());
             row.setQty(d.getQty()); row.setUnitPrice(d.getUnitPrice()); row.setAmount(d.getAmount()); recordLotMapper.insert(row);
             BarrelRightPurchase purchase = businessMapper.purchaseByLot(d.getLotId());
-            if (purchase!=null) {
+            OrderBarrelPurchase combined=orderPurchases.byLot(d.getLotId());
+            if(combined!=null)orderPurchases.refundReturned(combined,d.getQty(),d.getAmount(),id,payer);
+            else if (purchase!=null) {
                 PaymentRecord original = paymentMapper.getById(purchase.getPaymentId());
                 PaymentRecord refund = new PaymentRecord(); refund.setCustomerId(record.getCustomerId()); refund.setStationId(stationId);
                 refund.setAmount(d.getAmount().negate()); refund.setWaterAmount(BigDecimal.ZERO); refund.setBarrelDeposit(d.getAmount().negate());

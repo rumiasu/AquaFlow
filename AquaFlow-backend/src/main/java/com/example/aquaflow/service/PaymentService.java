@@ -150,6 +150,9 @@ public interface PaymentService {
      */
     void refundOrder(Long orderId, String reason);
 
+    /** 员工退款确认金额；资格变化时整笔回滚，历史取消调用仍走两参数入口。 */
+    void refundOrder(Long orderId, String reason, BigDecimal expectedRefundAmount);
+
     /**
      * 订单是否已有「已支付(PAID)」的支付流水。
      * [AQ-002][AQ-007] 完成配送时判定能否置「已付款」的唯一凭据 —— 杜绝配送员点一下"完成"就把

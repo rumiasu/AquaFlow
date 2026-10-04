@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
 import java.time.Clock;
@@ -36,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * {@code offlinePaymentBlockReason} 的逾期判据）读的仍是<b>库的时间</b>，不受本时钟影响。
  * 因此"冻结时钟"的用例不要依赖 SQL 日期函数做断言 —— 两套时钟只在对齐时等价。</p>
  */
+// 2026-10-03：继承基类上下文时显式导入嵌套测试配置，避免回落真实日期让跨月用例失去冻结时钟。
+@Import(BusinessClockIntegrationTest.TestClockConfig.class)
 @DisplayName("可注入业务时钟 · 跨零点口径能被钉死（F-16）")
 class BusinessClockIntegrationTest extends AbstractIntegrationTest {
 

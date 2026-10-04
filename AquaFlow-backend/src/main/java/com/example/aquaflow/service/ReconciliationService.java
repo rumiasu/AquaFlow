@@ -27,6 +27,11 @@ public class ReconciliationService {
     private String newReturnExclusion(String alias) { return barrelPolicy!=null && barrelPolicy.hasSchema()?" AND NOT EXISTS(select 1 from barrel_return_detail d where d.record_id="+alias+".id) ":" "; }
     private String newReceiptExclusions(String alias) { return barrelPolicy!=null && barrelPolicy.hasSchema()?" AND NOT EXISTS(select 1 from barrel_right_purchase bp where bp.payment_id="+alias+".id) AND NOT EXISTS(select 1 from barrel_return_detail bd where bd.fee_payment_id="+alias+".id) AND NOT EXISTS(select 1 from barrel_purchase_refund br where br.payment_id="+alias+".id) AND NOT EXISTS(select 1 from barrel_return_fee_refund bf where bf.refund_payment_id="+alias+".id) ":" "; }
 
+    // 消费已退完而本次新押金仍被其他单占用，是合法部分退款；只豁免有组成凭据的原款。
+    private String combinedConsumptionExclusion() {
+        return barrelPolicy!=null && barrelPolicy.hasCombinedSchema()
+                ? " AND NOT (o.payment_status=3 AND EXISTS(select 1 from order_barrel_purchase b join payment_record p on p.id=b.payment_id where b.order_id=o.id and p.status=2 and p.barrel_deposit>0 and (select coalesce(sum(c.water_amount+c.delivery_fee+c.floor_fee),0) from consumption_refund c where c.original_payment_id=p.id)=p.amount-p.barrel_deposit)) " : " ";
+    }
     private final JdbcTemplate jdbcTemplate;
 
     /** 分级告警：对账不平属**系统故障** → 投给系统管理员（见 constant/AlertType） */
@@ -397,7 +402,7 @@ public class ReconciliationService {
         int p2a = count("SELECT COUNT(*) FROM orders o WHERE o.payment_status = 2 "
                 + "AND NOT EXISTS (SELECT 1 FROM payment_record p WHERE p.order_id = o.id AND p.status = 2)");
         int p2b = count("SELECT COUNT(*) FROM orders o WHERE o.payment_status <> 2 "
-                + "AND EXISTS (SELECT 1 FROM payment_record p WHERE p.order_id = o.id AND p.status = 2)");
+                + "AND EXISTS (SELECT 1 FROM payment_record p WHERE p.order_id = o.id AND p.status = 2)" + combinedConsumptionExclusion());
         // p2c 孤儿流水：**在线购票（无订单支付）本来就是 order_id IS NULL**，它不是孤儿。
         // ⚠️ 2026-09-17 修正：原来只判 order_id IS NULL，于是**任何买过水票的水站日结都会不平**
         // （v33 起在线购票必然产生无订单流水）→ 天天误报 SYSTEM 告警，真问题被淹没。
@@ -733,10 +738,14 @@ public class ReconciliationService {
         }
 
         if(barrelPolicy!=null && barrelPolicy.hasSchema()) {
-            r.put("E17_rightReservation",count("select count(*) from (select r.customer_id,r.station_id,r.product_id from barrel_right_reservation r left join customer_barrel_asset a on a.customer_id=r.customer_id and a.station_id=r.station_id and a.product_id=r.product_id where r.status='ACTIVE' group by r.customer_id,r.station_id,r.product_id having sum(r.quantity)>coalesce(max(a.quantity),0)) x"));
-            r.put("E18_rightOwner",count("select count(*) from barrel_right_reservation r left join orders o on r.owner_type='ORDER' and o.id=r.owner_id left join barrel_return_detail d on r.owner_type='RETURN' and d.record_id=r.owner_id where r.status='ACTIVE' and (r.quantity<=0 or r.pickup_qty<0 or r.pickup_qty>r.quantity or r.owner_type='ORDER' and (o.id is null or o.status not in (1,2)) or r.owner_type='RETURN' and (d.record_id is null or d.status not in ('APPLIED','APPROVED','RECEIVED')))"));
+            r.put("E17_rightReservation",count("select count(*) from (select r.customer_id,r.station_id,r.product_id from barrel_right_reservation r left join customer_barrel_asset a on a.customer_id=r.customer_id and a.station_id=r.station_id and a.product_id=r.product_id where r.status='ACTIVE' group by r.customer_id,r.station_id,r.product_id having sum(r.quantity-r.pending_qty)>coalesce(max(a.quantity),0)) x"));
+            r.put("E18_rightOwner",count("select count(*) from barrel_right_reservation r left join orders o on r.owner_type='ORDER' and o.id=r.owner_id left join barrel_return_detail d on r.owner_type='RETURN' and d.record_id=r.owner_id where r.status='ACTIVE' and (r.pending_qty<0 or r.pending_qty>r.quantity or r.pending_pickup_qty<0 or r.pending_pickup_qty>r.pickup_qty or r.quantity<=0 or r.pickup_qty<0 or r.pickup_qty>r.quantity or r.owner_type='ORDER' and (o.id is null or o.status not in (1,2)) or r.owner_type='RETURN' and (d.record_id is null or d.status not in ('APPLIED','APPROVED','RECEIVED')))"));
             r.put("E19_purchaseReceipt",count("select count(*) from barrel_right_purchase b left join payment_record p on p.id=b.payment_id left join customer_barrel_lot l on l.id=b.lot_id where b.status='PAID' and (p.id is null or p.status<>2 or p.amount<>b.amount or p.station_id<>b.station_id or l.id is null or l.qty<>b.quantity or l.station_id<>b.station_id)"));
             r.put("E20_returnHold",count("select count(*) from (select h.lot_id from barrel_return_lot_hold h join barrel_return_detail d on d.record_id=h.record_id left join customer_barrel_lot l on l.id=h.lot_id where d.status in ('APPLIED','APPROVED','RECEIVED') group by h.lot_id having sum(h.quantity)>coalesce(max(l.remain_qty),0)) x"));
+        }
+        if(barrelPolicy!=null && barrelPolicy.hasCombinedSchema()) {
+            r.put("E21_orderBarrelReceipt",count("select count(*) from order_barrel_purchase b left join payment_record p on p.id=b.payment_id left join customer_barrel_lot l on l.id=b.lot_id where b.refunded_qty<0 or b.refunded_qty>b.quantity or b.refunded_amount<0 or b.refunded_amount>b.amount or b.amount<>b.unit_price*b.quantity or b.refunded_qty<>coalesce((select sum(f.quantity) from order_barrel_refund f where f.purchase_id=b.id),0) or b.refunded_amount<>coalesce((select sum(f.amount) from order_barrel_refund f where f.purchase_id=b.id),0) or b.status in ('PAID','REFUNDED') and (p.id is null or p.status not in (2,3) or p.order_id<>b.order_id or p.customer_id<>b.customer_id or p.barrel_deposit<>(select sum(x.amount) from order_barrel_purchase x where x.order_id=b.order_id) or l.id is null or l.qty<>b.quantity or l.station_id<>b.station_id or l.product_id<>b.product_id)"));
+            r.put("E22_orderBarrelRefund",count("select count(*) from payment_record p where exists(select 1 from order_barrel_purchase b where b.payment_id=p.id) and (coalesce((select sum(c.water_amount+c.delivery_fee+c.floor_fee) from consumption_refund c where c.original_payment_id=p.id),0)+coalesce((select sum(r.amount) from order_barrel_refund r where r.original_payment_id=p.id),0)>p.amount)"));
         }
         return r;
     }

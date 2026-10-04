@@ -74,6 +74,7 @@ public class IndependentBarrelService {
         result.put("availableRights", ledger.availableRights(customerId, stationId, productId));
         result.put("notice", "仅办理桶押金，本次不送水和桶；收到押金后生效。首次领取对应桶无需还桶，已有欠桶优先补足。");
         result.put("onlineAvailable", mockWechatPay);
+        result.put("wechatPay", PayMethod.payChannel(PayMethod.WECHAT, mockWechatPay));
         return result;
     }
 

@@ -332,7 +332,7 @@ public class PaymentController {
     public Result refund(@PathVariable Long id, @RequestBody @Valid PaymentRefundDTO dto) {
         Result<Void> check = requireRefundStation(id);
         if (check != null) return check;
-        if (consumptionRefunds.usesIndependentRules(id)) consumptionRefunds.refund(id,dto.getScope(),dto.getNote(),dto.getExpectedTicketQty(),dto.getExpectedTicketAmount());
+        if (consumptionRefunds.usesIndependentRules(id)) consumptionRefunds.refund(id,dto.getScope(),dto.getNote(),dto.getExpectedTicketQty(),dto.getExpectedTicketAmount(),dto.getExpectedRefundAmount());
         else paymentService.refundPayment(id, dto.getNote());
         return Result.success();
     }

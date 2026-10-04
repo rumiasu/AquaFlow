@@ -632,6 +632,8 @@ public class Orders {
     private transient java.util.Map<String,Object> dispatchAgreement;
     /** 新规则用于员工端展示动作语义，历史资产仍按原凭据结算。 */
     private transient Boolean independentBusinessRules;
+    /** 配送详情只读事实：本单是否有随单新增押金凭据；取自与交桶守卫同源的 hasPurchase 查询，不由全局开关或金额推断。 */
+    private transient Boolean hasOrderBarrelPurchase;
 
     /**
      * 本单营收是否计入当前登录水站（瞬时字段，非数据库列）。

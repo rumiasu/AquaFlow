@@ -68,7 +68,7 @@ class BusinessPendingSummaryIntegrationTest extends AbstractIntegrationTest {
         seed(); long order=crossOrder(1); long detail=createOrderItemFull(order,product,"同型桶水",2,0,"20.00","0.00");
         jdbc.update("insert into inventory_reservation(order_id,order_item_id,product_id,station_id,need_qty,need_time,reserved_qty,status) values(?,?,?,?,2,now(),0,1)",order,detail,product,b);
         assertEquals(0,item(at,"waitingStock").path("count").asInt());assertEquals(1,item(bt,"waitingStock").path("count").asInt());
-        JsonNode row=waiting(bt).data().path("stock").get(0);assertEquals(order,row.path("orderId").asLong());assertEquals(b,row.path("responsibleStationId").asLong());noCustomerProfile(row);
+        JsonNode row=waiting(bt).data().path("stock").get(0);assertEquals(order,row.path("orderId").asLong());assertEquals(String.valueOf(order),row.path("orderNo").asText());assertEquals(b,row.path("responsibleStationId").asLong());noCustomerProfile(row);
         // 伪造查询站别不改变实际登录态。
         Api forged=get("/api/manager/business-waiting?stationId="+b,at);assertEquals(0,forged.code());assertEquals(0,forged.data().path("stock").size());
         assertEquals(0,post("/api/inventory/inbound?stationId="+b,bt,"{\"items\":[{\"productId\":"+product+",\"quantity\":2}]}").code());

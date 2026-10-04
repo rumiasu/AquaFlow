@@ -43,6 +43,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired private com.example.aquaflow.mapper.ConsumptionRefundMapper paymentLocks;
     @Autowired private com.example.aquaflow.service.ConfirmedRefusalService confirmedRefusals;
     @Autowired private com.example.aquaflow.service.IndependentBarrelService independentBarrelService;
+    @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderPurchases;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedgerService;
 
@@ -260,6 +261,8 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
+        if(order!=null && orderPurchases.hasPurchase(orderId) && (Integer.valueOf(PayMethod.TICKET).equals(paymentMethod)
+                || !Objects.equals(paymentMethod,order.getPaymentMethod())))throw new BusinessException("随单押金须沿用本单确认的收款方式，不能用水票支付");
         // ===== 金额一律以服务端重算为准，客户端传入值全部丢弃 =====
         // 否则任何人都可以 POST {orderId, paymentMethod, amount:0.01} 让自己的订单变成已支付
         if (order != null) {
@@ -571,6 +574,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (order == null) {
             return;
         }
+        if(orderPurchases.hasPurchase(orderId)) { orderPurchases.activate(orderId); return; }
         BigDecimal dep = order.getDepositAmount();
         if (dep == null || dep.compareTo(BigDecimal.ZERO) <= 0) {
             return;
@@ -693,7 +697,12 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Transactional(rollbackFor = Exception.class)
     public void refundOrder(Long orderId, String reason) {
-        com.example.aquaflow.entity.Orders order = orderMapper.getById(orderId);
+        refundOrder(orderId,reason,null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void refundOrder(Long orderId, String reason, BigDecimal expectedRefundAmount) {
+        com.example.aquaflow.entity.Orders order = paymentLocks.lockOrder(orderId);
         if (order == null) {
             throw new BusinessException("订单不存在");
         }
@@ -738,7 +747,12 @@ public class PaymentServiceImpl implements PaymentService {
                 .filter(r -> r.getStatus() == PaymentStatus.PAID)
                 .toList();
 
-        if (paidRecords.isEmpty()) {
+        boolean combinedPurchase=orderPurchases.hasPurchase(orderId);
+        if(combinedPurchase && !paidRecords.isEmpty()) {
+            orderPurchases.cancel(order,paidRecords,reason,expectedRefundAmount);
+            orderMapper.updatePaymentStatusIf(orderId,PaymentStatus.PAID,PaymentStatus.REFUNDED);
+        } else if (paidRecords.isEmpty()) {
+            if(combinedPurchase)orderPurchases.cancel(order,paidRecords,reason,expectedRefundAmount);
             // 没有任何已支付记录 = 这笔订单客户根本没付过钱。
             // 旧实现一律写 REFUNDED，于是从未付款的订单取消后显示"已退款"，
             // 与实际资金流水对不上。正确语义是「已取消」。
@@ -804,7 +818,7 @@ public class PaymentServiceImpl implements PaymentService {
             //    这里显式拒绝：宁可让取消失败并被人发现，也不要留下查不出来的敞口。
             BigDecimal depositAmount = order.getDepositAmount();
             boolean depositCredited = depositRecordMapper.countByOrderAndType(orderId, DepositType.PREPAID) > 0;
-            if (depositCredited && depositAmount != null && depositAmount.compareTo(BigDecimal.ZERO) > 0) {
+            if (!combinedPurchase && depositCredited && depositAmount != null && depositAmount.compareTo(BigDecimal.ZERO) > 0) {
                 int affected = customerDepositAccountMapper.decreaseBalance(customerId, ownerStation, depositAmount);
                 if (affected == 0) {
                     throw new BusinessException("取消失败：该客户在本水站的押金余额不足 ¥" + depositAmount
@@ -883,6 +897,8 @@ public class PaymentServiceImpl implements PaymentService {
     public void refundPayment(Long paymentId, String note) {
         PaymentRecord record = paymentRecordMapper.getById(paymentId);
         if (record == null) throw new BusinessException("支付记录不存在");
+        if (record.getOrderId()!=null && orderPurchases.hasPurchase(record.getOrderId()))
+            throw new BusinessException("合单款须按消费退款或押金退还凭据处理，不能整笔退款并保留容量");
         // #32: 校验当前状态，只有PAID才能退款
         if (record.getOrderId() == null && independentBarrelService.isPurchasePayment(paymentId)) {
             throw new BusinessException("桶押金须走权益退还申请，不能通过消费退款保留可用权益");
@@ -1272,6 +1288,12 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
+        List<com.example.aquaflow.service.OrderBarrelPurchaseService.Line> purchasePlan = barrelPolicy.isEnabled()
+                ? orderPurchases.plan(customerId,stationId,barrelByProduct,false) : List.of();
+        if(barrelPolicy.isEnabled()) {
+            totalExtraDeposit=purchasePlan.stream().map(com.example.aquaflow.service.OrderBarrelPurchaseService.Line::amount).reduce(BigDecimal.ZERO,BigDecimal::add);
+            totalExtraBuckets=purchasePlan.stream().mapToInt(com.example.aquaflow.service.OrderBarrelPurchaseService.Line::quantity).sum();
+        }
         // ===== [v35] 配送计费：与下单侧调**同一个服务**、传同样的入参 =====
         // 水费口径 = totalWaterAmount（不含押金与运费）；桶数口径 = 桶装水商品的数量之和，
         // 与 OrderServiceImpl 的 totalNeededBuckets 同源（都只数 category=1）。
@@ -1308,28 +1330,24 @@ public class PaymentServiceImpl implements PaymentService {
         result.put("blocked", fee.isBlocked());
         result.put("blockReason", fee.getBlockReason());
         result.put("independentRights", barrelPolicy.isEnabled());
-        if (barrelPolicy.isEnabled()) {
-            List<Map<String,Object>> missingRights = new java.util.ArrayList<>();
-            for (Map.Entry<Long,Integer> e : barrelByProduct.entrySet()) {
-                int available = barrelLedgerService.availableRights(customerId, stationId, e.getKey());
-                if (available < e.getValue()) {
-                    Map<String,Object> missing = new java.util.LinkedHashMap<>();
-                    missing.put("productId", e.getKey()); missing.put("quantity", e.getValue() - available);
-                    missing.put("availableRights", available);
-                    missingRights.add(missing);
-                }
-            }
-            result.put("missingRights", missingRights);
-            if (!missingRights.isEmpty()) {
-                result.put("blocked", true);
-                result.put("blockReason", "可用桶权益不足，请先交对应桶押金，或等待正在配送/退桶的申请结束");
-            }
+        result.put("barrelPurchases",purchasePlan);
+        result.put("missingRights",purchasePlan.stream().map(l -> Map.of("productId",l.productId(),"quantity",l.quantity(),"availableRights",l.availableRights(),"busyRights",l.busyRights())).toList());
+        if(payByTicket && !purchasePlan.isEmpty()) {
+            result.put("blocked",true);
+            result.put("blockReason","水票不能支付新增桶押金，请改选付款方式，或先独立办理押金；已有容量被占用时也可等待释放");
         }
         result.put("totalAmount", totalAmount);
 
         result.put("ticketPay", payByTicket
                 ? ticketPayPreview(ticketLines, ticketTotalQty, ticketCoveredAmount, totalAmount)
                 : null);
+        if (payByTicket && !purchasePlan.isEmpty()) {
+            @SuppressWarnings("unchecked") Map<String,Object> preview=(Map<String,Object>)result.get("ticketPay");
+            preview.put("fullyCovered",false);
+            preview.put("payableAmount",totalAmount);
+            preview.put("reason","NEW_DEPOSIT");
+            preview.put("hint",result.get("blockReason"));
+        }
 
         // ===== 首次资产业务告知（契约 A2：必须能在**建单之前**说清楚）=====
         // 判据与下单侧**同一个服务**（AssetService.hasStationAsset），保证"报价说要告知、

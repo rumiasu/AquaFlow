@@ -1,5 +1,6 @@
 package com.example.aquaflow.interceptor;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p><b>计数粒度是「按 IP 聚合」而不是「按 IP+端点」</b>：这是刻意选择的更严口径 ——
  * 分开计数的话，攻击者把 20 次配额分摊到 login / wx-login / refresh 上就能放大三倍。
- * 代价是同一出口 IP（如公司 NAT）下的多名员工共享一份配额，20/分钟对真实登录足够宽裕。</p>
+ * 代价是同一出口 IP（如公司 NAT）下的用户共享配额，是否适用须按人数和流量验证。</p>
  */
 @Slf4j
 @Component
@@ -45,6 +46,29 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     @Value("${app.rate-limit.auth-per-minute:20}")
     private int limitPerMinute;
+
+    // Address rewriting happens before MVC interceptors, so reject it at startup.
+    @Value("${server.forward-headers-strategy:none}")
+    private String forwardHeadersStrategy;
+
+    @Value("${server.tomcat.remoteip.remote-ip-header:}")
+    private String remoteIpHeader;
+
+    @Value("${server.tomcat.remoteip.protocol-header:}")
+    private String protocolHeader;
+
+    @PostConstruct
+    void requireConnectionAddressMode() {
+        if (!"none".equalsIgnoreCase(forwardHeadersStrategy.trim())) {
+            throw new IllegalStateException("登录限流仅支持连接地址：server.forward-headers-strategy 必须为 none；代理地址识别尚未配置可信来源");
+        }
+        if (remoteIpHeader != null && !remoteIpHeader.isBlank()) {
+            throw new IllegalStateException("登录限流禁止前置地址重写：server.tomcat.remoteip.remote-ip-header 必须为空");
+        }
+        if (protocolHeader != null && !protocolHeader.isBlank()) {
+            throw new IllegalStateException("登录限流禁止前置地址重写：server.tomcat.remoteip.protocol-header 必须为空");
+        }
+    }
 
     private final Map<String, Window> windows = new ConcurrentHashMap<>();
 
@@ -85,21 +109,12 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * 取真实来源 IP。
-     * <p>只有部署在受信任的反向代理后面时才认 {@code X-Forwarded-For}；本机直连时它可被客户端伪造，
-     * 而伪造的代价只是"换一个 key 继续请求"—— 所以这里取首跳，并在生产上依赖网关覆写该头。</p>
+     * Only the connection address is trusted. Forwarded headers are client-controlled;
+     * behind a proxy its clients deliberately share that proxy's quota.
      */
     private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            int comma = forwarded.indexOf(',');
-            return (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
-        }
-        String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.isBlank()) {
-            return realIp.trim();
-        }
-        return request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
+        String remote = request.getRemoteAddr();
+        return remote == null || remote.isBlank() ? "unknown" : remote;
     }
 
     private void writeTooManyRequests(HttpServletResponse response) throws Exception {

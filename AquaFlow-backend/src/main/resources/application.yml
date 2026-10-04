@@ -1,5 +1,7 @@
 server:
   port: 8080
+  # 保留 TCP 连接地址；限流不接受客户端转发头，也不启用云环境自动代理识别。
+  forward-headers-strategy: none
 
 # 应用开关
 app:

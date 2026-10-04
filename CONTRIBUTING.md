@@ -87,6 +87,8 @@ node scripts/check-miniapp-text.js
 ./gradlew.bat bootJar --no-daemon
 ```
 
+使用会话独立构建目录时，执行 `node scripts/check-jar-no-local-config.js --jar <本次生成的完整 JAR 路径>` 核验实际发布物；无参命令仍检查默认 `AquaFlow-backend/build/libs`。显式指定的文件不存在会拒绝，不回退到旧产物。该检查仅支持完整的单卷 ZIP32 中央目录（STORED/DEFLATED、ASCII 或标记为 UTF-8 的名称）；ZIP64、多卷、加密及不能可信解析的输入会拒绝。它不验证压缩载荷或 CRC，不能替代完整归档校验。
+
 发布检查及迁移次序见[运维说明](docs/operations/01-部署与运维.md)。生产关闭开发登录和模拟支付，真实渠道未接入时不能开放假付款。先验证发布物不含本机配置，再部署正式环境。
 
 ## 7. 文档和 Git

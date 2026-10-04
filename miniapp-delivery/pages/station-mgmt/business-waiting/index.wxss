@@ -1,2 +1,82 @@
-.page{padding:24rpx}.section{background:#fff;margin:20rpx 0;padding:24rpx;border-radius:16rpx}.title{display:block;font-size:30rpx;font-weight:600;margin-bottom:20rpx}.row{padding:20rpx 0;line-height:1.7;border-top:1rpx solid #eee}.row text{display:block}.error{color:#b53333}button{font-size:26rpx;margin-top:16rpx}
-.hint{display:block;color:#667085;font-size:24rpx;line-height:1.6;margin:12rpx 0}.error{display:block;line-height:1.6;margin-bottom:12rpx}
+/* 与站长管理页共用暖纸底、白卡和品牌蓝；规则说明始终可见。 */
+.page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 24rpx 24rpx 48rpx;
+  background: var(--bg-color);
+  color: var(--text-primary);
+  font-size: 28rpx;
+}
+
+.section {
+  margin: 0 0 24rpx;
+  padding: 28rpx 24rpx;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.title {
+  display: block;
+  padding-left: 16rpx;
+  margin-bottom: 20rpx;
+  border-left: 6rpx solid var(--primary-color);
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.row {
+  margin-top: 16rpx;
+  padding: 20rpx;
+  background: var(--bg-gray);
+  border-radius: var(--radius-sm);
+  line-height: 1.7;
+}
+
+.row text {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text-regular);
+}
+
+.hint {
+  display: block;
+  margin: 12rpx 0;
+  color: var(--text-regular);
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.empty-state {
+  display: block;
+  padding: 24rpx 20rpx;
+  background: var(--bg-gray);
+  border-radius: var(--radius-sm);
+  color: var(--text-regular);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.error {
+  display: block;
+  margin-bottom: 12rpx;
+  color: var(--error-color);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+button {
+  margin-top: 16rpx;
+  padding: 14rpx 20rpx;
+  background: var(--primary-bg);
+  border: 1rpx solid var(--primary-color);
+  border-radius: var(--radius-md);
+  color: var(--primary-color);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+button::after {
+  border: none;
+}

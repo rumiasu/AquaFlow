@@ -13,7 +13,6 @@
       <text class="station-bar-tip">桶与押金按水站独立，这里只显示该站的数据</text>
     </view>
     <view class="stats-card">
-      <button wx:if="{{summary.independentRights}}" bindtap="onPurchaseRights">交桶押金（不含水）</button>
       <view class="stat-col">
         <text class="stat-label">{{summary.independentRights ? '用桶权益' : '持有桶'}}</text>
         <view class="stat-value-row">
@@ -44,6 +43,11 @@
           <text class="stat-unit">个</text>
         </view>
       </view>
+    </view>
+
+    <!-- 独立办理入口另起一行，避免窄屏挤占三列统计；显隐和办理事件保持同一入口。 -->
+    <view class="rights-actions" wx:if="{{summary.independentRights}}">
+      <button class="rights-purchase-btn" bindtap="onPurchaseRights">交桶押金（不含水）</button>
     </view>
 
     <view class="owed-tip" wx:if="{{summary.owedBuckets > 0}}">

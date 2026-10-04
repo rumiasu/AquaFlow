@@ -4,7 +4,7 @@
   padding-bottom: 40rpx;
 }
 
-/* 顶部双列统计卡片 */
+/* 顶部三列统计：办理入口不能占用统计列的宽度。 */
 .stats-card {
   display: flex;
   background: #fff;
@@ -16,6 +16,7 @@
 
 .stat-col {
   flex: 1;
+  min-width: 0;
   padding: 36rpx 24rpx;
   display: flex;
   flex-direction: column;
@@ -65,6 +66,28 @@
   background-color: var(--border-light);
   align-self: stretch;
   margin: 24rpx 0;
+}
+
+.rights-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 24rpx 24rpx;
+}
+
+.rights-purchase-btn {
+  margin: 0;
+  padding: 14rpx 24rpx;
+  background: var(--primary-bg);
+  border: 1rpx solid var(--primary-color);
+  border-radius: var(--radius-md);
+  color: var(--primary-color);
+  font-size: 26rpx;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.rights-purchase-btn::after {
+  border: none;
 }
 
 .owed-tip {

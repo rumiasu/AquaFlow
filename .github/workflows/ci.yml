@@ -42,6 +42,8 @@ jobs:
           --health-retries=10
 
     env:
+      # Java LocalDateTime 与 SQL NOW() 共用上海时区，避免 UTC runner 的八小时时差。
+      TZ: Asia/Shanghai
       # 只确认本 job 的丢弃 MySQL 容器；准备脚本、直接 Gradle 与实际清表连接共享精确 TCP 目标。
       MYSQL_HOST: "127.0.0.1"
       MYSQL_PORT: "3306"

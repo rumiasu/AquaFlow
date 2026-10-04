@@ -16,6 +16,20 @@ let assertions = 0
 function check(fn) { fn(); assertions++ }
 const base = { name: 'aquaflow_test_session20261002', kind: 'test', source: 'aquaflow', confirmation: 'aquaflow_test_session20261002' }
 
+// CI mixes Java LocalDateTime with SQL NOW(): runner, MySQL and JDBC must agree.
+check(() => {
+  const ci = fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8')
+  const jobEnv = ci.split(/\r?\n    env:\r?\n/)[1].split(/\r?\n    steps:/)[0]
+  const mysqlEnv = ci.split(/\r?\n        env:\r?\n/)[1].split(/\r?\n        ports:/)[0]
+  assert.match(jobEnv, /^      TZ: Asia\/Shanghai$/m, 'Java runner must share the database timezone')
+  assert.match(mysqlEnv, /^          TZ: Asia\/Shanghai$/m)
+  for (const key of ['TEST_DB_URL', 'DB_URL']) {
+    const url = jobEnv.match(new RegExp('^      ' + key + ': "([^"\\r\\n]+)"$', 'm'))
+    assert(url, key)
+    assert.equal(new URL(url[1].replace(/^jdbc:/, '')).searchParams.get('serverTimezone'), 'Asia/Shanghai')
+  }
+})
+
 for (const name of ['aquaflow', 'production', 'latest', 'contest', 'customer_test', 'aquaflow_test_backup',
   'aquaflow_test_bak', 'aquaflow_test_live', 'aquaflow_test_production', 'aquaflow_test_archive',
   'aquaflow_test_;DROP DATABASE aquaflow', 'aquaflow_test_`', 'aquaflow_test_$(whoami)',

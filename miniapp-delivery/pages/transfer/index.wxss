@@ -70,6 +70,8 @@
   color: var(--text-primary);
 }
 
+.product-list { margin-bottom: var(--spacing-sm); }
+
 .product-info {
   display: flex;
   align-items: center;
@@ -77,12 +79,47 @@
   margin-bottom: var(--spacing-sm);
 }
 
+.product-image {
+  width: 72rpx;
+  height: 72rpx;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg-gray);
+}
+
+.product-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.product-copy { flex: 1; min-width: 0; }
+
+.product-fallback {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-regular);
+  font-size: var(--font-md);
+  word-break: break-all;
+}
+
 .product-name {
+  display: block;
+  white-space: normal;
+  word-break: break-all;
+  line-height: 1.5;
   font-size: var(--font-md);
   color: var(--text-regular);
 }
 
 .product-spec {
+  display: inline-block;
+  word-break: break-all;
+  margin-top: 4rpx;
   font-size: var(--font-sm);
   color: var(--text-secondary);
   background: var(--bg-gray);
@@ -91,6 +128,8 @@
 }
 
 .product-qty {
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: var(--font-md);
   color: var(--text-primary);
   font-weight: 600;
@@ -161,6 +200,6 @@
 
 /* 2026-10-02：失败状态常驻，刷新失败时旧记录不能冒充本次结果。 */
 .page-state { margin: 24rpx; padding: 28rpx; background: #fff; border-radius: 16rpx; text-align: center; }
-.page-state-text { display: block; font-size: 28rpx; color: #666; line-height: 1.6; }
-.page-state-error { color: #b33b32; }
+.page-state-text { display: block; font-size: 28rpx; color: var(--text-regular); line-height: 1.6; }
+.page-state-error { color: var(--error-color); }
 .page-state-retry { margin-top: 20rpx; font-size: 28rpx; color: #fff; background: var(--primary-color); }

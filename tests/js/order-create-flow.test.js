@@ -155,7 +155,7 @@ await test('缺货未确认：不建单不支付不跳转，保留同一个键',
   return page._createOrder(false).then(() => {
     assert.strictEqual(calls.createPayment.length, 0)
     assert.strictEqual(wx.__calls.nav.length, 0)
-    assert.strictEqual(page.data.showShortageConfirm, true, '应弹缺货确认')
+    assert.strictEqual(page.data.showUnifiedConfirm, true, '应弹缺货确认')
     assert.ok(page.data.idempotencyKey, '缺货不是成功，键必须留着')
     const key1 = page.data.idempotencyKey
     // 返回调整：什么都不发
@@ -326,16 +326,19 @@ await test('改了内容之后再点 ⇒ 不是同一单，直接建单（不打
 })
 
 // ---------------------------------------------------------------- 场景 2（首次押金）
-await test('首次押金告知在**建单之前**：取消 ⇒ 一个建单请求都不发', async () => {
-  const { page, calls } = newPage({ quote: { firstStationAsset: true } })
-  page.data.firstStationAsset = true
-  return page.onSubmit().then(() => {
-    assert.strictEqual(calls.createOrder.length, 0, '还没确认就不该建单')
-    assert.strictEqual(page.data.showAssetConfirm, true)
-    page.onAssetConfirmCancel()
-    assert.strictEqual(calls.createOrder.length, 0, '取消确认后依然零请求')
-    assert.strictEqual(page.data.showAssetConfirm, false)
-  })
+await test('首次须知在建单之前：未勾选或取消综合确认都不建单', async () => {
+  const { page, calls } = newPage({ method: 2 })
+  page.setData({ firstStationAsset: true, assetReadAgreed: false })
+  await page.onSubmit()
+  assert.strictEqual(calls.createOrder.length, 0)
+  assert.strictEqual(page.data.assetBarExpanded, true)
+  page.onAssetReadAgree()
+  await page.onSubmit()
+  assert.strictEqual(page.data.showUnifiedConfirm, true)
+  page.onUnifiedConfirmCancel()
+  assert.strictEqual(calls.createOrder.length, 0)
+  assert.strictEqual(page.data.assetConfirmed, false)
+  assert.strictEqual(page.data.showUnifiedConfirm, false)
 })
 
 await test('首次押金：确认后才建单（顺序反了就是原来的 bug）', async () => {
@@ -351,28 +354,18 @@ await test('首次押金：确认后才建单（顺序反了就是原来的 bug�
   assert.strictEqual(calls.createOrder.length, 1, '确认后才建单')
 })
 
-await test('未勾选使用说明时「确认下单」不建单，但必须给出下一步（看说明），不能是死按钮', async () => {
-  const { page, calls, wx } = newPage({
-    quote: { firstStationAsset: true },
-    createOrder: [{ data: { orderId: 9, needConfirm: false } }]
-  })
-  page.data.firstStationAsset = true
-  page.data.assetReadAgreed = false          // 客户还没看说明
+await test('未勾选须知不能建单，展开说明并勾选后可正常确认', async () => {
+  const { page, calls, wx } = newPage({ method: 2 })
+  page.setData({ firstStationAsset: true, assetReadAgreed: false })
   await page.onSubmit()
-  assert.strictEqual(page.data.showAssetConfirm, true)
-  page.onAssetConfirmOk()                    // 直接点「确认下单」
-  await new Promise((r) => setTimeout(r, 20))
-  assert.strictEqual(calls.createOrder.length, 0, '没勾选就不许建单（闸门是真的）')
-  const titles = wx.__calls.modal.map(m => m.title).join('|')
-  assert.ok(titles.indexOf('说明') > -1, '必须说清"先看说明"，而不是点了没反应：' + titles)
-  // 弹窗里选「看说明」= 直接打开说明那一屏（这就是"下一步"，不是死路）
-  assert.strictEqual(page.data.showAssetDetail, true, '「看说明」要真的把说明打开')
-
-  page.onAssetReadAgree()                    // 勾上（切换真值）
-  assert.strictEqual(page.data.assetReadAgreed, true)
-  page.onAssetConfirmOk()
-  await new Promise((r) => setTimeout(r, 20))
-  assert.strictEqual(calls.createOrder.length, 1, '勾选后即可正常下单')
+  await page.onUnifiedConfirmOk()
+  assert.strictEqual(calls.createOrder.length, 0)
+  assert.strictEqual(page.data.assetBarExpanded, true)
+  assert.ok(wx.__calls.toast.some(t => t.title.includes('须知')))
+  page.onAssetReadAgree()
+  await page.onSubmit()
+  await page.onUnifiedConfirmOk()
+  assert.strictEqual(calls.createOrder.length, 1)
 })
 
 await test('每次重新弹首次确认都要重置勾选（不能拿上次的勾选顶过新的金额）', async () => {
@@ -396,13 +389,13 @@ await test('首次押金 + 缺货同时发生：先押金确认、再缺货确�
   page.data.firstStationAsset = true
   await page.onSubmit()
   assert.strictEqual(calls.createOrder.length, 0, '押金告知阶段零请求')
-  assert.strictEqual(page.data.showAssetConfirm, true)
+  assert.strictEqual(page.data.assetBarExpanded, true)
 
   page.onAssetReadAgree()                       // 说明里勾选（弹窗每次打开会重置）
   page.onAssetConfirmOk()                       // 客户确认押金 → 这时才发第一次建单
   await new Promise((r) => setTimeout(r, 20))
   assert.strictEqual(calls.createOrder.length, 1)
-  assert.strictEqual(page.data.showShortageConfirm, true, '缺货要接着确认，而不是当成功')
+  assert.strictEqual(page.data.showUnifiedConfirm, true, '缺货要接着确认，而不是当成功')
   assert.strictEqual(wx.__calls.nav.length, 0, '缺货阶段不许跳成功页')
 
   page.onShortageAgree()                        // 同意等待 → 同一个键重提
@@ -448,7 +441,7 @@ await test('改了业务意图后：旧的一次性确认失效（押金告知�
   page.data.assetConfirmed = false
   await page.onSubmit()
   assert.strictEqual(calls.createOrder.length, 1, '重新提交前必须先重新确认，不能拿旧确认绕过')
-  assert.strictEqual(page.data.showAssetConfirm, true)
+  assert.strictEqual(page.data.assetBarExpanded, true)
   assert.strictEqual(page.data.assetReadAgreed, false, '旧的勾选也要一并作废')
 })
 
@@ -827,6 +820,25 @@ await test('C04 备注输入框必须显式 border-box（否则 100% 宽 + 内�
     '★ 必须显式 border-box —— 全局只有 view,text,image 有（app.wxss），input 不在其中：'
     + 'content-box 下 100% + 左右 padding 会比卡片宽，右侧溢出（走查 C04 截图 11）')
   assert.ok(!/overflow:\s*hidden/.test(body), '不许用 overflow:hidden 掩盖（会把输入区裁掉）')
+})
+
+await test('期望送达时间复用可选备注原样提交，不新增金额或预约门槛', async () => {
+  const { page, calls } = newPage({ method: 2 })
+  const request = '希望18点前送到，到了先联系；放门口也可以'
+  page.onNoteInput({ detail: { value: request } })
+  await page._createOrder(false)
+  assert.strictEqual(calls.createOrder.length, 1)
+  assert.strictEqual(calls.createOrder[0].specialNote, request)
+  assert.strictEqual(calls.createPayment.length, 0)
+  assert.strictEqual(page.data.totalAmount, 20)
+})
+
+await test('不填写期望时间或备注仍可正常下单', async () => {
+  const { page, calls } = newPage({ method: 2 })
+  page.onNoteInput({ detail: { value: '' } })
+  await page._createOrder(false)
+  assert.strictEqual(calls.createOrder.length, 1)
+  assert.strictEqual(calls.createOrder[0].specialNote, '')
 })
 
 console.log('')

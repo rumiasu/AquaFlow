@@ -1,5 +1,5 @@
 /**
- * 顾客端「我的 · 钱包与桶」的加载态与文案（2026-09-27 走查 C05 / C06 / C07）。
+ * 顾客端「我的 · 押金水票与桶」的加载态与文案（2026-09-27 走查 C05 / C06 / C07）。
  *
  * 跑法：node tests/js/customer-assets-state.test.js
  *
@@ -56,8 +56,8 @@ function renderedWxml(rel) {
 }
 
 /**
- * 加载「我的」页：四个资产接口各自可控。
- * @param {{stats:Function, summary:Function, tickets:Function, company:Function}} api
+ * 加载「我的」页：三个实际接口各自可控。
+ * @param {{summary:Function, tickets:Function, company:Function}} api
  *        每个键是 `() => Promise`（桶/水票那两个收 stationId）；抛异常 = 该接口失败。
  * @param {{stationId?:number, stationName?:string}} station 本地缓存的服务水站
  */
@@ -69,7 +69,6 @@ function loadMine(api, station) {
   }
   const stubs = {
     'api/barrel': { getBarrelSummary: (id) => api.summary(id), getBarrelRecords: async () => ({ code: 0, data: [] }) },
-    'api/customer': { getCustomerStats: () => api.stats(), getCompanyInfo: async () => ({ code: 0, data: null }) },
     'api/ticket': { getTicketAccounts: (id) => api.tickets(id) },
     'api/company': { getCompanyInfo: () => api.company() }
   }
@@ -81,7 +80,7 @@ function loadMine(api, station) {
   return { page, wx }
 }
 
-console.log('顾客「我的 · 钱包与桶」加载态与文案（真实执行页面处理函数）')
+console.log('顾客「我的 · 押金水票与桶」加载态与文案（真实执行页面处理函数）')
 
 ;(async () => {
   const doneWatchdog = armWatchdog()
@@ -89,7 +88,6 @@ console.log('顾客「我的 · 钱包与桶」加载态与文案（真实执行
   // ---------------------------------------------------------------- C05：失败不许冒充 0
   await test('C05 桶/押金接口失败：不写 ¥0 / 0 个，写「暂未加载」并标出未加载项', async () => {
     const { page, wx } = loadMine({
-      stats: async () => ({ code: 0, data: { balance: 12, totalOrders: 3 } }),
       summary: async () => { throw new Error('网络连接失败，请检查网络后重试') },
       tickets: async () => ({ code: 0, data: [{ remainQuantity: 5 }] }),
       company: async () => ({ code: 0, data: null })
@@ -97,8 +95,7 @@ console.log('顾客「我的 · 钱包与桶」加载态与文案（真实执行
     page.setData({ isLogin: true })
     await page.loadAssets()
 
-    assert.strictEqual(page.data.balanceLoaded, true, '余额拿到了就该显示数字')
-    assert.strictEqual(page.data.balanceText, '12')
+    assert.strictEqual(Object.hasOwn(page.data, 'balance'), false, '接口不存在的钱包状态已经退役')
     assert.strictEqual(page.data.depositLoaded, false, '押金没拿到 = 未加载')
     assert.strictEqual(page.data.depositText, '暂未加载', '**不许**把没拿到的押金写成 0/¥0')
     assert.strictEqual(page.data.barrelLoaded, false)
@@ -111,24 +108,22 @@ console.log('顾客「我的 · 钱包与桶」加载态与文案（真实执行
     assert.ok(toast.indexOf('可能是 0') === -1, '原文案会让人把未加载读成 0：' + toast)
   })
 
-  await test('C05 全部接口失败：四格全是「暂未加载」，没有一个数字', async () => {
+  await test('C05 全部接口失败：三项全是「暂未加载」，没有一个数字', async () => {
     const { page } = loadMine({
-      stats: async () => { throw new Error('超时') },
       summary: async () => { throw new Error('超时') },
       tickets: async () => { throw new Error('超时') },
       company: async () => { throw new Error('超时') }
     }, { stationId: 11 })
     page.setData({ isLogin: true })
     await page.loadAssets()
-    assert.strictEqual(page.data.unloadedCount, 4)
-    ;['balanceText', 'depositText', 'ticketText', 'barrelText'].forEach(k => {
+    assert.strictEqual(page.data.unloadedCount, 3)
+    ;['depositText', 'ticketText', 'barrelText'].forEach(k => {
       assert.strictEqual(page.data[k], '暂未加载', k + ' 不该有任何数字')
     })
   })
 
   await test('C05 真的是 0 时照实写 0（"没有资产"与"没加载出来"必须长得不一样）', async () => {
     const { page } = loadMine({
-      stats: async () => ({ code: 0, data: { balance: 0, totalOrders: 0 } }),
       summary: async () => ({ code: 0, data: { depositBalance: 0, heldBuckets: 0 } }),
       tickets: async () => ({ code: 0, data: [] }),
       company: async () => ({ code: 0, data: null })
@@ -144,7 +139,6 @@ console.log('顾客「我的 · 钱包与桶」加载态与文案（真实执行
   await test('C05 换水站：先把上一站的数字清空，不能拿 A 站的押金当 B 站的资产', async () => {
     let stationServed = null
     const { page } = loadMine({
-      stats: async () => ({ code: 0, data: { balance: 0, totalOrders: 1 } }),
       summary: async (id) => {
         stationServed = id
         return { code: 0, data: { depositBalance: id === 11 ? 450 : 30, heldBuckets: 2 } }
@@ -172,10 +166,9 @@ console.log('顾客「我的 · 钱包与桶」加载态与文案（真实执行
   await test('C05 未加载的那几格有「重新加载」处理函数（点了必须真的重新拉）', async () => {
     let calls = 0
     const { page } = loadMine({
-      stats: async () => { calls++; throw new Error('超时') },
       summary: async () => { calls++; throw new Error('超时') },
       tickets: async () => { calls++; throw new Error('超时') },
-      company: async () => ({ code: 0, data: null })
+      company: async () => { calls++; return { code: 0, data: null } }
     }, { stationId: 11 })
     page.setData({ isLogin: true })
     assert.strictEqual(typeof page.onRetryAssets, 'function',
@@ -186,7 +179,7 @@ console.log('顾客「我的 · 钱包与桶」加载态与文案（真实执行
   })
 
   // ---------------------------------------------------------------- C06 / C07：文案口径
-  await test('C06 第四格标签是「我的桶」（持有 ≠ 权益：配送中的桶不能退也不能抵扣）', async () => {
+  await test('C06 桶标签是「我的桶」（持有 ≠ 权益：配送中的桶不能退也不能抵扣）', async () => {
     const wxml = renderedWxml('miniapp-user/pages/mine/index.wxml')
     assert.ok(wxml.indexOf('我的桶') > -1, '标签应为「我的桶」')
     assert.strictEqual(wxml.indexOf('水桶权益'), -1,

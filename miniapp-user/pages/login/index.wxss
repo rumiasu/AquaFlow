@@ -112,10 +112,12 @@
   color: rgba(255,255,255,0.6);
 }
 
-/* [2026-09-27 走查 X01] `.agreement-link` 已删：两个协议名原先染成链接色、看着能点，
-   实际没有任何点击处理（本仓最忌的"看起来能点、点了没反应"）。协议正文属法务/产品内容，
-   正文到位前先按普通说明文字渲染；接上真实内容后再加回链接样式与 bindtap。 */
-.agreement-strong {
+/* [2026-10-07 评审 #7] `.agreement-link` 加回：承载页 pages/mine/agreement 已落（占位草稿，
+   页内有显著告示），协议名恢复为真实可点链接。登录页是深色底，链接用白字 + 下划线表达可点，
+   不用品牌蓝（深底上对比度不够）。 */
+.agreement-link {
   font-size: 24rpx;
   color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 4rpx;
 }

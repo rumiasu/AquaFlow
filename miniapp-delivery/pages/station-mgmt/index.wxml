@@ -23,6 +23,7 @@
 <view class="container">
 
   <!-- ============ 1 订单与客户 ============ -->
+  <view class="badge-error" wx:if="{{badgeError}}" bindtap="loadBadgeCounts">{{badgeError}}</view>
   <view class="group">
     <view class="group-head"><text class="group-bar"></text><text class="group-title">订单与客户</text></view>
     <view class="entry-card">
@@ -93,8 +94,9 @@
           <text class="entry-title">应收账款</text>
           <!-- [2026-09-27 走查 M06] 原文「待收款、账期、核销」三个词里两个是行话：
                站长要的动作是"登记收到钱了"。 -->
-          <text class="entry-desc">待收款、账期、登记已收款</text>
+          <text class="entry-desc">待收款、账期、登记已收款 · 角标为逾期客户数</text>
         </view>
+        <view class="entry-badge" wx:if="{{receivablesBadgeCount > 0}}">{{receivablesBadgeCount > 99 ? '99+' : receivablesBadgeCount}}</view><text class="entry-unknown" wx:elif="{{receivablesBadgeCount === null}}">{{badgeLoading ? '核对中' : '未核对'}}</text>
         <text class="entry-arrow">›</text>
       </view>
       <!-- [2026-09-27 v67] 站间结算：跨站单的钱在归属站、营收算接单站，这一页回答
@@ -106,7 +108,7 @@
         </view>
         <text class="entry-arrow">›</text>
       </view>
-      <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index"><view class="entry-main"><text class="entry-title">业务待办与退出</text><text class="entry-desc">缺货、超时退款、拒付核实、站间交接与剩余票退出</text></view><text class="entry-arrow">›</text></view>
+      <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index"><view class="entry-main"><text class="entry-title">业务待办与退出</text><text class="entry-desc">缺货、超时退款、拒付核实、站间交接与剩余票退出</text></view><view class="entry-badge" wx:if="{{businessWaitingBadgeCount > 0}}">{{businessWaitingBadgeCount > 99 ? '99+' : businessWaitingBadgeCount}}</view><text class="entry-unknown" wx:elif="{{businessWaitingBadgeCount === null}}">{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-arrow">›</text></view>
       <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/payments/index">
         <view class="entry-main">
           <text class="entry-title">待确认收款</text>
@@ -143,6 +145,7 @@
           <text class="entry-title">退桶审批</text>
           <text class="entry-desc">审核退桶、退押金</text>
         </view>
+        <view class="entry-badge" wx:if="{{barrelReturnBadgeCount > 0}}">{{barrelReturnBadgeCount > 99 ? '99+' : barrelReturnBadgeCount}}</view><text class="entry-unknown" wx:elif="{{barrelReturnBadgeCount === null}}">{{badgeLoading ? '核对中' : '未核对'}}</text>
         <text class="entry-arrow">›</text>
       </view>
       <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/owed-barrels/index">

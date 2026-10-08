@@ -38,7 +38,7 @@
         </view>
         <view class="payroll-row">
           <text class="payroll-period">{{item.periodText}}</text>
-          <text class="payroll-amount">￥{{item.totalText}}</text>
+          <text class="payroll-amount">¥{{item.totalText}}</text>
         </view>
         <view class="payroll-paid" wx:if="{{item.paidText}}">已发放登记时间：{{item.paidText}}</view>
       </view>

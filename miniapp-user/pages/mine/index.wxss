@@ -47,7 +47,7 @@
   margin-top: 10rpx;
 }
 
-/* ── 钱包与桶四格卡 ── */
+/* ── 押金、水票与桶三项卡 ── */
 .assets-card {
   margin-top: 20rpx;
 }
@@ -70,18 +70,18 @@
   flex-wrap: wrap;
 }
 .asset-cell {
-  width: 50%;
-  padding: 24rpx 28rpx;
+  width: 33.333333%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 24rpx 16rpx;
   display: flex;
   flex-direction: column;
 }
-.asset-cell:nth-child(odd) {
-  border-right: 1rpx solid var(--border-color);
-}
-.asset-cell:nth-child(-n+2) {
-  border-bottom: 1rpx solid var(--border-color);
+.asset-cell + .asset-cell {
+  border-left: 1rpx solid var(--border-color);
 }
 .asset-value {
+  overflow-wrap: anywhere;
   font-size: 38rpx;
   font-weight: 700;
 }
@@ -99,19 +99,19 @@
   justify-content: space-between;
   gap: 16rpx;
   border-top: 1rpx solid var(--border-color);
-  background: #FFF8E1;
+  background: var(--warning-bg);
   padding: 18rpx 28rpx;
 }
 .assets-unloaded-text {
   flex: 1;
   font-size: var(--font-xs);
-  color: #E65100;
+  color: var(--warning-color);
   line-height: 1.5;
 }
 .assets-unloaded-retry {
   flex: none;
   font-size: var(--font-sm);
-  color: #E65100;
+  color: var(--warning-color);
   font-weight: 600;
 }
 .asset-unit {
@@ -124,6 +124,13 @@
   color: var(--text-regular);
   margin-top: 8rpx;
 }
+.asset-hint {
+  margin-top: 6rpx;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 /* 还空桶说明行：还空桶 ≠ 退押金，写清楚不绕弯 */
 .asset-note {
   display: flex;

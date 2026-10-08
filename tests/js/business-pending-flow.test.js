@@ -226,17 +226,41 @@ async function main() {
     const waiting = emptyWaiting(); waiting.returns = [{ recordId: 77, nextAction: 'refund', refundAmount: 30 }]; waiting.counts.returnsTotal = waiting.counts.returnRefund = 1
     const t = setup({ waiting }); await t.page.onShow(); t.page.onReturns(event(77))
     assert.equal(t.wx.__calls.nav.at(-1).url, '/pages/station-mgmt/barrel-return/index?recordId=77')
-    let finished = false, detailReads = 0, historyReads = 0, statusCall
+    let finished = false, detailReads = 0, historyReads = 0, eligibilityReads = 0, statusCall, writes = 0
     const wx = createWx()
     const recordPage = loadPage('miniapp-delivery/pages/station-mgmt/barrel-return/index.js', { wx, app: managerApp(), stubs: {
-      'utils/pending-reminder': { getPendingReturnRecord: async id => { detailReads++; assert.equal(id, '77'); return response({ id: 77, type: 2, status: finished ? 3 : 2, depositRefund: 30, returnDetail: { status: finished ? 'REFUNDED' : 'RECEIVED' } }) }, syncPendingReminder: async () => {} },
-      'api/station-mgmt': { getAllBarrelRecords: async () => { historyReads++; throw Error('原记录已被历史上限挤出') }, getRefundUndelivered: async () => response({ records: [], count: 0 }), updateBarrelRecordStatus: async (id, status, body) => { statusCall = [id, status, body]; finished = true; waiting.returns = []; waiting.counts.returnsTotal = waiting.counts.returnRefund = 0; return response({}) } }
+      'utils/pending-reminder': { getPendingReturnRecord: async id => {
+        detailReads++; assert.equal(String(id), '77')
+        return response({ id: 77, type: 2, customerId: 7, stationId: 1, productId: 10, quantity: 1,
+          status: finished ? 3 : 2, depositRefund: 30, refundPaidTime: finished ? '2026-10-07T10:00:00' : null,
+          returnDetail: { status: finished ? 'REFUNDED' : 'RECEIVED', requiredBarrels: 1, receivedBarrels: 1, pickupFee: 0 } })
+      }, syncPendingReminder: async () => {} },
+      'api/station-mgmt': {
+        getAllBarrelRecords: async () => { historyReads++; throw Error('原记录已被历史上限挤出') },
+        getRefundUndelivered: async () => response({ records: [], count: 0 }),
+        getBarrelRefundEligibility: async id => {
+          eligibilityReads++; assert.equal(String(id), '77'); assert.equal(finished, false, '退款之前核对原收款方式')
+          return response({ recordId: 77, recordStatus: 2, detailStatus: 'RECEIVED', available: true, channel: 'CASH', refundAmount: 30, reason: '原款已核对' })
+        },
+        updateBarrelRecordStatus: async (id, status, body) => {
+          assert(eligibilityReads > 0, '现金交付确认之前先核对原款资格')
+          statusCall = [id, status, body]; writes++; finished = true
+          waiting.returns = []; waiting.counts.returnsTotal = waiting.counts.returnRefund = 0; return response({})
+        }
+      }
     } })
     recordPage.onLoad({ recordId: '77' }); await recordPage.loadData()
+    await recordPage.onSelectRecord(event(77))
     assert.equal(recordPage.data.list[0].id, 77); assert.equal(historyReads, 0)
-    await recordPage.submitRefund(77, 'CASH'); await recordPage.loadData()
-    assert.deepEqual(statusCall, [77, 3, { refundChannel: 'CASH' }]); assert.equal(recordPage.data.list[0].returnDetail.status, 'REFUNDED')
-    assert(detailReads >= 2); await t.page.loadData(); assert.equal(t.page.data.counts.returns, 0); assert.equal(t.page.data.returns.length, 0)
+    assert.equal(recordPage.data.selected.id, 77); assert.equal(recordPage.data.selected.primaryAction, 'refund')
+    const beforeRefundReads = detailReads, beforeEligibilityReads = eligibilityReads
+    await recordPage.onRefund(event(77))
+    assert(eligibilityReads > beforeEligibilityReads, '点击退款后重新核对原款，不复用旧资格')
+    assert(detailReads > beforeRefundReads, '办理后按原编号核对结果，不靠历史列表或手动loadData补救')
+    assert.deepEqual(statusCall, [77, 3, { refundChannel: 'CASH' }]); assert.equal(writes, 1)
+    assert.equal(recordPage.data.list[0].returnDetail.status, 'REFUNDED'); assert.equal(recordPage.data.recoveryNeeded, false)
+    assert.equal(historyReads, 0); assert(detailReads >= 2)
+    await t.page.loadData(); assert.equal(t.page.data.counts.returns, 0); assert.equal(t.page.data.returns.length, 0)
   })
   await test('缺货补齐后同源列表和总数同时消除', async () => {
     const t = setup(); t.state.waiting.stock = [{ orderId: 9, shortageQty: 2 }]; t.state.waiting.counts.waitingStock = 1
@@ -317,7 +341,10 @@ async function main() {
     let failed = true, history = 0
     const p = loadPage('miniapp-delivery/pages/station-mgmt/barrel-return/index.js', { wx: createWx(), app: managerApp(), stubs: {
       'utils/pending-reminder': { getPendingReturnRecord: async () => { if (failed) throw Error('offline'); return response({ id: 77, type: 2, status: 2 }) }, syncPendingReminder: async () => {} },
-      'api/station-mgmt': { getAllBarrelRecords: async () => { history++; return response([]) } }
+      'api/station-mgmt': {
+        getAllBarrelRecords: async () => { history++; return response([]) },
+        getBarrelRefundEligibility: async id => { assert.equal(String(id), '77'); return response({ recordId: 77, legacy: true, recordStatus: 2, detailStatus: null, available: true, channel: 'CASH', refundAmount: 30, reason: '历史现金原款待归属站核实' }) }
+      }
     } })
     p.onLoad({ recordId: '77' }); await p.loadData(); assert.equal(p.data.recordsReady, false); assert(p.data.loadError)
     failed = false; await p.onRetry(); assert.equal(p.data.list[0].id, 77); assert.equal(p.data.loadError, ''); assert.equal(history, 0)

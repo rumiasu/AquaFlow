@@ -2,6 +2,7 @@
 // 那两个文件正被另一个工作流（商品图片库）改动，共用会让两边未提交的改动纠缠在一起。
 // 路径常量写在本文件里，理由同上。
 const { get, post, put, del } = require('../../../utils/request')
+const { itemUnit } = require('../../../utils/order-item-view')
 
 const PIECE_RATE = '/api/manager/piece-rate'
 const EARNINGS = '/api/manager/earnings'
@@ -27,7 +28,7 @@ const DEFAULT_PRODUCT_ID = 0
  * 三条口径（改这个页面时必须守住）：
  *   1. **发钱是线下动作**（微信转账/现金）。系统只做两件事：算清楚、留痕迹。
  *      所以这里**没有**打款/提现/钱包入口 —— 只有「标记已发放」，它落的是发放时间与操作人。
- *   2. **计件单位是桶不是单**，且按商品分别计价：商品专属价优先，否则回落默认价（product_id=0）。
+ *   2. 按商品数量计件，不按订单数；展示单位跟随品类，专属价优先，否则回落默认价（product_id=0）。
  *   3. **收益只在订单「完成配送」之后产生**（钉在状态 CAS 成功之后），
  *      所以结算单里的明细一定是"能取消的单还没产生收益"的那批，不存在回滚问题。
  *
@@ -46,6 +47,19 @@ Page({
     tab: 'rate',
     stationId: null,
     loading: true,
+    isManager: false,
+    loaded: false,
+    rateProducts: [],
+    selectedRateName: '默认单价',
+    selectedRateUnit: '件',
+    defaultCurrentText: '待加载',
+    payrollBusyId: null,
+    itemBusyId: null,
+    itemMenuId: null,
+    itemMenuName: '',
+    itemMenuEnabled: false,
+    summaryError: '',
+    detailError: '',
     /**
      * 「?」里的长解释（[2026-09-26] 视觉重排）。
      *
@@ -91,12 +105,12 @@ Page({
     // ⚠️ 纯文本，不要写 markdown 的 ** 粗体 —— <text> 会原样渲染成星号。
     rateEmptyText: '还没有配过单价。\n\n'
       + '这种情况下，配送员完成配送不会产生计件工资，也没有楼层补贴 —— 收入台账会是空的。\n\n'
-      + '要发工钱：先点「默认单价（所有商品兜底）」填每桶多少钱并保存；'
+      + '要发工钱：先点「默认单价（所有商品兜底）」填每件多少钱并保存；'
       + '只想给某一款水单独定价，就点那款商品再填。只填默认价也能覆盖所有商品。',
     // 有商品专属价为 0 时的说明。判据：专属价优先，默认价兜不住它（见 decorateRates）。
     productZeroText: '有商品的单价是 0 —— 那几款水完成配送算 0 元。\n\n'
       + '商品单独配过价就按那个价算，不会再回落到「默认单价」。'
-      + '要给它们算钱，点那款商品把每桶金额填上。',
+      + '要给它们算钱，点那款商品把计件金额填上。',
     rateForm: {
       productId: String(DEFAULT_PRODUCT_ID),
       perBucketAmount: '',
@@ -105,7 +119,8 @@ Page({
     },
     savingRate: false,
     // ---- 结算单 ----
-    payrolls: [],
+    payrolls: [], filteredPayrolls: [], payrollKeyword: '', payrollStart: '', payrollEnd: '', payrollListError: '', payrollReadError: '', payrollScope: '', payrollLimit: 100,
+    payrollBeforeId: null, payrollHasMore: false, payrollLoadingMore: false, payrollMoreError: '',
     genForm: { staffId: '', periodStart: '', periodEnd: '', note: '' },
     generating: false,
     adjustForm: { staffId: '', amount: '', note: '' },
@@ -133,52 +148,208 @@ Page({
   },
 
   onShow() {
+    this._payrollGone = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
+      this.invalidatePayrollReads()
+      this.clearPayrollHistory()
       app.routeByRole(true)
       return
     }
-    const stationId = (app.globalData.userInfo || {}).stationId
+    const info = app.globalData.userInfo || {}
+    // 2026-10-07：业务访问包含配送员，工资管理实际只准站长，不能仅靠通用业务闸门。
+    if (info.role !== 'STATION_MANAGER') {
+      this.invalidatePayrollReads()
+      this.clearPayrollHistory()
+      this.setData({ isManager: false })
+      app.routeByRole(true)
+      return
+    }
+    const stationId = info.stationId
     if (!stationId) {
+      this.invalidatePayrollReads()
+      this.clearPayrollHistory()
       wx.showToast({ title: '未识别到所属水站', icon: 'none' })
       return
     }
-    this.setData({ stationId })
+    this.setData({ stationId, isManager: true })
     this.loadAll()
   },
 
+  onHide() { this._payrollGone = true; this.invalidatePayrollReads() },
+  onUnload() { this._payrollGone = true; this.invalidatePayrollReads() },
+
+  payrollContext() {
+    const app = getApp(), user = app.globalData.userInfo || {}
+    return { app, stationId: this.data.stationId,
+      identity: JSON.stringify([app._loginGeneration || 0, !!app.globalData.isLogin,
+        user.staffId || user.id || '', user.role || '', user.stationId || '', user.bindStatus || '']) }
+  },
+  payrollContextCurrent(context) {
+    if (!context || this._payrollGone) return false
+    const current = this.payrollContext()
+    return context.app === current.app && context.stationId === current.stationId && context.identity === current.identity
+  },
+  invalidatePayrollReads() {
+    this._payrollLoadSeq = (this._payrollLoadSeq || 0) + 1
+    this._payrollMoreSeq = (this._payrollMoreSeq || 0) + 1
+    this._summarySeq = (this._summarySeq || 0) + 1
+    this._detailSeq = (this._detailSeq || 0) + 1
+    this.setData({ loading: false, payrollLoadingMore: false, summaryLoading: false, detailLoading: false })
+  },
+  clearPayrollHistory() {
+    this._summarySeq = (this._summarySeq || 0) + 1
+    this._detailSeq = (this._detailSeq || 0) + 1
+    this._payrollReadContext = null
+    // 换站/重登录不能把旧工资、员工选项或明细当作新身份的失败缓存继续显示。
+    this.setData({ loaded: false, payrolls: [], filteredPayrolls: [], staffList: [], products: [],
+      rateProducts: [], rates: [], items: [], directions: [], summaryStaffId: '', summaryEarnings: [],
+      itemSummary: [], unsettledTotal: null, detail: null, record: null, itemMenuId: null,
+      'genForm.staffId': '', 'adjustForm.staffId': '', payrollBeforeId: null, payrollHasMore: false,
+      payrollLoadingMore: false, payrollMoreError: '', payrollReadError: '', payrollListError: '',
+      payrollScope: '', loading: false, summaryLoading: false, detailLoading: false,
+      summaryError: '', detailError: '', detailName: '', itemMenuName: '', itemMenuEnabled: false,
+      rateReady: false, defaultCurrentText: '待加载', defaultRateText: '', hasProductZero: false,
+      selectedRateName: '默认单价', selectedRateUnit: '件',
+      rateForm: { productId: String(DEFAULT_PRODUCT_ID), perBucketAmount: '', floorBonusPerLevel: '', floorFreeLevel: '' } })
+  },
+
+  onPayrollSearch(e) {
+    this.setData({ payrollKeyword: e.detail.value })
+    this.applyPayrollFilters()
+  },
+  onPayrollFilterDate(e) {
+    const field = e.currentTarget.dataset.field
+    if (!['payrollStart', 'payrollEnd'].includes(field)) return
+    this.setData({ [field]: e.detail.value })
+    this.applyPayrollFilters()
+  },
+  onClearPayrollFilter() {
+    this.setData({ payrollKeyword: '', payrollStart: '', payrollEnd: '' })
+    this.applyPayrollFilters()
+  },
+  /**
+   * [F-80 / 2026-10-07] 原来把 limit 扩到 500 仍会截断全部更早历史。
+   * 失败保留原边界，按 id 追加去重；全量刷新必须使旧追加失效，否则旧页会混进新首屏。
+   */
+  async onExpandPayrollHistory() {
+    if (!this.canManage() || this._payrollGone || this.data.loading || this.data.payrollLoadingMore
+        || this.data.payrollReadError || !this.data.loaded || !this.data.payrollHasMore) return
+    if (!this.payrollContextCurrent(this._payrollReadContext)) { this.clearPayrollHistory(); return }
+    const context = this.payrollContext(), beforeId = this.data.payrollBeforeId
+    const seq = this._payrollMoreSeq = (this._payrollMoreSeq || 0) + 1
+    this.setData({ payrollLoadingMore: true, payrollMoreError: '' })
+    try {
+      const res = await get(PAYROLL + '?limit=' + this.data.payrollLimit + '&beforeId=' + beforeId)
+      if (seq !== this._payrollMoreSeq || !this.payrollContextCurrent(context)) return
+      const page = this.payrollPage(res.data, beforeId)
+      const seen = new Set(this.data.payrolls.map(p => String(p.id)))
+      const added = page.rows.filter(p => !seen.has(String(p.id)))
+      this.setData({ payrolls: this.data.payrolls.concat(this.decoratePayrolls(added, this.data.staffList)),
+        payrollBeforeId: page.beforeId === null ? beforeId : page.beforeId,
+        payrollHasMore: page.hasMore, payrollMoreError: '' })
+      this.applyPayrollFilters()
+    } catch (err) {
+      if (seq !== this._payrollMoreSeq || !this.payrollContextCurrent(context)) return
+      this.setData({ payrollMoreError: err.message || '更早记录加载失败，请重试' })
+    } finally {
+      if (seq === this._payrollMoreSeq) {
+        if (this.payrollContextCurrent(context)) this.setData({ payrollLoadingMore: false })
+        else if (!this._payrollGone) this.clearPayrollHistory()
+      }
+    }
+  },
+
+  payrollPage(rows, beforeId = null) {
+    if (!Array.isArray(rows) || rows.length > this.data.payrollLimit) throw new Error('结算单记录无法核对，请重试')
+    const seen = new Set(), valid = []
+    rows.forEach(row => {
+      const id = row && Number(row.id)
+      if (!Number.isSafeInteger(id) || id <= 0) throw new Error('结算单编号无法核对，请重试')
+      if ((beforeId === null || id < beforeId) && !seen.has(String(id))) { seen.add(String(id)); valid.push(row) }
+    })
+    if (beforeId !== null && rows.length && !valid.length) throw new Error('未取回更早记录，请重试')
+    return { rows: valid, beforeId: valid.length ? Math.min(...valid.map(row => Number(row.id))) : null,
+      hasMore: rows.length === this.data.payrollLimit }
+  },
+  decoratePayrolls(rows, staff) {
+    return rows.map(p => Object.assign({}, p, { staffName: this.staffName(staff, p.staffId),
+      periodText: (p.periodStart || '') + ' 至 ' + (p.periodEnd || ''), statusClass: this.statusPillClass(p.status) }))
+  },
+  applyPayrollFilters() {
+    const readError = this.data.payrollReadError
+    const scope = (readError ? '重新核对失败；以下为上次取回资料。' : this.data.loading ? '正在重新核对；以下为上次取回资料。' : '')
+      + '仅在已加载的' + this.data.payrolls.length + '张结算单中筛选。'
+      + (this.data.payrollHasMore ? '可能还有更早记录，可继续加载。' : this.data.loaded ? '已读到历史末尾。' : '')
+    if (this.data.payrollStart && this.data.payrollEnd && this.data.payrollStart > this.data.payrollEnd) {
+      this.setData({ filteredPayrolls: [], payrollScope: scope,
+        payrollListError: [readError, '开始日期不能晚于结束日期'].filter(Boolean).join('；') }); return
+    }
+    const keyword = String(this.data.payrollKeyword || '').trim().toLowerCase()
+    const rows = this.data.payrolls.filter(p => {
+      const nameMatches = !keyword || [p.staffName, p.staffId].join(' ').toLowerCase().includes(keyword)
+      // 结算期间与所选日期相交，包含首尾日；这里只筛已加载记录，不改变结算期间。
+      const periodMatches = (!this.data.payrollStart || p.periodEnd && p.periodEnd >= this.data.payrollStart)
+        && (!this.data.payrollEnd || p.periodStart && p.periodStart <= this.data.payrollEnd)
+      return nameMatches && periodMatches
+    })
+    this.setData({ filteredPayrolls: rows, payrollListError: readError, payrollScope: scope })
+  },
+
   async loadAll() {
-    this.setData({ loading: true })
+    if (!this.canManage() || this._payrollGone) return
+    if (this._payrollReadContext && !this.payrollContextCurrent(this._payrollReadContext)) this.clearPayrollHistory()
+    const context = this.payrollContext()
+    const seq = this._payrollLoadSeq = (this._payrollLoadSeq || 0) + 1
+    this._payrollMoreSeq = (this._payrollMoreSeq || 0) + 1
+    const readLimit = this.data.payrollLimit
+    const firstLoad = !this.data.loaded
+    this.setData({ loading: true, payrollLoadingMore: false })
+    this.applyPayrollFilters()
     try {
       const [staffRes, prodRes, rateRes, payrollRes, itemRes, dirRes] = await Promise.all([
         get(STAFF),
         get(PRODUCTS + '?stationId=' + this.data.stationId),
         get(PIECE_RATE),
-        get(PAYROLL + '?limit=100'),
+        get(PAYROLL + '?limit=' + readLimit),
         get(EARNING_ITEMS),
         get(ITEM_DIRECTIONS)
       ])
+      if (seq !== this._payrollLoadSeq || !this.payrollContextCurrent(context)) return
+      const page = this.payrollPage(payrollRes.data)
       const decorated = this.decorateRates((rateRes.data || {}).rates || [], prodRes.data || [])
       this.setData({
         staffList: staffRes.data || [],
         products: prodRes.data || [],
+        rateProducts: decorated.products,
+        defaultCurrentText: decorated.defaultCurrentText,
         rates: decorated.rates,
         rateReady: decorated.rateReady,
         defaultRateText: decorated.defaultRateText,
         hasProductZero: decorated.hasProductZero,
-        payrolls: (payrollRes.data || []).map(p => Object.assign({}, p, {
-          staffName: this.staffName((staffRes.data || []), p.staffId),
-          periodText: (p.periodStart || '') + ' ~ ' + (p.periodEnd || ''),
-          statusClass: this.statusPillClass(p.status)
-        })),
+        payrolls: this.decoratePayrolls(page.rows, staffRes.data || []),
+        payrollBeforeId: page.beforeId,
+        payrollHasMore: page.hasMore,
+        payrollMoreError: '',
         items: itemRes.data || [],
-        directions: dirRes.data || []
+        directions: dirRes.data || [],
+        payrollReadError: '',
+        loaded: true
       })
+      this._payrollReadContext = context
+      if (firstLoad) this.onRateProduct({ currentTarget: { dataset: { id: this.data.rateForm.productId } } })
+      this.applyPayrollFilters()
       await this.loadSummary()
     } catch (err) {
+      if (seq !== this._payrollLoadSeq || !this.payrollContextCurrent(context)) return
+      this.setData({ payrollReadError: err.message || '工资数据加载失败，请重试' })
+      this.applyPayrollFilters()
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (seq === this._payrollLoadSeq) {
+        if (this.payrollContextCurrent(context)) { this.setData({ loading: false }); this.applyPayrollFilters() }
+        else if (!this._payrollGone) this.clearPayrollHistory()
+      }
     }
   },
 
@@ -189,14 +360,16 @@ Page({
    * 没有条目、进不了汇总）。两个数是不同口径，页面不要拿差额去报警。
    */
   async loadSummary() {
+    const seq = this._summarySeq = (this._summarySeq || 0) + 1
     const staffId = this.data.summaryStaffId
     if (!staffId) {
-      this.setData({ itemSummary: [], summaryEarnings: [], unsettledTotal: null })
+      this.setData({ itemSummary: [], summaryEarnings: [], unsettledTotal: null, summaryError: '', summaryLoading: false })
       return
     }
-    this.setData({ summaryLoading: true })
+    this.setData({ summaryLoading: true, summaryError: '' })
     try {
       const res = await get(EARNINGS + '?staffId=' + staffId)
+      if (seq !== this._summarySeq) return
       const d = res.data || {}
       this.setData({
         itemSummary: d.itemSummary || [],
@@ -206,9 +379,11 @@ Page({
         unsettledTotal: d.unsettledTotal
       })
     } catch (err) {
+      if (seq !== this._summarySeq) return
+      this.setData({ summaryError: err.message || '明细加载失败，请重试' })
       wx.showToast({ title: err.message || '明细加载失败', icon: 'none' })
     } finally {
-      this.setData({ summaryLoading: false })
+      if (seq === this._summarySeq) this.setData({ summaryLoading: false })
     }
   },
 
@@ -249,7 +424,9 @@ Page({
    */
   decorateRates(rates, products) {
     const list = (rates || []).map(r => Object.assign({}, r, {
-      productName: this.productName(products, r.productId)
+      productName: this.productName(products, r.productId),
+      quantityUnit: Number(r.productId) === 0 ? '件' : itemUnit((products || []).find(p => String(p.id) === String(r.productId))),
+      isDefault: Number(r.productId) === 0
     }))
     const def = list.find(r => Number(r.productId) === 0)
     const defAmount = def ? Number(def.perBucketAmount) : 0
@@ -257,6 +434,15 @@ Page({
     const hasProductZero = productRates.some(r => !(Number(r.perBucketAmount) > 0))
     return {
       rates: list,
+      // 2026-10-07：显式 0 是专属价，不能用 || 回落默认价；未配置也不冒充真实零值。
+      products: (products || []).map(p => {
+        const own = list.find(r => String(r.productId) === String(p.id))
+        const effective = own || def
+        const unit = itemUnit(p)
+        return Object.assign({}, p, { quantityUnit: unit, imageFailed: false,
+          currentRateText: effective ? '当前 ¥' + this.money(effective.perBucketAmount == null ? 0 : effective.perBucketAmount) + '/' + unit + (own ? '' : ' · 默认价') : '未配置 · 暂不计件' })
+      }),
+      defaultCurrentText: def ? '当前 ¥' + this.money(def.perBucketAmount == null ? 0 : def.perBucketAmount) + '/件' : '未配置',
       rateReady: defAmount > 0 || productRates.some(r => Number(r.perBucketAmount) > 0),
       defaultRateText: def ? String(def.perBucketAmount) : '',
       hasProductZero: hasProductZero
@@ -279,16 +465,39 @@ Page({
   },
 
   onTab(e) {
-    this.setData({ tab: e.currentTarget.dataset.tab, detail: null })
+    const tab = e.currentTarget.dataset.tab
+    if (!['rate', 'settle', 'items'].includes(tab)) return
+    this.onCloseDetail()
+    this.onItemMenuClose()
+    if (!this.data.recording) this.onRecordClose()
+    this.setData({ tab })
+  },
+
+  money(value) {
+    if (value === null || value === undefined || value === '') return '待核对'
+    return Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '待核对'
+  },
+
+  canManage() {
+    return (getApp().globalData.userInfo || {}).role === 'STATION_MANAGER'
+  },
+
+  onProductImageError(e) {
+    const index = this.data.rateProducts.findIndex(p => String(p.id) === String(e.currentTarget.dataset.id))
+    if (index >= 0) this.setData({ ['rateProducts[' + index + '].imageFailed']: true })
   },
 
   /* ---------------- 计件单价 ---------------- */
 
   onRateProduct(e) {
+    if (this.data.savingRate) return
     const productId = String(e.currentTarget.dataset.id)
     // 切商品时把该商品**已配**的值回填，没配过就清空（清空 = 用默认价兜底，不要伪造一个 0 让人以为配过）
     const existing = this.data.rates.find(r => String(r.productId) === productId)
+    const product = this.data.products.find(p => String(p.id) === productId)
     this.setData({
+      selectedRateName: this.productName(this.data.products, productId),
+      selectedRateUnit: productId === '0' ? '件' : itemUnit(product),
       'rateForm': {
         productId,
         perBucketAmount: this.str(existing && existing.perBucketAmount),
@@ -299,6 +508,7 @@ Page({
   },
 
   onRateInput(e) {
+    if (this.data.savingRate) return
     this.setData({ ['rateForm.' + e.currentTarget.dataset.field]: e.detail.value })
   },
 
@@ -314,7 +524,7 @@ Page({
   },
 
   async onSaveRate() {
-    if (this.data.savingRate) return
+    if (!this.canManage() || this.data.savingRate || this.data.loading || this.data.payrollReadError) return
     const f = this.data.rateForm
     this.setData({ savingRate: true })
     try {
@@ -326,7 +536,9 @@ Page({
       })
       wx.showToast({ title: '已保存', icon: 'success' })
       const res = await get(PIECE_RATE)
-      this.setData({ rates: (res.data || {}).rates || [] })
+      const d = this.decorateRates((res.data || {}).rates || [], this.data.products)
+      this.setData({ rates: d.rates, rateProducts: d.products, defaultCurrentText: d.defaultCurrentText,
+        rateReady: d.rateReady, hasProductZero: d.hasProductZero, defaultRateText: d.defaultRateText })
     } catch (err) {
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })
     } finally {
@@ -349,7 +561,7 @@ Page({
   },
 
   async onGenerate() {
-    if (this.data.generating) return
+    if (!this.canManage() || this.data.generating || this.data.loading || this.data.payrollReadError) return
     const f = this.data.genForm
     if (!f.staffId) {
       wx.showToast({ title: '请先选择配送员', icon: 'none' })
@@ -357,6 +569,10 @@ Page({
     }
     if (!f.periodStart || !f.periodEnd) {
       wx.showToast({ title: '请选择结算期间', icon: 'none' })
+      return
+    }
+    if (f.periodStart > f.periodEnd) {
+      wx.showToast({ title: '开始日期不能晚于结束日期', icon: 'none' })
       return
     }
     this.setData({ generating: true })
@@ -387,9 +603,12 @@ Page({
     const id = Number(e.currentTarget.dataset.id)
     const p = this.data.payrolls.find(x => x.id === id)
     if (!p) return
-    this.setData({ detailLoading: true, detail: null, detailName: p.staffName })
+    const seq = this._detailSeq = (this._detailSeq || 0) + 1
+    this._detailId = id
+    this.setData({ detailLoading: true, detailError: '', detail: null, detailName: p.staffName })
     try {
       const res = await get(EARNINGS + '?staffId=' + p.staffId + '&payrollId=' + id)
+      if (seq !== this._detailSeq) return
       const d = res.data || {}
       this.setData({
         detail: {
@@ -403,14 +622,21 @@ Page({
         }
       })
     } catch (err) {
+      if (seq !== this._detailSeq) return
+      this.setData({ detailError: err.message || '明细加载失败，请重试' })
       wx.showToast({ title: err.message || '明细加载失败', icon: 'none' })
     } finally {
-      this.setData({ detailLoading: false })
+      if (seq === this._detailSeq) this.setData({ detailLoading: false })
     }
   },
 
   onCloseDetail() {
-    this.setData({ detail: null })
+    this._detailSeq = (this._detailSeq || 0) + 1
+    this.setData({ detail: null, detailLoading: false, detailError: '' })
+  },
+
+  onRetryDetail() {
+    return this.onOpenPayroll({ currentTarget: { dataset: { id: this._detailId } } })
   },
 
   async onConfirmPayroll(e) {
@@ -427,20 +653,31 @@ Page({
 
   async payrollAction(e, action, confirmText, okText) {
     const id = Number(e.currentTarget.dataset.id)
+    const slip = this.data.payrolls.find(p => p.id === id)
+    if (!this.canManage() || this.data.payrollBusyId !== null || this.data.loading || this.data.payrollReadError || !slip) return
+    if (action === 'confirm' ? slip.status !== 1 : action !== 'pay' || slip.status !== 2) return
+    // 在弹确认之前锁住，原生回调也只消费一次，避免双击重复写。
+    this.setData({ payrollBusyId: id })
+    let consumed = false
     const that = this
     wx.showModal({
       title: '请确认',
       content: confirmText,
       async success(r) {
-        if (!r.confirm) return
+        if (consumed) return
+        consumed = true
+        if (!r.confirm || !that.canManage()) { that.setData({ payrollBusyId: null }); return }
         try {
           await post(PAYROLL + '/' + id + '/' + action, {})
           wx.showToast({ title: okText, icon: 'success' })
           await that.loadAll()
         } catch (err) {
           wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+        } finally {
+          that.setData({ payrollBusyId: null })
         }
-      }
+      },
+      fail() { if (!consumed) { consumed = true; that.setData({ payrollBusyId: null }) } }
     })
   },
 
@@ -462,7 +699,7 @@ Page({
    * 两条路径都打到 POST /payroll/adjust，区别只在带不带 itemId。
    */
   async onAdjust() {
-    if (this.data.adjusting) return
+    if (!this.canManage() || this.data.adjusting || this.data.loading || this.data.payrollReadError) return
     const f = this.data.adjustForm
     if (!f.staffId) {
       wx.showToast({ title: '请先选择配送员', icon: 'none' })
@@ -507,13 +744,14 @@ Page({
    * 页面里任何地方都不出现 "1 就是加项" 这种映射。
    */
   onItemDirection(e) {
-    const d = this.data.directions[e.detail.value]
+    const d = this.data.directions[e.currentTarget.dataset.index === undefined ? e.detail.value : e.currentTarget.dataset.index]
     if (!d) return
     this.setData({ 'itemForm.direction': d.value })
   },
 
   /** 点某条 → 回填进表单改名 / 改方向（sort 一并带上，否则后端会把它归零）。 */
   onItemEdit(e) {
+    if (!this.canManage() || this.data.savingItem || this.data.itemBusyId !== null) return
     const id = Number(e.currentTarget.dataset.id)
     const it = this.data.items.find(x => x.id === id)
     if (!it) return
@@ -523,6 +761,7 @@ Page({
   },
 
   onItemFormReset() {
+    if (this.data.savingItem) return
     this.setData({ itemForm: { id: null, name: '', direction: '', sort: '' } })
   },
 
@@ -533,7 +772,7 @@ Page({
    * 同站重名、名称超 20 字都由后端拒，错误文案原样弹给站长（绝不静默）。
    */
   async onSaveItem() {
-    if (this.data.savingItem) return
+    if (!this.canManage() || this.data.savingItem || this.data.itemBusyId !== null || this.data.loading || this.data.payrollReadError) return
     const f = this.data.itemForm
     const name = (f.name || '').trim()
     if (!name) {
@@ -554,7 +793,7 @@ Page({
         await post(EARNING_ITEMS, body)
         wx.showToast({ title: '已新增', icon: 'success' })
       }
-      this.onItemFormReset()
+      this.setData({ itemForm: { id: null, name: '', direction: '', sort: '' } })
       await this.reloadItems()
     } catch (err) {
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })
@@ -567,7 +806,8 @@ Page({
   async onToggleItem(e) {
     const id = Number(e.currentTarget.dataset.id)
     const it = this.data.items.find(x => x.id === id)
-    if (!it) return
+    if (!this.canManage() || !it || this.data.itemBusyId !== null || this.data.savingItem || this.data.recording || this.data.loading || this.data.payrollReadError) return
+    this.setData({ itemBusyId: id })
     const nextEnabled = !it.enabled
     try {
       await post(EARNING_ITEMS + '/' + id + '/status', {
@@ -577,6 +817,8 @@ Page({
       await this.reloadItems()
     } catch (err) {
       wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ itemBusyId: null })
     }
   },
 
@@ -584,15 +826,20 @@ Page({
   onDeleteItem(e) {
     const id = Number(e.currentTarget.dataset.id)
     const it = this.data.items.find(x => x.id === id)
-    if (!it) return
+    if (!this.canManage() || !it || this.data.itemBusyId !== null || this.data.savingItem || this.data.recording || this.data.loading || this.data.payrollReadError) return
+    this.setData({ itemBusyId: id })
+    let consumed = false
     const that = this
     wx.showModal({
       title: '删除条目',
       content: '删除「' + it.name + '」？已被工资流水用过的条目不能删，只能停用。',
       success(r) {
-        if (!r.confirm) return
+        if (consumed) return
+        consumed = true
+        if (!r.confirm || !that.canManage()) { that.setData({ itemBusyId: null }); return }
         that.doDeleteItem(id)
-      }
+      },
+      fail() { if (!consumed) { consumed = true; that.setData({ itemBusyId: null }) } }
     })
   },
 
@@ -603,11 +850,37 @@ Page({
       await this.reloadItems()
     } catch (err) {
       wx.showToast({ title: err.message || '删除失败', icon: 'none' })
+    } finally {
+      this.setData({ itemBusyId: null })
     }
   },
 
+  onItemMore(e) {
+    if (!this.canManage() || this.data.itemMenuId !== null || this.data.itemBusyId !== null || this.data.savingItem || this.data.recording || this.data.loading || this.data.payrollReadError) return
+    const it = this.data.items.find(x => String(x.id) === String(e.currentTarget.dataset.id))
+    if (it) this.setData({ itemMenuId: it.id, itemMenuName: it.name, itemMenuEnabled: it.enabled })
+  },
+
+  onItemMenuClose() {
+    this.setData({ itemMenuId: null, itemMenuName: '', itemMenuEnabled: false })
+  },
+
+  onItemMenuAction(e) {
+    const id = this.data.itemMenuId
+    if (id === null) return
+    const action = e.currentTarget.dataset.action
+    this.onItemMenuClose()
+    const event = { currentTarget: { dataset: { id } } }
+    if (action === 'edit') { this.onItemEdit(event); wx.pageScrollTo({ scrollTop: 0, duration: 200 }) }
+    if (action === 'toggle') return this.onToggleItem(event)
+    if (action === 'delete') this.onDeleteItem(event)
+  },
+
+  onStopTap() {},
+
   /** 条目行上的「记一笔」：带上 itemId，所以只填正数金额。 */
   onRecordOpen(e) {
+    if (!this.canManage() || this.data.recording || this.data.itemBusyId !== null || this.data.loading || this.data.payrollReadError) return
     const id = Number(e.currentTarget.dataset.id)
     const it = this.data.items.find(x => x.id === id)
     if (!it) return
@@ -628,16 +901,19 @@ Page({
   },
 
   onRecordClose() {
+    if (this.data.recording) return
     this.setData({ record: null })
   },
 
   onRecordStaff(e) {
+    if (this.data.recording) return
     const s = this.data.staffList[e.detail.value]
     if (!s) return
     this.setData({ 'record.staffId': s.id })
   },
 
   onRecordInput(e) {
+    if (this.data.recording || !this.data.record) return
     this.setData({ ['record.' + e.currentTarget.dataset.field]: e.detail.value })
   },
 
@@ -648,9 +924,11 @@ Page({
    * 这里先拦一次只是为了少一个来回，不替代后端校验。
    */
   async onRecordSubmit() {
-    if (this.data.recording) return
+    if (!this.canManage() || this.data.recording) return
     const f = this.data.record
     if (!f) return
+    const item = this.data.items.find(it => it.id === f.itemId)
+    if (!item || !item.enabled) { wx.showToast({ title: '该条目已停用，请重新选择', icon: 'none' }); return }
     if (!f.staffId) {
       wx.showToast({ title: '请先选择配送员', icon: 'none' })
       return
@@ -689,7 +967,7 @@ Page({
   onShowHelp() {
     wx.showModal({
       title: '计件工资怎么算',
-      content: '按【桶】计价，不按单：送出多少桶算多少钱，' +
+      content: '按商品数量计件，不按单：单位随商品显示，' +
         '楼层补贴按超过免费层数的层数算。商品专属价优先，没配的商品用「默认单价」。\n\n' +
         '收益只在订单「完成配送」之后产生 —— 所以能取消的订单一定还没产生收益，不存在回滚。\n\n' +
         '自定义条目（加项 / 扣项）是给人工调整贴的标签：定义一次，以后录钱选一下就行。' +

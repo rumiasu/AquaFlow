@@ -12,6 +12,7 @@ const { getQuote } = require('../../api/payment')
 const { storage, stationStorage, payMethodStorage } = require('../../utils/storage')
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
+const { itemUnit } = require('../../utils/order-item-view')
 
 // 金额展示：整数不带小数点，非整数保留两位（纯展示，不涉及计算口径）
 const fmtMoney = (n) => {
@@ -58,6 +59,8 @@ Page({
   },
 
   onLoad() {
+    this._homeDestroyed = false
+    this._homeHidden = false
     try {
       const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
       this.setData({ statusBarHeight: info.statusBarHeight || 44 })
@@ -66,6 +69,9 @@ Page({
   },
 
   onShow() {
+    this._homeHidden = false
+    this.invalidateHomeQuote()
+    this.refreshDerived(undefined, false)
     const app = getApp()
     const isLogin = app.globalData.isLogin
     this.setData({ isLogin })
@@ -89,6 +95,12 @@ Page({
       this._pendingProductId = selectedProductId
       storage.remove('selectedProductId')
     }
+  },
+
+  onHide() {
+    this._homeHidden = true
+    this.invalidateHomeQuote()
+    this.refreshDerived(undefined, false)
   },
 
   onPullDownRefresh() {
@@ -158,6 +170,8 @@ Page({
   },
 
   async checkStation() {
+    this.invalidateHomeQuote()
+    this.refreshDerived(undefined, false)
     this.setData({ loading: true })
     let completed = false
     try {
@@ -301,6 +315,8 @@ Page({
         if (dontShow) stationStorage.setSwitchNoticeDisabled(true)
       }
 
+      this.invalidateHomeQuote()
+      this.refreshDerived(undefined, false)
       wx.showToast({ title: '已选择水站', icon: 'success' })
       this.setData({ showStationList: false })
       stationStorage.set(station)
@@ -320,11 +336,61 @@ Page({
     this.setData({ showStationList: false })
   },
 
+  onUnload() {
+    this._homeDestroyed = true
+    this._homeLoadSeq = (this._homeLoadSeq || 0) + 1
+    this.invalidateHomeQuote()
+  },
+
+  async loadHomeOrders(session) {
+    if (!session.loggedIn || !session.customerId) return { data: [] }
+    const fetchPage = async (status, page, pageSize) => {
+      const res = await getOrders({ status, page, pageSize })
+      if (!isCurrentSession(session)) throw new Error('登录状态已变化，请重新加载订单')
+      const rows = Array.isArray(res) ? res : res && res.data
+      if (!Array.isArray(rows) || rows.some(order => !order || order.id == null)) {
+        throw new Error('订单数据没有完整加载，请重试')
+      }
+      return rows
+    }
+    const activeOrders = async status => {
+      const orders = [], ids = new Set(), pageSize = 200
+      for (let page = 1; ; page++) {
+        const rows = await fetchPage(status, page, pageSize)
+        let added = 0
+        rows.forEach(order => {
+          if (!ids.has(order.id)) { ids.add(order.id); orders.push(order); added++ }
+        })
+        if (rows.length < pageSize) return orders
+        // 页码被忽略或内容重复时不能无限循环，也不能报一个被截断的总数。
+        if (!added) throw new Error('订单数据没有完整加载，请重试')
+      }
+    }
+    // 进行中单单独完整分页；再买上次仍取创建时间最新的已送达/已完成单。
+    const groups = await Promise.all([
+      activeOrders(1), activeOrders(2), fetchPage(3, 1, 1), fetchPage(4, 1, 1)
+    ])
+    const unique = new Map()
+    groups.forEach(rows => rows.forEach(order => { unique.set(order.id, order) }))
+    const orders = [...unique.values()].sort((a, b) => {
+      const first = String(a.createTime || ''), second = String(b.createTime || '')
+      return first === second ? 0 : first < second ? 1 : -1
+    })
+    return { data: orders }
+  },
+
   async loadData() {
+    if (this._homeDestroyed) return
+    this.invalidateHomeQuote()
+    this.refreshDerived(undefined, false)
+    const session = captureSession()
+    const version = this._homeLoadSeq = (this._homeLoadSeq || 0) + 1
+    const stationId = this.data.currentStationId
+    const current = () => !this._homeDestroyed && version === this._homeLoadSeq
+      && isCurrentSession(session) && stationId === this.data.currentStationId
     this.setData({ loading: true })
     try {
       const app = getApp()
-      const stationId = this.data.currentStationId
 
       // 营业状态跟着首页一起刷新（站长刚改成"休息中"，客户回到首页就该看到）
       this.loadStationStatus(stationId)
@@ -341,12 +407,13 @@ Page({
       }
 
       const [ordersRes, addressRes, summaryRes, rightsRes, productsRes] = await Promise.all([
-        getOrders({}).catch(softCatch('订单')),
+        this.loadHomeOrders(session).catch(softCatch('订单')),
         getAddresses().catch(softCatch('地址')),
         getBarrelSummary(stationId).catch(softCatch('桶账')),
         stationId ? getBarrelSummaryByType(stationId).catch(softCatch('桶权益')) : Promise.resolve(null),
         stationId ? getStationProducts(stationId).catch(softCatch('商品')) : Promise.resolve(null)
       ])
+      if (!current()) return
 
       // 失败出声（但**不阻断**渲染：部分成功的数据仍然是可用的，弱网下把整页拦死更糟）。
       if (failed.length) {
@@ -382,11 +449,14 @@ Page({
       const heroImage = products.length > 0 && products[0].imageUrl ? products[0].imageUrl : ''
 
       // 购物车（按水站独立保留）
-      const cart = app.getCart(stationId)
+      const cart = { ...app.getCart(stationId) }
       products.forEach(p => { if (cart[p.id] === undefined) cart[p.id] = 0 })
       if (this._pendingProductId) {
         const target = products.find(p => p.id === this._pendingProductId)
-        if (target) cart[this._pendingProductId] = (cart[this._pendingProductId] || 0) + 1
+        if (target) {
+          app.addToCart(stationId, this._pendingProductId, 1)
+          cart[this._pendingProductId] = app.getCart(stationId)[this._pendingProductId]
+        }
         this._pendingProductId = null
       }
 
@@ -397,20 +467,23 @@ Page({
       this.refreshDerived(barrelRights)
 
       // 桶账一行：口径全部来自后端 summary（权益/占用/配送中/水站暂存/欠桶/可退押金）
-      const summary = (summaryRes && summaryRes.data) ? summaryRes.data : {}
-      this.renderBarrelLine(summary)
+      const summary = summaryRes && summaryRes.data
+      this.renderBarrelLine(summary, !!summary && typeof summary === 'object')
 
       // 进行中订单 → 当前订单条（首页最多展示 1 条）
       const orders = (ordersRes && ordersRes.data) ? ordersRes.data : []
       const actives = orders.filter(o => o.status === 1 || o.status === 2)
-      await this.renderActiveShip(actives[0], actives.length)
+      await this.renderActiveShip(actives[0], actives.length, current)
+      if (!current()) return
 
       // 最近一笔已送达/已完成订单 → 再来一单
       const lastDone = orders.find(o => o.status === 3 || o.status === 4)
-      await this.renderAgainOrder(lastDone, products)
+      await this.renderAgainOrder(lastDone, products, current)
+      if (!current()) return
 
       this.setData({ state: 'ready' })
     } catch (e) {
+      if (!current()) return
       // [2026-09-26 Wave1 轨道 B] 白屏守卫：这里抛异常时 state 永远不会落到 'ready'
       // （上面那行是唯一赋值点），而结算栏与整块内容都挂在 state === 'ready' 上 ——
       // 页面只剩一张 hero 卡，看起来跟"这个站什么都没有"一模一样（AGENTS §8.22）。
@@ -419,45 +492,29 @@ Page({
       this._noteLoadError('首页数据没加载出来（' + ((e && e.message) || '网络异常') + '），请下拉刷新')
       this.setData({ state: 'ready' })
     } finally {
-      this.setData({ loading: false })
+      if (!this._homeDestroyed && version === this._homeLoadSeq) this.setData({ loading: false })
     }
   },
 
-  /** 水桶与押金入口：首页只留入口 + 必要欠桶提醒，前端不加减、也不改口径名 */
-  renderBarrelLine(s) {
-    // [2026-09-16 修复] 三个数各有其源，不能混用：
-    //   rightBuckets    = 权益（已到手）—— 下单抵扣 / 退押金认的是这个
-    //   heldBuckets     = 持有 = 权益 + 配送中（"买了就是你的"，barrel 页与员工端都用它）
-    //   occupiedBuckets = 占用 = 权益 + over（物理在手，不含配送中）
-    // 此前第一项取的是 heldBuckets 却标成"权益"，把在途算进了权益；
-    // 配送中取的是 deliveryBuckets（含已送达的 DELIVERED 行），送达后仍会显示"配送中 N"。
-    // [2026-09-26 Wave1 轨道 B] 本页不再铺开这四个数：首页只做「水桶与押金」入口
-    //（口径明细在桶账页分真实口径展示，见 docs/design/29 §3/§7）。欠桶是必须当场看见的事，
-    // 所以只有它留在首页当提醒；**权益/占用/持有/欠 是四个不同口径，别在别处合并成"手里有几个桶"**。
-    const right = s.rightBuckets != null ? s.rightBuckets : (s.heldBuckets || 0)
-    const occupied = s.occupiedBuckets != null ? s.occupiedBuckets : right
-    const delivery = s.pendingDeliveryBuckets || 0  // 配送中：只含 PENDING
-    const storageN = s.storageBuckets || 0   // 水站暂存（over<0，合法状态）
-    const owed = s.owedBuckets || 0          // 欠桶
-    const balance = Number(s.depositBalance) || 0
-
-    const visible = right > 0 || occupied > 0 || delivery > 0 || storageN > 0 || owed > 0 || balance > 0
-    if (!visible) {
+  /** 水桶与押金入口：只展示本站已读取的信息，不由零资产推断是否需要交押金。 */
+  renderBarrelLine(s, loaded = true) {
+    // 2026-10-07：原来全零会隐藏办理入口；读取失败也不能被空对象伪装成真实零余额。
+    if (!loaded || !s || !this.data.currentStationId) {
       this.setData({ barrelVisible: false, barrelLine1: '', barrelLine2: '' })
       return
     }
-
-    let line1 = '水桶与押金'
-
+    const owed = Number(s.owedBuckets) || 0
+    const balance = Number(s.depositBalance) || 0
     const parts = []
     if (owed > 0) parts.push(`欠 ${owed} 个空桶，还清前不能退桶`)
     if (balance > 0) parts.push(`押金余额 ¥${fmtMoney(balance)}`)
-
-    this.setData({ barrelVisible: true, barrelLine1: line1, barrelLine2: parts.join(' · ') })
+    this.setData({ barrelVisible: true, barrelLine1: '水桶与押金',
+      barrelLine2: parts.join(' · ') || '查看说明与办理入口' })
   },
 
   /** 当前订单条：进行中订单（待配送1/配送中2），附商品摘要；activeCount = 进行中总张数 */
-  async renderActiveShip(order, activeCount) {
+  async renderActiveShip(order, activeCount, current = () => true) {
+    if (!current()) return
     if (!order) {
       this.setData({ activeShip: null, activeOrderCount: 0 })
       return
@@ -469,10 +526,12 @@ Page({
     // [2026-09-20] 原来 `.catch(() => null)`：明细拉不到时 sub 是空串 —— 与"这单确实没有商品明细"
     // 无法区分（状态条本身还在，只是没有商品那一行，客户看不出来是没网）。
     const detail = await getOrderDetail(order.id).catch((e) => {
+      if (!current()) return null
       console.warn('[home] 进行中订单明细加载失败:', e && (e.message || e.errMsg))
       this._noteLoadError('进行中订单的商品明细没加载出来，请下拉刷新')
       return null
     })
+    if (!current()) return
     if (detail && detail.data && detail.data.items && detail.data.items.length > 0) {
       sub = detail.data.items
         .map(it => `${it.productNameSnapshot || '桶装水'} ×${it.quantity || 0}`)
@@ -482,7 +541,8 @@ Page({
   },
 
   /** 再来一单：取最近一笔已送达/已完成订单的商品组合；「加入」直接写进步进器，不跳页 */
-  async renderAgainOrder(order, products) {
+  async renderAgainOrder(order, products, current = () => true) {
+    if (!current()) return
     if (!order) {
       this.setData({ againOrder: null })
       return
@@ -490,10 +550,12 @@ Page({
     // [2026-09-20] 原来 `.catch(() => null)`：失败与"上次那单没有商品明细"都让整张卡消失，
     // 客户会以为"再来一单"这个功能没了。失败必须说清是没加载出来。
     const detail = await getOrderDetail(order.id).catch((e) => {
+      if (!current()) return null
       console.warn('[home] 上次订单明细加载失败:', e && (e.message || e.errMsg))
       this._noteLoadError('上次订单的明细没加载出来，「再来一单」暂时用不了，请下拉刷新')
       return null
     })
+    if (!current()) return
     if (!detail || !detail.data || !detail.data.items || detail.data.items.length === 0) {
       this.setData({ againOrder: null })
       return
@@ -552,11 +614,49 @@ Page({
    * 旧实现无脑 deposit += qty × p.deposit，导致有桶权益的顾客在首页看到虚高押金，
    * 跳到下单页（走后端 quote）数字又变正确 —— 同一个购物车两个价。已在 2026-09-12 对齐。
    */
-  refreshDerived(rights, refreshQuote = true) {
+  cancelScheduledHomeQuote() {
+    if (this._homeQuoteTimer != null) clearTimeout(this._homeQuoteTimer)
+    this._homeQuoteTimer = null
+  },
+
+  invalidateHomeQuote() {
+    this.cancelScheduledHomeQuote()
+    this._homeQuoteSeq = (this._homeQuoteSeq || 0) + 1
+    this._homeQuote = null
+    this._homeQuoteContext = null
+  },
+
+  homeQuotePayload() {
+    const { currentStationId: stationId, address, products, cart } = this.data
+    const items = products.filter(p => (parseInt(cart[p.id]) || 0) > 0)
+      .map(p => ({ productId: p.id, quantity: parseInt(cart[p.id]) }))
+    return { stationId, items, addressId: address && address.id, paymentMethod: 1 }
+  },
+
+  isHomeQuoteCurrent(context) {
+    return !!context && !this._homeDestroyed && !this._homeHidden
+      && context.seq === this._homeQuoteSeq && isCurrentSession(context.session)
+      && context.key === JSON.stringify(this.homeQuotePayload())
+  },
+
+  scheduleHomeQuote(seq) {
+    const payload = this.homeQuotePayload()
+    const context = { seq, session: captureSession(), key: JSON.stringify(payload) }
+    if (!payload.stationId || !payload.items.length || !context.session.loggedIn
+      || !context.session.customerId || !this.isHomeQuoteCurrent(context)) return
+    this._homeQuoteTimer = setTimeout(() => {
+      this._homeQuoteTimer = null
+      if (this.isHomeQuoteCurrent(context)) this.refreshRightsQuote(seq)
+    }, 300)
+  },
+
+  refreshDerived(rights, refreshQuote = true, debounceQuote = false) {
     if (rights) this.setData({ barrelRights: rights })
     if (refreshQuote) {
-      this._homeQuoteSeq = (this._homeQuoteSeq || 0) + 1
+      this.invalidateHomeQuote()
+    } else if (this._homeQuote && !this.isHomeQuoteCurrent(this._homeQuoteContext)) {
       this._homeQuote = null
+      this._homeQuoteContext = null
     }
     const { products, cart } = this.data
     const heldMap = rights || this.data.barrelRights || {}
@@ -606,6 +706,7 @@ Page({
       return {
         ...p,
         qty,
+        quantityUnit: itemUnit(p),
         depositNote,
         priceText: fmtMoney(p.price),
         depositText: fmtMoney(p.deposit)
@@ -630,21 +731,25 @@ Page({
               : (deposit > 0 ? `（水款 ¥${waterText} + 押金 ¥${depositText}）` : `（水款 ¥${waterText}）`)))
       }
     })
-    if (refreshQuote) return this.refreshRightsQuote(this._homeQuoteSeq)
+    if (refreshQuote) {
+      if (debounceQuote) return this.scheduleHomeQuote(this._homeQuoteSeq)
+      return this.refreshRightsQuote(this._homeQuoteSeq)
+    }
   },
 
   /** 首页展示商品与新增押金预估；实际支付方式和配送费用在结算页核实。 */
   async refreshRightsQuote(seq) {
-    const { currentStationId: stationId, address, products, cart } = this.data
-    const items = products.filter(p => (parseInt(cart[p.id]) || 0) > 0)
-      .map(p => ({ productId: p.id, quantity: parseInt(cart[p.id]) }))
+    this.cancelScheduledHomeQuote()
+    const payload = this.homeQuotePayload()
+    const { stationId, items } = payload
     if (!stationId || !items.length) return
     const session = captureSession()
     if (!session.loggedIn || !session.customerId) return
-    const current = () => seq === this._homeQuoteSeq && stationId === this.data.currentStationId && isCurrentSession(session)
+    const context = { seq, session, key: JSON.stringify(payload) }
+    const current = () => this.isHomeQuoteCurrent(context)
+    if (!current()) return
     try {
-      const res = await getQuote({ stationId, items, addressId: address && address.id,
-        paymentMethod: 1 })
+      const res = await getQuote(payload)
       if (!current()) return
       const quote = res && res.data
       if (!res || (res.code !== undefined && ![0, 200].includes(res.code)) || !quote
@@ -660,6 +765,7 @@ Page({
         throw new Error('桶押金办理方式暂未核实')
       }
       this._homeQuote = quote
+      this._homeQuoteContext = context
       this.refreshDerived(undefined, false)
     } catch (error) {
       // 保留水款预估和“未核实”，不把查询失败解释成无需押金或全额收押金。
@@ -681,7 +787,7 @@ Page({
     againOrder.items.forEach(it => {
       const target = products.find(p => String(p.id) === String(it.productId))
       if (target) { // 已下架/非本站商品不写入，避免下出幽灵商品
-        cart[it.productId] = (parseInt(cart[it.productId]) || 0) + it.quantity
+        app.addToCart(stationId, it.productId, it.quantity)
         added += it.quantity
       }
     })
@@ -690,7 +796,7 @@ Page({
       return
     }
     this.setData({ cart })
-    this.refreshDerived()
+    this.refreshDerived(undefined, true, true)
     wx.showToast({ title: '已加入订水清单', icon: 'none' })
   },
 
@@ -746,9 +852,9 @@ Page({
     let qty = parseInt(cart[id]) || 0
     if (type === 'add') qty++
     else if (type === 'minus' && qty > 0) qty--
-    cart[id] = qty
+    app.setCartQty(stationId, id, qty)
     this.setData({ cart })
-    this.refreshDerived()
+    this.refreshDerived(undefined, true, true)
   },
 
   onSubmit() {
@@ -768,6 +874,8 @@ Page({
       })
       return
     }
+    this.invalidateHomeQuote()
+    this.refreshDerived(undefined, false)
     const items = this.collectCartItems()
     const itemsParam = items.map(it => ({ productId: it.productId, quantity: it.quantity }))
     // [2026-09-27 走查 U01 定位] **url 太长会让 wx.navigateTo 直接失败**（小程序对页面路径+

@@ -20,7 +20,7 @@ Page({
     assets: null,
     assetsError: '',
     assetsLoading: false,
-    // 流水默认只展示前若干条，点"展开全部"再放开
+    // 流水默认只展示前若干条，展开仅显示本次已取回记录
     recordsExpanded: false,
     recordsPreviewCount: 5,
     // ===== 纯还桶（只冲减 over，不扣权益、不退款） =====

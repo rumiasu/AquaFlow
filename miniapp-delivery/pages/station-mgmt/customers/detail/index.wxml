@@ -85,6 +85,7 @@
       <view class="section-title-row">
         <view class="section-title no-mb">本站资产</view>
         <text class="section-note">仅统计 {{assets.stationName || '本水站'}}</text>
+        <text class="link-btn" bindtap="onOpenAdjust">资产调整</text>
       </view>
 
       <view class="asset-loading" wx:if="{{assetsLoading}}"><text>资产加载中...</text></view>
@@ -180,6 +181,7 @@
 
           <!-- 资产流水 -->
           <view class="sub-title" wx:if="{{assets.records.length}}">资产流水</view>
+          <view class="section-note" wx:if="{{assets.records.length}}">{{assets.recordsTruncated ? '仅展示最近 ' + assets.recordsLimit + ' 条，可能还有更早流水' : '已取回 ' + assets.records.length + ' 条资产流水'}}；展开只显示本次已取回记录。购票收款记录另在「收款管理 → 购票历史」查询。</view>
           <view class="record-item"
                 wx:for="{{recordsExpanded ? assets.records : assets.recordsPreview}}"
                 wx:key="idx">
@@ -197,7 +199,7 @@
             </view>
           </view>
           <view class="record-toggle" wx:if="{{assets.hasMoreRecords}}" bindtap="onToggleRecords">
-            <text>{{recordsExpanded ? '收起' : '展开全部 ' + assets.records.length + ' 条'}}</text>
+            <text>{{recordsExpanded ? '收起' : '展开已取回 ' + assets.records.length + ' 条'}}</text>
           </view>
         </block>
       </block>

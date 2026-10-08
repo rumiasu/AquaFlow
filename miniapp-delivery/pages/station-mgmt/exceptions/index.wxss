@@ -2,7 +2,7 @@
   min-height: 100vh;
   padding: 24rpx;
   box-sizing: border-box;
-  background: #f5f6f8;
+  background: var(--bg-gray);
 }
 
 /* ===== 页签 ===== */
@@ -20,8 +20,8 @@
   border-radius: 999rpx;
   background: #ffffff;
   font-size: 27rpx;
-  color: #4e5969;
-  border: 1rpx solid #e5e6eb;
+  color: var(--text-regular);
+  border: 1rpx solid var(--bg-gray);
 }
 
 .tab-on {
@@ -39,7 +39,7 @@
   text-align: center;
   padding: 0 8rpx;
   border-radius: 999rpx;
-  background: #d4380d;
+  background: var(--error-color);
   color: #ffffff;
   font-size: 20rpx;
 }
@@ -60,14 +60,14 @@
 .card-title {
   font-size: 30rpx;
   font-weight: 600;
-  color: #1f2329;
+  color: var(--text-primary);
 }
 
 .filter {
   font-size: 24rpx;
-  color: #4e5969;
+  color: var(--text-regular);
   padding: 6rpx 18rpx;
-  background: #f2f3f5;
+  background: var(--bg-gray);
   border-radius: 999rpx;
 }
 
@@ -78,7 +78,7 @@
 
 .empty {
   font-size: 26rpx;
-  color: #a3a8b0;
+  color: var(--text-secondary);
   padding: 30rpx 0;
   text-align: center;
 }
@@ -87,7 +87,7 @@
   display: block;
   margin-top: 10rpx;
   font-size: 22rpx;
-  color: #c0c4cc;
+  color: var(--text-placeholder);
 }
 
 /* ===== 统计 ===== */
@@ -106,18 +106,18 @@
 .stats-value {
   font-size: 40rpx;
   font-weight: 600;
-  color: #1f2329;
+  color: var(--text-primary);
 }
 
 .stats-label {
   font-size: 22rpx;
-  color: #8a9099;
+  color: var(--text-secondary);
   margin-top: 6rpx;
 }
 
 .stats-note {
   font-size: 22rpx;
-  color: #a3a8b0;
+  color: var(--text-secondary);
   line-height: 1.5;
   margin-top: 16rpx;
 }
@@ -125,7 +125,7 @@
 /* ===== 异常单 ===== */
 .ex {
   padding: 20rpx 0;
-  border-bottom: 1rpx solid #f0f2f5;
+  border-bottom: 1rpx solid var(--bg-gray);
 }
 
 .ex:last-child {
@@ -133,7 +133,7 @@
 }
 
 .ex-pending {
-  background: #fff7f5;
+  background: var(--error-bg);
   margin: 0 -24rpx;
   padding: 20rpx 24rpx;
 }
@@ -146,26 +146,26 @@
 
 .ex-tag {
   font-size: 22rpx;
-  color: #4e5969;
-  background: #f2f3f5;
+  color: var(--text-regular);
+  background: var(--bg-gray);
   padding: 4rpx 14rpx;
   border-radius: 999rpx;
 }
 
 .ex-tag-pending {
   color: #ffffff;
-  background: #d4380d;
+  background: var(--error-color);
 }
 
 .ex-cat {
   font-size: 24rpx;
-  color: #1f2329;
+  color: var(--text-primary);
   margin-left: 14rpx;
 }
 
 .ex-id {
   font-size: 22rpx;
-  color: #a3a8b0;
+  color: var(--text-secondary);
   margin-left: auto;
 }
 
@@ -177,34 +177,34 @@
 .ex-label {
   width: 120rpx;
   font-size: 24rpx;
-  color: #8a9099;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
 .ex-value {
   flex: 1;
   font-size: 24rpx;
-  color: #1f2329;
+  color: var(--text-primary);
   word-break: break-all;
 }
 
 .ex-time {
   display: block;
   font-size: 22rpx;
-  color: #a3a8b0;
+  color: var(--text-secondary);
   margin-top: 10rpx;
 }
 
 .load-hint {
   font-size: 22rpx;
-  color: #a3a8b0;
+  color: var(--text-secondary);
   text-align: center;
   padding-top: 16rpx;
 }
 
 .page-note {
   font-size: 22rpx;
-  color: #8a9099;
+  color: var(--text-secondary);
   line-height: 1.6;
   padding: 0 8rpx 40rpx;
 }
@@ -226,8 +226,8 @@
   border-radius: 999rpx;
   background: #ffffff;
   font-size: 25rpx;
-  color: #4e5969;
-  border: 1rpx solid #e5e6eb;
+  color: var(--text-regular);
+  border: 1rpx solid var(--bg-gray);
 }
 
 .filter-item.active {
@@ -239,7 +239,7 @@
 
 .filter-num {
   font-size: 22rpx;
-  color: #a3a8b0;
+  color: var(--text-secondary);
 }
 
 .filter-item.active .filter-num {
@@ -253,7 +253,7 @@
   padding: 18rpx 20rpx;
   margin-bottom: 20rpx;
   font-size: 22rpx;
-  color: #8a9099;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
@@ -279,30 +279,30 @@
 }
 
 .level.level-error {
-  background: #fce4ec;
-  color: #d32f2f;
+  background: var(--error-bg);
+  color: var(--error-color);
 }
 
 .level.level-warn {
-  background: #fff3e0;
-  color: #f57c00;
+  background: var(--warning-bg);
+  color: var(--warning-color);
 }
 
 .level.level-info {
-  background: #e3f2fd;
-  color: #1976d2;
+  background: var(--primary-bg);
+  color: var(--primary-color);
 }
 
 .time {
   font-size: 22rpx;
-  color: #c0c4cc;
+  color: var(--text-placeholder);
 }
 
 .title {
   display: block;
   font-size: 28rpx;
   font-weight: 600;
-  color: #1f2329;
+  color: var(--text-primary);
   line-height: 1.5;
   margin-bottom: 8rpx;
 }
@@ -310,7 +310,7 @@
 .content {
   display: block;
   font-size: 25rpx;
-  color: #666666;
+  color: var(--text-regular);
   line-height: 1.6;
   word-break: break-all;
 }
@@ -324,14 +324,14 @@
 
 .foot-item {
   font-size: 22rpx;
-  color: #8a9099;
+  color: var(--text-secondary);
 }
 
 .notify {
   display: block;
   margin-top: 10rpx;
   font-size: 22rpx;
-  color: #c0c4cc;
+  color: var(--text-placeholder);
 }
 
 /* 处置入口按钮（2026-09-20 开放 A1）：只两个动作，且没有金额输入框的样式可言 ——
@@ -353,7 +353,7 @@
 }
 
 .ex-btn-ghost {
-  color: #475569;
+  color: var(--text-regular);
   border: 1rpx solid rgba(71, 85, 105, 0.35);
 }
 

@@ -342,7 +342,9 @@ Page({
   },
 
   onOpenTicketPackages() {
-    wx.navigateTo({ url: '/pages/station-mgmt/ticket-packages/index' })
+    // 2026-10-06：从商品设置进入曾丢失当前商品，必须沿用这一份设置上下文。
+    const id = this.data.setting && this.data.setting.id
+    wx.navigateTo({ url: '/pages/station-mgmt/ticket-packages/index' + (id ? '?productId=' + encodeURIComponent(id) : '') })
   },
 
   /** 把档位行落库：有价的新增/改价走 upsert；被清空价格或被标记删除的走 DELETE。 */

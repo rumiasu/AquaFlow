@@ -45,7 +45,7 @@
 .customer-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
 .days { font-size: 24rpx; color: var(--text-secondary); }
 /* 已达催收线（后端判定的 ≥7 天）标红；只提示，不影响任何操作 */
-.days.urgent { color: #d32f2f; font-weight: 600; }
+.days.urgent { color: var(--error-color); font-weight: 600; }
 
 .info-row {
   font-size: 26rpx;
@@ -60,13 +60,13 @@
    所以只给这一行顶对齐（**不要**改 .info-row 的基线，那会连累下面的电话/日期行）。 */
 .info-row.product-row { align-items: flex-start; }
 .info-row .product { flex: 1; min-width: 0; word-break: break-all; }
-.info-row .qty { color: #d32f2f; font-weight: 600; margin-left: 16rpx; flex-shrink: 0; margin-top: 2rpx; }
+.info-row .qty { color: var(--error-color); font-weight: 600; margin-left: 16rpx; flex-shrink: 0; margin-top: 2rpx; }
 
 .empty { text-align: center; padding: 120rpx 0; font-size: 28rpx; color: var(--text-secondary); }
 .empty-hint { display: block; margin-top: 12rpx; font-size: 24rpx; color: var(--text-placeholder); }
 
 /* 2026-10-02：失败状态常驻，刷新失败时旧记录不能冒充本次结果。 */
 .page-state { margin: 24rpx; padding: 28rpx; background: #fff; border-radius: 16rpx; text-align: center; }
-.page-state-text { display: block; font-size: 28rpx; color: #666; line-height: 1.6; }
-.page-state-error { color: #b33b32; }
+.page-state-text { display: block; font-size: 28rpx; color: var(--text-regular); line-height: 1.6; }
+.page-state-error { color: var(--error-color); }
 .page-state-retry { margin-top: 20rpx; font-size: 28rpx; color: #fff; background: var(--primary-color); }

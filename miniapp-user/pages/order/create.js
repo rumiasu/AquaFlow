@@ -138,6 +138,11 @@ Page({
     // 首次资产业务确认弹窗（契约 A2：**建单之前**弹，取消 = 零请求）
     showAssetConfirm: false,
     assetConfirmed: false,
+    // [2026-10-06] 资产说明常驻折叠条状态（替代原弹窗）
+    assetBarExpanded: true,
+    // [2026-10-06] 综合确认弹窗（合并缺货/线下支付/配送中桶提醒）
+    showUnifiedConfirm: false,
+    unifiedConfirmType: '', // 'shortage' | 'offline' | 'inTransit' | 'mixed'
     // 客户是否在水桶与押金说明里勾了"我已阅读并了解"（说明弹窗里的那个 ☐）。
     // 它是「确认下单」的前置：未勾选时按钮是灰的、点了会给提示（见 onAssetConfirmOk）。
     assetReadAgreed: false,
@@ -264,6 +269,12 @@ Page({
       })
       storage.remove('selectedAddress')
     }
+  },
+
+  onUnload() {
+    this._quoteDestroyed = true
+    this.cancelScheduledQuote()
+    this._quoteRequestSeq = (this._quoteRequestSeq || 0) + 1
   },
 
   /**
@@ -590,7 +601,7 @@ this.setData({ products, stationName: effectiveStationName })
     const items = products.map(p => ({ productId: p.id, quantity: p.quantity || 1 }))
     this.setData({ products, items })
     this.syncBarrelSummary()
-    this.refreshQuote()
+    this.scheduleQuote()
   },
 
   onQtyInput(e) {
@@ -603,7 +614,7 @@ this.setData({ products, stationName: effectiveStationName })
     const items = products.map(p => ({ productId: p.id, quantity: p.quantity || 1 }))
     this.setData({ products, items })
     this.syncBarrelSummary()
-    this.refreshQuote()
+    this.scheduleQuote()
   },
 
   onNoteInput(e) {
@@ -624,13 +635,43 @@ this.setData({ products, stationName: effectiveStationName })
     return total.toFixed(2)
   },
 
-  async refreshQuote() {
-    const { products, selectedMethod, stationId, barrelSummary, address } = this.data
+  cancelScheduledQuote() {
+    if (this._quoteTimer != null) clearTimeout(this._quoteTimer)
+    this._quoteTimer = null
+  },
+
+  invalidateQuote() {
     const seq = this._quoteRequestSeq = (this._quoteRequestSeq || 0) + 1
-    const session = captureSession()
-    const current = () => seq === this._quoteRequestSeq && isCurrentSession(session)
     this.setData({ quoteLoading: true, quoteReady: false, quoteError: '', blocked: true, checkoutWarnings: [],
       blockReason: '正在核实最新报价，请稍候', payMethods: [], wechatPay: null, missingRights: [], barrelPurchases: [], barrelPurchaseConfirmed: false })
+    return seq
+  },
+
+  scheduleQuote() {
+    if (this._quoteDestroyed) return
+    this.cancelScheduledQuote()
+    // 先失效旧金额与在途结果，再等待连续编辑结束，等待期间绝不允许提交。
+    const seq = this.invalidateQuote()
+    const session = captureSession()
+    this._quoteTimer = setTimeout(() => {
+      this._quoteTimer = null
+      if (this._quoteDestroyed || seq !== this._quoteRequestSeq) return
+      if (!isCurrentSession(session)) {
+        this.setData({ quoteLoading: false, quoteError: '登录状态已变化，请重新核实报价' })
+        return
+      }
+      this.refreshQuote()
+    }, 300)
+  },
+
+  async refreshQuote() {
+    this.cancelScheduledQuote()
+    if (this._quoteDestroyed) return false
+    const agreedKey = this.data.assetReadAgreed ? this._assetAgreementKey : null
+    const { products, selectedMethod, stationId, barrelSummary, address } = this.data
+    const seq = this.invalidateQuote()
+    const session = captureSession()
+    const current = () => !this._quoteDestroyed && seq === this._quoteRequestSeq && isCurrentSession(session)
 
     try {
       if (!session.loggedIn || !session.customerId) throw new Error('请先登录后重新报价')
@@ -824,6 +865,8 @@ this.setData({ products, stationName: effectiveStationName })
         }
 
         this.setData(updates)
+        // 水票提交会再核价；同意的是同一份须知时保留勾选，金额/意图变化才要求重读。
+        if (agreedKey && agreedKey === this._assetNoticeKey()) this.setData({ assetReadAgreed: true })
         // "已下单"态跟着这次报价重算：客户改了数量/地址/支付方式 ⇒ 指纹变了 ⇒ 提示行与按钮文案
         // 自动回到常态「立即下单」，**不需要**在每个改内容的入口手动清状态。
         this._syncPendingOrderState()
@@ -961,11 +1004,12 @@ this.setData({ products, stationName: effectiveStationName })
       return
     }
 
-    // 2 = PayMethod.CASH（货到付款）：需先弹窗确认"送达后付款"
-    if (selectedMethod === 2 && !this.data.showOfflineConfirm) {
-      this.setData({ showOfflineConfirm: true })
-      return
-    }
+    // 2 = PayMethod.CASH（货到付款）：综合确认弹窗里包含线下支付提醒
+    // [2026-10-06] 已合并到下方综合确认弹窗，不再单独弹出
+    // if (selectedMethod === 2 && !this.data.showOfflineConfirm) {
+    //   this.setData({ showOfflineConfirm: true })
+    //   return
+    // }
 
     // [2026-09-19] 水票不足就地拦住（产品口径：「点击水票后优先水票支付，但经校验后
     // 发现水票不足以覆盖该订单时…」——校验点就在这里，而不是等支付时报"余额不足"）。
@@ -1011,8 +1055,29 @@ this.setData({ products, stationName: effectiveStationName })
     }
 
     // 配送中桶提醒：有水桶正在配送中，且本次下单会产生额外桶押金时，先友好提示
-    if (this.data.hasInTransitBarrels && this.data.extraDepositBuckets > 0 && !this.data.inTransitReminderAck) {
-      this.setData({ showInTransitReminder: true, inTransitReminderAck: true })
+    // [2026-10-06] 已合并到综合确认弹窗，不再单独弹出
+    // if (this.data.hasInTransitBarrels && this.data.extraDepositBuckets > 0 && !this.data.inTransitReminderAck) {
+    //   this.setData({ showInTransitReminder: true, inTransitReminderAck: true })
+    //   return
+    // }
+
+    // 2026-10-06：统一确认曾直达建单，绕过首次须知与失效报价；两个入口共用最终闸门。
+    if (!this._finalSubmissionAllowed()) return
+    // [2026-10-06] 综合确认弹窗：合并缺货/线下支付/配送中桶提醒
+    const needShortageConfirm = this.data.shortageItems && this.data.shortageItems.length > 0
+    const needOfflineConfirm = this.data.selectedMethod === 2
+    const needInTransitReminder = this.data.hasInTransitBarrels && this.data.extraDepositBuckets > 0 && !this.data.inTransitReminderAck
+    if (needShortageConfirm || needOfflineConfirm || needInTransitReminder) {
+      let confirmType = ''
+      if (needShortageConfirm) confirmType = 'shortage'
+      else if (needOfflineConfirm) confirmType = 'offline'
+      else if (needInTransitReminder) confirmType = 'inTransit'
+      this.setData({
+        showUnifiedConfirm: true,
+        unifiedConfirmType: confirmType
+        // 注意：inTransitReminderAck 不在打开弹窗时标记，只在用户真正点击"确认下单"时才记录
+      })
+      this._unifiedConfirmation = this._captureConfirmation()
       return
     }
 
@@ -1020,14 +1085,27 @@ this.setData({ products, stationName: effectiveStationName })
       this.confirmBarrelPurchase(); return
     }
     // ===== 建单之前必须做完的确认（契约 A2）=====
-    // 首次资产/押金告知原来在**建单之后**弹：客户点"取消"时订单已经存在，只能提示他
-    // "订单已创建，可在我的订单里取消"。现在改到这里 —— 取消 = 一个写请求都不发。
+    // [2026-10-06] 首次资产/押金告知改为页面内常驻折叠条，不再弹窗阻断。
+    // 客户仍可展开阅读、勾选确认，只是不再强制弹窗。
     // 判据来自 /api/payments/quote 的 firstStationAsset（与下单侧同一个 AssetService），
     // 前端不另写资产规则。
+    // ⚠️ 综合确认弹窗的"确认下单"按钮也会走这里，不能绕过 assetReadAgreed 检查。
     if (this.data.firstStationAsset === true && !this.data.assetConfirmed) {
-      // 弹之前先把勾选清掉：这条路径可能被重复走到（下单失败重试、客户点「返回修改」后再提交），
-      // 留着上次的勾选等于"新的一次确认不需要读说明" —— 那是装饰性勾选框，不是确认。
-      this.setData({ showAssetConfirm: true, assetReadAgreed: false })
+      // 检查是否已勾选
+      if (!this.data.assetReadAgreed) {
+        wx.showToast({ title: '请先阅读并勾选首次下单须知', icon: 'none' })
+        // 自动展开折叠条
+        this.setData({ assetBarExpanded: true })
+        return
+      }
+      // 已勾选则标记确认，继续流程
+      this.setData({ assetConfirmed: true })
+    }
+
+    // ===== 提交前最终校验：报价是否仍然有效 =====
+    // [2026-10-06] 综合确认弹窗"确认"后，重新检查报价新鲜度，防止过期报价被提交
+    if (!this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
+      wx.showToast({ title: '请先核实最新报价', icon: 'none' })
       return
     }
 
@@ -1035,7 +1113,7 @@ this.setData({ products, stationName: effectiveStationName })
   },
 
   /** 同次付款仍分项记账；占用中的旧容量可等待，不静默多收一份押金。 */
-  confirmBarrelPurchase() {
+  confirmBarrelPurchase(continueSubmission) {
     const session = captureSession(), seq = this._quoteRequestSeq
     const lines = this.data.barrelPurchases || []
     const busy = lines.some(l => Number(l.busyRights) > 0)
@@ -1045,7 +1123,9 @@ this.setData({ products, stationName: effectiveStationName })
       confirmText: '一起付款', cancelText: busy ? '等待释放' : '返回修改',
       success: result => {
         if (!result.confirm || seq !== this._quoteRequestSeq || !isCurrentSession(session) || !this.data.quoteReady || this.data.blocked) return
-        this.setData({ barrelPurchaseConfirmed: true }); this.onSubmit()
+        this.setData({ barrelPurchaseConfirmed: true })
+        if (continueSubmission) continueSubmission()
+        else this.onSubmit()
       }
     })
   },
@@ -1186,6 +1266,7 @@ this.setData({ products, stationName: effectiveStationName })
       showOfflineConfirm: false,
       showAssetConfirm: false,
       showShortageConfirm: false,
+      showUnifiedConfirm: false,
       idempotencyKey
     })
 
@@ -1284,7 +1365,8 @@ this.setData({ products, stationName: effectiveStationName })
     }
   },
 
-  /** 缺货确认弹窗（契约 A1）：说清"哪些商品、要多少、现在有多少、等货的含义"。 */
+  /** 缺货确认弹窗（契约 A1）：说清"哪些商品、要多少、现在有多少、等货的含义"。
+      [2026-10-06] 已合并到综合确认弹窗，不再单独弹出。 */
   _showShortageConfirm(shortages) {
     const list = Array.isArray(shortages) ? shortages : []
     const lines = list.map(s => {
@@ -1293,27 +1375,34 @@ this.setData({ products, stationName: effectiveStationName })
       const stock = s.stock == null ? '当前缺货' : `现有 ${s.stock} 桶`
       return `${name}：${need}${need && stock ? '，' : ''}${stock}`
     })
+    // 改为触发综合确认弹窗
     this.setData({
-      showShortageConfirm: true,
+      showUnifiedConfirm: true,
+      unifiedConfirmType: 'shortage',
       shortageItems: list,
       shortageText: lines.join('\n') || '部分商品当前库存不足',
       submitting: false,
       submitState: 'idle'
     })
+    this._unifiedConfirmation = this._captureConfirmation()
   },
 
-  /** 缺货后"返回调整"：关掉弹窗，页面仍可编辑；**没有建单、没有付款**（契约 A1）。 */
+  /** 缺货后"返回调整"：关掉弹窗，页面仍可编辑；**没有建单、没有付款**（契约 A1）。
+      [2026-10-06] 保留方法备用，实际由综合确认弹窗的 onUnifiedConfirmCancel 处理。 */
   onShortageBack() {
-    this.setData({ showShortageConfirm: false })
+    this._unifiedConfirmation = null
+    this.setData({ showShortageConfirm: false, showUnifiedConfirm: false })
     wx.showToast({ title: '已返回，可调整数量或换个商品', icon: 'none' })
   },
 
-  /** 缺货后"同意等待安排"：同一幂等键 + confirmShortage=true 重提（只可能产生一张单）。 */
+  /** 缺货后"同意等待安排"：同一幂等键 + confirmShortage=true 重提（只可能产生一张单）。
+      [2026-10-06] 保留方法备用，实际由综合确认弹窗的 onUnifiedConfirmOk 处理。 */
   onShortageAgree() {
+    if (this.data.showUnifiedConfirm) return this.onUnifiedConfirmOk()
     if (!this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
       wx.showToast({ title: '请先核实最新报价', icon: 'none' }); return
     }
-    this.setData({ showShortageConfirm: false })
+    this.setData({ showShortageConfirm: false, showUnifiedConfirm: false })
     this._createOrder(true)
   },
 
@@ -1474,12 +1563,14 @@ this.setData({ products, stationName: effectiveStationName })
 
   // ===== 首次资产业务确认弹窗（契约 A2：**建单之前**）=====
   // 原来的"取消"发生在建单之后，只能告诉客户"订单已创建"；现在取消 = 一个写请求都不发。
+  // [2026-10-06] 弹窗已废弃，改为页面内常驻折叠条，保留方法备用。
   onAssetConfirmCancel() {
     this.setData({ showAssetConfirm: false, assetConfirmed: false })
     wx.showToast({ title: '没有提交订单，可以继续修改', icon: 'none' })
   },
 
   onAssetConfirmOk() {
+    if (!this._finalSubmissionAllowed()) return
     if (!this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
       wx.showToast({ title: '请先核实最新报价', icon: 'none' }); return
     }
@@ -1504,6 +1595,80 @@ this.setData({ products, stationName: effectiveStationName })
     // 客户点了"确认下单"才建单（顺序就是契约要的那一条）
     this.setData({ assetConfirmed: true, showAssetConfirm: false })
     this._createOrder(false)
+  },
+
+  // ===== [2026-10-06] 资产说明常驻折叠条 =====
+  onToggleAssetBar() {
+    this.setData({ assetBarExpanded: !this.data.assetBarExpanded })
+  },
+
+  // ===== [2026-10-06] 综合确认弹窗 =====
+  onUnifiedConfirmCancel() {
+    this._unifiedConfirmation = null
+    this.setData({ showUnifiedConfirm: false })
+    wx.showToast({ title: '没有提交订单，可以继续修改', icon: 'none' })
+  },
+
+  _confirmationKey() {
+    return JSON.stringify({ intent: this._currentIntent(), note: this.data.note,
+      quoteSeq: this._quoteRequestSeq || 0, totalAmount: this.data.totalAmount,
+      totalDeposit: this.data.totalDeposit, barrelPurchases: this.data.barrelPurchases,
+      shortageItems: this.data.shortageItems })
+  },
+
+  _assetNoticeKey() {
+    return JSON.stringify({ intent: this._currentIntent(), total: this.data.totalAmount,
+      deposit: this.data.totalDeposit, extra: this.data.extraDepositAmount,
+      purchases: this.data.barrelPurchases, notice: this.data.assetNotice })
+  },
+
+  _captureConfirmation() {
+    return { key: this._confirmationKey(), session: captureSession(),
+      shortage: this.data.unifiedConfirmType === 'shortage',
+      inTransit: this.data.hasInTransitBarrels && this.data.extraDepositBuckets > 0 }
+  },
+
+  _finalSubmissionAllowed() {
+    if (!this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
+      wx.showToast({ title: '请先核实最新报价', icon: 'none' }); return false
+    }
+    if (!this.data.address || !(this.data.products || []).length) {
+      wx.showToast({ title: '请先确认地址和商品', icon: 'none' }); return false
+    }
+    if (this.data.firstStationAsset === true && !this.data.assetReadAgreed) {
+      this.setData({ assetBarExpanded: true })
+      wx.showToast({ title: '请先阅读并勾选首次下单须知', icon: 'none' }); return false
+    }
+    return true
+  },
+
+  async _finishConfirmedOrder(proof) {
+    if (this.data.submitting || !proof || !isCurrentSession(proof.session)) return
+    if (proof.key !== this._confirmationKey() || !this._finalSubmissionAllowed()) return
+    this.setData({ assetConfirmed: this.data.firstStationAsset === true ? true : this.data.assetConfirmed,
+      inTransitReminderAck: proof.inTransit ? true : this.data.inTransitReminderAck })
+    return this._createOrder(proof.shortage)
+  },
+
+  async onUnifiedConfirmOk() {
+    if (this.data.submitting || this._confirmingUnified || !this.data.showUnifiedConfirm) return
+    const proof = this._unifiedConfirmation
+    this._unifiedConfirmation = null
+    this.setData({ showUnifiedConfirm: false })
+    if (!proof || !isCurrentSession(proof.session)) return
+    if (proof.key !== this._confirmationKey() || !this.data.quoteReady || this.data.quoteError || this.data.quoteLoading) {
+      this._confirmingUnified = true
+      try {
+        await this.refreshQuote()
+        wx.showToast({ title: '报价已重新核实，请再次确认', icon: 'none' })
+      } finally { this._confirmingUnified = false }
+      return
+    }
+    if (!this._finalSubmissionAllowed()) return
+    if ((this.data.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) {
+      this.confirmBarrelPurchase(() => this._finishConfirmedOrder(proof)); return
+    }
+    return this._finishConfirmedOrder(proof)
   },
 
   // ===== 企业身份申请（v50）=====
@@ -1605,6 +1770,7 @@ this.setData({ products, stationName: effectiveStationName })
    */
   onAssetReadAgree() {
     this.setData({ assetReadAgreed: !this.data.assetReadAgreed })
+    this._assetAgreementKey = this.data.assetReadAgreed ? this._assetNoticeKey() : null
   },
 
   onAssetDetailClose() {

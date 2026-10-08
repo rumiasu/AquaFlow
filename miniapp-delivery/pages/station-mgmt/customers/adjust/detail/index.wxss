@@ -14,9 +14,9 @@
 
 /* 状态色：文案用后端下发的 statusText，这里只管配色 */
 .status { font-size: 22rpx; padding: 6rpx 16rpx; border-radius: 8rpx; flex-shrink: 0; }
-.status.pending { background: #fff3e0; color: #f57c00; }
-.status.effective { background: #e8f5e9; color: #4caf50; }
-.status.muted { background: #f4f4f5; color: #909399; }
+.status.pending { background: var(--warning-bg); color: var(--warning-color); }
+.status.effective { background: var(--success-bg); color: var(--success-color); }
+.status.muted { background: var(--bg-gray); color: var(--text-secondary); }
 
 .card-title {
   font-size: 28rpx;

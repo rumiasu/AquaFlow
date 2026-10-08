@@ -125,6 +125,7 @@ function scriptContext(file, env, argv) {
         spawn() { throw new Error('Java launch forbidden in this suite') }
       }
       if (name === './lib/scratch-database') return require('../../scripts/lib/scratch-database')
+      if (name === './lib/backup-runner') return require('../../scripts/lib/backup-runner')
       return require(name)
     }
   }
@@ -174,23 +175,15 @@ for (const [file, argv] of [['prod-startup-check.js', []], ['backup-restore-dril
     assert.strictEqual(drops, 0)
   })
 }
-// Real restore orchestration with fake backup/verification/SQL; bad verification keeps the target.
-for (const failVerify of [false, true]) {
-  const name = 'aquaflow_restoredrill_s1'
-  const input = scriptContext('backup-restore-drill.js', { AQUAFLOW_DRILL_DB: name, AQUAFLOW_ALLOW_DB_RESET: name }, ['drill'])
-  const source = fs.readFileSync(path.join(ROOT, 'scripts/backup-restore-drill.js'), 'utf8').split('const argv = process.argv.slice(2)')[0]
-  const sqlCalls = []
-  input.context.sqlCalls = sqlCalls
-  input.context.failVerify = failVerify
-  vm.runInContext(source + `\ndoBackup=()=>'/fake/backup.sql'; doVerify=()=>{failures=failVerify?1:0};
-    sql=(db,query)=>{sqlCalls.push(query);return []}; runShell=()=>({status:0,lines:[]}); module.exports={doDrill,doCleanup};`, input.context)
-  check(() => {
-    if (failVerify) assert.throws(() => input.context.module.exports.doDrill(), /EXIT 1/)
-    else input.context.module.exports.doDrill()
-    assert.strictEqual(sqlCalls.filter(q => q.startsWith('DROP')).length, failVerify ? 1 : 2)
-    assert(sqlCalls.every(q => q.includes('`' + name + '`')))
-  })
-  check(() => { delete input.context.process.env.AQUAFLOW_ALLOW_DB_RESET; assert.throws(() => input.context.module.exports.doCleanup()); assert.strictEqual(sqlCalls.length, failVerify ? 2 : 3) })
+// Backup no longer has a deletion command or credential-reading help path.
+// Full success/failure restore orchestration is exercised with binary FD stubs in backup-safety.test.js.
+for (const argv of [['cleanup'], ['backup', '--keep', '1'], ['drill']]) {
+  const input = scriptContext('backup-restore-drill.js', {}, argv)
+  check(() => { assert.throws(() => vm.runInContext(fs.readFileSync(path.join(ROOT, 'scripts/backup-restore-drill.js'), 'utf8'), input.context)); assert.equal(input.calls.length, 0); assert.equal(input.localRead.length, 0) })
+}
+{
+  const input = scriptContext('backup-restore-drill.js', {}, ['help'])
+  check(() => { vm.runInContext(fs.readFileSync(path.join(ROOT, 'scripts/backup-restore-drill.js'), 'utf8'), input.context); assert.equal(input.calls.length, 0); assert.equal(input.localRead.length, 0) })
 }
 // Bash entry uses the SAME guard before mysql discovery and again immediately before DROP.
 {

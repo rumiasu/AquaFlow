@@ -34,9 +34,7 @@
         <view class="name-row">
           <text class="customer-name">{{item.name}}</text>
           <text class="badge type">{{item.customerTypeText}}</text>
-          <text class="badge level" style="background:{{item.customerLevelColor}}">{{item.customerLevel}}</text>
           <text class="badge act-{{item.activityStatus}}">{{item.activityText}}</text>
-          <text class="badge cod" wx:if="{{item.codEnabled}}">货到付款</text>
         </view>
         <text class="customer-phone" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}">{{item.phoneMasked}} ›</text>
         <text class="customer-phone muted" wx:else>未填写电话</text>
@@ -47,8 +45,6 @@
         <view class="stat-row">
           <view class="stat"><text class="stat-val">{{item.totalOrders}}</text><text class="stat-label">订单</text></view>
           <view class="stat"><text class="stat-val">¥{{item.totalConsumptionText}}</text><text class="stat-label">累计消费</text></view>
-          <view class="stat"><text class="stat-val">¥{{item.depositBalanceText}}</text><text class="stat-label">押金</text></view>
-          <view class="stat"><text class="stat-val">{{item.firstOrderTimeText}}</text><text class="stat-label">首单</text></view>
         </view>
 
         <view class="tags" wx:if="{{item.tagsList.length}}">
@@ -59,7 +55,7 @@
         <view class="manage-btn" data-id="{{item.id}}" bindtap="onManage"><text>详情</text></view>
         <!-- 货到付款的开关与约束（v48）：站长在这里开通；v49 已撤回「首单是否放行 / 单笔上限」 -->
         <view class="cod-btn" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onCod"><text>货到付款</text></view>
-        <view class="call-btn" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall"><text>致电</text></view>
+        <view class="call-link" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall"><text>致电</text></view>
       </view>
     </view>
     <view class="empty" wx:if="{{list.length === 0}}"><text>未找到客户</text></view>

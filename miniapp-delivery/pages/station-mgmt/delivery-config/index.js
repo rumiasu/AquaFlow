@@ -3,6 +3,13 @@
 // 路径常量也写在本文件里，同样是为了避开共享的 config/api.js。
 const { get, put } = require('../../../utils/request')
 
+// Login generation and identity isolate reads; token rotation during renewal remains the same login.
+function staffSession() {
+  const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+  return { app, generation: app._loginGeneration || 0,
+    key: JSON.stringify([!!g.accessToken, g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+}
+
 const DELIVERY_CONFIG_PATH = '/api/manager/delivery-config'
 const SETUP_GUIDE_PATH = '/api/manager/setup-guide'
 
@@ -77,13 +84,52 @@ Page({
   },
 
   onShow() {
+    return this.reload()
+  },
+
+  reload() {
+    if (this._unloaded) return
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
+      this._configVersion = (this._configVersion || 0) + 1
+      this._setupVersion = (this._setupVersion || 0) + 1
       app.routeByRole(true)
       return
     }
-    this.load()
-    this.loadSetup()
+    return Promise.all([this.load(), this.loadSetup()])
+  },
+
+  async onPullDownRefresh() {
+    const version = this._pullVersion = (this._pullVersion || 0) + 1
+    this._pullRefreshing = true
+    try { await this.reload() } finally {
+      if (version === this._pullVersion) {
+        this._pullRefreshing = false
+        wx.stopPullDownRefresh()
+      }
+    }
+  },
+
+  onUnload() {
+    this._unloaded = true
+    this._configVersion = (this._configVersion || 0) + 1
+    this._setupVersion = (this._setupVersion || 0) + 1
+    this._pullVersion = (this._pullVersion || 0) + 1
+    if (this._pullRefreshing) {
+      this._pullRefreshing = false
+      wx.stopPullDownRefresh()
+    }
+  },
+
+  captureLoad(kind) {
+    return { ...staffSession(), version: this[kind] = (this[kind] || 0) + 1 }
+  },
+
+  isLoadCurrent(kind, context) {
+    const current = staffSession()
+    return !this._unloaded && context.version === this[kind]
+      && context.app === current.app && context.generation === current.generation
+      && context.key === current.key && current.app.canAccessStationBusiness()
   },
 
   /**
@@ -93,8 +139,11 @@ Page({
    * 把整个配送计费页变成错误页（同客户列表页对待"待审列表"的口径）。
    */
   async loadSetup() {
+    if (this._unloaded) return
+    const context = this.captureLoad('_setupVersion')
     try {
       const res = await getSetupGuide()
+      if (!this.isLoadCurrent('_setupVersion', context)) return
       const d = (res && res.data) || {}
       const items = Array.isArray(d.items) ? d.items : []
       // 待填项每条要显示的两段说明，**在这里拼好**（`helpText`）——
@@ -127,16 +176,20 @@ Page({
         setupPending: pending
       })
     } catch (err) {
-      console.warn('[DeliveryConfig] 完善度清单获取失败（当作没有）:', err.message)
+      if (!this.isLoadCurrent('_setupVersion', context)) return
+      console.warn('[DeliveryConfig] 完善度清单获取失败（当作没有）:', err && err.message)
       // 拉不到就**不显示**那句"没选点"：宁可不提醒，也不要凭空断言"你没选点"（说错了更糟）
       this.setData({ rangeHelpText: '按站点坐标到收货地址的直线距离判断。', setup: { items: [], summaryText: '', p0PendingCount: 0, doneCount: 0, totalCount: 0 }, setupPending: [] })
     }
   },
 
   async load() {
+    if (this._unloaded) return
+    const context = this.captureLoad('_configVersion')
     this.setData({ loading: true })
     try {
       const res = await getDeliveryConfig()
+      if (!this.isLoadCurrent('_configVersion', context)) return
       const d = res.data || {}
       const c = d.config || {}
       // 后端把 null 原样下发（表示"不限/不收"），这里统一转成 '' 便于输入框编辑
@@ -171,9 +224,9 @@ Page({
         guideText: this.describeGuide(guide)
       })
     } catch (err) {
-      wx.showToast({ title: err.message || '配置加载失败', icon: 'none' })
+      if (this.isLoadCurrent('_configVersion', context)) wx.showToast({ title: (err && err.message) || '配置加载失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (this.isLoadCurrent('_configVersion', context)) this.setData({ loading: false })
     }
   },
 

@@ -30,8 +30,8 @@
   border-radius: 8rpx;
   padding: 6rpx 14rpx;
 }
-.badge-on { background: #e8f7ee; color: #1a7f45; }
-.badge-warn { background: #fff7e6; color: #b26a00; }
+.badge-on { background: var(--success-bg); color: var(--success-color); }
+.badge-warn { background: var(--warning-bg); color: var(--warning-color); }
 .badge-off { background: rgba(0, 0, 0, 0.05); color: var(--text-secondary); }
 
 .options {
@@ -78,10 +78,10 @@
   margin-top: 20rpx;
   padding: 20rpx;
   border-radius: 12rpx;
-  background: #fff7e6;
+  background: var(--warning-bg);
 }
-.preview-label { display: block; font-size: 22rpx; color: #b26a00; }
-.preview-text { display: block; font-size: 26rpx; color: #1a1a1a; margin-top: 8rpx; line-height: 1.5; }
+.preview-label { display: block; font-size: 22rpx; color: var(--warning-color); }
+.preview-text { display: block; font-size: 26rpx; color: var(--text-primary); margin-top: 8rpx; line-height: 1.5; }
 
 .btn-primary {
   margin-top: 28rpx;
@@ -106,7 +106,7 @@
 
 .notice-head { display: flex; align-items: center; justify-content: space-between; }
 .notice-title { font-size: 28rpx; font-weight: 600; }
-.notice-content { display: block; font-size: 24rpx; color: #475467; margin-top: 8rpx; line-height: 1.5; }
+.notice-content { display: block; font-size: 24rpx; color: var(--text-regular); margin-top: 8rpx; line-height: 1.5; }
 
 .notice-foot {
   display: flex;
@@ -117,7 +117,7 @@
 .notice-time { font-size: 22rpx; color: var(--text-secondary); }
 .notice-actions { display: flex; gap: 24rpx; }
 .btn-link { font-size: 24rpx; color: var(--primary-color); }
-.btn-link.danger { color: #d92d20; }
+.btn-link.danger { color: var(--error-color); }
 
 .empty { text-align: center; font-size: 24rpx; color: var(--text-secondary); padding: 40rpx 0; }
 

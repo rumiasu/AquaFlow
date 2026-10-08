@@ -1,97 +1,157 @@
 .container {
   background: var(--bg-color);
   min-height: 100vh;
-  padding-bottom: 200rpx;
+  padding-bottom: calc(240rpx + env(safe-area-inset-bottom));
 }
 
-/* 蓝色头部 */
-.header {
-  background: var(--header-gradient);
-  padding: var(--spacing-xl) var(--spacing-lg);
-  color: #fff;
+/* ══ 关键事实卡（2026-10-07 #19 R4，正本 docs/design/36 §2）══
+   原整版蓝头（var(--header-gradient) + 白字）降级为暖纸白卡：
+   对象、单号、状态章、金额一屏读完，与全端「列表页=详情页=暖纸白卡」同规（R1）。 */
+.fact-card {
+  background: var(--bg-card);
+  margin: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-lg);
 }
 
-.header-top {
+.fact-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+  gap: 8rpx 20rpx;
+  align-items: baseline;
+  margin-bottom: var(--spacing-sm);
 }
 
-.customer-name {
+.fact-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: var(--font-xxl);
   font-weight: 700;
+  color: var(--text-primary);
 }
 
-.order-no {
+.fact-no {
+  overflow-wrap: anywhere;
   font-size: var(--font-sm);
-  opacity: 0.9;
+  color: var(--text-secondary);
 }
 
-.status-badge {
-  display: inline-block;
-  padding: 8rpx 20rpx;
-  border-radius: var(--radius-round);
-  font-size: var(--font-sm);
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.25);
-}
-
-.status-delivering {
-  background: rgba(46, 74, 104, 0.3);
-}
-
-.status-pending {
-  background: rgba(255, 149, 0, 0.3);
-}
-
-.status-delivered {
-  background: rgba(46, 74, 104, 0.3);
-}
-
-.status-cancelled {
-  background: rgba(117, 117, 117, 0.3);
-}
-
-.status-completed {
-  background: rgba(52, 199, 89, 0.3);
-}
-
-.status-warning {
-  background: rgba(255, 149, 0, 0.3);
-}
-
-.status-row {
+.fact-status-row {
   display: flex;
   align-items: center;
   gap: 12rpx;
   flex-wrap: wrap;
 }
 
+.fact-amount-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 16rpx;
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1rpx solid var(--border-light);
+}
+
+.fact-amount {
+  font-size: var(--font-xxl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* 收款口径章：需收=警示（要行动），已付=成功，其余=中性灰。
+   判据一律后端投影（needCollect / payState），class 在 js 里算好（R2：状态色两端同义）。 */
+.fact-pay {
+  font-size: var(--font-sm);
+  padding: 2rpx 16rpx;
+  border-radius: var(--radius-round);
+  background: var(--bg-gray);
+  color: var(--text-regular);
+}
+
+.fact-pay-need {
+  background: var(--warning-bg);
+  color: var(--warning-color);
+  font-weight: 600;
+}
+
+.fact-pay-paid {
+  background: var(--success-bg);
+  color: var(--success-color);
+}
+
+/* 状态章（R2）： tint 底 + 实色文字，不再用蓝头上的半透明白块。
+   状态与配色的对应关系没变，只换呈现（pending=警示 / 配送中·已送达=品牌 / 完成=成功 / 取消=中性）。 */
+.status-badge {
+  display: inline-block;
+  padding: 6rpx 20rpx;
+  border-radius: var(--radius-round);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  background: var(--bg-gray);
+  color: var(--text-regular);
+}
+
+.status-delivering {
+  background: var(--primary-bg);
+  color: var(--primary-color);
+}
+
+.status-pending {
+  background: var(--warning-bg);
+  color: var(--warning-color);
+}
+
+.status-delivered {
+  background: var(--primary-bg);
+  color: var(--primary-color);
+}
+
+.status-cancelled {
+  background: var(--bg-gray);
+  color: var(--text-secondary);
+}
+
+.status-completed {
+  background: var(--success-bg);
+  color: var(--success-color);
+}
+
+.status-warning {
+  background: var(--warning-bg);
+  color: var(--warning-color);
+}
+
 .aux-tag {
   display: inline-block;
-  padding: 6rpx 16rpx;
+  padding: 4rpx 16rpx;
   border-radius: 20rpx;
   font-size: 22rpx;
   font-weight: 500;
-  background: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
+  background: var(--bg-gray);
+  color: var(--text-regular);
 }
 
 .aux-tag.aux-offline {
-  background: rgba(255, 149, 0, 0.95);
+  background: var(--warning-bg);
+  color: var(--warning-color);
 }
 
 .aux-tag.aux-transfer {
-  background: rgba(156, 39, 176, 0.95);
+  background: var(--primary-bg);
+  color: var(--primary-color);
 }
 
 .aux-tag.aux-return {
-  background: rgba(255, 59, 48, 0.95);
+  background: var(--error-bg);
+  color: var(--error-color);
 }
 
 .aux-tag.aux-target {
-  background: rgba(46, 74, 104, 0.95);
+  background: var(--primary-bg);
+  color: var(--primary-color);
 }
 
 /* 联系信息卡片 */
@@ -291,19 +351,21 @@
 }
 
 
-.action-nav {
+.action-nav, .action-collect {
   background: rgba(46, 74, 104, 0.1);
   color: var(--primary-color);
 }
 
 .action-complete {
-  background: var(--primary-gradient);
+  background: var(--primary-color);
   color: #fff;
 }
 
-.action-report {
-  background: rgba(255, 149, 0, 0.1);
-  color: var(--warning-color);
+/* 更多操作（2026-10-07 #11）：与导航同级的次按钮，点开半屏弹层 */
+.action-more {
+  background: var(--bg-card);
+  color: var(--text-regular);
+  border: 1rpx solid var(--border-color);
 }
 
 .action-bar-confirm {
@@ -317,40 +379,104 @@
 }
 
 .action-accept {
-  background: var(--success-color);
+  background: var(--primary-color);
   color: #ffffff;
 }
 
 .action-reject {
   background: #ffffff;
-  color: #FF3B30;
-  border: 2rpx solid #FFCDD2 !important;
+  color: var(--error-color);
+  /* R3：危险动作 = 错误色描边/文字，不做实心红块（原 2rpx var(--error-bg) 浅得看不见） */
+  border: 2rpx solid var(--error-color) !important;
 }
 
-/* 转让按钮 */
-.transfer-btn {
-  text-align: center;
-  padding: var(--spacing-lg);
-  margin: var(--spacing-md);
+/* ══ 更多操作半屏弹层（2026-10-07 #11，正本 docs/design/36 §3）══
+   形态与首页「配送遇到问题」弹层同款（overlay + 底部 sheet + 条目列表），
+   条目 = 名称 + 一句说明 + 箭头；拒付是唯一错误色条目（两步确认仍在原处理器里）。 */
+.sheet-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 200;
+}
+
+.sheet {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 201;
   background: var(--bg-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: 24rpx 24rpx 0 0;
+  padding: var(--spacing-lg) var(--spacing-lg) calc(var(--spacing-lg) + env(safe-area-inset-bottom));
 }
 
-.transfer-btn text {
+.sheet-actions {
+  max-height: 60vh;
+}
+
+.sheet-title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.sheet-item {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-md) var(--spacing-sm);
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.sheet-item:last-of-type {
+  border-bottom: none;
+}
+
+.sheet-item-info {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.sheet-item-name {
   font-size: var(--font-md);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.sheet-item-desc {
+  font-size: var(--font-sm);
   color: var(--text-secondary);
 }
 
-/* 客户拒付（v60）：这是「已送达不可取消」之后唯一的出路，所以给它**警示色**，
-   别混在同色的"转单/退回"里被忽略；但它不是危险按钮（真正动账在第 2 步确认弹窗）。 */
-.transfer-btn.btn-refusal {
-  border: 2rpx solid #FFA39E;
-  background: #FFF5F5;
+.sheet-item-arrow {
+  font-size: var(--font-xl);
+  color: var(--text-placeholder);
+  margin-left: var(--spacing-sm);
 }
-.transfer-btn.btn-refusal text {
-  color: #C62828;
-  font-weight: 500;
+
+/* 客户拒付（v60）：弹层里唯一的错误色条目 —— 它用于「已送达待收款」时登记拒付风险，
+   不是危险按钮（真正动账在第 2 步确认弹窗），但视觉上必须与普通善后动作分开。 */
+.sheet-item-danger .sheet-item-name {
+  color: var(--error-color);
+}
+
+.sheet-item-danger .sheet-item-desc {
+  color: var(--error-color);
+  opacity: 0.75;
+}
+
+.sheet-cancel {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  text-align: center;
+  font-size: var(--font-md);
+  color: var(--text-regular);
+  background: var(--bg-gray);
+  border-radius: var(--radius-md);
 }
 
 /* ========== 楼层上报与楼梯凭证（v43；凭证 [2026-09-26] 由「楼层凭证」改名） ========== */
@@ -358,8 +484,8 @@
   margin-left: 12rpx;
   padding: 4rpx 14rpx;
   font-size: 22rpx;
-  color: #b26a00;
-  background: #fff3e0;
+  color: var(--warning-color);
+  background: var(--warning-bg);
   border-radius: 999rpx;
 }
 
@@ -372,7 +498,7 @@
 
 .floor-proof-title {
   font-size: 26rpx;
-  color: #4e5969;
+  color: var(--text-regular);
 }
 
 .floor-proof-add {
@@ -396,7 +522,7 @@
 .floor-proof-tip {
   display: block;
   font-size: 22rpx;
-  color: #a3a8b0;
+  color: var(--text-secondary);
   margin-top: 8rpx;
 }
 
@@ -431,8 +557,8 @@
 
 .pay-status {
   font-size: 22rpx;
-  color: #4e5969;
-  background: #f2f3f5;
+  color: var(--text-regular);
+  background: var(--bg-gray);
   border-radius: 999rpx;
   padding: 2rpx 14rpx;
   margin-right: 12rpx;
@@ -446,20 +572,20 @@
 
 /* 负金额 = 退款冲正流水，标红一眼可辨 */
 .pay-amount-refund {
-  color: #FF3B30;
+  color: var(--error-color);
 }
 
 .pay-time {
   display: block;
   font-size: 22rpx;
-  color: #a3a8b0;
+  color: var(--text-secondary);
   margin-top: 6rpx;
 }
 
 .pay-note {
   display: block;
   font-size: 22rpx;
-  color: #86909c;
+  color: var(--text-secondary);
   margin-top: 6rpx;
   line-height: 1.4;
 }
@@ -469,7 +595,7 @@
   margin-left: 16rpx;
   padding: 8rpx 26rpx;
   font-size: 24rpx;
-  color: #FF3B30;
-  border: 1rpx solid #FFCDD2;
+  color: var(--error-color);
+  border: 1rpx solid var(--error-bg);
   border-radius: 999rpx;
 }

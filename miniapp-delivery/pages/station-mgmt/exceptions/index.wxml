@@ -52,16 +52,18 @@
       <!-- 异常单列表 -->
       <view class="card">
         <view class="card-head">
-          <text class="card-title">异常单（共 {{total}} 张）</text>
+          <text class="card-title">{{onlyPending ? '待处理异常' : '异常单'}}（共 {{total === null ? '未核对' : total}} 张）</text>
           <text class="filter {{onlyPending ? 'filter-on' : ''}}" bindtap="onTogglePending">
             {{onlyPending ? '只看待处理' : '全部'}}
           </text>
         </view>
 
-        <view class="empty" wx:if="{{items.length === 0}}">这段时间没有桶异常单</view>
+        <view class="empty" wx:if="{{loading}}">异常列表加载中…</view>
+        <view class="empty" wx:elif="{{!listError && items.length === 0}}">{{onlyPending ? '暂无待处理桶异常单' : '暂无桶异常单'}}</view>
+        <view class="empty" wx:if="{{listError}}" bindtap="onRetryList">{{listError}} · 点击重试</view>
 
         <block wx:for="{{items}}" wx:key="id">
-          <view class="ex {{item.pending ? 'ex-pending' : ''}}" wx:if="{{!onlyPending || item.pending}}">
+          <view class="ex {{item.pending ? 'ex-pending' : ''}}">
             <view class="ex-head">
               <text class="ex-tag {{item.pending ? 'ex-tag-pending' : ''}}">{{item.statusText}}</text>
               <text class="ex-cat">{{item.categoryText}}</text>
@@ -98,9 +100,8 @@
           </view>
         </block>
 
-        <view class="load-hint" wx:if="{{loaded < total}}">
-          只显示了最近 {{loaded}} 张（共 {{total}} 张）
-        </view>
+        <view class="load-hint" wx:if="{{hasMore}}" bindtap="onLoadMore">{{loadingMore ? '加载中…' : '加载更多'}} · 已显示 {{loaded}} / {{total}} 张</view>
+        <view class="load-hint" wx:elif="{{loaded && !listError}}">已显示全部 {{loaded}} 张</view>
       </view>
 
       <view class="page-note">

@@ -56,20 +56,20 @@
 }
 
 .status-chip-warn {
-  background: #fff3e0;
+  background: var(--warning-bg);
 }
 
 .status-dot {
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
-  background: #b9f6ca;
+  background: var(--success-bg);
   margin-right: 10rpx;
   flex-shrink: 0;
 }
 
 .status-chip-warn .status-dot {
-  background: #f57c00;
+  background: var(--warning-color);
 }
 
 .status-chip-text {
@@ -79,7 +79,7 @@
 }
 
 .status-chip-warn .status-chip-text {
-  color: #b26a00;
+  color: var(--warning-color);
 }
 
 .status-chip-note {
@@ -92,7 +92,7 @@
 }
 
 .status-chip-warn .status-chip-note {
-  color: #b26a00;
+  color: var(--warning-color);
 }
 
 /* 「待填 N 项」徽标（2026-09-24）：条件项刚成立时（例：刚加了配送员 → 工资结构必填）
@@ -105,7 +105,7 @@
   border-radius: 999rpx;
   font-size: 20rpx;
   line-height: 32rpx;
-  background: #f57c00;
+  background: var(--warning-color);
   color: #ffffff;
 }
 
@@ -147,7 +147,7 @@
 .st-panel-title {
   font-size: 32rpx;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 /* 当前状态：与胶囊同一套配色，正常=绿、需要提醒=橙 */
@@ -155,29 +155,29 @@
   margin: 12rpx 32rpx 0;
   padding: 20rpx 24rpx;
   border-radius: 12rpx;
-  background: #eef7ee;
+  background: var(--success-bg);
 }
 
 .st-status-warn {
-  background: #fff5e6;
+  background: var(--warning-bg);
 }
 
 .st-status-text {
   display: block;
   font-size: 30rpx;
   font-weight: 600;
-  color: #1f7a1f;
+  color: var(--success-color);
 }
 
 .st-status-warn .st-status-text {
-  color: #b26a00;
+  color: var(--warning-color);
 }
 
 .st-status-note {
   display: block;
   margin-top: 8rpx;
   font-size: 24rpx;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .st-body {
@@ -189,7 +189,7 @@
 .st-sub {
   display: block;
   font-size: 24rpx;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 12rpx;
 }
 
@@ -214,7 +214,7 @@
   flex: 1;
   min-width: 0;
   font-size: 28rpx;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 /* 「?」按钮：32rpx 直径够手指点，又不抢视线 */
@@ -226,8 +226,8 @@
   line-height: 34rpx;
   text-align: center;
   border-radius: 50%;
-  border: 1rpx solid #d1d5db;
-  color: #9ca3af;
+  border: 1rpx solid var(--text-placeholder);
+  color: var(--text-secondary);
   font-size: 24rpx;
 }
 
@@ -235,14 +235,14 @@
   flex-shrink: 0;
   margin-left: 16rpx;
   font-size: 26rpx;
-  color: #1f7a1f;
+  color: var(--success-color);
 }
 
 /* 已配好的行（2026-09-24）：标题压灰即可 —— "是否完成"靠标题颜色与所在页签表达。
    ⚠️ 右侧那个位置只放**动作**（「去修改 / 去填写」），不再放「已配好」这种状态标签：
    状态标签看着不可点，用户就不知道能点进去改（产品反馈："填错了想回去重填却没了"）。 */
 .st-item-title-done {
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 /* 小框顶部「待填 / 已配好」两个页签（2026-09-24）。
@@ -258,14 +258,14 @@
   text-align: center;
   padding: 16rpx 0;
   font-size: 26rpx;
-  color: #9ca3af;
+  color: var(--text-secondary);
   border-bottom: 4rpx solid transparent;
 }
 
 .st-tab-on {
-  color: #1f7a1f;
+  color: var(--success-color);
   font-weight: 600;
-  border-bottom-color: #1f7a1f;
+  border-bottom-color: var(--success-color);
 }
 
 /* 展开后的说明块：why（为什么必须填）+ suggestion（具体怎么做） */
@@ -273,13 +273,13 @@
   margin-top: 14rpx;
   padding: 16rpx 20rpx;
   border-radius: 10rpx;
-  background: #f9fafb;
+  background: var(--bg-color);
 }
 
 .st-item-why {
   display: block;
   font-size: 22rpx;
-  color: #6b7280;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
@@ -287,7 +287,7 @@
   display: block;
   margin-top: 8rpx;
   font-size: 22rpx;
-  color: #1f7a1f;
+  color: var(--success-color);
   line-height: 1.6;
 }
 
@@ -295,7 +295,7 @@
   display: block;
   padding: 12rpx 0 0;
   font-size: 22rpx;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 /* 「下一步」（后端下发的 onlineHint，2026-09-24）：区别于上面的计数灰字 ——
@@ -304,7 +304,7 @@
   display: block;
   padding: 10rpx 0 0;
   font-size: 24rpx;
-  color: #1f7a1f;
+  color: var(--success-color);
   line-height: 1.5;
 }
 
@@ -322,11 +322,11 @@
 }
 
 .st-btn-ghost {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .st-btn-primary {
-  color: #1f7a1f;
+  color: var(--success-color);
   font-weight: 600;
   border-left: 1rpx solid #F1ECE1;
 }

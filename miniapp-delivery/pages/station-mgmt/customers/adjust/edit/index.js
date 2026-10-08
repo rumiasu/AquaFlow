@@ -1,5 +1,6 @@
 // 新建站长资产调整单（人工补录 / 代客订正）
 const { getCatalog, previewAdjustment, createAdjustment } = require('../../../../../api/station-mgmt')
+const adjustmentCustomer = require('../../../../../utils/adjustment-customer')
 const { upload } = require('../../../../../utils/upload')
 const { API } = require('../../../../../config/api')
 
@@ -28,7 +29,9 @@ const MAX_EVIDENCE = 3
 const EVIDENCE_MAX_LEN = 500
 
 Page({
+  ...adjustmentCustomer.methods,
   data: {
+    ...adjustmentCustomer.data,
     customerId: null,
     missingCustomer: false,
     denied: false,
@@ -77,11 +80,12 @@ Page({
     this.setData({
       customerId: customerId,
       missingCustomer: !customerId,
-      // 幂等键：整张表单在页面生命周期内复用同一个 token（重复点「提交」不会生成第二张单），
+      // 幂等键：相同提交内容重试复用 token，已提交的内容被编辑后换键，
       // 生成规则与本端既有写法一致（客户端时间戳 + 随机数）。
       clientToken: 'ADJ-' + Date.now() + '-' + Math.floor(Math.random() * 1000)
     })
-    if (customerId) this.loadProducts()
+    this.loadProducts()
+    if (customerId) this.loadSelectedCustomer(customerId)
   },
 
   /** 本站已上架商品（后端按登录站长判定水站，前端不传 stationId） */
@@ -119,13 +123,59 @@ Page({
   },
 
   // ===== 表单输入：任何改动都作废上一次试算结果，避免提交与试算不一致 =====
+  formLocked() { return this.data.submitting || this._createdAdjustment },
+
+  previewDraftKey() {
+    return JSON.stringify([this.data.customerId, this.data.option && this.data.option.value,
+      this.data.manualProduct, this.data.productIndex, this.data.productList[this.data.productIndex]?.id,
+      this.data.productIdInput, this.data.form, this.data.overSign, this.data.evidenceList])
+  },
+
+  previewContext(payload) {
+    const globalData = getApp().globalData || {}, owner = globalData.userInfo, user = owner || {}
+    return Object.freeze({ owner, identity: JSON.stringify([globalData.isLogin, user.staffId, user.role, user.stationId]),
+      version: this._previewVersion || 0, customerSeq: this._customerSeq,
+      draft: this.previewDraftKey(), clientToken: this.data.clientToken,
+      payload: Object.freeze({ ...payload }), evidence: this.data.evidenceList.join(',') })
+  },
+
+  previewMatches(context) {
+    if (!context) return false
+    const current = this.previewContext()
+    return context.owner === current.owner && context.identity === current.identity
+      && context.version === current.version && context.customerSeq === current.customerSeq
+      && context.draft === current.draft && context.clientToken === current.clientToken
+  },
+
   resetPreview() {
-    if (this.data.preview) {
-      this.setData({ preview: null, previewRows: [], previewExtra: null })
+    this._previewVersion = (this._previewVersion || 0) + 1
+    this._previewBinding = null
+    this._confirmingPreview = null
+    if (this._previewLoading) { wx.hideLoading(); this._previewLoading = null }
+    const patch = { preview: null, previewRows: [], previewExtra: null, previewing: false }
+    // 原内容重试复用原键；已发送的内容被编辑后，不能拿旧键创建另一种调整。
+    if (this._submittedIntent && this._submittedIntent.draft !== this.previewDraftKey()) {
+      patch.clientToken = 'ADJ-' + Date.now() + '-' + Math.random().toString(36).slice(2)
+      this._submittedIntent = null
     }
+    this.setData(patch)
+  },
+
+  loadSelectedCustomer(id, customer) {
+    if (this.formLocked()) return
+    this.resetPreview()
+    return adjustmentCustomer.methods.loadSelectedCustomer.call(this, id, customer)
+  },
+
+  onUnload() {
+    adjustmentCustomer.methods.onUnload.call(this)
+    this.resetPreview()
+    if (this._submitLoading) { wx.hideLoading(); this._submitLoading = null }
+    clearTimeout(this._returnTimer)
   },
 
   onTypeChange(e) {
+    if (this.formLocked()) return
     const idx = Number(e.detail.value)
     const option = this.data.typeOptions[idx] || null
     // 换类型后数量/金额/单价含义全变，一律清空（原因保留，站长已经写好的话不必重打）
@@ -139,49 +189,58 @@ Page({
   },
 
   onProductChange(e) {
+    if (this.formLocked()) return
     this.setData({ productIndex: Number(e.detail.value) })
     this.resetPreview()
   },
 
   onToggleManualProduct() {
+    if (this.formLocked()) return
     const manualProduct = !this.data.manualProduct
     this.setData({ manualProduct: manualProduct, productIndex: -1, productIdInput: '' })
     this.resetPreview()
   },
 
   onManualProductInput(e) {
+    if (this.formLocked()) return
     this.setData({ productIdInput: e.detail.value })
     this.resetPreview()
   },
 
   onQtyInput(e) {
+    if (this.formLocked()) return
     this.setData({ 'form.qty': e.detail.value })
     this.resetPreview()
   },
 
   onAmountInput(e) {
+    if (this.formLocked()) return
     this.setData({ 'form.amount': e.detail.value })
     this.resetPreview()
   },
 
   onUnitPriceInput(e) {
+    if (this.formLocked()) return
     this.setData({ 'form.unitPrice': e.detail.value })
     this.resetPreview()
   },
 
   onOverSign(e) {
+    if (this.formLocked()) return
     const sign = Number(e.currentTarget.dataset.sign)
     this.setData({ overSign: sign === -1 ? -1 : 1 })
     this.resetPreview()
   },
 
   onReasonInput(e) {
+    if (this.formLocked()) return
     this.setData({ 'form.reason': e.detail.value })
+    this.resetPreview()
   },
 
   // ===== 证据图：复用 utils/upload.js（wx.uploadFile）+ /api/common/upload =====
   onChooseEvidence() {
-    if (this.data.uploading) return
+    if (this.formLocked() || this.data.uploading) return
     const rest = MAX_EVIDENCE - this.data.evidenceList.length
     if (rest <= 0) {
       wx.showToast({ title: '最多上传 ' + MAX_EVIDENCE + ' 张证据图', icon: 'none' })
@@ -191,14 +250,18 @@ Page({
       count: rest,
       sizeType: ['compressed'],
       success: async (res) => {
+        this.resetPreview()
         this.setData({ uploading: true })
+        const customerSeq = this._customerSeq
         try {
           const urls = await Promise.all(res.tempFilePaths.map(p => upload({
             filePath: p,
             url: API.GENERAL_UPLOAD,
             name: 'file'
           }).then(r => r.data)))
+          if (customerSeq !== this._customerSeq) return
           this.setData({ evidenceList: this.data.evidenceList.concat(urls.filter(Boolean)) })
+          this.resetPreview()
         } catch (err) {
           wx.showToast({ title: err.message || '上传失败', icon: 'none' })
         } finally {
@@ -214,13 +277,18 @@ Page({
   },
 
   onRemoveEvidence(e) {
+    if (this.formLocked()) return
     const index = Number(e.currentTarget.dataset.index)
     this.setData({ evidenceList: this.data.evidenceList.filter((_, i) => i !== index) })
+    this.resetPreview()
   },
 
   // ===== 入参组装 + 本地校验（服务端仍会再校验一遍）=====
   buildPayload() {
     if (!this.data.customerId) return { error: '缺少客户，无法创建调整单' }
+    if (this.data.customerAssetsLoading || !this.data.customerAssets || this.data.customerAssets.adjustmentEligible !== true) {
+      return { error: this.data.customerAssetsError || '请先核对本站客户与资产' }
+    }
     const option = this.data.option
     if (!option) return { error: '请选择调整类型' }
     const payload = { customerId: this.data.customerId, adjustType: option.value }
@@ -295,20 +363,26 @@ Page({
   },
 
   async onPreview() {
-    if (this.data.previewing) return
+    if (this.data.previewing || this.data.uploading || this.formLocked()) return
     const built = this.buildPayload()
     if (built.error) {
       wx.showToast({ title: built.error, icon: 'none', duration: 3000 })
       return
     }
+    this.resetPreview()
+    const context = this.previewContext(built.payload)
+    this._previewLoading = context
     this.setData({ previewing: true })
     wx.showLoading({ title: '试算中...' })
     try {
-      const res = await previewAdjustment(built.payload)
-      const data = res.data || {}
+      const res = await previewAdjustment(context.payload)
+      if (!this.previewMatches(context)) return
+      const data = res && res.data
+      if (!data || !data.before || !data.after) throw new Error('试算结果尚未核对，请重试')
+      this._previewBinding = context
       this.setData({
         preview: data,
-        previewRows: this.buildPreviewRows(data, built.payload),
+        previewRows: this.buildPreviewRows(data, context.payload),
         previewExtra: {
           estimatedRefund: (data.estimatedRefund === null || data.estimatedRefund === undefined)
             ? '' : Number(data.estimatedRefund).toFixed(2),
@@ -317,12 +391,13 @@ Page({
             ? '' : Number(data.estimatedRightAmount).toFixed(2)
         }
       })
-      wx.hideLoading()
     } catch (err) {
-      wx.hideLoading()
-      wx.showToast({ title: err.message || '试算失败', icon: 'none', duration: 3000 })
+      if (this.previewMatches(context)) wx.showToast({ title: err.message || '试算失败', icon: 'none', duration: 3000 })
     } finally {
-      this.setData({ previewing: false })
+      if (this._previewLoading === context) {
+        wx.hideLoading(); this._previewLoading = null
+        this.setData({ previewing: false })
+      }
     }
   },
 
@@ -331,17 +406,19 @@ Page({
    * 二次确认用**回调式** wx.showModal，确认文案里带上类型与数量/金额。
    */
   onSubmit() {
-    if (this.data.submitting) return
+    if (this.formLocked() || this.data.uploading || this._confirmingPreview) return
     const built = this.buildPayload()
     if (built.error) {
       wx.showToast({ title: built.error, icon: 'none', duration: 3000 })
       return
     }
-    if (!this.data.preview) {
+    const context = this._previewBinding
+    if (!this.data.preview || !this.previewMatches(context)) {
       wx.showToast({ title: '请先点「试算」并确认试算结果', icon: 'none', duration: 3000 })
       return
     }
-    const payload = built.payload
+    const payload = context.payload
+    this._confirmingPreview = context
     const what = (payload.qty !== undefined)
       ? '数量 ' + (payload.qty > 0 ? '+' + payload.qty : payload.qty)
       : '金额 ¥' + Number(payload.amount).toFixed(2)
@@ -358,31 +435,38 @@ Page({
       confirmColor: '#2E4A68',
       success: (res) => {
         // 回调式确认：只有确认为真才发请求，且复用同一个 clientToken（防重复提交）
-        if (res.confirm) this.doSubmit(payload)
-      }
+        if (this._confirmingPreview !== context) return
+        this._confirmingPreview = null
+        if (res.confirm && this.previewMatches(context)) this.doSubmit(payload, context)
+      },
+      complete: () => { if (this._confirmingPreview === context) this._confirmingPreview = null }
     })
   },
 
-  async doSubmit(payload) {
-    const evidence = this.data.evidenceList.join(',')
+  async doSubmit(payload, context) {
+    if (this.formLocked() || context !== this._previewBinding || !this.previewMatches(context)) return
+    const evidence = context.evidence
     if (evidence.length > EVIDENCE_MAX_LEN) {
       wx.showToast({ title: '证据图链接合计超过 ' + EVIDENCE_MAX_LEN + ' 字符，请减少图片', icon: 'none', duration: 3000 })
       return
     }
-    const body = Object.assign({}, payload, { clientToken: this.data.clientToken })
+    const body = Object.assign({}, payload, { clientToken: context.clientToken })
     if (evidence) body.evidence = evidence
 
     this.setData({ submitting: true })
+    this._submittedIntent = context
+    this._submitLoading = context
     wx.showLoading({ title: '提交中...' })
     try {
       await createAdjustment(body)
-      wx.hideLoading()
+      this._createdAdjustment = true
+      if (!this.previewMatches(context)) return
       wx.showToast({ title: '已创建，待执行', icon: 'success' })
-      setTimeout(() => { wx.navigateBack() }, 1500)
+      this._returnTimer = setTimeout(() => { if (this.previewMatches(context)) wx.navigateBack() }, 1500)
     } catch (err) {
-      wx.hideLoading()
-      wx.showToast({ title: err.message || '创建失败', icon: 'none', duration: 3000 })
+      if (this.previewMatches(context)) wx.showToast({ title: err.message || '创建失败', icon: 'none', duration: 3000 })
     } finally {
+      if (this._submitLoading === context) { wx.hideLoading(); this._submitLoading = null }
       this.setData({ submitting: false })
     }
   }

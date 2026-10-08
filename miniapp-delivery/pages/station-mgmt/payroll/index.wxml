@@ -1,10 +1,7 @@
 <!-- 站长端「计件工资」：单价配置 + 结算单 + 自定义工资条目（v44）。规格见 docs/design/18。
      状态 / 方向文案一律用服务端下发的 statusText / directionText，本页不自带 1/2 映射表。
 
-     [2026-09-26 视觉重排] 产品反馈「结算单也别做成这样的 ui 了，好难看」。这次做的是**视觉**重排
-     （不搬信息架构，站长自己选的）：卡片/输入框/按钮/标签统一到站内其它管理页的规格
-     （见 pages/station-mgmt/delivery-config/index.wxss，同一套 16rpx 圆角卡片 + 80rpx 输入框 +
-     pill 标签）；长解释按 product 的「?」约定收进 <help-tip>，屏幕上只留**与钱有关的那句**。 -->
+     2026-10-07：按三份最终 HTML 适配手机比例；原有配置、筛选、人工调整与明细继续保留。 -->
 <view class="page">
 
   <view class="tabs">
@@ -15,6 +12,10 @@
   </view>
 
   <view class="empty" wx:if="{{loading}}">加载中…</view>
+  <view class="load-error" wx:if="{{payrollReadError}}">
+    <text>{{payrollReadError}}。{{loaded ? '以下为上次取回资料，重新核对后可操作。' : '请重新加载工资资料。'}}</text>
+    <button class="retry-button" bindtap="loadAll" disabled="{{loading}}">重新加载</button>
+  </view>
 
   <!-- ============ 计件单价 ============ -->
   <block wx:if="{{tab === 'rate'}}">
@@ -23,35 +24,56 @@
         <text class="card-title">计件单价</text>
         <help-tip title="计件单价" text="{{tips.rate}}" />
       </view>
-      <text class="card-sub">先点一个商品，再填它每桶多少钱。</text>
+      <text class="card-sub">先点一个商品，再填它的计件单价。</text>
 
-      <view class="chips">
-        <view class="chip {{rateForm.productId === '0' ? 'chip-on' : ''}}"
-              bindtap="onRateProduct" data-id="0">默认单价（所有商品兜底）</view>
-        <view class="chip {{rateForm.productId === item.id + '' ? 'chip-on' : ''}}"
-              wx:for="{{products}}" wx:key="id"
-              bindtap="onRateProduct" data-id="{{item.id}}">{{item.name}}</view>
+      <view class="product-list">
+        <view class="product-card product-default {{rateForm.productId === '0' ? 'product-selected' : ''}}"
+              bindtap="onRateProduct" data-id="{{0}}">
+          <view class="product-image default-image"><text>¥</text></view>
+          <view class="product-copy">
+            <text class="product-name">默认单价</text>
+            <text class="product-spec">所有商品兜底</text>
+            <text class="product-price">{{defaultCurrentText}}</text>
+          </view>
+          <text class="product-check" wx:if="{{rateForm.productId === '0'}}">✓</text>
+        </view>
+        <view class="product-card {{rateForm.productId === item.id + '' ? 'product-selected' : ''}}"
+              wx:for="{{rateProducts}}" wx:key="id" bindtap="onRateProduct" data-id="{{item.id}}">
+          <image class="product-image" wx:if="{{item.imageUrl && !item.imageFailed}}" src="{{item.imageUrl}}"
+                 mode="aspectFit" binderror="onProductImageError" data-id="{{item.id}}" />
+          <view class="product-image product-placeholder" wx:else><text>商品</text><text>暂无图片</text></view>
+          <view class="product-copy">
+            <text class="product-name">{{item.name}}</text>
+            <text class="product-spec">{{item.spec || '规格未填写'}}</text>
+            <text class="product-price">{{item.currentRateText}}</text>
+          </view>
+          <text class="product-check" wx:if="{{rateForm.productId === item.id + ''}}">✓</text>
+        </view>
       </view>
+    </view>
 
+    <view class="card">
+      <text class="card-title rate-form-title">{{selectedRateName}}</text>
+      <text class="card-sub" wx:if="{{rateForm.productId !== '0'}}">楼层补贴统一按默认单价中的楼层设置计算。</text>
       <view class="field">
-        <text class="label">每送 1 桶</text>
+        <text class="label">每送 1 {{selectedRateUnit}}</text>
         <input class="input" type="digit" value="{{rateForm.perBucketAmount}}"
-               bindinput="onRateInput" data-field="perBucketAmount" placeholder="元/桶" />
+               disabled="{{savingRate}}" bindinput="onRateInput" data-field="perBucketAmount" placeholder="{{'元/' + selectedRateUnit}}" />
       </view>
       <view class="field">
         <text class="label">楼层补贴 / 层</text>
         <input class="input" type="digit" value="{{rateForm.floorBonusPerLevel}}"
-               bindinput="onRateInput" data-field="floorBonusPerLevel" placeholder="元/层" />
+               disabled="{{savingRate}}" bindinput="onRateInput" data-field="floorBonusPerLevel" placeholder="元/层" />
       </view>
       <view class="field">
         <text class="label">几层以内不补</text>
         <input class="input" type="number" value="{{rateForm.floorFreeLevel}}"
-               bindinput="onRateInput" data-field="floorFreeLevel" placeholder="层数" />
+               disabled="{{savingRate}}" bindinput="onRateInput" data-field="floorFreeLevel" placeholder="层数" />
       </view>
 
-      <view class="btn-primary {{savingRate ? 'btn-disabled' : ''}}" bindtap="onSaveRate">
+      <button class="btn-primary" disabled="{{!isManager || savingRate || loading || payrollReadError}}" bindtap="onSaveRate">
         {{savingRate ? '保存中…' : '保存'}}
-      </view>
+      </button>
     </view>
 
     <view class="card" wx:if="{{rates.length}}">
@@ -59,10 +81,10 @@
         <text class="card-title">已配单价</text>
         <text class="card-count">{{rates.length}} 条</text>
       </view>
-      <view class="row" wx:for="{{rates}}" wx:key="id">
+      <view class="row configured-rate {{item.isDefault ? 'configured-default' : ''}}" wx:for="{{rates}}" wx:key="id">
         <view class="row-main">
           <text class="row-title">{{item.productName}}</text>
-          <text class="row-sub">送桶 ¥{{item.perBucketAmount}} · 楼层 ¥{{item.floorBonusPerLevel}}/层（{{item.floorFreeLevel}} 层内免）</text>
+          <text class="row-sub">每{{item.quantityUnit}} ¥{{item.perBucketAmount}} · 楼层 ¥{{item.floorBonusPerLevel}}/层（{{item.floorFreeLevel}} 层内免）</text>
         </view>
       </view>
     </view>
@@ -73,7 +95,7 @@
       文案在 js 里拼好（rateEmptyText）再下发：wxml 属性里做带 \n 的拼接会编译报错，且门禁查不出。
       文案不许出现开发词（接口/后端/字段/落库…），也不许写 markdown 的星号粗体 —— text 会原样渲染。
     -->
-    <view class="card" wx:if="{{!rates.length}}">
+    <view class="card" wx:if="{{!loading && !payrollReadError && !rates.length}}">
       <view class="card-title-row">
         <text class="card-title">已配单价</text>
         <text class="card-count">0 条</text>
@@ -97,7 +119,7 @@
         <help-tip title="结算单期间" text="{{tips.period}}" />
       </view>
       <text class="card-sub">选人 + 选期间，一次把这个期间里还没结的工钱都结进去。</text>
-      <view class="empty" wx:if="{{!staffList.length}}">本站还没有员工。</view>
+      <view class="empty" wx:if="{{!loading && !payrollReadError && !staffList.length}}">本站还没有员工。</view>
       <block wx:else>
         <view class="field">
           <text class="label">配送员</text>
@@ -128,9 +150,9 @@
           <text class="label">备注（可选）</text>
           <input class="input" value="{{genForm.note}}" bindinput="onGenNote" placeholder="如 9 月上半月" />
         </view>
-        <view class="btn-primary {{generating ? 'btn-disabled' : ''}}" bindtap="onGenerate">
+        <button class="btn-primary" disabled="{{!isManager || generating || loading || payrollReadError}}" bindtap="onGenerate">
           {{generating ? '生成中…' : '生成结算单'}}
-        </view>
+        </button>
       </block>
     </view>
 
@@ -162,34 +184,43 @@
         <input class="input" value="{{adjustForm.note}}" bindinput="onAdjustInput"
                data-field="note" placeholder="建议写清楚，对账要看" />
       </view>
-      <view class="btn-ghost {{adjusting ? 'btn-disabled' : ''}}" bindtap="onAdjust">
+      <button class="btn-ghost" disabled="{{!isManager || adjusting || loading || payrollReadError}}" bindtap="onAdjust">
         {{adjusting ? '提交中…' : '提交调整'}}
-      </view>
+      </button>
     </view>
 
     <view class="card">
       <view class="card-title-row">
-        <text class="card-title">结算单</text>
-        <text class="card-count">{{payrolls.length}} 张</text>
+        <text class="card-title">结算单历史</text>
+        <text class="card-count">{{filteredPayrolls.length}} 张匹配</text>
       </view>
-      <view class="empty" wx:if="{{!payrolls.length}}">还没有结算单。</view>
-      <view class="slip" wx:for="{{payrolls}}" wx:key="id" bindtap="onOpenPayroll" data-id="{{item.id}}">
+      <input class="payroll-search" value="{{payrollKeyword}}" placeholder="筛选员工姓名或编号" bindinput="onPayrollSearch" />
+      <view class="payroll-date-row"><picker mode="date" value="{{payrollStart}}" data-field="payrollStart" bindchange="onPayrollFilterDate"><view>{{payrollStart || '期间开始'}}</view></picker><text>至</text><picker mode="date" value="{{payrollEnd}}" data-field="payrollEnd" bindchange="onPayrollFilterDate"><view>{{payrollEnd || '期间结束'}}</view></picker><text bindtap="onClearPayrollFilter">清除筛选</text></view>
+      <view class="hint">{{payrollScope}} 按结算期间与所选日期相交筛选。</view>
+      <view class="empty" wx:if="{{payrollMoreError}}">{{payrollMoreError}}。已加载记录保留，点击下方重试。</view>
+      <button class="btn-ghost" wx:if="{{payrollHasMore}}" bindtap="onExpandPayrollHistory"
+              disabled="{{!isManager || loading || payrollLoadingMore || payrollReadError}}">
+        {{payrollLoadingMore ? '正在加载更早记录…' : payrollMoreError ? '重试加载更早记录' : '继续加载更早记录'}}
+      </button>
+      <view class="empty" wx:if="{{payrollListError}}" bindtap="loadAll">{{payrollListError}} · 点击重试</view>
+      <view class="empty" wx:elif="{{!loading && !filteredPayrolls.length}}">当前已加载范围内没有匹配的结算单。</view>
+      <view class="slip" wx:for="{{filteredPayrolls}}" wx:key="id" bindtap="onOpenPayroll" data-id="{{item.id}}">
         <view class="slip-top">
-          <text class="slip-name">{{item.staffName}}</text>
-          <text class="slip-amount">¥{{item.totalAmount}}</text>
-        </view>
-        <view class="slip-mid">
+          <view class="slip-person"><text class="slip-label">配送员</text><text class="slip-name">{{item.staffName}}</text></view>
           <text class="pill {{item.statusClass}}">{{item.statusText}}</text>
+        </view>
+        <view class="slip-money">
+          <text class="slip-amount">¥{{item.totalAmount}}</text>
           <text class="slip-period">{{item.periodText}}</text>
         </view>
         <text class="slip-sub" wx:if="{{item.paidTime}}">发放时间 {{item.paidTime}}</text>
         <text class="slip-sub" wx:if="{{item.note}}">备注：{{item.note}}</text>
         <view class="slip-actions">
-          <view class="pill-btn" wx:if="{{item.status === 1}}" catchtap="onConfirmPayroll"
-                data-id="{{item.id}}">确认</view>
-          <view class="pill-btn pill-btn-main" wx:if="{{item.status === 2}}" catchtap="onPayPayroll"
-                data-id="{{item.id}}">标记发放</view>
-          <text class="slip-hint">点卡片看明细 ›</text>
+          <button class="slip-action slip-action-main" wx:if="{{isManager && item.status === 1}}" catchtap="onConfirmPayroll"
+                  disabled="{{payrollBusyId !== null || loading || payrollReadError}}" data-id="{{item.id}}">{{payrollBusyId === item.id ? '处理中…' : '确认结算单'}}</button>
+          <button class="slip-action slip-action-pay" wx:if="{{isManager && item.status === 2}}" catchtap="onPayPayroll"
+                  disabled="{{payrollBusyId !== null || loading || payrollReadError}}" data-id="{{item.id}}">{{payrollBusyId === item.id ? '处理中…' : '标记发放'}}</button>
+          <button class="slip-action slip-action-detail" catchtap="onOpenPayroll" data-id="{{item.id}}">查看明细</button>
         </view>
       </view>
     </view>
@@ -206,29 +237,26 @@
       <text class="card-sub">系统不会自己算这类钱：名目你自己定，每次的金额也要你自己填。</text>
       <view class="field">
         <text class="label">条目名称</text>
-        <input class="input" value="{{itemForm.name}}" bindinput="onItemName"
+        <input class="input" value="{{itemForm.name}}" bindinput="onItemName" disabled="{{savingItem}}"
                placeholder="如 高温补贴 / 迟到扣款（20 字以内）" />
       </view>
       <view class="field">
         <text class="label">方向</text>
-        <picker mode="selector" range="{{directions}}" range-key="text" bindchange="onItemDirection">
-          <view class="picker {{itemForm.direction ? '' : 'picker-empty'}}">
-            <block wx:for="{{directions}}" wx:key="value">
-              <text wx:if="{{item.value === itemForm.direction}}">{{item.text}}</text>
-            </block>
-            <text wx:if="{{!itemForm.direction}}">请选择</text>
-          </view>
-        </picker>
+        <view class="direction-options">
+          <button class="direction-option {{itemForm.direction === item.value ? 'direction-selected' : ''}}"
+                  wx:for="{{directions}}" wx:key="value" data-index="{{index}}" bindtap="onItemDirection"
+                  disabled="{{savingItem}}">{{item.text}}</button>
+        </view>
       </view>
       <view class="field">
         <text class="label">排序（可选）</text>
-        <input class="input" type="number" value="{{itemForm.sort}}" bindinput="onItemSort"
+        <input class="input" type="number" value="{{itemForm.sort}}" bindinput="onItemSort" disabled="{{savingItem}}"
                placeholder="数字小的排前面" />
       </view>
-      <view class="btn-primary {{savingItem ? 'btn-disabled' : ''}}" bindtap="onSaveItem">
+      <button class="btn-primary" disabled="{{!isManager || savingItem || itemBusyId !== null || loading || payrollReadError}}" bindtap="onSaveItem">
         {{savingItem ? '保存中…' : (itemForm.id ? '保存修改' : '新增条目')}}
-      </view>
-      <view class="btn-ghost" wx:if="{{itemForm.id}}" bindtap="onItemFormReset">取消编辑</view>
+      </button>
+      <button class="btn-ghost" wx:if="{{itemForm.id}}" disabled="{{savingItem}}" bindtap="onItemFormReset">取消编辑</button>
     </view>
 
     <view class="card">
@@ -236,11 +264,11 @@
         <text class="card-title">自定义条目</text>
         <text class="card-count">{{items.length}} 条</text>
       </view>
-      <view class="empty" wx:if="{{!items.length}}">
+      <view class="empty" wx:if="{{!loading && !payrollReadError && !items.length}}">
         还没有自定义条目。
         加项/扣项定义一次，以后录钱选一下就行（如「高温补贴」「迟到扣款」）。
       </view>
-      <view class="row" wx:for="{{items}}" wx:key="id">
+      <view class="row item-card" wx:for="{{items}}" wx:key="id">
         <view class="row-main">
           <view class="row-between">
             <text class="row-title">{{item.name}}</text>
@@ -250,12 +278,12 @@
             {{item.enabled ? '启用中 · 录钱时可选' : '已停用 · 不再出现在录钱入口（历史流水照旧）'}}
           </text>
           <view class="actions-row">
-            <view class="pill-btn pill-btn-main" wx:if="{{item.enabled}}" catchtap="onRecordOpen"
-                  data-id="{{item.id}}">记一笔</view>
-            <view class="pill-btn" catchtap="onItemEdit" data-id="{{item.id}}">改名/改方向</view>
-            <view class="pill-btn" catchtap="onToggleItem" data-id="{{item.id}}">{{item.enabled ? '停用' : '启用'}}</view>
-            <view class="pill-btn pill-btn-danger" catchtap="onDeleteItem" data-id="{{item.id}}">删除</view>
+            <button class="item-record" catchtap="onRecordOpen" data-id="{{item.id}}"
+                    disabled="{{!isManager || !item.enabled || recording || itemBusyId !== null || loading || payrollReadError}}">{{item.enabled ? '记一笔' : '已停用'}}</button>
+            <button class="item-more" catchtap="onItemMore" data-id="{{item.id}}" aria-label="{{item.name + '的更多操作'}}"
+                    disabled="{{!isManager || itemBusyId !== null || savingItem || recording || loading || payrollReadError}}">⋯</button>
           </view>
+          <text class="item-more-hint">更多操作：改名/改方向 · {{item.enabled ? '停用' : '启用'}} · 删除</text>
         </view>
       </view>
     </view>
@@ -280,7 +308,8 @@
 
       <view class="empty" wx:if="{{summaryLoading}}">加载中…</view>
 
-      <block wx:if="{{!summaryLoading && summaryStaffId}}">
+      <view class="load-error" wx:if="{{!summaryLoading && summaryError}}" bindtap="loadSummary">{{summaryError}} · 点击重试</view>
+      <block wx:if="{{!summaryLoading && !summaryError && summaryStaffId}}">
         <view class="sum-box" wx:if="{{itemSummary.length}}">
           <view class="sum-title">按条目汇总（只统计带条目的流水）</view>
           <view class="sum-row" wx:for="{{itemSummary}}" wx:key="itemId">
@@ -314,10 +343,12 @@
   </block>
 
   <!-- 明细 -->
-  <view class="mask" wx:if="{{detail || detailLoading}}" bindtap="onCloseDetail"></view>
-  <view class="dialog" wx:if="{{detail || detailLoading}}">
+  <view class="mask" wx:if="{{detail || detailLoading || detailError}}" bindtap="onCloseDetail"></view>
+  <view class="dialog" wx:if="{{detail || detailLoading || detailError}}">
     <text class="dialog-title">{{detailName}} 的结算单</text>
     <view class="empty" wx:if="{{detailLoading}}">加载中…</view>
+    <view class="load-error" wx:if="{{detailError}}" bindtap="onRetryDetail">{{detailError}} · 点击重试</view>
+    <button class="btn-ghost" wx:if="{{!detail}}" bindtap="onCloseDetail">关闭</button>
     <block wx:if="{{detail}}">
       <view class="slip-hero">
         <text class="slip-hero-amount">¥{{detail.payroll.totalAmount}}</text>
@@ -366,7 +397,7 @@
     <view class="empty" wx:if="{{!staffList.length}}">本站还没有员工。</view>
     <view class="field" wx:else>
       <text class="label">配送员</text>
-      <picker mode="selector" range="{{staffList}}" range-key="name" bindchange="onRecordStaff">
+        <picker mode="selector" range="{{staffList}}" range-key="name" bindchange="onRecordStaff" disabled="{{recording}}">
         <view class="picker {{record.staffId ? '' : 'picker-empty'}}">
           <block wx:for="{{staffList}}" wx:key="id">
             <text wx:if="{{item.id === record.staffId}}">{{item.name}}</text>
@@ -378,17 +409,28 @@
     <view class="field">
       <text class="label">金额</text>
       <input class="input" type="digit" value="{{record.amount}}" bindinput="onRecordInput"
-             data-field="amount" placeholder="填正数，如 50" />
+             disabled="{{recording}}" data-field="amount" placeholder="填正数，如 50" />
     </view>
     <view class="field">
       <text class="label">备注（可选）</text>
       <input class="input" value="{{record.note}}" bindinput="onRecordInput"
-             data-field="note" placeholder="如 7 月高温补贴" />
+             disabled="{{recording}}" data-field="note" placeholder="如 7 月高温补贴" />
     </view>
-    <view class="btn-primary {{recording ? 'btn-disabled' : ''}}" bindtap="onRecordSubmit">
+    <button class="btn-primary" disabled="{{!isManager || recording || !staffList.length}}" bindtap="onRecordSubmit">
       {{recording ? '提交中…' : '确认记一笔'}}
-    </view>
-    <view class="btn-ghost" bindtap="onRecordClose">取消</view>
+    </button>
+    <button class="btn-ghost" disabled="{{recording}}" bindtap="onRecordClose">取消</button>
+  </view>
+
+  <!-- 更多操作只从当前条目取 id；取消或切 Tab 都丢弃菜单选择。 -->
+  <view class="mask menu-mask" wx:if="{{itemMenuId !== null}}" bindtap="onItemMenuClose" catchtouchmove="onStopTap"></view>
+  <view class="item-menu" wx:if="{{itemMenuId !== null}}" catchtap="onStopTap">
+    <text class="menu-title">{{itemMenuName}}</text>
+    <button class="menu-action" data-action="edit" bindtap="onItemMenuAction">改名 / 改方向</button>
+    <button class="menu-action" data-action="toggle" bindtap="onItemMenuAction">{{itemMenuEnabled ? '停用' : '启用'}}</button>
+    <button class="menu-action menu-danger" data-action="delete" bindtap="onItemMenuAction">删除条目</button>
+    <text class="menu-hint">用过的条目只能停用，历史流水保留。</text>
+    <button class="menu-cancel" bindtap="onItemMenuClose">取消</button>
   </view>
 
 </view>

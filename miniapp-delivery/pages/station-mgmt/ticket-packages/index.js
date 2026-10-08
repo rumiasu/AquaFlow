@@ -42,6 +42,7 @@ Page({
     stationId: null,
     loading: true,
     products: [],
+    visibleProducts: [], productKeyword: '', productLoadError: '', packageLoadError: '', productSpec: '',
     productId: '',
     productName: '',
     /** 当前选中的是不是站级「统一折扣」入口 —— 决定表单与列表渲染哪一套 */
@@ -54,6 +55,28 @@ Page({
     presets: [],
     form: { qty: '', price: '', discount: '', title: '', sort: '' },
     saving: false
+  },
+
+  onLoad(options) {
+    const id = Number(options && options.productId)
+    this._initialProductId = Number.isSafeInteger(id) && id > 0 ? String(id) : ''
+  },
+
+  onProductSearch(e) {
+    const keyword = String(e.detail.value || '').trim().toLowerCase()
+    this.setData({ productKeyword: e.detail.value,
+      visibleProducts: this.data.products.filter(p => p.unified || [p.name, p.spec, p.brand].join(' ').toLowerCase().includes(keyword)) })
+  },
+
+  onProductImageError(e) {
+    const id = String(e.currentTarget.dataset.id)
+    const products = this.data.products.map(p => String(p.id) === id ? { ...p, imageFailed: true } : p)
+    const keyword = String(this.data.productKeyword || '').trim().toLowerCase()
+    this.setData({ products, visibleProducts: products.filter(p => p.unified || [p.name, p.spec, p.brand].join(' ').toLowerCase().includes(keyword)) })
+  },
+
+  onTicketPurchaseHistory() {
+    wx.navigateTo({ url: '/pages/station-mgmt/payments/index?view=ticketHistory' })
   },
 
   onShow() {
@@ -110,17 +133,29 @@ Page({
   },
 
   async loadProducts() {
-    this.setData({ loading: true })
+    const seq = this._productLoadSeq = (this._productLoadSeq || 0) + 1
+    this.setData({ loading: true, productLoadError: '' })
     try {
       const res = await get(PRODUCTS + '?stationId=' + this.data.stationId)
+      if (seq !== this._productLoadSeq) return
       // 站级「统一折扣」放在最前面：它是站级设置，不是"某个商品的档位"
       // （产品口径：「统一水票在站长端是特殊化的」）。它不参与具体商品的保存流程。
       const unified = { id: 'UNIFIED', name: '统一折扣（站级）', unified: true }
-      this.setData({ products: [unified].concat(res.data || []) })
+      const products = [unified].concat(res.data || [])
+      const keyword = String(this.data.productKeyword || '').trim().toLowerCase()
+      this.setData({ products, visibleProducts: products.filter(p => p.unified || [p.name, p.spec, p.brand].join(' ').toLowerCase().includes(keyword)) })
+      const selected = this.data.productId || this._initialProductId
+      this._initialProductId = ''
+      if (selected) {
+        const p = products.find(p => String(p.id) === String(selected))
+        if (p) await this.onPickProduct({ currentTarget: { dataset: { id: selected } } })
+        else this.setData({ productId: '', packages: [], discounts: [], productLoadError: '原商品当前不在本站在售清单，请重新选择' })
+      }
     } catch (err) {
+      if (seq === this._productLoadSeq) this.setData({ productLoadError: err.message || '商品加载失败，请重试' })
       wx.showToast({ title: err.message || '商品加载失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (seq === this._productLoadSeq) this.setData({ loading: false })
     }
   },
 
@@ -129,20 +164,25 @@ Page({
     const unified = String(raw) === 'UNIFIED'
     const id = unified ? null : Number(raw)
     const p = this.data.products.find(x => (unified ? x.unified : x.id === id))
+    if (!p || this.data.saving) return
+    const changed = this.data.productId !== (unified ? 'UNIFIED' : String(id))
     this.setData({
       productId: unified ? 'UNIFIED' : String(id),
       productName: p ? p.name : '',
-      isUnified: unified
+      isUnified: unified, productSpec: p.spec || '', packages: [], discounts: [], packageLoadError: '',
+      form: changed ? { qty: '', price: '', discount: '', title: '', sort: '' } : this.data.form
     })
     await this.loadPackages()
   },
 
   async loadPackages() {
-    this.setData({ loading: true })
+    const seq = this._packageSeq = (this._packageSeq || 0) + 1
+    this.setData({ loading: true, packageLoadError: '' })
     try {
       if (this.data.isUnified) {
         // 站级统一折扣：只有张数 + 折扣，**没有金额**（价格按各款水现算）
         const res = await get(DISCOUNTS)
+        if (seq !== this._packageSeq) return
         const discounts = (res.data || []).map(x => Object.assign({}, x, {
           statusText: x.status === 1 ? '生效中' : '已停用',
           discountText: (Number(x.discountPerMille) || 0) / 100 + ' 折'
@@ -151,6 +191,7 @@ Page({
         return
       }
       const res = await get(PACKAGES_MANAGE + '?productId=' + this.data.productId)
+      if (seq !== this._packageSeq) return
       const p = this.data.products.find(x => String(x.id) === this.data.productId)
       // 散买单价（站级水票价）只用于算"参考节省"这个展示值；
       // 档位自己的 price / unitPrice 一律用服务端返回值，不由前端推导。
@@ -170,9 +211,10 @@ Page({
       })
       this.setData({ packages, discounts: [] })
     } catch (err) {
+      if (seq === this._packageSeq) this.setData({ packageLoadError: err.message || '档位加载失败，请重试' })
       wx.showToast({ title: err.message || '档位加载失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (seq === this._packageSeq) this.setData({ loading: false })
     }
   },
 

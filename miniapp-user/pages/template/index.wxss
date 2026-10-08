@@ -78,7 +78,7 @@
   width: 80rpx;
   height: 44rpx;
   border-radius: 22rpx;
-  background-color: #ddd;
+  background-color: var(--border-color);
   display: flex;
   align-items: center;
   padding: 4rpx;

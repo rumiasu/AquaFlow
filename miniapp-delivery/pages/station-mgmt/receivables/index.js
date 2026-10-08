@@ -81,6 +81,11 @@ Page({
     this.load()
   },
 
+  onUnload() {
+    this._overviewRequest = (this._overviewRequest || 0) + 1
+    this._ordersRequest = (this._ordersRequest || 0) + 1
+  },
+
   /**
    * 按 `onlyOverdue` 从**全量**客户里挑出展示副本。
    *
@@ -110,7 +115,7 @@ Page({
   async onPullDownRefresh() {
     try {
       if (this.data.customer) {
-        await this.loadOrders()
+        await Promise.all([this.load(), this.loadOrders()])
       } else {
         await this.load()
       }
@@ -121,26 +126,38 @@ Page({
 
   /** 从明细返回客户列表时也要刷新（核销后数字会变）。 */
   onBack() {
-    this.setData({ customer: null, orders: [], selectedCount: 0 })
+    this._ordersRequest = (this._ordersRequest || 0) + 1
+    this.setData({ customer: null, orders: [], selectedCount: 0, ordersLoading: false, ordersError: '' })
     this.load()
   },
 
   async load() {
+    const request = this._overviewRequest = (this._overviewRequest || 0) + 1
     this.setData({ loading: true, loadError: '' })
     try {
       const res = await get(AR)
-      const d = res.data || {}
+      if (request !== this._overviewRequest) return
+      const d = res && res.data
+      if (!d || !Array.isArray(d.customers)) throw new Error('待收账款数据不完整，请重试')
+      const current = this.data.customer
+      // 此接口返回完整、未分页的待收客户集合；成功响应中缺席才表示无待收。
+      // 保留当前客户身份/账期，不按本次核销金额在前端做减法。
+      const customer = current && (d.customers.find(c => c.customerId === current.customerId) ||
+        Object.assign({}, current, { outstandingAmount: 0, orderCount: 0, creditOrderCount: 0,
+          overdueAmount: 0, overdueOrderCount: 0, maxOverdueDays: 0, earliestDueDate: null }))
       this.setData({
         overview: d,
+        customer,
         // 全量留一份：筛选是**展示层**的事，切来切去不该重新请求（也不该动总览数字）
         allCustomers: d.customers || []
       })
       this._applyOverdueFilter()
     } catch (err) {
+      if (request !== this._overviewRequest) return
       this.setData({ loadError: err.message || '待收账款没加载出来，请重试' })
       wx.showToast({ title: err.message || '台账加载失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (request === this._overviewRequest) this.setData({ loading: false })
     }
   },
 
@@ -160,21 +177,27 @@ Page({
   async loadOrders() {
     const c = this.data.customer
     if (!c) return
+    const request = this._ordersRequest = (this._ordersRequest || 0) + 1
+    const isCurrent = () => request === this._ordersRequest && this.data.customer &&
+      this.data.customer.customerId === c.customerId
     this.setData({ ordersLoading: true, ordersError: '' })
     try {
       const res = await get(AR + '/orders?customerId=' + c.customerId)
+      if (!isCurrent()) return
+      if (!res || !Array.isArray(res.data)) throw new Error('待收明细数据不完整，请重试')
       // 展示用的截断放在这里做：wxml 里不能调方法/函数，而 ISO 串直接渲染又太长
-      const orders = (res.data || []).map(o => Object.assign({}, o, {
+      const orders = res.data.map(o => Object.assign({}, o, {
         createDateText: String(o.createTime || '').slice(0, 10),
         dueDateText: o.dueDate ? String(o.dueDate).slice(0, 10) : '',
         overdue: o.overdueDays > 0
       }))
-      this.setData({ orders })
+      this.setData({ orders, selectedCount: 0 })
     } catch (err) {
+      if (!isCurrent()) return
       this.setData({ ordersError: err.message || '待收明细没加载出来，请重试' })
       wx.showToast({ title: err.message || '明细加载失败', icon: 'none' })
     } finally {
-      this.setData({ ordersLoading: false })
+      if (isCurrent()) this.setData({ ordersLoading: false })
     }
   },
 
@@ -233,7 +256,7 @@ Page({
         showCancel: false
       })
       this.setData({ selectedCount: 0 })
-      await this.loadOrders()
+      await Promise.all([this.load(), this.loadOrders()])
     } catch (err) {
       // 服务端整批回滚并说明是哪一单、为什么（不会出现"部分核销"）
       wx.showModal({ title: '核销未完成', content: err.message || '请稍后重试', showCancel: false })

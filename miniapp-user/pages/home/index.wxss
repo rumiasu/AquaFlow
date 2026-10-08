@@ -620,35 +620,35 @@
 }
 
 .status-chip-warn {
-  background: #fff3e0;
+  background: var(--warning-bg);
 }
 
 .status-dot {
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
-  background: #4caf50;
+  background: var(--success-color);
   margin-right: 12rpx;
   flex-shrink: 0;
 }
 
 .status-chip-warn .status-dot {
-  background: #f57c00;
+  background: var(--warning-color);
 }
 
 .status-chip-text {
   font-size: 24rpx;
-  color: #4a4a4a;
+  color: var(--text-primary);
   flex-shrink: 0;
 }
 
 .status-chip-warn .status-chip-text {
-  color: #b26a00;
+  color: var(--warning-color);
 }
 
 .status-chip-note {
   font-size: 24rpx;
-  color: #8a8a8a;
+  color: var(--text-secondary);
   margin-left: 8rpx;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -656,11 +656,11 @@
 }
 
 .status-chip-warn .status-chip-note {
-  color: #b26a00;
+  color: var(--warning-color);
 }
 
 .status-chip-arrow {
   font-size: 24rpx;
-  color: #b0b0b0;
+  color: var(--text-placeholder);
   margin-left: 8rpx;
 }

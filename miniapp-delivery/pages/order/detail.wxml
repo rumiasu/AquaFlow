@@ -1,16 +1,30 @@
 <view class="container">
   <!-- 隐私授权弹窗：本页用 wx.chooseLocation 导航、wx.chooseImage 传图，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
   <privacy-popup />
-  <!-- 蓝色头部 -->
-  <view class="header">
-    <view class="header-top">
-      <text class="customer-name">{{order.receiverName || order.customerName}}</text>
-      <text class="order-no">订单 {{order.orderNo || order.id}}</text>
+  <view class="info-card" wx:if="{{writePending}}">
+    <text>操作仍在处理中，请稍候</text>
+  </view>
+  <view class="info-card" wx:if="{{detailError}}">
+    <text wx:if="{{detailOutcomeText}}">{{detailOutcomeText}}</text>
+    <text>详情刷新失败：{{detailError}}</text>
+    <button size="mini" bindtap="onRetryDetail" loading="{{loading}}" disabled="{{loading || writePending}}">重新加载</button>
+  </view>
+  <!-- ══ 关键事实卡（2026-10-07 #19 R4，正本 docs/design/36 §2）══
+       原整版蓝头降级为暖纸白卡：对象、单号、状态章、金额一屏读完（R1 详情页=暖纸白卡）。
+       状态章 tint 底+实色字（R2）；金额与收款口径一律读后端投影
+       （totalAmount / payStateText / needCollect，class 在 js 里算好，wxml 不做判断）。 -->
+  <view class="fact-card">
+    <view class="fact-top">
+      <text class="fact-name">{{order.receiverName || order.customerName}}</text>
+      <text class="fact-no">订单 {{order.orderNo || order.id}}</text>
     </view>
-    <view class="status-row">
+    <view class="fact-status-row">
       <text class="status-badge status-{{order.statusClass}}">{{order.statusText}}</text>
-      <text class="aux-tag aux-offline" wx:if="{{order.isOffline}}">线下</text>
       <text class="aux-tag aux-{{l.type}}" wx:for="{{order.labels}}" wx:for-item="l" wx:key="type">{{l.text}}</text>
+    </view>
+    <view class="fact-amount-row" wx:if="{{order.amountText}}">
+      <text class="fact-amount">{{order.amountText}}</text>
+      <text class="fact-pay fact-pay-{{order.payChipClass}}" wx:if="{{order.payStateText}}">{{order.payStateText}}</text>
     </view>
   </view>
 
@@ -91,7 +105,7 @@
     <view class="order-content" wx:for="{{order.items}}" wx:for-item="it" wx:key="id">
       <text class="content-name">{{it.productNameSnapshot}}</text>
       <text class="content-spec" wx:if="{{it.specSnapshot}}">{{it.specSnapshot}}</text>
-      <text class="content-qty">× {{it.quantity}} 桶</text>
+      <text class="content-qty">× {{it.quantity}} {{it.quantityUnit}}</text>
     </view>
   </view>
 
@@ -108,9 +122,14 @@
       所以这里退到报告允许的做法：**如实标成中性的「订单备注」**，内容原样保留、一条不删。
       等后端补下发"客户留言"字段后，这一块再拆成两段（需后端配合，已登记）。
   -->
+  <view class="section" wx:if="{{order.deliveryTimeRequest}}">
+    <text class="section-title">客户期望送达</text>
+    <text class="info-text">{{order.deliveryTimeRequest}}</text>
+    <text class="section-tip">期望时间供安排参考，不代表已约定送达时间。</text>
+  </view>
   <view class="section" wx:if="{{order.notes && order.notes.length > 0}}">
     <text class="section-title">订单备注</text>
-    <text class="section-tip">客户下单时写的话与系统的处理记录都在这里，逐行如实显示</text>
+    <text class="section-tip">客户留言（包括期望送达时间）与处理记录逐行显示；期望时间供安排参考。</text>
     <view class="notes-list">
       <view class="note-item" wx:for="{{order.notes}}" wx:key="index">
         <text class="note-icon">⚠</text>
@@ -188,72 +207,105 @@
     </view>
   </view>
 
-  <!-- 操作按钮 -->
-  <view class="action-bar" wx:if="{{!order.transferTarget}}">
-    <button class="action-btn action-nav" bindtap="onNavigate">
+  <!-- ══ 操作区（2026-10-07 #11，正本 docs/design/36 §3）══
+       主区：完成配送（主，仅 canComplete），导航/确认收款（次），更多操作（低频）。
+       低频动作全部收进下方半屏弹层；所有显示条件（canComplete / canReport / canTransfer /
+       canWithdrawTransfer / canReturn / canRequestCancel / 拒付三件套）保留原业务判据；处理器补单次执行和页面身份保护。 -->
+  <view class="action-bar" wx:if="{{order.id && !loading && !detailError && !order.transferTarget}}">
+    <button class="action-btn action-nav" bindtap="onNavigate" wx:if="{{!order.canCollect}}">
       <text>导航</text>
     </button>
-    <button class="action-btn action-complete" bindtap="onComplete">
+    <button class="action-btn action-collect" bindtap="onConfirmCollection" wx:if="{{order.canCollect}}" disabled="{{actionBusy}}">
+      <text>确认收款</text>
+    </button>
+    <button class="action-btn action-complete" bindtap="onComplete" disabled="{{actionBusy}}" wx:if="{{order.canComplete}}">
       <text class="action-icon">✓</text>
       <text>完成配送</text>
     </button>
-    <button class="action-btn action-report" bindtap="onReport">
-      <text class="action-icon">⚠</text>
-      <text>异常反馈</text>
+    <button class="action-btn action-more" bindtap="onOpenMoreActions" disabled="{{actionBusy}}" wx:if="{{hasMoreActions}}">
+      <text>更多操作</text>
     </button>
   </view>
 
-  <view class="action-bar action-bar-confirm" wx:if="{{order.transferTarget}}">
-    <button class="action-btn action-reject" bindtap="onRejectTransfer">
+  <view class="action-bar action-bar-confirm" wx:if="{{!loading && !detailError && order.canAcceptTransfer}}">
+    <button class="action-btn action-reject" bindtap="onRejectTransfer" disabled="{{actionBusy}}">
       <text>拒绝转单</text>
     </button>
-    <button class="action-btn action-accept" bindtap="onAcceptTransfer">
-      <text>同意并接单</text>
+    <button class="action-btn action-accept" bindtap="onAcceptTransfer" disabled="{{actionBusy}}">
+      <text>同意接手</text>
     </button>
   </view>
 
-  <!-- 转给同事 / 退回站长 -->
-  <block wx:if="{{!order.transferTarget}}">
-    <!-- 转单待对方确认期间收起「转给同事」：后端本来就拒绝第二条待确认转单，
-         两个按钮并排只会让人先点错一个（2026-09-29 清单2）。 -->
-    <view class="transfer-btn" bindtap="onTransfer" wx:if="{{!order.transferPending}}">
-      <text>转单给其他配送员</text>
-    </view>
-    <!--
-      撤回转单（2026-09-29 拍板 清单2）：转单改双方同意制后，发起人此前**没有任何反悔出口**
-      （申请发出去只能等对方拒绝）。详情是发起人最自然的「发起处」。
-      只画**转让行**（transferPendingSubKind === 'TRANSFER'，由详情接口从 order_transfer 回填）：
-      退回站长 / 站内取消申请虽同为 STAFF 类型、撤回端点也能解析，但它们各有各的决策路径
-      （审批页签的同意/拒绝、取消申请的撤销），这里混进来只会挂错文案；
-      站间指定退回（DIRECTED）走协调页那套「召回/退回」动作，不在这条路上。
-    -->
-    <view class="transfer-btn" wx:if="{{order.transferPendingSubKind === 'TRANSFER'}}"
-          bindtap="onCancelTransfer">
-      <text>{{cancelTransferBusy ? '撤回中…' : '撤回转单'}}</text>
-    </view>
-    <view class="transfer-btn" bindtap="onReturnToStation">
-      <text>退回站长</text>
-    </view>
-    <!--
-      申请取消：**只有「配送中(2)」给这个按钮**（2026-09-22 修）。
-      待配送(1) 本来就有「拒单」这条正门（走 rejectOrder，不经审批）；
-      已送达(3) **不可取消**（后端 isCancellable 排除），原来这里也放行 status===3，
-      点下去只会给站长造一条"点了同意才发现拒不了"的审批单 —— 异常请走「配送异常」。
-    -->
-    <view class="transfer-btn" wx:if="{{order.status === 2}}" bindtap="onRequestCancel">
-      <text>申请取消订单</text>
+  <!-- ══ 更多操作半屏弹层（2026-10-07 #11）══
+       点条目 = onMoreAction 统一分发：先关弹层、再调**原处理器**（弹层上叠 ActionSheet/Modal 会乱）。
+       原按钮上的业务注释随条目保留（转单待确认收起 / 撤回只画转让行 / 申请取消只有配送中 / 拒付 v60）。 -->
+  <view class="sheet-mask" wx:if="{{showMoreActions}}" bindtap="onCloseMoreActions" catchtouchmove="onSheetTouchMove"></view>
+  <view class="sheet" wx:if="{{showMoreActions}}" catchtouchmove="onSheetTouchMove">
+    <view class="sheet-title">更多操作</view>
+    <scroll-view class="sheet-actions" scroll-y>
+
+    <!-- 异常反馈（原 action-bar 第三钮）：记录现场问题，通知站长（实现 utils/delivery-problem，与首页共用） -->
+    <view class="sheet-item" wx:if="{{order.canReport}}" data-act="onReport" bindtap="onMoreAction">
+      <view class="sheet-item-info">
+        <text class="sheet-item-name">异常反馈</text>
+        <text class="sheet-item-desc">记录现场问题，通知站长</text>
+      </view>
+      <text class="sheet-item-arrow">›</text>
     </view>
 
-    <!--
-      客户拒付（v60 接线）：**已送达(3) 且还要收款**时，站长唯一的出路。
-      这正是「已送达不可取消」之后那条断头路 —— 在此之前，界面上**没有任何入口**
-      能把"客户拒付"记下来，钱会永远挂在待收款台账上（异常单只能由"少收空桶"自动生成，
-      而拒付场景桶可能一个不少地还回来了、差异为 0，永远触发不了）。
-      后端 `POST /api/manager/exceptions?orderId=` 是 STATION_MANAGER 专属，这里只对站长画。
-    -->
-    <view class="transfer-btn btn-refusal" wx:if="{{isManager && order.status === 3 && order.needCollect}}"
-          bindtap="onRefusalWriteOff">
-      <text>{{refusalBusy ? '处理中…' : (order.independentBusinessRules ? '确认客户拒付（保留欠款）' : '客户拒付（走历史核销）')}}</text>
+    <!-- 转给同事：转单待对方确认期间收起「转给同事」——后端本来就拒绝第二条待确认转单，
+         两个按钮并排只会让人先点错一个（2026-09-29 清单2）。 -->
+    <view class="sheet-item" wx:if="{{order.canTransfer}}" data-act="onTransfer" bindtap="onMoreAction">
+      <view class="sheet-item-info">
+        <text class="sheet-item-name">转单给其他配送员</text>
+        <text class="sheet-item-desc">从本站配送员里选一位，他同意后这单归他送</text>
+      </view>
+      <text class="sheet-item-arrow">›</text>
     </view>
-  </block>
+
+    <!-- 撤回转单（2026-09-29 拍板 清单2）：转单改双方同意制后，发起人的反悔出口。
+         只画**转让行**（transferPendingSubKind === 'TRANSFER'）：退回站长 / 站内取消申请
+         各有各的决策路径；站间指定退回（DIRECTED）走协调页那套「召回/退回」，不在这条路上。 -->
+    <view class="sheet-item" wx:if="{{order.canWithdrawTransfer}}" data-act="onCancelTransfer" bindtap="onMoreAction">
+      <view class="sheet-item-info">
+        <text class="sheet-item-name">{{cancelTransferBusy ? '撤回中…' : '撤回转单'}}</text>
+        <text class="sheet-item-desc">对方还没确认前可以反悔</text>
+      </view>
+      <text class="sheet-item-arrow">›</text>
+    </view>
+
+    <!-- 退回站长：提交退回申请，站长确认后重新派人 -->
+    <view class="sheet-item" wx:if="{{order.canReturn}}" data-act="onReturnToStation" bindtap="onMoreAction">
+      <view class="sheet-item-info">
+        <text class="sheet-item-name">退回站长</text>
+        <text class="sheet-item-desc">提交退回申请，站长确认后重新派人</text>
+      </view>
+      <text class="sheet-item-arrow">›</text>
+    </view>
+
+    <!-- 申请取消：**只有「配送中(2)」给这个入口**（2026-09-22 修）。
+         待配送(1) 本来就有「拒单」正门（走 rejectOrder，不经审批）；已送达(3) 不可取消。 -->
+    <view class="sheet-item" wx:if="{{order.canRequestCancel}}" data-act="onRequestCancel" bindtap="onMoreAction">
+      <view class="sheet-item-info">
+        <text class="sheet-item-name">申请取消订单</text>
+        <text class="sheet-item-desc">提交后需站长审批</text>
+      </view>
+      <text class="sheet-item-arrow">›</text>
+    </view>
+
+    <!-- 客户拒付（v60 接线）：**已送达(3) 且还要收款**时，可登记拒付风险。
+         后端 POST /api/manager/exceptions?orderId= 是 STATION_MANAGER 专属，这里只对站长画。
+         弹层里唯一的错误色条目（真正动账在原处理器的第 2 步确认弹窗）。 -->
+    <view class="sheet-item sheet-item-danger" wx:if="{{isManager && order.status === 3 && order.needCollect}}"
+          data-act="onRefusalWriteOff" bindtap="onMoreAction">
+      <view class="sheet-item-info">
+        <text class="sheet-item-name">{{refusalBusy ? '处理中…' : (order.independentBusinessRules ? '确认客户拒付（保留欠款）' : '客户拒付（走历史核销）')}}</text>
+        <text class="sheet-item-desc">已送达待收款时登记拒付，两步确认</text>
+      </view>
+      <text class="sheet-item-arrow">›</text>
+    </view>
+
+    </scroll-view>
+    <view class="sheet-cancel" bindtap="onCloseMoreActions">取消</view>
+  </view>
 </view>

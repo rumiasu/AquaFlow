@@ -533,3 +533,69 @@
   font-size: 22rpx;
   color: var(--text-secondary);
 }
+
+/* [2026-10-07 #15] 退出说明帮助链接：低调的文字链，不做按钮 */
+.ticket-help {
+  margin: -8rpx 32rpx 16rpx;
+}
+.ticket-help text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  border-bottom: 1rpx solid var(--text-placeholder);
+}
+
+/* [2026-10-07 #15] 原购买恢复卡：替代"错误条里塞裸 button"。
+   原购买 = 钱可能已付出但未核实，需要独立卡片与按钮主次（主/次/危险）。
+   底色走 --warning-bg（2026-10-07 新增 token，docs/design/36 §1.1）。 */
+.recovery-card {
+  margin: 16rpx 24rpx 0;
+  padding: 20rpx 24rpx;
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  border-left: 6rpx solid var(--warning-color);
+}
+.recovery-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6rpx;
+}
+.recovery-text {
+  font-size: 24rpx;
+  color: var(--text-regular);
+  line-height: 1.5;
+}
+.recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+/* 原生 <button> 改形：清默认样式，disabled 态由 [disabled] 选择器表达（闸门仍在元素上） */
+button.recovery-btn {
+  margin: 0;
+  padding: 12rpx 28rpx;
+  border-radius: var(--radius-round);
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+button.recovery-btn::after {
+  border: none;
+}
+button.recovery-btn[disabled] {
+  opacity: 0.45;
+}
+.recovery-btn-primary {
+  background: var(--primary-color);
+  color: #fff;
+}
+.recovery-btn-plain {
+  background: var(--bg-white);
+  color: var(--primary-color);
+  border: 1rpx solid var(--primary-color);
+}
+.recovery-btn-danger {
+  background: transparent;
+  color: var(--error-color);
+  border: 1rpx solid var(--error-color);
+}

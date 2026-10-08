@@ -253,6 +253,8 @@ const getInventoryRecords = (limit, productId) => {
 const getAllBarrelRecords = () => {
   return get(API.BARRELS_ALL_RECORDS)
 }
+// 站长只读原款退款资格；顾客端不能调用，不据此替代写入时的原渠道校验。
+const getBarrelRefundEligibility = (id) => get(API.BARREL_REFUND_ELIGIBILITY(id))
 const approveBarrelReturn = (id, pickupFee, note) => put(API.BARRELS_RETURN_APPROVE(id), { pickupFee, note })
 
 /**
@@ -444,6 +446,8 @@ const confirmPayment = (id) => {
 }
 
 module.exports = {
+  // 员工站长搜索，归属与调整绑定资格由服务端给出；顾客端不能调用。
+  searchAdjustmentCustomers: keyword => get('/api/manager/order-assist/customers', { keyword }),
   getDashboardReport,
   getOrders,
   getCrossStationOrders,
@@ -479,6 +483,7 @@ module.exports = {
   inboundProducts,
   getInventoryRecords,
   getAllBarrelRecords,
+  getBarrelRefundEligibility,
   approveBarrelReturn,
   updateBarrelRecordStatus,
   markRefundPaid,

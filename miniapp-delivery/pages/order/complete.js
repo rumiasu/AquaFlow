@@ -1,5 +1,6 @@
 const { completeOrder, getOrderDetail } = require('../../api/delivery')
 const { get } = require('../../utils/request')
+const { itemUnit } = require('../../utils/order-item-view')
 
 const REASON_OPTIONS = [
   { key: 'customer_kept', label: '客户留存' },
@@ -31,7 +32,7 @@ function buildDeliveryItems(order) {
     const qty = Number(it.quantity) || 0
     // 单位按商品类别：1 桶装水 / 2 瓶装水 / 3 饮水器（后端 product.category，与 util/BarrelScope 同源）。
     // 认不出的类别退回中性的「件」，**不猜成桶**。
-    const unit = Number(it.category) === 1 ? '桶' : (Number(it.category) === 2 ? '瓶' : (Number(it.category) === 3 ? '台' : '件'))
+    const unit = itemUnit(it)
     return {
       id: it.id,
       name,
@@ -412,7 +413,9 @@ Page({
 
   onActualChange(e) {
     const idx = parseInt(e.currentTarget.dataset.idx)
-    const val = Math.max(0, parseInt(e.detail.value) || 0)
+    const raw = e.detail.value
+    const parsed = raw === '' ? '' : Number(raw)
+    const val = typeof parsed === 'number' && !Number.isFinite(parsed) ? raw : parsed
     this._updateItemActual(idx, val)
   },
 
@@ -435,7 +438,7 @@ Page({
     this.setData({ items })
   },
 
-  /** 少桶原因的**数量之和**——展示、闸门、校验三处必须用同一个数（契约 C2）。 */
+  /** 已填原因按数量合计；不要求补齐未知差额（design/16 C-02）。 */
   _reasonSum(item) {
     return (item.reasons || []).reduce((s, r) => s + (Number(r.qty) || 0), 0)
   },
@@ -495,7 +498,9 @@ Page({
 
   onReasonQtyChange(e) {
     const { idx, ridx } = e.currentTarget.dataset
-    const val = Math.max(0, parseInt(e.detail.value) || 0)
+    const raw = e.detail.value
+    const parsed = raw === '' ? '' : Number(raw)
+    const val = typeof parsed === 'number' && !Number.isFinite(parsed) ? raw : parsed
     const items = [...this.data.items]
     items[idx].reasons[ridx].qty = val
     items[idx].reasonQtySum = this._reasonSum(items[idx])
@@ -636,16 +641,24 @@ Page({
     for (let i = 0; i < this.data.items.length; i++) {
       const item = this.data.items[i]
       const missing = item.expected - item.actual
-      if (missing > 0) {
-        // 按**数量之和**校验（与服务端同一条判据，见 OrderWorkflowServiceImpl.assertReturnReasonsMatchGap）
-        const totalReasonQty = this._reasonSum(item)
-        if (totalReasonQty !== missing) {
+      if (!Number.isInteger(item.actual) || item.actual < 0) {
+        wx.showToast({ title: '实回桶数请填非负整数', icon: 'none' })
+        return false
+      }
+      // 2026-10-05：旧“原因须补齐”阻断合法送达；原因选填，只校验人已填写的事实。
+      const reasons = item.reasons || []
+      if (reasons.some(r => !REASON_OPTIONS.some(option => option.key === r.key)
+          || !Number.isInteger(r.qty) || r.qty <= 0)) {
+        wx.showToast({ title: '已填原因请选有效项，数量填正整数；不填可移除', icon: 'none' })
+        return false
+      }
+      const totalReasonQty = this._reasonSum(item)
+      if (totalReasonQty > Math.max(0, missing)) {
           wx.showToast({
-            title: `${item.productName} 少 ${missing} 桶，异常原因合计 ${totalReasonQty} 桶，请补齐`,
+            title: `${item.productName} 原因合计不能超过少回差额`,
             icon: 'none'
           })
           return false
-        }
       }
     }
     return true
@@ -687,9 +700,9 @@ Page({
     let s = ''
     items.forEach(it => {
       if (it.expected === 0 && it.actual === 0) return   // 首单押金桶：不占摘要
-      s += `${it.productName}：回桶 ${it.actual}/${it.expected}`
+      s += `${it.productName}：应回 ${it.expected} 桶，实回 ${it.actual} 桶`
       if (it.discrepancy !== 0) {
-        s += `（少${Math.abs(it.discrepancy)}）`
+        s += `（${it.discrepancy > 0 ? '少' : '多'}${Math.abs(it.discrepancy)}）`
       }
       s += '\n'
     })

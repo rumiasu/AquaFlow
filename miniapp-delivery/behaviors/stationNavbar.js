@@ -39,6 +39,8 @@ const { checkSetupReminder } = require('../utils/setup-reminder')
 // 不走 api/station-mgmt.js —— 那一族是站长接口，混在一起容易让人以为配送员也能调。
 const STATION_STATUS = '/api/stations'
 
+const navigation = require('../utils/navigation')
+
 module.exports = Behavior({
   data: {
     // 水站营业状态（软状态）：文案由后端下发，前端不做 1..4 映射
@@ -265,13 +267,13 @@ module.exports = Behavior({
         return
       }
       this.setData({ stationPanelShow: false })
-      wx.navigateTo({ url: route })
+      navigation.open(route, { owner: this })
     },
 
     /** 小框底部「设置营业状态」→ 那个页面（原本点胶囊的落点） */
     goStationStatus() {
       this.setData({ stationPanelShow: false })
-      wx.navigateTo({ url: '/pages/station-mgmt/station-status/index' })
+      navigation.open('/pages/station-mgmt/station-status/index', { owner: this })
     },
 
     /** 小框遮罩上吞掉 touchmove，防止滚动穿透（wxml 用 catchtouchmove） */

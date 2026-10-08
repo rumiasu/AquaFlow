@@ -1,4 +1,11 @@
-<view class="page-container" wx:if="{{order}}">
+<view class="page-container" wx:if="{{detailState !== 'ready'}}">
+  <view class="info-section">
+    <view class="section-title">{{detailState === 'loading' ? '正在加载订单' : detailState === 'notfound' ? '未找到订单' : '订单暂时无法加载'}}</view>
+    <text class="pay-hint" wx:if="{{loadError}}">{{loadError}}</text>
+    <button wx:if="{{detailState !== 'loading'}}" class="btn-action btn-call" bindtap="onRetry">重新加载</button>
+  </view>
+</view>
+<view class="page-container" wx:if="{{detailState === 'ready' && order}}">
   <view class="status-card status-{{order.status}}">
     <view class="status-main">{{statusText}}</view>
     <view class="status-sub">
@@ -32,7 +39,7 @@
     <view class="items-list">
       <view class="item-row" wx:for="{{items}}" wx:key="productId">
         <view class="item-thumb" wx:if="{{item.imageUrl}}">
-          <image src="{{item.imageUrl}}" mode="aspectFill" class="item-thumb-img" />
+          <image src="{{item.imageUrl}}" mode="aspectFill" class="item-thumb-img" data-index="{{index}}" data-url="{{item.imageUrl}}" binderror="onItemImageError" />
         </view>
         <view class="item-thumb item-thumb-placeholder" wx:else>
         </view>
@@ -42,7 +49,7 @@
         </view>
         <view class="item-right">
           <text class="item-price" wx:if="{{item.price}}">¥{{item.price}}</text>
-          <text class="item-qty">×{{item.quantity}}</text>
+          <text class="item-qty">×{{item.quantity}} {{item.quantityUnit}}</text>
         </view>
       </view>
     </view>
@@ -95,8 +102,11 @@
       <text class="value">{{order.addressDetail}}</text>
     </view>
     <view class="info-row" wx:if="{{order.deliveryTimeRequest}}">
-      <text class="label">配送时间</text>
+      <text class="label">期望送达</text>
       <text class="value">{{order.deliveryTimeRequest}}</text>
+    </view>
+    <view class="info-row" wx:if="{{order.deliveryTimeRequest}}">
+      <text class="value">这是你的期望时间，水站会按实际情况安排。</text>
     </view>
     <!-- 配送员上报的楼层（v43）：双向可见 —— 客户在订单里也能看到"他报了几层"，
          楼层凭证照片（如上传过）在同页「配送凭证」里。这样楼层争议双方都有据可查。 -->
@@ -114,17 +124,21 @@
     </view>
   </view>
 
-  <view class="info-section" wx:if="{{images.length > 0}}">
+  <view class="info-section" wx:if="{{images.length > 0 || imagesState === 'error'}}">
     <view class="section-title">配送凭证</view>
+    <text class="pay-hint" wx:if="{{imagesError}}">{{imagesError}}</text>
+    <button wx:if="{{imagesState === 'error'}}" class="btn-action btn-call" bindtap="onRetryImages">重试加载凭证</button>
     <view class="image-grid">
       <image
         wx:for="{{images}}"
         wx:key="id"
+        wx:if="{{!item.failed}}"
         class="order-image"
         src="{{item.url}}"
         mode="aspectFill"
         data-url="{{item.url}}"
         bindtap="onPreviewImage"
+        binderror="onProofImageError"
       ></image>
     </view>
   </view>
@@ -132,7 +146,7 @@
   <view class="action-section">
     <button wx:if="{{canRepay}}" class="btn-action btn-pay" bindtap="onPayNow">{{repayLabel}}</button>
     <text wx:else class="pay-hint">{{payHint}}</text>
-    <button wx:if="{{canCancel}}" class="btn-action btn-cancel" bindtap="onCancel">取消订单</button>
+    <button wx:if="{{canCancel}}" class="btn-action btn-cancel" bindtap="onCancel">{{cancelLabel}}</button>
     <button wx:if="{{order.status === 5}}" class="btn-action btn-reorder" bindtap="onReorder">再次购买</button>
     <button wx:if="{{callPhone}}" class="btn-action btn-call" bindtap="onCallPhone">联系水站</button>
   </view>

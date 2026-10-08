@@ -4,7 +4,9 @@ const STORAGE_KEYS = {
   REFRESH_TOKEN: 'aq_user_refreshToken',
   USER_INFO: 'aq_user_userInfo',
   CUSTOMER_ID: 'aq_user_customerId',
-  TICKET_PURCHASE_INTENT: 'aq_user_ticketPurchaseIntent:'
+  CART_PREFIX: 'aq_user_cart:',
+  TICKET_PURCHASE_INTENT: 'aq_user_ticketPurchaseIntent:',
+  REFUND_NOTE_INTENT: 'aq_user_refundNoteIntent:'
 }
 
 module.exports = { STORAGE_KEYS }

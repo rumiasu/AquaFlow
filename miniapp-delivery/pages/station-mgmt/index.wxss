@@ -32,3 +32,22 @@
 /* 辅助说明用 --text-regular 而非 --text-secondary：后者是"灰色占位"（§6 规定不承载规则内容） */
 .entry-desc { font-size: 24rpx; color: var(--text-regular); margin-top: 6rpx; line-height: 1.4; }
 .entry-arrow { font-size: 32rpx; color: var(--text-secondary); margin-left: 16rpx; }
+
+/* 入口徽标（红点计数）：用于 应收账款 / 退桶审批 / 业务待办与退出 等待办计数提示 */
+.entry-badge {
+  min-width: 32rpx;
+  height: 32rpx;
+  line-height: 32rpx;
+  padding: 0 10rpx;
+  margin-left: 12rpx;
+  border-radius: 16rpx;
+  background: var(--error-color);
+  color: #fff;
+  font-size: 20rpx;
+  text-align: center;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.entry-unknown { color:var(--text-secondary); font-size:22rpx; white-space:nowrap; }
+.badge-error { margin:16rpx 24rpx; padding:20rpx; background:var(--warning-bg); color:var(--warning-color); font-size:26rpx; }

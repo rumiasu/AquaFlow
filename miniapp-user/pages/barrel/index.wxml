@@ -100,27 +100,34 @@
         <text class="section-title">水桶记录</text>
       </view>
       <view class="bucket-list" wx:if="{{records.length > 0}}">
-        <view class="bucket-item" wx:for="{{records}}" wx:key="id">
-          <view class="bucket-info">
-            <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#2E4A68" /></view>
-            <view class="bucket-detail">
-              <!-- ⚠️ BarrelRecord 没有 barrelNo 字段，原写法 item.barrelNo || ('桶号 #' + item.id)
-                   永远走兜底分支，把流水主键当成"桶号"报给客户（假桶号）。
-                   类型/数量/备注后端都已下发（typeText/quantity/note），照实展示即可。 -->
-              <text class="bucket-id">{{item.typeText}}<text wx:if="{{item.quantity > 0}}"> · {{item.quantity}} 桶</text></text>
-              <text class="bucket-time" wx:if="{{item.note}}">{{item.note}}</text>
-              <text class="bucket-time" wx:if="{{item.createTime}}">{{item.createTime}}</text>
+        <view class="bucket-item barrel-record" wx:for="{{records}}" wx:key="id">
+          <view class="record-header">
+            <view class="bucket-info">
+              <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#2E4A68" /></view>
+              <view class="bucket-detail">
+                <!-- ⚠️ BarrelRecord 没有 barrelNo 字段，原写法 item.barrelNo || ('桶号 #' + item.id)
+                     永远走兜底分支，把流水主键当成"桶号"报给客户（假桶号）。
+                     类型/数量/备注后端都已下发（typeText/quantity/note），照实展示即可。 -->
+                <text class="bucket-id">{{item.typeText}}<text wx:if="{{item.quantity > 0}}"> · {{item.quantity}} 桶</text></text>
+                <text class="bucket-time" wx:if="{{item.note}}">{{item.note}}</text>
+                <text class="bucket-time" wx:if="{{item.createTime}}">{{item.createTime}}</text>
+              </view>
+            </view>
+            <!-- statusText 只对退桶申请（type=2）有值，其余类型后端不下发（见 BarrelRecord.getStatusText） -->
+            <view class="bucket-status status-{{item.status || 0}}" wx:if="{{item.statusText}}">
+              <text>{{item.statusText}}</text>
             </view>
           </view>
-          <!-- statusText 只对退桶申请（type=2）有值，其余类型后端不下发（见 BarrelRecord.getStatusText） -->
-          <view class="bucket-status status-{{item.status || 0}}" wx:if="{{item.statusText}}">
-            <text>{{item.statusText}}</text>
+          <view class="record-return" wx:if="{{item.returnDetail}}">
+            <text class="record-summary">{{item.returnDetail.pickupModeText}} · 应交回 {{item.returnDetail.requiredBarrels}} 桶 · 取桶费 ¥{{item.returnDetail.pickupFee}}</text>
+            <view class="record-actions">
+              <button class="record-action record-action-primary" wx:if="{{item.returnDetail.status === 'APPROVED' && !item.returnDetail.customerConfirmedTime}}" data-id="{{item.id}}" bindtap="onReturnConfirm">确认批准的安排</button>
+              <button class="record-action record-action-secondary" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnWithdraw">撤回申请</button>
+            </view>
           </view>
-          <view wx:if="{{item.returnDetail}}">
-            <text>{{item.returnDetail.pickupModeText}} · 应交回 {{item.returnDetail.requiredBarrels}} 桶 · 取桶费 ¥{{item.returnDetail.pickupFee}}</text>
-            <button wx:if="{{item.returnDetail.status === 'APPROVED' && !item.returnDetail.customerConfirmedTime}}" data-id="{{item.id}}" bindtap="onReturnConfirm">确认批准的安排</button>
-            <button wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnWithdraw">撤回申请</button>
-          </view>
+          <text class="record-summary" wx:if="{{item.statusText && item.refundPaidTime}}">水站登记退款交付时间：{{item.refundPaidTime}}。如实际未收到，请联系退款水站核实。</text>
+          <text class="record-summary" wx:if="{{item.statusText && item.handleNote}}">处理说明：{{item.handleNote}}</text>
+          <button wx:if="{{item.statusText}}" size="mini" bindtap="onRefundFeedback" data-id="{{item.id}}">异议或补充说明</button>
         </view>
       </view>
       <empty wx:else text="暂无水桶记录"></empty>
@@ -138,7 +145,8 @@
 
     <view class="eco-card">
       <view class="eco-content">
-        <view class="eco-icon"><icon name="droplet" size="40rpx" color="#10B981" /></view>
+        <!-- --success-color 对应值：Icon 写入独立 SVG，按 design/36 调色板豁免，不能直接传 CSS 变量。 -->
+    <view class="eco-icon"><icon name="droplet" size="40rpx" color="#2E9E6B" /></view>
         <view class="eco-text">
           <text class="eco-title">爱护水桶</text>
           <text class="eco-desc">水桶是可循环使用的资源，请妥善保管，避免暴晒和污染</text>
@@ -169,8 +177,8 @@
                 wx:for="{{customerBarrelAsset}}" wx:key="productId"
                 data-id="{{item.productId}}" bindtap="onSelectProduct">
             <text>{{item.productName}}{{item.productSpec ? ' ' + item.productSpec : ''}}</text>
-            <!-- 退桶选择处显示「可退」而不是「持有」：可退 = 占用（权益 + over），
-                 配送中的桶还没到手、退不了；欠桶时占用也会小于权益。 -->
+            <!-- 历史交回显示 occupied（权益汇总+over），不把配送中数量当已交桶。
+                 新申请显示 availableRights 份权益：已付未领容量也可退出，不能等同物理回桶数量。 -->
             <text class="water-type-qty">可退 {{summary.independentRights ? item.availableRights : (item.occupiedQty || 0)}} {{summary.independentRights ? '份权益' : '桶'}}</text>
           </view>
         </view>
@@ -232,7 +240,9 @@
         <input class="note-input" placeholder="如：搬家、换地址等" value="{{returnForm.note}}" bindinput="onReturnNoteInput"></input>
       </view>
       <view class="form-row" wx:if="{{summary.independentRights}}" bindtap="onPickupMode"><text>交接方式：{{returnForm.pickupModeText || '到店退桶'}} ›</text></view>
-      <view wx:if="{{summary.independentRights}}">必须先批准并确认安排，再交桶。未领桶的权益也可申请退还；仅退还当前未被订单占用的权益。</view>
+      <!-- [2026-10-07 #16] 原来是一条无 class 的裸文本，夹在两行表单项之间像排版残留；
+           纳入 preview-hint 提示条样式（文案本身等 #17 词汇表统一替换，这里只归位样式） -->
+      <view class="preview-hint" wx:if="{{summary.independentRights}}"><text>必须先批准并确认安排，再交桶。未领桶的权益也可申请退还；仅退还当前未被订单占用的权益。</text></view>
     </view>
 
     <view class="modal-footer">

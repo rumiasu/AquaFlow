@@ -25,6 +25,13 @@ Page({
     }
   },
 
+  // [2026-10-07 评审 #7] 协议名跳转承载页（占位草稿，页内有显著告示；
+  // 正式正文与版本化同意流程见 docs/design/36 §5.5 的交接清单）。
+  onOpenAgreement(e) {
+    const type = e.currentTarget.dataset.type === 'privacy' ? 'privacy' : 'user'
+    wx.navigateTo({ url: '/pages/mine/agreement/index?type=' + type })
+  },
+
   // 微信一键登录：wx.login 静默拿 code → 后端换 openid 自动注册/登录
   //
   // [2026-09-24 产品要求]「以后点击登录就自动同意协议吧，别再费劲点了」——
@@ -33,8 +40,7 @@ Page({
   // 点按钮这个动作本身即表示同意。
   // ⚠️ 这是"点击即同意"（明示告知 + 用户主动点击），与"默认帮你勾上"不是一回事 ——
   //    后者才是审核会挑的形态。**别把下面那行提示也删掉**：没有可见告知就只剩"沉默同意"了。
-  // ⚠️ 已知缺口（本次没做）：两个协议链接目前是**纯文本、点了没反应**（没有对应页面，
-  //    也没有 handler）。合规上应当能点开全文，需要产品先给协议正文与页面路径。
+  // [2026-10-07] 协议链接已接入真实承载页（pages/mine/agreement，占位草稿状态见其页内告示）。
   async onWxLogin() {
     if (this.data.loading) return
 
@@ -73,7 +79,7 @@ Page({
         wx.showToast({ title: (res && res.message) || '登录失败', icon: 'none' })
       }
     } catch (error) {
-      console.error('微信登录失败:', error)
+      console.error('微信登录失败')
       wx.showToast({ title: (error && error.message) || '微信登录失败', icon: 'none', duration: 2500 })
     } finally {
       this.setData({ loading: false })
@@ -106,7 +112,7 @@ Page({
         wx.showToast({ title: res.message || '登录失败', icon: 'none' })
       }
     } catch (error) {
-      console.error('开发登录失败:', error)
+      console.error('开发登录失败')
       wx.showToast({ title: '登录失败: ' + (error.message || '网络错误'), icon: 'none', duration: 3000 })
     } finally {
       this.setData({ loading: false })

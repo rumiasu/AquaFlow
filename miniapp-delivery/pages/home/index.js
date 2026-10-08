@@ -1,6 +1,7 @@
 const { getPendingOrders, getDeliveringOrders, getCompletedToday, acceptOrder, getDeliveredUnpaid, confirmCollection, transferOrder, returnToStation, getStaffList, respondTransfer, getTransferList, getAssignedToMe } = require('../../api/delivery')
 // 楼层/电梯文案与订单详情页共用同一份实现（口径只有一处）
 const { buildFloorText } = require('../../utils/address')
+const { orderSummary } = require('../../utils/order-item-view')
 // 自绘导航栏 + 水站营业状态胶囊（本页 navigationStyle=custom）：与「首页」共用一份实现
 // —— 结构与样式见 templates/station-navbar.wxml、styles/station-navbar.wxss
 const stationNavbar = require('../../behaviors/stationNavbar')
@@ -27,7 +28,9 @@ Page({
     // 部分列表接口失败时的提示文案（空串 = 全部正常）。见 loadData 里的说明。
     loadError: '',
     showMediateModal: false,
-    currentOrderId: null
+    currentOrderId: null,
+    // [2026-10-06] 待收款区折叠状态：默认收起，点击展开
+    unpaidExpanded: false
   },
 
   onLoad() {
@@ -128,16 +131,7 @@ Page({
       //   ④ ⚠️ 有完整摘要时**不再另外显示「共 N 种」**（2026-09-27 真机）：它本来就含在摘要里
       //      （「…1桶，…2桶」一眼就是两种），挂成第二个 flex 子项还会把"共 2 种"挤到下一行，
       //      看着像排版坏了。**只有回落分支**（没有 itemSummary、只知道总数）才用它报数量。
-      const summaryOf = (o) => {
-        const summary = (o.itemSummary || '').trim()
-        if (summary) return { text: summary, meta: '' }
-        const barrelQty = Number(o.deliveryBucketQty || 0)
-        const pieces = Number(o.quantity || 0)
-        return {
-          text: o.firstProductName || '商品明细待确认',
-          meta: barrelQty > 0 ? `等 ${barrelQty} 桶` : (pieces > 0 ? `等 ${pieces} 件` : '')
-        }
-      }
+      const summaryOf = orderSummary
 
       // 金额一律取后端 totalAmount。此前按 quantity * (waterTypePrice || productPrice)
       // 前端自算，而这两个单价字段后端从不返回，导致金额恒为 ¥0.00。
@@ -320,6 +314,8 @@ Page({
 
   onCompleteOrder(e) {
     const id = e.currentTarget.dataset.id
+    // [2026-10-06] 原二次确认已撤掉：完成配送页本身有回桶/收款/最终提交流程，
+    // 再加前置确认既重复又容易误解（GPT验收意见#4）。
     wx.navigateTo({ url: `/pages/order/complete?id=${id}&from=home` })
   },
 
@@ -452,6 +448,10 @@ Page({
         }
       }
     })
+  },
+
+  onToggleUnpaidSection() {
+    this.setData({ unpaidExpanded: !this.data.unpaidExpanded })
   },
 
   stopPropagation() {}

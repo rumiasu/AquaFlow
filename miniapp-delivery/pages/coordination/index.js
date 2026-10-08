@@ -1,5 +1,7 @@
 const { get, post } = require('../../utils/request')
 const { API } = require('../../config/api')
+const navigation = require('../../utils/navigation')
+const { orderSummary } = require('../../utils/order-item-view')
 // 自绘底栏（tabBar.custom=true）：本页是 tab 页，onShow 必须同步一次 —— 各页组件实例独立，
 // 不调就会出现"切过来了高亮还在别的页签"，而且角色是登录后才确定的（见 utils/tabbar.js）
 const { syncTabBar } = require('../../utils/tabbar')
@@ -102,12 +104,10 @@ function feeView(o) {
  * ⚠️ 这是纯展示映射，不做任何请求、不改变任何列表的取数口径。
  */
 function goodsView(o) {
-  const qty = Number(o.deliveryBucketQty)
+  const summary = orderSummary(o, '—')
   return {
     ...o,
-    goodsText: o.itemSummary
-      ? o.itemSummary
-      : (qty > 0 ? o.firstProductName + ' 等 ' + qty + ' 桶' : (o.firstProductName || '—'))
+    goodsText: summary.meta ? summary.text + ' ' + summary.meta : summary.text
   }
 }
 
@@ -149,32 +149,27 @@ Page({
     activeTab: 'pending',
     // 「审批」大页签内的子页签：customer 客户发起 / station 站内（配送员）发起
     approvalTab: 'customer',
-    /**
-     * 首页四个大页签（[2026-09-26] 从五个收敛：原独立的「他站外派」页签并进「外派」）。
-     *
-     * ⚠️ 「外派」**一个页签内置两个子页签**（见 dispatchTab）：一键外派 / 指定外派。
-     * 别站指定本店为履约站，本来就是"指定外派"的一种，单开一个页签会让站长以为系统里有两套外派。
-     */
+    // 站长按操作方向找任务：待分配、审批、接单（公开/指定）、本站外派。
     tabs: [
       { key: 'pending', label: '待分配', count: 0 },
       { key: 'approval', label: '审批', count: 0 },
-      { key: 'pool', label: '抢单池', count: 0 },
-      // 角标 = 一键外派 + 指定外派（两个方向）之和，由 loadAllData 算好（wxml 不做算术）
+      { key: 'pool', label: '接单', count: 0 },
+      // 角标由 loadAllData 算好；入站任务只计入接单。
       { key: 'dispatch', label: '外派', count: 0 }
     ],
-    /**
-     * 「外派」页签内的子页签（[2026-09-26] 产品原话："正常外派有两种形式，
-     * 一种是一键外派不用管的，一种是指定外派水站，可能往往有一些业务牵扯"）：
-     *   · `pool` —— 一键外派：放进抢单池，谁抢谁送，归属站不用管（只在还没被接单前能召回）；
-     *   · `directed` —— 指定外派：指定到具体水站（本站指定给别站的 + 别站指定本店的）。
-     */
+    // 外派两个子页签只收本站派出的订单；指定给本站的任务放在接单。
     dispatchTab: 'pool',
+    acceptTab: 'pool',
+    showGuide: false,
+    modalBottomInset: 0,
     lists: {
       pending: [],
       pool: [],
+      directedIncoming: [],
+      directedAccepted: [],
       // 本站外派出去的单，按**后端下发**的 dispatchKind 分成两份（前端不解析 specialNote）
       dispatchPool: [],
-      // 指定外派一个列表装两个方向，靠 _dir 区分动作（in = 别站指定本店 / out = 本站指定给别站）
+      // 指定外派只收本站派出，入站任务独立放在 directedIncoming / directedAccepted
       dispatchDirected: [],
       // 待审批申请：客户发起（取消申请）/ 站内发起（退回站长、转让、重分配、取消申请）
       approvalCustomer: [],
@@ -221,7 +216,7 @@ Page({
    * 就能看到数，在这里再报一遍正是本次要消除的那种重复。**P0 并没有丢**：tab 红点算的是完整
    * payload 的 p0Total（这 6 项全在内），只是换成"一个红点"而不是"6 个数字"。
    * [2026-09-26] 「指定外派待确认」（key 仍是 directedIncoming，后端标签已改）现在落在
-   * 「外派 → 指定外派」子页签的角标里 —— 角标按两个方向之和算，P0 照样一眼能看到。
+   * 「接单 → 指定给本站」子页签的角标里 —— 待接受任务单独计数，P0 照样一眼能看到。
    * 若产品认为 P0 必须逐项上门，**加回一项要动两处**：本清单添 key **且** TODO_ROUTES 补路由 ——
    * 其中 4 项（待分配/转单/客户取消/站内取消）本身就是本页页签，得走 switchTab 而非 navigateTo。
    */
@@ -415,10 +410,7 @@ Page({
    *  （navigateBack 对 tabBar 页不可靠）。原先 wxml 绑了此方法但 js 未定义 →
    *  点了没反应，配送员会被卡在「您无权限」页出不去。 */
   onGoBack() {
-    wx.switchTab({
-      url: '/pages/home/index',
-      fail: () => wx.reLaunch({ url: '/pages/home/index' })
-    })
+    navigation.open('/pages/home/index', { owner: this })
   },
 
   onLoad() {
@@ -426,16 +418,19 @@ Page({
     // 实现与「配送」页共用，见 behaviors/stationNavbar.js
     this.initNavMetrics()
     if (!this.checkRole()) {
-      wx.switchTab({ url: '/pages/home/index' })
+      navigation.open('/pages/home/index', { owner: this })
       return
     }
     wx.setNavigationBarTitle({ title: '首页' })
   },
 
   onShow() {
+    navigation.show(this)
     const app = getApp()
     // 自绘底栏：站长看到 首页/配送/我的，配送员只看到 配送/我的（本页对配送员不显示）
     syncTabBar(this, '/pages/coordination/index')
+    this.updateModalViewport()
+    this.syncModalTabBar()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
       return
@@ -448,7 +443,39 @@ Page({
       this.loadStationPending()
       this.loadTodo()
       this.loadAllData()
+      if (!wx.getStorageSync('delivery-coordination-guide-v2')) this.setModalState({ showGuide: true })
     }
+  },
+
+  onHide() { navigation.hide(this); this.syncModalTabBar(false) },
+  onUnload() { navigation.dispose(this); this.syncModalTabBar(false) },
+  onResize() { this.updateModalViewport() },
+
+  updateModalViewport() {
+    const info = typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo()
+      : typeof wx.getSystemInfoSync === 'function' ? wx.getSystemInfoSync() : {}
+    const screen = Number(info.screenHeight)
+    const available = Number(info.windowHeight)
+    // root-portal 使用全屏高度；按钮必须留在页面可交互的 windowHeight 内。
+    const inset = Number.isFinite(screen) && Number.isFinite(available) && available > 0
+      ? Math.max(0, screen - available) : 0
+    this.setData({ modalBottomInset: inset })
+  },
+
+  syncModalTabBar(blocked) {
+    const bar = typeof this.getTabBar === 'function' && this.getTabBar()
+    if (bar && typeof bar.setModalBlocked === 'function') {
+      bar.setModalBlocked(blocked === undefined
+        ? !!(this.data.showGuide || this.data.showAssignModal) : blocked)
+    }
+  },
+
+  setModalState(patch) {
+    if (patch.showGuide || patch.showAssignModal) {
+      this.updateModalViewport()
+      this.syncModalTabBar(true)
+    }
+    this.setData(patch, () => this.syncModalTabBar())
   },
 
   onPullDownRefresh() {
@@ -524,7 +551,7 @@ Page({
       const pendingList = [
         ...(pendingRes.data || []),
         ...(transferRes.data || [])
-      ].map(o => {
+      ].filter(o => !['TRANSFER', 'CANCEL_REQUEST'].includes(o.transferPendingSubKind)).map(o => {
         const note = o.specialNote || o.special_note || ''
         // [2026-09-29 清单2] 结构化字段优先：两个列表 SQL（listTransferredOrders /
         // listStationPendingUnassigned）都带 transferPendingKind 子查询。文本标记判据
@@ -574,14 +601,9 @@ Page({
       const dispatchDirectedOut = dispatchRows
         .filter(o => o.dispatchKind !== 'POOL')
         .map(o => goodsView({ ...o, _dir: 'out' }))   // 本站指定给别站：可召回 / 重新指定
-      // 「指定外派」子页签 = 两个方向合成一个列表，靠 _dir 区分动作与标签：
-      //   in  = 别站指定本店（可退回原水站，钱与去向整块由后端下发）
-      //   out = 本站指定给别站
-      // 别站指定本店的那些排前面：它们等本站回话（P0），本站派出去的只需盯着。
-      const dispatchDirected = [
-        ...(incomingRes.data || []).map(o => goodsView({ ...feeView(o), _dir: 'in' })),
-        ...dispatchDirectedOut
-      ]
+      // 本站派出与指定入站分开；已分配或开始配送的入站任务另列进度。
+      const dispatchDirected = dispatchDirectedOut
+      const directedRows = (incomingRes.data || []).map(o => goodsView({ ...feeView(o), _dir: 'in' }))
 
       const approvalData = approvalsRes.data || {}
       const lists = {
@@ -590,22 +612,28 @@ Page({
         // 两个页签都必须在动手前看到"这单值多少钱、价是谁定的、钱归谁" —— 同一份映射，不各写一遍。
         // goodsView 同理：商品行全页签同一份文案（这几个端点都没有 itemSummary，见其注释）
         pool: (poolRes.data || []).map(feeView).map(goodsView),
+        directedIncoming: directedRows.filter(o => o.status === 1 && o.deliveryStaffId == null),
+        directedAccepted: directedRows.filter(o => o.status !== 1 || o.deliveryStaffId != null),
         dispatchPool,
         dispatchDirected,
         approvalCustomer: (approvalData.customer || []).map(goodsView),
-        approvalStation: (approvalData.station || []).map(goodsView)
+        approvalStation: (approvalData.station || []).filter(o => o.transferPendingSubKind !== 'TRANSFER').map(o => goodsView({
+          ...o,
+          approvalAction: o.transferPendingSubKind === 'RETURN_STATION' ? 'return'
+            : o.transferPendingSubKind === 'TRANSFER' ? 'transfer'
+              : o.transferPendingSubKind === 'CANCEL_REQUEST' ? 'cancel' : 'unknown'
+        }))
       }
 
       const tabs = this.data.tabs.map(t => ({
         ...t,
         // 「审批」角标 = 客户 + 站内 两组待审批之和；
-        // 「外派」角标 = 两个子页签之和（一键外派 + 指定外派两个方向）——
-        // P0 的"指定外派待确认"就在这个数里，别改成只看某一个子页签。
+        // 外派只数本站派出；接单角标数公开可抢 + 指定给本站的待接受任务。
         count: t.key === 'approval'
           ? lists.approvalCustomer.length + lists.approvalStation.length
           : (t.key === 'dispatch'
             ? lists.dispatchPool.length + lists.dispatchDirected.length
-            : (lists[t.key] || []).length)
+            : (t.key === 'pool' ? lists.pool.length + lists.directedIncoming.length : (lists[t.key] || []).length))
       }))
       const dispatchCount = {
         pool: lists.dispatchPool.length,
@@ -649,6 +677,16 @@ Page({
   // 「外派」页签内切换子页签：pool 一键外派（放抢单池）/ directed 指定外派
   switchDispatchTab(e) {
     this.setData({ dispatchTab: e.currentTarget.dataset.tab })
+  },
+
+  switchAcceptTab(e) {
+    this.setData({ acceptTab: e.currentTarget.dataset.tab })
+  },
+
+  onOpenGuide() { this.setModalState({ showGuide: true }) },
+  onCloseGuide() {
+    wx.setStorageSync('delivery-coordination-guide-v2', true)
+    this.setModalState({ showGuide: false })
   },
 
   // 审批 · 同意取消申请 —— 同意即走完整退款链并取消订单，不可撤销
@@ -739,7 +777,7 @@ Page({
   },
 
   onShowAssign(e) {
-    this.setData({
+    this.setModalState({
       showAssignModal: true,
       currentOrderId: e.currentTarget.dataset.id
     })
@@ -767,7 +805,7 @@ Page({
       await post(`${API.DELIVERY_ASSIGN}/${orderId}`, body)
       wx.hideLoading()
       wx.showToast({ title: `已分配给 ${name}`, icon: 'success' })
-      this.setData({ showAssignModal: false, currentOrderId: null })
+      this.setModalState({ showAssignModal: false, currentOrderId: null })
       this.loadAllData()
     } catch (err) {
       wx.hideLoading()
@@ -1121,6 +1159,12 @@ Page({
    */
   async onMediateReturn(e) {
     const id = e.currentTarget.dataset.id
+    const row = [...this.data.lists.directedIncoming, ...this.data.lists.directedAccepted]
+      .find(o => String(o.id) === String(id))
+    if (row && row.status !== 1 && row.status !== 2) {
+      wx.showToast({ title: '当前订单不可退回，请刷新', icon: 'none' })
+      return
+    }
     wx.showModal({
       title: '退回原水站',
       content: '本单由别站指定给本站配送。退回后等原水站站长决定：他同意就由原水站重新安排配送，不同意则仍由本站继续配送。',
@@ -1144,7 +1188,7 @@ Page({
   },
 
   onCloseModal() {
-    this.setData({ showAssignModal: false, currentOrderId: null })
+    this.setModalState({ showAssignModal: false, currentOrderId: null })
   },
 
   stopPropagation() {}

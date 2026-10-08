@@ -1,6 +1,7 @@
 const { STORAGE_KEYS } = require('./utils/storage-keys')
 const { stationStorage } = require('./utils/storage')
 const { captureSession, isCurrentSession, isCurrentCredentials, beginSession } = require('./utils/token')
+const { validId, readCart, saveCart } = require('./utils/cart-storage')
 
 App({
   globalData: {
@@ -14,6 +15,16 @@ App({
 
   onLaunch() {
     this.checkLogin()
+  },
+
+  onShow() {
+    this.ensureCartOwner()
+  },
+
+  onHide() {
+    // Home edits getCart()'s mutable object directly; save those edits as well.
+    this.ensureCartOwner()
+    this.persistCart()
   },
 
   checkLogin() {
@@ -73,6 +84,13 @@ App({
   },
 
   setLoginInfo(accessToken, refreshToken, userInfo) {
+    this.persistCart()
+    this.globalData.cart = {}
+    this._cartOwner = null
+    // Login callers write the new customer ID after this method returns.
+    // Never restore a new session using the previous session's cached ID.
+    this.globalData.customerId = null
+    wx.removeStorageSync(STORAGE_KEYS.CUSTOMER_ID)
     beginSession()
     this.globalData.accessToken = accessToken
     this.globalData.refreshToken = refreshToken
@@ -84,6 +102,10 @@ App({
   },
 
   clearLoginInfo() {
+    this.persistCart()
+    this.globalData.cart = {}
+    this._cartOwner = null
+    this.globalData.customerId = null
     beginSession()
     this.globalData.accessToken = null
     this.globalData.refreshToken = null
@@ -102,11 +124,28 @@ App({
 
   // ===== 购物车工具方法（按站隔离）=====
   getCart(stationId) {
+    this.ensureCartOwner()
     const sid = String(stationId)
     if (!this.globalData.cart[sid]) {
       this.globalData.cart[sid] = {}
     }
     return this.globalData.cart[sid]
+  },
+
+  ensureCartOwner() {
+    const id = this.globalData.isLogin
+      ? (this.globalData.customerId || wx.getStorageSync(STORAGE_KEYS.CUSTOMER_ID)) : null
+    // During the login handoff gap, drafts are ephemeral and cannot acquire an owner.
+    const owner = this.globalData.isLogin ? (validId(id) ? String(id) : null) : 'guest'
+    if (this._cartOwner !== owner) {
+      this.persistCart()
+      this.globalData.cart = owner ? readCart(owner) : {}
+      this._cartOwner = owner
+    }
+  },
+
+  persistCart() {
+    return saveCart(this._cartOwner, this.globalData.cart)
   },
 
   getCartCount(stationId) {
@@ -118,11 +157,13 @@ App({
     const cart = this.getCart(stationId)
     const pid = String(productId)
     cart[pid] = (parseInt(cart[pid]) || 0) + qty
+    this.persistCart()
   },
 
   removeFromCart(stationId, productId) {
     const cart = this.getCart(stationId)
     delete cart[String(productId)]
+    this.persistCart()
   },
 
   setCartQty(stationId, productId, qty) {
@@ -133,11 +174,14 @@ App({
     } else {
       cart[pid] = qty
     }
+    this.persistCart()
   },
 
   clearCart(stationId) {
+    this.ensureCartOwner()
     const sid = String(stationId)
     this.globalData.cart[sid] = {}
+    this.persistCart()
   },
 
   // 获取当前选择的站点 ID（从 stationStorage 读取）

@@ -1,5 +1,5 @@
 // 订单详情页
-const { getOrderDetail, completeOrder, transferOrder, cancelTransferOrder, returnToStation, getStaffList, dispatchOrder, resolveOrder, requestCancel } = require('../../api/delivery')
+const { getOrderDetail, completeOrder, transferOrder, cancelTransferOrder, returnToStation, getStaffList, dispatchOrder, resolveOrder, requestCancel, confirmCollection } = require('../../api/delivery')
 // 配送异常上报（原因文案 + 上报实现）：与首页「配送遇到问题」共用一份，见 utils/delivery-problem.js
 const { reportDeliveryProblem } = require('../../utils/delivery-problem')
 const businessRules = require('../../api/business-rules')
@@ -17,18 +17,20 @@ const PAYMENT_REFUND = '/api/payments/'
 const MANAGER_EXCEPTIONS = '/api/manager/exceptions'
 // 楼层/电梯文案：与配送任务列表共用同一份实现（口径只有一处）
 const { buildFloorText } = require('../../utils/address')
+const { itemUnit, withItemUnits } = require('../../utils/order-item-view')
 
 /**
  * 备货情况文案（契约 C4）：后端 `stockPrep` 投影 → 一句话。
  * 判据 = 凭据上的需求快照 − 已预留（不是 `inventory.quantity`）；这里**只展示**，
  * 真正拦住"少扣一点先把单结了"的是完成配送时那次出库校验（提示可能过期）。
  */
-function buildStockPrepText(prep) {
+function buildStockPrepText(prep, orderItems = []) {
   if (!prep) return ''
   if (prep.ready === true) return '已备齐'
   const parts = []
   ;(prep.items || []).forEach((it) => {
-    parts.push(`${it.productName || '商品'} 还缺 ${it.shortage} 桶`)
+    const matched = it.productId != null && orderItems.find(row => String(row.productId) === String(it.productId))
+    parts.push(`${it.productName || '商品'} 还缺 ${it.shortage} ${itemUnit(matched || it)}`)
   })
   if (prep.itemsWithoutCredential > 0) parts.push('有商品还没登记备货')
   return parts.length ? ('还缺：' + parts.join('、')) : ''
@@ -95,12 +97,38 @@ function formatTime(v) {
 // 只做**一个等值判断**（决定要不要出现「退款」按钮），不是映射表 ——
 // 文案一律渲染后端下发的 statusText / methodText，前端不维护状态字典。
 const PAY_STATUS_PAID = 2
+const { orderActions } = require('../../utils/order-actions')
+
+// 2026-10-07：读取只认当前页面/订单/登录身份；正常续期换 token 不视为换人。
+function staffSession() {
+  const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+  return { app, generation: app._loginGeneration || 0,
+    key: JSON.stringify([!!g.accessToken, g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+}
+const MORE_ACTIONS = {
+  onReport: 'canReport', onTransfer: 'canTransfer', onCancelTransfer: 'canWithdrawTransfer',
+  onReturnToStation: 'canReturn', onRequestCancel: 'canRequestCancel'
+}
+// 与现有 confirm-offline-pay 的角色、履约站、自身分配、现金及状态守卫一致。
+function canCollect(order, user = {}) {
+  const same = (a, b) => a != null && b != null && String(a) === String(b)
+  const manager = user.role === 'STATION_MANAGER' || user.role === 'manager'
+  const delivery = user.role === 'DELIVERY' || user.role === 'delivery'
+  const station = order.deliveryStationId == null ? order.stationId : order.deliveryStationId
+  return !!(order.needCollect && order.paymentMethod === 2
+    && (order.paymentStatus === 0 || order.paymentStatus === 1)
+    && (order.status === 2 || order.status === 3) && same(station, user.stationId)
+    && (manager || (delivery && same(order.deliveryStaffId, user.staffId))))
+}
 
 Page({
   data: {
     orderId: null,
     order: {},
     loading: true,
+    detailError: '',
+    detailOutcomeText: '',
+    writePending: false,
     // 楼梯凭证（v43）：站长与配送员都能看、都能补传；不强制，所以"没有也不拦"
     floorPhotos: [],
     floorUploading: false,
@@ -118,17 +146,24 @@ Page({
     isManager: false,
     refusalBusy: false,
     // 撤回转单（2026-09-29 清单2）：防连点，文案在按钮上换「撤回中…」
-    cancelTransferBusy: false
+    cancelTransferBusy: false,
+    // 更多操作弹层（2026-10-07 #11，docs/design/36 §3）：纯 UI 状态。
+    // hasMoreActions 在 loadOrderDetail 里按既有 can* 判据算好 —— 判据一处（utils/order-actions），
+    // 这里只是"有没有任何一个低频动作可显示"，不产生新业务判断。
+    showMoreActions: false,
+    actionBusy: false,
+    hasMoreActions: false
   },
 
   onLoad(options) {
     if (options.id) {
       this.setData({ orderId: options.id })
-      this.loadOrderDetail(options.id)
     }
   },
 
   onShow() {
+    if (this._unloaded) return
+    this._hidden = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
@@ -139,8 +174,144 @@ Page({
     this.setData({ isManager: role === 'STATION_MANAGER' || role === 'manager' })
     // 从完成配送页返回时刷新
     if (this.data.orderId) {
-      this.loadOrderDetail(this.data.orderId)
+      return this.loadOrderDetail(this.data.orderId)
     }
+  },
+
+  // 原生返回离页走 onUnload；进入其他页/后台走 onHide，统一关闭弹层并失效旧回调。
+  onHide() {
+    this._hidden = true
+    this._lifeVersion = (this._lifeVersion || 0) + 1
+    this.setData({ showMoreActions: false, actionBusy: false, cancelTransferBusy: false, refusalBusy: false, writePending: false })
+    ;(this._dialogs || new Set()).forEach(cancel => cancel())
+    this._dialogs = new Set()
+    this._actionTask = null
+    if (this._loadingTask) { wx.hideLoading(); this._loadingTask = null }
+  },
+
+  onUnload() {
+    this.onHide()
+    this._unloaded = true
+  },
+
+  _context(id = this.data.orderId) {
+    return { id, life: this._lifeVersion || 0, session: staffSession() }
+  },
+
+  _isCurrent(ctx) {
+    if (!ctx || this._hidden || this._unloaded || ctx.life !== (this._lifeVersion || 0)
+      || String(ctx.id) !== String(this.data.orderId)) return false
+    const now = staffSession()
+    return ctx.session.app === now.app && ctx.session.generation === now.generation
+      && ctx.session.key === now.key && now.app.canAccessStationBusiness()
+      && (ctx.readVersion == null || ctx.readVersion === (this._detailVersion || 0))
+  },
+
+  // 页面失效只取消 UI 回调；已经发出的请求须等响应，不能在返回页面后再次提交。
+  _sameOrderSession(ctx) {
+    if (!ctx || String(ctx.id) !== String(this.data.orderId)) return false
+    const now = staffSession()
+    return ctx.session.app === now.app && ctx.session.generation === now.generation
+      && ctx.session.key === now.key && now.app.canAccessStationBusiness()
+  },
+
+  _pendingWrite() {
+    return Array.from(this._pendingWrites || []).find(ctx => this._sameOrderSession(ctx))
+  },
+
+  _syncWriteBusy() {
+    const pending = this._pendingWrite()
+    this.setData({ writePending: !!pending, actionBusy: !!pending || !!this._actionTask,
+      cancelTransferBusy: !!pending && pending.actionName === 'onCancelTransfer',
+      refusalBusy: !!pending && pending.actionName === 'onRefusalWriteOff' })
+  },
+
+  _blockPendingWrite() {
+    if (!this._pendingWrite()) return false
+    wx.showToast({ title: '操作仍在处理中，请稍候', icon: 'none' })
+    return true
+  },
+
+  _actionAllowed(name) {
+    const order = this.data.order || {}, user = getApp().globalData.userInfo || {}
+    if (MORE_ACTIONS[name]) return !!orderActions(order, user)[MORE_ACTIONS[name]]
+    if (name === 'onConfirmCollection') return canCollect(order, user)
+    if (name === 'onAcceptTransfer' || name === 'onRejectTransfer') return !!orderActions(order, user).canAcceptTransfer
+    return name === 'onRefusalWriteOff' && (user.role === 'STATION_MANAGER' || user.role === 'manager')
+      && order.status === 3 && !!order.needCollect
+  },
+
+  async _runOrderAction(name, work) {
+    if (this._hidden || this._unloaded) return
+    if (this._blockPendingWrite()) return
+    if (this.data.loading || this.data.detailError || this._actionTask || !this._actionAllowed(name)
+      || (this._orderContext && !this._isCurrent(this._orderContext))) return
+    const ctx = this._context()
+    ctx.actionName = name
+    ctx.actionVersion = this._actionVersion = (this._actionVersion || 0) + 1
+    ctx.current = () => this._isCurrent(ctx) && this._actionAllowed(name)
+    this._actionTask = ctx
+    this.setData({ showMoreActions: false, actionBusy: true })
+    try { await work(ctx) } catch (err) {
+      if (this._isCurrent(ctx)) wx.showToast({ title: err.message || '操作失败，请重试', icon: 'none' })
+    } finally {
+      if (this._actionTask === ctx) {
+        this._actionTask = null
+        if (this._isCurrent(ctx)) this.setData({ actionBusy: false, cancelTransferBusy: false, refusalBusy: false })
+      }
+    }
+  },
+
+  _actionDialog(ctx, options, sheet = false) {
+    if (!ctx.current()) return Promise.resolve({ confirm: false })
+    return new Promise(resolve => {
+      const pending = this._dialogs || (this._dialogs = new Set())
+      let settled = false
+      const finish = result => {
+        if (settled) return
+        settled = true; pending.delete(cancel)
+        resolve(ctx.current() ? result : { confirm: false })
+      }
+      const cancel = () => finish({ confirm: false })
+      pending.add(cancel)
+      try { wx[sheet ? 'showActionSheet' : 'showModal']({ ...options, success: finish, fail: cancel }) }
+      catch (err) { cancel(); throw err }
+    })
+  },
+
+  async _actionWrite(ctx, write) {
+    if (!ctx.current() || this._blockPendingWrite()) return false
+    const pending = this._pendingWrites || (this._pendingWrites = new Set())
+    pending.add(ctx)
+    this._syncWriteBusy()
+    this._loadingTask = ctx
+    wx.showLoading({ title: '处理中…', mask: true })
+    let failure
+    try {
+      await write()
+      if (ctx.actionName === 'onCancelTransfer') this._withdrawOutcome = ctx
+      return this._isCurrent(ctx)
+    } catch (err) {
+      failure = err
+      throw err
+    } finally {
+      pending.delete(ctx)
+      if (this._loadingTask === ctx) { wx.hideLoading(); this._loadingTask = null }
+      if (!this._hidden && !this._unloaded && this._sameOrderSession(ctx)) {
+        this._syncWriteBusy()
+        // 已返回同一订单时，由新页面读取最终结果，旧 handler 不再继续弹窗或导航。
+        if (!this._isCurrent(ctx)) {
+          await this.loadOrderDetail(ctx.id)
+          if (failure && !this._hidden && !this._unloaded && this._sameOrderSession(ctx)) {
+            wx.showToast({ title: failure.message || '操作失败，请重试', icon: 'none' })
+          }
+        }
+      }
+    }
+  },
+
+  _actionBack(ctx) {
+    setTimeout(() => { if (this._isCurrent(ctx) && ctx.actionVersion === this._actionVersion) wx.navigateBack() }, 1500)
   },
 
   /**
@@ -150,79 +321,66 @@ Page({
    * 而「异常订单」页只能看到**已经存在**的异常 —— 它没法凭空知道你指的是哪张单。</p>
    *
    * <p>⚠️ 为什么分两步：第一步只**建单**（把事情记下来，可反悔），第二步才**核销**
-   * ——核销会一次做完三件事（应收出账 / 撤销该单权益 / 等量记客户欠桶）且**不可撤销**。
+   * ——历史核销会应收出账 / 撤销该单权益 / 等量记客户欠桶，且**不可撤销**；
+   * 新凭据路径仅确认信用风险，保留欠款与独立资产（independentBusinessRules）。
    * 合成一步就是"点错一下钱和桶账一起动了"。这与响应里 `WRITE_OFF` 是终态、
    * 重复点会报错（而不是幂等跳过）是同一套口径。</p>
    */
-  async onRefusalWriteOff() {
-    if (this.data.refusalBusy) return
-    const id = this.data.orderId
-
-    const first = await new Promise((resolve) => {
-      wx.showModal({
-        title: '客户拒付',
-        content: this.data.order.independentBusinessRules ? '第 1 步：登记客户收货后拒付的异常证据，随后由站长确认风险。' : '登记客户拒付异常，随后由站长确认结案。',
-        confirmText: '记异常',
-        success: resolve,
-        fail: () => resolve({ confirm: false })
+  onRefusalWriteOff() {
+    return this._runOrderAction('onRefusalWriteOff', async ctx => {
+      const independent = this.data.order.independentBusinessRules
+      const first = await this._actionDialog(ctx, {
+        title: '客户拒付', content: independent ? '第 1 步：登记客户收货后拒付的异常证据，随后由站长确认风险。' : '登记客户拒付异常，随后由站长确认结案。', confirmText: '记异常'
       })
-    })
-    if (!first || !first.confirm) return
-
-    this.setData({ refusalBusy: true })
-    let exId = null
-    try {
-      const res = await post(MANAGER_EXCEPTIONS + '?orderId=' + id,
-        { category: 'CUSTOMER_REFUSE', staffNote: '客户拒付' })
-      exId = res && res.data ? res.data.id : null
-    } catch (err) {
-      wx.showToast({ title: err.message || '发起异常失败', icon: 'none' })
-      this.setData({ refusalBusy: false })
-      return
-    }
-
-    if (!exId) {
-      // 建单"成功"却没拿到 id：出声，别让站长以为记上了
-      wx.showModal({ title: '异常单没有返回编号', content: '请到「异常订单」页确认这条异常是否记上了。', showCancel: false })
-      this.setData({ refusalBusy: false })
-      return
-    }
-
-    const second = await new Promise((resolve) => {
-      wx.showModal({
-        title: this.data.order.independentBusinessRules ? '确认拒付风险' : '核销认损',
-        content: this.data.order.independentBusinessRules ? '欠款继续保留并追收；关闭线下付款，支付新单前须补款；暂停退押金，不扣押金、不撤桶权益。跨站押金冻结另由归属站核实。' : '确认后应收出账、撤销未归还桶权益并等量记欠桶。请核实本次实际损失。',
-        confirmText: '确认处理',
-        confirmColor: '#B5442C',
-        cancelText: '先不核销',
-        success: resolve,
-        fail: () => resolve({ confirm: false })
+      if (!first.confirm || !ctx.current()) return
+      this.setData({ refusalBusy: true })
+      let response
+      if (!await this._actionWrite(ctx, async () => { response = await post(MANAGER_EXCEPTIONS + '?orderId=' + ctx.id, { category: 'CUSTOMER_REFUSE', staffNote: '客户拒付' }) })) return
+      const exId = response && response.data && response.data.id
+      if (!exId) {
+        await this._actionDialog(ctx, { title: '异常单没有返回编号', content: '请到「异常订单」页确认这条异常是否记上了。', showCancel: false })
+        return
+      }
+      const second = await this._actionDialog(ctx, {
+        title: independent ? '确认拒付风险' : '核销认损',
+        content: independent ? '欠款继续保留并追收；关闭线下付款，支付新单前须补款；暂停退押金，不扣押金、不撤桶权益。跨站押金冻结另由归属站核实。' : '确认后应收出账、撤销未归还桶权益并等量记欠桶。请核实本次实际损失。',
+        confirmText: '确认处理', confirmColor: '#B5442C', cancelText: '先不核销'
       })
-    })
-    if (!second || !second.confirm) {
-      wx.showToast({ title: '已记异常，未核销', icon: 'none' })
-      this.setData({ refusalBusy: false })
-      this.loadOrderDetail(id)
-      return
-    }
-
-    try {
-      await post(MANAGER_EXCEPTIONS + '/' + exId + '/write-off', { managerNote: this.data.order.independentBusinessRules ? '客户拒付，站长确认信用风险；欠款继续追收' : '客户拒付，站长核销认损' })
+      if (!ctx.current()) return
+      if (!second.confirm) {
+        wx.showToast({ title: '已记异常，未核销', icon: 'none' })
+        await this.loadOrderDetail(ctx.id); return
+      }
+      if (!await this._actionWrite(ctx, () => post(MANAGER_EXCEPTIONS + '/' + exId + '/write-off', {
+        managerNote: independent ? '客户拒付，站长确认信用风险；欠款继续追收' : '客户拒付，站长核销认损'
+      }))) return
       wx.showToast({ title: '已登记处理', icon: 'success' })
-      this.loadOrderDetail(id)
-    } catch (err) {
-      wx.showToast({ title: err.message || '核销失败', icon: 'none' })
-    } finally {
-      this.setData({ refusalBusy: false })
-    }
+      await this.loadOrderDetail(ctx.id)
+    })
   },
 
   // 加载订单详情
   async loadOrderDetail(id) {
-    this.setData({ loading: true })
+    if (this._hidden || this._unloaded) return
+    if (this.data.orderId == null) this.setData({ orderId: id })
+    const ctx = this._context(id)
+    ctx.readVersion = this._detailVersion = (this._detailVersion || 0) + 1
+    if (!this._isCurrent(ctx)) return
+    if (this._actionTask && !this._isCurrent(this._actionTask)) {
+      ;(this._dialogs || new Set()).forEach(cancel => cancel())
+      this._actionTask = null
+      if (this._loadingTask) { wx.hideLoading(); this._loadingTask = null }
+      this.setData({ actionBusy: false, cancelTransferBusy: false, refusalBusy: false })
+    }
+    this._syncWriteBusy()
+    if (!this._sameOrderSession(this._withdrawOutcome)) this._withdrawOutcome = null
+    this.setData({ loading: true, detailError: '',
+      detailOutcomeText: this._withdrawOutcome ? '已撤回转单，订单仍由你配送' : '',
+      showMoreActions: false, floorPhotos: [], deliveryPhotos: [], payments: [], canRefundPayment: false })
 
     try {
       const res = await getOrderDetail(id)
+      if (!this._isCurrent(ctx)) return
       const order = res.data
 
       // 状态文案、支付方式文案、是否需现场收款、转单状态：全部由后端计算下发。
@@ -236,11 +394,23 @@ Page({
 
       const labels = []
       if (order.needCollect) labels.push({ type: 'offline', text: '线下' })
-      if (order.transferPending) labels.push({ type: 'transfer', text: order.transferText })
+      const viewerRole = (getApp().globalData.userInfo || {}).role
+      const managerView = viewerRole === 'STATION_MANAGER' || viewerRole === 'manager'
+      if (order.transferPending && !(managerView && order.transferPendingSubKind === 'TRANSFER')) {
+        labels.push({ type: 'transfer', text: order.transferText })
+      }
+
+      // 动作判据一处（utils/order-actions）：订单对象里展开的同一份 acts 既驱动主按钮，
+      // 也驱动「更多操作」弹层有没有内容（hasMoreActions = 任一低频动作可显示）。
+      const acts = orderActions(order, getApp().globalData.userInfo)
+      this._orderContext = ctx
 
       this.setData({
         order: {
           ...order,
+          items: withItemUnits(order.items),
+          ...acts,
+          canCollect: canCollect(order, getApp().globalData.userInfo),
           statusText: order.statusText || '',
           statusClass: STATUS_CLASS_MAP[order.status] || 'default',
           notes,
@@ -249,9 +419,15 @@ Page({
           labels,
           isTransfer: !!order.transferPending,
           floorText: buildFloorText(order),
+          // 事实卡金额行（2026-10-07 #19 R4）：金额只做定长格式化，口径是后端 totalAmount；
+          // 收款章的文案是后端 payStateText，章的配色（need/paid/plain）由后端投影
+          // needCollect / payState 选出 —— 与完成配送页 _moneyView 同一套判据，前端不自推。
+          amountText: (order.totalAmount === null || order.totalAmount === undefined || order.totalAmount === '')
+            ? '' : '¥' + Number(order.totalAmount).toFixed(2),
+          payChipClass: order.needCollect ? 'need' : (order.payState === 'PAID' ? 'paid' : 'plain'),
           // 备货情况（契约 C4）：出发前/上门前用一句话说清"这单备齐了没、还缺哪些商品"。
           // 与金额、状态文案一样取自后端投影（stockPrep），前端不拿 inventory.quantity 自己推算。
-          stockPrepText: buildStockPrepText(order.stockPrep),
+          stockPrepText: buildStockPrepText(order.stockPrep, order.items || []),
           // 楼层上报（v43）：显示成两行（配送员上报 / 地址里填的），不一致时打一个提示标。
           // ⚠️ 这只是**给人看的提示**；"标记"的权威记录在收益明细的 note 里（后端生成，见 docs/design/18 §4）。
           reportedFloorText: order.reportedFloor ? ('配送员上报 ' + order.reportedFloor + ' 层') : '',
@@ -265,18 +441,33 @@ Page({
           // 回桶行（见 buildReturnPlan 的注释：这一行以前永远显示 0 个）
           ...buildReturnPlan(order)
         },
-        loading: false
+        loading: false, detailError: '', detailOutcomeText: '',
+        // 「更多操作」按钮有没有内容：任一低频动作可显示即 true（判据与弹层条目一一对应）。
+        // 拒付三件套与 wxml 同一组条件：站长 + 已送达(3) + 还要收款。
+        hasMoreActions: !!(acts.canReport || acts.canTransfer || acts.canWithdrawTransfer
+          || acts.canReturn || acts.canRequestCancel
+          || (managerView && order.status === 3 && order.needCollect)),
+        showMoreActions: false
       })
-      this.loadFloorPhotos(id)
+      this._withdrawOutcome = null
+      this.loadFloorPhotos(id, ctx)
       // 送达凭证（原名"签收凭证"，[2026-09-26] 改名）：配送员在完成配送页拍的那几张，
       // 客户说"没收到水"时站长能在这里看到（此前只有顾客端能看到，站长端一张都看不到）
-      this.loadDeliveryPhotos(id)
-      this.loadPayments(id)
+      this.loadDeliveryPhotos(id, ctx)
+      this.loadPayments(id, ctx)
+      return true
     } catch (err) {
+      if (!this._isCurrent(ctx)) return
       console.error('加载订单详情失败:', err)
-      this.setData({ loading: false })
-      wx.showToast({ title: err.message || '加载失败', icon: 'none' })
+      this.setData({ loading: false, detailError: err.message || '加载失败' })
+      wx.showToast({ title: this._withdrawOutcome ? '已撤回，但详情刷新失败，请重新加载' : (err.message || '加载失败'), icon: 'none' })
+      return false
     }
+  },
+
+  onRetryDetail() {
+    if (this._hidden || this._unloaded || this.data.loading || this._blockPendingWrite()) return
+    return this.loadOrderDetail(this.data.orderId)
   },
 
   // 拨打电话
@@ -298,6 +489,45 @@ Page({
         }
       })
     }
+  },
+
+  // ══ 更多操作弹层（2026-10-07 #11，docs/design/36 §3）══
+  // 纯 UI 状态切换；业务动作仍走原处理器（onReport/onTransfer/…，一行未动）。
+  onOpenMoreActions() {
+    if (this._hidden || this._unloaded) return
+    if (this._blockPendingWrite()) return
+    if (this.data.loading || this.data.detailError || this._actionTask || !this.data.hasMoreActions) return
+    const ctx = this._context()
+    if (!this._isCurrent(ctx) || (this._orderContext && !this._isCurrent(this._orderContext))) return
+    this._sheetContext = ctx
+    this.setData({ showMoreActions: true })
+  },
+
+  onCloseMoreActions() {
+    this._sheetContext = null
+    this.setData({ showMoreActions: false })
+  },
+
+  onSheetTouchMove() {},
+
+  // 2026-10-07：只分发真实条目；关闭后到达的第二次 tap、换身份后的旧条目均不执行。
+  onMoreAction(e) {
+    const name = e && e.currentTarget && e.currentTarget.dataset.act
+    if (!this.data.showMoreActions || !this._isCurrent(this._sheetContext) || !this._actionAllowed(name)) return
+    this.onCloseMoreActions()
+    return this[name]()
+  },
+
+  onConfirmCollection() {
+    return this._runOrderAction('onConfirmCollection', async ctx => {
+      const answer = await this._actionDialog(ctx, {
+        title: '确认收款', content: '确认已收到此订单款项？', confirmText: '确认收款', confirmColor: '#2E4A68'
+      })
+      if (!answer.confirm || !ctx.current()) return
+      if (!await this._actionWrite(ctx, () => confirmCollection(ctx.id))) return
+      wx.showToast({ title: '收款成功', icon: 'success' })
+      await this.loadOrderDetail(ctx.id)
+    })
   },
 
   // 导航（优先使用下单时地址快照，避免客户改地址后导错）
@@ -332,6 +562,14 @@ Page({
 
   // 完成配送
   onComplete() {
+    if (this._hidden || this._unloaded) return
+    if (this._blockPendingWrite()) return
+    if (this.data.loading || this.data.detailError || this._actionTask
+      || (this._orderContext && !this._isCurrent(this._orderContext))) return
+    if (!orderActions(this.data.order, getApp().globalData.userInfo).canComplete) {
+      wx.showToast({ title: '当前订单不可完成配送，请刷新', icon: 'none' })
+      return
+    }
     wx.navigateTo({
       url: `/pages/order/complete?id=${this.data.orderId}`
     })
@@ -341,56 +579,31 @@ Page({
   // 见 utils/delivery-problem.js —— 原因会被后端原样写进订单备注、站长照着那行字看，
   // 两处各维护一份迟早对不上。）
   onReport() {
-    reportDeliveryProblem(this.data.orderId)
+    return this._runOrderAction('onReport', ctx => reportDeliveryProblem(ctx.id, {
+      isCurrent: ctx.current, dialog: (options, sheet) => this._actionDialog(ctx, options, sheet),
+      write: operation => this._actionWrite(ctx, operation)
+    }))
   },
 
-  async onAcceptTransfer() {
-    const id = this.data.orderId
-    wx.showModal({
-      title: '同意转单',
-      content: '确定接手此转单？接手后你将成为该订单配送员。',
-      confirmText: '同意',
-      success: async (res) => {
-        if (res.confirm) {
-          wx.showLoading({ title: '处理中...' })
-          try {
-            const { post } = require('../../utils/request')
-            const { API } = require('../../config/api')
-            await post(`${API.DELIVERY_TRANSFER}/${id}/claim`)
-            wx.hideLoading()
-            wx.showToast({ title: '已接手', icon: 'success' })
-            setTimeout(() => { wx.navigateBack() }, 1500)
-          } catch (err) {
-            wx.hideLoading()
-            wx.showToast({ title: err.message || '操作失败', icon: 'none' })
-          }
-        }
-      }
+  onAcceptTransfer() {
+    return this._runOrderAction('onAcceptTransfer', async ctx => {
+      const answer = await this._actionDialog(ctx, { title: '同意转单', content: '确定接手此转单？接手后你将成为该订单配送员。', confirmText: '同意', confirmColor: '#2E4A68' })
+      if (!answer.confirm || !ctx.current()) return
+      const { API } = require('../../config/api')
+      if (!await this._actionWrite(ctx, () => post(`${API.DELIVERY_TRANSFER}/${ctx.id}/claim`))) return
+      wx.showToast({ title: '已接手', icon: 'success' })
+      this._actionBack(ctx)
     })
   },
 
-  async onRejectTransfer() {
-    const id = this.data.orderId
-    wx.showModal({
-      title: '拒绝转单',
-      content: '确定拒绝此转单申请？',
-      confirmColor: '#B5442C',
-      success: async (res) => {
-        if (res.confirm) {
-          wx.showLoading({ title: '处理中...' })
-          try {
-            const { post } = require('../../utils/request')
-            const { API } = require('../../config/api')
-            await post(`${API.DELIVERY_TRANSFER}/${id}/reject`)
-            wx.hideLoading()
-            wx.showToast({ title: '已拒绝', icon: 'success' })
-            setTimeout(() => { wx.navigateBack() }, 1500)
-          } catch (err) {
-            wx.hideLoading()
-            wx.showToast({ title: err.message || '操作失败', icon: 'none' })
-          }
-        }
-      }
+  onRejectTransfer() {
+    return this._runOrderAction('onRejectTransfer', async ctx => {
+      const answer = await this._actionDialog(ctx, { title: '拒绝转单', content: '确定拒绝此转单申请？', confirmText: '拒绝', confirmColor: '#B5442C' })
+      if (!answer.confirm || !ctx.current()) return
+      const { API } = require('../../config/api')
+      if (!await this._actionWrite(ctx, () => post(`${API.DELIVERY_TRANSFER}/${ctx.id}/reject`))) return
+      wx.showToast({ title: '已拒绝', icon: 'success' })
+      this._actionBack(ctx)
     })
   },
 
@@ -401,112 +614,51 @@ Page({
   // 同为 STAFF 类型但各有各的决策路径（审批页签的同意/拒绝、取消申请的撤销），
   // 站间指定退回走协调页的「召回/退回」另一套动作 —— 都不挂这个按钮。
   onCancelTransfer() {
-    const id = this.data.orderId
-    wx.showModal({
-      title: '撤回转单',
-      // 看这条的人可能是发起人、也可能是站长代撤 —— 文案用「原配送员」，两边都读得通
-      content: '撤回后这单仍归原配送员配送，对方的待确认列表里也不会再有这条申请。',
-      confirmText: '撤回',
-      confirmColor: '#B5442C',
-      success: async (res) => {
-        if (res.confirm) {
-          if (this.data.cancelTransferBusy) return
-          this.setData({ cancelTransferBusy: true })
-          wx.showLoading({ title: '撤回中...' })
-          try {
-            await cancelTransferOrder(id)
-            wx.hideLoading()
-            // 成功后**刷新详情**：「转单中」标签与转单按钮要跟着消失，
-            // 不刷新的话界面还挂着撤回入口，再点一次只会拿到「没有待决策的转单」。
-            await this.loadOrderDetail(id)
-            wx.showToast({ title: '已撤回，订单仍归你配送', icon: 'success' })
-          } catch (err) {
-            wx.hideLoading()
-            wx.showToast({ title: err.message || '撤回失败', icon: 'none' })
-          } finally {
-            this.setData({ cancelTransferBusy: false })
-          }
-        }
-      }
+    return this._runOrderAction('onCancelTransfer', async ctx => {
+      const answer = await this._actionDialog(ctx, {
+        title: '撤回转单', content: '撤回后这单仍归原配送员配送，对方的待确认列表里也不会再有这条申请。', confirmText: '撤回', confirmColor: '#B5442C'
+      })
+      if (!answer.confirm || !ctx.current()) return
+      this.setData({ cancelTransferBusy: true })
+      if (!await this._actionWrite(ctx, () => cancelTransferOrder(ctx.id))) return
+      const refreshed = await this.loadOrderDetail(ctx.id)
+      if (refreshed && this._isCurrent(ctx)) wx.showToast({ title: '已撤回，订单仍归你配送', icon: 'success' })
     })
   },
 
   // 转给同事（直转本站配送员）
   onTransfer() {
-    const app = getApp()
-    const myId = (app.globalData.userInfo || {}).staffId
-    const stationId = (app.globalData.userInfo || {}).stationId
-    const that = this
-    wx.showLoading({ title: '加载中...' })
-    getStaffList(stationId).then(res => {
-      wx.hideLoading()
-      const staffs = res.data || []
-      const colleagues = staffs.filter(s => String(s.id) !== String(myId))
-      if (colleagues.length === 0) {
-        wx.showModal({ title: '暂无同事', content: '本站暂无其他在职配送员可转让', showCancel: false })
-        return
+    return this._runOrderAction('onTransfer', async ctx => {
+      const user = getApp().globalData.userInfo || {}
+      let result
+      if (!await this._actionWrite(ctx, async () => { result = await getStaffList(user.stationId) })) return
+      if (!ctx.current()) return
+      const colleagues = (result.data || []).filter(s => String(s.id) !== String(user.staffId))
+      if (!colleagues.length) {
+        await this._actionDialog(ctx, { title: '暂无同事', content: '本站暂无其他在职配送员可转让', showCancel: false }); return
       }
-      const itemList = colleagues.map(s => s.name || ('配送员' + s.id))
-      wx.showActionSheet({
-        itemList: itemList,
-        success: (res2) => {
-          const target = colleagues[res2.tapIndex]
-          wx.showModal({
-            title: '转给同事',
-            content: `确认将订单转给 ${target.name}？`,
-            confirmText: '确认',
-            success: async (modalRes) => {
-              if (modalRes.confirm) {
-                wx.showLoading({ title: '转单中...' })
-                try {
-                  await transferOrder(that.data.orderId, { deliveryStaffId: target.id, reason: '配送员转让' })
-                  wx.hideLoading()
-                  // [2026-09-27] 口径改对了：后端**不再立即改派**，只落一条待确认的转单
-                  // （订单仍挂在我名下）。原来这里说"已转给 XX"，而当时后端确实立刻改派了 ——
-                  // 现在两者一致，都指向"等对方同意"。别再改成"已转给"。
-                  wx.showToast({ title: '已申请，等 ' + target.name + ' 同意', icon: 'none' })
-                  setTimeout(() => { wx.navigateBack() }, 1500)
-                } catch (err) {
-                  wx.hideLoading()
-                  wx.showToast({ title: err.message || '转让失败', icon: 'none' })
-                }
-              }
-            }
-          })
-        }
-      })
-    }).catch((e) => {
-      // [2026-09-20 真机联调] 这个 catch 原来**丢掉了错误对象**（`.catch(() => ...)`），
-      // 只把 loading 关掉并弹一句光秃秃的「加载配送员失败」—— 真机上分不出是超时、断网
-      // 还是后端 500（utils/request.js 在 f9e1c09 起已把 fail 归一化成带可读 message 的 Error，
-      // 这里直接用它）。转单是配送员的核心动作，失败必须说清原因。
-      wx.hideLoading()
-      console.error('[OrderDetail] 加载配送员名单失败:', e)
-      wx.showToast({ title: '加载配送员失败：' + ((e && e.message) || '网络异常'), icon: 'none' })
+      const picked = await this._actionDialog(ctx, { itemList: colleagues.map(s => s.name || ('配送员' + s.id)) }, true)
+      const target = colleagues[picked.tapIndex]
+      if (!target || !ctx.current()) return
+      const answer = await this._actionDialog(ctx, { title: '转给同事', content: `确认将订单转给 ${target.name}？`, confirmText: '确认' })
+      if (!answer.confirm || !ctx.current()) return
+      if (!await this._actionWrite(ctx, () => transferOrder(ctx.id, { deliveryStaffId: target.id, reason: '配送员转让' }))) return
+      // 后端只建立待确认申请，订单仍由原配送员负责；不能宣称已经改派。
+      wx.showToast({ title: '已申请，等 ' + target.name + ' 同意', icon: 'none' })
+      this._actionBack(ctx)
     })
   },
 
   // 退回站长
   onReturnToStation() {
-    const that = this
-    wx.showModal({
-      title: '退回站长',
-      content: '确定要退回站长吗？退回后站长将重新分配此订单。',
-      confirmText: '确认退回',
-      success: async (res) => {
-        if (res.confirm) {
-          wx.showLoading({ title: '退回中...' })
-          try {
-            await returnToStation(that.data.orderId, { reason: '配送员退回站长' })
-            wx.hideLoading()
-            wx.showToast({ title: '已退回站长', icon: 'success' })
-            setTimeout(() => { wx.navigateBack() }, 1500)
-          } catch (err) {
-            wx.hideLoading()
-            wx.showToast({ title: err.message || '退回失败', icon: 'none' })
-          }
-        }
-      }
+    return this._runOrderAction('onReturnToStation', async ctx => {
+      const answer = await this._actionDialog(ctx, {
+        title: '退回站长', content: '提交退回申请，待站长确认后重新分配。确认前订单仍由你负责。', confirmText: '确认退回'
+      })
+      if (!answer.confirm || !ctx.current()) return
+      if (!await this._actionWrite(ctx, () => returnToStation(ctx.id, { reason: '配送员退回站长' }))) return
+      wx.showToast({ title: '已申请，等待站长确认', icon: 'success' })
+      this._actionBack(ctx)
     })
   },
 
@@ -585,43 +737,21 @@ Page({
   // 提交后订单状态不变，由站长审批；站长同意才走退款链。
   // ⚠️ 已送达(3) 申请不了（后端 isCancellable 排除，异常走「配送异常」）；
   //    待配送(1) 也不需要申请 —— 走「拒单」即可（不经审批）。
-  async onRequestCancel() {
-    const id = this.data.orderId
-    const confirm = await new Promise(resolve => {
-      wx.showModal({
-        title: '申请取消订单',
-        content: '该订单已被接单，需要站长同意才能取消。\n\n提交后订单保持当前状态，等待站长审批；站长同意后才会取消并退款。',
-        confirmText: '提交申请',
-        success: (r) => resolve(r.confirm)
+  onRequestCancel() {
+    return this._runOrderAction('onRequestCancel', async ctx => {
+      const answer = await this._actionDialog(ctx, {
+        title: '申请取消订单', content: '该订单已被接单，需要站长同意才能取消。\n\n提交后订单保持当前状态，等待站长审批；站长同意后才会取消并退款。', confirmText: '提交申请'
       })
-    })
-    if (!confirm) return
-
-    const reason = await new Promise(resolve => {
-      wx.showModal({
-        title: '取消原因',
-        content: '请填写取消原因，将一并提交给站长：',
-        editable: true,
-        placeholderText: '如：客户临时取消、车辆故障',
-        success: (r) => resolve(r.confirm ? r.content : ''),
-        fail: () => resolve('')
+      if (!answer.confirm || !ctx.current()) return
+      const reason = await this._actionDialog(ctx, {
+        title: '取消原因', content: '请填写取消原因，将一并提交给站长：', editable: true, placeholderText: '如：客户临时取消、车辆故障'
       })
-    })
-    if (!reason || !reason.trim()) {
-      wx.showToast({ title: '请填写取消原因', icon: 'none' })
-      return
-    }
-
-    wx.showLoading({ title: '提交中...' })
-    try {
-      await requestCancel(id, { reason: reason.trim() })
-      wx.hideLoading()
+      if (!ctx.current() || !reason.confirm) return
+      if (!reason.content || !reason.content.trim()) { wx.showToast({ title: '请填写取消原因', icon: 'none' }); return }
+      if (!await this._actionWrite(ctx, () => requestCancel(ctx.id, { reason: reason.content.trim() }))) return
       wx.showToast({ title: '已提交，等待站长审批', icon: 'success' })
-      setTimeout(() => { wx.navigateBack() }, 1500)
-    } catch (err) {
-      wx.hideLoading()
-      wx.showToast({ title: err.message || '提交失败', icon: 'none' })
-    }
+      this._actionBack(ctx)
+    })
   },
 
   // 解决订单：拒单并取消，触发退款
@@ -679,17 +809,24 @@ Page({
    * 照片**不强制**（产品决定），所以这里没有也不拦、只提示。
    * ⚠️ 名字跟配送员端对齐（那边叫「楼层与楼梯凭证」），别一处叫楼层、一处叫楼梯。
    */
-  async loadFloorPhotos(orderId) {
+  async loadFloorPhotos(orderId, context) {
     if (!orderId) return
+    const ctx = context || this._context(orderId)
+    if (ctx.readVersion == null) ctx.readVersion = this._detailVersion || 0
+    const version = this._loadFloorPhotosVersion = (this._loadFloorPhotosVersion || 0) + 1
+    const current = () => this._isCurrent(ctx) && version === this._loadFloorPhotosVersion
+    if (!current()) return
     try {
       const res = await get(ORDER_IMAGE_BY_ORDER + '/' + orderId)
       const photos = (res.data || [])
         .filter(img => Number(img.type) === 3)
         .map(img => img.url || img.objectName)
         .filter(Boolean)
+      if (!current()) return
       this.setData({ floorPhotos: photos })
     } catch (e) {
       // 拉不到就不显示，不编造"没照片"
+      if (!current()) return
       this.setData({ floorPhotos: [] })
     }
   },
@@ -710,17 +847,24 @@ Page({
    * 所以同一个响应查两次是无意义的重复请求 —— 但两个块的判据不同（type 1 / type 3），
    * 合成一个方法会让"哪个 type 是哪张图"散在参数里，宁可两次小请求。</p>
    */
-  async loadDeliveryPhotos(orderId) {
+  async loadDeliveryPhotos(orderId, context) {
     if (!orderId) return
+    const ctx = context || this._context(orderId)
+    if (ctx.readVersion == null) ctx.readVersion = this._detailVersion || 0
+    const version = this._loadDeliveryPhotosVersion = (this._loadDeliveryPhotosVersion || 0) + 1
+    const current = () => this._isCurrent(ctx) && version === this._loadDeliveryPhotosVersion
+    if (!current()) return
     try {
       const res = await get(ORDER_IMAGE_BY_ORDER + '/' + orderId)
       const photos = (res.data || [])
         .filter(img => Number(img.type) === 1)
         .map(img => img.url || img.objectName)
         .filter(Boolean)
+      if (!current()) return
       this.setData({ deliveryPhotos: photos })
     } catch (e) {
       // 拉不到就不显示，不编造"没照片"（同 loadFloorPhotos 的口径）
+      if (!current()) return
       this.setData({ deliveryPhotos: [] })
     }
   },
@@ -768,11 +912,17 @@ Page({
    * 金额口径的唯一真相源是 orders / payment_record，见 AGENTS.md §6。
    * 这里唯一用到的数字判断是"状态是不是 2（已付款）"，它只决定「退款」按钮出不出现。
    */
-  async loadPayments(orderId) {
+  async loadPayments(orderId, context) {
     if (!orderId) return
+    const ctx = context || this._context(orderId)
+    if (ctx.readVersion == null) ctx.readVersion = this._detailVersion || 0
+    const version = this._loadPaymentsVersion = (this._loadPaymentsVersion || 0) + 1
+    const current = () => this._isCurrent(ctx) && version === this._loadPaymentsVersion
+    if (!current()) return
     const app = getApp()
     // 非站长直接跳过，连请求都不发（端点本身也会拒）
     if (!app.isStationManager || !app.isStationManager()) {
+      if (!current()) return
       this.setData({ payments: [], canRefundPayment: false })
       return
     }
@@ -791,10 +941,12 @@ Page({
         note: p.note || '',
         canRefund: Number(p.status) === PAY_STATUS_PAID
       }))
+      if (!current()) return
       this.setData({ payments: list, canRefundPayment: true })
     } catch (err) {
       // 拉不到就整块不显示，不编造"没有流水"（同 loadFloorPhotos 的处理）
       console.error('加载支付流水失败:', err)
+      if (!current()) return
       this.setData({ payments: [], canRefundPayment: false })
     }
   },

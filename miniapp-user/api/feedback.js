@@ -12,4 +12,7 @@ const getMyFeedback = () => {
   return get(API.FEEDBACK_MY)
 }
 
-module.exports = { submitFeedback, getMyFeedback }
+const appendRefundNote = data => post(`${API.FEEDBACK}/refund-notes`, data)
+const getRefundNotes = (refundType, refundId) => get(`${API.FEEDBACK}/refund-notes`, { refundType, refundId })
+const getRefundOptions = (page = 1) => get(`${API.FEEDBACK}/refund-options`, { page })
+module.exports = { submitFeedback, getMyFeedback, appendRefundNote, getRefundNotes, getRefundOptions }

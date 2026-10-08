@@ -26,7 +26,7 @@
    [2026-09-26] 现在有两节用它：「送达凭证」与「楼层与楼梯凭证」（三段的标题已提到 .seg-head）。 */
 .section-title-row { display: flex; align-items: center; margin-bottom: var(--spacing-lg); }
 .section-title-row .section-title { margin-bottom: 0; }
-.required { color: #FF3B30; margin-left: 4rpx; font-size: 26rpx; }
+.required { color: var(--error-color); margin-left: 4rpx; font-size: 26rpx; }
 
 /* ========== 客户卡 + 钱卡（[2026-09-26]：原来是 7 行「标签 + 值」平铺，又长又平） ==========
    风格对齐「常用软件」的配送页：客户名一行、可点动作靠右、金额独占一行大字。
@@ -45,12 +45,12 @@
 .cust-tag {
   font-size: var(--font-sm);
   color: var(--text-secondary);
-  background: #f0f4f8;
+  background: var(--bg-color);
   padding: 4rpx 14rpx;
   border-radius: 8rpx;
   flex-shrink: 0;
 }
-.cust-row { display: flex; align-items: center; padding: 14rpx 0; border-top: 2rpx solid #f5f5f5; }
+.cust-row { display: flex; align-items: center; padding: 14rpx 0; border-top: 2rpx solid var(--bg-gray); }
 /* [2026-09-26] 原来的 .cust-row-icon（📞 / 📍）已删：§6 员工端逐步去除表情符号，
    行尾的「拨打」「复制」已经把动作说清楚了。 */
 .cust-row-text { flex: 1; font-size: 28rpx; color: var(--text-primary); word-break: break-all; }
@@ -73,17 +73,17 @@
 .money-label { font-size: var(--font-md); color: var(--text-regular); }
 /* 红字大字**只**给"本次要收的钱"（.money-line 里的 collect 分支）。
    [2026-09-27 走查 D01 修] 已付款的单原来也走这一条 ⇒ 看着像还要收这么多钱。 */
-.money-amount { font-size: 56rpx; font-weight: 700; color: #FF3B30; line-height: 1.1; }
+.money-amount { font-size: 56rpx; font-weight: 700; color: var(--error-color); line-height: 1.1; }
 /* 已付款 / 不归本次收：主结论是一句话，总额降级成普通字号、中性色 */
 .money-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16rpx; }
 .money-headline { font-size: 34rpx; font-weight: 700; line-height: 1.2; }
 .money-headline-paid { color: var(--success-color); }
-.money-headline-wait { color: #E65100; }
+.money-headline-wait { color: var(--warning-color); }
 .money-amount-muted { font-size: var(--font-md); color: var(--text-regular); }
 .money-line-muted { margin-top: 8rpx; }
 
 /* [2026-09-27 走查 D02 修] 送货清单：商品名 + 数量，常显（新押金单 / 纯瓶装水单也要看得到送什么） */
-.goods-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16rpx; padding: 14rpx 0; border-top: 2rpx solid #f5f5f5; }
+.goods-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16rpx; padding: 14rpx 0; border-top: 2rpx solid var(--bg-gray); }
 .goods-row:first-of-type { border-top: none; }
 .goods-name { flex: 1; font-size: 30rpx; color: var(--text-primary); word-break: break-all; }
 .goods-qty { flex-shrink: 0; font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
@@ -97,17 +97,17 @@
   justify-content: space-between;
   margin-top: var(--spacing-md);
   padding: 12rpx 16rpx;
-  background: #FFF8E1;
+  background: var(--warning-bg);
   border-radius: var(--radius-md);
 }
-.money-prep-text { flex: 1; font-size: var(--font-sm); color: #E65100; line-height: 34rpx; }
-.money-prep-link { font-size: var(--font-sm); color: #E65100; font-weight: 600; flex-shrink: 0; margin-left: 12rpx; }
+.money-prep-text { flex: 1; font-size: var(--font-sm); color: var(--warning-color); line-height: 34rpx; }
+.money-prep-link { font-size: var(--font-sm); color: var(--warning-color); font-weight: 600; flex-shrink: 0; margin-left: 12rpx; }
 
 .item-return { padding: 16rpx 0; }
 .item-header { margin-bottom: 12rpx; }
 .item-name-wrap { display: flex; align-items: center; gap: 12rpx; }
 .item-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
-.item-spec { font-size: 24rpx; color: var(--text-secondary); background: #f0f4f8; padding: 4rpx 12rpx; border-radius: 8rpx; }
+.item-spec { font-size: 24rpx; color: var(--text-secondary); background: var(--bg-color); padding: 4rpx 12rpx; border-radius: 8rpx; }
 
 .barrel-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16rpx; }
 .barrel-label { font-size: 28rpx; color: var(--text-primary); }
@@ -117,41 +117,41 @@
    64rpx 那一版在真机上偏小、还容易点空（点了没反应最容易被当成"坏了"）。 */
 /* 数量输入在局部层内绘制，滚经固定底栏时随控件一起被盖住；窄屏不压缩加减触区。 */
 .barrel-stepper { position: relative; z-index: 0; display: flex; flex-shrink: 0; align-items: center; gap: 12rpx; }
-.step-btn { width: 88rpx; height: 88rpx; border-radius: 50%; background: #f0f4f8; display: flex; align-items: center; justify-content: center; font-size: 40rpx; font-weight: 300; color: var(--text-primary); border: 2rpx solid #e0e0e0; }
-.step-btn:active { background: #e0e7ef; }
+.step-btn { width: 88rpx; height: 88rpx; border-radius: 50%; background: var(--bg-color); display: flex; align-items: center; justify-content: center; font-size: 40rpx; font-weight: 300; color: var(--text-primary); border: 2rpx solid var(--border-color); }
+.step-btn:active { background: var(--primary-bg); }
 .step-btn-disabled { opacity: 0.4; }
 .step-input { width: 120rpx; height: 88rpx; text-align: center; font-size: 38rpx; font-weight: 700; border: 2rpx solid var(--border-color); border-radius: var(--radius-md); }
 
-.discrepancy-section { margin-top: 16rpx; padding: 16rpx; background: #FFF8E1; border-radius: var(--radius-md); border: 2rpx solid #FFE082; }
-.discrepancy-warn { font-size: 26rpx; color: #E65100; font-weight: 600; margin-bottom: 12rpx; }
+.discrepancy-section { margin-top: 16rpx; padding: 16rpx; background: var(--warning-bg); border-radius: var(--radius-md); border: 2rpx solid var(--warning-bg); }
+.discrepancy-warn { font-size: 26rpx; color: var(--error-color); font-weight: 600; margin-bottom: 12rpx; }
 
 .reason-list { display: flex; flex-direction: column; gap: 12rpx; margin-bottom: 12rpx; }
-.reason-item { display: flex; align-items: center; gap: 12rpx; background: #fff; padding: 12rpx 16rpx; border-radius: var(--radius-md); border: 2rpx solid #FFE082; }
+.reason-item { display: flex; align-items: center; gap: 12rpx; background: #fff; padding: 12rpx 16rpx; border-radius: var(--radius-md); border: 2rpx solid var(--warning-bg); }
 .reason-label { font-size: 26rpx; color: var(--text-primary); flex: 1; }
 .reason-qty-wrap { display: flex; align-items: center; gap: 4rpx; }
 .reason-qty-label { font-size: 24rpx; color: var(--text-secondary); }
 .reason-qty-input { width: 60rpx; height: 48rpx; text-align: center; font-size: 28rpx; font-weight: 600; border: 2rpx solid var(--border-color); border-radius: 8rpx; }
-.reason-remove { width: 40rpx; height: 40rpx; display: flex; align-items: center; justify-content: center; color: #FF3B30; font-size: 28rpx; }
+.reason-remove { width: 40rpx; height: 40rpx; display: flex; align-items: center; justify-content: center; color: var(--error-color); font-size: 28rpx; }
 
-.add-reason-btn { display: flex; align-items: center; justify-content: center; gap: 8rpx; padding: 16rpx; border: 2rpx dashed #FFE082; border-radius: var(--radius-md); background: rgba(255, 224, 130, 0.1); }
-.add-reason-icon { font-size: 28rpx; color: #E65100; }
-.add-reason-text { font-size: 26rpx; color: #E65100; font-weight: 500; }
+.add-reason-btn { display: flex; align-items: center; justify-content: center; gap: 8rpx; padding: 16rpx; border: 2rpx dashed var(--warning-bg); border-radius: var(--radius-md); background: rgba(255, 224, 130, 0.1); }
+.add-reason-icon { font-size: 28rpx; color: var(--warning-color); }
+.add-reason-text { font-size: 26rpx; color: var(--warning-color); font-weight: 500; }
 
 .reason-hint { font-size: 22rpx; color: var(--text-secondary); margin-top: 8rpx; text-align: center; }
 
-.item-divider { height: 2rpx; background: #f0f0f0; margin: 16rpx 0; }
+.item-divider { height: 2rpx; background: var(--border-light); margin: 16rpx 0; }
 
-.first-order-tip { text-align: center; padding: 32rpx 24rpx; background: #E8F5E9; border-radius: var(--radius-md); border: 2rpx solid #C8E6C9; }
+.first-order-tip { text-align: center; padding: 32rpx 24rpx; background: var(--success-bg); border-radius: var(--radius-md); border: 2rpx solid var(--success-bg); }
 /* [2026-09-26] 原来的 .first-order-icon（🆕）已删：提示文案自己就说清了，
    表情符号在「动作/状态」之外只增加噪音（§6）。 */
-.first-order-text { font-size: 30rpx; font-weight: 600; color: #2E7D32; display: block; margin-bottom: 8rpx; }
-.first-order-desc { font-size: 24rpx; color: #558B2F; display: block; line-height: 1.5; }
+.first-order-text { font-size: 30rpx; font-weight: 600; color: var(--success-color); display: block; margin-bottom: 8rpx; }
+.first-order-desc { font-size: 24rpx; color: var(--success-color); display: block; line-height: 1.5; }
 
-.section-collect { background: #FFFBF2; border: 2rpx solid rgba(255, 149, 0, 0.2); }
+.section-collect { background: var(--warning-bg); border: 2rpx solid rgba(255, 149, 0, 0.2); }
 .collect-card { background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 20rpx; box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.03); }
 .collect-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8rpx; }
-.collect-label { font-size: 26rpx; color: #666666; }
-.collect-amount-text { font-size: 30rpx; font-weight: 700; color: #FF7A00; }
+.collect-label { font-size: 26rpx; color: var(--text-regular); }
+.collect-amount-text { font-size: 30rpx; font-weight: 700; color: var(--warning-color); }
 /* ⚠️ 原来的 `.order-value.amount` / `.order-value.link` 已删（[2026-09-26]）：它们只给上面那块
    平铺信息行的大号金额与"去补货"着色用，而那块已经换成 .money-card（金额 56rpx 独占一行、
    补货入口自带 .money-prep-link）。留着就是"看起来还有一处旧样式"的误导。 */
@@ -165,9 +165,9 @@
 
 .collect-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; }
 .collect-option { text-align: center; padding: 20rpx 0; border: 2rpx solid var(--border-color); border-radius: var(--radius-md); background: #fff; transition: all .2s; }
-.collect-option.active { border-color: #FF9500; background: rgba(255, 149, 0, 0.1); }
+.collect-option.active { border-color: var(--warning-color); background: rgba(255, 149, 0, 0.1); }
 .collect-option-name { font-size: 28rpx; font-weight: 600; color: var(--text-primary); display: block; }
-.collect-option.active .collect-option-name { color: #CC7700; }
+.collect-option.active .collect-option-name { color: var(--warning-color); }
 .collect-option-desc { font-size: 24rpx; color: var(--text-regular); display: block; margin-top: 8rpx; line-height: 1.5; padding: 0 8rpx; }
 
 .section-tip { display: block; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: var(--spacing-md); }
@@ -175,7 +175,7 @@
 .photo-item { position: relative; width: 200rpx; height: 200rpx; border-radius: var(--radius-md); overflow: hidden; }
 .photo-img { width: 100%; height: 100%; }
 .photo-remove { position: absolute; top: 0; right: 0; width: 48rpx; height: 48rpx; background: rgba(0,0,0,.55); color: #fff; font-size: 32rpx; line-height: 48rpx; text-align: center; border-radius: 0 0 0 var(--radius-md); }
-.photo-add { width: 200rpx; height: 200rpx; border: 2rpx dashed var(--border-color); border-radius: var(--radius-md); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8rpx; background: #fafbfc; }
+.photo-add { width: 200rpx; height: 200rpx; border: 2rpx dashed var(--border-color); border-radius: var(--radius-md); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8rpx; background: var(--bg-color); }
 /* [2026-09-26] 原来的 .photo-add-icon（📷 / 🪜）已删 —— 「添加照片」这四个字就是动作本身（§6）。 */
 .photo-add-text { font-size: var(--font-sm); color: var(--text-secondary); }
 
@@ -189,21 +189,21 @@
 .btn-confirm::after { border: none; }
 /* [2026-09-27 走查 D03 修] 提交在途：按钮必须**看起来不能再点**（disabled 属性之外再给视觉，
    否则"点了没反应"与"正在提交"分不清 —— 本仓"静默无反应"的老毛病）。 */
-.btn-confirm-busy { background: #9BB0C4; }
+.btn-confirm-busy { background: var(--text-secondary); }
 
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; z-index: 1000; }
 .modal-content { width: 100%; background: var(--bg-card); border-radius: var(--radius-xl) var(--radius-xl) 0 0; padding: var(--spacing-xl) var(--spacing-lg) calc(var(--spacing-xl) + env(safe-area-inset-bottom)); max-height: 80vh; overflow-y: auto; }
 .modal-title { display: block; font-size: var(--font-xl); font-weight: 700; color: var(--text-primary); text-align: center; margin-bottom: var(--spacing-sm); }
 .modal-desc { display: block; font-size: var(--font-sm); color: var(--text-secondary); text-align: center; margin-bottom: var(--spacing-lg); }
 .modal-list { margin-bottom: var(--spacing-lg); }
-.modal-item { display: flex; align-items: center; padding: var(--spacing-md) 0; border-bottom: 2rpx solid #f5f5f5; }
+.modal-item { display: flex; align-items: center; padding: var(--spacing-md) 0; border-bottom: 2rpx solid var(--bg-gray); }
 .modal-item:last-child { border-bottom: none; }
 .modal-item-disabled { opacity: 0.4; }
 .modal-item-info { flex: 1; }
 .modal-item-name { font-size: var(--font-md); color: var(--text-primary); display: block; }
 .modal-item-desc { font-size: var(--font-sm); color: var(--text-secondary); display: block; margin-top: 4rpx; }
 .modal-check { width: 44rpx; height: 44rpx; border-radius: 50%; background: var(--success-color); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28rpx; font-weight: 700; }
-.modal-cancel { width: 100%; background: #f5f5f5; color: var(--text-primary); border: none; border-radius: var(--radius-round); font-size: var(--font-md); font-weight: 600; padding: var(--spacing-md) 0; }
+.modal-cancel { width: 100%; background: var(--bg-gray); color: var(--text-primary); border: none; border-radius: var(--radius-round); font-size: var(--font-md); font-weight: 600; padding: var(--spacing-md) 0; }
 .modal-cancel::after { border: none; }
 
 /* ========== 楼层与楼梯凭证（v43；[2026-09-26] 默认收起、有争议才展开） ========== */
@@ -216,15 +216,15 @@
 .floor-input {
   width: 200rpx;
   padding: 12rpx 20rpx;
-  background: #f5f6f8;
+  background: var(--bg-gray);
   border-radius: 10rpx;
   font-size: 30rpx;
-  color: #1f2329;
+  color: var(--text-primary);
 }
 
 .floor-unit {
   font-size: 26rpx;
-  color: #8a9099;
+  color: var(--text-secondary);
   margin-left: 12rpx;
 }
 
@@ -242,7 +242,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 20rpx 24rpx;
-  background: #fafbfc;
+  background: var(--bg-color);
   border: 2rpx solid var(--border-color);
   border-radius: var(--radius-md);
 }

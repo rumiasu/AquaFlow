@@ -3,7 +3,7 @@
 
 .container {
   min-height: 100vh;
-  background: #f0f4f8;
+  background: var(--bg-color);
   padding-bottom: 40rpx;
 }
 
@@ -21,14 +21,14 @@
   display: block;
   font-size: 40rpx;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 16rpx;
 }
 
 .no-auth-desc {
   display: block;
   font-size: 28rpx;
-  color: #888888;
+  color: var(--text-secondary);
   margin-bottom: 60rpx;
 }
 
@@ -92,7 +92,7 @@
   flex-shrink: 0;
   padding: 20rpx 28rpx;
   font-size: 28rpx;
-  color: #666666;
+  color: var(--text-regular);
   border-radius: 12rpx;
   display: inline-flex;
   align-items: center;
@@ -135,8 +135,8 @@
 }
 
 .order-card-exception {
-  border: 2rpx solid #FF3B30;
-  background: #FFF5F5;
+  border: 2rpx solid var(--error-color);
+  background: var(--error-bg);
 }
 
 .card-header {
@@ -154,13 +154,13 @@
   font-weight: 500;
 }
 
-.status-pending { background: #FFF1DC; color: #CC7700; }
-.status-delivering { background: #E3F2FD; color: #1976D2; }
-.status-transfer { background: #E8DAEF; color: #7B1FA2; }
-.status-return { background: #FFEBEE; color: #C62828; }
-.status-completed { background: #E8F5E9; color: #2E7D32; }
-.status-exception { background: #FFEBEE; color: #D32F2F; }
-.status-approval { background: #FFEBEE; color: #C62828; }
+.status-pending { background: var(--warning-bg); color: var(--warning-color); }
+.status-delivering { background: var(--primary-bg); color: var(--primary-color); }
+.status-transfer { background: var(--primary-bg); color: var(--warning-color); }
+.status-return { background: var(--error-bg); color: var(--error-color); }
+.status-completed { background: var(--success-bg); color: var(--success-color); }
+.status-exception { background: var(--error-bg); color: var(--error-color); }
+.status-approval { background: var(--error-bg); color: var(--error-color); }
 
 /* ========== 客户信用标（待分配卡片，2026-09-22） ==========
    文案与判据全在后端（CustomerRiskService），这里只有**颜色**。
@@ -176,12 +176,12 @@
   font-weight: 500;
 }
 
-.risk-tag.risk-warn { background: #FFF8E1; color: #B26A00; border: 2rpx solid #FFD666; }
-.risk-tag.risk-danger { background: #FFEBEE; color: #C62828; border: 2rpx solid #FFA39E; }
-.risk-tag.risk-plain { background: #F5F5F5; color: #666666; border: 2rpx solid #E0E0E0; }
+.risk-tag.risk-warn { background: var(--warning-bg); color: var(--warning-color); border: 2rpx solid var(--warning-bg); }
+.risk-tag.risk-danger { background: var(--error-bg); color: var(--error-color); border: 2rpx solid var(--error-bg); }
+.risk-tag.risk-plain { background: var(--bg-gray); color: var(--text-regular); border: 2rpx solid var(--border-color); }
 
-.order-card.risk-warn { border-left: 8rpx solid #E6A23C; }
-.order-card.risk-danger { border-left: 8rpx solid #F56C6C; }
+.order-card.risk-warn { border-left: 8rpx solid var(--warning-color); }
+.order-card.risk-danger { border-left: 8rpx solid var(--error-color); }
 
 .risk-note {
   font-size: 24rpx;
@@ -189,9 +189,9 @@
   margin: -8rpx 0 18rpx;
 }
 
-.risk-note.risk-warn { color: #B26A00; }
-.risk-note.risk-danger { color: #C62828; }
-.risk-note.risk-plain { color: #888888; }
+.risk-note.risk-warn { color: var(--warning-color); }
+.risk-note.risk-danger { color: var(--error-color); }
+.risk-note.risk-plain { color: var(--text-secondary); }
 
 /* 「审批」页签内的子页签（客户 / 站内） */
 .sub-tab-bar {
@@ -203,7 +203,7 @@
 .sub-tab-item {
   padding: 12rpx 32rpx;
   font-size: 26rpx;
-  color: #666666;
+  color: var(--text-regular);
   background: #ffffff;
   border-radius: 999rpx;
   display: inline-flex;
@@ -224,18 +224,18 @@
 
 .order-id {
   font-size: 24rpx;
-  color: #888888;
+  color: var(--text-secondary);
   margin-left: auto;
 }
 
 .order-time {
   font-size: 22rpx;
-  color: #aaaaaa;
+  color: var(--text-secondary);
 }
 
 .info-row {
   font-size: 26rpx;
-  color: #333333;
+  color: var(--text-primary);
   margin-bottom: 10rpx;
   display: flex;
   align-items: flex-start;
@@ -244,7 +244,7 @@
 
 .info-label {
   flex-shrink: 0;
-  color: #888888;
+  color: var(--text-secondary);
   width: 100rpx;
 }
 
@@ -259,12 +259,12 @@
 }
 
 .info-address .info-value {
-  color: #555555;
+  color: var(--text-regular);
 }
 
 .transfer-info, .return-info {
   padding: 16rpx 20rpx;
-  background: #f7f8fb;
+  background: var(--bg-color);
   border-radius: 12rpx;
   margin-bottom: 16rpx;
 }
@@ -277,11 +277,11 @@
 }
 
 .from-label, .return-label {
-  color: #888888;
+  color: var(--text-secondary);
 }
 
 .from-value, .return-value {
-  color: #333333;
+  color: var(--text-primary);
   text-align: right;
   flex: 1;
   margin-left: 16rpx;
@@ -296,7 +296,7 @@
 
 .exception-reason {
   font-size: 26rpx;
-  color: #D32F2F;
+  color: var(--error-color);
   line-height: 1.5;
 }
 
@@ -334,8 +334,8 @@
 
 .btn-outline, .btn-outline-small {
   background: #ffffff;
-  color: #666666;
-  border: 2rpx solid #e0e0e0;
+  color: var(--text-regular);
+  border: 2rpx solid var(--border-color);
 }
 
 .btn-primary, .btn-primary-small {
@@ -344,20 +344,20 @@
 }
 
 .btn-danger {
-  background: #FF3B30;
+  background: var(--error-color);
   color: #ffffff;
 }
 
 .btn-danger-small {
-  background: #FFEBEE;
-  color: #C62828;
+  background: var(--error-bg);
+  color: var(--error-color);
 }
 
 .empty {
   text-align: center;
   padding: 120rpx 0;
   font-size: 28rpx;
-  color: #999999;
+  color: var(--text-secondary);
 }
 
 /* 「看全部订单 ›」：列表底部的轻量跳转，不是主操作，所以做成居中文字链而不是按钮 */
@@ -387,6 +387,7 @@
 .queue-link:active { opacity: 0.6; }
 
 .modal-overlay {
+  box-sizing: border-box;
   position: fixed;
   top: 0;
   left: 0;
@@ -398,25 +399,42 @@
   z-index: 1000;
 }
 
+/* 遮罩与内容是兄弟，背景拦截 touchmove 不影响内容中的原生 scroll-view。 */
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
 .modal-content {
+  position: relative;
+  z-index: 1;
   background: #fff;
   border-radius: 28rpx 28rpx 0 0;
   padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
   width: 100%;
   box-sizing: border-box;
+  max-height: 85%;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-title {
+  flex-shrink: 0;
   font-size: 34rpx;
   font-weight: 600;
   text-align: center;
   margin-bottom: 24rpx;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .modal-list {
+  height: 50vh;
   max-height: 640rpx;
-  overflow-y: auto;
+  min-height: 0;
+  flex-shrink: 1;
 }
 
 .modal-item {
@@ -424,11 +442,11 @@
   justify-content: space-between;
   align-items: center;
   padding: 28rpx 8rpx;
-  border-bottom: 1rpx solid #f2f2f2;
+  border-bottom: 1rpx solid var(--bg-gray);
 }
 
 .modal-item:active {
-  background: #f7f8fb;
+  background: var(--bg-color);
 }
 
 .modal-item-info {
@@ -439,34 +457,35 @@
 
 .modal-item-name {
   font-size: 30rpx;
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .modal-item-phone {
   font-size: 24rpx;
-  color: #888888;
+  color: var(--text-secondary);
 }
 
 .modal-item-arrow {
   font-size: 36rpx;
-  color: #cccccc;
+  color: var(--text-placeholder);
 }
 
 .modal-empty {
   padding: 80rpx 0;
   text-align: center;
   font-size: 28rpx;
-  color: #999999;
+  color: var(--text-secondary);
 }
 
 .modal-cancel {
+  flex-shrink: 0;
   margin-top: 24rpx;
   padding: 22rpx;
   border-radius: 16rpx;
   font-size: 30rpx;
-  color: #666666;
-  background: #f5f6f8;
+  color: var(--text-regular);
+  background: var(--bg-gray);
   border: none;
   width: 100%;
 }
@@ -480,8 +499,8 @@
 /* 放在卡片最上面（标题行之下、商品行之前）：抢单决策的第一信息是钱，不是商品名 */
 .fee-box {
   padding: 14rpx 16rpx;
-  background: #FFF9EC;
-  border: 2rpx solid #FFE0A3;
+  background: var(--warning-bg);
+  border: 2rpx solid var(--warning-bg);
   border-radius: 10rpx;
   margin-bottom: 12rpx;
 }
@@ -493,14 +512,14 @@
 
 .fee-label {
   font-size: 24rpx;
-  color: #8A6D3B;
+  color: var(--warning-color);
   flex-shrink: 0;
 }
 
 .fee-amount {
   font-size: 40rpx;
   font-weight: 600;
-  color: #E65100;
+  color: var(--warning-color);
   margin-left: 12rpx;
 }
 
@@ -512,7 +531,7 @@
 
 .fee-detail-item {
   font-size: 22rpx;
-  color: #8A6D3B;
+  color: var(--warning-color);
   margin-right: 20rpx;
 }
 
@@ -524,13 +543,13 @@
 
 .fee-source-label {
   font-size: 22rpx;
-  color: #8A6D3B;
+  color: var(--warning-color);
   flex-shrink: 0;
 }
 
 .fee-source-name {
   font-size: 24rpx;
-  color: #333333;
+  color: var(--text-primary);
   font-weight: 500;
   margin-left: 8rpx;
 }
@@ -539,7 +558,7 @@
 .fee-settle {
   margin-top: 8rpx;
   font-size: 22rpx;
-  color: #2E7D32;
+  color: var(--success-color);
   line-height: 1.5;
 }
 
@@ -549,27 +568,27 @@
   flex-direction: column;
   padding: 14rpx 16rpx;
   margin-bottom: 12rpx;
-  background: #FFF7E6;
-  border: 1rpx solid #FFD591;
+  background: var(--warning-bg);
+  border: 1rpx solid var(--warning-bg);
   border-radius: 10rpx;
 }
 
 .risk-title {
   font-size: 24rpx;
   font-weight: 600;
-  color: #AD6800;
+  color: var(--warning-color);
   margin-bottom: 6rpx;
 }
 
 .risk-text {
   font-size: 22rpx;
-  color: #874D00;
+  color: var(--warning-color);
   line-height: 1.5;
 }
 
 .pool-product-info {
   padding: 12rpx 16rpx;
-  background: #f7f8fb;
+  background: var(--bg-color);
   border-radius: 10rpx;
   margin-bottom: 12rpx;
   display: flex;
@@ -578,13 +597,13 @@
 
 .pool-product-label {
   font-size: 24rpx;
-  color: #888888;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
 .pool-product-name {
   font-size: 26rpx;
-  color: #333333;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -598,7 +617,7 @@
 
 .match-label {
   font-size: 24rpx;
-  color: #888888;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
@@ -617,34 +636,34 @@
 }
 
 .match-full {
-  background: #E8F5E9;
-  color: #2E7D32;
+  background: var(--success-bg);
+  color: var(--success-color);
 }
 
 .match-partial {
-  background: #FFF8E1;
-  color: #F57F17;
+  background: var(--warning-bg);
+  color: var(--warning-color);
 }
 
 .match-none {
-  background: #FFEBEE;
-  color: #C62828;
+  background: var(--error-bg);
+  color: var(--error-color);
 }
 
 /* 抢单池状态标签 */
 .status-pool {
-  background: #E3F2FD;
-  color: #1976D2;
+  background: var(--primary-bg);
+  color: var(--primary-color);
 }
 
 /* ========== 外派样式（「外派」页签：一键外派 / 指定外派两个子页签共用） ========== */
 .dispatch-card {
-  border-left: 6rpx solid #FF9800;
+  border-left: 6rpx solid var(--warning-color);
 }
 
 .status-dispatch {
-  background: #FFF3E0;
-  color: #E65100;
+  background: var(--warning-bg);
+  color: var(--warning-color);
 }
 
 /* 订单状态小标（等待接单 / 已接单 …）：文案是后端下发的 Orders.statusText。
@@ -657,13 +676,13 @@
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
   font-weight: 500;
-  background: #FFF8E1;
-  color: #F57F17;
+  background: var(--warning-bg);
+  color: var(--warning-color);
 }
 
 .dispatch-info {
   padding: 12rpx 16rpx;
-  background: #f7f8fb;
+  background: var(--bg-color);
   border-radius: 10rpx;
   margin-bottom: 12rpx;
 }
@@ -676,11 +695,11 @@
 }
 
 .dispatch-label {
-  color: #888888;
+  color: var(--text-secondary);
 }
 
 .dispatch-value {
-  color: #333333;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -688,7 +707,7 @@
    与上面 .dispatch-info 同一形状，只是底色偏暖表示"要你决定"，与"信息展示"区分开。 */
 .dispatch-stale {
   padding: 12rpx 16rpx;
-  background: #fff7e6;
+  background: var(--warning-bg);
   border-radius: 10rpx;
   margin-bottom: 12rpx;
 }
@@ -697,28 +716,28 @@
   display: block;
   font-size: 25rpx;
   line-height: 1.5;
-  color: #8a5a00;
+  color: var(--warning-color);
   margin-bottom: 12rpx;
 }
 
 /* ========== 退回待确认样式 ========== */
 .return-card {
-  border-left: 6rpx solid #FF9500;
+  border-left: 6rpx solid var(--warning-color);
 }
 
 .status-return {
-  background: #FFF3E0;
-  color: #E8590C;
+  background: var(--warning-bg);
+  color: var(--warning-color);
 }
 
 /* ========== 指定外派里"别站指定本店"那几行（蓝色左边条，与本站派出去的橙色区分） ========== */
 .incoming-card {
-  border-left: 6rpx solid #007AFF;
+  border-left: 6rpx solid var(--primary-color);
 }
 
 .status-incoming {
-  background: #E7F1FF;
-  color: #007AFF;
+  background: var(--primary-bg);
+  color: var(--primary-color);
 }
 
 /* ========== tag-row ========== */
@@ -756,7 +775,7 @@
 .todo-title {
   font-size: 30rpx;
   font-weight: 600;
-  color: #1f2329;
+  color: var(--text-primary);
 }
 
 .todo-row {
@@ -776,17 +795,17 @@
 .todo-count {
   font-size: 40rpx;
   font-weight: 600;
-  color: #a3a8b0;
+  color: var(--text-secondary);
 }
 
 /* 非零 = 有东西要办，转红（0 保持灰：显示但不着色，站长一眼能分出今天有没有事） */
 .todo-item-on .todo-count {
-  color: #d4380d;
+  color: var(--error-color);
 }
 
 .todo-label {
   font-size: 22rpx;
-  color: #4e5969;
+  color: var(--text-regular);
   margin-top: 6rpx;
   text-align: center;
 }
@@ -794,7 +813,11 @@
 /* 金额只有"逾期应收"那一项有（服务端只给有金额含义的项下发 amount） */
 .todo-amount {
   font-size: 20rpx;
-  color: #d4380d;
+  color: var(--error-color);
   margin-top: 4rpx;
 }
 
+
+.guide-entry { padding: 20rpx 32rpx; text-align: right; color: var(--primary-color); font-size: 26rpx; }
+.guide-step { padding: 20rpx 8rpx; line-height: 1.6; font-size: 28rpx; }
+.section-caption { padding: 20rpx 4rpx; color: var(--text-regular); font-size: 26rpx; }

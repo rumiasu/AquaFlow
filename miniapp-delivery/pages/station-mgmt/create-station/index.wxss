@@ -2,7 +2,7 @@
   min-height: 100vh;
   /* 底部留白要盖过固定 footer 的总高（提交按钮 + 两行操作），否则最后一段表单会被遮住 */
   padding: 32rpx 32rpx 340rpx;
-  background: #f5f7fb;
+  background: var(--bg-color);
   box-sizing: border-box;
 }
 
@@ -21,13 +21,13 @@
   display: block;
   font-size: 36rpx;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 12rpx;
 }
 
 .form-subtitle {
   font-size: 26rpx;
-  color: #888888;
+  color: var(--text-secondary);
 }
 
 .form-group {
@@ -37,13 +37,13 @@
 .form-label {
   display: block;
   font-size: 28rpx;
-  color: #333333;
+  color: var(--text-primary);
   font-weight: 500;
   margin-bottom: 16rpx;
 }
 
 .required {
-  color: #FF3B30;
+  color: var(--error-color);
   margin-left: 4rpx;
 }
 
@@ -52,10 +52,10 @@
   height: 88rpx;
   line-height: 88rpx;
   padding: 0 28rpx;
-  background: #f7f8fb;
+  background: var(--bg-color);
   border-radius: 16rpx;
   font-size: 30rpx;
-  color: #1a1a1a;
+  color: var(--text-primary);
   box-sizing: border-box;
 }
 
@@ -63,10 +63,10 @@
   width: 100%;
   min-height: 180rpx;
   padding: 24rpx 28rpx;
-  background: #f7f8fb;
+  background: var(--bg-color);
   border-radius: 16rpx;
   font-size: 30rpx;
-  color: #1a1a1a;
+  color: var(--text-primary);
   box-sizing: border-box;
 }
 
@@ -81,10 +81,10 @@
   min-height: 88rpx;
   height: auto;
   padding: 18rpx 28rpx;
-  background: #f7f8fb;
+  background: var(--bg-color);
   border-radius: 16rpx;
   font-size: 28rpx;
-  color: #1a1a1a;
+  color: var(--text-primary);
   box-sizing: border-box;
 }
 
@@ -98,7 +98,7 @@
 
 .location-text {
   font-size: 28rpx;
-  color: #1a1a1a;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -107,11 +107,11 @@
 .location-sub {
   margin-top: 6rpx;
   font-size: 24rpx;
-  color: #8a94a6;
+  color: var(--text-secondary);
 }
 
 .location-value.placeholder {
-  color: #999999;
+  color: var(--text-secondary);
 }
 
 
@@ -145,6 +145,6 @@
   border: 1rpx solid #EAE4D8;
   text-align: center;
   font-size: 28rpx;
-  color: #999999;
+  color: var(--text-secondary);
 }
 .footer-action:active { opacity: 0.8; }

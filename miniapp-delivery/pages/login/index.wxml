@@ -15,15 +15,13 @@
     <!-- [2026-09-24] 协议改成「点击即同意」：原来是个**必须先勾选**的复选框（不勾就 toast 拦住），
          产品要求"别再费劲点了"。告知贴在按钮正下方，点按钮本身即表示同意。
          ⚠️ 这行提示**不能删** —— 删了就只剩"沉默同意"。顾客端 pages/login 同口径。
-         ⚠️ [2026-09-27 走查 X01 修] 协议名不再做成链接的样子（去掉 `agreement-link` 的链接色）：
-            它们看起来可点、实际**没有任何点击处理**。走查给的出路是接入真实协议内容，
-            但同时明令**不许造"已合规"的占位文案** —— 正文属法务/产品内容（需后端或静态页承载，
-            见「需要后端配合」清单）。正文到位前先按普通说明文字渲染。 -->
+         [2026-10-07] 协议名现可打开只读草稿页，页内明确未审核与待补。
+         阅读不触发登录、自动同意或版本同意记录；正式文本仍待真实信息与审核。 -->
     <view class="agreement">
       <text class="agreement-text">登录即代表你已阅读并同意</text>
-      <text class="agreement-text agreement-strong">《用户协议》</text>
+      <text class="agreement-text agreement-strong" data-type="user" bindtap="onOpenAgreement">《用户协议》</text>
       <text class="agreement-text">和</text>
-      <text class="agreement-text agreement-strong">《隐私政策》</text>
+      <text class="agreement-text agreement-strong" data-type="privacy" bindtap="onOpenAgreement">《隐私政策》</text>
     </view>
 
     <!-- [2026-09-20] 仅非正式版显示：直连 /api/auth/dev-login，该端点在 prod 下不存在。

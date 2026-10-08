@@ -222,7 +222,7 @@ Page({
     }
     app.addToCart(stationId, id, 1)
     this.updateCartCount()
-    wx.showToast({ title: '已加入购物车', icon: 'success' })
+    wx.showToast({ title: '已加入订水清单', icon: 'success' })
   },
   onBuyNow(e) {
     if (!this.data.isLogin) {

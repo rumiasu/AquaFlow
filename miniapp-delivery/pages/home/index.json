@@ -2,6 +2,6 @@
   "navigationStyle": "custom",
   "navigationBarTitleText": "配送",
   "enablePullDownRefresh": true,
-  "backgroundColor": "#f0f4f8",
+  "backgroundColor": "#FAF7F0",
   "usingComponents": {}
 }

@@ -6,7 +6,7 @@
   <view class="hint" wx:if="{{!denied}}">
     <!-- [2026-09-24] 去掉"后端暂无回复/处置功能"这类开发措辞：站长需要知道的是
          **"这里只能看，回不了"** —— 不然他会到处找回复按钮。 -->
-    <text>这里汇总顾客提交的反馈。目前只能查看，还不能在这里回复或处理。</text>
+    <text>这里汇总顾客提交的反馈。关联退款的记录可追加说明，不会改变退款金额或状态；普通反馈仅供查看。</text>
     <text>顾客提交时可以选择匿名；匿名反馈不会带上姓名与客户号，只能显示为「匿名顾客」。</text>
   </view>
 
@@ -50,6 +50,7 @@
 
         <!-- category 是提交方写的原文（顾客端一键上报写死"错误报告"），原样透传，前端不建映射表 -->
         <text class="category" wx:if="{{item.categoryText}}">{{item.categoryText}}</text>
+        <text class="content" wx:if="{{item.refundObjectText}}">{{item.refundObjectText}} · {{item.authorText}}</text>
 
         <text class="content">{{item.content}}</text>
 
@@ -57,6 +58,13 @@
           <text class="foot-item" wx:if="{{item.contactText}}">{{item.contactText}}</text>
           <text class="foot-item muted" wx:else>{{item.noContactText}}</text>
           <text class="foot-item muted" wx:if="{{item.customerIdText}}">{{item.customerIdText}}</text>
+        </view>
+        <button wx:if="{{item.refundType && item.refundId}}" size="mini" bindtap="onOpenRefundNote" data-id="{{item.id}}">补充说明</button>
+        <view wx:if="{{selectedFeedbackId === item.id}}" class="refund-note-form">
+          <text class="content">说明可选，证据可以后补。这里只追加记录，原说明会保留。</text>
+          <textarea maxlength="1000" placeholder="补充说明（可选）" value="{{noteContent}}" bindinput="onNoteInput" />
+          <button loading="{{noteSubmitting}}" disabled="{{noteSubmitting}}" bindtap="onSubmitRefundNote">提交说明</button>
+          <text wx:if="{{pendingRefundNote && !noteSubmitting}}" class="content" bindtap="onRetryOriginalNote">上一条结果待确认，点此重试原说明</text>
         </view>
       </view>
     </block>

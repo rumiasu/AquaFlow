@@ -1,5 +1,6 @@
 // 站长资产调整单列表（本站；带 customerId 时只看该客户）
-const { listAdjustments, executeAdjustment } = require('../../../../api/station-mgmt')
+const { listAdjustments, executeAdjustment, getCustomerAssets } = require('../../../../api/station-mgmt')
+const adjustmentCustomer = require('../../../../utils/adjustment-customer')
 
 const PAGE_SIZE = 20
 
@@ -27,7 +28,9 @@ function decorate(item) {
 }
 
 Page({
+  ...adjustmentCustomer.methods,
   data: {
+    ...adjustmentCustomer.data,
     customerId: null,
     list: [],
     total: 0,
@@ -35,6 +38,7 @@ Page({
     size: PAGE_SIZE,
     hasMore: false,
     loading: false,
+    listError: '',
     executing: false,
     denied: false,
     deniedText: ''
@@ -59,15 +63,47 @@ Page({
 
   onShow() {
     if (this.data.denied) return
-    this.loadData()
+    return Promise.all([this.loadData(), this.refreshCustomerAssets()])
   },
+
+  // 返回/刷新只重读摘要，不调用会清空选择表单与幂等意图的客户选择动作。
+  async refreshCustomerAssets() {
+    const id = Number(this.data.customerId)
+    if (this.data.denied || !Number.isSafeInteger(id) || id <= 0) return
+    const seq = this._customerSeq = (this._customerSeq || 0) + 1
+    const owner = getApp().globalData.userInfo, user = owner || {}
+    const identity = JSON.stringify([user.staffId, user.role, user.stationId])
+    const matches = () => {
+      const current = getApp().globalData.userInfo, u = current || {}
+      return seq === this._customerSeq && Number(this.data.customerId) === id
+        && owner === current && identity === JSON.stringify([u.staffId, u.role, u.stationId])
+    }
+    this.setData({ customerAssets: null, customerAssetsLoading: true, customerAssetsError: '' })
+    try {
+      const res = await getCustomerAssets(id), assets = res && res.data
+      if (!matches()) return
+      if (!assets || Number(assets.customerId) !== id) throw new Error('客户资产尚未核对，请重试')
+      if (assets.adjustmentEligible !== true) throw new Error('客户绑定资格尚未核对或已变更，请重试核实')
+      this.setData({ customerAssets: assets, customerName: assets.customerName || this.data.customerName,
+        customerPhone: assets.phone || this.data.customerPhone })
+    } catch (e) {
+      if (matches()) this.setData({ customerAssetsError: e.message || '客户资产未核对，请重试' })
+    } finally {
+      if (seq === this._customerSeq) {
+        if (!matches()) this.setData({ customerAssets: null, customerAssetsError: '当前客户或身份已变化，请重新核对' })
+        this.setData({ customerAssetsLoading: false })
+      }
+    }
+  },
+
+  onRetryCustomerAssets() { return this.refreshCustomerAssets() },
 
   onPullDownRefresh() {
     if (this.data.denied) {
       wx.stopPullDownRefresh()
       return
     }
-    this.loadData().then(() => wx.stopPullDownRefresh())
+    Promise.all([this.loadData(), this.refreshCustomerAssets()]).then(() => wx.stopPullDownRefresh())
   },
 
   onReachBottom() {
@@ -82,45 +118,46 @@ Page({
 
   async loadData() {
     if (this.data.denied) return
-    this.setData({ loading: true })
+    const seq = this._adjustmentListSeq = (this._adjustmentListSeq || 0) + 1
+    this.setData({ loading: true, listError: '', list: [], total: null, hasMore: false })
     try {
       const res = await listAdjustments(this.buildQuery(1))
+      if (seq !== this._adjustmentListSeq) return
       const data = res.data || {}
       const list = (data.list || []).map(decorate)
       const total = data.total || 0
       this.setData({ list: list, total: total, page: 1, hasMore: list.length < total })
     } catch (err) {
-      wx.showToast({ title: err.message || '加载失败', icon: 'none' })
+      if (seq === this._adjustmentListSeq) this.setData({ listError: err.message || '调整单加载失败，请重试' })
     } finally {
-      this.setData({ loading: false })
+      if (seq === this._adjustmentListSeq) this.setData({ loading: false })
     }
   },
 
   async loadMore() {
     if (this.data.denied || this.data.loading || !this.data.hasMore) return
     const next = this.data.page + 1
-    this.setData({ loading: true })
+    const seq = this._adjustmentListSeq
+    this.setData({ loading: true, listError: '' })
     try {
       const res = await listAdjustments(this.buildQuery(next))
+      if (seq !== this._adjustmentListSeq) return
       const data = res.data || {}
       const list = this.data.list.concat((data.list || []).map(decorate))
       const total = data.total || 0
       this.setData({ list: list, total: total, page: next, hasMore: list.length < total })
     } catch (err) {
-      wx.showToast({ title: err.message || '加载失败', icon: 'none' })
+      if (seq === this._adjustmentListSeq) this.setData({ listError: err.message || '后续调整单加载失败，请重试' })
     } finally {
-      this.setData({ loading: false })
+      if (seq === this._adjustmentListSeq) this.setData({ loading: false })
     }
   },
 
-  // 新建必须绑定客户（后端 create 的 customerId 为必填），所以没有 customerId 时不给进
+  // 新建页可直接选本站绑定客户；预选客户不因桶明细为空而丢失。
   onCreate() {
-    if (!this.data.customerId) {
-      wx.showToast({ title: '请从客户详情页进入后再新建调整', icon: 'none', duration: 3000 })
-      return
-    }
+    if (this.data.denied) return
     wx.navigateTo({
-      url: `/pages/station-mgmt/customers/adjust/edit/index?customerId=${this.data.customerId}`
+      url: '/pages/station-mgmt/customers/adjust/edit/index' + (this.data.customerId ? '?customerId=' + this.data.customerId : '')
     })
   },
 
@@ -152,12 +189,12 @@ Page({
           await executeAdjustment(id)
           wx.hideLoading()
           wx.showToast({ title: '已执行生效', icon: 'success' })
-          this.loadData()
+          await Promise.all([this.loadData(), this.refreshCustomerAssets()])
         } catch (err) {
           wx.hideLoading()
           wx.showToast({ title: err.message || '执行失败', icon: 'none', duration: 3000 })
           // 失败常见原因是状态已被并发处理（重复执行被 CAS 拒绝）→ 重新拉一次让列表自愈
-          this.loadData()
+          await Promise.all([this.loadData(), this.refreshCustomerAssets()])
         } finally {
           this.setData({ executing: false })
         }

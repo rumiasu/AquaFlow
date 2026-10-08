@@ -6,7 +6,7 @@
   font-size: 24rpx;
   line-height: 1.6;
 }
-.banner.warn { background: #fef0f0; border: 1rpx solid #fbc4c4; color: #f56c6c; }
+.banner.warn { background: var(--error-bg); border: 1rpx solid var(--error-bg); color: var(--error-color); }
 
 .card-title {
   font-size: 28rpx;
@@ -107,7 +107,7 @@
   margin-top: 16rpx;
   line-height: 1.6;
 }
-.preview-note.warn { background: #fff3e0; color: #f57c00; }
+.preview-note.warn { background: var(--warning-bg); color: var(--warning-color); }
 
 /* 底部操作 */
 .footer { display: flex; gap: 20rpx; margin: 0 24rpx; }
@@ -136,3 +136,11 @@
   font-size: 28rpx;
   color: var(--text-secondary);
 }
+
+/* 2026-10-06：搜索与结果整行可点，小屏允许身份信息换行。 */
+.customer-search-row { display:flex; align-items:center; gap:16rpx; }
+.customer-search-row input { flex:1; min-width:0; }
+.customer-search-row button { flex-shrink:0; margin:0; }
+.customer-option { display:flex; flex-direction:column; padding:24rpx 0; border-bottom:1rpx solid var(--primary-bg); overflow-wrap:anywhere; }
+.customer-selected { padding:24rpx 0 12rpx; font-weight:600; overflow-wrap:anywhere; }
+.customer-selector .field-hint { display:block; font-size:24rpx; line-height:1.6; color:var(--text-secondary); }

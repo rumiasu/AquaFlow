@@ -143,21 +143,19 @@
               <text class="prod-deposit" wx:if="{{item.depositNote}}">{{item.depositNote}}</text>
               <view class="prod-price-row">
                 <text class="prod-price">¥{{item.priceText}}</text>
-                <text class="prod-price-unit">/桶</text>
+                <text class="prod-price-unit">/{{item.quantityUnit}}</text>
               </view>
             </view>
             <!-- 步进器：蓝色合法出现处 ④（＋ 常显品牌蓝，− 仅数量>0 时点亮）
                  点击热区 88rpx（图形仍是 52rpx，只放大热区）见 index.wxss 的 .stepper-hit -->
             <view class="stepper">
-              <view class="stepper-hit">
-                <view class="stepper-btn {{item.qty > 0 ? 'on' : ''}}"
-                      bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="minus">−</view>
+              <view class="stepper-hit" bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="minus">
+                <view class="stepper-btn {{item.qty > 0 ? 'on' : ''}}">−</view>
               </view>
               <text class="stepper-qty" wx:if="{{item.qty > 0}}">{{item.qty}}</text>
               <text class="stepper-hint" wx:else>选数量</text>
-              <view class="stepper-hit">
-                <view class="stepper-btn on"
-                      bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="add">＋</view>
+              <view class="stepper-hit" bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="add">
+                <view class="stepper-btn on">＋</view>
               </view>
             </view>
           </view>

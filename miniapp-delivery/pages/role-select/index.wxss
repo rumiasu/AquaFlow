@@ -49,7 +49,7 @@
 }
 
 .role-card.delivery {
-  border-left: 8rpx solid #34C759;
+  border-left: 8rpx solid var(--success-color);
 }
 
 .role-icon {
@@ -60,7 +60,7 @@
   align-items: center;
   justify-content: center;
   font-size: 52rpx;
-  background: #F5F8FC;
+  background: var(--bg-color);
   margin-right: 32rpx;
   flex-shrink: 0;
 }
@@ -83,18 +83,18 @@
 .role-name {
   font-size: 34rpx;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .role-desc {
   font-size: 26rpx;
-  color: #888888;
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
 .role-arrow {
   font-size: 48rpx;
-  color: #cccccc;
+  color: var(--text-placeholder);
   margin-left: 16rpx;
 }
 
@@ -102,5 +102,5 @@
   text-align: center;
   margin-top: 80rpx;
   font-size: 24rpx;
-  color: #aaaaaa;
+  color: var(--text-secondary);
 }

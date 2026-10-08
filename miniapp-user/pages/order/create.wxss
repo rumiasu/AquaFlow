@@ -101,11 +101,34 @@
   border-radius: 16rpx;
   border: 2rpx solid transparent;
   transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
 }
 
+/* [2026-10-06] 选中态强化：左侧色条 + 背景加深 + 字重提升 */
 .payment-method.selected {
   background: var(--primary-bg);
   border-color: var(--primary-color);
+  box-shadow: 0 2rpx 8rpx rgba(46, 74, 104, 0.12);
+}
+
+.payment-method.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6rpx;
+  background: var(--primary-color);
+}
+
+.payment-method.selected .method-name {
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.payment-method.selected .method-desc {
+  color: var(--primary-dark);
 }
 
 .payment-method:active {
@@ -787,7 +810,7 @@
 }
 
 /* 弹窗标题（.warning 同时给首次确认与缺货确认用）。
-   [2026-09-26 轨道 E] 原来是一整条 #DC2626 的红底：红色在本仓口径里是"失败/危险动作"，
+   [2026-09-26 轨道 E] 原来是一整条 var(--error-color) 的红底：红色在本仓口径里是"失败/危险动作"，
    而"下单前请确认"是一次正常的确认、不是危险动作；大面积色块也与 §6「不靠每块换颜色」相反。
    现在标题是普通深色居中标题，真正的警示由正文与按钮表达。 */
 .asset-warning .popup-title.warning {
@@ -958,7 +981,7 @@
   align-items: center;
   gap: 12rpx;
   padding: 16rpx;
-  background: #F9FAFB;
+  background: var(--bg-color);
   border-radius: 12rpx;
   margin-bottom: 24rpx;
 }
@@ -971,7 +994,7 @@
 
 .checkbox-label {
   font-size: 26rpx;
-  color: #1F2937;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -1063,7 +1086,7 @@
    展开区里的说明文字用 .detail-intro / .detail-rule-item / .detail-bold，仍在用。 */
 .detail-rule {
   padding: 20rpx;
-  background: #FEF3C7;
+  background: var(--warning-bg);
   border-radius: 12rpx;
   margin-bottom: 24rpx;
 }
@@ -1076,7 +1099,7 @@
 
 .detail-rule-title {
   font-size: 26rpx;
-  color: #92400E;
+  color: var(--warning-color);
   font-weight: 600;
 }
 
@@ -1169,7 +1192,7 @@
 .asset-detail-popup .popup-btns {
   padding: 24rpx 32rpx;
   border-top: 1rpx solid var(--border-light);
-  background: #FAFAFA;
+  background: var(--bg-color);
   border-radius: 0 0 24rpx 24rpx;
 }
 
@@ -1470,4 +1493,85 @@
 .total-row .total-label {
   flex-basis: 100%;
   margin-right: 0;
+}
+
+/* ========== [2026-10-06] 资产说明常驻折叠条 ==========
+   替代原首次确认弹窗，不阻断浏览，但保留全部业务信息与勾选闸门。 */
+.asset-bar {
+  background: var(--bg-card);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin: 0 0 24rpx;
+  overflow: hidden;
+}
+
+.asset-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  background: var(--bg-gray);
+}
+
+.asset-bar-title {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.asset-bar-title-text {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.asset-bar-toggle {
+  font-size: 24rpx;
+  color: var(--primary-color);
+}
+
+.asset-bar-content {
+  padding: 24rpx;
+  border-top: 1rpx solid var(--border-light);
+}
+
+.asset-bar-desc {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text-regular);
+  line-height: 1.6;
+  margin-bottom: 16rpx;
+}
+
+/* ========== [2026-10-06] 综合确认弹窗 ========== */
+.unified-section {
+  margin-bottom: 24rpx;
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.unified-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.unified-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-bottom: 16rpx;
+}
+
+.unified-section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.unified-fee-preview {
+  background: var(--bg-gray);
+  border-radius: var(--radius-md);
+  padding: 20rpx 24rpx;
+  margin-top: 8rpx;
 }

@@ -34,21 +34,38 @@
 'use strict'
 
 const path = require('path')
+const fs = require('fs')
+const watchdog = setTimeout(() => { console.error('[FATAL] route suite did not finish'); process.exit(1) }, 30000)
 
 const APP_DIR = path.join(__dirname, 'miniapp-delivery')
 
 // ---------------- 桩化全局 ----------------
 const storage = {}
 const log = []
+const nativeErrors = []
+const config = JSON.parse(fs.readFileSync(path.join(APP_DIR, 'app.json'), 'utf8'))
+const routes = new Set(config.pages.map(p => '/' + p))
+const tabs = new Set(config.tabBar.list.map(p => '/' + p.pagePath))
+function native(api, options) {
+  const o = options || {}, route = String(o.url || '').split('?')[0]
+  const error = !routes.has(route) ? 'page not registered'
+    : api === 'switchTab' && !tabs.has(route) ? 'switchTab needs a tab page'
+    : ['navigateTo', 'redirectTo'].includes(api) && tabs.has(route) ? 'ordinary navigation cannot open a tab page' : null
+  const result = { errMsg: api + (error ? ':fail ' + error : ':ok') }
+  if (error) { nativeErrors.push(result); if (o.fail) o.fail(result) }
+  else { log.push(api + ' ' + o.url); if (o.success) o.success(result) }
+  if (o.complete) o.complete(result)
+}
+global.getCurrentPages = () => []
 
 global.wx = {
   getStorageSync: k => storage[k],
   setStorageSync: (k, v) => { storage[k] = v },
   removeStorageSync: k => { delete storage[k] },
-  redirectTo: o => log.push('redirectTo ' + o.url),
-  reLaunch: o => log.push('reLaunch ' + o.url),
-  switchTab: o => log.push('switchTab ' + o.url),
-  navigateTo: o => log.push('navigateTo ' + o.url),
+  redirectTo: o => native('redirectTo', o),
+  reLaunch: o => native('reLaunch', o),
+  switchTab: o => native('switchTab', o),
+  navigateTo: o => native('navigateTo', o),
   request: () => {},
   showModal: () => {},
   showToast: () => {},
@@ -116,14 +133,15 @@ async function main() {
 
   console.log('\n== 2. 本地 UNBOUND、服务器已 BOUND（在别处被审批通过） ==')
   log.length = 0
-  app.globalData.accessToken = 'tok'
+  app.globalData.isLogin = true
+  app.globalData.accessToken = 'synthetic-access'
   app.globalData.userInfo = app._normalizeUserInfo({ role: D, bindStatus: 'UNBOUND', stationId: null, staffId: 9 })
-  storage['aq_delivery_accessToken'] = 'tok'
+  storage['aq_delivery_accessToken'] = 'synthetic-access'
   storage['aq_delivery_userInfo'] = app.globalData.userInfo
   SERVER = { role: D, bindingStatus: 'BOUND', stationId: 42 }
   const left = await app.refreshIdentityAndRoute(APPLY)
   eq(left, true, '应判定为已跳走')
-  eq(log, ['reLaunch ' + HOME], '应放行到首页（"在别处注册了却出不去"的修复点）')
+  eq(log, ['reLaunch /pages/login/index', 'switchTab ' + HOME], '应放行到首页（"在别处注册了却出不去"的修复点）')
   eq(app.globalData.userInfo.stationId, 42, '本地 stationId 应被服务器值覆盖')
 
   console.log('\n== 3. 本地与服务器都是 UNBOUND（确实还没注册） ==')
@@ -153,7 +171,7 @@ async function main() {
   SERVER = { role: M, bindingStatus: 'UNBOUND', stationId: 11 }
   const left4 = await app.refreshIdentityAndRoute(CREATE)
   eq(left4, true, '应跳走')
-  eq(log, ['reLaunch ' + HOME], '应放行到首页')
+  eq(log, ['reLaunch /pages/login/index', 'switchTab ' + HOME], '应放行到首页')
 
   console.log('\n== 7. UNSELECTED 虚拟会话不发同步请求 ==')
   app.globalData.userInfo = app._normalizeUserInfo({ role: U, needSelectRole: true })
@@ -174,8 +192,23 @@ async function main() {
   app.globalData.userInfo = app._normalizeUserInfo({ role: U, needSelectRole: true })
   eq(app.isIdentityEffective(), false, '未选身份 → 未生效')
 
+  console.log('\n== 9. 平台错误路径与 tab 导航反向样例 ==')
+  log.length = 0; nativeErrors.length = 0
+  const navigation = require(path.join(APP_DIR, 'utils/navigation'))
+  navigation.open('/pages/missing-route/index', { mode: 'reset', guard: true })
+  eq(nativeErrors.length, 1, '实际导航收到未注册页面的失败回调')
+  eq(log, [], '错误路径不能被桩伪装成跳转成功')
+  nativeErrors.length = 0
+  wx.navigateTo({ url: HOME })
+  eq(nativeErrors.length, 1, 'navigateTo 打开 tab 必须失败')
+  nativeErrors.length = 0
+  wx.switchTab({ url: '/pages/login/index' })
+  eq(nativeErrors.length, 1, 'switchTab 打开普通页必须失败')
+
+  clearTimeout(watchdog)
   console.log('\n结果：通过 ' + pass + '，失败 ' + fail)
+  if (!fail) console.log('AQUAFLOW_SUITE_OK ' + pass)
   process.exit(fail ? 1 : 0)
 }
 
-main()
+main().catch(error => { clearTimeout(watchdog); console.error(error); process.exit(1) })

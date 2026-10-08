@@ -23,6 +23,12 @@ page {
   --error-color: #B5442C;
   --info-color: #2E4A68;
 
+  /* 功能色浅底（2026-10-07 新增，语义正本 docs/design/36 §1.1：标签/横幅/提示条的底色，
+     文字一律用对应的 *-color 实色，不拿浅底当文字色） */
+  --success-bg: #E3F2EB;
+  --warning-bg: #F7ECE2;
+  --error-bg: #F8E9E5;
+
   /* 价格色：与正文同为深灰，靠字重区分，不用红色 */
   --price-color: #2B2A26;
 

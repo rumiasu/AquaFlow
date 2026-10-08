@@ -1,15 +1,54 @@
 // 网络请求封装（JWT 双 Token + 自动续期）
 const { getBaseUrl, API } = require('../config/api')
 const { STORAGE_KEYS } = require('../utils/storage-keys')
+const navigation = require('./navigation')
 
-let isRefreshing = false
-let refreshQueue = []
+let refreshFlight = null
+
+// 登录周期与普通续期分开：同账号重新登录也会产生新的 generation。
+function captureSession() {
+  const app = getApp()
+  const data = app.globalData
+  const user = data.userInfo || {}
+  return {
+    app, generation: app._loginGeneration || 0,
+    identity: JSON.stringify([!!data.isLogin, user.staffId, user.role, user.stationId, user.bindStatus]),
+    // App restores cache on launch. A missing in-memory credential must not
+    // borrow a cached credential belonging to an earlier login.
+    accessToken: data.isLogin ? data.accessToken : null,
+    refreshToken: data.isLogin ? data.refreshToken : null
+  }
+}
+
+function sameSession(a, b) {
+  return a.app === b.app && a.generation === b.generation && a.identity === b.identity
+}
+
+function currentSession(session) { return sameSession(session, captureSession()) }
+function sameCredentials(a, b) { return a.accessToken === b.accessToken && a.refreshToken === b.refreshToken }
+function changedSessionError() {
+  const error = new Error('登录状态已变化，请重新操作')
+  error.sessionChanged = true
+  return error
+}
+
+// 重试沿用发起时的业务内容和幂等键，避免调用方后续编辑改变原请求。
+function snapshot(value) {
+  if (Array.isArray(value)) return value.map(snapshot)
+  if (value && typeof value === 'object') {
+    const copy = {}
+    Object.keys(value).forEach(key => { copy[key] = snapshot(value[key]) })
+    return copy
+  }
+  return value
+}
 
 const request = (options) => {
+  options = { ...options, data: snapshot(options.data), query: snapshot(options.query), header: snapshot(options.header) }
   return new Promise((resolve, reject) => {
-    const app = getApp()
+    const session = captureSession()
     const baseUrl = getBaseUrl()
-    const accessToken = app.globalData.accessToken || wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
+    const accessToken = session.accessToken
 
     const header = {
       'Content-Type': 'application/json',
@@ -39,20 +78,21 @@ const request = (options) => {
       header,
       timeout: 15000,
       success: (res) => {
+        if (!currentSession(session)) { reject(changedSessionError()); return }
         const error = responseError(res)
         if (error) { reject(error); return }
         if (res.statusCode === 200) {
           if (res.data.code === 0 || res.data.code === 200) {
             resolve(res.data)
           } else if (res.data.code === 401) {
-            handle401(options, resolve, reject)
+            handle401(options, resolve, reject, session)
           } else {
             const businessError = new Error(responseMessage(res.data))
             businessError.businessRejected = res.data.code === 1
             reject(businessError)
           }
         } else if (res.statusCode === 401) {
-          handle401(options, resolve, reject)
+          handle401(options, resolve, reject, session)
         } else {
           // [2026-09-20] 原来直接把状态码拼给用户看（「网络错误 500」）—— 站长/配送员看不懂也没法处理。
           // 保留状态码在括号里，排查时仍能一眼看出是 4xx 还是 5xx。
@@ -60,6 +100,7 @@ const request = (options) => {
         }
       },
       fail: (err) => {
+        if (!currentSession(session)) { reject(changedSessionError()); return }
         console.error('[request] wx.request 失败:', JSON.stringify(err))
         reject(toNetworkError(err))
       }
@@ -85,7 +126,7 @@ function responseMessage(body, fallback = '请求失败') {
 function validRefreshData(data) {
   return data && typeof data === 'object' && !Array.isArray(data)
     && typeof data.accessToken === 'string' && !!data.accessToken.trim()
-    && (data.refreshToken == null || typeof data.refreshToken === 'string')
+    && typeof data.refreshToken === 'string' && !!data.refreshToken.trim()
 }
 
 /**
@@ -116,88 +157,101 @@ function toNetworkError(err) {
   return new Error(raw || '网络连接失败，请重试')
 }
 
-// 401 自动续期处理
-function handle401(originalOptions, resolve, reject) {
+// 每个续期任务只拥有本次登录的等待请求，旧 complete 不释放新任务。
+function handle401(originalOptions, resolve, reject, session) {
+  const current = captureSession()
+  if (!sameSession(session, current)) { reject(changedSessionError()); return }
   if (originalOptions.url.includes('/auth/refresh') ||
       originalOptions.url.includes('/auth/login') ||
       originalOptions.url.includes('/auth/wx-login') ||
       originalOptions.url.includes('/auth/dev-login')) {
-    clearAndRedirect()
+    clearAndRedirect(session)
     reject(new Error('登录已过期'))
     return
   }
-
-  if (isRefreshing) {
-    refreshQueue.push({ resolve, reject, options: originalOptions })
+  if (!sameCredentials(session, current) && current.accessToken) {
+    retryRequest(originalOptions, current.accessToken, current).then(resolve, reject)
     return
   }
-
-  isRefreshing = true
-  const refreshToken = wx.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
-
-  if (!refreshToken) {
-    clearAndRedirect()
-    reject(new Error('登录已过期'))
-    isRefreshing = false
+  const waiter = { options: originalOptions, resolve, reject, session }
+  if (refreshFlight && !refreshFlight.done && sameSession(refreshFlight.session, current)
+      && sameCredentials(refreshFlight.session, current)) {
+    refreshFlight.waiters.push(waiter)
     return
+  }
+  if (!current.refreshToken) {
+    clearAndRedirect(session)
+    reject(new Error('登录已过期'))
+    return
+  }
+  const flight = { session: current, waiters: [waiter], done: false }
+  refreshFlight = flight
+
+  // 外部同会话已完成续期时，旧响应不再写 token 或登出，只用当前凭据重试。
+  function superseded() {
+    if (flight.done) return true
+    const latest = captureSession()
+    if (!sameSession(flight.session, latest)) {
+      settleFlight(flight, changedSessionError())
+      return true
+    }
+    if (!sameCredentials(flight.session, latest)) {
+      settleFlight(flight, latest.accessToken ? null : changedSessionError(), latest.accessToken)
+      return true
+    }
+    return false
   }
 
   wx.request({
-    // 统一走 API.REFRESH。勿硬编码 '/api/auth/refresh'——本项目出现过
-    // "常量定义了没人用、路径却散落硬编码在四处"的不一致（2026-09-14 已统一）。
     url: getBaseUrl() + API.REFRESH,
     method: 'POST',
-    data: { refreshToken },
-    // [2026-09-20] 必须带 timeout：refresh 请求原本没有任何超时，真机切网/弱网时可能
-    // 既不 success 也不 fail → refreshQueue 里的 promise 永不 settle → 按钮一直转圈。
-    // 有了超时会走 fail 分支，processQueue 才会把排队的请求放掉。
+    data: { refreshToken: current.refreshToken },
     timeout: 15000,
     success: (res) => {
+      if (superseded()) return
       const error = responseError(res)
         || (res.statusCode === 200 && res.data.code === 0 && !validRefreshData(res.data.data) ? malformedResponseError() : null)
       if (error) {
-        clearAndRedirect(); reject(error); processQueue(error); return
+        failFlight(flight, error)
+        return
       }
       if (res.statusCode === 200 && res.data.code === 0) {
         const { accessToken, refreshToken: newRefreshToken } = res.data.data
-        const app = getApp()
+        const app = flight.session.app
         app.globalData.accessToken = accessToken
-        if (newRefreshToken) app.globalData.refreshToken = newRefreshToken
-        wx.setStorageSync(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
-        if (newRefreshToken) wx.setStorageSync(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken)
-
-        retryRequest(originalOptions, accessToken).then(resolve).catch(reject)
-        processQueue(null, accessToken)
+        app.globalData.refreshToken = newRefreshToken
+        try {
+          wx.setStorageSync(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
+          wx.setStorageSync(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken)
+        } catch (_) {
+          // The server has already rotated the pair; do not reuse the old refresh.
+          failFlight(flight, new Error('登录凭据未能保存，请重新登录'))
+          return
+        }
+        settleFlight(flight, null, accessToken)
       } else {
-        clearAndRedirect()
-        const error = new Error(responseMessage(res.data, '登录已过期'))
-        reject(error)
-        processQueue(error)
+        failFlight(flight, new Error(responseMessage(res.data, '登录已过期')))
       }
     },
     fail: (err) => {
-      clearAndRedirect()
-      reject(new Error('网络错误'))
-      // 排队的请求也要拿到**可读**的错误：原来是原样透传 wx 的 `{errMsg}` 对象，
-      // 那些请求的 catch 里 `err.message` 同样是 undefined。
-      processQueue(toNetworkError(err))
+      if (superseded()) return
+      failFlight(flight, toNetworkError(err))
     },
     complete: () => {
-      isRefreshing = false
+      if (refreshFlight === flight) refreshFlight = null
     }
   })
 }
 
-function retryRequest(options, newToken) {
+function retryRequest(options, newToken, session) {
   return new Promise((resolve, reject) => {
-    const baseUrl = getBaseUrl()
+    if (!currentSession(session)) { reject(changedSessionError()); return }
     const header = {
       'Content-Type': 'application/json',
       ...options.header,
       'Authorization': `Bearer ${newToken}`
     }
-
-    let url = baseUrl + options.url
+    let url = getBaseUrl() + options.url
     if (options.query) {
       const qs = Object.keys(options.query)
         .filter(k => options.query[k] !== undefined && options.query[k] !== null)
@@ -205,16 +259,14 @@ function retryRequest(options, newToken) {
         .join('&')
       if (qs) url += (url.includes('?') ? '&' : '?') + qs
     }
-
     wx.request({
       url,
       method: options.method || 'GET',
       data: options.data,
       header,
-      // [2026-09-20] 与首次请求（上面的 `timeout: 15000`）保持一致。
-      // 原实现漏了这一个，续期后的重试会走系统默认超时（60s），弱网下表现为长时间卡死。
       timeout: 15000,
       success: (res) => {
+        if (!currentSession(session)) { reject(changedSessionError()); return }
         const error = responseError(res)
         if (error) { reject(error); return }
         if (res.statusCode === 200 && (res.data.code === 0 || res.data.code === 200)) {
@@ -225,38 +277,53 @@ function retryRequest(options, newToken) {
           reject(businessError)
         }
       },
-      fail: (err) => reject(toNetworkError(err))
+      fail: (err) => reject(currentSession(session) ? toNetworkError(err) : changedSessionError())
     })
   })
 }
 
-function processQueue(error, token) {
-  refreshQueue.forEach(item => {
-    if (error) {
-      item.reject(error)
-    } else {
-      retryRequest(item.options, token).then(item.resolve).catch(item.reject)
-    }
-  })
-  refreshQueue = []
+function failFlight(flight, error) {
+  try {
+    clearAndRedirect(flight.session)
+  } catch (_) {
+    console.warn('[request] 登录状态清理未完成，请重新登录')
+  } finally {
+    settleFlight(flight, error)
+  }
 }
 
-function clearAndRedirect() {
-  wx.removeStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
-  wx.removeStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
-  wx.removeStorageSync(STORAGE_KEYS.USER_INFO)
-  wx.removeStorageSync(STORAGE_KEYS.STAFF_ID)
-  wx.removeStorageSync(STORAGE_KEYS.STAFF_NAME)
-  wx.removeStorageSync(STORAGE_KEYS.STAFF_ROLE)
-  wx.removeStorageSync(STORAGE_KEYS.STATION_ID)
-  const app = getApp()
-  if (app) {
+function settleFlight(flight, error, token) {
+  if (flight.done) return
+  flight.done = true
+  if (refreshFlight === flight) refreshFlight = null
+  const waiters = flight.waiters
+  flight.waiters = []
+  waiters.forEach(item => {
+    if (error) item.reject(error)
+    else retryRequest(item.options, token, item.session).then(item.resolve, item.reject)
+  })
+}
+
+function clearAndRedirect(session) {
+  if (!currentSession(session)) return
+  const app = session.app
+  const removeCache = keys => keys.forEach(key => {
+    try { wx.removeStorageSync(key) } catch (_) { console.warn('[request] 登录缓存清理失败') }
+  })
+  removeCache([STORAGE_KEYS.STAFF_ID, STORAGE_KEYS.STAFF_NAME, STORAGE_KEYS.STAFF_ROLE, STORAGE_KEYS.STATION_ID])
+  if (typeof app.clearLoginState === 'function') {
+    app.clearLoginState()
+  } else {
+    const previousSession = navigation.sessionKey()
+    app._loginGeneration = (app._loginGeneration || 0) + 1
+    removeCache([STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.USER_INFO])
     app.globalData.accessToken = null
     app.globalData.refreshToken = null
     app.globalData.userInfo = null
     app.globalData.isLogin = false
+    if (navigation.sessionKey() !== previousSession) navigation.invalidate()
   }
-  wx.redirectTo({ url: '/pages/login/index' })
+  navigation.open('/pages/login/index', { mode: 'reset', guard: true, owner: app })
 }
 
 const get = (url, query) => request({ url, method: 'GET', query })

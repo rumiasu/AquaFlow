@@ -1,6 +1,7 @@
 const { post } = require('../../utils/request')
 const { API, BINDING_STATUS } = require('../../config/api')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
+const navigation = require('../../utils/navigation')
 
 // V1: 选择身份后调用 /api/auth/select-role 创建对应 staff 记录
 // - STATION_MANAGER: 创建 staff(station_id=null,bind_status=UNBOUND),继续到创建水站
@@ -67,9 +68,9 @@ Page({
       if (role === 'STATION_MANAGER') {
         // 站长必须先创建水站；如果 create-station 之前已经有 stationId(极少见)则进首页
         if (u.stationId) {
-          wx.reLaunch({ url: '/pages/home/index' })
+          navigation.open('/pages/home/index', { mode: 'reset', guard: true, owner: app })
         } else {
-          wx.redirectTo({ url: '/pages/station-mgmt/create-station/index' })
+          navigation.open('/pages/station-mgmt/create-station/index', { mode: 'replace', guard: true, owner: app })
         }
         return
       }
@@ -77,15 +78,15 @@ Page({
       if (role === 'DELIVERY') {
         // DELIVERY 无默认 station_id → 必须去申请绑定水站
         if (u.bindStatus === BINDING_STATUS.BOUND && u.stationId) {
-          wx.reLaunch({ url: '/pages/home/index' })
+          navigation.open('/pages/home/index', { mode: 'reset', guard: true, owner: app })
           return
         }
         if (u.bindStatus === BINDING_STATUS.PENDING || u.bindStatus === BINDING_STATUS.PENDING_UNBIND) {
-          wx.redirectTo({ url: '/pages/bind-wait/index' })
+          navigation.open('/pages/bind-wait/index', { mode: 'replace', guard: true, owner: app })
           return
         }
         // UNBOUND / REJECTED → 申请绑定
-        wx.redirectTo({ url: '/pages/station-mgmt/apply-bind/index' })
+        navigation.open('/pages/station-mgmt/apply-bind/index', { mode: 'replace', guard: true, owner: app })
         return
       }
 

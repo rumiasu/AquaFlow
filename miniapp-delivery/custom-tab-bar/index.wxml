@@ -4,7 +4,7 @@
   直接不显示」—— 站长看到 首页/配送/我的 三项，配送员只看到 配送/我的 两项。
   数据与角色判定见 index.js；⚠️ 模板作用域独立，data 由组件自身提供（不经页面传参）。
 -->
-<view class="tabbar">
+<view class="tabbar" hidden="{{modalBlocked}}">
   <view class="tabbar-item {{item.pagePath === selectedPath ? 'on' : ''}}"
         wx:for="{{tabs}}" wx:key="pagePath"
         data-path="{{item.pagePath}}" bindtap="onTap">

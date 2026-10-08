@@ -1,3 +1,26 @@
-.page{padding:32rpx}.title{display:block;font-size:36rpx;font-weight:600}.tip{display:block;color:#666;line-height:1.7;margin:20rpx 0}.field{padding:24rpx 0;border-bottom:1rpx solid #ddd;display:flex;gap:20rpx}.amount{display:block;font-size:40rpx;padding:30rpx 0;color:#2e4a68}.error{color:#b53333;display:block}.record{padding:24rpx 0;border-bottom:1rpx solid #ddd}button{margin-top:24rpx}
-.history{margin-top:48rpx;padding-top:32rpx;border-top:2rpx solid #ddd}.section-title{display:block;font-size:32rpx;font-weight:600}.record-id{display:block;color:#666;font-size:24rpx;margin-bottom:12rpx}
-.recovery{margin:28rpx 0;padding:24rpx;border:1rpx solid #e0bb72;border-radius:12rpx;background:#fffaf0}.recovery-record{padding:20rpx 0;border-bottom:1rpx solid #ead9b6}.recovery-record text{display:block;word-break:break-all}
+/* 2026-10-07：只整理独立押金的呈现，不改变原购买恢复、报价和禁用条件。 */
+.page { padding: 28rpx 24rpx calc(40rpx + env(safe-area-inset-bottom)); background: var(--bg-color); }
+.intro-card, .purchase-form, .quote-card, .record { background: var(--bg-card); border: 1rpx solid var(--border-color); border-radius: 20rpx; padding: 28rpx; margin-bottom: 24rpx; }
+.title { display: block; color: var(--text-primary); font-size: 36rpx; font-weight: 600; line-height: 1.5; }
+.tip { display: block; color: var(--text-regular); font-size: 26rpx; line-height: 1.7; margin: 16rpx 0; overflow-wrap: anywhere; }
+.field { min-height: 80rpx; padding: 16rpx 0; border-bottom: 1rpx solid var(--border-light); display: flex; align-items: center; gap: 20rpx; font-size: 28rpx; line-height: 1.6; overflow-wrap: anywhere; }
+.field:last-child { border-bottom: 0; }
+.field input { flex: 1; min-width: 0; min-height: 76rpx; text-align: right; color: var(--text-primary); }
+.quote-label { display: block; color: var(--text-regular); font-size: 26rpx; }
+.amount { display: block; margin: 10rpx 0 24rpx; color: var(--text-primary); font-size: 56rpx; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+.error { display: block; color: var(--error-color); background: var(--error-bg); padding: 20rpx; border-radius: 12rpx; margin: 16rpx 0; font-size: 26rpx; line-height: 1.6; overflow-wrap: anywhere; }
+button { margin-top: 20rpx; min-height: 88rpx; height: auto; padding: 18rpx 24rpx; border: 1rpx solid var(--border-color); border-radius: 16rpx; background: var(--bg-card); color: var(--text-primary); font-size: 28rpx; line-height: 1.6; white-space: normal; overflow-wrap: anywhere; }
+button::after { border: 0; }
+button[disabled] { color: var(--text-secondary); background: var(--bg-gray); border-color: var(--border-color); }
+.method-option { text-align: left; font-size: 26rpx; }
+.method-option.selected { border-color: var(--primary-color); color: var(--primary-color); background: var(--primary-bg); }
+.purchase-primary { background: var(--primary-color); border-color: var(--primary-color); color: white; font-weight: 600; }
+.purchase-back { background: transparent; color: var(--text-regular); border-color: transparent; }
+.history { margin-top: 40rpx; padding-top: 32rpx; border-top: 1rpx solid var(--border-color); }
+.section-title { display: block; color: var(--text-primary); font-size: 30rpx; line-height: 1.6; font-weight: 600; }
+.record { margin-top: 20rpx; }
+.record text { display: block; line-height: 1.7; overflow-wrap: anywhere; }
+.record-id { color: var(--text-regular); font-size: 24rpx; margin-bottom: 10rpx; }
+.recovery { margin: 24rpx 0; padding: 24rpx; border: 1rpx solid var(--warning-color); border-radius: 16rpx; background: var(--warning-bg); }
+.recovery-record { padding: 20rpx 0; border-bottom: 1rpx solid var(--border-color); }
+.recovery-record text { display: block; overflow-wrap: anywhere; }

@@ -1,0 +1,23 @@
+<view class="customer-selector card">
+  <view class="card-title">选择本站客户</view>
+  <view class="customer-search-row">
+    <input class="field-input" value="{{customerKeyword}}" placeholder="姓名、电话或地址" bindinput="onCustomerSearchInput" bindconfirm="searchCustomers" confirm-type="search" />
+    <button size="mini" bindtap="searchCustomers" loading="{{customerSearchLoading}}">搜索</button>
+  </view>
+  <text class="field-hint">仅可办理已绑定本站的客户；显示最近匹配结果，找不到时请细化搜索。</text>
+  <view class="field-hint" wx:if="{{customerSearchLoading}}">搜索中…</view>
+  <view class="banner warn" wx:elif="{{customerSearchError}}" bindtap="searchCustomers">{{customerSearchError}} · 点击重试</view>
+  <view class="field-hint" wx:elif="{{customerSearchDone && !customerResults.length}}">没有匹配的本站绑定客户，请换个关键词。</view>
+  <view class="customer-option" wx:for="{{customerResults}}" wx:key="id" data-id="{{item.id}}" bindtap="onSelectCustomer">
+    <text>{{item.name || '未填写姓名'}} · {{item.phone || '未填写电话'}}</text>
+    <text class="field-hint">#{{item.id}} {{item.addressText || ''}}</text>
+  </view>
+  <block wx:if="{{customerId}}">
+    <view class="customer-selected">当前：{{customerName || '客户'}} · {{customerPhone || '联系方式未填写'}} · #{{customerId}}</view>
+    <view class="field-hint" wx:if="{{customerAssetsLoading}}">正在核对本站资产…</view>
+    <view class="banner warn" wx:elif="{{customerAssetsError}}" bindtap="onRetryCustomerAssets">{{customerAssetsError}} · 点击重试</view>
+    <view class="field-hint" wx:elif="{{customerAssets}}">
+      {{customerAssets.stationName || '本站'}}：权益 {{customerAssets.rightBuckets}} 个 · 实物 {{customerAssets.actualBuckets}} 个 · 水票 {{customerAssets.ticketQuantityText}} · 押金 <text wx:if="{{customerAssets.depositBalance !== undefined && customerAssets.depositBalance !== null}}">¥{{customerAssets.depositBalance}}</text><text wx:else>未核对</text>
+    </view>
+  </block>
+</view>

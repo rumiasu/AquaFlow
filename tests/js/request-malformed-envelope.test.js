@@ -152,10 +152,17 @@ for (const side of ['miniapp-delivery', 'miniapp-user']) {
     assert([null, 'access-old'].includes(t.app.globalData.accessToken), 'invalid credential must not be installed')
     assert.strictEqual(t.sent.length, 2)
   })
-  test(side + ' refresh keeps optional refresh token fallback', async () => {
+  test(side + (side === 'miniapp-delivery' ? ' refresh requires the newly rotated refresh token' : ' refresh keeps optional refresh token fallback'), async () => {
     const t = setup(side), state = observed(t.request.post('/probe/purchase', body()))
     assert.strictEqual(await success(t.sent[0], { statusCode: 401 }), null)
-    assert.strictEqual(await success(t.sent[1], envelope({ code: 0, data: { accessToken: 'access-next' } })), null)
+    const thrown = await success(t.sent[1], envelope({ code: 0, data: { accessToken: 'access-next' } }))
+    if (side === 'miniapp-delivery') {
+      rejected(state, thrown)
+      assert.strictEqual(t.sent.length, 2, 'missing rotated credential must not replay with old refresh')
+      assert.strictEqual(t.app.globalData.refreshToken, null)
+      return
+    }
+    assert.strictEqual(thrown, null)
     assert.strictEqual(t.sent.length, 3)
     assert.strictEqual(t.app.globalData.refreshToken, 'refresh-old')
     record(state, await success(t.sent[2], envelope({ code: 0, data: {} })))
@@ -185,7 +192,10 @@ test('employee malformed refresh rejects every queued request and permits next c
   assert.strictEqual(t.sent.length, 3)
   const thrown = await success(t.sent[2], envelope({ code: 0, data: undefined }))
   rejected(a, thrown); rejected(b, thrown)
-  t.app.globalData.accessToken = 'access-new'; t.wx.setStorageSync(t.K.REFRESH_TOKEN, 'refresh-new')
+  // Model an explicit new login: the App owns the complete pair and login state.
+  Object.assign(t.app.globalData, { accessToken: 'access-new', refreshToken: 'refresh-new', isLogin: true,
+    userInfo: { staffId: 7, role: 'DELIVERY', stationId: 1 } })
+  t.wx.setStorageSync(t.K.ACCESS_TOKEN, 'access-new'); t.wx.setStorageSync(t.K.REFRESH_TOKEN, 'refresh-new')
   const c = observed(t.request.get('/probe/c'))
   await success(t.sent[3], { statusCode: 401 })
   assert.strictEqual(t.sent.length, 5, 'complete clears refreshing marker for next cycle')

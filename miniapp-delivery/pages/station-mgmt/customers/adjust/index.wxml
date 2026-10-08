@@ -14,6 +14,8 @@
       <view class="btn-new" bindtap="onCreate"><text>新建调整</text></view>
     </view>
 
+    <include src="../../../../utils/adjustment-customer.wxml" />
+
     <view class="record-card" wx:for="{{list}}" wx:key="id">
       <view class="card-head" bindtap="onDetail" data-id="{{item.id}}">
         <view class="card-head-left">
@@ -33,7 +35,7 @@
       </view>
       <view class="info-row">
         <text class="label">客户</text>
-        <text class="value">#{{item.customerId}}</text>
+        <text class="value">{{item.customerName || '姓名未填写'}} · {{item.customerPhone || '电话未填写'}} · #{{item.customerId}}</text>
       </view>
       <view class="info-row">
         <text class="label">创建时间</text>
@@ -46,7 +48,9 @@
       </view>
     </view>
 
-    <view class="empty" wx:if="{{!loading && list.length === 0}}">
+    <view class="empty" wx:if="{{loading && list.length === 0}}">调整单加载中…</view>
+    <view class="empty" wx:if="{{listError}}" bindtap="loadData">{{listError}} · 点击重试</view>
+    <view class="empty" wx:if="{{!loading && !listError && list.length === 0}}">
       <text>暂无调整单</text>
     </view>
 

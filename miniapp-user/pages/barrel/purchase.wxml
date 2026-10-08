@@ -1,6 +1,8 @@
 <view class="page">
-  <text class="title">单独办理桶押金</text>
-  <text class="tip">{{stationName}} · 押金由所选水站保管。这里仅购买用桶权益，不含水；水桶随下次送水送达。</text>
+  <view class="intro-card">
+    <text class="title">单独办理桶押金</text>
+    <text class="tip">{{stationName}} · 押金由所选水站保管。本次不送水和桶，水站实际收到款项后权益生效。</text>
+  </view>
   <text class="error" wx:if="{{error}}">{{error}}</text>
   <view class="recovery" wx:if="{{recoveryEntries.length > 0 || recoveryError}}">
     <text class="section-title">原桶押金购买</text>
@@ -23,7 +25,7 @@
     <button bindtap="loadProducts" disabled="{{busy}}">重试加载商品</button>
   </view>
   <text class="tip" wx:elif="{{productsLoaded && products.length === 0}}">该站暂无可购买押金的桶装水，已有购买记录仍可在下方查看。</text>
-  <view wx:elif="{{productsLoaded}}">
+  <view class="purchase-form" wx:elif="{{productsLoaded}}">
     <picker range="{{products}}" range-key="name" value="{{index}}" bindchange="onProduct" disabled="{{busy || recoveryBusy || originalActive || safetyBlocked}}"><view class="field">商品：{{products[index].name || '请选择'}}</view></picker>
     <view class="field">数量 <input type="number" value="{{quantity}}" bindinput="onQuantity" disabled="{{busy || recoveryBusy || originalActive || safetyBlocked}}" /></view>
   </view>
@@ -32,15 +34,16 @@
     <text class="error">{{quoteError}}</text>
     <button bindtap="refreshQuote" disabled="{{busy}}">重试确认金额</button>
   </view>
-  <view wx:elif="{{quote}}">
-    <text class="amount">本次押金 ¥{{quote.amount}}</text>
+  <view class="quote-card" wx:elif="{{quote}}">
+    <text class="quote-label">本次押金</text>
+    <text class="amount">¥{{quote.amount}}</text>
     <text class="tip">{{quote.notice}}</text>
-    <button data-method="2" bindtap="onMethod" disabled="{{busy || recoveryBusy || originalActive || safetyBlocked}}">{{paymentMethod === 2 ? '已选：' : ''}}向水站交现金，等收款确认</button>
+    <button class="method-option {{paymentMethod === 2 ? 'selected' : ''}}" data-method="2" bindtap="onMethod" disabled="{{busy || recoveryBusy || originalActive || safetyBlocked}}">{{paymentMethod === 2 ? '已选：' : ''}}向水站交现金，等收款确认</button>
     <text class="tip" wx:if="{{onlinePayHint}}">{{onlinePayHint}}</text>
-    <button wx:if="{{onlinePayEnabled}}" data-method="1" bindtap="onMethod" disabled="{{busy || recoveryBusy || originalActive || safetyBlocked || quoteLoading}}">{{paymentMethod === 1 ? '已选：' : ''}}{{onlinePayLabel}}</button>
+    <button class="method-option {{paymentMethod === 1 ? 'selected' : ''}}" wx:if="{{onlinePayEnabled}}" data-method="1" bindtap="onMethod" disabled="{{busy || recoveryBusy || originalActive || safetyBlocked || quoteLoading}}">{{paymentMethod === 1 ? '已选：' : ''}}{{onlinePayLabel}}</button>
   </view>
-  <button bindtap="onPurchase" disabled="{{busy || recoveryBusy || originalActive || safetyBlocked || !quote || quoteLoading || productsLoading || !productsLoaded || productsError || products.length === 0 || (paymentMethod === 1 && !onlinePayEnabled)}}" loading="{{busy}}">确认新的桶押金购买</button>
-  <button bindtap="onBack">{{fromOrder ? '返回继续订水' : '返回'}}</button>
+  <button class="purchase-primary" bindtap="onPurchase" disabled="{{busy || recoveryBusy || originalActive || safetyBlocked || !quote || quoteLoading || productsLoading || !productsLoaded || productsError || products.length === 0 || (paymentMethod === 1 && !onlinePayEnabled)}}" loading="{{busy}}">确认新的桶押金购买</button>
+  <button class="purchase-back" bindtap="onBack">{{fromOrder ? '返回继续订水' : '返回'}}</button>
   <view class="history">
     <text class="section-title">已有桶押金购买记录</text>
     <text class="tip">商品下架不影响查询原购买记录。已交钱但水站尚未确认的，请先联系水站核实，勿直接撤回。</text>

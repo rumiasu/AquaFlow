@@ -13,7 +13,9 @@ Page({
     // [2026-09-16] 字段名必须与后端 BarrelServiceImpl.getBarrelSummary 的下发键一致 ——
     // 这里原先留着已删除的 deliveryBuckets（含已送达行，口径错误，后端已移除），
     // 会让后来者以为它是有效字段。配送中请一律用 pendingDeliveryBuckets。
-    // 口径：持有 = 权益 + 配送中（展示）；占用 = 权益 + over（还桶上限）；权益 = 已到手。
+    // 2026-10-07：旧“权益=已到手”只描述历史送达建权益路径；新购先形成有效容量。
+    // held 含遗留配送中；occupied=权益汇总+over 是账面 H，不是活动用途占用。
+    // availableRights 扣活动用途和遗留占用，不能当物理数；现“实际在手”标签待业务核对，见 design/36 §5.4。
     summary: {
       heldBuckets: 0,
       rightBuckets: 0,
@@ -139,11 +141,11 @@ Page({
 
       this.setData({ customerBarrelAsset })
 
-      // 还桶上限 = **占用**（权益 + over），不是「持有」（权益 + 配送中）：
+      // 历史物理交回上限 = occupied（权益汇总 + over），不是含配送中的 held；新申请下方另用 availableRights。
       // 配送中的桶还没到客户手上，后端 returnEmpty 也是按占用校验的
       //（BarrelLedgerService：qty <= rightQty + over）。用持有当上限会在有在途桶时
       // 允许多报，提交后被后端以「交回数超过该客户当前持有数」拒绝 —— 顾客以为是 bug。
-      // 再减去已提交待处理的退桶申请数，避免同一批桶被重复申请两次。
+      // 历史路径再减待处理申请；新路径扣活动用途后的可用权益已由后端下发，不在此重复扣。
       const { occupiedBuckets, rightBuckets, pendingReturns } = this.data.summary
       const ceiling = occupiedBuckets !== undefined && occupiedBuckets !== null
         ? occupiedBuckets
@@ -160,9 +162,9 @@ Page({
       wx.showToast({ title: '暂无可退水桶', icon: 'none' })
       return
     }
-    // 默认选中第一个**可退**的商品（占用 > 0）。
-    // 不能用 assetQty：桶全在配送中时权益也可能 > 0，但此时占用为 0，其实退不了，
-    // 默认选中它只会让顾客点提交后被拒。省得顾客等报错。
+    // 2026-10-07：现选中规则用 availableRights，不是物理 H。
+    // 新路径已付未领容量也可申请退出；历史物理交回仍受 occupied 上限和后端校验约束。
+    // 本轮仅校正旧注释，不调整选中、数量或提交行为。
     const first = (this.data.customerBarrelAsset || [])
       .find(i => (i.availableRights || 0) > 0) || (this.data.customerBarrelAsset || [])[0]
     this.setData({
@@ -326,6 +328,10 @@ Page({
     wx.navigateTo({ url: '/pages/deposit/records/index' })
   },
   onPurchaseRights() { wx.navigateTo({ url: '/pages/barrel/purchase' }) },
+  onRefundFeedback(e) {
+    const record = this.data.records.find(r => r.id === Number(e.currentTarget.dataset.id))
+    if (record && record.statusText) wx.navigateTo({ url: '/pages/service/index?refundType=BARREL_RETURN&refundId=' + record.id })
+  },
   async onReturnConfirm(e) {
     const record = this.data.records.find(r => r.id === Number(e.currentTarget.dataset.id))
     if (!record || !record.returnDetail) return

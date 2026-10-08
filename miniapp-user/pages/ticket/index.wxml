@@ -7,18 +7,29 @@
       页面照旧显示「0 张 / 暂无水票 / 暂无记录」。样式复用 styles/common.wxss 的 .load-error。
     -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
-    <button bindtap="onExitHelp">剩余水票退出说明</button>
-    <view class="load-error" wx:if="{{purchaseStorageError}}">
-      <view>{{purchaseStorageError}}</view>
-      <button bindtap="onQueryPurchaseResult" disabled="{{submitting || recoveringPurchase}}">重新读取原购买</button>
+    <!-- [2026-10-07 #15] 原购买恢复提示：原来是 .load-error 错误条里塞裸 <button>（默认样式，
+         与本页设计系统违和，且恢复类关键操作与错误提示无层级）。
+         改成结构化恢复卡：标题说"是什么"，正文原样透传 purchaseStorageError / purchaseRecoveryText，
+         按钮分层 —— 主=查询/重新读取（品牌蓝），次=重试/另买（描边），危险=结束原购买（错误色描边）。
+         ⚠️ 按钮仍是原生 <button>：disabled 语义由它承载（如"结束原购买"在 purchaseStorageError
+         非空时被禁），改成 view 会丢这道闸门；绑定与条件一行未动。 -->
+    <view class="recovery-card" wx:if="{{purchaseStorageError}}">
+      <view class="recovery-title">原购买记录待核实</view>
+      <view class="recovery-text">{{purchaseStorageError}}</view>
+      <view class="recovery-actions">
+        <button class="recovery-btn recovery-btn-primary" bindtap="onQueryPurchaseResult" disabled="{{submitting || recoveringPurchase}}">重新读取原购买</button>
+      </view>
     </view>
     <!-- 原购买恢复入口不依赖商品在售；未知结果不能另起编号再买。 -->
-    <view class="load-error" wx:if="{{pendingPurchase}}">
-      <view>{{purchaseRecoveryText}}</view>
-      <button bindtap="onQueryPurchaseResult" disabled="{{submitting || recoveringPurchase}}">查询原购买结果</button>
-      <button wx:if="{{!pendingPurchase.result}}" bindtap="onRetryOriginalPurchase" disabled="{{submitting || recoveringPurchase}}">重试原购买</button>
-      <button wx:if="{{!pendingPurchase.result}}" bindtap="onCloseOriginalPurchase" disabled="{{submitting || recoveringPurchase || purchaseStorageError}}">核实后结束原购买</button>
-      <button wx:if="{{pendingPurchase.result && !purchaseStorageError}}" bindtap="onStartNextPurchase" disabled="{{submitting || recoveringPurchase}}">另买一笔水票</button>
+    <view class="recovery-card" wx:if="{{pendingPurchase}}">
+      <view class="recovery-title">有一笔水票购买待核实</view>
+      <view class="recovery-text">{{purchaseRecoveryText}}</view>
+      <view class="recovery-actions">
+        <button class="recovery-btn recovery-btn-primary" bindtap="onQueryPurchaseResult" disabled="{{submitting || recoveringPurchase}}">查询原购买结果</button>
+        <button class="recovery-btn recovery-btn-plain" wx:if="{{!pendingPurchase.result}}" bindtap="onRetryOriginalPurchase" disabled="{{submitting || recoveringPurchase}}">重试原购买</button>
+        <button class="recovery-btn recovery-btn-danger" wx:if="{{!pendingPurchase.result}}" bindtap="onCloseOriginalPurchase" disabled="{{submitting || recoveringPurchase || purchaseStorageError}}">核实后结束原购买</button>
+        <button class="recovery-btn recovery-btn-plain" wx:if="{{pendingPurchase.result && !purchaseStorageError}}" bindtap="onStartNextPurchase" disabled="{{submitting || recoveringPurchase}}">另买一笔水票</button>
+      </view>
     </view>
 
     <!-- 当前水站：水票按「客户 × 水站」隔离（A 站买的票不能抵 B 站的单，也不在 B 站显示）。
@@ -41,6 +52,12 @@
         <text class="balance-total" wx:if="{{totalValue > 0}}">共计 ¥{{totalValue}}</text>
       </view>
       <view class="balance-icon"><icon name="ticket" size="56rpx" color="rgba(255,255,255,0.9)" /></view>
+    </view>
+
+    <!-- [2026-10-07 #15] 「剩余水票退出说明」原来是置顶裸 <button>（默认样式、比余额卡还显眼）。
+         降级为余额卡下的帮助链接：要退的人找得到，不买的人不被打扰。handler onExitHelp 不变。 -->
+    <view class="ticket-help" bindtap="onExitHelp">
+      <text>剩余水票怎么退？查看说明 ›</text>
     </view>
 
     <!-- 标签切换 -->

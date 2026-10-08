@@ -9,10 +9,10 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* 按现行 OrderStatus 配色：待配送需关注，配送中/已送达为进行状态，
-   已完成用成功色，已取消用中性色；支付状态仍由独立徽标展示。 */
+/* 按现行 OrderStatus 配色（2026-10-06 简化至4种语义色）：
+   待处理（1=待配送）= 警示橙 · 进行中（2=配送中, 3=已送达）= 品牌蓝 · 已完成（4）= 成功绿 · 异常/取消（5/6/7）= 中性灰/错误红 */
 .status-card.status-1 { border-left: 8rpx solid var(--warning-color); }
-.status-card.status-2 { border-left: 8rpx solid var(--info-color); }
+.status-card.status-2 { border-left: 8rpx solid var(--primary-color); }
 .status-card.status-3 { border-left: 8rpx solid var(--primary-color); }
 .status-card.status-4 { border-left: 8rpx solid var(--success-color); }
 .status-card.status-5 { border-left: 8rpx solid var(--text-secondary); }
@@ -105,7 +105,7 @@
 .fee-total {
   margin-top: 8rpx;
   padding-top: 16rpx;
-  border-top: 1rpx solid #eef0f3;
+  border-top: 1rpx solid var(--border-light);
 }
 
 .fee-total .label,
@@ -130,27 +130,46 @@
 }
 
 .btn-action {
-  border-radius: 40rpx;
+  border-radius: 20rpx;
   font-size: 30rpx;
-  padding: 22rpx 0;
+  padding: 24rpx 0;
   text-align: center;
   border: none;
-  font-weight: 500;
+  font-weight: 600;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
-.btn-cancel {
-  background: rgba(220, 38, 38, 0.06);
-  color: var(--error-color);
+.btn-action::after {
+  border: none;
+}
+
+/* [2026-10-06] 按钮样式统一：
+   主操作（支付）= 品牌蓝填充 · 次操作（再次购买/联系）= 品牌蓝描边 · 危险操作（取消）= 错误色描边 */
+.btn-pay {
+  background: var(--primary-color);
+  color: #fff;
 }
 
 .btn-reorder {
-  background: var(--primary-bg);
+  background: #fff;
   color: var(--primary-color);
+  border: 2rpx solid var(--primary-color);
 }
 
 .btn-call {
-  background: rgba(5, 150, 105, 0.06);
-  color: var(--success-color);
+  background: #fff;
+  color: var(--primary-color);
+  border: 2rpx solid var(--primary-color);
+}
+
+.btn-cancel {
+  background: #fff;
+  color: var(--error-color);
+  border: 2rpx solid var(--error-color);
 }
 
 .image-grid {

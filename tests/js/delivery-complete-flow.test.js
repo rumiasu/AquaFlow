@@ -348,18 +348,64 @@ await test('少回桶原因：展示与校验都按数量之和（1 项 × 3 桶
   assert.strictEqual(page._validate(), true, '数量之和对上少桶数就应通过')
 })
 
-await test('原因数量之和不足：拦住提交并说清差多少', async () => {
+await test('原因选填：仅已知的一桶原因原样提交，不伪造其余差额', async () => {
   const { page, calls, wx } = newPage(paidOrder())
   await page.loadOrder(55)
   page._updateItemActual(0, 0)                        // 少 2
   page.onOpenReasonPicker({ currentTarget: { dataset: { idx: 0 } } })
   page.onSelectReason({ currentTarget: { dataset: { key: 'lost' } } })
   page.onReasonQtyChange({ currentTarget: { dataset: { idx: 0, ridx: 0 } }, detail: { value: '1' } })  // 只填 1
-  assert.strictEqual(page._validate(), false)
+  assert.strictEqual(page._validate(), true)
   await page.onConfirmComplete()
-  assert.strictEqual(calls.completeOrder.length, 0, '原因合计不对不许提交')
-  assert.ok(wx.__calls.toast.some(t => (t.title || '').indexOf('异常原因合计') > -1),
-    '要告诉人差多少：' + JSON.stringify(wx.__calls.toast))
+  await new Promise((r) => setTimeout(r, 10))
+  assert.strictEqual(calls.completeOrder.length, 1)
+  assert.deepStrictEqual(calls.completeOrder[0].body.itemReturns[0].reasons, [{ key: 'lost', qty: 1 }])
+  assert.strictEqual(calls.completeOrder[0].body.itemReturns[0].actual, 0)
+})
+
+await test('少回桶无原因仍完成，提交空原因而不是自动填其他', async () => {
+  const { page, calls, wx } = newPage(paidOrder())
+  await page.loadOrder(55)
+  page._updateItemActual(0, 1)
+  assert.strictEqual(page.data.items[0].expected, 2)
+  assert.strictEqual(page.data.items[0].discrepancy, 1)
+  await page.onConfirmComplete()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.strictEqual(calls.completeOrder.length, 1)
+  assert.deepStrictEqual(calls.completeOrder[0].body.itemReturns[0].reasons, [])
+  const summary = wx.__calls.modal.find(m => m.title === '确认完成配送')
+  assert(summary.content.includes('应回 2') && summary.content.includes('实回 1') && summary.content.includes('少1'), summary.content)
+})
+
+await test('填写的原因超过少回差额仍拒绝，不动实际回桶数', async () => {
+  const { page, calls } = newPage(paidOrder())
+  await page.loadOrder(55)
+  page._updateItemActual(0, 1)
+  page.data.items[0].reasons = [{ key: 'lost', qty: 2 }]
+  await page.onConfirmComplete()
+  assert.strictEqual(calls.completeOrder.length, 0)
+  assert.strictEqual(page.data.items[0].actual, 1)
+})
+
+await test('非法原因与非整数数量不能作为已填事实提交', async () => {
+  const { page, calls } = newPage(paidOrder())
+  await page.loadOrder(55)
+  page._updateItemActual(0, 0)
+  for (const reason of [{ key: 'invented', qty: 2 }, { key: 'lost', qty: 0 }, { key: 'lost', qty: 1.5 }]) {
+    page.data.items[0].reasons = [reason]
+    await page.onConfirmComplete()
+  }
+  assert.strictEqual(calls.completeOrder.length, 0)
+})
+
+await test('少回桶原因选填不放行未收齐的现金新增押金单', async () => {
+  const { page, calls } = newPage(baseOrder({ hasOrderBarrelPurchase: true, depositAmount: 40 }))
+  await page.loadOrder(55)
+  page._updateItemActual(0, 1)
+  page.onSelectCollected({ currentTarget: { dataset: { value: 'false' } } })
+  await page.onConfirmComplete()
+  assert.strictEqual(calls.completeOrder.length, 0)
+  assert.strictEqual(page.data.completionBlocked, true)
 })
 
 await test('提交体：原因数量原样上报（服务端会按同一个口径再校验一次）', async () => {
@@ -523,6 +569,46 @@ await test('展开后填的楼层照旧上报（改名/收起都不影响上报�
   page.onConfirmComplete()
   await new Promise((r) => setTimeout(r, 10))
   assert.strictEqual(calls.completeOrder[0].body.reportedFloor, 8, '上报值必须是配送员填的那个数')
+})
+
+await test('少回差额使用现有危险红色，字号保留且文字对底色对比可读', async () => {
+  const fs = require('fs')
+  const path = require('path')
+  const { ROOT } = require('./harness')
+  const css = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/order/complete.wxss'), 'utf8')
+  const theme = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/app.wxss'), 'utf8')
+  const warn = /\.discrepancy-warn\s*\{([^}]+)\}/.exec(css)[1]
+  assert.match(warn, /color:\s*var\(--error-color\)/)
+  assert.match(warn, /font-size:\s*26rpx/)
+  assert.match(warn, /font-weight:\s*600/)
+  // 允许主题语义变量，仍用最终真实颜色计算对比度；未知或循环变量直接失败。
+  function resolveColor(value) {
+    const visited = new Set()
+    while (/^var\(/.test(value)) {
+      const variable = /^var\((--[\w-]+)\)$/.exec(value)
+      assert.ok(variable, '背景色变量格式无法识别')
+      const name = variable[1]
+      assert.ok(!visited.has(name), '背景色变量循环引用')
+      visited.add(name)
+      const definition = new RegExp(name + '\\s*:\\s*([^;]+)').exec(theme)
+      assert.ok(definition, '主题缺少颜色变量 ' + name)
+      value = definition[1].trim()
+    }
+    assert.match(value, /^#[a-f\d]{6}$/i, '颜色必须能解析为真实六位色值')
+    return value
+  }
+  const red = resolveColor('var(--error-color)')
+  const section = /\.discrepancy-section\s*\{([^}]+)\}/.exec(css)
+  assert.ok(section, '缺少回桶差额提示背景样式')
+  const backgroundDeclaration = /background:\s*([^;]+)/.exec(section[1])
+  assert.ok(backgroundDeclaration, '缺少回桶差额提示背景颜色')
+  const background = resolveColor(backgroundDeclaration[1].trim())
+  const luminance = color => {
+    const rgb = [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16) / 255)
+      .map(c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+  }
+  assert.ok((luminance(background) + 0.05) / (luminance(red) + 0.05) >= 4.5)
 })
 
 console.log('')

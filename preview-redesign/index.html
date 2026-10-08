@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AquaFlow 小程序视觉重做 · HTML效果图（V1，仅预览，不改业务代码）</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+--bg:#FAF7F0;--card:#fff;--primary:#2E4A68;--primary-bg:rgba(46,74,104,.08);
+--success:#2E9E6B;--success-bg:#E3F2EB;--warning:#C9764B;--warning-bg:#F7ECE2;
+--error:#B5442C;--error-bg:#F8E9E5;
+--t1:#2B2A26;--t2:#6E6A61;--border:#EAE4D8;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:#EFE9DC;color:var(--t1);line-height:1.5}
+.topbar{max-width:1280px;margin:0 auto;padding:28px 24px 8px}
+.topbar h1{font-size:26px;letter-spacing:.5px}
+.topbar p{color:var(--t2);font-size:14px;margin-top:8px;max-width:900px}
+.badges{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.badge{font-size:12px;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid var(--border)}
+.badge.b{background:var(--primary);color:#fff;border-color:var(--primary)}
+.grid{max-width:1280px;margin:0 auto;padding:18px 24px 60px;display:grid;grid-template-columns:380px 1fr;gap:28px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.phone{width:375px;max-width:100%;background:var(--bg);border-radius:40px;overflow:hidden;border:10px solid #1e1e1e;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:0 auto}
+.notch{height:28px;background:#1e1e1e;display:flex;justify-content:center;align-items:flex-start}
+.notch i{display:block;width:130px;height:20px;background:#1e1e1e;border-radius:0 0 14px 14px;position:relative}
+.notch i:after{content:"";position:absolute;left:50%;top:5px;transform:translateX(-50%);width:56px;height:8px;background:#000;border-radius:99px;box-shadow:inset 0 0 0 2px #2a2a2a}
+.navbar{height:48px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;background:var(--bg);position:relative}
+.navbar .back{position:absolute;left:14px;font-size:18px;color:var(--t2)}
+.screen{min-height:640px;padding-bottom:110px;position:relative}
+.card{background:var(--card);border-radius:16px;margin:12px 12px 0;padding:14px 14px;box-shadow:0 2px 8px rgba(43,42,38,.04);border:1px solid #F1ECE1}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.muted{color:var(--t2);font-size:13px}
+.small{font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:999px;font-weight:600}
+.pill.open{background:var(--success-bg);color:var(--success)}
+.pill.warn{background:var(--warning-bg);color:var(--warning)}
+.pill.info{background:var(--primary-bg);color:var(--primary)}
+.pill.err{background:var(--error-bg);color:var(--error)}
+.dot{width:8px;height:8px;border-radius:99px;background:currentColor}
+.addr{font-size:15px;font-weight:700}
+.prod{display:flex;gap:12px;padding:12px 0;border-top:1px solid #F1ECE1}
+.prod:first-of-type{border-top:none}
+.bucket{width:52px;height:64px;border-radius:10px;background:linear-gradient(180deg,#E8EFF5,#CBD9E6);position:relative;flex-shrink:0;border:1px solid #B9C9DA}
+.bucket:after{content:"18.9L";position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:10px;color:var(--primary);font-weight:800}
+.pname{font-size:15px;font-weight:700}
+.pspec{font-size:12px;color:var(--t2);margin-top:2px}
+.price{font-size:17px;font-weight:800}
+.stepper{display:flex;align-items:center;gap:10px}
+.sbtn{width:32px;height:32px;border-radius:99px;border:1.5px solid var(--primary);color:var(--primary);font-size:18px;font-weight:800;display:flex;align-items:center;justify-content:center;background:#fff}
+.sbtn.off{opacity:.3}
+.snum{min-width:22px;text-align:center;font-weight:800;font-size:16px}
+.dephint{margin-top:8px;font-size:13px;background:var(--warning-bg);color:#8A4E2B;border-radius:10px;padding:8px 10px}
+.dephint.ok{background:var(--success-bg);color:#1E6B4A}
+.edu{border:1.5px dashed #C9C4B8;background:#FFFEFA}
+.edu b{font-size:14px}
+.btn{display:flex;align-items:center;justify-content:center;border-radius:999px;font-weight:800;font-size:16px;min-height:52px;padding:0 18px;border:none;cursor:pointer}
+.btn-p{background:var(--primary);color:#fff;width:100%}
+.btn-o{background:#fff;color:var(--primary);border:1.5px solid var(--primary)}
+.btn-d{background:#fff;color:var(--error);border:1.5px solid var(--error)}
+.btn[disabled]{opacity:.5}
+.settle{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--border);padding:10px 12px 14px;margin-top:12px}
+.fee{display:flex;justify-content:space-between;font-size:13px;color:var(--t2);padding:3px 0}
+.fee.total{font-size:15px;color:var(--t1);font-weight:800;border-top:1px dashed var(--border);margin-top:6px;padding-top:8px}
+.fee .orig{color:#8a867e;text-decoration:line-through;font-weight:400}
+.pay3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.pay{border:1.5px solid var(--border);border-radius:12px;padding:10px 6px;text-align:center;font-size:12px;color:var(--t2);background:#fff}
+.pay.on{border-color:var(--primary);color:var(--primary);background:var(--primary-bg);font-weight:800}
+.notice{border-radius:12px;background:var(--primary-bg);padding:10px 12px;font-size:13px;color:#2c3e53}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:13px}
+.box{width:22px;height:22px;border-radius:7px;border:2px solid var(--primary);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:900}
+.box.on{background:var(--primary)}
+.timeline{margin:6px 0 0 6px;border-left:2px solid var(--border);padding-left:14px}
+.tl{position:relative;padding:0 0 12px;font-size:13px}
+.tl:before{content:"";position:absolute;left:-20px;top:4px;width:10px;height:10px;border-radius:99px;background:#fff;border:2px solid var(--primary)}
+.tl.done:before{background:var(--success);border-color:var(--success)}
+.tl.now:before{background:var(--primary)}
+.stat3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.stat{background:#fff;border:1px solid #F1ECE1;border-radius:12px;padding:10px;text-align:center}
+.stat b{font-size:18px;display:block}
+.stat span{font-size:12px;color:var(--t2)}
+.sheet{background:#fff;border-radius:20px 20px 0 0;padding:16px 14px 20px;margin:12px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.12)}
+.chip{display:inline-block;border:1.5px solid var(--border);border-radius:999px;padding:8px 14px;font-size:13px;margin:4px 6px 0 0;background:#fff}
+.chip.on{border-color:var(--primary);background:var(--primary-bg);color:var(--primary);font-weight:800}
+.kv{display:flex;justify-content:space-between;font-size:14px;padding:6px 0}
+.tabbar{position:absolute;bottom:0;left:0;right:0;height:74px;background:#fff;border-top:1px solid var(--border);display:flex}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:#8a867e;gap:2px}
+.tab.on{color:var(--primary);font-weight:800}
+.desc{background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px 20px}
+.desc h2{font-size:19px;margin-bottom:6px}
+.desc h3{font-size:14px;margin:16px 0 6px;color:var(--primary)}
+.desc ul{margin-left:18px;font-size:14px;color:#3a3833}
+.desc li{margin:5px 0}
+.desc code{background:#F4EFE4;padding:1px 6px;border-radius:6px;font-size:12px}
+.fix{background:#FFF8E8;border-left:5px solid var(--warning);padding:8px 10px;border-radius:0 10px 10px 0;font-size:13px;margin:8px 0}
+.good{background:#EEF7F1;border-left:5px solid var(--success);padding:8px 10px;border-radius:0 10px 10px 0;font-size:13px;margin:8px 0}
+.sec-title{max-width:1280px;margin:26px auto 0;padding:0 24px;font-size:20px}
+.sec-sub{max-width:1280px;margin:0 auto;padding:4px 24px 0;color:var(--t2);font-size:13px}
+a.open{color:var(--primary)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<h1>AquaFlow · 小程序视觉重做效果图 V1</h1>
+<p>美术立场：从头重做 6 个核心屏。只看本文件即可拍板。业务代码一行业没动。设计语言：暖纸底 <code>#FAF7F0</code>＋白卡＋藏青 <code>#2E4A68</code> 唯一主色＋无渐变；决策信息 ≥24rpx（≈本图 13px+）；金额统一 <code>¥xx.00</code>；用户侧只说 <b>水桶 / 押金 / 水票</b>，封杀“权益/容量/occupied”。双击本文件即可看，零外部依赖。</p>
+<div class="badges"><span class="badge b">P0 先修</span><span class="badge">客户端×3</span><span class="badge">员工端×3</span><span class="badge">文件：preview-redesign/index.html</span><span class="badge">对比正本：miniapp-user / miniapp-delivery 现行 wxml</span></div>
+</div>
+
+<div class="sec-title">A-1 · 客户端首页（订水）— 重做</div>
+<div class="sec-sub">解决：零资产用户无桶入口 / “商品小计”把可退押金当实付 / 运费当场算不出却不说 / 水票零入口</div>
+<div class="grid">
+<div class="phone"><div class="notch"><i></i></div><div class="navbar"><span class="back">‹</span>订水</div><div class="screen">
+<div class="card"><div class="row"><div><div style="font-weight:800;font-size:16px">幸福里水站 · 朝阳店</div><div class="muted small">营业时间 08:00–21:00 · 2.3km</div></div><span class="pill open"><span class="dot"></span>营业中</span></div>
+<div class="row" style="margin-top:10px;background:#F8F4EA;border-radius:10px;padding:10px 12px"><span class="addr">📍 幸福里小区 3号楼 1202</span><span class="small" style="color:var(--primary);font-weight:800">换地址 ›</span></div>
+<div class="notice" style="margin-top:10px">您有 1 笔待付款 ¥102.00（纯净水×2＋押金），<b>去支付 ›</b></div></div>
+<div class="card"><div class="row"><b>再买上次</b><span class="small" style="color:var(--primary)">查看全部 ›</span></div><div><span class="chip on">纯净水 18.9L ×2</span><span class="chip">矿泉水 ×1</span></div></div>
+<div class="card"><div class="row"><b>本周水</b><span class="small" style="color:var(--primary)">全部商品 / 搜索 ›</span></div>
+<div class="prod"><div class="bucket"></div><div style="flex:1"><div class="pname">纯净水 18.9L</div><div class="pspec">水价 ¥18.00 / 桶 · 押金 ¥30.00 / 桶（可退）</div><div class="dephint">本次另需 <b>2 个桶押金 ¥60.00</b> · 随水款同次付、分项记账</div></div><div style="text-align:right"><div class="price">¥18.00</div><div class="stepper" style="margin-top:8px"><span class="sbtn">−</span><span class="snum">2</span><span class="sbtn">＋</span></div></div></div>
+<div class="prod"><div class="bucket"></div><div style="flex:1"><div class="pname">矿泉水 12L</div><div class="pspec">水价 ¥12.00 · 无需押金（一次性桶）</div><div class="dephint ok">本次无需加收押金</div></div><div style="text-align:right"><div class="price">¥12.00</div><div class="stepper" style="margin-top:8px"><span class="sbtn off">−</span><span class="snum">0</span><span class="sbtn">＋</span></div></div></div>
+</div>
+<div class="card edu"><b>🪣 水桶与押金是怎么回事？</b><div class="small" style="color:var(--t2);margin-top:4px">押金 ¥30/桶，由水站保管、可退。水≠桶：付了押金才有“可领桶数”，送到手才算拿到桶。新用户首单在这里一次讲清。</div><div class="small" style="color:var(--primary);font-weight:800;margin-top:6px">首单押金说明 › &nbsp; 我的水桶 › &nbsp; 水票 ›</div></div>
+<div class="settle"><div class="fee"><span>水款（2桶）</span><span>¥36.00</span></div><div class="fee"><span>预估押金（可退，不算实付）</span><span>¥60.00</span></div><div class="fee"><span>配送费 · 楼层费</span><span>结算页按本站报价</span></div><div class="fee total"><span>去结算预估</span><span>¥96.00＋运费</span></div><div style="margin-top:8px"><div class="btn btn-p">去结算 · 水款¥36.00＋押金¥60.00</div></div></div>
+<div class="tabbar"><div class="tab on">●<span>订水</span></div><div class="tab">○<span>订单</span></div><div class="tab">○<span>我的</span></div></div>
+</div></div>
+<div class="desc"><h2>改了什么，为什么</h2>
+<div class="fix"><b>修 S-首页无桶入口：</b>旧 <code>home/index.wxml:165 barrelVisible</code> 全0即隐藏。新版教育卡常驻，零资产也讲押金。</div>
+<div class="fix"><b>修 “商品小计”误导：</b>旧 <code>grandText=水+押金</code> 叫小计。新的拆 <b>水款 / 预估押金（可退）/ 运费另计</b> 三行，按钮写清两笔钱。</div>
+<div class="good"><b>保留：</b>5 步首单路径、选站→地址→步进器→结算顺序不动；预估≠报价口径写在面上。</div>
+<h3>美术规则</h3><ul><li>地址 15px 加粗，商品名 15px，价格 17px ExtraBold；次要说明一律 <code>#6E6A61</code>，禁用 <code>#A39E92</code> 做正文。</li><li>步进器 32px（≈88rpx），押金提示独立色块，不挤在商品行小字里。</li><li>主按钮只一个藏青，高度 52px，圆角全圆。</li></ul>
+<h3>验收</h3><ul><li>新号首屏 1 秒内能回答“押金多少、可退吗”。</li><li>对比旧首页说不出押金，截屏对照即过。</li></ul></div>
+</div>
+
+<div class="sec-title">A-2 · 确认订单 — 重做</div>
+<div class="sec-sub">解决：水票全抵账单消失 / 首单须知可折叠后盲勾 / 缺货+到付+回桶三合一弹窗</div>
+<div class="grid">
+<div class="phone"><div class="notch"><i></i></div><div class="navbar"><span class="back">‹</span>确认订单</div><div class="screen">
+<div class="card"><div class="addr">📍 幸福里 3-1202 · 陈女士 138****0202</div><div class="small muted">预计今日 18:00 前送达 · 3楼无电梯（楼层费¥2）</div></div>
+<div class="card"><div class="row"><b>纯净水 18.9L ×2</b><span class="price">¥36.00</span></div><div class="row small muted"><span>押金：新增 2 桶 × ¥30</span><span>¥60.00</span></div><div class="stepper" style="margin-top:6px"><span class="sbtn">−</span><span class="snum">2</span><span class="sbtn">＋</span><span class="small muted">库存足（本站有 42 桶）</span></div></div>
+<div class="card"><b>支付方式</b><div class="pay3" style="margin-top:8px"><div class="pay">微信<br>推荐</div><div class="pay on">现金到门<br>✓ 本单可用</div><div class="pay">水票<br>缺1张</div></div><div class="small muted" style="margin-top:6px">水款与新增押金可同次付、分项记账；水票不能抵押金。</div></div>
+<div class="card"><b>费用明细</b><div class="fee"><span>水费</span><span>¥36.00</span></div><div class="fee"><span>新增桶押金（可退）</span><span>¥60.00</span></div><div class="fee"><span>配送费</span><span>¥4.00</span></div><div class="fee"><span>楼层费</span><span>¥2.00</span></div><div class="fee total"><span>本单应付</span><span>¥102.00</span></div>
+<div class="notice" style="margin-top:8px">🎟️ 水票示例：原应付 ¥36.00 → 水票抵 2 张 ¥36.00 → <b>本次现金仍付 ¥66.00</b>（押金＋运费）。原价灰字保留，不让账单消失。</div></div>
+<div class="card"><div class="check"><div class="box on">✓</div><div><b>首次下单须知（已展开阅读）</b><br><span class="muted">本站押金 ¥30/桶·可退；水票按站隔离；缺货可等、可退。退款按原渠道，押金退桶后退。</span></div></div></div>
+<div class="settle"><div class="btn btn-p">已阅读并确认下单 · ¥102.00</div><div class="small muted" style="text-align:center;margin-top:6px">未核实金额显示 — ，不显示 ¥0.00</div></div>
+</div></div>
+<div class="desc"><h2>改了什么</h2>
+<div class="fix"><b>修水票账单消失：</b>旧 <code>create.wxml:137-141</code> 全抵只剩一行。新版保留灰色原价＋抵扣＋现金应付三行。</div>
+<div class="fix"><b>修盲勾：</b>旧折叠条 <code>228 assetBarExpanded</code> 收起也能勾。新版勾选与金额同屏，收起则按钮禁用并提示“展开阅读后勾选”。</div>
+<div class="fix"><b>修三合一弹窗：</b>拆为 缺货（补到货时间）/ 到付风险 / 回桶计划三块，每块独立确认，按钮写“确认以上三项并下单”。</div>
+<h3>交互</h3><ul><li>0 费用与未核实区分：<code>—</code> vs <code>¥0.00</code>。</li><li>数量 input 输 0 静默弹回 1 改为 toast“最少 1 桶”。</li></ul></div>
+</div>
+
+<div class="sec-title">A-3 · 我的水桶＋单独买押金 — 重做（原最烂页）</div>
+<div class="sec-sub">解决：purchase 页原生裸奔 / 同屏5个桶叫法 / 押金余额误读为可退 / 退桶选商品无单价对照</div>
+<div class="grid">
+<div class="phone"><div class="notch"><i></i></div><div class="navbar"><span class="back">‹</span>我的水桶</div><div class="screen">
+<div class="card"><div class="stat3"><div class="stat"><b>2</b><span>实际在手（桶）</span></div><div class="stat"><b style="color:var(--primary)">¥60.00</b><span>押金余额（保管中）</span></div><div class="stat"><b>3</b><span>可用水票（张）</span></div></div><div class="small muted" style="margin-top:6px">押金余额 ≠ 可退金额 · 可退看每款下“可退 N 份”</div></div>
+<div class="card"><div class="row"><div><div class="pname">纯净水 18.9L</div><div class="small muted">在手 2 · 配送中 1 · 欠 0 · 押金 ¥30/份</div></div><span class="pill info">可退 2 份</span></div><div class="row" style="margin-top:8px"><span class="small muted">日常还空桶：配送员顺手收走，不扣押金</span></div><div class="row" style="margin-top:8px"><div class="btn btn-o" style="flex:1;min-height:44px;font-size:14px">日常还桶说明</div><div style="width:8px"></div><div class="btn btn-p" style="flex:1;min-height:44px;font-size:14px">申请退桶（退押金）</div></div></div>
+<div class="sheet"><b>单独买押金（不含水）</b><div class="small muted">先交押金 → 水站确认收款 → 生效可领桶数 → 再下水单</div><div><span class="chip on">纯净水 ¥30/份</span><span class="chip">矿泉水 ¥20/份</span></div><div class="row" style="margin-top:10px"><span>数量</span><span class="stepper"><span class="sbtn">−</span><span class="snum">2</span><span class="sbtn">＋</span></span></div><div class="kv"><span>押金</span><b>¥60.00</b></div><div class="kv small muted"><span>支付</span><span>微信 / 现金到门</span></div><div class="btn btn-p" style="margin-top:8px">确认买押金 · ¥60.00</div><div class="small muted" style="text-align:center;margin-top:6px">重复提交自动找回原单，不会多扣</div></div>
+</div></div>
+<div class="desc"><h2>改了什么</h2>
+<div class="fix"><b>purchase 裸奔重做：</b>旧 <code>purchase.wxss:1-3</code> 3 行。新版复用购票卡：商品 chip＋步进器＋费用汇总＋主次按钮，支付卡与确认单统一。</div>
+<div class="fix"><b>术语收敛：</b>全屏只留 水桶/押金/水票。<code>权益/占用/occupied/availableRights</code> 一律不渲染。</div>
+<div class="fix"><b>余额≠可退：</b>余额下加一行小字；可退以每款 <span class="pill info">可退 N 份</span> 为准；选商品弹窗带单价对照。</div>
+<h3>流程</h3><ul><li>“日常还桶（无感）” vs “押金退出（申请→批准→交桶→原渠道退款）”拆两句，不再打架。</li><li>幂等话术人话化：“重复点也不会多扣，自动找回原单”。</li></ul></div>
+</div>
+
+<div class="sec-title">B-1 · 配送工作台 — 重做（标杆保持＋补齐）</div>
+<div class="sec-sub">解决：已完成卡掉电话 / 待收款折叠不持久 / 地址对比度不够</div>
+<div class="grid">
+<div class="phone"><div class="notch"><i></i></div><div class="navbar"><span class="back">‹</span>配送 · 今日 6 单</div><div class="screen">
+<div class="card" style="border-left:6px solid var(--warning)"><div class="addr">幸福里 3号楼 1202 · 3楼无电梯</div><div class="kv"><span>纯净水 18.9L ×2 ＋ 空桶回 2</span><span class="pill warn">待收 ¥102</span></div><div class="kv small"><span class="muted">陈女士 138****0202 · 备注：放门口，打电话</span><span style="color:var(--primary);font-weight:800">拨号 · 导航</span></div><div class="row" style="margin-top:8px"><div class="btn btn-p" style="flex:1">确认送达</div><div style="width:8px"></div><div class="btn btn-o" style="flex:1">遇到问题</div></div></div>
+<div class="card" style="border-left:6px solid var(--primary)"><div class="addr">湖畔人家 7-501 · 有电梯</div><div class="kv"><span>矿泉水 12L ×1 · 回桶 0</span><span class="pill open">已付 ¥12.00</span></div><div class="kv small"><span class="muted">王先生 139****1188</span><span style="color:var(--primary);font-weight:800">拨号 · 导航</span></div></div>
+<div class="card"><b>已完成（电话保留，可补打）</b><div class="small muted">纯净水 ×1 · 已收 ¥48.00 · 王女士 137****9900 · 拨号</div></div>
+<div class="tabbar"><div class="tab">○<span>首页</span></div><div class="tab on">●<span>配送</span></div><div class="tab">○<span>我的</span></div></div>
+</div></div>
+<div class="desc"><h2>改了什么</h2>
+<div class="good"><b>保留标杆：</b>地址→楼层→商品→收钱→电话→主动作顺序；88rpx 大按钮；<code>home/index.wxml:150-169</code> 不动。</div>
+<div class="fix"><b>补齐：</b>已完成卡加回电话行；待收款折叠状态持久化（进页记住上次展开）；地址升到 <code>#2B2A26 15px</code>，不用浅灰。</div>
+<h3>规则</h3><ul><li>一屏五问：去哪 / 送什么 / 收什么 / 回几桶 / 联系谁，缺一即不合格。</li><li>“调解”改名“遇到问题”，内列真实动作。</li></ul></div>
+</div>
+
+<div class="sec-title">B-2 · 站长抢单卡 — 重做（钱分层＋画像掩码）</div>
+<div class="sec-sub">解决：三层钱堆叠看不出“我拿多少” / 抢单池直露客户电话 vs 台账掩码分裂</div>
+<div class="grid">
+<div class="phone"><div class="notch"><i></i></div><div class="navbar"><span class="back">‹</span>站长协调 · 抢单池</div><div class="screen">
+<div class="card"><div class="small muted">待分配 3 · 审批 2 · 抢单池 5 · 外派 1</div><div><span class="chip on">公开池</span><span class="chip">指定给我</span></div></div>
+<div class="card" style="border-left:6px solid var(--primary)"><div class="small muted">别站外派 · 定价来自归属站 · 结算归接单站</div><div style="font-size:22px;font-weight:900;margin:4px 0">服务报酬 ¥12.00</div><div class="small muted">本单金额 ¥48.00（含配送费¥4＋楼层¥2）· 净桶交接另计</div><div class="dephint">本单无押金，可接。归属站客户信息不显示，有事联系归属站。</div><div class="kv small"><span>收件人 陈*（快照） 138****02 · 幸福里 3-12xx（详址接单后可见）</span></div><div class="row" style="margin-top:8px"><div class="btn btn-p" style="flex:1;min-height:48px">抢单</div><div style="width:8px"></div><div class="btn btn-o" style="flex:1;min-height:48px">看订单</div></div></div>
+</div></div>
+<div class="desc"><h2>改了什么</h2>
+<div class="fix"><b>钱分层：</b>旧 <code>coordination/index.wxml:274-303 fee-box+risk-box+报酬</code> 三钱同权。新版 <b>服务报酬 22px 独占首行</b>，本单金额降级次行小字。</div>
+<div class="fix"><b>画像掩码：</b>池里只给快照收件人＋掩码电话＋小区楼号，与 <code>orders/index.wxml:33-58</code> 台账同口径。全址接单后可见。</div>
+<div class="fix"><b>操作收敛：</b>取消外派（未接）/ 退回原站（已接）/ 撤回转单（同事间）三词全端统一。</div></div>
+</div>
+
+<div class="sec-title">B-3 · 退桶审批 — 重做（原视觉弃儿）</div>
+<div class="sec-sub">解决：6步平铺＋原生按钮＋主次无层级＋弱网可重提</div>
+<div class="grid">
+<div class="phone"><div class="notch"><i></i></div><div class="navbar"><span class="back">‹</span>退桶审批 · #R20261007</div><div class="screen">
+<div class="card"><div class="row"><b>纯净水 ×2 · 退押金 ¥60.00</b><span class="pill warn">待收桶</span></div><div class="small muted">申请人 陈女士 · 本站押金余额 ¥60 · 无欠桶</div><div class="timeline"><div class="tl done">① 已批准交接安排（10-06 站长）</div><div class="tl done">② 客户已确认（10-06 18:02）</div><div class="tl now">③ 待确认实际收桶（当前步）</div><div class="tl">④ 退押金并当面交付（原渠道）</div></div></div>
+<div class="sheet"><div class="btn btn-p">③ 确认已收 2 桶</div><div class="row" style="margin-top:8px"><div class="btn btn-d" style="flex:1;min-height:44px;font-size:14px">驳回（写原因）</div><div style="width:8px"></div><div class="btn btn-o" style="flex:1;min-height:44px;font-size:14px">单独退服务费 ¥4</div></div><div class="small muted" style="text-align:center;margin-top:8px">弱网锁定中不重提 · 历史欠账收进“详情”折叠</div></div>
+</div></div>
+<div class="desc"><h2>改了什么</h2>
+<div class="fix"><b>sheet 化：</b>照 <code>order/detail.wxml:242-310</code> 半屏 sheet，主钮 52px 实心藏青，驳回描边红，次动作 44px。</div>
+<div class="fix"><b>步骤化：</b>6 步收进时间线，当前步唯一主钮，防大拇指点错“驳回 vs 确认收桶”。</div>
+<div class="fix"><b>防重提：</b>全按钮 <code>disabled={{loading}}</code>＋<code>actionBusy</code> 单次执行，与完成配送同标。</div></div>
+</div>
+
+<div style="max-width:1280px;margin:0 auto;padding:0 24px 60px"><div class="desc"><h2>全局美术纪律（本批 6 屏共同遵守）</h2><ul><li>主动作全藏青 <code>#2E4A68</code>，警告橙只用于阻断/失败；价格与正文同深灰，靠字重区分，不用红价。</li><li>关键规则 ≥13px＋<code>#6E6A61</code> 起步；<code>20rpx/placeholder灰</code> 不承载金额/可退/欠桶。</li><li>金额 <code>¥xx.00</code>，时间 <code>MM-DD HH:mm</code>，空态三图（无订单/无资产/加载失败），失败≠没有（常驻 <code>load-error</code>）。</li><li>下一步建议：本文件拍板 → 按 P0（退桶sheet/画像掩码/历史卡/单独买押金）出 wxml/wxss 差分 → 真机（局域网 http＋打开调试＋urlCheck false）逐屏验 → 老年站长户外可读性复测。</li></ul><p class="small muted" style="margin-top:8px">打开方式：双击本文件。用浏览器设备栏切 375×812 即 1:1。切图/标注可直接按本文件色值取用。</p></div></div>
+</body>
+</html>

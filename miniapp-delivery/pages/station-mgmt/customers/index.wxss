@@ -13,15 +13,15 @@
 .name-row { display: flex; align-items: center; gap: 10rpx; flex-wrap: wrap; }
 .customer-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
 .badge { font-size: 22rpx; padding: 2rpx 14rpx; border-radius: 20rpx; color: #fff; }
-.badge.type { background: #8e7cf0; }
+.badge.type { background: var(--primary-color); }
 .badge.level { color: #fff; }
-.badge.act-active { background: #67C23A; }
-.badge.act-sleeping { background: #E6A23C; }
-.badge.act-lost { background: #909399; }
-.badge.act-new { background: #409EFF; }
-.badge.cod { background: #ff9f43; }
+.badge.act-active { background: var(--success-color); }
+.badge.act-sleeping { background: var(--warning-color); }
+.badge.act-lost { background: var(--text-secondary); }
+.badge.act-new { background: var(--primary-color); }
+.badge.cod { background: var(--warning-color); }
 .customer-phone { font-size: 26rpx; color: var(--text-secondary); }
-.customer-phone.muted { color: #bbb; }
+.customer-phone.muted { color: var(--text-placeholder); }
 
 .stat-row { display: flex; gap: 8rpx; background: var(--bg-color); border-radius: 12rpx; padding: 14rpx 8rpx; }
 .stat { flex: 1; display: flex; flex-direction: column; align-items: center; }
@@ -31,19 +31,20 @@
 .tags { display: flex; gap: 10rpx; flex-wrap: wrap; }
 .tag { font-size: 22rpx; color: var(--primary-color); background: var(--primary-bg); padding: 2rpx 14rpx; border-radius: 20rpx; }
 
-.card-actions { display: flex; flex-direction: column; gap: 12rpx; flex-shrink: 0; }
-.manage-btn { background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 26rpx; text-align: center; }
-.call-btn { background: var(--success-color); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 26rpx; text-align: center; }
+.card-actions { display: flex; flex-direction: column; gap: 12rpx; flex-shrink: 0; align-items: stretch; }
+.manage-btn { background: var(--primary-color); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 26rpx; text-align: center; }
+.cod-btn { background: transparent; color: var(--primary-color); border: 1rpx solid var(--primary-color); border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 26rpx; text-align: center; }
+.call-link { display: flex; align-items: center; justify-content: center; gap: 6rpx; font-size: 24rpx; color: var(--primary-color); padding: 6rpx 0; }
+.call-link::before { content: ''; display: inline-block; width: 24rpx; height: 24rpx; background: var(--primary-color); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'/%3E%3C/svg%3E") no-repeat center / contain; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'/%3E%3C/svg%3E") no-repeat center / contain; }
 .empty, .loading { text-align: center; color: var(--text-secondary); font-size: var(--font-md); padding-top: 120rpx; }
 
 /* 货到付款设置弹窗（v48）：开通开关，并把该客户的欠款/逾期摆在眼前。
    （v48 曾另有「首单放行 / 单笔上限」两行，v49 已按产品裁定撤回，见 migration_v49。） */
-.cod-btn { font-size: 24rpx; color: var(--text-secondary); padding: 0 12rpx; }
 .modal-mask { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
 /* max-height + overflow：企业身份审核弹窗里可能并列好几条申请，没有上界会顶破屏幕 */
 .modal-body { width: 620rpx; background: #fff; border-radius: 16rpx; padding: 28rpx; max-height: 80vh; overflow-y: auto; }
 .modal-title { font-size: 32rpx; font-weight: 600; color: var(--text-primary); }
-.modal-tip { margin-top: 12rpx; font-size: 24rpx; color: #E6A23C; line-height: 1.5; }
+.modal-tip { margin-top: 12rpx; font-size: 24rpx; color: var(--warning-color); line-height: 1.5; }
 .modal-row { display: flex; align-items: center; justify-content: space-between; margin-top: 20rpx; font-size: 28rpx; color: var(--text-primary); }
 .modal-input { width: 220rpx; border: 1rpx solid var(--border-color); border-radius: 8rpx; padding: 8rpx 12rpx; font-size: 26rpx; text-align: right; }
 .modal-stat { display: flex; justify-content: space-between; margin-top: 20rpx; font-size: 24rpx; color: var(--text-secondary); }

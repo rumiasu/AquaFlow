@@ -155,9 +155,10 @@
           <text class="fee-value">¥{{extraDepositAmountText}}</text>
         </view>
         <view class="section-link standalone-link" wx:if="{{barrelPurchases.length > 0}}" bindtap="onStandalonePurchase">也可单独办理桶押金 ›</view>
-        <view class="fee-row" wx:if="{{deliveryFeeText}}">
+        <!-- [2026-10-06] 配送费/楼层费首屏直接显示，不再隐藏到明细弹窗 -->
+        <view class="fee-row" wx:if="{{deliveryFeeText || floorFeeText}}">
           <text class="fee-label">配送费</text>
-          <text class="fee-value">¥{{deliveryFeeText}}</text>
+          <text class="fee-value">¥{{deliveryFeeText || '0.00'}}</text>
         </view>
         <view class="fee-row" wx:if="{{floorFeeText}}">
           <text class="fee-label">楼层费</text>
@@ -207,7 +208,76 @@
       <view class="section-header">
         <text class="section-title">备注（选填）</text>
       </view>
-      <input class="note-input" placeholder="如：放门口、几号楼等" value="{{note}}" bindinput="onNoteInput"></input>
+      <input class="note-input" placeholder="如：期望18点前送到、到前联系" value="{{note}}" bindinput="onNoteInput"></input>
+      <text class="fee-hint">可在备注写期望送达时间，供水站安排参考；未填写也可以下单。</text>
+    </view>
+
+    <!-- ══ 资产说明常驻折叠条（原首次确认弹窗的软化形态）══
+         [2026-10-06 优化] 原首次资产业务确认是**弹窗**，现在改为页面底部常驻的可折叠条：
+           · 不阻断浏览 —— 客户可以边看商品边看说明，不用先关掉弹窗才能继续；
+           · 勾选仍在 —— 「我已阅读」仍是确认下单的前置闸门，只是不再藏在弹窗里；
+           · 首次强提醒 —— firstStationAsset=true 时默认展开，之后可折叠；
+           · 业务信息不丢 —— 水站名/押金金额/按站记录规则全部保留，只是换了呈现方式。
+         ⚠️ 勾选状态仍由 assetReadAgreed 控制，且每次报价刷新后重置（同原弹窗逻辑）。 -->
+    <view class="asset-bar {{assetBarExpanded ? 'expanded' : ''}}" wx:if="{{firstStationAsset && !assetConfirmed}}">
+      <view class="asset-bar-header" bindtap="onToggleAssetBar">
+        <view class="asset-bar-title">
+          <icon name="alert" size="30rpx" color="#C9764B" />
+          <text class="asset-bar-title-text">首次下单须知</text>
+        </view>
+        <text class="asset-bar-toggle">{{assetBarExpanded ? '收起' : '展开'}}</text>
+      </view>
+      <view class="asset-bar-content" wx:if="{{assetBarExpanded}}">
+        <view class="asset-fact">
+          <view class="asset-fact-row">
+            <text class="asset-fact-label">送水水站</text>
+            <text class="asset-fact-value">{{assetNotice.stationName || '当前水站'}}</text>
+          </view>
+          <view class="asset-fact-row" wx:if="{{assetNotice.buckets > 0}}">
+            <text class="asset-fact-label">水桶押金</text>
+            <text class="asset-fact-value strong">¥{{assetNotice.depositAmount}}·可退</text>
+          </view>
+          <view class="asset-fact-row">
+            <text class="asset-fact-label">本单合计</text>
+            <text class="asset-fact-value strong">¥{{assetNotice.totalAmountText}}</text>
+          </view>
+        </view>
+        <text class="asset-bar-desc" wx:if="{{assetNotice.buckets > 0}}">水桶需付押金，归还空桶后押金退还给你。</text>
+        <text class="asset-bar-desc" wx:else>本次无需再付水桶押金。</text>
+        <text class="asset-bar-desc" wx:if="{{assetNotice.onlineAdvice}}">{{assetNotice.onlineAdvice}}</text>
+        <text class="asset-bar-desc">你的水桶、水票和押金都记在这个水站名下，其他水站无法使用。</text>
+        <view class="asset-detail-link" wx:if="{{!showAssetDetail}}" bindtap="onAssetDetailTap">
+          <text class="detail-link-text">查看水桶与押金的详细说明</text>
+          <text class="asset-more-glyph">›</text>
+        </view>
+        <view class="asset-detail" wx:if="{{showAssetDetail}}">
+          <text class="detail-intro">为了让你清楚每一笔桶和押金的来去，请在下单前了解以下 4 点：</text>
+          <view class="detail-rule-item">
+            <text class="detail-rule-text"><text class="detail-bold">押金可以退还。</text>水桶是循环使用的，首次使用需支付押金；将空桶归还水站后，押金退还给你。</text>
+          </view>
+          <view class="detail-rule-item">
+            <text class="detail-rule-text"><text class="detail-bold">桶、水票与押金按水站分别记录。</text>它们只属于你下单的这个水站，其他水站无法查看或使用。</text>
+          </view>
+          <view class="detail-rule-item">
+            <text class="detail-rule-text"><text class="detail-bold">更换水站不会清空原有记录。</text>换到别的水站下单后，原水站的桶、水票与押金仍然保留，回到原水站即可继续使用。</text>
+          </view>
+          <view class="detail-rule-item">
+            <text class="detail-rule-text"><text class="detail-bold">如有疑问，建议先与本站确认。</text>对桶数、押金或水票有疑问时，请先联系本站，我们会为你核实。</text>
+          </view>
+          <view class="detail-call" bindtap="onCallStation">
+            <text class="detail-call-text">{{stationPhone ? '拨打水站电话 ' + stationPhone : '联系水站'}}</text>
+            <icon name="arrow" size="28rpx" color="#2E4A68" />
+          </view>
+          <view class="asset-detail-link" bindtap="onAssetDetailClose">
+            <text class="detail-link-text">收起详细说明</text>
+            <text class="asset-more-glyph up">›</text>
+          </view>
+        </view>
+        <view class="detail-agree {{assetReadAgreed ? 'is-checked' : ''}}" bindtap="onAssetReadAgree">
+          <text class="detail-checkbox">{{assetReadAgreed ? '☑' : '☐'}}</text>
+          <text class="detail-agree-text">我已阅读并了解上述说明</text>
+        </view>
+      </view>
     </view>
 
     <!-- ══ 底部：只放三样 —— 实付 / 需扣水票 + 明细入口 + 当前主动作（§3）══
@@ -240,9 +310,9 @@
           </view>
         </view>
         <!-- ⚠️ 文案是**四态三元**，优先级不许改（流程测试守着后三态）：
-             硬拦(blocked) > 提交中(submitting) > 已有待看/待付订单(pendingOrderId) > 常态。 -->
+             硬拦(blocked) > 提交中(submitting) > 已有待看/待付订单(pendingOrderId) > 资产确认未完成 > 常态。 -->
         <view class="submit-btn {{(submitting || blocked) ? 'disabled' : ''}}" bindtap="onSubmit">
-          <text>{{blocked ? '暂不可下单' : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid ? '查看这笔订单' : '继续支付') : '立即下单'))}}</text>
+          <text>{{blocked ? '暂不可下单' : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid ? '查看这笔订单' : '继续支付') : (firstStationAsset && !assetConfirmed ? '确认须知并下单' : '立即下单')))}}</text>
         </view>
       </view>
     </view>
@@ -283,24 +353,12 @@
     </view>
   </view>
 
-  <!-- 首次资产业务确认弹窗（契约 A2：**建单之前**；取消 = 一个写请求都不发）
-       内容里必须能回答"这笔钱是什么、多少钱、归哪个水站"，所以金额/站名全部取服务端报价。
-       ⚠️ 文案口径（2026-09-26，两轮调整后定稿）：第一版是内部词汇（「首次资产业务」「按客户 × 水站
-       分别记录」）客户看不懂；第二版改成大白话又太生硬（「一本账」「用不了」）。现在取中间：
-       **清楚、客气、不过度口语**，每条规则"一句结论 + 一句说明"。
-
-       [2026-09-26 Wave1 轨道 E] 由**两层改为一层**：原来必需勾选在第二层弹窗
-       （要先点「查看桶与押金的使用说明」再回来点按钮），客户看到的是一个点不动的灰按钮 ——
-       §3 明确要求"不再让顾客寻找灰色按钮的解锁条件"。现在：水站/押金/本单应付/按站使用说明
-       与**勾选**都在这一层，详细条款按需展开（onAssetDetailTap / onAssetDetailClose 两个
-       既有绑定搬到展开区，不新增也不留孤儿 handler）。
-       ⚠️ **确认要求一条没减**：不勾选就不建单；每次重新弹都由报价流程重置为未勾选
-       （create.js 的 assetReadAgreed），绝不自动勾选。
-       ⚠️ 中间这段必须包在 .asset-scroll 里（wxss：flex:1 + overflow-y:auto）：
-       小屏或系统大字体下正文会变高，没有这层滚动就会把下面的「确认下单」顶出屏幕 ——
-       那时客户只能点遮罩取消，正是 2026-09-26 那次"整屏灰白、只能退出"的形态。
-       勾选行与按钮一起留在滚动区**外面**：勾选（那是真正的闸门）永远不会被长文案顶走。 -->
-  <view class="asset-popup {{showAssetConfirm ? 'show' : ''}}" wx:if="{{showAssetConfirm}}">
+  <!-- 首次资产业务确认弹窗（已废弃，改为页面内常驻折叠条）
+       [2026-10-06] 保留此结构备用，但 showAssetConfirm 恒为 false，不再触发。
+       原逻辑：firstStationAsset=true 时弹窗阻断，客户必须勾选+确认才能下单。
+       新逻辑：页面底部常驻 .asset-bar，客户可展开阅读、勾选后按钮文案变为「确认须知并下单」。
+       勾选状态仍由 assetReadAgreed 控制，且每次报价刷新后重置（同原逻辑）。 -->
+  <view class="asset-popup {{showAssetConfirm ? 'show' : ''}}" wx:if="{{false}}">
     <view class="popup-mask" bindtap="onAssetConfirmCancel"></view>
     <view class="popup-content asset-warning">
       <view class="popup-title warning">下单前请确认</view>
@@ -380,9 +438,10 @@
     </view>
   </view>
 
-  <!-- 缺货确认弹窗（契约 A1）：needConfirm 表示**还没建单** —— 返回调整不建单，
-       "同意等待安排"用同一次提交的标识重提（只可能产生一张单）。不承诺到货时间。 -->
-  <view class="asset-popup {{showShortageConfirm ? 'show' : ''}}" wx:if="{{showShortageConfirm}}">
+  <!-- 缺货确认弹窗（已合并到综合确认弹窗）
+       [2026-10-06] 原独立弹窗已合并到下方「综合确认弹窗」，
+       缺货信息作为其中一个区块展示，保留全部业务文案。 -->
+  <view class="asset-popup {{showShortageConfirm ? 'show' : ''}}" wx:if="{{false}}">
     <view class="popup-mask" bindtap="onShortageBack"></view>
     <view class="popup-content asset-warning">
       <view class="popup-title warning">部分商品库存不足</view>
@@ -395,7 +454,7 @@
             <text>{{item.productName}}：要 {{item.requested}} 桶，现有 {{item.stock}} 桶</text>
           </view>
         </view>
-        <text class="popup-desc">同意等待的话，水站到货后会按顺序安排配送（具体时间以水站通知为准）；也可以返回调整数量或换个商品。</text>
+        <text class="popup-desc">同意等待的话，水站到货后会联系您安排配送（具体时间以水站通知为准）；也可以返回调整数量或换个商品。</text>
       </scroll-view>
       <view class="popup-btns">
         <button class="btn-cancel" bindtap="onShortageBack">返回调整</button>
@@ -494,6 +553,83 @@
           <text class="detail-total-label">{{isTicketPay ? '本次需付' : '合计'}}</text>
           <text class="detail-total-value">¥{{payableAmountText}}</text>
         </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ══ 综合确认弹窗（合并缺货/线下支付/配送中桶提醒）══
+       [2026-10-06] 原独立弹窗合并为一个综合确认，减少弹窗疲劳。
+       触发条件（任一）：
+         ① 缺货（shortageItems.length > 0）
+         ② 线下支付（selectedMethod === 2）
+         ③ 配送中桶提醒（hasInTransitBarrels && extraDepositBuckets > 0）
+       业务信息全部保留，只是合并到一个弹窗里分区块展示。 -->
+  <view class="asset-popup {{showUnifiedConfirm ? 'show' : ''}}" wx:if="{{showUnifiedConfirm}}">
+    <view class="popup-mask" bindtap="onUnifiedConfirmCancel"></view>
+    <view class="popup-content asset-warning">
+      <view class="popup-title warning">下单确认</view>
+      <scroll-view class="asset-scroll" scroll-y>
+        <!-- 缺货区块 -->
+        <view class="unified-section" wx:if="{{shortageItems.length > 0}}">
+          <view class="unified-section-header">
+            <icon name="alert" size="30rpx" color="#C9764B" />
+            <text class="unified-section-title">部分商品库存不足</text>
+          </view>
+          <view class="asset-rules">
+            <view class="rule-item" wx:for="{{shortageItems}}" wx:key="productId">
+              <text class="rule-num">·</text>
+              <text>{{item.productName}}：要 {{item.requested}} 桶，现有 {{item.stock}} 桶</text>
+            </view>
+          </view>
+          <text class="popup-desc">同意等待的话，水站到货后会安排配送（具体时间以水站通知为准）；也可以返回调整数量或换个商品。</text>
+        </view>
+
+        <!-- 线下支付区块 -->
+        <view class="unified-section" wx:if="{{selectedMethod === 2}}">
+          <view class="unified-section-header">
+            <icon name="wallet" size="30rpx" color="#2E9E6B" />
+            <text class="unified-section-title">货到付款</text>
+          </view>
+          <text class="popup-desc">配送员送达后现金/扫码支付，确认下单后将锁定订单。</text>
+          <text class="popup-desc" wx:if="{{assetNotice.offlineRiskNote}}">{{assetNotice.offlineRiskNote}}</text>
+        </view>
+
+        <!-- 配送中桶提醒区块 -->
+        <view class="unified-section" wx:if="{{hasInTransitBarrels && extraDepositBuckets > 0}}">
+          <view class="unified-section-header">
+            <icon name="barrel" size="30rpx" color="#B5442C" />
+            <text class="unified-section-title">温馨提示</text>
+          </view>
+          <text class="popup-desc">您有正在配送中的水桶，本次下单将产生额外桶押金。</text>
+        </view>
+
+        <!-- 费用预览 -->
+        <view class="unified-fee-preview">
+          <view class="fee-row">
+            <text class="fee-label">水费</text>
+            <text class="fee-value">¥{{totalWaterCostText}}</text>
+          </view>
+          <view class="fee-row" wx:if="{{extraDepositBuckets > 0}}">
+            <text class="fee-label">新增桶押金</text>
+            <text class="fee-value">¥{{extraDepositAmountText}}</text>
+          </view>
+          <view class="fee-row" wx:if="{{deliveryFeeText}}">
+            <text class="fee-label">配送费</text>
+            <text class="fee-value">¥{{deliveryFeeText}}</text>
+          </view>
+          <view class="fee-row" wx:if="{{floorFeeText}}">
+            <text class="fee-label">楼层费</text>
+            <text class="fee-value">¥{{floorFeeText}}</text>
+          </view>
+          <view class="fee-row total">
+            <text class="fee-label total">本次需付</text>
+            <text class="fee-value total">¥{{payableAmountText}}</text>
+          </view>
+        </view>
+      </scroll-view>
+      <view class="popup-btns">
+        <button class="btn-cancel" bindtap="onUnifiedConfirmCancel">返回修改</button>
+        <button class="btn-ok" bindtap="onUnifiedConfirmOk">确认下单</button>
       </view>
     </view>
   </view>

@@ -1,4 +1,6 @@
-const { submitFeedback, getMyFeedback } = require('../../api/feedback')
+const { submitFeedback, getMyFeedback, appendRefundNote, getRefundNotes, getRefundOptions } = require('../../api/feedback')
+const noteIntent = require('../../utils/refund-note-intent')
+const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { stationStorage } = require('../../utils/storage')
 const { getStationPublicPhone } = require('../../api/station')
 
@@ -29,12 +31,89 @@ Page({
     //   区块直接不渲染 —— 提过反馈的客户会以为自己的记录丢了。
     phoneError: '',
     historyError: '',
-    submitting: false
+    submitting: false,
+    refundRef: null, refundReady: false, refundError: '', refundOptions: [], refundOptionsError: '',
+    refundOptionsMore: false, refundOptionsPage: 0, pendingRefundNote: false
   },
 
+  onLoad(options = {}) {
+    this._noteEpoch = 1
+    this._pageCustomer = getCustomerId()
+    const id = Number(options.refundId)
+    if (options.refundType && Number.isSafeInteger(id) && id > 0) {
+      this.setData({ refundRef: { refundType: options.refundType, refundId: id } })
+    }
+  },
+  onHide() { this._noteEpoch = (this._noteEpoch || 0) + 1 },
+  onUnload() { this._noteEpoch = (this._noteEpoch || 0) + 1 },
+
   onShow() {
-    this.loadHistory()
-    this.loadStation()
+    this._noteEpoch = (this._noteEpoch || 0) + 1
+    const customer = getCustomerId()
+    if (this._pageCustomer !== undefined && this._pageCustomer !== customer) {
+      this.setData({ refundRef: null, refundOptions: [], refundReady: false, refundError: '',
+        refundOptionsError: '', refundOptionsMore: false, refundOptionsPage: 0, history: [], historyError: '',
+        content: '', contact: '', pendingRefundNote: false })
+    }
+    this._pageCustomer = customer
+    this.setData({ submitting: false })
+    if (this.data.refundRef) this.loadRefundThread()
+    else { this.loadHistory(); this.loadStation() }
+  },
+
+  onShowRefundOptions() { return this.loadRefundOptions(1) },
+  onMoreRefundOptions() { return this.loadRefundOptions(this.data.refundOptionsPage + 1) },
+  async loadRefundOptions(page) {
+    const session = captureSession(), epoch = this._noteEpoch
+    const serial = this._optionsSerial = (this._optionsSerial || 0) + 1
+    const current = () => serial === this._optionsSerial && epoch === this._noteEpoch && isCurrentSession(session)
+    try {
+      const res = await getRefundOptions(page)
+      if (!current()) return
+      if (!res.data || !Array.isArray(res.data.options)) throw new Error('退款记录没加载出来')
+      const options = page === 1 ? res.data.options : this.data.refundOptions.concat(res.data.options)
+      this.setData({ refundOptions: options, refundOptionsMore: !!res.data.hasMore, refundOptionsPage: page,
+        refundOptionsError: res.data.options.length ? '' : '当前没有可关联的退款原款或退押金申请' })
+    } catch (e) {
+      if (current()) this.setData({ refundOptionsError: e.message || '退款记录没加载出来' })
+    }
+  },
+  onSelectRefund(e) {
+    const ref = this.data.refundOptions[Number(e.detail.value)]
+    if (!ref) return
+    this.setData({ refundRef: { refundType: ref.refundType, refundId: Number(ref.refundId) }, refundReady: false,
+      refundError: '', content: '', contact: '', history: [], pendingRefundNote: false })
+    this.loadRefundThread()
+  },
+  async loadRefundThread() {
+    const ref = this.data.refundRef
+    if (!ref) return
+    const serial = this._refundSerial = (this._refundSerial || 0) + 1
+    const session = captureSession(), epoch = this._noteEpoch
+    this.setData({ refundReady: false, refundError: '' })
+    const current = () => epoch === this._noteEpoch && serial === this._refundSerial && isCurrentSession(session)
+    try {
+      const res = await getRefundNotes(ref.refundType, ref.refundId)
+      if (!current()) return
+      const d = res.data
+      if (!d || d.refundType !== ref.refundType || Number(d.refundId) !== ref.refundId || !d.objectText || !Array.isArray(d.notes)) throw new Error('退款说明记录未能完整加载')
+      const pending = noteIntent.read('CUSTOMER:' + getCustomerId(), ref.refundType, ref.refundId)
+      const patch = { refundRef: Object.assign({}, ref, { objectText: d.objectText }), refundReady: true,
+        history: d.notes, historyError: '', pendingRefundNote: !!pending }
+      if (pending) Object.assign(patch, { content: pending.content, contact: pending.contact })
+      this.setData(patch)
+    } catch (e) {
+      if (current()) this.setData({ refundReady: false, refundError: e.message || '退款说明没加载出来', history: [] })
+    }
+  },
+  onRetryRefund() { this.loadRefundThread() },
+  onRetryOriginalNote() {
+    try {
+      const ref = this.data.refundRef, pending = noteIntent.read('CUSTOMER:' + getCustomerId(), ref.refundType, ref.refundId)
+      if (!pending) return
+      this.setData({ content: pending.content, contact: pending.contact })
+      return this.onSubmit()
+    } catch (e) { wx.showToast({ title: e.message, icon: 'none' }) }
   },
 
   /**
@@ -120,12 +199,16 @@ Page({
   },
 
   async loadHistory() {
+    const session = captureSession(), epoch = this._noteEpoch
+    const current = () => epoch === this._noteEpoch && isCurrentSession(session)
     try {
       const res = await getMyFeedback()
+      if (!current()) return
       if (res.data) {
         this.setData({ history: res.data, historyError: '' })
       }
     } catch (err) {
+      if (!current()) return
       // [2026-09-20 真机联调] 原来是「未登录或加载失败时不强提示」只 console.warn：失败时
       // 历史区块整块不渲染，提过反馈的客户会以为记录丢了（与"确实没提过反馈"无法区分，AGENTS §8.22）。
       // 仍然不用弹窗打断（本页主任务是提交反馈），但空态要改成"没加载出来"。
@@ -145,6 +228,8 @@ Page({
    * （`utils/request.js` 的 `offerErrorReport`）**保持实名不变**，原因写在那边的注释里。</p>
    */
   async onSubmit() {
+    if (this.data.submitting) return
+    if (this.data.refundRef) return this.submitRefundNote()
     const { category, content, contact, anonymous } = this.data
     if (!content.trim()) {
       wx.showToast({ title: '请填写反馈内容', icon: 'none' })
@@ -162,5 +247,25 @@ Page({
     } finally {
       this.setData({ submitting: false })
     }
+  },
+  async submitRefundNote() {
+    if (!this.data.refundReady) { wx.showToast({ title: this.data.refundError || '请先加载退款记录', icon: 'none' }); return }
+    const session = captureSession(), epoch = this._noteEpoch, ref = this.data.refundRef
+    if (!getCustomerId()) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
+    const current = () => epoch === this._noteEpoch && isCurrentSession(session)
+    this.setData({ submitting: true })
+    try {
+      const intent = noteIntent.prepare('CUSTOMER:' + getCustomerId(), ref.refundType, ref.refundId, this.data.content, this.data.contact)
+      this.setData({ pendingRefundNote: true })
+      const response = await appendRefundNote(noteIntent.payload(intent))
+      if (!current()) return
+      if (!response.data || !response.data.id || response.data.refundType !== ref.refundType || Number(response.data.refundId) !== ref.refundId) throw new Error('说明提交结果未确认，请原样重试')
+      noteIntent.clear(intent)
+      this.setData({ content: '', contact: '', pendingRefundNote: false })
+      wx.showToast({ title: '说明已保存', icon: 'success' })
+      await this.loadRefundThread()
+    } catch (e) {
+      if (current()) wx.showToast({ title: e.message || '提交结果未确认，请重试', icon: 'none' })
+    } finally { if (current()) this.setData({ submitting: false }) }
   }
 })

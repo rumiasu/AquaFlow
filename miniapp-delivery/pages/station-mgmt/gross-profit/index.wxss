@@ -12,18 +12,18 @@
 .card-title {
   font-size: 28rpx;
   font-weight: 600;
-  color: #222;
+  color: var(--text-primary);
   margin-bottom: 16rpx;
 }
 
 .picker {
   height: 72rpx;
   line-height: 72rpx;
-  background: #f5f6f8;
+  background: var(--bg-gray);
   border-radius: 10rpx;
   padding: 0 18rpx;
   font-size: 26rpx;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 14rpx;
 }
 
@@ -33,16 +33,16 @@
 }
 .chip {
   padding: 12rpx 26rpx;
-  border: 1rpx solid #d9d9d9;
+  border: 1rpx solid var(--border-color);
   border-radius: 32rpx;
   font-size: 25rpx;
-  color: #333;
+  color: var(--text-primary);
   margin: 0 16rpx 16rpx 0;
 }
 .chip-warn {
-  border-color: #ffd591;
-  color: #d46b08;
-  background: #fffbe6;
+  border-color: var(--warning-bg);
+  color: var(--warning-color);
+  background: var(--warning-bg);
 }
 
 /* 合计：三个数字一眼看完；利润算不出（缺成本）时给警示色而不是 0 */
@@ -61,29 +61,29 @@
   display: block;
   font-size: 34rpx;
   font-weight: 600;
-  color: #222;
+  color: var(--text-primary);
 }
 .hero-ok {
-  color: #389e0d;
+  color: var(--success-color);
 }
 .hero-warn {
-  color: #d46b08;
+  color: var(--warning-color);
   font-size: 28rpx;
 }
 .hero-label {
   display: block;
   font-size: 23rpx;
-  color: #888;
+  color: var(--text-secondary);
   margin-top: 8rpx;
 }
 
 .notice {
-  background: #fffbe6;
-  border: 1rpx solid #ffe58f;
+  background: var(--warning-bg);
+  border: 1rpx solid var(--warning-bg);
   border-radius: 12rpx;
   padding: 18rpx 20rpx;
   font-size: 24rpx;
-  color: #ad6800;
+  color: var(--warning-color);
   line-height: 38rpx;
   margin-bottom: 12rpx;
 }
@@ -102,11 +102,11 @@
 }
 .ledger-label {
   font-size: 26rpx;
-  color: #666;
+  color: var(--text-regular);
 }
 .ledger-value {
   font-size: 28rpx;
-  color: #222;
+  color: var(--text-primary);
 }
 .ledger-strong {
   border-top: 1rpx solid #F1ECE1;
@@ -115,13 +115,13 @@
 .ledger-strong .ledger-value {
   font-size: 30rpx;
   font-weight: 600;
-  color: #222;
+  color: var(--text-primary);
 }
 .ledger-ok {
-  color: #389e0d;
+  color: var(--success-color);
 }
 .ledger-warn {
-  color: #d46b08;
+  color: var(--warning-color);
   font-size: 27rpx;
 }
 
@@ -145,24 +145,24 @@
 }
 .row-title {
   font-size: 27rpx;
-  color: #222;
+  color: var(--text-primary);
 }
 .row-amount {
   font-size: 27rpx;
-  color: #222;
+  color: var(--text-primary);
 }
 .row-sub {
   display: block;
   font-size: 23rpx;
-  color: #888;
+  color: var(--text-secondary);
   margin-top: 6rpx;
   line-height: 34rpx;
 }
 .row-warn {
-  color: #d46b08;
+  color: var(--warning-color);
 }
 .row-arrow {
-  color: #bbb;
+  color: var(--text-placeholder);
   font-size: 34rpx;
   padding-left: 12rpx;
 }
@@ -171,7 +171,7 @@
   height: 84rpx;
   line-height: 84rpx;
   text-align: center;
-  background: #1677ff;
+  background: var(--primary-color);
   color: #fff;
   border-radius: 12rpx;
   font-size: 30rpx;
@@ -180,27 +180,27 @@
   height: 80rpx;
   line-height: 80rpx;
   text-align: center;
-  border: 1rpx solid #d9d9d9;
+  border: 1rpx solid var(--border-color);
   border-radius: 12rpx;
   font-size: 27rpx;
-  color: #333;
+  color: var(--text-primary);
 }
 .btn-ghost.block {
   margin-top: 18rpx;
 }
 .btn-disabled {
-  background: #a8c7f0;
+  background: var(--primary-bg);
 }
 
 .empty {
   font-size: 26rpx;
-  color: #999;
+  color: var(--text-secondary);
   padding: 20rpx 0;
   line-height: 40rpx;
 }
 .hint {
   font-size: 23rpx;
-  color: #999;
+  color: var(--text-secondary);
   line-height: 36rpx;
   margin-top: 12rpx;
 }
@@ -227,12 +227,12 @@
   display: block;
   font-size: 30rpx;
   font-weight: 600;
-  color: #222;
+  color: var(--text-primary);
   margin-bottom: 20rpx;
 }
 .dialog-input {
   height: 80rpx;
-  background: #f5f6f8;
+  background: var(--bg-gray);
   border-radius: 12rpx;
   padding: 0 20rpx;
   font-size: 28rpx;

@@ -286,6 +286,7 @@ const API = {
   // 水桶
   BARRELS_ALL_RECORDS: '/api/barrels/all-records',
   BARRELS_RECORDS_STATUS: (id) => `/api/barrels/records/${id}/status`,
+  BARREL_REFUND_ELIGIBILITY: (id) => `/api/barrels/records/${id}/refund-eligibility`,
   // [v66 / 2026-09-27 产品拍板 5.a] 押金**实际交付**确认：站长（或代交的配送员）确认
   // "这笔押金已经交到顾客手上了"。⚠️ 与 status 那一步是**两件事**：status 是核销（钱从账户扣掉），
   // 这一条才是把钱交出去 —— 见 docs/design/35 §7.2「不现场给钱的不要退」。

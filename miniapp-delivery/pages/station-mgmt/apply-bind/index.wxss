@@ -1,7 +1,7 @@
 .container {
   min-height: 100vh;
   padding: 24rpx 24rpx 220rpx;
-  background: #f5f7fb;
+  background: var(--bg-color);
   box-sizing: border-box;
 }
 
@@ -21,13 +21,13 @@
   display: block;
   font-size: 34rpx;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 8rpx;
 }
 
 .card-desc {
   font-size: 26rpx;
-  color: #888888;
+  color: var(--text-secondary);
 }
 
 .form-group {
@@ -41,13 +41,13 @@
 .form-label {
   display: block;
   font-size: 28rpx;
-  color: #333333;
+  color: var(--text-primary);
   margin-bottom: 14rpx;
   font-weight: 500;
 }
 
 .required {
-  color: #FF3B30;
+  color: var(--error-color);
   margin-left: 4rpx;
 }
 
@@ -56,7 +56,7 @@
   height: 88rpx;
   line-height: 88rpx;
   padding: 0 24rpx;
-  background: #f7f8fb;
+  background: var(--bg-color);
   border-radius: 14rpx;
   font-size: 30rpx;
   box-sizing: border-box;
@@ -73,7 +73,7 @@
   height: 80rpx;
   line-height: 80rpx;
   padding: 0 24rpx;
-  background: #f7f8fb;
+  background: var(--bg-color);
   border-radius: 14rpx;
   font-size: 28rpx;
   box-sizing: border-box;
@@ -102,7 +102,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 28rpx 24rpx;
-  background: #fafbfd;
+  background: var(--bg-color);
   border-radius: 16rpx;
   border: 2rpx solid transparent;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -125,12 +125,12 @@
 .station-name {
   font-size: 30rpx;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .station-address {
   font-size: 24rpx;
-  color: #888888;
+  color: var(--text-secondary);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -147,8 +147,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;
-  background: #F2F7FF;
-  border: 1rpx solid #D6E4FF;
+  background: var(--primary-bg);
+  border: 1rpx solid var(--primary-bg);
   border-radius: 12rpx;
   padding: 18rpx 20rpx;
   margin: 0 0 16rpx;
@@ -157,7 +157,7 @@
 .loc-text {
   flex: 1;
   font-size: 24rpx;
-  color: #4A5568;
+  color: var(--text-regular);
   line-height: 1.5;
 }
 
@@ -172,7 +172,7 @@
   display: flex;
   align-items: center;
   gap: 12rpx;
-  background: #F7F8FA;
+  background: var(--bg-color);
   border-radius: 12rpx;
   padding: 0 20rpx;
   margin-bottom: 16rpx;
@@ -182,7 +182,7 @@
   flex: 1;
   height: 76rpx;
   font-size: 26rpx;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .search-clear {
@@ -203,7 +203,7 @@
   flex-shrink: 0;
   font-size: 22rpx;
   color: var(--primary-color);
-  background: #F2F7FF;
+  background: var(--primary-bg);
   border-radius: 8rpx;
   padding: 2rpx 10rpx;
 }
@@ -231,7 +231,7 @@
   width: 40rpx;
   height: 40rpx;
   border-radius: 50%;
-  border: 2rpx solid #cccccc;
+  border: 2rpx solid var(--text-placeholder);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -253,7 +253,7 @@
   padding: 48rpx 0;
   text-align: center;
   font-size: 26rpx;
-  color: #aaaaaa;
+  color: var(--text-secondary);
 }
 
 /* ===== 申请历史（只读列表）===== */
@@ -265,7 +265,7 @@
 
 .history-item {
   padding: 24rpx;
-  background: #fafbfd;
+  background: var(--bg-color);
   border-radius: 16rpx;
 }
 
@@ -279,7 +279,7 @@
 .history-type {
   font-size: 28rpx;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   flex-shrink: 0;
 }
 
@@ -294,14 +294,14 @@
 
 .history-status {
   font-size: 24rpx;
-  color: #888888;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
 .history-time {
   display: block;
   font-size: 24rpx;
-  color: #888888;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
@@ -309,7 +309,7 @@
   display: block;
   margin-top: 8rpx;
   font-size: 26rpx;
-  color: #333333;
+  color: var(--text-primary);
   line-height: 1.5;
   word-break: break-all;
 }
@@ -338,7 +338,7 @@
 }
 
 .btn-submit[disabled] {
-  background: #b8d0f8;
+  background: var(--primary-bg);
   color: #ffffff;
 }
 
@@ -353,7 +353,7 @@
   display: block;
   text-align: center;
   font-size: 24rpx;
-  color: #aaaaaa;
+  color: var(--text-secondary);
 }
 
 /* 退出出口：本页是被 redirectTo 进来的，页面栈无上一页，没有这个按钮用户就出不去 */

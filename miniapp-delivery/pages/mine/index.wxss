@@ -52,7 +52,7 @@
 }
 .role-chip.role-manager {
   background: rgba(255, 193, 7, 0.95);
-  color: #5d4037;
+  color: var(--text-regular);
 }
 .role-chip.role-delivery {
   background: rgba(255, 255, 255, 0.22);
@@ -73,14 +73,14 @@
   width: 14rpx;
   height: 14rpx;
   border-radius: 50%;
-  background: #ffd0d0;
+  background: var(--error-bg);
   flex-shrink: 0;
 }
-.bind-dot.bind-BOUND { background: #4caf50; }
-.bind-dot.bind-PENDING { background: #ffb300; }
-.bind-dot.bind-REJECTED { background: #ff5722; }
-.bind-dot.bind-PENDING_UNBIND { background: #b39ddb; }
-.bind-dot.bind-UNBOUND { background: #b0bec5; }
+.bind-dot.bind-BOUND { background: var(--success-color); }
+.bind-dot.bind-PENDING { background: var(--warning-color); }
+.bind-dot.bind-REJECTED { background: var(--error-color); }
+.bind-dot.bind-PENDING_UNBIND { background: var(--warning-color); }
+.bind-dot.bind-UNBOUND { background: var(--text-placeholder); }
 
 .bind-text {
   font-size: 24rpx;
@@ -129,7 +129,7 @@
 .manager-entry-arrow {
   font-size: 26rpx;
   font-weight: 700;
-  color: #ffd54f;
+  color: var(--warning-bg);
   padding: 12rpx 24rpx;
   background: rgba(255, 213, 79, 0.18);
   border-radius: 999rpx;
@@ -152,27 +152,27 @@
   align-items: center;
   padding: 16rpx 20rpx;
   border-radius: 14rpx;
-  background: #f4f8ff;
+  background: var(--primary-bg);
   margin-bottom: 20rpx;
 }
-.bind-info-line.bind-info-warning { background: #fff8e1; }
-.bind-info-line.bind-info-wait { background: #f3e5f5; }
-.bind-info-line.bind-info-danger { background: #ffebee; }
-.bind-info-line.bind-info-none { background: #eceff1; }
+.bind-info-line.bind-info-warning { background: var(--warning-bg); }
+.bind-info-line.bind-info-wait { background: var(--warning-bg); }
+.bind-info-line.bind-info-danger { background: var(--error-bg); }
+.bind-info-line.bind-info-none { background: var(--bg-gray); }
 
 .bind-info-label {
   font-size: 26rpx;
-  color: #607d8b;
+  color: var(--text-regular);
 }
 .bind-info-value {
   font-size: 26rpx;
   font-weight: 600;
-  color: #1976d2;
+  color: var(--primary-color);
 }
-.bind-info-warning .bind-info-value { color: #f57c00; }
-.bind-info-wait .bind-info-value { color: #7b1fa2; }
-.bind-info-danger .bind-info-value { color: #d32f2f; }
-.bind-info-none .bind-info-value { color: #546e7a; }
+.bind-info-warning .bind-info-value { color: var(--warning-color); }
+.bind-info-wait .bind-info-value { color: var(--warning-color); }
+.bind-info-danger .bind-info-value { color: var(--error-color); }
+.bind-info-none .bind-info-value { color: var(--text-regular); }
 
 .bind-actions-row {
   display: flex;
@@ -194,8 +194,8 @@
   color: #ffffff;
 }
 .bind-action-gray {
-  background: #eceff1;
-  color: #455a64;
+  background: var(--bg-gray);
+  color: var(--text-regular);
 }
 
 .stats-card {
@@ -233,7 +233,7 @@
    两者都表示"这个数别按 0 理解"。正常态不套这个类：满屏红字会让真正需要看的那一格失去信号。
    **只管颜色，不改字号**。 */
 .stats-value.stats-warn {
-  color: #d9534f;
+  color: var(--error-color);
 }
 
 /* 金额格专用：三格里它是唯一可能到 5 位数的（¥12345.67），40rpx 会挤出格子。
@@ -249,9 +249,9 @@
   display: block;
   margin-top: 6rpx;
   font-size: 20rpx;
-  /* 比 --text-secondary(#999) 再浅一档：它是同一格里的次要数字，不该与 label 抢注意力。
+  /* 比 --text-secondary(var(--text-secondary)) 再浅一档：它是同一格里的次要数字，不该与 label 抢注意力。
      app.wxss 没有这一档变量，故写死色值（别引不存在的 --text-tertiary）。 */
-  color: #B0B0B5;
+  color: var(--text-placeholder);
 }
 
 .stats-divider {
@@ -278,11 +278,11 @@
 .section-title {
   font-size: 30rpx;
   font-weight: 700;
-  color: #222;
+  color: var(--text-primary);
 }
 .section-link {
   font-size: 24rpx;
-  color: #1976d2;
+  color: var(--primary-color);
 }
 /* 标题行右侧那一簇（[2026-09-26 Wave1 轨道 G]「员工」改成可折叠后加的）：
    摘要文字 + 展开/收起 + 「更多 ›」三者一行，别各自换行把标题挤掉。 */
@@ -310,20 +310,20 @@
 .station-name {
   font-size: 32rpx;
   font-weight: 700;
-  color: #1976d2;
+  color: var(--primary-color);
 }
 .station-address {
   font-size: 26rpx;
-  color: #546e7a;
+  color: var(--text-regular);
 }
 .station-phone {
   font-size: 24rpx;
-  color: #78909c;
+  color: var(--text-secondary);
 }
 .station-info-empty {
   padding: 20rpx 0;
   text-align: center;
-  color: #78909c;
+  color: var(--text-secondary);
   font-size: 26rpx;
 }
 /* [2026-09-26 Wave1 轨道 G] 原 `.station-edit`（「编辑资料 ›」蓝色链接）随入口一起去掉，
@@ -350,7 +350,7 @@
 }
 .staff-entry-arrow {
   font-size: 26rpx;
-  color: #1976d2;
+  color: var(--primary-color);
   font-weight: 500;
 }
 
@@ -366,11 +366,11 @@
   text-align: center;
   padding: 18rpx 0;
   font-size: 28rpx;
-  color: #78909c;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 .mgmt-tab.active {
-  color: #1976d2;
+  color: var(--primary-color);
   font-weight: 700;
 }
 .mgmt-tab.active::after {
@@ -381,7 +381,7 @@
   bottom: -2rpx;
   height: 4rpx;
   border-radius: 2rpx;
-  background: #1976d2;
+  background: var(--primary-color);
 }
 
 .tab-count {
@@ -394,26 +394,26 @@
   border-radius: 16rpx;
   font-size: 20rpx;
   font-weight: 500;
-  background: #cfd8dc;
-  color: #455a64;
+  background: var(--border-color);
+  color: var(--text-regular);
   margin-left: 8rpx;
 }
 .tab-count.tab-badge {
-  background: #ff5722;
+  background: var(--error-color);
   color: #ffffff;
 }
 
 .mgmt-empty {
   padding: 40rpx 0;
   text-align: center;
-  color: #90a4ae;
+  color: var(--text-secondary);
   font-size: 26rpx;
 }
 .mgmt-empty-hint {
   display: block;
   margin-top: 10rpx;
   font-size: 24rpx;
-  color: #b0bec5;
+  color: var(--text-placeholder);
 }
 /* 折叠态那一行（[2026-09-26 Wave1 轨道 G]）：有待审批时点名条数，
    与标题行的 `.staff-summary` 一起保证"收起来也看得见有几条要办"。 */
@@ -435,7 +435,7 @@
   height: 72rpx;
   border-radius: 50%;
   flex-shrink: 0;
-  background: #1976d2;
+  background: var(--primary-color);
   color: #ffffff;
   font-size: 30rpx;
   font-weight: 600;
@@ -443,7 +443,7 @@
   align-items: center;
   justify-content: center;
 }
-.staff-avatar.staff-avatar-blue { background: #42a5f5; }
+.staff-avatar.staff-avatar-blue { background: var(--primary-color); }
 .staff-info {
   flex: 1;
   min-width: 0;
@@ -458,7 +458,7 @@
 }
 .staff-tag {
   font-size: 22rpx;
-  color: #1976d2;
+  color: var(--primary-color);
   font-weight: 500;
 }
 .staff-meta {
@@ -472,15 +472,15 @@
   font-size: 24rpx;
   padding: 10rpx 26rpx;
   line-height: 1.4;
-  background: #ffebee;
-  color: #c62828;
+  background: var(--error-bg);
+  color: var(--error-color);
 }
 .staff-remove-btn::after { border: none; }
 /* 站长行没有「解除」按钮，用一行灰字说明原因（不渲染任何东西会让站长以为界面坏了） */
 .staff-self-note {
   flex-shrink: 0;
   font-size: 22rpx;
-  color: #b0bec5;
+  color: var(--text-placeholder);
   padding: 10rpx 12rpx;
 }
 .staff-action-col {
@@ -497,12 +497,12 @@
 }
 .staff-btn::after { border: none; }
 .staff-btn-green {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: var(--success-bg);
+  color: var(--success-color);
 }
 .staff-btn-gray {
-  background: #eceff1;
-  color: #546e7a;
+  background: var(--bg-gray);
+  color: var(--text-regular);
 }
 .menu-list {
   background: var(--bg-card);

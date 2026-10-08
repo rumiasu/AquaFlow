@@ -25,13 +25,13 @@
 .title {
   font-size: 42rpx;
   font-weight: bold;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 16rpx;
 }
 
 .subtitle {
   font-size: 26rpx;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .form-area {
@@ -53,7 +53,7 @@
 
 .label {
   font-size: 28rpx;
-  color: #666;
+  color: var(--text-regular);
   margin-bottom: 12rpx;
   display: block;
 }
@@ -61,7 +61,7 @@
 .input {
   width: 100%;
   height: 88rpx;
-  border: 2rpx solid #e8e8e8;
+  border: 2rpx solid var(--border-color);
   border-radius: 12rpx;
   padding: 0 24rpx;
   font-size: 30rpx;
@@ -105,7 +105,7 @@
   width: 100%;
   height: 80rpx;
   background: #F4EFE4;
-  color: #999;
+  color: var(--text-secondary);
   border-radius: 40rpx;
   font-size: 28rpx;
   display: flex;
@@ -135,14 +135,14 @@
 
 .agreement-text {
   font-size: 24rpx;
-  color: #999;
+  color: var(--text-secondary);
 }
 
-/* [2026-09-27 走查 X01] `.agreement-link` 已删：两个协议名原先看起来可点、实际没有点击处理。
-   协议正文到位前按普通说明文字渲染（顾客端 pages/login 同口径）。 */
+/* 2026-10-07：两个协议名已接只读草稿；品牌链接色沿用 design/36 §1.1。 */
 .agreement-strong {
   font-size: 24rpx;
-  color: #fff;
+  color: var(--primary-color);
+  text-decoration: underline;
 }
 
 .tips {
@@ -154,5 +154,5 @@
 
 .tip-text {
   font-size: 24rpx;
-  color: #bbb;
+  color: var(--text-placeholder);
 }

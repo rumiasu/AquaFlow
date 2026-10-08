@@ -31,12 +31,12 @@
 .badge { font-size: 22rpx; padding: 4rpx 14rpx; border-radius: 20rpx; color: #fff; }
 .badge.type { background: var(--primary-bg); color: var(--primary-color); }
 .badge.level { color: #fff; }
-.badge.act-ACTIVE { background: #e8f5e9; color: #67c23a; }
-.badge.act-SILENT { background: #fdf6ec; color: #e6a23c; }
-.badge.act-LOST { background: #fef0f0; color: #f56c6c; }
-.badge.act-NONE { background: #f4f4f5; color: #909399; }
-.badge.cod-on { background: #e8f5e9; color: #67c23a; }
-.badge.cod-off { background: #f4f4f5; color: #909399; }
+.badge.act-ACTIVE { background: var(--success-bg); color: var(--success-color); }
+.badge.act-SILENT { background: var(--warning-bg); color: var(--warning-color); }
+.badge.act-LOST { background: var(--error-bg); color: var(--error-color); }
+.badge.act-NONE { background: var(--bg-gray); color: var(--text-secondary); }
+.badge.cod-on { background: var(--success-bg); color: var(--success-color); }
+.badge.cod-off { background: var(--bg-gray); color: var(--text-secondary); }
 
 /* ===== 区块 ===== */
 .section {
@@ -62,7 +62,7 @@
 .metric { flex: 1; display: flex; flex-direction: column; align-items: center; }
 .metric-value { font-size: 32rpx; font-weight: 700; color: var(--primary-color); }
 .metric-value.small { font-size: 26rpx; }
-.metric-value.warn { color: #f56c6c; }
+.metric-value.warn { color: var(--error-color); }
 .metric-label { font-size: 22rpx; color: var(--text-secondary); margin-top: 8rpx; }
 
 /* ===== 明细行 ===== */
@@ -78,7 +78,7 @@
 .row:first-of-type { border-top: none; }
 .label { color: var(--text-secondary); flex-shrink: 0; }
 .value { color: var(--text-primary); text-align: right; }
-.value.warn { color: #f56c6c; }
+.value.warn { color: var(--error-color); }
 .tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10rpx; }
 .tag {
   font-size: 22rpx;
@@ -99,7 +99,7 @@
 .section-note { font-size: 22rpx; color: var(--text-secondary); }
 
 .asset-grid { margin-top: 4rpx; }
-.metric-value.transit { color: #e6a23c; }
+.metric-value.transit { color: var(--warning-color); }
 
 .sub-title {
   font-size: 25rpx;
@@ -127,8 +127,8 @@
 .link-row { display: flex; align-items: center; gap: 12rpx; }
 
 /* over 文案：欠桶(红) / 水站暂存(灰蓝)。over<0 是合法状态，颜色只做区分不做警告 */
-.asset-item-sub.over-owed { color: #d93025; }
-.asset-item-sub.over-storage { color: #0a84ff; }
+.asset-item-sub.over-owed { color: var(--error-color); }
+.asset-item-sub.over-storage { color: var(--primary-color); }
 
 .asset-item {
   display: flex;
@@ -164,15 +164,15 @@
   flex-shrink: 0;
 }
 .record-cat.cat-barrel { background: var(--primary-color); }
-.record-cat.cat-ticket { background: #e6a23c; }
-.record-cat.cat-deposit { background: #67c23a; }
+.record-cat.cat-ticket { background: var(--warning-color); }
+.record-cat.cat-deposit { background: var(--success-color); }
 .record-type { font-size: 25rpx; color: var(--text-primary); }
 .record-meta { font-size: 21rpx; color: var(--text-secondary); line-height: 1.5; }
 .record-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6rpx; flex-shrink: 0; }
 .record-change { font-size: 26rpx; font-weight: 600; }
-.record-change.in { color: #67c23a; }
-.record-change.out { color: #f56c6c; }
-.record-change.flat { color: #909399; }
+.record-change.in { color: var(--success-color); }
+.record-change.out { color: var(--error-color); }
+.record-change.flat { color: var(--text-secondary); }
 .record-status { font-size: 21rpx; color: var(--text-secondary); }
 
 .record-toggle {
@@ -194,18 +194,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 20rpx;
-  background: #fef0f0;
-  border: 1rpx solid #fbc4c4;
+  background: var(--error-bg);
+  border: 1rpx solid var(--error-bg);
   border-radius: 12rpx;
   padding: 18rpx 20rpx;
 }
-.asset-error-text { font-size: 24rpx; color: #f56c6c; flex: 1; }
+.asset-error-text { font-size: 24rpx; color: var(--error-color); flex: 1; }
 
 /* ---- 客户特权（v40） ---- */
 
 .empty-line {
   font-size: 24rpx;
-  color: #999;
+  color: var(--text-secondary);
   line-height: 40rpx;
   padding: 8rpx 0;
 }
@@ -225,20 +225,20 @@
 .priv-name {
   display: block;
   font-size: 27rpx;
-  color: #222;
+  color: var(--text-primary);
 }
 
 .priv-note {
   display: block;
   font-size: 22rpx;
-  color: #999;
+  color: var(--text-secondary);
   margin-top: 4rpx;
 }
 
 .priv-btn {
   padding: 10rpx 24rpx;
-  border: 1rpx solid #1677ff;
-  color: #1677ff;
+  border: 1rpx solid var(--primary-color);
+  color: var(--primary-color);
   border-radius: 28rpx;
   font-size: 24rpx;
   margin-left: 12rpx;
@@ -246,13 +246,13 @@
 }
 
 .priv-btn-off {
-  border-color: #ffa39e;
-  color: #cf1322;
+  border-color: var(--error-bg);
+  color: var(--error-color);
 }
 
 .priv-add-label {
   font-size: 24rpx;
-  color: #888;
+  color: var(--text-secondary);
   margin: 18rpx 0 6rpx;
 }
 
@@ -267,14 +267,14 @@
 
 .priv-hint {
   font-size: 22rpx;
-  color: #999;
+  color: var(--text-secondary);
   line-height: 34rpx;
   margin-top: 10rpx;
 }
 .asset-retry {
   font-size: 24rpx;
   color: #fff;
-  background: #f56c6c;
+  background: var(--error-color);
   border-radius: 24rpx;
   padding: 6rpx 24rpx;
   flex-shrink: 0;
@@ -307,8 +307,8 @@
 }
 
 .error-banner {
-  background: #fef0f0;
-  border: 1rpx solid #f56c6c;
+  background: var(--error-bg);
+  border: 1rpx solid var(--error-color);
   border-radius: 16rpx;
   padding: 24rpx;
   margin-bottom: 20rpx;
@@ -316,8 +316,8 @@
   flex-direction: column;
   gap: 8rpx;
 }
-.error-text { font-size: 28rpx; font-weight: 600; color: #f56c6c; }
-.error-hint { font-size: 22rpx; color: #909399; line-height: 1.5; }
+.error-text { font-size: 28rpx; font-weight: 600; color: var(--error-color); }
+.error-hint { font-size: 22rpx; color: var(--text-secondary); line-height: 1.5; }
 
 /* ============ 纯还桶弹窗 ============ */
 .modal-mask {

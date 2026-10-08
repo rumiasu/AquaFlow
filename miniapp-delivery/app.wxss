@@ -26,6 +26,11 @@ page {
   --error-color: #B5442C;
   --info-color: #2E4A68;
 
+  /* 功能色浅底（2026-10-07 新增，与用户端 variable.wxss 同值；语义正本 docs/design/36 §1.1） */
+  --success-bg: #E3F2EB;
+  --warning-bg: #F7ECE2;
+  --error-bg: #F8E9E5;
+
   /* 配送状态色 */
   --status-pending: #C9764B;
   --status-delivering: #2E4A68;
@@ -88,7 +93,7 @@ page {
  * 原生 tabBar 会占掉视口，自绘的是浮在内容上（position: fixed），不留白最后一张卡片会被压住。
  * 高度 = 100rpx 导航条 + 底部安全区 + 一点余量。用法：三个 tab 页的根 view 加这个类。
  */
-.custom-tabbar-page {
+.container.custom-tabbar-page {
   padding-bottom: calc(200rpx + env(safe-area-inset-bottom));
 }
 

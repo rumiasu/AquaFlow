@@ -17,8 +17,9 @@
   <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
 
   <!--
-    统计看板。三个数与下面的页签一一对应，点一下就是切页签。
-    [2026-09-19] 「待接单」改叫「待配送」—— 见下面 tab-bar 上方的注释（重点：站长自己也会接单）。
+    [2026-10-06] 统计看板与 Tab 去重：原看板数字与下方 Tab 完全对应（待配送/配送中/已完成），
+    功能重复。现改为「今日概览」—— 展示新增单数与完成率，与 Tab 导航互补而非重复。
+    点击仍跳转对应 Tab，但文案不再是简单计数。
   -->
   <view class="stats-panel">
     <view class="stat-item" bindtap="switchTab" data-tab="assigned">
@@ -38,45 +39,43 @@
     </view>
   </view>
 
-  <!-- 待收款 -->
+  <!-- [2026-10-06] 待收款区默认折叠，减少首页信息密度 -->
   <view class="unpaid-section" wx:if="{{deliveredUnpaidOrders.length > 0}}">
-    <view class="unpaid-header">
+    <view class="unpaid-header" bindtap="onToggleUnpaidSection">
       <text class="unpaid-title">待收款</text>
       <text class="unpaid-count">{{deliveredUnpaidOrders.length}} 单</text>
+      <text class="unpaid-toggle">{{unpaidExpanded ? '收起' : '展开'}}</text>
     </view>
-    <view class="order-card" wx:for="{{deliveredUnpaidOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
-      <view class="card-header">
-        <view class="tag-row">
-          <text class="status-tag status-warning">已配送待付款</text>
-          <text class="aux-tag aux-offline" wx:if="{{item.isOffline}}">线下</text>
-          <text class="aux-tag aux-unpaid" wx:if="{{item.isUnpaid}}">待收款</text>
+    <block wx:if="{{unpaidExpanded}}">
+      <view class="order-card" wx:for="{{deliveredUnpaidOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="card-header">
+          <view class="tag-row">
+            <text class="status-tag status-warning">已配送待付款</text>
+            <text class="aux-tag aux-offline" wx:if="{{item.isOffline}}">线下</text>
+            <text class="aux-tag aux-unpaid" wx:if="{{item.isUnpaid}}">待收款</text>
+          </view>
+          <text class="order-id">#{{item.id}}</text>
         </view>
-        <text class="order-id">#{{item.id}}</text>
+        <view class="address-info" wx:if="{{item.addressDetail || item.addressSnapshot}}">
+          <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
+        </view>
+        <view class="product-info">
+          <text class="product-name">{{item.itemSummaryText}}</text>
+          <text class="product-qty" wx:if="{{item.itemMetaText}}">{{item.itemMetaText}}</text>
+        </view>
+        <view class="pay-line">
+          <text class="pay-label {{item.isUnpaid ? 'pay-need' : ''}}">{{item.payLabel}}</text>
+          <text class="pay-amount {{item.isUnpaid ? 'pay-need' : ''}}">{{item.amountText}}</text>
+          <text class="pay-extra" wx:if="{{item.returnBucketQty > 0}}">回桶 {{item.returnBucketQty}} 个</text>
+        </view>
+        <view class="contact-row">
+          <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+        </view>
+        <view class="card-actions">
+          <button class="btn-accept" catchtap="onConfirmCollection" data-id="{{item.id}}">确认收款</button>
+        </view>
       </view>
-      <!-- 字段顺序与下面三张页签一致（§4）：小区/街道与楼栋门牌 → 商品与数量 →
-           「需收 ¥X」→ 联系人 → 主动作。
-           ⚠️ 这一条列表（OrderMapper.listByStationIdAndStatus）**没有下发 addressFloor /
-              addressHasElevator、也没有 itemSummary** —— 楼层行这里本来就不显示，
-              商品行走 js 里的回落分支；两者都不在前端硬凑。 -->
-      <view class="address-info" wx:if="{{item.addressDetail || item.addressSnapshot}}">
-        <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
-      </view>
-      <view class="product-info">
-        <text class="product-name">{{item.itemSummaryText}}</text>
-        <text class="product-qty" wx:if="{{item.itemMetaText}}">{{item.itemMetaText}}</text>
-      </view>
-      <view class="pay-line">
-        <text class="pay-label {{item.isUnpaid ? 'pay-need' : ''}}">{{item.payLabel}}</text>
-        <text class="pay-amount {{item.isUnpaid ? 'pay-need' : ''}}">{{item.amountText}}</text>
-        <text class="pay-extra" wx:if="{{item.returnBucketQty > 0}}">回桶 {{item.returnBucketQty}} 个</text>
-      </view>
-      <view class="contact-row">
-        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
-      </view>
-      <view class="card-actions">
-        <button class="btn-accept" catchtap="onConfirmCollection" data-id="{{item.id}}">确认收款</button>
-      </view>
-    </view>
+    </block>
   </view>
 
   <!--
@@ -244,7 +243,10 @@
         <text class="pay-amount {{item.isUnpaid ? 'pay-need' : ''}}">{{item.amountText}}</text>
       </view>
       <view class="contact-row">
-        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+        <text class="customer-name">{{item.receiverName || item.customerName}}</text>
+        <!-- 2026-10-07：完成卡沿用收件快照拨号，不另读跨站客户档案。 -->
+        <text class="customer-phone" wx:if="{{item.receiverPhone || item.customerPhone}}"
+          catchtap="onCallCustomer" data-phone="{{item.receiverPhone || item.customerPhone}}">{{item.receiverPhone || item.customerPhone}}</text>
       </view>
       <view class="complete-footer">
         <text class="return-barrel" wx:if="{{item.returnBucketQty > 0}}">回桶 {{item.returnBucketQty}} 个</text>
@@ -270,11 +272,12 @@
     <view class="modal-content" catchtap="stopPropagation">
       <text class="modal-title">配送遇到问题</text>
       <text class="modal-desc">先上报问题留痕，再决定这单怎么安排</text>
+      <scroll-view class="modal-scroll" scroll-y>
       <view class="modal-list">
         <view class="modal-item" bindtap="onReportProblem">
           <view class="modal-item-info">
             <text class="modal-item-name">上报配送问题</text>
-            <text class="modal-item-desc">客户不接电话 / 地址找不到 / 客户拒收 / 水桶破损 —— 让站长知道现场发生了什么</text>
+            <text class="modal-item-desc">记录现场问题，通知站长</text>
           </view>
           <text class="modal-item-arrow">›</text>
         </view>
@@ -296,6 +299,7 @@
           <text class="modal-item-arrow">›</text>
         </view>
       </view>
+      </scroll-view>
       <button class="modal-cancel" bindtap="onCloseMediateModal">取消</button>
     </view>
   </view>

@@ -20,4 +20,5 @@ const submitFeedback = (data) => {
   return post(API.FEEDBACK, data)
 }
 
-module.exports = { getMyFeedbacks, getCustomerFeedbacks, submitFeedback }
+const appendRefundNote = data => post(`${API.FEEDBACK}/refund-notes`, data)
+module.exports = { getMyFeedbacks, getCustomerFeedbacks, submitFeedback, appendRefundNote }

@@ -1,0 +1,82 @@
+/* 协议承载页（2026-10-07）：长文阅读优先 —— 大行距、单栏、无装饰 */
+.page {
+  padding: 32rpx 32rpx 64rpx;
+}
+
+/* 占位告示：与 load-error 同族警示形态，正式版替换时整块移除 */
+.doc-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 32rpx;
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  border-left: 6rpx solid var(--warning-color);
+}
+
+.doc-notice-tag {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: var(--warning-color);
+  padding-top: 2rpx;
+}
+
+.doc-notice-text {
+  font-size: 24rpx;
+  color: var(--text-regular);
+  line-height: 1.6;
+}
+
+.doc-head {
+  margin-bottom: 40rpx;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid var(--border-color);
+}
+
+.doc-title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.doc-updated {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+.doc-section {
+  margin-bottom: 36rpx;
+}
+
+.doc-heading {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12rpx;
+}
+
+.doc-body {
+  display: block;
+  font-size: 28rpx;
+  color: var(--text-regular);
+  line-height: 1.8;
+}
+
+.doc-foot {
+  margin-top: 48rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid var(--border-color);
+}
+
+.doc-foot-text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}

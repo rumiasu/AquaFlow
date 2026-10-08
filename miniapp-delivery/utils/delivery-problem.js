@@ -36,34 +36,36 @@ const DELIVERY_PROBLEM_REASONS = [
  */
 function reportDeliveryProblem(orderId, opts) {
   const options = opts || {}
-  wx.showActionSheet({
-    itemList: DELIVERY_PROBLEM_REASONS.map((r) => r.label),
-    success: (res) => {
-      const picked = DELIVERY_PROBLEM_REASONS[res.tapIndex]
-      if (!picked) return
-      wx.showModal({
-        title: '上报配送问题',
-        // 说清后果：会生成一条待站长处置的异常记录；但**不会**把订单转给别人、也不改状态
-        // ——这正是"异常处理"与"转让处理"的分界，配送员得先看懂再点。
-        content: '反馈原因：' + picked.label
-          + '\n\n会记一条异常，站长那边能看到并处置。\n不会把订单转给别人，也不改订单状态。',
-        confirmText: '上报',
-        success: async (modalRes) => {
-          if (!modalRes.confirm) return
-          wx.showLoading({ title: '上报中...' })
-          try {
-            await reportOrder(orderId, { reason: picked.label, reasonKey: picked.key })
-            wx.hideLoading()
-            wx.showToast({ title: '已上报，站长会处置', icon: 'success' })
-            if (typeof options.onDone === 'function') options.onDone()
-          } catch (err) {
-            wx.hideLoading()
-            wx.showToast({ title: (err && err.message) || '上报失败', icon: 'none' })
-          }
-        }
-      })
+  // 默认调用方保持原流程；详情页可提供受页面生命周期保护的弹窗和身份检查。
+  const current = typeof options.isCurrent === 'function' ? options.isCurrent : () => true
+  const dialog = options.dialog || ((config, sheet) => new Promise(resolve => {
+    wx[sheet ? 'showActionSheet' : 'showModal']({ ...config, success: resolve, fail: () => resolve({ confirm: false }) })
+  }))
+  return (async () => {
+    const chosen = await dialog({ itemList: DELIVERY_PROBLEM_REASONS.map(r => r.label) }, true)
+    const picked = DELIVERY_PROBLEM_REASONS[chosen.tapIndex]
+    if (!picked || !current()) return
+    const answer = await dialog({
+      title: '上报配送问题',
+      content: '反馈原因：' + picked.label + '\n\n会记一条异常，站长那边能看到并处置。\n不会把订单转给别人，也不改订单状态。',
+      confirmText: '上报'
+    })
+    if (!answer.confirm || !current()) return
+    const ownedLoading = typeof options.write !== 'function'
+    if (ownedLoading) wx.showLoading({ title: '上报中...', mask: true })
+    try {
+      const operation = () => reportOrder(orderId, { reason: picked.label, reasonKey: picked.key })
+      if (ownedLoading) await operation()
+      else if (!await options.write(operation)) return
+      if (!current()) return
+      wx.showToast({ title: '已上报，站长会处置', icon: 'success' })
+      if (typeof options.onDone === 'function') options.onDone()
+    } catch (err) {
+      if (current()) wx.showToast({ title: (err && err.message) || '上报失败', icon: 'none' })
+    } finally {
+      if (ownedLoading) wx.hideLoading()
     }
-  })
+  })()
 }
 
 module.exports = { DELIVERY_PROBLEM_REASONS, reportDeliveryProblem }

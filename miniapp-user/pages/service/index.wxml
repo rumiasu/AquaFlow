@@ -1,6 +1,6 @@
 <view class="container">
   <!-- 客服信息 -->
-  <view class="service-section">
+  <view class="service-section" wx:if="{{!refundRef}}">
     <view class="service-item">
       <text class="service-label">客服电话</text>
       <view class="service-value-row">
@@ -21,8 +21,21 @@
 
   <!-- 意见反馈表单 -->
   <view class="service-section">
-    <text class="section-title">意见反馈</text>
-    <view class="category-list">
+    <text class="section-title">{{refundRef ? '退款异议与补充说明' : '意见反馈'}}</text>
+    <block wx:if="{{!refundRef}}">
+      <view class="call-btn" bindtap="onShowRefundOptions">关联一笔退款（可选）</view>
+      <picker wx:if="{{refundOptions.length}}" range="{{refundOptions}}" range-key="objectText" bindchange="onSelectRefund">
+        <view class="service-label">选择原款或退押金申请</view>
+      </picker>
+      <text class="load-error" wx:if="{{refundOptionsError}}">{{refundOptionsError}}</text>
+      <view class="service-label" wx:if="{{refundOptionsMore}}" bindtap="onMoreRefundOptions">继续加载更早记录</view>
+    </block>
+    <block wx:else>
+      <text class="service-label">{{refundRef.objectText || '正在核对退款记录'}}</text>
+      <text class="service-label">仅本人和负责这笔退款的水站可查看，需保留身份。说明可不填，也可稍后再补充证据；提交说明不会办理退款或改变金额。</text>
+      <view class="load-error" wx:if="{{refundError}}">{{refundError}} <text bindtap="onRetryRefund">重试</text></view>
+    </block>
+    <view class="category-list" wx:if="{{!refundRef}}">
       <view class="category-item {{category === '配送服务' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="配送服务">
         <text>配送服务</text>
       </view>
@@ -36,7 +49,7 @@
         <text>其他</text>
       </view>
     </view>
-    <textarea class="content-input" placeholder="请描述您遇到的问题或建议..." maxlength="500" value="{{content}}" bindinput="onContentInput" />
+    <textarea class="content-input" placeholder="{{refundRef ? '说明可选，证据可稍后补充' : '请描述您遇到的问题或建议...'}}" maxlength="{{refundRef ? 1000 : 500}}" value="{{content}}" bindinput="onContentInput" />
     <input class="contact-input" placeholder="联系方式（可选）" value="{{contact}}" bindinput="onContactInput" />
 
     <!-- 匿名提交开关（v46）。默认关闭 = 实名（data.anonymous 初值 false）。
@@ -46,7 +59,7 @@
          ⚠️ 本页只负责如实上报用户的选择，**不做任何身份隐藏**：
          站长端拿不到姓名/客户号是后端查询 SQL 层做的（FeedbackMapper）。
          前端隐藏 = 没隐藏（改个 setData 就看见了）。 -->
-    <view class="anonymous-row">
+    <view class="anonymous-row" wx:if="{{!refundRef}}">
       <view class="anonymous-text">
         <text class="anonymous-label">匿名提交</text>
         <text class="anonymous-desc" wx:if="{{anonymous}}">已开启：这条反馈不会带上你的姓名，水站认不出是谁提的，也没法回复你；如果你填了联系方式，水站仍能通过它联系你。</text>
@@ -55,15 +68,17 @@
       <switch checked="{{anonymous}}" bindchange="onAnonymousChange" />
     </view>
 
-    <view class="feedback-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
-      <text>{{submitting ? '提交中...' : '提交反馈'}}</text>
+    <view class="feedback-btn {{submitting || (refundRef && !refundReady) ? 'disabled' : ''}}" bindtap="onSubmit">
+      <text>{{submitting ? '提交中...' : (refundRef ? '提交说明' : '提交反馈')}}</text>
     </view>
+    <view wx:if="{{pendingRefundNote && !submitting}}" class="service-label" bindtap="onRetryOriginalNote">上一条结果待确认，点此重试原说明</view>
   </view>
 
   <!-- 我的反馈历史 -->
   <view class="other-section" wx:if="{{history.length > 0}}">
     <view class="other-item" wx:for="{{history}}" wx:key="id">
       <view class="history-main">
+        <text class="service-label" wx:if="{{item.refundObjectText}}">{{item.refundObjectText}} · {{item.authorText}}</text>
         <text class="history-content">{{item.content}}</text>
         <text class="history-time">{{item.createTime}}</text>
       </view>

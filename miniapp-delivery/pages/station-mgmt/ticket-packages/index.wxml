@@ -4,14 +4,23 @@
 <view class="page">
 
   <view class="card">
-    <view class="card-title">选择商品</view>
+    <view class="card-title">票档位配置</view>
+    <view class="hint">这里设置票价，不是客户持券账或购买记录。</view>
+    <view class="history-link" bindtap="onTicketPurchaseHistory">查看水票购买收款记录 ›</view>
+    <input class="product-search" value="{{productKeyword}}" bindinput="onProductSearch" placeholder="搜索商品名称、品牌或规格" />
+    <view class="hint warning" wx:if="{{productLoadError}}" bindtap="loadProducts">{{productLoadError}} · 点击重试</view>
     <view class="empty" wx:if="{{loading && !products.length}}">加载中…</view>
     <view class="chips">
       <view class="chip {{productId === item.id + '' ? 'chip-on' : ''}} {{item.unified ? 'chip-unified' : ''}}"
-            wx:for="{{products}}" wx:key="id"
-            bindtap="onPickProduct" data-id="{{item.id}}">{{item.name}}</view>
+            wx:for="{{visibleProducts}}" wx:key="id"
+            bindtap="onPickProduct" data-id="{{item.id}}">
+        <image class="product-thumb" wx:if="{{!item.unified && item.imageUrl && !item.imageFailed}}" src="{{item.imageUrl}}" mode="aspectFill" binderror="onProductImageError" data-id="{{item.id}}" />
+        <view class="product-thumb thumb-fallback" wx:elif="{{!item.unified}}">水</view>
+        <view class="product-identity"><text>{{item.name}}</text><text class="product-spec" wx:if="{{item.spec}}">{{item.spec}}</text></view>
+      </view>
     </view>
-    <view class="empty" wx:if="{{products.length <= 1}}">本站还没有上架商品。</view>
+    <view class="empty" wx:if="{{!loading && !productLoadError && products.length <= 1}}">本站还没有上架商品。</view>
+    <view class="empty" wx:if="{{productKeyword && visibleProducts.length === 1 && products.length > 1}}">没有匹配商品，请换个关键词。</view>
     <view class="hint" wx:if="{{productId && !isUnified}}">
       档位是按「本站 + 本商品」挂的。顾客买票时只看到上架的档位；没挂档位就按单张水票价散买。
     </view>
@@ -23,6 +32,8 @@
   </view>
 
   <block wx:if="{{productId}}">
+    <view class="hint">当前：{{productName}} {{productSpec}}</view>
+    <view class="hint warning" wx:if="{{packageLoadError}}" bindtap="loadPackages">{{packageLoadError}} · 点击重试</view>
     <!-- 平台预设档：只给统一折扣用（普通商品的档位是"这款水的价目表"，与站级折扣无关）。
          点一下只填表单、不保存 —— 站长按自己的经营情况改完再存。 -->
     <view class="card" wx:if="{{isUnified}}">
@@ -88,7 +99,7 @@
     <!-- ===== 统一折扣列表 ===== -->
     <view class="card" wx:if="{{isUnified}}">
       <view class="card-title">本站统一折扣档（{{discounts.length}} 个）</view>
-      <view class="empty" wx:if="{{!discounts.length}}">
+      <view class="empty" wx:if="{{!loading && !packageLoadError && !discounts.length}}">
         还没配折扣档 —— 现在本站没有统一折扣，只有自己开了水票的商品能买票。
       </view>
       <view class="row" wx:for="{{discounts}}" wx:key="id">
@@ -115,7 +126,7 @@
     <!-- ===== 某款水的定制档位列表 ===== -->
     <view class="card" wx:if="{{!isUnified}}">
       <view class="card-title">本站该商品的档位（{{packages.length}} 个）</view>
-      <view class="empty" wx:if="{{!packages.length}}">还没挂档位。</view>
+      <view class="empty" wx:if="{{!loading && !packageLoadError && !packages.length}}">还没挂档位。</view>
       <view class="row" wx:for="{{packages}}" wx:key="id">
         <view class="row-main">
           <view class="row-between">

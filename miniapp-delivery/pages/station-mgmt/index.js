@@ -12,25 +12,72 @@
 // 站长会以为"点了没反应=坏了"），必须换 wx.switchTab。
 // 这里集中分流，不要在 wxml 里给某张卡单独绑另一个方法 —— 下一个加卡的人一定会漏。
 const TAB_BAR_PAGES = ['/pages/coordination/index', '/pages/home/index', '/pages/mine/index']
+const { get } = require('../../utils/request')
+const { API } = require('../../config/api')
+const navigation = require('../../utils/navigation')
 
 Page({
+  data: {
+    // [2026-10-06] 关键入口待办角标：应收账款 / 业务待办与退出 / 退桶审批
+    receivablesBadgeCount: null,
+    businessWaitingBadgeCount: null,
+    barrelReturnBadgeCount: null,
+    badgeLoading: false,
+    badgeError: ''
+  },
+
   onShow() {
+    navigation.show(this)
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
       return
     }
+    this.loadBadgeCounts()
+  },
+
+  onHide() { navigation.hide(this) },
+  onUnload() {
+    navigation.dispose(this)
+    this._badgeSeq = (this._badgeSeq || 0) + 1
+  },
+
+  /**
+   * 加载关键入口的待办数量（角标）。
+   * 静默失败是有意的：角标取不到就不显示，不阻断页面渲染。
+   * 复用已有 API，不新增接口。
+   */
+  async loadBadgeCounts() {
+    const seq = this._badgeSeq = (this._badgeSeq || 0) + 1
+    this.setData({ badgeLoading: true, badgeError: '', receivablesBadgeCount: null,
+      businessWaitingBadgeCount: null, barrelReturnBadgeCount: null })
+    try {
+      // 2026-10-06：收款流水、退款对象和 INFO 留痕曾被误作三类待办；只认分类汇总。
+      const res = await get(API.MANAGER_PENDING_SUMMARY)
+      if (seq !== this._badgeSeq) return
+      const data = res.data || {}, items = Array.isArray(data.items) ? data.items : []
+      const validCount = n => Number.isSafeInteger(n) && n >= 0 ? n : null
+      const countOf = key => {
+        const rows = items.filter(it => it.key === key)
+        return rows.length === 1 && rows[0].available === true ? validCount(rows[0].count) : null
+      }
+      const receivables = countOf('overdueReceivable'), returns = countOf('barrelReturn')
+      const business = validCount(data.businessWaitingTotal)
+      this.setData({
+        receivablesBadgeCount: receivables, businessWaitingBadgeCount: business,
+        barrelReturnBadgeCount: returns,
+        badgeError: [receivables, business, returns].includes(null) ? '部分待办数量未核对，点击重试' : ''
+      })
+    } catch (e) {
+      if (seq === this._badgeSeq) this.setData({ badgeError: '待办数量未核对，点击重试' })
+    } finally { if (seq === this._badgeSeq) this.setData({ badgeLoading: false }) }
   },
 
   onNavigate(e) {
     const url = e.currentTarget.dataset.url
     if (!url) return
     if (TAB_BAR_PAGES.indexOf(url) >= 0) {
-      wx.switchTab({
-        url,
-        // switchTab 失败时给一次出声的兜底，别让它静默（本仓多次踩过"点了没反应"）
-        fail: () => wx.showToast({ title: '打开失败，请从底部标签进入', icon: 'none' })
-      })
+      navigation.open(url, { owner: this })
       return
     }
     // ⚠️ 页面栈去重：宫格是**常驻入口**，反复进出同一页（尤其"水站资料"这种办完就回头的页）
@@ -40,11 +87,12 @@ Page({
     const route = url.split('?')[0].replace(/^\//, '')
     const pages = getCurrentPages()
     for (let i = pages.length - 1; i >= 0; i--) {
-      if (pages[i] && pages[i].route === route) {
-        wx.navigateBack({ delta: pages.length - 1 - i })
+      if (!url.includes('?') && pages[i] && pages[i].route === route) {
+        navigation.back(pages.length - 1 - i, { owner: this })
         return
       }
     }
-    wx.navigateTo({ url })
+    // 2026-10-06：栈去重看不到正在打开的页；统一保护连点并给超时重试入口。
+    navigation.open(url, { owner: this })
   }
 })

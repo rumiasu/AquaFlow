@@ -1,0 +1,18 @@
+<!-- 只读草稿：正式审核前保留告示和每节【待补】，不承担同意记录。 -->
+<view class="page">
+  <view class="doc-notice" wx:if="{{doc.notice}}">
+    <text class="doc-notice-tag">占位草稿</text>
+    <text class="doc-notice-text">{{doc.notice}}</text>
+  </view>
+  <view class="doc-head">
+    <text class="doc-title">{{doc.docTitle}}</text>
+    <text class="doc-updated">{{doc.updatedAt}}</text>
+  </view>
+  <view class="doc-section" wx:for="{{doc.sections}}" wx:key="heading">
+    <text class="doc-heading">{{item.heading}}</text>
+    <text class="doc-body">{{item.body}}</text>
+  </view>
+  <view class="doc-foot">
+    <text class="doc-foot-text">阅读本页不会执行登录或记录同意。正式文本与联系渠道待补充并审核。</text>
+  </view>
+</view>

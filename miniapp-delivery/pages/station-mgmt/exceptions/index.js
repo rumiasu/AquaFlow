@@ -55,6 +55,7 @@ Page({
     items: [],
     total: 0,
     loaded: 0,
+    page: 0, size: 50, hasMore: false, listError: '', loadingMore: false,
     stats: null,
 
     // —— 页签 2：处理留痕 ——
@@ -113,6 +114,7 @@ Page({
 
   onTogglePending() {
     this.setData({ onlyPending: !this.data.onlyPending })
+    return this.loadList(true)
   },
 
   onAlertFilter(e) {
@@ -266,25 +268,27 @@ Page({
     }
   },
 
-  async load() {
-    this.setData({ loading: true })
-    const today = new Date()
-    const from = dayText(new Date(today.getTime() - 29 * 24 * 3600 * 1000))
-    const to = dayText(today)
+  onReachBottom() { return this.onLoadMore() },
+  onLoadMore() { return this.loadList(false) },
+  onRetryList() { return this.loadList(this.data.page === 0) },
+  onUnload() { this._listSeq = (this._listSeq || 0) + 1 },
 
-    const [listRes, statsRes, alertsRes] = await Promise.allSettled([
-      // 一次拿 50 条：水站的异常单量级很小（真实库跑了一个多月只有个位数），
-      // 超过时页面会明确提示"只显示了最近 N 条"，不做静默截断。
-      get(EXCEPTIONS, { page: 1, size: 50 }),
-      get(EXCEPTIONS + '/stats', { startDate: from, endDate: to }),
-      getAlerts(200)
-    ])
-
-    const next = { loading: false }
-
-    if (listRes.status === 'fulfilled') {
-      const raw = (listRes.value.data && listRes.value.data.records) || []
-      next.items = raw.map(r => ({
+  async loadList(reset) {
+    if (!reset && (this.data.loading || this.data.loadingMore || !this.data.hasMore)) return
+    const seq = this._listSeq = (this._listSeq || 0) + 1
+    const page = reset ? 1 : this.data.page + 1
+    const query = { page, size: this.data.size }
+    // 2026-10-06：本地过滤最近50条会漏掉旧待办；状态与分页必须交给同一个本站查询。
+    if (this.data.onlyPending) query.status = 'STAFF_RECORDED'
+    this.setData({ loading: !!reset, loadingMore: !reset, listError: '' })
+    if (reset) this.setData({ items: [], total: null, loaded: 0, page: 0, hasMore: false })
+    try {
+      const res = await get(EXCEPTIONS, query)
+      if (seq !== this._listSeq) return
+      const data = res && res.data
+      if (!data || !Array.isArray(data.records) || !Number.isSafeInteger(data.total) || data.total < 0) throw new Error('异常列表尚未核对')
+      const raw = data.records
+      const mapped = raw.map(r => ({
         id: r.id,
         orderId: r.orderId,
         customerId: r.customerId,
@@ -299,15 +303,35 @@ Page({
         suggestText: suggestText(r),
         timeText: dateTimeText(r.createdAt)
       }))
-      next.total = (listRes.value.data && listRes.value.data.total) || raw.length
-      next.loaded = raw.length
-    } else {
-      // 静默失败会让站长以为"本站没有异常"，从而漏掉处置 —— 必须出声
-      next.items = []
-      next.total = 0
-      next.loaded = 0
-      wx.showToast({ title: errText(listRes.reason, '异常列表加载失败'), icon: 'none' })
+      const previous = reset ? [] : this.data.items
+      const ids = new Set(previous.map(it => it.id))
+      const added = mapped.filter(it => !ids.has(it.id) && ids.add(it.id))
+      const items = previous.concat(added)
+      this.setData({ items, total: data.total, loaded: items.length, page,
+        hasMore: raw.length > 0 && page * this.data.size < data.total })
+      if (!reset && raw.length && !added.length) {
+        this.setData({ hasMore: false, listError: '列表暂未更新，请下拉刷新重试' })
+      }
+    } catch (e) {
+      if (seq === this._listSeq) this.setData({ listError: errText(e, '异常列表加载失败，请重试') })
+    } finally {
+      if (seq === this._listSeq) this.setData({ loading: false, loadingMore: false })
     }
+  },
+
+  async load() {
+    this.setData({ loading: true })
+    const today = new Date()
+    const from = dayText(new Date(today.getTime() - 29 * 24 * 3600 * 1000))
+    const to = dayText(today)
+
+    const [listRes, statsRes, alertsRes] = await Promise.allSettled([
+      this.loadList(true),
+      get(EXCEPTIONS + '/stats', { startDate: from, endDate: to }),
+      getAlerts(200)
+    ])
+
+    const next = {}
 
     if (statsRes.status === 'fulfilled') {
       next.stats = statsRes.value.data || null
@@ -373,7 +397,7 @@ function suggestText(r) {
   const parts = []
   if (r.suggestedTicketQty) parts.push('水票 ' + r.suggestedTicketQty + ' 张')
   if (r.suggestedCashAmount && Number(r.suggestedCashAmount) !== 0) {
-    parts.push('现金 ￥' + Number(r.suggestedCashAmount).toFixed(2))
+    parts.push('现金 ¥' + Number(r.suggestedCashAmount).toFixed(2))
   }
   return parts.length ? parts.join(' / ') : ''
 }

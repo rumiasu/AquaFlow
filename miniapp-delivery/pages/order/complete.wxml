@@ -147,10 +147,10 @@
           <text class="barrel-label">收回旧桶 <text class="num-blue">{{item.actual}}</text> 桶</text>
         </view>
 
-        <!-- 差异：异常明细（必填） -->
+        <!-- 实际差额醒目提醒；原因选填，不替现场事实补齐未知原因。 -->
         <view class="discrepancy-section" wx:if="{{item.discrepancy > 0}}">
           <view class="discrepancy-warn">
-            <text>⚠ 少回收 {{item.discrepancy}} 桶</text>
+            <text>⚠ 应回 {{item.expected}} 桶，实回 {{item.actual}} 桶，少回收 {{item.discrepancy}} 桶</text>
           </view>
 
           <view class="reason-list">
@@ -166,11 +166,11 @@
 
           <view class="add-reason-btn" catchtap="onOpenReasonPicker" data-idx="{{idx}}">
             <text class="add-reason-icon">+</text>
-            <text class="add-reason-text">添加异常原因</text>
+            <text class="add-reason-text">添加异常原因（选填）</text>
           </view>
 
           <view class="reason-hint" wx:if="{{item.reasons.length > 0}}">
-            已选 {{item.reasons.length}} 项，共 {{item.reasonQtySum}} 桶（需等于少回收的 {{item.discrepancy}} 桶）
+            已说明 {{item.reasonQtySum}} 桶；未填部分保留差额，不自动补原因
           </view>
         </view>
 
@@ -323,7 +323,7 @@
   <view class="modal-overlay" wx:if="{{showReasonPicker}}" bindtap="onCloseReasonPicker">
     <view class="modal-content" catchtap="stopPropagation">
       <text class="modal-title">选择异常原因</text>
-      <text class="modal-desc">可多选；各项数量之和要等于少回收的桶数（选一项会先预填剩余缺口，可再改）</text>
+      <text class="modal-desc">原因选填，可只记录已知部分；数量合计不超过少回差额（选一项先预填剩余缺口，可再改）</text>
       <view class="modal-list">
         <view class="modal-item {{item.disabled ? 'modal-item-disabled' : ''}}" wx:for="{{reasonOptions}}" wx:key="key"
                catchtap="onSelectReason" data-key="{{item.key}}">

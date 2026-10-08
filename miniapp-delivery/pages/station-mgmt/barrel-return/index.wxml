@@ -1,81 +1,93 @@
 <view class="container">
-  <text wx:if="{{recordId}}">原退桶申请 {{recordId}}</text>
-  <text wx:if="{{loading}}">正在核对申请…</text>
-  <text wx:if="{{loadError}}">{{loadError}}</text>
-  <button wx:if="{{loadError}}" bindtap="onRetry" disabled="{{loading}}">重新核对原申请</button>
-  <!-- 已核销未交付 = 违规数据的只读自查（升级前退过的押金没有交付时间，属历史欠账）。
-       有它才看得见"钱到底给没给"，因此只在计数 > 0 时出现，不占正常页面的位置。 -->
-  <view class="alert-card" wx:if="{{undeliveredCount > 0}}">
-    <text class="alert-title">有 {{undeliveredCount}} 笔押金显示已退，但没有交付记录（¥{{undeliveredAmount}}）</text>
-    <text class="alert-tip">这些多是升级前退的押金：当时系统没有记"钱有没有交到顾客手上"。核对清楚后请逐笔登记。</text>
-    <view class="alert-row" wx:for="{{undelivered}}" wx:key="id">
-      <text class="alert-row-text">客户 ID:{{item.customerId}} · 退桶 {{item.quantity}} 个 · ¥{{item.depositRefund || 0}}</text>
-      <button class="btn-mini" data-id="{{item.id}}" data-amount="{{item.depositRefund || 0}}" bindtap="onConfirmPaid">登记已交付</button>
-    </view>
+  <view class="page-intro">
+    <text class="eyebrow">客户资产 · 退还办理</text>
+    <text class="page-title">退桶审批</text>
+    <text class="page-caption">批准安排、实际交接、退款交付分别核对</text>
+    <text class="source-hint" wx:if="{{recordId}}">原申请 #{{recordId}}</text>
   </view>
+  <view class="read-state" wx:if="{{loading}}"><text>正在核对申请…</text></view>
+  <view class="read-state error" wx:if="{{loadError}}">
+    <text>{{loadError}}</text>
+    <button class="secondary-button" bindtap="onRetry" disabled="{{loading}}">重新核对原申请</button>
+  </view>
+  <view class="read-state error" wx:if="{{actionError && !sheetOpen}}"><text>{{actionError}}</text></view>
 
-  <view class="record-card" wx:for="{{list}}" wx:key="id">
-    <view class="card-header">
-      <text wx:if="{{item.returnDetail}}">{{item.statusText}}</text>
-      <!-- 非退桶流水（纯还桶 / 配送收发）照原样显示它自己的类型文案：
-           它们的 status=3 只是处理标记，写成"已退押金"就是把没发生的事说成发生了 -->
-      <text class="status other" wx:elif="{{!item.isReturn}}">{{item.typeText}}</text>
-      <text class="status pending" wx:elif="{{item.status === 1}}">待审核</text>
-      <text class="status approved" wx:elif="{{item.status === 2}}">已确认</text>
-      <text class="status done" wx:elif="{{item.status === 3}}">已退押金</text>
-      <text class="status rejected" wx:elif="{{item.status === 4}}">已驳回</text>
+  <view class="alert-card" wx:if="{{undeliveredCount > 0}}">
+    <view class="alert-heading" bindtap="onToggleUndelivered">
+      <view class="flex-text"><text class="alert-title">历史押金交付待核实</text><text class="alert-total">{{undeliveredCount}} 笔 · ¥{{undeliveredAmount}}</text></view>
+      <text class="expand-label">{{undeliveredExpanded ? '收起' : '展开'}}</text>
     </view>
-    <view class="info-row">
-      <text>客户：{{item.customerName || 'ID:' + item.customerId}}</text>
-    </view>
-    <view class="info-row" wx:if="{{item.isReturn}}">
-      <text>退桶数量：{{item.quantity}} 个</text>
-      <text>退款押金：¥{{item.depositRefund || 0}}</text>
-    </view>
-    <view class="info-row" wx:else>
-      <text>数量：{{item.quantity}} 个</text>
-    </view>
-    <view class="info-row" wx:if="{{item.createTime}}">
-      <text>申请时间：{{item.createTime}}</text>
-    </view>
-    <view class="info-row" wx:if="{{item.owedQty > 0}}">
-      <text class="warn">该商品欠桶 {{item.owedQty}} 个：需先归还欠桶才能退押金</text>
-    </view>
-    <view class="info-row" wx:elif="{{item.storageQty > 0}}">
-      <text class="tip">该商品有 {{item.storageQty}} 个空桶寄存在水站（多还的桶，不影响退桶）</text>
-    </view>
-    <view class="info-row" wx:if="{{item.delivered}}">
-      <text class="tip">押金交付时间：{{item.refundPaidTime}}</text>
-    </view>
-    <view class="info-row" wx:if="{{item.noDeliveryRecord}}">
-      <text class="warn">这笔押金没有交付记录：请核对钱是否已交给顾客，并补登记</text>
-    </view>
-    <view wx:if="{{recordsReady && !loading && item.returnDetail}}">
-      <text>{{item.returnDetail.pickupModeText}} · 需实际收到 {{item.returnDetail.requiredBarrels}} 个桶 · 取桶费 ¥{{item.returnDetail.pickupFee}}</text>
-      <button wx:if="{{item.returnDetail.status === 'APPLIED'}}" data-id="{{item.id}}" bindtap="onApproveArrangement">批准交接安排</button>
-      <view wx:if="{{item.returnDetail.status === 'APPROVED'}}">
-        <text wx:if="{{!item.returnDetail.customerConfirmedTime}}">等待客户线上确认安排</text>
-        <button wx:if="{{item.returnDetail.customerConfirmedTime && item.returnDetail.feePaymentId && item.returnDetail.feePaymentStatus === 1}}" data-id="{{item.returnDetail.feePaymentId}}" bindtap="onCollectPickupFee">确认实际收到上门费</button>
-        <button wx:if="{{item.returnDetail.customerConfirmedTime}}" data-id="{{item.id}}" bindtap="onApprove">确认实际交接</button>
+    <view wx:if="{{undeliveredExpanded}}">
+      <text class="alert-tip">记录显示已退，但尚无交付登记。核实实际交付后逐笔补登记，勿再次退款。</text>
+      <view class="alert-row" wx:for="{{undelivered}}" wx:key="id">
+        <text class="alert-row-text">客户 ID:{{item.customerId}} · {{item.quantity}} 份 · ¥{{item.depositRefund || 0}}</text>
+        <button class="small-button" data-id="{{item.id}}" bindtap="onConfirmPaid" disabled="{{actionBusy || !recordsReady || loading || recoveryNeeded}}">登记已交付</button>
       </view>
-      <button wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReject">驳回未交接申请</button>
-      <button wx:if="{{item.returnDetail.feePaymentStatus === 2}}" data-id="{{item.returnDetail.feePaymentId}}" bindtap="onRefundPickupFee">单独退收桶服务费</button>
-      <button wx:if="{{item.returnDetail.status === 'RECEIVED'}}" data-id="{{item.id}}" data-amount="{{item.depositRefund}}" bindtap="onRefund">退押金并登记实际交付</button>
-      <text wx:if="{{item.returnDetail.status === 'RECEIVED'}}">退款提醒时间：{{item.returnDetail.refundDueTime}}</text>
-    </view>
-    <view class="card-actions" wx:elif="{{recordsReady && !loading && item.isReturn && item.status === 1}}">
-      <button class="btn-approve" data-id="{{item.id}}" bindtap="onApprove">确认收到</button>
-      <button class="btn-reject" data-id="{{item.id}}" bindtap="onReject">驳回</button>
-    </view>
-    <view class="card-actions" wx:elif="{{recordsReady && !loading && item.isReturn && item.status === 2}}">
-      <button class="btn-approve" data-id="{{item.id}}" data-amount="{{item.depositRefund || 0}}" bindtap="onRefund">退押金并当面交付 ¥{{item.depositRefund || 0}}</button>
-      <button class="btn-reject" data-id="{{item.id}}" bindtap="onReject">驳回</button>
-    </view>
-    <view class="card-actions" wx:elif="{{recordsReady && !loading && item.isReturn && item.status === 3}}">
-      <text class="tip">{{item.confirmedTime}} 确认收桶</text>
     </view>
   </view>
-  <view class="empty" wx:if="{{recordsReady && !loading && list.length === 0}}">
-    <text>暂无退桶记录</text>
+  <view class="read-state error" wx:if="{{undeliveredError}}"><text>{{undeliveredError}}</text><button class="text-button" bindtap="onRetryUndelivered">重新核对历史交付</button></view>
+
+  <view class="record-card {{selectedId === item.id ? 'selected-card' : ''}}" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="onSelectRecord">
+    <view class="card-header">
+      <view class="flex-text"><text class="customer-name">{{item.customerText}}</text><text class="record-number">{{item.isReturn ? '退还申请' : '桶流水'}} #{{item.id}}</text></view>
+      <text class="status {{item.statusTone}}">{{item.isReturn ? (item.statusText || '状态待核实') : item.typeText}}</text>
+    </view>
+    <text class="product-name">{{item.productText}}</text>
+    <view class="summary-row" wx:if="{{item.isReturn}}">
+      <view class="quantity-summary"><text>{{item.quantity}} 份权益</text><text class="muted">{{item.requiredText}}</text></view>
+      <view class="money-summary"><text class="muted">应退押金</text><text class="refund-amount"><text class="currency">¥</text>{{item.amountText}}</text></view>
+    </view>
+    <text class="muted" wx:else>数量 {{item.quantity}} 个</text>
+    <view class="card-foot"><text>{{item.createTime}}</text><text wx:if="{{item.isReturn}}">查看与办理 ›</text></view>
+  </view>
+  <view class="empty" wx:if="{{recordsReady && !loading && list.length === 0}}"><text class="empty-title">暂无退桶记录</text><text>新的申请会显示在这里</text></view>
+</view>
+
+<view class="sheet-mask" wx:if="{{sheetOpen && selected}}" bindtap="onCloseSheet" catchtouchmove="noop">
+  <view class="approval-sheet" catchtap="noop">
+    <view class="sheet-grip"></view>
+    <view class="sheet-heading"><view class="flex-text"><text class="sheet-title">办理退还申请</text><text class="record-number">#{{selected.id}} · {{selected.returnDetail ? '申请制退还' : '历史申请'}}</text></view><button class="close-button" bindtap="onCloseSheet" disabled="{{actionBusy}}" aria-label="关闭办理详情">×</button></view>
+    <scroll-view class="sheet-content" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+      <view class="sheet-summary">
+        <view class="card-header"><text class="customer-name flex-text">{{selected.customerText}}</text><text class="status {{selected.statusTone}}">{{selected.statusText || '状态待核实'}}</text></view>
+        <text class="product-name">{{selected.productText}}</text>
+        <view class="sheet-amount"><text class="muted">应退押金</text><text class="large-amount"><text class="currency">¥</text>{{selected.amountText}}</text></view>
+        <view class="summary-chips"><text>{{selected.quantity}} 份权益</text><text>{{selected.requiredText}}</text></view>
+      </view>
+      <view class="notice error" wx:if="{{loadError}}"><text>{{loadError}}</text><button class="text-button" bindtap="onRetry" disabled="{{loading}}">重新核对原申请</button></view>
+      <view class="arrangement-card" wx:if="{{selected.returnDetail}}">
+        <view class="detail-row"><text class="muted">交接方式</text><text class="detail-value">{{selected.returnDetail.pickupModeText || '方式待核实'}}</text></view>
+        <view class="detail-row" wx:if="{{selected.returnDetail.companionOrderId}}"><text class="muted">随送水订单</text><text>#{{selected.returnDetail.companionOrderId}}</text></view>
+        <view class="detail-row"><text class="muted">独立收桶服务费</text><text>¥{{selected.feeText}} · {{selected.feeStateText}}</text></view>
+        <view class="detail-row" wx:if="{{selected.returnDetail.receivedTime}}"><text class="muted">已实际交桶</text><text>{{selected.returnDetail.receivedBarrels}} 个</text></view>
+        <view class="detail-row" wx:if="{{selected.returnDetail.refundDueTime && selected.needsRefund}}"><text class="muted">退款提醒时间</text><text class="detail-value">{{selected.returnDetail.refundDueTime}}</text></view>
+      </view>
+      <view class="notice warning" wx:if="{{selected.owedQty > 0}}">该商品欠桶 {{selected.owedQty}} 个，请先核实归还记录。</view>
+      <view class="notice" wx:elif="{{selected.storageQty > 0}}">该商品有 {{selected.storageQty}} 个空桶寄存在水站。</view>
+      <view class="notice warning" wx:if="{{selected.noDeliveryRecord}}">这笔押金没有交付登记。请核实钱是否已交给客户，勿再次退款。</view>
+      <view class="timeline">
+        <text class="section-label">办理进度</text>
+        <view class="timeline-step {{step.done ? 'completed' : ''}}" wx:for="{{selected.timeline}}" wx:for-item="step" wx:key="key"><view class="timeline-dot"></view><view class="timeline-copy"><text>{{step.title}}</text><text class="time-label">{{step.time || '尚无登记时间'}}</text></view></view>
+      </view>
+      <view class="note-block" wx:if="{{selected.note}}"><text class="section-label">申请备注</text><text>{{selected.note}}</text></view>
+      <view class="note-block" wx:if="{{selected.handleNote}}"><text class="section-label">办理备注</text><text>{{selected.handleNote}}</text></view>
+      <view class="notice" wx:if="{{selected.needsRefund && eligibilityLoading}}">正在核对原收款方式，请勿提前交付退款。</view>
+      <view class="notice error" wx:if="{{eligibilityError}}"><text>{{eligibilityError}}</text><button class="text-button" bindtap="onRetryEligibility" disabled="{{actionBusy}}">重新核对退款资格</button></view>
+      <view class="notice error" wx:if="{{actionError}}"><text>{{actionError}}</text></view>
+      <view class="notice warning" wx:if="{{selected.rejectNeedsFeeRefund}}">未交接申请若需驳回，请先实际退还已收服务费，再办理驳回。</view>
+    </scroll-view>
+    <view class="sheet-footer">
+      <text class="step-hint">{{recoveryNeeded ? '正在核对原办理结果，请勿再次交款或重复办理。' : loading ? '正在重新核对原申请，请稍候。' : selected.stepHint}}</text>
+      <button class="primary-button" wx:if="{{selected.primaryLabel}}" bindtap="onPrimary" loading="{{actionBusy}}" disabled="{{!selected.primaryAction || actionBusy || eligibilityLoading || !recordsReady || loading || recoveryNeeded}}">{{selected.primaryLabel}}</button>
+      <view class="secondary-actions">
+        <button class="text-button" wx:if="{{selected.needsRefund}}" bindtap="onRetryEligibility" disabled="{{actionBusy || eligibilityLoading || !recordsReady || recoveryNeeded}}">重新核对原款</button>
+        <button class="text-button" wx:if="{{selected.canReject || selected.canRefundFee || selected.rejectNeedsFeeRefund}}" bindtap="onMore" disabled="{{actionBusy || !recordsReady || loading || recoveryNeeded}}">{{showMore ? '收起' : '更多操作 ⋯'}}</button>
+        <button class="text-button" wx:if="{{recoveryNeeded}}" bindtap="onRetry" disabled="{{loading}}">核对原申请结果</button>
+      </view>
+      <view class="more-actions" wx:if="{{showMore}}">
+        <button class="secondary-button" wx:if="{{selected.canRefundFee}}" data-id="{{selected.id}}" bindtap="onRefundPickupFee" disabled="{{actionBusy}}">单独退收桶服务费</button>
+        <button class="reject-button" wx:if="{{selected.canReject}}" data-id="{{selected.id}}" bindtap="onReject" disabled="{{actionBusy}}">驳回{{selected.returnDetail ? '未交接' : '历史'}}申请</button>
+      </view>
+    </view>
   </view>
 </view>

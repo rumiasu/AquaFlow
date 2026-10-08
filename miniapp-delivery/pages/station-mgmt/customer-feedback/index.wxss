@@ -53,6 +53,9 @@
   white-space: pre-wrap;
 }
 
+.refund-note-form { margin-top: 20rpx; padding-top: 20rpx; border-top: 1rpx solid var(--border-light); }
+.refund-note-form textarea { width: 100%; box-sizing: border-box; min-height: 140rpx; margin: 16rpx 0; padding: 16rpx; font-size: 26rpx; background: var(--bg-color); }
+
 .card-foot {
   margin-top: 16rpx;
   display: flex;
@@ -73,7 +76,7 @@
   display: block;
   margin-top: 16rpx;
   font-size: 26rpx;
-  color: #d32f2f;
+  color: var(--error-color);
   line-height: 1.6;
   word-break: break-all;
 }

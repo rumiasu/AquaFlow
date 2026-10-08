@@ -18,6 +18,7 @@
     "pages/service/index",
     "pages/mine/about",
     "pages/mine/edit",
+    "pages/mine/agreement/index",
     "pages/payment/records",
     "pages/deposit/records/index",
     "pages/notice/index",

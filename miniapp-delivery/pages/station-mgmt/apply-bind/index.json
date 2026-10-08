@@ -1,4 +1,5 @@
 {
   "navigationBarTitleText": "申请绑定水站",
-  "navigationStyle": "default"
+  "navigationStyle": "default",
+  "enablePullDownRefresh": true
 }

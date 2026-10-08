@@ -1,4 +1,4 @@
-<!-- 我的 · Step6 重构（2026-09-12）：钱包与桶四格卡 + 三组菜单
+<!-- 我的 · Step6 重构（2026-09-12）：押金/水票/桶三项卡 + 三组菜单
      原则：回答「我有什么」，不陈列「本 App 还有什么功能」；措辞务实，不玩商务黑话。 -->
 <view class="page">
   <!-- 用户行 -->
@@ -6,43 +6,34 @@
     <image class="avatar" src="{{isLogin && userInfo.avatarUrl ? userInfo.avatarUrl : '/assets/image/default-avatar.png'}}" mode="aspectFill" />
     <view class="user-info">
       <text class="nickname">{{isLogin ? (userInfo.nickName || userInfo.nickname || '用户') : '点击登录'}}</text>
-      <text class="user-tag" wx:if="{{isLogin}}">普通用户{{statsText ? ' · ' + statsText : ''}}</text>
+      <text class="user-tag" wx:if="{{isLogin}}">普通用户</text>
     </view>
     <text class="row-arrow">›</text>
   </view>
 
   <block wx:if="{{isLogin}}">
-    <!--
-      钱包与桶：余额/押金/水票/我的桶 四格同框，每格可点。
-      [2026-09-27 走查 C05 修] 每一格都有自己的加载态：`*Loaded=false` 时显示「暂未加载」
-      并给一个整卡可点的「重试」，**不再把没拉到的项画成 0**（0 与"没加载出来"是两种事实，
-      客户分不清就会以为押金/水票丢了）。文案与状态全部由 js 的 assetsView 算好。
-      [2026-09-27 走查 C06 修] 第四格原文写的是「水桶权益」，而它渲染的是 `summary.heldBuckets`
-      = **持有**（权益 + 配送中，见 docs/architecture/02-领域模型.md §4）：配送中的桶既不能抵扣、
-      也不能退，叫"权益"会让客户以为在途的桶已经可以退/可以抵扣。改成中性的「我的桶」，
-      入口进到明细页看"已到手 / 配送中"的拆分。
-    -->
+    <!-- 2026-10-07 #10：只展示真实押金账户、水票余量和桶汇总；未加载与真实 0 分开。
+         桶卡保持中性「我的桶」：新路径读 E+over，历史汇总含配送中，说明由 js 区分。 -->
     <view class="card assets-card">
       <view class="assets-head">
-        <text class="assets-title">我的钱包与桶</text>
+        <text class="assets-title">押金 · 水票 · 桶</text>
         <text class="assets-station" wx:if="{{stationName}}">{{stationName}}</text>
       </view>
       <view class="assets-grid">
-        <view class="asset-cell" data-url="/pages/payment/records" bindtap="onMenuTap">
-          <text class="asset-value {{balanceLoaded ? '' : 'asset-value-unloaded'}}">{{balanceLoaded ? '¥' + balanceText : balanceText}}</text>
-          <text class="asset-label">余额 ›</text>
-        </view>
-        <view class="asset-cell" data-url="/pages/barrel/index" bindtap="onMenuTap">
+        <view class="asset-cell" data-url="/pages/deposit/records/index" bindtap="onMenuTap">
           <text class="asset-value {{depositLoaded ? '' : 'asset-value-unloaded'}}">{{depositLoaded ? '¥' + depositText : depositText}}</text>
-          <text class="asset-label">押金 ›</text>
+          <text class="asset-label">押金余额 ›</text>
+          <text class="asset-hint">查看增减流水</text>
         </view>
         <view class="asset-cell" data-url="/pages/ticket/index" bindtap="onMenuTap">
           <text class="asset-value {{ticketLoaded ? '' : 'asset-value-unloaded'}}">{{ticketText}}<text class="asset-unit" wx:if="{{ticketLoaded}}"> 张</text></text>
           <text class="asset-label">水票 ›</text>
+          <text class="asset-hint">剩余可用张数</text>
         </view>
         <view class="asset-cell" data-url="/pages/barrel/index" bindtap="onMenuTap">
           <text class="asset-value {{barrelLoaded ? '' : 'asset-value-unloaded'}}">{{barrelText}}<text class="asset-unit" wx:if="{{barrelLoaded}}"> 个</text></text>
           <text class="asset-label">我的桶 ›</text>
+          <text class="asset-hint" wx:if="{{barrelLoaded}}">{{barrelHint}}</text>
         </view>
       </view>
       <!-- 有格子没加载出来时的显式提示 + 重试（toast 会消失，这一条不会） -->
@@ -64,7 +55,7 @@
         <text class="menu-name">账单记录</text>
         <text class="row-arrow">›</text>
       </view>
-      <!-- 押金流水：上面四格卡里的「押金」只回答"现在多少"，这一页回答"为什么变" -->
+      <!-- 押金流水：上面三项卡里的「押金」只回答"现在多少"，这一页回答"为什么变" -->
       <view class="menu-row" data-url="/pages/deposit/records/index" bindtap="onMenuTap">
         <text class="menu-name">押金流水</text>
         <text class="menu-desc">押金的每一笔增减</text>

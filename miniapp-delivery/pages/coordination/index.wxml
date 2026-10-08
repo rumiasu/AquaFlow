@@ -1,4 +1,5 @@
 <import src="../../templates/station-navbar.wxml" />
+<page-meta page-style="{{showGuide || showAssignModal ? 'overflow: hidden;' : ''}}" />
 
 <view class="container custom-tabbar-page">
   <!--
@@ -17,6 +18,7 @@
   </view>
 
   <view wx:else>
+    <view class="guide-entry" bindtap="onOpenGuide">使用帮助 ›</view>
     <!--
       数据没加载出来的提示（空串时不渲染）。[2026-09-20 真机联调] 原来任一接口失败都会让
       **整页**数据不落地，而下面四个页签照旧渲染成「暂无待分配 / 暂无抢单池…」—— 与"确实没有单"
@@ -83,7 +85,7 @@
               bindtap="onTodoTap" data-key="{{item.key}}">
           <text class="todo-count">{{item.count}}</text>
           <text class="todo-label">{{item.label}}</text>
-          <text class="todo-amount" wx:if="{{item.amountText}}">￥{{item.amountText}}</text>
+          <text class="todo-amount" wx:if="{{item.amountText}}">¥{{item.amountText}}</text>
         </view>
       </view>
     </view>
@@ -209,7 +211,7 @@
         <view class="order-card" wx:for="{{lists.approvalStation}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
           <view class="card-header">
             <view class="tag-row">
-              <text class="status-tag status-transfer">转单中</text>
+              <text class="status-tag status-transfer">{{item.transferPendingSubKind === 'TRANSFER' ? '待同事接手' : (item.transferPendingSubKind === 'RETURN_STATION' ? '退回站长待审批' : (item.transferPendingSubKind === 'CANCEL_REQUEST' ? '取消待审批' : '申请待处理'))}}</text>
             </view>
             <text class="order-id">#{{item.id}}</text>
           </view>
@@ -226,10 +228,18 @@
             <text class="info-label">地址</text>
             <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
           </view>
-          <view class="card-actions">
-            <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind === 'DIRECTED' ? 'directed' : 'staff'}}">同意</button>
-            <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind === 'DIRECTED' ? 'directed' : 'staff'}}">拒绝</button>
+          <view class="card-actions" wx:if="{{item.approvalAction === 'return'}}">
+            <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="staff">同意退回</button>
+            <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="staff">拒绝退回</button>
           </view>
+          <view class="card-actions" wx:elif="{{item.approvalAction === 'transfer'}}">
+            <button class="btn-outline-small" catchtap="onCancelTransferRow" data-id="{{item.id}}">撤回转让</button>
+          </view>
+          <view class="card-actions" wx:elif="{{item.approvalAction === 'cancel'}}">
+            <button class="btn-danger-small" catchtap="onApproveCancel" data-id="{{item.id}}">同意取消</button>
+            <button class="btn-outline-small" catchtap="onRejectCancel" data-id="{{item.id}}">拒绝取消</button>
+          </view>
+          <view class="section-caption" wx:else>请打开订单查看申请</view>
         </view>
         <view class="empty" wx:if="{{lists.approvalStation.length === 0}}">
           <text>暂无站内待审批申请</text>
@@ -239,6 +249,11 @@
 
     <!-- 抢单池：其他水站外派的救援订单 -->
     <view class="list" wx:elif="{{activeTab === 'pool'}}">
+      <view class="sub-tab-bar">
+        <view class="sub-tab-item {{acceptTab === 'pool' ? 'active' : ''}}" bindtap="switchAcceptTab" data-tab="pool">公开可抢 <text class="tab-count" wx:if="{{lists.pool.length}}">{{lists.pool.length}}</text></view>
+        <view class="sub-tab-item {{acceptTab === 'directed' ? 'active' : ''}}" bindtap="switchAcceptTab" data-tab="directed">指定给本站 <text class="tab-count" wx:if="{{lists.directedIncoming.length}}">{{lists.directedIncoming.length}}</text></view>
+      </view>
+      <block wx:if="{{acceptTab === 'pool'}}">
       <view class="order-card pool-card" wx:for="{{lists.pool}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
         <view class="card-header">
           <view class="tag-row">
@@ -259,11 +274,11 @@
         <view class="fee-box">
           <view class="fee-row-main">
             <text class="fee-label">本单金额</text>
-            <text class="fee-amount">￥{{item.totalAmountText}}</text>
+            <text class="fee-amount">¥{{item.totalAmountText}}</text>
           </view>
           <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
-            <text class="fee-detail-item">含配送费 ￥{{item.deliveryFeeText}}</text>
-            <text class="fee-detail-item">楼层费 ￥{{item.floorFeeText}}</text>
+            <text class="fee-detail-item">含配送费 ¥{{item.deliveryFeeText}}</text>
+            <text class="fee-detail-item">楼层费 ¥{{item.floorFeeText}}</text>
           </view>
           <view class="fee-source" wx:if="{{item.feeStationName}}">
             <text class="fee-source-label">定价来自</text>
@@ -315,6 +330,115 @@
       <view class="empty" wx:if="{{lists.pool.length === 0}}">
         <text>暂无可抢单订单</text>
       </view>
+      </block>
+      <block wx:else>
+        <view class="section-caption">指定给本站 · 待接受</view>
+        <view class="order-card dispatch-card incoming-card" wx:for="{{lists.directedIncoming}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+          <view class="card-header">
+            <view class="tag-row">
+              <!-- 入站任务；本站派出订单只在外派页签展示 -->
+              <text class="status-tag status-incoming">指定给本站</text>
+              <text class="dispatch-status-tag" wx:if="{{item.statusText}}">{{item.statusText}}</text>
+            </view>
+            <text class="order-id">#{{item.id}}</text>
+          </view>
+          <!-- 别站指定本店的：与抢单池同一口径，接不接这一单同样要先看到钱与去向（金额全由后端下发） -->
+          <view class="risk-box" wx:if="{{item.dispatchAgreement && item.dispatchAgreement.serviceAmount !== undefined}}">
+            <text>本单服务报酬 ¥{{item.dispatchAgreement.serviceAmount}}（含配送费用）</text>
+            <text>{{item.dispatchAgreement.barrelNote}}；桶折款 ¥{{item.dispatchAgreement.barrelAmount}}；接受后固定</text>
+          </view>
+          <view class="fee-box">
+            <view class="fee-row-main">
+              <text class="fee-label">本单金额</text>
+              <text class="fee-amount">¥{{item.totalAmountText}}</text>
+            </view>
+            <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
+              <text class="fee-detail-item">含配送费 ¥{{item.deliveryFeeText}}</text>
+              <text class="fee-detail-item">楼层费 ¥{{item.floorFeeText}}</text>
+            </view>
+            <view class="fee-source" wx:if="{{item.feeStationName}}">
+              <text class="fee-source-label">定价来自</text>
+              <text class="fee-source-name">{{item.feeStationName}}</text>
+            </view>
+            <view class="fee-settle" wx:if="{{item.settleNote}}">{{item.settleNote}}</view>
+          </view>
+          <view class="info-row">
+            <text class="info-label">客户</text>
+            <text class="info-value">{{item.customerName || item.receiverName}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">商品</text>
+            <text class="info-value">{{item.goodsText}}</text>
+          </view>
+          <view class="info-row info-address">
+            <text class="info-label">地址</text>
+            <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
+          </view>
+          <view class="dispatch-info" wx:if="{{item.feeStationName}}">
+            <view class="dispatch-row">
+              <text class="dispatch-label">指定方</text>
+              <text class="dispatch-value">{{item.feeStationName}}</text>
+            </view>
+          </view>
+          <view class="card-actions">
+            <button class="btn-primary-small" catchtap="onShowAssign" data-id="{{item.id}}" wx:if="{{item.status === 1}}">接受并分配</button>
+            <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}" wx:if="{{item.status === 1 || item.status === 2}}">退回原水站</button>
+          </view>
+        </view>
+        <view class="empty" wx:if="{{lists.directedIncoming.length === 0}}">暂无指定给本站的待接受任务</view>
+        <view class="section-caption" wx:if="{{lists.directedAccepted.length}}">已接受 · 配送进度</view>
+        <view class="order-card dispatch-card incoming-card" wx:for="{{lists.directedAccepted}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+          <view class="card-header">
+            <view class="tag-row">
+              <!-- 入站任务；本站派出订单只在外派页签展示 -->
+              <text class="status-tag status-incoming">已接受</text>
+              <text class="dispatch-status-tag" wx:if="{{item.statusText}}">{{item.statusText}}</text>
+            </view>
+            <text class="order-id">#{{item.id}}</text>
+          </view>
+          <!-- 别站指定本店的：与抢单池同一口径，接不接这一单同样要先看到钱与去向（金额全由后端下发） -->
+          <view class="risk-box" wx:if="{{item.dispatchAgreement && item.dispatchAgreement.serviceAmount !== undefined}}">
+            <text>本单服务报酬 ¥{{item.dispatchAgreement.serviceAmount}}（含配送费用）</text>
+            <text>{{item.dispatchAgreement.barrelNote}}；桶折款 ¥{{item.dispatchAgreement.barrelAmount}}；接受后固定</text>
+          </view>
+          <view class="fee-box">
+            <view class="fee-row-main">
+              <text class="fee-label">本单金额</text>
+              <text class="fee-amount">¥{{item.totalAmountText}}</text>
+            </view>
+            <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
+              <text class="fee-detail-item">含配送费 ¥{{item.deliveryFeeText}}</text>
+              <text class="fee-detail-item">楼层费 ¥{{item.floorFeeText}}</text>
+            </view>
+            <view class="fee-source" wx:if="{{item.feeStationName}}">
+              <text class="fee-source-label">定价来自</text>
+              <text class="fee-source-name">{{item.feeStationName}}</text>
+            </view>
+            <view class="fee-settle" wx:if="{{item.settleNote}}">{{item.settleNote}}</view>
+          </view>
+          <view class="info-row">
+            <text class="info-label">客户</text>
+            <text class="info-value">{{item.customerName || item.receiverName}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">商品</text>
+            <text class="info-value">{{item.goodsText}}</text>
+          </view>
+          <view class="info-row info-address">
+            <text class="info-label">地址</text>
+            <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
+          </view>
+          <view class="dispatch-info" wx:if="{{item.feeStationName}}">
+            <view class="dispatch-row">
+              <text class="dispatch-label">指定方</text>
+              <text class="dispatch-value">{{item.feeStationName}}</text>
+            </view>
+          </view>
+          <view class="card-actions" wx:if="{{item.status === 1 || item.status === 2}}">
+            <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}">退回原水站</button>
+          </view>
+        </view>
+      </block>
     </view>
 
     <!--
@@ -417,11 +541,11 @@
           <view class="fee-box" wx:if="{{item._dir === 'in'}}">
             <view class="fee-row-main">
               <text class="fee-label">本单金额</text>
-              <text class="fee-amount">￥{{item.totalAmountText}}</text>
+              <text class="fee-amount">¥{{item.totalAmountText}}</text>
             </view>
             <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
-              <text class="fee-detail-item">含配送费 ￥{{item.deliveryFeeText}}</text>
-              <text class="fee-detail-item">楼层费 ￥{{item.floorFeeText}}</text>
+              <text class="fee-detail-item">含配送费 ¥{{item.deliveryFeeText}}</text>
+              <text class="fee-detail-item">楼层费 ¥{{item.floorFeeText}}</text>
             </view>
             <view class="fee-source" wx:if="{{item.feeStationName}}">
               <text class="fee-source-label">定价来自</text>
@@ -471,7 +595,7 @@
               动作、端点、判据**全不变**：仍是 index.js 的 onMediateReturn → POST /api/orders/{id}/directed-return
               （只打「指定退回待确认」标记，等原站长同意/拒绝）。
             -->
-            <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}">退回原水站</button>
+            <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}" wx:if="{{item.status === 1 || item.status === 2}}">退回原水站</button>
           </view>
           <view class="card-actions" wx:else>
             <button class="btn-danger-small" catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">取消外派</button>
@@ -486,11 +610,17 @@
 
   </view>
 
+</view>
+
+<!-- 根层遮罩拦背景，内容让出不可交互区域；弹窗期间本页底栏暂隐，保留按钮原尺寸。 -->
+<root-portal enable="{{true}}">
+
   <!-- 分配弹窗 -->
-  <view class="modal-overlay" wx:if="{{showAssignModal}}" bindtap="onCloseModal">
+  <view class="modal-overlay" wx:if="{{showAssignModal}}" style="padding-bottom: {{modalBottomInset}}px;">
+    <view class="modal-backdrop" catchtap="onCloseModal" catchtouchmove="stopPropagation"></view>
     <view class="modal-content" catchtap="stopPropagation">
       <text class="modal-title">选择配送员</text>
-      <view class="modal-list">
+      <scroll-view class="modal-list" scroll-y>
         <view class="modal-item" wx:for="{{staffList}}" wx:key="id" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onConfirmAssign">
           <view class="modal-item-info">
             <text class="modal-item-name">{{item.name}}</text>
@@ -504,11 +634,26 @@
           把后者说成前者 —— 站长会真的去建员工（人早就在库里）。见 onClaimPool 的同一判据。
         -->
         <view class="modal-empty" wx:if="{{staffList.length === 0}}">
-          <text wx:if="{{staffListError}}">配送员名单没加载出来（{{staffListError}}），不代表本站没有配送员；请切到「配送」页再切回来重试</text>
+          <text wx:if="{{staffListError}}">名单加载失败：{{staffListError}}。关闭后下拉重试</text>
           <text wx:else>暂无配送员，请先添加配送员</text>
         </view>
-      </view>
+      </scroll-view>
       <button class="modal-cancel" bindtap="onCloseModal">取消</button>
     </view>
   </view>
-</view>
+
+  <view class="modal-overlay" wx:if="{{showGuide}}" style="padding-bottom: {{modalBottomInset}}px;">
+    <view class="modal-backdrop" catchtap="onCloseGuide" catchtouchmove="stopPropagation"></view>
+    <view class="modal-content guide-content" catchtap="stopPropagation">
+      <text class="modal-title">调度怎么用</text>
+      <scroll-view class="modal-list" scroll-y>
+        <view class="guide-step">待分配：安排本站配送员，或把本单外派。</view>
+        <view class="guide-step">接单：公开订单可抢；指定给本站的任务单独接受并分配。</view>
+        <view class="guide-step">外派：只跟踪本站派出的订单。被接手后由接单站负责履约。</view>
+        <view class="guide-step">审批：退回、取消各走对应入口；同事转让由当事人接手、拒绝或撤回，不占本站审批。</view>
+        <view class="guide-step">接单前查看报酬、桶折款和结算去向；押金风险需双方确认。</view>
+      </scroll-view>
+      <button class="modal-cancel" bindtap="onCloseGuide">跳过 / 知道了</button>
+    </view>
+  </view>
+</root-portal>

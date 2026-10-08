@@ -7,9 +7,10 @@
 
   <block wx:else>
     <view class="banner warn" wx:if="{{missingCustomer}}">
-      <text>缺少客户：本页需从客户详情页或调整单列表（带 customerId）进入，否则无法创建调整单。</text>
+      <text>请先搜索并选择本站客户，再填写调整信息。</text>
     </view>
 
+    <include src="../../../../../utils/adjustment-customer.wxml" />
     <!-- ============ 表单 ============ -->
     <view class="card">
       <view class="card-title">调整信息</view>

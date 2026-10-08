@@ -29,7 +29,7 @@
 /* 结果不是"成功"时（已取消 / 已退款 / 没查到 / 还没付款）换暖色，
    避免"绿勾 + 尽快配送"的视觉暗示与真实状态相反（契约 A3） */
 .success-circle.warn {
-  background: #F59E0B;
+  background: var(--warning-color);
   box-shadow: 0 12rpx 40rpx rgba(245, 158, 11, 0.3);
 }
 
@@ -142,7 +142,7 @@
   width: 72rpx;
   height: 72rpx;
   border-radius: 50%;
-  background: #f59e0b;
+  background: var(--warning-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -238,7 +238,7 @@
 }
 
 .action-icon-wrap.secondary {
-  background: #f97316;
+  background: var(--warning-color);
   box-shadow: 0 6rpx 20rpx rgba(249, 115, 22, 0.3);
 }
 
@@ -285,7 +285,7 @@
 .pay-btn {
   width: 100%;
   height: 96rpx;
-  background: #f59e0b;
+  background: var(--warning-color);
   border-radius: 48rpx;
   display: flex;
   align-items: center;
@@ -306,6 +306,6 @@
 
 /* 「重试查一次」（加载失败时）：与去支付按钮同形，但语义是"重新读一次"，不是付款 */
 .pay-btn.retry {
-  background: #64748B;
+  background: var(--text-secondary);
   box-shadow: 0 6rpx 24rpx rgba(100, 116, 139, 0.3);
 }

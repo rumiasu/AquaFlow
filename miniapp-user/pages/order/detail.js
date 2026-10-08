@@ -2,18 +2,23 @@ const { getOrderDetail, cancelOrder } = require('../../api/order')
 const { createPayment } = require('../../api/order')
 const { getOrderImages } = require('../../api/orderImage')
 const { getProductDetail } = require('../../api/product')
-const { getCustomerId } = require('../../utils/token')
+const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { notifyPayResult } = require('../../utils/pay')
 const { getStationPublicPhone } = require('../../api/station')
+const { itemUnit } = require('../../utils/order-item-view')
+const { cancelView, cancelResultText } = require('../../utils/customer-cancel-view')
 
 Page({
   data: {
+    detailState: 'loading',
+    loadError: '',
     order: null,
     items: [],
     statusText: '',
     payStatusText: '',
     payStatusClass: '',
     canCancel: false,
+    cancelLabel: '',
     canRepay: false,
     repayLabel: '去支付',
     payHint: '',
@@ -21,31 +26,69 @@ Page({
     // 只拨本单服务水站公开电话；不暴露员工通讯录或客户档案。
     callPhone: '',
     images: [],
+    imagesState: 'idle',
+    imagesError: '',
     bucketInfo: null
   },
 
-  onLoad(options) {
-    if (options.id) {
-      this.loadOrder(options.id)
-      this.loadImages(options.id)
+  onLoad(options = {}) {
+    this._destroyed = false
+    this._orderId = options.id || null
+    if (this._orderId) return this.loadOrder(this._orderId)
+    this.clearDetail('notfound', '未提供订单编号')
+  },
+
+  onShow() {
+    if (this._detailContext && !isCurrentSession(this._detailContext.session)) {
+      this._detailSeq = (this._detailSeq || 0) + 1
+      this.clearDetail('error', '登录状态已变化，请重新加载')
     }
   },
 
-  onPullDownRefresh() {
-    if (this.data.order) {
-      this.loadOrder(this.data.order.id).then(() => {
-        this.loadImages(this.data.order.id)
-        wx.stopPullDownRefresh()
-      })
-    } else {
+  onUnload() {
+    this._destroyed = true
+    this._detailSeq = (this._detailSeq || 0) + 1
+  },
+
+  async onPullDownRefresh() {
+    try {
+      if (this._orderId) await this.loadOrder(this._orderId)
+    } finally {
       wx.stopPullDownRefresh()
     }
   },
 
+  onRetry() {
+    if (this._orderId) return this.loadOrder(this._orderId)
+  },
+
+  clearDetail(detailState, loadError = '') {
+    this.setData({ detailState, loadError, order: null, items: [], images: [],
+      imagesState: 'idle', imagesError: '', callPhone: '', bucketInfo: null, fee: null,
+      canCancel: false, cancelLabel: '', canRepay: false, statusText: '', payStatusText: '', payHint: '',
+      deliveredAwaitingCollection: false, legacyNoteUnavailable: false })
+  },
+
+  isDetailCurrent(context) {
+    return !!context && !this._destroyed && context.seq === this._detailSeq
+      && String(context.id) === String(this._orderId) && isCurrentSession(context.session)
+  },
+
   async loadOrder(id) {
+    if (this._destroyed) return
+    this._orderId = id
+    const context = { id, seq: this._detailSeq = (this._detailSeq || 0) + 1, session: captureSession() }
+    this._detailContext = context
+    this.clearDetail('loading')
     try {
       const res = await getOrderDetail(id)
-      const order = res.data || res
+      if (!this.isDetailCurrent(context)) return
+      const order = res && Object.prototype.hasOwnProperty.call(res, 'data') ? res.data : res
+      if (!order || !order.id) {
+        this.clearDetail('notfound', '订单不存在')
+        return
+      }
+      if (String(order.id) !== String(id)) throw new Error('订单信息不匹配，请重新加载')
 
       let items = []
       if (order.items && order.items.length > 0) {
@@ -54,6 +97,7 @@ Page({
           productName: it.productNameSnapshot || it.productName || it.waterTypeName || '',
           productSpec: it.specSnapshot || it.productSpec || it.waterTypeSpec || '',
           quantity: it.quantity || order.quantity || 1,
+          quantityUnit: itemUnit(it),
           price: it.price || it.productPrice || 0,
           imageUrl: ''
         }))
@@ -63,6 +107,7 @@ Page({
           productName: order.productNameSnapshot || order.productName || order.waterTypeName || '',
           productSpec: order.specSnapshot || order.productSpec || order.waterTypeSpec || '',
           quantity: order.quantity || 1,
+          quantityUnit: itemUnit(order),
           price: order.price || 0,
           imageUrl: ''
         }]
@@ -86,7 +131,9 @@ Page({
         REFUNDED: 'default', CANCELLED: 'default'
       }
       const payStatusClass = payClassMap[order.payState] || 'default'
-      const canCancel = !!order.canCancel
+      const cancel = cancelView(order)
+      const canCancel = cancel.canCancel
+      const cancelLabel = cancel.label
       const canRepay = !!order.canRepay
       const repayLabel = order.repayLabel || '去支付'
       // 仅调整已送达现金单的展示；后端支付终态与按钮权限仍照原值使用。
@@ -112,40 +159,50 @@ Page({
         hasFloorFee: Number(order.floorFee || 0) > 0
       }
 
-      this.setData({ order, items, statusText, payStatusText, payStatusClass, canCancel, canRepay, repayLabel, payHint, deliveredAwaitingCollection, bucketInfo, fee, callPhone: '', legacyNoteUnavailable: !order.customerNote && !!order.specialNote })
-      this.loadCallableStationPhone(order)
-
-      this.loadItemImages(items)
+      this.setData({ detailState: 'ready', loadError: '', order, items, statusText, payStatusText, payStatusClass, canCancel, cancelLabel, canRepay, repayLabel, payHint, deliveredAwaitingCollection, bucketInfo, fee, callPhone: '', legacyNoteUnavailable: !order.customerNote && !!order.specialNote })
+      await Promise.allSettled([
+        this.loadCallableStationPhone(order, context),
+        this.loadItemImages(items, context, this.stationIdOfOrder),
+        this.loadImages(id, context)
+      ])
     } catch (err) {
-      wx.showToast({ title: err.message || '加载失败', icon: 'none' })
+      if (!this.isDetailCurrent(context)) return
+      const message = err.message || '订单暂时无法加载，请重试'
+      // OrderController.getById 对不存在的订单返回这一精确业务错误；权限错误另行显示。
+      this.clearDetail(message === '订单不存在' ? 'notfound' : 'error', message)
+    } finally {
+      if (!this._destroyed && context.seq === this._detailSeq && !isCurrentSession(context.session)) {
+        this.clearDetail('error', '登录状态已变化，请重新加载')
+      }
     }
   },
 
-  async loadItemImages(items) {
+  async loadItemImages(items, context = this._detailContext, stationId = this.stationIdOfOrder) {
     const ids = items.map(i => i.productId).filter(Boolean)
     if (ids.length === 0) return
     for (const pid of ids) {
+      if (!this.isDetailCurrent(context)) return
       try {
-        const res = await getProductDetail(pid, this.stationIdOfOrder)
+        const res = await getProductDetail(pid, stationId)
+        if (!this.isDetailCurrent(context)) return
         if (res && res.data && res.data.imageUrl) {
           const idx = this.data.items.findIndex(i => i.productId === pid)
           if (idx >= 0) {
-            this.setData({ [`items[${idx}].imageUrl`]: res.data.imageUrl })
+            this.setData({ items: this.data.items.map((item, index) => index === idx ? { ...item, imageUrl: res.data.imageUrl } : item) })
           }
         }
       } catch (e) { /* ignore */ }
     }
   },
 
-  async loadCallableStationPhone(order) {
+  async loadCallableStationPhone(order, context = this._detailContext) {
     // 已接单后联系履约站；未接单时联系归属站。使用公开电话端点，不读取员工电话。
     const stationId = order && (order.deliveryStationId || order.stationId)
     if (!stationId) return
     try {
       const res = await getStationPublicPhone(stationId)
       const data = res && (res.data || res)
-      const current = this.data.order
-      if (current && String(current.id) === String(order.id)) {
+      if (this.isDetailCurrent(context)) {
         this.setData({ callPhone: data && data.phone ? String(data.phone) : '' })
       }
     } catch (_) {
@@ -163,17 +220,44 @@ Page({
     wx.makePhoneCall({ phoneNumber: phone })
   },
 
-  loadImages(id) {
-    return getOrderImages(id).then(res => {
-      this.setData({ images: res.data || [] })
-    }).catch(() => {
-      this.setData({ images: [] })
-    })
+  async loadImages(id, context = this._detailContext) {
+    if (!this.isDetailCurrent(context)) return
+    const seq = this._imagesSeq = (this._imagesSeq || 0) + 1
+    const current = () => this.isDetailCurrent(context) && seq === this._imagesSeq
+    this.setData({ imagesState: 'loading', imagesError: '' })
+    try {
+      const res = await getOrderImages(id)
+      if (!current()) return
+      if (!res || !Array.isArray(res.data)) throw new Error('配送凭证暂时无法加载')
+      this.setData({ images: res.data, imagesState: 'ready', imagesError: '' })
+    } catch (_) {
+      if (current()) this.setData({ imagesState: 'error', imagesError: '配送凭证暂时无法加载，请重试' })
+    }
+  },
+
+  onRetryImages() {
+    if (this.data.detailState === 'ready') return this.loadImages(this._orderId)
+  },
+
+  onItemImageError(e) {
+    if (!this.isDetailCurrent(this._detailContext)) return
+    const { index, url } = e.currentTarget.dataset
+    const item = this.data.items[index]
+    if (!item || item.imageUrl !== url) return
+    this.setData({ items: this.data.items.map((row, i) => i === Number(index) ? { ...row, imageUrl: '' } : row) })
+  },
+
+  onProofImageError(e) {
+    if (!this.isDetailCurrent(this._detailContext)) return
+    const { url } = e.currentTarget.dataset
+    this.setData({ images: this.data.images.map(row => row.url === url ? { ...row, failed: true } : row),
+      imagesState: 'error', imagesError: '部分配送凭证未能显示，请重试' })
   },
 
   onPreviewImage(e) {
     const { url } = e.currentTarget.dataset
-    const urls = this.data.images.map(i => i.url)
+    const urls = this.data.images.filter(i => !i.failed).map(i => i.url)
+    if (!urls.includes(url)) return
     wx.previewImage({ current: url, urls })
   },
 
@@ -205,18 +289,34 @@ Page({
   },
 
   onCancel() {
+    const order = this.data.order && { ...this.data.order }, view = cancelView(order), context = this._detailContext
+    if (!order || !view.canCancel || !this.isDetailCurrent(context) || this._cancelFlight) return
+    const flight = {}
+    this._cancelFlight = flight
+    const current = () => this._cancelFlight === flight && this.isDetailCurrent(context)
+      && this.data.order && String(this.data.order.id) === String(order.id)
+      && this.data.order.status === order.status && this.data.order.canCancel === true
+    const release = () => { if (this._cancelFlight === flight) this._cancelFlight = null }
     wx.showModal({
-      title: '取消订单',
-      content: '确定取消此订单吗？取消成功表示订单已取消，不代表退款已到账。水票会按原路径退回；现金或微信款项请与水站确认退款进度。',
+      title: view.title,
+      content: view.content,
+      confirmText: view.confirmText,
       confirmColor: '#f5222d',
-      success: (res) => {
-        if (res.confirm) {
-          cancelOrder(this.data.order.id).then(() => {
-            wx.showToast({ title: this.data.order.status === 2 ? '取消申请已提交' : '订单已取消', icon: 'success' })
-            this.loadOrder(this.data.order.id)
-          }).catch(err => {
-            wx.showToast({ title: err.message || '取消失败', icon: 'none' })
-          })
+      fail: release,
+      success: async (res) => {
+        if (!res.confirm || !current()) { release(); return }
+        try {
+          await cancelOrder(order.id)
+          if (!current()) return
+          const reload = this.loadOrder(order.id), reloadContext = this._detailContext
+          await reload
+          if (this._cancelFlight !== flight || !this.isDetailCurrent(reloadContext)
+            || !isCurrentSession(context.session)) return
+          wx.showToast({ title: cancelResultText(this.data.order), icon: 'none' })
+        } catch (err) {
+          if (current()) wx.showToast({ title: err.message || '取消失败', icon: 'none' })
+        } finally {
+          release()
         }
       }
     })

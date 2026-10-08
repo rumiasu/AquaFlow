@@ -1,9 +1,10 @@
 // AquaFlow V1 配送端小程序
 const { getBaseUrl, API, BINDING_STATUS } = require('./config/api')
 const { STORAGE_KEYS } = require('./utils/storage-keys')
-// 仅用于 syncIdentity()。utils/request 只依赖 config/api 与 utils/storage-keys，
-// 不会回引 app.js，故此处顶层 require 不会形成循环。
+// 仅用于 syncIdentity()。request/navigation 不回引 app.js，
+// 仅在运行时读取 getApp，故顶层 require 不会形成循环。
 const { get } = require('./utils/request')
+const navigation = require('./utils/navigation')
 
 const ROLE_UNSELECTED = 'UNSELECTED'
 const ROLE_STATION_MANAGER = 'STATION_MANAGER'
@@ -37,6 +38,18 @@ function normalizeStationId(v) {
   return v
 }
 
+function credential(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function removeLoginCache() {
+  let removed = true
+  ;[STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.USER_INFO].forEach(key => {
+    try { wx.removeStorageSync(key) } catch (_) { removed = false }
+  })
+  if (!removed) console.warn('[auth] 登录缓存清理失败，请重新登录')
+}
+
 App({
   globalData: {
     accessToken: null,
@@ -46,8 +59,8 @@ App({
   },
 
   onLaunch() {
-    const accessToken = wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
-    const refreshToken = wx.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
+    const accessToken = credential(wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN))
+    const refreshToken = credential(wx.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN))
     const userInfo = wx.getStorageSync(STORAGE_KEYS.USER_INFO)
 
     if (accessToken && userInfo) {
@@ -132,26 +145,47 @@ App({
   },
 
   setLoginState(data) {
+    // 显式重新登录即开启新会话；普通令牌续期不经过这里。
+    this._loginGeneration = (this._loginGeneration || 0) + 1
+    this._logoutAttempt = null
+    const previousSession = navigation.sessionKey()
     const userInfo = this._normalizeUserInfo(data)
-    const { accessToken, refreshToken } = data
-    this.globalData.accessToken = accessToken || null
-    this.globalData.refreshToken = refreshToken || null
+    const accessToken = credential(data.accessToken)
+    const refreshToken = accessToken ? credential(data.refreshToken) : null
+    this.globalData.accessToken = accessToken
+    this.globalData.refreshToken = refreshToken
     this.globalData.userInfo = userInfo
     this.globalData.isLogin = !!(accessToken && userInfo)
-    if (accessToken) wx.setStorageSync(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
-    if (refreshToken) wx.setStorageSync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken)
-    if (userInfo) wx.setStorageSync(STORAGE_KEYS.USER_INFO, userInfo)
+    try {
+      if (accessToken) wx.setStorageSync(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
+      else wx.removeStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
+      if (refreshToken) wx.setStorageSync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken)
+      else wx.removeStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
+      if (userInfo) wx.setStorageSync(STORAGE_KEYS.USER_INFO, userInfo)
+      else wx.removeStorageSync(STORAGE_KEYS.USER_INFO)
+    } catch (_) {
+      this.clearLoginState()
+      throw new Error('登录凭据未能保存，请重新登录')
+    }
+    if (navigation.sessionKey() !== previousSession) navigation.invalidate()
     return userInfo
   },
 
   clearLoginState() {
+    this._loginGeneration = (this._loginGeneration || 0) + 1
+    this._logoutAttempt = null
+    const previousSession = navigation.sessionKey()
     this.globalData.accessToken = null
     this.globalData.refreshToken = null
     this.globalData.userInfo = null
     this.globalData.isLogin = false
-    wx.removeStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
-    wx.removeStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
-    wx.removeStorageSync(STORAGE_KEYS.USER_INFO)
+    removeLoginCache()
+    if (navigation.sessionKey() !== previousSession) navigation.invalidate()
+  },
+
+  // 2026-10-06：并发 401 与页面守卫合并到一次栈重置，不能返回已失效的业务页。
+  redirectToLogin() {
+    return navigation.open('/pages/login/index', { mode: 'reset', guard: true, owner: this })
   },
 
   checkLoginState() {
@@ -159,10 +193,13 @@ App({
     const pages = getCurrentPages()
     const currentPage = pages[pages.length - 1]
     const currentRoute = currentPage ? currentPage.route : ''
+    // 2026-10-07：协议为公开只读页；否则从后台返回时未登录阅读会被退回登录页。
+    // 精确匹配这个页面，不放开任何身份引导或业务路径。
+    if (currentRoute === 'pages/mine/agreement/index') return true
     const isWhite = WHITE_LIST_ROUTES.indexOf(currentRoute) >= 0
 
     if (!token && currentRoute !== 'pages/login/index') {
-      wx.redirectTo({ url: '/pages/login/index' })
+      this.redirectToLogin()
       return false
     }
     if (!token) return true
@@ -212,11 +249,12 @@ App({
       + ' → ' + (target || '业务页'))
 
     if (target === null) {
-      if (!silent) wx.reLaunch({ url: '/pages/home/index' })
-      return
+      // 2026-10-06：直接 reLaunch 到自绘 tab 在工具中超时；先清缓存再 switchTab。
+      // 不能只 switchTab：登录/换身份必须销毁上一身份的其他 tab 页面。
+      if (!silent) return navigation.open('/pages/home/index', { mode: 'reset', guard: true, owner: this })
+      return false
     }
-    if (silent) wx.redirectTo({ url: target })
-    else wx.reLaunch({ url: target })
+    return navigation.open(target, { mode: silent ? 'replace' : 'reset', guard: true, owner: this })
   },
 
   /**
@@ -234,6 +272,7 @@ App({
   async syncIdentity() {
     const token = this.globalData.accessToken || wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
     if (!token) return null
+    const session = navigation.sessionKey()
     const current = this._normalizeUserInfo(
       this.globalData.userInfo || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {})
     if (!current || !current.role
@@ -244,6 +283,8 @@ App({
       // 该端点对 DELIVERY / STATION_MANAGER 都开放，返回 role + stationId + bindingStatus，
       // 足够支撑一次完整的路由判定。
       const res = await get(API.BIND_STATUS)
+      // 旧身份的绑定查询不能在重新登录/切角色后写回，否则会重新触发旧角色跳转。
+      if (navigation.sessionKey() !== session) return null
       const d = (res && res.data) || null
       if (!d) return null
       const normalized = this._normalizeUserInfo({
@@ -254,6 +295,7 @@ App({
       })
       this.globalData.userInfo = normalized
       wx.setStorageSync(STORAGE_KEYS.USER_INFO, normalized)
+      if (navigation.sessionKey() !== session) navigation.invalidate()
       return normalized
     } catch (e) {
       // 同步失败绝不能把人卡在流程里：保持旧状态，让页面按原逻辑继续走
@@ -273,6 +315,8 @@ App({
    */
   async refreshIdentityAndRoute(currentRoute) {
     await this.syncIdentity()
+    const stack = getCurrentPages(), current = stack[stack.length - 1]
+    if (current && current.route && current.route !== currentRoute) return true
     const u = this._normalizeUserInfo(this.globalData.userInfo || {})
     const target = this._targetRoute(u)
     // target === null 表示「状态已满足」→ 该进业务首页；否则去 target 指定的流程页。
@@ -281,7 +325,7 @@ App({
     // 两种情况下都只在「目标 ≠ 当前页」时跳，避免 reLaunch 到当前页触发的 onShow 自我循环。
     const dest = target || '/pages/home/index'
     if (dest.replace(/^\//, '') !== currentRoute) {
-      wx.reLaunch({ url: dest })
+      navigation.open(dest, { mode: 'reset', guard: true, owner: this })
       return true
     }
     return false
@@ -323,6 +367,10 @@ App({
   },
 
   logout() {
+    const generation = this._loginGeneration || 0
+    if (this._logoutAttempt && this._logoutAttempt.generation === generation) return
+    const attempt = { generation }
+    this._logoutAttempt = attempt
     const token = this.globalData.accessToken
     const header = {}
     if (token) header['Authorization'] = 'Bearer ' + token
@@ -331,10 +379,13 @@ App({
       method: 'POST',
       header,
       complete: () => {
+        if (this._logoutAttempt !== attempt || (this._loginGeneration || 0) !== generation
+            || getApp() !== this) return
+        this._logoutAttempt = null
         this.clearLoginState()
         // 退出登录顺手把红点标记清掉：留着的话下一个登录的人（哪怕是配送员）会看到上一任的红点
         require('./utils/pending-reminder').syncTabBarDot(false)
-        wx.reLaunch({ url: '/pages/login/index' })
+        this.redirectToLogin()
       }
     })
   }

@@ -1,6 +1,19 @@
 // 转让记录页
 const { getTransferRecords } = require('../../api/delivery')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
+const { withItemUnits, orderSummary } = require('../../utils/order-item-view')
+const textOf = value => typeof value === 'string' ? value.trim() : ''
+function productView(order) {
+  // 2026-10-07：第一商品乘全单数量会错报混合单；逐行取快照，旧数据仅用中性摘要。
+  const productItems = withItemUnits((Array.isArray(order.items) ? order.items : []).filter(row => row && typeof row === 'object' && !Array.isArray(row))).map(row => ({
+    ...row, name: textOf(row.productNameSnapshot) || textOf(row.productName) || '商品',
+    spec: textOf(row.specSnapshot) || textOf(row.spec), imageUrl: textOf(row.imageUrl),
+    quantityText: (typeof row.quantity === 'number' || (typeof row.quantity === 'string' && row.quantity.trim()))
+      && Number.isInteger(Number(row.quantity)) && Number(row.quantity) >= 0
+      ? `× ${Number(row.quantity)} ${row.quantityUnit}` : '数量待核对'
+  }))
+  return { productItems, productFallback: orderSummary(order) }
+}
 function validId(value) { return /^[1-9][0-9]*$/.test(String(value)) }
 function validTime(value) { return value == null || value === '' || (typeof value === 'string' && Number.isFinite(new Date(value).getTime())) }
 
@@ -13,7 +26,7 @@ Page({
   onRetry() { return this.loadData() },
   _context() {
     const app = getApp(), u = app.globalData.userInfo || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {}
-    return JSON.stringify([u.staffId || u.id || '', u.role || '', u.stationId || '', u.bindStatus || ''])
+    return JSON.stringify([app._loginGeneration || 0, u.staffId || u.id || '', u.role || '', u.stationId || '', u.bindStatus || ''])
   },
   _current(version, context) {
     return !this._unloaded && version === this._requestVersion && getApp().canAccessStationBusiness() && context === this._context()
@@ -41,7 +54,7 @@ Page({
           || !res.data.every(r => r && typeof r === 'object' && !Array.isArray(r) && validId(r.id) && validTime(r.updateTime))) {
         throw new Error('收到的数据不完整，请重试。')
       }
-      const orders = res.data.map(order => ({ ...order, updateTime: this.formatTime(order.updateTime) }))
+      const orders = res.data.map(order => ({ ...order, ...productView(order), updateTime: this.formatTime(order.updateTime) }))
       this.setData({ orders, loaded: true })
     } catch (err) {
       if (!this._current(version, context)) return
@@ -71,6 +84,18 @@ Page({
     this._requestVersion = (this._requestVersion || 0) + 1
     this._pullVersion = (this._pullVersion || 0) + 1
     if (this._pullRefreshing) { this._pullRefreshing = false; wx.stopPullDownRefresh() }
+  },
+
+  onProductImageError(e) {
+    const { orderId, itemIndex, src } = e.currentTarget.dataset
+    const index = this.data.orders.findIndex(row => String(row.id) === String(orderId))
+    const order = this.data.orders[index], product = order && order.productItems[itemIndex]
+    // 迟到的旧图片回调不能覆盖刷新后同位置的新商品图。
+    if (this._unloaded || !product || product.imageUrl !== src || this._dataContext !== this._context()) return
+    const orders = this.data.orders.map((row, i) => i === index ? { ...row,
+      productItems: row.productItems.map((item, j) => j === Number(itemIndex) ? { ...item, imageUrl: '' } : item)
+    } : row)
+    this.setData({ orders })
   },
 
   // 点击订单卡片

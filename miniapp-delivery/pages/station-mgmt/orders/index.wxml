@@ -1,7 +1,25 @@
+<wxs module="fmt">
+// 百分比（crossStation.count 占「本站列表 + 跨站单」总单量的比例）。
+// WXML 绑定不支持函数调用/算术取整，故用 wxs；inactive tab 的逐状态计数后端未下发，
+// tab 角标只展示当前已加载页签的单数。
+var percent = function (part, total) {
+  if (!total || total <= 0) return 0
+  return Math.round(part * 100 / total)
+}
+module.exports = { percent: percent }
+</wxs>
 <view class="container">
+  <view class="history-controls">
+    <include src="../../../utils/station-history-customer.wxml" />
+    <view class="history-date-row"><picker mode="date" value="{{startDate}}" bindchange="onHistoryDateChange" data-field="startDate"><view>{{startDate || '开始日期'}}</view></picker><text>至</text><picker mode="date" value="{{endDate}}" bindchange="onHistoryDateChange" data-field="endDate"><view>{{endDate || '结束日期'}}</view></picker><text bindtap="onClearHistoryDates">清除日期</text></view>
+    <view class="history-scope">结束日包含当天；本站归属订单已加载 {{list.length}} 张。跨站履约另列，不随此处筛选。</view>
+    <view class="history-error" wx:if="{{listError}}" bindtap="loadData">{{listError}} · 点击重试</view>
+  </view>
+
   <view class="tab-bar">
     <view class="tab-item {{currentTab === item.id ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="id" data-id="{{item.id}}" bindtap="onTabChange">
       <text>{{item.name}}</text>
+      <text class="tab-badge" wx:if="{{currentTab === item.id && list.length > 0}}">{{list.length}}</text>
     </view>
   </view>
 
@@ -22,6 +40,7 @@
         <text>待配送 {{crossStation.pending}}</text>
         <text>配送中 {{crossStation.delivering}}</text>
         <text>已完成 {{crossStation.completed}}</text>
+        <text>独立履约汇总，不计入本站当前筛选页数</text>
       </view>
       <view class="cross-row" wx:if="{{crossExpanded}}" wx:for="{{crossStation.orders}}" wx:key="id">
         <view class="cross-row-head">
@@ -53,8 +72,13 @@
       <view class="product-info">
         <text class="product-name">{{item.itemSummary || '商品明细暂不可用'}}</text>
       </view>
+      <view class="amount-info" wx:if="{{item.totalAmount !== undefined && item.totalAmount !== null}}">
+        <text class="amount-label">订单金额</text>
+        <text class="order-amount">¥{{item.totalAmount}}</text>
+      </view>
     </view>
-    <view class="empty" wx:if="{{list.length === 0 && (!crossStation || crossStation.count === 0)}}"><text>暂无订单</text></view>
+    <view class="empty" wx:if="{{!loading && !listError && list.length === 0 && (!crossStation || crossStation.count === 0)}}"><text>暂无订单</text></view>
   </view>
+  <view class="history-more" wx:if="{{hasMore}}" bindtap="onLoadMore">{{loadingMore ? '加载中…' : '加载更多历史订单'}}</view>
   <view class="loading" wx:if="{{loading}}">加载中...</view>
 </view>

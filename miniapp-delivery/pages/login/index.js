@@ -24,6 +24,42 @@ Page({
     this.checkAutoLogin()
   },
 
+  // 2026-10-07：原协议名没有处理器；公开阅读仅导航，不触发登录或记录同意。
+  // 原生请求未完成时保留锁，打开后待返回 onShow 再释放，避免连续 tap 堆叠页面。
+  onShow() {
+    if (this._agreementUnloaded) return
+    this._agreementHidden = false
+    if (this._agreementFlight && this._agreementFlight.finished) this._agreementFlight = null
+  },
+
+  onHide() { this._agreementHidden = true },
+
+  onUnload() {
+    this._agreementHidden = true
+    this._agreementUnloaded = true
+    this._agreementFlight = null
+  },
+
+  onOpenAgreement(e) {
+    if (this.data.loading || this._agreementHidden || this._agreementUnloaded || this._agreementFlight) return
+    const value = e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.type
+    const type = value === 'privacy' ? 'privacy' : 'user'
+    const flight = this._agreementFlight = { finished: false }
+    const success = () => { if (this._agreementFlight === flight) flight.finished = true }
+    const fail = () => {
+      if (this._agreementFlight !== flight) return
+      flight.finished = true
+      this._agreementFlight = null
+      if (!this._agreementHidden && !this._agreementUnloaded) {
+        wx.showToast({ title: '协议暂时无法打开，请重试', icon: 'none' })
+      }
+    }
+    try {
+      wx.navigateTo({ url: '/pages/mine/agreement/index?type=' + type, success, fail,
+        complete: result => { if (result && /:ok$/.test(result.errMsg || '')) success(); else fail() } })
+    } catch (err) { fail() }
+  },
+
   checkAutoLogin() {
     const token = wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
     if (!token) return
@@ -59,7 +95,7 @@ Page({
         wx.login({ success: resolve, fail: reject })
       })
 
-      console.log('[wx-login] wx.login result:', loginRes)
+      console.log('[wx-login] credential received:', !!loginRes.code)
 
       if (!loginRes.code) {
         wx.showToast({ title: '微信登录失败：未获取code', icon: 'none' })
@@ -68,19 +104,17 @@ Page({
 
       console.log('[wx-login] code获取成功, 发送请求...')
       const res = await wxLoginStaff(loginRes.code)
-      console.log('[wx-login] 后端响应:', JSON.stringify(res))
+      console.log('[wx-login] response accepted:', !!(res && res.data))
 
       if (res && res.data) {
-        console.log('[wx-login] 登录成功, 开始跳转, data:', JSON.stringify(res.data))
         this.handleLoginSuccess(res.data)
       } else {
-        console.warn('[wx-login] 响应异常:', res)
+        console.warn('[wx-login] response rejected')
         wx.showToast({ title: (res && res.message) || '登录失败', icon: 'none' })
       }
     } catch (error) {
-      console.error('[wx-login] 微信登录异常:', error)
+      console.error('[wx-login] login failed')
       const msg = (error && error.message) || '登录失败'
-      console.error('[wx-login] 错误消息:', msg)
       wx.showModal({ title: '登录失败', content: msg, showCancel: false })
     } finally {
       this.setData({ loading: false })
@@ -107,9 +141,8 @@ Page({
 
   handleLoginSuccess(data) {
     const payload = data || {}
-    console.log('[login] handleLoginSuccess payload:', JSON.stringify(payload))
     const u = app.setLoginState(payload)
-    console.log('[login] setLoginState 完成, userInfo:', JSON.stringify(u))
+    console.log('[login] state:', { needsRole: !!u.needSelectRole, hasStation: !!u.stationId })
 
     try {
       wx.setStorageSync(UserInfoKey.ID, u.staffId || '')
@@ -118,7 +151,6 @@ Page({
       wx.setStorageSync(UserInfoKey.STATION_ID, u.stationId || '')
     } catch (e) { /* ignore */ }
 
-    console.log('[login] 即将 routeByRole, role=' + u.role + ', needSelectRole=' + u.needSelectRole + ', stationId=' + u.stationId)
     app.routeByRole(false)
     console.log('[login] routeByRole 已调用')
   }

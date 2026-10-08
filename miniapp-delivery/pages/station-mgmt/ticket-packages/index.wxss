@@ -12,7 +12,7 @@
 .card-title {
   font-size: 28rpx;
   font-weight: 600;
-  color: #222;
+  color: var(--text-primary);
   margin-bottom: 16rpx;
 }
 
@@ -22,31 +22,31 @@
 }
 .chip {
   padding: 12rpx 24rpx;
-  border: 1rpx solid #d9d9d9;
+  border: 1rpx solid var(--border-color);
   border-radius: 32rpx;
   font-size: 25rpx;
-  color: #333;
+  color: var(--text-primary);
   margin: 0 16rpx 16rpx 0;
 }
 .chip-on {
-  border-color: #1677ff;
-  color: #1677ff;
-  background: #f0f7ff;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-bg);
 }
 /* [v54] 统一水票是站级设置、不是某个商品的档位 —— 用一个不同的底色把它区分出来，
    免得站长以为"这也是某个牌子的票"。 */
 .chip-unified {
-  border-color: #ffa940;
-  color: #ad4e00;
-  background: #fff7e6;
+  border-color: var(--warning-color);
+  color: var(--warning-color);
+  background: var(--warning-bg);
 }
 .chip-unified.chip-on {
-  border-color: #d46b08;
+  border-color: var(--warning-color);
   color: #fff;
-  background: #d46b08;
+  background: var(--warning-color);
 }
 .hint-unified {
-  color: #ad4e00;
+  color: var(--warning-color);
 }
 
 /* [v54] 平台预设档：横排的"一键填入"卡片，数字全部来自后端，前端不做算术 */
@@ -59,9 +59,9 @@
   flex: 1;
   padding: 16rpx 18rpx;
   margin: 0 16rpx 16rpx 0;
-  border: 1rpx dashed #ffa940;
+  border: 1rpx dashed var(--warning-color);
   border-radius: 12rpx;
-  background: #fffaf0;
+  background: var(--warning-bg);
 }
 .preset-chip:last-child {
   margin-right: 0;
@@ -70,19 +70,19 @@
   display: block;
   font-size: 26rpx;
   font-weight: 600;
-  color: #ad4e00;
+  color: var(--warning-color);
 }
 .preset-price {
   display: block;
   font-size: 30rpx;
   font-weight: 600;
-  color: #222;
+  color: var(--text-primary);
   margin-top: 4rpx;
 }
 .preset-sub {
   display: block;
   font-size: 22rpx;
-  color: #888;
+  color: var(--text-secondary);
   margin-top: 4rpx;
 }
 
@@ -95,13 +95,13 @@
 .field-label {
   width: 220rpx;
   font-size: 26rpx;
-  color: #555;
+  color: var(--text-regular);
   flex-shrink: 0;
 }
 .field-input {
   flex: 1;
   height: 64rpx;
-  background: #f5f6f8;
+  background: var(--bg-gray);
   border-radius: 10rpx;
   padding: 0 18rpx;
   font-size: 26rpx;
@@ -127,17 +127,17 @@
 }
 .row-title {
   font-size: 28rpx;
-  color: #222;
+  color: var(--text-primary);
 }
 .row-amount {
   font-size: 28rpx;
   font-weight: 600;
-  color: #1677ff;
+  color: var(--primary-color);
 }
 .row-sub {
   display: block;
   font-size: 23rpx;
-  color: #888;
+  color: var(--text-secondary);
   margin-top: 6rpx;
   line-height: 34rpx;
 }
@@ -149,8 +149,8 @@
 }
 .mini-btn {
   padding: 10rpx 22rpx;
-  border: 1rpx solid #d9d9d9;
-  color: #333;
+  border: 1rpx solid var(--border-color);
+  color: var(--text-primary);
   border-radius: 28rpx;
   font-size: 24rpx;
   margin-bottom: 10rpx;
@@ -158,15 +158,15 @@
   text-align: center;
 }
 .mini-btn-danger {
-  border-color: #ffa39e;
-  color: #cf1322;
+  border-color: var(--error-bg);
+  color: var(--error-color);
 }
 
 .btn-primary {
   height: 84rpx;
   line-height: 84rpx;
   text-align: center;
-  background: #1677ff;
+  background: var(--primary-color);
   color: #fff;
   border-radius: 12rpx;
   font-size: 30rpx;
@@ -176,24 +176,31 @@
   height: 80rpx;
   line-height: 80rpx;
   text-align: center;
-  border: 1rpx solid #d9d9d9;
+  border: 1rpx solid var(--border-color);
   border-radius: 12rpx;
   font-size: 28rpx;
-  color: #333;
+  color: var(--text-primary);
 }
 .btn-disabled {
-  background: #a8c7f0;
+  background: var(--primary-bg);
 }
 
 .empty {
   font-size: 26rpx;
-  color: #999;
+  color: var(--text-secondary);
   padding: 20rpx 0;
   line-height: 40rpx;
 }
 .hint {
   font-size: 23rpx;
-  color: #999;
+  color: var(--text-secondary);
   line-height: 36rpx;
   margin-top: 14rpx;
 }
+
+.product-search { background:var(--bg-gray); border-radius:12rpx; padding:20rpx; margin:16rpx 0; }
+.chip { display:flex; align-items:center; gap:14rpx; max-width:100%; }
+.product-thumb { width:64rpx; height:64rpx; border-radius:10rpx; flex-shrink:0; }
+.thumb-fallback { display:flex; align-items:center; justify-content:center; background:var(--primary-bg); color:var(--text-secondary); }
+.product-identity { display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere; }.product-spec { font-size:22rpx; color:var(--text-secondary); }
+.history-link { padding:18rpx 0; color:var(--primary-color); font-size:26rpx; }.warning { color:var(--warning-color); }

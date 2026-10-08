@@ -17,19 +17,22 @@
 
 .record-main {
   flex: 1;
+  min-width: 0;
 }
 
 .record-title-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8rpx 16rpx;
   margin-bottom: 10rpx;
 }
 
-.record-method {
+.record-purpose {
   font-size: 30rpx;
   font-weight: 600;
   color: var(--text-primary);
-  margin-right: 16rpx;
+  word-break: break-all;
 }
 
 .record-order {
@@ -44,6 +47,10 @@
 
 .record-right {
   text-align: right;
+  flex-shrink: 0;
+  margin-left: 20rpx;
+  max-width: 45%;
+  word-break: break-all;
 }
 
 .record-amount {
@@ -55,15 +62,23 @@
 }
 
 .record-status {
+  display: inline-block;
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
+  background: var(--bg-gray);
+  color: var(--text-secondary);
   font-size: 24rpx;
+  line-height: 1.5;
 }
 
 .status-2 {
+  background: var(--success-bg);
   color: var(--success-color);
 }
 
 .status-1 {
-  color: #FF9500;
+  background: var(--warning-bg);
+  color: var(--warning-color);
 }
 
 .status-3 {
@@ -73,3 +88,52 @@
 .status-4 {
   color: var(--text-placeholder);
 }
+.record-method {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.record-order, .record-time {
+  display: block;
+  line-height: 1.6;
+}
+
+.error-card {
+  padding: 28rpx 32rpx;
+  margin-bottom: 24rpx;
+  background: #fff;
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.error-title {
+  display: block;
+  margin-bottom: 12rpx;
+  color: var(--warning-color);
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.error-message, .refresh-hint {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.refresh-hint { margin-bottom: 20rpx; }
+
+.retry-button {
+  margin: 24rpx 0 0;
+  padding: 0 28rpx;
+  display: inline-block;
+  width: auto;
+  min-height: 80rpx;
+  line-height: 80rpx;
+  font-size: 26rpx;
+  color: var(--primary-color);
+  background: var(--primary-bg);
+  border-radius: var(--radius-md);
+}
+
+.retry-button::after { border: none; }

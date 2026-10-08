@@ -21,18 +21,15 @@
            现在把告知放在按钮正下方：点按钮这个动作本身即表示同意。
            ⚠️ 这行提示**不能删** —— 删了就只剩"沉默同意"；「点击即同意」之所以成立，
               靠的正是"用户点之前看得见这句话"。
-           ⚠️ [2026-09-27 走查 X01 修] 两个协议名**不再做成链接的样子**（去掉了 `agreement-link`
-              的链接色）。原来它们染成链接色、看起来可点，实际**没有任何点击处理**（wxml 里既没有
-              bindtap、js 里也没有对应方法）—— 正是本仓最忌的"看起来能点、点了没反应"。
-              走查给的出路是"接入真实协议内容"，但报告同时明令**不许造一份"已合规"的占位文案**；
-              真正的《用户协议》《隐私政策》正文属于法务/产品要拍板的内容（需后端或静态页承载，
-              见本次「需要后端配合」清单），所以这里先消除"假链接"，等正文到位再接 bindtap 跳转。
-              判据：宁可是普通的说明文字，也不给一个点了不动的链接。 -->
+           [2026-10-07 评审 #7] 协议名恢复为**真实可点链接**：承载页 pages/mine/agreement
+           已落（占位草稿，页内有显著告示），跳转处理 onOpenAgreement。
+           ⚠️ 占位正文未经法务/产品审核前不算生效协议文本（正本 docs/design/36 §5.5）——
+              链接可点 ≠ 内容已合规，两处状态以承载页 notice 的存废为准。 -->
       <view class="agreement">
         <text class="agreement-text">登录即代表你已阅读并同意</text>
-        <text class="agreement-text agreement-strong">《用户协议》</text>
+        <text class="agreement-text agreement-link" bindtap="onOpenAgreement" data-type="user">《用户协议》</text>
         <text class="agreement-text">和</text>
-        <text class="agreement-text agreement-strong">《隐私政策》</text>
+        <text class="agreement-text agreement-link" bindtap="onOpenAgreement" data-type="privacy">《隐私政策》</text>
       </view>
 
       <!-- [2026-09-20] 仅非正式版显示：它直连 /api/auth/dev-login，该端点在 prod 下不存在。

@@ -48,10 +48,12 @@ function createWx() {
       if (typeof opt.success === 'function') opt.success({ confirm, cancel: !confirm })
       if (typeof opt.complete === 'function') opt.complete({ confirm, cancel: !confirm })
     },
-    redirectTo(o) { calls.nav.push({ type: 'redirectTo', url: o && o.url }) },
-    navigateTo(o) { calls.nav.push({ type: 'navigateTo', url: o && o.url }) },
-    switchTab(o) { calls.nav.push({ type: 'switchTab', url: o && o.url }) },
-    navigateBack(o) { calls.nav.push({ type: 'navigateBack', delta: o && o.delta }) },
+    // 2026-10-06：默认原生导航完成；需要模拟在途/超时的用例自行保留回调。
+    redirectTo(o) { calls.nav.push({ type: 'redirectTo', url: o && o.url }); finish(o, 'redirectTo') },
+    navigateTo(o) { calls.nav.push({ type: 'navigateTo', url: o && o.url }); finish(o, 'navigateTo') },
+    switchTab(o) { calls.nav.push({ type: 'switchTab', url: o && o.url }); finish(o, 'switchTab') },
+    reLaunch(o) { calls.nav.push({ type: 'reLaunch', url: o && o.url }); finish(o, 'reLaunch') },
+    navigateBack(o) { calls.nav.push({ type: 'navigateBack', delta: o && o.delta }); finish(o, 'navigateBack') },
     setStorageSync(k, v) { storage.set(k, v); calls.storageSet.push({ k, v }) },
     getStorageSync(k) { return storage.has(k) ? storage.get(k) : '' },
     removeStorageSync(k) { storage.delete(k) },
@@ -62,6 +64,11 @@ function createWx() {
     getSystemInfoSync() { return { windowWidth: 375 } },
     createSelectorQuery() { return { select: () => ({ boundingClientRect: () => ({ exec: (cb) => cb && cb([{}]) }) }), exec: (cb) => cb && cb([]) } },
     request() {}
+  }
+  function finish(o, api) {
+    const res = { errMsg: api + ':ok' }
+    if (o && typeof o.success === 'function') o.success(res)
+    if (o && typeof o.complete === 'function') o.complete(res)
   }
   return wx
 }

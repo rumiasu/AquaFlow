@@ -1,5 +1,5 @@
 const { getOrders, createPayment } = require('../../api/order')
-const { getCustomerId } = require('../../utils/token')
+const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { notifyPayResult } = require('../../utils/pay')
 const app = getApp()
 
@@ -21,7 +21,11 @@ Page({
     // 此前只有 wx.showToast：toast 一消失，屏幕上是空列表 + empty「暂无订单」，
     // 与"确实没有订单"完全无法区分（AGENTS §8.22 的同一类坑）。
     loading: true,        // 页面还没有数据时的加载态（首屏 / 上次失败后的重试）
-    loadError: ''         // 非空 = 这次没取到，渲染成页面顶部的 .load-error 提示条
+    loadError: '',        // 非空 = 这次没取到，渲染成页面顶部的 .load-error 提示条
+    page: 0,
+    pageSize: 20,
+    hasMore: false,
+    loadingMore: false
   },
 
   onLoad() {
@@ -34,40 +38,80 @@ Page({
   },
   onShow() { this.loadOrders() },
 
-  onPullDownRefresh() {
-    this.loadOrders().then(() => wx.stopPullDownRefresh())
+  async onPullDownRefresh() {
+    try {
+      await this.loadOrders()
+    } finally {
+      wx.stopPullDownRefresh()
+    }
   },
 
-  loadOrders() {
+  onReachBottom() { return this.loadOrders(true) },
+
+  onUnload() {
+    this._destroyed = true
+    this._readVersion = (this._readVersion || 0) + 1
+  },
+
+  loadOrders(append = false) {
+    if (this._destroyed) return Promise.resolve()
     const { currentTab, tabs } = this.data
-    const params = {}
-    if (currentTab > 0) params.status = tabs[currentTab].status
-    // ⚠️ 本函数只加了 loading / loadError 两个展示状态，**取数逻辑（参数、接口、返回结构解析）
-    //    一行都没动** —— 这页只有 89 行，顺手重构取数是最容易出事的地方。
-    // 加载态只在"页面上还没有东西"时占位（首屏、上一次失败）：本页是 tabBar 页，
-    // onShow 每次回来都会重拉，无条件转圈会让已经看到的列表每次闪一下、下拉时还叠两个圈。
-    const showLoading = this.data.orders.length === 0
-    if (showLoading) this.setData({ loading: true })
-    this.setData({ loadError: '' })
+    const status = currentTab > 0 && tabs[currentTab] ? tabs[currentTab].status : undefined
+    const session = captureSession()
+    const sameQuery = this._listSession && isCurrentSession(this._listSession) && this._listStatus === status
+    if (!session.loggedIn || !session.customerId) {
+      this._readVersion = (this._readVersion || 0) + 1
+      this.setData({ orders: [], page: 0, hasMore: false, loading: false, loadingMore: false, loadError: '' })
+      return Promise.resolve()
+    }
+    if (append && (!sameQuery || !this.data.hasMore || !this.data.page || this.data.loading || this.data.loadingMore)) return Promise.resolve()
+    const page = append ? this.data.page + 1 : 1
+    const params = { page, pageSize: this.data.pageSize }
+    if (status !== undefined) params.status = status
+    const version = this._readVersion = (this._readVersion || 0) + 1
+    this._listSession = session
+    this._listStatus = status
+    if (append) {
+      this.setData({ loadingMore: true, loadError: '' })
+    } else {
+      // 跨筛选/登录不能把上一份列表留在新查询下；同查询刷新可保留已读内容。
+      const orders = sameQuery ? this.data.orders : []
+      this.setData({ orders, page: 0, hasMore: false, loading: orders.length === 0, loadingMore: false, loadError: '' })
+    }
+    const current = () => !this._destroyed && version === this._readVersion && isCurrentSession(session)
+      && this.data.currentTab === currentTab
     return getOrders(params).then(res => {
-      const orders = Array.isArray(res) ? res : (res.data || [])
-      this.setData({ orders, loading: false })
-    }).catch(err => {
-      // 失败必须**留在页面上**（不是一条会消失的 toast）：清空旧数据避免拿上一次页签的
-      // 订单冒充本次结果，同时保留可读原因与"怎么重试"。
-      const msg = (err && err.message) || '网络异常'
-      this.setData({
-        orders: [],
-        loading: false,
-        loadError: '订单没加载出来（' + msg + '），下拉可重试'
+      if (!current()) return
+      const rows = Array.isArray(res) ? res : res && res.data
+      if (!Array.isArray(rows)) throw new Error('收到的数据不完整，请重试')
+      const orders = append ? this.data.orders.slice() : []
+      const ids = new Set(orders.map(order => order.id))
+      rows.forEach(order => {
+        if (!ids.has(order.id)) { orders.push(order); ids.add(order.id) }
       })
+      this.setData({ orders, page, hasMore: rows.length === params.pageSize, loading: false, loadingMore: false })
+    }).catch(err => {
+      if (!current()) return
+      const msg = (err && err.message) || '网络异常'
+      if (append) {
+        // 下一页失败保留已经读到的页码；重试仍请求同一页。
+        this.setData({ loadingMore: false, loadError: '更多订单没加载出来（' + msg + '），继续上滑可重试' })
+      } else {
+        this.setData({ orders: [], page: 0, hasMore: false, loading: false, loadingMore: false,
+          loadError: '订单没加载出来（' + msg + '），下拉可重试' })
+      }
+    }).finally(() => {
+      // 身份/筛选直接改变而未开始下一次查询时，也要收尾旧加载态并清除旧资料。
+      if (!this._destroyed && version === this._readVersion && !current()) {
+        this.setData({ orders: [], page: 0, hasMore: false, loading: false, loadingMore: false, loadError: '' })
+      }
     })
   },
 
   onTabChange(e) {
     const idx = e.currentTarget.dataset.index
     this.setData({ currentTab: idx })
-    this.loadOrders()
+    return this.loadOrders()
   },
 
   onReorder(e) {

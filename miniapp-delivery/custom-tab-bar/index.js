@@ -20,6 +20,7 @@
  * 而且角色是登录后才确定的 —— 冷启动时组件先按"未登录"渲染（2 项），登录/换身份后必须重算。
  */
 const { readDotFlag } = require('../utils/pending-reminder')
+const navigation = require('../utils/navigation')
 
 // 与 app.json 的 tabBar.list 一一对应（图标路径照抄，别另起一份命名）。
 const TAB_COORDINATION = {
@@ -49,7 +50,8 @@ Component({
   data: {
     tabs: TABS_DELIVERY,
     selectedPath: TAB_HOME.pagePath,
-    showDot: false
+    showDot: false,
+    modalBlocked: false
   },
 
   lifetimes: {
@@ -63,7 +65,13 @@ Component({
      */
     attached() {
       this.sync(this.data.selectedPath)
-    }
+    },
+    detached() { navigation.dispose(this) }
+  },
+
+  pageLifetimes: {
+    hide() { navigation.hide(this) },
+    show() { navigation.show(this) }
   },
 
   methods: {
@@ -97,14 +105,16 @@ Component({
       this.setData({ showDot: !!on })
     },
 
+    setModalBlocked(blocked) {
+      this.setData({ modalBlocked: !!blocked })
+    },
+
     onTap(e) {
+      if (this.data.modalBlocked) return
       const url = e.currentTarget.dataset.path
       if (!url || url === this.data.selectedPath) return
       // tabBar 页只能 switchTab（navigateTo 必然失败且界面毫无反应）
-      wx.switchTab({
-        url,
-        fail: () => wx.showToast({ title: '打开失败，请重试', icon: 'none' })
-      })
+      navigation.open(url, { owner: this })
     }
   }
 })

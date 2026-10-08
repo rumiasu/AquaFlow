@@ -68,8 +68,10 @@
               <text class="product-deposit" wx:if="{{item.effectiveDeposit > 0}}">押金 ¥{{item.effectiveDeposit}}</text>
             </view>
             <view class="btn-row">
+              <!-- [2026-10-07 #12] 术语统一为「订水清单」（与首页"加入清单/去结算"同链，
+                   正本 docs/design/36 §4）；JS 侧 toast 随 GPT 的购物车持久化一起改。 -->
               <view class="cart-btn" bindtap="onAddToCart" data-id="{{item.id}}">
-                <text>加入购物车</text>
+                <text>加入清单</text>
               </view>
               <view class="buy-btn {{isLogin ? '' : 'login-required'}}" bindtap="onBuyNow" data-id="{{item.id}}">
                 <text>立即购买</text>

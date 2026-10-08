@@ -34,6 +34,14 @@ Page({
     this.loadData()
   },
 
+  async onPullDownRefresh() {
+    try {
+      await this.loadData()
+    } finally {
+      wx.stopPullDownRefresh()
+    }
+  },
+
   async loadData() {
     this.setData({ loading: true })
     try {

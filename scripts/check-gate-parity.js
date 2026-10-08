@@ -46,7 +46,7 @@ const GATE_PATTERN = /(?:^|[\s'"[(\/])((?:scripts\/)?(?:check-|prod-startup|smok
  * （留着会让下一个人以为"这里本来就该缺"，而那正是本门禁要防的）。
  */
 const KNOWN_ASYMMETRY = [
-  ['backup-restore-drill.js', '会建/删演练库（写库动作），三处都**不自动跑**，只在文档/提示里要求"上线前单独跑"'],
+  ['backup-restore-drill.js', '需要明确授权的完整源/恢复目标且会导入空演练库，三处都不自动跑；默认保留，不建/删库'],
   ['smoke-check.js', '需要**服务已经在跑**：CI 里没有常驻服务，故只有 verify.sh / verify-local 跑（且先探端口）'],
   ['provision-test-db.sh', 'CI 与 verify.sh 共用此准备脚本；verify-local 不操作数据库，因此不运行测试库准备'],
   ['audit_scenario_matrix.py', '**依赖 `build/test-results/test/*.xml`**（要先把集成测试跑完）：verify-local 不跑 Gradle，故只有 CI 与 verify.sh 跑'],

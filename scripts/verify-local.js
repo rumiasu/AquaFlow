@@ -359,9 +359,9 @@ gate('小程序文本体检（BOM / 面向用户文案的开发词）',
 // ⑤ 需要显式给出的三项（不自动跑）
 // ---------------------------------------------------------------------------
 console.log('\n[5] 需要显式执行的三项（本脚本不自动跑）')
-console.log('  · 备份 / 恢复演练：node scripts/backup-restore-drill.js drill')
-console.log('    （先确认目标可清空，再设置 AQUAFLOW_ALLOW_DB_RESET=实际演练库名；启动姿态检查同样要求）')
-console.log('    （会写演练库 aquaflow_restoredrill；成功会自己清理）')
+console.log('  · 备份 / 恢复演练：先 node scripts/backup-restore-drill.js help，再按 operations/05 核准 --config')
+console.log('    （源/目标完整 TCP 和服务器身份逐一授权；只向已存在空演练库导入，event_scheduler=OFF）')
+console.log('    （目标和备份默认保留；本工具不建/删库，不自动执行）')
 console.log('  · 生产启动姿态：node scripts/prod-startup-check.js')
 console.log('    （拿 build/libs 的 jar 真起 13 次：必需变量缺失必须拒启、COS 四件套缺失只降级；')
 console.log('      先 gradlew bootJar；会自建/自清一次性库 aquaflow_prodstartup_check）')

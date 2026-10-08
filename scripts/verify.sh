@@ -181,11 +181,11 @@ echo "==================== [6/7] 敏感信息扫描 ===================="
 bash scripts/scan-secrets.sh
 
 echo "==================== [7/7] 备份 / 恢复演练（可选，需显式开启） ===================="
-# 默认**不跑**：它会建/删演练库（aquaflow_restoredrill），属"会写库的动作"，
+# 默认**不跑**：它会向明确授权的空演练库导入，属"会写库的动作"，
 # 不该混进每次日常验证。上线前与改动迁移后各跑一次：
-#   node scripts/backup-restore-drill.js drill
-echo "[verify] 未自动执行。上线前请单独跑：node scripts/backup-restore-drill.js drill"
-echo "         先核实目标可清空，再将 AQUAFLOW_ALLOW_DB_RESET 设置为本次演练库名。"
+#   node scripts/backup-restore-drill.js help
+echo "[verify] 未自动执行。先查看：node scripts/backup-restore-drill.js help"
+echo "         按 operations/05 核准完整TCP及服务器身份 --config；恢复只用已有空库，全部保留。"
 
 echo ""
 # 结尾判据（2026-09-30 修 F-02）：**只有真的全跑且全过才打印成功并返回 0**。

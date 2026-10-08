@@ -244,5 +244,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: AquaFlow-backend/build/test-results/test/*.xml
+          path: |
+            AquaFlow-backend/build/test-results/test/*.xml
+            AquaFlow-backend/build/reports/jacoco/test/**
           if-no-files-found: warn

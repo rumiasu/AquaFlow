@@ -351,10 +351,10 @@ function manual(id, text) { results.push({ kind: 'MANUAL', id, detail: text }) }
   let registry = []
   if (wmc) {
     const start = wmc.t.indexOf('registry.addInterceptor(rateLimitInterceptor)')
-    const end = wmc.t.indexOf('registry.addInterceptor(authInterceptor)', start)
+    const end = wmc.t.indexOf(';', start)
     if (start >= 0 && end > start) registry = [...wmc.t.slice(start, end).matchAll(/"([^"]+)"/g)].map(m => m[1])
   }
-  const rlt = testSrc.find(x => x.f.endsWith('RateLimitIntegrationTest.java'))
+  const rlt = testSrc.find(x => path.basename(x.f) === 'RateLimitIntegrationTest.java')
   const tested = rlt ? [...new Set([...rlt.t.matchAll(/"(\/api\/auth\/[^"]+)"/g)].map(m => m[1]))] : []
   const ok = registry.length > 0 && registry.length === tested.length && registry.every(p => tested.includes(p))
   finding('FND-4', 'F-48', 'D2.5 WebMvcConfig 限流注册表 == RateLimitIntegrationTest 钉住的清单',

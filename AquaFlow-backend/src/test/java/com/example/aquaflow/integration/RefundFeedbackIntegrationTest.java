@@ -78,7 +78,17 @@ class RefundFeedbackIntegrationTest extends AbstractIntegrationTest {
         assertEquals(1,intOf("select count(*) from payment_record where amount<0"));
     }
     @Test void barrelReturnUsesAssetStationAndWrongRecordTypeCannotBeLinked() {
-        seed();long r=insert("insert into barrel_record(customer_id,station_id,product_id,type,quantity,status,note,handle_note) values(?,?,1,2,1,3,'原申请','原处理')",customer,a);
+        seed();
+        // 2026-10-08：真实嵌套事务拒绝试算时，应返回不可办理而不是提交阶段500；只读不改任何资金/桶账。
+        long unavailableReturn=insert("insert into barrel_record(customer_id,station_id,product_id,type,quantity,status,deposit_refund) values(?,?,1,2,1,2,30)",customer,a);
+        var beforeEligibility=facts();int systemAlerts=intOf("select count(*) from alert_log where alert_type='SYSTEM'");
+        String eligibilityPath="/api/barrels/records/"+unavailableReturn+"/refund-eligibility";
+        Api eligibility=get(eligibilityPath,mgrA);assertEquals(0,eligibility.code(),eligibility.toString());
+        assertFalse(eligibility.data().path("available").asBoolean());assertTrue(eligibility.data().path("legacy").asBoolean());
+        assertTrue(eligibility.data().path("reason").asText().contains("超过拥有的桶权益数"),eligibility.toString());
+        assertEquals(1,get(eligibilityPath,mgrB).code());assertEquals(1,get(eligibilityPath,cus).code());assertEquals(1,get(eligibilityPath,dlv).code());
+        assertEquals(beforeEligibility,facts());assertEquals(systemAlerts,intOf("select count(*) from alert_log where alert_type='SYSTEM'"));
+        long r=insert("insert into barrel_record(customer_id,station_id,product_id,type,quantity,status,note,handle_note) values(?,?,1,2,1,3,'原申请','原处理')",customer,a);
         var before=facts();String payload=body("BARREL_RETURN",r,"return","退押金说明");
         assertEquals(0,post("/api/feedback/refund-notes",cus,payload).code());assertEquals(0,post("/api/feedback/refund-notes",mgrA,payload).code());assertEquals(1,post("/api/feedback/refund-notes",mgrB,payload).code());
         assertEquals(before,facts());long nonReturn=insert("insert into barrel_record(customer_id,station_id,product_id,type,quantity) values(?,?,1,1,1)",customer,a);

@@ -356,6 +356,7 @@
 |---|---|---|---|
 | `GET` | `/api/barrels/all-records` | {"STATION_MANAGER"} | `BarrelController.getAllRecords` |
 | `GET` | `/api/barrels/records` | {"STATION_MANAGER"} | `BarrelController.listRecords` |
+| `GET` | `/api/barrels/records/{id}/refund-eligibility` | "STATION_MANAGER" | `BarrelController.refundEligibility` —— 归属站交款前只读核对原款、可退金额和渠道；不执行退款，办理时仍重新校验 |
 | `PUT` | `/api/barrels/records/{id}/status` | "STATION_MANAGER" | `BarrelController.handleReturn`（`status=3` 时**必须**带 `refundChannel`：`CASH` 当面交付 / `ONLINE` 原路退回；微信退款通道未接入 ⇒ `ONLINE` 明确拒绝，不假装已退） |
 | `PUT` | `/api/barrels/records/{id}/refund-paid` | "STATION_MANAGER" | `BarrelController.markRefundPaid` —— 「押金已交顾客」**幂等**确认（重复调用不改原交付时间，只补事实，不动金额与状态） |
 | `GET` | `/api/barrels/refund-undelivered` | "STATION_MANAGER" | `BarrelController.refundUndelivered` —— 「已核销未交付」**违规数据**只读清单（口径：`type=2 且 status=3 且 refund_paid_time IS NULL`） |
@@ -443,9 +444,12 @@
 
 | 方法 | 路径 | 角色 | 说明 |
 |---|---|---|---|
-| `POST` | `/api/feedback` | {"STATION_MANAGER"} | `FeedbackController.submit` |
+| `POST` | `/api/feedback` | 登录客户/员工 | `FeedbackController.submit`；普通反馈保留原匿名规则 |
 | `GET` | `/api/feedback/customers` | {"STATION_MANAGER"} | `FeedbackController.customerFeedback` |
-| `GET` | `/api/feedback/my` | {"STATION_MANAGER"} | `FeedbackController.my` |
+| `GET` | `/api/feedback/my` | 本人客户/员工 | `FeedbackController.my`；客户含本人关联记录及站长追加说明，员工通用反馈不借此穿透退款责任站权限 |
+| `POST` | `/api/feedback/refund-notes` | 本人客户/责任站站长（服务层校验） | `FeedbackController.appendRefundNote`；`refundType`、`refundId`、`idempotencyKey`，说明/联系方式可选；仅追加，不执行资金或状态命令 |
+| `GET` | `/api/feedback/refund-notes` | 本人客户/责任站站长（服务层校验） | `FeedbackController.refundNotes`；按原款/申请读说明，停业历史仍可访问 |
+| `GET` | `/api/feedback/refund-options` | 本人客户（会话） | `FeedbackController.refundOptions`；`page`默认1，每页200个本人退押金申请及已收原款候选，`hasMore`如实标识；选项不代表退款成功 |
 | `GET` | `/api/files` | {"STATION_MANAGER"} | `FileManageController.list` |
 | `POST` | `/api/files/upload` | {"STATION_MANAGER"} | `FileManageController.upload` |
 | `DELETE` | `/api/files/{id}` | {"STATION_MANAGER"} | `FileManageController.delete` |
@@ -547,3 +551,30 @@
 `GET /api/manager/business-waiting` 返回 `stock`、`returns`、`recoveries`、`barrels` 当前责任列表，以及 `counts`、`limit`、`schemaAvailable`。`counts` 含 `waitingStock`、`returnsTotal`、`returnRefund`、`recoveriesTotal`、`recoverySend`、`recoveryReceive`、`barrelsTotal`、`barrelHandover`、`barrelDispute`；总数不受列表展示上限影响。行保留原 `orderId` 或 `recordId`，附 `responsibleStationId`、`waitingSinceTime`、`waitingSinceLabel`、`waitingReason`、`nextAction`、`nextActionText`。各站只见自己当前可办理的动作，历史终态不计入责任；缺货按履约站，客户资产退款仍按归属站。
 
 `GET /api/manager/pending-summary/return-record/{recordId}` 仅站长可调，站别取登录态；查询限制本站且 `type=2`，返回原 `BarrelRecord`、`returnDetail` 与沿用桶账的 `owedBuckets`。已收口原申请仍可查看，不受历史列表上限影响。此端点只读，审批、收桶、退款继续调用原业务命令；其他站的编号不能穿透读取。
+
+### 站长管理只读展示补充（2026-10-06）
+
+- 本站客户搜索 `/api/manager/order-assist/customers` 的每项新增 `adjustmentEligible`；只在客户与登录站有绑定时为 true。搜索归属仍为绑定∪本站订单，资产调整的创建/执行继续再次校验绑定。
+- `/api/customers/{id}/assets` 同样下发本站 `adjustmentEligible`，用于预选客户再次核对；未取得明确 true 时新建页不允许试算或提交。
+- `/api/manager/adjustments` 的本站单据补 `customerName`、`customerPhone`，不改变单据站别权限。
+- `/api/manager/pending-summary` 新增 `businessWaitingTotal`，为六类业务责任数量之和（事项数，不是去重订单数）；任何分类不可用时为 null。管理菜单应收角标使用 `overdueReceivable`（逾期客户数），退桶角标使用 `barrelReturn`，未知显示“未核对”。
+- 异常列表 `/api/manager/exceptions` 的待处理筛选使用 `status=STAFF_RECORDED`，与首页待办同源，并继续用 `page/size` 翻页；近30天统计独立于历史列表筛选。
+
+站长历史页的现行查询范围：
+
+- 订单页使用 `GET /api/orders` 的 `page/pageSize` 服务端分页，可筛客户、状态与下单起止日期，结束日包含当天。页面每页取回 20 条；跨站履约汇总另列，不随本页客户、日期、状态筛选变化。
+- 水票购买收款历史先读取支付记录，再按 `orderId` 为空且 `ticketQty > 0`、生成日期进行本地筛选。全站读取最近 200 笔支付，不能称为全部购票历史；选择客户后读取该客户本站全部支付记录，每次“显示更多”仅展开已取回的 50 条，不是服务端分页。此页不是持券余额或补票记录。
+- 工资结算单历史默认读取本站最近 100 张，可请求最多 500 张；员工姓名/编号和结算期间相交日期均在已取回资料内筛选，不是全历史查询，也不改变生成结算单的期间。读取失败后旧资料须标明未重新核对，不能由本地筛选消除读取失败。
+- 资产调整列表只支持客户过滤和 `page/size`，默认 20、最多 100；调整类型、状态和日期不是现行接口的筛选参数。资产摘要是只读查询，刷新不得改变客户选择、表单内容或幂等意图；试算显示的内容必须与实际提交内容属于同一客户、站别和表单版本。
+
+### 本人注销前只读检查（2026-10-05）
+
+| 方法 | 路径 | 身份与用途 |
+|---|---|---|
+| `GET` | `/api/customer/account/closure-check` | 客户本人，全事实站只读清结检查，不执行注销 |
+
+`GET /api/customer/account/closure-check` 仅已认证客户本人可访问，不接受任何身份/站别查询参数；员工与他人不可代查。无写命令、无新表或迁移。
+
+返回 `complete`、`clear`、`message`、`checkedAt`、固定用途提示、全部事实站的最小站名/状态及 `blockingItems`。项目只带站别、类别、数量/金额、人工清结入口，不下发客户姓名/电话/openid或原流水详情。`clear=true` 仅表示本次完整读取未发现未结事项，不代表可注销或已经注销。任何结构、查询、事务完成或结果形状失败均 `complete=false, clear=false`，提示“检查未完成”，不展示部分结论。
+
+事实站含停业站、仅有独立资产且未绑定/无水单的站；全量聚合不套用历史展示条数上限。未结订单、待收款、付款凭据、独立/随单押金购买、真实押金余额、桶/水票批次、回桶占用/欠桶、退还与异常分别检查，不跨站或商品相抵。未知站别状态、历史或凭据不完整标为人工核实，`complete=false, clear=false` 并提示“检查未完成”，不新造欠款。入口转现有客服，并明确原事实站，避免把当前选择站的资产页面误当隐藏站清结结果。实际注销/匿名化/资料留存和导出规则仍按design/16 §12 C-10待拍板，当前没有该命令。

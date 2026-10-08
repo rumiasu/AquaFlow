@@ -24,6 +24,18 @@ public class FeedbackController {
 
     @Autowired
     private FeedbackMapper feedbackMapper;
+    @Autowired private com.example.aquaflow.service.RefundFeedbackService refundFeedbackService;
+
+    @PostMapping("/refund-notes")
+    public Result<Feedback> appendRefundNote(@Valid @RequestBody com.example.aquaflow.dto.RefundFeedbackDTO dto) {
+        return Result.success(refundFeedbackService.append(dto));
+    }
+    @GetMapping("/refund-notes")
+    public Result<Map<String,Object>> refundNotes(@RequestParam String refundType,@RequestParam Long refundId) {
+        return Result.success(refundFeedbackService.thread(refundType,refundId));
+    }
+    @GetMapping("/refund-options")
+    public Result<Map<String,Object>> refundOptions(@RequestParam(defaultValue="1") int page) {return Result.success(refundFeedbackService.options(page));}
 
     /**
      * 客户/员工提交反馈（自动识别身份）。
@@ -96,6 +108,6 @@ public class FeedbackController {
     @RequireRole({"STATION_MANAGER"})
     @GetMapping("/customers")
     public Result<List<Feedback>> customerFeedback() {
-        return Result.success(feedbackMapper.listCustomerFeedbackByStation(AuthContext.requireStationId()));
+        return Result.success(refundFeedbackService.managerList());
     }
 }

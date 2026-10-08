@@ -58,6 +58,8 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
     private OrderItemMapper orderItemMapper;
     @Autowired
     private ProductMapper productMapper;
+    @Autowired
+    private com.example.aquaflow.util.ProductImageResolver productImageResolver;
 
     /** 抢单池 / 指定外派（别站指定本店）要下发「定价来源站名」，站名从这里取（见 loadStationNames 的批量做法）。 */
     @Autowired
@@ -138,8 +140,21 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
 
     @Override
     public List<Orders> listHistory(Long staffId) {
-        return maskCrossStationProfiles(
-                orderMapper.listHistoryByDeliveryStaffId(staffId, OrderStatus.COMPLETED));
+        return attachListItemSummaries(maskCrossStationProfiles(
+                orderMapper.listHistoryByDeliveryStaffId(staffId, OrderStatus.COMPLETED)));
+    }
+
+    /** 只补已获准返回的订单，保留列表原顺序/状态/画像屏蔽，不调用逐单详情。 */
+    private List<Orders> attachListItemSummaries(List<Orders> rows) {
+        if (rows == null || rows.isEmpty()) return rows;
+        List<Long> ids = rows.stream().map(Orders::getId).distinct().toList();
+        Map<Long, List<OrderItem>> byOrder = new HashMap<>();
+        for (OrderItem item : orderItemMapper.listSummaryByOrderIds(ids)) {
+            item.setImageUrl(productImageResolver.resolve(item.getImageObjectName()));
+            byOrder.computeIfAbsent(item.getOrderId(), key -> new ArrayList<>()).add(item);
+        }
+        rows.forEach(order -> order.setItems(byOrder.getOrDefault(order.getId(), List.of())));
+        return rows;
     }
 
     @Override
@@ -293,7 +308,11 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
 
     @Override
     public List<Orders> listStationTransferred(Long stationId) {
-        return orderMapper.listTransferredOrders(stationId);
+        List<Orders> rows = orderMapper.listTransferredOrders(stationId);
+        if (rows != null) rows = rows.stream()
+                .filter(o -> !OrderTransfer.SUB_TRANSFER.equals(o.getTransferPendingSubKind())).toList();
+        if (rows != null) rows.forEach(CustomerProfileMask::mask);
+        return attachListItemSummaries(rows);
     }
 
     @Override
@@ -337,7 +356,7 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
     public Map<String, Object> pendingApprovals(Long stationId) {
         Map<String, Object> data = new HashMap<>();
         data.put("customer", orderMapper.listPendingCustomerCancelRequests(stationId));
-        data.put("station", orderMapper.listTransferredOrders(stationId));
+        data.put("station", listStationTransferred(stationId));
         return data;
     }
 
@@ -483,6 +502,9 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
     @Override
     public List<Orders> listDirectedIncoming(Long stationId) {
         List<Orders> incoming = orderMapper.listDirectedIncoming(stationId);
+        if (incoming != null) incoming = incoming.stream()
+                .filter(o -> com.example.aquaflow.constant.DispatchKind.ofNote(o.getSpecialNote())
+                        == com.example.aquaflow.constant.DispatchKind.DIRECTED).toList();
         attachFeeInfo(incoming, stationId, false);
         if (incoming != null) {
             // 整表都是别站客户 → 无条件抹（不像混着本站单的列表那样逐行判跨站）

@@ -136,7 +136,7 @@ public class ReconciliationService {
      * <p>为什么不违反「不在 {@code @Transactional} 方法内 catch」那条判据：本方法**不是事务方法**，
      * 而是任务的入口；catch 之后异常不再上抛，正是这里想要的（任务不能把异常丢给调度器了事）。</p>
      */
-    @Scheduled(cron = "0 0 3 * * ?")
+    @Scheduled(cron = "0 0 3 * * ?", zone = "#{@clock.getZone().getId()}")
     public void dailyReconcile() {
         try {
             runDailyReconcile();

@@ -20,6 +20,6 @@ public class StaffUpdateDTO {
     /** 手机号 */
     private String phone;
 
-    /** 在职状态：1 在职 0 离职 */
+    /** 在职状态：1 在职、2 离职；不传则保留原值。原注释误写 0，2026-10-08 按表定义修正。 */
     private Integer status;
 }

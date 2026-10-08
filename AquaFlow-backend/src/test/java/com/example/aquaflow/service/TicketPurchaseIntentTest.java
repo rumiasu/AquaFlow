@@ -135,6 +135,10 @@ class TicketPurchaseIntentTest {
         ReflectionTestUtils.setField(service, "ticketTierService", tiers);
         ReflectionTestUtils.setField(service, "barrelPolicy", policy);
         ReflectionTestUtils.setField(service, "purchaseFenceService", mock(TicketPurchaseFenceService.class));
+        var stations = mock(com.example.aquaflow.mapper.StationMapper.class);
+        var station = new com.example.aquaflow.entity.Station(); station.setId(1L); station.setStatus(1);
+        when(stations.getById(1L)).thenReturn(station);
+        ReflectionTestUtils.setField(service, "stationMapper", stations);
         var created = service.purchaseTicket(7L, 5L, 3, 1, 1L, "first", null, null);
         verify(mapper).insert(created);
         assertEquals(TicketPurchaseIntent.digest(7L, 1L, 5L, 3, 1, null, null), created.getPurchaseRequestDigest());

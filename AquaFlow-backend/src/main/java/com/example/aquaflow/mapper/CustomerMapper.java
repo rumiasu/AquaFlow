@@ -103,6 +103,7 @@ public interface CustomerMapper {
      * @param limit 候选上限；调用方传 {@code CustomerSearchMatcher.MAX_CANDIDATES}
      */
     @Select("select c.id, c.name, c.phone, c.customer_type as customerType, "
+            + "exists (select 1 from customer_station_config bound where bound.customer_id=c.id and bound.station_id=#{stationId}) as adjustmentEligible, "
             + "group_concat(concat_ws('', ifnull(a.province,''), ifnull(a.city,''), ifnull(a.district,''), ifnull(a.detail,'')) "
             + "order by a.is_default desc, a.id desc separator '\\n') as addressText, "
             + "(select group_concat(o.address_snapshot separator ' ') from orders o "

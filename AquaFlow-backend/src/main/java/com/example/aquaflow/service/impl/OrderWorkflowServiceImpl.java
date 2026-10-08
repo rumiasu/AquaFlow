@@ -21,6 +21,7 @@ import com.example.aquaflow.mapper.StaffMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.AuditLogService;
 import com.example.aquaflow.service.BarrelLedgerService;
+import com.example.aquaflow.service.BarrelService;
 import com.example.aquaflow.service.OrderBarrelExceptionService;
 import com.example.aquaflow.service.OrderWorkflowService;
 import com.example.aquaflow.service.PaymentService;
@@ -37,6 +38,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.Set;
 
 /**
  * {@link OrderWorkflowService} 实现。
@@ -112,6 +115,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     private BarrelLedgerService barrelLedgerService;
 
     @Autowired
+    private BarrelService barrelService;
+
+    @Autowired
     private BarrelRecordMapper barrelRecordMapper;
 
     @Autowired
@@ -125,6 +131,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         Orders o = orderMapper.getById(orderId);
         if (o == null) throw new BusinessException("订单不存在");
         return o;
+    }
+
+    private Orders requireOrderForUpdate(Long orderId) {
+        Orders order = orderMapper.getByIdForUpdate(orderId);
+        if (order == null) throw new BusinessException("订单不存在");
+        return order;
     }
 
     /** 履约站（delivery_station_id 优先，回退 station_id） */
@@ -400,7 +412,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public void completeDelivery(Long orderId, Map<String, Object> params) {
         Long staffId = AuthContext.getUserId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         checkStationOwnership(order);
         if (AuthContext.isDelivery()) {
             checkDeliverySelf(order);
@@ -408,6 +420,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (order.getStatus() != OrderStatus.DELIVERING) {
             throw new BusinessException("该订单当前状态不可完成配送");
         }
+        // docs/design/16-范围决策与实施路线图.md C-12：保持原负责人正常履约。
+        // “先撤回才能送达”未获批准，不实施；送达后只收尾失效转让，不改变资金责任。
 
         // 首次桶装水订单：押金桶无需回桶，直接跳过回桶核对
         boolean isFirstBarrelOrder = Boolean.TRUE.equals(order.getFirstBarrelOrder())
@@ -445,14 +459,16 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             if (params != null && params.containsKey("itemReturns")) {
                 Object ir = params.get("itemReturns");
                 if (ir instanceof List) {
-                    @SuppressWarnings("unchecked")
-                    List<Map<String, Object>> list = (List<Map<String, Object>>) ir;
-                    itemReturns = list;
-                    for (Map<String, Object> item : list) {
+                    itemReturns = normalizeReturnInputs(order, (List<?>) ir, orderItems);
+                    for (Map<String, Object> item : itemReturns) {
                         Object actual = item.get("actual");
                         if (actual instanceof Number) {
                             int act = ((Number) actual).intValue();
-                            returnBucketQty += act;
+                            try {
+                                returnBucketQty = Math.addExact(returnBucketQty, act);
+                            } catch (ArithmeticException overflow) {
+                                throw new BusinessException("回收空桶总数超出有效范围");
+                            }
                             Object oiId = item.get("orderItemId");
                             Long pid = null;
                             if (oiId instanceof Number) {
@@ -468,13 +484,15 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                             returnedByProduct.merge(pid, act, Integer::sum);
                         }
                     }
+                } else {
+                    throw new BusinessException("回桶明细格式不正确，请重新填写");
                 }
             }
             // 兼容旧版 returnBucketQty 参数（无商品维度，按订单明细数量比例分摊）
             if (itemReturns == null && params != null && params.containsKey("returnBucketQty")) {
                 Object rb = params.get("returnBucketQty");
                 if (rb instanceof Number) {
-                    returnBucketQty = ((Number) rb).intValue();
+                    returnBucketQty = returnQuantity(rb, "回收空桶数");
                     returnedByProduct = splitByItemRatio(orderItems, returnBucketQty);
                 }
             }
@@ -482,10 +500,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (returnBucketQty < 0) {
             throw new BusinessException("回收空桶数不能为负数");
         }
-        // 少回桶原因必须**按数量之和**对上少桶数（契约工作包 C2）：
-        // 前端原来按"原因条数"记数与校验（1 条原因×3 桶被当成 1 桶），服务端则完全不校验 ——
-        // 于是"少 3 桶、只勾 1 条原因"能提交成功，异常单上的原因与真实缺口对不上。
-        // 放在桶账写入**之前**：不满足就不动账。
+        // 2026-10-05：旧必填/补齐闸门阻断合法送达；C-02 已定原因选填。
+        // 只校验已填事实，未知差额不伪造为“其他”；仍在桶账写入前拒绝非法数量/原因。
         assertReturnReasonsMatchGap(itemReturns);
 
         // 2026-10-03：现场现金先实收、激活本单容量，再交桶；后续失败整笔事务回滚。
@@ -530,7 +546,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                         noteSb.append("(");
                         for (int i = 0; i < reasons.size(); i++) {
                             Map<String, Object> r = reasons.get(i);
-                            String key = r.get("key") != null ? r.get("key").toString() : "other";
+                            String key = r.get("key").toString();
                             Object qtyObj = r.get("qty");
                             int qty = qtyObj instanceof Number ? ((Number) qtyObj).intValue() : 0;
                             String label = switch (key) {
@@ -695,6 +711,17 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                     serviceMap("reason", "订单已完成配送，取消申请自动关闭"));
         }
 
+        // Delivery wins the same order-row lock as handoff: the old owner delivered,
+        // so the target cannot subsequently take a terminal order. Other STAFF requests
+        // retain their dedicated decisions; customer cancellation above stays unchanged.
+        OrderTransfer staleHandoff = orderTransferMapper.findPendingByOrderAndKind(orderId, OrderTransfer.KIND_STAFF);
+        if (staleHandoff != null && OrderTransfer.SUB_TRANSFER.equals(staleHandoff.getSubKind())) {
+            int closed = orderTransferMapper.resolvePendingRequest(staleHandoff.getId(), OrderTransfer.KIND_STAFF,
+                    OrderTransfer.SUB_TRANSFER, OrderTransfer.STATUS_REJECTED, staffId);
+            if (closed > 0) log("TRANSFER_AUTO_CLOSED", orderId,
+                    serviceMap("reason", "原配送员已完成配送，转让失效"));
+        }
+
         if (params != null && params.containsKey("note")) {
             orderMapper.appendSpecialNote(orderId, "[配送备注] " + params.get("note"));
         }
@@ -709,18 +736,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     }
 
     /**
-     * 少回桶原因必须**按数量之和**对上少桶数（契约工作包 C2）。
-     *
-     * <p>判据逐条明细算：{@code 少桶数 = expected − actual}，要求
-     * {@code Σ(reason.qty) == 少桶数}，且每个 {@code qty ≥ 0}。这是"按 SUM 而不是按原因条数"的
-     * <b>服务端那一半</b>（前端展示与选择闸门也要按 SUM，见 {@code miniapp-delivery/pages/order/complete}）：
-     * 只在前端校验等于没校验 —— 请求可以绕过页面直接发。</p>
-     *
-     * <p>不给"自动补齐差额"的兜底：原因代表现场事实（客户留存 / 丢失 / 破损 / 送错），
-     * 替配送员猜一个原因会把异常单写成假话，站长照它处置就错了。</p>
-     *
-     * <p>首单（{@code firstBarrelOrder}）不核对回桶，调用点已经在 {@code if (!isFirstBarrelOrder)} 里
-     * 只对非首单收集 itemReturns，所以这里不需要再判一次首单。</p>
+     * 校验选填的现场原因，不要求覆盖全部少回差额。见 design/16 C-02。
+     * <p>未知原因不能默认为“其他”；已填数量按合计校验，不能通过伪造 expected 扩大额度。</p>
      */
     private void assertReturnReasonsMatchGap(List<Map<String, Object>> itemReturns) {
         if (itemReturns == null || itemReturns.isEmpty()) {
@@ -731,29 +748,93 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             int exp = item.get("expected") instanceof Number n ? n.intValue() : 0;
             int act = item.get("actual") instanceof Number n ? n.intValue() : 0;
             int gap = exp - act;
-            if (gap <= 0) {
-                continue;   // 没少回桶就不需要原因（多回桶的场景不在这里判）
-            }
-            int reasonSum = 0;
+            // 旧客户端会为新领桶上传按送出数填的原因；无真实少回差额时不保存这类旧提示。
+            if (gap <= 0) continue;
+            long reasonSum = 0;
             Object reasonsObj = item.get("reasons");
+            if (reasonsObj == null) continue;
             if (reasonsObj instanceof List<?> reasons) {
                 for (Object o : reasons) {
                     if (!(o instanceof Map<?, ?> reason)) {
-                        continue;
+                        throw new BusinessException("「" + productName + "」的原因格式不正确");
+                    }
+                    Object key = reason.get("key");
+                    if (!(key instanceof String) || !Set.of("customer_kept", "lost", "damaged", "wrong", "other").contains(key)) {
+                        throw new BusinessException("「" + productName + "」的少桶原因无效，请重新选择");
                     }
                     Object qtyObj = reason.get("qty");
-                    int qty = qtyObj instanceof Number n ? n.intValue() : 0;
-                    if (qty < 0) {
-                        throw new BusinessException("「" + productName + "」的少桶原因数量不能为负数，请重新填写");
+                    int qty = returnQuantity(qtyObj, "「" + productName + "」的少桶原因数量");
+                    if (qty == 0) {
+                        throw new BusinessException("已填少桶原因数量必须为正整数，不填原因可直接移除");
                     }
                     reasonSum += qty;
                 }
+            } else {
+                throw new BusinessException("「" + productName + "」的原因格式不正确");
             }
-            if (reasonSum != gap) {
+            if (reasonSum > Math.max(0, gap)) {
                 throw new BusinessException("「" + productName + "」少 " + gap + " 桶，但少桶原因合计 "
-                        + reasonSum + " 桶，两者必须一致，请重新填写原因");
+                        + reasonSum + " 桶，不能超过实际差额，请重新填写原因");
             }
         }
+    }
+
+    /** 应回数复用唯一回桶计划；请求仅报告实回，不允许用 expected 改写现场差额。 */
+    private List<Map<String, Object>> normalizeReturnInputs(Orders order, List<?> inputs, List<OrderItem> orderItems) {
+        List<Map<String, Object>> normalized = new ArrayList<>();
+        if (inputs.isEmpty()) return normalized;
+        List<BarrelService.ReturnPlanItem> plan = barrelService.returnPlanOfOrder(
+                order.getId(), order.getCustomerId(), order.getStationId());
+        Map<Long, BarrelService.ReturnPlanItem> byItem = new HashMap<>();
+        if (plan != null) for (BarrelService.ReturnPlanItem row : plan) byItem.put(row.getOrderItemId(), row);
+        Set<Long> knownItems = new java.util.HashSet<>();
+        if (orderItems != null) for (OrderItem item : orderItems) knownItems.add(item.getId());
+        Set<Long> reportedItems = new java.util.HashSet<>();
+        for (Object input : inputs) {
+            if (!(input instanceof Map<?, ?> raw)) throw new BusinessException("回桶明细格式不正确");
+            Long itemId = null;
+            if (raw.get("orderItemId") instanceof Number n) {
+                try { itemId = new BigDecimal(n.toString()).longValueExact(); }
+                catch (NumberFormatException | ArithmeticException invalid) {
+                    throw new BusinessException("回桶明细缺少有效的商品信息");
+                }
+            } else if (raw.get("orderItemId") == null && byItem.size() == 1) {
+                itemId = byItem.keySet().iterator().next();
+            } else if (raw.get("orderItemId") == null && knownItems.size() == 1) {
+                itemId = knownItems.iterator().next();
+            }
+            BarrelService.ReturnPlanItem row = byItem.get(itemId);
+            int actual = returnQuantity(raw.get("actual"), "回收空桶数");
+            if (row == null && knownItems.contains(itemId)) {
+                // 历史客户端可能把非桶装商品的零回桶一并上传；忽略零行，不生成假的桶差额。
+                if (actual == 0) continue;
+                throw new BusinessException("该商品不涉及回桶，请核对实际商品");
+            }
+            if (row == null || row.getSuggestedQty() == null || !reportedItems.add(itemId)) {
+                throw new BusinessException("回桶明细的商品无效或重复，请重新核对");
+            }
+            Map<String, Object> item = new HashMap<>();
+            item.put("orderItemId", itemId);
+            item.put("productName", raw.get("productName"));
+            item.put("expected", row.getSuggestedQty());
+            item.put("actual", actual);
+            item.put("reasons", raw.get("reasons"));
+            normalized.add(item);
+        }
+        return normalized;
+    }
+
+    /** 不截断小数或溢出值；数量转换错误须在桶账写入前作为业务拒绝。 */
+    private int returnQuantity(Object value, String label) {
+        if (value instanceof Number number) {
+            try {
+                int quantity = new BigDecimal(number.toString()).intValueExact();
+                if (quantity >= 0) return quantity;
+            } catch (NumberFormatException | ArithmeticException invalid) {
+                // 下方统一给可读业务错误，不让非法请求变成系统故障。
+            }
+        }
+        throw new BusinessException(label + "必须为非负整数，且不能超出有效范围");
     }
 
     /**
@@ -914,6 +995,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             if (changed == 0) {
                 throw new BusinessException("订单状态已变更，请刷新后重试");
             }
+            dispatchAgreements.recallIfUnstarted(orderId);
+            dispatchAgreements.prepare(order, null);
             // 退回池 = 这单又回归属站 → 待收款流水跟着回归属站
             movePendingCollectionTo(orderId, order.getStationId());
             // [2026-09-25 库存预留模型] 库存凭据跟着履约站走：池中的单没人履约 ⇒ 预留回**归属站**
@@ -1099,7 +1182,6 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                 throw new BusinessException("订单状态已变更，请刷新后重试");
             }
             dispatchAgreements.recallIfUnstarted(orderId);
-            dispatchAgreements.prepare(order,null);
             dispatchAgreements.prepare(order,targetStationId);
             // 定向外派 = 钱货都归目标站 → 待收款流水跟着走
             movePendingCollectionTo(orderId, targetStationId);
@@ -1125,6 +1207,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             if (changed == 0) {
                 throw new BusinessException("订单状态已变更，请刷新后重试");
             }
+            dispatchAgreements.recallIfUnstarted(orderId);
+            dispatchAgreements.prepare(order, null);
             // 放入池中 = 又回归属站 → 待收款流水跟着回归属站
             movePendingCollectionTo(orderId, order.getStationId());
             // [2026-09-25 库存预留模型] 同上：池中的单没人履约 ⇒ 预留回**归属站**
@@ -1273,7 +1357,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     public void transferToStaff(Long orderId, Long targetStaffId, String reason) {
         Long stationId = AuthContext.getStationId();
         if (stationId == null) throw new BusinessException("无法识别当前水站");
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站履约的订单");
         }
@@ -1332,7 +1416,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     public void cancelTransfer(Long orderId) {
         Long staffId = AuthContext.getUserId();
         Long stationId = AuthContext.getStationId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         if (stationId == null || !stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站订单");
         }
@@ -1359,21 +1443,29 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     public void claimTransfer(Long orderId) {
         Long staffId = AuthContext.getUserId();
         Long stationId = AuthContext.getStationId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
+        checkStationOwnership(order);
+        if (!Integer.valueOf(OrderStatus.PENDING).equals(order.getStatus())
+                && !Integer.valueOf(OrderStatus.DELIVERING).equals(order.getStatus())) {
+            throw new BusinessException("当前订单状态不可处理转让");
+        }
 
         // ===== ① 同事转单的"同意"（[2026-09-27] 双方同意的第二半）=====
         // 待确认期间订单还挂在**发起人**名下，所以这一段必须在"订单是不是我的"那道校验**之前**判断
         // —— 否则接收方会看到「该订单已分配给其他配送员」，永远同意不了。
         OrderTransfer pending = orderTransferMapper.findPendingByOrderAndKind(orderId, OrderTransfer.KIND_STAFF);
-        if (pending != null && staffId.equals(pending.getToStaffId())) {
+        if (pending != null && OrderTransfer.SUB_TRANSFER.equals(pending.getSubKind())
+                && staffId.equals(pending.getToStaffId())) {
             Long from = pending.getFromStaffId();
             // CAS：只有订单仍挂在发起人名下才改（防"两个人都点了同意"/中途被转给别人）
             int moved = orderMapper.reassignStaffIf(orderId, staffId, from);
             if (moved == 0) {
                 throw new BusinessException("这条转单已经不作数了（订单已被改派或状态已变），请刷新后重试");
             }
-            orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_STAFF,
-                    OrderTransfer.STATUS_APPROVED, staffId);
+            if (orderTransferMapper.resolvePendingRequest(pending.getId(), OrderTransfer.KIND_STAFF,
+                    OrderTransfer.SUB_TRANSFER, OrderTransfer.STATUS_APPROVED, staffId) != 1) {
+                throw new BusinessException("该转让已被处理，请刷新后重试");
+            }
             orderMapper.appendSpecialNote(orderId, "[转让已接收]");
             log("TRANSFER_ACCEPT", orderId, null);
             return;
@@ -1389,7 +1481,10 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (order.getDeliveryStaffId() != null && !order.getDeliveryStaffId().equals(staffId)) {
             throw new BusinessException("该订单已分配给其他配送员");
         }
-        // [AQ-020] 原子 CAS：仅当订单无配送员（或归自己）时更新
+        if (order.getDeliveryStaffId() != null) {
+            throw new BusinessException("该订单没有待你接手的转让，或该转让已经处理，请刷新任务列表");
+        }
+        // 保留未分配订单的旧认领入口；同事转让须由上方待确认申请分支处理。
         int claimed = orderMapper.claimIfUnassigned(orderId, staffId);
         if (claimed == 0) {
             throw new BusinessException("该订单已被其他配送员认领");
@@ -1401,7 +1496,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void rejectTransfer(Long orderId) {
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
+        checkStationOwnership(order);
+        if (!Integer.valueOf(OrderStatus.PENDING).equals(order.getStatus())
+                && !Integer.valueOf(OrderStatus.DELIVERING).equals(order.getStatus())) {
+            throw new BusinessException("当前订单状态不可处理转让");
+        }
         Long myStaffId = AuthContext.getUserId();
 
         // ===== 同事转单的"不同意"（[2026-09-27]）=====
@@ -1481,11 +1581,13 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void approveReturn(Long orderId) {
+        AuthContext.requireManager();
         Long stationId = AuthContext.requireStationId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站订单");
         }
+        resolveStaffReturnRequest(order, OrderTransfer.STATUS_APPROVED);
         // [AQ-016] 同意退回才清空配送员（转成真正待分配），且状态必须是待配送，
         // 否则会出现「配送中但无配送员」的孤儿卡死单。
         int cur = order.getStatus() != null ? order.getStatus() : 0;
@@ -1498,19 +1600,19 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         // [AQ-015] 写入决策子串「-已同意」，列表侧用 LIKE 排除；不做 replace 整列覆盖（并发下会丢更新）
         orderMapper.appendSpecialNote(orderId, "[退回站长-已同意] [退回通过]");
         orderMapper.clearDeliveryStaff(orderId);
-        orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_STAFF,
-                OrderTransfer.STATUS_APPROVED, AuthContext.getUserId());
         log("RETURN_APPROVE", orderId, null);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void rejectReturn(Long orderId) {
+        AuthContext.requireManager();
         Long stationId = AuthContext.requireStationId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站订单");
         }
+        resolveStaffReturnRequest(order, OrderTransfer.STATUS_REJECTED);
         // [AQ-016] 拒绝退回须保证订单有配送员可继续履约，否则会变成「配送中但无配送员」的孤儿卡死单。
         if (order.getDeliveryStaffId() == null) {
             throw new BusinessException("订单当前无配送员，无法拒绝退回，请先分配配送员");
@@ -1521,9 +1623,22 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException("订单状态已变更，请刷新后重试");
         }
         orderMapper.appendSpecialNote(orderId, "[退回站长-已拒绝] [退回拒绝]");
-        orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_STAFF,
-                OrderTransfer.STATUS_REJECTED, AuthContext.getUserId());
         log("RETURN_REJECT", orderId, null);
+    }
+
+    private void resolveStaffReturnRequest(Orders order, String outcome) {
+        if (!Integer.valueOf(OrderStatus.PENDING).equals(order.getStatus())
+                && !Integer.valueOf(OrderStatus.DELIVERING).equals(order.getStatus())) {
+            throw new BusinessException("当前订单状态不可审批退回");
+        }
+        OrderTransfer request = orderTransferMapper.findPendingByOrderAndKind(order.getId(), OrderTransfer.KIND_STAFF);
+        if (request == null || !OrderTransfer.SUB_RETURN_STATION.equals(request.getSubKind())) {
+            throw new BusinessException("该订单没有待审批的退回站长申请，请使用对应申请的处理入口");
+        }
+        if (orderTransferMapper.resolvePendingRequest(request.getId(), OrderTransfer.KIND_STAFF,
+                OrderTransfer.SUB_RETURN_STATION, outcome, AuthContext.getUserId()) != 1) {
+            throw new BusinessException("该退回申请已被处理，请刷新后重试");
+        }
     }
 
     /* ==================================================================

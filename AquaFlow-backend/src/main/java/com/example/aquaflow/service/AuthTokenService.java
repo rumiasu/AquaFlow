@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -552,6 +553,9 @@ public class AuthTokenService {
 
     // ==================== Token 刷新 ====================
 
+    /** 轮换需经 Spring 事务代理：旧凭据锁、精确删除和新凭据插入必须一起提交/回滚。 */
+    // A waiting old-token query must not hold an RR gap that blocks replacement insertion.
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> refresh(AuthRequestDTO.Refresh params) {
         String refreshToken = params.getRefreshToken();
 
@@ -568,8 +572,14 @@ public class AuthTokenService {
         Long userId = claims.get("userId", Number.class).longValue();
         String userType = claims.get("userType", String.class);
 
+        if (!"staff".equals(userType) && !"customer".equals(userType)) {
+            throw new BusinessException("无效的refreshToken");
+        }
+
         UserToken storedToken = userTokenMapper.findByRefreshToken(refreshToken);
-        if (storedToken == null) {
+        if (storedToken == null || !userId.equals(storedToken.getUserId())
+                || !userType.equals(storedToken.getUserType())
+                || !refreshToken.equals(storedToken.getRefreshToken())) {
             throw new BusinessException("令牌已失效，请重新登录");
         }
 
@@ -594,12 +604,10 @@ public class AuthTokenService {
 
         String newAccessToken = jwtUtil.generateAccessToken(userId, userType, role, stationId);
 
-        // #2: Refresh Token轮换 — 生成新的refresh token，废弃旧的
-        // ⚠️ [2026-09-26 真机事故] 这里**不能**改成 saveRefreshToken()（它会 deleteByUser 全清）：
-        //   客户端 401 时可能并发发起两次刷新，两次都会落一行新 token；
-        //   全清会让"客户端实际留下的那个 token"被另一次请求删掉 —— 登录态直接失效，只能重新登录。
-        //   按 token 精确删除则是幂等的：两次并发刷新各自留下一个可用 token，旧的那个被删掉。
-        //   同秒签发导致"两行同值"的根本原因已在 JwtUtil.generateRefreshToken 用 jti 消除。
+        // [2026-10-05 F-78] 原非事务的先删后插会丢旧凭据；撤销也能在间隙结束后被晚到插入复活。
+        // 旧凭据 FOR UPDATE 锁一直持有至替换提交，撤销须等待并删除已提交替换；撤销先完成则刷新拒绝。
+        // 同一旧凭据的并发重放须在锁后重读，不保证两次都成功；已返回的新凭据不能被失败请求全清。
+        // 仍禁止调用登录用的 saveRefreshToken/deleteByUser，否则会撤销其它会话。
         String newRefreshToken = jwtUtil.generateRefreshToken(userId, userType);
         // 删除旧token记录（同值的重复行一并清掉，见 UserTokenMapper.findByRefreshToken 的说明）
         userTokenMapper.deleteByRefreshToken(refreshToken);

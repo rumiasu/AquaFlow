@@ -42,9 +42,17 @@ public interface StationAdjustmentMapper {
     @Select("select * from station_adjustment where id = #{id}")
     StationAdjustment getById(@Param("id") Long id);
 
+    /** 冲正先锁原单，并使用当前读串行化重复/并发撤销。 */
+    @Select("select * from station_adjustment where id = #{id} for update")
+    StationAdjustment getByIdForUpdate(@Param("id") Long id);
+
     /** 幂等：同一 clientToken 只允许一张单 */
     @Select("select * from station_adjustment where client_token = #{clientToken} limit 1")
     StationAdjustment findByClientToken(@Param("clientToken") String clientToken);
+
+    /** 唯一键竞争后的当前读，不复用 REPEATABLE READ 的旧快照。 */
+    @Select("select * from station_adjustment where client_token = #{clientToken} limit 1 lock in share mode")
+    StationAdjustment findByClientTokenForShare(@Param("clientToken") String clientToken);
 
     @Select("select * from station_adjustment where station_id = #{stationId} order by id desc limit #{limit} offset #{offset}")
     List<StationAdjustment> listByStation(@Param("stationId") Long stationId,

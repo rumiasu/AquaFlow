@@ -5,6 +5,8 @@ server:
 
 # 应用开关
 app:
+  # 中国水站的业务日界；Java 业务时钟与 cron 共用，SQL 会话时区仍独立配置。
+  time-zone: ${APP_TIME_ZONE:Asia/Shanghai}
   # 开发模式登录开关：默认关闭（生产必须关闭，防止未授权获取角色 JWT）；开发需要时用环境变量 DEV_LOGIN_ENABLED=true 开启
   dev-login-enabled: ${DEV_LOGIN_ENABLED:false}
   # P4-3: CORS 允许的来源列表（逗号分隔），生产环境必须配置实际域名
@@ -14,6 +16,9 @@ app:
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:20}
+    # 公开水站发现独立预算；60/min 是工程默认，代理出口共享时须按实际流量校准。
+    public-enabled: ${RATE_LIMIT_PUBLIC_ENABLED:true}
+    public-per-minute: ${RATE_LIMIT_PUBLIC_PER_MINUTE:60}
   # 订单相关开关
   # 企业身份（v50）：**默认关闭**。关掉时报价不再下发"大额可申请企业身份"提示、
   # /api/enterprise/** 一律返回业务错误 —— 甲方不满意可以立刻关。

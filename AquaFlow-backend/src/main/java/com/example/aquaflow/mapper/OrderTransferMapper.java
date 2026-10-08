@@ -61,7 +61,14 @@ public interface OrderTransferMapper {
     @Update("update order_transfer set status = #{status}, operator_id = #{operatorId}, update_time = NOW() " +
             "where order_id = #{orderId} and kind = #{kind} and status = 'PENDING'")
     int resolvePendingByKind(@Param("orderId") Long orderId, @Param("kind") String kind,
-                             @Param("status") String status, @Param("operatorId") Long operatorId);
+                              @Param("status") String status, @Param("operatorId") Long operatorId);
+
+    /** Resolve exactly the inspected request; a concurrent replacement must never be approved. */
+    @Update("update order_transfer set status = #{status}, operator_id = #{operatorId}, update_time = NOW() " +
+            "where id = #{id} and kind = #{kind} and sub_kind = #{subKind} and status = 'PENDING'")
+    int resolvePendingRequest(@Param("id") Long id, @Param("kind") String kind,
+                              @Param("subKind") String subKind, @Param("status") String status,
+                              @Param("operatorId") Long operatorId);
 
     /** 按订单查询全部转单记录（倒序，审计展示用） */
     @Select("select * from order_transfer where order_id = #{orderId} order by id desc")

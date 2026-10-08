@@ -58,6 +58,7 @@ app:
 
   rate-limit:
     enabled: false
+    public-enabled: false
 
   # [2026-09-20] 集成测试一律按**真实口径**跑：微信渠道未接入。
   #

@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
     id 'org.springframework.boot' version '4.0.6'
     id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -68,8 +69,11 @@ dependencies {
     implementation 'org.slf4j:slf4j-api'
 
     // Tencent COS
-    implementation 'com.qcloud:cos_api:5.6.227'
-    implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
+    implementation('com.qcloud:cos_api:5.6.227') {
+        // COS declares jdk15on; keep one provider implementation on the runtime classpath.
+        exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
+    }
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.86'
 
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
     testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
@@ -80,8 +84,27 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
+jacoco {
+    toolVersion = '0.8.15'
+}
+
 tasks.named('test') {
+    // Each cached Spring test context retains a datasource pool. Evict stale
+    // contexts before many test configurations exhaust the shared test server.
+    systemProperty 'spring.test.context.cache.maxSize', '4'
     useJUnitPlatform()
+    finalizedBy tasks.named('jacocoTestReport')
+}
+
+// Report the tests actually executed; a filtered run is a partial baseline.
+// No coverage percentage gate is imposed without an agreed target.
+tasks.named('jacocoTestReport') {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
 }
 
 // [AQ-041] 开启 -parameters：让 AOP 能拿到方法参数名，从而校验 JSON body / 路径变量里的 stationId

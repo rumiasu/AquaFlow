@@ -13,13 +13,42 @@ public interface FeedbackMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(Feedback feedback);
 
+    @Insert("insert into feedback(staff_id,customer_id,category,content,contact,anonymous,create_time,"
+            + "refund_type,refund_id,responsible_station_id,actor_key,idempotency_key,request_digest) "
+            + "values(#{staffId},#{customerId},#{category},#{content},#{contact},0,#{createTime},"
+            + "#{refundType},#{refundId},#{responsibleStationId},#{actorKey},#{idempotencyKey},#{requestDigest}) "
+            + "on duplicate key update id=last_insert_id(id)")
+    @Options(useGeneratedKeys=true,keyProperty="id")
+    void insertRefundNote(Feedback note);
+
+    @Select("select * from feedback where actor_key=#{actor} and refund_type=#{type} and refund_id=#{id} and idempotency_key=#{key}")
+    Feedback getRefundNote(@Param("actor") String actor,@Param("type") String type,@Param("id") Long id,@Param("key") String key);
+
+    @Select("select * from feedback where actor_key=#{actor} and refund_type=#{type} and refund_id=#{id} and idempotency_key=#{key} for update")
+    Feedback getRefundNoteForUpdate(@Param("actor") String actor,@Param("type") String type,@Param("id") Long id,@Param("key") String key);
+
+    @Select("<script>select * from feedback where refund_type=#{type} and refund_id=#{id} and customer_id=#{customerId} "
+            + "<if test='stationId != null'>and responsible_station_id=#{stationId}</if> order by create_time,id</script>")
+    List<Feedback> listRefundNotes(@Param("type") String type,@Param("id") Long id,
+            @Param("customerId") Long customerId,@Param("stationId") Long stationId);
+
+    @Select("select refundType,refundId,objectText from ("
+            + "select 'BARREL_RETURN' refundType,id refundId,concat('退押金申请 #',id) objectText,create_time sortTime "
+            + "from barrel_record where type=2 and customer_id=#{customerId} union all "
+            + "select case when p.order_id is null then 'TICKET_PAYMENT' else 'ORDER_PAYMENT' end refundType,"
+            + "p.id refundId,concat(case when p.order_id is null then '水票退款原款 #' else '订单退款原款 #' end,p.id) objectText,p.create_time sortTime "
+            + "from payment_record p where p.customer_id=#{customerId} and p.amount>0 and p.status in(2,3) and "
+            + "((p.order_id is null and p.ticket_qty>0) or exists(select 1 from orders o where o.id=p.order_id and o.customer_id=#{customerId}))"
+            + ") candidates order by sortTime desc,refundId desc,refundType limit #{offset},201")
+    List<java.util.Map<String,Object>> refundOptions(@Param("customerId") Long customerId,@Param("offset") int offset);
+
     @Select("select * from feedback where id = #{id}")
     Feedback getById(@Param("id") Long id);
 
     @Select("select * from feedback where customer_id = #{customerId} order by create_time desc")
     List<Feedback> listByCustomerId(@Param("customerId") Long customerId);
 
-    @Select("select * from feedback where staff_id = #{staffId} order by create_time desc")
+    @Select("select * from feedback where staff_id = #{staffId} and refund_type is null order by create_time desc")
     List<Feedback> listByStaffId(@Param("staffId") Long staffId);
 
     /**
@@ -74,14 +103,15 @@ public interface FeedbackMapper {
      * <p>顾客自己的 {@code GET /api/feedback/my}（{@link #listByCustomerId}）<b>不受影响</b>：
      * 那是他自己的记录，{@code select *} 照常带出 customerId 与 anonymous。</p>
      */
-    @Select("select f.id, f.staff_id, f.category, f.content, f.contact, f.create_time, "
+    @Select("select f.id, f.staff_id, f.category, f.content, f.contact, f.create_time, f.refund_type, f.refund_id, f.responsible_station_id, "
             + "case when f.anonymous = 1 then null else f.customer_id end as customer_id, "
-            + "case when f.anonymous = 1 then null else c.name end as customer_name "
+            + "case when f.anonymous = 1 or f.refund_type is not null then null else c.name end as customer_name "
             + "from feedback f "
             + "left join customer c on c.id = f.customer_id "
-            + "where f.customer_id is not null and ("
+            + "where f.customer_id is not null and ((f.refund_type is null and ("
             + "exists (select 1 from customer_station_config csc where csc.customer_id = f.customer_id and csc.station_id = #{stationId}) "
-            + "or exists (select 1 from orders o where o.customer_id = f.customer_id and o.station_id = #{stationId})) "
+            + "or exists (select 1 from orders o where o.customer_id = f.customer_id and o.station_id = #{stationId}))) "
+            + "or (f.refund_type is not null and f.responsible_station_id=#{stationId})) "
             + "order by f.create_time desc")
     List<Feedback> listCustomerFeedbackByStation(@Param("stationId") Long stationId);
 

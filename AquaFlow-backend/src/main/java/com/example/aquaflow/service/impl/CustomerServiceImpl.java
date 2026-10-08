@@ -291,6 +291,9 @@ public class CustomerServiceImpl implements CustomerService {
         item.put("phone", candidate.get("phone"));
         item.put("customerType", candidate.get("customerType"));
         item.put("addressText", displayAddressOf(candidate));
+        // 2026-10-06：搜索含绑定∪订单，但资产调整只认本站绑定，不能把两种资格混用。
+        Object bound = candidate.get("adjustmentEligible");
+        item.put("adjustmentEligible", Boolean.TRUE.equals(bound) || bound instanceof Number n && n.intValue() == 1);
         return item;
     }
 
@@ -379,6 +382,7 @@ public class CustomerServiceImpl implements CustomerService {
         vo.setCustomerName(base.getName());
         vo.setPhone(base.getPhone());
         vo.setStationId(stationId);
+        vo.setAdjustmentEligible(customerStationConfigMapper.getByCustomerAndStation(customerId, stationId) != null);
         var station = stationMapper.getById(stationId);
         vo.setStationName(station != null ? station.getName() : "");
 

@@ -27,4 +27,21 @@ public class Feedback {
 
     private String customerName;
     private LocalDateTime createTime;
+    private String refundType;
+    private Long refundId;
+    private Long responsibleStationId;
+    @com.fasterxml.jackson.annotation.JsonIgnore private String actorKey;
+    @com.fasterxml.jackson.annotation.JsonIgnore private String idempotencyKey;
+    @com.fasterxml.jackson.annotation.JsonIgnore private String requestDigest;
+
+    public String getRefundObjectText() {
+        if (refundType == null) return null;
+        return switch (refundType) {
+            case "BARREL_RETURN" -> "退押金申请 #"+refundId;
+            case "ORDER_PAYMENT" -> "订单退款原款 #"+refundId;
+            case "TICKET_PAYMENT" -> "水票退款原款 #"+refundId;
+            default -> null;
+        };
+    }
+    public String getAuthorText() {return refundType == null ? null : staffId == null ? "客户说明" : "水站补充说明";}
 }

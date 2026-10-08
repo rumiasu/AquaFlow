@@ -12,6 +12,7 @@ import com.example.aquaflow.entity.TicketAccount;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.BarrelRecordMapper;
 import com.example.aquaflow.mapper.CustomerDepositAccountMapper;
+import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.mapper.ProductMapper;
@@ -25,8 +26,13 @@ import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.PriceUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,6 +41,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * 站长资产调整单实现。
@@ -62,12 +70,16 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
     @Autowired private InventoryMapper inventoryMapper;
     @Autowired private ProductMapper productMapper;
     @Autowired private AuditLogService auditLogService;
+    @Autowired private CustomerMapper customerMapper;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     /* ==================== 试算 ==================== */
 
     @Override
     public Map<String, Object> preview(Long customerId, String adjustType, Long productId,
                                        Integer qty, BigDecimal amount, BigDecimal unitPrice) {
+        // 试算与创建共用本站绑定资格；先验权，再读取快照或试算批次。
+        validateCustomer(customerId, requireMyStation());
         Snapshot before = snapshot(customerId, adjustType, productId);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("adjustType", adjustType);
@@ -90,17 +102,43 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
     /* ==================== 创建 ==================== */
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public StationAdjustment create(Long customerId, String adjustType, Long productId,
                                     Integer qty, BigDecimal amount, BigDecimal unitPrice,
                                     String reason, String evidence, String clientToken) {
+        return withDeadlockRetry(() -> createInternal(customerId, adjustType, productId, qty, amount, unitPrice,
+                reason, evidence, clientToken, null));
+    }
+
+    private <T> T withDeadlockRetry(Supplier<T> command) {
+        // 2026-10-08 实库反例：两个唯一索引及临时单号更新仍可能在 INSERT 阶段死锁。
+        // 必须等事务完整回滚后再用原凭据重试；已有外层事务时交给外层回滚，不在坏事务里继续。
+        if (TransactionSynchronizationManager.isActualTransactionActive()) return command.get();
+        for (int attempt = 0; attempt < 5; attempt++) {
+            try {
+                return new TransactionTemplate(transactionManager).execute(status -> command.get());
+            } catch (DeadlockLoserDataAccessException conflict) {
+                if (attempt == 4) throw new BusinessException("调整凭据正在处理，请使用原凭据重试");
+            }
+        }
+        throw new IllegalStateException("unreachable adjustment retry state");
+    }
+
+    private StationAdjustment createInternal(Long customerId, String adjustType, Long productId,
+                                             Integer qty, BigDecimal amount, BigDecimal unitPrice,
+                                             String reason, String evidence, String clientToken, Long reverses) {
         Long stationId = requireMyStation();
+        validateClientToken(clientToken);
         validateCustomer(customerId, stationId);
         validateFields(adjustType, productId, qty, amount, reason);
+        validatePersistedMoney(amount, "金额");
+        validatePersistedMoney(unitPrice, "单价");
 
+        // 2026-10-08：旧实现全局命中就返回，既会泄露他站单据，也会把不同内容误当原请求。
         StationAdjustment existing = adjustmentMapper.findByClientToken(clientToken);
         if (existing != null) {
-            return existing;   // 幂等：同一 token 返回原单
+            requireSameRequest(existing, stationId, customerId, adjustType, productId, qty,
+                    amount, unitPrice, reason, evidence, reverses);
+            return existing;
         }
 
         StationAdjustment a = new StationAdjustment();
@@ -120,8 +158,20 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         a.setStatus("PENDING");
         a.setClientToken(clientToken);
         a.setOperatorId(AuthContext.getUserId());
+        a.setReverses(reverses);
         a.setAdjustNo("TMP-" + Long.toHexString(System.nanoTime()));
-        adjustmentMapper.insert(a);
+        try {
+            adjustmentMapper.insert(a);
+        } catch (DuplicateKeyException conflict) {
+            // 并发同键只允许回读同站、同内容、同用途的胜出单；没有命中则保留真实数据库错误。
+            // 2026-10-08 实库反例：重复 INSERT 已持有共享锁，多个重试再升级排他锁会死锁。
+            // 共享锁仍是当前读，可看到胜出单；这里只核内容并返回，不需要升级写锁。
+            existing = adjustmentMapper.findByClientTokenForShare(clientToken);
+            if (existing == null) throw conflict;
+            requireSameRequest(existing, stationId, customerId, adjustType, productId, qty,
+                    amount, unitPrice, reason, evidence, reverses);
+            return existing;
+        }
 
         String no = String.format("ADJ%s-%06d",
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")), a.getId());
@@ -258,25 +308,40 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
     /* ==================== 撤销（反向单） ==================== */
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public StationAdjustment reverse(Long id, String reason, String clientToken) {
+        return withDeadlockRetry(() -> reverseInternal(id, reason, clientToken));
+    }
+
+    private StationAdjustment reverseInternal(Long id, String reason, String clientToken) {
         Long stationId = requireMyStation();
-        StationAdjustment src = adjustmentMapper.getById(id);
+        validateClientToken(clientToken);
+        // 2026-10-08：旧实现复用任意创建凭据再改 reverses，可冲错资金；先锁原单并固定冲正来源。
+        StationAdjustment src = adjustmentMapper.getByIdForUpdate(id);
         if (src == null || !stationId.equals(src.getStationId())) {
             throw new BusinessException("调整单不存在或无权访问");
         }
-        if (!"EFFECTIVE".equals(src.getStatus())) {
+        String reverseReason = "撤销 " + src.getAdjustNo() + "：" + (reason == null ? "" : reason);
+        StationAdjustment existing = adjustmentMapper.findByClientToken(clientToken);
+        if (existing != null) {
+            requireSameRequest(existing, stationId, src.getCustomerId(), mirrorType(src.getAdjustType()),
+                    src.getProductId(), mirrorQty(src), src.getAmount(), src.getUnitPrice(),
+                    reverseReason, null, src.getId());
+            if ("REVERSED".equals(src.getStatus()) && Objects.equals(src.getReversedBy(), existing.getId())
+                    && "EFFECTIVE".equals(existing.getStatus())) {
+                return existing; // 已完成的同一冲正重试，不改流水、关联或状态。
+            }
+            throw new BusinessException("该凭据关联的冲正尚未完整生效，请核实原单");
+        }
+        if (!"EFFECTIVE".equals(src.getStatus()) || src.getReversedBy() != null) {
             throw new BusinessException("仅已生效的调整单可撤销，当前状态：" + src.getStatus());
         }
 
-        StationAdjustment rev = create(src.getCustomerId(), mirrorType(src.getAdjustType()),
+        StationAdjustment rev = createInternal(src.getCustomerId(), mirrorType(src.getAdjustType()),
                 src.getProductId(), mirrorQty(src), src.getAmount(), src.getUnitPrice(),
-                "撤销 " + src.getAdjustNo() + "：" + (reason == null ? "" : reason),
-                null, clientToken);
-        rev.setReverses(src.getId());
-        // [2026-09-14 修] create() 内部已经执行过 insert，上面那句只改了内存对象、不会落库，
-        // 导致 reverses 列恒为 NULL（反向单反查不到原单，审计链断一半）。必须显式再 update 一次。
-        adjustmentMapper.setReverses(rev.getId(), src.getId());
+                reverseReason, null, clientToken, src.getId());
+        if (!"PENDING".equals(rev.getStatus())) {
+            throw new BusinessException("冲正凭据状态已变化，请核实原单");
+        }
         execute(rev.getId());
 
         int marked = adjustmentMapper.markReversedIf(src.getId(), "EFFECTIVE", "REVERSED", rev.getId());
@@ -285,7 +350,89 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         }
         auditLogService.log("ADJUST", "REVERSE", "adjust:" + id,
                 "reversedBy=" + rev.getId() + ",reason=" + reason, null);
+        rev.setStatus("EFFECTIVE");
         return rev;
+    }
+
+    /** 保留既有响应字段，客户信息只能随本站调整单在服务层补齐。 */
+    @Override
+    public Map<String, Object> decorate(StationAdjustment a) {
+        if (a == null || !Objects.equals(requireMyStation(), a.getStationId())) {
+            throw new BusinessException("调整单不存在或无权访问");
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", a.getId());
+        m.put("adjustNo", a.getAdjustNo());
+        m.put("customerId", a.getCustomerId());
+        var customer = customerMapper.getById(a.getCustomerId());
+        m.put("customerName", customer == null ? null : customer.getName());
+        m.put("customerPhone", customer == null ? null : customer.getPhone());
+        m.put("productId", a.getProductId());
+        m.put("adjustType", a.getAdjustType());
+        m.put("adjustTypeText", AdjustType.textOf(a.getAdjustType()));
+        m.put("qty", a.getQty());
+        m.put("amount", a.getAmount());
+        m.put("unitPrice", a.getUnitPrice());
+        m.put("priceSource", a.getPriceSource());
+        m.put("isMigrated", a.getIsMigrated());
+        m.put("reason", a.getReason());
+        m.put("evidence", a.getEvidence());
+        m.put("beforeSnapshot", a.getBeforeSnapshot());
+        m.put("afterSnapshot", a.getAfterSnapshot());
+        m.put("status", a.getStatus());
+        m.put("statusText", statusTextOf(a.getStatus()));
+        m.put("operatorId", a.getOperatorId());
+        m.put("executorId", a.getExecutorId());
+        m.put("reverses", a.getReverses());
+        m.put("reversedBy", a.getReversedBy());
+        m.put("executeTime", a.getExecuteTime());
+        m.put("createTime", a.getCreateTime());
+        return m;
+    }
+
+    private static String statusTextOf(String status) {
+        if (status == null) return "未知";
+        return switch (status) {
+            case "PENDING" -> "待执行";
+            case "EFFECTIVE" -> "已生效";
+            case "REVERSED" -> "已撤销";
+            case "REJECTED" -> "已驳回";
+            default -> status;
+        };
+    }
+
+    private void validateClientToken(String token) {
+        if (token == null || token.isBlank() || token.length() > 64) {
+            throw new BusinessException("请提供有效的调整凭据（不超过64字符）");
+        }
+    }
+
+    /** 保留历史全局唯一键；命中其他站或另一用途时明确拒绝，绝不返回其单据。 */
+    private void requireSameRequest(StationAdjustment a, Long stationId, Long customerId, String type,
+                                    Long productId, Integer qty, BigDecimal amount, BigDecimal unitPrice,
+                                    String reason, String evidence, Long reverses) {
+        if (!Objects.equals(stationId, a.getStationId())) {
+            throw new BusinessException("该调整凭据不可用于当前水站");
+        }
+        if (!Objects.equals(customerId, a.getCustomerId()) || !Objects.equals(type, a.getAdjustType())
+                || !Objects.equals(productId, a.getProductId()) || !Objects.equals(qty, a.getQty())
+                || !sameDecimal(amount, a.getAmount()) || !sameDecimal(unitPrice, a.getUnitPrice())
+                || !Objects.equals(reason, a.getReason()) || !Objects.equals(evidence, a.getEvidence())
+                || !Objects.equals(reverses, a.getReverses())) {
+            throw new BusinessException("同一调整凭据不能用于不同内容或其他冲正来源");
+        }
+    }
+
+    private boolean sameDecimal(BigDecimal left, BigDecimal right) {
+        return left == null ? right == null : right != null && left.compareTo(right) == 0;
+    }
+
+    private void validatePersistedMoney(BigDecimal value, String label) {
+        // 2026-10-08：schema.sql 两列均为 DECIMAL(10,2)，隐式舍入会让原请求重试与存储内容不一致。
+        if (value != null && (value.stripTrailingZeros().scale() > 2
+                || value.abs().compareTo(new BigDecimal("99999999.99")) > 0)) {
+            throw new BusinessException(label + "须可按分无损保存，且不能超过数据库支持范围");
+        }
     }
 
     private String mirrorType(String type) {

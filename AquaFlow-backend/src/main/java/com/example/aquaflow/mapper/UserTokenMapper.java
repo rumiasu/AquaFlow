@@ -23,11 +23,12 @@ public interface UserTokenMapper {
      * 这条单行查询会抛 {@code TooManyResultsException}，表现为刷新登录态时
      * HTTP 200 + {@code code=500}「系统错误」，客户端只能重新登录。</p>
      *
-     * <p>取最新一行即可：重复行的 token 值相同、语义也相同；
-     * 轮换走 {@link #deleteByRefreshToken} 会把同值的行一并清掉。</p>
+     * <p>取最新一行：轮换走 {@link #deleteByRefreshToken} 清掉历史同值行。
+     * [2026-10-05 F-78] FOR UPDATE 必须与轮换同一事务，不能在查完后释放锁再删/插；
+     * 否则登出可在其间完成，晚到刷新再创建有效会话。</p>
      */
     @Select("select * from user_token where refresh_token = #{refreshToken} and expire_time > NOW() "
-            + "order by id desc limit 1")
+            + "order by id desc limit 1 for update")
     UserToken findByRefreshToken(@Param("refreshToken") String refreshToken);
 
     @Delete("delete from user_token where id = #{id}")

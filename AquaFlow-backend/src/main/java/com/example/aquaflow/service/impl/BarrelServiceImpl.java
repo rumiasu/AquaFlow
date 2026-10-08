@@ -205,7 +205,7 @@ public class BarrelServiceImpl implements BarrelService {
         }
 
         // [2026-09-16 修复] 商品集合必须取 **assets ∪ 在途 ∪ over** 的并集，不能只遍历 assets。
-        // `customer_barrel_asset` 只记录**已到手**的桶，于是「首单还在配送途中」时 assets 为空
+        // 历史送达建权益路径曾只记录已到手权益，于是「首单还在配送途中」时 assets 为空
         // → 本方法返回空数组：客户端概览写着「配送中 2」，下方的按类型明细却一行都没有，
         // 客户看不出是哪种桶，连退桶弹窗里都选不到它。
         // 这与提案 §2.9 点名、并已在员工端 CustomerServiceImpl 修过的是同一个漏法（那边用 byProduct 取并集）。
@@ -246,14 +246,15 @@ public class BarrelServiceImpl implements BarrelService {
             map.put("independentRights",barrelPolicy.isEnabled());
             map.put("availableRights",barrelPolicy.isEnabled()?barrelLedgerService.availableRights(customerId,stationId,pid):assetQty);
             map.put("inTransitQty", inTransitQty);
-            // [2026-09-15] 展示口径的"持有" = 权益 + 配送中（买了就是你的）。
-            // 注意 assetQty 必须保持"权益（已到手）"不变：小程序下单页用它算"我还差几个桶"
-            // （miniapp-user/pages/order/create.js），改成含在途会让前端与后端下单抵扣口径打架。
+            // 2026-10-07：assetQty 是有效批次的派生权益汇总，不是实际交桶数。
+            // “权益已到手”仅适用于历史送达建权益路径；新购先激活容量，不能以权益推断已领桶。
+            // heldTotalQty 沿用历史含遗留在途的展示口径；本轮不变更下单或资产数值来源。
             map.put("heldTotalQty", assetQty + inTransitQty);
             // [2026-09-16] over 三态，与 getBarrelSummary 同口径（正=欠桶 / 负=水站暂存 / 0=两清）：
             //   owedQty    = max(0, over)   —— 客户该还没还
             //   storageQty = max(0, -over)  —— 客户多还、寄存在水站（不是欠桶，也不是负债）
-            //   occupiedQty= 权益 + over    —— 物理在手；**还桶上限就是它**（不含配送中）
+            //   occupiedQty = assetQty + over：汇总与批次一致时为模型账面 H，不含配送中。
+            //   现客户端“实际在手”标签还需业务样本核对，正本 design/36 §5.4；不把用途占用混入 H。
             map.put("overQty", over);
             map.put("owedQty", Math.max(0, over));
             map.put("storageQty", Math.max(0, -over));
@@ -403,7 +404,7 @@ public class BarrelServiceImpl implements BarrelService {
         // 以前这个值被当成 0 直接丢掉，于是"顾客还了 3 个桶只拿走 1 个"在界面上完全看不出来，
         // 这是顾客打电话问「我的桶呢」的直接来源。它既不是欠桶也不是负债，必须单独展示。
         int storageBuckets = 0;
-        // 实际持有 = Σ(权益 + over)：顾客手上真正有几个桶（派生值，可能为 0，不会为负）
+        // 账面 H = Σ(权益汇总 + over)：依赖派生汇总与批次一致；实际交接待业务核对（design/36 §5.4）。
         int occupiedBuckets = 0;
         List<CustomerBarrelOver> overs = customerBarrelOverMapper.listByCustomerAndStation(customerId, stationId);
         if (overs != null) {
@@ -465,9 +466,9 @@ public class BarrelServiceImpl implements BarrelService {
                 ? depositTotal.divide(BigDecimal.valueOf(heldBuckets), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        // heldBuckets  = 权益 + 配送中 → 展示"这个客户一共有几个桶"（买了就是你的）
-        // rightBuckets = 权益（已到手）→ 下单抵扣与退押金只认这个数
-        // occupiedBuckets = 权益 + over → 物理在手（还桶上限），不含配送中
+        // 2026-10-07：heldBuckets 沿用历史含遗留配送中展示，不能称全部已在手。
+        // rightBuckets 是权益汇总；新路径可分配数量另读 availableRights，不等于实际交桶数。
+        // occupiedBuckets 为账面 H=权益汇总+over；本轮只澄清注释，数值与校验不变。
         summary.put("heldBuckets", heldBuckets);
         summary.put("rightBuckets", rightBuckets);
         summary.put("independentRights",barrelPolicy.isEnabled());
@@ -476,7 +477,7 @@ public class BarrelServiceImpl implements BarrelService {
         summary.put("availableRights",availableRights);
         summary.put("actualBuckets", barrelPolicy.isEnabled()?occupiedBuckets:heldBuckets);
         summary.put("owedBuckets", owedBuckets);
-        // 实际持有（权益 + over，顾客手上真有几个桶）与水站暂存（多还的桶）
+        // 账面 H（权益汇总 + over）与水站暂存（多还的桶）；标签核对不改变此公式
         summary.put("occupiedBuckets", occupiedBuckets);
         summary.put("storageBuckets", storageBuckets);
         // [2026-09-16] 原 deliveryBuckets（「只排除 CANCELLED」→ 含 DELIVERED）已删除：

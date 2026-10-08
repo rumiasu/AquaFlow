@@ -9,7 +9,7 @@ import java.time.Clock;
 import java.time.ZoneId;
 
 /**
- * 业务时钟（F-16）。全仓「取现在」的唯一来源。
+ * 业务时钟（F-16）。已接入业务时间消费者的统一来源。
  *
  * <p><b>为什么要有这个 Bean</b>：生产代码直连 {@code LocalDate.now()} / {@code LocalDateTime.now()}
  * 读的是 <b>JVM 默认时区 + 真实时间</b>，谁也没法在测试里把它钉住。后果已经出现过：
@@ -20,9 +20,9 @@ import java.time.ZoneId;
  * （示例见 {@code integration/BusinessClockIntegrationTest}）。</p>
  *
  * <p><b>时区为什么必须显式想清楚</b>：本仓面向中国水站，业务日界是 {@code Asia/Shanghai}。
- * 这里的默认值是 {@link ZoneId#systemDefault()}，<b>刻意与改造前的行为逐字一致</b>
- * （原代码读的就是 JVM 默认时区），避免这次纯可测性改造在 CI（跑在 UTC 机器上）顺带改变口径；
- * 生产可用 {@code app.time-zone=Asia/Shanghai} 显式钉死。
+ * 默认显式使用上海时区，不再跟随部署机器的 JVM 默认时区；
+ * {@code app.time-zone} 可显式覆盖，空值同样回退到上海。cron 任务读取这个 Bean 的时区，
+ * 避免日结时间与业务日界分离。
  * ⚠️ <b>不要</b>改成 {@code Clock.systemUTC()}：那会让中国水站的"今天"从 08:00 才算起，
  * 凌晨 0-8 点的单会被算进前一天。</p>
  *
@@ -35,14 +35,14 @@ public class ClockConfig {
 
     /**
      * @param configuredZone {@code app.time-zone}（IANA 时区名，如 {@code Asia/Shanghai}）；
-     *                       留空 = 跟随 JVM 默认时区（= 改造前的行为）
+     *                       留空 = Asia/Shanghai
      */
     @Bean
-    public Clock clock(@Value("${app.time-zone:}") String configuredZone) {
+    public Clock clock(@Value("${app.time-zone:Asia/Shanghai}") String configuredZone) {
         ZoneId zone = (configuredZone == null || configuredZone.isBlank())
-                ? ZoneId.systemDefault()
+                ? ZoneId.of("Asia/Shanghai")
                 : ZoneId.of(configuredZone);
-        log.info("[F-16] 业务时钟时区 = {}（app.time-zone 可显式指定；生产应为 Asia/Shanghai，禁止 UTC）", zone);
+        log.info("[F-16] 业务时钟时区 = {}（app.time-zone 可显式指定；默认 Asia/Shanghai）", zone);
         return Clock.system(zone);
     }
 }

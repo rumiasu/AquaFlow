@@ -42,8 +42,8 @@ import java.time.ZoneId;
  */
 public final class TestBusinessClock {
 
-    /** 与生产同源：跟随 JVM 默认时区（{@code ClockConfig} 的默认值就是这么取的）。 */
-    private static final ZoneId ZONE = ZoneId.systemDefault();
+    /** 与生产默认业务时钟同源：显式使用上海时区。 */
+    private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
 
     /** 整个测试 JVM 共用这一个可拨动时钟 —— 生产代码注入的就是它。 */
     private static final MutableClock CLOCK = new MutableClock(ZONE, Instant.now());
@@ -51,7 +51,7 @@ public final class TestBusinessClock {
     private TestBusinessClock() {
     }
 
-    /** 把业务"现在"钉到指定时刻（按 JVM 默认时区解释）。 */
+    /** 把业务"现在"钉到指定时刻（按上海业务时区解释）。 */
     public static void freezeAt(LocalDateTime moment) {
         CLOCK.set(moment.atZone(ZONE).toInstant());
     }
@@ -64,7 +64,7 @@ public final class TestBusinessClock {
     /**
      * 把业务"现在"钉到**数据库当前时刻**：Java 侧与 SQL 侧从此同源。
      *
-     * <p>这是"只想让用例确定下来、不想改口径"的默认做法 —— 与 F-16 改造前的行为逐字等价，
+     * <p>这是"只想让用例确定下来、不想改口径"的默认做法 —— 将数据库返回的当地时间作为上海业务时间解释，
      * 只是把"取现在"从 JVM 真实时间换成了一个**在整个用例内不再移动**的值。</p>
      */
     public static void freezeAtDbNow(org.springframework.jdbc.core.JdbcTemplate jdbc) {

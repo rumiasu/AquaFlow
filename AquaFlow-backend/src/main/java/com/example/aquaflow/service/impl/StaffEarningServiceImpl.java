@@ -175,6 +175,9 @@ public class StaffEarningServiceImpl implements StaffEarningService {
         if (periodEnd.isBefore(periodStart)) {
             throw new BusinessException("结算期间止不能早于起");
         }
+        // [F-79 / 2026-10-07] 原来只验日期就建单，无关/不存在的 staffId 也会写入工资历史。
+        // 必须在结算单读写前核关系；不能照搬人工调整的「员工行必存在」校验，避免卡住历史清结。
+        requirePayrollStaff(stationId, staffId);
         StaffPayroll existing = staffPayrollMapper.getByPeriod(stationId, staffId, periodStart, periodEnd);
         if (existing != null) {
             throw new BusinessException("该配送员在本期间已有结算单（" + existing.getPayrollNo() + "），请勿重复生成");
@@ -307,6 +310,19 @@ public class StaffEarningServiceImpl implements StaffEarningService {
             return;   // 跨站外派：在本站留下过收益痕迹
         }
         throw new BusinessException("该配送员与本站没有履约关系，不能给他记工资");
+    }
+
+    /** 历史收益比当前员工行更持久；先查本站凭据，避免转站、解绑或物理删除后无法结清旧工钱。 */
+    private void requirePayrollStaff(Long stationId, Long staffId) {
+        if (staffEarningMapper.countByStationAndStaff(stationId, staffId) > 0) {
+            return;
+        }
+        Staff staff = staffMapper.getById(staffId);
+        if (staff != null && stationId.equals(staff.getStationId())
+                && ("DELIVERY".equals(staff.getRole()) || "STATION_MANAGER".equals(staff.getRole()))) {
+            return;
+        }
+        throw new BusinessException("该员工与本站没有工资结算关系");
     }
 
     private StaffPayroll requireOwned(Long stationId, Long payrollId) {

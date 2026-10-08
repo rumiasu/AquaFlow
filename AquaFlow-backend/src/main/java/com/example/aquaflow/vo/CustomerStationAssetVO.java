@@ -33,6 +33,8 @@ public class CustomerStationAssetVO {
     private String phone;
     /** 本次查询所限定的水站（取自登录站长，不接受前端传入） */
     private Long stationId;
+    /** 只展示本站绑定资格；创建/执行仍由 StationAdjustmentService 再校验。 */
+    private Boolean adjustmentEligible;
     private String stationName;
 
     // ==================== 资产概览 ====================

@@ -74,7 +74,7 @@ class InventoryStaffProductIntegrationTest extends AbstractIntegrationTest {
                 "不得通过员工接口创建站长");
         assertEquals(0, intOf("SELECT COUNT(*) FROM staff WHERE name='我自己'"));
 
-        // status 显式给 1：员工列表 SQL 带 `status = 1`，不传会让新员工建出来就"隐形"
+        // 显式在职值仍支持；省略状态的前端请求由 StaffManagementGuardIntegrationTest 验证默认值。
         Api created = post("/api/staff", mgrA,
                 "{\"name\":\"新配送员\",\"phone\":\"13800000001\",\"role\":\"DELIVERY\",\"status\":1}");
         assertEquals(0, created.code(), "建配送员: " + created);
@@ -92,10 +92,10 @@ class InventoryStaffProductIntegrationTest extends AbstractIntegrationTest {
         assertNotEquals(0, delete("/api/staff/" + staffB, mgrA).code(), "不得删他站员工");
         assertNotEquals(0, get("/api/staff/" + staffB + "/profile", mgrA).code(), "不得看他站员工画像");
 
-        Api updated = put("/api/staff/" + newStaff, mgrA, "{\"name\":\"改名后\",\"status\":0}");
+        Api updated = put("/api/staff/" + newStaff, mgrA, "{\"name\":\"改名后\",\"status\":2}");
         assertEquals(0, updated.code(), "改本站员工: " + updated);
         assertEquals("改名后", jdbc.queryForObject("SELECT name FROM staff WHERE id=?", String.class, newStaff));
-        assertEquals(0, intOf("SELECT status FROM staff WHERE id=?", newStaff));
+        assertEquals(2, intOf("SELECT status FROM staff WHERE id=?", newStaff));
 
         Api profile = get("/api/staff/" + newStaff + "/profile", mgrA);
         assertEquals(0, profile.code(), "员工画像: " + profile);

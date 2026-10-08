@@ -684,6 +684,17 @@ public class BarrelLedgerService {
     @Transactional
     public LotConsumption consumeLots(Long customerId, Long stationId, Long productId, int qty,
                                       List<Long> preferLotIds, boolean dryRun) {
+        return consumeLotsForMode(customerId,stationId,productId,qty,preferLotIds,dryRun,false);
+    }
+
+    /** 审批交款前的只读金额核对；分配仍复用核销算法，既有资金事务内 dryRun 的锁行为保持不变。 */
+    @Transactional(readOnly = true)
+    public LotConsumption previewRefundLots(Long customerId,Long stationId,Long productId,int qty) {
+        return consumeLotsForMode(customerId,stationId,productId,qty,null,true,true);
+    }
+
+    private LotConsumption consumeLotsForMode(Long customerId,Long stationId,Long productId,int qty,
+                                             List<Long> preferLotIds,boolean dryRun,boolean unlockedPreview) {
         if (qty <= 0) throw new BusinessException("退桶数必须大于 0");
 
         // 预览是只读；不能为了试算创建 over 行或改变客户资产状态。
@@ -709,7 +720,7 @@ public class BarrelLedgerService {
         BigDecimal amount = BigDecimal.ZERO;
         for (CustomerBarrelLot lot : lots) {
             if (remaining <= 0) break;
-            int free = (lot.getRemainQty() == null ? 0 : lot.getRemainQty()) - (businessPolicy.hasSchema()?returnDetailMapper.heldLot(lot.getId()):0);
+            int free = (lot.getRemainQty() == null ? 0 : lot.getRemainQty()) - (businessPolicy.hasSchema()?(unlockedPreview?returnDetailMapper.heldLotReadOnly(lot.getId()):returnDetailMapper.heldLot(lot.getId())):0);
             int take = Math.min(remaining, Math.max(0,free));
             if (take <= 0) continue;
 

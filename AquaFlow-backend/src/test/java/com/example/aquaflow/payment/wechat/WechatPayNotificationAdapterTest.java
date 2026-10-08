@@ -4,18 +4,22 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.tools.DiagnosticCollector;
+import javax.tools.FileObject;
+import javax.tools.ForwardingJavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
+import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.StringWriter;
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -78,6 +82,38 @@ class WechatPayNotificationAdapterTest {
         assertEquals(first.hashCode(), second.hashCode());
         assertNotEquals(first, null);
         assertNotEquals(first, new Object());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"mchid\":\"wrong\",\"mchid\":\"expected\"}",
+            "{\"mchid\":\"expected\",\"mchid\":\"wrong\"}",
+            "{\"mchid\":\"same\",\"mchid\":\"same\"}",
+            "{\"amount\":{\"total\":1,\"total\":123}}",
+            "{\"payer\":{\"openid\":\"first\",\"openid\":\"second\"}}",
+            "{\"items\":[{\"id\":1,\"id\":2}]}",
+            "{\"mchid\":\"first\",\"mch\\u0069d\":\"second\"}",
+            "{\"transaction_id\":\"first\",\"transaction_id\":\"second\"}",
+            "{\"amount\":{\"total\":123},\"amount\":{\"total\":1}}"
+    })
+    void signedEncryptedResourceWithDuplicateKeysIsRejectedBeforeGson(String plaintext) throws Exception {
+        String body = body(plaintext, apiV3Key);
+        // Independent JCA encryption and signing reach the SDK's actual decrypted-resource path.
+        rejected(headers(body), body);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{} {}", "{mchid:'permissive'}", "{\"value\":1}//comment", "null", "[]"})
+    void decryptedResourceMustBeOneStrictJsonObject(String plaintext) throws Exception {
+        String body = body(plaintext, apiV3Key);
+        rejected(headers(body), body);
+    }
+
+    @Test
+    void repeatedNamesInSeparateObjectsAndQuotedTextRemainValid() throws Exception {
+        String plaintext = "{\"items\":[{\"id\":1},{\"id\":2}],\"note\":\"mchid,mchid\",\"amount\":{\"total\":123}}";
+        String body = body(plaintext, apiV3Key);
+        assertEquals(JsonParser.parseString(plaintext), JsonParser.parseString(adapter.parse(headers(body), body).resourceJson()));
     }
 
     @Test
@@ -184,7 +220,7 @@ class WechatPayNotificationAdapterTest {
     }
 
     @Test
-    void ordinaryCallerCannotForgeVerifiedNotification(@TempDir Path outputDirectory) throws Exception {
+    void ordinaryCallerCannotForgeVerifiedNotification() throws Exception {
         var compiler = ToolProvider.getSystemJavaCompiler();
         assertNotNull(compiler, "The boundary regression requires the configured Java 17 JDK");
         var diagnostics = new DiagnosticCollector<JavaFileObject>();
@@ -200,8 +236,19 @@ class WechatPayNotificationAdapterTest {
         String classPath = Path.of(WechatPayNotificationAdapter.class.getProtectionDomain()
                 .getCodeSource().getLocation().toURI()).toString();
         try (var files = compiler.getStandardFileManager(diagnostics, null, StandardCharsets.UTF_8)) {
-            boolean compiled = compiler.getTask(new StringWriter(), files, diagnostics,
-                    List.of("-classpath", classPath, "-d", outputDirectory.toString(), "-proc:none"),
+            // Keep the access-rejection assertion; compilation output needs no Windows temporary-directory lifecycle.
+            var output = new ForwardingJavaFileManager<StandardJavaFileManager>(files) {
+                @Override
+                public JavaFileObject getJavaFileForOutput(Location location, String className,
+                                                           JavaFileObject.Kind kind, FileObject sibling) {
+                    return new SimpleJavaFileObject(URI.create("memory:///" + className.replace('.', '/') + kind.extension), kind) {
+                        @Override
+                        public OutputStream openOutputStream() { return new ByteArrayOutputStream(); }
+                    };
+                }
+            };
+            boolean compiled = compiler.getTask(new StringWriter(), output, diagnostics,
+                    List.of("-classpath", classPath, "-proc:none"),
                     null, List.of(source)).call();
             assertFalse(compiled, "An ordinary caller must not construct an unsigned verification result");
             assertTrue(diagnostics.getDiagnostics().stream()

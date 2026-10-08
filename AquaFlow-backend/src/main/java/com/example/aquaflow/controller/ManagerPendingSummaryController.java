@@ -226,6 +226,10 @@ public class ManagerPendingSummaryController {
         data.put("items", items);
         data.put("p0Total", p0Total);
         data.put("complete", items.stream().allMatch(i -> Boolean.TRUE.equals(i.get("available"))));
+        // 2026-10-06：管理菜单曾把退款列表当业务总数；汇总仍由本站责任 COUNT 提供。
+        var businessKeys = List.of("waitingStock", "returnRefund", "recoverySend", "recoveryReceive", "barrelHandover", "barrelDispute");
+        boolean businessAvailable = businessKeys.stream().allMatch(k -> businessCounts.get(k) != null && businessCounts.get(k) >= 0);
+        data.put("businessWaitingTotal", businessAvailable ? businessKeys.stream().mapToInt(businessCounts::get).sum() : null);
         return Result.success(data);
     }
 

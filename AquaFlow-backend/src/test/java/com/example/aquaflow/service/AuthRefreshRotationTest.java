@@ -41,6 +41,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * Calls the production refresh/login methods with real signed JWTs and controllable in-memory
  * mapper semantics. Latches establish both original-token reads before either rotation writes.
  * No Spring application, HTTP, JDBC or integration-test reset is started.
+ * This direct fixture has neither transaction interception nor SQL locks; the real rollback and
+ * revocation barriers are tested by AuthRefreshTransactionIntegrationTest, not inferred here.
  */
 class AuthRefreshRotationTest {
     private static final long ID = 41L;

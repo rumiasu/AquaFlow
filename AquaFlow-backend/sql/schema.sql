@@ -303,8 +303,16 @@ CREATE TABLE IF NOT EXISTS `feedback` (
   `content` text NOT NULL COMMENT '反馈内容',
   `contact` varchar(100) DEFAULT NULL COMMENT '联系方式',
   `anonymous` tinyint NOT NULL DEFAULT '0' COMMENT '是否匿名(v46); 0=实名 1=匿名。判据是"站长不知道是谁"：站长端列表必须在 SQL 层把 customer_id 与姓名置 NULL，详见 FeedbackMapper',
+  `refund_type` varchar(24) DEFAULT NULL COMMENT '退款关联类型；普通反馈为空(v75)',
+  `refund_id` bigint DEFAULT NULL COMMENT '原款/退押金申请ID；按类型解释',
+  `responsible_station_id` bigint DEFAULT NULL COMMENT '服务端判权的责任站',
+  `actor_key` varchar(40) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '服务端作者CUSTOMER:id或STAFF:id',
+  `idempotency_key` varchar(64) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '关联说明请求键，普通反馈不使用',
+  `request_digest` varchar(64) DEFAULT NULL COMMENT '原说明/联系方式指纹；同键不可改内容',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_feedback_refund_note` (`actor_key`,`refund_type`,`refund_id`,`idempotency_key`),
+  KEY `idx_feedback_refund_station` (`responsible_station_id`,`refund_type`,`refund_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='意见反馈';
 CREATE TABLE IF NOT EXISTS `file_info` (
   `id` int NOT NULL AUTO_INCREMENT,

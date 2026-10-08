@@ -36,6 +36,15 @@ public class OrderItem {
     /** 数量 */
     private Integer quantity;
 
+    /** 列表只读投影：当前商品分类；缺失时使用中性单位，不按名称或规格猜桶数。 */
+    private Integer category;
+
+    /** 列表只读投影：当前商品图键，统一交给 ProductImageResolver 解析。 */
+    private String imageObjectName;
+
+    /** 列表只读投影：可显示图片地址；签名失败为 null。 */
+    private String imageUrl;
+
     /**
      * `order_item.deducted_qty` —— **当前活跃预留凭据的预留量镜像**（2026-09-25 库存预留模型收口）。
      *

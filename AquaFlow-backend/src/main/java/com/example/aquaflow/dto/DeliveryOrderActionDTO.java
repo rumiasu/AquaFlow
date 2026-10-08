@@ -138,7 +138,8 @@ public final class DeliveryOrderActionDTO {
         @NotNull(message = "orderItemId 不能为空")
         private Long orderItemId;
         @NotNull(message = "实际回收桶数必填")
-        private Integer actual;
+        // 保留原始数值供工作流严格校验；Integer 会把 JSON 1.5 静默截成 1。
+        private Number actual;
         private String productName;
         private Integer expected;
         @Valid
@@ -149,7 +150,7 @@ public final class DeliveryOrderActionDTO {
     @Data
     public static class CompleteItemReturnReason {
         private String key;
-        private Integer qty;
+        private Number qty;
     }
 
     /** completeOrder：回桶明细（可空，首桶订单免回桶核对）；兼容旧字段 returnBucketQty / barrelDiscrepancyNote */
@@ -157,7 +158,7 @@ public final class DeliveryOrderActionDTO {
     public static class Complete {
         @Valid
         private List<CompleteItemReturn> itemReturns;
-        private Integer returnBucketQty;
+        private Number returnBucketQty;
         private String barrelDiscrepancyNote;
 
         /**

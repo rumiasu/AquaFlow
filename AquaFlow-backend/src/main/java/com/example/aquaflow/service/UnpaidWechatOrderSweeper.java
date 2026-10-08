@@ -63,7 +63,7 @@ public class UnpaidWechatOrderSweeper {
      * <p>本方法不是事务方法，catch 后不再上抛是刻意的 —— 定时任务不该把异常丢给调度器了事。
      * {@code AlertService.persist()} 内部已兜住落库异常，不会因为"库都连不上"而二次抛出。</p>
      */
-    @Scheduled(cron = "0 */5 * * * ?")
+    @Scheduled(cron = "0 */5 * * * ?", zone = "#{@clock.getZone().getId()}")
     public void sweep() {
         try {
             sweepOnce();

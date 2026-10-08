@@ -4,7 +4,6 @@ import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.dto.StaffUpdateDTO;
 import com.example.aquaflow.entity.Staff;
-import com.example.aquaflow.mapper.StaffMapper;
 import com.example.aquaflow.service.StaffService;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.vo.StaffProfileVO;
@@ -18,7 +17,8 @@ import java.util.List;
  * <p>
  * 权限说明：类上的 {@code @RequireRole("STATION_MANAGER")} 只校验了"你是不是站长"（垂直权限），
  * 校验不了"这条数据是不是你水站的"（水平权限）。此前所有方法都缺后者，
- * 导致改一个 id 就能改/删其他水站的员工。现在所有方法统一走 {@link #requireOwn(Staff)}。
+ * 导致改一个 id 就能改/删其他水站的员工。读接口逐条核验归属；写接口由服务在员工行锁内判权，
+ * 避免读改写窗口中员工换站后仍按旧归属放行（2026-10-08）。
  * </p>
  */
 @RestController
@@ -28,9 +28,6 @@ public class StaffController {
 
     @Autowired
     private StaffService staffService;
-
-    @Autowired
-    private StaffMapper staffMapper;
 
     /** 校验员工属于当前登录站长所在水站；通过返回 null，否则返回错误 Result */
     private Result<Void> requireOwn(Staff staff) {
@@ -70,11 +67,6 @@ public class StaffController {
      */
     @PostMapping
     public Result save(@RequestBody Staff staff) {
-        Long myStationId = AuthContext.requireStationId();
-        if ("STATION_MANAGER".equals(staff.getRole())) {
-            return Result.error("不可通过此接口创建站长账号");
-        }
-        staff.setStationId(myStationId);
         staffService.save(staff);
         return Result.success();
     }
@@ -84,22 +76,17 @@ public class StaffController {
      */
     @PutMapping("/{id}")
     public Result update(@PathVariable Long id, @RequestBody StaffUpdateDTO dto) {
-        Staff exist = staffService.getById(id);
-        Result<Void> check = requireOwn(exist);
-        if (check != null) return Result.error(check.getMessage());
-
-        String name = dto.getName() != null ? dto.getName() : exist.getName();
-        String phone = dto.getPhone() != null ? dto.getPhone() : exist.getPhone();
-        Integer status = dto.getStatus() != null ? dto.getStatus() : exist.getStatus();
-        staffMapper.updateBaseInfo(id, name, phone, status);
+        Staff patch = new Staff();
+        patch.setId(id);
+        patch.setName(dto.getName());
+        patch.setPhone(dto.getPhone());
+        patch.setStatus(dto.getStatus());
+        staffService.update(patch);
         return Result.success();
     }
 
     @DeleteMapping("/{id}")
     public Result delete(@PathVariable Long id) {
-        Staff staff = staffService.getById(id);
-        Result<Void> check = requireOwn(staff);
-        if (check != null) return Result.error(check.getMessage());
         staffService.delete(id);
         return Result.success();
     }

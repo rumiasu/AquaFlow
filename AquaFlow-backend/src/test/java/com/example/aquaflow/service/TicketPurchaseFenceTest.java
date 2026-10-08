@@ -121,6 +121,10 @@ class TicketPurchaseFenceTest {
         ReflectionTestUtils.setField(purchase, "purchaseFenceService", service);
         ReflectionTestUtils.setField(purchase, "barrelPolicy", mock(BarrelBusinessPolicy.class));
         ReflectionTestUtils.setField(purchase, "ticketTierService", tiers);
+        var stations = mock(com.example.aquaflow.mapper.StationMapper.class);
+        var station = new com.example.aquaflow.entity.Station(); station.setId(1L); station.setStatus(1);
+        when(stations.getById(1L)).thenReturn(station);
+        ReflectionTestUtils.setField(purchase, "stationMapper", stations);
         doAnswer(call -> { PaymentRecord p = call.getArgument(0); p.setId(9L);
             when(payments.getByCustomerAndIdempotencyKeyForUpdate(7L, "key")).thenReturn(p); return null;
         }).when(payments).insert(any());

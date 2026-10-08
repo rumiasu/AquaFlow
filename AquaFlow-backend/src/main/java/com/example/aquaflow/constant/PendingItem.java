@@ -38,7 +38,7 @@ public enum PendingItem {
      * **整批、不分子类** —— 于是"转单请求"与"站内取消申请"会是同一个数字。现按
      * {@code order_transfer.sub_kind} 拆开：本条只数 {@link #STAFF_TRANSFER_SUB_KINDS}。</p>
      */
-    PENDING_TRANSFER("pendingTransfer", "转单请求", Level.P0),
+    PENDING_TRANSFER("pendingTransfer", "退回待处理", Level.P0),
     /** 客户发起的取消申请（订单已被接单，客户不能自助取消，只能申请）。 */
     CUSTOMER_CANCEL("customerCancel", "客户取消申请", Level.P0),
     /** 站内（配送员）发起的取消申请：与转单类同表同 kind，只差 sub_kind。 */
@@ -137,18 +137,11 @@ public enum PendingItem {
         P2
     }
 
-    /**
-     * 「转单请求」包含的子类。
-     *
-     * <p>⚠️ 与 {@link #SUB_CANCEL_REQUEST} 是**互补**关系：{@code order_transfer} 里
-     * {@code kind='STAFF'} 的行按 {@code sub_kind} 分两拨。**新增子类时必须同时决定它归哪一拨** ——
-     * 这是刻意写成"枚举互补"而不是"NOT IN 排除"的原因：排除式写法下，
-     * 新加一个 sub_kind 会被**静默**算进转单请求，没人会发现。</p>
-     */
+    /** 需要站长处理的员工请求。TRANSFER 只在当事人任务中处理，不计入站长待办。 */
     public static final List<String> STAFF_TRANSFER_SUB_KINDS =
-            List.of("RETURN_STATION", "TRANSFER", "REDISPATCH");
+            List.of("RETURN_STATION", "REDISPATCH");
 
-    /** 站内取消申请的子类（与 {@link #STAFF_TRANSFER_SUB_KINDS} 互补，见其注释）。 */
+    /** 站内取消申请另列，不与退回合并；同事转让不属于这两项。 */
     public static final String SUB_CANCEL_REQUEST = "CANCEL_REQUEST";
 
     private final String key;

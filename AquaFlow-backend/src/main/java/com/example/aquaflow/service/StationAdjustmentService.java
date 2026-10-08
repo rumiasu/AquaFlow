@@ -46,4 +46,7 @@ public interface StationAdjustmentService {
 
     /** 详情（含前后快照） */
     StationAdjustment getById(Long id);
+
+    /** 本站单据的展示字段；客户资料读取留在服务层，返回前再次校验单据站别。 */
+    Map<String, Object> decorate(StationAdjustment adjustment);
 }

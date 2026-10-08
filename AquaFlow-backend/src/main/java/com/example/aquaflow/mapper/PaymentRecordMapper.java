@@ -62,7 +62,10 @@ public interface PaymentRecordMapper {
     @Select("select count(*) from payment_record where order_id = #{orderId} and status = #{status}")
     int countByOrderIdAndStatus(@Param("orderId") Long orderId, @Param("status") Integer status);
 
-    @Select("select * from payment_record where customer_id = #{customerId} order by create_time desc")
+    // 只读用途投影须核原款、客户与站别；同一个 payment_id 的关联不扩散到别人的账单。
+    @Select("select p.*, exists(select 1 from barrel_right_purchase b where b.payment_id = p.id " +
+            "and b.customer_id = p.customer_id and b.station_id = p.station_id) as independent_barrel_purchase " +
+            "from payment_record p where p.customer_id = #{customerId} order by p.create_time desc")
     List<PaymentRecord> listByCustomerId(@Param("customerId") Long customerId);
 
     /** [AQ-023] 按客户+水站过滤，杜绝登录站长跨站查询他站客户支付流水 */

@@ -10,7 +10,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -35,6 +38,133 @@ public class ApprovedBarrelReturnService {
     @Value("${app.payment.mock-wechat-pay:false}") private boolean mockWechatPay;
 
     public BarrelReturnDetail detail(Long recordId) { return policy.hasSchema()?detailMapper.get(recordId):null; }
+    @Autowired private CustomerBarrelLotMapper refundLots;
+    @Autowired private CustomerDepositAccountMapper refundAccounts;
+    @Autowired private PlatformTransactionManager transactionManager;
+
+    /** 员工端在实际交款前只读核对原款；不创建占用、不调用任何退款写入口。
+     * 2026-10-07：原先先提示交现金再由写接口判渠道，会诱导错误交款；资格仍须在写时重新校验。 */
+    public Map<String,Object> refundEligibility(Long id, Long stationId) {
+        RefundEligibilityRead read = new RefundEligibilityRead();
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.setReadOnly(true);
+        boolean joinedTransaction = TransactionSynchronizationManager.isActualTransactionActive();
+        try {
+            return transaction.execute(status -> readRefundEligibility(id, stationId, read));
+        } catch (BusinessException e) {
+            // 2026-10-08：嵌套预览失败会标记事务回滚；必须先退出事务，再转成不可办理提示。
+            // 如果调用方已有事务，继续抛出，不能吞掉它已被标记回滚的事实。
+            if (joinedTransaction || !read.legacyPreviewPending) throw e;
+            return unavailable(read.view, e.getMessage());
+        }
+    }
+
+    /** 每次读取独享上下文，仅历史批次试算拒绝可转成资格提示，归属等拒绝仍原样抛出。 */
+    private static final class RefundEligibilityRead {
+        private final Map<String,Object> view = new LinkedHashMap<>();
+        private boolean legacyPreviewPending;
+    }
+
+    /** 由只读 TransactionTemplate 调用；本方法不捕获业务异常，失败必须先完成回滚。 */
+    private Map<String,Object> readRefundEligibility(Long id, Long stationId, RefundEligibilityRead read) {
+        BarrelRecord record = owned(id,stationId);
+        BarrelReturnDetail detail = detail(id);
+        Map<String,Object> view = read.view;
+        view.put("recordId",id);
+        view.put("legacy",detail==null);
+        view.put("recordStatus",record.getStatus());
+        view.put("detailStatus",detail==null?null:detail.getStatus());
+        view.put("available",false);
+        view.put("channel",null);
+        view.put("refundAmount",record.getDepositRefund());
+        Product product = record.getProductId()==null?null:productMapper.getById(record.getProductId());
+        view.put("productName",product==null?null:product.getName());
+        if (detail==null ? !Integer.valueOf(2).equals(record.getStatus()) : !"RECEIVED".equals(detail.getStatus()))
+            return unavailable(view,"请先完成本申请的实际交接，再核对退款");
+        if (record.getCustomerId()==null || record.getProductId()==null || record.getQuantity()==null || record.getQuantity()<=0)
+            return unavailable(view,"申请信息不完整，请核实原申请");
+        BigDecimal amount = BigDecimal.ZERO;
+        String channel = BarrelRefundDTO.CHANNEL_CASH;
+        boolean historicalSource = detail==null;
+        if (detail==null) {
+            // 复用实际核销算法的只读分支，必须同样扣掉其他用途和批次占用，不能另算FIFO金额。
+            read.legacyPreviewPending = true;
+            amount=ledger.previewRefundLots(record.getCustomerId(),stationId,record.getProductId(),record.getQuantity()).getAmount();
+            read.legacyPreviewPending = false;
+            if (ledger.overQty(record.getCustomerId(),stationId,record.getProductId())>0)
+                return unavailable(view,"该商品仍有欠桶，请先核实归还记录");
+        } else {
+            Map<Long,CustomerBarrelLot> byId = new HashMap<>();
+            for (CustomerBarrelLot lot : refundLots.listAvailable(record.getCustomerId(),stationId,record.getProductId())) byId.put(lot.getId(),lot);
+            Set<String> channels = new HashSet<>();
+            List<Map<String,Object>> heldLots=detailMapper.heldLots(id);
+            if (heldLots.isEmpty()) return unavailable(view,"未找到本申请的退款批次，请核实原款");
+            int quantity=0;
+            for (Map<String,Object> held : heldLots) {
+                Long lotId=((Number)held.get("lotId")).longValue();
+                int qty=((Number)held.get("qty")).intValue();
+                CustomerBarrelLot lot=byId.get(lotId);
+                if (lot==null || qty<=0 || lot.getRemainQty()<qty)
+                    return unavailable(view,"预留退款批次不足，请核实原申请");
+                amount=amount.add((BigDecimal)held.get("amount")); quantity+=qty;
+                BarrelRightPurchase purchase=businessMapper.purchaseByLot(lotId);
+                OrderBarrelPurchase combined=orderPurchases.byLot(lotId);
+                Long paymentId=purchase!=null?purchase.getPaymentId():combined!=null?combined.getPaymentId():null;
+                if (purchase==null && combined==null) {
+                    // 历史无线上凭据仍沿既有人工现金路径，不猜备注/单价来源。
+                    historicalSource=true; channels.add(BarrelRefundDTO.CHANNEL_CASH); continue;
+                }
+                PaymentRecord original=paymentId==null?null:paymentMapper.getById(paymentId);
+                if (original==null || original.getPaymentMethod()==null)
+                    return unavailable(view,"原收款凭据未能核对，请核实后办理");
+                if (!Objects.equals(original.getCustomerId(),record.getCustomerId()))
+                    return unavailable(view,"原收款归属未能核对，请核实后办理");
+                if (purchase!=null) {
+                    if (combined!=null || !Objects.equals(purchase.getCustomerId(),record.getCustomerId())
+                            || !Objects.equals(purchase.getStationId(),stationId) || !Objects.equals(purchase.getProductId(),record.getProductId())
+                            || !Objects.equals(purchase.getLotId(),lotId) || !Objects.equals(original.getStationId(),stationId))
+                        return unavailable(view,"独立押金原款关联未能核对，请核实后办理");
+                } else {
+                    Orders sourceOrder=combined.getOrderId()==null?null:orderMapper.getById(combined.getOrderId());
+                    // 外派原款认结算站，押金资产认归属站；校验订单关联，不能强行要求原款stationId相同。
+                    if (!Objects.equals(combined.getCustomerId(),record.getCustomerId()) || !Objects.equals(combined.getStationId(),stationId)
+                            || !Objects.equals(combined.getProductId(),record.getProductId()) || !Objects.equals(combined.getLotId(),lotId)
+                            || !Objects.equals(original.getOrderId(),combined.getOrderId()) || sourceOrder==null
+                            || !Objects.equals(sourceOrder.getCustomerId(),record.getCustomerId()) || !Objects.equals(sourceOrder.getStationId(),stationId))
+                        return unavailable(view,"随单押金原款关联未能核对，请核实后办理");
+                }
+                if (original.getPaymentMethod()==PayMethod.WECHAT) channels.add(BarrelRefundDTO.CHANNEL_ONLINE);
+                else if (original.getPaymentMethod()==PayMethod.CASH) channels.add(BarrelRefundDTO.CHANNEL_CASH);
+                else return unavailable(view,"原收款方式尚不能办理押金退款，请核实原款");
+            }
+            if (quantity!=record.getQuantity()) return unavailable(view,"退款批次数量与申请不一致，请核实原款");
+            if (channels.size()!=1) return unavailable(view,"本申请包含不同原收款方式，请核实原申请");
+            channel=channels.iterator().next();
+        }
+        view.put("refundAmount",amount);
+        view.put("channel",channel);
+        view.put("historicalSource",historicalSource);
+        if (detail!=null || amount.signum()>0) {
+            String level=risk.levelOf(record.getCustomerId(),stationId);
+            if (CustomerRiskService.ALERT.equals(level) || CustomerRiskService.FREEZE.equals(level))
+                return unavailable(view,risk.returnBlockedReason(record.getCustomerId(),stationId));
+        }
+        if (amount.signum()>0) {
+            CustomerDepositAccount account=refundAccounts.getByCustomerAndStation(record.getCustomerId(),stationId);
+            if (account==null || account.getBalance()==null || account.getBalance().compareTo(amount)<0)
+                return unavailable(view,"押金账户余额不足，请核实原款和账目");
+        }
+        if (BarrelRefundDTO.CHANNEL_ONLINE.equals(channel) && !mockWechatPay)
+            return unavailable(view,"线上原渠道退款尚不可用，本申请保留待退款责任，请勿改交现金");
+        view.put("available",true);
+        view.put("reason",historicalSource?"历史原款由归属站核实现金交付；办理时仍会核对金额和资格":"按原收款方式退还，办理时会再次核对资格");
+        return view;
+    }
+
+    private Map<String,Object> unavailable(Map<String,Object> view,String reason) {
+        view.put("reason",reason); return view;
+    }
+
     public boolean isFeePayment(Long paymentId) {return policy.hasSchema() && detailMapper.byFeePayment(paymentId)!=null;}
     /** 收桶服务费退款独立留原款凭据，不退押金也不修改已经交接的事实。 */
     @Transactional

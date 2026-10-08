@@ -16,6 +16,18 @@ public interface OrderItemMapper {
     @Select("select * from order_item where order_id = #{orderId}")
     List<OrderItem> listByOrderId(@Param("orderId") Long orderId);
 
+    /**
+     * 仅为已通过列表权限筛选的订单批量补明细；调用方传入非空 ID 集合。
+     * 2026-10-07：历史/转单曾只取第一商品并乘全单数量；批量补快照避免逐单详情 N+1。
+     */
+    @Select("<script>select oi.id, oi.order_id, oi.product_id, oi.product_name_snapshot, " +
+            "oi.spec_snapshot, oi.quantity, p.category, p.image_object_name " +
+            "from order_item oi left join product p on p.id = oi.product_id " +
+            "where oi.order_id in " +
+            "<foreach collection='orderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach> " +
+            "order by oi.order_id, oi.id</script>")
+    List<OrderItem> listSummaryByOrderIds(@Param("orderIds") List<Long> orderIds);
+
     @Select("select * from order_item where id = #{id}")
     OrderItem getById(@Param("id") Long id);
 

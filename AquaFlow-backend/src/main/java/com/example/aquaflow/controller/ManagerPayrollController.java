@@ -121,10 +121,16 @@ public class ManagerPayrollController {
         return Result.success(data);
     }
 
+    /** 可选 beforeId 读取更早历史；省略仍返回原数组首屏，单页上限和登录站别保持。 */
     @GetMapping("/payroll")
-    public Result<List<StaffPayroll>> listPayrolls(@RequestParam(defaultValue = "100") int limit) {
-        return Result.success(staffPayrollMapper.listByStation(AuthContext.requireStationId(),
-                Math.min(Math.max(limit, 1), 500)));
+    public Result<List<StaffPayroll>> listPayrolls(@RequestParam(defaultValue = "100") int limit,
+                                                 @RequestParam(required = false) Long beforeId) {
+        Long stationId = AuthContext.requireStationId();
+        if (beforeId != null && beforeId <= 0) {
+            return Result.error("结算单读取位置无效，请重新加载");
+        }
+        return Result.success(staffPayrollMapper.listByStation(stationId,
+                Math.min(Math.max(limit, 1), 500), beforeId));
     }
 
     /** 确认结算单（草稿 → 已确认）。确认后明细锁定。 */

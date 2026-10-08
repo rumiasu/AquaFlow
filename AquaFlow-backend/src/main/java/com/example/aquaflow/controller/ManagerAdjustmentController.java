@@ -2,7 +2,6 @@ package com.example.aquaflow.controller;
 
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
-import com.example.aquaflow.constant.AdjustType;
 import com.example.aquaflow.dto.AdjustmentCreateDTO;
 import com.example.aquaflow.dto.AdjustmentPreviewDTO;
 import com.example.aquaflow.entity.StationAdjustment;
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -56,14 +54,14 @@ public class ManagerAdjustmentController {
         Map<String, Object> data = adjustmentService.list(customerId, page, size);
         @SuppressWarnings("unchecked")
         List<StationAdjustment> rows = (List<StationAdjustment>) data.get("list");
-        data.put("list", rows.stream().map(ManagerAdjustmentController::decorate).toList());
+        data.put("list", rows.stream().map(adjustmentService::decorate).toList());
         return Result.success(data);
     }
 
     /** 详情 */
     @GetMapping("/{id}")
     public Result<Map<String, Object>> detail(@PathVariable Long id) {
-        return Result.success(decorate(adjustmentService.getById(id)));
+        return Result.success(adjustmentService.decorate(adjustmentService.getById(id)));
     }
 
     /** 只读试算：返回调整前后的权益/欠桶/占用/押金/水票与预计金额，不落库 */
@@ -79,7 +77,7 @@ public class ManagerAdjustmentController {
         StationAdjustment a = adjustmentService.create(dto.getCustomerId(), dto.getAdjustType(),
                 dto.getProductId(), dto.getQty(), dto.getAmount(), dto.getUnitPrice(),
                 dto.getReason(), dto.getEvidence(), dto.getClientToken());
-        return Result.success(decorate(a));
+        return Result.success(adjustmentService.decorate(a));
     }
 
     /** 执行（CAS PENDING→EFFECTIVE；重复执行被拒绝） */
@@ -100,49 +98,7 @@ public class ManagerAdjustmentController {
         }
         StationAdjustment rev = adjustmentService.reverse(id,
                 reason == null ? null : String.valueOf(reason), String.valueOf(token));
-        return Result.success(decorate(rev));
+        return Result.success(adjustmentService.decorate(rev));
     }
 
-    /**
-     * 补齐展示文案：前端只渲染后端下发的文案，禁止自行维护 adjustType → 文案映射表
-     * （历史上两端各写一套映射导致新客下单 100% 失败）。
-     */
-    private static Map<String, Object> decorate(StationAdjustment a) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("id", a.getId());
-        m.put("adjustNo", a.getAdjustNo());
-        m.put("customerId", a.getCustomerId());
-        m.put("productId", a.getProductId());
-        m.put("adjustType", a.getAdjustType());
-        m.put("adjustTypeText", AdjustType.textOf(a.getAdjustType()));
-        m.put("qty", a.getQty());
-        m.put("amount", a.getAmount());
-        m.put("unitPrice", a.getUnitPrice());
-        m.put("priceSource", a.getPriceSource());
-        m.put("isMigrated", a.getIsMigrated());
-        m.put("reason", a.getReason());
-        m.put("evidence", a.getEvidence());
-        m.put("beforeSnapshot", a.getBeforeSnapshot());
-        m.put("afterSnapshot", a.getAfterSnapshot());
-        m.put("status", a.getStatus());
-        m.put("statusText", statusTextOf(a.getStatus()));
-        m.put("operatorId", a.getOperatorId());
-        m.put("executorId", a.getExecutorId());
-        m.put("reverses", a.getReverses());
-        m.put("reversedBy", a.getReversedBy());
-        m.put("executeTime", a.getExecuteTime());
-        m.put("createTime", a.getCreateTime());
-        return m;
-    }
-
-    private static String statusTextOf(String status) {
-        if (status == null) return "未知";
-        switch (status) {
-            case "PENDING":   return "待执行";
-            case "EFFECTIVE": return "已生效";
-            case "REVERSED":  return "已撤销";
-            case "REJECTED":  return "已驳回";
-            default:          return status;
-        }
-    }
 }

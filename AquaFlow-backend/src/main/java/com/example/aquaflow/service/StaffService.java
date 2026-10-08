@@ -11,10 +11,13 @@ public interface StaffService {
 
     Staff getById(Long id);
 
+    /** 员工管理创建入口；使用本站站长登录态校验，不能用于身份注册流程。 */
     void save(Staff staff);
 
+    /** 员工管理白名单更新；仅采纳 id/name/phone/status，归属与角色不能通过此方法改写。 */
     void update(Staff staff);
 
+    /** 员工管理删除入口；保护站长与本人，历史收益及结算单保留。 */
     void delete(Long id);
 
     List<Staff> listByStationId(Long stationId);

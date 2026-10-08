@@ -112,6 +112,18 @@ public class PaymentRecord {
      * 与本项目 Orders.getStatusText()/getPayMethodText() 的处理方式一致。
      */
 
+    /** 只读投影：本人账单查询按原款凭据确认独立押金用途，不参与写库。 */
+    private boolean independentBarrelPurchase;
+
+    /** 支付用途只认订单、购票字段与独立押金原款关联；未知来源保持中性。 */
+    public String getPurposeText() {
+        // 2026-10-07：无订单不等于购票，独立押金也没有 order_id；禁止按备注或金额猜用途。
+        if (orderId != null) return "订单支付";
+        if (independentBarrelPurchase) return "独立押金";
+        if (ticketQty != null && ticketQty > 0 && ticketWaterTypeId != null) return "水票购买";
+        return "支付记录";
+    }
+
     /** 支付方式文案（1 微信 / 2 现金(货到付款) / 3 水票），真相源是 PayMethod */
     public String getMethodText() {
         return com.example.aquaflow.constant.PayMethod.textOf(paymentMethod);

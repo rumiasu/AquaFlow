@@ -22,6 +22,10 @@ public interface OrderMapper {
             "where o.id = #{id}")
     Orders getById(@Param("id") Long id);
 
+    /** Serialize delivery and colleague handoff on the order before reading request rows. */
+    @Select("select * from orders where id = #{id} for update")
+    Orders getByIdForUpdate(@Param("id") Long id);
+
     /**
      * [AQ-015 紧急止血] DB 侧原子追加备注。
      * 转单/分配等流程此前都是「读旧快照 → 内存拼字符串 → orderMapper.update 整列覆盖」，
@@ -597,17 +601,19 @@ public interface OrderMapper {
 
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
-            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind, " +
+            "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='STAFF' order by t.id desc limit 1) as transferPendingKind, " +
             // [2026-09-29 清单2] sub_kind 同源下发：kind='STAFF' 下还分 退回站长/转让/取消申请，
             // 首页「转单请求」栏要按它分流动作（转让行给「撤回」、退回站长行给「同意/拒绝」，
             // 取消申请归审批页签）—— 只有 kind 分不出来，文本标记又与实际写入的 [转让待确认] 对不上。
-            "(select t.sub_kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingSubKind " +
+            "(select t.sub_kind from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='STAFF' order by t.id desc limit 1) as transferPendingSubKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
-            "where o.station_id = #{stationId} " +
+            "where coalesce(o.delivery_station_id, o.station_id) = #{stationId} " +
+            // 员工申请由履约站站长处理，跨站客户画像在 service 统一屏蔽。
             // [AQ-015] 转单状态改由 order_transfer 结构化判定（原 special_note LIKE 已退役）
-            "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='STAFF') " +
+            "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='STAFF' " +
+            "and t.sub_kind in ('RETURN_STATION', 'CANCEL_REQUEST', 'REDISPATCH')) " +
             "order by o.update_time desc")
     List<Orders> listTransferredOrders(@Param("stationId") Long stationId);
 
@@ -631,7 +637,7 @@ public interface OrderMapper {
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
-            "where o.station_id = #{stationId} " +
+            "where coalesce(o.delivery_station_id, o.station_id) = #{stationId} " +
             "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' " +
             "and t.kind='STAFF' and t.sub_kind in " +
             "<foreach collection='subKinds' item='sk' open='(' separator=',' close=')'>#{sk}</foreach>) " +

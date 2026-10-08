@@ -141,6 +141,13 @@ public class BarrelController {
         return Result.success(barrelService.requestReturn(customerId, stationId, productId, quantity, note));
     }
 
+    /** 员工端归属站站长只读核对实际交款前的原退款渠道；客户及他站不可调用。 */
+    @RequireRole({"STATION_MANAGER"})
+    @GetMapping("/records/{id}/refund-eligibility")
+    public Result<Map<String,Object>> refundEligibility(@PathVariable Long id) {
+        return Result.success(approvedReturnService.refundEligibility(id,AuthContext.requireStationId()));
+    }
+
     /** 归属站站长批准申请及独立上门费；批准本身不登记收到实物。 */
     @RequireRole({"STATION_MANAGER"})
     @PutMapping("/records/{id}/approve")

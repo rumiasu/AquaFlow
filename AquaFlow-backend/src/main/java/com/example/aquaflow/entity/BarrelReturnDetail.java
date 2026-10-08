@@ -11,7 +11,7 @@ public class BarrelReturnDetail {
         if (status==null) return "未知状态";
         return switch(status) {
             case "APPLIED" -> "待批准";
-            case "APPROVED" -> customerConfirmedTime==null?"已批准，待客户确认":"已确认安排，待收桶";
+            case "APPROVED" -> customerConfirmedTime==null?"已批准，待客户确认":"已确认安排，待交接";
             case "RECEIVED" -> "已交接，待退押金";
             case "REFUNDED" -> "押金已交付";
             case "REJECTED" -> "已驳回";

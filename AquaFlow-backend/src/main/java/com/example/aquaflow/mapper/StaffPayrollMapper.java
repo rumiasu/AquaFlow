@@ -29,8 +29,16 @@ public interface StaffPayrollMapper {
     @Select("select * from staff_payroll where id = #{id}")
     StaffPayroll getById(@Param("id") Long id);
 
-    @Select("select * from staff_payroll where station_id = #{stationId} order by id desc limit #{limit}")
-    List<StaffPayroll> listByStation(@Param("stationId") Long stationId, @Param("limit") int limit);
+    /**
+     * [F-80 / 2026-10-07] 原来只有 limit，500 张之前的历史永远不可达。
+     * 延续唯一 id 倒序，以严格小于上一页最小 id 翻页；不能改用时间或 offset，新单会让旧页漏/重。
+     * 游标仅是读取边界，station_id 必须始终取登录站别，不按游标所属站改变权限。
+     */
+    @Select("<script>select * from staff_payroll where station_id = #{stationId} "
+            + "<if test='beforeId != null'>and id &lt; #{beforeId} </if>"
+            + "order by id desc limit #{limit}</script>")
+    List<StaffPayroll> listByStation(@Param("stationId") Long stationId, @Param("limit") int limit,
+                                    @Param("beforeId") Long beforeId);
 
     /**
      * 「我的工资」自助查询：只按 staff_id（理由同 {@code StaffEarningMapper.listByStaff} ——

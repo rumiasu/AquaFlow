@@ -58,6 +58,21 @@ public interface StaffMapper {
                         @Param("status") Integer status);
 
     /**
+     * 员工管理白名单 CAS；归属、角色和原状态必须仍与锁内核验一致。
+     * 返回 0 时调用方必须拒绝，不能报告已更新；历史 NULL 状态可通过显式合法状态修复。
+     */
+    @Update("UPDATE staff SET name=#{name}, phone=#{phone}, status=#{status}, update_time=NOW() "
+            + "WHERE id=#{id} AND station_id=#{stationId} AND role=#{expectedRole} "
+            + "AND status <=> #{expectedStatus}")
+    int updateBaseInfoIf(@Param("id") Long id,
+                         @Param("stationId") Long stationId,
+                         @Param("expectedRole") String expectedRole,
+                         @Param("expectedStatus") Integer expectedStatus,
+                         @Param("name") String name,
+                         @Param("phone") String phone,
+                         @Param("status") Integer status);
+
+    /**
      * 只给**还没有密码**的账号补初始密码（CAS：{@code password_hash} 仍为空才写）。
      *
      * <p>为什么不用 {@link #update(Staff)}（2026-09-29 收口）：那是**整行覆盖**（含 role /
@@ -94,6 +109,14 @@ public interface StaffMapper {
 
     @Delete("DELETE FROM staff WHERE id = #{id}")
     void delete(@Param("id") Long id);
+
+    /** 只删核验过的员工行；不联动任何历史收益或工资单。返回 0 时调用方必须拒绝。 */
+    @Delete("DELETE FROM staff WHERE id=#{id} AND station_id=#{stationId} "
+            + "AND role=#{expectedRole} AND status <=> #{expectedStatus}")
+    int deleteIf(@Param("id") Long id,
+                 @Param("stationId") Long stationId,
+                 @Param("expectedRole") String expectedRole,
+                 @Param("expectedStatus") Integer expectedStatus);
 
     /** 某水站下所有在职员工 (站长+配送员) */
     @Select("SELECT * FROM staff WHERE station_id = #{stationId} AND status = 1")

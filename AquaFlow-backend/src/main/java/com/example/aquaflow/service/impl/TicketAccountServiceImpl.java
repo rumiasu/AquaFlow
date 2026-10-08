@@ -49,6 +49,9 @@ public class TicketAccountServiceImpl implements TicketAccountService {
     @Autowired
     private com.example.aquaflow.mapper.InventoryMapper inventoryMapper;
 
+    @Autowired
+    private com.example.aquaflow.mapper.StationMapper stationMapper;
+
     /**
      * 水票批次账（v36）：余额的真相源是 {@code Σ ticket_lot.remain_qty}，
      * 本类所有改变水票数量的地方都必须同步走它，否则对账 E8 立刻报不平。
@@ -499,11 +502,19 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         // 水票开关关掉、或改了价，重放也应当返回原流水，而不是报"未开启水票"或按新价再建一笔。
         PaymentRecord existing = paymentRecordMapper.getByCustomerAndIdempotencyKeyForUpdate(customerId, key);
         if (existing != null) {
+            // TODO(待拍板)：停业前未付申请是否继续实际付款，选择/差别/改动点见 docs/design/16 C-06。
+            // 此处保留原款查回；新购票的站状态闸门不得冻结或删除既有票/退款凭据。
             com.example.aquaflow.util.TicketPurchaseIntent.requireSame(existing, customerId, stationId,
                     productId, qty, paymentMethod, packageId, unifiedQty);
             log.info("[v33] 在线购票幂等命中: customerId={}, idempotencyKey={}, paymentId={}, status={}",
                     customerId, key, existing.getId(), existing.getStatus());
             return existing;
+        }
+
+        // 硬停业不建新购票款，口径同下单/独立押金；休息/仅预约等软状态不在这里拦截。
+        com.example.aquaflow.entity.Station station = stationId == null ? null : stationMapper.getById(stationId);
+        if (station == null || !Integer.valueOf(1).equals(station.getStatus())) {
+            throw new BusinessException("水站不存在或已停业，不能新购水票；已有水票及退款请联系原水站办理");
         }
 
         // #30: 先创建PENDING支付记录，再入账水票（支付确认后再真正入账）

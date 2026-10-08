@@ -2,6 +2,7 @@ package com.example.aquaflow.config;
 
 import com.example.aquaflow.interceptor.AuthInterceptor;
 import com.example.aquaflow.interceptor.RateLimitInterceptor;
+import com.example.aquaflow.interceptor.PublicRateLimitInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -18,6 +19,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Autowired
     private RateLimitInterceptor rateLimitInterceptor;
+
+    @Autowired
+    private PublicRateLimitInterceptor publicRateLimitInterceptor;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -42,6 +46,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/change-password",
                         "/api/auth/bind-staff"
                 );
+
+        // 独立公开配额不耗登录预算；探针及其它需认证的业务路径不在此列表。
+        registry.addInterceptor(publicRateLimitInterceptor).addPathPatterns(
+                "/api/stations/public", "/api/station/public",
+                "/api/stations/search", "/api/station/search",
+                "/api/stations/{id}/public-phone", "/api/station/{id}/public-phone",
+                "/api/stations/{id}/status", "/api/station/{id}/status");
 
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")

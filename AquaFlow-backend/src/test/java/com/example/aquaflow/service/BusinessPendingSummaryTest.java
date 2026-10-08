@@ -119,6 +119,7 @@ class BusinessPendingSummaryTest {
         assertEquals(1, data.get("p0Total"));
         assertNull(item(data,"returnRefund").get("amount"));
         assertEquals(true, data.get("complete"));
+        assertEquals(216, data.get("businessWaitingTotal"), "six full responsibility counts, not a truncated refund list");
         verify(mapper).countWaitingReturns(1L);
     }
 
@@ -129,6 +130,7 @@ class BusinessPendingSummaryTest {
         AuthContext.set(new AuthContext.AuthUser(9L, "staff", "STATION_MANAGER", 1L));
         var data = c.summary().getData();
         assertEquals(false, data.get("complete"));
+        assertNull(data.get("businessWaitingTotal"), "unavailable schema must not become a zero badge");
         assertNull(item(data,"returnRefund").get("count"));
         assertEquals(false, item(data,"returnRefund").get("available"));
     }

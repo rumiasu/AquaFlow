@@ -1,11 +1,18 @@
 package com.example.aquaflow.payment.wechat;
 
 import com.google.gson.JsonObject;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wechat.pay.java.core.cipher.AeadCipher;
 import com.wechat.pay.java.core.notification.NotificationParser;
 import com.wechat.pay.java.core.notification.RSAPublicKeyNotificationConfig;
 import com.wechat.pay.java.core.notification.RequestParam;
 
 import java.nio.ByteBuffer;
+import java.io.IOException;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +21,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 
 /**
  * 离线回调密码学适配器，未注册 Spring bean 或 HTTP 入口。
@@ -25,6 +33,9 @@ public final class WechatPayNotificationAdapter {
     // SDK 0.2.17 的通知解析不检查时间。前后各 5 分钟（含边界）是工程假设，非官方强制值。
     // 请求时间戳以服务器 Clock 为准，不用正文 create_time；该窗口不替代持久幂等。
     private static final Duration MAX_REQUEST_CLOCK_SKEW = Duration.ofMinutes(5);
+    private static final ObjectMapper RESOURCE_JSON = new ObjectMapper(JsonFactory.builder()
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build())
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private final NotificationParser parser;
     private final String publicKeyId;
     private final Clock clock;
@@ -41,8 +52,28 @@ public final class WechatPayNotificationAdapter {
         }
         this.publicKeyId = publicKeyId;
         this.clock = clock;
-        this.parser = new NotificationParser(new RSAPublicKeyNotificationConfig.Builder()
-                .publicKey(publicKey).publicKeyId(publicKeyId).apiV3Key(apiV3Key).build());
+        var config = new RSAPublicKeyNotificationConfig.Builder()
+                .publicKey(publicKey).publicKeyId(publicKeyId).apiV3Key(apiV3Key).build();
+        AeadCipher cipher = config.createAeadCipher();
+        // [2026-10-05] SDK Gson 合并重复键后再检查已经太晚：在真实解密之后、Gson 之前拒绝歧义原文。
+        // 验签/解密仍由同一官方 SDK 实现；不保存每请求正文或借 ThreadLocal 跨通知传值。
+        AeadCipher strictCipher = new AeadCipher() {
+            @Override public String encrypt(byte[] associatedData, byte[] nonce, byte[] plaintext) {
+                return cipher.encrypt(associatedData, nonce, plaintext);
+            }
+            @Override public String decrypt(byte[] associatedData, byte[] nonce, byte[] ciphertext) {
+                String plaintext = cipher.decrypt(associatedData, nonce, ciphertext);
+                try {
+                    JsonNode resource = RESOURCE_JSON.readTree(plaintext);
+                    if (resource == null || !resource.isObject()) throw new RejectedNotificationException();
+                } catch (IOException failure) {
+                    throw new RejectedNotificationException();
+                }
+                return plaintext;
+            }
+        };
+        this.parser = new NotificationParser(Map.of(config.getSignType(), config.createVerifier()),
+                Map.of(config.getCipherType(), strictCipher));
     }
 
     /** 原始请求字节须严格解码；不能默认替换非法 UTF-8，也不能 trim 或重序列化。 */

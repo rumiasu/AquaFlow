@@ -38,6 +38,11 @@ public interface BarrelReturnDetailMapper {
     @Select("select coalesce(sum(h.quantity),0) from barrel_return_lot_hold h join barrel_return_detail d on d.record_id=h.record_id where h.lot_id=#{lotId} and d.status in ('APPLIED','APPROVED','RECEIVED') for update")
     int heldLot(@Param("lotId") Long lotId);
 
+    /** 只读试算与写路径统计同一活跃占用，不通过 FOR UPDATE 抢占实际办理的行锁。 */
+    @Select("select coalesce(sum(h.quantity),0) from barrel_return_lot_hold h join barrel_return_detail d on d.record_id=h.record_id where h.lot_id=#{lotId} and d.status in ('APPLIED','APPROVED','RECEIVED')")
+    int heldLotReadOnly(@Param("lotId") Long lotId);
+
+
     @Insert("insert into barrel_return_lot_hold(record_id,lot_id,quantity,unit_price,amount) values(#{recordId},#{lotId},#{quantity},#{unitPrice},#{amount})")
     int holdLot(@Param("recordId") Long recordId,@Param("lotId") Long lotId,@Param("quantity") int quantity,@Param("unitPrice") BigDecimal unitPrice,@Param("amount") BigDecimal amount);
 

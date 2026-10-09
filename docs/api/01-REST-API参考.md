@@ -52,6 +52,14 @@
 - 下单等创建类接口带客户端幂等键（`idempotencyKey`）。
 - **无订单支付**（在线购票及独立资产款，`order_id` 为 NULL）必须传客户端幂等键；一单一活跃流水键不保护 NULL 订单，须由带客户作用域的支付/购买幂等键保护。
 
+### 1.4 指定退回审批的申请绑定
+
+原归属站站长调用 `POST /api/delivery/orders/{id}/directed-return/approve` 或 `POST /api/delivery/orders/{id}/directed-return/reject` 时，必须提交 `{"requestId":123}`。`requestId` 是正整数，取自所见订单行的 `transferPendingRequestId`（对应 `order_transfer.id`），两张审批列表 `GET /api/delivery/orders/station-pending` 与 `GET /api/delivery/orders/directed-returns` 均下发该值；没有待审批指定退回申请时该值为空。
+
+客户端在打开确认弹窗时固定此编号，确认时原样提交。服务在同一订单锁内核对归属站、原配送安排、当前待审批申请及编号，然后执行原有同意/拒绝流程。同意仍将订单退回归属站待分配，并搬回结算站、待收款与库存预留；拒绝仍保留原配送状态和指派。同轮相反决策只能成功一次。
+
+缺请求体、缺编号、空编号或非正数均返回 HTTP 200、`code=1`，提示「请刷新后重新打开指定退回申请再处理」。过期、已处理或其他订单的编号返回 `code=1` 与刷新提示，不改变订单、申请、待收款或库存预留；不得静默改为审批最新一轮。客户端展示错误并刷新列表，让站长重新打开申请后确认，不自动替换编号重试。退回站长的 STAFF 审批沿用其独立契约。
+
 ---
 
 ## 2. 认证

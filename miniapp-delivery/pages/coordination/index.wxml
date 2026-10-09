@@ -144,8 +144,8 @@
             <button class="btn-danger-small" catchtap="onCancelTransferRow" data-id="{{item.id}}">撤回转单</button>
           </block>
           <block wx:elif="{{item.transferPending}}">
-            <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}">同意转单</button>
-            <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}">拒绝转单</button>
+            <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}" data-request-id="{{item.transferPendingRequestId}}">同意转单</button>
+            <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}" data-request-id="{{item.transferPendingRequestId}}">拒绝转单</button>
           </block>
           <block wx:else>
             <button class="btn-primary" catchtap="onShowAssign" data-id="{{item.id}}">分配配送员</button>

@@ -170,13 +170,13 @@ const directedReturn = (id) => {
 }
 
 // 原归属站：同意退回（变回普通待分配）
-const approveDirectedReturn = (id) => {
-  return post(`${API.DELIVERY_ORDERS}/${id}/directed-return/approve`)
+const approveDirectedReturn = (id, requestId) => {
+  return post(`${API.DELIVERY_ORDERS}/${id}/directed-return/approve`, { requestId })
 }
 
-// 原归属站：拒绝退回（回到配送中，由原配送员继续）
-const rejectDirectedReturn = (id) => {
-  return post(`${API.DELIVERY_ORDERS}/${id}/directed-return/reject`)
+// 原归属站：拒绝所见申请，保留原配送状态和指派
+const rejectDirectedReturn = (id, requestId) => {
+  return post(`${API.DELIVERY_ORDERS}/${id}/directed-return/reject`, { requestId })
 }
 
 // 原归属站：被退回待确认的订单列表

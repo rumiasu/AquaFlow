@@ -796,6 +796,7 @@ public interface OrderMapper {
             "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind, " +
             // [2026-09-29 清单2] 与 listTransferredOrders 同源下发 sub_kind（首页转单栏按它分流动作）
+            "(select t.id from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED' and t.sub_kind='DIRECTED_RETURN' order by t.id desc limit 1) as transferPendingRequestId, " +
             "(select t.sub_kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingSubKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
@@ -882,6 +883,7 @@ public interface OrderMapper {
      */
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
+            "(select t.id from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED' and t.sub_kind='DIRECTED_RETURN' order by t.id desc limit 1) as transferPendingRequestId, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +

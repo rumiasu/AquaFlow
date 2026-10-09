@@ -2,6 +2,7 @@ package com.example.aquaflow.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
 import java.util.List;
@@ -63,6 +64,14 @@ public final class DeliveryOrderActionDTO {
     @Data
     public static class ReturnToStation {
         private String reason;
+    }
+
+    /** 指定退回决策必须绑定用户在列表/弹窗中看到的那一轮申请。 */
+    @Data
+    public static class DirectedReturnDecision {
+        @NotNull(message = "请刷新后重新打开指定退回申请再处理")
+        @Positive(message = "请刷新后重新打开指定退回申请再处理")
+        private Long requestId;
     }
 
     /**

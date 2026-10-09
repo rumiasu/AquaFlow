@@ -30,6 +30,10 @@ class DirectedReturnAndReturnToStationIntegrationTest extends AbstractIntegratio
                 staffId, deliveryStationId, orderId);
     }
 
+    private String decisionBody(long orderId) {
+        return "{\"requestId\":" + longOf("select coalesce(max(id),999999) from order_transfer where order_id=? and kind='DIRECTED' and sub_kind='DIRECTED_RETURN'", orderId) + "}";
+    }
+
     @Test
     @DisplayName("退回站长：申请→同意清空配送员；拒绝→回到配送中且配送员还在")
     void returnToStationApproveAndReject() {
@@ -141,7 +145,7 @@ class DirectedReturnAndReturnToStationIntegrationTest extends AbstractIntegratio
         assertEquals(0, pending.code(), "归属站待确认列表: " + pending);
         assertTrue(pending.data().toString().contains("\"id\":" + order1), "待确认列表应含该订单");
 
-        assertEquals(0, post("/api/delivery/orders/" + order1 + "/directed-return/approve", mgrOwner, null).code());
+        assertEquals(0, post("/api/delivery/orders/" + order1 + "/directed-return/approve", mgrOwner, decisionBody(order1)).code());
         assertEquals(ownerStation, longOf("SELECT delivery_station_id FROM orders WHERE id=?", order1),
                 "同意后履约站改回归属站");
         assertNull(jdbc.queryForObject("SELECT delivery_staff_id FROM orders WHERE id=?", Object.class, order1));
@@ -150,7 +154,7 @@ class DirectedReturnAndReturnToStationIntegrationTest extends AbstractIntegratio
         assertEquals("APPROVED", jdbc.queryForObject("SELECT status FROM order_transfer WHERE order_id=? "
                 + "AND kind='DIRECTED'", String.class, order1));
         // 幂等/CAS：标记已被替换，再点一次必须失败，而不是把已经回到归属站的单再改一遍
-        assertNotEquals(0, post("/api/delivery/orders/" + order1 + "/directed-return/approve", mgrOwner, null).code(),
+        assertNotEquals(0, post("/api/delivery/orders/" + order1 + "/directed-return/approve", mgrOwner, decisionBody(order1)).code(),
                 "重复同意必须被 CAS 守卫挡住");
 
         // ---- 情形 2：拒绝 → 回到配送中，履约站与配送员原样保留 ----
@@ -158,7 +162,7 @@ class DirectedReturnAndReturnToStationIntegrationTest extends AbstractIntegratio
                 2, 2, 2, "10.00", "30.00", "40.00");
         assignDelivery(order2, fulfillDelivery, fulfillStation);
         assertEquals(0, post("/api/delivery/orders/" + order2 + "/directed-return", mgrFulfill, null).code());
-        Api rejected = post("/api/delivery/orders/" + order2 + "/directed-return/reject", mgrOwner, null);
+        Api rejected = post("/api/delivery/orders/" + order2 + "/directed-return/reject", mgrOwner, decisionBody(order2));
         assertEquals(0, rejected.code(), "归属站拒绝退回: " + rejected);
         assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order2), "拒绝后回到配送中(2)");
         assertEquals(fulfillStation, longOf("SELECT delivery_station_id FROM orders WHERE id=?", order2));
@@ -173,13 +177,13 @@ class DirectedReturnAndReturnToStationIntegrationTest extends AbstractIntegratio
         assignDelivery(order3, fulfillDelivery, fulfillStation);
         assertNotEquals(0, post("/api/delivery/orders/" + order3 + "/directed-return", mgrOwner, null).code(),
                 "只有目标(履约)站可以申请退回，归属站不行");
-        assertNotEquals(0, post("/api/delivery/orders/" + order3 + "/directed-return/approve", mgrFulfill, null).code(),
+        assertNotEquals(0, post("/api/delivery/orders/" + order3 + "/directed-return/approve", mgrFulfill, decisionBody(order3)).code(),
                 "没有待确认标记时不得同意");
         assertEquals(0, post("/api/delivery/orders/" + order3 + "/directed-return", mgrFulfill, null).code());
-        assertNotEquals(0, post("/api/delivery/orders/" + order3 + "/directed-return/approve", mgrFulfill, null).code(),
+        assertNotEquals(0, post("/api/delivery/orders/" + order3 + "/directed-return/approve", mgrFulfill, decisionBody(order3)).code(),
                 "只有原归属站可以同意退回");
         assertNotEquals(0, post("/api/delivery/orders/" + order3 + "/directed-return/approve",
-                staffToken(fulfillDelivery, "DELIVERY", fulfillStation), null).code(),
+                staffToken(fulfillDelivery, "DELIVERY", fulfillStation), decisionBody(order3)).code(),
                 "配送员不得审批站间退回（且角色不符应被拒）");
     }
 }

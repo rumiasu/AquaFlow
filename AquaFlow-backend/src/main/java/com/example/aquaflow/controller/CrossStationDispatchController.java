@@ -203,18 +203,20 @@ public class CrossStationDispatchController {
      */
     @RequireRole("STATION_MANAGER")
     @PostMapping("/orders/{id}/directed-return/approve")
-    public Result<Void> directedReturnApprove(@PathVariable Long id) {
-        orderWorkflowService.directedReturnApprove(id);
+    public Result<Void> directedReturnApprove(@PathVariable Long id,
+            @RequestBody(required = false) @Valid DeliveryOrderActionDTO.DirectedReturnDecision body) {
+        orderWorkflowService.directedReturnApprove(id, body == null ? null : body.getRequestId());
         return Result.success();
     }
 
     /**
-     * 原归属站站长拒绝退回：取消转单，订单回到「配送中」，由原配送员继续完成配送
+     * 原归属站站长拒绝所见申请：保留原配送状态和指派，由履约站继续处理
      */
     @RequireRole("STATION_MANAGER")
     @PostMapping("/orders/{id}/directed-return/reject")
-    public Result<Void> directedReturnReject(@PathVariable Long id) {
-        orderWorkflowService.directedReturnReject(id);
+    public Result<Void> directedReturnReject(@PathVariable Long id,
+            @RequestBody(required = false) @Valid DeliveryOrderActionDTO.DirectedReturnDecision body) {
+        orderWorkflowService.directedReturnReject(id, body == null ? null : body.getRequestId());
         return Result.success();
     }
 

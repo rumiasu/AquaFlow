@@ -279,6 +279,9 @@ public class Orders {
      */
     private String transferPendingKind;
 
+    /** 所见待审批指定退回申请编号，由审批列表 SQL 填充，不落 orders 表。 */
+    private Long transferPendingRequestId;
+
     /**
      * 待决策转单的**子类型**（{@code TRANSFER} 转让 / {@code RETURN_STATION} 退回站长 /
      * {@code CANCEL_REQUEST} 取消申请 / {@code DIRECTED_RETURN} 指定退回）。

@@ -1070,7 +1070,14 @@ Page({
   // 转单中 - 站长「同意」=> 变回普通待分配（可分配配送员/外派）
   async onApproveReturn(e) {
     const id = e.currentTarget.dataset.id
-    const api = e.currentTarget.dataset.kind === 'directed' ? approveDirectedReturn : approveStaffReturn
+    const directed = e.currentTarget.dataset.kind === 'directed'
+    // 弹窗开启时捕获所见申请；确认时不得改用刷新后列表里的新一轮。
+    const requestId = e.currentTarget.dataset.requestId
+    if (directed && !requestId) {
+      wx.showToast({ title: '请刷新后重新打开退回申请', icon: 'none' })
+      this.loadAllData()
+      return
+    }
     wx.showModal({
       title: '同意转单',
       content: '同意后订单将变为普通待分配状态，届时可分配配送员或外派。',
@@ -1080,39 +1087,49 @@ Page({
         if (res.confirm) {
           wx.showLoading({ title: '处理中...' })
           try {
-            await api(id)
+            if (directed) await approveDirectedReturn(id, requestId)
+            else await approveStaffReturn(id)
             wx.hideLoading()
             wx.showToast({ title: '已同意，订单已退回待分配', icon: 'success' })
             this.loadAllData()
           } catch (err) {
             wx.hideLoading()
             wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+            if (directed) this.loadAllData()
           }
         }
       }
     })
   },
 
-  // 转单中 - 站长「拒绝」=> 回到配送中，由原配送员继续完成配送
+  // 转单中 - 站长「拒绝」=> 保留原配送状态和指派
   async onRejectReturn(e) {
     const id = e.currentTarget.dataset.id
-    const api = e.currentTarget.dataset.kind === 'directed' ? rejectDirectedReturn : rejectStaffReturn
+    const directed = e.currentTarget.dataset.kind === 'directed'
+    const requestId = e.currentTarget.dataset.requestId
+    if (directed && !requestId) {
+      wx.showToast({ title: '请刷新后重新打开退回申请', icon: 'none' })
+      this.loadAllData()
+      return
+    }
     wx.showModal({
       title: '拒绝转单',
-      content: '拒绝后订单将回到配送中，由原配送员继续完成配送。',
+      content: directed ? '拒绝后保留原配送状态和指派，由履约水站继续处理。' : '拒绝后订单将回到配送中，由原配送员继续完成配送。',
       confirmText: '拒绝',
       confirmColor: '#B5442C',
       success: async (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '处理中...' })
           try {
-            await api(id)
+            if (directed) await rejectDirectedReturn(id, requestId)
+            else await rejectStaffReturn(id)
             wx.hideLoading()
-            wx.showToast({ title: '已拒绝，订单回到配送中', icon: 'none' })
+            wx.showToast({ title: directed ? '已拒绝，保留原配送安排' : '已拒绝，订单回到配送中', icon: 'none' })
             this.loadAllData()
           } catch (err) {
             wx.hideLoading()
             wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+            if (directed) this.loadAllData()
           }
         }
       }

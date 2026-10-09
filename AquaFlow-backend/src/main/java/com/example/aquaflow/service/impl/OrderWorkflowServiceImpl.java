@@ -1707,13 +1707,13 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void directedReturnApprove(Long orderId) {
+    public void directedReturnApprove(Long orderId, Long requestId) {
         Long stationId = AuthContext.requireStationId();
         Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(order.getStationId())) {
             throw new BusinessException("仅原归属站可操作");
         }
-        OrderTransfer request = requirePendingDirectedReturn(order);
+        OrderTransfer request = requirePendingDirectedReturn(order, requestId);
         int changed = orderMapper.directedReturnApproveIf(orderId, stationId, OrderStatus.PENDING,
                 order.getStatus());
         if (changed == 0) {
@@ -1730,13 +1730,13 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void directedReturnReject(Long orderId) {
+    public void directedReturnReject(Long orderId, Long requestId) {
         Long stationId = AuthContext.requireStationId();
         Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(order.getStationId())) {
             throw new BusinessException("仅原归属站可操作");
         }
-        OrderTransfer request = requirePendingDirectedReturn(order);
+        OrderTransfer request = requirePendingDirectedReturn(order, requestId);
         int restoredStatus = directedReturnSourceStatus(order, request);
         int changed = orderMapper.directedReturnRejectIf(orderId, restoredStatus, order.getStatus());
         if (changed == 0) {
@@ -1744,6 +1744,18 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         resolveDirectedReturn(request, OrderTransfer.STATUS_REJECTED);
         log("DIRECTED_RETURN_REJECT", orderId, serviceMap("transferId", request.getId(), "restoredStatus", restoredStatus));
+    }
+
+    /** 在同一订单锁内核对所见申请；缺编号或跨轮决策必须在任何副作用之前拒绝。 */
+    private OrderTransfer requirePendingDirectedReturn(Orders order, Long requestId) {
+        if (requestId == null || requestId <= 0) {
+            throw new BusinessException("请刷新后重新打开指定退回申请再处理");
+        }
+        OrderTransfer request = requirePendingDirectedReturn(order);
+        if (!requestId.equals(request.getId())) {
+            throw new BusinessException("指定退回申请已变化，请刷新后核实");
+        }
+        return request;
     }
 
     private OrderTransfer requirePendingDirectedReturn(Orders order) {

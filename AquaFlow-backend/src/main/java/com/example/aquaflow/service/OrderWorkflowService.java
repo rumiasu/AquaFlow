@@ -160,9 +160,9 @@ public interface OrderWorkflowService {
     /** 目标站发起指定退回：打「待确认」标记，保留原履约站與配送员。 */
     void directedReturn(Long orderId);
 
-    /** 原归属站同意指定退回。 */
-    void directedReturnApprove(Long orderId);
+    /** 原归属站同意所见的指定退回申请，requestId 必传且须仍待审批。 */
+    void directedReturnApprove(Long orderId, Long requestId);
 
-    /** 原归属站拒绝指定退回：回到配送中。 */
-    void directedReturnReject(Long orderId);
+    /** 原归属站拒绝所见申请：保留原配送状态和指派，requestId 必传且须仍待审批。 */
+    void directedReturnReject(Long orderId, Long requestId);
 }

@@ -58,4 +58,4 @@
 3. `product` 商品 → `inventory` 库存（含水票开关 `ticket_enabled` / `ticket_price`）
 4. 顾客端注册下单
 
-开发账号见主目录 `seed_dev_account.sql`。
+主目录 `seed_dev_account.sql` 也已过期，不可用于当前基线：仍引用已删除的客户字段、`water_type` 及旧资产结构。按 [主 SQL 清单](../README.md)在明确核准的隔离开发环境使用现有开发登录和现行业务 API 准备合成身份/数据，不执行历史种子脚本。

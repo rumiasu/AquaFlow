@@ -2,12 +2,16 @@ const { wxLoginStaff, devLogin } = require('../../api/auth')
 const { UserInfoKey } = require('../../utils/constant')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
 const { isReleaseEnv } = require('../../config/api')
+const agreementApi = require('../../api/agreements')
+const { drafts, validCatalog, loginEvidence, find } = require('../../utils/agreements')
 
 const app = getApp()
 
 Page({
   data: {
     loading: false,
+    agreementCatalog: drafts,
+    agreementNotice: drafts.notice,
     // [2026-09-20] 「开发者登录」是否显示。默认 false、在 onLoad 里再纠正 ——
     // 正式版永远不会闪一下这个按钮；开发版/体验版晚一帧出现，肉眼看不出来。
     //
@@ -21,7 +25,22 @@ Page({
 
   onLoad() {
     this.setData({ showDevLogin: !isReleaseEnv() })
+    this.loadAgreements()
     this.checkAutoLogin()
+  },
+
+  async loadAgreements() {
+    if (this._catalogFlight || this._agreementUnloaded) return
+    this._catalogFlight = true
+    try {
+      const res = await agreementApi.current()
+      if (!validCatalog(res && res.data)) throw Error('协议目录无法核实')
+      if (!this._agreementUnloaded && !this._agreementHidden)
+        this.setData({ agreementCatalog: res.data, agreementNotice: res.data.notice })
+    } catch (error) {
+      if (!this._agreementUnloaded && !this._agreementHidden)
+        this.setData({ agreementCatalog: drafts, agreementNotice: '协议草稿尚未启用；当前无法核实最新正文，本次登录不会自动记录正式接受。' })
+    } finally { this._catalogFlight = false }
   },
 
   // 2026-10-07：原协议名没有处理器；公开阅读仅导航，不触发登录或记录同意。
@@ -29,6 +48,7 @@ Page({
   onShow() {
     if (this._agreementUnloaded) return
     this._agreementHidden = false
+    this.loadAgreements()
     if (this._agreementFlight && this._agreementFlight.finished) this._agreementFlight = null
   },
 
@@ -44,6 +64,8 @@ Page({
     if (this.data.loading || this._agreementHidden || this._agreementUnloaded || this._agreementFlight) return
     const value = e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.type
     const type = value === 'privacy' ? 'privacy' : 'user'
+    const doc = find(this.data.agreementCatalog, type)
+    const version = this.data.agreementCatalog.enabled && doc ? '&versionId=' + encodeURIComponent(doc.versionId) : ''
     const flight = this._agreementFlight = { finished: false }
     const success = () => { if (this._agreementFlight === flight) flight.finished = true }
     const fail = () => {
@@ -55,7 +77,7 @@ Page({
       }
     }
     try {
-      wx.navigateTo({ url: '/pages/mine/agreement/index?type=' + type, success, fail,
+      wx.navigateTo({ url: '/pages/mine/agreement/index?type=' + type + version, success, fail,
         complete: result => { if (result && /:ok$/.test(result.errMsg || '')) success(); else fail() } })
     } catch (err) { fail() }
   },
@@ -80,13 +102,11 @@ Page({
 
   // 微信一键登录：wx.login 静默拿 code → 后端换 openid → 已绑定员工直接登录
   //
-  // [2026-09-24 产品要求]「以后点击登录就自动同意协议吧，别再费劲点了」——
-  // **取消"必须先勾选才能登录"那道拦截**，改成按钮正下方一行可见的
-  // 「登录即代表你已阅读并同意《用户协议》和《隐私政策》」，点按钮本身即表示同意。
-  // ⚠️ 这是"点击即同意"（明示告知 + 用户主动点击），与"默认帮你勾上"不是一回事。
-  // ⚠️ **那行提示不能删**：没有可见告知就只剩"沉默同意"。顾客端 pages/login 同口径。
+  // 保留2026-09-24取消强制复选框的裁定。草稿未启用时不声称已接受正式文本。
+  // 在主动点击时固定实际展示版本，条款接受/隐私告知分别记录，微信授权独立处理。
   async onWxLogin() {
     if (this.data.loading) return
+    const agreement = loginEvidence(this.data.agreementCatalog)
 
     this.setData({ loading: true })
 
@@ -103,7 +123,7 @@ Page({
       }
 
       console.log('[wx-login] code获取成功, 发送请求...')
-      const res = await wxLoginStaff(loginRes.code)
+      const res = await wxLoginStaff(loginRes.code, agreement)
       console.log('[wx-login] response accepted:', !!(res && res.data))
 
       if (res && res.data) {
@@ -113,6 +133,7 @@ Page({
         wx.showToast({ title: (res && res.message) || '登录失败', icon: 'none' })
       }
     } catch (error) {
+      this.loadAgreements()
       console.error('[wx-login] login failed')
       const msg = (error && error.message) || '登录失败'
       wx.showModal({ title: '登录失败', content: msg, showCancel: false })

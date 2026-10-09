@@ -217,6 +217,38 @@ class TicketConsumeIdempotencyIntegrationTest extends AbstractIntegrationTest {
                 customer), "只能有一条消费流水");
     }
 
+    @Test
+    @DisplayName("同键换数量/商品/订单必须拒绝，原批次和其它账户均不得再扣")
+    void sameKeyChangedContentIsRejectedWithoutConsumingAnotherLot() {
+        long station=createStation("扣票内容站"),manager=createStaff("站长","STATION_MANAGER",station,1);
+        long customer=createCustomer("客户","consume-content"),product=createProduct("甲水",1,"20.00","30.00",1,"8.00");
+        long other=createProduct("乙水",1,"18.00","30.00",1,"7.00");
+        createTicketAccount(customer,station,product,10);createTicketAccount(customer,station,other,10);
+        String token=staffToken(manager,"STATION_MANAGER",station),key="content-fixed";
+        assertEquals(0,post("/api/tickets/consume",token,body(customer,product,2,null,key)).code());
+        for(String changed:List.of(body(customer,product,3,null,key),body(customer,other,2,null,key),body(customer,product,2,999L,key))) {
+            Api r=post("/api/tickets/consume",token,changed);assertEquals(1,r.code(),r.toString());
+        }
+        assertEquals(8,intOf("select remain_qty from ticket_lot where customer_id=? and product_id=?",customer,product));
+        assertEquals(10,intOf("select remain_qty from ticket_lot where customer_id=? and product_id=?",customer,other));
+        assertEquals(1,intOf("select count(*) from ticket_record where customer_id=?",customer));
+    }
+
+    @Test
+    @DisplayName("同一客户同键换站拒绝，不把甲站成功结果冒作乙站扣票结果")
+    void sameKeyChangedStationDoesNotPretendSecondStationWasDebited() {
+        long a=createStation("扣票甲站"),b=createStation("扣票乙站");
+        long am=createStaff("甲长","STATION_MANAGER",a,1),bm=createStaff("乙长","STATION_MANAGER",b,1);
+        long customer=createCustomer("客户","consume-station-change"),product=createProduct("水",1,"20.00","30.00",1,"8.00");
+        createTicketAccount(customer,a,product,10);createTicketAccount(customer,b,product,10);
+        String request=body(customer,product,2,null,"same-client-intent");
+        assertEquals(0,post("/api/tickets/consume",staffToken(am,"STATION_MANAGER",a),request).code());
+        Api changed=post("/api/tickets/consume",staffToken(bm,"STATION_MANAGER",b),request);assertEquals(1,changed.code(),changed.toString());
+        assertEquals(8,intOf("select remain_quantity from ticket_account where customer_id=? and station_id=?",customer,a));
+        assertEquals(10,intOf("select remain_quantity from ticket_account where customer_id=? and station_id=?",customer,b));
+        assertEquals(1,intOf("select count(*) from ticket_record where customer_id=?",customer));
+    }
+
     // ---------- helpers ----------
 
     /**

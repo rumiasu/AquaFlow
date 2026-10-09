@@ -135,17 +135,13 @@ Page({
     unknownResultText: '',
     // 支付方式确认弹窗
     showOfflineConfirm: false,
-    // 首次资产业务确认弹窗（契约 A2：**建单之前**弹，取消 = 零请求）
+    // 历史弹窗保持关闭；首次须知在页面内展示。
     showAssetConfirm: false,
-    assetConfirmed: false,
     // [2026-10-06] 资产说明常驻折叠条状态（替代原弹窗）
     assetBarExpanded: true,
     // [2026-10-06] 综合确认弹窗（合并缺货/线下支付/配送中桶提醒）
     showUnifiedConfirm: false,
     unifiedConfirmType: '', // 'shortage' | 'offline' | 'inTransit' | 'mixed'
-    // 客户是否在水桶与押金说明里勾了"我已阅读并了解"（说明弹窗里的那个 ☐）。
-    // 它是「确认下单」的前置：未勾选时按钮是灰的、点了会给提示（见 onAssetConfirmOk）。
-    assetReadAgreed: false,
     // 首次资产告知的内容（全部来自 /api/payments/quote，前端不另写资产规则）
     assetNotice: { stationName: '', depositAmount: '0.00', buckets: 0, totalAmountText: '0.00' },
     // 桶与押金说明弹窗
@@ -667,7 +663,6 @@ this.setData({ products, stationName: effectiveStationName })
   async refreshQuote() {
     this.cancelScheduledQuote()
     if (this._quoteDestroyed) return false
-    const agreedKey = this.data.assetReadAgreed ? this._assetAgreementKey : null
     const { products, selectedMethod, stationId, barrelSummary, address } = this.data
     const seq = this.invalidateQuote()
     const session = captureSession()
@@ -856,17 +851,10 @@ this.setData({ products, stationName: effectiveStationName })
             onlineAdvice: d.depositOnlineAdvice || '',
             // 恒有值（只要本单收押金）；由 wxml 按"客户当前选了现金没有"决定显不显示
             offlineRiskNote: d.depositOfflineRiskNote || ''
-          },
-          // 报价一刷新就作废上一次的"已确认"：站/商品/数量/支付方式变了，告知里的金额与归属就变了，
-          // 旧确认不能继续有效（契约 A2 最后一条）。
-          assetConfirmed: false,
-          // 勾选一并作废：这次的金额/水站可能已经不同，不能拿上次的勾选顶过去
-          assetReadAgreed: false
+          }
         }
 
         this.setData(updates)
-        // 水票提交会再核价；同意的是同一份须知时保留勾选，金额/意图变化才要求重读。
-        if (agreedKey && agreedKey === this._assetNoticeKey()) this.setData({ assetReadAgreed: true })
         // "已下单"态跟着这次报价重算：客户改了数量/地址/支付方式 ⇒ 指纹变了 ⇒ 提示行与按钮文案
         // 自动回到常态「立即下单」，**不需要**在每个改内容的入口手动清状态。
         this._syncPendingOrderState()
@@ -1061,7 +1049,7 @@ this.setData({ products, stationName: effectiveStationName })
     //   return
     // }
 
-    // 2026-10-06：统一确认曾直达建单，绕过首次须知与失效报价；两个入口共用最终闸门。
+    // 统一确认和直接提交共用报价闸门，不能使用失效报价建单。
     if (!this._finalSubmissionAllowed()) return
     // [2026-10-06] 综合确认弹窗：合并缺货/线下支付/配送中桶提醒
     const needShortageConfirm = this.data.shortageItems && this.data.shortageItems.length > 0
@@ -1084,24 +1072,6 @@ this.setData({ products, stationName: effectiveStationName })
     if ((this.data.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) {
       this.confirmBarrelPurchase(); return
     }
-    // ===== 建单之前必须做完的确认（契约 A2）=====
-    // [2026-10-06] 首次资产/押金告知改为页面内常驻折叠条，不再弹窗阻断。
-    // 客户仍可展开阅读、勾选确认，只是不再强制弹窗。
-    // 判据来自 /api/payments/quote 的 firstStationAsset（与下单侧同一个 AssetService），
-    // 前端不另写资产规则。
-    // ⚠️ 综合确认弹窗的"确认下单"按钮也会走这里，不能绕过 assetReadAgreed 检查。
-    if (this.data.firstStationAsset === true && !this.data.assetConfirmed) {
-      // 检查是否已勾选
-      if (!this.data.assetReadAgreed) {
-        wx.showToast({ title: '请先阅读并勾选首次下单须知', icon: 'none' })
-        // 自动展开折叠条
-        this.setData({ assetBarExpanded: true })
-        return
-      }
-      // 已勾选则标记确认，继续流程
-      this.setData({ assetConfirmed: true })
-    }
-
     // ===== 提交前最终校验：报价是否仍然有效 =====
     // [2026-10-06] 综合确认弹窗"确认"后，重新检查报价新鲜度，防止过期报价被提交
     if (!this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
@@ -1561,40 +1531,16 @@ this.setData({ products, stationName: effectiveStationName })
     })
   },
 
-  // ===== 首次资产业务确认弹窗（契约 A2：**建单之前**）=====
-  // 原来的"取消"发生在建单之后，只能告诉客户"订单已创建"；现在取消 = 一个写请求都不发。
-  // [2026-10-06] 弹窗已废弃，改为页面内常驻折叠条，保留方法备用。
+  // 历史弹窗入口仍经过正常下单流程，不能绕过押金和缺货授权。
   onAssetConfirmCancel() {
-    this.setData({ showAssetConfirm: false, assetConfirmed: false })
+    this.setData({ showAssetConfirm: false })
     wx.showToast({ title: '没有提交订单，可以继续修改', icon: 'none' })
   },
 
   onAssetConfirmOk() {
     if (!this._finalSubmissionAllowed()) return
-    if (!this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
-      wx.showToast({ title: '请先核实最新报价', icon: 'none' }); return
-    }
-    // [2026-09-26] 说明弹窗里那个勾选是**真的闸门**，但**不能**做成"灰按钮点了没反应"：
-    // 弹窗刚打开时勾选一定是 false（每次弹都重置），此时按钮若是死的，客户看到的就是
-    // 一个点不动的按钮 —— 正是本仓 §8.30 那类最难排查的形态。
-    // 所以这里改成**给出下一步**：说清为什么、并直接把他送到说明那一屏（两下就能继续）。
-    if (!this.data.assetReadAgreed) {
-      wx.showModal({
-        title: '请先看使用说明',
-        content: '下单前请先了解水桶与押金的使用说明，确认后即可继续下单。',
-        confirmText: '看说明',
-        cancelText: '再想想',
-        success: (r) => {
-          if (r.confirm) {
-            this.onAssetDetailTap()
-          }
-        }
-      })
-      return
-    }
-    // 客户点了"确认下单"才建单（顺序就是契约要的那一条）
-    this.setData({ assetConfirmed: true, showAssetConfirm: false })
-    this._createOrder(false)
+    this.setData({ showAssetConfirm: false })
+    return this.onSubmit()
   },
 
   // ===== [2026-10-06] 资产说明常驻折叠条 =====
@@ -1616,12 +1562,6 @@ this.setData({ products, stationName: effectiveStationName })
       shortageItems: this.data.shortageItems })
   },
 
-  _assetNoticeKey() {
-    return JSON.stringify({ intent: this._currentIntent(), total: this.data.totalAmount,
-      deposit: this.data.totalDeposit, extra: this.data.extraDepositAmount,
-      purchases: this.data.barrelPurchases, notice: this.data.assetNotice })
-  },
-
   _captureConfirmation() {
     return { key: this._confirmationKey(), session: captureSession(),
       shortage: this.data.unifiedConfirmType === 'shortage',
@@ -1635,18 +1575,14 @@ this.setData({ products, stationName: effectiveStationName })
     if (!this.data.address || !(this.data.products || []).length) {
       wx.showToast({ title: '请先确认地址和商品', icon: 'none' }); return false
     }
-    if (this.data.firstStationAsset === true && !this.data.assetReadAgreed) {
-      this.setData({ assetBarExpanded: true })
-      wx.showToast({ title: '请先阅读并勾选首次下单须知', icon: 'none' }); return false
-    }
+    // 2026-10-08：阅读须知原先拦住普通下单；保留告知，不替客户记同意或绕过资金授权。
     return true
   },
 
   async _finishConfirmedOrder(proof) {
     if (this.data.submitting || !proof || !isCurrentSession(proof.session)) return
     if (proof.key !== this._confirmationKey() || !this._finalSubmissionAllowed()) return
-    this.setData({ assetConfirmed: this.data.firstStationAsset === true ? true : this.data.assetConfirmed,
-      inTransitReminderAck: proof.inTransit ? true : this.data.inTransitReminderAck })
+    this.setData({ inTransitReminderAck: proof.inTransit ? true : this.data.inTransitReminderAck })
     return this._createOrder(proof.shortage)
   },
 
@@ -1761,16 +1697,6 @@ this.setData({ products, stationName: effectiveStationName })
     // 获取水站电话
     this.fetchStationPhone()
     this.setData({ showAssetDetail: true })
-  },
-
-  /**
-   * 说明弹窗里的勾选（真的闸门）：勾上之后上一屏的「确认下单」才可点。
-   * ⚠️ 每次重新弹**首次确认**时都要重置成 false（见 refreshQuote 里 setData 的 assetReadAgreed），
-   * 否则"上次勾过"会让这次的新金额/新水站不再需要确认。
-   */
-  onAssetReadAgree() {
-    this.setData({ assetReadAgreed: !this.data.assetReadAgreed })
-    this._assetAgreementKey = this.data.assetReadAgreed ? this._assetNoticeKey() : null
   },
 
   onAssetDetailClose() {

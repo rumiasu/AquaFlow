@@ -59,6 +59,10 @@ public class StaffEarning {
     /** 来源资产调整单（人工调整场景的幂等键） */
     private Long adjustmentId;
 
+    /** 人工工资录入意图；旧行/自动收益为空，新请求必填，由v79唯一键防重。 */
+    private String idempotencyKey;
+    private String requestDigest;
+
     /**
      * 自定义工资条目（v44）：NULL = 不是按条目录的（老数据，以及自由文本的人工调整）。
      */

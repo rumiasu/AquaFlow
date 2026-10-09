@@ -46,6 +46,9 @@ import java.util.Map;
  */
 public interface PaymentService {
 
+    /** 仅对锁后仍符合全部超时条件、且没有结果未知活跃原款的微信单执行取消。 */
+    boolean cancelTimedOutWechatOrder(Long orderId, int timeoutMinutes);
+
     /** 创建支付记录 */
     PaymentRecord createPayment(Long orderId, Long customerId, BigDecimal amount, BigDecimal waterAmount,
                                 BigDecimal barrelDeposit, Integer excessBarrels, Integer paymentMethod,

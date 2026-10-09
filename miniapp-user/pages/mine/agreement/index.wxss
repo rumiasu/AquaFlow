@@ -48,6 +48,7 @@
   margin-top: 12rpx;
   font-size: 22rpx;
   color: var(--text-secondary);
+  word-break: break-all;
 }
 
 .doc-section {

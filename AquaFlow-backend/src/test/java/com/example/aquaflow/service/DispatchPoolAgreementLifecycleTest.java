@@ -72,6 +72,7 @@ class DispatchPoolAgreementLifecycleTest {
             order.setId(1L); order.setStationId(8L); order.setDeliveryStationId(8L); order.setStatus(1);
             order.setCustomerId(7L); order.setPaymentMethod(2); order.setPaymentStatus(1);
             when(mapper.getById(1L)).thenReturn(order);
+            when(mapper.getByIdForUpdate(1L)).thenReturn(order);
             when(mapper.outsourceToPoolIf(1L, 1, 1)).thenReturn(1);
             when(mapper.outsourceToStationIf(1L, 9L, 1, 1)).thenReturn(1);
             ReflectionTestUtils.setField(service, "orderMapper", mapper);

@@ -10,6 +10,7 @@ import com.example.aquaflow.service.DeliveryConsoleService;
 import com.example.aquaflow.service.OrderBarrelExceptionService;
 import com.example.aquaflow.service.OrderWorkflowService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.OrderTaskAccess;
 import com.example.aquaflow.util.StationUtil;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -107,16 +108,18 @@ public class DeliveryTaskController {
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
     @GetMapping("/orders/assigned-to-me")
     public Result<?> getAssignedToMeOrders() {
+        AuthContext.requireStationId();
         Long staffId = AuthContext.getUserId();
         // 配送员待接单：分配给我但 status 仍为 1 的订单
-        return Result.success(deliveryConsoleService.listAssignedToMe(staffId));
+        return Result.success(OrderTaskAccess.currentOwnTasks(deliveryConsoleService.listAssignedToMe(staffId)));
     }
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
     @GetMapping("/orders/delivering")
     public Result<?> getDeliveringOrders() {
+        AuthContext.requireStationId();
         Long staffId = AuthContext.getUserId();
-        return Result.success(deliveryConsoleService.listDelivering(staffId));
+        return Result.success(OrderTaskAccess.currentOwnTasks(deliveryConsoleService.listDelivering(staffId)));
     }
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
@@ -133,14 +136,7 @@ public class DeliveryTaskController {
         if (order == null) {
             return Result.error("订单不存在");
         }
-        if (AuthContext.isDelivery()) {
-            checkStationOwnership(order);
-            if (order.getDeliveryStaffId() != null && !order.getDeliveryStaffId().equals(AuthContext.getUserId())) {
-                return Result.error("无权查看其他配送员的订单");
-            }
-        } else if (AuthContext.isManager()) {
-            checkStationOwnership(order);
-        }
+        OrderTaskAccess.requireEmployeeDetail(order);
         return Result.success(order);
     }
 

@@ -12,13 +12,9 @@
       <text wx:else>微信一键登录</text>
     </button>
 
-    <!-- [2026-09-24] 协议改成「点击即同意」：原来是个**必须先勾选**的复选框（不勾就 toast 拦住），
-         产品要求"别再费劲点了"。告知贴在按钮正下方，点按钮本身即表示同意。
-         ⚠️ 这行提示**不能删** —— 删了就只剩"沉默同意"。顾客端 pages/login 同口径。
-         [2026-10-07] 协议名现可打开只读草稿页，页内明确未审核与待补。
-         阅读不触发登录、自动同意或版本同意记录；正式文本仍待真实信息与审核。 -->
+    <!-- 当前草稿如实告知未启用；仍不新增强制复选框或把登录视为全部隐私处理授权。 -->
     <view class="agreement">
-      <text class="agreement-text">登录即代表你已阅读并同意</text>
+      <text class="agreement-text">{{agreementNotice}}</text>
       <text class="agreement-text agreement-strong" data-type="user" bindtap="onOpenAgreement">《用户协议》</text>
       <text class="agreement-text">和</text>
       <text class="agreement-text agreement-strong" data-type="privacy" bindtap="onOpenAgreement">《隐私政策》</text>

@@ -68,6 +68,17 @@
       改一处必须连 util/BarrelScope 与配送端那两处 SQL 一起看（全仓四处同源）。
     -->
     <select id="list" resultType="com.example.aquaflow.entity.Orders">
+        <bind name="deliveryStaffId" value="null"/>
+        <bind name="deliveryTaskScope" value="false"/>
+        <include refid="orderListQuery"/>
+    </select>
+
+    <select id="listForDelivery" resultType="com.example.aquaflow.entity.Orders">
+        <bind name="deliveryTaskScope" value="true"/>
+        <include refid="orderListQuery"/>
+    </select>
+
+    <sql id="orderListQuery">
         select o.*, c.name as customerName, c.phone as customerPhone,
                a.detail as addressDetail, a.name as addressName, a.phone as addressPhone,
                a.lat as addressLat, a.lng as addressLng,
@@ -79,7 +90,17 @@
         left join address a on o.address_id = a.id
         <where>
             <if test="stationId != null">
-                and o.station_id = #{stationId}
+                <choose>
+                    <when test="deliveryTaskScope">
+                        and coalesce(o.delivery_station_id,o.station_id) = #{stationId}
+                    </when>
+                    <otherwise>
+                        and o.station_id = #{stationId}
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="deliveryTaskScope">
+                and o.delivery_staff_id = #{deliveryStaffId}
             </if>
             <if test="customerId != null">
                 and o.customer_id = #{customerId}
@@ -136,7 +157,7 @@
                 offset #{offset}
             </if>
         </if>
-    </select>
+    </sql>
 
     <select id="getLatestStationByCustomerId" resultType="map">
         select o.station_id as stationId, s.name as stationName

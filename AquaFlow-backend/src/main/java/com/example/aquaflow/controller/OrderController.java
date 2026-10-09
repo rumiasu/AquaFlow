@@ -11,7 +11,7 @@ import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.OrderService;
 import com.example.aquaflow.util.AuthContext;
-import com.example.aquaflow.util.StationUtil;
+import com.example.aquaflow.util.OrderTaskAccess;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -159,10 +159,9 @@ public class OrderController {
         } else if ("staff".equals(userType)) {
             // 员工分支此前直接返回订单：遍历 id 即可拉取全平台订单（含姓名、电话、地址快照、金额）。
             // 这里补上与 list 接口同款的归属校验。
-            Long myStationId = AuthContext.requireStationId();
-            if (!myStationId.equals(StationUtil.deliveryStation(order))) {
-                return Result.error("无权查看他站订单");
-            }
+            OrderTaskAccess.requireEmployeeDetail(order);
+        } else {
+            return Result.error("仅客户或已绑定水站的员工可查询订单");
         }
         // 能否自助支付由**服务端按当前渠道能力**投影（契约 A3）：实体自己不知道这个部署开了哪些渠道，
         // 一律 false 会让"模拟渠道开着时未付微信单"没有入口，一律 true 又会给出现金单的假支付按钮。

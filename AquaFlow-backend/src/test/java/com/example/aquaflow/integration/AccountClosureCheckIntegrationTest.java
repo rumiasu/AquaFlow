@@ -16,7 +16,7 @@ class AccountClosureCheckIntegrationTest extends AbstractIntegrationTest {
     }
     Map<String,Object> facts() {
         Map<String,Object> result=new LinkedHashMap<>();
-        for(String table:List.of("customer","user_token","orders","payment_record","customer_deposit_account","deposit_record","customer_barrel_asset","customer_barrel_lot","customer_barrel_over","ticket_account","ticket_lot","barrel_record","barrel_right_purchase","barrel_return_detail","customer_refusal_case","order_barrel_exception"))
+        for(String table:List.of("customer","user_token","orders","payment_record","customer_deposit_account","deposit_record","customer_barrel_asset","customer_barrel_lot","customer_barrel_over","ticket_account","ticket_lot","barrel_record","barrel_right_purchase","barrel_return_detail","customer_refusal_case","customer_refusal_resolution","customer_refusal_action","refund_dispute","refund_dispute_action","account_data_request","agreement_acknowledgement","order_barrel_exception"))
             result.put(table,jdbc.queryForList("select * from "+table));
         return result;
     }
@@ -116,5 +116,22 @@ class AccountClosureCheckIntegrationTest extends AbstractIntegrationTest {
         insert("insert into ticket_lot(lot_no,customer_id,station_id,product_id,unit_price,qty,remain_qty,payment_record_id,status) values('TM_SPENT',?,?,?,8,1,0,?,2)",customer,station,product,original);
         var before=facts();Api own=get(PATH,token);assertEquals(0,own.code(),own.toString());
         assertTrue(own.data().path("complete").asBoolean());assertTrue(own.data().path("clear").asBoolean());assertEquals(before,facts());
+    }
+
+    @Test void revokedJudgmentRetainsDebtAndSeparateFreezeUntilAssetStationRelease() {
+        seed();long address=createAddress(customer,"合成地址");long order=createOrderFull(customer,address,station,product,4,1,2,"12.00","0.00","12.00",false,1);
+        jdbc.update("insert into customer_refusal_case(order_id,exception_id,customer_id,asset_station_id,debt_station_id,asset_freeze_confirmed,operator_id,create_time) values(?,777,?,?,?,1,888,now())",order,customer,station,station);
+        jdbc.update("insert into customer_refusal_resolution(order_id,judgment_revoked,asset_freeze_released,version) values(?,1,0,1)",order);
+        var before=facts();Api revoked=get(PATH,token);assertTrue(category(revoked,"DEBT"));assertTrue(category(revoked,"MANUAL_REVIEW"));assertEquals(before,facts());
+        jdbc.update("update customer_refusal_resolution set asset_freeze_released=1,version=2 where order_id=?",order);
+        before=facts();Api released=get(PATH,token);assertTrue(category(released,"DEBT"));assertFalse(category(released,"MANUAL_REVIEW"));assertTrue(released.data().path("complete").asBoolean());assertFalse(released.data().path("clear").asBoolean());assertEquals(before,facts());
+    }
+    @Test void openRefundDisputeBlocksOnlyItsOwnerAndClosedHistoryDoesNotMoveMoney() {
+        seed();jdbc.update("insert into refund_dispute(refund_type,refund_id,customer_id,responsible_station_id,status,version,update_time) values('CONSUMPTION',777,?,?,'OPEN',0,now())",customer,station);
+        var before=facts();Api open=get(PATH,token);assertTrue(category(open,"EXCEPTION_OPEN"));assertFalse(open.data().path("clear").asBoolean());assertEquals(before,facts());
+        assertTrue(get(PATH,customerToken(other)).data().path("clear").asBoolean());
+        jdbc.update("update refund_dispute set status='CLOSED',version=1,last_result='合成核实结果' where refund_id=777");
+        before=facts();Api closed=get(PATH,token);assertTrue(closed.data().path("clear").asBoolean());assertFalse(category(closed,"EXCEPTION_OPEN"));assertEquals(before,facts());
+        jdbc.update("update refund_dispute set status='OPEN',version=2 where refund_id=777");assertFalse(get(PATH,token).data().path("clear").asBoolean());
     }
 }

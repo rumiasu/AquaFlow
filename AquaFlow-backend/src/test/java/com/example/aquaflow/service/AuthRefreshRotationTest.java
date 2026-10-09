@@ -7,6 +7,7 @@ import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.entity.UserToken;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.CustomerMapper;
+import com.example.aquaflow.mapper.AgreementEvidenceMapper;
 import com.example.aquaflow.mapper.StaffMapper;
 import com.example.aquaflow.mapper.StaffStationApplicationMapper;
 import com.example.aquaflow.mapper.UserTokenMapper;
@@ -22,6 +23,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -368,6 +370,14 @@ class AuthRefreshRotationTest {
         final Map<Long, Staff> staff = new HashMap<>();
         JwtUtil jwt = jwt();
         Fixture() {
+            Clock clock = Clock.systemUTC();
+            AgreementCatalogService catalog = new AgreementCatalogService(false, clock);
+            AgreementEvidenceMapper evidence = proxy(AgreementEvidenceMapper.class, (p, m, a) -> {
+                throw new AssertionError("draft/absent agreement must never write evidence: " + m.getName());
+            });
+            ReflectionTestUtils.setField(service, "agreementCatalogService", catalog);
+            ReflectionTestUtils.setField(service, "agreementAcknowledgementService",
+                    new AgreementAcknowledgementService(catalog, evidence, clock));
             ReflectionTestUtils.setField(service, "jwtUtil", jwt);
             ReflectionTestUtils.setField(service, "userTokenMapper", tokens.mapper());
             ReflectionTestUtils.setField(service, "customerMapper", proxy(CustomerMapper.class, (p, m, a) -> switch (m.getName()) {

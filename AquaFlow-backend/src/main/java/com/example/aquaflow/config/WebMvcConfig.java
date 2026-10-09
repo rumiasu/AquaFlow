@@ -63,6 +63,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/bind-staff",
                         "/api/auth/dev-login",
                         "/api/auth/refresh",
+                        // Only packaged public text. Evidence/request routes remain authenticated; no UNSELECTED expansion.
+                        "/api/agreements/current",
+                        "/api/agreements/documents/{versionId}",
                         "/api/stations/public",
                         "/api/station/public",
                         "/api/stations/search",

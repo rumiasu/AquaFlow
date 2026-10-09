@@ -15,6 +15,7 @@
     </view><text class="error" wx:if="{{errors.tickets}}">未完成核对，请重试。</text><text class="empty-state" wx:if="{{ready.tickets && !loading && !tickets.length}}">暂无有原款凭据的可退剩余批次</text>
   </view>
   <view class="section" id="waiting-returns"><text class="title">退桶审批与已收桶待退款 <text wx:if="{{ready.returns}}">· {{counts.returns}} 笔</text></text>
+    <button bindtap="onAllReturns">全部未结退还申请与历史</button>
     <text class="hint">提醒时间仅用于发现等待事项，办理安排请与客户核实。</text>
     <text class="error" wx:if="{{errors.returns}}">未完成核对；下面如有记录，是上次读取的结果。</text>
     <view class="row" wx:for="{{returns}}" wx:key="recordId" data-id="{{item.recordId}}" bindtap="onReturns">申请 {{item.recordId}} · ¥{{item.refundAmount}}
@@ -25,10 +26,33 @@
     <text class="hint" wx:if="{{ready.returns && counts.returns > returns.length}}">共 {{counts.returns}} 笔，本次显示最早 {{returns.length}} 笔；办理后重新核对后续记录。</text>
   </view>
   <view class="section"><text class="title">确认拒付与资产冻结记录</text>
-    <view class="row" wx:for="{{refusals}}" wx:key="order_id">订单 {{item.order_id}} · 欠款 ¥{{item.debtAmount}} · {{item.paymentStatus === 1 ? '待追款，押金未扣' : '欠款已收口'}}
-      <button wx:if="{{ready.refusals && !loading && item.asset_station_id === stationId && !item.asset_freeze_confirmed && item.paymentStatus === 1}}" data-id="{{item.order_id}}" data-action="freeze" bindtap="action">核实后冻结本站退押金资格</button>
+    <text class="hint">当前事项保留仍有限制或本站办理责任的案件；已结证据可翻历史或按订单编号查询。</text>
+    <button size="mini" data-scope="ACTIVE" bindtap="onRefusalScope" disabled="{{refusalBusy || pendingRefusal}}">当前事项{{refusalScope === 'ACTIVE' && !refusalOrderId ? ' · 当前' : ''}}</button>
+    <button size="mini" data-scope="ALL" bindtap="onRefusalScope" disabled="{{refusalBusy || pendingRefusal}}">全部历史{{refusalScope === 'ALL' && !refusalOrderId ? ' · 当前' : ''}}</button>
+    <input type="number" placeholder="拒付案件的订单编号" value="{{refusalSearch}}" bindinput="onRefusalSearchInput" disabled="{{refusalBusy || pendingRefusal}}" />
+    <button size="mini" bindtap="onRefusalSearch" disabled="{{refusalBusy || pendingRefusal}}">按编号查询</button>
+    <button size="mini" wx:if="{{refusalOrderId}}" bindtap="onClearRefusalSearch" disabled="{{refusalBusy || pendingRefusal}}">返回清单</button>
+    <text class="error" wx:if="{{refusalSearchError}}">{{refusalSearchError}}</text>
+    <text class="hint" wx:if="{{refusalOrderId}}">正在核对原订单 #{{refusalOrderId}}；已有原请求可核对上次结果。</text>
+    <view class="row" wx:for="{{refusals}}" wx:key="order_id">订单 {{item.order_id}} · 原款 ¥{{item.debtAmount}}
+      <text>{{item.judgmentText}}</text><text>{{item.freezeText}}</text><text>{{item.debtText}}</text>
+      <button wx:if="{{ready.refusals && !loading && item.canFreeze}}" data-id="{{item.order_id}}" data-action="freeze" bindtap="action">核实后冻结本站退押金资格</button>
+      <button wx:if="{{ready.refusals && !loading && (item.canRevoke || item.retryRevoke)}}" data-id="{{item.order_id}}" data-action="REVOKE" bindtap="onOpenRefusalResolution">{{item.retryRevoke ? '核对上次撤销结果' : '撤销本站拒付误判'}}</button>
+      <button wx:if="{{ready.refusals && !loading && (item.canRelease || item.retryRelease)}}" data-id="{{item.order_id}}" data-action="RELEASE" bindtap="onOpenRefusalResolution">{{item.retryRelease ? '核对上次解除结果' : '解除本案资产冻结'}}</button>
+      <button wx:if="{{ready.refusals && !loading}}" data-id="{{item.order_id}}" bindtap="onRefusalHistory">查看处理历史</button>
       <button data-id="{{item.order_id}}" bindtap="onOrder">查看本单追款</button>
-    </view><text class="error" wx:if="{{errors.refusals}}">未完成核对，请重试。</text><text class="empty-state" wx:if="{{ready.refusals && !loading && !refusals.length}}">暂无确认拒付记录</text>
+      <view wx:if="{{selectedRefusal && selectedRefusal.order_id === item.order_id}}">
+        <text wx:if="{{refusalAction}}">理由必须填写。原判断及欠款保留，不会收款、免债或恢复赊账；跨站冻结由资产站另行复核。</text>
+        <textarea wx:if="{{refusalAction}}" maxlength="1000" placeholder="核实依据与办理理由" value="{{refusalReason}}" bindinput="onRefusalReason" />
+        <button wx:if="{{refusalAction}}" loading="{{refusalBusy}}" disabled="{{refusalBusy}}" bindtap="onSubmitRefusalResolution">保存本次处理</button>
+        <button wx:if="{{pendingRefusal && refusalAction}}" disabled="{{refusalBusy}}" bindtap="onRetryRefusalResolution">重试原请求</button>
+        <text class="error" wx:if="{{refusalHistoryError}}">{{refusalHistoryError}}</text>
+        <view wx:for="{{refusalHistory}}" wx:for-item="entry" wx:key="id"><text>{{entry.actionText}} · {{entry.createTime}}</text><text>{{entry.reason}}</text></view>
+      </view>
+    </view><text class="error" wx:if="{{errors.refusals}}">{{errors.refusals}}；未完成核对，请重试。</text>
+    <text class="empty-state" wx:if="{{ready.refusals && !loading && !refusalLoading && !refusals.length}}">{{refusalScope === 'ACTIVE' ? '暂无当前拒付事项' : '暂无拒付历史记录'}}</text>
+    <text class="error" wx:if="{{refusalMoreError}}">{{refusalMoreError}}</text>
+    <button wx:if="{{refusalNextBeforeId && !refusalOrderId}}" bindtap="onMoreRefusals" loading="{{refusalLoading}}" disabled="{{loading || refusalLoading || refusalBusy}}">{{refusalMoreError ? '重试更早记录' : '更多记录'}}</button>
   </view>
   <view class="section" id="waiting-recoveries"><text class="title">冲销款当前返还责任 <text wx:if="{{ready.recoveries}}">· {{counts.recoveries}} 笔</text></text>
     <text class="error" wx:if="{{errors.recoveries}}">未完成核对；下面如有记录，是上次读取的结果。</text>

@@ -7,11 +7,15 @@ import com.example.aquaflow.dto.DeliveryOrderActionDTO;
 import com.example.aquaflow.service.DeliveryConsoleService;
 import com.example.aquaflow.service.OrderWorkflowService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.CustomerProfileMask;
+import com.example.aquaflow.util.OrderTaskAccess;
+import com.example.aquaflow.entity.Orders;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.List;
 
 /**
  * 站长控制台面（F-18 由 {@code DeliveryController} 按读者拆出）。
@@ -123,8 +127,11 @@ public class StationDeliveryConsoleController {
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
     @GetMapping("/orders/delivered-unpaid")
     public Result<?> getDeliveredUnpaid() {
-        Long stationId = AuthContext.getStationId();
-        return Result.success(deliveryConsoleService.listStationByStatus(stationId, OrderStatus.DELIVERED));
+        Long stationId = AuthContext.requireStationId();
+        List<Orders> rows = deliveryConsoleService.listStationByStatus(stationId, OrderStatus.DELIVERED);
+        if (AuthContext.isDelivery()) rows = OrderTaskAccess.currentOwnTasks(rows);
+        if (rows != null) rows.forEach(CustomerProfileMask::maskIfCrossStation);
+        return Result.success(rows);
     }
 
     @RequireRole("STATION_MANAGER")
@@ -175,8 +182,12 @@ public class StationDeliveryConsoleController {
     @RequireRole("STATION_MANAGER")
     @GetMapping("/orders/pending-approvals")
     public Result<Map<String, Object>> getPendingApprovals() {
-        Long stationId = AuthContext.getStationId();
-        return Result.success(deliveryConsoleService.pendingApprovals(stationId));
+        Long stationId = AuthContext.requireStationId();
+        Map<String, Object> data = deliveryConsoleService.pendingApprovals(stationId);
+        if (data.get("customer") instanceof List<?> rows) {
+            for (Object row : rows) if (row instanceof Orders order) CustomerProfileMask.maskIfCrossStation(order);
+        }
+        return Result.success(data);
     }
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})

@@ -23,8 +23,11 @@ public class RefundFeedbackService {
     @Autowired private PaymentRecordMapper paymentRecordMapper;
     @Autowired private OrderMapper orderMapper;
     @Autowired private Clock clock;
+    @Autowired private RefundDisputeMapper disputes;
 
-    private record Scope(Long customerId, Long stationId) {}
+    public record Scope(Long customerId, Long stationId) {}
+    /** 供争议沟通命令复用原对象判权；不能用客户绑定关系替代原款/资产责任。 */
+    public Scope authorizedScope(String type,Long id) {Scope s=scope(type,id);authorize(s);return s;}
     private Scope scope(String type, Long id) {
         if (id == null || id <= 0) throw denied();
         if ("BARREL_RETURN".equals(type)) {
@@ -90,12 +93,17 @@ public class RefundFeedbackService {
         // The post-upsert current read sees its original facts; no absent-key gap lock before insertion.
         return same(feedbackMapper.getRefundNoteForUpdate(actor,dto.getRefundType(),dto.getRefundId(),key),digest);
     }
+    @Transactional(readOnly=true)
     public Map<String,Object> thread(String type,Long id) {
         Scope s=scope(type,id);authorize(s);
         Feedback label=new Feedback();label.setRefundType(type);label.setRefundId(id);
         var notes=feedbackMapper.listRefundNotes(type,id,s.customerId(),
                 "customer".equals(AuthContext.getUserType()) ? null : s.stationId());
-        return Map.of("refundType",type,"refundId",id,"objectText",label.getRefundObjectText(),"notes",notes);
+        var dispute=disputes.get(type,id);
+        if(dispute!=null && (!Objects.equals(dispute.get("customerId"),s.customerId()) || !Objects.equals(dispute.get("responsibleStationId"),s.stationId())))
+            throw new BusinessException("退款责任记录已变化，请由原责任站核实");
+        return Map.of("refundType",type,"refundId",id,"objectText",label.getRefundObjectText(),"notes",notes,
+                "dispute",RefundDisputeService.view(dispute,disputes.actions(type,id,s.customerId(),s.stationId())));
     }
     public List<Feedback> managerList() {
         if (!AuthContext.isManager()) throw denied();

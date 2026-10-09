@@ -1,0 +1,60 @@
+{
+  "documents": [
+    {
+      "resource": "agreements/customer-user-draft-20261008.json",
+      "sha256": "3e43471af465a1028a039b5c674e32b9da9702e2c3c35fe64400f8d1cdb67863",
+      "status": "DRAFT",
+      "current": false,
+      "reviewApproved": false
+    },
+    {
+      "resource": "agreements/customer-privacy-draft-20261008.json",
+      "sha256": "cfc506c437280a68b1392c7d46b031777f9b328d6775ab2816b91e2d37116106",
+      "status": "DRAFT",
+      "current": false,
+      "reviewApproved": false
+    },
+    {
+      "resource": "agreements/staff-user-draft-20261008.json",
+      "sha256": "8bfdc56902ee0604d029c0853c450561eaa37665481060a1b9a481fab9660ae0",
+      "status": "DRAFT",
+      "current": false,
+      "reviewApproved": false
+    },
+    {
+      "resource": "agreements/staff-privacy-draft-20261008.json",
+      "sha256": "11b981ce6543e41c11cd79c33ba8287bfa1614a519a6762ccfa6f1fc59e2d50d",
+      "status": "DRAFT",
+      "current": false,
+      "reviewApproved": false
+    },
+    {
+      "resource": "agreements/customer-user-draft-20261008-r2.json",
+      "sha256": "11c1aa1580cd7c9979a31a15676f604189c70ceab10a3828f0cb5598b5df4287",
+      "status": "DRAFT",
+      "current": true,
+      "reviewApproved": false
+    },
+    {
+      "resource": "agreements/customer-privacy-draft-20261008-r2.json",
+      "sha256": "04cdd03b59d5837dfb29514e418a4ec9e9c4716fe94ae77715ea8cf56a169c04",
+      "status": "DRAFT",
+      "current": true,
+      "reviewApproved": false
+    },
+    {
+      "resource": "agreements/staff-user-draft-20261008-r2.json",
+      "sha256": "88c9bb0942e5c18e9f5ecb3b84329ae6e05dc3e56f3cea3dd3e93a38974bd47c",
+      "status": "DRAFT",
+      "current": true,
+      "reviewApproved": false
+    },
+    {
+      "resource": "agreements/staff-privacy-draft-20261008-r2.json",
+      "sha256": "3f45162cf5815d177808984deb678046f0314a52c38f4773102aa6aa743dfae1",
+      "status": "DRAFT",
+      "current": true,
+      "reviewApproved": false
+    }
+  ]
+}

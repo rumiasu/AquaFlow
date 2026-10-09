@@ -21,4 +21,7 @@ const submitFeedback = (data) => {
 }
 
 const appendRefundNote = data => post(`${API.FEEDBACK}/refund-notes`, data)
-module.exports = { getMyFeedbacks, getCustomerFeedbacks, submitFeedback, appendRefundNote }
+const getRefundNotes = (refundType, refundId) => get(`${API.FEEDBACK}/refund-notes`, { refundType, refundId })
+const getRefundDisputes = (page = 1) => get(`${API.FEEDBACK}/refund-disputes`, { page })
+const closeRefundDispute = data => post(`${API.FEEDBACK}/refund-disputes/close`, data)
+module.exports = { getMyFeedbacks, getCustomerFeedbacks, submitFeedback, appendRefundNote, getRefundNotes, getRefundDisputes, closeRefundDispute }

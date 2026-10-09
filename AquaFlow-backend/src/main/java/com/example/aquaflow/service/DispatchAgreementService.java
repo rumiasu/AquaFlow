@@ -67,6 +67,8 @@ public class DispatchAgreementService {
         out.put("canEditQuote",Objects.equals(row.get("source_station_id"),AuthContext.getStationId()) && "OFFERED".equals(row.get("status")));
         out.put("barrelMode",row.get("barrel_mode")); out.put("barrelNote","SETTLE_BARREL".equals(row.get("barrel_mode"))?"净送桶另行按约定金额结算":"归属站向履约站补同型空桶，押金留在归属站"); return out;
     }
+    public boolean hasSchema() { return policy.hasSchema(); }
+
     public BigDecimal acceptedServiceAmount(Long order) {
         Map<String,Object> r=info(order);
         if(!Set.of("ACCEPTED","BARREL_CLOSED").contains(String.valueOf(r.get("status"))))return null;

@@ -22,12 +22,13 @@ async function test(name, fn) {
 }
 const timer = setTimeout(() => { console.error('suite did not complete'); process.exit(1) }, 30000)
 ;(async () => {
-  await test('first notice cannot be bypassed by unified confirmation', async () => {
+  await test('ordinary first notice does not block cash authorization or invent an acknowledgement', async () => {
     const { page, calls } = newPage({ method: 2 })
     page.setData({ firstStationAsset: true, assetReadAgreed: false })
     await page.onSubmit(); await page.onUnifiedConfirmOk()
-    assert.equal(calls.createOrder.length, 0)
-    assert.equal(page.data.assetConfirmed, false)
+    assert.equal(calls.createOrder.length, 1)
+    assert.notEqual(page.data.assetReadAgreed, true)
+    assert.notEqual(page.data.assetConfirmed, true)
   })
   await test('invalidated quote refreshes without creating and needs another explicit confirmation', async () => {
     const { page, calls } = newPage({ method: 2, quote: { methods: [{ id: 2, name: '货到付款', enabled: true }], defaultMethod: 2 } })

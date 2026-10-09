@@ -59,7 +59,7 @@ function expression(value, data) {
   return vm.runInNewContext(match[1], context, { timeout: 100 })
 }
 
-function renderElements(root, data) {
+function renderElements(root, data, options = {}) {
   validateConditionalSiblings(root)
   const elements = []
   const visit = (children, context) => {
@@ -86,7 +86,13 @@ function renderElements(root, data) {
       if (!visible) continue
       const className = (attrs.class || '').replace(/{{([\s\S]*?)}}/g, (_, e) => expression('{{' + e + '}}', context) || '')
       const id = 'data-id' in attrs ? expression(attrs['data-id'], context) : undefined
-      elements.push({ tag: node.tag, attrs, className, id })
+      const element = { tag: node.tag, attrs, className, id }
+      if (options.includeText) {
+        element.text = node.children.filter(child => child.tag === '#text').map(child =>
+          child.value.replace(/{{([\s\S]*?)}}/g, (_, e) => expression('{{' + e + '}}', context) ?? '')
+        ).join('').trim()
+      }
+      elements.push(element)
       visit(node.children, context)
     }
   }

@@ -18,6 +18,12 @@
     <text>已送达，待确认收款</text>
   </view>
 
+  <view class="info-section" wx:if="{{order.customerCancelRequest}}">
+    <view class="section-title">{{order.customerCancelRequest.statusText}}</view>
+    <text class="pay-hint">{{order.customerCancelRequest.resultNote}}</text>
+    <view class="info-row" wx:if="{{order.customerCancelRequest.handledTime}}"><text class="label">处理时间</text><text class="value">{{order.customerCancelRequest.handledTime}}</text></view>
+  </view>
+
   <view class="info-section">
     <view class="section-title">订单信息</view>
     <view class="info-row">
@@ -122,6 +128,11 @@
       <text class="label">备注</text>
       <text class="value">此订单的旧备注包含配送处理记录，暂时无法安全区分客户留言</text>
     </view>
+  </view>
+
+  <view class="info-section delivery-arrangement-hint" wx:if="{{deliveryArrangementHint}}">
+    <view class="section-title">配送安排</view>
+    <view class="info-row"><text class="value">{{deliveryArrangementHint}}</text></view>
   </view>
 
   <view class="info-section" wx:if="{{images.length > 0 || imagesState === 'error'}}">

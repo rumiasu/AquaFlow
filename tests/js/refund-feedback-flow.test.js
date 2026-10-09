@@ -115,7 +115,7 @@ async function main() {
   })
   await test('ordinary feedback has no reply button and linked feedback has a real handler', async () => {
     const src = fs.readFileSync(path.join(ROOT,'miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxml'),'utf8'), tree = parseWxml(src)
-    const base = { denied: false, type: 'list', list: [{ id: 1, content: '普通' }] }
+    const base = { denied: false, type: 'list', list: [{ id: 1, content: '普通' }], disputes: [], disputesLoading: false, disputesError: '' }
     assert.strictEqual(renderElements(tree,base).filter(n => n.attrs.bindtap === 'onOpenRefundNote').length, 0)
     base.list[0] = Object.assign({ id: 2 }, ref)
     assert.strictEqual(renderElements(tree,base).filter(n => n.attrs.bindtap === 'onOpenRefundNote').length, 1)

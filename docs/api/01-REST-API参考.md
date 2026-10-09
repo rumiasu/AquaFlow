@@ -88,6 +88,7 @@
 | 免登录路径 | 用途 |
 |---|---|
 | `/api/auth/login`、`/api/auth/wx-login`、`/api/auth/wx-login-staff`、`/api/auth/dev-login`、`/api/auth/refresh`、`/api/auth/bind-staff` | 登录与续期 |
+| `/api/agreements/current`、`/api/agreements/documents/{versionId}` | 打包协议目录/指定正文只读；确认记录与资料请求仍须认证 |
 | `/api/stations/public`、`/api/station/public` | 选站列表 |
 | `/api/stations/search`、`/api/station/search` | 搜站 |
 | `/api/stations/{id}/public-phone`、`/api/station/{id}/public-phone` | 水站公开电话 |
@@ -124,7 +125,7 @@
 以下按业务域分组。**方法 / 路径 / 角色 / 实现方法**四列中，
 「实现方法」的格式是 `Controller.方法名`，可直接定位到源码。
 
-（脚本抽取：285 个端点映射，53 个 controller 文件 —— 数字以 `node scripts/check-api-doc.js` 实跑为准，它绿即双向一致）
+（端点映射与 controller 数量以 `node scripts/check-api-doc.js` 实跑为准；不手写会漂移的计数。）
 
 ### 认证与账号
 
@@ -440,6 +441,23 @@
 | `PUT` | `/api/manager/station-status` | "STATION_MANAGER" | `ManagerStationStatusController.update` |
 | `GET` | `/api/manager/todo-summary` | {"STATION_MANAGER"} | `ManagerTodoController.summary` |
 
+### 协议与本人资料请求（2026-10-08 准备能力，待统一验收）
+
+| 方法 | 路径 | 角色 | 说明 |
+|---|---|---|---|
+| `GET` | `/api/agreements/current` | 公开正文 | `AgreementController.current`；`audience=CUSTOMER/STAFF`，返回启用状态、提示与当前两类正文 |
+| `GET` | `/api/agreements/documents/{versionId}` | 公开正文 | `AgreementController.document`；指定版本只读，旧版本不等于可接受当前条款 |
+| `POST` | `/api/agreements/acknowledgements` | 本人真实客户/员工（服务层校验） | `AgreementController.acknowledge`；`type=user/privacy`、`versionId`；仅启用且生效的当前对应正文可记录，当前草稿拒绝 |
+| `GET` | `/api/agreements/acknowledgements/my` | 本人真实客户/员工（服务层校验） | `AgreementController.mine`；仅本人事件，拒绝任何查询参数 |
+| `GET` | `/api/account/data-requests/options` | 本人真实客户/员工（服务层校验） | `AccountDataRequestController.options`；受理开关/渠道、后端请求类型及客户检查能力，拒绝身份/站别等查询参数 |
+| `POST` | `/api/account/data-requests` | 本人真实客户/员工（服务层校验） | `AccountDataRequestController.submit`；`requestType`、可选`note`≤500、必填ASCII请求键`idempotencyKey`≤64；只登记SUBMITTED，新登记默认关闭 |
+| `GET` | `/api/account/data-requests/my` | 本人真实客户/员工（服务层校验） | `AccountDataRequestController.mine`；仅允许可选正数`beforeId`，`items`每页最多50、`nextBeforeId`；拒绝其他参数 |
+| `GET` | `/api/account/data-requests/{id}` | 本人真实客户/员工（服务层校验） | `AccountDataRequestController.detail`；本人记录与客户CLOSURE的当前只读检查；拒绝查询参数，不执行资料处理 |
+
+协议 `app.agreements.formal-enabled` 默认false；正文SHA256、当前版本、APPROVED审核元数据、真实主体/联系方式及生效时间共同决定是否可确认，开关不能将占位草稿变为正式稿。条款接受与隐私告知确认分事件，后者不表示所有处理获同意。两种微信登录可选 `agreement={termsVersionId,privacyVersionId}`，服务端先核版本再交换code，并随真实身份写入正文快照/事件；响应附 `agreementCatalog/agreementRecorded`。字段缺失或草稿不伪造接受；开发登录、刷新及阅读不记事件，UNSELECTED白名单不扩展。
+
+资料请求 `app.account-data-requests.enabled` 默认false；启用前受理人/渠道须真实完整。请求类型ACCESS/CORRECTION/EXPORT/DELETION/CLOSURE只表达意图，未结事项或检查失败不拒绝受理；没有实际导出、删除、匿名化、注销、处理完成或撤销凭据命令。暂停受理仍可查询本人历史及重放已登记原请求。两端正文/资料页已编写，Java与流程套件尚待统一验证；详见 [协议与资料请求规格](../design/协议版本与账户资料请求.md)。
+
 ### 内容与文件
 
 | 方法 | 路径 | 角色 | 说明 |
@@ -450,6 +468,9 @@
 | `POST` | `/api/feedback/refund-notes` | 本人客户/责任站站长（服务层校验） | `FeedbackController.appendRefundNote`；`refundType`、`refundId`、`idempotencyKey`，说明/联系方式可选；仅追加，不执行资金或状态命令 |
 | `GET` | `/api/feedback/refund-notes` | 本人客户/责任站站长（服务层校验） | `FeedbackController.refundNotes`；按原款/申请读说明，停业历史仍可访问 |
 | `GET` | `/api/feedback/refund-options` | 本人客户（会话） | `FeedbackController.refundOptions`；`page`默认1，每页200个本人退押金申请及已收原款候选，`hasMore`如实标识；选项不代表退款成功 |
+| `GET` | `/api/feedback/refund-disputes` | 本人客户/精确责任站站长（服务层校验） | `FeedbackController.refundDisputes`；`page`默认1、每页200，争议状态与历史，不收退款 |
+| `POST` | `/api/feedback/refund-disputes/open` | 客户本人（服务层校验） | `FeedbackController.openDispute`；本人提出/重提，员工不得代提 |
+| `POST` | `/api/feedback/refund-disputes/close` | "STATION_MANAGER"；精确责任站 | `FeedbackController.closeDispute`；必填处理结果、OPEN与期望版本；无需客户确认，客户仍可重提 |
 | `GET` | `/api/files` | {"STATION_MANAGER"} | `FileManageController.list` |
 | `POST` | `/api/files/upload` | {"STATION_MANAGER"} | `FileManageController.upload` |
 | `DELETE` | `/api/files/{id}` | {"STATION_MANAGER"} | `FileManageController.delete` |
@@ -517,11 +538,16 @@
 | `PUT` | `/api/barrels/records/{id}/withdraw` | 客户本人，撤回未交接申请 |
 | `PUT` | `/api/barrels/records/{id}/approve` | 归属站站长，批准取桶/退款安排 |
 | `PUT` | `/api/barrels/records/{id}/customer-confirm` | 客户本人，确认批准安排 |
+| `PUT` | `/api/barrels/records/{id}/arrangement` | 客户本人；`BarrelController.changeReturnArrangement`，只改本人未交接申请的安排，不改数量/账务；实现已冻结，统一验收待完成 |
+| `PUT` | `/api/barrels/records/{id}/manager-arrangement` | "STATION_MANAGER"；`BarrelController.proposeReturnArrangement`，归属站提新安排，不代客户签确认；实现已冻结，统一验收待完成 |
 | `GET` | `/api/payments/{id}/refund-preview` | 授权站长，退款组成与余额预览 |
 | `GET` | `/api/manager/business-waiting` | 站长，本站当前缺货、退桶审批提醒、已收桶待退款及站间返还/净桶责任 |
 | `GET` | `/api/manager/ticket-exit-batches` | 原款站站长，可按真实批次退剩余票 |
 | `GET` | `/api/manager/refusal-cases` | 当事站站长，拒付事实台账 |
-| `PUT` | `/api/manager/refusal-cases/{orderId}/confirm-freeze` | 资产站站长，核实冻结本站退款资格 |
+| `PUT` | `/api/manager/refusal-cases/{orderId}/confirm-freeze` | 资产站站长，核实冻结本站退款资格；当前待收款/未取消/未撤销/未解除CAS |
+| `GET` | `/api/manager/refusal-cases/{orderId}/history` | "STATION_MANAGER"；原债权站或资产站，追加动作历史 |
+| `POST` | `/api/manager/refusal-cases/{orderId}/revoke` | "STATION_MANAGER"；原债权站，撤销本案误判；同站原子解除本案冻结 |
+| `POST` | `/api/manager/refusal-cases/{orderId}/release-freeze` | "STATION_MANAGER"；资产站，独立解除本案已确认冻结 |
 | `GET` | `/api/manager/dispatch-agreements/{orderId}` | 当事站/池接收站站长，服务和桶报价 |
 | `PUT` | `/api/manager/dispatch-agreements/{orderId}` | 归属站站长，接受前修改完整报价 |
 | `GET` | `/api/manager/station-barrel-balances` | 当事站站长，实际净送桶和争议待办 |
@@ -582,3 +608,37 @@
 ### 资产、员工与工资写命令边界（2026-10-08）
 
 资产调整 `clientToken` 必填且最多64字符；同键完整请求不一致拒绝，金额/单价必须可按分无损保存。试算、创建、执行均核本站绑定；冲正保留原单关联与原子执行。员工 CRUD 仅本站站长，创建的站别/配送员角色由服务器限定，更新只接受白名单且防越站/改站长/改本人。工资生成先认本站历史收益，无收益时才核本站现员工角色；转站或已删除员工的本站历史清结仍保留。以上不是新增跨站调整入口，当前源码与事务校验仍为正本。
+
+### 异常结案写命令（2026-10-08 已编写，后端待验）
+
+拒付撤销/解除请求为非负 `expectedVersion`、必填 `idempotencyKey`≤64及必填 `reason`≤1000；退款争议写请求再带 `refundType/refundId`，不接受身份、站别或金额。本人/原责任站来自会话和原凭据，同键只重放原回执，同键改内容/版本拒绝；新动作采用锁与版本/状态CAS，审计失败整笔回滚。未知结果须用原键、原理由和原版本查回重试。
+
+债权站撤销不免债、不恢复赊账；跨站资产站独立复核，处理一案不解除其他有效案。争议CLOSED只是责任站已登记处理结果，客户可重新OPEN；不改实收/退款事实、资金资产、原退款资格或再次退款。新增v77结构和启动护栏未执行后端/DB验证；客户减负的免费原安排、安排更新、取消可见/CAS和首次须知免勾选仍由另一任务实施中，此处不声称已通过。
+
+安排变更当前DTO：`pickupMode=STORE/PICKUP/COMBINED`、可选`companionOrderId`、`expectedVersion`≥1、必填`idempotencyKey`≤64及`reason`≤200；不接受资产数量、退款金额或服务费改写。v78与流程已冻结且DDL已合入schema，当前登记不代表后端编译或真实事务已通过。
+
+### 2026-10-08 冻结接口与认证事务补充
+
+退还批准 `/api/barrels/records/{id}/approve`、本人授权 `/api/barrels/records/{id}/customer-confirm` 增加expectedVersion：v1保留旧客户端兼容，安排变更后的v2+必须带当前版本；旧确认不得授权新安排。免费原安排批准后可交接，新增收费或站方实质新安排仍需授权。两种安排PUT只变安排版本，原申请资产、金额/原款和初始幂等内容保留，已付旧服务费先实际原款退款；变更不执行收费/退款。
+
+`GET /api/orders/{id}` 现附 `customerCancelRequest`（准确请求ID、状态文案、结果说明、提交/处理时间）；待处理时canCancel=false。提出请求不暂停配送；批准取消成功后送达必须在副作用前拒绝，完成配送可保留自动关闭原因，不新造售后。
+
+员工微信换码异常分类在WeChatLoginService专用入口保留：BusinessException原样抛出，其他RuntimeException保留原业务前缀；认证事务不捕获失败，协议事件和会话写入共同回滚。草稿不记录接受、UNSELECTED不记正式事件，公开白名单/权限不扩展。新增回滚专项已编写，当前编译和真实HTTP证据尚待统一运行。
+
+### 2026-10-08 本地统一验收结果
+
+上述“后端待验/尚待运行”为冻结记录。当前接口已完成真实HTTP/MySQL多角色及并发专项、稳定最终源码全量回归；运行输入与测试策略无漂移，矩阵按本次完整XML更新。客户确认联表写入两张表的合法两行计数已修，仍保留状态/版本CAS、收费与站方新安排授权、金额/数量和原款/占用边界；没有修改接口路径或扩大权限。详情及精确恢复见 [v76–v78统一验收回执](../audit/2026-10-08-v76-v78-统一验收.md)。
+
+真实配置、微信、真机、生产迁移/部署未在本轮验证或启用，正式协议及资料受理保持准备状态。通用订单读取风险仍待另行复核，本轮全量通过不表示该未测面已关闭。
+
+
+## 2026-10-08 四路收尾只读入口与录入契约
+
+| 方法 | 路径 | 调用方与归属 | 参数与行为 |
+|---|---|---|---|
+| `GET` | `/api/customer-assets/stations` | 顾客本人，身份由JWT取，不接受customerId | `afterStationId=0`、`limit=20`；本人关联站的去重目录，含历史、零余额和停业站；只读，不产生绑定。 |
+| `GET` | `/api/customer-assets/stations/{stationId}` | 顾客本人且与站有关联 | 不相关站拒绝；查看站不改变全局下单站，购买仍显式校验站别。 |
+| `GET` | `/api/manager/business-waiting/returns` | 站长当前站 | `scope=ACTIVE`或`ALL`，可选`beforeId`；固定50条，申请ID倒序，返回`stationId/scope/limit/items/nextBeforeId`。 |
+| `GET` | `/api/manager/refusal-cases/page` | 站长当前资产站或债权站 | `scope=ACTIVE`或`ALL`；`beforeId`与`orderId`互斥，定位返回LOOKUP；固定50条，不新增写权限。 |
+
+`POST /api/manager/payroll/adjust`须带`idempotencyKey`，站级同键同内容重放原工资条目；改员工、条目、金额或说明拒绝，金额最多两位小数并受现有列精度约束。发布前须装v79，历史清结权限沿用。通用订单列表/详情按当前角色、本人任务和履约站过滤，跨站保留收件快照而抹客户档案；指定退回必须有真实申请，等待期间不越过履约闸门，批准/拒绝核原状态与精确申请。正式协议及资料处理仍关闭。统一验证进行中，不以作者静态检查冒称HTTP/MySQL通过。

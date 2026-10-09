@@ -98,10 +98,6 @@ function newPage(scenario) {
   page.data.selectedMethod = sc.method == null ? 3 : sc.method
   page.data.blocked = false
   page.data.quoteReady = true // 此夹具明确模拟已核实报价的可提交状态；未核实路径另有专门回归。
-  // [2026-09-26] 「确认下单」现在要求先在《水桶与押金说明》里勾选（assetReadAgreed）。
-  // 默认按"客户已经看过说明并勾选"摆好 —— 否则每个涉及首次押金的用例都要先补一次勾选，
-  // 而那些用例测的是别的分支。**专门测这个闸门的用例会自己把它置回 false**（见"未勾选说明"）。
-  page.data.assetReadAgreed = true
   // [2026-09-26] 真机上 onLoad 会把"刚刚下过的那一单"从本地读回来（同一客户/同一设备）。
   // 测试里 loadPage 不跑 onLoad，这里补上等价的两次调用，让"已下单"态在测试中也成立。
   page._restorePendingOrderFromStorage()
@@ -325,92 +321,59 @@ await test('改了内容之后再点 ⇒ 不是同一单，直接建单（不打
   assert.notStrictEqual(calls.createOrder[1].idempotencyKey, k1)
 })
 
-// ---------------------------------------------------------------- 场景 2（首次押金）
-await test('首次须知在建单之前：未勾选或取消综合确认都不建单', async () => {
-  const { page, calls } = newPage({ method: 2 })
-  page.setData({ firstStationAsset: true, assetReadAgreed: false })
+// 普通须知是告知；新增押金和缺货等待分别授权。
+await test('首次普通须知不阻断下单，也不记录客户同意', async () => {
+  const { page, calls } = newPage({ quote: { firstStationAsset: true } })
   await page.onSubmit()
-  assert.strictEqual(calls.createOrder.length, 0)
-  assert.strictEqual(page.data.assetBarExpanded, true)
-  page.onAssetReadAgree()
+  assert.strictEqual(calls.createOrder.length, 1)
+  assert.strictEqual(page.data.firstStationAsset, true)
+  assert.notStrictEqual(page.data.assetReadAgreed, true)
+  assert.notStrictEqual(page.data.assetConfirmed, true)
+})
+
+await test('首次须知不阻断现金确认；取消现金确认仍是零建单', async () => {
+  const { page, calls } = newPage({ method: 2 })
+  page.setData({ firstStationAsset: true })
   await page.onSubmit()
   assert.strictEqual(page.data.showUnifiedConfirm, true)
+  assert.strictEqual(calls.createOrder.length, 0)
   page.onUnifiedConfirmCancel()
   assert.strictEqual(calls.createOrder.length, 0)
-  assert.strictEqual(page.data.assetConfirmed, false)
   assert.strictEqual(page.data.showUnifiedConfirm, false)
 })
 
-await test('首次押金：确认后才建单（顺序反了就是原来的 bug）', async () => {
-  // ⚠️ 判据必须由**报价**下发（onSubmit 里会先 refreshQuote，它会按服务端事实覆盖这个字段），
-  //    所以这里既给 quote 也让页面拿到它 —— 只手工改 data 是测不出真实行为的。
-  const { page, calls } = newPage({ quote: { firstStationAsset: true }, createOrder: [{ data: { orderId: 9, needConfirm: false } }] })
-  page.data.firstStationAsset = true
+await test('新增押金数量和价格仍须单独授权，拒绝则零建单', async () => {
+  const { page, calls, wx } = newPage({ method: 1 })
+  wx.__modalAutoConfirm = false
+  page.setData({ firstStationAsset: true, barrelPurchases: [{ productId: 5, productName: '桶装水', quantity: 2, unitPrice: 30, amount: 60 }] })
   await page.onSubmit()
-  assert.strictEqual(calls.createOrder.length, 0, '还没确认就不该建单')
-  page.onAssetReadAgree()                        // 说明里勾选（弹窗每次打开都会重置，必须显式走这一步）
-  page.onAssetConfirmOk()
-  await new Promise((r) => setTimeout(r, 20))
-  assert.strictEqual(calls.createOrder.length, 1, '确认后才建单')
-})
-
-await test('未勾选须知不能建单，展开说明并勾选后可正常确认', async () => {
-  const { page, calls, wx } = newPage({ method: 2 })
-  page.setData({ firstStationAsset: true, assetReadAgreed: false })
-  await page.onSubmit()
-  await page.onUnifiedConfirmOk()
   assert.strictEqual(calls.createOrder.length, 0)
-  assert.strictEqual(page.data.assetBarExpanded, true)
-  assert.ok(wx.__calls.toast.some(t => t.title.includes('须知')))
-  page.onAssetReadAgree()
-  await page.onSubmit()
-  await page.onUnifiedConfirmOk()
+  assert.strictEqual(page.data.barrelPurchaseConfirmed, false)
+  const modal = wx.__calls.modal.find(m => m.title === '确认本次新增押金')
+  assert.ok(modal); assert.ok(modal.content.includes('2')); assert.ok(modal.content.includes('60.00'))
+})
+
+await test('无需须知勾选时现金确认仍只建一单', async () => {
+  const { page, calls } = newPage({ method: 2 })
+  page.setData({ firstStationAsset: true })
+  await page.onSubmit(); await page.onUnifiedConfirmOk()
   assert.strictEqual(calls.createOrder.length, 1)
 })
 
-await test('每次重新弹首次确认都要重置勾选（不能拿上次的勾选顶过新的金额）', async () => {
-  const { page } = newPage({ quote: { firstStationAsset: true } })
-  page.data.firstStationAsset = true
-  page.data.assetReadAgreed = true           // 假装上次勾过
+await test('普通首次须知不吞掉缺货等待授权，同键重提只形成一单', async () => {
+  const { page, calls, wx } = newPage({ quote: { firstStationAsset: true }, createOrder: [
+    { data: { needConfirm: true, shortages: [{ productId: 5, productName: '桶装水', requested: 2, stock: 0 }] } },
+    { data: { orderId: 4321, needConfirm: false, warnings: [] } }
+  ] })
   await page.onSubmit()
-  assert.strictEqual(page.data.assetReadAgreed, false, '新的一次确认必须重新读说明')
-})
-
-
-// 契约 §4「首次押金，确认；同时缺货」：所有必要确认都在建单前，且**最终只建 1 单、不反复确认**
-await test('首次押金 + 缺货同时发生：先押金确认、再缺货确认，最终只建 1 单', async () => {
-  const { page, calls, wx } = newPage({
-    quote: { firstStationAsset: true },
-    createOrder: [
-      { data: { needConfirm: true, shortages: [{ productId: 5, productName: '农夫山泉 19L', requested: 2, stock: 0 }] } },
-      { data: { orderId: 4321, needConfirm: false, warnings: [] } }
-    ]
-  })
-  page.data.firstStationAsset = true
-  await page.onSubmit()
-  assert.strictEqual(calls.createOrder.length, 0, '押金告知阶段零请求')
-  assert.strictEqual(page.data.assetBarExpanded, true)
-
-  page.onAssetReadAgree()                       // 说明里勾选（弹窗每次打开会重置）
-  page.onAssetConfirmOk()                       // 客户确认押金 → 这时才发第一次建单
-  await new Promise((r) => setTimeout(r, 20))
   assert.strictEqual(calls.createOrder.length, 1)
-  assert.strictEqual(page.data.showUnifiedConfirm, true, '缺货要接着确认，而不是当成功')
-  assert.strictEqual(wx.__calls.nav.length, 0, '缺货阶段不许跳成功页')
-
-  page.onShortageAgree()                        // 同意等待 → 同一个键重提
-  await new Promise((r) => setTimeout(r, 20))
-  assert.strictEqual(calls.createOrder.length, 2, '整个流程只发两次建单请求（探测 + 带确认）')
+  assert.strictEqual(page.data.showUnifiedConfirm, true)
+  assert.strictEqual(wx.__calls.nav.length, 0)
+  await page.onShortageAgree()
+  await new Promise(r => setTimeout(r, 20))
+  assert.strictEqual(calls.createOrder.length, 2)
   assert.strictEqual(calls.createOrder[0].idempotencyKey, calls.createOrder[1].idempotencyKey)
-  // [2026-09-26 删掉一条**恒真**的断言] 原来是：
-  //   assert.strictEqual(wx.__calls.modal.filter(m => m.title.indexOf('首次资产业务') > -1).length, 0)
-  //   它看着在守"押金确认只问一次"，其实**永远通过** —— 首次押金确认是 **wxml 里的自定义弹窗**
-  //   （showAssetConfirm），根本不经过 wx.showModal，所以 __calls.modal 里永远没有它。
-  //   改名后做过反向验证：把标题改回「首次资产业务」这条依旧 exit=0，证明它守不住任何东西。
-  //   真正守"只问一次"的是上面两条：`calls.createOrder.length === 2`（探测 + 带确认，没有第三次）
-  //   与 `page.data.showAssetConfirm === false`（确认后弹窗已关）。**别再把它加回来。**
-  assert.strictEqual(page.data.showAssetConfirm, false, '确认过就不该再弹首次押金确认')
-  assert.ok(wx.__calls.nav.some(n => (n.url || '').indexOf('id=4321') > -1), '最终结果是那唯一一张单')
+  assert.ok(wx.__calls.nav.some(n => (n.url || '').includes('id=4321')))
 })
 
 // 契约 §4「同键重复点击」：提交中再点不能发第二次请求
@@ -422,27 +385,13 @@ await test('提交中重复点击：只发一次请求', async () => {
   assert.strictEqual(calls.createOrder.length, 1, '连点只能发一次建单请求')
 })
 
-// 契约 §4「缺货后明确改数量/站/地址」：新意图重算，且**旧确认不能继续有效**
-await test('改了业务意图后：旧的一次性确认失效（押金告知要重新确认）', async () => {
-  const { page, calls } = newPage({
-    quote: { firstStationAsset: true },
-    createOrder: [{ data: { orderId: 21, needConfirm: false } }]
-  })
-  page.data.firstStationAsset = true
-  await page.onSubmit()
-  page.onAssetReadAgree()
-  page.onAssetConfirmOk()
-  await new Promise((r) => setTimeout(r, 20))
-  assert.strictEqual(calls.createOrder.length, 1)
-
-  // 客户回去改了数量 → 报价重算 → 上一次的"已确认"必须作废（金额/归属都变了）
-  page.setData({ assetConfirmed: false })
-  page.data.products[0].quantity = 5
-  page.data.assetConfirmed = false
-  await page.onSubmit()
-  assert.strictEqual(calls.createOrder.length, 1, '重新提交前必须先重新确认，不能拿旧确认绕过')
-  assert.strictEqual(page.data.assetBarExpanded, true)
-  assert.strictEqual(page.data.assetReadAgreed, false, '旧的勾选也要一并作废')
+await test('报价重算清除旧的押金授权，首次告知内容跟随新金额更新', async () => {
+  const { page, calls } = newPage({ quote: { firstStationAsset: true, depositAmount: 60, depositBuckets: 2 } })
+  page.setData({ barrelPurchaseConfirmed: true })
+  await page.refreshQuote()
+  assert.strictEqual(page.data.barrelPurchaseConfirmed, false)
+  assert.strictEqual(page.data.assetNotice.depositAmount, '60.00')
+  assert.strictEqual(calls.createOrder.length, 0)
 })
 
 // ---------------------------------------------------------------- 场景 9 / 10 / 11

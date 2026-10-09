@@ -2,6 +2,7 @@
   "pages": [
     "pages/login/index",
     "pages/mine/agreement/index",
+    "pages/mine/account-data/index",
     "pages/role-select/index",
     "pages/bind-wait/index",
     "pages/station-mgmt/create-station/index",

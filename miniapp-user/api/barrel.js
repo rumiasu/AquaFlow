@@ -35,7 +35,9 @@ const quoteBarrelRight = (stationId, productId, quantity) => get(API.BARREL_RIGH
 const purchaseBarrelRight = (data) => post(API.BARREL_RIGHT_PURCHASE, data)
 const getBarrelRightPurchases = (stationId) => get(API.BARREL_RIGHTS, { stationId })
 const withdrawBarrelRightPurchase = (id) => put(API.BARREL_RIGHT_WITHDRAW(id), {})
-const confirmBarrelReturn = (id) => put(API.BARREL_RETURN_CONFIRM(id), {})
+const confirmBarrelReturn = (id, expectedVersion) => put(API.BARREL_RETURN_CONFIRM(id), { expectedVersion })
+// 顾客本人明确选择原申请的新安排；不自动挑单或修改资产/金额。
+const changeBarrelReturnArrangement = (id, body) => put(API.BARREL_RETURN_ARRANGEMENT(id), body)
 const withdrawBarrelReturn = (id) => put(API.BARREL_RETURN_WITHDRAW(id), {})
 module.exports = { getBarrelSummary, getBarrelSummaryByType, getBarrelRecords, requestBarrelReturn, previewBarrelReturn,
-  quoteBarrelRight, purchaseBarrelRight, getBarrelRightPurchases, confirmBarrelReturn, withdrawBarrelReturn, withdrawBarrelRightPurchase }
+  quoteBarrelRight, purchaseBarrelRight, getBarrelRightPurchases, confirmBarrelReturn, changeBarrelReturnArrangement, withdrawBarrelReturn, withdrawBarrelRightPurchase }

@@ -126,7 +126,7 @@ class DirectedReturnAndReturnToStationIntegrationTest extends AbstractIntegratio
 
         Api applied = post("/api/delivery/orders/" + order1 + "/directed-return", mgrFulfill, null);
         assertEquals(0, applied.code(), "目标站申请退回: " + applied);
-        assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", order1), "进入转单中：状态回到待配送(1)");
+        assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order1), "待审批申请不得抹掉已经接单的配送中事实");
         assertEquals(fulfillStation, longOf("SELECT delivery_station_id FROM orders WHERE id=?", order1),
                 "[关键] 申请阶段不得改履约站 —— 拒绝时要靠它还原");
         assertEquals(fulfillDelivery, longOf("SELECT delivery_staff_id FROM orders WHERE id=?", order1),

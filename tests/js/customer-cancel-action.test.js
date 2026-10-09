@@ -46,6 +46,16 @@ test('pending means direct cancellation without claiming a refund arrived', () =
 test('fresh cancellation result distinguishes cancelled, requested and unknown', () => {
   assert.equal(cancelResultText(order(5)), '订单已取消'); assert.equal(cancelResultText(order(2)), '取消申请已提交'); assert.ok(cancelResultText(null).includes('刷新确认')); assert.ok(cancelResultText(order(1)).includes('刷新确认'))
 })
+test('customer sees pending, rejected, approved and automatic delivery-close results from the server', async () => {
+  const { parseWxml, renderElements }=require('./wxml-tree')
+  const tree=parseWxml(fs.readFileSync(path.join(ROOT,'miniapp-user/pages/order/detail.wxml'),'utf8'))
+  for(const [status,resultStatus,statusText,note] of [[2,'PENDING','取消申请待水站处理','申请不代表取消'],[2,'REJECTED','取消申请未获同意','水站未同意'],[5,'APPROVED','取消申请已获同意','退款以实际结果为准'],[4,'REJECTED','取消申请未获同意','完成配送，本次申请未生效']]) {
+    const t=fixture('detail',status),row={...order(status),canCancel:false,customerCancelRequest:{status:resultStatus,statusText,resultNote:note,handledTime:'2026-10-08T08:00:00'}}
+    t.setFresh(row);await t.ready();assert.equal(t.page.data.order.customerCancelRequest.resultNote,note)
+    const nodes=renderElements(tree,t.page.data,{includeText:true});assert(nodes.some(n=>n.attrs.class==='section-title' && n.text===statusText));assert(nodes.some(n=>n.text===note))
+    t.page.onCancel();await tick();assert.equal(t.calls.cancel.length,0)
+  }
+})
 for (const type of ['card', 'detail']) {
   test(type + ' binds canCancel and the action label from the shared helper', async () => {
     const t = fixture(type); await t.ready(); assert.equal(t.page.data.canCancel, true); assert.equal(t.page.data.cancelLabel, '申请取消')

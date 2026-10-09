@@ -1,6 +1,7 @@
 package com.example.aquaflow.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -18,6 +19,7 @@ public class AuthRequestDTO {
     public static class WxLogin {
         @NotBlank(message = "登录code不能为空")
         private String code;
+        @Valid private AgreementLoginDTO agreement;
     }
 
     /** POST /api/auth/wx-login-staff：配送端微信登录（同 WxLogin 形状） */
@@ -25,6 +27,7 @@ public class AuthRequestDTO {
     public static class WxLoginStaff {
         @NotBlank(message = "登录code不能为空")
         private String code;
+        @Valid private AgreementLoginDTO agreement;
     }
 
     /** POST /api/auth/select-role：首次进入配送端选择角色 */

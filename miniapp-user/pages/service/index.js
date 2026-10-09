@@ -1,5 +1,6 @@
-const { submitFeedback, getMyFeedback, appendRefundNote, getRefundNotes, getRefundOptions } = require('../../api/feedback')
+const { submitFeedback, getMyFeedback, appendRefundNote, getRefundNotes, getRefundOptions, getRefundDisputes, openRefundDispute } = require('../../api/feedback')
 const noteIntent = require('../../utils/refund-note-intent')
+const disputeIntent = require('../../utils/exception-action-intent')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { stationStorage } = require('../../utils/storage')
 const { getStationPublicPhone } = require('../../api/station')
@@ -33,7 +34,9 @@ Page({
     historyError: '',
     submitting: false,
     refundRef: null, refundReady: false, refundError: '', refundOptions: [], refundOptionsError: '',
-    refundOptionsMore: false, refundOptionsPage: 0, pendingRefundNote: false
+    refundOptionsMore: false, refundOptionsPage: 0, pendingRefundNote: false,
+    dispute: null, disputeReason: '', disputeSubmitting: false, pendingDispute: false,
+    myDisputes: [], myDisputesError: '', myDisputesLoading: false, myDisputesPage: 0, myDisputesMore: false
   },
 
   onLoad(options = {}) {
@@ -53,13 +56,31 @@ Page({
     if (this._pageCustomer !== undefined && this._pageCustomer !== customer) {
       this.setData({ refundRef: null, refundOptions: [], refundReady: false, refundError: '',
         refundOptionsError: '', refundOptionsMore: false, refundOptionsPage: 0, history: [], historyError: '',
-        content: '', contact: '', pendingRefundNote: false })
+        content: '', contact: '', pendingRefundNote: false, dispute: null, disputeReason: '', pendingDispute: false,
+        myDisputes: [], myDisputesError: '', myDisputesPage: 0, myDisputesMore: false })
     }
     this._pageCustomer = customer
-    this.setData({ submitting: false })
+    this.setData({ submitting: false, disputeSubmitting: false })
     if (this.data.refundRef) this.loadRefundThread()
-    else { this.loadHistory(); this.loadStation() }
+    else { this.loadHistory(); this.loadStation(); this.loadMyDisputes() }
   },
+  async loadMyDisputes(page = 1) {
+    const session = captureSession(), epoch = this._noteEpoch
+    const serial = this._myDisputeSerial = (this._myDisputeSerial || 0) + 1
+    const current = () => isCurrentSession(session) && epoch === this._noteEpoch && serial === this._myDisputeSerial
+    this.setData({ myDisputesLoading: true, myDisputesError: '' })
+    try {
+      const response = await getRefundDisputes(page)
+      if (!current()) return
+      if (!Array.isArray(response.data)) throw new Error('退款争议没加载出来')
+      const rows = response.data.map(row => Object.assign({}, row, { disputeKey: row.refundType + ':' + row.refundId }))
+      const all = page === 1 ? rows : this.data.myDisputes.concat(rows)
+      this.setData({ myDisputes: Array.from(new Map(all.map(r => [r.disputeKey, r])).values()), myDisputesPage: page, myDisputesMore: response.data.length === 200 })
+    } catch (err) { if (current()) this.setData({ myDisputesError: err.message || '退款争议没加载出来，请重试', myDisputes: page === 1 ? [] : this.data.myDisputes }) }
+    finally { if (current()) this.setData({ myDisputesLoading: false }) }
+  },
+  onRetryMyDisputes() { return this.loadMyDisputes() },
+  onMoreMyDisputes() { if (!this.data.myDisputesLoading) return this.loadMyDisputes(this.data.myDisputesPage + 1) },
 
   onShowRefundOptions() { return this.loadRefundOptions(1) },
   onMoreRefundOptions() { return this.loadRefundOptions(this.data.refundOptionsPage + 1) },
@@ -79,10 +100,11 @@ Page({
     }
   },
   onSelectRefund(e) {
+    if (this.data.submitting || this.data.disputeSubmitting) return
     const ref = this.data.refundOptions[Number(e.detail.value)]
     if (!ref) return
     this.setData({ refundRef: { refundType: ref.refundType, refundId: Number(ref.refundId) }, refundReady: false,
-      refundError: '', content: '', contact: '', history: [], pendingRefundNote: false })
+      refundError: '', content: '', contact: '', history: [], pendingRefundNote: false, dispute: null, disputeReason: '', pendingDispute: false })
     this.loadRefundThread()
   },
   async loadRefundThread() {
@@ -99,14 +121,59 @@ Page({
       if (!d || d.refundType !== ref.refundType || Number(d.refundId) !== ref.refundId || !d.objectText || !Array.isArray(d.notes)) throw new Error('退款说明记录未能完整加载')
       const pending = noteIntent.read('CUSTOMER:' + getCustomerId(), ref.refundType, ref.refundId)
       const patch = { refundRef: Object.assign({}, ref, { objectText: d.objectText }), refundReady: true,
-        history: d.notes, historyError: '', pendingRefundNote: !!pending }
+        history: d.notes, historyError: '', pendingRefundNote: !!pending, dispute: d.dispute || null }
+      const pendingOpen = disputeIntent.read('CUSTOMER:' + getCustomerId(), ref.refundType + ':' + ref.refundId, 'OPEN')
+      patch.pendingDispute = !!pendingOpen
+      if (pendingOpen) patch.disputeReason = pendingOpen.reason
       if (pending) Object.assign(patch, { content: pending.content, contact: pending.contact })
       this.setData(patch)
     } catch (e) {
-      if (current()) this.setData({ refundReady: false, refundError: e.message || '退款说明没加载出来', history: [] })
+      if (current()) this.setData({ refundReady: false, refundError: e.message || '退款说明没加载出来', history: [], dispute: null })
     }
   },
   onRetryRefund() { this.loadRefundThread() },
+  onDisputeReason(e) { this.setData({ disputeReason: e.detail.value }) },
+  onHistoryRefund(e) {
+    const { type, id } = e.currentTarget.dataset
+    if (!type || !id || this.data.submitting || this.data.disputeSubmitting) return
+    this.setData({ refundRef: { refundType: type, refundId: Number(id) }, refundReady: false, dispute: null,
+      content: '', contact: '', disputeReason: '', pendingRefundNote: false, pendingDispute: false })
+    return this.loadRefundThread()
+  },
+  onRetryDispute() {
+    try {
+      const ref = this.data.refundRef
+      const pending = disputeIntent.read('CUSTOMER:' + getCustomerId(), ref.refundType + ':' + ref.refundId, 'OPEN')
+      if (!pending) return
+      this.setData({ disputeReason: pending.reason }); return this.onOpenDispute()
+    } catch (err) { wx.showToast({ title: err.message, icon: 'none' }) }
+  },
+  async onOpenDispute() {
+    const ref = this.data.refundRef, state = this.data.dispute
+    if (this.data.disputeSubmitting || !this.data.refundReady || !ref || !state || (!state.canOpen && !this.data.pendingDispute)) return
+    const session = captureSession(), epoch = this._noteEpoch, customer = getCustomerId()
+    if (!customer) return
+    const current = () => epoch === this._noteEpoch && isCurrentSession(session) && this.data.refundRef === ref
+    this.setData({ disputeSubmitting: true })
+    let intent
+    try {
+      intent = disputeIntent.prepare('CUSTOMER:' + customer, ref.refundType + ':' + ref.refundId, 'OPEN', this.data.disputeReason, state.version)
+      this.setData({ pendingDispute: true })
+      const response = await openRefundDispute(Object.assign(disputeIntent.payload(intent), { refundType: ref.refundType, refundId: ref.refundId }))
+      if (!current()) return
+      const data = response.data
+      if (!data || !data.id || data.refundType !== ref.refundType || Number(data.refundId) !== ref.refundId || !['OPEN', 'REOPEN'].includes(data.action)) throw new Error('异议提交结果未确认，请原样重试')
+      disputeIntent.clear(intent)
+      this.setData({ pendingDispute: false, disputeReason: '' })
+      wx.showToast({ title: '异议已提交', icon: 'success' }); await this.loadRefundThread()
+    } catch (err) {
+      if (current()) {
+        if (intent && err.businessRejected) { disputeIntent.clear(intent); this.setData({ pendingDispute: false }); await this.loadRefundThread() }
+        wx.showToast({ title: err.message || '提交结果未确认，请重试', icon: 'none' })
+      }
+    }
+    finally { if (epoch === this._noteEpoch && isCurrentSession(session)) this.setData({ disputeSubmitting: false }) }
+  },
   onRetryOriginalNote() {
     try {
       const ref = this.data.refundRef, pending = noteIntent.read('CUSTOMER:' + getCustomerId(), ref.refundType, ref.refundId)

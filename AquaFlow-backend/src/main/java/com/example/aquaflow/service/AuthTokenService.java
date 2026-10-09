@@ -40,8 +40,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * 的响应体一致），<b>别在服务里返回 Result</b>。</p>
  *
  * <p>⚠️ 原 {@code wx-login-staff} 对 {@code RuntimeException} 包了「微信登录失败: 」前缀再
- * 以 code=1 返回（不走 500）—— 这层包裹已随代码搬到这里，改 {@code code2Session} 的异常
- * 处理前先看那段注释。</p>
+ * 以 code=1 返回（不走 500）—— 该错误翻译由 {@link WeChatLoginService#staffCode2Session(String)}
+ * 保留；认证事务直接传播失败，协议事实和会话写入一起回滚。</p>
  */
 @Slf4j
 @Service
@@ -72,13 +72,18 @@ public class AuthTokenService {
     @Autowired
     private StaffBindCodeService staffBindCodeService;
 
+    @Autowired private AgreementAcknowledgementService agreementAcknowledgementService;
+    @Autowired private AgreementCatalogService agreementCatalogService;
+
     // ==================== 微信小程序登录 ====================
 
     /**
      * 微信登录（用户小程序）：仅查 customer 表，与 staff 表完全独立
      */
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> wxLogin(AuthRequestDTO.WxLogin params) {
         String code = params.getCode();
+        agreementAcknowledgementService.validateLogin("CUSTOMER", params.getAgreement());
 
         Map<String, Object> wxSession = weChatLoginService.code2Session(WeChatApp.CUSTOMER, code);
         String openid = wxSession.get("openid").toString();
@@ -96,6 +101,7 @@ public class AuthTokenService {
             customerMapper.insert(customer);
         }
 
+        boolean agreementRecorded = agreementAcknowledgementService.recordLogin("customer", customer.getId(), params.getAgreement());
         String accessToken = jwtUtil.generateAccessToken(
                 customer.getId(), "customer", "customer",
                 null);
@@ -112,6 +118,8 @@ public class AuthTokenService {
         data.put("role", "customer");
         data.put("userType", "customer");
         data.put("isNew", customer.getCreateTime().isEqual(customer.getUpdateTime()));
+        data.put("agreementCatalog", agreementCatalogService.catalog("CUSTOMER"));
+        data.put("agreementRecorded", agreementRecorded);
 
         return data;
     }
@@ -123,22 +131,13 @@ public class AuthTokenService {
      *   <li>staff 不存在 → 返回 role=UNSELECTED, needSelectRole=true, 交由 /select-role 创建</li>
      * </ul>
      */
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> wxLoginStaff(AuthRequestDTO.WxLoginStaff params) {
         String code = params.getCode();
+        agreementAcknowledgementService.validateLogin("STAFF", params.getAgreement());
 
-        Map<String, Object> wxSession;
-        try {
-            wxSession = weChatLoginService.code2Session(WeChatApp.STAFF, code);
-        } catch (BusinessException e) {
-            // [2026-09-15] 这里的消息已由 WeChatLoginService 组织成面向用户的话术（自带「微信登录失败: 」前缀），
-            // 再包一层会变成「微信登录失败: 微信登录失败: invalid code」（实测）。业务异常直接透传
-            // —— 全局处理器的 BusinessException 分支返回的正是原 Result.error(e.getMessage())。
-            throw e;
-        } catch (RuntimeException e) {
-            // 这层包裹不能丢：丢了它 RuntimeException 会落进兜底 handler → code=500 + SYSTEM 告警，
-            // 而「微信登录失败」是客户端写错 code 的常见业务场景（原实现即 code=1）。
-            throw new BusinessException("微信登录失败: " + e.getMessage());
-        }
+        // 只让微信服务翻译换码错误；认证事务不捕获失败，协议事实和token写入一起回滚。
+        Map<String, Object> wxSession = weChatLoginService.staffCode2Session(code);
         String openid = (String) wxSession.get("openid");
         log.info("[wx-login-staff] openid={}", MaskUtil.maskOpenid(openid));
 
@@ -155,7 +154,11 @@ public class AuthTokenService {
                 throw new BusinessException("该账号已停用");
             }
             log.info("[wx-login-staff] 员工已绑定, 开始生成token, staffId={}", staff.getId());
-            return buildStaffWxLoginResult(staff);
+            boolean recorded = agreementAcknowledgementService.recordLogin("staff", staff.getId(), params.getAgreement());
+            Map<String,Object> result = buildStaffWxLoginResult(staff);
+            result.put("agreementCatalog", agreementCatalogService.catalog("STAFF"));
+            result.put("agreementRecorded", recorded);
+            return result;
         }
 
         // 未绑定任何 staff：虚拟 UNSELECTED 会话
@@ -182,6 +185,9 @@ public class AuthTokenService {
             data.put("userType", "staff");
             data.put("needSelectRole", true);
             data.put("_pendingOpenid", openid);
+            // No staff row yet: do not store an openid/virtual ID as agreement evidence or expand guide permissions.
+            data.put("agreementCatalog", agreementCatalogService.catalog("STAFF"));
+            data.put("agreementRecorded", false);
 
             log.info("[wx-login-staff] 返回UNSELECTED结果, openid={}", MaskUtil.maskOpenid(openid));
             return data;

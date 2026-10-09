@@ -257,6 +257,10 @@
 
   <!-- 菜单列表 -->
   <view class="menu-list" wx:if="{{isLogin}}">
+    <view class="menu-item" bindtap="onAccountData">
+      <text class="menu-text">账户资料与请求</text>
+      <text class="menu-arrow">></text>
+    </view>
     <view class="menu-item" bindtap="onGoStationMgmt" wx:if="{{isManager}}">
       <text class="menu-text">水站管理</text>
       <text class="menu-arrow">></text>

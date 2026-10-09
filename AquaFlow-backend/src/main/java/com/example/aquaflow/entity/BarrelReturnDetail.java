@@ -7,11 +7,23 @@ import java.time.LocalDateTime;
 /** 审批、实物交接和实际退款分别留痕；收桶后不能通过驳回抹去事实。 */
 @Data
 public class BarrelReturnDetail {
+    /** 新增收费、站长提出的新安排须授权；旁表或金额缺失时保守要求确认。 */
+    public boolean getCustomerConfirmationRequired() {
+        return arrangementVersion == null || arrangementRequiresConfirmation == null
+                || arrangementRequiresConfirmation || pickupFee == null || pickupFee.signum() != 0;
+    }
+
+    public boolean getCustomerConfirmationCurrent() {
+        return customerConfirmedTime != null && arrangementVersion != null
+                && arrangementVersion.equals(customerConfirmedVersion);
+    }
+
     public String getStatusText() {
         if (status==null) return "未知状态";
         return switch(status) {
             case "APPLIED" -> "待批准";
-            case "APPROVED" -> customerConfirmedTime==null?"已批准，待客户确认":"已确认安排，待交接";
+            case "APPROVED" -> getCustomerConfirmationRequired() && !getCustomerConfirmationCurrent()
+                    ? "已批准，待确认费用或新安排" : "已批准，待交接";
             case "RECEIVED" -> "已交接，待退押金";
             case "REFUNDED" -> "押金已交付";
             case "REJECTED" -> "已驳回";
@@ -37,4 +49,9 @@ public class BarrelReturnDetail {
     private LocalDateTime receivedTime;
     private LocalDateTime refundDueTime;
     private String note;
+    private String initialPickupMode;
+    private Long initialCompanionOrderId;
+    private Integer arrangementVersion;
+    private Boolean arrangementRequiresConfirmation;
+    private Integer customerConfirmedVersion;
 }

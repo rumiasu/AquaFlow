@@ -14,6 +14,7 @@
   <block wx:if="{{isLogin}}">
     <!-- 2026-10-07 #10：只展示真实押金账户、水票余量和桶汇总；未加载与真实 0 分开。
          桶卡保持中性「我的桶」：新路径读 E+over，历史汇总含配送中，说明由 js 区分。 -->
+    <asset-station-view id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
     <view class="card assets-card">
       <view class="assets-head">
         <text class="assets-title">押金 · 水票 · 桶</text>
@@ -66,6 +67,10 @@
     <!-- 我的信息 -->
     <view class="group-title">我的信息</view>
     <view class="card menu-card">
+      <view class="menu-row" data-url="/pages/mine/account-data/index" bindtap="onMenuTap">
+        <text class="menu-name">账户资料与请求</text>
+        <text class="row-arrow">›</text>
+      </view>
       <view class="menu-row" data-url="/pages/address/list" bindtap="onMenuTap">
         <text class="menu-name">地址管理</text>
         <text class="row-arrow">›</text>

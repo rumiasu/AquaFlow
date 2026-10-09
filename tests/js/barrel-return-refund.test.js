@@ -41,11 +41,13 @@ async function test(name, fn) {
 function newPage(sc) {
   const s = sc || {}
   const calls = { status: [], paid: [], undelivered: 0 }
-  const rows = [7, 8, 12].map(id => ({ id, type: 2, status: id === 12 ? 3 : 2,
+  const rows = [7, 8, 12].map(id => ({ id, stationId: 1, type: 2, status: id === 12 ? 3 : 2,
     customerId: 7, productId: 1, quantity: 1, depositRefund: 50, createTime: '2026-10-07T09:00:00' }))
   const read = id => rows.find(row => String(row.id) === String(id))
 
   const stubs = {
+    'api/business-rules': { getReturnApplications: async args => ({ code: 0, data: { stationId: 1, scope: args.scope, limit: 50,
+      items: rows.slice().sort((a,b) => b.id-a.id), nextBeforeId: null } }) },
     'utils/pending-reminder': { getPendingReturnRecord: async id => ({ code: 0, data: read(id) }), syncPendingReminder() {} },
     'api/station-mgmt': {
       getAllBarrelRecords: async () => ({ code: 0, data: rows }),
@@ -71,7 +73,7 @@ function newPage(sc) {
 
   const wx = createWx()
   const page = loadPage('miniapp-delivery/pages/station-mgmt/barrel-return/index.js',
-    { stubs, wx, app: createApp() })
+    { stubs, wx, app: createApp({ globalData: { isLogin: true, userInfo: { staffId: 1, stationId: 1, role: 'STATION_MANAGER' } } }) })
   return { page, calls, wx }
 }
 

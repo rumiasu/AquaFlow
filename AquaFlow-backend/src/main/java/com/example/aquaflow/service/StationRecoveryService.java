@@ -21,14 +21,47 @@ public class StationRecoveryService {
         com.example.aquaflow.entity.Orders order=locks.lockOrder(row.getOrderId());
         if(order==null || order.getStatus()!=5 && order.getPaymentStatus()!=3)
             throw new BusinessException("已结清的有效订单不能单方冲销；须先取消或完成消费退款，再核实返还责任");
-        InterStationSettlement current=mapper.lockSettlement(row.getOrderId());
-        if (current!=null && Integer.valueOf(2).equals(current.getStatus()) && current.getAmount().signum()>0) {
-            java.math.BigDecimal amount=current.getAmount().subtract(mapper.refundedByReceiver(row.getOrderId(),current.getToStationId())).max(java.math.BigDecimal.ZERO);
-            // 履约站已经实际替客户退的现金不可再追回第二次；保留原款和退款凭据供双方核实。
-            if(amount.signum()==0)return;
-            if (mapper.insert(row.getOrderId(),current.getToStationId(),current.getFromStationId(),amount,"原站间款已交付；减去原收款方已实际退给客户的现金后待返还，不代表资金已追回")!=1)
-                throw new BusinessException("已付款追回凭据未建立，本次冲销回滚");
+        preserveTerminalRefund(order);
+    }
+
+    /** 全退/取消的资金事实留债务；不替部分售后判断责任，也不表示站间钱已交付。 */
+    @Transactional
+    public void preserveFullRefund(Long orderId) {
+        if (!policy.hasSchema()) return;
+        if (!policy.isEnabled() && agreements.get(orderId)==null) return;
+        com.example.aquaflow.entity.Orders order=locks.lockOrder(orderId);
+        if (order==null || order.getStatus()!=5 && order.getPaymentStatus()!=3) return;
+        preserveTerminalRefund(order);
+    }
+
+    private void preserveTerminalRefund(com.example.aquaflow.entity.Orders order) {
+        Long id=order.getId();InterStationSettlement settled=mapper.lockSettlement(id);
+        Long originalCashStation=mapper.cashCollectionStation(id);
+        Long from=settled!=null?settled.getFromStationId():(originalCashStation!=null?originalCashStation:order.getStationId());
+        Long to=settled!=null?settled.getToStationId():com.example.aquaflow.util.StationUtil.settleStation(order);
+        if(from==null || to==null || Objects.equals(from,to))return;
+        java.math.BigDecimal transferred=settled!=null && settled.getSettledTime()!=null?settled.getAmount():java.math.BigDecimal.ZERO;
+        // 2026-10-08：旧实现只处理已结款，未结时B代退会丢掉A持有原款的责任。
+        // 客户消费原款净额减已交付站间款，得出唯一待返还净额；三笔事实不可重复扣减。
+        // 同一请求可能在等订单锁前已有普通读快照；必须当前读，才能计入另一请求刚完成的部分退款。
+        java.math.BigDecimal cashNet=java.math.BigDecimal.ZERO;
+        for(com.example.aquaflow.entity.PaymentRecord receipt:mapper.cashForUpdate(id,from)) {
+            if(receipt.getAmount().signum()>0 || Integer.valueOf(3).equals(receipt.getStatus()))
+                cashNet=cashNet.add(receipt.getAmount().subtract(receipt.getBarrelDeposit()==null?java.math.BigDecimal.ZERO:receipt.getBarrelDeposit()));
         }
+        java.math.BigDecimal net=cashNet.subtract(transferred);
+        if(net.signum()==0)return;
+        Long payer=net.signum()>0?from:to,receiver=net.signum()>0?to:from;
+        java.math.BigDecimal amount=net.abs();Map<String,Object> existing=mapper.lockRecovery(id);
+        if(existing!=null) {
+            if(!Objects.equals(payer,((Number)existing.get("fromStationId")).longValue())
+                    || !Objects.equals(receiver,((Number)existing.get("toStationId")).longValue())
+                    || amount.compareTo(new java.math.BigDecimal(existing.get("amount").toString()))!=0)
+                throw new BusinessException("返还原款与现有凭据不一致，请先核实实际交款；本次资金登记回滚");
+            return;
+        }
+        if(mapper.insert(id,payer,receiver,amount,"客户原消费款、实际退款与已交付站间款已核对；待返还净额，尚未确认交付到账")!=1)
+            throw new BusinessException("资金返还凭据未建立，本次退款或冲销回滚");
     }
     public List<Map<String,Object>> list(Long station) { return policy.hasSchema()?mapper.list(station):List.of(); }
     @Transactional public void sent(Long order,Long station,String note) {

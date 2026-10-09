@@ -51,6 +51,13 @@ public interface PaymentRecordMapper {
     @Select("select * from payment_record where order_id = #{orderId} order by create_time")
     List<PaymentRecord> listByOrderId(@Param("orderId") Long orderId);
 
+    /** 超时处理沿用数据库时间；候选扫描与锁后重验不能换成两套时钟。 */
+    @Select("select date_sub(now(), interval #{minutes} minute)")
+    java.time.LocalDateTime timeoutCutoff(@Param("minutes") int minutes);
+
+    @Select("select * from payment_record where order_id = #{orderId} and status in (1,2) order by id for update")
+    List<PaymentRecord> activeByOrderForUpdate(@Param("orderId") Long orderId);
+
     @Select("select * from payment_record where order_id = #{orderId} order by create_time desc limit 1")
     PaymentRecord getByOrderId(@Param("orderId") Long orderId);
 

@@ -1,0 +1,22 @@
+.scope-card { margin-bottom: 24rpx; padding: 24rpx; background: var(--bg-card); border: 1rpx solid var(--border-color); border-radius: 20rpx; }
+.scope-row { display: flex; align-items: center; gap: 20rpx; }
+.scope-main, .picker-main { flex: 1; min-width: 0; }
+.scope-caption { display: block; font-size: 22rpx; color: var(--text-regular); }
+.scope-name { display: block; margin-top: 8rpx; font-size: 30rpx; font-weight: 600; color: var(--text-primary); overflow-wrap: break-word; }
+.scope-switch { flex-shrink: 0; color: var(--primary-color); font-size: 26rpx; padding: 12rpx 0; }
+.scope-tip, .scope-order, .scope-status { display: block; font-size: 22rpx; line-height: 1.6; color: var(--text-regular); margin-top: 8rpx; overflow-wrap: break-word; }
+.scope-order { padding-top: 12rpx; margin-top: 12rpx; border-top: 1rpx solid var(--border-color); }
+.picker-mask { position: fixed; inset: 0; z-index: 1100; background: rgba(0,0,0,.4); }
+.picker { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1101; padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom)); border-radius: 28rpx 28rpx 0 0; background: var(--bg-card); }
+.picker-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 32rpx; gap: 16rpx; }
+.picker-close { margin: 0; padding: 0 16rpx; font-size: 26rpx; line-height: 64rpx; background: transparent; color: var(--text-regular); }
+.picker-close::after, .picker-retry::after { border: 0; }
+.picker-tip { display: block; margin: 16rpx 0; color: var(--text-regular); font-size: 24rpx; line-height: 1.6; }
+.picker-list { height: 55vh; }
+.picker-row { display: flex; align-items: center; gap: 16rpx; padding: 24rpx 16rpx; border-bottom: 1rpx solid var(--border-color); }
+.picker-row.selected { background: var(--bg-gray); border-radius: 12rpx; }
+.picker-name { display: block; font-size: 28rpx; overflow-wrap: break-word; }
+.picker-status, .picker-selected { display: block; font-size: 22rpx; color: var(--text-regular); margin-top: 8rpx; }
+.picker-selected { flex-shrink: 0; color: var(--primary-color); }
+.picker-message { display: block; padding: 28rpx 8rpx; font-size: 26rpx; color: var(--text-regular); line-height: 1.7; }
+.picker-retry { margin-top: 20rpx; font-size: 26rpx; color: var(--primary-color); background: var(--bg-gray); }

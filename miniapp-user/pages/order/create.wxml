@@ -212,14 +212,8 @@
       <text class="fee-hint">可在备注写期望送达时间，供水站安排参考；未填写也可以下单。</text>
     </view>
 
-    <!-- ══ 资产说明常驻折叠条（原首次确认弹窗的软化形态）══
-         [2026-10-06 优化] 原首次资产业务确认是**弹窗**，现在改为页面底部常驻的可折叠条：
-           · 不阻断浏览 —— 客户可以边看商品边看说明，不用先关掉弹窗才能继续；
-           · 勾选仍在 —— 「我已阅读」仍是确认下单的前置闸门，只是不再藏在弹窗里；
-           · 首次强提醒 —— firstStationAsset=true 时默认展开，之后可折叠；
-           · 业务信息不丢 —— 水站名/押金金额/按站记录规则全部保留，只是换了呈现方式。
-         ⚠️ 勾选状态仍由 assetReadAgreed 控制，且每次报价刷新后重置（同原弹窗逻辑）。 -->
-    <view class="asset-bar {{assetBarExpanded ? 'expanded' : ''}}" wx:if="{{firstStationAsset && !assetConfirmed}}">
+    <!-- 首次须知保留为可折叠告知；新增押金数量/价格在提交前单独授权。 -->
+    <view class="asset-bar {{assetBarExpanded ? 'expanded' : ''}}" wx:if="{{firstStationAsset}}">
       <view class="asset-bar-header" bindtap="onToggleAssetBar">
         <view class="asset-bar-title">
           <icon name="alert" size="30rpx" color="#C9764B" />
@@ -273,10 +267,6 @@
             <text class="asset-more-glyph up">›</text>
           </view>
         </view>
-        <view class="detail-agree {{assetReadAgreed ? 'is-checked' : ''}}" bindtap="onAssetReadAgree">
-          <text class="detail-checkbox">{{assetReadAgreed ? '☑' : '☐'}}</text>
-          <text class="detail-agree-text">我已阅读并了解上述说明</text>
-        </view>
       </view>
     </view>
 
@@ -309,10 +299,9 @@
             <text class="detail-arrow">明细›</text>
           </view>
         </view>
-        <!-- ⚠️ 文案是**四态三元**，优先级不许改（流程测试守着后三态）：
-             硬拦(blocked) > 提交中(submitting) > 已有待看/待付订单(pendingOrderId) > 资产确认未完成 > 常态。 -->
+        <!-- 硬拦 > 提交中 > 已有订单 > 常态；普通须知不增加提交门槛。 -->
         <view class="submit-btn {{(submitting || blocked) ? 'disabled' : ''}}" bindtap="onSubmit">
-          <text>{{blocked ? '暂不可下单' : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid ? '查看这笔订单' : '继续支付') : (firstStationAsset && !assetConfirmed ? '确认须知并下单' : '立即下单')))}}</text>
+          <text>{{blocked ? '暂不可下单' : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid ? '查看这笔订单' : '继续支付') : '立即下单'))}}</text>
         </view>
       </view>
     </view>
@@ -353,11 +342,7 @@
     </view>
   </view>
 
-  <!-- 首次资产业务确认弹窗（已废弃，改为页面内常驻折叠条）
-       [2026-10-06] 保留此结构备用，但 showAssetConfirm 恒为 false，不再触发。
-       原逻辑：firstStationAsset=true 时弹窗阻断，客户必须勾选+确认才能下单。
-       新逻辑：页面底部常驻 .asset-bar，客户可展开阅读、勾选后按钮文案变为「确认须知并下单」。
-       勾选状态仍由 assetReadAgreed 控制，且每次报价刷新后重置（同原逻辑）。 -->
+  <!-- 历史首次告知弹窗保持不可达；当前说明在 .asset-bar 展示。 -->
   <view class="asset-popup {{showAssetConfirm ? 'show' : ''}}" wx:if="{{false}}">
     <view class="popup-mask" bindtap="onAssetConfirmCancel"></view>
     <view class="popup-content asset-warning">
@@ -424,16 +409,9 @@
           </view>
         </view>
       </scroll-view>
-      <!-- 勾选 = 真正的确认闸门（不是装饰性 ☐）：未勾选时下面的「确认下单」是灰的、
-           点了会给下一步（见 create.js 的 onAssetConfirmOk）。它和确认按钮**同一层**
-           且都在滚动区外 —— §3 要的"必需勾选与确认在同一层"，同时保证任何字号下都够得着。 -->
-      <view class="detail-agree {{assetReadAgreed ? 'is-checked' : ''}}" bindtap="onAssetReadAgree">
-        <text class="detail-checkbox">{{assetReadAgreed ? '☑' : '☐'}}</text>
-        <text class="detail-agree-text">我已阅读并了解上述说明</text>
-      </view>
       <view class="popup-btns">
         <button class="btn-cancel" bindtap="onAssetConfirmCancel">返回修改</button>
-        <button class="btn-ok {{assetReadAgreed ? '' : 'disabled'}}" bindtap="onAssetConfirmOk">确认下单</button>
+        <button class="btn-ok" bindtap="onAssetConfirmOk">继续下单</button>
       </view>
     </view>
   </view>

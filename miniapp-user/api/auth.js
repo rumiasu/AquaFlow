@@ -4,8 +4,8 @@ const { API } = require('../config/api')
 
 // 微信登录（后端: POST /api/auth/wx-login）
 // code 来自 wx.login，后端用它换 openid 并查/建用户
-const wxLogin = (code) => {
-  return post(API.WX_LOGIN, { code })
+const wxLogin = (code, agreement) => {
+  return post(API.WX_LOGIN, agreement ? { code, agreement } : { code })
 }
 
 // 开发模式登录（后端: POST /api/auth/dev-login）

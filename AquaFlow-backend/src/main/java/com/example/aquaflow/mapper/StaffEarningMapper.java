@@ -22,14 +22,21 @@ public interface StaffEarningMapper {
      * <p>{@code amount} 由服务层按 kind 决定符号后传入（扣减类为负数）。</p>
      */
     @Insert("insert into staff_earning(station_id, staff_id, order_id, kind, product_id, qty, unit_amount, amount, "
-            + "adjustment_id, item_id, item_name, note, create_time) "
+            + "adjustment_id, item_id, item_name, note, idempotency_key, request_digest, create_time) "
             + "values(#{stationId}, #{staffId}, #{orderId}, #{kind}, IFNULL(#{productId},0), #{qty}, #{unitAmount}, #{amount}, "
-            + "#{adjustmentId}, #{itemId}, #{itemName}, #{note}, NOW())")
+            + "#{adjustmentId}, #{itemId}, #{itemName}, #{note}, #{idempotencyKey}, #{requestDigest}, NOW())")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(StaffEarning earning);
 
     @Select("select * from staff_earning where id = #{id}")
     StaffEarning getById(@Param("id") Long id);
+
+    @Select("select * from staff_earning where station_id=#{stationId} and idempotency_key=#{key}")
+    StaffEarning byIntent(@Param("stationId") Long stationId, @Param("staffId") Long staffId, @Param("key") String key);
+
+    /** 唯一键竞争之后只作当前读，不在空意图键上先拿间隙锁。 */
+    @Select("select * from staff_earning where station_id=#{stationId} and idempotency_key=#{key} for update")
+    StaffEarning byIntentForUpdate(@Param("stationId") Long stationId, @Param("staffId") Long staffId, @Param("key") String key);
 
     /** 某订单已产生的收益（排查"这单的工钱算在哪"） */
     @Select("select * from staff_earning where order_id = #{orderId} order by id asc")

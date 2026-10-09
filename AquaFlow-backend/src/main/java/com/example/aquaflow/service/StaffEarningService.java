@@ -53,5 +53,11 @@ public interface StaffEarningService {
      *               为 null 时是老的自由文本调整，{@code amount} 可正可负
      *               （这是唯一允许调用方给符号的 kind）
      */
-    void adjustEarning(Long stationId, Long staffId, Long itemId, BigDecimal amount, String note);
+    @Deprecated // 2026-10-08：保留调用签名以明确拒绝旧调用；不能每次临时生成编号，造成重复工资。
+    default void adjustEarning(Long stationId, Long staffId, Long itemId, BigDecimal amount, String note) {
+        adjustEarning(stationId, staffId, itemId, amount, note, null);
+    }
+
+    /** 同一水站同一录入编号重放须内容相同；不同编号是独立工资事实。 */
+    void adjustEarning(Long stationId, Long staffId, Long itemId, BigDecimal amount, String note, String idempotencyKey);
 }

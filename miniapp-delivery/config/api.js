@@ -294,6 +294,7 @@ const API = {
   // 只读：已核销但**没记交付**的退押金（不合规数据，站长要能查出来）
   BARRELS_REFUND_UNDELIVERED: '/api/barrels/refund-undelivered',
   BARRELS_RETURN_APPROVE: (id) => `/api/barrels/records/${id}/approve`,
+  BARRELS_RETURN_ARRANGEMENT: (id) => `/api/barrels/records/${id}/manager-arrangement`,
   MANAGER_BUSINESS_WAITING: '/api/manager/business-waiting',
   MANAGER_TICKET_EXIT_BATCHES: '/api/manager/ticket-exit-batches',
   MANAGER_REFUSAL_CASES: '/api/manager/refusal-cases',

@@ -1,38 +1,35 @@
-// 员工协议承载页（2026-10-07）：结构参考顾客端同名页，内容仅为员工场景占位。
-// 所有正文待真实主体/隐私处理事实与法务、产品审核；不得当作正式协议发布。
-// 本页不进行登录、同意或存储写入。版本、生效日和同意记录流程尚未接入。
-const DOCUMENTS = {
-  user: {
-    navTitle: '用户协议', docTitle: 'AquaFlow 员工用户协议', updatedAt: '草稿 · 未审核',
-    notice: '本页为结构占位草稿，尚未包含生效条款。正式协议需补充真实运营主体及员工服务规则并完成审核；正式发布前，本页文字不构成权利义务约定。',
-    sections: [
-      { heading: '一、协议双方', body: '【待补】运营主体名称、身份资料、联系方式及员工身份的界定。' },
-      { heading: '二、服务内容', body: '【待补】站长与配送员使用功能的范围；平台、水站与员工之间的责任关系。' },
-      { heading: '三、账号与使用', body: '【待补】登录、身份选择、绑定水站、账号退出或注销的规则与权限边界。' },
-      { heading: '四、配送与收款', body: '【待补】配送任务、交接、回桶、收款记录与异常处理的真实业务规则及责任。' },
-      { heading: '五、收益与争议', body: '【待补】计件收益和工资台账的性质、确认与发放责任、争议处理方式。' },
-      { heading: '六、其他', body: '【待补】版本、生效日期、变更通知和同意记录安排。' }
-    ]
-  },
-  privacy: {
-    navTitle: '隐私政策', docTitle: 'AquaFlow 员工隐私政策', updatedAt: '草稿 · 未审核',
-    notice: '本页为结构占位草稿，尚未包含生效条款。正式隐私政策需核实信息处理主体与实际处理行为并完成审核；正式发布前，本页文字不构成隐私处理承诺。',
-    sections: [
-      { heading: '一、信息处理主体', body: '【待补】真实主体、联系方式和适用员工范围。' },
-      { heading: '二、信息收集与使用', body: '【待补】核实登录身份、员工资料、站点绑定、配送记录与收益台账涉及的信息及用途。' },
-      { heading: '三、系统权限', body: '【待补】核实位置、图片及其他权限的触发场景、用途、拒绝影响与撤回方式。' },
-      { heading: '四、信息共享与保存', body: '【待补】实际接收方、共享范围、保存期限与安全措施。' },
-      { heading: '五、你的权利', body: '【待补】查询、更正、删除、注销和撤回授权的真实渠道与处理规则。' },
-      { heading: '六、联系我们', body: '【待补】真实隐私联系渠道、处理时限及政策版本与生效日期。' }
-    ]
-  }
-}
+// One source of text and version IDs; the offline fallback can only display an explicitly unactivated draft.
+const api = require('../../../api/agreements')
+const { drafts, validDocument, validCatalog, find } = require('../../../utils/agreements')
 Page({
-  data: { doc: null },
+  data: { doc: null, loading: false, error: '', fallbackNotice: '' },
   onLoad(options) {
-    const type = options && options.type === 'privacy' ? 'privacy' : 'user'
-    const doc = DOCUMENTS[type]
-    this.setData({ doc })
-    wx.setNavigationBarTitle({ title: doc.navTitle })
+    this._type = options && options.type === 'privacy' ? 'privacy' : 'user'
+    this._version = options && options.versionId || ''
+    const local = find(drafts, this._type)
+    if (local && (!this._version || this._version === local.versionId)) this.setData({ doc: local })
+    wx.setNavigationBarTitle({ title: this._type === 'privacy' ? '隐私政策' : '用户协议' })
+    this.onRetry()
+  },
+  onUnload() { this._unloaded = true; this._readEpoch = (this._readEpoch || 0) + 1 },
+  async onRetry() {
+    if (this._unloaded || this.data.loading) return
+    const epoch = this._readEpoch = (this._readEpoch || 0) + 1
+    this.setData({ loading: true, error: '', fallbackNotice: '' })
+    try {
+      const res = this._version ? await api.document(this._version) : await api.current()
+      if (this._unloaded || epoch !== this._readEpoch) return
+      const value = res && res.data
+      const doc = this._version ? value : validCatalog(value) && find(value, this._type)
+      if (!validDocument(doc, this._type) || this._version && doc.versionId !== this._version) throw Error('协议版本暂时无法核实')
+      this.setData({ doc, loading: false, error: '', fallbackNotice: '' })
+    } catch (error) {
+      if (this._unloaded || epoch !== this._readEpoch) return
+      const local = find(drafts, this._type)
+      const fallback = local && (!this._version || this._version === local.versionId)
+      this.setData({ doc: fallback ? local : null, loading: false,
+        error: '协议暂时无法加载，请重试。',
+        fallbackNotice: fallback ? '以下为随应用提供的未启用草稿；当前无法核实最新正文。' : '' })
+    }
   }
 })

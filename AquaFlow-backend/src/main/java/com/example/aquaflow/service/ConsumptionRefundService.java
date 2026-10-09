@@ -25,6 +25,7 @@ public class ConsumptionRefundService {
     @Autowired private BarrelLedgerService barrels;
     @Autowired private IndependentBarrelService independent;
     @Autowired private BarrelBusinessPolicy policy;
+    @Autowired private StationRecoveryService recoveries;
     @Autowired @Lazy private PaymentService paymentService;
     @Value("${app.payment.mock-wechat-pay:false}") private boolean mockWechatPay;
     public boolean usesIndependentRules(Long paymentId) {
@@ -100,6 +101,7 @@ public class ConsumptionRefundService {
                 throw new BusinessException("支付状态已变化，本次退款回滚");
         }
         orders.appendSpecialNote(order.getId(),"[消费退款] "+scope+" "+amount+" 元；桶权益及押金未变；"+(note==null?"":note));
+        recoveries.preserveFullRefund(order.getId());
     }
     public List<Map<String,Object>> records(Long order) { return receipts.records(order); }
     public Map<String,Object> preview(Long paymentId) {

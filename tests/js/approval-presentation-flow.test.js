@@ -8,7 +8,7 @@ function record(status = 'APPROVED', extra = {}) {
   return Object.assign({ id: 77, type: 2, status: status === 'RECEIVED' ? 2 : status === 'REFUNDED' ? 3 : 1,
     stationId: 1, customerId: 7, productId: 10, quantity: 2, depositRefund: 60,
     createTime: '2026-10-07T09:00:00', statusText: '真实状态文案',
-    returnDetail: { status, pickupMode: 'STORE', pickupModeText: '到店退桶', requiredBarrels: 2, receivedBarrels: 0, pickupFee: 0, feePaymentId: null,
+    returnDetail: { status, pickupMode: 'STORE', pickupModeText: '到店退桶', requiredBarrels: 2, receivedBarrels: 0, pickupFee: 0, feePaymentId: null, customerConfirmationRequired: false, arrangementVersion: 1, customerConfirmationCurrent: status !== 'APPLIED',
       approvedTime: status !== 'APPLIED' ? '2026-10-07T09:10:00' : null,
       customerConfirmedTime: status !== 'APPLIED' ? '2026-10-07T09:20:00' : null }
   }, extra)
@@ -29,7 +29,8 @@ function setup(initial, options = {}) {
     if (kind === 2) { current.status = 2; if (d) { d.status = 'RECEIVED'; d.receivedTime = '2026-10-07T10:00:00'; d.receivedBarrels = d.requiredBarrels } }
     if (kind === 3 || kind === 'paid') { current.status = 3; current.refundPaidTime = '2026-10-07T10:10:00'; if (d) d.status = 'REFUNDED' }
     if (kind === 4) { current.status = 4; if (d) d.status = 'REJECTED' }
-    if (kind === 'approve') { d.status = 'APPROVED'; d.customerConfirmedTime = null }
+    if (kind === 'approve') { d.status = 'APPROVED'; d.customerConfirmedTime = null; d.customerConfirmationCurrent = false }
+    if (kind === 'arrangement') { d.status = 'APPLIED'; d.arrangementVersion++; d.customerConfirmationRequired = true; d.customerConfirmationCurrent = false; d.customerConfirmedTime = null }
     if (kind === 'collect') d.feePaymentStatus = 2
     if (kind === 'feeRefund') d.feePaymentStatus = 3
   }
@@ -46,9 +47,13 @@ function setup(initial, options = {}) {
       getRefundUndelivered: async () => ok({ records: [], count: 0, amount: 0 }),
       getBarrelRefundEligibility: async () => { calls.eligibility++; if (eligibilityFail) throw Error('原款读取失败'); if (options.deferEligibility) return options.deferEligibility(eligibility()); return ok(eligibility()) },
       updateBarrelRecordStatus: (id, kind, extra) => write(kind, id, extra),
-      approveBarrelReturn: (id, fee) => write('approve', id, fee), confirmPayment: id => write('collect', id), markRefundPaid: id => write('paid', id)
+      approveBarrelReturn: (id, fee) => write('approve', id, fee), confirmPayment: id => write('collect', id), markRefundPaid: id => write('paid', id),
+      changeBarrelReturnArrangement: (id, body) => write('arrangement',id,body), getReturnCompanionOrders: async () => ok(options.companionOrders || [])
     },
-    'api/business-rules': { refundService: id => write('feeRefund', id) },
+    'api/business-rules': { refundService: id => write('feeRefund', id), getReturnApplications: async args => {
+      if (readFail) throw Error('offline')
+      return ok({ stationId: 1, scope: args.scope, limit: 50, items: [clone(current)], nextBeforeId: null })
+    } },
     'utils/pending-reminder': { syncPendingReminder: async () => {}, getPendingReturnRecord: async id => {
       calls.reads++; if (readFail) throw Error('offline'); assert.equal(String(id), String(current.id)); return ok(clone(current))
     } }
@@ -70,16 +75,49 @@ function setup(initial, options = {}) {
     t.calls.modals[0].success({ confirm: true }); await action
     assert.deepEqual(t.calls.writes.map(w => w.kind), [2]); assert.equal(t.page.data.selected.needsRefund, true)
   })
-  await test('unconfirmed customer cannot receive or collect', async () => {
-    const r = record(); r.returnDetail.customerConfirmedTime = null
+  await test('free original arrangement can hand over without recording customer consent', async () => {
+    for (const mode of ['STORE', 'PICKUP', 'COMBINED']) {
+      const r = record(); Object.assign(r.returnDetail, { pickupMode: mode, customerConfirmedTime: null })
+      const t = setup(r); await t.ready()
+      assert.equal(t.page.data.selected.primaryAction, 'receive')
+      assert(!t.page.data.selected.timeline.some(s => s.title === '客户确认安排'))
+      await t.page.onApprove(event(77))
+      assert.equal(t.calls.writes[0].kind, 2); assert.equal(t.current().returnDetail.customerConfirmedTime, null)
+    }
+  })
+  await test('new fee or missing permission projection cannot receive or collect without consent', async () => {
+    for (const required of [true, undefined]) {
+    const r = record(); Object.assign(r.returnDetail, { customerConfirmationRequired: required, customerConfirmationCurrent: false, customerConfirmedTime: null, pickupFee: 8, feePaymentId: 88, feePaymentStatus: 1 })
     const t = setup(r); await t.ready(); await t.page.onApprove(event(77)); await t.page.onCollectPickupFee(event(77))
     assert.equal(t.page.data.selected.primaryAction, ''); assert.equal(t.calls.writes.length, 0)
+    }
   })
   await test('pending fee has one current action and cannot handover before collected', async () => {
     const r = record(); Object.assign(r.returnDetail, { pickupMode: 'PICKUP', feePaymentId: 88, pickupFee: 8, feePaymentStatus: 1 })
     const t = setup(r); await t.ready(); assert.equal(t.page.data.selected.primaryAction, 'collect')
     await t.page.onApprove(event(77)); assert.equal(t.calls.writes.length, 0)
     await t.page.onCollectPickupFee(event(77)); assert.equal(t.calls.writes[0].id, 88); assert.equal(t.page.data.selected.primaryAction, 'receive')
+  })
+  await test('manager change preserves original record target and submits inspected version and reason', async () => {
+    const t=setup(record(),{modalContent:'客户希望独立上门'}); await t.ready()
+    t.wx.showActionSheet=o=>o.success({tapIndex:1})
+    await t.page.onChangeArrangement(event(77))
+    assert.equal(t.calls.writes.length,1); const write=t.calls.writes[0]
+    assert.equal(write.id,77); assert.equal(write.kind,'arrangement'); assert.equal(write.extra.expectedVersion,1)
+    assert.equal(write.extra.pickupMode,'PICKUP'); assert.equal(write.extra.companionOrderId,null); assert.equal(write.extra.reason,'客户希望独立上门')
+    assert.equal(t.current().returnDetail.customerConfirmedTime,null); assert.equal(t.current().returnDetail.customerConfirmationCurrent,false)
+    assert.equal(t.current().depositRefund,60); assert.equal(t.current().quantity,2)
+  })
+  await test('paid old fee and received request cannot change arrangement or create refunds', async () => {
+    for(const r of [record('RECEIVED'),record()]) {
+      if(r.returnDetail.status==='APPROVED')Object.assign(r.returnDetail,{feePaymentId:88,feePaymentStatus:2})
+      const t=setup(r); await t.ready(); await t.page.onChangeArrangement(event(77)); assert.equal(t.calls.writes.length,0)
+    }
+  })
+  await test('manager combined mode requires a deliberate order choice and excludes other owners', async () => {
+    const t=setup(record(),{modalContent:'旧单取消，客户申请改为此单',companionOrders:[{id:900,customerId:8,stationId:1,status:1},{id:901,customerId:7,stationId:1,status:2}]}); await t.ready()
+    const choices=[2,0], sheets=[];t.wx.showActionSheet=o=>{sheets.push(o.itemList);o.success({tapIndex:choices.shift()})}
+    await t.page.onChangeArrangement(event(77));assert.equal(sheets.length,2);assert.deepEqual(sheets[1],['订单 901']);assert.equal(t.calls.writes[0].extra.companionOrderId,901)
   })
   await test('refunded fee blocks receive but retains unreceived rejection', async () => {
     const r = record(); Object.assign(r.returnDetail, { feePaymentId: 88, pickupFee: 8, feePaymentStatus: 3 })

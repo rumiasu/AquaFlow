@@ -146,6 +146,7 @@ const API = {
   BARREL_RIGHT_PURCHASE: '/api/barrel-rights/purchase',
   BARREL_RIGHT_WITHDRAW: (id) => `/api/barrel-rights/${id}/withdraw`,
   BARREL_RETURN_CONFIRM: (id) => `/api/barrels/records/${id}/customer-confirm`,
+  BARREL_RETURN_ARRANGEMENT: (id) => `/api/barrels/records/${id}/arrangement`,
   BARREL_RETURN_WITHDRAW: (id) => `/api/barrels/records/${id}/withdraw`,
   BARREL_RETURN_PREVIEW: '/api/barrels/return/preview',
 

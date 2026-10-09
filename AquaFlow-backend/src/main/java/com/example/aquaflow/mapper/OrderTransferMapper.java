@@ -21,6 +21,9 @@ public interface OrderTransferMapper {
     @Select("select * from order_transfer where order_id = #{orderId} and status = 'PENDING' order by id desc limit 1")
     OrderTransfer findPendingByOrder(@Param("orderId") Long orderId);
 
+    @Select("select * from order_transfer where order_id=#{orderId} and kind='CUSTOMER' and sub_kind='CANCEL_REQUEST' order by id desc limit 1")
+    OrderTransfer latestCustomerCancelRequest(@Param("orderId") Long orderId);
+
     /**
      * 查询订单最新一条**指定类型**的待决策转单（撤回与决策都要按 kind 定位，
      * 否则会误判成"另一类转单被撤了"）。

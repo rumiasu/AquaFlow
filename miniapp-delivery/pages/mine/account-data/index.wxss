@@ -1,0 +1,7 @@
+.page { padding: 28rpx; }
+.card { padding: 28rpx; margin-bottom: 24rpx; border-radius: 16rpx; background: var(--bg-white); }
+.title { display: block; font-size: 32rpx; font-weight: 600; margin-bottom: 16rpx; color: var(--text-primary); }
+.body { display: block; font-size: 26rpx; line-height: 1.7; margin-bottom: 16rpx; color: var(--text-regular); word-break: break-all; }
+.error { display: block; font-size: 26rpx; color: var(--warning-color); margin-bottom: 16rpx; }
+textarea { width: 100%; height: 180rpx; margin-bottom: 24rpx; font-size: 26rpx; }
+.record { padding-top: 16rpx; border-top: 1rpx solid var(--border-color); }

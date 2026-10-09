@@ -158,9 +158,22 @@ public class BarrelController {
 
     /** 顾客端确认本人的交接安排和应退金额，资金到账由实际退款结果证明。 */
     @PutMapping("/records/{id}/customer-confirm")
-    public Result<Void> confirmReturn(@PathVariable Long id) {
-        approvedReturnService.confirm(id,AuthContext.requireCustomerId());
+    public Result<Void> confirmReturn(@PathVariable Long id,@Valid @RequestBody(required=false) com.example.aquaflow.dto.BarrelReturnConfirmationDTO dto) {
+        approvedReturnService.confirm(id,AuthContext.requireCustomerId(),dto==null?null:dto.getExpectedVersion());
         return Result.success();
+    }
+
+    /** 顾客端只改本人的未交接安排，身份从AuthContext取得，金额和资产不接受请求改写。 */
+    @PutMapping("/records/{id}/arrangement")
+    public Result<?> changeReturnArrangement(@PathVariable Long id,@Valid @RequestBody com.example.aquaflow.dto.BarrelReturnArrangementDTO dto) {
+        return Result.success(approvedReturnService.changeByCustomer(id,AuthContext.requireCustomerId(),dto));
+    }
+
+    /** 员工端归属站站长提出新安排；客户须认可新版本，不能代客户同意。 */
+    @RequireRole("STATION_MANAGER")
+    @PutMapping("/records/{id}/manager-arrangement")
+    public Result<?> proposeReturnArrangement(@PathVariable Long id,@Valid @RequestBody com.example.aquaflow.dto.BarrelReturnArrangementDTO dto) {
+        return Result.success(approvedReturnService.changeByStation(id,AuthContext.requireStationId(),AuthContext.getUserId(),dto));
     }
 
     /**

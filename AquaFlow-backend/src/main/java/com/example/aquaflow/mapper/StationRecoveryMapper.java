@@ -4,8 +4,16 @@ import java.util.*;
 import java.math.BigDecimal;
 @Mapper
 public interface StationRecoveryMapper {
-    @Select("select coalesce(sum(r.amount * -1),0) from consumption_refund c join payment_record r on r.id=c.refund_payment_id where c.order_id=#{order} and r.station_id=#{station} and r.payment_method=2")
+    @Select("select coalesce(sum(-(amount-coalesce(barrel_deposit,0))),0) from payment_record where order_id=#{order} and station_id=#{station} and payment_method=2 and status=3 and amount<0")
     BigDecimal refundedByReceiver(@Param("order") Long order,@Param("station") Long station);
+    @Select("select coalesce(sum(amount-coalesce(barrel_deposit,0)),0) from payment_record where order_id=#{order} and station_id=#{station} and payment_method=2 and amount>0 and status in (2,3)")
+    BigDecimal customerCashHeld(@Param("order") Long order,@Param("station") Long station);
+    @Select("select * from payment_record where order_id=#{order} and station_id=#{station} and payment_method=2 and status in (2,3) order by id for update")
+    List<com.example.aquaflow.entity.PaymentRecord> cashForUpdate(@Param("order") Long order,@Param("station") Long station);
+    @Select("select max(station_id) from payment_record where order_id=#{order} and payment_method=2 and amount>0 and status in (2,3)")
+    Long cashCollectionStation(Long order);
+    @Select("select from_station_id as fromStationId,to_station_id as toStationId,amount from inter_station_recovery where order_id=#{order} for update")
+    Map<String,Object> lockRecovery(Long order);
     @Select("select * from inter_station_settlement where order_id=#{id} for update") com.example.aquaflow.entity.InterStationSettlement lockSettlement(Long id);
     @Insert("insert into inter_station_recovery(order_id,from_station_id,to_station_id,amount,status,note,create_time) values(#{order},#{from},#{to},#{amount},'PENDING',#{note},now())")
     int insert(@Param("order") Long order,@Param("from") Long from,@Param("to") Long to,@Param("amount") BigDecimal amount,@Param("note") String note);

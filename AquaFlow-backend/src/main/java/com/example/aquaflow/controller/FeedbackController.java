@@ -25,6 +25,21 @@ public class FeedbackController {
     @Autowired
     private FeedbackMapper feedbackMapper;
     @Autowired private com.example.aquaflow.service.RefundFeedbackService refundFeedbackService;
+    @Autowired private com.example.aquaflow.service.RefundDisputeService refundDisputeService;
+
+    /** 本人或责任站站长查看退款争议；身份及站别只取会话，不执行资金动作。 */
+    @GetMapping("/refund-disputes") public Result<List<Map<String,Object>>> refundDisputes(@RequestParam(defaultValue="1") int page) {
+        return Result.success(refundDisputeService.list(page));
+    }
+    /** 顾客端本人提出/重提异议；员工不能代客提出。 */
+    @PostMapping("/refund-disputes/open") public Result<Map<String,Object>> openDispute(@Valid @RequestBody com.example.aquaflow.dto.RefundDisputeDTO dto) {
+        return Result.success(refundDisputeService.act(dto,false));
+    }
+    /** 员工端责任站站长登记结果并结案；无需客户确认，不调用收退款。 */
+    @RequireRole("STATION_MANAGER")
+    @PostMapping("/refund-disputes/close") public Result<Map<String,Object>> closeDispute(@Valid @RequestBody com.example.aquaflow.dto.RefundDisputeDTO dto) {
+        return Result.success(refundDisputeService.act(dto,true));
+    }
 
     @PostMapping("/refund-notes")
     public Result<Feedback> appendRefundNote(@Valid @RequestBody com.example.aquaflow.dto.RefundFeedbackDTO dto) {

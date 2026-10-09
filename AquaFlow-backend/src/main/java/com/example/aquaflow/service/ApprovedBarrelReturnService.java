@@ -24,6 +24,8 @@ public class ApprovedBarrelReturnService {
     @Autowired private OrderBarrelPurchaseService orderPurchases;
     @Autowired private BarrelBusinessPolicy policy;
     @Autowired private BarrelReturnDetailMapper detailMapper;
+    @Autowired private BarrelReturnArrangementMapper arrangementMapper;
+    @Autowired private tools.jackson.databind.ObjectMapper json;
     @Autowired private BarrelRecordMapper recordMapper;
     @Autowired private BarrelRecordLotMapper recordLotMapper;
     @Autowired private BarrelBusinessMapper businessMapper;
@@ -218,8 +220,8 @@ public class ApprovedBarrelReturnService {
         if (old != null) {
             BarrelRecord record = recordMapper.getById(old.getRecordId());
             if (!Objects.equals(record.getStationId(),dto.getStationId()) || !Objects.equals(record.getProductId(),dto.getProductId())
-                    || !Objects.equals(record.getQuantity(),dto.getQuantity()) || !Objects.equals(old.getPickupMode(),mode)
-                    || !Objects.equals(old.getCompanionOrderId(),dto.getCompanionOrderId()))
+                    || !Objects.equals(record.getQuantity(),dto.getQuantity()) || !Objects.equals(old.getInitialPickupMode(),mode)
+                    || !Objects.equals(old.getInitialCompanionOrderId(),dto.getCompanionOrderId()))
                 throw new BusinessException("同一申请凭据不能用于不同内容");
             return result(record,old);
         }
@@ -247,6 +249,7 @@ public class ApprovedBarrelReturnService {
         detail.setRequiredBarrels(dto.getQuantity()-reservation.getPickupQty()); detail.setNote(dto.getNote());
         try { detailMapper.insert(detail); }
         catch (DuplicateKeyException e) { throw new BusinessException("该申请已提交，请查看原申请"); }
+        if (arrangementMapper.insert(detail)!=1) throw new BusinessException("原申请安排凭据未保存");
         BigDecimal amount = ledger.holdReturnLots(customerId,dto.getStationId(),dto.getProductId(),dto.getQuantity(),record.getId());
         Set<Integer> channels=new HashSet<>();
         for(Map<String,Object> held:detailMapper.heldLots(record.getId())) {
@@ -269,6 +272,7 @@ public class ApprovedBarrelReturnService {
         ledger.lockRights(record.getCustomerId(),stationId,record.getProductId());
         BarrelReturnDetail detail = requireDetail(id);
         if (!"APPLIED".equals(detail.getStatus())) throw new BusinessException("该申请已审批，请查看结果");
+        requireArrangementVersion(detail,dto.getExpectedVersion());
         BigDecimal fee = dto.getPickupFee();
         if (fee == null || fee.signum()<0 || fee.compareTo(new BigDecimal("10000"))>0) throw new BusinessException("取桶费用不合法");
         if ((!"PICKUP".equals(detail.getPickupMode()) || detail.getRequiredBarrels()==0) && fee.signum()!=0)
@@ -289,18 +293,101 @@ public class ApprovedBarrelReturnService {
 
     /** 顾客确认应退金额及交接安排；这一确认不宣称资金已到账。 */
     @Transactional
-    public void confirm(Long id, Long customerId) {
+    public void confirm(Long id, Long customerId, Integer expectedVersion) {
         BarrelRecord record = recordMapper.getById(id);
         if (record==null || !Objects.equals(customerId,record.getCustomerId())) throw new BusinessException("申请不属于当前客户");
         ledger.lockRights(customerId,record.getStationId(),record.getProductId());
         BarrelReturnDetail detail = requireDetail(id);
         if (!"APPROVED".equals(detail.getStatus())) throw new BusinessException("请等待水站批准取桶安排");
+        requireArrangementVersion(detail,expectedVersion);
         if ("COMBINED".equals(detail.getPickupMode())) requireCompanion(customerId,record.getStationId(),detail.getCompanionOrderId());
-        if (detail.getCustomerConfirmedTime()!=null) return;
-        if (detailMapper.confirmCustomer(id)!=1) throw new BusinessException("申请状态已变化");
+        if (detail.getCustomerConfirmationCurrent()) return;
+        // 联表更新同时保存确认时间与当前版本，MySQL可计为两张表各一行；0才是CAS未命中。
+        int confirmedRows=detailMapper.confirmCustomer(id,detail.getArrangementVersion());
+        if (confirmedRows<1 || confirmedRows>2) throw new BusinessException("申请状态已变化");
     }
 
-    /** 新申请的老审批入口委托到这里，防止绕过批准和双确认。 */
+    /** 客户本人明确选择安排，保留原申请和原款凭据；新增服务费仍由批准后另行授权。 */
+    @Transactional
+    public Map<String,Object> changeByCustomer(Long id,Long customerId,BarrelReturnArrangementDTO dto) {
+        BarrelRecord record=recordMapper.getById(id);
+        if(record==null || record.getType()!=2 || !Objects.equals(customerId,record.getCustomerId()))throw new BusinessException("申请不属于当前客户");
+        return changeArrangement(record,dto,false,customerId);
+    }
+
+    /** 归属站站长只能提出新安排；原客户确认不继承到新版本。 */
+    @Transactional
+    public Map<String,Object> changeByStation(Long id,Long stationId,Long operatorId,BarrelReturnArrangementDTO dto) {
+        return changeArrangement(owned(id,stationId),dto,true,operatorId);
+    }
+
+    private Map<String,Object> changeArrangement(BarrelRecord record,BarrelReturnArrangementDTO dto,boolean proposedByStation,Long actorId) {
+        String mode=dto.getPickupMode(), key=dto.getIdempotencyKey()==null?"":dto.getIdempotencyKey().trim();
+        String reason=dto.getReason()==null?"":dto.getReason().trim();
+        if(!Set.of("STORE","PICKUP","COMBINED").contains(mode==null?"":mode) || dto.getExpectedVersion()==null || dto.getExpectedVersion()<1
+                || key.isEmpty() || key.length()>64 || reason.isEmpty() || reason.length()>200)throw new BusinessException("请明确新方式、当前版本、变更原因和操作凭据");
+        if(!"COMBINED".equals(mode) && dto.getCompanionOrderId()!=null)throw new BusinessException("到店或独立上门不能关联送水订单");
+        String actor=(proposedByStation?"staff:":"customer:")+actorId;
+        String digest=arrangementDigest(dto,reason);
+        Map<String,Object> saved=arrangementMapper.replay(record.getId(),actor,key);
+        if(saved!=null) {
+            if(!Objects.equals(digest,saved.get("requestDigest")))throw new BusinessException("同一操作凭据不能用于不同安排");
+            return result(record,detailMapper.get(record.getId()));
+        }
+        // 顺路单先锁订单再锁桶账，与订单取消一致；不能把瞬间已取消的单设成新安排。
+        if("COMBINED".equals(mode)) {
+            if(dto.getCompanionOrderId()==null || dto.getCompanionOrderId()<1)throw new BusinessException("请选择明确的送水订单");
+            Orders order=orderMapper.getByIdForUpdate(dto.getCompanionOrderId());
+            if(order==null || !Objects.equals(order.getCustomerId(),record.getCustomerId()) || !Objects.equals(order.getStationId(),record.getStationId())
+                    || !OrderStatus.isCancellable(order.getStatus()))throw new BusinessException("请选择本客户、本水站仍在配送中的送水订单");
+        }
+        ledger.lockRights(record.getCustomerId(),record.getStationId(),record.getProductId());
+        BarrelReturnDetail detail=requireDetail(record.getId());
+        // 已持有申请锁后用当前读，不能在 RR 的旧快照里漏掉刚提交的同键操作。
+        Map<String,Object> replay=arrangementMapper.replayForUpdate(record.getId(),actor,key);
+        if(replay!=null) {
+            if(!Objects.equals(digest,replay.get("requestDigest")))throw new BusinessException("同一操作凭据不能用于不同安排");
+            return result(record,detail);
+        }
+        requireArrangementVersion(detail,dto.getExpectedVersion());
+        if(!Set.of("APPLIED","APPROVED").contains(detail.getStatus()))throw new BusinessException("已经实际交接或结束的申请不能更改安排");
+        if(Objects.equals(mode,detail.getPickupMode()) && Objects.equals(dto.getCompanionOrderId(),detail.getCompanionOrderId()))throw new BusinessException("安排未改变，请选择新方式或送水订单");
+        // 已收取服务费只能先走既有真实退款；这里不代付、不退款、不覆盖旧流水。
+        if(detail.getFeePaymentId()!=null && paymentLocks.lockPayment(detail.getFeePaymentId()).getStatus()==PaymentStatus.PAID)
+            throw new BusinessException("原安排已收取服务费，请先由水站按原款实际退款，再变更安排");
+        String before=arrangementSnapshot(detail);
+        cancelUnpaidFee(detail);
+        if(arrangementMapper.advance(record.getId(),dto.getExpectedVersion(),proposedByStation)!=1
+                || detailMapper.changeArrangement(record.getId(),mode,dto.getCompanionOrderId())!=1)throw new BusinessException("安排已变化，请重新核对原申请");
+        BarrelReturnDetail changed=requireDetail(record.getId());
+        if(arrangementMapper.record(record.getId(),changed.getArrangementVersion(),actor,actorId,key,digest,reason,before,arrangementSnapshot(changed))!=1)
+            throw new BusinessException("安排变更凭据未保存，本次变更已回滚");
+        return result(record,detailMapper.get(record.getId()));
+    }
+
+    private void requireArrangementVersion(BarrelReturnDetail detail,Integer expected) {
+        Integer actual=detail.getArrangementVersion();
+        if(actual==null || (expected==null?actual!=1:!actual.equals(expected)))throw new BusinessException("安排已更新，请查看最新方式、费用后重新确认");
+    }
+
+    private String arrangementDigest(BarrelReturnArrangementDTO dto,String reason) {
+        try {
+            String body=json.writeValueAsString(Arrays.asList(dto.getPickupMode(),dto.getCompanionOrderId(),dto.getExpectedVersion(),reason));
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(body.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch(Exception e) {throw new IllegalStateException("无法保存安排操作凭据",e);}
+    }
+
+    private String arrangementSnapshot(BarrelReturnDetail detail) {
+        Map<String,Object> snapshot=new LinkedHashMap<>();
+        snapshot.put("pickupMode",detail.getPickupMode());snapshot.put("companionOrderId",detail.getCompanionOrderId());snapshot.put("pickupFee",detail.getPickupFee());
+        snapshot.put("feePaymentId",detail.getFeePaymentId());snapshot.put("status",detail.getStatus());snapshot.put("version",detail.getArrangementVersion());
+        snapshot.put("requiresConfirmation",detail.getCustomerConfirmationRequired());snapshot.put("confirmedVersion",detail.getCustomerConfirmedVersion());
+        snapshot.put("customerConfirmedTime",detail.getCustomerConfirmedTime()==null?null:detail.getCustomerConfirmedTime().toString());
+        snapshot.put("approvedTime",detail.getApprovedTime()==null?null:detail.getApprovedTime().toString());
+        try {return json.writeValueAsString(snapshot);} catch(tools.jackson.core.JacksonException e) {throw new IllegalStateException("无法保存安排变更快照",e);}
+    }
+
+    /** 老审批入口委托新申请流程，守住批准、收费授权和真实交接。 */
     @Transactional
     public void handle(Long id, Long stationId, Integer status, String note, Long operatorId,
                        String refundChannel, Long refundPaidBy) {
@@ -323,7 +410,7 @@ public class ApprovedBarrelReturnService {
         }
         if (Integer.valueOf(2).equals(status)) { receive(record,detail,operatorId,note); return; }
         if (!Integer.valueOf(3).equals(status) || !"RECEIVED".equals(detail.getStatus()))
-            throw new BusinessException("请先完成批准、客户确认和实际交接，再退押金");
+            throw new BusinessException("请先完成批准、必要的费用授权和实际交接，再退押金");
         checkRisk(record.getCustomerId(),stationId);
         String channel = BarrelRefundDTO.normalizeChannel(refundChannel);
         if (channel==null) throw new BusinessException("请选择有效退款方式");
@@ -369,8 +456,11 @@ public class ApprovedBarrelReturnService {
     }
 
     private void receive(BarrelRecord record, BarrelReturnDetail detail, Long operatorId, String note) {
-        if (!"APPROVED".equals(detail.getStatus()) || detail.getCustomerConfirmedTime()==null)
-            throw new BusinessException("请先批准申请并由客户确认交接安排");
+        if (!"APPROVED".equals(detail.getStatus()))
+            throw new BusinessException("请先批准退还申请");
+        // 2026-10-08：免费原安排不卡收桶；新增费用/水站新安排保留授权，不伪造客户确认。
+        if (detail.getCustomerConfirmationRequired() && !detail.getCustomerConfirmationCurrent())
+            throw new BusinessException("请先由客户确认新增费用或水站提出的新安排");
         if ("COMBINED".equals(detail.getPickupMode())) requireCompanion(record.getCustomerId(),record.getStationId(),detail.getCompanionOrderId());
         if (detail.getFeePaymentId()!=null && paymentMapper.getById(detail.getFeePaymentId()).getStatus()!=PaymentStatus.PAID)
             throw new BusinessException("请先确认实际收到独立上门收桶费");
@@ -398,7 +488,7 @@ public class ApprovedBarrelReturnService {
         Orders order = orderId==null ? null : orderMapper.getById(orderId);
         if (order==null || !Objects.equals(order.getCustomerId(),customerId) || !Objects.equals(order.getStationId(),stationId)
                 || order.getStatus()==OrderStatus.CANCELLED)
-            throw new BusinessException("顺路送水订单已取消，请撤回申请后重新选择到店或上门安排");
+            throw new BusinessException("顺路送水订单已取消，请在原退还申请中更改收桶方式或关联订单");
         return order;
     }
     private BarrelRecord owned(Long id,Long stationId) {

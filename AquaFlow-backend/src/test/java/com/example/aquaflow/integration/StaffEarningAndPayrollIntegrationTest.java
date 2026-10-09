@@ -131,11 +131,11 @@ class StaffEarningAndPayrollIntegrationTest extends AbstractIntegrationTest {
 
         // 造三笔未结算收益（走人工调整入口，同时也验证了"允许自带符号"）
         assertEquals(0, post("/api/manager/payroll/adjust", mgr,
-                "{\"staffId\":" + delivery + ",\"amount\":100.00,\"note\":\"补上月漏算\"}").code());
+                "{\"staffId\":" + delivery + ",\"amount\":100.00,\"note\":\"补上月漏算\",\"idempotencyKey\":\"payroll-extra-1\"}").code());
         assertEquals(0, post("/api/manager/payroll/adjust", mgr,
-                "{\"staffId\":" + delivery + ",\"amount\":-20.00,\"note\":\"上月多算\"}").code());
+                "{\"staffId\":" + delivery + ",\"amount\":-20.00,\"note\":\"上月多算\",\"idempotencyKey\":\"payroll-extra-2\"}").code());
         assertEquals(0, post("/api/manager/payroll/adjust", mgr,
-                "{\"staffId\":" + delivery + ",\"amount\":5.50,\"note\":\"临时帮忙\"}").code());
+                "{\"staffId\":" + delivery + ",\"amount\":5.50,\"note\":\"临时帮忙\",\"idempotencyKey\":\"payroll-extra-3\"}").code());
         assertEquals(0, new BigDecimal("85.50").compareTo(
                         decimalOf("SELECT COALESCE(SUM(amount),0) FROM staff_earning WHERE staff_id=? AND payroll_id IS NULL",
                                 delivery)), "三笔未结算合计 100 - 20 + 5.50 = 85.50");
@@ -213,7 +213,7 @@ class StaffEarningAndPayrollIntegrationTest extends AbstractIntegrationTest {
 
         // 人工调整必须拒绝 0 金额（没有记录价值，也不该占位）
         assertNotEquals(0, post("/api/manager/payroll/adjust", a,
-                "{\"staffId\":" + mgrA + ",\"amount\":0}").code(), "调整金额 0 必须被拒");
+                "{\"staffId\":" + mgrA + ",\"amount\":0,\"idempotencyKey\":\"payroll-zero\"}").code(), "调整金额 0 必须被拒");
     }
 
     /**

@@ -3,6 +3,7 @@
 // 路径常量写在本文件里，理由同上。
 const { get, post, put, del } = require('../../../utils/request')
 const { itemUnit } = require('../../../utils/order-item-view')
+const adjustmentIntent = require('../../../utils/payroll-adjust-intent')
 
 const PIECE_RATE = '/api/manager/piece-rate'
 const EARNINGS = '/api/manager/earnings'
@@ -173,7 +174,28 @@ Page({
       return
     }
     this.setData({ stationId, isManager: true })
-    this.loadAll()
+    this.loadAll().then(() => this.restoreAdjustmentIntent())
+  },
+
+  adjustmentActor() {
+    const info = getApp().globalData.userInfo || {}
+    return String(this.data.stationId) + ':' + String(info.staffId || info.id || info.userId)
+  },
+
+  // 2026-10-08：响应丢失后重开页须恢复原编号和内容，不能把同一笔工资重新录成第二笔。
+  restoreAdjustmentIntent() {
+    if (!this.canManage() || this._payrollGone) return
+    const value = adjustmentIntent.pending(this.adjustmentActor())
+    if (!value || !value.input) return
+    const input = value.input
+    if (input.itemId == null) {
+      this.setData({ tab: 'settle', adjustForm: { staffId: input.staffId, amount: String(input.amount), note: input.note || '' } })
+    } else {
+      const item = this.data.items.find(row => row.id === input.itemId)
+      this.setData({ tab: 'items', record: { itemId: input.itemId, itemName: item ? item.name : '原工资条目',
+        directionText: item ? item.directionText : '', staffId: input.staffId, amount: String(input.amount), note: input.note || '' } })
+    }
+    wx.showToast({ title: '已恢复待确认的工资，请原样重试', icon: 'none' })
   },
 
   onHide() { this._payrollGone = true; this.invalidatePayrollReads() },
@@ -711,12 +733,17 @@ Page({
       return
     }
     this.setData({ adjusting: true })
+    let intent
     try {
-      await post(PAYROLL + '/adjust', { staffId: f.staffId, amount, note: f.note || null })
+      intent = adjustmentIntent.prepare(this.adjustmentActor(),
+        { staffId: f.staffId, amount, note: f.note || null })
+      await post(PAYROLL + '/adjust', adjustmentIntent.payload(intent))
+      adjustmentIntent.clear(intent)
       wx.showToast({ title: '已调整', icon: 'success' })
       this.setData({ 'adjustForm.amount': '', 'adjustForm.note': '' })
       await this.loadAll()
     } catch (err) {
+      if (intent && err.businessRejected) adjustmentIntent.clear(intent)
       wx.showToast({ title: err.message || '调整失败', icon: 'none' })
     } finally {
       this.setData({ adjusting: false })
@@ -928,7 +955,10 @@ Page({
     const f = this.data.record
     if (!f) return
     const item = this.data.items.find(it => it.id === f.itemId)
-    if (!item || !item.enabled) { wx.showToast({ title: '该条目已停用，请重新选择', icon: 'none' }); return }
+    const pending = adjustmentIntent.pending(this.adjustmentActor())
+    if ((!item || !item.enabled) && !(pending && pending.input && pending.input.itemId === f.itemId)) {
+      wx.showToast({ title: '该条目已停用，请重新选择', icon: 'none' }); return
+    }
     if (!f.staffId) {
       wx.showToast({ title: '请先选择配送员', icon: 'none' })
       return
@@ -939,18 +969,22 @@ Page({
       return
     }
     this.setData({ recording: true })
+    let intent
     try {
-      await post(PAYROLL + '/adjust', {
+      intent = adjustmentIntent.prepare(this.adjustmentActor(), {
         staffId: f.staffId,
         itemId: f.itemId,
         amount,
         note: f.note || null
       })
+      await post(PAYROLL + '/adjust', adjustmentIntent.payload(intent))
+      adjustmentIntent.clear(intent)
       wx.showToast({ title: '已记录', icon: 'success' })
       // 顺手把下面的明细切到刚记账的这个人，站长不用再选一次
       this.setData({ record: null, summaryStaffId: f.staffId })
       await this.loadSummary()
     } catch (err) {
+      if (intent && err.businessRejected) adjustmentIntent.clear(intent)
       wx.showToast({ title: err.message || '记账失败', icon: 'none' })
     } finally {
       this.setData({ recording: false })

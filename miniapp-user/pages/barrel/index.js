@@ -1,35 +1,32 @@
-const { getBarrelSummary, getBarrelRecords, getBarrelSummaryByType, requestBarrelReturn, previewBarrelReturn, confirmBarrelReturn, withdrawBarrelReturn } = require('../../api/barrel')
+const { getBarrelSummary, getBarrelRecords, getBarrelSummaryByType, requestBarrelReturn, previewBarrelReturn, confirmBarrelReturn, changeBarrelReturnArrangement, withdrawBarrelReturn } = require('../../api/barrel')
+const { captureSession, isCurrentSession } = require('../../utils/token')
 const { getOrders } = require('../../api/order')
-const { stationStorage } = require('../../utils/storage')
+const assetViewStation = require('../../utils/asset-view-station')
 // 「当前服务水站」的**统一解析入口**（本地 → 回落 /api/orders/my-station）。
 // 本页原先直接用 stationStorage.getId()，少了回落那一级：下过单但没在首页选过站的顾客
 // 会被判成"没选水站"，而其实他的水站是查得出来的（utils/station.js 文件头写了为什么统一到这里）。
 const { resolveStationId } = require('../../utils/station')
+const accountNumber = value => {
+  if (!['number', 'string'].includes(typeof value) || typeof value === 'string' && !value.trim()) return null
+  return Number.isFinite(Number(value)) ? Number(value) : null
+}
+const accountQuantity = value => { const n = accountNumber(value); return n !== null && Number.isSafeInteger(n) && n >= 0 ? n : null }
 
 Page({
   data: {
     loading: true,
-    // 占位初值：真实数据由 getBarrelSummary 整体替换。
+    // null 是未加载；成功读取后才显示数值，失败不能冒充零资产。
     // [2026-09-16] 字段名必须与后端 BarrelServiceImpl.getBarrelSummary 的下发键一致 ——
     // 这里原先留着已删除的 deliveryBuckets（含已送达行，口径错误，后端已移除），
     // 会让后来者以为它是有效字段。配送中请一律用 pendingDeliveryBuckets。
     // 2026-10-07：旧“权益=已到手”只描述历史送达建权益路径；新购先形成有效容量。
     // held 含遗留配送中；occupied=权益汇总+over 是账面 H，不是活动用途占用。
-    // availableRights 扣活动用途和遗留占用，不能当物理数；现“实际在手”标签待业务核对，见 design/36 §5.4。
-    summary: {
-      heldBuckets: 0,
-      rightBuckets: 0,
-      owedBuckets: 0,
-      pendingDeliveryBuckets: 0,
-      occupiedBuckets: 0,
-      storageBuckets: 0,
-      returnBuckets: 0,
-      actualBuckets: 0,
-      pendingReturns: 0,
-      confirmedReturns: 0,
-      depositBalance: 0,
-      depositPerBucket: 0
-    },
+    // availableRights 扣活动用途和遗留占用，不能当物理数；账面 H 也不称作实物盘点。
+    summary: null,
+    summaryFailed: false,
+    holdingsFailed: false,
+    recordsFailed: false,
+    expandedProductId: null,
     records: [],
     customerBarrelAsset: [],
     // 当前水站名（页面顶部提示条用）：桶权益与押金按站隔离，必须让客户看见这是哪个站的账
@@ -52,33 +49,35 @@ Page({
     submitting: false
   },
 
-  onLoad() {
-    this.loadData()
-  },
+  onLoad(options) { assetViewStation.init(this, options) },
 
   onShow() {
-    this.loadData()
+    assetViewStation.activate(this)
+    this._arrangementHidden = false
+    this._arrangementLife = (this._arrangementLife || 0) + 1
+    return this.loadData()
   },
+
+  onHide() { assetViewStation.suspend(this); this._arrangementHidden = true; this._arrangementLife = (this._arrangementLife || 0) + 1 },
+  onUnload() { this.onHide() },
 
   onPullDownRefresh() {
     this.loadData().then(() => wx.stopPullDownRefresh())
   },
 
   async loadData() {
-    // 优先读取本地存储的水站
-    let stationId = stationStorage.getId()
-    // 站名供顶部提示条使用：同 pages/deposit/records 的做法（选站时就把整个 station 存下来了）
-    const station = stationStorage.get()
-
-    this.setData({ loading: true, stationName: (station && station.name) || '' })
+    const context = assetViewStation.beginRead(this)
+    const stationId = context.stationId
+    this.setData({ loading: true, summary: null, records: [], customerBarrelAsset: [],
+      summaryFailed: false, holdingsFailed: false, recordsFailed: false, loadError: '', maxReturnQty: 0 })
+    if (!stationId) { this.setData({ loading: false, summaryFailed: true, holdingsFailed: true, recordsFailed: true,
+      loadError: '请在上方选择要查看的资产水站' }); return }
     try {
       // [2026-09-20 真机联调] 原来三个请求各自 `.catch(e => { console.warn(...); return null })`，
       // 失败被吞成 null → 页面照常渲染「权益 0 · 占用 0」，与"这客户确实没有桶"完全无法区分
       // （AGENTS §8.22）。弱网/后端没起时顾客会以为自己一张桶都没有。
-      // 现在失败照旧降级（部分成功仍然可用），但**必须出声**：页面顶部提示 + toast。
-      let failedCount = 0
+      // 部分成功仍然可用；失败部分已清空，显示失败与重试。
       const softCatch = (tag) => (e) => {
-        failedCount++
         console.warn('[Barrel] ' + tag + ' 失败:', e.message)
         return null
       }
@@ -87,22 +86,39 @@ Page({
         getBarrelRecords(stationId).catch(softCatch('getBarrelRecords')),
         getBarrelSummaryByType(stationId).catch(softCatch('getBarrelSummaryByType'))
       ])
-      if (failedCount > 0) {
-        this.setData({ loadError: '桶数据有 ' + failedCount + ' 项没加载出来，下面数字可能不准' })
+      if (!assetViewStation.current(this, context)) return
+      const rawSummary = summaryRes && summaryRes.data
+      const summaryOK = !!(summaryRes && summaryRes.code === 0 && rawSummary && typeof rawSummary === 'object'
+        && !Array.isArray(rawSummary) && accountNumber(rawSummary.depositBalance) !== null
+        && accountQuantity(rawSummary.owedBuckets) !== null
+        && accountQuantity(rawSummary.independentRights ? rawSummary.rightBuckets : rawSummary.heldBuckets) !== null
+        && (!rawSummary.independentRights || accountQuantity(rawSummary.availableRights) !== null))
+      const recordsOK = !!(recordsRes && recordsRes.code === 0 && Array.isArray(recordsRes.data))
+      const holdingsOK = !!(holdingsRes && holdingsRes.code === 0 && Array.isArray(holdingsRes.data)
+        && holdingsRes.data.every(h => h && (h.productId || h.waterTypeId)
+          && ['assetQty', 'heldTotalQty', 'inTransitQty', 'occupiedQty', 'owedQty', 'storageQty', 'availableRights']
+            .every(k => accountQuantity(h[k]) !== null)))
+      this.setData({ summaryFailed: !summaryOK, recordsFailed: !recordsOK, holdingsFailed: !holdingsOK })
+      if (!summaryOK || !recordsOK || !holdingsOK) {
+        this.setData({ loadError: '部分桶与押金数据暂未加载；未加载项不代表 0，请重试' })
         wx.showToast({ title: '桶数据加载不完整，请下拉刷新', icon: 'none' })
       } else {
         this.setData({ loadError: '' })
       }
 
-      if (summaryRes && summaryRes.data) {
-        this.setData({ summary: summaryRes.data })
+      if (summaryOK) {
+        const summary = { ...summaryRes.data }
+        ;['heldBuckets', 'rightBuckets', 'owedBuckets', 'pendingDeliveryBuckets', 'occupiedBuckets',
+          'storageBuckets', 'pendingReturns', 'availableRights'].forEach(k => { summary[k] = accountQuantity(summary[k]) })
+        summary.depositBalance = accountNumber(summary.depositBalance)
+        this.setData({ summary })
       }
-      if (recordsRes && recordsRes.data) {
+      if (recordsOK) {
         this.setData({ records: recordsRes.data })
       }
 
       let holdings = []
-      if (holdingsRes && holdingsRes.data) {
+      if (holdingsOK) {
         holdings = holdingsRes.data
       }
 
@@ -116,26 +132,27 @@ Page({
             productId: pid,
             productName: h.productName || h.waterTypeName || '',
             productSpec: h.productSpec || h.waterTypeSpec || '',
+            independentRights: h.independentRights === true,
             assetQty: 0,
             heldTotalQty: 0,
             inTransitQty: 0,
             occupiedQty: 0,
             owedQty: 0,
             storageQty: 0,
-            deposit: h.deposit || 0
+            deposit: accountNumber(h.deposit)
           }
         }
         // 后端一行即一个商品，这里的累加是防御性写法（历史上有按 holding 多条返回的版本）。
         // 各字段口径见 BarrelServiceImpl.getBarrelSummaryByType 的注释；
-        // 缺少 heldTotalQty/occupiedQty 时回退到 assetQty（只影响展示与上限，不参与下单抵扣）。
-        const base = h.assetQty != null ? h.assetQty : ((h.holdingQty || 0) - (h.confirmedQty || 0))
-        map[pid].availableRights = h.availableRights != null ? h.availableRights : base
+        // 必需数量缺失已在 holdingsOK 拒绝，不能猜成资产量或真实 0。
+        const base = Number(h.assetQty)
+        map[pid].availableRights = (map[pid].availableRights || 0) + Number(h.availableRights)
         map[pid].assetQty += base
-        map[pid].heldTotalQty += (h.heldTotalQty != null ? h.heldTotalQty : base)
-        map[pid].inTransitQty += (h.inTransitQty || 0)
-        map[pid].occupiedQty += (h.occupiedQty != null ? h.occupiedQty : base)
-        map[pid].owedQty += (h.owedQty || 0)
-        map[pid].storageQty += (h.storageQty || 0)
+        map[pid].heldTotalQty += Number(h.heldTotalQty)
+        map[pid].inTransitQty += Number(h.inTransitQty)
+        map[pid].occupiedQty += Number(h.occupiedQty)
+        map[pid].owedQty += Number(h.owedQty)
+        map[pid].storageQty += Number(h.storageQty)
       })
       Object.keys(map).forEach(k => customerBarrelAsset.push(map[k]))
 
@@ -146,6 +163,7 @@ Page({
       //（BarrelLedgerService：qty <= rightQty + over）。用持有当上限会在有在途桶时
       // 允许多报，提交后被后端以「交回数超过该客户当前持有数」拒绝 —— 顾客以为是 bug。
       // 历史路径再减待处理申请；新路径扣活动用途后的可用权益已由后端下发，不在此重复扣。
+      if (!summaryOK || !holdingsOK) return
       const { occupiedBuckets, rightBuckets, pendingReturns } = this.data.summary
       const ceiling = occupiedBuckets !== undefined && occupiedBuckets !== null
         ? occupiedBuckets
@@ -153,8 +171,19 @@ Page({
       this.setData({ maxReturnQty: Math.max(0, (ceiling || 0) - (pendingReturns || 0)) })
       if (this.data.summary.independentRights) this.setData({ maxReturnQty: this.data.summary.availableRights || 0 })
     } finally {
-      this.setData({ loading: false })
+      if (assetViewStation.current(this, context)) this.setData({ loading: false })
     }
+  },
+
+  onRetryAssets() { return this.loadData() },
+  onAssetStationChange(e) {
+    if (!assetViewStation.select(this, e.detail)) return
+    this.setData({ showReturnModal: false, preview: null, previewHint: '', previewing: false, expandedProductId: null })
+    return this.loadData()
+  },
+  onToggleBarrelDetail(e) {
+    const id = Number(e.currentTarget.dataset.id)
+    this.setData({ expandedProductId: this.data.expandedProductId === id ? null : id })
   },
 
   onShowReturnModal() {
@@ -207,23 +236,25 @@ Page({
       this.setData({ preview: null, previewHint: '' })
       return
     }
-    const stationId = await resolveStationId()
+    const context = assetViewStation.beginRead(this, 'preview')
+    const stationId = context.stationId || await resolveStationId()
+    if (!assetViewStation.current(this, context)) return
     if (!stationId) {
       // 不发请求，并把原因**写在试算框里**（比只弹一次 toast 更持久，顾客回头还能看到）
-      this.setData({ preview: null, previewHint: '要算能退多少押金，得先选服务水站：回首页点顶部水站名选一个。' })
+      this.setData({ preview: null, previewHint: '请先在本页上方选择要办理的资产水站。' })
       wx.showToast({ title: '请先选择服务水站', icon: 'none' })
       return
     }
     this.setData({ previewing: true, previewHint: '' })
     try {
       const res = await previewBarrelReturn(productId, quantity, stationId)
-      this.setData({ preview: (res && res.data) || null })
+      if (assetViewStation.current(this, context)) this.setData({ preview: (res && res.data) || null })
     } catch (e) {
       // 出声，但**别把技术原因糊给顾客**：后端给的话术已经面向用户，优先用它。
       console.warn('[Barrel] 退桶试算失败:', e.message)
-      this.setData({ preview: null, previewHint: (e && e.message) || '暂时算不出能退多少，请稍后重试' })
+      if (assetViewStation.current(this, context)) this.setData({ preview: null, previewHint: (e && e.message) || '暂时算不出能退多少，请稍后重试' })
     } finally {
-      this.setData({ previewing: false })
+      if (assetViewStation.current(this, context)) this.setData({ previewing: false })
     }
   },
 
@@ -281,7 +312,9 @@ Page({
     // 拿不到站就**别发请求** —— 后端只会回一句「请先选择服务水站」，让顾客白等一次失败。
     // [2026-09-27] 与 refreshPreview 统一走 resolveStationId()：多一级「上次下单的水站」回落，
     // 少一次"明明查得到却提示没选站"。
-    const stationId = await resolveStationId()
+    const context = assetViewStation.beginRead(this, 'returnSubmit')
+    const stationId = context.stationId || await resolveStationId()
+    if (!assetViewStation.current(this, context)) return
     if (!stationId) {
       wx.showToast({ title: '请先选择服务水站', icon: 'none' })
       return
@@ -296,13 +329,14 @@ Page({
       wx.setStorageSync('barrel-return-intent', { intent, key })
       await requestBarrelReturn(productId, quantity, note, stationId, { idempotencyKey: key,
         pickupMode: returnForm.pickupMode || 'STORE', companionOrderId: returnForm.companionOrderId || null })
+      if (!assetViewStation.current(this, context)) return
       wx.removeStorageSync('barrel-return-intent')
       wx.showToast({ title: '退桶申请已提交', icon: 'success' })
       this.setData({ showReturnModal: false })
       this.loadData()
     } catch (error) {
       console.error('[Barrel] 退桶失败:', error)
-      wx.showToast({ title: '提交失败: ' + (error.message || '请稍后重试'), icon: 'none', duration: 3000 })
+      if (assetViewStation.current(this, context)) wx.showToast({ title: '提交失败: ' + (error.message || '请稍后重试'), icon: 'none', duration: 3000 })
     } finally {
       this.setData({ submitting: false })
     }
@@ -323,11 +357,11 @@ Page({
   },
 
   // 押金流水入口（本页顶部「押金」格子）。余额与流水必须取同一个水站，
-  // 两边都读 stationStorage.getId()，否则客户会看到"余额没变但流水在动"。
+  // 两边都传独立资产查看站，否则客户会看到"余额没变但流水在动"。
   onDepositRecords() {
-    wx.navigateTo({ url: '/pages/deposit/records/index' })
+    wx.navigateTo({ url: assetViewStation.url(this, '/pages/deposit/records/index') })
   },
-  onPurchaseRights() { wx.navigateTo({ url: '/pages/barrel/purchase' }) },
+  onPurchaseRights() { wx.navigateTo({ url: assetViewStation.url(this, '/pages/barrel/purchase') }) },
   onRefundFeedback(e) {
     const record = this.data.records.find(r => r.id === Number(e.currentTarget.dataset.id))
     if (record && record.statusText) wx.navigateTo({ url: '/pages/service/index?refundType=BARREL_RETURN&refundId=' + record.id })
@@ -336,34 +370,85 @@ Page({
     const record = this.data.records.find(r => r.id === Number(e.currentTarget.dataset.id))
     if (!record || !record.returnDetail) return
     const detail = record.returnDetail
-    wx.showModal({ title: '确认退桶安排', content: '退押金 ¥' + record.depositRefund + '；需交回 ' + detail.requiredBarrels + ' 个桶；' + detail.pickupModeText + '；另付取桶费 ¥' + detail.pickupFee + '。按批准的安排交桶，实际退款另行确认。',
+    if (this._returnConfirmFlight || detail.status !== 'APPROVED' || detail.customerConfirmationRequired === false || detail.customerConfirmationCurrent) return
+    const session=captureSession(), version=detail.arrangementVersion, life=this._arrangementLife || 0
+    if (!Number.isInteger(version) || version < 1) return
+    const current = () => !this._arrangementHidden && life === (this._arrangementLife || 0) && isCurrentSession(session)
+    this._returnConfirmFlight = true
+    wx.showModal({ title: '确认取桶费与安排', content: '退押金 ¥' + record.depositRefund + '；需交回 ' + detail.requiredBarrels + ' 个桶；' + detail.pickupModeText + '；另付取桶费 ¥' + detail.pickupFee + '。交接后由水站按原渠道实际退款；如未收到，可提出异议。',
       success: async (res) => {
-        if (!res.confirm) return
-        try { await confirmBarrelReturn(record.id); await this.loadData() }
-        catch (err) { wx.showToast({ title: err.message || '确认失败', icon: 'none' }) }
-      } })
+        if (!res.confirm || !current()) { this._returnConfirmFlight = false; return }
+        try { await confirmBarrelReturn(record.id, version); if (current()) await this.loadData() }
+        catch (err) { if (current()) wx.showToast({ title: err.message || '确认失败', icon: 'none' }) }
+        finally { this._returnConfirmFlight = false }
+      }, fail: () => { this._returnConfirmFlight = false } })
+  },
+  async onReturnArrangement(e) {
+    if (this._arrangementFlight) return
+    const record=this.data.records.find(r => String(r.id) === String(e.currentTarget.dataset.id)), d=record && record.returnDetail
+    if (!d || !['APPLIED','APPROVED'].includes(d.status) || !Number.isInteger(d.arrangementVersion)) return
+    if (d.feePaymentStatus === 2) { wx.showToast({ title: '请先联系水站按原款退还旧服务费，再更改安排', icon: 'none' }); return }
+    const session=captureSession(), life=this._arrangementLife || 0, current=() => !this._arrangementHidden && life === (this._arrangementLife || 0) && isCurrentSession(session)
+    this._arrangementFlight=true
+    try {
+      const picked=await this.arrangementDialog({ itemList: ['到店退桶','单独上门收桶（新费用另行确认）','随送水订单顺路收桶'] }, true)
+      if (!picked || !current()) return
+      const mode=['STORE','PICKUP','COMBINED'][picked.tapIndex]
+      if (!mode) return
+      let companionOrderId=null
+      if (mode === 'COMBINED') {
+        const response=await getOrders({ stationId: record.stationId, page: 1, pageSize: 500 })
+        if (!current()) return
+        const data=response.data, rows=(Array.isArray(data)?data:data && data.records || [])
+          .filter(o => String(o.stationId) === String(record.stationId) && (o.status === 1 || o.status === 2))
+        if (!rows.length) { wx.showToast({ title: '暂无进行中的送水订单，可选择到店或独立上门', icon: 'none' }); return }
+        const selected=await this.arrangementDialog({ itemList: rows.map(o => '订单 ' + (o.orderNo || o.id)) }, true)
+        if (!selected || !current() || !rows[selected.tapIndex]) return
+        companionOrderId=rows[selected.tapIndex].id
+      }
+      const reason=await this.arrangementDialog({ title: '改为' + ({ STORE:'到店退桶', PICKUP:'单独上门', COMBINED:'随所选订单收桶' })[mode], editable:true, placeholderText:'填写变更原因；水站将重新批准安排', confirmText:'提交更改', content:'' })
+      if (!reason || !current()) return
+      const text=(reason.content || '').trim()
+      if (!text || text.length > 200) { wx.showToast({ title:'请填写200字以内变更原因', icon:'none' }); return }
+      const body={ pickupMode:mode, companionOrderId, expectedVersion:d.arrangementVersion, reason:text, idempotencyKey:'ret-arr-' + Date.now() + '-' + Math.random().toString(36).slice(2) }
+      await changeBarrelReturnArrangement(record.id,body)
+      if (current()) { await this.loadData(); wx.showToast({ title:'原申请安排已更改，等待水站批准', icon:'none' }) }
+    } catch (err) { if (current()) { wx.showToast({ title:err.message || '更改未完成，请核对原申请', icon:'none' }); await this.loadData() } }
+    finally { this._arrangementFlight=false }
+  },
+  arrangementDialog(options,sheet=false) {
+    return new Promise(resolve => wx[sheet?'showActionSheet':'showModal']({ ...options,
+      success:res => resolve(sheet || res.confirm ? res : null), fail:() => resolve(null) }))
   },
   onReturnWithdraw(e) {
+    const record = this.data.records.find(r => String(r.id) === String(e.currentTarget.dataset.id))
+    if (!record) return
+    const context = assetViewStation.beginRead(this, 'withdrawDialog')
     wx.showModal({ title: '撤回退桶申请', content: '尚未交接的申请可撤回，已锁定权益恢复使用。', success: async (res) => {
-      if (!res.confirm) return
-      try { await withdrawBarrelReturn(e.currentTarget.dataset.id); await this.loadData() }
-      catch (err) { wx.showToast({ title: err.message || '撤回失败', icon: 'none' }) }
+      if (!res.confirm || !assetViewStation.current(this, context)) return
+      try { await withdrawBarrelReturn(record.id); if (assetViewStation.current(this, context)) await this.loadData() }
+      catch (err) { if (assetViewStation.current(this, context)) wx.showToast({ title: err.message || '撤回失败', icon: 'none' }) }
     } })
   },
   onPickupMode() {
+    const context = assetViewStation.beginRead(this, 'pickupDialog')
     wx.showActionSheet({ itemList: ['到店退桶', '单独上门收桶（费用须先确认）', '随送水订单顺路收桶'], success: async (res) => {
+      if (!assetViewStation.current(this, context)) return
       const modes = ['STORE', 'PICKUP', 'COMBINED'], texts = ['到店退桶', '单独上门收桶', '随送水订单收桶']
       if (res.tapIndex !== 2) { this.setData({ 'returnForm.pickupMode': modes[res.tapIndex], 'returnForm.pickupModeText': texts[res.tapIndex], 'returnForm.companionOrderId': null }); return }
       try {
-        const stationId = await resolveStationId()
+        const stationId = context.stationId || await resolveStationId()
+        if (!stationId || !assetViewStation.current(this, context)) return
         const response = await getOrders({ stationId, page: 1, size: 100 })
+        if (!assetViewStation.current(this, context)) return
         const rows = (Array.isArray(response.data) ? response.data : (response.data.records || []))
           .filter(o => o.stationId === stationId && (o.status === 1 || o.status === 2))
         if (!rows.length) { wx.showToast({ title: '暂无进行中的送水订单，请选到店或单独上门', icon: 'none' }); return }
         wx.showActionSheet({ itemList: rows.slice(0, 6).map(o => '订单 ' + (o.orderNo || o.id)), success: (picked) => {
+          if (!assetViewStation.current(this, context) || !rows[picked.tapIndex]) return
           this.setData({ 'returnForm.pickupMode': 'COMBINED', 'returnForm.pickupModeText': '随送水订单收桶', 'returnForm.companionOrderId': rows[picked.tapIndex].id })
         } })
-      } catch (err) { wx.showToast({ title: err.message || '订单加载失败', icon: 'none' }) }
+      } catch (err) { if (assetViewStation.current(this, context)) wx.showToast({ title: err.message || '订单加载失败', icon: 'none' }) }
     } })
   },
 

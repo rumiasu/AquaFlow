@@ -195,6 +195,9 @@ public class PaymentController {
         BigDecimal barrelDeposit = dto.getBarrelDeposit() != null ? dto.getBarrelDeposit() : BigDecimal.ZERO;
         Integer excessBarrels = dto.getExcessBarrels() != null ? dto.getExcessBarrels() : 0;
         Integer paymentMethod = dto.getPaymentMethod();
+        if (dto.getTicketProductId() != null || dto.getTicketQty() != null) {
+            return Result.error("订单支付不能附带购票商品或数量，请从购买水票入口办理");
+        }
         Long ticketProductId = dto.getTicketProductId();
         Integer ticketQty = dto.getTicketQty();
         String note = dto.getNote();

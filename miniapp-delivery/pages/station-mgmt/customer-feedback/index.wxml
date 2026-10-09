@@ -6,7 +6,7 @@
   <view class="hint" wx:if="{{!denied}}">
     <!-- [2026-09-24] 去掉"后端暂无回复/处置功能"这类开发措辞：站长需要知道的是
          **"这里只能看，回不了"** —— 不然他会到处找回复按钮。 -->
-    <text>这里汇总顾客提交的反馈。关联退款的记录可追加说明，不会改变退款金额或状态；普通反馈仅供查看。</text>
+    <text>这里汇总顾客反馈与退款争议。水站可登记结果并结案，顾客可重新提出异议；结案不会办理退款或改变金额，普通反馈仅供查看。</text>
     <text>顾客提交时可以选择匿名；匿名反馈不会带上姓名与客户号，只能显示为「匿名顾客」。</text>
   </view>
 
@@ -16,6 +16,26 @@
   </view>
 
   <block wx:else>
+    <view class="fb-card">
+      <text class="category">退款争议</text><text wx:if="{{disputesLoading}}">正在核对…</text>
+      <text class="content" wx:if="{{disputesError}}">{{disputesError}}</text><button wx:if="{{disputesError}}" bindtap="onRetryDisputes">重新核对争议</button>
+      <text wx:if="{{!disputesLoading && !disputesError && !disputes.length}}">暂无退款争议记录</text>
+      <button wx:if="{{disputesMore && !disputesLoading}}" bindtap="onMoreDisputes">继续加载争议记录</button>
+      <view wx:for="{{disputes}}" wx:key="disputeKey">
+        <text class="content">{{item.objectText}} · {{item.statusText}}</text><text class="content" wx:if="{{item.lastResult}}">上一轮结果：{{item.lastResult}}</text>
+        <button data-type="{{item.refundType}}" data-id="{{item.refundId}}" bindtap="onOpenDispute">查看争议与处理</button>
+        <view wx:if="{{selectedDispute && selectedDispute.refundType === item.refundType && selectedDispute.refundId === item.refundId}}">
+          <text class="content" wx:if="{{disputeError}}">{{disputeError}}</text>
+          <block wx:if="{{disputeReady}}">
+            <text class="content">无需顾客确认结案；必须记录核实依据和结果。这里不收退钱，也不取消顾客既有权利。</text>
+            <textarea wx:if="{{selectedDispute.canClose || pendingDispute}}" maxlength="1000" placeholder="核实依据、处理结果与后续安排" value="{{disputeResult}}" bindinput="onDisputeResult" />
+            <button wx:if="{{selectedDispute.canClose || pendingDispute}}" loading="{{disputeSubmitting}}" disabled="{{disputeSubmitting}}" bindtap="onCloseDispute">登记结果并结案</button>
+            <button wx:if="{{pendingDispute}}" disabled="{{disputeSubmitting}}" bindtap="onRetryCloseDispute">重试原结案</button>
+            <view wx:for="{{selectedDispute.actions}}" wx:for-item="entry" wx:key="id"><text class="content">{{entry.actionText}} · {{entry.createTime}}</text><text class="content">{{entry.reason}}</text></view>
+          </block>
+        </view>
+      </view>
+    </view>
     <!-- ① 失败：后端 message 原样展示。这条分支必须与下面的"暂无客户反馈"分开，
          否则接口挂了会看起来像"确实没有反馈"（本仓 §8.22）。 -->
     <view class="state error" wx:if="{{type === 'error'}}">

@@ -24,6 +24,9 @@ public final class AccountClosureCheckSql {
         for(String s:List.of("station_id","delivery_station_id","coalesce(settle_station_id,delivery_station_id,station_id)"))
             r.add(row("orders",s,"FACT","customer_id",s+" is not null","0","0"));
         for(String s:List.of("asset_station_id","debt_station_id")) r.add(row("customer_refusal_case",s,"FACT","customer_id","1=1","0","0"));
+        r.add(row("refund_dispute","responsible_station_id","FACT","customer_id","1=1","0","0"));
+        r.add(row("refund_dispute","responsible_station_id","EXCEPTION_OPEN","customer_id","status='OPEN'","0","0"));
+        r.add(row("refund_dispute","responsible_station_id","MANUAL_REVIEW","customer_id","status is null or status not in ('OPEN','CLOSED')","0","0"));
 
         String moneyStation="coalesce(settle_station_id,delivery_station_id,station_id)";
         r.add(row("orders",moneyStation,"ORDER_OPEN","customer_id","status in (1,2,3)","0","0"));
@@ -85,8 +88,11 @@ public final class AccountClosureCheckSql {
         add(r,"barrel_record","MANUAL_REVIEW","type=2 and (status is null or status not in (1,2,3,4) or (status=3 and refund_paid_time is null))","0","0");
         add(r,"order_barrel_exception","EXCEPTION_OPEN","status is null or status not in ('EXECUTED','IGNORED')","0","0");
         add(r,"station_adjustment","MANUAL_REVIEW","status is null or status not in ('EFFECTIVE','REVERSED','REJECTED')","0","0");
-        r.add(row("customer_refusal_case c left join orders o on o.id=c.order_id","c.asset_station_id","MANUAL_REVIEW","c.customer_id",
-            "o.id is null or o.customer_id<>c.customer_id or (c.asset_freeze_confirmed=1 and o.payment_status=1 and o.status<>5)","0","0"));
+        // A revoked judgment does not clear a different asset station's confirmed freeze; its own release is authoritative.
+        r.add(row("customer_refusal_case c left join orders o on o.id=c.order_id left join customer_refusal_resolution z on z.order_id=c.order_id",
+            "c.asset_station_id","MANUAL_REVIEW","c.customer_id",
+            "o.id is null or o.customer_id<>c.customer_id or (c.asset_freeze_confirmed=1 and coalesce(z.asset_freeze_released,0)=0 and o.payment_status=1 and o.status<>5) "+
+            "or (z.order_id is not null and (z.judgment_revoked not in (0,1) or z.asset_freeze_released not in (0,1)))","0","0"));
         // Completed receipt rows are history. Only an absent/unconfirmed/mismatched outgoing original-channel record blocks.
         for(String table:List.of("consumption_refund","ticket_exit_refund","barrel_return_fee_refund","order_barrel_refund")) {
             r.add(row(table+" x join payment_record p on p.id=x.original_payment_id left join payment_record f on f.id=x.refund_payment_id",

@@ -48,6 +48,19 @@ public class WeChatLoginService {
             "员工端微信登录未配置：请配置 wechat.miniapp.staff-appid / staff-secret"
                     + "（环境变量 WX_STAFF_APP_ID / WX_STAFF_APP_SECRET）";
 
+    /** 员工换码的错误分类；仅调用微信，不写数据库，不返回可继续办理的失败状态。 */
+    public Map<String, Object> staffCode2Session(String code) {
+        try {
+            return code2Session(WeChatApp.STAFF, code);
+        } catch (BusinessException e) {
+            // 保留原业务异常和面向用户的消息，避免重复添加“微信登录失败”前缀。
+            throw e;
+        } catch (RuntimeException e) {
+            // 保留员工端原有的业务错误分类；认证事务收到异常后必须整笔回滚。
+            throw new BusinessException("微信登录失败: " + e.getMessage());
+        }
+    }
+
     /**
      * code2Session：用 wx.login 拿到的 code 换 openid + session_key
      * 文档: https://developers.weixin.qq.com/miniprogram/dev/api-backend/open-api/login/auth.code2Session.html

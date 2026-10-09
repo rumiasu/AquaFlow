@@ -407,6 +407,12 @@ public class TicketAccountServiceImpl implements TicketAccountService {
             // 放在余额校验之前：这笔若已扣成功过，此后余额被别处花掉也不该让重放报"余额不足"。
             TicketRecord existing = ticketRecordMapper.getByCustomerAndIdempotencyKey(customerId, key);
             if (existing != null) {
+                if (!java.util.Objects.equals(existing.getStationId(), stationId)
+                        || !java.util.Objects.equals(existing.getProductId(), productId)
+                        || !java.util.Objects.equals(existing.getDecreaseQty(), qty)
+                        || !java.util.Objects.equals(existing.getOrderId(), orderId)) {
+                    throw new BusinessException("同一扣票编号不能改变水站、商品、数量或订单，请核实原记录");
+                }
                 log.info("[v70] 扣票幂等命中: customerId={}, idempotencyKey={}, recordId={}",
                         customerId, key, existing.getId());
                 return;
@@ -502,7 +508,7 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         // 水票开关关掉、或改了价，重放也应当返回原流水，而不是报"未开启水票"或按新价再建一笔。
         PaymentRecord existing = paymentRecordMapper.getByCustomerAndIdempotencyKeyForUpdate(customerId, key);
         if (existing != null) {
-            // TODO(待拍板)：停业前未付申请是否继续实际付款，选择/差别/改动点见 docs/design/16 C-06。
+            // C-06 已定：保留停业前原申请继续实际付款和原站履行；新申请仍禁止，未知结果仍查原款。正本 docs/design/16 C-06。
             // 此处保留原款查回；新购票的站状态闸门不得冻结或删除既有票/退款凭据。
             com.example.aquaflow.util.TicketPurchaseIntent.requireSame(existing, customerId, stationId,
                     productId, qty, paymentMethod, packageId, unifiedQty);

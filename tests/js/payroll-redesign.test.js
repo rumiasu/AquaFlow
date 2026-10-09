@@ -13,7 +13,7 @@ const deferred = () => { let resolve, reject; const promise = new Promise((a, b)
 const turn = () => new Promise(resolve => setImmediate(resolve))
 
 function fixture(overrides = {}) {
-  const wx = createWx(), writes = [], routes = [], app = createApp({ globalData: { userInfo: { role: 'STATION_MANAGER', stationId: 1 } } })
+  const wx = createWx(), writes = [], routes = [], app = createApp({ globalData: { userInfo: { staffId: 1, role: 'STATION_MANAGER', stationId: 1 } } })
   const data = {
     products: [
       { id: 11, name: '测试用很长的商品名称用于检查换行与勾选区域不会互相遮挡', spec: '18.9L / 多规格组合测试', category: 1, imageUrl: 'https://fixture.invalid/missing.png' },

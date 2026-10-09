@@ -5,10 +5,7 @@
        ③ 其余           —— 列表；records 为空才显示「暂无押金流水」
      ② 与 ③ 必须能一眼区分：「界面空白」和「确实没有」分不开是本仓惯犯（AGENTS.md §8.22）。 -->
 <view class="container">
-  <view class="station-bar" wx:if="{{stationName}}">
-    <text class="station-bar-name">{{stationName}}</text>
-    <text class="station-bar-tip">桶与押金按水站隔离，这里只显示该站的押金流水</text>
-  </view>
+  <asset-station-view id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
 
   <loading wx:if="{{loading}}"></loading>
 

@@ -2,6 +2,7 @@ const { getStationProducts } = require('../../api/product')
 const { quoteBarrelRight, purchaseBarrelRight, getBarrelRightPurchases, withdrawBarrelRightPurchase } = require('../../api/barrel')
 const { resolveStationId } = require('../../utils/station')
 const { stationStorage } = require('../../utils/storage')
+const { getAssetStation } = require('../../api/asset-stations')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const intents = require('../../utils/independent-purchase-intent')
 
@@ -59,7 +60,11 @@ Page({
       if (!isCurrentSession(session)) return
       if (!stationId) throw new Error('请先选择水站')
       const station = stationStorage.get()
-      this.setData({ stationId, stationName: (station && station.name) || '' })
+      this.setData({ stationId, stationName: station && Number(station.id) === stationId ? station.name || '' : '水站 #' + stationId })
+      getAssetStation(stationId).then(res => {
+        if (isCurrentSession(session) && this.data.stationId === stationId && res && res.code === 0 && res.data)
+          this.setData({ stationName: res.data.name })
+      }).catch(() => { /* 历史站名未取得时显示站号，原款记录仍可独立读取。 */ })
       // [2026-10-02 F-55] 原来历史绑在商品/报价成功后，商品下架或报价失败便查不到原款。
       // 两条读取独立启动；撤回和历史恢复都不能以当前商品在售为前提。
       await Promise.all([this.loadProducts(), this.loadPurchases()])

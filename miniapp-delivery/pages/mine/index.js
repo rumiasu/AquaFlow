@@ -369,6 +369,8 @@ Page({
     wx.navigateTo({ url: '/pages/report/index' })
   },
 
+  onAccountData() { wx.navigateTo({ url: '/pages/mine/account-data/index' }) },
+
   onSettings() {
     wx.navigateTo({ url: '/pages/settings/index' })
   },

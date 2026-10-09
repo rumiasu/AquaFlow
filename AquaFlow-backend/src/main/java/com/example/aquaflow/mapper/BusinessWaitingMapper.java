@@ -6,6 +6,20 @@ public interface BusinessWaitingMapper {
     /** 精确定位原申请仍按本站过滤，不能用历史列表上限判断申请不存在。 */
     @Select("select * from barrel_record where id=#{record} and station_id=#{station} and type=2")
     com.example.aquaflow.entity.BarrelRecord returnRecord(@Param("record") Long record, @Param("station") Long station);
+    /** 2026-10-08：按稳定编号遍历退还申请，未交接 APPROVED 不再依赖全部桶流水的最近500条。 */
+    @Select("<script>select r.* from barrel_record r left join barrel_return_detail d on d.record_id=r.id"
+            + " where r.station_id=#{station} and r.type=2"
+            + "<if test='active'> and (d.status in ('APPLIED','APPROVED','RECEIVED') or (d.record_id is null"
+            + " and (r.status in (1,2) or (r.status=3 and r.refund_paid_time is null))))</if>"
+            + "<if test='before != null'> and r.id &lt; #{before}</if> order by r.id desc limit #{limit}</script>")
+    List<com.example.aquaflow.entity.BarrelRecord> returnApplications(@Param("station") Long station,
+            @Param("before") Long before, @Param("active") boolean active, @Param("limit") int limit);
+    /** 未安装新模型的库仍可遍历原退桶申请；不查询不存在的明细表。 */
+    @Select("<script>select r.* from barrel_record r where r.station_id=#{station} and r.type=2"
+            + "<if test='active'> and (r.status in (1,2) or (r.status=3 and r.refund_paid_time is null))</if>"
+            + "<if test='before != null'> and r.id &lt; #{before}</if> order by r.id desc limit #{limit}</script>")
+    List<com.example.aquaflow.entity.BarrelRecord> legacyReturnApplications(@Param("station") Long station,
+            @Param("before") Long before, @Param("active") boolean active, @Param("limit") int limit);
     // 2026-10-02：列表曾混入已结案历史、且上限被当总数。列表/COUNT 共用谓词，
     // 当前站必须有下一步办理责任；不能按“两站之一”把对方责任也报成本站待办。
     int WAITING_LIMIT = 200;

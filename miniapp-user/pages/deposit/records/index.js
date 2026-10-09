@@ -17,12 +17,12 @@
 // 拿不到 typeText 时本页只是不显示类型名，**不会**退化成自己编的中文。
 //
 // 路径常量按本仓惯例写在页面顶部：本批不允许改 config/api.js 与 api/*.js，故直接走 utils/request。
-// 取水站的方式与余额页完全同源（pages/barrel/index.js:55、pages/mine/index.js:43 的
-// stationStorage.getId()）—— 必须同源，否则「余额」与「解释余额的流水」会来自两个水站，
+// 资产查看站由 asset-view-station 统一管理，与桶详情、我的资产共用只读查看范围。
+// 必须同源，否则「余额」与「解释余额的流水」会来自两个水站，
 // 客户看到的就是"余额没变但流水在动"。
 
 const { get } = require('../../../utils/request')
-const { stationStorage } = require('../../../utils/storage')
+const assetViewStation = require('../../../utils/asset-view-station')
 const { formatMoney, formatTime } = require('../../../utils/format')
 
 const DEPOSIT_RECORDS = '/api/deposit-records'
@@ -41,34 +41,40 @@ Page({
     stationName: ''
   },
 
-  onShow() {
-    this.loadRecords()
-  },
+  onLoad(options) { assetViewStation.init(this, options) },
+  onShow() { assetViewStation.activate(this); return this.loadRecords() },
+  onHide() { assetViewStation.suspend(this) },
+  onUnload() { assetViewStation.suspend(this) },
+  onAssetStationChange(e) { if (assetViewStation.select(this, e.detail)) return this.loadRecords() },
 
   onPullDownRefresh() {
     this.loadRecords().then(() => wx.stopPullDownRefresh())
   },
 
   async loadRecords() {
-    const stationId = stationStorage.getId()
-    const station = stationStorage.get()
+    const context = assetViewStation.beginRead(this)
+    const stationId = context.stationId
     this.setData({
       loading: true,
       errorText: '',
       needStation: !stationId,
-      stationName: (station && station.name) || ''
+      records: []
     })
     try {
       // stationId 缺失时**故意照发**（utils/request 会过滤掉 null 的 query 参数）：
       // 让后端自己说「请选择水站」，前端不自造文案。
       const res = await get(DEPOSIT_RECORDS, stationId ? { stationId } : {})
-      const list = (res && res.data) || []
+      if (!assetViewStation.current(this, context)) return
+      if (!res || res.code !== 0 || !Array.isArray(res.data) || res.data.some(r => !r
+        || !['number','string'].includes(typeof r.amount) || typeof r.amount === 'string' && !r.amount.trim()
+        || !Number.isFinite(Number(r.amount)))) throw new Error('押金流水暂未加载，请重试')
+      const list = res.data
       this.setData({ records: list.map(r => this.decorate(r)) })
     } catch (err) {
       // 失败必须是失败：显示后端的 message，绝不留成空列表（否则客户以为"我没有押金记录"）
-      this.setData({ records: [], errorText: (err && err.message) || '加载失败' })
+      if (assetViewStation.current(this, context)) this.setData({ records: [], errorText: (err && err.message) || '加载失败' })
     } finally {
-      this.setData({ loading: false })
+      if (assetViewStation.current(this, context)) this.setData({ loading: false })
     }
   },
 
@@ -92,11 +98,9 @@ Page({
   },
 
   onGoSelectStation() {
-    // 顾客端选水站的唯一入口是首页（pages/home/index.wxml 的 state==='noStation' 卡片）。
-    // 必须用 switchTab：首页是 tabBar 页，wx.navigateTo 对 tabBar 页会直接失败
-    //（navigateTo:fail can not navigateTo a tabbar page）→ 用户点了什么都不会发生。
-    // 同一批已修掉 pages/order/create.js 里的两处同类写法（「去选站」按钮）。
-    wx.switchTab({ url: '/pages/home/index' })
+    // 本页切换只改变资产查看范围；首页与商品页仍负责下单站选择。
+    const picker = this.selectComponent('#asset-station-view')
+    if (picker) picker.openPicker()
   },
 
   onRetry() {

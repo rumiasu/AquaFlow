@@ -1,47 +1,35 @@
-// 协议承载页（2026-10-07，评审 #7）。
-// ⚠️ **占位正文不算完成**：本页所有条款文本都是结构占位，
-//    未经「真实主体信息 + 法务/产品审核」替换前，不得当作生效协议文本对外。
-//    版本号与同意记录的后端流程由 GPT 侧接入（版本变化时重新提示同意）。
-const DOCUMENTS = {
-  user: {
-    navTitle: '用户协议',
-    docTitle: 'AquaFlow 用户协议',
-    updatedAt: '草稿 · 未审核',
-    notice: '本页内容为结构占位草稿，尚未包含生效条款。正式协议需补充运营主体信息并经验审后发布；在正式发布前，本页任何文字不构成权利义务约定。',
-    sections: [
-      { heading: '一、协议双方', body: '【待补】运营主体名称、统一社会信用代码、联系方式；用户身份的界定（微信 openid 注册即为本平台用户）。' },
-      { heading: '二、服务内容', body: '【待补】桶装水/瓶装水/饮水器的线上订购与配送服务范围；水站作为独立经营主体与用户之间的服务关系；平台与水站的责任划分。' },
-      { heading: '三、账号与使用', body: '【待补】账号注册与注销；用户行为边界（不得恶意下单、不得利用系统漏洞）；地址与联系信息的真实性义务。' },
-      { heading: '四、费用与支付', body: '【待补】商品价格的确定与展示（以水站报价为准）；货到付款、水票等支付方式的规则；水票的购买、使用与退出（以页面说明与水站核实为准）。' },
-      { heading: '五、押金与退还', body: '【待补】水桶押金的性质（循环桶的押金，非购桶款）；归还空桶后的退还方式与时限；押金按水站独立记录的规则。' },
-      { heading: '六、违约与争议', body: '【待补】订单取消与退款规则；拒付与欠款的处理；争议解决方式与管辖。' },
-      { heading: '七、其他', body: '【待补】协议的变更与通知方式；生效日期；未尽事宜的处理。' }
-    ]
-  },
-  privacy: {
-    navTitle: '隐私政策',
-    docTitle: 'AquaFlow 隐私政策',
-    updatedAt: '草稿 · 未审核',
-    notice: '本页内容为结构占位草稿，尚未包含生效条款。正式隐私政策需补充信息控制者主体信息并经验审后发布；在正式发布前，本页任何文字不构成隐私处理承诺。',
-    sections: [
-      { heading: '一、我们收集的信息', body: '【待补】微信授权信息（openid、昵称头像）；收货地址、联系人电话；订单与支付记录；位置信息（仅在选择收货地址时使用，对应系统权限 scope.userLocation）。' },
-      { heading: '二、信息的使用', body: '【待补】用于完成订单配送、押金与水票账户管理、客户服务与异常处理；不会用于与服务无关的用途。' },
-      { heading: '三、信息的共享', body: '【待补】配送所需的最小信息（收件人、电话、地址快照）提供给你下单的水站；不向无关第三方出售个人信息。' },
-      { heading: '四、信息的保存与删除', body: '【待补】保存期限；账号注销后的删除或匿名化处理。' },
-      { heading: '五、你的权利', body: '【待补】查询、更正、删除个人信息的途径；撤回授权的方式与影响。' },
-      { heading: '六、联系我们', body: '【待补】隐私问题联系渠道与处理时限。' }
-    ]
-  }
-}
-
+// One source of text and version IDs; the offline fallback can only display an explicitly unactivated draft.
+const api = require('../../../api/agreements')
+const { drafts, validDocument, validCatalog, find } = require('../../../utils/agreements')
 Page({
-  data: {
-    doc: null
-  },
+  data: { doc: null, loading: false, error: '', fallbackNotice: '' },
   onLoad(options) {
-    const type = options && options.type === 'privacy' ? 'privacy' : 'user'
-    const doc = DOCUMENTS[type]
-    this.setData({ doc })
-    wx.setNavigationBarTitle({ title: doc.navTitle })
+    this._type = options && options.type === 'privacy' ? 'privacy' : 'user'
+    this._version = options && options.versionId || ''
+    const local = find(drafts, this._type)
+    if (local && (!this._version || this._version === local.versionId)) this.setData({ doc: local })
+    wx.setNavigationBarTitle({ title: this._type === 'privacy' ? '隐私政策' : '用户协议' })
+    this.onRetry()
+  },
+  onUnload() { this._unloaded = true; this._readEpoch = (this._readEpoch || 0) + 1 },
+  async onRetry() {
+    if (this._unloaded || this.data.loading) return
+    const epoch = this._readEpoch = (this._readEpoch || 0) + 1
+    this.setData({ loading: true, error: '', fallbackNotice: '' })
+    try {
+      const res = this._version ? await api.document(this._version) : await api.current()
+      if (this._unloaded || epoch !== this._readEpoch) return
+      const value = res && res.data
+      const doc = this._version ? value : validCatalog(value) && find(value, this._type)
+      if (!validDocument(doc, this._type) || this._version && doc.versionId !== this._version) throw Error('协议版本暂时无法核实')
+      this.setData({ doc, loading: false, error: '', fallbackNotice: '' })
+    } catch (error) {
+      if (this._unloaded || epoch !== this._readEpoch) return
+      const local = find(drafts, this._type)
+      const fallback = local && (!this._version || this._version === local.versionId)
+      this.setData({ doc: fallback ? local : null, loading: false,
+        error: '协议暂时无法加载，请重试。',
+        fallbackNotice: fallback ? '以下为随应用提供的未启用草稿；当前无法核实最新正文。' : '' })
+    }
   }
 })

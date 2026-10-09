@@ -32,6 +32,9 @@ public interface BarrelService {
      */
     List<BarrelRecord> listStationRecords(Long stationId, Integer limit);
 
+    /** 当前站退还办理/历史清单，每页50条，beforeId按稳定编号向旧记录遍历。 */
+    Map<String,Object> listReturnApplications(Long stationId, String scope, Long beforeId);
+
     void handleBarrelException(Long customerId, Long stationId, Long productId, Integer type, Integer quantity, Long relatedOrderId, String note, Long operatorId);
 
     /**

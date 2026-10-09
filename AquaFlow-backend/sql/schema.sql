@@ -801,11 +801,14 @@ CREATE TABLE IF NOT EXISTS `staff_earning` (
   `note` varchar(200) DEFAULT NULL,
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `auto_uk` varchar(128) GENERATED ALWAYS AS ((case when `order_id` is null then NULL else concat(`order_id`,'-',`staff_id`,'-',`kind`,'-',`product_id`) end)) STORED COMMENT '自动收益去重键(含 product_id); NULL 是有意的=人工录入允许无限多条',
+  `idempotency_key` varchar(64) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '人工录入意图键',
+  `request_digest` char(64) DEFAULT NULL COMMENT '人工录入内容摘要',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_earning_auto` (`auto_uk`),
   UNIQUE KEY `uk_earning_adjustment` (`adjustment_id`,`staff_id`,`kind`),
   KEY `idx_earning_staff_time` (`station_id`,`staff_id`,`create_time`),
-  KEY `idx_earning_payroll` (`payroll_id`)
+  KEY `idx_earning_payroll` (`payroll_id`),
+  UNIQUE KEY `uk_earning_intent` (`station_id`,`idempotency_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='配送员收益明细; 工钱走独立等式不进客户对账';
 -- 配送员工资结算单（v37）：草稿 → 已确认 → 已发放。
 -- 「算出来」与「发出去」必须分开：只有一个状态时，站长改一条明细就会悄悄改掉已经发过的钱。
@@ -1256,4 +1259,121 @@ CREATE TABLE IF NOT EXISTS order_barrel_refund (
   PRIMARY KEY(id), UNIQUE KEY uk_order_barrel_refund(refund_payment_id,purchase_id),
   UNIQUE KEY uk_order_barrel_return(purchase_id,return_record_id),
   KEY idx_order_barrel_original(original_payment_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- v76: only new evidence/request records; no historical acceptance or account changes.
+CREATE TABLE IF NOT EXISTS agreement_document (
+  version_id VARCHAR(90) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  audience VARCHAR(16) NOT NULL, document_type VARCHAR(16) NOT NULL,
+  content_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  body_json LONGTEXT NOT NULL, create_time DATETIME NOT NULL,
+  PRIMARY KEY(version_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS agreement_acknowledgement (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  actor_type VARCHAR(16) NOT NULL, actor_id BIGINT NOT NULL,
+  version_id VARCHAR(90) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  event_type VARCHAR(48) NOT NULL, action_source VARCHAR(24) NOT NULL,
+  create_time DATETIME NOT NULL,
+  PRIMARY KEY(id), UNIQUE KEY uk_agreement_actor_version(actor_type,actor_id,version_id,event_type),
+  KEY idx_agreement_actor(actor_type,actor_id,id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS account_data_request (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  actor_type VARCHAR(16) NOT NULL, actor_id BIGINT NOT NULL,
+  request_type VARCHAR(16) NOT NULL, note VARCHAR(500) NOT NULL DEFAULT '',
+  idempotency_key VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  request_digest CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'SUBMITTED', create_time DATETIME NOT NULL,
+  PRIMARY KEY(id), UNIQUE KEY uk_account_request_idem(actor_type,actor_id,idempotency_key),
+  KEY idx_account_request_actor(actor_type,actor_id,id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- v77：拒付纠错/资产解冻及退款争议结案。只新增审计与状态表，不改原款/原判断/资产事实。
+-- 先核准完整目标并备份；本文件仅准备，真实库执行另行授权。基线由统一收尾者合并。
+CREATE TABLE IF NOT EXISTS customer_refusal_resolution (
+  order_id BIGINT NOT NULL PRIMARY KEY,
+  judgment_revoked TINYINT NOT NULL DEFAULT 0,
+  asset_freeze_released TINYINT NOT NULL DEFAULT 0,
+  version BIGINT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS customer_refusal_action (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT NOT NULL,
+  station_id BIGINT NOT NULL,
+  operator_id BIGINT NOT NULL,
+  actor_key VARCHAR(64) COLLATE utf8mb4_bin NOT NULL,
+  action VARCHAR(24) NOT NULL,
+  reason VARCHAR(1000) NOT NULL,
+  idempotency_key VARCHAR(64) COLLATE utf8mb4_bin NOT NULL,
+  request_digest VARCHAR(64) NOT NULL,
+  from_version BIGINT NOT NULL,
+  to_version BIGINT NOT NULL,
+  create_time DATETIME NOT NULL,
+  UNIQUE KEY uk_refusal_action (actor_key,order_id,idempotency_key),
+  KEY idx_refusal_action_order (order_id,id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS refund_dispute (
+  refund_type VARCHAR(24) NOT NULL,
+  refund_id BIGINT NOT NULL,
+  customer_id BIGINT NOT NULL,
+  responsible_station_id BIGINT NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  version BIGINT NOT NULL DEFAULT 0,
+  last_result VARCHAR(1000) NULL,
+  update_time DATETIME NOT NULL,
+  PRIMARY KEY (refund_type,refund_id),
+  KEY idx_refund_dispute_station (responsible_station_id,status,update_time),
+  KEY idx_refund_dispute_customer (customer_id,update_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS refund_dispute_action (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  refund_type VARCHAR(24) NOT NULL,
+  refund_id BIGINT NOT NULL,
+  customer_id BIGINT NOT NULL,
+  responsible_station_id BIGINT NOT NULL,
+  actor_key VARCHAR(64) COLLATE utf8mb4_bin NOT NULL,
+  operator_id BIGINT NOT NULL,
+  action VARCHAR(24) NOT NULL,
+  reason VARCHAR(1000) NOT NULL,
+  idempotency_key VARCHAR(64) COLLATE utf8mb4_bin NOT NULL,
+  request_digest VARCHAR(64) NOT NULL,
+  from_version BIGINT NOT NULL,
+  to_version BIGINT NOT NULL,
+  create_time DATETIME NOT NULL,
+  UNIQUE KEY uk_refund_dispute_action (actor_key,refund_type,refund_id,idempotency_key),
+  KEY idx_refund_dispute_history (refund_type,refund_id,id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- v78：原退还安排版本、变更审计与取消处理结果；新库无存量快照回填。
+CREATE TABLE IF NOT EXISTS barrel_return_arrangement (
+  record_id BIGINT NOT NULL PRIMARY KEY,
+  initial_pickup_mode VARCHAR(16) NOT NULL,
+  initial_companion_order_id BIGINT NULL,
+  version INT NOT NULL DEFAULT 1,
+  requires_confirmation TINYINT NOT NULL DEFAULT 0,
+  confirmed_version INT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS barrel_return_arrangement_change (
+  record_id BIGINT NOT NULL,
+  version INT NOT NULL,
+  actor_key VARCHAR(64) COLLATE utf8mb4_bin NOT NULL,
+  operator_id BIGINT NOT NULL,
+  idempotency_key VARCHAR(64) COLLATE utf8mb4_bin NOT NULL,
+  request_digest VARCHAR(64) NOT NULL,
+  reason VARCHAR(200) NOT NULL,
+  before_snapshot JSON NOT NULL,
+  after_snapshot JSON NOT NULL,
+  create_time DATETIME NOT NULL,
+  PRIMARY KEY(record_id,version),
+  UNIQUE KEY uk_return_arrangement_action(actor_key,record_id,idempotency_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS order_cancel_result (
+  request_id BIGINT NOT NULL PRIMARY KEY,
+  result_note VARCHAR(300) NOT NULL,
+  automatic TINYINT NOT NULL DEFAULT 0,
+  operator_id BIGINT NOT NULL,
+  create_time DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

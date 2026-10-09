@@ -232,6 +232,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
                     before.over, before.over, note);
 
         } else if (AdjustType.BARREL_REVOKE.equals(type)) {
+            barrelLedgerService.requireManualRevokeSafe(customerId, stationId, productId, a.getQty());
             BarrelLedgerService.LotConsumption c = barrelLedgerService.consumeLots(
                     customerId, stationId, productId, a.getQty(), null, false);
             barrelLedgerService.decreaseRight(customerId, stationId, productId, a.getQty(), c.getAmount());

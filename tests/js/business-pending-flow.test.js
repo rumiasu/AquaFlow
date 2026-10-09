@@ -8,7 +8,7 @@ const done = armWatchdog()
 async function test(name, fn) { await fn(); passed++; console.log('  OK ' + name) }
 const response = data => ({ code: 0, data })
 const event = (id, action) => ({ currentTarget: { dataset: { id, action } } })
-const managerApp = () => createApp({ globalData: { userInfo: { stationId: 1, role: 'STATION_MANAGER' } } })
+const managerApp = () => createApp({ globalData: { isLogin: true, userInfo: { stationId: 1, role: 'STATION_MANAGER' } } })
 // 独立固定旧 PendingItem 目录，复现旧应用响应；不从页面白名单生成缺键样本。
 const LEGACY_PENDING_ITEMS = [
   ['pendingAssign', '待分配订单', 'P0'], ['pendingTransfer', '转单请求', 'P0'],
@@ -38,7 +38,7 @@ function setup(extra = {}) {
   wx.showActionSheet = opt => { wx.pendingSheet = opt }
   const api = {
     getWaiting: async () => { state.calls.push('read'); if (state.waitingFail) throw Error('暂时无法读取'); return response(state.waiting) },
-    getRefusals: async () => { if (state.refusalFail) throw Error('拒付读取失败'); return response([]) },
+    getRefusals: async args => { if (state.refusalFail) throw Error('拒付读取失败'); return response({ stationId: 1, scope: args.scope, limit: 50, items: [], nextBeforeId: null }) },
     getTicketExitBatches: async () => response([]),
     getRecoveries: async () => { throw Error('不能用历史截断列表作待办') },
     getBarrelBalances: async () => { throw Error('不能用历史截断列表作待办') },
@@ -340,7 +340,7 @@ async function main() {
   await test('原申请定位读取失败可重试且不退回无关历史列表', async () => {
     let failed = true, history = 0
     const p = loadPage('miniapp-delivery/pages/station-mgmt/barrel-return/index.js', { wx: createWx(), app: managerApp(), stubs: {
-      'utils/pending-reminder': { getPendingReturnRecord: async () => { if (failed) throw Error('offline'); return response({ id: 77, type: 2, status: 2 }) }, syncPendingReminder: async () => {} },
+      'utils/pending-reminder': { getPendingReturnRecord: async () => { if (failed) throw Error('offline'); return response({ id: 77, stationId: 1, type: 2, status: 2 }) }, syncPendingReminder: async () => {} },
       'api/station-mgmt': {
         getAllBarrelRecords: async () => { history++; return response([]) },
         getBarrelRefundEligibility: async id => { assert.equal(String(id), '77'); return response({ recordId: 77, legacy: true, recordStatus: 2, detailStatus: null, available: true, channel: 'CASH', refundAmount: 30, reason: '历史现金原款待归属站核实' }) }

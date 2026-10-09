@@ -1,6 +1,7 @@
-const { getAllBarrelRecords, updateBarrelRecordStatus, markRefundPaid, getRefundUndelivered, approveBarrelReturn, confirmPayment, getBarrelRefundEligibility } = require('../../../api/station-mgmt')
+const { updateBarrelRecordStatus, markRefundPaid, getRefundUndelivered, approveBarrelReturn, changeBarrelReturnArrangement, getReturnCompanionOrders, confirmPayment, getBarrelRefundEligibility } = require('../../../api/station-mgmt')
 const businessRules = require('../../../api/business-rules')
 const { getPendingReturnRecord, syncPendingReminder } = require('../../../utils/pending-reminder')
+const { positiveId, readPage } = require('../../../utils/business-history-page')
 
 // 资格只是交款前的只读快照，现有退款写接口仍核对原渠道、状态和账目。
 const CHANNEL_CASH = 'CASH'
@@ -24,6 +25,7 @@ function checked(res, fallback) {
 Page({
   data: {
     list: [], recordId: null, loading: false, recordsReady: false, loadError: '',
+    scope: 'ACTIVE', nextBeforeId: null, recordSearch: '', searchError: '', moreError: '',
     selectedId: null, selected: null, sheetOpen: false, showMore: false,
     eligibility: null, eligibilityLoading: false, eligibilityError: '',
     actionBusy: false, actionError: '', recoveryNeeded: false,
@@ -32,7 +34,7 @@ Page({
 
   onLoad(options) {
     const id = options && options.recordId
-    this.setData({ recordId: id && /^\d+$/.test(String(id)) ? String(id) : null })
+    this.setData({ recordId: positiveId(id) ? String(id) : null, recordSearch: positiveId(id) ? String(id) : '' })
   },
   onShow() {
     this._hidden = false
@@ -62,7 +64,8 @@ Page({
     this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
     this._undeliveredSeq = (this._undeliveredSeq || 0) + 1
     this._action = null; this._pendingAction = null; this._recordsSession = null
-    this.setData({ list: [], selected: null, selectedId: null, sheetOpen: false, eligibility: null, actionBusy: false, recoveryNeeded: false, recordsReady: false, undelivered: [], undeliveredCount: 0 })
+    this.setData({ list: [], selected: null, selectedId: null, sheetOpen: false, eligibility: null, actionBusy: false, recoveryNeeded: false, recordsReady: false, undelivered: [], undeliveredCount: 0,
+      recordId: null, recordSearch: '', nextBeforeId: null, scope: 'ACTIVE', loading: false, loadError: '', moreError: '', searchError: '' })
   },
   validRead(seq, field, snapshot) { return seq === this[field] && !this._hidden && !this._unloaded && sameSession(snapshot) },
 
@@ -85,18 +88,20 @@ Page({
       canReject: isReturn && (d ? ['APPLIED', 'APPROVED'].includes(d.status) && d.feePaymentStatus !== 2 : [1, 2].includes(item.status)),
       rejectNeedsFeeRefund: !!(d && ['APPLIED', 'APPROVED'].includes(d.status) && d.feePaymentStatus === 2),
       canRefundFee: !!(isReturn && d && d.feePaymentId && d.feePaymentStatus === 2),
+      canChangeArrangement: !!(isReturn && d && ['APPLIED','APPROVED'].includes(d.status) && Number.isInteger(d.arrangementVersion)),
       needsRefund: isReturn && (d ? d.status === 'RECEIVED' : item.status === 2)
     })
     if (!isReturn) return result
     const steps = d ? [
-      ['提交申请', item.createTime], ['批准安排', d.approvedTime], ['客户确认安排', d.customerConfirmedTime],
+      ['提交申请', item.createTime], ['批准安排', d.approvedTime],
+      ...(d.customerConfirmationRequired !== false || d.customerConfirmedTime ? [['客户确认安排', d.customerConfirmedTime]] : []),
       [required === 0 ? '办理无需交桶的交接' : '实际交接', d.receivedTime], ['退款交付', item.refundPaidTime]
     ] : [['提交申请', item.createTime], ['确认收到空桶', item.confirmedTime], ['退款交付', item.refundPaidTime]]
     result.timeline = steps.map((step, i) => ({ key: i, title: step[0], time: step[1] || '', done: !!step[1] }))
     if (d) {
       if (['APPLIED', 'APPROVED'].includes(d.status) && (!Number.isInteger(d.requiredBarrels) || d.requiredBarrels < 0)) { result.primaryLabel = '先核实交桶数量'; result.stepHint = '本申请交桶数量未能核对，请重新读取原申请。' }
       else if (d.status === 'APPLIED') { result.primaryAction = 'approve'; result.primaryLabel = '批准交接安排'; result.stepHint = '先核对数量、金额和交接方式，再批准安排。' }
-      else if (d.status === 'APPROVED' && !d.customerConfirmedTime) { result.primaryLabel = '等待客户确认'; result.stepHint = '客户尚未确认已批准的安排。' }
+      else if (d.status === 'APPROVED' && d.customerConfirmationRequired !== false && !d.customerConfirmationCurrent) { result.primaryLabel = '等待客户确认'; result.stepHint = '新增取桶费或水站提出的新安排须客户同意；免费原安排无需再次确认。' }
       else if (d.status === 'APPROVED' && d.feePaymentId && d.feePaymentStatus === 1) { result.primaryAction = 'collect'; result.primaryLabel = '登记已收到服务费'; result.stepHint = '请先核对真实收到的服务费，再办理交接。' }
       else if (d.status === 'APPROVED' && d.feePaymentId && d.feePaymentStatus !== 2) { result.primaryLabel = '先核实交接安排'; result.stepHint = '服务费已退还或状态待核实，当前不能继续登记交接。' }
       else if (d.status === 'APPROVED') { result.primaryAction = 'receive'; result.primaryLabel = required === 0 ? '确认无需交桶的交接' : '确认收到 ' + required + ' 个空桶'; result.stepHint = required === 0 ? '本次退还尚未领取的容量，无需实际收桶；交接后继续办理押金退款。' : '按本申请需交桶数量核对实物，收到空桶不等于已退押金。' }
@@ -123,23 +128,58 @@ Page({
     if (this._action && this._action.phase === 'modal') this.releaseAction(this._action)
     return this._pendingAction ? this.recoverAction(this._pendingAction) : this.loadData()
   },
-  async loadData() {
+  onRecordSearchInput(e) { this.setData({ recordSearch: e.detail.value, searchError: '' }) },
+  onScopeChange(e) {
+    const scope = e.currentTarget.dataset.scope
+    if (!['ACTIVE', 'ALL'].includes(scope) || this.data.actionBusy || this._pendingAction) return
+    this.resetRecords({ scope, recordId: null, recordSearch: '' }); return this.loadData()
+  },
+  resetRecords(patch) {
+    this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
+    this.setData(Object.assign({ list: [], nextBeforeId: null, recordsReady: false, selected: null, selectedId: null, sheetOpen: false,
+      eligibility: null, eligibilityError: '', eligibilityLoading: false, searchError: '', moreError: '', actionError: '' }, patch))
+  },
+  onRecordSearch() {
+    if (this.data.actionBusy || this._pendingAction) return
+    const id = String(this.data.recordSearch || '').trim()
+    if (!positiveId(id)) { this.setData({ searchError: '请输入有效的退还申请编号' }); return }
+    this.resetRecords({ recordId: id }); return this.loadData()
+  },
+  onClearRecordSearch() {
+    if (this.data.actionBusy || this._pendingAction) return
+    this.resetRecords({ recordId: null, recordSearch: '' }); return this.loadData()
+  },
+  onMoreRecords() {
+    if (this.data.loading || !this.data.recordsReady || !this.data.nextBeforeId || this.data.recordId || this.data.actionBusy || this._pendingAction) return
+    return this.loadData(true)
+  },
+  async loadData(more = false) {
     const snapshot = session(), seq = this._recordsSeq = (this._recordsSeq || 0) + 1
-    this.setData({ loading: true, recordsReady: false, loadError: '', eligibility: null })
+    const recordId = this.data.recordId, request = { scope: this.data.scope }
+    if (more) request.beforeId = this.data.nextBeforeId
+    this.setData(more ? { loading: true, moreError: '' } : { loading: true, recordsReady: false, loadError: '', moreError: '', eligibility: null })
     try {
-      const res = this.data.recordId ? await getPendingReturnRecord(this.data.recordId) : await getAllBarrelRecords()
+      const res = recordId ? await getPendingReturnRecord(recordId) : await businessRules.getReturnApplications(request)
       if (!this.validRead(seq, '_recordsSeq', snapshot)) return false
-      const data = checked(res, '退桶申请未能核对，请重试')
-      const records = this.data.recordId ? data && [data] : data
-      if (!Array.isArray(records)) throw new Error('退桶申请未能核对，请重试')
+      let records, nextBeforeId = null
+      const stationId = getApp().globalData.userInfo.stationId
+      if (recordId) {
+        const record = checked(res, '退桶申请未能核对，请重试')
+        if (!record || !sameId(record.id, recordId) || !sameId(record.stationId, stationId) || record.type !== 2) throw new Error('原申请编号或所属站未能核对')
+        records = [record]
+      } else {
+        const data = readPage(res, request, 'id', stationId)
+        records = data.items; nextBeforeId = data.nextBeforeId
+      }
       this._recordsSession = snapshot
-      this.setData({ list: records.map(item => this.decorateRecord(item)), recordsReady: true })
-      if (this.data.recordId && !this.data.selectedId && records.length) this.setData({ selectedId: records[0].id, sheetOpen: true })
+      const list = more ? this.data.list.concat(records.filter(r => !this.data.list.some(old => sameId(old.id, r.id)))) : records
+      this.setData({ list: list.map(item => this.decorateRecord(item)), recordsReady: true, nextBeforeId })
+      if (recordId && !this.data.selectedId && records.length) this.setData({ selectedId: records[0].id, sheetOpen: true })
       this.refreshSelected()
       if (this.data.sheetOpen && this.data.selected) this.loadEligibility(this.data.selected.id)
       return true
     } catch (err) {
-      if (this.validRead(seq, '_recordsSeq', snapshot)) this.setData({ loadError: '退桶申请未能核对，请重试；已有记录是上次读取的结果' })
+      if (this.validRead(seq, '_recordsSeq', snapshot)) this.setData(more ? { moreError: '更早申请未能核对，请重试；已读取的记录保留' } : { loadError: (err.message || '退桶申请未能核对') + '；请重试，已有记录是上次读取的结果' })
       return false
     } finally { if (this.validRead(seq, '_recordsSeq', snapshot)) this.setData({ loading: false }) }
   },
@@ -226,11 +266,11 @@ Page({
     try {
       if (!d || this.decorateRecord(action.record).primaryAction !== 'approve') return
       const needsFee = d.pickupMode === 'PICKUP' && d.requiredBarrels > 0
-      const result = await this.modal(action, { title: '批准交接安排', editable: needsFee, placeholderText: '独立上门费（元，可填0）', content: needsFee ? '填写本次独立上门费，批准后等待客户确认安排。' : '本次不另收上门费，批准后等待客户确认安排。' })
+      const result = await this.modal(action, { title: '批准交接安排', editable: needsFee, placeholderText: '独立上门费（元，可填0）', content: needsFee ? '填写本次独立上门费；收费须由客户先确认，填0则按原安排办理交接。' : '本次不另收上门费，批准后按客户申请的原安排办理交接。' })
       if (!result) return
       const fee = needsFee ? Number(result.content) : 0
       if (!Number.isFinite(fee) || fee < 0 || fee > 10000) { wx.showToast({ title: '费用不合法', icon: 'none' }); return }
-      return await this.performAction(action, () => approveBarrelReturn(action.id, fee, '批准交接安排'))
+      return await this.performAction(action, () => approveBarrelReturn(action.id, fee, '批准交接安排', d.arrangementVersion))
     } finally { if (!this._pendingAction) this.releaseAction(action) }
   },
   async onApprove(e) {
@@ -242,6 +282,39 @@ Page({
       if (!await this.modal(action, { title: qty === 0 ? '确认无需交桶的交接' : '确认实际收到空桶', content: qty === 0 ? '本次退还尚未领取的容量，无需实际收到空桶。确认已办妥交接手续后，继续办理押金退款。' : '请核实本申请需交回的 ' + qty + ' 个空桶已实际收到。本次只登记交接，不登记已退款。', confirmText: '确认交接' })) return
       return await this.performAction(action, () => updateBarrelRecordStatus(action.id, 2))
     } finally { if (!this._pendingAction) this.releaseAction(action) }
+  },
+  async onChangeArrangement(e) {
+    const action=this.beginAction(eventId(e),'arrangement')
+    if (!action) return
+    try {
+      const d=action.record.returnDetail
+      if (!d || !this.decorateRecord(action.record).canChangeArrangement) return
+      if (d.feePaymentStatus === 2) { await this.modal(action,{ title:'先退原服务费',content:'原安排已收取服务费，请先按现有原款退款流程实际退还，再更改安排。',showCancel:false }); return }
+      const picked=await this.arrangementSheet(action,['到店退桶','单独上门收桶','随明确选择的送水单收桶'])
+      if (!picked) return
+      const mode=['STORE','PICKUP','COMBINED'][picked.tapIndex]
+      if (!mode) return
+      let companionOrderId=null
+      if (mode === 'COMBINED') {
+        const data=checked(await getReturnCompanionOrders(action.record.customerId),'送水订单未能核对')
+        if (!this.actionCurrent(action)) return
+        const rows=(Array.isArray(data)?data:data && data.records || []).filter(o => sameId(o.customerId,action.record.customerId) && sameId(o.stationId,action.record.stationId) && (o.status === 1 || o.status === 2))
+        if (!rows.length) { await this.modal(action,{title:'暂无可关联订单',content:'请选择到店或独立上门；系统不会自动替客户选择送水单。',showCancel:false}); return }
+        const selected=await this.arrangementSheet(action,rows.map(o=>'订单 ' + (o.orderNo || o.id)))
+        if (!selected || !rows[selected.tapIndex]) return
+        companionOrderId=rows[selected.tapIndex].id
+      }
+      const reason=await this.modal(action,{ title:'提出新的收桶安排',editable:true,content:'',placeholderText:'填写变更原因；新安排须客户同意',confirmText:'提交安排' })
+      if (!reason) return
+      const text=(reason.content || '').trim()
+      if (!text || text.length > 200) { this.setData({actionError:'请填写200字以内变更原因'}); return }
+      const body={pickupMode:mode,companionOrderId,expectedVersion:d.arrangementVersion,reason:text,idempotencyKey:'ret-arr-' + Date.now() + '-' + Math.random().toString(36).slice(2)}
+      return await this.performAction(action,()=>changeBarrelReturnArrangement(action.id,body))
+    } catch(err) { if(this.actionCurrent(action))this.setData({actionError:err.message || '安排更改未完成，请重新核对原申请'}) }
+    finally { if(!this._pendingAction)this.releaseAction(action) }
+  },
+  arrangementSheet(action,itemList) {
+    return new Promise(resolve => wx.showActionSheet({itemList,success:res=>resolve(this.actionCurrent(action)?res:null),fail:()=>resolve(null)}))
   },
   async onCollectPickupFee(e) {
     const action = this.beginAction(eventId(e), 'collect')

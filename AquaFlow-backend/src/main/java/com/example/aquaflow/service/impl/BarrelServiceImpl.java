@@ -48,6 +48,7 @@ import java.util.Set;
 public class BarrelServiceImpl implements BarrelService {
     @Autowired private com.example.aquaflow.service.ApprovedBarrelReturnService approvedReturnService;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
+    @Autowired private com.example.aquaflow.mapper.BusinessWaitingMapper businessWaitingMapper;
 
     @Autowired
     private BarrelRecordMapper barrelRecordMapper;
@@ -127,6 +128,33 @@ public class BarrelServiceImpl implements BarrelService {
             }
         }
         return records;
+    }
+
+    /** 站长退还办理清单：有界游标分页，已结证据也能逐页读取；读数不改变资产或授权。 */
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String,Object> listReturnApplications(Long stationId, String scope, Long beforeId) {
+        com.example.aquaflow.util.AuthContext.requireManager();
+        if (stationId == null || !stationId.equals(com.example.aquaflow.util.AuthContext.requireStationId()))
+            throw new BusinessException("只能读取当前水站的退还申请");
+        if (!Set.of("ACTIVE", "ALL").contains(scope) || beforeId != null && beforeId <= 0)
+            throw new BusinessException("退还清单筛选或分页编号不合法");
+        int limit = 50;
+        List<BarrelRecord> found = barrelPolicy.hasSchema()
+                ? businessWaitingMapper.returnApplications(stationId, beforeId, "ACTIVE".equals(scope), limit + 1)
+                : businessWaitingMapper.legacyReturnApplications(stationId, beforeId, "ACTIVE".equals(scope), limit + 1);
+        boolean more = found.size() > limit;
+        List<BarrelRecord> records = new ArrayList<>(found.subList(0, Math.min(limit, found.size())));
+        for (BarrelRecord r : records) {
+            r.setReturnDetail(approvedReturnService.detail(r.getId()));
+            if (r.getCustomerId() != null && r.getProductId() != null)
+                r.setOwedBuckets(barrelLedgerService.overQty(r.getCustomerId(), stationId, r.getProductId()));
+        }
+        Map<String,Object> result = new LinkedHashMap<>();
+        result.put("stationId", stationId); result.put("scope", scope); result.put("limit", limit);
+        result.put("items", records);
+        result.put("nextBeforeId", more ? records.get(records.size() - 1).getId() : null);
+        return result;
     }
 
     /**

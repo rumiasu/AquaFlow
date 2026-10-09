@@ -743,6 +743,26 @@ public class BarrelLedgerService {
         return result;
     }
 
+    /** 人工撤权益会减少实物展示 H；不得把未领取容量撤成负实物，亦不得吃掉遗留占用。 */
+    @Transactional
+    public void requireManualRevokeSafe(Long customerId, Long stationId, Long productId, int qty) {
+        int right = lockRights(customerId, stationId, productId);
+        CustomerBarrelOver current = overMapper.getForUpdate(customerId, stationId, productId);
+        int over = current == null || current.getOverQty() == null ? 0 : current.getOverQty();
+        if (qty <= 0 || (long) right + over - qty < 0) {
+            throw new BusinessException("撤销后客户实物桶数不能为负；未领取容量请走权益退还申请");
+        }
+        if (businessPolicy.hasSchema()) {
+            int busy = businessMapper.activeForUpdate(customerId, stationId, productId).stream()
+                    .mapToInt(r -> r.getQuantity() - r.getPendingQty()).sum();
+            long legacy = (long) businessMapper.legacyOrderBusy(customerId, stationId, productId)
+                    + businessMapper.legacyReturnBusy(customerId, stationId, productId);
+            if (qty > (long) right - busy - legacy) {
+                throw new BusinessException("该部分权益仍被配送或退还占用，请先处理原单");
+            }
+        }
+    }
+
     /** 退桶落库后同步权益汇总（数量与金额都要减，且必须校验 affected） */
     @Transactional
     public void decreaseRight(Long customerId, Long stationId, Long productId, int qty, BigDecimal amount) {

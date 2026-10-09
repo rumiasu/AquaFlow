@@ -721,3 +721,12 @@
   font-size: 22rpx;
   color: var(--text-secondary);
 }
+
+/* 桶账明细沿用原白卡，只调整信息层次。 */
+.asset-bucket-item .bucket-info { min-width: 0; flex: 1; }
+.asset-bucket-item .bucket-detail { min-width: 0; }
+.asset-bucket-item .bucket-id { overflow-wrap: break-word; }
+.asset-bucket-item .bucket-status { flex-shrink: 0; margin-left: 12rpx; }
+.bucket-detail-toggle { margin-top: 12rpx; font-size: 24rpx; color: var(--primary-color); }
+.bucket-account-detail { margin-top: 12rpx; padding-top: 12rpx; border-top: 1rpx solid var(--border-color); }
+.bucket-account-detail text { display: block; color: var(--text-regular); font-size: 22rpx; line-height: 1.7; }

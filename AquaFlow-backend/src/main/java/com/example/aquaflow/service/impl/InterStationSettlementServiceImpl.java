@@ -52,7 +52,7 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
 
     @Override
     public Map<String, Object> ledgerOf(Long stationId) {
-        List<Map<String, Object>> live = mapper.listLiveCrossStationOrders(stationId, null);
+        List<Map<String, Object>> live = mapper.listLiveCrossStationOrders(stationId, null, dispatchAgreements.hasSchema());
         // ⚠️ 「已结清但依据已消失」那批要单独取，且**站名也要一起取**：
         //    它们的订单已经不在 live 里了，只从 live 攒站名会让那些行显示成「水站#7」。
         List<InterStationSettlement> dangling = mapper.listSettledButVoid(stationId);
@@ -112,7 +112,7 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         //    （AGENTS §6）。第一版写成 `**已收款、未取消**`，是在**活接口的真实响应**里被发现的
         //    （探针 `__live_ledger_shape.py`）—— 静态门禁与单元断言都查不到这种；
         //    用例现在把它锁住了（`scopeNote` 不许含星号与开发词）。
-        data.put("scopeNote", "这里只算「已收款、未取消」的跨站单：钱收在归属站、营收算接单站的那部分差额。"
+        data.put("scopeNote", "这里只算「已收款、未取消」的合作款：按已接受报酬，扣除接单站已收客户消费款后登记差额。"
                 + "押金与水票余额是客户在归属站的资产，不进这张表。");
         return data;
     }
@@ -165,17 +165,16 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         if(!agreement.isEmpty() && !Set.of("ACCEPTED","BARREL_CLOSED").contains(String.valueOf(agreement.get("status"))))
             throw new BusinessException("请等待履约站接受本单报酬和桶安排后再登记站间结清");
         Map<String, Object> live = requireLive(orderId);
-        Long payStation = longOf(live.get("payStationId"));
-        Long receiveStation = longOf(live.get("settleStationId"));
+        InterStationSettlement existing = mapper.findByOrderId(orderId);
+        Map<String, Object> snapshot = computeSnapshot(live, existing, null);
+        Long payStation = longOf(snapshot.get("fromStationId"));
+        Long receiveStation = longOf(snapshot.get("toStationId"));
 
         // 谁能登记：**付款方**（钱在它手上）。收款方单方面说"我收到了"没有意义 ——
         // 它是被动收钱的一方，登记权在出钱的一方（同"发钱的是站长不是平台"的既有口径）。
         if (!Objects.equals(payStation, stationId)) {
             throw new BusinessException("这笔钱在" + stationLabel(payStation) + "手上，应由该站登记结清；本站是收款方，无需登记");
         }
-
-        InterStationSettlement existing = mapper.findByOrderId(orderId);
-        Map<String, Object> snapshot = computeSnapshot(live, existing, null);
 
         if (existing == null) {
             InterStationSettlement row = buildRow(live, snapshot, operatorId);
@@ -299,7 +298,7 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         if (orderId == null) {
             throw new BusinessException("缺少订单号");
         }
-        List<Map<String, Object>> rows = mapper.listLiveCrossStationOrders(null, orderId);
+        List<Map<String, Object>> rows = mapper.listLiveCrossStationOrders(null, orderId, dispatchAgreements.hasSchema());
         if (rows.isEmpty()) {
             throw new BusinessException("该订单不在站间结算台账里（同站履约、或还没收到钱、或已取消）");
         }
@@ -369,7 +368,19 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         out.put("unitPrice", unitPrice);
         out.put("feeAmount", feeAmount);
         BigDecimal agreed=dispatchAgreements.acceptedServiceAmount(longOf(live.get("orderId")));
-        if (agreed!=null && row==null) { out.put("amount",agreed); out.put("unitPrice",null); }
+        Long from = row != null && row.getFromStationId() != null ? row.getFromStationId() : longOf(live.get("payStationId"));
+        Long to = row != null && row.getToStationId() != null ? row.getToStationId() : longOf(live.get("settleStationId"));
+        if (agreed!=null && row==null) {
+            BigDecimal transfer = agreed;
+            if (Objects.equals(PayMethod.CASH, paymentMethod)
+                    && Objects.equals(longOf(live.get("payStationId")), longOf(live.get("settleStationId")))) {
+                transfer = agreed.subtract(dec(live.get("customerReceivedAmount")));
+                from = transfer.signum() < 0 ? longOf(live.get("settleStationId")) : longOf(live.get("ownerStationId"));
+                to = transfer.signum() < 0 ? longOf(live.get("ownerStationId")) : longOf(live.get("settleStationId"));
+            }
+            out.put("amount", transfer.abs()); out.put("unitPrice", null);
+        }
+        out.put("fromStationId", from); out.put("toStationId", to);
         return out;
     }
 
@@ -396,6 +407,8 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         }
         InterStationSettlement row = new InterStationSettlement();
         row.setOrderId(longOf(live.get("orderId")));
+        row.setFromStationId(longOf(live.get("recordedFromStationId")));
+        row.setToStationId(longOf(live.get("recordedToStationId")));
         row.setBasis(intOf(live.get("settleBasis")));
         row.setAmount(dec(live.get("settleAmount")));
         row.setTicketQty(intOf(live.get("settleTicketQty")));
@@ -415,8 +428,8 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
     private InterStationSettlement buildRow(Map<String, Object> live, Map<String, Object> snapshot, Long operatorId) {
         InterStationSettlement row = new InterStationSettlement();
         row.setOrderId(longOf(live.get("orderId")));
-        row.setFromStationId(longOf(live.get("payStationId")));
-        row.setToStationId(longOf(live.get("settleStationId")));
+        row.setFromStationId(longOf(snapshot.get("fromStationId")));
+        row.setToStationId(longOf(snapshot.get("toStationId")));
         row.setAmount(dec(snapshot.get("amount")));
         row.setBasis(intOf(snapshot.get("basis")));
         row.setTicketQty(intOf(snapshot.get("ticketQty")));
@@ -431,8 +444,8 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         // ⚠️ 必须把 left join 出来的台账行传进去：传 null 会让"改过价/已结清"的快照被现算覆盖，
         //    界面读出来永远是默认口径（全量回归抓到过）。
         Map<String, Object> snapshot = computeSnapshot(live, persistedFrom(live), null);
-        Long payStation = longOf(live.get("payStationId"));
-        Long receiveStation = longOf(live.get("settleStationId"));
+        Long payStation = longOf(snapshot.get("fromStationId"));
+        Long receiveStation = longOf(snapshot.get("toStationId"));
         boolean iReceive = !Objects.equals(payStation, stationId);
 
         Map<String, Object> out = new LinkedHashMap<>();
@@ -445,6 +458,8 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         out.put("direction", iReceive ? "RECEIVE" : "PAY");
         out.put("directionText", iReceive ? "别人欠本站" : "本站欠别人");
         out.put("amount", snapshot.get("amount"));
+        out.put("customerReceivedAmount", dec(live.get("customerReceivedAmount")));
+        out.put("refundResponsibilityNote", "客户退款出款与售后责任分别核实；本表不自动分摊部分售后损失");
         out.put("basis", snapshot.get("basis"));
         out.put("basisText", SettleBasis.textOf(intOf(snapshot.get("basis"))));
         out.put("ticketQty", snapshot.get("ticketQty"));
@@ -477,7 +492,7 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
      * 这种自相矛盾的响应（前端据此渲染就会让站长重复点）。同一事务内重新查能看到自己刚写的行。</p>
      */
     private Map<String, Object> resultOf(Map<String, Object> liveIgnored, InterStationSettlement row, Long stationId) {
-        List<Map<String, Object>> fresh = mapper.listLiveCrossStationOrders(null, row.getOrderId());
+        List<Map<String, Object>> fresh = mapper.listLiveCrossStationOrders(null, row.getOrderId(), dispatchAgreements.hasSchema());
         if (fresh.isEmpty()) {
             // 极端情况：订单在本次操作期间被取消 —— 如实回报，不要伪造一个已结清的样子
             Map<String, Object> data = new LinkedHashMap<>();

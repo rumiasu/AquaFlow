@@ -24,8 +24,19 @@ class OrderTransferDeliveryConsistencyTest {
         Fixture f = new Fixture();
         f.service.completeDelivery(1L, Map.of());
         verify(f.transfers).resolvePendingRequest(70L, "STAFF", "TRANSFER", "REJECTED", 20L);
-        verify(f.transfers).resolvePendingByKind(1L, "CUSTOMER", "REJECTED", 20L);
+        verify(f.transfers).resolvePendingRequest(71L, "CUSTOMER", "CANCEL_REQUEST", "REJECTED", 20L);
+        verify((com.example.aquaflow.mapper.OrderCancelResultMapper) f.dependencies.get(com.example.aquaflow.mapper.OrderCancelResultMapper.class))
+                .insert(eq(71L), contains("取消申请未生效"), eq(true), eq(20L));
+        verify(f.transfers, never()).resolvePendingByKind(eq(1L), anyString(), anyString(), anyLong());
         verify(f.transfers, never()).resolvePendingByKind(eq(1L), eq("STAFF"), anyString(), anyLong());
+    }
+
+    @Test void failedCancellationResultMustRejectDeliveryTransaction() throws Exception {
+        Fixture f = new Fixture();
+        when(((com.example.aquaflow.mapper.OrderCancelResultMapper) f.dependencies.get(com.example.aquaflow.mapper.OrderCancelResultMapper.class))
+                .insert(anyLong(), anyString(), anyBoolean(), anyLong())).thenReturn(0);
+        assertThrows(BusinessException.class, () -> f.service.completeDelivery(1L, Map.of()));
+        verify(f.transfers, never()).resolvePendingRequest(70L, "STAFF", "TRANSFER", "REJECTED", 20L);
     }
 
     @Test void alreadyDeliveredTransferCannotReassignTheOwner() throws Exception {
@@ -80,6 +91,12 @@ class OrderTransferDeliveryConsistencyTest {
             OrderTransfer transfer = new OrderTransfer(); transfer.setId(70L); transfer.setKind("STAFF");
             transfer.setSubKind("TRANSFER"); transfer.setFromStaffId(20L); transfer.setToStaffId(21L);
             when(transfers.findPendingByOrderAndKind(1L, "STAFF")).thenReturn(transfer);
+            OrderTransfer cancellation = new OrderTransfer(); cancellation.setId(71L); cancellation.setKind("CUSTOMER");
+            cancellation.setSubKind("CANCEL_REQUEST");
+            when(transfers.findPendingByOrderAndKind(1L, "CUSTOMER")).thenReturn(cancellation);
+            when(transfers.resolvePendingRequest(71L, "CUSTOMER", "CANCEL_REQUEST", "REJECTED", 20L)).thenReturn(1);
+            when(((com.example.aquaflow.mapper.OrderCancelResultMapper) dependencies.get(com.example.aquaflow.mapper.OrderCancelResultMapper.class))
+                    .insert(anyLong(), anyString(), anyBoolean(), anyLong())).thenReturn(1);
             when(transfers.resolvePendingRequest(70L, "STAFF", "TRANSFER", "REJECTED", 20L)).thenReturn(1);
             when(transfers.resolvePendingRequest(eq(70L), eq("STAFF"), eq("TRANSFER"), anyString(), anyLong())).thenReturn(1);
             when(((PaymentService) dependencies.get(PaymentService.class)).hasPaidRecord(1L)).thenReturn(true);

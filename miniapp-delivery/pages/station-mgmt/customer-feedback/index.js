@@ -10,8 +10,8 @@
 //   本页读的正是它落库的数据）；删掉的只是那个没有入口的员工端页面。
 //
 // 三条口径（改这个页面时必须守住）：
-//   1. 普通反馈保持只读。2026-10-05 关联退款可复用 refund-notes 追加说明，
-//      不加“标记已处理”、审批或资金动作；业务判权由服务端原申请/原款确定。
+//   1. 普通反馈保持只读。2026-10-08退款争议允许责任站登记结果并结案，客户可重提；
+//      争议状态与实际退款分别处理，业务判权仍由原申请/原款确定。
 //   2. **加载失败必须与"没有反馈"区分开**（本仓 §8.22：零覆盖端点的真实形态是"界面空白"，
 //      与"确实没有"无法区分）。失败时把后端 `message` 原样打在页面上，并**清空 list**，
 //      绝不能让"请求挂了"渲染成"本站暂无客户反馈"。
@@ -46,8 +46,9 @@
 // 权限：后端 `FeedbackController.customerFeedback` 带 `@RequireRole({"STATION_MANAGER"})` ——
 // 配送员调只会拿到一条 permission denied 的业务错误，所以本页进页就拦掉非站长。
 
-const { getCustomerFeedbacks, appendRefundNote } = require('../../../api/feedback')
+const { getCustomerFeedbacks, appendRefundNote, getRefundDisputes, getRefundNotes, closeRefundDispute } = require('../../../api/feedback')
 const noteIntent = require('../../../utils/refund-note-intent')
+const disputeIntent = require('../../../utils/exception-action-intent')
 
 Page({
   data: {
@@ -59,7 +60,9 @@ Page({
     errMsg: '',
     denied: false,
     deniedText: '',
-    selectedFeedbackId: null, selectedRefund: null, noteContent: '', noteSubmitting: false, pendingRefundNote: false
+    selectedFeedbackId: null, selectedRefund: null, noteContent: '', noteSubmitting: false, pendingRefundNote: false,
+    disputes: [], disputesError: '', disputesLoading: false, disputesPage: 0, disputesMore: false, selectedDispute: null, disputeReady: false, disputeError: '',
+    disputeResult: '', disputeSubmitting: false, pendingDispute: false
   },
 
   onLoad() {
@@ -80,8 +83,9 @@ Page({
   onShow() {
     if (this.data.denied) return
     this._noteEpoch = (this._noteEpoch || 0) + 1
-    this.setData({ noteSubmitting: false, selectedFeedbackId: null, selectedRefund: null })
+    this.setData({ noteSubmitting: false, selectedFeedbackId: null, selectedRefund: null, selectedDispute: null, disputeSubmitting: false })
     this.loadData()
+    this.loadDisputes()
   },
   onHide() { this._noteEpoch = (this._noteEpoch || 0) + 1 },
   onUnload() { this._noteEpoch = (this._noteEpoch || 0) + 1 },
@@ -93,6 +97,74 @@ Page({
     const app = getApp(), user = app.globalData.userInfo
     return !!app.globalData.isLogin && this._noteEpoch === s.epoch && user === s.user &&
       user.staffId === s.staffId && user.stationId === s.stationId && user.role === s.role && app.isStationManager()
+  },
+  async loadDisputes(page = 1) {
+    if (this.data.denied || !getApp().isStationManager()) return
+    const s = this.noteSession(), serial = this._disputeSerial = (this._disputeSerial || 0) + 1
+    const current = () => this.currentNoteSession(s) && serial === this._disputeSerial
+    this.setData({ disputesLoading: true, disputesError: '' })
+    try {
+      const response = await getRefundDisputes(page)
+      if (!current()) return
+      if (!Array.isArray(response.data)) throw new Error('退款争议未完整加载')
+      const actor = 'STAFF:' + s.staffId + ':' + s.stationId
+      const disputes = response.data.map(row => Object.assign({}, row, {
+        disputeKey: row.refundType + ':' + row.refundId, retryClose: !!disputeIntent.read(actor, row.refundType + ':' + row.refundId, 'CLOSE')
+      }))
+      const merged = page === 1 ? disputes : this.data.disputes.concat(disputes)
+      this.setData({ disputes: Array.from(new Map(merged.map(r => [r.disputeKey, r])).values()), disputesPage: page, disputesMore: response.data.length === 200 })
+    } catch (err) { if (current()) this.setData({ disputes: page === 1 ? [] : this.data.disputes, disputesError: err.message || '争议没加载出来，请重试' }) }
+    finally { if (current()) this.setData({ disputesLoading: false }) }
+  },
+  onRetryDisputes() { return this.loadDisputes() },
+  onMoreDisputes() { if (!this.data.disputesLoading) return this.loadDisputes(this.data.disputesPage + 1) },
+  async onOpenDispute(e) {
+    if (this.data.disputeSubmitting || this.data.denied || this.data.disputesLoading || this.data.disputesError) return
+    const { type, id } = e.currentTarget.dataset
+    const row = this.data.disputes.find(r => r.refundType === type && String(r.refundId) === String(id))
+    const s = this.noteSession()
+    if (!row || !this.currentNoteSession(s)) return
+    this.setData({ selectedDispute: row, disputeReady: false, disputeError: '', disputeResult: '', pendingDispute: false })
+    try {
+      const response = await getRefundNotes(type, Number(id))
+      if (!this.currentNoteSession(s) || this.data.selectedDispute !== row) return
+      const d = response.data
+      if (!d || d.refundType !== type || Number(d.refundId) !== Number(id) || !d.dispute || !Array.isArray(d.dispute.actions)) throw new Error('争议历史未完整加载')
+      const pending = disputeIntent.read('STAFF:' + s.staffId + ':' + s.stationId, type + ':' + id, 'CLOSE')
+      this.setData({ selectedDispute: Object.assign({}, row, d.dispute), disputeReady: true,
+        disputeResult: pending ? pending.reason : '', pendingDispute: !!pending })
+    } catch (err) { if (this.currentNoteSession(s)) this.setData({ disputeReady: false, disputeError: err.message || '争议历史没加载出来，请重试' }) }
+  },
+  onDisputeResult(e) { this.setData({ disputeResult: e.detail.value }) },
+  onRetryCloseDispute() {
+    try {
+      const s = this.noteSession(), row = this.data.selectedDispute
+      const pending = disputeIntent.read('STAFF:' + s.staffId + ':' + s.stationId, row.refundType + ':' + row.refundId, 'CLOSE')
+      if (!pending) return
+      this.setData({ disputeResult: pending.reason }); return this.onCloseDispute()
+    } catch (err) { wx.showToast({ title: err.message, icon: 'none' }) }
+  },
+  async onCloseDispute() {
+    const row = this.data.selectedDispute, s = this.noteSession()
+    if (this.data.disputeSubmitting || !row || !this.data.disputeReady || (!row.canClose && !this.data.pendingDispute) || !this.currentNoteSession(s)) return
+    this.setData({ disputeSubmitting: true })
+    let intent
+    try {
+      intent = disputeIntent.prepare('STAFF:' + s.staffId + ':' + s.stationId, row.refundType + ':' + row.refundId, 'CLOSE', this.data.disputeResult, row.version)
+      this.setData({ pendingDispute: true })
+      const response = await closeRefundDispute(Object.assign(disputeIntent.payload(intent), { refundType: row.refundType, refundId: Number(row.refundId) }))
+      if (!this.currentNoteSession(s)) return
+      const d = response.data
+      if (!d || !d.id || d.refundType !== row.refundType || Number(d.refundId) !== Number(row.refundId) || d.action !== 'CLOSE') throw new Error('结案结果未确认，请原样重试')
+      disputeIntent.clear(intent)
+      this.setData({ selectedDispute: null, pendingDispute: false, disputeResult: '' })
+      wx.showToast({ title: '结果已登记并结案', icon: 'success' }); await this.loadDisputes()
+    } catch (err) {
+      if (this.currentNoteSession(s)) {
+        if (intent && err.businessRejected) { disputeIntent.clear(intent); this.setData({ pendingDispute: false, selectedDispute: null }); await this.loadDisputes() }
+        wx.showToast({ title: err.message || '结案结果未确认，请重试', icon: 'none' })
+      }
+    } finally { if (this.currentNoteSession(s)) this.setData({ disputeSubmitting: false }) }
   },
   onOpenRefundNote(e) {
     if (this.data.noteSubmitting || this.data.denied || !getApp().isStationManager()) return

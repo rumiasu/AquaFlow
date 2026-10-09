@@ -15,9 +15,9 @@ const wxLogin = (code) => {
   return post(API.WX_LOGIN, { code })
 }
 
-// 微信登录（配送员小程序）：仅 code，已绑定员工直接登录
-const wxLoginStaff = (code) => {
-  return post(API.WX_LOGIN_STAFF, { code })
+// Exact displayed formal versions are optional; draft/offline/dev login never asserts acceptance.
+const wxLoginStaff = (code, agreement) => {
+  return post(API.WX_LOGIN_STAFF, agreement ? { code, agreement } : { code })
 }
 
 const logout = () => {

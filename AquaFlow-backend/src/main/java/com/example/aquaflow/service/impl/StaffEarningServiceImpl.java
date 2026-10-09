@@ -246,13 +246,28 @@ public class StaffEarningServiceImpl implements StaffEarningService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void adjustEarning(Long stationId, Long staffId, Long itemId, BigDecimal amount, String note) {
+    public void adjustEarning(Long stationId, Long staffId, Long itemId, BigDecimal amount, String note, String idempotencyKey) {
         if (staffId == null || amount == null || amount.signum() == 0) {
             throw new BusinessException("配送员与调整金额不能为空，且金额不能为 0");
         }
         requireAdjustableStaff(stationId, staffId);
 
+        String key = idempotencyKey == null ? "" : idempotencyKey.trim();
+        if (key.isEmpty() || key.length() > 64) {
+            throw new BusinessException("请更新工资录入页后重试；本次录入缺少有效的记录编号");
+        }
+        try { amount = amount.setScale(2, RoundingMode.UNNECESSARY); }
+        catch (ArithmeticException invalid) { throw new BusinessException("调整金额最多保留两位小数"); }
+        if (amount.precision() > 10) throw new BusinessException("调整金额超出可记账范围，请核实实际金额");
+        note = note == null || note.trim().isEmpty() ? null : note.trim();
+        if (note != null && note.length() > 200) throw new BusinessException("工资说明最多200字");
+        String digest = adjustmentDigest(stationId, staffId, itemId, amount, note);
+        StaffEarning old = staffEarningMapper.byIntent(stationId, staffId, key);
+        if (old != null) { requireSameAdjustment(old, digest); return; }
+
         StaffEarning e = new StaffEarning();
+        e.setIdempotencyKey(key);
+        e.setRequestDigest(digest);
         e.setStationId(stationId);
         e.setStaffId(staffId);
         e.setOrderId(null);            // 人工调整：auto_uk 为 NULL，允许无限多条（显式设计）
@@ -285,7 +300,28 @@ public class StaffEarningServiceImpl implements StaffEarningService {
             e.setAmount(amount.setScale(2, RoundingMode.HALF_UP));
             e.setNote(note);
         }
-        staffEarningMapper.insert(e);
+        try {
+            staffEarningMapper.insert(e);
+        } catch (org.springframework.dao.DuplicateKeyException conflict) {
+            StaffEarning winner = staffEarningMapper.byIntentForUpdate(stationId, staffId, key);
+            if (winner == null) throw conflict;
+            requireSameAdjustment(winner, digest);
+        }
+    }
+
+    private static String adjustmentDigest(Long station, Long staff, Long item, BigDecimal amount, String note) {
+        String text = station + ":" + staff + ":" + item + ":" + amount.stripTrailingZeros().toPlainString()
+                + ":" + (note == null ? "-1:" : note.length() + ":" + note);
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+    }
+
+    private static void requireSameAdjustment(StaffEarning old, String digest) {
+        if (!digest.equals(old.getRequestDigest())) {
+            throw new BusinessException("同一工资录入编号不能改变员工、条目、金额或说明，请核实原记录");
+        }
     }
 
     /**

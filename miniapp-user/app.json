@@ -19,6 +19,7 @@
     "pages/mine/about",
     "pages/mine/edit",
     "pages/mine/agreement/index",
+    "pages/mine/account-data/index",
     "pages/payment/records",
     "pages/deposit/records/index",
     "pages/notice/index",

@@ -11,7 +11,7 @@
 const { getBarrelSummary } = require('../../api/barrel')
 const { getTicketAccounts } = require('../../api/ticket')
 const { getCompanyInfo } = require('../../api/company')
-const { stationStorage } = require('../../utils/storage')
+const assetViewStation = require('../../utils/asset-view-station')
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const app = getApp()
 
@@ -86,8 +86,8 @@ Page({
     this._assetUnloaded = false
     const session = captureSession()
     const { isLogin, userInfo } = app.globalData
-    const station = stationStorage.get()
-    const stationId = (station && station.id) || null
+    assetViewStation.activate(this)
+    const stationId = assetViewStation.id(this)
     // [2026-09-27 走查 C05 修] 换站必须**先清空**上一站的数字：
     // 原来 onShow 只更新站名、数字等 loadAssets 回来才覆盖 —— 客户在水站 A 看到"押金 ¥450"，
     // 切到水站 B 的那一瞬间这 450 还挂在屏幕上，而资产卡下面写的已经是 B 站的名字。
@@ -105,8 +105,7 @@ Page({
     }
     this.setData({
       isLogin,
-      userInfo,
-      stationName: (station && station.name) || ''
+      userInfo
     })
     if (isLogin) {
       return this.loadAssets()
@@ -114,9 +113,12 @@ Page({
   },
 
   async loadAssets() {
-    const stationId = stationStorage.getId()
+    const context = assetViewStation.beginRead(this)
+    const stationId = context.stationId
     const session = captureSession()
     const sequence = this._assetReadSeq = (this._assetReadSeq || 0) + 1
+    this.setData({ deposit: null, ticket: null, barrel: null,
+      ...assetsView({ deposit: null, ticket: null, barrel: null }), barrelHint: '' })
     // [2026-09-20 真机联调] 旧版本多个请求原来各自 `.catch(() => null)` —— 失败被吞成 null，
     // 页面照常显示「押金 ¥0 / 水票 0 张」，与"这个客户确实没有资产"完全无法区分
     // （AGENTS §8.22）。降级保留（部分成功仍然显示），但**失败的那一格必须显式标出来**：
@@ -139,7 +141,7 @@ Page({
     ])
 
     if (this._assetUnloaded || sequence !== this._assetReadSeq || !isCurrentSession(session)
-      || stationStorage.getId() !== stationId) return
+      || !assetViewStation.current(this, context)) return
     const v = { deposit: null, ticket: null, barrel: null }
     let barrelHint = ''
 
@@ -149,7 +151,7 @@ Page({
       v.deposit = assetNumber(summary.depositBalance)
       v.barrel = assetCount(summary.independentRights ? summary.occupiedBuckets : summaryRes.data.heldBuckets)
       // 新路径 H=E+over，不含数量占用 R；旧 held 含遗留配送中桶，故两者均保留中性「我的桶」。
-      barrelHint = summary.independentRights ? '已领到手的桶' : '含配送中的桶'
+      barrelHint = summary.independentRights ? '账面桶数，非实物盘点' : '账面汇总，含遗留配送中'
     }
 
     if (ticketsRes && ticketsRes.code === 0 && Array.isArray(ticketsRes.data)) {
@@ -191,8 +193,15 @@ Page({
   },
 
   onUnload() {
+    assetViewStation.suspend(this)
     this._assetUnloaded = true
     this._assetReadSeq = (this._assetReadSeq || 0) + 1
+  },
+
+  onHide() { assetViewStation.suspend(this) },
+
+  onAssetStationChange(e) {
+    if (assetViewStation.select(this, e.detail)) return this.onRetryAssets()
   },
 
   onLogin() {
@@ -204,7 +213,10 @@ Page({
   },
 
   onMenuTap(e) {
-    const url = e.currentTarget.dataset.url
+    let url = e.currentTarget.dataset.url
+    if (['/pages/barrel/index', '/pages/ticket/index', '/pages/deposit/records/index', '/pages/barrel/purchase'].includes(url)) {
+      url = assetViewStation.url(this, url)
+    }
     // tabBar 页面必须用 switchTab 跳转，否则会被微信拦截
     const tabPages = ['/pages/home/index', '/pages/order/list', '/pages/mine/index']
     if (tabPages.indexOf(url) >= 0) {

@@ -22,6 +22,7 @@ Page({
     canRepay: false,
     repayLabel: '去支付',
     payHint: '',
+    deliveryArrangementHint: '',
     deliveredAwaitingCollection: false,
     // 只拨本单服务水站公开电话；不暴露员工通讯录或客户档案。
     callPhone: '',
@@ -66,7 +67,7 @@ Page({
     this.setData({ detailState, loadError, order: null, items: [], images: [],
       imagesState: 'idle', imagesError: '', callPhone: '', bucketInfo: null, fee: null,
       canCancel: false, cancelLabel: '', canRepay: false, statusText: '', payStatusText: '', payHint: '',
-      deliveredAwaitingCollection: false, legacyNoteUnavailable: false })
+      deliveredAwaitingCollection: false, legacyNoteUnavailable: false, deliveryArrangementHint: '' })
   },
 
   isDetailCurrent(context) {
@@ -159,7 +160,8 @@ Page({
         hasFloorFee: Number(order.floorFee || 0) > 0
       }
 
-      this.setData({ detailState: 'ready', loadError: '', order, items, statusText, payStatusText, payStatusClass, canCancel, cancelLabel, canRepay, repayLabel, payHint, deliveredAwaitingCollection, bucketInfo, fee, callPhone: '', legacyNoteUnavailable: !order.customerNote && !!order.specialNote })
+      const deliveryArrangementHint = typeof order.deliveryArrangementHint === 'string' ? order.deliveryArrangementHint : ''
+      this.setData({ detailState: 'ready', loadError: '', order, items, statusText, payStatusText, payStatusClass, canCancel, cancelLabel, canRepay, repayLabel, payHint, deliveryArrangementHint, deliveredAwaitingCollection, bucketInfo, fee, callPhone: '', legacyNoteUnavailable: !order.customerNote && !!order.specialNote })
       await Promise.allSettled([
         this.loadCallableStationPhone(order, context),
         this.loadItemImages(items, context, this.stationIdOfOrder),

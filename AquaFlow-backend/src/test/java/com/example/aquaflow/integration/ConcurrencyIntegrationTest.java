@@ -14,6 +14,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 并发一致性回归。
@@ -159,8 +160,15 @@ class ConcurrencyIntegrationTest extends AbstractIntegrationTest {
                 () -> post("/api/payments", token, "{\"orderId\":" + order + ",\"paymentMethod\":3}"),
                 () -> post("/api/payments", token, "{\"orderId\":" + order + ",\"paymentMethod\":3}")));
 
-        // ① 恰好一个成功：另一个必须收到业务错误（code=1），而不是 500、也不能两个都成功
-        assertEquals(1L, successCount(results), "并发创建支付应恰好一个成功，实际=" + results);
+        // ① 订单锁串行化支付：第二次沿已有重放分支返回原流水，两个响应均必须指向同一笔已付款。
+        assertEquals(2L, successCount(results), "并发支付及其原流水重放应可恢复同一结果，实际=" + results);
+        long paymentId = results.get(0).data().path("id").asLong();
+        assertTrue(paymentId > 0, "支付响应须带持久流水ID");
+        for (Api r : results) {
+            assertEquals(paymentId, r.data().path("id").asLong(), "不能把两笔不同流水当作幂等成功");
+            assertEquals(order, r.data().path("orderId").asLong(), "返回原单流水");
+            assertEquals(2, r.data().path("status").asInt(), "扣票成功后两个响应均是原已付款结果");
+        }
         for (Api r : results) {
             if (!r.isSuccess()) {
                 assertEquals(1, r.code(), "失败方应是业务错误(code=1)而非系统错误，实际=" + r);

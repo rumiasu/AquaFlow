@@ -26,6 +26,27 @@ public interface OrderMapper {
     @Select("select * from orders where id = #{id} for update")
     Orders getByIdForUpdate(@Param("id") Long id);
 
+    /** 服务端操作凭据，只用于指定退回的历史状态核实与只读安排提示。 */
+    @Select("select id, action, detail from audit_log where module='ORDER' and target=concat('order:',#{orderId}) "
+            + "and action='DIRECTED_RETURN' order by id desc limit 1")
+    Map<String, Object> latestDirectedReturnEvent(@Param("orderId") Long orderId);
+
+    @Select("select id, action, detail from audit_log where module='ORDER' and target=concat('order:',#{orderId}) "
+            + "and id < #{eventId} and action in ('ACCEPT','CLAIM_POOL','ASSIGN','DISPATCH','OUTSOURCE_DIRECT',"
+            + "'OUTSOURCE','STATION_REJECT','RETURN_TO_STATION','RETURN_APPROVE','RETURN_REJECT','CANCEL_DISPATCH',"
+            + "'DIRECTED_RETURN_APPROVE','DIRECTED_RETURN_REJECT','COMPLETE') order by id desc limit 1")
+    Map<String, Object> orderStateEventBefore(@Param("orderId") Long orderId, @Param("eventId") Long eventId);
+
+    @Select("select id, action, detail from audit_log where module='ORDER' and target=concat('order:',#{orderId}) "
+            + "and action in ('DIRECTED_RETURN','DIRECTED_RETURN_APPROVE','DIRECTED_RETURN_REJECT','CANCEL_DISPATCH',"
+            + "'ACCEPT','CLAIM_POOL','ASSIGN','DISPATCH','OUTSOURCE_DIRECT','OUTSOURCE','STATION_REJECT',"
+            + "'RETURN_TO_STATION','RETURN_APPROVE','RETURN_REJECT','COMPLETE') order by id desc limit 1")
+    Map<String, Object> latestOrderArrangementEvent(@Param("orderId") Long orderId);
+
+    @Update("update orders set special_note=replace(coalesce(special_note,''),'[指定退回待确认]',''), "
+            + "update_time=now() where id=#{id} and status=#{expectedStatus}")
+    int clearDirectedReturnMarkerIf(@Param("id") Long id, @Param("expectedStatus") Integer expectedStatus);
+
     /**
      * [AQ-015 紧急止血] DB 侧原子追加备注。
      * 转单/分配等流程此前都是「读旧快照 → 内存拼字符串 → orderMapper.update 整列覆盖」，
@@ -208,10 +229,9 @@ public interface OrderMapper {
      * 它**不会随订单状态前进而消失**。于是：一张单在等待期间被客户收货 → 状态已到 已送达(3)/已完成(4)，
      * 原 SQL 仍会命中，把 {@code status} 改回 待配送(1)、并把 {@code delivery_station_id} /
      * {@code settle_station_id} 一起搬回归属站 ⇒ **状态倒滚 + 营收归属被改**（违反
-     * 「状态只前进」与三站语义）。加了 {@code status = #{expectedStatus}} 之后，只有仍停在
-     * 待配送(1) 的单才能被这条路径改 —— 审批时状态必为 1，因为发起端
-     * {@code OrderWorkflowServiceImpl.directedReturn} 只放行 {待配送(1), 配送中(2)} 且会把状态
-     * <b>归一为待配送(1)</b>。</p>
+     * 「状态只前进」与三站语义）。调用方在订单行锁下核对真实待审批申请，
+     * 发起端只放行 {待配送(1), 配送中(2)} 并<b>保留主状态(1/2)</b>；
+     * 此 SQL 再核对当前期望状态，拒绝终态倒滚。</p>
      */
     @Update("update orders set special_note = concat(replace(replace(coalesce(special_note, ''), '[指定退回待确认]', ''), '[外派]', ''), ' [指定退回-同意]'), " +
             "delivery_station_id = #{stationId}, settle_station_id = #{stationId}, " +
@@ -223,7 +243,7 @@ public interface OrderMapper {
 
     /**
      * [Phase C] 指定退回-拒绝（同样的状态守卫，理由见 {@link #directedReturnApproveIf}）：
-     * 标记替换为「[指定退回-拒绝]」、状态回到配送中。
+     * 标记替换为「[指定退回-拒绝]」，保留经核实的原主状态(1/2)。
      */
     @Update("update orders set special_note = concat(replace(coalesce(special_note, ''), '[指定退回待确认]', ''), ' [指定退回-拒绝]'), " +
             "status = #{newStatus}, update_time = NOW() " +
@@ -323,6 +343,17 @@ public interface OrderMapper {
                       @Param("limit") Integer limit,
                       @Param("offset") Integer offset,
                       @Param("staffScope") Boolean staffScope);
+
+    /** Same list projection and pagination, with mandatory current fulfillment station and assignee. */
+    List<Orders> listForDelivery(@Param("stationId") Long stationId,
+                                @Param("customerId") Long customerId,
+                                @Param("status") Integer status,
+                                @Param("createTimeStart") String createTimeStart,
+                                @Param("createTimeEnd") String createTimeEnd,
+                                @Param("limit") Integer limit,
+                                @Param("offset") Integer offset,
+                                @Param("staffScope") Boolean staffScope,
+                                @Param("deliveryStaffId") Long deliveryStaffId);
 
     // [清理 2026-09-12] 删除三个全平台口径的死统计方法：countAll / countToday / countByStatus。
     // 它们不带 station_id 过滤，一旦被某个新页面顺手调用就是全平台数据泄露；
@@ -551,7 +582,10 @@ public interface OrderMapper {
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
-            "where o.delivery_staff_id = #{staffId} and o.status = #{status}")
+            "where o.delivery_staff_id = #{staffId} and o.status = #{status} " +
+            "and exists (select 1 from staff s where s.id=#{staffId} and s.status=1 " +
+            "and s.station_id=coalesce(o.delivery_station_id,o.station_id)) " +
+            "and (o.payment_status=2 or o.payment_method=2 or o.status in (3,4,5))")
     List<Orders> listByDeliveryStaffId(@Param("staffId") Long staffId, @Param("status") Integer status);
 
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
@@ -573,7 +607,7 @@ public interface OrderMapper {
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
-            "where o.station_id = #{stationId} " +
+            "where coalesce(o.settle_station_id,o.delivery_station_id,o.station_id) = #{stationId} " +
             "and o.status = #{status} " +
             "order by o.create_time asc")
     List<Orders> listByStationIdAndStatus(@Param("stationId") Long stationId, @Param("status") Integer status);
@@ -671,7 +705,7 @@ public interface OrderMapper {
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
-            "where o.station_id = #{stationId} " +
+            "where coalesce(o.delivery_station_id,o.station_id) = #{stationId} " +
             "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' " +
             "and t.kind='CUSTOMER' and t.sub_kind='CANCEL_REQUEST') " +
             "order by o.update_time desc")
@@ -772,7 +806,8 @@ public interface OrderMapper {
             // [AQ-015] 指定退回待确认改由 order_transfer 判定
             "  OR (o.station_id = #{stationId} AND exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED')) " +
             ") " +
-            "and o.status = 1 " +
+            "and (o.status = 1 OR (o.status=2 AND exists (select 1 from order_transfer t " +
+            "where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED' and t.sub_kind='DIRECTED_RETURN'))) " +
             // 与 listPendingByStationId 同一道推送闸门：已收款 或 货到付款（现金）
             "and (o.payment_status = 2 or o.payment_method = 2) " +
             "and (o.delivery_staff_id IS NULL OR exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED')) " +
@@ -803,6 +838,9 @@ public interface OrderMapper {
             "left join address a on o.address_id = a.id " +
             "where o.delivery_staff_id = #{staffId} " +
             "and o.status = 1 " +
+            "and exists (select 1 from staff s where s.id=#{staffId} and s.status=1 " +
+            "and s.station_id=coalesce(o.delivery_station_id,o.station_id)) " +
+            "and (o.payment_status=2 or o.payment_method=2) " +
             // [AQ-015] 排除已发起指定退回（转单中）的单，改由 order_transfer 判定
             "and not exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED') " +
             "order by o.create_time asc")
@@ -851,7 +889,7 @@ public interface OrderMapper {
             "where o.station_id = #{stationId} " +
             // [AQ-015] 待原站确认的指定退回改由 order_transfer 判定
             "and exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED') " +
-            "and o.status = 1 " +
+            "and o.status in (1, 2) " +
             "order by o.update_time desc")
     List<Orders> listDirectedReturns(@Param("stationId") Long stationId);
 

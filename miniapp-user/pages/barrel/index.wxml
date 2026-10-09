@@ -1,24 +1,22 @@
 <view class="container">
+  <asset-station-view id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>
     <!-- [2026-09-20] 部分桶接口失败时的提示：没有它，失败渲染出来的「权益 0 · 占用 0」
          与"确实没有桶"长得一模一样（loadError 为空串时不渲染）。 -->
-    <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}<view bindtap="onRetryAssets">重新加载 ›</view></view>
 
     <!-- 当前水站：桶权益与押金按「客户 × 水站」隔离。不写清楚，客户换个站会以为桶/押金丢了。
          文案与样式照抄 pages/deposit/records（同一条提示条，保持一致）。 -->
-    <view class="station-bar" wx:if="{{stationName}}">
-      <text class="station-bar-name">{{stationName}}</text>
-      <text class="station-bar-tip">桶与押金按水站独立，这里只显示该站的数据</text>
-    </view>
-    <view class="stats-card">
+    <view class="stats-card" wx:if="{{summary}}">
       <view class="stat-col">
-        <text class="stat-label">{{summary.independentRights ? '用桶权益' : '持有桶'}}</text>
+        <text class="stat-label">{{summary.independentRights ? '用桶权益' : '桶账汇总'}}</text>
         <view class="stat-value-row">
-          <text class="stat-number">{{summary.independentRights ? summary.rightBuckets : summary.heldBuckets}}</text>
+          <text class="stat-number">{{summary.independentRights ? (summary.rightBuckets == null ? '—' : summary.rightBuckets) : (summary.heldBuckets == null ? '—' : summary.heldBuckets)}}</text>
           <text class="stat-unit">个</text>
         </view>
+        <text class="stat-link" wx:if="{{summary.independentRights && summary.availableRights != null}}">当前可用 {{summary.availableRights}} 份</text>
       </view>
       <view class="stat-divider"></view>
       <view class="stat-col" bindtap="onDepositRecords">
@@ -30,7 +28,7 @@
         -->
         <text class="stat-label">押金余额</text>
         <view class="stat-value-row">
-          <text class="stat-number deposit">¥{{summary.depositBalance}}</text>
+          <text class="stat-number deposit">{{summary.depositBalance == null ? '—' : '¥' + summary.depositBalance}}</text>
         </view>
         <!-- 余额只回答"现在多少"，流水才回答"为什么变"（退桶/丢桶赔偿/调整都只在这里看得见） -->
         <text class="stat-link">押金流水 ›</text>
@@ -39,7 +37,7 @@
       <view class="stat-col">
         <text class="stat-label">欠桶</text>
         <view class="stat-value-row">
-          <text class="stat-number owed">{{summary.owedBuckets}}</text>
+          <text class="stat-number owed">{{summary.owedBuckets == null ? '—' : summary.owedBuckets}}</text>
           <text class="stat-unit">个</text>
         </view>
       </view>
@@ -76,23 +74,31 @@
       </view>
 
       <view class="bucket-list" wx:if="{{customerBarrelAsset.length > 0}}">
-        <view class="bucket-item" wx:for="{{customerBarrelAsset}}" wx:key="productId">
+        <view class="bucket-item asset-bucket-item" wx:for="{{customerBarrelAsset}}" wx:key="productId">
           <view class="bucket-info">
             <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#2E4A68" /></view>
             <view class="bucket-detail">
               <text class="bucket-id">{{item.productName}} {{item.productSpec}}</text>
-              <text class="bucket-time" wx:if="{{!summary.independentRights}}">持有 {{item.heldTotalQty || 0}} 桶<text wx:if="{{item.inTransitQty > 0}}">（含配送中 {{item.inTransitQty}}）</text> / 欠桶 {{item.owedQty || 0}}</text>
-              <text class="bucket-time" wx:if="{{summary.independentRights}}">实际在手 {{item.occupiedQty}} 桶 · 可用权益 {{item.availableRights}} 个</text>
+              <text class="bucket-time" wx:if="{{!item.independentRights}}">账面汇总 {{item.heldTotalQty}} 桶<text wx:if="{{item.inTransitQty > 0}}">（含遗留配送中 {{item.inTransitQty}}）</text> / 欠桶 {{item.owedQty}}</text>
+              <text class="bucket-time" wx:if="{{item.independentRights}}">有效权益 {{item.assetQty}} 份 · 当前可用 {{item.availableRights}} 份</text>
+              <view class="bucket-detail-toggle" data-id="{{item.productId}}" bindtap="onToggleBarrelDetail">{{expandedProductId === item.productId ? '收起明细' : '查看桶账明细'}} ›</view>
+              <view class="bucket-account-detail" wx:if="{{expandedProductId === item.productId}}">
+                <text>账面桶数 {{item.occupiedQty}} 个 · 欠桶 {{item.owedQty}} 个</text>
+                <text wx:if="{{item.storageQty > 0}}">暂存或待领取 {{item.storageQty}} 个</text>
+                <text>账面数量根据权益及借还记录汇总，并非实物盘点。</text>
+                <text wx:if="{{item.independentRights}}">当前可用权益已扣除订单及退还等占用。</text>
+              </view>
             </view>
           </view>
           <view class="bucket-status">
-            <text>押金 ¥{{item.deposit}}/桶</text>
+            <text>{{item.deposit == null ? '当前押金未加载' : '当前押金 ¥' + item.deposit + '/桶'}}</text>
           </view>
         </view>
       </view>
 
       <!-- 空态：原文「暂无长期桶资产」同样是建模语言；改成顾客视角的一句话 -->
-      <empty wx:else text="还没有可退的水桶"></empty>
+      <empty wx:elif="{{holdingsFailed}}" text="商品桶账暂未加载，请重新加载"></empty>
+      <empty wx:else text="该站暂无桶账记录"></empty>
     </view>
 
     <view class="section">
@@ -120,8 +126,12 @@
           </view>
           <view class="record-return" wx:if="{{item.returnDetail}}">
             <text class="record-summary">{{item.returnDetail.pickupModeText}} · 应交回 {{item.returnDetail.requiredBarrels}} 桶 · 取桶费 ¥{{item.returnDetail.pickupFee}}</text>
+            <text class="record-summary">{{item.returnDetail.statusText}}</text>
+            <text class="record-summary" wx:if="{{item.returnDetail.companionOrderId}}">关联送水单 #{{item.returnDetail.companionOrderId}}</text>
+            <text class="record-summary" wx:if="{{item.returnDetail.arrangementRequiresConfirmation && !item.returnDetail.customerConfirmationCurrent}}">水站提出了新的收桶安排，请核对后决定是否同意；也可更改或撤回申请。</text>
             <view class="record-actions">
-              <button class="record-action record-action-primary" wx:if="{{item.returnDetail.status === 'APPROVED' && !item.returnDetail.customerConfirmedTime}}" data-id="{{item.id}}" bindtap="onReturnConfirm">确认批准的安排</button>
+              <button class="record-action record-action-primary" wx:if="{{item.returnDetail.status === 'APPROVED' && item.returnDetail.customerConfirmationRequired !== false && !item.returnDetail.customerConfirmationCurrent}}" data-id="{{item.id}}" bindtap="onReturnConfirm">确认费用或新安排</button>
+              <button class="record-action record-action-secondary" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnArrangement">更改收桶安排</button>
               <button class="record-action record-action-secondary" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnWithdraw">撤回申请</button>
             </view>
           </view>
@@ -130,7 +140,8 @@
           <button wx:if="{{item.statusText}}" size="mini" bindtap="onRefundFeedback" data-id="{{item.id}}">异议或补充说明</button>
         </view>
       </view>
-      <empty wx:else text="暂无水桶记录"></empty>
+      <empty wx:elif="{{recordsFailed}}" text="水桶记录暂未加载，请重新加载"></empty>
+      <empty wx:else text="该站暂无水桶记录"></empty>
     </view>
 
     <view class="info-card">
@@ -166,7 +177,8 @@
     </view>
 
     <view class="modal-body">
-      <view class="return-tip">
+      <view class="return-tip"><text>办理水站：{{stationName || '水站 #' + viewStationId}}</text>
+
         <text>当前可退 <text class="highlight">{{maxReturnQty}}</text> 桶</text>
       </view>
 

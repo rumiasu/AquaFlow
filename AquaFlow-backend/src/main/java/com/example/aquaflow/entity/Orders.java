@@ -191,10 +191,13 @@ public class Orders {
 
     // ============ 可执行操作：业务规则由后端判定，前端不再自行推导 ============
 
-    /** 是否允许取消（待配送/配送中/已送达 允许；已完成、已取消不允许） */
+    /** 待配送可取消、配送中可申请；已有待决申请不能重复提交。 */
     public Boolean getCanCancel() {
-        return OrderStatus.isCancellable(status);
+        return OrderStatus.isCancellable(status) && (customerCancelRequest==null
+                || !"PENDING".equals(customerCancelRequest.getStatus()));
     }
+
+    private transient com.example.aquaflow.vo.CustomerCancelRequestVO customerCancelRequest;
 
     /**
      * 是否展示支付入口（**客户自助在线支付**）。
@@ -320,6 +323,7 @@ public class Orders {
         switch (getTransferKind()) {
             case "DIRECTED": return "转单待确认";
             case "STAFF":    return "转单中";
+            case "CUSTOMER": return "客户申请取消，待水站处理";
             default:         return "";
         }
     }
@@ -414,6 +418,9 @@ public class Orders {
 
     /** 客户下单时填写的备注；与配送/站长写入的 special_note 分开保存。 */
     private String customerNote;
+
+    /** 订单详情的只读配送安排提示；由有效申请/实际操作记录填充，不代表客户同意或承诺送达时间。 */
+    private transient String deliveryArrangementHint;
 
     /** 本订单 type=8 配送凭据是否存在（不存在时不得把未知显示为 0）。 */
     private transient Boolean bucketDeliveryRecorded;

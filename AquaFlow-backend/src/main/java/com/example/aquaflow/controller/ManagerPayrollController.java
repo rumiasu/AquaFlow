@@ -154,9 +154,9 @@ public class ManagerPayrollController {
 
     /** 人工调整：补一笔或扣一笔（{@code itemId} 可空；传了它金额必须为正、方向由条目决定）。 */
     @PostMapping("/payroll/adjust")
-    public Result<Void> adjustEarning(@RequestBody PayrollDTO.Adjust body) {
+    public Result<Void> adjustEarning(@RequestBody @jakarta.validation.Valid PayrollDTO.Adjust body) {
         staffEarningService.adjustEarning(AuthContext.requireStationId(), body.getStaffId(),
-                body.getItemId(), body.getAmount(), body.getNote());
+                body.getItemId(), body.getAmount(), body.getNote(), body.getIdempotencyKey());
         return Result.success();
     }
 

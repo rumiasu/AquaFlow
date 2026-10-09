@@ -3,6 +3,7 @@
   "enablePullDownRefresh": true,
   "usingComponents": {
     "empty": "../../components/Empty/index",
-    "loading": "../../components/Loading/index"
+    "loading": "../../components/Loading/index",
+    "asset-station-view": "../../components/AssetStationView/index"
   }
 }

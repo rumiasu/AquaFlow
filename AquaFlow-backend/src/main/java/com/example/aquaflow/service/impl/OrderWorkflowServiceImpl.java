@@ -96,6 +96,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
     @Autowired
     private OrderTransferMapper orderTransferMapper;
+    @Autowired private com.example.aquaflow.mapper.OrderCancelResultMapper cancelResults;
 
     /**
      * 配送员计件工资（v37）。
@@ -204,6 +205,10 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
      * 见 AGENTS §1.1 的 2026-09-22 裁定。</p>
      */
     private void requireDispatchRight(Orders order, Long myStationId) {
+        if (AuthContext.isDelivery()) {
+            checkStationOwnership(order);
+            checkDeliverySelf(order);
+        }
         if (myStationId != null && myStationId.equals(deliveryStation(order))) {
             return;
         }
@@ -268,7 +273,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     }
 
     /** 写入一条待决策转单记录（结构化权威状态源，[AQ-015]） */
-    private void insertTransfer(Long orderId, String kind, String subKind,
+    private Long insertTransfer(Long orderId, String kind, String subKind,
                                 Long fromStaffId, Long toStaffId, Long fromStationId, String reason) {
         OrderTransfer ot = new OrderTransfer();
         ot.setOrderId(orderId);
@@ -281,6 +286,15 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         ot.setReason(reason);
         ot.setOperatorId(AuthContext.getUserId());
         orderTransferMapper.insert(ot);
+        return ot.getId();
+    }
+
+    /** 指定退回等待原站决策；普通同事转让仍按 C-12 允许原负责人履约。 */
+    private void requireNoPendingDirectedReturn(Long orderId) {
+        OrderTransfer request = orderTransferMapper.findPendingByOrderAndKind(orderId, OrderTransfer.KIND_DIRECTED);
+        if (request != null && OrderTransfer.SUB_DIRECTED_RETURN.equals(request.getSubKind())) {
+            throw new BusinessException("指定退回正在等待原水站处理，请先处理申请");
+        }
     }
 
     /**
@@ -303,12 +317,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public void acceptOrder(Long orderId) {
         Long staffId = AuthContext.getUserId();
-        Long stationId = AuthContext.getStationId();
+        Long stationId = AuthContext.requireStationId();
 
-        Orders order = requireOrder(orderId);
-        if (stationId != null && !stationId.equals(deliveryStation(order))) {
-            throw new BusinessException("只能接本站履约的订单");
-        }
+        // Read authorization from the current locked row, before accepting or overwriting its assignee.
+        Orders order = requireOrderForUpdate(orderId);
+        checkStationOwnership(order);
+        requireNoPendingDirectedReturn(orderId);
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (cur != OrderStatus.PENDING) {
             throw new BusinessException("该订单当前状态不可接单");
@@ -327,6 +341,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         // 对站长同样开放），所以这里按角色分叉，而不是一刀切要求"必须先被分配"。
         if (AuthContext.isDelivery() && order.getDeliveryStaffId() == null) {
             throw new BusinessException("该订单还没分配配送员，请联系站长分配后再接单");
+        }
+        // Dispatch clears the assignee. A risky incoming order must first pass the existing
+        // receiving-station assignment confirmation, including a manager assigning to themselves.
+        boolean incomingRisk = !stationId.equals(order.getStationId()) && involvesDepositOrBarrelRights(order);
+        if (incomingRisk && order.getDeliveryStaffId() == null) {
+            throw new BusinessException("接收他站押金/桶权益单前，请站长先确认风险并分配配送员（可分配给自己）");
         }
 
         // 原子接单：仅当 status=1 才更新，返回受影响行数（乐观锁）
@@ -348,8 +368,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public void confirmOfflinePay(Long orderId) {
         Long staffId = AuthContext.getUserId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         checkStationOwnership(order);
+        requireNoPendingDirectedReturn(orderId);
         if (AuthContext.isDelivery()) {
             checkDeliverySelf(order);
         }
@@ -414,6 +435,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         Long staffId = AuthContext.getUserId();
         Orders order = requireOrderForUpdate(orderId);
         checkStationOwnership(order);
+        requireNoPendingDirectedReturn(orderId);
         if (AuthContext.isDelivery()) {
             checkDeliverySelf(order);
         }
@@ -702,11 +724,14 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         // （实测：order 27 就是这么挂了 7 天，站长点"同意"只会看到"订单已完成，不能再取消"）。
         // 所以在这里如实收尾：**驳回**（不是 CANCELLED —— 撤回是发起方的动作，
         // 这里发生的事实是"申请没能生效，水已经送出去了"）。
-        // ⚠️ 只用 resolvePendingByKind 碰 CUSTOMER 这一类：STAFF 转单 / 退回 / 站间指定退回
-        //    各有自己的决策点，一起清掉会让配送员的转单申请凭空消失。
-        int staleCancelRequests = orderTransferMapper.resolvePendingByKind(orderId,
-                OrderTransfer.KIND_CUSTOMER, OrderTransfer.STATUS_REJECTED, staffId);
-        if (staleCancelRequests > 0) {
+        // [v78] 只对当前 CUSTOMER/CANCEL_REQUEST 凭据做 CAS，并同事务保存客户可见结果。
+        // STAFF 转单 / 退回 / 站间指定退回各有自己的决策点，不做类别批量清除。
+        OrderTransfer staleCancel=orderTransferMapper.findPendingByOrderAndKind(orderId,OrderTransfer.KIND_CUSTOMER);
+        if (staleCancel!=null && OrderTransfer.SUB_CANCEL_REQUEST.equals(staleCancel.getSubKind())) {
+            if(orderTransferMapper.resolvePendingRequest(staleCancel.getId(),OrderTransfer.KIND_CUSTOMER,OrderTransfer.SUB_CANCEL_REQUEST,OrderTransfer.STATUS_REJECTED,staffId)!=1)
+                throw new BusinessException("取消申请状态已变化，请刷新订单后重试");
+            if(cancelResults.insert(staleCancel.getId(),"订单已完成配送，本次取消申请未生效；如有异议可联系水站。",true,staffId)!=1)
+                throw new BusinessException("取消申请处理结果未保存");
             log("CANCEL_REQUEST_AUTO_REJECTED", orderId,
                     serviceMap("reason", "订单已完成配送，取消申请自动关闭"));
         }
@@ -909,12 +934,13 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void rejectOrder(Long orderId, String reason) {
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         // 配送员与站长都必须校验订单归属，杜绝越权取消任意订单并触发退款
         Long stationId = AuthContext.requireStationId();
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("无权操作他站订单");
         }
+        if (AuthContext.isDelivery()) checkDeliverySelf(order);
         // [2026-09-13] 状态门槛：此前这里只校验归属、不校验状态，
         // 于是「配送员点完成」与「配送员/站长点拒单」在两个客户端上没有任何互斥，
         // 且已完成的订单也能被拒单退款。业务上只允许 待配送/配送中 拒单
@@ -938,11 +964,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void resolveOrder(Long orderId, String reason) {
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         Long stationId = AuthContext.requireStationId();
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站履约的订单");
         }
+        if (AuthContext.isDelivery()) checkDeliverySelf(order);
         if (reason == null || reason.isBlank()) {
             throw new BusinessException("拒单原因必填");
         }
@@ -966,7 +993,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void stationReject(Long orderId, String reason, boolean tryDispatch) {
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         Long stationId = AuthContext.requireStationId();
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站订单");
@@ -1120,8 +1147,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         Long myStationId = AuthContext.getStationId();
         if (myStationId == null) throw new BusinessException("无法识别当前水站");
 
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         requireDispatchRight(order, myStationId);
+        requireNoPendingDirectedReturn(orderId);
         if (targetStationId == null) throw new BusinessException("targetStationId 不能为空");
         if (targetStationId.equals(myStationId)) throw new BusinessException("不能外派给自己水站");
 
@@ -1160,10 +1188,11 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public void outsource(Long orderId, Long targetStationId, String reason, boolean riskAcknowledged) {
         Long stationId = AuthContext.requireStationId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         // 与 dispatchExternal 共用同一道判权：放池 / 退回池 / 定向外派都是"调度"，
         // 都适用「还没被接单之前这单仍算归属站的」（见 requireDispatchRight）。
         requireDispatchRight(order, stationId);
+        requireNoPendingDirectedReturn(orderId);
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) {
             throw new BusinessException("当前状态不可外派");
@@ -1222,7 +1251,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public void cancelDispatch(Long orderId) {
         Long stationId = AuthContext.requireStationId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(order.getStationId())) {
             throw new BusinessException("仅能取消本站外派的订单");
         }
@@ -1239,6 +1268,23 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException(cur == OrderStatus.DELIVERING
                     ? "该单已被接单站接单，归接单站管理，本站不能再取消外派（请与接单站联系）"
                     : "该订单状态不可取消外派（当前 " + OrderStatus.textOf(cur) + "）");
+        }
+        if (stationId.equals(order.getDeliveryStationId())
+                || (order.getDeliveryStationId() == null
+                    && (order.getSpecialNote() == null || !order.getSpecialNote().contains("[外派]")))) {
+            throw new BusinessException("该订单当前没有可召回的外派安排");
+        }
+        OrderTransfer returning = orderTransferMapper.findPendingByOrderAndKind(orderId, OrderTransfer.KIND_DIRECTED);
+        if (returning != null) {
+            returning = requirePendingDirectedReturn(order);
+            // 旧版可能把已接单的主状态压成 1，不能借召回绕开履约站权限。
+            if (directedReturnSourceStatus(order, returning) != OrderStatus.PENDING) {
+                throw new BusinessException("该单已经接单，请由接单站处理或同意指定退回");
+            }
+            resolveDirectedReturn(returning, OrderTransfer.STATUS_CANCELLED);
+            if (orderMapper.clearDirectedReturnMarkerIf(orderId, cur) != 1) {
+                throw new BusinessException("订单状态已变化，请刷新后重试");
+            }
         }
         // 召回为本站待分配（此时只可能是"在池中"或"已指定但对方未接单"两种）
         int changed = orderMapper.recallToStationIf(orderId, stationId, OrderStatus.PENDING, cur);
@@ -1311,10 +1357,11 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public void assignToStaff(Long orderId, Long targetStaffId, boolean riskAcknowledged) {
         Long stationId = AuthContext.requireStationId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站订单");
         }
+        requireNoPendingDirectedReturn(orderId);
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (cur != OrderStatus.PENDING) {
             throw new BusinessException("仅待分配订单可分配");
@@ -1361,6 +1408,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站履约的订单");
         }
+        requireNoPendingDirectedReturn(orderId);
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) {
             throw new BusinessException("仅已分配/配送中的订单可转让");
@@ -1442,7 +1490,6 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public void claimTransfer(Long orderId) {
         Long staffId = AuthContext.getUserId();
-        Long stationId = AuthContext.getStationId();
         Orders order = requireOrderForUpdate(orderId);
         checkStationOwnership(order);
         if (!Integer.valueOf(OrderStatus.PENDING).equals(order.getStatus())
@@ -1471,26 +1518,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             return;
         }
 
-        if (stationId != null && !stationId.equals(deliveryStation(order))) {
-            throw new BusinessException("仅能认领本站订单");
-        }
-        int cur = order.getStatus() != null ? order.getStatus() : 0;
-        if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) {
-            throw new BusinessException("当前订单状态不可认领");
-        }
-        if (order.getDeliveryStaffId() != null && !order.getDeliveryStaffId().equals(staffId)) {
-            throw new BusinessException("该订单已分配给其他配送员");
-        }
-        if (order.getDeliveryStaffId() != null) {
-            throw new BusinessException("该订单没有待你接手的转让，或该转让已经处理，请刷新任务列表");
-        }
-        // 保留未分配订单的旧认领入口；同事转让须由上方待确认申请分支处理。
-        int claimed = orderMapper.claimIfUnassigned(orderId, staffId);
-        if (claimed == 0) {
-            throw new BusinessException("该订单已被其他配送员认领");
-        }
-        orderMapper.appendSpecialNote(orderId, "[认领]");
-        log("CLAIM", orderId, null);
+        throw new BusinessException("该订单没有待你接手的转让，或该转让已经处理，请联系站长分配并刷新任务列表");
     }
 
     @Override
@@ -1548,10 +1576,11 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     public void returnToStation(Long orderId, String reason) {
         Long stationId = AuthContext.getStationId();
         if (stationId == null) throw new BusinessException("无法识别当前水站");
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站履约的订单");
         }
+        requireNoPendingDirectedReturn(orderId);
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) {
             throw new BusinessException("仅已分配/配送中的订单可退回站长");
@@ -1649,47 +1678,44 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public void directedReturn(Long orderId) {
         Long stationId = AuthContext.requireStationId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅目标水站可退回此单");
+        }
+        if (stationId.equals(order.getStationId())) {
+            throw new BusinessException("本站订单请使用退回站长入口");
         }
         int cur = order.getStatus() != null ? order.getStatus() : 0;
         if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) {
             throw new BusinessException("当前状态不可退回");
         }
-        // 进入「转单中」：不动 delivery_station_id / delivery_staff_id，拒绝时才能还原由原配送员继续配送
-        if (cur != OrderStatus.PENDING) {
-            int changed = orderMapper.updateStatusIf(orderId, cur, OrderStatus.PENDING);
-            if (changed == 0) {
-                throw new BusinessException("订单状态已变更，请刷新后重试");
-            }
+        if (orderTransferMapper.countPendingByOrder(orderId) != 0) {
+            throw new BusinessException("该订单已有待处理申请，请先处理原申请");
         }
+        if (cur == OrderStatus.DELIVERING && order.getDeliveryStaffId() == null) {
+            throw new BusinessException("配送中订单缺少负责人，请先核实原配送安排");
+        }
+        // 申请独立记 PENDING，保留实际是否接单及原指派，审批不得凭有配送员就推定已接单。
         orderMapper.appendSpecialNote(orderId,
                 "[指定退回待确认] 由水站 " + stationId + " 申请退回原归属站 " + order.getStationId());
-        // [AQ-015] 结构化转单记录（站间指定退回待确认）
-        insertTransfer(orderId, OrderTransfer.KIND_DIRECTED, OrderTransfer.SUB_DIRECTED_RETURN,
+        Long requestId = insertTransfer(orderId, OrderTransfer.KIND_DIRECTED, OrderTransfer.SUB_DIRECTED_RETURN,
                 order.getDeliveryStaffId(), null, stationId, "申请退回原归属站 " + order.getStationId());
         log("DIRECTED_RETURN", orderId,
-                serviceMap("fromStationId", stationId, "toStationId", order.getStationId()));
+                serviceMap("fromStationId", stationId, "toStationId", order.getStationId(),
+                        "transferId", requestId, "sourceStatus", cur));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void directedReturnApprove(Long orderId) {
         Long stationId = AuthContext.requireStationId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(order.getStationId())) {
             throw new BusinessException("仅原归属站可操作");
         }
-        if (order.getSpecialNote() == null || !order.getSpecialNote().contains("[指定退回待确认]")) {
-            throw new BusinessException("该订单无需确认退回");
-        }
-        // CAS 守卫在**备注标记 + 状态**上：并发两次「同意」只有一个能改到；
-        // [2026-09-30 修 F-05] 状态条件不可省 —— 备注标记不会随状态前进消失，只看标记会让
-        // 「等待期间已被收货」的单被改回待配送(1) 并搬走营收归属（详见 OrderMapper 那条 SQL 的注释）。
-        // 审批时状态必为 待配送(1)：发起端只放行 {1,2} 且把状态归一为 PENDING。
+        OrderTransfer request = requirePendingDirectedReturn(order);
         int changed = orderMapper.directedReturnApproveIf(orderId, stationId, OrderStatus.PENDING,
-                OrderStatus.PENDING);
+                order.getStatus());
         if (changed == 0) {
             throw new BusinessException("该订单状态已变更，请刷新后重试");
         }
@@ -1698,8 +1724,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         movePendingCollectionTo(orderId, stationId);
         // [2026-09-25 库存预留模型] 预留一并退回归属站（同"召回"：货跟着履约站走）
         inventoryReservationService.transferForOrder(orderId, stationId);
-        orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_DIRECTED,
-                OrderTransfer.STATUS_APPROVED, AuthContext.getUserId());
+        resolveDirectedReturn(request, OrderTransfer.STATUS_APPROVED);
         log("DIRECTED_RETURN_APPROVE", orderId, null);
     }
 
@@ -1707,23 +1732,82 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public void directedReturnReject(Long orderId) {
         Long stationId = AuthContext.requireStationId();
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(order.getStationId())) {
             throw new BusinessException("仅原归属站可操作");
         }
-        if (order.getSpecialNote() == null || !order.getSpecialNote().contains("[指定退回待确认]")) {
-            throw new BusinessException("该订单无需确认退回");
-        }
-        // 拒绝转单 -> 回到配送中；delivery_station_id / delivery_staff_id 保持原样
-        // [2026-09-30 修 F-05] 同样带状态守卫（期望仍是 待配送(1)），理由同 approve。
-        int changed = orderMapper.directedReturnRejectIf(orderId, OrderStatus.DELIVERING,
-                OrderStatus.PENDING);
+        OrderTransfer request = requirePendingDirectedReturn(order);
+        int restoredStatus = directedReturnSourceStatus(order, request);
+        int changed = orderMapper.directedReturnRejectIf(orderId, restoredStatus, order.getStatus());
         if (changed == 0) {
             throw new BusinessException("该订单状态已变更，请刷新后重试");
         }
-        orderTransferMapper.resolvePendingByKind(orderId, OrderTransfer.KIND_DIRECTED,
-                OrderTransfer.STATUS_REJECTED, AuthContext.getUserId());
-        log("DIRECTED_RETURN_REJECT", orderId, null);
+        resolveDirectedReturn(request, OrderTransfer.STATUS_REJECTED);
+        log("DIRECTED_RETURN_REJECT", orderId, serviceMap("transferId", request.getId(), "restoredStatus", restoredStatus));
+    }
+
+    private OrderTransfer requirePendingDirectedReturn(Orders order) {
+        int status = order.getStatus() == null ? 0 : order.getStatus();
+        OrderTransfer request = orderTransferMapper.findPendingByOrderAndKind(order.getId(), OrderTransfer.KIND_DIRECTED);
+        if ((status != OrderStatus.PENDING && status != OrderStatus.DELIVERING)
+                || request == null || !OrderTransfer.SUB_DIRECTED_RETURN.equals(request.getSubKind())
+                || java.util.Objects.equals(order.getStationId(), deliveryStation(order))
+                || !java.util.Objects.equals(request.getFromStationId(), deliveryStation(order))
+                || !java.util.Objects.equals(request.getFromStaffId(), order.getDeliveryStaffId())) {
+            throw new BusinessException("指定退回申请或原配送安排已变化，请刷新后核实");
+        }
+        return request;
+    }
+
+    private void resolveDirectedReturn(OrderTransfer request, String outcome) {
+        if (orderTransferMapper.resolvePendingRequest(request.getId(), OrderTransfer.KIND_DIRECTED,
+                OrderTransfer.SUB_DIRECTED_RETURN, outcome, AuthContext.getUserId()) != 1) {
+            throw new BusinessException("该指定退回申请已被处理，请刷新后重试");
+        }
+    }
+
+    /** 新申请核对审计快照；旧申请按真实指派/接单凭据恢复，证据不全只保留原站同意后重排出口。 */
+    private int directedReturnSourceStatus(Orders order, OrderTransfer request) {
+        Map<String, Object> event = orderMapper.latestDirectedReturnEvent(order.getId());
+        Long source = auditNumber(event, "sourceStatus");
+        if (source != null) {
+            if (!java.util.Objects.equals(auditNumber(event, "transferId"), request.getId())
+                    || source.intValue() != order.getStatus()
+                    || (source != OrderStatus.PENDING && source != OrderStatus.DELIVERING)
+                    || (source == OrderStatus.DELIVERING && order.getDeliveryStaffId() == null)) {
+                throw new BusinessException("原配送状态或申请已变化，请核实后处理");
+            }
+            return source.intValue();
+        }
+        if (order.getStatus() == OrderStatus.DELIVERING && order.getDeliveryStaffId() != null) return OrderStatus.DELIVERING;
+        if (order.getDeliveryStaffId() == null) return OrderStatus.PENDING;
+        if (event != null && event.get("id") instanceof Number) {
+            Map<String, Object> previous = orderMapper.orderStateEventBefore(order.getId(), ((Number) event.get("id")).longValue());
+            if (previous != null) {
+                String action = String.valueOf(previous.get("action"));
+                if ("ACCEPT".equals(action) && java.util.Objects.equals(auditNumber(previous, "deliveryStaffId"), request.getFromStaffId())) return OrderStatus.DELIVERING;
+                if ("CLAIM_POOL".equals(action) && java.util.Objects.equals(auditNumber(previous, "staffId"), request.getFromStaffId())
+                        && java.util.Objects.equals(auditNumber(previous, "stationId"), request.getFromStationId())) return OrderStatus.DELIVERING;
+                if ("RETURN_REJECT".equals(action)) return OrderStatus.DELIVERING;
+                if ("ASSIGN".equals(action) && java.util.Objects.equals(auditNumber(previous, "targetStaffId"), request.getFromStaffId())) return OrderStatus.PENDING;
+                if (Set.of("DISPATCH", "OUTSOURCE_DIRECT", "OUTSOURCE", "RETURN_TO_STATION",
+                        "RETURN_APPROVE", "CANCEL_DISPATCH", "DIRECTED_RETURN_APPROVE").contains(action)) return OrderStatus.PENDING;
+                if ("DIRECTED_RETURN_REJECT".equals(action)) {
+                    Long restored = auditNumber(previous, "restoredStatus");
+                    if (restored == null || restored == OrderStatus.DELIVERING) return OrderStatus.DELIVERING;
+                    if (restored == OrderStatus.PENDING) return OrderStatus.PENDING;
+                }
+                if ("STATION_REJECT".equals(action) && String.valueOf(previous.get("detail")).contains("tryDispatch=true")) return OrderStatus.PENDING;
+            }
+        }
+        throw new BusinessException("原配送状态未能核实，请先核实或同意退回后重新安排");
+    }
+
+    private Long auditNumber(Map<String, Object> event, String field) {
+        if (event == null) return null;
+        var match = java.util.regex.Pattern.compile("(?:\\{|,\\s*)" + field + "=(\\d+)(?:,|\\})")
+                .matcher(String.valueOf(event.get("detail")));
+        return match.find() ? Long.valueOf(match.group(1)) : null;
     }
 
     /* ==================================================================
@@ -1739,8 +1823,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void requestCancelByStaff(Long orderId, String reason) {
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         checkStationOwnership(order);
+        requireNoPendingDirectedReturn(orderId);
         if (AuthContext.isDelivery()) {
             checkDeliverySelf(order);
         }
@@ -1774,7 +1859,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void requestCancelByCustomer(Long orderId, Long customerId, String reason) {
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         if (order.getCustomerId() == null || !order.getCustomerId().equals(customerId)) {
             throw new BusinessException("无权取消他人订单");
         }
@@ -1796,7 +1881,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void approveCancelRequest(Long orderId) {
-        Orders order = requireOrder(orderId);
+        // 与送达统一锁序：订单→准确申请→退款/桶账；先锁申请会与送达形成反向等待。
+        Orders order = requireOrderForUpdate(orderId);
         checkStationOwnership(order);
         OrderTransfer pending = orderTransferMapper.findPendingByOrder(orderId);
         if (pending == null || !OrderTransfer.SUB_CANCEL_REQUEST.equals(pending.getSubKind())) {
@@ -1807,11 +1893,13 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             throw new BusinessException(OrderStatus.notCancellableReason(cur));
         }
         // 先落审批结论，再走统一退款编排（refundOrder 末尾统一把订单置为已取消）
-        orderTransferMapper.resolvePendingByKind(orderId, pending.getKind(),
-                OrderTransfer.STATUS_APPROVED, AuthContext.getUserId());
+        if(orderTransferMapper.resolvePendingRequest(pending.getId(),pending.getKind(),OrderTransfer.SUB_CANCEL_REQUEST,
+                OrderTransfer.STATUS_APPROVED,AuthContext.getUserId())!=1)throw new BusinessException("该取消申请已经处理，请刷新后核实");
         String reason = (pending.getReason() != null && !pending.getReason().isBlank())
                 ? pending.getReason() : "取消申请";
         cancelWithRefund(orderId, reason, "[取消申请-已同意] ");
+        if(cancelResults.insert(pending.getId(),"水站已同意取消，订单已取消；退款到账以实际办理结果为准。",false,AuthContext.getUserId())!=1)
+            throw new BusinessException("取消申请处理结果未保存");
         notifyCustomerRejected(order.getCustomerId(), orderId, reason);
         log("CANCEL_REQUEST_APPROVE", orderId, serviceMap("transferId", pending.getId()));
     }
@@ -1819,15 +1907,17 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void rejectCancelRequest(Long orderId) {
-        Orders order = requireOrder(orderId);
+        Orders order = requireOrderForUpdate(orderId);
         checkStationOwnership(order);
         OrderTransfer pending = orderTransferMapper.findPendingByOrder(orderId);
         if (pending == null || !OrderTransfer.SUB_CANCEL_REQUEST.equals(pending.getSubKind())) {
             throw new BusinessException("该订单没有待审批的取消申请");
         }
         // 驳回：订单状态保持不变（继续配送中/已送达），仅落审批结论
-        orderTransferMapper.resolvePendingByKind(orderId, pending.getKind(),
-                OrderTransfer.STATUS_REJECTED, AuthContext.getUserId());
+        if(orderTransferMapper.resolvePendingRequest(pending.getId(),pending.getKind(),OrderTransfer.SUB_CANCEL_REQUEST,
+                OrderTransfer.STATUS_REJECTED,AuthContext.getUserId())!=1)throw new BusinessException("该取消申请已经处理，请刷新后核实");
+        if(cancelResults.insert(pending.getId(),"水站未同意本次取消申请，订单保持当前状态；如有异议可联系水站。",false,AuthContext.getUserId())!=1)
+            throw new BusinessException("取消申请处理结果未保存");
         orderMapper.appendSpecialNote(orderId, "[取消申请-已驳回]");
         log("CANCEL_REQUEST_REJECT", orderId, serviceMap("transferId", pending.getId()));
     }

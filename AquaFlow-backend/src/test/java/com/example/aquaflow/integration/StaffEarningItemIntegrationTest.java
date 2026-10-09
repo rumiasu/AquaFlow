@@ -132,7 +132,7 @@ class StaffEarningItemIntegrationTest extends AbstractIntegrationTest {
         post(ADJUST, token, adjustBody(rider, addItem, "50"));
         post(ADJUST, token, adjustBody(rider, deductItem, "30"));
         // 自由文本调整：没有条目，只应体现在未结合计里
-        assertEquals(0, post(ADJUST, token, "{\"staffId\":" + rider + ",\"amount\":10,\"note\":\"口头约定\"}").code());
+        assertEquals(0, post(ADJUST, token, "{\"staffId\":" + rider + ",\"amount\":10,\"note\":\"口头约定\",\"idempotencyKey\":\"verbal-extra\"}").code());
 
         Api res = get("/api/manager/earnings?staffId=" + rider, token);
         assertEquals(0, res.code());
@@ -164,7 +164,7 @@ class StaffEarningItemIntegrationTest extends AbstractIntegrationTest {
         long stationB = createStation("工资条目站F");
         long riderB = createStaff("骑手己", "DELIVERY", stationB, 1);
 
-        Api refused = post(ADJUST, tokenA, "{\"staffId\":" + riderB + ",\"amount\":100,\"note\":\"塞钱\"}");
+        Api refused = post(ADJUST, tokenA, "{\"staffId\":" + riderB + ",\"amount\":100,\"note\":\"塞钱\",\"idempotencyKey\":\"wrong-staff\"}");
         assertNotEquals(0, refused.code(),
                 "「我的工资」自助查询刻意只按 staff_id 过滤（跨站外派的口径），"
                         + "所以任何站长传一个别站配送员 id 就能改那个人的未结工资 —— 必须在这里拦住");
@@ -172,14 +172,15 @@ class StaffEarningItemIntegrationTest extends AbstractIntegrationTest {
         // 跨站外派是合法场景：这个人在本站留下过履约痕迹后，就该给他记账
         insert("insert into staff_earning(station_id, staff_id, order_id, kind, product_id, amount, note, create_time) "
                 + "values(?,?,null,'ADJUST',0,10.00,'外派跑腿',NOW())", stationA, riderB);
-        assertEquals(0, post(ADJUST, tokenA, "{\"staffId\":" + riderB + ",\"amount\":50,\"note\":\"外派补贴\"}").code(),
+        assertEquals(0, post(ADJUST, tokenA, "{\"staffId\":" + riderB + ",\"amount\":50,\"note\":\"外派补贴\",\"idempotencyKey\":\"dispatch-extra\"}").code(),
                 "在本站有过收益的人属于「与本站有履约关系」，跨站外派的工钱得发得出去");
     }
 
     /* ==================== 夹具 ==================== */
 
     private static String adjustBody(long staffId, long itemId, String amount) {
-        return "{\"staffId\":" + staffId + ",\"itemId\":" + itemId + ",\"amount\":" + amount + "}";
+        return "{\"staffId\":" + staffId + ",\"itemId\":" + itemId + ",\"amount\":" + amount
+                + ",\"idempotencyKey\":\"item-" + staffId + "-" + itemId + "-" + amount + "\"}";
     }
 
     private static java.math.BigDecimal totalOf(JsonNode summary, String name) {

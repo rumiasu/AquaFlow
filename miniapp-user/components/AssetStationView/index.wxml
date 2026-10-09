@@ -1,0 +1,27 @@
+<view class="scope-card">
+  <view class="scope-row" bindtap="openPicker" aria-role="button" aria-label="切换资产查看水站">
+    <view class="scope-main">
+      <text class="scope-caption">正在查看资产</text>
+      <text class="scope-name">{{stationName || (stationId ? '水站 #' + stationId : '请选择资产水站')}}</text>
+      <text class="scope-status" wx:if="{{statusText}}">{{statusText}}</text>
+    </view>
+    <text class="scope-switch">切换 ›</text>
+  </view>
+  <text class="scope-tip">桶、押金与水票按站独立，不能跨站使用</text>
+  <text class="scope-order">下单水站：{{orderStationName || '暂未选择'}} · 切换查看不会更改</text>
+</view>
+<view class="picker-mask" wx:if="{{open}}" bindtap="close"></view>
+<view class="picker" wx:if="{{open}}" catchtap="stopPropagation">
+  <view class="picker-head"><text>选择查看水站</text><button class="picker-close" bindtap="close">关闭</button></view>
+  <text class="picker-tip">只列出与你有绑定、资产或历史记录的水站</text>
+  <scroll-view class="picker-list" scroll-y>
+    <view class="picker-row {{stationId === item.id ? 'selected' : ''}}" wx:for="{{stations}}" wx:key="id" data-id="{{item.id}}" bindtap="choose">
+      <view class="picker-main"><text class="picker-name">{{item.name}}</text><text class="picker-status">{{item.statusText}}</text></view>
+      <text class="picker-selected" wx:if="{{stationId === item.id}}">查看中</text>
+    </view>
+    <text class="picker-message" wx:if="{{loading}}">正在加载水站…</text>
+    <view wx:elif="{{errorText}}"><text class="picker-message">{{errorText}}</text><button class="picker-retry" bindtap="retry">重新加载</button></view>
+    <text class="picker-message" wx:elif="{{!stations.length}}">暂无与你相关的资产水站。选下单水站请前往首页或商品页。</text>
+    <button class="picker-retry" wx:elif="{{hasMore}}" bindtap="more">查看更多水站</button>
+  </scroll-view>
+</view>

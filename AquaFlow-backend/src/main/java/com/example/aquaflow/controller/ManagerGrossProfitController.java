@@ -67,7 +67,7 @@ public class ManagerGrossProfitController {
      * <b>不要写 Markdown 记号</b>。</p>
      */
     private static final String PROFIT_BASIS_NOTE =
-            "净利 = 收入 − 进货成本 − 计件工钱。按下单时间统计，工钱在送达时才产生（没送完的单先不计工钱）。";
+            "净利 = 退款后收入 − 进货成本 − 计件工钱。按下单时间统计这批订单，后续实际退款扣回原批次；没送完的单先不计工钱。";
 
     /**
      * 「利润怎么算」帮助弹窗里的**长解释**（[2026-09-26] 从上面两条口径提示里搬出来的）。
@@ -85,12 +85,12 @@ public class ManagerGrossProfitController {
     private static final String HELP_NOTE =
             "利润 = 该期间的销售收入 − 卖出数量 × 当前进货成本价；"
                     + "净利 = 收入 − 进货成本 − 计件工钱。\n\n"
-                    + "1. 按「下单时间」统计这一批订单（不是按哪天送完）：它是这批生意本身的账，"
+                    + "1. 按「下单时间」统计这一批订单（不是按哪天送完），后续实际退款扣回原订单批次：它是这批生意本身的账，"
                     + "不是当天进账的现金。\n"
                     + "2. 工钱在该单送到时才产生，还没送完的单暂时不计工钱 —— 那几天净利会偏高。\n"
                     + "3. 迟到扣款、高温补贴这类人工调整不计入净利。\n"
                     + "4. 水票收入只在客户买票那一刻计一次：用票下的单不再重复计水费与配送费，"
-                    + "所以单看某一张水票单的利润会是负的（成本在、收入不在它身上），请看期间合计。\n"
+                    + "退出未用的真实购票批次会扣回该批次收入。所以单看某一张水票单的利润会是负的（成本在、收入不在它身上），请看期间合计。\n"
                     + "5. 明细里「卖出」与「成本合计」算的是本期实际履约的货（含用票兑出去的）；"
                     + "只卖票、本期还没兑货的商品会单列一行，只显示票款收入。\n"
                     + "6. 利润按当前成本价算：本版不做批次成本核算，改了成本价，历史期间的利润也会跟着变。\n"
@@ -98,6 +98,9 @@ public class ManagerGrossProfitController {
 
     @Autowired
     private GrossProfitMapper grossProfitMapper;
+
+    @Autowired
+    private com.example.aquaflow.service.BarrelBusinessPolicy refundPolicy;
 
     /**
      * [F-16] 业务时钟（时间源统一收在 util 里，Controller 不直接持有 {@code Clock}，
@@ -195,7 +198,7 @@ public class ManagerGrossProfitController {
         Map<Long, BigDecimal> ticketRevenueByProduct = new LinkedHashMap<>();
         Map<Long, String> ticketProductNames = new LinkedHashMap<>();
         for (Map<String, Object> tr : grossProfitMapper.ticketPurchaseRevenueByProduct(
-                stationId, start.atStartOfDay(), end.plusDays(1).atStartOfDay())) {
+                stationId, start.atStartOfDay(), end.plusDays(1).atStartOfDay(), refundPolicy.hasSchema())) {
             Object pidRaw = tr.get("productId");
             if (pidRaw == null) continue;
             Long pid = ((Number) pidRaw).longValue();

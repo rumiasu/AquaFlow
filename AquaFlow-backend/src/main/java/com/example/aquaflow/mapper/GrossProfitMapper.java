@@ -18,6 +18,11 @@ import java.util.Map;
 @Mapper
 public interface GrossProfitMapper {
 
+    // 2026-10-08：原先部分退款仍显示全额收入。现有退款按整类费用退，按原订单批次扣实退；成本事实保留。
+    String REFUND_WATER = "(select coalesce(sum(-coalesce(r.water_amount,0)),0) from payment_record r where r.order_id=o.id and r.status=3 and r.amount<0 and r.payment_method<>3)";
+    String REFUND_CONSUMPTION = "(select coalesce(sum(-(r.amount-coalesce(r.barrel_deposit,0))),0) from payment_record r where r.order_id=o.id and r.status=3 and r.amount<0 and r.payment_method<>3)";
+    String SERVICE_RETAINED = "(" + REFUND_CONSUMPTION + "-" + REFUND_WATER + " < o.delivery_fee+o.floor_fee)";
+
     /**
      * 设置某商品在本站的进货成本价。
      *
@@ -71,7 +76,7 @@ public interface GrossProfitMapper {
             //    原实现把 `o.payment_method <> 3` 写在 WHERE 里，等于把整张票单（含成本事实）
             //    一起滤掉：报表只剩售票实收与工钱，兑票配送的进货成本凭空消失、毛利虚高。
             //    改法就是下面这一行 CASE WHEN（只过滤"收入"这一个聚合，不过滤行）。
-            + "       round(sum(case when o.payment_method <> 3 then oi.subtotal else 0 end), 2) as revenue, "
+            + "       round(sum(case when o.payment_method <> 3 and not (" + REFUND_WATER + " > 0 and " + REFUND_WATER + " >= o.water_amount) then oi.subtotal else 0 end), 2) as revenue, "
             + "       max(i.cost_price) as costPrice, "
             + "       round(sum(oi.quantity * coalesce(i.cost_price, 0)), 2) as costAmount, "
             + "       case when max(i.cost_price) is null then 1 else 0 end as missingCost "
@@ -119,19 +124,25 @@ public interface GrossProfitMapper {
      * {@link #grossProfitByProduct} 的订单侧明细**按商品合并**（评审问题 6），
      * 而"本期只卖了票、还没兑票"的商品在订单侧根本不出行，没有名字就没法显示。</p>
      */
-    @Select("select p.ticket_water_type_id as productId, "
+    @Select("<script>select p.ticket_water_type_id as productId, "
             + "       max(pr.name) as productName, "
-            + "       round(coalesce(sum(p.amount), 0), 2) as ticketRevenue "
+            + "       round(coalesce(sum(p.amount <if test='refundSchema'>-coalesce((select sum(x.amount) from ticket_exit_refund x where x.original_payment_id=p.id),0)</if>), 0), 2) as ticketRevenue "
             + "  from payment_record p "
             + "  left join product pr on pr.id = p.ticket_water_type_id "
             + " where p.station_id = #{stationId} "
             + "   and p.order_id is null and p.status = 2 "
             + "   and p.ticket_water_type_id is not null "
-            + "   and p.update_time >= #{start} and p.update_time < #{endExclusive} "
-            + " group by p.ticket_water_type_id")
+            + "   and p.update_time >= #{start} and p.update_time &lt; #{endExclusive} "
+            + " group by p.ticket_water_type_id</script>")
     List<Map<String, Object>> ticketPurchaseRevenueByProduct(@Param("stationId") Long stationId,
                                                              @Param("start") java.time.LocalDateTime start,
-                                                             @Param("endExclusive") java.time.LocalDateTime endExclusive);
+                                                             @Param("endExclusive") java.time.LocalDateTime endExclusive,
+                                                             @Param("refundSchema") boolean refundSchema);
+
+    default List<Map<String,Object>> ticketPurchaseRevenueByProduct(Long stationId, java.time.LocalDateTime start,
+                                                                  java.time.LocalDateTime endExclusive) {
+        return ticketPurchaseRevenueByProduct(stationId, start, endExclusive, false);
+    }
 
     /**
      * 同一订单集合里的<b>单数</b>与<b>配送费 / 楼层费</b>合计（净利用）。
@@ -146,8 +157,8 @@ public interface GrossProfitMapper {
     @Select("select count(*) as orderCount, "
             // [2026-09-20] 金额只算**非水票单**：票单的配送费 / 楼层费已被票抵掉，钱在购票时收过了
             // （见 ticketPurchaseRevenueByProduct），算进来就是重复。单数仍是全部单（票单也是单）。
-            + "       round(coalesce(sum(case when o.payment_method <> 3 then o.delivery_fee else 0 end), 0), 2) as deliveryFee, "
-            + "       round(coalesce(sum(case when o.payment_method <> 3 then o.floor_fee else 0 end), 0), 2) as floorFee "
+            + "       round(coalesce(sum(case when o.payment_method <> 3 and " + SERVICE_RETAINED + " then o.delivery_fee else 0 end), 0), 2) as deliveryFee, "
+            + "       round(coalesce(sum(case when o.payment_method <> 3 and " + SERVICE_RETAINED + " then o.floor_fee else 0 end), 0), 2) as floorFee "
             + "  from orders o "
             + " where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "   and o.status <> 5 "

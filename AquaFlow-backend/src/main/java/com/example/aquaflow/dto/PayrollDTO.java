@@ -50,6 +50,9 @@ public final class PayrollDTO {
     /** POST /api/manager/payroll/adjust：人工调整（可正可负） */
     @Data
     public static class Adjust {
+        @jakarta.validation.constraints.NotBlank
+        @jakarta.validation.constraints.Size(max = 64)
+        private String idempotencyKey;
         private Long staffId;
 
         /**

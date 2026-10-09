@@ -23,6 +23,7 @@ import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.BarrelScope;
 import com.example.aquaflow.util.PriceUtil;
 import com.example.aquaflow.util.StationUtil;
+import com.example.aquaflow.util.CustomerProfileMask;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -58,6 +59,8 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private BarrelRecordMapper barrelRecordMapper;
+    @Autowired private com.example.aquaflow.mapper.OrderTransferMapper cancelRequests;
+    @Autowired private com.example.aquaflow.mapper.OrderCancelResultMapper cancelResults;
 
     @Autowired
     private AddressMapper addressMapper;
@@ -808,6 +811,13 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public List<Orders> list(Long stationId, Long customerId, Integer status, String createTimeStart, String createTimeEnd,
                              Integer limit, Integer offset, boolean staffScope) {
+        if (AuthContext.isDelivery()) {
+            if (AuthContext.getUserId() == null) throw new BusinessException("无法识别当前员工");
+            List<Orders> rows = orderMapper.listForDelivery(AuthContext.requireStationId(), customerId, status,
+                    createTimeStart, createTimeEnd, limit, offset, true, AuthContext.getUserId());
+            if (rows != null) rows.forEach(CustomerProfileMask::maskIfCrossStation);
+            return rows;
+        }
         return orderMapper.list(stationId, customerId, status, createTimeStart, createTimeEnd, limit, offset,
                 staffScope);
     }
@@ -816,6 +826,9 @@ public class OrderServiceImpl implements OrderService {
     public Orders getById(Long id) {
         Orders order = orderMapper.getById(id);
         if (order != null) {
+            order.setDeliveryArrangementHint(deliveryArrangementHint(order));
+            var request=cancelRequests.latestCustomerCancelRequest(id);
+            if(request!=null)order.setCustomerCancelRequest(com.example.aquaflow.vo.CustomerCancelRequestVO.of(request,cancelResults.get(request.getId())));
             List<OrderItem> items = orderItemMapper.listByOrderId(id);
             order.setItems(items);
             List<BarrelRecord> deliveryRecords = barrelRecordMapper.listDeliveryByOrder(
@@ -831,6 +844,29 @@ public class OrderServiceImpl implements OrderService {
             }
         }
         return order;
+    }
+
+    /** 根据真实待处理申请和最新安排事实展示；不解析内部备注，也不生成 ETA 或客户同意。 */
+    private String deliveryArrangementHint(Orders order) {
+        Integer status = order.getStatus();
+        if (!Integer.valueOf(OrderStatus.PENDING).equals(status)
+                && !Integer.valueOf(OrderStatus.DELIVERING).equals(status)) return null;
+        OrderTransfer request = cancelRequests.findPendingByOrderAndKind(order.getId(), OrderTransfer.KIND_DIRECTED);
+        if (request != null && OrderTransfer.SUB_DIRECTED_RETURN.equals(request.getSubKind())
+                && !java.util.Objects.equals(order.getStationId(), StationUtil.deliveryStation(order))
+                && java.util.Objects.equals(request.getFromStationId(), StationUtil.deliveryStation(order))
+                && java.util.Objects.equals(request.getFromStaffId(), order.getDeliveryStaffId())) {
+            return status == OrderStatus.PENDING
+                    ? "配送安排遇到问题，水站正在协调重新安排，可能需要延后。请联系水站确认时间。"
+                    : "配送安排有变，水站正在协调处理，请联系水站确认后续安排。";
+        }
+        Map<String, Object> event = orderMapper.latestOrderArrangementEvent(order.getId());
+        if (status == OrderStatus.PENDING && event != null
+                && java.util.Set.of("DIRECTED_RETURN_APPROVE", "DIRECTED_RETURN_REJECT", "CANCEL_DISPATCH")
+                    .contains(String.valueOf(event.get("action")))) {
+            return "配送安排遇到问题，水站正在协调重新安排，可能需要延后。请联系水站确认时间。";
+        }
+        return null;
     }
 
     @Override
@@ -850,7 +886,8 @@ public class OrderServiceImpl implements OrderService {
      * 还可能对已取消订单再次发起支付；水票支付的订单取消后票价也没退回。</p>
      */
     public void cancelByCustomer(Long orderId, Long customerId) {
-        Orders order = orderMapper.getById(orderId);
+        // 2026-10-08：普通快照可能在接单后仍走直接取消；先锁订单，再按最新状态分流。
+        Orders order = orderMapper.getByIdForUpdate(orderId);
         if (order == null) {
             throw new BusinessException("订单不存在");
         }

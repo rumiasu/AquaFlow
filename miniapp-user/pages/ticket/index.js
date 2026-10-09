@@ -1,11 +1,10 @@
 const { getTicketAccounts, getTicketRecords, getTicketPackages, purchaseTicket, getTicketPurchaseResult, closeTicketPurchaseIntent } = require('../../api/ticket')
 const { getStationProducts } = require('../../api/product')
 const { getBarrelSummaryByType } = require('../../api/barrel')
-const { getPublicStations } = require('../../api/station')
+const assetViewStation = require('../../utils/asset-view-station')
 const { getBaseUrl, API } = require('../../config/api')
 const { getAccessToken, getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
-const { stationStorage } = require('../../utils/storage')
 
 Page({
   onExitHelp() { wx.showModal({ title:'剩余水票退出',content:'请联系原购买水站，站长核实原购买批次、剩余张数及退款金额后办理。已用票不退；赠票及没有原款来源的批次须另行核实。退票与退桶、退押金分别办理。',showCancel:false }) },
@@ -71,9 +70,21 @@ Page({
     packagesError: '',      // 档位没拉到（不影响买散票，只在购票弹窗里说明）
   },
 
+  onLoad(options) { assetViewStation.init(this, options) },
+  onHide() { assetViewStation.suspend(this) },
+  onUnload() { assetViewStation.suspend(this) },
   async onShow() {
+    assetViewStation.activate(this)
     this.restorePurchaseIntent()
     await Promise.all([this.loadData(), this.onQueryPurchaseResult()])
+  },
+
+  onRetryAssets() { return this.loadData() },
+  onAssetStationChange(e) {
+    if (!assetViewStation.select(this, e.detail)) return
+    this.onClosePurchase()
+    this.setData({ packagesError: '' })
+    return this.loadData()
   },
 
   // 2026-10-02 F-75：原键只活在页面中，丢响应/退出会重复记款。
@@ -272,151 +283,48 @@ Page({
   },
 
   async loadData() {
-    // 优先读取本地存储的水站
-    let stationId = stationStorage.getId()
-    let station = stationStorage.get()
-
-    this.setData({ currentStationId: stationId, currentStation: station })
-
-    this.setData({ loading: true })
+    const context = assetViewStation.beginRead(this)
+    const stationId = context.stationId
+    this.setData({ currentStationId: stationId, currentStation: stationId ? { id: stationId, name: this.data.stationName } : null,
+      loading: true, accounts: [], records: [], buyProducts: [], totalTickets: null, totalValue: null,
+      accountsFailed: false, recordsFailed: false, loadError: '' })
+    if (!stationId) { this.setData({ loading: false, accountsFailed: true, recordsFailed: true,
+      loadError: '请在上方选择要查看的资产水站' }); return }
+    const failed = []
+    const caught = label => err => { failed.push(label); console.warn('[Ticket] ' + label, err && err.message); return null }
     try {
-      // [2026-09-20 真机联调] 原来是「商品一个 `.catch(() => null)` + 余额/记录整体 try/catch 里
-      // 只 console.error」：任一失败都被吞掉，页面照旧渲染「可用水票 0 张 / 暂无水票 / 暂无记录」，
-      // 与"确实没有水票"无法区分（AGENTS §8.22）。现在逐个降级（成功的那部分照常展示），
-      // 并把失败项汇总到顶部提示条 + 对应的「没加载出来」空态。
-      const failed = []
-      const softCatch = (tag) => (e) => {
-        failed.push(tag)
-        console.warn('[Ticket] ' + tag + ' 加载失败:', e && (e.message || e.errMsg))
-        return null
-      }
-      let productsRes = null
-      if (stationId) {
-        // 2026-09-16：不再回退到 /api/products/on-sale —— 那是**全平台**在售列表，
-        // 会把别站可售商品塞进"买水票"弹窗（跨站可见性漏洞）。没有选水站就只展示已持有水票。
-        productsRes = await getStationProducts(stationId).catch(softCatch('可购商品'))
-      }
-
-      const [accountsRes, recordsRes] = await Promise.all([
-        getTicketAccounts(stationId).catch(softCatch('水票余额')),
-        getTicketRecords(stationId).catch(softCatch('消费记录'))
+      // 商品仅影响新购入口；资产和记录不等待商品请求成功。
+      const [accountsRes, recordsRes, productsRes] = await Promise.all([
+        getTicketAccounts(stationId).catch(caught('水票余额')),
+        getTicketRecords(stationId).catch(caught('消费记录')),
+        getStationProducts(stationId).catch(caught('可购商品'))
       ])
-
-      if (failed.length) {
-        this.setData({
-          loadError: '有 ' + failed.length + ' 项没加载出来（' + failed.join('、')
-            + '），下面显示的余票/记录可能不全，请退出重进本页重试'
-        })
-        wx.showToast({ title: '水票数据没加载全，请重试', icon: 'none' })
-      } else {
-        this.setData({ loadError: '' })
-      }
-
-      if (accountsRes && accountsRes.data) {
-        const accounts = accountsRes.data
-        const totalTickets = accounts.reduce((sum, a) => sum + (a.remainQuantity || 0), 0)
-        const totalValue = accounts.reduce((sum, a) => sum + (a.remainQuantity || 0) * (a.effectiveTicketPrice || a.faceValue || a.price || 0), 0)
-        this.setData({ accounts, totalTickets, totalValue, accountsFailed: false })
-      } else if (!accountsRes) {
-        // 拉失败：保留旧数据不动，并把余额显示成「—」—— 绝不能让它停在 0 张
-        this.setData({ accountsFailed: true })
-      }
-      if (recordsRes && recordsRes.data) {
-        this.setData({ records: recordsRes.data, recordsFailed: false })
-      } else if (!recordsRes) {
-        this.setData({ recordsFailed: true })
-      }
-      if (productsRes && productsRes.data) {
-        // 列表里放两类商品，**都是真实商品**（2026-09-20 产品口径：「在用户端看起来没区别…
-        // 不是专门卖统一水票」—— 所以这里**不会**出现"统一水票"这种商品）：
-        //   ① 本站开了定制票的（ticketEnabled === 1）；
-        //   ② 桶装水（category === 1）—— 站长配了站级统一折扣时，它也能按折扣买票。
-        //      "到底能不能买"由点进去拉到的档位决定（后端 TicketTierService 一处判据），
-        //      拉不到档位就提示一句，不在这儿猜。
-        const buyProducts = productsRes.data.filter(p => p.ticketEnabled === 1 || p.category === 1)
-        this.setData({ buyProducts, currentStationId: stationId })
-      }
+      if (!assetViewStation.current(this, context)) return
+      const count = value => (typeof value === 'number' || typeof value === 'string' && value.trim())
+        && Number.isSafeInteger(Number(value)) && Number(value) >= 0
+      const accountsOK = !!(accountsRes && accountsRes.code === 0 && Array.isArray(accountsRes.data)
+        && accountsRes.data.every(a => a && count(a.remainQuantity)))
+      const recordsOK = !!(recordsRes && recordsRes.code === 0 && Array.isArray(recordsRes.data))
+      const productsOK = !!(productsRes && productsRes.code === 0 && Array.isArray(productsRes.data))
+      const accounts = accountsOK ? accountsRes.data : []
+      this.setData({ accounts, records: recordsOK ? recordsRes.data : [],
+        totalTickets: accountsOK ? accounts.reduce((sum, a) => sum + Number(a.remainQuantity), 0) : null,
+        // 延续原展示金额；不将当前售价估值称作可退款金额。
+        totalValue: accountsOK ? accounts.reduce((sum, a) => sum + Number(a.remainQuantity) * (a.effectiveTicketPrice || a.faceValue || a.price || 0), 0) : null,
+        accountsFailed: !accountsOK, recordsFailed: !recordsOK,
+        buyProducts: productsOK ? productsRes.data.filter(p => p.ticketEnabled === 1 || p.category === 1) : [],
+        loadError: !accountsOK || !recordsOK || !productsOK ? '部分水票数据暂未加载；未加载项不代表 0，请重试' : '' })
     } catch (error) {
-      // 兜底分支：上面的每个请求都已各自 softCatch，走到这里只可能是本地代码出错
-      console.error('[Ticket] Load ticket data error:', error)
-      this.setData({ loadError: '水票数据没加载出来（' + ((error && error.message) || '本地异常') + '），请重试' })
-    } finally {
-      this.setData({ loading: false })
-    }
+      if (assetViewStation.current(this, context)) this.setData({ accountsFailed: true, recordsFailed: true,
+        loadError: error.message || '水票数据暂未加载，请重试' })
+    } finally { if (assetViewStation.current(this, context)) this.setData({ loading: false }) }
   },
 
-  async loadStationList() {
-    // [2026-09-20 真机联调 · 出声] 原来是 `.catch(() => null)` + 外层只 console.error：
-    // 失败时 stationList 为空数组，页面（如果有）就渲染成「暂无可用水站」—— 把"没查到"说成
-    // "平台真的没有水站"。⚠️ 本页 wxml 目前**没有任何选站 UI**（onOpenStationPicker /
-    // onSelectStation / onCloseStationPicker 三个 handler 在 wxml 里零引用 = 不可达），
-    // 所以这里只留可查的痕迹 + 一次 toast，不新增只能在未来生效的 data 字段。
-    try {
-      const res = await getPublicStations()
-      // 业务失败仍是 HTTP 200，一律判 body.code（AGENTS §8.1）
-      if (!res || res.code !== 0 || !res.data) {
-        console.warn('[Ticket] 水站列表返回非成功响应:', res && res.message)
-        return
-      }
-      const activeStations = res.data.filter(s => s.status === 1)
-      this.setData({ stationList: activeStations })
-    } catch (e) {
-      console.error('[Ticket] 加载水站列表失败:', e)
-      wx.showToast({ title: '水站列表没加载出来，请重试', icon: 'none' })
-    }
-  },
-
-  onOpenStationPicker() {
-    this.setData({ showStationPicker: true })
-    this.loadStationList()
-  },
-
-  onCloseStationPicker() {
-    this.setData({ showStationPicker: false })
-  },
-
-  async onSelectStation(e) {
-    const { id } = e.currentTarget.dataset
-    if (id === this.data.currentStationId) {
-      this.setData({ showStationPicker: false })
-      return
-    }
-    const station = this.data.stationList.find(s => s.id === id)
-
-    // 本地提示：不同水站资产不互通
-    const noticeDisabled = stationStorage.getSwitchNoticeDisabled()
-    if (!noticeDisabled && this.data.currentStationId && this.data.currentStationId !== id) {
-      const confirm = await new Promise(resolve => {
-        wx.showModal({
-          title: '切换水站提醒',
-          content: '不同水站的水票、桶及押金等资产不互通，请确认后再切换。',
-          confirmText: '继续',
-          cancelText: '取消',
-          showCancel: true,
-          success: (r) => resolve(r.confirm)
-        })
-      })
-      if (!confirm) {
-        return
-      }
-      const dontShow = await new Promise(resolve => {
-        wx.showModal({
-          title: '提示',
-          content: '下次不再提示？',
-          confirmText: '不再提示',
-          cancelText: '继续提示',
-          success: (r) => resolve(r.confirm)
-        })
-      })
-      if (dontShow) {
-        stationStorage.setSwitchNoticeDisabled(true)
-      }
-    }
-
-    stationStorage.set(station)
-    this.setData({ showStationPicker: false })
-    await this.loadData()
-  },
+  // 兼容旧事件名，统一由本人资产关系选择器管理；不修改全局下单水站。
+  loadStationList() { return this.onOpenStationPicker() },
+  onOpenStationPicker() { const picker = this.selectComponent('#asset-station-view'); if (picker) return picker.openPicker() },
+  onCloseStationPicker() { const picker = this.selectComponent('#asset-station-view'); if (picker) picker.close() },
+  onSelectStation(e) { return this.onAssetStationChange(e) },
 
   onTabChange(e) {
     const { id } = e.currentTarget.dataset
@@ -475,11 +383,14 @@ Page({
    * 散买没有价可依（它没配水票价），所以后端会拒；页面对这种商品不显示散买入口。</p>
    */
   async loadBuyPackages(productId) {
+    const context = assetViewStation.beginRead(this, 'packages')
     this.setData({ buyPackages: [], packagesError: '' })
     try {
-      const res = await getTicketPackages(this.data.currentStationId, productId)
+      const res = await getTicketPackages(context.stationId, productId)
+      if (!assetViewStation.current(this, context) || String(this.data.buyForm.productId) !== String(productId) || !this.data.showPurchase) return
       this.setData({ buyPackages: res.data || [] })
     } catch (err) {
+      if (!assetViewStation.current(this, context) || String(this.data.buyForm.productId) !== String(productId) || !this.data.showPurchase) return
       // [2026-09-20 真机联调] 这里原来是**刻意的静默降级**（"档位拉不到不该挡住买票"）——
       // 不阻断买票这条判据仍然成立（下面照旧退回散买），但"静默"是错的：档位 = 越买越便宜的
       // 价目表，拉不到时客户看到的是"这款水没有优惠"，与"确实没配档位"完全无法区分

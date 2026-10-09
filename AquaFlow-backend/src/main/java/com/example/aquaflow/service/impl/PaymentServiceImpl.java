@@ -46,6 +46,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderPurchases;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedgerService;
+    @Autowired private com.example.aquaflow.service.StationRecoveryService stationRecoveries;
 
     /**
      * 微信支付**模拟渠道**开关（{@code app.payment.mock-wechat-pay}，**默认 false**）。
@@ -210,14 +211,18 @@ public class PaymentServiceImpl implements PaymentService {
         if (!PayMethod.isValid(paymentMethod)) {
             throw new BusinessException("不支持的支付方式：" + paymentMethod);
         }
-        if (orderId!=null && (barrelPolicy.isEnabled() || barrelLedgerService.independentOrder(orderId))) {
+        if (orderId != null) {
             Orders current=paymentLocks.lockOrder(orderId);
             if(current==null || !Objects.equals(current.getCustomerId(),customerId))throw new BusinessException("订单不存在或不属于当前客户");
             if(Integer.valueOf(OrderStatus.CANCELLED).equals(current.getStatus()) || Integer.valueOf(PaymentStatus.REFUNDED).equals(current.getPaymentStatus())
                     || Integer.valueOf(PaymentStatus.CANCELLED).equals(current.getPaymentStatus()))throw new BusinessException("订单已取消或退款，不能重新收款");
-            confirmedRefusals.requireOldDebtPaid(current);
+            requireNewPurchaseDebtClear(current);
         }
 
+        // 2026-10-08：原来订单流水附带购票数量会在确认时凭空加票；命中重放前也须拒绝混入购买意图。
+        if (orderId != null && (ticketWaterTypeId != null || ticketQty != null)) {
+            throw new BusinessException("订单支付不能附带购票商品或数量，请从购买水票入口办理");
+        }
         // 防重复支付：该订单已有「已支付」或「待收款」记录时直接返回，不再新建。
         // [DEF-3] 必须连同 PENDING 一起拦：payment_record 原来靠
         // uk_payment_order_status(order_id, status) 唯一键兜底防重，但该唯一键与
@@ -249,7 +254,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         // 货到付款（现金）权限二次校验：需要水站开启且客户已授权
-        if (order != null) confirmedRefusals.requireOldDebtPaid(order);
+        if (order != null) requireNewPurchaseDebtClear(order);
         // 注意：旧代码这里判断的是 3（老语义"线下支付"），与 PayMethod 的 2=现金冲突，已按 PayMethod 统一
         if (Integer.valueOf(PayMethod.CASH).equals(paymentMethod) && orderStationId != null) {
             boolean collectingExistingDebt=barrelPolicy.isEnabled() && order!=null
@@ -347,11 +352,11 @@ public class PaymentServiceImpl implements PaymentService {
         // 而不是 RuntimeException —— 后者会被兜底处理器转成 code=500「系统错误」，
         // 让"重复点击确认"这类正常场景看起来像后端崩了。
         if (record == null) throw new BusinessException("支付记录不存在");
-        if(record.getOrderId()!=null && (barrelPolicy.isEnabled() || barrelLedgerService.independentOrder(record.getOrderId()))) {
+        if (record.getOrderId() != null) {
             Orders current=paymentLocks.lockOrder(record.getOrderId());
             if(current==null || current.getStatus()==OrderStatus.CANCELLED || current.getPaymentStatus()==PaymentStatus.REFUNDED || current.getPaymentStatus()==PaymentStatus.CANCELLED)
                 throw new BusinessException("订单已经取消或退款，不能再确认收款");
-            confirmedRefusals.requireOldDebtPaid(current);
+            requireNewPurchaseDebtClear(current);
         }
         if (record.getStatus() != PaymentStatus.PENDING) {
             throw new BusinessException(record.getStatus() == PaymentStatus.PAID
@@ -382,7 +387,8 @@ public class PaymentServiceImpl implements PaymentService {
         // 「同一个购买意图存在两条流水」这种情况 —— 两条流水各自被确认一次，水票就入账两次。
         // 所以防重必须发生在**落流水**那一步：见 TicketAccountServiceImpl.purchaseTicket 的
         // idempotencyKey 与 uk_payment_idempotency（v33 / migration_v33_payment_idempotency.sql）。
-        if (record.getTicketWaterTypeId() != null && record.getTicketQty() != null && record.getTicketQty() > 0) {
+        if (record.getOrderId() == null && record.getTicketWaterTypeId() != null
+                && record.getTicketQty() != null && record.getTicketQty() > 0) {
             // [v36] 走 creditPurchasedTickets 而不是 addTicket：前者把**实付均价**快照进水票批次，
             // 后者用的是站级水票价。档位套餐下两者不同 —— 客户按档位价付了 800 元买 100 张，
             // 批次单价必须是 8.00；用站级单张价记，退票时就会多退给客户钱。
@@ -695,6 +701,31 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    private void requireNewPurchaseDebtClear(Orders order) {
+        boolean collectingExisting = Objects.equals(order.getPaymentMethod(), PayMethod.CASH)
+                && Objects.equals(order.getPaymentStatus(), PaymentStatus.PENDING)
+                && (Objects.equals(order.getStatus(), OrderStatus.DELIVERED)
+                    || Objects.equals(order.getStatus(), OrderStatus.COMPLETED));
+        if (!collectingExisting) confirmedRefusals.requireOldDebtPaid(order);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean cancelTimedOutWechatOrder(Long orderId, int timeoutMinutes) {
+        if (timeoutMinutes <= 0) return false;
+        Orders current = paymentLocks.lockOrder(orderId);
+        if (current == null || !Objects.equals(current.getPaymentMethod(), PayMethod.WECHAT)
+                || !Objects.equals(current.getStatus(), OrderStatus.PENDING)
+                || !(Objects.equals(current.getPaymentStatus(), PaymentStatus.UNPAID)
+                    || Objects.equals(current.getPaymentStatus(), PaymentStatus.PENDING))
+                || current.getCreateTime() == null
+                || !current.getCreateTime().isBefore(paymentRecordMapper.timeoutCutoff(timeoutMinutes))) return false;
+        // 已发起渠道请求不能猜作未付款；保留原款等待核实，而非超时伪造退款。
+        if (!paymentRecordMapper.activeByOrderForUpdate(orderId).isEmpty()) return false;
+        refundOrder(orderId, "微信支付超时未到账，系统自动取消（" + timeoutMinutes + " 分钟）");
+        return true;
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public void refundOrder(Long orderId, String reason) {
         refundOrder(orderId,reason,null);
@@ -864,6 +895,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (cancelled == 0) {
             throw new BusinessException("订单状态已变更（可能已被取消），请刷新后重试");
         }
+        stationRecoveries.preserveFullRefund(orderId);
     }
 
     /**
@@ -963,6 +995,7 @@ public class PaymentServiceImpl implements PaymentService {
             // 正确值是与退款流水一致的 已退款(3)：markPaidIfCollectable 从 0/1 迁入，绝不复活 3/4，
             // 因此退款后的订单不会被重新收一遍钱。
             orderMapper.updatePaymentStatusIf(record.getOrderId(), PaymentStatus.PAID, PaymentStatus.REFUNDED);
+            stationRecoveries.preserveFullRefund(record.getOrderId());
         }
     }
 

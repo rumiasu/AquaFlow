@@ -1,0 +1,40 @@
+<view class="page">
+  <view class="card">
+    <text class="title">账户资料与请求</text>
+    <text class="body" wx:if="{{options}}">{{options.notice}}</text>
+    <text class="body" wx:if="{{options && !options.intakeEnabled}}">申请受理尚未开放，当前不能提交申请。受理人、联系渠道和处理规则待核实。</text>
+    <text class="body" wx:if="{{options.intakeEnabled && options.intakeContact}}">受理联系渠道：{{options.intakeContact}}</text>
+    <text class="body">这里不会自动导出、删除或匿名化资料，也不会注销账户或清理未结业务。</text>
+    <text class="error" wx:if="{{error}}">{{error}}</text>
+    <button size="mini" bindtap="onRetry" disabled="{{loading}}" loading="{{loading}}">重新查询</button>
+  </view>
+  <view class="card" wx:if="{{options.closureCheckSupported}}">
+    <text class="title">注销前检查</text>
+    <text class="body">仅查询本人未结事项。检查结果不是注销许可，检查失败或有未结事项不表示已注销。</text>
+    <button size="mini" bindtap="onCheck" disabled="{{loading}}">查询未结事项</button>
+    <text class="body" wx:if="{{check}}">{{check.message}}</text>
+    <view wx:for="{{check.blockingItems}}" wx:key="index"><text class="body">{{item.stationName}}：{{item.label}}</text></view>
+  </view>
+  <view class="card" wx:if="{{options.intakeEnabled}}">
+    <text class="title">登记本人申请</text>
+    <picker range="{{options.requestTypes}}" range-key="label" bindchange="onType" disabled="{{pending || submitting}}"><view class="body">{{selectedLabel}} ›</view></picker>
+    <textarea placeholder="补充说明（选填，最多500字）" value="{{note}}" maxlength="500" bindinput="onNote" disabled="{{pending || submitting}}" />
+    <text class="body" wx:if="{{submitNotice}}">{{submitNotice}}</text>
+    <button bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting || loading}}">{{pending ? '重试原申请' : '登记申请'}}</button>
+  </view>
+  <view class="card">
+    <text class="title">本人申请记录</text>
+    <text class="body" wx:if="{{options && items.length === 0 && !loading && !error}}">暂无登记记录。</text>
+    <view class="record" wx:for="{{items}}" wx:key="id" data-id="{{item.id}}" bindtap="onDetail"><text class="body">{{item.requestTypeText}} · {{item.statusText}} ›</text></view>
+    <button size="mini" wx:if="{{nextBeforeId}}" bindtap="onMore" disabled="{{loading}}">更多记录</button>
+  </view>
+  <view class="card" wx:if="{{detail}}">
+    <text class="title">{{detail.request.requestTypeText}}</text>
+    <text class="body">{{detail.request.statusText}}</text>
+    <text class="body" wx:if="{{detail.request.note}}">{{detail.request.note}}</text>
+    <text class="body">{{detail.request.notice}}</text>
+    <text class="body" wx:if="{{detail.checkNotice}}">{{detail.checkNotice}}</text>
+    <text class="body" wx:if="{{detail.closureCheck}}">{{detail.closureCheck.message}}</text>
+    <view wx:for="{{detail.closureCheck.blockingItems}}" wx:key="index"><text class="body">{{item.stationName}}：{{item.label}}</text></view>
+  </view>
+</view>

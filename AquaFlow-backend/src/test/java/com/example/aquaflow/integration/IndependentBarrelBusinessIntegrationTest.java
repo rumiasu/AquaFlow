@@ -59,12 +59,12 @@ class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0,put("/api/orders/"+id+"/customer-cancel",cus,null).code());
         assertEquals(1,ledger.availableRights(customer,station,product));assertEquals(new BigDecimal("30.00"),jdbc.queryForObject("select balance from customer_deposit_account where customer_id=? and station_id=?",BigDecimal.class,customer,station));
     }
-    @Test void unusedRightReturnRequiresApprovalAndCustomerConfirmationThenActuallyRefunds() {
+    @Test void freeUnusedRightReturnRequiresApprovalAndHandoverButNoSecondCustomerConfirmation() {
         seed();buy(1,"one");long r=request(1,"return-one");
         assertEquals(1,status(r,2).code());assertEquals(1,status(r,3).code());
         assertEquals(0,put("/api/barrels/records/"+r+"/approve",mgr,"{\"pickupFee\":0}").code());
-        assertEquals(1,status(r,2).code());
-        assertEquals(0,put("/api/barrels/records/"+r+"/customer-confirm",cus,"{}").code());
+        assertEquals(1,status(r,3).code(),"批准不等于实际交接，不能跳到退款");
+        assertNull(jdbc.queryForObject("select customer_confirmed_time from barrel_return_detail where record_id=?",java.sql.Timestamp.class,r));
         assertEquals(0,status(r,2).code());assertEquals(1,ledger.rightQty(customer,station,product));
         assertEquals(0,status(r,3).code());assertEquals(0,ledger.rightQty(customer,station,product));assertEquals(0,ledger.occupiedQty(customer,station,product));
         assertEquals(1,status(r,3).code());assertEquals(0,reconcile.runReconcile().values().stream().mapToInt(Integer::intValue).sum());
@@ -128,7 +128,7 @@ class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
         assertEquals(1,ledger.occupiedQty(customer,station,product));assertEquals(1,ledger.availableRights(customer,station,product));
         assertEquals(0,intOf("select count(*) from order_barrel_exception"));
         long r=request(1,"physical-return");assertEquals(1,intOf("select required_barrels from barrel_return_detail where record_id=?",r));
-        assertEquals(0,put("/api/barrels/records/"+r+"/approve",mgr,"{\"pickupFee\":0}").code());assertEquals(0,put("/api/barrels/records/"+r+"/customer-confirm",cus,"{}").code());
+        assertEquals(0,put("/api/barrels/records/"+r+"/approve",mgr,"{\"pickupFee\":0}").code());
         assertEquals(0,status(r,2).code());assertEquals(0,ledger.occupiedQty(customer,station,product));assertEquals(1,status(r,2).code());assertEquals(0,status(r,3).code());assertBalanced();
     }
     @Test void rightsAreIsolatedByStationAndProductAndCashIntentCanBeWithdrawn() {
@@ -141,7 +141,9 @@ class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
     @Test void paidPickupFeeCanBeRefundedIndependentlyBeforeWithdrawal() {
         seed();buy(1,"right");long id=order("water",1);pay(id,1);deliver(id,mgr,0,0,false);
         Api r=post("/api/barrels/return",cus,"{\"stationId\":"+station+",\"productId\":"+product+",\"quantity\":1,\"pickupMode\":\"PICKUP\",\"idempotencyKey\":\"pickup\"}");assertEquals(0,r.code(),r.toString());long record=r.data().path("recordId").asLong();
-        assertEquals(0,put("/api/barrels/records/"+record+"/approve",mgr,"{\"pickupFee\":5}").code());assertEquals(0,put("/api/barrels/records/"+record+"/customer-confirm",cus,"{}").code());assertEquals(1,status(record,2).code());
+        assertEquals(0,put("/api/barrels/records/"+record+"/approve",mgr,"{\"pickupFee\":5}").code());
+        assertEquals(1,status(record,2).code(),"新增收费仍须客户授权");
+        assertEquals(0,put("/api/barrels/records/"+record+"/customer-confirm",cus,"{}").code());assertEquals(1,status(record,2).code(),"授权不等于已收到服务费");
         long fee=jdbc.queryForObject("select fee_payment_id from barrel_return_detail where record_id=?",Long.class,record);
         Api pending=get("/api/payments/pending",mgr);assertEquals(0,pending.code(),pending.toString());
         assertEquals("上门收桶费",pending.data().get(0).path("purposeText").asText());
@@ -173,7 +175,10 @@ class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
         jdbc.update("update customer_station_config set offline_payment_enabled=1 where customer_id=? and station_id=?",customer,station);
         Api created=post("/api/orders/create",cus,orderBody("cross-cash",1).replace("\"paymentMethod\":1","\"paymentMethod\":2"));assertEquals(0,created.code(),created.toString());long id=created.data().path("orderId").asLong();
         long b=createStation("债权履约站");long bm=createStaff("乙站长","STATION_MANAGER",b,1);String bt=staffToken(bm,"STATION_MANAGER",b);createInventoryFull(b,product,10,1,"8.00");createInventoryRecord(b,product,10,"STOCK_IN",0);
-        assertEquals(0,post("/api/delivery/orders/"+id+"/dispatch",mgr,"{\"targetStationId\":"+b+",\"riskAcknowledged\":true}").code());deliver(id,bt,0,0,false);refusal(id,bt);
+        assertEquals(0,post("/api/delivery/orders/"+id+"/dispatch",mgr,"{\"targetStationId\":"+b+",\"riskAcknowledged\":true}").code());
+        // 接收站沿既有风险确认入口分配给站长本人，再进行原拒付/资产站核实场景。
+        assertEquals(0,post("/api/delivery/orders/assign/"+id,bt,"{\"deliveryStaffId\":"+bm+",\"riskAcknowledged\":true}").code());
+        deliver(id,bt,0,0,false);refusal(id,bt);
         assertEquals(0,intOf("select asset_freeze_confirmed from customer_refusal_case where order_id=?",id));
         assertEquals(1,put("/api/manager/refusal-cases/"+id+"/confirm-freeze",bt,"{}").code());
         assertEquals(0,put("/api/manager/refusal-cases/"+id+"/confirm-freeze",mgr,"{}").code());

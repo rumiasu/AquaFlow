@@ -14,12 +14,18 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'asset-view-station-flow.test.js', name: '本人资产站目录、历史资产切站、购买站别与会话隔离' },
+  { file: 'customer-delivery-arrangement.test.js', name: '客户真实配送安排提示与迟到响应保护' },
+  { file: 'historical-business-entry-flow.test.js', name: '完整历史退还与拒付原案分页、定位和原请求恢复' },
+  { file: 'payroll-adjust-intent.test.js', name: '人工工资录入原意图、重放和内容变化隔离' },
   { file: 'light-entry-flow.test.js', name: '零资产入口、真实商品单位与收件快照联系' },
   { file: 'payment-records-recovery.test.js', name: '账单用途、首次失败重试、缓存及身份隔离' },
   { file: 'mixed-product-summary.test.js', name: '历史与转单混合商品逐行单位、失图与迟到响应' },
   { file: 'approval-presentation-flow.test.js', name: '退桶办理状态、原款资格、重复操作与原申请恢复' },
   { file: 'payroll-redesign.test.js', name: '计件工资三页签商品卡、结算状态、更多菜单与失败重试' },
   { file: 'employee-agreement-entry.test.js', name: '员工协议草稿阅读、公开守卫与原登录流程' },
+  { file: 'agreement-version-flow.test.js', name: '协议固定版本、草稿关闭、正文一致与阅读无副作用' },
+  { file: 'account-data-request-flow.test.js', name: '本人资料请求受理闸门、原申请恢复与会话隔离' },
   { file: 'delivery-detail-actions.test.js', name: '配送订单详情操作层次、原业务判据与迟到响应保护' },
   { file: 'delivery-config-pull-refresh.test.js', name: '配送计费下拉刷新、会话/卸载隔离与双请求收尾' },
   { file: 'customer-home-quote-debounce.test.js', name: '首页报价防抖、同步失效、会话与离页收尾' },
@@ -45,6 +51,8 @@ const SUITES = [
   { file: 'manager-first-batch.test.js', name: '统一确认闸门、本站客户选择、分类角标与异常分页' },
   { file: 'backup-safety.test.js', name: '备份完整目标、危险SQL拒绝、二进制执行与默认保留（无库）' },
   { file: 'refund-feedback-flow.test.js', name: '退款关联说明、身份隔离重试与迟到响应' },
+  { file: 'exception-closeout-flow.test.js', name: '拒付纠错分权、争议结案重提及原请求恢复' },
+  { file: 'return-arrangement-flow.test.js', name: '退桶原申请安排版本、明确关联单与当前授权' },
   { file: 'checkout-presentation.test.js', name: '结算展示规格、提示去重与原报价守卫' },
   { file: 'combined-order-deposit.test.js', name: '随单新增押金明确确认、等待与原请求恢复' },
   { file: 'payment-quote-capability.test.js', name: '权威报价失败阻断、重试与独立押金渠道能力' },

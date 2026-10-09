@@ -41,6 +41,7 @@ public interface InterStationSettlementMapper {
             + "       o.station_id                                                           as ownerStationId, "
             + "       o.payment_method                                                       as paymentMethod, "
             + "       ps.station_id                                                          as payStationId, "
+            + "       ps.consumption_amount                                                  as customerReceivedAmount, "
             + "       coalesce(o.settle_station_id, o.delivery_station_id, o.station_id)     as settleStationId, "
             + "       (o.water_amount + o.delivery_fee + o.floor_fee)                        as revenueAmount, "
             + "       o.water_amount                                                         as waterAmount, "
@@ -50,6 +51,8 @@ public interface InterStationSettlementMapper {
             + "       coalesce((select sum(tr.decrease_qty * tr.unit_price) from ticket_record tr "
             + "                  where tr.order_id = o.id and tr.decrease_qty > 0), 0)      as ticketActualAmount, "
             + "       st.id                                                                  as settleRowId, "
+            + "       st.from_station_id                                                     as recordedFromStationId, "
+            + "       st.to_station_id                                                       as recordedToStationId, "
             + "       st.status                                                              as settleStatus, "
             + "       st.basis                                                               as settleBasis, "
             + "       st.amount                                                              as settleAmount, "
@@ -59,21 +62,29 @@ public interface InterStationSettlementMapper {
             + "       st.settled_time                                                        as settledTime, "
             + "       st.settle_note                                                         as settleNote "
             + "from orders o "
-            + "join (select order_id, max(station_id) as station_id from payment_record "
+            + "join (select order_id, max(station_id) as station_id, sum(amount-coalesce(barrel_deposit,0)) as consumption_amount from payment_record "
             + "       where status = 2 and order_id is not null group by order_id) ps on ps.order_id = o.id "
             + "left join inter_station_settlement st on st.order_id = o.id "
+            + "<if test='agreementSchema'>left join dispatch_agreement da on da.order_id=o.id and da.status in ('ACCEPTED','BARREL_CLOSED') </if>"
             + "where o.status != 5 "
             + "  and o.payment_status = 2 "
-            + "  and coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) != ps.station_id "
+            + "  and (coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) != ps.station_id "
+            + "       <if test='agreementSchema'>or (o.payment_method=2 and da.target_station_id=ps.station_id and da.service_amount&lt;&gt;ps.consumption_amount)</if>) "
             + "<if test='orderId != null'> and o.id = #{orderId} </if>"
             + "<if test='stationId != null'>"
             + "  and (ps.station_id = #{stationId} "
-            + "       or coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId}) "
+            + "       or coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
+            + "       <if test='agreementSchema'>or da.source_station_id=#{stationId}</if>) "
             + "</if>"
             + "order by o.id desc"
             + "</script>")
     List<Map<String, Object>> listLiveCrossStationOrders(@Param("stationId") Long stationId,
-                                                         @Param("orderId") Long orderId);
+                                                         @Param("orderId") Long orderId,
+                                                         @Param("agreementSchema") boolean agreementSchema);
+
+    default List<Map<String,Object>> listLiveCrossStationOrders(Long stationId, Long orderId) {
+        return listLiveCrossStationOrders(stationId, orderId, false);
+    }
 
     @Select("select * from inter_station_settlement where order_id = #{orderId}")
     InterStationSettlement findByOrderId(@Param("orderId") Long orderId);

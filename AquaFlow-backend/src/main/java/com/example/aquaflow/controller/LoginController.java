@@ -36,7 +36,8 @@ public class LoginController {
     // ==================== 微信小程序登录 ====================
 
     /**
-     * 微信登录（用户小程序）：仅查 customer 表，与 staff 表完全独立
+     * 微信登录（用户小程序）：仅查 customer 表，与 staff 表完全独立。
+     * 可选 agreement 仅指本次主动点击时展示的正式版本；草稿不记接受，缺字段不伪造同意。
      */
     @PostMapping("/wx-login")
     public Result<Map<String, Object>> wxLogin(@RequestBody @Valid AuthRequestDTO.WxLogin params) {

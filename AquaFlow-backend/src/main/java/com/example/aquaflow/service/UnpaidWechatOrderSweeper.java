@@ -91,8 +91,7 @@ public class UnpaidWechatOrderSweeper {
         int cancelled = 0;
         for (Long id : ids) {
             try {
-                paymentService.refundOrder(id, "微信支付超时未到账，系统自动取消（" + timeoutMinutes + " 分钟）");
-                cancelled++;
+                if (paymentService.cancelTimedOutWechatOrder(id, timeoutMinutes)) cancelled++;
             } catch (RuntimeException e) {
                 // 单张单失败不能连累其余（并发改状态、已被人取消、渠道未接入的历史单…）
                 log.warn("[超时取消] 订单 {} 自动取消失败，跳过：{}", id, e.getMessage());

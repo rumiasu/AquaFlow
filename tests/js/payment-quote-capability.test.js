@@ -91,7 +91,7 @@ test('提交前容量/配送被服务端阻断时，不创建消费单', async (
 test('已打开的资产/缺货确认不能绕过后来失败的报价，未知原请求仍可恢复', async () => {
   for (const handler of ['onAssetConfirmOk', 'onShortageAgree']) {
     const t = order(async (_, n) => n === 1 ? validQuote() : ({ data: { ...validQuote().data, methods: [] } }))
-    await t.page.refreshQuote(); t.page.setData({ assetReadAgreed: true, showAssetConfirm: true, showShortageConfirm: true })
+    await t.page.refreshQuote(); t.page.setData({ firstStationAsset: true, showAssetConfirm: true, showShortageConfirm: true })
     await t.page.refreshQuote(); t.page[handler](); assert.equal(t.calls.orders.length, 0)
   }
   // 先真实执行有效报价后的建单请求，模拟丢失订单号，再验证失败报价下恢复同一原键。

@@ -124,10 +124,12 @@ class TicketPurchaseIntentTest {
         var tiers = mock(com.example.aquaflow.service.impl.TicketTierService.class);
         var policy = mock(BarrelBusinessPolicy.class);
         var product = new com.example.aquaflow.entity.Product();
-        product.setId(5L); product.setCategory(2); product.setTicketEnabled(1);
+        product.setId(5L); product.setCategory(2); product.setTicketEnabled(1); product.setStatus(1);
         product.setTicketPrice(new BigDecimal("8.00")); product.setPrice(new BigDecimal("20.00"));
         when(catalog.getById(5L)).thenReturn(product);
-        when(tiers.usesCustomTicket(product, null)).thenReturn(true);
+        var selected = new com.example.aquaflow.entity.Inventory(); selected.setEnabled(1);
+        when(inventory.getByStationAndProduct(1L, 5L)).thenReturn(selected);
+        when(tiers.usesCustomTicket(product, selected)).thenReturn(true);
         var service = new TicketAccountServiceImpl();
         ReflectionTestUtils.setField(service, "paymentRecordMapper", mapper);
         ReflectionTestUtils.setField(service, "productMapper", catalog);

@@ -10,7 +10,7 @@ import org.springframework.test.context.TestPropertySource;
 import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Exact isolated MySQL and real HTTP; no production channel. */
+/** 站点及商品停售的新购票边界与旧款清结；隔离 MySQL、真实 HTTP，不接生产收款渠道。 */
 @TestPropertySource(properties={"aquaflow.barrel.independent-rights-enabled=true","aquaflow.barrel.maintenance-enabled=false","app.payment.mock-wechat-pay=false"})
 class ClosedStationTicketPurchaseIntegrationTest extends AbstractIntegrationTest {
     @Autowired BarrelLedgerService ledger;
@@ -73,5 +73,89 @@ class ClosedStationTicketPurchaseIntegrationTest extends AbstractIntegrationTest
         seed();buyRight();Api r=post("/api/tickets/purchase",cus,body("pending",2));assertEquals(0,r.code(),r.toString());long p=r.data().path("paymentId").asLong();close();
         Api replay=post("/api/tickets/purchase",cus,body("pending",2));assertEquals(0,replay.code(),replay.toString());assertEquals(p,replay.data().path("paymentId").asLong());assertEquals(1,replay.data().path("status").asInt());
         assertEquals(0,put("/api/payments/"+p+"/confirm",mgr,null).code());assertEquals(3,intOf("select sum(remain_qty) from ticket_lot"));
+    }
+
+    @Test void pendingIndependentDepositCanReplayAndCollectOnceAfterStationClosure() {
+        seed();String request=body("pending-deposit",2).replace("\"quantity\":3","\"quantity\":1");
+        Api original=post("/api/barrel-rights/purchase",cus,request);assertEquals(0,original.code(),original.toString());
+        long payment=original.data().path("paymentId").asLong();
+        assertEquals(1,original.data().path("status").asInt());
+        assertEquals(0,ledger.rightQty(customer,station,product));
+        assertEquals(0,intOf("select count(*) from customer_deposit_account"));
+        close();
+        Api replay=post("/api/barrel-rights/purchase",cus,request);assertEquals(0,replay.code(),replay.toString());
+        assertEquals(payment,replay.data().path("paymentId").asLong());
+        assertEquals(1,replay.data().path("status").asInt());
+        Api collected=put("/api/payments/"+payment+"/confirm",mgr,null);assertEquals(0,collected.code(),collected.toString());
+        assertEquals(1,ledger.rightQty(customer,station,product));
+        assertEquals(0,ledger.occupiedQty(customer,station,product));
+        assertEquals(new BigDecimal("30.00"),decimalOf("select balance from customer_deposit_account where customer_id=? and station_id=?",customer,station));
+        assertEquals("PAID",jdbc.queryForObject("select status from barrel_right_purchase where payment_id=?",String.class,payment));
+        assertEquals(1,put("/api/payments/"+payment+"/confirm",mgr,null).code());
+        Api paidReplay=post("/api/barrel-rights/purchase",cus,request);assertEquals(0,paidReplay.code(),paidReplay.toString());
+        assertEquals(payment,paidReplay.data().path("paymentId").asLong());assertEquals(2,paidReplay.data().path("status").asInt());
+        assertEquals(1,ledger.rightQty(customer,station,product));
+        assertEquals(1,intOf("select count(*) from customer_barrel_lot"));
+        assertEquals(1,intOf("select count(*) from deposit_record"));
+        assertEquals(1,post("/api/barrel-rights/purchase",cus,request.replace("pending-deposit","new-after-close")).code());
+        assertEquals(1,intOf("select count(*) from payment_record"));
+        assertEquals(1,intOf("select count(*) from barrel_right_purchase"));
+    }
+
+    private String unifiedBody(String key) {
+        return body(key,2).replace("\"quantity\":3","\"quantity\":10,\"unifiedQty\":10");
+    }
+    private void unifiedSeed() {
+        seed();buyRight();
+        jdbc.update("update inventory set ticket_enabled=0 where station_id=? and product_id=?",station,product);
+        assertEquals(0,post("/api/ticket-discounts",mgr,"{\"qty\":10,\"discountPerMille\":950}").code());
+    }
+    @ParameterizedTest
+    @ValueSource(strings={"station-shelf-off","product-off","product-stopped","not-selected","foreign-product"})
+    void newUnifiedPurchaseRejectsUnsellableProductWithoutMoneyOrAssetWrites(String reason) {
+        unifiedSeed();
+        switch (reason) {
+            case "station-shelf-off" -> jdbc.update("update inventory set enabled=0 where station_id=? and product_id=?",station,product);
+            case "product-off" -> jdbc.update("update product set status=0 where id=?",product);
+            case "product-stopped" -> jdbc.update("update product set status=2 where id=?",product);
+            case "not-selected" -> jdbc.update("delete from inventory where station_id=? and product_id=?",station,product);
+            case "foreign-product" -> jdbc.update("update product set owner_station_id=? where id=?",createStation("其它合成站"),product);
+            default -> fail("未知测试场景");
+        }
+        int payments=intOf("select count(*) from payment_record");
+        int fences=intOf("select count(*) from ticket_purchase_fence");
+        Api rejected=post("/api/tickets/purchase",cus,unifiedBody("catalog-new"));
+        assertEquals(1,rejected.code(),"不可售商品不能因统一折扣而建款: "+rejected);
+        assertEquals(payments,intOf("select count(*) from payment_record"));
+        assertEquals(fences,intOf("select count(*) from ticket_purchase_fence"),"保留既有押金凭据，不留失败购票的新锁行");
+        assertEquals(0,intOf("select count(*) from ticket_purchase_fence where customer_id=? and idempotency_key='catalog-new'",customer));
+        assertEquals(0,intOf("select count(*) from ticket_account"));
+        assertEquals(0,intOf("select count(*) from ticket_lot"));
+        assertEquals(0,intOf("select count(*) from ticket_record"));
+    }
+    @Test void zeroPhysicalStockStillAllowsTicketPrepayment() {
+        unifiedSeed();jdbc.update("update inventory set quantity=0 where station_id=? and product_id=?",station,product);
+        Api result=post("/api/tickets/purchase",cus,unifiedBody("zero-stock"));
+        assertEquals(0,result.code(),"上架不等于有现货，预购票不承诺即时配送: "+result);
+        assertEquals(1,result.data().path("status").asInt());
+        assertEquals(new BigDecimal("76.00"),decimalOf("select amount from payment_record where id=?",result.data().path("paymentId").asLong()));
+        assertEquals(0,intOf("select count(*) from ticket_lot"));
+    }
+    @Test void pendingUnifiedPurchaseCanReplayAndCollectOnceAfterProductIsWithdrawn() {
+        unifiedSeed();String request=unifiedBody("original-pending");
+        Api original=post("/api/tickets/purchase",cus,request);assertEquals(0,original.code(),original.toString());
+        long payment=original.data().path("paymentId").asLong();
+        jdbc.update("update inventory set enabled=0,ticket_price=99 where station_id=? and product_id=?",station,product);
+        jdbc.update("update product set status=2 where id=?",product);
+        Api replay=post("/api/tickets/purchase",cus,request);assertEquals(0,replay.code(),replay.toString());
+        assertEquals(payment,replay.data().path("paymentId").asLong());
+        assertEquals(new BigDecimal("76.00"),decimalOf("select amount from payment_record where id=?",payment));
+        assertEquals(0,put("/api/payments/"+payment+"/confirm",mgr,null).code());
+        assertEquals(1,put("/api/payments/"+payment+"/confirm",mgr,null).code());
+        assertEquals(10,intOf("select sum(remain_qty) from ticket_lot"));
+        assertEquals(1,intOf("select count(*) from ticket_lot"));
+        assertEquals(1,intOf("select count(*) from payment_record where ticket_qty is not null"));
+        assertEquals(0,post("/api/tickets/purchase",cus,request).code());
+        assertEquals(10,intOf("select sum(remain_qty) from ticket_lot"));
     }
 }

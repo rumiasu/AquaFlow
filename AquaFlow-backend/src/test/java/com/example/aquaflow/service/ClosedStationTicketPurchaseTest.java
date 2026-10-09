@@ -5,11 +5,13 @@ import com.example.aquaflow.constant.PaymentStatus;
 import com.example.aquaflow.constant.StationOperatingStatus;
 import com.example.aquaflow.entity.PaymentRecord;
 import com.example.aquaflow.entity.Product;
+import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.entity.Station;
 import com.example.aquaflow.entity.TicketAccount;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.PaymentRecordMapper;
 import com.example.aquaflow.mapper.ProductMapper;
+import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.mapper.TicketAccountMapper;
 import com.example.aquaflow.service.impl.TicketAccountServiceImpl;
@@ -54,11 +56,13 @@ class ClosedStationTicketPurchaseTest {
         station = new Station(); station.setId(1L); station.setStatus(1);
         station.setOperatingStatus(StationOperatingStatus.NORMAL);
         when(stations.getById(1L)).thenReturn(station);
-        Product product = new Product(); product.setId(5L); product.setCategory(2);
+        Product product = new Product(); product.setId(5L); product.setCategory(2); product.setStatus(1);
         product.setTicketEnabled(1); product.setTicketPrice(new BigDecimal("8.00"));
         product.setPrice(new BigDecimal("20.00"));
         when(catalog.getById(5L)).thenReturn(product);
-        when(dependency(TicketTierService.class).usesCustomTicket(product, null)).thenReturn(true);
+        Inventory inventory = new Inventory(); inventory.setEnabled(1);
+        when(dependency(InventoryMapper.class).getByStationAndProduct(1L, 5L)).thenReturn(inventory);
+        when(dependency(TicketTierService.class).usesCustomTicket(product, inventory)).thenReturn(true);
     }
 
     @SuppressWarnings("unchecked")

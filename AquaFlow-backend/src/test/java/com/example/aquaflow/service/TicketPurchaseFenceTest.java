@@ -112,11 +112,14 @@ class TicketPurchaseFenceTest {
     }
     @Test void creationThenConfirmationFailureStillReturnsOriginalWhenClosing() {
         var purchase = new TicketAccountServiceImpl(); var catalog = mock(ProductMapper.class);
-        var product = new Product(); product.setId(5L); product.setCategory(2); product.setTicketEnabled(1);
+        var product = new Product(); product.setId(5L); product.setCategory(2); product.setTicketEnabled(1); product.setStatus(1);
         product.setTicketPrice(new BigDecimal("8.00")); var tiers = mock(TicketTierService.class);
-        when(catalog.getById(5L)).thenReturn(product); when(tiers.usesCustomTicket(product, null)).thenReturn(true);
+        var inventory = mock(InventoryMapper.class);
+        var selected = new com.example.aquaflow.entity.Inventory(); selected.setEnabled(1);
+        when(inventory.getByStationAndProduct(1L, 5L)).thenReturn(selected);
+        when(catalog.getById(5L)).thenReturn(product); when(tiers.usesCustomTicket(product, selected)).thenReturn(true);
         ReflectionTestUtils.setField(purchase, "productMapper", catalog);
-        ReflectionTestUtils.setField(purchase, "inventoryMapper", mock(InventoryMapper.class));
+        ReflectionTestUtils.setField(purchase, "inventoryMapper", inventory);
         ReflectionTestUtils.setField(purchase, "paymentRecordMapper", payments);
         ReflectionTestUtils.setField(purchase, "purchaseFenceService", service);
         ReflectionTestUtils.setField(purchase, "barrelPolicy", mock(BarrelBusinessPolicy.class));

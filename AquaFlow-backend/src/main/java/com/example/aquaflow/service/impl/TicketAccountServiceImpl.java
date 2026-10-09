@@ -545,6 +545,11 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         if (product == null) {
             throw new BusinessException("商品不存在");
         }
+        // 2026-10-09：统一折扣曾绕过商品可售门槛，停售后仍建款却不能兑水；只拦新意图，勿移到原款重放之前。见 docs/design/12 §2。
+        if (!Integer.valueOf(1).equals(product.getStatus())
+                || (product.getOwnerStationId() != null && !stationId.equals(product.getOwnerStationId()))) {
+            throw new BusinessException("该商品在本水站已下架或不可售，不能新购水票");
+        }
         if (barrelPolicy.isEnabled() && com.example.aquaflow.util.BarrelScope.isBarrel(product)
                 && barrelLedger.rightQty(customerId, stationId, productId) <= 0) {
             throw new BusinessException("请先办理本站该商品的桶押金，再购买水票");
@@ -553,6 +558,9 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         // 注意 product.ticket_enabled 是商品级默认值，水站可对本站单独开启，因此必须查 inventory。
         com.example.aquaflow.entity.Inventory inv =
                 stationId != null ? inventoryMapper.getByStationAndProduct(stationId, productId) : null;
+        if (inv == null || !Integer.valueOf(1).equals(inv.getEnabled())) {
+            throw new BusinessException("该商品在本水站未上架，不能新购水票");
+        }
         boolean custom = ticketTierService.usesCustomTicket(product, inv);
         if (!custom && !(ticketTierService.unifiedConfigured(stationId)
                 && com.example.aquaflow.util.BarrelScope.isBarrel(product))) {

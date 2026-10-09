@@ -2,7 +2,7 @@
   <view class="history-search-row"><input value="{{customerKeyword}}" placeholder="按客户姓名、电话或地址查找" bindinput="onHistoryCustomerInput" bindconfirm="searchHistoryCustomers" confirm-type="search" /><button size="mini" bindtap="searchHistoryCustomers" loading="{{customerSearching}}">找客户</button></view>
   <view wx:if="{{customerSearchError}}" bindtap="searchHistoryCustomers">{{customerSearchError}} · 点击重试</view>
   <view wx:elif="{{customerSearchDone && !customerResults.length}}">暂无匹配的本站客户，请细化搜索。</view>
-  <view class="history-customer-row" wx:for="{{customerResults}}" wx:key="id" bindtap="onSelectHistoryCustomer" data-id="{{item.id}}">{{item.name || '客户'}} · {{item.phone || '电话未填写'}}<text>{{item.addressText || ''}}</text></view>
+  <view class="history-customer-row" wx:for="{{customerResults}}" wx:key="id" bindtap="onSelectHistoryCustomer" data-id="{{item.id}}">{{item.name || '客户'}} · {{item.phone || '电话未填写'}}<text wx:if="{{item.matchedAddressText}}">{{item.matchedAddressSource === 'ORDER_HISTORY' ? '本站历史订单地址命中' : '档案地址命中'}}：{{item.matchedAddressText}}</text><text wx:elif="{{item.addressText}}">默认档案地址：{{item.addressText}}</text></view>
   <view class="history-selected" wx:if="{{customerId}}">已选：{{customerName}}<text bindtap="onClearHistoryCustomer">清除客户</text></view>
   <view class="history-scope" wx:if="{{customerResults.length}}">显示最近匹配结果，找不到时请细化关键词。</view>
 </view>

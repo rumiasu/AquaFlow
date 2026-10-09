@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'experience-candidate-regressions.test.js', name: '支付未知事实、当前搜索、退桶试算与原申请、配送核实和下单站别' },
   { file: 'directed-return-decision.test.js', name: '指定退回所见申请绑定、跨轮弹窗与刷新处理' },
   { file: 'customer-native-startup.test.js', name: '用户端 App 注册期冷启动与原生协议模块加载' },
   { file: 'employee-native-startup.test.js', name: '员工端 App 注册期与原生协议草稿加载' },

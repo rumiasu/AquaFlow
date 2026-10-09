@@ -32,8 +32,8 @@
       <view class="row-main">
         <text class="row-title">{{item.name}}</text>
         <text class="row-sub">{{item.phone || '未留电话'}}</text>
-        <!-- 命中地址（后端下发）：站长"最多记个姓氏"，靠地址认出人；没有地址的客户不占位 -->
-        <text class="row-sub" wx:if="{{item.addressText}}">{{item.addressText}}</text>
+        <text class="row-sub" wx:if="{{item.matchedAddressText}}">{{item.matchedAddressSource === 'ORDER_HISTORY' ? '本站历史订单地址命中' : '档案地址命中'}}：{{item.matchedAddressText}}</text>
+        <text class="row-sub" wx:elif="{{item.addressText}}">默认档案地址：{{item.addressText}}</text>
       </view>
       <text class="row-arrow">›</text>
     </view>

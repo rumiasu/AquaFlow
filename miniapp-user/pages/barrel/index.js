@@ -41,6 +41,7 @@ Page({
     },
     // 退桶试算结果（后端按押金条批次 FIFO 算出，前端不自行计算金额）
     preview: null,
+    previewReady: false,
     // 试算算不出来时的**可读原因**（常驻在试算框里，比只弹一次 toast 更容易被看到）。
     // 典型场景：顾客还没选服务水站 ⇒ 见 refreshPreview 的注释（2026-09-27 修）。
     previewHint: '',
@@ -58,7 +59,14 @@ Page({
     return this.loadData()
   },
 
-  onHide() { assetViewStation.suspend(this); this._arrangementHidden = true; this._arrangementLife = (this._arrangementLife || 0) + 1 },
+  onHide() {
+    assetViewStation.suspend(this)
+    this._arrangementHidden = true
+    this._arrangementLife = (this._arrangementLife || 0) + 1
+    this._returnPreviewVersion = (this._returnPreviewVersion || 0) + 1
+    this._previewIntent = null
+    this.setData({ preview: null, previewReady: false, previewing: false, previewHint: '' })
+  },
   onUnload() { this.onHide() },
 
   onPullDownRefresh() {
@@ -178,7 +186,7 @@ Page({
   onRetryAssets() { return this.loadData() },
   onAssetStationChange(e) {
     if (!assetViewStation.select(this, e.detail)) return
-    this.setData({ showReturnModal: false, preview: null, previewHint: '', previewing: false, expandedProductId: null })
+    this.setData({ showReturnModal: false, preview: null, previewReady: false, previewHint: '', previewing: false, expandedProductId: null })
     return this.loadData()
   },
   onToggleBarrelDetail(e) {
@@ -212,7 +220,9 @@ Page({
 
   onCloseReturnModal() {
     // 连提示一起清掉：下次打开时不该看到上一次留下的原因
-    this.setData({ showReturnModal: false, preview: null, previewHint: '' })
+    this._returnPreviewVersion = (this._returnPreviewVersion || 0) + 1
+    this._previewIntent = null
+    this.setData({ showReturnModal: false, preview: null, previewHint: '', previewing: false, previewReady: false })
   },
 
   /**
@@ -231,14 +241,18 @@ Page({
    * 它**只读不写**，不会把首页的用户选择改掉。
    */
   async refreshPreview() {
+    const version = this._returnPreviewVersion = (this._returnPreviewVersion || 0) + 1
+    this._previewIntent = null
+    this.setData({ preview: null, previewReady: false, previewing: false, previewHint: '' })
     const { productId, quantity } = this.data.returnForm
     if (!productId || !quantity || quantity <= 0) {
       this.setData({ preview: null, previewHint: '' })
       return
     }
     const context = assetViewStation.beginRead(this, 'preview')
+    const current = () => version === this._returnPreviewVersion && assetViewStation.current(this, context)
     const stationId = context.stationId || await resolveStationId()
-    if (!assetViewStation.current(this, context)) return
+    if (!current()) return
     if (!stationId) {
       // 不发请求，并把原因**写在试算框里**（比只弹一次 toast 更持久，顾客回头还能看到）
       this.setData({ preview: null, previewHint: '请先在本页上方选择要办理的资产水站。' })
@@ -248,13 +262,19 @@ Page({
     this.setData({ previewing: true, previewHint: '' })
     try {
       const res = await previewBarrelReturn(productId, quantity, stationId)
-      if (assetViewStation.current(this, context)) this.setData({ preview: (res && res.data) || null })
+      if (!current()) return
+      const preview = res && res.data
+      if (!preview || (!preview.blocked && (preview.refundAmount == null || !Number.isFinite(Number(preview.refundAmount))))) {
+        throw new Error('暂时算不出能退多少，请重试')
+      }
+      this._previewIntent = { stationId, productId, quantity, version, context }
+      this.setData({ preview, previewReady: true })
     } catch (e) {
       // 出声，但**别把技术原因糊给顾客**：后端给的话术已经面向用户，优先用它。
       console.warn('[Barrel] 退桶试算失败:', e.message)
-      if (assetViewStation.current(this, context)) this.setData({ preview: null, previewHint: (e && e.message) || '暂时算不出能退多少，请稍后重试' })
+      if (current()) this.setData({ preview: null, previewReady: false, previewHint: (e && e.message) || '暂时算不出能退多少，请稍后重试' })
     } finally {
-      if (assetViewStation.current(this, context)) this.setData({ previewing: false })
+      if (current()) this.setData({ previewing: false })
     }
   },
 
@@ -317,6 +337,16 @@ Page({
     if (!assetViewStation.current(this, context)) return
     if (!stationId) {
       wx.showToast({ title: '请先选择服务水站', icon: 'none' })
+      return
+    }
+
+    const previewIntent = this._previewIntent
+    if (this.data.previewing || !this.data.previewReady || !previewIntent
+      || previewIntent.version !== this._returnPreviewVersion
+      || !assetViewStation.current(this, previewIntent.context)
+      || previewIntent.stationId !== stationId || previewIntent.productId !== productId || previewIntent.quantity !== quantity
+      || this.data.returnForm.productId !== productId || this.data.returnForm.quantity !== quantity) {
+      wx.showToast({ title: '请先核实当前商品和数量的试算金额', icon: 'none' })
       return
     }
 

@@ -194,6 +194,8 @@
 | `GET` | `/api/customers/{id}/offline-payment/summary` | {"STATION_MANAGER"} | `CustomerController.offlinePaymentSummary` |
 | `GET` | `/api/customers/{id}/profile` | {"STATION_MANAGER"} | `CustomerController.getProfile` |
 
+客户地址搜索解释（2026-10-09）：`GET /api/customers?keyword=` 和 `GET /api/manager/order-assist/customers?keyword=` 在原有姓名、电话、全部档案地址与本站订单快照的排序结果中，新增只读可空字段 `matchedAddressText`（实际匹配的单条地址）和 `matchedAddressSource`（`PROFILE` 档案地址 / `ORDER_HISTORY` 本站历史订单地址）。姓名/电话优先命中、无关键字或没有单条可解释命中时为空；不下发全部历史快照。原 `addressText` 仍为默认优先的第一条档案地址，历史命中且没有当前档案地址时该字段为空。命中解释不代表当前配送地址，代客下单仍须从原地址接口明确选地址；候选范围、排序、角色与 `adjustmentEligible` 均沿用原契约。
+
 ### 商品与库存
 
 | 方法 | 路径 | 角色 | 说明 |

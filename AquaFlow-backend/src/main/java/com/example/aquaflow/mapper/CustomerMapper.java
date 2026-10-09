@@ -98,7 +98,8 @@ public interface CustomerMapper {
      *
      * <p>⚠️ 两条实现约束：① {@code group by c.id} 靠 MySQL 对主键的函数依赖带出其它 {@code c.*} 列，
      * 与 {@link #listStationCustomers} 同款；② {@code separator '\n'} 在 Java 源码里写作
-     * {@code '\\n'}，用于把同一客户的多个地址分行（展示只取第一行）。</p>
+     * {@code '\\n'}，用于把多个档案/历史地址分行（默认字段取首条档案，命中解释取实际匹配行；
+     * 原有打分归一化会去掉空白，历史快照分隔符变化不改变排序）。</p>
      *
      * @param limit 候选上限；调用方传 {@code CustomerSearchMatcher.MAX_CANDIDATES}
      */
@@ -106,7 +107,7 @@ public interface CustomerMapper {
             + "exists (select 1 from customer_station_config bound where bound.customer_id=c.id and bound.station_id=#{stationId}) as adjustmentEligible, "
             + "group_concat(concat_ws('', ifnull(a.province,''), ifnull(a.city,''), ifnull(a.district,''), ifnull(a.detail,'')) "
             + "order by a.is_default desc, a.id desc separator '\\n') as addressText, "
-            + "(select group_concat(o.address_snapshot separator ' ') from orders o "
+            + "(select group_concat(o.address_snapshot separator '\\n') from orders o "
             + " where o.customer_id = c.id and o.station_id = #{stationId} and o.address_snapshot is not null) as orderAddressText "
             + "from customer c "
             + "left join address a on a.customer_id = c.id "

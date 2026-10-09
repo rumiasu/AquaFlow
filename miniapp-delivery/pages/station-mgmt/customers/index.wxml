@@ -27,7 +27,8 @@
     <text class="ent-entry-set" bindtap="onEntOpen" data-view="settings">提示阈值 ›</text>
   </view>
 
-  <view class="customer-list" wx:if="{{!loading}}">
+  <view class="load-error" wx:if="{{!loading && loadError}}" bindtap="onSearch">{{loadError}} · 点击重试</view>
+  <view class="customer-list" wx:if="{{!loading && !loadError}}">
     <view class="customer-card" wx:for="{{list}}" wx:key="id">
       <view class="avatar" style="background:{{item.avatarColor}}">{{item.avatarText}}</view>
       <view class="card-body">
@@ -38,9 +39,8 @@
         </view>
         <text class="customer-phone" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}">{{item.phoneMasked}} ›</text>
         <text class="customer-phone muted" wx:else>未填写电话</text>
-        <!-- 命中地址：站长是靠地址认人的（搜「阳光81301」时得看得出命中的是哪一家）。
-             只有带关键字搜索时后端才下发 addressText，普通列表恒为空、不占位。 -->
-        <text class="customer-phone" wx:if="{{item.addressText}}">{{item.addressText}}</text>
+        <text class="customer-phone" wx:if="{{item.matchedAddressText}}">{{item.matchedAddressSource === 'ORDER_HISTORY' ? '本站历史订单地址命中' : '档案地址命中'}}：{{item.matchedAddressText}}</text>
+        <text class="customer-phone" wx:elif="{{item.addressText}}">默认档案地址：{{item.addressText}}</text>
 
         <view class="stat-row">
           <view class="stat"><text class="stat-val">{{item.totalOrders}}</text><text class="stat-label">订单</text></view>
@@ -58,7 +58,7 @@
         <view class="call-link" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall"><text>致电</text></view>
       </view>
     </view>
-    <view class="empty" wx:if="{{list.length === 0}}"><text>未找到客户</text></view>
+    <view class="empty" wx:if="{{searchDone && list.length === 0}}"><text>未找到客户</text></view>
   </view>
   <view class="loading" wx:if="{{loading}}">加载中...</view>
 

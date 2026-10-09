@@ -46,6 +46,59 @@ class CustomerAddressSearchIntegrationTest extends AbstractIntegrationTest {
     /** 站长端客户列表（口径：orders 驱动的客户画像） */
     private static final String CUSTOMER_LIST = "/api/customers";
 
+    @Test
+    void nonDefaultProfileMatchIsExplainedWithoutChangingDefaultOrCustomerIdentity() {
+        long station = createStation("地址解释站");
+        long manager = createStaff("地址解释站长", "STATION_MANAGER", station, 1);
+        long customer = customerWithOrder(station, "姓名保持", "match-profile", "默认档案1号");
+        long matched = createAddress(customer, "阳光小区八栋1单元301室");
+        jdbc.update("UPDATE address SET is_default=0 WHERE id=?", matched);
+        String token = staffToken(manager, "STATION_MANAGER", station);
+        for (String endpoint : List.of(PICKER, CUSTOMER_LIST)) {
+            Api response = get(endpoint + q("阳光81301"), token);
+            assertEquals(0, response.code()); assertEquals(1, response.data().size());
+            JsonNode item = response.data().get(0);
+            assertEquals(customer, item.path("id").asLong());
+            assertEquals("默认档案1号", item.path("addressText").asText());
+            assertEquals("阳光小区八栋1单元301室", item.path("matchedAddressText").asText());
+            assertEquals("PROFILE", item.path("matchedAddressSource").asText());
+            assertFalse(item.has("orderAddressText"));
+            JsonNode nameHit = get(endpoint + q("姓名保持"), token).data().get(0);
+            assertEquals("默认档案1号", nameHit.path("addressText").asText());
+            assertTrue(nameHit.path("matchedAddressText").isNull() || nameHit.path("matchedAddressText").isMissingNode());
+        }
+        assertEquals(0, intOf("SELECT is_default FROM address WHERE id=?", matched));
+    }
+
+    @Test
+    void historyOnlyMatchShowsOneOriginalStationSnapshotAndExcludesOtherStationHistory() {
+        long station = createStation("历史解释站"), foreign = createStation("其他历史站");
+        long manager = createStaff("历史解释站长", "STATION_MANAGER", station, 1);
+        long customer = createCustomer("历史客户", "match-history");
+        long address = createAddress(customer, "已停用档案");
+        long first = createOrder(customer, address, station, 0L, 1, 1);
+        long match = createOrder(customer, address, station, 0L, 1, 1);
+        long other = createOrder(customer, address, foreign, 0L, 1, 1);
+        jdbc.update("UPDATE orders SET address_snapshot=? WHERE id=?", "另一旧地址4号", first);
+        jdbc.update("UPDATE orders SET address_snapshot=? WHERE id=?", "星河小区9栋202室", match);
+        jdbc.update("UPDATE orders SET address_snapshot=? WHERE id=?", "异站专有密钥", other);
+        // 保留订单必需的地址 FK；模拟历史地址尚在但没有当前客户档案关联的合法 nullable 列。
+        jdbc.update("UPDATE address SET customer_id=NULL WHERE id=?", address);
+        String token = staffToken(manager, "STATION_MANAGER", station);
+        for (String endpoint : List.of(PICKER, CUSTOMER_LIST)) {
+            Api response = get(endpoint + q("星河9202"), token);
+            assertEquals(0, response.code()); assertEquals(1, response.data().size());
+            JsonNode item = response.data().get(0);
+            assertEquals(customer, item.path("id").asLong());
+            assertEquals("星河小区9栋202室", item.path("matchedAddressText").asText());
+            assertEquals("ORDER_HISTORY", item.path("matchedAddressSource").asText());
+            assertEquals("", item.path("addressText").asText(""));
+            assertFalse(item.has("orderAddressText"));
+            assertEquals(0, get(endpoint + q("异站专有密钥"), token).data().size());
+        }
+        assertEquals(0, intOf("SELECT COUNT(*) FROM address WHERE customer_id=?", customer));
+    }
+
     private static String q(String keyword) {
         return "?keyword=" + URLEncoder.encode(keyword, StandardCharsets.UTF_8);
     }

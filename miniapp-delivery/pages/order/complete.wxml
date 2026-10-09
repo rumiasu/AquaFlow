@@ -25,6 +25,7 @@
     下一次进来看页面与"什么都没发生"一样，人会直接再点一次提交。
   -->
   <view class="load-error" wx:if="{{resultState === 'unknown' && unknownHint}}">{{unknownHint}}</view>
+  <button wx:if="{{resultState === 'unknown'}}" size="mini" bindtap="onVerifyOriginalOrder">核实原订单 #{{orderId}}</button>
 
   <!--
     [2026-09-26] 本页按 §4 收敛成**三段**（仍是一页）：本次送货 / 实际收回空桶 / 本次收款。
@@ -311,11 +312,11 @@
   <view class="footer">
     <!--
       [2026-09-27 走查 D03 修] 按钮文字反映**当前状态**：提交前是动作（「确认送达」），
-      提交中不能让人再点，结果未知时明确说"要不要重试先看列表"。
+      提交中不能让人再点，结果未知时保留原单核实入口及安全重试。
       服务端确认成功后按钮所在页会跳走（见 complete.js 的 setTimeout 跳转）。
     -->
     <button class="btn-confirm {{(submittingComplete || completionBlocked) ? 'btn-confirm-busy' : ''}}" bindtap="onConfirmComplete" disabled="{{submittingComplete || completionBlocked}}">
-      {{resultState === 'submitting' ? '提交中…' : (resultState === 'success' ? successButtonText : (resultState === 'unknown' ? '再提交一次（先确认列表）' : completionButtonText))}}
+      {{resultState === 'submitting' ? '提交中…' : (resultState === 'success' ? successButtonText : (resultState === 'unknown' ? '再提交一次（先核实原单）' : completionButtonText))}}
     </button>
   </view>
 

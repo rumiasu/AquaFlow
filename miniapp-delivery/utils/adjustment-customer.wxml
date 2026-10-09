@@ -10,7 +10,8 @@
   <view class="field-hint" wx:elif="{{customerSearchDone && !customerResults.length}}">没有匹配的本站绑定客户，请换个关键词。</view>
   <view class="customer-option" wx:for="{{customerResults}}" wx:key="id" data-id="{{item.id}}" bindtap="onSelectCustomer">
     <text>{{item.name || '未填写姓名'}} · {{item.phone || '未填写电话'}}</text>
-    <text class="field-hint">#{{item.id}} {{item.addressText || ''}}</text>
+    <text class="field-hint">#{{item.id}}<text wx:if="{{item.addressText}}"> 默认档案地址：{{item.addressText}}</text></text>
+    <text class="field-hint" wx:if="{{item.matchedAddressText}}">{{item.matchedAddressSource === 'ORDER_HISTORY' ? '本站历史订单地址命中' : '档案地址命中'}}：{{item.matchedAddressText}}</text>
   </view>
   <block wx:if="{{customerId}}">
     <view class="customer-selected">当前：{{customerName || '客户'}} · {{customerPhone || '联系方式未填写'}} · #{{customerId}}</view>

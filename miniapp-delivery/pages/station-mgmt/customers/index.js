@@ -6,6 +6,13 @@ const { STORAGE_KEYS } = require('../../../utils/storage-keys')
 
 const AVATAR_COLORS = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6B', '#909399', '#9254DE']
 
+// 与请求层相同的登录周期；普通 token 续期仍属同一周期。
+function searchSession() {
+  const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+  return { app, generation: app._loginGeneration || 0,
+    identity: JSON.stringify([!!g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+}
+
 // 列表项前端派生展示字段（头像/脱敏等纯展示，不依赖后端）
 function decorate(item) {
   const name = item.name || '?'
@@ -29,6 +36,8 @@ function decorate(item) {
 Page({
   data: {
     loading: true,
+    loadError: '',
+    searchDone: false,
     list: [],
     keyword: '',
     filterType: 'all', // all | 1 个人 | 2 企业
@@ -52,29 +61,44 @@ Page({
   },
 
   onShow() {
+    this._customersHidden = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
       return
     }
-    this.loadData()
+    return this.loadData()
   },
 
+  onHide() {
+    this._customersHidden = true
+    this._searchSequence = (this._searchSequence || 0) + 1
+    this._pullSequence = (this._pullSequence || 0) + 1
+  },
+  onUnload() { this.onHide() },
+
   onPullDownRefresh() {
-    this.loadData().then(() => wx.stopPullDownRefresh())
+    const pull = this._pullSequence = (this._pullSequence || 0) + 1
+    const session = searchSession()
+    return this.loadData().finally(() => {
+      const now = searchSession()
+      if (!this._customersHidden && pull === this._pullSequence && session.app === now.app
+        && session.generation === now.generation && session.identity === now.identity) wx.stopPullDownRefresh()
+    })
   },
 
   onKeywordInput(e) {
-    this.setData({ keyword: e.detail.value })
+    this._searchSequence = (this._searchSequence || 0) + 1
+    this.setData({ keyword: e.detail.value, list: [], loadError: '', loading: false, searchDone: false })
   },
 
   onSearch() {
-    this.loadData()
+    return this.loadData()
   },
 
   onFilterType(e) {
     this.setData({ filterType: e.currentTarget.dataset.type })
-    this.loadData()
+    return this.loadData()
   },
 
   async loadData() {
@@ -85,31 +109,39 @@ Page({
       || wx.getStorageSync(STORAGE_KEYS.STATION_ID)
       || null
 
-    this.setData({ loading: true })
+    const sequence = this._searchSequence = (this._searchSequence || 0) + 1
+    const session = searchSession(), keyword = this.data.keyword.trim(), filterType = this.data.filterType
+    const current = () => {
+      const now = searchSession()
+      return !this._customersHidden && sequence === this._searchSequence
+        && session.app === now.app && session.generation === now.generation && session.identity === now.identity
+        && keyword === this.data.keyword.trim() && filterType === this.data.filterType
+    }
+    this.setData({ loading: true, list: [], loadError: '', searchDone: false })
     try {
       // 关键字交给服务端：站长认人靠地址，而「阳光81301」这种缩写与「八栋/8栋」的
       // 数字混用只有归一化之后才匹配得上（本地 includes 一定漏）。
       // 因此这里**不再**本地 filter name/phone —— 服务端已经把结果筛好了。
-      const keyword = this.data.keyword.trim()
       // 企业身份待审与客户列表是两个独立请求，并行发；它自己吞掉异常，
       // 绝不能让"待审列表取不到"把客户列表也变成一片空白。
-      const entTask = this.loadEnterpriseApplies()
-      const cfgTask = this.loadEnterpriseConfig()
+      const entTask = this.loadEnterpriseApplies(current)
+      const cfgTask = this.loadEnterpriseConfig(current)
       const res = await getCustomers(stationId, keyword)
-      const filterType = this.data.filterType
+      if (!current()) return false
       let list = (res.data || []).map(decorate)
       if (filterType !== 'all') {
         const t = Number(filterType)
         list = list.filter(c => c.customerType === t)
       }
-      this.setData({ list })
+      this.setData({ list, searchDone: true })
       await entTask
       await cfgTask
     } catch (err) {
-      wx.showToast({ title: err.message || '加载失败', icon: 'none' })
+      if (current()) this.setData({ list: [], loadError: err.message || '加载失败，请重试' })
     } finally {
-      this.setData({ loading: false })
+      if (current()) this.setData({ loading: false })
     }
+    return current()
   },
 
   /**
@@ -119,9 +151,10 @@ Page({
    * 为一个附加提示在客户查询页弹红字，属于喧宾夺主。
    * ⚠️ 功能总开关关着时后端给的是**空列表**，与"真的没有申请"同形，前端无需区分。
    */
-  async loadEnterpriseApplies() {
+  async loadEnterpriseApplies(current = () => !this._customersHidden) {
     try {
       const res = await getEnterpriseApplies()
+      if (!current()) return
       const list = (res.data || []).map(a => {
         // 时间只用后端下发的 ISO 串做切片展示：不 new Date()、不做时区换算
         // （这是"谁什么时候申请的"，精度到分钟足够）
@@ -131,6 +164,7 @@ Page({
       })
       this.setData({ entApplies: list })
     } catch (err) {
+      if (!current()) return
       console.warn('[Customers] 企业身份待审列表获取失败（当作没有）:', err.message)
       this.setData({ entApplies: [] })
     }
@@ -216,9 +250,10 @@ Page({
    * 回填时把"没配过 → 用平台默认"一并展示出来：站长得看得出这个 30 桶是平台给的还是自己设的
    * （`usingDefault`），否则他会以为自己设过。
    */
-  async loadEnterpriseConfig() {
+  async loadEnterpriseConfig(current = () => !this._customersHidden) {
     try {
       const res = await getEnterpriseConfig()
+      if (!current()) return
       const c = (res && res.data) || {}
       // 「未启用」只有一种表示法：null。这里把 0/负数也归一到 null ——
       // 否则站长打开设置会看到"水费达到 0 元"，一保存又被"必须为正"拒掉（后端已保证不下发 0，
@@ -239,6 +274,7 @@ Page({
         entCfgText: this.describeEnterpriseConfig(cfg)
       })
     } catch (err) {
+      if (!current()) return
       console.warn('[Customers] 企业身份阈值配置获取失败（当作功能未开启）:', err.message)
       this.setData({ entCfg: { enabled: false }, entCfgText: '' })
     }

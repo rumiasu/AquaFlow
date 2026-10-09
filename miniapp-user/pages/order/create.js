@@ -75,6 +75,7 @@ Page({
     barrelSummary: [],
     stationId: null,
     stationName: '',
+    stationNameStationId: null,
     // 金额校准相关
     totalWaterCost: 0,
     // 非桶装押金合计：后端 quote 的 barrelDeposit 键（历史误称）装着它，2026-09-19 起恒为 0，
@@ -371,7 +372,7 @@ async loadItemsProducts() {
       wx.showToast({ title: '部分商品信息没加载出来', icon: 'none' })
     }
 
-this.setData({ products, stationName: effectiveStationName })
+this.setData({ products, stationName: effectiveStationName, stationNameStationId: effectiveStationId })
     this.loadStationStatus(effectiveStationId)
     this.syncBarrelSummary()
     this.refreshQuote()
@@ -837,6 +838,8 @@ this.setData({ products, stationName: effectiveStationName })
           // 判据（firstStationAsset）与金额（depositAmount = 本次缺桶押金，totalAmount 含它）
           // 全部来自服务端 quote —— 与下单侧同一个 AssetService / 同一套计价，前端不另写资产规则。
           firstStationAsset: d.firstStationAsset === true,
+          stationName: d.stationName || '',
+          stationNameStationId: stationId,
           assetNotice: {
             stationName: d.stationName || '',
             depositAmount: (Number(d.depositAmount) || 0).toFixed(2),
@@ -1414,11 +1417,12 @@ this.setData({ products, stationName: effectiveStationName })
         // 失败/超时不等于"没下单"：**先回查原单的支付事实**（契约 A3），再决定怎么说。
         // 已扣票或已入账的情况绝不能再次扣款 —— _paySameOrder 只是回读，不做任何写动作。
         await new Promise((resolve) => {
-          // paid：票/模拟渠道其实成功了，只是响应没回来；否则是**确实还没付**，
-          // 必须给"再试一次"这条同单恢复路径，而不是把人丢到一个点不动的结果页。
-          const title = outcome.state === 'paid' ? '已经付好了' : '订单已提交，但支付还没成功'
+          // 回查也失败时只能说明结果未知，续办始终绑定这张原单。
+          const unknown = outcome.state === 'unknown'
+          const title = unknown ? '订单已提交，支付结果未知' : '订单已提交，但支付还没成功'
           const body = outcome.state === 'paid'
             ? '款项已经结清，可以放心等配送。'
+            : unknown ? '订单已经建好了（订单号 ' + orderId + '），暂时查不到是否已付款。请点「查原单」刷新核实；若继续支付，仍办理这张原订单。'
             : ((outcome.error && outcome.error.message) || '网络异常')
               + '。订单已经建好了（订单号 ' + orderId + '），但这一笔支付没有完成。'
           wx.showModal({
@@ -1426,7 +1430,7 @@ this.setData({ products, stationName: effectiveStationName })
             content: body,
             showCancel: outcome.state !== 'paid',
             confirmText: outcome.state === 'paid' ? '看订单' : '再试一次',
-            cancelText: '看订单',
+            cancelText: unknown ? '查原单' : '看订单',
             success: (r) => {
               if (!r.confirm) {
                 // 取消 = 去结果页（那里有后端下发的「去支付」，仍是同一张单）
@@ -1443,10 +1447,11 @@ this.setData({ products, stationName: effectiveStationName })
           // 同一个订单号重试：服务端一单一条活跃流水（uk_payment_active_order）兜底，
           // 已有待收款流水时 createPayment 会把它原样返回，不会落第二条、也不会双扣。
           const retry = await this._paySameOrder(orderId, payMethod)
+          this._markPendingOrderPaid(retry.ok === true)
           if (!retry.ok) {
             // 重试仍不成功：停在结果页（有「去支付」入口 + 后端下发的付款说明），不假报成功
             wx.showToast({
-              title: retry.state === 'paid' ? '已经付好了' : '还没付成功，可在本页继续支付',
+              title: retry.state === 'unknown' ? '支付结果仍未知，请查看原订单' : '还没付成功，可在本页继续支付',
               icon: 'none'
             })
           }
@@ -1485,7 +1490,8 @@ this.setData({ products, stationName: effectiveStationName })
         ticketQty: null
       })
       // 请求成功 ≠ 钱到账：一律回读订单的支付事实（服务端重算的金额与状态才是真相）
-      return { ok: (await this._verifyOrderPayment(orderId)) === 'paid' }
+      const state = await this._verifyOrderPayment(orderId)
+      return { ok: state === 'paid', state }
     } catch (e) {
       console.error('[OrderCreate] 同单支付失败，先回查原单支付事实:', e)
       const state = await this._verifyOrderPayment(orderId)

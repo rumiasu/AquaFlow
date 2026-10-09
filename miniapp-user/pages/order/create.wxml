@@ -9,6 +9,9 @@
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>
+    <view class="station-status-banner" wx:if="{{stationId}}">
+      <text class="banner-text">本次下单水站：{{stationName && stationNameStationId === stationId ? stationName : ('水站 #' + stationId)}}</text>
+    </view>
     <!-- 水站营业状态（软状态，v32）：只提示、不阻断下单 —— 顾客仍可正常下单。
          文案由服务端下发（customerHint），前端不做 operatingStatus 1..4 的映射。 -->
     <view class="station-status-banner" wx:if="{{stationStatusHint}}">

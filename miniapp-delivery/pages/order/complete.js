@@ -732,6 +732,11 @@ Page({
     })
   },
 
+  onVerifyOriginalOrder() {
+    if (!this.data.orderId || this.data.submittingComplete) return
+    wx.navigateTo({ url: `/pages/order/detail?id=${this.data.orderId}` })
+  },
+
   async _doSubmit() {
     // 模板禁用与确认摘要之外再守一次，旧弹窗回调或直接触发也不能提交未收齐的新押金单。
     if (!this._canCompleteWithCollection()) return
@@ -791,11 +796,11 @@ Page({
         this.setData({
           resultState: 'unknown',
           unknownHint: '这次提交没等到回应（' + msg + '）。配送结果可能已登记，'
-            + '请先回到配送列表刷新看一眼再决定要不要重提 —— 直接重提会被系统挡下并报"该订单当前状态不可完成配送"。'
+            + '请点「核实原订单」查看最新状态：若已送达或已完成，无需重提；若仍在配送中，可保留现场填写再提交。'
         })
         wx.showModal({
           title: '结果未知',
-          content: '这次提交没等到回应（' + msg + '）。配送结果可能已登记，请回配送列表刷新确认后再决定要不要重试。',
+          content: '这次提交没等到回应（' + msg + '）。请点页面上的「核实原订单」查看最新状态；已送达或已完成就无需重提，仍在配送中可用原内容再提交。',
           showCancel: false,
           confirmText: '知道了'
         })

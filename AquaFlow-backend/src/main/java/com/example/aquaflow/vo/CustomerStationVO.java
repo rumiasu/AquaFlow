@@ -55,16 +55,21 @@ public class CustomerStationVO {
     private Integer offlinePaymentEnabled;
 
     /**
-     * 搜索命中的地址文本（默认地址优先）。
+     * 默认档案地址文本（兼容原字段，不代表命中地址或本次配送地址）。
      *
-     * <p>只在 {@code GET /api/customers?keyword=} 带关键字时回填：站长"更看重地址，
-     * 地址其实更能指代人"（口径见 {@code util/CustomerSearchMatcher}），
-     * 不显示"送到哪"的话，搜出来的结果看着像随机命中的。</p>
+     * <p>只在 {@code GET /api/customers?keyword=} 带关键字时回填，保留原有姓名/电话搜索展示；
+     * 地址命中解释另见 matchedAddressText / matchedAddressSource，不用于设置配送地址。</p>
      *
      * <p>不带关键字的普通列表恒为 {@code null} —— 地址不在 {@code listStationCustomers}
      * 的返回列里，逐行补查地址会让"每个客户一次地址扫描"。</p>
      */
     private String addressText;
+
+    /** 搜索实际命中的单条地址；姓名/电话优先命中或无关键字时为空。 */
+    private String matchedAddressText;
+
+    /** 命中来源：PROFILE（档案地址）/ ORDER_HISTORY（本站订单历史快照）。 */
+    private String matchedAddressSource;
 
     /** 客户等级文本（后端派生：按累计消费/订单数分档，前端直接渲染） */
     private String customerLevel;

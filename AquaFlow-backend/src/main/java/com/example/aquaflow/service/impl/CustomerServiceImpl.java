@@ -215,8 +215,11 @@ public class CustomerServiceImpl implements CustomerService {
                 vo -> searchTextOf(candidateById.get(vo.getId())),
                 CustomerSearchMatcher.MAX_RESULTS);
         for (CustomerStationVO vo : matched) {
-            // 回填展示用地址：站长是靠地址认人的，只给姓名/电话等于没回答"为什么命中"
-            vo.setAddressText(displayAddressOf(candidateById.get(vo.getId())));
+            Map<String, Object> candidate = candidateById.get(vo.getId());
+            vo.setAddressText(displayAddressOf(candidate));
+            Map<String, String> explanation = matchedAddressOf(candidate, keyword);
+            vo.setMatchedAddressText(explanation.get("text"));
+            vo.setMatchedAddressSource(explanation.get("source"));
         }
         return matched;
     }
@@ -235,7 +238,7 @@ public class CustomerServiceImpl implements CustomerService {
                 if (recent.size() >= CustomerSearchMatcher.MAX_RESULTS) {
                     break;
                 }
-                recent.add(toSearchItem(candidate));
+                recent.add(toSearchItem(candidate, null));
             }
             return recent;
         }
@@ -244,7 +247,7 @@ public class CustomerServiceImpl implements CustomerService {
                 CustomerSearchMatcher.MAX_RESULTS);
         List<Map<String, Object>> out = new ArrayList<>(ranked.size());
         for (Map<String, Object> candidate : ranked) {
-            out.add(toSearchItem(candidate));
+            out.add(toSearchItem(candidate, keyword));
         }
         return out;
     }
@@ -284,17 +287,39 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     /** 列表项字段由后端定死：{@code searchTextOf} 用的 orderAddressText 不外泄给前端 */
-    private static Map<String, Object> toSearchItem(Map<String, Object> candidate) {
+    private static Map<String, Object> toSearchItem(Map<String, Object> candidate, String keyword) {
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("id", candidate.get("id"));
         item.put("name", candidate.get("name"));
         item.put("phone", candidate.get("phone"));
         item.put("customerType", candidate.get("customerType"));
         item.put("addressText", displayAddressOf(candidate));
+        Map<String, String> explanation = matchedAddressOf(candidate, keyword);
+        item.put("matchedAddressText", explanation.get("text"));
+        item.put("matchedAddressSource", explanation.get("source"));
         // 2026-10-06：搜索含绑定∪订单，但资产调整只认本站绑定，不能把两种资格混用。
         Object bound = candidate.get("adjustmentEligible");
         item.put("adjustmentEligible", Boolean.TRUE.equals(bound) || bound instanceof Number n && n.intValue() == 1);
         return item;
+    }
+
+    /** 用同一匹配器解释单条地址；不改候选排序，也不把历史地址当作当前配送地址。 */
+    private static Map<String, String> matchedAddressOf(Map<String, Object> candidate, String keyword) {
+        Map<String, String> result = new java.util.HashMap<>();
+        if (candidate == null || CustomerSearchMatcher.isBlank(keyword)) return result;
+        int best = Math.max(CustomerSearchMatcher.MIN_SCORE - 1,
+                CustomerSearchMatcher.score(keyword, str(candidate, "name"), str(candidate, "phone"), null));
+        for (String source : List.of("PROFILE", "ORDER_HISTORY")) {
+            String text = str(candidate, source.equals("PROFILE") ? "addressText" : "orderAddressText");
+            for (String line : text.split("\n")) {
+                if (line.isBlank()) continue;
+                int score = CustomerSearchMatcher.score(keyword, null, null, line);
+                if (score > best) {
+                    best = score; result.put("text", line); result.put("source", source);
+                }
+            }
+        }
+        return result;
     }
 
     private static String str(Map<String, Object> map, String key) {

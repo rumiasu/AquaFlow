@@ -114,6 +114,52 @@ console.log('员工端运行时事实表达（真实执行页面处理函数）'
     assert.match(resolved, /^\d+(?:\.\d+)?rpx$/)
     return Number(resolved.slice(0, -3))
   }
+  await test('R01 角色页欢迎标题与副标题在实际继承底色上可读（非原生静态检查）', async () => {
+    const roleCss = readFile('miniapp-delivery/pages/role-select/index.wxss').replace(/\/\*[\s\S]*?\*\//g, '')
+    const rule = selector => {
+      const match = roleCss.match(new RegExp(`\\.${selector}\\s*\\{([^}]+)\\}`))
+      assert.ok(match, `缺少角色页样式 ${selector}`)
+      return match[1]
+    }
+    const declaration = (body, property) => {
+      const match = body.match(new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`))
+      assert.ok(match, `缺少角色页 ${property}`)
+      return match[1].trim()
+    }
+    const color = value => {
+      const visited = new Set()
+      while (/^var\(/.test(value)) {
+        const token = /^var\((--[\w-]+)\)$/.exec(value)
+        assert.ok(token && !visited.has(token[1]), '颜色变量必须可解析且无循环')
+        visited.add(token[1])
+        const definition = appCss.match(new RegExp(`${token[1]}\\s*:\\s*([^;]+)`))
+        assert.ok(definition, `缺少主题变量 ${token[1]}`)
+        value = definition[1].trim()
+      }
+      if (/^#[\da-f]{6}$/i.test(value)) return [1, 3, 5].map(i => parseInt(value.slice(i, i + 2), 16)).concat(1)
+      const rgba = /^rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*(0?\.\d+|0|1)\s*\)$/.exec(value)
+      assert.ok(rgba, `颜色必须可解析为实际色值：${value}`)
+      return rgba.slice(1).map(Number)
+    }
+    // 当前 header 透明，文字没有独立底色；因此背景来自实际 container 声明及 app token。
+    for (const selector of ['header', 'title', 'subtitle']) {
+      assert.doesNotMatch(rule(selector), /(?:^|;)\s*(?:background(?:-color)?|opacity)\s*:/,
+        '新增背景/整体透明度时须重新核对实际文字底色')
+    }
+    const background = color(declaration(rule('container'), 'background'))
+    assert.strictEqual(background[3], 1, '容器底色必须明确且不透明')
+    const luminance = rgb => {
+      const linear = rgb.map(c => c / 255).map(c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+      return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+    }
+    for (const selector of ['title', 'subtitle']) {
+      const foreground = color(declaration(rule(selector), 'color'))
+      const effective = background.slice(0, 3).map((channel, i) => foreground[i] * foreground[3] + channel * (1 - foreground[3]))
+      const a = luminance(effective), b = luminance(background.slice(0, 3))
+      const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+      assert.ok(ratio >= 4.5, `${selector} 对实际暖纸底的对比度仅 ${ratio.toFixed(4)}:1`)
+    }
+  })
   await test('D08 固定底栏明确盖住回桶输入，异常弹窗继续在底栏上方', async () => {
     assert.strictEqual(cssValue('.footer', 'position'), 'fixed')
     assert.strictEqual(cssValue('.barrel-stepper', 'position'), 'relative')

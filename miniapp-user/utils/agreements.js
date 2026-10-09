@@ -1,5 +1,7 @@
 // Generated packaged drafts provide read-only offline text. Only current server-published text can supply login evidence.
-const drafts = require('../data/agreement-drafts.json')
+// 2026-10-09：原 JSON require 只在 Node 测试中成功，微信加载为 .json.js 后登录页中断。
+// JS 镜像由同一正本生成并校验；它仍是关闭的草稿，不提供正式接受证据。
+const drafts = require('../data/agreement-drafts.js')
 const audience = 'CUSTOMER'
 function validDocument(doc, type) {
   return !!doc && doc.audience === audience && doc.type === type &&

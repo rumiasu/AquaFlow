@@ -1,20 +1,17 @@
 // 统一 token 获取（带命名空间）
 const { STORAGE_KEYS } = require('./storage-keys')
 
-const getAccessToken = () => {
-  const app = getApp()
+const getAccessToken = (app = getApp()) => {
   if (app.globalData.isLogin === false) return null
   return app.globalData.accessToken || wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
 }
 
-const getRefreshToken = () => {
-  const app = getApp()
+const getRefreshToken = (app = getApp()) => {
   if (app.globalData.isLogin === false) return null
   return app.globalData.refreshToken || wx.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
 }
 
-const getCustomerId = () => {
-  const app = getApp()
+const getCustomerId = (app = getApp()) => {
   if (app.globalData.isLogin === false) return null
   return app.globalData.customerId || wx.getStorageSync(STORAGE_KEYS.CUSTOMER_ID)
 }
@@ -23,18 +20,19 @@ const getCustomerId = () => {
 let currentSession = null
 let nextEpoch = 0
 
-function readSession() {
-  const app = getApp()
-  return { app, customerId: getCustomerId() || null, accessToken: getAccessToken() || null,
-    refreshToken: getRefreshToken() || null, loggedIn: app.globalData.isLogin !== false }
+function readSession(app = getApp()) {
+  return { app, customerId: getCustomerId(app) || null, accessToken: getAccessToken(app) || null,
+    refreshToken: getRefreshToken(app) || null, loggedIn: app.globalData.isLogin !== false }
 }
 
 /** 登录/退出生命周期调用；同一客户、同一令牌再次登录也必须形成新周期。 */
 function beginSession() { currentSession = null; nextEpoch++ }
 
-/** 捕获最初身份和令牌所属周期；外部身份/令牌改变保守按新会话处理。 */
-function captureSession() {
-  const now = readSession()
+/** 捕获最初身份和令牌所属周期；App 注册期可显式传入 this，页面仍读当前全局 App。 */
+function captureSession(app) {
+  // 2026-10-09：onLaunch 中 getApp() 尚不可用，原冷启动在读取 globalData 时中断。
+  // 只由 App 入口传入自身；后续回执仍经全局当前会话校验，不能拿旧 App 绕过身份切换。
+  const now = readSession(app)
   if (!currentSession || ['app', 'customerId', 'accessToken', 'refreshToken', 'loggedIn']
     .some(k => currentSession[k] !== now[k])) {
     currentSession = Object.assign({ epoch: ++nextEpoch, credentialVersion: 0 }, now)

@@ -44,7 +44,7 @@ App({
 
   validateToken() {
     // 启动旧结果可能晚于新登录或同周期续期；身份与凭据都须仍是当前版本。
-    const session = captureSession()
+    const session = captureSession(this)
     const { getBaseUrl, API } = require('./config/api')
     const baseUrl = getBaseUrl()
     wx.request({
@@ -78,7 +78,7 @@ App({
     })
   },
 
-  tryRefresh(session = captureSession()) {
+  tryRefresh(session = captureSession(this)) {
     // 与页面401共用同一份凭据的刷新；迟到启动401不再另送旧 refreshToken。
     return require('./utils/request').refreshLogin(session).then(() => undefined)
   },

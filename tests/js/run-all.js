@@ -14,6 +14,8 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'customer-native-startup.test.js', name: '用户端 App 注册期冷启动与原生协议模块加载' },
+  { file: 'employee-native-startup.test.js', name: '员工端 App 注册期与原生协议草稿加载' },
   { file: 'asset-view-station-flow.test.js', name: '本人资产站目录、历史资产切站、购买站别与会话隔离' },
   { file: 'customer-delivery-arrangement.test.js', name: '客户真实配送安排提示与迟到响应保护' },
   { file: 'historical-business-entry-flow.test.js', name: '完整历史退还与拒付原案分页、定位和原请求恢复' },

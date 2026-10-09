@@ -272,6 +272,10 @@
   overflow-wrap: break-word;
 }
 
+.record-summary.refund-fact {
+  color: var(--text-regular);
+}
+
 .record-actions {
   display: flex;
   flex-direction: column;

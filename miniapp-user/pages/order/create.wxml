@@ -287,7 +287,7 @@
            而不是再建一单（业内主流形态，见 create.js 里 pendingOrder 的说明）。
            改商品/地址/支付方式 ⇒ 指纹一变、这行与按钮文案自动回到常态。 -->
       <view class="pending-order-hint" wx:if="{{pendingOrderId}}">
-        <text class="pending-order-text">{{pendingOrderPaid ? '这一单已经下好了' : '你刚才下的单还没付款'}}</text>
+        <text class="pending-order-text">{{pendingOrderPaid ? '这一单已经下好了' : (pendingOrderPaymentState === 'unpaid' ? '你刚才下的单还没付款' : (pendingOrderPaymentState === 'closed' ? '请查看这笔订单的最新状态' : '这笔订单的支付结果待确认'))}}</text>
         <text class="pending-order-sub" bindtap="onViewPendingOrder">看订单详情 ›</text>
       </view>
 

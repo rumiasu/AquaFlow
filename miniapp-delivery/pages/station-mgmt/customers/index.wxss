@@ -21,6 +21,7 @@
 .badge.act-new { background: var(--primary-color); }
 .badge.cod { background: var(--warning-color); }
 .customer-phone { font-size: 26rpx; color: var(--text-secondary); }
+.customer-phone.customer-address { color: var(--text-regular); }
 .customer-phone.muted { color: var(--text-placeholder); }
 
 .stat-row { display: flex; gap: 8rpx; background: var(--bg-color); border-radius: 12rpx; padding: 14rpx 8rpx; }

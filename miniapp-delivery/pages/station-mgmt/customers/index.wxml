@@ -21,7 +21,10 @@
   <view class="ent-entry" wx:if="{{entCfg.enabled}}">
     <view class="ent-entry-left" bindtap="onEntOpen" data-view="review">
       <text class="ent-entry-title">企业身份</text>
-      <text class="ent-entry-desc" wx:if="{{entApplies.length}}">有 {{entApplies.length}} 条申请待审核</text>
+      <text class="ent-entry-desc" wx:if="{{entAppliesState === 'unverified'}}" catchtap="onEntRetry">待审申请未核实 · 点击核实</text>
+      <text class="ent-entry-desc" wx:elif="{{entAppliesState === 'loading'}}">待审申请加载中...</text>
+      <text class="ent-entry-desc" wx:elif="{{entAppliesState === 'error'}}" catchtap="onEntRetry">待审申请读取失败 · 点击重试</text>
+      <text class="ent-entry-desc" wx:elif="{{entApplies.length}}">有 {{entApplies.length}} 条申请待审核</text>
       <text class="ent-entry-desc" wx:else>暂无待审申请</text>
     </view>
     <text class="ent-entry-set" bindtap="onEntOpen" data-view="settings">提示阈值 ›</text>
@@ -39,8 +42,8 @@
         </view>
         <text class="customer-phone" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}">{{item.phoneMasked}} ›</text>
         <text class="customer-phone muted" wx:else>未填写电话</text>
-        <text class="customer-phone" wx:if="{{item.matchedAddressText}}">{{item.matchedAddressSource === 'ORDER_HISTORY' ? '本站历史订单地址命中' : '档案地址命中'}}：{{item.matchedAddressText}}</text>
-        <text class="customer-phone" wx:elif="{{item.addressText}}">默认档案地址：{{item.addressText}}</text>
+        <text class="customer-phone customer-address" wx:if="{{item.matchedAddressText}}">{{item.matchedAddressSource === 'ORDER_HISTORY' ? '本站历史订单地址命中' : '档案地址命中'}}：{{item.matchedAddressText}}</text>
+        <text class="customer-phone customer-address" wx:elif="{{item.addressText}}">默认档案地址：{{item.addressText}}</text>
 
         <view class="stat-row">
           <view class="stat"><text class="stat-val">{{item.totalOrders}}</text><text class="stat-label">订单</text></view>
@@ -98,12 +101,16 @@
   <view class="modal-mask" wx:if="{{entVisible}}" bindtap="onEntClose">
     <view class="modal-body" catchtap="onEntNoop">
       <view class="modal-title">
-        <text wx:if="{{entView === 'review'}}">企业身份申请（{{entApplies.length}}）</text>
+        <text wx:if="{{entView === 'review'}}">企业身份申请{{entAppliesState === 'ready' ? '（' + entApplies.length + '）' : ''}}</text>
         <text wx:else>企业身份提示 · 本站阈值</text>
       </view>
 
       <!-- ===== 审核视图 ===== -->
       <block wx:if="{{entView === 'review'}}">
+        <view class="ent-empty" wx:if="{{entAppliesState === 'unverified'}}" bindtap="onEntRetry">待审申请未核实 · 点击核实</view>
+        <view class="ent-empty" wx:elif="{{entAppliesState === 'loading'}}">待审申请加载中...</view>
+        <view class="ent-empty" wx:elif="{{entAppliesState === 'error'}}" bindtap="onEntRetry">待审申请读取失败 · 点击重试</view>
+        <block wx:else>
         <view class="ent-item" wx:for="{{entApplies}}" wx:key="id">
           <view class="ent-item-head">
             <text class="ent-item-name">{{item.companyName}}</text>
@@ -119,6 +126,7 @@
           </view>
         </view>
         <view class="ent-empty" wx:if="{{!entApplies.length}}">暂无待审申请</view>
+        </block>
       </block>
 
       <!-- ===== 阈值视图 ===== -->

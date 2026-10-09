@@ -124,9 +124,10 @@ Page({
     // 重复提交不是靠确认框拦，而是**这个状态让"再下一单"没有入口**。
     // 判据见 _pendingOrderForCurrentCart（指纹 = 客户+水站+地址+商品+支付方式）。
     lastSubmittedOrder: null,
-    // 投影给 wxml 的两个值（按钮文案与提示行都读它们）：pendingOrderId 为 null = 正常「立即下单」
+    // 原单编号与支付事实投影给 wxml：pendingOrderId 为 null = 正常「立即下单」
     pendingOrderId: null,
     pendingOrderPaid: false,
+    pendingOrderPaymentState: 'unknown',
     // ===== 缺货确认（契约 A1）：needConfirm=true 表示**还没建单**，绝不能当成功 =====
     showShortageConfirm: false,
     shortageItems: [],
@@ -1145,7 +1146,9 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const pending = this._pendingOrderForCurrentCart()
     this.setData({
       pendingOrderId: pending ? pending.orderId : null,
-      pendingOrderPaid: pending ? pending.paid === true : false
+      pendingOrderPaid: pending ? pending.paid === true : false,
+      // 旧缓存只有 paid=false 时无法区分未付/未核实，展示为待确认。
+      pendingOrderPaymentState: pending ? (pending.paid === true ? 'paid' : pending.paymentState || 'unknown') : 'unknown'
     })
   },
 
@@ -1174,13 +1177,14 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   /** 记下"刚刚成功建出来的这一单"，供 _pendingOrderForCurrentCart 判定。 */
-  _rememberSubmittedOrder(orderId, fingerprint, paid) {
+  _rememberSubmittedOrder(orderId, fingerprint, paid, paymentState) {
     const snapshot = {
       orderId: orderId,
       fingerprint: fingerprint,
       at: Date.now(),
       // paid 决定按钮文案：还没结清 ⇒「继续支付」；已付/水票结清 ⇒「查看这笔订单」
-      paid: paid === true
+      paid: paid === true,
+      paymentState: paid === true ? 'paid' : paymentState || 'unknown'
     }
     this.setData({ lastSubmittedOrder: snapshot })
     this._syncPendingOrderState()
@@ -1196,10 +1200,10 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   /** 这一次提交最终有没有把钱结清（决定"已下单"态显示「继续支付」还是「查看这笔订单」）。 */
-  _markPendingOrderPaid(paid) {
+  _markPendingOrderPaid(paid, paymentState) {
     const last = this.data.lastSubmittedOrder
     if (!last || !last.orderId) return
-    this._rememberSubmittedOrder(last.orderId, last.fingerprint, paid)
+    this._rememberSubmittedOrder(last.orderId, last.fingerprint, paid, paymentState)
   },
 
   /**
@@ -1412,7 +1416,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     if (payMethod === 3 || (payMethod === 1 && wechatReady)) {
       const outcome = await this._paySameOrder(orderId, payMethod)
       // "已下单"态的按钮文案跟着真实结果走：结清了就显示「查看这笔订单」，没结清显示「继续支付」
-      this._markPendingOrderPaid(outcome.ok === true)
+      this._markPendingOrderPaid(outcome.ok === true, outcome.state)
       if (!outcome.ok) {
         // 失败/超时不等于"没下单"：**先回查原单的支付事实**（契约 A3），再决定怎么说。
         // 已扣票或已入账的情况绝不能再次扣款 —— _paySameOrder 只是回读，不做任何写动作。
@@ -1447,7 +1451,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
           // 同一个订单号重试：服务端一单一条活跃流水（uk_payment_active_order）兜底，
           // 已有待收款流水时 createPayment 会把它原样返回，不会落第二条、也不会双扣。
           const retry = await this._paySameOrder(orderId, payMethod)
-          this._markPendingOrderPaid(retry.ok === true)
+          this._markPendingOrderPaid(retry.ok === true, retry.state)
           if (!retry.ok) {
             // 重试仍不成功：停在结果页（有「去支付」入口 + 后端下发的付款说明），不假报成功
             wx.showToast({

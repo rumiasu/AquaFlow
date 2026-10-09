@@ -124,7 +124,7 @@
               <text>{{item.statusText}}</text>
             </view>
           </view>
-          <text class="record-summary" wx:if="{{item.type === 2 && item.depositRefund !== undefined && item.depositRefund !== null}}">应退押金：¥{{item.depositRefund}}（实际收到情况请核实）</text>
+          <text class="record-summary refund-fact" wx:if="{{item.type === 2 && item.depositRefund !== undefined && item.depositRefund !== null}}">应退押金：¥{{item.depositRefund}}（实际收到情况请核实）</text>
           <view class="record-return" wx:if="{{item.returnDetail}}">
             <text class="record-summary">{{item.returnDetail.pickupModeText}} · 应交回 {{item.returnDetail.requiredBarrels}} 桶 · 取桶费 ¥{{item.returnDetail.pickupFee}}</text>
             <text class="record-summary">{{item.returnDetail.statusText}}</text>
@@ -136,7 +136,7 @@
               <button class="record-action record-action-secondary" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnWithdraw">撤回申请</button>
             </view>
           </view>
-          <text class="record-summary" wx:if="{{item.statusText && item.refundPaidTime}}">水站登记退款交付时间：{{item.refundPaidTime}}。如实际未收到，请联系退款水站核实。</text>
+          <text class="record-summary refund-fact" wx:if="{{item.statusText && item.refundPaidTime}}">水站登记退款交付时间：{{item.refundPaidTime}}。如实际未收到，请联系退款水站核实。</text>
           <text class="record-summary" wx:if="{{item.statusText && item.handleNote}}">处理说明：{{item.handleNote}}</text>
           <button wx:if="{{item.statusText}}" size="mini" bindtap="onRefundFeedback" data-id="{{item.id}}">异议或补充说明</button>
         </view>
@@ -151,7 +151,7 @@
         <text class="info-value">¥{{summary.depositPerBucket}}</text>
       </view>
       <view class="info-tip">
-        <text>不同商品的押金不同，申请前可查看预计金额；水站确认收到空桶后再处理退款</text>
+        <text>不同商品的押金不同，申请前可查看预计金额；水站核实退桶或未领桶权益后处理退款</text>
       </view>
     </view>
 

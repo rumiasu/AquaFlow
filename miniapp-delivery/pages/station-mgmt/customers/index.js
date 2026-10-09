@@ -49,6 +49,7 @@ Page({
     //   · entApplies 为空且平台开关关着 → 入口整行不显示（见 wxml 的 entCfg.enabled）；
     //   · entVisible / entView 是这一个弹窗的两个状态，**不要再加第二个弹窗**。
     entApplies: [],
+    entAppliesState: 'unverified', // unverified | loading | ready（含成功空列表）| error
     entVisible: false,
     entView: 'review', // review 待审 | settings 阈值
     entSaving: false,
@@ -74,6 +75,7 @@ Page({
     this._customersHidden = true
     this._searchSequence = (this._searchSequence || 0) + 1
     this._pullSequence = (this._pullSequence || 0) + 1
+    this._enterpriseSequence = (this._enterpriseSequence || 0) + 1
   },
   onUnload() { this.onHide() },
 
@@ -90,6 +92,7 @@ Page({
   onKeywordInput(e) {
     this._searchSequence = (this._searchSequence || 0) + 1
     this.setData({ keyword: e.detail.value, list: [], loadError: '', loading: false, searchDone: false })
+    if (this.data.entAppliesState === 'loading') this.setData({ entApplies: [], entAppliesState: 'unverified' })
   },
 
   onSearch() {
@@ -133,7 +136,7 @@ Page({
         const t = Number(filterType)
         list = list.filter(c => c.customerType === t)
       }
-      this.setData({ list, searchDone: true })
+      this.setData({ list, searchDone: true, loading: false })
       await entTask
       await cfgTask
     } catch (err) {
@@ -147,27 +150,42 @@ Page({
   /**
    * 本站待审的企业身份申请（v50）。
    *
-   * 静默失败是有意的：这是客户列表页顶部的一行"顺带提示"，取不到就当作没有 ——
-   * 为一个附加提示在客户查询页弹红字，属于喧宾夺主。
-   * ⚠️ 功能总开关关着时后端给的是**空列表**，与"真的没有申请"同形，前端无需区分。
+   * 待审读取独立于客户查询；失败只在企业入口/弹窗说明并提供重试，不能冒充空列表。
+   * 平台开关关闭仍由 entCfg.enabled 隐藏入口，不改变后端成功空列表契约。
    */
   async loadEnterpriseApplies(current = () => !this._customersHidden) {
+    const sequence = this._enterpriseSequence = (this._enterpriseSequence || 0) + 1
+    const searchSequence = this._searchSequence || 0, session = searchSession()
+    const active = () => {
+      const now = searchSession()
+      return current() && !this._customersHidden && sequence === this._enterpriseSequence
+        && searchSequence === (this._searchSequence || 0) && session.app === now.app
+        && session.generation === now.generation && session.identity === now.identity
+    }
+    if (!active()) return
+    this.setData({ entApplies: [], entAppliesState: 'loading' })
     try {
       const res = await getEnterpriseApplies()
-      if (!current()) return
-      const list = (res.data || []).map(a => {
+      if (!active()) return
+      if (!Array.isArray(res.data)) throw new Error('待审申请数据未核实')
+      const list = res.data.map(a => {
         // 时间只用后端下发的 ISO 串做切片展示：不 new Date()、不做时区换算
         // （这是"谁什么时候申请的"，精度到分钟足够）
         a.applyTimeText = a.applyTime ? String(a.applyTime).replace('T', ' ').slice(0, 16) : ''
         a.statusText = a.statusText || '待审核'
         return a
       })
-      this.setData({ entApplies: list })
+      this.setData({ entApplies: list, entAppliesState: 'ready' })
     } catch (err) {
-      if (!current()) return
-      console.warn('[Customers] 企业身份待审列表获取失败（当作没有）:', err.message)
-      this.setData({ entApplies: [] })
+      if (!active()) return
+      console.warn('[Customers] 企业身份待审列表获取失败:', err.message)
+      this.setData({ entApplies: [], entAppliesState: 'error' })
     }
+  },
+
+  onEntRetry() {
+    if (this._customersHidden || this.data.entAppliesState === 'loading') return
+    return this.loadEnterpriseApplies()
   },
 
   onCall(e) {

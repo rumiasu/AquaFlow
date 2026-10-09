@@ -45,6 +45,78 @@ class ManagerPayrollListAndDirectionsIntegrationTest extends AbstractIntegration
 
     private static final String ITEMS = "/api/manager/earning-items";
 
+    @Test
+    @DisplayName("F-80：真实503张本站工资按id完整翻页，同时间/他站/翻页间新增不漏重")
+    void payrollCursorTraverses503RealRowsWithoutDuplicatesOrStationLeakAfterNewInsert() {
+        long stationA = createStation("F80 真实分页站A"), stationB = createStation("F80 真实分页站B");
+        long manager = createStaff("F80 站长", "STATION_MANAGER", stationA, 1);
+        long riderA = createStaff("F80 骑手A", "DELIVERY", stationA, 1);
+        long riderB = createStaff("F80 骑手B", "DELIVERY", stationB, 1);
+        Set<Long> original = new LinkedHashSet<>(), foreign = new LinkedHashSet<>();
+        java.time.LocalDate start = java.time.LocalDate.of(2024, 1, 1);
+        for (int i = 0; i < 503; i++) {
+            String day = start.plusDays(i).toString();
+            original.add(insertPayroll("F80-A-" + i, stationA, riderA, day, day, "0.00", 1));
+            if (i % 9 == 0) foreign.add(insertPayroll("F80-B-" + i, stationB, riderB, day, day, "0.00", 1));
+        }
+        jdbc.update("UPDATE staff_payroll SET create_time='2026-10-01 12:00:00', update_time='2026-10-01 12:00:00' WHERE station_id IN (?,?)", stationA, stationB);
+        assertEquals(503, intOf("SELECT COUNT(*) FROM staff_payroll WHERE station_id=?", stationA));
+        assertEquals(foreign.size(), intOf("SELECT COUNT(*) FROM staff_payroll WHERE station_id=?", stationB));
+        assertEquals(1, intOf("SELECT COUNT(DISTINCT create_time) FROM staff_payroll WHERE station_id IN (?,?)", stationA, stationB));
+        String token = staffToken(manager, "STATION_MANAGER", stationA);
+        Api first = get(PAYROLL, token);
+        assertEquals(0, first.code()); assertTrue(first.data().isArray()); assertEquals(100, first.data().size());
+        assertEquals(first.data(), get(PAYROLL + "?limit=100", token).data());
+        assertEquals(500, get(PAYROLL + "?limit=1000", token).data().size(), "真实超过上限的夹具才能证明500夹取");
+        assertEquals(1, get(PAYROLL + "?limit=0", token).data().size());
+        Set<Long> seen = new LinkedHashSet<>();
+        Api page = first;
+        Long before = null;
+        long newer = 0;
+        int nonEmptyPages = 0, lastPageSize = 0;
+        while (!page.data().isEmpty()) {
+            assertEquals(0, page.code()); assertTrue(page.data().isArray()); assertTrue(page.data().size() <= 100);
+            long previous = before == null ? Long.MAX_VALUE : before;
+            for (JsonNode row : page.data()) {
+                long id = row.path("id").asLong();
+                assertEquals(stationA, row.path("stationId").asLong());
+                assertTrue(id < previous, "排序与游标必须严格按id倒序");
+                assertTrue(original.contains(id), "原历史遍历不得夹入他站或新增行");
+                assertTrue(seen.add(id), "不得重复id=" + id);
+                previous = id;
+            }
+            before = previous; lastPageSize = page.data().size(); nonEmptyPages++;
+            assertTrue(nonEmptyPages <= 6, "历史读取必须有界结束");
+            if (nonEmptyPages == 1) {
+                String day = start.plusDays(503).toString();
+                newer = insertPayroll("F80-A-new", stationA, riderA, day, day, "0.00", 1);
+                long otherNew = insertPayroll("F80-B-new", stationB, riderB, day, day, "0.00", 1);
+                assertTrue(newer > first.data().get(0).path("id").asLong());
+                jdbc.update("UPDATE staff_payroll SET create_time='2026-10-01 12:00:00', update_time='2026-10-01 12:00:00' WHERE id IN (?,?)", newer, otherNew);
+            }
+            page = get(PAYROLL + "?limit=100&beforeId=" + before, token);
+            assertEquals(0, page.code()); assertTrue(page.data().isArray());
+        }
+        assertEquals(original, seen); assertEquals(503, seen.size());
+        assertFalse(seen.contains(newer)); assertTrue(java.util.Collections.disjoint(seen, foreign));
+        assertEquals(6, nonEmptyPages); assertEquals(3, lastPageSize);
+        assertTrue(get(PAYROLL + "?beforeId=" + before, token).data().isEmpty(), "末页之后仍为空");
+        assertTrue(get(PAYROLL + "?beforeId=1", token).data().isEmpty());
+        Api refreshed = get(PAYROLL, token);
+        assertEquals(newer, refreshed.data().get(0).path("id").asLong(), "刷新首屏才能看到新增记录");
+        long foreignBoundary = foreign.iterator().next();
+        for (JsonNode row : get(PAYROLL + "?beforeId=" + foreignBoundary, token).data()) {
+            assertEquals(stationA, row.path("stationId").asLong());
+            assertTrue(row.path("id").asLong() < foreignBoundary, "他站游标只作边界，不能改变站别权限");
+        }
+        for (long invalid : new long[] {0, -1, Long.MIN_VALUE}) {
+            Api rejected = get(PAYROLL + "?beforeId=" + invalid, token);
+            assertEquals(1, rejected.code()); assertTrue(rejected.message().contains("读取位置无效"));
+        }
+        assertEquals(504, intOf("SELECT COUNT(*) FROM staff_payroll WHERE station_id=?", stationA));
+        assertEquals(0, intOf("SELECT COUNT(*) FROM staff_payroll WHERE status<>1 OR paid_time IS NOT NULL"), "只读分页不确认或发放工资");
+    }
+
     /* ==================================================================
      * 端点 3：GET /api/manager/payroll（ManagerPayrollController#listPayrolls）
      * 本站结算单列表；站点取自登录态，limit 被夹到 [1,500]。

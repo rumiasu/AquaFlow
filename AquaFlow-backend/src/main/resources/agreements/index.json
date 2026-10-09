@@ -32,7 +32,7 @@
       "resource": "agreements/customer-user-draft-20261008-r2.json",
       "sha256": "11c1aa1580cd7c9979a31a15676f604189c70ceab10a3828f0cb5598b5df4287",
       "status": "DRAFT",
-      "current": true,
+      "current": false,
       "reviewApproved": false
     },
     {
@@ -52,6 +52,13 @@
     {
       "resource": "agreements/staff-privacy-draft-20261008-r2.json",
       "sha256": "3f45162cf5815d177808984deb678046f0314a52c38f4773102aa6aa743dfae1",
+      "status": "DRAFT",
+      "current": true,
+      "reviewApproved": false
+    },
+    {
+      "resource": "agreements/customer-user-draft-20261009-r3.json",
+      "sha256": "6aa7c86fa243be4740831cc15804125ba4a86dcd58313a2c12dd287034cf6c9f",
       "status": "DRAFT",
       "current": true,
       "reviewApproved": false

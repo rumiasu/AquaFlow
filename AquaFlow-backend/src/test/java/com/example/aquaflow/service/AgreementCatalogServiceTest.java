@@ -9,6 +9,21 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AgreementCatalogServiceTest {
+    @Test void currentCustomerDraftLimitsConfirmationAndKeepsR2Readable() {
+        var service = new AgreementCatalogService(false, AgreementTestCatalog.CLOCK);
+        var current = service.catalog("CUSTOMER").documents().get(0);
+        String text = current.sections().stream().map(section -> section.body()).collect(java.util.stream.Collectors.joining("\n"));
+        assertTrue(text.contains("免费原安排免再次确认"), "现行草稿必须准确说明免费原安排");
+        assertTrue(text.contains("新增费用或水站提出的新安排"), "必要安排授权须限定范围");
+        String previous = "customer-user-11c1aa1580cd7c9979a31a15676f604189c70ceab10a3828f0cb5598b5df4287";
+        assertNotEquals(previous, current.versionId());
+        var archived = service.document(previous);
+        assertEquals("DRAFT", archived.status()); assertFalse(archived.active());
+        assertEquals("11c1aa1580cd7c9979a31a15676f604189c70ceab10a3828f0cb5598b5df4287", archived.contentSha256());
+        assertTrue(archived.sections().stream().anyMatch(section -> section.body().contains("客户安排确认")));
+        assertEquals("DRAFT", current.status()); assertFalse(current.active()); assertFalse(service.catalog("CUSTOMER").enabled());
+        assertThrows(BusinessException.class, () -> service.requireActive("CUSTOMER", "user", current.versionId()));
+    }
     @Test void realPackagedDraftIsReadableButCannotBeActivatedOrAccepted() {
         var service=new AgreementCatalogService(false,AgreementTestCatalog.CLOCK);
         for(String audience:List.of("CUSTOMER","STAFF")) {

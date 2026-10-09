@@ -1,6 +1,7 @@
 package com.example.aquaflow.util;
 
-import java.util.regex.Pattern;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * 日志脱敏 —— <b>全仓唯一实现</b>。
@@ -11,13 +12,13 @@ import java.util.regex.Pattern;
  * {@code openid} 明文落日志，与 [AQ-047] 的口径分叉。**靠注释同步的口径迟早会分叉**，
  * 所以把实现收到一处，调用方只剩"调用"这一件事。</p>
  *
- * <p>⚠️ 本类只做**打码**，不负责"该不该打码"的判据：凡是把微信响应或 openid 写进日志的地方，
+ * <p>⚠️ 本类只负责脱敏或省略，不负责"该不该打码"的判据：凡是把微信响应或 openid 写进日志的地方，
  * 都必须过这里；新增这类日志时先问一句"这条会不会带出用户标识或密钥"。</p>
  */
 public final class MaskUtil {
 
-    /** 紧凑 JSON（微信直出，无空格）里 {@code "openid":"…"} 的取值。 */
-    private static final Pattern OPENID_JSON = Pattern.compile("\"openid\":\"([^\"]*)\"");
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final String OMITTED_RESPONSE = "[微信响应内容已省略：无法安全解析]";
 
     private MaskUtil() {}
 
@@ -42,16 +43,27 @@ public final class MaskUtil {
      * <p>所有打印该响应的地方都要过这一层 —— <b>包括异常分支</b>（解析失败的响应里
      * {@code session_key} 是原样出现的，而那一支恰恰只在异常时触发，最容易被漏掉）。</p>
      *
-     * <p>⚠️ openid 用 {@link java.util.regex.Matcher#replaceAll(java.util.function.Function)}
-     * 逐字复用 {@link #maskOpenid}，<b>不要</b>改写成 {@code "openid":"$1****"} 这种 $1 占位符写法：
-     * 那样两处的脱敏规则又会各自漂移（F-35 的成因）。</p>
+     * <p>按 JSON 对象解析，兼容空白布局和转义字段名；openid 复用 {@link #maskOpenid}。
+     * 非对象或无法解析的响应只输出固定省略提示，不尝试把原串放进日志。</p>
      */
     public static String maskCode2SessionResponse(String response) {
         if (response == null) {
             return "null";
         }
-        String masked = response.replaceAll("\"session_key\":\"[^\"]*\"", "\"session_key\":\"***\"");
-        return OPENID_JSON.matcher(masked)
-                .replaceAll(m -> "\"openid\":\"" + maskOpenid(m.group(1)) + "\"");
+        try {
+            if (!(JSON.readTree(response) instanceof ObjectNode object)) {
+                return OMITTED_RESPONSE;
+            }
+            var openid = object.get("openid");
+            if (openid != null) {
+                object.put("openid", openid.isTextual() ? maskOpenid(openid.asText()) : "***");
+            }
+            if (object.has("session_key")) {
+                object.put("session_key", "***");
+            }
+            return JSON.writeValueAsString(object);
+        } catch (Exception ignored) {
+            return OMITTED_RESPONSE;
+        }
     }
 }

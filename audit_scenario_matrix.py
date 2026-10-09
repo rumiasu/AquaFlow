@@ -207,7 +207,7 @@ UNREGISTERED_TESTS = {
     'StationNearbySearchIntegrationTest', 'StationOperatingStatusIntegrationTest',
     'StationOrderListRiskMarkIntegrationTest', 'StationPricingIntegrationTest',
     'StationSetupGuideIntegrationTest', 'StationTicketDiscountIntegrationTest',
-    'TicketConsumeIdempotencyIntegrationTest', 'TicketPackageAndLotIntegrationTest',
+    'TicketPackageAndLotIntegrationTest',
     'TicketPayPreviewIntegrationTest', 'UnpaidWechatOrderTimeoutIntegrationTest',
     'WechatChannelDisabledIntegrationTest',
 }

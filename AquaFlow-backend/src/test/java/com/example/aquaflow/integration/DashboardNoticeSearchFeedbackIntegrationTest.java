@@ -3,11 +3,14 @@ package com.example.aquaflow.integration;
 import com.example.aquaflow.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 /**
  * 站长看板 / 公告 / 综合搜索 / 意见反馈 —— 这四组端点在 2026-09-16 之前
@@ -18,6 +21,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 最常见的坏法就是"没测过所以没人发现它 500 / 404 / 忘了鉴权"，契约用例正好专治这个。</p>
  */
 class DashboardNoticeSearchFeedbackIntegrationTest extends AbstractIntegrationTest {
+
+    @ParameterizedTest
+    @CsvSource({"A, update", "B, update", "A, delete", "B, delete"})
+    void systemAnnouncementsRemainUnchangedAfterAnyStationManagerWrite(String actor, String operation) {
+        long stationA = createStation("合成公告站A"), stationB = createStation("合成公告站B");
+        long managerA = createStaff("合成站长A", "STATION_MANAGER", stationA, 1);
+        long managerB = createStaff("合成站长B", "STATION_MANAGER", stationB, 1);
+        String token = actor.equals("A") ? staffToken(managerA, "STATION_MANAGER", stationA)
+                : staffToken(managerB, "STATION_MANAGER", stationB);
+        long id = insert("insert into notice(station_id,title,content,type,status) values(null,?,?,1,1)",
+                "合成系统公告", "不可被站长覆盖的系统正文");
+        var before = jdbc.queryForList("select * from notice order by id");
+        Api response = operation.equals("update")
+                ? put("/api/notices/"+id, token, "{\"title\":\"越权改写\",\"content\":\"越权正文\",\"type\":2,\"status\":0}")
+                : delete("/api/notices/"+id, token);
+        var after = jdbc.queryForList("select * from notice order by id");
+        System.out.println("SYSTEM_NOTICE_WRITE actor="+actor+" operation="+operation+" response="+response.body()
+                +" unchanged="+before.equals(after));
+        assertAll(() -> assertEquals(1, response.code(), response.toString()),
+                () -> assertEquals(before, after, "rejected writes must preserve the complete system announcement"));
+        if (operation.equals("update")) {
+            Api forged = put("/api/notices/"+id, token, "{\"stationId\":"+stationA+",\"title\":\"伪造归属\"}");
+            assertEquals(1, forged.code(), forged.toString());
+            assertEquals(before, jdbc.queryForList("select * from notice order by id"));
+        }
+    }
 
     @Test
     @DisplayName("看板端点：站长拿到数字，顾客被拒，匿名 401")

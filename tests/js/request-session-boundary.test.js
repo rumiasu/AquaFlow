@@ -209,6 +209,65 @@ test('旧错误上报确认弹窗不得在新客户名下提交', async () => {
   await result; t.login(8, 'B'); t.wx.__calls.modal[0].success({ confirm: true })
   assert.strictEqual(t.sent.length, 1)
 })
+
+async function reportPrompt(t, message = 'synthetic report error') {
+  t.wx.showModal = o => t.wx.__calls.modal.push(o)
+  const result = observed(t.request.get('/tickets'))
+  t.sent[t.sent.length - 1].success({ statusCode: 200, data: { code: 500, message } })
+  await result
+}
+for (const outcome of [
+  { name: '业务拒绝', response: { statusCode: 200, data: { code: 1, message: '请重新登录后上报' } }, feedback: '请重新登录后上报' },
+  { name: 'HTTP401', response: { statusCode: 401, data: null }, feedback: '登录已过期' },
+  { name: 'HTTP500', response: { statusCode: 500, data: { code: 0 } }, feedback: 'HTTP 500' },
+  { name: '业务500', response: { statusCode: 200, data: { code: 500, message: '水站暂时不可用' } }, feedback: '水站暂时不可用' },
+  { name: '空响应', response: null, feedback: '数据不完整' },
+  { name: '空body', response: { statusCode: 200, data: null }, feedback: '数据不完整' },
+  { name: '网络超时', network: { errMsg: 'request:fail time out' }, feedback: '网络超时' }
+]) {
+  test('报障' + outcome.name + '准确反馈且同会话可再次明确确认上报，不递归', async () => {
+    const t = setup(); await reportPrompt(t)
+    t.wx.__calls.modal[0].success({ confirm: true })
+    const report = t.sent[1]
+    assert(report.url.endsWith('/feedback')); assert.strictEqual(report.header.Authorization, 'Bearer access-A')
+    if (outcome.network) report.fail(outcome.network)
+    else report.success(outcome.response)
+    assert(!t.wx.__calls.toast.some(o => o.title.includes('已上报')))
+    assert(t.wx.__calls.toast.some(o => o.title.includes(outcome.feedback)))
+    assert.strictEqual(t.wx.__calls.modal.length, 1, '上报失败自身不能递归弹窗')
+    await reportPrompt(t); assert.strictEqual(t.wx.__calls.modal.length, 2)
+    assert.strictEqual(t.sent.length, 3, '失败后不得自动发送上报')
+    t.wx.__calls.modal[1].success({ confirm: true }); assert.strictEqual(t.sent.length, 4)
+    success(t.sent[3]); assert(t.wx.__calls.toast.some(o => o.title.includes('已上报')))
+  })
+}
+for (const code of [0, 200]) {
+  test('报障有效HTTP200/code' + code + '才完成，等待和完成期间同错误并发去重', async () => {
+    const t = setup(); await reportPrompt(t); await reportPrompt(t)
+    assert.strictEqual(t.wx.__calls.modal.length, 1)
+    t.wx.__calls.modal[0].success({ confirm: true }); await reportPrompt(t)
+    assert.strictEqual(t.wx.__calls.modal.length, 1)
+    t.sent[2].success({ statusCode: 200, data: { code } })
+    assert.strictEqual(t.wx.__calls.toast.filter(o => o.title.includes('已上报')).length, 1)
+    await reportPrompt(t); assert.strictEqual(t.wx.__calls.modal.length, 1)
+    assert.strictEqual(t.sent.filter(o => o.url.endsWith('/feedback')).length, 1)
+  })
+}
+for (const outcome of ['success', 'business failure', 'network failure']) {
+  test('报障提交后换会话，旧' + outcome + '不提示、不释放新会话去重；新客户可独立上报', async () => {
+    const t = setup(); await reportPrompt(t); t.wx.__calls.modal[0].success({ confirm: true })
+    const oldReport = t.sent[1]
+    t.login(8, 'B'); await reportPrompt(t); assert.strictEqual(t.wx.__calls.modal.length, 2)
+    t.wx.__calls.modal[1].success({ confirm: true })
+    assert.strictEqual(t.sent[3].header.Authorization, 'Bearer access-B')
+    if (outcome === 'success') success(oldReport)
+    else if (outcome === 'business failure') oldReport.success({ statusCode: 200, data: { code: 1 } })
+    else oldReport.fail({ errMsg: 'request:fail' })
+    assert.strictEqual(t.wx.__calls.toast.length, 0)
+    await reportPrompt(t); assert.strictEqual(t.wx.__calls.modal.length, 2)
+    success(t.sent[3]); assert.strictEqual(t.wx.__calls.toast.length, 1)
+  })
+}
 test('续期失败且存储删除抛错，队列仍逐个settle且不复用旧令牌', async () => {
   const t = setup(), a = observed(t.request.get('/tickets')), b = observed(t.request.get('/ticket-records'))
   expired(t.sent[0]); expired(t.sent[1]); t.wx.removeStorageSync = () => { throw new Error('storage failure') }

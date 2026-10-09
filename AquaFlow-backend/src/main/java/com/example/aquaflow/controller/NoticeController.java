@@ -77,7 +77,7 @@ public class NoticeController {
         return Result.success(notice);
     }
 
-    /** 管理端：编辑公告（先校验归属，禁止改他站公告） */
+    /** 管理端：仅编辑明确属于本站的公告，系统公告不可由站长改写。 */
     @RequireRole({"STATION_MANAGER"})
     @RequireStation
     @PutMapping("/{id}")
@@ -86,8 +86,8 @@ public class NoticeController {
         if (existing == null) {
             return Result.error("公告不存在");
         }
-        if (existing.getStationId() != null && !existing.getStationId().equals(AuthContext.requireStationId())) {
-            return Result.error("无权编辑其它水站的公告");
+        if (!AuthContext.requireStationId().equals(existing.getStationId())) {
+            return Result.error("仅可编辑本站公告");
         }
         notice.setId(id);
         notice.setStationId(existing.getStationId());
@@ -95,7 +95,7 @@ public class NoticeController {
         return Result.success();
     }
 
-    /** 管理端：删除公告（先校验归属） */
+    /** 管理端：仅删除明确属于本站的公告，系统公告不可由站长删除。 */
     @RequireRole({"STATION_MANAGER"})
     @RequireStation
     @DeleteMapping("/{id}")
@@ -104,8 +104,8 @@ public class NoticeController {
         if (existing == null) {
             return Result.error("公告不存在");
         }
-        if (existing.getStationId() != null && !existing.getStationId().equals(AuthContext.requireStationId())) {
-            return Result.error("无权删除其它水站的公告");
+        if (!AuthContext.requireStationId().equals(existing.getStationId())) {
+            return Result.error("仅可删除本站公告");
         }
         noticeMapper.delete(id);
         return Result.success();

@@ -119,8 +119,9 @@ function toNetworkError(err) {
 
 /* ==================== 系统级错误「一键上报给水站」 ==================== */
 
-// 本次启动内已询问过的错误文案：防止同一问题反复弹窗（用户误触 / 一次操作多个请求同时失败）
+// 同一登录周期内正在询问/上报或已完成/取消的错误；失败释放，换会话独立去重。
 const offeredReports = new Set()
+let reportSessionEpoch = null
 
 /**
  * 系统级错误（后端 code=500）主动询问用户是否上报给水站。
@@ -146,6 +147,11 @@ const offeredReports = new Set()
  * 属于**产品决定**，不要在排查问题时顺手改掉。</p>
  */
 function offerErrorReport(message, options, session) {
+  if (!isCurrentSession(session)) return
+  if (reportSessionEpoch !== session.epoch) {
+    offeredReports.clear()
+    reportSessionEpoch = session.epoch
+  }
   if (!message || offeredReports.has(message)) return
   offeredReports.add(message)
 
@@ -155,12 +161,14 @@ function offerErrorReport(message, options, session) {
     confirmText: '上报',
     cancelText: '不用了',
     success: (r) => {
-      if (r.confirm && isCurrentSession(session)) submitErrorReport(message, options)
-    }
+      if (r.confirm && isCurrentSession(session)) submitErrorReport(message, options, session)
+    },
+    fail: () => { if (isCurrentSession(session)) offeredReports.delete(message) }
   })
 }
 
-function submitErrorReport(message, options) {
+function submitErrorReport(message, options, session) {
+  if (!isCurrentSession(session)) return
   const pages = (typeof getCurrentPages === 'function') ? getCurrentPages() : []
   const route = pages.length ? (pages[pages.length - 1].route || '未知页面') : '未知页面'
   const api = (options && options.url) ? options.url : '未知接口'
@@ -174,9 +182,12 @@ function submitErrorReport(message, options) {
   const content = `【自动上报·系统错误】\n错误：${message}\n页面：${route}\n接口：${api}\n时间：${ts}`
     .slice(0, 1000)
 
-  const app = getApp()
-  const token = (app && app.globalData && app.globalData.accessToken)
-    || wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
+  const token = captureSession().accessToken
+  const failed = error => {
+    if (!isCurrentSession(session)) return
+    offeredReports.delete(message)
+    wx.showToast({ title: '上报失败：' + error.message, icon: 'none' })
+  }
 
   // 刻意不复用本模块的 request()：上报自身若再失败，会再次触发上报询问（递归弹窗）。
   wx.request({
@@ -189,8 +200,21 @@ function submitErrorReport(message, options) {
     // 不带 anonymous：自动上报**刻意保持实名** —— 它的价值就是站长能复现/追问，
     // 理由见 offerErrorReport 的 javadoc。要改成匿名是产品决定，别顺手加。
     data: { category: '错误报告', content },
-    success: () => wx.showToast({ title: '已上报，水站会尽快处理', icon: 'none' }),
-    fail: () => wx.showToast({ title: '上报失败，请稍后再试', icon: 'none' })
+    timeout: 15000,
+    success: res => {
+      if (!isCurrentSession(session)) return
+      const error = responseError(res)
+      if (error) { failed(error); return }
+      if (res.statusCode === 200 && (res.data.code === 0 || res.data.code === 200)) {
+        wx.showToast({ title: '已上报，水站会尽快处理', icon: 'none' })
+      } else if (res.statusCode === 401 || (res.statusCode === 200 && res.data.code === 401)) {
+        failed(new Error('登录已过期，请重新登录后上报'))
+      } else {
+        failed(new Error(res.statusCode === 200 ? responseMessage(res.data)
+          : '服务暂时不可用（HTTP ' + res.statusCode + '），请稍后重试'))
+      }
+    },
+    fail: err => failed(toNetworkError(err))
   })
 }
 

@@ -46,6 +46,7 @@
 - 身份一律从服务端解析的登录态（`AuthContext`）取，**不信任请求参数里的用户 ID 或站点 ID**。
 - 客户 ID 必须由登录态覆盖，或与订单所有者严格比对。
 - 站点归属校验以登录态里的 `stationId` 为准。
+- 公告更新/删除只允许记录的 `stationId` 明确等于登录站；`stationId=NULL` 的系统公告及他站公告均返回 `code=1`，拒绝时不调用写 Mapper。创建公告仍强制绑定登录站，请求体不能把系统公告或他站公告改成本站归属。
 
 ### 1.3 幂等
 
@@ -479,6 +480,8 @@
 | `GET` | `/api/feedback/refund-disputes` | 本人客户/精确责任站站长（服务层校验） | `FeedbackController.refundDisputes`；`page`默认1、每页200，争议状态与历史，不收退款 |
 | `POST` | `/api/feedback/refund-disputes/open` | 客户本人（服务层校验） | `FeedbackController.openDispute`；本人提出/重提，员工不得代提 |
 | `POST` | `/api/feedback/refund-disputes/close` | "STATION_MANAGER"；精确责任站 | `FeedbackController.closeDispute`；必填处理结果、OPEN与期望版本；无需客户确认，客户仍可重提 |
+
+客户端自动报障复用 `POST /api/feedback`，保持实名且须本人明确确认。仅 HTTP 200 且业务 `code=0/200` 显示已上报；业务拒绝、401、其他 HTTP 状态、损坏响应及网络失败显示相应失败原因，并释放本登录周期该错误的去重记录，允许再次确认上报。反馈请求直接调用 transport，不递归询问、不自动重发；正在询问/提交或已完成/取消的相同错误仍去重，换会话独立处理，旧确认与回执不影响新会话。
 | `GET` | `/api/files` | {"STATION_MANAGER"} | `FileManageController.list` |
 | `POST` | `/api/files/upload` | {"STATION_MANAGER"} | `FileManageController.upload` |
 | `DELETE` | `/api/files/{id}` | {"STATION_MANAGER"} | `FileManageController.delete` |

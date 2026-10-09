@@ -7,6 +7,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -40,8 +42,25 @@ public class WeChatLoginService {
     @Value("${wechat.miniapp.staff-secret:}")
     private String staffSecret;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public WeChatLoginService() {
+        this(3000, 5000);
+    }
+
+    /** Both the normal exchange and the 40029 diagnostic use these finite transport timeouts. */
+    @Autowired
+    public WeChatLoginService(@Value("${wechat.miniapp.connect-timeout-ms:3000}") int connectTimeoutMs,
+                              @Value("${wechat.miniapp.read-timeout-ms:5000}") int readTimeoutMs) {
+        if (connectTimeoutMs <= 0 || readTimeoutMs <= 0) {
+            throw new IllegalArgumentException("微信换码连接与读取超时必须为正毫秒数");
+        }
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(connectTimeoutMs);
+        factory.setReadTimeout(readTimeoutMs);
+        restTemplate = new RestTemplate(factory);
+    }
 
     /** 员工端未配置时的统一提示：说清"改哪里"，否则只看到一句无信息量的登录失败 */
     private static final String STAFF_NOT_CONFIGURED =
@@ -99,9 +118,9 @@ public class WeChatLoginService {
         try {
             result = objectMapper.readValue(response, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
-            // 同样必须脱敏：解析失败的响应里 session_key / openid 是原样出现的，
-            // 而这一支恰恰只在异常时触发，最容易被忽略而泄漏。
-            log.error("解析微信响应失败: {}", MaskUtil.maskCode2SessionResponse(response), e);
+            // 解析异常的消息可能含响应片段；只记录脱敏/省略后的响应及异常类型，不附原异常。
+            log.error("解析微信响应失败[{}]: {}, 异常类型={}", app,
+                    MaskUtil.maskCode2SessionResponse(response), e.getClass().getName());
             throw new BusinessException("微信登录响应解析失败");
         }
 

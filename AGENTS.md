@@ -107,7 +107,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 
 - **Flyway 未启用**（无依赖、无配置）。`sql/**` **全部靠手工执行**，没有版本表、没有自动校验。（`src/main/resources/db/migration/` **不存在**，勿按该路径找脚本。）
 - **新建库的权威基线是 `sql/schema.sql`**（全 `CREATE TABLE IF NOT EXISTS`，可重复执行）；`init.sql` 只建结构、不含种子数据，且 `SOURCE schema.sql` 依赖相对路径，**必须在 `sql/` 目录下执行**。表数以 `Select-String -Pattern '^CREATE TABLE'` 实测为准。
-- **`schema.sql` 导入必须走字节级重定向**：`cmd /c "mysql -uroot --default-character-set=utf8mb4 库名 < schema.sql"`（CI 上是 bash 的 `<`）。**不要用 PowerShell 管道**（`Get-Content -Raw | mysql` 按控制台代码页重编码会把中文注释变乱码）。⚠️ **核对是否写坏要比字节（`HEX(TABLE_COMMENT)`），不要看控制台**。【仓】
+- **`schema.sql` 导入必须保留文件字节**：用 MySQL 客户端 `source`（PowerShell 见下例），或字节级重定向 `cmd /c "mysql -uroot --default-character-set=utf8mb4 库名 < schema.sql"`（CI 上是 bash 的 `<`）。**不要用 PowerShell 管道**（`Get-Content -Raw | mysql` 按控制台代码页重编码会把中文注释变乱码）。⚠️ **核对是否写坏要比字节（`HEX(TABLE_COMMENT)`），不要看控制台**。【仓】
 - **老库升级**必须按 `sql/README.md`「基线之后必须补跑的迁移」顺序补跑（**该清单为唯一权威**）。执行务必带库名：`mysql -uroot <库名> < 脚本.sql`。⚠️ **别去找 `v3`**：`sql/` 顶层**没有** `migration_v3.sql`（它只在 `sql/archive/`，README 记 SUPERSEDED，产出早已被 `schema.sql` 吸收）；**真正不在必跑清单里、且只对"基线之前就存在的老库"有意义**的是 V1 收敛三件套 `migration_v1_alignment.sql` / `migration_v1_converge_inventory.sql` / `migration_v1_cos_converge.sql` 与 `migration_fix_schema_alignment.sql`（登记在 README 的「未列入迁移表的脚本（**不是必跑项**）」B 节）。⚠️ 顺序坑 **2026-09-30 起由脚本自带门禁兜住**（`_ddl`/`_backfill` 在旧欠桶表已退役时整体 skip 且退出码 0；`aq056` 建外键改预检幂等），但仍请执行前人工核对清单与自己的库状态。【仓】
 - **迁移脚本必须幂等**：MySQL 8.4 无 `DROP ... IF EXISTS`，统一用 `information_schema` 预检 + `PREPARE`。**破坏性 DROP 必须先上代码、再执行 SQL**；新建脚本前先 `ls sql/` 看命名是否占用。【会】
 - **严禁在生产执行**：`sql/reset_data.sql`（TRUNCATE 多表）、`sql/clear_data.sql`、`reconcile_order_814.sql`、`seed_dev_account.sql`、`seed_new_user_83.sql`、`sql/archive/**`（已过期且不可执行）。**`sql/` 里大量脚本是 SUPERSEDED/DUPLICATE**（见 `sql/README.md` 表格），已被 `schema.sql` 吸收，不要在新环境执行。【仓】
@@ -115,7 +115,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 ```powershell
 # —— 全新库初始化（只建结构，空库）——
 cd D:\backend\project\AquaFlow\AquaFlow-backend\sql
-& 'D:\backend\MySQL\bin\mysql.exe' -u root -p < init.sql
+& 'D:\backend\MySQL\bin\mysql.exe' --default-character-set=utf8mb4 -u root -p -e "source init.sql"
 ```
 
 ## 5. 测试与验证方式

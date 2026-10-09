@@ -95,6 +95,9 @@ wechat:
     # [2026-09-15] 缺失只 WARN 不阻塞启动（本地可用 dev-login）；但真机员工微信登录会不可用。
     staff-appid: ${WX_STAFF_APP_ID:}
     staff-secret: ${WX_STAFF_APP_SECRET:}
+    # 正常换码与 40029 另一端诊断共用；必须为正毫秒数。不是整次登录的硬截止时间。
+    connect-timeout-ms: ${WX_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${WX_READ_TIMEOUT_MS:5000}
 
 jwt:
   # JWT 签名密钥泄露 = 任何人可伪造任意身份的 token。必须外部注入，且长度 >= 32。

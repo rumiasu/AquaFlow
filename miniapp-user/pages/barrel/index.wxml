@@ -252,9 +252,9 @@
         <input class="note-input" placeholder="如：搬家、换地址等" value="{{returnForm.note}}" bindinput="onReturnNoteInput"></input>
       </view>
       <view class="form-row" wx:if="{{summary.independentRights}}" bindtap="onPickupMode"><text>交接方式：{{returnForm.pickupModeText || '到店退桶'}} ›</text></view>
-      <!-- [2026-10-07 #16] 原来是一条无 class 的裸文本，夹在两行表单项之间像排版残留；
-           纳入 preview-hint 提示条样式（文案本身等 #17 词汇表统一替换，这里只归位样式） -->
-      <view class="preview-hint" wx:if="{{summary.independentRights}}"><text>必须先批准并确认安排，再交桶。未领桶的权益也可申请退还；仅退还当前未被订单占用的权益。</text></view>
+      <!-- [2026-10-09] 原提示把免费原安排也说成必须确认，与已有办理闸门相矛盾；
+           只同步提示，确认条件见 docs/design/35，保留原样式和事件。 -->
+      <view class="preview-hint" wx:if="{{summary.independentRights}}"><text>先申请批准；免费原安排无需再次确认，收费或水站新安排须先确认。未领桶的权益也可申请退还；仅退还当前未被订单占用的权益。</text></view>
     </view>
 
     <view class="modal-footer">

@@ -46,9 +46,13 @@ test('fee or station-proposed arrangement confirmation sends the visible version
 test('WXML exposes current arrangement, change entry and only required consent',()=>{
   const tree=parseWxml(fs.readFileSync(path.join(ROOT,'miniapp-user/pages/barrel/index.wxml'),'utf8'))
   for(const required of [false,true]) {
-    const t=setup({detail:{customerConfirmationRequired:required}});const nodes=renderElements(tree,{...t.page.data,loading:false,summary:{},customerBarrelAsset:[]},{includeText:true})
+    const t=setup({detail:{customerConfirmationRequired:required}});const nodes=renderElements(tree,{...t.page.data,loading:false,showReturnModal:true,summary:{independentRights:true},customerBarrelAsset:[]},{includeText:true})
     assert(nodes.some(n=>n.attrs.bindtap==='onReturnArrangement'));assert.equal(nodes.some(n=>n.attrs.bindtap==='onReturnConfirm'),required)
     assert(nodes.some(n=>n.text.includes('关联送水单 #99')))
+    // The request hint must describe the same free/required boundary as the action above.
+    const hint=nodes.find(n=>n.tag==='text' && n.text.includes('未领桶的权益也可申请退还'))
+    assert(hint && hint.text.includes('免费原安排无需再次确认'))
+    assert(hint.text.includes('收费或水站新安排须先确认'))
   }
 })
 ;(async()=>{const done=armWatchdog();let n=0;for(const t of tests){await t.run();console.log('PASS '+t.name);n++}done();console.log('AQUAFLOW_SUITE_OK '+n)})().catch(e=>{console.error(e);process.exit(1)})

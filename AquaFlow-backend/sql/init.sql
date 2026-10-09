@@ -4,14 +4,15 @@
 -- 用法: 在 AquaFlow-backend/sql/ 目录下执行
 --       mysql -u root -p < init.sql
 -- 说明:
---   1. schema.sql 是从当前运行库导出的完整 DDL（37 张业务表，无视图），
+--   1. schema.sql 是当前完整 DDL 基线（对象以该文件为准，无视图），
 --      水厂/厂长相关对象已于 2026-09-11 全部移除，不要再往里补。
 --   2. 原 seed_full_data.sql 等种子脚本停留在 V1 大迁移之前
 --      （引用 water_type / staff.password / factory 等已删对象），
 --      跑不起来且修复成本≈重写，已于 2026-09-11 移入 sql/archive/ 仅作历史参考。
 --   3. 需要基础数据请手动创建：先建水站（station）→ 建员工（staff）→
 --      配库存（inventory）/水票开关 → 再注册顾客下单。
---      开发账号可用 sql/seed_dev_account.sql（如需）。
+--      seed_dev_account.sql 仍引用已删除客户字段及 water_type，不能用于当前基线。
+--      隔离开发登录与现行业务 API 可准备合成身份/数据，不执行历史种子脚本。
 -- ============================================================
 
 -- 1. 创建数据库

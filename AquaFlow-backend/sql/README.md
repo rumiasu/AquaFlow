@@ -12,7 +12,7 @@
 |------|------|------|
 | `schema.sql` | 数据库结构基线 | 当前库完整 DDL（表结构以 `schema.sql` 为准、无视图），2026-09-11 从实际库重新导出，2026-09-12 校正漂移，2026-09-15 清理废弃对象，2026-09-16 加入商品与库存重构的 3 列 + 2 个唯一键 + `product_submission`（v31），2026-09-27 加入 `inter_station_settlement`（v67），2026-09-28 增加 `orders.customer_note`（v68），2026-09-30 加入 `staff_bind_code`（v69），2026-10-01 吸收独立桶权益及业务凭据（v71），2026-10-03 吸收随单押金凭据与未付分配字段（v74） |
 | `init.sql` | 一键初始化入口 | 创建数据库 + schema，**只建结构，不含种子数据** |
-| `seed_dev_account.sql` | 开发账号 | 开发环境账号初始化 |
+| `seed_dev_account.sql` | **过期开发样本，不可执行** | 仍引用已删除的 `customer.station_id` / `deposit_balance`、`water_type` 及旧资产结构；保留作历史参考，撤下当前开发初始化推荐 |
 | `seed_new_user_83.sql` | 测试用户 | 测试用户数据 |
 | `archive/` | **历史脚本归档区** | 8 个 V1 前的种子脚本，均已过期不可执行，详见 `archive/README.md` |
 
@@ -36,6 +36,8 @@ mysql -u root -p aquaflow < schema.sql
 ```
 
 初始化后按依赖顺序手动建基础数据：
+
+`seed_dev_account.sql` 不兼容当前基线，不用它为当前版本造数；在明确核准的隔离开发环境使用现有开发登录和现行业务API准备合成身份/数据，操作边界见 [本地联调](../../docs/operations/02-本地运行-笔记本当服务器.md)。不将历史脚本自动接回 `init.sql`，不在业务库用种子伪造收款、押金或票资产。
 
 1. `station` 水站
 2. `staff` 员工（`role` 仅 `STATION_MANAGER` / `DELIVERY`）
@@ -346,7 +348,7 @@ mysql -u root -p aquaflow < schema.sql
 | archive/init_delivery.sql | 测试数据脚本（已归档，且不可执行） |
 | archive/seed_test_user_86.sql | 测试用户数据（已归档，且不可执行） |
 | archive/seed_full_data.sql | 全量测试数据，含明文密码（已归档，且不可执行） |
-| seed_dev_account.sql | 开发测试账号 |
+| seed_dev_account.sql | 已过期，不可用于当前基线；另含按客户删除多表数据，生产严禁执行 |
 | seed_new_user_83.sql | 测试用户数据 |
 | clear_data.sql | **分批 `DELETE` 清空所有业务表数据**（表结构不动、自增重置）—— 比 `reset_data.sql` 更「安静」，但效果同样是全库清空 |
 | reset_passwords.sql | 把**所有员工密码**重置为 `123456`（清空 `password_hash` 交给 `PasswordInitializer` 重发）—— **仍严禁在生产执行**，且后果自 2026-09-29 起变了：`PasswordInitializer` 已带 `@Profile("!prod")`（关雷记录见 `config/PasswordInitializer.java` 与 `docs/design/16` §9.3），生产**不再重发任何默认口令**，清空 = 员工全部失去密码登录；在本地/测试库执行则是把账号交给任何知道这六个数字的人 |

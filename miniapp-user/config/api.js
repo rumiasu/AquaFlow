@@ -11,7 +11,7 @@
 //   所以回环只给开发者工具用（见 devtoolsBaseUrl）。
 //   真机预览还需在手机上打开「调试」（右上角 ... → 打开调试）跳过域名校验，
 //   因为 request 合法域名只接受已 ICP 备案的 HTTPS 域名，本机 HTTP 地址无法配置。
-//   体验版(trial)/正式版(release) 都必须走 prod 的真实域名 —— 见下方 getBaseUrl 的判定。
+//   当前仅正式版(release) 走 prod；体验版(trial)/开发版(develop) 走 dev，不能当正式域名验收。
 //   ⚠️ 换地址跑 `scripts/set-dev-api-host.ps1 -Apply`（它**同时改两端**；只改一端会让那一端白屏，
 //      现象同样是"网络错误"，很难联想到是 IP 不对）。
 const API_CONFIG = {

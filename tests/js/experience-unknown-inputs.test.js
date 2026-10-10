@@ -145,7 +145,16 @@ function order(data) {
     else if (/\/orders\/777(?:\?|$)/.test(call.url)) { reads.push(777); success(call, data) }
     else success(call, {})
   })
-  t.wx.__modalAutoConfirm = false
+  // 2026-10-10：旧 false 表示不重试；未知弹窗交换主次后它会重付，须按「查原单」语义选择。
+  const showModal = t.wx.showModal.bind(t.wx)
+  t.wx.showModal = modal => {
+    if (modal.title.includes('支付结果未知')) {
+      assert.strictEqual(modal.confirmText, '查原单')
+      assert.strictEqual(modal.cancelText, '再试一次')
+      t.wx.__modalAutoConfirm = modal.confirmText === '查原单'
+    }
+    return showModal(modal)
+  }
   t.page.setData({ loading: false, stationId: 11, address: { id: 91 }, products: [{ id: 5, name: 'Synthetic water', price: 10, deposit: 0, quantity: 2 }],
     selectedMethod: 1, wechatPay: { enabled: true }, quoteReady: true, quoteLoading: false, quoteError: '', blocked: false,
     totalAmount: 20, totalWaterCost: 20, totalDeposit: 0, shortageItems: [], barrelPurchases: [] })
@@ -155,12 +164,17 @@ for (const [name, data] of [['空详情', null], ['数字详情', 0], ['缺少�
   ['空字符串', { paymentStatus: '' }], ['非法枚举', { paymentStatus: 99 }], ['布尔值', { paymentStatus: false }], ['数组值', { paymentStatus: [] }]]) {
   test('payment', name + '保留未知及原订单，不能宣称未付款', async () => {
     const t = order(data); await t.page.onSubmit()
+    const original = JSON.stringify(t.page._originalOrderRequest.body)
     assert(t.wx.__calls.modal.some(m => m.title.includes('支付结果未知')))
     assert(t.hint().includes('待确认')); assert(!t.hint().includes('还没付款'))
     assert.strictEqual(t.page.data.lastSubmittedOrder.paymentState, 'unknown')
     t.page.setData({ lastSubmittedOrder: null }); t.page._restorePendingOrderFromStorage(); t.page._syncPendingOrderState()
     assert(t.hint().includes('待确认')); await t.page.onSubmit()
     assert.strictEqual(t.writes.length, 1); assert.deepStrictEqual(t.payments, [777]); assert.deepStrictEqual(t.reads, [777])
+    assert.strictEqual(JSON.stringify(t.page._originalOrderRequest.body), original)
+    assert.strictEqual(t.page.data.pendingOrderId, 777)
+    assert.strictEqual(t.wx.__calls.nav.length, 2)
+    assert(t.wx.__calls.nav.every(n => n.url.includes('id=777')))
   })
 }
 test('payment', '合法数字及旧数字字符串保持原已付、未付与关闭语义', async () => {

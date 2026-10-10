@@ -43,7 +43,7 @@ function environment(side, relPage, dispatch) {
   return { wx, app, page, calls }
 }
 
-function orderPage(paymentResult, queryResult, confirm = false) {
+function orderPage(paymentResult, queryResult, action = '查原单') {
   const writes = [], payments = [], reads = []
   const env = environment('customer', 'miniapp-user/pages/order/create.js', call => {
     const method = call.method || 'GET'
@@ -55,7 +55,19 @@ function orderPage(paymentResult, queryResult, confirm = false) {
       reads.push(777); queryResult(call, reads.length)
     } else success(call, {})
   })
-  env.wx.__modalAutoConfirm = confirm
+  // 2026-10-10：旧布尔值把确认固定当重试，主次交换后会测错路径；按用户所选动作定位按钮。
+  const showModal = env.wx.showModal.bind(env.wx)
+  env.wx.showModal = modal => {
+    if (modal.title.startsWith('订单已提交')) {
+      assert([modal.confirmText, modal.cancelText].includes(action), 'requested payment action must be visible')
+      if (modal.title.includes('支付结果未知')) {
+        assert.strictEqual(modal.confirmText, '查原单')
+        assert.strictEqual(modal.cancelText, '再试一次')
+      }
+      env.wx.__modalAutoConfirm = modal.confirmText === action
+    }
+    return showModal(modal)
+  }
   env.page.setData({ stationId: 11, address: { id: 91 },
     products: [{ id: 5, name: 'Synthetic water', price: '10.00', deposit: '0', quantity: 2 }],
     selectedMethod: 1, wechatPay: { enabled: true }, quoteReady: true, quoteLoading: false,
@@ -72,24 +84,35 @@ test('A: 双超时保留原单原键，但不得把 unknown 告知为支付未�
     orderWrites: t.writes, paymentOrderIds: t.payments.map(p => p.orderId), detailReads: t.reads,
     pendingOrderId: t.page.data.pendingOrderId, originalKeyPreserved: t.page._originalOrderRequest.body.idempotencyKey === key,
     navigations: t.wx.__calls.nav })
-  assert.strictEqual(t.writes.length, 1); assert.strictEqual(t.payments[0].orderId, 777)
-  assert.strictEqual(t.reads.length, 1); assert.strictEqual(t.page.data.pendingOrderId, 777)
+  assert.strictEqual(t.writes.length, 1); assert.deepStrictEqual(t.payments.map(p => p.orderId), [777])
+  assert.deepStrictEqual(t.reads, [777]); assert.strictEqual(t.page.data.pendingOrderId, 777)
   assert(t.page._originalOrderRequest.body.idempotencyKey === key)
+  assert.deepStrictEqual(t.page._originalOrderRequest.body, original)
+  assert.strictEqual(t.wx.__calls.nav.length, 2)
+  assert(t.wx.__calls.nav.every(n => n.url.includes('id=777')))
   assert(!t.wx.__calls.modal.some(m => /支付还没成功|支付没有完成/.test(m.title + m.content)), 'unknown must remain unknown in the visible message')
 })
 test('A: 再次支付与原单回查也超时，toast 仍须保持未知事实', async () => {
-  const t = orderPage(timeout, timeout, true); await t.page.onSubmit()
+  const t = orderPage(timeout, timeout, '再试一次'); await t.page.onSubmit()
   record({ toasts: t.wx.__calls.toast, orderWrites: t.writes.length,
     paymentOrderIds: t.payments.map(p => p.orderId), detailReads: t.reads })
   assert.strictEqual(t.writes.length, 1); assert.deepStrictEqual(t.payments.map(p => p.orderId), [777, 777])
+  assert.deepStrictEqual(t.reads, [777, 777])
+  assert.strictEqual(t.page.data.pendingOrderId, 777)
+  assert.strictEqual(t.page.data.lastSubmittedOrder.paymentState, 'unknown')
+  assert.strictEqual(t.page._originalOrderRequest.body.idempotencyKey, t.writes[0].idempotencyKey)
+  assert.strictEqual(t.wx.__calls.nav.length, 1)
+  assert(t.wx.__calls.nav[0].url.includes('id=777'))
+  assert(t.wx.__calls.toast.some(t => t.title.includes('支付结果仍未知')))
   assert(!t.wx.__calls.toast.some(t => /还没付成功/.test(t.title)), 'a second unknown result cannot be presented as unpaid')
 })
 test('A control: 原单确认已付后不重付；未付确认后的续办始终是同单', async () => {
   const paid = orderPage(timeout, call => success(call, { id: 777, paymentStatus: 2 }))
   await paid.page.onSubmit(); assert.strictEqual(paid.payments.length, 1); assert.strictEqual(paid.page.data.pendingOrderPaid, true)
-  const unpaid = orderPage(timeout, call => success(call, { id: 777, paymentStatus: 0 }), true)
+  const unpaid = orderPage(timeout, call => success(call, { id: 777, paymentStatus: 0 }), '再试一次')
   await unpaid.page.onSubmit(); assert.strictEqual(unpaid.writes.length, 1)
   assert.deepStrictEqual(unpaid.payments.map(p => p.orderId), [777, 777])
+  assert.deepStrictEqual(paid.reads, [777]); assert.deepStrictEqual(unpaid.reads, [777, 777])
   record({ confirmedPaidPaymentCalls: paid.payments.length, confirmedUnpaidOrderWrites: unpaid.writes.length,
     confirmedUnpaidPaymentIds: unpaid.payments.map(p => p.orderId) })
 })
@@ -97,8 +120,13 @@ test('A: 支付接口回应成功但原单回查超时，也只能告知结果�
   const t = orderPage(call => success(call, { status: 1 }), timeout)
   await t.page.onSubmit()
   const modal = t.wx.__calls.modal.find(m => m.title.includes('支付结果未知'))
-  assert(modal && modal.content.includes('订单号 777') && modal.cancelText === '查原单')
+  assert(modal && modal.content.includes('订单号 777') && modal.confirmText === '查原单')
+  assert.strictEqual(modal.cancelText, '再试一次')
   assert.strictEqual(t.writes.length, 1); assert.strictEqual(t.payments.length, 1)
+  assert.deepStrictEqual(t.reads, [777])
+  assert.strictEqual(t.wx.__calls.nav.length, 1)
+  assert(t.wx.__calls.nav[0].url.includes('id=777'))
+  assert.strictEqual(t.page.data.lastSubmittedOrder.paymentState, 'unknown')
   assert.strictEqual(t.page.data.pendingOrderPaid, false)
 })
 

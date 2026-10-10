@@ -1569,6 +1569,31 @@
   color: var(--text-primary);
 }
 
+.order-navigation-error {
+  margin-bottom: 16rpx;
+  padding: 20rpx 24rpx;
+  border: 1rpx solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-gray);
+}
+
+.order-navigation-message {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.order-navigation-actions {
+  display: flex;
+  gap: 24rpx;
+  margin-top: 20rpx;
+}
+
+.order-navigation-actions button {
+  margin: 0;
+}
+
 .unified-fee-preview {
   background: var(--bg-gray);
   border-radius: var(--radius-md);

@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'order-result-navigation.test.js', name: '顾客原单结果页导航失败、单飞恢复与迟到回调隔离' },
   { file: 'experience-unknown-inputs.test.js', name: '企业设置失败未知状态、局部重试与损坏支付详情' },
   { file: 'experience-fact-states.test.js', name: '企业待审未知/失败、原单支付事实、未领桶退还提示与限定文字对比' },
   { file: 'experience-candidate-regressions.test.js', name: '支付未知事实、当前搜索、退桶试算与原申请、配送核实和下单站别' },

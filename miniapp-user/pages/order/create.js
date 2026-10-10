@@ -12,6 +12,7 @@ const { resolveStationId } = require('../../utils/station')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
 const orderIntent = require('../../utils/orderIntent')
+const { createOrderResultNavigator } = require('../../utils/order-result-navigation')
 const app = getApp()
 
 // 只清理展示占位值，原始规格和报价/提交字段保持原样。
@@ -128,6 +129,8 @@ Page({
     pendingOrderId: null,
     pendingOrderPaid: false,
     pendingOrderPaymentState: 'unknown',
+    orderNavigationBusy: false,
+    orderNavigationError: '',
     // ===== 缺货确认（契约 A1）：needConfirm=true 表示**还没建单**，绝不能当成功 =====
     showShortageConfirm: false,
     shortageItems: [],
@@ -258,6 +261,7 @@ Page({
   },
 
   onShow() {
+    this._orderNavigationHidden = false
     if ((this.data.products || []).length) { this.loadBarrel(); this.refreshQuote() }
     const selectedAddress = storage.get('selectedAddress')
     if (selectedAddress) {
@@ -269,7 +273,12 @@ Page({
     }
   },
 
+  onHide() {
+    this._invalidateOrderNavigation()
+  },
+
   onUnload() {
+    this._invalidateOrderNavigation()
     this._quoteDestroyed = true
     this.cancelScheduledQuote()
     this._quoteRequestSeq = (this._quoteRequestSeq || 0) + 1
@@ -1172,9 +1181,47 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   onViewPendingOrder() {
     const pending = this._pendingOrderForCurrentCart()
     if (!pending) return
-    wx.setStorageSync('lastOrderId', pending.orderId)
-    wx.redirectTo({ url: `/pages/order/success?id=${pending.orderId}&stationId=${this.data.stationId}` })
+    this._openOrderResult(pending.orderId)
   },
+
+  /** 绑定原单、水站和最初登录周期；导航恢复不依赖后来编辑的购物车，也不发资金请求。 */
+  _captureOrderNavigation(orderId) {
+    return { orderId, stationId: this.data.stationId, selectedStationId: stationStorage.getId(),
+      session: captureSession(), epoch: this._orderNavigationEpoch || 0 }
+  },
+
+  _orderNavigation() {
+    if (!this._orderResultNavigator) {
+      this._orderResultNavigator = createOrderResultNavigator({ wx,
+        valid: proof => !!proof && !!proof.orderId && !!proof.stationId && proof.session.loggedIn && !!proof.session.customerId
+          && !this._orderNavigationHidden && !this._quoteDestroyed
+          && proof.epoch === (this._orderNavigationEpoch || 0)
+          && String(proof.selectedStationId) === String(stationStorage.getId())
+          && String(proof.stationId) === String(this.data.stationId) && isCurrentSession(proof.session),
+        update: state => this.setData({ orderNavigationBusy: state.busy, orderNavigationError: state.error })
+      })
+    }
+    return this._orderResultNavigator
+  },
+
+  _invalidateOrderNavigation() {
+    this._orderNavigationHidden = true
+    this._orderNavigationEpoch = (this._orderNavigationEpoch || 0) + 1
+    if (this._orderResultNavigator) this._orderResultNavigator.invalidate()
+  },
+
+  /** 2026-10-10：三处裸跳转曾静默失败；失败只留下原单导航恢复，不抛入建单失败 catch。 */
+  _openOrderResult(orderId, proof = this._captureOrderNavigation(orderId)) {
+    const last = this.data.lastSubmittedOrder
+    const target = { ...proof, paid: !!last && String(last.orderId) === String(orderId) && last.paid === true }
+    const opened = this._orderNavigation().open(target)
+    // lastOrderId 是便捷索引；旧身份/站别不写入，写不下也不影响已确认的付款事实。
+    if (opened) { try { wx.setStorageSync('lastOrderId', orderId) } catch (e) { /* 保留页面内原单凭据。 */ } }
+    return opened
+  },
+
+  onRetryOrderNavigation() { if (this._orderResultNavigator) this._orderResultNavigator.retry() },
+  onOpenMyOrders() { if (this._orderResultNavigator) this._orderResultNavigator.orders() },
 
   /** 记下"刚刚成功建出来的这一单"，供 _pendingOrderForCurrentCart 判定。 */
   _rememberSubmittedOrder(orderId, fingerprint, paid, paymentState) {
@@ -1228,8 +1275,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     // 这里再判一次是因为"押金确认/缺货同意/结果未知重试"也走本方法，任何一条路都不许重复建单。
     const pending = this._pendingOrderForCurrentCart()
     if (pending) {
-      wx.setStorageSync('lastOrderId', pending.orderId)
-      wx.redirectTo({ url: `/pages/order/success?id=${pending.orderId}&stationId=${this.data.stationId}` })
+      this._openOrderResult(pending.orderId)
       return
     }
 
@@ -1280,6 +1326,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       const request = JSON.parse(JSON.stringify(this._originalOrderRequest.body))
       if (confirmShortage === true) request.confirmShortage = true
       this._originalOrderRequest.body = request
+      const navigationProof = { ...this._captureOrderNavigation(null), stationId: request.stationId,
+        session: this._originalOrderRequest.session }
       const orderRes = await createOrder(request)
 
       const data = (orderRes && orderRes.data) || null
@@ -1320,7 +1368,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // [2026-09-19] 记下这次用的支付方式（只存本地）。放在成功之后：失败/被拒不该污染"上次成功用过的"。
       payMethodStorage.set(this.data.selectedMethod)
 
-      await this.proceedToPayment(orderId, data)
+      await this.proceedToPayment(orderId, data, { ...navigationProof, orderId })
     } catch (error) {
       // 网络失败/超时：同样**可能已经建单**，所以不动幂等键，只是把状态说清楚
       console.error('[OrderCreate] 下单失败（可能未建单，也可能已建单但响应丢失）:', error)
@@ -1388,7 +1436,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     this._createOrder(false)
   },
 
-  async proceedToPayment(orderId, data) {
+  async proceedToPayment(orderId, data, navigationProof = this._captureOrderNavigation(orderId)) {
     // 下单响应里的 warnings（水站营业状态提示 / 欠桶提醒 / 缺货提示）**必须让客户看到**：
     // 后端一直在下发，前端从来没读过，等于白提醒。营业状态是"不阻断但要说清楚"的软状态。
     //
@@ -1465,8 +1513,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       }
     }
 
-    wx.setStorageSync('lastOrderId', orderId)
-    wx.redirectTo({ url: `/pages/order/success?id=${orderId}&stationId=${this.data.stationId}` })
+    this._openOrderResult(orderId, navigationProof)
   },
 
   /**

@@ -180,7 +180,8 @@
     <view class="modal-body">
       <view class="return-tip"><text>办理水站：{{stationName || '水站 #' + viewStationId}}</text>
 
-        <text>当前可退 <text class="highlight">{{maxReturnQty}}</text> 桶</text>
+        <!-- [2026-10-10] 新模型的上限是可退权益，原固定“桶”会把已付未领容量说成实物；只切换单位，数量/押金试算不变。 -->
+        <text>当前可退 <text class="highlight">{{maxReturnQty}}</text> {{summary.independentRights ? '份权益' : '桶'}}</text>
       </view>
 
       <view class="form-row" wx:if="{{customerBarrelAsset.length > 0}}">
@@ -198,7 +199,7 @@
       </view>
 
       <view class="form-row">
-        <text class="form-label">退桶数量</text>
+        <text class="form-label">{{summary.independentRights ? '退还权益数量' : '退桶数量'}}</text>
         <view class="quantity-control">
           <view class="qty-btn {{returnForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onReturnQtyChange" data-type="minus">
             <text>-</text>

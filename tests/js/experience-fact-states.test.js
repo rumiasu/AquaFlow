@@ -215,6 +215,48 @@ test('RETURN: 未领桶权益与实物退还共用提示不强迫无桶交桶，
   assert.strictEqual(t.calls.length, 0)
 })
 
+
+// [2026-10-10] Read the real page/WXML with synthetic transport: entitlement capacity can be returned before any barrel is collected.
+for (const independentRights of [true, false]) {
+  test('RETURN: ' + (independentRights ? '权益3份/实物0桶的弹窗按权益显示且试算数量不变' : '历史3桶仍显示桶与退桶数量'), async () => {
+    const occupied = independentRights ? 0 : 3
+    const summary = { independentRights, rightBuckets: 3, heldBuckets: 3, availableRights: 3,
+      occupiedBuckets: occupied, owedBuckets: 0, pendingReturns: 0, depositBalance: 150 }
+    const holdings = [{ productId: 5, productName: 'Synthetic water', independentRights, assetQty: 3,
+      heldTotalQty: 3, inTransitQty: 0, occupiedQty: occupied, owedQty: 0, storageQty: independentRights ? 3 : 0,
+      availableRights: 3, deposit: 50 }]
+    const previews = []
+    const t = environment('miniapp-user/pages/barrel/index.js', false, call => {
+      assert.strictEqual(call.method, 'GET', 'copy regression must never write business data')
+      if (/\/summary-by-type(?:\?|$)/.test(call.url)) success(call, holdings)
+      else if (/\/summary(?:\?|$)/.test(call.url)) success(call, summary)
+      else if (/\/records(?:\?|$)/.test(call.url)) success(call, [])
+      else if (/\/return\/preview(?:\?|$)/.test(call.url)) {
+        const url = new URL(call.url)
+        previews.push({ productId: Number(url.searchParams.get('productId')), quantity: Number(url.searchParams.get('quantity')),
+          stationId: Number(url.searchParams.get('stationId')) })
+        success(call, { refundAmount: '47.25', blocked: false, lots: [] })
+      } else throw new Error('unexpected read: ' + call.url)
+    })
+    t.page.setData({ viewStationId: 11, stationName: 'Synthetic station' })
+    await t.page.loadData()
+    assert.strictEqual(t.page.data.maxReturnQty, 3)
+    assert.strictEqual(t.page.data.customerBarrelAsset[0].occupiedQty, occupied)
+    t.page.onShowReturnModal(); await flush()
+    const tip = t.elements().find(e => e.text.startsWith('当前可退')).text.replace(/\s+/g, ' ')
+    assert.strictEqual(t.elements().find(e => e.className === 'highlight').text, '3')
+    const labels = t.elements().filter(e => e.className === 'form-label').map(e => e.text)
+    assert.strictEqual(tip, independentRights ? '当前可退 份权益' : '当前可退 桶')
+    assert(labels.includes(independentRights ? '退还权益数量' : '退桶数量'))
+    if (independentRights) assert(!tip.includes('3 桶'))
+    assert.strictEqual(t.page.data.returnForm.quantity, 1)
+    assert.deepStrictEqual(previews, [{ productId: 5, quantity: 1, stationId: 11 }])
+    assert.strictEqual(t.page.data.preview.refundAmount, '47.25', 'rendering must retain the authoritative refund instead of calculating price times quantity')
+    observations.push({ case: caseName, independentRights, occupiedQty: occupied, maxReturnQty: 3, tip, labels,
+      previewRequest: previews[0], refundAmount: t.page.data.preview.refundAmount, nativeClick: false })
+  })
+}
+
 function textColor(css, className, tokens) {
   let chosen = null, specificity = 0
   const classes = className.split(/\s+/)

@@ -5,7 +5,7 @@
      tests/js/order-create-flow.test.js 的 34 条断言**没有一条检查费用文案或金额** ——
      改坏费用区不会变红，只能靠注释与人工核对。
 -->
-<view class="container">
+<view class="container" style="{{orderNavigationRecoveryStyle}}">
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>

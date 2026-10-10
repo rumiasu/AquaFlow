@@ -131,6 +131,7 @@ Page({
     pendingOrderPaymentState: 'unknown',
     orderNavigationBusy: false,
     orderNavigationError: '',
+    orderNavigationRecoveryStyle: '',
     // ===== 缺货确认（契约 A1）：needConfirm=true 表示**还没建单**，绝不能当成功 =====
     showShortageConfirm: false,
     shortageItems: [],
@@ -275,6 +276,10 @@ Page({
 
   onHide() {
     this._invalidateOrderNavigation()
+  },
+
+  onResize() {
+    this._measureOrderRecoveryBar()
   },
 
   onUnload() {
@@ -1198,10 +1203,35 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
           && proof.epoch === (this._orderNavigationEpoch || 0)
           && String(proof.selectedStationId) === String(stationStorage.getId())
           && String(proof.stationId) === String(this.data.stationId) && isCurrentSession(proof.session),
-        update: state => this.setData({ orderNavigationBusy: state.busy, orderNavigationError: state.error })
+        update: state => this._setOrderNavigationPresentation(state)
       })
     }
     return this._orderResultNavigator
+  },
+
+  /** 仅更新布局；清除恢复态时立即回到原240rpx占位，不改导航或付款状态。 */
+  _setOrderNavigationPresentation(state) {
+    this._orderRecoveryLayoutSeq = (this._orderRecoveryLayoutSeq || 0) + 1
+    this.setData({ orderNavigationBusy: state.busy, orderNavigationError: state.error,
+      orderNavigationRecoveryStyle: state.error ? this.data.orderNavigationRecoveryStyle : ''
+    }, () => { if (state.error) this._measureOrderRecoveryBar() })
+  },
+
+  /** 2026-10-10：恢复卡曾遮住备注；整栏实测高度已含安全区，另留24rpx间距，随换行/窗口变化重测。 */
+  _measureOrderRecoveryBar() {
+    const error = this.data.orderNavigationError
+    const seq = this._orderRecoveryLayoutSeq = (this._orderRecoveryLayoutSeq || 0) + 1
+    if (!error || this._orderNavigationHidden || this._quoteDestroyed || typeof wx.createSelectorQuery !== 'function') return
+    const session = captureSession(), stationId = this.data.stationId
+    try {
+      wx.createSelectorQuery().in(this).select('.bottom-bar').boundingClientRect(rect => {
+        if (seq !== this._orderRecoveryLayoutSeq || error !== this.data.orderNavigationError
+            || this._orderNavigationHidden || this._quoteDestroyed || !isCurrentSession(session)
+            || stationId !== this.data.stationId) return
+        if (!rect || !Number.isFinite(rect.height) || rect.height <= 0) return
+        this.setData({ orderNavigationRecoveryStyle: 'padding-bottom:calc(' + Math.ceil(rect.height) + 'px + 24rpx)' })
+      }).exec()
+    } catch (e) { /* 布局测量失败不得影响原单及恢复动作。 */ }
   },
 
   _invalidateOrderNavigation() {

@@ -226,6 +226,64 @@ test('恢复按钮位于既有吸底操作区，页尾失败也可发现且旧�
   assert(f.elements().some(e => e.className === 'order-navigation-message' && e.text.includes('订单号 777')))
 })
 
+function layoutQueries(f) {
+  const pending = []
+  f.wx.createSelectorQuery = () => ({
+    in(owner) { assert.strictEqual(owner, f.page); return this },
+    select(selector) { assert.strictEqual(selector, '.bottom-bar'); return this },
+    boundingClientRect(callback) { pending.push(callback); return this }, exec() {}
+  })
+  return pending
+}
+
+test('普通态保留240rpx，恢复态按整栏实测高度占位并包含安全区和间距', async () => {
+  const f = fixture(), pending = layoutQueries(f)
+  assert.strictEqual(f.page.data.orderNavigationRecoveryStyle, '')
+  const container = tree.children.find(n => n.attrs && n.attrs.class === 'container')
+  assert.strictEqual(container.attrs.style, '{{orderNavigationRecoveryStyle}}')
+  const css = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxss'), 'utf8')
+  assert(/\.container\s*\{\s*padding:\s*16rpx 24rpx 240rpx;/.test(css), 'ordinary padding must remain unchanged')
+  await f.page._createOrder(false); f.fail(); assert.strictEqual(pending.length, 1)
+  pending[0]({ height: 212.6953125 })
+  assert.strictEqual(f.page.data.orderNavigationRecoveryStyle, 'padding-bottom:calc(213px + 24rpx)')
+  // 已亲看原生测量：390宽、备注底557.59375、栏顶540.3046875；增加的占位足以消除17.289px遮挡。
+  const rpx = 390 / 750, addedPadding = 213 + 24 * rpx - 240 * rpx
+  assert(557.59375 - addedPadding < 540.3046875)
+  assert.deepStrictEqual(f.businessCounts(), [1, 1, 1])
+})
+
+test('窗口变窄或文字换行后重测，占位随真实高度增加而非固定大空白', async () => {
+  const f = fixture(), pending = layoutQueries(f)
+  await f.page._createOrder(false); f.fail(); pending[0]({ height: 212.6953125 })
+  f.page.onResize(); assert.strictEqual(pending.length, 2)
+  pending[1]({ height: 278.4 })
+  assert.strictEqual(f.page.data.orderNavigationRecoveryStyle, 'padding-bottom:calc(279px + 24rpx)')
+  pending[0]({ height: 212.6953125 })
+  assert.strictEqual(f.page.data.orderNavigationRecoveryStyle, 'padding-bottom:calc(279px + 24rpx)')
+  assert.strictEqual(f.nav.length, 1)
+})
+
+test('恢复态结束立即清掉动态占位，旧测量不能恢复空白；离页测量同样失效', async () => {
+  const f = fixture(), pending = layoutQueries(f)
+  await f.page._createOrder(false); f.fail(); pending[0]({ height: 213 })
+  f.page.onResize(); f.page.onRetryOrderNavigation()
+  assert.strictEqual(f.page.data.orderNavigationRecoveryStyle, '')
+  pending[1]({ height: 280 }); assert.strictEqual(f.page.data.orderNavigationRecoveryStyle, '')
+  f.fail(1); const last = pending[pending.length - 1]; f.page.onHide(); last({ height: 300 })
+  assert.strictEqual(f.page.data.orderNavigationRecoveryStyle, '')
+  assert.deepStrictEqual(f.businessCounts(), [1, 1, 1])
+})
+
+test('缺失或非法布局测量不伪造高度，也不影响原单恢复', async () => {
+  const f = fixture(), pending = layoutQueries(f)
+  await f.page._createOrder(false); f.fail()
+  for (const rect of [null, {}, { height: 0 }, { height: NaN }, { height: -1 }]) pending[0](rect)
+  assert.strictEqual(f.page.data.orderNavigationRecoveryStyle, '')
+  assert(f.page.data.orderNavigationError.includes('订单号 777'))
+  f.page.onRetryOrderNavigation(); f.sameOrder(1)
+  assert.deepStrictEqual(f.businessCounts(), [1, 1, 1])
+})
+
 ;(async () => {
   const done = armWatchdog(30000); let failed = 0
   try {

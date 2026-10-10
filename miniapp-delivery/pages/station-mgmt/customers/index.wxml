@@ -14,11 +14,19 @@
     企业身份（v50 审核 + v51 阈值）—— **本页与企业身份有关的全部操作都在这一个弹窗里**。
     [2026-09-19 IA 重组 C5] 原先是两个弹窗（审核一个、阈值一个）加两处入口（待审横幅 + 设置行），
     同一个主题四处分叉；现在只留一行入口，点开同一个弹窗，弹窗内两个视图切换。
-    ⚠️ `entCfg.enabled` 为 false（平台总开关关着）时整行不显示 —— 功能关掉就该连设置都看不到，
+    ⚠️ 配置读取成功且 `entCfg.enabled` 为 false 时整行不显示 —— 功能关掉就该连设置都看不到，
        而不是留一个点了会报错的入口。
     ⚠️ 待审条数为 0 时这一行**照样显示**（否则站长不知道本站开没开企业身份、阈值是多少）。
   -->
-  <view class="ent-entry" wx:if="{{entCfg.enabled}}">
+  <view class="ent-entry" wx:if="{{entCfgState !== 'ready'}}" bindtap="onEntCfgRetry">
+    <view class="ent-entry-left">
+      <text class="ent-entry-title">企业身份</text>
+      <text class="ent-entry-desc" wx:if="{{entCfgState === 'loading'}}">企业身份设置加载中...</text>
+      <text class="ent-entry-desc" wx:elif="{{entCfgState === 'error'}}">企业身份设置读取失败 · 点击重试</text>
+      <text class="ent-entry-desc" wx:else>企业身份设置未核实 · 点击核实</text>
+    </view>
+  </view>
+  <view class="ent-entry" wx:elif="{{entCfg.enabled}}">
     <view class="ent-entry-left" bindtap="onEntOpen" data-view="review">
       <text class="ent-entry-title">企业身份</text>
       <text class="ent-entry-desc" wx:if="{{entAppliesState === 'unverified'}}" catchtap="onEntRetry">待审申请未核实 · 点击核实</text>
@@ -131,6 +139,10 @@
 
       <!-- ===== 阈值视图 ===== -->
       <block wx:else>
+        <view class="ent-empty" wx:if="{{entCfgState === 'loading'}}">企业身份设置加载中...</view>
+        <view class="ent-empty" wx:elif="{{entCfgState !== 'ready'}}" bindtap="onEntCfgRetry">企业身份设置读取失败 · 点击重试</view>
+        <view class="ent-empty" wx:elif="{{!entCfg.enabled}}">企业身份功能未开启</view>
+        <block wx:else>
         <view class="modal-tip">下单时达到任一条就提示客户「可申请企业身份」。只算桶装水：押金、配送费、楼层费都不计。</view>
         <view class="modal-row">
           <text>桶数达到</text>
@@ -142,13 +154,14 @@
         </view>
         <view class="modal-tip">两条都填 = 满足任一条就提示；两条都留空 = 本站不提示。不改就是平台默认（{{entCfg.defaultBarrels}} 桶）。</view>
         <view class="modal-tip" wx:if="{{entCfgText}}">当前：{{entCfgText}}</view>
+        </block>
       </block>
 
       <view class="modal-actions">
         <view class="modal-btn" wx:if="{{entView === 'review'}}" bindtap="onEntSwitch" data-view="settings"><text>提示阈值 ›</text></view>
         <view class="modal-btn" wx:else bindtap="onEntSwitch" data-view="review"><text>‹ 返回待审</text></view>
         <view class="modal-btn" bindtap="onEntClose"><text>关闭</text></view>
-        <view class="modal-btn primary" wx:if="{{entView === 'settings'}}" bindtap="onEntCfgSave"><text>{{entCfgSaving ? '保存中…' : '保存'}}</text></view>
+        <view class="modal-btn primary" wx:if="{{entView === 'settings' && entCfgState === 'ready' && entCfg.enabled}}" bindtap="onEntCfgSave"><text>{{entCfgSaving ? '保存中…' : '保存'}}</text></view>
       </view>
     </view>
   </view>

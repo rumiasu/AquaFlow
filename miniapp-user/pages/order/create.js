@@ -1507,10 +1507,15 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   async _verifyOrderPayment(orderId) {
     try {
       const res = await getOrderDetail(orderId)
-      const ps = res && res.data ? Number(res.data.paymentStatus) : null
+      const detail = res && res.data
+      const raw = detail && typeof detail === 'object' && !Array.isArray(detail) ? detail.paymentStatus : undefined
+      // 2026-10-10：Number(null/'') 曾变成未付，缺失/非法详情也走未付兜底；只认已知支付枚举。
+      const ps = typeof raw === 'number' || (typeof raw === 'string' && /^[0-4]$/.test(raw.trim()))
+        ? Number(raw) : null
       if (ps === 2) return 'paid'
       if (ps === 3 || ps === 4) return 'closed'
-      return 'unpaid'
+      if (ps === 0 || ps === 1) return 'unpaid'
+      return 'unknown'
     } catch (e) {
       console.warn('[OrderCreate] 回查订单支付状态失败:', e && e.message)
       return 'unknown'

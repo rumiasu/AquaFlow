@@ -64,7 +64,7 @@ const noFalseEmpty = t => {
 }
 
 test('ENT: 首次未核实、在途读取与客户主列表独立可用', async () => {
-  const t = customers(); t.page.setData({ 'entCfg.enabled': true }); openReview(t)
+  const t = customers(); t.page.setData({ 'entCfg.enabled': true, entCfgState: 'ready' }); openReview(t)
   noFalseEmpty(t); assert(t.enterpriseText().includes('未核实'))
   const task = t.page.onShow(); await flush()
   noFalseEmpty(t); assert(t.enterpriseText().includes('加载中'))

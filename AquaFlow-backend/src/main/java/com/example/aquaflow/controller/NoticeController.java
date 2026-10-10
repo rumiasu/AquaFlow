@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 公告管理接口（后端: NoticeController）
@@ -82,16 +83,28 @@ public class NoticeController {
     @RequireStation
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody Notice notice) {
+        Long stationId = AuthContext.requireStationId();
         Notice existing = noticeMapper.getById(id);
         if (existing == null) {
             return Result.error("公告不存在");
         }
-        if (!AuthContext.requireStationId().equals(existing.getStationId())) {
+        if (!stationId.equals(existing.getStationId())) {
             return Result.error("仅可编辑本站公告");
         }
         notice.setId(id);
-        notice.setStationId(existing.getStationId());
-        noticeMapper.update(notice);
+        notice.setStationId(stationId);
+        // 2026-10-10：预读后记录可被删除，旧 void UPDATE 仍报保存成功；SQL 带本站条件并检查结果。
+        if (noticeMapper.update(notice) == 0) {
+            // changed-rows 连接在内容及 NOW 均不变时也返回 0，不能误报同值重复保存失败。
+            Notice saved = noticeMapper.getById(id);
+            if (saved == null || !stationId.equals(saved.getStationId())
+                    || !Objects.equals(saved.getTitle(), notice.getTitle())
+                    || !Objects.equals(saved.getContent(), notice.getContent())
+                    || !Objects.equals(saved.getType(), notice.getType())
+                    || !Objects.equals(saved.getStatus(), notice.getStatus())) {
+                return Result.error("公告不存在或内容已变化，请刷新后重试");
+            }
+        }
         return Result.success();
     }
 

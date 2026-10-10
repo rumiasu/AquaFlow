@@ -14,8 +14,8 @@ public interface NoticeMapper {
     void insert(Notice notice);
 
     @Update("update notice set title=#{title}, content=#{content}, type=#{type}, status=#{status}, update_time=NOW() " +
-            "where id=#{id}")
-    void update(Notice notice);
+            "where id=#{id} and station_id=#{stationId}")
+    int update(Notice notice);
 
     @Delete("delete from notice where id=#{id}")
     void delete(@Param("id") Long id);

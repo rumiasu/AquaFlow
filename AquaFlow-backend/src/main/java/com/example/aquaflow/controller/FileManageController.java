@@ -66,6 +66,8 @@ public class FileManageController {
         }
 
         try {
+            // 2026-10-10：所属站校验曾在对象上传后才执行，未绑定请求会留下对象；先校验并复用本站 ID。
+            Long stationId = AuthContext.requireStationId();
             String dir = "public/" + category;
             String objectName = cosUtil.uploadPublic(file.getBytes(), dir, extension);
 
@@ -77,7 +79,7 @@ public class FileManageController {
             fileInfo.setObjectName(objectName);
             fileInfo.setCategory(category);
             // v45 站隔离：归属站取登录态（不信任请求参数），NULL 只留给平台级/开发者维护的文件
-            fileInfo.setStationId(AuthContext.requireStationId());
+            fileInfo.setStationId(stationId);
 
             Long uid = AuthContext.getUserId();
             fileInfo.setUploaderId(uid != null ? uid.intValue() : null);

@@ -46,15 +46,15 @@ Page({
     codModal: { visible: false, customerId: null, customerName: '', orderCount: 0, overdueCount: 0, overdueAmount: '0.00', blockReason: '' },
     codForm: { enabled: false },
     // 企业身份（v50 审核 + v51 阈值）：**一个入口、一个弹窗、两个视图**（2026-09-19 IA 重组 C5）。
-    //   · entApplies 为空且平台开关关着 → 入口整行不显示（见 wxml 的 entCfg.enabled）；
+    //   · 只有配置读取成功且平台开关关闭，入口整行才不显示；未知配置提供局部重试。
     //   · entVisible / entView 是这一个弹窗的两个状态，**不要再加第二个弹窗**。
     entApplies: [],
     entAppliesState: 'unverified', // unverified | loading | ready（含成功空列表）| error
     entVisible: false,
     entView: 'review', // review 待审 | settings 阈值
     entSaving: false,
-    // 企业身份提示阈值（v51）：站长按站配。entCfg.enabled=false（平台总开关关着）时整块隐藏 ——
-    // 注意平台级开关**没有**前端入口，这里说的开关只是"要不要显示这一块"。
+    // 企业身份提示阈值（v51）：站长按站配。平台总开关没有前端修改入口。
+    entCfgState: 'unverified', // unverified | loading | ready | error；失败不推断平台关闭
     entCfg: { enabled: false, barrelThreshold: null, waterAmountThreshold: null, defaultBarrels: 30, usingDefault: true },
     entCfgText: '',
     entCfgSaving: false,
@@ -76,6 +76,7 @@ Page({
     this._searchSequence = (this._searchSequence || 0) + 1
     this._pullSequence = (this._pullSequence || 0) + 1
     this._enterpriseSequence = (this._enterpriseSequence || 0) + 1
+    this._enterpriseConfigSequence = (this._enterpriseConfigSequence || 0) + 1
   },
   onUnload() { this.onHide() },
 
@@ -93,6 +94,7 @@ Page({
     this._searchSequence = (this._searchSequence || 0) + 1
     this.setData({ keyword: e.detail.value, list: [], loadError: '', loading: false, searchDone: false })
     if (this.data.entAppliesState === 'loading') this.setData({ entApplies: [], entAppliesState: 'unverified' })
+    if (this.data.entCfgState === 'loading') this.setData({ entCfgState: 'unverified' })
   },
 
   onSearch() {
@@ -151,7 +153,7 @@ Page({
    * 本站待审的企业身份申请（v50）。
    *
    * 待审读取独立于客户查询；失败只在企业入口/弹窗说明并提供重试，不能冒充空列表。
-   * 平台开关关闭仍由 entCfg.enabled 隐藏入口，不改变后端成功空列表契约。
+   * 配置明确关闭才隐藏入口，不改变后端成功空列表契约。
    */
   async loadEnterpriseApplies(current = () => !this._customersHidden) {
     const sequence = this._enterpriseSequence = (this._enterpriseSequence || 0) + 1
@@ -262,17 +264,28 @@ Page({
   /* ==================== 企业身份提示阈值（v51，站长按站配） ==================== */
 
   /**
-   * 读本站阈值。**静默失败**：这是客户列表页顶部的一行附加设置，取不到就当作功能没开、
-   * 整块不显示，不为它弹红字（与待审列表同一处理口径）。
+   * 读本站阈值，失败仅在企业入口/阈值视图提供重试，不阻塞客户查询。
    *
    * 回填时把"没配过 → 用平台默认"一并展示出来：站长得看得出这个 30 桶是平台给的还是自己设的
    * （`usingDefault`），否则他会以为自己设过。
    */
   async loadEnterpriseConfig(current = () => !this._customersHidden) {
+    const sequence = this._enterpriseConfigSequence = (this._enterpriseConfigSequence || 0) + 1
+    const searchSequence = this._searchSequence || 0, session = searchSession()
+    const active = () => {
+      const now = searchSession()
+      return current() && !this._customersHidden && sequence === this._enterpriseConfigSequence
+        && searchSequence === (this._searchSequence || 0) && session.app === now.app
+        && session.generation === now.generation && session.identity === now.identity
+    }
+    if (!active()) return
+    this.setData({ entCfgState: 'loading' })
     try {
       const res = await getEnterpriseConfig()
-      if (!current()) return
-      const c = (res && res.data) || {}
+      if (!active()) return
+      const c = res && res.data
+      // 2026-10-10：超时/缺失开关曾被当成关闭，企业入口随之消失；只有明确布尔值才可确认开关。
+      if (!c || typeof c.enabled !== 'boolean') throw new Error('企业身份设置未核实')
       // 「未启用」只有一种表示法：null。这里把 0/负数也归一到 null ——
       // 否则站长打开设置会看到"水费达到 0 元"，一保存又被"必须为正"拒掉（后端已保证不下发 0，
       // 这一层是防御：老版本后端 / 人为改库都可能给出 0）。
@@ -289,13 +302,22 @@ Page({
       }
       this.setData({
         entCfg: cfg,
+        entCfgState: 'ready',
         entCfgText: this.describeEnterpriseConfig(cfg)
       })
+      // 恢复可编辑视图时未编辑表单须跟上当前配置，已输入的草稿则保留原意。
+      if (this.data.entVisible && this.data.entView === 'settings'
+        && (!this._entCfgFormEdited || !this.entCfgFormBelongsTo(session))) this.openEntCfgForm()
     } catch (err) {
-      if (!current()) return
-      console.warn('[Customers] 企业身份阈值配置获取失败（当作功能未开启）:', err.message)
-      this.setData({ entCfg: { enabled: false }, entCfgText: '' })
+      if (!active()) return
+      console.warn('[Customers] 企业身份阈值配置获取失败:', err.message)
+      this.setData({ entCfgState: 'error' })
     }
+  },
+
+  onEntCfgRetry() {
+    if (this._customersHidden || this.data.entCfgState === 'loading') return
+    return this.loadEnterpriseConfig()
   },
 
   /** 把两项阈值说成一句人话（wxml 不做格式化，一律在 js 里拼好）。 */
@@ -316,6 +338,9 @@ Page({
 
   /** 把当前阈值回填进表单（进阈值视图时调）。 */
   openEntCfgForm() {
+    if (this.data.entCfgState !== 'ready' || !this.data.entCfg.enabled) return
+    this._entCfgFormEdited = false
+    this._entCfgFormSession = searchSession()
     const { barrelThreshold, waterAmountThreshold } = this.data.entCfg
     this.setData({
       entCfgForm: {
@@ -325,11 +350,19 @@ Page({
     })
   },
 
+  /** 草稿只属于打开表单时的登录周期，换账号/水站后不能继续提交旧草稿。 */
+  entCfgFormBelongsTo(session) {
+    const form = this._entCfgFormSession
+    return !!form && form.app === session.app && form.generation === session.generation && form.identity === session.identity
+  },
+
   onEntCfgBarrelInput(e) {
+    this._entCfgFormEdited = true
     this.setData({ 'entCfgForm.barrels': e.detail.value })
   },
 
   onEntCfgAmountInput(e) {
+    this._entCfgFormEdited = true
     this.setData({ 'entCfgForm.amount': e.detail.value })
   },
 
@@ -338,7 +371,8 @@ Page({
    * 只拦"填了但不是正数" —— 后端也会再校验一次，前端这层只是为了少一次往返。
    */
   async onEntCfgSave() {
-    if (this.data.entCfgSaving) return
+    if (this._customersHidden || this.data.entCfgSaving || this.data.entCfgState !== 'ready'
+      || !this.data.entCfg.enabled || !this.entCfgFormBelongsTo(searchSession())) return
     const barrelsRaw = (this.data.entCfgForm.barrels || '').trim()
     const amountRaw = (this.data.entCfgForm.amount || '').trim()
     const barrels = barrelsRaw === '' ? null : Number(barrelsRaw)
@@ -359,6 +393,7 @@ Page({
         return
       }
       wx.showToast({ title: '已保存', icon: 'success' })
+      this._entCfgFormEdited = false
       // 保存后**留在弹窗里、切回待审视图**（而不是把弹窗关掉）：站长刚设完阈值，
       // 下一步多半就是回去看待审申请；关掉弹窗会让他重新找入口。
       this.setData({ entView: 'review' })
@@ -375,7 +410,7 @@ Page({
   /**
    * 打开企业身份弹窗（唯一入口）。`data-view` 决定先看哪个视图：
    * review = 待审列表（点入口左半边）/ settings = 阈值（点右半边「提示阈值 ›」）。
-   * 进 settings 时才去拉一次阈值配置（不在 onShow 里预拉，省一次请求）。
+   * 进 settings 时回填已核实配置；独立配置请求未完成/失败时，视图提供局部重试。
    */
   onEntOpen(e) {
     const view = (e.currentTarget.dataset.view === 'settings') ? 'settings' : 'review'

@@ -472,18 +472,42 @@ await test('回查也失败：说"查不到"，不猜已付、不重复扣票', 
     createPayment: [{ throw: '网络超时' }],
     getOrderDetail: [{ throw: '网络异常' }]
   })
-  wx.__modalAutoConfirm = false   // 客户不重试
+  wx.__modalAutoConfirm = true   // 未知态主操作 = 查原单，不重试
   await page._createOrder(false)
   assert.strictEqual(calls.createPayment.length, 1)
   const titles = page.__wx.__calls.modal.map(m => m.title)
   assert.ok(titles.some(t => t.indexOf('支付结果未知') > -1))
   const modal = page.__wx.__calls.modal.find(m => m.title.includes('支付结果未知'))
   assert.ok(modal.content.includes('订单号 69') && modal.content.includes('暂时查不到是否已付款'))
-  assert.strictEqual(modal.cancelText, '查原单')
+  assert.strictEqual(modal.confirmText, '查原单')
+  assert.strictEqual(modal.cancelText, '再试一次')
+  assert.strictEqual(calls.createOrder.length, 1)
+  assert.deepStrictEqual(calls.getOrderDetail, [69])
+  assert.strictEqual(page.__wx.__calls.nav.length, 1)
+  assert.ok(page.__wx.__calls.nav.every(n => n.url.includes('id=69')))
   assert.ok(!titles.some(t => t.indexOf('已经付好了') > -1), '查不到就不能说"已经付好了"')
 })
 
-// ---------------------------------------------------------------- 微信模拟渠道（2026-09-26 返工契约 P0-b）
+  // [2026-10-10] 次操作取消位仍须精确绑定同原单支付，不能因按钮交换重新建单。
+  await test('未知支付选次操作再试一次：仍仅一张原单，回读恢复后跳原单', async () => {
+    const { page, calls, wx } = newPage({ method: 3,
+      createOrder: [{ data: { orderId: 769, needConfirm: false } }],
+      createPayment: [{ throw: '网络超时' }, { data: { status: 2 } }],
+      getOrderDetail: [{ throw: '网络异常' }, { data: { id: 769, paymentStatus: 2 } }]
+    })
+    wx.__modalAutoConfirm = false
+    await page._createOrder(false)
+    const modal = wx.__calls.modal.find(m => m.title.includes('支付结果未知'))
+    assert.strictEqual(modal.confirmText, '查原单'); assert.strictEqual(modal.cancelText, '再试一次')
+    assert.strictEqual(calls.createOrder.length, 1)
+    assert.deepStrictEqual(calls.createPayment.map(p => p.orderId), [769, 769])
+    assert.deepStrictEqual(calls.getOrderDetail, [769, 769])
+    assert.strictEqual(page.data.pendingOrderPaid, true)
+    assert.strictEqual(wx.__calls.nav.length, 1)
+    assert.ok(wx.__calls.nav.every(n => n.url.includes('id=769')))
+  })
+
+  // ---------------------------------------------------------------- 微信模拟渠道（2026-09-26 返工契约 P0-b）
 // 判据：建单之后要不要对**同一张单**发起 createPayment，取决于服务端下发的 wechatPay.enabled
 // （唯一实现 PayMethod.payChannel）。前端不按 id===1 猜渠道、不碰真实 wx.requestPayment。
 

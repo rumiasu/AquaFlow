@@ -64,6 +64,8 @@
 .ent-entry-desc { font-size: 24rpx; color: var(--text-secondary); }
 .ent-entry-set { font-size: 24rpx; color: var(--primary-color); flex-shrink: 0; padding-left: 20rpx; }
 .ent-empty { text-align: center; padding: 40rpx 0; font-size: 26rpx; color: var(--text-secondary); }
+/* [2026-10-10] 仅可核实/重试状态使用明确按钮面；loading和成功空态不呈现可点击主操作。 */
+.ent-empty.ent-state-action { display: flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 88rpx; margin-top: 24rpx; padding: 24rpx 16rpx; border-radius: 10rpx; font-size: 28rpx; font-weight: 600; color: #FFFFFF; background: var(--primary-color); }
 
 /* 审核弹窗里的逐条申请 */
 .ent-item { border-top: 1rpx solid var(--border-color); padding: 20rpx 0; }

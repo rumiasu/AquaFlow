@@ -115,9 +115,10 @@
 
       <!-- ===== 审核视图 ===== -->
       <block wx:if="{{entView === 'review'}}">
-        <view class="ent-empty" wx:if="{{entAppliesState === 'unverified'}}" bindtap="onEntRetry">待审申请未核实 · 点击核实</view>
+        <!-- [2026-10-10] 核实/重试是未核实及失败态的主操作，不能沿用灰色空态文字。 -->
+        <view class="ent-empty ent-state-action" wx:if="{{entAppliesState === 'unverified'}}" bindtap="onEntRetry">待审申请未核实 · 点击核实</view>
         <view class="ent-empty" wx:elif="{{entAppliesState === 'loading'}}">待审申请加载中...</view>
-        <view class="ent-empty" wx:elif="{{entAppliesState === 'error'}}" bindtap="onEntRetry">待审申请读取失败 · 点击重试</view>
+        <view class="ent-empty ent-state-action" wx:elif="{{entAppliesState === 'error'}}" bindtap="onEntRetry">待审申请读取失败 · 点击重试</view>
         <block wx:else>
         <view class="ent-item" wx:for="{{entApplies}}" wx:key="id">
           <view class="ent-item-head">

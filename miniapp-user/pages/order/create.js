@@ -1433,11 +1433,13 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
             title,
             content: body,
             showCancel: outcome.state !== 'paid',
-            confirmText: outcome.state === 'paid' ? '看订单' : '再试一次',
-            cancelText: unknown ? '查原单' : '看订单',
+            // [2026-10-10] 未知结果优先查原单；交换按钮时同步映射分支，不能把查单变成再次付款。
+            confirmText: unknown ? '查原单' : (outcome.state === 'paid' ? '看订单' : '再试一次'),
+            cancelText: unknown ? '再试一次' : '看订单',
             success: (r) => {
-              if (!r.confirm) {
-                // 取消 = 去结果页（那里有后端下发的「去支付」，仍是同一张单）
+              const retryChosen = unknown ? r.cancel === true : r.confirm === true
+              if (!retryChosen) {
+                // 未知时确认 = 查原单；已知失败时取消 = 看订单，均去同一原单结果页。
                 this.retryPaymentAfterFailure = false
                 return
               }

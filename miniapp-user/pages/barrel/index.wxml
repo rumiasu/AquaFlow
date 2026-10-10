@@ -69,7 +69,8 @@
         -->
         <text class="section-title">我的水桶</text>
         <view class="return-btn-small" bindtap="onShowReturnModal" wx:if="{{maxReturnQty > 0}}">
-          <text>申请退桶</text>
+          <!-- [2026-10-10] 未领权益也可退出；申请标题不把所有权益说成已领取实物。 -->
+          <text>{{summary.independentRights ? '申请退还权益' : '申请退桶'}}</text>
         </view>
       </view>
 
@@ -173,7 +174,7 @@
   <view class="modal-mask" wx:if="{{showReturnModal}}" bindtap="onCloseReturnModal"></view>
   <view class="modal-content {{showReturnModal ? 'show' : ''}}" catchtap="">
     <view class="modal-header">
-      <text class="modal-title">申请退桶</text>
+      <text class="modal-title">{{summary.independentRights ? '申请退还权益' : '申请退桶'}}</text>
       <text class="modal-close" bindtap="onCloseReturnModal">×</text>
     </view>
 
@@ -253,10 +254,10 @@
         <text class="form-label">备注</text>
         <input class="note-input" placeholder="如：搬家、换地址等" value="{{returnForm.note}}" bindinput="onReturnNoteInput"></input>
       </view>
-      <view class="form-row" wx:if="{{summary.independentRights}}" bindtap="onPickupMode"><text>交接方式：{{returnForm.pickupModeText || '到店退桶'}} ›</text></view>
+      <view class="form-row" wx:if="{{summary.independentRights}}" bindtap="onPickupMode"><text>交接方式：{{returnForm.pickupModeText || '到店办理'}} ›</text></view>
       <!-- [2026-10-09] 原提示把免费原安排也说成必须确认，与已有办理闸门相矛盾；
            只同步提示，确认条件见 docs/design/35，保留原样式和事件。 -->
-      <view class="preview-hint" wx:if="{{summary.independentRights}}"><text>先申请批准；免费原安排无需再次确认，收费或水站新安排须先确认。未领桶的权益也可申请退还；仅退还当前未被订单占用的权益。</text></view>
+      <view class="preview-hint" wx:if="{{summary.independentRights}}"><text>先申请批准；免费原安排无需再次确认，收费或水站新安排须先确认。未领桶的权益也可申请退还；仅退还当前未被订单占用的权益。需交回的实物桶仍按批准安排交回，交回数量及费用以原安排为准。</text></view>
     </view>
 
     <view class="modal-footer">

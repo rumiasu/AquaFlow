@@ -51,7 +51,7 @@ function customers(enabled = true) {
     else if (/\/customers(?:\?|$)/.test(call.url)) success(call, [{ id: 7, name: 'Synthetic customer', customerType: 1, phone: '13800000007' }])
     else throw new Error('unexpected request: ' + call.method + ' ' + call.url)
   })
-  const enterpriseText = () => t.elements().filter(e => /^(ent-entry-desc|ent-empty)$/.test(e.className)).map(e => e.text).join('\n')
+  const enterpriseText = () => t.elements().filter(e => /(?:^|\s)(?:ent-entry-desc|ent-empty)(?:\s|$)/.test(e.className)).map(e => e.text).join('\n')
   const titles = () => t.elements().filter(e => e.text.startsWith('企业身份申请')).map(e => e.text).join('\n')
   return { ...t, pending, enterpriseText, titles }
 }
@@ -168,7 +168,8 @@ function order(paymentResult, readResult) {
     else if (/\/orders\/777(?:\?|$)/.test(call.url)) { reads.push(777); readResult(call) }
     else success(call, {})
   })
-  t.wx.__modalAutoConfirm = false
+  // Unknown outcome's primary confirm now reads the original order.
+  t.wx.__modalAutoConfirm = true
   t.page.setData({ loading: false, stationId: 11, address: { id: 91 }, products: [{ id: 5, name: 'Synthetic water', price: 10, deposit: 0, quantity: 2 }],
     selectedMethod: 1, wechatPay: { enabled: true }, quoteReady: true, quoteLoading: false, quoteError: '', blocked: false,
     totalAmount: 20, totalWaterCost: 20, totalDeposit: 0, shortageItems: [], barrelPurchases: [] })
@@ -187,7 +188,7 @@ test('PAY: 双超时弹窗和恢复卡片都保留未知，重进与续办仍绑
   assert(t.wx.__calls.nav.every(n => n.url.includes('id=777')))
   const acknowledged = order(call => success(call, { status: 1 }), fail); await acknowledged.page.onSubmit()
   assert(acknowledged.hint().includes('待确认')); assert.strictEqual(acknowledged.writes.length, 1)
-  const retried = order(fail, fail); retried.wx.__modalAutoConfirm = true; await retried.page.onSubmit()
+  const retried = order(fail, fail); retried.wx.__modalAutoConfirm = false; await retried.page.onSubmit()
   assert(retried.hint().includes('待确认')); assert.strictEqual(retried.writes.length, 1)
   assert.deepStrictEqual(retried.payments, [777, 777])
 })
@@ -248,7 +249,21 @@ for (const independentRights of [true, false]) {
     const labels = t.elements().filter(e => e.className === 'form-label').map(e => e.text)
     assert.strictEqual(tip, independentRights ? '当前可退 份权益' : '当前可退 桶')
     assert(labels.includes(independentRights ? '退还权益数量' : '退桶数量'))
-    if (independentRights) assert(!tip.includes('3 桶'))
+    const title = t.elements().find(e => e.className === 'modal-title').text
+    assert.strictEqual(title, independentRights ? '申请退还权益' : '申请退桶')
+    assert.strictEqual(t.page.data.returnForm.pickupMode, 'STORE')
+    assert.strictEqual(t.page.data.returnForm.pickupModeText, independentRights ? '到店办理' : '到店退桶')
+    if (independentRights) {
+      assert(!tip.includes('3 桶'))
+      assert(t.elements().some(e => e.text.includes('需交回的实物桶仍按批准安排交回')))
+      t.wx.showActionSheet = opts => {
+        assert.strictEqual(opts.itemList[0], '到店办理')
+        opts.success({ tapIndex: 0 })
+      }
+      t.page.onPickupMode(); await flush()
+      assert.strictEqual(t.page.data.returnForm.pickupMode, 'STORE')
+      assert.strictEqual(t.page.data.returnForm.pickupModeText, '到店办理')
+    }
     assert.strictEqual(t.page.data.returnForm.quantity, 1)
     assert.deepStrictEqual(previews, [{ productId: 5, quantity: 1, stationId: 11 }])
     assert.strictEqual(t.page.data.preview.refundAmount, '47.25', 'rendering must retain the authoritative refund instead of calculating price times quantity')
@@ -258,6 +273,8 @@ for (const independentRights of [true, false]) {
 }
 
 function textColor(css, className, tokens) {
+  // CSS comments preceding a rule are not part of its selector.
+  css = css.replace(/\/\*[\s\S]*?\*\//g, '')
   let chosen = null, specificity = 0
   const classes = className.split(/\s+/)
   for (const rule of css.matchAll(/([^{}]+)\{([^{}]+)\}/g)) {
@@ -283,6 +300,25 @@ function contrast(foreground, background) {
   const a = luminance(foreground), b = luminance(background)
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
 }
+test('ENT: 未核实和失败仅原核实/重试入口成为主按钮，加载与空态不冒充操作', async () => {
+  const t = customers(); t.page.setData({ entCfgState: 'ready', 'entCfg.enabled': true }); openReview(t)
+  const css = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/customers/index.wxss'), 'utf8')
+  const tokens = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/app.wxss'), 'utf8')
+  for (const state of ['unverified', 'error']) {
+    t.page.setData({ entAppliesState: state })
+    const action = t.elements().find(e => e.attrs.bindtap === 'onEntRetry' && e.className.includes('ent-state-action'))
+    assert(action, 'both actionable states keep the existing local retry handler')
+    const foreground = textColor(css, action.className, tokens)
+    const background = /--primary-color:\s*(#[0-9a-fA-F]{6})/.exec(tokens)[1]
+    assert(contrast(foreground, background) >= 4.5, 'primary action text must remain legible')
+  }
+  for (const state of ['loading', 'ready']) {
+    t.page.setData({ entAppliesState: state, entApplies: [] })
+    assert(!t.elements().some(e => e.className.includes('ent-state-action')))
+  }
+  assert.strictEqual(t.calls.length, 0, 'rendering does not add requests')
+})
+
 test('CONTRAST: 同名无电话的地址/来源与退款金额/登记核实文字达到正文对比', async () => {
   const t = customers(), task = t.page.onShow(); await flush(); success(t.pending[0], []); await task
   t.page.setData({ list: [

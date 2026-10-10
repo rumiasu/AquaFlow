@@ -210,7 +210,8 @@ Page({
       'returnForm.quantity': 1,
       'returnForm.note': '',
       'returnForm.pickupMode': 'STORE',
-      'returnForm.pickupModeText': '到店退桶',
+      // [2026-10-10] STORE办理兼容未领权益，不表示免交应退实物；交接规则仍由原安排决定。
+      'returnForm.pickupModeText': this.data.summary.independentRights ? '到店办理' : '到店退桶',
       'returnForm.companionOrderId': null,
       preview: null,
       previewHint: ''
@@ -462,9 +463,9 @@ Page({
   },
   onPickupMode() {
     const context = assetViewStation.beginRead(this, 'pickupDialog')
-    wx.showActionSheet({ itemList: ['到店退桶', '单独上门收桶（费用须先确认）', '随送水订单顺路收桶'], success: async (res) => {
+    wx.showActionSheet({ itemList: ['到店办理', '单独上门收桶（费用须先确认）', '随送水订单顺路收桶'], success: async (res) => {
       if (!assetViewStation.current(this, context)) return
-      const modes = ['STORE', 'PICKUP', 'COMBINED'], texts = ['到店退桶', '单独上门收桶', '随送水订单收桶']
+      const modes = ['STORE', 'PICKUP', 'COMBINED'], texts = ['到店办理', '单独上门收桶', '随送水订单收桶']
       if (res.tapIndex !== 2) { this.setData({ 'returnForm.pickupMode': modes[res.tapIndex], 'returnForm.pickupModeText': texts[res.tapIndex], 'returnForm.companionOrderId': null }); return }
       try {
         const stationId = context.stationId || await resolveStationId()

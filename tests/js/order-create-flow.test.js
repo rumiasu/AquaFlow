@@ -98,6 +98,8 @@ function newPage(scenario) {
   page.data.selectedMethod = sc.method == null ? 3 : sc.method
   page.data.blocked = false
   page.data.quoteReady = true // 此夹具明确模拟已核实报价的可提交状态；未核实路径另有专门回归。
+  // 2026-10-11：已核实夹具须同时带原报价上下文；单独布尔值不能证明当前地址的金额。
+  page._quotedContext = { key: page._quoteContextKey(), session: require('../../miniapp-user/utils/token').captureSession() }
   // [2026-09-26] 真机上 onLoad 会把"刚刚下过的那一单"从本地读回来（同一客户/同一设备）。
   // 测试里 loadPage 不跑 onLoad，这里补上等价的两次调用，让"已下单"态在测试中也成立。
   page._restorePendingOrderFromStorage()
@@ -211,9 +213,10 @@ await test('服务端已建单但响应丢失（网络异常）：不动键，�
 // ---------------------------------------------------------------- 场景 7
 await test('明确改了业务意图（数量变化）⇒ 换新键', async () => {
   const { page, calls } = newPage({ createOrder: [{ data: { orderId: 1, needConfirm: false } }] })
-  return page._createOrder(false).then(() => {
+  return page._createOrder(false).then(async () => {
     const key1 = calls.createOrder[0].idempotencyKey
     page.data.products[0].quantity = 3           // 客户明确改了数量
+    await page.refreshQuote()
     return page._createOrder(false).then(() => {
       assert.strictEqual(calls.createOrder.length, 2)
       assert.notStrictEqual(calls.createOrder[1].idempotencyKey, key1, '换了意图必须换键')
@@ -223,14 +226,16 @@ await test('明确改了业务意图（数量变化）⇒ 换新键', async () =
 })
 
 await test('换了水站 / 换了支付方式 ⇒ 换新键', async () => {
-  const { page, calls } = newPage({ createOrder: [{ data: { orderId: 1, needConfirm: false } }, { data: { orderId: 2, needConfirm: false } }, { data: { orderId: 3, needConfirm: false } }] })
-  return page._createOrder(false).then(() => {
+  const { page, calls } = newPage({ quote: { methods: [{ id: 2, name: '货到付款', enabled: true }, { id: 3, name: '水票支付', enabled: true }] }, createOrder: [{ data: { orderId: 1, needConfirm: false } }, { data: { orderId: 2, needConfirm: false } }, { data: { orderId: 3, needConfirm: false } }] })
+  return page._createOrder(false).then(async () => {
     const k1 = calls.createOrder[0].idempotencyKey
     page.data.stationId = 2
-    return page._createOrder(false).then(() => {
+    await page.refreshQuote()
+    return page._createOrder(false).then(async () => {
       const k2 = calls.createOrder[1].idempotencyKey
       assert.notStrictEqual(k2, k1, '换站必须换键')
       page.data.selectedMethod = 2
+      await page.refreshQuote()
       return page._createOrder(false).then(() => {
         assert.notStrictEqual(calls.createOrder[2].idempotencyKey, k2, '换支付方式必须换键')
       })
@@ -542,8 +547,8 @@ await test('微信（模拟渠道关闭）：不发支付请求，也不假报�
   const { page, calls } = newPage({
     method: 1,
     quote: {
-      methods: [{ id: 3, name: '水票支付', desc: '使用账户水票抵扣', enabled: true }],
-      defaultMethod: 3,
+      methods: [{ id: 1, name: '微信支付', enabled: true }],
+      defaultMethod: 1,
       wechatPay: { method: 1, enabled: false, simulated: false, label: '微信支付暂未开通' }
     },
     createOrder: [{ data: { orderId: 91, needConfirm: false, warnings: [] } }],
@@ -551,7 +556,6 @@ await test('微信（模拟渠道关闭）：不发支付请求，也不假报�
     getOrderDetail: [{ data: { id: 91, paymentStatus: 1 } }]
   })
   await page.refreshQuote()
-  page.data.selectedMethod = 1        // 即便页面停在微信上（老偏好），渠道没开也不能付
   await page._createOrder(false)
   assert.strictEqual(calls.createOrder.length, 1)
   assert.strictEqual(calls.createPayment.length, 0,
@@ -600,11 +604,12 @@ await test('换账号：不继承上一位客户的待确认请求（键按客�
   const { page, calls, wx } = newPage({
     createOrder: [{ data: { needConfirm: true, shortages: [] } }, { data: { orderId: 12, needConfirm: false } }]
   })
-  return page._createOrder(false).then(() => {
+  return page._createOrder(false).then(async () => {
     const keyA = page.data.idempotencyKey
     assert.ok(wx.__storage.get('orderIntent.v1'), '应把意图记在本地')
     // 换账号：customerId 变了 ⇒ 五要素变了 ⇒ 必须换键
     page.__app.globalData.customerId = 8
+    await page.refreshQuote() // 新客户须核实自己的报价，不能继承原客户的报价证明。
     return page._createOrder(false).then(() => {
       assert.notStrictEqual(calls.createOrder[1].idempotencyKey, keyA, '换了客户必须换键')
     })

@@ -174,6 +174,8 @@ function order(paymentResult, readResult) {
     selectedMethod: 1, wechatPay: { enabled: true }, quoteReady: true, quoteLoading: false, quoteError: '', blocked: false,
     totalAmount: 20, totalWaterCost: 20, totalDeposit: 0, shortageItems: [], barrelPurchases: [] })
   const hint = () => t.elements().find(e => e.className === 'pending-order-text')?.text || ''
+  // 已核实报价夹具也保留原地址上下文，不能只设 quoteReady。
+  t.page._quotedContext = { key: t.page._quoteContextKey(), session: require('../../miniapp-user/utils/token').captureSession() }
   return { ...t, writes, payments, reads, hint }
 }
 test('PAY: 双超时弹窗和恢复卡片都保留未知，重进与续办仍绑定原单', async () => {

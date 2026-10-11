@@ -34,6 +34,8 @@ function fixture(status = 2) {
     selectedMethod: 1, wechatPay: { enabled: true }, quoteReady: true, blocked: false,
     totalAmount: 20, totalWaterCost: 20, totalDeposit: 0, shortageItems: [], barrelPurchases: [] })
   const setData = page.setData
+  // 原单导航夹具明确模拟当前地址已返回的报价，报价竞态由专项覆盖。
+  page._quotedContext = { key: page._quoteContextKey(), session: require('../../miniapp-user/utils/token').captureSession() }
   page.setData = (data, callback) => { changes.push(data); setData.call(page, data, callback) }
   function fail(index = nav.length - 1) {
     const { api, options } = nav[index], error = { errMsg: api + ':fail timeout' }

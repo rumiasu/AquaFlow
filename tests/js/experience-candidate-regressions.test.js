@@ -73,6 +73,8 @@ function orderPage(paymentResult, queryResult, action = '查原单') {
     selectedMethod: 1, wechatPay: { enabled: true }, quoteReady: true, quoteLoading: false,
     quoteError: '', blocked: false, totalAmount: 20, totalWaterCost: 20, totalDeposit: 0,
     shortageItems: [], barrelPurchases: [], note: 'synthetic original instruction' })
+  // 原单支付夹具明确模拟当前地址的已核实报价。
+  env.page._quotedContext = { key: env.page._quoteContextKey(), session: require('../../miniapp-user/utils/token').captureSession() }
   return { ...env, writes, payments, reads }
 }
 
@@ -334,7 +336,7 @@ test('F: 原退桶申请在待交接和登记退款后持续展示应退额，�
 test('G: 当前报价站在已有资产、非桶商品、首次提示收起时都可见；迟到旧站不能覆盖', async () => {
   const pending = []
   const t = environment('customer', 'miniapp-user/pages/order/create.js', call => { pending.push(call) })
-  t.page.setData({ loading: false, stationId: 11, products: [{ id: 5, category: 2, quantity: 1 }], selectedMethod: 1 })
+  t.page.setData({ loading: false, stationId: 11, address: { id: 91 }, products: [{ id: 5, category: 2, quantity: 1 }], selectedMethod: 1 })
   const quote = name => ({ waterAmount: 10, totalAmount: 10, stationName: name,
     methods: [{ id: 1, name: '微信支付', enabled: true }], defaultMethod: 1, firstStationAsset: false })
   const a = t.page.refreshQuote(); t.page.setData({ stationId: 22 }); const b = t.page.refreshQuote()
@@ -357,6 +359,7 @@ test('G: 再来一单采用原单履约站，展示与报价请求一致，不�
   const t = environment('customer', 'miniapp-user/pages/order/create.js', call => {
     if (/\/payments\/quote(?:\?|$)/.test(call.url)) quotes.push(call)
     else if (/\/products\/5(?:\?|$)/.test(call.url)) success(call, { id: 5, name: 'Synthetic bottled water', category: 2, price: 10, deposit: 0 })
+    else if (/\/addresses(?:\?|$)/.test(call.url)) success(call, [{ id: 91, isDefault: true }])
     else success(call, [])
   })
   await t.page._doLoadFromOrder({ id: 88, stationId: 11, deliveryStationId: 22, items: [{ productId: 5, quantity: 1 }] })

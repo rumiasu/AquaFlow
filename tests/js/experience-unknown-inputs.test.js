@@ -158,6 +158,8 @@ function order(data) {
   t.page.setData({ loading: false, stationId: 11, address: { id: 91 }, products: [{ id: 5, name: 'Synthetic water', price: 10, deposit: 0, quantity: 2 }],
     selectedMethod: 1, wechatPay: { enabled: true }, quoteReady: true, quoteLoading: false, quoteError: '', blocked: false,
     totalAmount: 20, totalWaterCost: 20, totalDeposit: 0, shortageItems: [], barrelPurchases: [] })
+  // 明确模拟已返回且属于当前地址的报价；本套关注原单付款事实，报价竞态另有真实处理函数回归。
+  t.page._quotedContext = { key: t.page._quoteContextKey(), session: require('../../miniapp-user/utils/token').captureSession() }
   return { ...t, writes, payments, reads, hint: () => t.elements().find(e => e.className === 'pending-order-text')?.text || '' }
 }
 for (const [name, data] of [['空详情', null], ['数字详情', 0], ['缺少支付字段', {}], ['空支付值', { paymentStatus: null }],

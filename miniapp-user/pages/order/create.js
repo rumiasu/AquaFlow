@@ -166,7 +166,8 @@ Page({
     loadError: '',
     // 收货地址**没加载出来**的原因（空串 = 拉到了）。与"确实没有地址"分开：
     // 两者都让 address 为空，但一句"请选择配送地址"会把接口失败说成用户没设地址。
-    addressLoadError: ''
+    addressLoadError: '',
+    addressLoading: false
   },
 
   onLoad(options) {
@@ -263,19 +264,31 @@ Page({
 
   onShow() {
     this._orderNavigationHidden = false
-    if ((this.data.products || []).length) { this.loadBarrel(); this.refreshQuote() }
+    this._quoteHidden = false
     const selectedAddress = storage.get('selectedAddress')
     if (selectedAddress) {
-      this.setData({
-        address: selectedAddress,
-        addressText: formatAddress(selectedAddress)
-      })
+      // 2026-10-11：原先先按旧地址报价再换地址，旧结果可在新地址下恢复可提交；先失效并应用地址。
+      this._addressRequestSeq = (this._addressRequestSeq || 0) + 1
+      this._addressNeedsReload = false
+      this.invalidateQuote()
+      this.setData({ address: selectedAddress, addressText: formatAddress(selectedAddress), addressLoadError: '', addressLoading: false })
       storage.remove('selectedAddress')
     }
+    if (!selectedAddress && !this.data.addressLoading
+      && (this._addressNeedsReload || !this.data.address || this.data.addressLoadError)) {
+      this.loadAddress(this.data.address ? this.data.address.id : this.data._preferAddressId)
+    }
+    if ((this.data.products || []).length) { this.loadBarrel(); this.refreshQuote() }
   },
 
   onHide() {
     this._invalidateOrderNavigation()
+    this._quoteHidden = true
+    this.cancelScheduledQuote()
+    this._addressNeedsReload = this.data.addressLoading || this._addressNeedsReload
+    this._addressRequestSeq = (this._addressRequestSeq || 0) + 1
+    this.invalidateQuote()
+    this.setData({ quoteLoading: false, addressLoading: false })
   },
 
   onResize() {
@@ -283,7 +296,7 @@ Page({
   },
 
   onUnload() {
-    this._invalidateOrderNavigation()
+    this.onHide()
     this._quoteDestroyed = true
     this.cancelScheduledQuote()
     this._quoteRequestSeq = (this._quoteRequestSeq || 0) + 1
@@ -542,22 +555,39 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   async loadAddress(preferId) {
+    if (this._quoteDestroyed || this._quoteHidden) return
+    const seq = this._addressRequestSeq = (this._addressRequestSeq || 0) + 1
+    const session = captureSession()
+    const current = () => !this._quoteDestroyed && !this._quoteHidden
+      && seq === this._addressRequestSeq && isCurrentSession(session)
+    this._addressNeedsReload = false
+    this.invalidateQuote()
+    this.setData({ addressLoading: true })
     try {
       const res = await getAddresses()
-      if (res.data && res.data.length > 0) {
-        const list = res.data
-        const picked = list.find(a => a.id === preferId)
-        const fallback = list.find(a => a.isDefault) || list[0]
-        const addr = picked || fallback
-        this.setData({ address: addr, addressText: addr ? formatAddress(addr) : '', addressLoadError: '' })
-      }
+      if (!current()) return
+      if (!res || (res.code !== undefined && ![0, 200].includes(res.code)) || !Array.isArray(res.data)) throw new Error('收货地址未核实')
+      const list = res.data
+      const addr = list.find(a => a.id === preferId) || list.find(a => a.isDefault) || list[0] || null
+      // 2026-10-11：地址后到曾只 setData，留下无地址报价；地址响应也须防旧请求覆盖新选择。
+      this.invalidateQuote()
+      this.setData({ address: addr, addressText: addr ? formatAddress(addr) : '', addressLoadError: '', addressLoading: false })
+      if ((this.data.products || []).length) await this.refreshQuote()
     } catch (error) {
+      if (!current()) return
       // [2026-09-20 真机联调] 原来只 console.error：拉不到地址时页面照旧显示「请选择配送地址」，
       // 而提交时又拦一句「请选择配送地址」—— 把"接口失败"说成了"你没设地址"，客户会去反复
       // 重设地址而问题根本不在那儿。现在把失败标记出来，空态与提交拦截的文案都据此区分。
       console.error('[OrderCreate] 加载收货地址失败:', error)
-      this.setData({ addressLoadError: (error && error.message) || '网络异常' })
+      this.setData({ addressLoadError: (error && error.message) || '网络异常', quoteLoading: false })
       this._noteLoadError('收货地址没加载出来（' + ((error && error.message) || '网络异常') + '），可能显示成"未设置地址"')
+    } finally {
+      if (current()) this.setData({ addressLoading: false })
+      else if (seq === this._addressRequestSeq && !isCurrentSession(session)) {
+        // 旧登录的请求不得换地址，也不能留下忙状态挡住新登录返回后的只读刷新。
+        this._addressNeedsReload = true
+        this.setData({ addressLoading: false, quoteLoading: false })
+      }
     }
   },
 
@@ -654,20 +684,40 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   invalidateQuote() {
     const seq = this._quoteRequestSeq = (this._quoteRequestSeq || 0) + 1
+    this._quotedContext = null
+    this._unifiedConfirmation = null
     this.setData({ quoteLoading: true, quoteReady: false, quoteError: '', blocked: true, checkoutWarnings: [],
-      blockReason: '正在核实最新报价，请稍候', payMethods: [], wechatPay: null, missingRights: [], barrelPurchases: [], barrelPurchaseConfirmed: false })
+      blockReason: '正在核实最新报价，请稍候', payMethods: [], wechatPay: null, missingRights: [], barrelPurchases: [], barrelPurchaseConfirmed: false,
+      totalAmount: 0, totalWaterCost: 0, totalDeposit: 0, extraDepositBuckets: 0, extraDepositAmount: 0, deliveryFee: 0, floorFee: 0,
+      totalWaterCostText: '—', totalAmountText: '—', payableAmountText: '—',
+      extraDepositAmountText: '', floorFeeText: '', deliveryFeeText: '', feeTotalText: '',
+      ticketPay: null, ticketCoverText: '', ticketShortfallHint: '', ticketCanBuy: false, ticketAltMethod: null,
+      assetNotice: { stationName: this.data.stationName || '', depositAmount: '—', buckets: 0, totalAmountText: '—' },
+      showUnifiedConfirm: false, showDetailPopup: false })
     return seq
   },
 
+  /** 报价只证明请求时的下单上下文；同 id 地址编辑也必须使旧确认失效。 */
+  _quoteContextKey() {
+    return JSON.stringify({ intent: this._currentIntent(), address: this.data.address })
+  },
+
+  _hasCurrentQuote() {
+    const proof = this._quotedContext
+    return !this._quoteDestroyed && !this._quoteHidden && !this.data.addressLoading && !this.data.addressLoadError
+      && !!(this.data.address && this.data.address.id) && !!proof
+      && isCurrentSession(proof.session) && proof.key === this._quoteContextKey()
+  },
+
   scheduleQuote() {
-    if (this._quoteDestroyed) return
+    if (this._quoteDestroyed || this._quoteHidden) return
     this.cancelScheduledQuote()
     // 先失效旧金额与在途结果，再等待连续编辑结束，等待期间绝不允许提交。
     const seq = this.invalidateQuote()
     const session = captureSession()
     this._quoteTimer = setTimeout(() => {
       this._quoteTimer = null
-      if (this._quoteDestroyed || seq !== this._quoteRequestSeq) return
+      if (this._quoteDestroyed || this._quoteHidden || seq !== this._quoteRequestSeq) return
       if (!isCurrentSession(session)) {
         this.setData({ quoteLoading: false, quoteError: '登录状态已变化，请重新核实报价' })
         return
@@ -678,11 +728,19 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   async refreshQuote() {
     this.cancelScheduledQuote()
-    if (this._quoteDestroyed) return false
+    if (this._quoteDestroyed || this._quoteHidden) return false
     const { products, selectedMethod, stationId, barrelSummary, address } = this.data
     const seq = this.invalidateQuote()
     const session = captureSession()
-    const current = () => !this._quoteDestroyed && seq === this._quoteRequestSeq && isCurrentSession(session)
+    let contextKey = this._quoteContextKey()
+    const current = () => !this._quoteDestroyed && !this._quoteHidden && seq === this._quoteRequestSeq
+      && isCurrentSession(session) && contextKey === this._quoteContextKey()
+
+    // 2026-10-11：并行商品加载曾把 address=null 报价当最终金额；地址未核实时不发报价、不保留旧金额。
+    if (this.data.addressLoading || this.data.addressLoadError || !address || !address.id) {
+      this.setData({ quoteLoading: false, blockReason: '请先核实配送地址' })
+      return false
+    }
 
     try {
       if (!session.loggedIn || !session.customerId) throw new Error('请先登录后重新报价')
@@ -873,6 +931,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         }
 
         this.setData(updates)
+        contextKey = this._quoteContextKey()
+        this._quotedContext = { key: contextKey, session }
         // "已下单"态跟着这次报价重算：客户改了数量/地址/支付方式 ⇒ 指纹变了 ⇒ 提示行与按钮文案
         // 自动回到常态「立即下单」，**不需要**在每个改内容的入口手动清状态。
         this._syncPendingOrderState()
@@ -966,7 +1026,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     if (this.data.quoteLoading) {
       wx.showToast({ title: '正在核实报价，请稍候', icon: 'none' }); return
     }
-    if (this.data.quoteError || !this.data.quoteReady) {
+    if (this.data.quoteError || !this.data.quoteReady || !this._hasCurrentQuote()) {
       wx.showModal({ title: '报价尚未核实', content: this.data.quoteError || '请先核实最新金额和支付方式，再提交订单。',
         confirmText: '重试报价', cancelText: '留在本页',
         success: result => { if (result.confirm) this.onRetryQuote() } })
@@ -1110,7 +1170,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       content: text + '。与本单水款一起付款，收齐款项后押金生效。' + (busy ? '已有容量正在办理其他订单，可等待释放，或明确再买一份。' : '也可返回，在水桶与押金页单独办理。'),
       confirmText: '一起付款', cancelText: busy ? '等待释放' : '返回修改',
       success: result => {
-        if (!result.confirm || seq !== this._quoteRequestSeq || !isCurrentSession(session) || !this.data.quoteReady || this.data.blocked) return
+        if (!result.confirm || seq !== this._quoteRequestSeq || !isCurrentSession(session) || !this._hasCurrentQuote() || !this.data.quoteReady || this.data.blocked) return
         this.setData({ barrelPurchaseConfirmed: true })
         if (continueSubmission) continueSubmission()
         else this.onSubmit()
@@ -1310,6 +1370,9 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     }
 
     const idempotencyKey = orderIntent.keyFor(this._currentIntent())
+    // 原请求恢复重放既有快照；新请求在最后入口仍须有当前地址的报价，不能只信 quoteReady。
+    const replay = this._originalOrderRequest && this._originalOrderRequest.body.idempotencyKey === idempotencyKey
+    if (!replay && !this._finalSubmissionAllowed()) return
     // 「提交结果未知」是个**要留在页面上**的状态：说明本次响应没带回订单号、可以重试。
     // 只有普通失败（网络异常）才把它归位，否则那条提示会被 finally 冲掉。
     let unknownResult = false
@@ -1350,14 +1413,14 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 2026-10-03：报价失败会清明细，但未知建单重试必须重放原补购快照，不能变成另一请求。
       if (!this._originalOrderRequest || this._originalOrderRequest.body.idempotencyKey !== idempotencyKey) {
         if ((freshRequest.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) { this.confirmBarrelPurchase(); return }
-        this._originalOrderRequest = { body: JSON.parse(JSON.stringify(freshRequest)), session: captureSession() }
+        this._originalOrderRequest = { body: JSON.parse(JSON.stringify(freshRequest)), session: captureSession(), wechatPay: this.data.wechatPay }
       }
       if (!isCurrentSession(this._originalOrderRequest.session)) return
       const request = JSON.parse(JSON.stringify(this._originalOrderRequest.body))
       if (confirmShortage === true) request.confirmShortage = true
       this._originalOrderRequest.body = request
       const navigationProof = { ...this._captureOrderNavigation(null), stationId: request.stationId,
-        session: this._originalOrderRequest.session }
+        session: this._originalOrderRequest.session, paymentMethod: request.paymentMethod, wechatPay: this._originalOrderRequest.wechatPay }
       const orderRes = await createOrder(request)
 
       const data = (orderRes && orderRes.data) || null
@@ -1489,8 +1552,10 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     //
     // 判据来自服务端报价下发的 wechatPay.enabled（唯一实现在 PayMethod.payChannel），
     // 前端**不按 id===1 猜**渠道能力 —— 那等于把渠道开关复制到客户端。
-    const payMethod = this.data.selectedMethod
-    const wechatReady = !!(this.data.wechatPay && this.data.wechatPay.enabled)
+    // 隐藏页会失效报价；已发出的原单仍沿用提交时渠道能力，不能被清展示或下一地址报价改变。
+    const payMethod = navigationProof.paymentMethod || this.data.selectedMethod
+    const wechatPay = navigationProof.paymentMethod ? navigationProof.wechatPay : this.data.wechatPay
+    const wechatReady = !!(wechatPay && wechatPay.enabled)
     if (payMethod === 3 || (payMethod === 1 && wechatReady)) {
       const outcome = await this._paySameOrder(orderId, payMethod)
       // "已下单"态的按钮文案跟着真实结果走：结清了就显示「查看这笔订单」，没结清显示「继续支付」
@@ -1663,7 +1728,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   _finalSubmissionAllowed() {
-    if (!this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
+    if (!this._hasCurrentQuote() || !this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
       wx.showToast({ title: '请先核实最新报价', icon: 'none' }); return false
     }
     if (!this.data.address || !(this.data.products || []).length) {

@@ -113,4 +113,69 @@ class CooperationOperatingReportIntegrationTest extends AbstractIntegrationTest 
         money("5125.00",ac.path("settledPayAmount"));money("1025.00",ac.path("recoveryReceivedAmount"));
         money("0.00",ac.path("pendingPayAmount"));
     }
+
+    @Test
+    void receiverHeldThirtyReturnsFiveToSourceWithoutRepricingAgreement() {
+        seed();long id=paidOrder(b,"25.00");
+        jdbc.update("update orders set water_amount=25,total_amount=30 where id=?",id);
+        jdbc.update("update payment_record set amount=30,water_amount=25 where order_id=?",id);
+        JsonNode ac=report(at).path("cooperation"),bc=report(bt).path("cooperation");
+        money("5.00",ac.path("quoteDifferenceAmount"));money("5.00",ac.path("pendingReceiveAmount"));
+        money("0.00",ac.path("pendingPayAmount"));money("30.00",bc.path("customerReceivedAmount"));
+        money("5.00",bc.path("pendingPayAmount"));money("25.00",bc.path("agreedReceiveAmount"));
+        assertEquals(1,post(LEDGER+"/"+id+"/settle",at,"{}").code());
+        settle(id,bt);
+        ac=report(at).path("cooperation");bc=report(bt).path("cooperation");
+        money("5.00",ac.path("settledReceiveAmount"));money("5.00",ac.path("recordedCashNetAmount"));
+        money("0.00",ac.path("pendingReceiveAmount"));money("0.00",ac.path("customerReceivedAmount"));
+        money("5.00",bc.path("settledPayAmount"));money("25.00",bc.path("recordedCashNetAmount"));
+        assertEquals(b,longOf("select station_id from payment_record where order_id=? and amount>0",id));
+        assertEquals(0,new BigDecimal("25.00").compareTo(jdbc.queryForObject("select service_amount from dispatch_agreement where order_id=?",BigDecimal.class,id)));
+    }
+    @Test
+    void decimalConsumptionExcludesOrderDepositFromReceiptsAndWaterRefund() {
+        seed();long id=paidOrder(a,"25.10");
+        jdbc.update("update orders set water_amount=15.20,delivery_fee=4.10,floor_fee=1.05,deposit_amount=30.60,total_amount=50.95 where id=?",id);
+        jdbc.update("update payment_record set amount=50.95,water_amount=15.20,delivery_fee=4.10,floor_fee=1.05,barrel_deposit=30.60 where order_id=?",id);
+        JsonNode ac=report(at).path("cooperation");
+        money("20.35",ac.path("customerReceivedAmount"));money("-4.75",ac.path("quoteDifferenceAmount"));
+        money("25.10",ac.path("pendingPayAmount"));
+        settle(id,at);refund(id,"WATER");
+        ac=report(at).path("cooperation");JsonNode bc=report(bt).path("cooperation");
+        money("20.35",ac.path("customerReceivedAmount"));money("-4.75",ac.path("recordedCashNetAmount"));
+        money("25.10",ac.path("settledPayAmount"));money("25.10",bc.path("settledReceiveAmount"));
+        money("15.20",bc.path("customerRefundedAmount"));money("9.90",bc.path("recordedCashNetAmount"));
+        money("0.00",ac.path("customerRefundedAmount"));money("0.00",bc.path("customerReceivedAmount"));
+        assertEquals(0,new BigDecimal("30.60").compareTo(jdbc.queryForObject("select barrel_deposit from payment_record where order_id=? and amount>0",BigDecimal.class,id)));
+        assertEquals(0,BigDecimal.ZERO.compareTo(jdbc.queryForObject("select barrel_deposit from payment_record where order_id=? and amount<0",BigDecimal.class,id)));
+        assertEquals(0,new BigDecimal("25.10").compareTo(jdbc.queryForObject("select service_amount from dispatch_agreement where order_id=?",BigDecimal.class,id)));
+    }
+    @Test
+    void laterMonthCashFactsStayInOriginalOrderPeriod() {
+        seed();long id=paidOrder(a,"25.00");
+        java.time.LocalDate current=jdbc.queryForObject("select curdate()",java.time.LocalDate.class);
+        java.time.LocalDate previous=current.withDayOfMonth(1).minusMonths(1),last=previous.plusMonths(1).minusDays(1);
+        java.sql.Timestamp created=java.sql.Timestamp.valueOf(last.atTime(23,59,59));
+        jdbc.update("update orders set create_time=? where id=?",created,id);
+        jdbc.update("update payment_record set create_time=? where order_id=?",created,id);
+        jdbc.update("update dispatch_agreement set create_time=?,accepted_time=? where order_id=?",created,created,id);
+        String prior="/api/manager/gross-profit?from="+previous+"&to="+last;
+        String now="/api/manager/gross-profit?from="+current.withDayOfMonth(1)+"&to="+current.withDayOfMonth(current.lengthOfMonth());
+        money("25.00",get(prior,at).data().path("cooperation").path("pendingPayAmount"));
+        settle(id,at);refund(id,"ALL_CONSUMPTION");
+        assertEquals(0,post("/api/manager/inter-station-recoveries/"+id+"/sent",bt,"{\"note\":\"Synthetic actual five returned\"}").code());
+        assertEquals(0,post("/api/manager/inter-station-recoveries/"+id+"/received",at,"{}").code());
+        assertTrue(jdbc.queryForObject("select settled_time from inter_station_settlement where order_id=?",java.time.LocalDateTime.class,id).toLocalDate().isAfter(last));
+        assertTrue(jdbc.queryForObject("select create_time from payment_record where order_id=? and amount<0",java.time.LocalDateTime.class,id).toLocalDate().isAfter(last));
+        assertTrue(jdbc.queryForObject("select receiver_confirmed_time from inter_station_recovery where order_id=?",java.time.LocalDateTime.class,id).toLocalDate().isAfter(last));
+        JsonNode ac=get(prior,at).data().path("cooperation"),bc=get(prior,bt).data().path("cooperation");
+        money("20.00",ac.path("customerReceivedAmount"));money("25.00",ac.path("settledPayAmount"));
+        money("5.00",ac.path("recoveryReceivedAmount"));money("0.00",ac.path("recordedCashNetAmount"));
+        money("20.00",bc.path("customerRefundedAmount"));money("25.00",bc.path("settledReceiveAmount"));
+        money("5.00",bc.path("recoverySentPayAmount"));money("0.00",bc.path("recordedCashNetAmount"));
+        for(String token:new String[]{at,bt}) {
+            JsonNode outside=get(now,token).data().path("cooperation");
+            for(String field:new String[]{"customerReceivedAmount","customerRefundedAmount","settledPayAmount","settledReceiveAmount","recoverySentPayAmount","recoveryReceivedAmount","pendingPayAmount","pendingReceiveAmount"}) money("0.00",outside.path(field));
+        }
+    }
 }

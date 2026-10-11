@@ -144,6 +144,18 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         return out;
     }
 
+    @Override
+    public Map<String,Object> pendingOfPeriod(Long stationId, LocalDateTime start, LocalDateTime endExclusive) {
+        BigDecimal pay=BigDecimal.ZERO,receive=BigDecimal.ZERO;
+        for (Map<String,Object> live:mapper.listLiveCrossStationOrders(stationId,null,dispatchAgreements.hasSchema(),start,endExclusive)) {
+            if (live.get("settleStatus")!=null && intOf(live.get("settleStatus"))!=SettleStatus.PENDING) continue;
+            Map<String,Object> snapshot=computeSnapshot(live,persistedFrom(live),null);
+            if (Objects.equals(stationId,longOf(snapshot.get("fromStationId")))) pay=pay.add(dec(snapshot.get("amount")));
+            else if (Objects.equals(stationId,longOf(snapshot.get("toStationId")))) receive=receive.add(dec(snapshot.get("amount")));
+        }
+        return Map.of("pendingPayAmount",pay,"pendingReceiveAmount",receive);
+    }
+
     // =====================================================================
     // 写：登记结清 / 改价 / 冲销
     // =====================================================================

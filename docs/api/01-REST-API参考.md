@@ -663,3 +663,10 @@
 | `GET` | `/api/manager/refusal-cases/page` | 站长当前资产站或债权站 | `scope=ACTIVE`或`ALL`；`beforeId`与`orderId`互斥，定位返回LOOKUP；固定50条，不新增写权限。 |
 
 `POST /api/manager/payroll/adjust`须带`idempotencyKey`，站级同键同内容重放原工资条目；改员工、条目、金额或说明拒绝，金额最多两位小数并受现有列精度约束。发布前须装v79，历史清结权限沿用。通用订单列表/详情按当前角色、本人任务和履约站过滤，跨站保留收件快照而抹客户档案；指定退回必须有真实申请，等待期间不越过履约闸门，批准/拒绝核原状态与精确申请。正式协议及资料处理仍关闭。统一验证进行中，不以作者静态检查冒称HTTP/MySQL通过。
+
+
+## 2026-10-11 合作款经营摘要与停业站接入边界
+
+`GET /api/manager/gross-profit`保留原路径、站长权限和销售利润字段；站别只取登录态，`from/to`仍按原订单创建日期（含结束日）筛选。新增`cooperation`：`available`说明结构是否已安装；不可用时只有说明，不编零金额。已安装时分别给出原接受报酬`agreedPayAmount/agreedReceiveAmount`、本站外派原报价差额`quoteDifferenceAmount`、客户消费登记实收/实际退款`customerReceivedAmount/customerRefundedAmount`、待结`pendingPayAmount/pendingReceiveAmount`、历史交款`settledPayAmount/settledReceiveAmount`、返还待交/待收`recoveryPendingPayAmount/recoveryPendingReceiveAmount`、已登记交出/已确认收到`recoverySentPayAmount/recoveryReceivedAmount`及待收方确认`recoveryAwaitingConfirmationAmount`。`recordedCashNetAmount`是这些合作订单截至查询时的登记消费及站间净现金，只加减已登记收退/交款/已确认收到返还；约定、报价差额及待结不参加净现金计算。它不是期间现金发生额或净利润；`rows/scopeNote`供页面原样展示。押金、桶款、买票款、渠道成本和责任分摊不纳入此摘要。冲销不抹原结清时间及历史交款；未收到返还确认不计为收到。
+
+硬停业`station.status!=1`的目标站不能经`dispatch/outsource`两个入口新接定向单，不能`claim-pool`新抢单；外派仍未接受/分配时首次`accept/assign`同样拒绝。原已承担的履约及本站历史单仍按既有流程处理；软营业说明不因此硬阻断。写入前站行锁与停业更新串行，失败保留订单/待收款/库存原状；不改客户原款、旧申请付款或历史清结入口。

@@ -23,6 +23,10 @@ public interface StationMapper {
     @Select("SELECT * FROM station WHERE id = #{id}")
     Station getById(@Param("id") Long id);
 
+    /** 新业务接入与硬停业更新按同一站行串行；只在业务事务内调用。 */
+    @Select("SELECT * FROM station WHERE id = #{id} FOR UPDATE")
+    Station getByIdForUpdate(@Param("id") Long id);
+
     /**
      * 只更新**营业软状态**（营业状态 + 站长留言 + 更新时间）。
      *

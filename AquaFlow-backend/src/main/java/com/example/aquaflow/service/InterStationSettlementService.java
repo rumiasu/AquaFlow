@@ -34,6 +34,9 @@ public interface InterStationSettlementService {
      */
     Map<String, Object> ledgerOf(Long stationId);
 
+    /** 同一原订单期间的待结款，复用逐单冻结报价算法；不含已经交款的历史。 */
+    Map<String, Object> pendingOfPeriod(Long stationId, java.time.LocalDateTime start, java.time.LocalDateTime endExclusive);
+
     /**
      * 本站**未结清**的跨站单数 —— 供站长待办卡（{@code PendingItem.INTER_STATION_UNSETTLED}）当角标。
      *

@@ -37,6 +37,8 @@ import java.util.Map;
 @Slf4j
 public class ManagerGrossProfitController {
 
+    @Autowired private com.example.aquaflow.service.CooperationOperatingReportService cooperationReports;
+
     /**
      * 成本口径提示：前端必须原样展示，不能让站长以为这是"当时的真实利润"。
      *
@@ -315,7 +317,8 @@ public class ManagerGrossProfitController {
         data.put("totalIncome", totalIncome);
         data.put("wage", wage);
         data.put("netProfit", netProfit);
-        data.put("profitBasisNote", PROFIT_BASIS_NOTE);
+        data.put("cooperation", cooperationReports.report(stationId,start.atStartOfDay(),end.plusDays(1).atStartOfDay()));
+        data.put("profitBasisNote", PROFIT_BASIS_NOTE + "此处为销售口径，合作报酬与登记实款另列，不与净利相加。");
         // 长解释：只给页面底部的「利润怎么算」弹窗用，**不要**铺在报表正文里（[2026-09-26] 产品反馈太罗嗦）
         data.put("helpNote", HELP_NOTE);
         return Result.success(data);

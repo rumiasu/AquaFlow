@@ -76,6 +76,9 @@ class DispatchPoolAgreementLifecycleTest {
             when(mapper.outsourceToPoolIf(1L, 1, 1)).thenReturn(1);
             when(mapper.outsourceToStationIf(1L, 9L, 1, 1)).thenReturn(1);
             ReflectionTestUtils.setField(service, "orderMapper", mapper);
+            StationMapper stations=(StationMapper)ReflectionTestUtils.getField(service,"stationMapper");
+            com.example.aquaflow.entity.Station target=new com.example.aquaflow.entity.Station(); target.setId(9L); target.setStatus(1);
+            when(stations.getByIdForUpdate(9L)).thenReturn(target);
             agreements = (DispatchAgreementService) ReflectionTestUtils.getField(service, "dispatchAgreements");
             AuthContext.set(new AuthContext.AuthUser(20L, "staff", "STATION_MANAGER", 8L));
         }

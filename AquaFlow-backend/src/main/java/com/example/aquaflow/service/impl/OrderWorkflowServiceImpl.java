@@ -178,6 +178,21 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
     }
 
+    /** 硬停业不接新合作；休息/暂停配送仍按原软提示，旧履约与清结继续。 */
+    private void requireNewBusinessStation(Long stationId) {
+        Station station=stationMapper.getByIdForUpdate(stationId);
+        if (station==null || !Integer.valueOf(1).equals(station.getStatus()))
+            throw new BusinessException("该水站已停业或不存在，不能接入新的外派订单；已有履约和清结仍由原责任站处理");
+    }
+
+    private void requireIncomingAcceptance(Orders order,Long stationId) {
+        if (java.util.Objects.equals(order.getStationId(),stationId)) return;
+        Map<String,Object> agreement=dispatchAgreements.info(order.getId());
+        boolean accepted=Set.of("ACCEPTED","BARREL_CLOSED").contains(String.valueOf(agreement.get("status")));
+        // 已分配/配送中的历史外派是旧责任；未分配的新接入才查硬停业。
+        if (!accepted && order.getDeliveryStaffId()==null) requireNewBusinessStation(stationId);
+    }
+
     private void checkDeliverySelf(Orders order) {
         Long staffId = AuthContext.getUserId();
         if (order.getDeliveryStaffId() == null || !order.getDeliveryStaffId().equals(staffId)) {
@@ -350,6 +365,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
 
         // 原子接单：仅当 status=1 才更新，返回受影响行数（乐观锁）
+        requireIncomingAcceptance(order,stationId);
         int affected = orderMapper.updateStatusIfPENDING(orderId, OrderStatus.DELIVERING, staffId);
         if (affected == 0) {
             throw new BusinessException("接单失败，订单状态已变更，请刷新后重试");
@@ -1165,6 +1181,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         String r = reason != null ? reason : "外派配送";
 
+        requireNewBusinessStation(targetStationId);
         // [AQ-020] 仅修改 delivery_station_id、清空配送员；归属站保持不变。CAS 于状态。
         int dispatched = orderMapper.dispatchIfStatus(orderId, targetStationId, OrderStatus.PENDING);
         if (dispatched == 0) {
@@ -1206,6 +1223,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                 throw new BusinessException("外派该单前必须先确认风险，本次操作未执行：" + DEPOSIT_BARREL_RISK_TEXT);
             }
             String r = reason != null ? reason : "站长指定水站外派";
+            requireNewBusinessStation(targetStationId);
             int changed = orderMapper.outsourceToStationIf(orderId, targetStationId, OrderStatus.PENDING, cur);
             if (changed == 0) {
                 throw new BusinessException("订单状态已变更，请刷新后重试");
@@ -1331,6 +1349,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         Staff target = requireDelivery(targetStaffId, stationId);
 
         // [AQ-020] 原子 CAS：仅当订单仍在池中（delivery_station_id 为空）且状态=待配送时才算抢到
+        requireNewBusinessStation(stationId);
         int grabbed = orderMapper.claimPoolIfFree(orderId, stationId, targetStaffId,
                 OrderStatus.DELIVERING, OrderStatus.PENDING);
         if (grabbed == 0) {
@@ -1387,6 +1406,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         Staff target = requireDelivery(targetStaffId, stationId);
 
         // status 保持 1（待接单），配送员点"接单"后才变配送中
+        requireIncomingAcceptance(order,stationId);
         int changed = orderMapper.setDeliveryStaffIf(orderId, targetStaffId, OrderStatus.PENDING);
         if (changed == 0) {
             throw new BusinessException("订单状态已变更，请刷新后重试");

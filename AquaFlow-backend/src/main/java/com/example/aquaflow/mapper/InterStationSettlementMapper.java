@@ -76,11 +76,18 @@ public interface InterStationSettlementMapper {
             + "       or coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "       <if test='agreementSchema'>or da.source_station_id=#{stationId}</if>) "
             + "</if>"
+            + "<if test='start != null'> and o.create_time &gt;= #{start} and o.create_time &lt; #{endExclusive} </if>"
             + "order by o.id desc"
             + "</script>")
     List<Map<String, Object>> listLiveCrossStationOrders(@Param("stationId") Long stationId,
                                                          @Param("orderId") Long orderId,
-                                                         @Param("agreementSchema") boolean agreementSchema);
+                                                         @Param("agreementSchema") boolean agreementSchema,
+                                                         @Param("start") java.time.LocalDateTime start,
+                                                         @Param("endExclusive") java.time.LocalDateTime endExclusive);
+
+    default List<Map<String,Object>> listLiveCrossStationOrders(Long stationId, Long orderId, boolean agreementSchema) {
+        return listLiveCrossStationOrders(stationId, orderId, agreementSchema, null, null);
+    }
 
     default List<Map<String,Object>> listLiveCrossStationOrders(Long stationId, Long orderId) {
         return listLiveCrossStationOrders(stationId, orderId, false);

@@ -61,7 +61,7 @@
       · netProfit 为 null = 有商品没填成本 → 显示「未填成本」（profitView 里算好），**绝不能当 0**
     -->
     <view class="card" wx:if="{{report.profitBasisNote}}">
-      <view class="card-title">{{range === 'today' ? '今日收入与净利' : '收入与净利'}}</view>
+      <view class="card-title">{{range === 'today' ? '今日收入与销售净利' : '收入与销售净利'}}</view>
       <view class="ledger-row">
         <text class="ledger-label">单数</text>
         <text class="ledger-value">{{report.orderCount}} 单</text>
@@ -98,7 +98,7 @@
         <text class="ledger-value">¥{{report.wage}}</text>
       </view>
       <view class="ledger-row ledger-strong">
-        <text class="ledger-label">净利</text>
+        <text class="ledger-label">销售净利</text>
         <text class="ledger-value {{profitView.netProfitWarn ? 'ledger-warn' : 'ledger-ok'}}">
           {{profitView.netProfitText}}
         </text>
@@ -110,6 +110,16 @@
         ⚠️ 别把长文搬回这里，也别在前端 js 里抄一份口径。
       -->
       <view class="hint">{{report.profitBasisNote}}</view>
+    </view>
+
+    <!-- 合作款独立于销售净利，所有数字与说明由后端下发。 -->
+    <view class="card" wx:if="{{report.cooperation}}">
+      <view class="card-title">合作款与登记实款</view>
+      <view class="ledger-row" wx:for="{{report.cooperation.rows}}" wx:key="key">
+        <text class="ledger-label">{{item.label}}</text>
+        <text class="ledger-value">¥{{item.amount}}</text>
+      </view>
+      <view class="hint">{{report.cooperation.scopeNote}}</view>
     </view>
 
     <!-- 成本口径：一行版（长解释同上，见「利润怎么算」） -->

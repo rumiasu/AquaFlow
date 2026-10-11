@@ -1,6 +1,8 @@
 const assert = require('assert')
 const Module = require('module')
 const path = require('path')
+const fs = require('fs')
+const { parseWxml, renderElements } = require('./wxml-tree')
 const { loadPage, createWx, createApp, armWatchdog } = require('./harness')
 const reminder = require('../../miniapp-delivery/utils/pending-reminder')
 let passed = 0
@@ -26,7 +28,7 @@ const BUSINESS_PENDING_ITEMS = [
   ['barrelHandover', '净桶交接待确认', 'P1'], ['barrelDispute', '净桶争议待协商', 'P1']
 ].map(([key, label, level]) => ({ key, label, level, count: 0, amount: null }))
 function completeSummary(counts = {}, p0Total = 0) {
-  return { complete: true, p0Total, items: [...LEGACY_PENDING_ITEMS, ...BUSINESS_PENDING_ITEMS].map(it => ({
+  return { complete: true, p0Total, items: [...LEGACY_PENDING_ITEMS, ...BUSINESS_PENDING_ITEMS, { key: 'refundDispute', label: '退款争议待处理', level: 'P1' }].map(it => ({
     ...it, available: true, count: Object.prototype.hasOwnProperty.call(counts, it.key) ? counts[it.key] : 0
   })) }
 }
@@ -90,6 +92,53 @@ function employeeApp(state) {
   return { app, wx, shared, page }
 }
 async function main() {
+  await test('OPEN争议从首页待办和管理角标进入实际争议办理页，P1不点亮红点', async () => {
+    const state = { res: response(completeSummary({ refundDispute: 1 })) }, page = home(state)
+    await page.loadTodo()
+    assert.deepStrictEqual(page.data.todo.items.map(it => it.key), ['refundDispute'])
+    assert.equal(page.data.todo.items[0].level, 'P1'); assert.deepStrictEqual(dotWrites(page), [false])
+    page.onTodoTap({ currentTarget: { dataset: { key: 'refundDispute' } } })
+    const target = '/pages/station-mgmt/customer-feedback/index'
+    assert.equal(page.__wx.__calls.nav.at(-1).url, target)
+    const wx = createWx(), app = createApp({ isStationManager: () => true,
+      globalData: { isLogin: true, userInfo: { staffId: 9, stationId: 1, role: 'STATION_MANAGER' } } })
+    const menu = loadPage('miniapp-delivery/pages/station-mgmt/index.js', { wx, app, stubs: { 'utils/request': { get: async () => response({ ...state.res.data, businessWaitingTotal: 0 }) } } })
+    await menu.loadBadgeCounts(); assert.equal(menu.data.refundDisputeBadgeCount, 1)
+    const menuTree = parseWxml(fs.readFileSync(path.join(__dirname, '../../miniapp-delivery/pages/station-mgmt/index.wxml'), 'utf8'))
+    const rendered = renderElements(menuTree, menu.data, { includeText: true })
+    const entry = rendered.find(n => n.attrs['data-url'] === target)
+    assert(entry); assert.equal(entry.attrs.bindtap, 'onNavigate')
+    assert(rendered.some(n => n.className === 'entry-badge' && n.text === '1'))
+    assert(rendered.some(n => n.text.includes('退款争议待处理')))
+    assert(!rendered.some(n => n.text.includes('顾客报上来的问题（只读）')))
+    menu.onNavigate({ currentTarget: { dataset: { url: entry.attrs['data-url'] } } })
+    assert.equal(wx.__calls.nav.at(-1).url, target)
+    const ref = { refundType: 'BARREL_RETURN', refundId: 12 }, row = { ...ref, status: 'OPEN', canClose: true, version: 3, statusText: '水站处理中' }
+    const landing = loadPage('miniapp-delivery' + target + '.js', { wx, app, stubs: { 'api/feedback': {
+      getRefundDisputes: async () => response([row]), getRefundNotes: async () => response({ ...ref, dispute: { ...row, actions: [] } })
+    } } })
+    landing.onLoad(); landing._noteEpoch = 1
+    await landing.loadDisputes(); await landing.onOpenDispute({ currentTarget: { dataset: { type: ref.refundType, id: ref.refundId } } })
+    const landingTree = parseWxml(fs.readFileSync(path.join(__dirname, '../../miniapp-delivery' + target + '.wxml'), 'utf8'))
+    assert.equal(renderElements(landingTree, landing.data).filter(n => n.attrs.bindtap === 'onCloseDispute').length, 1)
+    state.res = response(completeSummary()); await page.loadTodo()
+    assert.deepStrictEqual(page.data.todo.items, [], 'CLOSED移出首页待办')
+  })
+  await test('争议缺键或读取失败保留首页旧数，管理角标未知，重试零才移除', async () => {
+    const state = { res: response(completeSummary({ refundDispute: 2 })) }, page = home(state)
+    await page.loadTodo(); const old = page.data.todo
+    state.res.data.items = state.res.data.items.filter(it => it.key !== 'refundDispute')
+    await page.loadTodo(); assert.strictEqual(page.data.todo, old); assert.match(page.data.todoError, /未.*核对/)
+    const wx = createWx(), app = createApp({ isStationManager: () => true, globalData: { isLogin: true, userInfo: { staffId: 9, stationId: 1, role: 'STATION_MANAGER' } } })
+    const menu = loadPage('miniapp-delivery/pages/station-mgmt/index.js', { wx, app, stubs: { 'utils/request': { get: async () => response({ ...state.res.data, businessWaitingTotal: 0 }) } } })
+    await menu.loadBadgeCounts(); assert.strictEqual(menu.data.refundDisputeBadgeCount, null); assert(menu.data.badgeError)
+    const tree = parseWxml(fs.readFileSync(path.join(__dirname, '../../miniapp-delivery/pages/station-mgmt/index.wxml'), 'utf8'))
+    assert(renderElements(tree, menu.data, { includeText: true }).some(n => n.className === 'entry-unknown' && n.text === '未核对'))
+    state.fail = true; await page.loadTodo(); assert.strictEqual(page.data.todo, old)
+    state.fail = false; state.res = response(completeSummary()); await page.onRetryTodo(); await menu.loadBadgeCounts()
+    assert.equal(menu.data.refundDisputeBadgeCount, 0); assert.equal(menu.data.badgeError, '')
+    assert.deepStrictEqual(page.data.todo.items, [])
+  })
   const incomplete = completeSummary(); incomplete.complete = false
   Object.assign(incomplete.items.find(it => it.key === 'returnRefund'), { available: false, count: null })
   for (const [name, bad] of [

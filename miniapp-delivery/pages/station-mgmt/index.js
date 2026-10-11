@@ -18,10 +18,11 @@ const navigation = require('../../utils/navigation')
 
 Page({
   data: {
-    // [2026-10-06] 关键入口待办角标：应收账款 / 业务待办与退出 / 退桶审批
+    // [2026-10-06] 关键入口待办角标：应收账款 / 业务待办与退出 / 退桶审批 / 退款争议
     receivablesBadgeCount: null,
     businessWaitingBadgeCount: null,
     barrelReturnBadgeCount: null,
+    refundDisputeBadgeCount: null,
     badgeLoading: false,
     badgeError: ''
   },
@@ -44,13 +45,13 @@ Page({
 
   /**
    * 加载关键入口的待办数量（角标）。
-   * 静默失败是有意的：角标取不到就不显示，不阻断页面渲染。
+   * 读取失败显示未核对与重试，不能把未知伪装成零。
    * 复用已有 API，不新增接口。
    */
   async loadBadgeCounts() {
     const seq = this._badgeSeq = (this._badgeSeq || 0) + 1
     this.setData({ badgeLoading: true, badgeError: '', receivablesBadgeCount: null,
-      businessWaitingBadgeCount: null, barrelReturnBadgeCount: null })
+      businessWaitingBadgeCount: null, barrelReturnBadgeCount: null, refundDisputeBadgeCount: null })
     try {
       // 2026-10-06：收款流水、退款对象和 INFO 留痕曾被误作三类待办；只认分类汇总。
       const res = await get(API.MANAGER_PENDING_SUMMARY)
@@ -61,12 +62,12 @@ Page({
         const rows = items.filter(it => it.key === key)
         return rows.length === 1 && rows[0].available === true ? validCount(rows[0].count) : null
       }
-      const receivables = countOf('overdueReceivable'), returns = countOf('barrelReturn')
+      const receivables = countOf('overdueReceivable'), returns = countOf('barrelReturn'), disputes = countOf('refundDispute')
       const business = validCount(data.businessWaitingTotal)
       this.setData({
         receivablesBadgeCount: receivables, businessWaitingBadgeCount: business,
-        barrelReturnBadgeCount: returns,
-        badgeError: [receivables, business, returns].includes(null) ? '部分待办数量未核对，点击重试' : ''
+        barrelReturnBadgeCount: returns, refundDisputeBadgeCount: disputes,
+        badgeError: [receivables, business, returns, disputes].includes(null) ? '部分待办数量未核对，点击重试' : ''
       })
     } catch (e) {
       if (seq === this._badgeSeq) this.setData({ badgeError: '待办数量未核对，点击重试' })

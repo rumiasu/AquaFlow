@@ -20,6 +20,9 @@ public interface RefundDisputeMapper {
     Map<String,Object> action(@Param("actor") String actor,@Param("type") String type,@Param("id") Long id,@Param("key") String key);
     @Select("select id,refund_type as refundType,refund_id as refundId,action,reason,operator_id as operatorId,from_version as fromVersion,to_version as toVersion,create_time as createTime from refund_dispute_action where refund_type=#{type} and refund_id=#{id} and customer_id=#{customer} and responsible_station_id=#{station} order by id")
     List<Map<String,Object>> actions(@Param("type") String type,@Param("id") Long id,@Param("customer") Long customer,@Param("station") Long station);
+    /** 与持久争议清单同一责任站；基础退款完成不代表争议结案，不能扫描分页结果计数。 */
+    @Select("select count(*) from refund_dispute where responsible_station_id=#{station} and status='OPEN'")
+    Integer countOpen(@Param("station") Long station);
     @Select("<script>select refund_type as refundType,refund_id as refundId,customer_id as customerId,responsible_station_id as responsibleStationId,status,version,last_result as lastResult,update_time as updateTime from refund_dispute where <choose><when test='customer != null'>customer_id=#{customer}</when><otherwise>responsible_station_id=#{station}</otherwise></choose> order by case when status='OPEN' then 0 else 1 end,update_time desc,refund_type,refund_id desc limit #{offset},200</script>")
     List<Map<String,Object>> list(@Param("customer") Long customer,@Param("station") Long station,@Param("offset") int offset);
 }

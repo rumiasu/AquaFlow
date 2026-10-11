@@ -222,7 +222,7 @@ Page({
    */
   TODO_KEYS: [
     'overdueReceivable', 'pendingPayment', 'staffBinding', 'enterpriseApply',
-    'draftPayroll', 'costNotFilled', 'barrelException', 'operationAlert',
+    'refundDispute', 'draftPayroll', 'costNotFilled', 'barrelException', 'operationAlert',
     // [2026-09-28] 站间未结清（v67）：落点是「水站管理 → 收款与工资 → 站间结算」。
     // ⚠️ 它与上面被剔除的那 7 项**不是一回事**：那些各自有页签角标，在这里再报一遍是重复；
     //    这一笔**别处看不到**（站间结算页没有角标），不在这里报，站长就不知道有笔钱挂在那儿。
@@ -238,6 +238,7 @@ Page({
     ...BUSINESS_PENDING_ROUTES,
     overdueReceivable: '/pages/station-mgmt/receivables/index?overdue=1',
     pendingPayment: '/pages/station-mgmt/payments/index',
+    refundDispute: '/pages/station-mgmt/customer-feedback/index',
     // [2026-09-27 走查 M03 修] 带 `?tab=apply` 直达「绑定申请」页签。
     // 原来只传页面路径 ⇒ 落在员工名单（staff/index.js 默认 activeTab='staff'），
     // 站长点"有 N 条绑定申请"却看不到那 N 条，还得自己找页签切过去。

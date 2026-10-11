@@ -126,6 +126,34 @@ class ExceptionCloseoutIntegrationTest extends AbstractIntegrationTest {
         jdbc.update("update station set status=2 where id=?",b);
         assertEquals(0,dispute(mb,true,"stopped",1,"停业仍处理原责任").code());assertEquals(before,facts());
     }
+    @Test void pendingDisputesUseSettlementResponsibilityAndFullCountBeyondPage() {
+        seed();
+        assertEquals(0,dispute(owner,false,"pending-scope",0,"核对原款").code());
+        assertEquals(1,pendingDisputes(mb)); assertEquals(0,pendingDisputes(ma)); assertEquals(0,pendingDisputes(mc));
+        Api forged=get("/api/manager/pending-summary?stationId="+b,ma);
+        assertEquals(0,forged.code(),forged.toString());
+        assertEquals(0,refundItem(forged).path("count").asInt());
+        // 201笔无订单票款的合成争议：计数不能被持久清单每页200条限制。
+        for(int i=0;i<201;i++) {
+            jdbc.update("insert into payment_record(customer_id,station_id,amount,payment_method,status,ticket_qty,create_time) values(?,?,20,2,2,1,now())",customer,b);
+            long id=longOf("select max(id) from payment_record");
+            jdbc.update("insert into refund_dispute(refund_type,refund_id,customer_id,responsible_station_id,status,version,update_time) values('TICKET_PAYMENT',?,?,?,'OPEN',1,now())",id,customer,b);
+        }
+        assertEquals(202,pendingDisputes(mb)); assertEquals(0,pendingDisputes(ma));
+        assertEquals(200,get("/api/feedback/refund-disputes",mb).data().size());
+        assertEquals(0,dispute(mb,true,"pending-close",1,"原款已核实").code());
+        assertEquals(201,pendingDisputes(mb));
+    }
+    private com.fasterxml.jackson.databind.JsonNode refundItem(Api summary) {
+        for(var row:summary.data().path("items")) if("refundDispute".equals(row.path("key").asText())) return row;
+        fail("missing refundDispute"); return null;
+    }
+    private int pendingDisputes(String token) {
+        Api summary=get("/api/manager/pending-summary",token); assertEquals(0,summary.code(),summary.toString());
+        var row=refundItem(summary); assertTrue(row.path("available").asBoolean());
+        assertEquals("P1",row.path("level").asText()); return row.path("count").asInt();
+    }
+
     @Test void refundSameKeyRaceAndCompetingCloseHaveOneEffectiveTransition() throws Exception {
         seed();var before=facts();
         for(var result:race(()->dispute(owner,false,"race",0,"相同异议"),()->dispute(owner,false,"race",0,"相同异议")))assertEquals(0,result.code(),result.toString());

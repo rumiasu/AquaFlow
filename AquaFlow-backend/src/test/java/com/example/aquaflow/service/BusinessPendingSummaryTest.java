@@ -85,6 +85,11 @@ class BusinessPendingSummaryTest {
         verify(returns).detail(7L);
     }
 
+    private RefundDisputeMapper emptyDisputes() {
+        var disputes = mock(RefundDisputeMapper.class);
+        when(disputes.countOpen(anyLong())).thenReturn(0);
+        return disputes;
+    }
     private ManagerPendingSummaryController controller() {
         var c = new ManagerPendingSummaryController();
         ReflectionTestUtils.setField(c, "businessWaitingService", service);
@@ -99,6 +104,8 @@ class BusinessPendingSummaryTest {
         ReflectionTestUtils.setField(c, "alertLogMapper", mock(AlertLogMapper.class));
         ReflectionTestUtils.setField(c, "grossProfitMapper", mock(GrossProfitMapper.class));
         ReflectionTestUtils.setField(c, "interStationSettlementService", mock(InterStationSettlementService.class));
+        ReflectionTestUtils.setField(c, "refundDisputeService", new RefundDisputeService(emptyDisputes(),
+                mock(RefundFeedbackService.class), mock(PaymentRecordMapper.class), mock(ConsumptionRefundMapper.class)));
         var exceptions = mock(OrderBarrelExceptionService.class);
         when(exceptions.listExceptions(anyLong(), any())).thenReturn(new OrderBarrelExceptionService.Page<>(List.of(), 0, 1, 1));
         ReflectionTestUtils.setField(c, "orderBarrelExceptionService", exceptions);
@@ -133,6 +140,21 @@ class BusinessPendingSummaryTest {
         assertNull(data.get("businessWaitingTotal"), "unavailable schema must not become a zero badge");
         assertNull(item(data,"returnRefund").get("count"));
         assertEquals(false, item(data,"returnRefund").get("available"));
+    }
+
+    @Test void refundDisputeReadFailureAndMissingProjectionNeverBecomeZero() {
+        AuthContext.set(new AuthContext.AuthUser(9L, "staff", "STATION_MANAGER", 1L));
+        var disputes = mock(RefundDisputeMapper.class);
+        var read = new RefundDisputeService(disputes, mock(RefundFeedbackService.class),
+                mock(PaymentRecordMapper.class), mock(ConsumptionRefundMapper.class));
+        var c = controller(); ReflectionTestUtils.setField(c, "refundDisputeService", read);
+        when(disputes.countOpen(1L)).thenThrow(new DataAccessResourceFailureException("synthetic unavailable"));
+        assertThrows(DataAccessResourceFailureException.class, c::summary);
+        doReturn(null).when(disputes).countOpen(1L);
+        assertThrows(BusinessException.class, c::summary);
+        doReturn(0).when(disputes).countOpen(1L);
+        assertEquals(0, item(c.summary().getData(), "refundDispute").get("count"));
+        verify(disputes, never()).list(any(), any(), anyInt());
     }
 
     @Test void actualRoleAspectRejectsCustomerDeliveryAndUnselectedForReadAndSummary() {

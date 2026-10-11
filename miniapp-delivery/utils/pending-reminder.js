@@ -34,7 +34,7 @@ const BUSINESS_PENDING_ROUTES = {
 /**
  * [2026-10-02 F-76/B1/B2] 旧目录缺键或 unknown 不能代表没有待办。
  * 首页和应用红点共用此校验；原共享入口只看 p0Total，启动时会把旧红点清掉。
- * 必须完整核对协议及本批六键后才替换已知结果，不为缺项补零。
+ * 必须完整核对协议、六类业务责任和退款争议后才替换已知结果，不为缺项补零。
  */
 function isPendingSummaryComplete(data) {
   if (!data || !Array.isArray(data.items) || data.complete !== true ||
@@ -49,7 +49,7 @@ function isPendingSummaryComplete(data) {
     keys.add(it.key)
     return true
   })
-  return verified && Object.keys(BUSINESS_PENDING_ROUTES).every(key => keys.has(key))
+  return verified && [...Object.keys(BUSINESS_PENDING_ROUTES), 'refundDispute'].every(key => keys.has(key))
 }
 
 /** 站长只读定位原申请；不从最多 500 条的历史列表里猜“申请不存在”。 */

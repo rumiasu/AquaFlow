@@ -100,6 +100,8 @@ public enum PendingItem {
     INTER_STATION_UNSETTLED("interStationUnsettled", "站间未结清", Level.P1),
     /** 收桶不是已退款；含未超提醒时间的 RECEIVED，现有期限只用于提示。 */
     RETURN_REFUND("returnRefund", "已收桶待退款", Level.P1),
+    /** 持久争议清单中本站负责的 OPEN 项；客户重提后重新出现，与基础退款状态分别处理。 */
+    REFUND_DISPUTE("refundDispute", "退款争议待处理", Level.P1),
     /** 已付冲销款按当前可办理责任分两项，不重复计对方的动作。 */
     RECOVERY_SEND("recoverySend", "返还款待交付", Level.P1),
     RECOVERY_RECEIVE("recoveryReceive", "返还款待确认", Level.P1),

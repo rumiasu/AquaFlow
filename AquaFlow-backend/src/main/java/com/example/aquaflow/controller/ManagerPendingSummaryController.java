@@ -67,9 +67,6 @@ public class ManagerPendingSummaryController {
     /** 桶异常里「配送员已录入、等站长处置」的状态（与 {@link ManagerTodoController} 同一字面量约定）。 */
     private static final String EXCEPTION_PENDING = "STAFF_RECORDED";
 
-    /** 桶流水一次最多读多少条用于计数（见 {@link #countPendingBarrelReturn}）。 */
-    private static final int BARREL_SCAN_LIMIT = 500;
-
     /** 「运营告警」与运营页一致：最多看最近 200 条（{@code ManagerAlertController} 的上限）。 */
     private static final int ALERT_SCAN_LIMIT = 200;
 
@@ -126,6 +123,9 @@ public class ManagerPendingSummaryController {
     @Autowired
     private BusinessWaitingService businessWaitingService;
 
+    @Autowired
+    private com.example.aquaflow.service.RefundDisputeService refundDisputeService;
+
     /** 站长待办穿透到本站原退桶申请；顾客端不可调，写操作仍走原审批/退款流程。 */
     @GetMapping("/return-record/{recordId}")
     public Result<com.example.aquaflow.entity.BarrelRecord> returnRecord(@PathVariable Long recordId) {
@@ -173,11 +173,12 @@ public class ManagerPendingSummaryController {
                 case CUSTOMER_CANCEL -> orderMapper.listPendingCustomerCancelRequests(stationId).size();
                 // 他站定向外派：与「他站外派」页签同一个方法
                 case DIRECTED_INCOMING -> orderMapper.listDirectedIncoming(stationId).size();
-                // 待审退桶：barrel_record.status = 1 是"客户已提交、等站长确认收桶"
+                // 待审退桶沿用 type=2/status=1；不依赖新模型状态或提醒时限。
                 case BARREL_RETURN -> countPendingBarrelReturn(stationId);
 
                 // —— P1 ——
                 // 待确认收款：与「待确认收款」页同一个 mapper 方法（含线上购票的无订单流水）
+                case REFUND_DISPUTE -> refundDisputeService.pendingCount(stationId);
                 case PENDING_PAYMENT -> paymentRecordMapper.listPendingByStation(stationId, 200).size();
                 case OVERDUE_RECEIVABLE -> {
                     amount = decOf(ar.get("overdueAmount"));
@@ -258,21 +259,9 @@ public class ManagerPendingSummaryController {
         return out;
     }
 
-    /**
-     * 「客户已提交、等站长确认收桶」的条数。
-     *
-     * <p>桶台账没有现成的"按状态计数"方法，这里用已有的 list 方法过滤 —— <b>不新写 SQL</b>。
-     * 扫描上限 {@link #BARREL_SCAN_LIMIT}：退桶是低频动作，同时挂着 500 条待审在真实经营里
-     * 不可能出现；真到了那个量级，该修的是"没人处理"这件事本身，不是计数。</p>
-     */
+    /** 2026-10-11：列表先截断再过滤会漏掉老申请；按本站 type=2/status=1 全量 COUNT。 */
     private int countPendingBarrelReturn(Long stationId) {
-        // ⚠️ status 是「退桶申请状态」，只对 type=2（退桶）有意义 —— 必须连 type 一起过滤。
-        // 人工调整(type=6) 等类型也会写 status=1，只按 status 过滤会让这条待办**永久挂着**
-        // 一笔"待审退桶"（实测：一条 type=6 记录让该计数从 2 降到 1 后再也降不下去）。
-        return (int) barrelRecordMapper.listByStationId(stationId, BARREL_SCAN_LIMIT).stream()
-                .filter(r -> r.getType() != null && r.getType() == 2)
-                .filter(r -> r.getStatus() != null && r.getStatus() == 1)
-                .count();
+        return barrelRecordMapper.countPendingReturns(stationId);
     }
 
     private static Map<String, Object> item(String level, String key, String label,

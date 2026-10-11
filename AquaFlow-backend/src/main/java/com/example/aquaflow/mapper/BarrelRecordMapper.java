@@ -126,6 +126,10 @@ public interface BarrelRecordMapper {
                                            @Param("customerId") Long customerId,
                                            @Param("stationId") Long stationId);
 
+    /** 2026-10-11：最近500条普通流水曾挤掉老待审申请；待办须按原定义全量计数，不能扩大扫描页长。 */
+    @Select("select count(*) from barrel_record where station_id=#{stationId} and type=2 and status=1")
+    int countPendingReturns(@Param("stationId") Long stationId);
+
     @Select("select * from barrel_record where station_id = #{stationId} order by create_time desc limit #{limit}")
     List<BarrelRecord> listByStationId(@Param("stationId") Long stationId, @Param("limit") int limit);
 }

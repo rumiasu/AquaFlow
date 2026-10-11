@@ -605,6 +605,7 @@
 - `/api/customers/{id}/assets` 同样下发本站 `adjustmentEligible`，用于预选客户再次核对；未取得明确 true 时新建页不允许试算或提交。
 - `/api/manager/adjustments` 的本站单据补 `customerName`、`customerPhone`，不改变单据站别权限。
 - `/api/manager/pending-summary` 新增 `businessWaitingTotal`，为六类业务责任数量之和（事项数，不是去重订单数）；任何分类不可用时为 null。管理菜单应收角标使用 `overdueReceivable`（逾期客户数），退桶角标使用 `barrelReturn`，未知显示“未核对”。
+- 2026-10-11：`barrelReturn` 按登录站 `barrel_record.type=2/status=1` 全量 COUNT，保持原待审定义；新增 `refundDispute`（“退款争议待处理”，默认 P1），按 `refund_dispute.responsible_station_id=登录站 AND status=OPEN` 全量 COUNT。基础退款已完成仍可有 OPEN 争议，CLOSED 不计，重提 OPEN 再计；与 `/api/feedback/refund-disputes` 的持久责任清单同源。该项独立于原六类 `businessWaitingTotal`，首页待办和客户反馈入口角标消费；查询失败或缺失计数不返回成功零值。
 - 异常列表 `/api/manager/exceptions` 的待处理筛选使用 `status=STAFF_RECORDED`，与首页待办同源，并继续用 `page/size` 翻页；近30天统计独立于历史列表筛选。
 
 站长历史页的现行查询范围：

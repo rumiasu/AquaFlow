@@ -43,7 +43,7 @@ class ManagerPendingSummaryIntegrationTest extends AbstractIntegrationTest {
                     "stationCancel", "directedIncoming", "barrelReturn"),
             "P1", List.of("pendingPayment", "overdueReceivable", "staffBinding", "enterpriseApply",
                     "draftPayroll", "interStationUnsettled", "returnRefund", "recoverySend",
-                    "recoveryReceive", "barrelHandover", "barrelDispute"),
+                    "recoveryReceive", "barrelHandover", "barrelDispute", "refundDispute"),
             "P2", List.of("poolClaimable", "costNotFilled", "barrelException", "operationAlert"));
 
     @Autowired

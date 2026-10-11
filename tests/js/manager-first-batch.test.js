@@ -99,11 +99,12 @@ const timer = setTimeout(() => { console.error('suite did not complete'); proces
     assert.equal(page.data.customerSearchLoading, false)
   })
   await test('menu counts use pending summary categories and backend business total', async () => {
-    const page = loadPage('miniapp-delivery/pages/station-mgmt/index.js', { wx: createWx(), app: manager(), stubs: { 'utils/request': { get: async () => ({ data: { businessWaitingTotal: 7, items: [{ key: 'overdueReceivable', available: true, count: 2 }, { key: 'barrelReturn', available: true, count: 0 }] } }) } } })
+    const page = loadPage('miniapp-delivery/pages/station-mgmt/index.js', { wx: createWx(), app: manager(), stubs: { 'utils/request': { get: async () => ({ data: { businessWaitingTotal: 7, items: [{ key: 'overdueReceivable', available: true, count: 2 }, { key: 'barrelReturn', available: true, count: 0 }, { key: 'refundDispute', available: true, count: 1 }] } }) } } })
     await page.loadBadgeCounts()
     assert.equal(page.data.receivablesBadgeCount, 2)
     assert.equal(page.data.businessWaitingBadgeCount, 7)
     assert.equal(page.data.barrelReturnBadgeCount, 0)
+    assert.equal(page.data.refundDisputeBadgeCount, 1)
   })
   await test('failed or incomplete counts remain unknown rather than zero', async () => {
     const page = loadPage('miniapp-delivery/pages/station-mgmt/index.js', { wx: createWx(), app: manager(), stubs: { 'utils/request': { get: async () => { throw new Error('断网') } } } })
@@ -112,6 +113,7 @@ const timer = setTimeout(() => { console.error('suite did not complete'); proces
     assert.equal(page.data.receivablesBadgeCount, null)
     assert.equal(page.data.businessWaitingBadgeCount, null)
     assert.equal(page.data.barrelReturnBadgeCount, null)
+    assert.equal(page.data.refundDisputeBadgeCount, null)
     assert.ok(page.data.badgeError)
   })
   await test('server pending filter reaches an old pending exception beyond first fifty', async () => {
@@ -141,7 +143,7 @@ const timer = setTimeout(() => { console.error('suite did not complete'); proces
     assert.equal(page.data.items.length, 2)
   })
   await test('partial menu summaries expose missing categories as unknown', async () => {
-    const page = loadPage('miniapp-delivery/pages/station-mgmt/index.js', { wx: createWx(), app: manager(), stubs: { 'utils/request': { get: async () => ({ data: { items: [{ key: 'barrelReturn', available: true, count: 0 }] } }) } } })
+    const page = loadPage('miniapp-delivery/pages/station-mgmt/index.js', { wx: createWx(), app: manager(), stubs: { 'utils/request': { get: async () => ({ data: { items: [{ key: 'barrelReturn', available: true, count: 0 }, { key: 'refundDispute', available: true, count: 1 }] } }) } } })
     await page.loadBadgeCounts()
     assert.equal(page.data.barrelReturnBadgeCount, 0)
     assert.equal(page.data.receivablesBadgeCount, null)

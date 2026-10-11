@@ -25,6 +25,14 @@ public class RefundDisputeService {
         out.put("canClose","OPEN".equals(status));out.put("actions",ExceptionActionEvidence.history(history));
         return out;
     }
+    /** 2026-10-11：已退款后仍可重提争议，旧待办只看基础申请会漏报；复用持久清单责任站及 OPEN 状态。 */
+    public int pendingCount(Long station) {
+        if (station == null) throw new BusinessException("当前账号未绑定水站");
+        Integer count = mapper.countOpen(station);
+        if (count == null || count < 0) throw new BusinessException("退款争议待办未能核对，请刷新重试");
+        return count;
+    }
+
     public List<Map<String,Object>> list(int page) {
         if(page<1 || page>1_000_000)throw new BusinessException("争议记录页码无效");
         Long customer=null,station=null;

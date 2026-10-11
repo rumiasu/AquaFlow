@@ -62,6 +62,55 @@ class BusinessPendingSummaryIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0,put("/api/barrels/records/"+id+"/status",at,"{\"status\":3,\"refundChannel\":\"CASH\"}").code());
         assertEquals(0,item(at,"returnRefund").path("count").asInt());assertEquals(0,waiting(at).data().path("returns").size());
         assertEquals("REFUNDED",get(path,at).data().path("returnDetail").path("status").asText());
+        var refundedFacts=jdbc.queryForList("select * from barrel_record where id=?",id);
+        var paymentFacts=jdbc.queryForList("select * from payment_record");
+        var assetFacts=jdbc.queryForList("select * from customer_barrel_lot");
+        String body="{\"refundType\":\"BARREL_RETURN\",\"refundId\":"+id+",\"idempotencyKey\":\"post-refund-open\",\"expectedVersion\":0,\"reason\":\"退还结果仍有疑问\"}";
+        assertEquals(0,post("/api/feedback/refund-disputes/open",cus,body).code());
+        assertEquals(1,item(at,"refundDispute").path("count").asInt());
+        assertEquals("P1",item(at,"refundDispute").path("level").asText());
+        assertEquals(0,item(bt,"refundDispute").path("count").asInt());
+        assertEquals(0,item(at,"barrelReturn").path("count").asInt());
+        assertEquals(0,item(at,"returnRefund").path("count").asInt());
+        assertEquals(0,get("/api/manager/pending-summary",at).data().path("p0Total").asInt());
+        assertEquals(id,get("/api/feedback/refund-disputes",at).data().get(0).path("refundId").asLong());
+        String close=body.replace("post-refund-open","post-refund-close").replace("\"expectedVersion\":0","\"expectedVersion\":1");
+        assertEquals(1,post("/api/feedback/refund-disputes/close",bt,close).code());
+        assertEquals(0,post("/api/feedback/refund-disputes/close",at,close).code());
+        assertEquals(0,item(at,"refundDispute").path("count").asInt());
+        String reopen=body.replace("post-refund-open","post-refund-reopen").replace("\"expectedVersion\":0","\"expectedVersion\":2");
+        assertEquals(0,post("/api/feedback/refund-disputes/open",cus,reopen).code());
+        assertEquals(1,item(at,"refundDispute").path("count").asInt());
+        assertEquals(0,item(bt,"refundDispute").path("count").asInt());
+        assertEquals(refundedFacts,jdbc.queryForList("select * from barrel_record where id=?",id));
+        assertEquals(paymentFacts,jdbc.queryForList("select * from payment_record"));
+        assertEquals(assetFacts,jdbc.queryForList("select * from customer_barrel_lot"));
+    }
+
+    @Test void oldAppliedReturnRemainsPendingBehindFiveHundredNewOrdinaryRecords() {
+        seed();
+        Api purchase=post("/api/barrel-rights/purchase",cus,"{\"stationId\":"+a+",\"productId\":"+product+",\"quantity\":1,\"paymentMethod\":2,\"idempotencyKey\":\"old-pending-right\"}");
+        assertEquals(0,purchase.code(),purchase.toString());
+        assertEquals(0,put("/api/payments/"+purchase.data().path("paymentId").asLong()+"/confirm",at,null).code());
+        Api request=post("/api/barrels/return",cus,"{\"stationId\":"+a+",\"productId\":"+product+",\"quantity\":1,\"pickupMode\":\"STORE\",\"idempotencyKey\":\"old-pending-return\"}");
+        assertEquals(0,request.code(),request.toString()); long id=request.data().path("recordId").asLong();
+        jdbc.update("update barrel_record set create_time=date_sub(now(),interval 3 hour) where id=?",id);
+        for(int i=0;i<500;i++) jdbc.update("insert into barrel_record(customer_id,station_id,product_id,type,quantity,status,create_time) values(?,?,?,6,1,1,now())",customer,a,product);
+        assertEquals("APPLIED",jdbc.queryForObject("select status from barrel_return_detail where record_id=?",String.class,id));
+        Api active=get("/api/manager/business-waiting/returns?scope=ACTIVE",at);
+        assertEquals(0,active.code(),active.toString());
+        assertEquals(id,active.data().path("items").get(0).path("id").asLong(),"active original application remains reachable");
+        assertEquals(0,waiting(at).data().path("counts").path("returnRefund").asInt());
+        Api summary=get("/api/manager/pending-summary",at); assertEquals(0,summary.code(),summary.toString());
+        assertEquals(0,summary.data().path("businessWaitingTotal").asInt());
+        assertEquals(1,item(at,"barrelReturn").path("count").asInt(),"ordinary newer records must not hide an old pending application");
+        assertEquals(1,summary.data().path("p0Total").asInt());
+        assertEquals(0,item(bt,"barrelReturn").path("count").asInt());
+        // 同站其他退桶状态和他站待审都不计；保留 type=2/status=1 的原定义。
+        for(int status:new int[]{2,3,4}) jdbc.update("insert into barrel_record(customer_id,station_id,product_id,type,quantity,status,create_time) values(?,?,?,2,1,?,now())",customer,a,product,status);
+        jdbc.update("insert into barrel_record(customer_id,station_id,product_id,type,quantity,status,create_time) values(?,?,?,2,1,1,now())",customer,b,product);
+        assertEquals(1,item(at,"barrelReturn").path("count").asInt());
+        assertEquals(1,item(bt,"barrelReturn").path("count").asInt());
     }
 
     @Test void stockBelongsToDeliveryStationAndInboundEliminatesShortage() {

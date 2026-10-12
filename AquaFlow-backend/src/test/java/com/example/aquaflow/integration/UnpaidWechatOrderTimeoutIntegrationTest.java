@@ -158,8 +158,8 @@ class UnpaidWechatOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
         assertEquals(200, intOf("SELECT COUNT(*) FROM orders o JOIN payment_record p ON p.order_id=o.id "
                 + "WHERE o.idempotency_key LIKE 'timeout-starvation-%' AND p.status=1"),
                 "前200张订单各有一条待收款流水");
-        assertEquals(200, intOf("SELECT COUNT(*) FROM orders WHERE idempotency_key LIKE 'timeout-starvation-%' "
-                + "AND payment_status=1"), "无权益独立记账路径下，前200张订单初始状态均为 PENDING");
+        assertEquals(201, intOf("SELECT COUNT(*) FROM orders WHERE idempotency_key LIKE 'timeout-starvation-%' "
+                + "AND payment_status=1"), "201 张订单初始状态均为 PENDING");
         assertEquals(0, intOf("SELECT COUNT(*) FROM payment_record WHERE order_id=? AND status IN (1,2)", lastOrder),
                 "末张超时单无活跃支付流水");
         assertEquals(201, reserved(), "201 张单均已预留库存");

@@ -68,9 +68,12 @@ const getBaseUrl = () => {
     if (!trialUrl || trialUrl.includes('your-domain.com')) {
       throw new Error('体验版 API 未配置：请在 miniapp-delivery/config/api.js 填写专用 HTTPS 测试地址。')
     }
-    if (!/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?(?:\/.*)?$/i.test(trialUrl)
-      || trialUrl === API_CONFIG.prod.baseUrl
-      || trialUrl === API_CONFIG.dev.baseUrl) {
+    const trialHost = (trialUrl.match(/^https:\/\/([A-Za-z0-9.-]+)(?::\d+)?(?:\/.*)?$/i) || [])[1]
+    const prodHost = (API_CONFIG.prod.baseUrl.match(/^https:\/\/([A-Za-z0-9.-]+)(?::\d+)?(?:\/.*)?$/i) || [])[1]
+    const devHost = (API_CONFIG.dev.baseUrl.match(/^https?:\/\/([A-Za-z0-9.-]+)(?::\d+)?(?:\/.*)?$/i) || [])[1]
+    if (!trialHost
+      || trialHost.replace(/\.$/, '').toLowerCase() === (prodHost || '').replace(/\.$/, '').toLowerCase()
+      || trialHost.replace(/\.$/, '').toLowerCase() === (devHost || '').replace(/\.$/, '').toLowerCase()) {
       throw new Error('体验版 API 必须使用独立的 HTTPS 测试地址。')
     }
     return trialUrl

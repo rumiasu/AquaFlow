@@ -11,6 +11,7 @@ const quote = (lines = [line]) => ({ data: { independentRights: true, waterAmoun
   methods: [{ id: 1, name: '模拟微信支付', enabled: true }], defaultMethod: 1, wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付' } } })
 function page(scenario = {}) {
   const wx = createWx(), app = createApp(), orders = [], payments = []
+  global.__wxConfig = { envVersion: 'develop' }
   wx.__modalAutoConfirm = false
   let current = quote(scenario.lines)
   const page = loadPage('miniapp-user/pages/order/create.js', { wx, app, stubs: {

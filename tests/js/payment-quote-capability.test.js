@@ -9,7 +9,8 @@ const deferred = () => { let resolve, reject; const promise = new Promise((a, b)
 const validQuote = () => ({ data: { waterAmount: 20, totalAmount: 20, blocked: false,
   methods: [{ id: 3, name: '水票支付', enabled: true }], defaultMethod: 3,
   ticketPay: { fullyCovered: true, coverQty: 1, coverAmount: 20, payableAmount: 0 } } })
-function order(handler = async () => validQuote(), scenario = {}) {
+function order(handler = async () => validQuote(), scenario = {}, envVersion = 'develop') {
+  global.__wxConfig = { envVersion }
   const wx = createWx(), app = createApp(), calls = { quote: [], orders: [], payments: [] }
   const page = loadPage('miniapp-user/pages/order/create.js', { wx, app, stubs: {
     'api/payment': { getQuote: body => { calls.quote.push(body); return handler(body, calls.quote.length) } },
@@ -119,7 +120,8 @@ test('旧会话迟到报价不能解锁提交', async () => {
   assert.equal(t.page.data.quoteReady, false)
 })
 const simulated = { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）' }
-function barrel(capability, onlineAvailable = true) {
+function barrel(capability, onlineAvailable = true, envVersion = 'develop') {
+  global.__wxConfig = { envVersion }
   const state = { capability, onlineAvailable }
   const wx = createWx(), calls = [], page = loadPage('miniapp-user/pages/barrel/purchase.js', { wx, stubs: {
     'api/product': { getStationProducts: async () => ({ data: [{ id: 5, category: 1 }] }) },
@@ -180,6 +182,35 @@ test('微信页面实际绑定能力标签与重试动作，不再写死支付�
   assert(purchase.includes('{{onlinePayLabel}}')); assert(!purchase.includes('}}微信支付</button>'))
   const create = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxml'), 'utf8')
   assert(create.includes('bindtap="onRetryQuote"'))
+})
+test('trial removes a quote-explicit simulated WeChat method before order submission', async () => {
+  const data = { ...validQuote().data, defaultMethod: 1,
+    methods: [{ id: 1, name: '模拟支付', enabled: true }, { id: 3, name: '水票支付', enabled: true }],
+    wechatPay: simulated }
+  const t = order(async () => ({ data }), {}, 'trial')
+  await t.page.refreshQuote()
+  assert.equal(t.page.data.payMethods.find(method => method.id === 1).enabled, false)
+  assert.equal(t.page.data.wechatPay.enabled, false)
+  assert.equal(t.page.data.selectedMethod, 3)
+  assert.equal(t.calls.orders.length, 0, 'quote-only step must not create an order')
+})
+test('trial reports when the only offered channel is simulated before creating an order', async () => {
+  const data = { ...validQuote().data, defaultMethod: 1,
+    methods: [{ id: 1, name: '模拟支付', enabled: true }], wechatPay: simulated }
+  const t = order(async () => ({ data }), {}, 'trial')
+  await t.page.refreshQuote()
+  assert.equal(t.page.data.quoteReady, false)
+  assert.match(t.page.data.quoteError, /不能使用模拟微信支付/)
+  await t.page.onSubmit()
+  assert.equal(t.calls.orders.length, 0)
+})
+test('trial does not offer the quote-explicit simulated channel for independent barrel rights', async () => {
+  const t = barrel(simulated, true, 'trial')
+  await t.page.onLoad({ stationId: 1 })
+  assert.equal(t.page.data.onlinePayEnabled, false)
+  t.page.setData({ paymentMethod: 1 })
+  await t.page.onPurchase()
+  assert.equal(t.calls.length, 0)
 })
 ;(async () => { let passed = 0, failed = 0
   for (const t of tests) { try { await t.run(); passed++; console.log('PASS ' + t.name) }

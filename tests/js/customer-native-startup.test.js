@@ -14,7 +14,7 @@ const { STORAGE_KEYS: K } = require('../../miniapp-user/utils/storage-keys')
 function clearCustomerModules() {
   for (const name of Object.keys(require.cache)) if (name.startsWith(customerRoot)) delete require.cache[name]
 }
-function boot(restored = true) {
+function boot(restored = true, envVersion = 'develop') {
   clearCustomerModules()
   const wx = createWx(), sent = []
   wx.request = options => sent.push(options)
@@ -26,7 +26,7 @@ function boot(restored = true) {
   }
   let app, registered, earlyReads = 0
   global.wx = wx
-  global.__wxConfig = { envVersion: 'develop' }
+  global.__wxConfig = { envVersion }
   global.getCurrentPages = () => [{}]
   global.getApp = () => { if (!registered) earlyReads++; return registered }
   global.App = config => {
@@ -68,6 +68,14 @@ test('guest cold start has no authentication request or storage side effect', ()
   assert.equal(t.token.captureSession().loggedIn, false)
   assert.equal(t.token.getCustomerId(), null)
   assert.equal(t.wx.__calls.storageSet.length, 0)
+})
+test('restored customer with missing trial API shows setup guidance without crashing or clearing credentials', () => {
+  const t = boot(true, 'trial')
+  assert.equal(t.sent.length, 0)
+  assert.equal(t.wx.__calls.modal.length, 1)
+  assert.match(t.wx.__calls.modal[0].content, /体验版 API 未配置/)
+  assert.equal(t.app.globalData.accessToken, 'synthetic-original-access')
+  assert.equal(t.wx.getStorageSync(K.ACCESS_TOKEN), 'synthetic-original-access')
 })
 test('late startup response cannot overwrite a later customer login', () => {
   const t = boot()

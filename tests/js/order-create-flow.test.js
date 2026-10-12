@@ -32,6 +32,7 @@ async function test(name, fn) {
 /** 组织一次页面加载：可控的建单/支付/详情假后端 + 记录调用。 */
 function newPage(scenario) {
   const sc = scenario || {}
+  global.__wxConfig = { envVersion: 'develop' }
   const calls = { createOrder: [], createPayment: [], getOrderDetail: [], getQuote: [] }
 
   const stubs = {

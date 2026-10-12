@@ -10,6 +10,7 @@ const { submitEnterpriseApply, getMyEnterpriseApplies } = require('../../api/ent
 const { storage, stationStorage, payMethodStorage } = require('../../utils/storage')
 const { resolveStationId } = require('../../utils/station')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
+const { isDevelopEnv } = require('../../config/api')
 const { formatAddress } = require('../../utils/address')
 const orderIntent = require('../../utils/orderIntent')
 const { createOrderResultNavigator } = require('../../utils/order-result-navigation')
@@ -783,7 +784,14 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 支付方式列表由服务端下发（含文案、可用性、默认项），前端不再硬编码 1/2/3 的含义
         // 缺失/损坏列表不能被客户端补成可用渠道；金额与支付方式须一起核实。
         // 当前页面仅能执行 PayMethod.java ALL 中的渠道；名称与可用性仍取服务端。
-        const payMethods = d.methods
+        const wechatPay = d.wechatPay || null
+        const mockWechatBlocked = !!(wechatPay && wechatPay.simulated === true && !isDevelopEnv())
+        const payMethods = Array.isArray(d.methods) ? d.methods.map(method => method && method.id === 1 && mockWechatBlocked
+          ? { ...method, enabled: false, name: '模拟微信支付（仅开发版可用）' }
+          : method) : d.methods
+        if (mockWechatBlocked && Array.isArray(payMethods) && !payMethods.some(method => method && method.enabled)) {
+          throw new Error('当前环境未配置可用支付方式，不能使用模拟微信支付。请联系项目负责人。')
+        }
         if (!Array.isArray(payMethods) || !payMethods.length || payMethods.some(m => !m
           || !Number.isInteger(m.id) || ![1, 2, 3].includes(m.id) || typeof m.enabled !== 'boolean'
           || typeof m.name !== 'string' || !m.name.trim())
@@ -894,7 +902,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
           payMethods,
           // [2026-09-26] 服务端下发的**收款渠道能力**（PayMethod.payChannel）：
           // 建单成功后要不要对同一张单发起 createPayment，判据在这里，不在前端按 id 猜。
-          wechatPay: d.wechatPay || null,
+          wechatPay: mockWechatBlocked ? { ...wechatPay, enabled: false } : wechatPay,
           selectedMethod: nextMethod,
           deliveryFee,
           floorFee,
@@ -1636,7 +1644,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         paymentMethod: paymentMethod,
         ticketProductId: null,
         ticketQty: null
-      })
+      }, { simulatedWechatPay: paymentMethod === 1 && !!(this.data.wechatPay && this.data.wechatPay.simulated) })
       // 请求成功 ≠ 钱到账：一律回读订单的支付事实（服务端重算的金额与状态才是真相）
       const state = await this._verifyOrderPayment(orderId)
       return { ok: state === 'paid', state }

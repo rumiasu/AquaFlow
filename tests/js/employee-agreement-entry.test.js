@@ -4,12 +4,13 @@ const done = armWatchdog(15000), tests=[]
 const test=(name,run)=>tests.push({name,run})
 const loginPath='miniapp-delivery/pages/login/index.js', docPath='miniapp-delivery/pages/mine/agreement/index.js'
 const tap=type=>({currentTarget:{dataset:{type}}})
-function login() {
+function login(envVersion='develop') {
  const wx=createWx(), navigation=[], calls=[]
+ global.__wxConfig={envVersion}
  wx.navigateTo=o=>{navigation.push(o);wx.__calls.nav.push({url:o.url,type:'navigateTo'})}
  wx.login=o=>{calls.push('wx.login');o.success({code:'mock-code'})}
  const app=createApp({globalData:{isLogin:false,userInfo:null},setLoginState(data){calls.push('setLoginState');return data},routeByRole(){calls.push('routeByRole')}})
- const page=loadPage(loginPath,{wx,app,stubs:{'api/auth':{wxLoginStaff:async code=>{calls.push(['wxLoginStaff',code]);return {code:0,data:{staffId:8,role:'DELIVERY',stationId:1}}},devLogin:async role=>{calls.push(['devLogin',role]);return {code:0,data:{staffId:8,role:'DELIVERY',stationId:1}}}},'config/api':{isReleaseEnv:()=>true}}})
+ const page=loadPage(loginPath,{wx,app,stubs:{'api/auth':{wxLoginStaff:async code=>{calls.push(['wxLoginStaff',code]);return {code:0,data:{staffId:8,role:'DELIVERY',stationId:1}}},devLogin:async role=>{calls.push(['devLogin',role]);return {code:0,data:{staffId:8,role:'DELIVERY',stationId:1}}}}}})
  return {wx,app,page,navigation,calls}
 }
 function doc(type) {const wx=createWx(),titles=[];wx.setNavigationBarTitle=o=>titles.push(o.title);const app=createApp({routeByRole(){throw Error('阅读不得路由登录')},setLoginState(){throw Error('阅读不得写登录态')}});const page=loadPage(docPath,{wx,app});page.onLoad(type===undefined?undefined:{type});return {wx,page,titles}}
@@ -22,6 +23,7 @@ function application(route) {
 }
 test('registered protocol route has all four page files and no pull refresh',()=>{const cfg=JSON.parse(fs.readFileSync(path.join(ROOT,'miniapp-delivery/app.json'),'utf8'));assert.equal(cfg.pages.filter(x=>x==='pages/mine/agreement/index').length,1);for(const ext of ['js','wxml','wxss','json'])assert.ok(fs.existsSync(path.join(ROOT,docPath.replace('.js','.'+ext))));assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT,docPath.replace('.js','.json')),'utf8')).enablePullDownRefresh,false)})
 test('login retains visible consent notice and binds both real protocol links',()=>{const t=login(),w=fs.readFileSync(path.join(ROOT,loginPath.replace('.js','.wxml')),'utf8');assert.ok(w.includes('{{agreementNotice}}'));assert.equal(t.page.data.agreementCatalog.enabled,false);for(const type of ['user','privacy'])assert.match(w,new RegExp('data-type="'+type+'"[^>]*bindtap="onOpenAgreement"'));for(const match of w.matchAll(/(?:bindtap|catchtap)="(\w+)"/g))assert.equal(typeof t.page[match[1]],'function',match[1]);assert.ok(!w.includes('<checkbox'))})
+test('actual login helper exposes dev login only for develop envVersion',()=>{for(const envVersion of ['develop','trial','release']){const t=login(envVersion);t.page.onLoad();assert.equal(t.page.data.showDevLogin,envVersion==='develop',envVersion)}})
 for(const type of ['user','privacy'])test(type+' click opens matching draft without login or agreement mutation',()=>{const t=login();t.page.onLoad();t.page.onOpenAgreement(tap(type));assert.deepStrictEqual(t.calls,[]);assert.equal(t.navigation[0].url,'/pages/mine/agreement/index?type='+type);assert.equal(t.wx.__calls.storageSet.length,0);assert.equal(t.page.data.loading,false);assert.equal(t.app.globalData.isLogin,false);assert.equal(t.page.data.agreed,undefined);const d=doc(type);assert.equal(d.titles.at(-1),type==='privacy'?'隐私政策':'用户协议');assert.equal(d.wx.__calls.storageSet.length,0)})
 for(const type of [undefined,null,'','bad','PRIVACY','privacy&redirect=evil'])test('invalid login type safely falls back to user: '+String(type),()=>{const t=login();t.page.onOpenAgreement(tap(type));assert.equal(t.navigation[0].url,'/pages/mine/agreement/index?type=user');assert.equal(t.calls.length,0)})
 test('missing tap event safely opens user draft',()=>{const t=login();t.page.onOpenAgreement();assert.equal(t.navigation[0].url,'/pages/mine/agreement/index?type=user')})

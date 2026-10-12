@@ -17,6 +17,7 @@ const quote = (body, extra = {}) => ({ code: 0, data: {
   ...extra
 } })
 function fixture(options = {}) {
+  global.__wxConfig = { envVersion: 'develop' }
   const wx = createWx(), app = createApp({ globalData: { isLogin: true, customerId: 7, tempStationId: 1 } })
   const calls = { quotes: [], addresses: 0, orders: [], payments: [] }
   const page = loadPage('miniapp-user/pages/order/create.js', { wx, app, stubs: {

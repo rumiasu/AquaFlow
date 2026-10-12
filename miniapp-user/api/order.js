@@ -16,11 +16,11 @@ const createOrder = (data) => {
   return post(API.CREATE_ORDER, data)
 }
 
-const createPayment = (data) => {
-  // The only client-side WeChat route in this build is the server's simulated pay channel.
-  // Keep ticket payment (method 3) available, but never invoke the shortcut in trial/release.
-  if (data && Number(data.paymentMethod) === 1 && !isDevelopEnv()) {
-    throw new Error('模拟微信支付仅在 develop 环境可用')
+const createPayment = (data, channel = {}) => {
+  // Reject only a channel explicitly identified by its capability response.
+  // A future real WeChat integration may also use paymentMethod=1.
+  if (channel.simulatedWechatPay === true && !isDevelopEnv()) {
+    return Promise.reject(new Error('模拟微信支付仅在 develop 环境可用'))
   }
   const { orderId, ...rest } = data
   return post(`${API.PAYMENTS}`, { orderId, ...rest })

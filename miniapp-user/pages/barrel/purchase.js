@@ -4,6 +4,7 @@ const { resolveStationId } = require('../../utils/station')
 const { stationStorage } = require('../../utils/storage')
 const { getAssetStation } = require('../../api/asset-stations')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
+const { isDevelopEnv } = require('../../config/api')
 const intents = require('../../utils/independent-purchase-intent')
 
 Page({
@@ -108,9 +109,10 @@ Page({
       const labelled = !!channel && channel.method === 1 && typeof channel.enabled === 'boolean'
         && typeof channel.simulated === 'boolean' && typeof channel.label === 'string' && !!channel.label.trim()
         && typeof res.data.onlineAvailable === 'boolean' && res.data.onlineAvailable === channel.enabled
+      const mockChannelAllowed = !channel || channel.simulated !== true || isDevelopEnv()
       this.setData({ quote: res.data, stationName: res.data.stationName,
-        onlinePayEnabled: res.data.onlineAvailable === true && labelled && channel.enabled === true,
-        onlinePayLabel: labelled ? channel.label : '',
+        onlinePayEnabled: res.data.onlineAvailable === true && labelled && channel.enabled === true && mockChannelAllowed,
+        onlinePayLabel: labelled && mockChannelAllowed ? channel.label : '',
         onlinePayHint: !labelled ? '线上付款方式尚未核实，可重试确认金额或向水站交现金。'
           : (!channel.enabled ? channel.label : '') })
     } catch (err) {

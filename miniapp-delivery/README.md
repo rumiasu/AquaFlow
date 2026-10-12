@@ -25,4 +25,4 @@ A 发出外派后，B 接单前确认本单完整报酬及净桶安排；B 接�
 
 提醒目前为应用内状态与红点，不宣称已发送外部推送。工资发放和站间结清登记实际线下动作，不执行平台打款。开发说明见[贡献指南](../CONTRIBUTING.md)，业务规格见[文档入口](../docs/README.md)。
 
-环境路由契约：`develop` 使用开发地址，`trial` 必须配置独立 HTTPS 测试地址（当前留空会拒绝请求），`release` 使用正式地址。体验版/正式版不显示或调用开发登录。验证：`node scripts/test-miniapp-environments.js`。
+环境路由契约：`develop` 使用开发地址，`trial` 必须配置独立 HTTPS 测试地址（当前留空会拒绝请求），`release` 使用正式地址。体验版/正式版不显示或调用开发登录。验证：`node tests/js/run-all.js`。

@@ -15,6 +15,16 @@
   margin: 0 0 16rpx;
 }
 
+/* 2026-10-12：旧的浅色错误字在暖纸背景上只有 4.46:1；只加深订单页顶层错误，白卡报价错误保留原色。 */
+.container > .load-error {
+  color: var(--text-primary);
+  font-size: 34rpx;
+}
+
+.payment-methods .load-error {
+  font-size: 34rpx;
+}
+
 /* ========== 金额校准展示 ========== */
 .amount-calibration {
   background-color: #fff;
@@ -150,16 +160,16 @@
 }
 
 .method-name {
-  font-size: 28rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--text-primary);
   display: block;
 }
 
 /* 支付方式的说明文字（如"配送员送达后现金/扫码支付"）是判断"什么时候付钱"的依据，
-   字号走辅助地板 24rpx（§6：禁止用 20rpx 承载关键规则）。 */
+   字号按辅助文字地板 30rpx（§6：禁止用 20rpx 承载关键规则）。 */
 .method-desc {
-  font-size: 24rpx;
+  font-size: 30rpx;
   color: var(--text-regular);
   display: block;
   margin-top: 8rpx;
@@ -247,14 +257,14 @@
  * 下单页要核对的第一件事就是"我买的哪款水"，截成省略号等于让人对着「…」确认。
  */
 .product-name {
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--text-primary);
   word-break: break-all;
 }
 
 .product-spec {
-  font-size: 24rpx;
+  font-size: 30rpx;
   color: var(--text-regular);
 }
 
@@ -267,7 +277,7 @@
 /* ⚠️ .price-symbol / .price-value 是 styles/theme.wxss 同名类的本页覆盖（隐性双写）：
    改本页这两条没问题，别去改 theme。 */
 .price-symbol {
-  font-size: 26rpx;
+  font-size: 30rpx;
   color: var(--price-color);
   font-weight: 600;
 }
@@ -279,7 +289,7 @@
 }
 
 .price-unit {
-  font-size: 24rpx;
+  font-size: 30rpx;
   color: var(--text-regular);
   margin-left: 4rpx;
 }
@@ -291,13 +301,13 @@
 }
 
 .subtotal-label {
-  font-size: 24rpx;
+  font-size: 30rpx;
   color: var(--text-regular);
   margin-right: 8rpx;
 }
 
 .subtotal-value {
-  font-size: 28rpx;
+  font-size: 34rpx;
   color: var(--price-color);
   font-weight: 600;
 }
@@ -354,7 +364,7 @@
   width: 64rpx;
   height: 88rpx;
   text-align: center;
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--text-primary);
   background: transparent;
@@ -406,13 +416,13 @@
 }
 
 .address-name {
-  font-size: 32rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .address-phone {
-  font-size: 26rpx;
+  font-size: 30rpx;
   color: var(--text-regular);
 }
 
@@ -421,7 +431,7 @@
 .address-detail {
   display: block;
   width: 100%;
-  font-size: 28rpx;
+  font-size: 34rpx;
   color: var(--text-regular);
   line-height: 1.6;
   white-space: normal;
@@ -431,7 +441,7 @@
 .address-empty {
   flex: 1;
   color: var(--text-regular);
-  font-size: 28rpx;
+  font-size: 34rpx;
   line-height: 1.5;
 }
 
@@ -455,7 +465,7 @@
   background-color: var(--bg-gray);
   border-radius: var(--radius-sm);
   padding: 0 20rpx;
-  font-size: 28rpx;
+  font-size: 34rpx;
   color: var(--text-primary);
   border: 1rpx solid var(--border-color);
 }
@@ -477,12 +487,12 @@
 }
 
 .fee-label {
-  font-size: 28rpx;
+  font-size: 34rpx;
   color: var(--text-regular);
 }
 
 .fee-value {
-  font-size: 28rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--text-primary);
   flex-shrink: 0;
@@ -496,7 +506,7 @@
 }
 
 .fee-label.total {
-  font-size: 30rpx;
+  font-size: 34rpx;
   color: var(--text-primary);
   font-weight: 600;
 }
@@ -510,17 +520,17 @@
 /* 水票整单结清时的抵扣行（绿=完成，"这笔已经付过了"，不是"要额外付"） */
 .fee-cover {
   display: block;
-  font-size: 28rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--success-color);
   line-height: 1.6;
 }
 
-/* 金额出处 / 状态说明：辅助字号地板 24rpx，不用 20rpx 承载关键规则 */
+/* 金额出处 / 状态说明：辅助文字地板 30rpx，不用 20rpx 承载关键规则 */
 .fee-hint {
   display: block;
   margin-top: 12rpx;
-  font-size: 24rpx;
+  font-size: 30rpx;
   color: var(--text-secondary);
   line-height: 1.6;
 }
@@ -574,7 +584,7 @@
 
 /* 水票抵扣行（只有整单能被票结清时才有值）：它是"扣几张票"的结论，字号走辅助地板以上 */
 .detail-item {
-  font-size: 26rpx;
+  font-size: 30rpx;
   color: var(--text-regular);
 }
 
@@ -592,7 +602,7 @@
 }
 
 .total-label {
-  font-size: 26rpx;
+  font-size: 30rpx;
   color: var(--text-regular);
   margin-right: 8rpx;
 }
@@ -604,7 +614,7 @@
 }
 
 .total-price .price-symbol {
-  font-size: 26rpx;
+  font-size: 30rpx;
 }
 
 .detail-arrow {
@@ -624,12 +634,13 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: 600;
 }
 
 .submit-btn.disabled {
   background: var(--text-placeholder);
+  color: var(--text-primary);
 }
 
 .submit-btn:active {
@@ -686,7 +697,7 @@
 }
 
 .popup-desc {
-  font-size: 26rpx;
+  font-size: 30rpx;
   color: var(--text-secondary);
   text-align: center;
   display: block;
@@ -825,7 +836,8 @@
 }
 
 .asset-warning .popup-desc {
-  font-size: 26rpx;
+  /* 2026-10-12：原 26rpx 在 320px 仅约 11px；提高辅助字级，保留独立核过对比度的正文色。 */
+  font-size: 30rpx;
   color: var(--text-regular);
   text-align: left;
   display: block;
@@ -895,7 +907,7 @@
 
 .submit-unknown-text {
   display: block;
-  font-size: 26rpx;
+  font-size: 34rpx;
   color: var(--text-regular);
   line-height: 1.6;
   margin-bottom: 12rpx;
@@ -906,7 +918,7 @@
   padding: 10rpx 28rpx;
   background: var(--warning-color);
   color: #fff;
-  font-size: 26rpx;
+  font-size: 34rpx;
   border-radius: var(--radius-round);
 }
 
@@ -926,14 +938,14 @@
 }
 
 .pending-order-text {
-  font-size: 26rpx;
+  font-size: 34rpx;
   color: var(--text-regular);
   line-height: 1.5;
 }
 
 .pending-order-sub {
   flex-shrink: 0;
-  font-size: 26rpx;
+  font-size: 30rpx;
   color: var(--primary-color);
   font-weight: 600;
 }
@@ -1122,7 +1134,7 @@
 }
 
 .detail-rule-text {
-  font-size: 26rpx;
+  font-size: 34rpx;
   color: var(--text-regular);
   line-height: 1.7;
 }
@@ -1157,7 +1169,7 @@
 }
 
 .detail-agree-text {
-  font-size: 26rpx;
+  font-size: 34rpx;
   color: var(--text-primary);
   line-height: 1.5;
 }
@@ -1298,13 +1310,13 @@
 
 /* 确认弹窗里的明细行：同样不截断（2026-09-27 产品口径） */
 .detail-item-name {
-  font-size: 26rpx;
+  font-size: 34rpx;
   color: var(--text-primary);
   word-break: break-all;
 }
 
 .detail-item-spec {
-  font-size: 24rpx;
+  font-size: 30rpx;
   color: var(--text-regular);
   flex-shrink: 0;
 }
@@ -1318,12 +1330,12 @@
 }
 
 .detail-item-qty {
-  font-size: 24rpx;
+  font-size: 34rpx;
   color: var(--text-secondary);
 }
 
 .detail-item-price {
-  font-size: 26rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--text-primary);
   min-width: 100rpx;
@@ -1340,12 +1352,12 @@
 }
 
 .detail-subtotal-label {
-  font-size: 24rpx;
+  font-size: 30rpx;
   color: var(--text-secondary);
 }
 
 .detail-subtotal-value {
-  font-size: 26rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--price-color);
 }
@@ -1365,7 +1377,7 @@
 }
 
 .detail-total-label {
-  font-size: 28rpx;
+  font-size: 30rpx;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -1396,13 +1408,14 @@
 
 .station-status-banner .banner-text {
   flex: 1;
-  font-size: 26rpx;
-  color: var(--warning-color);
+  font-size: 34rpx;
+  /* 旧警告橙字压在透明暖底上仅 2.87:1；底色保留状态语义，正文改深色保证阅读。 */
+  color: var(--text-primary);
   line-height: 1.5;
 }
 
 /* 配送计费提示（v35）：起送量未达 / 超范围 / 楼层未填 / 硬拦原因。
-   文案由后端下发，这里只管排版；字号走辅助地板 24–26rpx（关键规则不许用 20rpx 承载）。 */
+   文案由后端下发，这里只管排版；字号走辅助地板 30–34rpx（关键规则不许用 20rpx 承载）。 */
 .fee-warn {
   margin: 0 0 16rpx;
   padding: 16rpx 20rpx;
@@ -1412,7 +1425,7 @@
 }
 .fee-warn-text {
   display: block;
-  font-size: 26rpx;
+  font-size: 34rpx;
   color: var(--text-regular);
   line-height: 1.6;
 }
@@ -1430,7 +1443,7 @@
   min-height: 88rpx;
   display: flex;
   align-items: center;
-  font-size: 26rpx;
+  font-size: 34rpx;
   line-height: 1.5;
   padding: 0 22rpx;
   margin: 0 14rpx 8rpx 0;
@@ -1448,7 +1461,7 @@
 }
 .ticket-cover-row .detail-total-value {
   color: var(--success-color);
-  font-size: 26rpx;
+  font-size: 30rpx;
 }
 
 /* 商品名占满内容宽度，价格与数量在下一行对齐；窄屏仍可换行。 */
@@ -1468,7 +1481,7 @@
 }
 
 .fee-caption {
-  font-size: 24rpx;
+  font-size: 30rpx;
   color: var(--text-regular);
   line-height: 1.5;
 }

@@ -33,21 +33,27 @@
 .entry-desc { font-size: 24rpx; color: var(--text-regular); margin-top: 6rpx; line-height: 1.4; }
 .entry-arrow { font-size: 32rpx; color: var(--text-secondary); margin-left: 16rpx; }
 
+/* 2026-10-12：待办入口旧标题/说明过小、窄屏徽标固定高度会裁字；只放大待办行并允许内容撑高换行。 */
+.pending-entry .entry-title { font-size: 34rpx; line-height: 1.35; overflow-wrap: break-word; }
+.pending-entry .entry-desc { font-size: 30rpx; line-height: 1.45; overflow-wrap: break-word; }
+
 /* 入口徽标（红点计数）：用于 应收账款 / 退桶审批 / 业务待办与退出 等待办计数提示 */
 .entry-badge {
   min-width: 32rpx;
-  height: 32rpx;
-  line-height: 32rpx;
-  padding: 0 10rpx;
+  height: auto;
+  min-height: 36rpx;
+  line-height: 1.35;
+  padding: 4rpx 10rpx;
   margin-left: 12rpx;
   border-radius: 16rpx;
   background: var(--error-color);
   color: #fff;
-  font-size: 20rpx;
+  font-size: 34rpx;
   text-align: center;
   box-sizing: border-box;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
-.entry-unknown { color:var(--text-secondary); font-size:22rpx; white-space:nowrap; }
+.entry-unknown { color:var(--text-primary); font-size:30rpx; white-space:normal; overflow-wrap:break-word; }
 .badge-error { margin:16rpx 24rpx; padding:20rpx; background:var(--warning-bg); color:var(--warning-color); font-size:26rpx; }

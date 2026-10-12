@@ -62,7 +62,7 @@
         </view>
         <text class="entry-arrow">›</text>
       </view>
-      <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/customer-feedback/index">
+      <view class="entry-row pending-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/customer-feedback/index">
         <view class="entry-main">
           <text class="entry-title">客户反馈</text>
           <text class="entry-desc">退款争议待处理、登记结果与反馈记录</text>
@@ -91,7 +91,7 @@
   <view class="group">
     <view class="group-head"><text class="group-bar"></text><text class="group-title">收款与工资</text></view>
     <view class="entry-card">
-      <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/receivables/index">
+      <view class="entry-row pending-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/receivables/index">
         <view class="entry-main">
           <text class="entry-title">应收账款</text>
           <!-- [2026-09-27 走查 M06] 原文「待收款、账期、核销」三个词里两个是行话：
@@ -110,7 +110,7 @@
         </view>
         <text class="entry-arrow">›</text>
       </view>
-      <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index"><view class="entry-main"><text class="entry-title">业务待办与退出</text><text class="entry-desc">缺货、超时退款、拒付核实、站间交接与剩余票退出</text></view><view class="entry-badge" wx:if="{{businessWaitingBadgeCount > 0}}">{{businessWaitingBadgeCount > 99 ? '99+' : businessWaitingBadgeCount}}</view><text class="entry-unknown" wx:elif="{{businessWaitingBadgeCount === null}}">{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-arrow">›</text></view>
+      <view class="entry-row pending-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index"><view class="entry-main"><text class="entry-title">业务待办与退出</text><text class="entry-desc">缺货、超时退款、拒付核实、站间交接与剩余票退出</text></view><view class="entry-badge" wx:if="{{businessWaitingBadgeCount > 0}}">{{businessWaitingBadgeCount > 99 ? '99+' : businessWaitingBadgeCount}}</view><text class="entry-unknown" wx:elif="{{businessWaitingBadgeCount === null}}">{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-arrow">›</text></view>
       <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/payments/index">
         <view class="entry-main">
           <text class="entry-title">待确认收款</text>
@@ -142,7 +142,7 @@
       <!--
         桶异常已并入「订单与客户」的「异常订单」（2026-09-19）—— 这里不再重复放一行。
       -->
-      <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/barrel-return/index">
+      <view class="entry-row pending-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/barrel-return/index">
         <view class="entry-main">
           <text class="entry-title">退桶审批</text>
           <text class="entry-desc">审核退桶、退押金</text>

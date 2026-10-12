@@ -785,6 +785,7 @@
 
 .todo-item {
   width: 25%;
+  min-width: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -804,17 +805,21 @@
 }
 
 .todo-label {
-  font-size: 22rpx;
+  font-size: 30rpx;
   color: var(--text-regular);
   margin-top: 6rpx;
   text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 /* 金额只有"逾期应收"那一项有（服务端只给有金额含义的项下发 amount） */
 .todo-amount {
-  font-size: 20rpx;
+  font-size: 34rpx;
   color: var(--error-color);
   margin-top: 4rpx;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 

@@ -46,7 +46,7 @@ class DeliveryConsoleProjectionTest {
         ReflectionTestUtils.setField(console, "dispatchAgreements", dispatch);
         ReflectionTestUtils.setField(console, "orderWorkflowService", workflow);
 
-        var prep = Map.of("ready", false, "itemsWithoutCredential", 1);
+        Map<String, Object> prep = Map.of("ready", false, "itemsWithoutCredential", 1);
         when(items.listByOrderId(anyLong())).thenReturn(List.of());
         when(inventory.prepInfoOfOrder(anyLong())).thenReturn(prep);
         when(dispatch.info(anyLong())).thenReturn(Map.of());

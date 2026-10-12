@@ -64,10 +64,10 @@ const orderApi = require(orderPath)
 try {
   for (const envVersion of ['trial', 'release']) {
     global.__wxConfig = { envVersion }
+    const postsBefore = paymentPosts
     let simulated
     assert.doesNotThrow(() => { simulated = orderApi.createPayment({ orderId: 1, paymentMethod: 1 }, { simulatedWechatPay: true }) })
     await rejectsAsync(simulated, /develop/, `miniapp-user: explicit simulated order payment is rejected in ${envVersion}`)
-    const postsBefore = paymentPosts
     check(paymentPosts === postsBefore, `${envVersion}: simulated payment request never reaches transport`)
     const real = await orderApi.createPayment({ orderId: 2, paymentMethod: 1 }, { simulatedWechatPay: false })
     check(real.ok === true && paymentPosts === postsBefore + 1, `${envVersion}: method 1 without mock marker remains available`)

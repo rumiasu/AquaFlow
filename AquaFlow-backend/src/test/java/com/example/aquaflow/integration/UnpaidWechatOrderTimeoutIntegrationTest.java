@@ -133,4 +133,57 @@ class UnpaidWechatOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, sweeper.sweepOnce(), "配送中的单不该被自动取消");
         assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order), "状态不得被改动");
     }
+
+    @Test
+    @DisplayName("前200张有待收款流水时，末尾无流水的超时微信单仍会取消")
+    void activePaymentsDoNotStarveTimedOutOrderPastBatchLimit() {
+        seed();
+        assertEquals(2, intOf("SELECT category FROM product WHERE id=?", goods), "反例商品须是非桶装水商品");
+        jdbc.update("UPDATE inventory SET quantity=500 WHERE station_id=? AND product_id=?", station, goods);
+        int stockBefore = stock();
+        long lastOrder = 0;
+
+        // 201 张旧的非桶装水微信单按 id 入队；前 200 张有活跃 PENDING 流水，末张没有。
+        for (int i = 0; i < 201; i++) {
+            String key = "timeout-starvation-" + i;
+            long order = place(1, key);
+            backdate(order, 600);
+            if (i < 200) {
+                createPaymentRecord(order, customer, station, "20.00", 1, 1);
+            } else {
+                lastOrder = order;
+            }
+        }
+
+        assertEquals(200, intOf("SELECT COUNT(*) FROM orders o JOIN payment_record p ON p.order_id=o.id "
+                + "WHERE o.idempotency_key LIKE 'timeout-starvation-%' AND p.status=1"),
+                "前200张订单各有一条待收款流水");
+        assertEquals(201, intOf("SELECT COUNT(*) FROM orders WHERE idempotency_key LIKE 'timeout-starvation-%' "
+                + "AND payment_status=1"), "201 张订单初始状态均为 PENDING");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM payment_record WHERE order_id=? AND status IN (1,2)", lastOrder),
+                "末张超时单无活跃支付流水");
+        assertEquals(201, reserved(), "201 张单均已预留库存");
+        assertEquals(stockBefore, stock(), "预留不会扣减实物库存");
+
+        assertEquals(1, sweeper.sweepOnce(), "候选批次应跳过有活跃流水的前200张并取消末张");
+        assertEquals(5, intOf("SELECT status FROM orders WHERE id=?", lastOrder), "末张应取消");
+        assertEquals(4, intOf("SELECT payment_status FROM orders WHERE id=?", lastOrder), "未收款末张应记为已取消");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM inventory_reservation WHERE order_id=? AND status=1", lastOrder),
+                "末张取消后应释放活跃库存预留");
+        assertEquals(200, intOf("SELECT COUNT(*) FROM orders o JOIN payment_record p ON p.order_id=o.id "
+                + "WHERE o.idempotency_key LIKE 'timeout-starvation-%' AND o.status=1 "
+                + "AND o.payment_status=1 AND p.status=1"),
+                "前200张有待收款流水的订单不得取消、改写 PENDING 支付状态或改动流水");
+        assertEquals(200, reserved(), "只释放末张的预留，库存预留不可多退");
+        assertEquals(stockBefore, stock(), "取消不应改动未扣减的实物库存");
+
+        assertEquals(0, sweeper.sweepOnce(), "重复扫描不得再次取消或产生资金动作");
+        assertEquals(200, intOf("SELECT COUNT(*) FROM payment_record p JOIN orders o ON o.id=p.order_id "
+                + "WHERE o.idempotency_key LIKE 'timeout-starvation-%' AND p.status=1"),
+                "前200笔资金请求仍保持待核实");
+        assertEquals(200, reserved(), "重复扫描不得重复释放库存预留");
+        assertEquals(stockBefore, stock(), "重复扫描不得改变实物库存");
+        assertEquals(0, intOf("SELECT COUNT(*) FROM payment_record WHERE order_id=?", lastOrder),
+                "末张无支付流水，不得凭空生成退款流水");
+    }
 }

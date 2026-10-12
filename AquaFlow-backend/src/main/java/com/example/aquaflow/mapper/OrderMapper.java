@@ -411,7 +411,7 @@ public interface OrderMapper {
     List<Orders> listPendingByStationId(@Param("stationId") Long stationId);
 
     /**
-     * 超时未支付的**微信**单（供定时任务自动取消，2026-09-18 产品裁定：只对微信单，货到付款是特殊）。
+     * 超时未支付且没有活跃支付流水的**微信**单（供定时任务自动取消，2026-09-18 产品裁定：只对微信单，货到付款是特殊）。
      *
      * <p>判据必须同时满足四条：① {@code payment_method = 1}（微信）—— 现金是货到付款、水票是扣票后
      * 才算已付，都不适用；② {@code payment_status in (0,1)}（还没收到钱）；③ {@code status = 1}（还在待配送，
@@ -419,10 +419,15 @@ public interface OrderMapper {
      *
      * <p>⚠️ 别把判据放宽成"所有未付单"：现金单未付是**正常经营状态**（钱要当面收），
      * 水票单未付是"票还没扣"（客户可能正在充值），自动取消它们等于替客户做决定。</p>
+     *
+     * <p>[2026-10-12] 活跃流水必须在 {@code LIMIT} 前排除：否则最早的 200 张有待确认或已付流水的单会被锁后复查跳过，
+     * 但每轮仍占满名额，后面的无流水订单永远无法释放预留。取消事务里仍要再查一次活跃流水，
+     * 防住候选查询后到加锁前新建支付请求的竞态。</p>
      */
-    @Select("select id from orders where payment_method = 1 and payment_status in (0, 1) and status = 1 " +
-            "and create_time < date_sub(now(), interval #{minutes} minute) " +
-            "order by id limit #{limit}")
+    @Select("select o.id from orders o where o.payment_method = 1 and o.payment_status in (0, 1) and o.status = 1 " +
+            "and o.create_time < date_sub(now(), interval #{minutes} minute) " +
+            "and not exists (select 1 from payment_record p where p.order_id = o.id and p.status in (1, 2)) " +
+            "order by o.id limit #{limit}")
     List<Long> listTimedOutWechatOrders(@Param("minutes") int minutes, @Param("limit") int limit);
 
     /**

@@ -22,7 +22,9 @@
 
 ## 开发与联调
 
-用微信开发者工具打开本目录。页面注册以 `app.json` 为准，API 基址以 `config/api.js` 为准；生产地址仍需正式配置。客户端 AppID 与 Secret 必须来自本端应用。
+用微信开发者工具打开本目录。页面注册以 `app.json` 为准，API 基址以 `config/api.js` 为准：`develop` 使用开发地址，`trial` 必须显式填写专用 HTTPS 测试地址（当前留空会拒绝请求），`release` 使用正式地址。客户端 AppID 与 Secret 必须来自本端应用。
+
+环境路由与开发捷径契约可用 `node scripts/test-miniapp-environments.js` 验证；体验版/正式版不显示或调用开发登录与模拟微信支付。
 
 局域网联调见[本地运行说明](../docs/operations/02-本地运行-笔记本当服务器.md)。模拟支付仅供开发，不表示真实支付可用。当前流程测试模拟 `wx` 和网络回调，不能替代开发者工具及真机验收。
 

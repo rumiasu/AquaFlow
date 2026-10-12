@@ -1,8 +1,10 @@
 // 认证相关接口（后端: LoginController）
 const { post } = require('../utils/request')
 const { API } = require('../config/api')
+const { isDevelopEnv } = require('../config/api')
 
 const devLogin = (role = 'DELIVERY') => {
+  if (!isDevelopEnv()) throw new Error('开发登录仅在 develop 环境可用')
   return post(API.DEV_LOGIN, { role })
 }
 

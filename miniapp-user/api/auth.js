@@ -1,6 +1,7 @@
 // 认证相关接口（后端: LoginController）
 const { post } = require('../utils/request')
 const { API } = require('../config/api')
+const { isDevelopEnv } = require('../config/api')
 
 // 微信登录（后端: POST /api/auth/wx-login）
 // code 来自 wx.login，后端用它换 openid 并查/建用户
@@ -10,6 +11,7 @@ const wxLogin = (code, agreement) => {
 
 // 开发模式登录（后端: POST /api/auth/dev-login）
 const devLogin = (nickname) => {
+  if (!isDevelopEnv()) throw new Error('开发登录仅在 develop 环境可用')
   return post(API.DEV_LOGIN, { openid: 'dev-openid-001', nickname: nickname || '测试用户' })
 }
 

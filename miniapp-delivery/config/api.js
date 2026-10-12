@@ -7,12 +7,14 @@
 //   ⚠️ **真机要求手机与笔记本连同一个 Wi-Fi**（真机走的就是这一行）。
 //   真机上的 127.0.0.1 指的是**手机自己**，必然失败且只报「网络错误」，所以回环只给开发者工具用。
 //   真机预览还需在手机上打开「调试」（右上角 ... → 打开调试）跳过域名校验；
-//   当前仅正式版(release) 走 prod；体验版(trial)/开发版(develop) 走 dev，不能当正式域名验收。
+//   环境契约：develop 走 dev；trial 只走独立 HTTPS 测试地址且缺失时拒绝；release 走 prod。
 //   ⚠️ 换地址跑 `scripts/set-dev-api-host.ps1 -Apply`（同时改两端；**只改一端那一端会白屏**，
 //      现象同样是"网络错误"）。
 const API_CONFIG = {
   // devtoolsBaseUrl：开发者工具跑在**同一台笔记本**上，走回环即可 —— 换网络、开关热点都不影响写代码。
   dev: { baseUrl: 'http://192.168.0.243:8080', devtoolsBaseUrl: 'http://127.0.0.1:8080' },
+  // Fill only after the customer supplies the dedicated HTTPS acceptance host.
+  trial: { baseUrl: '' },
   prod: { baseUrl: 'https://your-domain.com' }
 }
 
@@ -54,10 +56,25 @@ const getBaseUrl = () => {
   } catch (e) {
     throw new Error('无法获取小程序环境版本，请勿在非微信开发者工具中运行')
   }
-  // 注意：体验版(envVersion='trial') 与开发版('develop') 都落到 dev。
+  // 环境路由必须与当前 envVersion 精确匹配；trial 不得回退到 dev 或 prod。
   // 曾因此让「上传后的体验版」静默指向本机地址，扫码后一片网络错误。
-  const env = envVersion === 'release' ? 'prod' : 'dev'
+  if (!['develop', 'trial', 'release'].includes(envVersion)) {
+    throw new Error(`不支持的小程序环境版本：${envVersion || 'unknown'}`)
+  }
+  const env = envVersion === 'release' ? 'prod' : envVersion === 'trial' ? 'trial' : 'dev'
   const envConfig = API_CONFIG[env]
+  if (env === 'trial') {
+    const trialUrl = envConfig.baseUrl
+    if (!trialUrl || trialUrl.includes('your-domain.com')) {
+      throw new Error('体验版 API 未配置：请在 miniapp-delivery/config/api.js 填写专用 HTTPS 测试地址。')
+    }
+    if (!/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?(?:\/.*)?$/i.test(trialUrl)
+      || trialUrl === API_CONFIG.prod.baseUrl
+      || trialUrl === API_CONFIG.dev.baseUrl) {
+      throw new Error('体验版 API 必须使用独立的 HTTPS 测试地址。')
+    }
+    return trialUrl
+  }
   // 只有 dev 才分「工具 / 真机」；prod 两端都走真实域名。
   // ⚠️ 顺序是「**先确认是工具**才用回环」，不是「猜不到就用回环」—— 失败必须朝向真机地址，
   //    反了会把真机指到 127.0.0.1（手机自己），必然失败且只报「网络错误」。
@@ -89,6 +106,10 @@ const isReleaseEnv = () => {
   } catch (e) {
     return false
   }
+}
+
+const isDevelopEnv = () => {
+  try { return __wxConfig.envVersion === 'develop' } catch (e) { return false }
 }
 
 // AquaFlow V1 配送端 API 配置
@@ -342,4 +363,4 @@ const BINDING_STATUS = {
   PENDING_UNBIND: 'PENDING_UNBIND' // 配送员主动申请解绑,等待站长确认
 }
 
-module.exports = { getBaseUrl, isReleaseEnv, API, BINDING_STATUS }
+module.exports = { getBaseUrl, isReleaseEnv, isDevelopEnv, API, API_CONFIG, BINDING_STATUS }

@@ -11,12 +11,14 @@
 //   所以回环只给开发者工具用（见 devtoolsBaseUrl）。
 //   真机预览还需在手机上打开「调试」（右上角 ... → 打开调试）跳过域名校验，
 //   因为 request 合法域名只接受已 ICP 备案的 HTTPS 域名，本机 HTTP 地址无法配置。
-//   当前仅正式版(release) 走 prod；体验版(trial)/开发版(develop) 走 dev，不能当正式域名验收。
+//   环境契约：develop 走 dev；trial 只走独立 HTTPS 测试地址且缺失时拒绝；release 走 prod。
 //   ⚠️ 换地址跑 `scripts/set-dev-api-host.ps1 -Apply`（它**同时改两端**；只改一端会让那一端白屏，
 //      现象同样是"网络错误"，很难联想到是 IP 不对）。
 const API_CONFIG = {
   // devtoolsBaseUrl：开发者工具跑在**同一台笔记本**上，走回环即可 —— 换网络、开关热点都不影响写代码。
   dev: { baseUrl: 'http://192.168.0.243:8080', devtoolsBaseUrl: 'http://127.0.0.1:8080' },
+  // Fill only after the customer supplies the dedicated HTTPS acceptance host.
+  trial: { baseUrl: '' },
   prod: { baseUrl: 'https://your-domain.com' }
 }
 
@@ -61,10 +63,25 @@ const getBaseUrl = () => {
   } catch (e) {
     throw new Error('无法获取小程序环境版本，请勿在非微信开发者工具中运行')
   }
-  // 注意：体验版(envVersion='trial') 与开发版('develop') 都落到 dev。
+  // 环境路由必须与当前 envVersion 精确匹配；trial 不得回退到 dev 或 prod。
   // 曾因此让「上传后的体验版」静默指向本机地址，扫码后一片网络错误。
-  const env = envVersion === 'release' ? 'prod' : 'dev'
+  if (!['develop', 'trial', 'release'].includes(envVersion)) {
+    throw new Error(`不支持的小程序环境版本：${envVersion || 'unknown'}`)
+  }
+  const env = envVersion === 'release' ? 'prod' : envVersion === 'trial' ? 'trial' : 'dev'
   const envConfig = API_CONFIG[env]
+  if (env === 'trial') {
+    const trialUrl = envConfig.baseUrl
+    if (!trialUrl || trialUrl.includes('your-domain.com')) {
+      throw new Error('体验版 API 未配置：请在 miniapp-user/config/api.js 填写专用 HTTPS 测试地址。')
+    }
+    if (!/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?(?:\/.*)?$/i.test(trialUrl)
+      || trialUrl === API_CONFIG.prod.baseUrl
+      || trialUrl === API_CONFIG.dev.baseUrl) {
+      throw new Error('体验版 API 必须使用独立的 HTTPS 测试地址。')
+    }
+    return trialUrl
+  }
   // 只有 dev 才分「工具 / 真机」；prod 两端都走真实域名。
   // ⚠️ 顺序是「**先确认是工具**才用回环」，不是「猜不到就用回环」—— 失败必须朝向真机地址，
   //    反了会把真机指到 127.0.0.1（手机自己），必然失败且只报「网络错误」。
@@ -96,6 +113,10 @@ const isReleaseEnv = () => {
   } catch (e) {
     return false
   }
+}
+
+const isDevelopEnv = () => {
+  try { return __wxConfig.envVersion === 'develop' } catch (e) { return false }
 }
 
 // 与后端 Controller 路径一一对应
@@ -213,4 +234,4 @@ const getCustomerId = () => {
   return id
 }
 
-module.exports = { getBaseUrl, isReleaseEnv, API, getCustomerId }
+module.exports = { getBaseUrl, isReleaseEnv, isDevelopEnv, API, API_CONFIG, getCustomerId }

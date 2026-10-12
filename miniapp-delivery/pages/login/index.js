@@ -1,7 +1,7 @@
 const { wxLoginStaff, devLogin } = require('../../api/auth')
 const { UserInfoKey } = require('../../utils/constant')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
-const { isReleaseEnv } = require('../../config/api')
+const { isDevelopEnv } = require('../../config/api')
 const agreementApi = require('../../api/agreements')
 const { drafts, validCatalog, loginEvidence, find } = require('../../utils/agreements')
 
@@ -24,7 +24,7 @@ Page({
   },
 
   onLoad() {
-    this.setData({ showDevLogin: !isReleaseEnv() })
+    this.setData({ showDevLogin: isDevelopEnv() })
     this.loadAgreements()
     this.checkAutoLogin()
   },

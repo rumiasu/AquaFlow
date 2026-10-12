@@ -158,6 +158,8 @@ class UnpaidWechatOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
         assertEquals(200, intOf("SELECT COUNT(*) FROM orders o JOIN payment_record p ON p.order_id=o.id "
                 + "WHERE o.idempotency_key LIKE 'timeout-starvation-%' AND p.status=1"),
                 "前200张订单各有一条待收款流水");
+        assertEquals(200, intOf("SELECT COUNT(*) FROM orders WHERE idempotency_key LIKE 'timeout-starvation-%' "
+                + "AND payment_status=1"), "无权益独立记账路径下，前200张订单初始状态均为 PENDING");
         assertEquals(0, intOf("SELECT COUNT(*) FROM payment_record WHERE order_id=? AND status IN (1,2)", lastOrder),
                 "末张超时单无活跃支付流水");
         assertEquals(201, reserved(), "201 张单均已预留库存");
@@ -170,8 +172,8 @@ class UnpaidWechatOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
                 "末张取消后应释放活跃库存预留");
         assertEquals(200, intOf("SELECT COUNT(*) FROM orders o JOIN payment_record p ON p.order_id=o.id "
                 + "WHERE o.idempotency_key LIKE 'timeout-starvation-%' AND o.status=1 "
-                + "AND o.payment_status=0 AND p.status=1"),
-                "前200张有待收款流水的订单不得取消、改写支付状态或改动流水");
+                + "AND o.payment_status=1 AND p.status=1"),
+                "前200张有待收款流水的订单不得取消、改写 PENDING 支付状态或改动流水");
         assertEquals(200, reserved(), "只释放末张的预留，库存预留不可多退");
         assertEquals(stockBefore, stock(), "取消不应改动未扣减的实物库存");
 

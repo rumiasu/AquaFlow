@@ -16,6 +16,8 @@ for (const app of apps) {
   const previous = config.API_CONFIG.trial.baseUrl
   const previousProd = config.API_CONFIG.prod.baseUrl
   try {
+    // Make fail-closed cases independent of the real acceptance configuration.
+    config.API_CONFIG.trial.baseUrl = ''
     global.__wxConfig = { envVersion: 'develop' }
     check(config.getBaseUrl() === config.API_CONFIG.dev.baseUrl, `${app}: develop uses configured LAN API`)
     check(config.isDevelopEnv(), `${app}: develop enables the dev-only gate`)
@@ -33,7 +35,7 @@ for (const app of apps) {
     config.API_CONFIG.trial.baseUrl = 'https://PROD.EXAMPLE.INVALID'
     rejects(() => config.getBaseUrl(), /independent|HTTPS/i, `${app}: case-normalized production origin is rejected`)
 
-    config.API_CONFIG.prod.baseUrl = previousProd
+    config.API_CONFIG.prod.baseUrl = 'https://your-domain.com'
     global.__wxConfig = { envVersion: 'release' }
     check(!config.isDevelopEnv(), `${app}: release disables the dev-only gate`)
     rejects(() => config.getBaseUrl(), /占位|your-domain\.com/, `${app}: release placeholder fails closed`)

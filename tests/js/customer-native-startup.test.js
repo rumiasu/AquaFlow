@@ -16,6 +16,9 @@ function clearCustomerModules() {
 }
 function boot(restored = true, envVersion = 'develop') {
   clearCustomerModules()
+  const apiConfig = require('../../miniapp-user/config/api')
+  const previousTrialBaseUrl = apiConfig.API_CONFIG.trial.baseUrl
+  if (envVersion === 'trial') apiConfig.API_CONFIG.trial.baseUrl = ''
   const wx = createWx(), sent = []
   wx.request = options => sent.push(options)
   if (restored) {
@@ -35,7 +38,8 @@ function boot(restored = true, envVersion = 'develop') {
     app.onLaunch()
     registered = app
   }
-  require(path.join(ROOT, 'miniapp-user/app.js'))
+  try { require(path.join(ROOT, 'miniapp-user/app.js')) }
+  finally { apiConfig.API_CONFIG.trial.baseUrl = previousTrialBaseUrl }
   return { app, wx, sent, earlyReads: () => earlyReads,
     token: require(path.join(ROOT, 'miniapp-user/utils/token.js')) }
 }

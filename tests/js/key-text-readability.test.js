@@ -121,6 +121,24 @@ function assertRenderedClass(wxml, className, description) {
   assert.ok(hasClass(wxml, className), description + ' 的 WXML 没有对应 .' + className)
 }
 
+function viewClassStackAt(wxml, marker) {
+  const target = wxml.indexOf(marker)
+  assert.ok(target >= 0, 'WXML 缺少结构标记：' + marker)
+  const expression = /<\/?view\b[^>]*>/g
+  const stack = []
+  let match
+  while ((match = expression.exec(wxml)) && match.index < target) {
+    if (match[0].startsWith('</')) {
+      stack.pop()
+      continue
+    }
+    const classes = /\bclass="([^"]*)"/.exec(match[0])
+    stack.push(classes ? classes[1].split(/\s+/).filter(Boolean) : [])
+    if (match[0].endsWith('/>')) stack.pop()
+  }
+  return stack.flat()
+}
+
 function fontRpx(sheets, selectors) {
   const value = getProperty(sheets, selectors, 'font-size')
   const match = /^(\d+(?:\.\d+)?)rpx$/.exec(value)
@@ -259,6 +277,7 @@ test('关键正文/金额/站点名与辅助标签/状态在 320 和 390 宽度�
     [orderWxml, [orderSheet], '.pending-order-text', 14, 'pending order message'],
     [orderWxml, [orderSheet], '.method-name', 14, '支付方式'],
     [orderWxml, [orderSheet], '.fee-warn-text', 14, '报价限制说明'],
+    [orderWxml, [orderSheet], '.asset-warning .popup-desc', 14, '统一确认弹窗付款/押金说明'],
     [orderWxml, [orderSheet], '.warn-action', 14, '报价下一步动作'],
     [orderWxml, [orderSheet], '.submit-btn', 14, '下单主动作'],
     [assetWxml, [assetSheet], '.scope-name', 14, '资产查看水站名'],
@@ -270,8 +289,16 @@ test('关键正文/金额/站点名与辅助标签/状态在 320 和 390 宽度�
     [assetWxml, [assetSheet], '.picker-retry', 14, '水站列表操作'],
     [managerHomeWxml, [managerHomeSheet], '.todo-amount', 14, '待办金额'],
     [managerIndexWxml, [managerIndexSheet], '.entry-badge', 14, '待办徽标计数'],
+    [managerIndexWxml, [managerIndexSheet], '.badge-error', 14, '站长徽标加载错误'],
     [managerIndexWxml, [managerIndexSheet], '.pending-entry .entry-title', 14, 'pending entry title'],
   ]
+  const paymentCopy = '<text class="popup-desc">配送员送达后现金/扫码支付，确认下单后将锁定订单。</text>'
+  const depositCopy = '<text class="popup-desc">您有正在配送中的水桶，本次下单将产生额外桶押金。</text>'
+  for (const copy of [paymentCopy, depositCopy]) {
+    assert.ok(orderWxml.includes(copy), '统一确认弹窗中的付款责任/新增押金文案缺失')
+    assert.ok(viewClassStackAt(orderWxml, copy).includes('asset-warning'),
+      '关键付款/押金文案必须由统一确认弹窗的 .asset-warning 正文样式覆盖')
+  }
   required.forEach(([wxml, sheets, selector, floor, label]) => {
     const className = selector.slice(selector.lastIndexOf('.') + 1).replace(/[^a-zA-Z0-9_-].*$/, '')
     assertRenderedClass(wxml, className, label)
@@ -282,7 +309,6 @@ test('关键正文/金额/站点名与辅助标签/状态在 320 和 390 宽度�
     [orderWxml, [orderSheet], '.product-spec', 'product spec'],
     [orderWxml, [orderSheet], '.fee-caption', 'deposit quantity label'],
     [orderWxml, [orderSheet], '.popup-desc', 'confirmation dialog copy'],
-    [orderWxml, [orderSheet], '.asset-warning .popup-desc', 'asset warning dialog copy'],
     [orderWxml, [orderSheet], '.detail-item-spec', 'detail spec'],
     [orderWxml, [orderSheet], '.detail-subtotal-label', 'detail subtotal label'],
     [orderWxml, [orderSheet], '.detail-total-label', 'detail total label'],
@@ -332,6 +358,54 @@ test('提高字号后动态站名、待办标签、金额和计数仍可换行�
   // 站长待办现在只把非零项塞进四列卡；别把遗留的零值灰字当可见内容重染。
   assert.ok(/if\s*\(count\s*<=\s*0\)\s*return/.test(managerJs), 'decorateTodo 必须继续过滤零计数')
   assert.ok(managerHomeWxml.includes('todo && todo.items.length'), '待办卡应继续随可见条目显隐')
+})
+
+test('报价限制说明在页面暖纸底与半透明提示底合成后达到 4.5:1', () => {
+  const warning = '<view class="fee-warn" wx:if="{{checkoutWarnings.length > 0}}">'
+  assert.ok(orderWxml.includes(warning), '后端下发的 checkoutWarnings 未渲染')
+  assert.ok(orderWxml.includes('<text class="fee-warn-text" wx:for="{{checkoutWarnings}}" wx:key="*this">{{item}}</text>'),
+    'fee-warn-text 未承载真实报价限制文案')
+  assert.deepStrictEqual(viewClassStackAt(orderWxml, warning), ['container'],
+    'fee-warn 的实际祖先底色应为订单页暖纸底')
+  const pageBackground = resolveColor(userTokens['--bg-color'], userTokens).rgb
+  const background = composite(
+    resolveColor(getProperty([orderSheet], '.fee-warn', 'background'), userTokens), pageBackground)
+  const foreground = colorPair([orderSheet], '.fee-warn-text', 'color', userTokens, background)
+  const ratio = contrast(foreground, background)
+  console.log('      fee-warn-text/暖纸合成底：' + ratio.toFixed(4) + ':1')
+  assert.ok(ratio >= 4.5, 'fee-warn-text 对半透明暖纸提示底仅 ' + ratio.toFixed(4) + ':1')
+})
+
+test('站长 badgeError 是可重试错误状态，警示底上对比度达标', () => {
+  const error = '<view class="badge-error" wx:if="{{badgeError}}" bindtap="loadBadgeCounts">{{badgeError}}</view>'
+  assert.ok(managerIndexWxml.includes(error), 'badge-error 未显示真实错误文案并保留重试动作')
+  assert.deepStrictEqual(viewClassStackAt(managerIndexWxml, error), ['container'],
+    'badge-error 的实际祖先应为站长页容器')
+  const pageBackground = resolveColor(deliveryTokens['--bg-color'], deliveryTokens).rgb
+  const background = composite(
+    resolveColor(getProperty([managerIndexSheet], '.badge-error', 'background'), deliveryTokens),
+    pageBackground)
+  const foreground = colorPair(
+    [managerIndexSheet], '.badge-error', 'color', deliveryTokens, background)
+  const ratio = contrast(foreground, background)
+  console.log('      badge-error/警示底：' + ratio.toFixed(4) + ':1')
+  assert.ok(ratio >= 4.5, 'badge-error 对实际警示底仅 ' + ratio.toFixed(4) + ':1')
+})
+
+test('费用明细中的商品数量在实际白色明细卡上达到 4.5:1', () => {
+  const quantity = '<text class="detail-item-qty">x{{item.quantity}}</text>'
+  assert.ok(orderWxml.includes(quantity), 'detail-item-qty 未显示真实商品数量')
+  const ancestors = viewClassStackAt(orderWxml, quantity)
+  assert.ok(ancestors.includes('popup-content') && ancestors.includes('detail-sheet'),
+    '商品数量不在费用明细白卡中')
+  const pageBackground = resolveColor(userTokens['--bg-color'], userTokens).rgb
+  const background = composite(
+    resolveColor(getProperty([orderSheet], '.detail-sheet', 'background-color'), userTokens),
+    pageBackground)
+  const foreground = colorPair([orderSheet], '.detail-item-qty', 'color', userTokens, background)
+  const ratio = contrast(foreground, background)
+  console.log('      detail-item-qty/白色明细卡：' + ratio.toFixed(4) + ':1')
+  assert.ok(ratio >= 4.5, 'detail-item-qty 对白色明细卡仅 ' + ratio.toFixed(4) + ':1')
 })
 
 if (failed) {

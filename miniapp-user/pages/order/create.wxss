@@ -836,8 +836,8 @@
 }
 
 .asset-warning .popup-desc {
-  /* 2026-10-12：原 26rpx 在 320px 仅约 11px；提高辅助字级，保留独立核过对比度的正文色。 */
-  font-size: 30rpx;
+  /* 2026-10-12：确认弹窗承载付款责任、押金及缺货后续等必要说明，按正文地板至少 14px。 */
+  font-size: 34rpx;
   color: var(--text-regular);
   text-align: left;
   display: block;
@@ -1331,7 +1331,7 @@
 
 .detail-item-qty {
   font-size: 34rpx;
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .detail-item-price {
@@ -1426,7 +1426,7 @@
 .fee-warn-text {
   display: block;
   font-size: 34rpx;
-  color: var(--text-regular);
+  color: var(--text-primary);
   line-height: 1.6;
 }
 

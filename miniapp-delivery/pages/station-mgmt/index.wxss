@@ -56,4 +56,4 @@
 }
 
 .entry-unknown { color:var(--text-primary); font-size:30rpx; white-space:normal; overflow-wrap:break-word; }
-.badge-error { margin:16rpx 24rpx; padding:20rpx; background:var(--warning-bg); color:var(--warning-color); font-size:26rpx; }
+.badge-error { margin:16rpx 24rpx; padding:20rpx; background:var(--warning-bg); color:var(--text-primary); font-size:34rpx; }

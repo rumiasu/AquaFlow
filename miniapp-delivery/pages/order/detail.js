@@ -19,6 +19,19 @@ const MANAGER_EXCEPTIONS = '/api/manager/exceptions'
 const { buildFloorText } = require('../../utils/address')
 const { itemUnit, withItemUnits } = require('../../utils/order-item-view')
 
+// 状态值与 OrderStatus.java / PaymentStatus.java 对齐：退款是支付态，不是订单态。
+const ORDER_STATUS_PENDING = 1
+const ORDER_STATUS_DELIVERING = 2
+const ORDER_STATUS_COMPLETED = 4
+const ORDER_STATUS_CANCELLED = 5
+
+function shouldShowStockPrepPrompt(order) {
+  if (!order) return false
+  if (order.status === ORDER_STATUS_COMPLETED || order.status === ORDER_STATUS_CANCELLED) return false
+  // 支付态 REFUNDED 不代表订单终态：单笔流水退款可以保留订单继续履约。
+  return (order.status === ORDER_STATUS_PENDING || order.status === ORDER_STATUS_DELIVERING)
+}
+
 /**
  * 备货情况文案（契约 C4）：后端 `stockPrep` 投影 → 一句话。
  * 判据 = 凭据上的需求快照 − 已预留（不是 `inventory.quantity`）；这里**只展示**，
@@ -427,7 +440,8 @@ Page({
           payChipClass: order.needCollect ? 'need' : (order.payState === 'PAID' ? 'paid' : 'plain'),
           // 备货情况（契约 C4）：出发前/上门前用一句话说清"这单备齐了没、还缺哪些商品"。
           // 与金额、状态文案一样取自后端投影（stockPrep），前端不拿 inventory.quantity 自己推算。
-          stockPrepText: buildStockPrepText(order.stockPrep, order.items || []),
+          stockPrepText: shouldShowStockPrepPrompt(order)
+            ? buildStockPrepText(order.stockPrep, order.items || []) : '',
           // 楼层上报（v43）：显示成两行（配送员上报 / 地址里填的），不一致时打一个提示标。
           // ⚠️ 这只是**给人看的提示**；"标记"的权威记录在收益明细的 note 里（后端生成，见 docs/design/18 §4）。
           reportedFloorText: order.reportedFloor ? ('配送员上报 ' + order.reportedFloor + ' 层') : '',

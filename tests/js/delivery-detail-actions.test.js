@@ -24,6 +24,52 @@ for(const [name,change] of [['hide',t=>t.page.onHide()],['unload',t=>t.page.onUn
  test('late detail discarded after '+name,async()=>{const d=deferred(),t=fixture({api:{getOrderDetail:()=>d.promise}});const pending=t.page.loadOrderDetail(20);change(t);d.resolve({data:{...t.order,orderNo:'late'}});await pending;assert.notEqual(t.page.data.order.orderNo,'late')})
 }
 test('new detail wins over slower older success',async()=>{const a=deferred(),b=deferred();let n=0;const t=fixture({api:{getOrderDetail:()=>++n===1?a.promise:b.promise}});const p=t.page.loadOrderDetail(20),q=t.page.loadOrderDetail(20);b.resolve({data:{...t.order,orderNo:'new'}});await q;a.resolve({data:{...t.order,orderNo:'old'}});await p;assert.equal(t.page.data.order.orderNo,'new')})
+test('stock prep prompt is only actionable in order statuses 1/2; delivered/completed/cancelled orders keep projection only',async()=>{
+ const stockPrep={ready:false,itemsWithoutCredential:1,items:[]}
+ for(const order of [
+   {status:3,paymentStatus:2,payState:'PAID'},
+   {status:4,paymentStatus:2,payState:'PAID'},
+   {status:5,paymentStatus:4,payState:'CANCELLED'}
+ ]){
+   for(const role of ['DELIVERY','STATION_MANAGER']){
+     const t=fixture({order:{...order,stockPrep}})
+     t.app.globalData.userInfo.role=role
+     await t.page.loadOrderDetail(20)
+     assert.strictEqual(t.page.data.order.stockPrepText,'',JSON.stringify({role,...order}))
+     assert.strictEqual(t.page.data.order.stockPrep,stockPrep,'keep backend projection for history/audit')
+   }
+ }
+})
+test('stock prep prompt remains visible for pending/delivering missing prep in both roles',async()=>{
+ for(const role of ['DELIVERY','STATION_MANAGER'])for(const status of [1,2]){
+   const t=fixture({order:{status,paymentStatus:1,payState:'PENDING',stockPrep:{ready:false,itemsWithoutCredential:1,items:[]}}})
+   t.app.globalData.userInfo.role=role
+   await t.page.loadOrderDetail(20)
+   assert.strictEqual(t.page.data.order.stockPrepText,'还缺：有商品还没登记备货',JSON.stringify({role,status}))
+ }
+})
+test('refunded payment status does not hide prep prompts on an order that is still being delivered',async()=>{
+ const t=fixture({order:{status:2,paymentStatus:3,payState:'REFUNDED',stockPrep:{ready:false,itemsWithoutCredential:1,items:[]}}})
+ await t.page.loadOrderDetail(20)
+ assert.strictEqual(t.page.data.order.stockPrepText,'还缺：有商品还没登记备货')
+})
+test('stock prep ready state remains visible while delivery is pending or in progress',async()=>{
+ for(const status of [1,2]){
+   const t=fixture({order:{status,paymentStatus:2,payState:'PAID',stockPrep:{ready:true,itemsWithoutCredential:0,items:[]}}})
+   await t.page.loadOrderDetail(20)
+   assert.strictEqual(t.page.data.order.stockPrepText,'已备齐')
+ }
+})
+test('refreshing the same page from delivering to completed clears the old prep prompt',async()=>{
+ let current={status:2,paymentStatus:1,payState:'PENDING',stockPrep:{ready:false,itemsWithoutCredential:1,items:[]}}
+ const t=fixture({api:{getOrderDetail:async()=>({data:{id:20,...current}})}})
+ await t.page.loadOrderDetail(20)
+ assert.strictEqual(t.page.data.order.stockPrepText,'还缺：有商品还没登记备货')
+ current={...current,status:4,paymentStatus:2,payState:'PAID'}
+ await t.page.loadOrderDetail(20)
+ assert.strictEqual(t.page.data.order.stockPrepText,'')
+ assert.strictEqual(t.page.data.order.stockPrep,current.stockPrep,'retain projection when refreshed state is terminal')
+})
 test('old failure cannot toast or clear latest loading',async()=>{const a=deferred(),b=deferred();let n=0;const t=fixture({api:{getOrderDetail:()=>++n===1?a.promise:b.promise}});const p=t.page.loadOrderDetail(20),q=t.page.loadOrderDetail(20);a.reject(Error('old'));await p;assert.equal(t.page.data.loading,true);assert.equal(t.wx.__calls.toast.length,0);b.resolve({data:t.order});await q})
 test('token renewal preserves current read',async()=>{const d=deferred(),t=fixture({api:{getOrderDetail:()=>d.promise}});const p=t.page.loadOrderDetail(20);t.app.globalData.accessToken='b';d.resolve({data:{...t.order,orderNo:'renewed'}});await p;assert.equal(t.page.data.order.orderNo,'renewed')})
 test('onLoad and onShow initiate only one initial read',async()=>{let n=0;const t=fixture({api:{getOrderDetail:async()=>{n++;return {data:t.order}}}});t.page.onLoad({id:'20'});await t.page.onShow();assert.equal(n,1)})

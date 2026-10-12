@@ -54,7 +54,7 @@
         <text class="customer-phone customer-address" wx:elif="{{item.addressText}}">默认档案地址：{{item.addressText}}</text>
 
         <view class="stat-row">
-          <view class="stat"><text class="stat-val">{{item.totalOrders}}</text><text class="stat-label">订单</text></view>
+          <view class="stat"><text class="stat-val">{{item.totalOrders}}</text><text class="stat-label">本站订单</text></view>
           <view class="stat"><text class="stat-val">¥{{item.totalConsumptionText}}</text><text class="stat-label">累计消费</text></view>
         </view>
 

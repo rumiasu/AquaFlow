@@ -33,7 +33,7 @@ public class CustomerStationVO {
     /** 押金余额 */
     private BigDecimal depositBalance;
 
-    /** 累计订单数 */
+    /** 本站未取消订单数，按 orders.station_id（原归属站）统计。 */
     private Integer totalOrders;
 
     /** 累计消费金额 */
@@ -95,7 +95,7 @@ public class CustomerStationVO {
 
     /**
      * 后端统一派生「等级 / 活跃度」展示字段，前端只读不计算。
-     * 等级：累计消费 ≥2000 或订单 ≥30 → VIP客户；≥500 或 ≥10 → 老客户；否则普通客户。
+     * 等级：累计消费 ≥2000 或本站订单 ≥30 → VIP客户；≥500 或 ≥10 → 老客户；否则普通客户。
      * 活跃：以最近配送时间（无则首次下单时间）为基准，≤30 天活跃、≤90 天沉睡、否则流失；无时间则新客。
      */
     public void deriveProfileMeta() {

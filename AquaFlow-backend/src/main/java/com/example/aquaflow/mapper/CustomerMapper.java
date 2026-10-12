@@ -121,10 +121,15 @@ public interface CustomerMapper {
     /**
      * 站长客户视图：本站有订单的客户，LEFT JOIN 客户×水站配置带出货到付款权限。
      * 派生字段（驼峰别名）由 CustomerStationVO 接收。
+     *
+     * <p>2026-10-12：原来直接读 {@code customer.total_orders}。订单生命周期不维护这列，
+     * 且全局计数没有站别，历史种子/导入的非零值也可能陈旧。本站订单数改为先按归属站
+     * 汇总 {@code status <> 5} 的订单再一次性关联；取消条件只在此计数子查询里，不能
+     * 挪到外层筛掉“只有取消单”的客户。</p>
      */
     @Select("select c.id, c.name, c.phone, c.customer_type as customerType, c.note, " +
             // [AQ-054] customer.deposit_balance 为废弃列（只读不写恒 0），展示改用真实来源 deposit_account
-            "coalesce((select da.balance from customer_deposit_account da where da.customer_id = c.id and da.station_id = #{stationId}), 0) as depositBalance, c.total_orders as totalOrders, " +
+            "coalesce((select da.balance from customer_deposit_account da where da.customer_id = c.id and da.station_id = #{stationId}), 0) as depositBalance, coalesce(max(station_orders.order_count), 0) as totalOrders, " +
             "c.total_consumption as totalConsumption, c.tags, " +
             "c.first_order_time as firstOrderTime, c.last_delivery_time as lastDeliveryTime, " +
             "c.create_time as createTime, " +
@@ -132,22 +137,30 @@ public interface CustomerMapper {
             "from customer c " +
             "join orders o on c.id = o.customer_id " +
             "left join customer_station_config csc on csc.customer_id = c.id and csc.station_id = #{stationId} " +
+            "left join (select customer_id, count(*) as order_count from orders " +
+            "where station_id = #{stationId} and status <> 5 group by customer_id) station_orders " +
+            "on station_orders.customer_id = c.id " +
             "where o.station_id = #{stationId} " +
             "group by c.id")
     List<CustomerStationVO> listStationCustomers(@Param("stationId") Long stationId);
 
     /**
-     * 单个客户的站长视图（含本站货到付款权限）。无订单/无配置关系时返回 null。
+     * 单个客户的站长视图（含本站货到付款权限和本站未取消订单数）。无订单/无配置关系时返回 null。
+     * <p>本站订单数沿用 {@code orders.station_id} 归属站口径；取消单只从计数排除，
+     * {@code exists} 成员资格仍保留所有本站订单，不能把取消条件移到外层。</p>
      */
     @Select("select c.id, c.name, c.phone, c.customer_type as customerType, c.note, " +
             // [AQ-054] customer.deposit_balance 为废弃列（只读不写恒 0），展示改用真实来源 deposit_account
-            "coalesce((select da.balance from customer_deposit_account da where da.customer_id = c.id and da.station_id = #{stationId}), 0) as depositBalance, c.total_orders as totalOrders, " +
+            "coalesce((select da.balance from customer_deposit_account da where da.customer_id = c.id and da.station_id = #{stationId}), 0) as depositBalance, coalesce(station_orders.order_count, 0) as totalOrders, " +
             "c.total_consumption as totalConsumption, c.tags, " +
             "c.first_order_time as firstOrderTime, c.last_delivery_time as lastDeliveryTime, " +
             "c.create_time as createTime, " +
             "coalesce(csc.offline_payment_enabled, 0) as offlinePaymentEnabled " +
             "from customer c " +
             "left join customer_station_config csc on csc.customer_id = c.id and csc.station_id = #{stationId} " +
+            "left join (select customer_id, count(*) as order_count from orders " +
+            "where station_id = #{stationId} and status <> 5 group by customer_id) station_orders " +
+            "on station_orders.customer_id = c.id " +
             "where c.id = #{customerId} " +
             "and exists (select 1 from orders o where o.customer_id = c.id and o.station_id = #{stationId})")
     CustomerStationVO getStationCustomer(@Param("customerId") Long customerId, @Param("stationId") Long stationId);

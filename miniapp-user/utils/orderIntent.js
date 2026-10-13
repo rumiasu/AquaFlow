@@ -13,6 +13,7 @@
 const KEY = 'orderIntent.v1'
 const REQUEST_KEY = 'orderRequest.v2:'
 const requestsByApp = new WeakMap()
+const { isCurrentSession } = require('./token')
 
 function requestError(message) {
   return Object.assign(new Error(message), { orderRecoveryBlocked: true })
@@ -28,8 +29,8 @@ function copy(value) { return JSON.parse(JSON.stringify(value)) }
 function absent(value) { return value == null || value === '' }
 
 function storedRequest(request) {
-  const { customerId, fingerprint, key, body, phase, orderId, at, wechatPay, paymentContext } = request
-  return { customerId, fingerprint, key, body, phase, orderId, at, wechatPay, paymentContext }
+  const { customerId, fingerprint, key, body, phase, orderId, at, wechatPay, paymentContext, receiptOnly } = request
+  return { customerId, fingerprint, key, body, phase, orderId, at, wechatPay, paymentContext, receiptOnly }
 }
 
 /** 2026-10-13：首次发送前必须核实完整原件；写后抛错或静默未写都不能盲发。 */
@@ -56,15 +57,17 @@ function getRequest(session, knownReceipt) {
   }
   if (absent(stored) && legacy && String(legacy.customerId) === owner) {
     if (legacy.body) stored = legacy
-    else if (legacy.key && (!knownReceipt || knownReceipt.fingerprint !== legacy.fingerprint || !knownReceipt.orderId)) {
-      throw requestError('原提交只保留了编号，请先到我的订单核实，暂不发送新订单')
+    else if (legacy.key) {
+      throw Object.assign(requestError('原提交只保留了编号，请先到我的订单核实，暂不发送新订单'), { legacyOrderKey: legacy.key })
     }
   }
   if (absent(stored)) return null
-  if (String(stored.customerId) !== owner || !stored.body || stored.body.idempotencyKey !== stored.key
+  const receiptOnly = stored.receiptOnly === true && stored.phase === 'known' && stored.body === null
+  if (String(stored.customerId) !== owner || (!receiptOnly && (!stored.body || stored.body.idempotencyKey !== stored.key))
       || typeof stored.key !== 'string' || !stored.key.trim()
-      || fingerprint({ ...stored.body, customerId: stored.customerId }) !== stored.fingerprint
-      || !Number.isFinite(stored.at) || !stored.paymentContext || typeof stored.paymentContext !== 'object'
+      || (!receiptOnly && fingerprint({ ...stored.body, customerId: stored.customerId }) !== stored.fingerprint)
+      || String(stored.fingerprint).split('|')[0] !== owner
+      || !Number.isFinite(stored.at) || (!receiptOnly && (!stored.paymentContext || typeof stored.paymentContext !== 'object'))
       || !stored.fingerprint || !['prepared', 'unknown', 'known'].includes(stored.phase)
       || (stored.phase === 'known' && !stored.orderId)) throw requestError('原提交记录不完整，请先到我的订单核实')
   const request = copy(stored)
@@ -100,14 +103,46 @@ function beginRequest(request) {
 }
 
 /** 服务端明确结果更新本人原件；持久化失败保留内存事实，不把 unknown 猜成没建单。 */
-function settleRequest(request, phase, orderId = null) {
+function settleRequest(request, phase, orderId = null, at = Date.now()) {
+  // 订单 GET 已确证存在时，较迟的未确认/缺货响应不能倒滚为 unknown 或 prepared。
+  if (request.phase === 'known' && (phase !== 'known' || String(request.orderId) !== String(orderId))) return
   request.phase = phase
   request.orderId = orderId
-  request.at = Date.now()
+  request.at = at
   try { persistRequest(request) } catch (error) { /* 原件留在进程内；旧磁盘 unknown 仍可按原键安全恢复。 */ }
 }
 
 function releaseRequest(request) { if (request) request.busy = false }
+
+/** 2026-10-13：升级 key-only 只认本人订单 GET 的精确 key；没命中不清记录，也不伪造 body。 */
+function reconcileKnownOrder(order, session) {
+  if (!session || !isCurrentSession(session) || !session.loggedIn || !session.customerId || !order
+      || !Number.isSafeInteger(Number(order.id)) || Number(order.id) <= 0
+      || String(order.customerId) !== String(session.customerId)
+      || typeof order.idempotencyKey !== 'string' || !order.idempotencyKey) return false
+  const requests = ownedRequests(session), owner = String(session.customerId)
+  let request = requests.get(owner), receipt
+  try {
+    if (!request) {
+      request = wx.getStorageSync(REQUEST_KEY + owner)
+      if (absent(request)) request = wx.getStorageSync(KEY)
+    }
+    receipt = wx.getStorageSync('recentOrder.v1')
+  } catch (error) { if (!request) return false }
+  if (!request || String(request.customerId) !== owner || request.key !== order.idempotencyKey
+      || !request.fingerprint || String(request.fingerprint).split('|')[0] !== owner) return false
+  const createdAt = Date.parse(order.createTime)
+  const receiptAt = receipt && String(receipt.orderId) === String(order.id) && receipt.fingerprint === request.fingerprint ? receipt.at : null
+  const at = Number.isFinite(createdAt) ? createdAt : Number.isFinite(receiptAt) ? receiptAt
+    : Number.isFinite(request.at) ? request.at : Number.isFinite(request.savedAt) ? request.savedAt : 0
+  if (!request.body) {
+    request = { customerId: session.customerId, fingerprint: request.fingerprint, key: request.key,
+      body: null, phase: 'known', orderId: order.id, at, wechatPay: null, paymentContext: null, receiptOnly: true, busy: false }
+  }
+  requests.set(owner, request)
+  settleRequest(request, 'known', order.id, at)
+  return true
+}
 
 /** 生成一个新的幂等键（时间 + 随机，够用即可；服务端只当字符串键用）。 */
 function newKey() {
@@ -185,4 +220,4 @@ function peek() {
 }
 
 module.exports = { keyFor, save, clear, peek, fingerprint, newKey,
-  getRequest, prepareRequest, beginRequest, settleRequest, releaseRequest }
+  getRequest, prepareRequest, beginRequest, settleRequest, releaseRequest, reconcileKnownOrder }

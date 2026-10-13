@@ -192,7 +192,7 @@ Page({
 
     // 「刚刚下过的那一单」从本地读回来：不然"跳结果页 → 返回下单页"之后页面实例是新的、
     // "已下单"态就没了 —— 实测那次"点 3 下成交 3 单"正是这个形状。
-    // 过期或指纹不符（换了内容/换了客户）都不会生效，判据见 _pendingOrderForCurrentCart。
+    // 最近显示受窗口和当前指纹控制；历史成功回执保留供升级核实，不能与 unknown 混同。
     this._restorePendingOrderFromStorage()
     this._restoreOrderRequest()
     // 优先级：URL参数 > 全局临时站点 > 本地存储
@@ -491,9 +491,13 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   async loadReorder(orderId) {
+    const session = captureSession()
     try {
       const res = await getOrderDetail(orderId)
+      if (!isCurrentSession(session) || this._quoteDestroyed) return
       const order = res.data
+      // 再来一单只归并当前登录下真实 GET 的本人原 key；不以原单内容伪造恢复 body。
+      orderIntent.reconcileKnownOrder(order, session)
       if (!order) {
         wx.showToast({ title: '订单不存在', icon: 'none' })
         wx.navigateBack()
@@ -1237,7 +1241,13 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   /** 把"已下单"态投影到页面（按钮文案与提示行都读它）。改内容/离开页面后自行失效。 */
   _syncPendingOrderState() {
     const pending = this._pendingOrderForCurrentCart()
+    let known = false
+    try {
+      const request = orderIntent.getRequest(captureSession())
+      known = !!request && request.phase === 'known' && !request.busy
+    } catch (error) { /* 读不到原件不能解除 unknown；只使用已确认的 known 事实。 */ }
     this.setData({
+      ...(known && this.data.submitState === 'unknown' ? { submitState: 'idle', unknownResultText: '' } : {}),
       pendingOrderId: pending ? pending.orderId : null,
       pendingOrderPaid: pending ? pending.paid === true : false,
       // 旧缓存只有 paid=false 时无法区分未付/未核实，展示为待确认。
@@ -1246,18 +1256,18 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   /**
-   * 从本地读回"刚刚下过的那一单"（进页面时调一次）。**过期的一律丢弃**。
+   * 保留已确认订单回执；十分钟只控制最近订单展示，不能丢掉升级迁移需要的幂等事实。
    * 单独抽成方法是为了让流程测试能驱动它 —— 真机上它由 onLoad 调用，而测试不跑 onLoad。
    */
   _restorePendingOrderFromStorage() {
     try {
       const saved = wx.getStorageSync(RECENT_ORDER_KEY)
       if (saved && saved.orderId && saved.fingerprint
-          && (Date.now() - (saved.at || 0)) < RECENT_ORDER_WINDOW_MS) {
+          && String(saved.fingerprint).split('|')[0] === String(getCustomerId())) {
         this.setData({ lastSubmittedOrder: saved })
       }
     } catch (e) {
-      // 读不到 = 没有这层保护，不影响下单
+      // 读取失败不猜原单不存在；是否可发送仍由完整原件与 legacy key-only 护栏决定。
     }
   },
 
@@ -1432,12 +1442,12 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     try {
       const orderRes = await createOrder(request)
       const data = (orderRes && orderRes.data) || null
-      if (data && data.needConfirm === true) {
+      if (data && data.needConfirm === true && requestRecord.phase !== 'known') {
         orderIntent.settleRequest(requestRecord, 'prepared')
         if (current()) this._showShortageConfirm(data.shortages)
         return
       }
-      const orderId = pickOrderId(data)
+      const orderId = requestRecord.phase === 'known' ? requestRecord.orderId : pickOrderId(data)
       if (orderId == null) {
         if (current()) this._showOrderRecoveryBlocked('没能确认原提交结果。重试仍使用原编号和完整内容；也可先到我的订单核实原单。')
         return
@@ -1482,7 +1492,20 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     try {
       const request = orderIntent.getRequest(captureSession(), this.data.lastSubmittedOrder)
       if (request && request.phase === 'unknown') this._showOrderRecoveryBlocked('原提交结果尚未确认，请重试核实原提交或到我的订单查看。')
-    } catch (error) { this._showOrderRecoveryBlocked(error.message) }
+      else if (request && request.phase === 'known' && !request.busy) this.setData({ submitState: 'idle', unknownResultText: '' })
+    } catch (error) {
+      this._showOrderRecoveryBlocked(error.message)
+      const receipt = this.data.lastSubmittedOrder
+      if (error.legacyOrderKey && receipt && receipt.orderId) {
+        const session = captureSession()
+        getOrderDetail(receipt.orderId).then(result => {
+          if (!isCurrentSession(session) || this._quoteDestroyed) return
+          if (orderIntent.reconcileKnownOrder(result && result.data, session)) {
+            this.setData({ submitState: 'idle', unknownResultText: '' })
+          }
+        }).catch(() => { /* 查询失败或未命中不能证明原单不存在，保留原 key-only 保护。 */ })
+      }
+    }
   },
 
   /** 缺货确认弹窗（契约 A1）：说清"哪些商品、要多少、现在有多少、等货的含义"。

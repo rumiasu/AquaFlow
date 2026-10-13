@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'customer-scope-copy.test.js', name: 'customer scope names and permission versus current COD result offline' },
   { file: 'customer-cod-context.test.js', name: 'COD customer modal generations, lifecycle and save context' },
   { file: 'trial-deployment-materials.test.js', name: 'limited trial deployment inputs fail closed offline' },
   { file: 'trial-cloud-transport.test.js', name: 'trial cloud JSON transport, refresh replay and local timeout recovery offline' },

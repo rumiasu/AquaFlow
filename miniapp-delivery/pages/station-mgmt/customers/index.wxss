@@ -75,3 +75,13 @@
 .ent-item-time { font-size: 22rpx; color: var(--text-secondary); }
 .ent-item-line { display: block; margin-top: 8rpx; font-size: 24rpx; color: var(--text-secondary); }
 .ent-item-actions { display: flex; justify-content: flex-end; margin-top: 16rpx; }
+
+/* 操作范围提示只展示核实状态，长站名/对象与操作文案自然换行。 */
+.scope-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 12rpx; margin-bottom: 20rpx; }
+.scope-label, .scope-line { font-size: 26rpx; line-height: 1.5; color: var(--text-regular); overflow-wrap: anywhere; word-break: break-all; }
+.scope-label { flex: 1; min-width: 0; }
+.scope-line { margin-top: 12rpx; }
+.scope-retry { color: var(--primary-color); font-size: 26rpx; padding: 12rpx 0; flex-shrink: 0; }
+.card-actions { max-width: 190rpx; }
+.manage-btn, .cod-btn { line-height: 1.4; white-space: normal; word-break: break-all; }
+.cod-permission-label { flex: 1; min-width: 0; margin-right: 16rpx; line-height: 1.5; }

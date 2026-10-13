@@ -1,7 +1,7 @@
 // 站长客户查询
 const { getCustomers, getOfflinePaymentSummary, updateOfflinePayment,
         getEnterpriseApplies, reviewEnterpriseApply,
-        getEnterpriseConfig, updateEnterpriseConfig } = require('../../../api/station-mgmt')
+        getEnterpriseConfig, updateEnterpriseConfig, getMyStation } = require('../../../api/station-mgmt')
 const { STORAGE_KEYS } = require('../../../utils/storage-keys')
 const navigation = require('../../../utils/navigation')
 
@@ -36,6 +36,8 @@ function decorate(item) {
 
 Page({
   data: {
+    stationScopeLabel: '当前水站：名称未核实',
+    stationScopeState: 'unverified',
     loading: true,
     loadError: '',
     searchDone: false,
@@ -70,11 +72,14 @@ Page({
       return
     }
     navigation.show(this)
+    this.loadStationScope()
     return this.loadData()
   },
 
   onHide() {
     navigation.hide(this)
+    this._stationScopeSequence = (this._stationScopeSequence || 0) + 1
+    this._stationScopeContext = null
     this._customersHidden = true
     this.onCodClose()
     this._searchSequence = (this._searchSequence || 0) + 1
@@ -83,6 +88,51 @@ Page({
     this._enterpriseConfigSequence = (this._enterpriseConfigSequence || 0) + 1
   },
   onUnload() { this.onHide(); navigation.dispose(this) },
+
+  // 名称只作当前操作范围提示；授权仍由原登录守卫与服务端判定，不读缓存站名。
+  stationScopeCurrent(context) {
+    if (!context || this._customersHidden || this._stationScopeContext !== context
+      || context.sequence !== this._stationScopeSequence) return false
+    const now = searchSession(), old = context.session
+    return old.app === now.app && old.generation === now.generation && old.identity === now.identity
+  },
+
+  currentStationScopeLabel() {
+    if (this.stationScopeCurrent(this._stationScopeContext)) return this.data.stationScopeLabel
+    const label = '当前水站：名称未核实'
+    this.setData({ stationScopeLabel: label, stationScopeState: 'unverified' })
+    return label
+  },
+
+  async loadStationScope() {
+    const session = searchSession(), info = session.app.globalData && session.app.globalData.userInfo || {}
+    const idText = String(info.stationId == null ? '' : info.stationId)
+    const context = this._stationScopeContext = {
+      sequence: this._stationScopeSequence = (this._stationScopeSequence || 0) + 1, session, idText
+    }
+    this.setData({ stationScopeLabel: '当前水站：名称未核实', stationScopeState: 'loading' })
+    if (!/^[1-9]\d*$/.test(idText) || !Number.isSafeInteger(Number(idText))) {
+      this.setData({ stationScopeState: 'unverified' })
+      return
+    }
+    try {
+      const res = await getMyStation()
+      if (!this.stationScopeCurrent(context)) return
+      const station = res && res.data
+      if (!res || res.code !== 0 || !station
+        || !Object.prototype.hasOwnProperty.call(station, 'id')
+        || !Object.prototype.hasOwnProperty.call(station, 'name')
+        || String(station.id) !== idText || typeof station.name !== 'string'
+        || !station.name.trim()) throw new Error('水站名称未核实')
+      this.setData({ stationScopeLabel: '当前水站：' + station.name.trim(), stationScopeState: 'ready' })
+    } catch (err) {
+      if (this.stationScopeCurrent(context)) this.setData({ stationScopeState: 'error' })
+    }
+  },
+
+  onStationScopeRetry() {
+    if (!this._customersHidden && this.data.stationScopeState !== 'loading') return this.loadStationScope()
+  },
 
   onPullDownRefresh() {
     const pull = this._pullSequence = (this._pullSequence || 0) + 1
@@ -201,6 +251,7 @@ Page({
 
   // 跳转客户画像/权限管理
   onManage(e) {
+    this.currentStationScopeLabel()
     const { id } = e.currentTarget.dataset
     wx.navigateTo({ url: `/pages/station-mgmt/customers/detail/index?id=${id}` })
   },
@@ -217,6 +268,7 @@ Page({
   async onCod(e) {
     if (this._customersHidden) return
     const { id, name } = e.currentTarget.dataset
+    this.currentStationScopeLabel()
     const context = this._codContext = { sequence: this._codSequence = (this._codSequence || 0) + 1,
       customerId: id, session: searchSession(), ready: false, saving: false }
     // 2026-10-13：A迟到GET曾把B整张弹窗换回A，关闭/离页也会被重新打开。
@@ -226,16 +278,27 @@ Page({
       const res = await getOfflinePaymentSummary(id)
       if (!this.codContextCurrent(context)) return
       const d = res.data || {}
+      // usable 是独立的服务端结果，不能用开关或空原因推算，亦不跟随未保存的开关变化。
+      const usableKnown = Object.prototype.hasOwnProperty.call(d, 'usable') && typeof d.usable === 'boolean'
+      const reason = typeof d.blockReason === 'string' ? d.blockReason.trim() : ''
+      const savedPermission = Object.prototype.hasOwnProperty.call(d, 'offlinePaymentEnabled')
+        && (d.offlinePaymentEnabled === 1 || d.offlinePaymentEnabled === '1')
+      const usableText = usableKnown && !(d.usable && (reason || !savedPermission))
+        ? (d.usable ? '当前可使用' : '当前不可使用') : '当前能否使用未核实'
+      const row = this.data.list.find(item => String(item.id) === String(id))
+      const phoneText = row ? (row.phone ? row.phoneMasked || '电话已填写' : '未填写电话') : '电话未核实'
       context.ready = true
       this.setData({
         codModal: {
           visible: true,
           customerId: id,
-          customerName: name || '',
+          customerName: (row && row.name) || name || '姓名未填写',
+          customerPhoneText: phoneText,
+          usableText,
           orderCount: d.orderCount || 0,
           overdueCount: d.overdueCount || 0,
           overdueAmount: d.overdueAmount != null ? d.overdueAmount : '0.00',
-          blockReason: d.blockReason || ''
+          blockReason: reason
         },
         codForm: { enabled: Number(d.offlinePaymentEnabled) === 1 }
       })
@@ -443,6 +506,7 @@ Page({
    * 进 settings 时回填已核实配置；独立配置请求未完成/失败时，视图提供局部重试。
    */
   onEntOpen(e) {
+    this.currentStationScopeLabel()
     const view = (e.currentTarget.dataset.view === 'settings') ? 'settings' : 'review'
     this.setData({ entVisible: true, entView: view })
     if (view === 'settings') this.openEntCfgForm()
@@ -450,6 +514,7 @@ Page({
 
   /** 弹窗内两个视图互切（审核 ⇄ 阈值）。 */
   onEntSwitch(e) {
+    this.currentStationScopeLabel()
     const view = e.currentTarget.dataset.view === 'settings' ? 'settings' : 'review'
     this.setData({ entView: view })
     if (view === 'settings') this.openEntCfgForm()
@@ -470,9 +535,13 @@ Page({
    */
   onEntApprove(e) {
     const { id, name } = e.currentTarget.dataset
+    const stationLabel = this.currentStationScopeLabel()
+    const application = this.data.entApplies.find(item => String(item.id) === String(id))
+    const company = (application && application.companyName) || name || '企业名称未填写'
+    const contact = (application && application.contactPerson) || '联系人未填写'
     wx.showModal({
       title: '确认为企业客户',
-      content: `通过后「${name}」将转为企业客户，企业资料同步建档。`,
+      content: `${stationLabel}\n申请企业：${company}\n${contact}\n通过后转为企业客户，企业资料同步建档。`,
       confirmText: '通过',
       cancelText: '再想想',
       success: (r) => {
@@ -484,8 +553,10 @@ Page({
   /** 驳回申请：驳回理由（可不填）用 editable 弹窗问一次，它会随申请一起留痕。 */
   onEntReject(e) {
     const { id, name } = e.currentTarget.dataset
+    const stationLabel = this.currentStationScopeLabel()
     wx.showModal({
       title: '驳回申请',
+      content: `${stationLabel}\n申请企业：${name || '企业名称未填写'}`,
       editable: true,
       placeholderText: `驳回「${name}」的理由（可不填）`,
       success: (r) => {

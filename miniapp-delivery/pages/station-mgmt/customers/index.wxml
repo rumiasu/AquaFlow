@@ -1,4 +1,8 @@
 <view class="container">
+  <view class="scope-banner">
+    <text class="scope-label">{{stationScopeLabel}}</text>
+    <text class="scope-retry" wx:if="{{stationScopeState !== 'ready' && stationScopeState !== 'loading'}}" bindtap="onStationScopeRetry">核实水站</text>
+  </view>
   <view class="search-bar">
     <input class="search-input" placeholder="搜姓名/手机号/地址（地址可缩写）" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="onSearch" />
     <view class="search-btn" bindtap="onSearch"><text>搜索</text></view>
@@ -65,7 +69,7 @@
       <view class="card-actions">
         <view class="manage-btn" data-id="{{item.id}}" bindtap="onManage"><text>详情</text></view>
         <!-- 货到付款的开关与约束（v48）：站长在这里开通；v49 已撤回「首单是否放行 / 单笔上限」 -->
-        <view class="cod-btn" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onCod"><text>货到付款</text></view>
+        <view class="cod-btn" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onCod"><text>设置货到付款</text></view>
         <view class="call-link" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall"><text>致电</text></view>
       </view>
     </view>
@@ -80,12 +84,16 @@
   -->
   <view class="modal-mask" wx:if="{{codModal.visible}}" bindtap="onCodClose">
     <view class="modal-body" catchtap="onCodNoop">
-      <view class="modal-title">货到付款 · {{codModal.customerName}}</view>
+      <view class="modal-title">货到付款设置</view>
+      <view class="scope-line">{{stationScopeLabel}}</view>
+      <view class="scope-line">客户：{{codModal.customerName}} · {{codModal.customerPhoneText}}</view>
+      <view class="scope-line">本次核实结果：{{codModal.usableText}}</view>
       <view class="modal-tip" wx:if="{{codModal.blockReason}}">{{codModal.blockReason}}</view>
       <view class="modal-row">
-        <text>开通货到付款</text>
+        <text class="cod-permission-label">允许此客户使用货到付款</text>
         <switch checked="{{codForm.enabled}}" bindchange="onCodToggle" />
       </view>
+      <view class="modal-tip">开关表示允许设置；修改开关后需保存，再打开可重新核实当前结果。</view>
       <view class="modal-stat">
         <text>历史订单 {{codModal.orderCount}} 笔</text>
         <text>逾期未结 {{codModal.overdueCount}} 笔 · ¥{{codModal.overdueAmount}}</text>
@@ -113,6 +121,8 @@
         <text wx:else>企业身份提示 · 本站阈值</text>
       </view>
 
+      <view class="scope-line">{{stationScopeLabel}}</view>
+
       <!-- ===== 审核视图 ===== -->
       <block wx:if="{{entView === 'review'}}">
         <!-- [2026-10-10] 核实/重试是未核实及失败态的主操作，不能沿用灰色空态文字。 -->
@@ -122,7 +132,7 @@
         <block wx:else>
         <view class="ent-item" wx:for="{{entApplies}}" wx:key="id">
           <view class="ent-item-head">
-            <text class="ent-item-name">{{item.companyName}}</text>
+            <text class="ent-item-name">{{item.companyName || '企业名称未填写'}}</text>
             <text class="ent-item-time">{{item.applyTimeText}}</text>
           </view>
           <text class="ent-item-line" wx:if="{{item.contactPerson}}">联系人：{{item.contactPerson}}</text>

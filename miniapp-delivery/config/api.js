@@ -1,3 +1,5 @@
+const { assertReleaseBaseUrl } = require('../utils/release-api-url')
+
 // API配置
 // [2026-09-22 结论] 与顾客端一致：这一行的值由 `scripts/set-dev-api-host.ps1 -Apply` 维护，**不要手改** ——
 //   热点开着 → 写 `192.168.137.1`（笔记本移动热点，恒定）；热点关着 → 写**当前 WLAN 地址**（现在就是它）。
@@ -63,6 +65,8 @@ const getBaseUrl = () => {
   }
   const env = envVersion === 'release' ? 'prod' : envVersion === 'trial' ? 'trial' : 'dev'
   const envConfig = API_CONFIG[env]
+  // Only release is tightened; develop/trial routing and configured values remain unchanged.
+  if (env === 'prod') assertReleaseBaseUrl(envConfig.baseUrl, API_CONFIG.dev)
   if (env === 'trial') {
     const trialUrl = envConfig.baseUrl
     if (!trialUrl || trialUrl.includes('your-domain.com')) {

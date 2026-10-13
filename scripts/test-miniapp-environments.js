@@ -79,6 +79,57 @@ try {
   if (priorRequestModule) require.cache[requestPath] = priorRequestModule
   else delete require.cache[requestPath]
 }
+
+for (const app of apps) {
+  const c = require(path.join(root, app, 'config/api.js'))
+  const original = JSON.parse(JSON.stringify(c.API_CONFIG))
+  try {
+    global.__wxConfig = { envVersion: 'release' }
+    for (const url of ['', null, 'http://127.0.0.1:8088', 'http://192.168.0.243:8080',
+      'https://127.0.0.1:8088', 'https://192.168.1.2', 'https://10.1.2.3', 'https://172.16.1.2',
+      'https://169.254.1.2', 'https://0.0.0.0', 'https://[::1]', 'https://localhost',
+      'https://station.local', 'https://station.lan', 'https://station.home.arpa',
+      'https://your-domain.com', 'https://YOUR-DOMAIN.COM/', 'https://api.your-domain.com',
+      'https://-bad.example.com', 'https://api.example.com:65536', ' https://api.example.com',
+      'https://127.0.0.0x1', 'https://192.168.1.0x1', 'https://127.0.0.0X1',
+      'https://0x7f.0.0.1', 'https://0177.0.0.01', 'https://2130706433', 'https://0x7f000001',
+      'https://api.example.com/api#prod', 'https://api.example.com/api?version=1',
+      'https://api.example.com/api\u0000', 'https://api.example.com/api\u001f',
+      'https://api.example.com/api\u007f', 'https://api.example.com/api\u0085']) {
+      c.API_CONFIG.prod.baseUrl = url
+      rejects(() => c.getBaseUrl(), /HTTPS/, app + ': release rejects invalid/local URL')
+    }
+    for (const url of ['https://api.example.com', 'HTTPS://API.EXAMPLE.COM:443/v1',
+      'https://api.example.com./v1', 'https://service.ap-shanghai.app.tcloudbase.com',
+      'https://api.example.com:8443/v1', 'https://api.example.com/api',
+      'https://api.example.com:443/api/v1', 'https://api.example.com/api%23prod']) {
+      c.API_CONFIG.prod.baseUrl = url
+      check(c.getBaseUrl() === url, app + ': valid HTTPS domain preserved')
+    }
+    c.API_CONFIG.dev.baseUrl = 'http://DEV.EXAMPLE.COM:8088'
+    c.API_CONFIG.dev.devtoolsBaseUrl = 'http://TOOLS.EXAMPLE.COM:8088'
+    for (const url of ['https://dev.example.com:443/v1', 'https://DEV.EXAMPLE.COM./', 'https://tools.example.com']) {
+      c.API_CONFIG.prod.baseUrl = url
+      rejects(() => c.getBaseUrl(), /开发地址/, app + ': normalized develop hostname rejected')
+    }
+    global.wx = { getDeviceInfo: () => ({ platform: 'devtools' }) }
+    c.API_CONFIG.prod.baseUrl = ''
+    rejects(() => c.getBaseUrl(), /HTTPS/, app + ': release never falls back to devtools')
+    c.API_CONFIG.prod.baseUrl = 'https://api.example.com'
+    check(c.getBaseUrl() === c.API_CONFIG.prod.baseUrl, app + ': release on devtools uses prod')
+    global.__wxConfig = { envVersion: 'develop' }
+    check(c.getBaseUrl() === c.API_CONFIG.dev.devtoolsBaseUrl, app + ': develop devtools unchanged')
+    global.wx = { getDeviceInfo: () => ({ platform: 'ios' }) }
+    check(c.getBaseUrl() === c.API_CONFIG.dev.baseUrl, app + ': develop device unchanged')
+    global.__wxConfig = { envVersion: 'trial' }
+    c.API_CONFIG.trial.baseUrl = 'https://acceptance.example.invalid'
+    check(c.getBaseUrl() === c.API_CONFIG.trial.baseUrl, app + ': trial unchanged')
+  } finally {
+    Object.assign(c.API_CONFIG, original)
+    global.wx = { getDeviceInfo: () => ({ platform: 'ios' }) }
+  }
+}
+
 console.log(`Mini program environment checks passed: ${checks}`)
 console.log(`AQUAFLOW_SUITE_OK ${checks}`)
 })().catch(error => { console.error(error); process.exitCode = 1 })

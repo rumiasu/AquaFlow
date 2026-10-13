@@ -1,0 +1,13 @@
+{
+  "designOnly": true,
+  "runtimeImplementationApproved": false,
+  "mode": "UNSELECTED",
+  "trialHttpsBaseUrl": "",
+  "cloud": {
+    "environmentId": "",
+    "serviceName": "",
+    "resourceAppId": ""
+  },
+  "missingValuesPolicy": "Reject before sending; no dev/prod fallback",
+  "note": "Not loaded by either miniapp. Fill non-secret identifiers only after platform verification and design approval."
+}

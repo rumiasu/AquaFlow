@@ -21,6 +21,7 @@ const SUITES = [
   { file: 'trial-cloud-app-lifecycle.test.js', name: 'actual App cloud/HTTPS startup validation and logout lifecycle' },
   { file: 'delivery-complete-stock-prep.test.js', name: 'completion stock prep follows active order status' },
   { file: 'key-text-readability.test.js', name: '下单、资产站点切换与站长待办文字可读性' },
+  { file: 'a01-muted-text-contrast.test.js', name: 'bounded six-object normal muted text contrast and preserved controls' },
   { file: 'order-quote-address-binding.test.js', name: '报价原地址绑定、慢地址/切址竞态、隐藏重开与确认闸门' },
   { file: 'order-result-navigation.test.js', name: '顾客原单结果页导航失败、单飞恢复与迟到回调隔离' },
   { file: 'experience-unknown-inputs.test.js', name: '企业设置失败未知状态、局部重试与损坏支付详情' },

@@ -1,3 +1,4 @@
+/* [2026-10-13] 必要说明曾误用低对比次要/占位色；只改正常文字为正文辅助色，保留非文本与禁用态原声明。 */
 .container {
   min-height: 100vh;
   padding: 80rpx 40rpx 60rpx;
@@ -88,7 +89,7 @@
 
 .role-desc {
   font-size: 26rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   line-height: 1.4;
 }
 
@@ -102,5 +103,5 @@
   text-align: center;
   margin-top: 80rpx;
   font-size: 24rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
 }

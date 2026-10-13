@@ -1,3 +1,4 @@
+/* [2026-10-13] 必要说明曾误用低对比次要/占位色；只改正常文字为正文辅助色，保留非文本与禁用态原声明。 */
 /* ========== 确认订单页 ==========
    [2026-09-26 Wave1 轨道 E] 本页容器自带左右 24rpx 内边距（与已验收的首页同一口径），
    所以下面各区块**一律不再写左右外边距** —— 否则会变成 48rpx 的双份缩进。
@@ -531,7 +532,7 @@
   display: block;
   margin-top: 12rpx;
   font-size: 30rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   line-height: 1.6;
 }
 
@@ -698,7 +699,7 @@
 
 .popup-desc {
   font-size: 30rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   text-align: center;
   display: block;
   margin-bottom: 32rpx;
@@ -1356,7 +1357,7 @@
 
 .detail-subtotal-label {
   font-size: 30rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
 }
 
 .detail-subtotal-value {

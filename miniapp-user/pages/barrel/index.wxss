@@ -1,3 +1,4 @@
+/* [2026-10-13] 必要说明曾误用低对比次要/占位色；只改正常文字为正文辅助色，保留非文本与禁用态原声明。 */
 .container {
   background-color: var(--bg-color);
   min-height: 100vh;
@@ -26,7 +27,7 @@
 
 .stat-label {
   font-size: 26rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
 }
 
 .stat-value-row {
@@ -51,7 +52,7 @@
 
 .stat-unit {
   font-size: 26rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   margin-left: 6rpx;
 }
 
@@ -190,7 +191,7 @@
 
 .bucket-time {
   font-size: 22rpx;
-  color: var(--text-placeholder);
+  color: var(--text-regular);
 }
 
 .bucket-status {
@@ -266,7 +267,7 @@
 
 .record-summary {
   display: block;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   font-size: 24rpx;
   line-height: 1.6;
   overflow-wrap: break-word;
@@ -306,7 +307,7 @@
 }
 
 .record-action-secondary {
-  color: var(--text-secondary);
+  color: var(--text-regular);
   background: #fff;
   border: 1rpx solid var(--border-color);
 }
@@ -341,7 +342,7 @@
 .info-tip {
   margin-top: 12rpx;
   font-size: 22rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
 }
 
 /* 爱护水桶卡片 */
@@ -380,7 +381,7 @@
 
 .eco-desc {
   font-size: 24rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   line-height: 1.6;
 }
 
@@ -555,7 +556,7 @@
 
 .preview-placeholder {
   font-size: 26rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
 }
 
 /*
@@ -597,7 +598,7 @@
 .preview-lots-title {
   display: block;
   font-size: 24rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   margin-bottom: 8rpx;
 }
 
@@ -624,7 +625,7 @@
 
 .preview-storage text {
   font-size: 24rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
 }
 
 .note-input {
@@ -666,7 +667,7 @@
 
 .water-type-qty {
   font-size: 22rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   margin-top: 4rpx;
 }
 

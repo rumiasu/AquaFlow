@@ -1,3 +1,4 @@
+/* [2026-10-13] 必要说明曾误用低对比次要/占位色；只改正常文字为正文辅助色，保留非文本与禁用态原声明。 */
 .page-container { padding: 24rpx; }
 
 .status-card {
@@ -28,7 +29,7 @@
 
 .status-sub {
   font-size: 26rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
 }
 
 .pay-badge {
@@ -51,7 +52,7 @@
 
 .pay-badge.default {
   background: var(--bg-gray);
-  color: var(--text-secondary);
+  color: var(--text-regular);
 }
 
 .collect-banner {
@@ -92,7 +93,7 @@
 
 .label {
   font-size: 28rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
 }
 
 .value {
@@ -125,7 +126,7 @@
   background: var(--bg-gray);
   border-radius: 16rpx;
   font-size: 26rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   line-height: 1.5;
 }
 
@@ -239,7 +240,7 @@
 
 .item-spec {
   font-size: 24rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   display: block;
   margin-top: 4rpx;
 }
@@ -258,7 +259,7 @@
 
 .item-qty {
   font-size: 24rpx;
-  color: var(--text-secondary);
+  color: var(--text-regular);
   display: block;
   margin-top: 4rpx;
 }

@@ -52,6 +52,7 @@
           <text class="badge type">{{item.customerTypeText}}</text>
           <text class="badge act-{{item.activityStatus}}">{{item.activityText}}</text>
         </view>
+        <text class="customer-phone scope-label customer-number">客户编号：{{item.id}}</text>
         <text class="customer-phone" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}">{{item.phoneMasked}} ›</text>
         <text class="customer-phone muted" wx:else>未填写电话</text>
         <text class="customer-phone customer-address" wx:if="{{item.matchedAddressText}}">{{item.matchedAddressSource === 'ORDER_HISTORY' ? '本站历史订单地址命中' : '档案地址命中'}}：{{item.matchedAddressText}}</text>
@@ -87,6 +88,7 @@
       <view class="modal-title">货到付款设置</view>
       <view class="scope-line">{{stationScopeLabel}}</view>
       <view class="scope-line">客户：{{codModal.customerName}} · {{codModal.customerPhoneText}}</view>
+      <view class="scope-line">客户编号：{{codModal.customerId}}</view>
       <view class="scope-line">本次核实结果：{{codModal.usableText}}</view>
       <view class="modal-tip" wx:if="{{codModal.blockReason}}">{{codModal.blockReason}}</view>
       <view class="modal-row">

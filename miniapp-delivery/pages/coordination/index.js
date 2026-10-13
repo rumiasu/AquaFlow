@@ -695,7 +695,7 @@ Page({
     const id = e.currentTarget.dataset.id
     wx.showModal({
       title: '同意取消',
-      content: '同意后将取消该订单，并退还水票/押金、回补库存。此操作不可撤销。',
+      content: '同意后将取消订单，按原单规则处理退款并回补库存。独立押金不随取消自动退还；到账以实际退款结果为准。此操作不可撤销。',
       confirmText: '同意取消',
       confirmColor: '#B5442C',
       success: async (res) => {

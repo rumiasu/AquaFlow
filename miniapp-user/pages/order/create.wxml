@@ -239,7 +239,7 @@
             <text class="asset-fact-value strong">¥{{assetNotice.totalAmountText}}</text>
           </view>
         </view>
-        <text class="asset-bar-desc" wx:if="{{assetNotice.buckets > 0}}">水桶需付押金，归还空桶后押金退还给你。</text>
+        <text class="asset-bar-desc" wx:if="{{assetNotice.buckets > 0}}">押金可按规则申请退还；未领桶无需交桶，已领桶按批准安排交回。</text>
         <text class="asset-bar-desc" wx:else>本次无需再付水桶押金。</text>
         <text class="asset-bar-desc" wx:if="{{assetNotice.onlineAdvice}}">{{assetNotice.onlineAdvice}}</text>
         <text class="asset-bar-desc">你的水桶、水票和押金都记在这个水站名下，其他水站无法使用。</text>
@@ -250,7 +250,7 @@
         <view class="asset-detail" wx:if="{{showAssetDetail}}">
           <text class="detail-intro">为了让你清楚每一笔桶和押金的来去，请在下单前了解以下 4 点：</text>
           <view class="detail-rule-item">
-            <text class="detail-rule-text"><text class="detail-bold">押金可以退还。</text>水桶是循环使用的，首次使用需支付押金；将空桶归还水站后，押金退还给你。</text>
+            <text class="detail-rule-text"><text class="detail-bold">押金可以退还。</text>未领桶无需交桶，已领桶按批准安排交回；退还申请、实际交接和退款分别办理。</text>
           </view>
           <view class="detail-rule-item">
             <text class="detail-rule-text"><text class="detail-bold">桶、水票与押金按水站分别记录。</text>它们只属于你下单的这个水站，其他水站无法查看或使用。</text>
@@ -374,8 +374,8 @@
           </view>
         </view>
         <!-- 押金那句按"这次要不要交"分两种说法：buckets=0 时不能再说"要交 x 个空桶的押金"。
-             ⚠️ 只谈**桶押金**，不写成"押金都能退"这种笼统承诺 —— 退还条件是把空桶还回水站。 -->
-        <text class="popup-desc" wx:if="{{assetNotice.buckets > 0}}">水桶需付押金，归还空桶后押金退还给你。</text>
+             ⚠️ 只谈**桶押金**，不写成"押金都能退"这种笼统承诺 —— 未领桶无需交桶；申请、实际交接与退款分别办理。 -->
+        <text class="popup-desc" wx:if="{{assetNotice.buckets > 0}}">押金可按规则申请退还；未领桶无需交桶，已领桶按批准安排交回。</text>
         <text class="popup-desc" wx:else>本次无需再付水桶押金。</text>
         <!-- 押金收款方式的建议（2026-09-27 产品裁定，正本 docs/design/34）：
              产品原话「建议第一单押金单走线上吧，弹个建议」——**是建议不是硬拦**，
@@ -395,7 +395,7 @@
         <view class="asset-detail" wx:if="{{showAssetDetail}}">
           <text class="detail-intro">为了让你清楚每一笔桶和押金的来去，请在下单前了解以下 4 点：</text>
           <view class="detail-rule-item">
-            <text class="detail-rule-text"><text class="detail-bold">押金可以退还。</text>水桶是循环使用的，首次使用需支付押金；将空桶归还水站后，押金退还给你。</text>
+            <text class="detail-rule-text"><text class="detail-bold">押金可以退还。</text>未领桶无需交桶，已领桶按批准安排交回；退还申请、实际交接和退款分别办理。</text>
           </view>
           <view class="detail-rule-item">
             <text class="detail-rule-text"><text class="detail-bold">桶、水票与押金按水站分别记录。</text>它们只属于你下单的这个水站，其他水站无法查看或使用。</text>

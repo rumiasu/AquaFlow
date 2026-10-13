@@ -151,6 +151,40 @@ test('票报价失效立即清除现金0结论，网络失败仍保持未知和�
   assert.strictEqual(t.page.data.payableAmountText, '—')
   assert.strictEqual(t.calls.orders, 0); assert.strictEqual(t.calls.payments, 0)
 })
+// Refund wording is projected from the real page/modal; the original action remains unchanged.
+test('取消确认说明独立押金与实际到账边界，关闭弹窗不提交，确认仍只提交原单一次', async () => {
+  const wx = createWx(), modals = [], calls = []
+  wx.showModal = options => modals.push(options)
+  const page = loadPage('miniapp-delivery/pages/coordination/index.js', { wx, stubs: {
+    'api/delivery': { approveCancelRequest: async id => { calls.push(id) } }
+  } })
+  let refreshed = 0
+  page.loadAllData = () => { refreshed++ }
+  const event = { currentTarget: { dataset: { id: 91 } } }
+  page.onApproveCancel(event)
+  assert.match(modals[0].content, /独立押金不随取消自动退还/)
+  assert.match(modals[0].content, /到账以实际退款结果为准/)
+  assert.ok(!modals[0].content.includes('退还水票/押金'))
+  assert.strictEqual(modals[0].confirmText, '同意取消')
+  await modals[0].success({ confirm: false })
+  assert.deepStrictEqual(calls, []); assert.strictEqual(refreshed, 0)
+  page.onApproveCancel(event)
+  await modals[1].success({ confirm: true })
+  assert.deepStrictEqual(calls, [91]); assert.strictEqual(refreshed, 1)
+  assert.ok(wx.__calls.toast.some(o => o.title === '已同意，订单已取消'))
+})
+
+test('下单内联和弹窗押金说明均区分未领桶、实际交接与退款，不增加客户确认', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxml'), 'utf8')
+  const nodes = [...text.matchAll(/<text class="(asset-bar-desc|popup-desc|detail-rule-text)"[^>]*>([\s\S]*?)<\/text>(?:[^<]*<\/text>)?/g)]
+  const short = nodes.filter(m => ['asset-bar-desc','popup-desc'].includes(m[1]) && m[2].includes('押金可按规则申请退还'))
+  assert.strictEqual(short.length, 2)
+  for (const node of short) assert.match(node[2], /未领桶无需交桶，已领桶按批准安排交回/)
+  assert.strictEqual((text.match(/退还申请、实际交接和退款分别办理。/g) || []).length, 2)
+  assert.ok(!text.includes('归还空桶后押金退还给你'))
+  assert.ok(!text.includes('将空桶归还水站后，押金退还给你'))
+})
+
 ;(async () => {
   let failed = 0
   for (const t of tests) {

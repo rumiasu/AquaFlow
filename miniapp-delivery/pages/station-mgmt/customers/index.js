@@ -3,6 +3,7 @@ const { getCustomers, getOfflinePaymentSummary, updateOfflinePayment,
         getEnterpriseApplies, reviewEnterpriseApply,
         getEnterpriseConfig, updateEnterpriseConfig } = require('../../../api/station-mgmt')
 const { STORAGE_KEYS } = require('../../../utils/storage-keys')
+const navigation = require('../../../utils/navigation')
 
 const AVATAR_COLORS = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6B', '#909399', '#9254DE']
 
@@ -68,10 +69,12 @@ Page({
       app.routeByRole(true)
       return
     }
+    navigation.show(this)
     return this.loadData()
   },
 
   onHide() {
+    navigation.hide(this)
     this._customersHidden = true
     this.onCodClose()
     this._searchSequence = (this._searchSequence || 0) + 1
@@ -79,7 +82,7 @@ Page({
     this._enterpriseSequence = (this._enterpriseSequence || 0) + 1
     this._enterpriseConfigSequence = (this._enterpriseConfigSequence || 0) + 1
   },
-  onUnload() { this.onHide() },
+  onUnload() { this.onHide(); navigation.dispose(this) },
 
   onPullDownRefresh() {
     const pull = this._pullSequence = (this._pullSequence || 0) + 1

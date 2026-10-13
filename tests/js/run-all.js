@@ -59,6 +59,8 @@ const SUITES = [
   { file: 'employee-request-session.test.js', name: '员工会话周期、独立续期队列与迟到成功隔离' },
   { file: 'manager-closeout-state.test.js', name: '资产调整试算版本、返回资产刷新与工资失败缓存' },
   { file: 'navigation-recovery.test.js', name: '原生导航并发去重、身份栈清理、超时重试与迟到回调' },
+  { file: 'navigation-arrival-timeout.test.js', name: 'exact own options and shown page arrival timeout reconciliation' },
+  { file: 'navigation-customer-lifecycle.test.js', name: 'actual customer Page show hide unload navigation markers' },
   { file: 'wechat-shared-module-import.test.js', name: '微信共享依赖顶层导入与展开require静态约束' },
   { file: 'order-history-query-boundary.test.js', name: '订单无效筛选、条件快照与在途响应隔离' },
   { file: 'payment-history-cache-boundary.test.js', name: '购票历史客户缓存、失败重试与返回重入隔离' },

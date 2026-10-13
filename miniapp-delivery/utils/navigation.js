@@ -6,7 +6,7 @@ const TIMEOUT_MS = 12000
 /** 原生导航事务；env 注入平台与时钟，回归测试可真实编排迟到/缺失回调。 */
 function createNavigator(env) {
   let active = null, queuedGuard = null, failure = null, epoch = 0, lastReset = null
-  const hidden = new WeakSet(), disposed = new WeakSet()
+  const hidden = new WeakSet(), disposed = new WeakSet(), visible = new WeakSet()
   const schedule = env.setTimer || setTimeout, unschedule = env.clearTimer || clearTimeout
   const pages = () => env.pages() || []
   const session = () => env.session ? env.session() : ''
@@ -41,6 +41,7 @@ function createNavigator(env) {
     })
   }
   function issue(job, api, args, next) {
+    const before = pages().slice()
     const phase = ++job.phase
     const current = () => active === job && job.phase === phase
     const success = () => {
@@ -52,8 +53,43 @@ function createNavigator(env) {
       if (!valid(job)) { finish(job, null, true); return }
       if (next) next(); else finish(job)
     }
-    const fail = e => { if (current()) finish(job, e || { errMsg: api + ':fail' }) }
-    job.timer = schedule(() => fail({ errMsg: api + ':fail timeout' }), TIMEOUT_MS)
+    const fail = e => {
+      if (!current()) return
+      if (/time\s*out/i.test(e && e.errMsg || '') && pushArrived()) success()
+      else finish(job, e || { errMsg: api + ':fail' })
+    }
+    // Missing native callbacks must not report failure after this exact push arrived.
+    // Compare page instances and the full stack; a pre-existing same route is not proof.
+    const pushArrived = () => {
+      if (api !== 'navigateTo' || !valid(job)) return false
+      if (!isObject(job.owner) || before[before.length - 1] !== job.owner || !hidden.has(job.owner)) return false
+      const stack = pages(), target = stack[stack.length - 1]
+      if (stack.length !== before.length + 1 || !before.every((p, i) => stack[i] === p)) return false
+      if (!target || before.includes(target) || '/' + target.route !== args.url.split('?')[0]) return false
+      if (!visible.has(target) || hidden.has(target) || disposed.has(target)) return false
+      const query = args.url.includes('?') ? args.url.slice(args.url.indexOf('?') + 1) : ''
+      const expected = Object.create(null)
+      try {
+        for (const part of query ? query.split('&') : []) {
+          const i = part.indexOf('='), key = decodeURIComponent(i < 0 ? part : part.slice(0, i))
+          if (!key || Object.prototype.hasOwnProperty.call(expected, key)) return false
+          expected[key] = decodeURIComponent(i < 0 ? '' : part.slice(i + 1))
+        }
+      } catch (e) { return false }
+      const options = target.options
+      if (!options || typeof options !== 'object' || Array.isArray(options)) return false
+      const keys = Reflect.ownKeys(options), expectedKeys = Object.keys(expected)
+      if (keys.length !== expectedKeys.length) return false
+      return keys.every(key => typeof key === 'string' &&
+        Object.prototype.hasOwnProperty.call(expected, key) &&
+        Object.prototype.hasOwnProperty.call(options, key) &&
+        typeof options[key] === 'string' && options[key] === expected[key])
+    }
+    job.timer = schedule(() => {
+      if (!current()) return
+      if (pushArrived()) success()
+      else fail({ errMsg: api + ':fail timeout' })
+    }, TIMEOUT_MS)
     if (job.timer && typeof job.timer.unref === 'function') job.timer.unref()
     try {
       env.wx[api]({ ...args, success, fail,
@@ -112,7 +148,7 @@ function createNavigator(env) {
       epoch, session: session(), key: 'back:' + delta })
   }
   function dispose(owner) {
-    if (isObject(owner)) disposed.add(owner)
+    if (isObject(owner)) { disposed.add(owner); visible.delete(owner) }
     if (failure && (!owner || failure.job.owner === owner)) failure = null
     if (queuedGuard && (!owner || queuedGuard.owner === owner)) queuedGuard = null
     if (active && (!owner || active.owner === owner)) finish(active, null, true)
@@ -120,10 +156,10 @@ function createNavigator(env) {
   return { open, back, dispose,
     invalidate() { epoch++; failure = null; lastReset = null; queuedGuard = null },
     hide(owner) {
-      if (isObject(owner)) hidden.add(owner)
+      if (isObject(owner)) { hidden.add(owner); visible.delete(owner) }
       if (failure && failure.job.owner === owner) failure = null
     },
-    show(owner) { if (isObject(owner) && hidden.has(owner)) { hidden.delete(owner); if (active && active.owner === owner) finish(active, null, true) } }
+    show(owner) { if (isObject(owner) && !disposed.has(owner)) visible.add(owner); if (isObject(owner) && hidden.has(owner)) { hidden.delete(owner); if (active && active.owner === owner) finish(active, null, true) } }
   }
 }
 

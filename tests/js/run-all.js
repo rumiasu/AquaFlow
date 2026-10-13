@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'customer-cod-context.test.js', name: 'COD customer modal generations, lifecycle and save context' },
   { file: 'trial-deployment-materials.test.js', name: 'limited trial deployment inputs fail closed offline' },
   { file: 'delivery-complete-stock-prep.test.js', name: 'completion stock prep follows active order status' },
   { file: 'key-text-readability.test.js', name: '下单、资产站点切换与站长待办文字可读性' },

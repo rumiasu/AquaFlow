@@ -73,6 +73,7 @@ Page({
 
   onHide() {
     this._customersHidden = true
+    this.onCodClose()
     this._searchSequence = (this._searchSequence || 0) + 1
     this._pullSequence = (this._pullSequence || 0) + 1
     this._enterpriseSequence = (this._enterpriseSequence || 0) + 1
@@ -211,10 +212,18 @@ Page({
    * 而不是开通完再被下单拒绝。
    */
   async onCod(e) {
+    if (this._customersHidden) return
     const { id, name } = e.currentTarget.dataset
+    const context = this._codContext = { sequence: this._codSequence = (this._codSequence || 0) + 1,
+      customerId: id, session: searchSession(), ready: false, saving: false }
+    // 2026-10-13：A迟到GET曾把B整张弹窗换回A，关闭/离页也会被重新打开。
+    // 每次点击先停用旧表单；请求和保存均只认本次客户、登录周期及页面代次。
+    this.setData({ 'codModal.visible': false, codForm: { enabled: false } })
     try {
       const res = await getOfflinePaymentSummary(id)
+      if (!this.codContextCurrent(context)) return
       const d = res.data || {}
+      context.ready = true
       this.setData({
         codModal: {
           visible: true,
@@ -228,36 +237,54 @@ Page({
         codForm: { enabled: Number(d.offlinePaymentEnabled) === 1 }
       })
     } catch (err) {
-      wx.showToast({ title: err.message || '加载失败', icon: 'none' })
+      if (this.codContextCurrent(context)) wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     }
   },
 
   onCodClose() {
+    this._codSequence = (this._codSequence || 0) + 1
+    this._codContext = null
     this.setData({ 'codModal.visible': false })
+  },
+
+  /** 登录续期不换周期；同客户重开也必须是同一请求，不能仅比较客户ID。 */
+  codContextCurrent(context, editable = false) {
+    if (!context || this._customersHidden || this._codContext !== context || context.sequence !== this._codSequence) return false
+    const now = searchSession(), session = context.session
+    return session.app === now.app && session.generation === now.generation && session.identity === now.identity
+      && (!editable || (context.ready && this.data.codModal.visible
+        && String(context.customerId) === String(this.data.codModal.customerId)))
   },
 
   /** 弹窗内容区的空处理器：阻止点击穿透到遮罩（否则点输入框就把弹窗关了）。 */
   onCodNoop() {},
 
   onCodToggle(e) {
+    if (!this.codContextCurrent(this._codContext, true) || this._codContext.saving) return
     this.setData({ 'codForm.enabled': e.detail.value })
   },
 
   async onCodSave() {
-    const { customerId } = this.data.codModal
+    const context = this._codContext
+    if (!this.codContextCurrent(context, true) || context.saving) return
+    const customerId = context.customerId
     const { enabled } = this.data.codForm
     const payload = { offlinePaymentEnabled: enabled ? 1 : 0 }
+    context.saving = true
     try {
       const res = await updateOfflinePayment(customerId, payload)
+      if (!this.codContextCurrent(context, true)) return
       if (res.code !== 0) {
         wx.showToast({ title: res.message || '保存失败', icon: 'none' })
         return
       }
       wx.showToast({ title: '已保存', icon: 'success' })
-      this.setData({ 'codModal.visible': false })
+      this.onCodClose()
       this.loadData()
     } catch (err) {
-      wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+      if (this.codContextCurrent(context, true)) wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+    } finally {
+      context.saving = false
     }
   },
 

@@ -1,6 +1,7 @@
 'use strict'
 const assert = require('assert')
-const { loadPage, createWx, armWatchdog } = require('./harness')
+const { loadPage, createWx, armWatchdog, ROOT } = require('./harness')
+const fs = require('fs'), path = require('path')
 const done = armWatchdog(), tests = []
 const test = (name, run) => tests.push({ name, run })
 const reason = '水票不能支付新增押金，请改选付款方式、或先独立办理押金；已有容量被占用时也可等待释放'
@@ -83,6 +84,72 @@ test('重新报价时不残留上一轮提示，失败仍阻断，恢复后清�
   assert(!t.page.data.checkoutWarnings.includes(reason))
   failing = false; t.page.setData({ selectedMethod: 1 }); await t.page.refreshQuote()
   assert.deepStrictEqual(t.page.data.checkoutWarnings, []); assert.strictEqual(t.page.data.blocked, false)
+})
+test('零售参考16与水票计账20分开，整单票结清明确用票张数及现金0', async () => {
+  const requests = []
+  const t = fixture(async body => {
+    requests.push(body)
+    return { code: 0, data: {
+      waterAmount: body.paymentMethod === 3 ? 20 : 16, totalAmount: body.paymentMethod === 3 ? 20 : 16,
+      extraDeposit: 0, extraDepositBuckets: 0, independentRights: true, barrelPurchases: [], blocked: false,
+      methods: [{ id: 2, name: '货到付款', enabled: true }, { id: 3, name: '水票支付', enabled: true }], defaultMethod: 3,
+      ticketPay: body.paymentMethod === 3 ? { fullyCovered: true, coverQty: 1, coverAmount: 20, payableAmount: 0 } : null
+    } }
+  })
+  t.page.setData({ products: [{ id: 5, quantity: 1, category: 1, price: 16, subtotalText: '16.00' }] })
+  await t.page.refreshQuote()
+  assert.strictEqual(requests[0].paymentMethod, 3)
+  assert.deepStrictEqual(requests[0].items, [{ productId: 5, quantity: 1 }])
+  assert.strictEqual(t.page.data.products[0].price, 16)
+  assert.strictEqual(t.page.data.products[0].subtotalText, '16.00')
+  assert.strictEqual(t.page.data.totalWaterCostText, '20.00')
+  assert.strictEqual(t.page.data.totalAmountText, '20.00')
+  assert.strictEqual(t.page.data.ticketCoverText, '使用 1 张水票 · 抵扣 ¥20.00')
+  assert.strictEqual(t.page.data.payableAmountLabel, '本次现金需付')
+  assert.strictEqual(t.page.data.payableAmountText, '0.00')
+  const markup = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxml'), 'utf8')
+  assert(markup.includes('商品清单 · 零售参考') && markup.includes('商品零售参考'))
+  assert(markup.includes('本次报价水费'))
+  assert.strictEqual((markup.match(/isTicketPay \? payableAmountLabel/g) || []).length, 2)
+  assert.strictEqual((markup.match(/>\{\{payableAmountLabel\}\}</g) || []).length, 2)
+  t.page.setData({ selectedMethod: 2 }); await t.page.refreshQuote()
+  assert.strictEqual(requests[1].paymentMethod, 2)
+  assert.strictEqual(t.page.data.totalAmountText, '16.00')
+  assert.strictEqual(t.page.data.ticketCoverText, '')
+  assert.strictEqual(t.page.data.payableAmountLabel, '本次需付')
+  assert.strictEqual(t.page.data.payableAmountText, '16.00')
+  assert.strictEqual(t.calls.orders, 0); assert.strictEqual(t.calls.payments, 0)
+})
+test('票不足不得称现金0或暗示票加现金混付', async () => {
+  const t = fixture(async () => ({ data: {
+    waterAmount: 20, totalAmount: 20, extraDeposit: 0, extraDepositBuckets: 0,
+    independentRights: true, barrelPurchases: [], blocked: false,
+    methods: [{ id: 3, name: '水票支付', enabled: true }], defaultMethod: 3,
+    ticketPay: { fullyCovered: false, coverQty: 0, coverAmount: 0, payableAmount: 20, reason: 'INSUFFICIENT', hint: '票不足，不能混合支付' }
+  } }))
+  await t.page.refreshQuote()
+  assert.strictEqual(t.page.data.ticketCoverText, '')
+  assert.strictEqual(t.page.data.payableAmountLabel, '本次需付')
+  assert.strictEqual(t.page.data.payableAmountText, '20.00')
+  assert.strictEqual(t.calls.orders, 0); assert.strictEqual(t.calls.payments, 0)
+})
+test('票报价失效立即清除现金0结论，网络失败仍保持未知和阻断', async () => {
+  let fail = false
+  const t = fixture(async () => {
+    if (fail) throw new Error('synthetic offline')
+    return { data: { waterAmount: 20, totalAmount: 20, extraDeposit: 0, independentRights: true, barrelPurchases: [], blocked: false,
+      methods: [{ id: 3, name: '水票支付', enabled: true }], defaultMethod: 3,
+      ticketPay: { fullyCovered: true, coverQty: 1, coverAmount: 20, payableAmount: 0 } } }
+  })
+  await t.page.refreshQuote(); assert.strictEqual(t.page.data.payableAmountLabel, '本次现金需付')
+  t.page.invalidateQuote()
+  assert.strictEqual(t.page.data.ticketCoverText, '')
+  assert.strictEqual(t.page.data.payableAmountLabel, '本次需付')
+  assert.strictEqual(t.page.data.payableAmountText, '—')
+  fail = true; await t.page.refreshQuote()
+  assert.strictEqual(t.page.data.quoteReady, false); assert.strictEqual(t.page.data.blocked, true)
+  assert.strictEqual(t.page.data.payableAmountText, '—')
+  assert.strictEqual(t.calls.orders, 0); assert.strictEqual(t.calls.payments, 0)
 })
 ;(async () => {
   let failed = 0

@@ -1,4 +1,4 @@
-const assert = require('assert'), path = require('path')
+const assert = require('assert'), path = require('path'), fs = require('fs')
 const { loadPage, createWx, armWatchdog, ROOT } = require('./harness')
 const { STORAGE_KEYS: K } = require('../../miniapp-user/utils/storage-keys')
 const done = armWatchdog(30000), tests = [], test = (name, run) => tests.push({ name, run })
@@ -134,6 +134,22 @@ test('repeated buy-again adds every selection immediately and shares the final q
   const t = fixture(); t.page.setData({ againOrder: { items: [{ productId: 10, quantity: 2 }] } }); t.page.onAgainTap(); t.page.onAgainTap()
   assert.equal(t.app.getCart(1)[10], 5); assert.equal(t.wx.getStorageSync(K.CART_PREFIX + '7').stations['1']['10'], 5)
   assert.equal(t.calls.length, 0); await timer.advance(300); assert.equal(t.calls.length, 1); assert.equal(t.calls[0].items[0].quantity, 5)
+})
+test('retail estimate16 is labelled separately and checkout receives quantities without a cached price', async () => {
+  const t = fixture(async () => ({ data: { independentRights: true, barrelPurchases: [], waterAmount: 16 } }))
+  t.page.setData({ products: [{ id: 10, category: 1, price: 16, deposit: 40 }] })
+  await t.page.refreshDerived()
+  assert.strictEqual(t.calls[0].paymentMethod, 1)
+  assert.strictEqual(t.page.data.total.waterText, '16')
+  assert.strictEqual(t.page.data.total.grandText, '16')
+  const markup = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/home/index.wxml'), 'utf8')
+  assert.strictEqual((markup.match(/>零售预估</g) || []).length, 2)
+  assert(markup.includes('支付金额以结算页报价为准'))
+  t.page.onSubmit()
+  const params = new URLSearchParams(t.wx.__calls.nav.at(-1).url.split('?')[1])
+  assert.deepStrictEqual(JSON.parse(params.get('items')), [{ productId: 10, quantity: 1 }])
+  assert.strictEqual(params.get('amount'), null); assert.strictEqual(params.get('quote'), null)
+  assert.strictEqual(params.get('paymentMethod'), null)
 })
 ;(async () => {
   let passed = 0, failed = 0

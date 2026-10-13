@@ -115,6 +115,7 @@ Page({
     ticketCoverText: '',      // 「水票抵扣 N 张 · ¥X」（仅整单可被票结清时才有值）
     ticketShortfallHint: '',  // 票不足时的一句结论（后端下发）
     payableAmountText: '0.00',// 计费区展示的"这次要付"的金额；真实订单金额看 totalAmountText
+    payableAmountLabel: '本次需付',
     isTicketPay: false,       // 当前是否选中水票（决定计费区怎么渲染）
     submitting: false,
     // 幂等键：**一次下单意图 = 一个键**。见 utils/orderIntent.js 的说明：
@@ -690,7 +691,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     this.setData({ quoteLoading: true, quoteReady: false, quoteError: '', blocked: true, checkoutWarnings: [],
       blockReason: '正在核实最新报价，请稍候', payMethods: [], wechatPay: null, missingRights: [], barrelPurchases: [], barrelPurchaseConfirmed: false,
       totalAmount: 0, totalWaterCost: 0, totalDeposit: 0, extraDepositBuckets: 0, extraDepositAmount: 0, deliveryFee: 0, floorFee: 0,
-      totalWaterCostText: '—', totalAmountText: '—', payableAmountText: '—',
+      totalWaterCostText: '—', totalAmountText: '—', payableAmountText: '—', payableAmountLabel: '本次需付',
       extraDepositAmountText: '', floorFeeText: '', deliveryFeeText: '', feeTotalText: '',
       ticketPay: null, ticketCoverText: '', ticketShortfallHint: '', ticketCanBuy: false, ticketAltMethod: null,
       assetNotice: { stationName: this.data.stationName || '', depositAmount: '—', buckets: 0, totalAmountText: '—' },
@@ -822,7 +823,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 水票抵扣那行只在**整单能被票结清**时显示：抵不掉时本单根本用不了票，
         // 这时显示"水票抵扣 ¥X"却又要付全额，客户只会以为系统算错了。
         const ticketCoverText = ticketFullyCovered
-          ? '水票抵扣 ' + ticketPay.coverQty + ' 张 · ¥' + (Number(ticketPay.coverAmount) || 0).toFixed(2)
+          ? '使用 ' + ticketPay.coverQty + ' 张水票 · 抵扣 ¥' + (Number(ticketPay.coverAmount) || 0).toFixed(2)
           : ''
         const ticketShortfallHint = (ticketPay && !ticketPay.fullyCovered) ? (ticketPay.hint || '') : ''
         // [2026-09-27 走查 C03] 票不足时页面上直接给出**下一步的两个动作**（不再只留一句结论）：
@@ -841,6 +842,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 抵不掉 → 订单全额（本单用不了票，改选方式后就是全额付）。
         // ⚠️ 只用于展示，不参与任何提交参数 —— 提交金额一律由后端按订单重算。
         const payableAmount = ticketPay ? (Number(ticketPay.payableAmount) || 0) : totalAmount
+        // 2026-10-12：零售参考价与票计账价可能不同；仅整单票结清时明确现金需付，不能暗示票不足可混付。
+        const payableAmountLabel = ticketFullyCovered ? '本次现金需付' : '本次需付'
 
         // 计算每个商品的**缺桶押金**明细（非桶装没有押金，见下）
         const updatedProducts = products.map(p => {
@@ -889,6 +892,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
           // 票能全抵 → 0.00；否则 = 订单全额。totalAmount/totalAmountText 仍是**真实订单金额**，
           // 两者刻意的分开：展示值绝不能混进任何提交参数。
           payableAmountText: payableAmount.toFixed(2),
+          payableAmountLabel,
           ticketPay,
           ticketCoverText,
           ticketShortfallHint,

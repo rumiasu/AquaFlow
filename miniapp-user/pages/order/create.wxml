@@ -54,7 +54,7 @@
          它们的口径在下面「费用摘要」与桶账页。 -->
     <view class="section">
       <view class="section-header">
-        <text class="section-title">商品清单</text>
+        <text class="section-title">商品清单 · 零售参考</text>
       </view>
       <view class="product-list">
         <view class="product-card" wx:for="{{products}}" wx:key="id">
@@ -82,7 +82,7 @@
               </view>
             </view>
             <view class="product-subtotal" wx:if="{{item.quantity > 1}}">
-              <text class="subtotal-label">小计</text>
+              <text class="subtotal-label">零售小计</text>
               <text class="subtotal-value">¥{{item.subtotalText}}</text>
             </view>
           </view>
@@ -177,7 +177,7 @@
       </block>
 
       <view class="fee-row total">
-        <text class="fee-label total">{{isTicketPay ? '本次需付' : '合计'}}</text>
+        <text class="fee-label total">{{isTicketPay ? payableAmountLabel : '合计'}}</text>
         <text class="fee-value total">¥{{payableAmountText}}</text>
       </view>
       <!-- 金额出处：改地址/数量/支付方式后报价会重算，所以这里报的是"本次报价"，
@@ -305,7 +305,7 @@
                与正文费用摘要、明细弹窗同口径。 -->
           <text class="detail-item ticket-cover" wx:if="{{ticketCoverText}}">{{ticketCoverText}}</text>
           <view class="total-row">
-            <text class="total-label">本次需付</text>
+            <text class="total-label">{{payableAmountLabel}}</text>
             <text class="total-price">¥{{payableAmountText}}</text>
             <text class="detail-arrow">明细›</text>
           </view>
@@ -465,7 +465,7 @@
       <scroll-view class="detail-sheet-body" scroll-y>
         <!-- 商品费用 -->
         <view class="detail-section">
-          <view class="detail-section-title">商品费用</view>
+          <view class="detail-section-title">商品零售参考</view>
           <view class="detail-row" wx:for="{{products}}" wx:key="id">
             <view class="detail-row-left">
               <text class="detail-item-name">{{item.name}}</text>
@@ -477,7 +477,7 @@
             </view>
           </view>
           <view class="detail-subtotal-row">
-            <text class="detail-subtotal-label">小计</text>
+            <text class="detail-subtotal-label">本次报价水费</text>
             <text class="detail-subtotal-value">¥{{totalWaterCostText}}</text>
           </view>
         </view>
@@ -539,7 +539,7 @@
           <text class="detail-total-value">已抵扣</text>
         </view>
         <view class="detail-total-row">
-          <text class="detail-total-label">{{isTicketPay ? '本次需付' : '合计'}}</text>
+          <text class="detail-total-label">{{isTicketPay ? payableAmountLabel : '合计'}}</text>
           <text class="detail-total-value">¥{{payableAmountText}}</text>
         </view>
       </view>
@@ -611,7 +611,7 @@
             <text class="fee-value">¥{{floorFeeText}}</text>
           </view>
           <view class="fee-row total">
-            <text class="fee-label total">本次需付</text>
+            <text class="fee-label total">{{payableAmountLabel}}</text>
             <text class="fee-value total">¥{{payableAmountText}}</text>
           </view>
         </view>

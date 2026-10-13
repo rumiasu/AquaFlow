@@ -174,23 +174,23 @@
     </block>
   </block>
 
-  <!-- 商品小计是预估：独立押金模式仅含商品款；历史模式按报价确认后保留旧押金预估。 -->
+  <!-- 2026-10-12：原“商品小计”未区分零售与票价；明确零售预估，支付口径到结算页核实。历史模式保留旧押金预估。 -->
   <view class="checkout" wx:if="{{isLogin && state === 'ready'}}">
     <view class="sum">
       <view class="sum-total-row" wx:if="{{total.count > 0}}">
-        <text class="sum-detail">商品小计</text>
+        <text class="sum-detail">零售预估</text>
         <text class="sum-total">¥{{total.grandText}}</text>
         <text class="sum-detail">{{total.detailText}}</text>
       </view>
       <view class="sum-total-row" wx:else>
-        <text class="sum-detail">商品小计</text>
+        <text class="sum-detail">零售预估</text>
         <text class="sum-total sum-total-empty">¥0</text>
         <text class="sum-detail">（未选商品）</text>
       </view>
       <!-- ⚠️ 原来写死「配送免运费」：配送费是站级配置（v35），站长一旦配了费，
            首页承诺免运费、结算页照收 —— 客户拿着两张截图来吵架。
            首页算不出运费（还没选地址），所以这里**不做费用承诺**，只报件数并指向结算页报价。 -->
-      <text class="sum-sub">{{total.count > 0 ? '已选 ' + total.count + ' 件 · 配送费以结算页报价为准' : '选中数量后自动合计'}}</text>
+      <text class="sum-sub">{{total.count > 0 ? '已选 ' + total.count + ' 件 · 支付金额以结算页报价为准' : '选中数量后自动合计'}}</text>
     </view>
     <!-- 主按钮：蓝色合法出现处 ②；置灰用 #C9C4B8，不是浅蓝 -->
     <view class="cta {{total.count > 0 ? '' : 'off'}}" bindtap="onSubmit">去结算</view>

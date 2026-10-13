@@ -1,5 +1,6 @@
 // 网络请求封装（JWT 双 Token + 自动续期）
-const { getBaseUrl, API } = require('../config/api')
+const { API } = require('../config/api')
+const { send } = require('./transport')
 const { STORAGE_KEYS } = require('../utils/storage-keys')
 const { captureSession, isCurrentSession, isCurrentCredentials, acceptRefreshedTokens, beginSession } = require('./token')
 
@@ -23,7 +24,6 @@ function sessionChangedError() {
 function sendRequest(options, session, accessToken, retried) {
   return new Promise((resolve, reject) => {
     if (!isCurrentSession(session)) { reject(sessionChangedError()); return }
-    const baseUrl = getBaseUrl()
 
     const header = {
       'Content-Type': 'application/json',
@@ -34,20 +34,9 @@ function sendRequest(options, session, accessToken, retried) {
       header['Authorization'] = `Bearer ${accessToken}`
     }
 
-    // 拼接 query 参数
-    let url = baseUrl + options.url
-    if (options.query) {
-      const qs = Object.keys(options.query)
-        .filter(k => options.query[k] !== undefined && options.query[k] !== null)
-        .map(k => `${k}=${encodeURIComponent(options.query[k])}`)
-        .join('&')
-      if (qs) {
-        url += (url.includes('?') ? '&' : '?') + qs
-      }
-    }
 
-    wx.request({
-      url,
+    send({
+      path: options.url, query: options.query,
       method: options.method || 'GET',
       data: options.data,
       header,
@@ -190,8 +179,8 @@ function submitErrorReport(message, options, session) {
   }
 
   // 刻意不复用本模块的 request()：上报自身若再失败，会再次触发上报询问（递归弹窗）。
-  wx.request({
-    url: getBaseUrl() + API.FEEDBACK,
+  send({
+    path: API.FEEDBACK,
     method: 'POST',
     header: {
       'Content-Type': 'application/json',
@@ -275,8 +264,8 @@ function refreshSession(session) {
     if (!session.refreshToken) {
       clearAndRedirect(session); reject(new Error('登录已过期')); return
     }
-    wx.request({
-      url: getBaseUrl() + API.REFRESH, method: 'POST', data: { refreshToken: session.refreshToken },
+    send({
+      path: API.REFRESH, method: 'POST', data: { refreshToken: session.refreshToken },
       timeout: 15000,
       success: res => {
         if (superseded()) return

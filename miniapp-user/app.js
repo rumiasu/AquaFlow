@@ -45,23 +45,13 @@ App({
   validateToken() {
     // 启动旧结果可能晚于新登录或同周期续期；身份与凭据都须仍是当前版本。
     const session = captureSession(this)
-    const { getBaseUrl, API } = require('./config/api')
-    let baseUrl
-    try {
-      baseUrl = getBaseUrl()
-    } catch (error) {
-      // A missing trial endpoint is configuration failure, not an auth failure.
-      // Keep the cached session intact and explain the required setup instead of
-      // allowing a synchronous onLaunch exception to leave a blank app.
-      wx.showModal({
-        title: '体验环境暂不可用',
-        content: (error && error.message) || '体验版 API 未配置，请联系项目负责人。',
-        showCancel: false
-      })
-      return
-    }
-    wx.request({
-      url: baseUrl + API.ME,
+    const { API } = require('./config/api')
+    const { send } = require('./utils/transport')
+    // 2026-10-13: startup /me used a separate HTTPS gate and blocked every cloud cached login.
+    // Route this raw read through the same adapter without adding a second refresh lifecycle.
+    send({
+      path: API.ME,
+      timeout: 15000,
       method: 'GET',
       header: {
         'Authorization': 'Bearer ' + this.globalData.accessToken
@@ -85,7 +75,18 @@ App({
           wx.redirectTo({ url: '/pages/login/index' })
         }
       },
-      fail: () => {
+      fail: (error) => {
+        // Config/SDK validation can fail synchronously inside onLaunch before getApp is available.
+        // That immediate branch cannot belong to a later login; async init failures still need the guard.
+        if (error && error.transportConfiguration) {
+          wx.showModal({ title: '体验环境暂不可用', content: error.errMsg || '请联系项目负责人核实体验设置。', showCancel: false })
+          return
+        }
+        if (!isCurrentCredentials(session)) return
+        if (error && error.requestMayHaveOccurred === false) {
+          wx.showModal({ title: '体验环境暂不可用', content: error.errMsg || '请联系项目负责人核实体验设置。', showCancel: false })
+          return
+        }
         console.warn('[App] 验证登录状态失败，保留本地状态')
       }
     })

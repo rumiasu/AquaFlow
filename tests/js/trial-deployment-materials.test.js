@@ -83,9 +83,9 @@ test('Docker context contains no local config or database initialization', () =>
   assert.ok(!/COPY\s+\.\s/.test(docker)); assert.ok(!/gradle|mysql|curl|wget/.test(docker))
   assert.strictEqual(ignore.trim(),'**\n!Dockerfile\n!entrypoint.sh\n!app.jar')
 })
-test('cloud identifiers are empty design inputs, not a live adapter', () => {
+test('cloud identifiers remain empty and environment activation is not authorized', () => {
   const t=JSON.parse(fs.readFileSync(path.join(dir,'transport-plan.example.json'),'utf8'))
-  assert.strictEqual(t.designOnly,true); assert.strictEqual(t.runtimeImplementationApproved,false)
+  assert.strictEqual(t.designOnly,false); assert.strictEqual(t.runtimeImplementationApproved,true); assert.strictEqual(t.environmentActivationApproved,false)
   assert.strictEqual(t.mode,'UNSELECTED'); assert.strictEqual(t.trialHttpsBaseUrl,'')
   for(const value of Object.values(t.cloud)) assert.strictEqual(value,'')
 })

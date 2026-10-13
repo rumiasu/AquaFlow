@@ -9,14 +9,14 @@ const { assertReleaseBaseUrl } = require('../utils/release-api-url')
 //   ⚠️ **真机要求手机与笔记本连同一个 Wi-Fi**（真机走的就是这一行）。
 //   真机上的 127.0.0.1 指的是**手机自己**，必然失败且只报「网络错误」，所以回环只给开发者工具用。
 //   真机预览还需在手机上打开「调试」（右上角 ... → 打开调试）跳过域名校验；
-//   环境契约：develop 走 dev；trial 只走独立 HTTPS 测试地址且缺失时拒绝；release 走 prod。
+//   环境契约：develop 走 dev；trial 显式选择独立 HTTPS 或云连接且缺失时拒绝；release 走 prod。
 //   ⚠️ 换地址跑 `scripts/set-dev-api-host.ps1 -Apply`（同时改两端；**只改一端那一端会白屏**，
 //      现象同样是"网络错误"）。
 const API_CONFIG = {
   // devtoolsBaseUrl：开发者工具跑在**同一台笔记本**上，走回环即可 —— 换网络、开关热点都不影响写代码。
   dev: { baseUrl: 'http://192.168.0.243:8080', devtoolsBaseUrl: 'http://127.0.0.1:8080' },
-  // Fill only after the customer supplies the dedicated HTTPS acceptance host.
-  trial: { baseUrl: '' },
+  // Non-secret trial identifiers only; HTTPS remains the default and empty settings fail closed.
+  trial: { transport: 'https', baseUrl: '', cloudContainer: { env: '', service: '', resourceAppid: '' } },
   prod: { baseUrl: 'https://your-domain.com' }
 }
 
@@ -49,6 +49,27 @@ const isDevtools = () => {
   }
 }
 
+
+/** Trial cloud routing bypasses the HTTPS base URL guard; every other environment keeps it. */
+const getTransportConfig = () => {
+  let version
+  try { version = __wxConfig.envVersion } catch (_) {
+    throw new Error('无法获取小程序环境版本，请在微信中重新进入')
+  }
+  if (!['develop', 'trial', 'release'].includes(version)) {
+    throw new Error('不支持的小程序环境版本：' + (version || 'unknown'))
+  }
+  if (version !== 'trial') return { mode: 'https', baseUrl: getBaseUrl() }
+  const trial = API_CONFIG.trial
+  if (trial.transport === 'https') return { mode: 'https', baseUrl: getBaseUrl() }
+  if (trial.transport !== 'cloudContainer') throw new Error('体验版连接方式未配置或不支持，请核实体验版设置')
+  const cloud = trial.cloudContainer || {}
+  const valid = value => typeof value === 'string' && !!value.trim() && value === value.trim() && !/[\s\u0000-\u001f\u007f]/.test(value)
+  if (!valid(cloud.env) || !valid(cloud.service)) throw new Error('体验版云连接未配置：请填写环境 ID 和服务名称')
+  if (cloud.resourceAppid && !/^wx[0-9a-f]{16}$/.test(cloud.resourceAppid)) throw new Error('体验版资源所属 AppID 格式不正确，请核实设置')
+  return { mode: 'cloudContainer', env: cloud.env, service: cloud.service, resourceAppid: cloud.resourceAppid || '' }
+}
+
 const getBaseUrl = () => {
   // 这里只包住环境读取：不要把下面的域名校验一起包进来，
   // 否则它抛出的明确提示会被外层 catch 覆盖成「无法获取小程序环境版本」，反而更难排查。
@@ -68,6 +89,8 @@ const getBaseUrl = () => {
   // Only release is tightened; develop/trial routing and configured values remain unchanged.
   if (env === 'prod') assertReleaseBaseUrl(envConfig.baseUrl, API_CONFIG.dev)
   if (env === 'trial') {
+    // Upload/image paths still require HTTPS; cloud JSON routing must not supply a fake URL.
+    if (envConfig.transport !== 'https') throw new Error('体验版当前连接方式不支持此操作，请核实设置')
     const trialUrl = envConfig.baseUrl
     if (!trialUrl || trialUrl.includes('your-domain.com')) {
       throw new Error('体验版 API 未配置：请在 miniapp-delivery/config/api.js 填写专用 HTTPS 测试地址。')
@@ -370,4 +393,4 @@ const BINDING_STATUS = {
   PENDING_UNBIND: 'PENDING_UNBIND' // 配送员主动申请解绑,等待站长确认
 }
 
-module.exports = { getBaseUrl, isReleaseEnv, isDevelopEnv, API, API_CONFIG, BINDING_STATUS }
+module.exports = { getTransportConfig, getBaseUrl, isReleaseEnv, isDevelopEnv, API, API_CONFIG, BINDING_STATUS }

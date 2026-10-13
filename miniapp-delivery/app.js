@@ -1,5 +1,6 @@
 // AquaFlow V1 配送端小程序
-const { getBaseUrl, API, BINDING_STATUS } = require('./config/api')
+const { API, BINDING_STATUS } = require('./config/api')
+const { send } = require('./utils/transport')
 const { STORAGE_KEYS } = require('./utils/storage-keys')
 // 仅用于 syncIdentity()。request/navigation 不回引 app.js，
 // 仅在运行时读取 getApp，故顶层 require 不会形成循环。
@@ -367,6 +368,7 @@ App({
   },
 
   logout() {
+    if (!this.globalData.isLogin) return
     const generation = this._loginGeneration || 0
     if (this._logoutAttempt && this._logoutAttempt.generation === generation) return
     const attempt = { generation }
@@ -374,20 +376,22 @@ App({
     const token = this.globalData.accessToken
     const header = {}
     if (token) header['Authorization'] = 'Bearer ' + token
-    wx.request({
-      url: getBaseUrl() + API.LOGOUT,
-      method: 'POST',
-      header,
-      complete: () => {
-        if (this._logoutAttempt !== attempt || (this._loginGeneration || 0) !== generation
-            || getApp() !== this) return
-        this._logoutAttempt = null
-        this.clearLoginState()
-        // 退出登录顺手把红点标记清掉：留着的话下一个登录的人（哪怕是配送员）会看到上一任的红点
-        require('./utils/pending-reminder').syncTabBarDot(false)
-        this.redirectToLogin()
-      }
-    })
+    // 2026-10-13: getBaseUrl threw in cloud mode after taking the logout lock,
+    // so complete never cleared local credentials. Every transport outcome must finish locally.
+    const finish = () => {
+      if (this._logoutAttempt !== attempt || (this._loginGeneration || 0) !== generation
+          || getApp() !== this) return
+      this._logoutAttempt = null
+      this.clearLoginState()
+      require('./utils/pending-reminder').syncTabBarDot(false)
+      this.redirectToLogin()
+    }
+    try {
+      send({ path: API.LOGOUT, method: 'POST', header, timeout: 15000, complete: finish })
+    } catch (_) {
+      // A synchronous native request failure must not strand an explicit local logout.
+      finish()
+    }
   }
 })
 

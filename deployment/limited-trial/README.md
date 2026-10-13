@@ -23,7 +23,7 @@
 - v1独审返修：`INDEPENDENT_BARREL_RIGHTS_ENABLED`及真正的`AQUAFLOW_BARREL_INDEPENDENT_RIGHTS_ENABLED`环境别名均只能为字面true；同时覆盖Boot规范去连字符形式`AQUAFLOW_BARREL_INDEPENDENTRIGHTSENABLED`。未设置时补为true，显式空值/false/冲突立即拒绝，不能用另一项true掩盖。启动命令固定实际属性`--aquaflow.barrel.independent-rights-enabled=true`。APP前缀不是c19模型属性，不列为有效映射。依据与离线边界见VALIDATION。
 - `trial.env.example`所有九个必需值为空，有效值应只经核准平台的安全配置通道注入。无需把填好后的文件提交Git或回传Library。CORS来源另核，不能默认设`*`。
 - `entrypoint.sh --check-only`只检形状，不启动Java、不连网/库、不验证凭据有效性，输出只含键名。缺值时普通启动同样先退出2，无默认账号/数据库或地址回退。Spring的最终值与schema守卫仍是第二道现有校验；本轮没有实际起后端证明它们通过。
-- `transport-plan.example.json`仅设计输入，模式未选、云环境/服务标识为空，**两端运行代码不读取它**。缺标识安全拒绝的前端实现须在传输方案获批后完成，不能把该文件当已接通。
+- `transport-plan.example.json`是配置工作表，模式未选、云环境/服务标识为空，**两端运行代码不读取它**。JSON传输候选v1已在隔离副本实现，包括顾客App启动缓存校验和员工App退出；每端实际配置位于`config/api.js`，默认仍为HTTPS且地址为空。云模式缺标识或SDK能力会明确拒绝，无失败回退。候选只经离线mock验证，不能把它当实际云已接通，配置见`TRANSPORT-DESIGN.md`。
 
 ## 健康检查与接入
 
@@ -45,4 +45,4 @@
 
 ## 本轮验证与剩余条件
 
-本包提供无网络shell拒启/形状测试及文件约束测试，按现有 `AQUAFLOW_SUITE_OK N` 规范计数，详见外层证据。仅这些离线检查可称通过；容器构建、真实环境配置、平台账号资格、双端云环境共享、数据库初始化、微信登录、健康/就绪、手机扫码和真实收退款全部未执行。下一步先评审`TRANSPORT-DESIGN.md`影响面，再授权API代码实现；9430/9431未触碰。
+本包提供无网络shell拒启/形状测试及文件约束测试，按现有 `AQUAFLOW_SUITE_OK N` 规范计数，详见外层证据。仅这些离线检查可称通过；容器构建、真实环境配置、平台账号资格、双端云环境共享、数据库初始化、微信登录、健康/就绪、手机扫码和真实收退款全部未执行。JSON传输候选的下一步是独立审查；获准启用环境后仍须验证环境关联、同主体共享及真实微信登录。运行双端未触碰。

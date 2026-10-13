@@ -19,7 +19,7 @@ function fixture() {
     reLaunch(options) { routes.push(options.url); options.success?.({}); options.complete?.({}) },
     showModal() {}, showToast() {}, hideLoading() {}, switchTab() {}, navigateTo() {}, navigateBack() {}
   }
-  const config = { getBaseUrl: () => 'https://employee-session.invalid',
+  const config = { getTransportConfig: () => ({ mode: 'https', baseUrl: 'https://employee-session.invalid' }),
     API: { REFRESH: '/api/auth/refresh', LOGOUT: '/api/auth/logout', ME: '/api/auth/me' },
     BINDING_STATUS: { UNBOUND: 'UNBOUND', PENDING: 'PENDING', BOUND: 'BOUND', REJECTED: 'REJECTED', PENDING_UNBIND: 'PENDING_UNBIND' } }
   function load(name, filename) {
@@ -33,6 +33,7 @@ function fixture() {
         if (id.endsWith('config/api')) return config
         if (id.endsWith('/navigation')) return dependencies.navigation
         if (id.endsWith('/request')) return dependencies.request
+        if (id.endsWith('/transport')) return dependencies.transport
         if (id.includes('pending-reminder')) return { syncTabBarDot() {} }
         throw new Error('Unexpected test dependency')
       }
@@ -41,6 +42,7 @@ function fixture() {
   }
   load('keys', 'miniapp-delivery/utils/storage-keys.js')
   load('navigation', 'miniapp-delivery/utils/navigation.js')
+  load('transport', 'miniapp-delivery/utils/transport.js')
   load('request', 'miniapp-delivery/utils/request.js')
   load('app', 'miniapp-delivery/app.js')
   const keys = dependencies.keys.STORAGE_KEYS

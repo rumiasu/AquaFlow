@@ -1,37 +1,55 @@
-# 双端传输适配：请求根任务评审的方案
+# 双端 trial JSON 传输候选
 
-**仅设计，API接线未实现。** 基线c19，两端各有独立`utils/request.js`，没有可直接共享的跨项目运行模块。推荐共享同一个小型传输接口契约/同源实现，在两个小程序包内分别发布；不让小程序运行时require工程根目录的`../../shared`，不合并业务会话状态。
+本文件供接线审查者和后续配置负责人使用。基线 `5286651a3333240839ee22597f8b40771de59bbd`；实现仅在隔离副本，云环境未开通，运行双端、数据库与后端代码未改。v1修复独审发现的两个App入口漏接，v0保留为已知有缺口的历史候选。
 
-## 最小配置与接口
+## 配置与范围
 
-每端显式选择`trial`传输`https`或`cloudContainer`；develop继续原本机路线，release继续已有地址防误配。HTTPS使用既有trial.baseUrl；云调用只填经平台核实的环境ID、服务名及必要的资源所属AppID。客户端只放非密标识，不放AppSecret/数据库/JWT签名秘密。配置初始为空，选择云模式却缺标识、模式未知、SDK/初始化不可用应在首次请求前明确拒绝，**不自动退回dev/prod/公网**。
+两端各自 `config/api.js` 的 `API_CONFIG.trial` 显式选择 `transport: 'https'` 或 `'cloudContainer'`。默认仍为HTTPS且`baseUrl`为空；develop和release继续原路由及域名守卫。
 
-候选传输接口：`send({path, method, header, data, query, timeout, success, fail})`；返回可取消能力是否可用另按SDK实测，不先承诺与RequestTask完全等价。它只负责网络与原始响应适配，不能处理登录角色、设置已付款、重试写入或自动改业务键。
+云模式填写 `cloudContainer.env`（环境ID）、`service`（服务名称）、必要时的`resourceAppid`（资源方小程序AppID）。这些均为非密标识；不要在客户端放AppSecret或JWT签名秘密。共享环境需平台完成关联和同主体共享授权，不能由AppID来自同一个人推定。`transport-plan.example.json`仅为工作表，运行代码不读它。
 
-HTTPS分支继续wx.request和已有URL构造/域名规则。cloudContainer分支需一次有明确失败结果的初始化，按官方当前SDK把环境、服务路由、path/query、HTTP方法、头、数据传入；把响应还原成现有`statusCode/data/header`及可区分的网络失败，不把云调用成功等同项目code=0。具体字段和跨环境授权须先取得官方正文或平台文档核准，本稿不把未核实的代码样例当实现。
+缺环境/服务、未知模式、缺SDK构造器或调用方法、初始化失败均明确拒绝，绝不回退develop、prod、HTTPS或开发登录。云模式调用`getBaseUrl()`会拒绝，避免未适配上传路径误用旧地址；第一轮仅JSON与只读探针，不接上传、真实支付或新数据库。
 
-## 必须一并覆盖的影响面
+## 官方契约依据与限制
 
-| 当前文件/路径 | 候选改动；保持不变 |
+- [CloudBase官方小程序接入](https://docs.cloudbase.net/run/develop/access/mini)：正文抓取超时，但官方索引摘要可核到`new wx.cloud.Cloud({resourceAppid, resourceEnv})`、`await client.init()`、`client.callContainer()`及`X-WX-SERVICE`服务名路由；同主体共享与先关联环境的要求亦可核到。
+- [微信官方API类型定义，固定提交6092df9100c73b84e140c20b9a42a8e8799e0660](https://github.com/wechat-miniprogram/api-typings/blob/6092df9100c73b84e140c20b9a42a8e8799e0660/types/wx/lib.wx.cloud.d.ts#L131)：回调重载返回void，未传回调的重载返回`Promise<CallContainerResult>`。参数声明`path/method/header/data/dataType/timeout`，结果声明`statusCode/data/header/callID`。选择Promise调用，设置`dataType:'json'`及既有超时毫秒值；结果保留HTTP状态和项目响应外壳，不把SDK成功当业务成功。
+- 返回类型未声明RequestTask或abort；候选不调用未核实的SDK取消方法。`send()`返回的云`abort()`仅停止本地等待，标记`localOnly`与可能已发生请求，绝不保证服务器取消或事务回滚。HTTPS仍返回原wx.request的task。
+
+SDK字段的存在由官方声明支持，真实基础库版本、SDK超时/错误表现、JSON解析、跨端共享和JWT头到达服务仍需获准环境中的只读实测。没有声称已验证真机或真实云。
+
+## 实现与业务边界
+
+相同字节的`utils/transport.js`分别放入两个独立小程序包，无跨包require；`send({path,query,method,header,data,timeout,success,fail,complete})`只处理传输。云实例每包/SDK/资源配置初始化一次；首次请求等待初始化且受本地总期限约束，过期初始化不会继续发请求。
+
+普通请求、401刷新及原内容重放、顾客系统错误上报、顾客App启动缓存会话校验`/me`、员工App退出`/logout`均走适配器。顾客`backendCheck.ping()`走相同路由GET `/api/stations/public`，保留5秒期限；业务请求保留15秒期限。云SDK也收到该timeout值，本地另有一次结算保护，超时、停止等待后的迟到成功/401/失败都被忽略，没有网络错误自动重发。
+
+Authorization JWT保留，刷新单飞、会话隔离、请求体快照、HTTP401/code401、业务拒绝与损坏外壳守卫仍在原`request.js`。未新增客户端role授权或信任网关身份头。登录继续顾客`/api/auth/wx-login`、员工`/api/auth/wx-login-staff`和后端各自AppID/secret配置。
+
+已发送写入超时仍按现有页面保留unknown和原key/完整body；不换key，不宣称未建单。云初始化或缺配置虽然未发请求，候选不扩大业务层自动释放原请求的规则。
+
+## 离线与后续实测
+
+`tests/js/trial-cloud-transport.test.js`已接`run-all.js`：以SDK Promise、合成登录状态和可控时钟执行真实config/transport/request/App及下单Page，验证双端正常、HTTP/业务/损坏响应、401一次刷新与原体重放、云失败、超时迟到、初始化迟到、缺配置/SDK、开发和HTTPS路径、只读探针及上报路由。桩不建立真实环境、不调用微信或HTTP、不访问数据库。
+
+新增`trial-cloud-app-lifecycle.test.js`执行真实App注册、缓存启动和退出，覆盖HTTPS/云两路的成功、失败、重复退出、缺配置、迟到跨登录、15秒超时及一次续期。旧App源码负向回放35项中21项失败，已在独审包保留；不把v0的50项通过当App入口已覆盖。
+
+继续执行既有request-session-boundary、request-malformed-envelope、employee-request-session、employee-credential-faults、环境路由及原订单恢复专项。两个员工VM夹具加载真实transport模块，未降低旧会话断言。
+
+获准启用后的最小只读实测：两端各完成真实微信登录；确认共享实例初始化；GET本人`/me`验证JWT、HTTP状态与JSON外壳；GET公开探针；验证实际SDK超时及迟到保护。平台共享/费用、服务与数据库准备由负责人另行确认；独审前不提交、不部署或启用配置。
+
+## v1 直接网络调用清单
+
+| 源码位置/类别 | 决定与证据 |
 |---|---|
-| 两端`config/api.js`与`utils/release-api-url.js` | 增加trial传输读取；云模式不能先经过会因空HTTPS地址报错的getBaseUrl。原release拒占位/开发地址的校验保留。环境读取失败继续拒绝。 |
-| 客户`utils/request.js:49,193,278`；员工`:74,205,262` | 普通请求、刷新/重放、错误上报的直接网络调用一并路由；保留原令牌刷新单飞、会话归属、原请求快照、401/code=401、业务错误分类、未知结果及超时语义。不得只替换第一处wx.request。 |
-| 客户`utils/backendCheck.js:11` | 同一传输的只读探针，不能云业务成功却仍硬打旧HTTPS探针。 |
-| 员工`utils/upload.js:32,82`及图片访问 | uploadFile不是普通JSON请求，不冒称换成callContainer即支持。第一轮六条清单不要求新增上传；保持显式未配置提示。若确需上传，应单独评审官方上传路径及域名/COS授权，不新增公网绕路。 |
-| 两端App启动/登录、API模块 | 云SDK准备顺序与每端配置校验；业务API方法及主体/站别判权不改。盘点其他直接请求以免遗漏，当前已知调用见上。 |
+| 顾客App `validateToken()` | v0直接getBaseUrl/wx.request使云启动缓存校验停在配置弹窗且/me零调用；v1使用send，JWT与旧身份/凭据守卫保留，同步缺配置不读取注册前getApp。 |
+| 员工App `logout()` | v0先拿锁再getBaseUrl抛错，complete未触发导致无法退出；v1使用send，成功/失败/超时均执行一次原本地清理，同步原生错误亦收尾，已退出的重复调用不再发请求。旧登录回调不能清理新登录。 |
+| 两端`utils/request.js`全部JSON路径 | 普通、刷新、重放及顾客上报均已send；业务/API模块没有额外原生请求。 |
+| 顾客`utils/backendCheck.js` | 已send，同路由只读GET探针。 |
+| 两端`utils/transport.js`中的wx.request | 仅mode=https分支；develop/release及显式trial HTTPS调用原API，云失败不进入此分支。 |
+| 两端`config/api.js`中的getBaseUrl调用 | 仅非trial或显式trial HTTPS的配置分支；云分支直接返回资源配置。getBaseUrl自身拒绝云模式，不能给未适配路径伪造地址。 |
+| 员工`utils/upload.js`的getBaseUrl、uploadFile及其wx.request刷新 | 保留HTTP上传专项，不在本次JSON接线范围。上传在首个getBaseUrl处拒绝云模式，因此不会上传或进入该HTTP刷新；App专项已断言云模式上传/请求计数均0。不支持运行中途手改静态配置后续接正在进行的上传。 |
+| 顾客shop/ticket页的getBaseUrl导入 | 仅未使用的导入，没有调用；本轮不做无关删除。其业务请求使用原request模块。 |
+| 注释、日志里的wx.request及wx.requestPayment文字 | 不是网络调用；没有新增真实支付路径。 |
 
-## 登录路径保持
-
-客户`wx.login`的code提交`POST /api/auth/wx-login`；员工提交`/api/auth/wx-login-staff`。后端仍分别用相匹配的小程序配置换码，再发项目JWT；`/select-role`、`/create-station`、`/bind-staff`仍按当前授权绑定，`/refresh`和`/me`不换成信任客户端传来的身份。云平台注入身份头不是自动替代现有微信换码/JWT的授权方案。开发登录在trial隐藏且后端prod禁用，不开放公网开发登录。
-
-## 云托管与通用HTTPS边界
-
-业务层仍为Java17+MySQL+现有REST/JWT；更换部署平台不等于重写账务。通用HTTPS可以沿用当前wx.request，但需真实地址、证书与微信后台配置。云调用需要小程序与环境关联及SDK传输实现；不能将环境ID填进baseUrl假装HTTPS。切回HTTPS必须由明确配置与单独测试触发，不在请求失败时自动回退，以免一次写入跨环境重发。
-
-本轮官方小程序云托管接入正文抓取超时；此前工作台已记同主体/实际数据库版本/费用待确认。个人注册账号究竟是正式注册小程序还是平台测试/试用号、体验上传资格、跨应用共享和当前收费均由用户/官方确认。不得把两端AppID来自同一个人理解为已获共享环境授权。
-
-## 根评审需确认的具体范围
-
-只批准“trial增加可配置传输，同源小适配器双端打包，覆盖上表JSON调用与只读探针”；明确第一轮不接上传、不接真实支付、不改业务接口或认证。实际环境/服务标识之后单独提供非密值。根评审前不产运行接线补丁、不改9430/9431。
-
-获批后仅私有副本补测试：两种传输的相同成功/业务拒绝/HTTP错误/损坏响应；GET query与JSON写体；401刷新单飞、跨登录切换迟到拒绝、未知写入同键同体；缺配置/初始化失败无请求无回退；探针和上报同路由。复用`request-session-boundary`、`request-malformed-envelope`、现有环境路由/release校验套件及订单恢复专项，新增云SDK桩只证明契约，不冒称真实云/真机通过。
+扫描覆盖两端全部.js源码的getBaseUrl、wx.request和方括号request写法，并人工区分导入/定义/注释/调用。v1没有新增上传能力或改后端。

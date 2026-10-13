@@ -1,6 +1,6 @@
 {
-  "designOnly": true,
-  "runtimeImplementationApproved": false,
+  "designOnly": false,
+  "runtimeImplementationApproved": true,
   "mode": "UNSELECTED",
   "trialHttpsBaseUrl": "",
   "cloud": {
@@ -9,5 +9,6 @@
     "resourceAppId": ""
   },
   "missingValuesPolicy": "Reject before sending; no dev/prod fallback",
-  "note": "Not loaded by either miniapp. Fill non-secret identifiers only after platform verification and design approval."
+  "note": "Planning worksheet only; not loaded by either miniapp. The isolated transport candidate is approved for offline preparation, not for activating an environment. Copy verified non-secret values into each config/api.js only after activation is authorized.",
+  "environmentActivationApproved": false
 }

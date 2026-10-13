@@ -1,5 +1,6 @@
 // 网络请求封装（JWT 双 Token + 自动续期）
-const { getBaseUrl, API } = require('../config/api')
+const { API } = require('../config/api')
+const { send } = require('./transport')
 const { STORAGE_KEYS } = require('../utils/storage-keys')
 const navigation = require('./navigation')
 
@@ -47,7 +48,6 @@ const request = (options) => {
   options = { ...options, data: snapshot(options.data), query: snapshot(options.query), header: snapshot(options.header) }
   return new Promise((resolve, reject) => {
     const session = captureSession()
-    const baseUrl = getBaseUrl()
     const accessToken = session.accessToken
 
     const header = {
@@ -59,20 +59,9 @@ const request = (options) => {
       header['Authorization'] = `Bearer ${accessToken}`
     }
 
-    // 拼接 query 参数
-    let url = baseUrl + options.url
-    if (options.query) {
-      const qs = Object.keys(options.query)
-        .filter(k => options.query[k] !== undefined && options.query[k] !== null)
-        .map(k => `${k}=${encodeURIComponent(options.query[k])}`)
-        .join('&')
-      if (qs) {
-        url += (url.includes('?') ? '&' : '?') + qs
-      }
-    }
 
-    wx.request({
-      url,
+    send({
+      path: options.url, query: options.query,
       method: options.method || 'GET',
       data: options.data,
       header,
@@ -202,8 +191,8 @@ function handle401(originalOptions, resolve, reject, session) {
     return false
   }
 
-  wx.request({
-    url: getBaseUrl() + API.REFRESH,
+  send({
+    path: API.REFRESH,
     method: 'POST',
     data: { refreshToken: current.refreshToken },
     timeout: 15000,
@@ -251,16 +240,8 @@ function retryRequest(options, newToken, session) {
       ...options.header,
       'Authorization': `Bearer ${newToken}`
     }
-    let url = getBaseUrl() + options.url
-    if (options.query) {
-      const qs = Object.keys(options.query)
-        .filter(k => options.query[k] !== undefined && options.query[k] !== null)
-        .map(k => `${k}=${encodeURIComponent(options.query[k])}`)
-        .join('&')
-      if (qs) url += (url.includes('?') ? '&' : '?') + qs
-    }
-    wx.request({
-      url,
+    send({
+      path: options.url, query: options.query,
       method: options.method || 'GET',
       data: options.data,
       header,

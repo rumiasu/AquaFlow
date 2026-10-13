@@ -77,6 +77,7 @@ const SUITES = [
   { file: 'page-failure-recovery.test.js', name: '五页加载、失败重试与请求竞态' },
   { file: 'business-pending-flow.test.js', name: '站长业务责任：首页待办、原申请定位与失败重试' },
   { file: 'order-create-flow.test.js', name: '客户下单闭环（工作包 B）' },
+  { file: 'order-intent-storage-recovery.test.js', name: '下单存储故障原键恢复与真实新意图边界' },
   { file: 'delivery-complete-flow.test.js', name: '配送送达页（工作包 C）' },
   { file: 'delivery-detail-return-row.test.js', name: '订单详情页回桶行（首单不给默认回桶值）' },
   { file: 'ticket-purchase-flow.test.js', name: '水票购买（自助预付，不需要水站同意）' },

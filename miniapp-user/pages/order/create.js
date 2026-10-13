@@ -47,6 +47,12 @@ function pickOrderId(data) {
   return null
 }
 
+/** 首发的事务性业务拒绝可确认本次未建单；幂等冲突/重复提交可能已有历史单，不能据此解锁。 */
+function isDefiniteFirstOrderRejection(error) {
+  return !!error && error.businessRejected === true && typeof error.message === 'string' && !!error.message.trim()
+    && !/(幂等|已提交过|重复提交|重复请求|请求摘要|内容不同)/.test(error.message)
+}
+
 /**
  * 「刚才已经下过一模一样的一单」的保护窗口（毫秒）。
  *
@@ -180,7 +186,7 @@ Page({
 
     // 一次下单意图 = 一个幂等键（提交失败/缺货重提/超时重试都复用）。
     // 键的持久化与比对在 utils/orderIntent.js：**按客户隔离**（换账号不会继承上一位客户的待确认请求），
-    // 意图五要素（客户/站/地址/商品/支付方式）任一变化才换新键。
+    // 未决原件先核实；已知原单之后的真实新意图才换键，不能把 unknown 编辑当作安全新单。
     // 这里不再"进页面就生成一个新键"—— 那正是"离页重进 = 新意图 = 又下一单"的根因。
     this.setData({ idempotencyKey: '' })
 
@@ -188,6 +194,7 @@ Page({
     // "已下单"态就没了 —— 实测那次"点 3 下成交 3 单"正是这个形状。
     // 过期或指纹不符（换了内容/换了客户）都不会生效，判据见 _pendingOrderForCurrentCart。
     this._restorePendingOrderFromStorage()
+    this._restoreOrderRequest()
     // 优先级：URL参数 > 全局临时站点 > 本地存储
     let stationId = null
     if (options.stationId) {
@@ -1197,7 +1204,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   /**
-   * 本次下单意图（幂等键的作用域）：这五项任一变化 = 新意图 = 新键。
+   * 本次下单意图的比较指纹；unknown 时变化只阻止新建，不能据此丢掉原键。
    * 与 utils/orderIntent.js 的 fingerprint 一一对应。
    */
   _currentIntent() {
@@ -1363,136 +1370,119 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
    *        所以"同键带标记重提"天然可用）。
    */
   async _createOrder(confirmShortage) {
-    // 防连点（契约：重复点击不重复下单）。闸门放在**这里**而不是只放在 onSubmit：
-    // 押金确认、缺货同意、结果未知重试都会调本方法，任何一处被连点都会变成第二次建单请求。
-    // 服务端还有幂等键兜底，但"根本别发出去"更省事、也不会让客户看到两次 loading。
-    // ⚠️ 这道闸门只管"请求还没回来的那几秒" —— "成功之后又点一次"由下面的"已下单态"负责。
-    if (this.data.submitting) {
+    if (this.data.submitting || this._quoteDestroyed) return
+    const session = captureSession()
+    if (!session.loggedIn || !session.customerId) return
+    const current = () => isCurrentSession(session) && !this._quoteDestroyed
+    const intent = this._currentIntent(), fingerprint = orderIntent.fingerprint(intent)
+    let original
+    try { original = orderIntent.getRequest(session, this.data.lastSubmittedOrder) }
+    catch (error) { this._showOrderRecoveryBlocked(error.message); return }
+
+    // 2026-10-13：unknown 不随购物篮编辑或十分钟提示窗口过期而消失；先核实原单再开始新单。
+    if (original && original.phase === 'unknown' && original.fingerprint !== fingerprint) {
+      this._showOrderRecoveryBlocked('原提交结果尚未确认，请先到我的订单核实原单，再下新订单')
       return
     }
-
-    // ===== 购物车没动 = 这一单已经下好了：直接去那张单，**不再建单、也不弹任何确认框** =====
-    // 业内主流形态：下单成功后页面进入"已下单"态（按钮变「继续支付/查看订单」），
-    // 重复提交这个动作**根本没有入口**；只有改动了购物车内容才会回到「立即下单」。
-    // 这里再判一次是因为"押金确认/缺货同意/结果未知重试"也走本方法，任何一条路都不许重复建单。
+    if (original && original.busy) {
+      this._showOrderRecoveryBlocked('原提交正在核实，请稍候，不要重复提交')
+      return
+    }
     const pending = this._pendingOrderForCurrentCart()
-    if (pending) {
-      this._openOrderResult(pending.orderId)
+    if (pending) { this._openOrderResult(pending.orderId); return }
+    if (original && original.phase === 'known' && original.fingerprint === fingerprint
+        && Date.now() - original.at < RECENT_ORDER_WINDOW_MS) {
+      this._rememberSubmittedOrder(original.orderId, original.fingerprint, false)
+      this._openOrderResult(original.orderId)
       return
     }
-
-    const idempotencyKey = orderIntent.keyFor(this._currentIntent())
-    // 原请求恢复重放既有快照；新请求在最后入口仍须有当前地址的报价，不能只信 quoteReady。
-    const replay = this._originalOrderRequest && this._originalOrderRequest.body.idempotencyKey === idempotencyKey
+    const replay = original && original.phase === 'unknown'
     if (!replay && !this._finalSubmissionAllowed()) return
-    // 「提交结果未知」是个**要留在页面上**的状态：说明本次响应没带回订单号、可以重试。
-    // 只有普通失败（网络异常）才把它归位，否则那条提示会被 finally 冲掉。
-    let unknownResult = false
-    this.setData({
-      submitting: true,
-      submitState: 'creating',
-      showOfflineConfirm: false,
-      showAssetConfirm: false,
-      showShortageConfirm: false,
-      showUnifiedConfirm: false,
-      idempotencyKey
-    })
-
+    let requestRecord
     try {
-      const items = this.data.products.map(p => ({
-        productId: p.id,
-        waterTypeId: p.waterTypeId || null,
-        productName: p.name,
-        productSpec: p.spec || '',
-        productPrice: parseFloat(p.price) || 0,
-        productDeposit: parseFloat(p.deposit) || 0,
-        quantity: p.quantity || 1
-      }))
-
-      const freshRequest = {
-        items: items,
-        addressId: this.data.address.id,
-        specialNote: this.data.note,
-        source: 3,
-        paymentMethod: this.data.selectedMethod,
-        stationId: this.data.stationId,
-        extraDeposit: this.data.extraDepositAmount || 0,
-        barrelPurchases: (this.data.barrelPurchases || []).map(l => ({ productId: l.productId, quantity: l.quantity, unitPrice: Number(l.unitPrice) })),
-        idempotencyKey: idempotencyKey,
-        // 只有客户明确同意等待才为 true；否则服务端返回 needConfirm（**不建单**）
-        confirmShortage: confirmShortage === true
+      if (replay) requestRecord = original
+      else {
+        if ((this.data.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) { this.confirmBarrelPurchase(); return }
+        const body = {
+          items: this.data.products.map(p => ({ productId: p.id, waterTypeId: p.waterTypeId || null,
+            productName: p.name, productSpec: p.spec || '', productPrice: parseFloat(p.price) || 0,
+            productDeposit: parseFloat(p.deposit) || 0, quantity: p.quantity || 1 })),
+          addressId: this.data.address.id, specialNote: this.data.note, source: 3,
+          paymentMethod: this.data.selectedMethod, stationId: this.data.stationId,
+          extraDeposit: this.data.extraDepositAmount || 0,
+          barrelPurchases: (this.data.barrelPurchases || []).map(l => ({ productId: l.productId, quantity: l.quantity, unitPrice: Number(l.unitPrice) })),
+          confirmShortage: confirmShortage === true
+        }
+        requestRecord = orderIntent.prepareRequest(intent, body, session, this.data.wechatPay,
+          { amount: this.data.totalAmount, waterAmount: this.data.totalWaterCost, barrelDeposit: this.data.totalDeposit,
+            extraDepositBuckets: this.data.extraDepositBuckets, extraDepositAmount: this.data.extraDepositAmount }, this.data.lastSubmittedOrder)
       }
-      // 2026-10-03：报价失败会清明细，但未知建单重试必须重放原补购快照，不能变成另一请求。
-      if (!this._originalOrderRequest || this._originalOrderRequest.body.idempotencyKey !== idempotencyKey) {
-        if ((freshRequest.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) { this.confirmBarrelPurchase(); return }
-        this._originalOrderRequest = { body: JSON.parse(JSON.stringify(freshRequest)), session: captureSession(), wechatPay: this.data.wechatPay }
-      }
-      if (!isCurrentSession(this._originalOrderRequest.session)) return
-      const request = JSON.parse(JSON.stringify(this._originalOrderRequest.body))
-      if (confirmShortage === true) request.confirmShortage = true
-      this._originalOrderRequest.body = request
-      const navigationProof = { ...this._captureOrderNavigation(null), stationId: request.stationId,
-        session: this._originalOrderRequest.session, paymentMethod: request.paymentMethod, wechatPay: this._originalOrderRequest.wechatPay }
+      // 首发保存并读回核实失败时零请求；可信 unknown 原件在后来存储故障时仍能同键重放。
+      if (!orderIntent.beginRequest(requestRecord)) return
+    } catch (error) {
+      this._showOrderRecoveryBlocked(error.message || '原提交记录没能保存完整，尚未发送，请重试')
+      return
+    }
+    this._originalOrderRequest = requestRecord
+    const request = JSON.parse(JSON.stringify(requestRecord.body))
+    const navigationProof = { ...this._captureOrderNavigation(null), stationId: request.stationId, session,
+      paymentMethod: request.paymentMethod, wechatPay: requestRecord.wechatPay, paymentContext: requestRecord.paymentContext }
+    this.setData({ submitting: true, submitState: 'creating', idempotencyKey: request.idempotencyKey,
+      showOfflineConfirm: false, showAssetConfirm: false, showShortageConfirm: false, showUnifiedConfirm: false })
+    try {
       const orderRes = await createOrder(request)
-
       const data = (orderRes && orderRes.data) || null
-
-      // ① 缺货：**还没有建单**（服务端在 INSERT 之前就返回了，见 OrderServiceImpl 的缺货分支）。
-      //    绝不能当成功、不能付款、不能跳成功页 —— 幂等键也**保留**，等客户表态。
       if (data && data.needConfirm === true) {
-        this._showShortageConfirm(data.shortages)
+        orderIntent.settleRequest(requestRecord, 'prepared')
+        if (current()) this._showShortageConfirm(data.shortages)
         return
       }
-
-      // ② 建单成功：必须拿到一个**合法订单号**才算成功。
-      //    旧代码写 `orderRes.data?.orderId || orderRes.data || null` —— 缺货时把整个响应对象
-      //    当成了订单号，水票路径拿它去发支付请求（Long 反序列化失败 → 500），
-      //    现金路径把它拼进 success 页 URL（订单根本不存在，页面却显示"等待配送"）。
       const orderId = pickOrderId(data)
       if (orderId == null) {
-        // ③ 无法确认提交结果：**不支付、不跳成功页**，把判断权交回客户。
-        //    服务端可能已经建单（响应丢了），所以**保留幂等键** —— 点"重试查一次"会用同一个键
-        //    重新提交，服务端按幂等命中返回原单，不会产生第二张单。
-        //    ⚠️ 这个状态**不能被下面的 finally 冲掉**（submitState 归位要判一下），
-        //       否则页面上那条"结果未知 + 重试"的提示永远不会出现（流程测试抓过这一条）。
-        unknownResult = true
-        this.setData({
-          submitState: 'unknown',
-          unknownResultText: '没能确认这次提交的结果。点"重试查一次"会用同一次提交的标识重新查询，'
-            + '不会重复下单；也可以先到「我的订单」看看有没有这张单。'
-        })
+        if (current()) this._showOrderRecoveryBlocked('没能确认原提交结果。重试仍使用原编号和完整内容；也可先到我的订单核实原单。')
         return
       }
-
-      // 这一单确实建出来了 ⇒ 本次意图了结。
-      // ⚠️ [2026-09-26 修正] 原来这里**立刻** orderIntent.clear()，于是同一页面上再点一次就是
-      //   新键 ⇒ 新单（实测点 3 下成交 3 单）。现在键留着、并记下"刚下过这一单"，
-      //   页面据此进入"已下单"态（按钮变「继续支付/查看订单」）；
-      //   真正的"再下一单"是**改了购物车内容**（指纹一变，状态自动失效）。
-      this._rememberSubmittedOrder(orderId, orderIntent.fingerprint(this._currentIntent()), false)
-      // [2026-09-19] 记下这次用的支付方式（只存本地）。放在成功之后：失败/被拒不该污染"上次成功用过的"。
-      payMethodStorage.set(this.data.selectedMethod)
-
+      // 原回执只登记原请求指纹；页面编辑、卸载或重新登录不能授权旧回调继续付款。
+      orderIntent.settleRequest(requestRecord, 'known', orderId)
+      if (!current()) return
+      this._rememberSubmittedOrder(orderId, requestRecord.fingerprint, false)
+      payMethodStorage.set(request.paymentMethod)
       await this.proceedToPayment(orderId, data, { ...navigationProof, orderId })
     } catch (error) {
-      // 网络失败/超时：同样**可能已经建单**，所以不动幂等键，只是把状态说清楚
-      console.error('[OrderCreate] 下单失败（可能未建单，也可能已建单但响应丢失）:', error)
-      if (error && error.businessRejected) this._originalOrderRequest = null
-      this.setData({ submitState: 'idle' })
-      wx.showModal({
-        title: '下单没提交成功',
-        content: (error && error.message ? error.message + '\n\n' : '')
-          + '如果刚才网络中断，这张单可能已经建出来了。点「重试」会沿用同一次提交的标识，'
-          + '不会重复下单。',
-        confirmText: '重试',
-        cancelText: '先不提交',
-        success: (r) => {
-          if (r.confirm) this._createOrder(false)
+      // 2026-10-13 独审：首发前只有 prepared，明确事务拒绝后仍锁 unknown 会让修正商品/地址永远无法提交。
+      // 只解除本次首次且可证明未建单的业务拒绝；历史 unknown 重放遭拒和幂等冲突仍保留完整原件。
+      if (!replay && requestRecord.phase === 'unknown' && isDefiniteFirstOrderRejection(error)) {
+        orderIntent.settleRequest(requestRecord, 'prepared')
+        if (current()) {
+          this.setData({ submitState: 'idle', unknownResultText: '' })
+          wx.showModal({ title: '订单未创建', content: error.message + '\n\n请调整后重新提交。', showCancel: false, confirmText: '知道了' })
         }
-      })
+        return
+      }
+      // 停业/地址校验可能在幂等查找之前拒绝重放；businessRejected 不能证明历史 unknown 原单不存在。
+      if (!current()) return
+      this._showOrderRecoveryBlocked('原提交结果尚未确认，保留原编号和内容，请重试核实或到我的订单查看。')
+      wx.showModal({ title: '原提交还需核实', content: (error && error.message ? error.message + '\n\n' : '')
+        + '原单可能已创建。重试只办理原提交，不会更换编号或内容。', confirmText: '重试', cancelText: '先查看',
+        success: result => {
+          if (result.confirm && current() && !this._quoteHidden && requestRecord.phase === 'unknown') this._createOrder(false)
+        } })
     } finally {
-      this.setData(unknownResult ? { submitting: false } : { submitting: false, submitState: 'idle' })
+      orderIntent.releaseRequest(requestRecord)
+      if (current()) this.setData({ submitting: false,
+        submitState: requestRecord.phase === 'unknown' ? 'unknown' : 'idle' })
     }
+  },
+
+  _showOrderRecoveryBlocked(message) {
+    this.setData({ submitting: false, submitState: 'unknown', unknownResultText: message })
+  },
+
+  _restoreOrderRequest() {
+    try {
+      const request = orderIntent.getRequest(captureSession(), this.data.lastSubmittedOrder)
+      if (request && request.phase === 'unknown') this._showOrderRecoveryBlocked('原提交结果尚未确认，请重试核实原提交或到我的订单查看。')
+    } catch (error) { this._showOrderRecoveryBlocked(error.message) }
   },
 
   /** 缺货确认弹窗（契约 A1）：说清"哪些商品、要多少、现在有多少、等货的含义"。
@@ -1542,6 +1532,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   async proceedToPayment(orderId, data, navigationProof = this._captureOrderNavigation(orderId)) {
+    const current = () => isCurrentSession(navigationProof.session) && !this._quoteDestroyed
+    if (!current()) return
     // 下单响应里的 warnings（水站营业状态提示 / 欠桶提醒 / 缺货提示）**必须让客户看到**：
     // 后端一直在下发，前端从来没读过，等于白提醒。营业状态是"不阻断但要说清楚"的软状态。
     //
@@ -1550,6 +1542,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     //   等于读 `data.data.warnings`（恒 undefined），营业中/欠桶这类软提醒被**静默丢掉**。
     //   现在两侧统一为"解包后的 data"（形参已改名 orderData，免得再被当成响应体）。
     await this.showOrderWarnings(data)
+    if (!current()) return
 
     // ===== 3 = PayMethod.TICKET（水票支付）：下单即视同已付，补一条支付流水用于对账 =====
     // ===== 1 = PayMethod.WECHAT（微信）：**只有服务端确认走模拟渠道**时才发这一笔 =====
@@ -1569,7 +1562,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const wechatPay = navigationProof.paymentMethod ? navigationProof.wechatPay : this.data.wechatPay
     const wechatReady = !!(wechatPay && wechatPay.enabled)
     if (payMethod === 3 || (payMethod === 1 && wechatReady)) {
-      const outcome = await this._paySameOrder(orderId, payMethod)
+      const outcome = await this._paySameOrder(orderId, payMethod, navigationProof)
+      if (!current()) return
       // "已下单"态的按钮文案跟着真实结果走：结清了就显示「查看这笔订单」，没结清显示「继续支付」
       this._markPendingOrderPaid(outcome.ok === true, outcome.state)
       if (!outcome.ok) {
@@ -1592,6 +1586,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
             confirmText: unknown ? '查原单' : (outcome.state === 'paid' ? '看订单' : '再试一次'),
             cancelText: unknown ? '再试一次' : '看订单',
             success: (r) => {
+              if (!current()) return
               const retryChosen = unknown ? r.cancel === true : r.confirm === true
               if (!retryChosen) {
                 // 未知时确认 = 查原单；已知失败时取消 = 看订单，均去同一原单结果页。
@@ -1603,11 +1598,12 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
             complete: () => resolve()
           })
         })
-        if (this.retryPaymentAfterFailure) {
+        if (this.retryPaymentAfterFailure && current()) {
           this.retryPaymentAfterFailure = false
           // 同一个订单号重试：服务端一单一条活跃流水（uk_payment_active_order）兜底，
           // 已有待收款流水时 createPayment 会把它原样返回，不会落第二条、也不会双扣。
-          const retry = await this._paySameOrder(orderId, payMethod)
+          const retry = await this._paySameOrder(orderId, payMethod, navigationProof)
+          if (!current()) return
           this._markPendingOrderPaid(retry.ok === true, retry.state)
           if (!retry.ok) {
             // 重试仍不成功：停在结果页（有「去支付」入口 + 后端下发的付款说明），不假报成功
@@ -1620,7 +1616,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       }
     }
 
-    this._openOrderResult(orderId, navigationProof)
+    if (current()) this._openOrderResult(orderId, navigationProof)
   },
 
   /**
@@ -1635,20 +1631,19 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
    * 真渠道下那条是 {@code PENDING(1)} —— 若拿"请求成功了"当"钱收到了"，
    * 就是在没有真实渠道的部署里假报已付（本仓最忌讳的"界面说做了、账上没动"）。</p>
    */
-  async _paySameOrder(orderId, paymentMethod) {
+  async _paySameOrder(orderId, paymentMethod, proof = this._captureOrderNavigation(orderId)) {
+    if (!isCurrentSession(proof.session) || this._quoteDestroyed) return { ok: false, state: 'unknown' }
+    const context = proof.paymentContext || { amount: this.data.totalAmount, waterAmount: this.data.totalWaterCost,
+      barrelDeposit: this.data.totalDeposit, extraDepositBuckets: this.data.extraDepositBuckets, extraDepositAmount: this.data.extraDepositAmount }
     try {
       await createPayment({
         orderId,
-        customerId: getCustomerId(),
-        amount: this.data.totalAmount,
-        waterAmount: this.data.totalWaterCost,
-        barrelDeposit: this.data.totalDeposit,
-        extraDepositBuckets: this.data.extraDepositBuckets,
-        extraDepositAmount: this.data.extraDepositAmount,
+        customerId: proof.session.customerId,
+        ...context,
         paymentMethod: paymentMethod,
         ticketProductId: null,
         ticketQty: null
-      }, { simulatedWechatPay: paymentMethod === 1 && !!(this.data.wechatPay && this.data.wechatPay.simulated) })
+      }, { simulatedWechatPay: paymentMethod === 1 && !!((proof.wechatPay || this.data.wechatPay) && (proof.wechatPay || this.data.wechatPay).simulated) })
       // 请求成功 ≠ 钱到账：一律回读订单的支付事实（服务端重算的金额与状态才是真相）
       const state = await this._verifyOrderPayment(orderId)
       return { ok: state === 'paid', state }

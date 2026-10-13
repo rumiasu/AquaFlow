@@ -201,7 +201,7 @@ await test('服务端已建单但响应丢失（网络异常）：不动键，�
   const key = page.data.idempotencyKey
   assert.ok(key, '失败后键必须还在')
   const modal = wx.__calls.modal[wx.__calls.modal.length - 1]
-  assert.ok(modal && modal.title.indexOf('没提交成功') > -1, '应给出可重试的提示')
+  assert.ok(modal && modal.title.indexOf('还需核实') > -1, '响应丢失时说结果待核实，并保留原提交重试')
   // 客户点了弹窗里的「重试」
   modal.success({ confirm: true })
   await new Promise((r) => setTimeout(r, 10))

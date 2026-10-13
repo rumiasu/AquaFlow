@@ -5,18 +5,109 @@
  * 结果页（回到原单）用到，写在页面里会变成两套判断 —— 而"重试变成第二张单"正是
  * 这套规则写错的后果。本模块只做**本地**记录与比对，不参与任何金额或业务判断。
  *
- * 规则（判据）：
- *   1. 一次**下单意图**由「客户 + 水站 + 地址 + 商品明细 + 支付方式」唯一确定；
- *      其中任何一项变了 ⇒ 意图变了 ⇒ 必须换新键（否则"改完数量再提交"会被服务端
- *      当成重复请求，拿回上一张金额不同的旧单）。
- *   2. 意图没变时，**任何失败都要复用同一个键**：缺货未确认、超时、点击重试、
- *      服务端已建单但响应丢失（此时服务端按幂等键返回原单，正是我们要的恢复路径）。
- *   3. 只有"这一单确实建出来了"（拿到合法 orderId）才清掉本次意图 —— 下一次提交是新的一单。
- *   4. 记录**按客户隔离**：换账号登录不得继承上一位客户的待确认请求。
- *      （key 里带 customerId，读的时候也比对；不匹配就当没有。）
+ * 恢复规则见 docs/design/04-订单与状态机.md §4.7。
+ * 2026-10-13：原来只存五要素和键，写失败被吞、重进又重拼备注，可能重复建单或摘要冲突。
+ * 原件必须含完整 body 与阶段；unknown 不能因编辑换键，首次存储没核实则不发请求。
  */
 
 const KEY = 'orderIntent.v1'
+const REQUEST_KEY = 'orderRequest.v2:'
+const requestsByApp = new WeakMap()
+
+function requestError(message) {
+  return Object.assign(new Error(message), { orderRecoveryBlocked: true })
+}
+
+function ownedRequests(session) {
+  let requests = requestsByApp.get(session.app)
+  if (!requests) { requests = new Map(); requestsByApp.set(session.app, requests) }
+  return requests
+}
+
+function copy(value) { return JSON.parse(JSON.stringify(value)) }
+function absent(value) { return value == null || value === '' }
+
+function storedRequest(request) {
+  const { customerId, fingerprint, key, body, phase, orderId, at, wechatPay, paymentContext } = request
+  return { customerId, fingerprint, key, body, phase, orderId, at, wechatPay, paymentContext }
+}
+
+/** 2026-10-13：首次发送前必须核实完整原件；写后抛错或静默未写都不能盲发。 */
+function persistRequest(request) {
+  const stored = copy(storedRequest(request))
+  const expected = JSON.stringify(stored)
+  wx.setStorageSync(REQUEST_KEY + request.customerId, stored)
+  wx.setStorageSync(KEY, stored)
+  if (JSON.stringify(wx.getStorageSync(REQUEST_KEY + request.customerId)) !== expected
+      || JSON.stringify(wx.getStorageSync(KEY)) !== expected) throw requestError('原提交记录没有保存完整，尚未发送，请重试')
+}
+
+/** 同进程跨页面优先读本人内存原件；读异常不等于没有原单，旧磁盘值不覆盖可信内存。 */
+function getRequest(session, knownReceipt) {
+  const requests = ownedRequests(session), owner = String(session.customerId)
+  if (requests.has(owner)) return requests.get(owner)
+  let stored, legacy
+  try {
+    stored = wx.getStorageSync(REQUEST_KEY + owner)
+    if (absent(stored)) legacy = wx.getStorageSync(KEY)
+  } catch (error) { throw requestError('没能读取原提交记录，请重试核实，暂不发送订单') }
+  if (absent(stored) && !absent(legacy) && (typeof legacy !== 'object' || !legacy.customerId)) {
+    throw requestError('原提交记录不完整，请先到我的订单核实')
+  }
+  if (absent(stored) && legacy && String(legacy.customerId) === owner) {
+    if (legacy.body) stored = legacy
+    else if (legacy.key && (!knownReceipt || knownReceipt.fingerprint !== legacy.fingerprint || !knownReceipt.orderId)) {
+      throw requestError('原提交只保留了编号，请先到我的订单核实，暂不发送新订单')
+    }
+  }
+  if (absent(stored)) return null
+  if (String(stored.customerId) !== owner || !stored.body || stored.body.idempotencyKey !== stored.key
+      || typeof stored.key !== 'string' || !stored.key.trim()
+      || fingerprint({ ...stored.body, customerId: stored.customerId }) !== stored.fingerprint
+      || !Number.isFinite(stored.at) || !stored.paymentContext || typeof stored.paymentContext !== 'object'
+      || !stored.fingerprint || !['prepared', 'unknown', 'known'].includes(stored.phase)
+      || (stored.phase === 'known' && !stored.orderId)) throw requestError('原提交记录不完整，请先到我的订单核实')
+  const request = copy(stored)
+  request.busy = false
+  requests.set(owner, request)
+  return request
+}
+
+/** 未发送/明确未建单时才可重备请求；unknown 不能被编辑覆盖，known 的新意图用新键。 */
+function prepareRequest(intent, body, session, wechatPay, paymentContext, knownReceipt) {
+  const requests = ownedRequests(session), owner = String(session.customerId)
+  const previous = getRequest(session, knownReceipt)
+  if (previous && (previous.busy || previous.phase === 'unknown')) throw requestError('请先核实原提交，再下新订单')
+  const fp = fingerprint(intent)
+  const key = previous && previous.phase === 'prepared' && previous.fingerprint === fp ? previous.key : newKey()
+  const request = { customerId: session.customerId, fingerprint: fp, key,
+    body: copy({ ...body, idempotencyKey: key }), phase: 'prepared', orderId: null, at: Date.now(),
+    wechatPay: wechatPay || null, paymentContext: copy(paymentContext), busy: false }
+  requests.set(owner, request)
+  persistRequest(request)
+  return request
+}
+
+/** 共享在途锁；unknown 重放可信原件，首发则先持久化未知阶段，崩溃后也不会误认未发送。 */
+function beginRequest(request) {
+  if (request.busy) return false
+  if (request.phase !== 'unknown') {
+    persistRequest({ ...request, phase: 'unknown' })
+    request.phase = 'unknown'
+  }
+  request.busy = true
+  return true
+}
+
+/** 服务端明确结果更新本人原件；持久化失败保留内存事实，不把 unknown 猜成没建单。 */
+function settleRequest(request, phase, orderId = null) {
+  request.phase = phase
+  request.orderId = orderId
+  request.at = Date.now()
+  try { persistRequest(request) } catch (error) { /* 原件留在进程内；旧磁盘 unknown 仍可按原键安全恢复。 */ }
+}
+
+function releaseRequest(request) { if (request) request.busy = false }
 
 /** 生成一个新的幂等键（时间 + 随机，够用即可；服务端只当字符串键用）。 */
 function newKey() {
@@ -51,7 +142,7 @@ function keyFor(intent) {
   try {
     saved = wx.getStorageSync(KEY) || null
   } catch (e) {
-    saved = null
+    throw requestError('没能读取原提交编号，请先重试核实')
   }
   if (saved && saved.fingerprint === fp && saved.key) {
     return saved.key
@@ -71,7 +162,7 @@ function save(intent, key) {
       savedAt: Date.now()
     })
   } catch (e) {
-    // 存不下就只能保证"本页内不换键"，不阻断下单
+    // 存储本身不能保证重试复用；下单页用当前登录周期与意图绑定的原请求快照保住内存原键。
   }
 }
 
@@ -93,4 +184,5 @@ function peek() {
   }
 }
 
-module.exports = { keyFor, save, clear, peek, fingerprint, newKey }
+module.exports = { keyFor, save, clear, peek, fingerprint, newKey,
+  getRequest, prepareRequest, beginRequest, settleRequest, releaseRequest }

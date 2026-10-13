@@ -1272,6 +1272,9 @@
 
 .detail-sheet-body {
   flex: 1;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 24rpx 32rpx;
   max-height: 55vh;
 }

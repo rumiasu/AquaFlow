@@ -12,6 +12,27 @@ const accountNumber = value => {
 }
 const accountQuantity = value => { const n = accountNumber(value); return n !== null && Number.isSafeInteger(n) && n >= 0 ? n : null }
 
+// 2026-10-13：退还卡原只在 key/data-id 留申请ID，同数量记录缺少可见辨认线索。
+// 只投影显示文字；名称仅取同次有效站别桶账，不用旧站缓存或相邻商品猜配。
+const returnDisplayId = value => {
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value > 0 ? String(value) : null
+  return typeof value === 'string' && /^[1-9]\d*$/.test(value) ? value : null
+}
+function presentReturnRecord(record, holdings, stationId) {
+  if (!record || record.type !== 2) return record
+  const id = returnDisplayId(record.id), station = returnDisplayId(stationId), product = returnDisplayId(record.productId)
+  let name = ''
+  if (station && product && returnDisplayId(record.stationId) === station) {
+    const names = new Set(holdings.filter(h => h && returnDisplayId(h.productId) === product
+      && (!Object.prototype.hasOwnProperty.call(h, 'stationId') || returnDisplayId(h.stationId) === station))
+      .map(h => typeof h.productName === 'string' ? h.productName.trim() : '')
+      .filter(n => n && n !== '未知商品'))
+    if (names.size === 1) name = [...names][0]
+  }
+  return { ...record, returnIdentityText: id ? '退还申请 #' + id : '退还申请编号未加载', returnProductName: name }
+}
+
+
 Page({
   data: {
     loading: true,
@@ -122,7 +143,7 @@ Page({
         this.setData({ summary })
       }
       if (recordsOK) {
-        this.setData({ records: recordsRes.data })
+        this.setData({ records: recordsRes.data.map(record => presentReturnRecord(record, holdingsOK ? holdingsRes.data : [], stationId)) })
       }
 
       let holdings = []

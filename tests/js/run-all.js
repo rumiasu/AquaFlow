@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'barrel-return-visible-identity.test.js', name: 'return request visible identity and same-station product association offline' },
   { file: 'customer-cod-visible-id.test.js', name: 'same-name customer visible numbers and original COD save context offline' },
   { file: 'customer-scope-copy.test.js', name: 'customer scope names and permission versus current COD result offline' },
   { file: 'customer-cod-context.test.js', name: 'COD customer modal generations, lifecycle and save context' },

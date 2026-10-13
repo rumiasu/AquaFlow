@@ -116,6 +116,8 @@
                      永远走兜底分支，把流水主键当成"桶号"报给客户（假桶号）。
                      类型/数量/备注后端都已下发（typeText/quantity/note），照实展示即可。 -->
                 <text class="bucket-id">{{item.typeText}}<text wx:if="{{item.quantity > 0}}"> · {{item.quantity}} 桶</text></text>
+                <text class="bucket-time" wx:if="{{item.type === 2}}">{{item.returnIdentityText}}</text>
+                <text class="bucket-time" wx:if="{{item.type === 2 && item.returnProductName}}">商品：{{item.returnProductName}}</text>
                 <text class="bucket-time" wx:if="{{item.note}}">{{item.note}}</text>
                 <text class="bucket-time" wx:if="{{item.createTime}}">{{item.createTime}}</text>
               </view>

@@ -64,6 +64,7 @@ const SUITES = [
   { file: 'exception-closeout-flow.test.js', name: '拒付纠错分权、争议结案重提及原请求恢复' },
   { file: 'return-arrangement-flow.test.js', name: '退桶原申请安排版本、明确关联单与当前授权' },
   { file: 'checkout-presentation.test.js', name: '结算展示规格、提示去重与原报价守卫' },
+  { file: 'fee-detail-layout.test.js', name: '费用明细滚动区包含水平内边距且金额不裁切' },
   { file: 'combined-order-deposit.test.js', name: '随单新增押金明确确认、等待与原请求恢复' },
   { file: 'payment-quote-capability.test.js', name: '权威报价失败阻断、重试与独立押金渠道能力' },
   { file: 'first-water-deposit-flow.test.js', name: '首次订水水款、独立押金与原结算返回' },

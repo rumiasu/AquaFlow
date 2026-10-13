@@ -21,3 +21,4 @@ assert.match(bodyStyle[1], /box-sizing:\s*border-box\s*;/,
   'horizontal padding must be included in the scroll view width')
 
 console.log('PASS fee detail scroll view keeps padded rows inside the sheet width')
+console.log('AQUAFLOW_SUITE_OK 1')

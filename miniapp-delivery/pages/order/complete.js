@@ -167,6 +167,7 @@ Page({
     collectedChosen: false,
     // 备货情况（后端 stockPrep 投影，契约 C4）
     stockPrep: null,
+    showStockPrepPrompt: false,
     stockPrepText: '',
     // 「更多（选填）」：备注 / 楼层与楼梯凭证（契约 C2：正常路径简短，异常与选填再展开）
     showMore: false,
@@ -193,8 +194,13 @@ Page({
   },
 
   async loadOrder(id) {
+    const loadSeq = (this._orderLoadSeq || 0) + 1
+    this._orderLoadSeq = loadSeq
+    // 重载时先隐藏旧提示；迟到响应不能覆盖后一次读取到的订单状态。
+    this.setData({ orderLoaded: false, showStockPrepPrompt: false, stockPrepText: '' })
     try {
       const res = await getOrderDetail(id)
+      if (loadSeq !== this._orderLoadSeq) return
       const order = res.data
       if (!order) return
 
@@ -248,6 +254,9 @@ Page({
       // 与后端 needCollect（要求 payment_method = 2 现金）不是一回事，属"前端自带映射表"（AGENTS §6）。
       const needCollect = order.needCollect === true
       const prep = order.stockPrep || null
+      // 只有待配送(1)/配送中(2)仍需备货；保留原投影供核对，不按退款支付态隐藏进行中的订单。
+      const needsStockPrep = order.status === 1 || order.status === 2
+      const showStockPrepPrompt = needsStockPrep && !!prep && prep.ready !== true
 
       // [2026-09-27 走查 D01 修] 钱卡文案与配色**在这里定**，wxml 只渲染：
       // 原来无论需不需要收钱，总额一律用 `.money-amount`（56rpx + #FF3B30 红字），
@@ -288,7 +297,8 @@ Page({
         collected: null,          // 交付事实由人确认，不预选
         collectedChosen: false,
         stockPrep: prep,
-        stockPrepText: this._prepText(prep),
+        showStockPrepPrompt,
+        stockPrepText: needsStockPrep ? this._prepText(prep) : '',
         // 客户卡上的两个可点动作（[2026-09-26]）：与订单详情页同一套口径 ——
         // 电话取 receiverPhone（订单快照）优先：跨站履约单的 customerPhone 是**刻意置空**的
         //（画像归归属站，见 util/CustomerProfileMask），快照里的收件人电话照常可用。
@@ -306,6 +316,7 @@ Page({
         showMore: elevatorUnknown
       })
     } catch (err) {
+      if (loadSeq !== this._orderLoadSeq) return
       this.setData({ orderLoaded: false })
       wx.showToast({ title: '加载订单失败', icon: 'none' })
     }
@@ -772,7 +783,9 @@ Page({
       wx.hideLoading()
       // [2026-09-27 走查 D03 修] 成功态**只在这里**置位：页头的大绿勾与「完成配送」由它驱动。
       // 原来这两个视觉元素是一进页面就画的，"还没提交就已经成功"。
-      this.setData({ resultState: 'success' })
+      // 成功回执后不再需要备货；保留原投影，并作废早于回执的在途读取。
+      this._orderLoadSeq = (this._orderLoadSeq || 0) + 1
+      this.setData({ resultState: 'success', showStockPrepPrompt: false, stockPrepText: '' })
       wx.showToast({ title: '配送完成！', icon: 'success' })
       setTimeout(() => {
         if (this.data.from === 'home') {

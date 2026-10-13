@@ -103,7 +103,7 @@
       <text class="money-meta-item" wx:if="{{orderInfo.depositAmount > 0}}">含押金 ¥{{orderInfo.depositAmount}}（可退）</text>
     </view>
     <!-- 备货：**备齐了不占位置**（正常单不该多一行字），没备齐时才说清还差什么 + 给站长一个补货入口 -->
-    <view class="money-prep" wx:if="{{stockPrep && stockPrep.ready !== true}}">
+    <view class="money-prep" wx:if="{{showStockPrepPrompt}}">
       <text class="money-prep-text">{{stockPrepText}}</text>
       <text class="money-prep-link" catchtap="onGoInventory">去补货 ›</text>
     </view>

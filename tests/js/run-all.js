@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'delivery-complete-stock-prep.test.js', name: 'completion stock prep follows active order status' },
   { file: 'key-text-readability.test.js', name: '下单、资产站点切换与站长待办文字可读性' },
   { file: 'order-quote-address-binding.test.js', name: '报价原地址绑定、慢地址/切址竞态、隐藏重开与确认闸门' },
   { file: 'order-result-navigation.test.js', name: '顾客原单结果页导航失败、单飞恢复与迟到回调隔离' },

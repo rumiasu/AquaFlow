@@ -463,6 +463,7 @@
         </view>
       </view>
       <scroll-view class="detail-sheet-body" scroll-y>
+        <view class="detail-sheet-content">
         <!-- 商品费用 -->
         <view class="detail-section">
           <view class="detail-section-title">商品零售参考</view>
@@ -529,6 +530,7 @@
             <text class="detail-subtotal-label">小计</text>
             <text class="detail-subtotal-value">¥{{feeTotalText}}</text>
           </view>
+        </view>
         </view>
       </scroll-view>
       <view class="detail-sheet-footer">

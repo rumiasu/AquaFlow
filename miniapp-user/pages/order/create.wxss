@@ -1273,11 +1273,17 @@
 
 .detail-sheet-body {
   flex: 1;
+  min-height: 0;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  padding: 24rpx 32rpx;
+  padding: 0;
   max-height: 55vh;
+}
+
+/* [2026-10-14] 将末行留白放入实际滚动内容，避免宿主内边距与 scroll-view 的滚动边界分离。 */
+.detail-sheet-content {
+  padding: 24rpx 32rpx;
 }
 
 .detail-section {

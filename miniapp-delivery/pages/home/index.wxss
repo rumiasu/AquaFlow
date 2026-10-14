@@ -1,6 +1,8 @@
 /* 自绘导航栏 + 状态胶囊（.navbar* / .status-chip*）：与「首页」共用一份样式 */
 @import "../../styles/station-navbar.wxss";
 
+.home-station-identity { padding: 16rpx 24rpx; color: var(--text-regular); font-size: 26rpx; line-height: 1.5; overflow-wrap: anywhere; }
+
 /* ========== 统计看板 ========== */
 .stats-panel {
   display: flex; background: var(--header-gradient); padding: 32rpx 16rpx 48rpx;

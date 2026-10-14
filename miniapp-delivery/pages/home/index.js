@@ -10,11 +10,18 @@ const { syncTabBar } = require('../../utils/tabbar')
 // 配送异常上报（原因文案与上报实现与订单详情页共用一份）
 const { reportDeliveryProblem } = require('../../utils/delivery-problem')
 
+function homeStationSession() {
+  const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+  return { app, generation: app._loginGeneration || 0,
+    identity: JSON.stringify([!!g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+}
+
 Page({
   behaviors: [stationNavbar],
 
   data: {
     activeTab: 'assigned',
+    homeStationLabel: '当前水站：名称未核实',
     isManager: false,
     assignedOrders: [],
     deliveringOrders: [],
@@ -39,6 +46,8 @@ Page({
   },
 
   onShow() {
+    this._homeIdentityHidden = false
+    this.resetHomeStationIdentity()
     const app = getApp()
     // 自绘底栏：配送员只有 配送/我的 两项（本页是配送员的主页）
     syncTabBar(this, '/pages/home/index')
@@ -53,12 +62,44 @@ Page({
     this.setData({ isManager })
     // 营业状态跟着首页刷新：站长刚改成"休息中"，配送员回到这页就该看到
     // （软状态 v32：只提示不阻断；实现与「首页」共用，见 behaviors/stationNavbar.js）
-    this.loadStationStatus(userInfo.stationId)
+    this.loadHomeStationIdentity(userInfo.stationId)
     // 待填项徽标 + 「条件项刚成立」提醒（见 behaviors/stationNavbar.js；
     // 非站长会直接 return，不发请求 —— setup-guide 是站长专属接口）
     this.loadStationPending()
     this.loadData(isManager)
   },
+
+  resetHomeStationIdentity() {
+    this._homeIdentitySequence = (this._homeIdentitySequence || 0) + 1
+    const user = getApp().globalData.userInfo || {}
+    this.setData({ homeStationLabel: user.stationId ? '当前水站：名称未核实' : '未绑定水站' })
+  },
+
+  // 2026-10-14：状态响应已有站名，首页曾丢弃它；只显示当前绑定站的同代次权威结果。
+  async loadHomeStationIdentity(stationId) {
+    this.resetHomeStationIdentity()
+    const session = homeStationSession(), user = session.app.globalData.userInfo || {}
+    const sequence = this._homeIdentitySequence, id = Number(stationId)
+    if (this._homeIdentityHidden || !session.app.canAccessStationBusiness()
+      || !Number.isSafeInteger(id) || id <= 0 || Number(user.stationId) !== id) return
+    const current = () => {
+      const now = homeStationSession()
+      return !this._homeIdentityHidden && sequence === this._homeIdentitySequence
+        && session.app === now.app && session.generation === now.generation && session.identity === now.identity
+        && now.app.canAccessStationBusiness()
+    }
+    const res = await this.loadStationStatus(stationId)
+    if (!current()) return
+    const d = res && res.data
+    if (res && res.code === 0 && d && Object.prototype.hasOwnProperty.call(d, 'stationId')
+      && Number(d.stationId) === id && Object.prototype.hasOwnProperty.call(d, 'stationName')
+      && typeof d.stationName === 'string' && d.stationName.trim()) {
+      this.setData({ homeStationLabel: '当前水站：' + d.stationName.trim() })
+    }
+  },
+
+  onHide() { this._homeIdentityHidden = true; this.resetHomeStationIdentity() },
+  onUnload() { this.onHide() },
 
   onPullDownRefresh() {
     this.loadData(this.data.isManager).then(() => { wx.stopPullDownRefresh() })

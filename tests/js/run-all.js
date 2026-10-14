@@ -14,6 +14,8 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'delivery-home-station-identity.test.js', name: 'delivery home real bound station identity offline' },
+  { file: 'delivery-complete-order-identity.test.js', name: 'normal delivery completion original order identity offline' },
   { file: 'barrel-return-visible-identity.test.js', name: 'return request visible identity and same-station product association offline' },
   { file: 'customer-cod-visible-id.test.js', name: 'same-name customer visible numbers and original COD save context offline' },
   { file: 'customer-scope-copy.test.js', name: 'customer scope names and permission versus current COD result offline' },

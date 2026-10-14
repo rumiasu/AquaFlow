@@ -8,6 +8,8 @@
     提交前说的是动作与后果；提交中/失败/结果未知各有自己的文案，都不带绿勾。
   -->
   <view class="head-card">
+    <!-- 2026-10-14：确认前也须辨认原单，不能只在 unknown 核实按钮里显示 ID。 -->
+    <text class="head-subtitle" wx:if="{{orderLoaded && orderInfo}}">原订单：{{orderInfo.orderNo || (orderInfo.id ? '#' + orderInfo.id : '编号未加载')}}</text>
     <block wx:if="{{resultState === 'success'}}">
       <view class="success-icon">✓</view>
       <text class="success-title">{{successTitle}}</text>

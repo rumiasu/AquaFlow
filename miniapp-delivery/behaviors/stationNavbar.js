@@ -97,6 +97,8 @@ module.exports = Behavior({
           stationStatusNote: d.note || '',
           stationStatusHint: d.customerHint || ''
         })
+        // 首页复用同一响应的 stationId/stationName；不新增站点请求。
+        return res
       } catch (e) {
         this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '' })
       }

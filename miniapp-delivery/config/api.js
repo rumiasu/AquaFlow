@@ -16,7 +16,7 @@ const API_CONFIG = {
   // devtoolsBaseUrl：开发者工具跑在**同一台笔记本**上，走回环即可 —— 换网络、开关热点都不影响写代码。
   dev: { baseUrl: 'http://192.168.0.243:8080', devtoolsBaseUrl: 'http://127.0.0.1:8080' },
   // Non-secret trial identifiers only; HTTPS remains the default and empty settings fail closed.
-  trial: { transport: 'https', baseUrl: '', cloudContainer: { env: '', service: '', resourceAppid: '' } },
+  trial: {"transport":"cloudContainer","baseUrl":"","cloudContainer":{"env":"prod-d6gibkmt3c8bd08e9","service":"springboot-96ib","resourceAppid":""}},
   prod: { baseUrl: 'https://your-domain.com' }
 }
 

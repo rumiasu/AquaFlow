@@ -1,3 +1,4 @@
+const { wrapUploadRecovery } = require('../../../utils/upload-recovery-page')
 const {
   getCatalog,
   getPresetImages,
@@ -14,7 +15,7 @@ const {
   inboundProducts,
   getInventoryRecords
 } = require('../../../api/station-mgmt')
-const { upload } = require('../../../utils/upload')
+const { upload, chooseImages, uploadDraft, isUploadSessionCurrent } = require('../../../utils/upload')
 const businessRules = require('../../../api/business-rules')
 const { API } = require('../../../config/api')
 // ⚠️ 水票档位这两个路径直接写常量、不往 api/station-mgmt.js 里加：那个文件正被另一个
@@ -45,6 +46,7 @@ const SUBMISSION_STATUS_TEXT = { 0: '待处理', 1: '已纳入通用库', 2: '�
  *   · 通用库没有的品，走**底部独立入口**「自己定义商品」（不进通用库，仅本站可见，可上报给开发者）。
  */
 Page({
+  ...wrapUploadRecovery({
   data: {
     loading: true,
     tab: 'all',          // all=全部目录 | selected=已选用 | mine=我的商品
@@ -608,6 +610,7 @@ Page({
   /* ==================== 自己定义商品 ==================== */
 
   openAdd() {
+    try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, false, this._uploadResumeDraftId) } catch (_) { this._uploadDraftId = null }
     this.setData({
       showEdit: true,
       isAdd: true,
@@ -624,6 +627,7 @@ Page({
 
   openEdit(e) {
     const item = e.currentTarget.dataset.item
+    try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: Number(item.id) }) } catch (_) { this._uploadDraftId = null }
     const idx = CATEGORY_OPTIONS.findIndex(c => c.value === item.category)
     this.setData({
       showEdit: true,
@@ -813,17 +817,26 @@ Page({
   },
 
   async uploadImage() {
-    wx.chooseImage({
+    const currentImageTarget = () => this.data.isAdd ? 'new' : Number(this.data.editId)
+    const imageTarget = currentImageTarget()
+    let uploadDraftId
+    try { uploadDraftId = uploadDraft({ kind: 'product-image', id: imageTarget }) }
+    catch (error) { this.refreshUploadRecovery(); wx.showToast({ title: error.message || '图片草稿无法保存', icon: 'none' }); return }
+    this._uploadDraftId = uploadDraftId
+    chooseImages({
       count: 1,
       success: async (res) => {
+        if (currentImageTarget() !== imageTarget || this._uploadDraftId !== uploadDraftId) return
         this.setData({ uploading: true })
         try {
           const tempFile = res.tempFilePaths[0]
           const uploadRes = await upload({
-            filePath: tempFile,
+            filePath: tempFile, session: res.uploadSession,
             url: API.GENERAL_UPLOAD,
+            intent: { kind: 'product-image', id: imageTarget, draftId: uploadDraftId },
             name: 'file'
           })
+          if (!isUploadSessionCurrent(res.uploadSession) || currentImageTarget() !== imageTarget || this._uploadDraftId !== uploadDraftId) return
           if (uploadRes.code === 0) {
             this.setData({ 'editForm.imageUrl': uploadRes.data })
             wx.showToast({ title: '图片上传成功', icon: 'success' })
@@ -831,9 +844,11 @@ Page({
             wx.showToast({ title: uploadRes.message || '上传失败', icon: 'none' })
           }
         } catch (err) {
+          this.refreshUploadRecovery()
+          if (!isUploadSessionCurrent(res.uploadSession) || currentImageTarget() !== imageTarget || this._uploadDraftId !== uploadDraftId) return
           wx.showToast({ title: err.message || '上传失败', icon: 'none' })
         } finally {
-          this.setData({ uploading: false })
+          if (isUploadSessionCurrent(res.uploadSession) && currentImageTarget() === imageTarget && this._uploadDraftId === uploadDraftId) this.setData({ uploading: false })
         }
       }
     })
@@ -869,4 +884,5 @@ Page({
     }
     wx.showToast({ title: '已保存（有价格提醒）', icon: 'none', duration: 2500 })
   }
+}, 'product')
 })

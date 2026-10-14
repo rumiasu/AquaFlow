@@ -340,3 +340,17 @@
     </view>
   </view>
 </view>
+
+<view wx:if="{{uploadRecoveryCases.length || uploadRecoveryReadFailed}}" class="upload-recovery-panel">
+  <text>待核实图片记录</text>
+  <view wx:if="{{uploadRecoverySelection}}">
+    <text>待确认图片 #{{uploadRecoverySelection.imageId}}</text>
+    <image src="{{uploadRecoverySelection.url}}" mode="aspectFit" bindtap="onUploadPreviewSelected" />
+    <button size="mini" disabled="{{uploadRecovering}}" bindtap="onUploadConfirmSelected">确认是原来提交的图片</button>
+  </view>
+  <text wx:if="{{uploadRecoveryReadFailed}}">记录暂时无法读取，请先核实图片</text>
+  <view wx:for="{{uploadRecoveryCases}}" wx:key="id">
+    <text>{{item.label}}</text>
+    <button size="mini" disabled="{{uploadRecovering}}" data-caseid="{{item.id}}" bindtap="onUploadRecover">核实图片</button>
+  </view>
+</view>

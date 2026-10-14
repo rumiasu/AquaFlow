@@ -1,7 +1,8 @@
+const { wrapUploadRecovery } = require('../../../../../utils/upload-recovery-page')
 // 新建站长资产调整单（人工补录 / 代客订正）
 const { getCatalog, previewAdjustment, createAdjustment } = require('../../../../../api/station-mgmt')
 const adjustmentCustomer = require('../../../../../utils/adjustment-customer')
-const { upload } = require('../../../../../utils/upload')
+const { upload, chooseImages, uploadDraft, isUploadSessionCurrent } = require('../../../../../utils/upload')
 const { API } = require('../../../../../config/api')
 
 /**
@@ -29,6 +30,7 @@ const MAX_EVIDENCE = 3
 const EVIDENCE_MAX_LEN = 500
 
 Page({
+  ...wrapUploadRecovery({
   ...adjustmentCustomer.methods,
   data: {
     ...adjustmentCustomer.data,
@@ -246,26 +248,36 @@ Page({
       wx.showToast({ title: '最多上传 ' + MAX_EVIDENCE + ' 张证据图', icon: 'none' })
       return
     }
-    wx.chooseImage({
+    const customerSeq = this._customerSeq
+    const imageCustomerId = Number(this.data.customerId)
+    let uploadDraftId
+    try { uploadDraftId = uploadDraft({ kind: 'customer-adjustment-evidence', id: imageCustomerId }) }
+    catch (error) { this.refreshUploadRecovery(); wx.showToast({ title: error.message || '图片草稿无法保存', icon: 'none' }); return }
+    this._uploadDraftId = uploadDraftId
+    chooseImages({
       count: rest,
       sizeType: ['compressed'],
       success: async (res) => {
+        if (customerSeq !== this._customerSeq || Number(this.data.customerId) !== imageCustomerId || this._uploadDraftId !== uploadDraftId) return
         this.resetPreview()
         this.setData({ uploading: true })
-        const customerSeq = this._customerSeq
         try {
           const urls = await Promise.all(res.tempFilePaths.map(p => upload({
-            filePath: p,
+            filePath: p, session: res.uploadSession,
             url: API.GENERAL_UPLOAD,
+            intent: { kind: 'customer-adjustment-evidence', id: imageCustomerId, draftId: uploadDraftId },
             name: 'file'
           }).then(r => r.data)))
+          if (!isUploadSessionCurrent(res.uploadSession) || customerSeq !== this._customerSeq || Number(this.data.customerId) !== imageCustomerId || this._uploadDraftId !== uploadDraftId) return
           if (customerSeq !== this._customerSeq) return
-          this.setData({ evidenceList: this.data.evidenceList.concat(urls.filter(Boolean)) })
+          this.setData({ evidenceList: Array.from(new Set(this.data.evidenceList.concat(urls.filter(Boolean)))) })
           this.resetPreview()
         } catch (err) {
+          this.refreshUploadRecovery()
+          if (!isUploadSessionCurrent(res.uploadSession) || customerSeq !== this._customerSeq || Number(this.data.customerId) !== imageCustomerId || this._uploadDraftId !== uploadDraftId) return
           wx.showToast({ title: err.message || '上传失败', icon: 'none' })
         } finally {
-          this.setData({ uploading: false })
+          if (isUploadSessionCurrent(res.uploadSession) && customerSeq === this._customerSeq && Number(this.data.customerId) === imageCustomerId && this._uploadDraftId === uploadDraftId) this.setData({ uploading: false })
         }
       }
     })
@@ -470,4 +482,5 @@ Page({
       this.setData({ submitting: false })
     }
   }
+}, 'adjustment')
 })

@@ -14,6 +14,8 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'upload-recovery-lifecycle.test.js', name: 'independent nine upload cases and hidden final GET selection isolation offline' },
+  { file: 'upload-r2-review.test.js', name: 'R2 independent GET, durable index, object isolation and wrapper negative checks offline' },
   { file: 'delivery-home-station-identity.test.js', name: 'delivery home real bound station identity offline' },
   { file: 'delivery-complete-order-identity.test.js', name: 'normal delivery completion original order identity offline' },
   { file: 'barrel-return-visible-identity.test.js', name: 'return request visible identity and same-station product association offline' },
@@ -108,7 +110,11 @@ const SUITES = [
   { file: 'customer-assets-state.test.js', name: '顾客资产加载态与文案（走查 C05 / C06 / C07）' },
   { file: 'customer-order-receivables-truth.test.js', name: '订单事实与应收失败态（体验复核 N02/N03/N09）' },
   { file: 'delivery-runtime-copy.test.js', name: '员工端运行时事实表达（走查 M01–M06 / D01–D07）' },
-  { file: 'entry-landing-consistency.test.js', name: '入口 → 落地视图一致性 + 文案禁开发词（走查 M04 / M05 / M06）' }
+  { file: 'entry-landing-consistency.test.js', name: '入口 → 落地视图一致性 + 文案禁开发词（走查 M04 / M05 / M06）' },
+  { file: 'cloud-upload.mock.test.js', name: 'cloud/HTTPS binary upload and session guards offline' },
+  { file: 'page-recovery.test.js', name: 'four actual upload page recovery and stable draft entries offline' },
+  { file: 'persistence-page-boundaries.test.js', name: 'restart/storage/lifecycle boundaries through actual page entries' },
+  { file: 'page-mutation-controls.test.js', name: 'page recovery guard negative controls without source mutation' },
 ]
 
 // 每个套件跑到底都会打印两行收尾：中文的「全部通过：N 项…」给人看，

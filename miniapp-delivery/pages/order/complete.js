@@ -1,3 +1,4 @@
+const { wrapUploadRecovery } = require('../../utils/upload-recovery-page')
 const { completeOrder, getOrderDetail } = require('../../api/delivery')
 const { get } = require('../../utils/request')
 const { itemUnit } = require('../../utils/order-item-view')
@@ -83,6 +84,7 @@ function deliveryCompletionView(order, needCollect, collected, collectedChosen) 
 }
 
 Page({
+  ...wrapUploadRecovery({
   /** 弹窗内容区吞掉点击（wxml 用 catchtap 绑定，此处为空实现，避免未定义方法告警） */
   stopPropagation() {},
 
@@ -561,28 +563,33 @@ Page({
   },
 
   onAddFloorPhoto() {
+    const uploadOrderId = this.data.orderId
     if (this.data.floorPhotos.length >= 3 || this.data.floorUploading) return
-    const { upload } = require('../../utils/upload')
+    const { upload, chooseImages, isUploadSessionCurrent } = require('../../utils/upload')
     const { API } = require('../../config/api')
-    wx.chooseImage({
+    chooseImages({
       count: 3 - this.data.floorPhotos.length,
       sizeType: ['compressed'],
       success: async (res) => {
+        if (Number(this.data.orderId) !== Number(uploadOrderId)) return
         this.setData({ floorUploading: true })
         const uploads = res.tempFilePaths.map(p => upload({
-          filePath: p,
+          filePath: p, session: res.uploadSession,
           url: API.ORDER_IMAGE_UPLOAD,
           name: 'file',
           // 3 = 楼梯凭证（1 正常送达 / 2 异常），后端 order_image.type 的注释里有
-          formData: { orderId: this.data.orderId, type: 3 }
-        }).then(r => r.data))
+          formData: { orderId: uploadOrderId, type: 3 }
+        }).then(r => r.data.url))
         try {
           const urls = await Promise.all(uploads)
-          this.setData({ floorPhotos: this.data.floorPhotos.concat(urls.filter(Boolean)) })
+          if (!isUploadSessionCurrent(res.uploadSession) || Number(this.data.orderId) !== Number(uploadOrderId)) return
+          this.setData({ floorPhotos: Array.from(new Set(this.data.floorPhotos.concat(urls.filter(Boolean)))) })
         } catch (err) {
+          this.refreshUploadRecovery()
+          if (!isUploadSessionCurrent(res.uploadSession) || Number(this.data.orderId) !== Number(uploadOrderId)) return
           wx.showToast({ title: err.message || '上传失败', icon: 'none' })
         } finally {
-          this.setData({ floorUploading: false })
+          if (isUploadSessionCurrent(res.uploadSession) && Number(this.data.orderId) === Number(uploadOrderId)) this.setData({ floorUploading: false })
         }
       }
     })
@@ -599,27 +606,32 @@ Page({
   },
 
   onAddPhoto() {
+    const uploadOrderId = this.data.orderId
     if (this.data.photos.length >= 3 || this.data.uploading) return
-    const { upload } = require('../../utils/upload')
+    const { upload, chooseImages, isUploadSessionCurrent } = require('../../utils/upload')
     const { API } = require('../../config/api')
-    wx.chooseImage({
+    chooseImages({
       count: 3 - this.data.photos.length,
       sizeType: ['compressed'],
       success: async (res) => {
+        if (Number(this.data.orderId) !== Number(uploadOrderId)) return
         this.setData({ uploading: true })
         const uploads = res.tempFilePaths.map(p => upload({
-          filePath: p,
+          filePath: p, session: res.uploadSession,
           url: API.ORDER_IMAGE_UPLOAD,
           name: 'file',
-          formData: { orderId: this.data.orderId, type: 1 }
-        }).then(r => r.data))
+          formData: { orderId: uploadOrderId, type: 1 }
+        }).then(r => r.data.url))
         try {
           const urls = await Promise.all(uploads)
-          this.setData({ photos: this.data.photos.concat(urls.filter(Boolean)) })
+          if (!isUploadSessionCurrent(res.uploadSession) || Number(this.data.orderId) !== Number(uploadOrderId)) return
+          this.setData({ photos: Array.from(new Set(this.data.photos.concat(urls.filter(Boolean)))) })
         } catch (err) {
+          this.refreshUploadRecovery()
+          if (!isUploadSessionCurrent(res.uploadSession) || Number(this.data.orderId) !== Number(uploadOrderId)) return
           wx.showToast({ title: err.message || '上传失败', icon: 'none' })
         } finally {
-          this.setData({ uploading: false })
+          if (isUploadSessionCurrent(res.uploadSession) && Number(this.data.orderId) === Number(uploadOrderId)) this.setData({ uploading: false })
         }
       }
     })
@@ -831,4 +843,5 @@ Page({
       this.setData({ submittingComplete: false })
     }
   }
+}, 'order')
 })

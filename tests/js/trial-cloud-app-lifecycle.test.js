@@ -165,9 +165,9 @@ test('cloud employee missing SDK still completes local logout with no fallback',
   t.app.logout(); await flush(); assert.strictEqual(t.app.globalData.isLogin, false)
   assert.strictEqual(t.calls.length, 0); assert.strictEqual(t.http.length, 0)
 })
-test('excluded upload rejects cloud mode before upload or its HTTP-only refresh', async () => {
+test('unrecognized upload target rejects before native upload, cloud invocation or refresh', async () => {
   const t = boot('miniapp-delivery', 'cloudContainer'); let uploads = 0; t.wx.uploadFile = () => uploads++
-  await assert.rejects(require(path.join(ROOT, 'miniapp-delivery/utils/upload')).upload({ url: '/api/files', filePath: 'synthetic', name: 'file' }), /不支持此操作/)
+  await assert.rejects(require(path.join(ROOT, 'miniapp-delivery/utils/upload')).upload({ url: '/api/files', filePath: 'synthetic', name: 'file' }), /图片上传位置不正确/)
   assert.strictEqual(uploads, 0); assert.strictEqual(t.calls.length, 0); assert.strictEqual(t.http.length, 0)
 })
 ;(async () => {

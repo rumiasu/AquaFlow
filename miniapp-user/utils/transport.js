@@ -29,7 +29,7 @@ function readyCloud(config) {
   return state.promise
 }
 
-/** Raw JSON transport only: JWT/envelope/session checks and write recovery stay with callers. */
+/** JSON or binary transport: JWT/envelope/session checks and write recovery stay with callers. */
 function send(options) {
   let config, path
   try {
@@ -44,6 +44,19 @@ function send(options) {
     const request = { ...options, url: config.baseUrl + path }
     delete request.path
     delete request.query
+    delete request.beforeDispatch
+    if (options.filePath) {
+      // wx.uploadFile owns the multipart boundary in HTTPS mode. JWT/retry/session handling stays in request.js.
+      delete request.data
+      request.header = { ...request.header }
+      Object.keys(request.header).forEach(key => { if (key.toLowerCase() === 'content-type') delete request.header[key] })
+      request.success = result => {
+        let data = result.data
+        if (typeof data === 'string') { try { data = JSON.parse(data) } catch (_) { data = null } }
+        options.success({ ...result, data })
+      }
+      return wx.uploadFile(request)
+    }
     return wx.request(request)
   }
   let settled = false, dispatched = false
@@ -67,6 +80,10 @@ function send(options) {
   }
   ready.then(client => {
     if (settled) return
+    if (options.beforeDispatch && !options.beforeDispatch()) {
+      finish('fail', { errMsg: '登录状态已变化，请重新操作', requestMayHaveOccurred: false })
+      return
+    }
     let call
     try {
       dispatched = true

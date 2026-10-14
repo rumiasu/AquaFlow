@@ -1,6 +1,7 @@
 // 网络请求封装（JWT 双 Token + 自动续期）
 const { API } = require('../config/api')
 const { send } = require('./transport')
+const { snapshot } = require('./snapshot')
 const { STORAGE_KEYS } = require('../utils/storage-keys')
 const { captureSession, isCurrentSession, isCurrentCredentials, acceptRefreshedTokens, beginSession } = require('./token')
 
@@ -11,7 +12,7 @@ const request = (options) => {
   const session = captureSession()
   const original = Object.assign({}, options, { header: Object.assign({}, options.header),
     query: options.query && Object.assign({}, options.query),
-    data: options.data === undefined ? undefined : JSON.parse(JSON.stringify(options.data)) })
+    data: snapshot(options.data) })
   return sendRequest(original, session, session.accessToken, false)
 }
 
@@ -37,8 +38,9 @@ function sendRequest(options, session, accessToken, retried) {
 
     send({
       path: options.url, query: options.query,
+      beforeDispatch: () => isCurrentSession(session),
       method: options.method || 'GET',
-      data: options.data,
+      data: snapshot(options.data),
       header,
       timeout: 15000,
       success: (res) => {
@@ -266,6 +268,7 @@ function refreshSession(session) {
     }
     send({
       path: API.REFRESH, method: 'POST', data: { refreshToken: session.refreshToken },
+      beforeDispatch: () => isCurrentCredentials(session),
       timeout: 15000,
       success: res => {
         if (superseded()) return

@@ -376,3 +376,14 @@
     </view>
   </view>
 </view>
+
+<view wx:if="{{uploadRecoveryCases.length || uploadRecoveryReadFailed}}" class="upload-recovery-panel">
+  <text>待核实图片记录</text>
+  <text wx:if="{{uploadRecoveryReadFailed}}">记录暂时无法读取，请先核实图片</text>
+  <view wx:for="{{uploadRecoveryCases}}" wx:key="id">
+    <text>{{item.label}}</text>
+    <button size="mini" disabled="{{uploadRecovering}}" data-caseid="{{item.id}}" bindtap="onUploadRecover">核实图片</button>
+    <button size="mini" data-caseid="{{item.id}}" bindtap="onUploadResumeDraft">继续这份草稿</button>
+  </view>
+  <button size="mini" bindtap="onUploadNewDraft">另开独立图片草稿</button>
+</view>

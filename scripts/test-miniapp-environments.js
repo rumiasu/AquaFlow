@@ -14,9 +14,11 @@ global.wx = { getDeviceInfo: () => ({ platform: 'ios' }) }
 for (const app of apps) {
   const config = require(path.join(root, app, 'config/api.js'))
   const previous = config.API_CONFIG.trial.baseUrl
+  const previousTransport = config.API_CONFIG.trial.transport
   const previousProd = config.API_CONFIG.prod.baseUrl
   try {
     // Make fail-closed cases independent of the real acceptance configuration.
+    config.API_CONFIG.trial.transport = 'https'
     config.API_CONFIG.trial.baseUrl = ''
     global.__wxConfig = { envVersion: 'develop' }
     check(config.getBaseUrl() === config.API_CONFIG.dev.baseUrl, `${app}: develop uses configured LAN API`)
@@ -43,6 +45,7 @@ for (const app of apps) {
     rejects(() => config.getBaseUrl(), /不支持的小程序环境版本/, `${app}: unknown environment fails closed`)
   } finally {
     config.API_CONFIG.trial.baseUrl = previous
+    config.API_CONFIG.trial.transport = previousTransport
     config.API_CONFIG.prod.baseUrl = previousProd
   }
 }
@@ -122,6 +125,7 @@ for (const app of apps) {
     global.wx = { getDeviceInfo: () => ({ platform: 'ios' }) }
     check(c.getBaseUrl() === c.API_CONFIG.dev.baseUrl, app + ': develop device unchanged')
     global.__wxConfig = { envVersion: 'trial' }
+    c.API_CONFIG.trial.transport = 'https'
     c.API_CONFIG.trial.baseUrl = 'https://acceptance.example.invalid'
     check(c.getBaseUrl() === c.API_CONFIG.trial.baseUrl, app + ': trial unchanged')
   } finally {

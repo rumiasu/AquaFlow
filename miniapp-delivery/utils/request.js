@@ -1,6 +1,7 @@
 // 网络请求封装（JWT 双 Token + 自动续期）
 const { API } = require('../config/api')
 const { send } = require('./transport')
+const { snapshot } = require('./snapshot')
 const { STORAGE_KEYS } = require('../utils/storage-keys')
 const navigation = require('./navigation')
 
@@ -34,18 +35,10 @@ function changedSessionError() {
 }
 
 // 重试沿用发起时的业务内容和幂等键，避免调用方后续编辑改变原请求。
-function snapshot(value) {
-  if (Array.isArray(value)) return value.map(snapshot)
-  if (value && typeof value === 'object') {
-    const copy = {}
-    Object.keys(value).forEach(key => { copy[key] = snapshot(value[key]) })
-    return copy
-  }
-  return value
-}
 
-const request = (options) => {
-  options = { ...options, data: snapshot(options.data), query: snapshot(options.query), header: snapshot(options.header) }
+const request = (options, expectedSession) => {
+  if (expectedSession && !currentSession(expectedSession)) return Promise.reject(changedSessionError())
+  options = { ...options, data: snapshot(options.data), query: snapshot(options.query), header: snapshot(options.header), formData: snapshot(options.formData) }
   return new Promise((resolve, reject) => {
     const session = captureSession()
     const accessToken = session.accessToken
@@ -62,14 +55,16 @@ const request = (options) => {
 
     send({
       path: options.url, query: options.query,
+      beforeDispatch: () => currentSession(session),
       method: options.method || 'GET',
-      data: options.data,
+      filePath: options.filePath, name: options.name, formData: options.formData,
+      data: snapshot(options.data),
       header,
       timeout: 15000,
       success: (res) => {
         if (!currentSession(session)) { reject(changedSessionError()); return }
         const error = responseError(res)
-        if (error) { reject(error); return }
+        if (error) { reject(responseFailure(error, res)); return }
         if (res.statusCode === 200) {
           if (res.data.code === 0 || res.data.code === 200) {
             resolve(res.data)
@@ -78,19 +73,19 @@ const request = (options) => {
           } else {
             const businessError = new Error(responseMessage(res.data))
             businessError.businessRejected = res.data.code === 1
-            reject(businessError)
+            reject(responseFailure(businessError, res))
           }
         } else if (res.statusCode === 401) {
           handle401(options, resolve, reject, session)
         } else {
           // [2026-09-20] 原来直接把状态码拼给用户看（「网络错误 500」）—— 站长/配送员看不懂也没法处理。
           // 保留状态码在括号里，排查时仍能一眼看出是 4xx 还是 5xx。
-          reject(new Error('服务暂时不可用（HTTP ' + res.statusCode + '），请稍后重试'))
+          reject(responseFailure(new Error('服务暂时不可用（HTTP ' + res.statusCode + '），请稍后重试'), res))
         }
       },
       fail: (err) => {
-        if (!currentSession(session)) { reject(changedSessionError()); return }
-        console.error('[request] wx.request 失败:', JSON.stringify(err))
+        if (!currentSession(session)) { reject(Object.assign(changedSessionError(), { requestMayHaveOccurred: !(err && err.requestMayHaveOccurred === false) })); return }
+        console.error('[request] 请求失败')
         reject(toNetworkError(err))
       }
     })
@@ -106,7 +101,13 @@ function responseError(res) {
   return !body || typeof body !== 'object' || Array.isArray(body) || !Number.isInteger(body.code) ? malformedResponseError() : null
 }
 
-function malformedResponseError() { return new Error('收到的数据不完整，请重试') }
+function malformedResponseError() { return Object.assign(new Error('收到的数据不完整，请重试'), { malformedResponse: true }) }
+
+function responseFailure(error, res) {
+  error.statusCode = res && res.statusCode
+  error.backendCode = res && res.data && res.data.code
+  return error
+}
 
 function responseMessage(body, fallback = '请求失败') {
   return body && typeof body.message === 'string' && body.message.trim() ? body.message : fallback
@@ -137,13 +138,12 @@ function validRefreshData(data) {
  */
 function toNetworkError(err) {
   const raw = (err && (err.errMsg || err.message)) || ''
-  if (/time\s*out/i.test(raw)) {
-    return new Error('网络超时，请检查手机网络后重试')
-  }
-  if (/fail/i.test(raw)) {
-    return new Error('网络连接失败，请检查网络后重试')
-  }
-  return new Error(raw || '网络连接失败，请重试')
+  const message = /time\s*out/i.test(raw) ? '网络超时，请检查手机网络后重试'
+    : /fail/i.test(raw) ? '网络连接失败，请检查网络后重试' : raw || '网络连接失败，请重试'
+  return Object.assign(new Error(message), {
+    transportConfiguration: !!(err && err.transportConfiguration),
+    requestMayHaveOccurred: !(err && (err.requestMayHaveOccurred === false || err.transportConfiguration))
+  })
 }
 
 // 每个续期任务只拥有本次登录的等待请求，旧 complete 不释放新任务。
@@ -193,6 +193,7 @@ function handle401(originalOptions, resolve, reject, session) {
 
   send({
     path: API.REFRESH,
+    beforeDispatch: () => currentSession(flight.session) && sameCredentials(flight.session, captureSession()),
     method: 'POST',
     data: { refreshToken: current.refreshToken },
     timeout: 15000,
@@ -242,23 +243,25 @@ function retryRequest(options, newToken, session) {
     }
     send({
       path: options.url, query: options.query,
+      beforeDispatch: () => currentSession(session),
       method: options.method || 'GET',
-      data: options.data,
+      filePath: options.filePath, name: options.name, formData: options.formData,
+      data: snapshot(options.data),
       header,
       timeout: 15000,
       success: (res) => {
         if (!currentSession(session)) { reject(changedSessionError()); return }
         const error = responseError(res)
-        if (error) { reject(error); return }
+        if (error) { reject(responseFailure(error, res)); return }
         if (res.statusCode === 200 && (res.data.code === 0 || res.data.code === 200)) {
           resolve(res.data)
         } else {
           const businessError = new Error(responseMessage(res.data, res.statusCode === 401 ? '登录已过期' : '请求失败'))
           businessError.businessRejected = res.statusCode === 200 && res.data.code === 1
-          reject(businessError)
+          reject(responseFailure(businessError, res))
         }
       },
-      fail: (err) => reject(currentSession(session) ? toNetworkError(err) : changedSessionError())
+      fail: (err) => reject(currentSession(session) ? toNetworkError(err) : Object.assign(changedSessionError(), { requestMayHaveOccurred: !(err && err.requestMayHaveOccurred === false) }))
     })
   })
 }
@@ -312,4 +315,4 @@ const post = (url, data, query) => request({ url, method: 'POST', data, query })
 const put = (url, data, query) => request({ url, method: 'PUT', data, query })
 const del = (url, query) => request({ url, method: 'DELETE', query })
 
-module.exports = { request, get, post, put, del }
+module.exports = { request, get, post, put, del, captureSession, currentSession }

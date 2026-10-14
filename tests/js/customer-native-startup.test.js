@@ -18,7 +18,8 @@ function boot(restored = true, envVersion = 'develop') {
   clearCustomerModules()
   const apiConfig = require('../../miniapp-user/config/api')
   const previousTrialBaseUrl = apiConfig.API_CONFIG.trial.baseUrl
-  if (envVersion === 'trial') apiConfig.API_CONFIG.trial.baseUrl = ''
+  const previousTrialTransport = apiConfig.API_CONFIG.trial.transport
+  if (envVersion === 'trial') { apiConfig.API_CONFIG.trial.transport = 'https'; apiConfig.API_CONFIG.trial.baseUrl = '' }
   const wx = createWx(), sent = []
   wx.request = options => sent.push(options)
   if (restored) {
@@ -39,7 +40,7 @@ function boot(restored = true, envVersion = 'develop') {
     registered = app
   }
   try { require(path.join(ROOT, 'miniapp-user/app.js')) }
-  finally { apiConfig.API_CONFIG.trial.baseUrl = previousTrialBaseUrl }
+  finally { apiConfig.API_CONFIG.trial.baseUrl = previousTrialBaseUrl; apiConfig.API_CONFIG.trial.transport = previousTrialTransport }
   return { app, wx, sent, earlyReads: () => earlyReads,
     token: require(path.join(ROOT, 'miniapp-user/utils/token.js')) }
 }

@@ -34,6 +34,7 @@ function fixture() {
         if (id.endsWith('/navigation')) return dependencies.navigation
         if (id.endsWith('/request')) return dependencies.request
         if (id.endsWith('/transport')) return dependencies.transport
+        if (id === './snapshot') return require(path.join(ROOT, 'miniapp-delivery/utils/snapshot.js'))
         if (id.includes('pending-reminder')) return { syncTabBarDot() {} }
         throw new Error('Unexpected test dependency')
       }

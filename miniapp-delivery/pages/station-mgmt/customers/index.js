@@ -550,17 +550,29 @@ Page({
     })
   },
 
-  /** 驳回申请：驳回理由（可不填）用 editable 弹窗问一次，它会随申请一起留痕。 */
+  /** [2026-10-14] editable 的 content 会预填输入并回传；站别/对象说明须先只读确认，理由另用空输入，避免提示被当作理由留痕。 */
   onEntReject(e) {
     const { id, name } = e.currentTarget.dataset
     const stationLabel = this.currentStationScopeLabel()
     wx.showModal({
       title: '驳回申请',
-      content: `${stationLabel}\n申请企业：${name || '企业名称未填写'}`,
-      editable: true,
-      placeholderText: `驳回「${name}」的理由（可不填）`,
-      success: (r) => {
-        if (r.confirm) this.doReview(id, false, (r.content || '').trim())
+      content: `${stationLabel}\n申请企业：${name || '企业名称未填写'}\n驳回理由会随申请留存（可不填）。`,
+      editable: false,
+      confirmText: '继续',
+      cancelText: '取消',
+      success: (confirmation) => {
+        if (!confirmation.confirm) return
+        wx.showModal({
+          title: '驳回理由',
+          content: '',
+          editable: true,
+          placeholderText: '请输入驳回理由（可不填）',
+          confirmText: '驳回',
+          cancelText: '取消',
+          success: (r) => {
+            if (r.confirm) this.doReview(id, false, (r.content || '').trim())
+          }
+        })
       }
     })
   },

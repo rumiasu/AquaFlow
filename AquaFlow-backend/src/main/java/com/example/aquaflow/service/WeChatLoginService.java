@@ -12,7 +12,11 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 微信登录：code2Session（用 wx.login 的 code 换 openid + session_key）。
@@ -62,6 +66,25 @@ public class WeChatLoginService {
         restTemplate = new RestTemplate(factory);
     }
 
+    /** 仅返回类型；最多16次cause读取且按对象身份防循环，不拼接可能含换码URL的异常信息。 */
+    private static String boundedRootCauseType(Throwable failure) {
+        Throwable current = failure;
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (int depth = 0; depth < 16; depth++) {
+            seen.add(current);
+            Throwable cause;
+            try {
+                cause = current.getCause();
+            } catch (RuntimeException ignored) {
+                // [2026-10-14] 诊断读取失败只回退当前类型，不替换原业务错误；Error 不在此捕获。
+                break;
+            }
+            if (cause == null || seen.contains(cause)) break;
+            current = cause;
+        }
+        return current.getClass().getName();
+    }
+
     /** 员工端未配置时的统一提示：说清"改哪里"，否则只看到一句无信息量的登录失败 */
     private static final String STAFF_NOT_CONFIGURED =
             "员工端微信登录未配置：请配置 wechat.miniapp.staff-appid / staff-secret"
@@ -96,6 +119,7 @@ public class WeChatLoginService {
                 appid, secret, code);
 
         String response;
+        long exchangeStartedNanos = System.nanoTime();
         try {
             response = restTemplate.getForObject(url, String.class);
         } catch (Exception e) {
@@ -103,8 +127,10 @@ public class WeChatLoginService {
             // Spring 的 ResourceAccessException / RestClientException 的 message 里含**完整请求 URL**
             // （即 `secret=…&js_code=…` 原样在内），一旦带上它，就会顺着 GlobalExceptionHandler 的
             // `log.error(..., e)` 落进日志文件 = 微信凭据泄露。只留 app 与异常类型，够定位"网络/微信侧故障"。
-            log.error("微信code2Session调用失败（URL 已省略，避免泄露 secret / js_code）: app={}, 异常类型={}",
-                    app, e.getClass().getName());
+            // [2026-10-14] 外层 ResourceAccessException 不足以区分 DNS/TLS/超时；只补类型和耗时，绝不传异常对象/message。
+            long elapsedMs = Math.max(0L, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - exchangeStartedNanos));
+            log.error("微信code2Session调用失败（URL 已省略，避免泄露 secret / js_code）: app={}, 异常类型={}, 根因类型={}, 阶段=CODE2SESSION_HTTP, 耗时毫秒={}",
+                    app, e.getClass().getName(), boundedRootCauseType(e), elapsedMs);
             // 转成**可预期的业务错误**（code=1）：外部依赖/网络故障属于可预期故障，
             // 不该升级成 500 兜底 + 一条 SYSTEM 告警（同 AGENTS §8.21 的判据）。
             // ⚠️ 不 attach cause —— BusinessException 也会被 GlobalExceptionHandler 打堆栈，

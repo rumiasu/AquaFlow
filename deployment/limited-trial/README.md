@@ -18,12 +18,20 @@
 ## 文件及安全默认值
 
 - Dockerfile只复制准确审过的 `app.jar` 与入口，构建上下文白名单排除其他文件。**不含JAR**；必须后续把准确版本且已通过既有包检查的JAR以app.jar放入独立构建上下文。不得用旧阶段JAR冒充c19。
-- `JRE_IMAGE`没有默认值；必须选定经审查、带digest的Linux Java17 JRE镜像，具备`/bin/sh`与`java`，支持非root UID10001及可写`/tmp`。本轮没有拉镜像/构建容器/验证平台架构，Docker兼容性仍待验证。应用为PID1（exec），工作目录/tmp，日志按当前控制台配置处理；外部持久化/日志收集须由平台落实，不依赖临时容器文件。
+- `JRE_IMAGE`没有默认值；必须选定经审查、带digest的Linux Java17 JRE镜像，具备`/bin/sh`、`install`与`java`，支持非root UID10001及可写`/tmp`。2026-10-15 对固定004基础镜像完成的权限验证见下节；其他基础镜像及平台架构仍须单独核验。应用为PID1（exec），工作目录/tmp，日志按当前控制台配置处理；外部持久化/日志收集须由平台落实，不依赖临时容器文件。
 - 固定prod/8080、dev-login=false、mock=false、forward-headers=none、sql.init=never；保持既有桶权益模型，先装完整结构。入口拒绝本模板不支持的JVM/配置覆盖、额外命令参数；不接受通过它临时关模型或绕启动守卫。合法调优须另行审查显式命令，不能把真实秘密拼进参数。
 - v1独审返修：`INDEPENDENT_BARREL_RIGHTS_ENABLED`及真正的`AQUAFLOW_BARREL_INDEPENDENT_RIGHTS_ENABLED`环境别名均只能为字面true；同时覆盖Boot规范去连字符形式`AQUAFLOW_BARREL_INDEPENDENTRIGHTSENABLED`。未设置时补为true，显式空值/false/冲突立即拒绝，不能用另一项true掩盖。启动命令固定实际属性`--aquaflow.barrel.independent-rights-enabled=true`。APP前缀不是c19模型属性，不列为有效映射。依据与离线边界见VALIDATION。
 - `trial.env.example`所有九个必需值为空，有效值应只经核准平台的安全配置通道注入。无需把填好后的文件提交Git或回传Library。CORS来源另核，不能默认设`*`。
-- `entrypoint.sh --check-only`只检形状，不启动Java、不连网/库、不验证凭据有效性，输出只含键名。缺值时普通启动同样先退出2，无默认账号/数据库或地址回退。Spring的最终值与schema守卫仍是第二道现有校验；本轮没有实际起后端证明它们通过。
+- `entrypoint.sh --check-only`只检形状，不启动Java、不连网/库、不验证凭据有效性，输出只含键名。缺值时普通启动同样先退出2，无默认账号/数据库或地址回退。Spring的最终值与schema守卫仍是第二道现有校验；形状检查不能证明它们通过。
 - `transport-plan.example.json`是配置工作表，模式未选、云环境/服务标识为空，**两端运行代码不读取它**。JSON传输候选v1已在隔离副本实现，包括顾客App启动缓存校验和员工App退出；每端实际配置位于`config/api.js`，默认仍为HTTPS且地址为空。云模式缺标识或SDK能力会明确拒绝，无失败回退。候选只经离线mock验证，不能把它当实际云已接通，配置见`TRANSPORT-DESIGN.md`。
+
+## 目录权限与重新封包
+
+本目录的 `Dockerfile` 是现有构建来源。2026-10-15 的006故障复现表明：即使两个文件已设 `0644`，`COPY --chmod=0644` 自动创建的 `/opt/aquaflow` 仍可能是 `0644 root:root`，缺少目录遍历权限，`10001:10001` 无法读取入口。现在先显式创建 `0755` 目录，再复制两个 `0644` 文件；切换到实际运行用户后，构建必须通过目录遍历、两文件可读与入口语法检查。不要只检查ZIP中的文件mode，或改用root掩盖问题。
+
+仓库没有生成诊断ZIP的自动脚本。重新封包时，从本目录取 `Dockerfile`、`entrypoint.sh`、`.dockerignore`，配合准确审过的JAR；保留 `JRE_IMAGE` 的显式选择，若为已批准的诊断包固定FROM，则只替换该镜像声明，保持后续权限指令。ZIP根目录直接放这四个文件，普通文件设Unix `0644`、目录设 `0755`，不要带本地配置或已填写的环境文件。封包后核对CRC与内容哈希，独立核验目录权限，不能依赖归档mode替代镜像内检查。
+
+已交付的权限修复包为 [AquaFlow-diagnostic-3818623-pinned004-dirpermfix-verified-20261015.zip](https://chatgpt.com/api/library/files/libfile_407c6ce185608191a70c52f6c9cfb544/download)，Library v0，SHA256 `ef088c52c1214286405ccddf49bc3e9beece8f0037364c1bbc88aa076fcf3423`。它逐字节复用3818623的诊断JAR和本目录入口；914f139仅改测试矩阵文档。包内含完整权限及运行证据，验证边界见 [VALIDATION.md](VALIDATION.md)。此记录不代表部署授权或云服务健康。
 
 ## 健康检查与接入
 
@@ -43,6 +51,6 @@
 
 既有backup-restore-drill只支持其精确本机隔离目标，不擅自改为云恢复工具；prod-startup-check有演练库重建行为，不在云试用库或生产目标上运行。回滚/备份目的地与平台操作仍待用户授权。
 
-## 本轮验证与剩余条件
+## 验证范围与剩余条件
 
-本包提供无网络shell拒启/形状测试及文件约束测试，按现有 `AQUAFLOW_SUITE_OK N` 规范计数，详见外层证据。仅这些离线检查可称通过；容器构建、真实环境配置、平台账号资格、双端云环境共享、数据库初始化、微信登录、健康/就绪、手机扫码和真实收退款全部未执行。JSON传输候选的下一步是独立审查；获准启用环境后仍须验证环境关联、同主体共享及真实微信登录。运行双端未触碰。
+本包提供无网络shell拒启/形状测试及文件约束测试，按现有 `AQUAFLOW_SUITE_OK N` 规范计数。首次准备件只做这些离线检查；2026-10-15 另完成权限修复包的容器构建和隔离网络Java启动验证，并将相同构建指令固化到本目录，详见VALIDATION。真实环境配置、平台账号资格、双端云环境共享、数据库初始化、微信登录、健康/就绪、手机扫码和真实收退款不在此次权限验证范围。JSON传输候选的下一步是独立审查；获准启用环境后仍须验证环境关联、同主体共享及真实微信登录。运行双端未触碰。

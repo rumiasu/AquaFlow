@@ -83,6 +83,33 @@ test('Docker context contains no local config or database initialization', () =>
   assert.ok(!/COPY\s+\.\s/.test(docker)); assert.ok(!/gradle|mysql|curl|wget/.test(docker))
   assert.strictEqual(ignore.trim(),'**\n!Dockerfile\n!entrypoint.sh\n!app.jar')
 })
+function dockerInstructions() {
+  return fs.readFileSync(path.join(dir, 'Dockerfile'), 'utf8').replace(/\\\r?\n/g, ' ')
+    .split(/\r?\n/).map(line => line.trim()).filter(line => line && !line.startsWith('#'))
+}
+test('Docker launch permissions do not depend on archive file modes or implicit parent creation', () => {
+  const steps = dockerInstructions()
+  // 006 had readable files but a 0644 parent: check directory creation separately from COPY.
+  const parent = steps.indexOf('RUN install -d -m 0755 /opt/aquaflow')
+  assert.ok(parent >= 0, 'create a traversable application directory explicitly')
+  for (const name of ['app.jar', 'entrypoint.sh']) {
+    const copy = steps.indexOf('COPY --chmod=0644 '+name+' /opt/aquaflow/'+name)
+    assert.ok(copy > parent, name+' must be copied with a readable mode after directory creation')
+  }
+})
+test('Docker checks the actual runtime user can traverse and read the launch chain', () => {
+  const steps = dockerInstructions(), user = steps.indexOf('USER 10001:10001')
+  assert.ok(user >= 0)
+  const check = steps.findIndex((step, index) => index > user && step.startsWith('RUN '))
+  assert.ok(check > user, 'permission assertions must execute after switching to the runtime user')
+  for (const command of ['test -x /opt', 'test -x /opt/aquaflow',
+    'test -r /opt/aquaflow/entrypoint.sh', 'test -r /opt/aquaflow/app.jar',
+    '/bin/sh -n /opt/aquaflow/entrypoint.sh']) {
+    assert.ok(steps[check].split(/\s*&&\s*/).some(part => part.replace(/^RUN\s+/, '').trim() === command), command)
+  }
+  assert.ok(check > steps.findIndex(step => step.startsWith('COPY --chmod=0644 entrypoint.sh ')))
+  assert.ok(check > steps.findIndex(step => step.startsWith('COPY --chmod=0644 app.jar ')))
+})
 test('cloud identifiers remain empty and environment activation is not authorized', () => {
   const t=JSON.parse(fs.readFileSync(path.join(dir,'transport-plan.example.json'),'utf8'))
   assert.strictEqual(t.designOnly,false); assert.strictEqual(t.runtimeImplementationApproved,true); assert.strictEqual(t.environmentActivationApproved,false)

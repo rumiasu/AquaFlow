@@ -157,7 +157,7 @@ class DeliveryReturnOptionalReasonTest {
             OrderBarrelExceptionService.OrderBarrelExceptionDTO exception = new OrderBarrelExceptionService.OrderBarrelExceptionDTO();
             exception.setId(70L);
             when(((OrderBarrelExceptionService) dependencies.get(OrderBarrelExceptionService.class))
-                    .recordReturn(eq(1L), any())).thenReturn(exception);
+                    .recordReturn(eq(1L), any(), anyInt())).thenReturn(exception);
             BarrelService plans = (BarrelService) dependencies.get(BarrelService.class);
             if (plans != null) {
                 BarrelService.ReturnPlanItem plan = new BarrelService.ReturnPlanItem();

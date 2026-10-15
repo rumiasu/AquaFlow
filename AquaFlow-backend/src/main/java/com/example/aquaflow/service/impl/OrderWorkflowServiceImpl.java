@@ -651,8 +651,10 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             //   · recordReturn 自己抛的 BusinessException（带可读文案）→ GlobalExceptionHandler 兜成 code=1；
             //   · 真正意外的异常 → 500 + SYSTEM 告警（这正是它该有的分类，不要吞掉）。
             // 可以延后到"提交之后再做"的只有外部通知一类动作，不是账务事实。
+            // 异常口径必须与桶账一致：应回 = 实回 + 净差额，排除本单新领桶。
+            // 原送出数会把多还误记为少回，或在“送出=实回但应回=0”时返回 null。
             OrderBarrelExceptionService.OrderBarrelExceptionDTO ex =
-                    orderBarrelExceptionService.recordReturn(orderId, input);
+                    orderBarrelExceptionService.recordReturn(orderId, input, returnBucketQty + owed);
             exceptionId = ex.getId();
         }
 

@@ -119,6 +119,9 @@ public interface OrderBarrelExceptionService {
      */
     OrderBarrelExceptionDTO recordReturn(Long orderId, ReturnInput input);
 
+    /** 使用配送桶账计算的应回数；新领桶不计入应回数，不接收客户端的 expected。 */
+    OrderBarrelExceptionDTO recordReturn(Long orderId, ReturnInput input, int expectedReturn);
+
     /**
      * 通用异常录入（非回桶类：缺水、客户拒收、损坏等）
      */

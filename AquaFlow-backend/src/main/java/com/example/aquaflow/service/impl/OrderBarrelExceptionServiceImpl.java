@@ -81,8 +81,22 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         if (order == null) {
             throw new BusinessException("订单不存在: " + orderId);
         }
-
         int delivery = order.getDeliveryBucketQty() != null ? order.getDeliveryBucketQty() : 0;
+        return recordReturn(order, input, delivery);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderBarrelExceptionDTO recordReturn(Long orderId, ReturnInput input, int expectedReturn) {
+        Orders order = orderMapper.getById(orderId);
+        if (order == null) {
+            throw new BusinessException("订单不存在: " + orderId);
+        }
+        return recordReturn(order, input, expectedReturn);
+    }
+
+    private OrderBarrelExceptionDTO recordReturn(Orders order, ReturnInput input, int delivery) {
+        Long orderId = order.getId();
         int actual = input.getActualReturn() != null ? input.getActualReturn() : 0;
         int diff = delivery - actual; // 正=少回
 

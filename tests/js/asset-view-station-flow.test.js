@@ -172,6 +172,20 @@ test('picker pages own stopped and zero-asset stations and chooses without write
   assert.deepStrictEqual(seen,[0,11]);assert.strictEqual(events[0].data.status,2);assert.strictEqual(p.data.open,false)
   assert.strictEqual(env.wx.__calls.storageSet.length,0)
 })
+test('empty asset-station list is successful empty state, not failure or retry', async () => {
+  const {p,events,env} = picker(async () => ok({stations:[],hasMore:false,nextStationId:null}))
+  await p.openPicker()
+  assert.strictEqual(p.data.loading,false)
+  assert.strictEqual(p.data.errorText,'')
+  assert.deepStrictEqual(p.data.stations,[])
+  assert.strictEqual(p.data.hasMore,false)
+  assert.strictEqual(events.length,0)
+  assert.strictEqual(env.wx.__calls.storageSet.length,0)
+  const text = require('fs').readFileSync(path.join(ROOT,'miniapp-user/components/AssetStationView/index.wxml'),'utf8')
+  assert.ok(text.includes('暂无可选水站'))
+  assert.ok(text.indexOf('wx:elif="{{errorText}}"') < text.indexOf('wx:elif="{{!stations.length}}"'))
+})
+
 test('picker failure has retry, closed or previous-session responses are ignored', async () => {
   let slow=deferred(),{p,env}=picker(()=>slow.promise)
   const read=p.openPicker();p.close();slow.resolve(ok({stations:[B],hasMore:false,nextStationId:null}));await read

@@ -85,6 +85,54 @@ console.log('顾客「我的 · 押金水票与桶」加载态与文案（真实
 ;(async () => {
   const doneWatchdog = armWatchdog()
 
+  await test('未选资产水站不查站级资产：保持未知、不报失败，重载仍等待选站', async () => {
+    const calls = { summary: 0, tickets: 0, company: 0 }
+    const { page, wx } = loadMine({
+      summary: async () => { calls.summary++; throw new Error('不应查询未选站资产') },
+      tickets: async () => { calls.tickets++; throw new Error('不应查询未选站水票') },
+      company: async () => { calls.company++; return { code: 0, data: { id: 7, companyName: '测试企业' } } }
+    })
+    await page.onShow()
+    await page.onRetryAssets()
+    assert.deepStrictEqual(calls, { summary: 0, tickets: 0, company: 2 })
+    assert.strictEqual(page.data.assetStationRequired, true)
+    assert.strictEqual(page.data.unloadedCount, 0)
+    assert.strictEqual(page.data.isCompany, true)
+    for (const k of ['deposit', 'ticket', 'barrel']) {
+      assert.strictEqual(page.data[k], null)
+      assert.strictEqual(page.data[k + 'Loaded'], false)
+      assert.strictEqual(page.data[k + 'Text'], '请先选站')
+    }
+    assert.strictEqual(wx.__calls.toast.length, 0)
+    assert.strictEqual(wx.__storage.has('selectedStation'), false)
+  })
+
+  await test('选站后读取真实零值，真正失败仍能重试，查看站不改下单站', async () => {
+    const summaryIds = [], ticketIds = []
+    let fail = false
+    const { page, wx } = loadMine({
+      summary: async id => { summaryIds.push(id); if (fail) throw new Error('真实读取失败'); return { code: 0, data: { depositBalance: 0, heldBuckets: 0 } } },
+      tickets: async id => { ticketIds.push(id); return { code: 0, data: [] } },
+      company: async () => ({ code: 0, data: null })
+    })
+    await page.onShow()
+    await page.onAssetStationChange({ detail: { id: 11, name: '测试资产站' } })
+    assert.deepStrictEqual(summaryIds, [11])
+    assert.deepStrictEqual(ticketIds, [11])
+    assert.strictEqual(page.data.assetStationRequired, false)
+    for (const k of ['depositText', 'ticketText', 'barrelText']) assert.strictEqual(page.data[k], '0')
+    assert.strictEqual(page.data.unloadedCount, 0)
+    assert.strictEqual(wx.__storage.has('selectedStation'), false)
+    fail = true
+    await page.onRetryAssets()
+    assert.strictEqual(page.data.assetStationRequired, false)
+    assert.strictEqual(page.data.depositText, '暂未加载')
+    assert.strictEqual(page.data.barrelText, '暂未加载')
+    assert.strictEqual(page.data.unloadedCount, 2)
+    assert.ok(wx.__calls.toast.some(x => x.title.includes('不是 0')))
+    require(path.join(ROOT, 'miniapp-user/utils/token')).beginSession()
+  })
+
   // ---------------------------------------------------------------- C05：失败不许冒充 0
   await test('C05 桶/押金接口失败：不写 ¥0 / 0 个，写「暂未加载」并标出未加载项', async () => {
     const { page, wx } = loadMine({

@@ -21,7 +21,7 @@
     </view>
     <text class="picker-message" wx:if="{{loading}}">正在加载水站…</text>
     <view wx:elif="{{errorText}}"><text class="picker-message">{{errorText}}</text><button class="picker-retry" bindtap="retry">重新加载</button></view>
-    <text class="picker-message" wx:elif="{{!stations.length}}">暂无与你相关的资产水站。选下单水站请前往首页或商品页。</text>
+    <text class="picker-message" wx:elif="{{!stations.length}}">暂无可选水站。</text>
     <button class="picker-retry" wx:elif="{{hasMore}}" bindtap="more">查看更多水站</button>
   </scroll-view>
 </view>

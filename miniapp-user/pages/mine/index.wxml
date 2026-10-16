@@ -37,6 +37,9 @@
           <text class="asset-hint" wx:if="{{barrelLoaded}}">{{barrelHint}}</text>
         </view>
       </view>
+      <view class="asset-note" wx:if="{{assetStationRequired}}">
+        <text class="asset-note-text">请选择水站后查看资产。</text>
+      </view>
       <!-- 有格子没加载出来时的显式提示 + 重试（toast 会消失，这一条不会） -->
       <view class="assets-unloaded-tip" wx:if="{{unloadedCount > 0}}" bindtap="onRetryAssets">
         <text class="assets-unloaded-text">有 {{unloadedCount}} 项没加载出来（不是 0）</text>

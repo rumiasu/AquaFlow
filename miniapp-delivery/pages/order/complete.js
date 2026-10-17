@@ -145,7 +145,7 @@ Page({
      *   · `paid`      —— 已付款/无需收钱：主结论是"已付款，无需收钱"，总额降级成小字（不再用最大红字）；
      *   · `uncollected` —— 钱还没到手但不归本次收（微信/水票未付、已退款等，后端 payStateText 说了算）：
      *                    照实说，并把总额降级 —— 不能让人以为"这单要收这笔钱"。
-     * 判据只有一个来源：后端的 `needCollect` + `payStateText`，前端不自己按 1/2/3 推。
+     * 初次加载取后端 `needCollect` + `payStateText`；本次收款成功回执可更新展示，不自造支付枚举。
      */
     moneyMode: 'collect',
     /** 钱卡主文案（一句话结论） */
@@ -531,6 +531,8 @@ Page({
   },
 
   onSelectCollected(e) {
+    // 2026-10-17：已发出的收款事实不能被迟到点击改写，成功后也不能再询问同一笔钱。
+    if (this.data.submittingComplete || this.data.resultState === 'success') return
     const val = e.currentTarget.dataset.value === 'true'
     this.setData({ collected: val, collectedChosen: true,
       ...deliveryCompletionView(this.data.orderInfo, this.data.needCollect, val, true) })
@@ -797,7 +799,12 @@ Page({
       // 原来这两个视觉元素是一进页面就画的，"还没提交就已经成功"。
       // 成功回执后不再需要备货；保留原投影，并作废早于回执的在途读取。
       this._orderLoadSeq = (this._orderLoadSeq || 0) + 1
-      this.setData({ resultState: 'success', showStockPrepPrompt: false, stockPrepText: '' })
+      // 2026-10-17：原来只换成功页头，旧 collect 钱卡仍催收同一笔钱。
+      // 只承接本次收齐命令的成功回执；保留读取到的支付字段和金额，未收/失败/未知不冒充已付。
+      const collectedReceipt = needCollect && collected === true ? {
+        moneyMode: 'paid', moneyHeadline: '本次已收款，无需再收', moneySub: '', moneyEmphasis: false
+      } : {}
+      this.setData({ resultState: 'success', showStockPrepPrompt: false, stockPrepText: '', ...collectedReceipt })
       wx.showToast({ title: '配送完成！', icon: 'success' })
       setTimeout(() => {
         if (this.data.from === 'home') {

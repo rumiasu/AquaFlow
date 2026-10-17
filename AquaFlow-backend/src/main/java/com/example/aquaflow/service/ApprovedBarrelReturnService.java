@@ -391,6 +391,13 @@ public class ApprovedBarrelReturnService {
     @Transactional
     public void handle(Long id, Long stationId, Integer status, String note, Long operatorId,
                        String refundChannel, Long refundPaidBy) {
+        handle(id, stationId, status, note, operatorId, refundChannel, refundPaidBy, null);
+    }
+
+    /** 仍由原权益锁/申请当前读/CAS串行；补同步金额只作核对，不替代批次核销真值。 */
+    @Transactional
+    public void handle(Long id, Long stationId, Integer status, String note, Long operatorId,
+                       String refundChannel, Long refundPaidBy, BigDecimal expectedRefundAmount) {
         BarrelRecord record = owned(id,stationId);
         if(Integer.valueOf(3).equals(status)) {
             List<OrderBarrelPurchase> originals=detailMapper.heldLots(id).stream()
@@ -430,6 +437,10 @@ public class ApprovedBarrelReturnService {
             } else if (BarrelRefundDTO.CHANNEL_ONLINE.equals(channel)) throw new BusinessException("历史押金没有线上原款凭据，请由归属站核实现金交付");
         }
         BarrelLedgerService.LotConsumption consumption = ledger.refundHeldRights(record.getCustomerId(),stationId,record.getProductId(),id);
+        // 2026-10-17：同一申请补登记现金时，实交金额不符不能继续记账，原事务必须整体回滚。
+        if (expectedRefundAmount != null && consumption.getAmount().compareTo(expectedRefundAmount) != 0) {
+            throw new BusinessException("本申请押金金额已变化，请核实原交付款项；本次未登记，勿重复交款");
+        }
         DepositRecord dr = new DepositRecord();
         dr.setCustomerId(record.getCustomerId()); dr.setProductId(record.getProductId()); dr.setQuantity(record.getQuantity());
         dr.setType(DepositType.RETURN_BARREL); dr.setAmount(consumption.getAmount()); dr.setOperatorId(operatorId);

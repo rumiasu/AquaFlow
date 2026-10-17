@@ -306,7 +306,7 @@ async function main() {
     await recordPage.onRefund(event(77))
     assert(eligibilityReads > beforeEligibilityReads, '点击退款后重新核对原款，不复用旧资格')
     assert(detailReads > beforeRefundReads, '办理后按原编号核对结果，不靠历史列表或手动loadData补救')
-    assert.deepEqual(statusCall, [77, 3, { refundChannel: 'CASH' }]); assert.equal(writes, 1)
+    assert.deepEqual(statusCall, [77, 3, { refundChannel: 'CASH', cashDeliveryConfirmed: true, expectedRefundAmount: 30 }]); assert.equal(writes, 1)
     assert.equal(recordPage.data.list[0].returnDetail.status, 'REFUNDED'); assert.equal(recordPage.data.recoveryNeeded, false)
     assert.equal(historyReads, 0); assert(detailReads >= 2)
     await t.page.loadData(); assert.equal(t.page.data.counts.returns, 0); assert.equal(t.page.data.returns.length, 0)

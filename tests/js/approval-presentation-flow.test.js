@@ -16,7 +16,7 @@ function record(status = 'APPROVED', extra = {}) {
 }
 function setup(initial, options = {}) {
   let current = clone(initial), readFail = false, eligibilityFail = false, pendingWrite
-  const calls = { writes: [], reads: 0, eligibility: 0, modals: [], reminders: 0 }
+  const calls = { writes: [], reads: 0, eligibility: 0, modals: [], reminders: 0, refunds: 0 }
   const app = options.app || createApp({ globalData: { isLogin: true, userInfo: { staffId: 1, stationId: 1, role: 'STATION_MANAGER' } } })
   const wx = options.wx || createWx()
   wx.showModal = modal => { calls.modals.push(modal); if (options.autoModal !== false) modal.success({ confirm: true, content: options.modalContent || '0' }) }
@@ -28,7 +28,7 @@ function setup(initial, options = {}) {
   function mutate(kind) {
     const d = current.returnDetail
     if (kind === 2) { current.status = 2; if (d) { d.status = 'RECEIVED'; d.receivedTime = '2026-10-07T10:00:00'; d.receivedBarrels = d.requiredBarrels } }
-    if (kind === 3 || kind === 'paid') { current.status = 3; current.refundPaidTime = '2026-10-07T10:10:00'; if (d) d.status = 'REFUNDED' }
+    if (kind === 3 || kind === 'paid') { if (kind === 3) calls.refunds++; current.status = 3; current.refundPaidTime = '2026-10-07T10:10:00'; if (d) d.status = 'REFUNDED' }
     if (kind === 4) { current.status = 4; if (d) d.status = 'REJECTED' }
     if (kind === 'approve') { d.status = 'APPROVED'; d.customerConfirmedTime = null; d.customerConfirmationCurrent = false }
     if (kind === 'arrangement') { d.status = 'APPLIED'; d.arrangementVersion++; d.customerConfirmationRequired = true; d.customerConfirmationCurrent = false; d.customerConfirmedTime = null }
@@ -37,10 +37,13 @@ function setup(initial, options = {}) {
   }
   async function write(kind, id, extra) {
     calls.writes.push({ kind, id, extra })
-    if (options.deferWrite) await new Promise(resolve => { pendingWrite = resolve })
+    const index = calls.writes.length
+    if (options.deferWrite && (!options.deferFirstOnly || index === 1)) await new Promise(resolve => { pendingWrite = resolve })
+    if (options.enforceStateLock && kind === 3 && current.status === 3) throw Object.assign(Error('原申请已退款，请核对原结果'), { businessRejected: true })
     if (options.businessCode) return { code: 1, message: '原渠道明确拒绝，本次未办理' }
-    if ((!options.failWrite || options.commitThenFail) && !options.delayedCommit) mutate(kind)
-    if (options.failWrite) throw options.writeError || new Error('网络超时，未收到办理结果')
+    const fail = options.failWrite && (!options.failOnce || index === 1)
+    if ((!fail || options.commitThenFail) && !options.delayedCommit) mutate(kind)
+    if (fail) throw options.writeError || new Error('网络超时，未收到办理结果')
     return ok({})
   }
   const page = loadPage('miniapp-delivery/pages/station-mgmt/barrel-return/index.js', { wx, app, stubs: {
@@ -140,7 +143,7 @@ function setup(initial, options = {}) {
     const t = setup(record('RECEIVED'), { eligibility: { refundAmount: 57.25 } }); await t.ready()
     const initialReads = t.calls.eligibility; await t.page.onRefund(event(77))
     assert(t.calls.eligibility > initialReads); assert.match(t.calls.modals[0].content, /57.25/)
-    assert.deepEqual(t.calls.writes[0].extra, { refundChannel: 'CASH' }); assert.equal(t.current().returnDetail.status, 'REFUNDED')
+    assert.deepEqual(t.calls.writes[0].extra, { refundChannel: 'CASH', cashDeliveryConfirmed: true, expectedRefundAmount: 57.25 }); assert.equal(t.current().returnDetail.status, 'REFUNDED')
   })
   await test('online unavailable gives reason without cash option or financial write', async () => {
     const t = setup(record('RECEIVED'), { eligibility: { available: false, channel: 'ONLINE', reason: '线上尚不可用，请勿改交现金' } }); await t.ready(); await t.page.onRefund(event(77))
@@ -225,6 +228,99 @@ function setup(initial, options = {}) {
     const t = setup(record('RECEIVED'), { delayedCommit: true }); await t.ready(); await t.page.onRefund(event(77))
     assert.equal(t.page.data.recoveryNeeded, true); await t.page.onRefund(event(77)); assert.equal(t.calls.writes.length, 1)
     t.commitRefund(); await t.page.onRetry(); assert.equal(t.page.data.recoveryNeeded, false)
+  })
+  await test('timeout and rollback can be closed by explicitly syncing the same already-delivered cash record', async () => {
+    for (const legacy of [false, true]) {
+      const t = setup(record('RECEIVED', legacy ? { returnDetail: null } : {}), { failWrite: true, failOnce: true, enforceStateLock: true })
+      await t.ready(); await t.page.onRefund(event(77)); await t.page.onRetry()
+      assert.equal(t.calls.writes.length, 1); assert.equal(t.page.data.recoveryNeeded, true)
+      await t.page.onReconcileCash()
+      assert.equal(t.calls.writes.length, 2); assert.equal(t.calls.writes[1].id, 77)
+      assert.deepEqual(t.calls.writes[1].extra, { refundChannel: 'CASH', cashDeliveryConfirmed: true, expectedRefundAmount: 60 })
+      assert.match(t.calls.modals[1].content, /不再次交款/); assert.equal(t.calls.modals[1].confirmText, '只补登记')
+      assert.equal(t.calls.refunds, 1); assert.equal(t.page.data.recoveryNeeded, false)
+      assert.equal(t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1'), '')
+    }
+  })
+  await test('not delivered makes no paid write; after actual delivery the same recovery can be explicitly completed', async () => {
+    const t = setup(record('RECEIVED'), { autoModal: false, failWrite: true, failOnce: true }); await t.ready()
+    const first = t.page.onRefund(event(77)); await tick(); t.calls.modals[0].success({ confirm: true }); await first
+    const retry = t.page.onReconcileCash(); await tick(); assert.equal(t.calls.modals[1].cancelText, '未交付')
+    t.calls.modals[1].success({ confirm: false }); await retry
+    assert.equal(t.calls.writes.length, 1); assert.equal(t.current().status, 2); assert.equal(t.current().refundPaidTime, undefined)
+    assert.equal(t.page.data.recoveryNeeded, true); assert.match(t.page.data.actionError, /没有提交交付登记/)
+    const afterActualHandover = t.page.onReconcileCash(); await tick(); t.calls.modals[2].success({ confirm: true }); await afterActualHandover
+    assert.equal(t.calls.refunds, 1); assert.equal(t.page.data.recoveryNeeded, false)
+  })
+  await test('a late original commit observed before synchronization requires neither another modal nor a write', async () => {
+    const t = setup(record('RECEIVED'), { failWrite: true }); await t.ready(); await t.page.onRefund(event(77)); t.commitRefund()
+    await t.page.onReconcileCash(); assert.equal(t.calls.writes.length, 1); assert.equal(t.calls.modals.length, 1)
+    assert.equal(t.calls.refunds, 1); assert.equal(t.page.data.recoveryNeeded, false)
+  })
+  await test('original commit while synchronization confirmation is open is resolved by original state without duplicate ledger result', async () => {
+    const t = setup(record('RECEIVED'), { autoModal: false, failWrite: true, failOnce: true, enforceStateLock: true }); await t.ready()
+    const first = t.page.onRefund(event(77)); await tick(); t.calls.modals[0].success({ confirm: true }); await first
+    const sync = t.page.onReconcileCash(); await tick(); t.commitRefund(); t.calls.modals[1].success({ confirm: true }); await sync
+    assert.equal(t.calls.writes.length, 2); assert.equal(t.calls.refunds, 1); assert.equal(t.page.data.recoveryNeeded, false)
+  })
+  await test('synchronization rejects changed amount/channel or unverified original data before another confirmation or write', async () => {
+    for (const changed of [{ refundAmount: 61 }, { channel: 'ONLINE' }, { recordId: 99 }, { detailStatus: 'APPROVED' }, { refundAmount: 60.001 }]) {
+      const options = { failWrite: true }, t = setup(record('RECEIVED'), options); await t.ready(); await t.page.onRefund(event(77))
+      options.eligibility = changed; await t.page.onReconcileCash()
+      assert.equal(t.calls.writes.length, 1); assert.equal(t.calls.modals.length, 1); assert.equal(t.page.data.recoveryNeeded, true)
+    }
+  })
+  await test('duplicate sync tap and hiding its modal preserve unknown receipt and discard late confirmation', async () => {
+    const t = setup(record('RECEIVED'), { autoModal: false, failWrite: true }); await t.ready()
+    const first = t.page.onRefund(event(77)); await tick(); t.calls.modals[0].success({ confirm: true }); await first
+    const receipt = t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1')
+    const sync = t.page.onReconcileCash(); await tick(); await t.page.onReconcileCash(); assert.equal(t.calls.modals.length, 2)
+    t.page.onHide(); await t.page.onShow(); t.calls.modals[1].success({ confirm: true }); await sync
+    assert.equal(t.calls.writes.length, 1); assert.equal(t.page.data.recoveryNeeded, true)
+    assert.deepEqual(t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1'), receipt)
+  })
+  await test('changing login before sync confirmation cannot submit or remove the former actor receipt', async () => {
+    const t = setup(record('RECEIVED'), { autoModal: false, failWrite: true }); await t.ready()
+    const first = t.page.onRefund(event(77)); await tick(); t.calls.modals[0].success({ confirm: true }); await first
+    const sync = t.page.onReconcileCash(); await tick(); t.app._loginGeneration = 7; t.calls.modals[1].success({ confirm: true }); await sync
+    assert.equal(t.calls.writes.length, 1); assert(t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1'))
+  })
+  await test('late refusal from an unloaded original page cannot clear or reject a newer in-flight sync attempt', async () => {
+    const old = setup(record('RECEIVED'), { deferWrite: true, failWrite: true, writeError: Object.assign(Error('original refused'), { businessRejected: true }) })
+    await old.ready(); const original = old.page.onRefund(event(77)); await tick(); old.page.onUnload()
+    const t = setup(old.current(), { wx: old.wx, app: old.app, deferWrite: true }); await t.page.onShow()
+    const sync = t.page.onReconcileCash(); await tick(); const current = t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1')
+    old.releaseWrite(); await original
+    assert.equal(t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1').attempt, current.attempt)
+    assert.notEqual(t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1').writeRejected, true)
+    assert.equal(t.page.data.recoveryNeeded, true); t.releaseWrite(); await sync
+    assert.equal(t.calls.refunds, 1); assert.equal(t.page.data.recoveryNeeded, false)
+  })
+  await test('retry journal failure prevents sync write and remains recoverable when storage works again', async () => {
+    const t = setup(record('RECEIVED'), { failWrite: true, failOnce: true }); await t.ready(); await t.page.onRefund(event(77))
+    const set = t.wx.setStorageSync; t.wx.setStorageSync = () => { throw Error('journal unavailable') }
+    await t.page.onReconcileCash(); assert.equal(t.calls.writes.length, 1); assert.equal(t.page.data.recoveryNeeded, true)
+    t.wx.setStorageSync = set; await t.page.onReconcileCash(); assert.equal(t.calls.refunds, 1); assert.equal(t.page.data.recoveryNeeded, false)
+  })
+  await test('legacy recovery receipts gain a scoped attempt and verified cash snapshot before a sync write', async () => {
+    const t = setup(record('RECEIVED'), { autoModal: false, deferWrite: true })
+    t.wx.setStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1', { version: 1, actor: '1:1', recordId: '77' })
+    await t.page.onShow(); const sync = t.page.onReconcileCash(); await tick(); t.calls.modals[0].success({ confirm: true }); await tick()
+    const receipt = t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1')
+    assert.match(receipt.attempt, /^r-/); assert.equal(receipt.channel, 'CASH'); assert.equal(receipt.amount, '60.00')
+    t.releaseWrite(); await sync; assert.equal(t.calls.refunds, 1); assert.equal(t.page.data.recoveryNeeded, false)
+  })
+  await test('zero-amount synchronization never asks for a cash handover', async () => {
+    const t = setup(record('RECEIVED', { depositRefund: 0 }), { failWrite: true, failOnce: true, eligibility: { refundAmount: 0 } })
+    await t.ready(); await t.page.onRefund(event(77)); await t.page.onReconcileCash()
+    assert.equal(t.calls.writes[1].extra.expectedRefundAmount, 0); assert.match(t.calls.modals[1].content, /无需实际交款/)
+    assert.equal(t.page.data.recoveryNeeded, false)
+  })
+  await test('storage key reordering does not reject an otherwise verified recovery receipt', async () => {
+    const t = setup(record('RECEIVED'), { failWrite: true, failOnce: true }), get = t.wx.getStorageSync
+    t.wx.getStorageSync = key => { const value = get(key); return value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(k => [k,value[k]])) : value }
+    await t.ready(); await t.page.onRefund(event(77)); await t.page.onReconcileCash()
+    assert.equal(t.calls.refunds, 1); assert.equal(t.page.data.recoveryNeeded, false)
   })
   await test('explicit business refusal is distinct from unknown transport or system failure', async () => {
     for (const options of [{ businessCode: true }, { failWrite: true, writeError: Object.assign(Error('渠道明确拒绝'), { businessRejected: true }) }]) {

@@ -19,6 +19,10 @@
     <button class="secondary-button" bindtap="onRetry" disabled="{{loading}}">重新核对原申请</button>
   </view>
   <view class="read-state error" wx:if="{{actionError && !sheetOpen}}"><text>{{actionError}}</text></view>
+  <view class="read-state" wx:if="{{refundRecoveryNeeded && !sheetOpen}}">
+    <text>原申请结果待核实，请勿再次交款。</text>
+    <button class="secondary-button" bindtap="onReconcileCash" disabled="{{actionBusy || loading || !recordsReady}}">核实并同步原登记</button>
+  </view>
 
   <view class="alert-card" wx:if="{{undeliveredCount > 0}}">
     <view class="alert-heading" bindtap="onToggleUndelivered">
@@ -93,6 +97,7 @@
         <button class="text-button" wx:if="{{selected.needsRefund}}" bindtap="onRetryEligibility" disabled="{{actionBusy || eligibilityLoading || !recordsReady || recoveryNeeded}}">重新核对原款</button>
         <button class="text-button" wx:if="{{selected.canChangeArrangement || selected.canReject || selected.canRefundFee || selected.rejectNeedsFeeRefund}}" bindtap="onMore" disabled="{{actionBusy || !recordsReady || loading || recoveryNeeded}}">{{showMore ? '收起' : '更多操作 ⋯'}}</button>
         <button class="text-button" wx:if="{{recoveryNeeded}}" bindtap="onRetry" disabled="{{loading}}">核对原申请结果</button>
+        <button class="text-button" wx:if="{{refundRecoveryNeeded}}" bindtap="onReconcileCash" disabled="{{actionBusy || loading || !recordsReady}}">核实并同步原登记</button>
       </view>
       <view class="more-actions" wx:if="{{showMore}}">
         <button class="secondary-button" wx:if="{{selected.canChangeArrangement}}" data-id="{{selected.id}}" bindtap="onChangeArrangement" disabled="{{actionBusy}}">提出新的收桶安排</button>

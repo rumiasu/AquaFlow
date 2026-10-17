@@ -65,6 +65,10 @@ public interface BarrelService {
     void handleBarrelReturn(Long id, Long stationId, Integer status, String handleNote, Long operatorId,
                             String refundChannel, Long refundPaidBy);
 
+    /** 员工补同步同一现金交付；事务内比对实交金额，沿用原申请状态锁/CAS，不重新付款。 */
+    void handleBarrelReturn(Long id, Long stationId, Integer status, String handleNote, Long operatorId,
+                            String refundChannel, Long refundPaidBy, java.math.BigDecimal expectedRefundAmount);
+
     /**
      * 交付确认（{@code PUT /api/barrels/records/{id}/refund-paid}）：补登记"押金已交到顾客手上"。
      *

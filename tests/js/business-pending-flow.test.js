@@ -10,7 +10,7 @@ const done = armWatchdog()
 async function test(name, fn) { await fn(); passed++; console.log('  OK ' + name) }
 const response = data => ({ code: 0, data })
 const event = (id, action) => ({ currentTarget: { dataset: { id, action } } })
-const managerApp = () => createApp({ globalData: { isLogin: true, userInfo: { stationId: 1, role: 'STATION_MANAGER' } } })
+const managerApp = () => createApp({ globalData: { isLogin: true, userInfo: { staffId: 1, stationId: 1, role: 'STATION_MANAGER' } } })
 // 独立固定旧 PendingItem 目录，复现旧应用响应；不从页面白名单生成缺键样本。
 const LEGACY_PENDING_ITEMS = [
   ['pendingAssign', '待分配订单', 'P0'], ['pendingTransfer', '转单请求', 'P0'],

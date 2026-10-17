@@ -49,7 +49,7 @@ function prepare(actor, id, eligibility) {
 // 2026-10-17：人工补同步另建本机轮次，旧页迟到的拒绝不能结束正在补同步的新请求。
 function retry(value, eligibility) {
   const old = current(value)
-  if (old.writeRejected) throw new Error('原请求已明确拒绝，请先重新核对原申请')
+  if (old.writeRejected && old.channel === 'ONLINE') throw new Error('原请求已明确拒绝，请先重新核对原申请')
   const next = Object.assign({}, old, { attempt: attempt(), writeRejected: false })
   if (next.channel === undefined && eligibility) next.channel = eligibility.channel
   if (next.amount === undefined && eligibility) next.amount = Number(eligibility.refundAmount).toFixed(2)

@@ -430,7 +430,7 @@ Page({
       if (!this.decorateRecord(record).needsRefund) throw new Error('本申请尚未具备原退款办理条件，请核对原结果')
       const receipt = refundRecovery.pending(action.snapshot.actor)
       if (!receipt || !sameId(receipt.recordId, action.id)) throw new Error('原办理记录未能核对，请查原结果')
-      if (receipt.writeRejected) { action.phase = 'recovery'; return await this.recoverAction(action) }
+      if (receipt.writeRejected && receipt.channel === CHANNEL_ONLINE) { action.phase = 'recovery'; return await this.recoverAction(action) }
       const eligibility = checked(await getBarrelRefundEligibility(action.id), '原款未能核对')
       if (!this.actionCurrent(action) || this._pendingAction !== action) return
       const amount = eligibility && Number(eligibility.refundAmount)
@@ -531,12 +531,14 @@ Page({
       // 会重新开放现金交付。未见最终结果且未获明确业务拒绝时，只能继续查询原编号。
       // 2026-10-17：合法历史驳回也能终结原请求；解除恢复等待不能提示成已退钱。
       const endedWithoutRefund = action.kind === 'refund' && !completed && (d ? ['REJECTED', 'WITHDRAWN'].includes(d.status) : record.status === 4)
-      const waiting = action.kind === 'refund' && !completed && !endedWithoutRefund && !action.writeRejected
+      // 2026-10-17：拒绝登记不等于现金未交付，必须保留原现金上下文，后续只能核实并补同步。
+      const cashContext = action.refundRecovery && action.refundRecovery.channel !== CHANNEL_ONLINE
+      const waiting = action.kind === 'refund' && !completed && !endedWithoutRefund && (!action.writeRejected || cashContext)
       if (!waiting && action.refundRecovery) refundRecovery.clear(action.refundRecovery)
       this._pendingAction = waiting ? action : null; this._recordsSession = action.snapshot
       this.setData({ list, recordsReady: true, loading: false, actionBusy: false, recoveryNeeded: waiting, refundRecoveryNeeded: waiting, loadError: '',
         actionError: completed ? '' : endedWithoutRefund ? '原申请已结束，但未确认退款交付。请核实实际钱款，勿再次交款。' : (action.writeError || '原申请尚未显示办理结果') + (waiting
-          ? '；原申请仍待核对，请继续查询原结果，勿重复交款或办理。'
+          ? cashContext && action.writeRejected ? '；原交付登记尚未完成，请核实实际现金，仅同步原登记，勿再次交款。' : '；原申请仍待核对，请继续查询原结果，勿重复交款或办理。'
           : '；已重新核对原申请。涉及交款请核实实际交付，勿重复交款。') })
       this.releaseAction(action); this.refreshSelected()
       if (completed) wx.showToast({ title: '已核对办理结果', icon: 'success' })

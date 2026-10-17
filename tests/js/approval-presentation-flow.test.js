@@ -40,8 +40,9 @@ function setup(initial, options = {}) {
     const index = calls.writes.length
     if (options.deferWrite && (!options.deferFirstOnly || index === 1)) await new Promise(resolve => { pendingWrite = resolve })
     if (options.enforceStateLock && kind === 3 && current.status === 3) throw Object.assign(Error('原申请已退款，请核对原结果'), { businessRejected: true })
-    if (options.businessCode) return { code: 1, message: '原渠道明确拒绝，本次未办理' }
-    const fail = options.failWrite && (!options.failOnce || index === 1)
+    const shouldFail = options.failCount != null ? index <= options.failCount : !options.failOnce || index === 1
+    if (options.businessCode && shouldFail) return { code: 1, message: '原渠道明确拒绝，本次未办理' }
+    const fail = options.failWrite && shouldFail
     if ((!fail || options.commitThenFail) && !options.delayedCommit) mutate(kind)
     if (fail) throw options.writeError || new Error('网络超时，未收到办理结果')
     return ok({})
@@ -322,37 +323,57 @@ function setup(initial, options = {}) {
     await t.ready(); await t.page.onRefund(event(77)); await t.page.onReconcileCash()
     assert.equal(t.calls.refunds, 1); assert.equal(t.page.data.recoveryNeeded, false)
   })
-  await test('explicit business refusal is distinct from unknown transport or system failure', async () => {
-    for (const options of [{ businessCode: true }, { failWrite: true, writeError: Object.assign(Error('渠道明确拒绝'), { businessRejected: true }) }]) {
+  await test('cash business refusal retains delivered-cash context and can only sync the original registration', async () => {
+    for (const options of [{ businessCode: true, failOnce: true }, { failWrite: true, failOnce: true, writeError: Object.assign(Error('渠道明确拒绝'), { businessRejected: true }) }]) {
       const t = setup(record('RECEIVED'), options); await t.ready(); await t.page.onRefund(event(77)); await tick()
-      assert.equal(t.page.data.recoveryNeeded, false); assert.equal(t.calls.writes.length, 1)
-      assert.equal(t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1'), '')
+      assert.equal(t.page.data.recoveryNeeded, true); assert.equal(t.calls.writes.length, 1)
+      assert.equal(t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1').writeRejected, true)
+      await t.page.onRefund(event(77)); assert.equal(t.calls.writes.length, 1); assert.equal(t.calls.modals.length, 1)
+      await t.page.onReconcileCash(); assert.equal(t.calls.writes.length, 2); assert.equal(t.calls.writes[1].id, 77)
+      assert.match(t.calls.modals[1].content, /不再次交款/); assert.equal(t.calls.refunds, 1)
+      assert.equal(t.page.data.recoveryNeeded, false)
     }
     const t = setup(record('RECEIVED'), { failWrite: true, writeError: Object.assign(Error('处理中断'), { backendCode: 500 }) })
     await t.ready(); await t.page.onRefund(event(77)); assert.equal(t.page.data.recoveryNeeded, true)
   })
-  await test('explicit refusal survives failed reread and reopening without trapping the employee in unknown recovery', async () => {
-    const t = setup(record('RECEIVED'), { deferWrite: true, failWrite: true, writeError: Object.assign(Error('明确拒绝'), { businessRejected: true }) })
+  await test('rejected cash synchronization survives reread and reentry without another cash instruction', async () => {
+    const t = setup(record('RECEIVED'), { failWrite: true, failCount: 2, writeError: Object.assign(Error('原登记明确拒绝'), { businessRejected: true }) })
+    await t.ready(); await t.page.onRefund(event(77)); await t.page.onReconcileCash()
+    assert.equal(t.calls.writes.length, 2); assert.equal(t.calls.refunds, 0)
+    const receipt = t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1')
+    assert.equal(receipt.writeRejected, true); assert.equal(receipt.channel, 'CASH'); assert.equal(receipt.amount, 60)
+    await t.page.onRetry(); assert.equal(t.calls.writes.length, 2); assert.equal(t.page.data.recoveryNeeded, true)
+    t.page.onUnload(); const reopened = setup(t.current(), { wx: t.wx })
+    await reopened.page.onShow(); await reopened.page.onPrimary(event(77))
+    assert.equal(reopened.page.data.recoveryNeeded, true); assert.equal(reopened.calls.writes.length, 0); assert.equal(reopened.calls.modals.length, 0)
+    assert.equal(reopened.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1').attempt, receipt.attempt)
+    await reopened.page.onReconcileCash()
+    assert.equal(reopened.calls.modals.length, 1); assert.match(reopened.calls.modals[0].content, /不再次交款/)
+    assert.equal(reopened.calls.writes.length, 1); assert.equal(reopened.calls.writes[0].id, 77)
+    assert.equal(reopened.calls.refunds, 1); assert.equal(reopened.page.data.recoveryNeeded, false)
+  })
+  await test('noncash explicit refusal survives failed reread and reopening without trapping the employee in unknown recovery', async () => {
+    const t = setup(record('RECEIVED'), { eligibility: { channel: 'ONLINE' }, deferWrite: true, failWrite: true, writeError: Object.assign(Error('明确拒绝'), { businessRejected: true }) })
     await t.ready(); const task = t.page.onRefund(event(77)); await tick(); t.setReadFail(true); t.releaseWrite(); await task
     assert.equal(t.page.data.recoveryNeeded, true)
     assert.equal(t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1').writeRejected, true)
-    t.page.onUnload(); const reopened = setup(t.current(), { wx: t.wx }); await reopened.page.onShow(); await tick()
+    t.page.onUnload(); const reopened = setup(t.current(), { wx: t.wx, eligibility: { channel: 'ONLINE' } }); await reopened.page.onShow(); await tick()
     assert.equal(reopened.page.data.recoveryNeeded, false); assert.equal(reopened.page._pendingAction, null)
     assert.equal(reopened.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1'), '')
     assert.equal(reopened.calls.writes.length, 0); assert.equal(reopened.calls.modals.length, 0)
     assert.equal(reopened.page.data.selected.primaryAction, 'refund')
   })
-  await test('an original response definitively rejected after unload is retained for the next page', async () => {
-    const t = setup(record('RECEIVED'), { deferWrite: true, failWrite: true, writeError: Object.assign(Error('明确拒绝'), { businessRejected: true }) })
+  await test('an original noncash response definitively rejected after unload is retained for the next page', async () => {
+    const t = setup(record('RECEIVED'), { eligibility: { channel: 'ONLINE' }, deferWrite: true, failWrite: true, writeError: Object.assign(Error('明确拒绝'), { businessRejected: true }) })
     await t.ready(); const task = t.page.onRefund(event(77)); await tick(); t.page.onUnload(); t.releaseWrite(); await task
-    const reopened = setup(t.current(), { wx: t.wx }); await reopened.page.onShow()
+    const reopened = setup(t.current(), { wx: t.wx, eligibility: { channel: 'ONLINE' } }); await reopened.page.onShow()
     assert.equal(reopened.page.data.recoveryNeeded, false); assert.equal(reopened.calls.writes.length, 0)
     assert.equal(reopened.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1'), '')
   })
-  await test('a rejection arriving after the next page restored unknown is merged on its next original-result query', async () => {
-    const t = setup(record('RECEIVED'), { deferWrite: true, failWrite: true, writeError: Object.assign(Error('明确拒绝'), { businessRejected: true }) })
+  await test('a noncash rejection arriving after the next page restored unknown is merged on its next original-result query', async () => {
+    const t = setup(record('RECEIVED'), { eligibility: { channel: 'ONLINE' }, deferWrite: true, failWrite: true, writeError: Object.assign(Error('明确拒绝'), { businessRejected: true }) })
     await t.ready(); const task = t.page.onRefund(event(77)); await tick(); t.page.onUnload()
-    const reopened = setup(t.current(), { wx: t.wx, app: t.app }); await reopened.page.onShow()
+    const reopened = setup(t.current(), { wx: t.wx, app: t.app, eligibility: { channel: 'ONLINE' } }); await reopened.page.onShow()
     assert.equal(reopened.page.data.recoveryNeeded, true)
     t.releaseWrite(); await task; await reopened.page.onRetry()
     assert.equal(reopened.page.data.recoveryNeeded, false); assert.equal(reopened.calls.writes.length, 0)

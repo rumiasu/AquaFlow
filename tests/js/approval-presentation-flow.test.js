@@ -16,7 +16,7 @@ function record(status = 'APPROVED', extra = {}) {
 }
 function setup(initial, options = {}) {
   let current = clone(initial), readFail = false, eligibilityFail = false, pendingWrite
-  const calls = { writes: [], reads: 0, eligibility: 0, modals: [] }
+  const calls = { writes: [], reads: 0, eligibility: 0, modals: [], reminders: 0 }
   const app = options.app || createApp({ globalData: { isLogin: true, userInfo: { staffId: 1, stationId: 1, role: 'STATION_MANAGER' } } })
   const wx = options.wx || createWx()
   wx.showModal = modal => { calls.modals.push(modal); if (options.autoModal !== false) modal.success({ confirm: true, content: options.modalContent || '0' }) }
@@ -56,7 +56,7 @@ function setup(initial, options = {}) {
       if (readFail) throw Error('offline')
       return ok({ stationId: 1, scope: args.scope, limit: 50, items: [clone(current)], nextBeforeId: null })
     } },
-    'utils/pending-reminder': { syncPendingReminder: async () => {}, getPendingReturnRecord: async id => {
+    'utils/pending-reminder': { syncPendingReminder: async () => { calls.reminders++ }, getPendingReturnRecord: async id => {
       calls.reads++; if (readFail) throw Error('offline'); assert.equal(String(id), String(current.id)); return ok(clone(current))
     } }
   } })
@@ -234,6 +234,47 @@ function setup(initial, options = {}) {
     }
     const t = setup(record('RECEIVED'), { failWrite: true, writeError: Object.assign(Error('处理中断'), { backendCode: 500 }) })
     await t.ready(); await t.page.onRefund(event(77)); assert.equal(t.page.data.recoveryNeeded, true)
+  })
+  await test('explicit refusal survives failed reread and reopening without trapping the employee in unknown recovery', async () => {
+    const t = setup(record('RECEIVED'), { deferWrite: true, failWrite: true, writeError: Object.assign(Error('明确拒绝'), { businessRejected: true }) })
+    await t.ready(); const task = t.page.onRefund(event(77)); await tick(); t.setReadFail(true); t.releaseWrite(); await task
+    assert.equal(t.page.data.recoveryNeeded, true)
+    assert.equal(t.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1').writeRejected, true)
+    t.page.onUnload(); const reopened = setup(t.current(), { wx: t.wx }); await reopened.page.onShow(); await tick()
+    assert.equal(reopened.page.data.recoveryNeeded, false); assert.equal(reopened.page._pendingAction, null)
+    assert.equal(reopened.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1'), '')
+    assert.equal(reopened.calls.writes.length, 0); assert.equal(reopened.calls.modals.length, 0)
+    assert.equal(reopened.page.data.selected.primaryAction, 'refund')
+  })
+  await test('an original response definitively rejected after unload is retained for the next page', async () => {
+    const t = setup(record('RECEIVED'), { deferWrite: true, failWrite: true, writeError: Object.assign(Error('明确拒绝'), { businessRejected: true }) })
+    await t.ready(); const task = t.page.onRefund(event(77)); await tick(); t.page.onUnload(); t.releaseWrite(); await task
+    const reopened = setup(t.current(), { wx: t.wx }); await reopened.page.onShow()
+    assert.equal(reopened.page.data.recoveryNeeded, false); assert.equal(reopened.calls.writes.length, 0)
+    assert.equal(reopened.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1'), '')
+  })
+  await test('a rejection arriving after the next page restored unknown is merged on its next original-result query', async () => {
+    const t = setup(record('RECEIVED'), { deferWrite: true, failWrite: true, writeError: Object.assign(Error('明确拒绝'), { businessRejected: true }) })
+    await t.ready(); const task = t.page.onRefund(event(77)); await tick(); t.page.onUnload()
+    const reopened = setup(t.current(), { wx: t.wx, app: t.app }); await reopened.page.onShow()
+    assert.equal(reopened.page.data.recoveryNeeded, true)
+    t.releaseWrite(); await task; await reopened.page.onRetry()
+    assert.equal(reopened.page.data.recoveryNeeded, false); assert.equal(reopened.calls.writes.length, 0)
+    assert.equal(reopened.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1'), '')
+  })
+  await test('a verified failed terminal clears recovery without reporting payment or resending it', async () => {
+    for (const end of ['LEGACY_REJECTED', 'REJECTED', 'WITHDRAWN']) {
+      const t = setup(record('RECEIVED', end === 'LEGACY_REJECTED' ? { returnDetail: null } : {}), { failWrite: true })
+      await t.ready(); await t.page.onRefund(event(77)); assert.equal(t.page.data.recoveryNeeded, true)
+      t.page.onUnload(); const final = t.current(); final.status = 4
+      if (final.returnDetail) final.returnDetail.status = end
+      const reopened = setup(final, { wx: t.wx }); await reopened.page.onShow()
+      assert.equal(reopened.page.data.recoveryNeeded, false); assert.equal(reopened.page.data.selected.needsRefund, false)
+      assert.match(reopened.page.data.actionError, /未确认退款交付/); assert.equal(reopened.calls.writes.length, 0)
+      assert.equal(reopened.wx.getStorageSync(STORAGE_KEYS.BARREL_REFUND_RECOVERY + '1:1'), '')
+      assert.equal(reopened.wx.__calls.toast.length, 0)
+      assert.equal(reopened.calls.reminders, 1)
+    }
   })
   await test('hide/show and a fresh page/app instance retain the exact unresolved refund number', async () => {
     const t = setup(record('RECEIVED'), { failWrite: true }); await t.ready(); await t.page.onRefund(event(77))

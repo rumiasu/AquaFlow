@@ -1,7 +1,7 @@
 const { STORAGE_KEYS } = require('./storage-keys')
 
 // 2026-10-17：现金已在确认前交付；未知结果不能因离页/重启丢失，再提示交一次钱。
-// 只保留员工/站别和原申请编号，不保存客户、金额或登录凭据，也不重发退款。
+// 只保留员工/站别、原申请编号及明确拒绝标记，不保存客户、金额或登录凭据，也不重发退款。
 function keyOf(actor) {
   if (!/^[1-9]\d*:[1-9]\d*$/.test(actor || '')) throw new Error('请先核对员工与水站身份')
   return STORAGE_KEYS.BARREL_REFUND_RECOVERY + actor
@@ -9,10 +9,21 @@ function keyOf(actor) {
 function pending(actor) {
   const value = wx.getStorageSync(keyOf(actor))
   if (value === '' || value == null) return null
-  if (!value || value.version !== 1 || value.actor !== actor || !/^[1-9]\d*$/.test(value.recordId || '')) {
+  if (!value || value.version !== 1 || value.actor !== actor || !/^[1-9]\d*$/.test(value.recordId || '')
+      || value.writeRejected !== undefined && typeof value.writeRejected !== 'boolean') {
     throw new Error('上次退款记录无法识别，请保留现场并联系负责人，勿再次交款')
   }
   return value
+}
+// 2026-10-17：明确业务拒绝只留内存，会在失败回读后重开时变回未知并卡住办理。
+function rejected(value) {
+  const old = pending(value.actor)
+  if (!old || old.recordId !== value.recordId) throw new Error('上次退款记录未能核对')
+  const next = Object.assign({}, old, { writeRejected: true })
+  wx.setStorageSync(keyOf(value.actor), next)
+  const saved = pending(value.actor)
+  if (!saved || saved.writeRejected !== true) throw new Error('退款拒绝结果未能保存')
+  return next
 }
 function prepare(actor, id) {
   const old = pending(actor)
@@ -30,4 +41,4 @@ function clear(value) {
   wx.removeStorageSync(keyOf(value.actor))
   if (pending(value.actor)) throw new Error('退款核对记录未能更新，请重试核对原申请，勿再次交款')
 }
-module.exports = { pending, prepare, clear }
+module.exports = { pending, prepare, rejected, clear }

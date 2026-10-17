@@ -81,7 +81,8 @@ Page({
     try {
       const snapshot = session(), receipt = refundRecovery.pending(snapshot.actor)
       if (receipt) {
-        this._pendingAction = { id: receipt.recordId, kind: 'refund', snapshot, phase: 'recovery', refundRecovery: receipt }
+        this._pendingAction = { id: receipt.recordId, kind: 'refund', snapshot, phase: 'recovery', refundRecovery: receipt,
+          writeRejected: receipt.writeRejected === true, writeError: receipt.writeRejected === true ? '上次退款请求已明确拒绝' : '' }
         this.setData({ selectedId: receipt.recordId, sheetOpen: true, recoveryNeeded: true, eligibility: null })
       } else this.setData({ recoveryNeeded: false })
       return true
@@ -430,6 +431,10 @@ Page({
     } catch (err) {
       action.writeError = err && err.message || '办理结果未能确认'
       action.writeRejected = !!(err && err.businessRejected)
+      if (action.writeRejected && action.refundRecovery) {
+        try { action.refundRecovery = refundRecovery.rejected(action.refundRecovery) }
+        catch (_) { /* 保存失败仍保留原未知记录，不能伪造已清理或由计时解除等待。 */ }
+      }
     }
     action.phase = 'recovery'
     if (!sameSession(action.snapshot) || this._unloaded) { this._pendingAction = null; this.releaseAction(action); return }
@@ -444,6 +449,12 @@ Page({
       const record = checked(await getPendingReturnRecord(action.id), '原申请结果未能核对')
       if (this._hidden || this._unloaded || !sameSession(action.snapshot) || this._pendingAction !== action) return false
       if (!record || !sameId(record.id, action.id) || record.type !== 2) throw new Error('原申请结果未能核对')
+      if (action.refundRecovery) {
+        // 离开的原页可能在本页恢复后才收到明确拒绝，重查时须合并该事实。
+        const receipt = refundRecovery.pending(action.refundRecovery.actor)
+        if (receipt && !sameId(receipt.recordId, action.id)) throw new Error('上次退款记录已变化，请核对原申请')
+        if (receipt && receipt.writeRejected === true) action.writeRejected = true
+      }
       const list = this.data.list.filter(r => !sameId(r.id, record.id)); list.unshift(this.decorateRecord(record))
       const d = record.returnDetail
       const completed = action.kind === 'refund' ? !!record.refundPaidTime || d && d.status === 'REFUNDED'
@@ -455,17 +466,19 @@ Page({
                   : !!record.refundPaidTime
       // 2026-10-17：原先把一次成功 GET 当作写请求已结束，锁等待中的旧 RECEIVED
       // 会重新开放现金交付。未见最终结果且未获明确业务拒绝时，只能继续查询原编号。
-      const waiting = action.kind === 'refund' && !completed && !action.writeRejected
+      // 2026-10-17：合法历史驳回也能终结原请求；解除恢复等待不能提示成已退钱。
+      const endedWithoutRefund = action.kind === 'refund' && !completed && (d ? ['REJECTED', 'WITHDRAWN'].includes(d.status) : record.status === 4)
+      const waiting = action.kind === 'refund' && !completed && !endedWithoutRefund && !action.writeRejected
       if (!waiting && action.refundRecovery) refundRecovery.clear(action.refundRecovery)
       this._pendingAction = waiting ? action : null; this._recordsSession = action.snapshot
       this.setData({ list, recordsReady: true, loading: false, actionBusy: false, recoveryNeeded: waiting, loadError: '',
-        actionError: completed ? '' : (action.writeError || '原申请尚未显示办理结果') + (waiting
+        actionError: completed ? '' : endedWithoutRefund ? '原申请已结束，但未确认退款交付。请核实实际钱款，勿再次交款。' : (action.writeError || '原申请尚未显示办理结果') + (waiting
           ? '；原申请仍待核对，请继续查询原结果，勿重复交款或办理。'
           : '；已重新核对原申请。涉及交款请核实实际交付，勿重复交款。') })
       this.releaseAction(action); this.refreshSelected()
       if (completed) wx.showToast({ title: '已核对办理结果', icon: 'success' })
       this.loadUndelivered()
-      if (action.kind === 'refund' && completed) syncPendingReminder()
+      if (action.kind === 'refund' && (completed || endedWithoutRefund)) syncPendingReminder()
       if (!waiting && this.data.selected && this.data.selected.needsRefund) this.loadEligibility(this.data.selected.id)
       return true
     } catch (err) {

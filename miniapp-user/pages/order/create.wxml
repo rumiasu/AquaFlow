@@ -5,6 +5,12 @@
      tests/js/order-create-flow.test.js 的 34 条断言**没有一条检查费用文案或金额** ——
      改坏费用区不会变红，只能靠注释与人工核对。
 -->
+<!-- [2026-10-18] 费用明细抽屉打开时锁住页面滚动：抽屉内的 scroll-view 滚到边界后，
+     滚轮/触摸会继续链到背后的下单页（实测「抽屉到底后背景跟着动」）。
+     这里只在 showDetailPopup 为真时给页面加 overflow:hidden，不改任何金额/业务状态。
+     ⚠️ page-meta 必须是页面第一个节点，不能挪到 <view class="container"> 里面。 -->
+<page-meta page-style="{{showDetailPopup ? 'overflow: hidden;' : ''}}"></page-meta>
+
 <view class="container" style="{{orderNavigationRecoveryStyle}}">
   <loading wx:if="{{loading}}"></loading>
 

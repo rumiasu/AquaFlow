@@ -1238,6 +1238,11 @@
   max-height: 75vh;
   display: flex;
   flex-direction: column;
+  /* [2026-10-18] 抽屉里是 scroll-view，宿主高度由 flex 解出（header + body + footer）。
+     实测 6 商品/5 条实际押金时，滚动内容会画到 body 盒外、压住下面固定的「合计」footer
+     （原图：末行押金与 ¥合计 重叠）。让 sheet 自己裁剪，保证滚动内容不越出抽屉边界、
+     也不覆盖 footer —— 只改绘制边界，不动布局尺寸与任何金额。 */
+  overflow: hidden;
   transform: translateY(100%);
   transition: transform 0.3s ease;
 }

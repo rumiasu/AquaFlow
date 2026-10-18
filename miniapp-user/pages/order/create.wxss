@@ -1238,11 +1238,6 @@
   max-height: 75vh;
   display: flex;
   flex-direction: column;
-  /* [2026-10-18] 抽屉里是 scroll-view，宿主高度由 flex 解出（header + body + footer）。
-     实测 6 商品/5 条实际押金时，滚动内容会画到 body 盒外、压住下面固定的「合计」footer
-     （原图：末行押金与 ¥合计 重叠）。让 sheet 自己裁剪，保证滚动内容不越出抽屉边界、
-     也不覆盖 footer —— 只改绘制边界，不动布局尺寸与任何金额。 */
-  overflow: hidden;
   transform: translateY(100%);
   transition: transform 0.3s ease;
 }
@@ -1283,7 +1278,12 @@
   min-width: 0;
   box-sizing: border-box;
   padding: 0;
-  max-height: 55vh;
+  /* [2026-10-18] 原来只给 scroll-view 一个 max-height（没有确定高度、也没有 overflow），
+     实测 6 商品/5 条实际押金时滚动内容会画到盒外、压住下面固定的「合计」footer，
+     且抽屉滚到边界后页面背景跟着滚。竖向 scroll-view 需要确定高度才能真正建立滚动容器 ——
+     这里改用本页**已验收可滚动**的同一写法（.asset-warning .asset-scroll：flex:1 + min-height:0 +
+     overflow-y:auto），不再用 max-height 兜。只改滚动边界，不动尺寸口径与任何金额。 */
+  overflow-y: auto;
 }
 
 /* [2026-10-14] 将末行留白放入实际滚动内容，避免宿主内边距与 scroll-view 的滚动边界分离。 */

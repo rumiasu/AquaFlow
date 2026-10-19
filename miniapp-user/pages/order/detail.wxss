@@ -42,12 +42,16 @@
 
 .pay-badge.success {
   background: rgba(5, 150, 105, 0.08);
-  color: var(--success-color);
+  /* 原用 --success-color(#2E9E6B) 叠在本底色上实测仅 3.08:1，低于文字 4.5:1（G04 customer-order 支付状态）；
+     改深色后 7.00:1。别改回 --success-color。 */
+  color: #065F46;
 }
 
 .pay-badge.warning {
   background: rgba(217, 119, 6, 0.08);
-  color: var(--warning-color);
+  /* 原用 --warning-color(#C9764B) 叠在本底色上实测仅 3.12:1，低于文字 4.5:1（G04 customer-order 支付状态）；
+     改深色后 6.51:1。别改回 --warning-color。 */
+  color: #92400E;
 }
 
 .pay-badge.default {

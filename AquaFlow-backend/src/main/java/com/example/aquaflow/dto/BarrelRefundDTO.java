@@ -47,6 +47,12 @@ public class BarrelRefundDTO {
     /** 把押金交到顾客手上的人（staff.id）；不传 = 操作人自己 */
     private Long refundPaidBy;
 
+    /** 现金交付登记（含补同步）须明确 true；未交付不能据未知结果登记交付，旧客户端兼容不传。 */
+    private Boolean cashDeliveryConfirmed;
+
+    /** 核对已实际交付的现金金额；只作一致性守卫，不能覆盖服务端核销金额。 */
+    private java.math.BigDecimal expectedRefundAmount;
+
     /**
      * 通道取值 <b>白名单</b>（AGENTS §6：请求体的枚举入参必须白名单校验，注解边界会被新调用路径绕过）。
      *

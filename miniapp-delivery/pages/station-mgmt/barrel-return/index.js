@@ -2,13 +2,15 @@ const { updateBarrelRecordStatus, markRefundPaid, getRefundUndelivered, approveB
 const businessRules = require('../../../api/business-rules')
 const { getPendingReturnRecord, syncPendingReminder } = require('../../../utils/pending-reminder')
 const { positiveId, readPage } = require('../../../utils/business-history-page')
+const refundRecovery = require('../../../utils/barrel-refund-recovery')
 
 // 资格只是交款前的只读快照，现有退款写接口仍核对原渠道、状态和账目。
 const CHANNEL_CASH = 'CASH'
 const CHANNEL_ONLINE = 'ONLINE'
 function session() {
   const app = getApp(), data = app.globalData || {}, user = data.userInfo || {}
-  return { app, generation: app._loginGeneration || 0, identity: JSON.stringify([!!data.isLogin, user.staffId, user.role, user.stationId, user.bindStatus]) }
+  return { app, generation: app._loginGeneration || 0, identity: JSON.stringify([!!data.isLogin, user.staffId, user.role, user.stationId, user.bindStatus]),
+    actor: String(user.stationId) + ':' + String(user.staffId) }
 }
 function sameSession(before) {
   const now = session()
@@ -18,7 +20,7 @@ function money(value) { const n = Number(value); return Number.isFinite(n) ? n.t
 function eventId(e) { return e && e.currentTarget && e.currentTarget.dataset.id }
 function sameId(a, b) { return a != null && b != null && String(a) === String(b) }
 function checked(res, fallback) {
-  if (!res || res.code !== 0) throw new Error(res && res.message || fallback)
+  if (!res || res.code !== 0) throw Object.assign(new Error(res && res.message || fallback), { businessRejected: !!res && res.code === 1 })
   return res.data
 }
 
@@ -28,7 +30,7 @@ Page({
     scope: 'ACTIVE', nextBeforeId: null, recordSearch: '', searchError: '', moreError: '',
     selectedId: null, selected: null, sheetOpen: false, showMore: false,
     eligibility: null, eligibilityLoading: false, eligibilityError: '',
-    actionBusy: false, actionError: '', recoveryNeeded: false,
+    actionBusy: false, actionError: '', recoveryNeeded: false, refundRecoveryNeeded: false,
     undelivered: [], undeliveredCount: 0, undeliveredAmount: '0', undeliveredExpanded: false, undeliveredError: ''
   },
 
@@ -43,6 +45,7 @@ Page({
     const current = session()
     if (this._session && !sameSession(this._session)) this.clearSession()
     this._session = current
+    if (!this.restoreRefundRecovery()) return
     const pending = this._pendingAction
     this.loadUndelivered()
     if (pending && pending.phase === 'write') return
@@ -55,6 +58,11 @@ Page({
     this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
     this._undeliveredSeq = (this._undeliveredSeq || 0) + 1
     // 原生弹窗被 hide 打断时不能在返回后继续交款；已发出的写请求必须核对原结果。
+    if (this._action && this._action.phase === 'modal' && this._action.refundRecovery && !this._action.reconciling) {
+      try { refundRecovery.clear(this._action.refundRecovery); this._action.refundRecovery = null }
+      catch (err) { if (!err.staleRecovery) { this._action.phase = 'recovery'; this._action.writeRejected = true; this._pendingAction = this._action; this.setData({ recoveryNeeded: true }) } }
+    }
+    if (this._action && this._action.phase === 'modal' && this._action.reconciling) this._action.phase = 'recovery'
     if (this._action && this._action.phase !== 'write') this.releaseAction(this._action)
     this.setData({ showMore: false, eligibilityLoading: false })
   },
@@ -64,10 +72,26 @@ Page({
     this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
     this._undeliveredSeq = (this._undeliveredSeq || 0) + 1
     this._action = null; this._pendingAction = null; this._recordsSession = null
-    this.setData({ list: [], selected: null, selectedId: null, sheetOpen: false, eligibility: null, actionBusy: false, recoveryNeeded: false, recordsReady: false, undelivered: [], undeliveredCount: 0,
+    this.setData({ list: [], selected: null, selectedId: null, sheetOpen: false, eligibility: null, actionBusy: false, recoveryNeeded: false, refundRecoveryNeeded: false, recordsReady: false, undelivered: [], undeliveredCount: 0,
       recordId: null, recordSearch: '', nextBeforeId: null, scope: 'ACTIVE', loading: false, loadError: '', moreError: '', searchError: '' })
   },
   validRead(seq, field, snapshot) { return seq === this[field] && !this._hidden && !this._unloaded && sameSession(snapshot) },
+
+  restoreRefundRecovery() {
+    if (this._pendingAction) return true
+    try {
+      const snapshot = session(), receipt = refundRecovery.pending(snapshot.actor)
+      if (receipt) {
+        this._pendingAction = { id: receipt.recordId, kind: 'refund', snapshot, phase: 'recovery', refundRecovery: receipt,
+          writeRejected: receipt.writeRejected === true, writeError: receipt.writeRejected === true ? '上次退款请求已明确拒绝' : '' }
+        this.setData({ selectedId: receipt.recordId, sheetOpen: true, recoveryNeeded: true, refundRecoveryNeeded: true, eligibility: null })
+      } else this.setData({ recoveryNeeded: false, refundRecoveryNeeded: false })
+      return true
+    } catch (_) {
+      this.setData({ recordsReady: false, recoveryNeeded: true, loadError: '上次退款记录未能核对，请重试；勿再次交款' })
+      return false
+    }
+  },
 
   decorateRecord(item) {
     const d = item.returnDetail, over = Number(item.owedBuckets) || 0
@@ -154,6 +178,8 @@ Page({
     return this.loadData(true)
   },
   async loadData(more = false) {
+    if (!this.restoreRefundRecovery()) return false
+    if (this._pendingAction) return this._pendingAction.phase === 'write' ? false : this.recoverAction(this._pendingAction)
     const snapshot = session(), seq = this._recordsSeq = (this._recordsSeq || 0) + 1
     const recordId = this.data.recordId, request = { scope: this.data.scope }
     if (more) request.beforeId = this.data.nextBeforeId
@@ -198,6 +224,10 @@ Page({
   onRetryUndelivered() { return this.loadUndelivered() },
   onSelectRecord(e) {
     if (this.data.actionBusy) return
+    if (this._pendingAction) {
+      if (sameId(eventId(e), this._pendingAction.id)) { this.setData({ selectedId: this._pendingAction.id, sheetOpen: true }); this.refreshSelected() }
+      return
+    }
     const item = this.data.list.find(r => sameId(r.id, eventId(e)))
     if (!item || !item.isReturn) return
     this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
@@ -213,6 +243,7 @@ Page({
   noop() {},
   onMore() { if (!this.data.actionBusy) this.setData({ showMore: !this.data.showMore }) },
   async loadEligibility(id, action) {
+    if (this._pendingAction || this.data.recoveryNeeded) return null
     const snapshot = session(), seq = this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
     this.setData({ eligibility: null, eligibilityLoading: true, eligibilityError: '' }); this.refreshSelected()
     try {
@@ -232,7 +263,7 @@ Page({
   },
   onRetryEligibility() { if (!this.data.actionBusy && this.data.selected) return this.loadEligibility(this.data.selected.id) },
   beginAction(id, kind, historical) {
-    if (this._action || this._pendingAction || this._hidden || this._unloaded || !this.data.recordsReady || this.data.loading || !sameSession(this._recordsSession)) return null
+    if (this._action || this._pendingAction || this.data.recoveryNeeded || this._hidden || this._unloaded || !this.data.recordsReady || this.data.loading || !sameSession(this._recordsSession)) return null
     const record = historical ? this.data.undelivered.find(r => sameId(r.id, id)) : this.data.list.find(r => sameId(r.id, id))
     if (!record || record.type !== 2) return null
     const action = { id: record.id, kind, record, snapshot: session(), phase: 'modal' }
@@ -348,17 +379,86 @@ Page({
         this.setData({ actionError: eligibility.reason || '退款资格待核实，请勿交付退款' }); return
       }
       const cash = eligibility.channel === CHANNEL_CASH, zero = Number(eligibility.refundAmount) === 0
+      // 必须在提示交款前保存；保存失败不能让员工先交现金再发现无法保留未知结果。
+      try { action.refundRecovery = refundRecovery.prepare(action.snapshot.actor, action.id, eligibility) }
+      catch (_) {
+        this.setData({ actionError: '退款核对记录未能保存，请勿交款并重试' })
+        this.restoreRefundRecovery(); this.releaseAction(action); return
+      }
       const result = await this.modal(action, { title: zero ? '登记零额退还结果' : cash ? '退押金并登记现金交付' : '按线上原渠道退款', content: zero ? '本申请核对金额为 ¥0.00，无需实际支付现金。确认后登记本申请的零额退还结果。' : cash ? '原款已核对为现金办理，应退 ¥' + money(eligibility.refundAmount) + '。请确认已实际把本笔押金交给客户，再登记；已交过的请勿重复交款。' : '将按本申请原线上收款方式退回 ¥' + money(eligibility.refundAmount) + '，以实际办理结果为准。', confirmText: zero ? '确认登记' : cash ? '已交付' : '确认退款' })
       if (!result) return
+      if (cash) action.cashDeliveryConfirmed = true
       return await this.submitRefund(action.id, eligibility.channel, action)
-    } finally { if (!this._pendingAction) this.releaseAction(action) }
+    } finally {
+      if (action.phase === 'modal' && action.refundRecovery) {
+        try { refundRecovery.clear(action.refundRecovery) }
+        catch (err) {
+          if (!err.staleRecovery && !this._unloaded && sameSession(action.snapshot)) {
+            action.phase = 'recovery'; action.writeRejected = true; this._pendingAction = action
+            this.setData({ recoveryNeeded: true, actionError: '未提交交付登记，请重新核对原申请，勿重复交款' })
+          }
+        }
+      }
+      if (!this._pendingAction) this.releaseAction(action)
+    }
   },
   async submitRefund(id, channel, action) {
     // 只能承接本页已核对原款的锁内动作，禁止绕过确认直接再发金融写请求。
     if (!action || !this.actionCurrent(action) || !sameId(action.id, id)) return
     const eligibility = this.data.eligibility
     if (!eligibility || !sameId(eligibility.recordId, id) || !eligibility.available || eligibility.channel !== channel) return
-    return this.performAction(action, () => updateBarrelRecordStatus(id, 3, { refundChannel: channel }))
+    if (channel === CHANNEL_CASH && !action.cashDeliveryConfirmed) return
+    const extra = channel === CHANNEL_CASH
+      ? { refundChannel: channel, cashDeliveryConfirmed: true, expectedRefundAmount: Number(eligibility.refundAmount) }
+      : { refundChannel: channel }
+    return this.performAction(action, () => updateBarrelRecordStatus(id, 3, extra))
+  },
+  async onReconcileCash() {
+    const action = this._pendingAction
+    if (!action || action.kind !== 'refund' || action.phase === 'write' || this._action || this.data.actionBusy
+        || this.data.loading || !this.data.recordsReady || this._hidden || this._unloaded || !sameSession(action.snapshot)) return
+    this._action = action; action.phase = 'modal'; action.reconciling = true
+    this.setData({ actionBusy: true, actionError: '' })
+    try {
+      const record = checked(await getPendingReturnRecord(action.id), '原申请未能核对')
+      if (!this.actionCurrent(action) || this._pendingAction !== action) return
+      if (!record || !sameId(record.id, action.id) || !sameId(record.stationId, getApp().globalData.userInfo.stationId) || record.type !== 2) throw new Error('原申请未能核对')
+      const d = record.returnDetail
+      if (record.refundPaidTime || d && ['REFUNDED', 'REJECTED', 'WITHDRAWN'].includes(d.status) || !d && record.status === 4) {
+        action.phase = 'recovery'; return await this.recoverAction(action)
+      }
+      if (!this.decorateRecord(record).needsRefund) throw new Error('本申请尚未具备原退款办理条件，请核对原结果')
+      const receipt = refundRecovery.pending(action.snapshot.actor)
+      if (!receipt || !sameId(receipt.recordId, action.id)) throw new Error('原办理记录未能核对，请查原结果')
+      if (receipt.writeRejected && receipt.channel === CHANNEL_ONLINE) { action.phase = 'recovery'; return await this.recoverAction(action) }
+      const eligibility = checked(await getBarrelRefundEligibility(action.id), '原款未能核对')
+      if (!this.actionCurrent(action) || this._pendingAction !== action) return
+      const amount = eligibility && Number(eligibility.refundAmount)
+      if (!eligibility || !sameId(eligibility.recordId, action.id) || eligibility.available !== true
+          || (d ? eligibility.detailStatus !== d.status : eligibility.recordStatus !== record.status)
+          || eligibility.refundAmount == null || !Number.isFinite(amount) || amount < 0 || Number(amount.toFixed(2)) !== amount) throw new Error('原申请或退款金额未能核对，请查原结果')
+      if (eligibility.channel !== CHANNEL_CASH || receipt.channel && receipt.channel !== CHANNEL_CASH) throw new Error('只能核实原现金交付；线上原渠道请继续核对原结果，不能改交现金或重复退款')
+      if (receipt.amount != null && Number(receipt.amount) !== amount) throw new Error('原交付金额与当前核对不一致，请核实实际款项；勿重复交款')
+      const zero = amount === 0
+      const result = await this.modal(action, { title: zero ? '补同步零额登记' : '仅同步现金交付',
+        content: zero ? '原申请 #' + action.id + ' 金额为 ¥0.00，无需实际交款。本次只同步同一申请的零额退还登记。'
+          : '原申请 #' + action.id + '，¥' + money(amount) + '。请核实这笔现金已经实际交给客户；本次只补同步原登记，不再次交款。尚未交付请选择“未交付”，不会登记为已交付。',
+        confirmText: zero ? '确认登记' : '只补登记', cancelText: zero ? '暂不办理' : '未交付' })
+      if (!result) {
+        if (this.actionCurrent(action)) this.setData({ actionError: '未确认已交付，本次没有提交交付登记。请核实实际款项；实际交付后再同步同一申请，勿重复交款。' })
+        return
+      }
+      // 2026-10-17：仅由人工确认恢复原现金登记；服务器仍以原状态锁/CAS串行，并核对锁内实额。
+      action.refundRecovery = refundRecovery.retry(receipt, eligibility)
+      action.writeRejected = false; action.writeSucceeded = false; action.writeError = ''
+      return await this.performAction(action, () => updateBarrelRecordStatus(action.id, 3,
+        { refundChannel: CHANNEL_CASH, cashDeliveryConfirmed: true, expectedRefundAmount: amount }))
+    } catch (err) {
+      if (this.actionCurrent(action)) this.setData({ actionError: err.message || '原办理结果未能核对，请勿再次交款' })
+    } finally {
+      if (action.phase === 'modal') action.phase = 'recovery'
+      delete action.reconciling; this.releaseAction(action)
+    }
   },
   async onReject(e) {
     const action = this.beginAction(eventId(e), 'reject')
@@ -383,11 +483,19 @@ Page({
   async performAction(action, write) {
     if (!this.actionCurrent(action) || action.phase === 'write') return
     action.phase = 'write'; this._pendingAction = action
-    this.setData({ eligibility: null, recoveryNeeded: true })
+    const receipt = action.refundRecovery
+    this.setData({ eligibility: null, recoveryNeeded: true, refundRecoveryNeeded: action.kind === 'refund' })
     try {
       checked(await write(), '办理结果未能确认')
       action.writeSucceeded = true
-    } catch (err) { action.writeError = err && err.message || '办理结果未能确认' }
+    } catch (err) {
+      action.writeError = err && err.message || '办理结果未能确认'
+      action.writeRejected = !!(err && err.businessRejected)
+      if (action.writeRejected && receipt) {
+        try { action.refundRecovery = refundRecovery.rejected(receipt) }
+        catch (_) { /* 保存失败仍保留原未知记录，不能伪造已清理或由计时解除等待。 */ }
+      }
+    }
     action.phase = 'recovery'
     if (!sameSession(action.snapshot) || this._unloaded) { this._pendingAction = null; this.releaseAction(action); return }
     if (this._hidden) return
@@ -401,6 +509,15 @@ Page({
       const record = checked(await getPendingReturnRecord(action.id), '原申请结果未能核对')
       if (this._hidden || this._unloaded || !sameSession(action.snapshot) || this._pendingAction !== action) return false
       if (!record || !sameId(record.id, action.id) || record.type !== 2) throw new Error('原申请结果未能核对')
+      if (action.refundRecovery) {
+        // 离开的原页可能在本页恢复后才收到明确拒绝，重查时须合并该事实。
+        const receipt = refundRecovery.pending(action.refundRecovery.actor)
+        if (receipt && !sameId(receipt.recordId, action.id)) throw new Error('上次退款记录已变化，请核对原申请')
+        if (receipt && !refundRecovery.sameAttempt(receipt, action.refundRecovery)) {
+          action.refundRecovery = receipt; action.writeRejected = false; action.writeSucceeded = false; action.writeError = ''
+        }
+        if (receipt && receipt.writeRejected === true) action.writeRejected = true
+      }
       const list = this.data.list.filter(r => !sameId(r.id, record.id)); list.unshift(this.decorateRecord(record))
       const d = record.returnDetail
       const completed = action.kind === 'refund' ? !!record.refundPaidTime || d && d.status === 'REFUNDED'
@@ -410,14 +527,24 @@ Page({
               : action.kind === 'feeRefund' ? d && d.feePaymentStatus === 3
                 : action.kind === 'reject' ? record.status === 4 || d && d.status === 'REJECTED'
                   : !!record.refundPaidTime
-      this._pendingAction = null; this._recordsSession = action.snapshot
-      this.setData({ list, recordsReady: true, loading: false, actionBusy: false, recoveryNeeded: false, loadError: '',
-        actionError: completed ? '' : (action.writeError || '原申请尚未显示办理结果') + '；已重新核对原申请。涉及交款请核实实际交付，勿重复交款。' })
+      // 2026-10-17：原先把一次成功 GET 当作写请求已结束，锁等待中的旧 RECEIVED
+      // 会重新开放现金交付。未见最终结果且未获明确业务拒绝时，只能继续查询原编号。
+      // 2026-10-17：合法历史驳回也能终结原请求；解除恢复等待不能提示成已退钱。
+      const endedWithoutRefund = action.kind === 'refund' && !completed && (d ? ['REJECTED', 'WITHDRAWN'].includes(d.status) : record.status === 4)
+      // 2026-10-17：拒绝登记不等于现金未交付，必须保留原现金上下文，后续只能核实并补同步。
+      const cashContext = action.refundRecovery && action.refundRecovery.channel !== CHANNEL_ONLINE
+      const waiting = action.kind === 'refund' && !completed && !endedWithoutRefund && (!action.writeRejected || cashContext)
+      if (!waiting && action.refundRecovery) refundRecovery.clear(action.refundRecovery)
+      this._pendingAction = waiting ? action : null; this._recordsSession = action.snapshot
+      this.setData({ list, recordsReady: true, loading: false, actionBusy: false, recoveryNeeded: waiting, refundRecoveryNeeded: waiting, loadError: '',
+        actionError: completed ? '' : endedWithoutRefund ? '原申请已结束，但未确认退款交付。请核实实际钱款，勿再次交款。' : (action.writeError || '原申请尚未显示办理结果') + (waiting
+          ? cashContext && action.writeRejected ? '；原交付登记尚未完成，请核实实际现金，仅同步原登记，勿再次交款。' : '；原申请仍待核对，请继续查询原结果，勿重复交款或办理。'
+          : '；已重新核对原申请。涉及交款请核实实际交付，勿重复交款。') })
       this.releaseAction(action); this.refreshSelected()
       if (completed) wx.showToast({ title: '已核对办理结果', icon: 'success' })
       this.loadUndelivered()
-      if (action.kind === 'refund' && completed) syncPendingReminder()
-      if (this.data.selected && this.data.selected.needsRefund) this.loadEligibility(this.data.selected.id)
+      if (action.kind === 'refund' && (completed || endedWithoutRefund)) syncPendingReminder()
+      if (!waiting && this.data.selected && this.data.selected.needsRefund) this.loadEligibility(this.data.selected.id)
       return true
     } catch (err) {
       if (!this._hidden && !this._unloaded && sameSession(action.snapshot) && this._pendingAction === action) {

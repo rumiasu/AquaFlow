@@ -377,7 +377,7 @@
 | `GET` | `/api/barrels/all-records` | {"STATION_MANAGER"} | `BarrelController.getAllRecords` |
 | `GET` | `/api/barrels/records` | {"STATION_MANAGER"} | `BarrelController.listRecords` |
 | `GET` | `/api/barrels/records/{id}/refund-eligibility` | "STATION_MANAGER" | `BarrelController.refundEligibility` —— 归属站交款前只读核对原款、可退金额和渠道；不执行退款，办理时仍重新校验 |
-| `PUT` | `/api/barrels/records/{id}/status` | "STATION_MANAGER" | `BarrelController.handleReturn`（`status=3` 时**必须**带 `refundChannel`：`CASH` 当面交付 / `ONLINE` 原路退回；微信退款通道未接入 ⇒ `ONLINE` 明确拒绝，不假装已退） |
+| `PUT` | `/api/barrels/records/{id}/status` | "STATION_MANAGER" | `BarrelController.handleReturn`（`status=3`：`CASH` 当面交付 / `ONLINE` 原路退回；现金未知结果仅补同步时同时带 `cashDeliveryConfirmed=true` 与 `expectedRefundAmount`，金额仅作事务内一致性守卫，不能覆盖核销金额；未交付拒绝。原普通调用兼容不传新增字段。微信退款通道未接入 ⇒ `ONLINE` 明确拒绝，不假装已退） |
 | `PUT` | `/api/barrels/records/{id}/refund-paid` | "STATION_MANAGER" | `BarrelController.markRefundPaid` —— 「押金已交顾客」**幂等**确认（重复调用不改原交付时间，只补事实，不动金额与状态） |
 | `GET` | `/api/barrels/refund-undelivered` | "STATION_MANAGER" | `BarrelController.refundUndelivered` —— 「已核销未交付」**违规数据**只读清单（口径：`type=2 且 status=3 且 refund_paid_time IS NULL`） |
 | `POST` | `/api/barrels/return` | {"STATION_MANAGER"} | `BarrelController.requestReturn` |

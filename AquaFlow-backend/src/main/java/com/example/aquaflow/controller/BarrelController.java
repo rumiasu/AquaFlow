@@ -207,8 +207,18 @@ public class BarrelController {
         // 站别取登录态传入，文案「退桶记录不存在 / 无权处理他站退桶申请」一字未变
         Long operatorId = AuthContext.getUserId();
         try {
-            barrelService.handleBarrelReturn(id, stationId, status, handleNote, operatorId,
-                    dto.getRefundChannel(), dto.getRefundPaidBy());
+            if (dto.getCashDeliveryConfirmed() != null || dto.getExpectedRefundAmount() != null) {
+                if (!Integer.valueOf(3).equals(status) || !Boolean.TRUE.equals(dto.getCashDeliveryConfirmed())
+                        || dto.getExpectedRefundAmount() == null
+                        || !BarrelRefundDTO.CHANNEL_CASH.equals(BarrelRefundDTO.normalizeChannel(dto.getRefundChannel()))) {
+                    return Result.error("请先核实本申请的现金已实际交付及金额；未交付不能补登记");
+                }
+                barrelService.handleBarrelReturn(id, stationId, status, handleNote, operatorId,
+                        dto.getRefundChannel(), dto.getRefundPaidBy(), dto.getExpectedRefundAmount());
+            } else {
+                barrelService.handleBarrelReturn(id, stationId, status, handleNote, operatorId,
+                        dto.getRefundChannel(), dto.getRefundPaidBy());
+            }
         } catch (RuntimeException e) {
             return Result.error(e.getMessage());
         }

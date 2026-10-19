@@ -630,8 +630,21 @@ public class BarrelServiceImpl implements BarrelService {
     @Transactional
     public void handleBarrelReturn(Long id, Long stationId, Integer status, String handleNote, Long operatorId,
                                    String refundChannel, Long refundPaidBy) {
+        handleBarrelReturn(id, stationId, status, handleNote, operatorId, refundChannel, refundPaidBy, null);
+    }
+
+    /** 补同步只确认已经交付的原现金，金额不符整笔回滚，不另造退款入口。 */
+    @Override
+    @Transactional
+    public void handleBarrelReturn(Long id, Long stationId, Integer status, String handleNote, Long operatorId,
+                                   String refundChannel, Long refundPaidBy, BigDecimal expectedRefundAmount) {
+        if (expectedRefundAmount != null && (!Integer.valueOf(3).equals(status)
+                || !BarrelRefundDTO.CHANNEL_CASH.equals(BarrelRefundDTO.normalizeChannel(refundChannel))
+                || expectedRefundAmount.signum() < 0 || expectedRefundAmount.stripTrailingZeros().scale() > 2)) {
+            throw new BusinessException("请核对本申请已交付的现金金额，不能改变原退款方式");
+        }
         if (approvedReturnService.detail(id) != null) {
-            approvedReturnService.handle(id,stationId,status,handleNote,operatorId,refundChannel,refundPaidBy);
+            approvedReturnService.handle(id,stationId,status,handleNote,operatorId,refundChannel,refundPaidBy,expectedRefundAmount);
             return;
         }
         BarrelRecord record = barrelRecordMapper.getById(id);
@@ -675,7 +688,7 @@ public class BarrelServiceImpl implements BarrelService {
             if (cur != 2) {
                 throw new BusinessException("请先确认已收到空桶，再退押金（当前：" + record.getStatusText() + "）");
             }
-            doRefund(record, handleNote, operatorId, refundChannel, refundPaidBy);
+            doRefund(record, handleNote, operatorId, refundChannel, refundPaidBy, expectedRefundAmount);
             return;
         }
 
@@ -747,7 +760,7 @@ public class BarrelServiceImpl implements BarrelService {
      * 一挪，对账等式 1（{@code balance == SUM(deposit_record.amount)}）会在中间态不平。</p>
      */
     private void doRefund(BarrelRecord record, String handleNote, Long operatorId,
-                          String refundChannel, Long refundPaidBy) {
+                          String refundChannel, Long refundPaidBy, BigDecimal expectedRefundAmount) {
         Long cid = record.getCustomerId();
         Long sid = record.getStationId();
         Long pid = record.getProductId();
@@ -789,6 +802,10 @@ public class BarrelServiceImpl implements BarrelService {
         BarrelLedgerService.LotConsumption consumption =
                 barrelLedgerService.consumeLots(cid, sid, pid, returnQty, null, false);
         BigDecimal refund = consumption.getAmount();
+        // 2026-10-17：补同步不能按变化后的批次金额登记已交现金；比较失败须由外层事务回滚核销。
+        if (expectedRefundAmount != null && refund.compareTo(expectedRefundAmount) != 0) {
+            throw new BusinessException("本申请押金金额已变化，请核实原交付款项；本次未登记，勿重复交款");
+        }
 
         // 2) 同步权益汇总（数量与派生金额一起减）
         barrelLedgerService.decreaseRight(cid, sid, pid, returnQty, refund);

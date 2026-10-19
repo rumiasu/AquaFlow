@@ -9,8 +9,8 @@
 .record-card { background: var(--bg-card); border-radius: 16rpx; padding: 24rpx; margin-bottom: 16rpx; }
 .record-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8rpx; }
 .record-customer { font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
-.record-time { font-size: 22rpx; color: var(--text-secondary); }
-.record-address { font-size: 24rpx; color: var(--text-secondary); margin-bottom: 8rpx; }
+.record-time { font-size: 24rpx; color: var(--text-regular); }
+.record-address { font-size: 24rpx; color: var(--text-regular); margin-bottom: 8rpx; }
 .record-meta { display: flex; align-items: center; gap: 12rpx; font-size: 24rpx; color: var(--text-regular); flex-wrap: wrap; }
 .meta-divider { color: var(--border-color); }
 .record-bottom { margin-top: 12rpx; display: flex; flex-direction: column; gap: 6rpx; }

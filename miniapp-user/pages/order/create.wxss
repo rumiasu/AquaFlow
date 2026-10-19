@@ -1268,7 +1268,9 @@
   align-items: center;
   justify-content: center;
   font-size: 32rpx;
-  color: var(--text-secondary);
+  /* 关闭字形 ✕ 是文本（<text>），白底需 ≥4.5:1：--text-secondary(#A39E92) 仅 2.67:1，
+     曾因此被 CM-16/CM-17 判低对比缺陷。别改回 --text-secondary。 */
+  color: var(--text-regular);
 }
 
 .detail-sheet-body {

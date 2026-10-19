@@ -83,7 +83,8 @@
 .bind-dot.bind-UNBOUND { background: var(--text-placeholder); }
 
 .bind-text {
-  font-size: 24rpx;
+  /* 24rpx=12px 低于原关键文本≥14逻辑px（G04-roles-stations 绑定前提）；别改回 24rpx。 */
+  font-size: 28rpx;
   color: rgba(255, 255, 255, 0.92);
 }
 
@@ -161,11 +162,13 @@
 .bind-info-line.bind-info-none { background: var(--bg-gray); }
 
 .bind-info-label {
-  font-size: 26rpx;
+  /* 26rpx=13px 低于原关键文本≥14逻辑px（G04-roles-stations 当前查看站/下单站）；别改回 26rpx。 */
+  font-size: 28rpx;
   color: var(--text-regular);
 }
 .bind-info-value {
-  font-size: 26rpx;
+  /* 同上：当前站名为原关键字段，须≥14逻辑px。 */
+  font-size: 28rpx;
   font-weight: 600;
   color: var(--primary-color);
 }

@@ -4,6 +4,8 @@
     <text class="page-title">退桶审批</text>
     <text class="page-caption">批准安排、实际交接、退款交付分别核对</text>
     <text class="source-hint" wx:if="{{recordId}}">原申请 #{{recordId}}</text>
+    <!-- 2026-10-19 M03：清单页也就近显示真实角色与办理站，经理一眼分辨「谁在办、办哪个站」 -->
+    <text class="page-scope" wx:if="{{operatorScopeText}}">{{operatorScopeText}} · 办理站 #{{scopeStationId}}</text>
   </view>
   <view class="read-state">
     <button class="secondary-button" size="mini" data-scope="ACTIVE" bindtap="onScopeChange" disabled="{{actionBusy}}">未结申请{{scope === 'ACTIVE' && !recordId ? ' · 当前' : ''}}</button>

@@ -27,6 +27,7 @@ Page({
     list: [], recordId: null, loading: false, recordsReady: false, loadError: '',
     scope: 'ACTIVE', nextBeforeId: null, recordSearch: '', searchError: '', moreError: '',
     selectedId: null, selected: null, sheetOpen: false, showMore: false,
+    operatorScopeText: '',
     eligibility: null, eligibilityLoading: false, eligibilityError: '',
     actionBusy: false, actionError: '', recoveryNeeded: false,
     undelivered: [], undeliveredCount: 0, undeliveredAmount: '0', undeliveredExpanded: false, undeliveredError: ''
@@ -43,6 +44,10 @@ Page({
     const current = session()
     if (this._session && !sameSession(this._session)) this.clearSession()
     this._session = current
+    // 2026-10-19 M03：办理弹层要就近显示**真实角色**（来自登录态，不是写死文案），
+    // 与申请归属/当前站一起让经理一眼分辨「谁在办、办哪个站的哪条申请」。
+    const u = (app.globalData || {}).userInfo || {}
+    this.setData({ operatorScopeText: u.role === 'STATION_MANAGER' ? '站长办理' : (u.role === 'DELIVERY' ? '配送员查看' : '') })
     const pending = this._pendingAction
     this.loadUndelivered()
     if (pending && pending.phase === 'write') return

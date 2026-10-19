@@ -57,6 +57,8 @@
   <view class="approval-sheet" catchtap="noop">
     <view class="sheet-grip"></view>
     <view class="sheet-heading"><view class="flex-text"><text class="sheet-title">办理退还申请</text><text class="record-number">#{{selected.id}} · {{selected.returnDetail ? '申请制退还' : '历史申请'}}</text></view><button class="close-button" bindtap="onCloseSheet" disabled="{{actionBusy}}" aria-label="关闭办理详情">×</button></view>
+    <!-- 2026-10-19 M03：就近显示真实角色与办理站，经理一眼分辨「谁在办、办哪个站的哪条申请」 -->
+    <view class="sheet-scope" wx:if="{{operatorScopeText}}"><text>{{operatorScopeText}} · 办理站 #{{selected.stationId}}</text></view>
     <scroll-view class="sheet-content" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
       <view class="sheet-summary">
         <view class="card-header"><text class="customer-name flex-text">{{selected.customerText}}</text><text class="status {{selected.statusTone}}">{{selected.statusText || '状态待核实'}}</text></view>

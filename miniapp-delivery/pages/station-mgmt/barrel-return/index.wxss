@@ -42,6 +42,8 @@
 .approval-sheet { width: 100%; max-height: 92vh; display: flex; flex-direction: column; box-sizing: border-box; border-radius: 32rpx 32rpx 0 0; padding-top: 16rpx; background: var(--bg-card); box-shadow: 0 -10rpx 50rpx rgba(25,34,44,.1); }
 .sheet-grip { height: 8rpx; width: 64rpx; border-radius: 8rpx; margin: 0 auto 18rpx; background: var(--border-color); flex-shrink: 0; }
 .sheet-heading { padding: 0 30rpx 22rpx; flex-shrink: 0; }
+/* 2026-10-19 M03：就近显示真实角色与办理站，经理一眼分辨「谁在办、办哪个站的哪条申请」。 */
+.sheet-scope { padding: 0 30rpx 14rpx; font-size: 24rpx; color: var(--text-regular); }
 .sheet-title { font-size: 32rpx; font-weight: 600; color: var(--text-primary); }
 .close-button { flex-shrink: 0; padding: 0; margin: 0; width: 76rpx; height: 76rpx; border-radius: 50%; font-size: 44rpx; line-height: 72rpx; color: var(--text-secondary); background: var(--bg-gray); }
 .sheet-content { flex: 1; min-height: 0; height: 48vh; box-sizing: border-box; padding: 0 30rpx; overflow: hidden; }

@@ -36,7 +36,8 @@
   display: inline-block;
   padding: 2rpx 12rpx;
   border-radius: 6rpx;
-  font-size: 24rpx;
+  /* 24rpx=12px 低于「关键字≥14逻辑px」：支付结果为原关键字段（G04 customer-order）；别改回 24rpx。 */
+  font-size: 28rpx;
   font-weight: 500;
 }
 
@@ -243,7 +244,8 @@
 }
 
 .item-spec {
-  font-size: 24rpx;
+  /* 24rpx=12px 低于「关键字≥14逻辑px」：商品规格属原关键「商品」（G04 customer-order）；别改回 24rpx。 */
+  font-size: 28rpx;
   color: var(--text-regular);
   display: block;
   margin-top: 4rpx;
@@ -262,7 +264,8 @@
 }
 
 .item-qty {
-  font-size: 24rpx;
+  /* 24rpx=12px 低于「关键字≥14逻辑px」：数量属原关键「商品与数量」（G04 customer-order）；别改回 24rpx。 */
+  font-size: 28rpx;
   color: var(--text-regular);
   display: block;
   margin-top: 4rpx;

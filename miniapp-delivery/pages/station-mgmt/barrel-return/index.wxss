@@ -16,7 +16,7 @@
 .customer-name { display: block; font-size: 29rpx; color: var(--text-primary); font-weight: 600; line-height: 1.45; word-break: break-all; }
 .record-number { display: block; color: var(--text-regular); font-size: 28rpx; margin-top: 6rpx; line-height: 1.5; }
 .status { flex-shrink: 0; max-width: 42%; padding: 8rpx 14rpx; box-sizing: border-box; border-radius: 10rpx; font-size: 28rpx; line-height: 1.5; white-space: normal; word-break: break-all; }
-.status.warning { color: var(--warning-color); background: var(--warning-bg); }
+.status.warning { color: #92400E; background: var(--warning-bg); }
 .status.success { color: var(--success-color); background: var(--success-bg); }
 .status.neutral { color: var(--text-regular); background: var(--bg-gray); }
 .product-name { display: block; margin: 24rpx 0 18rpx; font-size: 27rpx; color: var(--text-primary); line-height: 1.6; word-break: break-all; }

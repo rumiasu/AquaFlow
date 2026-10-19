@@ -8,7 +8,9 @@
  */
 
 const assert = require('assert')
-const { loadPage, createWx, createApp, armWatchdog } = require('./harness')
+const fs = require('fs'), path = require('path')
+const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
+const { parseWxml, renderElements } = require('./wxml-tree')
 
 // 完成哨兵：**只用 ASCII**。受限沙箱下子进程往文件描述符写中文会被编码毁成 `?`，
 // 于是中文完成标记匹配不到、正常套件被误判成"未跑完"（2026-09-27 实测）。
@@ -35,11 +37,13 @@ function newPage(order, opts) {
     'api/delivery': {
       getOrderDetail: async (id) => {
         calls.getOrderDetail.push(id)
+        if (o.readOrder) return o.readOrder(id, calls.getOrderDetail.length)
         return { code: 0, data: order }
       },
       completeOrder: async (id, body) => {
         calls.completeOrder.push({ id, body })
         if (o.completeThrow) throw new Error(o.completeThrow)
+        if (o.completeWait) await o.completeWait
         return { code: 0, data: {} }
       }
     },
@@ -50,6 +54,23 @@ function newPage(order, opts) {
   // onLoad 平时负责把订单号与来源写进 data；流程测试直接调处理函数，所以这里补上
   page.setData({ orderId: order.id, from: 'detail' })
   return { page, calls, wx }
+}
+
+function moneyElements(page) {
+  const tree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/order/complete.wxml'), 'utf8'))
+  const blocks = []
+  function visit(node) {
+    if (node.attrs && ['money-card', 'section section-collect'].includes(node.attrs.class)) blocks.push(node)
+    else (node.children || []).forEach(visit)
+  }
+  visit(tree)
+  return renderElements({ tag: '#root', attrs: {}, children: blocks }, page.data, { includeText: true })
+}
+const moneyText = page => moneyElements(page).filter(n => n.tag === 'text').map(n => n.text).join(' ')
+async function withoutAutoReturn(run) {
+  const timer = global.setTimeout
+  global.setTimeout = (fn, delay, ...args) => delay === 1500 ? 0 : timer(fn, delay, ...args)
+  try { await run() } finally { global.setTimeout = timer }
 }
 
 /** 已付款单（水票/微信）：没有现场收款这一步，用来单独测回桶与原因 */
@@ -201,6 +222,85 @@ await test('现金已收齐：请求带 collected=true，摘要写"已收款"', 
   assert.ok(summary.indexOf('已收款') > -1, summary)
   await new Promise((r) => setTimeout(r, 10))
   assert.strictEqual(calls.completeOrder[0].body.collected, true)
+})
+
+await test('140含押金100的现金收齐成功后，真实钱卡不再提示尚应收或重复询问收款', async () => {
+  let release
+  const wait = new Promise(resolve => { release = resolve })
+  const { page, calls } = newPage(baseOrder({ totalAmount: 140, depositAmount: 100 }), { completeWait: wait })
+  await page.loadOrder(55)
+  page.onSelectCollected({ currentTarget: { dataset: { value: 'true' } } })
+  await withoutAutoReturn(async () => {
+    const submitted = page._doSubmit()
+    assert.ok(moneyText(page).includes('本单尚应收'), '选择收齐或请求在途不能提前声明已收款')
+    release(); await submitted
+    const text = moneyText(page)
+    assert.ok(!text.includes('本单尚应收'), text)
+    assert.ok(text.includes('已收款') && text.includes('无需再收'), text)
+    assert.ok(text.includes('本单总额 ¥140') && text.includes('含押金 ¥100'), text)
+    assert.ok(!moneyElements(page).some(n => n.attrs && n.attrs.class === 'money-amount'), '已收款总额不再用催收红字')
+  })
+  assert.strictEqual(calls.completeOrder.length, 1)
+  assert.strictEqual(calls.completeOrder[0].body.collected, true)
+  assert.strictEqual(page.data.orderInfo.paymentStatus, 1, '成功展示不能伪造原读取的付款状态')
+  assert.strictEqual(page.data.needCollect, true, '保留原读取投影，不为显示改写业务字段')
+})
+
+await test('现金未收的成功回执仍显示待收款，不误报已付', async () => {
+  const { page, calls } = newPage(baseOrder({ totalAmount: 140, depositAmount: 100 }))
+  await page.loadOrder(55)
+  page.onSelectCollected({ currentTarget: { dataset: { value: 'false' } } })
+  await withoutAutoReturn(() => page._doSubmit())
+  assert.ok(moneyText(page).includes('本单尚应收'))
+  assert.strictEqual(page.data.moneyMode, 'collect')
+  assert.strictEqual(page.data.successTitle, '已送达，待收款')
+  assert.strictEqual(calls.completeOrder.length, 1)
+  assert.strictEqual(calls.completeOrder[0].body.collected, false)
+})
+
+await test('明确拒绝与网络未知均不把人工收齐选择当作已确认收款', async () => {
+  for (const error of ['备货不齐，请先核对', '网络超时，请稍后再试']) {
+    const { page, calls } = newPage(baseOrder(), { completeThrow: error })
+    await page.loadOrder(55)
+    page.onSelectCollected({ currentTarget: { dataset: { value: 'true' } } })
+    await page._doSubmit()
+    assert.ok(moneyText(page).includes('本单尚应收'))
+    assert.strictEqual(page.data.moneyMode, 'collect')
+    assert.strictEqual(page.data.resultState, error.startsWith('网络') ? 'unknown' : 'failed')
+    assert.strictEqual(calls.completeOrder.length, 1)
+  }
+})
+
+await test('成功收款回执后的迟到旧GET不能恢复尚应收钱卡', async () => {
+  let release
+  const pending = new Promise(resolve => { release = resolve })
+  const original = baseOrder({ totalAmount: 140, depositAmount: 100 })
+  const { page, calls } = newPage(original, { readOrder: async (id, index) => index === 1 ? { data: original } : pending })
+  await page.loadOrder(55)
+  page.onSelectCollected({ currentTarget: { dataset: { value: 'true' } } })
+  const stale = page.loadOrder(55)
+  await withoutAutoReturn(() => page._doSubmit())
+  release({ data: original }); await stale
+  assert.strictEqual(page.data.resultState, 'success')
+  assert.ok(!moneyText(page).includes('本单尚应收'))
+  assert.strictEqual(calls.completeOrder.length, 1)
+})
+
+await test('收款提交在途及成功后，迟到选择不能改写该次回执对应的收款事实', async () => {
+  let release
+  const wait = new Promise(resolve => { release = resolve })
+  const { page } = newPage(baseOrder(), { completeWait: wait })
+  await page.loadOrder(55)
+  page.onSelectCollected({ currentTarget: { dataset: { value: 'true' } } })
+  await withoutAutoReturn(async () => {
+    const submitted = page._doSubmit()
+    page.onSelectCollected({ currentTarget: { dataset: { value: 'false' } } })
+    assert.strictEqual(page.data.collected, true)
+    release(); await submitted
+    page.onSelectCollected({ currentTarget: { dataset: { value: 'false' } } })
+    assert.strictEqual(page.data.collected, true)
+    assert.strictEqual(page.data.successTitle, '配送已完成')
+  })
 })
 
 // GUI 回归：最终弹窗的配送结果、金额和确认动作必须与已收/未收选择一致。

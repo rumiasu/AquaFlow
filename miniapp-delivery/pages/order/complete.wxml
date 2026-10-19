@@ -184,13 +184,13 @@
 
   <!-- ============ 段三 · 本次收款 ============
        现场收款（契约 C1）：只说"这单还要收多少 + 收了没"。
-       · 只在**后端说还要收**（needCollect：现金单且未付）时出现 —— 付过款的单不再问一遍；
+       · 读取投影说还要收且尚无本次收齐成功回执时出现；成功后不重复询问同一笔钱；
        · 金额取服务端 totalAmount（含水费/押金/配送费/楼层费），不在这里另算；
        · "已收齐 / 未收款"**必须人选**（默认两边都不选），不许自动默认已收。 -->
-  <view class="seg-head" wx:if="{{needCollect}}">
+  <view class="seg-head" wx:if="{{needCollect && moneyMode !== 'paid'}}">
     <text class="seg-title">本次收款</text>
   </view>
-  <view class="section section-collect" wx:if="{{needCollect}}">
+  <view class="section section-collect" wx:if="{{needCollect && moneyMode !== 'paid'}}">
     <view class="collect-card">
       <view class="collect-row">
         <text class="collect-label">本单尚应收</text>

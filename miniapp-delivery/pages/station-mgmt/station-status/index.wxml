@@ -10,7 +10,7 @@
     <view class="card-header">
       <text class="card-title">营业状态</text>
       <text class="badge badge-on" wx:if="{{current.operatingStatus === 1}}">{{current.statusText}}</text>
-      <text class="badge badge-warn" wx:else>{{current.statusText}}</text>
+      <text class="badge badge-warn" wx:else>{{current.statusText || (loading ? '正在加载…' : '营业状态加载失败')}}</text>
     </view>
     <!-- ⚠️ 这一句**保持可见**：它是本页的核心语义（软状态 = 顾客照样能下单）。
          站长若以为"休息中"会挡住下单，就永远不敢用这个功能 —— 那是会做出错决定的信息，
@@ -53,7 +53,7 @@
       <text class="preview-text">{{effectText}}</text>
     </view>
 
-    <button class="btn-primary" bindtap="onSaveStatus" loading="{{saving}}" disabled="{{saving}}">保存营业状态</button>
+    <button class="btn-primary" bindtap="onSaveStatus" loading="{{saving}}" disabled="{{saving || loading || !statusLoaded}}">保存营业状态</button>
   </view>
 
   <!-- ============ 公告 ============ -->

@@ -36,11 +36,25 @@ const STATUS_OPTIONS = [
   { value: 4, name: '暂停配送，可预约', desc: '今天不送，订单明天统一处理' }
 ]
 
+const unknownStatus = () => ({ operatingStatus: null, statusText: '', note: '', customerHint: '' })
+
+// 未读到真实状态时不能默认成正常运营，否则会掩盖待上线原因并允许误保存。
+function statusData(res) {
+  const d = res && res.data
+  if (!d || typeof d !== 'object' || Array.isArray(d)
+    || !Number.isInteger(d.operatingStatus) || d.operatingStatus <= 0
+    || typeof d.statusText !== 'string' || !d.statusText.trim()) {
+    throw new Error('营业状态返回不完整，请重新加载')
+  }
+  return d
+}
+
 Page({
   data: {
     loading: true,
+    statusLoaded: false,
     statusOptions: STATUS_OPTIONS,
-    current: { operatingStatus: 1, statusText: '正常运营', note: '', customerHint: '' },
+    current: unknownStatus(),
     // 「顾客那边会怎样」：跟着**当前显示的那个状态**走 —— 打开页面显示当前状态的，
     // 点了别的选项就换成那个选项的，**再点一次同一个就撤回当前状态**（见 onPickStatus）。
     // 文案全部来自后端（options[].effect / currentEffect）。
@@ -49,7 +63,7 @@ Page({
     // 当前状态的效果（单独存一份）：点选项再撤回时要还原成它。
     // ⚠️ 不能从 `current.customerHint` 里取 —— 那是给**顾客**看的一句话，口径与 effect 不同。
     currentEffect: '',
-    picked: 1,
+    picked: null,
     noteInput: '',
     saving: false,
 
@@ -83,19 +97,21 @@ Page({
   },
 
   async loadStatus() {
-    this.setData({ loading: true })
+    this.setData({ loading: true, statusLoaded: false, current: unknownStatus(),
+      picked: null, effectText: '', currentEffect: '' })
     try {
       const res = await getStationStatus()
-      const d = res.data || {}
+      const d = statusData(res)
       const patch = {
+        statusLoaded: true,
         current: {
-          operatingStatus: d.operatingStatus || 1,
-          statusText: d.statusText || '正常运营',
+          operatingStatus: d.operatingStatus,
+          statusText: d.statusText,
           note: d.note || '',
           customerHint: d.customerHint || '',
           statusUpdateTime: d.statusUpdateTime || ''
         },
-        picked: d.operatingStatus || 1,
+        picked: d.operatingStatus,
         noteInput: d.note || ''
       }
       // 选项**以后端下发为准**（value/text/desc/effect 同源于 constant/StationOperatingStatus）；
@@ -109,7 +125,7 @@ Page({
       patch.currentEffect = d.currentEffect || ''
       this.setData(patch)
     } catch (err) {
-      wx.showToast({ title: err.message || '营业状态加载失败', icon: 'none' })
+      wx.showToast({ title: (err && err.message) || '营业状态加载失败', icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
@@ -124,6 +140,7 @@ Page({
    * 而它对待上线拼出的是**假话**（待上线的站对顾客不可见，压根下不了单）。
    */
   onPickStatus(e) {
+    if (this.data.loading || !this.data.statusLoaded || this.data.saving) return
     const value = Number(e.currentTarget.dataset.value)
     const current = this.data.current.operatingStatus
 
@@ -152,22 +169,33 @@ Page({
   },
 
   async onSaveStatus() {
+    if (this.data.loading || !this.data.statusLoaded || this.data.saving) return
     this.setData({ saving: true })
     try {
       const res = await updateStationStatus(this.data.picked, this.data.noteInput)
-      const d = res.data || {}
+      const d = statusData(res)
       this.setData({
         current: {
-          operatingStatus: d.operatingStatus || 1,
-          statusText: d.statusText || '正常运营',
+          operatingStatus: d.operatingStatus,
+          statusText: d.statusText,
           note: d.note || '',
           customerHint: d.customerHint || '',
           statusUpdateTime: d.statusUpdateTime || ''
-        }
+        },
+        picked: d.operatingStatus,
+        noteInput: d.note || '',
+        effectLabel: '当前状态，顾客那边：',
+        effectText: d.currentEffect || '',
+        currentEffect: d.currentEffect || ''
       })
       wx.showToast({ title: '已保存', icon: 'success' })
     } catch (err) {
-      wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+      // 业务拒绝未改变状态；网络/响应异常则须重新只读核实，不能按默认值再次保存。
+      if (!err || !err.businessRejected) {
+        this.setData({ statusLoaded: false, current: unknownStatus(), picked: null,
+          effectText: '', currentEffect: '' })
+      }
+      wx.showToast({ title: (err && err.message) || '保存失败', icon: 'none' })
     } finally {
       this.setData({ saving: false })
     }

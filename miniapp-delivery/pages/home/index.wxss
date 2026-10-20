@@ -15,8 +15,8 @@
 }
 
 .stat-value { font-size: 44rpx; font-weight: 700; line-height: 1.1; }
-.stat-label { font-size: 22rpx; opacity: 0.85; margin-top: 4rpx; }
-.stat-unit { font-size: 20rpx; opacity: 0.6; }
+.stat-label { font-size: 14px; opacity: 0.85; margin-top: 4rpx; }
+.stat-unit { font-size: 12px; opacity: 0.7; }
 
 /* ========== Tab 栏 ========== */
 .tab-bar {
@@ -112,9 +112,9 @@
 .btn-accept::after { border: none; }
 
 .btn-complete {
-  flex: 1; height: 88rpx; line-height: 88rpx; background: var(--success-color); color: #fff;
+  flex: 1; height: 88rpx; line-height: 88rpx; background: #216E4B; color: #fff;
   border-radius: 44rpx; font-size: 28rpx; font-weight: 600; border: none;
-  box-shadow: 0 4rpx 16rpx rgba(52,199,89,0.25);
+  box-shadow: 0 4rpx 16rpx rgba(33,110,75,0.25);
 }
 .btn-complete::after { border: none; }
 
@@ -150,7 +150,7 @@
 
 .aux-tag {
   display: inline-block;
-  font-size: 20rpx;
+  font-size: 14px;
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
   font-weight: 500;
@@ -159,7 +159,7 @@
 
 .aux-tag.aux-offline {
   background: rgba(255, 149, 0, 0.12);
-  color: var(--warning-color);
+  color: #8A4B00;
 }
 
 .aux-tag.aux-unpaid {

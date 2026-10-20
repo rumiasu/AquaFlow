@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'customer-home-station-context.test.js', name: '首页自动选站、公开站列表与营业状态的异步范围保护' },
   { file: 'upload-recovery-lifecycle.test.js', name: 'independent nine upload cases and hidden final GET selection isolation offline' },
   { file: 'upload-r2-review.test.js', name: 'R2 independent GET, durable index, object isolation and wrapper negative checks offline' },
   { file: 'delivery-home-station-identity.test.js', name: 'delivery home real bound station identity offline' },

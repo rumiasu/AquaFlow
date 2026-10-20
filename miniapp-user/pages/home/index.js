@@ -99,6 +99,9 @@ Page({
 
   onHide() {
     this._homeHidden = true
+    this._stationCheckSeq = (this._stationCheckSeq || 0) + 1
+    this._stationListSeq = (this._stationListSeq || 0) + 1
+    this._stationStatusSeq = (this._stationStatusSeq || 0) + 1
     this.invalidateHomeQuote()
     this.refreshDerived(undefined, false)
   },
@@ -115,12 +118,20 @@ Page({
    * 拉不到就**不显示**：宁可不显示，也不要编造一个"营业中"。
    */
   async loadStationStatus(stationId) {
+    if (this._homeDestroyed || this._homeHidden) return
+    const session = captureSession()
+    const sequence = this._stationStatusSeq = (this._stationStatusSeq || 0) + 1
+    const current = () => !this._homeDestroyed && !this._homeHidden
+      && sequence === this._stationStatusSeq && isCurrentSession(session)
+      && stationId === this.data.currentStationId
+    // 2026-10-20：旧站的慢响应曾覆盖新站状态；换站先清空，回执只更新原站的当前读取。
+    this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '' })
     if (!stationId) {
-      this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '' })
       return
     }
     try {
       const res = await getStationStatus(stationId)
+      if (!current()) return
       const d = (res && res.data) || {}
       this.setData({
         stationStatusText: d.statusText || '',
@@ -128,7 +139,7 @@ Page({
         stationStatusHint: d.customerHint || ''
       })
     } catch (e) {
-      this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '' })
+      if (current()) this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '' })
     }
   },
 
@@ -170,6 +181,14 @@ Page({
   },
 
   async checkStation() {
+    if (this._homeDestroyed || this._homeHidden) return
+    const session = captureSession()
+    const sequence = this._stationCheckSeq = (this._stationCheckSeq || 0) + 1
+    const selectedId = stationStorage.getId()
+    // 2026-10-20：自动恢复的迟到结果曾改回客户刚选过的下单站；只接受同周期、同轮且未改站的结果。
+    const current = () => !this._homeDestroyed && !this._homeHidden
+      && sequence === this._stationCheckSeq && isCurrentSession(session)
+      && stationStorage.getId() === selectedId
     this.invalidateHomeQuote()
     this.refreshDerived(undefined, false)
     this.setData({ loading: true })
@@ -189,6 +208,7 @@ Page({
       // 2. 本地没有水站，尝试从后端获取最近下单的水站（自动恢复）
       try {
         const stationRes = await getMyLatestStation()
+        if (!current()) return
         if (stationRes && stationRes.data && stationRes.data.stationId) {
           const s = stationRes.data
           const station = { id: s.stationId, name: s.stationName || '水站' }
@@ -199,6 +219,7 @@ Page({
           return
         }
       } catch (e) {
+        if (!current()) return
         // [2026-09-20 真机联调] 原来这里是**空 catch** + 注释「无历史订单，继续走流程」——
         // 等于把"接口失败/断网"与"确实没有历史订单"当成同一件事，真机上根本分不出来。
         // 行为保持不变（继续走选站流程，用户体验不受影响），但必须留下可查的痕迹。
@@ -206,14 +227,16 @@ Page({
       }
 
       // 3. 无历史订单，显示选择列表
+      if (!current()) return
       this.setData({ state: 'noStation' })
       await this.loadStationList()
     } catch (e) {
+      if (!current()) return
       console.error('检查水站失败:', e)
       this.setData({ state: 'noStation' })
       await this.loadStationList()
     } finally {
-      if (!completed) this.setData({ loading: false })
+      if (!completed && current()) this.setData({ loading: false })
     }
   },
 
@@ -255,11 +278,17 @@ Page({
   },
 
   async loadStationList() {
+    if (this._homeDestroyed || this._homeHidden) return
+    const session = captureSession()
+    const sequence = this._stationListSeq = (this._stationListSeq || 0) + 1
+    const current = () => !this._homeDestroyed && !this._homeHidden
+      && sequence === this._stationListSeq && isCurrentSession(session)
     // [2026-09-20 真机联调] 原来是 `.catch(() => null)` + 外层只 console.error：
     // 接口失败时列表为空，弹窗渲染成「暂无可用水站」—— 把"没查到"说成了"平台真的没有水站"，
     // 客户会以为整个平台都没水站可选。现在把失败原因记进 stationListError，由 wxml 分开说。
     try {
       const res = await getPublicStations()
+      if (!current()) return
       // 业务失败仍是 HTTP 200，一律判 body.code（AGENTS §8.1）；code!=0 也要出声，不能沿用旧列表
       if (res && res.code === 0 && res.data) {
         const activeStations = res.data.filter(s => s.status === 1)
@@ -267,11 +296,13 @@ Page({
       } else {
         const msg = (res && res.message) || '服务端返回异常'
         console.warn('[home] 水站列表返回非成功响应:', msg)
-        this.setData({ stationListError: msg })
+        this.setData({ stationList: [], stationListError: msg })
       }
     } catch (e) {
+      if (!current()) return
       console.error('[home] 加载水站列表失败:', e)
-      this.setData({ stationListError: (e && e.message) || '网络异常' })
+      // 2026-10-20：旧列表仍可点击且遮住失败提示；失败须清行，不能把过期候选冒充本次读取成功。
+      this.setData({ stationList: [], stationListError: (e && e.message) || '网络异常' })
       wx.showToast({ title: '水站列表没加载出来，请重试', icon: 'none' })
     }
   },
@@ -282,6 +313,15 @@ Page({
   },
 
   async confirmStation(stationId) {
+    if (this._homeDestroyed || this._homeHidden) return
+    const session = captureSession()
+    const sequence = this._stationSelectSeq = (this._stationSelectSeq || 0) + 1
+    const checkSequence = this._stationCheckSeq
+    const selectedId = stationStorage.getId()
+    // 2026-10-20：切站弹窗的确认也可能迟到；旧会话/旧页面/已刷新范围不能再保存下单站。
+    const current = () => !this._homeDestroyed && !this._homeHidden && isCurrentSession(session)
+      && sequence === this._stationSelectSeq && checkSequence === this._stationCheckSeq
+      && selectedId === stationStorage.getId()
     try {
       const station = this.data.stationList.find(s => s.id === stationId)
       if (!station) {
@@ -302,7 +342,7 @@ Page({
             success: (r) => resolve(r.confirm)
           })
         })
-        if (!confirm) return
+        if (!current() || !confirm) return
         const dontShow = await new Promise(resolve => {
           wx.showModal({
             title: '提示',
@@ -312,9 +352,11 @@ Page({
             success: (r) => resolve(r.confirm)
           })
         })
+        if (!current()) return
         if (dontShow) stationStorage.setSwitchNoticeDisabled(true)
       }
 
+      if (!current()) return
       this.invalidateHomeQuote()
       this.refreshDerived(undefined, false)
       wx.showToast({ title: '已选择水站', icon: 'success' })
@@ -322,6 +364,7 @@ Page({
       stationStorage.set(station)
       await this.checkStation()
     } catch (e) {
+      if (!current()) return
       console.error('选择水站失败:', e)
       wx.showToast({ title: '选择失败', icon: 'none' })
     }

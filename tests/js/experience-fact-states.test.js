@@ -330,7 +330,12 @@ test('CONTRAST: 同名无电话的地址/来源与退款金额/登记核实文�
   const staffCss = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/customers/index.wxss'), 'utf8')
   const staffTokens = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/app.wxss'), 'utf8')
   assert(/\.customer-card\s*\{[^}]*background:\s*var\(--bg-card\)/.test(staffCss))
-  assert(/--bg-card:\s*#FFFFFF/i.test(staffTokens)); assert(/\.customer-phone\s*\{[^}]*font-size:\s*26rpx/.test(staffCss))
+  assert(/--bg-card:\s*#FFFFFF/i.test(staffTokens))
+  // 2026-10-20：旧26rpx断言误拒dbfd6d8已确认的14px字号；按当前28rpx核验并记录实际值。
+  const phoneFont = /\.customer-phone\s*\{[^}]*font-size:\s*(\d+)rpx/.exec(staffCss)
+  assert(phoneFont, 'customer phone font must have an explicit rpx size')
+  const phoneFontRpx = Number(phoneFont[1])
+  assert.strictEqual(phoneFontRpx, 28, 'customer phone keeps the confirmed 14px text size')
   const amounts = environment('miniapp-user/pages/barrel/index.js', false, () => {})
   amounts.page.setData({ loading: false, summary: {}, records: [{ id: 1, type: 2, depositRefund: '100.00',
     statusText: '已登记', refundPaidTime: '2026-10-09 12:34', handleNote: 'Synthetic handling note' }] })
@@ -343,7 +348,7 @@ test('CONTRAST: 同名无电话的地址/来源与退款金额/登记核实文�
   const evidence = nodes.map(e => {
     const staff = e.text.includes('地址'), color = textColor(staff ? staffCss : userCss, e.className, staff ? staffTokens : userTokens)
     const ratio = contrast(color, '#FFFFFF')
-    return { text: e.text, className: e.className, color, background: '#FFFFFF', fontRpx: staff ? 26 : 24, ratio }
+    return { text: e.text, className: e.className, color, background: '#FFFFFF', fontRpx: staff ? phoneFontRpx : 24, ratio }
   })
   observations.push({ contrast: evidence })
   for (const e of evidence) assert(e.ratio >= 4.5, e.text + ': contrast ' + e.ratio + ' (' + e.color + ' on ' + e.background + ')')

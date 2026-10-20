@@ -140,7 +140,18 @@ class BarrelRefundDeliveryIntegrationTest extends AbstractIntegrationTest {
 
         assertTrue(approve(recordId, "{\"status\":2}").isSuccess(), "确认收到空桶应成功");
 
-        Api refund = approve(recordId, "{\"status\":3,\"refundChannel\":\"CASH\"}");
+        // 2026-10-17：同一现金登记的恢复必须核实实交事实与金额；拒绝须回滚批次核销。
+        for (String rejected : new String[]{
+                "{\"status\":3,\"refundChannel\":\"CASH\",\"cashDeliveryConfirmed\":false,\"expectedRefundAmount\":30.00}",
+                "{\"status\":3,\"refundChannel\":\"CASH\",\"cashDeliveryConfirmed\":true,\"expectedRefundAmount\":29.00}"}) {
+            assertFalse(approve(recordId,rejected).isSuccess());
+            assertEquals(2,intOf("SELECT status FROM barrel_record WHERE id=?",recordId));
+            assertEquals(1,right()); assertEquals(0,depositBalance().compareTo(new java.math.BigDecimal("30.00")));
+            assertEquals(0,depositRecords());assertNull(paidTime(recordId));
+            assertEquals(0,intOf("SELECT COUNT(*) FROM barrel_record_lot WHERE record_id=?",recordId));
+        }
+        String confirmedCash = "{\"status\":3,\"refundChannel\":\"CASH\",\"cashDeliveryConfirmed\":true,\"expectedRefundAmount\":30.00}";
+        Api refund = approve(recordId, confirmedCash);
         assertTrue(refund.isSuccess(), "现金当面交付应成功，实际=" + refund);
 
         assertEquals(3, intOf("SELECT status FROM barrel_record WHERE id=?", recordId), "应置已退押金(3)");
@@ -155,6 +166,9 @@ class BarrelRefundDeliveryIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, decimalOf("SELECT amount FROM deposit_record WHERE customer_id=?", customer)
                 .compareTo(new java.math.BigDecimal("-30.00")), "流水应是 -30.00（扣减类落负数的口径）");
         assertEquals(0, right(), "权益应被核销为 0");
+        LocalDateTime originalPaidTime=paidTime(recordId);
+        assertFalse(approve(recordId,confirmedCash).isSuccess(),"原申请已完成时不能再次核销");
+        assertEquals(originalPaidTime,paidTime(recordId));assertEquals(1,depositRecords());assertEquals(0,right());
 
         // 刚走完这一步的单**不该**出现在「已核销未交付」里
         assertEquals(0, undelivered().data().path("count").asInt(),

@@ -10,7 +10,7 @@
  *   ① 页面 require 的 api 函数与 `api/station-mgmt.js` 的导出**真的对得上**
  *      （require/export 拼错在 JS 里是 `undefined`，调用时才 TypeError —— 静态门禁查不出来，
  *       而本页的路径刚刚从"写死在页面里"搬进 `config/api.js` + 包装函数，正是最容易拼错的时刻）；
- *   ② `CASH` 提交 ⇒ 走 `updateBarrelRecordStatus(id, 3, {refundChannel:'CASH'})`；
+ *   ② `CASH` 提交 ⇒ 原 status=3 命令，带确认交付与已核对金额守卫；
  *   ③ `ONLINE` 被后端拒绝（微信退款通道未接入）⇒ **原因原样透出**，不许被改写成"操作失败"
  *      （资格查询后的写入拒绝仍须保留原渠道责任，不自行切现金）；
  *   ④ 「登记押金已交付」⇒ 走 `markRefundPaid`（补登记的那条路），不是再退一次款。

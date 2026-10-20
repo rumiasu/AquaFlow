@@ -72,6 +72,24 @@ test('returning to an existing page follows the later asset choice', async () =>
   await mine.onShow();assert.strictEqual(mine.data.viewStationId,22)
   assert.strictEqual(env.wx.__storage.get('selectedStation').id,11)
 })
+test('three independent A-B-A asset-view cycles stay read-only and keep the order station', async () => {
+  for (let cycle = 0; cycle < 3; cycle++) {
+    const viewed = []
+    const env = context()
+    const { p } = page('barrel/index', {
+      summary: async stationId => { viewed.push(stationId); return ok(summary(stationId === 22 ? 2 : 1)) }
+    }, env)
+    p.onLoad({ stationId: 11 })
+    await p.onShow()
+    await select(p, B)
+    await select(p, A)
+    assert.deepStrictEqual(viewed, [11, 22, 11])
+    assert.strictEqual(p.data.viewStationId, 11)
+    assert.strictEqual(p.data.orderStationName, A.name)
+    assert.strictEqual(env.wx.__storage.get('selectedStation').id, 11)
+    assert.strictEqual(env.wx.__calls.storageSet.length, 0)
+  }
+})
 test('explicit route beats global default and reads the correct station', async () => {
   const calls=[], {p,env}=page('deposit/records/index',{deposit:async (_,query)=>{calls.push(query.stationId);return ok([])}})
   p.onLoad({stationId:'22'}); await p.onShow()

@@ -51,6 +51,7 @@
         </view>
         <view class="item-info">
           <text class="item-name">{{item.productName || item.waterTypeName}}</text>
+          <text class="product-image-note" wx:if="{{item.imageUrl === '/assets/product/barrel-neutral-template.webp'}}">商品示意图 · 包装以实物为准</text>
           <text class="item-spec" wx:if="{{item.productSpec || item.waterTypeSpec}}">{{item.productSpec || item.waterTypeSpec}}</text>
         </view>
         <view class="item-right">

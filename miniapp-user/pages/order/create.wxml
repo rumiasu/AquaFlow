@@ -67,6 +67,7 @@
           <image class="product-image" src="{{item.imageUrl || '/assets/image/default-product.jpg'}}" mode="aspectFill"></image>
           <view class="product-info">
             <text class="product-name">{{item.name}}</text>
+            <text class="product-image-note" wx:if="{{item.imageUrl === '/assets/product/barrel-neutral-template.webp'}}">商品示意图 · 包装以实物为准</text>
             <text class="product-spec" wx:if="{{item.specText}}">{{item.specText}}</text>
             <view class="product-purchase-row">
               <view class="product-price" wx:if="{{item.price}}">

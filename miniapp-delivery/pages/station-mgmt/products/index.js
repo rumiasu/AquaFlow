@@ -1,4 +1,5 @@
 const { wrapUploadRecovery } = require('../../../utils/upload-recovery-page')
+const { WATER_PRODUCT_TEMPLATES, TEMPLATE_IMAGE, IMAGE_NOTICE, matchingCatalogProducts, templateBusinessError } = require('../../../utils/water-product-templates')
 const {
   getCatalog,
   getPresetImages,
@@ -92,7 +93,11 @@ Page({
 
     // 上报记录（自定义商品上报通用库的处理进度）
     showSubmissions: false,
-    submissions: []
+    submissions: [],
+    waterTemplates: WATER_PRODUCT_TEMPLATES,
+    templateImage: TEMPLATE_IMAGE,
+    imageNotice: IMAGE_NOTICE,
+    editTemplateId: ''
   },
 
   onShow() {
@@ -216,13 +221,17 @@ Page({
 
   /* ==================== 选用 / 本站设置 ==================== */
 
-  async onSelectProduct(e) {
+  async onSelectProduct(e, openSetting = false) {
     const id = Number(e.currentTarget.dataset.id)
     try {
       const res = await selectCatalogProduct(id, { enabled: 0 })
       this.toastWarnings(res)
       wx.showToast({ title: '已加入本站，请设置库存与价格', icon: 'none', duration: 2000 })
-      this.loadData()
+      await this.loadData()
+      if (openSetting) {
+        const item = this.data.list.find(row => row.id === id && row.selected)
+        if (item) this.onOpenSetting({ currentTarget: { dataset: { item } } })
+      }
     } catch (err) {
       wx.showToast({ title: err.message || '选用失败', icon: 'none' })
     }
@@ -609,18 +618,55 @@ Page({
 
   /* ==================== 自己定义商品 ==================== */
 
+  /** 优先复用精确公共SKU；否则只填本站新商品草稿，不发创建/上传请求。 */
+  onUseWaterTemplate(e) {
+    if (this.data.saving || this.data.uploading || !getApp().canAccessStationBusiness()) return
+    const template = WATER_PRODUCT_TEMPLATES.find(item => item.id === e.currentTarget.dataset.id)
+    if (!template) return
+    const matches = matchingCatalogProducts(template, this.data.list)
+    if (matches.length === 1) {
+      const item = matches[0]
+      if (item.selected) return this.onOpenSetting({ currentTarget: { dataset: { item } } })
+      return this.onSelectProduct({ currentTarget: { dataset: { id: item.id } } }, true)
+    }
+    if (matches.length > 1) {
+      this.setData({ tab: 'all', keyword: template.brand, category: 1, quick: '' }, () => this.applyFilter())
+      wx.showToast({ title: '目录已有同款，请核对后选用', icon: 'none' })
+      return
+    }
+    this.openWaterTemplateDraft(template)
+  },
+
+  /** 公共SKU本身不可改；需按实物改基础资料时，明确另存本站商品。 */
+  onEditWaterTemplate(e) {
+    if (this.data.saving || this.data.uploading || !getApp().canAccessStationBusiness()) return
+    const template = WATER_PRODUCT_TEMPLATES.find(item => item.id === e.currentTarget.dataset.id)
+    if (template) this.openWaterTemplateDraft(template)
+  },
+
+  openWaterTemplateDraft(template) {
+    this.openAdd()
+    // 2026-10-21：换模板是新商品意图，独立图片草稿保留原未知记录并隔离旧选图回调。
+    try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, true) }
+    catch (_) { this._uploadDraftId = null }
+    this.setData({ editTemplateId: template.id, editForm: { ...this.data.editForm,
+      name: template.name, brand: template.brand, spec: template.spec,
+      category: template.category, imageUrl: template.imageUrl, description: template.description } })
+  },
+
   openAdd() {
     try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, false, this._uploadResumeDraftId) } catch (_) { this._uploadDraftId = null }
     this.setData({
       showEdit: true,
       isAdd: true,
       editId: null,
+      editTemplateId: '',
       editCategoryIndex: 0,
       pkgRows: [],   // 新商品还没有档位
       editForm: {
         name: '', brand: '', spec: '', category: 1,
         price: '', deposit: '', quantity: '', imageUrl: '',
-        enabled: false, ticketEnabled: false, ticketPrice: ''
+        description: '', enabled: false, ticketEnabled: false, ticketPrice: ''
       }
     })
   },
@@ -633,6 +679,7 @@ Page({
       showEdit: true,
       isAdd: false,
       editId: item.id,
+      editTemplateId: '',
       editCategoryIndex: idx >= 0 ? idx : 0,
       editForm: {
         name: item.name || '',
@@ -643,6 +690,7 @@ Page({
         deposit: item.deposit === null || item.deposit === undefined ? '' : String(item.deposit),
         quantity: item.quantity === null || item.quantity === undefined ? '' : String(item.quantity),
         imageUrl: item.imageUrl || '',
+        description: item.description || '',
         enabled: item.enabled === 1,
         ticketEnabled: item.ticketEnabled === 1,
         ticketPrice: item.ticketPrice === null || item.ticketPrice === undefined ? '' : String(item.ticketPrice)
@@ -684,7 +732,12 @@ Page({
   },
 
   async onSaveEdit() {
+    if (this.data.saving) return
     const { isAdd, editId, editForm } = this.data
+    if (this.data.editTemplateId) {
+      const error = templateBusinessError(editForm)
+      if (error) { wx.showToast({ title: error, icon: 'none' }); return }
+    }
     if (!editForm.name || !editForm.name.trim()) {
       wx.showToast({ title: '商品名称不能为空', icon: 'none' })
       return
@@ -702,7 +755,8 @@ Page({
       deposit: parseFloat(editForm.deposit) || 0,
       enabled: editForm.enabled ? 1 : 0,
       ticketEnabled: editForm.ticketEnabled ? 1 : 0,
-      imageUrl: editForm.imageUrl || ''
+      imageUrl: editForm.imageUrl || '',
+      description: editForm.description || ''
     }
     if (editForm.ticketEnabled && editForm.ticketPrice !== '') {
       payload.ticketPrice = parseFloat(editForm.ticketPrice)

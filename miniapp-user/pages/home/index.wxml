@@ -137,6 +137,7 @@
             </view>
             <view class="prod-info">
               <text class="prod-name">{{item.name}}</text>
+              <text class="product-image-note" wx:if="{{item.imageUrl === '/assets/product/barrel-neutral-template.webp'}}">商品示意图 · 包装以实物为准</text>
               <text class="prod-spec" wx:if="{{item.brand || item.spec}}">{{item.brand}}{{item.brand && item.spec ? ' · ' : ''}}{{item.spec}}</text>
               <!-- 与本次购买有关的押金只留一行说明；详细桶账户计算不放商品行（口径见 §3）
                    文案由 JS 预计算：有桶权益的顾客显示"本次无需加收桶押金…"，不再无脑显示单价押金 -->

@@ -31,6 +31,23 @@
     </view>
   </view>
 
+  <view class="water-templates" wx:if="{{tab === 'all' && !keyword && (!category || category === 1)}}">
+    <view class="water-template-title">常用水商品 · 快速建档</view>
+    <text class="water-template-hint">带入图片、名称和规格；售价、押金、库存由本站确认</text>
+    <view class="water-template-row" wx:for="{{waterTemplates}}" wx:key="id">
+      <image class="water-template-image" src="{{item.imageUrl}}" mode="aspectFit" />
+      <view class="water-template-info">
+        <text class="water-template-name">{{item.name}}</text>
+        <text class="water-template-spec">{{item.spec}} / {{item.unit}} · 规格可按实物修改</text>
+      </view>
+      <view class="water-template-actions">
+        <button class="water-template-use" bindtap="onUseWaterTemplate" data-id="{{item.id}}" disabled="{{saving || uploading}}">使用模板</button>
+        <text class="water-template-edit" bindtap="onEditWaterTemplate" data-id="{{item.id}}">按实物修改</text>
+      </view>
+    </view>
+    <text class="water-template-hint">{{imageNotice}}；目录已有同款时优先选用</text>
+  </view>
+
   <!-- 选品 / 我的商品列表 -->
   <view class="list" wx:if="{{!loading}}">
     <view class="card" wx:for="{{viewList}}" wx:key="id" data-item="{{item}}" data-id="{{item.id}}" bindtap="onOpenSetting">
@@ -47,6 +64,7 @@
           <text class="tag submit" wx:if="{{item.submission}}">上报·{{item.submission.statusText}}</text>
         </view>
         <text class="sub" wx:if="{{item.brand || item.spec}}">{{item.brand}} {{item.spec}}</text>
+        <text class="water-template-hint" wx:if="{{item.imageUrl === templateImage}}">{{imageNotice}}</text>
         <text class="sub muted">{{item.categoryLabel}} · 参考价 ¥{{item.refPriceText}}<text wx:if="{{item.deposit > 0 && item.category === 1}}"> · 参考押金 ¥{{item.refDepositText}}</text></text>
 
         <view class="tags">
@@ -191,6 +209,7 @@
     <view class="modal" catchtap="stopPropagation">
       <view class="modal-header">{{isAdd ? '自己定义商品' : '编辑自定义商品'}}</view>
       <view class="modal-sub">自定义商品只属于本站，不会进通用库；可以上报给开发者补充</view>
+      <view class="template-edit-note" wx:if="{{editTemplateId}}">已带入基础资料，可按实物修改。18.5L来自既有产品资料，当前规格请以实物标签为准；售价、押金和实际库存需本站填写，默认不上架。</view>
 
       <view class="modal-img" bindtap="uploadImage">
         <image class="preview" wx:if="{{editForm.imageUrl}}" src="{{editForm.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
@@ -198,10 +217,12 @@
         <text class="img-hint">{{uploading ? '上传中...' : '点击换图'}}</text>
       </view>
 
+      <text class="water-template-hint" wx:if="{{editForm.imageUrl === templateImage}}">{{imageNotice}}</text>
+
       <!-- 平台统一图库：站长不必自己拍照，直接从平台图里挑（图在小程序包内，不依赖 COS） -->
       <view class="preset-entry" catchtap="openPresetPicker">
         <text class="preset-entry-text">从平台图库选择</text>
-        <text class="preset-entry-sub">平台已备好统一商品图，比自拍照更整齐</text>
+        <text class="preset-entry-sub">有可用素材时可选，也可保留模板示意图</text>
       </view>
 
       <view class="form-item">
@@ -231,6 +252,11 @@
           <text class="label">售价(元)</text>
           <input class="input" type="digit" placeholder="0.00" value="{{editForm.price}}" data-field="price" bindinput="onEditFieldInput" />
         </view>
+      </view>
+
+      <view class="form-item">
+        <text class="label">商品说明（可修改）</text>
+        <input class="input" placeholder="选填，按实际商品填写" value="{{editForm.description}}" data-field="description" bindinput="onEditFieldInput" />
       </view>
 
       <view class="form-row">

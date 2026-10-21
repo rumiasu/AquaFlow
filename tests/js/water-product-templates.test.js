@@ -12,11 +12,15 @@ function fixture(list = []) {
     getCatalog: async () => ({ code: 0, data: list }), getMySubmissions: async () => ({ code: 0, data: [] }),
     createMyProduct: async payload => { if (state.create) return state.create(payload); calls.push(['create', payload]); return { code: 0, data: 91 } },
     updateMyProduct: async (id, payload) => { calls.push(['update', id, payload]); return { code: 0 } },
+    updateCatalogSetting: async (id, payload) => { calls.push(['setting', id, payload]); return { code: 0 } },
+    inboundProducts: async (id, payload) => { calls.push(['inbound', id, payload]); return { code: 0 } },
+    setCatalogStock: async (id, quantity) => { calls.push(['stock', id, quantity]); return { code: 0 } },
     selectCatalogProduct: async (id, payload) => { calls.push(['select', id, payload]); list.find(row => row.id === id).selected = true; return { code: 0 } }
   }
   let draftSerial = 0
   const page = loadPage('miniapp-delivery/pages/station-mgmt/products/index.js', { wx, app, stubs: {
-    'api/station-mgmt': api, 'utils/upload-recovery-page': { wrapUploadRecovery: page => page },
+    'api/station-mgmt': api, 'api/business-rules': { recordLoss: async (id, payload) => { calls.push(['loss', id, payload]); return { data: { affectedOrders: [] } } } },
+    'utils/upload-recovery-page': { wrapUploadRecovery: page => page },
     'utils/upload': {
       uploadDraft: (intent, fresh) => { if (fresh) draftSerial++; return 'synthetic-draft-' + draftSerial },
       chooseImages: options => { state.choose = options }, isUploadSessionCurrent: () => true,
@@ -124,6 +128,37 @@ test('repeated save while original creation is pending sends only once', async (
   let resolve; t.state.create = payload => { t.calls.push(['create', payload]); return new Promise(r => { resolve = r }) }
   const first = t.page.onSaveEdit(); await t.page.onSaveEdit(); assert.strictEqual(t.calls.length, 1)
   resolve({ code: 0, data: 91 }); await first
+})
+for (const mode of ['add', 'edit']) for (const [field, value] of [['price', '12junk'], ['deposit', '50oops'], ['quantity', '1.5'], ['ticketPrice', '3junk']]) {
+  test('ordinary ' + mode + ' rejects lossy conversion of ' + field, async () => {
+    const t = fixture()
+    if (mode === 'add') t.page.openAdd()
+    else t.page.openEdit({ currentTarget: { dataset: { item: catalog({ ownerStationId: 11, price: 12, deposit: 50, quantity: 0 }) } } })
+    t.page.setData({ 'editForm.name': 'SYNTH product', 'editForm.price': '12', 'editForm.deposit': '50', 'editForm.quantity': '0',
+      'editForm.ticketEnabled': field === 'ticketPrice', ['editForm.' + field]: value })
+    await t.page.onSaveEdit()
+    assert.strictEqual(t.calls.length, 0); assert.strictEqual(t.page.data.showEdit, true)
+  })
+}
+test('malformed station override cannot become a different valid price through blur and save', async () => {
+  const t = fixture()
+  t.page.setData({ setting: { id: 17, category: 1, salePrice: '12junk', depositPrice: '', ticketPrice: '' } })
+  t.page.onPriceBlur({ currentTarget: { dataset: { field: 'salePrice' } } })
+  assert.strictEqual(t.page.data.setting.salePrice, '12junk')
+  await t.page.onSaveSetting(); assert.strictEqual(t.calls.length, 0)
+})
+for (const field of ['salePrice', 'depositPrice', 'ticketPrice']) test('station settings reject malformed ' + field + ' before writing', async () => {
+  const t = fixture(); t.page.setData({ setting: { id: 17, category: 1, salePrice: '', depositPrice: '', ticketPrice: '', [field]: '12junk' } })
+  await t.page.onSaveSetting(); assert.strictEqual(t.calls.length, 0)
+})
+test('explicit zero station prices still clear overrides without changing shelf policy', async () => {
+  const t = fixture(); t.page.setData({ setting: { id: 17, category: 1, salePrice: '0', depositPrice: '0', ticketPrice: '0' } })
+  await t.page.onSaveSetting()
+  assert.deepStrictEqual(t.calls, [['setting', 17, { enabled: 0, ticketEnabled: 0, priorityDisplay: 0, salePrice: 0, depositPrice: 0, ticketPrice: 0 }]])
+})
+for (const mode of ['in', 'check', 'loss']) test('stock ' + mode + ' rejects fractional quantity instead of truncating', async () => {
+  const t = fixture(); t.page.setData({ stationId: 11, stockMode: mode, stockInput: '1.5', setting: { id: 17, quantity: 10 } })
+  t.page.onSubmitStock(); await Promise.resolve(); assert.strictEqual(t.calls.length, 0)
 })
 test('switching templates preserves the old upload draft and blocks its late picker callback', async () => {
   const t = fixture(); t.page.onUseWaterTemplate(event(templates[0].id)); const oldDraft = t.page._uploadDraftId

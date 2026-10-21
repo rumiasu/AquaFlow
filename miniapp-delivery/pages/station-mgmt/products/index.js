@@ -34,6 +34,15 @@ const CATEGORY_OPTIONS = [
 ]
 const CATEGORY_NAMES = CATEGORY_OPTIONS.map(c => c.name)
 
+const blankNumber = value => value == null || String(value).trim() === ''
+/** 2026-10-21: parseFloat/parseInt accepted numeric prefixes and silently saved a different amount/stock. */
+const exactNumber = value => {
+  const text = String(value == null ? '' : value).trim()
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return null
+  const number = Number(text)
+  return Number.isFinite(number) ? number : null
+}
+
 /** 上报处理状态文案（后端 product_submission.status：0 待处理 / 1 已纳入 / 2 已驳回） */
 const SUBMISSION_STATUS_TEXT = { 0: '待处理', 1: '已纳入通用库', 2: '已驳回' }
 
@@ -413,8 +422,8 @@ Page({
   /** 一个按钮走两种模式：入库直接提交，盘点先确认再提交 */
   onSubmitStock() {
     const { stockMode, stockInput, setting } = this.data
-    const qty = parseInt(stockInput, 10)
-    if (isNaN(qty) || qty < 0 || (stockMode === 'in' && qty <= 0)) {
+    const qty = exactNumber(stockInput)
+    if (qty === null || !Number.isSafeInteger(qty) || qty < 0 || (stockMode === 'in' && qty <= 0)) {
       wx.showToast({ title: stockMode === 'in' ? '请输入入库数量' : '请输入盘点数量', icon: 'none' })
       return
     }
@@ -481,9 +490,9 @@ Page({
     const field = e.currentTarget.dataset.field
     const raw = this.data.setting[field]
     if (raw === '' || raw === null || raw === undefined) return
-    const n = parseFloat(raw)
-    if (isNaN(n)) {
-      this.setData({ ['setting.' + field]: '' })
+    const n = exactNumber(raw)
+    if (n === null) {
+      wx.showToast({ title: '请输入完整的数字金额', icon: 'none' })
       return
     }
     this.setData({ ['setting.' + field]: n.toFixed(2) })
@@ -498,13 +507,20 @@ Page({
       ticketEnabled: s.ticketEnabled ? 1 : 0,
       priorityDisplay: s.priorityDisplay ? 1 : 0
     }
+    for (const field of ['salePrice', 'depositPrice', 'ticketPrice']) {
+      if (field === 'depositPrice' && s.category !== 1) continue
+      if (!blankNumber(s[field]) && exactNumber(s[field]) === null) {
+        wx.showToast({ title: '请输入完整的数字金额', icon: 'none' })
+        return
+      }
+    }
     // 空字符串不传（= 保持原值）；填了数字才传，0 会被后端解释为"清除覆盖"
-    if (s.salePrice !== '') payload.salePrice = parseFloat(s.salePrice)
+    if (!blankNumber(s.salePrice)) payload.salePrice = exactNumber(s.salePrice)
     // 押金只对桶装水(category=1)提交：非桶装不显示这个输入框，若把表单里的残留值一并提交，
     // 后端会按"只有桶装水能设押金"拒绝整次保存 —— 那就变成"改个售价也被拒"的怪事。
     // 判据与后端 util/BarrelScope 一致（品类值正本：1 桶装水 / 2 瓶装水 / 3 饮水器）。
-    if (s.category === 1 && s.depositPrice !== '') payload.depositPrice = parseFloat(s.depositPrice)
-    if (s.ticketPrice !== '') payload.ticketPrice = parseFloat(s.ticketPrice)
+    if (s.category === 1 && !blankNumber(s.depositPrice)) payload.depositPrice = exactNumber(s.depositPrice)
+    if (!blankNumber(s.ticketPrice)) payload.ticketPrice = exactNumber(s.ticketPrice)
 
     this.setData({ saving: true })
     try {
@@ -742,8 +758,20 @@ Page({
       wx.showToast({ title: '商品名称不能为空', icon: 'none' })
       return
     }
-    if (!editForm.price || isNaN(parseFloat(editForm.price))) {
+    const price = exactNumber(editForm.price)
+    if (price === null) {
       wx.showToast({ title: '请输入正确的售价', icon: 'none' })
+      return
+    }
+    const deposit = blankNumber(editForm.deposit) ? 0 : exactNumber(editForm.deposit)
+    const quantity = blankNumber(editForm.quantity) ? null : exactNumber(editForm.quantity)
+    const ticketPrice = blankNumber(editForm.ticketPrice) ? null : exactNumber(editForm.ticketPrice)
+    if (deposit === null || (editForm.ticketEnabled && !blankNumber(editForm.ticketPrice) && ticketPrice === null)) {
+      wx.showToast({ title: '请输入完整的数字金额', icon: 'none' })
+      return
+    }
+    if (!blankNumber(editForm.quantity) && (quantity === null || !Number.isSafeInteger(quantity) || quantity < 0)) {
+      wx.showToast({ title: '库存须填写非负整数', icon: 'none' })
       return
     }
     const payload = {
@@ -751,21 +779,21 @@ Page({
       brand: editForm.brand || '',
       spec: editForm.spec || '',
       category: editForm.category || 1,
-      price: parseFloat(editForm.price) || 0,
-      deposit: parseFloat(editForm.deposit) || 0,
+      price,
+      deposit,
       enabled: editForm.enabled ? 1 : 0,
       ticketEnabled: editForm.ticketEnabled ? 1 : 0,
       imageUrl: editForm.imageUrl || '',
       description: editForm.description || ''
     }
-    if (editForm.ticketEnabled && editForm.ticketPrice !== '') {
-      payload.ticketPrice = parseFloat(editForm.ticketPrice)
+    if (editForm.ticketEnabled && !blankNumber(editForm.ticketPrice)) {
+      payload.ticketPrice = ticketPrice
     }
-    if (isAdd && editForm.quantity !== '') {
-      payload.quantity = parseInt(editForm.quantity, 10) || 0
+    if (isAdd && !blankNumber(editForm.quantity)) {
+      payload.quantity = quantity
     }
-    if (!isAdd && editForm.quantity !== '') {
-      payload.quantity = parseInt(editForm.quantity, 10) || 0
+    if (!isAdd && !blankNumber(editForm.quantity)) {
+      payload.quantity = quantity
     }
 
     this.setData({ saving: true })

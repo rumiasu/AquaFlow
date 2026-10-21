@@ -1,7 +1,7 @@
 const { getStationProducts } = require('../../api/product')
 const { getPublicStations, getStationStatus } = require('../../api/station')
 const { getBaseUrl, API } = require('../../config/api')
-const { getAccessToken } = require('../../utils/token')
+const { getAccessToken, captureSession, isCurrentSession } = require('../../utils/token')
 const { stationStorage } = require('../../utils/storage')
 
 Page({
@@ -28,10 +28,44 @@ Page({
     }
   },
   onShow() {
+    this._shopHidden = false
     const app = getApp()
-    this.setData({ isLogin: app.globalData.isLogin })
+    this.setData({ isLogin: app.globalData.isLogin, showStationPicker: false })
     this.updateCartCount()
-    this.loadData()
+    return this.loadData()
+  },
+  onHide() {
+    this._shopHidden = true
+    this._shopLoadSeq = (this._shopLoadSeq || 0) + 1
+  },
+  onUnload() {
+    this._shopDestroyed = true
+    this._shopLoadSeq = (this._shopLoadSeq || 0) + 1
+  },
+  /** Match the existing login epoch and authoritative order-station preference, never a stale card. */
+  _captureShopContext(stationId) {
+    return { session: captureSession(), stationId: String(stationId || ''), sequence: this._shopLoadSeq || 0 }
+  },
+  _isShopContextCurrent(context) {
+    return !!context && !this._shopHidden && !this._shopDestroyed
+      && context.sequence === (this._shopLoadSeq || 0) && isCurrentSession(context.session)
+      && context.stationId === String(stationStorage.getId() || '')
+  },
+  /** A cart may still be reviewed after a catalog failure; product taps require a current successful list. */
+  _canUseShopContext(needsProducts = true, productId) {
+    const session = captureSession()
+    if (!session.loggedIn || !session.customerId) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
+      return false
+    }
+    const context = needsProducts ? this._shopProductsContext : this._shopViewContext
+    if (!this._isShopContextCurrent(context)
+        || context.stationId !== String(this.data.currentStationId || '')
+        || (needsProducts && (this.data.loading || !this.data.allProducts.some(item => item && String(item.id) === String(productId))))) {
+      wx.showToast({ title: '商品信息已变化，请刷新后重试', icon: 'none' })
+      return false
+    }
+    return true
   },
   updateCartCount() {
     const app = getApp()
@@ -43,6 +77,11 @@ Page({
     this.loadData().then(() => wx.stopPullDownRefresh())
   },
   async loadData() {
+    if (this._shopHidden || this._shopDestroyed) return
+    this._shopLoadSeq = (this._shopLoadSeq || 0) + 1
+    const context = this._captureShopContext(stationStorage.getId())
+    this._shopViewContext = context
+    this._shopProductsContext = null
     this.setData({ loading: true })
     try {
       let allProducts = []
@@ -55,6 +94,10 @@ Page({
         const station = stationStorage.get()
         if (station) currentStation = station
       }
+      // 2026-10-21: A's late products previously replaced B's view while cart writes used B.
+      // Clear old cards before reading; every completion (including catch/finally) keeps its original scope.
+      this.setData({ currentStationId, currentStation, allProducts: [], loadError: '', stationStatusHint: '' })
+      this.updateCartCount()
 
       // 如果本地没有，不再调用后端接口，等待用户选择
       if (currentStationId) {
@@ -65,9 +108,11 @@ Page({
         // 顾客会以为整站没货。商品是商城页的全部内容，失败必须出声。
         try {
           const productsRes = await getStationProducts(currentStationId)
+          if (!this._isShopContextCurrent(context)) return
           // 业务失败仍是 HTTP 200，一律判 body.code（AGENTS §8.1）；code!=0 也不能当"没有商品"
-          if (productsRes && productsRes.code === 0 && productsRes.data) {
+          if (productsRes && productsRes.code === 0 && Array.isArray(productsRes.data)) {
             allProducts = productsRes.data
+            this._shopProductsContext = context
             this.setData({ loadError: '' })
           } else {
             const msg = (productsRes && productsRes.message) || '返回异常，请稍后重试'
@@ -76,6 +121,7 @@ Page({
             wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
           }
         } catch (e) {
+          if (!this._isShopContextCurrent(context)) return
           console.error('[Shop] 加载商品失败:', e)
           this.setData({ loadError: '商品没加载出来（' + ((e && e.message) || '网络异常') + '），下面可能是空的，请下拉刷新' })
           wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
@@ -84,10 +130,11 @@ Page({
 
       // 「已有商品」标签原先靠 GET /api/products/my，而那个接口恒返回空数组（永远点不亮）。
       // 2026-09-16 已按设计删除该端点，标签一并去掉；要恢复得先有一个真实的"客户已购商品"接口。
+      if (!this._isShopContextCurrent(context)) return
       this.setData({ allProducts, currentStationId, currentStation })
       this.loadStationStatus(currentStationId)
     } finally {
-      this.setData({ loading: false })
+      if (this._isShopContextCurrent(context)) this.setData({ loading: false })
     }
   },
   /**
@@ -95,34 +142,46 @@ Page({
    * 产品口径是"不阻断，只提示"。拿不到就静默（不能因为提示失败让人买不了水）。
    */
   async loadStationStatus(stationId) {
+    const context = this._captureShopContext(stationId)
+    if (!this._isShopContextCurrent(context)) return
+    const sequence = this._shopStatusSeq = (this._shopStatusSeq || 0) + 1
+    const current = () => sequence === this._shopStatusSeq && this._isShopContextCurrent(context)
     if (!stationId) {
       this.setData({ stationStatusHint: '' })
       return
     }
     try {
       const res = await getStationStatus(stationId)
-      const hint = res && res.data ? res.data.customerHint : ''
+      if (!current()) return
+      const hint = res && res.code === 0 && res.data ? res.data.customerHint : ''
       this.setData({ stationStatusHint: hint || '' })
     } catch (e) {
-      this.setData({ stationStatusHint: '' })
+      if (current()) this.setData({ stationStatusHint: '' })
     }
   },
 
-  async loadStationList() {    try {
+  async loadStationList() {
+    const context = this._captureShopContext(stationStorage.getId())
+    if (!this._isShopContextCurrent(context)) return
+    const sequence = this._shopListSeq = (this._shopListSeq || 0) + 1
+    const current = () => sequence === this._shopListSeq && this._isShopContextCurrent(context)
+    try {
       // [2026-09-20 真机联调] 原来是 `.catch(() => null)` + 外层只 console.error：失败时列表为空，
       // 弹窗渲染成「暂无可用水站」—— 把"没查到"说成"平台真的没有水站"。
       const res = await getPublicStations()
-      if (res && res.code === 0 && res.data) {
+      if (!current()) return
+      if (res && res.code === 0 && Array.isArray(res.data)) {
         const activeStations = res.data.filter(s => s.status === 1)
         this.setData({ stationList: activeStations, stationListError: '' })
       } else {
         const msg = (res && res.message) || '返回异常，请稍后重试'
         console.warn('[Shop] 水站列表返回非成功响应:', msg)
-        this.setData({ stationListError: msg })
+        this.setData({ stationList: [], stationListError: msg })
       }
     } catch (e) {
+      if (!current()) return
       console.error('[Shop] 加载水站列表失败:', e)
-      this.setData({ stationListError: (e && e.message) || '网络异常' })
+      this.setData({ stationList: [], stationListError: (e && e.message) || '网络异常' })
       wx.showToast({ title: '水站列表没加载出来，请重试', icon: 'none' })
     }
   },
@@ -131,15 +190,25 @@ Page({
     this.loadStationList()
   },
   onCloseStationPicker() {
+    this._shopSelectSeq = (this._shopSelectSeq || 0) + 1
+    this._shopListSeq = (this._shopListSeq || 0) + 1
     this.setData({ showStationPicker: false })
   },
   async onSelectStation(e) {
-    const { id } = e.currentTarget.dataset
+    const context = this._captureShopContext(stationStorage.getId())
+    const sequence = this._shopSelectSeq = (this._shopSelectSeq || 0) + 1
+    if (!this._isShopContextCurrent(context)) return
+    const station = this.data.stationList.find(s => String(s.id) === String(e.currentTarget.dataset.id))
+    if (!station) { wx.showToast({ title: '水站不存在，请刷新后重试', icon: 'none' }); return }
+    const id = station.id
+    const listSequence = this._shopListSeq || 0
+    const current = () => sequence === this._shopSelectSeq && this._isShopContextCurrent(context)
+      && listSequence === (this._shopListSeq || 0)
+      && this.data.stationList.some(item => String(item.id) === String(id))
     if (id === this.data.currentStationId) {
       this.setData({ showStationPicker: false })
       return
     }
-    const station = this.data.stationList.find(s => s.id === id)
 
     // 本地提示：不同水站资产不互通
     const noticeDisabled = stationStorage.getSwitchNoticeDisabled()
@@ -154,7 +223,7 @@ Page({
           success: (r) => resolve(r.confirm)
         })
       })
-      if (!confirm) {
+      if (!current() || !confirm) {
         return
       }
       // 记住用户选择
@@ -167,28 +236,37 @@ Page({
           success: (r) => resolve(r.confirm)
         })
       })
+      if (!current()) return
       if (dontShow) {
         stationStorage.setSwitchNoticeDisabled(true)
       }
     }
 
     const app = getApp()
+    if (!current()) return
     stationStorage.set(station)
+    this._shopLoadSeq = (this._shopLoadSeq || 0) + 1
+    const productContext = this._captureShopContext(id)
+    this._shopViewContext = productContext
+    this._shopProductsContext = null
     // 不再清空购物车，各站购物车独立保留
     this.setData({
       currentStationId: id,
       currentStation: station,
       showStationPicker: false,
       loading: true,
-      allProducts: []
+      allProducts: [], loadError: '', stationStatusHint: ''
     })
+    this.updateCartCount()
     try {
       // [2026-09-20 真机联调] 原来是 `.catch(() => null)`：切站后商品拉不到时 allProducts 为空，
       // 页面渲染成「暂无商品」—— 顾客会以为**刚切的这个站**没货（与 loadData 里同一处坑）。
       const productsRes = await getStationProducts(id)
+      if (!this._isShopContextCurrent(productContext)) return
       let allProducts = []
-      if (productsRes && productsRes.code === 0 && productsRes.data) {
+      if (productsRes && productsRes.code === 0 && Array.isArray(productsRes.data)) {
         allProducts = productsRes.data
+        this._shopProductsContext = productContext
         this.setData({ loadError: '' })
       } else {
         const msg = (productsRes && productsRes.message) || '返回异常，请稍后重试'
@@ -199,11 +277,12 @@ Page({
       this.setData({ allProducts })
       this.loadStationStatus(id)
     } catch (e) {
+      if (!this._isShopContextCurrent(productContext)) return
       console.error('[Shop] 切站后加载商品失败:', e)
       this.setData({ loadError: '商品没加载出来（' + ((e && e.message) || '网络异常') + '），下面可能是空的，请下拉刷新' })
       wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (this._isShopContextCurrent(productContext)) this.setData({ loading: false })
     }
   },
   onSearch(e) { this.setData({ keywords: e.detail.value }) },
@@ -220,6 +299,7 @@ Page({
       wx.showToast({ title: '请先选择水站', icon: 'none' })
       return
     }
+    if (!this._canUseShopContext(true, id)) return
     app.addToCart(stationId, id, 1)
     this.updateCartCount()
     wx.showToast({ title: '已加入订水清单', icon: 'success' })
@@ -235,6 +315,7 @@ Page({
       wx.showToast({ title: '请先选择水站', icon: 'none' })
       return
     }
+    if (!this._canUseShopContext(true, id)) return
     wx.navigateTo({ url: `/pages/order/create?productId=${id}&stationId=${stationId}` })
   },
   onGoCheckout() {
@@ -243,6 +324,7 @@ Page({
       wx.showToast({ title: '请先选择水站', icon: 'none' })
       return
     }
+    if (!this._canUseShopContext(false)) return
     wx.navigateTo({ url: '/pages/order/create?source=cart&stationId=' + stationId })
   },
   onLogin() { wx.navigateTo({ url: '/pages/login/index' }) }

@@ -86,6 +86,7 @@ const REQUIRED_TRACKED = [
   'tests/js/pending-reminder-lifecycle.test.js',
   'tests/js/coordination-todo-context.test.js',
   'tests/js/water-product-templates.test.js',
+  'tests/js/customer-shop-context.test.js',
   'miniapp-delivery/utils/water-product-templates.js',
   'miniapp-user/assets/product/barrel-neutral-template.webp',
   'miniapp-delivery/assets/product/barrel-neutral-template.webp',

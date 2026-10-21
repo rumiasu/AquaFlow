@@ -8,8 +8,8 @@ import java.math.BigDecimal;
 
 /**
  * 管理端商品保存/更新请求体（Phase F-3：ManagerProductController save/update 由 Map 强类型化）。
- * <p>站长端以 JSON 数字发送 price/deposit/quantity 等（parseFloat/parseInt 后传输），
- * 类型化字段安全；imageUrl 为旧格式（后端解析出 imageObjectName），保留兼容。</p>
+ * <p>站长端完整校验金额/整数库存后以 JSON 数字发送 price/deposit/quantity 等；
+ * DTO 类型检查无法恢复被客户端截断的原输入。imageUrl 为旧格式（后端解析出 imageObjectName），保留兼容。</p>
  */
 public class ManagerProductDTO {
 

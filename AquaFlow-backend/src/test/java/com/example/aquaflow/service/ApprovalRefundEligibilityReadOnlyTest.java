@@ -2,6 +2,7 @@ package com.example.aquaflow.service;
 
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.constant.PayMethod;
+import com.example.aquaflow.constant.PaymentStatus;
 import com.example.aquaflow.controller.BarrelController;
 import com.example.aquaflow.entity.*;
 import com.example.aquaflow.exception.BusinessException;
@@ -61,6 +62,12 @@ class ApprovalRefundEligibilityReadOnlyTest {
         fields.put("paymentMapper",payments); fields.put("orderMapper",orders); fields.put("ledger",ledger); fields.put("risk",risk);
         fields.put("recordLotMapper",recordLots); fields.put("paymentLocks",paymentLocks); fields.put("depositService",deposits);
         ProductMapper products=mock(ProductMapper.class); fields.put("productMapper",products);
+        ScopedRefusalRefundMapper scoped=mock(ScopedRefusalRefundMapper.class);
+        ScopedDisputeService disputes=mock(ScopedDisputeService.class);
+        fields.put("scopedRefunds",scoped);fields.put("disputes",disputes);
+        when(scoped.paid(77L)).thenReturn(BigDecimal.ZERO);
+        when(disputes.quote(eq(7L),eq(1L),eq(10L),any())).thenAnswer(invocation->new ScopedDisputeService.Quote(BigDecimal.ZERO,new BigDecimal("1000"),invocation.getArgument(3),false));
+        when(risk.refundCreditAssessment(7L,1L)).thenReturn(Map.of("level",CustomerRiskService.NORMAL));
         fields.forEach((name,value)->ReflectionTestUtils.setField(service,name,value));
         record=new BarrelRecord(); record.setId(77L); record.setType(2); record.setStatus(2); record.setCustomerId(7L);
         record.setStationId(1L); record.setProductId(10L); record.setQuantity(2); record.setDepositRefund(new BigDecimal("60"));
@@ -70,7 +77,7 @@ class ApprovalRefundEligibilityReadOnlyTest {
         when(details.heldLots(77L)).thenReturn(List.of(Map.of("lotId",50L,"qty",2,"amount",new BigDecimal("60"))));
         purchase=new BarrelRightPurchase(); purchase.setId(90L); purchase.setCustomerId(7L); purchase.setStationId(1L); purchase.setProductId(10L);
         purchase.setLotId(50L); purchase.setPaymentId(100L); when(business.purchaseByLot(50L)).thenReturn(purchase);
-        original=new PaymentRecord(); original.setId(100L); original.setCustomerId(7L); original.setStationId(1L); original.setPaymentMethod(PayMethod.CASH);
+        original=new PaymentRecord(); original.setId(100L); original.setCustomerId(7L); original.setStationId(1L); original.setPaymentMethod(PayMethod.CASH); original.setStatus(PaymentStatus.PAID);
         when(payments.getById(100L)).thenReturn(original);
         CustomerDepositAccount account=new CustomerDepositAccount(); account.setBalance(new BigDecimal("1000")); when(accounts.getByCustomerAndStation(7L,1L)).thenReturn(account);
         Product product=new Product(); product.setName("真实商品"); when(products.getById(10L)).thenReturn(product);
@@ -91,7 +98,7 @@ class ApprovalRefundEligibilityReadOnlyTest {
         verify(transactions).getTransaction(definition.capture()); assertTrue(definition.getValue().isReadOnly());
         verify(transactions).commit(transaction); verify(transactions,never()).rollback(any());
         assertNull(ApprovedBarrelReturnService.class.getMethod("refundEligibility",Long.class,Long.class).getAnnotation(Transactional.class));
-        assertArrayEquals(new String[]{"STATION_MANAGER"},BarrelController.class.getMethod("refundEligibility",Long.class).getAnnotation(RequireRole.class).value());
+        assertArrayEquals(new String[]{"STATION_MANAGER"},BarrelController.class.getMethod("refundEligibility",Long.class,boolean.class).getAnnotation(RequireRole.class).value());
     }
     @Test void onlineUnavailableNeverOffersCashReplacement() {
         original.setPaymentMethod(PayMethod.WECHAT); Map<String,Object> result=read();
@@ -103,7 +110,8 @@ class ApprovalRefundEligibilityReadOnlyTest {
     }
     @Test void missingKnownOriginalAndUnsupportedChannelRemainUnknown() {
         when(payments.getById(100L)).thenReturn(null); unavailable(read(),"原收款凭据未能核对");
-        when(payments.getById(100L)).thenReturn(original); original.setPaymentMethod(PayMethod.TICKET); unavailable(read(),"原收款方式尚不能办理");
+        when(payments.getById(100L)).thenReturn(original); original.setStatus(null); unavailable(read(),"原款尚未实际收取或状态待核实");
+        original.setStatus(PaymentStatus.PAID); original.setPaymentMethod(PayMethod.TICKET); unavailable(read(),"原收款方式尚不能办理");
     }
     @Test void historicalHeldLotWithoutOnlineProofKeepsExistingCashPath() {
         when(business.purchaseByLot(50L)).thenReturn(null);
@@ -143,7 +151,7 @@ class ApprovalRefundEligibilityReadOnlyTest {
         when(details.heldLots(77L)).thenReturn(List.of(Map.of("lotId",50L,"qty",1,"amount",new BigDecimal("30")),Map.of("lotId",51L,"qty",1,"amount",new BigDecimal("30"))));
         BarrelRightPurchase online=new BarrelRightPurchase(); online.setId(91L); online.setCustomerId(7L); online.setStationId(1L); online.setProductId(10L); online.setLotId(51L); online.setPaymentId(101L);
         when(business.purchaseByLot(51L)).thenReturn(online);
-        PaymentRecord second=new PaymentRecord(); second.setId(101L); second.setCustomerId(7L); second.setStationId(1L); second.setPaymentMethod(PayMethod.WECHAT); when(payments.getById(101L)).thenReturn(second);
+        PaymentRecord second=new PaymentRecord(); second.setId(101L); second.setCustomerId(7L); second.setStationId(1L); second.setPaymentMethod(PayMethod.WECHAT); second.setStatus(PaymentStatus.PAID); when(payments.getById(101L)).thenReturn(second);
         unavailable(read(),"不同原收款方式");
     }
     private OrderBarrelPurchase useCombinedSource() {

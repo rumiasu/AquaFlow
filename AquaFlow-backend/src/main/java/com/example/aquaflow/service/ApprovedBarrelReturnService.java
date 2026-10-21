@@ -125,7 +125,7 @@ public class ApprovedBarrelReturnService {
                 PaymentRecord original=paymentId==null?null:paymentMapper.getById(paymentId);
                 if (original==null || original.getPaymentMethod()==null)
                     return unavailable(view,"原收款凭据未能核对，请核实后办理");
-                if(!Set.of(PaymentStatus.PAID,PaymentStatus.REFUNDED).contains(original.getStatus()))
+                if(original.getStatus()==null || !Set.of(PaymentStatus.PAID,PaymentStatus.REFUNDED).contains(original.getStatus()))
                     return unavailable(view,"原款尚未实际收取或状态待核实，不能登记退款");
                 if (!Objects.equals(original.getCustomerId(),record.getCustomerId()))
                     return unavailable(view,"原收款归属未能核对，请核实后办理");

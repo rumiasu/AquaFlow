@@ -320,7 +320,7 @@ Page({
       if (String(wx.getStorageSync(aftercareFocus(snapshot.actor))) !== String(this.data.aftercareOrderId)) throw new Error('原订单定位未能保存，请勿办理交付')
       this.setData({ aftercarePending: true })
       if (action === 'PAID') {
-        const confirm = await new Promise(resolve => wx.showModal({ title: '仅登记已实际交付', content: '原退款 #' + row.refundPaymentId + '，原责任款 ¥' + intent.context.amount.toFixed(2) + '。仅核对已经实际交给对方的这一笔并同步原登记，不执行转账；已交过请勿再次交款。', confirmText: '已交付，仅登记', cancelText: '暂不登记', success: res => resolve(res.confirm), fail: () => resolve(false) }))
+        const confirm = await new Promise(resolve => wx.showModal({ title: '仅登记已实际交付', content: '原退款 #' + row.refundPaymentId + '，原责任款 ¥' + intent.context.amount.toFixed(2) + '。仅核对已经实际交给对方的这一笔并同步原登记，不执行转账；已交过请勿再次交款。', confirmText: '仅登记', cancelText: '暂不登记', success: res => resolve(res.confirm), fail: () => resolve(false) }))
         if (!this.aftercareCurrent(snapshot)) return
         if (!confirm) { if (!prior) { intents.clear(intent); this.setData({ aftercarePending: false }) } return }
       }

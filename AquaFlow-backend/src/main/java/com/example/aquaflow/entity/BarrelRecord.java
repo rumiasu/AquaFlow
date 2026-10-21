@@ -147,4 +147,6 @@ public class BarrelRecord {
     private transient Integer owedBuckets;
     /** 新申请的批准/双确认/取桶费信息；旧记录为 null。 */
     private transient BarrelReturnDetail returnDetail;
+    /** 实退/待退金额及原分次凭据；不把部分退款写成终态。 */
+    private transient java.util.Map<String,Object> refundProgress;
 }

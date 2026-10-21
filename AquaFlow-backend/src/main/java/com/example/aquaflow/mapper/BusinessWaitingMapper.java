@@ -52,7 +52,7 @@ public interface BusinessWaitingMapper {
     @Select("select count(distinct o.id)" + STOCK_FROM)
     int countWaitingStock(Long station);
     @Select("select r.id as recordId,r.customer_id as customerId,d.status,d.refund_due_time as refundDueTime,"
-            + "d.approved_time as approvedTime,r.deposit_refund as refundAmount,r.station_id as responsibleStationId,"
+            + "d.approved_time as approvedTime,r.deposit_refund-coalesce((select sum(pay.amount) from barrel_return_payout pay where pay.record_id=r.id),0) as refundAmount,r.station_id as responsibleStationId,"
             + "coalesce(d.received_time,r.create_time) as waitingSinceTime,"
             + "case when d.status='RECEIVED' and d.refund_due_time<now() then 1 else 0 end as overdue" + RETURNS_FROM
             + " order by waitingSinceTime,r.id limit " + WAITING_LIMIT)

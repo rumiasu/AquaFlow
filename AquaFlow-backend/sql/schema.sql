@@ -1166,7 +1166,10 @@ CREATE TABLE IF NOT EXISTS barrel_return_lot_hold (
 CREATE TABLE IF NOT EXISTS barrel_purchase_refund (
   payment_id bigint NOT NULL, purchase_id bigint NOT NULL,
   return_record_id bigint NOT NULL, amount decimal(10,2) NOT NULL,
-  PRIMARY KEY(payment_id), UNIQUE KEY uk_purchase_return(purchase_id,return_record_id)
+  payout_id bigint DEFAULT NULL,
+  legacy_return_record_id bigint GENERATED ALWAYS AS (IF(payout_id IS NULL,return_record_id,NULL)) STORED,
+  PRIMARY KEY(payment_id), UNIQUE KEY uk_purchase_return(purchase_id,legacy_return_record_id),
+  UNIQUE KEY uk_return_payout_source(purchase_id,return_record_id,payout_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS barrel_return_fee_refund (
   original_payment_id bigint NOT NULL PRIMARY KEY, refund_payment_id bigint NOT NULL UNIQUE,
@@ -1256,8 +1259,11 @@ CREATE TABLE IF NOT EXISTS order_barrel_refund (
   original_payment_id bigint NOT NULL, refund_payment_id bigint NOT NULL,
   return_record_id bigint DEFAULT NULL, quantity int NOT NULL, amount decimal(10,2) NOT NULL,
   reason varchar(16) NOT NULL COMMENT 'CANCEL / RETURN',
+  payout_id bigint DEFAULT NULL,
+  legacy_return_record_id bigint GENERATED ALWAYS AS (IF(payout_id IS NULL,return_record_id,NULL)) STORED,
   PRIMARY KEY(id), UNIQUE KEY uk_order_barrel_refund(refund_payment_id,purchase_id),
-  UNIQUE KEY uk_order_barrel_return(purchase_id,return_record_id),
+  UNIQUE KEY uk_order_barrel_return(purchase_id,legacy_return_record_id),
+  UNIQUE KEY uk_return_payout_source(purchase_id,return_record_id,payout_id),
   KEY idx_order_barrel_original(original_payment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -1310,6 +1316,7 @@ CREATE TABLE IF NOT EXISTS customer_refusal_action (
   from_version BIGINT NOT NULL,
   to_version BIGINT NOT NULL,
   create_time DATETIME NOT NULL,
+  scope_json longtext DEFAULT NULL,
   UNIQUE KEY uk_refusal_action (actor_key,order_id,idempotency_key),
   KEY idx_refusal_action_order (order_id,id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -1402,4 +1409,20 @@ CREATE TABLE IF NOT EXISTS historical_asset_claim (
   CONSTRAINT ck_asset_claim_review CHECK
     ((status='PENDING' AND reviewer_id IS NULL AND review_time IS NULL)
      OR (status<>'PENDING' AND reviewer_id IS NOT NULL AND review_time IS NOT NULL))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- v81: scoped dispute holds and actual partial refund evidence.
+CREATE TABLE IF NOT EXISTS customer_refusal_freeze_scope (
+  order_id bigint NOT NULL, product_id bigint NOT NULL,
+  amount decimal(10,2) NOT NULL,
+  PRIMARY KEY(order_id,product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS barrel_return_payout (
+  id bigint NOT NULL AUTO_INCREMENT, record_id bigint NOT NULL,
+  actor_key varchar(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  request_key varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  request_digest char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  amount decimal(10,2) NOT NULL, payer_id bigint NOT NULL,
+  final_payout tinyint NOT NULL DEFAULT 0, create_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(id), UNIQUE KEY uk_return_payout_key(record_id,request_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

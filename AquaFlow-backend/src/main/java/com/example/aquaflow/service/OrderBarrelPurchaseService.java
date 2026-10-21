@@ -180,6 +180,24 @@ public class OrderBarrelPurchaseService {
         recordRefund(row,original,refund,quantity,amount,record,"RETURN");finishPayment(original);
     }
 
+    /** 分次现金事实只增加已退金额；权益数量到原退还单全部结清时才由固定批次终止。 */
+    @Transactional
+    public void refundReturnedPayout(OrderBarrelPurchase row,BigDecimal amount,Long record,Long payer,Long payout) {
+        consumption.lockOrder(row.getOrderId());PaymentRecord original=consumption.lockPayment(row.getPaymentId());
+        PaymentRecord cash=refund(original,amount,BigDecimal.ZERO,amount,BigDecimal.ZERO,BigDecimal.ZERO,"随单押金分次实退，申请 "+record,payer);
+        if(purchases.refund(row.getId(),0,amount)!=1 || purchases.payoutProof(row.getId(),original.getId(),cash.getId(),record,amount,payout)!=1)
+            throw new BusinessException("原款分次退款凭据已变化，本次整体回滚");
+        finishPayment(original);
+    }
+
+    /** 数量终止凭据由barrel_record_lot记录；不制造金额为0的退款流水。 */
+    public void closeReturnedQuantity(OrderBarrelPurchase row,int quantity) {
+        OrderBarrelPurchase current=purchases.byLot(row.getLotId());
+        BigDecimal required=current.getUnitPrice().multiply(BigDecimal.valueOf(current.getRefundedQty()+quantity));
+        if(current.getRefundedAmount().compareTo(required)<0 || purchases.refund(current.getId(),quantity,BigDecimal.ZERO)!=1)
+            throw new BusinessException("分次退款金额或权益数量未能核对，本次整体回滚");
+    }
+
     private void recordRefund(OrderBarrelPurchase row,PaymentRecord original,PaymentRecord refund,int quantity,BigDecimal amount,Long record,String reason) {
         if(purchases.refund(row.getId(),quantity,amount)!=1 || purchases.refundProof(row.getId(),original.getId(),refund.getId(),record,quantity,amount,reason)!=1)
             throw new BusinessException("押金原款已退款或凭据变化，本次退款已回滚");

@@ -182,10 +182,16 @@ class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0,intOf("select asset_freeze_confirmed from customer_refusal_case where order_id=?",id));
         assertEquals(1,put("/api/manager/refusal-cases/"+id+"/confirm-freeze",bt,"{}").code());
         assertEquals(0,put("/api/manager/refusal-cases/"+id+"/confirm-freeze",mgr,"{}").code());
-        assertEquals(1,post("/api/barrels/return",cus,"{\"stationId\":"+station+",\"productId\":"+product+",\"quantity\":1,\"idempotencyKey\":\"frozen-return\"}").code());
+        Api pending=post("/api/barrels/return",cus,"{\"stationId\":"+station+",\"productId\":"+product+",\"quantity\":1,\"idempotencyKey\":\"frozen-return\"}");
+        assertEquals(0,pending.code(),pending.toString());long pendingId=pending.data().path("recordId").asLong();
+        assertEquals(0,put("/api/barrels/records/"+pendingId+"/approve",mgr,"{\"pickupFee\":0}").code());
+        assertEquals(0,put("/api/barrels/records/"+pendingId+"/status",mgr,"{\"status\":2}").code());
+        var frozen=get("/api/barrels/records/"+pendingId+"/refund-eligibility?scopedRefunds=true",mgr);
+        assertEquals(10,frozen.data().path("refundAmount").asInt(),"30元押金仅保留本案20元，其余10元可处理");
         assertEquals(new BigDecimal("30.00"),jdbc.queryForObject("select balance from customer_deposit_account where customer_id=? and station_id=?",BigDecimal.class,customer,station));
         Api collect=post("/api/payments",bt,"{\"orderId\":"+id+",\"paymentMethod\":2}");assertEquals(0,collect.code(),collect.toString());assertEquals(0,put("/api/payments/"+collect.data().path("id").asLong()+"/confirm",bt,null).code());
-        assertEquals(0,post("/api/barrels/return",cus,"{\"stationId\":"+station+",\"productId\":"+product+",\"quantity\":1,\"idempotencyKey\":\"released-return\"}").code());assertBalanced();
+        var released=get("/api/barrels/records/"+pendingId+"/refund-eligibility?scopedRefunds=true",mgr);
+        assertEquals(30,released.data().path("refundAmount").asInt(),"收清原欠款后仅解除本案限制，仍沿原退桶申请办理");assertBalanced();
     }
     @Test void crossStationQuoteFreezesOnAcceptanceAndAssetsStayAtOrigin() {
         seed();buy(1,"right");long id=order("cross",1);pay(id,1);long b=createStation("履约站");long bm=createStaff("乙站长","STATION_MANAGER",b,1);String bt=staffToken(bm,"STATION_MANAGER",b);createInventoryFull(b,product,10,1,"8.00");createInventoryRecord(b,product,10,"STOCK_IN",0);

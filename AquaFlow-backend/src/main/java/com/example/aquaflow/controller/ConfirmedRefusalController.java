@@ -3,6 +3,7 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.dto.ExceptionCloseoutDTO;
+import com.example.aquaflow.dto.RefusalFreezeScopeDTO;
 import jakarta.validation.Valid;
 import com.example.aquaflow.service.ConfirmedRefusalService;
 import com.example.aquaflow.util.AuthContext;
@@ -17,8 +18,11 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ConfirmedRefusalController {
     private final ConfirmedRefusalService service;
+    private final com.example.aquaflow.service.ScopedDisputeService scoped;
     @GetMapping public Result<List<Map<String,Object>>> list() { return Result.success(service.list(AuthContext.requireStationId())); }
-    @PutMapping("/{orderId}/confirm-freeze") public Result<Void> confirm(@PathVariable Long orderId) {
+    @PutMapping("/{orderId}/confirm-freeze") public Result<?> confirm(@PathVariable Long orderId,@RequestBody(required=false) RefusalFreezeScopeDTO dto) {
+        if(dto!=null && (dto.getItems()!=null || dto.getIdempotencyKey()!=null || dto.getExpectedVersion()!=null))
+            return Result.success(scoped.configure(orderId,AuthContext.requireStationId(),dto));
         service.confirmFreeze(orderId,AuthContext.requireStationId()); return Result.success();
     }
     /** 员工端：当事站站长查看原判断的处理历史；顾客端不能调用。 */

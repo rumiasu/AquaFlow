@@ -12,6 +12,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
@@ -21,6 +22,8 @@ import java.util.*;
 /** 申请制退还编排；审批不代表收桶，收桶不代表已经交付退款。 */
 @Service
 public class ApprovedBarrelReturnService {
+    @Autowired private ScopedRefusalRefundMapper scopedRefunds;
+    @Autowired private ScopedDisputeService disputes;
     @Autowired private OrderBarrelPurchaseService orderPurchases;
     @Autowired private BarrelBusinessPolicy policy;
     @Autowired private BarrelReturnDetailMapper detailMapper;
@@ -47,12 +50,15 @@ public class ApprovedBarrelReturnService {
     /** 员工端在实际交款前只读核对原款；不创建占用、不调用任何退款写入口。
      * 2026-10-07：原先先提示交现金再由写接口判渠道，会诱导错误交款；资格仍须在写时重新校验。 */
     public Map<String,Object> refundEligibility(Long id, Long stationId) {
+        return refundEligibility(id,stationId,false);
+    }
+    public Map<String,Object> refundEligibility(Long id, Long stationId,boolean scopedClient) {
         RefundEligibilityRead read = new RefundEligibilityRead();
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         transaction.setReadOnly(true);
         boolean joinedTransaction = TransactionSynchronizationManager.isActualTransactionActive();
         try {
-            return transaction.execute(status -> readRefundEligibility(id, stationId, read));
+            return transaction.execute(status -> readRefundEligibility(id, stationId, read,scopedClient));
         } catch (BusinessException e) {
             // 2026-10-08：嵌套预览失败会标记事务回滚；必须先退出事务，再转成不可办理提示。
             // 如果调用方已有事务，继续抛出，不能吞掉它已被标记回滚的事实。
@@ -68,7 +74,7 @@ public class ApprovedBarrelReturnService {
     }
 
     /** 由只读 TransactionTemplate 调用；本方法不捕获业务异常，失败必须先完成回滚。 */
-    private Map<String,Object> readRefundEligibility(Long id, Long stationId, RefundEligibilityRead read) {
+    private Map<String,Object> readRefundEligibility(Long id, Long stationId, RefundEligibilityRead read,boolean scopedClient) {
         BarrelRecord record = owned(id,stationId);
         BarrelReturnDetail detail = detail(id);
         Map<String,Object> view = read.view;
@@ -119,6 +125,8 @@ public class ApprovedBarrelReturnService {
                 PaymentRecord original=paymentId==null?null:paymentMapper.getById(paymentId);
                 if (original==null || original.getPaymentMethod()==null)
                     return unavailable(view,"原收款凭据未能核对，请核实后办理");
+                if(!Set.of(PaymentStatus.PAID,PaymentStatus.REFUNDED).contains(original.getStatus()))
+                    return unavailable(view,"原款尚未实际收取或状态待核实，不能登记退款");
                 if (!Objects.equals(original.getCustomerId(),record.getCustomerId()))
                     return unavailable(view,"原收款归属未能核对，请核实后办理");
                 if (purchase!=null) {
@@ -140,6 +148,8 @@ public class ApprovedBarrelReturnService {
                 else return unavailable(view,"原收款方式尚不能办理押金退款，请核实原款");
             }
             if (quantity!=record.getQuantity()) return unavailable(view,"退款批次数量与申请不一致，请核实原款");
+            if(record.getDepositRefund()==null || amount.compareTo(record.getDepositRefund())!=0)
+                return unavailable(view,"原申请金额与固定批次不一致，待退责任保留，请核实原凭据");
             if (channels.size()!=1) return unavailable(view,"本申请包含不同原收款方式，请核实原申请");
             channel=channels.iterator().next();
         }
@@ -147,10 +157,22 @@ public class ApprovedBarrelReturnService {
         view.put("channel",channel);
         view.put("historicalSource",historicalSource);
         if (detail!=null || amount.signum()>0) {
-            String level=risk.levelOf(record.getCustomerId(),stationId);
+            String level=String.valueOf(risk.refundCreditAssessment(record.getCustomerId(),stationId).get("level"));
             if (CustomerRiskService.ALERT.equals(level) || CustomerRiskService.FREEZE.equals(level))
-                return unavailable(view,risk.returnBlockedReason(record.getCustomerId(),stationId));
+                return unavailable(view,risk.refundCreditBlockedReason(record.getCustomerId(),stationId));
         }
+        BigDecimal total=amount,paid=detail==null?BigDecimal.ZERO:scopedRefunds.paid(id);
+        amount=total.subtract(paid);
+        if(amount.signum()<0) return unavailable(view,"实退记录超过原申请金额，请核对原凭据");
+        var quote=disputes.quote(record.getCustomerId(),stationId,record.getProductId(),amount);
+        view.put("totalRefundAmount",total);view.put("paidRefundAmount",paid);view.put("remainingRefundAmount",amount);
+        view.put("frozenRefundAmount",quote.unknown()?null:amount.subtract(quote.payable()));view.put("availableRefundAmount",quote.payable());
+        view.put("scopeEvidenceIncomplete",quote.unknown());
+        view.put("partialRefundsSupported",scopedClient && detail!=null && total.signum()>0 && !quote.unknown());
+        if(quote.unknown())return unavailable(view,"原案争议商品或金额证据不足，请资产站核对范围；待退责任保留");
+        if((paid.signum()>0 || quote.payable().compareTo(amount)<0) && (!scopedClient || detail==null))
+            return unavailable(view,detail==null?"旧申请缺固定批次的分次实退能力，保留原记录待核，不可先行交款":"请更新员工端后沿原申请核对分次实退；待退责任保留");
+        if(paid.signum()>0 && amount.signum()==0)return unavailable(view,"实退已齐，结清状态待核实，请查原记录，勿再次交款");
         if (amount.signum()>0) {
             CustomerDepositAccount account=refundAccounts.getByCustomerAndStation(record.getCustomerId(),stationId);
             if (account==null || account.getBalance()==null || account.getBalance().compareTo(amount)<0)
@@ -158,7 +180,8 @@ public class ApprovedBarrelReturnService {
         }
         if (BarrelRefundDTO.CHANNEL_ONLINE.equals(channel) && !mockWechatPay)
             return unavailable(view,"线上原渠道退款尚不可用，本申请保留待退款责任，请勿改交现金");
-        view.put("available",true);
+        if(amount.signum()>0 && quote.payable().signum()==0)return unavailable(view,"剩余押金在本案争议金额范围内，待核对或解冻后继续原申请；未记退款成功");
+        view.put("refundAmount",quote.payable());view.put("available",true);
         view.put("reason",historicalSource?"历史原款由归属站核实现金交付；办理时仍会核对金额和资格":"按原收款方式退还，办理时会再次核对资格");
         return view;
     }
@@ -227,7 +250,7 @@ public class ApprovedBarrelReturnService {
         }
         if (!BarrelScope.isBarrel(productMapper.getById(dto.getProductId()))) throw new BusinessException("该商品不涉及退桶");
         ledger.lockRights(customerId,dto.getStationId(),dto.getProductId());
-        checkRisk(customerId,dto.getStationId());
+        checkRisk(customerId,dto.getStationId(),dto.getProductId());
         if (ledger.overQty(customerId,dto.getStationId(),dto.getProductId()) > 0)
             throw new BusinessException("请先归还该商品的欠桶，再申请退押金");
         if ("COMBINED".equals(mode)) {
@@ -251,6 +274,8 @@ public class ApprovedBarrelReturnService {
         catch (DuplicateKeyException e) { throw new BusinessException("该申请已提交，请查看原申请"); }
         if (arrangementMapper.insert(detail)!=1) throw new BusinessException("原申请安排凭据未保存");
         BigDecimal amount = ledger.holdReturnLots(customerId,dto.getStationId(),dto.getProductId(),dto.getQuantity(),record.getId());
+        if(disputes.quote(customerId,dto.getStationId(),dto.getProductId(),amount).unknown())
+            throw new BusinessException("原案商品或争议金额证据不足，请先由资产站核对范围");
         Set<Integer> channels=new HashSet<>();
         for(Map<String,Object> held:detailMapper.heldLots(record.getId())) {
             BarrelRightPurchase purchase=businessMapper.purchaseByLot(((Number)held.get("lotId")).longValue());
@@ -418,7 +443,12 @@ public class ApprovedBarrelReturnService {
         if (Integer.valueOf(2).equals(status)) { receive(record,detail,operatorId,note); return; }
         if (!Integer.valueOf(3).equals(status) || !"RECEIVED".equals(detail.getStatus()))
             throw new BusinessException("请先完成批准、必要的费用授权和实际交接，再退押金");
-        checkRisk(record.getCustomerId(),stationId);
+        checkRisk(record.getCustomerId(),stationId,record.getProductId());
+        scopedRefunds.lockAccount(record.getCustomerId(),stationId);
+        BigDecimal whole=detailMapper.heldLots(id).stream().map(r->(BigDecimal)r.get("amount")).reduce(BigDecimal.ZERO,BigDecimal::add);
+        var limit=disputes.quote(record.getCustomerId(),stationId,record.getProductId(),whole);
+        if(limit.unknown() || limit.payable().compareTo(whole)<0 || scopedRefunds.paid(id).signum()>0)
+            throw new BusinessException("本申请有争议限额或分次实退记录，请沿原申请核对可退及待退金额后办理");
         String channel = BarrelRefundDTO.normalizeChannel(refundChannel);
         if (channel==null) throw new BusinessException("请选择有效退款方式");
         if (BarrelRefundDTO.CHANNEL_ONLINE.equals(channel) && !mockWechatPay)
@@ -490,10 +520,106 @@ public class ApprovedBarrelReturnService {
             throw new BusinessException("交接状态已变化，请核实原结果");
     }
 
-    private void checkRisk(Long customerId, Long stationId) {
-        String level = risk.levelOf(customerId,stationId);
+    private void checkRisk(Long customerId, Long stationId, Long productId) {
+        String level = String.valueOf(risk.refundCreditAssessment(customerId,stationId).get("level"));
         if (CustomerRiskService.ALERT.equals(level) || CustomerRiskService.FREEZE.equals(level))
-            throw new BusinessException(risk.returnBlockedReason(customerId,stationId));
+            throw new BusinessException(risk.refundCreditBlockedReason(customerId,stationId));
+    }
+
+    public Map<String,Object> refundProgress(BarrelRecord record) {
+        if(detail(record.getId())==null)return null;
+        var held=detailMapper.heldLots(record.getId());
+        BigDecimal fixed=held.stream().map(r->(BigDecimal)r.get("amount")).reduce(BigDecimal.ZERO,BigDecimal::add);
+        BigDecimal total=record.getDepositRefund()==null?fixed:record.getDepositRefund();
+        BigDecimal paid=scopedRefunds.paid(record.getId());
+        if(paid.signum()==0 && Integer.valueOf(3).equals(record.getStatus()))paid=record.getDepositRefund();
+        BigDecimal remaining=total.subtract(paid);
+        boolean verified=!held.isEmpty() && total.compareTo(fixed)==0 && remaining.signum()>=0;
+        var result=new LinkedHashMap<String,Object>();result.put("total",total);result.put("paid",paid);result.put("remaining",remaining.signum()<0?null:remaining);result.put("verified",verified);
+        if(!verified)result.put("verificationReason","原申请金额与固定批次待核实，实退凭据及剩余责任保留");
+        if(remaining.signum()<0)result.put("overRecordedAmount",remaining.negate());
+        result.put("receipts",scopedRefunds.receipts(record.getId()));return result;
+    }
+
+    /** 已实际交付的现金分次登记。原申请锁、账户锁与凭据同事务；不调用外部收退款。 */
+    @Transactional(isolation=Isolation.READ_COMMITTED)
+    public Map<String,Object> recordCashPayout(Long id,Long station,Long operator,BarrelRefundDTO dto) {
+        AuthContext.requireManager();
+        if(!Objects.equals(station,AuthContext.requireStationId()) || !Integer.valueOf(3).equals(dto.getStatus())
+                || !Boolean.TRUE.equals(dto.getCashDeliveryConfirmed()) || !BarrelRefundDTO.CHANNEL_CASH.equals(BarrelRefundDTO.normalizeChannel(dto.getRefundChannel())))
+            throw new BusinessException("请先核对本次现金已实际交付，不能据受理或未知结果记实退");
+        String key=ScopedDisputeService.key(dto.getPayoutRequestKey());BigDecimal amount=dto.getExpectedRefundAmount();
+        if(amount==null || amount.signum()<=0 || amount.scale()>2 || amount.compareTo(new BigDecimal("99999999.99"))>0)throw new BusinessException("请核对本次实际交付的精确金额");
+        amount=amount.setScale(2);Long payer=dto.getRefundPaidBy()==null?operator:dto.getRefundPaidBy();
+        String note=dto.getHandleNote()==null?"":dto.getHandleNote().trim();
+        String actor="STAFF:"+operator+":"+station;
+        String digest=ScopedDisputeService.digest("CASH|"+id+"|"+actor+"|"+payer+"|"+amount+"|"+note);
+        BarrelRecord record=owned(id,station);var held=detailMapper.heldLots(id);
+        var combined=new TreeMap<Long,OrderBarrelPurchase>();var independent=new TreeMap<Long,BarrelRightPurchase>();var paymentIds=new TreeSet<Long>();
+        for(var line:held) {
+            Long lot=((Number)line.get("lotId")).longValue();var source=orderPurchases.byLot(lot);var standalone=businessMapper.purchaseByLot(lot);
+            if(source!=null && standalone!=null)throw new BusinessException("原款关联存在冲突，待核实后办理");
+            if(source!=null){combined.put(lot,source);paymentIds.add(source.getPaymentId());}
+            if(standalone!=null){independent.put(lot,standalone);paymentIds.add(standalone.getPaymentId());}
+        }
+        combined.values().stream().map(OrderBarrelPurchase::getOrderId).distinct().sorted().forEach(paymentLocks::lockOrder);
+        paymentIds.forEach(paymentLocks::lockPayment);
+        ledger.lockRights(record.getCustomerId(),station,record.getProductId());
+        scopedRefunds.lockAccount(record.getCustomerId(),station);
+        var detail=detailMapper.lock(id);
+        var old=scopedRefunds.receipt(id,key);
+        if(old!=null) {
+            if(!digest.equals(old.get("request_digest")))throw new BusinessException("同一实退编号的金额、交付人或内容不能改变");
+            return Map.of("payoutId",old.get("id"),"paidAmount",old.get("amount"),"alreadyRecorded",true,"progress",refundProgress(owned(id,station)));
+        }
+        if(detail==null || !"RECEIVED".equals(detail.getStatus()))throw new BusinessException("请沿已实际交接的原申请办理，不新增或重做退桶");
+        var view=refundEligibility(id,station,true);
+        if(!Boolean.TRUE.equals(view.get("available")) || !BarrelRefundDTO.CHANNEL_CASH.equals(view.get("channel")))throw new BusinessException(String.valueOf(view.get("reason")));
+        if(amount.compareTo((BigDecimal)view.get("refundAmount"))>0)throw new BusinessException("本次原交付金额超过当前可退上限，请查原记录；本次未登记，勿重复交款");
+        Staff staff=payer==null?null:staffMapper.getById(payer);
+        if(staff==null || !Objects.equals(staff.getStationId(),station))throw new BusinessException("押金实际交付人须属于原资产站");
+        BigDecimal remaining=(BigDecimal)view.get("remainingRefundAmount");boolean last=amount.compareTo(remaining)==0;
+        var payout=new LinkedHashMap<String,Object>();payout.put("record",id);payout.put("actor",actor);payout.put("key",key);payout.put("digest",digest);payout.put("amount",amount);payout.put("payer",payer);payout.put("last",last?1:0);
+        if(scopedRefunds.insertPayout(payout)!=1)throw new BusinessException("实退凭据未能保存");Long payoutId=((Number)payout.get("id")).longValue();
+        BigDecimal unpaid=amount;
+        for(var line:held) {
+            Long lot=((Number)line.get("lotId")).longValue();BigDecimal due=(BigDecimal)line.get("amount");
+            OrderBarrelPurchase source=combined.get(lot);BarrelRightPurchase standalone=independent.get(lot);
+            BigDecimal previous=source!=null?scopedRefunds.combinedPaid(id,source.getId()):standalone!=null?scopedRefunds.independentPaid(id,standalone.getId()):manualPaidBefore(record,held,lot);
+            if(previous.compareTo(due)>0)throw new BusinessException("原批次实退金额超过应退，请核实");
+            BigDecimal pay=unpaid.min(due.subtract(previous));if(pay.signum()==0)continue;
+            if(source!=null)orderPurchases.refundReturnedPayout(source,pay,id,payer,payoutId);
+            else if(standalone!=null) {
+                PaymentRecord original=paymentMapper.getById(standalone.getPaymentId());
+                if(original==null || original.getPaymentMethod()!=PayMethod.CASH || original.getStatus()!=PaymentStatus.PAID)throw new BusinessException("独立押金原款尚未能核实，不能登记实退");
+                PaymentRecord cash=new PaymentRecord();cash.setCustomerId(record.getCustomerId());cash.setStationId(station);cash.setAmount(pay.negate());cash.setBarrelDeposit(pay.negate());cash.setWaterAmount(BigDecimal.ZERO);cash.setPaymentMethod(PayMethod.CASH);cash.setStatus(PaymentStatus.REFUNDED);cash.setOperatorId(payer);cash.setNote("原退还申请分次实退 "+id);cash.setCreateTime(LocalDateTime.now());cash.setUpdateTime(LocalDateTime.now());paymentMapper.insert(cash);
+                if(scopedRefunds.independentProof(cash.getId(),standalone.getId(),id,pay,payoutId)!=1)throw new BusinessException("原款实退凭据未保存");
+            }
+            unpaid=unpaid.subtract(pay);
+        }
+        if(unpaid.signum()!=0)throw new BusinessException("实退与固定原批次未能对齐，已整体回滚");
+        DepositRecord cash=new DepositRecord();cash.setCustomerId(record.getCustomerId());cash.setProductId(record.getProductId());cash.setType(DepositType.RETURN_BARREL);cash.setQuantity(last?record.getQuantity():0);cash.setAmount(amount);cash.setOperatorId(operator);cash.setNote("退还申请 "+id+" 本次实际交付，凭据 "+payoutId);depositService.add(cash,station);
+        if(last) {
+            var consumption=ledger.refundHeldRights(record.getCustomerId(),station,record.getProductId(),id);
+            for(var line:consumption.getDetails()) {
+                BarrelRecordLot closed=new BarrelRecordLot();closed.setRecordId(id);closed.setLotId(line.getLotId());closed.setQty(line.getQty());closed.setUnitPrice(line.getUnitPrice());closed.setAmount(line.getAmount());recordLotMapper.insert(closed);
+                if(combined.containsKey(line.getLotId()))orderPurchases.closeReturnedQuantity(combined.get(line.getLotId()),line.getQty());
+            }
+            if(detailMapper.transition(id,"RECEIVED","REFUNDED")!=1 || recordMapper.finishRefund(id,note,(BigDecimal)view.get("totalRefundAmount"),payer)!=1)throw new BusinessException("原退款状态已变化，本次整体回滚");
+        }
+        return Map.of("payoutId",payoutId,"paidAmount",amount,"alreadyRecorded",false,"progress",refundProgress(owned(id,station)));
+    }
+
+    private BigDecimal manualPaidBefore(BarrelRecord record,List<Map<String,Object>> held,Long currentLot) {
+        // 历史无购买原款也只沿固定批次FIFO分配；已付款总额与有购买凭据部分扣除后才落手工批次。
+        BigDecimal total=scopedRefunds.paid(record.getId());
+        // 本次payout已插入，分配仅使用它之前的总额。
+        var receipts=scopedRefunds.receipts(record.getId());if(!receipts.isEmpty())total=total.subtract((BigDecimal)receipts.get(receipts.size()-1).get("amount"));
+        for(var line:held) {
+            Long lot=((Number)line.get("lotId")).longValue();BigDecimal due=(BigDecimal)line.get("amount");
+            BigDecimal taken=total.min(due);if(lot.equals(currentLot))return taken;total=total.subtract(taken);
+        }
+        throw new BusinessException("原退款批次不存在");
     }
     private Orders requireCompanion(Long customerId,Long stationId,Long orderId) {
         Orders order = orderId==null ? null : orderMapper.getById(orderId);

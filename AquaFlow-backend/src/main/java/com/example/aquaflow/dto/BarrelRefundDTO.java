@@ -50,8 +50,11 @@ public class BarrelRefundDTO {
     /** 现金交付登记（含补同步）须明确 true；未交付不能据未知结果登记交付，旧客户端兼容不传。 */
     private Boolean cashDeliveryConfirmed;
 
-    /** 核对已实际交付的现金金额；只作一致性守卫，不能覆盖服务端核销金额。 */
+    /** 旧整笔办理仅作一致性守卫；原键分次登记表示本次已实际交付额，仍受原应退及争议限额约束，不改总应退。 */
     private java.math.BigDecimal expectedRefundAmount;
+
+    /** 分次实际现金登记的原请求键；不改变原申请、原批次或退款渠道。 */
+    private String payoutRequestKey;
 
     /**
      * 通道取值 <b>白名单</b>（AGENTS §6：请求体的枚举入参必须白名单校验，注解边界会被新调用路径绕过）。

@@ -144,8 +144,8 @@ public class BarrelController {
     /** 员工端归属站站长只读核对实际交款前的原退款渠道；客户及他站不可调用。 */
     @RequireRole({"STATION_MANAGER"})
     @GetMapping("/records/{id}/refund-eligibility")
-    public Result<Map<String,Object>> refundEligibility(@PathVariable Long id) {
-        return Result.success(approvedReturnService.refundEligibility(id,AuthContext.requireStationId()));
+    public Result<Map<String,Object>> refundEligibility(@PathVariable Long id,@RequestParam(defaultValue="false") boolean scopedRefunds) {
+        return Result.success(approvedReturnService.refundEligibility(id,AuthContext.requireStationId(),scopedRefunds));
     }
 
     /** 归属站站长批准申请及独立上门费；批准本身不登记收到实物。 */
@@ -192,7 +192,7 @@ public class BarrelController {
      */
     @RequireRole("STATION_MANAGER")
     @PutMapping("/records/{id}/status")
-    public Result<Void> handleReturn(@PathVariable Long id, @RequestBody(required = false) BarrelRefundDTO dto) {
+    public Result<?> handleReturn(@PathVariable Long id, @RequestBody(required = false) BarrelRefundDTO dto) {
         Long stationId = AuthContext.requireStationId();
         if (dto == null) {
             return Result.error("请求体不能为空");
@@ -207,6 +207,7 @@ public class BarrelController {
         // 站别取登录态传入，文案「退桶记录不存在 / 无权处理他站退桶申请」一字未变
         Long operatorId = AuthContext.getUserId();
         try {
+            if(dto.getPayoutRequestKey()!=null)return Result.success(approvedReturnService.recordCashPayout(id,stationId,operatorId,dto));
             if (dto.getCashDeliveryConfirmed() != null || dto.getExpectedRefundAmount() != null) {
                 if (!Integer.valueOf(3).equals(status) || !Boolean.TRUE.equals(dto.getCashDeliveryConfirmed())
                         || dto.getExpectedRefundAmount() == null

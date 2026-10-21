@@ -41,6 +41,8 @@ import java.util.Map;
 @Slf4j
 public class CustomerRiskService {
     @org.springframework.beans.factory.annotation.Autowired
+    private com.example.aquaflow.mapper.ScopedRefusalRefundMapper refundScopes;
+    @org.springframework.beans.factory.annotation.Autowired
     private ConfirmedRefusalService confirmedRefusals;
 
     /** 正常：没有未结赊账 */
@@ -131,6 +133,11 @@ public class CustomerRiskService {
      * {@code returnBlocked}（退押金是否会被拦）/ {@code reason}（给用户看的文案）。</p>
      */
     public Map<String, Object> assess(Long customerId, Long stationId) {
+        return assess(customerId,stationId,null);
+    }
+
+    /** 商品退款不借客户站级画像扩大本案资产限制；列表画像仍使用二参数入口。 */
+    public Map<String, Object> assess(Long customerId, Long stationId, Long productId) {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("customerId", customerId);
         out.put("stationId", stationId);
@@ -150,9 +157,9 @@ public class CustomerRiskService {
 
         String level = levelOf(overdueCount, maxOverdueDays, outstanding, limit);
         String reason = reasonOf(level, overdueCount, maxOverdueDays, outstanding, limit);
-        if (confirmedRefusals != null && confirmedRefusals.frozen(customerId,stationId)) {
+        if (confirmedRefusals != null && confirmedRefusals.frozen(customerId,stationId,productId)) {
             level = FREEZE;
-            reason = "水站已确认拒付，结清该笔欠款后恢复退押金资格（押金未被扣除）";
+            reason = "水站已确认拒付，本案资产限制按商品与可退金额核对（押金未被扣除）";
         }
 
         out.put("level", level);
@@ -199,6 +206,23 @@ public class CustomerRiskService {
     /** 轻量版：只取等级（退桶拦截用，避免为此多查几次库）。 */
     public String levelOf(Long customerId, Long stationId) {
         return String.valueOf(assess(customerId, stationId).get("level"));
+    }
+
+    public String levelOf(Long customerId, Long stationId, Long productId) {
+        return String.valueOf(assess(customerId, stationId, productId).get("level"));
+    }
+
+    /** 拒付案的资产限制单独按商品/金额计算，不能再借同一案件的逾期统计扩大冻结。 */
+    public Map<String,Object> refundCreditAssessment(Long customer,Long station) {
+        var row=refundScopes.refundCredit(customer,station);
+        BigDecimal outstanding=(BigDecimal)row.get("outstanding");
+        BigDecimal overdue=(BigDecimal)row.get("overdueAmount");
+        int count=((Number)row.get("overdueCount")).intValue(),days=((Number)row.get("overdueDays")).intValue();
+        BigDecimal limit=creditLimit(customer,station);String level=levelOf(count,days,outstanding,limit);
+        return Map.of("level",level,"reason",reasonOf(level,count,days,outstanding,limit));
+    }
+    public String refundCreditBlockedReason(Long customer,Long station) {
+        return "本次退款仍有非本案的未结欠款（"+refundCreditAssessment(customer,station).get("reason")+"），请核对原款";
     }
 
     /**
@@ -276,7 +300,11 @@ public class CustomerRiskService {
      * 但真实原因是<b>客户还欠着钱</b>，只报余额不足会让站长与客户都看不出该怎么办。</p>
      */
     public String returnBlockedReason(Long customerId, Long stationId) {
-        Map<String, Object> a = assess(customerId, stationId);
+        return returnBlockedReason(customerId,stationId,null);
+    }
+
+    public String returnBlockedReason(Long customerId, Long stationId, Long productId) {
+        Map<String, Object> a = assess(customerId, stationId, productId);
         return "该客户在本站有未结欠款（" + a.get("reason") + "），暂不能退桶退押金，请先结清";
     }
 

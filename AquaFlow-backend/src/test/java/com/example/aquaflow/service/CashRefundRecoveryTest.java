@@ -90,6 +90,12 @@ class CashRefundRecoveryTest {
                     "recordLotMapper",recordLots,"staffMapper",staffMapper,"risk",mock(CustomerRiskService.class),
                     "orderPurchases",mock(OrderBarrelPurchaseService.class),"businessMapper",mock(BarrelBusinessMapper.class));
             fields.forEach((name,value)->ReflectionTestUtils.setField(service,name,value));
+            ScopedRefusalRefundMapper scoped=mock(ScopedRefusalRefundMapper.class);
+            ScopedDisputeService disputes=mock(ScopedDisputeService.class);
+            ReflectionTestUtils.setField(service,"scopedRefunds",scoped);ReflectionTestUtils.setField(service,"disputes",disputes);
+            when(scoped.paid(77L)).thenReturn(BigDecimal.ZERO);
+            when(disputes.quote(eq(7L),eq(1L),eq(10L),any())).thenAnswer(invocation->new ScopedDisputeService.Quote(BigDecimal.ZERO,new BigDecimal("100"),invocation.getArgument(3),false));
+
             when(records.getById(77L)).thenReturn(record);when(details.lock(77L)).thenReturn(detail);
             when(details.heldLots(77L)).thenReturn(List.of(Map.of("lotId",50L,"qty",2,"amount",new BigDecimal("100"))));
             when(ledger.refundHeldRights(7L,1L,10L,77L)).thenReturn(consumption());

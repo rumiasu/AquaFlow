@@ -41,6 +41,7 @@ public class BusinessWaitingService {
         var record = mapper.returnRecord(recordId, station);
         if (record == null) throw new BusinessException("未找到本站的退桶申请，请核实申请编号");
         record.setReturnDetail(approvedReturns.detail(recordId));
+        record.setRefundProgress(approvedReturns.refundProgress(record));
         if (record.getCustomerId() != null && record.getProductId() != null) {
             record.setOwedBuckets(barrelLedger.overQty(record.getCustomerId(), station, record.getProductId()));
         }

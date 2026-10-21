@@ -47,6 +47,8 @@ import java.util.Set;
 @lombok.extern.slf4j.Slf4j
 public class BarrelServiceImpl implements BarrelService {
     @Autowired private com.example.aquaflow.service.ApprovedBarrelReturnService approvedReturnService;
+    @Autowired private com.example.aquaflow.service.ScopedDisputeService disputes;
+    @Autowired private com.example.aquaflow.mapper.ScopedRefusalRefundMapper scopedRefunds;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.mapper.BusinessWaitingMapper businessWaitingMapper;
 
@@ -106,7 +108,7 @@ public class BarrelServiceImpl implements BarrelService {
     @Override
     public List<BarrelRecord> listRecords(Long customerId, Long stationId) {
         List<BarrelRecord> records = barrelRecordMapper.listByCustomerAndStation(customerId, stationId);
-        for (BarrelRecord r : records) if (Integer.valueOf(2).equals(r.getType())) r.setReturnDetail(approvedReturnService.detail(r.getId()));
+        for (BarrelRecord r : records) if (Integer.valueOf(2).equals(r.getType())) { r.setReturnDetail(approvedReturnService.detail(r.getId())); r.setRefundProgress(approvedReturnService.refundProgress(r)); }
         return records;
     }
 
@@ -124,7 +126,7 @@ public class BarrelServiceImpl implements BarrelService {
         for (BarrelRecord r : records) {
             if (r.getType() != null && r.getType() == 2 && r.getCustomerId() != null && r.getProductId() != null) {
                 r.setOwedBuckets(barrelLedgerService.overQty(r.getCustomerId(), stationId, r.getProductId()));
-                r.setReturnDetail(approvedReturnService.detail(r.getId()));
+                { r.setReturnDetail(approvedReturnService.detail(r.getId())); r.setRefundProgress(approvedReturnService.refundProgress(r)); }
             }
         }
         return records;
@@ -146,7 +148,7 @@ public class BarrelServiceImpl implements BarrelService {
         boolean more = found.size() > limit;
         List<BarrelRecord> records = new ArrayList<>(found.subList(0, Math.min(limit, found.size())));
         for (BarrelRecord r : records) {
-            r.setReturnDetail(approvedReturnService.detail(r.getId()));
+            { r.setReturnDetail(approvedReturnService.detail(r.getId())); r.setRefundProgress(approvedReturnService.refundProgress(r)); }
             if (r.getCustomerId() != null && r.getProductId() != null)
                 r.setOwedBuckets(barrelLedgerService.overQty(r.getCustomerId(), stationId, r.getProductId()));
         }
@@ -828,10 +830,16 @@ public class BarrelServiceImpl implements BarrelService {
         //         —— 与 previewReturn 同判据（那边是 qty>0 且权益足够且不欠桶）。
         //      文案复用 customerRiskService.returnBlockedReason（全系统唯一来源，别另写一句）。
         if (refund.compareTo(BigDecimal.ZERO) > 0) {
-            String level = customerRiskService.levelOf(cid, sid);
+            String level = String.valueOf(customerRiskService.refundCreditAssessment(cid,sid).get("level"));
             if (CustomerRiskService.ALERT.equals(level) || CustomerRiskService.FREEZE.equals(level)) {
-                throw new BusinessException(customerRiskService.returnBlockedReason(cid, sid));
+                throw new BusinessException(customerRiskService.refundCreditBlockedReason(cid,sid));
             }
+        }
+
+        if(refund.signum()>0) {
+            scopedRefunds.lockAccount(cid,sid);
+            var limit=disputes.quote(cid,sid,pid,refund);
+            if(limit.unknown() || limit.payable().compareTo(refund)<0)throw new BusinessException("旧申请的原批次或可退金额待核，请保留原申请，勿先交款");
         }
 
         // 4) 扣押金账户：必须真的扣到钱。旧实现 affected==0 时只是静默跳过，
@@ -947,10 +955,10 @@ public class BarrelServiceImpl implements BarrelService {
         // ⚠️ 只在**确实要退钱**时拦（qty > 0 且权益足够、且不欠桶）——
         //   查询性质的调用（qty=0、或本来就退不了）不该被这件事挡住。
         if (!Boolean.TRUE.equals(data.get("blocked")) && qty > 0 && qty <= right && over <= 0) {
-            String level = customerRiskService.levelOf(customerId, stationId);
+            String level = String.valueOf(customerRiskService.refundCreditAssessment(customerId, stationId).get("level"));
             if (CustomerRiskService.ALERT.equals(level) || CustomerRiskService.FREEZE.equals(level)) {
                 data.put("blocked", true);
-                data.put("blockedReason", customerRiskService.returnBlockedReason(customerId, stationId));
+                data.put("blockedReason", customerRiskService.refundCreditBlockedReason(customerId, stationId));
                 data.put("riskLevel", level);
             }
         }
@@ -984,6 +992,10 @@ public class BarrelServiceImpl implements BarrelService {
         data.put("lots", lots);
         data.put("refundAmount", c.getAmount());
         data.put("hasMigratedPrice", c.isHasMigratedPrice());
+        var scope=disputes.quote(customerId,stationId,productId,c.getAmount());
+        data.put("availableRefundAmount",scope.payable());data.put("frozenRefundAmount",scope.unknown()?null:c.getAmount().subtract(scope.payable()));
+        data.put("scopeEvidenceIncomplete",scope.unknown());
+        if(scope.unknown()) { data.put("blocked",true);data.put("blockedReason","原案商品或金额证据待核实，未释放争议资产"); }
         return data;
     }
 

@@ -13,14 +13,22 @@ public interface ConfirmedRefusalMapper {
     List<Map<String,Object>> activeForUpdate(@Param("customer") Long customer,@Param("station") Long station);
     @Select("select count(*) from customer_refusal_case r join orders o on o.id=r.order_id left join customer_refusal_resolution x on x.order_id=r.order_id where r.customer_id=#{customer} and r.asset_station_id=#{station} and r.asset_freeze_confirmed=1 and coalesce(x.asset_freeze_released,0)=0 and o.payment_status=1 and o.status<>5")
     int frozen(@Param("customer") Long customer,@Param("station") Long station);
-    @Select("select distinct r.customer_id as customerId from customer_refusal_case r join orders o on o.id=r.order_id left join customer_refusal_resolution x on x.order_id=r.order_id where r.asset_station_id=#{station} and r.asset_freeze_confirmed=1 and coalesce(x.asset_freeze_released,0)=0 and o.payment_status=1 and o.status<>5")
+    /** 退还按商品核对争议范围；缺原商品明细的历史案件保留待核限制，不猜成无争议。 */
+    @Select("select count(*) from customer_refusal_case r join orders o on o.id=r.order_id left join customer_refusal_resolution x on x.order_id=r.order_id "
+            + "where r.customer_id=#{customer} and r.asset_station_id=#{station} and r.asset_freeze_confirmed=1 "
+            + "and coalesce(x.asset_freeze_released,0)=0 and o.payment_status=1 and o.status<>5 "
+            + "and (exists(select 1 from order_item oi where oi.order_id=r.order_id and oi.product_id=#{product}) "
+            + "or (not exists(select 1 from order_item oi where oi.order_id=r.order_id) "
+            + "and (o.product_id=#{product} or o.product_id is null or o.product_id<=0)))")
+    int frozenForProduct(@Param("customer") Long customer,@Param("station") Long station,@Param("product") Long product);
+    @Select("select distinct r.customer_id as customerId from customer_refusal_case r left join orders o on o.id=r.order_id left join customer_refusal_resolution x on x.order_id=r.order_id where r.asset_station_id=#{station} and r.asset_freeze_confirmed=1 and coalesce(x.asset_freeze_released,0)=0 and o.payment_status=1 and o.status<>5")
     List<Map<String,Object>> frozenCustomers(@Param("station") Long station);
-    @Select("select r.*,o.total_amount as debtAmount,o.payment_status as paymentStatus,o.status as orderStatus,coalesce(x.judgment_revoked,0) as judgmentRevoked,coalesce(x.asset_freeze_released,0) as assetFreezeReleased,coalesce(x.version,0) as version from customer_refusal_case r join orders o on o.id=r.order_id left join customer_refusal_resolution x on x.order_id=r.order_id where r.asset_station_id=#{station} or r.debt_station_id=#{station} order by r.create_time desc limit 200")
+    @Select("select r.*,o.total_amount as debtAmount,o.payment_status as paymentStatus,o.status as orderStatus,coalesce(x.judgment_revoked,0) as judgmentRevoked,coalesce(x.asset_freeze_released,0) as assetFreezeReleased,coalesce(x.version,0) as version from customer_refusal_case r left join orders o on o.id=r.order_id left join customer_refusal_resolution x on x.order_id=r.order_id where r.asset_station_id=#{station} or r.debt_station_id=#{station} order by r.create_time desc limit 200")
     List<Map<String,Object>> list(@Param("station") Long station);
     /** 当前事项同时保留实际限制及本站仍可执行的纠错动作；已结历史另可遍历/编号定位。 */
     @Select("<script>select r.*,o.total_amount as debtAmount,o.payment_status as paymentStatus,o.status as orderStatus,"
             + "coalesce(x.judgment_revoked,0) as judgmentRevoked,coalesce(x.asset_freeze_released,0) as assetFreezeReleased,"
-            + "coalesce(x.version,0) as version from customer_refusal_case r join orders o on o.id=r.order_id"
+            + "coalesce(x.version,0) as version from customer_refusal_case r left join orders o on o.id=r.order_id"
             + " left join customer_refusal_resolution x on x.order_id=r.order_id"
             + " where (r.asset_station_id=#{station} or r.debt_station_id=#{station})"
             + "<if test='order != null'> and r.order_id=#{order}</if>"
@@ -54,8 +62,8 @@ public interface ConfirmedRefusalMapper {
     @Insert("insert into customer_refusal_action(order_id,station_id,operator_id,actor_key,action,reason,idempotency_key,request_digest,from_version,to_version,create_time) values(#{order},#{station},#{operator},#{actor},#{action},#{reason},#{key},#{digest},#{version},#{version}+1,now())")
     int appendAction(@Param("order") Long order,@Param("station") Long station,@Param("operator") Long operator,@Param("actor") String actor,@Param("action") String action,
                      @Param("reason") String reason,@Param("key") String key,@Param("digest") String digest,@Param("version") long version);
-    @Select("select id,order_id as orderId,station_id as stationId,operator_id as operatorId,action,reason,request_digest as requestDigest,from_version as fromVersion,to_version as toVersion,create_time as createTime from customer_refusal_action where order_id=#{order} and actor_key=#{actor} and idempotency_key=#{key}")
+    @Select("select id,order_id as orderId,station_id as stationId,operator_id as operatorId,action,reason,scope_json as scopeJson,request_digest as requestDigest,from_version as fromVersion,to_version as toVersion,create_time as createTime from customer_refusal_action where order_id=#{order} and actor_key=#{actor} and idempotency_key=#{key}")
     Map<String,Object> action(@Param("order") Long order,@Param("actor") String actor,@Param("key") String key);
-    @Select("select id,order_id as orderId,station_id as stationId,operator_id as operatorId,action,reason,from_version as fromVersion,to_version as toVersion,create_time as createTime from customer_refusal_action where order_id=#{order} order by id")
+    @Select("select id,order_id as orderId,station_id as stationId,operator_id as operatorId,action,reason,scope_json as scopeJson,from_version as fromVersion,to_version as toVersion,create_time as createTime from customer_refusal_action where order_id=#{order} order by id")
     List<Map<String,Object>> actions(Long order);
 }

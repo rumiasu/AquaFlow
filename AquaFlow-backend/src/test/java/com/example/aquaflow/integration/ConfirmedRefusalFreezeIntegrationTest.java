@@ -54,6 +54,26 @@ class ConfirmedRefusalFreezeIntegrationTest extends AbstractIntegrationTest {
         return facts;
     }
 
+    @Test
+    void confirmedRefusalForAnotherProductDoesNotBlockUnrelatedRefundPreview() {
+        seed();
+        long unrelated = createProduct("无争议桶装水", 1, "15.00", "50.00", 0, "0.00");
+        createInventoryFull(assetStation, unrelated, 10, 0, "0.00");
+        createBarrelLot("UNRELATED-REFUND-RIGHT", customer, assetStation, unrelated, "50.00", 1, 1);
+        createBarrelAsset(customer, assetStation, unrelated, 1, "50.00");
+        createDepositBalance(customer, assetStation, "50.00");
+        assertEquals(0, confirm(assetManager).code());
+        var before = businessFacts();
+        Api preview = get("/api/barrels/return/preview?stationId=" + assetStation
+                + "&productId=" + unrelated + "&quantity=1", owner);
+        assertEquals(0, preview.code(), preview.toString());
+        assertFalse(preview.data().path("blocked").asBoolean(),
+                "已确认拒付只能限制争议范围，不能冻结另一商品的退款: " + preview);
+        assertEquals(0, new java.math.BigDecimal("50.00").compareTo(
+                preview.data().path("refundAmount").decimalValue()));
+        assertEquals(before, businessFacts(), "预览不得改变任何资金、权益或原案件事实");
+    }
+
     @Test void onlyAssetManagerConfirmsOnceAndMoneyAndCreditSettingsStayUnchanged() {
         seed(); var before=businessFacts();
         for(String token:List.of(debtManager,stranger,delivery,owner)) assertEquals(1,confirm(token).code());

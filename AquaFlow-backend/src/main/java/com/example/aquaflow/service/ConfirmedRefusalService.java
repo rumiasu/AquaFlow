@@ -15,6 +15,8 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class ConfirmedRefusalService {
+    @org.springframework.beans.factory.annotation.Autowired private ScopedDisputeService scoped;
+    @org.springframework.beans.factory.annotation.Autowired private ScopedRefusalRefundMapper scopeMapper;
     private final ConfirmedRefusalMapper mapper;
     private final CustomerStationConfigMapper configs;
     private final AlertService alerts;
@@ -25,6 +27,7 @@ public class ConfirmedRefusalService {
         if (!Integer.valueOf(1).equals(order.getPaymentStatus())) throw new BusinessException("只有待收款订单可确认拒付");
         Long debt=StationUtil.settleStation(order), asset=order.getStationId();
         if (!Objects.equals(debt,AuthContext.requireStationId())) throw new BusinessException("拒付须由本单结算站确认");
+        scopeMapper.lockAccount(order.getCustomerId(),asset);
         if (mapper.insert(order.getId(),exception,order.getCustomerId(),asset,debt,Objects.equals(asset,debt),AuthContext.getUserId(),note)!=1)
             throw new BusinessException("拒付记录未保存");
         mapper.ensureResolution(order.getId());
@@ -46,6 +49,10 @@ public class ConfirmedRefusalService {
     }
 
     public boolean frozen(Long customer,Long station) { return policy.hasSchema() && mapper.frozen(customer,station)>0; }
+    public boolean frozen(Long customer,Long station,Long product) {
+        return product == null ? frozen(customer,station)
+                : policy.hasSchema() && mapper.frozenForProduct(customer,station,product)>0;
+    }
     public Set<Long> frozenCustomers(Long station) {
         Set<Long> result=new HashSet<>();
         if (policy.hasSchema()) for (Map<String,Object> r:mapper.frozenCustomers(station)) result.add(((Number)r.get("customerId")).longValue());
@@ -78,12 +85,15 @@ public class ConfirmedRefusalService {
         boolean released=ExceptionActionEvidence.number(row,"assetFreezeReleased")==1;
         boolean confirmed=ExceptionActionEvidence.number(row,"asset_freeze_confirmed")==1;
         boolean pending=ExceptionActionEvidence.number(row,"paymentStatus")==1 && ExceptionActionEvidence.number(row,"orderStatus")!=5;
+        boolean sourceMissing=row.get("paymentStatus")==null || row.get("orderStatus")==null;
         out.put("canRevoke",!revoked && Objects.equals(station,((Number)row.get("debt_station_id")).longValue()));
         out.put("canRelease",confirmed && !released && Objects.equals(station,((Number)row.get("asset_station_id")).longValue()));
         out.put("canFreeze",pending && !revoked && !released && !confirmed && Objects.equals(station,((Number)row.get("asset_station_id")).longValue()));
         out.put("judgmentText",revoked?"拒付误判已撤销":"拒付判断保留");
-        out.put("freezeText",released?"本案资产冻结已解除":confirmed?(pending?"本站资产冻结待复核":"原欠款已收口，本案冻结不再生效"):"资产站尚未确认冻结");
-        out.put("debtText",pending?"原欠款仍待收取；纠错不免债":"原款状态已变化，请核对收款记录");
+        out.put("freezeText",released?"本案资产冻结已解除":confirmed?(sourceMissing?"原单证据待核，未自动解除限制":pending?"本站争议范围待复核":"原欠款已收口，本案冻结不再生效"):"资产站尚未确认冻结");
+        out.put("debtText",sourceMissing?"原单证据未完整，保持待核；未判作已结清":pending?"原欠款仍待收取；纠错不免债":"原款状态已变化，请核对收款记录");
+        out.putAll(scoped.metadata(((Number)row.get("order_id")).longValue()));
+        out.put("scopeEditable",pending && !revoked && !released && Objects.equals(station,((Number)row.get("asset_station_id")).longValue()));
         return out;
     }
 
@@ -108,6 +118,9 @@ public class ConfirmedRefusalService {
         var input=ExceptionActionEvidence.input(dto,action);
         String actor="STAFF:"+AuthContext.getUserId()+":"+station;
         // 2026-10-08：原判断行串行化本案所有动作；RC重读已提交幂等结果，不锁空请求键。
+        scopeMapper.lockOrder(order);
+        var identity=mapper.getCase(order);
+        scopeMapper.lockAccount(((Number)identity.get("customer_id")).longValue(),((Number)identity.get("asset_station_id")).longValue());
         Map<String,Object> original=mapper.lockCase(order); authorizeCase(original,station,action);
         Map<String,Object> old=mapper.action(order,actor,input.key());
         if(old!=null){ExceptionActionEvidence.same(old,input);return ExceptionActionEvidence.receipt(old);}
@@ -127,6 +140,11 @@ public class ConfirmedRefusalService {
     }
     @Transactional
     public void confirmFreeze(Long order,Long station) {
+        AuthContext.requireManager();
+        if(!Objects.equals(station,AuthContext.requireStationId()))throw new BusinessException("只能确认当前资产站的冻结");
+        scopeMapper.lockOrder(order);var identity=mapper.getCase(order);
+        if(identity==null || !Objects.equals(((Number)identity.get("asset_station_id")).longValue(),station))throw new BusinessException("原案不存在或不属于本站");
+        scopeMapper.lockAccount(((Number)identity.get("customer_id")).longValue(),station);
         if (mapper.confirmFreeze(order,station,AuthContext.getUserId())!=1) throw new BusinessException("无法确认冻结：无权操作、已确认或原欠款已失效，请刷新台账");
     }
 }

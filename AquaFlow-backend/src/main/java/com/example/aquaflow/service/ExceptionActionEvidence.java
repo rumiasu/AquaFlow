@@ -39,6 +39,6 @@ public final class ExceptionActionEvidence {
     public static List<Map<String,Object>> history(List<Map<String,Object>> rows) {
         return rows.stream().map(r->{Map<String,Object> view=receipt(r);String action=String.valueOf(r.get("action"));
             view.put("actionText",switch(action){case "REVOKE"->"撤销拒付误判";case "RELEASE"->"解除本案资产冻结";
-                case "OPEN"->"提出退款异议";case "REOPEN"->"重新提出退款异议";case "CLOSE"->"水站登记结果并结案";default->"未知处理动作";});return view;}).toList();
+                case "SCOPE"->"核对争议商品及冻结金额";case "OPEN"->"提出退款异议";case "REOPEN"->"重新提出退款异议";case "CLOSE"->"水站登记结果并结案";default->"未知处理动作";});return view;}).toList();
     }
 }

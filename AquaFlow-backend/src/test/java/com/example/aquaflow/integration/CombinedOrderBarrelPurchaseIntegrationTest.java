@@ -57,6 +57,32 @@ class CombinedOrderBarrelPurchaseIntegrationTest extends AbstractIntegrationTest
         Map<String,Integer> r=reconcile.runReconcile();assertEquals(0,r.values().stream().mapToInt(Integer::intValue).sum(),r.toString());
         reconcile.runReconcileV2().entrySet().stream().filter(e -> e.getKey().matches("E(17|18|19|20|21|22)_.*")).forEach(e -> assertEquals(0,e.getValue(),e.toString()));
     }
+    @Test void scopedCashAcrossTwoOriginalPaymentsKeepsQuantityUntilFinalAndReconcilesActualMoney() {
+        seed();jdbc.update("insert into customer_station_config(customer_id,station_id,offline_payment_enabled) values(?,?,1)",customer,station);
+        for(int n=0;n<2;n++) {long source=order("two-cash-sources-"+n,n+1,2);pay(source,2);deliver(source,true,n);}
+        long debtStation=createStation("原债权站");
+        long debt=createOrderCrossStation(customer,address,station,debtStation,product,3,1,2,"20.00","0.00","20.00");
+        jdbc.update("insert into customer_refusal_case(order_id,exception_id,customer_id,asset_station_id,debt_station_id,asset_freeze_confirmed,operator_id,note,create_time) values(?,1,?,?,?,0,?,'合成争议12元',now())",debt,customer,station,debtStation,manager);
+        assertEquals(0,put("/api/manager/refusal-cases/"+debt+"/confirm-freeze",mgr,"{\"expectedVersion\":0,\"idempotencyKey\":\"scope-two-sources\",\"items\":[{\"productId\":"+product+",\"amount\":12}]}").code());
+        Api apply=post("/api/barrels/return",cus,"{\"stationId\":"+station+",\"productId\":"+product+",\"quantity\":2,\"pickupMode\":\"STORE\",\"idempotencyKey\":\"return-two-sources\"}");assertEquals(0,apply.code(),apply.toString());long record=apply.data().path("recordId").asLong();
+        assertEquals(0,put("/api/barrels/records/"+record+"/approve",mgr,"{\"pickupFee\":0}").code());
+        assertEquals(0,put("/api/barrels/records/"+record+"/status",mgr,"{\"status\":2}").code());
+        var before=reconcile.runReconcileV2();
+        String endpoint="/api/barrels/records/"+record+"/status";
+        Api first=put(endpoint,mgr,"{\"status\":3,\"refundChannel\":\"CASH\",\"cashDeliveryConfirmed\":true,\"expectedRefundAmount\":88,\"payoutRequestKey\":\"original-88\"}");assertEquals(0,first.code(),first.toString());
+        assertEquals(88,intOf("select sum(refunded_amount) from order_barrel_purchase"));assertEquals(0,intOf("select sum(refunded_qty) from order_barrel_purchase"));
+        assertEquals(2,intOf("select count(*) from order_barrel_refund where payout_id is not null"));
+        assertEquals(0,intOf("select count(*) from order_barrel_refund where amount<=0"));
+        assertEquals(before,reconcile.runReconcileV2(),"部分现金凭据不能制造E21账差");
+        assertEquals(0,post("/api/manager/refusal-cases/"+debt+"/release-freeze",mgr,"{\"expectedVersion\":1,\"idempotencyKey\":\"release-two-sources\",\"reason\":\"本站核清\"}").code());
+        Api last=put(endpoint,mgr,"{\"status\":3,\"refundChannel\":\"CASH\",\"cashDeliveryConfirmed\":true,\"expectedRefundAmount\":12,\"payoutRequestKey\":\"original-12\"}");assertEquals(0,last.code(),last.toString());
+        assertEquals(100,intOf("select sum(refunded_amount) from order_barrel_purchase"));assertEquals(2,intOf("select sum(refunded_qty) from order_barrel_purchase"));
+        assertEquals(0,intOf("select count(*) from payment_record where amount=0"));assertEquals(before,reconcile.runReconcileV2());
+        long source=jdbc.queryForObject("select min(id) from order_barrel_purchase",Long.class);
+        jdbc.update("update order_barrel_purchase set refunded_qty=refunded_qty-1 where id=?",source);
+        try {assertTrue(reconcile.runReconcileV2().entrySet().stream().anyMatch(e->e.getKey().startsWith("E21_") && e.getValue()>0),"闭环数量篡改仍必须检出");}
+        finally {jdbc.update("update order_barrel_purchase set refunded_qty=refunded_qty+1 where id=?",source);}
+    }
     @Test void firstOrderPaysWaterAndStationDepositOnceAndCreatesNoUnpaidRight() {
         seed();Api q=quote(items(1),1);assertEquals(0,q.code(),q.toString());assertFalse(q.data().path("blocked").asBoolean());
         assertEquals(70,q.data().path("totalAmount").asInt());assertEquals(50,q.data().path("extraDeposit").asInt());

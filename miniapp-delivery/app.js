@@ -85,7 +85,7 @@ App({
    * 配送员不请求：那个端点是 `@RequireRole("STATION_MANAGER")`，问了只会拿到一条权限错误。
    *
    * ⚠️ 不 await、不抛错：它挂在应用启动路径上，一次网络抖动不该影响任何页面。
-   * 失败时 quiet 降级为"不亮红点"（utils/pending-reminder.js 里会 console.warn 留痕）。
+   * 失败保留当前已核实的红点（utils/pending-reminder.js 里会 console.warn 留痕）。
    */
   refreshPendingReminder() {
     const u = this.globalData.userInfo || {}
@@ -148,6 +148,8 @@ App({
   setLoginState(data) {
     // 显式重新登录即开启新会话；普通令牌续期不经过这里。
     this._loginGeneration = (this._loginGeneration || 0) + 1
+    // 2026-10-21：红点缓存不含身份，曾将前一站待办带入新会话；同时作废在途刷新。
+    require('./utils/pending-reminder').syncTabBarDot(false)
     this._logoutAttempt = null
     const previousSession = navigation.sessionKey()
     const userInfo = this._normalizeUserInfo(data)
@@ -174,6 +176,7 @@ App({
 
   clearLoginState() {
     this._loginGeneration = (this._loginGeneration || 0) + 1
+    require('./utils/pending-reminder').syncTabBarDot(false)
     this._logoutAttempt = null
     const previousSession = navigation.sessionKey()
     this.globalData.accessToken = null
@@ -296,7 +299,10 @@ App({
       })
       this.globalData.userInfo = normalized
       wx.setStorageSync(STORAGE_KEYS.USER_INFO, normalized)
-      if (navigation.sessionKey() !== session) navigation.invalidate()
+      if (navigation.sessionKey() !== session) {
+        require('./utils/pending-reminder').syncTabBarDot(false)
+        navigation.invalidate()
+      }
       return normalized
     } catch (e) {
       // 同步失败绝不能把人卡在流程里：保持旧状态，让页面按原逻辑继续走

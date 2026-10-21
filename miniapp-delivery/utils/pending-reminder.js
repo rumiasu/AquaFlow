@@ -19,6 +19,9 @@ const PENDING_SUMMARY = '/api/manager/pending-summary'
 // 静默吞掉待办比不提醒更糟。
 const REMINDER_KEY = 'todoReminderEnabled'
 const HOME_TAB_INDEX = 0 // 首页 tab 的位置（见 app.json 的 tabBar.list 顺序）
+// 2026-10-21：应用/页面可并发刷新；旧查询晚到曾反向覆盖新红点。
+// 查询与显式写入共用版本，退出/关提醒/页面新结果都使旧查询失效。
+let reminderRevision = 0
 
 // 2026-10-02：新责任仍落到已有办理页；首页白名单/点击路由须复用这份路径，
 // 标签、计数和级别一律由待办汇总提供。顾客端不能调用这些员工页面。
@@ -95,6 +98,7 @@ function currentTabBar() {
  * 那种环境下渲染的是原生三项，红点只有 `wx.showTabBarRedDot` 能画。
  */
 function syncTabBarDot(on) {
+  reminderRevision++
   const flag = !!on
   try {
     wx.setStorageSync(DOT_FLAG_KEY, flag)
@@ -166,8 +170,9 @@ async function fetchPendingSummary() {
  * @returns {Promise<Object|null>} 汇总数据（调用方要渲染就复用这一份，别为了红点再请求一次）
  */
 async function syncPendingReminder() {
+  const revision = ++reminderRevision
   const data = await fetchPendingSummary()
-  if (!data) return null
+  if (!data || revision !== reminderRevision) return null
   applyRedDot(data)
   return data
 }

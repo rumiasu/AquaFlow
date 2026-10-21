@@ -83,6 +83,7 @@ const REQUIRED_TRACKED = [
   'miniapp-user/utils/independent-purchase-intent.js',
   'AquaFlow-backend/src/test/java/com/example/aquaflow/service/AuthRefreshRotationTest.java',
   'tests/js/business-pending-flow.test.js',
+  'tests/js/pending-reminder-lifecycle.test.js',
   'AquaFlow-backend/src/test/java/com/example/aquaflow/service/BusinessPendingSummaryTest.java',
   'AquaFlow-backend/src/test/java/com/example/aquaflow/integration/BusinessPendingSummaryIntegrationTest.java',
   'AquaFlow-backend/sql/migration_v72_ticket_purchase_intent.sql',

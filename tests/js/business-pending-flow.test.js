@@ -86,6 +86,8 @@ function employeeApp(state) {
     shared = require(path.join(root, 'miniapp-delivery/utils/pending-reminder'))
   } finally { Module._load = originalLoad }
   app.setLoginState({ accessToken: 'test-access', refreshToken: 'test-refresh', staffId: 1, role: 'STATION_MANAGER', stationId: 1 })
+  // 新会话清旧红点已由 lifecycle 专项验证；本组只观察当前待办读取的后续写入。
+  wx.__calls.storageSet.length = 0
   const page = loadPage('miniapp-delivery/pages/coordination/index.js', { wx, app, stubs: {
     'utils/request': { get }, 'api/delivery': {}, 'behaviors/stationNavbar': {}
   } })

@@ -725,3 +725,10 @@
 每笔`amount`表示`otherStationId`向该笔实际客户退款站`refundStationId`分担的金额，其余由实际退款站承担。不改变原结清报价或按已结整单报酬自动追收。动作回执`{id,orderId,refundPaymentId,action}`；历史含本次原请求键/操作者/金额/版本/说明，未知结果按自己的原键查询或重放，不能以别人的PAID终态认领成功。明确拒绝不等于现金未交付，原PAID请求的未知上下文应保留。
 
 `GET /api/manager/inter-station-settlements`另返回`aftercarePendingOrders`（最多200）和`aftercareHasMore`，与原结清合计分列。原单冲销后仍可发现未核定/未交付责任；超出列表可按原订单编号核对，不将截断当零。未协商的责任保留待处理，客户实退独立留存。原全退/取消返还已有流程不新增收款确认；只有已进入逐笔责任模式的订单继续按逐笔实退核对，避免同时整单返还重复追收。
+
+
+### C-08 原支付期限与实际退款（2026-10-21）
+
+沿C-03资格与实际现金退款原路由，无新增可执行线上交易入口。新资格额外返回`channelPendingRefundAmount`（原渠道/原款证据待核的金额）、`pendingChannelReason`、`expiredOriginalCash`（存在已核超365天现金来源）；已核范围下`remainingRefundAmount = availableRefundAmount + frozenRefundAmount + channelPendingRefundAmount`。`disputeRetainedAmount`仅说明争议覆盖，不可重复相加。旧后台缺新字段按原有能力处理，不从旧响应推断超期资格。旧员工端遇超期原微信或混合来源不可办理现金。
+
+必须实际交付后才发送原现金命令和原键/本次金额；同键恢复自己的不可变实退。原渠道结果未知、原时间缺失、原款余额不足或跨微信收款责任站均不得改交现金；其他独立原款的可退部分不吞掉剩余责任。可信原时间仅未来服务端已验签匹配支付对象可记录，没有客户端时间/商户补录接口，也未启用真实渠道。

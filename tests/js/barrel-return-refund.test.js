@@ -189,6 +189,20 @@ function newPage(sc) {
     assert.strictEqual(f.calls.status.length, 0); assert.strictEqual(f.wx.__calls.modal.length, 0)
   })
 
+  await test('超期线下与待核原渠道金额分别保留，不把待核款标成争议或已退', async () => {
+    const f = newPage({ rows: scopedRows(), eligibility: Object.assign({}, scopedEligibility, { frozenRefundAmount: 0, channelPendingRefundAmount: 12, expiredOriginalCash: true }), onStatus: recordPayout })
+    await selectRefund(f.page); assert.strictEqual(f.calls.status.length, 1); assert.strictEqual(f.calls.status[0].extra.expectedRefundAmount, 38)
+    assert.ok(f.wx.__calls.modal[0].content.includes('不是原路自动到账'))
+    assert.strictEqual(f.rows[0].refundProgress.remaining, 12); assert.strictEqual(f.wx.__storage.size, 0)
+  })
+  await test('现金/争议/原渠道待核金额不能重复相加或丢项，异常时交款前拒办', async () => {
+    const f = newPage({ rows: scopedRows(), eligibility: Object.assign({}, scopedEligibility, { channelPendingRefundAmount: 12 }) }); await selectRefund(f.page)
+    assert.strictEqual(f.calls.status.length, 0); assert.strictEqual(f.wx.__calls.modal.length, 0); assert.ok(f.page.data.eligibilityError)
+  })
+  await test('年内原渠道不可用或未知时保留待退，不自行改交现金', async () => {
+    const f = newPage({ rows: scopedRows(), eligibility: Object.assign({}, scopedEligibility, { available: false, channel: 'ONLINE', refundAmount: 0, availableRefundAmount: 0, frozenRefundAmount: 0, channelPendingRefundAmount: 50, reason: '原渠道仍待核实，未记退款成功' }) }); await selectRefund(f.page)
+    assert.strictEqual(f.calls.status.length, 0); assert.strictEqual(f.wx.__calls.modal.length, 0); assert.strictEqual(f.wx.__storage.size, 0); assert.ok(f.page.data.actionError.includes('未记退款成功'))
+  })
   function refundFactNodes() {
     const root = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/barrel/index.wxml'), 'utf8'))
     const nodes = []

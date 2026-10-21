@@ -58,6 +58,7 @@ const REQUIRED_TRACKED = [
   'AquaFlow-backend/sql/schema.sql',
   'AquaFlow-backend/sql/migration_v81_scoped_refusal_refund.sql',
   'AquaFlow-backend/sql/migration_v82_partial_station_aftercare.sql',
+  'AquaFlow-backend/sql/migration_v83_deposit_refund_original_time.sql',
   'AquaFlow-backend/sql/README.md',
   'AquaFlow-backend/sql/seed_platform_pulisi_185.sql',
   'tests/js/run-all.js',

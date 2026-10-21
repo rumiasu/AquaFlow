@@ -17,6 +17,7 @@ import java.util.*;
 /** 随单押金的原款、逐商品购买及退款编排；桶账只经 BarrelLedgerService。 */
 @Service
 public class OrderBarrelPurchaseService {
+    @org.springframework.beans.factory.annotation.Autowired private OriginalPaymentEvidenceService originalEvidence;
     @Autowired private BarrelBusinessPolicy policy;
     @Autowired private BarrelLedgerService ledger;
     @Autowired private BarrelBusinessMapper rights;
@@ -187,6 +188,20 @@ public class OrderBarrelPurchaseService {
         PaymentRecord cash=refund(original,amount,BigDecimal.ZERO,amount,BigDecimal.ZERO,BigDecimal.ZERO,"随单押金分次实退，申请 "+record,payer);
         if(purchases.refund(row.getId(),0,amount)!=1 || purchases.payoutProof(row.getId(),original.getId(),cash.getId(),record,amount,payout)!=1)
             throw new BusinessException("原款分次退款凭据已变化，本次整体回滚");
+        finishPayment(original);
+    }
+
+    /** 原现金或已证超期微信的实际现金，出款站记资产站；原款仍由凭据保留原收款站。 */
+    @Transactional
+    public void refundReturnedCashPayout(OrderBarrelPurchase row,BigDecimal amount,Long record,Long payer,Long payout,java.time.Instant recordedAt) {
+        AuthContext.requireManager();
+        if(!Objects.equals(row.getStationId(),AuthContext.requireStationId()))throw new BusinessException("仅原资产站可登记本次实际现金");
+        consumption.lockOrder(row.getOrderId());PaymentRecord original=consumption.lockPayment(row.getPaymentId());
+        var route=originalEvidence.routeAt(original,row.getStationId(),recordedAt);
+        if(!route.cashAllowed() || amount==null || amount.signum()<=0 || amount.compareTo(route.remaining())>0)throw new BusinessException("原款未具备本次现金实退条件，原责任保留");
+        assertRefundRoom(original,amount);
+        PaymentRecord cash=new PaymentRecord();cash.setOrderId(original.getOrderId());cash.setCustomerId(original.getCustomerId());cash.setStationId(row.getStationId());cash.setPaymentMethod(PayMethod.CASH);cash.setStatus(PaymentStatus.REFUNDED);cash.setAmount(amount.negate());cash.setWaterAmount(BigDecimal.ZERO);cash.setBarrelDeposit(amount.negate());cash.setDeliveryFee(BigDecimal.ZERO);cash.setFloorFee(BigDecimal.ZERO);cash.setOperatorId(payer);cash.setNote("原退桶申请实际现金 "+record);cash.setCreateTime(LocalDateTime.now());cash.setUpdateTime(LocalDateTime.now());payments.insert(cash);
+        if(purchases.refund(row.getId(),0,amount)!=1 || purchases.payoutProof(row.getId(),original.getId(),cash.getId(),record,amount,payout)!=1)throw new BusinessException("原款分次退款凭据已变化，本次整体回滚");
         finishPayment(original);
     }
 

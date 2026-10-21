@@ -804,6 +804,7 @@ public class BarrelServiceImpl implements BarrelService {
         BarrelLedgerService.LotConsumption consumption =
                 barrelLedgerService.consumeLots(cid, sid, pid, returnQty, null, false);
         BigDecimal refund = consumption.getAmount();
+        approvedReturnService.assertLegacyCashSources(consumption.getDetails());
         // 2026-10-17：补同步不能按变化后的批次金额登记已交现金；比较失败须由外层事务回滚核销。
         if (expectedRefundAmount != null && refund.compareTo(expectedRefundAmount) != 0) {
             throw new BusinessException("本申请押金金额已变化，请核实原交付款项；本次未登记，勿重复交款");

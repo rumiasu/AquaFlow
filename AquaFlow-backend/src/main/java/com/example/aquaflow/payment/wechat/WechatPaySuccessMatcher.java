@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 
 /**
  * 已验签通知与服务端预期快照的纯匹配，不查询数据库、不确认支付或执行入账。
@@ -64,7 +66,9 @@ public final class WechatPaySuccessMatcher {
             if (amount.has("payer_currency") && !"CNY".equals(text(amount, "payer_currency", 3))) {
                 throw new RejectedMatchException();
             }
-            return new MatchedPayment(expected, notificationId, transactionId, total, payerTotal);
+            Instant successTime=null;
+            if(transaction.has("success_time"))successTime=OffsetDateTime.parse(text(transaction,"success_time",64)).toInstant();
+            return new MatchedPayment(expected, notificationId, transactionId, total, payerTotal,successTime);
         } catch (IOException | RuntimeException failure) {
             // 不附带 Jackson/字段比较异常，防止原文、客户信息或业务快照进入错误日志。
             throw new RejectedMatchException();
@@ -168,13 +172,15 @@ public final class WechatPaySuccessMatcher {
         private final String transactionId;
         private final int totalCents;
         private final Integer payerTotalCents;
+        private final Instant successTime;
 
-        private MatchedPayment(ExpectedPayment expected, String notificationId, String transactionId, int totalCents, Integer payerTotalCents) {
+        private MatchedPayment(ExpectedPayment expected, String notificationId, String transactionId, int totalCents, Integer payerTotalCents,Instant successTime) {
             this.expected = expected;
             this.notificationId = notificationId;
             this.transactionId = transactionId;
             this.totalCents = totalCents;
             this.payerTotalCents = payerTotalCents;
+            this.successTime=successTime;
         }
 
         public ExpectedPayment expected() { return expected; }
@@ -182,6 +188,7 @@ public final class WechatPaySuccessMatcher {
         public String transactionId() { return transactionId; }
         public int totalCents() { return totalCents; }
         public Integer payerTotalCents() { return payerTotalCents; }
+        public Instant successTime() { return successTime; }
         @Override
         public String toString() { return "MatchedWechatPayment[redacted]"; }
     }

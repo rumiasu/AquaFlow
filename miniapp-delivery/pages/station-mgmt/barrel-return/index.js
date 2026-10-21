@@ -275,7 +275,8 @@ Page({
       const data = checked(await getBarrelRefundEligibility(id), '退款资格未能核对')
       if (data && data.partialRefundsSupported === true) {
         const values = ['totalRefundAmount', 'paidRefundAmount', 'remainingRefundAmount', 'availableRefundAmount', 'frozenRefundAmount'].map(key => cents(data[key]))
-        if (values.some(value => value == null) || values[0] !== values[1] + values[2] || values[2] !== values[3] + values[4]
+        const channelPending = data.channelPendingRefundAmount == null ? 0 : cents(data.channelPendingRefundAmount)
+        if (channelPending == null || values.some(value => value == null) || values[0] !== values[1] + values[2] || values[2] !== values[3] + values[4] + channelPending
             || data.available && cents(data.refundAmount) !== values[3]) throw new Error('实退与待退金额未能核对，请勿交款')
       }
       if (!this.validRead(seq, '_eligibilitySeq', snapshot) || !sameId(this.data.selectedId, id) || action && !this.actionCurrent(action)) return null
@@ -415,7 +416,7 @@ Page({
         this.setData({ actionError: '退款核对记录未能保存，请勿交款并重试' })
         this.restoreRefundRecovery(); this.releaseAction(action); return
       }
-      const result = await this.modal(action, { title: zero ? '登记零额退还结果' : cash ? '退押金并登记现金交付' : '按线上原渠道退款', content: zero ? '本申请核对金额为 ¥0.00，无需实际支付现金。确认后登记本申请的零额退还结果。' : cash ? '本次可实退 ¥' + money(eligibility.refundAmount) + (eligibility.partialRefundsSupported ? '；原申请累计应退 ¥' + money(eligibility.totalRefundAmount) + '，本次后仍待退 ¥' + money(Number(eligibility.remainingRefundAmount) - Number(eligibility.refundAmount)) + '，保留原申请继续处理。' : '。') + '请确认已实际把本笔押金交给客户，再登记；已交过的请勿重复交款。' : '将按本申请原线上收款方式退回 ¥' + money(eligibility.refundAmount) + '，以实际办理结果为准。', confirmText: zero ? '确认登记' : cash ? '已交付' : '确认退款' })
+      const result = await this.modal(action, { title: zero ? '登记零额退还结果' : cash ? '退押金并登记现金交付' : '按线上原渠道退款', content: zero ? '本申请核对金额为 ¥0.00，无需实际支付现金。确认后登记本申请的零额退还结果。' : cash ? '本次可实退 ¥' + money(eligibility.refundAmount) + (eligibility.partialRefundsSupported ? '；原申请累计应退 ¥' + money(eligibility.totalRefundAmount) + '，本次后仍待退 ¥' + money(Number(eligibility.remainingRefundAmount) - Number(eligibility.refundAmount)) + '，保留原申请继续处理。' : '。') + (eligibility.expiredOriginalCash ? '本次包含已核超期的原微信押金，登记实际线下退款，不是原路自动到账。' : '') + '请确认已实际把本笔押金交给客户，再登记；已交过的请勿重复交款。' : '将按本申请原线上收款方式退回 ¥' + money(eligibility.refundAmount) + '，以实际办理结果为准。', confirmText: zero ? '确认登记' : cash ? '已交付' : '确认退款' })
       if (!result) return
       if (cash) action.cashDeliveryConfirmed = true
       return await this.submitRefund(action.id, eligibility.channel, action)

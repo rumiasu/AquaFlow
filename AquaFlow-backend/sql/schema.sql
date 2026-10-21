@@ -1424,6 +1424,7 @@ CREATE TABLE IF NOT EXISTS barrel_return_payout (
   request_digest char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   amount decimal(10,2) NOT NULL, payer_id bigint NOT NULL,
   final_payout tinyint NOT NULL DEFAULT 0, create_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  recorded_epoch_second bigint DEFAULT NULL, recorded_nano int DEFAULT NULL,
   PRIMARY KEY(id), UNIQUE KEY uk_return_payout_key(record_id,request_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -1451,4 +1452,27 @@ CREATE TABLE IF NOT EXISTS station_aftercare_action (
   from_version bigint NOT NULL, to_version bigint NOT NULL,
   create_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY(id), UNIQUE KEY uk_aftercare_action(refund_payment_id,actor_key,request_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- v83：可信原成功时间与未知原请求；不回填历史时间。
+CREATE TABLE IF NOT EXISTS payment_original_success (
+ payment_id bigint NOT NULL, customer_id bigint NOT NULL, station_id bigint NOT NULL, order_id bigint DEFAULT NULL,
+ amount decimal(10,2) NOT NULL, payer_total_cents int NOT NULL,
+ binding_digest char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ transaction_digest char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ request_digest char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ success_epoch_second bigint NOT NULL, success_nano int NOT NULL,
+ create_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(payment_id), UNIQUE KEY uk_original_success_tx(binding_digest,transaction_digest)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS payment_original_refund_hold (
+ payment_id bigint NOT NULL, request_key varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ binding_reference varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ binding_digest char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ original_transaction_reference varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ original_amount decimal(10,2) NOT NULL, amount decimal(10,2) NOT NULL,
+ currency char(3) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ request_digest char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ create_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(payment_id,request_key), UNIQUE KEY uk_original_refund_request(binding_digest,request_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

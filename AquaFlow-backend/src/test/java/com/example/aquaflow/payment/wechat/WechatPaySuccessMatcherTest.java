@@ -58,12 +58,23 @@ class WechatPaySuccessMatcherTest {
     void directPaymentMatchesServerSnapshotAndUsesGrossTotalDespiteDiscount() throws Exception {
         var result = MATCHER.match(verified(direct()), EXPECTED);
         assertSame(EXPECTED, result.expected());
+        assertNull(result.successTime(),"缺失原时间不能从请求时间戳补造");
         assertEquals("event-fixture", result.notificationId());
         assertEquals(TX, result.transactionId());
         assertEquals(1234, result.totalCents());
         assertEquals(1200, result.payerTotalCents());
         assertFalse(result.toString().contains(TX));
         assertFalse(EXPECTED.toString().contains("merchant-A"));
+    }
+
+    @ParameterizedTest @ValueSource(strings={"not-a-time","2025-10-01T10:15:30","2025-02-30T00:00:00Z"," "})
+    void malformedOriginalSuccessTimeRejectsInsteadOfCreatingExpiryEvidence(String value) throws Exception {
+        rejected(verified(direct().put("success_time",value)),EXPECTED);
+    }
+    @Test void verifiedSuccessRetainsOriginalPaidTimeForRefundWindow() throws Exception {
+        var tx=direct().put("success_time","2025-10-01T10:15:30+08:00");
+        var matched=MATCHER.match(verified(tx),EXPECTED);
+        assertEquals(Instant.parse("2025-10-01T02:15:30Z"),matched.getClass().getMethod("successTime").invoke(matched));
     }
 
     @Test

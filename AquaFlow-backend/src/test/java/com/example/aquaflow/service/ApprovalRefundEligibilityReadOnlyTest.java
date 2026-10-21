@@ -65,6 +65,10 @@ class ApprovalRefundEligibilityReadOnlyTest {
         ScopedRefusalRefundMapper scoped=mock(ScopedRefusalRefundMapper.class);
         ScopedDisputeService disputes=mock(ScopedDisputeService.class);
         fields.put("scopedRefunds",scoped);fields.put("disputes",disputes);
+        OriginalPaymentEvidenceService evidence=mock(OriginalPaymentEvidenceService.class);fields.put("originalEvidence",evidence);
+        when(evidence.now()).thenReturn(java.time.Instant.now());
+        when(evidence.routeAt(any(PaymentRecord.class),eq(1L),any())).thenAnswer(invocation->{PaymentRecord p=invocation.getArgument(0);boolean cash=Integer.valueOf(PayMethod.CASH).equals(p.getPaymentMethod());return new OriginalPaymentEvidenceService.Routing(cash?"CASH":"ONLINE",cash,new BigDecimal("1000"),"原渠道待核",false);});
+        when(scoped.independentPaid(anyLong(),anyLong())).thenReturn(BigDecimal.ZERO);when(scoped.combinedPaid(anyLong(),anyLong())).thenReturn(BigDecimal.ZERO);
         when(scoped.paid(77L)).thenReturn(BigDecimal.ZERO);
         when(disputes.quote(eq(7L),eq(1L),eq(10L),any())).thenAnswer(invocation->new ScopedDisputeService.Quote(BigDecimal.ZERO,new BigDecimal("1000"),invocation.getArgument(3),false));
         when(risk.refundCreditAssessment(7L,1L)).thenReturn(Map.of("level",CustomerRiskService.NORMAL));

@@ -47,7 +47,7 @@ public interface ScopedRefusalRefundMapper {
     Map<String,Object> receipt(@Param("record") Long record,@Param("key") String key);
     @Select("select id,amount,payer_id as payerId,final_payout as finalPayout,create_time as createTime,request_key as requestKey from barrel_return_payout where record_id=#{record} order by id")
     List<Map<String,Object>> receipts(Long record);
-    @Insert("insert into barrel_return_payout(record_id,actor_key,request_key,request_digest,amount,payer_id,final_payout) values(#{record},#{actor},#{key},#{digest},#{amount},#{payer},#{last})")
+    @Insert("insert into barrel_return_payout(record_id,actor_key,request_key,request_digest,amount,payer_id,final_payout,recorded_epoch_second,recorded_nano) values(#{record},#{actor},#{key},#{digest},#{amount},#{payer},#{last},#{epoch},#{nano})")
     @Options(useGeneratedKeys=true,keyProperty="id")
     int insertPayout(Map<String,Object> row);
     @Insert("insert into barrel_purchase_refund(payment_id,purchase_id,return_record_id,amount,payout_id) values(#{payment},#{purchase},#{record},#{amount},#{payout})")

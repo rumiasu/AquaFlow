@@ -91,6 +91,8 @@
       <view class="note-block" wx:if="{{selected.note}}"><text class="section-label">申请备注</text><text>{{selected.note}}</text></view>
       <view class="note-block" wx:if="{{selected.handleNote}}"><text class="section-label">办理备注</text><text>{{selected.handleNote}}</text></view>
       <view class="notice" wx:if="{{selected.needsRefund && eligibilityLoading}}">正在核对原收款方式，请勿提前交付退款。</view>
+      <view class="notice" wx:if="{{eligibility.expiredOriginalCash}}">本次包含已核超期的原微信押金；核对桶数和应退额后登记实际线下交付，不表示原渠道自动退款。</view>
+      <view class="notice warning" wx:if="{{eligibility.channelPendingRefundAmount > 0}}">另有 ¥{{eligibility.channelPendingRefundAmount}} 原渠道或凭据仍待核对，保留在原申请中，不代表已退。{{eligibility.pendingChannelReason}}</view>
       <view class="notice error" wx:if="{{eligibilityError}}"><text>{{eligibilityError}}</text><button class="text-button" bindtap="onRetryEligibility" disabled="{{actionBusy}}">重新核对退款资格</button></view>
       <view class="notice error" wx:if="{{actionError}}"><text>{{actionError}}</text></view>
       <view class="notice warning" wx:if="{{selected.rejectNeedsFeeRefund}}">未交接申请若需驳回，请先实际退还已收服务费，再办理驳回。</view>

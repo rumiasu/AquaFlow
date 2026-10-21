@@ -92,6 +92,11 @@
     <!-- 服务 -->
     <view class="group-title">服务</view>
     <view class="card menu-card">
+      <view class="menu-row" data-url="/pages/mine/asset-claims/index" bindtap="onMenuTap">
+        <text class="menu-name">历史资产认领</text>
+        <text class="menu-desc">旧押金、桶容量与水票核对</text>
+        <text class="row-arrow">›</text>
+      </view>
       <view class="menu-row" data-url="/pages/shop/index" bindtap="onMenuTap">
         <text class="menu-name">更多商品</text>
         <text class="menu-desc">查看水站全部在售商品</text>

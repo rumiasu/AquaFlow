@@ -6,6 +6,9 @@ import java.util.List;
 
 @Mapper
 public interface HistoricalAssetClaimMapper {
+    @Select("select p.id,p.name,p.spec,p.category from product p join inventory i on i.product_id=p.id "
+        +"where i.station_id=#{station} and (p.owner_station_id is null or p.owner_station_id=#{station}) order by p.id")
+    List<com.example.aquaflow.dto.HistoricalAssetClaimDTO.ProductOption> catalog(Long station);
     // 同一客户的申请/核对按固定顺序串行；不读取姓名、电话、openid 等档案。
     @Select("select id from customer where id=#{customer} for update")
     Long lockCustomer(Long customer);

@@ -44,7 +44,8 @@
     "pages/transfer/index",
     "pages/report/index",
     "pages/settings/index",
-    "pages/mine/edit"
+    "pages/mine/edit",
+    "pages/station-mgmt/asset-claims/index"
   ],
   "window": {
     "backgroundTextStyle": "dark",

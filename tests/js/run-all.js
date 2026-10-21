@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'historical-asset-claim-flow.test.js', name: 'C13 customer claim, manager review and durable unknown-result recovery' },
   { file: 'customer-shop-context.test.js', name: 'shop original station/session reads, cart actions and switch dialog scope' },
   { file: 'coordination-todo-context.test.js', name: 'manager responsibility card identity cache, late reads and page lifecycle offline' },
   { file: 'water-product-templates.test.js', name: 'evidence-backed water templates, editable defaults and explicit station business inputs offline' },

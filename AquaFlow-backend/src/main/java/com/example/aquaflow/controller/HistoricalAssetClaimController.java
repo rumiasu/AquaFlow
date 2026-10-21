@@ -20,6 +20,10 @@ public class HistoricalAssetClaimController {
     }
     @GetMapping("/asset-claims/{id}")
     public Result<HistoricalAssetClaim> detail(@PathVariable Long id) { return Result.success(service.mine(id)); }
+    @GetMapping("/asset-claims/products")
+    public Result<List<HistoricalAssetClaimDTO.ProductOption>> products(@RequestParam Long stationId) {
+        return Result.success(service.catalog(stationId));
+    }
     @GetMapping("/asset-claims")
     public Result<List<HistoricalAssetClaim>> mine(@RequestParam Long stationId) { return Result.success(service.listMine(stationId)); }
     @RequireRole("STATION_MANAGER")

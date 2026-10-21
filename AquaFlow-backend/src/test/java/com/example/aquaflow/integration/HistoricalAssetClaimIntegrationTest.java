@@ -246,4 +246,38 @@ class HistoricalAssetClaimIntegrationTest extends AbstractIntegrationTest {
         new HistoricalAssetClaimSchemaGuard(jdbc).verifySchema();
     }
     private static void await(CountDownLatch latch) { try {latch.await();} catch(InterruptedException e){Thread.currentThread().interrupt();throw new IllegalStateException(e);} }
+
+    @Test
+    void customerClaimCatalogIncludesOffShelfOwnProductsWithoutInventoryOrPriceFields() {
+        seed();jdbc.update("update inventory set enabled=0 where station_id=?",station);
+        jdbc.update("update product set status=0 where id=?",product);
+        long foreign=createProduct("异站合成私有商品",1,"20.00","30.00",1,"18.00");
+        long other=createStation("异站合成站");jdbc.update("update product set owner_station_id=? where id=?",other,foreign);
+        createInventoryFull(station,foreign,0,0,"0.00");
+        createProduct("未选用合成通用商品",1,"20.00","30.00",1,"18.00");
+        var catalog=get("/api/asset-claims/products?stationId="+station,customerToken(customer));
+        assertTrue(catalog.isSuccess(),catalog.toString());assertEquals(1,catalog.data().size());
+        assertEquals(product,catalog.data().get(0).path("id").asLong());
+        var fields=new java.util.HashSet<String>();catalog.data().get(0).fieldNames().forEachRemaining(fields::add);
+        assertEquals(java.util.Set.of("id","name","spec","category"),fields);
+        assertFalse(post("/api/asset-claims",customerToken(customer),body("foreign-own").replace("\"productId\":"+product,"\"productId\":"+foreign)).isSuccess());
+        assertEquals(0,rows("historical_asset_claim"));
+        var submitted=submit("off-shelf-own");assertTrue(submitted.isSuccess(),submitted.toString());
+        assertEquals("待本站核对",submitted.data().path("statusText").asText());
+        var approved=review(submitted.data().path("id").asLong(),true);assertTrue(approved.isSuccess(),approved.toString());
+        assertEquals("已生效",approved.data().path("statusText").asText());
+    }
+    @Test
+    void customerClaimCatalogRejectsEmployeesAndAnonymousReaders() {
+        seed();String path="/api/asset-claims/products?stationId="+station;
+        assertFalse(get(path,managerToken()).isSuccess());assertFalse(get(path,null).isSuccess());
+        assertEquals(0,rows("historical_asset_claim"));
+    }
+    @Test
+    void customerClaimCatalogRequiresAnExistingStationAndReturnsTrueEmptyCatalog() {
+        seed();long empty=createStation("空目录合成站");
+        var response=get("/api/asset-claims/products?stationId="+empty,customerToken(customer));
+        assertTrue(response.isSuccess(),response.toString());assertTrue(response.data().isEmpty());
+        assertFalse(get("/api/asset-claims/products?stationId=999999999",customerToken(customer)).isSuccess());
+    }
 }

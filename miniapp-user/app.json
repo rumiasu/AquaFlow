@@ -24,7 +24,8 @@
     "pages/deposit/records/index",
     "pages/notice/index",
     "pages/mine/company",
-    "pages/exception/list/list"
+    "pages/exception/list/list",
+    "pages/mine/asset-claims/index"
   ],
   "window": {
     "backgroundTextStyle": "dark",

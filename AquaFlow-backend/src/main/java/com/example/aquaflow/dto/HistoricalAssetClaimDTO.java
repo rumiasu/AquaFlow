@@ -23,4 +23,6 @@ public record HistoricalAssetClaimDTO(
         @DecimalMin("0.01") @DecimalMax("99999999.99") @Digits(integer=8,fraction=2) BigDecimal unitPrice
     ) {}
     public record Review(@NotNull Boolean approve, @Size(max=500) String note) {}
+    /** 认领选择用，含本站下架商品；不提供库存、成本或交易价格。 */
+    public record ProductOption(Long id, String name, String spec, Integer category) {}
 }

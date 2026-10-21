@@ -55,6 +55,13 @@
         </view>
         <text class="entry-arrow">›</text>
       </view>
+      <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/asset-claims/index">
+        <view class="entry-main">
+          <text class="entry-title">历史资产认领</text>
+          <text class="entry-desc">本站客户的旧押金、桶容量与水票核对</text>
+        </view>
+        <text class="entry-arrow">›</text>
+      </view>
       <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/customers/index">
         <view class="entry-main">
           <text class="entry-title">客户</text>

@@ -67,6 +67,11 @@ public class HistoricalAssetClaimService {
         return claim;
     }
     public List<HistoricalAssetClaim> listMine(Long station) { return claims.mine(AuthContext.requireCustomerId(),station); }
+    public List<HistoricalAssetClaimDTO.ProductOption> catalog(Long station) {
+        AuthContext.requireCustomerId();
+        if(station==null||stations.getById(station)==null) throw new BusinessException("水站不存在");
+        return claims.catalog(station);
+    }
     public List<HistoricalAssetClaim> pending() { return claims.pending(managerStation()); }
     public HistoricalAssetClaim managerDetail(Long id) {
         Long station=managerStation();var claim=claims.get(id);
@@ -130,7 +135,8 @@ public class HistoricalAssetClaimService {
     private void validateProducts(HistoricalAssetClaimDTO request) {
         for(var item:request.items()) {
             var product=products.getById(item.productId());
-            if(product==null||inventories.getByStationAndProduct(request.stationId(),item.productId())==null)
+            if(product==null||inventories.getByStationAndProduct(request.stationId(),item.productId())==null
+                ||(product.getOwnerStationId()!=null&&!request.stationId().equals(product.getOwnerStationId())))
                 throw new BusinessException("认领商品不属于本站");
             if((item.rights().signum()>0||item.held().signum()>0)&&!BarrelScope.isBarrel(product))
                 throw new BusinessException("非桶装商品不能认领桶权益或实物桶");

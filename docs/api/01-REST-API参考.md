@@ -700,3 +700,13 @@
 | `GET` | `/api/asset-claims/products` | 客户本人 | `HistoricalAssetClaimController.products`；必填stationId且站须存在；返回本站已配置、属通用库／本站的商品，含下架／停售；只含id/name/spec/category，不给未选用通用商品或异站私有商品 |
 
 申请响应新增服务端`statusText`，两端不重复定义状态中文。提交校验与目录所有权一致，遗留异常库存引用不扩大异站商品资格。站长名称复用既有`getCatalog`。本批无新迁移／交易入口，沿f76859f事务，v80必需；新页面须配本批目录／文案增量。旧f76859f的products路径可被{id}匹配而返回“参数格式不正确：id”，前端已按服务不可用处理；缺能力／越权／畸形结果不冒充成功或0。核心页只增加静态入口。
+
+### C-03 范围与原实退恢复扩展（2026-10-21）
+
+沿用上述三个原入口，不增设可执行线上支付入口：
+
+- `PUT /api/manager/refusal-cases/{orderId}/confirm-freeze` 可传 `{expectedVersion,idempotencyKey,reason?,items:[{productId,amount}]}`。仅原资产站站长；本案有效原单商品、正数精确金额，合计不得超有效欠款。同键原版本/原内容重放返回原SCOPE凭据；修改须新键及当前版本。没有新体的历史命令保留原CAS。清单返回`freezeScope`、`scopeProducts`、`scopeEditable`；无原单证据保持待核。历史`scopeJson`为该次不可变范围，不能用当前范围覆盖旧审计。
+- `GET /api/barrels/records/{id}/refund-eligibility?scopedRefunds=true` 声明新客户端能力，返回`partialRefundsSupported`及`totalRefundAmount/paidRefundAmount/remainingRefundAmount/availableRefundAmount/frozenRefundAmount`。`refundAmount`为本次上限；未知证据不冒充冻结金额，`available=false`并保留原因。未声明的旧端遇部分款不得办理。
+- `PUT /api/barrels/records/{id}/status` 仍传`status:3/refundChannel:CASH/cashDeliveryConfirmed:true`。支持分次的现金请求新增`payoutRequestKey`和`expectedRefundAmount`（本次实际交付金额，正数且不大于锁内可退上限）。同键绑定原记录、员工/站、交付人、金额和说明，不可换内容。原记录查询/list中的`refundProgress={total,paid,remaining,verified,receipts:[{id,requestKey,amount,...}]}`是恢复依据；新键客户端必须找到自己的键与金额，不能以别人实退或整单终态代替。旧不带键的`expectedRefundAmount`仍是整笔精确守卫。
+
+分次后原申请仍RECEIVED并保留桶占用，界面同时显示已退/待退；最终实退才REFUNDED。解冻不触发付款或免债。无第三遍客户确认、强制上传或到账门禁。线上原款能力仍关闭，不允许客户端改交现金绕过渠道责任。

@@ -34,16 +34,26 @@
     <button size="mini" wx:if="{{refusalOrderId}}" bindtap="onClearRefusalSearch" disabled="{{refusalBusy || pendingRefusal}}">返回清单</button>
     <text class="error" wx:if="{{refusalSearchError}}">{{refusalSearchError}}</text>
     <text class="hint" wx:if="{{refusalOrderId}}">正在核对原订单 #{{refusalOrderId}}；已有原请求可核对上次结果。</text>
-    <view class="row" wx:for="{{refusals}}" wx:key="order_id">订单 {{item.order_id}} · 原款 ¥{{item.debtAmount}}
+    <view class="row" wx:for="{{refusals}}" wx:key="order_id">订单 {{item.order_id}} · {{item.debtAmount === null || item.debtAmount === undefined ? '原款金额待核' : '原款 ¥' + item.debtAmount}}
       <text>{{item.judgmentText}}</text><text>{{item.freezeText}}</text><text>{{item.debtText}}</text>
-      <button wx:if="{{ready.refusals && !loading && item.canFreeze}}" data-id="{{item.order_id}}" data-action="freeze" bindtap="action">核实后冻结本站退押金资格</button>
+      <view wx:for="{{item.freezeScope}}" wx:for-item="scope" wx:key="productId"><text>{{scope.productName}} · 已核范围 ¥{{scope.amount}}（生效情况见本案状态）</text></view>
+      <button wx:if="{{ready.refusals && !loading && (item.scopeEditable || item.retryScope)}}" data-id="{{item.order_id}}" data-action="SCOPE" bindtap="onOpenRefusalResolution">{{item.retryScope ? '核对上次范围请求' : '核对争议商品及冻结金额'}}</button>
       <button wx:if="{{ready.refusals && !loading && (item.canRevoke || item.retryRevoke)}}" data-id="{{item.order_id}}" data-action="REVOKE" bindtap="onOpenRefusalResolution">{{item.retryRevoke ? '核对上次撤销结果' : '撤销本站拒付误判'}}</button>
       <button wx:if="{{ready.refusals && !loading && (item.canRelease || item.retryRelease)}}" data-id="{{item.order_id}}" data-action="RELEASE" bindtap="onOpenRefusalResolution">{{item.retryRelease ? '核对上次解除结果' : '解除本案资产冻结'}}</button>
       <button wx:if="{{ready.refusals && !loading}}" data-id="{{item.order_id}}" bindtap="onRefusalHistory">查看处理历史</button>
       <button data-id="{{item.order_id}}" bindtap="onOrder">查看本单追款</button>
       <view wx:if="{{selectedRefusal && selectedRefusal.order_id === item.order_id}}">
-        <text wx:if="{{refusalAction}}">理由必须填写。原判断及欠款保留，不会收款、免债或恢复赊账；跨站冻结由资产站另行复核。</text>
-        <textarea wx:if="{{refusalAction}}" maxlength="1000" placeholder="核实依据与办理理由" value="{{refusalReason}}" bindinput="onRefusalReason" />
+        <text wx:if="{{refusalAction && refusalAction !== 'SCOPE'}}">理由必须填写。原判断及欠款保留，不会收款、免债或恢复赊账；跨站冻结由资产站另行复核。</text>
+        <view wx:if="{{refusalAction === 'SCOPE'}}">
+          <text>只填写本案争议涉及的商品和金额，合计不得超过原单有效欠款 ¥{{item.debtAmount}}。未填或0不纳入本次范围；这不会收款、免债或恢复赊账。</text>
+          <text wx:if="{{item.legacyProductReference}}">原单仅有商品编号，当前名称只辅助查找，请核对历史资料。</text>
+          <view wx:for="{{scopeLines}}" wx:for-item="scopeLine" wx:key="productId">
+            <text>{{scopeLine.productName}}</text>
+            <input type="digit" placeholder="本商品争议金额（元）" value="{{scopeLine.amount}}" data-id="{{scopeLine.productId}}" bindinput="onScopeAmount" disabled="{{refusalBusy || pendingRefusal}}" />
+          </view>
+          <text wx:if="{{!scopeLines.length}}">原单缺商品证据，保留待核，不能猜测冻结范围。</text>
+        </view>
+        <textarea wx:if="{{refusalAction}}" maxlength="1000" placeholder="{{refusalAction === 'SCOPE' ? '核对说明（选填）' : '核实依据与办理理由'}}" value="{{refusalReason}}" bindinput="onRefusalReason" disabled="{{refusalAction === 'SCOPE' && pendingRefusal}}" />
         <button wx:if="{{refusalAction}}" loading="{{refusalBusy}}" disabled="{{refusalBusy}}" bindtap="onSubmitRefusalResolution">保存本次处理</button>
         <button wx:if="{{pendingRefusal && refusalAction}}" disabled="{{refusalBusy}}" bindtap="onRetryRefusalResolution">重试原请求</button>
         <text class="error" wx:if="{{refusalHistoryError}}">{{refusalHistoryError}}</text>

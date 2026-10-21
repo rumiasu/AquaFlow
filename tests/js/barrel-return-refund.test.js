@@ -41,7 +41,7 @@ async function test(name, fn) {
 function newPage(sc) {
   const s = sc || {}
   const calls = { status: [], paid: [], undelivered: 0 }
-  const rows = [7, 8, 12].map(id => ({ id, stationId: 1, type: 2, status: id === 12 ? 3 : 2,
+  const rows = s.rows || [7, 8, 12].map(id => ({ id, stationId: 1, type: 2, status: id === 12 ? 3 : 2,
     customerId: 7, productId: 1, quantity: 1, depositRefund: 50, createTime: '2026-10-07T09:00:00' }))
   const read = id => rows.find(row => String(row.id) === String(id))
 
@@ -51,10 +51,11 @@ function newPage(sc) {
     'utils/pending-reminder': { getPendingReturnRecord: async id => ({ code: 0, data: read(id) }), syncPendingReminder() {} },
     'api/station-mgmt': {
       getAllBarrelRecords: async () => ({ code: 0, data: rows }),
-      getBarrelRefundEligibility: async id => ({ code: 0, data: { recordId: id, recordStatus: read(id).status, available: true,
-        channel: s.channel || 'CASH', refundAmount: 50, reason: '原收款方式已核对' } }),
+      getBarrelRefundEligibility: async id => ({ code: 0, data: Object.assign({ recordId: id, recordStatus: read(id).status, available: true,
+        channel: s.channel || 'CASH', refundAmount: 50, reason: '原收款方式已核对' }, typeof s.eligibility === 'function' ? s.eligibility(id) : s.eligibility) }),
       updateBarrelRecordStatus: async (id, status, extra) => {
         calls.status.push({ id, status, extra })
+        if (s.onStatus) return s.onStatus(read(id), extra)
         if (s.statusThrows) throw new Error(s.statusThrows)
         Object.assign(read(id), { status, refundPaidTime: '2026-10-07T10:30:00' })
         return { code: 0, data: {} }
@@ -71,10 +72,10 @@ function newPage(sc) {
     }
   }
 
-  const wx = createWx()
+  const wx = s.wx || createWx()
   const page = loadPage('miniapp-delivery/pages/station-mgmt/barrel-return/index.js',
     { stubs, wx, app: createApp({ globalData: { isLogin: true, userInfo: { staffId: 1, stationId: 1, role: 'STATION_MANAGER' } } }) })
-  return { page, calls, wx }
+  return { page, calls, wx, rows }
 }
 
 ;(async () => {
@@ -122,6 +123,70 @@ function newPage(sc) {
     assert.strictEqual(calls.paid[0], 12)
     assert.strictEqual(calls.status.length, 0,
       '补登记只补"钱已交给顾客"这个事实：不动状态、不动金额（再退一次款就是重复退钱）')
+  })
+
+  const selectRefund = async page => {
+    await page.loadData(); await page.onSelectRecord({ currentTarget: { dataset: { id: 7 } } })
+    await page.onRefund({ currentTarget: { dataset: { id: 7 } } })
+  }
+  const scopedEligibility = { partialRefundsSupported: true, refundAmount: 38, totalRefundAmount: 50, paidRefundAmount: 0, remainingRefundAmount: 50, availableRefundAmount: 38, frozenRefundAmount: 12, detailStatus: 'RECEIVED' }
+  const scopedRows = () => [{ id: 7, stationId: 1, customerId: 7, type: 2, status: 2, productId: 1, quantity: 1, depositRefund: 50, returnDetail: { status: 'RECEIVED' } }]
+  function recordPayout(row, extra) {
+    row.refundProgress = { total: 50, paid: 38, remaining: 12, verified: true, receipts: [{ id: 1, requestKey: extra.payoutRequestKey, amount: 38 }] }
+    return { code: 0, data: { progress: row.refundProgress } }
+  }
+  await test('分次实退38只凭本次原键回读结束恢复，12待退不伪装退清', async () => {
+    const f = newPage({ rows: scopedRows(), eligibility: scopedEligibility, onStatus: recordPayout })
+    await selectRefund(f.page)
+    assert.strictEqual(f.calls.status.length, 1); assert.strictEqual(f.calls.status[0].extra.expectedRefundAmount, 38)
+    assert.ok(f.calls.status[0].extra.payoutRequestKey); assert.strictEqual(f.wx.__storage.size, 0)
+    assert.strictEqual(f.rows[0].status, 2); assert.strictEqual(f.rows[0].refundProgress.remaining, 12)
+    assert.strictEqual(f.page.data.recoveryNeeded, false)
+  })
+  await test('38已登记但响应丢失：查到同键凭据即可恢复，不重发退款', async () => {
+    const f = newPage({ rows: scopedRows(), eligibility: scopedEligibility, onStatus: (row, extra) => { recordPayout(row, extra); throw new Error('response lost') } })
+    await selectRefund(f.page)
+    assert.strictEqual(f.calls.status.length, 1); assert.strictEqual(f.wx.__storage.size, 0)
+    assert.strictEqual(f.page.data.recoveryNeeded, false)
+  })
+  await test('仅终态和别人原键不能清掉本次现金未知记录，冷启动也不重发', async () => {
+    const f = newPage({ rows: scopedRows(), eligibility: scopedEligibility, onStatus: row => {
+      Object.assign(row, { status: 3, refundPaidTime: 'synthetic', refundProgress: { total: 50, paid: 50, remaining: 0, receipts: [{ id: 2, requestKey: 'someone-else', amount: 50 }] } })
+      return { code: 0, data: {} }
+    } })
+    await selectRefund(f.page)
+    assert.strictEqual(f.page.data.recoveryNeeded, true); assert.strictEqual(f.wx.__storage.size, 1)
+    const cold = newPage({ rows: f.rows, wx: f.wx, eligibility: scopedEligibility }); await cold.page.loadData()
+    assert.strictEqual(cold.calls.status.length, 0); assert.strictEqual(cold.wx.__storage.size, 1)
+  })
+  await test('现金补同步保持原键和38金额，即使解冻后额度升到50', async () => {
+    let attempt = 0
+    const f = newPage({ rows: scopedRows(), eligibility: () => Object.assign({}, scopedEligibility, { refundAmount: attempt ? 50 : 38, availableRefundAmount: attempt ? 50 : 38, frozenRefundAmount: attempt ? 0 : 12 }), onStatus: (row, extra) => {
+      attempt++; if (attempt === 1) throw new Error('unknown'); return recordPayout(row, extra)
+    } })
+    await selectRefund(f.page); assert.strictEqual(f.wx.__storage.size, 1)
+    await f.page.onReconcileCash()
+    assert.strictEqual(f.calls.status.length, 2)
+    assert.strictEqual(f.calls.status[0].extra.payoutRequestKey, f.calls.status[1].extra.payoutRequestKey)
+    assert.strictEqual(f.calls.status[1].extra.expectedRefundAmount, 38); assert.strictEqual(f.wx.__storage.size, 0)
+  })
+  await test('交付确认期间资格变化：不写款且保留原38核对上下文', async () => {
+    const f = newPage({ rows: scopedRows(), eligibility: scopedEligibility })
+    f.wx.showModal = options => { f.page.setData({ eligibility: null }); options.success({ confirm: true }) }
+    await selectRefund(f.page)
+    assert.strictEqual(f.calls.status.length, 0); assert.strictEqual(f.wx.__storage.size, 1)
+    assert.strictEqual(f.page.data.recoveryNeeded, true)
+  })
+  await test('同键但金额或待退勾稽错误不能报告恢复成功', async () => {
+    const f = newPage({ rows: scopedRows(), eligibility: scopedEligibility, onStatus: (row, extra) => {
+      recordPayout(row, extra); row.refundProgress.remaining = 0; return { code: 0, data: {} }
+    } })
+    await selectRefund(f.page); assert.strictEqual(f.wx.__storage.size, 1); assert.strictEqual(f.page.data.recoveryNeeded, true)
+  })
+  await test('原键落盘丢失时不得提示交现金或调用金融写入口', async () => {
+    const wx = createWx(); wx.setStorageSync = () => {}
+    const f = newPage({ rows: scopedRows(), eligibility: scopedEligibility, wx }); await selectRefund(f.page)
+    assert.strictEqual(f.calls.status.length, 0); assert.strictEqual(f.wx.__calls.modal.length, 0)
   })
 
   function refundFactNodes() {

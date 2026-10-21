@@ -47,6 +47,7 @@
       <text class="status {{item.statusTone}}">{{item.isReturn ? (item.statusText || '状态待核实') : item.typeText}}</text>
     </view>
     <text class="product-name">{{item.productText}}</text>
+    <text class="muted" wx:if="{{item.refundProgress}}">已实退 ¥{{item.paidText}} · 剩余待退 ¥{{item.remainingText}}</text>
     <view class="summary-row" wx:if="{{item.isReturn}}">
       <view class="quantity-summary"><text>{{item.quantity}} 份权益</text><text class="muted">{{item.requiredText}}</text></view>
       <view class="money-summary"><text class="muted">应退押金</text><text class="refund-amount"><text class="currency">¥</text>{{item.amountText}}</text></view>

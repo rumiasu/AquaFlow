@@ -7,7 +7,7 @@ const sectionLabels = { stock: '缺货待补', returns: '退桶与退款', recov
 Page({
   data: { loading: false, error: '', stock: [], returns: [], refusals: [], recoveries: [], barrels: [], tickets: [], stationId: null,
     ready: {}, errors: {}, counts: {}, limit: 200, focusSection: '', selectedRefusal: null, refusalAction: '',
-    refusalReason: '', refusalBusy: false, pendingRefusal: false, refusalHistory: [], refusalHistoryError: '',
+    refusalReason: '', refusalBusy: false, pendingRefusal: false, refusalHistory: [], refusalHistoryError: '', scopeLines: [],
     refusalScope: 'ACTIVE', refusalNextBeforeId: null, refusalOrderId: null, refusalSearch: '', refusalSearchError: '', refusalLoading: false, refusalMoreError: '' },
   onLoad(options) {
     const section = options && options.section
@@ -85,7 +85,8 @@ Page({
     const actor = 'STAFF:' + s.staffId + ':' + s.stationId
     return rows.map(row => Object.assign({}, row, {
       retryRevoke: !!closeoutIntent.read(actor, 'REFUSAL:' + row.order_id, 'REVOKE'),
-      retryRelease: !!closeoutIntent.read(actor, 'REFUSAL:' + row.order_id, 'RELEASE')
+      retryRelease: !!closeoutIntent.read(actor, 'REFUSAL:' + row.order_id, 'RELEASE'),
+      retryScope: !!closeoutIntent.read(actor, 'REFUSAL:' + row.order_id, 'SCOPE')
     }))
   },
   resetRefusals(patch) {
@@ -150,18 +151,29 @@ Page({
   onOpenRefusalResolution(e) {
     if (!this.data.ready.refusals || this.data.loading || this.data.refusalLoading || this.data.refusalBusy || !this.currentRefusalSession(this._refusalRecordsSession)) return
     const { id, action } = e.currentTarget.dataset
-    if (!['REVOKE', 'RELEASE'].includes(action)) return
+    if (!['REVOKE', 'RELEASE', 'SCOPE'].includes(action)) return
     const row = this.data.refusals.find(r => String(r.order_id) === String(id))
     const s = this.refusalSession()
     if (!row || !s.staffId || !s.stationId || !this.currentRefusalSession(s)) return
     try {
       const pending = closeoutIntent.read('STAFF:' + s.staffId + ':' + s.stationId, 'REFUSAL:' + row.order_id, action)
-      if (!pending && !(action === 'REVOKE' ? row.canRevoke : row.canRelease)) return
+      if (action === 'SCOPE' && (!Array.isArray(row.scopeProducts) || !Array.isArray(row.freezeScope))) throw new Error('当前后台尚不支持范围核对，请更新匹配版本后办理')
+      if (!pending && !(action === 'REVOKE' ? row.canRevoke : action === 'SCOPE' ? row.scopeEditable : row.canRelease)) return
+      const scopeLines = action === 'SCOPE' ? (pending ? pending.items : row.scopeProducts).map(product => {
+        const old = (pending ? pending.items : row.freezeScope).find(line => String(line.productId) === String(product.productId))
+        const source = row.scopeProducts.find(line => String(line.productId) === String(product.productId))
+        return { productId: product.productId, productName: source && source.productName || '原请求商品 #' + product.productId, amount: old ? String(old.amount) : '' }
+      }) : []
       this.setData({ selectedRefusal: row, refusalAction: action, refusalReason: pending ? pending.reason : '', pendingRefusal: !!pending,
-        refusalHistory: [], refusalHistoryError: '' })
+        refusalHistory: [], refusalHistoryError: '', scopeLines })
     } catch (err) { wx.showToast({ title: err.message, icon: 'none' }) }
   },
   onRefusalReason(e) { this.setData({ refusalReason: e.detail.value }) },
+  onScopeAmount(e) {
+    if (this.data.refusalBusy || this.data.pendingRefusal) return
+    const id = e.currentTarget.dataset.id
+    this.setData({ scopeLines: this.data.scopeLines.map(line => String(line.productId) === String(id) ? Object.assign({}, line, { amount: e.detail.value }) : line) })
+  },
   onRetryRefusalResolution() {
     const s = this.refusalSession(), row = this.data.selectedRefusal
     try {
@@ -172,16 +184,18 @@ Page({
   },
   async onSubmitRefusalResolution() {
     const row = this.data.selectedRefusal, action = this.data.refusalAction, s = this.refusalSession()
-    if (this.data.refusalBusy || !row || !['REVOKE', 'RELEASE'].includes(action) || !this.currentRefusalSession(s) || !this.currentRefusalSession(this._refusalRecordsSession)) return
+    if (this.data.refusalBusy || !row || !['REVOKE', 'RELEASE', 'SCOPE'].includes(action) || !this.currentRefusalSession(s) || !this.currentRefusalSession(this._refusalRecordsSession)) return
     this.setData({ refusalBusy: true })
     let intent
     try {
-      intent = closeoutIntent.prepare('STAFF:' + s.staffId + ':' + s.stationId, 'REFUSAL:' + row.order_id, action, this.data.refusalReason, row.version)
+      if (action === 'SCOPE' && (!Array.isArray(row.scopeProducts) || !Array.isArray(row.freezeScope))) throw new Error('当前后台未能核对范围能力，请保留原请求')
+      const items = action === 'SCOPE' ? this.data.scopeLines.filter(line => String(line.amount).trim() !== '' && Number(line.amount) !== 0).map(line => ({ productId: line.productId, amount: String(line.amount).trim() })) : undefined
+      intent = closeoutIntent.prepare('STAFF:' + s.staffId + ':' + s.stationId, 'REFUSAL:' + row.order_id, action, this.data.refusalReason || (action === 'SCOPE' ? '本站核对本案争议商品及冻结金额' : ''), row.version, items)
       this.setData({ pendingRefusal: true })
       wx.setStorageSync(recoveryKey(s), String(row.order_id))
-      const response = await (action === 'REVOKE' ? api.revokeRefusal : api.releaseRefusalFreeze)(row.order_id, closeoutIntent.payload(intent))
+      const response = await (action === 'REVOKE' ? api.revokeRefusal : action === 'SCOPE' ? api.confirmFreeze : api.releaseRefusalFreeze)(row.order_id, closeoutIntent.payload(intent))
       if (!this.currentRefusalSession(s)) return
-      if (!response.data || !response.data.id || Number(response.data.orderId) !== Number(row.order_id) || response.data.action !== action) throw new Error('办理结果未确认，请原样重试')
+      if (!response || response.code !== 0 || !response.data || !response.data.id || Number(response.data.orderId) !== Number(row.order_id) || response.data.action !== action) throw new Error('办理结果未确认，请原样重试')
       closeoutIntent.clear(intent)
       if (String(wx.getStorageSync(recoveryKey(s))) === String(row.order_id)) wx.removeStorageSync(recoveryKey(s))
       this.setData({ selectedRefusal: null, refusalAction: '', refusalReason: '', pendingRefusal: false })

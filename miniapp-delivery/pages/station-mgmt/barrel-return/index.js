@@ -19,6 +19,24 @@ function sameSession(before) {
 function money(value) { const n = Number(value); return Number.isFinite(n) ? n.toFixed(2) : '待核实' }
 function eventId(e) { return e && e.currentTarget && e.currentTarget.dataset.id }
 function sameId(a, b) { return a != null && b != null && String(a) === String(b) }
+function cents(value) {
+  if ((typeof value !== 'number' && typeof value !== 'string') || !/^\d+(?:\.\d{1,2})?$/.test(String(value))) return null
+  const amount = Math.round(Number(value) * 100)
+  return Number.isSafeInteger(amount) && amount >= 0 ? amount : null
+}
+function payoutRecorded(record, receipt) {
+  if (!receipt || !receipt.payoutKey) return false
+  const progress = record.refundProgress
+  if (!progress || !Array.isArray(progress.receipts)) return false
+  const matches = progress.receipts.filter(row => row && row.requestKey === receipt.payoutKey)
+  if (!matches.length) return false
+  const total = cents(progress.total), paid = cents(progress.paid), remaining = cents(progress.remaining)
+  if (progress.verified !== true || matches.length !== 1 || !positiveId(matches[0].id) || cents(matches[0].amount) == null
+      || cents(matches[0].amount) !== cents(receipt.amount) || total == null || paid == null || remaining == null
+      || paid < cents(matches[0].amount) || total !== paid + remaining
+      || !sameId(record.stationId, String(receipt.actor).split(':')[0])) throw new Error('原实退凭据或待退金额未能核对，请保留原记录')
+  return true
+}
 function checked(res, fallback) {
   if (!res || res.code !== 0) throw Object.assign(new Error(res && res.message || fallback), { businessRejected: !!res && res.code === 1 })
   return res.data
@@ -105,6 +123,8 @@ Page({
     const result = Object.assign({}, item, {
       isReturn, owedQty: Math.max(0, over), storageQty: Math.max(0, -over),
       amountText: money(item.depositRefund == null ? 0 : item.depositRefund),
+      paidText: item.refundProgress ? money(item.refundProgress.paid) : '',
+      remainingText: item.refundProgress ? item.refundProgress.verified === false ? '待核实' : money(item.refundProgress.remaining) : '',
       productText: item.productName || (item.productId != null ? '商品 #' + item.productId : '商品待核实'),
       customerText: item.customerName || '客户 ID:' + item.customerId,
       requiredText: required === 0 ? '无需实际交桶' : required != null ? '需实际交桶 ' + required + ' 个' : '交桶数量待核实',
@@ -253,6 +273,11 @@ Page({
     this.setData({ eligibility: null, eligibilityLoading: true, eligibilityError: '' }); this.refreshSelected()
     try {
       const data = checked(await getBarrelRefundEligibility(id), '退款资格未能核对')
+      if (data && data.partialRefundsSupported === true) {
+        const values = ['totalRefundAmount', 'paidRefundAmount', 'remainingRefundAmount', 'availableRefundAmount', 'frozenRefundAmount'].map(key => cents(data[key]))
+        if (values.some(value => value == null) || values[0] !== values[1] + values[2] || values[2] !== values[3] + values[4]
+            || data.available && cents(data.refundAmount) !== values[3]) throw new Error('实退与待退金额未能核对，请勿交款')
+      }
       if (!this.validRead(seq, '_eligibilitySeq', snapshot) || !sameId(this.data.selectedId, id) || action && !this.actionCurrent(action)) return null
       const record = this.data.list.find(r => sameId(r.id, id))
       if (!data || !sameId(data.recordId, id) || typeof data.available !== 'boolean' || !record
@@ -390,12 +415,12 @@ Page({
         this.setData({ actionError: '退款核对记录未能保存，请勿交款并重试' })
         this.restoreRefundRecovery(); this.releaseAction(action); return
       }
-      const result = await this.modal(action, { title: zero ? '登记零额退还结果' : cash ? '退押金并登记现金交付' : '按线上原渠道退款', content: zero ? '本申请核对金额为 ¥0.00，无需实际支付现金。确认后登记本申请的零额退还结果。' : cash ? '原款已核对为现金办理，应退 ¥' + money(eligibility.refundAmount) + '。请确认已实际把本笔押金交给客户，再登记；已交过的请勿重复交款。' : '将按本申请原线上收款方式退回 ¥' + money(eligibility.refundAmount) + '，以实际办理结果为准。', confirmText: zero ? '确认登记' : cash ? '已交付' : '确认退款' })
+      const result = await this.modal(action, { title: zero ? '登记零额退还结果' : cash ? '退押金并登记现金交付' : '按线上原渠道退款', content: zero ? '本申请核对金额为 ¥0.00，无需实际支付现金。确认后登记本申请的零额退还结果。' : cash ? '本次可实退 ¥' + money(eligibility.refundAmount) + (eligibility.partialRefundsSupported ? '；原申请累计应退 ¥' + money(eligibility.totalRefundAmount) + '，本次后仍待退 ¥' + money(Number(eligibility.remainingRefundAmount) - Number(eligibility.refundAmount)) + '，保留原申请继续处理。' : '。') + '请确认已实际把本笔押金交给客户，再登记；已交过的请勿重复交款。' : '将按本申请原线上收款方式退回 ¥' + money(eligibility.refundAmount) + '，以实际办理结果为准。', confirmText: zero ? '确认登记' : cash ? '已交付' : '确认退款' })
       if (!result) return
       if (cash) action.cashDeliveryConfirmed = true
       return await this.submitRefund(action.id, eligibility.channel, action)
     } finally {
-      if (action.phase === 'modal' && action.refundRecovery) {
+      if (action.phase === 'modal' && action.refundRecovery && !action.cashDeliveryConfirmed) {
         try { refundRecovery.clear(action.refundRecovery) }
         catch (err) {
           if (!err.staleRecovery && !this._unloaded && sameSession(action.snapshot)) {
@@ -411,11 +436,25 @@ Page({
     // 只能承接本页已核对原款的锁内动作，禁止绕过确认直接再发金融写请求。
     if (!action || !this.actionCurrent(action) || !sameId(action.id, id)) return
     const eligibility = this.data.eligibility
-    if (!eligibility || !sameId(eligibility.recordId, id) || !eligibility.available || eligibility.channel !== channel) return
+    if (!eligibility || !sameId(eligibility.recordId, id) || !eligibility.available || eligibility.channel !== channel) {
+      if (action.cashDeliveryConfirmed && action.refundRecovery) {
+        action.phase = 'recovery'; this._pendingAction = action
+        action.writeError = '资格已变化，原现金登记尚未提交，请核实原交付，勿再次交款'
+        return this.recoverAction(action)
+      }
+      return
+    }
     if (channel === CHANNEL_CASH && !action.cashDeliveryConfirmed) return
     const extra = channel === CHANNEL_CASH
       ? { refundChannel: channel, cashDeliveryConfirmed: true, expectedRefundAmount: Number(eligibility.refundAmount) }
       : { refundChannel: channel }
+    if (channel === CHANNEL_CASH && eligibility.partialRefundsSupported === true && Number(eligibility.refundAmount) > 0) {
+      if (!action.refundRecovery || !action.refundRecovery.payoutKey) throw new Error('原实退编号未能保存，请勿交款')
+      const original = refundRecovery.pending(action.snapshot.actor)
+      if (!refundRecovery.sameAttempt(original, action.refundRecovery) || original.payoutKey !== action.refundRecovery.payoutKey || cents(original.amount) == null) throw new Error('原实退记录已变化，请查原结果，勿再次交款')
+      extra.payoutRequestKey = action.refundRecovery.payoutKey
+      extra.expectedRefundAmount = Number(original.amount)
+    }
     return this.performAction(action, () => updateBarrelRecordStatus(id, 3, extra))
   },
   async onReconcileCash() {
@@ -438,12 +477,13 @@ Page({
       if (receipt.writeRejected && receipt.channel === CHANNEL_ONLINE) { action.phase = 'recovery'; return await this.recoverAction(action) }
       const eligibility = checked(await getBarrelRefundEligibility(action.id), '原款未能核对')
       if (!this.actionCurrent(action) || this._pendingAction !== action) return
-      const amount = eligibility && Number(eligibility.refundAmount)
+      const amount = receipt.payoutKey ? Number(receipt.amount) : eligibility && Number(eligibility.refundAmount)
       if (!eligibility || !sameId(eligibility.recordId, action.id) || eligibility.available !== true
           || (d ? eligibility.detailStatus !== d.status : eligibility.recordStatus !== record.status)
           || eligibility.refundAmount == null || !Number.isFinite(amount) || amount < 0 || Number(amount.toFixed(2)) !== amount) throw new Error('原申请或退款金额未能核对，请查原结果')
       if (eligibility.channel !== CHANNEL_CASH || receipt.channel && receipt.channel !== CHANNEL_CASH) throw new Error('只能核实原现金交付；线上原渠道请继续核对原结果，不能改交现金或重复退款')
-      if (receipt.amount != null && Number(receipt.amount) !== amount) throw new Error('原交付金额与当前核对不一致，请核实实际款项；勿重复交款')
+      if (receipt.payoutKey && eligibility.partialRefundsSupported !== true) throw new Error('当前服务未能核对原分次登记，请更新匹配服务后查原结果，勿再次交款')
+      if (receipt.payoutKey ? amount > Number(eligibility.refundAmount) : receipt.amount != null && Number(receipt.amount) !== amount) throw new Error('原交付金额超出当前可退范围，请核实实际款项；勿重复交款')
       const zero = amount === 0
       const result = await this.modal(action, { title: zero ? '补同步零额登记' : '仅同步现金交付',
         content: zero ? '原申请 #' + action.id + ' 金额为 ¥0.00，无需实际交款。本次只同步同一申请的零额退还登记。'
@@ -456,8 +496,9 @@ Page({
       // 2026-10-17：仅由人工确认恢复原现金登记；服务器仍以原状态锁/CAS串行，并核对锁内实额。
       action.refundRecovery = refundRecovery.retry(receipt, eligibility)
       action.writeRejected = false; action.writeSucceeded = false; action.writeError = ''
-      return await this.performAction(action, () => updateBarrelRecordStatus(action.id, 3,
-        { refundChannel: CHANNEL_CASH, cashDeliveryConfirmed: true, expectedRefundAmount: amount }))
+      const original = { refundChannel: CHANNEL_CASH, cashDeliveryConfirmed: true, expectedRefundAmount: amount }
+      if (action.refundRecovery.payoutKey) original.payoutRequestKey = action.refundRecovery.payoutKey
+      return await this.performAction(action, () => updateBarrelRecordStatus(action.id, 3, original))
     } catch (err) {
       if (this.actionCurrent(action)) this.setData({ actionError: err.message || '原办理结果未能核对，请勿再次交款' })
     } finally {
@@ -525,7 +566,8 @@ Page({
       }
       const list = this.data.list.filter(r => !sameId(r.id, record.id)); list.unshift(this.decorateRecord(record))
       const d = record.returnDetail
-      const completed = action.kind === 'refund' ? !!record.refundPaidTime || d && d.status === 'REFUNDED'
+      const completed = action.kind === 'refund' ? (action.refundRecovery && action.refundRecovery.payoutKey
+        ? payoutRecorded(record, action.refundRecovery) : !!record.refundPaidTime || d && d.status === 'REFUNDED')
         : action.kind === 'receive' ? d ? ['RECEIVED', 'REFUNDED'].includes(d.status) : record.status === 2 || record.status === 3
           : action.kind === 'approve' ? d && d.status !== 'APPLIED'
             : action.kind === 'collect' ? d && d.feePaymentStatus === 2
@@ -535,7 +577,7 @@ Page({
       // 2026-10-17：原先把一次成功 GET 当作写请求已结束，锁等待中的旧 RECEIVED
       // 会重新开放现金交付。未见最终结果且未获明确业务拒绝时，只能继续查询原编号。
       // 2026-10-17：合法历史驳回也能终结原请求；解除恢复等待不能提示成已退钱。
-      const endedWithoutRefund = action.kind === 'refund' && !completed && (d ? ['REJECTED', 'WITHDRAWN'].includes(d.status) : record.status === 4)
+      const endedWithoutRefund = action.kind === 'refund' && !completed && !(action.refundRecovery && action.refundRecovery.payoutKey) && (d ? ['REJECTED', 'WITHDRAWN'].includes(d.status) : record.status === 4)
       // 2026-10-17：拒绝登记不等于现金未交付，必须保留原现金上下文，后续只能核实并补同步。
       const cashContext = action.refundRecovery && action.refundRecovery.channel !== CHANNEL_ONLINE
       const waiting = action.kind === 'refund' && !completed && !endedWithoutRefund && (!action.writeRejected || cashContext)

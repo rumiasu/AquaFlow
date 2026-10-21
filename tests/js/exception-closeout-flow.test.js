@@ -33,7 +33,7 @@ function refusal(api = {}, wx = createWx()) {
   const business = Object.assign({ getRefusals: async args => ({ code: 0, data: { stationId: 2, scope: args.orderId ? 'LOOKUP' : args.scope, limit: 50, items: [row], nextBeforeId: null } }), getWaiting: async () => ({ code: 0, data: {
     schemaAvailable: true, counts: { waitingStock: 0, returnsTotal: 0, recoveriesTotal: 0, barrelsTotal: 0 }, stock: [], returns: [], recoveries: [], barrels: [] } }),
     getTicketExitBatches: async () => ({ code: 0, data: [] }),
-    revokeRefusal: async (id, p) => { sent.push(p); return { data: { id: 1, orderId: id, action: 'REVOKE' } } },
+    revokeRefusal: async (id, p) => { sent.push(p); return { code: 0, data: { id: 1, orderId: id, action: 'REVOKE' } } },
     refusalHistory: async () => ({ data: [{ id: 1, actionText: '撤销误判', reason: '原理由' }] })
   }, api)
   const page = loadPage('miniapp-delivery/pages/station-mgmt/business-waiting/index.js', { wx, app, stubs: { 'api/business-rules': business, 'utils/pending-reminder': { syncPendingReminder: async () => {} } } })
@@ -90,8 +90,53 @@ async function main() {
     assert.strictEqual(f.sent.length, 0); assert.strictEqual(f.page.data.disputeReady, false)
     const g = manager(); await g.page.loadDisputes(); await g.page.onOpenDispute(event({ type: ref.refundType, id: 12 })); g.app.isStationManager = () => false; g.page.setData({ disputeResult: '结果' }); await g.page.onCloseDispute(); assert.strictEqual(g.sent.length, 0)
   })
+  function enableScope(f) {
+    Object.assign(f.row, { scopeEditable: true, scopeProducts: [{ productId: 9, productName: '合成商品' }], freezeScope: [] })
+    f.page.onOpenRefusalResolution(event({ id: 31, action: 'SCOPE' }))
+    f.page.onScopeAmount({ currentTarget: { dataset: { id: 9 } }, detail: { value: '12.00' } })
+  }
+  await test('scope submits exact original product/amount/version and requires typed success receipt', async () => {
+    const sent = [], f = refusal({ confirmFreeze: async (id, p) => { sent.push(p); return { code: 0, data: { id: 3, orderId: id, action: 'SCOPE' } } } })
+    enableScope(f); await f.page.onSubmitRefusalResolution()
+    assert.strictEqual(sent.length, 1); assert.deepStrictEqual(sent[0].items, [{ productId: 9, amount: 12 }]); assert.strictEqual(sent[0].expectedVersion, 0)
+    assert.strictEqual(f.page.data.pendingRefusal, false)
+  })
+  await test('scope unknown retry retains original key/amount/version despite later case changes', async () => {
+    const sent = []; let first = true
+    const f = refusal({ confirmFreeze: async (id, p) => { sent.push(p); if (first) { first = false; throw new Error('unknown') } return { code: 0, data: { id: 3, orderId: id, action: 'SCOPE' } } } })
+    enableScope(f); await f.page.onSubmitRefusalResolution()
+    f.page.onScopeAmount({ currentTarget: { dataset: { id: 9 } }, detail: { value: '19' } })
+    assert.strictEqual(f.page.data.scopeLines[0].amount, '12.00')
+    f.row.version = 3; f.row.scopeEditable = false
+    f.page.onOpenRefusalResolution(event({ id: 31, action: 'SCOPE' })); await f.page.onRetryRefusalResolution()
+    assert.strictEqual(sent.length, 2); assert.deepStrictEqual(sent[0], sent[1]); assert.strictEqual(f.page.data.pendingRefusal, false)
+  })
+  await test('old backend without explicit scope capability cannot silently confirm whole-case freeze', async () => {
+    let writes = 0; const f = refusal({ confirmFreeze: async () => { writes++; return { code: 0 } } })
+    f.page.onOpenRefusalResolution(event({ id: 31, action: 'SCOPE' })); await f.page.onSubmitRefusalResolution()
+    assert.strictEqual(writes, 0); assert.strictEqual(f.page.data.selectedRefusal, null)
+  })
+  await test('invalid, negative, zero-only and fractional-cent scope cannot write', async () => {
+    for (const amount of ['-1', '0', '0.001', 'oops']) {
+      let writes = 0; const f = refusal({ confirmFreeze: async () => { writes++; return { code: 0 } } }); enableScope(f)
+      f.page.onScopeAmount({ currentTarget: { dataset: { id: 9 } }, detail: { value: amount } }); await f.page.onSubmitRefusalResolution()
+      assert.strictEqual(writes, 0, amount)
+    }
+  })
+  await test('silently lost scope storage prevents request; unsuccessful response retains original intent', async () => {
+    let writes = 0; const wx = createWx(); wx.setStorageSync = () => {}
+    const f = refusal({ confirmFreeze: async () => { writes++ } }, wx); enableScope(f); await f.page.onSubmitRefusalResolution(); assert.strictEqual(writes, 0)
+    const g = refusal({ confirmFreeze: async () => ({ code: 1, data: { id: 3, orderId: 31, action: 'SCOPE' } }) }); enableScope(g); await g.page.onSubmitRefusalResolution()
+    assert.strictEqual(g.page.data.pendingRefusal, true); assert.ok(g.wx.__storage.size > 0)
+  })
+  await test('scope late success after identity change cannot clear original actor intent', async () => {
+    const d = defer(), f = refusal({ confirmFreeze: () => d.promise }); enableScope(f)
+    const running = f.page.onSubmitRefusalResolution(); f.app.globalData.userInfo.staffId = 18
+    d.resolve({ code: 0, data: { id: 3, orderId: 31, action: 'SCOPE' } }); await running
+    assert.ok(f.wx.__storage.size > 0); assert.strictEqual(f.wx.__calls.toast.length, 0)
+  })
   await test('refusal form uses server capability and preserves request after unknown result', async () => {
-    const sent = []; let first = true; const f = refusal({ revokeRefusal: async (id, p) => { sent.push(p); if (first) { first = false; throw new Error('未知') } return { data: { id: 1, orderId: id, action: 'REVOKE' } } } })
+    const sent = []; let first = true; const f = refusal({ revokeRefusal: async (id, p) => { sent.push(p); if (first) { first = false; throw new Error('未知') } return { code: 0, data: { id: 1, orderId: id, action: 'REVOKE' } } } })
     f.page.onOpenRefusalResolution(event({ id: 31, action: 'RELEASE' })); assert.strictEqual(f.page.data.selectedRefusal, null)
     f.page.onOpenRefusalResolution(event({ id: 31, action: 'REVOKE' })); f.page.setData({ refusalReason: '原判断错误' }); await f.page.onSubmitRefusalResolution()
     f.row.canRevoke = false; f.row.version = 1; await f.page.loadData(); f.page.onOpenRefusalResolution(event({ id: 31, action: 'REVOKE' })); await f.page.onRetryRefusalResolution()

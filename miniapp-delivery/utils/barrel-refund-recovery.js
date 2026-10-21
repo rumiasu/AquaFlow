@@ -14,6 +14,7 @@ function pending(actor) {
   if (!value || value.version !== 1 || value.actor !== actor || !/^[1-9]\d*$/.test(value.recordId || '')
       || value.writeRejected !== undefined && typeof value.writeRejected !== 'boolean'
       || value.attempt !== undefined && !/^r-[a-z0-9]+-[a-z0-9]+(?:-[a-z0-9]+)?$/.test(value.attempt)
+      || value.payoutKey !== undefined && !/^r-[a-z0-9]+-[a-z0-9]+(?:-[a-z0-9]+)?$/.test(value.payoutKey)
       || value.channel !== undefined && !['CASH', 'ONLINE'].includes(value.channel)
       || value.amount !== undefined && (typeof value.amount !== 'string' || !/^\d+\.\d{2}$/.test(value.amount))) {
     throw new Error('上次退款记录无法识别，请保留现场并联系负责人，勿再次交款')
@@ -31,7 +32,7 @@ function current(value) {
 function save(value) {
   wx.setStorageSync(keyOf(value.actor), value)
   const saved = pending(value.actor)
-  if (!sameAttempt(saved, value) || !['version', 'channel', 'amount', 'writeRejected'].every(key => saved[key] === value[key])) throw new Error('退款核对记录未能保存，请勿交款并重试')
+  if (!sameAttempt(saved, value) || !['version', 'channel', 'amount', 'writeRejected', 'payoutKey'].every(key => saved[key] === value[key])) throw new Error('退款核对记录未能保存，请勿交款并重试')
   return saved
 }
 // 2026-10-17：明确业务拒绝只留内存，会在失败回读后重开时变回未知并卡住办理。
@@ -43,6 +44,7 @@ function prepare(actor, id, eligibility) {
   if (old) throw new Error('上次退款结果仍待核对，请先查询原申请，勿再次交款')
   const value = { version: 1, actor, recordId: String(id), attempt: attempt() }
   if (eligibility) { value.channel = eligibility.channel; value.amount = Number(eligibility.refundAmount).toFixed(2) }
+  if (eligibility && eligibility.partialRefundsSupported === true && eligibility.channel === 'CASH' && Number(eligibility.refundAmount) > 0) value.payoutKey = value.attempt
   if (!/^[1-9]\d*$/.test(value.recordId)) throw new Error('请先核对原申请编号')
   return save(value)
 }

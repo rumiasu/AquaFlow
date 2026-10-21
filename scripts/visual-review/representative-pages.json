@@ -1,0 +1,434 @@
+[
+  {
+    "id": "E46-station-mgmt-asset-claims-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/asset-claims/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E22-station-mgmt-products-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/products/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E12-coordination-index",
+    "side": "miniapp-delivery",
+    "route": "pages/coordination/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E08-home-index",
+    "side": "miniapp-delivery",
+    "route": "pages/home/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E11-mine-index",
+    "side": "miniapp-delivery",
+    "route": "pages/mine/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E09-order-detail",
+    "side": "miniapp-delivery",
+    "route": "pages/order/detail",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E10-order-complete",
+    "side": "miniapp-delivery",
+    "route": "pages/order/complete",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U01-home-ready",
+    "side": "miniapp-user",
+    "route": "pages/home/index",
+    "state": "有站点、商品与购物清单的合成展示"
+  },
+  {
+    "id": "U02-home-notice",
+    "side": "miniapp-user",
+    "route": "pages/home/notice",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U03-order-list",
+    "side": "miniapp-user",
+    "route": "pages/order/list",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U04-order-detail",
+    "side": "miniapp-user",
+    "route": "pages/order/detail",
+    "state": "配送中、已支付订单的合成展示"
+  },
+  {
+    "id": "U05-order-create",
+    "side": "miniapp-user",
+    "route": "pages/order/create",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U06-order-success",
+    "side": "miniapp-user",
+    "route": "pages/order/success",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U07-address-list",
+    "side": "miniapp-user",
+    "route": "pages/address/list",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U08-address-edit",
+    "side": "miniapp-user",
+    "route": "pages/address/edit",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U09-barrel-index",
+    "side": "miniapp-user",
+    "route": "pages/barrel/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U10-barrel-purchase",
+    "side": "miniapp-user",
+    "route": "pages/barrel/purchase",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U11-shop-products",
+    "side": "miniapp-user",
+    "route": "pages/shop/index",
+    "state": "两商品与购物清单浮标的合成展示"
+  },
+  {
+    "id": "U12-order-template",
+    "side": "miniapp-user",
+    "route": "pages/template/index",
+    "state": "常用订单模板列表的合成展示"
+  },
+  {
+    "id": "U13-ticket-index",
+    "side": "miniapp-user",
+    "route": "pages/ticket/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U14-mine-assets",
+    "side": "miniapp-user",
+    "route": "pages/mine/index",
+    "state": "个人资料及三项资产的合成展示"
+  },
+  {
+    "id": "U15-login-index",
+    "side": "miniapp-user",
+    "route": "pages/login/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U16-service-index",
+    "side": "miniapp-user",
+    "route": "pages/service/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U17-mine-about",
+    "side": "miniapp-user",
+    "route": "pages/mine/about",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U18-mine-edit",
+    "side": "miniapp-user",
+    "route": "pages/mine/edit",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U19-mine-agreement-index",
+    "side": "miniapp-user",
+    "route": "pages/mine/agreement/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U20-mine-account-data-index",
+    "side": "miniapp-user",
+    "route": "pages/mine/account-data/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U21-payment-records",
+    "side": "miniapp-user",
+    "route": "pages/payment/records",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U22-deposit-records-index",
+    "side": "miniapp-user",
+    "route": "pages/deposit/records/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U23-notice-index",
+    "side": "miniapp-user",
+    "route": "pages/notice/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U24-mine-company",
+    "side": "miniapp-user",
+    "route": "pages/mine/company",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U25-exception-list-list",
+    "side": "miniapp-user",
+    "route": "pages/exception/list/list",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "U26-asset-claim",
+    "side": "miniapp-user",
+    "route": "pages/mine/asset-claims/index",
+    "state": "历史资产认领填写表单的合成展示"
+  },
+  {
+    "id": "E01-login-index",
+    "side": "miniapp-delivery",
+    "route": "pages/login/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E02-mine-agreement-index",
+    "side": "miniapp-delivery",
+    "route": "pages/mine/agreement/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E03-mine-account-data-index",
+    "side": "miniapp-delivery",
+    "route": "pages/mine/account-data/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E04-role-select-index",
+    "side": "miniapp-delivery",
+    "route": "pages/role-select/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E05-bind-wait-index",
+    "side": "miniapp-delivery",
+    "route": "pages/bind-wait/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E06-station-mgmt-create-station-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/create-station/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E07-station-mgmt-apply-bind-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/apply-bind/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E13-station-mgmt-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E14-station-mgmt-business-waiting-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/business-waiting/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E15-station-mgmt-dashboard-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/dashboard/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E16-station-mgmt-orders-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/orders/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E17-station-mgmt-customers-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/customers/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E18-station-mgmt-customers-detail-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/customers/detail/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E19-station-mgmt-customers-adjust-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/customers/adjust/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E20-station-mgmt-customers-adjust-edit-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/customers/adjust/edit/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E21-station-mgmt-customers-adjust-detail-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/customers/adjust/detail/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E23-station-mgmt-station-status-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/station-status/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E24-station-mgmt-station-info-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/station-info/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E25-station-mgmt-delivery-config-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/delivery-config/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E26-station-mgmt-place-order-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/place-order/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E27-station-mgmt-receivables-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/receivables/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E28-station-mgmt-inter-station-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/inter-station/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E29-station-mgmt-payroll-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/payroll/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E30-station-mgmt-ticket-packages-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/ticket-packages/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E31-station-mgmt-gross-profit-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/gross-profit/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E32-station-mgmt-barrel-return-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/barrel-return/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E33-station-mgmt-owed-barrels-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/owed-barrels/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E34-station-mgmt-exceptions-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/exceptions/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E35-station-mgmt-customer-feedback-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/customer-feedback/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E36-station-mgmt-payments-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/payments/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E37-station-mgmt-staff-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/staff/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E38-station-mgmt-staff-profile-index",
+    "side": "miniapp-delivery",
+    "route": "pages/station-mgmt/staff/profile/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E39-barrel-records-index",
+    "side": "miniapp-delivery",
+    "route": "pages/barrel-records/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E40-my-earnings-index",
+    "side": "miniapp-delivery",
+    "route": "pages/my-earnings/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E41-history-index",
+    "side": "miniapp-delivery",
+    "route": "pages/history/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E42-transfer-index",
+    "side": "miniapp-delivery",
+    "route": "pages/transfer/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E43-report-index",
+    "side": "miniapp-delivery",
+    "route": "pages/report/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E44-settings-index",
+    "side": "miniapp-delivery",
+    "route": "pages/settings/index",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  },
+  {
+    "id": "E45-mine-edit",
+    "side": "miniapp-delivery",
+    "route": "pages/mine/edit",
+    "state": "独立静态或空态视觉样例；不运行生产生命周期"
+  }
+]

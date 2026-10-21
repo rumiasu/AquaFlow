@@ -1,0 +1,73 @@
+side,route,status,images,states,files
+miniapp-user,pages/home/index,captured,3,实际游客首页；无业务登录或后端验证 | 原模板与样式：站点、商品、配送状态及结算条；合成数据 | 长水站名称、地址与商品名称；离线视觉样例,originals/U01-home-guest__ACTUAL.png | originals/U01-home-ready__VISUAL.png | originals/UV-home-index-long__VISUAL.png
+miniapp-user,pages/home/notice,captured,1,静态内容或默认表单；未执行业务动作,originals/U02-home-notice__VISUAL.png
+miniapp-user,pages/order/list,captured,1,合成展示数据（orders）,originals/U03-order-list__VISUAL.png
+miniapp-user,pages/order/detail,captured,1,配送中、已支付订单的合成展示,originals/U04-order-detail__VISUAL.png
+miniapp-user,pages/order/create,captured,2,确认订单与费用概览合成展示；未下单 | 确认订单与费用概览合成展示；未下单,originals/U05-order-create-fixture2__VISUAL.png | originals/UV-order-create-fees-fixture2__VISUAL.png
+miniapp-user,pages/order/success,captured,1,订单提交结果合成展示；未发生真实下单,originals/U06-order-success__VISUAL.png
+miniapp-user,pages/address/list,captured,1,合成展示数据（addresses）,originals/U07-address-list-fixture2__VISUAL.png
+miniapp-user,pages/address/edit,captured,1,静态内容或默认表单；未执行业务动作,originals/U08-address-edit-fixture2__VISUAL.png
+miniapp-user,pages/barrel/index,captured,1,合成展示数据（customerBarrelAsset）,originals/U09-barrel-index__VISUAL.png
+miniapp-user,pages/barrel/purchase,captured,1,静态内容或默认表单；未执行业务动作,originals/U10-barrel-purchase__VISUAL.png
+miniapp-user,pages/shop/index,captured,3,两商品与购物清单浮标的合成展示 | 商城商品空态；离线视觉样例 | 商城读取错误态（纯合成展示）；离线视觉样例,originals/U11-shop-products__VISUAL.png | originals/UV-shop-index-empty__VISUAL.png | originals/UV-shop-index-error__VISUAL.png
+miniapp-user,pages/template/index,captured,2,常用订单模板列表的合成展示 | 编辑常用订单弹窗；离线视觉样例,originals/U12-order-template__VISUAL.png | originals/UV-template-index-modal__VISUAL.png
+miniapp-user,pages/ticket/index,captured,1,"合成展示数据（accounts, buyProducts, buyMethods）",originals/U13-ticket-index__VISUAL.png
+miniapp-user,pages/mine/index,captured,1,个人资料及三项资产的合成展示,originals/U14-mine-assets__VISUAL.png
+miniapp-user,pages/login/index,captured,1,登录入口；未执行登录,originals/U15-login-index__VISUAL.png
+miniapp-user,pages/service/index,captured,1,客服与意见反馈表单；未提交,originals/U16-service-index__VISUAL.png
+miniapp-user,pages/mine/about,captured,1,静态内容或默认表单；未执行业务动作,originals/U17-mine-about__VISUAL.png
+miniapp-user,pages/mine/edit,captured,1,静态内容或默认表单；未执行业务动作,originals/U18-mine-edit__VISUAL.png
+miniapp-user,pages/mine/agreement/index,captured,1,协议正文排版样例；非正式协议文本,originals/U19-mine-agreement-index__VISUAL.png
+miniapp-user,pages/mine/account-data/index,captured,1,账户资料请求表单；未提交,originals/U20-mine-account-data-index__VISUAL.png
+miniapp-user,pages/payment/records,captured,1,合成展示数据（records）,originals/U21-payment-records-fixture2__VISUAL.png
+miniapp-user,pages/deposit/records/index,captured,1,合成展示数据（records）,originals/U22-deposit-records-index-fixture2__VISUAL.png
+miniapp-user,pages/notice/index,captured,1,合成展示数据（notices）,originals/U23-notice-index__VISUAL.png
+miniapp-user,pages/mine/company,captured,1,静态内容或默认表单；未执行业务动作,originals/U24-mine-company__VISUAL.png
+miniapp-user,pages/exception/list/list,captured,1,代表性空列表态（exceptions）,originals/U25-exception-list-list__VISUAL.png
+miniapp-user,pages/mine/asset-claims/index,captured,2,历史资产认领填写表单的合成展示 | 认领待核对记录；离线视觉样例,originals/U26-asset-claim__VISUAL.png | originals/UV-mine-asset-claims-index-pending__VISUAL.png
+miniapp-delivery,pages/login/index,captured,1,登录入口；未执行登录,originals/E01-login-index__VISUAL.png
+miniapp-delivery,pages/mine/agreement/index,captured,1,协议正文排版样例；非正式协议文本,originals/E02-mine-agreement-index__VISUAL.png
+miniapp-delivery,pages/mine/account-data/index,captured,1,账户资料请求表单；未提交,originals/E03-mine-account-data-index__VISUAL.png
+miniapp-delivery,pages/role-select/index,captured,1,角色选择静态页；未执行选择,originals/E04-role-select-index__VISUAL.png
+miniapp-delivery,pages/bind-wait/index,captured,1,静态内容或默认表单；未执行业务动作,originals/E05-bind-wait-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/create-station/index,captured,1,静态内容或默认表单；未执行业务动作,originals/E06-station-mgmt-create-station-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/apply-bind/index,captured,1,合成展示数据（stationList）,originals/E07-station-mgmt-apply-bind-index__VISUAL.png
+miniapp-delivery,pages/home/index,captured,1,首页有商品／订单的合成展示,originals/E08-home-index-fixture2__VISUAL.png
+miniapp-delivery,pages/order/detail,captured,1,订单详情合成展示,originals/E09-order-detail-fixture4__VISUAL.png
+miniapp-delivery,pages/order/complete,captured,1,送达确认与回桶表单合成展示；未提交,originals/E10-order-complete-fixture2__VISUAL.png
+miniapp-delivery,pages/mine/index,captured,1,个人资料与资产／经营摘要合成展示,originals/E11-mine-index-fixture2__VISUAL.png
+miniapp-delivery,pages/coordination/index,captured,1,静态内容或默认表单；未执行业务动作,originals/E12-coordination-index-fixture2__VISUAL.png
+miniapp-delivery,pages/station-mgmt/index,captured,1,水站管理静态菜单,originals/E13-station-mgmt-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/business-waiting/index,captured,1,静态内容或默认表单；未执行业务动作,originals/E14-station-mgmt-business-waiting-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/dashboard/index,captured,1,经营概览合成数据；无真实报表查询,originals/E15-station-mgmt-dashboard-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/orders/index,captured,1,合成展示数据（list）,originals/E16-station-mgmt-orders-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/customers/index,captured,1,合成展示数据（list）,originals/E17-station-mgmt-customers-index-fixture2__VISUAL.png
+miniapp-delivery,pages/station-mgmt/customers/detail/index,captured,1,静态内容或默认表单；未执行业务动作,originals/E18-station-mgmt-customers-detail-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/customers/adjust/index,captured,1,代表性空列表态（list）,originals/E19-station-mgmt-customers-adjust-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/customers/adjust/edit/index,captured,1,"合成展示数据（typeOptions, typeLabels）",originals/E20-station-mgmt-customers-adjust-edit-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/customers/adjust/detail/index,captured,1,静态内容或默认表单；未执行业务动作,originals/E21-station-mgmt-customers-adjust-detail-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/products/index,captured,1,水商品快速建档模板与商品目录合成展示,originals/E22-station-mgmt-products-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/station-status/index,captured,1,静态内容或默认表单；未执行业务动作,originals/E23-station-mgmt-station-status-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/station-info/index,captured,1,静态内容或默认表单；未执行业务动作,originals/E24-station-mgmt-station-info-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/delivery-config/index,captured,1,"合成展示数据（limitModes, floorModes）",originals/E25-station-mgmt-delivery-config-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/place-order/index,captured,1,代表性空列表态（customers）,originals/E26-station-mgmt-place-order-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/receivables/index,captured,1,"代表性空列表态（customers, orders）",originals/E27-station-mgmt-receivables-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/inter-station/index,captured,1,代表性空列表态（items）,originals/E28-station-mgmt-inter-station-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/payroll/index,captured,1,"代表性空列表态（payrolls, items）",originals/E29-station-mgmt-payroll-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/ticket-packages/index,captured,1,静态内容或默认表单；未执行业务动作,originals/E30-station-mgmt-ticket-packages-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/gross-profit/index,captured,1,收入与毛利报表合成展示,originals/E31-station-mgmt-gross-profit-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/barrel-return/index,captured,1,代表性空列表态（list）,originals/E32-station-mgmt-barrel-return-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/owed-barrels/index,captured,1,代表性空列表态（list）,originals/E33-station-mgmt-owed-barrels-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/exceptions/index,captured,1,合成展示数据（alertFilters）,originals/E34-station-mgmt-exceptions-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/customer-feedback/index,captured,1,代表性空列表态（list）,originals/E35-station-mgmt-customer-feedback-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/payments/index,captured,1,代表性空列表态（list）,originals/E36-station-mgmt-payments-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/staff/index,captured,1,合成展示数据（list）,originals/E37-station-mgmt-staff-index__VISUAL.png
+miniapp-delivery,pages/station-mgmt/staff/profile/index,captured,1,静态内容或默认表单；未执行业务动作,originals/E38-station-mgmt-staff-profile-index__VISUAL.png
+miniapp-delivery,pages/barrel-records/index,captured,1,代表性空列表态（records）,originals/E39-barrel-records-index__VISUAL.png
+miniapp-delivery,pages/my-earnings/index,captured,1,"代表性空列表态（items, payrolls）",originals/E40-my-earnings-index__VISUAL.png
+miniapp-delivery,pages/history/index,captured,1,合成展示数据（orders）,originals/E41-history-index__VISUAL.png
+miniapp-delivery,pages/transfer/index,captured,1,代表性空列表态（orders）,originals/E42-transfer-index__VISUAL.png
+miniapp-delivery,pages/report/index,captured,1,配送问题反馈空表单；未提交,originals/E43-report-index__VISUAL.png
+miniapp-delivery,pages/settings/index,captured,1,设置静态展示；未更改设置,originals/E44-settings-index__VISUAL.png
+miniapp-delivery,pages/mine/edit,captured,1,静态内容或默认表单；未执行业务动作,originals/E45-mine-edit__VISUAL.png
+miniapp-delivery,pages/station-mgmt/asset-claims/index,captured,2,认领审核空态；离线视觉样例 | 认领待审核清单与展开详情；未审核,originals/EV-station-mgmt-asset-claims-index-empty__VISUAL.png | originals/E46-station-mgmt-asset-claims-index__VISUAL.png

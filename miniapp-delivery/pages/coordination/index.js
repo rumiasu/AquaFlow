@@ -26,6 +26,16 @@ const STAFF_MARKS = ['[退回站长]', '[转让]', '[重分配]']
 const PENDING_SUMMARY = API.MANAGER_PENDING_SUMMARY
 const { BUSINESS_PENDING_ROUTES, isPendingSummaryComplete } = require('../../utils/pending-reminder')
 
+/** 待办缓存绑定登录周期与本站身份；普通令牌续期不改变责任范围。 */
+function todoScope() {
+  const app = getApp(), data = app.globalData || {}, user = data.userInfo || {}
+  const role = String(user.role || '').toUpperCase()
+  const allowed = !!(data.isLogin && user.stationId && (role === 'STATION_MANAGER' || role === 'MANAGER')
+    && (!app.canAccessStationBusiness || app.canAccessStationBusiness()))
+  return { app, allowed, key: JSON.stringify([app._loginGeneration || 0, !!data.isLogin,
+    user.staffId, role, user.stationId, user.bindStatus, allowed]) }
+}
+
 /** 跨站外派风险查询（后端路由 /api/delivery/orders/{id}/cross-station-risk）。 */
 const crossStationRiskUrl = (id) => `/api/delivery/orders/${id}/cross-station-risk`
 
@@ -258,18 +268,21 @@ Page({
   /**
    * 拉待办汇总，两件事：① 组装「其他待处理」卡；② 刷新首页 tab 红点。
    *
-   * 2026-10-02：原来失败只留日志，站长会漏掉资金/交接责任；现在保留旧卡并标为未核对，
+   * 2026-10-02：原来失败只留日志，站长会漏掉资金/交接责任；现在保留同一身份/水站的旧卡并标为未核对，
    * 给重试入口，成功读取后再替换。红点仍只认完整响应中的 P0。
    */
   async loadTodo() {
-    const app = getApp()
-    const stationId = (app.globalData.userInfo || {}).stationId
-    if (!stationId) return
+    const scope = this.syncTodoScope()
+    if (!scope.allowed || this._todoHidden) return
     const seq = this._todoSeq = (this._todoSeq || 0) + 1
+    const current = () => {
+      const active = todoScope()
+      return seq === this._todoSeq && !this._todoHidden && active.app === scope.app && active.key === scope.key
+    }
     this.setData({ todoLoading: true })
     try {
       const res = await get(PENDING_SUMMARY)
-      if (seq !== this._todoSeq) return
+      if (!current()) return
       if (!res || res.code !== 0) {
         throw new Error('待办未能核对，请重试')
       }
@@ -280,10 +293,30 @@ Page({
       // ⚠️ 红点看的是全部 P0（含被本卡剔除的项），不能只用 todo.items 推。
       require('../../utils/pending-reminder').applyRedDot(d)
     } catch (err) {
-      if (seq === this._todoSeq) this.setData({ todoError: '待办未能核对，请重试；已有数字是上次读取的结果' })
+      if (current()) this.setData({ todoError: '待办未能核对，请重试；已有数字是上次读取的结果' })
     } finally {
-      if (seq === this._todoSeq) this.setData({ todoLoading: false })
+      if (seq === this._todoSeq) {
+        this.syncTodoScope()
+        this.setData({ todoLoading: false })
+      }
     }
+  },
+  /** 2026-10-21：只保留同一身份/水站的旧数，换范围后的读取失败曾继续展示前站退款与交接金额。 */
+  syncTodoScope() {
+    const scope = todoScope()
+    if (this._todoOwner !== scope.app || this._todoScope !== scope.key) {
+      this._todoSeq = (this._todoSeq || 0) + 1
+      this._todoOwner = scope.app
+      this._todoScope = scope.key
+      this.setData({ todo: null, todoError: '', todoLoading: false })
+    }
+    return scope
+  },
+  /** 离页只中止本页结果写入，不取消已发出的只读请求。 */
+  stopTodoRead(clear) {
+    this._todoHidden = true
+    this._todoSeq = (this._todoSeq || 0) + 1
+    this.setData(clear ? { todo: null, todoError: '', todoLoading: false } : { todoLoading: false })
   },
   onRetryTodo() { return this.loadTodo() },
 
@@ -312,7 +345,7 @@ Page({
    *      既有页签的 P0 也继续计入，不能只用 todo.items 推红点。
    *   ② **功能没被删**：完整功能目录「水站管理」是常驻入口（wxml 里在任何 wx:if 之外），
    *      零值时照样进得去每一项；本卡只是"提醒区"，不是"功能清单"；
-   *   ③ 失败/未就绪的计数不能当零；loadTodo 显示未核对提示并保留上次卡。
+   *   ③ 失败/未就绪的计数不能当零；loadTodo 显示未核对提示，只保留同一身份/水站的上次卡。
    *
    * 排序：`order` 是后端给的固定顺序（钱 → 人 → 质量），这里只做**稳定**的"非零在前"，
    * 不重新发明优先级 —— 后端要调顺序就调 payload 里的 order。
@@ -427,6 +460,8 @@ Page({
 
   onShow() {
     navigation.show(this)
+    this._todoHidden = false
+    this.syncTodoScope()
     const app = getApp()
     // 自绘底栏：站长看到 首页/配送/我的，配送员只看到 配送/我的（本页对配送员不显示）
     syncTabBar(this, '/pages/coordination/index')
@@ -448,8 +483,8 @@ Page({
     }
   },
 
-  onHide() { navigation.hide(this); this.syncModalTabBar(false) },
-  onUnload() { navigation.dispose(this); this.syncModalTabBar(false) },
+  onHide() { this.stopTodoRead(false); navigation.hide(this); this.syncModalTabBar(false) },
+  onUnload() { this.stopTodoRead(true); navigation.dispose(this); this.syncModalTabBar(false) },
   onResize() { this.updateModalViewport() },
 
   updateModalViewport() {

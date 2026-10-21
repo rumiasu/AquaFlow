@@ -131,7 +131,9 @@ async function main() {
     await page.loadTodo(); const old = page.data.todo
     state.res.data.items = state.res.data.items.filter(it => it.key !== 'refundDispute')
     await page.loadTodo(); assert.strictEqual(page.data.todo, old); assert.match(page.data.todoError, /未.*核对/)
-    const wx = createWx(), app = createApp({ isStationManager: () => true, globalData: { isLogin: true, userInfo: { staffId: 9, stationId: 1, role: 'STATION_MANAGER' } } })
+    // 同身份失败保留旧数：菜单与首页须属于同一App/员工，不能在夹具里悄悄换成staffId=9。
+    const wx = createWx(), app = page.__app
+    app.isStationManager = () => true
     const menu = loadPage('miniapp-delivery/pages/station-mgmt/index.js', { wx, app, stubs: { 'utils/request': { get: async () => response({ ...state.res.data, businessWaitingTotal: 0 }) } } })
     await menu.loadBadgeCounts(); assert.strictEqual(menu.data.refundDisputeBadgeCount, null); assert(menu.data.badgeError)
     const tree = parseWxml(fs.readFileSync(path.join(__dirname, '../../miniapp-delivery/pages/station-mgmt/index.wxml'), 'utf8'))

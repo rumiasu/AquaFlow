@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'coordination-todo-context.test.js', name: 'manager responsibility card identity cache, late reads and page lifecycle offline' },
   { file: 'water-product-templates.test.js', name: 'evidence-backed water templates, editable defaults and explicit station business inputs offline' },
   { file: 'pending-reminder-lifecycle.test.js', name: 'manager reminder latest query and login lifecycle isolation offline' },
   { file: 'customer-home-station-context.test.js', name: '首页自动选站、公开站列表与营业状态的异步范围保护' },

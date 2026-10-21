@@ -63,7 +63,7 @@
         ① **P0 红点**由 `loadTodo` 的 `applyRedDot(d)` 按完整 payload 的 `p0Total` 算，
            与本卡内容**无关**（别改成拿 todo.items 推）；
         ② **功能没删**：完整功能目录「水站管理」是常驻入口（在本卡之外），零值照样进得去；
-        ③ 失败时保留上次卡并显示未核对提示，首次失败也能重试。
+        ③ 同一身份/水站读取失败时保留上次卡并显示未核对提示；切换身份不借用旧卡，首次失败也能重试。
       数量非零的项标红（`hasCount`）—— 现在能进卡的项恒为非零，这个类是"提醒色"不是"等级色"。
     -->
     <view class="todo-card" wx:if="{{todoError || todoLoading || (todo && todo.items.length)}}">

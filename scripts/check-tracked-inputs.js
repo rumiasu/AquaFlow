@@ -84,6 +84,7 @@ const REQUIRED_TRACKED = [
   'AquaFlow-backend/src/test/java/com/example/aquaflow/service/AuthRefreshRotationTest.java',
   'tests/js/business-pending-flow.test.js',
   'tests/js/pending-reminder-lifecycle.test.js',
+  'tests/js/coordination-todo-context.test.js',
   'tests/js/water-product-templates.test.js',
   'miniapp-delivery/utils/water-product-templates.js',
   'miniapp-user/assets/product/barrel-neutral-template.webp',

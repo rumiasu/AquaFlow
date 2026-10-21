@@ -2,7 +2,7 @@
    一张卡 = 一笔，金额在右上，口径与状态用浅色小标签，动作按钮在底部。 */
 
 .page {
-  padding: 20rpx 24rpx 60rpx;
+  padding: 20rpx 24rpx calc(60rpx + env(safe-area-inset-bottom));
   background: var(--bg-gray);
   min-height: 100vh;
   box-sizing: border-box;
@@ -156,3 +156,19 @@
 .btn-ok-small::after {
   border: none;
 }
+
+
+/* 新责任面板沿原台账层次；长按钮换行，输入框不使用原生默认宽度。 */
+.actions { flex-wrap: wrap; gap: 12rpx; }
+.actions button { max-width: 100%; min-height: 76rpx; margin: 0; white-space: normal; word-break: break-all; line-height: 1.6; }
+.aftercare-section { padding-top: 12rpx; }
+.aftercare-section text { display: block; margin: 10rpx 0; font-size: 26rpx; line-height: 1.7; word-break: break-all; }
+.aftercare-section .section-title { line-height: 1.6; word-break: break-all; }
+.aftercare-section .card { border: 1rpx solid var(--border-color); }
+.aftercare-section input, .aftercare-section textarea { display: block; box-sizing: border-box; width: 100%; margin: 18rpx 0; padding: 18rpx 20rpx; background: var(--bg-card); border: 1rpx solid var(--border-color); border-radius: 12rpx; color: var(--text-primary); font-size: 28rpx; line-height: 1.6; }
+.aftercare-section input { height: 88rpx; }
+.aftercare-section textarea { height: 200rpx; }
+.aftercare-section button { min-height: 80rpx; margin: 16rpx 0; padding: 16rpx 20rpx; font-size: 26rpx; line-height: 1.6; white-space: normal; word-break: break-all; border-radius: 12rpx; color: var(--primary-color); background: var(--bg-card); border: 1rpx solid var(--border-color); }
+.aftercare-section button[disabled] { color: var(--text-secondary); background: var(--bg-gray); }
+.aftercare-section .actions button { margin: 0; }
+.aftercare-section .aftercare-error { padding: 16rpx; border-radius: 12rpx; color: var(--error-color); background: var(--error-bg); }

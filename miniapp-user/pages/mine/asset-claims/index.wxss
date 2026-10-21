@@ -22,3 +22,10 @@
 .claim-actions { display: flex; }
 .claim-actions button { flex: 1; }
 .claim-actions button:first-child { margin-right: 18rpx; }
+
+/* 长商品名/状态各自保留可读宽度；窄屏自动换行，不挤压金额与操作。 */
+.claim-heading { flex-wrap: wrap; gap: 8rpx 16rpx; }
+.claim-heading .claim-title { flex: 1; min-width: 180rpx; word-break: break-all; }
+.claim-status { flex-shrink: 0; margin-left: 0; max-width: 100%; line-height: 1.7; word-break: break-all; }
+.claim-picker, .claim-row, .claim-amount { word-break: break-all; }
+.claim-page { padding-bottom: calc(72rpx + env(safe-area-inset-bottom)); }

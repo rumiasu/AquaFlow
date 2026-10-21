@@ -80,20 +80,20 @@
     </view>
   </view>
 
-  <view class="section">
+  <view class="section aftercare-section">
     <view class="section-title">售后责任核对入口</view>
     <text class="hint">售后分担与原结算分列。原单已冲销，未核定或未交付的责任仍继续处理；客户实际退款记录保留。</text>
     <button wx:for="{{aftercarePendingOrders}}" wx:key="*this" class="btn-outline-small" bindtap="onOpenAftercare" data-id="{{item}}">核对待处理订单 #{{item}}</button>
     <text wx:if="{{aftercareHasMore}}">还有更早责任订单；本次显示最新200笔，可按原订单编号继续核对。</text>
     <input type="number" value="{{aftercareSearch}}" bindinput="onAftercareSearchInput" placeholder="输入原订单编号" />
     <button bindtap="onAftercareSearch" disabled="{{aftercareBusy}}">按原订单核对</button>
-    <text wx:if="{{!aftercareOrderId && aftercareError}}">{{aftercareError}}</text>
+    <text class="aftercare-error" wx:if="{{!aftercareOrderId && aftercareError}}">{{aftercareError}}</text>
   </view>
-  <view class="section" wx:if="{{aftercareOrderId}}">
+  <view class="section aftercare-section" wx:if="{{aftercareOrderId}}">
     <view class="section-title">订单 #{{aftercareOrderId}} · 实际售后分担</view>
     <text class="hint">{{aftercareNote}}</text>
     <text wx:if="{{aftercareLoading}}">正在核对原实退与责任记录…</text>
-    <text wx:if="{{aftercareError}}">{{aftercareError}}</text>
+    <text class="aftercare-error" wx:if="{{aftercareError}}">{{aftercareError}}</text>
     <button class="btn-outline-small" bindtap="onRetryAftercareRead" disabled="{{aftercareBusy || aftercareLoading}}">查询原责任记录</button>
     <text wx:if="{{aftercareReady && !aftercareItems.length}}">暂无可核对的实际消费退款凭据。</text>
     <view class="card" wx:for="{{aftercareItems}}" wx:key="refundPaymentId">

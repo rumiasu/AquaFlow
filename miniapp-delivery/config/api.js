@@ -351,6 +351,7 @@ const API = {
   MANAGER_REFUSAL_CASES: '/api/manager/refusal-cases',
   MANAGER_REFUSAL_FREEZE: (id) => `/api/manager/refusal-cases/${id}/confirm-freeze`,
   MANAGER_STATION_RECOVERIES: '/api/manager/inter-station-recoveries',
+  MANAGER_STATION_AFTERCARE: id => `/api/manager/inter-station-aftercare/${id}`,
   MANAGER_RECOVERY_SENT: (id) => `/api/manager/inter-station-recoveries/${id}/sent`,
   MANAGER_RECOVERY_RECEIVED: (id) => `/api/manager/inter-station-recoveries/${id}/received`,
   MANAGER_STATION_BARREL_BALANCES: '/api/manager/station-barrel-balances',

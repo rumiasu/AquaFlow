@@ -45,6 +45,7 @@
       <view class="row-sub" wx:if="{{item._settledText}}"><text class="sub-text">{{item._settledText}}</text></view>
       <view class="actions">
         <button class="btn-outline-small" catchtap="onReverse" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">冲销</button>
+        <button class="btn-outline-small" catchtap="onOpenAftercare" data-id="{{item.orderId}}">核对本单售后分担</button>
       </view>
     </view>
   </view>
@@ -72,10 +73,50 @@
       <view class="row-sub" wx:if="{{item._settledText}}"><text class="sub-text">{{item._settledText}}</text></view>
       <view class="actions">
         <button class="btn-outline-small" catchtap="onOpenOrder" data-id="{{item.orderId}}">看订单</button>
+        <button class="btn-outline-small" catchtap="onOpenAftercare" data-id="{{item.orderId}}">核对本单售后分担</button>
         <button class="btn-outline-small" wx:if="{{item.canChangePrice}}" catchtap="onPriceByListed" data-id="{{item.orderId}}">按挂牌价结</button>
         <button class="btn-ok-small" wx:if="{{item.canSettle}}" catchtap="onSettle" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">登记结清</button>
       </view>
     </view>
   </view>
 
+  <view class="section">
+    <view class="section-title">售后责任核对入口</view>
+    <text class="hint">售后分担与原结算分列。原单已冲销，未核定或未交付的责任仍继续处理；客户实际退款记录保留。</text>
+    <button wx:for="{{aftercarePendingOrders}}" wx:key="*this" class="btn-outline-small" bindtap="onOpenAftercare" data-id="{{item}}">核对待处理订单 #{{item}}</button>
+    <text wx:if="{{aftercareHasMore}}">还有更早责任订单；本次显示最新200笔，可按原订单编号继续核对。</text>
+    <input type="number" value="{{aftercareSearch}}" bindinput="onAftercareSearchInput" placeholder="输入原订单编号" />
+    <button bindtap="onAftercareSearch" disabled="{{aftercareBusy}}">按原订单核对</button>
+    <text wx:if="{{!aftercareOrderId && aftercareError}}">{{aftercareError}}</text>
+  </view>
+  <view class="section" wx:if="{{aftercareOrderId}}">
+    <view class="section-title">订单 #{{aftercareOrderId}} · 实际售后分担</view>
+    <text class="hint">{{aftercareNote}}</text>
+    <text wx:if="{{aftercareLoading}}">正在核对原实退与责任记录…</text>
+    <text wx:if="{{aftercareError}}">{{aftercareError}}</text>
+    <button class="btn-outline-small" bindtap="onRetryAftercareRead" disabled="{{aftercareBusy || aftercareLoading}}">查询原责任记录</button>
+    <text wx:if="{{aftercareReady && !aftercareItems.length}}">暂无可核对的实际消费退款凭据。</text>
+    <view class="card" wx:for="{{aftercareItems}}" wx:key="refundPaymentId">
+      <text>{{item.refundVerified ? '已核实退' : '原退款凭据待核'}} #{{item.refundPaymentId}} · 记录金额 ¥{{item.refundAmount}} · 关联站 {{item.refundStationId}}</text>
+      <text>{{item.statusText}}</text>
+      <text wx:if="{{item.amount !== null}}">站 {{item.otherStationId}} 向实际退款站 {{item.refundStationId}} 分担 ¥{{item.amount}}；其余由实际退款站承担。</text>
+      <text wx:else>具体责任金额待核对，不自动追收原整单报酬。</text>
+      <text wx:if="{{item.reason}}">{{item.reason}}</text>
+      <view class="actions">
+        <button wx:if="{{aftercareReady && (item.canPropose || item.retryPROPOSE)}}" bindtap="onChooseAftercare" data-id="{{item.refundPaymentId}}" data-action="PROPOSE">{{item.retryPROPOSE ? '重试原责任方案' : '提出或补充责任方案'}}</button>
+        <button wx:if="{{aftercareReady && (item.canAgree || item.retryAGREE)}}" bindtap="onChooseAftercare" data-id="{{item.refundPaymentId}}" data-action="AGREE">{{item.retryAGREE ? '核对上次责任结果' : '核对并接受原责任金额'}}</button>
+        <button wx:if="{{aftercareReady && (item.canPay || item.retryPAID)}}" bindtap="onChooseAftercare" data-id="{{item.refundPaymentId}}" data-action="PAID">{{item.retryPAID ? '只同步原交付登记' : '登记本笔已实际交付'}}</button>
+      </view>
+      <view wx:for="{{item.history}}" wx:for-item="entry" wx:key="id"><text>{{entry.actionText}} · ¥{{entry.amount}} · {{entry.reason}} · {{entry.createTime}}</text></view>
+    </view>
+    <view class="card" wx:if="{{aftercareSelected}}">
+      <text>原实退 #{{aftercareSelected.refundPaymentId}} · 本笔原退款 ¥{{aftercareSelected.refundAmount}}</text>
+      <text>站 {{aftercareSelected.otherStationId}} 向实际退款站 {{aftercareSelected.refundStationId}} 分担的金额；明确为0表示本笔由实际退款站承担。</text>
+      <input wx:if="{{aftercareAction !== 'AGREE'}}" type="digit" value="{{aftercareAmount}}" bindinput="onAftercareAmount" disabled="{{aftercarePending || aftercareBusy || aftercareAction !== 'PROPOSE'}}" placeholder="分担金额（元）" />
+      <text wx:else>核对原方案 ¥{{aftercareSelected.amount}}，本次只确认责任金额，不表示交款。</text>
+      <textarea value="{{aftercareReason}}" bindinput="onAftercareReason" maxlength="1000" disabled="{{aftercarePending || aftercareBusy}}" placeholder="{{aftercareAction === 'PROPOSE' ? '责任事实与方案说明（必填）' : '说明（选填）'}}" />
+      <text wx:if="{{aftercarePending}}">原请求已保存，结果待核对；只查询或重试原请求，勿再次交款。</text>
+      <button bindtap="onSubmitAftercare" loading="{{aftercareBusy}}" disabled="{{aftercareBusy || !aftercareReady}}">{{aftercarePending ? '重试原请求' : aftercareAction === 'PAID' ? '核实已交付并登记' : '保存本次责任核对'}}</button>
+    </view>
+  </view>
 </view>

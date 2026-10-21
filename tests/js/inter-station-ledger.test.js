@@ -120,6 +120,26 @@ function newPage(sc) {
   return { page, calls, wx }
 }
 
+function aftercareFixture(options = {}) {
+  const row = Object.assign({ refundPaymentId: 41, refundVerified: true, refundAmount: 12, refundStationId: 1, otherStationId: 2, version: 0, status: 'UNRESOLVED', statusText: '责任待协商', amount: null, canPropose: true, canAgree: false, canPay: false, history: [] }, options.row)
+  const wx = options.wx || createWx(), app = createApp({ globalData: { isLogin: true, userInfo: { staffId: 17, stationId: 2, role: 'STATION_MANAGER' } } }), sent = []
+  const write = action => async (id, body) => {
+    sent.push({ id, action, body })
+    if (options.onWrite) return options.onWrite(action, body, row)
+    row.history.push({ id: row.history.length + 1, actorKey: 'STAFF:17:2', requestKey: body.idempotencyKey, action, amount: action === 'AGREE' ? row.amount : body.amount, reason: body.reason, fromVersion: body.expectedVersion })
+    row.version++; if (action === 'PROPOSE') row.amount = body.amount
+    row.status = { PROPOSE: 'PROPOSED', AGREE: 'AGREED', PAID: 'PAID' }[action]
+    return { code: 0, data: { id: row.history.length, refundPaymentId: id, orderId: 31, action } }
+  }
+  const page = loadPage('miniapp-delivery/pages/station-mgmt/inter-station/index.js', { wx, app, stubs: {
+    'api/business-rules': { getStationAftercare: async id => {
+      if (options.readError) throw new Error(options.readError)
+      return { code: 0, data: { orderId: id, eligible: true, note: '核对每笔原责任', items: [row] } }
+    }, proposeStationAftercare: write('PROPOSE'), agreeStationAftercare: write('AGREE'), recordStationAftercarePaid: write('PAID') }
+  } })
+  return { page, wx, app, row, sent, open: () => page.onOpenAftercare({ currentTarget: { dataset: { id: 31 } } }), choose: action => page.onChooseAftercare({ currentTarget: { dataset: { id: 41, action } } }) }
+}
+
 ;(async () => {
   const doneWatchdog = armWatchdog()
   console.log('站间结算台账 · 谁欠谁 / 欠多少 / 什么时候算办完（v67 回归）')
@@ -203,6 +223,84 @@ function newPage(sc) {
       'route 指向的页面必须在 app.json 的 pages 里注册，否则 navigateTo 会失败')
   })
 
+  await test('部分售后按原实际退款凭据打开核对入口，不改原结清金额', async () => {
+    const app = createApp({ globalData: { isLogin: true, userInfo: { staffId: 17, stationId: 2, role: 'STATION_MANAGER' } } })
+    const page = loadPage('miniapp-delivery/pages/station-mgmt/inter-station/index.js', { app, wx: createWx(), stubs: {
+      'api/business-rules': { getStationAftercare: async id => ({ code: 0, data: { orderId: id, eligible: true, note: '按实际责任额', items: [{ refundPaymentId: 41, refundVerified: true, refundAmount: 12, refundStationId: 1, otherStationId: 2, version: 0, status: 'UNRESOLVED', statusText: '待协商', amount: null, canPropose: true, canAgree: false, canPay: false, history: [] }] } }) }
+    } })
+    await page.onOpenAftercare({ currentTarget: { dataset: { id: 31 } } })
+    assert.strictEqual(page.data.aftercareReady, true); assert.strictEqual(page.data.aftercareItems[0].refundAmount, 12)
+  })
+  await test('责任方案精确保存原实退号、金额与版本，不改变原结清', async () => {
+    const f = aftercareFixture(); await f.open(); f.choose('PROPOSE')
+    f.page.onAftercareAmount({ detail: { value: '8.00' } }); f.page.onAftercareReason({ detail: { value: '双方责任事实' } }); await f.page.onSubmitAftercare()
+    assert.strictEqual(f.sent.length, 1); assert.strictEqual(f.sent[0].id, 41); assert.strictEqual(f.sent[0].body.amount, 8); assert.strictEqual(f.sent[0].body.expectedVersion, 0)
+    assert.strictEqual(f.wx.__storage.size, 0)
+  })
+  await test('未知责任方案冷启动仍用原键原金额原版本，不因刷新换方案', async () => {
+    const f = aftercareFixture({ onWrite: async () => { throw new Error('unknown') } }); await f.open(); f.choose('PROPOSE')
+    f.page.onAftercareAmount({ detail: { value: '8' } }); f.page.onAftercareReason({ detail: { value: '原事实' } }); await f.page.onSubmitAftercare()
+    const original = f.sent[0].body; f.row.version = 3; f.row.canPropose = false
+    const cold = aftercareFixture({ wx: f.wx, row: f.row }); await cold.page.restoreAftercare(); assert.strictEqual(cold.sent.length, 0)
+    cold.choose('PROPOSE'); f.page.onAftercareAmount({ detail: { value: '9' } }); await cold.page.onSubmitAftercare()
+    assert.strictEqual(cold.sent.length, 1); assert.deepStrictEqual(JSON.parse(JSON.stringify(cold.sent[0].body)), JSON.parse(JSON.stringify(original)))
+  })
+  await test('合法零分担可核定；缺金额和超原实退金额不得写入', async () => {
+    for (const amount of ['', '-1', '12.01', '0.001']) {
+      const f = aftercareFixture(); await f.open(); f.choose('PROPOSE'); f.page.onAftercareAmount({ detail: { value: amount } }); f.page.onAftercareReason({ detail: { value: '事实' } }); await f.page.onSubmitAftercare(); assert.strictEqual(f.sent.length, 0, amount)
+    }
+    const zero = aftercareFixture(); await zero.open(); zero.choose('PROPOSE'); zero.page.onAftercareAmount({ detail: { value: '0' } }); zero.page.onAftercareReason({ detail: { value: '由实际退款站承担' } }); await zero.page.onSubmitAftercare(); assert.strictEqual(zero.sent[0].body.amount, 0)
+  })
+  await test('双方核对只发责任接受，不提交到账确认或退款命令', async () => {
+    const f = aftercareFixture({ row: { status: 'PROPOSED', version: 1, amount: 8, canPropose: false, canAgree: true } }); await f.open(); f.choose('AGREE'); await f.page.onSubmitAftercare()
+    assert.strictEqual(f.sent.length, 1); assert.strictEqual(f.sent[0].action, 'AGREE'); assert.strictEqual(f.sent[0].body.amount, null)
+    assert.deepStrictEqual(Object.keys(f.sent[0].body).sort(), ['amount','expectedVersion','idempotencyKey','reason'])
+  })
+  await test('付款方登记原实际8元交付，双击只有一个请求，不调用收款方确认', async () => {
+    const f = aftercareFixture({ row: { status: 'AGREED', version: 2, amount: 8, canPropose: false, canPay: true } }); await f.open(); f.choose('PAID')
+    const one = f.page.onSubmitAftercare(); await f.page.onSubmitAftercare(); await one
+    assert.strictEqual(f.sent.length, 1); assert.strictEqual(f.sent[0].action, 'PAID'); assert.strictEqual(f.sent[0].body.amount, 8)
+    assert.strictEqual(f.wx.__calls.modal.length, 1); assert.strictEqual(f.wx.__storage.size, 0)
+    assert.ok(f.wx.__calls.modal[0].content.includes('不执行转账'))
+  })
+  await test('现金登记响应未知保留原键；查到自己的实际凭据后只读恢复', async () => {
+    let body
+    const f = aftercareFixture({ row: { status: 'AGREED', version: 2, amount: 8, canPropose: false, canPay: true }, onWrite: async (_action, request) => { body = request; throw new Error('lost response') } }); await f.open(); f.choose('PAID'); await f.page.onSubmitAftercare()
+    assert.ok(f.wx.__storage.size > 0)
+    Object.assign(f.row, { status: 'PAID', version: 3, canPay: false, history: [{ id: 9, actorKey: 'STAFF:17:2', requestKey: body.idempotencyKey, action: 'PAID', amount: 8, reason: body.reason, fromVersion: 2 }] })
+    await f.open(); assert.strictEqual(f.wx.__storage.size, 0); assert.strictEqual(f.sent.length, 1)
+  })
+  await test('别人交付终态不能清理原现金未知记录，缺能力不显示空成功', async () => {
+    const f = aftercareFixture({ row: { status: 'AGREED', version: 2, amount: 8, canPropose: false, canPay: true }, onWrite: async () => { throw new Error('unknown') } }); await f.open(); f.choose('PAID'); await f.page.onSubmitAftercare()
+    Object.assign(f.row, { status: 'PAID', canPay: false, history: [{ id: 9, actorKey: 'STAFF:19:2', requestKey: 'other-request', action: 'PAID', amount: 8, reason: '其他原请求', fromVersion: 2 }] }); await f.open()
+    assert.ok(f.wx.__storage.size > 0); assert.strictEqual(f.page.data.aftercareItems[0].retryPAID, true)
+    const old = aftercareFixture({ readError: '404' }); await old.open(); assert.strictEqual(old.page.data.aftercareReady, false); assert.ok(old.page.data.aftercareError.includes('404')); assert.strictEqual(old.sent.length, 0)
+  })
+  await test('原键存储静默失败时，不提示交款也不发写请求', async () => {
+    const wx = createWx(); wx.setStorageSync = () => {}
+    const f = aftercareFixture({ wx, row: { status: 'AGREED', version: 2, amount: 8, canPropose: false, canPay: true } }); await f.open(); f.choose('PAID'); await f.page.onSubmitAftercare()
+    assert.strictEqual(f.sent.length, 0); assert.strictEqual(wx.__calls.modal.length, 0)
+  })
+  await test('离页后返回及身份变化均忽略旧请求成功，保留原身份意图', async () => {
+    for (const identityChanged of [false, true]) {
+      let resolve; const promise = new Promise(r => { resolve = r })
+      const f = aftercareFixture({ onWrite: () => promise }); await f.open(); f.choose('PROPOSE'); f.page.onAftercareAmount({ detail: { value: '8' } }); f.page.onAftercareReason({ detail: { value: '原依据' } })
+      const pending = f.page.onSubmitAftercare(); f.page.onHide(); f.page._aftercareHidden = false
+      if (identityChanged) f.app.globalData.userInfo.staffId = 18
+      resolve({ code: 0, data: { id: 1, orderId: 31, refundPaymentId: 41, action: 'PROPOSE' } }); await pending
+      assert.ok(f.wx.__storage.size > 0); assert.strictEqual(f.wx.__calls.toast.length, 0)
+    }
+  })
+  await test('换站或离页后的旧台账响应不能注入新身份的售后待办', async () => {
+    let resolve, count = 0; const old = new Promise(r => { resolve = r })
+    const app = createApp({ globalData: { isLogin: true, userInfo: { staffId: 17, stationId: 2, role: 'STATION_MANAGER' } } })
+    const page = loadPage('miniapp-delivery/pages/station-mgmt/inter-station/index.js', { app, wx: createWx(), stubs: { 'api/station-mgmt': {
+      getInterStationSettlements: () => ++count === 1 ? old : Promise.resolve({ code: 0, data: Object.assign(ledgerPayload(), { items: [], aftercarePendingOrders: [] }) })
+    } } })
+    const running = page.loadData(); app.globalData.userInfo.stationId = 3; await page.loadData()
+    resolve({ code: 0, data: Object.assign(ledgerPayload(), { aftercarePendingOrders: [31] }) }); await running
+    assert.strictEqual(page.data.items.length, 0); assert.deepStrictEqual(Array.from(page.data.aftercarePendingOrders), [])
+  })
   doneWatchdog()
   console.log('')
   if (failures.length) {

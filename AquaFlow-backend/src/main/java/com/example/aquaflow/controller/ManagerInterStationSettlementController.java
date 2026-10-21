@@ -68,6 +68,19 @@ public class ManagerInterStationSettlementController {
         dispatchAgreements.closeBarrels(orderId,AuthContext.requireStationId(),body.get("note")); return Result.success();
     }
     @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.StationRecoveryService recoveries;
+    @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.StationAftercareService aftercare;
+    @GetMapping("/inter-station-aftercare/{orderId}") public Result<Map<String,Object>> aftercare(@PathVariable Long orderId) {
+        return Result.success(aftercare.view(orderId,AuthContext.requireStationId()));
+    }
+    @PostMapping("/inter-station-aftercare/{refundPaymentId}/propose") public Result<Map<String,Object>> proposeAftercare(@PathVariable Long refundPaymentId,@RequestBody com.example.aquaflow.dto.StationAftercareDTO dto) {
+        return Result.success(aftercare.act(refundPaymentId,AuthContext.requireStationId(),"PROPOSE",dto));
+    }
+    @PostMapping("/inter-station-aftercare/{refundPaymentId}/agree") public Result<Map<String,Object>> agreeAftercare(@PathVariable Long refundPaymentId,@RequestBody com.example.aquaflow.dto.StationAftercareDTO dto) {
+        return Result.success(aftercare.act(refundPaymentId,AuthContext.requireStationId(),"AGREE",dto));
+    }
+    @PostMapping("/inter-station-aftercare/{refundPaymentId}/paid") public Result<Map<String,Object>> paidAftercare(@PathVariable Long refundPaymentId,@RequestBody com.example.aquaflow.dto.StationAftercareDTO dto) {
+        return Result.success(aftercare.act(refundPaymentId,AuthContext.requireStationId(),"PAID",dto));
+    }
     /** 员工端站间台账：冲销后已交付资金的追收，不把改状态当成打款。 */
     @GetMapping("/inter-station-recoveries") public Result<java.util.List<Map<String,Object>>> recoveries() {
         return Result.success(recoveries.list(AuthContext.requireStationId()));
@@ -88,7 +101,10 @@ public class ManagerInterStationSettlementController {
     /** 本站站间结算台账：逐单「谁欠谁 / 欠多少 / 算没算完」+ 两个方向的合计。 */
     @GetMapping("/inter-station-settlements")
     public Result<Map<String, Object>> ledger() {
-        return Result.success(service.ledgerOf(AuthContext.requireStationId()));
+        Long station=AuthContext.requireStationId();var result=new java.util.LinkedHashMap<>(service.ledgerOf(station));
+        var pending=aftercare.pendingOrders(station);
+        result.put("aftercarePendingOrders",pending.subList(0,Math.min(200,pending.size())));
+        result.put("aftercareHasMore",pending.size()>200);return Result.success(result);
     }
 
     /**

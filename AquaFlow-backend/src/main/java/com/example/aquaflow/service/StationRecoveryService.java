@@ -15,6 +15,7 @@ public class StationRecoveryService {
     private final BarrelBusinessPolicy policy;
     private final com.example.aquaflow.mapper.DispatchAgreementMapper agreements;
     private final com.example.aquaflow.mapper.ConsumptionRefundMapper locks;
+    private final com.example.aquaflow.mapper.StationAftercareMapper aftercare;
     @Transactional
     public void preserveSettledPayment(InterStationSettlement row) {
         if (!policy.isEnabled() && (!policy.hasSchema() || agreements.get(row.getOrderId())==null)) return;
@@ -36,6 +37,9 @@ public class StationRecoveryService {
 
     private void preserveTerminalRefund(com.example.aquaflow.entity.Orders order) {
         Long id=order.getId();InterStationSettlement settled=mapper.lockSettlement(id);
+        // 已按逐笔实际责任协商的订单，后续消费退款仍进入同一责任清单；
+        // 不能再叠加整单自动返还，覆盖已核定分担或重复追回已交款。未分担部分保持待协商。
+        if(!aftercare.currentCases(id).isEmpty())return;
         Long originalCashStation=mapper.cashCollectionStation(id);
         Long from=settled!=null?settled.getFromStationId():(originalCashStation!=null?originalCashStation:order.getStationId());
         Long to=settled!=null?settled.getToStationId():com.example.aquaflow.util.StationUtil.settleStation(order);

@@ -710,3 +710,18 @@
 - `PUT /api/barrels/records/{id}/status` 仍传`status:3/refundChannel:CASH/cashDeliveryConfirmed:true`。支持分次的现金请求新增`payoutRequestKey`和`expectedRefundAmount`（本次实际交付金额，正数且不大于锁内可退上限）。同键绑定原记录、员工/站、交付人、金额和说明，不可换内容。原记录查询/list中的`refundProgress={total,paid,remaining,verified,receipts:[{id,requestKey,amount,...}]}`是恢复依据；新键客户端必须找到自己的键与金额，不能以别人实退或整单终态代替。旧不带键的`expectedRefundAmount`仍是整笔精确守卫。
 
 分次后原申请仍RECEIVED并保留桶占用，界面同时显示已退/待退；最终实退才REFUNDED。解冻不触发付款或免债。无第三遍客户确认、强制上传或到账门禁。线上原款能力仍关闭，不允许客户端改交现金绕过渠道责任。
+
+### C-04 逐笔部分售后责任（2026-10-21）
+
+以下均`STATION_MANAGER`，站点取当前会话，只允许原归属站/结算站。不是转账或客户到账确认：
+
+| 方法 | 路径 | 语义 |
+|------|------|------|
+| `GET` | `/api/manager/inter-station-aftercare/{orderId}` | 原实际消费退款、双方责任方案/版本/动作历史与可操作能力；未知原款不授权交付 |
+| `POST` | `/api/manager/inter-station-aftercare/{refundPaymentId}/propose` | `{expectedVersion,idempotencyKey,amount,reason}`，提出/补充未核定方案；金额0—原笔实退金额，说明责任事实 |
+| `POST` | `/api/manager/inter-station-aftercare/{refundPaymentId}/agree` | `{expectedVersion,idempotencyKey,reason?,amount:null}`，仅方案提出站的另一站核定该具体责任，不登记资金 |
+| `POST` | `/api/manager/inter-station-aftercare/{refundPaymentId}/paid` | `{expectedVersion,idempotencyKey,amount,reason?}`，仅应分担付款站登记已实际交付的核定正额；无收款方确认 |
+
+每笔`amount`表示`otherStationId`向该笔实际客户退款站`refundStationId`分担的金额，其余由实际退款站承担。不改变原结清报价或按已结整单报酬自动追收。动作回执`{id,orderId,refundPaymentId,action}`；历史含本次原请求键/操作者/金额/版本/说明，未知结果按自己的原键查询或重放，不能以别人的PAID终态认领成功。明确拒绝不等于现金未交付，原PAID请求的未知上下文应保留。
+
+`GET /api/manager/inter-station-settlements`另返回`aftercarePendingOrders`（最多200）和`aftercareHasMore`，与原结清合计分列。原单冲销后仍可发现未核定/未交付责任；超出列表可按原订单编号核对，不将截断当零。未协商的责任保留待处理，客户实退独立留存。原全退/取消返还已有流程不新增收款确认；只有已进入逐笔责任模式的订单继续按逐笔实退核对，避免同时整单返还重复追收。

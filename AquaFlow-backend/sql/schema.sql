@@ -1426,3 +1426,29 @@ CREATE TABLE IF NOT EXISTS barrel_return_payout (
   final_payout tinyint NOT NULL DEFAULT 0, create_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY(id), UNIQUE KEY uk_return_payout_key(record_id,request_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- v82：逐笔实际消费退款的站间分担与不可变动作。
+CREATE TABLE IF NOT EXISTS station_aftercare (
+  refund_payment_id bigint NOT NULL, order_id bigint NOT NULL,
+  refund_station_id bigint NOT NULL, other_station_id bigint NOT NULL,
+  refund_amount decimal(10,2) NOT NULL, proposed_amount decimal(10,2) NOT NULL,
+  proposed_station_id bigint NOT NULL, proposed_by bigint NOT NULL,
+  reason varchar(1000) NOT NULL, status varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  version bigint NOT NULL DEFAULT 1,
+  agreed_by bigint DEFAULT NULL, agreed_time datetime DEFAULT NULL,
+  paid_by bigint DEFAULT NULL, paid_time datetime DEFAULT NULL,
+  create_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY(refund_payment_id), KEY idx_aftercare_order(order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS station_aftercare_action (
+  id bigint NOT NULL AUTO_INCREMENT, refund_payment_id bigint NOT NULL,
+  actor_key varchar(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  request_key varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  request_digest char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  action varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  amount decimal(10,2) NOT NULL, reason varchar(1000) NOT NULL,
+  from_version bigint NOT NULL, to_version bigint NOT NULL,
+  create_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(id), UNIQUE KEY uk_aftercare_action(refund_payment_id,actor_key,request_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

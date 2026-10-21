@@ -57,6 +57,7 @@ const REQUIRED_TRACKED = [
   'AquaFlow-backend/src/main/resources/application-prod.yml',
   'AquaFlow-backend/sql/schema.sql',
   'AquaFlow-backend/sql/README.md',
+  'AquaFlow-backend/sql/seed_platform_pulisi_185.sql',
   'tests/js/run-all.js',
   'tests/js/harness.js',
   'scripts/verify.sh',

@@ -5,10 +5,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * P1（docs/design/12-商品与库存重构.md §5/§6）：<b>通用商品库 + 本站自定义商品的归属与可见性</b>。
@@ -24,6 +29,101 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @DisplayName("通用库与自定义商品：归属、越权、可见性、库存流水")
 class CatalogOwnershipIntegrationTest extends AbstractIntegrationTest {
+
+    private void seedPublicCatalog() throws Exception {
+        seedPublicCatalog("12.00", "50.00");
+    }
+
+    private void seedPublicCatalog(String price, String deposit) throws Exception {
+        seedPublicCatalog(price, price, price, deposit, deposit, deposit);
+    }
+
+    private void seedPublicCatalog(String... values) throws Exception {
+        byte[] sql = Files.readAllBytes(Path.of("sql/seed_platform_pulisi_185.sql"));
+        try (var connection = jdbc.getDataSource().getConnection()) {
+            try (var amounts = connection.prepareStatement("SET @af_pulisi_purified_price=?, @af_pulisi_spring_price=?, @af_pulisi_mineral_price=?, @af_pulisi_purified_deposit=?, @af_pulisi_spring_deposit=?, @af_pulisi_mineral_deposit=?")) {
+                for (int i = 0; i < 6; i++) amounts.setString(i + 1, values[i]);
+                amounts.execute();
+            }
+            ScriptUtils.executeSqlScript(connection, new ByteArrayResource(sql));
+        }
+    }
+
+    @Test
+    void publicSeedUsesEachExplicitAmountAndRejectsPartialInputsAtomically() throws Exception {
+        String[] amounts = {"11.00", "12.00", "13.00", "40.00", "50.00", "60.00"};
+        for (int missing = 0; missing < amounts.length; missing++) {
+            String[] partial = amounts.clone(); partial[missing] = null;
+            assertThrows(Exception.class, () -> seedPublicCatalog(partial));
+            assertEquals(0, intOf("SELECT COUNT(*) FROM product"));
+        }
+        seedPublicCatalog(amounts);
+        String[] names = {"普利思 饮用纯净水", "普利思 饮用天然泉水", "普利思 饮用天然矿泉水"};
+        for (int i = 0; i < names.length; i++) {
+            assertEquals(0, new BigDecimal(amounts[i]).compareTo(decimalOf("SELECT price FROM product WHERE name=?", names[i])));
+            assertEquals(0, new BigDecimal(amounts[i + 3]).compareTo(decimalOf("SELECT deposit FROM product WHERE name=?", names[i])));
+        }
+    }
+
+    @Test
+    void publicSeedMissingOrInvalidAmountsCannotWriteAnyProduct() {
+        for (String price : new String[] {null, "", "12junk", "-1", "1.234", "100000000.00"}) {
+            assertThrows(Exception.class, () -> seedPublicCatalog(price, "50.00"));
+            assertEquals(0, intOf("SELECT COUNT(*) FROM product"));
+        }
+        for (String deposit : new String[] {null, "", "0", "-1", "50junk", "1.234"}) {
+            assertThrows(Exception.class, () -> seedPublicCatalog("12.00", deposit));
+            assertEquals(0, intOf("SELECT COUNT(*) FROM product"));
+        }
+    }
+
+    @Test
+    void publicSeedIsRepeatableAndDoesNotCreateStationSettings() throws Exception {
+        seedPublicCatalog();
+        var first = jdbc.queryForList("SELECT * FROM product ORDER BY id");
+        assertEquals(3, first.size());
+        seedPublicCatalog();
+        assertEquals(first, jdbc.queryForList("SELECT * FROM product ORDER BY id"));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM inventory", Integer.class));
+        assertEquals(3, intOf("SELECT COUNT(*) FROM product WHERE owner_station_id IS NULL AND spec='18.5L' AND price=12 AND deposit=50 AND ticket_enabled=0 AND status=1 AND image_object_name='/assets/product/barrel-neutral-template.webp'"));
+    }
+
+    @Test
+    void publicSeedPreservesExistingAliasesPrivateProductsAndStationBusinessData() throws Exception {
+        seedTwoStations();
+        long existing = platformProduct("17.00", "55.00");
+        jdbc.update("UPDATE product SET name=?,brand='普利思',spec='18.5L',status=0,image_object_name='existing-approved-image',description='保留原资料' WHERE id=?", "普利思 纯净水 18.5L 桶装水", existing);
+        createInventory(stationA, existing, 23);
+        jdbc.update("UPDATE inventory SET sale_price=19,deposit_price=60,enabled=1 WHERE station_id=? AND product_id=?", stationA, existing);
+        long privateId = customProduct(mgrA);
+        jdbc.update("UPDATE product SET name='普利思 饮用天然泉水',brand='普利思',spec='18.5L' WHERE id=?", privateId);
+        long differentSpec = platformProduct("18.00", "55.00");
+        jdbc.update("UPDATE product SET name='普利思 天然泉水 18.9L 桶装水',brand='普利思',spec='18.9L' WHERE id=?", differentSpec);
+        var products = jdbc.queryForList("SELECT * FROM product ORDER BY id");
+        var inventory = jdbc.queryForList("SELECT * FROM inventory ORDER BY id");
+        seedPublicCatalog();
+        seedPublicCatalog();
+        assertEquals(products, jdbc.queryForList("SELECT * FROM product WHERE id IN (?,?,?) ORDER BY id", existing, privateId, differentSpec));
+        assertEquals(inventory, jdbc.queryForList("SELECT * FROM inventory ORDER BY id"));
+        assertEquals(4, jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE owner_station_id IS NULL", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE owner_station_id IS NULL AND name='普利思 饮用天然泉水'", Integer.class));
+    }
+
+    @Test
+    void explicitZeroPriceAndClearingStationOverridesKeepExistingSemantics() throws Exception {
+        seedTwoStations();
+        seedPublicCatalog("0.00", "50.00");
+        long product = jdbc.queryForObject("SELECT id FROM product WHERE name='普利思 饮用纯净水'", Long.class);
+        String endpoint = "/api/manager/catalog/" + product;
+        assertEquals(0, post(endpoint + "/select", mgrA, "{}").code());
+        assertEquals(0, intOf("SELECT enabled FROM inventory WHERE station_id=? AND product_id=?", stationA, product));
+        assertEquals(0, put(endpoint, mgrA, "{\"enabled\":1,\"salePrice\":12,\"depositPrice\":50}").code());
+        assertEquals(0, put(endpoint, mgrA, "{\"salePrice\":0,\"depositPrice\":0}").code());
+        assertEquals(1, intOf("SELECT enabled FROM inventory WHERE station_id=? AND product_id=?", stationA, product));
+        assertTrue(jdbc.queryForList("SELECT sale_price,deposit_price FROM inventory WHERE station_id=? AND product_id=?", stationA, product).stream().allMatch(row -> row.get("sale_price") == null && row.get("deposit_price") == null));
+        assertEquals(0, jdbc.queryForObject("SELECT price FROM product WHERE id=?", BigDecimal.class, product).signum());
+        assertEquals(0, new BigDecimal("50.00").compareTo(decimalOf("SELECT deposit FROM product WHERE id=?", product)));
+    }
 
     private long stationA;
     private long stationB;

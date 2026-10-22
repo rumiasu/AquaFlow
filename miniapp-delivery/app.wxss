@@ -114,7 +114,7 @@ page {
 }
 
 .btn-success {
-  background: var(--success-color);
+  background: var(--primary-color);
   color: #fff;
   border: none;
   border-radius: var(--radius-md);
@@ -198,7 +198,7 @@ page {
 /* 员工界面：恢复状态与正文层级。仅本端使用，不承载业务状态判断。 */
 page { color: var(--text-primary); font-size: 28rpx; line-height: 1.55; background: var(--bg-color); }
 button { box-sizing: border-box; font-size: 28rpx; line-height: 1.5; white-space: normal; word-break: break-all; border-radius: 12rpx; }
-button[disabled] { opacity: .58; }
+button[disabled] { color: var(--text-regular); background: var(--bg-gray); }
 input, textarea { color: var(--text-primary); box-sizing: border-box; }
 .ui-state { box-sizing: border-box; margin: 24rpx; padding: 28rpx; border: 1rpx solid var(--border-color); border-radius: 12rpx; background: var(--bg-white); }
 .ui-state-title { display: block; color: var(--text-primary); font-size: 32rpx; font-weight: 600; line-height: 1.45; }

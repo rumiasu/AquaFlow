@@ -149,7 +149,8 @@ function validRefreshData(data) {
  */
 function toNetworkError(err) {
   const raw = (err && (err.errMsg || err.message)) || ''
-  const message = /time\s*out/i.test(raw) ? '网络超时，请检查手机网络后重试'
+  const message = err && err.transportConfiguration ? '服务连接未配置完成，请联系负责人核实'
+    : /time\s*out/i.test(raw) ? '网络超时，请检查手机网络后重试'
     : /fail/i.test(raw) ? '网络连接失败，请检查网络后重试' : displayMessage(raw, '网络连接失败，请重试')
   return Object.assign(new Error(message), err, {
     message, originalMessage: raw,

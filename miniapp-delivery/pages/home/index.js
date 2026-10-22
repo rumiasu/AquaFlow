@@ -275,6 +275,7 @@ Page({
     this._accepting = true
     wx.showModal({
       title: '确认接单',
+      confirmText: '接单配送', cancelText: '暂不接单',
       content: '确定接受此配送任务？',
       success: async (res) => {
         if (res.confirm) {

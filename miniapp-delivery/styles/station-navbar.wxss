@@ -102,13 +102,14 @@
    ⚠️ 数字由后端算（setup-guide 的 pendingCount），前端不自己加总。 */
 .status-chip-badge {
   flex-shrink: 0;
-  margin-left: 10rpx;
-  padding: 0 12rpx;
-  border-radius: 999rpx;
+  margin-left: 8rpx;
+  padding: 0;
+  border-radius: 4rpx;
   font-size: 24rpx;
   line-height: 32rpx;
-  background: var(--warning-color);
-  color: #ffffff;
+  background: transparent;
+  color: var(--warning-color);
+  font-weight: 600;
 }
 
 /* ===========================================================================

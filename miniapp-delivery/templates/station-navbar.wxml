@@ -21,13 +21,13 @@
       <view class="navbar-left" style="max-width:{{navLeftMax || 92}}px;">
         <!-- 变黄的判据有两条：① 后端下发的客户提示（customerHint）非空；② **有待填项**
              （2026-09-24：条件项刚成立时营业状态本身是正常的，必须靠徽标提醒）。 -->
-        <view class="status-chip {{(stationStatusHint || stationPendingCount > 0) ? 'status-chip-warn' : ''}}"
-              wx:if="{{stationStatusText}}" bindtap="onStationStatusTap">
-          <text class="status-dot"></text>
-          <text class="status-chip-text">{{stationStatusText}}</text>
+        <view class="status-chip {{(stationStatusError || stationStatusHint || stationPendingCount > 0) ? 'status-chip-warn' : ''}}"
+              wx:if="{{stationStatusText || stationStatusError}}" bindtap="onStationStatusTap">
+          <text class="status-dot" wx:if="{{!stationPendingCount}}"></text>
+          <text class="status-chip-text">{{stationStatusText || '状态待核实'}}</text>
           <!-- 「待填 N 项」徽标：排在留言**前面**且 flex-shrink:0 永不截断 —— 要截断的是后面的
                留言（.navbar-left 只有 42% 宽）。数字来自后端 setup-guide 的 pendingCount。 -->
-          <text class="status-chip-badge" wx:if="{{stationPendingCount > 0}}">待填{{stationPendingCount}}</text>
+          <text class="status-chip-badge" wx:if="{{stationPendingCount > 0}}">待填{{stationPendingCount > 99 ? '99+' : stationPendingCount}}</text>
           <text class="status-chip-note" wx:if="{{stationStatusNote}}">· {{stationStatusNote}}</text>
         </view>
       </view>
@@ -48,11 +48,13 @@
       </view>
 
       <view class="st-status {{stationStatusHint ? 'st-status-warn' : ''}}">
-        <text class="st-status-text">{{stationStatusText}}</text>
+        <text class="st-status-text">{{stationStatusText || '状态待核实'}}</text>
         <text class="st-status-note" wx:if="{{stationStatusNote}}">{{stationStatusNote}}</text>
       </view>
 
       <view class="st-body">
+        <view class="ui-stale" wx:if="{{stationPanelError}}"><text>{{stationPanelError}}</text><button size="mini" bindtap="loadStationPending">重新核对待填项</button></view>
+        <text class="st-sub" wx:if="{{stationPanelRefreshing && !stationPanelLoading}}">正在核对待填项，上次记录仅供参考</text>
         <!-- 顶部页签：待填 / 已配好（2026-09-24 产品反馈："已完成的项看不到，填错了想回去重填却没了，
              只能回设置里找"）。⚠️ 原来那个开关是**列表下面的一句灰字**，实测根本没人发现 —— 挪到列表**上方**。
              ⚠️ 只在**确实有已配好的项**时才渲染：没有就不给这个页签（切过去是空列表，等于骗人）。 -->
@@ -97,10 +99,10 @@
         </block>
 
         <!-- 拉不到时**不许**说"都配好了"（那正是本仓最忌讳的静默失效：没拉到 ≠ 没问题） -->
-        <text class="st-sub" wx:elif="{{stationPanelError}}">{{stationPanelError}}</text>
+        <text class="st-sub" wx:elif="{{stationPanelError}}">请核对成功后再判断配置是否齐全。</text>
 
         <!-- 全配好时不再重复 summaryText（这时它只是"N/N 已完成"），只留那句可执行的下一步 -->
-        <text class="st-online-hint" wx:else>{{stationPanelOnlineHint || '待填项都配好了'}}</text>
+        <text class="st-online-hint" wx:elif="{{stationPanelReadReady}}">{{stationPanelOnlineHint || '待填项都配好了'}}</text><text class="st-sub" wx:else>待填项尚未核实</text>
       </view>
 
       <!-- ⚠️ 原来这里有个「显示已配好的 N 项 / 只看没配好的」开关 —— 2026-09-24 删掉。

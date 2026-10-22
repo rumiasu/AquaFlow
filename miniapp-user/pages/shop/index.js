@@ -271,7 +271,8 @@ Page({
       currentStation: station,
       showStationPicker: false,
       loading: true,
-      allProducts: [], loadError: '', stationStatusHint: ''
+      // 2026-10-22：切站必须清实际渲染列表，不能在新站名下保留旧站价格。
+      allProducts: [], visibleProducts: [], loadError: '', stationStatusHint: ''
     })
     this.updateCartCount()
     try {

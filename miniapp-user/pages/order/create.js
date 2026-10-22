@@ -77,7 +77,7 @@ Page({
     loading: true,
     items: [],
     products: [],
-    productsError: '',
+    productsError: '', productsLoading: false,
     address: null,
     addressText: '',
     checkoutWarnings: [],
@@ -306,6 +306,9 @@ Page({
     this._reorderNeedsReload = !!this._pendingReorder
     this._reorderSeq = (this._reorderSeq || 0) + 1
     this._quoteHidden = true
+    // 2026-10-22：后台丢弃旧清单回调时也释放读取锁，原清单仍须重新核实。
+    this._productsRequestSeq = (this._productsRequestSeq || 0) + 1
+    if (this.data.productsLoading) this.setData({ productsLoading: false, productsError: '商品读取已暂停，请重新读取完整清单。', loading: false })
     this.cancelScheduledQuote()
     this._addressNeedsReload = this.data.addressLoading || this._addressNeedsReload
     this._addressRequestSeq = (this._addressRequestSeq || 0) + 1
@@ -339,8 +342,17 @@ Page({
   },
 
 async loadItemsProducts() {
-    this.setData({ productsError: '' })
+    if (this.data.productsLoading || this.data.submitting) return
     const { items, stationId } = this.data
+    const session = captureSession(), seq = this._productsRequestSeq = (this._productsRequestSeq || 0) + 1
+    const itemKey = JSON.stringify(items)
+    const current = () => seq === this._productsRequestSeq && !this._quoteHidden && !this._quoteDestroyed
+      && isCurrentSession(session) && stationId === this.data.stationId && itemKey === JSON.stringify(this.data.items)
+    // 2026-10-22：原重试先清错误而保留旧报价，缺件清单会在重读期间被提交。
+    this.cancelScheduledQuote()
+    this.invalidateQuote()
+    this.setData({ productsLoading: true, productsError: '正在核实完整商品清单，请稍候。', quoteLoading: false })
+    try {
     const products = []
 
     // 1. 必须有选中的服务水站
@@ -349,7 +361,7 @@ async loadItemsProducts() {
 
     if (!effectiveStationId || effectiveStationId <= 0) {
       // 无站点：提示去选择水站
-      this.setData({ loading: false })
+      this.setData({ loading: false, productsError: '请先选择服务水站，再重新读取完整商品清单。' })
       const confirm = await new Promise(resolve => {
         wx.showModal({
           title: '请选择服务水站',
@@ -359,6 +371,7 @@ async loadItemsProducts() {
           success: (res) => resolve(res.confirm)
         })
       })
+      if (!current()) return
       if (!confirm) {
         wx.navigateBack()
       } else {
@@ -382,7 +395,7 @@ async loadItemsProducts() {
     // [2026-09-20 真机联调] 原来每件商品各自 `catch (e) { console.warn('Load product error:', e.message) }`：
     // 拉不到的**那一件会静默从清单里消失** —— 客户看到"我明明加了 3 样，结算页只剩 2 样"，
     // 与"这件商品本站下架了"完全无法区分；全部失败时页面还照旧提示"请选择商品"（把加载失败
-    // 说成"你没选商品"）。仍然降级（其余商品照常可下单），但必须把失败件数与原因说出来。
+    // 说成"你没选商品"）。已读商品可展示，完整清单核实后才能报价和下单。
     let productFailCount = 0
     let productFailReason = ''
     for (const it of items) {
@@ -418,18 +431,24 @@ async loadItemsProducts() {
         console.warn('[OrderCreate] 商品详情加载失败:', it.productId, e && (e.message || e.errMsg))
       }
     }
+    if (!current()) return
     if (productFailCount > 0) {
       this.setData({ productsError: productFailCount + ' 件商品信息尚未核实，请重新读取后再下单。' })
-      this._noteLoadError(productFailCount + ' 件商品的信息没加载出来（'
-        + (productFailReason || '网络异常') + '），清单里会缺这几行，请退出重进本页重试')
       wx.showToast({ title: '部分商品信息没加载出来', icon: 'none' })
-    }
+    } else this.setData({ productsError: '' })
 
 this.setData({ products, stationName: effectiveStationName, stationNameStationId: effectiveStationId })
     this.loadStationStatus(effectiveStationId)
     this.syncBarrelSummary()
-    this.refreshQuote()
+    this.setData({ productsLoading: false })
+    if (!productFailCount) this.refreshQuote()
     this.setData({ loading: false })
+    } catch (error) {
+      if (current()) this.setData({ productsError: errorText(error, '完整商品清单尚未加载，请重新读取。') })
+    } finally {
+      if (seq === this._productsRequestSeq) this.setData({ productsLoading: false, loading: false,
+        ...(!current() ? { productsError: '商品读取范围已变化，请重新读取完整清单。' } : {}) })
+    }
   },
 
   /**
@@ -678,6 +697,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   onQtyChange(e) {
+    if (this.data.productsLoading || this.data.productsError) return
     const { index, type } = e.currentTarget.dataset
     const products = [...this.data.products]
     let qty = products[index].quantity || 1
@@ -694,6 +714,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   onQtyInput(e) {
+    if (this.data.productsLoading || this.data.productsError) return
     const { index } = e.currentTarget.dataset
     const qty = Math.max(1, parseInt(e.detail.value) || 1)
     const products = [...this.data.products]
@@ -751,7 +772,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   _hasCurrentQuote() {
     const proof = this._quotedContext
-    return !this._quoteDestroyed && !this._quoteHidden && !this.data.addressLoading && !this.data.addressLoadError
+    return !this._quoteDestroyed && !this._quoteHidden && !this.data.productsLoading && !this.data.productsError && !this.data.addressLoading && !this.data.addressLoadError
       && !!(this.data.address && this.data.address.id) && !!proof
       && isCurrentSession(proof.session) && proof.key === this._quoteContextKey()
   },
@@ -782,6 +803,11 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     let contextKey = this._quoteContextKey()
     const current = () => !this._quoteDestroyed && !this._quoteHidden && seq === this._quoteRequestSeq
       && isCurrentSession(session) && contextKey === this._quoteContextKey()
+
+    if (this.data.productsLoading || this.data.productsError) {
+      this.setData({ quoteLoading: false, blockReason: '请先核实完整商品清单' })
+      return false
+    }
 
     // 2026-10-11：并行商品加载曾把 address=null 报价当最终金额；地址未核实时不发报价、不保留旧金额。
     if (this.data.addressLoading || this.data.addressLoadError || !address || !address.id) {
@@ -1801,7 +1827,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   _finalSubmissionAllowed() {
-    if (this.data.productsError) {
+    if (this.data.productsLoading || this.data.productsError) {
       wx.showToast({ title: '请先重新核实完整商品清单', icon: 'none' }); return false
     }
     if (!this._hasCurrentQuote() || !this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {

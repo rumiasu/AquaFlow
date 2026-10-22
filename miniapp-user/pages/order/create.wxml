@@ -33,7 +33,7 @@
       （本页只覆盖它的左右外边距，见 create.wxss —— 不动全局文件）。
     -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
-    <view class="load-error" wx:if="{{productsError}}">{{productsError}}<button bindtap="onRetryProducts" disabled="{{submitting}}">重新读取完整商品清单</button></view>
+    <view class="load-error" wx:if="{{productsError}}">{{productsError}}<button bindtap="onRetryProducts" disabled="{{submitting || productsLoading}}" loading="{{productsLoading}}">重新读取完整商品清单</button></view>
 
     <text class="station-asset-boundary">桶容量、水票与押金按本次水站分别记录，其他水站不能通用。</text>
 

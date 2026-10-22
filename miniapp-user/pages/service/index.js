@@ -192,8 +192,9 @@ Page({
     if (!customer) return
     const current = () => epoch === this._noteEpoch && isCurrentSession(session) && this.data.refundRef === ref
     this.setData({ disputeSubmitting: true })
-    let intent
+    let intent, recovering = false
     try {
+      recovering = !!disputeIntent.read('CUSTOMER:' + customer, ref.refundType + ':' + ref.refundId, 'OPEN')
       intent = disputeIntent.prepare('CUSTOMER:' + customer, ref.refundType + ':' + ref.refundId, 'OPEN', this.data.disputeReason, state.version)
       this.setData({ pendingDispute: true })
       const response = await openRefundDispute(Object.assign(disputeIntent.payload(intent), { refundType: ref.refundType, refundId: ref.refundId }))
@@ -205,8 +206,9 @@ Page({
       wx.showToast({ title: '异议已提交', icon: 'success' }); await this.loadRefundThread()
     } catch (err) {
       if (current()) {
-        if (intent && err.businessRejected) { disputeIntent.clear(intent); this.setData({ pendingDispute: false }); await this.loadRefundThread() }
-        wx.showToast({ title: viewError(err, '提交结果未确认，请重试'), icon: 'none' })
+        // 2026-10-22：恢复时的拒绝可能发生在回执查询前，不能据此抹掉首次未知请求。
+        if (intent && err.businessRejected && !err.resultUnknown && !recovering) { disputeIntent.clear(intent); this.setData({ pendingDispute: false }); await this.loadRefundThread() }
+        wx.showToast({ title: (recovering ? '原异议结果仍未确认。' : '') + viewError(err, '提交结果未确认，请重试'), icon: 'none' })
       }
     }
     finally { if (epoch === this._noteEpoch && isCurrentSession(session)) this.setData({ disputeSubmitting: false }) }

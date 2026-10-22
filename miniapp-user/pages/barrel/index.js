@@ -2,6 +2,7 @@ const { getBarrelSummary, getBarrelRecords, getBarrelSummaryByType, requestBarre
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const { getOrders } = require('../../api/order')
 const assetViewStation = require('../../utils/asset-view-station')
+const returnIntent = require('./return-intent')
 // 「当前服务水站」的**统一解析入口**（本地 → 回落 /api/orders/my-station）。
 // 本页原先直接用 stationStorage.getId()，少了回落那一级：下过单但没在首页选过站的顾客
 // 会被判成"没选水站"，而其实他的水站是查得出来的（utils/station.js 文件头写了为什么统一到这里）。
@@ -47,6 +48,7 @@ Page({
     needLogin: false,
     refreshing: false,
     summaryStale: false, holdingsStale: false, recordsStale: false, returnError: '',
+    pendingReturn: null, returnRecoveryError: '',
     // null 是未加载；成功读取后才显示数值，失败不能冒充零资产。
     // [2026-09-16] 字段名必须与后端 BarrelServiceImpl.getBarrelSummary 的下发键一致 ——
     // 这里原先留着已删除的 deliveryBuckets（含已送达行，口径错误，后端已移除），
@@ -107,6 +109,11 @@ Page({
 
   async loadData() {
     const context = assetViewStation.beginRead(this)
+    // 2026-10-22：资产重读即作废旧试算，保留输入但不能沿用刷新前的办理资格。
+    this._returnPreviewVersion = (this._returnPreviewVersion || 0) + 1
+    this._previewIntent = null
+    this.setData({ preview: null, previewReady: false, previewing: false, previewHint: '桶与押金正在重新核实，请稍后重新试算。' })
+    this.syncReturnRecovery(context)
     const stationId = context.stationId
     const needLogin = !context.session.loggedIn || !context.session.customerId
     this.setData({ needLogin })
@@ -243,7 +250,33 @@ Page({
     this.setData({ expandedProductId: this.data.expandedProductId === id ? null : id })
   },
 
+  syncReturnRecovery(context) {
+    const scope = context.session.customerId + ':' + context.stationId
+    if (scope !== this._returnRecoveryScope) {
+      this._returnRecoveryScope = scope
+      this.setData({ pendingReturn: null, returnRecoveryError: '', returnError: '', showReturnModal: false,
+        returnForm: { productId: null, quantity: 1, note: '' } })
+    }
+    if (!context.session.loggedIn || !context.session.customerId || !context.stationId) return null
+    try {
+      const saved = returnIntent.read(context.session.customerId, context.stationId)
+      this.setData({ pendingReturn: saved, returnRecoveryError: '' })
+      return saved
+    } catch (error) {
+      this.setData({ pendingReturn: null, returnRecoveryError: viewError(error, '原申请暂不能读取，请保留记录并联系办理水站。') })
+      return null
+    }
+  },
+
   onShowReturnModal() {
+    const pending = this.syncReturnRecovery(assetViewStation.beginRead(this, 'returnRecovery'))
+    if (this.data.returnRecoveryError) return
+    if (pending) {
+      this.setData({ showReturnModal: true, returnError: '原申请结果尚未确认。请原样重试或联系本站核对，核实前不能另发申请。',
+        returnForm: { ...pending.body, pickupModeText: pending.pickupModeText }, preview: null, previewReady: false,
+        previewHint: '原申请金额与办理结果仍待核实，重试不会修改原内容。' })
+      return
+    }
     if (this.data.refreshing || this.data.summaryFailed || this.data.holdingsFailed) {
       this.setData({ loadError: '退还前需重新核实桶与押金，请重新加载。' }); return
     }
@@ -298,6 +331,12 @@ Page({
     const version = this._returnPreviewVersion = (this._returnPreviewVersion || 0) + 1
     this._previewIntent = null
     this.setData({ preview: null, previewReady: false, previewing: false, previewHint: '' })
+    if (this.data.pendingReturn || this.data.returnRecoveryError) {
+      this.setData({ previewHint: '原申请结果尚未确认，请先核对原申请。' }); return
+    }
+    if (this.data.loading || this.data.refreshing || this.data.summaryFailed || this.data.holdingsFailed) {
+      this.setData({ previewHint: '请先重新加载桶与押金，再核实试算金额。' }); return
+    }
     const { productId, quantity } = this.data.returnForm
     if (!productId || !quantity || quantity <= 0) {
       this.setData({ preview: null, previewHint: '' })
@@ -333,7 +372,7 @@ Page({
   },
 
   onReturnQtyChange(e) {
-    if (this.data.submitting) return
+    if (this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError) return
     const { type } = e.currentTarget.dataset
     let qty = this.data.returnForm.quantity
     if (type === 'add' && qty < this.data.maxReturnQty) {
@@ -346,7 +385,7 @@ Page({
   },
 
   onReturnQtyInput(e) {
-    if (this.data.submitting) return
+    if (this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError) return
     const qty = parseInt(e.detail.value) || 1
     this.setData({
       'returnForm.quantity': Math.min(this.data.maxReturnQty, Math.max(1, qty))
@@ -355,80 +394,78 @@ Page({
   },
 
   onReturnNoteInput(e) {
-    if (this.data.submitting) return
+    if (this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError) return
     this.setData({ 'returnForm.note': e.detail.value })
   },
 
   onSelectProduct(e) {
-    if (this.data.submitting) return
+    if (this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError) return
     const { id } = e.currentTarget.dataset
     this.setData({ 'returnForm.productId': parseInt(id) || null })
     this.refreshPreview()
   },
 
   async onSubmitReturn() {
-    if (this.data.submitting) return
-    const { returnForm } = this.data
-    const { productId, quantity, note } = returnForm
-
-    if (!productId) {
-      wx.showToast({ title: '请选择要退的商品', icon: 'none' })
-      return
-    }
-    if (quantity <= 0) {
-      wx.showToast({ title: '请输入退桶数量', icon: 'none' })
-      return
-    }
-
-    // 试算已经把「权益不足 / 有欠桶」拦在前面了，这里只是最后一道提示
-    if (this.data.preview && this.data.preview.blocked) {
-      wx.showToast({ title: this.data.preview.blockedReason || '当前无法退桶', icon: 'none', duration: 3000 })
-      return
-    }
-
-    // 水站是提交的必需上下文（后端对顾客只认 dto；顾客 JWT 里没有站）。
-    // 拿不到站就**别发请求** —— 后端只会回一句「请先选择服务水站」，让顾客白等一次失败。
-    // [2026-09-27] 与 refreshPreview 统一走 resolveStationId()：多一级「上次下单的水站」回落，
-    // 少一次"明明查得到却提示没选站"。
+    if (this.data.submitting || this._pickupFlight) return
     const context = assetViewStation.beginRead(this, 'returnSubmit')
-    const stationId = context.stationId || await resolveStationId()
-    if (!assetViewStation.current(this, context)) return
-    if (!stationId) {
-      wx.showToast({ title: '请先选择服务水站', icon: 'none' })
-      return
-    }
-
-    const previewIntent = this._previewIntent
-    if (this.data.previewing || !this.data.previewReady || !previewIntent
-      || previewIntent.version !== this._returnPreviewVersion
-      || !assetViewStation.current(this, previewIntent.context)
-      || previewIntent.stationId !== stationId || previewIntent.productId !== productId || previewIntent.quantity !== quantity
-      || this.data.returnForm.productId !== productId || this.data.returnForm.quantity !== quantity) {
-      wx.showToast({ title: '请先核实当前商品和数量的试算金额', icon: 'none' })
-      return
-    }
-
+    const flight = this._returnSubmitFlight = {}
+    const current = () => this._returnSubmitFlight === flight && assetViewStation.current(this, context)
+    // 2026-10-22：解析水站前先锁住；未知结果只能恢复已保存的原 body/key。
     this.setData({ submitting: true })
+    let saved = null, replay = false
     try {
-      // 不传 depositRefund：金额由服务端按押金条批次核销决定，顾客填多少都不算数
-      const intent = [stationId, productId, quantity, returnForm.pickupMode, returnForm.companionOrderId].join(':')
-      const saved = wx.getStorageSync('barrel-return-intent')
-      const key = saved && saved.intent === intent ? saved.key : 'ret-' + Date.now() + '-' + Math.random().toString(36).slice(2)
-      wx.setStorageSync('barrel-return-intent', { intent, key })
-      const response = await requestBarrelReturn(productId, quantity, note, stationId, { idempotencyKey: key,
-        pickupMode: returnForm.pickupMode || 'STORE', companionOrderId: returnForm.companionOrderId || null })
-      if (!assetViewStation.current(this, context)) return
-      // 2026-10-22：丢失申请回执时保留原凭据和输入，不能用导航或空响应表示已提交。
-      if (!response || response.code !== 0 || !response.data || !returnDisplayId(response.data.recordId)) throw new Error('申请结果尚未确认，请核对本站水桶记录或重试原内容')
-      wx.removeStorageSync('barrel-return-intent')
+      const stationId = context.stationId || await resolveStationId()
+      if (!current()) return
+      if (!stationId || !context.session.loggedIn || !context.session.customerId) throw new Error('请先核对登录账号和办理水站')
+      try { saved = returnIntent.read(context.session.customerId, stationId) }
+      catch (storageError) {
+        this.setData({ returnRecoveryError: viewError(storageError, '原申请记录暂不能读取，请保留记录并联系办理水站。') })
+        throw storageError
+      }
+      replay = !!saved
+      if (!saved) {
+        if (this.data.loading || this.data.refreshing || this.data.summaryFailed || this.data.holdingsFailed
+          || !this._lastAssetScope || !assetViewStation.current(this, this._lastAssetScope)) {
+          throw new Error('退还前需重新核实桶与押金，请重新加载')
+        }
+        const { productId, quantity, note, pickupMode, companionOrderId, pickupModeText } = this.data.returnForm
+        if (!productId || !Number.isSafeInteger(quantity) || quantity <= 0) throw new Error('请选择商品并填写有效的退还数量')
+        const previewIntent = this._previewIntent
+        if (this.data.previewing || !this.data.previewReady || !previewIntent
+          || previewIntent.version !== this._returnPreviewVersion
+          || !assetViewStation.current(this, previewIntent.context)
+          || previewIntent.stationId !== stationId || previewIntent.productId !== productId || previewIntent.quantity !== quantity) {
+          throw new Error('请先核实当前商品和数量的试算金额')
+        }
+        if (this.data.preview && this.data.preview.blocked) throw new Error(this.data.preview.blockedReason || '当前无法退还')
+        // 不传 depositRefund：金额仍由原有办理规则决定。
+        saved = returnIntent.prepare(context.session.customerId, { productId, quantity, note: note || '', stationId,
+          pickupMode: pickupMode || 'STORE', companionOrderId: companionOrderId || null }, pickupModeText)
+      }
+      this.setData({ pendingReturn: saved, returnRecoveryError: '', returnError: '' })
+      const body = saved.body
+      const response = await requestBarrelReturn(body.productId, body.quantity, body.note, body.stationId,
+        { idempotencyKey: body.idempotencyKey, pickupMode: body.pickupMode, companionOrderId: body.companionOrderId })
+      if (!current()) return
+      if (!response || response.code !== 0 || !response.data || !returnDisplayId(response.data.recordId)) {
+        throw response || new Error('申请结果尚未确认，请核对本站水桶记录或重试原内容')
+      }
+      returnIntent.clear(saved)
+      this.setData({ pendingReturn: null, showReturnModal: false, returnError: '' })
       wx.showToast({ title: '退桶申请已提交', icon: 'success' })
-      this.setData({ showReturnModal: false })
       this.loadData()
     } catch (error) {
       console.error('[Barrel] 退桶失败:', error)
-      if (assetViewStation.current(this, context)) this.setData({ returnError: viewError(error, '申请结果尚未确认，请核对本站水桶记录；原输入已保留。') })
+      if (!current()) return
+      // 后续拒绝不能证明先前超时未建立申请；不改原错误对象的任何标记。
+      if (saved && !replay && error.businessRejected && !error.resultUnknown) {
+        try { returnIntent.clear(saved); saved = null }
+        catch (storageError) { this.setData({ returnRecoveryError: viewError(storageError, '原申请记录清理未成功，请保留原内容并重新核对。') }) }
+      }
+      this.setData({ pendingReturn: saved, returnError: (saved ? '原申请结果尚未确认，请原样重试或联系本站核对。' : '')
+        + viewError(error, saved ? '原内容和编号已保留。' : '本次未能提交，请核实后重试。') })
     } finally {
-      this.setData({ submitting: false })
+      if (this._returnSubmitFlight === flight) { this._returnSubmitFlight = null; this.setData({ submitting: false }) }
     }
   },
 
@@ -542,9 +579,9 @@ Page({
     return null
   },
   async onPickupMode() {
-    if (this.data.submitting || this._pickupFlight) return
+    if (this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError || this._pickupFlight) return
     const context = assetViewStation.beginRead(this, 'pickupDialog')
-    const current = () => assetViewStation.current(this, context)
+    const current = () => !this.data.pendingReturn && !this.data.submitting && assetViewStation.current(this, context)
     this._pickupFlight = true
     try {
       const result = await this.arrangementDialog({ itemList: ['到店办理', '单独上门收桶（费用须先确认）', '随送水订单顺路收桶'] }, true)

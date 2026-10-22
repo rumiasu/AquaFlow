@@ -174,11 +174,13 @@ test('result-page arrival with a mismatched receipt cannot clear the customer ca
 test('missing return-application receipt preserves original key and input rather than claiming success', async () => {
   const t=fixture('barrel/index',{'api/barrel':{requestBarrelReturn:async()=>ok(null)}})
   t.page.onLoad({});t.page._returnPreviewVersion=1
-  const context=require('../../miniapp-user/utils/asset-view-station').beginRead(t.page,'preview')
+  const assets=require('../../miniapp-user/utils/asset-view-station')
+  t.page._lastAssetScope=assets.beginRead(t.page)
+  const context=assets.beginRead(t.page,'preview')
   t.page._previewIntent={stationId:11,productId:5,quantity:1,version:1,context}
-  t.page.setData({showReturnModal:true,previewReady:true,returnForm:{productId:5,quantity:1,note:'原输入 Original',pickupMode:'STORE'}})
+  t.page.setData({loading:false,showReturnModal:true,previewReady:true,returnForm:{productId:5,quantity:1,note:'原输入 Original',pickupMode:'STORE'}})
   await t.page.onSubmitReturn()
-  assert.ok(t.page.data.returnError.includes('尚未确认'));assert.equal(t.page.data.showReturnModal,true);assert.equal(t.page.data.returnForm.note,'原输入 Original');assert.ok(t.wx.getStorageSync('barrel-return-intent').key)
+  assert.ok(t.page.data.returnError.includes('尚未确认'));assert.equal(t.page.data.showReturnModal,true);assert.equal(t.page.data.returnForm.note,'原输入 Original');assert.ok(t.page.data.pendingReturn.body.idempotencyKey)
   assert.ok(!t.wx.__calls.toast.some(x=>x.icon==='success'))
 })
 test('ticket malformed price tiers stay failed with retry rather than a no-tier claim', async () => {

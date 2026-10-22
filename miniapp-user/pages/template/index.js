@@ -41,11 +41,15 @@ Page({
 
   onShow() {
     this._hidden = false
-    if (this._session && !isCurrentSession(this._session)) this.setData({ templates: [], loaded: false, products: [], addresses: [], showEditModal: false })
+    if (this._session && !isCurrentSession(this._session)) this.setData({ templates: [], loaded: false, products: [], addresses: [], stationId: null, showEditModal: false, formLoading: false, formReady: false })
     this._session = captureSession()
-    return this.loadData()
+    return Promise.all([this.loadData(), this.data.showEditModal && !this.data.formReady ? this.loadFormData() : null])
   },
-  onHide() { this._hidden = true; this._readSeq = (this._readSeq || 0) + 1; this._formSeq = (this._formSeq || 0) + 1 },
+  onHide() {
+    this._hidden = true; this._readSeq = (this._readSeq || 0) + 1; this._formSeq = (this._formSeq || 0) + 1
+    // 2026-10-22：旧回调失效时释放对应锁；返回后只重读选项，不清表单输入。
+    if (this.data.formLoading) this.setData({ formLoading: false, formReady: false, formLoadError: '读取已暂停，返回后将重新核实商品和地址。' })
+  },
   onUnload() { this.onHide(); this._unloaded = true },
   async onPullDownRefresh() { try { await this.loadData() } finally { wx.stopPullDownRefresh() } },
   async loadData() {

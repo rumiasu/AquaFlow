@@ -220,7 +220,7 @@ Page({
     try {
       const res = await getTicketPurchaseResult(saved.body.idempotencyKey)
       if (!isCurrentSession(session)) return
-      if (!res || res.code !== 0) throw new ErrorviewError(res, '购买结果查询失败')
+      if (!res || res.code !== 0) throw res || new Error('购买结果查询失败')
       if (res.data) { this.applyPurchaseResult(saved, res.data); await this.loadData() }
       else {
         // 缓存的登记结果不能压过本次未查到；降回待核实，但仍永久保留原 body/key。
@@ -577,7 +577,7 @@ Page({
       this.savePurchaseIntent(saved)
       const res = await purchaseTicket(saved.body)
       if (!isCurrentSession(session)) return
-      if (!res || res.code !== 0) throw new ErrorviewError(res, '购买结果尚未确认')
+      if (!res || res.code !== 0) throw res || new Error('购买结果尚未确认')
       // 后端返回的是流水的**真实状态**，不要替它猜：
       //   2 = 已支付（票已入账，模拟微信渠道下当场就是这个）
       //   1 = 待收款（真实微信渠道未接入的部署里等水站确认收到钱 —— 那是收款确认，不是审批）

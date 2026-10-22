@@ -46,6 +46,9 @@ function newPage(order, opts) {
     'utils/request': { get: async () => ({ code: 0, data: {} }) }
   }
   const wx = createWx()
+  // 手动确认用例只截留原生回调，避免先自动取消、再复用同一回调确认。
+  const showModal = wx.showModal.bind(wx)
+  wx.showModal = options => showModal({ ...options, __manual: wx.__modalAutoConfirm === false })
   const page = loadPage('miniapp-delivery/pages/order/complete.js', { stubs, wx, app: createApp() })
   // onLoad 平时负责把订单号与来源写进 data；流程测试直接调处理函数，所以这里补上
   page.setData({ orderId: order.id, from: 'detail' })

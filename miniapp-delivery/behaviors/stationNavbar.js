@@ -9,7 +9,7 @@
  *
  * ⚠️ 营业状态是**软状态**（v32）：只提示、不阻断（见 `docs/design/13-营业状态与公告.md`）。
  * ⚠️ 文案一律来自后端（`statusText` / `note` / `customerHint`），**前端不写 1..4 映射表** ——
- *    拉不到就清空不显示，绝不编造"营业中"（与客户端同一口径）。
+ *    拉不到就显示待核实，绝不编造"营业中"。
  * ⚠️ 走**公开接口**（不需要站长权限，配送员也要看得到"今天休息"）：路径直接写常量，
  *    不塞进 `api/station-mgmt.js` 那一族站长接口里，免得被误当成"配送员也能调"。
  *    （**待填项**是站长专属的 `api/station-mgmt.js#getSetupGuide`，但它现在只由
@@ -118,12 +118,17 @@ module.exports = Behavior({
      * ⚠️ **只有站长能调**：该接口带 `@RequireRole("STATION_MANAGER")`，配送员会被直接拒。
      *    `isManager` 由使用本 behavior 的页面算好放进 data（pages/home 与 pages/coordination 都已算）。
      * ⚠️ 拉不到（返回 null）时：**保留旧列表与旧徽标**（不清零，否则站长会以为已经配好了），
-     *    但必须收掉 loading、并在**没有旧列表**时给出错误提示 —— 详见方法内注释。
+     *    但必须收掉 loading，并标明本次尚未核实 —— 详见方法内注释。
      */
     async loadStationPending() {
       if (!this.data.isManager) return
-      this.setData({ stationPanelRefreshing: true })
-      const r = await checkSetupReminder()
+      const seq = this._stationPendingSeq = (this._stationPendingSeq || 0) + 1
+      const app = getApp(), generation = app._loginGeneration || 0
+      const identity = () => { const g = getApp().globalData || {}, u = g.userInfo || {}; return JSON.stringify([!!g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+      const owner = identity()
+      let r = null
+      try { r = await checkSetupReminder() } catch (e) { /* 读取或本地提醒记录失败，均不能确认配置齐全 */ }
+      if (seq !== this._stationPendingSeq || getApp() !== app || generation !== (app._loginGeneration || 0) || identity() !== owner) return
       if (!r) {
         // ⚠️ 拉不到**必须收掉 loading 并说出来**，两条都不能省：
         //    ① 不收 loading → 小框永远停在"正在检查待填项…"转圈；
@@ -141,6 +146,11 @@ module.exports = Behavior({
       //    只写 stationPendingCount 是不够的 —— 那样胶囊数字会变、小框里的列表还是旧的，
       //    于是"刚填完的项还显示着要填"（2026-09-24 产品报的 bug，就是这么来的）。
       this.setData(this.setupPatchOf(r))
+    },
+
+    onRetryStationPending() {
+      this.setData({ stationPanelRefreshing: true })
+      this.loadStationPending()
     },
 
     /**
@@ -240,6 +250,7 @@ module.exports = Behavior({
         stationPanelShow: true,
         // 有缓存就先显示缓存（loading 只用来告诉用户"还没拉到过"）；没缓存才显示"正在检查…"
         stationPanelLoading: !hasCache,
+        stationPanelRefreshing: true,
         stationPanelError: ''
       })
       this.loadStationPending()

@@ -47,13 +47,13 @@
         <text class="st-panel-title">水站状态</text>
       </view>
 
-      <view class="st-status {{stationStatusHint ? 'st-status-warn' : ''}}">
+      <view class="st-status {{(stationStatusError || stationStatusHint || stationPendingCount > 0) ? 'st-status-warn' : ''}}">
         <text class="st-status-text">{{stationStatusText || '状态待核实'}}</text>
         <text class="st-status-note" wx:if="{{stationStatusNote}}">{{stationStatusNote}}</text>
       </view>
 
       <view class="st-body">
-        <view class="ui-stale" wx:if="{{stationPanelError}}"><text>{{stationPanelError}}</text><button size="mini" bindtap="loadStationPending">重新核对待填项</button></view>
+        <view class="ui-stale" wx:if="{{stationPanelError}}"><text>{{stationPanelError}}</text><button size="mini" bindtap="onRetryStationPending" loading="{{stationPanelRefreshing}}" disabled="{{stationPanelRefreshing}}">重新核对待填项</button></view>
         <text class="st-sub" wx:if="{{stationPanelRefreshing && !stationPanelLoading}}">正在核对待填项，上次记录仅供参考</text>
         <!-- 顶部页签：待填 / 已配好（2026-09-24 产品反馈："已完成的项看不到，填错了想回去重填却没了，
              只能回设置里找"）。⚠️ 原来那个开关是**列表下面的一句灰字**，实测根本没人发现 —— 挪到列表**上方**。

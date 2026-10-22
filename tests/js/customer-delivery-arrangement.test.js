@@ -37,13 +37,14 @@ test('a normal pending order and raw internal markers never invent a delay hint'
   const tree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/detail.wxml'), 'utf8'))
   assert.ok(!renderElements(tree, t.page.data).some(e => e.className.split(/\s+/).includes('delivery-arrangement-hint')))
 })
-test('a later actual arrangement clears the warning and a failed refresh cannot retain it', async () => {
+test('a later actual arrangement clears the warning and a failed refresh marks retained facts as previous', async () => {
   let stage = 0
   const t = fixture(async id => { if (stage === 2) throw new Error('offline'); return { data: { ...base(id), deliveryArrangementHint: stage === 0 ? '水站正在重新安排配送' : null } } })
   await t.page.loadOrder(20); assert.ok(t.page.data.deliveryArrangementHint)
   stage = 1; await t.page.loadOrder(20); assert.equal(t.page.data.deliveryArrangementHint, '')
   stage = 0; await t.page.loadOrder(20); stage = 2; await t.page.loadOrder(20)
-  assert.equal(t.page.data.deliveryArrangementHint, ''); assert.equal(t.page.data.order, null)
+  assert.equal(t.page.data.deliveryArrangementHint, '水站正在重新安排配送'); assert.equal(t.page.data.order.id, 20)
+  assert.ok(t.page.data.refreshNotice.includes('上次读取')); assert.equal(t.page.data.canCancel, false)
 })
 test('a late response for another order or customer cannot bring back an old warning', async () => {
   const d = deferred(), t = fixture(id => id === 20 ? d.promise : Promise.resolve({ data: base(id) }))

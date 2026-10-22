@@ -1,5 +1,6 @@
 <!-- Reading/retrying never invokes login or records acceptance. Draft notices cannot be removed by a switch. -->
 <view class="page">
+  <view class="doc-notice" wx:if="{{loading}}"><text class="doc-notice-text">正在核实协议版本，阅读不会记录同意。</text></view>
   <view class="doc-notice" wx:if="{{error}}">
     <text class="doc-notice-text">{{error}} {{fallbackNotice}}</text>
     <button size="mini" bindtap="onRetry" loading="{{loading}}" disabled="{{loading}}">重试</button>

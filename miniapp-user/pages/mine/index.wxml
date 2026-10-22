@@ -3,7 +3,8 @@
 <view class="page">
   <!-- 用户行 -->
   <view class="card user-card" bindtap="{{isLogin ? 'onEditProfile' : 'onLogin'}}">
-    <image class="avatar" src="{{isLogin && userInfo.avatarUrl ? userInfo.avatarUrl : '/assets/image/default-avatar.png'}}" mode="aspectFill" />
+    <image wx:if="{{isLogin && userInfo.avatarUrl}}" class="avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill" />
+    <view wx:else class="avatar avatar-placeholder"><text>{{isLogin ? '我' : '客'}}</text></view>
     <view class="user-info">
       <text class="nickname">{{isLogin ? (userInfo.nickName || userInfo.nickname || '用户') : '点击登录'}}</text>
       <text class="user-tag" wx:if="{{isLogin}}">管理账户与收货信息</text>
@@ -20,6 +21,8 @@
         <text class="assets-title">本站资产</text>
         <text class="assets-station" wx:if="{{stationName}}">{{stationName}}</text>
       </view>
+      <text class="asset-refresh-note" wx:if="{{assetsLoading}}">正在读取本站资产…</text>
+      <text class="asset-refresh-note" wx:if="{{staleAssetsText}}">{{staleAssetsText}}</text>
       <view class="assets-grid">
         <view class="asset-cell" data-url="/pages/deposit/records/index" bindtap="onMenuTap">
           <text class="asset-value {{depositLoaded ? '' : 'asset-value-unloaded'}}">{{depositLoaded ? '¥' + depositText : depositText}}</text>
@@ -42,7 +45,7 @@
       </view>
       <!-- 有格子没加载出来时的显式提示 + 重试（toast 会消失，这一条不会） -->
       <view class="assets-unloaded-tip" wx:if="{{unloadedCount > 0}}" bindtap="onRetryAssets">
-        <text class="assets-unloaded-text">有 {{unloadedCount}} 项没加载出来（不是 0）</text>
+        <text class="assets-unloaded-text">有 {{unloadedCount}} 项尚未重新核实，未加载不代表 0</text>
         <text class="assets-unloaded-retry">重新加载 ›</text>
       </view>
       <!-- 还空桶说明（务实版）：还空桶≠退押金，顾客侧不用也不能自己记账 -->
@@ -69,6 +72,7 @@
 
     <!-- 我的信息 -->
     <view class="group-title">我的信息</view>
+    <view class="asset-refresh-note" wx:if="{{companyInfoFailed}}" bindtap="onRetryAssets">企业资料状态尚未核实，点此重新读取；已知入口仅供核对。</view>
     <view class="card menu-card">
       <view class="menu-row" data-url="/pages/mine/account-data/index" bindtap="onMenuTap">
         <text class="menu-name">账户资料与请求</text>

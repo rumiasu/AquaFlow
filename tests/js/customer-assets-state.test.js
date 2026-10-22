@@ -126,8 +126,9 @@ console.log('顾客「我的 · 押金水票与桶」加载态与文案（真实
     fail = true
     await page.onRetryAssets()
     assert.strictEqual(page.data.assetStationRequired, false)
-    assert.strictEqual(page.data.depositText, '暂未加载')
-    assert.strictEqual(page.data.barrelText, '暂未加载')
+    assert.strictEqual(page.data.depositText, '0')
+    assert.strictEqual(page.data.barrelText, '0')
+    assert.ok(page.data.staleAssetsText.includes('上次读取'))
     assert.strictEqual(page.data.unloadedCount, 2)
     assert.ok(wx.__calls.toast.some(x => x.title.includes('不是 0')))
     require(path.join(ROOT, 'miniapp-user/utils/token')).beginSession()

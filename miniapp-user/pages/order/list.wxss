@@ -52,3 +52,8 @@
 .orders-note { display: block; font-size: 26rpx; color: var(--text-regular); margin-top: 8rpx; }
 .tab-bar { flex-wrap: wrap; }
 .tab-item { min-height: 88rpx; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 28rpx; padding: 12rpx 8rpx; }
+.page-container { padding-bottom: calc(28rpx + env(safe-area-inset-bottom)); }
+.orders-retry { min-height: 88rpx; margin: 16rpx 24rpx; padding: 18rpx; font-size: 28rpx; line-height: 1.6; color: var(--primary-color); background: #fff; border: 1rpx solid var(--border-color); border-radius: 12rpx; }
+.list-progress { padding: 24rpx; text-align: center; color: var(--text-regular); font-size: 26rpx; }
+
+.local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }

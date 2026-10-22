@@ -108,13 +108,14 @@ test('latest same-station refresh wins over older response', async () => {
   const old=p.loadData(); await p.loadData();slow.resolve(ok(summary(8)));await old
   assert.strictEqual(p.data.summary.depositBalance,60)
 })
-test('failed barrel refresh clears previous numbers and records instead of showing zero', async () => {
+test('failed same-scope barrel refresh labels previous facts and disables return actions', async () => {
   let fail=false; const failOr = data => async()=>{if(fail)throw new Error('离线');return ok(data)}
   const {p}=page('barrel/index',{summary:failOr(summary()),holdings:failOr([holding]),records:failOr([{id:9}])})
   await p.loadData();fail=true;const next=p.loadData()
-  assert.strictEqual(p.data.summary,null);assert.deepStrictEqual(p.data.records,[]);await next
+  assert.strictEqual(p.data.summary.depositBalance,120);assert.strictEqual(p.data.records[0].id,9);await next
   assert.strictEqual(p.data.summaryFailed,true);assert.strictEqual(p.data.holdingsFailed,true);assert.strictEqual(p.data.recordsFailed,true)
   assert.ok(p.data.loadError); assert.strictEqual(p.data.maxReturnQty,0)
+  assert.strictEqual(p.data.summaryStale,true);assert.strictEqual(p.data.holdingsStale,true);assert.strictEqual(p.data.recordsStale,true)
 })
 test('missing barrel quantities cannot turn into invented zero', async () => {
   const {p}=page('barrel/index',{holdings:async()=>ok([{productId:5,assetQty:2}])});await p.loadData()

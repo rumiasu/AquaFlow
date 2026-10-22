@@ -2,12 +2,21 @@ const { getPaymentsByCustomer } = require('../../api/payment')
 const { formatMoney, formatTime } = require('../../utils/format')
 const { captureSession, isCurrentSession } = require('../../utils/token')
 
+// 2026-10-22：统一文案曾抹掉可读的网络原因；只筛展示，保留原错误及其元数据。
+function viewError(error) {
+  const text = error && typeof error.message === 'string' ? error.message.trim() : ''
+  return /[\u3400-\u9fff]/.test(text)
+    && !/(?:Exception|Error:|\bat\s+\S+\(|\bSQL\b|https?:\/\/|request:fail|errno|stack|[A-Z][A-Z_]{5,})/.test(text)
+    ? text : '付款记录暂时无法读取，请重试。'
+}
+
 // 2026-10-07：失败曾只弹 toast，空数组被说成“暂无账单”；只用成功读取确认空态。
 // 用途/方式/状态文案读服务端，尤其不能把无订单的独立押金误标成买水票。
 Page({
   data: {
     loading: true,
     loaded: false,
+    needLogin: false,
     error: '',
     records: []
   },
@@ -52,6 +61,7 @@ Page({
   onRetry() {
     return this.loadRecords()
   },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
 
   canApplyRecords(context) {
     if (this._destroyed || this._hidden || context.seq !== this._recordsSeq) return false
@@ -65,6 +75,7 @@ Page({
   async loadRecords() {
     if (this._destroyed || this._hidden) return
     const session = captureSession()
+    this.setData({ needLogin: !session.loggedIn || !session.customerId })
     // 同一客户退出重登也不能沿用上一登录周期的钱款记录；正常续期仍属于原周期。
     if (!this._recordsSession || !isCurrentSession(this._recordsSession)) {
       this.setData({ records: [], loaded: false, error: '' })
@@ -102,7 +113,10 @@ Page({
       this.setData({ records: list, loaded: true, error: '' })
     } catch (err) {
       if (!this.canApplyRecords(context)) return
-      const message = (err && err.message) || '加载失败，请重试'
+      const raw = err && err.message || ''
+      const denied = /无权|权限|仅限本人|仅本人/.test(raw)
+      const message = denied ? '付款记录仅限本人查看，当前账号无权读取，请核对登录账号。' : viewError(err)
+      if (denied) this.setData({ records: [], loaded: false })
       this.setData({ error: this.data.loaded ? '刷新失败，当前为上次成功查询的记录。' + message : message })
     } finally {
       if (this.canApplyRecords(context)) this.setData({ loading: false })

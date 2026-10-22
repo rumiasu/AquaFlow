@@ -3,10 +3,19 @@ const { getProducts, getStationProducts } = require('../../api/product')
 const { getAddresses } = require('../../api/address')
 const { resolveStationId } = require('../../utils/station')
 const { formatAddress } = require('../../utils/address')
+const { captureSession, isCurrentSession } = require('../../utils/token')
+
+// 只清理错误的展示文字；原对象的 code、resultUnknown、businessRejected 均不改动。
+function viewError(error, fallback = '暂时无法完成，请稍后重试') {
+  const text = error && typeof error.message === 'string' ? error.message.trim() : ''
+  return /[\u3400-\u9fff]/.test(text)
+    && !/(?:Exception|Error:|\bat\s+\S+\(|\bSQL\b|https?:\/\/|request:fail|errno|stack|[A-Z][A-Z_]{5,})/.test(text)
+    ? text : fallback
+}
 
 Page({
   data: {
-    loading: true,
+    loading: true, loaded: false, formLoading: false, formReady: false, submitting: false, saveError: '',
     templates: [],
     showEditModal: false,
     editingTemplate: null,
@@ -31,54 +40,46 @@ Page({
   onLoad() {},
 
   onShow() {
-    this.loadData()
+    this._hidden = false
+    if (this._session && !isCurrentSession(this._session)) this.setData({ templates: [], loaded: false, products: [], addresses: [], stationId: null, showEditModal: false, formLoading: false, formReady: false })
+    this._session = captureSession()
+    return Promise.all([this.loadData(), this.data.showEditModal && !this.data.formReady ? this.loadFormData() : null])
   },
-
-  async onPullDownRefresh() {
-    try {
-      await this.loadData()
-    } finally {
-      wx.stopPullDownRefresh()
-    }
+  onHide() {
+    this._hidden = true; this._readSeq = (this._readSeq || 0) + 1; this._formSeq = (this._formSeq || 0) + 1
+    // 2026-10-22：旧回调失效时释放对应锁；返回后只重读选项，不清表单输入。
+    if (this.data.formLoading) this.setData({ formLoading: false, formReady: false, formLoadError: '读取已暂停，返回后将重新核实商品和地址。' })
   },
-
+  onUnload() { this.onHide(); this._unloaded = true },
+  async onPullDownRefresh() { try { await this.loadData() } finally { wx.stopPullDownRefresh() } },
   async loadData() {
-    this.setData({ loading: true })
+    const session = captureSession(), seq = this._readSeq = (this._readSeq || 0) + 1
+    const current = () => !this._hidden && !this._unloaded && seq === this._readSeq && isCurrentSession(session)
+    this.setData({ needLogin: !session.loggedIn || !session.customerId })
+    if (!session.loggedIn || !session.customerId) { this.setData({ loading: false, loaded: false, templates: [], loadError: '请先登录后查看本人常用订水配置。' }); return }
+    this.setData({ loading: !this.data.loaded, loadError: '' })
     try {
       const sid = this.data.stationId || await resolveStationId()
-      // [2026-09-20 真机联调] 原来是 `.catch(() => null)`：模板列表拉不到时 templates 为空数组，
-      // 页面渲染成「还没有常用订单」—— 与"这个客户确实没设过常用订单"完全无法区分（AGENTS §8.22），
-      // 客户会以为自己的常用订单丢了，转头去重设一遍。
-      let templates = []
-      let templateError = ''
-      if (sid) {
-        try {
-          const tplRes = await getTemplates(sid)
-          if (tplRes && tplRes.code === 0 && tplRes.data) {
-            templates = tplRes.data
-          } else {
-            templateError = (tplRes && tplRes.message) || '返回异常，请稍后重试'
-          }
-        } catch (e) {
-          templateError = (e && e.message) || '网络异常'
-        }
-      }
-      if (templateError) {
-        console.warn('[Template] 常用订单列表加载失败:', templateError)
-        // 失败时保留上一次的列表内容不动（不清空），只把失败说出来
-        this.setData({ loadError: '常用订单没加载出来（' + templateError + '），下面是旧内容，请下拉刷新' })
-        wx.showToast({ title: '常用订单没加载出来，请下拉刷新', icon: 'none' })
-      } else {
-        this.setData({ templates, loadError: '' })
-      }
-    } finally {
-      this.setData({ loading: false })
-    }
+      if (!current()) return
+      if (!sid) throw new Error('请先选择水站，再查看本站常用订水配置')
+      const res = await getTemplates(sid)
+      if (!current()) return
+      if (!res || res.code !== 0 || !Array.isArray(res.data)) throw new Error('常用订水配置暂未加载，请重试')
+      this.setData({ templates: res.data, stationId: sid, loaded: true, loadError: '' })
+    } catch (error) {
+      if (!current()) return
+      const denied = /无权|权限|登录/.test(error && error.message || '')
+      if (denied) this.setData({ templates: [], loaded: false })
+      this.setData({ loadError: (this.data.loaded ? '刷新失败，以下为上次读取的配置。' : '') + viewError(error, '常用订水配置暂未加载，请重试。') })
+    } finally { if (current()) this.setData({ loading: false }) }
   },
+  onRetry() { return this.loadData() },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
 
   onAddTemplate() {
+    if (this.data.submitting) return
     this.setData({
-      showEditModal: true,
+      showEditModal: true, saveError: '', formReady: false,
       isEditing: false,
       editingTemplate: null,
       form: {
@@ -92,12 +93,13 @@ Page({
   },
 
   onEditTemplate(e) {
+    if (this.data.submitting || this.data.loadError) return
     const { template } = e.currentTarget.dataset
     const items = (template.items && template.items.length > 0)
       ? template.items.map(i => ({ productId: i.productId || i.waterTypeId, quantity: i.quantity || 1 }))
       : [{ productId: null, quantity: 1 }]
     this.setData({
-      showEditModal: true,
+      showEditModal: true, saveError: '', formReady: false,
       isEditing: true,
       editingTemplate: template,
       form: {
@@ -111,6 +113,11 @@ Page({
   },
 
   async loadFormData() {
+    if (this.data.formLoading || this.data.submitting) return
+    const session = captureSession(), seq = this._formSeq = (this._formSeq || 0) + 1
+    const current = () => !this._unloaded && !this._hidden && this.data.showEditModal && seq === this._formSeq && isCurrentSession(session)
+    this.setData({ formLoading: true, formReady: false, formLoadError: '' })
+    try {
     // [2026-09-14 修正] 原实现调 /api/stations/mine —— 那是**员工**接口
     // （@RequireRole STATION_MANAGER/DELIVERY），顾客 token 必然 403；异常又被空 catch 吞掉，
     // 导致 stationId 恒为 null：模板列表恒空、保存时 station_id 落空。是静默失败，不是「缺字段」。
@@ -127,7 +134,7 @@ Page({
       try {
         productRes = await getStationProducts(currentStationId)
       } catch (e) {
-        formLoadError = (e && e.message) || '网络异常'
+        formLoadError = viewError(e, '网络异常')
         console.warn('[Template] 商品列表加载失败:', e && (e.message || e.errMsg))
       }
     }
@@ -137,7 +144,7 @@ Page({
       try {
         productRes = await getProducts(currentStationId ? { stationId: currentStationId } : {})
       } catch (e) {
-        formLoadError = formLoadError || (e && e.message) || '网络异常'
+        formLoadError = formLoadError || viewError(e, '网络异常')
         console.warn('[Template] 通用库商品加载失败:', e && (e.message || e.errMsg))
       }
     }
@@ -145,14 +152,15 @@ Page({
     try {
       addressRes = await getAddresses()
     } catch (e) {
-      formLoadError = formLoadError || (e && e.message) || '网络异常'
+      formLoadError = formLoadError || viewError(e, '网络异常')
       console.warn('[Template] 收货地址加载失败:', e && (e.message || e.errMsg))
     }
 
-    if (productRes && productRes.data) {
+    if (!current()) return
+    if (productRes && Array.isArray(productRes.data)) {
       this.setData({ products: productRes.data, stationId: currentStationId })
     }
-    if (addressRes && addressRes.data) {
+    if (addressRes && Array.isArray(addressRes.data)) {
       const addresses = addressRes.data.map(function (a) {
         return Object.assign({}, a, { addressText: formatAddress(a) })
       })
@@ -164,21 +172,27 @@ Page({
     }
     this.setData({
       formLoadError: formLoadError
-        ? '商品/地址没加载出来（' + formLoadError + '），下面可能是空的，请关掉弹窗重新打开'
+        ? '商品或地址未能完整读取。' + formLoadError + '输入已保留，可在此重新加载。'
         : ''
     })
+    this.setData({ formReady: !formLoadError })
+    } catch (error) { if (current()) this.setData({ formLoadError: viewError(error, '商品或地址暂未加载，输入已保留，请重试。') }) }
+    finally { if (current()) this.setData({ formLoading: false }) }
   },
 
   onNameInput(e) {
+    if (this.data.submitting) return
     this.setData({ 'form.name': e.detail.value })
   },
 
   onAddItem() {
+    if (this.data.submitting) return
     const items = this.data.form.items.concat([{ productId: null, quantity: 1 }])
     this.setData({ 'form.items': items })
   },
 
   onRemoveItem(e) {
+    if (this.data.submitting) return
     const { index } = e.currentTarget.dataset
     const items = this.data.form.items.filter((_, i) => i !== index)
     if (items.length === 0) items.push({ productId: null, quantity: 1 })
@@ -186,11 +200,13 @@ Page({
   },
 
   onSelectProduct(e) {
+    if (this.data.submitting) return
     const { index, id } = e.currentTarget.dataset
     this.setData({ [`form.items[${index}].productId`]: parseInt(id) })
   },
 
   onQuantityChange(e) {
+    if (this.data.submitting) return
     const { index, type } = e.currentTarget.dataset
     let items = this.data.form.items
     let qty = items[index].quantity || 1
@@ -200,63 +216,55 @@ Page({
   },
 
   onQuantityInput(e) {
+    if (this.data.submitting) return
     const { index } = e.currentTarget.dataset
     const qty = parseInt(e.detail.value) || 1
     this.setData({ [`form.items[${index}].quantity`]: Math.max(1, qty) })
   },
 
   onSelectAddress(e) {
+    if (this.data.submitting) return
     const { id } = e.currentTarget.dataset
     this.setData({ 'form.addressId': parseInt(id) })
   },
 
   onNoteInput(e) {
+    if (this.data.submitting) return
     this.setData({ 'form.specialNote': e.detail.value })
   },
 
   onCloseEditModal() {
-    this.setData({ showEditModal: false })
+    if (this.data.submitting) return
+    this._formSeq = (this._formSeq || 0) + 1
+    this.setData({ showEditModal: false, formLoading: false })
   },
 
   async onSaveTemplate() {
+    if (this.data.submitting || this._saveFlight) return
     const { form, isEditing, editingTemplate } = this.data
     const validItems = form.items.filter(i => i.productId)
-    if (validItems.length === 0) {
-      wx.showToast({ title: '请选择至少一种商品', icon: 'none' })
-      return
-    }
-    // 水站是模板的归属维度（order_template 按站隔离），拿不到就必须挡住并说明原因，
-    // 而不是把 station_id 静默存成空。
-    const stationId = this.data.stationId || await resolveStationId()
-    if (!stationId) {
-      // 不逼用户当场去选站：下次下单时 order/success 页会按那次下单的水站把常用订单存好。
-      wx.showModal({
-        title: '还没确定水站',
-        content: '常用订单是按水站分开保存的，现在还不知道该存到哪个水站。\n\n不用特意去选——你直接去下单，系统会按那次下单的水站自动把常用订单存好。',
-        confirmText: '知道了',
-        showCancel: false
-      })
-      return
-    }
-    const payload = {
-      ...(isEditing ? { id: editingTemplate.id } : {}),
-      name: form.name || '常用订单',
-      addressId: form.addressId,
-      specialNote: form.specialNote,
-      items: validItems
-    }
+    if (!validItems.length) { wx.showToast({ title: '请选择至少一种商品', icon: 'none' }); return }
+    const session = captureSession()
+    this._saveFlight = true
+    this.setData({ submitting: true, saveError: '' })
     try {
-      await saveTemplate(payload, stationId)
-      wx.showToast({ title: '保存成功', icon: 'success' })
+      const stationId = this.data.stationId || await resolveStationId()
+      if (!isCurrentSession(session) || this._unloaded) return
+      if (!stationId) throw new Error('请先到订水页选择水站，再返回保存常用配置。保存配置不会下单。')
+      await saveTemplate({ ...(isEditing ? { id: editingTemplate.id } : {}), name: form.name || '常用订单',
+        addressId: form.addressId, specialNote: form.specialNote, items: validItems }, stationId)
+      if (!isCurrentSession(session) || this._unloaded) return
       this.setData({ showEditModal: false })
-      this.loadData()
+      wx.showToast({ title: '配置已保存', icon: 'success' })
+      await this.loadData()
     } catch (error) {
-      console.error('[Template] 保存失败:', error)
-      wx.showToast({ title: '保存失败: ' + (error.message || ''), icon: 'none', duration: 3000 })
-    }
+      if (isCurrentSession(session) && !this._unloaded) this.setData({ saveError: viewError(error, '配置未能保存，输入已保留，请重试。') })
+    } finally { this._saveFlight = false; if (!this._unloaded) this.setData({ submitting: false }) }
   },
 
   async onToggleTemplate(e) {
+    if (this._mutation || this.data.loadError) return
+    this._mutation = true
     const { id, enabled } = e.currentTarget.dataset
     const newEnabled = enabled === 1 ? 0 : 1
     try {
@@ -266,16 +274,20 @@ Page({
       // [2026-09-20] 原来只有一句「操作失败」，原因是丢掉的 —— utils/request.js 起 e.message
       // 已是可读文案（超时/连接失败分开说），带上它才能判断是重试还是该找站长（AGENTS §8.15 同款判据）
       console.error('[Template] 启用/停用失败:', error)
-      wx.showToast({ title: '操作失败：' + ((error && error.message) || '请重试'), icon: 'none' })
-    }
+      wx.showToast({ title: '操作失败：' + viewError(error, '请重试'), icon: 'none' })
+    } finally { this._mutation = false }
   },
 
   onDeleteTemplate(e) {
+    if (this._mutation || this.data.loadError) return
+    this._mutation = true
+    const release = () => { this._mutation = false }
     const { id } = e.currentTarget.dataset
     wx.showModal({
       title: '确认删除',
-      content: '确定要删除这个常用订单吗？',
+      content: '删除后此配置不再保留；已有订单不受影响。', fail: release,
       success: async (res) => {
+        if (!res.confirm) { release(); return }
         if (res.confirm) {
           try {
             await deleteTemplate(id)
@@ -284,8 +296,8 @@ Page({
           } catch (error) {
             // [2026-09-20] 同 onToggleTemplate：带上可读原因（见 utils/request.js 的 fail 归一化）
             console.error('[Template] 删除失败:', error)
-            wx.showToast({ title: '删除失败：' + ((error && error.message) || '请重试'), icon: 'none' })
-          }
+            wx.showToast({ title: '删除失败：' + viewError(error, '请重试'), icon: 'none' })
+          } finally { release() }
         }
       }
     })

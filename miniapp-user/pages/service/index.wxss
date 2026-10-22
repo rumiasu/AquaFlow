@@ -188,7 +188,7 @@
 }
 
 .anonymous-desc {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
   line-height: 1.7;
 }
@@ -228,7 +228,7 @@
 }
 
 .history-time {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -244,3 +244,13 @@
 .dispute-record { min-height: 88rpx; padding: 20rpx 0; display: flex; align-items: center; border-top: 1rpx solid var(--border-color); box-sizing: border-box; }
 .dispute-record .service-label { margin-bottom: 0; }
 .history-toggle { display: flex; align-items: center; justify-content: space-between; min-height: 96rpx; margin: 24rpx; padding: 20rpx 24rpx; border-radius: var(--radius-md); background: #fff; color: var(--primary-color); font-size: 28rpx; box-sizing: border-box; }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
+.history-status { margin: 24rpx; color: var(--text-regular); font-size: 26rpx; line-height: 1.65; }
+.service-label { color: var(--text-regular); }
+.history-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+.service-section picker { min-height: 88rpx; display: flex; align-items: center; padding: 12rpx 0; }
+.dispute-reason { display: block; width: 100%; height: 180rpx; padding: 20rpx; margin: 20rpx 0; font-size: 28rpx; line-height: 1.65; background: var(--bg-gray); border-radius: 8rpx; color: var(--text-primary); box-sizing: border-box; }
+.feedback-btn.disabled { background: var(--bg-gray); }
+.feedback-btn.disabled text { color: var(--text-regular); }

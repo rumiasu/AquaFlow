@@ -281,3 +281,10 @@
 .item-price, .fee-total .value { font-size: 36rpx; font-weight: 700; }
 .btn-action { min-height: 96rpx; height: auto; padding: 24rpx 20rpx; box-sizing: border-box; border-radius: var(--radius-md); line-height: 1.5; display: flex; align-items: center; justify-content: center; }
 .action-section { gap: 16rpx; flex-wrap: wrap; }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.page-container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
+.info-row { gap: 20rpx; }
+.value, .item-info, .status-sub { min-width: 0; overflow-wrap: anywhere; }
+.action-section { flex-wrap: wrap; }
+.load-error { font-size: 28rpx; line-height: 1.65; white-space: normal; }

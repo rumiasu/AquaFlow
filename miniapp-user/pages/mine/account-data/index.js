@@ -7,27 +7,34 @@ Page({
     if (this._unloaded) return
     if (this._session && !isCurrentSession(this._session)) {
       this._submission = null; this._submissionFlight = null
-      this.setData({ selectedIndex: -1, selectedLabel: '请选择请求类型' })
+      this.setData({ selectedIndex: -1, selectedLabel: '请选择请求类型', note: '', items: [], detail: null, check: null })
     }
     this._session = captureSession(); this._hidden = false; this._epoch = (this._epoch || 0) + 1
-    this.setData({ pending: !!this._submission, submitting: !!this._submissionFlight, note: '', submitNotice: '' }); this.load()
+    this.setData({ pending: !!this._submission, submitting: !!this._submissionFlight,
+      note: this._submission ? this._submission.note : this.data.note, submitNotice: '' }); this.load()
   },
   onHide() { this._hidden = true; this._epoch = (this._epoch || 0) + 1 },
   onUnload() { this._unloaded = true; this._epoch = (this._epoch || 0) + 1 },
   current(epoch) { return !this._unloaded && !this._hidden && epoch === this._epoch && isCurrentSession(this._session) },
   async load() {
     const epoch = this._epoch
-    this.setData({ loading: true, error: '', options: null, items: [], detail: null, check: null })
+    const needLogin = !this._session || !this._session.loggedIn || !this._session.customerId
+    this.setData({ needLogin })
+    if (needLogin) { this.setData({ loading: false, options: null, items: [], detail: null, check: null, error: '请先登录后查看本人账户资料与申请。' }); return }
+    const keep = this._loadedSession && isCurrentSession(this._loadedSession)
+    this.setData({ loading: true, error: '', ...(keep ? {} : { options: null, items: [], detail: null, check: null }) })
     try {
       const res = await api.options()
       if (!this.current(epoch)) return
       if (!res || !res.data || typeof res.data.intakeEnabled !== 'boolean' || !Array.isArray(res.data.requestTypes)) throw Error('请求设置暂时无法核实')
       this.setData({ options: res.data })
       await this.loadList(false, epoch)
-    } catch (error) { if (this.current(epoch)) this.setData({ error: '资料请求信息暂时无法加载，请重试。' }) }
+      if (this.current(epoch)) this._loadedSession = this._session
+    } catch (error) { if (this.current(epoch)) this.setData({ error: (keep ? '刷新失败，以下为上次读取的信息。' : '') + '资料请求信息暂时无法加载，请重试。' }) }
     finally { if (this.current(epoch)) this.setData({ loading: false }) }
   },
   onRetry() { if (!this.data.loading) this.load() },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
   async loadList(more, epoch) {
     const res = await api.mine(more ? this.data.nextBeforeId : undefined)
     if (!this.current(epoch)) return
@@ -36,7 +43,7 @@ Page({
   },
   async onMore() {
     if (this.data.loading || !this.data.nextBeforeId) return
-    const epoch = this._epoch; this.setData({ loading: true })
+    const epoch = this._epoch; this.setData({ loading: true, error: '' })
     try { await this.loadList(true, epoch) } catch (error) { if (this.current(epoch)) this.setData({ error: '申请记录暂时无法加载，请重试。' }) }
     finally { if (this.current(epoch)) this.setData({ loading: false }) }
   },
@@ -47,7 +54,7 @@ Page({
   },
   onNote(e) { if (!this.data.pending && !this.data.submitting) this.setData({ note: e.detail.value }) },
   async onSubmit() {
-    if (!this.current(this._epoch) || this.data.submitting || !this.data.options || !this.data.options.intakeEnabled) return
+    if (!this.current(this._epoch) || this.data.submitting || this.data.loading || this.data.error || !this.data.options || !this.data.options.intakeEnabled) return
     const type = this.data.options.requestTypes[this.data.selectedIndex]
     if (!this._submission && !type) { wx.showToast({ title: '请选择请求类型', icon: 'none' }); return }
     const payload = this._submission || { requestType: type.value, note: this.data.note.trim(),
@@ -74,14 +81,18 @@ Page({
   },
   async onDetail(e) {
     if (this.data.loading) return
-    const id = e.currentTarget.dataset.id, epoch = this._epoch; this.setData({ loading: true })
-    try { const res = await api.detail(id); if (this.current(epoch)) this.setData({ detail: res.data }) }
+    const id = e.currentTarget.dataset.id, epoch = this._epoch; this.setData({ loading: true, error: '' })
+    try {
+      const res = await api.detail(id)
+      if (!res || !res.data || !res.data.request || String(res.data.request.id) !== String(id)) throw Error('申请详情暂未核实')
+      if (this.current(epoch)) this.setData({ detail: res.data })
+    }
     catch (error) { if (this.current(epoch)) this.setData({ error: '申请详情暂时无法加载，请重试。' }) }
     finally { if (this.current(epoch)) this.setData({ loading: false }) }
   },
   async onCheck() {
     if (this.data.loading || !this.data.options || !this.data.options.closureCheckSupported || typeof api.closureCheck !== 'function') return
-    const epoch = this._epoch; this.setData({ loading: true, check: null })
+    const epoch = this._epoch; this.setData({ loading: true, check: null, error: '' })
     try { const res = await api.closureCheck(); if (this.current(epoch)) this.setData({ check: res.data }) }
     catch (error) { if (this.current(epoch)) this.setData({ error: '注销前检查未完成，请重试。' }) }
     finally { if (this.current(epoch)) this.setData({ loading: false }) }

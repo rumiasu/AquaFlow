@@ -342,13 +342,16 @@ test('CONTRAST: 同名无电话的地址/来源与退款金额/登记核实文�
   const userCss = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/barrel/index.wxss'), 'utf8')
   const userTokens = fs.readFileSync(path.join(ROOT, 'miniapp-user/styles/variable.wxss'), 'utf8')
   assert(/\.section\s*\{[^}]*background-color:\s*#fff/.test(userCss))
-  assert(/\.record-summary\s*\{[^}]*font-size:\s*24rpx/.test(userCss))
+  const userFont = /\.record-summary\s*\{[^}]*font-size:\s*(\d+)rpx/.exec(userCss)
+  assert(userFont, 'refund summary must have an explicit rpx size')
+  const userFontRpx = Number(userFont[1])
+  assert(userFontRpx >= 24, 'refund summary keeps at least the original readable text size')
   const nodes = [...t.elements().filter(e => e.text.includes('地址')), ...amounts.elements().filter(e => /^应退押金|^水站登记退款交付时间/.test(e.text))]
   assert.strictEqual(nodes.length, 4)
   const evidence = nodes.map(e => {
     const staff = e.text.includes('地址'), color = textColor(staff ? staffCss : userCss, e.className, staff ? staffTokens : userTokens)
     const ratio = contrast(color, '#FFFFFF')
-    return { text: e.text, className: e.className, color, background: '#FFFFFF', fontRpx: staff ? phoneFontRpx : 24, ratio }
+    return { text: e.text, className: e.className, color, background: '#FFFFFF', fontRpx: staff ? phoneFontRpx : userFontRpx, ratio }
   })
   observations.push({ contrast: evidence })
   for (const e of evidence) assert(e.ratio >= 4.5, e.text + ': contrast ' + e.ratio + ' (' + e.color + ' on ' + e.background + ')')

@@ -61,7 +61,7 @@
 /* 「押金流水 ›」入口：整列可点（bindtap 在 .stat-col 上），这里只做视觉提示 */
 .stat-link {
   /* 22rpx=11px 低于「其它必要可读字≥12逻辑px」原标准（G04-barrel-rights）；别改回 22rpx。 */
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-color);
 }
 
@@ -105,7 +105,7 @@
   border: 1rpx solid rgba(255, 59, 48, 0.3);
   border-radius: var(--radius-md);
   color: var(--error-color);
-  font-size: 24rpx;
+  font-size: 26rpx;
   line-height: 1.6;
   font-weight: 500;
 }
@@ -118,7 +118,7 @@
   border: 1rpx solid rgba(10, 132, 255, 0.3);
   border-radius: var(--radius-md);
   color: var(--primary-color);
-  font-size: 24rpx;
+  font-size: 26rpx;
   line-height: 1.6;
   font-weight: 500;
 }
@@ -158,7 +158,7 @@
 }
 
 .return-btn-small text {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-color);
   font-weight: 500;
 }
@@ -209,12 +209,12 @@
 
 .bucket-time {
   /* 22rpx=11px 低于「其它必要可读字≥12逻辑px」原标准（G04-barrel-rights）；别改回 22rpx。 */
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
 }
 
 .bucket-status {
-  font-size: 24rpx;
+  font-size: 26rpx;
   padding: 6rpx 20rpx;
   border-radius: 16rpx;
   font-weight: 500;
@@ -290,7 +290,7 @@
 .record-summary {
   display: block;
   color: var(--text-regular);
-  font-size: 24rpx;
+  font-size: 26rpx;
   line-height: 1.6;
   overflow-wrap: break-word;
 }
@@ -364,7 +364,7 @@
 
 .info-tip {
   margin-top: 12rpx;
-  font-size: 24rpx;
+  font-size: 26rpx;
   line-height: 1.7;
   color: var(--text-regular);
 }
@@ -404,7 +404,7 @@
 }
 
 .eco-desc {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
   line-height: 1.6;
 }
@@ -418,7 +418,7 @@
 }
 
 .eco-btn text {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-color);
   font-weight: 500;
 }
@@ -564,7 +564,7 @@
 }
 
 .deposit-max {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-color);
   white-space: nowrap;
   padding: 8rpx 16rpx;
@@ -629,7 +629,7 @@
 
 .preview-lots-title {
   display: block;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
   margin-bottom: 8rpx;
 }
@@ -647,7 +647,7 @@
 }
 
 .preview-warn text {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--warning-color);
 }
 
@@ -656,7 +656,7 @@
 }
 
 .preview-storage text {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
 }
 
@@ -700,7 +700,7 @@
 
 .water-type-qty {
   /* 22rpx=11px 低于「其它必要可读字≥12逻辑px」（G04 return-refund 可退权益分列）；别改回 22rpx。 */
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
   margin-top: 4rpx;
 }
@@ -760,7 +760,7 @@
 
 .station-bar-tip {
   margin-top: 6rpx;
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -769,9 +769,9 @@
 .asset-bucket-item .bucket-detail { min-width: 0; }
 .asset-bucket-item .bucket-id { overflow-wrap: break-word; }
 .asset-bucket-item .bucket-status { flex-shrink: 0; margin-left: 12rpx; }
-.bucket-detail-toggle { margin-top: 12rpx; font-size: 24rpx; color: var(--primary-color); }
+.bucket-detail-toggle { margin-top: 12rpx; font-size: 26rpx; color: var(--primary-color); }
 .bucket-account-detail { margin-top: 12rpx; padding-top: 12rpx; border-top: 1rpx solid var(--border-color); }
-.bucket-account-detail text { display: block; color: var(--text-regular); font-size: 22rpx; line-height: 1.7; }
+.bucket-account-detail text { display: block; color: var(--text-regular); font-size: 26rpx; line-height: 1.7; }
 
 .bucket-detail-toggle { min-height: 88rpx; display: flex; align-items: center; }
 .asset-bucket-item { align-items: flex-start; gap: 16rpx; }
@@ -780,3 +780,14 @@
 .eco-card { display: flex; flex-wrap: wrap; align-items: center; gap: 16rpx; padding: 20rpx 24rpx; border-radius: var(--radius-md); }
 .eco-content { flex: 1; min-width: 280rpx; margin-bottom: 0; }
 .eco-btn { min-height: 88rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: var(--radius-sm); }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.stale-note { display: block; margin: 20rpx 24rpx; color: #9a3412; background: #fff7ed; padding: 20rpx; font-size: 26rpx; line-height: 1.65; }
+.container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
+.bucket-detail, .bucket-info { min-width: 0; overflow-wrap: anywhere; }
+.record-actions button[disabled] { color: var(--text-regular); background: var(--bg-gray); }
+
+.local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }
+.modal-btn.confirm.disabled { background: var(--bg-gray); color: var(--text-regular); }
+.modal-btn.confirm.disabled text { color: var(--text-regular); }
+.return-tip > text { display: block; margin-bottom: 12rpx; }

@@ -75,7 +75,13 @@
 
 .copyright text {
   display: block;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-placeholder);
   line-height: 1.8;
 }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.about-section { padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); }
+.logo { width: 112rpx; height: 112rpx; margin: 0 auto 20rpx; }
+.logo-section { padding: 24rpx 0; }
+.copyright text { color: var(--text-regular); }

@@ -13,7 +13,7 @@
 }
 
 .info-text {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-color);
 }
 
@@ -59,7 +59,7 @@
 }
 
 .template-default {
-  font-size: 20rpx;
+  font-size: 26rpx;
   color: var(--success-color);
   background: rgba(5, 150, 105, 0.08);
   border: 1rpx solid rgba(5, 150, 105, 0.2);
@@ -121,14 +121,14 @@
 }
 
 .item-qty {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-color);
   font-weight: 600;
 }
 
 .template-note {
   margin-top: 8rpx;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -142,12 +142,12 @@
 }
 
 .action-edit {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-light);
 }
 
 .action-delete {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--error-color);
 }
 
@@ -237,7 +237,7 @@
 }
 
 .form-add-btn {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-light);
 }
 
@@ -263,7 +263,7 @@
 
 .form-option.mini {
   padding: 8rpx 16rpx;
-  font-size: 22rpx;
+  font-size: 26rpx;
 }
 
 .form-option.active {
@@ -303,7 +303,7 @@
 .item-qty .qty-input {
   width: 56rpx;
   height: 48rpx;
-  font-size: 24rpx;
+  font-size: 26rpx;
 }
 
 .item-remove {
@@ -363,3 +363,18 @@
 .item-select { flex-basis: 100%; }
 .item-qty .qty-btn, .item-qty .qty-input, .item-remove { min-width: 88rpx; height: 88rpx; font-size: 28rpx; display: flex; align-items: center; justify-content: center; }
 .add-btn, .modal-btn { border-radius: var(--radius-md); min-height: 88rpx; box-shadow: none; }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
+.form-status, .save-error { display: block; font-size: 28rpx; line-height: 1.65; padding: 16rpx 0; }
+.save-error { width: 100%; color: #9a3412; }
+.modal-footer { flex-wrap: wrap; }
+.modal-close { color: var(--text-regular); }
+.form-option { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.load-error button { min-height: 88rpx; font-size: 28rpx; }
+
+.modal-content { display: flex; flex-direction: column; max-height: 88vh; }
+.modal-body { flex: 1; min-height: 0; overflow-y: auto; }
+.modal-footer { flex-shrink: 0; }
+
+.local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }

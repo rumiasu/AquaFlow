@@ -198,7 +198,8 @@ function barrels() {
     else success(call, [])
   })
   t.page.onLoad({ stationId: 11 })
-  t.page.setData({ showReturnModal: true, maxReturnQty: 5,
+  t.page._lastAssetScope = require('../../miniapp-user/utils/asset-view-station').beginRead(t.page)
+  t.page.setData({ loading: false, showReturnModal: true, maxReturnQty: 5,
     returnForm: { productId: 5, quantity: 1, note: 'synthetic input', pickupMode: 'STORE', companionOrderId: null } })
   return { ...t, previews, writes }
 }

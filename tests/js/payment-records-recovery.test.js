@@ -176,6 +176,19 @@ async function main() {
     assert.equal(t.wx.__calls.request[0].header.Authorization, 'Bearer customer-seven')
     assert.equal(t.page.data.loaded, false); assert.match(t.page.data.error, /仅限本人/)
   })
+  await test('permission denial clears prior rows while raw exceptions stay hidden without metadata changes', async () => {
+    let failure = null
+    const t = setup(() => { if (failure) throw failure; return envelope([record()]) })
+    await t.page.onShow()
+    failure = Object.assign(Error('SQLSTATE java.lang.Exception 数据库错误'), { code: 500, resultUnknown: true })
+    await t.page.onRetry()
+    assert(!/SQLSTATE|Exception|数据库/.test(t.page.data.error)); assert.equal(t.page.data.records.length, 1)
+    assert.equal(failure.code, 500); assert.equal(failure.resultUnknown, true)
+    failure = Object.assign(Error('仅限本人查询'), { businessRejected: true })
+    await t.page.onRetry()
+    assert.equal(t.page.data.loaded, false); assert.deepEqual(t.page.data.records, [])
+    assert.match(t.page.data.error, /仅限本人.*核对登录账号/); assert.equal(failure.businessRejected, true)
+  })
   console.log('AQUAFLOW_SUITE_OK ' + passed)
 }
 main().then(() => done(), err => { done(); console.error(err); process.exitCode = 1 })

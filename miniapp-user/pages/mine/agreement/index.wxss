@@ -21,14 +21,14 @@
 
 .doc-notice-tag {
   flex-shrink: 0;
-  font-size: 24rpx;
+  font-size: 26rpx;
   font-weight: 600;
   color: var(--warning-color);
   padding-top: 2rpx;
 }
 
 .doc-notice-text {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
   line-height: 1.6;
 }
@@ -50,7 +50,7 @@
 .doc-updated {
   display: block;
   margin-top: 12rpx;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
   word-break: break-all;
 }
@@ -81,7 +81,7 @@
 }
 
 .doc-foot-text {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
   line-height: 1.6;
 }
@@ -89,3 +89,6 @@
 .doc-notice button { min-height: 88rpx; padding: 18rpx 28rpx; font-size: 26rpx; line-height: 1.6; border-radius: var(--radius-sm); color: var(--primary-color); background: #fff; margin: 0; }
 .doc-heading { border-left: 5rpx solid var(--primary-color); padding-left: 16rpx; }
 .doc-body { white-space: pre-wrap; word-break: break-all; }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.doc-notice-text, .doc-updated, .doc-foot-text { font-size: 28rpx; line-height: 1.75; }

@@ -15,6 +15,7 @@ const { formatAddress } = require('../../utils/address')
 const { itemUnit } = require('../../utils/order-item-view')
 const orderIntent = require('../../utils/orderIntent')
 const { createOrderResultNavigator } = require('../../utils/order-result-navigation')
+const { errorText } = require('./visual')
 const app = getApp()
 
 // 只清理展示占位值，原始规格和报价/提交字段保持原样。
@@ -76,6 +77,7 @@ Page({
     loading: true,
     items: [],
     products: [],
+    productsError: '', productsLoading: false,
     address: null,
     addressText: '',
     checkoutWarnings: [],
@@ -109,6 +111,7 @@ Page({
     payMethods: [],
     quoteLoading: false,
     quoteReady: false,
+    feeBreakdownReady: false,
     barrelPurchases: [], barrelPurchaseConfirmed: false,
     quoteError: '',
     // [2026-09-26] 收款渠道能力（后端 quote 的 wechatPay 原样存下来）：建单成功后要不要对
@@ -303,6 +306,9 @@ Page({
     this._reorderNeedsReload = !!this._pendingReorder
     this._reorderSeq = (this._reorderSeq || 0) + 1
     this._quoteHidden = true
+    // 2026-10-22：后台丢弃旧清单回调时也释放读取锁，原清单仍须重新核实。
+    this._productsRequestSeq = (this._productsRequestSeq || 0) + 1
+    if (this.data.productsLoading) this.setData({ productsLoading: false, productsError: '商品读取已暂停，请重新读取完整清单。', loading: false })
     this.cancelScheduledQuote()
     this._addressNeedsReload = this.data.addressLoading || this._addressNeedsReload
     this._addressRequestSeq = (this._addressRequestSeq || 0) + 1
@@ -336,7 +342,17 @@ Page({
   },
 
 async loadItemsProducts() {
+    if (this.data.productsLoading || this.data.submitting) return
     const { items, stationId } = this.data
+    const session = captureSession(), seq = this._productsRequestSeq = (this._productsRequestSeq || 0) + 1
+    const itemKey = JSON.stringify(items)
+    const current = () => seq === this._productsRequestSeq && !this._quoteHidden && !this._quoteDestroyed
+      && isCurrentSession(session) && stationId === this.data.stationId && itemKey === JSON.stringify(this.data.items)
+    // 2026-10-22：原重试先清错误而保留旧报价，缺件清单会在重读期间被提交。
+    this.cancelScheduledQuote()
+    this.invalidateQuote()
+    this.setData({ productsLoading: true, productsError: '正在核实完整商品清单，请稍候。', quoteLoading: false })
+    try {
     const products = []
 
     // 1. 必须有选中的服务水站
@@ -345,7 +361,7 @@ async loadItemsProducts() {
 
     if (!effectiveStationId || effectiveStationId <= 0) {
       // 无站点：提示去选择水站
-      this.setData({ loading: false })
+      this.setData({ loading: false, productsError: '请先选择服务水站，再重新读取完整商品清单。' })
       const confirm = await new Promise(resolve => {
         wx.showModal({
           title: '请选择服务水站',
@@ -355,6 +371,7 @@ async loadItemsProducts() {
           success: (res) => resolve(res.confirm)
         })
       })
+      if (!current()) return
       if (!confirm) {
         wx.navigateBack()
       } else {
@@ -378,7 +395,7 @@ async loadItemsProducts() {
     // [2026-09-20 真机联调] 原来每件商品各自 `catch (e) { console.warn('Load product error:', e.message) }`：
     // 拉不到的**那一件会静默从清单里消失** —— 客户看到"我明明加了 3 样，结算页只剩 2 样"，
     // 与"这件商品本站下架了"完全无法区分；全部失败时页面还照旧提示"请选择商品"（把加载失败
-    // 说成"你没选商品"）。仍然降级（其余商品照常可下单），但必须把失败件数与原因说出来。
+    // 说成"你没选商品"）。已读商品可展示，完整清单核实后才能报价和下单。
     let productFailCount = 0
     let productFailReason = ''
     for (const it of items) {
@@ -405,26 +422,33 @@ async loadItemsProducts() {
         } else {
           // HTTP 200 但没 data（业务失败 / 商品已下架）：同样算一件没加载出来，不能当"加载成功且为空"
           productFailCount++
-          productFailReason = (res && res.message) || productFailReason
+          productFailReason = errorText(res, productFailReason || '商品信息暂未加载')
           console.warn('[OrderCreate] 商品详情返回空:', it.productId, res && res.message)
         }
       } catch (e) {
         productFailCount++
-        productFailReason = (e && e.message) || productFailReason
+        productFailReason = errorText(e, productFailReason || '商品信息暂未加载')
         console.warn('[OrderCreate] 商品详情加载失败:', it.productId, e && (e.message || e.errMsg))
       }
     }
+    if (!current()) return
     if (productFailCount > 0) {
-      this._noteLoadError(productFailCount + ' 件商品的信息没加载出来（'
-        + (productFailReason || '网络异常') + '），清单里会缺这几行，请退出重进本页重试')
+      this.setData({ productsError: productFailCount + ' 件商品信息尚未核实，请重新读取后再下单。' })
       wx.showToast({ title: '部分商品信息没加载出来', icon: 'none' })
-    }
+    } else this.setData({ productsError: '' })
 
 this.setData({ products, stationName: effectiveStationName, stationNameStationId: effectiveStationId })
     this.loadStationStatus(effectiveStationId)
     this.syncBarrelSummary()
-    this.refreshQuote()
+    this.setData({ productsLoading: false })
+    if (!productFailCount) this.refreshQuote()
     this.setData({ loading: false })
+    } catch (error) {
+      if (current()) this.setData({ productsError: errorText(error, '完整商品清单尚未加载，请重新读取。') })
+    } finally {
+      if (seq === this._productsRequestSeq) this.setData({ productsLoading: false, loading: false,
+        ...(!current() ? { productsError: '商品读取范围已变化，请重新读取完整清单。' } : {}) })
+    }
   },
 
   /**
@@ -566,7 +590,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       console.error('[OrderCreate] 再来一单取订单详情失败:', error)
       this.setData({
         loading: false,
-        loadError: '没能取到原订单（' + ((error && error.message) || '网络异常') + '），本页内容不可用，请返回重进'
+        loadError: '没能取到原订单（' + errorText(error, '网络暂时不可用') + '），本页内容不可用，请返回重进'
       })
       wx.showToast({ title: '原订单没加载出来，请重试', icon: 'none' })
     }
@@ -588,7 +612,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
     this.setData({
       items,
-      note: order.specialNote || '',
+      note: order.customerNote || '',
       stationId: order.deliveryStationId || order.stationId || this.data.stationId
     })
     this.loadAddress(order.addressId)
@@ -621,8 +645,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 而提交时又拦一句「请选择配送地址」—— 把"接口失败"说成了"你没设地址"，客户会去反复
       // 重设地址而问题根本不在那儿。现在把失败标记出来，空态与提交拦截的文案都据此区分。
       console.error('[OrderCreate] 加载收货地址失败:', error)
-      this.setData({ addressLoadError: (error && error.message) || '网络异常', quoteLoading: false })
-      this._noteLoadError('收货地址没加载出来（' + ((error && error.message) || '网络异常') + '），可能显示成"未设置地址"')
+      this.setData({ addressLoadError: errorText(error, '网络暂时不可用'), quoteLoading: false })
+      this._noteLoadError('收货地址没加载出来（' + errorText(error, '网络暂时不可用') + '），可能显示成"未设置地址"')
     } finally {
       if (current()) this.setData({ addressLoading: false })
       else if (seq === this._addressRequestSeq && !isCurrentSession(session)) {
@@ -654,8 +678,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 按真实权益算 —— 又是"界面一个价、结算另一个价"（本仓计价双轨的老坑）。
       // 拿不到就不假装知道：明确告诉客户这笔押金估算可能偏高。
       console.error('[OrderCreate] 加载桶权益失败:', error)
-      this._noteLoadError('桶权益没加载出来（' + ((error && error.message) || '网络异常')
-        + '），押金估算可能偏高（真实金额由后端算）')
+      this._noteLoadError('桶权益没加载出来（' + errorText(error, '网络暂时不可用')
+        + '），押金信息尚未核实，请重新报价后核对本次费用。')
     }
   },
 
@@ -673,6 +697,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   onQtyChange(e) {
+    if (this.data.productsLoading || this.data.productsError) return
     const { index, type } = e.currentTarget.dataset
     const products = [...this.data.products]
     let qty = products[index].quantity || 1
@@ -689,6 +714,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   onQtyInput(e) {
+    if (this.data.productsLoading || this.data.productsError) return
     const { index } = e.currentTarget.dataset
     const qty = Math.max(1, parseInt(e.detail.value) || 1)
     const products = [...this.data.products]
@@ -746,7 +772,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   _hasCurrentQuote() {
     const proof = this._quotedContext
-    return !this._quoteDestroyed && !this._quoteHidden && !this.data.addressLoading && !this.data.addressLoadError
+    return !this._quoteDestroyed && !this._quoteHidden && !this.data.productsLoading && !this.data.productsError && !this.data.addressLoading && !this.data.addressLoadError
       && !!(this.data.address && this.data.address.id) && !!proof
       && isCurrentSession(proof.session) && proof.key === this._quoteContextKey()
   },
@@ -778,6 +804,11 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const current = () => !this._quoteDestroyed && !this._quoteHidden && seq === this._quoteRequestSeq
       && isCurrentSession(session) && contextKey === this._quoteContextKey()
 
+    if (this.data.productsLoading || this.data.productsError) {
+      this.setData({ quoteLoading: false, blockReason: '请先核实完整商品清单' })
+      return false
+    }
+
     // 2026-10-11：并行商品加载曾把 address=null 报价当最终金额；地址未核实时不发报价、不保留旧金额。
     if (this.data.addressLoading || this.data.addressLoadError || !address || !address.id) {
       this.setData({ quoteLoading: false, blockReason: '请先核实配送地址' })
@@ -806,15 +837,20 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       }
       {
         const d = res.data
-        const totalWaterCost = d.waterAmount || 0
-        const totalDeposit = d.barrelDeposit || 0
+        const amountKnown = value => ['number', 'string'].includes(typeof value) && String(value).trim() !== ''
+          && Number.isFinite(Number(value)) && Number(value) >= 0
+        // 缺少报价事实不能用 0 或客户端相加补出；合法的真实 0 仍正常展示。
+        if (!amountKnown(d.waterAmount) || !amountKnown(d.totalAmount)) throw new Error('本次水费或合计尚未核实，请重新报价')
+        const totalWaterCost = Number(d.waterAmount)
+        const totalDeposit = Number(d.barrelDeposit || 0)
         const extraDepositBuckets = d.extraDepositBuckets || 0
-        const extraDepositAmount = d.extraDeposit || 0
-        const totalAmount = d.totalAmount || (totalWaterCost + totalDeposit + extraDepositAmount)
+        const extraDepositAmount = Number(d.extraDeposit || 0)
+        const totalAmount = Number(d.totalAmount)
         const allowOfflinePayment = d.allowOfflinePayment === true
         // [v35] 配送费与楼层费：金额与文案都由后端下发，前端只负责展示，不自算、不自造文案
-        const deliveryFee = d.deliveryFee || 0
-        const floorFee = d.floorFee || 0
+        const feeBreakdownReady = amountKnown(d.deliveryFee) && amountKnown(d.floorFee)
+        const deliveryFee = amountKnown(d.deliveryFee) ? Number(d.deliveryFee) : 0
+        const floorFee = amountKnown(d.floorFee) ? Number(d.floorFee) : 0
         const feeWarnings = Array.isArray(d.warnings) ? d.warnings : []
         // blocked 是"起送量/配送范围配成了不接单"的硬拦结论 —— 与下单侧的拒绝判据同源
         const blocked = d.blocked === true
@@ -859,11 +895,14 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 前端算一遍就会出现"结算页一个价、扣票另一个价"（本仓记过的计价双轨）。
         // 只在选中水票时用：切到现金/微信后这个键不再相关，留着会让计费区显示错。
         const ticketPay = (nextMethod === 3 && d.ticketPay) ? d.ticketPay : null
+        if (ticketPay && typeof ticketPay.fullyCovered !== 'boolean') throw new Error('水票抵扣结论尚未核实，请重新报价')
         const ticketFullyCovered = !!(ticketPay && ticketPay.fullyCovered)
+        if (ticketFullyCovered && (!amountKnown(ticketPay.payableAmount) || !amountKnown(ticketPay.coverAmount)
+          || !Number.isSafeInteger(Number(ticketPay.coverQty)) || Number(ticketPay.coverQty) <= 0)) throw new Error('水票抵扣金额与张数尚未核实，请重新报价')
         // 水票抵扣那行只在**整单能被票结清**时显示：抵不掉时本单根本用不了票，
         // 这时显示"水票抵扣 ¥X"却又要付全额，客户只会以为系统算错了。
         const ticketCoverText = ticketFullyCovered
-          ? '使用 ' + ticketPay.coverQty + ' 张水票 · 抵扣 ¥' + (Number(ticketPay.coverAmount) || 0).toFixed(2)
+          ? '使用 ' + ticketPay.coverQty + ' 张水票 · 抵扣 ¥' + Number(ticketPay.coverAmount).toFixed(2)
           : ''
         const ticketShortfallHint = (ticketPay && !ticketPay.fullyCovered) ? (ticketPay.hint || '') : ''
         // [2026-09-27 走查 C03] 票不足时页面上直接给出**下一步的两个动作**（不再只留一句结论）：
@@ -881,7 +920,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 客户这次**实际要付**的钱：票能全抵 → 0（水费/押金/配送费随票一并结清）；
         // 抵不掉 → 订单全额（本单用不了票，改选方式后就是全额付）。
         // ⚠️ 只用于展示，不参与任何提交参数 —— 提交金额一律由后端按订单重算。
-        const payableAmount = ticketPay ? (Number(ticketPay.payableAmount) || 0) : totalAmount
+        const payableAmount = ticketPay && amountKnown(ticketPay.payableAmount) ? Number(ticketPay.payableAmount) : totalAmount
         // 2026-10-12：零售参考价与票计账价可能不同；仅整单票结清时明确现金需付，不能暗示票不足可混付。
         const payableAmountLabel = ticketFullyCovered ? '本次现金需付' : '本次需付'
 
@@ -917,6 +956,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
         const updates = {
           quoteReady: true,
+          feeBreakdownReady,
           quoteError: '',
           barrelPurchases, barrelPurchaseConfirmed: false,
           products: updatedProducts,
@@ -1005,7 +1045,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         payMethods: [], wechatPay: null, ticketPay: null, ticketCoverText: '',
         ticketShortfallHint: '', ticketCanBuy: false, ticketAltMethod: null, missingRights: [],
         barrelPurchases: [], barrelPurchaseConfirmed: false,
-        quoteError: '没能核实最新金额和支付方式（' + ((e && e.message) || '网络异常') + '），已暂停下单，请重试报价',
+        quoteError: '没能核实最新金额和支付方式。' + errorText(e, '请稍后重试。') + '已暂停下单，请重试报价',
         blockReason: '最新金额和支付方式尚未核实，请重试报价',
         checkoutWarnings: ['最新金额和支付方式尚未核实，请重试报价']
       })
@@ -1159,7 +1199,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
           title: tp.title || '暂不能用票支付',
           content: tp.hint || '水票不足以覆盖本单，请改选支付方式或先补齐水票',
           showCancel: canBuyTicket,
-          confirmText: canBuyTicket ? '去买水票' : '改选支付方式',
+          confirmText: canBuyTicket ? '去买水票' : '改选方式',
           cancelText: '留在本页',
           success: (r) => {
             // 只有"余额不够"才把人引去买票；"商品根本不能用票"时补票没用（后端 hint 已写明）
@@ -1494,14 +1534,14 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         orderIntent.settleRequest(requestRecord, 'prepared')
         if (current()) {
           this.setData({ submitState: 'idle', unknownResultText: '' })
-          wx.showModal({ title: '订单未创建', content: error.message + '\n\n请调整后重新提交。', showCancel: false, confirmText: '知道了' })
+          wx.showModal({ title: '订单未创建', content: errorText(error, '本次下单未被接受') + '\n\n请调整后重新提交。', showCancel: false, confirmText: '知道了' })
         }
         return
       }
       // 停业/地址校验可能在幂等查找之前拒绝重放；businessRejected 不能证明历史 unknown 原单不存在。
       if (!current()) return
       this._showOrderRecoveryBlocked('原提交结果尚未确认，保留原编号和内容，请重试核实或到我的订单查看。')
-      wx.showModal({ title: '原提交还需核实', content: (error && error.message ? error.message + '\n\n' : '')
+      wx.showModal({ title: '原提交还需核实', content: errorText(error, '本次结果尚未确认。') + '\n\n'
         + '原单可能已创建。重试只办理原提交，不会更换编号或内容。', confirmText: '重试', cancelText: '先查看',
         success: result => {
           if (result.confirm && current() && !this._quoteHidden && requestRecord.phase === 'unknown') this._createOrder(false)
@@ -1514,7 +1554,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   _showOrderRecoveryBlocked(message) {
-    this.setData({ submitting: false, submitState: 'unknown', unknownResultText: message })
+    this.setData({ submitting: false, submitState: 'unknown', unknownResultText: errorText({ message }, '原提交结果尚未确认，请核对原订单或恢复原请求。') })
   },
 
   _restoreOrderRequest() {
@@ -1628,7 +1668,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
           const body = outcome.state === 'paid'
             ? '款项已经结清，可以放心等配送。'
             : unknown ? '订单已经建好了（订单号 ' + orderId + '），暂时查不到是否已付款。请点「查原单」刷新核实；若继续支付，仍办理这张原订单。'
-            : ((outcome.error && outcome.error.message) || '网络异常')
+            : errorText(outcome.error, '支付暂未完成，请核对原订单')
               + '。订单已经建好了（订单号 ' + orderId + '），但这一笔支付没有完成。'
           wx.showModal({
             title,
@@ -1787,6 +1827,9 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   _finalSubmissionAllowed() {
+    if (this.data.productsLoading || this.data.productsError) {
+      wx.showToast({ title: '请先重新核实完整商品清单', icon: 'none' }); return false
+    }
     if (!this._hasCurrentQuote() || !this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
       wx.showToast({ title: '请先核实最新报价', icon: 'none' }); return false
     }
@@ -1906,7 +1949,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       })
     } catch (e) {
       // 服务端开关关掉时这里收到的就是「企业身份功能当前未开启」，原样展示服务端文案
-      wx.showToast({ title: e.message || '提交失败，请稍后重试', icon: 'none' })
+      wx.showToast({ title: errorText(e, '申请结果尚未确认，请联系水站核对'), icon: 'none' })
     }
   },
 
@@ -1943,7 +1986,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
    */
   onCallStation() {
     if (this.data.stationPhone) {
-      wx.makePhoneCall({ phoneNumber: this.data.stationPhone })
+      wx.makePhoneCall({ phoneNumber: this.data.stationPhone, fail: () => wx.showToast({ title: '电话未拨出，请稍后重试', icon: 'none' }) })
       return
     }
     this.setData({ showAssetDetail: false })
@@ -1957,5 +2000,10 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   onDetailPopupClose() {
     this.setData({ showDetailPopup: false })
-  }
+  },
+  onProductImageError(e) {
+    const { id, url } = e.currentTarget.dataset
+    this.setData({ products: this.data.products.map(p => String(p.id) === String(id) && p.imageUrl === url ? { ...p, imageUrl: '' } : p) })
+  },
+  onRetryProducts() { if (!this.data.submitting) return this.loadItemsProducts() }
 })

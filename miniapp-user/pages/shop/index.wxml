@@ -1,3 +1,4 @@
+<page-meta page-style="{{showStationPicker ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="container">
   <loading wx:if="{{loading}}"></loading>
   <block wx:else>
@@ -26,7 +27,7 @@
       页面显示「暂无商品」—— 顾客会以为这个水站没货可买（AGENTS §8.22）。
       样式复用 styles/common.wxss 的 .load-error（全局已 import，不要再写一份）。
     -->
-    <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}<button bindtap="onRetryProducts">重新加载商品</button></view>
 
     <view class="station-bar" wx:if="{{isLogin}}" bindtap="onOpenStationPicker">
       <icon name="location" size="32rpx" color="#1677FF" />
@@ -51,10 +52,9 @@
       <text class="catalog-note">商品价格为本站零售价；水票、配送费及新增押金在确认页核算。</text>
       <view class="product-grid">
         <view class="product-card"
-          wx:for="{{allProducts}}" wx:key="id"
-          wx:if="{{!keywords || item.name.indexOf(keywords) >= 0 || (item.brand && item.brand.indexOf(keywords) >= 0) || (item.spec && item.spec.indexOf(keywords) >= 0)}}">
+          wx:for="{{visibleProducts}}" wx:key="id">
           <view class="product-img" wx:if="{{item.imageUrl}}">
-            <image src="{{item.imageUrl}}" mode="aspectFit" style="width:100%;height:100%;" />
+            <image src="{{item.imageUrl}}" mode="aspectFit" style="width:100%;height:100%;" data-id="{{item.id}}" data-url="{{item.imageUrl}}" binderror="onProductImageError" />
           </view>
           <view class="product-img product-img-placeholder" wx:else>
           </view>
@@ -83,8 +83,9 @@
         </view>
       </view>
       <!-- [2026-09-20] 空态分两种：loadError 非空 = 商品没拉到（不是"这个站没商品"） -->
-      <empty wx:if="{{allProducts.length === 0 && !loadError}}" text="暂无商品"></empty>
-      <empty wx:elif="{{loadError}}" text="商品没加载出来，请下拉刷新"></empty>
+      <view class="local-empty" wx:if="{{!currentStationId && !loadError}}"><text>请选择水站查看本站商品</text></view>
+      <view class="local-empty" wx:elif="{{allProducts.length === 0 && !loadError}}"><text>本站暂无在售商品</text></view>
+      <view class="local-empty" wx:elif="{{keywords && !visibleProducts.length && !loadError}}"><text>没有找到匹配的商品，可清空搜索再看</text></view>
     </view>
   </block>
 
@@ -104,6 +105,7 @@
       </view>
     </view>
     <view class="station-picker-list">
+      <text class="station-picker-empty" wx:if="{{stationListLoading}}">正在读取水站列表…</text>
       <view class="station-picker-item {{item.id === currentStationId ? 'active' : ''}}" wx:for="{{stationList}}" wx:key="id"
             bindtap="onSelectStation" data-id="{{item.id}}">
         <view class="station-picker-item-info">
@@ -117,10 +119,11 @@
         于是"没查到"被说成"平台确实没有水站"（AGENTS §8.22）。
         stationListError 由 loadStationList 在失败时写入（含可读原因）。
       -->
-      <view class="station-picker-empty" wx:if="{{stationList.length === 0}}">
+      <view class="station-picker-empty" wx:if="{{!stationListLoading && stationList.length === 0}}">
         <text wx:if="{{stationListError}}">水站列表没加载出来（{{stationListError}}），请稍后重试</text>
         <text wx:else>暂无可用水站</text>
       </view>
+      <button wx:if="{{stationListError}}" bindtap="loadStationList" disabled="{{stationListLoading}}">重新加载水站</button>
     </view>
   </view>
 </view>

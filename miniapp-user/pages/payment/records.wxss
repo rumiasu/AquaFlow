@@ -37,12 +37,12 @@
 }
 
 .record-order {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
 .record-time {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -69,7 +69,7 @@
   border-radius: 999rpx;
   background: var(--bg-gray);
   color: var(--text-secondary);
-  font-size: 24rpx;
+  font-size: 26rpx;
   line-height: 1.5;
 }
 
@@ -91,7 +91,7 @@
   color: var(--text-regular);
 }
 .record-method {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -148,3 +148,9 @@
 
 .record-list { overflow: hidden; border-radius: var(--radius-md); border: 1rpx solid var(--border-color); background: #fff; }
 .record-item:last-child { border-bottom: 0; }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
+.record-main, .record-right { min-width: 0; overflow-wrap: anywhere; }
+
+.local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }

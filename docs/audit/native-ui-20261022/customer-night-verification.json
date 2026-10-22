@@ -1,0 +1,339 @@
+{
+  "candidateCodeSha": "7ef527e2e134f50b26a2d92711758ad430b2eac9",
+  "suiteCount": 34,
+  "assertionCount": 850,
+  "suites": [
+    {
+      "suite": "customer-order-pagination",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 12,
+      "command": "node tests/js/customer-order-pagination.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "customer-order-detail-recovery",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 26,
+      "command": "node tests/js/customer-order-detail-recovery.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "order-create-flow",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 43,
+      "command": "node tests/js/order-create-flow.test.js",
+      "diagnosticExamples": [
+        "[OrderCreate] 同单支付失败，先回查原单支付事实: Error: 水票不足",
+        "[OrderCreate] 同单支付失败，先回查原单支付事实: Error: 网络超时"
+      ]
+    },
+    {
+      "suite": "checkout-presentation",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 17,
+      "command": "node tests/js/checkout-presentation.test.js",
+      "diagnosticExamples": [
+        "[OrderCreate] refreshQuote 失败: Error: 网络断开",
+        "[OrderCreate] refreshQuote 失败: Error: synthetic offline"
+      ]
+    },
+    {
+      "suite": "order-result-navigation",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 32,
+      "command": "node tests/js/order-result-navigation.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "customer-order-receivables-truth",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 25,
+      "command": "node tests/js/customer-order-receivables-truth.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "customer-note-preview",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 24,
+      "command": "node tests/js/customer-note-preview.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "customer-cancel-action",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 34,
+      "command": "node tests/js/customer-cancel-action.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "customer-history-recovery",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 21,
+      "command": "node tests/js/customer-history-recovery.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "customer-assets-state",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 10,
+      "command": "node tests/js/customer-assets-state.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "barrel-preview-station",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 5,
+      "command": "node tests/js/barrel-preview-station.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "barrel-return-refund",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 15,
+      "command": "node tests/js/barrel-return-refund.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "barrel-return-visible-identity",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 35,
+      "command": "node tests/js/barrel-return-visible-identity.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "customer-delivery-arrangement",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 5,
+      "command": "node tests/js/customer-delivery-arrangement.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "independent-right-purchase",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 7,
+      "command": "node tests/js/independent-right-purchase.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "independent-purchase-recovery",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 104,
+      "command": "node tests/js/independent-purchase-recovery.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "ticket-purchase-flow",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 24,
+      "command": "node tests/js/ticket-purchase-flow.test.js",
+      "diagnosticExamples": [
+        "Purchase ticket error: Error: 请先购买该桶权益",
+        "Purchase ticket error: Error: 网络超时"
+      ]
+    },
+    {
+      "suite": "ticket-purchase-recovery-boundary",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 39,
+      "command": "node tests/js/ticket-purchase-recovery-boundary.test.js",
+      "diagnosticExamples": [
+        "Purchase ticket error: Error: 该商品当前没有启用水票",
+        "Purchase ticket error: Error: 该商品当前没有启用水票"
+      ]
+    },
+    {
+      "suite": "refund-feedback-flow",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 17,
+      "command": "node tests/js/refund-feedback-flow.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "customer-shop-context",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 34,
+      "command": "node tests/js/customer-shop-context.test.js",
+      "diagnosticExamples": [
+        "[Shop] 加载水站列表失败: Error: SYNTH unavailable",
+        "[Shop] 加载商品失败: Error: SYNTH catalog offline"
+      ]
+    },
+    {
+      "suite": "historical-asset-claim-flow",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 63,
+      "command": "node tests/js/historical-asset-claim-flow.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "account-data-request-flow",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 12,
+      "command": "node tests/js/account-data-request-flow.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "agreement-version-flow",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 8,
+      "command": "node tests/js/agreement-version-flow.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "payment-history-cache-boundary",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 12,
+      "command": "node tests/js/payment-history-cache-boundary.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "customer-balance-availability",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 26,
+      "command": "node tests/js/customer-balance-availability.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "customer-scope-copy",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 40,
+      "command": "node tests/js/customer-scope-copy.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "customer-night-visual-states",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 26,
+      "command": "node tests/js/customer-night-visual-states.test.js",
+      "diagnosticExamples": [
+        "loadOrderStatus error: Error: ECONNRESET",
+        "[OrderCreate] refreshQuote 失败: Error: 本次水费或合计尚未核实，请重新报价"
+      ]
+    },
+    {
+      "suite": "asset-view-station-flow",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 24,
+      "command": "node tests/js/asset-view-station-flow.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "modal-copy-limit",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 1,
+      "command": "node tests/js/modal-copy-limit.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "fee-detail-layout",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 1,
+      "command": "node tests/js/fee-detail-layout.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "first-water-deposit-flow",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 18,
+      "command": "node tests/js/first-water-deposit-flow.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "combined-order-deposit",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 14,
+      "command": "node tests/js/combined-order-deposit.test.js",
+      "diagnosticExamples": [
+        "[OrderCreate] refreshQuote 失败: Error: 本次桶押金明细未核实，请重试报价",
+        "[OrderCreate] refreshQuote 失败: Error: 本次桶押金明细未核实，请重试报价"
+      ]
+    },
+    {
+      "suite": "a01-muted-text-contrast",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 68,
+      "command": "node tests/js/a01-muted-text-contrast.test.js",
+      "diagnosticExamples": []
+    },
+    {
+      "suite": "key-text-readability",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 8,
+      "command": "node tests/js/key-text-readability.test.js",
+      "diagnosticExamples": []
+    }
+  ],
+  "static": [
+    {
+      "command": "python audit_wxml_handlers.py --root miniapp-user",
+      "result": "0 missing bindings"
+    },
+    {
+      "command": "python audit_wxss_selectors.py miniapp-user",
+      "result": "no conflicting same-element selectors"
+    },
+    {
+      "command": "python audit_js_syntax.py",
+      "result": "177 JS files, 0 parse failures"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": "owned path and UTF-8 BOM checks",
+      "result": {
+        "scopeViolations": [],
+        "bomFiles": []
+      }
+    }
+  ],
+  "projection": {
+    "count": 36,
+    "routes": 19,
+    "expressionErrors": 0,
+    "horizontalOverflow": 0,
+    "nativeVerified": false,
+    "safeAreaSimulatedPx": 24
+  },
+  "notRun": [
+    "微信原生编译/目视",
+    "真实登录与真实交易",
+    "后端或数据库测试",
+    "全局 tests/js/run-all.js 总注册"
+  ]
+}

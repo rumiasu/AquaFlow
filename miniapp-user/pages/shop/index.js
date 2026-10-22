@@ -4,9 +4,18 @@ const { getBaseUrl, API } = require('../../config/api')
 const { getAccessToken, captureSession, isCurrentSession } = require('../../utils/token')
 const { stationStorage } = require('../../utils/storage')
 
+// 只清理错误的展示文字；原对象的 code、resultUnknown、businessRejected 均不改动。
+function viewError(error, fallback = '暂时无法完成，请稍后重试') {
+  const text = error && typeof error.message === 'string' ? error.message.trim() : ''
+  return /[\u3400-\u9fff]/.test(text)
+    && !/(?:Exception|Error:|\bat\s+\S+\(|\bSQL\b|https?:\/\/|request:fail|errno|stack|[A-Z][A-Z_]{5,})/.test(text)
+    ? text : fallback
+}
+
 Page({
   data: {
-    loading: true, isLogin: false, allProducts: [], keywords: '',
+    loading: true, isLogin: false, allProducts: [], visibleProducts: [], keywords: '',
+    stationListLoading: false,
     stationStatusHint: '',
     currentStationId: null,
     currentStation: null,
@@ -78,13 +87,16 @@ Page({
   },
   async loadData() {
     if (this._shopHidden || this._shopDestroyed) return
+    const oldContext = this._shopReadScope || this._shopProductsContext
+    const keep = oldContext && isCurrentSession(oldContext.session) && oldContext.stationId === String(stationStorage.getId() || '')
+    const previousProducts = keep ? this.data.allProducts : []
     this._shopLoadSeq = (this._shopLoadSeq || 0) + 1
     const context = this._captureShopContext(stationStorage.getId())
     this._shopViewContext = context
     this._shopProductsContext = null
     this.setData({ loading: true })
     try {
-      let allProducts = []
+      let allProducts = previousProducts
       let currentStationId = null
       let currentStation = null
 
@@ -95,8 +107,8 @@ Page({
         if (station) currentStation = station
       }
       // 2026-10-21: A's late products previously replaced B's view while cart writes used B.
-      // Clear old cards before reading; every completion (including catch/finally) keeps its original scope.
-      this.setData({ currentStationId, currentStation, allProducts: [], loadError: '', stationStatusHint: '' })
+      // Cross-station/session cards are cleared; same-scope refresh failures are labelled as previous reads.
+      this.setData({ currentStationId, currentStation, allProducts: previousProducts, loadError: '', stationStatusHint: '' })
       this.updateCartCount()
 
       // 如果本地没有，不再调用后端接口，等待用户选择
@@ -113,9 +125,10 @@ Page({
           if (productsRes && productsRes.code === 0 && Array.isArray(productsRes.data)) {
             allProducts = productsRes.data
             this._shopProductsContext = context
+            this._shopReadScope = context
             this.setData({ loadError: '' })
           } else {
-            const msg = (productsRes && productsRes.message) || '返回异常，请稍后重试'
+            const msg = viewError(productsRes, '返回异常，请稍后重试')
             console.warn('[Shop] 商品列表返回非成功响应:', msg)
             this.setData({ loadError: '商品没加载出来（' + msg + '），下面可能是空的，请下拉刷新' })
             wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
@@ -123,7 +136,7 @@ Page({
         } catch (e) {
           if (!this._isShopContextCurrent(context)) return
           console.error('[Shop] 加载商品失败:', e)
-          this.setData({ loadError: '商品没加载出来（' + ((e && e.message) || '网络异常') + '），下面可能是空的，请下拉刷新' })
+          this.setData({ loadError: '商品没加载出来（' + viewError(e, '网络异常') + '），下面可能是空的，请下拉刷新' })
           wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
         }
       }
@@ -132,6 +145,8 @@ Page({
       // 2026-09-16 已按设计删除该端点，标签一并去掉；要恢复得先有一个真实的"客户已购商品"接口。
       if (!this._isShopContextCurrent(context)) return
       this.setData({ allProducts, currentStationId, currentStation })
+      if (this.data.loadError && previousProducts.length) this.setData({ loadError: '刷新失败，以下为上次读取的商品与价格，重新加载后才能选购。' })
+      this.updateVisibleProducts()
       this.loadStationStatus(currentStationId)
     } finally {
       if (this._isShopContextCurrent(context)) this.setData({ loading: false })
@@ -165,6 +180,7 @@ Page({
     if (!this._isShopContextCurrent(context)) return
     const sequence = this._shopListSeq = (this._shopListSeq || 0) + 1
     const current = () => sequence === this._shopListSeq && this._isShopContextCurrent(context)
+    this.setData({ stationListLoading: true, stationListError: '' })
     try {
       // [2026-09-20 真机联调] 原来是 `.catch(() => null)` + 外层只 console.error：失败时列表为空，
       // 弹窗渲染成「暂无可用水站」—— 把"没查到"说成"平台真的没有水站"。
@@ -174,16 +190,16 @@ Page({
         const activeStations = res.data.filter(s => s.status === 1)
         this.setData({ stationList: activeStations, stationListError: '' })
       } else {
-        const msg = (res && res.message) || '返回异常，请稍后重试'
+        const msg = viewError(res, '返回异常，请稍后重试')
         console.warn('[Shop] 水站列表返回非成功响应:', msg)
         this.setData({ stationList: [], stationListError: msg })
       }
     } catch (e) {
       if (!current()) return
       console.error('[Shop] 加载水站列表失败:', e)
-      this.setData({ stationList: [], stationListError: (e && e.message) || '网络异常' })
+      this.setData({ stationList: [], stationListError: viewError(e, '网络异常') })
       wx.showToast({ title: '水站列表没加载出来，请重试', icon: 'none' })
-    }
+    } finally { if (current()) this.setData({ stationListLoading: false }) }
   },
   onOpenStationPicker() {
     this.setData({ showStationPicker: true })
@@ -192,7 +208,7 @@ Page({
   onCloseStationPicker() {
     this._shopSelectSeq = (this._shopSelectSeq || 0) + 1
     this._shopListSeq = (this._shopListSeq || 0) + 1
-    this.setData({ showStationPicker: false })
+    this.setData({ showStationPicker: false, stationListLoading: false })
   },
   async onSelectStation(e) {
     const context = this._captureShopContext(stationStorage.getId())
@@ -255,7 +271,8 @@ Page({
       currentStation: station,
       showStationPicker: false,
       loading: true,
-      allProducts: [], loadError: '', stationStatusHint: ''
+      // 2026-10-22：切站必须清实际渲染列表，不能在新站名下保留旧站价格。
+      allProducts: [], visibleProducts: [], loadError: '', stationStatusHint: ''
     })
     this.updateCartCount()
     try {
@@ -267,26 +284,38 @@ Page({
       if (productsRes && productsRes.code === 0 && Array.isArray(productsRes.data)) {
         allProducts = productsRes.data
         this._shopProductsContext = productContext
+        this._shopReadScope = productContext
         this.setData({ loadError: '' })
       } else {
-        const msg = (productsRes && productsRes.message) || '返回异常，请稍后重试'
+        const msg = viewError(productsRes, '返回异常，请稍后重试')
         console.warn('[Shop] 切站后商品返回非成功响应:', msg)
         this.setData({ loadError: '商品没加载出来（' + msg + '），下面可能是空的，请下拉刷新' })
         wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
       }
       this.setData({ allProducts })
+      this.updateVisibleProducts()
       this.loadStationStatus(id)
     } catch (e) {
       if (!this._isShopContextCurrent(productContext)) return
       console.error('[Shop] 切站后加载商品失败:', e)
-      this.setData({ loadError: '商品没加载出来（' + ((e && e.message) || '网络异常') + '），下面可能是空的，请下拉刷新' })
+      this.setData({ loadError: '商品没加载出来（' + viewError(e, '网络异常') + '），下面可能是空的，请下拉刷新' })
       wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
     } finally {
       if (this._isShopContextCurrent(productContext)) this.setData({ loading: false })
     }
   },
-  onSearch(e) { this.setData({ keywords: e.detail.value }) },
-  onClearSearch() { this.setData({ keywords: '' }) },
+  updateVisibleProducts() {
+    const term = this.data.keywords.trim()
+    this.setData({ visibleProducts: this.data.allProducts.filter(p => p && (!term || [p.name, p.brand, p.spec].some(v => typeof v === 'string' && v.includes(term)))) })
+  },
+  onRetryProducts() { return this.loadData() },
+  onSearch(e) { this.setData({ keywords: e.detail.value }); this.updateVisibleProducts() },
+  onClearSearch() { this.setData({ keywords: '' }); this.updateVisibleProducts() },
+  onProductImageError(e) {
+    const { id, url } = e.currentTarget.dataset
+    this.setData({ allProducts: this.data.allProducts.map(p => String(p.id) === String(id) && p.imageUrl === url ? { ...p, imageUrl: '' } : p) })
+    this.updateVisibleProducts()
+  },
   onAddToCart(e) {
     if (!this.data.isLogin) {
       wx.showToast({ title: '请先登录', icon: 'none' })

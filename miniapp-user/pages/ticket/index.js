@@ -6,10 +6,25 @@ const { getBaseUrl, API } = require('../../config/api')
 const { getAccessToken, getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
 
+// 只清理错误的展示文字；原对象的 code、resultUnknown、businessRejected 均不改动。
+function viewError(error, fallback = '暂时无法完成，请稍后重试') {
+  const text = error && typeof error.message === 'string' ? error.message.trim() : ''
+  return /[\u3400-\u9fff]/.test(text)
+    && !/(?:Exception|Error:|\bat\s+\S+\(|\bSQL\b|https?:\/\/|request:fail|errno|stack|[A-Z][A-Z_]{5,})/.test(text)
+    ? text : fallback
+}
+
 Page({
   onExitHelp() { wx.showModal({ title:'剩余水票退出',content:'请联系原购买水站，站长核实原购买批次、剩余张数及退款金额后办理。已用票不退；赠票及没有原款来源的批次须另行核实。退票与退桶、退押金分别办理。',showCancel:false }) },
   data: {
     loading: true,
+    needLogin: false,
+    accountsStale: false,
+    recordsStale: false,
+    productsFailed: false,
+    packagesLoading: false,
+    packagesLoaded: false,
+    purchaseNotice: '',
     accounts: [],
     records: [],
     currentTab: 0,
@@ -80,6 +95,7 @@ Page({
   },
 
   onRetryAssets() { return this.loadData() },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
   onAssetStationChange(e) {
     if (!assetViewStation.select(this, e.detail)) return
     this.onClosePurchase()
@@ -122,6 +138,9 @@ Page({
     let customerId
     let saved
     try {
+      if (!captureSession().loggedIn) {
+        this.setData({ pendingPurchase: null, purchaseIdempotencyKey: '', purchaseStorageError: '', purchaseRecoveryText: '' }); return null
+      }
       customerId = getCustomerId()
       this._purchaseOwner = customerId
       saved = customerId && wx.getStorageSync(this.purchaseStorageKey(customerId))
@@ -201,7 +220,7 @@ Page({
     try {
       const res = await getTicketPurchaseResult(saved.body.idempotencyKey)
       if (!isCurrentSession(session)) return
-      if (!res || res.code !== 0) throw new Error((res && res.message) || '购买结果查询失败')
+      if (!res || res.code !== 0) throw res || new Error('购买结果查询失败')
       if (res.data) { this.applyPurchaseResult(saved, res.data); await this.loadData() }
       else {
         // 缓存的登记结果不能压过本次未查到；降回待核实，但仍永久保留原 body/key。
@@ -244,7 +263,7 @@ Page({
       } else if (receipt.closed === false && receipt.payment) this.applyPurchaseResult(saved, receipt.payment)
       else throw new Error('原购买暂不能结束，请保留原记录')
     } catch (err) {
-      if (isCurrentSession(session)) wx.showToast({ title: err.message || '原购买结束未确认，请查询', icon: 'none' })
+      if (isCurrentSession(session)) wx.showToast({ title: viewError(err, '原购买结束未确认，请查询'), icon: 'none' })
     } finally { this.setData({ recoveringPurchase: false }) }
   },
   async onStartNextPurchase() {
@@ -266,7 +285,7 @@ Page({
       if (!res || res.code !== 0 || !this.validPurchaseResult(saved, res.data)) throw new Error('原款暂未核实，请先查询原购买')
       this.clearPurchaseIntent(latest)
       ready = true
-    } catch (err) { if (isCurrentSession(session)) wx.showToast({ title: err.message, icon: 'none' }) }
+    } catch (err) { if (isCurrentSession(session)) wx.showToast({ title: viewError(err), icon: 'none' }) }
     finally { this.setData({ recoveringPurchase: false }) }
     if (ready && isCurrentSession(session)) this.onShowPurchase()
   },
@@ -285,13 +304,21 @@ Page({
   async loadData() {
     const context = assetViewStation.beginRead(this)
     const stationId = context.stationId
+    const needLogin = !context.session.loggedIn || !context.session.customerId
+    this.setData({ needLogin })
+    if (needLogin) { this.setData({ loading: false, accounts: [], records: [], buyProducts: [], totalTickets: null, totalValue: null,
+      accountsFailed: true, recordsFailed: true, loadError: '请先登录后查看本人水票与购买记录。' }); return }
+    const keep = this._lastAssetScope && this._lastAssetScope.stationId === stationId && isCurrentSession(this._lastAssetScope.session)
+    let previous = keep ? { accounts: this.data.accounts, records: this.data.records, totalTickets: this.data.totalTickets, totalValue: this.data.totalValue } : null
     this.setData({ currentStationId: stationId, currentStation: stationId ? { id: stationId, name: this.data.stationName } : null,
-      loading: true, accounts: [], records: [], buyProducts: [], totalTickets: null, totalValue: null,
+      loading: !keep, ...(keep ? {} : { accounts: [], records: [], totalTickets: null, totalValue: null }), buyProducts: [],
+      accountsStale: false, recordsStale: false, productsFailed: false,
       accountsFailed: false, recordsFailed: false, loadError: '' })
     if (!stationId) { this.setData({ loading: false, accountsFailed: true, recordsFailed: true,
       loadError: '请在上方选择要查看的资产水站' }); return }
     const failed = []
-    const caught = label => err => { failed.push(label); console.warn('[Ticket] ' + label, err && err.message); return null }
+    let denied = false
+    const caught = label => err => { if (/无权|权限|登录/.test(err && err.message || '')) denied = true; failed.push(label); console.warn('[Ticket] ' + label, err && err.message); return null }
     try {
       // 商品仅影响新购入口；资产和记录不等待商品请求成功。
       const [accountsRes, recordsRes, productsRes] = await Promise.all([
@@ -300,23 +327,28 @@ Page({
         getStationProducts(stationId).catch(caught('可购商品'))
       ])
       if (!assetViewStation.current(this, context)) return
+      if (denied) previous = null
       const count = value => (typeof value === 'number' || typeof value === 'string' && value.trim())
         && Number.isSafeInteger(Number(value)) && Number(value) >= 0
       const accountsOK = !!(accountsRes && accountsRes.code === 0 && Array.isArray(accountsRes.data)
         && accountsRes.data.every(a => a && count(a.remainQuantity)))
       const recordsOK = !!(recordsRes && recordsRes.code === 0 && Array.isArray(recordsRes.data))
       const productsOK = !!(productsRes && productsRes.code === 0 && Array.isArray(productsRes.data))
-      const accounts = accountsOK ? accountsRes.data : []
-      this.setData({ accounts, records: recordsOK ? recordsRes.data : [],
-        totalTickets: accountsOK ? accounts.reduce((sum, a) => sum + Number(a.remainQuantity), 0) : null,
+      const accounts = accountsOK ? accountsRes.data : previous ? previous.accounts : []
+      this.setData({ accounts, records: recordsOK ? recordsRes.data : previous ? previous.records : [],
+        totalTickets: accountsOK ? accounts.reduce((sum, a) => sum + Number(a.remainQuantity), 0) : previous ? previous.totalTickets : null,
         // 延续原展示金额；不将当前售价估值称作可退款金额。
-        totalValue: accountsOK ? accounts.reduce((sum, a) => sum + Number(a.remainQuantity) * (a.effectiveTicketPrice || a.faceValue || a.price || 0), 0) : null,
+        totalValue: accountsOK ? accounts.reduce((sum, a) => sum + Number(a.remainQuantity) * (a.effectiveTicketPrice || a.faceValue || a.price || 0), 0) : previous ? previous.totalValue : null,
         accountsFailed: !accountsOK, recordsFailed: !recordsOK,
+        accountsStale: !accountsOK && !!previous && previous.totalTickets != null,
+        recordsStale: !recordsOK && !!previous && previous.records.length > 0,
+        productsFailed: !productsOK,
         buyProducts: productsOK ? productsRes.data.filter(p => p.ticketEnabled === 1 || p.category === 1) : [],
-        loadError: !accountsOK || !recordsOK || !productsOK ? '部分水票数据暂未加载；未加载项不代表 0，请重试' : '' })
+        loadError: !accountsOK || !recordsOK || !productsOK ? '部分水票数据未更新；标记“上次读取”的内容请重新核对，未加载项不代表 0。' : '' })
+      this._lastAssetScope = context
     } catch (error) {
       if (assetViewStation.current(this, context)) this.setData({ accountsFailed: true, recordsFailed: true,
-        loadError: error.message || '水票数据暂未加载，请重试' })
+        loadError: viewError(error, '水票数据暂未加载，请重试') })
     } finally { if (assetViewStation.current(this, context)) this.setData({ loading: false }) }
   },
 
@@ -342,7 +374,7 @@ Page({
   },
 
   onClosePurchase() {
-    this.setData({ showPurchase: false, buyPackages: [], buyForm: { productId: null, productName: '', faceValue: 0, quantity: 1, totalPrice: 0, paymentMethod: 1, packageId: null, unifiedQty: null, looseFaceValue: 0 } })
+    this.setData({ showPurchase: false, buyPackages: [], packagesLoading: false, packagesLoaded: false, buyForm: { productId: null, productName: '', faceValue: 0, quantity: 1, totalPrice: 0, paymentMethod: 1, packageId: null, unifiedQty: null, looseFaceValue: 0 } })
   },
 
   /** 弹窗内容区吞掉点击，避免冒泡到遮罩触发关闭（wxml 用 catchtap 绑定） */
@@ -356,7 +388,9 @@ Page({
     if (!product) return
     // 面值 = 后端下发的本站水票价（与 /api/tickets/purchase 的计费完全同源），不再用零售价。
     // ⚠️ 走统一折扣的商品没配水票价 → 这个值可能是 0，此时**只能按档位买**（页面不会显示散买）。
-    const price = parseFloat(product.effectiveTicketPrice || product.price) || 0
+    const rawPrice = product.effectiveTicketPrice != null ? product.effectiveTicketPrice : product.price
+    const price = ['number', 'string'].includes(typeof rawPrice) && String(rawPrice).trim() && Number.isFinite(Number(rawPrice))
+      ? Number(rawPrice) : null
     // 换商品必须清掉已选档位：档位是「本站 + 本商品」的，留着上一个商品的档位
     // 会被后端以"档位与本水站/本商品不匹配"拒绝
     this.setData({
@@ -384,11 +418,17 @@ Page({
    */
   async loadBuyPackages(productId) {
     const context = assetViewStation.beginRead(this, 'packages')
-    this.setData({ buyPackages: [], packagesError: '' })
+    this.setData({ buyPackages: [], packagesError: '', packagesLoading: true, packagesLoaded: false })
     try {
       const res = await getTicketPackages(context.stationId, productId)
       if (!assetViewStation.current(this, context) || String(this.data.buyForm.productId) !== String(productId) || !this.data.showPurchase) return
-      this.setData({ buyPackages: res.data || [] })
+      if (!res || res.code !== 0 || !Array.isArray(res.data)) throw new Error('购票档位暂未加载，请重试')
+      const amountKnown = value => ['number', 'string'].includes(typeof value) && String(value).trim() !== '' && Number.isFinite(Number(value)) && Number(value) >= 0
+      if (res.data.some(row => !row || !Number.isSafeInteger(Number(row.qty)) || Number(row.qty) <= 0
+        || !amountKnown(row.price) || !amountKnown(row.unitPrice)
+        || !['CUSTOM', 'UNIFIED'].includes(row.source)
+        || row.source === 'CUSTOM' && !(Number(row.packageId || row.id) > 0))) throw new Error('购票档位金额或张数尚未核实，请重试')
+      this.setData({ buyPackages: res.data, packagesLoaded: true })
     } catch (err) {
       if (!assetViewStation.current(this, context) || String(this.data.buyForm.productId) !== String(productId) || !this.data.showPurchase) return
       // [2026-09-20 真机联调] 这里原来是**刻意的静默降级**（"档位拉不到不该挡住买票"）——
@@ -396,10 +436,14 @@ Page({
       // 价目表，拉不到时客户看到的是"这款水没有优惠"，与"确实没配档位"完全无法区分
       //（AGENTS §8.22）。现在改成**出声但不阻断**：弹窗内留一条说明 + 一次轻提示。
       console.warn('[Ticket] load ticket packages failed:', err && err.message)
-      this.setData({ packagesError: '档位没加载出来（' + ((err && err.message) || '网络异常') + '），现在只能按单张水票价买' })
+      this.setData({ packagesError: '购票档位暂未加载，请重试。散买是否可用以本商品单张票价和购买结果为准。' })
       wx.showToast({ title: '优惠档位没加载出来', icon: 'none' })
+    } finally {
+      if (assetViewStation.current(this, context) && String(this.data.buyForm.productId) === String(productId) && this.data.showPurchase) this.setData({ packagesLoading: false })
     }
   },
+
+  onRetryPackages() { if (this.data.buyForm.productId && !this.data.packagesLoading) return this.loadBuyPackages(this.data.buyForm.productId) },
 
   /**
    * 选档位。金额一律用**服务端下发的档位价**，前端不做 price/qty 的算术 ——
@@ -430,7 +474,7 @@ Page({
   /** 退回散买：张数与单价都回到按单张水票价的口径。 */
   onBuyPackageClear() {
     if (this.purchaseEditBlocked()) return
-    const loose = this.data.buyForm.looseFaceValue || 0
+    const loose = this.data.buyForm.looseFaceValue
     this.setData({
       'buyForm.packageId': null,
       'buyForm.unifiedQty': null,
@@ -463,13 +507,13 @@ Page({
    */
   applyLooseQty(qty) {
     if (this.purchaseEditBlocked()) return
-    const loose = this.data.buyForm.looseFaceValue || 0
+    const loose = this.data.buyForm.looseFaceValue
     this.setData({
       'buyForm.packageId': null,
       'buyForm.unifiedQty': null,
       'buyForm.quantity': qty,
       'buyForm.faceValue': loose,
-      'buyForm.totalPrice': loose * qty
+      'buyForm.totalPrice': loose == null ? null : loose * qty
     })
   },
 
@@ -512,6 +556,7 @@ Page({
       }
       return this.submitPurchaseIntent(saved, true)
     }
+    if (this.data.buyForm.totalPrice === null) { wx.showToast({ title: '请先核实本次购票金额', icon: 'none' }); return }
     body.idempotencyKey = this.genPurchaseIdempotencyKey()
     return this.submitPurchaseIntent({ customerId, body, productName: this.data.buyForm.productName || '水票',
       stationName: (this.data.currentStation && this.data.currentStation.name) || '水站 ' + body.stationId }, false)
@@ -532,7 +577,7 @@ Page({
       this.savePurchaseIntent(saved)
       const res = await purchaseTicket(saved.body)
       if (!isCurrentSession(session)) return
-      if (!res || res.code !== 0) throw new Error((res && res.message) || '购买结果尚未确认')
+      if (!res || res.code !== 0) throw res || new Error('购买结果尚未确认')
       // 后端返回的是流水的**真实状态**，不要替它猜：
       //   2 = 已支付（票已入账，模拟微信渠道下当场就是这个）
       //   1 = 待收款（真实微信渠道未接入的部署里等水站确认收到钱 —— 那是收款确认，不是审批）
@@ -552,11 +597,14 @@ Page({
     } catch (error) {
       if (!isCurrentSession(session)) return
       console.error('Purchase ticket error:', error)
-      if ((error.message || '').includes('先') && (error.message || '').includes('桶')) {
-        wx.showModal({ title: '先交桶押金', content: error.message, confirmText: '交桶押金', success: (r) => {
+      if ((viewError(error, '')).includes('先') && (viewError(error, '')).includes('桶')) {
+        wx.showModal({ title: '先交桶押金', content: viewError(error, '请先核实该商品的用桶权益。'), confirmText: '交桶押金', success: (r) => {
           if (r.confirm) wx.navigateTo({ url: '/pages/barrel/purchase?stationId=' + saved.body.stationId + '&productId=' + productId })
         } })
-      } else wx.showToast({ title: error.message || '结果未确认，请查询原购买', icon: 'none' })
+      } else {
+        this.setData({ purchaseNotice: viewError(error, '结果未确认，请查询原购买；已填写内容保留。') })
+        wx.showToast({ title: '请核对购买结果', icon: 'none' })
+      }
     } finally {
       this.setData({ submitting: false })
     }

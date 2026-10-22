@@ -1,6 +1,7 @@
 const { getOrders, createPayment } = require('../../api/order')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { notifyPayResult } = require('../../utils/pay')
+const { errorText } = require('./visual')
 const app = getApp()
 
 Page({
@@ -66,6 +67,7 @@ Page({
     }
     if (append && (!sameQuery || !this.data.hasMore || !this.data.page || this.data.loading || this.data.loadingMore)) return Promise.resolve()
     const page = append ? this.data.page + 1 : 1
+    const previous = sameQuery ? { orders: this.data.orders, page: this.data.page, hasMore: this.data.hasMore } : null
     const params = { page, pageSize: this.data.pageSize }
     if (status !== undefined) params.status = status
     const version = this._readVersion = (this._readVersion || 0) + 1
@@ -92,13 +94,14 @@ Page({
       this.setData({ orders, page, hasMore: rows.length === params.pageSize, loading: false, loadingMore: false })
     }).catch(err => {
       if (!current()) return
-      const msg = (err && err.message) || '网络异常'
+      const msg = errorText(err, '网络暂时不可用')
       if (append) {
         // 下一页失败保留已经读到的页码；重试仍请求同一页。
         this.setData({ loadingMore: false, loadError: '更多订单没加载出来（' + msg + '），继续上滑可重试' })
       } else {
-        this.setData({ orders: [], page: 0, hasMore: false, loading: false, loadingMore: false,
-          loadError: '订单没加载出来（' + msg + '），下拉可重试' })
+        this.setData({ orders: previous ? previous.orders.map(order => ({ ...order, canRepay: false, canCancel: false })) : [], page: previous ? previous.page : 0,
+          hasMore: previous ? previous.hasMore : false, loading: false, loadingMore: false,
+          loadError: (previous && previous.orders.length ? '刷新失败，以下为上次读取的订单。' : '订单暂未加载。') + msg })
       }
     }).finally(() => {
       // 身份/筛选直接改变而未开始下一次查询时，也要收尾旧加载态并清除旧资料。
@@ -114,6 +117,8 @@ Page({
     return this.loadOrders()
   },
 
+  onRetry() { return this.loadOrders() },
+
   onReorder(e) {
     const { order } = e.detail
     wx.navigateTo({ url: `/pages/order/create?reorderId=${order.id}` })
@@ -127,7 +132,9 @@ Page({
   // 订单列表中的"去支付/重新支付"入口
   async onPay(e) {
     const { order } = e.detail
-    if (!order) return
+    if (!order || this._payFlight) return
+    const session = captureSession()
+    const flight = this._payFlight = {}
     try {
       const res = await createPayment({
         orderId: order.id,
@@ -142,10 +149,14 @@ Page({
         ticketQty: null
       })
       // 按真实支付状态提示，不再无条件报"支付成功"
-      notifyPayResult(res && res.data)
-      this.loadOrders()
+      if (!isCurrentSession(session) || this._destroyed) return
+      if (!res || !res.data || res.data.status == null) throw new Error('支付结果尚未确认，请重新查询原订单')
+      notifyPayResult(res.data)
+      await this.loadOrders()
     } catch (err) {
-      wx.showToast({ title: err.message || '支付失败', icon: 'none' })
+      if (isCurrentSession(session) && !this._destroyed) this.setData({ loadError: errorText(err, '支付结果尚未确认，请先重新查询原订单') })
+    } finally {
+      if (this._payFlight === flight) this._payFlight = null
     }
   }
 })

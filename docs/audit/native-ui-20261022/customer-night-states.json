@@ -10513,5 +10513,86 @@
       "status": "未执行，按任务约束",
       "reason": "未做真实交易、未写 DB、未微信上传、未增加授权。"
     }
-  ]
+  ],
+  "postReview": {
+    "candidateCodeSha": "c99972a7eee9f70763abb1d2b1b4537c21968bab",
+    "reviewAgent": "/root/astra_customer_fix_review",
+    "reviewModel": "gpt-6-astra",
+    "reviewMode": "同环境只读，medium",
+    "records": [
+      {
+        "origin": "新增回归",
+        "source": "miniapp-user/pages/order/create.js:loadItemsProducts/_finalSubmissionAllowed",
+        "trigger": "部分商品未读完整后点击重试，重读未返回时提交",
+        "resolution": "读取同步锁提交并失效旧报价；完整清单核实后才重新报价",
+        "validation": "R1及隐藏旧读取对照",
+        "nativeNotViewed": true,
+        "candidateSha": "c99972a7eee9f70763abb1d2b1b4537c21968bab"
+      },
+      {
+        "origin": "遗留缺口",
+        "source": "miniapp-user/pages/barrel/index.js:onSubmitReturn；pages/barrel/return-intent.js",
+        "trigger": "真实request超时没有resultUnknown标记，随后修改数量再提交",
+        "resolution": "完整原body/key按本人和资产站保存；结果未知锁编辑，仅原样恢复；旧版缺失凭据保留待水站核对",
+        "validation": "R2及超时/拒绝/成功/重复点击/存储/换号换站/隐藏对照",
+        "nativeNotViewed": true,
+        "candidateSha": "c99972a7eee9f70763abb1d2b1b4537c21968bab"
+      },
+      {
+        "origin": "遗留缺口",
+        "source": "miniapp-user/pages/service/index.js:onOpenDispute",
+        "trigger": "异议首次结果未知，恢复遇HTTP200/code1权限拒绝",
+        "resolution": "恢复拒绝不删除先前原凭据；首次明确拒绝保留原有处理",
+        "validation": "R3真实api/request形状和首次拒绝对照",
+        "nativeNotViewed": true,
+        "candidateSha": "c99972a7eee9f70763abb1d2b1b4537c21968bab"
+      },
+      {
+        "origin": "新增回归",
+        "source": "miniapp-user/pages/shop/index.js:onSelectStation",
+        "trigger": "切至B站读取失败，渲染列表仍为A站商品价格",
+        "resolution": "切站同步清真实渲染列表；同账号同站刷新失败才保旧并标明",
+        "validation": "R4与同范围保旧对照",
+        "nativeNotViewed": true,
+        "candidateSha": "c99972a7eee9f70763abb1d2b1b4537c21968bab"
+      },
+      {
+        "origin": "新增回归",
+        "source": "miniapp-user/pages/template/index.js:onHide/onShow/loadFormData",
+        "trigger": "弹层读取中隐藏后返回",
+        "resolution": "释放失效读取锁，保输入重读；旧回调不能清理新读取状态",
+        "validation": "R5与旧回调迟到对照",
+        "nativeNotViewed": true,
+        "candidateSha": "c99972a7eee9f70763abb1d2b1b4537c21968bab"
+      },
+      {
+        "origin": "遗留缺口",
+        "source": "miniapp-user/pages/barrel/index.js:loadData/refreshPreview/onSubmitReturn",
+        "trigger": "已打开退还弹层并有试算后，资产刷新失败",
+        "resolution": "刷新开始立即失效试算，最终提交重新检查资产读取状态；已有未知请求仅恢复原件",
+        "validation": "R6与恢复读取/原未知申请对照",
+        "nativeNotViewed": true,
+        "candidateSha": "c99972a7eee9f70763abb1d2b1b4537c21968bab"
+      },
+      {
+        "origin": "新增拼写错误",
+        "source": "miniapp-user/pages/ticket/index.js:onQueryPurchaseResult/submitPurchaseIntent",
+        "trigger": "非成功或缺失购买响应进入防御分支",
+        "resolution": "两处ErrorviewError改为抛原响应或中文Error，保留metadata",
+        "validation": "ticket防御分支与原购买104项既有套件",
+        "nativeNotViewed": true,
+        "candidateSha": "c99972a7eee9f70763abb1d2b1b4537c21968bab"
+      }
+    ],
+    "integration": {
+      "codeSha": "64f639a28d90730da460e3ecfc698d8f7bd53638",
+      "base": "45b4aecbfe77590843a9c72ba1e2487cc007b8e7",
+      "source": "miniapp-user/pages/payment/records.js；tests/js/experience-fact-states.test.js",
+      "trigger": "完整JS总跑发现可读中文付款错误被统一兜底，以及仅限本人拒绝识别遗漏；旧字号测试固定24rpx误拒当前26rpx",
+      "resolution": "只过滤付款错误展示，补本人拒绝清旧记录，不改原错误；字号读取实际值>=24rpx并保留4.5:1对比验证",
+      "validation": "payment-records-recovery 25项；experience-fact-states 20项；总跑111套3140计数项通过",
+      "nativeNotViewed": true,
+      "candidateSha": "64f639a28d90730da460e3ecfc698d8f7bd53638"
+    }
+  }
 }

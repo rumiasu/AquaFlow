@@ -335,5 +335,65 @@
     "真实登录与真实交易",
     "后端或数据库测试",
     "全局 tests/js/run-all.js 总注册"
-  ]
+  ],
+  "snapshotStage": "原字段为7ef527e初始候选验证快照；后续修复与串行整合以以下记录为准，未将旧投影当作新界面原生验收。",
+  "postReview": {
+    "candidateCodeSha": "c99972a7eee9f70763abb1d2b1b4537c21968bab",
+    "reviewAgent": "/root/astra_customer_fix_review",
+    "reviewModel": "gpt-6-astra",
+    "authorTargetedSuites": 12,
+    "authorCount": 339,
+    "reviewRerunCount": 17,
+    "reviewIndependentCount": 8,
+    "result": "通过，无必须修复项",
+    "originalCounterexample": "修前6/6复现；原脚本和日志原样保留，修后旧脚本提前退出不计通过",
+    "nativeNotViewed": true
+  },
+  "integration": {
+    "base": "45b4aecbfe77590843a9c72ba1e2487cc007b8e7",
+    "codeSha": "64f639a28d90730da460e3ecfc698d8f7bd53638",
+    "mergeParents": [
+      "45b4aecbfe77590843a9c72ba1e2487cc007b8e7",
+      "c99972a7eee9f70763abb1d2b1b4537c21968bab"
+    ],
+    "mergeMethod": "正常双亲merge，保留冻结候选引用",
+    "registeredRunAll": {
+      "command": "node tests/js/run-all.js",
+      "suiteCount": 111,
+      "countedItems": 3140,
+      "ok": true
+    },
+    "separateSuites": [
+      {
+        "command": "node tests/js/customer-night-review-recovery.test.js",
+        "passed": 17
+      },
+      {
+        "command": "node tests/js/customer-night-visual-states.test.js",
+        "passed": 26
+      }
+    ],
+    "static": {
+      "jsParsed": 179,
+      "jsFailures": 0,
+      "missingWxmlHandlers": 0,
+      "customerRoutesWithConfigAndEntryFiles": 26,
+      "trackedInputsOk": true
+    },
+    "registrationUnchangedFromBase": true,
+    "protectedUpstreamFilesUnchanged": true,
+    "nativeNotViewed": true,
+    "review": {
+      "agent": "/root/astra_customer_fix_review",
+      "model": "gpt-6-astra",
+      "reviewedCodeSha": "64f639a28d90730da460e3ecfc698d8f7bd53638",
+      "conclusion": "可正常push，无必须修项；后续仅交接文档且代码tree不变时仍适用",
+      "independentSuites": {
+        "payment": 25,
+        "fact": 20,
+        "assetView": 24
+      },
+      "actualApiRequestOfflineJourney": "成功→超时保旧→技术异常过滤→仅本人拒绝清旧→正常重试恢复，均通过"
+    }
+  }
 }

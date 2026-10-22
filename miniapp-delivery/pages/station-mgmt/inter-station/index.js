@@ -137,6 +137,7 @@ Page({
     return Object.assign({}, it, {
       _key: String(it.orderId),
       _amountText: money(it.amount),
+      _amountKnown: exactMoney(it.amount),
       _ruleText: rule,
       _routeText: (it.fromStationName || '？') + ' → ' + (it.toStationName || '？'),
       _settledText: settledText,
@@ -146,8 +147,22 @@ Page({
 
   /** 登记结清：只有**付款方**（本站）能点；凭据说明可空 —— 钱是线下走的，系统只留痕。 */
   onSettle(e) {
-    const id = e.currentTarget.dataset.id
-    const amount = e.currentTarget.dataset.amount
+    if (this._settleAction) return
+    const snapshot = this.aftercareSession(), version = this._ledgerSeq
+    const row = this.data.items.find(item => String(item.orderId) === String(e.currentTarget.dataset.id))
+    const expectedAmount = row && row.amount
+    const action = { used: false }
+    const current = () => this._settleAction === action && !action.used && this.aftercareCurrent(snapshot)
+      && this.aftercareCurrent(this._ledgerReadSession) && version === this._ledgerSeq
+      && this.data.loaded && !this.data.loading && !this.data.ledgerError
+      && row && this.data.items.includes(row) && row.canSettle === true && exactMoney(row.amount) && Number(row.amount) === Number(expectedAmount)
+    this._settleAction = action
+    if (!current()) {
+      this._settleAction = null
+      wx.showToast({ title: '本笔金额或台账尚未核实，请重新读取后办理', icon: 'none' })
+      return
+    }
+    const id = row.orderId, amount = row._amountText
     wx.showModal({
       title: '登记这笔已结清',
       // editable 的输入框用于凭据说明（转账流水号/经手人）：可留空，
@@ -157,19 +172,31 @@ Page({
       content: '',
       confirmText: '登记结清',
       success: async (res) => {
-        if (!res.confirm) return
+        if (this._settleAction !== action || action.used) return
+        if (!res.confirm) { this._settleAction = null; return }
+        if (!current()) {
+          this._settleAction = null
+          wx.showToast({ title: '台账或身份已变化，请重新核对后办理', icon: 'none' })
+          return
+        }
+        action.used = true
         wx.showLoading({ title: '处理中...' })
         try {
           await settleInterStation(id, res.content || '')
-          wx.hideLoading()
+          if (!this.aftercareCurrent(snapshot)) return
           wx.showToast({ title: `已登记 ¥${amount} 结清`, icon: 'none' })
-          this.loadData()
+          await this.loadData()
         } catch (err) {
-          wx.hideLoading()
+          if (!this.aftercareCurrent(snapshot)) return
+          this.setData({ ledgerError: '本次登记结果尚未核实，请重新读取台账后再办理。' })
           // 后端会给出可读原因（"这笔钱在 X 站手上，应由该站登记结清"等），原样透出
           wx.showToast({ title: err.message || '登记失败', icon: 'none' })
+        } finally {
+          if (this._settleAction === action) this._settleAction = null
+          if (this.aftercareCurrent(snapshot)) wx.hideLoading()
         }
-      }
+      },
+      complete: () => { if (!action.used && this._settleAction === action) this._settleAction = null }
     })
   },
 

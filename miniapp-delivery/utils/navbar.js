@@ -12,20 +12,28 @@
  */
 function navMetrics() {
   let statusBarHeight = 44
+  let windowWidth = 320
   try {
     const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
     statusBarHeight = (info && info.statusBarHeight) || 44
+    windowWidth = (info && info.windowWidth) || 320
   } catch (e) { /* 拿不到就用默认值，不抛 */ }
 
   let navBarHeight = 44
+  let capsuleLeft = windowWidth - 104
   try {
     const cap = wx.getMenuButtonBoundingClientRect ? wx.getMenuButtonBoundingClientRect() : null
     if (cap && cap.height && cap.top) {
       navBarHeight = (cap.top - statusBarHeight) * 2 + cap.height
+      if (Number.isFinite(cap.left) && cap.left > 0) capsuleLeft = cap.left
     }
   } catch (e) { /* 同上 */ }
 
-  return { statusBarHeight, navBarHeight }
+  // 标题最多四个汉字，左侧状态与标题、右侧微信胶囊分别留出真实边界。
+  const navTitleRight = Math.max(12, windowWidth - capsuleLeft + 8)
+  const navTitleLeft = Math.min(windowWidth / 2, capsuleLeft - 48)
+  const navLeftMax = Math.max(0, navTitleLeft - 64)
+  return { statusBarHeight, navBarHeight: Math.max(40, navBarHeight), navTitleRight, navTitleLeft, navLeftMax }
 }
 
 module.exports = { navMetrics }

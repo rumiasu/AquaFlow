@@ -4,6 +4,16 @@ const { send } = require('./transport')
 const { snapshot } = require('./snapshot')
 const { STORAGE_KEYS } = require('../utils/storage-keys')
 const navigation = require('./navigation')
+/** 员工可见错误文案。诊断原文由调用方保留，不能用展示文案判断请求是否已执行。 */
+function displayMessage(value, fallback = '操作未完成，请稍后重试') {
+  const text = typeof value === 'string' ? value.trim() : ''
+  if (!text) return fallback
+  // 2026-10-22：接口异常曾把堆栈、内部码和英文直接带到弹窗；只保留可读的中文业务原因。
+  if (!/[\u3400-\u9fff]/.test(text)
+      || /(?:Exception|Error:|\bat\s+[\w.$]+\(|\b(?:SELECT|INSERT|UPDATE|DELETE)\b|\bHTTP\s*\d|java\.|org\.|com\.example|\b[A-Z]+(?:_[A-Z]+)+\b|https?:\/\/|\/api\/)/.test(text)) return fallback
+  return text
+}
+
 
 let refreshFlight = null
 
@@ -79,8 +89,8 @@ const request = (options, expectedSession) => {
           handle401(options, resolve, reject, session)
         } else {
           // [2026-09-20] 原来直接把状态码拼给用户看（「网络错误 500」）—— 站长/配送员看不懂也没法处理。
-          // 保留状态码在括号里，排查时仍能一眼看出是 4xx 还是 5xx。
-          reject(responseFailure(new Error('服务暂时不可用（HTTP ' + res.statusCode + '），请稍后重试'), res))
+          // 状态码只保留在错误元数据中，用户看到恢复动作。
+          reject(responseFailure(new Error('服务暂时不可用，请稍后重试'), res))
         }
       },
       fail: (err) => {
@@ -106,11 +116,12 @@ function malformedResponseError() { return Object.assign(new Error('收到的数
 function responseFailure(error, res) {
   error.statusCode = res && res.statusCode
   error.backendCode = res && res.data && res.data.code
+  error.originalMessage = res && res.data && res.data.message
   return error
 }
 
 function responseMessage(body, fallback = '请求失败') {
-  return body && typeof body.message === 'string' && body.message.trim() ? body.message : fallback
+  return displayMessage(body && body.message, fallback)
 }
 
 function validRefreshData(data) {
@@ -139,8 +150,9 @@ function validRefreshData(data) {
 function toNetworkError(err) {
   const raw = (err && (err.errMsg || err.message)) || ''
   const message = /time\s*out/i.test(raw) ? '网络超时，请检查手机网络后重试'
-    : /fail/i.test(raw) ? '网络连接失败，请检查网络后重试' : raw || '网络连接失败，请重试'
-  return Object.assign(new Error(message), {
+    : /fail/i.test(raw) ? '网络连接失败，请检查网络后重试' : displayMessage(raw, '网络连接失败，请重试')
+  return Object.assign(new Error(message), err, {
+    message, originalMessage: raw,
     transportConfiguration: !!(err && err.transportConfiguration),
     requestMayHaveOccurred: !(err && (err.requestMayHaveOccurred === false || err.transportConfiguration))
   })

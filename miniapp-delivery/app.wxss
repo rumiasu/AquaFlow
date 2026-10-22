@@ -194,3 +194,21 @@ page {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 员工界面：恢复状态与正文层级。仅本端使用，不承载业务状态判断。 */
+page { color: var(--text-primary); font-size: 28rpx; line-height: 1.55; background: var(--bg-color); }
+button { box-sizing: border-box; font-size: 28rpx; line-height: 1.5; white-space: normal; word-break: break-all; border-radius: 12rpx; }
+button[disabled] { opacity: .58; }
+input, textarea { color: var(--text-primary); box-sizing: border-box; }
+.ui-state { box-sizing: border-box; margin: 24rpx; padding: 28rpx; border: 1rpx solid var(--border-color); border-radius: 12rpx; background: var(--bg-white); }
+.ui-state-title { display: block; color: var(--text-primary); font-size: 32rpx; font-weight: 600; line-height: 1.45; }
+.ui-state-copy { display: block; margin-top: 12rpx; color: var(--text-regular); font-size: 28rpx; line-height: 1.65; word-break: break-all; }
+.ui-state-actions { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 24rpx; }
+.ui-state button { margin: 20rpx 0 0; min-height: 80rpx; padding: 16rpx 24rpx; background: var(--primary-bg); color: var(--primary-color); font-weight: 600; }
+.ui-state-actions button { margin: 0; flex: 1 1 220rpx; }
+.ui-state button::after { border: none; }
+.ui-stale { display: block; padding: 16rpx 20rpx; margin: 16rpx 0; background: var(--warning-bg); color: var(--warning-color); font-size: 26rpx; line-height: 1.6; border-radius: 8rpx; }
+.load-error button { margin: 16rpx 0 0; color: var(--primary-color); background: #fff; min-height: 72rpx; padding: 12rpx 20rpx; }
+.ui-proof-frame { overflow: hidden; }
+.ui-image-fallback { width: 100%; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 12rpx; background: var(--bg-gray); color: var(--text-regular); font-size: 24rpx; line-height: 1.5; text-align: center; word-break: break-all; }
+.ui-proof-image { display: block; width: 100%; height: 280rpx; }

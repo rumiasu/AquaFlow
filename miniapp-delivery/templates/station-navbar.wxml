@@ -18,7 +18,7 @@
 <template name="stationNavbar">
   <view class="navbar" style="padding-top:{{statusBarHeight}}px;">
     <view class="navbar-inner" style="height:{{navBarHeight}}px;">
-      <view class="navbar-left">
+      <view class="navbar-left" style="max-width:{{navLeftMax || 92}}px;">
         <!-- 变黄的判据有两条：① 后端下发的客户提示（customerHint）非空；② **有待填项**
              （2026-09-24：条件项刚成立时营业状态本身是正常的，必须靠徽标提醒）。 -->
         <view class="status-chip {{(stationStatusHint || stationPendingCount > 0) ? 'status-chip-warn' : ''}}"
@@ -31,8 +31,8 @@
           <text class="status-chip-note" wx:if="{{stationStatusNote}}">· {{stationStatusNote}}</text>
         </view>
       </view>
-      <view class="navbar-title">{{title}}</view>
-      <view class="navbar-right" wx:if="{{rightPad !== false}}"></view>
+      <view class="navbar-title" style="left:{{navTitleLeft || 160}}px;">{{title}}</view>
+      <view class="navbar-right" style="width:{{navTitleRight || 104}}px;" wx:if="{{rightPad !== false}}"></view>
     </view>
   </view>
 

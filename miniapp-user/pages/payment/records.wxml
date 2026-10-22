@@ -3,6 +3,7 @@
   <view class="error-card" wx:if="{{error}}">
     <text class="error-title">{{loaded ? '账单未更新' : '账单暂未加载'}}</text>
     <text class="error-message">{{error}}</text>
+    <button wx:if="{{needLogin}}" class="retry-button" bindtap="onLogin">去登录</button>
     <button class="retry-button" bindtap="onRetry" disabled="{{loading}}">重新加载</button>
   </view>
   <loading wx:if="{{loading && !loaded}}"></loading>
@@ -23,6 +24,6 @@
         <text class="record-status status-{{item.status}}">{{item.statusText}}</text>
       </view>
     </view>
-    <empty wx:if="{{records.length === 0}}" text="{{error ? '上次查询暂无账单记录' : '暂无账单记录'}}"></empty>
+    <view class="local-empty" wx:if="{{records.length === 0}}"><text>{{error ? '上次查询暂无账单记录' : '暂无账单记录'}}</text></view>
   </view>
 </view>

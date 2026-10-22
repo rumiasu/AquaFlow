@@ -32,6 +32,7 @@ Page({
   data: {
     loading: true,
     loaded: false,
+    needLogin: false,
     records: [],
     // 展示可读失败说明，保留原错误对象；与“确实没有流水”分开渲染。
     // 「界面空白」与「确实没有」无法区分是本仓惯犯（AGENTS.md §8.22）——
@@ -56,6 +57,9 @@ Page({
   async loadRecords() {
     const context = assetViewStation.beginRead(this)
     const stationId = context.stationId
+    const needLogin = !context.session.loggedIn || !context.session.customerId
+    this.setData({ needLogin })
+    if (needLogin) { this.setData({ records: [], loaded: false, loading: false, errorText: '请先登录后查看本人押金流水。' }); return }
     const keep = this._recordsScope && this._recordsScope.stationId === stationId
       && isCurrentSession(this._recordsScope.session) && this.data.loaded
     if (!keep) this.setData({ records: [], loaded: false })
@@ -114,5 +118,6 @@ Page({
 
   onRetry() {
     this.loadRecords()
-  }
+  },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) }
 })

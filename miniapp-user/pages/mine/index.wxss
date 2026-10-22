@@ -206,3 +206,4 @@
 .asset-refresh-note { display: block; margin: 12rpx 0; font-size: 26rpx; line-height: 1.6; color: #9a3412; }
 .assets-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .asset-cell, .menu-name, .menu-desc, .user-info { min-width: 0; overflow-wrap: anywhere; }
+.avatar-placeholder { display: flex; align-items: center; justify-content: center; background: var(--bg-gray); color: var(--text-regular); font-size: 32rpx; font-weight: 600; }

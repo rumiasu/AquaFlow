@@ -14,6 +14,7 @@
   <block>
     <view class="error-card" wx:if="{{errorText}}">
       <text class="error-text">{{errorText}}</text>
+      <button class="error-btn" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
       <view class="error-btn" wx:if="{{needStation}}" bindtap="onGoSelectStation">去选水站</view>
       <view class="error-btn ghost" wx:else bindtap="onRetry">重新加载</view>
     </view>
@@ -31,7 +32,7 @@
         <!-- 金额原样带正负（增加为正 / 扣减为负），由 js 预先算好，模板不做运算 -->
         <text class="record-amount amount-{{item.amountState}}">{{item.amountText}}</text>
       </view>
-      <empty wx:if="{{records.length === 0}}" text="{{errorText ? '上次查询暂无押金流水' : '暂无押金流水'}}"></empty>
+      <view class="local-empty" wx:if="{{records.length === 0}}"><text>{{errorText ? '上次查询暂无押金流水' : '暂无押金流水'}}</text></view>
     </view>
   </block>
 </view>

@@ -9,6 +9,7 @@
     <!-- [2026-09-20] 部分桶接口失败时的提示：没有它，失败渲染出来的「权益 0 · 占用 0」
          与"确实没有桶"长得一模一样（loadError 为空串时不渲染）。 -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}<view bindtap="onRetryAssets">重新加载 ›</view></view>
+    <button class="rights-purchase-btn" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
 
     <!-- 当前水站：桶权益与押金按「客户 × 水站」隔离。不写清楚，客户换个站会以为桶/押金丢了。
          文案与样式照抄 pages/deposit/records（同一条提示条，保持一致）。 -->
@@ -101,8 +102,8 @@
       </view>
 
       <!-- 空态：原文「暂无长期桶资产」同样是建模语言；改成顾客视角的一句话 -->
-      <empty wx:elif="{{holdingsFailed}}" text="商品桶账暂未加载，请重新加载"></empty>
-      <empty wx:else text="该站暂无桶账记录"></empty>
+      <view class="local-empty" wx:elif="{{holdingsFailed}}"><text>商品桶账暂未加载，请重新加载</text></view>
+      <view class="local-empty" wx:else><text>该站暂无桶账记录</text></view>
     </view>
 
     <view class="section">
@@ -140,8 +141,8 @@
             <text class="record-summary" wx:if="{{item.returnDetail.arrangementRequiresConfirmation && !item.returnDetail.customerConfirmationCurrent}}">水站提出了新的收桶安排，请核对后决定是否同意；也可更改或撤回申请。</text>
             <view class="record-actions">
               <button class="record-action record-action-primary" wx:if="{{item.returnDetail.status === 'APPROVED' && item.returnDetail.customerConfirmationRequired !== false && !item.returnDetail.customerConfirmationCurrent}}" data-id="{{item.id}}" bindtap="onReturnConfirm">确认费用或新安排</button>
-              <button class="record-action record-action-secondary" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnArrangement">更改收桶安排</button>
-              <button class="record-action record-action-secondary" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnWithdraw">撤回申请</button>
+              <button class="record-action record-action-secondary" disabled="{{refreshing || recordsFailed}}" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnArrangement">更改收桶安排</button>
+              <button class="record-action record-action-secondary" disabled="{{refreshing || recordsFailed}}" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnWithdraw">撤回申请</button>
             </view>
           </view>
           <text class="record-summary refund-fact" wx:if="{{item.statusText && item.refundPaidTime}}">水站登记退款交付时间：{{item.refundPaidTime}}。如实际未收到，请联系退款水站核实。</text>
@@ -149,8 +150,8 @@
           <button wx:if="{{item.statusText}}" size="mini" bindtap="onRefundFeedback" data-id="{{item.id}}">异议或补充说明</button>
         </view>
       </view>
-      <empty wx:elif="{{recordsFailed}}" text="水桶记录暂未加载，请重新加载"></empty>
-      <empty wx:else text="该站暂无水桶记录"></empty>
+      <view class="local-empty" wx:elif="{{recordsFailed}}"><text>水桶记录暂未加载，请重新加载</text></view>
+      <view class="local-empty" wx:else><text>该站暂无水桶记录</text></view>
     </view>
 
     <view class="info-card">
@@ -213,7 +214,7 @@
           <view class="qty-btn {{returnForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onReturnQtyChange" data-type="minus">
             <text>-</text>
           </view>
-          <input class="qty-input" type="number" value="{{returnForm.quantity}}" bindinput="onReturnQtyInput"></input>
+          <input class="qty-input" type="number" value="{{returnForm.quantity}}" bindinput="onReturnQtyInput" disabled="{{submitting}}"></input>
           <view class="qty-btn {{returnForm.quantity >= maxReturnQty ? 'disabled' : ''}}" bindtap="onReturnQtyChange" data-type="add">
             <text>+</text>
           </view>
@@ -263,7 +264,7 @@
 
       <view class="form-row">
         <text class="form-label">备注</text>
-        <input class="note-input" placeholder="如：搬家、换地址等" value="{{returnForm.note}}" bindinput="onReturnNoteInput"></input>
+        <input class="note-input" placeholder="如：搬家、换地址等" value="{{returnForm.note}}" bindinput="onReturnNoteInput" disabled="{{submitting}}"></input>
       </view>
       <view class="form-row" wx:if="{{summary.independentRights}}" bindtap="onPickupMode"><text>交接方式：{{returnForm.pickupModeText || '到店办理'}} ›</text></view>
       <!-- [2026-10-09] 原提示把免费原安排也说成必须确认，与已有办理闸门相矛盾；

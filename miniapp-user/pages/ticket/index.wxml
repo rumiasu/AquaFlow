@@ -9,6 +9,7 @@
       页面照旧显示「0 张 / 暂无水票 / 暂无记录」。样式复用 styles/common.wxss 的 .load-error。
     -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}<view bindtap="onRetryAssets">重新加载 ›</view></view>
+    <button class="recovery-btn recovery-btn-primary" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
     <view class="load-error" wx:if="{{purchaseNotice}}">{{purchaseNotice}}</view>
     <!-- [2026-10-07 #15] 原购买恢复提示：原来是 .load-error 错误条里塞裸 <button>（默认样式，
          与本页设计系统违和，且恢复类关键操作与错误提示无层级）。
@@ -99,8 +100,8 @@
         </view>
         <!-- [2026-09-20] 空态必须分两种：拉失败时 accounts 也是空的，一句「暂无水票」会把
              "没查到"说成"你确实没有票"（AGENTS §8.22）。 -->
-        <empty wx:if="{{accounts.length === 0 && !accountsFailed}}" text="暂无水票"></empty>
-        <empty wx:elif="{{accountsFailed}}" text="水票明细没加载出来，请点上方重新加载"></empty>
+        <view class="local-empty" wx:if="{{accounts.length === 0 && !accountsFailed}}"><text>暂无水票</text></view>
+        <view class="local-empty" wx:elif="{{accountsFailed}}"><text>水票明细没加载出来，请点上方重新加载</text></view>
       </view>
     </view>
 
@@ -121,8 +122,8 @@
           </view>
         </view>
         <!-- [2026-09-20] 同上：记录拉失败时 records 也是空的，别把"没查到"说成"确实没有记录" -->
-        <empty wx:if="{{records.length === 0 && !recordsFailed}}" text="暂无记录"></empty>
-        <empty wx:elif="{{recordsFailed}}" text="消费记录没加载出来，请点上方重新加载"></empty>
+        <view class="local-empty" wx:if="{{records.length === 0 && !recordsFailed}}"><text>暂无记录</text></view>
+        <view class="local-empty" wx:elif="{{recordsFailed}}"><text>消费记录没加载出来，请点上方重新加载</text></view>
       </view>
     </view>
 
@@ -201,6 +202,7 @@
 
       <!-- 数量：张数由所选档位决定（后端会校验张数必须等于档位张数） -->
       <text class="modal-label">购买数量</text>
+      <text class="modal-label" wx:if="{{buyForm.productId && !buyForm.packageId && !buyForm.unifiedQty && !(buyForm.faceValue > 0)}}">单张票价尚未核实，请选择购票档位或联系水站。</text>
       <view class="qty-row">
         <view class="qty-btn {{buyForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onBuyQtyStep" data-type="minus">
           <text>-</text>
@@ -237,9 +239,9 @@
       <view class="modal-btn cancel" bindtap="onClosePurchase">
         <text>取消</text>
       </view>
-      <view class="modal-btn confirm {{submitting ? 'disabled' : ''}}" bindtap="onBuySubmit">
-        <text>{{submitting ? '购买中…' : (!buyForm.productId ? '请先选择商品' : '确认购买 ¥' + buyForm.totalPrice)}}</text>
-      </view>
+      <button class="modal-btn confirm {{submitting ? 'disabled' : ''}}" bindtap="onBuySubmit" disabled="{{submitting || !buyForm.productId || buyForm.totalPrice == null || (!buyForm.packageId && !buyForm.unifiedQty && !(buyForm.faceValue > 0))}}">
+        <text>{{submitting ? '购买中…' : (!buyForm.productId ? '请先选择商品' : (buyForm.totalPrice == null ? '金额待核实' : (!buyForm.packageId && !buyForm.unifiedQty && !(buyForm.faceValue > 0) ? '请先选择购票档位' : '确认购买 ¥' + buyForm.totalPrice)))}}</text>
+      </button>
     </view>
   </view>
 </view>

@@ -77,6 +77,7 @@ Page({
     loading: true,
     items: [],
     products: [],
+    productsError: '',
     address: null,
     addressText: '',
     checkoutWarnings: [],
@@ -110,6 +111,7 @@ Page({
     payMethods: [],
     quoteLoading: false,
     quoteReady: false,
+    feeBreakdownReady: false,
     barrelPurchases: [], barrelPurchaseConfirmed: false,
     quoteError: '',
     // [2026-09-26] 收款渠道能力（后端 quote 的 wechatPay 原样存下来）：建单成功后要不要对
@@ -337,6 +339,7 @@ Page({
   },
 
 async loadItemsProducts() {
+    this.setData({ productsError: '' })
     const { items, stationId } = this.data
     const products = []
 
@@ -416,6 +419,7 @@ async loadItemsProducts() {
       }
     }
     if (productFailCount > 0) {
+      this.setData({ productsError: productFailCount + ' 件商品信息尚未核实，请重新读取后再下单。' })
       this._noteLoadError(productFailCount + ' 件商品的信息没加载出来（'
         + (productFailReason || '网络异常') + '），清单里会缺这几行，请退出重进本页重试')
       wx.showToast({ title: '部分商品信息没加载出来', icon: 'none' })
@@ -807,15 +811,20 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       }
       {
         const d = res.data
-        const totalWaterCost = d.waterAmount || 0
-        const totalDeposit = d.barrelDeposit || 0
+        const amountKnown = value => ['number', 'string'].includes(typeof value) && String(value).trim() !== ''
+          && Number.isFinite(Number(value)) && Number(value) >= 0
+        // 缺少报价事实不能用 0 或客户端相加补出；合法的真实 0 仍正常展示。
+        if (!amountKnown(d.waterAmount) || !amountKnown(d.totalAmount)) throw new Error('本次水费或合计尚未核实，请重新报价')
+        const totalWaterCost = Number(d.waterAmount)
+        const totalDeposit = Number(d.barrelDeposit || 0)
         const extraDepositBuckets = d.extraDepositBuckets || 0
-        const extraDepositAmount = d.extraDeposit || 0
-        const totalAmount = d.totalAmount || (totalWaterCost + totalDeposit + extraDepositAmount)
+        const extraDepositAmount = Number(d.extraDeposit || 0)
+        const totalAmount = Number(d.totalAmount)
         const allowOfflinePayment = d.allowOfflinePayment === true
         // [v35] 配送费与楼层费：金额与文案都由后端下发，前端只负责展示，不自算、不自造文案
-        const deliveryFee = d.deliveryFee || 0
-        const floorFee = d.floorFee || 0
+        const feeBreakdownReady = amountKnown(d.deliveryFee) && amountKnown(d.floorFee)
+        const deliveryFee = amountKnown(d.deliveryFee) ? Number(d.deliveryFee) : 0
+        const floorFee = amountKnown(d.floorFee) ? Number(d.floorFee) : 0
         const feeWarnings = Array.isArray(d.warnings) ? d.warnings : []
         // blocked 是"起送量/配送范围配成了不接单"的硬拦结论 —— 与下单侧的拒绝判据同源
         const blocked = d.blocked === true
@@ -860,11 +869,14 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 前端算一遍就会出现"结算页一个价、扣票另一个价"（本仓记过的计价双轨）。
         // 只在选中水票时用：切到现金/微信后这个键不再相关，留着会让计费区显示错。
         const ticketPay = (nextMethod === 3 && d.ticketPay) ? d.ticketPay : null
+        if (ticketPay && typeof ticketPay.fullyCovered !== 'boolean') throw new Error('水票抵扣结论尚未核实，请重新报价')
         const ticketFullyCovered = !!(ticketPay && ticketPay.fullyCovered)
+        if (ticketFullyCovered && (!amountKnown(ticketPay.payableAmount) || !amountKnown(ticketPay.coverAmount)
+          || !Number.isSafeInteger(Number(ticketPay.coverQty)) || Number(ticketPay.coverQty) <= 0)) throw new Error('水票抵扣金额与张数尚未核实，请重新报价')
         // 水票抵扣那行只在**整单能被票结清**时显示：抵不掉时本单根本用不了票，
         // 这时显示"水票抵扣 ¥X"却又要付全额，客户只会以为系统算错了。
         const ticketCoverText = ticketFullyCovered
-          ? '使用 ' + ticketPay.coverQty + ' 张水票 · 抵扣 ¥' + (Number(ticketPay.coverAmount) || 0).toFixed(2)
+          ? '使用 ' + ticketPay.coverQty + ' 张水票 · 抵扣 ¥' + Number(ticketPay.coverAmount).toFixed(2)
           : ''
         const ticketShortfallHint = (ticketPay && !ticketPay.fullyCovered) ? (ticketPay.hint || '') : ''
         // [2026-09-27 走查 C03] 票不足时页面上直接给出**下一步的两个动作**（不再只留一句结论）：
@@ -882,7 +894,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 客户这次**实际要付**的钱：票能全抵 → 0（水费/押金/配送费随票一并结清）；
         // 抵不掉 → 订单全额（本单用不了票，改选方式后就是全额付）。
         // ⚠️ 只用于展示，不参与任何提交参数 —— 提交金额一律由后端按订单重算。
-        const payableAmount = ticketPay ? (Number(ticketPay.payableAmount) || 0) : totalAmount
+        const payableAmount = ticketPay && amountKnown(ticketPay.payableAmount) ? Number(ticketPay.payableAmount) : totalAmount
         // 2026-10-12：零售参考价与票计账价可能不同；仅整单票结清时明确现金需付，不能暗示票不足可混付。
         const payableAmountLabel = ticketFullyCovered ? '本次现金需付' : '本次需付'
 
@@ -918,6 +930,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
         const updates = {
           quoteReady: true,
+          feeBreakdownReady,
           quoteError: '',
           barrelPurchases, barrelPurchaseConfirmed: false,
           products: updatedProducts,
@@ -1788,6 +1801,9 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   _finalSubmissionAllowed() {
+    if (this.data.productsError) {
+      wx.showToast({ title: '请先重新核实完整商品清单', icon: 'none' }); return false
+    }
     if (!this._hasCurrentQuote() || !this.data.quoteReady || this.data.quoteLoading || this.data.quoteError || this.data.blocked) {
       wx.showToast({ title: '请先核实最新报价', icon: 'none' }); return false
     }
@@ -1944,7 +1960,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
    */
   onCallStation() {
     if (this.data.stationPhone) {
-      wx.makePhoneCall({ phoneNumber: this.data.stationPhone })
+      wx.makePhoneCall({ phoneNumber: this.data.stationPhone, fail: () => wx.showToast({ title: '电话未拨出，请稍后重试', icon: 'none' }) })
       return
     }
     this.setData({ showAssetDetail: false })
@@ -1958,5 +1974,10 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   onDetailPopupClose() {
     this.setData({ showDetailPopup: false })
-  }
+  },
+  onProductImageError(e) {
+    const { id, url } = e.currentTarget.dataset
+    this.setData({ products: this.data.products.map(p => String(p.id) === String(id) && p.imageUrl === url ? { ...p, imageUrl: '' } : p) })
+  },
+  onRetryProducts() { if (!this.data.submitting) return this.loadItemsProducts() }
 })

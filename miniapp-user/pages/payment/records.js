@@ -8,6 +8,7 @@ Page({
   data: {
     loading: true,
     loaded: false,
+    needLogin: false,
     error: '',
     records: []
   },
@@ -52,6 +53,7 @@ Page({
   onRetry() {
     return this.loadRecords()
   },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
 
   canApplyRecords(context) {
     if (this._destroyed || this._hidden || context.seq !== this._recordsSeq) return false
@@ -65,6 +67,7 @@ Page({
   async loadRecords() {
     if (this._destroyed || this._hidden) return
     const session = captureSession()
+    this.setData({ needLogin: !session.loggedIn || !session.customerId })
     // 同一客户退出重登也不能沿用上一登录周期的钱款记录；正常续期仍属于原周期。
     if (!this._recordsSession || !isCurrentSession(this._recordsSession)) {
       this.setData({ records: [], loaded: false, error: '' })

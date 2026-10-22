@@ -1653,3 +1653,4 @@
 .fee-hint { line-height: 1.7; }
 .popup-content { max-height: 88vh; box-sizing: border-box; }
 .product-info, .fee-label-group, .method-info { min-width: 0; overflow-wrap: anywhere; }
+.product-image-empty { display: flex; align-items: center; justify-content: center; padding: 12rpx; background: var(--bg-gray); color: var(--text-regular); font-size: 26rpx; text-align: center; line-height: 1.5; }

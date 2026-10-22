@@ -66,6 +66,7 @@ Page({
   onRetry() {
     if (this._orderId) return this.loadOrder(this._orderId)
   },
+  onViewOrders() { wx.switchTab({ url: '/pages/order/list' }) },
 
   clearDetail(detailState, loadError = '') {
     this.setData({ detailState, loadError, refreshNotice: '', order: null, items: [], images: [],
@@ -163,7 +164,7 @@ Page({
         deliveryFeeText: yuan(order.deliveryFee),
         floorFeeText: yuan(order.floorFee),
         totalText: yuan(order.totalAmount),
-        hasDeposit: Number(order.depositAmount || 0) > 0 || Number(order.extraDepositAmount || 0) > 0,
+        hasDeposit: Number(order.depositAmount || 0) > 0,
         hasDeliveryFee: Number(order.deliveryFee || 0) > 0,
         hasFloorFee: Number(order.floorFee || 0) > 0
       }
@@ -229,7 +230,7 @@ Page({
       console.warn('没有可拨打的水站公开电话，已跳过拨号')
       return
     }
-    wx.makePhoneCall({ phoneNumber: phone })
+    wx.makePhoneCall({ phoneNumber: phone, fail: () => wx.showToast({ title: '电话未拨出，请稍后重试', icon: 'none' }) })
   },
 
   async loadImages(id, context = this._detailContext) {
@@ -270,7 +271,7 @@ Page({
     const { url } = e.currentTarget.dataset
     const urls = this.data.images.filter(i => !i.failed).map(i => i.url)
     if (!urls.includes(url)) return
-    wx.previewImage({ current: url, urls })
+    wx.previewImage({ current: url, urls, fail: () => wx.showToast({ title: '凭证图片未能打开，请重新加载', icon: 'none' }) })
   },
 
   onReorder() {

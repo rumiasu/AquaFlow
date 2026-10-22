@@ -4,6 +4,7 @@
     <text class="tip">{{stationName}} · 押金由所选水站保管。本次不送水和桶，水站实际收到款项后权益生效。</text>
   </view>
   <text class="error" wx:if="{{error}}">{{error}}</text>
+  <button wx:if="{{needLogin}}" bindtap="onLogin">登录后办理本人桶押金</button>
   <view class="recovery" wx:if="{{recoveryEntries.length > 0 || recoveryError}}">
     <text class="section-title">原购买结果待核实</text>
     <text class="tip">结果未确认时，原购买会一直保留。查询或恢复原请求不需要重新选择商品或确认现价。</text>

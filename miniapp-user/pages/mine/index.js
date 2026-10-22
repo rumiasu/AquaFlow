@@ -171,8 +171,8 @@ Page({
     }
 
     // 企业资料：仅月结/企业客户显示这行，个人用户不占行
-    const isCompany = !!(companyRes && companyRes.code === 0 && companyRes.data
-      && (companyRes.data.id || companyRes.data.companyName))
+    const companyVerified = !!(companyRes && companyRes.code === 0 && Object.prototype.hasOwnProperty.call(companyRes, 'data'))
+    const isCompany = companyVerified ? !!(companyRes.data && (companyRes.data.id || companyRes.data.companyName)) : !!keep && this.data.isCompany
 
     const missing = Object.keys(v).filter(k => v[k] === null)
     const stale = keep && !denied ? missing.filter(k => previous[k] !== null && previous[k] !== undefined) : []
@@ -189,6 +189,7 @@ Page({
       staleAssetsText: stale.length ? '刷新未完成，部分资产为上次读取，请重新核对。' : '',
       barrelHint,
       isCompany,
+      companyInfoFailed: !companyVerified,
       ...view
     })
 

@@ -33,5 +33,5 @@
 
   <!-- 空状态：只在**确实取到了、且列表为空**时才说"暂无订单"；
        加载中与加载失败都不许落到这句（!loading && !loadError 两道闸门）。 -->
-  <empty wx:if="{{!loading && !loadError && orders.length === 0}}" text="暂无订单" />
+  <view class="local-empty" wx:if="{{!loading && !loadError && orders.length === 0}}"><text>暂无订单</text></view>
 </view>

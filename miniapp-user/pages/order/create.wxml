@@ -33,6 +33,7 @@
       （本页只覆盖它的左右外边距，见 create.wxss —— 不动全局文件）。
     -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+    <view class="load-error" wx:if="{{productsError}}">{{productsError}}<button bindtap="onRetryProducts" disabled="{{submitting}}">重新读取完整商品清单</button></view>
 
     <text class="station-asset-boundary">桶容量、水票与押金按本次水站分别记录，其他水站不能通用。</text>
 
@@ -67,7 +68,8 @@
       </view>
       <view class="product-list">
         <view class="product-card" wx:for="{{products}}" wx:key="id">
-          <image class="product-image" src="{{item.imageUrl || '/assets/image/default-product.jpg'}}" mode="aspectFit"></image>
+          <image wx:if="{{item.imageUrl}}" class="product-image" src="{{item.imageUrl}}" mode="aspectFit" data-id="{{item.id}}" data-url="{{item.imageUrl}}" binderror="onProductImageError"></image>
+          <view wx:else class="product-image product-image-empty"><text>商品图暂未提供</text></view>
           <view class="product-info">
             <text class="product-name">{{item.name}}</text>
             <text class="product-image-note" wx:if="{{item.imageUrl === '/assets/product/barrel-neutral-template.webp'}}">商品示意图 · 包装以实物为准</text>
@@ -169,21 +171,22 @@
         </view>
         <view class="section-link standalone-link" wx:if="{{barrelPurchases.length > 0}}" bindtap="onStandalonePurchase">也可单独办理桶押金 ›</view>
         <!-- [2026-10-06] 配送费/楼层费首屏直接显示，不再隐藏到明细弹窗 -->
-        <view class="fee-row" wx:if="{{deliveryFeeText || floorFeeText}}">
+        <view class="fee-row" wx:if="{{feeBreakdownReady && (deliveryFeeText || floorFeeText)}}">
           <text class="fee-label">配送费</text>
           <text class="fee-value">¥{{deliveryFeeText || '0.00'}}</text>
         </view>
-        <view class="fee-row" wx:if="{{floorFeeText}}">
+        <view class="fee-row" wx:if="{{feeBreakdownReady && floorFeeText}}">
           <text class="fee-label">楼层费</text>
           <text class="fee-value">¥{{floorFeeText}}</text>
         </view>
         <!-- 两项都是 0：合并成一行说明（§3「零费用可合并说明」）。
              ⚠️ 报的是**这次报价**的 0，不写成"免配送费 / 包邮"这类承诺 —— 配送费是站级配置，
              首页就为同一件事删过「配送免运费」（见 home/index.wxml 同款注释）。 -->
-        <view class="fee-row" wx:if="{{!deliveryFeeText && !floorFeeText}}">
+        <view class="fee-row" wx:if="{{feeBreakdownReady && !deliveryFeeText && !floorFeeText}}">
           <text class="fee-label">配送费、楼层费</text>
           <text class="fee-value">¥0.00</text>
         </view>
+        <view class="fee-row" wx:if="{{!feeBreakdownReady}}"><text class="fee-label">配送费、楼层费明细</text><text class="fee-value">待核实</text></view>
       </block>
 
       <text class="fee-hint" wx:if="{{!quoteReady}}">{{quoteLoading ? '正在核实本次费用…' : '费用尚未核实，请先确认地址并重新报价。'}}</text>
@@ -324,7 +327,7 @@
         </view>
         <!-- 硬拦 > 提交中 > 已有订单 > 常态；普通须知不增加提交门槛。 -->
         <view class="submit-btn {{(submitting || blocked) ? 'disabled' : ''}}" bindtap="onSubmit">
-          <text>{{blocked ? '暂不可下单' : (submitting ? '提交中…' : (pendingOrderId ? (pendingOrderPaid || pendingOrderPaymentState !== 'unpaid' ? '查看这笔订单' : '继续支付') : '立即下单'))}}</text>
+          <text>{{blocked ? '暂不可下单' : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid || pendingOrderPaymentState !== 'unpaid' ? '查看这笔订单' : '继续支付') : '立即下单'))}}</text>
         </view>
       </view>
     </view>
@@ -502,6 +505,7 @@
         -->
 
         <!-- 新增桶押金（口径同正文费用摘要：extraDepositBuckets / extraDepositAmountText） -->
+        <view class="detail-section" wx:if="{{quoteReady && !feeBreakdownReady}}"><text class="fee-hint">配送费与楼层费明细尚未核实，请重新报价查看。</text></view>
         <view class="detail-section" wx:if="{{extraDepositBuckets > 0}}">
           <view class="detail-section-title">新增桶押金</view>
           <view class="detail-row" wx:for="{{products}}" wx:key="id" wx:if="{{item.category === 1 && item.shortage > 0}}">
@@ -520,9 +524,9 @@
         </view>
         <!-- 配送费 / 楼层费（v35）：必须逐项列出 —— 只把它们并进下面的合计，
              弹窗里各项之和就对不上合计，客户会以为算错了钱 -->
-        <view class="detail-section" wx:if="{{deliveryFeeText || floorFeeText}}">
+        <view class="detail-section" wx:if="{{feeBreakdownReady && (deliveryFeeText || floorFeeText)}}">
           <view class="detail-section-title">配送费用</view>
-          <view class="detail-row" wx:if="{{deliveryFeeText}}">
+          <view class="detail-row" wx:if="{{feeBreakdownReady && deliveryFeeText}}">
             <view class="detail-row-left">
               <text class="detail-item-name">配送费</text>
             </view>
@@ -530,7 +534,7 @@
               <text class="detail-item-price">¥{{deliveryFeeText}}</text>
             </view>
           </view>
-          <view class="detail-row" wx:if="{{floorFeeText}}">
+          <view class="detail-row" wx:if="{{feeBreakdownReady && floorFeeText}}">
             <view class="detail-row-left">
               <text class="detail-item-name">楼层费</text>
             </view>
@@ -616,11 +620,11 @@
             <text class="fee-label">新增桶押金</text>
             <text class="fee-value">¥{{extraDepositAmountText}}</text>
           </view>
-          <view class="fee-row" wx:if="{{deliveryFeeText}}">
+          <view class="fee-row" wx:if="{{feeBreakdownReady && deliveryFeeText}}">
             <text class="fee-label">配送费</text>
             <text class="fee-value">¥{{deliveryFeeText}}</text>
           </view>
-          <view class="fee-row" wx:if="{{floorFeeText}}">
+          <view class="fee-row" wx:if="{{feeBreakdownReady && floorFeeText}}">
             <text class="fee-label">楼层费</text>
             <text class="fee-value">¥{{floorFeeText}}</text>
           </view>

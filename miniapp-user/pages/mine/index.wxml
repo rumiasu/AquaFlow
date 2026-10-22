@@ -3,7 +3,8 @@
 <view class="page">
   <!-- 用户行 -->
   <view class="card user-card" bindtap="{{isLogin ? 'onEditProfile' : 'onLogin'}}">
-    <image class="avatar" src="{{isLogin && userInfo.avatarUrl ? userInfo.avatarUrl : '/assets/image/default-avatar.png'}}" mode="aspectFill" />
+    <image wx:if="{{isLogin && userInfo.avatarUrl}}" class="avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill" />
+    <view wx:else class="avatar avatar-placeholder"><text>{{isLogin ? '我' : '客'}}</text></view>
     <view class="user-info">
       <text class="nickname">{{isLogin ? (userInfo.nickName || userInfo.nickname || '用户') : '点击登录'}}</text>
       <text class="user-tag" wx:if="{{isLogin}}">管理账户与收货信息</text>
@@ -71,6 +72,7 @@
 
     <!-- 我的信息 -->
     <view class="group-title">我的信息</view>
+    <view class="asset-refresh-note" wx:if="{{companyInfoFailed}}" bindtap="onRetryAssets">企业资料状态尚未核实，点此重新读取；已知入口仅供核对。</view>
     <view class="card menu-card">
       <view class="menu-row" data-url="/pages/mine/account-data/index" bindtap="onMenuTap">
         <text class="menu-name">账户资料与请求</text>

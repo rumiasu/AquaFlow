@@ -31,6 +31,11 @@ Page({
       this.setData({ recoveryError: '原购买暂时无法读取，请稍后重试；暂不能另买', safetyBlocked: true, canAnother: false })
       return { error, session: null }
     }
+    this.setData({ needLogin: !session.loggedIn || !session.customerId })
+    if (!session.loggedIn || !session.customerId) {
+      this.setData({ recoveryEntries: [], purchases: [], purchasesLoaded: false, quote: null, originalActive: false, safetyBlocked: true, canAnother: false })
+      return { error: new Error('请先登录后办理本人桶押金'), session }
+    }
     if (this._viewEpoch !== session.epoch) {
       this._viewEpoch = session.epoch
       for (const field of ['_submitSeq', '_recoverySeq', '_anotherSeq', '_quoteSeq', '_purchasesSeq', '_productsSeq']) this[field] = (this[field] || 0) + 1
@@ -62,6 +67,7 @@ Page({
   },
   async onLoad(options) {
     const { session } = this.syncRecovery()
+    if (!session || !session.loggedIn || !session.customerId) { this.setData({ error: '请先登录后办理本人桶押金。' }); return }
     this.initialProductId = Number(options.productId) || null
     this.setData({ quantity: Math.max(1, Math.min(1000, Number(options.quantity) || 1)), fromOrder: options.from === 'order' })
     try {
@@ -371,5 +377,6 @@ Page({
     return this.data.fromOrder && previous && previous.route === 'pages/order/create'
       && Number(previous.data.stationId) === Number(stationId)
   },
-  onBack() { wx.navigateBack() }
+  onBack() { wx.navigateBack() },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) }
 })

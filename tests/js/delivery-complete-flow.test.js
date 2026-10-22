@@ -323,7 +323,7 @@ await test('三态文案绑定到实际 WXML，交桶禁用和选择事件均可
   const template = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/order/complete.wxml'), 'utf8').replace(/<!--[\s\S]*?-->/g, '')
   for (const binding of ['{{completionTitle}}', '{{completionHint}}', '{{cashUncollectedDesc}}', '{{cashUncollectedHint}}',
     '{{successTitle}}', '{{successSubtitle}}']) assert.ok(template.includes(binding), binding)
-  assert.ok(/disabled="{{submittingComplete \|\| completionBlocked}}"/.test(template))
+  assert.ok(/disabled="{{submittingComplete \|\| checkingCompletion \|\| completionBlocked}}"/.test(template))
   assert.ok(template.includes('completionButtonText') && template.includes('successButtonText'))
   assert.ok(template.includes('catchtap="onSelectCollected" data-value="false"'))
   assert.ok(template.includes('bindtap="onConfirmComplete"'))

@@ -180,6 +180,7 @@ Page({
     showMore: false,
     // 防连点：提交在途时不再发第二次（服务端有状态 CAS 兜底，但第二次会让已经成功的人看到报错）
     submittingComplete: false,
+    checkingCompletion: false,
     showReasonPicker: false,
     currentReasonItemIdx: -1,
     reasonOptions: REASON_OPTIONS
@@ -209,7 +210,7 @@ Page({
     const loadSeq = (this._orderLoadSeq || 0) + 1
     this._orderLoadSeq = loadSeq
     // 重载时先隐藏旧提示；迟到响应不能覆盖后一次读取到的订单状态。
-    this.setData({ orderLoaded: false, orderLoading: true, orderLoadError: '', showStockPrepPrompt: false, stockPrepText: '' })
+    this.setData({ orderLoaded: false, orderLoading: true, orderLoadError: '', checkingCompletion: false, showStockPrepPrompt: false, stockPrepText: '' })
     try {
       const res = await getOrderDetail(id)
       if (loadSeq !== this._orderLoadSeq) return
@@ -698,6 +699,7 @@ Page({
   },
 
   async onConfirmComplete() {
+    if (this.data.resultState === 'unknown' && !await this.verifyCompletionRetry()) return
     if (!this.data.orderLoaded || !this.data.orderId || !this.data.orderInfo) {
       wx.showToast({ title: '订单未加载完成', icon: 'none' })
       return
@@ -770,7 +772,33 @@ Page({
     wx.navigateTo({ url: `/pages/order/detail?id=${this.data.orderId}` })
   },
 
+  async verifyCompletionRetry() {
+    if (this.data.checkingCompletion || this.data.submittingComplete) return false
+    const app = getApp(), orderId = this.data.orderId, generation = app._loginGeneration || 0, orderVersion = this._orderLoadSeq
+    const identity = () => { const g = getApp().globalData || {}, u = g.userInfo || {}; return JSON.stringify([!!g.isLogin, u.staffId, u.stationId, u.role, u.bindStatus]) }
+    const owner = identity(), current = () => getApp() === app && generation === (app._loginGeneration || 0) && owner === identity() && String(this.data.orderId) === String(orderId) && orderVersion === this._orderLoadSeq
+    this.setData({ checkingCompletion: true })
+    try {
+      const res = await getOrderDetail(orderId)
+      if (!current()) return false
+      const order = res && res.data
+      if (!order || String(order.id) !== String(orderId)) throw new Error('原订单尚未核实')
+      if (Number(order.status) !== 2) {
+        wx.showModal({ title: '请核对原订单', content: [3, 4].includes(Number(order.status)) ? '原订单已送达或已完成，无需重复提交。请打开原订单查看收款与交付记录。' : '原订单当前不是配送中，请打开原订单核对最新状态。', showCancel: false, confirmText: '知道了' })
+        return false
+      }
+      // 只在当前原订单确认仍在配送中后开放原表单；现场输入不重置，仍需人工确认。
+      this.setData({ resultState: 'idle', unknownHint: '' })
+      return true
+    } catch (err) {
+      if (current()) wx.showToast({ title: '原订单尚未核实，请稍后重试，勿重复交付', icon: 'none' })
+      return false
+    } finally { if (current()) this.setData({ checkingCompletion: false }) }
+  },
+
   async _doSubmit() {
+    // 已打开的旧确认框也不能绕过未知结果核实。
+    if (this.data.resultState === 'unknown' || this.data.resultState === 'success') return
     // 模板禁用与确认摘要之外再守一次，旧弹窗回调或直接触发也不能提交未收齐的新押金单。
     if (!this._canCompleteWithCollection()) return
     // 防连点（契约：重复点击不重复出库/回桶/计件）。服务端还有状态 CAS 兜底
@@ -824,12 +852,12 @@ Page({
       //   · 网络断开/超时 ⇒ 请求可能已经送到服务端（订单可能已经完成），
       //     这时**不能**显示失败、更不能让人盲目重提交（重复提交虽被 CAS 挡住，但那会给出误导性的报错）；
       //   · 业务拒绝（备货不齐、状态已变）⇒ 服务端明确回了"没做成"，是失败，可以改了再提交。
-      // 判据用请求层归一化过的文案（utils/request 的 toNetworkError 只产出这两句网络类 message）。
+      // 以请求层的是否可能执行、响应完整性和业务拒绝元数据为准；中文网络文案只兼容旧错误。
       const msg = (err && err.message) || ''
       // 2026-10-22：展示文案不能决定写入结果。服务异常/损坏回执同样可能已经登记，保留核实入口。
-      const isNetwork = err && err.requestMayHaveOccurred !== false && (
-        msg.indexOf('网络') === 0 || msg.indexOf('网络超时') >= 0
-        || err.malformedResponse || err.sessionChanged || Number(err.statusCode) >= 500)
+      const isNetwork = err && err.requestMayHaveOccurred !== false && !err.businessRejected && (
+        err.requestMayHaveOccurred === true || msg.indexOf('网络') === 0 || msg.indexOf('网络超时') >= 0
+        || err.malformedResponse || err.sessionChanged || Number(err.statusCode) >= 500 || Number(err.backendCode) >= 500)
       if (isNetwork) {
         this.setData({
           resultState: 'unknown',

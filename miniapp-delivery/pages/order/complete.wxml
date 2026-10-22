@@ -328,7 +328,7 @@
       提交中不能让人再点，结果未知时保留原单核实入口及安全重试。
       服务端确认成功后按钮所在页会跳走（见 complete.js 的 setTimeout 跳转）。
     -->
-    <button class="btn-confirm {{(submittingComplete || completionBlocked) ? 'btn-confirm-busy' : ''}}" bindtap="onConfirmComplete" disabled="{{submittingComplete || completionBlocked}}">
+    <button class="btn-confirm {{(submittingComplete || checkingCompletion || completionBlocked) ? 'btn-confirm-busy' : ''}}" bindtap="onConfirmComplete" loading="{{checkingCompletion}}" disabled="{{submittingComplete || checkingCompletion || completionBlocked}}">
       {{resultState === 'submitting' ? '提交中…' : (resultState === 'success' ? successButtonText : (resultState === 'unknown' ? '再提交一次（先核实原单）' : completionButtonText))}}
     </button>
   </view>

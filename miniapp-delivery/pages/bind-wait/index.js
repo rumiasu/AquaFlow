@@ -23,19 +23,35 @@ Page({
     this.refresh(false)
   },
 
+  onShow() { if (this._bindingHidden) { this._bindingHidden = false; this.refresh(true) } },
+  onHide() { this._bindingHidden = true; this._bindingSeq = (this._bindingSeq || 0) + 1 },
+  onUnload() { this.onHide() },
+
+  bindingSnapshot() {
+    const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+    return { app, generation: app._loginGeneration || 0, identity: JSON.stringify([!!g.isLogin, u.staffId, u.stationId, u.role, u.bindStatus]), seq: this._bindingSeq }
+  },
+  bindingCurrent(snapshot) {
+    const now = this.bindingSnapshot()
+    return !this._bindingHidden && snapshot.app === now.app && snapshot.generation === now.generation && snapshot.identity === now.identity && snapshot.seq === now.seq
+  },
+
   async refresh(silent) {
-    this.setData({ refreshLoading: true, refreshError: '' })
+    this._bindingSeq = (this._bindingSeq || 0) + 1
+    let active = this.bindingSnapshot()
+    const app = active.app
+    const userInfo = { ...((app.globalData && app.globalData.userInfo) || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {}) }
+    this.setData({ refreshLoading: true, refreshError: '', statusReady: false, applyStationName: '' })
     try {
-      const app = getApp()
       // 优先从服务器拿最新 bind 状态
       const [bindRes, meRes] = await Promise.all([
         get(API.BIND_STATUS).catch(() => null),
         get(API.ME).catch(() => null)
       ])
 
+      if (!this.bindingCurrent(active)) return
       if (!(bindRes && bindRes.data) && !(meRes && meRes.data)) throw new Error('申请状态尚未读取')
       this.setData({ statusReady: true })
-      const userInfo = (app.globalData && app.globalData.userInfo) || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {}
       let bindStatus = userInfo.bindStatus || BINDING_STATUS.UNBOUND
       let stationId = userInfo.stationId || null
       let applyStationId = userInfo.applyStationId || null
@@ -64,12 +80,13 @@ Page({
         bindingStatus: bindStatus,
         applyStationId
       })
+      active = this.bindingSnapshot()
 
       // 判定跳转
       if (bindStatus === BINDING_STATUS.BOUND && stationId) {
         if (!silent) wx.showToast({ title: '绑定成功', icon: 'success' })
         setTimeout(() => {
-          wx.switchTab({ url: '/pages/home/index' })
+          if (this.bindingCurrent(active)) wx.switchTab({ url: '/pages/home/index' })
         }, silent ? 0 : 1500)
         return
       }
@@ -81,7 +98,7 @@ Page({
             content: '站长拒绝了您的绑定申请，请重新申请。',
             showCancel: false,
             success: () => {
-              wx.redirectTo({ url: '/pages/station-mgmt/apply-bind/index' })
+              if (this.bindingCurrent(active)) wx.redirectTo({ url: '/pages/station-mgmt/apply-bind/index' })
             }
           })
           return
@@ -98,9 +115,10 @@ Page({
         applyStationName: userInfo.applyStationName || ''
       })
     } catch (err) {
+      if (!this.bindingCurrent(active)) return
       this.setData({ refreshError: '申请最新状态尚未核实，请刷新后查看' })
       if (!silent) wx.showToast({ title: '刷新失败', icon: 'none' })
-    } finally { this.setData({ refreshLoading: false }) }
+    } finally { if (this.bindingCurrent(active)) this.setData({ refreshLoading: false }) }
   },
 
   /**

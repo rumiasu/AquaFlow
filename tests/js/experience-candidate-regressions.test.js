@@ -356,24 +356,36 @@ test('G: 当前报价站在已有资产、非桶商品、首次提示收起时�
 })
 // 2026-10-22：旧断言把履约站当定价/资产站，与三站领域规则相反；保留原场景并明确三站不同。
 test('G: 再来一单采用原单归属站，展示与报价请求一致，不改首页选择站', async () => {
-  const quotes = []
+  const quotes = [], products = [], orders = []
   const t = environment('customer', 'miniapp-user/pages/order/create.js', call => {
     if (/\/payments\/quote(?:\?|$)/.test(call.url)) quotes.push(call)
-    else if (/\/products\/5(?:\?|$)/.test(call.url)) success(call, { id: 5, name: 'Synthetic bottled water', category: 2, price: 10, deposit: 0 })
+    else if (/\/products\/5(?:\?|$)/.test(call.url)) {
+      products.push(call); success(call, { id: 5, name: 'Synthetic bottled water', category: 2, price: 10, deposit: 0 })
+    }
+    else if (/\/orders\/create(?:\?|$)/.test(call.url)) { orders.push(copy(call.data)); success(call, { orderId: 889 }) }
+    else if ((call.method || 'GET') === 'POST') success(call, { status: 2 })
+    else if (/\/orders\/889(?:\?|$)/.test(call.url)) success(call, { id: 889, stationId: 11, paymentStatus: 2 })
     else if (/\/addresses(?:\?|$)/.test(call.url)) success(call, [{ id: 91, isDefault: true }])
     else success(call, [])
   })
   t.wx.setStorageSync('selectedStation', { id: 33, name: 'Synthetic current home station' })
   await t.page._doLoadFromOrder({ id: 88, stationId: 11, deliveryStationId: 22, items: [{ productId: 5, quantity: 1 }] })
   await flush(); assert.strictEqual(quotes.length, 1); assert.strictEqual(quotes[0].data.stationId, 11)
+  assert.deepStrictEqual(products.map(call => Number(new URL(call.url).searchParams.get('stationId'))), [11])
   success(quotes[0], { waterAmount: 10, totalAmount: 10, stationName: 'Synthetic original owning station',
-    methods: [{ id: 1, name: '微信支付', enabled: true }], defaultMethod: 1, firstStationAsset: false })
+    methods: [{ id: 1, name: '微信支付', enabled: true }], defaultMethod: 1, firstStationAsset: false,
+    independentRights: false, barrelPurchases: [], wechatPay: { enabled: true, mock: true } })
   await flush()
   const root = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxml'), 'utf8'))
   const visible = renderElements(root, t.page.data, { includeText: true }).map(e => e.text).join('\n')
   assert(visible.includes('本次下单水站') && visible.includes('Synthetic original owning station'))
+  assert.strictEqual(orders.length, 0, '带入复购及报价不得自动下单')
+  await t.page.onSubmit(); await flush()
+  assert.strictEqual(orders.length, 1); assert.strictEqual(orders[0].stationId, 11)
+  await t.page.onSubmit(); assert.strictEqual(orders.length, 1, '原单成功后重复确认不创建第二单')
   assert.strictEqual(t.wx.getStorageSync('selectedStation').id, 33)
-  record({ quoteStation: quotes[0].data.stationId, originalHomeStation: t.wx.getStorageSync('selectedStation').id })
+  record({ productStation: Number(new URL(products[0].url).searchParams.get('stationId')), quoteStation: quotes[0].data.stationId,
+    submittedStation: orders[0].stationId, originalHomeStation: t.wx.getStorageSync('selectedStation').id })
 })
 
 ;(async () => {

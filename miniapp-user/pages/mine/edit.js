@@ -13,13 +13,17 @@ Page({
 
   onLoad() {
     this._session = captureSession()
+    const needLogin = !this._session.loggedIn || !this._session.customerId
+    this.setData({ needLogin })
     const app = getApp()
-    const userInfo = app.globalData.userInfo || {}
+    const userInfo = needLogin ? {} : app.globalData.userInfo || {}
     this.setData({
       nickname: userInfo.nickname || userInfo.nickName || '',
       phone: userInfo.phone || ''
     })
   },
+  onShow() { if (!isCurrentSession(this._session)) this.onLoad() },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
 
   onNicknameInput(e) {
     this.setData({ nickname: e.detail.value })
@@ -31,6 +35,7 @@ Page({
 
   async onSubmit() {
     if (this.data.submitting || this._unloaded) return
+    if (this.data.needLogin) { this.setData({ saveError: '请先登录后修改本人资料。' }); return }
     if (!isCurrentSession(this._session)) { this.setData({ saveError: '登录状态已变化，请返回后重新进入个人资料。' }); return }
     const { nickname, phone } = this.data
     if (!nickname.trim()) {

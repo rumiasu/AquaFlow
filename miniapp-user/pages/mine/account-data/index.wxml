@@ -6,6 +6,7 @@
     <text class="body" wx:if="{{options.intakeEnabled && options.intakeContact}}">受理联系渠道：{{options.intakeContact}}</text>
     <text class="body">这里不会自动导出、删除或匿名化资料，也不会注销账户或清理未结业务。</text>
     <text class="error" wx:if="{{error}}">{{error}}</text>
+    <button wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
     <button size="mini" bindtap="onRetry" disabled="{{loading}}" loading="{{loading}}">重新查询</button>
   </view>
   <view class="card" wx:if="{{options.closureCheckSupported}}">

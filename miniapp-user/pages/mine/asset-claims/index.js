@@ -14,6 +14,7 @@ Page({
     if (this._unloaded) return
     const app = getApp(), session = captureSession(), customer = claim.id(session.customerId)
     const owner = app.globalData.isLogin && customer ? 'customer:' + customer : null
+    this.setData({ needLogin: !owner })
     this._hidden = false; this._epoch = (this._epoch || 0) + 1; this._flight = null; this._intent = null
     if (!owner) {
       this._actor = null; this._intent = null
@@ -80,6 +81,7 @@ Page({
     finally { if (this.current(c)) this.setData({ loading: false, submitting: false }) }
   },
   onRetry() { if (!this.data.loading && !this._flight) return this.load() },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
   async onStation(e) {
     if (this._flight || this.data.submitting || !this.current(this.context())) return
     const index = Number(e.detail.value), station = this.data.stations[index]

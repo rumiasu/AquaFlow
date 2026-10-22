@@ -12,6 +12,7 @@
   </view>
 
   <view class="save-error" wx:if="{{saveError}}">{{saveError}}</view>
+  <button class="submit-btn" wx:if="{{needLogin}}" bindtap="onLogin"><text>去登录</text></button>
   <button class="submit-btn {{submitting ? 'disabled' : ''}}" disabled="{{submitting}}" loading="{{submitting}}" bindtap="onSubmit">
     <text>{{submitting ? '保存中...' : '保存资料'}}</text>
   </button>

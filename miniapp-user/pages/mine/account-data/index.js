@@ -18,6 +18,9 @@ Page({
   current(epoch) { return !this._unloaded && !this._hidden && epoch === this._epoch && isCurrentSession(this._session) },
   async load() {
     const epoch = this._epoch
+    const needLogin = !this._session || !this._session.loggedIn || !this._session.customerId
+    this.setData({ needLogin })
+    if (needLogin) { this.setData({ loading: false, options: null, items: [], detail: null, check: null, error: '请先登录后查看本人账户资料与申请。' }); return }
     const keep = this._loadedSession && isCurrentSession(this._loadedSession)
     this.setData({ loading: true, error: '', ...(keep ? {} : { options: null, items: [], detail: null, check: null }) })
     try {
@@ -31,6 +34,7 @@ Page({
     finally { if (this.current(epoch)) this.setData({ loading: false }) }
   },
   onRetry() { if (!this.data.loading) this.load() },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
   async loadList(more, epoch) {
     const res = await api.mine(more ? this.data.nextBeforeId : undefined)
     if (!this.current(epoch)) return

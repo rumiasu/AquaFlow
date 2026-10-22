@@ -9,6 +9,7 @@
     <view class="claim-error" wx:if="{{stationsError}}" bindtap="loadStations">{{stationsError}} · 点击重试</view>
   </view>
   <view class="claim-error" wx:if="{{error}}">{{error}}</view>
+  <button class="claim-primary" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
   <view class="claim-notice" wx:if="{{notice}}">{{notice}}</view>
   <button class="claim-secondary" wx:if="{{stationId}}" loading="{{loading}}" disabled="{{loading || submitting}}" bindtap="onRetry">刷新认领记录</button>
   <view class="claim-muted" wx:if="{{loading}}">正在核实认领信息…</view>

@@ -51,6 +51,8 @@ Page({
   async loadData() {
     const session = captureSession(), seq = this._readSeq = (this._readSeq || 0) + 1
     const current = () => !this._hidden && !this._unloaded && seq === this._readSeq && isCurrentSession(session)
+    this.setData({ needLogin: !session.loggedIn || !session.customerId })
+    if (!session.loggedIn || !session.customerId) { this.setData({ loading: false, loaded: false, templates: [], loadError: '请先登录后查看本人常用订水配置。' }); return }
     this.setData({ loading: !this.data.loaded, loadError: '' })
     try {
       const sid = this.data.stationId || await resolveStationId()
@@ -68,6 +70,7 @@ Page({
     } finally { if (current()) this.setData({ loading: false }) }
   },
   onRetry() { return this.loadData() },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
 
   onAddTemplate() {
     if (this.data.submitting) return

@@ -15,6 +15,7 @@ function viewError(error, fallback = '暂时无法完成，请稍后重试') {
 
 Page({
   data: {
+    isLogin: false,
     serviceInfo: {
       phone: '',
       stationName: ''
@@ -47,6 +48,7 @@ Page({
     refundRef: null, refundReady: false, refundError: '', refundOptions: [], refundOptionsError: '',
     refundOptionsMore: false, refundOptionsPage: 0, pendingRefundNote: false,
     refundOptionsLoading: false, refundOptionsLoaded: false,
+    refundLoading: false, refundStale: false,
     dispute: null, disputeReason: '', disputeSubmitting: false, pendingDispute: false,
     myDisputes: [], myDisputesError: '', myDisputesLoading: false, myDisputesPage: 0, myDisputesMore: false
   },
@@ -76,12 +78,21 @@ Page({
         myDisputes: [], myDisputesError: '', myDisputesPage: 0, myDisputesMore: false })
     }
     this._pageCustomer = customer
+    const loggedIn = !!customer && captureSession().loggedIn
+    this.setData({ isLogin: loggedIn })
     this.setData({ submitting: false, disputeSubmitting: false, refundOptionsLoading: false, historyLoading: false })
+    if (!loggedIn) {
+      this.setData({ history: [], historyLoaded: false, myDisputes: [], myDisputesError: '', refundReady: false,
+        refundError: this.data.refundRef ? '请先登录后查看本人退款记录。' : '' })
+      if (!this.data.refundRef) this.loadStation()
+      return
+    }
     if (this.data.refundRef) this.loadRefundThread()
     else { this.loadHistory(); this.loadStation(); this.loadMyDisputes() }
   },
   async loadMyDisputes(page = 1) {
     const session = captureSession(), epoch = this._noteEpoch
+    if (!session.loggedIn || !getCustomerId()) return
     const serial = this._myDisputeSerial = (this._myDisputeSerial || 0) + 1
     const current = () => isCurrentSession(session) && epoch === this._noteEpoch && serial === this._myDisputeSerial
     this.setData({ myDisputesLoading: true, myDisputesError: '' })
@@ -98,7 +109,10 @@ Page({
   onRetryMyDisputes() { return this.loadMyDisputes() },
   onMoreMyDisputes() { if (!this.data.myDisputesLoading) return this.loadMyDisputes(this.data.myDisputesPage + 1) },
 
-  onShowRefundOptions() { return this.loadRefundOptions(1) },
+  onShowRefundOptions() {
+    if (!captureSession().loggedIn || !getCustomerId()) { this.setData({ refundOptionsError: '请先登录后选择本人退款记录。' }); return }
+    return this.loadRefundOptions(1)
+  },
   onMoreRefundOptions() { return this.loadRefundOptions(this.data.refundOptionsPage + 1) },
   async loadRefundOptions(page) {
     if (this.data.refundOptionsLoading) return
@@ -130,7 +144,9 @@ Page({
     if (!ref) return
     const serial = this._refundSerial = (this._refundSerial || 0) + 1
     const session = captureSession(), epoch = this._noteEpoch
-    this.setData({ refundReady: false, refundError: '' })
+    const key = ref.refundType + ':' + ref.refundId
+    const keep = this._threadScope && this._threadScope.key === key && isCurrentSession(this._threadScope.session)
+    this.setData({ refundReady: false, refundError: '', refundLoading: true, refundStale: !!keep })
     const current = () => epoch === this._noteEpoch && serial === this._refundSerial && isCurrentSession(session)
     try {
       const res = await getRefundNotes(ref.refundType, ref.refundId)
@@ -139,15 +155,18 @@ Page({
       if (!d || d.refundType !== ref.refundType || Number(d.refundId) !== ref.refundId || !d.objectText || !Array.isArray(d.notes)) throw new Error('退款说明记录未能完整加载')
       const pending = noteIntent.read('CUSTOMER:' + getCustomerId(), ref.refundType, ref.refundId)
       const patch = { refundRef: Object.assign({}, ref, { objectText: d.objectText }), refundReady: true,
-        history: d.notes, historyError: '', pendingRefundNote: !!pending, dispute: d.dispute || null }
+        history: d.notes, historyError: '', pendingRefundNote: !!pending, dispute: d.dispute || null, refundStale: false }
       const pendingOpen = disputeIntent.read('CUSTOMER:' + getCustomerId(), ref.refundType + ':' + ref.refundId, 'OPEN')
       patch.pendingDispute = !!pendingOpen
       if (pendingOpen) patch.disputeReason = pendingOpen.reason
       if (pending) Object.assign(patch, { content: pending.content, contact: pending.contact })
       this.setData(patch)
+      this._threadScope = { key, session }
     } catch (e) {
-      if (current()) this.setData({ refundReady: false, refundError: viewError(e, '退款说明没加载出来'), history: [], dispute: null })
-    }
+      if (current()) this.setData({ refundReady: false, refundStale: !!keep,
+        refundError: (keep ? '刷新失败，以下为上次读取的退款说明与处理记录。' : '') + viewError(e, '退款说明没加载出来'),
+        history: keep ? this.data.history : [], dispute: keep ? this.data.dispute : null })
+    } finally { if (current()) this.setData({ refundLoading: false }) }
   },
   onRetryRefund() { this.loadRefundThread() },
   onDisputeReason(e) { this.setData({ disputeReason: e.detail.value }) },
@@ -155,7 +174,7 @@ Page({
     const { type, id } = e.currentTarget.dataset
     if (!type || !id || this.data.submitting || this.data.disputeSubmitting) return
     this.setData({ refundRef: { refundType: type, refundId: Number(id) }, refundReady: false, dispute: null,
-      content: '', contact: '', disputeReason: '', pendingRefundNote: false, pendingDispute: false })
+      history: [], refundStale: false, refundError: '', content: '', contact: '', disputeReason: '', pendingRefundNote: false, pendingDispute: false })
     return this.loadRefundThread()
   },
   onRetryDispute() {
@@ -237,6 +256,7 @@ Page({
 
   onRetryStation() { if (!this.data.phoneLoading) return this.loadStation() },
   onRetryHistory() { if (!this.data.historyLoading) return this.loadHistory() },
+  onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
 
   onCallPhone() {
     if (this.data.phoneLoading) return
@@ -296,13 +316,16 @@ Page({
 
   async loadHistory() {
     const session = captureSession(), epoch = this._noteEpoch
+    if (!session.loggedIn || !getCustomerId()) { this.setData({ history: [], historyLoaded: false, historyLoading: false, historyError: '请先登录后查看本人反馈记录。' }); return }
     const current = () => epoch === this._noteEpoch && isCurrentSession(session)
     this.setData({ historyLoading: true, historyError: '' })
     try {
       const res = await getMyFeedback()
       if (!current()) return
       if (!res || !Array.isArray(res.data)) throw new Error('反馈历史暂未加载，请重试')
-      this.setData({ history: res.data, historyLoaded: true, historyError: '' })
+      const history = res.data.map(row => ({ ...row, displayContent: row.category === '错误报告' && /^【自动上报·系统错误】/.test(row.content || '')
+        ? '已上报一次服务问题，水站可依据原记录核查；处理进度请联系水站。' : row.content }))
+      this.setData({ history, historyLoaded: true, historyError: '' })
     } catch (err) {
       if (!current()) return
       // [2026-09-20 真机联调] 原来是「未登录或加载失败时不强提示」只 console.warn：失败时
@@ -325,6 +348,7 @@ Page({
    */
   async onSubmit() {
     if (this.data.submitting) return
+    if (!captureSession().loggedIn || !getCustomerId()) { this.setData({ submitError: '请先登录后提交本人反馈或说明，输入已保留。' }); return }
     if (this.data.refundRef) return this.submitRefundNote()
     const { category, content, contact, anonymous } = this.data
     if (!content.trim()) {

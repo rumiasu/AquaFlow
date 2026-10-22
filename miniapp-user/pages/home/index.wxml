@@ -28,12 +28,23 @@
     <text class="poster-fee">配送、楼层费及新增押金在确认页核算</text>
   </view>
 </template>
-<view class="page">
+<view class="page {{isLogin && state === 'ready' && !loading && catalogState === 'ready' && productsView.length > 0 ? 'has-checkout' : ''}}">
   <view class="home-water-backdrop" wx:if="{{!homeWaterBackdropFailed}}" aria-hidden="true">
     <image class="home-water-image" src="/assets/banner/home-water-light.webp" mode="aspectFill" binderror="onHomeWaterBackdropError" />
     <view class="home-water-fade"></view>
   </view>
-  <view class="nav-spacer" style="height: {{statusBarHeight}}px;"></view>
+  <view class="home-nav" style="padding-top: {{statusBarHeight}}px;">
+    <view class="home-nav-row" style="height: {{navBarHeight}}px; width: {{navContentWidth}}px;">
+      <text class="home-nav-title">订水</text>
+    </view>
+  </view>
+  <view class="hero">
+    <view class="station-chip" bindtap="onOpenStationList" wx:if="{{isLogin && currentStationId}}">
+      <text class="station-chip-name">{{currentStation.name || '选择水站'}}</text>
+      <text class="station-chip-arrow">切换 ›</text>
+    </view>
+    <text class="hero-brand" wx:else>社区订水</text>
+  </view>
 
   <!--
     水站营业状态（软状态，v32）：与站名同属「头部」，排在最前 —— 客户第一眼就知道这家站今天什么状态。
@@ -49,27 +60,27 @@
     </view>
   </view>
 
-  <!--
-    数据没加载出来的提示（loadError 为空串时不渲染）。
-    [2026-09-20 真机联调] 原来首页任何接口失败都是静默降级 —— 弱网下整屏可能同时变成
-    「订水区空 / 桶账一行消失 / 配送状态条与再来一单消失」，与"确实没有数据"长得一模一样
-    （AGENTS §8.22）。样式复用 styles/common.wxss 的 .load-error（全局已 import，别在这里再写一份）。
-  -->
-  <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+  <view class="home-feedback" wx:if="{{loadError}}">
+    <view class="home-feedback-row">
+      <view class="home-feedback-copy">
+        <text class="home-feedback-title">部分信息暂未加载</text>
+        <text class="home-feedback-sub">{{loadImpactSummary}}{{loading || notificationsLoading || homeRetrying ? ' · 正在重试' : ''}}</text>
+      </view>
+      <button class="home-feedback-retry" bindtap="onRetryHome" disabled="{{loading || notificationsLoading || homeRetrying}}">{{loading || notificationsLoading || homeRetrying ? '重试中' : '重试'}}</button>
+      <button class="home-feedback-toggle" bindtap="onToggleLoadDetails">{{showLoadDetails ? '收起' : '详情'}}</button>
+    </view>
+    <view class="home-feedback-details" wx:if="{{showLoadDetails}}">
+      <text class="home-feedback-detail" wx:for="{{loadIssueDetails}}" wx:key="key">{{item.text}}</text>
+    </view>
+  </view>
 
-  <loading wx:if="{{loading}}"></loading>
+  <view class="home-loading" wx:if="{{loading}}" role="status">
+    <view class="home-loading-mark" aria-hidden="true"></view>
+    <text class="home-loading-title">{{currentStationId ? '正在加载订水信息' : '正在查找服务水站'}}</text>
+    <text class="home-loading-sub">请稍候</text>
+  </view>
 
   <block wx:else>
-    <!-- ══ 头部卡：站名 + 营业状态 + 问候 + 小图。⚠️ 这一块在 isLogin 判断之外 ——
-         未登录（含 state 仍是初始 'guest'）时也必须照渲染，否则游客首屏只剩一片空白 ══ -->
-    <view class="hero">
-      <view class="station-chip" bindtap="onOpenStationList" wx:if="{{isLogin}}">
-        <text class="station-chip-name">{{currentStation.name || '选择水站'}}</text>
-        <text class="station-chip-arrow">切换 ›</text>
-      </view>
-      <text class="hero-brand" wx:else>AquaFlow 社区订水</text>
-    </view>
-
     <!-- ══ 游客态 ══ -->
     <view class="card guest-card" wx:if="{{!isLogin}}">
       <text class="guest-title">AquaFlow 送水到家</text>
@@ -80,7 +91,7 @@
 
     <block wx:if="{{isLogin}}">
       <!-- ══ 收货地址：紧跟站名的第二项，自己占一张卡、整行可点 ══ -->
-      <view class="card addr" bindtap="onAddressTap">
+      <view class="card addr" wx:if="{{currentStationId && state === 'ready'}}" bindtap="onAddressTap">
         <text class="addr-label">收货地址</text>
         <text class="addr-text {{address ? '' : 'addr-empty'}}">{{addressHint}}</text>
         <text class="row-arrow">›</text>
@@ -93,10 +104,16 @@
         <text class="state-desc">您的客户资料正在等待对应水站确认，认领成功后即可下单购水</text>
         <view class="state-btn off">等待认领中…</view>
       </view>
-      <view class="card state-card" wx:if="{{state === 'noStation'}}">
-        <text class="state-title">请选择服务水站</text>
-        <text class="state-desc">选择水站后可查看该站商品并下单</text>
-        <view class="state-btn" bindtap="onOpenStationList">选择水站</view>
+      <view class="card station-welcome" wx:if="{{state === 'noStation'}}">
+        <view class="station-welcome-art" aria-hidden="true">
+          <view class="station-welcome-route"></view>
+          <view class="station-welcome-pin"><view></view></view>
+          <view class="station-welcome-house"><view></view></view>
+        </view>
+        <text class="station-welcome-kicker">从身边的水站开始</text>
+        <text class="station-welcome-title">先选择为你送水的水站</text>
+        <text class="station-welcome-desc">查看该站商品和配送安排，再选水下单</text>
+        <button class="home-primary" bindtap="onOpenStationList">选择水站</button>
       </view>
 
       <block wx:if="{{state === 'ready'}}">
@@ -130,6 +147,21 @@
             <text class="again-preview" wx:if="{{againOrder.preview}}">{{againOrder.preview}}</text>
           </view>
           <view class="again-btn" bindtap="onAgainTap">再订一单</view>
+        </view>
+
+        <view class="card catalog-state" wx:if="{{catalogState === 'error'}}">
+          <view class="catalog-state-mark" aria-hidden="true">↻</view>
+          <text class="catalog-state-title">商品暂时没加载出来</text>
+          <text class="catalog-state-desc">重新加载后再选水，你之前选的数量会保留</text>
+          <button class="home-primary" bindtap="onRetryHome">重新加载</button>
+          <button class="home-text-action" bindtap="onOpenStationList">切换水站</button>
+        </view>
+        <view class="card catalog-state" wx:elif="{{catalogState === 'empty'}}">
+          <view class="catalog-state-mark" aria-hidden="true">水</view>
+          <text class="catalog-state-title">该水站暂无可订商品</text>
+          <text class="catalog-state-desc">可以切换其他服务水站，或稍后重新查看</text>
+          <button class="home-primary" bindtap="onOpenStationList">切换水站</button>
+          <button class="home-text-action" bindtap="onRetryHome">重新查看</button>
         </view>
 
         <!-- 2026-10-22：老客海报曾把数量操作推到结算栏下方；有复购或进行中订单时优先选水。 -->
@@ -194,7 +226,7 @@
   </block>
 
   <!-- 2026-10-12：原“商品小计”未区分零售与票价；明确零售预估，支付口径到结算页核实。历史模式保留旧押金预估。 -->
-  <view class="checkout" wx:if="{{isLogin && state === 'ready'}}">
+  <view class="checkout" wx:if="{{isLogin && state === 'ready' && !loading && catalogState === 'ready' && productsView.length > 0}}">
     <view class="sum">
       <view class="sum-total-row" wx:if="{{total.count > 0}}">
         <text class="sum-detail">零售预估</text>
@@ -210,6 +242,8 @@
            首页承诺免运费、结算页照收 —— 客户拿着两张截图来吵架。
            首页算不出运费（还没选地址），所以这里**不做费用承诺**，只报件数并指向结算页报价。 -->
       <text class="sum-sub">{{total.count > 0 ? '已选 ' + total.count + ' 件 · 支付金额以结算页报价为准' : '选中数量后自动合计'}}</text>
+      <text class="sum-recovery" wx:if="{{total.count > 0 && purchaseHint}}">{{purchaseHint}}</text>
+      <text class="sum-recovery" wx:elif="{{total.count > 0 && homeQuoteState === 'error'}}">费用暂未核实，确认页核对后才能提交订单。</text>
     </view>
     <!-- 主按钮：蓝色合法出现处 ②；置灰用 #9CA7B5，不是浅蓝 -->
     <view class="cta {{total.count > 0 ? '' : 'off'}}" bindtap="onSubmit">确认订单</view>
@@ -241,8 +275,8 @@
       -->
       <view class="station-picker-empty" wx:if="{{stationListLoading}}">正在加载水站…</view>
       <view class="station-picker-empty" wx:elif="{{stationListError}}">
-        <text>水站列表没加载出来（{{stationListError}}）</text>
-        <button class="station-picker-retry" bindtap="loadStationList">重新加载</button>
+        <text>水站列表暂未加载，请重试</text>
+        <button class="station-picker-retry" bindtap="onRetryStationList">重新加载</button>
       </view>
       <view class="station-picker-empty" wx:elif="{{stationList.length === 0}}">暂无可用水站</view>
     </view>

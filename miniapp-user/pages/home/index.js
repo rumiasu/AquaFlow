@@ -13,6 +13,7 @@ const { storage, stationStorage, payMethodStorage } = require('../../utils/stora
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
 const { itemUnit } = require('../../utils/order-item-view')
+const { homeNavLayout, catalogState } = require('./home-view-state')
 
 // 金额展示：整数不带小数点，非整数保留两位（纯展示，不涉及计算口径）
 const fmtMoney = (n) => {
@@ -25,11 +26,21 @@ Page({
     loading: true,
     // 数据没加载出来时的提示（空串 = 全部正常）。见 _noteLoadError 的说明。
     loadError: '',
+    loadIssueDetails: [],
+    loadImpactSummary: '',
+    notificationsLoading: false,
+    homeRetrying: false,
+    showLoadDetails: false,
+    catalogState: 'idle', // idle / loading / error / empty / ready
+    homeQuoteState: 'idle',
+    purchaseHint: '',
     // 选站弹窗里"水站列表没拉出来"的原因（空串 = 拉到了或还没拉）。
     // 与 loadError 分开：选站列表在 noStation 状态下才是主角，混在一处会互相覆盖。
     stationListError: '',
     stationListLoading: false,
     statusBarHeight: 44,
+    navBarHeight: 44,
+    navContentWidth: 235,
     isLogin: false,
     state: 'guest', // guest / noStation / claimPending / ready
     greeting: '你好',
@@ -65,11 +76,12 @@ Page({
   onLoad() {
     this._homeDestroyed = false
     this._homeHidden = false
-    try {
-      const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
-      this.setData({ statusBarHeight: info.statusBarHeight || 44 })
-    } catch (e) {}
+    this.setData(homeNavLayout(wx))
     this.setData({ greeting: this.buildGreeting() })
+  },
+
+  onResize() {
+    this.setData(homeNavLayout(wx))
   },
 
   onShow() {
@@ -78,10 +90,12 @@ Page({
     this.refreshDerived(undefined, false)
     const app = getApp()
     const isLogin = app.globalData.isLogin
+    this._syncHomeIssueSession()
     this.setData({ isLogin })
+    this._updateHomeFeedback()
 
     if (!isLogin) {
-      this.setData({ state: 'guest', products: [], productsView: [], loading: false })
+      this.setData({ state: 'guest', products: [], productsView: [], catalogState: 'idle', loading: false })
       return
     }
 
@@ -103,11 +117,13 @@ Page({
 
   onHide() {
     this._homeHidden = true
+    this._homeLoadSeq = (this._homeLoadSeq || 0) + 1
+    this._homeRetry = null
     this._notificationSeq = (this._notificationSeq || 0) + 1
     this._stationCheckSeq = (this._stationCheckSeq || 0) + 1
     this._stationListSeq = (this._stationListSeq || 0) + 1
     this._stationStatusSeq = (this._stationStatusSeq || 0) + 1
-    this.setData({ showStationList: false, stationListLoading: false })
+    this.setData({ showStationList: false, stationListLoading: false, notificationsLoading: false, homeRetrying: false })
     this.invalidateHomeQuote()
     this.refreshDerived(undefined, false)
   },
@@ -170,20 +186,63 @@ Page({
     return '晚上好'
   },
 
-  /**
-   * 记一条"某项数据没加载出来"的页面提示（页面级 helper，多处失败汇总成顶部一条）。
-   *
-   * [2026-09-20 真机联调] 为什么需要它：本页一次要打 5～6 个接口，原来每处都是
-   * `.catch(() => null)` —— 失败被吞成 null，页面照常渲染成「订水区空 / 桶账一行不显示 /
-   * 配送状态条消失 / 再来一单消失」，与"这客户确实没有商品、没有在途订单"**完全无法区分**
-   * （AGENTS §8.22：零覆盖端点的真实形态是界面空白，不是报错）。
-   * 为什么不各自 wx.showToast：弱网下会连弹好几个 toast，反而盖住页面；这里汇成一条，
-   * 样式复用 styles/common.wxss 的 .load-error（全局 app.wxss 已 import，不要再写一份）。
-   */
-  _noteLoadError(text) {
-    const cur = this.data.loadError || ''
-    if (!text || cur.indexOf(text) >= 0) return
-    this.setData({ loadError: cur ? cur + '；' + text : text })
+  // 同一登录周期的失败只在对应读取确认成功后清除；换号/重新登录不带入旧账号提醒。
+  _syncHomeIssueSession() {
+    if (!this._homeIssueSession || !isCurrentSession(this._homeIssueSession)) {
+      this._homeIssueSession = captureSession()
+      this._homeIssues = {}
+      this.setData({ showLoadDetails: false, loadError: '', loadIssueDetails: [], loadImpactSummary: '' })
+    }
+  },
+
+  _updateHomeFeedback() {
+    const issues = this._homeIssues || {}
+    const details = Object.keys(issues).map(key => ({ key, text: issues[key] }))
+    const overview = issues.overview || ''
+    const labels = []
+    if (overview.includes('商品')) labels.push('商品')
+    if (overview.includes('订单信息')) labels.push('订单状态')
+    else if (issues.activeOrder || issues.againOrder) labels.push('订单详情')
+    if (overview.includes('桶资产')) labels.push('桶资产')
+    if (overview.includes('配送地址')) labels.push('配送地址')
+    if (issues.notifications) labels.push('提醒')
+    const impact = labels.length === 1 && labels[0] === '商品' ? '商品暂未加载，请重试后选水'
+      : labels.length > 1 ? labels.slice(0, -1).join('、') + '与' + labels[labels.length - 1] + '暂未核实'
+        : labels.length ? labels[0] + '暂未核实' : '相关信息暂未核实'
+    this.setData({ loadIssueDetails: details, loadError: details.map(item => item.text).join('；'),
+      loadImpactSummary: details.length ? impact : '',
+      showLoadDetails: details.length ? this.data.showLoadDetails : false })
+  },
+
+  _noteLoadError(text, key = 'overview') {
+    this._syncHomeIssueSession()
+    if (text) this._homeIssues[key] = text
+    else delete this._homeIssues[key]
+    this._updateHomeFeedback()
+  },
+
+  onToggleLoadDetails() {
+    this.setData({ showLoadDetails: !this.data.showLoadDetails })
+  },
+
+  async onRetryHome() {
+    if (this._homeDestroyed || this._homeHidden || this.data.loading || this._homeRetry) return
+    const retry = this._homeRetry = {}
+    this.setData({ homeRetrying: true })
+    try { await Promise.all([this.checkStation(), this.checkNotifications()]) }
+    finally {
+      if (this._homeRetry === retry) { this._homeRetry = null; this.setData({ homeRetrying: false }) }
+    }
+  },
+
+  onRetryStationList() {
+    if (!this.data.stationListLoading) return this.loadStationList()
+  },
+
+  showNoStation() {
+    this.setData({ state: 'noStation', loading: false, currentStation: null, currentStationId: null,
+      products: [], productsView: [], catalogState: 'idle', activeShip: null, againOrder: null,
+      barrelVisible: false, purchaseHint: '' })
   },
 
   async checkStation() {
@@ -234,12 +293,12 @@ Page({
 
       // 3. 无历史订单，显示选择列表
       if (!current()) return
-      this.setData({ state: 'noStation' })
+      this.showNoStation()
       await this.loadStationList()
     } catch (e) {
       if (!current()) return
       console.error('检查水站失败:', e)
-      this.setData({ state: 'noStation' })
+      this.showNoStation()
       await this.loadStationList()
     } finally {
       if (!completed && current()) this.setData({ loading: false })
@@ -255,18 +314,25 @@ Page({
     // 2026-10-22：原弹窗回调曾跨离页/换号继续提醒并用新会话标已读；每次等待后核对原上下文。
     const current = () => !this._homeDestroyed && !this._homeHidden
       && sequence === this._notificationSeq && isCurrentSession(session)
+    this._syncHomeIssueSession()
+    this.setData({ notificationsLoading: true })
     try {
-      // [2026-09-20 真机联调] 原来是 `.catch(() => null)`：拉不到与"没有未读消息"长得一模一样。
+      // 未读提醒失败单独记录，不阻断选站或订水内容。
       // 未读里可能有「订单被拒」「被临时外派」这类客户必须当场知道的事，静默 = 他永远不会知道。
       // 仍然不阻断首页（这是附加提醒），但必须在页面顶部留下痕迹。
       const res = await getUnreadNotifications().catch((e) => {
         if (!current()) return null
         console.warn('[home] 未读通知拉取失败:', e && (e.message || e.errMsg))
-        this._noteLoadError('未读消息没加载出来（' + ((e && e.message) || '网络异常') + '），可能漏掉订单提醒')
+        this._noteLoadError('订单提醒暂未加载，可能暂时收不到最新通知，可重试。', 'notifications')
         return null
       })
       if (!current()) return
-      if (res && res.code === 0 && res.data && res.data.length > 0) {
+      if (!res || res.code !== 0 || !Array.isArray(res.data)) {
+        if (res) this._noteLoadError('订单提醒暂未加载，可能暂时收不到最新通知，可重试。', 'notifications')
+        return
+      }
+      this._noteLoadError('', 'notifications')
+      if (res.data.length > 0) {
         const notifications = res.data
         for (let i = 0; i < notifications.length; i++) {
           const n = notifications[i]
@@ -292,6 +358,9 @@ Page({
       }
     } catch (e) {
       console.error('检查通知失败:', e)
+      if (current()) this._noteLoadError('订单提醒暂未加载，可能暂时收不到最新通知，可重试。', 'notifications')
+    } finally {
+      if (current()) this.setData({ notificationsLoading: false })
     }
   },
 
@@ -394,7 +463,7 @@ Page({
 
   onOpenStationList() {
     this.setData({ showStationList: true })
-    this.loadStationList()
+    if (!this.data.stationListLoading) return this.loadStationList()
   },
 
   onCloseStationList() {
@@ -445,56 +514,44 @@ Page({
   },
 
   async loadData() {
-    if (this._homeDestroyed) return
+    if (this._homeDestroyed || this._homeHidden) return
     this.invalidateHomeQuote()
     this.refreshDerived(undefined, false)
     const session = captureSession()
     const version = this._homeLoadSeq = (this._homeLoadSeq || 0) + 1
     const stationId = this.data.currentStationId
-    const current = () => !this._homeDestroyed && version === this._homeLoadSeq
+    const current = () => !this._homeDestroyed && !this._homeHidden && version === this._homeLoadSeq
       && isCurrentSession(session) && stationId === this.data.currentStationId
-    this.setData({ loading: true })
+    this.setData({ loading: true, catalogState: 'loading', purchaseHint: '' })
     try {
       const app = getApp()
 
       // 营业状态跟着首页一起刷新（站长刚改成"休息中"，客户回到首页就该看到）
       this.loadStationStatus(stationId)
 
-      // [2026-09-20 真机联调] 下面五个请求原来各自 `.catch(() => null)`：任何一个失败都静默降级成
-      // null，页面照常渲染 —— 订水区变空（商品拉不到）、桶账一行整块消失（summary 拉不到）、
-      // 配送状态条与「再来一单」消失（订单拉不到），与"这客户确实没有商品/没有在途单"长得一模一样
-      //（AGENTS §8.22）。现在仍然降级（部分成功的数据照旧可用），但把失败项收集起来显示在页面顶部。
       const failed = []
-      const softCatch = (tag) => (e) => {
-        failed.push(tag)
-        console.warn('[home] ' + tag + ' 加载失败:', e && (e.message || e.errMsg))
+      const softRead = (tag, request, valid) => Promise.resolve(request).then(res => {
+        if (!res || (res.code !== undefined && res.code !== 0) || (valid && !valid(res.data))) {
+          throw new Error(tag + '返回内容不完整')
+        }
+        return res
+      }).catch(error => {
+        if (current()) console.warn('[home] ' + tag + '加载失败:', error && (error.message || error.errMsg))
+        if (!failed.includes(tag)) failed.push(tag)
         return null
-      }
-
+      })
       const [ordersRes, addressRes, summaryRes, rightsRes, productsRes] = await Promise.all([
-        this.loadHomeOrders(session).catch(softCatch('订单')),
-        getAddresses().catch(softCatch('地址')),
-        getBarrelSummary(stationId).catch(softCatch('桶账')),
-        stationId ? getBarrelSummaryByType(stationId).catch(softCatch('桶权益')) : Promise.resolve(null),
-        stationId ? getStationProducts(stationId).catch(softCatch('商品')) : Promise.resolve(null)
+        softRead('订单信息', this.loadHomeOrders(session)),
+        softRead('配送地址', getAddresses(), Array.isArray),
+        softRead('桶资产', getBarrelSummary(stationId), value => !!value && typeof value === 'object' && !Array.isArray(value)),
+        stationId ? softRead('桶资产', getBarrelSummaryByType(stationId), Array.isArray) : Promise.resolve(null),
+        stationId ? softRead('商品', getStationProducts(stationId), Array.isArray) : Promise.resolve(null)
       ])
       if (!current()) return
-
-      // 失败出声（但**不阻断**渲染：部分成功的数据仍然是可用的，弱网下把整页拦死更糟）。
-      if (failed.length) {
-        // 记下"这条提示是 loadData 写的"，供下面精确清除用：
-        // checkNotifications() 与 loadData() 在 onShow 里是**并发**的，若无条件 setData({loadError:''})
-        // 会把它刚写进去的"未读消息没加载出来"一起抹掉（注释通知失败 = 又变回静默）。
-        const note = '有 ' + failed.length + ' 项数据没加载出来（' + failed.join('、')
-          + '），下面显示的内容可能不全，请下拉刷新'
-        this._loadDataNote = note
-        this._noteLoadError(note)
-        wx.showToast({ title: '部分数据没加载出来，请下拉刷新', icon: 'none' })
-      } else if (this._loadDataNote && this.data.loadError === this._loadDataNote) {
-        // 这次全部成功，且当前红条正是上一次 loadData 留下的 → 清掉，避免"修好了还挂着旧提示"
-        this._loadDataNote = ''
-        this.setData({ loadError: '' })
-      }
+      const productState = catalogState(productsRes)
+      this._noteLoadError(failed.length ? '暂未加载：' + failed.join('、') + '。可重新加载后查看完整信息。' : '', 'overview')
+      const assetsLoaded = !!summaryRes && !!rightsRes
+      const purchaseHint = assetsLoaded ? '' : '桶资产暂未核实，确认页核对后才能提交订单。'
 
       // 地址：只决定头部卡提示与下单参数，不再单独占一张卡
       let address = this.data.address
@@ -505,7 +562,7 @@ Page({
       const addressHint = address ? `配送至：${formatAddress(address)}` : '点击设置配送地址'
 
       // 后端下发本站有效价；商品小计不包含独立押金、配送费和楼层费。
-      const products = ((stationId && productsRes && productsRes.data) ? productsRes.data : []).map(p => ({
+      const products = ((productState !== 'error' && stationId && productsRes && productsRes.data) ? productsRes.data : []).map(p => ({
         ...p,
         price: p.effectivePrice != null ? p.effectivePrice : p.price,
         deposit: p.effectiveDeposit != null ? p.effectiveDeposit : p.deposit
@@ -528,7 +585,8 @@ Page({
       // 桶权益按商品；独立模式的可用容量另取服务端本次报价，不由权益总数推断。
       const barrelRights = this.parseBarrelRights(rightsRes)
 
-      this.setData({ address, addressHint, products, cart, heroImage, barrelRights, posterProductImageFailed: false })
+      this.setData({ address, addressHint, products, cart, heroImage, barrelRights, posterProductImageFailed: false,
+        catalogState: productState, purchaseHint })
       this.refreshDerived(barrelRights)
 
       // 桶账一行：口径全部来自后端 summary（权益/占用/配送中/水站暂存/欠桶/可退押金）
@@ -538,12 +596,13 @@ Page({
       // 进行中订单 → 当前订单条（首页最多展示 1 条）
       const orders = (ordersRes && ordersRes.data) ? ordersRes.data : []
       const actives = orders.filter(o => o.status === 1 || o.status === 2)
-      await this.renderActiveShip(actives[0], actives.length, current)
+      if (ordersRes) await this.renderActiveShip(actives[0], actives.length, current)
+      else this.setData({ activeShip: null, activeOrderCount: 0, againOrder: null })
       if (!current()) return
 
       // 最近一笔已送达/已完成订单 → 再来一单
       const lastDone = orders.find(o => o.status === 3 || o.status === 4)
-      await this.renderAgainOrder(lastDone, products, current)
+      if (ordersRes) await this.renderAgainOrder(lastDone, products, current)
       if (!current()) return
 
       this.setData({ state: 'ready' })
@@ -554,10 +613,10 @@ Page({
       // 页面只剩一张 hero 卡，看起来跟"这个站什么都没有"一模一样（AGENTS §8.22）。
       // 复用现有 loadError 机制给出可读失败态，不重构 loadData。
       console.error('[home] 首页数据加载失败:', e)
-      this._noteLoadError('首页数据没加载出来（' + ((e && e.message) || '网络异常') + '），请下拉刷新')
-      this.setData({ state: 'ready' })
+      this._noteLoadError('订水信息暂未完整加载，请重新加载。', 'overview')
+      this.setData({ state: 'ready', products: [], productsView: [], catalogState: 'error', purchaseHint: '订水信息尚未核实，请重新加载。' })
     } finally {
-      if (!this._homeDestroyed && version === this._homeLoadSeq) this.setData({ loading: false })
+      if (current()) this.setData({ loading: false })
     }
   },
 
@@ -581,6 +640,7 @@ Page({
   async renderActiveShip(order, activeCount, current = () => true) {
     if (!current()) return
     if (!order) {
+      this._noteLoadError('', 'activeOrder')
       this.setData({ activeShip: null, activeOrderCount: 0 })
       return
     }
@@ -593,10 +653,11 @@ Page({
     const detail = await getOrderDetail(order.id).catch((e) => {
       if (!current()) return null
       console.warn('[home] 进行中订单明细加载失败:', e && (e.message || e.errMsg))
-      this._noteLoadError('进行中订单的商品明细没加载出来，请下拉刷新')
+      this._noteLoadError('进行中订单的商品明细暂未加载，可进入订单查看或重试。', 'activeOrder')
       return null
     })
     if (!current()) return
+    if (detail && detail.data) this._noteLoadError('', 'activeOrder')
     if (detail && detail.data && detail.data.items && detail.data.items.length > 0) {
       sub = detail.data.items
         .map(it => `${it.productNameSnapshot || '桶装水'} ×${it.quantity || 0}`)
@@ -609,6 +670,7 @@ Page({
   async renderAgainOrder(order, products, current = () => true) {
     if (!current()) return
     if (!order) {
+      this._noteLoadError('', 'againOrder')
       this.setData({ againOrder: null })
       return
     }
@@ -617,10 +679,11 @@ Page({
     const detail = await getOrderDetail(order.id).catch((e) => {
       if (!current()) return null
       console.warn('[home] 上次订单明细加载失败:', e && (e.message || e.errMsg))
-      this._noteLoadError('上次订单的明细没加载出来，「再来一单」暂时用不了，请下拉刷新')
+      this._noteLoadError('上次订单明细暂未加载，暂时无法再订一单，可重试。', 'againOrder')
       return null
     })
     if (!current()) return
+    if (detail && detail.data) this._noteLoadError('', 'againOrder')
     if (!detail || !detail.data || !detail.data.items || detail.data.items.length === 0) {
       this.setData({ againOrder: null })
       return
@@ -689,6 +752,7 @@ Page({
     this._homeQuoteSeq = (this._homeQuoteSeq || 0) + 1
     this._homeQuote = null
     this._homeQuoteContext = null
+    if (!this._homeDestroyed) this.setData({ homeQuoteState: 'idle' })
   },
 
   homeQuotePayload() {
@@ -813,6 +877,7 @@ Page({
     const context = { seq, session, key: JSON.stringify(payload) }
     const current = () => this.isHomeQuoteCurrent(context)
     if (!current()) return
+    this.setData({ homeQuoteState: 'loading' })
     try {
       const res = await getQuote(payload)
       if (!current()) return
@@ -829,12 +894,16 @@ Page({
           || new Set(quote.barrelPurchases.map(it => it.productId)).size !== quote.barrelPurchases.length))) {
         throw new Error('桶押金办理方式暂未核实')
       }
+      this.setData({ homeQuoteState: 'ready' })
       this._homeQuote = quote
       this._homeQuoteContext = context
       this.refreshDerived(undefined, false)
     } catch (error) {
       // 保留水款预估和“未核实”，不把查询失败解释成无需押金或全额收押金。
-      if (current()) console.warn('[home] 桶押金报价未核实:', error && error.message)
+      if (current()) {
+        this.setData({ homeQuoteState: 'error' })
+        console.warn('[home] 桶押金报价未核实:', error && error.message)
+      }
     }
   },
 
@@ -927,6 +996,14 @@ Page({
   },
 
   onSubmit() {
+    const { loading, catalogState, currentStationId } = this.data
+    // 旧界面的点击可能在刷新后才到达；商品未核实时不带旧清单进入确认页。
+    if (loading || catalogState === 'loading' || catalogState === 'error' || catalogState === 'empty' || !currentStationId) {
+      const title = !currentStationId ? '请先选择水站' : loading || catalogState === 'loading'
+        ? '订水信息加载中，请稍候' : catalogState === 'empty' ? '该水站暂无可订商品' : '商品信息暂未核实，请重新加载'
+      wx.showToast({ title, icon: 'none' })
+      return
+    }
     const { address, total } = this.data
     if (total.count === 0) {
       wx.showToast({ title: '请选择商品', icon: 'none' })

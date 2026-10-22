@@ -4,7 +4,7 @@
   z-index: 0;
   min-height: 100vh;
   background: var(--bg-color);
-  padding: 0 24rpx calc(300rpx + env(safe-area-inset-bottom)); /* 为完整说明分行后的结算栏留空间 */
+  padding: 0 24rpx calc(100rpx + env(safe-area-inset-bottom));
 }
 
 /* ── 通用卡片：白卡 + 暖灰描边 + 中圆角，阴影≈0 ──
@@ -763,3 +763,52 @@
   left: 0;
   background: linear-gradient(180deg, rgba(245, 246, 247, 0) 0%, rgba(245, 246, 247, 0.38) 55%, #F5F6F7 100%);
 }
+
+
+/* 首页恢复态：胶囊区只放短标题，状态与恢复动作在完整导航区之后。 */
+.page.has-checkout { padding-bottom: calc(360rpx + env(safe-area-inset-bottom)); }
+.home-nav { box-sizing: content-box; }
+.home-nav-row { display: flex; align-items: center; max-width: 100%; }
+.home-nav-title { font-size: 34rpx; line-height: 1.3; font-weight: 600; color: var(--text-primary); }
+.hero { padding: 16rpx 0; min-height: 52rpx; }
+.station-chip { max-width: 100%; min-height: 80rpx; box-sizing: border-box; }
+.station-chip-name { min-width: 0; }
+.home-feedback { margin-top: 12rpx; padding: 16rpx 20rpx; border: 1rpx solid #D6E3F0; border-radius: 20rpx; background: rgba(255,255,255,.88); }
+.home-feedback-row { display: flex; align-items: center; gap: 12rpx; }
+.home-feedback-copy { flex: 1; min-width: 0; }
+.home-feedback-title, .home-feedback-sub, .home-feedback-detail { display: block; }
+.home-feedback-title { color: #384C63; font-size: 26rpx; font-weight: 600; line-height: 1.5; }
+.home-feedback-sub { color: #637083; font-size: 22rpx; line-height: 1.5; }
+.home-feedback-retry, .home-feedback-toggle { margin: 0; padding: 16rpx 12rpx; min-height: 88rpx; min-width: 80rpx; border-radius: 12rpx; font-size: 26rpx; line-height: 1.5; display: flex; align-items: center; justify-content: center; flex: none; background: transparent; color: #275F9D; }
+.home-feedback-retry { background: #EAF3FC; font-weight: 600; }
+.home-feedback-retry::after, .home-feedback-toggle::after, .home-primary::after, .home-text-action::after { border: 0; }
+.home-feedback-details { border-top: 1rpx solid #DEE7F0; margin-top: 12rpx; padding-top: 12rpx; }
+.home-feedback-detail { font-size: 24rpx; line-height: 1.6; color: #526277; margin-top: 8rpx; word-break: break-all; }
+.home-loading { min-height: 480rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; }
+.home-loading-mark { width: 40rpx; height: 40rpx; border: 4rpx solid #CFE1F2; border-top-color: #356B9F; border-radius: 50%; }
+.home-loading-title { font-size: 30rpx; color: #384C63; font-weight: 600; }
+.home-loading-sub { font-size: 26rpx; color: #637083; }
+.station-welcome { margin-top: 24rpx; padding: 48rpx 32rpx 40rpx; text-align: center; display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,.9); }
+.station-welcome-art { width: 240rpx; height: 160rpx; position: relative; margin-bottom: 24rpx; }
+.station-welcome-route { position: absolute; width: 168rpx; height: 62rpx; left: 30rpx; bottom: 12rpx; border: 2rpx dashed #A9C9E4; border-radius: 50%; transform: rotate(-12deg); }
+.station-welcome-pin { position: absolute; left: 38rpx; top: 4rpx; width: 58rpx; height: 72rpx; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #D8EAF8; border: 3rpx solid #7FAACD; }
+.station-welcome-pin > view { position: absolute; width: 18rpx; height: 18rpx; border-radius: 50%; background: #5D8FB7; left: 18rpx; top: 20rpx; }
+.station-welcome-house { position: absolute; right: 28rpx; bottom: 32rpx; width: 78rpx; height: 62rpx; border: 3rpx solid #82A7C5; border-radius: 8rpx; background: #F3F8FC; }
+.station-welcome-house::before { content: ''; position: absolute; width: 54rpx; height: 54rpx; left: 9rpx; top: -29rpx; border-top: 3rpx solid #82A7C5; border-left: 3rpx solid #82A7C5; transform: rotate(45deg); background: #F3F8FC; z-index: -1; }
+.station-welcome-house > view { width: 22rpx; height: 34rpx; margin: 26rpx auto 0; background: #D8EAF8; border-radius: 5rpx 5rpx 0 0; }
+.station-welcome-kicker { color: #587D9E; font-size: 24rpx; line-height: 1.5; margin-bottom: 16rpx; }
+.station-welcome-title { color: #25384C; font-size: 36rpx; font-weight: 600; line-height: 1.5; }
+.station-welcome-desc { color: #637083; font-size: 26rpx; line-height: 1.7; margin-top: 16rpx; }
+.home-primary { width: 100%; box-sizing: border-box; min-height: 96rpx; margin: 32rpx 0 0; padding: 24rpx; border-radius: 18rpx; background: var(--primary-color); color: white; font-size: 30rpx; font-weight: 600; line-height: 1.5; display: flex; align-items: center; justify-content: center; }
+.home-text-action { margin: 12rpx 0 0; min-height: 88rpx; padding: 20rpx 24rpx; font-size: 28rpx; color: #365F86; line-height: 1.5; background: transparent; }
+.catalog-state { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 36rpx 32rpx 20rpx; }
+.catalog-state-mark { width: 88rpx; height: 88rpx; border-radius: 50%; background: #EBF2F8; color: #5C7C98; font-size: 40rpx; display: flex; align-items: center; justify-content: center; margin-bottom: 20rpx; }
+.catalog-state-title { color: #25384C; font-size: 32rpx; font-weight: 600; line-height: 1.5; }
+.catalog-state-desc { color: #637083; font-size: 26rpx; line-height: 1.7; margin-top: 14rpx; }
+.catalog-state .home-primary { margin-top: 24rpx; }
+.sum-recovery { display: block; color: #8A5B2D; font-size: 24rpx; line-height: 1.5; margin-top: 8rpx; }
+
+/* 小屏仍保留实际触控尺寸，避免rpx随320px视口缩到44px以下。 */
+.home-feedback-retry, .home-feedback-toggle, .home-text-action { min-height: 44px; min-width: 44px; }
+.home-primary { min-height: 48px; }
+.station-welcome-house { z-index: 0; }

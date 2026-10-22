@@ -92,13 +92,16 @@ Page({
    *   · 有数字 → 「¥x」；
    *   · `null` = 后端明确告知"有商品没填进货成本，这个数算不出来" → 「未填成本」，
    *     紧跟其后原样展示后端的 missingCostHint（别让站长自己猜为什么没有数）；
-   *   · `undefined` = 响应里没有这个字段（旧版后端）→ 「—」。
+   *   · `undefined` = 响应里没有这个字段（旧版后端）→ 「待核实」。
    *     把它当"未填成本"是**编原因**（站长会去补一个根本不缺的成本价），当 0 是编数字，两种都禁止。
    */
   _withheldMoney(v) {
     if (v === null) return '未填成本'
-    if (v === undefined) return '—'
-    return '¥' + v
+    return this._moneyText(v)
+  },
+
+  _moneyText(v) {
+    return v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? '待核实' : '¥' + v
   },
 
   onRetryReport() { return this.load() },
@@ -116,9 +119,13 @@ Page({
     const patch = { loading: false }
     if (reportResult.status === 'fulfilled' && reportResult.value && reportResult.value.data && Array.isArray(reportResult.value.data.items)) {
       const d = reportResult.value.data
+      const profitView = { totalProfitText: this._withheldMoney(d.totalProfit), netProfitText: this._withheldMoney(d.netProfit), totalProfitWarn: d.totalProfit === null, netProfitWarn: d.netProfit === null }
+      for (const key of ['totalRevenue', 'totalCost', 'orderRevenue', 'ticketRevenue', 'deliveryFee', 'floorFee', 'totalIncome', 'wage']) profitView[key + 'Text'] = this._moneyText(d[key])
+      profitView.orderCountText = d.orderCount === null || d.orderCount === undefined || d.orderCount === '' ? '待核实' : d.orderCount
+      const report = { ...d, items: d.items.map(item => ({ ...item, revenueTotalText: this._moneyText(item.revenueTotal), costAmountText: this._moneyText(item.costAmount), soldQtyText: item.soldQty === null || item.soldQty === undefined ? '待核实' : item.soldQty })) }
+      if (d.cooperation && Array.isArray(d.cooperation.rows)) report.cooperation = { ...d.cooperation, rows: d.cooperation.rows.map(item => ({ ...item, amountText: this._moneyText(item.amount) })) }
       Object.assign(patch, {
-        report: d,
-        profitView: { totalProfitText: this._withheldMoney(d.totalProfit), netProfitText: this._withheldMoney(d.netProfit), totalProfitWarn: d.totalProfit === null, netProfitWarn: d.netProfit === null },
+        report, profitView,
         from: d.from || this.data.from, to: d.to || this.data.to
       })
     } else patch.reportError = '当前期间报表尚未读取，收入、成本与利润待核实'

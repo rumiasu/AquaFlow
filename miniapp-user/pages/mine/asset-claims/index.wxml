@@ -44,6 +44,7 @@
   </view>
 
   <text class="claim-title">{{stationId ? '本站认领记录' : '认领记录'}}</text>
+  <text class="claim-muted" wx:if="{{loading && records.length}}">以下为上次读取的记录，正在重新核实。</text>
   <view class="claim-muted" wx:if="{{ready && !records.length}}">暂无认领记录。</view>
   <view class="claim-card" wx:for="{{records}}" wx:key="id">
     <view class="claim-heading"><text class="claim-title">申请 #{{item.id}}</text><text class="claim-status">{{item.statusText}}</text></view>

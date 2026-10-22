@@ -7,6 +7,14 @@ const { getCustomerId, captureSession, isCurrentSession } = require('../../utils
 const { isDevelopEnv } = require('../../config/api')
 const intents = require('../../utils/independent-purchase-intent')
 
+// 只清理错误的展示文字；原对象的 code、resultUnknown、businessRejected 均不改动。
+function viewError(error, fallback = '暂时无法完成，请稍后重试') {
+  const text = error && typeof error.message === 'string' ? error.message.trim() : ''
+  return /[\u3400-\u9fff]/.test(text)
+    && !/(?:Exception|Error:|\bat\s+\S+\(|\bSQL\b|https?:\/\/|request:fail|errno|stack|[A-Z][A-Z_]{5,})/.test(text)
+    ? text : fallback
+}
+
 Page({
   data: { stationId: null, stationName: '', products: [], index: 0, quantity: 1,
     quote: null, purchases: [], paymentMethod: 2, busy: false, error: '',
@@ -42,7 +50,7 @@ Page({
       canAnother: !!active && !!active.record && registry.entries.every(entry => !!entry.record) })
       return { state, session }
     } catch (error) {
-      this.setData({ recoveryError: error.message || '原购买暂时无法读取，请联系水站核实',
+      this.setData({ recoveryError: viewError(error, '原购买暂时无法读取，请联系水站核实'),
         originalActive: false, safetyBlocked: true, canAnother: false })
       return { error, session }
     }
@@ -69,7 +77,7 @@ Page({
       // [2026-10-02 F-55] 原来历史绑在商品/报价成功后，商品下架或报价失败便查不到原款。
       // 两条读取独立启动；撤回和历史恢复都不能以当前商品在售为前提。
       await Promise.all([this.loadProducts(), this.loadPurchases()])
-    } catch (err) { if (isCurrentSession(session)) this.setData({ error: err.message || '加载失败' }) }
+    } catch (err) { if (isCurrentSession(session)) this.setData({ error: viewError(err, '加载失败') }) }
   },
   async loadProducts() {
     const { session } = this.syncRecovery()
@@ -81,13 +89,14 @@ Page({
     try {
       const res = await getStationProducts(this.data.stationId)
       if (!isCurrentSession(session) || seq !== this._productsSeq) return
-      const products = (res.data || []).filter(p => p.category === 1)
+      if (!res || res.code !== undefined && res.code !== 0 || !Array.isArray(res.data)) throw new Error('商品暂未加载，请重试')
+      const products = res.data.filter(p => p && p.category === 1)
       const selected = this.data.products[this.data.index]
       const productId = selected ? selected.id : this.initialProductId
       const index = Math.max(0, products.findIndex(p => p.id === productId))
       this.setData({ products, index, productsLoaded: true })
     } catch (err) {
-      if (isCurrentSession(session) && seq === this._productsSeq) this.setData({ productsError: err.message || '商品加载失败，请重试' })
+      if (isCurrentSession(session) && seq === this._productsSeq) this.setData({ productsError: viewError(err, '商品加载失败，请重试') })
     } finally { if (isCurrentSession(session) && seq === this._productsSeq) this.setData({ productsLoading: false }) }
     if (isCurrentSession(session) && seq === this._productsSeq && this.data.productsLoaded) await this.refreshQuote()
   },
@@ -104,7 +113,9 @@ Page({
     try {
       const res = await quoteBarrelRight(this.data.stationId, product.id, this.data.quantity)
       if (!isCurrentSession(session) || seq !== this._quoteSeq) return
-      if (!res.data) throw new Error('金额暂时不可用，请重试')
+      if (!res || res.code !== undefined && res.code !== 0 || !res.data
+        || !['number', 'string'].includes(typeof res.data.amount) || !String(res.data.amount).trim()
+        || !Number.isFinite(Number(res.data.amount)) || Number(res.data.amount) < 0) throw new Error('金额暂时不可用，请重试')
       const channel = res.data.wechatPay
       const labelled = !!channel && channel.method === 1 && typeof channel.enabled === 'boolean'
         && typeof channel.simulated === 'boolean' && typeof channel.label === 'string' && !!channel.label.trim()
@@ -116,7 +127,7 @@ Page({
         onlinePayHint: !labelled ? '线上付款方式尚未核实，可重试确认金额或向水站交现金。'
           : (!channel.enabled ? channel.label : '') })
     } catch (err) {
-      if (isCurrentSession(session) && seq === this._quoteSeq) this.setData({ quoteError: err.message || '金额暂时不可用，请重试' })
+      if (isCurrentSession(session) && seq === this._quoteSeq) this.setData({ quoteError: viewError(err, '金额暂时不可用，请重试') })
     } finally { if (isCurrentSession(session) && seq === this._quoteSeq) this.setData({ quoteLoading: false }) }
   },
   async loadPurchases() {
@@ -138,11 +149,12 @@ Page({
       }
       if (seq !== this._purchasesSeq) return
       if (customerId !== getCustomerId()) throw new Error('登录身份已变化，请重新加载购买记录')
-      this.setData({ purchases: records.data || [], purchasesLoaded: true })
+      if (!records || records.code !== undefined && records.code !== 0 || !Array.isArray(records.data)) throw new Error('购买记录暂未加载，请重试')
+      this.setData({ purchases: records.data, purchasesLoaded: true })
     } catch (err) {
       if (isCurrentSession(session) && seq === this._purchasesSeq) {
         const changed = customerId !== getCustomerId()
-        this.setData({ purchasesError: changed ? '登录身份已变化，请重新加载购买记录' : (err.message || '购买记录加载失败，请重试'),
+        this.setData({ purchasesError: changed ? '登录身份已变化，请重新加载购买记录' : (viewError(err, '购买记录加载失败，请重试')),
           ...(changed ? { purchases: [], purchasesLoaded: false } : {}) })
       }
     } finally { if (isCurrentSession(session) && seq === this._purchasesSeq) this.setData({ purchasesLoading: false }) }
@@ -185,7 +197,7 @@ Page({
       }
       this.setData({ withdrawingId: id })
       try { await withdrawBarrelRightPurchase(id); await this.loadPurchases() }
-      catch (err) { wx.showToast({ title: err.message || '撤回失败', icon: 'none' }) }
+      catch (err) { wx.showToast({ title: viewError(err, '撤回失败'), icon: 'none' }) }
       finally { this.setData({ withdrawingId: null }) }
     }, fail: () => { this._withdrawPromptOpen = false } })
   },
@@ -236,7 +248,7 @@ Page({
         state = intents.save(latest, next); registry = state.registry
       } catch (error) {
         if (isCurrentSession(session) && seq === this._recoverySeq) {
-          this.syncRecovery(); this.setData({ recoveryError: error.message || '原购买暂时无法核实，暂不能另买', canAnother: false })
+          this.syncRecovery(); this.setData({ recoveryError: viewError(error, '原购买暂时无法核实，暂不能另买'), canAnother: false })
         }
         return
       } finally { if (isCurrentSession(session) && seq === this._recoverySeq) this.setData({ recoveryBusy: false }) }
@@ -281,8 +293,8 @@ Page({
       if (body.stationId === this.data.stationId) await this.loadPurchases()
     } catch (err) {
       if (isCurrentSession(session) && seq === this._submitSeq) {
-        this.syncRecovery(); this.setData({ recoveryError: err.message || '原购买结果尚未确认，请查询或恢复原请求', canAnother: false })
-        wx.showToast({ title: err.message || '原购买结果尚未确认，请重试原请求', icon: 'none' })
+        this.syncRecovery(); this.setData({ recoveryError: viewError(err, '原购买结果尚未确认，请查询或恢复原请求'), canAnother: false })
+        wx.showToast({ title: viewError(err, '原购买结果尚未确认，请重试原请求'), icon: 'none' })
       }
     } finally { if (isCurrentSession(session) && seq === this._submitSeq) this.setData({ busy: false }) }
   },
@@ -320,7 +332,7 @@ Page({
         ...(!record ? { canAnother: false } : {}) })
     } catch (error) {
       if (isCurrentSession(context.session) && seq === this._recoverySeq) {
-        this.syncRecovery(); this.setData({ recoveryError: error.message || '原购买查询失败，请稍后重试', canAnother: false })
+        this.syncRecovery(); this.setData({ recoveryError: viewError(error, '原购买查询失败，请稍后重试'), canAnother: false })
       }
     } finally { if (isCurrentSession(context.session) && seq === this._recoverySeq) this.setData({ recoveryBusy: false }) }
   },
@@ -350,7 +362,7 @@ Page({
       this.setData({ recoveryHint: '原购买凭据仍保留在下方；请明确选择本次新购买的内容。' })
     } catch (error) {
       if (isCurrentSession(context.session) && seq === this._anotherSeq) {
-        this.syncRecovery(); this.setData({ recoveryError: error.message || '暂不能另买，请核实原购买', canAnother: false })
+        this.syncRecovery(); this.setData({ recoveryError: viewError(error, '暂不能另买，请核实原购买'), canAnother: false })
       }
     } finally { if (isCurrentSession(context.session) && seq === this._anotherSeq) this.setData({ recoveryBusy: false }) }
   },

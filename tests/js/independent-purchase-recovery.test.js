@@ -104,7 +104,8 @@ test('查不到原记录保留body/key且只读原站，不拿当前站空列表
 test('查询失败保留未知原件，不发款', async () => {
   const t = setup(), body = await startUnknown(t), count = t.calls.purchase.length
   t.scenario.history = async () => { throw Error('query unavailable') }; await t.page.onQueryOriginal()
-  assert.deepStrictEqual(original(t), body); assert.equal(t.calls.purchase.length, count); assert.equal(t.page.data.recoveryError, 'query unavailable')
+  assert.deepStrictEqual(original(t), body); assert.equal(t.calls.purchase.length, count)
+  assert.equal(t.page.data.recoveryError, '原购买查询失败，请稍后重试')
 })
 for (const status of [1, 2, 4]) test('真实形状登记状态' + status + '原件保留，终态不误提示待交钱', async () => {
   const t = setup({ status }); await t.page.onLoad({ stationId: 1 }); await t.page.onPurchase()

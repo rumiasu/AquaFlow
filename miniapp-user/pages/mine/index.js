@@ -123,8 +123,10 @@ Page({
     const stationRequired = !stationId
     const session = captureSession()
     const sequence = this._assetReadSeq = (this._assetReadSeq || 0) + 1
-    this.setData({ deposit: null, ticket: null, barrel: null,
-      ...assetsView({ deposit: null, ticket: null, barrel: null }, stationRequired), barrelHint: '' })
+    const keep = this._lastAssetScope && this._lastAssetScope.stationId === stationId && isCurrentSession(this._lastAssetScope.session)
+    const previous = keep ? { deposit: this.data.deposit, ticket: this.data.ticket, barrel: this.data.barrel } : {}
+    this.setData({ assetsLoading: true, staleAssetsText: '', ...(keep ? {} : { deposit: null, ticket: null, barrel: null,
+      ...assetsView({ deposit: null, ticket: null, barrel: null }, stationRequired), barrelHint: '' }) })
     // [2026-09-20 真机联调] 旧版本多个请求原来各自 `.catch(() => null)` —— 失败被吞成 null，
     // 页面照常显示「押金 ¥0 / 水票 0 张」，与"这个客户确实没有资产"完全无法区分
     // （AGENTS §8.22）。降级保留（部分成功仍然显示），但**失败的那一格必须显式标出来**：
@@ -135,7 +137,9 @@ Page({
     let summaryRes = null, ticketsRes = null, companyRes = null
     // ⚠️ `failed` 必须先声明再用（caught 是箭头函数，但它一被调用就读这个变量）
     const failed = []
+    let denied = false
     const caught = (tag) => (e) => {
+      if (/无权|权限|登录/.test(e && e.message || '')) denied = true
       failed.push(tag)
       console.warn('[mine] ' + tag + ' 加载失败:', e && e.message)
       return null
@@ -170,11 +174,19 @@ Page({
     const isCompany = !!(companyRes && companyRes.code === 0 && companyRes.data
       && (companyRes.data.id || companyRes.data.companyName))
 
-    const view = assetsView(v, stationRequired)
+    const missing = Object.keys(v).filter(k => v[k] === null)
+    const stale = keep && !denied ? missing.filter(k => previous[k] !== null && previous[k] !== undefined) : []
+    const display = { ...v }
+    stale.forEach(k => { display[k] = previous[k] })
+    const view = assetsView(display, stationRequired)
+    view.unloadedCount = stationRequired ? 0 : missing.length
+    this._lastAssetScope = context
     this.setData({
-      deposit: v.deposit,
-      ticket: v.ticket,
-      barrel: v.barrel,
+      deposit: display.deposit,
+      ticket: display.ticket,
+      barrel: display.barrel,
+      assetsLoading: false,
+      staleAssetsText: stale.length ? '刷新未完成，部分资产为上次读取，请重新核对。' : '',
       barrelHint,
       isCompany,
       ...view
@@ -193,8 +205,7 @@ Page({
 
   /** [2026-09-27 走查 C05 修] 未加载的那几格点一下重新拉一次（不跳转、不刷新整页） */
   onRetryAssets() {
-    this.setData({ deposit: null, ticket: null, barrel: null,
-      ...assetsView({ deposit: null, ticket: null, barrel: null }, !assetViewStation.id(this)), barrelHint: '' })
+    if (this.data.assetsLoading) return
     return this.loadAssets()
   },
 
@@ -207,7 +218,7 @@ Page({
   onHide() { assetViewStation.suspend(this) },
 
   onAssetStationChange(e) {
-    if (assetViewStation.select(this, e.detail)) return this.onRetryAssets()
+    if (assetViewStation.select(this, e.detail)) { this.setData({ assetsLoading: false }); return this.onRetryAssets() }
   },
 
   onLogin() {

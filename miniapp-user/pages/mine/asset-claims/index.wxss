@@ -42,3 +42,8 @@
 .claim-status { flex-shrink: 0; margin-left: 0; max-width: 100%; line-height: 1.7; word-break: break-all; }
 .claim-picker, .claim-row, .claim-amount { word-break: break-all; }
 .claim-page { padding-bottom: calc(72rpx + env(safe-area-inset-bottom)); }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.claim-row, .claim-material, .claim-muted { line-height: 1.75; overflow-wrap: anywhere; }
+.claim-heading { gap: 16rpx; flex-wrap: wrap; }
+.claim-input { font-size: 28rpx; }

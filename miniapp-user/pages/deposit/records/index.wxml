@@ -1,23 +1,24 @@
 <!-- 押金流水（顾客查自己在本站的押金变动）。
      三态互斥，不许合并：
        ① loading        —— 加载中
-       ② errorText 非空 —— 加载失败，原样展示后端 message（未选水站时后端给的是「请选择水站」）
+       ② errorText 非空 —— 加载失败；保留旧数据时标明上次读取
        ③ 其余           —— 列表；records 为空才显示「暂无押金流水」
      ② 与 ③ 必须能一眼区分：「界面空白」和「确实没有」分不开是本仓惯犯（AGENTS.md §8.22）。 -->
 <view class="container">
   <asset-station-view id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
 
   <view class="records-heading"><text class="records-title">押金流水</text><text class="records-note">按所选水站查看押金变动，正负金额分别表示增加与扣减。</text></view>
-  <loading wx:if="{{loading}}"></loading>
+  <loading wx:if="{{loading && !loaded}}"></loading>
+  <view class="refresh-hint" wx:if="{{loading && loaded}}">正在核对最新流水，以下为上次读取的记录…</view>
 
-  <block wx:else>
+  <block>
     <view class="error-card" wx:if="{{errorText}}">
       <text class="error-text">{{errorText}}</text>
       <view class="error-btn" wx:if="{{needStation}}" bindtap="onGoSelectStation">去选水站</view>
       <view class="error-btn ghost" wx:else bindtap="onRetry">重新加载</view>
     </view>
 
-    <view class="record-list" wx:else>
+    <view class="record-list" wx:if="{{loaded}}">
       <view class="record-item" wx:for="{{records}}" wx:key="id">
         <view class="record-main">
           <!-- 类型中文文案由后端下发（DepositRecord.getTypeText → DepositType.textOf）。
@@ -30,7 +31,7 @@
         <!-- 金额原样带正负（增加为正 / 扣减为负），由 js 预先算好，模板不做运算 -->
         <text class="record-amount amount-{{item.amountState}}">{{item.amountText}}</text>
       </view>
-      <empty wx:if="{{records.length === 0}}" text="暂无押金流水"></empty>
+      <empty wx:if="{{records.length === 0}}" text="{{errorText ? '上次查询暂无押金流水' : '暂无押金流水'}}"></empty>
     </view>
   </block>
 </view>

@@ -48,7 +48,7 @@
 }
 
 .balance-total {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: #fff;
   line-height: 1.6;
 }
@@ -144,7 +144,7 @@
 }
 
 .ticket-spec {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -152,12 +152,12 @@
    颜色用 --text-regular，适用范围不降为占位色。
    字号 24rpx：§6 允许辅助信息 24–26rpx，这里不是关键规则。 */
 .ticket-use {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
 }
 
 .ticket-expire {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
 }
 
@@ -176,7 +176,7 @@
 }
 
 .quantity-unit {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -216,7 +216,7 @@
 }
 
 .record-time {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -419,7 +419,7 @@
 }
 
 .method-desc {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
   display: block;
   line-height: 1.6;
@@ -519,7 +519,7 @@
 
 .pkg-sub {
   display: block;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
   margin-top: 4rpx;
   line-height: 1.6;
@@ -527,7 +527,7 @@
 
 .pkg-clear {
   margin-top: 14rpx;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-color);
   text-align: center;
   min-height: 88rpx;
@@ -538,7 +538,7 @@
 
 .pkg-lock {
   display: block;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
   margin-top: 8rpx;
   line-height: 32rpx;
@@ -560,7 +560,7 @@
 
 .station-bar-tip {
   margin-top: 6rpx;
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -572,7 +572,7 @@
   align-items: center;
 }
 .ticket-help text {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
   border-bottom: 1rpx solid var(--text-placeholder);
 }
@@ -594,7 +594,7 @@
   margin-bottom: 6rpx;
 }
 .recovery-text {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
   line-height: 1.5;
 }
@@ -637,3 +637,13 @@ button.recovery-btn[disabled] {
   color: var(--error-color);
   border: 1rpx solid var(--error-color);
 }
+.stale-note { display: block; padding: 20rpx 24rpx; color: #9a3412; background: #fff7ed; font-size: 26rpx; line-height: 1.65; }
+.modal-label, .pkg-sub, .pkg-lock, .ticket-expire, .ticket-use, .record-time { font-size: 26rpx; line-height: 1.65; }
+.modal-close, .ticket-help, .pkg-clear, .load-error > view { min-height: 88rpx; display: flex; align-items: center; }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.modal-close { color: var(--text-regular); }
+.modal-label { color: var(--text-regular); }
+.container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
+.pkg-item { min-width: 0; overflow-wrap: anywhere; }
+.load-error button { min-height: 88rpx; font-size: 28rpx; padding: 18rpx; }

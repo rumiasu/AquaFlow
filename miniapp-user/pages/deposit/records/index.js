@@ -24,14 +24,16 @@
 const { get } = require('../../../utils/request')
 const assetViewStation = require('../../../utils/asset-view-station')
 const { formatMoney, formatTime } = require('../../../utils/format')
+const { isCurrentSession } = require('../../../utils/token')
 
 const DEPOSIT_RECORDS = '/api/deposit-records'
 
 Page({
   data: {
     loading: true,
+    loaded: false,
     records: [],
-    // 加载失败时**原样**展示后端 message。必须与"确实没有流水"分开渲染：
+    // 展示可读失败说明，保留原错误对象；与“确实没有流水”分开渲染。
     // 「界面空白」与「确实没有」无法区分是本仓惯犯（AGENTS.md §8.22）——
     // 这里失败走 error-card，空列表走 empty，两条路径在 wxml 里互斥。
     errorText: '',
@@ -54,11 +56,13 @@ Page({
   async loadRecords() {
     const context = assetViewStation.beginRead(this)
     const stationId = context.stationId
+    const keep = this._recordsScope && this._recordsScope.stationId === stationId
+      && isCurrentSession(this._recordsScope.session) && this.data.loaded
+    if (!keep) this.setData({ records: [], loaded: false })
     this.setData({
       loading: true,
       errorText: '',
-      needStation: !stationId,
-      records: []
+      needStation: !stationId
     })
     try {
       // stationId 缺失时**故意照发**（utils/request 会过滤掉 null 的 query 参数）：
@@ -69,10 +73,15 @@ Page({
         || !['number','string'].includes(typeof r.amount) || typeof r.amount === 'string' && !r.amount.trim()
         || !Number.isFinite(Number(r.amount)))) throw new Error('押金流水暂未加载，请重试')
       const list = res.data
-      this.setData({ records: list.map(r => this.decorate(r)) })
+      this._recordsScope = context
+      this.setData({ records: list.map(r => this.decorate(r)), loaded: true })
     } catch (err) {
-      // 失败必须是失败：显示后端的 message，绝不留成空列表（否则客户以为"我没有押金记录"）
-      if (assetViewStation.current(this, context)) this.setData({ records: [], errorText: (err && err.message) || '加载失败' })
+      if (assetViewStation.current(this, context)) {
+        const denied = /无权|权限|登录/.test(err && err.message || '')
+        this.setData({ records: keep && !denied ? this.data.records : [], loaded: !!keep && !denied,
+          errorText: !stationId ? '请先选择要查看的水站。' : denied ? '当前账号无法查看本站押金流水，请核对账号和水站。'
+            : (keep ? '刷新失败，以下为上次读取的流水。' : '') + '押金流水暂未加载，请重试。' })
+      }
     } finally {
       if (assetViewStation.current(this, context)) this.setData({ loading: false })
     }

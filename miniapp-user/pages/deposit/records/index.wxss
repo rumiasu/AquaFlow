@@ -18,7 +18,7 @@
 
 .station-bar-tip {
   margin-top: 6rpx;
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -88,14 +88,14 @@
 
 .record-time {
   display: block;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
 .record-note {
   display: block;
   margin-top: 10rpx;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
   line-height: 1.5;
 }
@@ -103,7 +103,7 @@
 .record-order {
   display: block;
   margin-top: 6rpx;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
 }
 
@@ -132,6 +132,13 @@
 
 .records-heading { padding: 8rpx 0 24rpx; }
 .records-title { display: block; font-size: 34rpx; font-weight: 700; color: var(--text-primary); }
-.records-note { display: block; margin-top: 10rpx; font-size: 24rpx; line-height: 1.7; color: var(--text-regular); }
+.records-note { display: block; margin-top: 10rpx; font-size: 26rpx; line-height: 1.7; color: var(--text-regular); }
 .record-list { overflow: hidden; border: 1rpx solid var(--border-color); border-radius: var(--radius-md); background: #fff; }
 .record-item:last-child { border-bottom: 0; }
+.container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
+.refresh-hint { font-size: 26rpx; line-height: 1.6; color: var(--text-regular); padding: 20rpx 0; }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
+.error-btn { min-height: 88rpx; }
+.record-main { min-width: 0; overflow-wrap: anywhere; }

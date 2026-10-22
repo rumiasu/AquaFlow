@@ -1,8 +1,11 @@
+<page-meta page-style="{{showReturnModal ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="container">
   <asset-station-view id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>
+    <text class="stale-note" wx:if="{{refreshing}}">正在重新核对，以下为上次读取的信息…</text>
+    <text class="stale-note" wx:if="{{summaryStale || holdingsStale || recordsStale}}">部分内容未更新，以下保留上次读取的信息；相关退还操作需重新核对后办理。</text>
     <!-- [2026-09-20] 部分桶接口失败时的提示：没有它，失败渲染出来的「权益 0 · 占用 0」
          与"确实没有桶"长得一模一样（loadError 为空串时不渲染）。 -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}<view bindtap="onRetryAssets">重新加载 ›</view></view>
@@ -68,7 +71,7 @@
              数量与"押金 ¥X/桶"一律没动。
         -->
         <text class="section-title">我的水桶</text>
-        <view class="return-btn-small" bindtap="onShowReturnModal" wx:if="{{maxReturnQty > 0}}">
+        <view class="return-btn-small" bindtap="onShowReturnModal" wx:if="{{maxReturnQty > 0 && !refreshing && !summaryFailed && !holdingsFailed}}">
           <!-- [2026-10-10] 未领权益也可退出；申请标题不把所有权益说成已领取实物。 -->
           <text>{{summary.independentRights ? '申请退还权益' : '申请退桶'}}</text>
         </view>
@@ -183,6 +186,7 @@
     </view>
 
     <view class="modal-body">
+      <view class="load-error" wx:if="{{returnError}}">{{returnError}}</view>
       <view class="return-tip"><text>办理水站：{{stationName || '水站 #' + viewStationId}}</text>
 
         <!-- [2026-10-10] 新模型的上限是可退权益，原固定“桶”会把已付未领容量说成实物；只切换单位，数量/押金试算不变。 -->

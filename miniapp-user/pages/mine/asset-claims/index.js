@@ -48,6 +48,7 @@ Page({
   async load() {
     if (!this._actor || !this.current(this.context())) return
     const c = this.context(this._read = (this._read || 0) + 1)
+    const previousRecords = this.data.records.length > 0
     this.setData({ loading: true, ready: false, canCreate: false, error: '', catalogReady: false })
     if (!c.station) { this.setData({ loading: false, records: [], catalog: [], error: '请先选择需要认领的水站' }); return }
     try {
@@ -74,7 +75,8 @@ Page({
         name: (products.find(p => p.id === r.productId) || {}).name || '历史商品',
         rights: String(r.rights), held: String(r.held), tickets: String(r.tickets), unitPrice: r.unitPrice || '' })) },
         notice: '上次提交结果尚未确认，请恢复原申请。原清单和编号已保留。' })
-    } catch (e) { if (this.current(c)) this.setData({ ready: false, canCreate: false, error: claim.errorText(e, '认领记录暂时无法加载，请重试或联系水站') }) }
+    } catch (e) { if (this.current(c)) this.setData({ ready: false, canCreate: false,
+      error: (previousRecords ? '以下为上次读取的认领记录。' : '') + claim.errorText(e, '认领记录暂时无法加载，请重试或联系水站') }) }
     finally { if (this.current(c)) this.setData({ loading: false, submitting: false }) }
   },
   onRetry() { if (!this.data.loading && !this._flight) return this.load() },

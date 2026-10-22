@@ -102,7 +102,9 @@ Page({
       this.setData({ records: list, loaded: true, error: '' })
     } catch (err) {
       if (!this.canApplyRecords(context)) return
-      const message = (err && err.message) || '加载失败，请重试'
+      const raw = err && err.message || ''
+      const message = /无权|权限/.test(raw) ? '当前账号无权查看这些付款记录，请核对登录账号。' : '付款记录暂时无法读取，请重试。'
+      if (/无权|权限/.test(raw)) this.setData({ records: [], loaded: false })
       this.setData({ error: this.data.loaded ? '刷新失败，当前为上次成功查询的记录。' + message : message })
     } finally {
       if (this.canApplyRecords(context)) this.setData({ loading: false })

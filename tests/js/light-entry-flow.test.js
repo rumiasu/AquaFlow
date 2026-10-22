@@ -1,14 +1,18 @@
 const assert = require('assert')
 const fs = require('fs'), path = require('path')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
+const { parseWxml, renderElements } = require('./wxml-tree')
 const done = armWatchdog(), tests = []
 const test = (name, run) => tests.push({ name, run })
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r }); return { promise, resolve } }
-function home(summary = async () => ({ data: {} }), products = []) {
-  const wx = createWx(), app = createApp()
+const ok = data => ({ code: 0, data })
+const tree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/home/index.wxml'), 'utf8'))
+const visible = page => renderElements({ ...tree, children: tree.children.filter(n => n.tag !== 'template') }, page.data, { includeText: true })
+function home(summary = async () => ok({}), products = [], productResponse) {
+  const wx = createWx(), app = createApp(), productCalls = []
   const page = loadPage('miniapp-user/pages/home/index.js', { wx, app, stubs: {
     'api/barrel': { getBarrelSummary: summary, getBarrelSummaryByType: async () => ({ data: [] }) },
-    'api/product': { getStationProducts: async () => ({ data: products }) },
+    'api/product': { getStationProducts: async id => { productCalls.push(id); return productResponse || ok(products) } },
     'api/address': { getAddresses: async () => ({ data: [] }) },
     'api/order': { getOrders: async () => ({ data: [] }), getOrderDetail: async () => ({ data: null }) },
     'api/station': { getStationStatus: async () => ({ data: {} }) },
@@ -17,8 +21,8 @@ function home(summary = async () => ({ data: {} }), products = []) {
   } })
   page.loadStationStatus = async () => {}
   page.loadHomeOrders = async () => ({ data: [] })
-  page.setData({ isLogin: true, state: 'ready', currentStationId: 11 })
-  return { page, wx }
+  page.setData({ isLogin: true, state: 'ready', currentStationId: 11, currentStation: {id:11,name:'当前选择水站'} })
+  return { page, wx, productCalls }
 }
 test('zero assets retain the selected-station explanation and existing barrel route', async () => {
   const {page,wx}=home(async()=>({data:{rightBuckets:0,owedBuckets:0,depositBalance:0}}))
@@ -34,7 +38,12 @@ test('failed asset reading is not treated as a successful zero balance', async (
   await page.loadData()
   assert.equal(page.data.barrelVisible,false)
   assert.equal(page.data.barrelLine2,'')
-  assert.ok(page.data.loadError.includes('桶账'))
+  assert.ok(page.data.loadError.includes('桶资产'))
+  assert.equal(page.data.loadImpactSummary, '桶资产暂未核实')
+  assert.ok(page.data.purchaseHint.includes('核对后才能提交订单'))
+  const nodes = visible(page)
+  assert.ok(nodes.some(n => n.className === 'home-feedback-sub' && n.text === '桶资产暂未核实'))
+  assert.ok(!nodes.some(n => n.className.split(/\s/).includes('barrel-line')))
 })
 test('stationless page does not expose a station asset entry', async () => {
   const {page}=home(); page.setData({currentStationId:null})
@@ -57,6 +66,19 @@ test('home prices use the same product units as order details', async () => {
   await page.loadData()
   assert.deepStrictEqual(page.data.productsView.map(p=>p.quantityUnit),['桶','瓶','台','件'])
 })
+test('a stationless catalog read does not request or expose station products', async () => {
+  const {page,productCalls}=home(undefined,[{id:1,category:1,price:12}]); page.setData({currentStationId:null})
+  await page.loadData()
+  assert.deepStrictEqual(productCalls, []); assert.deepStrictEqual(page.data.productsView, [])
+})
+
+test('a rejected catalog response cannot masquerade as successfully priced products', async () => {
+  const {page,productCalls}=home(undefined,[],{code:1,data:[{id:1,category:1,price:12}]})
+  await page.loadData()
+  assert.deepStrictEqual(productCalls,[11]); assert.equal(page.data.catalogState,'error')
+  assert.deepStrictEqual(page.data.productsView,[]); assert.ok(page.data.loadImpactSummary.includes('商品暂未加载'))
+})
+
 test('completed contact uses the receiver snapshot and catches the card tap', async () => {
   const text=fs.readFileSync(path.join(ROOT,'miniapp-delivery/pages/home/index.wxml'),'utf8')
   const completed=text.slice(text.indexOf('<!-- 已完成列表 -->'),text.indexOf('<view class="loading-state"'))

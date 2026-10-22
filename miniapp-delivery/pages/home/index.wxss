@@ -3,27 +3,6 @@
 
 .home-station-identity { padding: 16rpx 24rpx; color: var(--text-regular); font-size: 26rpx; line-height: 1.5; overflow-wrap: anywhere; }
 
-/* ========== 统计看板 ========== */
-.stats-panel {
-  display: flex; background: #fff; padding: 20rpx 16rpx;
-  border-radius: 12rpx; margin-bottom: 0;
-  margin: 0 24rpx 16rpx;
-  border: 1rpx solid var(--border-color);
-}
-
-.stat-item {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  position: relative; color: var(--text-primary);
-  min-height: 96rpx;
-  justify-content: center;
-}
-
-.stat-value { font-size: 40rpx; font-weight: 700; line-height: 1.1;
-  color: var(--primary-color);
-}
-.stat-label { font-size: 14px; opacity: 1; margin-top: 4rpx; }
-.stat-unit { font-size: 12px; opacity: 1; }
-
 /* ========== Tab 栏 ========== */
 .tab-bar {
   display: flex; background: #fff; margin: 16rpx 24rpx 0; border-radius: 12rpx;
@@ -32,13 +11,18 @@
 }
 
 .tab-item {
-  flex: 1; text-align: center; padding: 24rpx 0; font-size: 26rpx; color: var(--text-secondary); font-weight: 500; position: relative; transition: all 0.2s;
-  min-height: 96rpx;
+  flex: 1; min-width: 0; text-align: center; padding: 24rpx 8rpx; font-size: 26rpx; color: var(--text-secondary); font-weight: 500; position: relative; transition: all 0.2s;
+  min-height: 48px;
   box-sizing: border-box;
   display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx 12rpx;
   align-items: center;
   justify-content: center;
 }
+
+.stat-label { font-size: 14px; opacity: 1; white-space: nowrap; }
+.stat-unit { font-size: 13px; font-weight: 600; opacity: 1; white-space: nowrap; }
 
 .tab-item.active { color: var(--primary-color); font-weight: 600; }
 .tab-item.active::after {

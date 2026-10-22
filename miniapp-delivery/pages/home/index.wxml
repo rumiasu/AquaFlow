@@ -18,29 +18,6 @@
   <view class="home-station-identity"><text>{{homeStationLabel}}</text></view>
   <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
 
-  <!--
-    [2026-10-06] 统计看板与 Tab 去重：原看板数字与下方 Tab 完全对应（待配送/配送中/已完成），
-    功能重复。现改为「今日概览」—— 展示新增单数与完成率，与 Tab 导航互补而非重复。
-    点击仍跳转对应 Tab，但文案不再是简单计数。
-  -->
-  <view class="stats-panel">
-    <view class="stat-item" bindtap="switchTab" data-tab="assigned">
-      <text class="stat-value">{{assignedOrders.length || 0}}</text>
-      <text class="stat-label">待配送</text>
-      <text class="stat-unit">单</text>
-    </view>
-    <view class="stat-item" bindtap="switchTab" data-tab="delivering">
-      <text class="stat-value">{{deliveringOrders.length || 0}}</text>
-      <text class="stat-label">配送中</text>
-      <text class="stat-unit">单</text>
-    </view>
-    <view class="stat-item" bindtap="switchTab" data-tab="completed">
-      <text class="stat-value">{{completedOrders.length || 0}}</text>
-      <text class="stat-label">已完成</text>
-      <text class="stat-unit">单</text>
-    </view>
-  </view>
-
   <!-- 未结款项常显，不以折叠隐藏收款事实。 -->
   <view class="unpaid-section" wx:if="{{deliveredUnpaidOrders.length > 0}}">
     <view class="unpaid-header">
@@ -87,15 +64,19 @@
     读起来像"还没人派单"，而它实际装的是"本站所有还没开始配送的单"
     （= 已分配给我的 + 全站待分配的，见 index.js 的合并逻辑）。按「接单配送」= status 1→2。
   -->
+  <!-- 2026-10-22：原统计区重复占据首屏，数量并入同一筛选入口；仍取各列表长度，不另算业务总数。 -->
   <view class="tab-bar">
     <view class="tab-item {{activeTab === 'assigned' ? 'active' : ''}}" bindtap="switchTab" data-tab="assigned">
-      <text>待配送</text>
+      <text class="stat-label">待配送</text>
+      <text class="stat-unit">{{assignedOrders.length || 0}} 单</text>
     </view>
     <view class="tab-item {{activeTab === 'delivering' ? 'active' : ''}}" bindtap="switchTab" data-tab="delivering">
-      <text>配送中</text>
+      <text class="stat-label">配送中</text>
+      <text class="stat-unit">{{deliveringOrders.length || 0}} 单</text>
     </view>
     <view class="tab-item {{activeTab === 'completed' ? 'active' : ''}}" bindtap="switchTab" data-tab="completed">
-      <text>已完成</text>
+      <text class="stat-label">已完成</text>
+      <text class="stat-unit">{{completedOrders.length || 0}} 单</text>
     </view>
   </view>
 

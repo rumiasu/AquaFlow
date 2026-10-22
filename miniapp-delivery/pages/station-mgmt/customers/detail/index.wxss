@@ -60,7 +60,8 @@
 .metric-grid { display: flex; }
 .metric-grid.second { margin-top: 24rpx; padding-top: 24rpx; border-top: 1rpx solid var(--border-color); }
 .metric { flex: 1; display: flex; flex-direction: column; align-items: center; }
-.metric-value { font-size: 32rpx; font-weight: 700; color: var(--primary-color); }
+/* 2026-10-22：普通读数曾与蓝色操作混在一起；仅收敛默认数字颜色，欠桶与配送中仍用各自语义色。 */
+.metric-value { font-size: 32rpx; font-weight: 700; color: var(--text-primary); }
 .metric-value.small { font-size: 26rpx; }
 .metric-value.warn { color: var(--error-color); }
 .metric-label { font-size: 22rpx; color: var(--text-secondary); margin-top: 8rpx; }

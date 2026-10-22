@@ -115,7 +115,7 @@ Page({
     this.setData({ loading: true, onlyAssigned: !manager })
     try {
       // ⚠️ [2026-09-19 删除] 这里原先还调 `getTodayStats()`（/api/delivery/stats/today）并把结果写进
-      // `data.stats` —— 而本页 wxml **从来没有读过 `stats`**（上面看板用的是三个列表的 .length）。
+      // `data.stats` —— 而本页 wxml **从来没有读过 `stats`**（页签数量用的是三个列表的 .length）。
       // 也就是说每次进「配送」页都白发一次请求。删掉它，页面上的数字一个都不会变。
       // 证据见 docs/audit/history/review/2026-09-16-死端点评估.md「删除登记表」#10。
       //

@@ -9,6 +9,7 @@
        没记录时不渲染整块，免得新用户看到一个空卡片。 -->
 
 
+  <view class="ui-state" wx:if="{{historyError}}"><text class="ui-state-copy">{{historyError}}</text><button size="mini" bindtap="onRetryHistory">重新读取申请历史</button></view>
   <view class="section-card" wx:if="{{history.length > 0}}">
     <view class="card-header">
       <text class="card-title">申请历史</text>
@@ -78,9 +79,10 @@
       </view>
     </view>
 
-    <view class="empty-tip" wx:if="{{!loading && stationList.length === 0}}">
+    <view class="ui-state" wx:if="{{loadError}}"><text class="ui-state-title">水站列表待核实</text><text class="ui-state-copy">{{loadError}}</text><button size="mini" bindtap="onRetryStations">重新加载水站</button></view>
+    <view class="empty-tip" wx:if="{{loaded && !loading && !loadError && stationList.length === 0}}">
       <text wx:if="{{keyword}}">没有找到匹配的水站，换个名称或地址试试</text>
-      <text wx:else>附近还没有水站，请联系站长先创建水站</text>
+      <text wx:else>暂无可申请水站，请联系站长核实水站是否已创建</text>
     </view>
 
     <view class="loading-tip" wx:if="{{loading}}">

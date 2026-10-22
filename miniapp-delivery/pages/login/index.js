@@ -118,7 +118,7 @@ Page({
       console.log('[wx-login] credential received:', !!loginRes.code)
 
       if (!loginRes.code) {
-        wx.showToast({ title: '微信登录失败：未获取code', icon: 'none' })
+        wx.showToast({ title: '微信登录未完成，请重试', icon: 'none' })
         return
       }
 
@@ -136,7 +136,7 @@ Page({
       this.loadAgreements()
       console.error('[wx-login] login failed')
       const msg = (error && error.message) || '登录失败'
-      wx.showModal({ title: '登录失败', content: msg, showCancel: false })
+      wx.showModal({ confirmText: '知道了', title: '登录失败', content: msg, showCancel: false })
     } finally {
       this.setData({ loading: false })
     }

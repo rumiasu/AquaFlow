@@ -43,7 +43,8 @@
         </view>
       </view>
     </view>
-    <view class="empty" wx:elif="{{!historyLoading}}">
+    <view class="ui-state" wx:elif="{{historyError}}"><text class="ui-state-copy">{{historyError}}</text><button size="mini" bindtap="onRetryHistory">重新读取反馈记录</button></view>
+    <view class="empty" wx:elif="{{!historyLoading && !historyError}}">
       <text>暂无反馈记录</text>
     </view>
   </view>

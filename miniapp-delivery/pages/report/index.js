@@ -6,6 +6,7 @@ Page({
     content: '',
     contact: '',
     historyList: [],
+    historyError: '',
     historyLoading: true
   },
 
@@ -13,13 +14,16 @@ Page({
     this.loadHistory()
   },
 
+  onRetryHistory() { return this.loadHistory() },
+
   async loadHistory() {
-    this.setData({ historyLoading: true })
+    this.setData({ historyLoading: true, historyError: '' })
     try {
       const res = await getMyFeedbacks()
       this.setData({ historyList: res.data || [] })
     } catch (err) {
       // 静默失败会被当成「没有历史反馈」，用户以为反馈丢了。留痕 + 提示。
+      this.setData({ historyError: '反馈记录尚未读取，请重试后核对' })
       console.error('[Report] 反馈历史加载失败:', err)
       wx.showToast({ title: '反馈历史加载失败', icon: 'none' })
     } finally {

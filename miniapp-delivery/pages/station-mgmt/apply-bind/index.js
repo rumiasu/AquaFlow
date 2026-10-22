@@ -23,7 +23,7 @@ function formatTime(value) {
 // - 提交后 bind_status=PENDING, 跳转到 bind-wait 等候站长审批
 Page({
   data: {
-    loading: false,
+    loading: false, loadError: '', historyError: '',
     stationList: [],
     applyingId: null, // 正在提交申请的水站ID，防重复点击
     history: [],      // 申请历史（只读，见 loadHistory）
@@ -94,8 +94,12 @@ Page({
    * 没拿到定位（或站长没给水站设过坐标）时 {@code distanceKm} 为 null —— 卡片上显示"位置未设置"，
    * **不是**把它藏起来。</p>
    */
+  onRetryStations() { return this.loadStations() },
+  onRetryHistory() { return this.loadHistory() },
+
   async loadStations() {
-    this.setData({ loading: true })
+    const seq = this._stationSeq = (this._stationSeq || 0) + 1
+    this.setData({ loading: true, loadError: '' })
     try {
       const query = {}
       if (this.data.keyword) query.keyword = this.data.keyword
@@ -104,7 +108,9 @@ Page({
         query.lng = this.location.lng
       }
       const res = await get(API.STATION_SEARCH, query)
-      const list = (res.data || []).map(s => ({
+      if (seq !== this._stationSeq) return
+      if (!Array.isArray(res.data)) throw new Error('水站清单尚未读取')
+      const list = res.data.map(s => ({
         ...s,
         distanceText: (s.distanceKm === null || s.distanceKm === undefined)
           ? (this.location ? '位置未设置' : '')
@@ -115,11 +121,12 @@ Page({
       this.setData({
         stationList: list,
         hasLocation: !!this.location,
-        loading: false,
+        loading: false, loadError: '', historyError: '',
         loaded: true
       })
     } catch (err) {
-      this.setData({ loading: false, stationList: [], loaded: true })
+      if (seq !== this._stationSeq) return
+      this.setData({ loading: false, stationList: [], loaded: false, loadError: '水站列表尚未读取，请重新加载。定位不可用时仍可按名称搜索。' })
       wx.showToast({ title: err.message || '加载水站列表失败', icon: 'none' })
     }
   },
@@ -199,6 +206,7 @@ Page({
    * 前端不写 type/status → 中文映射；水站名后端只给 stationId，用本页已有的 stationList 反查补齐。
    */
   async loadHistory() {
+    this.setData({ historyError: '' })
     try {
       const res = await get(BIND_APPLICATIONS)
       const stationName = {}
@@ -212,7 +220,7 @@ Page({
       this.setData({ history })
     } catch (err) {
       // 历史是附加信息：拉不到就不显示，不弹错误打断"申请绑定"这条主流程
-      this.setData({ history: [] })
+      this.setData({ historyError: '申请历史暂未读取，不影响搜索水站' })
     }
   },
 

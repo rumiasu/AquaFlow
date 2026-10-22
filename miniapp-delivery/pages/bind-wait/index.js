@@ -12,7 +12,7 @@ Page({
     mode: 'PENDING',          // PENDING / PENDING_UNBIND
     stationName: '',
     applyStationName: '',
-    hint: ''
+    hint: '', refreshLoading: false, refreshError: '', statusReady: false
   },
 
   onLoad() {
@@ -24,6 +24,7 @@ Page({
   },
 
   async refresh(silent) {
+    this.setData({ refreshLoading: true, refreshError: '' })
     try {
       const app = getApp()
       // 优先从服务器拿最新 bind 状态
@@ -32,6 +33,8 @@ Page({
         get(API.ME).catch(() => null)
       ])
 
+      if (!(bindRes && bindRes.data) && !(meRes && meRes.data)) throw new Error('申请状态尚未读取')
+      this.setData({ statusReady: true })
       const userInfo = (app.globalData && app.globalData.userInfo) || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {}
       let bindStatus = userInfo.bindStatus || BINDING_STATUS.UNBOUND
       let stationId = userInfo.stationId || null
@@ -73,7 +76,7 @@ Page({
 
       if (bindStatus === BINDING_STATUS.REJECTED || bindStatus === BINDING_STATUS.UNBOUND) {
         if (!silent && bindStatus === BINDING_STATUS.REJECTED) {
-          wx.showModal({
+          wx.showModal({ confirmText: '知道了',
             title: '申请被拒绝',
             content: '站长拒绝了您的绑定申请，请重新申请。',
             showCancel: false,
@@ -95,8 +98,9 @@ Page({
         applyStationName: userInfo.applyStationName || ''
       })
     } catch (err) {
+      this.setData({ refreshError: '申请最新状态尚未核实，请刷新后查看' })
       if (!silent) wx.showToast({ title: '刷新失败', icon: 'none' })
-    }
+    } finally { this.setData({ refreshLoading: false }) }
   },
 
   /**
@@ -120,7 +124,7 @@ Page({
       wx.showToast({ title: '解绑审批中，无法撤回', icon: 'none' })
       return
     }
-    wx.showModal({
+    wx.showModal({ confirmText: '确认撤回',
       title: '撤回申请',
       content: '确定要撤回当前绑定申请吗？',
       success: async (res) => {

@@ -1,6 +1,6 @@
 <view class="container">
   <view class="header">
-    <text class="title">欢迎使用 AquaFlow</text>
+    <text class="title">欢迎使用水站工作台</text>
     <text class="subtitle">请选择您的角色（站长/配送员）继续</text>
   </view>
 

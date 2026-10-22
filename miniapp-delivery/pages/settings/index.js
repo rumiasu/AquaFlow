@@ -120,7 +120,7 @@ Page({
   },
 
   onClearCache() {
-    wx.showModal({
+    wx.showModal({ confirmText: '清除缓存',
       title: '清除缓存',
       content: '清除本地缓存，不影响登录状态。确定继续吗？',
       confirmColor: '#C9764B',
@@ -140,7 +140,7 @@ Page({
   },
 
   onLogout() {
-    wx.showModal({
+    wx.showModal({ confirmText: '退出登录',
       title: '退出登录',
       content: '确定要退出登录吗？',
       confirmColor: '#B5442C',

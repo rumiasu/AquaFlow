@@ -112,6 +112,7 @@ const SUITES = [
   { file: 'ticket-purchase-flow.test.js', name: '水票购买（自助预付，不需要水站同意）' },
   { file: 'ticket-purchase-recovery-boundary.test.js', name: '购票原请求恢复、存储失败与永久结束回执' },
   { file: 'request-session-boundary.test.js', name: '客户会话周期、迟到401与启动刷新边界' },
+  { file: 'request-report-copy.test.js', name: '上报分支中文结果、原错误保留与统一文案负对照' },
   { file: 'request-malformed-envelope.test.js', name: '两端异步响应损坏、续期与重发收尾' },
   { file: 'notice-draft-flow.test.js', name: '公告发布/草稿（站长端）' },
   { file: 'coordination-assign-flow.test.js', name: '待分配→分配配送员（站长端，2026-09-27 真机事故回归）' },

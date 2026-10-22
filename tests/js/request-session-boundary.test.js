@@ -219,7 +219,7 @@ async function reportPrompt(t, message = 'synthetic report error') {
 for (const outcome of [
   { name: '业务拒绝', response: { statusCode: 200, data: { code: 1, message: '请重新登录后上报' } }, feedback: '请重新登录后上报' },
   { name: 'HTTP401', response: { statusCode: 401, data: null }, feedback: '登录已过期' },
-  { name: 'HTTP500', response: { statusCode: 500, data: { code: 0 } }, feedback: 'HTTP 500' },
+  { name: 'HTTP500', response: { statusCode: 500, data: { code: 0 } }, feedback: '服务暂时不可用' },
   { name: '业务500', response: { statusCode: 200, data: { code: 500, message: '水站暂时不可用' } }, feedback: '水站暂时不可用' },
   { name: '空响应', response: null, feedback: '数据不完整' },
   { name: '空body', response: { statusCode: 200, data: null }, feedback: '数据不完整' },
@@ -234,6 +234,10 @@ for (const outcome of [
     else report.success(outcome.response)
     assert(!t.wx.__calls.toast.some(o => o.title.includes('已上报')))
     assert(t.wx.__calls.toast.some(o => o.title.includes(outcome.feedback)))
+    if (outcome.name === 'HTTP500') {
+      const title = t.wx.__calls.toast.at(-1).title
+      assert(title.includes('服务暂时不可用')); assert(title.includes('上报结果未确认')); assert(!title.includes('HTTP'))
+    }
     assert.strictEqual(t.wx.__calls.modal.length, 1, '上报失败自身不能递归弹窗')
     await reportPrompt(t); assert.strictEqual(t.wx.__calls.modal.length, 2)
     assert.strictEqual(t.sent.length, 3, '失败后不得自动发送上报')

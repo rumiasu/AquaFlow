@@ -174,10 +174,22 @@ function submitErrorReport(message, options, session) {
     .slice(0, 1000)
 
   const token = captureSession().accessToken
-  const failed = error => {
+  const failed = (error, view) => {
     if (!isCurrentSession(session)) return
     offeredReports.delete(message)
-    wx.showToast({ title: '上报失败：' + error.message, icon: 'none' })
+    // 只生成展示文案；原异常、响应、会话与请求结果不作改写。
+    const raw = error && typeof error.message === 'string' ? error.message.trim() : ''
+    const reason = /[\u4e00-\u9fff]/.test(raw) && !/[A-Za-z\r\n]/.test(raw) ? raw : ''
+    const unknown = '上报结果未确认，请稍后核对'
+    const titles = {
+      rejected: reason ? '上报未被接受：' + reason : '上报未被接受，请稍后核对',
+      expired: '登录已过期，请重新登录后上报',
+      http: '服务暂时不可用，' + unknown,
+      malformed: '收到的数据不完整，' + unknown,
+      network: (/网络超时/.test(reason) ? '网络超时，' : '网络连接异常，') + unknown,
+      unknown: reason ? reason + '，' + unknown : unknown
+    }
+    wx.showToast({ title: titles[view] || unknown, icon: 'none' })
   }
 
   // 刻意不复用本模块的 request()：上报自身若再失败，会再次触发上报询问（递归弹窗）。
@@ -195,17 +207,18 @@ function submitErrorReport(message, options, session) {
     success: res => {
       if (!isCurrentSession(session)) return
       const error = responseError(res)
-      if (error) { failed(error); return }
+      if (error) { failed(error, 'malformed'); return }
       if (res.statusCode === 200 && (res.data.code === 0 || res.data.code === 200)) {
         wx.showToast({ title: '已上报，水站会尽快处理', icon: 'none' })
       } else if (res.statusCode === 401 || (res.statusCode === 200 && res.data.code === 401)) {
-        failed(new Error('登录已过期，请重新登录后上报'))
+        failed(new Error('登录已过期，请重新登录后上报'), 'expired')
       } else {
         failed(new Error(res.statusCode === 200 ? responseMessage(res.data)
-          : '服务暂时不可用（HTTP ' + res.statusCode + '），请稍后重试'))
+          : '服务暂时不可用（HTTP ' + res.statusCode + '），请稍后重试'),
+          res.statusCode === 200 ? (res.data.code === 1 ? 'rejected' : 'unknown') : 'http')
       }
     },
-    fail: err => failed(toNetworkError(err))
+    fail: err => failed(toNetworkError(err), 'network')
   })
 }
 

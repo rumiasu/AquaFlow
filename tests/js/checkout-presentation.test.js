@@ -47,27 +47,27 @@ test('复购重新读取原单商品数量和地址并获取当前商品及报�
   } })
   page.setData({ stationId: 1 }); await page.loadReorder(81)
   await new Promise(resolve => setImmediate(resolve))
-  assert.deepStrictEqual(calls.detail, [81]); assert.deepStrictEqual(calls.products, [{ id: 5, stationId: 1 }])
+  assert.deepStrictEqual(calls.detail, [81]); assert.deepStrictEqual(calls.products, [{ id: 5, stationId: 2 }])
   assert.strictEqual(calls.addresses, 1); assert.strictEqual(page.data.address.id, 17)
   assert.strictEqual(page.data.products[0].quantity, 2); assert.strictEqual(page.data.products[0].price, 27)
   assert.strictEqual(page.data.products[0].stock, 0)
   assert.ok(calls.quotes.some(q => q.addressId === 17 && q.items[0].quantity === 2))
   assert.strictEqual(page.data.extraDepositAmountText, '50.00'); assert.strictEqual(page.data.payableAmountText, '104.00')
   assert.strictEqual(calls.writes, 0)
-  assert.strictEqual(wx.__calls.modal.length, 0, '外派履约站不能触发归属站不一致弹窗')
-  assert.ok(calls.quotes.every(q => q.stationId === 1), '复购报价仍认原归属站')
+  assert.strictEqual(wx.__calls.modal.length, 1, '既有默认站与当前站不同，必须保留确认')
+  assert.ok(calls.quotes.every(q => q.stationId === 2), '既有默认复购站的商品和报价一致')
 })
 for (const change of ['identity', 'hide', 'unload']) {
   test('复购切站确认在' + change + '后不再应用原单', async () => {
     const wx = createWx(), applied = []
     wx.showModal = options => wx.__calls.modal.push(options)
     const page = loadPage('miniapp-user/pages/order/create.js', { wx, stubs: {
-      'utils/station': { resolveStationId: async () => 3 },
+      'utils/station': { resolveStationId: async () => 4 },
       'api/order': { getOrderDetail: async id => ({ code: 0, data: { id, stationId: 1, deliveryStationId: 3 } }) }
     } })
     page._doLoadFromOrder = async order => applied.push(order.id)
     await page.loadReorder(81)
-    assert.strictEqual(wx.__calls.modal.length, 1, '比较归属站，不能因当前站恰是履约站而跳过提示')
+    assert.strictEqual(wx.__calls.modal.length, 1, '当前站与既有默认复购站不同，保留原确认')
     if (change === 'identity') page.__app.globalData.customerId = 8
     else page[change === 'hide' ? 'onHide' : 'onUnload']()
     wx.__calls.modal[0].success({ confirm: true })
@@ -81,7 +81,7 @@ test('有效复购切站确认只应用原单，取消保留原有返回行为',
     const wx = createWx(), applied = []
     wx.__modalAutoConfirm = confirm
     const page = loadPage('miniapp-user/pages/order/create.js', { wx, stubs: {
-      'utils/station': { resolveStationId: async () => 3 },
+      'utils/station': { resolveStationId: async () => 4 },
       'api/order': { getOrderDetail: async id => ({ code: 0, data: { id, stationId: 1, deliveryStationId: 3 } }) }
     } })
     page._doLoadFromOrder = async order => applied.push(order.id)

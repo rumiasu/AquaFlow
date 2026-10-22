@@ -527,13 +527,13 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 改用与首页同一套来源：stationStorage 优先，回退 my-station。
       const currentStationId = await resolveStationId()
       if (!current()) return
-      // 2026-10-22：外派履约站曾被当作复购定价/资产站；复购必须沿用原单归属站。
-      const orderStationId = order.stationId
+      // TODO(待拍板)：复购默认履约站还是归属站，区别与改动落点见 docs/design/16-范围决策与实施路线图.md §12「复购默认交易站」。本轮保留既有默认。
+      const orderStationId = order.deliveryStationId || order.stationId
 
       if (currentStationId && orderStationId && currentStationId !== orderStationId) {
         wx.showModal({
           title: '水站不一致',
-          content: '将按原订单所属水站重新核实商品、价格及桶票押金。是否继续？',
+          content: '本次将使用上次配送水站的商品和价格，水票与押金按该站核实。是否继续？',
           confirmText: '继续',
           cancelText: '取消',
           success: (modalRes) => {
@@ -589,7 +589,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     this.setData({
       items,
       note: order.specialNote || '',
-      stationId: order.stationId || null
+      stationId: order.deliveryStationId || order.stationId || this.data.stationId
     })
     this.loadAddress(order.addressId)
     await this.loadItemsProducts()

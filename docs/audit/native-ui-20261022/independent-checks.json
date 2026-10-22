@@ -108,7 +108,8 @@
     "scripts/check-miniapp-text.js": "pass; 437 files",
     "page_reach_audit.py miniapp-user": "pass; fatal 0; lexical orphan report is not a deletion recommendation",
     "page_reach_audit.py miniapp-delivery": "pass; fatal 0; lexical orphan report is not a deletion recommendation",
-    "audit_scenario_matrix.py": "references pass; count explicitly skipped locally, no backend XML"
+    "audit_scenario_matrix.py": "references pass; count explicitly skipped locally, no backend XML",
+    "scripts/check-pending-decisions.js": "pass; reorder default decision points to design/16 section 12"
   },
   "fullIntegration": "Use exact pushed commit CI; not run locally. Prior CI 39731732967 covers baseline only.",
   "newNativeScreenshots": 0,
@@ -119,6 +120,12 @@
     "run": 39740729013,
     "result": "failed",
     "backend": "208 classes / 1693 tests; failures 0 / errors 0",
-    "cause": "One old JS expectation incorrectly used fulfillment station instead of owning station; kept the test and corrected expected domain behavior, with home station distinct from both."
-  }
+    "cause": "One old JS expectation incorrectly used fulfillment station instead of owning station; kept the test and corrected expected domain behavior, with home station distinct from both.",
+    "originalDiagnosisSuperseded": true
+  },
+  "finalPolicy": "Preserve baseline reorder default: deliveryStationId || stationId; no inferred new merchant-selection rule. Product GET, quote, visible station and explicit order POST share station 22 while home remains 33; no automatic or duplicate order.",
+  "finalTargetedRerun": [
+    "checkout-presentation: AQUAFLOW_SUITE_OK 17",
+    "experience-candidate-regressions: AQUAFLOW_SUITE_OK 20"
+  ]
 }

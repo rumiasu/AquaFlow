@@ -49,15 +49,15 @@
   ],
   "window": {
     "backgroundTextStyle": "dark",
-    "navigationBarBackgroundColor": "#1677FF",
+    "navigationBarBackgroundColor": "#1264D6",
     "navigationBarTitleText": "水站配送",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#F5F6F7"
   },
   "tabBar": {
     "custom": true,
-    "color": "#999999",
-    "selectedColor": "#1677FF",
+    "color": "#637083",
+    "selectedColor": "#1264D6",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [

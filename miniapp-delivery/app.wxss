@@ -1,7 +1,7 @@
 /* ========== AquaFlow 配送员小程序 设计系统 ========== */
 /*
  * [2026-09-26 轨道 D] 品牌色统一：色值照抄 miniapp-user/styles/variable.wxss，
- * 同一套品牌语法（浅灰白底 / 白色内容区 / 高对比文字 / 功能蓝 #1677FF / 紧凑圆角 / 极少阴影）。
+ * 同一套品牌语法（浅灰白底 / 白色内容区 / 高对比文字 / 功能蓝 #1264D6 / 紧凑圆角 / 极少阴影）。
  * 两端各自维护自己的 token、没有共享层 —— 这里是**同值**，不是引用。
  * ⚠️ --accent-gradient / --primary-gradient / --header-gradient 三个名字是历史包袱：
  * 「无渐变」硬规则下**只降级值、不改名**（客户端 variable.wxss:14-18 是先例）——
@@ -24,7 +24,7 @@ page {
   --success-color: #16834A;
   --warning-color: #A95516;
   --error-color: #BD3328;
-  --info-color: #1677FF;
+  --info-color: #1264D6;
 
   /* 功能色浅底（2026-10-07 新增，与用户端 variable.wxss 同值；语义正本 docs/design/36 §1.1） */
   --success-bg: #EAF6EE;
@@ -33,7 +33,7 @@ page {
 
   /* 配送状态色 */
   --status-pending: #A95516;
-  --status-delivering: #1677FF;
+  --status-delivering: #1264D6;
   --status-completed: #16834A;
 
   /* 中性色 */

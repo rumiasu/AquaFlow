@@ -2,18 +2,30 @@
 
 <template name="station-product-poster">
   <view class="product-poster" bindtap="onGoShop">
-    <view class="poster-copy">
-      <text class="poster-kicker">本站商品</text>
-      <text class="poster-name">{{product.name}}</text>
-      <text class="poster-spec" wx:if="{{product.spec}}">{{product.spec}}</text>
-      <text class="poster-price">¥{{product.priceText}}<text class="poster-unit"> / {{product.quantityUnit}} · 商品零售价</text></text>
-      <text class="poster-fee">配送、楼层费及新增押金在确认页核算</text>
-      <text class="poster-link">选水订购 ›</text>
+    <view class="poster-art {{artFailed ? 'poster-art-fallback' : ''}}">
+      <image wx:if="{{!artFailed}}" class="poster-art-image" src="/assets/banner/home-water-impact.jpg" mode="aspectFill" binderror="onPosterArtError" />
+      <view class="poster-headline">
+        <text>家里用水，</text>
+        <text>随手就订</text>
+      </view>
+      <text class="poster-art-note" wx:if="{{!artFailed}}">场景示意 · 非商品实拍</text>
     </view>
-    <view class="poster-visual">
-      <image class="poster-image" src="{{product.imageUrl}}" mode="aspectFit" />
-      <text class="poster-image-note" wx:if="{{product.imageUrl === '/assets/product/barrel-neutral-template.webp'}}">商品示意图</text>
+    <view class="poster-product">
+      <image class="poster-product-image" wx:if="{{product.imageUrl && !productImageFailed}}" src="{{product.imageUrl}}" mode="aspectFit" binderror="onPosterProductImageError" />
+      <view class="poster-product-image poster-product-placeholder" wx:else><text>商品</text></view>
+      <view class="poster-copy">
+        <text class="poster-kicker">本站商品</text>
+        <text class="poster-name">{{product.name}}</text>
+        <text class="poster-spec" wx:if="{{product.spec}}">{{product.spec}}</text>
+        <text class="poster-image-note" wx:if="{{product.imageUrl === '/assets/product/barrel-neutral-template.webp'}}">商品示意图 · 包装以实物为准</text>
+      </view>
+      <view class="poster-buy">
+        <text class="poster-price">¥{{product.priceText}}</text>
+        <text class="poster-unit">/{{product.quantityUnit}} · 商品零售价</text>
+        <text class="poster-link">选水订购 ›</text>
+      </view>
     </view>
+    <text class="poster-fee">配送、楼层费及新增押金在确认页核算</text>
   </view>
 </template>
 <view class="page">
@@ -116,7 +128,7 @@
           <view class="again-btn" bindtap="onAgainTap">再订一单</view>
         </view>
 
-        <template wx:if="{{!activeShip && productsView[0].imageUrl}}" is="station-product-poster" data="{{product: productsView[0]}}" />
+        <template wx:if="{{!activeShip && productsView.length > 0}}" is="station-product-poster" data="{{product: productsView[0], artFailed: posterArtFailed, productImageFailed: posterProductImageFailed}}" />
 
         <!-- ══ 订水区：数量即选即算，步进器即选即算 ══ -->
         <view class="card shop-sec" wx:if="{{productsView.length > 0}}">
@@ -161,7 +173,7 @@
           </view>
         </view>
 
-        <template wx:if="{{activeShip && productsView[0].imageUrl}}" is="station-product-poster" data="{{product: productsView[0]}}" />
+        <template wx:if="{{activeShip && productsView.length > 0}}" is="station-product-poster" data="{{product: productsView[0], artFailed: posterArtFailed, productImageFailed: posterProductImageFailed}}" />
 
         <!-- ══ 水桶与押金入口：首页只留入口 + 必要欠桶提醒；权益/占用/押金的真实口径在桶账页 ══ -->
         <view class="card barrel" wx:if="{{barrelVisible}}" bindtap="onGoBarrel">

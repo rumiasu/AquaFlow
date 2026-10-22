@@ -381,7 +381,7 @@
   <view class="modal-mask" wx:if="{{showPresetPicker}}" catchtouchmove="preventMove" bindtap="closePresetPicker">
     <view class="modal" catchtap="stopPropagation">
       <view class="modal-header">选择平台图</view>
-      <view class="modal-sub">平台统一商品图，比自拍照更整齐；选中后仍可在上方点「点击换图」改回自传</view>
+      <view class="modal-sub">通用桶装水示意图，不代表具体品牌包装；选中后可更换为实际商品图</view>
 
       <view class="preset-loading" wx:if="{{presetLoading}}"><text>加载中...</text></view>
       <view class="preset-empty" wx:elif="{{presetImages.length === 0}}"><text>暂无可选图片</text></view>

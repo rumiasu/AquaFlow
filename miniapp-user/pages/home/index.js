@@ -35,6 +35,8 @@ Page({
     address: null,
     addressHint: '点击设置配送地址',
     heroImage: '',
+    posterArtFailed: false,
+    posterProductImageFailed: false,
     products: [],       // 原始商品列表（后端下发单价/押金）
     productsView: [],   // 渲染用：合并了 qty / priceText / depositText
     cart: {},
@@ -506,7 +508,7 @@ Page({
       // 桶权益按商品；独立模式的可用容量另取服务端本次报价，不由权益总数推断。
       const barrelRights = this.parseBarrelRights(rightsRes)
 
-      this.setData({ address, addressHint, products, cart, heroImage, barrelRights })
+      this.setData({ address, addressHint, products, cart, heroImage, barrelRights, posterProductImageFailed: false })
       this.refreshDerived(barrelRights)
 
       // 桶账一行：口径全部来自后端 summary（权益/占用/配送中/水站暂存/欠桶/可退押金）
@@ -847,6 +849,15 @@ Page({
 
   onGoBarrel() {
     wx.navigateTo({ url: '/pages/barrel/index' })
+  },
+
+  // 海报仅为装饰资源；失败保留原生标题与真实商品信息，不阻断订水。
+  onPosterArtError() {
+    this.setData({ posterArtFailed: true })
+  },
+
+  onPosterProductImageError() {
+    this.setData({ posterProductImageFailed: true })
   },
 
   onGoShop() {

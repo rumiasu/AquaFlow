@@ -703,3 +703,25 @@
 .stepper-hint { display: none; }
 .checkout { background: #fff; gap: 16rpx; }
 .cta { box-sizing: border-box; min-height: 96rpx; padding: 20rpx 32rpx; border-radius: var(--radius-md); letter-spacing: 0; }
+
+/* 生成背景只作场景海报，商品照片/名称/规格/价格仍独立展示。 */
+.product-poster { display: block; padding: 0; overflow: hidden; background: #fff; }
+.poster-art { position: relative; height: 234rpx; background: #EAF3FF; }
+.poster-art-image { display: block; width: 100%; height: 100%; }
+.poster-headline { position: absolute; top: 36rpx; left: 24rpx; width: 45%; color: #0D4FA8; font-size: 40rpx; font-weight: 800; line-height: 1.3; }
+.poster-headline text { display: block; }
+.poster-art-note { position: absolute; right: 12rpx; bottom: 10rpx; max-width: 55%; padding: 4rpx 10rpx; border-radius: 4rpx; color: #fff; background: rgba(12,46,84,.82); font-size: 22rpx; line-height: 1.5; }
+.poster-art-fallback { height: 170rpx; }
+.poster-art-fallback .poster-headline { width: auto; }
+.poster-product { display: flex; align-items: center; gap: 16rpx; padding: 20rpx 24rpx 12rpx; }
+.poster-product-image { width: 64rpx; height: 88rpx; flex: none; border-radius: 6rpx; background: var(--bg-gray); }
+.poster-product-placeholder { display: flex; align-items: center; justify-content: center; font-size: 22rpx; color: var(--text-regular); }
+.poster-copy { flex: 1; min-width: 0; }
+.poster-kicker { font-size: 22rpx; color: var(--text-regular); }
+.poster-name { margin-top: 4rpx; font-size: 28rpx; line-height: 1.4; }
+.poster-spec, .poster-image-note { display: block; margin-top: 4rpx; font-size: 22rpx; line-height: 1.5; color: var(--text-regular); }
+.poster-buy { flex: none; max-width: 220rpx; text-align: right; }
+.poster-price { margin-top: 0; font-size: 36rpx; line-height: 1.3; }
+.poster-unit { display: block; margin-top: 4rpx; font-size: 22rpx; line-height: 1.5; }
+.poster-link { margin-top: 4rpx; font-size: 26rpx; line-height: 1.5; }
+.poster-fee { margin-top: 0; padding: 0 24rpx 20rpx; font-size: 24rpx; line-height: 1.5; }

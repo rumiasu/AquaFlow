@@ -111,6 +111,29 @@ test('late home load cannot apply buy-now handoff after customer changes', async
   const initial = t.page.loadData(); login(t, 8); resolve({ code: 0, data: [] }); await initial
   assert.deepStrictEqual(t.app.getCart(1), {}); assert.ok(!t.wx.getStorageSync(K.CART_PREFIX + '8'))
 })
+test('poster failure preserves current product identity, zero price and saved selection', () => {
+  const fs = require('fs'), { parseWxml, renderElements } = require('./wxml-tree')
+  const t = fixture(); change(t.page, 10, 'add')
+  const before = JSON.stringify({ cart: t.page.data.cart, total: t.page.data.total })
+  t.page.onPosterArtError(); t.page.onPosterProductImageError()
+  assert.equal(JSON.stringify({ cart: t.page.data.cart, total: t.page.data.total }), before)
+  const tree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/home/index.wxml'), 'utf8'))
+  const poster = tree.children.find(n => n.tag === 'template' && n.attrs.name === 'station-product-poster')
+  const nodes = renderElements(poster, { artFailed: t.page.data.posterArtFailed,
+    productImageFailed: t.page.data.posterProductImageFailed,
+    product: { name: '当前目录商品', spec: '12L', priceText: '0.00', quantityUnit: '桶', imageUrl: '/bad.jpg' }
+  }, { includeText: true })
+  assert.ok(!nodes.some(n => n.className === 'poster-art-image'))
+  assert.ok(nodes.some(n => n.className.includes('poster-product-placeholder')))
+  assert.ok(nodes.some(n => n.text === '当前目录商品'))
+  assert.ok(nodes.some(n => n.text === '¥0.00'))
+  assert.ok(nodes.some(n => n.text.includes('新增押金在确认页核算')))
+})
+
+test('fresh product load permits retrying the current product photo after an earlier failure', async () => {
+  const t = fixture(); t.page.onPosterProductImageError(); await t.page.loadData()
+  assert.equal(t.page.data.posterProductImageFailed, false)
+})
 ;(async () => {
   let passed = 0, failed = 0
   for (const t of tests) {

@@ -5,9 +5,18 @@ const { isDevelopEnv } = require('../../config/api')
 const agreementApi = require('../../api/agreements')
 const { drafts, validCatalog, loginEvidence, find } = require('../../utils/agreements')
 
+// 只清理错误的展示文字；原对象的 code、resultUnknown、businessRejected 均不改动。
+function viewError(error, fallback = '暂时无法完成，请稍后重试') {
+  const text = error && typeof error.message === 'string' ? error.message.trim() : ''
+  return /[\u3400-\u9fff]/.test(text)
+    && !/(?:Exception|Error:|\bat\s+\S+\(|\bSQL\b|https?:\/\/|request:fail|errno|stack|[A-Z][A-Z_]{5,})/.test(text)
+    ? text : fallback
+}
+
 Page({
   data: {
     loading: false,
+    loginError: '',
     agreementCatalog: drafts,
     agreementNotice: drafts.notice,
     // [2026-09-20] 「测试账号直接登录」是否显示。**默认 false、在 onLoad 里再纠正** ——
@@ -63,10 +72,10 @@ Page({
   // 保留2026-09-24取消强制复选框的裁定。当前草稿不声称已被接受。
   // 只有服务端已启用的正文可在主动登录点击时携带固定版本；不代表所有处理或微信权限已获同意。
   async onWxLogin() {
-    if (this.data.loading) return
+    if (this.data.loading || this._loginComplete) return
     const agreement = loginEvidence(this.data.agreementCatalog)
 
-    this.setData({ loading: true })
+    this.setData({ loading: true, loginError: '' })
 
     try {
       // 1. wx.login 拿临时登录凭证 code
@@ -75,6 +84,7 @@ Page({
       })
 
       if (!loginRes.code) {
+        this.setData({ loginError: '微信暂时未能完成登录，请稍后手动重试。' })
         wx.showToast({ title: '微信登录失败', icon: 'none' })
         return
       }
@@ -84,6 +94,7 @@ Page({
 
       if (res && res.data && res.data.accessToken) {
         const data = res.data
+        this._loginComplete = true
         const app = getApp()
         app.setLoginInfo(data.accessToken, data.refreshToken, {
           nickname: data.nickname || '微信用户',
@@ -98,12 +109,14 @@ Page({
           wx.switchTab({ url: '/pages/home/index' })
         }, 800)
       } else {
-        wx.showToast({ title: (res && res.message) || '登录失败', icon: 'none' })
+        this.setData({ loginError: viewError(res, '暂时无法登录，请稍后重试。') })
+        wx.showToast({ title: viewError(res, '登录失败'), icon: 'none' })
       }
     } catch (error) {
       this.loadAgreements()
       console.error('微信登录失败')
-      wx.showToast({ title: (error && error.message) || '微信登录失败', icon: 'none', duration: 2500 })
+      this.setData({ loginError: viewError(error, '微信登录未完成，请检查网络后手动重试。') })
+      wx.showToast({ title: viewError(error, '微信登录失败'), icon: 'none', duration: 2500 })
     } finally {
       this.setData({ loading: false })
     }
@@ -111,13 +124,14 @@ Page({
 
   // 开发模式登录（跳过微信验证）。同样不再要求先勾协议 —— 见 onWxLogin 上面的说明。
   async onDevLogin() {
-    if (this.data.loading) return
-    this.setData({ loading: true })
+    if (this.data.loading || this._loginComplete) return
+    this.setData({ loading: true, loginError: '' })
 
     try {
       const res = await devLogin('测试用户')
 
       if (res.data && res.data.accessToken) {
+        this._loginComplete = true
         const app = getApp()
         app.setLoginInfo(res.data.accessToken, res.data.refreshToken, {
           nickname: res.data.nickname || '测试用户',
@@ -132,11 +146,13 @@ Page({
           wx.switchTab({ url: '/pages/home/index' })
         }, 500)
       } else {
-        wx.showToast({ title: res.message || '登录失败', icon: 'none' })
+        this.setData({ loginError: viewError(res, '暂时无法登录，请稍后重试。') })
+        wx.showToast({ title: viewError(res, '登录失败'), icon: 'none' })
       }
     } catch (error) {
       console.error('开发登录失败')
-      wx.showToast({ title: '登录失败: ' + (error.message || '网络错误'), icon: 'none', duration: 3000 })
+      this.setData({ loginError: viewError(error, '测试账号登录未完成，请稍后手动重试。') })
+      wx.showToast({ title: '登录失败: ' + (viewError(error, '网络错误')), icon: 'none', duration: 3000 })
     } finally {
       this.setData({ loading: false })
     }

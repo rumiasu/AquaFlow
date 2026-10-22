@@ -1,15 +1,18 @@
 const { updateProfile } = require('../../api/auth')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
+const { captureSession, isCurrentSession } = require('../../utils/token')
 
 Page({
   data: {
     loading: false,
     submitting: false,
+    saveError: '',
     nickname: '',
     phone: ''
   },
 
   onLoad() {
+    this._session = captureSession()
     const app = getApp()
     const userInfo = app.globalData.userInfo || {}
     this.setData({
@@ -27,6 +30,8 @@ Page({
   },
 
   async onSubmit() {
+    if (this.data.submitting || this._unloaded) return
+    if (!isCurrentSession(this._session)) { this.setData({ saveError: '登录状态已变化，请返回后重新进入个人资料。' }); return }
     const { nickname, phone } = this.data
     if (!nickname.trim()) {
       wx.showToast({ title: '请输入昵称', icon: 'none' })
@@ -37,9 +42,10 @@ Page({
       return
     }
 
-    this.setData({ submitting: true })
+    this.setData({ submitting: true, saveError: '' })
     try {
       await updateProfile({ nickname: nickname.trim(), phone: phone.trim() })
+      if (this._unloaded || !isCurrentSession(this._session)) return
       // 更新本地存储
       const app = getApp()
       const userInfo = app.globalData.userInfo || {}
@@ -49,11 +55,12 @@ Page({
       wx.setStorageSync(STORAGE_KEYS.USER_INFO, userInfo)
 
       wx.showToast({ title: '保存成功', icon: 'success' })
-      setTimeout(() => wx.navigateBack(), 1500)
+      setTimeout(() => { if (!this._unloaded && isCurrentSession(this._session)) wx.navigateBack() }, 1500)
     } catch (error) {
-      wx.showToast({ title: error.message || '保存失败', icon: 'none' })
+      if (!this._unloaded && isCurrentSession(this._session)) this.setData({ saveError: '资料未能保存，输入已保留，请重试。' })
     } finally {
-      this.setData({ submitting: false })
+      if (!this._unloaded) this.setData({ submitting: false })
     }
-  }
+  },
+  onUnload() { this._unloaded = true }
 })

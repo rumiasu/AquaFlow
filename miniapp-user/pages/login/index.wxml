@@ -15,6 +15,7 @@
         <text wx:if="{{loading}}">登录中...</text>
         <text wx:else>微信一键登录</text>
       </button>
+      <view class="login-error" wx:if="{{loginError}}">{{loginError}}</view>
 
       <!-- 当前草稿如实告知未启用；仍不新增强制复选框或把登录视为全部隐私处理授权。 -->
       <view class="agreement">

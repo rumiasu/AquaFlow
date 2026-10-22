@@ -11,7 +11,8 @@
     </view>
   </view>
 
-  <view class="submit-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
+  <view class="save-error" wx:if="{{saveError}}">{{saveError}}</view>
+  <button class="submit-btn {{submitting ? 'disabled' : ''}}" disabled="{{submitting}}" loading="{{submitting}}" bindtap="onSubmit">
     <text>{{submitting ? '保存中...' : '保存资料'}}</text>
-  </view>
+  </button>
 </view>

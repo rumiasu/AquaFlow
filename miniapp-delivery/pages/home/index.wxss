@@ -49,7 +49,7 @@
   border-left: 8rpx solid var(--warning-color); box-shadow: none;
 }
 .status-transfer { background: rgba(240,160,32,0.14); color: var(--warning-color); }
-.transfer-from { font-size: 22rpx; color: var(--text-secondary); }
+.transfer-from { font-size: 24rpx; color: var(--text-secondary); }
 /* 不接受：次要动作，不做成和"同意"抢视线的实心按钮 */
 .btn-reject-transfer {
   flex: 1; background: #fff; color: var(--text-regular); border: 1rpx solid var(--border-light);
@@ -62,15 +62,15 @@
 }
 
 .status-tag {
-  font-size: 20rpx; padding: 4rpx 14rpx; border-radius: 20rpx; font-weight: 500; flex-shrink: 0;
+  font-size: 24rpx; padding: 4rpx 14rpx; border-radius: 20rpx; font-weight: 500; flex-shrink: 0;
 }
 
 .status-pending { background: rgba(255,149,0,0.1); color: var(--status-pending); }
 .status-delivering { background: rgba(46,74,104,0.1); color: var(--status-delivering); }
 .status-completed { background: rgba(52,199,89,0.1); color: var(--status-completed); }
 
-.order-id { font-size: 22rpx; color: var(--text-secondary); font-weight: 500; }
-.order-time { font-size: 20rpx; color: var(--text-placeholder); margin-left: auto; }
+.order-id { font-size: 24rpx; color: var(--text-secondary); font-weight: 500; }
+.order-time { font-size: 24rpx; color: var(--text-placeholder); margin-left: auto; }
 
 /* 联系人一行（§4 的「联系」位置，排在主动作之前）：号码整块可点 = 直接拨号。
    [2026-09-26] 去掉了行首的 📍/🛗 装饰图标（§6：员工端逐步去除表情符号，动作旁保留文字）——
@@ -104,7 +104,7 @@
 .pay-label { font-size: 24rpx; color: var(--text-secondary); }
 .pay-amount { font-size: 30rpx; font-weight: 700; color: var(--text-primary); }
 .pay-need { color: var(--status-pending); }
-.pay-extra { font-size: 22rpx; color: var(--text-secondary); margin-left: auto; }
+.pay-extra { font-size: 24rpx; color: var(--text-secondary); margin-left: auto; }
 
 .address-info { display: flex; align-items: flex-start; gap: 6rpx; margin-bottom: 12rpx; }
 /* 地址是这张卡的第一信息（§4 字段顺序第一条、§6「配送地址 32–36rpx」），所以它最大最重；
@@ -305,7 +305,7 @@
 /* 「这单我确实送不了」的分组标题（[2026-09-27]）：把"上报问题"与"把单交出去"分开，
    避免配送员把两组动作读成一件事。 */
 .modal-sub-title {
-  display: block; font-size: 22rpx; color: var(--text-placeholder);
+  display: block; font-size: 24rpx; color: var(--text-placeholder);
   margin: 8rpx 0 12rpx; padding-left: 4rpx;
 }
 
@@ -318,7 +318,7 @@
 
 .modal-item-info { flex: 1; }
 .modal-item-name { display: block; font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
-.modal-item-desc { display: block; font-size: 22rpx; color: var(--text-placeholder); margin-top: 4rpx; }
+.modal-item-desc { display: block; font-size: 24rpx; color: var(--text-placeholder); margin-top: 4rpx; }
 .modal-item-arrow { font-size: 36rpx; color: var(--text-placeholder); margin-left: 16rpx; }
 
 .modal-cancel {

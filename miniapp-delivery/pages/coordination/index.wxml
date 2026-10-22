@@ -9,7 +9,7 @@
     数据与方法 behaviors/stationNavbar.js）—— 与「配送」页同一份实现。
   -->
   <template is="stationNavbar"
-            data="{{title: '首页', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, stationPendingCount: stationPendingCount, rightPad: true, stationPanelShow: stationPanelShow, stationPanelLoading: stationPanelLoading, stationPanelItems: stationPanelItems, stationPanelPending: stationPanelPending, stationPanelDone: stationPanelDone, stationPanelShowAll: stationPanelShowAll, stationPanelSummary: stationPanelSummary, stationPanelOnlineHint: stationPanelOnlineHint, stationPanelError: stationPanelError}}" />
+            data="{{title: '首页', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, navTitleRight: navTitleRight, navTitleLeft: navTitleLeft, navLeftMax: navLeftMax, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, stationPendingCount: stationPendingCount, rightPad: true, stationPanelShow: stationPanelShow, stationPanelLoading: stationPanelLoading, stationPanelItems: stationPanelItems, stationPanelPending: stationPanelPending, stationPanelDone: stationPanelDone, stationPanelShowAll: stationPanelShowAll, stationPanelSummary: stationPanelSummary, stationPanelOnlineHint: stationPanelOnlineHint, stationPanelError: stationPanelError}}" />
   <!-- 无权限提示 -->
   <view class="no-auth" wx:if="{{!isManager}}">
     <text class="no-auth-title">您无权限</text>
@@ -18,6 +18,7 @@
   </view>
 
   <view wx:else>
+    <view class="ui-state" wx:if="{{queuesLoading}}"><text class="ui-state-copy">正在核对调度清单…</text></view>
 
     <!--
       数据没加载出来的提示（空串时不渲染）。[2026-09-20 真机联调] 原来任一接口失败都会让
@@ -25,7 +26,7 @@
       完全无法区分（AGENTS §8.22）。现在部分失败也照常展示已拿到的数据，并在这里说清哪几项没出来。
       样式复用 app.wxss 的 .load-error（全局，不要在本页再写一份）。
     -->
-    <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+    <view class="load-error" wx:if="{{loadError}}"><text>{{loadError}}</text><button size="mini" bindtap="onRetryVisibleData">重新加载</button></view>
     <!--
       常驻「水站管理」入口（[2026-09-26] Wave1 轨道 G；docs/design/29 §5
       「首页以站名/营业状态开头，常驻"水站管理"入口」「完整功能入口另行常驻，零待办不占提醒区」）。
@@ -157,7 +158,7 @@
           </block>
         </view>
       </view>
-      <view class="empty" wx:if="{{lists.pending.length === 0}}">
+      <view class="empty" wx:if="{{!queuesLoading && sectionRead.pending && lists.pending.length === 0}}">
         <text>暂无待分配/转单订单</text>
       </view>
     </view>
@@ -206,7 +207,7 @@
             <button class="btn-danger-small" catchtap="onRejectCancel" data-id="{{item.id}}">驳回</button>
           </view>
         </view>
-        <view class="empty" wx:if="{{lists.approvalCustomer.length === 0}}">
+        <view class="empty" wx:if="{{!queuesLoading && sectionRead.approvalCustomer && lists.approvalCustomer.length === 0}}">
           <text>暂无客户待审批申请</text>
         </view>
       </block>
@@ -247,7 +248,7 @@
           </view>
           <view class="section-caption" wx:else>请打开订单查看申请</view>
         </view>
-        <view class="empty" wx:if="{{lists.approvalStation.length === 0}}">
+        <view class="empty" wx:if="{{!queuesLoading && sectionRead.approvalStation && lists.approvalStation.length === 0}}">
           <text>暂无站内待审批申请</text>
         </view>
       </block>
@@ -333,7 +334,7 @@
           <button class="btn-primary-small" catchtap="onClaimPool" data-id="{{item.id}}">抢单</button>
         </view>
       </view>
-      <view class="empty" wx:if="{{lists.pool.length === 0}}">
+      <view class="empty" wx:if="{{!queuesLoading && sectionRead.pool && lists.pool.length === 0}}">
         <text>暂无可抢单订单</text>
       </view>
       </block>
@@ -392,7 +393,7 @@
             <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}" wx:if="{{item.status === 1 || item.status === 2}}">退回原水站</button>
           </view>
         </view>
-        <view class="empty" wx:if="{{lists.directedIncoming.length === 0}}">暂无指定给本站的待接受任务</view>
+        <view class="empty" wx:if="{{!queuesLoading && sectionRead.directedIncoming && lists.directedIncoming.length === 0}}">暂无指定给本站的待接受任务</view>
         <view class="section-caption" wx:if="{{lists.directedAccepted.length}}">已接受 · 配送进度</view>
         <view class="order-card dispatch-card incoming-card" wx:for="{{lists.directedAccepted}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
           <view class="card-header">
@@ -525,7 +526,7 @@
             <button class="btn-outline-small" catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">重新外派</button>
           </view>
         </view>
-        <view class="empty" wx:if="{{lists.dispatchPool.length === 0}}">
+        <view class="empty" wx:if="{{!queuesLoading && sectionRead.dispatchPool && lists.dispatchPool.length === 0}}">
           <text>暂无放进抢单池的订单</text>
         </view>
       </block>
@@ -610,7 +611,7 @@
             <button class="btn-outline-small" catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">重新外派</button>
           </view>
         </view>
-        <view class="empty" wx:if="{{lists.dispatchDirected.length === 0}}">
+        <view class="empty" wx:if="{{!queuesLoading && sectionRead.dispatchDirected && lists.dispatchDirected.length === 0}}">
           <text>暂无指定外派订单</text>
         </view>
       </block>
@@ -642,7 +643,7 @@
           把后者说成前者 —— 站长会真的去建员工（人早就在库里）。见 onClaimPool 的同一判据。
         -->
         <view class="modal-empty" wx:if="{{staffList.length === 0}}">
-          <text wx:if="{{staffListError}}">名单加载失败：{{staffListError}}。关闭后下拉重试</text>
+          <text wx:if="{{staffListError}}">名单尚未读取，请重试。</text><button wx:if="{{staffListError}}" size="mini" bindtap="onRetryVisibleData">重新读取名单</button>
           <text wx:else>暂无配送员，请先添加配送员</text>
         </view>
       </scroll-view>

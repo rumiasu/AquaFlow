@@ -34,7 +34,7 @@ Page({
     // true = 配送员视角（只看派给自己的单）：空态文案据此说"等站长派单"，而不是"今天没单"
     onlyAssigned: false,
     // 部分列表接口失败时的提示文案（空串 = 全部正常）。见 loadData 里的说明。
-    loadError: '',
+    loadError: '', readReady: {},
     showMediateModal: false,
     currentOrderId: null,
     // [2026-10-06] 待收款区折叠状态：默认收起，点击展开
@@ -113,7 +113,8 @@ Page({
    */
   async loadData(isManager) {
     const manager = isManager === true
-    this.setData({ loading: true, onlyAssigned: !manager })
+    const seq = this._taskReadSeq = (this._taskReadSeq || 0) + 1
+    this.setData({ loading: true, readReady: {}, onlyAssigned: !manager })
     try {
       // ⚠️ [2026-09-19 删除] 这里原先还调 `getTodayStats()`（/api/delivery/stats/today）并把结果写进
       // `data.stats` —— 而本页 wxml **从来没有读过 `stats`**（页签数量用的是三个列表的 .length）。
@@ -137,12 +138,15 @@ Page({
       if (manager) requests.push(getPendingOrders())
       const results = await Promise.allSettled(requests)
 
-      const unwrap = (r) => r.status === 'fulfilled' ? r.value : { data: [] }
+      if (seq !== this._taskReadSeq) return
+      const valid = r => r && r.status === 'fulfilled' && r.value && (r.value.code === 0 || r.value.code === 200) && Array.isArray(r.value.data)
+      const unwrap = r => valid(r) ? r.value : { data: [] }
+      const readReady = { assigned: valid(results[0]) && (!manager || valid(results[5])), delivering: valid(results[1]), completed: valid(results[2]), unpaid: valid(results[3]), transfers: valid(results[4]) }
       // [2026-09-20 真机联调] 原来 unwrap 把「失败」静默折成「空列表」，于是外层 catch
       // **永远不会触发** —— 后端没起 / 手机换了网时，配送员看到的是 4 个空白列表，
       // 与"今天确实没有单"完全无法区分（正是 AGENTS §8.22 描述的形状）。
       // 现在把失败项数记下来，由 wxml 显式提示；列表照常渲染（部分成功仍然有用）。
-      const failedCount = results.filter(r => r.status === 'rejected').length
+      const failedCount = results.filter(r => !valid(r)).length
       if (failedCount) {
         console.error('[home] 有 ' + failedCount + ' 个列表接口失败：',
           results.filter(r => r.status === 'rejected').map(r => r.reason))
@@ -182,7 +186,7 @@ Page({
         return {
           ...o,
           customerNotePreview: employeeCustomerNotePreview(o),
-          amountText: `¥${Number(o.totalAmount || 0).toFixed(2)}`,
+          amountText: o.totalAmount === null || o.totalAmount === undefined || o.totalAmount === '' || !Number.isFinite(Number(o.totalAmount)) ? '金额待核实' : `¥${Number(o.totalAmount).toFixed(2)}`,
           // 「已付 / 需收 ¥X」：判据只用后端投影 —— needCollect（现金且还没收到钱）
           // 与 payState（钱到底到没到账），**不按 payment_status 的 1/2/3 自己写映射表**（AGENTS §6）。
           payLabel: o.needCollect ? '需收' : (o.payState === 'PAID' ? '已付' : '未收'),
@@ -218,7 +222,7 @@ Page({
       }).map(enrichOrder)
 
       this.setData({
-        assignedOrders: mergedAssigned,
+        readReady, assignedOrders: mergedAssigned,
         deliveringOrders: (deliveringRes.data || []).map(enrichOrder),
         completedOrders: (completedRes.data || []).map(enrichOrder),
         deliveredUnpaidOrders: unpaidOrders,
@@ -226,16 +230,19 @@ Page({
         // 走同一个 enrichOrder：金额/收款口径、商品摘要、楼层文案全部同一套映射，不另写一份。
         incomingTransfers: (transferRes.data || []).map(enrichOrder),
         loadError: failedCount
-          ? '有 ' + failedCount + ' 项没加载出来（网络或后端异常），下面列表可能不完整'
+          ? '有 ' + failedCount + ' 项尚未读取，列表可能不完整，请重新加载'
           : '',
         loading: false
       })
     } catch (err) {
+      if (seq !== this._taskReadSeq) return
       console.error('加载数据失败:', err)
-      this.setData({ loading: false })
+      this.setData({ loading: false, loadError: '配送任务暂未读取，请重新加载后核对' })
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     }
   },
+
+  onRetryVisibleData() { return this.loadData(this.data.isManager) },
 
   switchTab(e) {
     this.setData({ activeTab: e.currentTarget.dataset.tab })
@@ -430,7 +437,7 @@ Page({
       console.error('加载配送员失败:', e)
     }
     if (loadError) {
-      wx.showModal({
+      wx.showModal({ confirmText: '知道了',
         title: '加载失败',
         content: '没能取到同事名单（' + loadError + '），请稍后重试',
         showCancel: false
@@ -438,7 +445,7 @@ Page({
       return
     }
     if (staffList.length === 0) {
-      wx.showModal({ title: '暂无同事', content: '本站暂无其他在职配送员可转单', showCancel: false })
+      wx.showModal({ confirmText: '知道了', title: '暂无同事', content: '本站暂无其他在职配送员可转单', showCancel: false })
       return
     }
     const itemList = staffList.map(s => s.name || ('配送员' + s.id))

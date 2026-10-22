@@ -21,11 +21,13 @@ const EARNINGS = '/api/delivery/earnings'
 Page({
   data: {
     loading: true,
+    loadError: '',
+    loaded: false,
     range: 'month',        // month（本月至今） | today
     from: '',
     to: '',
-    periodTotalText: '0.00',
-    unsettledTotalText: '0.00',
+    periodTotalText: '待核实',
+    unsettledTotalText: '待核实',
     items: [],
     payrolls: [],
     note: ''
@@ -56,12 +58,18 @@ Page({
     this.load()
   },
 
+  onRetry() { return this.load() },
+
   async load() {
+    const seq = this._loadSeq = (this._loadSeq || 0) + 1
+    this.setData({ loading: true, loadError: '', loaded: false, periodTotalText: '待核实', unsettledTotalText: '待核实', items: [], payrolls: [] })
     const today = dayText(new Date())
     const from = this.data.range === 'today' ? today : monthStartText(new Date())
     try {
       const res = await get(EARNINGS, { from, to: today })
-      const d = res.data || {}
+      if (seq !== this._loadSeq) return
+      const d = res.data
+      if (!d || !Array.isArray(d.items) || !Array.isArray(d.payrolls)) throw new Error('工资数据不完整，请重新读取')
       const items = (d.items || []).map(it => ({
         id: it.id,
         kindText: it.kindText,
@@ -88,20 +96,22 @@ Page({
         unsettledTotalText: money(d.unsettledTotal),
         items,
         payrolls,
-        note: d.note || ''
+        note: d.note || '', loaded: true
       })
     } catch (err) {
+      if (seq !== this._loadSeq) return
+      this.setData({ loadError: '工资尚未读取，金额与收益明细待核实' })
       // 静默失败会让配送员以为"这个月没挣到钱"，必须出声
       wx.showToast({ title: err.message || '工资加载失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (seq === this._loadSeq) this.setData({ loading: false })
     }
   }
 })
 
 function money(v) {
   const n = Number(v)
-  return isNaN(n) ? '0.00' : n.toFixed(2)
+  return v === null || v === undefined || v === '' || !Number.isFinite(n) ? '待核实' : n.toFixed(2)
 }
 
 function text(v) {

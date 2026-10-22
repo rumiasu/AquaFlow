@@ -1,3 +1,4 @@
+const imageDisplay = require('../../behaviors/imageDisplay')
 const { employeeCustomerNotePreview } = require('../../utils/customer-note')
 const { wrapUploadRecovery } = require('../../utils/upload-recovery-page')
 // 订单详情页
@@ -138,6 +139,8 @@ function canCollect(order, user = {}) {
 
 Page({
   ...wrapUploadRecovery({
+  behaviors: [imageDisplay],
+  onDisplayImageError(e) { return imageDisplay.methods.onDisplayImageError.call(this, e) },
   data: {
     orderId: null,
     order: {},
@@ -146,13 +149,13 @@ Page({
     detailOutcomeText: '',
     writePending: false,
     // 楼梯凭证（v43）：站长与配送员都能看、都能补传；不强制，所以"没有也不拦"
-    floorPhotos: [],
+    floorPhotos: [], floorPhotosState: 'idle',
     floorUploading: false,
     /**
      * 送达凭证（[2026-09-26] 原名「签收凭证」）：配送员在完成配送页拍的 `order_image.type = 1`
      * 那几张。**只读**（站长要看"到底送到了没有"，不该由站长替配送员补拍送达现场）。
      */
-    deliveryPhotos: [],
+    deliveryPhotos: [], deliveryPhotosState: 'idle',
     /** 已送达/已完成但没有送达照片时，给一句实话（判据在 loadOrderDetail 里算，见那里的注释） */
     showNoDeliveryProofTip: false,
     // 支付流水（2026-09-18）：只对站长展示（后端端点本身也是 STATION_MANAGER 专属）
@@ -392,7 +395,7 @@ Page({
     if (!this._sameOrderSession(this._withdrawOutcome)) this._withdrawOutcome = null
     this.setData({ loading: true, detailError: '',
       detailOutcomeText: this._withdrawOutcome ? '已撤回转单，订单仍由你配送' : '',
-      showMoreActions: false, floorPhotos: [], deliveryPhotos: [], payments: [], canRefundPayment: false })
+      showMoreActions: false, floorPhotos: [], floorPhotosState: 'idle', deliveryPhotos: [], deliveryPhotosState: 'idle', payments: [], canRefundPayment: false })
 
     try {
       const res = await getOrderDetail(id)
@@ -702,7 +705,7 @@ Page({
     }
 
     if (loadError) {
-      wx.showModal({
+      wx.showModal({ confirmText: '知道了',
         title: '加载失败',
         content: '没能取到水站列表（' + loadError + '），请稍后重试',
         showCancel: false
@@ -710,7 +713,7 @@ Page({
       return
     }
     if (stationList.length === 0) {
-      wx.showModal({ title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
+      wx.showModal({ confirmText: '知道了', title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
       return
     }
 
@@ -795,7 +798,7 @@ Page({
 
     // 必填拒单原因
     const reason = await new Promise(resolve => {
-      wx.showModal({
+      wx.showModal({ confirmText: '确认拒单',
         title: '拒单原因 (必填)',
         content: '请输入拒单原因，将记录在订单备注中：',
         editable: true,
@@ -834,6 +837,7 @@ Page({
     const version = this._loadFloorPhotosVersion = (this._loadFloorPhotosVersion || 0) + 1
     const current = () => this._isCurrent(ctx) && version === this._loadFloorPhotosVersion
     if (!current()) return
+    this.setData({ floorPhotosState: 'loading' })
     try {
       const res = await get(ORDER_IMAGE_BY_ORDER + '/' + orderId)
       const photos = (res.data || [])
@@ -841,13 +845,16 @@ Page({
         .map(img => img.url || img.objectName)
         .filter(Boolean)
       if (!current()) return
-      this.setData({ floorPhotos: photos })
+      this.setData({ floorPhotos: photos, floorPhotosState: 'ready' })
     } catch (e) {
       // 拉不到就不显示，不编造"没照片"
       if (!current()) return
-      this.setData({ floorPhotos: [] })
+      this.setData({ floorPhotosState: 'error' })
     }
   },
+
+  onRetryFloorPhotos() { return this.loadFloorPhotos(this.data.orderId) },
+  onRetryDeliveryPhotos() { return this.loadDeliveryPhotos(this.data.orderId) },
 
   onPreviewFloorPhoto(e) {
     const { index } = e.currentTarget.dataset
@@ -872,6 +879,7 @@ Page({
     const version = this._loadDeliveryPhotosVersion = (this._loadDeliveryPhotosVersion || 0) + 1
     const current = () => this._isCurrent(ctx) && version === this._loadDeliveryPhotosVersion
     if (!current()) return
+    this.setData({ deliveryPhotosState: 'loading' })
     try {
       const res = await get(ORDER_IMAGE_BY_ORDER + '/' + orderId)
       const photos = (res.data || [])
@@ -879,11 +887,11 @@ Page({
         .map(img => img.url || img.objectName)
         .filter(Boolean)
       if (!current()) return
-      this.setData({ deliveryPhotos: photos })
+      this.setData({ deliveryPhotos: photos, deliveryPhotosState: 'ready' })
     } catch (e) {
       // 拉不到就不显示，不编造"没照片"（同 loadFloorPhotos 的口径）
       if (!current()) return
-      this.setData({ deliveryPhotos: [] })
+      this.setData({ deliveryPhotosState: 'error' })
     }
   },
 
@@ -1017,11 +1025,11 @@ Page({
         if (selected.expectedRefundAmount != null) {
           const amount = Number(selected.expectedRefundAmount)
           if (!Number.isFinite(amount) || amount <= 0) {
-            wx.showModal({ title: '重新核实', content: '退款金额无效，请重新预览并确认', showCancel: false }); return
+            wx.showModal({ confirmText: '知道了', title: '重新核实', content: '退款金额无效，请重新预览并确认', showCancel: false }); return
           }
           confirmation.expectedRefundAmount = selected.expectedRefundAmount
         } else if (selected.confirmationRequired === true) {
-          wx.showModal({ title: '重新核实', content: '未取得确认金额，请重新预览并确认', showCancel: false }); return
+          wx.showModal({ confirmText: '知道了', title: '重新核实', content: '未取得确认金额，请重新预览并确认', showCancel: false }); return
         }
         if (res.data.expectedTicketQty != null) confirmation.expectedTicketQty = res.data.expectedTicketQty
         if (res.data.expectedTicketAmount != null) confirmation.expectedTicketAmount = res.data.expectedTicketAmount
@@ -1029,14 +1037,14 @@ Page({
           if (r.confirm) this.doRefundPayment(paymentId, selected.scope, confirmation)
         } })
       } })
-    } catch (err) { wx.showModal({ title: '暂不能退款', content: err.message || '金额核实失败', showCancel: false }) }
+    } catch (err) { wx.showModal({ confirmText: '知道了', title: '暂不能退款', content: err.message || '金额核实失败', showCancel: false }) }
   },
   async onEditDispatchQuote() {
     try {
       const res = await businessRules.getAgreement(this.data.orderId)
       const current = res.data
       if (!current || !Object.keys(current).length) { wx.showToast({ title: '请先外派本单，再调整外包报价', icon: 'none' }); return }
-      wx.showModal({ title: '调整本单外包服务报价', editable: true, content: '当前 ¥' + current.serviceAmount + '，含水费、配送费、楼层费。桶补偿安排：' + current.barrelNote + '。接收站确认后报价固定。', placeholderText: '本单服务总报价（元）',
+      wx.showModal({ confirmText: '保存报价', title: '调整本单外包服务报价', editable: true, content: '当前 ¥' + current.serviceAmount + '，含水费、配送费、楼层费。桶补偿安排：' + current.barrelNote + '。接收站确认后报价固定。', placeholderText: '本单服务总报价（元）',
         success: async (r) => {
           if (!r.confirm) return
           const value = Number(r.content)
@@ -1056,7 +1064,7 @@ Page({
           try { await businessRules.quoteAgreement(this.data.orderId,{serviceAmount:current.serviceAmount,barrelMode:mode,barrelAmount:amount,note:'归属站明确本单净送桶补偿安排'}); this.loadOrderDetail(this.data.orderId) }
           catch(err){wx.showToast({title:err.message||'安排未修改',icon:'none'})}
         }
-        wx.showModal({title:'确定净送桶补偿安排',editable:mode==='SETTLE_BARREL',placeholderText:'桶折款总金额（元）',content:'预计净送 '+current.netBarrels+' 个桶；服务报酬仍为 ¥'+current.serviceAmount+'；客户押金仍在归属站。接收站确认后固定安排。',success:r=>{
+        wx.showModal({ confirmText: '保存安排',title:'确定净送桶补偿安排',editable:mode==='SETTLE_BARREL',placeholderText:'桶折款总金额（元）',content:'预计净送 '+current.netBarrels+' 个桶；服务报酬仍为 ¥'+current.serviceAmount+'；客户押金仍在归属站。接收站确认后固定安排。',success:r=>{
           if(!r.confirm)return
           if(mode==='RETURN_EMPTY'){save(0);return}
           if(!/^\d+(\.\d{1,2})?$/.test(r.content||'')){wx.showToast({title:'金额不合法',icon:'none'});return}

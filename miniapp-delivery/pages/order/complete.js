@@ -1,3 +1,4 @@
+const imageDisplay = require('../../behaviors/imageDisplay')
 const { wrapUploadRecovery } = require('../../utils/upload-recovery-page')
 const { completeOrder, getOrderDetail } = require('../../api/delivery')
 const { get } = require('../../utils/request')
@@ -85,6 +86,8 @@ function deliveryCompletionView(order, needCollect, collected, collectedChosen) 
 
 Page({
   ...wrapUploadRecovery({
+  behaviors: [imageDisplay],
+  onDisplayImageError(e) { return imageDisplay.methods.onDisplayImageError.call(this, e) },
   /** 弹窗内容区吞掉点击（wxml 用 catchtap 绑定，此处为空实现，避免未定义方法告警） */
   stopPropagation() {},
 
@@ -93,6 +96,8 @@ Page({
     from: 'detail',
     orderInfo: null,
     orderLoaded: false,
+    orderLoading: false,
+    orderLoadError: '',
     /** 回桶核对行 —— **只含桶装水明细**（后端 barrelItem=true），瓶装水/饮水机不进这一块 */
     items: [],
     /**
@@ -184,6 +189,8 @@ Page({
     if (options.id) {
       this.setData({ orderId: options.id, from: options.from || 'detail' })
       this.loadOrder(options.id)
+    } else {
+      this.setData({ orderLoadError: '缺少订单编号，请返回订单列表重新进入' })
     }
   },
 
@@ -195,16 +202,19 @@ Page({
     }
   },
 
+  onRetryOrder() { if (this.data.orderId && !this.data.orderLoading) return this.loadOrder(this.data.orderId) },
+  onBackToOrders() { wx.switchTab({ url: '/pages/home/index' }) },
+
   async loadOrder(id) {
     const loadSeq = (this._orderLoadSeq || 0) + 1
     this._orderLoadSeq = loadSeq
     // 重载时先隐藏旧提示；迟到响应不能覆盖后一次读取到的订单状态。
-    this.setData({ orderLoaded: false, showStockPrepPrompt: false, stockPrepText: '' })
+    this.setData({ orderLoaded: false, orderLoading: true, orderLoadError: '', showStockPrepPrompt: false, stockPrepText: '' })
     try {
       const res = await getOrderDetail(id)
       if (loadSeq !== this._orderLoadSeq) return
       const order = res.data
-      if (!order) return
+      if (!order) throw new Error('订单资料暂未读取，请重新核对')
 
       const isFirstBarrelOrder = order.firstBarrelOrder === true
       const orderItems = order.items || []
@@ -278,7 +288,7 @@ Page({
 
       this.setData({
         orderInfo: order,
-        orderLoaded: true,
+        orderLoaded: true, orderLoading: false, orderLoadError: '',
         isFirstBarrelOrder,
         items,
         // 本次送货清单：整单全量明细（与回桶行无关），见 buildDeliveryItems
@@ -319,7 +329,7 @@ Page({
       })
     } catch (err) {
       if (loadSeq !== this._orderLoadSeq) return
-      this.setData({ orderLoaded: false })
+      this.setData({ orderLoaded: false, orderLoading: false, orderLoadError: '订单未读取，暂不能确认送达。请重新读取，或返回订单列表。' })
       wx.showToast({ title: '加载订单失败', icon: 'none' })
     }
   },
@@ -747,7 +757,7 @@ Page({
       title: '确认完成配送',
       content: s.trim(),
       confirmText: '确认完成',
-      confirmColor: '#2E9E6B',
+      confirmColor: '#1264D6',
       success: async (res) => {
         if (!res.confirm) return
         this._doSubmit()
@@ -816,7 +826,10 @@ Page({
       //   · 业务拒绝（备货不齐、状态已变）⇒ 服务端明确回了"没做成"，是失败，可以改了再提交。
       // 判据用请求层归一化过的文案（utils/request 的 toNetworkError 只产出这两句网络类 message）。
       const msg = (err && err.message) || ''
-      const isNetwork = msg.indexOf('网络') === 0 || msg.indexOf('网络超时') >= 0
+      // 2026-10-22：展示文案不能决定写入结果。服务异常/损坏回执同样可能已经登记，保留核实入口。
+      const isNetwork = err && err.requestMayHaveOccurred !== false && (
+        msg.indexOf('网络') === 0 || msg.indexOf('网络超时') >= 0
+        || err.malformedResponse || err.sessionChanged || Number(err.statusCode) >= 500)
       if (isNetwork) {
         this.setData({
           resultState: 'unknown',

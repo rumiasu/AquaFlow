@@ -198,7 +198,7 @@ Page({
     // ⚠️ 后者是本页最容易骗人的地方：staffList 为空既可能是"本站真的没有配送员"，
     // 也可能是"接口失败"—— 原来两者都渲染成「暂无配送员，请先添加配送员」（见 onClaimPool），
     // 站长会真的去建员工，而问题在网络（AGENTS §8.22 / §8.17）。
-    loadError: '',
+    loadError: '', sectionRead: {}, queuesLoading: false,
     staffListError: '',
     // 「其他待处理」视图模型（只含不在本页页签里的项），由 loadTodo() 组装
     todo: null,
@@ -525,7 +525,11 @@ Page({
     }
   },
 
+  onRetryVisibleData() { return this.loadAllData() },
+
   async loadAllData() {
+    const seq = this._queueSeq = (this._queueSeq || 0) + 1
+    this.setData({ queuesLoading: true, sectionRead: {} })
     wx.showLoading({ title: '加载中...' })
     try {
       const app = getApp()
@@ -539,7 +543,7 @@ Page({
       // 现在改成 allSettled + 逐个判 code：成功的那几项照常展示，失败项汇总到 loadError 提示条。
       const failed = []
       const unwrap = (r, tag) => {
-        if (r.status === 'fulfilled' && r.value && r.value.code === 0) return r.value
+        if (r.status === 'fulfilled' && r.value && r.value.code === 0 && (tag === '待审批' ? r.value.data && Array.isArray(r.value.data.customer) && Array.isArray(r.value.data.station) : Array.isArray(r.value.data))) return r.value
         failed.push(tag)
         const why = r.status === 'rejected'
           ? ((r.reason && r.reason.message) || '网络异常')
@@ -555,6 +559,7 @@ Page({
         getDirectedIncoming(),
         getPendingApprovals()
       ])
+      if (seq !== this._queueSeq) return
       const pendingRes = unwrap(settled[0], '待分配')
       const transferRes = unwrap(settled[1], '转单请求')
       const poolRes = unwrap(settled[2], '抢单池')
@@ -569,7 +574,7 @@ Page({
         //「本站没有配送员」与「名单没查到」（见 data.staffListError 的注释）
         try {
           const staffRes = await getStaffList(stationId)
-          if (staffRes && staffRes.code === 0 && staffRes.data) {
+          if (staffRes && staffRes.code === 0 && Array.isArray(staffRes.data)) {
             staffList = staffRes.data
           } else {
             staffListError = (staffRes && staffRes.message) || '服务端返回异常'
@@ -663,6 +668,8 @@ Page({
         }))
       }
 
+      if (seq !== this._queueSeq) return
+      const sectionRead = { pending: !failed.includes('待分配') && !failed.includes('转单请求'), approvalCustomer: !failed.includes('待审批'), approvalStation: !failed.includes('待审批'), pool: !failed.includes('抢单池'), directedIncoming: !failed.includes('指定外派（别站指定本店）'), dispatchPool: !failed.includes('外派'), dispatchDirected: !failed.includes('外派') }
       const tabs = this.data.tabs.map(t => ({
         ...t,
         // 「审批」角标 = 客户 + 站内 两组待审批之和；
@@ -679,13 +686,13 @@ Page({
       }
 
       this.setData({
-        lists,
+        lists, sectionRead, queuesLoading: false,
         tabs,
         dispatchCount,
         staffList,
         staffListError,
         loadError: failed.length
-          ? '有 ' + failed.length + ' 项没加载出来（' + failed.join('、') + '），下面可能是空的，别当成"确实没有"'
+          ? '有 ' + failed.length + ' 项尚未读取：' + failed.join('、') + '。请重新加载后核对。'
           : ''
       })
       // ⚠️ 顺序要紧：wx.showToast 与 wx.showLoading 共用同一个浮层实例，
@@ -694,11 +701,13 @@ Page({
       if (failed.length) wx.showToast({ title: '部分数据没加载出来', icon: 'none' })
     } catch (err) {
       // 兜底：走到这里只可能是本地代码出错（每个请求都已单独判过）
+      if (seq !== this._queueSeq) return
+      this.setData({ queuesLoading: false })
       console.error('[coordination] 加载数据失败:', err)
       wx.hideLoading()
       // [2026-09-20] 原来只有一句立刻消失的 toast，页面随后是五个空页签。
       // 现在同时留下持久提示，站长不会把"没加载出来"读成"没有待办"（AGENTS §8.22）
-      this.setData({ loadError: '数据没加载出来（' + ((err && err.message) || '本地异常') + '），请稍后重试' })
+      this.setData({ loadError: '调度数据尚未读取，请重新加载后核对' })
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     }
   },
@@ -884,7 +893,7 @@ Page({
       wx.hideLoading()
       const stationList = (res.data || []).filter(s => s.id !== myStationId && s.status === 1)
       if (stationList.length === 0) {
-        wx.showModal({ title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
+        wx.showModal({ confirmText: '知道了', title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
         return
       }
       const itemList = stationList.map(s => s.name || ('水站' + s.id))
@@ -948,14 +957,13 @@ Page({
       if (this.data.staffListError) {
         wx.showModal({
           title: '配送员名单没加载出来',
-          content: '没能取到本站配送员名单（' + this.data.staffListError + '）。'
-            + '这不代表本站没有配送员 —— 请切到「配送」页再切回来重新加载后重试。',
-          showCancel: false,
-          confirmText: '知道了'
+          content: '本站配送员名单尚未读取，暂不能分配本单。请重新加载后选择配送员。',
+          confirmText: '重新加载', cancelText: '暂不分配',
+          success: result => { if (result.confirm) this.loadAllData() }
         })
         return
       }
-      wx.showModal({ title: '暂无配送员', content: '请先添加配送员', showCancel: false })
+      wx.showModal({ confirmText: '知道了', title: '暂无配送员', content: '请先添加配送员', showCancel: false })
       return
     }
     const itemList = colleagues.map(s => s.name || ('配送员' + s.id))
@@ -1061,7 +1069,7 @@ Page({
     get(API.STATION_SEARCH, {}).then(res => {
       stationList = (res.data || []).filter(s => s.id !== myStationId && s.status === 1)
       if (stationList.length === 0) {
-        wx.showModal({ title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
+        wx.showModal({ confirmText: '知道了', title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
         return
       }
       const itemList = stationList.map(s => s.name || ('水站' + s.id))

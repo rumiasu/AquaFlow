@@ -1,6 +1,15 @@
 <view class="container">
   <!-- 隐私授权弹窗：本页用 wx.chooseImage 选送达/回桶照片，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
   <privacy-popup />
+  <view class="ui-state" wx:if="{{orderLoading || orderLoadError}}">
+    <text class="ui-state-title">{{orderLoading ? '正在读取订单' : '订单尚未核实'}}</text>
+    <text class="ui-state-copy">{{orderLoading ? '读取完成后再核对送货、回桶和收款情况' : orderLoadError}}</text>
+    <view class="ui-state-actions" wx:if="{{!orderLoading}}">
+      <button wx:if="{{orderId}}" size="mini" bindtap="onRetryOrder">重新读取</button>
+      <button size="mini" bindtap="onBackToOrders">返回订单列表</button>
+    </view>
+  </view>
+  <block wx:if="{{orderLoaded || resultState === 'unknown' || resultState === 'success'}}">
   <!--
     [2026-09-27 走查 D03 修] 页头**只在服务端确认成功之后**才画大绿勾 +「完成配送」。
     原来这两个元素是一进页面就渲染的静态占位：还没提交，页面已经在说"完成配送"了，
@@ -236,7 +245,7 @@
     <text class="section-tip">可选：拍一张送达现场，客户不在场也能证明送到了</text>
     <view class="photo-grid">
       <view class="photo-item" wx:for="{{photos}}" wx:key="index">
-        <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewPhoto" />
+        <view class="photo-img ui-proof-frame" ><image src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewPhoto" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{item}}" wx:if="{{!displayImageErrors[item]}}" /><view class="ui-image-fallback" wx:else bindtap="onPreviewPhoto" data-index="{{index}}">图片暂无法显示，点此预览原图</view></view>
         <view class="photo-remove" data-index="{{index}}" catchtap="onRemovePhoto">×</view>
       </view>
       <view class="photo-add" bindtap="onAddPhoto" wx:if="{{photos.length < 3}}">
@@ -249,7 +258,7 @@
        其余按需展开，减少无意义翻页与必读段落）。 -->
   <view class="section">
     <view class="more-toggle" bindtap="onToggleMore">
-      <text class="more-toggle-text">{{showMore ? '收起选填内容' : '更多（楼层与楼梯凭证 / 备注，选填）'}}</text>
+      <text class="more-toggle-text">{{showMore ? '收起选填内容' : '更多（楼层补贴核对 / 备注）'}}</text>
       <text class="more-toggle-icon">{{showMore ? '▲' : '▼'}}</text>
     </view>
   </view>
@@ -269,9 +278,9 @@
       <view class="section-title-row">
         <text class="section-title">楼层与楼梯凭证</text>
         <help-tip title="楼层与楼梯凭证"
-          text="填了才是楼层补贴的依据；跟客户地址里填的楼层不一致时会标出来（防虚报）。照片可选，但和客户就楼层/爬楼有争议时它是唯一的凭据 —— 站长也能事后补传。" />
+          text="楼层已按客户地址带出，可按现场情况核对修改。未填写时沿用地址楼层；电梯情况未确认或存在争议时请补充说明与凭证，补贴以实际核实结果为准。修改这里不会改变本单向客户收取的楼层费。" />
       </view>
-      <text class="section-tip" wx:if="{{elevatorUnknown}}">这单地址没写清有没有电梯：要爬楼就填一下楼层，才算楼层补贴</text>
+      <text class="section-tip" wx:if="{{elevatorUnknown}}">电梯情况尚未确认：请核对现场楼层，必要时补充楼梯凭证，补贴以核实结果为准</text>
       <text class="section-tip" wx:else>有争议才需要填；不填就沿用客户地址里的楼层</text>
       <view class="floor-row">
         <input class="floor-input" type="number" placeholder="如 6" value="{{reportedFloor}}" bindinput="onFloorInput" />
@@ -280,7 +289,7 @@
       <text class="floor-proof-title">楼梯凭证（可选）</text>
       <view class="photo-grid">
         <view class="photo-item" wx:for="{{floorPhotos}}" wx:key="index">
-          <image class="photo-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" />
+          <view class="photo-img ui-proof-frame" ><image src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{item}}" wx:if="{{!displayImageErrors[item]}}" /><view class="ui-image-fallback" wx:else bindtap="onPreviewFloorPhoto" data-index="{{index}}">图片暂无法显示，点此预览原图</view></view>
           <view class="photo-remove" data-index="{{index}}" catchtap="onRemoveFloorPhoto">×</view>
         </view>
         <view class="photo-add" bindtap="onAddFloorPhoto" wx:if="{{floorPhotos.length < 3}}">
@@ -324,6 +333,8 @@
     </button>
   </view>
 
+  </block>
+
   <!-- 异常原因选择弹窗 -->
   <view class="modal-overlay" wx:if="{{showReasonPicker}}" bindtap="onCloseReasonPicker">
     <view class="modal-content" catchtap="stopPropagation">
@@ -347,7 +358,7 @@
   <text>待核实图片记录</text>
   <view wx:if="{{uploadRecoverySelection}}">
     <text>待确认图片 #{{uploadRecoverySelection.imageId}}</text>
-    <image src="{{uploadRecoverySelection.url}}" mode="aspectFit" bindtap="onUploadPreviewSelected" />
+    <view class="ui-proof-image ui-proof-frame" ><image src="{{uploadRecoverySelection.url}}" mode="aspectFit" bindtap="onUploadPreviewSelected" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{uploadRecoverySelection.url}}" wx:if="{{!displayImageErrors[uploadRecoverySelection.url]}}" /><view class="ui-image-fallback" wx:else bindtap="onUploadPreviewSelected" >图片暂无法显示，点此预览原图</view></view>
     <button size="mini" disabled="{{uploadRecovering}}" bindtap="onUploadConfirmSelected">确认是原来提交的图片</button>
   </view>
   <text wx:if="{{uploadRecoveryReadFailed}}">记录暂时无法读取，请先核实图片</text>

@@ -91,9 +91,15 @@
       "exitCode": 0,
       "passed": true,
       "count": 32
+    },
+    {
+      "suite": "experience-candidate-regressions",
+      "exitCode": 0,
+      "passed": true,
+      "count": 20
     }
   ],
-  "targetedCount": 294,
+  "targetedCount": 314.0,
   "completionRequirement": "exit code 0 and AQUAFLOW_SUITE_OK count",
   "static": {
     "audit_wxml_handlers.py": "pass; missing bindings 0",
@@ -107,5 +113,12 @@
   "fullIntegration": "Use exact pushed commit CI; not run locally. Prior CI 39731732967 covers baseline only.",
   "newNativeScreenshots": 0,
   "realCloudDatabaseWrites": 0,
-  "deployment": false
+  "deployment": false,
+  "firstIntegration": {
+    "commit": "52a2bec333e29fae939157f60242b31cdc96d545",
+    "run": 39740729013,
+    "result": "failed",
+    "backend": "208 classes / 1693 tests; failures 0 / errors 0",
+    "cause": "One old JS expectation incorrectly used fulfillment station instead of owning station; kept the test and corrected expected domain behavior, with home station distinct from both."
+  }
 }

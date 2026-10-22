@@ -354,7 +354,8 @@ test('G: 当前报价站在已有资产、非桶商品、首次提示收起时�
   assert(visible.includes('水站 #22'), 'missing quote station name falls back to its current request station number')
   record({ requestStations: pending.map(c => c.data.stationId), currentStationId: t.page.data.stationId, visible })
 })
-test('G: 再来一单采用原单履约站，展示与报价请求一致，不改首页选择站', async () => {
+// 2026-10-22：旧断言把履约站当定价/资产站，与三站领域规则相反；保留原场景并明确三站不同。
+test('G: 再来一单采用原单归属站，展示与报价请求一致，不改首页选择站', async () => {
   const quotes = []
   const t = environment('customer', 'miniapp-user/pages/order/create.js', call => {
     if (/\/payments\/quote(?:\?|$)/.test(call.url)) quotes.push(call)
@@ -362,15 +363,16 @@ test('G: 再来一单采用原单履约站，展示与报价请求一致，不�
     else if (/\/addresses(?:\?|$)/.test(call.url)) success(call, [{ id: 91, isDefault: true }])
     else success(call, [])
   })
+  t.wx.setStorageSync('selectedStation', { id: 33, name: 'Synthetic current home station' })
   await t.page._doLoadFromOrder({ id: 88, stationId: 11, deliveryStationId: 22, items: [{ productId: 5, quantity: 1 }] })
-  await flush(); assert.strictEqual(quotes.length, 1); assert.strictEqual(quotes[0].data.stationId, 22)
-  success(quotes[0], { waterAmount: 10, totalAmount: 10, stationName: 'Synthetic original fulfillment station',
+  await flush(); assert.strictEqual(quotes.length, 1); assert.strictEqual(quotes[0].data.stationId, 11)
+  success(quotes[0], { waterAmount: 10, totalAmount: 10, stationName: 'Synthetic original owning station',
     methods: [{ id: 1, name: '微信支付', enabled: true }], defaultMethod: 1, firstStationAsset: false })
   await flush()
   const root = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxml'), 'utf8'))
   const visible = renderElements(root, t.page.data, { includeText: true }).map(e => e.text).join('\n')
-  assert(visible.includes('本次下单水站') && visible.includes('Synthetic original fulfillment station'))
-  assert.strictEqual(t.wx.getStorageSync('selectedStation').id, 11)
+  assert(visible.includes('本次下单水站') && visible.includes('Synthetic original owning station'))
+  assert.strictEqual(t.wx.getStorageSync('selectedStation').id, 33)
   record({ quoteStation: quotes[0].data.stationId, originalHomeStation: t.wx.getStorageSync('selectedStation').id })
 })
 

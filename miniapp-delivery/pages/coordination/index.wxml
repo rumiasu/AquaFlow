@@ -76,7 +76,7 @@
       <text wx:if="{{todoLoading}}">正在核对待办…</text>
       <text wx:if="{{todoError}}">{{todoError}}</text>
       <button wx:if="{{todoError}}" bindtap="onRetryTodo" disabled="{{todoLoading}}">重新核对</button>
-      <view class="todo-row">
+      <view class="todo-row {{todo.items.length === 1 ? 'todo-row-single' : ''}}">
         <view class="todo-item {{item.hasCount ? 'todo-item-on' : ''}}"
               wx:for="{{todo.items}}" wx:key="key"
               bindtap="onTodoTap" data-key="{{item.key}}">

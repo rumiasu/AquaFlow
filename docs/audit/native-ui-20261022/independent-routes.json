@@ -1,0 +1,1232 @@
+{
+  "baseline": "2000a1866b76905e4eeef4c60e54a7ecd8910297",
+  "customerRoutes": 26,
+  "employeeRoutes": 46,
+  "boundary": "Static review of all routes; focused handlers only. Prior screenshots are synthetic native examples, not current revised native acceptance.",
+  "routes": [
+    {
+      "app": "miniapp-user",
+      "route": "pages/home/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": true,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/home/index.wxml",
+          "sha256": "32586511d9081f749b41cef83c085d393dfeddef317551e197cb040ebfafbed8"
+        },
+        {
+          "path": "miniapp-user/pages/home/index.wxss",
+          "sha256": "c58f1c899eea69eade83b3f740365a791c49f5d12fdef1c44e1ecc3ddb181648"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/home/notice",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/home/notice.wxml",
+          "sha256": "d0b6ecdbd6e42efa3dc5653ef623889efdec3097ddcb047f1d3ffa4014269096"
+        },
+        {
+          "path": "miniapp-user/pages/home/notice.wxss",
+          "sha256": "eaed89af3ce73d2f8e1274e2cf36cb8da874f2bd8178f42a30ed02727c93b3d3"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/order/list",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/order/list.wxml",
+          "sha256": "ac56e161dd5238c25620baadd9f04ac794120ed81fb5cff2ddb22f9d62768851"
+        },
+        {
+          "path": "miniapp-user/pages/order/list.wxss",
+          "sha256": "9f7721bcf5175c878508e3f09c0599ceca240f45a863bb340fa2a58250029e54"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/order/detail",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/order/detail.wxml",
+          "sha256": "30de98f2dfe18db4711bc112395e103df3a3e20b2fa8b9a7b66d94d1ef4e86ba"
+        },
+        {
+          "path": "miniapp-user/pages/order/detail.wxss",
+          "sha256": "8cd07fc69d34e532e381859a90137544e785989d338b12d9b475bc742e7224de"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/order/create",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": true,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/order/create.wxml",
+          "sha256": "3604e1f8da5fc6db205ab11d1c520035c2d54def895a68c62609f42b761eb285"
+        },
+        {
+          "path": "miniapp-user/pages/order/create.wxss",
+          "sha256": "d40b7e735cc68211b1126245c09128b5bd64522fefc5617085526a1c3731cc91"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/order/success",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": true,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/order/success.wxml",
+          "sha256": "4f671d4991ad246837e7b22fe4c886fdfe92bef28473204e3ab7396bf62c2215"
+        },
+        {
+          "path": "miniapp-user/pages/order/success.wxss",
+          "sha256": "9abf51138064b18a2799ee26ad3d9e9499df5711c707ec97cb870f453379f083"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/address/list",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/address/list.wxml",
+          "sha256": "3be371329d2865790ebb622f79489141a275376203b65a124bf819f3d31cdf85"
+        },
+        {
+          "path": "miniapp-user/pages/address/list.wxss",
+          "sha256": "a800b41b83dd6db70eac5028149e59825beefc40678eec8cac692148490dd3ba"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/address/edit",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/address/edit.wxml",
+          "sha256": "6a1f36f83ac280c51287bcd5bd9c0909ee1441c476b5dbe50c266fb5ea7bdf78"
+        },
+        {
+          "path": "miniapp-user/pages/address/edit.wxss",
+          "sha256": "4339331139ebd05b7e70658e25ef4f6a1847cefa79ad610c8ded8b95c7c79219"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/barrel/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/barrel/index.wxml",
+          "sha256": "90d9e94b5671834d5369438e57e57d8655cd92d87e1b8667e0b2aed32bf41f04"
+        },
+        {
+          "path": "miniapp-user/pages/barrel/index.wxss",
+          "sha256": "584f7735059e33b11e5d82d483149273ce9026cbc84654c589eb26dc5eec0577"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/barrel/purchase",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/barrel/purchase.wxml",
+          "sha256": "9382e2a7c9b01517c5943e550d75375d7a54fb38d8119055ab127df2e6a7062a"
+        },
+        {
+          "path": "miniapp-user/pages/barrel/purchase.wxss",
+          "sha256": "e81074f3914a41cfb77ee30b0df6f17d7d3c2023ecb9d8f061e737452ef705af"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/shop/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/shop/index.wxml",
+          "sha256": "76679e0551c9e0425a1d94bc41e2ddd3d52dbbc4a0ca6a87df146fbea94de237"
+        },
+        {
+          "path": "miniapp-user/pages/shop/index.wxss",
+          "sha256": "467cc0805382335542ee17e0692fe16d7a9e0b92b9a89db825ce456089f91263"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/template/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/template/index.wxml",
+          "sha256": "b5a8e69afb2aedca8959d6e721a99ae89cb05602ae42c70ea008f52584bb30b3"
+        },
+        {
+          "path": "miniapp-user/pages/template/index.wxss",
+          "sha256": "fb31511eadbd8c3943f6ca096061f69b3078913432c36059ac3afc0c31d468f3"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/ticket/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/ticket/index.wxml",
+          "sha256": "3683b20b465da4757661140cf9901c4e7ca00ad239d5c7b0464d4954116ca003"
+        },
+        {
+          "path": "miniapp-user/pages/ticket/index.wxss",
+          "sha256": "2b2425853f7406d185e7c930e98ee7d256dba5b3c6ef66616306320e8c0642eb"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": true,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/mine/index.wxml",
+          "sha256": "03c9a63b0e8338b81e9f54fc8fe881a580882f08ade546489d479ceed5ef1619"
+        },
+        {
+          "path": "miniapp-user/pages/mine/index.wxss",
+          "sha256": "8e54cb0555852813ecefaafc308b28052a7311974d6296b2064db57fe90f96d6"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/login/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/login/index.wxml",
+          "sha256": "7a3a47a2577b22fb88240f29491adfb18ebc40380446087034bb8923ca3a9523"
+        },
+        {
+          "path": "miniapp-user/pages/login/index.wxss",
+          "sha256": "3544924b26773de1284be59d39c279ba0ee23c82f0047338bf4c359025e2fc3c"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/service/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/service/index.wxml",
+          "sha256": "6b025e3f811406bc09b8b69346fa3fbea2d56149c3fc35ea362b2d547800bec7"
+        },
+        {
+          "path": "miniapp-user/pages/service/index.wxss",
+          "sha256": "45954bc266196e7cc5ba13710e60d36ffd002782fbdb5629f9510b40575d049f"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/about",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/mine/about.wxml",
+          "sha256": "d751bf75d36d15034702122e8317c7585491faf69ce31a9c17e67c39394d5d73"
+        },
+        {
+          "path": "miniapp-user/pages/mine/about.wxss",
+          "sha256": "2f4c35e6d9c9a8fc6308d055316e19b31e00ac1b6c42f9a340cacfe6130b801d"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/edit",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/mine/edit.wxml",
+          "sha256": "331e27fd29708a0f203f2adfe8d4d36b1749d03abfdb79e163297a5777bc046b"
+        },
+        {
+          "path": "miniapp-user/pages/mine/edit.wxss",
+          "sha256": "fb5fcf87e9ca3b958986409a2957ea914d957100fd7c1757833532aae0d6b528"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/agreement/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/mine/agreement/index.wxml",
+          "sha256": "529fffd4f185dbdeb73ed6b894f61160aa931543ee8a511bdf7c90b14f9d7026"
+        },
+        {
+          "path": "miniapp-user/pages/mine/agreement/index.wxss",
+          "sha256": "9f4026dcabcdd6fab013fd8a75cd423db420f19b6b2fac11218bf2d505d3ba6b"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/account-data/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/mine/account-data/index.wxml",
+          "sha256": "9724f70e0cc5a7ad7407d245c53d475fcf966b8b34e072c96186ab9e6b5cce26"
+        },
+        {
+          "path": "miniapp-user/pages/mine/account-data/index.wxss",
+          "sha256": "d01b9197bbc4b12e8fe3ed8493097e254fe30370f2808c8ad4d4f0c1b79e1472"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/payment/records",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/payment/records.wxml",
+          "sha256": "889afcb00b3d023edc78f1e59a305d6373ff8ac17c9ab786691c087a1093610b"
+        },
+        {
+          "path": "miniapp-user/pages/payment/records.wxss",
+          "sha256": "75836dfa26fe07568574300df52529c60d4dfd87904be3f006afce723488c4dd"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/deposit/records/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/deposit/records/index.wxml",
+          "sha256": "ce4bc9208f2170d7e1522b774fecf30098db6ab8ea50f4e06b92cef0cc11cce4"
+        },
+        {
+          "path": "miniapp-user/pages/deposit/records/index.wxss",
+          "sha256": "fb5a69b9d1d316a4ee505899b33f869f9eaef7a947632179a1c6e3825388c2b2"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/notice/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/notice/index.wxml",
+          "sha256": "6f90d258847ebd25001305af297beb0c4405c7acf20ac8c2f84f18a794de52cc"
+        },
+        {
+          "path": "miniapp-user/pages/notice/index.wxss",
+          "sha256": "cb7e96171dd10904c68916f82bdcb491f8b1cb7bde2d9a60b64bdf88a5a310f2"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/company",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/mine/company.wxml",
+          "sha256": "fc8224c9b9f2472b266c7424e712e9ebacf700ba75ad74aac5aa4707c8aeff64"
+        },
+        {
+          "path": "miniapp-user/pages/mine/company.wxss",
+          "sha256": "94d8f0f469afae534509e6223ce1a2a879676de08f3ed01d6177161343160de9"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/exception/list/list",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/exception/list/list.wxml",
+          "sha256": "3bdc7ca6b709395da861e076d31efe92f2f8b97ceab5e03f29fb89d9685693c8"
+        },
+        {
+          "path": "miniapp-user/pages/exception/list/list.wxss",
+          "sha256": "d93acda2709745586fae593ed94c1dceee37410cd3832305c45f7f7b3b194bc5"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/asset-claims/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-user/pages/mine/asset-claims/index.wxml",
+          "sha256": "ccf5c528fbab314849e38508e2c9ada646a0b0188a6be2cefdf23583d3518564"
+        },
+        {
+          "path": "miniapp-user/pages/mine/asset-claims/index.wxss",
+          "sha256": "2e14a7f87f911007efcc0c72861475679e7dbea205c63b2dba0bcbf54248e94c"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/login/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/login/index.wxml",
+          "sha256": "70cfa8c42852063087910816d700eec188cd41f6bf24c4a315497b6926f3fe6a"
+        },
+        {
+          "path": "miniapp-delivery/pages/login/index.wxss",
+          "sha256": "c135ab7064b6faaabbc150bcbfad94a6d8a1b887a9fb7b9d00065ba62d85a683"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/mine/agreement/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/mine/agreement/index.wxml",
+          "sha256": "529fffd4f185dbdeb73ed6b894f61160aa931543ee8a511bdf7c90b14f9d7026"
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/agreement/index.wxss",
+          "sha256": "43f355be9ae7d66a974540ba9da0552623311ec03c7549e36448d00a51b31fcc"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/mine/account-data/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/mine/account-data/index.wxml",
+          "sha256": "9724f70e0cc5a7ad7407d245c53d475fcf966b8b34e072c96186ab9e6b5cce26"
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/account-data/index.wxss",
+          "sha256": "016ca82269214d800d682ea7e8354e76b9cf7448760c5ae7bf0cd3ddfbddf8c6"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/role-select/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/role-select/index.wxml",
+          "sha256": "f43d67d6194a37890d8c67d3c75bfacbd3520919bb9e60e96550d6bf8ef17778"
+        },
+        {
+          "path": "miniapp-delivery/pages/role-select/index.wxss",
+          "sha256": "f8185cd8cb6936141c11283d7c165894bcba606026ec2248c785adae5e9fb41e"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/bind-wait/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/bind-wait/index.wxml",
+          "sha256": "4d3a8bdf207caadaad43bce02305e418d7c64577369191f30e282279005334f6"
+        },
+        {
+          "path": "miniapp-delivery/pages/bind-wait/index.wxss",
+          "sha256": "6e2e1bfe122aceb7ccda9b16fa93c769202492b02d1caf2149ca0ddc3194933b"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/create-station/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/create-station/index.wxml",
+          "sha256": "361b54e055b4d1296f86f26f1405ec507c945fb71c8a9c316b818a8d0962f3d7"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/create-station/index.wxss",
+          "sha256": "661ffb903b71194a1ef8c35a28357058cfed95247fb47532965d87dbb2aed816"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/apply-bind/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/apply-bind/index.wxml",
+          "sha256": "d2e1f13de11e99ac2c62dec949518300c5538d3c567201c28e4fd35b4f0b4295"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/apply-bind/index.wxss",
+          "sha256": "d2dac53d625a728684ad11c8674f1fadfa95be3645d9890dad4f57be10184f4d"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/home/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": true,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/home/index.wxml",
+          "sha256": "5c2dc52192c7db4cd0e94e99e9894c5e3ec4943d4f14f3c02e8f3e3005939207"
+        },
+        {
+          "path": "miniapp-delivery/pages/home/index.wxss",
+          "sha256": "67f14213dc7709c7fa3845231d9c8521d4ad99cd80785e6d1ef7efa790b6abf9"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/order/detail",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/order/detail.wxml",
+          "sha256": "d8301948adb309e57e5442243808a9bb86bfd10af375e8e1528f51b723ebe482"
+        },
+        {
+          "path": "miniapp-delivery/pages/order/detail.wxss",
+          "sha256": "6e3f9e818a683edc4f0f233e219654f97e834d55b15b93312df323b6690fe7eb"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/order/complete",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": true,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/order/complete.wxml",
+          "sha256": "7213614a0d68c1aa2631d6c21f76dbc4c34b6de366a518f3247ece0e6ad5de42"
+        },
+        {
+          "path": "miniapp-delivery/pages/order/complete.wxss",
+          "sha256": "f35390e6f5100b831ca903baebe49aea2cf06b7ed259415756fde28e702a3515"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/mine/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/mine/index.wxml",
+          "sha256": "f303d4a712b3a41ca02ecf0b0e1b4a787d7c5c25762f012eb657aa2211c93412"
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/index.wxss",
+          "sha256": "b41120cc5fa57129aff9207b951e731b090575bba585e7a4c3b1a10be3c88c53"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/coordination/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": true,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/coordination/index.wxml",
+          "sha256": "d273540cb29e10e8efb77f8ad31b6ad8143f30833830a6c53ace0de9e4a40592"
+        },
+        {
+          "path": "miniapp-delivery/pages/coordination/index.wxss",
+          "sha256": "488fc0e5eb3baabf69fee7e8c291d35f9ac3e3f53856e586611e7a4263bfb664"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/index.wxml",
+          "sha256": "ee54489c11d3dc8bbcb57d7a8d25b68da9c55e29c20111ba0f317499998f4c49"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/index.wxss",
+          "sha256": "b213c40d6c7d3ef69dca679a3f15cab49039270f3ccdec902006d777b8ed2e90"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/business-waiting/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxml",
+          "sha256": "8fb05335a26233390463f0814911da193e0b32fadb6f594bc764e1d6b46e08c4"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxss",
+          "sha256": "8a2a6826fae34e74c73fc4802e1a127e498fe1155404361ab6c8a0a3587e1c24"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/dashboard/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": true,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.wxml",
+          "sha256": "1a2fd9aecbb8579df4ee9c4c0dfdb061aadc0ab76dc75a0613302227c8ff8686"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.wxss",
+          "sha256": "1f366336378fa64e547a93dd8d116fd0c804d1a22edfb28da79b5183a7a31e67"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/orders/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/orders/index.wxml",
+          "sha256": "ad12612e0bc8d88c3ce79fd010bdd38a2f3e319eaabfd1ce0b6fa70546f5df06"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/orders/index.wxss",
+          "sha256": "5ee0d82ad9f07152476d8f0ef06ad7c3d246a19e87ec1624ac242c89af340c8a"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/index.wxml",
+          "sha256": "65f9af564b09b95222c8c4094e82701a0d50f83fb99c4b799a0c72c87f06bd7c"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/index.wxss",
+          "sha256": "fd14ba67f503ceef747214620491c6b27eb521a276b1991ccf5b90304c8f63a0"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/detail/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxml",
+          "sha256": "9aabc5b808b41d72022d1bcd9960f7fda3f241f9d01c98e18a89cff07b4b7df6"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxss",
+          "sha256": "e13b1775cb92b862048dd1c91e318e1cb1a571f335e0c43944a9ad36e598afc1"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.wxml",
+          "sha256": "1c08426f3a99bae28050b1e266bfedc4274a6bb2eb87e4992356ac40e0643ee7"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.wxss",
+          "sha256": "150d72986c2b9cf62f331714014227d218f4bc2cdc5fba4c651134e55f79afd0"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/edit/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.wxml",
+          "sha256": "8152ff1dbf901bcda98a71b4e4e56313aa10a3040573de5b21b3a346cefeef15"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.wxss",
+          "sha256": "26b4db796c28bee7e64a9fcf3a76053fe476671a9ecbe4cc42f0b6399c27890e"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/detail/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.wxml",
+          "sha256": "42fb7e4c8853520b6541e4ba19807e225edcf0bbe2abaa75eb8041ef97298170"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.wxss",
+          "sha256": "3d684910abdd9f93ce09f83739235431b7e3fe300eef89f1821db2a31f586344"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/products/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/products/index.wxml",
+          "sha256": "fb2064987fe0a82b2d4be12b55056bd2c4d22968dc8ed0d98223e4188113396e"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/products/index.wxss",
+          "sha256": "c575602a9fa13ab104a72743511bd7a5a1d3c04abe618f935cd5e29f5cdee21f"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/station-status/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-status/index.wxml",
+          "sha256": "77409ccea27d8d5039e480517da63583c0e793e4cbf1da37e6c073bcabf0fa45"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-status/index.wxss",
+          "sha256": "0b3d6bef33c1e567bd9344b03f2c3d6c3041f1ad64b24a5fcd5f1f3ff42de3a2"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/station-info/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-info/index.wxml",
+          "sha256": "cf72b883016882079fc5b351db607e63f7481d4c0b349bc1179282769888b789"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-info/index.wxss",
+          "sha256": "c9a3161929a15b227805647860a1f6ecc83fdfc124f6ebf121c0ea41152006ae"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/delivery-config/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxml",
+          "sha256": "517d2e9a7da071b8c8a5918b697384f2cbeabc40057bb576cf2000a702ac4832"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxss",
+          "sha256": "469199ddb9464b02b7f98a6c3351073759564b55a91f2d574bba69b998c96dbb"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/place-order/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/place-order/index.wxml",
+          "sha256": "3b56a6ff49066b0f3ea80c1d900de8dc9e555947c63a039b3a924143a1c0776c"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/place-order/index.wxss",
+          "sha256": "e8efb30208c35b45c377a870d53c933b0320f77c6339636a5c3928392b27841a"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/receivables/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/receivables/index.wxml",
+          "sha256": "677afd380665add83b9db7beb7992f27cfd188e3f983106cc327d1c39d09abd1"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/receivables/index.wxss",
+          "sha256": "56872314dcfd68fabf0ae1746b9f59b0ef446ca4aede686348a3444f3c5ad589"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/inter-station/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/inter-station/index.wxml",
+          "sha256": "ae2c78827d416cea7cbb7b9dfea56f22004f966f0233eed6641d9aab4828d782"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/inter-station/index.wxss",
+          "sha256": "50dfd85527f92107efe086f5ac591abb5b224e772f7d3ca0089809ea7e2989d6"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/payroll/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payroll/index.wxml",
+          "sha256": "dfc769f1e3811d60fa13e1a785351dcaed28c2a21ee72ef3152f24711841698c"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payroll/index.wxss",
+          "sha256": "df4fd902099b3f42d82459d97e9d221a4c34a39b578cd25c363fb4318fc7593d"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/ticket-packages/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxml",
+          "sha256": "238991488add11fdc79d68658f2c1963056493fdc243a05041ce558a8b8c229a"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxss",
+          "sha256": "1eb67911b798b4f3c1f6636c468be06196441d0e8aaac818f771e352a1f989b5"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/gross-profit/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/gross-profit/index.wxml",
+          "sha256": "e593d3f8dd0249b7c592ee660804c674f151140ce1c8894aead5ae4d29d49f20"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/gross-profit/index.wxss",
+          "sha256": "665ff9b78b0006247a56aa7cd81f8d1f543bfe1f4982faa05686eac4d961afb7"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/barrel-return/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxml",
+          "sha256": "b5fceba395bc270ab9da0d61b4ebbad680e0f601732b0eaff78a08be58eeb38c"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxss",
+          "sha256": "ad0d80bf6126fde1fb8833fadcf205130b3322a7c509a82dc3736f66e73963f4"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/owed-barrels/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/owed-barrels/index.wxml",
+          "sha256": "515df6c9de663a2d203de38c26ed35b33e99728148fc466c02f6f8179a8fca5d"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/owed-barrels/index.wxss",
+          "sha256": "0a5597664b04bd1641dd021f1df857880ad963fe61223d55e97fe06743900f97"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/exceptions/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/exceptions/index.wxml",
+          "sha256": "60dad78be14a89553280664dcf73ae73bf225ca7e0a655b7b87376a5a907d1c0"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/exceptions/index.wxss",
+          "sha256": "dc023bba6f96c008d793d89cb79a254943e3fbea08f71926403bc6f760c995e6"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customer-feedback/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxml",
+          "sha256": "3ac58c2406ce25b8e8c6850709ddb5bb28c17683cc524c46cf7789f851608800"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxss",
+          "sha256": "a4e27493eaaf790fc90f8da2a2e0263679c0e8ffddfd8c4f9f5f77bdd5d93f29"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/payments/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payments/index.wxml",
+          "sha256": "e06fd42d74706bc2e7bbce3b2033a395244728f9a631bac9490f7fba28db2d33"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payments/index.wxss",
+          "sha256": "b86f5bdc048e9ae5bd8c3a2658e19399b7c139e614de1eeca38a0c7d3f3fe323"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/staff/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/index.wxml",
+          "sha256": "c811ee899b06d18935d6a9f641d1d44af3ba2d79ada071b5841379bc3387c0c2"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/index.wxss",
+          "sha256": "42a8db9cdbf43c359996291c38556fac86300011c085a730da6fa72a0b6a1ebf"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/staff/profile/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/profile/index.wxml",
+          "sha256": "4f5c033c3df5c16d56ac587aaeebce5a54fcf998bf5b283f068ae6876486a042"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/profile/index.wxss",
+          "sha256": "3dc98cfb4468d2f2e7fbd40b6720161df2708b837fc57a48231967480f94b642"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/barrel-records/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/barrel-records/index.wxml",
+          "sha256": "f6f6f2d8d1531f12c227f80f9879815f7b05ca6b504cc2da4ad1dbef948551ed"
+        },
+        {
+          "path": "miniapp-delivery/pages/barrel-records/index.wxss",
+          "sha256": "2a898b8f5ef4db958b8227daf148bb46a953e562dab6f7fb89b0bf4c5c2ca330"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/my-earnings/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/my-earnings/index.wxml",
+          "sha256": "a83f4ef5ba679907b140b5e9784f17da21306636f1355eadcc03d75e9c6700ab"
+        },
+        {
+          "path": "miniapp-delivery/pages/my-earnings/index.wxss",
+          "sha256": "3da4f2294af68e36dc0cc28a226dc5947a9cb1c70a833017f1752c0906184f2f"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/history/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/history/index.wxml",
+          "sha256": "7c11776a61929b05ad2e2ef12d246a06f1e9236d42ed72245b8ae10082d8cb3f"
+        },
+        {
+          "path": "miniapp-delivery/pages/history/index.wxss",
+          "sha256": "ccc58decfa9ed1cc876662fd4e35d98faa06eea536a80a508a4ae8994898f413"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/transfer/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/transfer/index.wxml",
+          "sha256": "953e64e05bc0f70c376a00f73ef211487931b5b3625b9800614bbe5d4ae685a6"
+        },
+        {
+          "path": "miniapp-delivery/pages/transfer/index.wxss",
+          "sha256": "b137a44b688e3aba2d5f32dad8b6b03389a4f199349d7f3f5dbe454da08f4570"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/report/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/report/index.wxml",
+          "sha256": "80a2ce3bbfa7a0e36a979c7da92aece156289ac8909380f50f7d445dadc0c2c9"
+        },
+        {
+          "path": "miniapp-delivery/pages/report/index.wxss",
+          "sha256": "48714675871e789a9243ada4dbf9607ad8f8d6cb6907ea02d675fb1ee543068d"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/settings/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/settings/index.wxml",
+          "sha256": "89cd113fed8218d392a97335ba53af57e1f5804479fe205aee8d4a1490fb8e0d"
+        },
+        {
+          "path": "miniapp-delivery/pages/settings/index.wxss",
+          "sha256": "e1ccad126427a3c7435e8c24bfeb14a3141434ab0d66e2e65964b565afc7dbb8"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/mine/edit",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/mine/edit.wxml",
+          "sha256": "710509eb1f2211613d1b913ecfb5ba9a08058d96427f4203cd9fe5093acf1614"
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/edit.wxss",
+          "sha256": "c07035894fcc6298e8122fd5377987ea62888fdba2451327c55d4e21fca06bc6"
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/asset-claims/index",
+      "review": "current template, visible conditions, fold boundaries, action bindings and styles",
+      "focusedHandlerRead": false,
+      "newNativePixelVerification": false,
+      "sourcesLF": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/asset-claims/index.wxml",
+          "sha256": "e7363071164f50517ab15efa85b4925a43629f647c759dbcc6804bbe9af78913"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/asset-claims/index.wxss",
+          "sha256": "f253ea27500032521df97ab7d3b1af92fb4f518801136dd676aa8f9d74ef167d"
+        }
+      ]
+    }
+  ]
+}

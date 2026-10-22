@@ -599,6 +599,16 @@
   font-size: var(--font-sm);
   color: var(--text-secondary);
 }
+.station-picker-retry {
+  margin-top: 20rpx;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  color: var(--primary-dark);
+  background: var(--primary-bg);
+}
 
 /* ========== 水站营业状态（软状态）：与站名同属头部，页面最顶部、左对齐 ==========
    只提示不阻断；配色由 customerHint 决定（warn = 后端说需要提醒），前端不做 1..4 映射 */

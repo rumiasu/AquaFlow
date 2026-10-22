@@ -1,0 +1,111 @@
+{
+  "date": "2026-10-22",
+  "baseline": "2000a1866b76905e4eeef4c60e54a7ecd8910297",
+  "targetedSuites": [
+    {
+      "suite": "checkout-presentation",
+      "exitCode": 0,
+      "passed": true,
+      "count": 17
+    },
+    {
+      "suite": "customer-home-station-context",
+      "exitCode": 0,
+      "passed": true,
+      "count": 26
+    },
+    {
+      "suite": "customer-home-cart-persistence",
+      "exitCode": 0,
+      "passed": true,
+      "count": 16
+    },
+    {
+      "suite": "customer-home-quote-debounce",
+      "exitCode": 0,
+      "passed": true,
+      "count": 21
+    },
+    {
+      "suite": "customer-home-order-query",
+      "exitCode": 0,
+      "passed": true,
+      "count": 9
+    },
+    {
+      "suite": "order-create-flow",
+      "exitCode": 0,
+      "passed": true,
+      "count": 43
+    },
+    {
+      "suite": "order-legacy-known-upgrade",
+      "exitCode": 0,
+      "passed": true,
+      "count": 21
+    },
+    {
+      "suite": "order-quote-address-binding",
+      "exitCode": 0,
+      "passed": true,
+      "count": 19
+    },
+    {
+      "suite": "coordination-todo-context",
+      "exitCode": 0,
+      "passed": true,
+      "count": 16
+    },
+    {
+      "suite": "delivery-coordination-experience",
+      "exitCode": 0,
+      "passed": true,
+      "count": 15
+    },
+    {
+      "suite": "key-text-readability",
+      "exitCode": 0,
+      "passed": true,
+      "count": 8
+    },
+    {
+      "suite": "fee-detail-layout",
+      "exitCode": 0,
+      "passed": true,
+      "count": 1
+    },
+    {
+      "suite": "customer-balance-availability",
+      "exitCode": 0,
+      "passed": true,
+      "count": 26
+    },
+    {
+      "suite": "asset-view-station-flow",
+      "exitCode": 0,
+      "passed": true,
+      "count": 24
+    },
+    {
+      "suite": "order-result-navigation",
+      "exitCode": 0,
+      "passed": true,
+      "count": 32
+    }
+  ],
+  "targetedCount": 294,
+  "completionRequirement": "exit code 0 and AQUAFLOW_SUITE_OK count",
+  "static": {
+    "audit_wxml_handlers.py": "pass; missing bindings 0",
+    "audit_js_syntax.py": "pass; 174 files",
+    "audit_wxss_selectors.py": "pass",
+    "scripts/check-miniapp-text.js": "pass; 437 files",
+    "page_reach_audit.py miniapp-user": "pass; fatal 0; lexical orphan report is not a deletion recommendation",
+    "page_reach_audit.py miniapp-delivery": "pass; fatal 0; lexical orphan report is not a deletion recommendation",
+    "audit_scenario_matrix.py": "references pass; count explicitly skipped locally, no backend XML"
+  },
+  "fullIntegration": "Use exact pushed commit CI; not run locally. Prior CI 39731732967 covers baseline only.",
+  "newNativeScreenshots": 0,
+  "realCloudDatabaseWrites": 0,
+  "deployment": false
+}

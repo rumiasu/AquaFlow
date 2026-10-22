@@ -30,7 +30,7 @@ test('复购重新读取原单商品数量和地址并获取当前商品及报�
   const page = loadPage('miniapp-user/pages/order/create.js', { wx, stubs: {
     'utils/station': { resolveStationId: async () => 1 },
     'api/order': { getOrderDetail: async id => {
-      calls.detail.push(id); return { code: 0, data: { id, stationId: 1, addressId: 17,
+      calls.detail.push(id); return { code: 0, data: { id, stationId: 1, deliveryStationId: 2, addressId: 17,
         items: [{ productId: 5, quantity: 2, price: 1 }], amount: 2 } }
     }, createOrder: async () => { calls.writes++ }, createPayment: async () => { calls.writes++ } },
     'api/product': { getProductDetail: async (id, stationId) => {
@@ -54,7 +54,83 @@ test('复购重新读取原单商品数量和地址并获取当前商品及报�
   assert.ok(calls.quotes.some(q => q.addressId === 17 && q.items[0].quantity === 2))
   assert.strictEqual(page.data.extraDepositAmountText, '50.00'); assert.strictEqual(page.data.payableAmountText, '104.00')
   assert.strictEqual(calls.writes, 0)
+  assert.strictEqual(wx.__calls.modal.length, 0, '外派履约站不能触发归属站不一致弹窗')
+  assert.ok(calls.quotes.every(q => q.stationId === 1), '复购报价仍认原归属站')
 })
+for (const change of ['identity', 'hide', 'unload']) {
+  test('复购切站确认在' + change + '后不再应用原单', async () => {
+    const wx = createWx(), applied = []
+    wx.showModal = options => wx.__calls.modal.push(options)
+    const page = loadPage('miniapp-user/pages/order/create.js', { wx, stubs: {
+      'utils/station': { resolveStationId: async () => 3 },
+      'api/order': { getOrderDetail: async id => ({ code: 0, data: { id, stationId: 1, deliveryStationId: 3 } }) }
+    } })
+    page._doLoadFromOrder = async order => applied.push(order.id)
+    await page.loadReorder(81)
+    assert.strictEqual(wx.__calls.modal.length, 1, '比较归属站，不能因当前站恰是履约站而跳过提示')
+    if (change === 'identity') page.__app.globalData.customerId = 8
+    else page[change === 'hide' ? 'onHide' : 'onUnload']()
+    wx.__calls.modal[0].success({ confirm: true })
+    await new Promise(resolve => setImmediate(resolve))
+    assert.deepStrictEqual(applied, [])
+  })
+}
+
+test('有效复购切站确认只应用原单，取消保留原有返回行为', async () => {
+  for (const confirm of [false, true]) {
+    const wx = createWx(), applied = []
+    wx.__modalAutoConfirm = confirm
+    const page = loadPage('miniapp-user/pages/order/create.js', { wx, stubs: {
+      'utils/station': { resolveStationId: async () => 3 },
+      'api/order': { getOrderDetail: async id => ({ code: 0, data: { id, stationId: 1, deliveryStationId: 3 } }) }
+    } })
+    page._doLoadFromOrder = async order => applied.push(order.id)
+    await page.loadReorder(81)
+    assert.deepStrictEqual(applied, confirm ? [81] : [])
+    assert.strictEqual(wx.__calls.nav.filter(n => n.type === 'navigateBack').length, confirm ? 0 : 1)
+  }
+})
+
+test('复购取单中进入后台再返回会重新核实，旧响应和换号均不能复用', async () => {
+  for (const changed of [false, true]) {
+    const wx = createWx(), reads = [], applied = []
+    const page = loadPage('miniapp-user/pages/order/create.js', { wx, stubs: {
+      'utils/station': { resolveStationId: async () => 1 },
+      'api/order': { getOrderDetail: () => new Promise(resolve => reads.push(resolve)) }
+    } })
+    page.loadAddress = () => {}; page._doLoadFromOrder = async order => applied.push(order.id)
+    const old = page.loadReorder(81); page.onHide()
+    if (changed) page.__app.globalData.customerId = 8
+    page.onShow()
+    assert.strictEqual(reads.length, changed ? 1 : 2)
+    reads[0]({ data: { id: 81, stationId: 1 } }); await old
+    assert.deepStrictEqual(applied, [])
+    if (!changed) {
+      reads[1]({ data: { id: 81, stationId: 1 } })
+      await new Promise(resolve => setImmediate(resolve))
+      assert.deepStrictEqual(applied, [81]); assert.strictEqual(page._pendingReorder, null)
+    }
+  }
+})
+
+test('复购原确认离页后失效，返回的新确认可继续，弹窗失败可读且收尾', async () => {
+  const wx = createWx(), applied = []
+  wx.showModal = options => wx.__calls.modal.push(options)
+  const page = loadPage('miniapp-user/pages/order/create.js', { wx, stubs: {
+    'utils/station': { resolveStationId: async () => 3 },
+    'api/order': { getOrderDetail: async id => ({ data: { id, stationId: 1 } }) }
+  } })
+  page.loadAddress = () => {}; page._doLoadFromOrder = async order => applied.push(order.id)
+  await page.loadReorder(81); page.onHide(); page.onShow()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.strictEqual(wx.__calls.modal.length, 2)
+  wx.__calls.modal[0].success({ confirm: true }); assert.deepStrictEqual(applied, [])
+  wx.__calls.modal[1].success({ confirm: true }); assert.deepStrictEqual(applied, [81])
+  await page.loadReorder(82); wx.__calls.modal[2].fail()
+  assert.strictEqual(page.data.loading, false); assert.ok(page.data.loadError)
+  assert.strictEqual(page._pendingReorder, null)
+})
+
 test('规格为空或为占位字符串时不显示，保留原始商品字段', async () => {
   for (const spec of [null, undefined, '', ' ', 'null', ' NULL ', 'undefined']) {
     const t = fixture(undefined, spec)

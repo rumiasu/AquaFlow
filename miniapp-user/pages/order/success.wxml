@@ -55,7 +55,7 @@
         </view>
         <view class="template-text">
           <text class="template-title">存为常用订单</text>
-          <text class="template-hint">下次带入常买清单，再确认下单</text>
+          <text class="template-hint">保存商品、数量与地址，便于查看</text>
         </view>
       </view>
       <text class="template-arrow">›</text>
@@ -71,7 +71,7 @@
         </view>
         <view class="template-text">
           <text class="template-title saved">已存为常用订单</text>
-          <text class="template-hint">首页可快速再订</text>
+          <text class="template-hint">可在「我的」查看常用订水配置</text>
         </view>
       </view>
     </view>

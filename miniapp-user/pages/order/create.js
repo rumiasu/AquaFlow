@@ -275,6 +275,13 @@ Page({
   onShow() {
     this._orderNavigationHidden = false
     this._quoteHidden = false
+    // 后台期间作废的读取/确认，回到同一账号后重新核实，避免停在空白加载态。
+    if (this._reorderNeedsReload && this._pendingReorder) {
+      this._reorderNeedsReload = false
+      const pending = this._pendingReorder
+      if (isCurrentSession(pending.session)) this.loadReorder(pending.orderId)
+      else this._pendingReorder = null
+    }
     const selectedAddress = storage.get('selectedAddress')
     if (selectedAddress) {
       // 2026-10-11：原先先按旧地址报价再换地址，旧结果可在新地址下恢复可提交；先失效并应用地址。
@@ -293,6 +300,8 @@ Page({
 
   onHide() {
     this._invalidateOrderNavigation()
+    this._reorderNeedsReload = !!this._pendingReorder
+    this._reorderSeq = (this._reorderSeq || 0) + 1
     this._quoteHidden = true
     this.cancelScheduledQuote()
     this._addressNeedsReload = this.data.addressLoading || this._addressNeedsReload
@@ -494,13 +503,18 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   async loadReorder(orderId) {
     const session = captureSession()
+    this._pendingReorder = { orderId, session }
+    const sequence = this._reorderSeq = (this._reorderSeq || 0) + 1
+    const current = () => sequence === this._reorderSeq && isCurrentSession(session)
+      && !this._quoteDestroyed && !this._quoteHidden
     try {
       const res = await getOrderDetail(orderId)
-      if (!isCurrentSession(session) || this._quoteDestroyed) return
+      if (!current()) return
       const order = res.data
       // 再来一单只归并当前登录下真实 GET 的本人原 key；不以原单内容伪造恢复 body。
       orderIntent.reconcileKnownOrder(order, session)
       if (!order) {
+        this._pendingReorder = null
         wx.showToast({ title: '订单不存在', icon: 'none' })
         wx.navigateBack()
         return
@@ -512,30 +526,43 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 即便人已在 B 站也不会得到任何提示，可能按 B 站的价格/库存下单。
       // 改用与首页同一套来源：stationStorage 优先，回退 my-station。
       const currentStationId = await resolveStationId()
-      const orderStationId = order.deliveryStationId || order.stationId
+      if (!current()) return
+      // 2026-10-22：外派履约站曾被当作复购定价/资产站；复购必须沿用原单归属站。
+      const orderStationId = order.stationId
 
       if (currentStationId && orderStationId && currentStationId !== orderStationId) {
         wx.showModal({
           title: '水站不一致',
-          content: '该订单属于其他水站，当前水站可能无法供应此商品。是否继续？',
+          content: '将按原订单所属水站重新核实商品、价格及桶票押金。是否继续？',
           confirmText: '继续',
           cancelText: '取消',
           success: (modalRes) => {
+            // 旧弹窗确认不得把原单带入另一个登录周期或已离开的结算页。
+            if (!current()) return
+            this._pendingReorder = null
             if (modalRes.confirm) {
               this._doLoadFromOrder(order)
             } else {
               wx.navigateBack()
             }
+          },
+          fail: () => {
+            if (!current()) return
+            this._pendingReorder = null
+            this.setData({ loading: false, loadError: '复购确认未打开，请返回重新选择原订单' })
           }
         })
         return
       }
 
+      this._pendingReorder = null
       await this._doLoadFromOrder(order)
     } catch (error) {
       // [2026-09-20 真机联调] 原实现只 console.error + 把 loading 关掉：订单详情拉不到时
       // 页面渲染成**一张空白的结算页**（商品清单空、金额 0），客户看到的是"这单不能再来一单了"，
       // 完全不知道是断网还是这单真的没了。
+      if (!current()) return
+      this._pendingReorder = null
       console.error('[OrderCreate] 再来一单取订单详情失败:', error)
       this.setData({
         loading: false,
@@ -562,7 +589,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     this.setData({
       items,
       note: order.specialNote || '',
-      stationId: order.deliveryStationId || order.stationId || this.data.stationId
+      stationId: order.stationId || null
     })
     this.loadAddress(order.addressId)
     await this.loadItemsProducts()

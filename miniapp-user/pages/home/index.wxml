@@ -128,7 +128,8 @@
           <view class="again-btn" bindtap="onAgainTap">再订一单</view>
         </view>
 
-        <template wx:if="{{!activeShip && productsView.length > 0}}" is="station-product-poster" data="{{product: productsView[0], artFailed: posterArtFailed, productImageFailed: posterProductImageFailed}}" />
+        <!-- 2026-10-22：老客海报曾把数量操作推到结算栏下方；有复购或进行中订单时优先选水。 -->
+        <template wx:if="{{!activeShip && !againOrder && productsView.length > 0}}" is="station-product-poster" data="{{product: productsView[0], artFailed: posterArtFailed, productImageFailed: posterProductImageFailed}}" />
 
         <!-- ══ 订水区：数量即选即算，步进器即选即算 ══ -->
         <view class="card shop-sec" wx:if="{{productsView.length > 0}}">
@@ -173,7 +174,7 @@
           </view>
         </view>
 
-        <template wx:if="{{activeShip && productsView.length > 0}}" is="station-product-poster" data="{{product: productsView[0], artFailed: posterArtFailed, productImageFailed: posterProductImageFailed}}" />
+        <template wx:if="{{(activeShip || againOrder) && productsView.length > 0}}" is="station-product-poster" data="{{product: productsView[0], artFailed: posterArtFailed, productImageFailed: posterProductImageFailed}}" />
 
         <!-- ══ 水桶与押金入口：首页只留入口 + 必要欠桶提醒；权益/占用/押金的真实口径在桶账页 ══ -->
         <view class="card barrel" wx:if="{{barrelVisible}}" bindtap="onGoBarrel">
@@ -234,10 +235,12 @@
         于是"没查到"被说成"平台确实没有水站"，客户会以为整平台都没站可下单（AGENTS §8.22）。
         stationListError 由 loadStationList 在失败时写入（含可读原因）。
       -->
-      <view class="station-picker-empty" wx:if="{{stationList.length === 0}}">
-        <text wx:if="{{stationListError}}">水站列表没加载出来（{{stationListError}}），请稍后重试</text>
-        <text wx:else>暂无可用水站</text>
+      <view class="station-picker-empty" wx:if="{{stationListLoading}}">正在加载水站…</view>
+      <view class="station-picker-empty" wx:elif="{{stationListError}}">
+        <text>水站列表没加载出来（{{stationListError}}）</text>
+        <button class="station-picker-retry" bindtap="loadStationList">重新加载</button>
       </view>
+      <view class="station-picker-empty" wx:elif="{{stationList.length === 0}}">暂无可用水站</view>
     </view>
   </view>
 </view>

@@ -9,9 +9,13 @@ const deferred = () => {
 const station = id => ({ id, name: 'SYNTH station ' + id, status: 1 })
 const status = text => ({ code: 0, data: { statusText: text, note: text, customerHint: text } })
 function fixture(api = {}) {
-  const wx = createWx(), app = createApp(), loaded = [], publicReads = []
+  const wx = createWx(), app = createApp(), loaded = [], publicReads = [], readMarks = []
   const page = loadPage('miniapp-user/pages/home/index.js', { wx, app, stubs: {
     'api/order': { getMyLatestStation: api.restore || (async () => ({ code: 0, data: null })) },
+    'api/notification': {
+      getUnreadNotifications: api.notifications || (async () => ({ code: 0, data: [] })),
+      markAllRead: async () => { readMarks.push(app.globalData.customerId) }
+    },
     'api/station': {
       getPublicStations: async () => { publicReads.push(true); return api.list ? api.list() : { code: 0, data: [] } },
       getStationStatus: api.status || (async () => status('SYNTH current'))
@@ -19,7 +23,7 @@ function fixture(api = {}) {
   } })
   // Keep the actual discovery/selection handlers; unrelated overview reads are observed at their entry.
   page.loadData = async () => { loaded.push(page.data.currentStationId); page.setData({ state: 'ready', loading: false }) }
-  return { page, wx, app, loaded, publicReads }
+  return { page, wx, app, loaded, publicReads, readMarks }
 }
 const tests = []
 const test = (name, run) => tests.push({ name, run })
@@ -163,6 +167,59 @@ test('hidden page ignores pending status and public-list responses', async () =>
   await Promise.all(pending)
   assert.equal(t.page.data.stationStatusText, '')
   assert.deepStrictEqual(t.page.data.stationList, [])
+})
+
+test('pending public list is loading, never an empty-directory conclusion or stale candidates', async () => {
+  const next = deferred(), t = fixture({ list: () => next.promise })
+  t.page.setData({ stationList: [station(1)], stationListError: 'old failure' })
+  const pending = t.page.loadStationList()
+  assert.strictEqual(t.page.data.stationListLoading, true)
+  assert.strictEqual(t.page.data.stationListError, '')
+  assert.deepStrictEqual(t.page.data.stationList, [])
+  next.resolve({ code: 0, data: [] }); await pending
+  assert.strictEqual(t.page.data.stationListLoading, false)
+  assert.deepStrictEqual(t.page.data.stationList, [])
+})
+
+test('an obsolete public response cannot release the newest loading state', async () => {
+  const first = deferred(), second = deferred(); let calls = 0
+  const t = fixture({ list: () => ++calls === 1 ? first.promise : second.promise })
+  const a = t.page.loadStationList(), b = t.page.loadStationList()
+  first.resolve({ code: 0, data: [] }); await a
+  assert.strictEqual(t.page.data.stationListLoading, true)
+  second.resolve({ code: 0, data: [station(2)] }); await b
+  assert.strictEqual(t.page.data.stationListLoading, false)
+  assert.deepStrictEqual(t.page.data.stationList.map(s => s.id), [2])
+})
+
+for (const change of ['identity', 'hide', 'unload']) {
+  test('notification modal callbacks cannot continue or mark another context after ' + change, async () => {
+    const t = fixture({ notifications: async () => ({ code: 0, data: [{ title: 'first' }, { title: 'second' }] }) })
+    t.wx.showModal = options => t.wx.__calls.modal.push(options)
+    const pending = t.page.checkNotifications()
+    await new Promise(resolve => setImmediate(resolve))
+    assert.strictEqual(t.wx.__calls.modal.length, 1)
+    if (change === 'identity') t.app.globalData.customerId = 8
+    else t.page[change === 'hide' ? 'onHide' : 'onUnload']()
+    t.wx.__calls.modal[0].success({ confirm: true })
+    await pending
+    assert.strictEqual(t.wx.__calls.modal.length, 1)
+    assert.deepStrictEqual(t.readMarks, [])
+  })
+}
+
+test('notification display failure settles and does not mark unseen messages read', async () => {
+  const t = fixture({ notifications: async () => ({ code: 0, data: [{ title: 'first' }] }) })
+  t.wx.showModal = options => options.fail({ errMsg: 'SYNTH modal unavailable' })
+  await t.page.checkNotifications()
+  assert.deepStrictEqual(t.readMarks, [])
+})
+
+test('visible notifications still acknowledge once after all dialogs finish', async () => {
+  const t = fixture({ notifications: async () => ({ code: 0, data: [{ title: 'first' }, { title: 'second' }] }) })
+  await t.page.checkNotifications()
+  assert.strictEqual(t.wx.__calls.modal.length, 2)
+  assert.deepStrictEqual(t.readMarks, [7])
 })
 
 ;(async () => {

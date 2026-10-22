@@ -28,6 +28,7 @@ Page({
     // 选站弹窗里"水站列表没拉出来"的原因（空串 = 拉到了或还没拉）。
     // 与 loadError 分开：选站列表在 noStation 状态下才是主角，混在一处会互相覆盖。
     stationListError: '',
+    stationListLoading: false,
     statusBarHeight: 44,
     isLogin: false,
     state: 'guest', // guest / noStation / claimPending / ready
@@ -101,9 +102,11 @@ Page({
 
   onHide() {
     this._homeHidden = true
+    this._notificationSeq = (this._notificationSeq || 0) + 1
     this._stationCheckSeq = (this._stationCheckSeq || 0) + 1
     this._stationListSeq = (this._stationListSeq || 0) + 1
     this._stationStatusSeq = (this._stationStatusSeq || 0) + 1
+    this.setData({ showStationList: false, stationListLoading: false })
     this.invalidateHomeQuote()
     this.refreshDerived(undefined, false)
   },
@@ -244,28 +247,40 @@ Page({
 
   /** 检查未读通知，逐条弹窗提醒（拒单/临时外派） */
   async checkNotifications() {
+    if (this._homeDestroyed || this._homeHidden) return
+    const session = captureSession()
+    if (!session.loggedIn || !session.customerId) return
+    const sequence = this._notificationSeq = (this._notificationSeq || 0) + 1
+    // 2026-10-22：原弹窗回调曾跨离页/换号继续提醒并用新会话标已读；每次等待后核对原上下文。
+    const current = () => !this._homeDestroyed && !this._homeHidden
+      && sequence === this._notificationSeq && isCurrentSession(session)
     try {
       // [2026-09-20 真机联调] 原来是 `.catch(() => null)`：拉不到与"没有未读消息"长得一模一样。
       // 未读里可能有「订单被拒」「被临时外派」这类客户必须当场知道的事，静默 = 他永远不会知道。
       // 仍然不阻断首页（这是附加提醒），但必须在页面顶部留下痕迹。
       const res = await getUnreadNotifications().catch((e) => {
+        if (!current()) return null
         console.warn('[home] 未读通知拉取失败:', e && (e.message || e.errMsg))
         this._noteLoadError('未读消息没加载出来（' + ((e && e.message) || '网络异常') + '），可能漏掉订单提醒')
         return null
       })
+      if (!current()) return
       if (res && res.code === 0 && res.data && res.data.length > 0) {
         const notifications = res.data
         for (let i = 0; i < notifications.length; i++) {
           const n = notifications[i]
-          await new Promise((resolve) => {
+          if (!current()) return
+          const shown = await new Promise((resolve) => {
             wx.showModal({
               title: n.title || '消息提醒',
               content: n.content || '',
               showCancel: false,
               confirmText: '我知道了',
-              success: () => resolve()
+              success: () => resolve(true),
+              fail: () => resolve(false)
             })
           })
+          if (!shown || !current()) return
         }
         // 标记已读是**写操作**、不是"我们向用户断言了某个事实"，所以只留日志不弹提示：
         // 它失败的后果是"同一批提醒下次进首页会再弹一遍"，用户当场无从处置，弹 toast 只会添乱。
@@ -285,6 +300,8 @@ Page({
     const sequence = this._stationListSeq = (this._stationListSeq || 0) + 1
     const current = () => !this._homeDestroyed && !this._homeHidden
       && sequence === this._stationListSeq && isCurrentSession(session)
+    // 2026-10-22：首次请求未完成曾显示“暂无水站”，重试还可点旧行；加载、失败和真实空结果分开。
+    this.setData({ stationListLoading: true, stationList: [], stationListError: '' })
     // [2026-09-20 真机联调] 原来是 `.catch(() => null)` + 外层只 console.error：
     // 接口失败时列表为空，弹窗渲染成「暂无可用水站」—— 把"没查到"说成了"平台真的没有水站"，
     // 客户会以为整个平台都没水站可选。现在把失败原因记进 stationListError，由 wxml 分开说。
@@ -306,6 +323,8 @@ Page({
       // 2026-10-20：旧列表仍可点击且遮住失败提示；失败须清行，不能把过期候选冒充本次读取成功。
       this.setData({ stationList: [], stationListError: (e && e.message) || '网络异常' })
       wx.showToast({ title: '水站列表没加载出来，请重试', icon: 'none' })
+    } finally {
+      if (current()) this.setData({ stationListLoading: false })
     }
   },
 

@@ -136,7 +136,7 @@ Page({
     }
     return Object.assign({}, it, {
       _key: String(it.orderId),
-      _amountText: money(it.amount),
+      _amountText: exactMoney(it.amount) ? money(it.amount) : '待核实',
       _amountKnown: exactMoney(it.amount),
       _settlementPartiesKnown: !!positiveId(it.fromStationId) && !!positiveId(it.toStationId),
       _ruleText: rule,

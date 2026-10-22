@@ -15,6 +15,7 @@ const { formatAddress } = require('../../utils/address')
 const { itemUnit } = require('../../utils/order-item-view')
 const orderIntent = require('../../utils/orderIntent')
 const { createOrderResultNavigator } = require('../../utils/order-result-navigation')
+const { errorText } = require('./visual')
 const app = getApp()
 
 // 只清理展示占位值，原始规格和报价/提交字段保持原样。
@@ -405,12 +406,12 @@ async loadItemsProducts() {
         } else {
           // HTTP 200 但没 data（业务失败 / 商品已下架）：同样算一件没加载出来，不能当"加载成功且为空"
           productFailCount++
-          productFailReason = (res && res.message) || productFailReason
+          productFailReason = errorText(res, productFailReason || '商品信息暂未加载')
           console.warn('[OrderCreate] 商品详情返回空:', it.productId, res && res.message)
         }
       } catch (e) {
         productFailCount++
-        productFailReason = (e && e.message) || productFailReason
+        productFailReason = errorText(e, productFailReason || '商品信息暂未加载')
         console.warn('[OrderCreate] 商品详情加载失败:', it.productId, e && (e.message || e.errMsg))
       }
     }
@@ -566,7 +567,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       console.error('[OrderCreate] 再来一单取订单详情失败:', error)
       this.setData({
         loading: false,
-        loadError: '没能取到原订单（' + ((error && error.message) || '网络异常') + '），本页内容不可用，请返回重进'
+        loadError: '没能取到原订单（' + errorText(error, '网络暂时不可用') + '），本页内容不可用，请返回重进'
       })
       wx.showToast({ title: '原订单没加载出来，请重试', icon: 'none' })
     }
@@ -588,7 +589,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
     this.setData({
       items,
-      note: order.specialNote || '',
+      note: order.customerNote || '',
       stationId: order.deliveryStationId || order.stationId || this.data.stationId
     })
     this.loadAddress(order.addressId)
@@ -621,8 +622,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 而提交时又拦一句「请选择配送地址」—— 把"接口失败"说成了"你没设地址"，客户会去反复
       // 重设地址而问题根本不在那儿。现在把失败标记出来，空态与提交拦截的文案都据此区分。
       console.error('[OrderCreate] 加载收货地址失败:', error)
-      this.setData({ addressLoadError: (error && error.message) || '网络异常', quoteLoading: false })
-      this._noteLoadError('收货地址没加载出来（' + ((error && error.message) || '网络异常') + '），可能显示成"未设置地址"')
+      this.setData({ addressLoadError: errorText(error, '网络暂时不可用'), quoteLoading: false })
+      this._noteLoadError('收货地址没加载出来（' + errorText(error, '网络暂时不可用') + '），可能显示成"未设置地址"')
     } finally {
       if (current()) this.setData({ addressLoading: false })
       else if (seq === this._addressRequestSeq && !isCurrentSession(session)) {
@@ -654,8 +655,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 按真实权益算 —— 又是"界面一个价、结算另一个价"（本仓计价双轨的老坑）。
       // 拿不到就不假装知道：明确告诉客户这笔押金估算可能偏高。
       console.error('[OrderCreate] 加载桶权益失败:', error)
-      this._noteLoadError('桶权益没加载出来（' + ((error && error.message) || '网络异常')
-        + '），押金估算可能偏高（真实金额由后端算）')
+      this._noteLoadError('桶权益没加载出来（' + errorText(error, '网络暂时不可用')
+        + '），押金信息尚未核实，请重新报价后核对本次费用。')
     }
   },
 
@@ -1005,7 +1006,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         payMethods: [], wechatPay: null, ticketPay: null, ticketCoverText: '',
         ticketShortfallHint: '', ticketCanBuy: false, ticketAltMethod: null, missingRights: [],
         barrelPurchases: [], barrelPurchaseConfirmed: false,
-        quoteError: '没能核实最新金额和支付方式（' + ((e && e.message) || '网络异常') + '），已暂停下单，请重试报价',
+        quoteError: '没能核实最新金额和支付方式。' + errorText(e, '请稍后重试。') + '已暂停下单，请重试报价',
         blockReason: '最新金额和支付方式尚未核实，请重试报价',
         checkoutWarnings: ['最新金额和支付方式尚未核实，请重试报价']
       })
@@ -1159,7 +1160,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
           title: tp.title || '暂不能用票支付',
           content: tp.hint || '水票不足以覆盖本单，请改选支付方式或先补齐水票',
           showCancel: canBuyTicket,
-          confirmText: canBuyTicket ? '去买水票' : '改选支付方式',
+          confirmText: canBuyTicket ? '去买水票' : '改选方式',
           cancelText: '留在本页',
           success: (r) => {
             // 只有"余额不够"才把人引去买票；"商品根本不能用票"时补票没用（后端 hint 已写明）
@@ -1494,14 +1495,14 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         orderIntent.settleRequest(requestRecord, 'prepared')
         if (current()) {
           this.setData({ submitState: 'idle', unknownResultText: '' })
-          wx.showModal({ title: '订单未创建', content: error.message + '\n\n请调整后重新提交。', showCancel: false, confirmText: '知道了' })
+          wx.showModal({ title: '订单未创建', content: errorText(error, '本次下单未被接受') + '\n\n请调整后重新提交。', showCancel: false, confirmText: '知道了' })
         }
         return
       }
       // 停业/地址校验可能在幂等查找之前拒绝重放；businessRejected 不能证明历史 unknown 原单不存在。
       if (!current()) return
       this._showOrderRecoveryBlocked('原提交结果尚未确认，保留原编号和内容，请重试核实或到我的订单查看。')
-      wx.showModal({ title: '原提交还需核实', content: (error && error.message ? error.message + '\n\n' : '')
+      wx.showModal({ title: '原提交还需核实', content: errorText(error, '本次结果尚未确认。') + '\n\n'
         + '原单可能已创建。重试只办理原提交，不会更换编号或内容。', confirmText: '重试', cancelText: '先查看',
         success: result => {
           if (result.confirm && current() && !this._quoteHidden && requestRecord.phase === 'unknown') this._createOrder(false)
@@ -1514,7 +1515,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   _showOrderRecoveryBlocked(message) {
-    this.setData({ submitting: false, submitState: 'unknown', unknownResultText: message })
+    this.setData({ submitting: false, submitState: 'unknown', unknownResultText: errorText({ message }, '原提交结果尚未确认，请核对原订单或恢复原请求。') })
   },
 
   _restoreOrderRequest() {
@@ -1628,7 +1629,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
           const body = outcome.state === 'paid'
             ? '款项已经结清，可以放心等配送。'
             : unknown ? '订单已经建好了（订单号 ' + orderId + '），暂时查不到是否已付款。请点「查原单」刷新核实；若继续支付，仍办理这张原订单。'
-            : ((outcome.error && outcome.error.message) || '网络异常')
+            : errorText(outcome.error, '支付暂未完成，请核对原订单')
               + '。订单已经建好了（订单号 ' + orderId + '），但这一笔支付没有完成。'
           wx.showModal({
             title,
@@ -1906,7 +1907,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       })
     } catch (e) {
       // 服务端开关关掉时这里收到的就是「企业身份功能当前未开启」，原样展示服务端文案
-      wx.showToast({ title: e.message || '提交失败，请稍后重试', icon: 'none' })
+      wx.showToast({ title: errorText(e, '申请结果尚未确认，请联系水站核对'), icon: 'none' })
     }
   },
 

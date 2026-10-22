@@ -619,7 +619,7 @@
 }
 
 .detail-arrow {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-color);
   margin-left: 12rpx;
 }
@@ -1556,7 +1556,7 @@
 }
 
 .asset-bar-toggle {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-color);
 }
 
@@ -1648,3 +1648,8 @@
 .detail-sheet-close { width: 88rpx; height: 88rpx; }
 .detail-sheet, .popup-content { border-radius: 20rpx 20rpx 0 0; }
 .popup-btns .btn-cancel, .popup-btns .btn-ok { border-radius: var(--radius-md); }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.fee-hint { line-height: 1.7; }
+.popup-content { max-height: 88vh; box-sizing: border-box; }
+.product-info, .fee-label-group, .method-info { min-width: 0; overflow-wrap: anywhere; }

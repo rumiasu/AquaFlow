@@ -16,7 +16,7 @@
        没有它，请求失败时屏幕上就是下面的 empty「暂无订单」，与"确实没有订单"长得一模一样
        （AGENTS §8.22）。文案里给"怎么重试"，不出现接口/后端这类开发词。
        样式复用 styles/common.wxss 的 .load-error（全局已 import，不要再写一份）。 -->
-  <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+  <view class="load-error" wx:if="{{loadError}}"><text>{{loadError}}</text><button class="orders-retry" bindtap="onRetry" disabled="{{loading || loadingMore}}">重新查询订单</button></view>
 
   <!-- 订单列表 -->
   <view class="order-list" wx:if="{{orders.length > 0}}">
@@ -26,6 +26,10 @@
       bind:pay="onPay"
       bind:cancel="onCancel" />
   </view>
+
+  <view class="list-progress" wx:if="{{loadingMore}}">正在读取更多订单…</view>
+  <button class="orders-retry" wx:elif="{{hasMore && !loadError}}" bindtap="onReachBottom">加载更多订单</button>
+  <view class="list-progress" wx:elif="{{orders.length && !loadError}}">已显示全部订单</view>
 
   <!-- 空状态：只在**确实取到了、且列表为空**时才说"暂无订单"；
        加载中与加载失败都不许落到这句（!loading && !loadError 两道闸门）。 -->

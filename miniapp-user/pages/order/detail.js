@@ -7,11 +7,15 @@ const { notifyPayResult } = require('../../utils/pay')
 const { getStationPublicPhone } = require('../../api/station')
 const { itemUnit } = require('../../utils/order-item-view')
 const { cancelView, cancelResultText } = require('../../utils/customer-cancel-view')
+const { errorText, money } = require('./visual')
 
 Page({
   data: {
     detailState: 'loading',
     loadError: '',
+    refreshNotice: '',
+    paying: false,
+    paymentError: '',
     order: null,
     items: [],
     statusText: '',
@@ -64,7 +68,7 @@ Page({
   },
 
   clearDetail(detailState, loadError = '') {
-    this.setData({ detailState, loadError, order: null, items: [], images: [],
+    this.setData({ detailState, loadError, refreshNotice: '', order: null, items: [], images: [],
       imagesState: 'idle', imagesError: '', callPhone: '', bucketInfo: null, fee: null,
       canCancel: false, cancelLabel: '', canRepay: false, statusText: '', payStatusText: '', payHint: '',
       deliveredAwaitingCollection: false, legacyNoteUnavailable: false, deliveryArrangementHint: '' })
@@ -77,10 +81,14 @@ Page({
 
   async loadOrder(id) {
     if (this._destroyed) return
+    const oldContext = this._detailContext
+    const keep = this.data.order && String(this.data.order.id) === String(id)
+      && oldContext && isCurrentSession(oldContext.session)
     this._orderId = id
     const context = { id, seq: this._detailSeq = (this._detailSeq || 0) + 1, session: captureSession() }
     this._detailContext = context
-    this.clearDetail('loading')
+    if (keep) this.setData({ refreshNotice: '正在重新核对订单，以下为上次读取的信息。', canCancel: false, canRepay: false })
+    else this.clearDetail('loading')
     try {
       const res = await getOrderDetail(id)
       if (!this.isDetailCurrent(context)) return
@@ -147,7 +155,7 @@ Page({
       // 费用明细：全部用后端下发的金额字段，前端口径只做格式化
       // ⚠️ 配送费/楼层费是 v34/v35 加的列，**必须在明细里逐项出现** —— 只把它们并进合计
       //    而不显示，客户会以为算错了钱（下单页那句同样的注释已经写过一次，这里是同一个坑）。
-      const yuan = v => Number(v || 0).toFixed(2)
+      const yuan = money
       const fee = {
         waterText: yuan(order.waterAmount),
         depositText: yuan(order.depositAmount),
@@ -161,7 +169,7 @@ Page({
       }
 
       const deliveryArrangementHint = typeof order.deliveryArrangementHint === 'string' ? order.deliveryArrangementHint : ''
-      this.setData({ detailState: 'ready', loadError: '', order, items, statusText, payStatusText, payStatusClass, canCancel, cancelLabel, canRepay, repayLabel, payHint, deliveryArrangementHint, deliveredAwaitingCollection, bucketInfo, fee, callPhone: '', legacyNoteUnavailable: !order.customerNote && !!order.specialNote })
+      this.setData({ detailState: 'ready', loadError: '', refreshNotice: '', order, items, statusText, payStatusText, payStatusClass, canCancel, cancelLabel, canRepay, repayLabel, payHint, deliveryArrangementHint, deliveredAwaitingCollection, bucketInfo, fee, callPhone: '', legacyNoteUnavailable: !order.customerNote && !!order.specialNote })
       await Promise.allSettled([
         this.loadCallableStationPhone(order, context),
         this.loadItemImages(items, context, this.stationIdOfOrder),
@@ -169,9 +177,11 @@ Page({
       ])
     } catch (err) {
       if (!this.isDetailCurrent(context)) return
-      const message = err.message || '订单暂时无法加载，请重试'
+      const message = errorText(err, '订单暂时无法加载，请重试')
       // OrderController.getById 对不存在的订单返回这一精确业务错误；权限错误另行显示。
-      this.clearDetail(message === '订单不存在' ? 'notfound' : 'error', message)
+      if (keep && !/无权|权限|登录|不存在/.test(message)) {
+        this.setData({ refreshNotice: '刷新失败，以下为上次读取的信息，付款与取消需重新核对后操作。' + message, canCancel: false, canRepay: false })
+      } else this.clearDetail(message === '订单不存在' ? 'notfound' : 'error', message)
     } finally {
       if (!this._destroyed && context.seq === this._detailSeq && !isCurrentSession(context.session)) {
         this.clearDetail('error', '登录状态已变化，请重新加载')
@@ -267,10 +277,13 @@ Page({
     wx.navigateTo({ url: `/pages/order/create?reorderId=${this.data.order.id}` })
   },
 
-  onPayNow() {
+  async onPayNow() {
     const { order } = this.data
-    if (!order) return
-    createPayment({
+    if (!order || this.data.paying || this.data.refreshNotice) return
+    const context = this._detailContext
+    this.setData({ paying: true, paymentError: '' })
+    try {
+    const res = await createPayment({
       orderId: order.id,
       customerId: getCustomerId(),
       amount: order.totalAmount || order.amount,
@@ -281,18 +294,20 @@ Page({
       extraDepositAmount: 0,
       ticketProductId: null,
       ticketQty: null
-    }).then(res => {
-      // 按后端返回的真实支付状态提示，不再无条件报"支付成功"
-      notifyPayResult(res && res.data)
-      this.loadOrder(order.id)
-    }).catch(e => {
-      wx.showToast({ title: e.message || '支付失败', icon: 'none' })
     })
+      if (!this.isDetailCurrent(context)) return
+      // 按后端返回的真实支付状态提示，不再无条件报"支付成功"
+      if (!res || !res.data || res.data.status == null) throw new Error('支付结果尚未确认，请重新查询原订单')
+      notifyPayResult(res.data)
+      await this.loadOrder(order.id)
+    } catch (e) {
+      if (!this._destroyed && isCurrentSession(context.session)) this.setData({ paymentError: errorText(e, '支付结果尚未确认，请先重新查询原订单') })
+    } finally { if (!this._destroyed) this.setData({ paying: false }) }
   },
 
   onCancel() {
     const order = this.data.order && { ...this.data.order }, view = cancelView(order), context = this._detailContext
-    if (!order || !view.canCancel || !this.isDetailCurrent(context) || this._cancelFlight) return
+    if (!order || !view.canCancel || this.data.refreshNotice || !this.isDetailCurrent(context) || this._cancelFlight) return
     const flight = {}
     this._cancelFlight = flight
     const current = () => this._cancelFlight === flight && this.isDetailCurrent(context)
@@ -316,7 +331,7 @@ Page({
             || !isCurrentSession(context.session)) return
           wx.showToast({ title: cancelResultText(this.data.order), icon: 'none' })
         } catch (err) {
-          if (current()) wx.showToast({ title: err.message || '取消失败', icon: 'none' })
+          if (current()) wx.showToast({ title: errorText(err, '取消结果尚未确认，请重新查询订单'), icon: 'none' })
         } finally {
           release()
         }

@@ -7,9 +7,9 @@
 -->
 <!-- [2026-10-18] 费用明细抽屉打开时锁住页面滚动：抽屉内的 scroll-view 滚到边界后，
      滚轮/触摸会继续链到背后的下单页（实测「抽屉到底后背景跟着动」）。
-     这里只在 showDetailPopup 为真时给页面加 overflow:hidden，不改任何金额/业务状态。
+     费用抽屉及确认弹层出现时锁住背景，不改金额或提交状态。
      ⚠️ page-meta 必须是页面第一个节点，不能挪到 <view class="container"> 里面。 -->
-<page-meta page-style="{{showDetailPopup ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{showDetailPopup || showUnifiedConfirm || showOfflineConfirm || showInTransitReminder ? 'overflow: hidden;' : ''}}"></page-meta>
 
 <view class="container" style="{{orderNavigationRecoveryStyle}}">
   <loading wx:if="{{loading}}"></loading>
@@ -152,7 +152,7 @@
         <text class="fee-cover">{{ticketCoverText}}</text>
         <text class="fee-hint">本单用水票全额结清，本次无需再付现金。</text>
       </block>
-      <block wx:else>
+      <block wx:elif="{{quoteReady}}">
         <view class="fee-row">
           <text class="fee-label">水费</text>
           <text class="fee-value">¥{{totalWaterCostText}}</text>
@@ -186,9 +186,11 @@
         </view>
       </block>
 
+      <text class="fee-hint" wx:if="{{!quoteReady}}">{{quoteLoading ? '正在核实本次费用…' : '费用尚未核实，请先确认地址并重新报价。'}}</text>
+
       <view class="fee-row total">
         <text class="fee-label total">{{isTicketPay ? payableAmountLabel : '合计'}}</text>
-        <text class="fee-value total">¥{{payableAmountText}}</text>
+        <text class="fee-value total">{{quoteReady ? '¥' + payableAmountText : '待核实'}}</text>
       </view>
       <!-- 金额出处：改地址/数量/支付方式后报价会重算，所以这里报的是"本次报价"，
            不把它说成最终订单金额（真正的订单金额由服务端在下单时算）。 -->
@@ -316,13 +318,13 @@
           <text class="detail-item ticket-cover" wx:if="{{ticketCoverText}}">{{ticketCoverText}}</text>
           <view class="total-row">
             <text class="total-label">{{payableAmountLabel}}</text>
-            <text class="total-price">¥{{payableAmountText}}</text>
+            <text class="total-price">{{quoteReady ? '¥' + payableAmountText : '待核实'}}</text>
             <text class="detail-arrow">明细›</text>
           </view>
         </view>
         <!-- 硬拦 > 提交中 > 已有订单 > 常态；普通须知不增加提交门槛。 -->
         <view class="submit-btn {{(submitting || blocked) ? 'disabled' : ''}}" bindtap="onSubmit">
-          <text>{{blocked ? '暂不可下单' : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid ? '查看这笔订单' : '继续支付') : '立即下单'))}}</text>
+          <text>{{blocked ? '暂不可下单' : (submitting ? '提交中…' : (pendingOrderId ? (pendingOrderPaid || pendingOrderPaymentState !== 'unpaid' ? '查看这笔订单' : '继续支付') : '立即下单'))}}</text>
         </view>
       </view>
     </view>
@@ -475,7 +477,7 @@
       <scroll-view class="detail-sheet-body" scroll-y>
         <view class="detail-sheet-content">
         <!-- 商品费用 -->
-        <view class="detail-section">
+        <view class="detail-section" wx:if="{{quoteReady}}">
           <view class="detail-section-title">商品零售参考</view>
           <view class="detail-row" wx:for="{{products}}" wx:key="id">
             <view class="detail-row-left">
@@ -552,7 +554,7 @@
         </view>
         <view class="detail-total-row">
           <text class="detail-total-label">{{isTicketPay ? payableAmountLabel : '合计'}}</text>
-          <text class="detail-total-value">¥{{payableAmountText}}</text>
+          <text class="detail-total-value">{{quoteReady ? '¥' + payableAmountText : '待核实'}}</text>
         </view>
       </view>
     </view>

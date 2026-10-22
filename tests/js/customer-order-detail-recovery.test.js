@@ -54,11 +54,12 @@ test('missing route id leaves an explicit state and pull refresh still stops', a
   const t = fixture(); await t.page.onLoad({}); await t.page.onPullDownRefresh()
   assert.equal(t.page.data.detailState, 'notfound'); assert.equal(t.calls.orders.length, 0); assert.equal(t.calls.stops, 1)
 })
-test('refresh failure clears the previous order and all action permissions', async () => {
+test('refresh failure keeps same-session facts marked as previous and disables transaction actions', async () => {
   let fail = false; const t = fixture({ order: async () => { if (fail) throw new Error('offline'); return { data: order() } } })
   await t.page.loadOrder(20); fail = true; await t.page.loadOrder(20)
-  assert.equal(t.page.data.detailState, 'error'); assert.equal(t.page.data.order, null); assert.deepStrictEqual(t.page.data.items, [])
-  assert.equal(t.page.data.canCancel, false); assert.equal(t.page.data.canRepay, false); assert.equal(t.page.data.callPhone, '')
+  assert.equal(t.page.data.detailState, 'ready'); assert.equal(t.page.data.order.id, 20); assert.equal(t.page.data.items.length, 1)
+  assert.ok(t.page.data.refreshNotice.includes('上次读取'))
+  assert.equal(t.page.data.canCancel, false); assert.equal(t.page.data.canRepay, false)
 })
 test('proof-image failure keeps the order body and offers a local retry', async () => {
   let fail = true; const t = fixture({ images: async () => { if (fail) throw new Error('图片服务不可用'); return { data: [{ id: 1, url: 'proof' }] } } })

@@ -34,9 +34,9 @@ const exactMoney = value => (typeof value === 'string' || typeof value === 'numb
 Page({
   data: {
     loading: true,
-    loaded: false,
+    loaded: false, ledgerError: '',
     // 三个数：别人欠本站 / 本站欠别人 / 净额（正 = 净收）
-    summary: { receivableText: '0.00', payableText: '0.00', netText: '0.00', netPositive: true },
+    summary: { receivableText: '待核实', payableText: '待核实', netText: '待核实', netPositive: true },
     scopeNote: '',
     items: [],
     dangling: [],
@@ -65,13 +65,16 @@ Page({
     wx.stopPullDownRefresh()
   },
 
+  onRetryLedger() { return this.loadData() },
+
   async loadData() {
     const snapshot = this.aftercareSession(), seq = this._ledgerSeq = (this._ledgerSeq || 0) + 1
-    this.setData({ loading: true })
+    this.setData({ loading: true, ledgerError: '' })
     try {
       const res = await getInterStationSettlements()
       if (seq !== this._ledgerSeq || snapshot && !this.aftercareCurrent(snapshot)) return
-      const d = res.data || {}
+      const d = res.data
+      if (!d || !Array.isArray(d.items) || !Array.isArray(d.danglingSettled) || !['receivableAmount', 'payableAmount', 'netAmount'].every(key => d[key] !== null && d[key] !== undefined && d[key] !== '' && Number.isFinite(Number(d[key])))) throw new Error('台账资料不完整，请重新核对')
       this._ledgerReadSession = snapshot
       this.setData({
         loaded: true,
@@ -85,6 +88,7 @@ Page({
     } catch (err) {
       if (seq !== this._ledgerSeq || snapshot && !this.aftercareCurrent(snapshot)) return
       // 静默失败 = 站长以为"本站没有站间欠款"，而这正是这一页要回答的问题
+      this.setData({ ledgerError: '站间台账未完成核对；如有记录，为上次读取结果。请重新读取后办理。' })
       console.error('[InterStation] 台账加载失败:', err)
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     } finally {
@@ -94,7 +98,7 @@ Page({
 
   /** 金额与方向全部来自后端；这里只做展示格式化（wxml 不做计算）。 */
   decorateSummary(d) {
-    const money = (v) => Number(v || 0).toFixed(2)
+    const money = (v) => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? '待核实' : Number(v).toFixed(2)
     const net = Number(d.netAmount || 0)
     return {
       receivableText: money(d.receivableAmount),
@@ -111,7 +115,7 @@ Page({
    * 柜台与站长按同一句话对账，不用回去翻设计文档。
    */
   decorateItem(it) {
-    const money = (v) => Number(v || 0).toFixed(2)
+    const money = (v) => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? '待核实' : Number(v).toFixed(2)
     const basis = Number(it.basis)
     let rule = it.basisText || ''
     if (basis === 2) {

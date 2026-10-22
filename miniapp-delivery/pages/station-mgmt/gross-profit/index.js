@@ -36,7 +36,7 @@ const COST = GP + '/cost'
 Page({
   data: {
     stationId: null,
-    loading: true,
+    loading: true, reportError: '', missingError: '', missingReady: false,
     from: '',
     to: '',
     report: null,
@@ -101,38 +101,31 @@ Page({
     return '¥' + v
   },
 
+  onRetryReport() { return this.load() },
+
   async load() {
-    this.setData({ loading: true })
-    try {
-      // from/to 留空 = 让服务端用默认区间（本月 1 号 ~ 今天），避免前端自己算日期口径
-      const qs = []
-      if (this.data.from) qs.push('from=' + this.data.from)
-      if (this.data.to) qs.push('to=' + this.data.to)
-      const [reportRes, missingRes] = await Promise.all([
-        get(GP + (qs.length ? '?' + qs.join('&') : '')),
-        get(MISSING_COST)
-      ])
-      const d = reportRes.data || {}
-      const missingCost = missingRes.data || []
-      this.setData({
+    const seq = this._loadSeq = (this._loadSeq || 0) + 1
+    this.setData({ loading: true, report: null, reportError: '', missingError: '', missingReady: false, missingCost: [], profitView: {} })
+    const qs = []
+    if (this.data.from) qs.push('from=' + this.data.from)
+    if (this.data.to) qs.push('to=' + this.data.to)
+    const [reportResult, missingResult] = await Promise.allSettled([
+      get(GP + (qs.length ? '?' + qs.join('&') : '')), get(MISSING_COST)
+    ])
+    if (seq !== this._loadSeq) return
+    const patch = { loading: false }
+    if (reportResult.status === 'fulfilled' && reportResult.value && reportResult.value.data && Array.isArray(reportResult.value.data.items)) {
+      const d = reportResult.value.data
+      Object.assign(patch, {
         report: d,
-        // 缺成本的展示态：数字仍用服务端下发值，这里只决定"没有数字时显示什么"
-        profitView: {
-          totalProfitText: this._withheldMoney(d.totalProfit),
-          netProfitText: this._withheldMoney(d.netProfit),
-          totalProfitWarn: d.totalProfit === null,
-          netProfitWarn: d.netProfit === null
-        },
-        missingCost,
-        // 服务端把生效区间回传，界面据此显示（不要自己拼日期）
-        from: d.from || this.data.from,
-        to: d.to || this.data.to
+        profitView: { totalProfitText: this._withheldMoney(d.totalProfit), netProfitText: this._withheldMoney(d.netProfit), totalProfitWarn: d.totalProfit === null, netProfitWarn: d.netProfit === null },
+        from: d.from || this.data.from, to: d.to || this.data.to
       })
-    } catch (err) {
-      wx.showToast({ title: err.message || '报表加载失败', icon: 'none' })
-    } finally {
-      this.setData({ loading: false })
-    }
+    } else patch.reportError = '当前期间报表尚未读取，收入、成本与利润待核实'
+    if (missingResult.status === 'fulfilled' && missingResult.value && Array.isArray(missingResult.value.data)) {
+      patch.missingCost = missingResult.value.data; patch.missingReady = true
+    } else patch.missingError = '未填成本清单尚未读取，请重试后核对'
+    this.setData(patch)
   },
 
   onDate(e) {
@@ -232,7 +225,7 @@ Page({
           + '可以随时重新填入成本价恢复。',
         confirmText: '确认清除',
         confirmColor: '#B5442C',
-        success: (r) => resolve(r.confirm)
+        success: (r) => resolve(r.confirm), fail: () => resolve(false)
       })
     })
     if (!ok) return
@@ -261,13 +254,13 @@ Page({
     const note = this.data.report && this.data.report.helpNote
     if (!note) {
       // 老版本服务端没有 helpNote：给一句能用的最小说明，别弹一个空框
-      wx.showModal({
+      wx.showModal({ confirmText: '知道了',
         title: '利润怎么算',
         content: '利润 = 该期间的销售收入 − 卖出数量 × 当前进货成本价。没填成本的商品会显示「未填成本」。',
         showCancel: false
       })
       return
     }
-    wx.showModal({ title: '利润怎么算', content: note, showCancel: false })
+    wx.showModal({ confirmText: '知道了', title: '利润怎么算', content: note, showCancel: false })
   }
 })

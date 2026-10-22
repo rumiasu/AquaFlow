@@ -56,7 +56,7 @@ Page({
     total: 0,
     loaded: 0,
     page: 0, size: 50, hasMore: false, listError: '', loadingMore: false,
-    stats: null,
+    stats: null, alertsError: '', statsError: '',
 
     // —— 页签 2：处理留痕 ——
     // `alerts` 存全量，`visibleAlerts` 是当前筛选后的结果 —— **筛选在 js 里做**：
@@ -159,7 +159,7 @@ Page({
             return resolve(null)
           }
           resolve(v)
-        }
+        }, fail: () => resolve(null)
       })
     })
   },
@@ -183,7 +183,7 @@ Page({
       const res = await get(EXCEPTIONS + '/' + id)
       dto = (res && res.data) || null
     } catch (err) {
-      wx.showModal({ title: '读取异常单失败', content: (err && err.message) || '请稍后重试', showCancel: false })
+      wx.showModal({ confirmText: '知道了', title: '读取异常单失败', content: (err && err.message) || '请稍后重试', showCancel: false })
       return
     }
     if (!dto) return
@@ -192,7 +192,7 @@ Page({
     if (dto.suggestedTicketQty) lines.push(`退水票 ${dto.suggestedTicketQty} 张`)
     if (dto.suggestedCashAmount) lines.push(`退现金 ¥${dto.suggestedCashAmount}`)
     if (!lines.length) {
-      wx.showModal({
+      wx.showModal({ confirmText: '知道了',
         title: '系统没有给出补偿建议',
         content: '这张异常单没有可执行的补偿项，只能选择「忽略」。',
         showCancel: false
@@ -240,7 +240,7 @@ Page({
       return true
     } catch (err) {
       wx.hideLoading()
-      wx.showModal({
+      wx.showModal({ confirmText: '知道了',
         title: '处理失败',
         content: (err && err.message) || '请稍后重试',
         showCancel: false
@@ -271,7 +271,7 @@ Page({
   onReachBottom() { return this.onLoadMore() },
   onLoadMore() { return this.loadList(false) },
   onRetryList() { return this.loadList(this.data.page === 0) },
-  onUnload() { this._listSeq = (this._listSeq || 0) + 1 },
+  onUnload() { this._listSeq = (this._listSeq || 0) + 1; this._overviewSeq = (this._overviewSeq || 0) + 1 },
 
   async loadList(reset) {
     if (!reset && (this.data.loading || this.data.loadingMore || !this.data.hasMore)) return
@@ -319,8 +319,11 @@ Page({
     }
   },
 
+  onRetryOverview() { return this.load() },
+
   async load() {
-    this.setData({ loading: true })
+    const seq = this._overviewSeq = (this._overviewSeq || 0) + 1
+    this.setData({ loading: true, alertsError: '', statsError: '' })
     const today = new Date()
     const from = dayText(new Date(today.getTime() - 29 * 24 * 3600 * 1000))
     const to = dayText(today)
@@ -331,12 +334,13 @@ Page({
       getAlerts(200)
     ])
 
+    if (seq !== this._overviewSeq) return
     const next = {}
 
     if (statsRes.status === 'fulfilled') {
       next.stats = statsRes.value.data || null
     } else {
-      next.stats = null
+      next.stats = null; next.statsError = '近30天统计尚未读取，请重试'
       console.warn('[Exceptions] 近 30 天统计加载失败:', errText(statsRes.reason, ''))
     }
 
@@ -346,16 +350,16 @@ Page({
         title: a.title || '(无标题)',
         content: a.content || '',
         level: a.level || 'INFO',
-        levelText: LEVEL_TEXT[a.level] || a.level || '未知',
+        levelText: LEVEL_TEXT[a.level] || '级别待核实',
         levelClass: LEVEL_CLASS[a.level] || 'level-info',
-        sourceText: a.source ? ('来源 ' + a.source) : '',
+        sourceText: a.source ? (a.source === 'OrderBarrelException' ? '来源：桶异常处理' : '记录来源待核实') : '',
         timeText: dateTimeText(a.createTime),
         relatedText: a.relatedType
-          ? ((RELATED_TEXT[a.relatedType] || a.relatedType) + (a.relatedId ? ' #' + a.relatedId : ''))
+          ? ((RELATED_TEXT[a.relatedType] || '关联类型待核实') + (a.relatedId ? ' #' + a.relatedId : ''))
           : '',
         // 投递状态如实标注：LOGGED = 已落库（**本页面就是它的送达方式**，不是"没发出去"）
         notifyText: a.notifyStatus === 'PUSHED' ? '已推送'
-          : (a.notifyStatus === 'FAILED' ? '推送失败，记录已保存' : '已保存')
+          : (a.notifyStatus === 'FAILED' ? '推送失败，记录已保存' : a.notifyStatus === 'LOGGED' ? '已保存' : '通知状态待核实')
       }))
       next.alerts = all
       next.visibleAlerts = filterAlerts(all, this.data.alertFilter)
@@ -366,6 +370,7 @@ Page({
       }))
       next.alertWarnCount = all.filter(a => a.level === 'WARN').length
     } else {
+      next.alertsError = '处理留痕尚未读取，请重试后核对'
       next.alerts = []
       next.visibleAlerts = []
       next.alertFilters = this.data.alertFilters.map(f => ({ value: f.value, label: f.label, count: 0 }))

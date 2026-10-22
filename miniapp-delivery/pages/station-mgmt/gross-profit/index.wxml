@@ -25,6 +25,18 @@
 
   <view class="empty" wx:if="{{loading}}">加载中…</view>
 
+  <view class="ui-state" wx:if="{{reportError}}"><text class="ui-state-title">本期经营数据待核实</text><text class="ui-state-copy">{{reportError}}</text><button size="mini" bindtap="onRetryReport">重新读取报表</button></view>
+  <view class="ui-state" wx:if="{{missingError}}"><text class="ui-state-copy">{{missingError}}</text><button size="mini" bindtap="onRetryReport">重新读取成本清单</button></view>
+    <!-- 未填成本的商品：快速补录入口（状态与出路都摆在这一行里，别藏） -->
+    <view class="card" wx:if="{{missingCost.length}}">
+      <view class="card-title">未填成本的商品（{{missingCost.length}} 个）</view>
+      <view class="chips">
+        <view class="chip chip-warn" wx:for="{{missingCost}}" wx:key="productId"
+              bindtap="onOpenCostFromMissing" data-id="{{item.productId}}">+ {{item.productName}}</view>
+      </view>
+      <view class="hint">点商品名就能补录成本价，补完利润立刻算得出来。</view>
+    </view>
+
   <block wx:if="{{report}}">
     <!-- 合计 -->
     <view class="hero">
@@ -125,16 +137,6 @@
     <!-- 成本口径：一行版（长解释同上，见「利润怎么算」） -->
     <view class="hint" wx:if="{{report.costBasisNote}}">{{report.costBasisNote}}</view>
 
-    <!-- 未填成本的商品：快速补录入口（状态与出路都摆在这一行里，别藏） -->
-    <view class="card" wx:if="{{missingCost.length}}">
-      <view class="card-title">未填成本的商品（{{missingCost.length}} 个）</view>
-      <view class="chips">
-        <view class="chip chip-warn" wx:for="{{missingCost}}" wx:key="productId"
-              bindtap="onOpenCostFromMissing" data-id="{{item.productId}}">+ {{item.productName}}</view>
-      </view>
-      <view class="hint">点商品名就能补录成本价，补完利润立刻算得出来。</view>
-    </view>
-
     <!-- 明细 -->
     <view class="card">
       <view class="card-title">按商品明细（{{report.items.length}} 项）</view>
@@ -177,6 +179,7 @@
     <text class="dialog-title">{{costProduct.productName}} 的进货成本</text>
     <input class="dialog-input" type="digit" value="{{costInput}}" bindinput="onCostInput"
            placeholder="每桶/每件的进价" />
+    <view class="ui-stale">按当前进货成本核算；修改成本会影响历史期间利润。</view>
     <view class="hint">
       单位与商品规格一致。未上架的商品设不了成本价（会提示先去「商品管家」上架）。
     </view>

@@ -16,7 +16,7 @@ function sameSession(before) {
   const now = session()
   return before && before.app === now.app && before.generation === now.generation && before.identity === now.identity
 }
-function money(value) { const n = Number(value); return Number.isFinite(n) ? n.toFixed(2) : '待核实' }
+function money(value) { const n = Number(value); return value !== null && value !== undefined && value !== '' && Number.isFinite(n) ? n.toFixed(2) : '待核实' }
 function eventId(e) { return e && e.currentTarget && e.currentTarget.dataset.id }
 function sameId(a, b) { return a != null && b != null && String(a) === String(b) }
 function cents(value) {
@@ -122,11 +122,11 @@ Page({
     const required = d ? d.requiredBarrels : item.quantity
     const result = Object.assign({}, item, {
       isReturn, owedQty: Math.max(0, over), storageQty: Math.max(0, -over),
-      amountText: money(item.depositRefund == null ? 0 : item.depositRefund),
+      amountText: money(item.depositRefund),
       paidText: item.refundProgress ? money(item.refundProgress.paid) : '',
       remainingText: item.refundProgress ? item.refundProgress.verified === false ? '待核实' : money(item.refundProgress.remaining) : '',
       productText: item.productName || (item.productId != null ? '商品 #' + item.productId : '商品待核实'),
-      customerText: item.customerName || '客户 ID:' + item.customerId,
+      customerText: item.customerName || '客户编号：' + item.customerId,
       requiredText: required === 0 ? '无需实际交桶' : required != null ? '需实际交桶 ' + required + ' 个' : '交桶数量待核实',
       delivered: isReturn && item.status === 3 && !!item.refundPaidTime,
       noDeliveryRecord: isReturn && item.status === 3 && !item.refundPaidTime,

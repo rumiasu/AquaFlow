@@ -104,7 +104,7 @@
 
     <!-- 热销商品 -->
     <view class="section" wx:if="{{report.topProducts.length}}">
-      <view class="section-title">热销商品 TOP{{report.topProducts.length}}</view>
+      <view class="section-title">热销商品排行 · 前{{report.topProducts.length}}</view>
       <view class="rank-item" wx:for="{{report.topProducts}}" wx:key="idx">
         <view class="rank-no rank-{{item.rank}}">{{item.rank}}</view>
         <view class="rank-body">
@@ -121,7 +121,7 @@
 
     <!-- 客户消费排行 -->
     <view class="section" wx:if="{{report.topCustomers.length}}">
-      <view class="section-title">客户消费排行 TOP{{report.topCustomers.length}}</view>
+      <view class="section-title">客户消费排行 · 前{{report.topCustomers.length}}</view>
       <view class="rank-item" wx:for="{{report.topCustomers}}" wx:key="idx">
         <view class="rank-no rank-{{item.rank}}">{{item.rank}}</view>
         <view class="rank-body">

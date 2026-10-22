@@ -248,7 +248,7 @@ Page({
     try {
       const res = await post(AR + '/settle', { customerId: c.customerId, orderIds: ids })
       const d = res.data || {}
-      wx.showModal({
+      wx.showModal({ confirmText: '知道了',
         title: '核销完成',
         content: '已核销 ' + d.settledCount + ' 单，金额 ¥' + d.settledAmount +
           (d.collectedCount ? '\n本次同时记账收款 ' + d.collectedCount + ' 单' : '') +
@@ -259,7 +259,7 @@ Page({
       await Promise.all([this.load(), this.loadOrders()])
     } catch (err) {
       // 服务端整批回滚并说明是哪一单、为什么（不会出现"部分核销"）
-      wx.showModal({ title: '核销未完成', content: err.message || '请稍后重试', showCancel: false })
+      wx.showModal({ confirmText: '知道了', title: '核销未完成', content: err.message || '请稍后重试', showCancel: false })
     } finally {
       this.setData({ settling: false })
     }
@@ -379,7 +379,7 @@ Page({
 
   /** 逾期只是提示：这里没有任何"按逾期加收/罚款"的入口。 */
   onShowTermsHelp() {
-    wx.showModal({
+    wx.showModal({ confirmText: '知道了',
       title: '账期怎么用',
       content: '账期是"月结多少天"，只影响之后下的单：下单时按它算出应付日期并快照进订单，' +
         '事后改账期不会改动历史订单的到期日。\n\n只有现金（货到付款）单才有应付日期；' +

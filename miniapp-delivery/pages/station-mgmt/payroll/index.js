@@ -606,7 +606,7 @@ Page({
         note: f.note || null
       })
       const p = (res.data || {}).payroll || {}
-      wx.showModal({
+      wx.showModal({ confirmText: '知道了',
         title: '结算单已生成',
         content: (p.payrollNo || '') + '\n合计 ¥' + p.totalAmount + '\n（状态：' + (p.statusText || '') + '）',
         showCancel: false
@@ -662,7 +662,7 @@ Page({
   },
 
   async onConfirmPayroll(e) {
-    await this.payrollAction(e, 'confirm', '确认这张结算单？确认后明细锁定，不能再改。', '已确认')
+    await this.payrollAction(e, 'confirm', '确认这张结算单？确认后明细锁定，不能再改。', '已确认', '确认结算')
   },
 
   /**
@@ -670,10 +670,10 @@ Page({
    * 没有这条痕迹，下个月站长说不清"这笔到底发没发过"。
    */
   async onPayPayroll(e) {
-    await this.payrollAction(e, 'pay', '确认已经把钱给到配送员了？（线下转账/现金）系统只记录发放时间。', '已标记发放')
+    await this.payrollAction(e, 'pay', '确认已经把钱给到配送员了？（线下转账/现金）系统只记录发放时间。', '已标记发放', '标记发放')
   },
 
-  async payrollAction(e, action, confirmText, okText) {
+  async payrollAction(e, action, confirmText, okText, buttonText) {
     const id = Number(e.currentTarget.dataset.id)
     const slip = this.data.payrolls.find(p => p.id === id)
     if (!this.canManage() || this.data.payrollBusyId !== null || this.data.loading || this.data.payrollReadError || !slip) return
@@ -683,7 +683,9 @@ Page({
     let consumed = false
     const that = this
     wx.showModal({
-      title: '请确认',
+      title: action === 'pay' ? '登记已实际发放' : '确认结算单',
+      confirmText: buttonText || '确认办理',
+      cancelText: '暂不办理',
       content: confirmText,
       async success(r) {
         if (consumed) return
@@ -857,7 +859,7 @@ Page({
     this.setData({ itemBusyId: id })
     let consumed = false
     const that = this
-    wx.showModal({
+    wx.showModal({ confirmText: '确认删除',
       title: '删除条目',
       content: '删除「' + it.name + '」？已被工资流水用过的条目不能删，只能停用。',
       success(r) {
@@ -999,7 +1001,7 @@ Page({
   },
 
   onShowHelp() {
-    wx.showModal({
+    wx.showModal({ confirmText: '知道了',
       title: '计件工资怎么算',
       content: '按商品数量计件，不按单：单位随商品显示，' +
         '楼层补贴按超过免费层数的层数算。商品专属价优先，没配的商品用「默认单价」。\n\n' +

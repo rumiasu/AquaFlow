@@ -37,7 +37,7 @@
     </view>
     <view class="info-row">
       <text class="label">客户</text>
-      <text>{{item.customerName || ('ID:' + item.customerId)}}</text>
+      <text>{{item.customerName || ('客户编号：' + item.customerId)}}</text>
     </view>
     <view class="info-row" wx:if="{{item.customerPhone}}">
       <text class="label">电话</text>

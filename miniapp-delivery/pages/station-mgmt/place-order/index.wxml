@@ -1,6 +1,7 @@
 <!-- 代客下单（站长）：电话/口头订单当场录入。规格见 docs/design/20 §5。
      金额一律由服务端试算下发，本页只展示（wxml 里不做任何算术）。 -->
 <view class="page">
+  <view class="work-head"><text class="work-title">替客户下单</text><text class="work-desc">{{step === 1 ? '1 选客户 → 2 选地址 → 3 核对订单' : (step === 2 ? '已选客户 · 接下来选择收货地址' : '核对商品、费用与支付方式后确认下单')}}</text></view>
 
   <!-- 已选摘要：让站长在滚动到下半屏时仍知道"这单是给谁的、送到哪" -->
   <view class="summary" wx:if="{{customer}}">
@@ -25,7 +26,7 @@
     </view>
     <view class="empty" wx:if="{{loading}}">加载中…</view>
     <view class="empty" wx:elif="{{!customers.length}}">
-      没有匹配的客户。新客户请先到「客户管理」建档，再回来下单。
+      没有匹配的客户。可换姓名、电话或地址搜索；仍找不到时请先核对客户在本站的资料。
     </view>
     <view class="row" wx:for="{{customers}}" wx:key="id"
           bindtap="onPickCustomer" data-id="{{item.id}}">
@@ -43,7 +44,7 @@
   <view class="card" wx:if="{{step === 2}}">
     <view class="card-title">选择收货地址</view>
     <view class="empty" wx:if="{{!addresses.length}}">
-      该客户还没有收货地址。请让客户在小程序里添加，或到「客户管理」补录。
+      该客户还没有可用收货地址，请让客户在顾客端添加后重试。
     </view>
     <view class="row" wx:for="{{addresses}}" wx:key="id"
           bindtap="onPickAddress" data-id="{{item.id}}">
@@ -91,9 +92,9 @@
       <view class="btn-primary {{quoting ? 'btn-disabled' : ''}}" bindtap="onQuote">
         <!-- [2026-09-24] 原文是"服务端试算"。站长不需要知道谁算的，
              他需要知道"算出来的钱跟顾客自己下单时一模一样"（产品反馈："接口这些有些专业了"）。 -->
-        {{quoting ? '正在算…' : '先算一下要多少钱'}}
+        {{quoting ? '正在算…' : '核算本单费用'}}
       </view>
-      <view class="hint">算出来的金额与顾客自己下单时完全一样，可以放心报给客户。</view>
+      <view class="hint">按本站当前规则核算费用；请核对新增押金、配送费与楼层费。</view>
     </view>
 
     <view class="card" wx:if="{{quote}}">

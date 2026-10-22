@@ -130,11 +130,15 @@ test('failed debounced quote leaves the current quantity visible and deposit unv
   assert.equal(t.calls.length, 1); assert.equal(t.page._homeQuote, null); assert.equal(t.page.data.total.count, 2)
   assert.ok(t.page.data.total.detailText.includes('未核实'))
 })
-test('repeated buy-again adds every selection immediately and shares the final quote', async timer => {
-  const t = fixture(); t.page.setData({ againOrder: { items: [{ productId: 10, quantity: 2 }] } }); t.page.onAgainTap(); t.page.onAgainTap()
-  assert.equal(t.app.getCart(1)[10], 5); assert.equal(t.wx.getStorageSync(K.CART_PREFIX + '7').stations['1']['10'], 5)
-  assert.equal(t.calls.length, 0); await timer.advance(300); assert.equal(t.calls.length, 1); assert.equal(t.calls[0].items[0].quantity, 5)
+test('buy-again invalidates the scheduled home quote and delegates a fresh quote to confirmation', async timer => {
+  const t = fixture(); t.press('add')
+  t.page.setData({ againOrder: { id: 81, items: [{ productId: 10, quantity: 2 }] } })
+  t.page.onAgainTap()
+  assert.equal(t.app.getCart(1)[10], 2)
+  assert.ok(t.wx.__calls.nav[0].url.includes('reorderId=81'))
+  await timer.advance(300); assert.equal(t.calls.length, 0)
 })
+
 test('retail estimate16 is labelled separately and checkout receives quantities without a cached price', async () => {
   const t = fixture(async () => ({ data: { independentRights: true, barrelPurchases: [], waterAmount: 16 } }))
   t.page.setData({ products: [{ id: 10, category: 1, price: 16, deposit: 40 }] })

@@ -1,15 +1,16 @@
 .container {
-  background: var(--bg-gray);
+  background: var(--bg-color);
   min-height: 100vh;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
 }
 
 /* ===== 主卡片 ===== */
 .addr-card {
   background: #fff;
-  margin: 20rpx 24rpx;
-  border-radius: 20rpx;
-  padding: 0 28rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  margin: 20rpx 24rpx 0;
+  border-radius: var(--radius-md);
+  padding: 0 24rpx;
+  box-shadow: none;
 }
 
 /* ===== 表单行 ===== */
@@ -36,6 +37,7 @@
   height: 96rpx;
   font-size: 28rpx;
   color: var(--text-primary);
+  min-width: 0;
 }
 
 /* ===== 定位按钮（嵌入区域行右侧） ===== */
@@ -47,10 +49,10 @@
   display: flex;
   align-items: center;
   gap: 8rpx;
-  background: #2E4A68;
-  border-radius: 32rpx;
+  background: var(--primary-color);
+  border-radius: var(--radius-sm);
   padding: 0 28rpx;
-  height: 56rpx;
+  height: 88rpx;
   flex-shrink: 0;
 }
 
@@ -79,13 +81,15 @@
 
 .region-input {
   flex: 1;
-  height: 72rpx;
+  height: 88rpx;
   font-size: 28rpx;
   color: var(--text-primary);
   background: var(--bg-gray);
   border-radius: 8rpx;
   padding: 0 16rpx;
   text-align: center;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* ===== 区域快捷建议 ===== */
@@ -117,17 +121,22 @@
 .label-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: 12rpx;
   flex: 1;
 }
 
 .label-chip {
-  padding: 10rpx 24rpx;
+  padding: 0 20rpx;
   border-radius: 8rpx;
   font-size: 24rpx;
   color: var(--text-regular);
   background: var(--bg-gray);
   border: 2rpx solid transparent;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .label-chip.active {
@@ -143,11 +152,14 @@
   justify-content: space-between;
   padding: 28rpx 0 32rpx;
   margin-top: 8rpx;
+  gap: 16rpx;
+  flex-wrap: wrap;
 }
 
 .default-toggle {
   display: flex;
   align-items: center;
+  min-height: 88rpx;
 }
 
 .check-box {
@@ -188,10 +200,10 @@
 }
 
 .save-btn {
-  height: 72rpx;
-  padding: 0 56rpx;
+  height: 88rpx;
+  padding: 0 40rpx;
   background: var(--primary-color);
-  border-radius: 36rpx;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -203,3 +215,10 @@
 .save-btn.disabled {
   background: var(--text-placeholder);
 }
+
+
+.page-intro { padding: 28rpx 24rpx 8rpx; }
+.page-intro-title { display: block; font-size: 36rpx; font-weight: 700; line-height: 1.4; color: var(--text-primary); }
+.page-intro-note { display: block; margin-top: 10rpx; font-size: 26rpx; line-height: 1.6; color: var(--text-regular); }
+
+.field-help { display: block; margin: 20rpx 0 0; font-size: 24rpx; line-height: 1.6; color: var(--text-regular); }

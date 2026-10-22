@@ -12,6 +12,7 @@ const { resolveStationId } = require('../../utils/station')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { isDevelopEnv } = require('../../config/api')
 const { formatAddress } = require('../../utils/address')
+const { itemUnit } = require('../../utils/order-item-view')
 const orderIntent = require('../../utils/orderIntent')
 const { createOrderResultNavigator } = require('../../utils/order-result-navigation')
 const app = getApp()
@@ -383,6 +384,7 @@ async loadItemsProducts() {
           const p = {
             ...d,
             specText: specTextOf(d.spec),
+            quantityUnit: itemUnit(d),
             price: d.effectivePrice != null ? d.effectivePrice : d.price,
             deposit: d.effectiveDeposit != null ? d.effectiveDeposit : d.deposit,
             quantity: it.quantity || 1,

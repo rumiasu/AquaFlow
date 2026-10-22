@@ -6,7 +6,7 @@
     <image class="avatar" src="{{isLogin && userInfo.avatarUrl ? userInfo.avatarUrl : '/assets/image/default-avatar.png'}}" mode="aspectFill" />
     <view class="user-info">
       <text class="nickname">{{isLogin ? (userInfo.nickName || userInfo.nickname || '用户') : '点击登录'}}</text>
-      <text class="user-tag" wx:if="{{isLogin}}">普通用户</text>
+      <text class="user-tag" wx:if="{{isLogin}}">管理账户与收货信息</text>
     </view>
     <text class="row-arrow">›</text>
   </view>
@@ -17,7 +17,7 @@
     <asset-station-view id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
     <view class="card assets-card">
       <view class="assets-head">
-        <text class="assets-title">押金 · 水票 · 桶</text>
+        <text class="assets-title">本站资产</text>
         <text class="assets-station" wx:if="{{stationName}}">{{stationName}}</text>
       </view>
       <view class="assets-grid">
@@ -84,7 +84,7 @@
         <text class="row-arrow">›</text>
       </view>
       <view class="menu-row" data-url="/pages/template/index" bindtap="onMenuTap">
-        <text class="menu-name">常用订单模板</text>
+        <text class="menu-name">常用订水配置</text>
         <text class="row-arrow">›</text>
       </view>
     </view>

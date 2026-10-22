@@ -1,24 +1,37 @@
 /* 历史认领独立页面；金额和桶票分别列示，不改全局主题。 */
-.claim-page { padding: 24rpx; padding-bottom: 72rpx; }
-.claim-card { background: var(--bg-white, #fff); border-radius: 16rpx; padding: 24rpx; margin: 20rpx 0; }
+.claim-page { padding: 24rpx; padding-bottom: 72rpx;
+  background: var(--bg-color);
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+.claim-card { background: var(--bg-white, #fff); border-radius: var(--radius-md); padding: 24rpx; margin: 20rpx 0;
+  border: 1rpx solid var(--border-color);
+}
 .claim-title { display: block; font-size: 29rpx; font-weight: 600; line-height: 1.6; color: var(--text-primary, #25384a); }
 .claim-heading { display: flex; justify-content: space-between; align-items: flex-start; }
-.claim-status { color: var(--primary-color, #2e4a68); font-size: 25rpx; margin-left: 16rpx; }
+.claim-status { color: var(--primary-color, #1264D6); font-size: 25rpx; margin-left: 16rpx; }
 .claim-banner, .claim-notice, .claim-error { padding: 22rpx; margin-bottom: 18rpx; border-radius: 12rpx; font-size: 26rpx; line-height: 1.7; }
-.claim-banner { background: #edf2f6; color: #2e4a68; }
+.claim-banner { background: var(--primary-bg); color: var(--text-regular);
+  border-left: 5rpx solid var(--primary-color);
+}
 .claim-notice { background: #fff4df; color: #765524; }
 .claim-error { background: #fff0ed; color: #a33c28; }
-.claim-muted, .claim-row { display: block; font-size: 25rpx; line-height: 1.7; margin-top: 12rpx; color: var(--text-secondary, #716d64); }
+.claim-muted, .claim-row { display: block; font-size: 25rpx; line-height: 1.7; margin-top: 12rpx; color: var(--text-regular); }
 .claim-amount { display: block; font-size: 29rpx; line-height: 1.7; font-weight: 600; margin-top: 16rpx; color: var(--text-primary, #25384a); }
 .claim-material { display: block; font-size: 27rpx; line-height: 1.8; white-space: pre-wrap; word-break: break-all; margin-top: 18rpx; }
-.claim-line { padding-top: 22rpx; margin-top: 22rpx; border-top: 1rpx solid #e7e5df; }
+.claim-line { padding-top: 22rpx; margin-top: 22rpx; border-top: 1rpx solid var(--border-color); }
 .claim-field { font-size: 27rpx; line-height: 1.7; padding-top: 20rpx; }
-.claim-picker { padding: 22rpx 14rpx; background: #f4f4f1; border-radius: 10rpx; font-size: 27rpx; }
-.claim-input { display: block; box-sizing: border-box; width: 100%; min-height: 84rpx; padding: 18rpx; margin-top: 12rpx; background: #f6f6f2; border-radius: 10rpx; font-size: 28rpx; color: var(--text-primary, #25384a); }
+.claim-picker { padding: 22rpx 14rpx; background: var(--bg-gray); border-radius: 10rpx; font-size: 27rpx;
+  min-height: 88rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+.claim-input { display: block; box-sizing: border-box; width: 100%; min-height: 88rpx; padding: 18rpx; margin-top: 12rpx; background: var(--bg-gray); border-radius: 10rpx; font-size: 28rpx; color: var(--text-primary, #25384a); }
 .claim-textarea { height: 200rpx; margin-bottom: 22rpx; }
 .claim-primary, .claim-secondary { margin-top: 18rpx; min-height: 88rpx; font-size: 28rpx; border-radius: 12rpx; }
-.claim-primary { background: #2e4a68; color: #fff; }
-.claim-secondary { background: #f1f1ec; color: #2e4a68; }
+.claim-primary { background: var(--primary-color); color: #fff; }
+.claim-secondary { background: var(--primary-bg); color: var(--primary-color); }
 .claim-actions { display: flex; }
 .claim-actions button { flex: 1; }
 .claim-actions button:first-child { margin-right: 18rpx; }

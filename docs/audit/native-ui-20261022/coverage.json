@@ -1,0 +1,1670 @@
+{
+  "baseline": "19caae6dda913efd55b49b109a07c8c4848b2c92",
+  "date": "2026-10-22",
+  "customerRoutes": 26,
+  "employeeRoutes": 46,
+  "businessValidation": false,
+  "pages": [
+    {
+      "side": "miniapp-user",
+      "route": "pages/home/index",
+      "action": "refined",
+      "changes": [
+        "真实原订单ID直接进入确认，不改变现有购物车；导航未返回时防连点",
+        "站名/地址紧凑，当前订单及快捷复购优先，实际商品静态海报按配送状态后移，数量区改为商品正文下方"
+      ],
+      "retainedReasons": [
+        "原金额、票支付、容量、权限与订单状态判据不改；仅复购采用现有真实确认页交接"
+      ],
+      "validation": [
+        "实际Page定向回归及两端全量门禁",
+        "WXML结构/条件链、事件绑定、编码、JS解析与差异检查"
+      ],
+      "visualPending": false,
+      "changedFiles": [
+        "miniapp-user/pages/home/index.js",
+        "miniapp-user/pages/home/index.wxml",
+        "miniapp-user/pages/home/index.wxss"
+      ],
+      "visualEvidence": [
+        "final-01",
+        "final-02",
+        "final-03"
+      ]
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/home/notice",
+      "action": "refined",
+      "changes": [
+        "新增任务标题与简短用途说明",
+        "长标题、换行正文完整阅读；独立错误和刷新提示保持常显"
+      ],
+      "retainedReasons": [
+        "公告是正文阅读页，不折叠原文；旧数据刷新失败告知保持独立",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/home/notice.wxml",
+        "miniapp-user/pages/home/notice.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/order/list",
+      "action": "refined",
+      "changes": [
+        "订单查询用途标题、可换行状态筛选、共享卡片全商品摘要与付款状态",
+        "订单支付/取消/再次购买仍保留原有守卫"
+      ],
+      "retainedReasons": [
+        "原金额、票支付、容量、权限与订单状态判据不改；仅复购采用现有真实确认页交接"
+      ],
+      "validation": [
+        "实际Page定向回归及两端全量门禁",
+        "WXML结构/条件链、事件绑定、编码、JS解析与差异检查"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/order/list.wxml",
+        "miniapp-user/pages/order/list.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/order/detail",
+      "action": "refined",
+      "changes": [
+        "商品与配送信息先于订单编号等管理信息，长金额/地址可换行",
+        "合计与收款状态前置，既有恢复/凭证/取消动作保持"
+      ],
+      "retainedReasons": [
+        "原金额、票支付、容量、权限与订单状态判据不改；仅复购采用现有真实确认页交接"
+      ],
+      "validation": [
+        "实际Page定向回归及两端全量门禁",
+        "WXML结构/条件链、事件绑定、编码、JS解析与差异检查"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/order/detail.wxml",
+        "miniapp-user/pages/order/detail.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/order/create",
+      "action": "refined",
+      "changes": [
+        "确认标题与资产站别边界常显，商品真实单位展示；费用/未知/恢复闸门保持",
+        "地址/数量可改并重新报价，费用抽屉关闭触控扩大、支付选项去卡套卡与低对比禁用"
+      ],
+      "retainedReasons": [
+        "原金额、票支付、容量、权限与订单状态判据不改；仅复购采用现有真实确认页交接"
+      ],
+      "validation": [
+        "实际Page定向回归及两端全量门禁",
+        "WXML结构/条件链、事件绑定、编码、JS解析与差异检查"
+      ],
+      "visualPending": false,
+      "changedFiles": [
+        "miniapp-user/pages/order/create.js",
+        "miniapp-user/pages/order/create.wxml",
+        "miniapp-user/pages/order/create.wxss"
+      ],
+      "visualEvidence": [
+        "final-12"
+      ]
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/order/success",
+      "action": "refined",
+      "changes": [
+        "缩小装饰结果图形，真实状态/金额/付款入口前置；常用订单和后续操作降低卡片层级；不改变付款与未知状态条件"
+      ],
+      "retainedReasons": [
+        "保留已查到/未查到结果与真实支付能力条件，不凭 UI 推断下单成功",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/order/success.wxml",
+        "miniapp-user/pages/order/success.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/address/list",
+      "action": "refined",
+      "changes": [
+        "新增任务标题与简短用途说明",
+        "地址正文提升为主信息；联系人换行、整行触控操作与安全区新增地址入口"
+      ],
+      "retainedReasons": [
+        "选择/编辑/删除仍用原事件与确认流程",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/address/list.wxml",
+        "miniapp-user/pages/address/list.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/address/edit",
+      "action": "refined",
+      "changes": [
+        "新增任务标题与简短用途说明",
+        "定位/标签/电梯/保存触控区域增大；楼层费用依据常显；省市区窄屏不撑宽"
+      ],
+      "retainedReasons": [
+        "保留楼层、电梯不确定选项及既有默认地址行为，不推断楼层费用",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/address/edit.wxml",
+        "miniapp-user/pages/address/edit.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/barrel/index",
+      "action": "refined",
+      "changes": [
+        "汇总缩减装饰、桶列表改白底分隔行；桶账明细沿用原折叠；退桶弹层及各操作提高触控范围；欠桶、押金与退款未知责任未隐藏"
+      ],
+      "retainedReasons": [
+        "保留原有按商品桶账明细折叠；欠桶、当前押金、退款实退与待退责任、冻结/未知金额不隐藏",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "barrel-return-visible-identity 35 项",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/barrel/index.wxml",
+        "miniapp-user/pages/barrel/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/barrel/purchase",
+      "action": "refined",
+      "changes": [
+        "页头从卡片改为用途说明，本次押金报价用主色边栏；待核实原购买与新增购买/历史记录分区；所有支付闸门保持"
+      ],
+      "retainedReasons": [
+        "原购买恢复、报价失败、未确认付款、禁止另起购买条件保持",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/barrel/purchase.wxml",
+        "miniapp-user/pages/barrel/purchase.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/shop/index",
+      "action": "refined",
+      "changes": [
+        "商品图片完整显示、本站价格及押金参考就近，目录说明明确报价边界",
+        "88rpx实际选购/清单动作、长商品名、独立站点选择class修正"
+      ],
+      "retainedReasons": [
+        "原金额、票支付、容量、权限与订单状态判据不改；仅复购采用现有真实确认页交接"
+      ],
+      "validation": [
+        "实际Page定向回归及两端全量门禁",
+        "WXML结构/条件链、事件绑定、编码、JS解析与差异检查"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/shop/index.wxml",
+        "miniapp-user/pages/shop/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/template/index",
+      "action": "refined",
+      "changes": [
+        "常用配置说明对齐真实现状，不再宣称首页自动填模板",
+        "表单商品选择/数量/弹层关闭操作扩大，次要编辑与删除区分"
+      ],
+      "retainedReasons": [
+        "原金额、票支付、容量、权限与订单状态判据不改；仅复购采用现有真实确认页交接"
+      ],
+      "validation": [
+        "实际Page定向回归及两端全量门禁",
+        "WXML结构/条件链、事件绑定、编码、JS解析与差异检查"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/template/index.wxml",
+        "miniapp-user/pages/template/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/ticket/index",
+      "action": "refined",
+      "changes": [
+        "余额/适用商品/记录层级区分；购票弹层字号与触控提升；原购买恢复入口保持突出；删除无依据的“越买越便宜”通用承诺"
+      ],
+      "retainedReasons": [
+        "水票适用范围、原购买恢复、失效/加载失败与付款方式条件保持",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "ticket-purchase-flow 24 项",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/ticket/index.wxml",
+        "miniapp-user/pages/ticket/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/index",
+      "action": "refined",
+      "changes": [
+        "本站真实资产与未加载分开，水站范围保留，减少装饰身份信息",
+        "资产入口/长提示/菜单换行，退桶入口与责任说明保留"
+      ],
+      "retainedReasons": [
+        "原金额、票支付、容量、权限与订单状态判据不改；仅复购采用现有真实确认页交接"
+      ],
+      "validation": [
+        "实际Page定向回归及两端全量门禁",
+        "WXML结构/条件链、事件绑定、编码、JS解析与差异检查"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/mine/index.wxml",
+        "miniapp-user/pages/mine/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/login/index",
+      "action": "refined",
+      "changes": [
+        "登录页改为白底入口与明确协议告知；移除高占比装饰与低对比白字；登录逻辑与测试入口条件未动"
+      ],
+      "retainedReasons": [
+        "不增加强制同意与新登录方式；原测试入口仅按既有条件显示",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/login/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/service/index",
+      "action": "refined",
+      "changes": [
+        "新增任务标题与简短用途说明",
+        "联系水站前置、反馈与处理记录分区；分类/拨打/提交/重试提升触控；退款权限、结案边界与匿名后果不折叠",
+        "普通反馈历史按需展开，退款模式的处理说明/责任/未知结果仍常显；只增加展示开关"
+      ],
+      "retainedReasons": [
+        "只折叠普通反馈历史；退款说明、结案后果、匿名后果与原请求未知结果直接展示",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "refund-feedback-flow 17 项",
+        "node --check 退出码 0",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/service/index.js",
+        "miniapp-user/pages/service/index.wxml",
+        "miniapp-user/pages/service/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/about",
+      "action": "refined",
+      "changes": [
+        "协议/隐私/反馈三个箭头补真实既有路由导航；只阅读不改变同意或登录状态"
+      ],
+      "retainedReasons": [
+        "版本区保留；新增导航只打开既有承载页，不记录同意",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "node --check 退出码 0",
+        "stub 核对用户协议/隐私政策/反馈 3 个既有导航目标",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/mine/about.js",
+        "miniapp-user/pages/mine/about.wxml",
+        "miniapp-user/pages/mine/about.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/edit",
+      "action": "refined",
+      "changes": [
+        "新增任务标题与简短用途说明",
+        "资料表单输入左对齐与明确保存动作；取消大留白和胶囊主按钮"
+      ],
+      "retainedReasons": [
+        "原字段与保存逻辑保持，未增加资料要求",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/mine/edit.wxml",
+        "miniapp-user/pages/mine/edit.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/agreement/index",
+      "action": "refined",
+      "changes": [
+        "保留单栏长文结构与全量条款；版本信息可读、段落导航视觉增强；草稿/加载失败/阅读不等于同意声明常显"
+      ],
+      "retainedReasons": [
+        "条款是本页主要内容，不折叠；草稿/版本/阅读不等于接受告知保留",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "agreement-version-flow 8 项",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/mine/agreement/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/account-data/index",
+      "action": "refined",
+      "changes": [
+        "请求选项/登记/记录区分、输入与操作统一；未开放/未结事项/不会自动注销等关键责任信息常显"
+      ],
+      "retainedReasons": [
+        "未开放受理、未结事项、申请不自动注销或删除的边界直接展示",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "account-data-request-flow 12 项",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/mine/account-data/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/payment/records",
+      "action": "refined",
+      "changes": [
+        "新增任务标题与简短用途说明",
+        "账单从卡片堆叠改为连续白底流水；金额/付款方式/未知与刷新失败状态保持可辨"
+      ],
+      "retainedReasons": [
+        "金额、付款状态、未知状态及刷新失败时旧记录范围保持",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "payment-records-recovery 24 项",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/payment/records.wxml",
+        "miniapp-user/pages/payment/records.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/deposit/records/index",
+      "action": "refined",
+      "changes": [
+        "水站范围优先、流水连续列表与金额方向说明；长备注/金额可换行；不将账上余额承诺为可退"
+      ],
+      "retainedReasons": [
+        "保留按所选水站查账、失败/空态/加载三态与金额符号；不承诺可退金额",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/deposit/records/index.wxml",
+        "miniapp-user/pages/deposit/records/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/notice/index",
+      "action": "refined",
+      "changes": [
+        "新增任务标题与简短用途说明",
+        "公告改连续列表；完整长标题允许换行，时间和来源次一级；真实详情入口保持"
+      ],
+      "retainedReasons": [
+        "保留已发布公告的原详情入口及来源标签",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/notice/index.wxml",
+        "miniapp-user/pages/notice/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/company",
+      "action": "refined",
+      "changes": [
+        "新增任务标题与简短用途说明",
+        "公司名/联系/账期分层；长内容与输入适配窄屏；编辑保存触控增大，结算字段不改"
+      ],
+      "retainedReasons": [
+        "公司/联系人/付款方式/账期原字段与编辑保存行为保持",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/mine/company.wxml",
+        "miniapp-user/pages/mine/company.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/exception/list/list",
+      "action": "refined",
+      "changes": [
+        "异常状态只在卡头强调一次、保留差异/补偿；进度节点样式统一且字号可读；去大色块头部"
+      ],
+      "retainedReasons": [
+        "差异桶数与补偿状态保持；只去掉卡身重复状态，不更改进度规则",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/exception/list/list.wxml",
+        "miniapp-user/pages/exception/list/list.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/asset-claims/index",
+      "action": "refined",
+      "changes": [
+        "内部 E/H 改为已付用桶权益/实际持有水桶、差额值不变；认领表单分隔与状态层级整理；审核即入账与原请求恢复提示常显"
+      ],
+      "retainedReasons": [
+        "押金与桶权益/实物数量分别核对；数值/差额符号/审核通过即入账/恢复原请求不变",
+        "未改 API、权限、支付或资产业务规则"
+      ],
+      "validation": [
+        "WXML 标签配对（按 WXML 布尔属性规范化后检查）、事件处理器存在性：通过",
+        "页内 WXSS 花括号平衡、所有页文件无 UTF-8 BOM、改动文件 LF：通过",
+        "historical-asset-claim-flow 63 项",
+        "范围内 git diff --check：通过"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-user/pages/mine/asset-claims/index.wxml",
+        "miniapp-user/pages/mine/asset-claims/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/login/index",
+      "action": "modified",
+      "changes": [
+        "减少装饰空白，登录动作明确，协议告知和只读链接完整保留。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/login/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/mine/agreement/index",
+      "action": "modified",
+      "changes": [
+        "文档分段白区与长文可读性提升，版本与草稿/失败说明完整常显。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/mine/agreement/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/mine/account-data/index",
+      "action": "modified",
+      "changes": [
+        "申请/注销检查/不可自动删除边界常显，输入与记录/查询操作分层，触区扩大。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/mine/account-data/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/role-select/index",
+      "action": "modified",
+      "changes": [
+        "以角色与工作说明为主，压缩无内容图标与留白，身份生效边界常显。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/role-select/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/bind-wait/index",
+      "action": "modified",
+      "changes": [
+        "审核状态与时间形成事实区，刷新/撤回/退出触区扩大，模式区分原样保留。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/bind-wait/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/create-station/index",
+      "action": "modified",
+      "changes": [
+        "创建表单减少外框装饰，必填名称/电话/定位更清晰；底部操作扩大并预留遮挡空间。"
+      ],
+      "retainedReasons": [
+        "地图坐标必填提示、隐私组件、创建与退出流程保留。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/create-station/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/apply-bind/index",
+      "action": "modified",
+      "changes": [
+        "站名与地址允许换行，搜索/地图/定位操作扩大，卡片改清楚分隔的工作列表。"
+      ],
+      "retainedReasons": [
+        "申请历史仍在顶部：拒绝与处理原因对再次申请有意义，不为视觉简化隐藏；定位可选及所有出口保留。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/apply-bind/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/apply-bind/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/home/index",
+      "action": "modified",
+      "changes": [
+        "欠款列表常显；统计改紧凑白区；地址、商品桶数、电话与主动作强化，动作换行且96rpx。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": false,
+      "changedFiles": [
+        "miniapp-delivery/pages/home/index.json",
+        "miniapp-delivery/pages/home/index.wxml",
+        "miniapp-delivery/pages/home/index.wxss"
+      ],
+      "visualEvidence": [
+        "final-10"
+      ]
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/order/detail",
+      "action": "modified",
+      "changes": [
+        "目的地在电话之前；联系卡前置；订单金额与桶数分层；底部和抽屉操作保持足够触区。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/order/detail.wxml",
+        "miniapp-delivery/pages/order/detail.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/order/complete",
+      "action": "modified",
+      "changes": [
+        "地址电话前置于货物清单；回桶数字控件96rpx；收款选择和异常/未知/图片恢复常显；选填项保留原折叠。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": false,
+      "changedFiles": [
+        "miniapp-delivery/pages/order/complete.wxml",
+        "miniapp-delivery/pages/order/complete.wxss"
+      ],
+      "visualEvidence": [
+        "final-14"
+      ]
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/mine/index",
+      "action": "modified",
+      "changes": [
+        "身份资料改白底清楚对比；水站状态、工资/桶异常与入口分层；审批与解绑动作扩大。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/mine/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/coordination/index",
+      "action": "modified",
+      "changes": [
+        "待办先于管理入口；管理及帮助入口保留；分配与审批大按钮；费用、责任风险常显。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": false,
+      "changedFiles": [
+        "miniapp-delivery/pages/coordination/index.wxml",
+        "miniapp-delivery/pages/coordination/index.wxss"
+      ],
+      "visualEvidence": [
+        "final-11"
+      ]
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/index",
+      "action": "modified",
+      "changes": [
+        "保留五组全部入口，增加工作台层级，统一待办行字号与未知徽标，压低装饰。"
+      ],
+      "retainedReasons": [
+        "保留所有 data-url、待办实时计数与未核对状态。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/business-waiting/index",
+      "action": "refined",
+      "changes": [
+        "Added a work heading distinguishing pending duties from completed results",
+        "Converted nested tinted task cards into separated task rows",
+        "Increased task action/input targets to at least 88rpx; long labels can wrap"
+      ],
+      "retainedReasons": [
+        "All six duty sections and original ids retained for deep links",
+        "Responsibility station, overdue warnings, refusal consequences, unknown read results and original-request recovery stay visible",
+        "No fold added because these explanations define money or asset consequences"
+      ],
+      "validation": [
+        "10-route WXML check",
+        "business-pending-flow 55",
+        "exception-closeout-flow 17"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/dashboard/index",
+      "action": "modified",
+      "changes": [
+        "指标从卡中卡改分隔数据区，宽金额可换行；原双窄列改纵向图表；日期与指标切换扩大。"
+      ],
+      "retainedReasons": [
+        "Canvas、真实报表口径说明、同比、金额与订单定义全部保留，不重建图表。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/dashboard/index.json",
+        "miniapp-delivery/pages/station-mgmt/dashboard/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/orders/index",
+      "action": "modified",
+      "changes": [
+        "增加订单页任务标题，放大收货人及金额，筛选/日期/加载更多扩大；长头部和跨站汇总可换行。"
+      ],
+      "retainedReasons": [
+        "归属站与跨站履约的独立口径、日期筛选、分页、原状态处理保留。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/orders/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/orders/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/index",
+      "action": "modified",
+      "changes": [
+        "客户编号/电话/地址清晰排列，操作从右侧窄列移到卡底整行，货到付款和企业申请弹窗支持大触控与换行。"
+      ],
+      "retainedReasons": [
+        "客户编号与本站范围常显，不合并同名客户；货到付款权限与企业审核流程保持。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/customers/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/customers/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/detail/index",
+      "action": "modified",
+      "changes": [
+        "本站资产提前到消费统计之前；替客户下单入口主动作化；桶票押金两列清楚展示，流水和还桶弹层扩大。"
+      ],
+      "retainedReasons": [
+        "真实资产加载/错误态、库存/押金/欠桶口径、已有记录折叠与还桶后果常显。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": false,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxss"
+      ],
+      "visualEvidence": [
+        "final-13"
+      ]
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/index",
+      "action": "modified",
+      "changes": [
+        "调整单客户身份/金额与状态清楚排布，新建、详情、执行操作扩大；长客户信息允许换行。"
+      ],
+      "retainedReasons": [
+        "客户锚定、新建/执行分离、分页、权限与失败状态保持。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/edit/index",
+      "action": "modified",
+      "changes": [
+        "大输入和完整宽度方向选择，试算表格与风险说明增大，提交名称明确为保存待执行单。"
+      ],
+      "retainedReasons": [
+        "押金推断单价风险、可选证据图、试算未生效与待执行后果常显；不新增上传要求。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/detail/index",
+      "action": "modified",
+      "changes": [
+        "金额/数量与调整快照保持常显，仅原始记录详情新增可逆展开开关；执行/撤销按钮扩大并保留后果。"
+      ],
+      "retainedReasons": [
+        "调整业务与幂等键未改；新增 rawExpanded/onToggleRaw 仅展示。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.js",
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/products/index",
+      "action": "modified",
+      "changes": [
+        "现有商品/库存排在模板建档前；商品动作在卡底整行；设置/库存/图库/水票弹层与输入大触控。补商品读取失败与重试，失败不显示空目录。"
+      ],
+      "retainedReasons": [
+        "保留实际商品图示意标记、上架定价库存与档位流程；错误响应不作为成功空目录。移除未经保证的成组更便宜文案。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/products/index.js",
+        "miniapp-delivery/pages/station-mgmt/products/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/products/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/station-status/index",
+      "action": "modified",
+      "changes": [
+        "营业选项纵向可读，顾客实际看到的预览突出，公告操作与编辑弹层扩大。"
+      ],
+      "retainedReasons": [
+        "状态软提示与待上线硬限制的说明常显；真实状态文本、草稿/发布/删除原流程保留。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/station-status/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/station-info/index",
+      "action": "modified",
+      "changes": [
+        "清楚资料表单和定位分区，大输入/地图选点/清除操作；坐标长值可换行。"
+      ],
+      "retainedReasons": [
+        "名称、联系方式、坐标职责与权限保持，不添加营业硬状态入口。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/station-info/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/delivery-config/index",
+      "action": "modified",
+      "changes": [
+        "起送、范围、配送和楼层费分区更清楚，选项改全宽，大输入和保存动作；完善度与当前费用条件保持可读。"
+      ],
+      "retainedReasons": [
+        "真实配送计费规则、引导建议、留空语义与历史订单快照口径保持，不本地重算。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/place-order/index",
+      "action": "modified",
+      "changes": [
+        "明确选客户→地址→核对订单进度，大数量按钮，突出客户/地址、本单真实报价与合计；修正文案中的不存在建档入口与绝对报价承诺。"
+      ],
+      "retainedReasons": [
+        "原商品/地址选择、报价/缺货确认/支付方式与原请求核实流程保留；不引入演示数据。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/place-order/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/place-order/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/receivables/index",
+      "action": "refined",
+      "changes": [
+        "Outstanding total gets a full-width summary before overdue/customer subfacts",
+        "Selected order count and actual-receipt caution appear immediately before settlement",
+        "Customer, amount and action rows wrap; terms dialog scrolls within viewport"
+      ],
+      "retainedReasons": [
+        "Server amounts, due terms and atomic settlement semantics unchanged",
+        "Overdue-only filter and failure-not-empty states retained",
+        "Existing help-tip keeps long accounting definition available without hiding financial consequences"
+      ],
+      "validation": [
+        "10-route WXML check",
+        "unchanged event/data bindings inspected"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/receivables/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/receivables/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/inter-station/index",
+      "action": "refined",
+      "changes": [
+        "Consolidated station balances into a single summary strip",
+        "Reversal tasks receive a visible warning boundary",
+        "Responsibility records use flat dividers instead of nested cards; large wrapped action rows"
+      ],
+      "retainedReasons": [
+        "Direction, amount, pricing, actual refund evidence and server capabilities unchanged",
+        "Original settlement and aftercare responsibility remain separate",
+        "Unknown original request, zero responsibility and no-double-payment explanations remain visible"
+      ],
+      "validation": [
+        "10-route WXML check",
+        "inter-station-ledger 18"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/inter-station/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/inter-station/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/payroll/index",
+      "action": "refined",
+      "changes": [
+        "Flattened configured rates/product/custom-item nesting",
+        "Settlement amount and period read left to right instead of an oversized centered poster",
+        "Added always-visible actual-payment-before-marking caution beside payable slips",
+        "Enlarged tabs, filters, menus and actions with wrapped labels; removed warm local palette overrides"
+      ],
+      "retainedReasons": [
+        "Three tabs, zero vs missing rates, actual category units and all settlement states retained",
+        "Marking paid still only records existing offline delivery and uses the original confirmation",
+        "Manual deduction and custom item direction consequences remain visible"
+      ],
+      "validation": [
+        "10-route WXML check",
+        "payroll-redesign 25"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/payroll/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/payroll/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/ticket-packages/index",
+      "action": "reordered",
+      "changes": [
+        "Existing active/inactive price tiers now precede presets and the editor",
+        "Named the task as setting station water-ticket prices",
+        "Form labels stack above full-width fields; per-tier controls sit below price facts",
+        "Readable product/specification and at-least-88rpx tier actions"
+      ],
+      "retainedReasons": [
+        "Product-specific tiers and station unified discounts remain distinct",
+        "Backend unit price, original purchase batch pricing and displayed saving semantics retained",
+        "Existing help entry remains; no invented discounts or production constants introduced"
+      ],
+      "validation": [
+        "10-route WXML check",
+        "moved blocks retain all original conditional expressions and bindings"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/gross-profit/index",
+      "action": "refined",
+      "changes": [
+        "Compact side-by-side period selection with large touch targets",
+        "Profit result receives a full-width line after revenue/cost facts",
+        "Report and product ledger rows wrap; cost editor scrolls with wrapped action footer"
+      ],
+      "retainedReasons": [
+        "Revenue, ticket revenue, cooperation payments and net profit remain separate server facts",
+        "Missing costs stay explicit instead of zero",
+        "Existing profit-help entry already folds secondary explanation appropriately"
+      ],
+      "validation": [
+        "10-route WXML check",
+        "no monetary expression or JS calculation changes"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/gross-profit/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/gross-profit/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/barrel-return/index",
+      "action": "refined",
+      "changes": [
+        "Historical undelivered-deposit caution moved outside the expandable record list",
+        "Compact approval heading/cards; clear flat summary and scrollable original approval sheet",
+        "Search, close, refund/recheck and secondary actions have at-least-88rpx targets"
+      ],
+      "retainedReasons": [
+        "Real operator/station/request identities retained",
+        "Actual refunded vs remaining amount, pending channel, expired-original eligibility, rejected-fee consequences and unknown-result recovery remain visible",
+        "Approval, physical handover and actual payment remain separate steps"
+      ],
+      "validation": [
+        "10-route WXML check",
+        "barrel-return-refund 15"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/owed-barrels/index",
+      "action": "refined",
+      "changes": [
+        "Made current net debt and reminder-only policy a clear short heading",
+        "Increased owed quantity prominence and large wrap-friendly date filters",
+        "Customer/date/product rows support long text without clipping"
+      ],
+      "retainedReasons": [
+        "Read-only customer drilldown retained; no new collection action",
+        "Owed barrels still remind without blocking orders",
+        "Urgency, no-phone, failure and real empty states retained"
+      ],
+      "validation": [
+        "10-route WXML check",
+        "unchanged event/data bindings inspected"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/owed-barrels/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/owed-barrels/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/exceptions/index",
+      "action": "reordered",
+      "changes": [
+        "Exception task list now precedes 30-day statistics",
+        "Flattened individual exceptions with a visible pending boundary",
+        "Larger filters, load-more and compensation actions; clear operation-trace text"
+      ],
+      "retainedReasons": [
+        "Only ignore and system-suggested compensation actions retained",
+        "Server status/category/severity and missing-statistics truth unchanged",
+        "Manager vs platform responsibility and compensation record consequences stay visible"
+      ],
+      "validation": [
+        "10-route WXML check",
+        "exception-closeout-flow 17"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/exceptions/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/exceptions/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customer-feedback/index",
+      "action": "modified",
+      "changes": [
+        "争议和处理任务清楚，正文/记录与表单可读，重试与结案/说明动作扩大。"
+      ],
+      "retainedReasons": [
+        "匿名保护、原结果未知重试与结案不退款/不改变权利的说明常显；不新增凭证要求。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/payments/index",
+      "action": "reordered",
+      "changes": [
+        "Receivable/ledger amount promoted to the first line in every payment record",
+        "Actual-receipt requirement is a prominent persistent caution before pending records",
+        "Large pending/history tabs, filters and confirmation action; long identities/amounts wrap"
+      ],
+      "retainedReasons": [
+        "Pending explicitly remains unverified receipt; no assumption of funds received",
+        "Ticket purchase history and current collection remain distinct",
+        "Failure, query scope, pagination and identity cache boundaries untouched"
+      ],
+      "validation": [
+        "10-route WXML check",
+        "payment-history-cache-boundary 12"
+      ],
+      "visualPending": false,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/payments/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/payments/index.wxss"
+      ],
+      "visualEvidence": [
+        "final-08"
+      ]
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/staff/index",
+      "action": "modified",
+      "changes": [
+        "员工身份与电话清楚，动作改卡底整行大按钮；绑定与解绑申请保留。补员工及申请加载/失败/未核实状态，真空结果才显示暂无。"
+      ],
+      "retainedReasons": [
+        "审批/解绑/新增逻辑未变；只加读取展示状态与响应有效性检查。站长不可解除护栏保留。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/staff/index.js",
+        "miniapp-delivery/pages/station-mgmt/staff/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/staff/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/staff/profile/index",
+      "action": "modified",
+      "changes": [
+        "当前进行中订单提前到历史业绩前；地址完整换行；业绩改两列，电话触控扩大。"
+      ],
+      "retainedReasons": [
+        "原绩效、服务质量与档案口径不变；跨站收货人回落与加载失败保留。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/staff/profile/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/staff/profile/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/barrel-records/index",
+      "action": "modified",
+      "changes": [
+        "目的地与回桶数量强化，差异记录完整换行，错误重试与空态保留。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/barrel-records/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/my-earnings/index",
+      "action": "modified",
+      "changes": [
+        "未结与区间收益分区；日期/结算状态/明细可换行，筛选触区扩大。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/my-earnings/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/history/index",
+      "action": "modified",
+      "changes": [
+        "目的地在商品之前，商品图/规格保留；数量与回桶事实清楚，记录长文可换行。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/history/index.json",
+        "miniapp-delivery/pages/history/index.wxml",
+        "miniapp-delivery/pages/history/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/transfer/index",
+      "action": "modified",
+      "changes": [
+        "目的地在商品之前，保留原转让解释及记录判据，长备注可完整阅读。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/transfer/index.json",
+        "miniapp-delivery/pages/transfer/index.wxml",
+        "miniapp-delivery/pages/transfer/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/report/index",
+      "action": "modified",
+      "changes": [
+        "反馈分类96rpx触区、内容输入优先，联系方式/历史记录长文适配，提交动作扩大。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/report/index.json",
+        "miniapp-delivery/pages/report/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/settings/index",
+      "action": "modified",
+      "changes": [
+        "账户值可换行，设置说明可读，开关功能蓝，退出与重试目标扩大。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/settings/index.json",
+        "miniapp-delivery/pages/settings/index.wxml",
+        "miniapp-delivery/pages/settings/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/mine/edit",
+      "action": "modified",
+      "changes": [
+        "资料白区与112rpx字段行，保存主动作矩形化，输入可伸缩。"
+      ],
+      "retainedReasons": [
+        "现有权限、命令、金额/资产/状态判定与未知态保留；本轮不改业务JS。"
+      ],
+      "validation": [
+        "WXML结构与条件兄弟校验",
+        "WXSS括号/UTF-8无BOM及差异检查",
+        "相关既有定向回归"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/mine/edit.wxml",
+        "miniapp-delivery/pages/mine/edit.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/asset-claims/index",
+      "action": "modified",
+      "changes": [
+        "客户/商品/实收押金清楚分列，移除可见 E/H 术语；金额、原申请待核实与审核按钮突出。"
+      ],
+      "retainedReasons": [
+        "历史押金独立核对、不发生新收款、原清单不可改写与原处理恢复流程保留。"
+      ],
+      "validation": [
+        "static structure and handler/navigation retention",
+        "related existing suite where applicable"
+      ],
+      "visualPending": true,
+      "changedFiles": [
+        "miniapp-delivery/pages/station-mgmt/asset-claims/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/asset-claims/index.wxss"
+      ],
+      "visualEvidence": "static route review only; not individually pixel-reviewed"
+    }
+  ],
+  "shared": [
+    "两端token/窗口与导航配色",
+    "顾客Empty/Loading/OrderCard/AssetStationView/PrivacyPopup",
+    "员工HelpTip/PrivacyPopup/自绘底栏",
+    "各页原有抽屉/遮罩/金额/未知与恢复提示"
+  ],
+  "visualSummary": {
+    "nativeSampleImages": 9,
+    "nativeReviewedRoutes": 7,
+    "staticOnlyRoutes": 65,
+    "businessValidation": false,
+    "sampleKind": "native simulator + isolated synthetic view fixtures",
+    "narrowScreen": "320/390px readability checked statically; not a full per-page native narrow-screen review"
+  }
+}

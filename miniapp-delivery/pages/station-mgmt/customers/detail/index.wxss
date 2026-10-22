@@ -214,7 +214,7 @@
   display: flex;
   align-items: center;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid #F1ECE1;
+  border-bottom: 1rpx solid #E8ECF1;
 }
 
 .priv-main {
@@ -361,3 +361,30 @@
 .modal-btn.cancel { background: var(--bg-gray); color: var(--text-secondary); }
 .modal-btn.confirm { background: var(--primary-color); color: #fff; }
 .modal-btn.confirm.disabled { opacity: 0.6; }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.page { box-sizing:border-box; }
+.profile-header,.section { border-radius:12rpx; box-shadow:none; border:1rpx solid var(--border-color); padding:24rpx; }
+.avatar { width:80rpx; height:80rpx; border-radius:12rpx; font-size:34rpx; }
+.name-row,.section-title-row,.sub-title-row { flex-wrap:wrap; gap:12rpx; }
+.name { font-size:36rpx; overflow-wrap:break-word; }
+.phone { display:flex; align-items:center; min-height:88rpx; font-size:30rpx; color:var(--primary-color); }
+.section-title { border-left:0; padding-left:0; line-height:1.5; font-size:30rpx; }
+.link-btn,.priv-btn,.asset-retry,.record-toggle { min-height:88rpx; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; padding:16rpx; font-size:28rpx; border-radius:8rpx; }
+.link-row .link-btn { display:flex; width:100%; background:var(--primary-color); color:#fff; font-weight:600; }
+.metric-grid,.asset-grid { display:flex; flex-wrap:wrap; }
+.metric { flex:none; width:50%; min-width:0; box-sizing:border-box; padding:20rpx 8rpx; align-items:flex-start; border-radius:0; background:#fff; border-bottom:1rpx solid var(--border-color); }
+.metric-value,.metric-value.small { font-size:34rpx; overflow-wrap:anywhere; max-width:100%; }
+.metric-label,.section-note,.asset-item-sub,.hint,.record-meta { font-size:26rpx; color:var(--text-regular); line-height:1.6; }
+.asset-item,.record-item,.order-item { flex-wrap:wrap; gap:12rpx; }
+.asset-item-main,.record-left { min-width:0; }
+.asset-item-name,.record-type { font-size:28rpx; overflow-wrap:break-word; }
+.modal { max-height:85vh; overflow-y:auto; border-radius:16rpx; }
+.modal-close { min-width:88rpx; min-height:88rpx; display:flex; justify-content:center; align-items:center; }
+.modal-btn { min-height:96rpx; font-size:30rpx; }
+.return-item-input { min-width:96rpx; min-height:88rpx; font-size:30rpx; }
+.modal-tip,.error-hint { font-size:28rpx; line-height:1.6; color:var(--text-regular); }
+
+/* 资产明细的两个次动作独占一行，窄屏不把“资产调整”拆成单字。 */
+.sub-title-row .link-row { width: 100%; display: flex; flex-wrap: wrap; gap: 12rpx; }
+.sub-title-row .link-row .link-btn { flex: 1; width: auto; min-width: 180rpx; white-space: nowrap; color: var(--primary-color); background: #fff; border: 1rpx solid var(--primary-color); }

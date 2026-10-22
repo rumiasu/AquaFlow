@@ -1,4 +1,5 @@
 <view class="container">
+  <view class="work-head"><text class="work-title">反馈与退款争议</text><text class="work-desc">先核对争议状态，再登记处理结果。</text></view>
 
   <!-- 口径说明：把"这里是什么、这里能做什么"讲清楚，免得站长把它与「我的反馈」混为一谈。
        匿名那句也必须写在这里：不写的话，站长看到「匿名顾客」会以为是页面出错了

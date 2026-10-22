@@ -1,56 +1,56 @@
 /* ========== AquaFlow 配送员小程序 设计系统 ========== */
 /*
  * [2026-09-26 轨道 D] 品牌色统一：色值照抄 miniapp-user/styles/variable.wxss，
- * 同一套品牌语法（暖纸底 / 白卡 / 深灰文字 / 深靛品牌蓝 #2E4A68 / 中圆角 / 极少阴影）。
+ * 同一套品牌语法（浅灰白底 / 白色内容区 / 高对比文字 / 功能蓝 #1677FF / 紧凑圆角 / 极少阴影）。
  * 两端各自维护自己的 token、没有共享层 —— 这里是**同值**，不是引用。
  * ⚠️ --accent-gradient / --primary-gradient / --header-gradient 三个名字是历史包袱：
  * 「无渐变」硬规则下**只降级值、不改名**（客户端 variable.wxss:14-18 是先例）——
  * 改名会炸全端 25 处 var(--*-gradient) 引用，引用侧一处都不用动。
  */
 page {
-  /* 主色 - 深靛蓝（唯一的品牌/交互色） */
-  --primary-color: #2E4A68;
-  --primary-light: #3D5E82;
-  --primary-dark: #22384F;
-  --primary-bg: rgba(46, 74, 104, 0.08);
+  /* 主色 - 功能蓝（唯一的品牌/交互色） */
+  --primary-color: #1264D6;
+  --primary-light: #1264D6;
+  --primary-dark: #0D4FA8;
+  --primary-bg: #EAF3FF;
 
   /* 「无渐变」硬规则：历史渐变变量统一降级为纯色（名字保留，见文件头注释） */
-  --accent-color: #2E4A68;
-  --accent-gradient: #2E4A68;
-  --primary-gradient: #2E4A68;
-  --header-gradient: #2E4A68;
+  --accent-color: #1264D6;
+  --accent-gradient: #1264D6;
+  --primary-gradient: #1264D6;
+  --header-gradient: #1264D6;
 
   /* 功能色 */
-  --success-color: #2E9E6B;
-  --warning-color: #C9764B;
-  --error-color: #B5442C;
-  --info-color: #2E4A68;
+  --success-color: #16834A;
+  --warning-color: #A95516;
+  --error-color: #BD3328;
+  --info-color: #1677FF;
 
   /* 功能色浅底（2026-10-07 新增，与用户端 variable.wxss 同值；语义正本 docs/design/36 §1.1） */
-  --success-bg: #E3F2EB;
-  --warning-bg: #F7ECE2;
-  --error-bg: #F8E9E5;
+  --success-bg: #EAF6EE;
+  --warning-bg: #FFF3E8;
+  --error-bg: #FFF0EE;
 
   /* 配送状态色 */
-  --status-pending: #C9764B;
-  --status-delivering: #2E4A68;
-  --status-completed: #2E9E6B;
+  --status-pending: #A95516;
+  --status-delivering: #1677FF;
+  --status-completed: #16834A;
 
   /* 中性色 */
-  --text-primary: #2B2A26;
-  --text-regular: #6E6A61;
-  --text-secondary: #A39E92;
-  --text-placeholder: #C9C4B8;
+  --text-primary: #182230;
+  --text-regular: #4B596A;
+  --text-secondary: #637083;
+  --text-placeholder: #9CA7B5;
 
   /* 背景色 */
-  --bg-color: #FAF7F0;
+  --bg-color: #F5F6F7;
   --bg-white: #FFFFFF;
-  --bg-gray: #F4EFE4;
+  --bg-gray: #F0F2F5;
   --bg-card: #FFFFFF;
 
   /* 边框 */
-  --border-color: #EAE4D8;
-  --border-light: #F1ECE1;
+  --border-color: #DAE0E8;
+  --border-light: #E8ECF1;
 
   /* 间距 */
   --spacing-xs: 8rpx;
@@ -60,10 +60,10 @@ page {
   --spacing-xl: 48rpx;
 
   /* 圆角 */
-  --radius-sm: 12rpx;
-  --radius-md: 16rpx;
-  --radius-lg: 24rpx;
-  --radius-xl: 32rpx;
+  --radius-sm: 8rpx;
+  --radius-md: 12rpx;
+  --radius-lg: 16rpx;
+  --radius-xl: 20rpx;
   --radius-round: 999rpx;
 
   /* 字体大小 */
@@ -78,7 +78,7 @@ page {
   --shadow-sm: 0 2rpx 12rpx rgba(43, 42, 38, 0.04);
   --shadow-md: 0 4rpx 20rpx rgba(43, 42, 38, 0.05);
   --shadow-lg: 0 8rpx 32rpx rgba(43, 42, 38, 0.06);
-  --shadow-primary: 0 8rpx 24rpx rgba(46, 74, 104, 0.18);
+  --shadow-primary: 0 8rpx 24rpx rgba(22, 119, 255, 0.10);
 }
 
 /* 全局容器 */
@@ -102,7 +102,7 @@ page {
   background: var(--primary-gradient);
   color: #fff;
   border: none;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-md);
   font-size: var(--font-md);
   font-weight: 600;
   padding: 24rpx 48rpx;
@@ -117,7 +117,7 @@ page {
   background: var(--success-color);
   color: #fff;
   border: none;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-md);
   font-size: var(--font-md);
   font-weight: 600;
   padding: 24rpx 48rpx;
@@ -132,7 +132,7 @@ page {
   background: #fff;
   color: var(--primary-color);
   border: 2rpx solid var(--primary-color);
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-md);
   font-size: var(--font-md);
   font-weight: 600;
   padding: 24rpx 48rpx;
@@ -177,3 +177,6 @@ page {
   font-size: 24rpx;
   line-height: 1.5;
 }
+
+/* 2026-10-22：主动作保持完整触控高度，长文字允许换行。 */
+.btn-primary, .btn-outline, .btn-gradient, .btn-success { box-sizing: border-box; min-height: 96rpx; display: flex; align-items: center; justify-content: center; line-height: 1.45; white-space: normal; }

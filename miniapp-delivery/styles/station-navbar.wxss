@@ -202,7 +202,7 @@
    4 项就能占掉半个弹窗；而站长多数时候只想知道"还差哪几项"。 */
 .st-item {
   padding: 20rpx 0;
-  border-top: 1rpx solid #F1ECE1;
+  border-top: 1rpx solid #E8ECF1;
 }
 
 .st-item-row {
@@ -249,7 +249,7 @@
    为什么放这里：上一版把切换做成列表**下面**的一句灰字，实测没人发现 —— 页签必须在打开小框的第一眼就看到。 */
 .st-tabs {
   display: flex;
-  border-bottom: 1rpx solid #F1ECE1;
+  border-bottom: 1rpx solid #E8ECF1;
   margin-bottom: 8rpx;
 }
 
@@ -310,7 +310,7 @@
 
 .st-actions {
   display: flex;
-  border-top: 1rpx solid #F1ECE1;
+  border-top: 1rpx solid #E8ECF1;
   margin-top: 20rpx;
 }
 
@@ -328,5 +328,5 @@
 .st-btn-primary {
   color: var(--success-color);
   font-weight: 600;
-  border-left: 1rpx solid #F1ECE1;
+  border-left: 1rpx solid #E8ECF1;
 }

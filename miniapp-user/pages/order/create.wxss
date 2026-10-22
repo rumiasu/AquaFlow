@@ -1268,7 +1268,7 @@
   align-items: center;
   justify-content: center;
   font-size: 32rpx;
-  /* 关闭字形 ✕ 是文本（<text>），白底需 ≥4.5:1：--text-secondary(#A39E92) 仅 2.67:1，
+  /* 关闭字形 ✕ 是文本（<text>），白底需 ≥4.5:1：--text-secondary(#637083) 仅 2.67:1，
      曾因此被 CM-16/CM-17 判低对比缺陷。别改回 --text-secondary。 */
   color: var(--text-regular);
 }
@@ -1630,3 +1630,21 @@
   padding: 20rpx 24rpx;
   margin-top: 8rpx;
 }
+
+/* 定稿：可编辑信息先于选择，费用与未知结果保持常显。 */
+.checkout-heading { padding: 12rpx 0 24rpx; }
+.checkout-title { display: block; font-size: 38rpx; font-weight: 700; color: var(--text-primary); }
+.checkout-intro, .station-asset-boundary { display: block; margin-top: 8rpx; font-size: 26rpx; line-height: 1.6; color: var(--text-regular); }
+.station-asset-boundary { margin: 0 0 20rpx; }
+.section, .payment-method-section, .address-card { box-shadow: none; border-color: var(--border-light); }
+.payment-method { min-height: 104rpx; box-sizing: border-box; background: #fff; border-color: var(--border-color); border-radius: var(--radius-md); }
+.payment-method.selected { box-shadow: none; }
+.method-name { font-size: 34rpx; }
+.method-desc { font-size: 30rpx; }
+.payment-method.disabled { opacity: 1; color: var(--text-regular); background: var(--bg-gray); }
+.section-header .section-link, .asset-bar-header, .asset-detail-link { min-height: 88rpx; box-sizing: border-box; display: flex; align-items: center; }
+.fee-value.total { font-size: 40rpx; }
+.product-image { width: 120rpx; height: 156rpx; }
+.detail-sheet-close { width: 88rpx; height: 88rpx; }
+.detail-sheet, .popup-content { border-radius: 20rpx 20rpx 0 0; }
+.popup-btns .btn-cancel, .popup-btns .btn-ok { border-radius: var(--radius-md); }

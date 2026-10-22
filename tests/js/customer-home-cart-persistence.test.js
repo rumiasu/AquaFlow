@@ -47,11 +47,24 @@ test('removing the last selected unit cannot reappear after restart', () => {
   const t = fixture(); t.app.setCartQty(1, 10, 1); change(t.page, 10, 'minus')
   assert.equal(t.page.data.total.count, 0); assert.deepStrictEqual(restart(t).getCart(1), {})
 })
-test('buy again persists all matched products while excluding an unavailable product', () => {
-  const t = fixture(); t.page.setData({ againOrder: { items: [{ productId: 10, quantity: 2 }, { productId: 11, quantity: 3 }, { productId: 99, quantity: 9 }] } })
-  t.page.onAgainTap(); assert.equal(t.page.data.total.count, 5)
-  assert.deepStrictEqual(restart(t).getCart(1), { 10: 2, 11: 3 })
+test('buy again opens real confirmation by original order ID without replacing or adding to the saved cart', () => {
+  const t = fixture(); t.app.setCartQty(1, 11, 4)
+  t.page.setData({ againOrder: { id: 81, items: [{ productId: 10, quantity: 2 }, { productId: 99, quantity: 9 }] } })
+  t.page.onAgainTap()
+  assert.deepStrictEqual(t.wx.__calls.nav, [{ type: 'navigateTo', url: '/pages/order/create?reorderId=81&stationId=1' }])
+  assert.deepStrictEqual(restart(t).getCart(1), { 11: 4 })
 })
+test('buy again ignores an absent original identity and suppresses taps while navigation is unresolved', () => {
+  const t = fixture(); t.page.setData({ againOrder: { items: [{ productId: 10, quantity: 2 }] } })
+  t.page.onAgainTap(); assert.equal(t.wx.__calls.nav.length, 0)
+  const pending = []; t.wx.navigateTo = o => pending.push(o)
+  t.page.setData({ againOrder: { id: 81 } }); t.page.onAgainTap(); t.page.onAgainTap()
+  assert.equal(pending.length, 1)
+  pending[0].fail(); pending[0].complete()
+  assert.ok(t.wx.__calls.toast.some(o => o.title.includes('失败')))
+  t.page.onAgainTap(); assert.equal(pending.length, 2)
+})
+
 test('shop buy-now handoff persists during loadData before backgrounding', async () => {
   const t = fixture(); t.page._pendingProductId = 10; await t.page.loadData()
   assert.equal(t.page._pendingProductId, null); assert.deepStrictEqual(restart(t).getCart(1), { 10: 1 })

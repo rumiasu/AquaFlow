@@ -6,9 +6,9 @@
 .service-section {
   background-color: #fff;
   margin: 24rpx;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 24rpx;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .service-item {
@@ -30,27 +30,38 @@
 .service-value-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 16rpx;
 }
 
 .service-value {
   font-size: 30rpx;
   color: var(--text-primary);
   font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+  line-height: 1.6;
 }
 
 .call-btn,
 .copy-btn {
   padding: 12rpx 24rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-sm);
   font-size: 26rpx;
   font-weight: 500;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .call-btn {
-  background: var(--primary-gradient);
+  background: var(--primary-color);
   color: #fff;
-  box-shadow: 0 4rpx 12rpx rgba(30, 64, 175, 0.2);
+  box-shadow: none;
 }
 
 .copy-btn {
@@ -64,7 +75,7 @@
   margin: 24rpx;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .other-item {
@@ -109,11 +120,16 @@
 }
 
 .category-item {
-  padding: 12rpx 28rpx;
-  border-radius: 28rpx;
+  padding: 12rpx 20rpx;
+  border-radius: var(--radius-sm);
   border: 2rpx solid var(--border-color);
   font-size: 26rpx;
   color: var(--text-regular);
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .category-item.active {
@@ -126,33 +142,36 @@
   width: 100%;
   height: 200rpx;
   background: var(--bg-gray);
-  border-radius: 16rpx;
+  border-radius: var(--radius-sm);
   padding: 20rpx;
   box-sizing: border-box;
   font-size: 28rpx;
+  color: var(--text-primary);
 }
 
 .contact-input {
   width: 100%;
-  height: 80rpx;
+  height: 88rpx;
   background: var(--bg-gray);
-  border-radius: 16rpx;
+  border-radius: var(--radius-sm);
   padding: 0 20rpx;
   margin-top: 16rpx;
   box-sizing: border-box;
   font-size: 28rpx;
+  color: var(--text-primary);
 }
 
 /* 匿名提交开关（v46）：左文案右 switch，说明文字要能一眼读完后果 */
 .anonymous-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 20rpx;
   margin-top: 20rpx;
-  padding: 20rpx;
-  background: var(--bg-gray);
-  border-radius: 16rpx;
+  padding: 20rpx 0;
+  background: transparent;
+  border-radius: 0;
+  border-top: 1rpx solid var(--border-color);
 }
 
 .anonymous-text {
@@ -170,19 +189,19 @@
 
 .anonymous-desc {
   font-size: 24rpx;
-  color: var(--text-secondary);
-  line-height: 1.5;
+  color: var(--text-regular);
+  line-height: 1.7;
 }
 
 .feedback-btn {
-  height: 84rpx;
-  background: var(--primary-gradient);
-  border-radius: 42rpx;
+  height: 96rpx;
+  background: var(--primary-color);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-top: 24rpx;
-  box-shadow: var(--shadow-primary);
+  box-shadow: none;
 }
 
 .feedback-btn text {
@@ -212,3 +231,16 @@
   font-size: 24rpx;
   color: var(--text-secondary);
 }
+
+
+.page-intro { padding: 28rpx 24rpx 8rpx; }
+.page-intro-title { display: block; font-size: 36rpx; font-weight: 700; line-height: 1.4; color: var(--text-primary); }
+.page-intro-note { display: block; margin-top: 10rpx; font-size: 26rpx; line-height: 1.6; color: var(--text-regular); }
+
+.service-section button, .history-main button { min-height: 88rpx; height: auto; padding: 18rpx 24rpx; border-radius: var(--radius-sm); color: var(--primary-color); background: var(--primary-bg); font-size: 26rpx; line-height: 1.6; white-space: normal; }
+.service-label { line-height: 1.7; word-break: break-all; }
+.service-section > textarea:not(.content-input) { width: 100%; min-height: 180rpx; box-sizing: border-box; padding: 20rpx; background: var(--bg-gray); font-size: 28rpx; margin: 20rpx 0; }
+
+.dispute-record { min-height: 88rpx; padding: 20rpx 0; display: flex; align-items: center; border-top: 1rpx solid var(--border-color); box-sizing: border-box; }
+.dispute-record .service-label { margin-bottom: 0; }
+.history-toggle { display: flex; align-items: center; justify-content: space-between; min-height: 96rpx; margin: 24rpx; padding: 20rpx 24rpx; border-radius: var(--radius-md); background: #fff; color: var(--primary-color); font-size: 28rpx; box-sizing: border-box; }

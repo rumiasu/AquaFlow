@@ -25,6 +25,36 @@ function fixture(handler = async () => quote(), spec) {
     stationId: 1, address: { id: 12 }, selectedMethod: 3, loading: false })
   return { page, wx, calls }
 }
+test('复购重新读取原单商品数量和地址并获取当前商品及报价，不建单或付款', async () => {
+  const wx = createWx(), calls = { detail: [], products: [], addresses: 0, quotes: [], writes: 0 }
+  const page = loadPage('miniapp-user/pages/order/create.js', { wx, stubs: {
+    'utils/station': { resolveStationId: async () => 1 },
+    'api/order': { getOrderDetail: async id => {
+      calls.detail.push(id); return { code: 0, data: { id, stationId: 1, addressId: 17,
+        items: [{ productId: 5, quantity: 2, price: 1 }], amount: 2 } }
+    }, createOrder: async () => { calls.writes++ }, createPayment: async () => { calls.writes++ } },
+    'api/product': { getProductDetail: async (id, stationId) => {
+      calls.products.push({ id, stationId }); return { code: 0, data: { id, name: '当前商品', category: 1, spec: '实际规格', effectivePrice: 27, stock: 0 } }
+    } },
+    'api/address': { getAddresses: async () => { calls.addresses++; return { code: 0, data: [{ id: 12, isDefault: 1 }, { id: 17, detail: '原单当前地址' }] } } },
+    'api/barrel': { getBarrelSummaryByType: async () => ({ data: [] }), getBarrelSummary: async () => ({ data: {} }) },
+    'api/station': { getStationStatus: async () => ({ data: {} }) },
+    'api/payment': { getQuote: async body => {
+      calls.quotes.push(body); return { code: 0, data: { waterAmount: 54, extraDeposit: 50, extraDepositBuckets: 1, totalAmount: 104,
+        independentRights: true, barrelPurchases: [{ productId: 5, quantity: 1, unitPrice: 50, amount: 50 }],
+        methods: [{ id: 1, name: '微信支付', enabled: true }], defaultMethod: 1, blocked: false } }
+    } }
+  } })
+  page.setData({ stationId: 1 }); await page.loadReorder(81)
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepStrictEqual(calls.detail, [81]); assert.deepStrictEqual(calls.products, [{ id: 5, stationId: 1 }])
+  assert.strictEqual(calls.addresses, 1); assert.strictEqual(page.data.address.id, 17)
+  assert.strictEqual(page.data.products[0].quantity, 2); assert.strictEqual(page.data.products[0].price, 27)
+  assert.strictEqual(page.data.products[0].stock, 0)
+  assert.ok(calls.quotes.some(q => q.addressId === 17 && q.items[0].quantity === 2))
+  assert.strictEqual(page.data.extraDepositAmountText, '50.00'); assert.strictEqual(page.data.payableAmountText, '104.00')
+  assert.strictEqual(calls.writes, 0)
+})
 test('规格为空或为占位字符串时不显示，保留原始商品字段', async () => {
   for (const spec of [null, undefined, '', ' ', 'null', ' NULL ', 'undefined']) {
     const t = fixture(undefined, spec)

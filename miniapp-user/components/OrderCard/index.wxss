@@ -9,7 +9,7 @@
 }
 
 .order-card:active {
-  transform: scale(0.98);
+  background: var(--bg-gray);
 }
 
 .card-header {
@@ -195,3 +195,13 @@
   color: var(--error-color);
   background: #fff;
 }
+
+.card-header, .status-group, .card-footer, .footer-actions { flex-wrap: wrap; gap: 12rpx; }
+.card-header { align-items: flex-start; }
+.order-card { box-shadow: none; padding: 24rpx; }
+.order-id { font-size: 26rpx; }
+.status-tag, .pay-tag { font-size: 24rpx; line-height: 1.5; }
+.address { font-size: 28rpx; word-break: break-all; }
+.btn-pay, .btn-reorder, .btn-cancel { min-height: 88rpx; display: flex; align-items: center; justify-content: center; padding: 16rpx 24rpx; line-height: 1.5; font-size: 28rpx; border-radius: var(--radius-md); box-sizing: border-box; margin: 0; }
+.btn-pay { color: #fff; background: var(--primary-color); }
+.order-item-row { flex-wrap: wrap; }

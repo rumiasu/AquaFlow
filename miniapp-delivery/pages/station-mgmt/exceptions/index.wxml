@@ -24,31 +24,6 @@
 
     <!-- ============ 页签 1：桶异常单 ============ -->
     <block wx:if="{{activeTab === 'exceptions'}}">
-      <!-- 近 30 天统计 -->
-      <view class="card" wx:if="{{stats}}">
-        <view class="card-title">近 30 天</view>
-        <view class="stats-row">
-          <view class="stats-item">
-            <text class="stats-value">{{stats.totalCount}}</text>
-            <text class="stats-label">异常单</text>
-          </view>
-          <view class="stats-item">
-            <text class="stats-value">{{stats.totalRefundTickets}}</text>
-            <text class="stats-label">已补水票(张)</text>
-          </view>
-          <view class="stats-item">
-            <text class="stats-value">{{stats.avgHandleHours}}</text>
-            <text class="stats-label">平均处理(小时)</text>
-          </view>
-        </view>
-        <view class="stats-note">这里统计的是异常单本身；补偿金额以每张单的处理记录为准（处置入口在下面每张待处理的单上）。</view>
-      </view>
-      <!-- ⚠️ 统计取不到时**不能什么都不显示**：整张卡消失与"这 30 天确实 0 张"在界面上无法区分（§8.22） -->
-      <view class="card" wx:else>
-        <view class="card-title">近 30 天</view>
-        <view class="stats-note">统计暂时取不到（列表本身不受影响，下面照常显示）。</view>
-      </view>
-
       <!-- 异常单列表 -->
       <view class="card">
         <view class="card-head">
@@ -102,6 +77,31 @@
 
         <view class="load-hint" wx:if="{{hasMore}}" bindtap="onLoadMore">{{loadingMore ? '加载中…' : '加载更多'}} · 已显示 {{loaded}} / {{total}} 张</view>
         <view class="load-hint" wx:elif="{{loaded && !listError}}">已显示全部 {{loaded}} 张</view>
+      </view>
+
+      <!-- 近 30 天统计 -->
+      <view class="card" wx:if="{{stats}}">
+        <view class="card-title">近 30 天</view>
+        <view class="stats-row">
+          <view class="stats-item">
+            <text class="stats-value">{{stats.totalCount}}</text>
+            <text class="stats-label">异常单</text>
+          </view>
+          <view class="stats-item">
+            <text class="stats-value">{{stats.totalRefundTickets}}</text>
+            <text class="stats-label">已补水票(张)</text>
+          </view>
+          <view class="stats-item">
+            <text class="stats-value">{{stats.avgHandleHours}}</text>
+            <text class="stats-label">平均处理(小时)</text>
+          </view>
+        </view>
+        <view class="stats-note">这里统计的是异常单本身；补偿金额以每张单的处理记录为准（处置入口在下面每张待处理的单上）。</view>
+      </view>
+      <!-- ⚠️ 统计取不到时**不能什么都不显示**：整张卡消失与"这 30 天确实 0 张"在界面上无法区分（§8.22） -->
+      <view class="card" wx:else>
+        <view class="card-title">近 30 天</view>
+        <view class="stats-note">统计暂时取不到（列表本身不受影响，下面照常显示）。</view>
       </view>
 
       <view class="page-note">

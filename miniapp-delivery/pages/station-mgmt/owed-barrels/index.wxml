@@ -12,7 +12,8 @@
   </view>
 
   <view class="hint">
-    <text>此表列的是「当前仍欠桶」的净额（已被回收的部分不在其中）。欠桶只提醒、不拦截下单；点一行可看该客户的完整桶账。</text>
+    <text class="hint-title">当前仍欠桶 · 只提醒，不拦截下单</text>
+    <text>已回收部分不在此表中。点客户查看完整桶账。</text>
   </view>
 
   <view class="owe-card"

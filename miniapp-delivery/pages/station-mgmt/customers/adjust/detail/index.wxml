@@ -101,15 +101,17 @@
     </view>
 
     <view class="card" wx:if="{{detail.beforeRaw || detail.afterRaw}}">
-      <view class="card-title">原始 JSON</view>
+      <view class="raw-toggle" bindtap="onToggleRaw"><text>原始记录详情</text><text>{{rawExpanded ? '收起' : '展开'}} ›</text></view>
+      <block wx:if="{{rawExpanded}}">
       <view class="raw-block" wx:if="{{detail.beforeRaw}}">
-        <text class="raw-label">beforeSnapshot</text>
+        <text class="raw-label">调整前原始记录</text>
         <text class="raw-text">{{detail.beforeRaw}}</text>
       </view>
       <view class="raw-block" wx:if="{{detail.afterRaw}}">
-        <text class="raw-label">afterSnapshot</text>
+        <text class="raw-label">调整后原始记录</text>
         <text class="raw-text">{{detail.afterRaw}}</text>
       </view>
+      </block>
     </view>
 
     <!-- ============ 操作按钮 ============ -->

@@ -5,27 +5,39 @@
 
 /* ========== 统计看板 ========== */
 .stats-panel {
-  display: flex; background: var(--header-gradient); padding: 32rpx 16rpx 48rpx;
-  border-radius: 0 0 32rpx 32rpx; margin-bottom: 0;
+  display: flex; background: #fff; padding: 20rpx 16rpx;
+  border-radius: 12rpx; margin-bottom: 0;
+  margin: 0 24rpx 16rpx;
+  border: 1rpx solid var(--border-color);
 }
 
 .stat-item {
   flex: 1; display: flex; flex-direction: column; align-items: center;
-  position: relative; color: #fff;
+  position: relative; color: var(--text-primary);
+  min-height: 96rpx;
+  justify-content: center;
 }
 
-.stat-value { font-size: 44rpx; font-weight: 700; line-height: 1.1; }
-.stat-label { font-size: 14px; opacity: 0.85; margin-top: 4rpx; }
-.stat-unit { font-size: 12px; opacity: 0.7; }
+.stat-value { font-size: 40rpx; font-weight: 700; line-height: 1.1;
+  color: var(--primary-color);
+}
+.stat-label { font-size: 14px; opacity: 1; margin-top: 4rpx; }
+.stat-unit { font-size: 12px; opacity: 1; }
 
 /* ========== Tab 栏 ========== */
 .tab-bar {
-  display: flex; background: #fff; margin: -24rpx 24rpx 0; border-radius: 16rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06); overflow: hidden; position: relative; z-index: 2;
+  display: flex; background: #fff; margin: 16rpx 24rpx 0; border-radius: 12rpx;
+  box-shadow: none; overflow: hidden; position: relative; z-index: 2;
+  border: 1rpx solid var(--border-color);
 }
 
 .tab-item {
   flex: 1; text-align: center; padding: 24rpx 0; font-size: 26rpx; color: var(--text-secondary); font-weight: 500; position: relative; transition: all 0.2s;
+  min-height: 96rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tab-item.active { color: var(--primary-color); font-weight: 600; }
@@ -38,8 +50,9 @@
 .order-list { padding: 16rpx 24rpx; }
 
 .order-card {
-  background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 16rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04); transition: transform 0.15s;
+  background: #fff; border-radius: 12rpx; padding: 24rpx; margin-bottom: 16rpx;
+  box-shadow: none; transition: transform 0.15s;
+  border: 1rpx solid var(--border-color);
 }
 
 .order-card:active { transform: scale(0.98); }
@@ -48,8 +61,8 @@
    与普通待配送卡刻意区分：左侧一道琥珀色边 + 浅底，因为它是一张**要我决定**的卡，
    不是"等着我去送"的卡。同意后它变成下面的普通卡（后端把归属改到我名下）。 */
 .transfer-in-card {
-  background: var(--warning-bg); border-radius: 16rpx; padding: 24rpx; margin-bottom: 16rpx;
-  border-left: 8rpx solid var(--warning-color); box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04);
+  background: var(--warning-bg); border-radius: 12rpx; padding: 24rpx; margin-bottom: 16rpx;
+  border-left: 8rpx solid var(--warning-color); box-shadow: none;
 }
 .status-transfer { background: rgba(240,160,32,0.14); color: var(--warning-color); }
 .transfer-from { font-size: 22rpx; color: var(--text-secondary); }
@@ -60,7 +73,9 @@
 }
 .btn-reject-transfer::after { border: none; }
 
-.card-header { display: flex; align-items: center; gap: 12rpx; margin-bottom: 16rpx; }
+.card-header { display: flex; align-items: center; gap: 12rpx; margin-bottom: 16rpx;
+  flex-wrap: wrap;
+}
 
 .status-tag {
   font-size: 20rpx; padding: 4rpx 14rpx; border-radius: 20rpx; font-weight: 500; flex-shrink: 0;
@@ -76,19 +91,32 @@
 /* 联系人一行（§4 的「联系」位置，排在主动作之前）：号码整块可点 = 直接拨号。
    [2026-09-26] 去掉了行首的 📍/🛗 装饰图标（§6：员工端逐步去除表情符号，动作旁保留文字）——
    地址与楼层文案本身就是自解释的，图标只是抢视觉。 */
-.contact-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 8rpx; }
+.contact-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 8rpx;
+  flex-wrap: wrap;
+}
 .customer-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
-.customer-phone { font-size: 24rpx; color: var(--primary-color); padding: 4rpx 0; }
+.customer-phone { font-size: 30rpx; color: var(--primary-color); padding: 4rpx 0;
+  min-height: 96rpx;
+  display: flex;
+  align-items: center;
+  word-break: break-all;
+}
 
 .product-info { display: flex; align-items: baseline; gap: 8rpx; margin-bottom: 8rpx; flex-wrap: wrap; }
 /* ⚠️ 商品摘要**不截断**（2026-09-27 产品口径：商品信息不要隐藏省略）——允许换行、长词可断。
    `flex: 1` 让它占满剩余宽度后再换行，`min-width: 0` 是 flex 子项能收缩的前提（别删）。 */
-.product-name { font-size: 28rpx; color: var(--text-regular); flex: 1; min-width: 0; word-break: break-all; }
-.product-qty { font-size: 24rpx; color: var(--text-secondary); flex-shrink: 0; }
+.product-name { font-size: 30rpx; color: var(--text-regular); flex: 1; min-width: 0; word-break: break-all; }
+.product-qty { font-size: 30rpx; color: var(--text-primary); flex-shrink: 0;
+  font-weight: 700;
+}
 
 /* 「已付 / 需收 ¥X」：这一单要不要现场收钱，扫一眼就知道（§4 的字段顺序里排在商品之后、
    联系人之前）。钱还没到手时用琥珀色挑出来，已付就是普通深色 —— 不靠颜色独立传意（§6）。 */
-.pay-line { display: flex; align-items: baseline; gap: 8rpx; margin-bottom: 12rpx; }
+.pay-line { display: flex; align-items: baseline; gap: 8rpx; margin-bottom: 12rpx;
+  padding: 16rpx 0;
+  flex-wrap: wrap;
+  border-top: 1rpx solid var(--border-color);
+}
 .pay-label { font-size: 24rpx; color: var(--text-secondary); }
 .pay-amount { font-size: 30rpx; font-weight: 700; color: var(--text-primary); }
 .pay-need { color: var(--status-pending); }
@@ -97,24 +125,28 @@
 .address-info { display: flex; align-items: flex-start; gap: 6rpx; margin-bottom: 12rpx; }
 /* 地址是这张卡的第一信息（§4 字段顺序第一条、§6「配送地址 32–36rpx」），所以它最大最重；
    楼层/电梯是第二眼信息（要不要上楼），与地址同列但小一档，两行大字会互相抢。 */
-.address-text { font-size: 32rpx; font-weight: 500; color: var(--text-primary); line-height: 1.4; }
+.address-text { font-size: 36rpx; font-weight: 700; color: var(--text-primary); line-height: 1.4;
+  overflow-wrap: anywhere;
+}
 .address-text.floor-text { font-size: 26rpx; font-weight: 400; color: var(--text-secondary); }
 
-.card-actions { display: flex; gap: 16rpx; margin-top: 8rpx; }
+.card-actions { display: flex; gap: 12rpx; margin-top: 8rpx;
+  flex-wrap: wrap;
+}
 /* 卡上的主动作（接单配送 / 完成配送 / 确认收款）按 §6 的控件尺寸给到 88rpx：
    配送员是站在车边、手上可能戴着东西点的，64rpx 那一版明显偏小。
    胶囊圆角跟着高度走（半径 = 高度一半）。 */
 .btn-accept {
-  flex: 1; height: 88rpx; line-height: 88rpx; background: var(--primary-gradient); color: #fff;
+  flex: 1; height: 88rpx; line-height: 88rpx; background: var(--primary-color); color: #fff;
   border-radius: 44rpx; font-size: 28rpx; font-weight: 600; border: none;
-  box-shadow: 0 4rpx 16rpx rgba(46,74,104,0.25);
+  box-shadow: none;
 }
 .btn-accept::after { border: none; }
 
 .btn-complete {
-  flex: 1; height: 88rpx; line-height: 88rpx; background: #216E4B; color: #fff;
+  flex: 1; height: 88rpx; line-height: 88rpx; background: #0960D7; color: #fff;
   border-radius: 44rpx; font-size: 28rpx; font-weight: 600; border: none;
-  box-shadow: 0 4rpx 16rpx rgba(33,110,75,0.25);
+  box-shadow: none;
 }
 .btn-complete::after { border: none; }
 
@@ -129,7 +161,11 @@
 .return-barrel { font-size: 24rpx; color: var(--success-color); font-weight: 500; }
 
 /* ========== 待收款 ========== */
-.unpaid-section { margin: 0 24rpx 16rpx; }
+.unpaid-section { margin: 16rpx 24rpx;
+  padding: 20rpx;
+  background: var(--warning-bg);
+  border-radius: 12rpx;
+}
 .unpaid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; padding: 16rpx 0; }
 .unpaid-title { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
 .unpaid-count { font-size: 24rpx; color: var(--text-placeholder); }
@@ -309,3 +345,11 @@
 .modal-cancel::after { border: none; }
 
 /* 提示条 `.load-error` 的样式定义在 app.wxss（全局，多个页面都会用），此处不要再写一份。 */
+
+/* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
+.card-actions button, .modal-cancel { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.card-actions button { flex: 1 1 240rpx; }
+.unpaid-section .order-card { margin-bottom: 12rpx; }
+.home-station-identity { font-weight: 600; }
+.pay-label, .pay-amount { font-size: 30rpx; }
+.modal-item { min-height: 96rpx; box-sizing: border-box; }

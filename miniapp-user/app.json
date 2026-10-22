@@ -29,14 +29,14 @@
   ],
   "window": {
     "backgroundTextStyle": "dark",
-    "navigationBarBackgroundColor": "#FAF7F0",
+    "navigationBarBackgroundColor": "#F5F6F7",
     "navigationBarTitleText": "AquaFlow",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#FAF7F0"
+    "backgroundColor": "#F5F6F7"
   },
   "tabBar": {
-    "color": "#A39E92",
-    "selectedColor": "#2E4A68",
+    "color": "#637083",
+    "selectedColor": "#1677FF",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [

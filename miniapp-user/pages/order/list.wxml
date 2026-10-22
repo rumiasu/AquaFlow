@@ -1,4 +1,5 @@
 <view class="page-container">
+  <view class="orders-heading"><text class="orders-title">我的订单</text><text class="orders-note">查看配送、付款及处理进度</text></view>
   <!-- 标签栏 -->
   <view class="tab-bar">
     <view wx:for="{{tabs}}" wx:key="index"

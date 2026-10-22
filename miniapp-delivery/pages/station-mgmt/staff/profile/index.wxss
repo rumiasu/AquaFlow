@@ -118,3 +118,23 @@
   font-size: var(--font-md, 28rpx);
   padding-top: 120rpx;
 }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.page { box-sizing:border-box; }
+.profile-header,.section { border-radius:12rpx; box-shadow:none; border:1rpx solid var(--border-color); padding:24rpx; }
+.avatar { width:80rpx; height:80rpx; border-radius:12rpx; font-size:34rpx; }
+.name-row { flex-wrap:wrap; }
+.name { font-size:36rpx; overflow-wrap:break-word; }
+.phone { font-size:30rpx; color:var(--primary-color); display:flex; align-items:center; min-height:88rpx; }
+.section-title { border-left:0; padding-left:0; line-height:1.5; font-size:30rpx; }
+.metric-grid { display:flex; flex-wrap:wrap; }
+.metric { flex:none; width:50%; min-width:0; box-sizing:border-box; align-items:flex-start; padding:20rpx 8rpx; border-bottom:1rpx solid var(--border-color); }
+.metric-value { font-size:34rpx; overflow-wrap:anywhere; max-width:100%; }
+.metric-label,.row .label,.error-hint { font-size:26rpx; color:var(--text-regular); line-height:1.6; }
+.row .value { font-size:28rpx; overflow-wrap:break-word; }
+.order-item { flex-wrap:wrap; align-items:flex-start; gap:16rpx; }
+.order-left { min-width:0; }
+.order-customer { font-size:32rpx; line-height:1.5; }
+.order-address { font-size:28rpx; color:var(--text-regular); line-height:1.6; }
+.order-right { flex-wrap:wrap; }
+.order-amount { font-size:32rpx; }

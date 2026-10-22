@@ -86,3 +86,34 @@
 .card-actions { max-width: 190rpx; }
 .manage-btn, .cod-btn { line-height: 1.4; white-space: normal; word-break: break-all; }
 .cod-permission-label { flex: 1; min-width: 0; margin-right: 16rpx; line-height: 1.5; }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.work-head { padding: 8rpx 4rpx 24rpx; }
+.work-title { display:block; font-size:38rpx; font-weight:700; line-height:1.4; color:var(--text-primary); }
+.work-desc { display:block; margin-top:8rpx; font-size:26rpx; line-height:1.6; color:var(--text-regular); }
+
+.container { box-sizing:border-box; }
+.customer-card { display:flex; flex-wrap:wrap; gap:16rpx; border-radius:12rpx; border:1rpx solid var(--border-color); box-shadow:none; padding:24rpx; }
+.avatar { width:72rpx; height:72rpx; font-size:30rpx; border-radius:10rpx; }
+.card-body { flex:1; min-width:0; }
+.name-row { flex-wrap:wrap; gap:10rpx; }
+.customer-name { font-size:34rpx; overflow-wrap:break-word; }
+.customer-phone { color:var(--text-regular); font-size:28rpx; line-height:1.6; }
+.customer-number { font-size:24rpx; }
+.customer-address { white-space:normal; overflow:visible; line-height:1.6; }
+.card-actions { width:100%; display:flex; flex-direction:row; flex-wrap:wrap; gap:12rpx; padding-top:16rpx; margin:0; border-top:1rpx solid var(--border-color); }
+.manage-btn,.cod-btn,.call-link { flex:1; min-width:130rpx; min-height:88rpx; box-sizing:border-box; display:flex; align-items:center; justify-content:center; padding:12rpx; border-radius:10rpx; font-size:28rpx; }
+.manage-btn { background:var(--primary-color); color:#fff; }
+.cod-btn,.call-link { background:var(--bg-color); color:var(--primary-color); }
+.search-input { min-width:0; min-height:88rpx; border-radius:10rpx; }
+.search-btn,.chip,.scope-retry,.ent-entry-set { min-height:88rpx; box-sizing:border-box; display:flex; align-items:center; justify-content:center; border-radius:10rpx; }
+.chip { padding:12rpx 20rpx; font-size:28rpx; }
+.scope-banner,.ent-entry { border-radius:10rpx; }
+.scope-label,.ent-entry-desc { color:var(--text-regular); font-size:26rpx; line-height:1.6; }
+.modal-body { max-height:82vh; overflow-y:auto; border-radius:16rpx; }
+.modal-actions,.ent-item-actions { flex-wrap:wrap; }
+.modal-btn { min-height:88rpx; height:auto; line-height:1.5; box-sizing:border-box; display:flex; align-items:center; justify-content:center; padding:18rpx; border-radius:10rpx; }
+.scope-line,.modal-tip,.modal-stat { font-size:28rpx; line-height:1.6; overflow-wrap:break-word; color:var(--text-regular); }
+
+.card-actions { max-width:none; }
+.modal-stat,.modal-row { flex-wrap:wrap; gap:16rpx; }

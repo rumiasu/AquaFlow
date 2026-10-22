@@ -1,7 +1,7 @@
 /*
  * 自绘底部导航的样式。
  * 口径：**照着原生 tabBar 的观感做**（固定底部、白底、一条顶边、图标 48rpx + 文字 20rpx），
- * 颜色取 app.json 里那对（未选 #999999 / 选中 #2E4A68），别在这里另立一套色板。
+ * 颜色取 app.json 里那对（未选 #637083 / 选中 #1677FF），别在这里另立一套色板。
  * ⚠️ 这里写字面量、不用 CSS 变量：自绘底栏是**组件**，不赌 app.wxss 的 page 变量在组件里能继承到。
  * 高度 = 100rpx + 底部安全区；tab 页的根容器用 app.wxss 的 `.custom-tabbar-page` 留出等高空白，
  * 否则最后一张卡片会被压在导航条下面。
@@ -51,12 +51,12 @@
 }
 
 .tabbar-text {
-  font-size: 20rpx;
+  font-size: 24rpx;
   line-height: 28rpx;
   margin-top: 2rpx;
-  color: #999999;
+  color: #637083;
 }
 
 .tabbar-item.on .tabbar-text {
-  color: #2E4A68;
+  color: #1677FF;
 }

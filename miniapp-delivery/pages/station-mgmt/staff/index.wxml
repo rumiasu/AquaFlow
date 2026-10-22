@@ -4,13 +4,14 @@
   文案「申请绑定 / 申请解绑」用 js 里算好的 typeText，**不在 wxml 里做 type→中文映射**。
 -->
 <view class="container">
+  <view class="work-head"><text class="work-title">员工与申请</text><text class="work-desc">管理在职人员，核对绑定与解绑申请。</text></view>
 
   <view class="tabs">
     <view class="tab {{activeTab === 'staff' ? 'tab-on' : ''}}" bindtap="onTabSwitch" data-tab="staff">
-      员工<text class="tab-count" wx:if="{{list.length > 0}}">{{list.length}}</text>
+      员工<text class="tab-count" wx:if="{{listReady && !listLoading && !listError && list.length > 0}}">{{list.length}}</text>
     </view>
     <view class="tab {{activeTab === 'apply' ? 'tab-on' : ''}}" bindtap="onTabSwitch" data-tab="apply">
-      绑定申请<text class="tab-count tab-badge" wx:if="{{applications.length > 0}}">{{applications.length}}</text>
+      绑定申请<text class="tab-count tab-badge" wx:if="{{applicationsReady && !applicationsLoading && !applicationsError && applications.length > 0}}">{{applications.length}}</text>
     </view>
   </view>
 
@@ -31,7 +32,10 @@
       <view class="chip {{filterStatus === '0' ? 'active' : ''}}" data-status="0" bindtap="onFilterStatus"><text>离职</text></view>
     </view>
 
-    <view class="staff-card" wx:for="{{list}}" wx:key="id">
+    <view class="work-read-error" wx:if="{{listReady && !applicationsReady}}"><text>{{applicationsLoading ? '正在核对绑定与解绑申请，申请标记暂不可用' : '绑定与解绑申请尚未核实，不能据此判断没有待审申请'}}</text><button bindtap="onTabSwitch" data-tab="apply">查看申请核对状态</button></view>
+    <view class="work-read-error" wx:if="{{listError}}"><text>{{listError}}</text><button bindtap="loadData">重新加载员工</button></view>
+    <view class="loading" wx:if="{{listLoading}}">员工加载中…</view>
+    <view class="staff-card" wx:if="{{!listLoading && !listError}}" wx:for="{{list}}" wx:key="id">
       <view class="avatar" style="background:{{item.avatarColor}}">{{item.avatarText}}</view>
       <view class="staff-body">
         <view class="name-row">
@@ -54,12 +58,12 @@
           所以这里不给按钮 —— 但**留一行字**，否则站长会以为是界面出错了。
           水站交接属于「转让」功能，全仓还没有，等做了之后挪到「水站设置」里，别放员工列表。
         -->
-        <button class="btn-detach" wx:if="{{item.status === 1 && item.role === 'DELIVERY'}}" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onDetach">解除</button>
+        <button class="btn-detach" wx:if="{{item.status === 1 && item.role === 'DELIVERY'}}" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onDetach">解除绑定</button>
         <text class="self-note" wx:elif="{{item.status === 1}}">站长 · 不可解除</text>
       </view>
     </view>
 
-    <view class="empty" wx:if="{{list.length === 0}}">
+    <view class="empty" wx:if="{{listReady && !listLoading && !listError && list.length === 0}}">
       <text>暂无员工</text>
       <text class="empty-hint">待配送员提交绑定申请后，到「绑定申请」页签审核</text>
     </view>
@@ -73,7 +77,10 @@
       <text>配送员提交的绑定与解绑申请都在这里，点「同意」或「拒绝」处理就行。</text>
     </view>
 
-    <view class="staff-card" wx:for="{{applications}}" wx:key="id" wx:for-item="a">
+    <view class="work-read-error" wx:if="{{applicationsError}}"><text>{{applicationsError}}</text><button bindtap="loadApplications">重新核对申请</button></view>
+    <view class="loading" wx:if="{{applicationsLoading}}">申请加载中…</view>
+    <view class="work-read-error" wx:if="{{!applicationsReady && !applicationsLoading && !applicationsError}}"><text>待审申请尚未核实</text><button bindtap="loadApplications">核对申请</button></view>
+    <view class="staff-card" wx:if="{{!applicationsLoading && !applicationsError}}" wx:for="{{applications}}" wx:key="id" wx:for-item="a">
       <view class="avatar avatar-blue">{{a._firstChar}}</view>
       <view class="staff-body">
         <view class="name-row">
@@ -89,7 +96,7 @@
       </view>
     </view>
 
-    <view class="empty" wx:if="{{applications.length === 0}}">
+    <view class="empty" wx:if="{{applicationsReady && !applicationsLoading && !applicationsError && applications.length === 0}}">
       <text>暂无待审申请</text>
     </view>
   </block>

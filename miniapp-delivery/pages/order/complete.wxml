@@ -49,6 +49,14 @@
       <text class="cust-name">{{orderInfo.customerName || orderInfo.receiverName || '客户'}}</text>
       <text class="cust-tag" wx:if="{{orderInfo.payMethodText}}">{{orderInfo.payMethodText}}</text>
     </view>
+    <view class="cust-row cust-address" wx:if="{{addressText}}" bindtap="onCopyAddress">
+      <text class="cust-row-text">{{addressText}}</text>
+      <text class="cust-row-action">复制</text>
+    </view>
+    <view class="cust-row" wx:if="{{contactPhone}}" bindtap="onCallPhone">
+      <text class="cust-row-text">{{contactPhone}}</text>
+      <text class="cust-row-action">拨打</text>
+    </view>
     <!--
       [2026-09-27 走查 D02 修] **送货清单**（原来这里只有客户与金额，商品名只出现在下面的回桶行里，
       而回桶行只对桶装水画、首单整块不画 ⇒ 新押金单 / 纯瓶装水单上看不到任何商品）。
@@ -67,14 +75,8 @@
       [2026-09-26] 行首的 📞 / 📍 装饰图标按 §6（员工端逐步去除表情符号）去掉：
       「拨打」「复制」两个动作文字本来就在，图标只是抢视觉。
     -->
-    <view class="cust-row" wx:if="{{contactPhone}}" bindtap="onCallPhone">
-      <text class="cust-row-text">{{contactPhone}}</text>
-      <text class="cust-row-action">拨打</text>
-    </view>
-    <view class="cust-row" wx:if="{{addressText}}" bindtap="onCopyAddress">
-      <text class="cust-row-text">{{addressText}}</text>
-      <text class="cust-row-action">复制</text>
-    </view>
+
+
   </view>
 
   <!--

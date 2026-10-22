@@ -84,6 +84,7 @@ function decorate(a) {
 
 Page({
   data: {
+    rawExpanded: false,
     id: null,
     loading: true,
     detail: null,
@@ -92,6 +93,10 @@ Page({
     executing: false,
     reversing: false,
     reverseClientToken: ''
+  },
+
+  onToggleRaw() {
+    this.setData({ rawExpanded: !this.data.rawExpanded })
   },
 
   onLoad(options) {

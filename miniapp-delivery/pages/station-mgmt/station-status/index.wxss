@@ -163,3 +163,21 @@
   background: rgba(0, 0, 0, 0.05);
   color: var(--text-secondary);
 }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.card { border-radius:12rpx; border:1rpx solid var(--border-color); }
+.card-header,.card-title-row,.notice-head,.notice-footer { flex-wrap:wrap; gap:12rpx; }
+.card-title { font-size:34rpx; }
+.card-sub { font-size:28rpx; color:var(--text-regular); line-height:1.6; }
+.options { gap:12rpx; }
+.option { flex:1 1 100%; min-height:104rpx; border-radius:10rpx; }
+.option.active { background:var(--primary-bg); }
+.option-name { font-size:30rpx; }
+.option-desc { font-size:26rpx; line-height:1.6; color:var(--text-regular); }
+.textarea,.input { border:1rpx solid var(--border-color); border-radius:10rpx; font-size:30rpx; }
+.preview { border-radius:8rpx; }
+.preview-label,.preview-text,.notice-content { font-size:28rpx; line-height:1.6; }
+.link,.btn-link { min-height:88rpx; box-sizing:border-box; display:inline-flex; align-items:center; padding:12rpx 16rpx; font-size:28rpx; }
+.btn-primary,.btn-cancel { min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; font-size:30rpx; box-sizing:border-box; }
+.modal { max-height:86vh; border-radius:16rpx; }
+.modal-footer { flex-wrap:wrap; gap:16rpx; }

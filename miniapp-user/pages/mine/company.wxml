@@ -1,10 +1,11 @@
 <view class="container">
+  <view class="page-intro"><text class="page-intro-title">企业资料</text><text class="page-intro-note">联系人与结算资料</text></view>
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:elif="{{info}}">
     <view class="company-card">
       <view class="company-name-row">
-        <view class="company-icon"><icon name="building" size="44rpx" color="#2E4A68" /></view>
+        <view class="company-icon"><icon name="building" size="44rpx" color="#1677FF" /></view>
         <text class="company-name">{{info.companyName}}</text>
       </view>
 

@@ -1,20 +1,20 @@
 /* [2026-10-13] 必要说明曾误用低对比次要/占位色；只改正常文字为正文辅助色，保留非文本与禁用态原声明。 */
 .container {
   min-height: 100vh;
-  padding: 80rpx 40rpx 60rpx;
+  padding: 48rpx 24rpx;
   background: var(--bg-color);
   box-sizing: border-box;
 }
 
 .header {
-  text-align: center;
-  margin-bottom: 100rpx;
-  padding-top: 40rpx;
+  text-align: left;
+  margin-bottom: 40rpx;
+  padding-top: 0;
 }
 
 .title {
   display: block;
-  font-size: 44rpx;
+  font-size: 40rpx;
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 16rpx;
@@ -28,17 +28,20 @@
 .role-list {
   display: flex;
   flex-direction: column;
-  gap: 32rpx;
+  gap: 20rpx;
 }
 
 .role-card {
   display: flex;
   align-items: center;
-  padding: 48rpx 40rpx;
+  padding: 32rpx 24rpx;
   background: #ffffff;
-  border-radius: 24rpx;
-  box-shadow: 0 8rpx 32rpx rgba(46, 74, 104, 0.08);
+  border-radius: 12rpx;
+  box-shadow: none;
   transition: transform 0.15s ease;
+  border: 1rpx solid var(--border-color);
+  min-height: 152rpx;
+  box-sizing: border-box;
 }
 
 .role-card:active {
@@ -57,7 +60,7 @@
   width: 100rpx;
   height: 100rpx;
   border-radius: 24rpx;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   font-size: 52rpx;
@@ -79,6 +82,7 @@
   display: flex;
   flex-direction: column;
   gap: 8rpx;
+  min-width: 0;
 }
 
 .role-name {
@@ -88,9 +92,9 @@
 }
 
 .role-desc {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--text-regular);
-  line-height: 1.4;
+  line-height: 1.6;
 }
 
 .role-arrow {
@@ -100,8 +104,12 @@
 }
 
 .footer-tip {
-  text-align: center;
-  margin-top: 80rpx;
-  font-size: 24rpx;
+  text-align: left;
+  margin-top: 40rpx;
+  font-size: 26rpx;
   color: var(--text-regular);
+  line-height: 1.7;
 }
+
+/* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
+.footer-tip text { display: block; margin-bottom: 12rpx; }

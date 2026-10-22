@@ -261,3 +261,26 @@
   padding: 0 20rpx;
   font-size: 28rpx;
 }
+
+/* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */
+
+.page { box-sizing: border-box; }
+.hero { flex-wrap: wrap; padding: 24rpx; border-radius: 12rpx; box-shadow: none; gap: 20rpx 0; }
+.hero-item { min-width: 0; word-break: break-all; }
+.hero-item:first-child { flex: 0 0 100%; text-align: left; padding-bottom: 20rpx; border-bottom: 1rpx solid var(--border-color); }
+.hero-item:first-child .hero-num { font-size: 48rpx; }
+.hero-item:not(:first-child) { flex: 1; text-align: left; }
+.hero-label,.hint { font-size: 25rpx; color: var(--text-regular); line-height: 1.6; }
+.card { border-radius: 12rpx; box-shadow: none; }
+.row-between { align-items: flex-start; flex-wrap: wrap; gap: 12rpx; }
+.row-title { min-width: 0; word-break: break-all; }
+.row-amount { margin-left: auto; font-size: 34rpx; word-break: break-all; }
+.row-main { min-width: 0; overflow: visible; }
+.btn-row { flex-wrap: wrap; gap: 12rpx; }
+.btn-ghost,.btn-primary,.filter-item,.link { box-sizing: border-box; min-height: 88rpx; height: auto; padding: 20rpx; border-radius: 8rpx; line-height: 1.6; display: flex; justify-content: center; align-items: center; white-space: normal; word-break: break-all; }
+.btn-primary { background: var(--primary-color); }
+.btn-ghost { margin-right: 0; flex: 1; min-width: 150rpx; }
+.btn-inline { margin-left: 0; }.link { padding: 16rpx; }
+.settlement-caution { color: var(--text-primary); font-size: 28rpx; font-weight: 600; line-height: 1.6; margin-bottom: 18rpx; }
+.dialog { left: 24rpx; right: 24rpx; top: 8%; max-height: 82vh; overflow-y: auto; box-sizing: border-box; border-radius: 12rpx; padding: 28rpx; }
+.dialog-input { height: 88rpx; box-sizing: border-box; width: 100%; }

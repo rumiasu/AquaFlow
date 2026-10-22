@@ -33,7 +33,7 @@
 }
 
 .no-auth-btn {
-  width: 360rpx;
+  width: 100%;
   height: 88rpx;
   line-height: 88rpx;
   background: var(--primary-color);
@@ -41,6 +41,7 @@
   border-radius: 44rpx;
   font-size: 30rpx;
   border: none;
+  max-width: 480rpx;
 }
 
 /* ========== 常驻「水站管理」入口（首页，紧跟自绘导航栏） ==========
@@ -52,11 +53,14 @@
   display: flex;
   align-items: center;
   gap: 16rpx;
-  margin: 16rpx 20rpx 0;
-  padding: 28rpx 24rpx;
+  margin: 16rpx 24rpx 0;
+  padding: 20rpx 24rpx;
   background: var(--bg-card);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  border-radius: 12rpx;
+  box-shadow: none;
+  min-height: 96rpx;
+  box-sizing: border-box;
+  border: 1rpx solid var(--border-color);
 }
 
 .mgmt-entry:active {
@@ -80,24 +84,27 @@
   display: flex;
   background: #ffffff;
   margin: 20rpx 24rpx 0;
-  border-radius: 16rpx;
+  border-radius: 12rpx;
   overflow-x: auto;
   white-space: nowrap;
-  padding: 8rpx 8rpx;
+  padding: 0;
   box-sizing: border-box;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.03);
+  box-shadow: none;
+  border: 1rpx solid var(--border-color);
 }
 
 .tab-item {
   flex-shrink: 0;
-  padding: 20rpx 28rpx;
+  padding: 18rpx 24rpx;
   font-size: 28rpx;
   color: var(--text-regular);
-  border-radius: 12rpx;
+  border-radius: 8rpx;
   display: inline-flex;
   align-items: center;
   gap: 8rpx;
   transition: all 0.15s ease;
+  min-height: 96rpx;
+  box-sizing: border-box;
 }
 
 .tab-item.active {
@@ -128,10 +135,11 @@
 
 .order-card {
   background: #ffffff;
-  border-radius: 20rpx;
+  border-radius: 12rpx;
   padding: 28rpx;
   margin-bottom: 20rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+  box-shadow: none;
+  border: 1rpx solid var(--border-color);
 }
 
 .order-card-exception {
@@ -234,12 +242,13 @@
 }
 
 .info-row {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--text-primary);
   margin-bottom: 10rpx;
   display: flex;
   align-items: flex-start;
   gap: 16rpx;
+  flex-wrap: wrap;
 }
 
 .info-label {
@@ -251,6 +260,8 @@
 .info-value {
   flex: 1;
   line-height: 1.5;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .info-phone {
@@ -259,7 +270,9 @@
 }
 
 .info-address .info-value {
-  color: var(--text-regular);
+  color: var(--text-primary);
+  font-size: 32rpx;
+  font-weight: 600;
 }
 
 .transfer-info, .return-info {
@@ -303,7 +316,8 @@
 .card-actions {
   margin-top: 20rpx;
   display: flex;
-  gap: 16rpx;
+  gap: 12rpx;
+  flex-wrap: wrap;
 }
 
 .btn-outline,
@@ -443,6 +457,8 @@
   align-items: center;
   padding: 28rpx 8rpx;
   border-bottom: 1rpx solid var(--bg-gray);
+  min-height: 112rpx;
+  box-sizing: border-box;
 }
 
 .modal-item:active {
@@ -530,7 +546,7 @@
 }
 
 .fee-detail-item {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--warning-color);
   margin-right: 20rpx;
 }
@@ -557,7 +573,7 @@
 /* 结算去向：整句由后端下发（settleNote），前端只负责显示 */
 .fee-settle {
   margin-top: 8rpx;
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--success-color);
   line-height: 1.5;
 }
@@ -762,7 +778,9 @@
   margin: 16rpx 20rpx 4rpx;
   padding: 22rpx 20rpx 16rpx;
   background: #ffffff;
-  border-radius: 16rpx;
+  border-radius: 12rpx;
+  box-shadow: none;
+  border: 1rpx solid var(--border-color);
 }
 
 .todo-head {
@@ -826,3 +844,15 @@
 .guide-entry { padding: 20rpx 32rpx; text-align: right; color: var(--primary-color); font-size: 26rpx; }
 .guide-step { padding: 20rpx 8rpx; line-height: 1.6; font-size: 28rpx; }
 .section-caption { padding: 20rpx 4rpx; color: var(--text-regular); font-size: 26rpx; }
+
+/* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
+.card-actions button, .no-auth-btn, .modal-cancel, .todo-card button { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.card-actions button { flex: 1 1 240rpx; }
+.todo-item { min-height: 112rpx; box-sizing: border-box; }
+.guide-entry { min-height: 96rpx; box-sizing: border-box; display: flex; align-items: center; justify-content: flex-end; margin: 0 24rpx; padding: 12rpx 8rpx; }
+.sub-tab-item { min-height: 88rpx; box-sizing: border-box; border-radius: 10rpx; }
+.risk-box, .risk-note, .exception-reason, .dispatch-stale-text { font-size: 28rpx; line-height: 1.6; overflow-wrap: anywhere; }
+.info-phone { flex-basis: 100%; margin-left: 116rpx; font-size: 28rpx; }
+.fee-row-main, .fee-source, .queue-head { flex-wrap: wrap; gap: 12rpx; }
+.modal-item-info { min-width: 0; overflow-wrap: anywhere; }
+.dispatch-stale button { min-height: 96rpx; height: auto; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; border-radius: 12rpx; }

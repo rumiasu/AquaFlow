@@ -5,8 +5,9 @@
 }
 
 .header {
-  background: var(--header-gradient);
-  padding: 60rpx 32rpx 40rpx;
+  background: #fff;
+  padding: 32rpx 24rpx;
+  border-bottom: 1rpx solid var(--border-color);
 }
 
 .user-row {
@@ -39,7 +40,7 @@
 .nickname {
   font-size: 36rpx;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .role-chip {
@@ -85,7 +86,7 @@
 .bind-text {
   /* 24rpx=12px 低于原关键文本≥14逻辑px（G04-roles-stations 绑定前提）；别改回 24rpx。 */
   font-size: 28rpx;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-regular);
 }
 
 .arrow {
@@ -95,10 +96,10 @@
 }
 
 .manager-entry-card {
-  margin-top: 28rpx;
-  background: rgba(255, 255, 255, 0.16);
+  margin-top: 24rpx;
+  background: var(--primary-bg);
   border: 2rpx solid rgba(255, 255, 255, 0.25);
-  border-radius: 20rpx;
+  border-radius: 12rpx;
   padding: 24rpx 28rpx;
   display: flex;
   align-items: center;
@@ -119,18 +120,18 @@
 .manager-entry-title {
   font-size: 30rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--primary-color);
 }
 .manager-entry-desc {
   font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-regular);
   margin-top: 6rpx;
 }
 
 .manager-entry-arrow {
   font-size: 26rpx;
   font-weight: 700;
-  color: var(--warning-bg);
+  color: var(--primary-color);
   padding: 12rpx 24rpx;
   background: rgba(255, 213, 79, 0.18);
   border-radius: 999rpx;
@@ -139,12 +140,13 @@
 /* 配送员绑定操作卡 */
 .bind-action-card {
   background: #ffffff;
-  margin: -20rpx 24rpx 24rpx;
-  border-radius: 20rpx;
+  margin: 20rpx 24rpx;
+  border-radius: 12rpx;
   padding: 28rpx;
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
   position: relative;
-  z-index: 20;
+  z-index: 1;
+  border: 1rpx solid var(--border-color);
 }
 
 .bind-info-line {
@@ -155,6 +157,8 @@
   border-radius: 14rpx;
   background: var(--primary-bg);
   margin-bottom: 20rpx;
+  flex-wrap: wrap;
+  gap: 12rpx;
 }
 .bind-info-line.bind-info-warning { background: var(--warning-bg); }
 .bind-info-line.bind-info-wait { background: var(--warning-bg); }
@@ -204,9 +208,10 @@
 .stats-card {
   background: var(--bg-card);
   margin: 0 24rpx 24rpx;
-  border-radius: 20rpx;
-  box-shadow: var(--shadow-md);
+  border-radius: 12rpx;
+  box-shadow: none;
   padding: 32rpx 24rpx;
+  border: 1rpx solid var(--border-color);
 }
 
 .stats-row {
@@ -228,7 +233,7 @@
 }
 
 .stats-label {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -243,7 +248,8 @@
    nowrap 是兜底 —— 宁可让金额格窄一点也不要在数字中间换行（"¥123\n45.67" 会被读错）。 */
 .stats-value.stats-money {
   font-size: 32rpx;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* 第三格的第二行（欠桶 N 户）：比 label 更弱，且**自己可点**（catchtap）——
@@ -251,10 +257,10 @@
 .stats-sub {
   display: block;
   margin-top: 6rpx;
-  font-size: 20rpx;
+  font-size: 26rpx;
   /* 比 --text-secondary(var(--text-secondary)) 再浅一档：它是同一格里的次要数字，不该与 label 抢注意力。
      app.wxss 没有这一档变量，故写死色值（别引不存在的 --text-tertiary）。 */
-  color: var(--text-placeholder);
+  color: var(--text-regular);
 }
 
 .stats-divider {
@@ -267,9 +273,10 @@
 .section-card {
   background: #ffffff;
   margin: 0 24rpx 24rpx;
-  border-radius: 20rpx;
+  border-radius: 12rpx;
   padding: 28rpx;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
+  border: 1rpx solid var(--border-color);
 }
 
 .section-header {
@@ -277,6 +284,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20rpx;
+  flex-wrap: wrap;
+  gap: 16rpx;
 }
 .section-title {
   font-size: 30rpx;
@@ -428,9 +437,10 @@
 .staff-item {
   display: flex;
   align-items: center;
-  gap: 20rpx;
+  gap: 16rpx;
   padding: 20rpx 0;
   border-bottom: 1rpx solid var(--border-light);
+  flex-wrap: wrap;
 }
 .staff-item:last-child { border-bottom: none; }
 .staff-avatar {
@@ -449,10 +459,11 @@
 .staff-avatar.staff-avatar-blue { background: var(--primary-color); }
 .staff-info {
   flex: 1;
-  min-width: 0;
+  min-width: 160rpx;
   display: flex;
   flex-direction: column;
   gap: 6rpx;
+  overflow-wrap: anywhere;
 }
 .staff-name {
   font-size: 28rpx;
@@ -510,9 +521,10 @@
 .menu-list {
   background: var(--bg-card);
   margin: 0 24rpx 24rpx;
-  border-radius: 20rpx;
-  box-shadow: var(--shadow-sm);
+  border-radius: 12rpx;
+  box-shadow: none;
   overflow: hidden;
+  border: 1rpx solid var(--border-color);
 }
 
 .menu-item {
@@ -520,6 +532,8 @@
   align-items: center;
   padding: 32rpx 24rpx;
   border-bottom: 1rpx solid var(--border-light);
+  min-height: 112rpx;
+  box-sizing: border-box;
 }
 
 .menu-item:last-child {
@@ -582,3 +596,21 @@
   background: var(--primary-gradient);
   margin-top: 20rpx;
 }
+
+/* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
+.bind-action-btn, .btn-login, .staff-btn, .staff-remove-btn { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.staff-action-col { flex-direction: row; flex-wrap: wrap; width: 100%; }
+.staff-action-col button { flex: 1; }
+.user-info, .manager-entry-text { min-width: 0; overflow-wrap: anywhere; }
+.section-head-right { flex-wrap: wrap; gap: 16rpx; }
+.section-toggle, .section-link { min-height: 96rpx; display: inline-flex; align-items: center; }
+.role-chip { border-radius: 8rpx; }
+.stats-item { min-width: 0; }
+.logout-btn { min-height: 96rpx; box-sizing: border-box; }
+
+/* 白底身份区不沿用旧深色页头的白字。 */
+.role-chip.role-delivery { background: var(--primary-bg); color: var(--primary-color); }
+.role-chip.role-manager { background: var(--bg-color); color: var(--text-primary); }
+.arrow { color: var(--text-secondary); }
+.manager-entry-arrow { background: transparent; border-radius: 8rpx; }
+.manager-entry-desc { font-size: 26rpx; line-height: 1.6; }

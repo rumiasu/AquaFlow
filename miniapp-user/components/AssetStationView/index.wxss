@@ -22,3 +22,9 @@
 /* 2026-10-12：原 26rpx 状态文案在 320px 仅约 11px；增大后显式允许换行，避免长站点错误挤压。 */
 .picker-message { display: block; padding: 28rpx 8rpx; font-size: 34rpx; color: var(--text-regular); line-height: 1.7; white-space: normal; overflow-wrap: break-word; }
 .picker-retry { margin-top: 20rpx; font-size: 34rpx; color: var(--primary-color); background: var(--bg-gray); }
+
+.scope-card { border-radius: var(--radius-lg); padding: 24rpx; box-shadow: none; }
+.scope-switch, .picker-close { min-height: 88rpx; display: flex; align-items: center; box-sizing: border-box; }
+.scope-row { flex-wrap: wrap; }
+.scope-main { min-width: 240rpx; }
+.picker { border-radius: 20rpx 20rpx 0 0; }

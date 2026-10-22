@@ -31,8 +31,8 @@
   display: block;
   margin-top: 6rpx;
   font-size: 24rpx;
-  /* 这里不用 --text-secondary(#A39E92)：对白底只有 2.67:1，达不到 §6「灰色占位不承载
-     价格、地址、警告」的可读要求。--text-regular(#6E6A61) 是 5.39:1，且客户端已在本页
+  /* 这里不用 --text-secondary(#637083)：对白底只有 2.67:1，达不到 §6「灰色占位不承载
+     价格、地址、警告」的可读要求。--text-regular(#4B596A) 是 5.39:1，且客户端已在本页
      .station-picker-close 等处用它做整句提示。 */
   color: var(--text-regular);
 }
@@ -409,3 +409,23 @@
   color: var(--warning-color);
   line-height: 1.5;
 }
+
+/* 商品区域用分隔线组织，不叠加装饰卡片。 */
+.container { padding: 16rpx 0 200rpx; }
+.section { box-shadow: none; padding: 24rpx 20rpx; }
+.catalog-note { display: block; color: var(--text-regular); font-size: 26rpx; line-height: 1.6; margin-bottom: 20rpx; }
+.search-input-wrap { height: 88rpx; border-radius: var(--radius-md); }
+.search-clear { min-width: 88rpx; height: 88rpx; display: flex; align-items: center; justify-content: center; }
+.product-grid { gap: 0; }
+.product-card { box-shadow: none; padding: 24rpx 0; border-radius: 0; overflow: visible; }
+.product-card + .product-card { border-top: 1rpx solid var(--border-color); }
+.product-img { width: 136rpx; height: 184rpx; border-radius: var(--radius-md); }
+.product-info { padding: 0 0 0 20rpx; }
+.product-name { font-size: 32rpx; }
+.product-brand, .product-deposit { font-size: 26rpx; color: var(--text-regular); line-height: 1.5; }
+.product-price { font-size: 38rpx; }
+.btn-row { flex-wrap: wrap; }
+.buy-btn, .cart-btn { min-width: 140rpx; min-height: 88rpx; height: auto; box-sizing: border-box; line-height: 1.4; padding: 20rpx 12rpx; display: flex; justify-content: center; align-items: center; font-size: 26rpx; border-radius: var(--radius-md); box-shadow: none; margin-top: 0; }
+.station-picker-close { min-height: 88rpx; display: flex; align-items: center; }
+.fab-cart { border-radius: var(--radius-lg); box-shadow: var(--shadow-md); bottom: calc(32rpx + env(safe-area-inset-bottom)); }
+.fab-cart:active { transform: none; }

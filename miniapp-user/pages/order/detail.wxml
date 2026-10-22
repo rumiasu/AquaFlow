@@ -24,28 +24,13 @@
     <view class="info-row" wx:if="{{order.customerCancelRequest.handledTime}}"><text class="label">处理时间</text><text class="value">{{order.customerCancelRequest.handledTime}}</text></view>
   </view>
 
-  <view class="info-section">
-    <view class="section-title">订单信息</view>
-    <view class="info-row">
-      <text class="label">订单编号</text>
-      <text class="value">{{order.id}}</text>
-    </view>
-    <view class="info-row">
-      <text class="label">下单时间</text>
-      <text class="value">{{order.createTime}}</text>
-    </view>
-    <view class="info-row" wx:if="{{order.deliveryStationName || order.stationName}}">
-      <text class="label">配送水站</text>
-      <text class="value">{{order.deliveryStationName || order.stationName}}</text>
-    </view>
-  </view>
 
   <view class="info-section">
     <view class="section-title">商品信息</view>
     <view class="items-list">
       <view class="item-row" wx:for="{{items}}" wx:key="productId">
         <view class="item-thumb" wx:if="{{item.imageUrl}}">
-          <image src="{{item.imageUrl}}" mode="aspectFill" class="item-thumb-img" data-index="{{index}}" data-url="{{item.imageUrl}}" binderror="onItemImageError" />
+          <image src="{{item.imageUrl}}" mode="aspectFit" class="item-thumb-img" data-index="{{index}}" data-url="{{item.imageUrl}}" binderror="onItemImageError" />
         </view>
         <view class="item-thumb item-thumb-placeholder" wx:else>
         </view>
@@ -131,6 +116,22 @@
     </view>
   </view>
 
+  <view class="info-section">
+    <view class="section-title">订单信息</view>
+    <view class="info-row">
+      <text class="label">订单编号</text>
+      <text class="value">{{order.id}}</text>
+    </view>
+    <view class="info-row">
+      <text class="label">下单时间</text>
+      <text class="value">{{order.createTime}}</text>
+    </view>
+    <view class="info-row" wx:if="{{order.deliveryStationName || order.stationName}}">
+      <text class="label">配送水站</text>
+      <text class="value">{{order.deliveryStationName || order.stationName}}</text>
+    </view>
+  </view>
+
   <view class="info-section delivery-arrangement-hint" wx:if="{{deliveryArrangementHint}}">
     <view class="section-title">配送安排</view>
     <view class="info-row"><text class="value">{{deliveryArrangementHint}}</text></view>
@@ -147,7 +148,7 @@
         wx:if="{{!item.failed}}"
         class="order-image"
         src="{{item.url}}"
-        mode="aspectFill"
+        mode="aspectFit"
         data-url="{{item.url}}"
         bindtap="onPreviewImage"
         binderror="onProofImageError"

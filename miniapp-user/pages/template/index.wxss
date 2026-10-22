@@ -350,3 +350,16 @@
   background: var(--primary-gradient);
   color: #fff;
 }
+
+.info-bar { border-radius: var(--radius-md); background: var(--primary-bg); }
+.info-text { color: var(--primary-dark); font-size: 26rpx; line-height: 1.6; }
+.template-item { border-radius: var(--radius-lg); box-shadow: none; }
+.template-main, .template-actions { flex-wrap: wrap; gap: 12rpx; }
+.action-edit, .action-delete, .form-add-btn, .modal-close { min-height: 88rpx; padding: 0 16rpx; display: inline-flex; align-items: center; box-sizing: border-box; }
+.template-right { padding: 16rpx; min-height: 88rpx; display: flex; align-items: center; box-sizing: border-box; }
+.form-input { box-sizing: border-box; min-height: 88rpx; }
+.form-option, .form-option.mini { min-height: 88rpx; display: flex; align-items: center; box-sizing: border-box; font-size: 26rpx; }
+.item-row { flex-wrap: wrap; }
+.item-select { flex-basis: 100%; }
+.item-qty .qty-btn, .item-qty .qty-input, .item-remove { min-width: 88rpx; height: 88rpx; font-size: 28rpx; display: flex; align-items: center; justify-content: center; }
+.add-btn, .modal-btn { border-radius: var(--radius-md); min-height: 88rpx; box-shadow: none; }

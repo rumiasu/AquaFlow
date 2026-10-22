@@ -41,7 +41,7 @@
 }
 
 .sum-value.pay {
-  color: #b5442c;
+  color: #BD3328;
 }
 
 .sum-label {
@@ -172,3 +172,17 @@
 .aftercare-section button[disabled] { color: var(--text-secondary); background: var(--bg-gray); }
 .aftercare-section .actions button { margin: 0; }
 .aftercare-section .aftercare-error { padding: 16rpx; border-radius: 12rpx; color: var(--error-color); background: var(--error-bg); }
+
+/* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */
+
+.page { background: var(--bg-color); }
+.sum-grid { flex-wrap: wrap; gap: 2rpx; padding: 20rpx; background: #fff; border-radius: 12rpx; }
+.sum-card { border-radius: 0; min-width: 0; padding: 18rpx 4rpx; margin-right: 0; align-items: flex-start; word-break: break-all; }
+.sum-label,.scope-note,.sub-text { font-size: 25rpx; color: var(--text-regular); line-height: 1.6; }
+.card { border-radius: 10rpx; }.row { align-items: flex-start; gap: 14rpx; flex-wrap: wrap; }.row-main { min-width: 0; word-break: break-all; }.row-amount { margin-left: auto; font-size: 36rpx; word-break: break-all; }
+.reversal-section { padding: 22rpx; background: var(--warning-bg); border-left: 6rpx solid var(--warning-color); border-radius: 8rpx; }
+.actions { justify-content: flex-start; }.actions button { flex: 1 1 240rpx; }
+.page button,.aftercare-section button { box-sizing: border-box; min-height: 88rpx; height: auto; max-width: 100%; padding: 20rpx; border-radius: 8rpx; font-size: 27rpx; line-height: 1.6; white-space: normal; word-break: break-all; }
+.aftercare-section .card { padding: 24rpx 0; border: 0; border-top: 1rpx solid var(--border-color); border-radius: 0; background: transparent; }
+.aftercare-section { background: #fff; padding: 24rpx; border-radius: 12rpx; }
+.aftercare-section input,.aftercare-section textarea { background: var(--bg-color); border-radius: 8rpx; }

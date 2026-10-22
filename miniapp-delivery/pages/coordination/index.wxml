@@ -18,7 +18,7 @@
   </view>
 
   <view wx:else>
-    <view class="guide-entry" bindtap="onOpenGuide">使用帮助 ›</view>
+
     <!--
       数据没加载出来的提示（空串时不渲染）。[2026-09-20 真机联调] 原来任一接口失败都会让
       **整页**数据不落地，而下面四个页签照旧渲染成「暂无待分配 / 暂无抢单池…」—— 与"确实没有单"
@@ -38,10 +38,7 @@
       位置：紧跟自绘导航栏（站名 + 营业状态胶囊）之后、提醒区之前 —— 即 §5 的层级
       「站名/营业状态开头 → 常驻水站管理 → 待分配与审批 → 其他待处理」。
     -->
-    <view class="mgmt-entry" bindtap="onGoStationMgmt">
-      <text class="mgmt-entry-title">水站管理</text>
-      <text class="mgmt-entry-arrow">›</text>
-    </view>
+
 
     <!--
       「其他待处理」——**只列不在本页 tab 里的那几项**。
@@ -74,7 +71,7 @@
           ⚠️ 卡的显隐条件（`todo && todo.items.length`）本身没改 —— 变的是 items 的收录口径
           （零计数不再进来），见上面那段与 index.js 的 decorateTodo。
         -->
-        <text class="todo-title">其他待处理</text>
+        <text class="todo-title">本站待办</text>
       </view>
       <text wx:if="{{todoLoading}}">正在核对待办…</text>
       <text wx:if="{{todoError}}">{{todoError}}</text>
@@ -91,6 +88,12 @@
     </view>
 
     <!-- Tab 切换：角标即当下的待办数，点进去才展开明细 -->
+    <view class="mgmt-entry" bindtap="onGoStationMgmt">
+      <text class="mgmt-entry-title">水站管理</text>
+      <text class="mgmt-entry-arrow">›</text>
+    </view>
+    <view class="guide-entry" bindtap="onOpenGuide">使用帮助 ›</view>
+
     <scroll-view class="tab-bar" scroll-x enable-flex>
       <view class="tab-item {{activeTab === item.key ? 'active' : ''}}"
             wx:for="{{tabs}}" wx:key="key"

@@ -28,7 +28,7 @@
   border: 1rpx solid rgba(181, 68, 44, 0.3);
   border-radius: var(--radius-lg);
   padding: 40rpx 32rpx;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .error-text {
@@ -40,13 +40,16 @@
 
 .error-btn {
   margin-top: 28rpx;
-  height: 76rpx;
-  line-height: 76rpx;
+  height: auto;
+  line-height: 1.6;
   text-align: center;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-md);
   background-color: var(--primary-color);
   color: #fff;
   font-size: 28rpx;
+  min-height: 88rpx;
+  padding: 20rpx;
+  box-sizing: border-box;
 }
 
 .error-btn.ghost {
@@ -60,15 +63,19 @@
   justify-content: space-between;
   align-items: flex-start;
   background-color: #fff;
-  border-radius: var(--radius-lg);
-  padding: 28rpx 32rpx;
-  margin-bottom: 20rpx;
-  box-shadow: var(--shadow-sm);
+  border-radius: 0;
+  padding: 28rpx 24rpx;
+  margin-bottom: 0;
+  box-shadow: none;
+  border-bottom: 1rpx solid var(--border-color);
+  gap: 16rpx;
 }
 
 .record-main {
   flex: 1;
-  padding-right: 20rpx;
+  padding-right: 0;
+  min-width: 0;
+  word-break: break-all;
 }
 
 .record-type {
@@ -96,15 +103,18 @@
 .record-order {
   display: block;
   margin-top: 6rpx;
-  font-size: 22rpx;
-  color: var(--text-placeholder);
+  font-size: 24rpx;
+  color: var(--text-regular);
 }
 
 .record-amount {
   font-size: 34rpx;
   font-weight: 700;
   color: var(--price-color);
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 46%;
+  word-break: break-all;
+  text-align: right;
 }
 
 /* 方向配色：正 = 入账，负 = 扣减。字号与字重一致，只有颜色不同（金额本身已带符号） */
@@ -119,3 +129,9 @@
 .record-amount.amount-flat {
   color: var(--text-secondary);
 }
+
+.records-heading { padding: 8rpx 0 24rpx; }
+.records-title { display: block; font-size: 34rpx; font-weight: 700; color: var(--text-primary); }
+.records-note { display: block; margin-top: 10rpx; font-size: 24rpx; line-height: 1.7; color: var(--text-regular); }
+.record-list { overflow: hidden; border: 1rpx solid var(--border-color); border-radius: var(--radius-md); background: #fff; }
+.record-item:last-child { border-bottom: 0; }

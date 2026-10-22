@@ -144,3 +144,19 @@
 .customer-option { display:flex; flex-direction:column; padding:24rpx 0; border-bottom:1rpx solid var(--primary-bg); overflow-wrap:anywhere; }
 .customer-selected { padding:24rpx 0 12rpx; font-weight:600; overflow-wrap:anywhere; }
 .customer-selector .field-hint { display:block; font-size:24rpx; line-height:1.6; color:var(--text-secondary); }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.container { box-sizing:border-box; }
+.card { border-radius:12rpx; box-shadow:none; border:1rpx solid var(--border-color); }
+.card-title { font-size:32rpx; line-height:1.5; border-left:0; padding-left:0; }
+.field-label { font-size:30rpx; font-weight:600; }
+.field-input,.picker-value { min-height:96rpx; font-size:30rpx; border-radius:10rpx; box-sizing:border-box; border:1rpx solid var(--border-color); }
+.field-hint,.footer-tip,.preview-note { font-size:28rpx; line-height:1.6; color:var(--text-regular); }
+.field-link { min-height:88rpx; display:flex; align-items:center; font-size:28rpx; }
+.sign-row { flex-wrap:wrap; }
+.sign-btn { min-width:240rpx; min-height:96rpx; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; }
+.preview-head,.preview-row { font-size:28rpx; gap:12rpx; }
+.col { min-width:0; overflow-wrap:anywhere; }
+.btn-half { min-height:96rpx; display:flex; align-items:center; justify-content:center; border-radius:10rpx; font-size:30rpx; box-sizing:border-box; }
+.footer { gap:16rpx; }
+.footer-tip { padding-bottom:28rpx; }

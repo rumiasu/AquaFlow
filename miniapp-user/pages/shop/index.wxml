@@ -29,7 +29,7 @@
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
 
     <view class="station-bar" wx:if="{{isLogin}}" bindtap="onOpenStationPicker">
-      <icon name="location" size="32rpx" color="#2E4A68" />
+      <icon name="location" size="32rpx" color="#1677FF" />
       <text class="station-bar-label" wx:if="{{currentStation}}">{{currentStation.name}}</text>
       <text class="station-bar-label station-bar-empty" wx:else>请选择水站查看商品</text>
       <view class="station-bar-switch">
@@ -48,12 +48,13 @@
     <view class="section">
       <!-- 商品目录：入口在首页「更多商品 ›」/「搜索 ›」（两者都落到本页，?focus=1 时自动聚焦搜索框） -->
       <text class="section-title">商品目录</text>
+      <text class="catalog-note">商品价格为本站零售价；水票、配送费及新增押金在确认页核算。</text>
       <view class="product-grid">
         <view class="product-card"
           wx:for="{{allProducts}}" wx:key="id"
           wx:if="{{!keywords || item.name.indexOf(keywords) >= 0 || (item.brand && item.brand.indexOf(keywords) >= 0) || (item.spec && item.spec.indexOf(keywords) >= 0)}}">
           <view class="product-img" wx:if="{{item.imageUrl}}">
-            <image src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+            <image src="{{item.imageUrl}}" mode="aspectFit" style="width:100%;height:100%;" />
           </view>
           <view class="product-img product-img-placeholder" wx:else>
           </view>
@@ -62,11 +63,11 @@
               <text class="product-name">{{item.name}}</text>
             </view>
             <text class="product-image-note" wx:if="{{item.imageUrl === '/assets/product/barrel-neutral-template.webp'}}">商品示意图 · 包装以实物为准</text>
-            <text class="product-brand" wx:if="{{item.brand}}">{{item.brand}} · {{item.spec}}</text>
+            <text class="product-brand" wx:if="{{item.brand || item.spec}}">{{item.brand}}{{item.brand && item.spec ? ' · ' : ''}}{{item.spec}}</text>
             <view class="info-row">
               <!-- 本站有效价（站级覆盖 → 通用库参考价），后端下发，前端不再自己拼价 -->
               <text class="product-price">¥{{item.effectivePrice}}</text>
-              <text class="product-deposit" wx:if="{{item.effectiveDeposit > 0}}">押金 ¥{{item.effectiveDeposit}}</text>
+              <text class="product-deposit" wx:if="{{item.effectiveDeposit > 0}}">桶押金参考 ¥{{item.effectiveDeposit}}</text>
             </view>
             <view class="btn-row">
               <!-- [2026-10-07 #12] 术语统一为「订水清单」（与首页"加入清单/去结算"同链，
@@ -75,7 +76,7 @@
                 <text>加入清单</text>
               </view>
               <view class="buy-btn {{isLogin ? '' : 'login-required'}}" bindtap="onBuyNow" data-id="{{item.id}}">
-                <text>立即购买</text>
+                <text>选购此商品</text>
               </view>
             </view>
           </view>
@@ -103,9 +104,8 @@
       </view>
     </view>
     <view class="station-picker-list">
-      <view class="station-picker-item" wx:for="{{stationList}}" wx:key="id"
-            bindtap="onSelectStation" data-id="{{item.id}}"
-            class="{{item.id === currentStationId ? 'active' : ''}}">
+      <view class="station-picker-item {{item.id === currentStationId ? 'active' : ''}}" wx:for="{{stationList}}" wx:key="id"
+            bindtap="onSelectStation" data-id="{{item.id}}">
         <view class="station-picker-item-info">
           <text class="station-picker-item-name">{{item.name}}</text>
           <text class="station-picker-item-addr" wx:if="{{item.address}}">{{item.address}}</text>

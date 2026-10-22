@@ -5,8 +5,11 @@
 
 /* [2026-09-27 走查 D03 修] 页头卡片：原来只有"成功态"一种样式，
    现在同一个卡位承载 提交前 / 提交中 / 成功 三态（见 wxml 的 resultState 分支）。 */
-.head-card { background: var(--bg-card); margin: var(--spacing-md); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: var(--spacing-lg); }
-.head-title { font-size: var(--font-xl); font-weight: 700; color: var(--text-primary); display: block; margin-bottom: var(--spacing-xs); }
+.head-card { background: var(--bg-card); margin: var(--spacing-md); border-radius: 12rpx; box-shadow: none; padding: 28rpx;
+  text-align: left;
+  border: 1rpx solid var(--border-color);
+}
+.head-title { font-size: 38rpx; font-weight: 700; color: var(--text-primary); display: block; margin-bottom: var(--spacing-xs); }
 .head-subtitle { font-size: var(--font-sm); color: var(--text-regular); line-height: 36rpx; }
 /* 成功态样式保留原名（.success-header 已并入 .head-card，成功时用的是同一张卡） */
 .success-header { background: var(--bg-card); margin: var(--spacing-md); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: var(--spacing-xl) var(--spacing-lg); text-align: center; }
@@ -21,7 +24,9 @@
 .seg-head { display: flex; align-items: center; margin: var(--spacing-md) var(--spacing-md) 0; }
 .seg-title { font-size: 30rpx; font-weight: 700; color: var(--text-primary); }
 
-.section { background: var(--bg-card); margin: var(--spacing-md); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: var(--spacing-lg); }
+.section { background: var(--bg-card); margin: var(--spacing-md); border-radius: 12rpx; box-shadow: none; padding: var(--spacing-lg);
+  border: 1rpx solid var(--border-color);
+}
 .section-title { font-size: var(--font-md); font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg); display: block; }
 /* 标题 + 「?」（2026-09-24）。下边距挪到这一行上，否则问号会被标题自己的 margin 顶偏。
    [2026-09-26] 现在有两节用它：「送达凭证」与「楼层与楼梯凭证」（三段的标题已提到 .seg-head）。 */
@@ -36,9 +41,10 @@
 .cust-card {
   background: var(--bg-card);
   margin: var(--spacing-md);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: 12rpx;
+  box-shadow: none;
   padding: var(--spacing-lg);
+  border: 1rpx solid var(--border-color);
 }
 .cust-main { display: flex; align-items: center; gap: 12rpx; margin-bottom: var(--spacing-sm); }
 .cust-name { font-size: var(--font-xl); font-weight: 700; color: var(--text-primary); }
@@ -51,10 +57,16 @@
   border-radius: 8rpx;
   flex-shrink: 0;
 }
-.cust-row { display: flex; align-items: center; padding: 14rpx 0; border-top: 2rpx solid var(--bg-gray); }
+.cust-row { display: flex; align-items: center; padding: 14rpx 0; border-top: 2rpx solid var(--bg-gray);
+  min-height: 96rpx;
+  box-sizing: border-box;
+  gap: 16rpx;
+}
 /* [2026-09-26] 原来的 .cust-row-icon（📞 / 📍）已删：§6 员工端逐步去除表情符号，
    行尾的「拨打」「复制」已经把动作说清楚了。 */
-.cust-row-text { flex: 1; font-size: 28rpx; color: var(--text-primary); word-break: break-all; }
+.cust-row-text { flex: 1; font-size: 30rpx; color: var(--text-primary); word-break: break-all;
+  line-height: 1.5;
+}
 .cust-row-action {
   font-size: 26rpx;
   color: var(--primary-color);
@@ -66,9 +78,10 @@
 .money-card {
   background: var(--bg-card);
   margin: var(--spacing-md);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: 12rpx;
+  box-shadow: none;
   padding: var(--spacing-lg);
+  border: 1rpx solid var(--border-color);
 }
 .money-line { display: flex; align-items: baseline; justify-content: space-between; }
 .money-label { font-size: var(--font-md); color: var(--text-regular); }
@@ -87,7 +100,7 @@
 .goods-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16rpx; padding: 14rpx 0; border-top: 2rpx solid var(--bg-gray); }
 .goods-row:first-of-type { border-top: none; }
 .goods-name { flex: 1; font-size: 30rpx; color: var(--text-primary); word-break: break-all; }
-.goods-qty { flex-shrink: 0; font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
+.goods-qty { flex-shrink: 0; font-size: 32rpx; font-weight: 700; color: var(--text-primary); }
 .goods-empty { padding: 14rpx 0; font-size: var(--font-sm); color: var(--text-regular); }
 .money-meta { margin-top: 8rpx; }
 .money-meta-item { display: block; font-size: var(--font-sm); color: var(--text-regular); line-height: 36rpx; }
@@ -110,7 +123,7 @@
 .item-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
 .item-spec { font-size: 24rpx; color: var(--text-regular); background: var(--bg-color); padding: 4rpx 12rpx; border-radius: 8rpx; }
 
-.barrel-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16rpx; }
+.barrel-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 20rpx; }
 .barrel-label { font-size: 28rpx; color: var(--text-primary); }
 .num-blue { font-weight: 700; color: var(--primary-color); }
 
@@ -118,10 +131,14 @@
    64rpx 那一版在真机上偏小、还容易点空（点了没反应最容易被当成"坏了"）。 */
 /* 数量输入在局部层内绘制，滚经固定底栏时随控件一起被盖住；窄屏不压缩加减触区。 */
 .barrel-stepper { position: relative; z-index: 0; display: flex; flex-shrink: 0; align-items: center; gap: 12rpx; }
-.step-btn { width: 88rpx; height: 88rpx; border-radius: 50%; background: var(--bg-color); display: flex; align-items: center; justify-content: center; font-size: 40rpx; font-weight: 300; color: var(--text-primary); border: 2rpx solid var(--border-color); }
+.step-btn { width: 96rpx; height: 96rpx; border-radius: 12rpx; background: var(--bg-color); display: flex; align-items: center; justify-content: center; font-size: 40rpx; font-weight: 300; color: var(--text-primary); border: 2rpx solid var(--border-color);
+  box-sizing: border-box;
+}
 .step-btn:active { background: var(--primary-bg); }
 .step-btn-disabled { opacity: 0.4; }
-.step-input { width: 120rpx; height: 88rpx; text-align: center; font-size: 38rpx; font-weight: 700; border: 2rpx solid var(--border-color); border-radius: var(--radius-md); }
+.step-input { width: 112rpx; height: 96rpx; text-align: center; font-size: 38rpx; font-weight: 700; border: 2rpx solid var(--border-color); border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
 
 .discrepancy-section { margin-top: 16rpx; padding: 16rpx; background: var(--warning-bg); border-radius: var(--radius-md); border: 2rpx solid var(--warning-bg); }
 .discrepancy-warn { font-size: 26rpx; color: var(--error-color); font-weight: 600; margin-bottom: 12rpx; }
@@ -160,12 +177,21 @@
 .collect-tip { display: block; margin-top: 12rpx; font-size: 26rpx; color: var(--text-regular); line-height: 1.6; }
 
 /* 「更多（选填）」折叠条（契约 C2）：正常路径只留"商品 / 回桶 / 收钱"三件事 */
-.more-toggle { display: flex; justify-content: space-between; align-items: center; padding: 20rpx 24rpx; background: var(--bg-card); border: 2rpx solid var(--border-color); border-radius: var(--radius-md); }
+.more-toggle { display: flex; justify-content: space-between; align-items: center; padding: 20rpx 24rpx; background: var(--bg-card); border: 2rpx solid var(--border-color); border-radius: var(--radius-md);
+  min-height: 96rpx;
+  box-sizing: border-box;
+}
 .more-toggle-text { font-size: 26rpx; color: var(--text-regular); }
 .more-toggle-icon { font-size: 22rpx; color: var(--text-secondary); }
 
-.collect-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; }
-.collect-option { text-align: center; padding: 20rpx 0; border: 2rpx solid var(--border-color); border-radius: var(--radius-md); background: #fff; transition: all .2s; }
+.collect-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx;
+  flex-wrap: wrap;
+}
+.collect-option { text-align: center; padding: 20rpx 0; border: 2rpx solid var(--border-color); border-radius: 12rpx; background: #fff; transition: all .2s;
+  min-height: 112rpx;
+  box-sizing: border-box;
+  min-width: 220rpx;
+}
 .collect-option.active { border-color: var(--warning-color); background: rgba(255, 149, 0, 0.1); }
 .collect-option-name { font-size: 28rpx; font-weight: 600; color: var(--text-primary); display: block; }
 .collect-option.active .collect-option-name { color: var(--warning-color); }
@@ -186,7 +212,10 @@
 .note-input { width: 100%; min-height: 140rpx; padding: var(--spacing-md); border: 2rpx solid var(--border-color); border-radius: var(--radius-md); font-size: var(--font-md); box-sizing: border-box; }
 
 .footer { position: fixed; z-index: 20; bottom: 0; left: 0; right: 0; background: var(--bg-card); padding: var(--spacing-lg) var(--spacing-md); padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom)); box-shadow: 0 -4rpx 20rpx rgba(0,0,0,.06); }
-.btn-confirm { width: 100%; background: var(--success-color); color: #fff; border: none; border-radius: var(--radius-round); font-size: var(--font-lg); font-weight: 700; line-height: 1.5; padding: var(--spacing-lg) 0; }
+.btn-confirm { width: 100%; background: var(--primary-color); color: #fff; border: none; border-radius: 12rpx; font-size: var(--font-lg); font-weight: 700; line-height: 1.5; padding: var(--spacing-lg) 0;
+  min-height: 96rpx;
+  white-space: normal;
+}
 .btn-confirm::after { border: none; }
 /* [2026-09-27 走查 D03 修] 提交在途：按钮必须**看起来不能再点**（disabled 属性之外再给视觉，
    否则"点了没反应"与"正在提交"分不清 —— 本仓"静默无反应"的老毛病）。 */
@@ -256,3 +285,20 @@
   color: var(--text-secondary);
   margin-left: 12rpx;
 }
+
+/* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
+.cust-address .cust-row-text { font-size: 34rpx; font-weight: 700; }
+.cust-row-text, .goods-name, .money-meta-item { min-width: 0; overflow-wrap: anywhere; }
+.barrel-stepper { margin-left: auto; }
+.barrel-label { font-size: 28rpx; line-height: 1.5; }
+.reason-item { flex-wrap: wrap; gap: 12rpx; }
+.reason-remove { min-width: 96rpx; min-height: 96rpx; display: flex; align-items: center; justify-content: center; }
+.reason-qty-input { min-height: 96rpx; }
+.add-reason-btn, .dispute-entry, .modal-item, .modal-cancel { min-height: 96rpx; box-sizing: border-box; }
+.container > button, .upload-recovery-panel button { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.upload-recovery-panel { margin: 24rpx 24rpx calc(260rpx + env(safe-area-inset-bottom)); padding: 24rpx; border: 2rpx solid var(--warning-color); border-radius: 12rpx; background: var(--warning-bg); line-height: 1.6; }
+.upload-recovery-panel text { display: block; overflow-wrap: anywhere; }
+.upload-recovery-panel image { display: block; max-width: 100%; }
+
+.cust-main, .money-line, .money-head, .goods-row { flex-wrap: wrap; gap: 12rpx; }
+.container > button { max-width: 100%; }

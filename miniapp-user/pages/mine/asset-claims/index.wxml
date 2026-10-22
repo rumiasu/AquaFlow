@@ -30,8 +30,8 @@
     <view class="claim-line" wx:for="{{form.items}}" wx:key="productId">
       <text class="claim-title">{{item.name}} · 商品 #{{item.productId}}</text>
       <block wx:if="{{pending || item.category === 1}}">
-        <view class="claim-field"><text>已付桶容量 E（份）</text><input class="claim-input" type="number" maxlength="10" value="{{item.rights}}" data-index="{{index}}" data-field="rights" bindinput="onField" disabled="{{pending || submitting}}" /></view>
-        <view class="claim-field"><text>实物持桶 H（只）</text><input class="claim-input" type="number" maxlength="10" value="{{item.held}}" data-index="{{index}}" data-field="held" bindinput="onField" disabled="{{pending || submitting}}" /></view>
+        <view class="claim-field"><text>已付用桶权益（份）</text><input class="claim-input" type="number" maxlength="10" value="{{item.rights}}" data-index="{{index}}" data-field="rights" bindinput="onField" disabled="{{pending || submitting}}" /></view>
+        <view class="claim-field"><text>实际持有水桶（只）</text><input class="claim-input" type="number" maxlength="10" value="{{item.held}}" data-index="{{index}}" data-field="held" bindinput="onField" disabled="{{pending || submitting}}" /></view>
         <view class="claim-field"><text>已核实历史桶单价（元/份，可不填）</text><input class="claim-input" type="digit" maxlength="12" value="{{item.unitPrice}}" data-index="{{index}}" data-field="unitPrice" bindinput="onField" disabled="{{pending || submitting}}" placeholder="未填写时按补录规则推断" /></view>
       </block>
       <view class="claim-field"><text>历史水票（张）</text><input class="claim-input" type="number" maxlength="10" value="{{item.tickets}}" data-index="{{index}}" data-field="tickets" bindinput="onField" disabled="{{pending || submitting}}" /></view>
@@ -51,8 +51,8 @@
     <text class="claim-amount">历史实收押金余额：¥{{item.depositText}}</text>
     <view class="claim-line" wx:for="{{item.items}}" wx:for-item="line" wx:key="productId">
       <text class="claim-title">{{line.name}} {{line.spec}} · 商品 #{{line.productId}}</text>
-      <text class="claim-row">已付桶容量 E：{{line.rights}} 份 · 实物持桶 H：{{line.held}} 只</text>
-      <text class="claim-row">桶数差额（H−E）：{{line.over}} · 水票：{{line.tickets}} 张</text>
+      <text class="claim-row">已付用桶权益：{{line.rights}} 份 · 实际持有水桶：{{line.held}} 只</text>
+      <text class="claim-row">持桶与已付权益差额：{{line.over}} · 水票：{{line.tickets}} 张</text>
       <text class="claim-row">桶权益单价（元/份）：{{line.unitPriceText}}</text>
     </view>
     <text class="claim-material">本人说明：{{item.note}}</text>

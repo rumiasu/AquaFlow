@@ -41,14 +41,13 @@
     </view>
   </view>
 
-  <!-- [2026-10-06] 待收款区默认折叠，减少首页信息密度 -->
+  <!-- 未结款项常显，不以折叠隐藏收款事实。 -->
   <view class="unpaid-section" wx:if="{{deliveredUnpaidOrders.length > 0}}">
-    <view class="unpaid-header" bindtap="onToggleUnpaidSection">
-      <text class="unpaid-title">待收款</text>
+    <view class="unpaid-header">
+      <text class="unpaid-title">已送达 · 待收款</text>
       <text class="unpaid-count">{{deliveredUnpaidOrders.length}} 单</text>
-      <text class="unpaid-toggle">{{unpaidExpanded ? '收起' : '展开'}}</text>
     </view>
-    <block wx:if="{{unpaidExpanded}}">
+    <block>
       <view class="order-card" wx:for="{{deliveredUnpaidOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
         <view class="card-header">
           <view class="tag-row">

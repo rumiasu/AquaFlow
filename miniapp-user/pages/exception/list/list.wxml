@@ -20,10 +20,6 @@
             <text class="label">类型</text>
             <text class="value category-tag">{{item.categoryText}}</text>
           </view>
-          <view class="info-item">
-            <text class="label">状态</text>
-            <text class="value">{{item.statusText}}</text>
-          </view>
         </view>
 
         <view class="info-row" wx:if="{{item.discrepancy !== 0}}">
@@ -44,7 +40,7 @@
 
       <view class="card-footer">
         <view class="progress-info">
-          <view class="progress-step {{item.status === 'STAFF_RECORDED' || item.status === 'MANAGER_PENDING' || item.status === 'MANAGER_APPROVED' || item.status === 'EXECUTING' || item.status === 'EXECUTED' ? 'active' : ''}}">
+          <view class="step {{item.status === 'STAFF_RECORDED' || item.status === 'MANAGER_PENDING' || item.status === 'MANAGER_APPROVED' || item.status === 'EXECUTING' || item.status === 'EXECUTED' ? 'active' : ''}}">
             <view class="step-dot"></view>
             <text class="step-text">配送员录入</text>
           </view>

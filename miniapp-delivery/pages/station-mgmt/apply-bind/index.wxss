@@ -321,7 +321,7 @@
   bottom: 0;
   padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
   background: #ffffff;
-  border-top: 1rpx solid #F1ECE1;
+  border-top: 1rpx solid #E8ECF1;
 }
 
 .btn-submit {
@@ -368,3 +368,23 @@
   color: var(--text-secondary);
 }
 .footer-action:active { opacity: 0.8; }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.container { padding-bottom:360rpx; }
+.section-card { padding:28rpx 24rpx; border-radius:12rpx; box-shadow:none; border:1rpx solid var(--border-color); }
+.card-title { font-size:34rpx; }
+.card-desc,.station-address,.history-time,.history-status { color:var(--text-regular); font-size:26rpx; line-height:1.6; }
+.station-item { background:#fff; border-radius:0; border:0; border-bottom:1rpx solid var(--border-color); padding:24rpx 0; min-height:112rpx; }
+.station-name-row,.history-head { flex-wrap:wrap; }
+.station-name { font-size:32rpx; overflow-wrap:break-word; }
+.station-address { display:block; overflow:visible; -webkit-line-clamp:unset; }
+.station-main { overflow:visible; min-width:0; }
+.station-action { flex-shrink:0; font-size:28rpx; font-weight:600; color:var(--primary-color); }
+.station-map-link,.loc-action,.search-clear { min-height:88rpx; display:flex; align-items:center; font-size:26rpx; box-sizing:border-box; }
+.search-input { min-width:0; height:88rpx; }
+.search-row { border:1rpx solid var(--border-color); border-radius:10rpx; }
+.loc-row { border-radius:8rpx; }
+.history-item { background:var(--bg-color); border-radius:8rpx; }
+.history-station { white-space:normal; overflow-wrap:break-word; min-width:160rpx; }
+.footer { border-color:var(--border-color); }
+.footer-action { min-height:88rpx; margin-top:12rpx; box-sizing:border-box; display:flex; align-items:center; justify-content:center; color:var(--text-regular); }

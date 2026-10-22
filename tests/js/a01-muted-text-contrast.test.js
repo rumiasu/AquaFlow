@@ -198,11 +198,11 @@ test('active customer chips and retry surfaces retain readable white text', () =
   }
 })
 
-test('shared surfaces, disabled controls and decorative icons remain untouched', () => {
+test('approved shared palette preserves disabled and decorative semantic roles', () => {
   for (const palette of Object.values(palettes)) {
-    assert.strictEqual(palette['--text-secondary'], '#A39E92')
-    assert.strictEqual(palette['--text-placeholder'], '#C9C4B8')
-    assert.strictEqual(palette['--text-regular'], '#6E6A61')
+    assert.strictEqual(palette['--text-secondary'], '#637083')
+    assert.strictEqual(palette['--text-placeholder'], '#9CA7B5')
+    assert.strictEqual(palette['--text-regular'], '#4B596A')
   }
   for (const [rel, selector, name, expected] of [
     ['miniapp-delivery/pages/station-mgmt/customers/index.wxss', '.badge.act-lost', 'background', 'var(--text-secondary)'],

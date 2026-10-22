@@ -59,6 +59,7 @@ Page({
   ...wrapUploadRecovery({
   data: {
     loading: true,
+    loadError: '',
     tab: 'all',          // all=全部目录 | selected=已选用 | mine=我的商品
     keyword: '',
     category: 0,         // 0=全部
@@ -124,9 +125,10 @@ Page({
   },
 
   async loadData() {
-    this.setData({ loading: true })
+    this.setData({ loading: true, loadError: '' })
     try {
       const res = await getCatalog()
+      if (!res || res.code !== 0 || !Array.isArray(res.data)) throw new Error((res && res.message) || '商品资料未核实，请重试')
       const raw = res.data || []
       // 上报状态：一次拉取，按商品挂到列表行上（站长最关心"我上报的那个品处理没处理"）
       let submissionsByProduct = {}
@@ -163,6 +165,8 @@ Page({
       }))
       this.setData({ list }, () => this.applyFilter())
     } catch (err) {
+      // 2026-10-22：读取失败不等于本站无商品，保留明确失败状态与重试入口。
+      this.setData({ loadError: err.message || '商品加载失败，请重试' })
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     } finally {
       this.setData({ loading: false })

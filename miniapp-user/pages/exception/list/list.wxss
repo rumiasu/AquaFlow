@@ -5,10 +5,11 @@
 }
 
 .header {
-  padding: 40rpx 24rpx 24rpx;
-  background: #2E4A68;
-  border-radius: 0 0 32rpx 32rpx;
-  color: #fff;
+  padding: 28rpx 24rpx;
+  background: #fff;
+  border-radius: 0;
+  color: var(--text-primary);
+  border-bottom: 1rpx solid var(--border-color);
 }
 .header-title {
   display: block;
@@ -17,8 +18,10 @@
   margin-bottom: 8rpx;
 }
 .header-subtitle {
-  font-size: 24rpx;
-  opacity: 0.9;
+  font-size: 26rpx;
+  opacity: 1;
+  color: var(--text-regular);
+  line-height: 1.6;
 }
 
 .exception-list {
@@ -27,22 +30,27 @@
 
 .exception-card {
   background: #fff;
-  border-radius: 16rpx;
+  border-radius: var(--radius-md);
   margin-bottom: 20rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+  box-shadow: none;
   overflow: hidden;
+  border: 1rpx solid var(--border-color);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 20rpx 24rpx;
   border-bottom: 1rpx solid var(--border-light);
+  gap: 16rpx;
+  flex-wrap: wrap;
 }
 .order-info { display: flex; flex-direction: column; gap: 4rpx; }
 .order-id { font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
-.time { font-size: 22rpx; color: var(--text-secondary); }
+.time { font-size: 24rpx; color: var(--text-secondary);
+  line-height: 1.6;
+}
 .status-badge {
   padding: 4rpx 16rpx;
   font-size: 22rpx;
@@ -58,7 +66,7 @@
 .card-body { padding: 20rpx 24rpx; }
 .info-row { display: flex; gap: 24rpx; margin-bottom: 12rpx; flex-wrap: wrap; }
 .info-item { display: flex; align-items: center; gap: 8rpx; min-width: 180rpx; }
-.label { font-size: 22rpx; color: var(--text-secondary); }
+.label { font-size: 24rpx; color: var(--text-secondary); }
 .value { font-size: 24rpx; font-weight: 500; color: var(--text-primary); }
 .value.short { color: var(--error-color); font-weight: 600; }
 .value.over { color: var(--success-color); font-weight: 600; }
@@ -79,7 +87,10 @@
 .step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
 .step-dot { width: 20rpx; height: 20rpx; border-radius: 50%; background: var(--border-color); border: 2rpx solid #fff; box-shadow: 0 0 0 2rpx var(--border-color); transition: all 0.3s; }
 .step.active .step-dot { background: var(--primary-color); box-shadow: 0 0 0 2rpx var(--primary-color); }
-.step-text { margin-top: 8rpx; font-size: 20rpx; color: var(--text-secondary); white-space: nowrap; }
+.step-text { margin-top: 8rpx; font-size: 24rpx; color: var(--text-secondary); white-space: normal;
+  text-align: center;
+  line-height: 1.5;
+}
 .step.active .step-text { color: var(--primary-color); font-weight: 500; }
 .step-line { flex: 1; height: 2rpx; background: var(--border-color); margin: 0 -12rpx; }
 .step-line.active { background: var(--primary-color); }
@@ -102,10 +113,20 @@
 }
 .empty-state image { width: 160rpx; height: 160rpx; margin-bottom: 24rpx; }
 .empty-text { font-size: 28rpx; color: var(--text-secondary); margin-bottom: 8rpx; }
-.empty-subtext { font-size: 24rpx; color: var(--text-placeholder); }
+.empty-subtext { font-size: 24rpx; color: var(--text-regular);
+  display: block;
+  padding: 0 24rpx;
+  text-align: center;
+  line-height: 1.7;
+}
 
 .load-more { display: flex; justify-content: center; align-items: center; padding: 40rpx 0; }
 .loading-spinner { width: 40rpx; height: 40rpx; border: 2rpx solid var(--border-light); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.load-more-text { font-size: 26rpx; color: var(--text-secondary); }
+.load-more-text { font-size: 26rpx; color: var(--text-secondary);
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .safe-area { height: 80rpx; }

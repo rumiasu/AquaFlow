@@ -57,3 +57,23 @@
 
 .entry-unknown { color:var(--text-primary); font-size:30rpx; white-space:normal; overflow-wrap:break-word; }
 .badge-error { margin:16rpx 24rpx; padding:20rpx; background:var(--warning-bg); color:var(--text-primary); font-size:34rpx; }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.work-head { padding: 8rpx 4rpx 24rpx; }
+.work-title { display:block; font-size:38rpx; font-weight:700; line-height:1.4; color:var(--text-primary); }
+.work-desc { display:block; margin-top:8rpx; font-size:26rpx; line-height:1.6; color:var(--text-regular); }
+
+.container { box-sizing:border-box; }
+.group-head { padding:8rpx 4rpx 14rpx; }
+.group-title { font-size:30rpx; letter-spacing:0; }
+.entry-card { box-shadow:none; border:1rpx solid var(--border-color); border-radius:12rpx; }
+.entry-row { min-height:104rpx; box-sizing:border-box; gap:8rpx; }
+.entry-title, .pending-entry .entry-title { font-size:30rpx; line-height:1.4; }
+.entry-desc, .pending-entry .entry-desc { font-size:26rpx; line-height:1.55; }
+.entry-badge { font-size:28rpx; min-width:42rpx; border-radius:8rpx; }
+.entry-unknown { max-width:112rpx; font-size:26rpx; color:var(--text-regular); }
+.badge-error { margin:0 0 20rpx; font-size:28rpx; line-height:1.6; border-left:6rpx solid var(--warning-color); }
+
+/* 金额/待办计数与未知状态保留320px下的既有文字地板。 */
+.pending-entry .entry-title, .entry-badge, .badge-error { font-size: 34rpx; }
+.pending-entry .entry-desc, .entry-unknown { font-size: 30rpx; }

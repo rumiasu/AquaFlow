@@ -16,6 +16,9 @@
       </view>
 
       <!-- 客户信息 -->
+      <view class="address-info">
+        <text class="address-text">{{item.addressDetail}}</text>
+      </view>
       <view class="customer-info">
         <text class="customer-name">{{item.customerName || item.receiverName}}</text>
       </view>
@@ -38,9 +41,7 @@
       </view>
 
       <!-- 地址信息 -->
-      <view class="address-info">
-        <text class="address-text">{{item.addressDetail}}</text>
-      </view>
+
 
       <!-- 转让备注 -->
       <view class="transfer-note" wx:if="{{item.specialNote}}">

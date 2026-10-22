@@ -2,31 +2,40 @@
   min-height: 100vh;
   padding: 24rpx;
   box-sizing: border-box;
-  background: var(--bg-gray);
+  background: var(--bg-color);
 }
 
 .summary {
   display: flex;
   align-items: stretch;
   background: #ffffff;
-  border-radius: 16rpx;
+  border-radius: 12rpx;
   padding: 28rpx 24rpx;
   margin-bottom: 20rpx;
+  box-shadow: none;
+  border: 1rpx solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 24rpx;
 }
 
 .summary-main {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 260rpx;
 }
 
 .summary-side {
-  width: 40%;
+  width: auto;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  border-left: 1rpx solid var(--bg-gray);
-  padding-left: 20rpx;
+  align-items: flex-start;
+  border-left: none;
+  padding-left: 0;
+  min-width: 220rpx;
+  flex: 1;
+  border-top: 1rpx solid var(--border-color);
+  padding-top: 16rpx;
 }
 
 .summary-label {
@@ -49,9 +58,10 @@
 }
 
 .summary-hint {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
   margin-top: 8rpx;
+  line-height: 1.6;
 }
 
 .chips {
@@ -76,9 +86,11 @@
 
 .card {
   background: #ffffff;
-  border-radius: 16rpx;
+  border-radius: 12rpx;
   padding: 24rpx;
   margin-bottom: 20rpx;
+  box-shadow: none;
+  border: 1rpx solid var(--border-color);
 }
 
 .card-title {
@@ -108,6 +120,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
 }
 
 .payroll-no {
@@ -145,6 +159,8 @@
   align-items: flex-start;
   padding: 16rpx 0;
   border-bottom: 1rpx solid var(--bg-gray);
+  flex-wrap: wrap;
+  gap: 16rpx;
 }
 
 .item:last-child {
@@ -156,6 +172,7 @@
   display: flex;
   flex-direction: column;
   padding-right: 20rpx;
+  min-width: 240rpx;
 }
 
 .item-kind {
@@ -164,9 +181,11 @@
 }
 
 .item-meta {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
   margin-top: 6rpx;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .item-right {
@@ -188,8 +207,14 @@
 }
 
 .note {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
   line-height: 1.6;
   padding: 0 8rpx 40rpx;
 }
+
+/* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
+.chip { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; flex: 1; }
+.payroll-no, .payroll-period, .item-detail { overflow-wrap: anywhere; }
+
+.item-right { max-width: 100%; overflow-wrap: anywhere; }

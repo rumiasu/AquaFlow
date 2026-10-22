@@ -10,9 +10,10 @@
 .fact-card {
   background: var(--bg-card);
   margin: var(--spacing-md);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: 12rpx;
+  box-shadow: none;
   padding: var(--spacing-lg);
+  border: 1rpx solid var(--border-color);
 }
 
 .fact-top {
@@ -56,7 +57,7 @@
 }
 
 .fact-amount {
-  font-size: var(--font-xxl);
+  font-size: 44rpx;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -158,9 +159,10 @@
 .info-card {
   background: var(--bg-card);
   margin: var(--spacing-md);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: 12rpx;
+  box-shadow: none;
   overflow: hidden;
+  border: 1rpx solid var(--border-color);
 }
 
 .info-row {
@@ -183,23 +185,28 @@
 
 .info-text.address {
   line-height: 1.5;
+  font-size: 36rpx;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .info-action {
-  font-size: var(--font-sm);
+  font-size: 28rpx;
   color: var(--primary-color);
-  padding: 8rpx 20rpx;
+  padding: 14rpx 20rpx;
   border: 1rpx solid var(--primary-color);
-  border-radius: var(--radius-round);
+  border-radius: 10rpx;
+  flex-shrink: 0;
 }
 
 /* 通用区块 */
 .section {
   background: var(--bg-card);
   margin: var(--spacing-md);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: 12rpx;
+  box-shadow: none;
   padding: var(--spacing-lg);
+  border: 1rpx solid var(--border-color);
 }
 
 .section-title {
@@ -239,9 +246,9 @@
 }
 
 .content-qty {
-  font-size: var(--font-lg);
+  font-size: 32rpx;
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* 历史订单 */
@@ -338,12 +345,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-md) 0;
+  padding: 16rpx 8rpx;
   border: none;
   border-radius: var(--radius-md);
-  font-size: var(--font-sm);
+  font-size: 28rpx;
   font-weight: 600;
   line-height: 1.4;
+  min-height: 96rpx;
+  height: auto;
+  white-space: normal;
 }
 
 .action-btn::after {
@@ -375,7 +385,7 @@
 .action-bar-confirm .action-btn {
   padding: var(--spacing-lg) 0;
   font-size: var(--font-md);
-  border-radius: var(--radius-round);
+  border-radius: 12rpx;
 }
 
 .action-accept {
@@ -599,3 +609,14 @@
   border: 1rpx solid var(--error-bg);
   border-radius: 999rpx;
 }
+
+/* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
+.contact-card .info-row { min-height: 96rpx; box-sizing: border-box; align-items: center; gap: 16rpx; }
+.contact-card .info-text { min-width: 0; word-break: break-all; }
+.contact-card .info-row:first-child { align-items: flex-start; padding: 8rpx 0 20rpx; }
+.contact-card .info-row:nth-child(2) .info-text { font-size: 32rpx; font-weight: 600; }
+.sheet-item, .pay-refund, .floor-proof-add { min-height: 96rpx; box-sizing: border-box; }
+.sheet-item-info { min-width: 0; }
+.sheet-item-name, .sheet-item-desc, .info-value { white-space: normal; word-break: break-all; }
+.info-card button { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.pay-refund, .floor-proof-add { display: inline-flex; align-items: center; justify-content: center; }

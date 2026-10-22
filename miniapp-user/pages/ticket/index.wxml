@@ -164,7 +164,7 @@
              · UNIFIED = 站级统一折扣按**这款水自己的价**折算出来的档位。
            总价与均价全部用服务端下发的值，这里不做 price/qty 的算术。 -->
       <block wx:if="{{buyPackages.length}}">
-        <text class="modal-label">按档位买（越买越便宜）</text>
+        <text class="modal-label">选择购票档位</text>
         <view class="pkg-list">
           <view
             class="pkg-item {{(buyForm.packageId && buyForm.packageId === item.packageId) || (buyForm.unifiedQty && buyForm.unifiedQty === item.qty && item.source === 'UNIFIED') ? 'active' : ''}}"

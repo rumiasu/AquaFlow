@@ -27,3 +27,11 @@
 .history-scope { font-size:24rpx; line-height:1.6; color:var(--text-secondary); margin-top:14rpx; }
 .history-error { color:var(--warning-color); padding:20rpx 0; }.history-more { padding:28rpx; text-align:center; color:var(--primary-color); }
 .history-tabs { display:flex; gap:20rpx; padding:20rpx 0; font-size:26rpx; }.history-tabs .active { color:var(--primary-color); font-weight:600; }
+
+/* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */
+
+.container { box-sizing: border-box; padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); }.history-tabs { gap: 12rpx; padding: 0 0 20rpx; flex-wrap: wrap; }.history-tabs > view { flex: 1; min-width: 220rpx; min-height: 88rpx; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 18rpx; background: #fff; border-radius: 8rpx; line-height: 1.6; }.history-tabs .active { background: var(--primary-color); color: #fff; }
+.record-card,.history-controls { border-radius: 12rpx; }.amount-row { align-items: baseline; gap: 16rpx; padding-bottom: 18rpx; margin-bottom: 18rpx; border-bottom: 1rpx solid var(--border-color); }.amount-row .amount { font-size: 44rpx; font-weight: 700; word-break: break-all; }.card-header { flex-wrap: wrap; }.status { font-size: 25rpx; }.info-row { gap: 16rpx; align-items: flex-start; line-height: 1.6; }.info-row .label { flex-shrink: 0; max-width: 38%; }.info-row > text:last-child { min-width: 0; word-break: break-all; text-align: right; }
+.payment-caution { background: var(--warning-bg); color: var(--text-regular); padding: 20rpx; border-left: 4rpx solid var(--warning-color); margin-bottom: 20rpx; border-radius: 8rpx; font-size: 25rpx; }.caution-title { display: block; font-weight: 600; color: var(--text-primary); font-size: 28rpx; margin-bottom: 8rpx; }
+.container button { min-height: 88rpx; height: auto; box-sizing: border-box; border-radius: 8rpx; padding: 20rpx; line-height: 1.6; white-space: normal; word-break: break-all; }.btn-confirm { background: var(--primary-color); }
+.history-date-row picker,.history-date-row > text[bindtap],.history-more,.load-error-retry { min-height: 88rpx; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 16rpx; }.history-search-row input { height: 88rpx; }.history-scope,.hint { color: var(--text-regular); }

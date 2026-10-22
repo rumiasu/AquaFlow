@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-22",
+  "baseline": "19caae6dda913efd55b49b109a07c8c4848b2c92",
+  "javascript": {
+    "runner": "node tests/js/run-all.js",
+    "exitCode": 0,
+    "suites": 107,
+    "countedAssertions": 2996,
+    "receipt": "流程测试全部通过：107 个套件，共 2996 个计数项",
+    "notes": [
+      "实际页面处理函数与合成依赖；不是真实业务流",
+      "仅进程内指定现有Git sh；临时python3别名使用现有Python，未改产品或测试实现以跳过断言"
+    ]
+  },
+  "static": {
+    "localRunner": "node scripts/verify-local.js",
+    "passedStaticGates": 18,
+    "wxmlRouteStructure": 72,
+    "missingEventHandlers": 0,
+    "syntaxFailures": 0,
+    "postPixelCssSelectorAudit": "PASS",
+    "postPixelDiffCheck": "PASS",
+    "notes": [
+      "此前总跑的字号回归已修正，旧色板常量断言改为获批色板且保留语义/对比约束；以上107套件是修正后的完整成功回执",
+      "统一脚本的JS门禁随后单独重跑成功；未为最后一个纯WXSS按钮排版再跑全部业务套件"
+    ]
+  },
+  "notRun": [
+    "本地jar发布物检查：未构建jar；由精确提交CI验证",
+    "本地8080冒烟：未启动后端",
+    "真实数据库/支付退款/微信上传部署/实体手机验证未执行"
+  ],
+  "inappVisual": "isolated native simulator with synthetic data only; selected representative states, not all 72 pages"
+}

@@ -77,7 +77,7 @@
       <view class="bucket-list" wx:if="{{customerBarrelAsset.length > 0}}">
         <view class="bucket-item asset-bucket-item" wx:for="{{customerBarrelAsset}}" wx:key="productId">
           <view class="bucket-info">
-            <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#2E4A68" /></view>
+            <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#1677FF" /></view>
             <view class="bucket-detail">
               <text class="bucket-id">{{item.productName}} {{item.productSpec}}</text>
               <text class="bucket-time" wx:if="{{!item.independentRights}}">账面汇总 {{item.heldTotalQty}} 桶<text wx:if="{{item.inTransitQty > 0}}">（含遗留配送中 {{item.inTransitQty}}）</text> / 欠桶 {{item.owedQty}}</text>
@@ -110,7 +110,7 @@
         <view class="bucket-item barrel-record" wx:for="{{records}}" wx:key="id">
           <view class="record-header">
             <view class="bucket-info">
-              <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#2E4A68" /></view>
+              <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#1677FF" /></view>
               <view class="bucket-detail">
                 <!-- ⚠️ BarrelRecord 没有 barrelNo 字段，原写法 item.barrelNo || ('桶号 #' + item.id)
                      永远走兜底分支，把流水主键当成"桶号"报给客户（假桶号）。
@@ -163,7 +163,7 @@
     <view class="eco-card">
       <view class="eco-content">
         <!-- --success-color 对应值：Icon 写入独立 SVG，按 design/36 调色板豁免，不能直接传 CSS 变量。 -->
-    <view class="eco-icon"><icon name="droplet" size="40rpx" color="#2E9E6B" /></view>
+    <view class="eco-icon"><icon name="droplet" size="40rpx" color="#16834A" /></view>
         <view class="eco-text">
           <text class="eco-title">爱护水桶</text>
           <text class="eco-desc">水桶是可循环使用的资源，请妥善保管，避免暴晒和污染</text>

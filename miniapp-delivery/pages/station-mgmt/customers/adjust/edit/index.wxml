@@ -98,7 +98,7 @@
     <view class="card" wx:if="{{preview}}">
       <!-- [2026-09-24] 原文"试算结果（服务端返回，未落库）"—— "落库"是开发词。
            站长关心的只有一件事：**这个还没生效**。 -->
-      <view class="card-title">试算结果（还没保存，确认后才生效）</view>
+      <view class="card-title">试算结果 · 尚未保存</view>
       <view class="preview-type"><text>{{preview.adjustTypeText}}</text></view>
       <view class="preview-head">
         <text class="col col-name">项目</text>
@@ -123,7 +123,7 @@
 
     <view class="footer">
       <view class="btn-half ghost" bindtap="onPreview"><text>{{previewing ? '试算中...' : '试算'}}</text></view>
-      <view class="btn-half primary" bindtap="onSubmit"><text>{{submitting ? '提交中...' : '提交'}}</text></view>
+      <view class="btn-half primary" bindtap="onSubmit"><text>{{submitting ? '提交中...' : '保存待执行单'}}</text></view>
     </view>
     <view class="footer-tip">
       <text>提交后单据为「待执行」，需在列表或详情页点「执行」才会真正改写客户资产。</text>

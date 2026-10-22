@@ -15,13 +15,14 @@
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>
+    <view class="checkout-heading"><text class="checkout-title">确认本次订水</text><text class="checkout-intro">核对商品、数量和地址，再确认下单</text></view>
     <view class="station-status-banner" wx:if="{{stationId}}">
       <text class="banner-text">本次下单水站：{{stationName && stationNameStationId === stationId ? stationName : ('水站 #' + stationId)}}</text>
     </view>
     <!-- 水站营业状态（软状态，v32）：只提示、不阻断下单 —— 顾客仍可正常下单。
          文案由服务端下发（customerHint），前端不做 operatingStatus 1..4 的映射。 -->
     <view class="station-status-banner" wx:if="{{stationStatusHint}}">
-      <icon class="banner-icon" name="alert" size="30rpx" color="#C9764B" />
+      <icon class="banner-icon" name="alert" size="30rpx" color="#A95516" />
       <text class="banner-text">{{stationStatusHint}}</text>
     </view>
 
@@ -33,13 +34,15 @@
     -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
 
+    <text class="station-asset-boundary">桶容量、水票与押金按本次水站分别记录，其他水站不能通用。</text>
+
     <!-- ══ ① 收货地址：§3 要求的第一个区块（原来排在商品清单之后）══
          空态分两种：[2026-09-20] 原来只有「请选择配送地址」一句 —— 地址接口失败时 address
          同样是空的，于是"没查到"被写成"你没设地址"，客户会反复去重设地址（问题根本不在那儿）。
          addressLoadError 由 loadAddress 在失败时写入（含可读原因）。 -->
     <view class="address-card" bindtap="onAddressTap">
       <view class="address-icon-wrap">
-        <icon name="location" size="36rpx" color="#2E4A68" />
+        <icon name="location" size="36rpx" color="#1677FF" />
       </view>
       <view class="address-info" wx:if="{{address}}">
         <view class="address-top">
@@ -64,7 +67,7 @@
       </view>
       <view class="product-list">
         <view class="product-card" wx:for="{{products}}" wx:key="id">
-          <image class="product-image" src="{{item.imageUrl || '/assets/image/default-product.jpg'}}" mode="aspectFill"></image>
+          <image class="product-image" src="{{item.imageUrl || '/assets/image/default-product.jpg'}}" mode="aspectFit"></image>
           <view class="product-info">
             <text class="product-name">{{item.name}}</text>
             <text class="product-image-note" wx:if="{{item.imageUrl === '/assets/product/barrel-neutral-template.webp'}}">商品示意图 · 包装以实物为准</text>
@@ -73,7 +76,7 @@
               <view class="product-price" wx:if="{{item.price}}">
                 <text class="price-symbol">¥</text>
                 <text class="price-value">{{item.price}}</text>
-                <text class="price-unit">/桶</text>
+                <text class="price-unit">/{{item.quantityUnit}}</text>
               </view>
               <!-- 数量步进器：事件绑定在 88×88rpx 热区上，留白也可点击。 -->
               <view class="stepper-wrap">
@@ -114,12 +117,12 @@
           <!-- ⚠️ 图标颜色只能写字面色：Icon 组件把颜色烘进 SVG data-uri，写 var(...) 不生效。
                三个渠道一律用中性色（不再一紫一蓝一橙），选中与否由边框/底色 + 对勾表达。 -->
           <icon name="{{item.id === 1 ? 'bill' : (item.id === 2 ? 'wallet' : 'ticket')}}"
-                size="40rpx" color="{{item.enabled ? '#6E6A61' : '#C9C4B8'}}" />
+                size="40rpx" color="{{item.enabled ? '#4B596A' : '#9CA7B5'}}" />
           <view class="method-info">
             <text class="method-name">{{item.name}}</text>
             <text class="method-desc">{{item.desc}}</text>
           </view>
-          <icon name="check" size="36rpx" color="#2E4A68" wx:if="{{selectedMethod === item.id}}" />
+          <icon name="check" size="36rpx" color="#1677FF" wx:if="{{selectedMethod === item.id}}" />
         </view>
       </view>
     </view>
@@ -218,7 +221,7 @@
       <view class="section-header">
         <text class="section-title">备注（选填）</text>
       </view>
-      <input class="note-input" placeholder="如：期望18点前送到、到前联系" value="{{note}}" bindinput="onNoteInput"></input>
+      <input class="note-input" placeholder="如：送达前请联系" value="{{note}}" bindinput="onNoteInput"></input>
       <text class="fee-hint">可在备注写期望送达时间，供水站安排参考；未填写也可以下单。</text>
     </view>
 
@@ -226,7 +229,7 @@
     <view class="asset-bar {{assetBarExpanded ? 'expanded' : ''}}" wx:if="{{firstStationAsset}}">
       <view class="asset-bar-header" bindtap="onToggleAssetBar">
         <view class="asset-bar-title">
-          <icon name="alert" size="30rpx" color="#C9764B" />
+          <icon name="alert" size="30rpx" color="#A95516" />
           <text class="asset-bar-title-text">首次下单须知</text>
         </view>
         <text class="asset-bar-toggle">{{assetBarExpanded ? '收起' : '展开'}}</text>
@@ -270,7 +273,7 @@
           </view>
           <view class="detail-call" bindtap="onCallStation">
             <text class="detail-call-text">{{stationPhone ? '拨打水站电话 ' + stationPhone : '联系水站'}}</text>
-            <icon name="arrow" size="28rpx" color="#2E4A68" />
+            <icon name="arrow" size="28rpx" color="#1677FF" />
           </view>
           <view class="asset-detail-link" bindtap="onAssetDetailClose">
             <text class="detail-link-text">收起详细说明</text>
@@ -419,7 +422,7 @@
             <text class="detail-call-text">{{stationPhone ? '拨打水站电话 ' + stationPhone : '联系水站'}}</text>
             <!-- 图标名用 arrow：Icon 组件里**没有 right** 这个名字，写 right 会静默回退成
                  empty（一个方块层叠图），原来的那一行就是这么渲染的。 -->
-            <icon name="arrow" size="28rpx" color="#2E4A68" />
+            <icon name="arrow" size="28rpx" color="#1677FF" />
           </view>
           <view class="asset-detail-link" bindtap="onAssetDetailClose">
             <text class="detail-link-text">收起详细说明</text>
@@ -570,7 +573,7 @@
         <!-- 缺货区块 -->
         <view class="unified-section" wx:if="{{shortageItems.length > 0}}">
           <view class="unified-section-header">
-            <icon name="alert" size="30rpx" color="#C9764B" />
+            <icon name="alert" size="30rpx" color="#A95516" />
             <text class="unified-section-title">部分商品库存不足</text>
           </view>
           <view class="asset-rules">
@@ -585,7 +588,7 @@
         <!-- 线下支付区块 -->
         <view class="unified-section" wx:if="{{selectedMethod === 2}}">
           <view class="unified-section-header">
-            <icon name="wallet" size="30rpx" color="#2E9E6B" />
+            <icon name="wallet" size="30rpx" color="#16834A" />
             <text class="unified-section-title">货到付款</text>
           </view>
           <text class="popup-desc">配送员送达后现金/扫码支付，确认下单后将锁定订单。</text>
@@ -595,7 +598,7 @@
         <!-- 配送中桶提醒区块 -->
         <view class="unified-section" wx:if="{{hasInTransitBarrels && extraDepositBuckets > 0}}">
           <view class="unified-section-header">
-            <icon name="barrel" size="30rpx" color="#B5442C" />
+            <icon name="barrel" size="30rpx" color="#BD3328" />
             <text class="unified-section-title">温馨提示</text>
           </view>
           <text class="popup-desc">您有正在配送中的水桶，本次下单将产生额外桶押金。</text>

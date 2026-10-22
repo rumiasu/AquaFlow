@@ -1,4 +1,5 @@
 <view class="claim-page">
+  <view class="work-head"><text class="work-title">核对历史资产</text><text class="work-desc">客户、商品和历史实收押金分别核对。</text></view>
   <view class="claim-banner">本站 #{{stationId}} · 只核对客户主动提交的历史清单。通过即建立关系并记入期初账，不产生本次新收款；不要求客户再次确认。</view>
   <view class="claim-error" wx:if="{{error}}">{{error}}</view>
   <view class="claim-notice" wx:if="{{notice}}">{{notice}}</view>
@@ -26,9 +27,9 @@
     <text class="claim-muted">以上余额独立核对，不能用桶容量乘单价代替。</text>
     <view class="claim-line" wx:for="{{selected.items}}" wx:key="productId">
       <text class="claim-title">{{item.name}} {{item.spec}} · 商品 #{{item.productId}}</text>
-      <text class="claim-row">已付桶容量 E：{{item.rights}} 份 · 实物持桶 H：{{item.held}} 只</text>
-      <text class="claim-row">桶数差额（H−E）：{{item.over}} · 历史水票：{{item.tickets}} 张</text>
-      <text class="claim-row">桶权益单价（元/份）：{{item.unitPriceText}}</text>
+      <text class="claim-row">已付桶容量：{{item.rights}} 份 · 实际持桶：{{item.held}} 只</text>
+      <text class="claim-row">持桶与容量差额：{{item.over}} · 历史水票：{{item.tickets}} 张</text>
+      <text class="claim-row">桶容量单价（元/份）：{{item.unitPriceText}}</text>
     </view>
     <text class="claim-material">客户说明：{{selected.note}}</text>
     <text class="claim-material" wx:if="{{selected.reviewNote}}">核对反馈：{{selected.reviewNote}}</text>

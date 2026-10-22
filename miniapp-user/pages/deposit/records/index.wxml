@@ -7,6 +7,7 @@
 <view class="container">
   <asset-station-view id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
 
+  <view class="records-heading"><text class="records-title">押金流水</text><text class="records-note">按所选水站查看押金变动，正负金额分别表示增加与扣减。</text></view>
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>

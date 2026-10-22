@@ -10,19 +10,20 @@
   display: flex;
   background: #fff;
   margin: 24rpx;
-  border-radius: 20rpx;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .stat-col {
   flex: 1;
   min-width: 0;
-  padding: 36rpx 24rpx;
+  padding: 28rpx 12rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12rpx;
+  text-align: center;
 }
 
 .stat-label {
@@ -36,14 +37,15 @@
 }
 
 .stat-number {
-  font-size: 48rpx;
+  font-size: 42rpx;
   font-weight: 700;
   color: var(--text-primary);
-  line-height: 1;
+  line-height: 1.3;
+  word-break: break-all;
 }
 
 .stat-number.deposit {
-  color: var(--success-color);
+  color: var(--text-primary);
 }
 
 .stat-number.owed {
@@ -86,6 +88,10 @@
   font-size: 26rpx;
   font-weight: 500;
   line-height: 1.6;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .rights-purchase-btn::after {
@@ -121,9 +127,9 @@
 .section {
   background-color: #fff;
   margin: 0 24rpx 24rpx;
-  padding: 28rpx 24rpx;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  border-radius: var(--radius-md);
+  box-shadow: none;
 }
 
 .section-header {
@@ -131,6 +137,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20rpx;
+  gap: 12rpx;
+  flex-wrap: wrap;
 }
 
 .section-title {
@@ -140,10 +148,13 @@
 }
 
 .return-btn-small {
-  padding: 10rpx 24rpx;
+  padding: 0 20rpx;
   background: var(--primary-bg);
-  border-radius: 20rpx;
+  border-radius: var(--radius-sm);
   border: 1rpx solid var(--primary-color);
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
 }
 
 .return-btn-small text {
@@ -163,15 +174,19 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24rpx 20rpx;
+  padding: 24rpx 0;
   background-color: var(--bg-color);
-  border-radius: var(--radius-md);
+  border-radius: 0;
+  background: #fff;
+  border-bottom: 1rpx solid var(--border-color);
 }
 
 .bucket-info {
   display: flex;
   align-items: center;
   gap: 16rpx;
+  min-width: 0;
+  flex: 1;
 }
 
 .bucket-icon {
@@ -182,6 +197,8 @@
   display: flex;
   flex-direction: column;
   gap: 6rpx;
+  min-width: 0;
+  word-break: break-all;
 }
 
 .bucket-id {
@@ -201,6 +218,9 @@
   padding: 6rpx 20rpx;
   border-radius: 16rpx;
   font-weight: 500;
+  max-width: 40%;
+  word-break: break-all;
+  box-sizing: border-box;
 }
 
 .status-0 {
@@ -296,6 +316,7 @@
   font-size: 26rpx;
   line-height: 1.5;
   font-weight: 500;
+  min-height: 88rpx;
 }
 
 .record-action::after {
@@ -320,7 +341,7 @@
   margin: 0 24rpx 24rpx;
   padding: 24rpx 32rpx;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .info-row {
@@ -343,7 +364,8 @@
 
 .info-tip {
   margin-top: 12rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
   color: var(--text-regular);
 }
 
@@ -353,7 +375,7 @@
   margin: 0 24rpx 24rpx;
   padding: 28rpx 24rpx;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .eco-content {
@@ -443,9 +465,14 @@
 
 .modal-close {
   font-size: 40rpx;
-  /* × 为文本字形，白底需≥4.5:1（G04 return-refund）；--text-secondary(#A39E92) 仅 2.67:1，别改回。 */
+  /* × 为文本字形，白底需≥4.5:1（G04 return-refund）；--text-secondary(#637083) 仅 2.67:1，别改回。 */
   color: var(--text-regular);
   padding: 0 8rpx;
+  min-width: 88rpx;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .modal-body {
@@ -489,13 +516,14 @@
 }
 
 .qty-btn {
-  width: 60rpx;
-  height: 60rpx;
+  width: 88rpx;
+  height: 88rpx;
   border-radius: 12rpx;
   background-color: var(--bg-gray);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .qty-btn.disabled {
@@ -510,7 +538,7 @@
 
 .qty-input {
   width: 100rpx;
-  height: 60rpx;
+  height: 88rpx;
   text-align: center;
   font-size: 32rpx;
   font-weight: 500;
@@ -691,12 +719,15 @@
 
 .modal-btn {
   flex: 1;
-  height: 80rpx;
-  border-radius: 40rpx;
+  height: auto;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 30rpx;
+  min-height: 96rpx;
+  padding: 16rpx;
+  box-sizing: border-box;
 }
 
 .modal-btn.cancel {
@@ -705,7 +736,7 @@
 }
 
 .modal-btn.confirm {
-  background: var(--primary-gradient);
+  background: var(--primary-color);
   color: #fff;
 }
 
@@ -741,3 +772,11 @@
 .bucket-detail-toggle { margin-top: 12rpx; font-size: 24rpx; color: var(--primary-color); }
 .bucket-account-detail { margin-top: 12rpx; padding-top: 12rpx; border-top: 1rpx solid var(--border-color); }
 .bucket-account-detail text { display: block; color: var(--text-regular); font-size: 22rpx; line-height: 1.7; }
+
+.bucket-detail-toggle { min-height: 88rpx; display: flex; align-items: center; }
+.asset-bucket-item { align-items: flex-start; gap: 16rpx; }
+.barrel-record > button { min-height: 88rpx; margin: 20rpx 0 0; border-radius: var(--radius-sm); font-size: 26rpx; color: var(--primary-color); background: var(--primary-bg); white-space: normal; }
+
+.eco-card { display: flex; flex-wrap: wrap; align-items: center; gap: 16rpx; padding: 20rpx 24rpx; border-radius: var(--radius-md); }
+.eco-content { flex: 1; min-width: 280rpx; margin-bottom: 0; }
+.eco-btn { min-height: 88rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: var(--radius-sm); }

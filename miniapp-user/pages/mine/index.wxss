@@ -187,3 +187,17 @@
   font-size: var(--font-sm);
   padding: 48rpx 0 16rpx;
 }
+
+.card { box-shadow: none; }
+.user-card { padding: 24rpx; }
+.avatar { width: 88rpx; height: 88rpx; }
+.user-tag, .assets-station, .asset-unit, .asset-hint, .asset-note-text, .assets-unloaded-text, .group-title, .menu-desc { font-size: 26rpx; color: var(--text-regular); }
+.assets-head { gap: 16rpx; flex-wrap: wrap; padding: 24rpx 20rpx 8rpx; }
+.asset-cell { padding: 24rpx 12rpx; min-height: 160rpx; }
+.assets-unloaded-tip { min-height: 96rpx; box-sizing: border-box; }
+.asset-note { align-items: flex-start; flex-wrap: wrap; }
+.asset-note-link { min-height: 88rpx; display: flex; align-items: center; color: var(--primary-color); }
+.menu-row { min-height: 104rpx; box-sizing: border-box; padding: 24rpx; flex-wrap: wrap; gap: 12rpx; }
+.menu-name { min-width: 180rpx; }
+.menu-desc { flex-shrink: 1; word-break: break-all; }
+.group-title { font-weight: 600; padding-top: 28rpx; }

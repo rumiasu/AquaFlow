@@ -1,4 +1,5 @@
 <view class="container">
+  <view class="page-intro"><text class="page-intro-title">{{from === 'home' ? '选择送水地址' : '收货地址'}}</text><text class="page-intro-note">{{from === 'home' ? '点选本次送水地址' : '管理联系人、门牌与默认地址'}}</text></view>
   <loading wx:if="{{loading}}"></loading>
 
   <view class="address-list" wx:else>

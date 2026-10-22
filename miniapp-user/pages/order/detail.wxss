@@ -43,14 +43,14 @@
 
 .pay-badge.success {
   background: rgba(5, 150, 105, 0.08);
-  /* 原用 --success-color(#2E9E6B) 叠在本底色上实测仅 3.08:1，低于文字 4.5:1（G04 customer-order 支付状态）；
+  /* 原用 --success-color(#16834A) 叠在本底色上实测仅 3.08:1，低于文字 4.5:1（G04 customer-order 支付状态）；
      改深色后 7.00:1。别改回 --success-color。 */
   color: #065F46;
 }
 
 .pay-badge.warning {
   background: rgba(217, 119, 6, 0.08);
-  /* 原用 --warning-color(#C9764B) 叠在本底色上实测仅 3.12:1，低于文字 4.5:1（G04 customer-order 支付状态）；
+  /* 原用 --warning-color(#A95516) 叠在本底色上实测仅 3.12:1，低于文字 4.5:1（G04 customer-order 支付状态）；
      改深色后 6.51:1。别改回 --warning-color。 */
   color: #92400E;
 }
@@ -270,3 +270,14 @@
   display: block;
   margin-top: 4rpx;
 }
+
+.status-card { border-radius: var(--radius-lg); background: var(--primary-bg); color: var(--text-primary); box-shadow: none; border-left: 6rpx solid var(--primary-color); }
+.status-main { font-size: 40rpx; font-weight: 700; }
+.status-sub { font-size: 28rpx; color: var(--text-regular); line-height: 1.6; }
+.info-section { border-radius: var(--radius-lg); box-shadow: none; }
+.info-row { align-items: flex-start; gap: 20rpx; }
+.value { min-width: 0; white-space: normal; word-break: break-all; }
+.item-name { font-size: 32rpx; }
+.item-price, .fee-total .value { font-size: 36rpx; font-weight: 700; }
+.btn-action { min-height: 96rpx; height: auto; padding: 24rpx 20rpx; box-sizing: border-box; border-radius: var(--radius-md); line-height: 1.5; display: flex; align-items: center; justify-content: center; }
+.action-section { gap: 16rpx; flex-wrap: wrap; }

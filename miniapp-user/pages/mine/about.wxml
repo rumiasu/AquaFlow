@@ -7,16 +7,16 @@
     </view>
 
     <view class="info-section">
-      <view class="info-item">
+      <view class="info-item" bindtap="onOpenAgreement" data-type="user">
         <text class="info-label">服务协议</text>
         <text class="info-arrow">›</text>
       </view>
-      <view class="info-item">
+      <view class="info-item" bindtap="onOpenAgreement" data-type="privacy">
         <text class="info-label">隐私政策</text>
         <text class="info-arrow">›</text>
       </view>
-      <view class="info-item">
-        <text class="info-label">用户反馈</text>
+      <view class="info-item" bindtap="onOpenService">
+        <text class="info-label">联系水站与反馈</text>
         <text class="info-arrow">›</text>
       </view>
     </view>

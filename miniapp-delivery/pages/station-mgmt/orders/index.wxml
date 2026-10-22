@@ -9,6 +9,7 @@ var percent = function (part, total) {
 module.exports = { percent: percent }
 </wxs>
 <view class="container">
+  <view class="work-head"><text class="work-title">订单</text><text class="work-desc">按状态找单；跨站履约单独列示。</text></view>
   <view class="history-controls">
     <include src="../../../utils/station-history-customer.wxml" />
     <view class="history-date-row"><picker mode="date" value="{{startDate}}" bindchange="onHistoryDateChange" data-field="startDate"><view>{{startDate || '开始日期'}}</view></picker><text>至</text><picker mode="date" value="{{endDate}}" bindchange="onHistoryDateChange" data-field="endDate"><view>{{endDate || '结束日期'}}</view></picker><text bindtap="onClearHistoryDates">清除日期</text></view>
@@ -66,7 +67,7 @@ module.exports = { percent: percent }
         <text class="order-time" wx:if="{{item.createTime}}">{{item.createTime}}</text>
       </view>
       <view class="customer-info">
-        <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+        <text class="customer-name">{{item.customerName || item.receiverName || '收货人待补充'}}</text>
         <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
       </view>
       <view class="product-info">

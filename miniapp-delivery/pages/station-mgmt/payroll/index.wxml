@@ -215,6 +215,7 @@
         </view>
         <text class="slip-sub" wx:if="{{item.paidTime}}">发放时间 {{item.paidTime}}</text>
         <text class="slip-sub" wx:if="{{item.note}}">备注：{{item.note}}</text>
+        <text class="pay-caution" wx:if="{{item.status === 2}}">先实际交款，再标记发放；系统只记录发放时间。</text>
         <view class="slip-actions">
           <button class="slip-action slip-action-main" wx:if="{{isManager && item.status === 1}}" catchtap="onConfirmPayroll"
                   disabled="{{payrollBusyId !== null || loading || payrollReadError}}" data-id="{{item.id}}">{{payrollBusyId === item.id ? '处理中…' : '确认结算单'}}</button>

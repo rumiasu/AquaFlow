@@ -7,23 +7,24 @@
 /* 水票余额卡片 */
 .ticket-balance-card {
   margin: 24rpx;
-  padding: 40rpx 32rpx;
-  background: var(--primary-gradient);
-  border-radius: 24rpx;
+  padding: 28rpx;
+  background: var(--primary-color);
+  border-radius: var(--radius-md);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: var(--shadow-primary);
+  box-shadow: none;
 }
 
 .balance-left {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .balance-label {
   font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.8);
+  color: #fff;
   margin-bottom: 8rpx;
 }
 
@@ -48,7 +49,8 @@
 
 .balance-total {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.7);
+  color: #fff;
+  line-height: 1.6;
 }
 
 .balance-icon {
@@ -91,7 +93,7 @@
   transform: translateX(-50%);
   width: 48rpx;
   height: 6rpx;
-  background: var(--primary-gradient);
+  background: var(--primary-color);
   border-radius: 3rpx;
 }
 
@@ -111,7 +113,7 @@
   background-color: #fff;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .ticket-item {
@@ -131,6 +133,8 @@
   display: flex;
   flex-direction: column;
   gap: 6rpx;
+  min-width: 0;
+  word-break: break-all;
 }
 
 .ticket-name {
@@ -145,7 +149,7 @@
 }
 
 /* 「本票可用于购买该款水」—— 说明的是适用范围（一条账户 = 一款水），是整句信息不是占位灰。
-   颜色用 --text-regular(#6E6A61，对白底 5.39:1)，不用 --text-secondary(#A39E92，2.67:1)。
+   颜色用 --text-regular，适用范围不降为占位色。
    字号 24rpx：§6 允许辅助信息 24–26rpx，这里不是关键规则。 */
 .ticket-use {
   font-size: 24rpx;
@@ -153,13 +157,15 @@
 }
 
 .ticket-expire {
-  font-size: 22rpx;
-  color: var(--text-placeholder);
+  font-size: 24rpx;
+  color: var(--text-regular);
 }
 
 .ticket-quantity {
   display: flex;
   align-items: baseline;
+  margin-left: 20rpx;
+  flex-shrink: 0;
 }
 
 .quantity-value {
@@ -179,7 +185,7 @@
   background-color: #fff;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .record-item {
@@ -199,6 +205,8 @@
   display: flex;
   flex-direction: column;
   gap: 6rpx;
+  min-width: 0;
+  word-break: break-all;
 }
 
 .record-name {
@@ -237,12 +245,12 @@
 
 .buy-ticket-btn {
   height: 96rpx;
-  background: var(--primary-gradient);
-  border-radius: 48rpx;
+  background: var(--primary-color);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-primary);
+  box-shadow: none;
 }
 
 .buy-ticket-btn text {
@@ -268,13 +276,14 @@
   position: fixed;
   left: 0; right: 0; bottom: 0;
   background: #fff;
-  border-radius: 32rpx 32rpx 0 0;
-  padding: 32rpx;
+  border-radius: 20rpx 20rpx 0 0;
+  padding: 24rpx;
   padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
   z-index: 101;
-  max-height: 80vh;
+  max-height: 88vh;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .modal-header {
@@ -294,11 +303,17 @@
   font-size: 40rpx;
   color: var(--text-placeholder);
   padding: 0 8rpx;
+  min-width: 88rpx;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .modal-scroll {
   flex: 1;
-  max-height: 50vh;
+  max-height: 58vh;
+  min-height: 0;
 }
 
 .modal-label {
@@ -321,6 +336,10 @@
   display: flex;
   flex-direction: column;
   gap: 4rpx;
+  min-height: 88rpx;
+  box-sizing: border-box;
+  max-width: 100%;
+  word-break: break-all;
 }
 
 .product-item.active {
@@ -335,7 +354,7 @@
 }
 
 .product-price {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--price-color);
 }
 
@@ -346,8 +365,8 @@
 }
 
 .qty-btn {
-  width: 64rpx;
-  height: 64rpx;
+  width: 88rpx;
+  height: 88rpx;
   border-radius: 12rpx;
   border: 2rpx solid var(--border-color);
   display: flex;
@@ -355,6 +374,7 @@
   justify-content: center;
   font-size: 32rpx;
   color: var(--text-primary);
+  flex-shrink: 0;
 }
 
 .qty-btn.disabled {
@@ -363,11 +383,12 @@
 
 .qty-input {
   flex: 1;
-  height: 64rpx;
+  height: 88rpx;
   border: 2rpx solid var(--border-color);
   border-radius: 12rpx;
   text-align: center;
   font-size: 30rpx;
+  min-width: 0;
 }
 
 .method-item {
@@ -398,9 +419,10 @@
 }
 
 .method-desc {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   display: block;
+  line-height: 1.6;
 }
 
 .method-radio {
@@ -424,11 +446,14 @@
 
 .modal-btn {
   flex: 1;
-  height: 84rpx;
-  border-radius: 42rpx;
+  height: auto;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 96rpx;
+  padding: 16rpx 12rpx;
+  box-sizing: border-box;
 }
 
 .modal-btn.cancel {
@@ -441,8 +466,8 @@
 }
 
 .modal-btn.confirm {
-  background: var(--primary-gradient);
-  box-shadow: var(--shadow-primary);
+  background: var(--primary-color);
+  box-shadow: none;
 }
 
 .modal-btn.confirm text {
@@ -494,9 +519,10 @@
 
 .pkg-sub {
   display: block;
-  font-size: 21rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   margin-top: 4rpx;
+  line-height: 1.6;
 }
 
 .pkg-clear {
@@ -504,12 +530,16 @@
   font-size: 24rpx;
   color: var(--primary-color);
   text-align: center;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pkg-lock {
   display: block;
-  font-size: 22rpx;
-  color: var(--text-secondary);
+  font-size: 24rpx;
+  color: var(--text-regular);
   margin-top: 8rpx;
   line-height: 32rpx;
 }
@@ -536,7 +566,10 @@
 
 /* [2026-10-07 #15] 退出说明帮助链接：低调的文字链，不做按钮 */
 .ticket-help {
-  margin: -8rpx 32rpx 16rpx;
+  margin: 0 24rpx 12rpx;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
 }
 .ticket-help text {
   font-size: 24rpx;
@@ -574,10 +607,15 @@
 /* 原生 <button> 改形：清默认样式，disabled 态由 [disabled] 选择器表达（闸门仍在元素上） */
 button.recovery-btn {
   margin: 0;
-  padding: 12rpx 28rpx;
-  border-radius: var(--radius-round);
-  font-size: 24rpx;
+  padding: 18rpx 24rpx;
+  border-radius: var(--radius-sm);
+  font-size: 26rpx;
   line-height: 1.4;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 240rpx;
 }
 button.recovery-btn::after {
   border: none;

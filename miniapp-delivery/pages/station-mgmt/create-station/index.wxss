@@ -122,7 +122,7 @@
   bottom: 0;
   padding: 24rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
   background: #ffffff;
-  border-top: 1rpx solid #F1ECE1;
+  border-top: 1rpx solid #E8ECF1;
 }
 
 .btn-submit {
@@ -142,9 +142,25 @@
   margin-top: 16rpx;
   padding: 18rpx;
   border-radius: 12rpx;
-  border: 1rpx solid #EAE4D8;
+  border: 1rpx solid #DAE0E8;
   text-align: center;
   font-size: 28rpx;
   color: var(--text-secondary);
 }
 .footer-action:active { opacity: 0.8; }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.container { padding:24rpx 24rpx 400rpx; }
+.form-card { border-radius:12rpx; padding:28rpx 24rpx; box-shadow:none; border:1rpx solid var(--border-color); }
+.form-title { font-size:38rpx; }
+.form-subtitle { color:var(--text-regular); line-height:1.6; }
+.form-label { font-size:30rpx; font-weight:600; }
+.form-input { min-height:96rpx; border:1rpx solid var(--border-color); border-radius:10rpx; }
+.form-textarea { border:1rpx solid var(--border-color); border-radius:10rpx; }
+.location-value { min-height:104rpx; height:auto; box-sizing:border-box; }
+.location-text { line-height:1.6; }
+.location-sub { color:var(--text-regular); font-size:26rpx; line-height:1.6; }
+.location-sub.warn { color:var(--warning-color); }
+.footer { border-color:var(--border-color); }
+.btn-submit { border-radius:12rpx; min-height:96rpx; background:var(--primary-color); }
+.footer-action { min-height:88rpx; box-sizing:border-box; display:flex; align-items:center; justify-content:center; margin-top:12rpx; color:var(--text-regular); }

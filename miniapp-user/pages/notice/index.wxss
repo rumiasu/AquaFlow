@@ -6,20 +6,23 @@
 
 .notice-item {
   background-color: #fff;
-  border-radius: var(--radius-lg);
-  padding: 28rpx 32rpx;
-  margin-bottom: 20rpx;
-  box-shadow: var(--shadow-sm);
+  border-radius: 0;
+  padding: 28rpx 24rpx;
+  margin-bottom: 0;
+  box-shadow: none;
+  border-bottom: 1rpx solid var(--border-color);
+  min-height: 112rpx;
+  box-sizing: border-box;
 }
 
 .notice-item-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 12rpx;
 }
 
 .notice-type {
-  font-size: 22rpx;
+  font-size: 24rpx;
   padding: 4rpx 14rpx;
   border-radius: 8rpx;
   margin-right: 16rpx;
@@ -55,12 +58,25 @@
   font-size: 30rpx;
   font-weight: 600;
   color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.5;
+  word-break: break-all;
+  min-width: 0;
+  flex: 1;
 }
 
 .notice-time {
   font-size: 24rpx;
   color: var(--text-secondary);
 }
+
+.page-intro { padding: 28rpx 24rpx 8rpx; }
+.page-intro-title { display: block; font-size: 36rpx; font-weight: 700; line-height: 1.4; color: var(--text-primary); }
+.page-intro-note { display: block; margin-top: 10rpx; font-size: 26rpx; line-height: 1.6; color: var(--text-regular); }
+.page-intro { padding: 4rpx 0 24rpx; }
+
+.notice-list { overflow: hidden; border: 1rpx solid var(--border-color); border-radius: var(--radius-md); background: #fff; }
+.notice-item:last-child { border-bottom: 0; }
+.notice-item:active { background: var(--bg-gray); }

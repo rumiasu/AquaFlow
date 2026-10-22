@@ -538,3 +538,40 @@
   color: var(--text-secondary);
   margin-top: 12rpx;
 }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.container { padding-bottom:180rpx; }
+.top-bar,.water-templates,.card { border-radius:12rpx; box-shadow:none; border:1rpx solid var(--border-color); }
+.tab { min-height:88rpx; box-sizing:border-box; display:flex; align-items:center; justify-content:center; font-size:28rpx; }
+.search-input { height:88rpx; font-size:28rpx; border-radius:10rpx; }
+.chips { flex-wrap:wrap; }
+.chip { min-height:88rpx; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; font-size:26rpx; padding:12rpx 18rpx; border-radius:8rpx; }
+.hint-row { flex-wrap:wrap; gap:12rpx; }
+.hint { font-size:26rpx; line-height:1.6; color:var(--text-regular); }
+.card { flex-wrap:wrap; gap:16rpx; }
+.thumb { width:112rpx; height:144rpx; border-radius:8rpx; }
+.info { min-width:0; flex:1; }
+.name-row,.tags { flex-wrap:wrap; }
+.name { font-size:32rpx; overflow-wrap:break-word; }
+.sub,.water-template-hint,.water-template-spec,.template-edit-note,.modal-sub { font-size:26rpx; line-height:1.6; color:var(--text-regular); }
+.tag { border-radius:6rpx; font-size:24rpx; }
+.tag.price,.tag.stock { font-weight:600; font-size:28rpx; color:var(--text-primary); background:var(--bg-color); }
+.action { width:100%; display:flex; align-items:center; justify-content:space-between; flex-direction:row; border-top:1rpx solid var(--border-color); padding-top:16rpx; gap:16rpx; }
+.btn-mini,.btn-link,.water-template-use,.water-template-edit,.link,.seg-item,.btn-inline { min-height:88rpx; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; padding:12rpx 16rpx; font-size:28rpx; border-radius:8rpx; }
+.mine-actions { display:flex; flex-wrap:wrap; gap:8rpx; }
+.water-template-row { flex-wrap:wrap; border-bottom:1rpx solid var(--border-color); }
+.water-template-actions { display:flex; flex-wrap:wrap; gap:12rpx; width:100%; }
+.modal { border-radius:16rpx; max-height:88vh; }
+.modal-header { font-size:34rpx; line-height:1.5; overflow-wrap:break-word; }
+.form-row,.seg,.modal-footer,.pkg-row { flex-wrap:wrap; gap:12rpx; }
+.form-item { min-width:0; }
+.form-item.half { min-width:240rpx; }
+.input,.picker-text { min-height:96rpx; font-size:30rpx; box-sizing:border-box; border-radius:10rpx; border:1rpx solid var(--border-color); }
+.btn-cancel,.btn-save,.btn-danger,.btn-define { min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; display:flex; justify-content:center; align-items:center; box-sizing:border-box; font-size:30rpx; }
+.pkg-del { min-height:88rpx; display:flex; align-items:center; padding:0 16rpx; }
+
+.action { margin-left:0; flex-wrap:wrap; box-sizing:border-box; }
+
+.work-read-error { padding:24rpx; margin:20rpx 0; background:var(--warning-bg); border-left:6rpx solid var(--warning-color); border-radius:8rpx; color:var(--text-primary); font-size:28rpx; line-height:1.6; }
+.work-read-error text { display:block; }
+.work-read-error button { min-height:96rpx; line-height:1.5; padding:20rpx; box-sizing:border-box; border-radius:10rpx; color:var(--primary-color); background:#fff; margin-top:20rpx; font-size:28rpx; }

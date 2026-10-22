@@ -1,6 +1,9 @@
 /* 协议承载页（2026-10-07）：长文阅读优先 —— 大行距、单栏、无装饰 */
 .page {
-  padding: 32rpx 32rpx 64rpx;
+  padding: 28rpx 28rpx calc(48rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  min-height: 100vh;
+  box-sizing: border-box;
 }
 
 /* 占位告示：与 load-error 同族警示形态，正式版替换时整块移除 */
@@ -9,15 +12,16 @@
   align-items: flex-start;
   gap: 12rpx;
   padding: 20rpx 24rpx;
-  margin-bottom: 32rpx;
+  margin-bottom: 24rpx;
   border-radius: var(--radius-sm);
   background: var(--warning-bg);
   border-left: 6rpx solid var(--warning-color);
+  flex-wrap: wrap;
 }
 
 .doc-notice-tag {
   flex-shrink: 0;
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 600;
   color: var(--warning-color);
   padding-top: 2rpx;
@@ -46,8 +50,8 @@
 .doc-updated {
   display: block;
   margin-top: 12rpx;
-  font-size: 22rpx;
-  color: var(--text-secondary);
+  font-size: 24rpx;
+  color: var(--text-regular);
   word-break: break-all;
 }
 
@@ -81,3 +85,7 @@
   color: var(--text-secondary);
   line-height: 1.6;
 }
+
+.doc-notice button { min-height: 88rpx; padding: 18rpx 28rpx; font-size: 26rpx; line-height: 1.6; border-radius: var(--radius-sm); color: var(--primary-color); background: #fff; margin: 0; }
+.doc-heading { border-left: 5rpx solid var(--primary-color); padding-left: 16rpx; }
+.doc-body { white-space: pre-wrap; word-break: break-all; }

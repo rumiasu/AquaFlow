@@ -4,7 +4,7 @@
 <view class="page">
 
   <view class="card">
-    <view class="card-title">票档位配置</view>
+    <view class="card-title">设置本站水票售价</view>
     <view class="hint">这里设置票价，不是客户持券账或购买记录。</view>
     <view class="history-link" bindtap="onTicketPurchaseHistory">查看水票购买收款记录 ›</view>
     <input class="product-search" value="{{productKeyword}}" bindinput="onProductSearch" placeholder="搜索商品名称、品牌或规格" />
@@ -34,6 +34,61 @@
   <block wx:if="{{productId}}">
     <view class="hint">当前：{{productName}} {{productSpec}}</view>
     <view class="hint warning" wx:if="{{packageLoadError}}" bindtap="loadPackages">{{packageLoadError}} · 点击重试</view>
+    <!-- ===== 统一折扣列表 ===== -->
+    <view class="card" wx:if="{{isUnified}}">
+      <view class="card-title">本站统一折扣档（{{discounts.length}} 个）</view>
+      <view class="empty" wx:if="{{!loading && !packageLoadError && !discounts.length}}">
+        还没配折扣档 —— 现在本站没有统一折扣，只有自己开了水票的商品能买票。
+      </view>
+      <view class="row" wx:for="{{discounts}}" wx:key="id">
+        <view class="row-main">
+          <view class="row-between">
+            <text class="row-title">{{item.qty}} 张 · {{item.discountText}}</text>
+          </view>
+          <text class="row-sub">
+            {{item.title ? item.title + ' · ' : ''}}{{item.statusText}}
+          </text>
+        </view>
+        <view class="actions">
+          <view class="mini-btn" bindtap="onToggleStatus" data-id="{{item.id}}">
+            {{item.status === 1 ? '停用' : '启用'}}
+          </view>
+          <view class="mini-btn mini-btn-danger" bindtap="onDelete" data-id="{{item.id}}">删除</view>
+        </view>
+      </view>
+      <view class="hint" wx:if="{{discounts.length}}">
+        这里没有金额：同一个折扣，农夫山泉与娃哈哈折出来的价不一样 —— 那才是"对应水怎么统一打折"。
+      </view>
+    </view>
+
+    <!-- ===== 某款水的定制档位列表 ===== -->
+    <view class="card" wx:if="{{!isUnified}}">
+      <view class="card-title">本站该商品的档位（{{packages.length}} 个）</view>
+      <view class="empty" wx:if="{{!loading && !packageLoadError && !packages.length}}">还没挂档位。</view>
+      <view class="row" wx:for="{{packages}}" wx:key="id">
+        <view class="row-main">
+          <view class="row-between">
+            <text class="row-title">{{item.qty}} 张 · ¥{{item.price}}</text>
+            <text class="row-amount">均价 ¥{{item.unitPrice}}</text>
+          </view>
+          <text class="row-sub">
+            {{item.title ? item.title + ' · ' : ''}}{{item.statusText}}
+            <text wx:if="{{item.saveText}}"> · {{item.saveText}}</text>
+          </text>
+        </view>
+        <view class="actions">
+          <view class="mini-btn" bindtap="onToggleStatus" data-id="{{item.id}}">
+            {{item.status === 1 ? '下架' : '上架'}}
+          </view>
+          <view class="mini-btn mini-btn-danger" bindtap="onDelete" data-id="{{item.id}}">删除</view>
+        </view>
+      </view>
+      <view class="hint" wx:if="{{packages.length}}">
+        「参考节省」是拿本站单张水票价与本档位均价比较得出的展示值；
+        权威金额始终是档位的总价与均价。
+      </view>
+    </view>
+
     <!-- 平台预设档：只给统一折扣用（普通商品的档位是"这款水的价目表"，与站级折扣无关）。
          点一下只填表单、不保存 —— 站长按自己的经营情况改完再存。 -->
     <view class="card" wx:if="{{isUnified}}">
@@ -96,60 +151,6 @@
       </view>
     </view>
 
-    <!-- ===== 统一折扣列表 ===== -->
-    <view class="card" wx:if="{{isUnified}}">
-      <view class="card-title">本站统一折扣档（{{discounts.length}} 个）</view>
-      <view class="empty" wx:if="{{!loading && !packageLoadError && !discounts.length}}">
-        还没配折扣档 —— 现在本站没有统一折扣，只有自己开了水票的商品能买票。
-      </view>
-      <view class="row" wx:for="{{discounts}}" wx:key="id">
-        <view class="row-main">
-          <view class="row-between">
-            <text class="row-title">{{item.qty}} 张 · {{item.discountText}}</text>
-          </view>
-          <text class="row-sub">
-            {{item.title ? item.title + ' · ' : ''}}{{item.statusText}}
-          </text>
-        </view>
-        <view class="actions">
-          <view class="mini-btn" bindtap="onToggleStatus" data-id="{{item.id}}">
-            {{item.status === 1 ? '停用' : '启用'}}
-          </view>
-          <view class="mini-btn mini-btn-danger" bindtap="onDelete" data-id="{{item.id}}">删除</view>
-        </view>
-      </view>
-      <view class="hint" wx:if="{{discounts.length}}">
-        这里没有金额：同一个折扣，农夫山泉与娃哈哈折出来的价不一样 —— 那才是"对应水怎么统一打折"。
-      </view>
-    </view>
-
-    <!-- ===== 某款水的定制档位列表 ===== -->
-    <view class="card" wx:if="{{!isUnified}}">
-      <view class="card-title">本站该商品的档位（{{packages.length}} 个）</view>
-      <view class="empty" wx:if="{{!loading && !packageLoadError && !packages.length}}">还没挂档位。</view>
-      <view class="row" wx:for="{{packages}}" wx:key="id">
-        <view class="row-main">
-          <view class="row-between">
-            <text class="row-title">{{item.qty}} 张 · ¥{{item.price}}</text>
-            <text class="row-amount">均价 ¥{{item.unitPrice}}</text>
-          </view>
-          <text class="row-sub">
-            {{item.title ? item.title + ' · ' : ''}}{{item.statusText}}
-            <text wx:if="{{item.saveText}}"> · {{item.saveText}}</text>
-          </text>
-        </view>
-        <view class="actions">
-          <view class="mini-btn" bindtap="onToggleStatus" data-id="{{item.id}}">
-            {{item.status === 1 ? '下架' : '上架'}}
-          </view>
-          <view class="mini-btn mini-btn-danger" bindtap="onDelete" data-id="{{item.id}}">删除</view>
-        </view>
-      </view>
-      <view class="hint" wx:if="{{packages.length}}">
-        「参考节省」是拿本站单张水票价与本档位均价比较得出的展示值；
-        权威金额始终是档位的总价与均价。
-      </view>
-    </view>
   </block>
 
   <view class="card">

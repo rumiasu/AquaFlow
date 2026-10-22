@@ -583,7 +583,7 @@ Page({
     this.setData({ activeShip: { id: order.id, title, sub }, activeOrderCount: Number(activeCount) || 1 })
   },
 
-  /** 再来一单：取最近一笔已送达/已完成订单的商品组合；「加入」直接写进步进器，不跳页 */
+  /** 再来一单：只传原订单标识；确认页重新读取商品、地址与服务端报价，不直接下单。 */
   async renderAgainOrder(order, products, current = () => true) {
     if (!current()) return
     if (!order) {
@@ -625,7 +625,7 @@ Page({
     // 缩略图取第一件商品的本站档案照（商品可能已下架，下架则占位）
     const first = products.find(p => String(p.id) === String(items[0].productId))
     const img = first && first.imageUrl ? first.imageUrl : ''
-    this.setData({ againOrder: { img, summary: scaleText, preview: previewText, items } })
+    this.setData({ againOrder: { id: order.id, img, summary: scaleText, preview: previewText, items } })
   },
 
   /**
@@ -821,26 +821,15 @@ Page({
   },
 
   onAgainTap() {
-    const { againOrder, products } = this.data
-    if (!againOrder) return
-    const app = getApp()
-    const stationId = this.data.currentStationId
-    const cart = app.getCart(stationId)
-    let added = 0
-    againOrder.items.forEach(it => {
-      const target = products.find(p => String(p.id) === String(it.productId))
-      if (target) { // 已下架/非本站商品不写入，避免下出幽灵商品
-        app.addToCart(stationId, it.productId, it.quantity)
-        added += it.quantity
-      }
+    const { againOrder, currentStationId } = this.data
+    if (!againOrder || !againOrder.id || this._againNavigating) return
+    this._againNavigating = true
+    this.invalidateHomeQuote()
+    wx.navigateTo({
+      url: `/pages/order/create?reorderId=${encodeURIComponent(againOrder.id)}&stationId=${currentStationId || ''}`,
+      fail: () => wx.showToast({ title: '打开确认页失败，请重试', icon: 'none' }),
+      complete: () => { this._againNavigating = false }
     })
-    if (added === 0) {
-      wx.showToast({ title: '原商品已下架', icon: 'none' })
-      return
-    }
-    this.setData({ cart })
-    this.refreshDerived(undefined, true, true)
-    wx.showToast({ title: '已加入订水清单', icon: 'none' })
   },
 
   onViewActiveOrder() {

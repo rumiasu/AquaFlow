@@ -10,7 +10,7 @@
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
 
     <view class="info-bar">
-      <text class="info-text">设置常用订单后，首页将自动填入，一键复购</text>
+      <text class="info-text">管理常用商品、数量与地址。首页「照上次订」使用最近一笔已送达订单。</text>
     </view>
 
     <view class="section" wx:if="{{templates.length > 0}}">
@@ -30,7 +30,7 @@
           <view class="template-items" wx:if="{{item.items && item.items.length > 0}}">
             <view class="template-item-row" wx:for="{{item.items}}" wx:for-item="itm" wx:key="id">
               <text class="item-name">{{itm.productName || itm.waterTypeName}}</text>
-              <text class="item-qty">×{{itm.quantity}}桶</text>
+              <text class="item-qty">×{{itm.quantity}} 件</text>
             </view>
           </view>
           <view class="template-note" wx:if="{{item.specialNote}}">

@@ -31,25 +31,11 @@
     </view>
   </view>
 
-  <view class="water-templates" wx:if="{{tab === 'all' && !keyword && (!category || category === 1)}}">
-    <view class="water-template-title">常用水商品 · 快速建档</view>
-    <text class="water-template-hint">带入图片、名称和规格；售价、押金、库存由本站确认</text>
-    <view class="water-template-row" wx:for="{{waterTemplates}}" wx:key="id">
-      <image class="water-template-image" src="{{item.imageUrl}}" mode="aspectFit" />
-      <view class="water-template-info">
-        <text class="water-template-name">{{item.name}}</text>
-        <text class="water-template-spec">{{item.spec}} / {{item.unit}} · 规格可按实物修改</text>
-      </view>
-      <view class="water-template-actions">
-        <button class="water-template-use" bindtap="onUseWaterTemplate" data-id="{{item.id}}" disabled="{{saving || uploading}}">使用模板</button>
-        <text class="water-template-edit" bindtap="onEditWaterTemplate" data-id="{{item.id}}">按实物修改</text>
-      </view>
-    </view>
-    <text class="water-template-hint">{{imageNotice}}；目录已有同款时优先选用</text>
-  </view>
+
 
   <!-- 选品 / 我的商品列表 -->
-  <view class="list" wx:if="{{!loading}}">
+  <view class="work-read-error" wx:if="{{!loading && loadError}}"><text>{{loadError}}</text><text>商品尚未核实，这不代表没有商品。</text><button bindtap="loadData">重新加载商品</button></view>
+  <view class="list" wx:if="{{!loading && !loadError}}">
     <view class="card" wx:for="{{viewList}}" wx:key="id" data-item="{{item}}" data-id="{{item.id}}" bindtap="onOpenSetting">
       <view class="thumb" wx:if="{{item.imageUrl}}">
         <image src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
@@ -93,10 +79,27 @@
       <text wx:else>没有匹配的商品</text>
     </view>
   </view>
-  <view class="loading" wx:else>加载中...</view>
+  <view class="loading" wx:if="{{loading}}">加载中...</view>
 
-  <!-- 底部独立入口：自己定义商品（通用库没有的品） -->
-  <view class="footer">
+  <!-- 可选建档模板排在现有商品之后，避免盖过库存与上架任务。 -->
+  <view class="water-templates" wx:if="{{!loadError && tab === 'all' && !keyword && (!category || category === 1)}}">
+    <view class="water-template-title">常用水商品 · 快速建档</view>
+    <text class="water-template-hint">带入图片、名称和规格；售价、押金、库存由本站确认</text>
+    <view class="water-template-row" wx:for="{{waterTemplates}}" wx:key="id">
+      <image class="water-template-image" src="{{item.imageUrl}}" mode="aspectFit" />
+      <view class="water-template-info">
+        <text class="water-template-name">{{item.name}}</text>
+        <text class="water-template-spec">{{item.spec}} / {{item.unit}} · 规格可按实物修改</text>
+      </view>
+      <view class="water-template-actions">
+        <button class="water-template-use" bindtap="onUseWaterTemplate" data-id="{{item.id}}" disabled="{{saving || uploading}}">使用模板</button>
+        <text class="water-template-edit" bindtap="onEditWaterTemplate" data-id="{{item.id}}">按实物修改</text>
+      </view>
+    </view>
+    <text class="water-template-hint">{{imageNotice}}；目录已有同款时优先选用</text>
+  </view>
+
+    <view class="footer">
     <button class="btn-define" bindtap="openAdd">＋ 自己定义商品</button>
   </view>
 
@@ -174,7 +177,7 @@
       <view class="pkg-block" wx:if="{{setting.ticketEnabled}}">
         <view class="pkg-head">
           <view class="pkg-title-row">
-            <text class="pkg-title">水票档位（成组更便宜）</text>
+            <text class="pkg-title">水票档位</text>
             <!-- [2026-09-24] 这段说明原来在本文件里**原样出现了两次**（另一处在独立档位模块），
                  每次都平铺一整行。现在统一收进「?」；两处文字必须保持逐字一致 ——
                  改一处要一起改，否则同一条规则两个说法。 -->
@@ -289,7 +292,7 @@
       <view class="pkg-block" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
         <view class="pkg-head">
           <view class="pkg-title-row">
-            <text class="pkg-title">水票档位（成组更便宜）</text>
+            <text class="pkg-title">水票档位</text>
             <!-- [2026-09-24] 这段说明原来在本文件里**原样出现了两次**（另一处在独立档位模块），
                  每次都平铺一整行。现在统一收进「?」；两处文字必须保持逐字一致 ——
                  改一处要一起改，否则同一条规则两个说法。 -->

@@ -61,3 +61,32 @@
 .btn-submit::after { border: none; }
 .btn-cancel { width: 100%; padding: 20rpx; background: var(--bg-gray); color: var(--text-secondary); border: none; border-radius: var(--radius-round); font-size: 28rpx; }
 .btn-cancel::after { border: none; }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.work-head { padding: 8rpx 4rpx 24rpx; }
+.work-title { display:block; font-size:38rpx; font-weight:700; line-height:1.4; color:var(--text-primary); }
+.work-desc { display:block; margin-top:8rpx; font-size:26rpx; line-height:1.6; color:var(--text-regular); }
+
+.container { box-sizing:border-box; }
+.tab { min-height:88rpx; box-sizing:border-box; font-size:30rpx; }
+.btn-add { background:var(--primary-color); border-radius:10rpx; min-height:96rpx; }
+.search-input { min-width:0; min-height:88rpx; border-radius:10rpx; }
+.search-btn,.chip { min-height:88rpx; display:flex; align-items:center; justify-content:center; border-radius:10rpx; box-sizing:border-box; font-size:28rpx; }
+.search-btn { background:var(--primary-color); }
+.staff-card { display:flex; flex-wrap:wrap; gap:16rpx; border-radius:12rpx; box-shadow:none; border:1rpx solid var(--border-color); padding:24rpx; }
+.avatar { width:72rpx; height:72rpx; font-size:30rpx; border-radius:10rpx; }
+.staff-body { min-width:0; flex:1; }
+.name-row { flex-wrap:wrap; }
+.staff-name { font-size:34rpx; overflow-wrap:break-word; }
+.staff-phone,.staff-note { font-size:28rpx; line-height:1.6; color:var(--text-regular); }
+.card-actions { width:100%; flex-direction:row; display:flex; flex-wrap:wrap; gap:12rpx; padding-top:16rpx; border-top:1rpx solid var(--border-color); }
+.btn-profile,.btn-detach,.btn-approve,.btn-reject { min-height:88rpx; height:auto; line-height:1.5; padding:18rpx 24rpx; display:flex; justify-content:center; align-items:center; box-sizing:border-box; flex:1; min-width:200rpx; font-size:28rpx; border-radius:10rpx; margin:0; }
+.self-note { min-height:88rpx; display:flex; align-items:center; color:var(--text-regular); font-size:26rpx; }
+.hint,.modal-hint { font-size:26rpx; line-height:1.6; color:var(--text-regular); }
+.modal-content { max-height:84vh; overflow-y:auto; border-radius:16rpx; }
+.modal-input { min-height:96rpx; border-radius:10rpx; border:1rpx solid var(--border-color); box-sizing:border-box; }
+.btn-submit,.btn-cancel { min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; box-sizing:border-box; font-size:30rpx; }
+
+.work-read-error { padding:24rpx; margin:20rpx 0; background:var(--warning-bg); border-left:6rpx solid var(--warning-color); border-radius:8rpx; color:var(--text-primary); font-size:28rpx; line-height:1.6; }
+.work-read-error text { display:block; }
+.work-read-error button { min-height:96rpx; line-height:1.5; padding:20rpx; box-sizing:border-box; border-radius:10rpx; color:var(--primary-color); background:#fff; margin-top:20rpx; font-size:28rpx; }

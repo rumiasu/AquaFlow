@@ -122,6 +122,7 @@
     </view>
 
     <view class="card">
+      <view class="settlement-caution">已选 {{selectedCount}} 单 · 请先核实这几笔钱已实际收到</view>
       <view class="btn-primary {{settling || loadError || ordersError || !selectedCount ? 'btn-disabled' : ''}}" bindtap="onSettle">
         {{settling ? '登记中…' : '登记已收款（收款 + 销账）'}}
       </view>

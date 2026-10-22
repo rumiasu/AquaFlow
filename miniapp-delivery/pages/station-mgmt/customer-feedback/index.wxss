@@ -102,3 +102,20 @@
 
 /* .empty 保留给"权限不足"分支（它不该长得像"没有数据"，用同一个居中文案块即可） */
 .empty { text-align: center; padding: 120rpx 0; font-size: 28rpx; color: var(--text-secondary); }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.work-head { padding: 8rpx 4rpx 24rpx; }
+.work-title { display:block; font-size:38rpx; font-weight:700; line-height:1.4; color:var(--text-primary); }
+.work-desc { display:block; margin-top:8rpx; font-size:26rpx; line-height:1.6; color:var(--text-regular); }
+
+.container { box-sizing:border-box; }
+.hint { font-size:26rpx; line-height:1.6; color:var(--text-regular); padding:20rpx; background:var(--bg-color); border-left:4rpx solid var(--border-color); }
+.fb-card { border-radius:12rpx; border:1rpx solid var(--border-color); box-shadow:none; }
+.card-head,.card-foot { flex-wrap:wrap; gap:12rpx; }
+.who { font-size:32rpx; }
+.content { font-size:30rpx; line-height:1.7; color:var(--text-primary); overflow-wrap:break-word; }
+.time,.foot-item,.state-hint { font-size:26rpx; color:var(--text-regular); line-height:1.6; }
+.category { font-size:28rpx; border-radius:6rpx; }
+.fb-card button,.retry-btn { min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; font-size:28rpx; }
+.fb-card textarea { width:100%; box-sizing:border-box; padding:20rpx; border:1rpx solid var(--border-color); background:var(--bg-color); border-radius:10rpx; font-size:30rpx; line-height:1.6; }
+.refund-note-form { margin-top:20rpx; padding-top:20rpx; border-top:1rpx solid var(--border-color); }

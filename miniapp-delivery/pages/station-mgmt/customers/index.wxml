@@ -1,4 +1,5 @@
 <view class="container">
+  <view class="work-head"><text class="work-title">客户</text><text class="work-desc">先核对本站与客户身份，再处理订单和资产。</text></view>
   <view class="scope-banner">
     <text class="scope-label">{{stationScopeLabel}}</text>
     <text class="scope-retry" wx:if="{{stationScopeState !== 'ready' && stationScopeState !== 'loading'}}" bindtap="onStationScopeRetry">核实水站</text>

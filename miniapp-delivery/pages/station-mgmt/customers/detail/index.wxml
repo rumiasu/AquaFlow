@@ -23,7 +23,7 @@
         <view class="badge-row">
           <text class="badge level" style="background:{{profile.customerLevelColor}}">{{profile.customerLevel}}</text>
           <text class="badge act-{{profile.activityStatus}}">{{profile.activityText}}</text>
-          <text class="badge {{profile.codEnabled ? 'cod-on' : 'cod-off'}}">{{profile.codEnabled ? '货到付款' : '无线下支付'}}</text>
+          <text class="badge {{profile.codEnabled ? 'cod-on' : 'cod-off'}}">{{profile.codEnabled ? '货到付款' : '未开通货到付款'}}</text>
         </view>
       </view>
     </view>
@@ -35,52 +35,11 @@
     -->
     <view class="section">
       <view class="link-row">
-        <text class="link-btn" bindtap="onPlaceOrder">用他下单（电话/口头订单）</text>
+        <text class="link-btn" bindtap="onPlaceOrder">替客户下单</text>
       </view>
     </view>
 
-    <!-- 核心指标 -->
-    <view class="section">
-      <view class="section-title">消费概览</view>
-      <view class="metric-grid">
-        <view class="metric">
-          <text class="metric-value">{{profile.totalOrders}}</text>
-          <text class="metric-label">累计订单</text>
-        </view>
-        <view class="metric">
-          <text class="metric-value">¥{{profile.totalConsumptionText}}</text>
-          <text class="metric-label">累计消费</text>
-        </view>
-        <view class="metric">
-          <text class="metric-value">¥{{profile.avgOrderAmountText}}</text>
-          <text class="metric-label">客单价</text>
-        </view>
-        <view class="metric">
-          <text class="metric-value">{{profile.ticketBalance}}</text>
-          <text class="metric-label">水票余额(张)</text>
-        </view>
-      </view>
-      <view class="metric-grid second">
-        <view class="metric">
-          <text class="metric-value">{{profile.monthOrders}}</text>
-          <text class="metric-label">本月订单</text>
-        </view>
-        <view class="metric">
-          <text class="metric-value">¥{{profile.monthConsumptionText}}</text>
-          <text class="metric-label">本月消费</text>
-        </view>
-        <view class="metric">
-          <text class="metric-value">¥{{profile.depositBalanceText}}</text>
-          <text class="metric-label">押金余额</text>
-        </view>
-        <view class="metric">
-          <text class="metric-value small {{profile.owedBarrels ? 'warn' : ''}}">{{profile.owedBarrelsText}}</text>
-          <text class="metric-label">欠桶</text>
-        </view>
-      </view>
-    </view>
-
-    <!-- ==================== 本站资产 ==================== -->
+    <!-- 本站资产优先于历史消费统计；不得把失败渲染为空资产。 -->
     <view class="section" wx:if="{{canViewAssets}}">
       <view class="section-title-row">
         <view class="section-title no-mb">本站资产</view>
@@ -204,6 +163,49 @@
         </block>
       </block>
     </view>
+
+    <view class="section">
+      <view class="section-title">消费概览</view>
+      <view class="metric-grid">
+        <view class="metric">
+          <text class="metric-value">{{profile.totalOrders}}</text>
+          <text class="metric-label">累计订单</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.totalConsumptionText}}</text>
+          <text class="metric-label">累计消费</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.avgOrderAmountText}}</text>
+          <text class="metric-label">客单价</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">{{profile.ticketBalance}}</text>
+          <text class="metric-label">水票余额(张)</text>
+        </view>
+      </view>
+      <view class="metric-grid second">
+        <view class="metric">
+          <text class="metric-value">{{profile.monthOrders}}</text>
+          <text class="metric-label">本月订单</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.monthConsumptionText}}</text>
+          <text class="metric-label">本月消费</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value">¥{{profile.depositBalanceText}}</text>
+          <text class="metric-label">押金余额</text>
+        </view>
+        <view class="metric">
+          <text class="metric-value small {{profile.owedBarrels ? 'warn' : ''}}">{{profile.owedBarrelsText}}</text>
+          <text class="metric-label">欠桶</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 客户消费统计保持原口径，排在本站资产之后。 -->
+
 
     <!-- 客户特权（v40）：站长给单个客户的差异化规则。
          可授予的类型由服务端下发（只含已实现的），所以这里不会出现"配了也不生效"的开关。 -->

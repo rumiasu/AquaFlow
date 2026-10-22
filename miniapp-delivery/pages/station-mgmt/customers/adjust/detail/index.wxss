@@ -93,3 +93,20 @@
   color: var(--text-secondary);
   line-height: 1.6;
 }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.container { box-sizing:border-box; }
+.card { border-radius:12rpx; border:1rpx solid var(--border-color); box-shadow:none; }
+.card-title { border-left:0; padding-left:0; line-height:1.5; font-size:30rpx; }
+.row { font-size:28rpx; gap:20rpx; }
+.row .label { color:var(--text-regular); white-space:normal; max-width:44%; }
+.row .value { min-width:0; overflow-wrap:anywhere; }
+.row .value.strong { font-size:36rpx; }
+.snap-head,.snap-row { font-size:28rpx; gap:12rpx; }
+.col { min-width:0; overflow-wrap:anywhere; }
+.raw-toggle { min-height:88rpx; display:flex; justify-content:space-between; align-items:center; font-size:28rpx; color:var(--primary-color); gap:20rpx; }
+.raw-text { font-size:25rpx; line-height:1.7; overflow-wrap:anywhere; }
+.btn-main,.btn-danger { min-height:104rpx; box-sizing:border-box; border-radius:10rpx; display:flex; justify-content:center; align-items:center; padding:20rpx; font-size:30rpx; line-height:1.5; }
+.footer-tip { font-size:28rpx; line-height:1.6; }
+
+.footer .btn-main,.footer .btn-danger { white-space:normal; }

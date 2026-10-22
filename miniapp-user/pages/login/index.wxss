@@ -1,123 +1,18 @@
-.page {
-  min-height: 100vh;
-  position: relative;
-  overflow: hidden;
-}
-
-.login-bg {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 65vh;
-  background: var(--accent-gradient);
-  border-radius: 0 0 80rpx 80rpx;
-}
-
-.login-content {
-  position: relative;
-  z-index: 1;
-  padding: 0 48rpx;
-  padding-top: 200rpx;
-}
-
-.logo-section {
-  text-align: center;
-  margin-bottom: 120rpx;
-}
-
-.logo-wrap {
-  width: 160rpx;
-  height: 160rpx;
-  border-radius: 40rpx;
-  background: rgba(255,255,255,0.95);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 32rpx;
-  box-shadow: 0 8rpx 32rpx rgba(30, 64, 175, 0.15);
-}
-
-.logo {
-  width: 100rpx;
-  height: 100rpx;
-}
-
-.app-name {
-  font-size: 44rpx;
-  font-weight: 700;
-  color: #fff;
-  display: block;
-  margin-bottom: 12rpx;
-  letter-spacing: 4rpx;
-}
-
-.app-desc {
-  font-size: 26rpx;
-  color: rgba(255,255,255,0.8);
-}
-
-.login-section {
-  margin-bottom: 60rpx;
-}
-
-.wx-login-btn {
-  width: 100%;
-  height: 96rpx;
-  background: #fff;
-  border-radius: 48rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #07c160;
-  font-size: 32rpx;
-  font-weight: 600;
-  border: none;
-  box-shadow: 0 8rpx 32rpx rgba(0,0,0,0.1);
-}
-
-.wx-login-btn[disabled] {
-  background: rgba(255,255,255,0.6);
-  color: var(--text-placeholder);
-  box-shadow: none;
-}
-
-.wx-login-btn::after {
-  border: none;
-}
-
-.dev-login-btn {
-  margin-top: 24rpx;
-  text-align: center;
-  padding: 20rpx 0;
-}
-
-.dev-login-btn text {
-  font-size: 26rpx;
-  color: rgba(255,255,255,0.7);
-  text-decoration: underline;
-}
-
-/* [2026-09-24] 「点击即同意」的告知行：按钮正下方，居中。
-   ⚠️ .checkbox / .checkbox.checked / .check-icon 三条规则已删 —— 必须勾选的复选框
-   随产品要求去掉了，规则留着会让人以为界面上还有个勾选框。 */
-.agreement {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 24rpx;
-  flex-wrap: wrap;
-}
-
-.agreement-text {
-  font-size: 24rpx;
-  color: rgba(255,255,255,0.6);
-}
-
-/* [2026-10-07 评审 #7] `.agreement-link` 加回：承载页 pages/mine/agreement 已落（占位草稿，
-   页内有显著告示），协议名恢复为真实可点链接。登录页是深色底，链接用白字 + 下划线表达可点，
-   不用品牌蓝（深底上对比度不够）。 */
-.agreement-link {
-  font-size: 24rpx;
-  color: #fff;
-  text-decoration: underline;
-  text-underline-offset: 4rpx;
-}
+/* 登录行为与告知保持原样；以清晰入口替代大面积装饰背景。 */
+.page { min-height: 100vh; background: var(--bg-color); box-sizing: border-box; padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); }
+.login-bg { height: 12rpx; background: var(--primary-color); }
+.login-content { padding: 80rpx 32rpx 32rpx; }
+.logo-section { text-align: left; margin-bottom: 56rpx; }
+.logo-wrap { width: 112rpx; height: 112rpx; background: #fff; border: 1rpx solid var(--border-color); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; margin-bottom: 24rpx; }
+.logo { width: 84rpx; height: 84rpx; }
+.app-name { font-size: 44rpx; font-weight: 700; color: var(--text-primary); display: block; margin-bottom: 12rpx; }
+.app-desc { font-size: 28rpx; color: var(--text-regular); }
+.login-section { padding: 28rpx; border: 1rpx solid var(--border-color); background: #fff; border-radius: var(--radius-md); }
+.wx-login-btn { width: 100%; min-height: 96rpx; height: auto; padding: 22rpx 20rpx; background: var(--primary-color); border-radius: var(--radius-md); color: #fff; font-size: 32rpx; line-height: 1.6; font-weight: 600; }
+.wx-login-btn[disabled] { background: var(--bg-gray); color: var(--text-secondary); }
+.wx-login-btn::after { border: 0; }
+.agreement { margin-top: 24rpx; line-height: 1.8; }
+.agreement-text { font-size: 26rpx; color: var(--text-regular); }
+.agreement-link { color: var(--primary-color); text-decoration: underline; display: inline-block; padding: 20rpx 0; }
+.dev-login-btn { margin-top: 16rpx; padding: 24rpx 0; min-height: 88rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.dev-login-btn text { color: var(--text-regular); font-size: 26rpx; text-decoration: underline; }

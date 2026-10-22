@@ -1,6 +1,4 @@
-/* 首页 · 锁定视觉系统：暖纸底 #FAF7F0 / 白卡 / 深灰 #2B2A26 / 深靛 #2E4A68
-   蓝色全页仅 4 处：品牌桶标 / 主按钮 / 步进器 / 配送状态点。无渐变、无玻璃、无 Banner。
-   [2026-09-26 Wave1 轨道 B] 只改本页：全局 styles/*.wxss 是共享文件，一律不动。 */
+/* 2026-10-22：功能蓝与浅灰白，任务及复购优先，商品海报使用实际素材。 */
 .page {
   min-height: 100vh;
   background: var(--bg-color);
@@ -384,8 +382,8 @@
   flex: none;
 }
 .stepper-hit {
-  width: 84rpx;
-  height: 84rpx;
+  width: 88rpx;
+  height: 88rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -503,7 +501,7 @@
   margin-top: 8rpx;
   line-height: 1.5;
 }
-/* 主按钮：蓝色合法出现处 ②；置灰 #C9C4B8 不是浅蓝 */
+/* 主按钮：蓝色合法出现处 ②；置灰 #9CA7B5 不是浅蓝 */
 .cta {
   background: var(--primary-color);
   color: #fff;
@@ -664,3 +662,44 @@
   color: var(--text-placeholder);
   margin-left: 8rpx;
 }
+
+.hero { margin-top: 12rpx; padding: 0; min-height: 88rpx; }
+.station-chip { min-height: 88rpx; padding: 0; border: 0; flex: 1; box-sizing: border-box; }
+.station-chip-name, .hero-brand { font-size: 36rpx; font-weight: 700; white-space: normal; word-break: break-all; }
+.station-chip-arrow { margin-left: auto; padding-left: 16rpx; font-size: 24rpx; }
+.card { box-shadow: none; margin-bottom: 0; padding: 20rpx; border-color: var(--border-light); }
+.addr { margin-top: 8rpx; min-height: 88rpx; }
+.station-status-row { padding: 8rpx 0 0; }
+.status-chip { border-radius: var(--radius-sm); min-height: 64rpx; box-sizing: border-box; flex-wrap: wrap; }
+.status-chip-note { overflow: visible; white-space: normal; word-break: break-all; }
+.ship { border-left: 6rpx solid var(--primary-color); }
+.ship-title { font-size: 36rpx; font-weight: 700; }
+.ship-more { min-height: 88rpx; display: flex; align-items: center; max-width: 170rpx; }
+.again { flex-wrap: wrap; background: #fff; border-color: #BDD8FF; }
+.again-img { width: 80rpx; height: 104rpx; }
+.again-title { font-size: 32rpx; font-weight: 700; }
+.again-preview { font-size: 26rpx; color: var(--text-regular); }
+.again-btn { box-sizing: border-box; min-height: 88rpx; padding: 20rpx 24rpx; background: var(--primary-color); color: #fff; display: flex; align-items: center; font-weight: 600; }
+.product-poster { display: flex; align-items: center; gap: 16rpx; margin-top: 20rpx; padding: 24rpx; border: 1rpx solid #CCE0FF; border-radius: var(--radius-lg); background: #EAF3FF; }
+.poster-copy { flex: 1; min-width: 0; }
+.poster-kicker { display: block; font-size: 24rpx; color: var(--primary-dark); }
+.poster-name { display: block; margin-top: 8rpx; font-size: 34rpx; font-weight: 700; color: var(--text-primary); word-break: break-all; }
+.poster-spec, .poster-fee { display: block; margin-top: 8rpx; font-size: 24rpx; color: var(--text-regular); line-height: 1.5; }
+.poster-price { display: block; margin-top: 12rpx; font-size: 40rpx; font-weight: 700; color: #AE4612; }
+.poster-unit { font-size: 24rpx; font-weight: 400; color: var(--text-regular); }
+.poster-link { display: block; margin-top: 12rpx; font-size: 28rpx; color: var(--primary-dark); font-weight: 600; }
+.poster-visual { width: 152rpx; flex: none; text-align: center; }
+.poster-image { width: 152rpx; height: 192rpx; }
+.poster-image-note { font-size: 22rpx; color: var(--text-regular); }
+.shop-sec { padding: 0; }
+.sec-head { align-items: center; flex-wrap: wrap; padding: 8rpx 20rpx; gap: 8rpx; }
+.sec-title { font-size: 32rpx; margin-right: auto; }
+.sec-more { min-height: 88rpx; display: flex; align-items: center; padding: 0 8rpx; }
+.prod { padding: 24rpx 20rpx; align-items: flex-start; gap: 16rpx; }
+.prod-name { font-size: 30rpx; word-break: break-all; }
+.prod-purchase-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.prod-price-row { margin-top: 0; min-height: 88rpx; }
+.stepper-qty, .stepper-hint { min-width: 48rpx; }
+.stepper-hint { display: none; }
+.checkout { background: #fff; gap: 16rpx; }
+.cta { box-sizing: border-box; min-height: 96rpx; padding: 20rpx 32rpx; border-radius: var(--radius-md); letter-spacing: 0; }

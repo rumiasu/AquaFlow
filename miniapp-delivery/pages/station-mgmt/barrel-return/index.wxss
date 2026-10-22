@@ -86,3 +86,13 @@
 .more-actions button { width: 100%; margin: 0; }
 button::after { border: none; }
 @media (max-width: 340px) { .container { padding-left: 22rpx; padding-right: 22rpx; } .record-card { padding: 22rpx; } .sheet-heading,.sheet-footer { padding-left: 24rpx; padding-right: 24rpx; } .sheet-content { padding-left: 24rpx; padding-right: 24rpx; } .large-amount { font-size: 54rpx; } .status { max-width: 46%; } }
+
+/* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */
+
+.container { padding: 24rpx 24rpx calc(40rpx + env(safe-area-inset-bottom)); }.page-intro { padding-bottom: 22rpx; }.eyebrow { margin-bottom: 6rpx; }.page-title { font-size: 36rpx; }.page-caption { margin-top: 8rpx; }
+.record-card,.read-state,.alert-card { border-radius: 12rpx; box-shadow: none; padding: 24rpx; }.record-card { margin-bottom: 16rpx; }.product-name { margin: 16rpx 0; }.card-foot { margin-top: 18rpx; }
+.search-controls { display: flex; flex-wrap: wrap; gap: 12rpx; }.read-state input { box-sizing: border-box; width: 100%; height: 88rpx; padding: 16rpx; border: 1rpx solid var(--border-color); border-radius: 8rpx; margin-top: 14rpx; }
+.container button,.approval-sheet button { min-height: 88rpx; height: auto; box-sizing: border-box; border-radius: 8rpx; white-space: normal; word-break: break-all; line-height: 1.6; }
+.container button[size="mini"] { padding: 20rpx; font-size: 26rpx; }
+.alert-heading { min-height: 88rpx; }.alert-tip { border-left: 4rpx solid var(--warning-color); padding-left: 16rpx; }
+.approval-sheet { border-radius: 16rpx 16rpx 0 0; box-shadow: none; }.sheet-summary { border-radius: 8rpx; }.close-button { width: 88rpx; flex-shrink: 0; line-height: 80rpx !important; }.notice { border-radius: 8rpx; }.secondary-actions { gap: 12rpx; }.secondary-actions button { flex: 1 1 240rpx; }

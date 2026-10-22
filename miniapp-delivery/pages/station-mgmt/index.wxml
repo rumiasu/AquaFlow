@@ -21,6 +21,7 @@
     ⑤ 水站资料**改**：本页「水站资料」已直达 station-info 页，可改名称/电话/地址/坐标。
 -->
 <view class="container">
+  <view class="work-head"><text class="work-title">水站工作台</text><text class="work-desc">先处理待办，再查订单、客户与经营情况。</text></view>
 
   <!-- ============ 1 订单与客户 ============ -->
   <view class="badge-error" wx:if="{{badgeError}}" bindtap="loadBadgeCounts">{{badgeError}}</view>
@@ -86,7 +87,7 @@
       -->
       <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/customers/adjust/index">
         <view class="entry-main">
-          <text class="entry-title">资产调整单</text>
+          <text class="entry-title">客户资产调整</text>
           <text class="entry-desc">人工补正桶、押金、水票</text>
         </view>
         <text class="entry-arrow">›</text>

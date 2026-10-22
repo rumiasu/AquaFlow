@@ -1,4 +1,5 @@
 <view class="container">
+  <view class="page-intro"><text class="page-intro-title">公告详情</text><text class="page-intro-note">水站通知与服务信息</text></view>
   <view class="page-state" wx:if="{{loading}}">
     <text class="page-state-text">{{notice ? '正在刷新...' : '加载中...'}}</text>
   </view>

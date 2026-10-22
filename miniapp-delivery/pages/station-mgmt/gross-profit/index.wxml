@@ -4,7 +4,7 @@
 <view class="page">
 
   <!-- 期间 -->
-  <view class="card">
+  <view class="card period-card">
     <view class="card-title">统计期间</view>
     <picker mode="date" value="{{from}}" bindchange="onDate" data-field="from">
       <view class="picker">开始：{{from || '本月 1 号'}}</view>

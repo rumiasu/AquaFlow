@@ -1,4 +1,5 @@
 <view class="container">
+  <view class="page-intro"><text class="page-intro-title">填写送水地址</text><text class="page-intro-note">联系人、门牌与楼层信息请填写准确</text></view>
   <privacy-popup />
   <loading wx:if="{{loading}}"></loading>
 
@@ -54,6 +55,8 @@
       </view>
     </view>
 
+    <text class="field-help">楼层和电梯情况用于核算楼层费；不清楚时可选择「不确定」。</text>
+
     <!-- 楼层与电梯（2026-09-17 新增，v34）：楼层费的依据。
          ⚠️ 「不确定」是合法选项而不是"没选"—— 后端刻意区分 NULL(未确认) 与 0(确认无电梯)：
          把未确认当无电梯会向客户乱收钱，当有电梯会漏收。 -->
@@ -80,7 +83,7 @@
         <text class="default-text">设为默认地址</text>
       </view>
       <view class="save-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
-        <text>{{submitting ? '保存中...' : '保存'}}</text>
+        <text>{{submitting ? '保存中...' : '保存地址'}}</text>
       </view>
     </view>
   </view>

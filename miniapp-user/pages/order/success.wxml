@@ -51,11 +51,11 @@
     <view class="template-card" bindtap="onSaveTemplate">
       <view class="template-left">
         <view class="template-icon-wrap">
-          <icon name="zap" size="40rpx" color="#2E4A68" />
+          <icon name="zap" size="40rpx" color="#1677FF" />
         </view>
         <view class="template-text">
           <text class="template-title">存为常用订单</text>
-          <text class="template-hint">下次一键复购，省时省力</text>
+          <text class="template-hint">下次带入常买清单，再确认下单</text>
         </view>
       </view>
       <text class="template-arrow">›</text>
@@ -71,7 +71,7 @@
         </view>
         <view class="template-text">
           <text class="template-title saved">已存为常用订单</text>
-          <text class="template-hint">首页可一键复购</text>
+          <text class="template-hint">首页可快速再订</text>
         </view>
       </view>
     </view>
@@ -82,7 +82,7 @@
     <view class="action-row">
       <view class="action-card primary" bindtap="onViewOrders">
         <view class="action-icon-wrap primary">
-          <icon name="order" size="44rpx" color="#2E4A68" />
+          <icon name="order" size="44rpx" color="#1677FF" />
         </view>
         <view class="action-info">
           <text class="action-title">查看订单</text>

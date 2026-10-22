@@ -44,6 +44,12 @@ function decorate(item) {
 
 Page({
   data: {
+    listLoading: false,
+    listReady: false,
+    listError: '',
+    applicationsLoading: false,
+    applicationsReady: false,
+    applicationsError: '',
     activeTab: 'staff',   // staff 员工 | apply 绑定申请
     list: [],
     keyword: '',
@@ -100,6 +106,7 @@ Page({
   },
 
   async loadData() {
+    this.setData({ listLoading: true, listReady: false, listError: '' })
     try {
       const app = getApp()
       // 冷启动时 globalData 可能尚未水合（userInfo 为 null），只读它会让列表一直空白。
@@ -109,11 +116,12 @@ Page({
         || wx.getStorageSync(STORAGE_KEYS.STATION_ID)
         || null
       if (!stationId) {
-        this.setData({ list: [] })
+        this.setData({ list: [], listError: '本站信息尚未核实，请刷新后重试' })
         wx.showToast({ title: '未获取到水站信息，请重新登录', icon: 'none' })
         return
       }
       const res = await getStaffList(stationId)
+      if (!res || res.code !== 0 || !Array.isArray(res.data)) throw new Error((res && res.message) || '员工资料未核实，请重试')
       const keyword = this.data.keyword.trim()
       const filterStatus = this.data.filterStatus
       let list = (res.data || []).map(decorate)
@@ -126,20 +134,25 @@ Page({
           (c.name || '').includes(keyword) || (c.phone || '').includes(keyword)
         )
       }
-      this.setData({ list })
+      this.setData({ list, listReady: true })
       // 员工列表先出，再补申请（申请只用来打「解绑申请中」标记 + 申请页签，失败不该拖垮员工列表）
       this.loadApplications()
     } catch (err) {
       // 原实现只 console.error，请求失败时页面无任何反馈，表现为"空白"
       console.error(err)
-      this.setData({ list: [] })
+      // 2026-10-22：失败与真实空名单分开，不能让站长误以为本站没有员工。
+      this.setData({ list: [], listError: (err && err.message) || '员工加载失败，请重试' })
       wx.showToast({ title: (err && err.message) || '加载失败，请重试', icon: 'none' })
+    } finally {
+      this.setData({ listLoading: false })
     }
   },
 
   async loadApplications() {
+    this.setData({ applicationsLoading: true, applicationsReady: false, applicationsError: '' })
     try {
       const r = await get(API.MANAGER_BIND_APPLICATIONS)
+      if (!r || r.code !== 0 || !Array.isArray(r.data)) throw new Error((r && r.message) || '申请资料未核实，请重试')
       // 后端 applicationToMap 下发的是 staffName / staffPhone / createTime / applyNote，
       // 此前前端读 name / phone / applyTime / remark，字段全不匹配 → 所有申请人都显示成
       // 「申请人 · 暂无电话 · 今天」，无法分辨。这里统一归一到视图字段名（真实字段优先）。
@@ -154,14 +167,16 @@ Page({
         _loading: false,
         _firstChar: firstChar(a.staffName || a.nickname || a.name || a.nickName || '申')
       }))
-      this.setData({ applications })
+      this.setData({ applications, applicationsReady: true })
       this.syncUnbindFlags()
     } catch (e) {
       // 静默失败会让站长看不到待审申请（以为没人申请）。出声。
       console.error('[Staff] 绑定申请加载失败:', e)
-      this.setData({ applications: [] })
+      this.setData({ applications: [], applicationsError: (e && e.message) || '绑定申请加载失败，请重试' })
       this.syncUnbindFlags()
       wx.showToast({ title: '绑定申请加载失败', icon: 'none' })
+    } finally {
+      this.setData({ applicationsLoading: false })
     }
   },
 

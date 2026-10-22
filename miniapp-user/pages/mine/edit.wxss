@@ -1,22 +1,26 @@
 .container {
   min-height: 100vh;
   background: var(--bg-color);
-  padding: 24rpx 32rpx;
+  padding: 24rpx;
+  box-sizing: border-box;
 }
 
 .form-section {
   background: #fff;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 0 28rpx;
   margin-bottom: 32rpx;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
+  border: 1rpx solid var(--border-color);
 }
 
 .form-item {
   display: flex;
   align-items: center;
-  padding: 28rpx 0;
+  padding: 16rpx 0;
   border-bottom: 1rpx solid var(--border-light);
+  min-height: 104rpx;
+  box-sizing: border-box;
 }
 
 .form-item:last-child {
@@ -24,7 +28,7 @@
 }
 
 .form-label {
-  width: 140rpx;
+  width: 120rpx;
   font-size: 30rpx;
   color: var(--text-primary);
   flex-shrink: 0;
@@ -35,18 +39,20 @@
   flex: 1;
   font-size: 30rpx;
   color: var(--text-primary);
-  text-align: right;
+  text-align: left;
+  min-width: 0;
+  min-height: 88rpx;
 }
 
 .submit-btn {
-  margin-top: 48rpx;
-  height: 88rpx;
-  background: var(--primary-gradient);
-  border-radius: 44rpx;
+  margin-top: 24rpx;
+  height: 96rpx;
+  background: var(--primary-color);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-primary);
+  box-shadow: none;
 }
 
 .submit-btn text {
@@ -59,3 +65,8 @@
   background: var(--text-placeholder);
   box-shadow: none;
 }
+
+
+.page-intro { padding: 4rpx 0 24rpx; }
+.page-intro-title { display: block; font-size: 36rpx; font-weight: 700; line-height: 1.4; color: var(--text-primary); }
+.page-intro-note { display: block; margin-top: 10rpx; font-size: 26rpx; line-height: 1.6; color: var(--text-regular); }

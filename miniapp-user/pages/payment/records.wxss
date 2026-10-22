@@ -7,12 +7,13 @@
 .record-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   background-color: #fff;
-  border-radius: var(--radius-lg);
-  padding: 28rpx 32rpx;
-  margin-bottom: 20rpx;
-  box-shadow: var(--shadow-sm);
+  border-radius: 0;
+  padding: 28rpx 24rpx;
+  margin-bottom: 0;
+  box-shadow: none;
+  border-bottom: 1rpx solid var(--border-color);
 }
 
 .record-main {
@@ -59,6 +60,7 @@
   color: var(--price-color);
   display: block;
   margin-bottom: 8rpx;
+  word-break: break-all;
 }
 
 .record-status {
@@ -86,7 +88,7 @@
 }
 
 .status-4 {
-  color: var(--text-placeholder);
+  color: var(--text-regular);
 }
 .record-method {
   font-size: 24rpx;
@@ -125,11 +127,11 @@
 
 .retry-button {
   margin: 24rpx 0 0;
-  padding: 0 28rpx;
+  padding: 20rpx 28rpx;
   display: inline-block;
   width: auto;
-  min-height: 80rpx;
-  line-height: 80rpx;
+  min-height: 88rpx;
+  line-height: 1.6;
   font-size: 26rpx;
   color: var(--primary-color);
   background: var(--primary-bg);
@@ -137,3 +139,12 @@
 }
 
 .retry-button::after { border: none; }
+
+
+.page-intro { padding: 28rpx 24rpx 8rpx; }
+.page-intro-title { display: block; font-size: 36rpx; font-weight: 700; line-height: 1.4; color: var(--text-primary); }
+.page-intro-note { display: block; margin-top: 10rpx; font-size: 26rpx; line-height: 1.6; color: var(--text-regular); }
+.page-intro { padding: 4rpx 0 24rpx; }
+
+.record-list { overflow: hidden; border-radius: var(--radius-md); border: 1rpx solid var(--border-color); background: #fff; }
+.record-item:last-child { border-bottom: 0; }

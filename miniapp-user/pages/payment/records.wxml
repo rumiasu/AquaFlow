@@ -1,4 +1,5 @@
 <view class="container">
+  <view class="page-intro"><text class="page-intro-title">付款记录</text><text class="page-intro-note">核对每笔金额、付款方式与处理状态</text></view>
   <view class="error-card" wx:if="{{error}}">
     <text class="error-title">{{loaded ? '账单未更新' : '账单暂未加载'}}</text>
     <text class="error-message">{{error}}</text>

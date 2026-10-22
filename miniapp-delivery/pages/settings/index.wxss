@@ -8,9 +8,10 @@
 .section {
   background: var(--bg-card);
   margin: var(--spacing-md);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: 12rpx;
+  box-shadow: none;
   padding: var(--spacing-lg);
+  border: 1rpx solid var(--border-color);
 }
 
 .section-title {
@@ -28,6 +29,8 @@
   align-items: center;
   padding: var(--spacing-md) 0;
   border-bottom: 1rpx solid var(--border-light);
+  flex-wrap: wrap;
+  gap: 16rpx;
 }
 
 .info-row:last-child {
@@ -43,6 +46,10 @@
   font-size: var(--font-md);
   color: var(--text-primary);
   font-weight: 500;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+  flex: 1;
 }
 
 /* 「所属水站」缺名称时的重试入口（[2026-09-27 走查 D06]）：
@@ -52,6 +59,9 @@
   color: var(--primary-color);
   margin-left: 16rpx;
   flex-shrink: 0;
+  min-height: 96rpx;
+  display: flex;
+  align-items: center;
 }
 
 /* 设置行 */
@@ -61,6 +71,8 @@
   align-items: center;
   padding: var(--spacing-md) 0;
   border-bottom: 1rpx solid var(--border-light);
+  min-height: 112rpx;
+  box-sizing: border-box;
 }
 
 .setting-row:last-child {
@@ -78,9 +90,9 @@
 }
 
 .setting-sub {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
-  line-height: 1.4;
+  line-height: 1.6;
 }
 
 .setting-label {
@@ -103,3 +115,6 @@
   font-size: var(--font-sm);
   color: var(--text-secondary);
 }
+
+/* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
+.logout-btn { min-height: 96rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box; font-size: 30rpx; color: var(--error-color); }

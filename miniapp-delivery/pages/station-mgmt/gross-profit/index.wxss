@@ -95,7 +95,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid #F1ECE1;
+  border-bottom: 1rpx solid #E8ECF1;
 }
 .ledger-row:last-of-type {
   border-bottom: none;
@@ -109,7 +109,7 @@
   color: var(--text-primary);
 }
 .ledger-strong {
-  border-top: 1rpx solid #F1ECE1;
+  border-top: 1rpx solid #E8ECF1;
 }
 .ledger-strong .ledger-label,
 .ledger-strong .ledger-value {
@@ -129,7 +129,7 @@
   display: flex;
   align-items: center;
   padding: 20rpx 0;
-  border-bottom: 1rpx solid #F1ECE1;
+  border-bottom: 1rpx solid #E8ECF1;
 }
 .row:last-child {
   border-bottom: none;
@@ -249,3 +249,13 @@
 .dialog-footer .flex1:last-child {
   margin-right: 0;
 }
+
+/* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */
+
+.page { min-height: 100vh; box-sizing: border-box; background: var(--bg-color); }.card,.hero { border-radius: 12rpx; }
+.period-card { display: flex; flex-wrap: wrap; gap: 12rpx; }.period-card .card-title { width: 100%; margin-bottom: 0; }.period-card > picker { flex: 1 1 260rpx; min-width: 0; }.period-card .chips,.period-card .hint { width: 100%; }.picker { margin-bottom: 0; height: 88rpx; line-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; }
+.chip { min-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; padding: 20rpx; display: flex; align-items: center; line-height: 1.6; white-space: normal; word-break: break-all; }
+.hero { flex-wrap: wrap; gap: 20rpx 0; padding: 24rpx; }.hero-item { min-width: 0; word-break: break-all; }.hero-item:last-child { flex: 0 0 100%; text-align: left; border-top: 1rpx solid var(--border-color); padding-top: 20rpx; }.hero-item:last-child .hero-num { font-size: 42rpx; }
+.hero-label,.hint,.row-sub { font-size: 25rpx; color: var(--text-regular); line-height: 1.6; }.row-main { min-width: 0; overflow: visible; }.row-between,.ledger-row { gap: 16rpx; align-items: flex-start; }.row-between { flex-wrap: wrap; }.row-title { word-break: break-all; }.row-amount { margin-left: auto; word-break: break-all; }.ledger-row,.row,.ledger-strong { border-color: var(--border-color); }.ledger-value { text-align: right; word-break: break-all; }
+.btn-primary,.btn-ghost { min-height: 88rpx; height: auto; box-sizing: border-box; padding: 20rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; border-radius: 8rpx; white-space: normal; word-break: break-all; }
+.dialog { top: 12%; left: 24rpx; right: 24rpx; max-height: 78vh; overflow-y: auto; box-sizing: border-box; border-radius: 12rpx; }.dialog-footer { flex-wrap: wrap; gap: 12rpx; }.dialog-footer .flex1 { margin-right: 0; flex: 1 1 150rpx; }.dialog-input { height: 88rpx; }

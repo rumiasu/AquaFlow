@@ -1,6 +1,21 @@
-<!-- 首页 · Wave1 轨道 B 样板（2026-09-26 按 docs/design/29 §3「订水首页」重排）
-     信息顺序固定为：水站名与营业状态 → 收货地址 → 当前订单（有才显示）→ 再买上次 → 商品列表 → 水桶与押金入口。
-     蓝色仍只 4 处：品牌桶标·主按钮·步进器·配送状态点；无渐变、无 Banner、无商城心智。 -->
+<!-- 首页：当前订单优先；复购直达确认；静态商品海报使用本站实际商品，不承诺优惠。 -->
+
+<template name="station-product-poster">
+  <view class="product-poster" bindtap="onGoShop">
+    <view class="poster-copy">
+      <text class="poster-kicker">本站商品</text>
+      <text class="poster-name">{{product.name}}</text>
+      <text class="poster-spec" wx:if="{{product.spec}}">{{product.spec}}</text>
+      <text class="poster-price">¥{{product.priceText}}<text class="poster-unit"> / {{product.quantityUnit}} · 商品零售价</text></text>
+      <text class="poster-fee">配送、楼层费及新增押金在确认页核算</text>
+      <text class="poster-link">选水订购 ›</text>
+    </view>
+    <view class="poster-visual">
+      <image class="poster-image" src="{{product.imageUrl}}" mode="aspectFit" />
+      <text class="poster-image-note" wx:if="{{product.imageUrl === '/assets/product/barrel-neutral-template.webp'}}">商品示意图</text>
+    </view>
+  </view>
+</template>
 <view class="page">
   <view class="nav-spacer" style="height: {{statusBarHeight}}px;"></view>
 
@@ -31,30 +46,12 @@
   <block wx:else>
     <!-- ══ 头部卡：站名 + 营业状态 + 问候 + 小图。⚠️ 这一块在 isLogin 判断之外 ——
          未登录（含 state 仍是初始 'guest'）时也必须照渲染，否则游客首屏只剩一片空白 ══ -->
-    <view class="card hero">
-      <view class="hero-l">
-        <view class="hero-title">
-          <!-- 品牌桶标：蓝色合法出现处 ① -->
-          <view class="brand-mark">
-            <view class="brand-mark-handle"></view>
-            <view class="brand-mark-body">
-              <view class="brand-mark-line"></view>
-              <view class="brand-mark-line"></view>
-            </view>
-          </view>
-          <view class="station-chip" bindtap="onOpenStationList" wx:if="{{isLogin}}">
-            <text class="station-chip-name">{{currentStation.name || '选择水站'}}</text>
-            <text class="station-chip-arrow">›</text>
-          </view>
-        </view>
-        <!-- 问候语降为一行辅助文字：保留（按小时生成），但不再占首屏主位 -->
-        <text class="hero-greet">{{greeting}}</text>
+    <view class="hero">
+      <view class="station-chip" bindtap="onOpenStationList" wx:if="{{isLogin}}">
+        <text class="station-chip-name">{{currentStation.name || '选择水站'}}</text>
+        <text class="station-chip-arrow">切换 ›</text>
       </view>
-      <!-- 装饰头图降为小图（原 220×292rpx）：不抢首屏，图源仍是本站主力商品档案照 -->
-      <image class="hero-img" wx:if="{{heroImage}}" src="{{heroImage}}" mode="aspectFill" />
-      <view class="hero-img hero-img-empty" wx:else>
-        <icon name="barrel" size="48rpx" color="#C9C4B8" />
-      </view>
+      <text class="hero-brand" wx:else>AquaFlow 社区订水</text>
     </view>
 
     <!-- ══ 游客态 ══ -->
@@ -103,37 +100,38 @@
           <text class="row-arrow">›</text>
         </view>
 
-        <!-- ══ 再买上次：快捷下单入口（与上方"这单正在发生"区分开），不跳页，
-             「加入清单」只恢复选择并重新报价 —— 不直接付款。
+        <!-- ══ 再买上次：快捷下单入口（与上方"这单正在发生"区分开），直达确认页；原单商品、数量、地址重新读取报价，不直接付款。
              [2026-09-27 走查 C02 修] 摘要分两句：规模（共 N 种 / M 件）+ 具体是哪几款。
              原文只有一句"等N件"（N 是种数、单位写成"件"），客户点之前说不清会加进什么。 -->
         <view class="card again" wx:if="{{againOrder}}">
-          <image class="again-img" wx:if="{{againOrder.img}}" src="{{againOrder.img}}" mode="aspectFill" />
+          <image class="again-img" wx:if="{{againOrder.img}}" src="{{againOrder.img}}" mode="aspectFit" />
           <view class="again-img again-img-empty" wx:else>
-            <icon name="barrel" size="48rpx" color="#C9C4B8" />
+            <icon name="barrel" size="48rpx" color="#9CA7B5" />
           </view>
           <view class="again-mid">
-            <text class="again-title">再买上次</text>
+            <text class="again-title">照上次订</text>
             <text class="again-sub">{{againOrder.summary}}</text>
             <text class="again-preview" wx:if="{{againOrder.preview}}">{{againOrder.preview}}</text>
           </view>
-          <view class="again-btn" bindtap="onAgainTap">加入清单</view>
+          <view class="again-btn" bindtap="onAgainTap">再订一单</view>
         </view>
 
-        <!-- ══ 订水区：无详情页/无购物车/无促销，步进器即选即算 ══ -->
+        <template wx:if="{{!activeShip && productsView[0].imageUrl}}" is="station-product-poster" data="{{product: productsView[0]}}" />
+
+        <!-- ══ 订水区：数量即选即算，步进器即选即算 ══ -->
         <view class="card shop-sec" wx:if="{{productsView.length > 0}}">
           <view class="sec-head">
-            <text class="sec-title">订水</text>
+            <text class="sec-title">选水订购</text>
             <!-- 搜索入口：进商城页并自动聚焦搜索框（搜索范围 = 本站商品）
                  2026-09-12：Step5 重写时丢过这个入口；同日把冗余的 pages/home/search 合并进商城页 -->
             <view class="sec-more" bindtap="onGoSearch">搜索 ›</view>
-            <!-- 商城入口（用户 2026-09-12 拍板保留）：文字链，不做 Banner -->
+            <!-- 商城入口（用户 2026-09-12 拍板保留）：文字入口，海报不轮播 -->
             <view class="sec-more" bindtap="onGoShop">更多商品 ›</view>
           </view>
           <view class="prod" wx:for="{{productsView}}" wx:key="id">
-            <image class="prod-img" wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFill" />
+            <image class="prod-img" wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFit" />
             <view class="prod-img prod-img-empty" wx:else>
-              <icon name="barrel" size="48rpx" color="#C9C4B8" />
+              <icon name="barrel" size="48rpx" color="#9CA7B5" />
             </view>
             <view class="prod-info">
               <text class="prod-name">{{item.name}}</text>
@@ -142,13 +140,11 @@
               <!-- 与本次购买有关的押金只留一行说明；详细桶账户计算不放商品行（口径见 §3）
                    文案由 JS 预计算：有桶权益的顾客显示"本次无需加收桶押金…"，不再无脑显示单价押金 -->
               <text class="prod-deposit" wx:if="{{item.depositNote}}">{{item.depositNote}}</text>
+              <view class="prod-purchase-row">
               <view class="prod-price-row">
                 <text class="prod-price">¥{{item.priceText}}</text>
                 <text class="prod-price-unit">/{{item.quantityUnit}}</text>
               </view>
-            </view>
-            <!-- 步进器：蓝色合法出现处 ④（＋ 常显品牌蓝，− 仅数量>0 时点亮）
-                 点击热区 88rpx（图形仍是 52rpx，只放大热区）见 index.wxss 的 .stepper-hit -->
             <view class="stepper">
               <view class="stepper-hit" bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="minus">
                 <view class="stepper-btn {{item.qty > 0 ? 'on' : ''}}">−</view>
@@ -159,12 +155,17 @@
                 <view class="stepper-btn on">＋</view>
               </view>
             </view>
+              </view>
+            </view>
+
           </view>
         </view>
 
+        <template wx:if="{{activeShip && productsView[0].imageUrl}}" is="station-product-poster" data="{{product: productsView[0]}}" />
+
         <!-- ══ 水桶与押金入口：首页只留入口 + 必要欠桶提醒；权益/占用/押金的真实口径在桶账页 ══ -->
         <view class="card barrel" wx:if="{{barrelVisible}}" bindtap="onGoBarrel">
-          <icon name="barrel" size="36rpx" color="#A39E92" />
+          <icon name="barrel" size="36rpx" color="#637083" />
           <view class="barrel-txt">
             <text class="barrel-line">{{barrelLine1}}</text>
             <text class="barrel-sub" wx:if="{{barrelLine2}}">{{barrelLine2}}</text>
@@ -193,8 +194,8 @@
            首页算不出运费（还没选地址），所以这里**不做费用承诺**，只报件数并指向结算页报价。 -->
       <text class="sum-sub">{{total.count > 0 ? '已选 ' + total.count + ' 件 · 支付金额以结算页报价为准' : '选中数量后自动合计'}}</text>
     </view>
-    <!-- 主按钮：蓝色合法出现处 ②；置灰用 #C9C4B8，不是浅蓝 -->
-    <view class="cta {{total.count > 0 ? '' : 'off'}}" bindtap="onSubmit">去结算</view>
+    <!-- 主按钮：蓝色合法出现处 ②；置灰用 #9CA7B5，不是浅蓝 -->
+    <view class="cta {{total.count > 0 ? '' : 'off'}}" bindtap="onSubmit">确认订单</view>
   </view>
 
   <!-- ══ 水站选择弹层（保留原有交互） ══ -->

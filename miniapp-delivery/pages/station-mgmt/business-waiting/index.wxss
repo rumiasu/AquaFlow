@@ -80,3 +80,17 @@ button {
 button::after {
   border: none;
 }
+
+/* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */
+
+.work-heading { padding: 4rpx 0 24rpx; }
+.work-title { display: block; font-size: 36rpx; font-weight: 700; }
+.work-caption { display: block; margin-top: 8rpx; color: var(--text-regular); font-size: 25rpx; line-height: 1.6; }
+.section { padding: 24rpx; border-radius: 12rpx; box-shadow: none; background: #fff; }
+.task-row { padding: 22rpx 0; background: #fff; border-radius: 0; border-top: 1rpx solid var(--border-color); font-size: 30rpx; font-weight: 600; word-break: break-all; }
+.task-row text { font-weight: 400; margin-top: 8rpx; color: var(--text-regular); }
+.task-row button { font-weight: 500; }
+button,button[size="mini"] { box-sizing: border-box; min-height: 88rpx; max-width: 100%; padding: 20rpx; border-radius: 8rpx; font-size: 28rpx; line-height: 1.6; white-space: normal; word-break: break-all; }
+input,textarea { width: 100%; box-sizing: border-box; border: 1rpx solid var(--border-color); padding: 20rpx; margin: 16rpx 0; border-radius: 8rpx; font-size: 28rpx; font-weight: 400; }
+input { height: 88rpx; } textarea { height: 200rpx; }
+.empty-state { background: var(--bg-color); border-radius: 8rpx; }

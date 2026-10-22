@@ -23,6 +23,7 @@ Page({
     anonymous: false,
     // 历史
     history: [],
+    showHistory: false,
     // ===== 失败标记（[2026-09-20 真机联调]，空串 = 一切正常）=====
     // phoneError：水站公开电话**没查到**的原因（空串 = 查到了，或本地缓存里本来就有）。
     //   为什么要单独一个字段：下面 onCallPhone 原来无论什么原因都只说「暂未获取到客服电话，
@@ -37,6 +38,10 @@ Page({
     refundOptionsMore: false, refundOptionsPage: 0, pendingRefundNote: false,
     dispute: null, disputeReason: '', disputeSubmitting: false, pendingDispute: false,
     myDisputes: [], myDisputesError: '', myDisputesLoading: false, myDisputesPage: 0, myDisputesMore: false
+  },
+
+  onToggleHistory() {
+    this.setData({ showHistory: !this.data.showHistory })
   },
 
   onLoad(options = {}) {

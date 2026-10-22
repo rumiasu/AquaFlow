@@ -90,7 +90,7 @@
   display: flex;
   align-items: center;
   padding: 14rpx 0;
-  border-bottom: 1rpx solid #F1ECE1;
+  border-bottom: 1rpx solid #E8ECF1;
 }
 .field-label {
   width: 220rpx;
@@ -111,7 +111,7 @@
   display: flex;
   align-items: center;
   padding: 20rpx 0;
-  border-bottom: 1rpx solid #F1ECE1;
+  border-bottom: 1rpx solid #E8ECF1;
 }
 .row:last-child {
   border-bottom: none;
@@ -204,3 +204,14 @@
 .thumb-fallback { display:flex; align-items:center; justify-content:center; background:var(--primary-bg); color:var(--text-secondary); }
 .product-identity { display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere; }.product-spec { font-size:22rpx; color:var(--text-secondary); }
 .history-link { padding:18rpx 0; color:var(--primary-color); font-size:26rpx; }.warning { color:var(--warning-color); }
+
+/* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */
+
+.page { box-sizing: border-box; background: var(--bg-color); min-height: 100vh; }.card { border-radius: 12rpx; }
+.chip { border-radius: 8rpx; min-height: 88rpx; box-sizing: border-box; padding: 16rpx; }.chip-unified { border-style: dashed; }
+.field { align-items: flex-start; flex-direction: column; gap: 12rpx; border-color: var(--border-color); }.field-label { width: auto; }.field-input { flex: none; width: 100%; min-width: 0; height: 88rpx; box-sizing: border-box; border-radius: 8rpx; }
+.row { display: block; border-color: var(--border-color); padding: 24rpx 0; }.row-main { overflow: visible; min-width: 0; }.row-between { gap: 12rpx; align-items: flex-start; flex-wrap: wrap; }.row-title { word-break: break-all; font-weight: 600; }.row-amount { word-break: break-all; }
+.actions { flex-direction: row; flex-wrap: wrap; gap: 16rpx; margin: 18rpx 0 0; }.mini-btn { flex: 1; min-width: 160rpx; margin: 0; }
+.mini-btn,.btn-primary,.btn-ghost,.history-link { min-height: 88rpx; height: auto; box-sizing: border-box; padding: 20rpx; border-radius: 8rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; white-space: normal; word-break: break-all; }
+.hint,.row-sub,.product-spec { color: var(--text-regular); font-size: 25rpx; line-height: 1.6; }.hint.warning,.hint-unified { color: var(--warning-color); }
+.preset-chip { border-radius: 8rpx; background: var(--bg-color); border-color: var(--border-color); }.product-search { min-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; }

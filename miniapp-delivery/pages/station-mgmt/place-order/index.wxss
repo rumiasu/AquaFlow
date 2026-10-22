@@ -72,7 +72,7 @@
   display: flex;
   align-items: center;
   padding: 20rpx 0;
-  border-bottom: 1rpx solid #F1ECE1;
+  border-bottom: 1rpx solid #E8ECF1;
 }
 .row:last-child {
   border-bottom: none;
@@ -132,7 +132,7 @@
   font-size: 30rpx;
   font-weight: 600;
   color: var(--text-primary);
-  border-top: 1rpx solid #F1ECE1;
+  border-top: 1rpx solid #E8ECF1;
   margin-top: 8rpx;
   padding-top: 8rpx;
 }
@@ -190,3 +190,30 @@
   line-height: 36rpx;
   margin-top: 12rpx;
 }
+
+/* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
+.work-head { padding: 8rpx 4rpx 24rpx; }
+.work-title { display:block; font-size:38rpx; font-weight:700; line-height:1.4; color:var(--text-primary); }
+.work-desc { display:block; margin-top:8rpx; font-size:26rpx; line-height:1.6; color:var(--text-regular); }
+
+.page { box-sizing:border-box; }
+.summary { position:static; border-radius:12rpx; border-left:6rpx solid var(--primary-color); }
+.summary-line { align-items:flex-start; flex-wrap:wrap; gap:12rpx; }
+.summary-value { font-size:30rpx; line-height:1.6; min-width:0; overflow-wrap:break-word; }
+.summary-change { min-height:88rpx; display:flex; align-items:center; padding:0 16rpx; }
+.card { border-radius:12rpx; box-shadow:none; border:1rpx solid var(--border-color); }
+.card-title { font-size:32rpx; }
+.search-input { min-width:0; min-height:88rpx; font-size:28rpx; border-radius:10rpx; }
+.search-btn { min-height:88rpx; height:auto; line-height:1.5; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; }
+.row { min-height:112rpx; box-sizing:border-box; border-color:var(--border-color); gap:16rpx; flex-wrap:wrap; }
+.row-main { min-width:200rpx; overflow:visible; }
+.row-title { font-size:32rpx; line-height:1.5; }
+.row-sub,.hint { color:var(--text-regular); font-size:28rpx; line-height:1.6; }
+.qty-btn { width:96rpx; height:96rpx; line-height:96rpx; font-size:36rpx; border-radius:10rpx; }
+.qty { flex-shrink:0; }
+.fee-line { font-size:30rpx; line-height:1.6; }
+.fee-total { font-size:38rpx; color:var(--text-primary); border-top:2rpx solid var(--border-color); }
+.methods { flex-wrap:wrap; gap:12rpx; }
+.method { min-height:96rpx; box-sizing:border-box; padding:20rpx; font-size:28rpx; border-radius:10rpx; display:flex; align-items:center; justify-content:center; }
+.btn-primary { min-height:104rpx; height:auto; line-height:1.5; padding:20rpx; box-sizing:border-box; display:flex; align-items:center; justify-content:center; border-radius:10rpx; font-size:32rpx; }
+.warn,.blocked { font-size:28rpx; line-height:1.6; border-radius:8rpx; }

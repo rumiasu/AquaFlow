@@ -1,13 +1,5 @@
 <view class="container">
-  <view class="service-section" wx:if="{{!refundRef}}">
-    <text class="section-title">我的退款争议</text><text wx:if="{{myDisputesLoading}}">正在核对…</text>
-    <text class="load-error" wx:if="{{myDisputesError}}">{{myDisputesError}}</text><button wx:if="{{myDisputesError}}" bindtap="onRetryMyDisputes">重新核对争议</button>
-    <text wx:if="{{!myDisputesLoading && !myDisputesError && !myDisputes.length}}">暂无退款争议记录</text>
-    <view wx:for="{{myDisputes}}" wx:key="disputeKey" data-type="{{item.refundType}}" data-id="{{item.refundId}}" bindtap="onHistoryRefund">
-      <text class="service-label">{{item.objectText}} · {{item.statusText}} ›</text>
-    </view><button wx:if="{{myDisputesMore && !myDisputesLoading}}" bindtap="onMoreMyDisputes">继续加载争议记录</button>
-  </view>
-  <!-- 客服信息 -->
+  <view class="page-intro"><text class="page-intro-title">{{refundRef ? '退款说明与异议' : '联系水站与反馈'}}</text><text class="page-intro-note">{{refundRef ? '原退款状态和处理结果在这里核对' : '电话联系、服务反馈和已有处理记录'}}</text></view>
   <view class="service-section" wx:if="{{!refundRef}}">
     <view class="service-item">
       <text class="service-label">客服电话</text>
@@ -27,6 +19,14 @@
     <!-- Station 当前没有其他联系方式字段，避免重复引导客户拨同一号码。 -->
   </view>
 
+  <view class="service-section" wx:if="{{!refundRef}}">
+    <text class="section-title">我的退款争议</text><text wx:if="{{myDisputesLoading}}">正在核对…</text>
+    <text class="load-error" wx:if="{{myDisputesError}}">{{myDisputesError}}</text><button wx:if="{{myDisputesError}}" bindtap="onRetryMyDisputes">重新核对争议</button>
+    <text wx:if="{{!myDisputesLoading && !myDisputesError && !myDisputes.length}}">暂无退款争议记录</text>
+    <view class="dispute-record" wx:for="{{myDisputes}}" wx:key="disputeKey" data-type="{{item.refundType}}" data-id="{{item.refundId}}" bindtap="onHistoryRefund">
+      <text class="service-label">{{item.objectText}} · {{item.statusText}} ›</text>
+    </view><button wx:if="{{myDisputesMore && !myDisputesLoading}}" bindtap="onMoreMyDisputes">继续加载争议记录</button>
+  </view>
   <!-- 意见反馈表单 -->
   <view class="service-section">
     <text class="section-title">{{refundRef ? '退款异议与补充说明' : '意见反馈'}}</text>
@@ -91,8 +91,9 @@
     <view wx:if="{{pendingRefundNote && !submitting}}" class="service-label" bindtap="onRetryOriginalNote">上一条结果待确认，点此重试原说明</view>
   </view>
 
-  <!-- 我的反馈历史 -->
-  <view class="other-section" wx:if="{{history.length > 0}}">
+  <!-- 普通反馈历史按需展开；退款说明及其状态/责任保持常显。 -->
+  <view class="history-toggle" wx:if="{{!refundRef && history.length > 0}}" bindtap="onToggleHistory"><text>{{showHistory ? '收起历史反馈' : '查看历史反馈'}}（{{history.length}}）</text><text>{{showHistory ? '⌃' : '⌄'}}</text></view>
+  <view class="other-section" wx:if="{{history.length > 0 && (refundRef || showHistory)}}">
     <view class="other-item" wx:for="{{history}}" wx:key="id">
       <view class="history-main">
         <text class="service-label" wx:if="{{item.refundObjectText}}">{{item.refundObjectText}} · {{item.authorText}}</text>

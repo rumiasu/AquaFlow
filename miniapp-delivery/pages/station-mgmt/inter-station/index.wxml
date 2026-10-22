@@ -30,7 +30,7 @@
   <!-- 需要冲销的那一批：已登记结清、但订单后来被取消/退款。
        ⚠️ 它们**不在正常列表里**（那批单已经不算数了），所以必须单独一块 ——
        不显示的话，站长结过的那笔会凭空消失，"冲销"也就无从下手。 -->
-  <view class="section" wx:if="{{dangling.length > 0}}">
+  <view class="section reversal-section" wx:if="{{dangling.length > 0}}">
     <view class="section-title">需要冲销（{{dangling.length}} 笔）</view>
     <view class="hint">这些单已经取消或退款，当时登记的站间应付不再成立。若钱已经真的付给对方了，请先协商。</view>
     <view class="card" wx:for="{{dangling}}" wx:key="_key">

@@ -1,3 +1,4 @@
+<page-meta page-style="{{showEditModal ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="container">
   <loading wx:if="{{loading}}"></loading>
 
@@ -7,10 +8,10 @@
       console 一下就完了：列表显示「还没有常用订单」、弹窗里商品与地址一片空白，与"确实没有"
       无法区分（AGENTS §8.22）。样式复用 styles/common.wxss 的 .load-error。
     -->
-    <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}<button bindtap="onRetry">重新加载配置</button></view>
 
     <view class="info-bar">
-      <text class="info-text">管理常用商品、数量与地址。首页「照上次订」使用最近一笔已送达订单。</text>
+      <text class="info-text">保存常用商品、数量与地址，保存配置不会创建订单。首页「照上次订」使用最近一笔已送达订单。</text>
     </view>
 
     <view class="section" wx:if="{{templates.length > 0}}">
@@ -44,7 +45,7 @@
       </view>
     </view>
 
-    <empty wx:else text="还没有常用订单"></empty>
+    <view class="local-empty" wx:elif="{{loaded && !loadError}}"><text>还没有常用订水配置</text></view>
 
     <view class="add-btn" bindtap="onAddTemplate">
       <text>+ 新建常用订单</text>
@@ -61,7 +62,7 @@
     <view class="modal-body">
       <view class="form-section">
         <text class="form-label">订单名称</text>
-        <input class="form-input" placeholder="如：每周一桶" value="{{form.name}}" bindinput="onNameInput" />
+        <input class="form-input" placeholder="如：每周一桶" value="{{form.name}}" bindinput="onNameInput" disabled="{{submitting}}" />
       </view>
 
       <view class="form-section">
@@ -71,7 +72,9 @@
         </view>
         <!-- [2026-09-20] 商品没拉到时要说明白：否则这里是**一片空白**，用户点"+"也选不出东西，
              最后被"请选择至少一种商品"拦住，看起来像界面坏了。 -->
-        <view class="load-error" wx:if="{{formLoadError}}">{{formLoadError}}</view>
+        <text class="form-status" wx:if="{{formLoading}}">正在读取商品与地址…</text>
+        <view class="load-error" wx:if="{{formLoadError}}">{{formLoadError}}<button bindtap="loadFormData" disabled="{{formLoading}}">重试读取商品与地址</button></view>
+        <text class="form-status" wx:if="{{formReady && !products.length}}">本站暂无可选择的商品。</text>
         <view class="item-list">
           <view class="item-row" wx:for="{{form.items}}" wx:key="index">
             <view class="item-select">
@@ -93,7 +96,7 @@
               <view class="qty-btn {{item.quantity <= 1 ? 'disabled' : ''}}" bindtap="onQuantityChange" data-index="{{index}}" data-type="minus">
                 <text>-</text>
               </view>
-              <input class="qty-input" type="number" value="{{item.quantity}}" bindinput="onQuantityInput" data-index="{{index}}" />
+              <input class="qty-input" type="number" value="{{item.quantity}}" bindinput="onQuantityInput" disabled="{{submitting}}" data-index="{{index}}" />
               <view class="qty-btn" bindtap="onQuantityChange" data-index="{{index}}" data-type="add">
                 <text>+</text>
               </view>
@@ -105,6 +108,7 @@
 
       <view class="form-section">
         <text class="form-label">配送地址</text>
+        <text class="form-status" wx:if="{{formReady && !addresses.length}}">还没有收货地址，可先到「我的—地址管理」添加。</text>
         <view class="form-options">
           <view
             class="form-option {{form.addressId === item.id ? 'active' : ''}}"
@@ -120,16 +124,17 @@
 
       <view class="form-section">
         <text class="form-label">备注</text>
-        <input class="form-input" placeholder="如：放门口" value="{{form.specialNote}}" bindinput="onNoteInput" />
+        <input class="form-input" placeholder="如：放门口" value="{{form.specialNote}}" bindinput="onNoteInput" disabled="{{submitting}}" />
       </view>
     </view>
 
     <view class="modal-footer">
+      <text class="save-error" wx:if="{{saveError}}">{{saveError}}</text>
       <view class="modal-btn cancel" bindtap="onCloseEditModal">
         <text>取消</text>
       </view>
       <view class="modal-btn confirm" bindtap="onSaveTemplate">
-        <text>保存</text>
+        <text>{{submitting ? '保存中…' : '保存配置'}}</text>
       </view>
     </view>
   </view>

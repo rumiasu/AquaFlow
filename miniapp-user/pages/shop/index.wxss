@@ -30,7 +30,7 @@
 .guest-login-desc {
   display: block;
   margin-top: 6rpx;
-  font-size: 24rpx;
+  font-size: 26rpx;
   /* 这里不用 --text-secondary(#637083)：对白底只有 2.67:1，达不到 §6「灰色占位不承载
      价格、地址、警告」的可读要求。--text-regular(#4B596A) 是 5.39:1，且客户端已在本页
      .station-picker-close 等处用它做整句提示。 */
@@ -75,7 +75,7 @@
 }
 
 .station-bar-switch text {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--primary-color);
   font-weight: 500;
 }
@@ -165,14 +165,14 @@
 }
 
 .station-picker-item-addr {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
   display: block;
   margin-top: 4rpx;
 }
 
 .station-picker-item-check {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--primary-color);
   font-weight: 500;
 }
@@ -247,7 +247,7 @@
   right: 6rpx;
   background-color: rgba(5, 150, 105, 0.85);
   color: #fff;
-  font-size: 18rpx;
+  font-size: 26rpx;
   padding: 2rpx 10rpx;
   border-radius: 6rpx;
   font-weight: 500;
@@ -280,7 +280,7 @@
 }
 
 .product-brand {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -298,7 +298,7 @@
 }
 
 .product-deposit {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 
@@ -309,7 +309,7 @@
   background: var(--primary-gradient);
   color: #fff;
   border-radius: 26rpx;
-  font-size: 24rpx;
+  font-size: 26rpx;
   font-weight: 600;
   box-shadow: 0 4rpx 12rpx rgba(30, 64, 175, 0.2);
   text-align: center;
@@ -334,7 +334,7 @@
   color: var(--primary-color);
   border: 1rpx solid var(--primary-color);
   border-radius: 26rpx;
-  font-size: 22rpx;
+  font-size: 26rpx;
   font-weight: 500;
   text-align: center;
 }
@@ -382,7 +382,7 @@
 }
 
 .fab-cart-badge text {
-  font-size: 20rpx;
+  font-size: 26rpx;
   color: #fff;
   font-weight: 600;
 }
@@ -405,7 +405,7 @@
 
 .station-status-banner .banner-text {
   flex: 1;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--warning-color);
   line-height: 1.5;
 }
@@ -429,3 +429,12 @@
 .station-picker-close { min-height: 88rpx; display: flex; align-items: center; }
 .fab-cart { border-radius: var(--radius-lg); box-shadow: var(--shadow-md); bottom: calc(32rpx + env(safe-area-inset-bottom)); }
 .fab-cart:active { transform: none; }
+
+/* 本页所有状态共用的可读与触控边界。 */
+.container { padding-bottom: calc(144rpx + env(safe-area-inset-bottom)); }
+.search-clear, .station-picker-close { min-width: 88rpx; min-height: 88rpx; display: flex; align-items: center; justify-content: center; }
+.station-picker button, .load-error button { min-height: 88rpx; font-size: 28rpx; line-height: 1.6; padding: 20rpx; }
+.product-info, .name-row { min-width: 0; }
+.product-brand, .catalog-note { color: var(--text-regular); line-height: 1.6; }
+
+.local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }

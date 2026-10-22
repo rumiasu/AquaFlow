@@ -5,6 +5,14 @@ const { getCustomerId, captureSession, isCurrentSession } = require('../../utils
 const { stationStorage } = require('../../utils/storage')
 const { getStationPublicPhone } = require('../../api/station')
 
+// 只清理错误的展示文字；原对象的 code、resultUnknown、businessRejected 均不改动。
+function viewError(error, fallback = '暂时无法完成，请稍后重试') {
+  const text = error && typeof error.message === 'string' ? error.message.trim() : ''
+  return /[\u3400-\u9fff]/.test(text)
+    && !/(?:Exception|Error:|\bat\s+\S+\(|\bSQL\b|https?:\/\/|request:fail|errno|stack|[A-Z][A-Z_]{5,})/.test(text)
+    ? text : fallback
+}
+
 Page({
   data: {
     serviceInfo: {
@@ -32,10 +40,13 @@ Page({
     // historyError：反馈历史没加载出来的原因（空串 = 正常）。原来只 console.warn，
     //   区块直接不渲染 —— 提过反馈的客户会以为自己的记录丢了。
     phoneError: '',
+    phoneLoading: false, phoneLoaded: false, stationSelected: false,
     historyError: '',
+    historyLoading: false, historyLoaded: false, submitError: '',
     submitting: false,
     refundRef: null, refundReady: false, refundError: '', refundOptions: [], refundOptionsError: '',
     refundOptionsMore: false, refundOptionsPage: 0, pendingRefundNote: false,
+    refundOptionsLoading: false, refundOptionsLoaded: false,
     dispute: null, disputeReason: '', disputeSubmitting: false, pendingDispute: false,
     myDisputes: [], myDisputesError: '', myDisputesLoading: false, myDisputesPage: 0, myDisputesMore: false
   },
@@ -65,7 +76,7 @@ Page({
         myDisputes: [], myDisputesError: '', myDisputesPage: 0, myDisputesMore: false })
     }
     this._pageCustomer = customer
-    this.setData({ submitting: false, disputeSubmitting: false })
+    this.setData({ submitting: false, disputeSubmitting: false, refundOptionsLoading: false, historyLoading: false })
     if (this.data.refundRef) this.loadRefundThread()
     else { this.loadHistory(); this.loadStation(); this.loadMyDisputes() }
   },
@@ -81,7 +92,7 @@ Page({
       const rows = response.data.map(row => Object.assign({}, row, { disputeKey: row.refundType + ':' + row.refundId }))
       const all = page === 1 ? rows : this.data.myDisputes.concat(rows)
       this.setData({ myDisputes: Array.from(new Map(all.map(r => [r.disputeKey, r])).values()), myDisputesPage: page, myDisputesMore: response.data.length === 200 })
-    } catch (err) { if (current()) this.setData({ myDisputesError: err.message || '退款争议没加载出来，请重试', myDisputes: page === 1 ? [] : this.data.myDisputes }) }
+    } catch (err) { if (current()) this.setData({ myDisputesError: (this.data.myDisputes.length ? '以下为上次读取的争议记录。' : '') + viewError(err, '退款争议没加载出来，请重试') }) }
     finally { if (current()) this.setData({ myDisputesLoading: false }) }
   },
   onRetryMyDisputes() { return this.loadMyDisputes() },
@@ -90,19 +101,21 @@ Page({
   onShowRefundOptions() { return this.loadRefundOptions(1) },
   onMoreRefundOptions() { return this.loadRefundOptions(this.data.refundOptionsPage + 1) },
   async loadRefundOptions(page) {
+    if (this.data.refundOptionsLoading) return
     const session = captureSession(), epoch = this._noteEpoch
     const serial = this._optionsSerial = (this._optionsSerial || 0) + 1
     const current = () => serial === this._optionsSerial && epoch === this._noteEpoch && isCurrentSession(session)
+    this.setData({ refundOptionsLoading: true, refundOptionsError: '' })
     try {
       const res = await getRefundOptions(page)
       if (!current()) return
       if (!res.data || !Array.isArray(res.data.options)) throw new Error('退款记录没加载出来')
       const options = page === 1 ? res.data.options : this.data.refundOptions.concat(res.data.options)
       this.setData({ refundOptions: options, refundOptionsMore: !!res.data.hasMore, refundOptionsPage: page,
-        refundOptionsError: res.data.options.length ? '' : '当前没有可关联的退款原款或退押金申请' })
+        refundOptionsLoaded: true, refundOptionsError: '' })
     } catch (e) {
-      if (current()) this.setData({ refundOptionsError: e.message || '退款记录没加载出来' })
-    }
+      if (current()) this.setData({ refundOptionsError: viewError(e, '退款记录没加载出来') })
+    } finally { if (current()) this.setData({ refundOptionsLoading: false }) }
   },
   onSelectRefund(e) {
     if (this.data.submitting || this.data.disputeSubmitting) return
@@ -133,7 +146,7 @@ Page({
       if (pending) Object.assign(patch, { content: pending.content, contact: pending.contact })
       this.setData(patch)
     } catch (e) {
-      if (current()) this.setData({ refundReady: false, refundError: e.message || '退款说明没加载出来', history: [], dispute: null })
+      if (current()) this.setData({ refundReady: false, refundError: viewError(e, '退款说明没加载出来'), history: [], dispute: null })
     }
   },
   onRetryRefund() { this.loadRefundThread() },
@@ -151,7 +164,7 @@ Page({
       const pending = disputeIntent.read('CUSTOMER:' + getCustomerId(), ref.refundType + ':' + ref.refundId, 'OPEN')
       if (!pending) return
       this.setData({ disputeReason: pending.reason }); return this.onOpenDispute()
-    } catch (err) { wx.showToast({ title: err.message, icon: 'none' }) }
+    } catch (err) { wx.showToast({ title: viewError(err), icon: 'none' }) }
   },
   async onOpenDispute() {
     const ref = this.data.refundRef, state = this.data.dispute
@@ -174,7 +187,7 @@ Page({
     } catch (err) {
       if (current()) {
         if (intent && err.businessRejected) { disputeIntent.clear(intent); this.setData({ pendingDispute: false }); await this.loadRefundThread() }
-        wx.showToast({ title: err.message || '提交结果未确认，请重试', icon: 'none' })
+        wx.showToast({ title: viewError(err, '提交结果未确认，请重试'), icon: 'none' })
       }
     }
     finally { if (epoch === this._noteEpoch && isCurrentSession(session)) this.setData({ disputeSubmitting: false }) }
@@ -185,7 +198,7 @@ Page({
       if (!pending) return
       this.setData({ content: pending.content, contact: pending.contact })
       return this.onSubmit()
-    } catch (e) { wx.showToast({ title: e.message, icon: 'none' }) }
+    } catch (e) { wx.showToast({ title: viewError(e), icon: 'none' }) }
   },
 
   /**
@@ -197,27 +210,37 @@ Page({
    * api/station.js 的注释里记着同类事故（误调站长路由导致电话恒定取不到，排查成本很高）。
    */
   async loadStation() {
+    const epoch = this._noteEpoch, seq = this._phoneSeq = (this._phoneSeq || 0) + 1
     const cached = stationStorage.get() || {}
     const info = { phone: cached.phone || '', stationName: cached.name || '' }
     const stationId = cached.id || cached.stationId
+    const current = () => epoch === this._noteEpoch && seq === this._phoneSeq && String(stationStorage.getId() || '') === String(stationId || '')
+    this.setData({ phoneLoading: !!stationId, phoneLoaded: false, stationSelected: !!stationId, phoneError: '' })
     let phoneError = ''
     if (stationId) {
       try {
         const res = await getStationPublicPhone(stationId)
+        if (!current()) return
+        if (!res || res.code !== 0 || !res.data || typeof res.data !== 'object') throw new Error('水站电话暂未加载，请重试')
         const phone = res && res.data && res.data.phone
-        if (phone) info.phone = phone
+        info.phone = phone ? String(phone) : ''
       } catch (err) {
         // [2026-09-20 真机联调] 原来这里只 console.warn —— 于是"电话接口失败"与"水站没配电话"
         // 在界面上长得完全一样（都显示「未获取到」+ 点拨打弹「暂未获取到客服电话，请稍后再试」）。
         // 拿不到就退回缓存值（老行为不变），但**必须把失败原因记下来**，由 onCallPhone/页面据此区分。
         console.warn('[Service] 读取水站公开电话失败:', err && (err.message || err.errMsg))
-        phoneError = (err && err.message) || '网络异常'
+        phoneError = viewError(err, '网络异常')
       }
     }
-    this.setData({ serviceInfo: info, phoneError })
+    if (current()) this.setData({ serviceInfo: info, phoneError, phoneLoading: false, phoneLoaded: !!stationId && !phoneError })
   },
 
+  onRetryStation() { if (!this.data.phoneLoading) return this.loadStation() },
+  onRetryHistory() { if (!this.data.historyLoading) return this.loadHistory() },
+
   onCallPhone() {
+    if (this.data.phoneLoading) return
+    if (!this.data.stationSelected) { wx.showToast({ title: '请先在订水页选择服务水站', icon: 'none' }); return }
     const phone = this.data.serviceInfo.phone
     if (!phone) {
       // [2026-09-20 真机联调] 这里原来是一句断言：「暂未获取到客服电话，请稍后再试」——
@@ -237,7 +260,8 @@ Page({
       return
     }
     wx.makePhoneCall({
-      phoneNumber: phone
+      phoneNumber: phone,
+      fail: () => wx.showToast({ title: '电话未拨出，请稍后重试', icon: 'none' })
     })
   },
 
@@ -273,20 +297,20 @@ Page({
   async loadHistory() {
     const session = captureSession(), epoch = this._noteEpoch
     const current = () => epoch === this._noteEpoch && isCurrentSession(session)
+    this.setData({ historyLoading: true, historyError: '' })
     try {
       const res = await getMyFeedback()
       if (!current()) return
-      if (res.data) {
-        this.setData({ history: res.data, historyError: '' })
-      }
+      if (!res || !Array.isArray(res.data)) throw new Error('反馈历史暂未加载，请重试')
+      this.setData({ history: res.data, historyLoaded: true, historyError: '' })
     } catch (err) {
       if (!current()) return
       // [2026-09-20 真机联调] 原来是「未登录或加载失败时不强提示」只 console.warn：失败时
       // 历史区块整块不渲染，提过反馈的客户会以为记录丢了（与"确实没提过反馈"无法区分，AGENTS §8.22）。
       // 仍然不用弹窗打断（本页主任务是提交反馈），但空态要改成"没加载出来"。
       console.warn('[Service] 反馈历史加载失败:', err && (err.message || err.errMsg))
-      this.setData({ historyError: (err && err.message) || '网络异常' })
-    }
+      this.setData({ historyError: (this.data.historyLoaded ? '以下为上次读取的反馈记录。' : '') + viewError(err, '反馈历史暂未加载，请重试。') })
+    } finally { if (current()) this.setData({ historyLoading: false }) }
   },
 
   /**
@@ -308,16 +332,19 @@ Page({
       return
     }
 
-    this.setData({ submitting: true })
+    const session = captureSession(), epoch = this._noteEpoch
+    const current = () => epoch === this._noteEpoch && isCurrentSession(session)
+    this.setData({ submitting: true, submitError: '' })
     try {
       await submitFeedback({ category, content, contact, anonymous })
+      if (!current()) return
       wx.showToast({ title: '反馈已提交，感谢！', icon: 'success' })
       this.setData({ content: '', contact: '' })
       this.loadHistory()
     } catch (error) {
-      wx.showToast({ title: error.message || '提交失败', icon: 'none' })
+      if (current()) this.setData({ submitError: viewError(error, '反馈结果尚未确认，输入已保留；请先查看反馈历史，避免重复提交。') })
     } finally {
-      this.setData({ submitting: false })
+      if (current()) this.setData({ submitting: false })
     }
   },
   async submitRefundNote() {
@@ -337,7 +364,7 @@ Page({
       wx.showToast({ title: '说明已保存', icon: 'success' })
       await this.loadRefundThread()
     } catch (e) {
-      if (current()) wx.showToast({ title: e.message || '提交结果未确认，请重试', icon: 'none' })
+      if (current()) wx.showToast({ title: viewError(e, '提交结果未确认，请重试'), icon: 'none' })
     } finally { if (current()) this.setData({ submitting: false }) }
   }
 })

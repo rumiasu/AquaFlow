@@ -138,6 +138,7 @@ Page({
       _key: String(it.orderId),
       _amountText: money(it.amount),
       _amountKnown: exactMoney(it.amount),
+      _settlementPartiesKnown: !!positiveId(it.fromStationId) && !!positiveId(it.toStationId),
       _ruleText: rule,
       _routeText: (it.fromStationName || '？') + ' → ' + (it.toStationName || '？'),
       _settledText: settledText,
@@ -151,11 +152,12 @@ Page({
     const snapshot = this.aftercareSession(), version = this._ledgerSeq
     const row = this.data.items.find(item => String(item.orderId) === String(e.currentTarget.dataset.id))
     const expectedAmount = row && row.amount
-    const action = { used: false }
+    const action = { used: false, stage: 'facts' }
     const current = () => this._settleAction === action && !action.used && this.aftercareCurrent(snapshot)
       && this.aftercareCurrent(this._ledgerReadSession) && version === this._ledgerSeq
       && this.data.loaded && !this.data.loading && !this.data.ledgerError
       && row && this.data.items.includes(row) && row.canSettle === true && exactMoney(row.amount) && Number(row.amount) === Number(expectedAmount)
+      && positiveId(row.fromStationId) && positiveId(row.toStationId) && String(row.fromStationId) === String(snapshot.station)
     this._settleAction = action
     if (!current()) {
       this._settleAction = null
@@ -163,7 +165,7 @@ Page({
       return
     }
     const id = row.orderId, amount = row._amountText
-    wx.showModal({
+    const showReceipt = () => wx.showModal({
       title: '登记这笔已结清',
       // editable 的输入框用于凭据说明（转账流水号/经手人）：可留空，
       // 因为"什么时候算办完"靠的是时间与登记人，凭据说明是加分项而不是门槛。
@@ -172,7 +174,7 @@ Page({
       content: '',
       confirmText: '登记结清',
       success: async (res) => {
-        if (this._settleAction !== action || action.used) return
+        if (this._settleAction !== action || action.used || action.stage !== 'receipt') return
         if (!res.confirm) { this._settleAction = null; return }
         if (!current()) {
           this._settleAction = null
@@ -197,6 +199,26 @@ Page({
         }
       },
       complete: () => { if (!action.used && this._settleAction === action) this._settleAction = null }
+    })
+    wx.showModal({
+      title: '核对站间结清',
+      content: '订单 #' + id + '\n结清金额：¥' + amount
+        + '\n付款站：' + (row.fromStationName || '水站（编号' + row.fromStationId + '）')
+        + '\n收款站：' + (row.toStationName || '水站（编号' + row.toStationId + '）')
+        + '\n仅登记已经实际结清的这一笔，不执行转账。核对后可补充凭据，最终确认才登记。',
+      confirmText: '继续登记', cancelText: '暂不登记',
+      success: res => {
+        if (this._settleAction !== action || action.used || action.stage !== 'facts') return
+        if (!res.confirm) { this._settleAction = null; return }
+        if (!current()) {
+          this._settleAction = null
+          wx.showToast({ title: '台账或身份已变化，请重新核对后办理', icon: 'none' })
+          return
+        }
+        action.stage = 'receipt'
+        showReceipt()
+      },
+      complete: () => { if (action.stage === 'facts' && this._settleAction === action) this._settleAction = null }
     })
   },
 

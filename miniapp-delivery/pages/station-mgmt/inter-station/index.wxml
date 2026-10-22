@@ -77,7 +77,8 @@
         <button class="btn-outline-small" catchtap="onOpenAftercare" data-id="{{item.orderId}}">核对本单售后分担</button>
         <button class="btn-outline-small" wx:if="{{item.canChangePrice && !loading && !ledgerError}}" catchtap="onPriceByListed" data-id="{{item.orderId}}">按挂牌价结</button>
         <text class="hint" wx:if="{{item.canSettle && !item._amountKnown}}">本笔金额待核实，请重新核对台账后登记结清。</text>
-        <button class="btn-ok-small" wx:if="{{item.canSettle && !loading && !ledgerError}}" disabled="{{!item._amountKnown}}" catchtap="onSettle" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">登记结清</button>
+        <text class="hint" wx:if="{{item.canSettle && !item._settlementPartiesKnown}}">付款站或收款站尚未核实，请重新读取台账。</text>
+        <button class="btn-ok-small" wx:if="{{item.canSettle && !loading && !ledgerError}}" disabled="{{!item._amountKnown || !item._settlementPartiesKnown}}" catchtap="onSettle" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">登记结清</button>
       </view>
     </view>
   </view>

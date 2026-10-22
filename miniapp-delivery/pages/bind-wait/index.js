@@ -44,27 +44,30 @@ Page({
     this.setData({ refreshLoading: true, refreshError: '', statusReady: false, applyStationName: '' })
     try {
       // 优先从服务器拿最新 bind 状态
+      const optionalRead = error => { if (error && error.sessionChanged) throw error; return null }
       const [bindRes, meRes] = await Promise.all([
-        get(API.BIND_STATUS).catch(() => null),
-        get(API.ME).catch(() => null)
+        get(API.BIND_STATUS).catch(optionalRead),
+        get(API.ME).catch(optionalRead)
       ])
 
       if (!this.bindingCurrent(active)) return
-      if (!(bindRes && bindRes.data) && !(meRes && meRes.data)) throw new Error('申请状态尚未读取')
-      this.setData({ statusReady: true })
+      const validState = value => value && typeof value === 'object' && !Array.isArray(value) && Object.values(BINDING_STATUS).includes(value.bindingStatus || value.bindStatus)
+      const bindData = bindRes && validState(bindRes.data) ? bindRes.data : null
+      const meData = meRes && validState(meRes.data) ? meRes.data : null
+      if (!bindData && !meData) throw new Error('申请状态尚未读取')
       let bindStatus = userInfo.bindStatus || BINDING_STATUS.UNBOUND
       let stationId = userInfo.stationId || null
       let applyStationId = userInfo.applyStationId || null
 
-      if (bindRes && bindRes.data) {
-        bindStatus = bindRes.data.bindingStatus || bindStatus
-        stationId = bindRes.data.stationId != null ? bindRes.data.stationId : stationId
-        applyStationId = bindRes.data.applyStationId != null ? bindRes.data.applyStationId : applyStationId
+      if (bindData) {
+        bindStatus = bindData.bindingStatus || bindData.bindStatus
+        if (Object.prototype.hasOwnProperty.call(bindData, 'stationId')) stationId = bindData.stationId
+        if (Object.prototype.hasOwnProperty.call(bindData, 'applyStationId')) applyStationId = bindData.applyStationId
       }
-      if (meRes && meRes.data) {
-        const m = meRes.data
+      if (meData) {
+        const m = meData
         if (m.bindingStatus) bindStatus = m.bindingStatus
-        if (m.stationId) stationId = m.stationId
+        if (Object.prototype.hasOwnProperty.call(m, 'stationId')) stationId = m.stationId
         if (m.bindStatus) bindStatus = m.bindStatus
       }
 
@@ -73,14 +76,15 @@ Page({
         accessToken: app.globalData.accessToken,
         refreshToken: app.globalData.refreshToken,
         staffId: userInfo.staffId,
-        nickname: (meRes && meRes.data && meRes.data.nickname) || userInfo.nickname,
-        phone: (meRes && meRes.data && meRes.data.phone) || userInfo.phone,
-        role: (meRes && meRes.data && (meRes.data.staffRole || meRes.data.role)) || userInfo.role,
+        nickname: (meData && meData.nickname) || userInfo.nickname,
+        phone: (meData && meData.phone) || userInfo.phone,
+        role: (meData && (meData.staffRole || meData.role)) || userInfo.role,
         stationId,
         bindingStatus: bindStatus,
         applyStationId
       })
       active = this.bindingSnapshot()
+      this.setData({ statusReady: true })
 
       // 判定跳转
       if (bindStatus === BINDING_STATUS.BOUND && stationId) {

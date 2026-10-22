@@ -10,7 +10,8 @@
 
   <view class="loading" wx:if="{{loading}}">加载中…</view>
 
-  <block wx:else>
+  <view class="ui-state" wx:elif="{{loadError}}"><text class="ui-state-title">资料待核实</text><text class="ui-state-copy">{{loadError}}</text><button size="mini" bindtap="onRetry">重新读取资料</button></view>
+  <block wx:elif="{{origin}}">
     <!-- ============ 基本资料 ============ -->
     <view class="card">
       <view class="card-title-row">

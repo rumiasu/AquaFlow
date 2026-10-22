@@ -6,9 +6,9 @@
 /* 卡片标题 + 「?」（2026-09-24，同 delivery-config）：说明藏进问号，页面只剩字段本身。
    .card-sub 保留 —— 「当前坐标：x, y」那行是**数据**不是解释，不藏（HelpTip 边界 1）。 */
 .card-title-row { display: flex; align-items: center; }
-.card-sub { display: block; font-size: 22rpx; color: var(--text-secondary); line-height: 1.5; margin-top: 10rpx; }
+.card-sub { display: block; font-size: 24rpx; color: var(--text-secondary); line-height: 1.5; margin-top: 10rpx; }
 
-.badge { font-size: 22rpx; padding: 2rpx 14rpx; border-radius: 20rpx; color: #fff; }
+.badge { font-size: 24rpx; padding: 2rpx 14rpx; border-radius: 20rpx; color: #fff; }
 .badge-on { background: var(--success-color); }
 .badge-warn { background: var(--warning-color); }
 
@@ -16,7 +16,7 @@
 .field-label { display: block; font-size: 24rpx; color: var(--text-secondary); margin-bottom: 12rpx; }
 .required { color: var(--error-color); margin-left: 4rpx; }
 /* 字段下方的补充说明（2026-09-23：地址栏要说明"地图选点会顺带填这一栏"） */
-.field-hint { display: block; font-size: 22rpx; color: var(--text-secondary); line-height: 1.5; margin-top: 10rpx; }
+.field-hint { display: block; font-size: 24rpx; color: var(--text-secondary); line-height: 1.5; margin-top: 10rpx; }
 .field-input {
   width: 100%; padding: 20rpx; border: 2rpx solid var(--border-color);
   border-radius: 12rpx; font-size: 28rpx; box-sizing: border-box;
@@ -41,7 +41,7 @@
   border: 1rpx solid var(--error-color); border-radius: 12rpx; font-size: 28rpx;
 }
 
-.page-note { font-size: 22rpx; color: var(--text-secondary); line-height: 1.6; padding: 8rpx 8rpx 40rpx; }
+.page-note { font-size: 24rpx; color: var(--text-secondary); line-height: 1.6; padding: 8rpx 8rpx 40rpx; }
 .loading { text-align: center; color: var(--text-secondary); font-size: 28rpx; padding-top: 120rpx; }
 
 /* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */

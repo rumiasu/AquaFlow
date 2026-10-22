@@ -76,7 +76,7 @@
   font-size: 24rpx;
   color: var(--text-secondary);
   background: rgba(0, 0, 0, 0.04);
-  border-radius: 999rpx;
+  border-radius: 10rpx;
   padding: 8rpx 20rpx;
 }
 
@@ -92,7 +92,7 @@
   margin-top: 16rpx;
 }
 
-.hint { font-size: 22rpx; color: var(--text-secondary); }
+.hint { font-size: 24rpx; color: var(--text-secondary); }
 .link { font-size: 24rpx; color: var(--primary-color); }
 
 /* ===== 列表 ===== */
@@ -132,7 +132,7 @@
 .tags { display: flex; flex-wrap: wrap; gap: 10rpx; margin-top: 12rpx; }
 
 .tag {
-  font-size: 22rpx;
+  font-size: 24rpx;
   border-radius: 8rpx;
   padding: 4rpx 12rpx;
   background: rgba(0, 0, 0, 0.04);
@@ -160,7 +160,7 @@
   font-size: 24rpx;
   color: #fff;
   background: var(--primary-color);
-  border-radius: var(--radius-round);
+  border-radius: 12rpx;
   padding: 10rpx 24rpx;
 }
 
@@ -172,7 +172,7 @@
 }
 
 .mine-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6rpx; }
-.btn-link { font-size: 22rpx; color: var(--text-secondary); padding: 4rpx 0; }
+.btn-link { font-size: 24rpx; color: var(--text-secondary); padding: 4rpx 0; }
 .btn-link.danger { color: var(--error-color); }
 
 .empty, .loading {
@@ -199,7 +199,7 @@
   line-height: 88rpx;
   background: var(--primary-color);
   color: #fff;
-  border-radius: var(--radius-round);
+  border-radius: 12rpx;
   font-size: 30rpx;
   font-weight: 600;
   border: none;
@@ -279,7 +279,7 @@
   color: var(--primary-color);
 }
 .preset-entry-sub {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
 }
 
@@ -318,7 +318,7 @@
   position: absolute;
   right: 8rpx;
   bottom: 8rpx;
-  font-size: 20rpx;
+  font-size: 24rpx;
   color: #fff;
   background: var(--primary-color);
   border-radius: 6rpx;
@@ -341,7 +341,7 @@
   position: absolute;
   right: 16rpx;
   bottom: 12rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: #fff;
   background: rgba(0, 0, 0, 0.35);
   border-radius: 8rpx;
@@ -383,7 +383,7 @@
 .record-delta { font-size: 26rpx; font-weight: 600; width: 100rpx; }
 .record-delta.plus { color: var(--success-color); }
 .record-delta.minus { color: var(--error-color); }
-.record-note { flex: 1; font-size: 22rpx; color: var(--text-secondary); text-align: right; }
+.record-note { flex: 1; font-size: 24rpx; color: var(--text-secondary); text-align: right; }
 
 /* ===== P0 优化新增样式 ===== */
 .chip.quick { background: var(--bg-card); border: 1rpx solid var(--border-color); }
@@ -418,7 +418,7 @@
   line-height: 76rpx;
   background: var(--primary-color);
   color: #fff;
-  border-radius: var(--radius-round);
+  border-radius: 12rpx;
   font-size: 28rpx;
   border: none;
 }
@@ -430,7 +430,7 @@
   background: rgba(201, 118, 75, 0.12);
   border-radius: 12rpx;
 }
-.warn-title { display: block; font-size: 22rpx; color: var(--warning-color); margin-bottom: 6rpx; }
+.warn-title { display: block; font-size: 24rpx; color: var(--warning-color); margin-bottom: 6rpx; }
 .warn-item { display: block; font-size: 24rpx; color: var(--warning-color); line-height: 1.5; }
 
 .filter-row { display: flex; align-items: center; margin-top: 16rpx; }
@@ -442,12 +442,12 @@
   padding: 8rpx 18rpx;
 }
 .filter-clear { margin-left: 10rpx; font-size: 26rpx; }
-.filter-hint { font-size: 22rpx; color: var(--text-secondary); }
+.filter-hint { font-size: 24rpx; color: var(--text-secondary); }
 
 .record-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .record-product { font-size: 24rpx; color: var(--text-primary); }
-.record-meta { font-size: 20rpx; color: var(--text-secondary); margin-top: 4rpx; }
-.record-type { font-size: 20rpx; color: var(--text-secondary); width: 180rpx; flex-shrink: 0; }
+.record-meta { font-size: 24rpx; color: var(--text-secondary); margin-top: 4rpx; }
+.record-type { font-size: 24rpx; color: var(--text-secondary); width: 180rpx; flex-shrink: 0; }
 
 .load-more {
   text-align: center;
@@ -514,7 +514,7 @@
 }
 
 .pkg-unit {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   margin: 0 8rpx;
 }
@@ -527,14 +527,14 @@
 
 .pkg-del {
   margin-left: auto;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--error-color);
   padding: 6rpx 12rpx;
 }
 
 .pkg-empty {
   display: block;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   margin-top: 12rpx;
 }

@@ -1,4 +1,6 @@
 <view class="container">
+  <view class="ui-state" wx:if="{{configError}}"><text class="ui-state-title">计费规则待核实</text><text class="ui-state-copy">{{configError}}</text><button size="mini" bindtap="reload">重新读取计费</button></view>
+  <view class="ui-state" wx:if="{{setupError}}"><text class="ui-state-copy">{{setupError}}</text><button size="mini" bindtap="loadSetup">重新核对完善度</button></view>
   <view class="card">
     <view class="card-header">
       <view class="card-title-row">
@@ -7,11 +9,13 @@
              藏什么、不藏什么见 components/HelpTip/index.js 文件头。 -->
         <help-tip title="配送计费" text="留空表示「不限 / 不收」。费用在客户下单时快照进订单，改这里不影响历史订单。" />
       </view>
-      <text class="badge badge-on" wx:if="{{configured}}">已配置</text>
-      <text class="badge badge-warn" wx:else>未配置</text>
+      <text class="badge badge-on" wx:if="{{configReady && configured}}">已配置</text>
+      <text class="badge badge-warn" wx:elif="{{configReady}}">未配置</text><text class="badge" wx:else>{{loading ? '正在读取' : '待核实'}}</text>
     </view>
   </view>
 
+  <view class="ui-state" wx:if="{{loading}}"><text class="ui-state-copy">正在读取配送计费…</text></view>
+  <block wx:if="{{configReady && !loading && !configError}}">
   <!--
     本站「配置完善度」（2026-09-19）：产品要求「所有需要/建议填写的字段，都加一层引导」。
     规则目录在后端 StationSetupGuideService —— 这里只渲染后端给的中文（label / why / where / action），
@@ -155,5 +159,6 @@
     </view>
   </view>
 
-  <button class="btn-primary" bindtap="onSave" loading="{{saving}}" disabled="{{saving}}">保存配送计费</button>
+  <button class="btn-primary" bindtap="onSave" loading="{{saving}}" disabled="{{saving || loading || !configReady}}">保存配送计费</button>
+  </block>
 </view>

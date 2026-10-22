@@ -17,7 +17,7 @@ const { getMyStation, updateStation, updateStationCoordinates } = require('../..
 
 Page({
   data: {
-    loading: true,
+    loading: true, loadError: '',
     // 原值（含后端下发但本页不编辑的 status），保存时原样带回
     origin: null,
     form: { name: '', phone: '', address: '' },
@@ -36,11 +36,14 @@ Page({
     this.loadData()
   },
 
+  onRetry() { return this.loadData() },
+
   async loadData() {
-    this.setData({ loading: true })
+    this.setData({ loading: true, loadError: '' })
     try {
       const res = await getMyStation()
-      const d = res.data || {}
+      const d = res.data
+      if (!d || !d.id) throw new Error('水站资料尚未读取')
       this.setData({
         origin: d,
         form: {
@@ -56,6 +59,7 @@ Page({
       })
     } catch (err) {
       // 静默失败会让页面显示成空白表单，站长一保存就把站名冲没了 —— 必须出声。
+      this.setData({ loadError: '水站资料尚未读取，请重新读取后修改' })
       console.error('[StationInfo] 读取水站资料失败:', err)
       wx.showToast({ title: (err && err.message) || '读取水站资料失败', icon: 'none' })
     } finally {
@@ -160,7 +164,7 @@ Page({
 
   /** 清除坐标：清除后范围校验跳过（不会拒单），所以文案要说清后果 */
   onClearCoordinates() {
-    wx.showModal({
+    wx.showModal({ confirmText: '确认清除',
       title: '清除水站坐标',
       content: '清除后系统无法判断订单是否超出配送范围，会跳过范围校验（不会拒单）。确认清除？',
       success: async (res) => {

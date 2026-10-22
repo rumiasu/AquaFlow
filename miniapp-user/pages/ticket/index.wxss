@@ -649,3 +649,5 @@ button.recovery-btn[disabled] {
 .load-error button { min-height: 88rpx; font-size: 28rpx; padding: 18rpx; }
 
 .local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }
+.modal-btn.confirm[disabled], .modal-btn.confirm.disabled { background: var(--bg-gray); color: var(--text-regular); }
+.modal-btn.confirm[disabled] text, .modal-btn.confirm.disabled text { color: var(--text-regular); }

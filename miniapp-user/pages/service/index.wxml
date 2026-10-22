@@ -96,7 +96,8 @@
       <text>{{submitting ? '提交中...' : (refundRef ? '提交说明' : '提交反馈')}}</text>
     </view>
     <view class="load-error" wx:if="{{submitError}}">{{submitError}}<button bindtap="onRetryHistory">核对反馈历史</button></view>
-    <view wx:if="{{pendingRefundNote && !submitting}}" class="service-label" bindtap="onRetryOriginalNote">上一条结果待确认，点此重试原说明</view>
+    <text wx:if="{{pendingRefundNote && !submitting}}" class="service-label">上一条说明的结果待确认，恢复时沿用原内容和编号。</text>
+    <button wx:if="{{pendingRefundNote && !submitting}}" disabled="{{!refundReady}}" bindtap="onRetryOriginalNote">恢复原说明</button>
   </view>
 
   <!-- 普通反馈历史按需展开；退款说明及其状态/责任保持常显。 -->

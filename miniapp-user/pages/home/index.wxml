@@ -29,6 +29,10 @@
   </view>
 </template>
 <view class="page">
+  <view class="home-water-backdrop" wx:if="{{!homeWaterBackdropFailed}}" aria-hidden="true">
+    <image class="home-water-image" src="/assets/banner/home-water-light.webp" mode="aspectFill" binderror="onHomeWaterBackdropError" />
+    <view class="home-water-fade"></view>
+  </view>
   <view class="nav-spacer" style="height: {{statusBarHeight}}px;"></view>
 
   <!--

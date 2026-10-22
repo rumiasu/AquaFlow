@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-22",
+  "baselineAndRollbackReference": "d38425fb13b7b8d0b740b81c2d674c850ef0a7b6",
+  "scope": "customer home decorative background only; existing business layout retained",
+  "source": {
+    "filename": "ChatGPT 图像 2026年10月22日 17_09_10.png",
+    "preservedIn": "AquaFlow-设计交接-20261022",
+    "libraryId": "libfile_9a41865333108191b8dea923bb0a91e6",
+    "bytes": 1348033,
+    "width": 1536,
+    "height": 1024,
+    "sha256": "fbf98c4932caea59498a7cafacd821f50beaa0f0f2cd4950e80cff62f866b8ad",
+    "visuallyInspected": true,
+    "content": "no barrels; upper-left whitespace, upper-right water reflections, fading lower region"
+  },
+  "asset": {
+    "path": "miniapp-user/assets/banner/home-water-light.webp",
+    "bytes": 6854,
+    "width": 750,
+    "height": 500,
+    "sha256": "adeb8637a996249a0b31e47e4b8fd44613b7fa9bed7c931207b2db83fa2e5cfd",
+    "conversion": "resize with Lanczos; WebP quality 78; no redrawing"
+  },
+  "render": {
+    "kind": "actual WXML/WXSS static browser projection, not WeChat native",
+    "fixture": "same synthetic returning-customer fixture as d38425fb preview",
+    "viewportWidth": 375,
+    "unchangedGeometry": ["station heading", "address", "reorder", "products", "stepper", "checkout", "poster"],
+    "checks": ["opaque white cards", "no horizontal overflow", "all images decoded", "station control hit target preserved", "actual image-error handler and no decoration on fallback"]
+  },
+  "targetedChecks": {
+    "customer-home-station-context": 26,
+    "customer-home-cart-persistence": 16,
+    "customer-home-quote-debounce": 21,
+    "customer-home-order-query": 9,
+    "suiteTotal": 4,
+    "itemTotal": 72,
+    "missingWxmlHandlers": 0,
+    "wxssSelectorConflicts": 0,
+    "textFilesWithoutBom": 437
+  },
+  "notVerified": ["native device stacking and touch", "device safe-area and keyboard variations", "real transactions"],
+  "finalIntegrationGate": "exact SHA CI after publication"
+}

@@ -36,6 +36,7 @@ Page({
     address: null,
     addressHint: '点击设置配送地址',
     heroImage: '',
+    homeWaterBackdropFailed: false,
     posterArtFailed: false,
     posterProductImageFailed: false,
     products: [],       // 原始商品列表（后端下发单价/押金）
@@ -868,6 +869,12 @@ Page({
 
   onGoBarrel() {
     wx.navigateTo({ url: '/pages/barrel/index' })
+  },
+
+  // 顶部水光只作装饰；失败回到原底色，不影响选水和结算。
+  onHomeWaterBackdropError() {
+    if (this._homeDestroyed) return
+    this.setData({ homeWaterBackdropFailed: true })
   },
 
   // 海报仅为装饰资源；失败保留原生标题与真实商品信息，不阻断订水。

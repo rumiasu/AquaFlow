@@ -15,18 +15,20 @@ Component({
   methods: {
     openPicker() {
       if (this.properties.busy) { wx.showToast({ title: '请等待当前办理完成', icon: 'none' }); return }
-      this.setData({ open: true, stations: [], hasMore: false, nextStationId: 0, errorText: '' })
+      if (this.data.open && this.data.loading) return
+      const errorText = this._errorSession && isCurrentSession(this._errorSession) ? this.data.errorText : ''
+      this.setData({ open: true, stations: [], hasMore: false, nextStationId: 0, errorText })
       return this.load(false)
     },
     close() { this._read = (this._read || 0) + 1; this.setData({ open: false, loading: false }) },
     stopPropagation() {},
-    retry() { return this.load(this.data.stations.length > 0) },
+    retry() { if (!this.data.loading) return this.load(this.data.stations.length > 0) },
     more() { if (!this.data.loading && this.data.hasMore) return this.load(true) },
     async load(append) {
       const session = captureSession(), sequence = this._read = (this._read || 0) + 1
       const cursor = append ? this.data.nextStationId : 0
       const current = () => this._alive && this.data.open && sequence === this._read && isCurrentSession(session)
-      this.setData({ loading: true, errorText: '' })
+      this.setData({ loading: true })
       try {
         const res = await listAssetStations(cursor, 20)
         if (!current()) return
@@ -38,9 +40,19 @@ Component({
           throw new Error('水站列表暂未加载，请重试')
         }
         this.setData({ stations: (append ? this.data.stations : []).concat(result.stations),
-          hasMore: result.hasMore, nextStationId: result.nextStationId || 0 })
+          hasMore: result.hasMore, nextStationId: result.nextStationId || 0, errorText: '' })
+        this._errorSession = null
         this._session = session
-      } catch (err) { if (current()) this.setData({ errorText: err.message || '水站列表暂未加载，请重试' }) }
+      } catch (err) {
+        if (current()) {
+          // 2026-10-22：含中文的 HTTP 异常仍属技术信息；保留原异常供排查，不覆盖中文业务拒绝。
+          console.warn('[assetStationView] 水站列表加载失败:', err)
+          this._errorSession = session
+          const reason = err && typeof err.message === 'string' ? err.message.trim() : ''
+          const readable = /[\u4e00-\u9fff]/.test(reason) && !/https?:|HTTP\s*\d{3}|request:fail|stack|TypeError|SyntaxError/i.test(reason)
+          this.setData({ errorText: readable ? reason : '水站列表暂未加载，请重试' })
+        }
+      }
       finally { if (current()) this.setData({ loading: false }) }
     },
     choose(e) {

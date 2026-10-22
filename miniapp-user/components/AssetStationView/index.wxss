@@ -28,3 +28,10 @@
 .scope-row { flex-wrap: wrap; }
 .scope-main { min-width: 240rpx; }
 .picker { border-radius: 20rpx 20rpx 0 0; }
+
+/* 弹层不进入胶囊区；小屏触控尺寸不随rpx缩小。 */
+.picker { box-sizing: border-box; max-height: calc(100vh - env(safe-area-inset-top) - 88px); display: flex; flex-direction: column; }
+.picker-list { min-height: 0; flex-shrink: 1; }
+.scope-row, .picker-row { min-height: 48px; }
+.picker-close, .picker-retry { min-height: 44px; min-width: 44px; }
+.picker-processing { display: block; color: var(--text-regular); font-size: 28rpx; line-height: 1.6; margin: 0 8rpx 16rpx; }

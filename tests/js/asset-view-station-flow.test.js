@@ -1,5 +1,6 @@
 const assert = require('assert')
 const path = require('path')
+const { parseWxml, renderElements } = require('./wxml-tree')
 const Module = require('module')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
 const done = armWatchdog(30000)
@@ -200,8 +201,10 @@ test('empty asset-station list is successful empty state, not failure or retry',
   assert.strictEqual(events.length,0)
   assert.strictEqual(env.wx.__calls.storageSet.length,0)
   const text = require('fs').readFileSync(path.join(ROOT,'miniapp-user/components/AssetStationView/index.wxml'),'utf8')
-  assert.ok(text.includes('暂无可选水站'))
-  assert.ok(text.indexOf('wx:elif="{{errorText}}"') < text.indexOf('wx:elif="{{!stations.length}}"'))
+  const nodes = renderElements(parseWxml(text), { ...p.data, stationId:null, stationName:'', statusText:'', orderStationName:'', busy:false }, { includeText:true })
+  assert.ok(nodes.some(n => n.text === '暂无可查看的资产水站'))
+  assert.ok(!nodes.some(n => n.attrs.bindtap === 'retry'))
+  assert.ok(!nodes.some(n => n.text.includes('正在加载水站')))
 })
 
 test('picker failure has retry, closed or previous-session responses are ignored', async () => {

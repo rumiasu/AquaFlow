@@ -219,3 +219,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.amount-unknown, .order-card-empty { color: var(--text-regular); font-size: 28rpx; line-height: 1.6; }
+.btn-pay, .btn-reorder, .btn-cancel { min-height: 44px; }
+.footer-left { min-width: 0; }
+.amount { overflow-wrap: anywhere; }

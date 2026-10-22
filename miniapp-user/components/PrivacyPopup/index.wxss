@@ -66,3 +66,9 @@
 .privacy-dialog, .privacy-popup { box-sizing: border-box; width: calc(100% - 48rpx); max-height: 85vh; overflow-y: auto; padding: 32rpx 24rpx; border-radius: var(--radius-lg); }
 .privacy-btn, .btn-reject, .btn-agree { min-height: 96rpx; height: auto; line-height: 1.5; padding: 24rpx 12rpx; box-sizing: border-box; font-size: 28rpx; }
 .privacy-btn.reject, .btn-reject { color: var(--text-regular); background: var(--bg-gray); }
+
+/* 只补安全区与触控，不改变协议入口或同意/拒绝回调。 */
+.privacy-mask { box-sizing: border-box; padding: calc(24rpx + env(safe-area-inset-top)) 0 calc(24rpx + env(safe-area-inset-bottom)); }
+.privacy-dialog { max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 96px); }
+.privacy-content { overflow-wrap: anywhere; }
+.privacy-btn { min-height: 48px; }

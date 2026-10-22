@@ -1,17 +1,18 @@
 <view class="container">
   <view class="page-intro"><text class="page-intro-title">公告详情</text><text class="page-intro-note">水站通知与服务信息</text></view>
-  <view class="page-state" wx:if="{{loading}}">
-    <text class="page-state-text">{{notice ? '正在刷新...' : '加载中...'}}</text>
+  <view class="page-state" wx:if="{{loading && !error}}" aria-role="status">
+    <text class="page-state-text">{{notice ? '正在刷新公告…' : '正在加载公告…'}}</text>
   </view>
-  <view class="page-state" wx:if="{{error}}">
+  <view class="page-state" wx:if="{{error}}" aria-role="status">
     <text class="page-state-text page-state-error">{{error}}</text>
-    <button class="page-state-retry" wx:if="{{canRetry}}" bindtap="onRetry">重试</button>
+    <text class="page-state-note" wx:if="{{loading}}">正在重试，结果尚未确认</text>
+    <button class="page-state-retry" wx:if="{{canRetry}}" disabled="{{loading}}" bindtap="onRetry">{{loading ? '重试中' : '重新加载'}}</button>
+    <button class="page-state-back" bindtap="onReturnToList">返回公告列表</button>
   </view>
   <view class="notice-detail" wx:if="{{notice}}">
-    <text class="notice-title">{{notice.title}}</text>
-    <text class="notice-time">{{notice.createTime}}</text>
-    <view class="notice-content">
-      <text>{{notice.content}}</text>
-    </view>
+    <text class="notice-title" selectable>{{titleText}}</text>
+    <text class="notice-time">{{timeText ? '发布于 ' + timeText : '发布时间暂未提供'}}</text>
+    <view class="notice-content" wx:if="{{hasContent}}"><text selectable>{{notice.content}}</text></view>
+    <text class="notice-content-empty" wx:else>这条公告暂无正文</text>
   </view>
 </view>

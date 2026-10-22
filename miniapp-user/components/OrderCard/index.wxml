@@ -1,9 +1,9 @@
-<view class="order-card" bindtap="onOrderTap">
+<view class="order-card" wx:if="{{order && order.id}}" bindtap="onOrderTap">
   <view class="card-header">
     <text class="order-id">订单 #{{order.id}}</text>
     <view class="status-group">
-      <text class="status-tag {{statusClass}}">{{statusText}}</text>
-      <text class="pay-tag {{payStatusClass}}">{{payStatusText}}</text>
+      <text class="status-tag {{statusClass}}" wx:if="{{statusText}}">{{statusText}}</text>
+      <text class="pay-tag {{payStatusClass}}" wx:if="{{payStatusText}}">{{payStatusText}}</text>
     </view>
   </view>
   <view class="card-content">
@@ -25,18 +25,19 @@
         </view>
       </block>
       <block wx:else>
-        <text class="product-name">{{order.firstProductName || order.productName || order.waterTypeName || '商品'}}</text>
+        <text class="product-name">{{order.firstProductName || order.productName || order.waterTypeName || '商品信息暂未加载'}}</text>
       </block>
     </view>
     <view class="delivery-info">
-      <text class="address">{{order.addressDetail}}</text>
-      <text class="time">{{order.createTime}}</text>
+      <text class="address">{{order.addressDetail || '配送地址待核实'}}</text>
+      <text class="time">{{createTimeText ? '下单于 ' + createTimeText : '下单时间待核实'}}</text>
     </view>
   </view>
   <view class="customer-note-preview" wx:if="{{customerNotePreview}}">备注：{{customerNotePreview}}</view>
   <view class="card-footer">
     <view class="footer-left">
-      <text class="amount" wx:if="{{order.amount || order.totalAmount}}">¥{{order.amount || order.totalAmount}}</text>
+      <text class="amount" wx:if="{{amountKnown}}">¥{{amountText}}</text>
+      <text class="amount-unknown" wx:else>金额待核实</text>
     </view>
     <view class="footer-actions">
       <button wx:if="{{canRepay}}" class="btn-pay" catchtap="onPayNow">{{repayLabel}}</button>
@@ -45,3 +46,4 @@
     </view>
   </view>
 </view>
+<view class="order-card order-card-empty" wx:else><text>订单信息暂未加载</text></view>

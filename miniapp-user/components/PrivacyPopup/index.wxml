@@ -1,5 +1,5 @@
 <view class="privacy-mask" wx:if="{{show}}">
-  <view class="privacy-dialog">
+  <view class="privacy-dialog" aria-role="dialog" aria-label="隐私保护提示">
     <view class="privacy-title">隐私保护提示</view>
     <view class="privacy-content">
       在使用小程序前，请阅读并同意
@@ -7,8 +7,8 @@
       。我们将获取您的位置信息用于收货地址定位。
     </view>
     <view class="privacy-btns">
-      <view class="privacy-btn reject" bindtap="onReject">拒绝</view>
-      <view class="privacy-btn agree" id="privacy-agree-btn" bindtap="onAgree">同意</view>
+      <view class="privacy-btn reject" aria-role="button" aria-label="拒绝隐私授权" bindtap="onReject">拒绝</view>
+      <view class="privacy-btn agree" aria-role="button" aria-label="同意隐私授权" id="privacy-agree-btn" bindtap="onAgree">同意</view>
     </view>
   </view>
 </view>

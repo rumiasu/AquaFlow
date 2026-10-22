@@ -1,4 +1,5 @@
 const { customerNotePreview } = require('../../utils/customer-note')
+const { formatTime } = require('../../utils/format')
 const { withItemUnits } = require('../../utils/order-item-view')
 const { cancelView, cancelResultText } = require('../../utils/customer-cancel-view')
 const { captureSession, isCurrentSession } = require('../../utils/token')
@@ -11,6 +12,9 @@ Component({
 
   data: {
     displayItems: [],
+    amountKnown: false,
+    amountText: '',
+    createTimeText: '',
     customerNotePreview: '',
     statusText: '',
     statusClass: '',
@@ -29,7 +33,8 @@ Component({
   observers: {
     'order': function (order) {
       if (!order) {
-        this.setData({ canCancel: false, cancelLabel: '', canRepay: false, displayItems: [], customerNotePreview: '' })
+        this.setData({ canCancel: false, cancelLabel: '', canRepay: false, displayItems: [], customerNotePreview: '',
+          statusText: '', statusClass: '', payStatusText: '', payStatusClass: '', amountKnown: false, amountText: '', createTimeText: '' })
         return
       }
       // 订单状态与支付态文案、支付入口均由后端计算下发（Orders 派生字段 statusText /
@@ -47,8 +52,15 @@ Component({
         CANCELLED: 'other'
       }
       const cancel = cancelView(order)
+      // 展示只读已有金额：有效零值仍显示，缺失或畸形值不冒充0元。
+      const amount = order.amount != null ? order.amount : order.totalAmount
+      const numeric = typeof amount === 'number' || (typeof amount === 'string' && /^-?\d+(?:\.\d+)?$/.test(amount.trim()))
+      const amountKnown = numeric && Number.isFinite(Number(amount)) && Math.abs(Number(amount)) < 1e21
+      const date = order.createTime ? new Date(order.createTime) : null
       this.setData({
         displayItems: withItemUnits(order.items),
+        amountKnown, amountText: amountKnown ? Number(amount).toFixed(2) : '',
+        createTimeText: date && Number.isFinite(date.getTime()) ? formatTime(order.createTime) : '',
         customerNotePreview: customerNotePreview(order),
         statusText: order.statusText || '',
         statusClass,

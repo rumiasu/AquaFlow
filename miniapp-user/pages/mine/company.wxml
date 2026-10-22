@@ -1,78 +1,50 @@
 <view class="container">
-  <view class="page-intro"><text class="page-intro-title">企业资料</text><text class="page-intro-note">联系人与结算资料</text></view>
-  <loading wx:if="{{loading}}"></loading>
-
-  <block wx:elif="{{info}}">
+  <view class="page-intro"><text class="page-intro-title">企业资料</text><text class="page-intro-note">查看与维护联系人、付款方式及登记信息</text></view>
+  <view class="state-card" wx:if="{{loading && !loaded}}"><text class="state-title">正在读取企业资料</text><text class="state-note">请稍候，读取成功后可查看和编辑。</text></view>
+  <view class="state-banner" wx:if="{{loading && loaded}}">正在更新已保存资料，当前输入会保留。</view>
+  <view class="state-card state-error" wx:if="{{loadError}}">
+    <text class="state-title">{{accessDenied ? '暂时无法访问资料' : '企业资料读取失败'}}</text><text class="state-note">{{loadError}}</text>
+    <text class="state-note" wx:if="{{loaded && !accessDenied}}">以下已保存资料来自上次读取，可能已变化。</text>
+    <view class="state-actions"><button class="state-button" bindtap="onRetry" loading="{{loading}}" disabled="{{loading || saving}}">重新读取</button><button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button></view>
+  </view>
+  <view class="state-card {{saveSucceeded ? 'state-success' : ''}}" wx:if="{{saveMessage}}">
+    <text class="state-title" wx:if="{{saveUnknown}}">保存结果待核对</text><text class="state-note">{{saveMessage}}</text>
+    <button wx:if="{{saveUnknown}}" class="state-button" bindtap="onRetry" loading="{{loading}}" disabled="{{loading}}">读取已保存资料</button>
+    <button wx:if="{{saveUnknown && comparisonReady && info && !loadError && !loading}}" class="state-button secondary" bindtap="onResumeEdit">已核对，继续编辑</button>
+  </view>
+  <block wx:if="{{(info || editing) && (!accessDenied || editing) && !sessionChanged}}">
     <view class="company-card">
-      <view class="company-name-row">
-        <view class="company-icon"><icon name="building" size="44rpx" color="#1677FF" /></view>
-        <text class="company-name">{{info.companyName}}</text>
-      </view>
-
-      <!-- 展示模式 -->
+      <view class="company-name-row"><text class="company-name">{{editing ? '编辑企业资料' : info.companyName || '企业名称待核实'}}</text></view>
       <block wx:if="{{!editing}}">
-        <view class="info-row">
-          <text class="label">联系人</text>
-          <text class="value">{{info.contactPerson || '-'}}</text>
-        </view>
-        <view class="info-row">
-          <text class="label">联系电话</text>
-          <text class="value">{{info.contactPhone || '-'}}</text>
-        </view>
-        <view class="info-row">
-          <text class="label">付款方式</text>
-          <text class="value">{{info.paymentMethod || '-'}}</text>
-        </view>
-        <view class="info-row" wx:if="{{info.dueDays}}">
-          <text class="label">账期</text>
-          <text class="value">{{info.dueDays}} 天</text>
-        </view>
+        <view class="info-row"><text class="label">联系人</text><text class="value">{{info.contactPerson || '未填写'}}</text></view>
+        <view class="info-row"><text class="label">联系电话</text><text class="value">{{info.contactPhone || '未填写'}}</text></view>
+        <view class="info-row"><text class="label">付款方式</text><text class="value">{{info.paymentMethod || '未填写'}}</text></view>
+        <view class="info-row"><text class="label">登记账期</text><text class="value">{{info.dueDays === null || info.dueDays === undefined ? '未登记' : info.dueDays + ' 天'}}</text></view>
+        <text class="update-note">{{info.updateTimeText}}</text>
       </block>
-
-      <!-- 编辑模式 -->
       <block wx:else>
-        <view class="info-row">
-          <text class="label">公司名称</text>
-          <input class="input" value="{{form.companyName}}" data-field="companyName" bindinput="onInput" placeholder="请输入公司名称"></input>
-        </view>
-        <view class="info-row">
-          <text class="label">联系人</text>
-          <input class="input" value="{{form.contactPerson}}" data-field="contactPerson" bindinput="onInput" placeholder="请输入联系人"></input>
-        </view>
-        <view class="info-row">
-          <text class="label">联系电话</text>
-          <input class="input" value="{{form.contactPhone}}" data-field="contactPhone" bindinput="onInput" placeholder="请输入联系电话"></input>
-        </view>
-        <view class="info-row">
-          <text class="label">付款方式</text>
-          <input class="input" value="{{form.paymentMethod}}" data-field="paymentMethod" bindinput="onInput" placeholder="如：月结、现结"></input>
-        </view>
-        <view class="info-row">
-          <text class="label">账期(天)</text>
-          <input class="input" type="number" value="{{form.dueDays}}" data-field="dueDays" bindinput="onInput" placeholder="请输入账期天数"></input>
-        </view>
+        <view class="info-row"><text class="label">公司名称</text><input class="input" disabled="{{saving || accessDenied}}" value="{{form.companyName}}" data-field="companyName" bindinput="onInput" placeholder="请输入公司名称" maxlength="-1" /></view>
+        <view class="info-row"><text class="label">联系人</text><input class="input" disabled="{{saving || accessDenied}}" value="{{form.contactPerson}}" data-field="contactPerson" bindinput="onInput" placeholder="请输入联系人" maxlength="-1" /></view>
+        <view class="info-row"><text class="label">联系电话</text><input class="input" disabled="{{saving || accessDenied}}" value="{{form.contactPhone}}" data-field="contactPhone" bindinput="onInput" placeholder="请输入联系电话" /></view>
+        <view class="info-row"><text class="label">付款方式</text><input class="input" disabled="{{saving || accessDenied}}" value="{{form.paymentMethod}}" data-field="paymentMethod" bindinput="onInput" placeholder="如：月结、现结" maxlength="-1" /></view>
+        <view class="info-row"><text class="label">登记账期（天）</text><input class="input" disabled="{{saving || accessDenied}}" type="number" value="{{form.dueDays}}" data-field="dueDays" bindinput="onInput" placeholder="留空表示未登记" /></view>
+        <text class="update-note">此处为企业登记资料；订单实际账期以水站设置及下单记录为准。</text>
       </block>
     </view>
-
-    <!-- 操作按钮 -->
+    <view class="company-card comparison-card" wx:if="{{editing && saveUnknown && comparisonReady && !loading && !loadError}}">
+      <text class="state-title">刚读取的已保存资料</text>
+      <text class="state-note">{{info ? info.companyName : '未查询到企业资料，请联系水站核实'}}</text>
+      <text class="state-note" wx:if="{{info}}">联系人：{{info.contactPerson || '未填写'}}
+电话：{{info.contactPhone || '未填写'}}
+付款方式：{{info.paymentMethod || '未填写'}}
+登记账期：{{info.dueDays === null || info.dueDays === undefined ? '未登记' : info.dueDays + ' 天'}}</text>
+    </view>
     <view class="action-bar">
-      <block wx:if="{{!editing}}">
-        <view class="edit-btn" bindtap="onStartEdit">
-          <text>编辑资料</text>
-        </view>
-      </block>
-      <block wx:else>
-        <view class="btn-row">
-          <view class="btn cancel" bindtap="onCancelEdit">
-            <text>取消</text>
-          </view>
-          <view class="btn confirm {{saving ? 'disabled' : ''}}" bindtap="onSave">
-            <text>{{saving ? '保存中...' : '保存'}}</text>
-          </view>
-        </view>
-      </block>
+      <button wx:if="{{!editing}}" class="edit-btn" bindtap="onStartEdit" disabled="{{loading || !!loadError || accessDenied}}">编辑企业资料</button>
+      <view wx:else class="btn-row"><button class="btn cancel" bindtap="onCancelEdit" disabled="{{saving}}">{{saveUnknown ? '保留输入' : '取消编辑'}}</button><button class="btn confirm" bindtap="onSave" loading="{{saving}}" disabled="{{saving || loading || !!loadError || saveUnknown || accessDenied || !info}}">{{saving ? '正在保存' : '保存资料'}}</button></view>
     </view>
   </block>
-
-  <empty wx:else text="您还没有企业资料，请联系水站登记"></empty>
+  <view class="state-card" wx:if="{{loaded && !loading && !loadError && !info && !editing}}">
+    <text class="state-title">尚未登记企业资料</text><text class="state-note">请联系水站登记企业信息，登记后可在这里维护。</text><button class="state-button secondary" bindtap="onRetry">刷新资料</button>
+  </view>
 </view>

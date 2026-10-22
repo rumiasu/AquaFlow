@@ -1,44 +1,55 @@
 <view class="container">
-  <view class="page-intro"><text class="page-intro-title">填写送水地址</text><text class="page-intro-note">联系人、门牌与楼层信息请填写准确</text></view>
+  <view class="page-intro"><text class="page-intro-title">{{isEdit ? '编辑收货地址' : '新增收货地址'}}</text><text class="page-intro-note">联系人、门牌与楼层信息请填写准确</text></view>
   <privacy-popup />
-  <loading wx:if="{{loading}}"></loading>
+  <view class="state-card" wx:if="{{loading && !formReady}}"><text class="state-title">正在读取原地址</text><text class="state-note">读取完成后才能编辑，避免覆盖原有信息。</text></view>
+  <view class="state-banner" wx:if="{{loading && loaded}}">正在更新原地址，当前输入会保留。</view>
+  <view class="state-card state-error" wx:if="{{loadError}}">
+    <text class="state-title">{{accessDenied ? '暂时无法访问此地址' : '原地址读取失败'}}</text><text class="state-note">{{loadError}}</text>
+    <view class="state-actions"><button class="state-button" bindtap="onRetry" disabled="{{loading}}" loading="{{loading}}">重新读取</button><button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button></view>
+  </view>
+  <view class="state-card {{saveSucceeded ? 'state-success' : ''}}" wx:if="{{saveMessage}}">
+    <text class="state-title" wx:if="{{saveUnknown}}">保存结果待核对</text><text class="state-note">{{saveMessage}}</text>
+    <button wx:if="{{saveUnknown || saveSucceeded}}" class="state-button" bindtap="onBackToList">{{saveSucceeded ? '返回地址列表' : '返回列表核对'}}</button>
+    <button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button>
+  </view>
 
-  <view class="addr-card" wx:else>
+  <view class="addr-card" wx:if="{{formReady && !sessionChanged}}">
     <!-- 联系人 -->
     <view class="field-row">
       <text class="field-label">联系人</text>
-      <input class="field-input" placeholder="姓名" value="{{formData.name}}" bindinput="onInputChange" data-field="name" />
+      <input disabled="{{submitting || saveSucceeded || accessDenied}}" class="field-input" placeholder="姓名" value="{{formData.name}}" bindinput="onInputChange" data-field="name" />
     </view>
 
     <!-- 电话 -->
     <view class="field-row">
       <text class="field-label">电话</text>
-      <input class="field-input" placeholder="手机号码" type="number" value="{{formData.phone}}" bindinput="onInputChange" data-field="phone" />
+      <input disabled="{{submitting || saveSucceeded || accessDenied}}" class="field-input" placeholder="手机号码" type="number" value="{{formData.phone}}" bindinput="onInputChange" data-field="phone" />
     </view>
 
     <!-- 自动识别 -->
     <view class="field-row auto-row">
       <text class="field-label">定位</text>
-      <view class="auto-btn" bindtap="onAutoLocate">
+      <button class="auto-btn" bindtap="onAutoLocate" disabled="{{submitting || locating || saveSucceeded || accessDenied}}">
         <icon name="location" size="32rpx" color="#FFFFFF" />
-        <text>自动识别地址</text>
-      </view>
+        <text>{{locating ? '正在打开地图' : '选择地图位置'}}</text>
+      </button>
     </view>
 
     <!-- 省市区 -->
+    <text class="field-help" wx:if="{{locationMessage}}">{{locationMessage}}</text>
     <view class="field-row region-row">
       <text class="field-label">省市区</text>
       <view class="region-fields">
-        <input class="region-input" placeholder="省" value="{{formData.province}}" bindinput="onInputChange" data-field="province" />
-        <input class="region-input" placeholder="市" value="{{formData.city}}" bindinput="onInputChange" data-field="city" />
-        <input class="region-input" placeholder="区/县" value="{{formData.district}}" bindinput="onInputChange" data-field="district" />
+        <input disabled="{{submitting || saveSucceeded || accessDenied}}" class="region-input" placeholder="省" value="{{formData.province}}" bindinput="onInputChange" data-field="province" />
+        <input disabled="{{submitting || saveSucceeded || accessDenied}}" class="region-input" placeholder="市" value="{{formData.city}}" bindinput="onInputChange" data-field="city" />
+        <input disabled="{{submitting || saveSucceeded || accessDenied}}" class="region-input" placeholder="区/县" value="{{formData.district}}" bindinput="onInputChange" data-field="district" />
       </view>
     </view>
 
     <!-- 详细地址 -->
     <view class="field-row">
       <text class="field-label">详细地址</text>
-      <input class="field-input" placeholder="小区/大厦/楼栋/单元/门牌号" value="{{formData.detail}}" bindinput="onInputChange" data-field="detail" />
+      <input disabled="{{submitting || saveSucceeded || accessDenied}}" class="field-input" placeholder="小区/大厦/楼栋/单元/门牌号" value="{{formData.detail}}" bindinput="onInputChange" data-field="detail" />
     </view>
 
     <!-- 标签 -->
@@ -63,7 +74,7 @@
     <view class="field-row label-row">
       <text class="field-label">楼层</text>
       <view class="label-options">
-        <input class="region-input" type="number" placeholder="如 6（可留空）" value="{{formData.floor}}" bindinput="onInputChange" data-field="floor" />
+        <input disabled="{{submitting || saveSucceeded || accessDenied}}" class="region-input" type="number" placeholder="如 6（可留空）" value="{{formData.floor}}" bindinput="onInputChange" data-field="floor" />
       </view>
     </view>
 
@@ -82,9 +93,7 @@
         <view class="check-box {{formData.isDefault ? 'checked' : ''}}"></view>
         <text class="default-text">设为默认地址</text>
       </view>
-      <view class="save-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
-        <text>{{submitting ? '保存中...' : '保存地址'}}</text>
-      </view>
+      <button class="save-btn" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting || saveSucceeded || saveUnknown || loading || !!loadError || accessDenied}}">{{submitting ? '正在保存' : saveSucceeded ? '地址已保存' : saveUnknown ? '请先核对结果' : '保存地址'}}</button>
     </view>
   </view>
 </view>

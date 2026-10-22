@@ -121,7 +121,7 @@ Page({
       this.setData({
         stationList: list,
         hasLocation: !!this.location,
-        loading: false, loadError: '', historyError: '',
+        loading: false, loadError: '',
         loaded: true
       })
     } catch (err) {

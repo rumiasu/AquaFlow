@@ -450,7 +450,7 @@ Page({
     }
     if (stockMode === 'loss') {
       if (qty >= (setting.quantity || 0)) { wx.showToast({ title: '盘亏数须低于当前库存', icon: 'none' }); return }
-      wx.showModal({ confirmText: '知道了', title: '登记实盘亏损', editable: true, placeholderText: '请填写实际损失原因及凭据（必填）',
+      wx.showModal({ confirmText: '登记盘亏', cancelText: '暂不登记', title: '登记实盘亏损', editable: true, placeholderText: '请填写实际损失原因及凭据（必填）',
         content: '实物将由 ' + setting.quantity + ' 改为 ' + qty + '；较晚预留订单会变为缺货待补。请联系受影响客户协商延期或取消。',
         success: async res => { if (!res.confirm) return
           try {

@@ -840,7 +840,8 @@ Page({
     this.setData({ floorPhotosState: 'loading' })
     try {
       const res = await get(ORDER_IMAGE_BY_ORDER + '/' + orderId)
-      const photos = (res.data || [])
+      if (!res || !Array.isArray(res.data)) throw new Error('楼梯凭证尚未核实')
+      const photos = res.data
         .filter(img => Number(img.type) === 3)
         .map(img => img.url || img.objectName)
         .filter(Boolean)
@@ -882,7 +883,8 @@ Page({
     this.setData({ deliveryPhotosState: 'loading' })
     try {
       const res = await get(ORDER_IMAGE_BY_ORDER + '/' + orderId)
-      const photos = (res.data || [])
+      if (!res || !Array.isArray(res.data)) throw new Error('送达凭证尚未核实')
+      const photos = res.data
         .filter(img => Number(img.type) === 1)
         .map(img => img.url || img.objectName)
         .filter(Boolean)

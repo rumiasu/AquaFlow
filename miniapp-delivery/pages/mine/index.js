@@ -187,14 +187,19 @@ Page({
     } else {
       // 取不到就给"—"而不是 0：0 会被读成"今天一分没赚"
       console.warn('[Mine] 今日净利加载失败:', profitRes.reason && profitRes.reason.message)
-      next.todayProfit = { netProfitText: '—', netProfitWarn: false, costMissing: false, orderCount: '—' }
+      next.todayProfit = { netProfitText: '待核实', netProfitWarn: true, costMissing: false, orderCount: '待核实', readFailed: true }
     }
 
-    const risk = { barrelExceptionCount: 0, owedCustomerCount: 0, barrelExceptionFailed: false, owedCustomerFailed: false }
+    const risk = { barrelExceptionCount: null, owedCustomerCount: null, barrelExceptionFailed: true, owedCustomerFailed: true }
     if (pendingRes.status === 'fulfilled' && pendingRes.value && pendingRes.value.code === 0) {
-      const items = ((pendingRes.value.data || {}).items) || []
-      const hit = items.find(i => i.key === 'barrelException')
-      risk.barrelExceptionCount = hit ? Number(hit.count) || 0 : 0
+      const items = (pendingRes.value.data || {}).items
+      if (Array.isArray(items)) {
+        const hit = items.find(i => i && i.key === 'barrelException')
+        if (hit && hit.available !== false && this._knownCount(hit.count)) {
+          risk.barrelExceptionCount = Number(hit.count)
+          risk.barrelExceptionFailed = false
+        }
+      }
     } else {
       // [2026-09-20 真机联调] 原来只 console.warn，risk 留在 0 —— 界面照旧显示「0 桶异常」。
       // 桶异常是"要处理的事"，显示成 0 = 告诉站长"今天没事"，而事实是**没查到**。
@@ -203,9 +208,10 @@ Page({
       console.warn('[Mine] 桶异常数加载失败:', pendingRes.reason && pendingRes.reason.message)
       risk.barrelExceptionFailed = true
     }
-    if (owedRes.status === 'fulfilled' && owedRes.value && owedRes.value.code === 0) {
+    if (owedRes.status === 'fulfilled' && owedRes.value && owedRes.value.code === 0 && Array.isArray(owedRes.value.data)) {
       // 欠桶端点是"客户列表"（没有专门的计数），这里数的是**欠桶客户数**，不是欠桶个数
-      risk.owedCustomerCount = ((owedRes.value.data) || []).length
+      risk.owedCustomerCount = owedRes.value.data.length
+      risk.owedCustomerFailed = false
     } else {
       // 同上：欠桶 0 户 与 "没查到" 必须分开，否则站长会以为没有欠桶客户要收
       console.warn('[Mine] 欠桶客户加载失败:', owedRes.reason && owedRes.reason.message)
@@ -213,10 +219,10 @@ Page({
     }
     next.risk = risk
 
-    this.setData({ ...next, managerStatsLoading: false, managerStatsError: risk.barrelExceptionFailed || risk.owedCustomerFailed || next.todayProfit.netProfitText === '—' ? '部分经营数据尚未核实，请重试后核对' : '' })
+    this.setData({ ...next, managerStatsLoading: false, managerStatsError: risk.barrelExceptionFailed || risk.owedCustomerFailed || next.todayProfit.readFailed ? '部分经营数据尚未核实，请重试后核对' : '' })
 
     // 失败时额外出声一次：这两格在卡片里很小，「—」容易被忽略，而它代表"今天该收的账没看到"
-    if (risk.barrelExceptionFailed || risk.owedCustomerFailed || next.todayProfit.netProfitText === '—') {
+    if (risk.barrelExceptionFailed || risk.owedCustomerFailed || next.todayProfit.readFailed) {
       wx.showToast({ title: '部分经营数据没加载出来', icon: 'none' })
     }
   },
@@ -234,14 +240,20 @@ Page({
    */
   _decorateProfit(d) {
     const missing = d.netProfit === null
-    const unknown = d.netProfit === undefined
+    const unknown = !missing && !((typeof d.netProfit === 'number' || typeof d.netProfit === 'string') && String(d.netProfit).trim() !== '' && Number.isFinite(Number(d.netProfit)))
+    const countKnown = this._knownCount(d.orderCount)
     return {
-      netProfitText: missing ? '未填成本' : (unknown ? '—' : '¥' + Number(d.netProfit).toFixed(2)),
+      netProfitText: missing ? '未填成本' : (unknown ? '待核实' : '¥' + Number(d.netProfit).toFixed(2)),
       netProfitWarn: missing || unknown,
       // 缺成本才多显示一行说明（见 wxml）；「没拉到数据」不给这种解释，那是另一回事
       costMissing: missing,
-      orderCount: Number(d.orderCount) || 0
+      orderCount: countKnown ? Number(d.orderCount) : '待核实',
+      readFailed: unknown || !countKnown
     }
+  },
+
+  _knownCount(value) {
+    return (typeof value === 'number' || typeof value === 'string') && String(value).trim() !== '' && Number.isSafeInteger(Number(value)) && Number(value) >= 0
   },
 
   /** 今天的 YYYY-MM-DD（本地时区）。净利端点的 from/to 都传今天 = 只看今天。 */

@@ -24,6 +24,8 @@ const SUITES = [
   { file: 'customer-home-recovery-view.test.js', name: '首页安全导航、加载恢复、未选站与商品空态' },
   { file: 'customer-profile-visible-states.test.js', name: '顾客地址、公告、企业资料与异常记录可见状态和恢复' },
   { file: 'customer-shared-visible-phase2.test.js', name: '顾客公告详情与公共组件可见状态、真实重试入口和中文错误' },
+  { file: 'customer-night-visual-states.test.js', name: '顾客夜间十九路由可见状态、缺值与恢复入口' },
+  { file: 'customer-night-review-recovery.test.js', name: '顾客商品清单、退还原请求、异议、切站与模板读取恢复' },
   { file: 'customer-home-station-context.test.js', name: '首页自动选站、公开站列表与营业状态的异步范围保护' },
   { file: 'upload-recovery-lifecycle.test.js', name: 'independent nine upload cases and hidden final GET selection isolation offline' },
   { file: 'upload-r2-review.test.js', name: 'R2 independent GET, durable index, object isolation and wrapper negative checks offline' },

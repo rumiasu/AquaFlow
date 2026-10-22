@@ -380,20 +380,32 @@
       "customerRoutesWithConfigAndEntryFiles": 26,
       "trackedInputsOk": true
     },
-    "registrationUnchangedFromBase": true,
+    "registrationUnchangedFromBase": false,
     "protectedUpstreamFilesUnchanged": true,
     "nativeNotViewed": true,
     "review": {
       "agent": "/root/astra_customer_fix_review",
       "model": "gpt-6-astra",
       "reviewedCodeSha": "64f639a28d90730da460e3ecfc698d8f7bd53638",
-      "conclusion": "可正常push，无必须修项；后续仅交接文档且代码tree不变时仍适用",
+      "conclusion": "产品整合可正常push，无必须修项；此后仅交接文档和父明确要求的两套CI测试注册，无产品源码变化。",
       "independentSuites": {
         "payment": 25,
         "fact": 20,
         "assetView": 24
       },
       "actualApiRequestOfflineJourney": "成功→超时保旧→技术异常过滤→仅本人拒绝清旧→正常重试恢复，均通过"
-    }
+    },
+    "registrationPreservesBaseSuites": true,
+    "registeredAdditionalSuites": [
+      {
+        "file": "customer-night-visual-states.test.js",
+        "passedIndividually": 26
+      },
+      {
+        "file": "customer-night-review-recovery.test.js",
+        "passedIndividually": 17
+      }
+    ],
+    "registrationValidation": "保留45b4aec全部111套，按父补充指令仅追加2套产品回归；注册后113套，未重复总跑；先前111套3140与另43项通过。"
   }
 }

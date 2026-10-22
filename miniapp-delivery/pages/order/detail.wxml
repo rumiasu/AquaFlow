@@ -64,7 +64,7 @@
     ⚠️ [2026-09-26] 「楼层凭证」统一改名「楼梯凭证」—— 配送员端那一块同时改名叫「楼层与楼梯凭证」，
        两端口径必须一致（同一张照片在两个端叫两个名字，站长与配送员对话时会对不上）。
   -->
-  <view class="section" wx:if="{{order.reportedFloor || floorPhotos.length}}">
+  <view class="section" wx:if="{{order.reportedFloor || floorPhotos.length || floorPhotosState === 'error'}}">
     <text class="section-title">楼层上报</text>
     <view class="info-row" wx:if="{{order.reportedFloorText}}">
       <text class="info-text">{{order.reportedFloorText}}</text>
@@ -72,13 +72,15 @@
     </view>
     <view class="floor-proof-head">
       <text class="floor-proof-title">楼梯凭证</text>
-      <text class="floor-proof-add" bindtap="onAddFloorPhoto">{{floorUploading ? '上传中…' : '＋ 补传照片'}}</text>
+      <text class="floor-proof-add" wx:if="{{floorPhotosState === 'ready'}}" bindtap="onAddFloorPhoto">{{floorUploading ? '上传中…' : '＋ 补传照片'}}</text>
     </view>
     <view class="floor-proof-photos" wx:if="{{floorPhotos.length}}">
-      <image class="floor-proof-img" wx:for="{{floorPhotos}}" wx:key="index" src="{{item}}"
-             mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" />
+      <view class="floor-proof-img ui-proof-frame" wx:for="{{floorPhotos}}" wx:key="index"><image src="{{item}}"
+             mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{item}}" wx:if="{{!displayImageErrors[item]}}" /><view class="ui-image-fallback" wx:else bindtap="onPreviewFloorPhoto" data-index="{{index}}">图片暂无法显示，点此预览原图</view></view>
     </view>
-    <text class="floor-proof-tip" wx:else>还没有照片（不强制，但和客户就楼层有争议时它是唯一凭证）</text>
+    <text class="floor-proof-tip" wx:if="{{floorPhotosState === 'loading'}}">正在读取楼梯凭证…</text>
+    <view class="ui-state" wx:elif="{{floorPhotosState === 'error'}}"><text class="ui-state-copy">楼梯凭证未读取，暂不能确定是否已有照片。</text><button size="mini" bindtap="onRetryFloorPhotos">重新读取凭证</button></view>
+    <text class="floor-proof-tip" wx:elif="{{floorPhotosState === 'ready' && !floorPhotos.length}}">尚无楼梯凭证；如有楼层争议，可补充现场照片。</text>
   </view>
 
   <!--
@@ -87,17 +89,22 @@
     ⚠️ 只在**有照片**时成块显示；已送达/已完成却没有照片时给一句实话 ——
        "有照片"与"没拍"必须能区分（否则站长会以为配送员每次都拍了）。
   -->
+  <view class="section" wx:if="{{deliveryPhotosState === 'loading' || deliveryPhotosState === 'error'}}">
+    <text class="section-title">送达凭证</text>
+    <text class="section-tip">{{deliveryPhotosState === 'loading' ? '正在读取送达凭证…' : '送达凭证未读取，暂不能确定是否已上传照片。'}}</text>
+    <button wx:if="{{deliveryPhotosState === 'error'}}" size="mini" bindtap="onRetryDeliveryPhotos">重新读取凭证</button>
+  </view>
   <view class="section" wx:if="{{deliveryPhotos.length}}">
     <text class="section-title">送达凭证</text>
     <text class="section-tip">配送员送达时拍的现场照片（{{deliveryPhotos.length}} 张）</text>
     <view class="floor-proof-photos">
-      <image class="floor-proof-img" wx:for="{{deliveryPhotos}}" wx:key="index" src="{{item}}"
-             mode="aspectFill" data-index="{{index}}" bindtap="onPreviewDeliveryPhoto" />
+      <view class="floor-proof-img ui-proof-frame" wx:for="{{deliveryPhotos}}" wx:key="index"><image src="{{item}}"
+             mode="aspectFill" data-index="{{index}}" bindtap="onPreviewDeliveryPhoto" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{item}}" wx:if="{{!displayImageErrors[item]}}" /><view class="ui-image-fallback" wx:else bindtap="onPreviewDeliveryPhoto" data-index="{{index}}">图片暂无法显示，点此预览原图</view></view>
     </view>
   </view>
-  <view class="section" wx:elif="{{showNoDeliveryProofTip}}">
+  <view class="section" wx:elif="{{showNoDeliveryProofTip && deliveryPhotosState === 'ready'}}">
     <text class="section-title">送达凭证</text>
-    <text class="floor-proof-tip">配送员没有上传送达照片（不强制；客户说没收到时就没有现场凭据了）</text>
+    <text class="floor-proof-tip">本单尚无送达照片；照片为选填，是否送达请结合订单记录核实。</text>
   </view>
 
   <!-- 订单内容 -->
@@ -307,7 +314,7 @@
   <text>待核实图片记录</text>
   <view wx:if="{{uploadRecoverySelection}}">
     <text>待确认图片 #{{uploadRecoverySelection.imageId}}</text>
-    <image src="{{uploadRecoverySelection.url}}" mode="aspectFit" bindtap="onUploadPreviewSelected" />
+    <view class="ui-proof-image ui-proof-frame" ><image src="{{uploadRecoverySelection.url}}" mode="aspectFit" bindtap="onUploadPreviewSelected" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{uploadRecoverySelection.url}}" wx:if="{{!displayImageErrors[uploadRecoverySelection.url]}}" /><view class="ui-image-fallback" wx:else bindtap="onUploadPreviewSelected" >图片暂无法显示，点此预览原图</view></view>
     <button size="mini" disabled="{{uploadRecovering}}" bindtap="onUploadConfirmSelected">确认是原来提交的图片</button>
   </view>
   <text wx:if="{{uploadRecoveryReadFailed}}">记录暂时无法读取，请先核实图片</text>

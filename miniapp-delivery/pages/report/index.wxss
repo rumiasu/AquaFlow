@@ -18,14 +18,14 @@
 .category-item.active .cat-text { color: var(--primary-color); font-weight: 600; }
 
 .content-input { width: 100%; min-height: 260rpx; padding: var(--spacing-md); border: 2rpx solid var(--border-color); border-radius: var(--radius-md); font-size: var(--font-md); box-sizing: border-box; }
-.char-count { text-align: right; font-size: 22rpx; color: var(--text-secondary); display: block; margin-top: 8rpx; }
+.char-count { text-align: right; font-size: 24rpx; color: var(--text-secondary); display: block; margin-top: 8rpx; }
 
 .contact-input { width: 100%; padding: var(--spacing-md); border: 2rpx solid var(--border-color); border-radius: var(--radius-md); font-size: var(--font-md); box-sizing: border-box;
   height: 96rpx;
 }
 
 .footer { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-card); padding: var(--spacing-lg) var(--spacing-md); padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom)); box-shadow: 0 -4rpx 20rpx rgba(0,0,0,.06); }
-.btn-submit { width: 100%; background: var(--primary-color); color: #fff; border: none; border-radius: var(--radius-round); font-size: var(--font-lg); font-weight: 700; padding: var(--spacing-lg) 0; }
+.btn-submit { width: 100%; background: var(--primary-color); color: #fff; border: none; border-radius: 12rpx; font-size: var(--font-lg); font-weight: 700; padding: var(--spacing-lg) 0; }
 .btn-submit::after { border: none; }
 .btn-submit[disabled] { opacity: .5; }
 

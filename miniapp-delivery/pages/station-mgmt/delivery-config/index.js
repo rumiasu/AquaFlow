@@ -41,7 +41,7 @@ const FLOOR_MODES = [
 
 Page({
   data: {
-    loading: true,
+    loading: true, configReady: false, configError: '', setupError: '',
     saving: false,
     configured: false,
     // 「配送范围」那段说明的正文（在 loadSetup 里拼好）。为什么不在 wxml 里拼：
@@ -141,6 +141,7 @@ Page({
   async loadSetup() {
     if (this._unloaded) return
     const context = this.captureLoad('_setupVersion')
+    this.setData({ setupError: '' })
     try {
       const res = await getSetupGuide()
       if (!this.isLoadCurrent('_setupVersion', context)) return
@@ -179,14 +180,14 @@ Page({
       if (!this.isLoadCurrent('_setupVersion', context)) return
       console.warn('[DeliveryConfig] 完善度清单获取失败（当作没有）:', err && err.message)
       // 拉不到就**不显示**那句"没选点"：宁可不提醒，也不要凭空断言"你没选点"（说错了更糟）
-      this.setData({ rangeHelpText: '按站点坐标到收货地址的直线距离判断。', setup: { items: [], summaryText: '', p0PendingCount: 0, doneCount: 0, totalCount: 0 }, setupPending: [] })
+      this.setData({ setupError: '配置完善度清单尚未读取，请重试', rangeHelpText: '按站点坐标到收货地址的直线距离判断。', setup: { items: [], summaryText: '', p0PendingCount: 0, doneCount: 0, totalCount: 0 }, setupPending: [] })
     }
   },
 
   async load() {
     if (this._unloaded) return
     const context = this.captureLoad('_configVersion')
-    this.setData({ loading: true })
+    this.setData({ loading: true, configReady: false, configError: '' })
     try {
       const res = await getDeliveryConfig()
       if (!this.isLoadCurrent('_configVersion', context)) return
@@ -204,7 +205,7 @@ Page({
         suggestedFreeDeliveryAmount: g.suggestedFreeDeliveryAmount == null ? null : Number(g.suggestedFreeDeliveryAmount)
       }
       this.setData({
-        configured: d.configured === true,
+        configReady: true, configured: d.configured === true,
         form: {
           minOrderBuckets: s(c.minOrderBuckets),
           minOrderAmount: s(c.minOrderAmount),
@@ -224,6 +225,7 @@ Page({
         guideText: this.describeGuide(guide)
       })
     } catch (err) {
+      if (this.isLoadCurrent('_configVersion', context)) this.setData({ configError: '配送计费尚未读取，请重新核对；当前不能修改计费规则' })
       if (this.isLoadCurrent('_configVersion', context)) wx.showToast({ title: (err && err.message) || '配置加载失败', icon: 'none' })
     } finally {
       if (this.isLoadCurrent('_configVersion', context)) this.setData({ loading: false })

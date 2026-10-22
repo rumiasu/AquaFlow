@@ -81,7 +81,7 @@
 }
 .preset-sub {
   display: block;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   margin-top: 4rpx;
 }
@@ -202,7 +202,7 @@
 .chip { display:flex; align-items:center; gap:14rpx; max-width:100%; }
 .product-thumb { width:64rpx; height:64rpx; border-radius:10rpx; flex-shrink:0; }
 .thumb-fallback { display:flex; align-items:center; justify-content:center; background:var(--primary-bg); color:var(--text-secondary); }
-.product-identity { display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere; }.product-spec { font-size:22rpx; color:var(--text-secondary); }
+.product-identity { display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere; }.product-spec { font-size: 24rpx; color:var(--text-secondary); }
 .history-link { padding:18rpx 0; color:var(--primary-color); font-size:26rpx; }.warning { color:var(--warning-color); }
 
 /* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */

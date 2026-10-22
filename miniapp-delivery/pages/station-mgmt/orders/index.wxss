@@ -2,11 +2,11 @@
 .tab-bar { display: flex; background: var(--bg-card); border-radius: 16rpx; margin-bottom: 24rpx; overflow: hidden; }
 .tab-item { flex: 1; text-align: center; padding: 20rpx 0; font-size: 28rpx; color: var(--text-regular); }
 .tab-item.active { color: var(--primary-color); font-weight: 600; background: var(--primary-bg); }
-.tab-badge { display: inline-block; min-width: 32rpx; box-sizing: border-box; padding: 0 10rpx; margin-left: 8rpx; font-size: 20rpx; font-weight: 400; line-height: 32rpx; border-radius: 16rpx; background: var(--border-color); color: var(--text-secondary); vertical-align: middle; }
+.tab-badge { display: inline-block; min-width: 32rpx; box-sizing: border-box; padding: 0 10rpx; margin-left: 8rpx; font-size: 24rpx; font-weight: 400; line-height: 32rpx; border-radius: 16rpx; background: var(--border-color); color: var(--text-secondary); vertical-align: middle; }
 .tab-item.active .tab-badge { background: var(--primary-color); color: #fff; }
 .order-card { background: var(--bg-card); border-radius: 20rpx; padding: 24rpx; margin-bottom: 20rpx; box-shadow: var(--shadow-sm); }
 .card-header { display: flex; align-items: center; margin-bottom: 16rpx; }
-.status-tag { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 20rpx; margin-right: 16rpx; }
+.status-tag { font-size: 24rpx; padding: 4rpx 16rpx; border-radius: 20rpx; margin-right: 16rpx; }
 .status-pending { background: var(--warning-bg); color: var(--warning-color); }
 .status-delivering { background: var(--primary-bg); color: var(--primary-color); }
 .status-completed { background: var(--success-bg); color: var(--success-color); }
@@ -14,7 +14,7 @@
 .status-warning { background: var(--warning-bg); color: var(--warning-color); }
 .status-cancelled { background: #F0F2F5; color: var(--text-secondary); }
 .order-id { font-size: 26rpx; color: var(--text-secondary); flex: 1; }
-.order-time { font-size: 22rpx; color: var(--text-secondary); }
+.order-time { font-size: 24rpx; color: var(--text-secondary); }
 .customer-info { display: flex; justify-content: space-between; margin-bottom: 12rpx; }
 .customer-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
 .customer-phone { font-size: 26rpx; color: var(--text-secondary); }

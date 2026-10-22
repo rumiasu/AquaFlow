@@ -37,10 +37,10 @@
   <view class="work-read-error" wx:if="{{!loading && loadError}}"><text>{{loadError}}</text><text>商品尚未核实，这不代表没有商品。</text><button bindtap="loadData">重新加载商品</button></view>
   <view class="list" wx:if="{{!loading && !loadError}}">
     <view class="card" wx:for="{{viewList}}" wx:key="id" data-item="{{item}}" data-id="{{item.id}}" bindtap="onOpenSetting">
-      <view class="thumb" wx:if="{{item.imageUrl}}">
-        <image src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+      <view class="thumb" wx:if="{{item.imageUrl && !brokenImages[item.imageUrl]}}">
+        <image src="{{item.imageUrl}}" binderror="onDisplayImageError" data-src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
       </view>
-      <view class="thumb placeholder" wx:else><text></text></view>
+      <view class="thumb placeholder" wx:else><text>商品图待补</text></view>
 
       <view class="info">
         <view class="name-row">
@@ -86,7 +86,7 @@
     <view class="water-template-title">常用水商品 · 快速建档</view>
     <text class="water-template-hint">带入图片、名称和规格；售价、押金、库存由本站确认</text>
     <view class="water-template-row" wx:for="{{waterTemplates}}" wx:key="id">
-      <image class="water-template-image" src="{{item.imageUrl}}" mode="aspectFit" />
+      <image class="water-template-image" wx:if="{{!brokenImages[item.imageUrl]}}" src="{{item.imageUrl}}" mode="aspectFit" binderror="onDisplayImageError" data-src="{{item.imageUrl}}" /><view wx:else class="water-template-image ui-image-fallback">商品示意图暂无法显示</view>
       <view class="water-template-info">
         <text class="water-template-name">{{item.name}}</text>
         <text class="water-template-spec">{{item.spec}} / {{item.unit}} · 规格可按实物修改</text>
@@ -187,22 +187,24 @@
         </view>
 
         <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
-          <input class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" placeholder="张数" />
+          <input class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" disabled="{{pkgLoading || pkgError || !pkgReady}}" placeholder="张数" />
           <text class="pkg-unit">张</text>
           <text class="pkg-arrow"></text>
-          <input class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" placeholder="总价" />
+          <input class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{pkgLoading || pkgError || !pkgReady}}" placeholder="总价" />
           <text class="pkg-unit">元</text>
           <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销' : '删除'}}</text>
         </view>
 
-        <text class="pkg-empty" wx:if="{{!pkgRows.length}}">{{pkgLoading ? '读取档位中…' : '还没有档位'}}</text>
-        <text class="link" catchtap="onAddPkgRow">＋ 加一档</text>
+        <text class="pkg-empty" wx:if="{{pkgLoading}}">正在读取水票档位…</text>
+        <view class="ui-state" wx:elif="{{pkgError}}"><text class="ui-state-copy">{{pkgError}}</text><button size="mini" bindtap="onRetryPkgRows">重新读取档位</button></view>
+        <text class="pkg-empty" wx:elif="{{pkgReady && !pkgRows.length}}">尚无水票档位</text>
+        <text class="link" wx:if="{{pkgReady && !pkgLoading && !pkgError}}" catchtap="onAddPkgRow">＋ 加一档</text>
       </view>
 
       <view class="modal-footer">
         <button class="btn-cancel" bindtap="closeSetting">取消</button>
         <button class="btn-danger" bindtap="onRemoveProduct" wx:if="{{!setting.ownerStationId}}">移除本站配置</button>
-        <button class="btn-save" bindtap="onSaveSetting" loading="{{saving}}" disabled="{{saving}}">保存</button>
+        <button class="btn-save" bindtap="onSaveSetting" loading="{{saving}}" disabled="{{saving || (setting.ticketEnabled && (pkgLoading || pkgError))}}">保存本站设置</button>
       </view>
     </view>
   </view>
@@ -215,7 +217,7 @@
       <view class="template-edit-note" wx:if="{{editTemplateId}}">已带入基础资料，可按实物修改。18.5L来自既有产品资料，当前规格请以实物标签为准；售价、押金和实际库存需本站填写，默认不上架。</view>
 
       <view class="modal-img" bindtap="uploadImage">
-        <image class="preview" wx:if="{{editForm.imageUrl}}" src="{{editForm.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+        <image class="preview" wx:if="{{editForm.imageUrl && !brokenImages[editForm.imageUrl]}}" src="{{editForm.imageUrl}}" binderror="onDisplayImageError" data-src="{{editForm.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
         <view class="preview placeholder" wx:else><text></text><text>点击上传</text></view>
         <text class="img-hint">{{uploading ? '上传中...' : '点击换图'}}</text>
       </view>
@@ -301,20 +303,22 @@
           <text class="link" catchtap="onOpenTicketPackages">更多档位设置 ›</text>
         </view>
         <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
-          <input class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" placeholder="张数" />
+          <input class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" disabled="{{pkgLoading || pkgError || !pkgReady}}" placeholder="张数" />
           <text class="pkg-unit">张</text>
           <text class="pkg-arrow"></text>
-          <input class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" placeholder="总价" />
+          <input class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{pkgLoading || pkgError || !pkgReady}}" placeholder="总价" />
           <text class="pkg-unit">元</text>
           <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销' : '删除'}}</text>
         </view>
-        <text class="pkg-empty" wx:if="{{!pkgRows.length}}">{{pkgLoading ? '读取档位中…' : '还没有档位'}}</text>
-        <text class="link" catchtap="onAddPkgRow">＋ 加一档</text>
+        <text class="pkg-empty" wx:if="{{pkgLoading}}">正在读取水票档位…</text>
+        <view class="ui-state" wx:elif="{{pkgError}}"><text class="ui-state-copy">{{pkgError}}</text><button size="mini" bindtap="onRetryPkgRows">重新读取档位</button></view>
+        <text class="pkg-empty" wx:elif="{{pkgReady && !pkgRows.length}}">尚无水票档位</text>
+        <text class="link" wx:if="{{pkgReady && !pkgLoading && !pkgError}}" catchtap="onAddPkgRow">＋ 加一档</text>
       </view>
 
       <view class="modal-footer">
         <button class="btn-cancel" bindtap="closeEdit">取消</button>
-        <button class="btn-save" bindtap="onSaveEdit" loading="{{saving}}" disabled="{{saving}}">{{isAdd ? '创建' : '保存'}}</button>
+        <button class="btn-save" bindtap="onSaveEdit" loading="{{saving}}" disabled="{{saving || (editForm.ticketEnabled && (pkgLoading || pkgError))}}">{{isAdd ? '创建' : '保存'}}</button>
       </view>
     </view>
   </view>
@@ -333,13 +337,14 @@
         <text class="filter-hint" wx:else>本站全部商品（在商品设置里可只看单品）</text>
       </view>
 
-      <view class="records" wx:if="{{!recordsLoading}}">
+      <view class="ui-state" wx:if="{{recordsError}}"><text class="ui-state-copy">{{recordsError}}</text><button size="mini" bindtap="loadRecords">重新读取流水</button></view>
+      <view class="records" wx:elif="{{recordsReady && !recordsLoading}}">
         <view class="record" wx:for="{{records}}" wx:key="id">
           <view class="record-main">
             <text class="record-product">{{item.productText}}</text>
             <text class="record-meta">{{item.timeText}} · {{item.refText}}</text>
           </view>
-          <text class="record-type">{{item.type}}</text>
+          <text class="record-type">{{item.typeText}}</text>
           <text class="record-delta {{item.delta > 0 ? 'plus' : 'minus'}}">{{item.deltaText}}</text>
         </view>
         <view class="empty" wx:if="{{records.length === 0}}"><text>暂无流水</text></view>
@@ -347,7 +352,7 @@
           <text>加载更多（当前 {{records.length}} 条）</text>
         </view>
       </view>
-      <view class="loading" wx:else>加载中...</view>
+      <view class="loading" wx:elif="{{recordsLoading}}">正在读取库存流水…</view>
 
       <view class="modal-footer">
         <button class="btn-save" bindtap="closeRecords">关闭</button>
@@ -360,7 +365,9 @@
     <view class="modal" catchtap="stopPropagation">
       <view class="modal-header">上报记录</view>
       <view class="modal-sub">上报后由开发者人工处置：已纳入通用库的商品，别站也能选到</view>
-      <view class="records" wx:if="{{submissions.length}}">
+      <view class="loading" wx:if="{{submissionsLoading}}">正在读取上报记录…</view>
+      <view class="ui-state" wx:elif="{{submissionsError}}"><text class="ui-state-copy">{{submissionsError}}</text><button size="mini" bindtap="onOpenSubmissions">重新读取上报记录</button></view>
+      <view class="records" wx:elif="{{submissionsReady && submissions.length}}">
         <view class="record" wx:for="{{submissions}}" wx:key="id">
           <view class="record-main">
             <text class="record-product">{{item.productName}}</text>
@@ -369,7 +376,7 @@
           <text class="tag {{item.status === 1 ? 'on' : (item.status === 2 ? 'star' : 'off')}}">{{item.statusText}}</text>
         </view>
       </view>
-      <view class="empty" wx:else><text>还没有上报记录（在「我的商品」里点「上报」）</text></view>
+      <view class="empty" wx:elif="{{submissionsReady}}"><text>还没有上报记录（在「我的商品」里点「上报」）</text></view>
       <view class="modal-footer">
         <button class="btn-save" bindtap="closeSubmissions">关闭</button>
       </view>
@@ -384,7 +391,8 @@
       <view class="modal-sub">通用桶装水示意图，不代表具体品牌包装；选中后可更换为实际商品图</view>
 
       <view class="preset-loading" wx:if="{{presetLoading}}"><text>加载中...</text></view>
-      <view class="preset-empty" wx:elif="{{presetImages.length === 0}}"><text>暂无可选图片</text></view>
+      <view class="ui-state" wx:elif="{{presetError}}"><text class="ui-state-copy">{{presetError}}</text><button size="mini" bindtap="openPresetPicker">重新读取图库</button></view>
+      <view class="preset-empty" wx:elif="{{presetReady && presetImages.length === 0}}"><text>暂无可选图片</text></view>
 
       <view class="preset-grid" wx:else>
         <view
@@ -394,7 +402,7 @@
           data-path="{{item.path}}"
           bindtap="onPickPresetImage"
         >
-          <image class="preset-thumb" src="{{item.path}}" mode="aspectFit" lazy-load />
+          <image class="preset-thumb" wx:if="{{!brokenImages[item.path]}}" src="{{item.path}}" mode="aspectFit" lazy-load binderror="onDisplayImageError" data-src="{{item.path}}" /><view class="preset-thumb ui-image-fallback" wx:else>图片暂无法显示</view>
           <text class="preset-check" wx:if="{{editForm.imageUrl === item.path}}">已选</text>
         </view>
       </view>

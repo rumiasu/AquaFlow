@@ -1,7 +1,7 @@
 .container { background: var(--bg-color); min-height: 100vh; padding: 24rpx; }
 .record-card { background: var(--bg-card); border-radius: 16rpx; padding: 24rpx; margin-bottom: 20rpx; }
 .card-header { margin-bottom: 12rpx; display: flex; align-items: center; gap: 12rpx; }
-.status { font-size: 22rpx; padding: 4rpx 14rpx; border-radius: 8rpx; display: inline-block; }
+.status { font-size: 24rpx; padding: 4rpx 14rpx; border-radius: 8rpx; display: inline-block; }
 .status.pending { background: var(--warning-bg); color: var(--warning-color); }
 .status.ticket { background: var(--primary-bg); color: var(--primary-color); }
 .info-row { font-size: 26rpx; color: var(--text-primary); margin-bottom: 8rpx; display: flex; justify-content: space-between; }

@@ -28,10 +28,10 @@
 .stat-row { display: flex; gap: 8rpx; background: var(--bg-color); border-radius: 12rpx; padding: 14rpx 8rpx; }
 .stat { flex: 1; display: flex; flex-direction: column; align-items: center; }
 .stat-val { font-size: 26rpx; font-weight: 600; color: var(--text-primary); }
-.stat-label { font-size: 20rpx; color: var(--text-regular); margin-top: 4rpx; }
+.stat-label { font-size: 24rpx; color: var(--text-regular); margin-top: 4rpx; }
 
 .tags { display: flex; gap: 10rpx; flex-wrap: wrap; }
-.tag { font-size: 22rpx; color: var(--primary-color); background: var(--primary-bg); padding: 2rpx 14rpx; border-radius: 20rpx; }
+.tag { font-size: 24rpx; color: var(--primary-color); background: var(--primary-bg); padding: 2rpx 14rpx; border-radius: 20rpx; }
 
 .card-actions { display: flex; flex-direction: column; gap: 12rpx; flex-shrink: 0; align-items: stretch; }
 .manage-btn { background: var(--primary-color); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 26rpx; text-align: center; }
@@ -73,7 +73,7 @@
 .ent-item:first-child { border-top: none; }
 .ent-item-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12rpx; }
 .ent-item-name { font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
-.ent-item-time { font-size: 22rpx; color: var(--text-regular); }
+.ent-item-time { font-size: 24rpx; color: var(--text-regular); }
 .ent-item-line { display: block; margin-top: 8rpx; font-size: 24rpx; color: var(--text-regular); }
 .ent-item-actions { display: flex; justify-content: flex-end; margin-top: 16rpx; }
 

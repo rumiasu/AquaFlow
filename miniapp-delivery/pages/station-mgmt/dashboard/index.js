@@ -56,25 +56,34 @@ Page({
   },
 
   async loadData() {
-    this.setData({ loading: true, error: '' })
+    const seq = this._reportSeq = (this._reportSeq || 0) + 1
+    this.setData({ loading: true, error: '', report: null })
     try {
       const res = await getDashboardReport(this.data.range)
+      if (seq !== this._reportSeq) return
       if (!res || res.code !== 0 || !res.data) {
         this.setData({ error: (res && res.message) || '报表加载失败', report: null })
         return
       }
+      if (seq !== this._reportSeq) return
+      const summary = res.data.summary
+      const known = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+      const fields = ['orderCount', 'grossAmount', 'paidAmount', 'newCustomers', 'cancelledOrders', 'barrelsIn']
+      const groups = { trend: ['orders', 'amount'], statusDistribution: ['cnt', 'share'], payMethodDistribution: ['cnt', 'share'], topProducts: ['qty', 'revenue', 'share'], topCustomers: ['orders', 'amount'], staffPerformance: ['totalOrders', 'completedOrders', 'completeRate'], hourDistribution: ['orders'] }
+      if (!summary || !fields.every(key => known(summary[key])) || !Object.keys(groups).every(key => Array.isArray(res.data[key]) && res.data[key].every(row => row && groups[key].every(field => known(row[field]))))) throw new Error('经营报表资料不完整，金额和统计尚未核实，请重新读取')
       const report = this.decorate(res.data)
       this.setData({ report }, () => this.prepareCharts(report))
     } catch (err) {
+      if (seq !== this._reportSeq) return
       this.setData({ error: err.message || '加载失败', report: null })
     } finally {
-      this.setData({ loading: false })
+      if (seq === this._reportSeq) this.setData({ loading: false })
     }
   },
 
   /** 文案/配色/百分比统一在 JS 算好，模板只取字段（wxml 不做计算，避免兼容问题） */
   decorate(r) {
-    const money = (v) => Number(v || 0).toFixed(2)
+    const money = (v) => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? '待核实' : Number(v).toFixed(2)
     const s = r.summary || {}
 
     r.grossAmountText = money(s.grossAmount)
@@ -90,7 +99,7 @@ Page({
       const d = c[key] || {}
       return {
         key, label, valueText,
-        deltaText: d.deltaText || '持平',
+        deltaText: d.deltaText || '对比待核实',
         deltaDir: d.deltaDir || 'flat',
         good: d.good,
         previousText: this.fmtValue(d.previous, d.unit)
@@ -141,7 +150,7 @@ Page({
   },
 
   fmtValue(v, unit) {
-    if (v === null || v === undefined) return '-'
+    if (v === null || v === undefined || v === '') return '待核实'
     if (unit === '元') return '¥' + Number(v).toFixed(2)
     return String(v) + (unit ? ' ' + unit : '')
   },

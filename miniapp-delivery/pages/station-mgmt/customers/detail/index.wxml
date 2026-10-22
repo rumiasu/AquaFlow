@@ -7,7 +7,7 @@
          —— 那是写给开发看的排障话术，不该出现在站长面前（产品反馈："接口这些有些专业了"）。
          面向站长只需要告诉他**能做什么**；真要排障，看 console 与后端日志。
          ⚠️ 保留"这不代表该客户没有数据"这层意思：失败与"确实没有"必须能区分（§8.22）。 -->
-    <text class="error-hint">这不代表该客户没有数据。下拉刷新重试；一直不行就先看别的客户，稍后再来。</text>
+    <text class="error-hint">客户资料尚未核实，请重新读取后再操作。</text><button size="mini" bindtap="onRetryProfile" disabled="{{loading}}">重新读取资料</button>
   </view>
 
   <block wx:if="{{!loading && profile}}">
@@ -220,7 +220,7 @@
       <block wx:else>
         <view class="priv-row" wx:for="{{privileges}}" wx:key="type">
           <view class="priv-main">
-            <text class="priv-name">{{item.typeText || item.type}}</text>
+            <text class="priv-name">{{item.typeText || '特权类型待核实'}}</text>
             <text class="priv-note" wx:if="{{item.note}}">{{item.note}}</text>
           </view>
           <view class="priv-btn priv-btn-off" bindtap="onRevokePrivilege" data-type="{{item.type}}">撤销</view>
@@ -310,7 +310,7 @@
     "这个客户的情况"。入口按钮已统一改成「详情」（customers/index 与 staff/index），
     空态跟着说人话；判定条件（`!loading && !profile`）一个字没动。
   -->
-  <view class="empty" wx:if="{{!loading && !profile}}"><text>没查到这个客户的情况</text></view>
+  <view class="empty" wx:if="{{!loading && !error && !profile}}"><text>没查到这个客户的情况</text></view>
 
   <!-- ============ 纯还桶弹窗：只冲减 over，不扣权益、不退款 ============ -->
   <view class="modal-mask" wx:if="{{showReturnEmpty}}" bindtap="onCloseReturnEmpty"></view>

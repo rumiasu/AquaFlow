@@ -192,7 +192,7 @@
     <view class="card">
       <view class="card-title-row">
         <text class="card-title">结算单历史</text>
-        <text class="card-count">{{filteredPayrolls.length}} 张匹配</text>
+        <text class="card-count">{{loaded && !loading && !payrollReadError ? filteredPayrolls.length + ' 张匹配' : '数量待核实'}}</text>
       </view>
       <input class="payroll-search" value="{{payrollKeyword}}" placeholder="筛选员工姓名或编号" bindinput="onPayrollSearch" />
       <view class="payroll-date-row"><picker mode="date" value="{{payrollStart}}" data-field="payrollStart" bindchange="onPayrollFilterDate"><view>{{payrollStart || '期间开始'}}</view></picker><text>至</text><picker mode="date" value="{{payrollEnd}}" data-field="payrollEnd" bindchange="onPayrollFilterDate"><view>{{payrollEnd || '期间结束'}}</view></picker><text bindtap="onClearPayrollFilter">清除筛选</text></view>
@@ -263,7 +263,7 @@
     <view class="card">
       <view class="card-title-row">
         <text class="card-title">自定义条目</text>
-        <text class="card-count">{{items.length}} 条</text>
+        <text class="card-count">{{loaded && !loading && !payrollReadError ? items.length + ' 条' : '数量待核实'}}</text>
       </view>
       <view class="empty" wx:if="{{!loading && !payrollReadError && !items.length}}">
         还没有自定义条目。
@@ -294,7 +294,7 @@
         <text class="card-title">未结算明细</text>
         <help-tip title="按条目汇总" text="{{tips.itemSummary}}" />
       </view>
-      <view class="empty" wx:if="{{!staffList.length}}">本站还没有员工。</view>
+      <view class="empty" wx:if="{{!loading && !payrollReadError && !staffList.length}}">本站还没有员工。</view>
       <view class="field" wx:else>
         <text class="label">配送员</text>
         <picker mode="selector" range="{{staffList}}" range-key="name" bindchange="onSummaryStaff">
@@ -395,7 +395,7 @@
     <!-- 手填提示放在最上面：用户点进来第一眼就知道"金额得自己填" -->
     <text class="card-sub">金额要你自己填；加还是扣，由这个条目决定。</text>
     <view class="kv"><text class="kv-k">方向</text><text class="kv-v">{{record.directionText}}</text></view>
-    <view class="empty" wx:if="{{!staffList.length}}">本站还没有员工。</view>
+    <view class="empty" wx:if="{{!loading && !payrollReadError && !staffList.length}}">本站还没有员工。</view>
     <view class="field" wx:else>
       <text class="label">配送员</text>
         <picker mode="selector" range="{{staffList}}" range-key="name" bindchange="onRecordStaff" disabled="{{recording}}">

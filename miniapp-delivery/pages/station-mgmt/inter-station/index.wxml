@@ -10,7 +10,8 @@
 <view class="page">
 
   <!-- 三个数：别人欠本站 / 本站欠别人 / 净额 -->
-  <view class="sum-grid">
+  <view class="ui-state" wx:if="{{ledgerError || loading}}"><text class="ui-state-title">{{loading ? '正在核对站间台账' : '台账待核实'}}</text><text class="ui-state-copy" wx:if="{{ledgerError}}">{{ledgerError}}</text><button wx:if="{{ledgerError}}" size="mini" bindtap="onRetryLedger">重新核对台账</button></view>
+  <view class="sum-grid" wx:if="{{loaded && !ledgerError && !loading}}">
     <view class="sum-card">
       <text class="sum-value receive">¥{{summary.receivableText}}</text>
       <text class="sum-label">别人欠本站</text>
@@ -44,7 +45,7 @@
       </view>
       <view class="row-sub" wx:if="{{item._settledText}}"><text class="sub-text">{{item._settledText}}</text></view>
       <view class="actions">
-        <button class="btn-outline-small" catchtap="onReverse" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">冲销</button>
+        <button class="btn-outline-small" disabled="{{loading || ledgerError}}" catchtap="onReverse" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">冲销</button>
         <button class="btn-outline-small" catchtap="onOpenAftercare" data-id="{{item.orderId}}">核对本单售后分担</button>
       </view>
     </view>
@@ -53,7 +54,7 @@
   <!-- 正常台账 -->
   <view class="section">
     <view class="section-title">跨站单明细</view>
-    <view class="hint" wx:if="{{loaded && items.length === 0}}">
+    <view class="hint" wx:if="{{loaded && !ledgerError && !loading && items.length === 0}}">
       目前没有需要结算的跨站单。客户在别站下单、由本站配送的单会出现在这里。
     </view>
     <view class="hint" wx:elif="{{loading && !loaded}}">正在加载…</view>
@@ -74,8 +75,10 @@
       <view class="actions">
         <button class="btn-outline-small" catchtap="onOpenOrder" data-id="{{item.orderId}}">看订单</button>
         <button class="btn-outline-small" catchtap="onOpenAftercare" data-id="{{item.orderId}}">核对本单售后分担</button>
-        <button class="btn-outline-small" wx:if="{{item.canChangePrice}}" catchtap="onPriceByListed" data-id="{{item.orderId}}">按挂牌价结</button>
-        <button class="btn-ok-small" wx:if="{{item.canSettle}}" catchtap="onSettle" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">登记结清</button>
+        <button class="btn-outline-small" wx:if="{{item.canChangePrice && !loading && !ledgerError}}" catchtap="onPriceByListed" data-id="{{item.orderId}}">按挂牌价结</button>
+        <text class="hint" wx:if="{{item.canSettle && !item._amountKnown}}">本笔金额待核实，请重新核对台账后登记结清。</text>
+        <text class="hint" wx:if="{{item.canSettle && !item._settlementPartiesKnown}}">付款站或收款站尚未核实，请重新读取台账。</text>
+        <button class="btn-ok-small" wx:if="{{item.canSettle && !loading && !ledgerError}}" disabled="{{!item._amountKnown || !item._settlementPartiesKnown}}" catchtap="onSettle" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">登记结清</button>
       </view>
     </view>
   </view>

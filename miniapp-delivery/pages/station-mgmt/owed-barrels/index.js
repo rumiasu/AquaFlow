@@ -59,7 +59,7 @@ Page({
         throw new Error('收到的数据不完整，请重试。')
       }
       const list = res.data.map(r => ({ ...r, _key: r.customerId + '-' + r.productId,
-        _name: r.customerName || ('客户 ID:' + r.customerId),
+        _name: r.customerName || ('客户编号：' + r.customerId),
         _product: (r.productName || '未知商品') + (r.productSpec ? ' · ' + r.productSpec : ''),
         _daysText: r.owedDaysText || '天数未知', _sinceText: r.owedSinceText || '', _urgent: !!r.urgent }))
       this.setData({ list, loaded: true })

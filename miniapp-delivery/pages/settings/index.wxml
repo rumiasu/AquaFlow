@@ -3,8 +3,8 @@
   <view class="section">
     <text class="section-title">账号信息</text>
     <view class="info-row">
-      <text class="info-label">配送员ID</text>
-      <text class="info-value">{{staffId || '未登录'}}</text>
+      <text class="info-label">员工编号</text>
+      <text class="info-value">{{staffId || '编号待核实'}}</text>
     </view>
     <view class="info-row">
       <text class="info-label">所属水站</text>
@@ -67,6 +67,6 @@
 
   <!-- 版本信息 -->
   <view class="version-info">
-    <text class="version-text">AquaFlow 配送端 v1.0.0</text>
+    <text class="version-text">水站员工端 · 版本 1.0.0</text>
   </view>
 </view>

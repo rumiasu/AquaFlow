@@ -324,7 +324,7 @@ Page({
 
   onDelete(e) {
     const id = Number(e.currentTarget.dataset.id)
-    wx.showModal({
+    wx.showModal({ confirmText: '确认删除',
       title: this.data.isUnified ? '删除这个折扣档？' : '删除这个档位？',
       content: '只删这一行配置。已经卖出去的水票不受影响 —— 它们的单价在批次里另存了快照。',
       success: async (r) => {
@@ -341,7 +341,7 @@ Page({
   },
 
   onHelp() {
-    wx.showModal({
+    wx.showModal({ confirmText: '知道了',
       title: '档位怎么定',
       content: '【某款水的档位】挂"10 张 / 20 张 / 100 张"各卖多少钱，越买越便宜。' +
         '它是定价结构不是促销 —— 永远可买、不叠加、不互斥。\n\n' +

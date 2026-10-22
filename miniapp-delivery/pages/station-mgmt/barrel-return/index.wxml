@@ -34,7 +34,7 @@
       <text class="alert-tip">记录显示已退，但尚无交付登记。核实实际交付后逐笔补登记，勿再次退款。</text>
     <view wx:if="{{undeliveredExpanded}}">
       <view class="alert-row" wx:for="{{undelivered}}" wx:key="id">
-        <text class="alert-row-text">客户 ID:{{item.customerId}} · {{item.quantity}} 份 · ¥{{item.depositRefund || 0}}</text>
+        <text class="alert-row-text">客户编号：{{item.customerId}} · {{item.quantity}} 份 · {{item.depositRefund === null || item.depositRefund === undefined ? '金额待核实' : '¥' + item.depositRefund}}</text>
         <button class="small-button" data-id="{{item.id}}" bindtap="onConfirmPaid" disabled="{{actionBusy || !recordsReady || loading || recoveryNeeded}}">登记已交付</button>
       </view>
     </view>

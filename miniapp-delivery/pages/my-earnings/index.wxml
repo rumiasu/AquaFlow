@@ -26,7 +26,9 @@
 
   <view class="empty" wx:if="{{loading}}">加载中…</view>
 
-  <block wx:if="{{!loading}}">
+  <view class="ui-state" wx:if="{{loadError}}"><text class="ui-state-title">工资数据待核实</text><text class="ui-state-copy">{{loadError}}</text><button size="mini" bindtap="onRetry">重新读取工资</button></view>
+
+  <block wx:if="{{loaded && !loading && !loadError}}">
     <!-- ============ 结算单 ============ -->
     <view class="card">
       <view class="card-title">我的结算单</view>
@@ -47,7 +49,7 @@
     <!-- ============ 收益明细 ============ -->
     <view class="card">
       <view class="card-title">收益明细</view>
-      <view class="empty" wx:if="{{items.length === 0}}">这个区间还没有收益（没配计件单价时不会产生收益）</view>
+      <view class="empty" wx:if="{{items.length === 0}}">该区间暂无收益记录；如已配送，请联系站长核对计件配置。</view>
       <view class="item" wx:for="{{items}}" wx:key="id">
         <view class="item-left">
           <text class="item-kind">{{item.kindText}}</text>

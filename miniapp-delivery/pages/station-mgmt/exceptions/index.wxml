@@ -101,12 +101,11 @@
       <!-- ⚠️ 统计取不到时**不能什么都不显示**：整张卡消失与"这 30 天确实 0 张"在界面上无法区分（§8.22） -->
       <view class="card" wx:else>
         <view class="card-title">近 30 天</view>
-        <view class="stats-note">统计暂时取不到（列表本身不受影响，下面照常显示）。</view>
+        <view class="stats-note">近30天统计尚未读取，异常列表可继续单独核对。</view><button size="mini" bindtap="onRetryOverview">重新读取统计</button>
       </view>
 
       <view class="page-note">
-        本页可直接处置的只有两项：忽略、按系统建议补偿（2026-09-20 起开放）。改判 / 退水票 /
-        调资产会改动资金与桶账，入口暂未开放 —— 需要这类处置请走站长端资产管理流程。
+        本页可忽略异常或按已核实的系统建议补偿。其他资金、桶和水票调整请进入客户资产调整流程，保留办理依据。
       </view>
     </block>
 
@@ -152,7 +151,8 @@
         <text class="notify">{{item.notifyText}}</text>
       </view>
 
-      <view class="empty" wx:if="{{visibleAlerts.length === 0}}">
+      <view class="ui-state" wx:if="{{alertsError}}"><text class="ui-state-copy">{{alertsError}}</text><button size="mini" bindtap="onRetryOverview">重新读取处理留痕</button></view>
+      <view class="empty" wx:if="{{!alertsError && visibleAlerts.length === 0}}">
         <text>{{alerts.length === 0 ? '本站还没有需要处理的事' : '这个级别暂时没有记录'}}</text>
         <text class="empty-hint" wx:if="{{alerts.length > 0}}">试试切到「全部」</text>
       </view>

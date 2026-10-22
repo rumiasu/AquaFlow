@@ -114,7 +114,8 @@ function newPage(sc) {
   }
 
   const wx = createWx()
-  const app = createApp()
+  const app = createApp({ _loginGeneration: 1, globalData: { isLogin: true,
+    userInfo: { staffId: 17, stationId: 2, role: 'STATION_MANAGER', bindStatus: 'BOUND' } } })
   const page = loadPage('miniapp-delivery/pages/station-mgmt/inter-station/index.js',
     { stubs, wx, app })
   return { page, calls, wx }

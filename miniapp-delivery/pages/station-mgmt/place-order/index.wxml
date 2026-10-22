@@ -3,6 +3,7 @@
 <view class="page">
   <view class="work-head"><text class="work-title">替客户下单</text><text class="work-desc">{{step === 1 ? '1 选客户 → 2 选地址 → 3 核对订单' : (step === 2 ? '已选客户 · 接下来选择收货地址' : '核对商品、费用与支付方式后确认下单')}}</text></view>
 
+  <view class="ui-state" wx:if="{{stationError}}"><text class="ui-state-copy">{{stationError}}</text><button size="mini" bindtap="onBackCustomers">返回客户列表</button></view>
   <!-- 已选摘要：让站长在滚动到下半屏时仍知道"这单是给谁的、送到哪" -->
   <view class="summary" wx:if="{{customer}}">
     <view class="summary-line">
@@ -25,7 +26,8 @@
       <view class="search-btn" bindtap="onSearch">搜索</view>
     </view>
     <view class="empty" wx:if="{{loading}}">加载中…</view>
-    <view class="empty" wx:elif="{{!customers.length}}">
+    <view class="ui-state" wx:elif="{{customerError}}"><text class="ui-state-copy">{{customerError}}</text><button size="mini" bindtap="onRetryCustomers">重新读取客户</button></view>
+    <view class="empty" wx:elif="{{!stationError && !customers.length}}">
       没有匹配的客户。可换姓名、电话或地址搜索；仍找不到时请先核对客户在本站的资料。
     </view>
     <view class="row" wx:for="{{customers}}" wx:key="id"
@@ -43,7 +45,9 @@
   <!-- 第二步：选地址 -->
   <view class="card" wx:if="{{step === 2}}">
     <view class="card-title">选择收货地址</view>
-    <view class="empty" wx:if="{{!addresses.length}}">
+    <view class="empty" wx:if="{{addressesLoading}}">正在读取收货地址…</view>
+    <view class="ui-state" wx:elif="{{addressError}}"><text class="ui-state-copy">{{addressError}}</text><button size="mini" bindtap="onRetryAddresses">重新读取地址</button></view>
+    <view class="empty" wx:elif="{{!addresses.length}}">
       该客户还没有可用收货地址，请让客户在顾客端添加后重试。
     </view>
     <view class="row" wx:for="{{addresses}}" wx:key="id"
@@ -61,7 +65,9 @@
   <block wx:if="{{step === 3}}">
     <view class="card">
       <view class="card-title">选择商品</view>
-      <view class="empty" wx:if="{{!products.length}}">本站还没有上架商品</view>
+      <view class="empty" wx:if="{{productsLoading}}">正在读取商品…</view>
+      <view class="ui-state" wx:elif="{{productError}}"><text class="ui-state-copy">{{productError}}</text><button size="mini" bindtap="onRetryProducts">重新读取商品</button></view>
+      <view class="empty" wx:elif="{{!products.length}}">本站还没有上架商品</view>
       <view class="row" wx:for="{{products}}" wx:key="id">
         <view class="row-main">
           <text class="row-title">{{item.name}}</text>

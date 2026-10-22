@@ -34,6 +34,7 @@
 
   <view class="section" wx:if="{{!historyLoading || historyList.length > 0}}">
     <text class="section-title">反馈记录</text>
+    <view class="ui-state" wx:if="{{historyError}}"><text class="ui-state-copy">{{historyError}}</text><text class="ui-state-copy" wx:if="{{historyList.length}}">以下为上次读取记录。</text><button size="mini" bindtap="onRetryHistory">重新读取反馈记录</button></view>
     <view wx:if="{{historyList.length > 0}}">
       <view class="history-item" wx:for="{{historyList}}" wx:key="id">
         <view class="history-content">{{item.content}}</view>
@@ -43,7 +44,7 @@
         </view>
       </view>
     </view>
-    <view class="empty" wx:elif="{{!historyLoading}}">
+    <view class="empty" wx:elif="{{!historyLoading && !historyError}}">
       <text>暂无反馈记录</text>
     </view>
   </view>

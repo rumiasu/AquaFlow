@@ -25,18 +25,30 @@
 
   <view class="empty" wx:if="{{loading}}">加载中…</view>
 
+  <view class="ui-state" wx:if="{{reportError}}"><text class="ui-state-title">本期经营数据待核实</text><text class="ui-state-copy">{{reportError}}</text><button size="mini" bindtap="onRetryReport">重新读取报表</button></view>
+  <view class="ui-state" wx:if="{{missingError}}"><text class="ui-state-copy">{{missingError}}</text><button size="mini" bindtap="onRetryReport">重新读取成本清单</button></view>
+    <!-- 未填成本的商品：快速补录入口（状态与出路都摆在这一行里，别藏） -->
+    <view class="card" wx:if="{{missingCost.length}}">
+      <view class="card-title">未填成本的商品（{{missingCost.length}} 个）</view>
+      <view class="chips">
+        <view class="chip chip-warn" wx:for="{{missingCost}}" wx:key="productId"
+              bindtap="onOpenCostFromMissing" data-id="{{item.productId}}">+ {{item.productName}}</view>
+      </view>
+      <view class="hint">点商品名就能补录成本价，补完利润立刻算得出来。</view>
+    </view>
+
   <block wx:if="{{report}}">
     <!-- 合计 -->
     <view class="hero">
       <view class="hero-item">
-        <text class="hero-num">¥{{report.totalRevenue}}</text>
+        <text class="hero-num">{{profitView.totalRevenueText}}</text>
         <!-- [2026-09-25] 标签从「水费收入」改成「收入合计」：这个数是 totalRevenue，
              它=订单收入（水费）+ 水票收入（买票实收），下面那张卡会逐项拆开。
              老标签会让站长把票款也算进"水费"，正好是报表口径最容易混的一处。 -->
         <text class="hero-label">收入合计</text>
       </view>
       <view class="hero-item">
-        <text class="hero-num">¥{{report.totalCost}}</text>
+        <text class="hero-num">{{profitView.totalCostText}}</text>
         <text class="hero-label">进货成本</text>
       </view>
       <view class="hero-item">
@@ -64,38 +76,38 @@
       <view class="card-title">{{range === 'today' ? '今日收入与销售净利' : '收入与销售净利'}}</view>
       <view class="ledger-row">
         <text class="ledger-label">单数</text>
-        <text class="ledger-value">{{report.orderCount}} 单</text>
+        <text class="ledger-value">{{profitView.orderCountText}} 单</text>
       </view>
       <!-- 收入按【来源】分列（2026-09-20 产品口径）：水票收入只在客户「买票」那一刻计一次，
            用票下的单不再重复计水费与配送费 —— 所以它必须单独一行，否则站长看不出来钱从哪来。
            明细：订单收入（水费） + 水票收入 + 配送费 + 楼层费 = 收入合计（与后端同一条加法）。 -->
       <view class="ledger-row">
         <text class="ledger-label">订单收入（水费）</text>
-        <text class="ledger-value">¥{{report.orderRevenue}}</text>
+        <text class="ledger-value">{{profitView.orderRevenueText}}</text>
       </view>
       <view class="ledger-row">
         <text class="ledger-label">水票收入（买票实收）</text>
-        <text class="ledger-value">¥{{report.ticketRevenue}}</text>
+        <text class="ledger-value">{{profitView.ticketRevenueText}}</text>
       </view>
       <view class="ledger-row">
         <text class="ledger-label">配送费</text>
-        <text class="ledger-value">¥{{report.deliveryFee}}</text>
+        <text class="ledger-value">{{profitView.deliveryFeeText}}</text>
       </view>
       <view class="ledger-row">
         <text class="ledger-label">楼层费</text>
-        <text class="ledger-value">¥{{report.floorFee}}</text>
+        <text class="ledger-value">{{profitView.floorFeeText}}</text>
       </view>
       <view class="ledger-row ledger-strong">
         <text class="ledger-label">收入合计</text>
-        <text class="ledger-value">¥{{report.totalIncome}}</text>
+        <text class="ledger-value">{{profitView.totalIncomeText}}</text>
       </view>
       <view class="ledger-row">
         <text class="ledger-label">− 进货成本</text>
-        <text class="ledger-value">¥{{report.totalCost}}</text>
+        <text class="ledger-value">{{profitView.totalCostText}}</text>
       </view>
       <view class="ledger-row">
         <text class="ledger-label">− 计件工钱</text>
-        <text class="ledger-value">¥{{report.wage}}</text>
+        <text class="ledger-value">{{profitView.wageText}}</text>
       </view>
       <view class="ledger-row ledger-strong">
         <text class="ledger-label">销售净利</text>
@@ -117,23 +129,13 @@
       <view class="card-title">合作款与登记实款</view>
       <view class="ledger-row" wx:for="{{report.cooperation.rows}}" wx:key="key">
         <text class="ledger-label">{{item.label}}</text>
-        <text class="ledger-value">¥{{item.amount}}</text>
+        <text class="ledger-value">{{item.amountText}}</text>
       </view>
       <view class="hint">{{report.cooperation.scopeNote}}</view>
     </view>
 
     <!-- 成本口径：一行版（长解释同上，见「利润怎么算」） -->
     <view class="hint" wx:if="{{report.costBasisNote}}">{{report.costBasisNote}}</view>
-
-    <!-- 未填成本的商品：快速补录入口（状态与出路都摆在这一行里，别藏） -->
-    <view class="card" wx:if="{{missingCost.length}}">
-      <view class="card-title">未填成本的商品（{{missingCost.length}} 个）</view>
-      <view class="chips">
-        <view class="chip chip-warn" wx:for="{{missingCost}}" wx:key="productId"
-              bindtap="onOpenCostFromMissing" data-id="{{item.productId}}">+ {{item.productName}}</view>
-      </view>
-      <view class="hint">点商品名就能补录成本价，补完利润立刻算得出来。</view>
-    </view>
 
     <!-- 明细 -->
     <view class="card">
@@ -147,10 +149,10 @@
             <!-- [2026-09-25 评审问题 6] 行收入用 revenueTotal = 订单水费 + 该商品本期购票实收
                  （票款在下面单独标一行）。用旧的 item.revenue 会让"用票兑出去的商品"显示成
                  "卖出 2、收入 0、利润负"，看起来像报表坏了 —— 钱其实在买票那一刻收过了。 -->
-            <text class="row-amount">收入 ¥{{item.revenueTotal}}</text>
+            <text class="row-amount">收入 {{item.revenueTotalText}}</text>
           </view>
           <text class="row-sub">
-            卖出 {{item.soldQty}} · 成本价 {{item.costPriceText}} · 成本合计 ¥{{item.costAmount}}
+            卖出 {{item.soldQtyText}} · 成本价 {{item.costPriceText}} · 成本合计 {{item.costAmountText}}
           </text>
           <text class="row-sub" wx:if="{{item.ticketRevenue > 0}}">
             其中水票收入 ¥{{item.ticketRevenue}}（客户买票时已收款）
@@ -177,6 +179,7 @@
     <text class="dialog-title">{{costProduct.productName}} 的进货成本</text>
     <input class="dialog-input" type="digit" value="{{costInput}}" bindinput="onCostInput"
            placeholder="每桶/每件的进价" />
+    <view class="ui-stale">按当前进货成本核算；修改成本会影响历史期间利润。</view>
     <view class="hint">
       单位与商品规格一致。未上架的商品设不了成本价（会提示先去「商品管家」上架）。
     </view>

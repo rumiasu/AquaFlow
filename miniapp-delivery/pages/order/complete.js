@@ -1,3 +1,4 @@
+const imageDisplay = require('../../behaviors/imageDisplay')
 const { wrapUploadRecovery } = require('../../utils/upload-recovery-page')
 const { completeOrder, getOrderDetail } = require('../../api/delivery')
 const { get } = require('../../utils/request')
@@ -85,6 +86,8 @@ function deliveryCompletionView(order, needCollect, collected, collectedChosen) 
 
 Page({
   ...wrapUploadRecovery({
+  behaviors: [imageDisplay],
+  onDisplayImageError(e) { return imageDisplay.methods.onDisplayImageError.call(this, e) },
   /** 弹窗内容区吞掉点击（wxml 用 catchtap 绑定，此处为空实现，避免未定义方法告警） */
   stopPropagation() {},
 
@@ -93,6 +96,8 @@ Page({
     from: 'detail',
     orderInfo: null,
     orderLoaded: false,
+    orderLoading: false,
+    orderLoadError: '',
     /** 回桶核对行 —— **只含桶装水明细**（后端 barrelItem=true），瓶装水/饮水机不进这一块 */
     items: [],
     /**
@@ -175,6 +180,7 @@ Page({
     showMore: false,
     // 防连点：提交在途时不再发第二次（服务端有状态 CAS 兜底，但第二次会让已经成功的人看到报错）
     submittingComplete: false,
+    checkingCompletion: false,
     showReasonPicker: false,
     currentReasonItemIdx: -1,
     reasonOptions: REASON_OPTIONS
@@ -184,10 +190,13 @@ Page({
     if (options.id) {
       this.setData({ orderId: options.id, from: options.from || 'detail' })
       this.loadOrder(options.id)
+    } else {
+      this.setData({ orderLoadError: '缺少订单编号，请返回订单列表重新进入' })
     }
   },
 
   onShow() {
+    this._completionHidden = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
@@ -195,16 +204,43 @@ Page({
     }
   },
 
+  onHide() { this.invalidateCompletion() },
+  onUnload() { this.invalidateCompletion() },
+  invalidateCompletion() {
+    this._completionHidden = true
+    this._completionEpoch = (this._completionEpoch || 0) + 1
+    this._completionAction = null
+    this.setData({ checkingCompletion: false })
+  },
+
+  completionContext() {
+    const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+    return { app, generation: app._loginGeneration || 0, identity: JSON.stringify([!!g.isLogin, u.staffId, u.stationId, u.role, u.bindStatus]),
+      epoch: this._completionEpoch || 0, orderId: this.data.orderId, orderVersion: this._orderLoadSeq }
+  },
+  completionContextCurrent(context) {
+    const now = this.completionContext()
+    return !this._completionHidden && context && context.app === now.app && context.generation === now.generation
+      && context.identity === now.identity && context.epoch === now.epoch
+      && String(context.orderId) === String(now.orderId) && context.orderVersion === now.orderVersion
+  },
+  completionActionCurrent(action) {
+    return action && this._completionAction === action && !action.used && this.completionContextCurrent(action.context)
+  },
+
+  onRetryOrder() { if (this.data.orderId && !this.data.orderLoading) return this.loadOrder(this.data.orderId) },
+  onBackToOrders() { wx.switchTab({ url: '/pages/home/index' }) },
+
   async loadOrder(id) {
     const loadSeq = (this._orderLoadSeq || 0) + 1
     this._orderLoadSeq = loadSeq
     // 重载时先隐藏旧提示；迟到响应不能覆盖后一次读取到的订单状态。
-    this.setData({ orderLoaded: false, showStockPrepPrompt: false, stockPrepText: '' })
+    this.setData({ orderLoaded: false, orderLoading: true, orderLoadError: '', checkingCompletion: false, showStockPrepPrompt: false, stockPrepText: '' })
     try {
       const res = await getOrderDetail(id)
       if (loadSeq !== this._orderLoadSeq) return
       const order = res.data
-      if (!order) return
+      if (!order) throw new Error('订单资料暂未读取，请重新核对')
 
       const isFirstBarrelOrder = order.firstBarrelOrder === true
       const orderItems = order.items || []
@@ -278,7 +314,7 @@ Page({
 
       this.setData({
         orderInfo: order,
-        orderLoaded: true,
+        orderLoaded: true, orderLoading: false, orderLoadError: '',
         isFirstBarrelOrder,
         items,
         // 本次送货清单：整单全量明细（与回桶行无关），见 buildDeliveryItems
@@ -319,7 +355,7 @@ Page({
       })
     } catch (err) {
       if (loadSeq !== this._orderLoadSeq) return
-      this.setData({ orderLoaded: false })
+      this.setData({ orderLoaded: false, orderLoading: false, orderLoadError: '订单未读取，暂不能确认送达。请重新读取，或返回订单列表。' })
       wx.showToast({ title: '加载订单失败', icon: 'none' })
     }
   },
@@ -688,11 +724,20 @@ Page({
   },
 
   async onConfirmComplete() {
+    if (this._completionHidden || this.data.checkingCompletion || this.data.submittingComplete || this.completionActionCurrent(this._completionAction)) return
+    const action = { context: this.completionContext(), used: false, verifiedRetry: false, stage: 'checking' }
+    this._completionAction = action
+    if (this.data.resultState === 'unknown' && !await this.verifyCompletionRetry(action)) {
+      if (this._completionAction === action) this._completionAction = null
+      return
+    }
+    if (!this.completionActionCurrent(action)) return
     if (!this.data.orderLoaded || !this.data.orderId || !this.data.orderInfo) {
+      this._completionAction = null
       wx.showToast({ title: '订单未加载完成', icon: 'none' })
       return
     }
-    if (!this._validate()) return
+    if (!this._validate()) { this._completionAction = null; return }
 
     const { items, isFirstBarrelOrder } = this.data
     const hasAnyReturn = items.some(it => it.actual > 0)
@@ -700,24 +745,30 @@ Page({
     // 首单（押金桶）本来就不回桶，不再问"全部为 0 是否确认"（契约 C1）：
     // 首单页面连步进器都不画，actual 恒为 0 ⇒ 每个首单都必弹一次这个窗，纯噪音。
     if (!isFirstBarrelOrder && !hasAnyReturn && items.length > 0) {
+      action.stage = 'returns'
       wx.showModal({
         title: '确认回桶数',
         content: '本单桶装水的回桶数都是 0，是否确认无误？',
         confirmText: '确认无误',
         success: (res) => {
-          if (res.confirm) this._showConfirmDialog()
-        }
+          if (!this.completionActionCurrent(action) || action.stage !== 'returns') return
+          if (res.confirm) this._showConfirmDialog(action)
+          else this._completionAction = null
+        },
+        fail: () => { if (this._completionAction === action) this._completionAction = null }
       })
       return
     }
 
     // 不再单独问一次"确认未收款"：收款在页面上已经要人明确选过（collectedChosen），
     // 下面那份摘要会把它写成"已送达，待收款"——同一件事问两遍正是契约 C2 要收敛掉的。
-    this._showConfirmDialog()
+    this._showConfirmDialog(action)
   },
 
-  _showConfirmDialog() {
-    if (!this._canCompleteWithCollection()) return
+  _showConfirmDialog(action) {
+    if (!this._canCompleteWithCollection()) { this._completionAction = null; return }
+    if (!this.completionActionCurrent(action)) return
+    action.stage = 'confirm'
     const { items, needCollect, collected, orderInfo } = this.data
     const view = deliveryCompletionView(orderInfo, needCollect, collected, this.data.collectedChosen)
     let s = ''
@@ -747,11 +798,13 @@ Page({
       title: '确认完成配送',
       content: s.trim(),
       confirmText: '确认完成',
-      confirmColor: '#2E9E6B',
+      confirmColor: '#1264D6',
       success: async (res) => {
-        if (!res.confirm) return
-        this._doSubmit()
-      }
+        if (!this.completionActionCurrent(action) || action.stage !== 'confirm') return
+        if (!res.confirm) { this._completionAction = null; return }
+        return this._doSubmit(action)
+      },
+      fail: () => { if (this._completionAction === action) this._completionAction = null }
     })
   },
 
@@ -760,15 +813,41 @@ Page({
     wx.navigateTo({ url: `/pages/order/detail?id=${this.data.orderId}` })
   },
 
-  async _doSubmit() {
+  async verifyCompletionRetry(action) {
+    if (this.data.checkingCompletion || this.data.submittingComplete || !this.completionActionCurrent(action)) return false
+    const orderId = action.context.orderId, current = () => this.completionActionCurrent(action)
+    this.setData({ checkingCompletion: true })
+    try {
+      const res = await getOrderDetail(orderId)
+      if (!current()) return false
+      const order = res && res.data
+      if (!order || String(order.id) !== String(orderId)) throw new Error('原订单尚未核实')
+      if (Number(order.status) !== 2) {
+        wx.showModal({ title: '请核对原订单', content: [3, 4].includes(Number(order.status)) ? '原订单已送达或已完成，无需重复提交。请打开原订单查看收款与交付记录。' : '原订单当前不是配送中，请打开原订单核对最新状态。', showCancel: false, confirmText: '知道了' })
+        return false
+      }
+      // 核实只授权本次确认；保留未知提示和原输入，最终写入前仍须核对同一会话、页面和订单。
+      action.verifiedRetry = true
+      return true
+    } catch (err) {
+      if (current()) wx.showToast({ title: '原订单尚未核实，请稍后重试，勿重复交付', icon: 'none' })
+      return false
+    } finally { if (current()) this.setData({ checkingCompletion: false }) }
+  },
+
+  async _doSubmit(action) {
+    if (this._completionHidden || action && !this.completionActionCurrent(action)) return
+    // 已打开的旧确认框也不能绕过未知结果核实。
+    if (this.data.resultState === 'success' || this.data.resultState === 'unknown' && !(action && action.verifiedRetry)) return
     // 模板禁用与确认摘要之外再守一次，旧弹窗回调或直接触发也不能提交未收齐的新押金单。
-    if (!this._canCompleteWithCollection()) return
+    if (!this._canCompleteWithCollection()) { if (this._completionAction === action) this._completionAction = null; return }
     // 防连点（契约：重复点击不重复出库/回桶/计件）。服务端还有状态 CAS 兜底
     // （第二次会拿到"该订单当前状态不可完成配送"），但那会让配送员在**已经成功**之后
     // 看到一个红色报错弹窗——所以闸门放在客户端这里。
     if (this.data.submittingComplete) {
       return
     }
+    if (action) { action.used = true; this._completionAction = null }
     const { orderId, items, noteText, collected, needCollect, reportedFloor } = this.data
     this.setData({ submittingComplete: true, resultState: 'submitting' })
 
@@ -814,9 +893,12 @@ Page({
       //   · 网络断开/超时 ⇒ 请求可能已经送到服务端（订单可能已经完成），
       //     这时**不能**显示失败、更不能让人盲目重提交（重复提交虽被 CAS 挡住，但那会给出误导性的报错）；
       //   · 业务拒绝（备货不齐、状态已变）⇒ 服务端明确回了"没做成"，是失败，可以改了再提交。
-      // 判据用请求层归一化过的文案（utils/request 的 toNetworkError 只产出这两句网络类 message）。
+      // 以请求层的是否可能执行、响应完整性和业务拒绝元数据为准；中文网络文案只兼容旧错误。
       const msg = (err && err.message) || ''
-      const isNetwork = msg.indexOf('网络') === 0 || msg.indexOf('网络超时') >= 0
+      // 2026-10-22：展示文案不能决定写入结果。服务异常/损坏回执同样可能已经登记，保留核实入口。
+      const isNetwork = err && err.requestMayHaveOccurred !== false && !err.businessRejected && (
+        err.requestMayHaveOccurred === true || msg.indexOf('网络') === 0 || msg.indexOf('网络超时') >= 0
+        || err.malformedResponse || err.sessionChanged || Number(err.statusCode) >= 500 || Number(err.backendCode) >= 500)
       if (isNetwork) {
         this.setData({
           resultState: 'unknown',

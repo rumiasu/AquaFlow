@@ -18,7 +18,7 @@
 
 .doc-notice-tag {
   flex-shrink: 0;
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 600;
   color: var(--warning-color);
   padding-top: 2rpx;

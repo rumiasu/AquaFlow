@@ -1,7 +1,7 @@
 /* ========== AquaFlow 配送员小程序 设计系统 ========== */
 /*
  * [2026-09-26 轨道 D] 品牌色统一：色值照抄 miniapp-user/styles/variable.wxss，
- * 同一套品牌语法（浅灰白底 / 白色内容区 / 高对比文字 / 功能蓝 #1677FF / 紧凑圆角 / 极少阴影）。
+ * 同一套品牌语法（浅灰白底 / 白色内容区 / 高对比文字 / 功能蓝 #1264D6 / 紧凑圆角 / 极少阴影）。
  * 两端各自维护自己的 token、没有共享层 —— 这里是**同值**，不是引用。
  * ⚠️ --accent-gradient / --primary-gradient / --header-gradient 三个名字是历史包袱：
  * 「无渐变」硬规则下**只降级值、不改名**（客户端 variable.wxss:14-18 是先例）——
@@ -24,7 +24,7 @@ page {
   --success-color: #16834A;
   --warning-color: #A95516;
   --error-color: #BD3328;
-  --info-color: #1677FF;
+  --info-color: #1264D6;
 
   /* 功能色浅底（2026-10-07 新增，与用户端 variable.wxss 同值；语义正本 docs/design/36 §1.1） */
   --success-bg: #EAF6EE;
@@ -33,7 +33,7 @@ page {
 
   /* 配送状态色 */
   --status-pending: #A95516;
-  --status-delivering: #1677FF;
+  --status-delivering: #1264D6;
   --status-completed: #16834A;
 
   /* 中性色 */
@@ -114,7 +114,7 @@ page {
 }
 
 .btn-success {
-  background: var(--success-color);
+  background: var(--primary-color);
   color: #fff;
   border: none;
   border-radius: var(--radius-md);
@@ -194,3 +194,21 @@ page {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 员工界面：恢复状态与正文层级。仅本端使用，不承载业务状态判断。 */
+page { color: var(--text-primary); font-size: 28rpx; line-height: 1.55; background: var(--bg-color); }
+button { box-sizing: border-box; font-size: 28rpx; line-height: 1.5; white-space: normal; word-break: break-all; border-radius: 12rpx; }
+button[disabled] { color: var(--text-regular); background: var(--bg-gray); }
+input, textarea { color: var(--text-primary); box-sizing: border-box; }
+.ui-state { box-sizing: border-box; margin: 24rpx; padding: 28rpx; border: 1rpx solid var(--border-color); border-radius: 12rpx; background: var(--bg-white); }
+.ui-state-title { display: block; color: var(--text-primary); font-size: 32rpx; font-weight: 600; line-height: 1.45; }
+.ui-state-copy { display: block; margin-top: 12rpx; color: var(--text-regular); font-size: 28rpx; line-height: 1.65; word-break: break-all; }
+.ui-state-actions { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 24rpx; }
+.ui-state button { margin: 20rpx 0 0; min-height: 80rpx; padding: 16rpx 24rpx; background: var(--primary-bg); color: var(--primary-color); font-weight: 600; }
+.ui-state-actions button { margin: 0; flex: 1 1 220rpx; }
+.ui-state button::after { border: none; }
+.ui-stale { display: block; padding: 16rpx 20rpx; margin: 16rpx 0; background: var(--warning-bg); color: var(--warning-color); font-size: 26rpx; line-height: 1.6; border-radius: 8rpx; }
+.load-error button { margin: 16rpx 0 0; color: var(--primary-color); background: #fff; min-height: 72rpx; padding: 12rpx 20rpx; }
+.ui-proof-frame { overflow: hidden; }
+.ui-image-fallback { width: 100%; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 12rpx; background: var(--bg-gray); color: var(--text-regular); font-size: 24rpx; line-height: 1.5; text-align: center; word-break: break-all; }
+.ui-proof-image { display: block; width: 100%; height: 280rpx; }

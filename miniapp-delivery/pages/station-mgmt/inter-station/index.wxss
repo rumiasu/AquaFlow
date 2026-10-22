@@ -46,12 +46,12 @@
 
 .sum-label {
   margin-top: 8rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
 }
 
 .scope-note {
-  font-size: 22rpx;
+  font-size: 24rpx;
   line-height: 1.6;
   color: var(--text-secondary);
   padding: 0 6rpx 16rpx;
@@ -108,7 +108,7 @@
 }
 
 .tag {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-regular);
   background: var(--bg-gray);
   border-radius: 8rpx;

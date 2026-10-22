@@ -493,7 +493,7 @@
 .floor-warn {
   margin-left: 12rpx;
   padding: 4rpx 14rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--warning-color);
   background: var(--warning-bg);
   border-radius: 999rpx;
@@ -531,7 +531,7 @@
 
 .floor-proof-tip {
   display: block;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   margin-top: 8rpx;
 }
@@ -566,7 +566,7 @@
 }
 
 .pay-status {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-regular);
   background: var(--bg-gray);
   border-radius: 999rpx;
@@ -587,14 +587,14 @@
 
 .pay-time {
   display: block;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   margin-top: 6rpx;
 }
 
 .pay-note {
   display: block;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   margin-top: 6rpx;
   line-height: 1.4;

@@ -20,6 +20,8 @@ Page({
     this.loadProfile(id)
   },
 
+  onRetryProfile() { return this.loadProfile(this.data.id) },
+
   async loadProfile(id) {
     this.setData({ loading: true, error: '' })
     try {
@@ -37,16 +39,16 @@ Page({
   },
 
   decorate(p) {
-    const n = (v) => Number(v || 0).toFixed(2)
+    const n = (v) => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? '待核实' : Number(v).toFixed(2)
     p.totalAmountText = n(p.totalAmount)
     p.monthAmountText = n(p.monthAmount)
-    p.todayOrders = p.todayOrders || 0
-    p.monthOrders = p.monthOrders || 0
-    p.totalOrders = p.totalOrders || 0
-    p.deliveringOrders = p.deliveringOrders || 0
-    p.cancelledOrders = p.cancelledOrders || 0
-    p.returnCount = p.returnCount || 0
-    p.exceptionCount = p.exceptionCount || 0
+    p.todayOrders = p.todayOrders === null || p.todayOrders === undefined || p.todayOrders === '' ? '待核实' : p.todayOrders
+    p.monthOrders = p.monthOrders === null || p.monthOrders === undefined || p.monthOrders === '' ? '待核实' : p.monthOrders
+    p.totalOrders = p.totalOrders === null || p.totalOrders === undefined || p.totalOrders === '' ? '待核实' : p.totalOrders
+    p.deliveringOrders = p.deliveringOrders === null || p.deliveringOrders === undefined || p.deliveringOrders === '' ? '待核实' : p.deliveringOrders
+    p.cancelledOrders = p.cancelledOrders === null || p.cancelledOrders === undefined || p.cancelledOrders === '' ? '待核实' : p.cancelledOrders
+    p.returnCount = p.returnCount === null || p.returnCount === undefined || p.returnCount === '' ? '待核实' : p.returnCount
+    p.exceptionCount = p.exceptionCount === null || p.exceptionCount === undefined || p.exceptionCount === '' ? '待核实' : p.exceptionCount
     return p
   },
 

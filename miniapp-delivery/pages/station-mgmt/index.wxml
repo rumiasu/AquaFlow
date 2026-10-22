@@ -189,7 +189,7 @@
       <view class="entry-row" bindtap="onNavigate" data-url="/pages/station-mgmt/station-status/index">
         <view class="entry-main">
           <text class="entry-title">营业状态与公告</text>
-          <text class="entry-desc">休息延迟、公告、坐标</text>
+          <text class="entry-desc">营业提示、休息安排与公告</text>
         </view>
         <text class="entry-arrow">›</text>
       </view>

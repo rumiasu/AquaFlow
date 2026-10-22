@@ -16,8 +16,10 @@
 /* 标题绝对居中（与原生导航栏观感一致），不被左侧胶囊挤位 */
 .navbar-title {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 50%;
+  right: auto;
+  width: 80px;
+  transform: translateX(-50%);
   text-align: center;
   font-size: 32rpx;
   font-weight: 600;
@@ -33,7 +35,7 @@
   bottom: 0;
   display: flex;
   align-items: center;
-  max-width: 42%;
+  max-width: calc(50% - 64px);
   overflow: hidden;
 }
 
@@ -43,7 +45,7 @@
   right: 0;
   top: 0;
   bottom: 0;
-  width: 190rpx;
+  width: 104px;
 }
 
 .status-chip {
@@ -83,7 +85,7 @@
 }
 
 .status-chip-note {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: rgba(255, 255, 255, 0.85);
   margin-left: 8rpx;
   overflow: hidden;
@@ -100,13 +102,14 @@
    ⚠️ 数字由后端算（setup-guide 的 pendingCount），前端不自己加总。 */
 .status-chip-badge {
   flex-shrink: 0;
-  margin-left: 10rpx;
-  padding: 0 12rpx;
-  border-radius: 999rpx;
-  font-size: 20rpx;
+  margin-left: 8rpx;
+  padding: 0;
+  border-radius: 4rpx;
+  font-size: 24rpx;
   line-height: 32rpx;
-  background: var(--warning-color);
-  color: #ffffff;
+  background: transparent;
+  color: var(--warning-color);
+  font-weight: 600;
 }
 
 /* ===========================================================================
@@ -235,7 +238,7 @@
   flex-shrink: 0;
   margin-left: 16rpx;
   font-size: 26rpx;
-  color: var(--success-color);
+  color: var(--primary-color);
 }
 
 /* 已配好的行（2026-09-24）：标题压灰即可 —— "是否完成"靠标题颜色与所在页签表达。
@@ -263,9 +266,9 @@
 }
 
 .st-tab-on {
-  color: var(--success-color);
+  color: var(--primary-color);
   font-weight: 600;
-  border-bottom-color: var(--success-color);
+  border-bottom-color: var(--primary-color);
 }
 
 /* 展开后的说明块：why（为什么必须填）+ suggestion（具体怎么做） */
@@ -278,7 +281,7 @@
 
 .st-item-why {
   display: block;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   line-height: 1.6;
 }
@@ -286,7 +289,7 @@
 .st-item-suggestion {
   display: block;
   margin-top: 8rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--success-color);
   line-height: 1.6;
 }
@@ -294,7 +297,7 @@
 .st-summary {
   display: block;
   padding: 12rpx 0 0;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
 }
 
@@ -326,7 +329,7 @@
 }
 
 .st-btn-primary {
-  color: var(--success-color);
+  color: var(--primary-color);
   font-weight: 600;
   border-left: 1rpx solid #E8ECF1;
 }

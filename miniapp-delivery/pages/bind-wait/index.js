@@ -12,7 +12,7 @@ Page({
     mode: 'PENDING',          // PENDING / PENDING_UNBIND
     stationName: '',
     applyStationName: '',
-    hint: ''
+    hint: '', refreshLoading: false, refreshError: '', statusReady: false
   },
 
   onLoad() {
@@ -23,29 +23,51 @@ Page({
     this.refresh(false)
   },
 
+  onShow() { if (this._bindingHidden) { this._bindingHidden = false; this.refresh(true) } },
+  onHide() { this._bindingHidden = true; this._bindingSeq = (this._bindingSeq || 0) + 1 },
+  onUnload() { this.onHide() },
+
+  bindingSnapshot() {
+    const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+    return { app, generation: app._loginGeneration || 0, identity: JSON.stringify([!!g.isLogin, u.staffId, u.stationId, u.role, u.bindStatus]), seq: this._bindingSeq }
+  },
+  bindingCurrent(snapshot) {
+    const now = this.bindingSnapshot()
+    return !this._bindingHidden && snapshot.app === now.app && snapshot.generation === now.generation && snapshot.identity === now.identity && snapshot.seq === now.seq
+  },
+
   async refresh(silent) {
+    this._bindingSeq = (this._bindingSeq || 0) + 1
+    let active = this.bindingSnapshot()
+    const app = active.app
+    const userInfo = { ...((app.globalData && app.globalData.userInfo) || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {}) }
+    this.setData({ refreshLoading: true, refreshError: '', statusReady: false, applyStationName: '' })
     try {
-      const app = getApp()
       // 优先从服务器拿最新 bind 状态
+      const optionalRead = error => { if (error && error.sessionChanged) throw error; return null }
       const [bindRes, meRes] = await Promise.all([
-        get(API.BIND_STATUS).catch(() => null),
-        get(API.ME).catch(() => null)
+        get(API.BIND_STATUS).catch(optionalRead),
+        get(API.ME).catch(optionalRead)
       ])
 
-      const userInfo = (app.globalData && app.globalData.userInfo) || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {}
+      if (!this.bindingCurrent(active)) return
+      const validState = value => value && typeof value === 'object' && !Array.isArray(value) && Object.values(BINDING_STATUS).includes(value.bindingStatus || value.bindStatus)
+      const bindData = bindRes && validState(bindRes.data) ? bindRes.data : null
+      const meData = meRes && validState(meRes.data) ? meRes.data : null
+      if (!bindData && !meData) throw new Error('申请状态尚未读取')
       let bindStatus = userInfo.bindStatus || BINDING_STATUS.UNBOUND
       let stationId = userInfo.stationId || null
       let applyStationId = userInfo.applyStationId || null
 
-      if (bindRes && bindRes.data) {
-        bindStatus = bindRes.data.bindingStatus || bindStatus
-        stationId = bindRes.data.stationId != null ? bindRes.data.stationId : stationId
-        applyStationId = bindRes.data.applyStationId != null ? bindRes.data.applyStationId : applyStationId
+      if (bindData) {
+        bindStatus = bindData.bindingStatus || bindData.bindStatus
+        if (Object.prototype.hasOwnProperty.call(bindData, 'stationId')) stationId = bindData.stationId
+        if (Object.prototype.hasOwnProperty.call(bindData, 'applyStationId')) applyStationId = bindData.applyStationId
       }
-      if (meRes && meRes.data) {
-        const m = meRes.data
+      if (meData) {
+        const m = meData
         if (m.bindingStatus) bindStatus = m.bindingStatus
-        if (m.stationId) stationId = m.stationId
+        if (Object.prototype.hasOwnProperty.call(m, 'stationId')) stationId = m.stationId
         if (m.bindStatus) bindStatus = m.bindStatus
       }
 
@@ -54,31 +76,33 @@ Page({
         accessToken: app.globalData.accessToken,
         refreshToken: app.globalData.refreshToken,
         staffId: userInfo.staffId,
-        nickname: (meRes && meRes.data && meRes.data.nickname) || userInfo.nickname,
-        phone: (meRes && meRes.data && meRes.data.phone) || userInfo.phone,
-        role: (meRes && meRes.data && (meRes.data.staffRole || meRes.data.role)) || userInfo.role,
+        nickname: (meData && meData.nickname) || userInfo.nickname,
+        phone: (meData && meData.phone) || userInfo.phone,
+        role: (meData && (meData.staffRole || meData.role)) || userInfo.role,
         stationId,
         bindingStatus: bindStatus,
         applyStationId
       })
+      active = this.bindingSnapshot()
+      this.setData({ statusReady: true })
 
       // 判定跳转
       if (bindStatus === BINDING_STATUS.BOUND && stationId) {
         if (!silent) wx.showToast({ title: '绑定成功', icon: 'success' })
         setTimeout(() => {
-          wx.switchTab({ url: '/pages/home/index' })
+          if (this.bindingCurrent(active)) wx.switchTab({ url: '/pages/home/index' })
         }, silent ? 0 : 1500)
         return
       }
 
       if (bindStatus === BINDING_STATUS.REJECTED || bindStatus === BINDING_STATUS.UNBOUND) {
         if (!silent && bindStatus === BINDING_STATUS.REJECTED) {
-          wx.showModal({
+          wx.showModal({ confirmText: '知道了',
             title: '申请被拒绝',
             content: '站长拒绝了您的绑定申请，请重新申请。',
             showCancel: false,
             success: () => {
-              wx.redirectTo({ url: '/pages/station-mgmt/apply-bind/index' })
+              if (this.bindingCurrent(active)) wx.redirectTo({ url: '/pages/station-mgmt/apply-bind/index' })
             }
           })
           return
@@ -95,8 +119,10 @@ Page({
         applyStationName: userInfo.applyStationName || ''
       })
     } catch (err) {
+      if (!this.bindingCurrent(active)) return
+      this.setData({ refreshError: '申请最新状态尚未核实，请刷新后查看' })
       if (!silent) wx.showToast({ title: '刷新失败', icon: 'none' })
-    }
+    } finally { if (this.bindingCurrent(active)) this.setData({ refreshLoading: false }) }
   },
 
   /**
@@ -120,7 +146,7 @@ Page({
       wx.showToast({ title: '解绑审批中，无法撤回', icon: 'none' })
       return
     }
-    wx.showModal({
+    wx.showModal({ confirmText: '确认撤回',
       title: '撤回申请',
       content: '确定要撤回当前绑定申请吗？',
       success: async (res) => {

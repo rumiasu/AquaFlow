@@ -9,7 +9,7 @@
  *
  * ⚠️ 营业状态是**软状态**（v32）：只提示、不阻断（见 `docs/design/13-营业状态与公告.md`）。
  * ⚠️ 文案一律来自后端（`statusText` / `note` / `customerHint`），**前端不写 1..4 映射表** ——
- *    拉不到就清空不显示，绝不编造"营业中"（与客户端同一口径）。
+ *    拉不到就显示待核实，绝不编造"营业中"。
  * ⚠️ 走**公开接口**（不需要站长权限，配送员也要看得到"今天休息"）：路径直接写常量，
  *    不塞进 `api/station-mgmt.js` 那一族站长接口里，免得被误当成"配送员也能调"。
  *    （**待填项**是站长专属的 `api/station-mgmt.js#getSetupGuide`，但它现在只由
@@ -46,7 +46,7 @@ module.exports = Behavior({
     // 水站营业状态（软状态）：文案由后端下发，前端不做 1..4 映射
     stationStatusText: '',
     stationStatusNote: '',
-    stationStatusHint: '',
+    stationStatusHint: '', stationStatusError: '',
     // 自绘导航栏尺寸（navigationStyle=custom）
     statusBarHeight: 44,
     navBarHeight: 44,
@@ -65,7 +65,7 @@ module.exports = Behavior({
     stationPanelOnlineHint: '',
     // 拉待填项失败时的提示。没有它，catch 之后 items 为空 → 走"全配好"分支 → 告诉站长
     // "待填项都配好了" —— 而真相是**根本没拉到**，这会让他以为万事大吉（静默失效）。
-    stationPanelError: '',
+    stationPanelError: '', stationPanelReadReady: false, stationPanelRefreshing: false,
     // 待填项**总数**（2026-09-24）：胶囊上的「待填 N 项」徽标。数字来自后端
     // （setup-guide 的 pendingCount），前端不自己加总；拉不到时**保持原值**不清零。
     stationPendingCount: 0
@@ -82,25 +82,28 @@ module.exports = Behavior({
 
     /**
      * 拉水站营业状态（软状态）：只提示、不阻断。文案全部后端下发；
-     * 拉不到就清空，不编造"营业中"。
+     * 拉不到时清除旧状态并显示待核实，不编造"营业中"。
      */
     async loadStationStatus(stationId) {
+      const seq = this._stationStatusSeq = (this._stationStatusSeq || 0) + 1
+      const app = getApp(), generation = app._loginGeneration || 0
+      const identity = () => { const g = getApp().globalData || {}, u = g.userInfo || {}; return JSON.stringify([!!g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+      const owner = identity()
+      const current = () => seq === this._stationStatusSeq && getApp() === app && generation === (app._loginGeneration || 0) && identity() === owner
       if (!stationId) {
-        this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '' })
+        this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '', stationStatusError: '' })
         return
       }
+      this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '', stationStatusError: '' })
       try {
         const res = await get(STATION_STATUS + '/' + stationId + '/status')
+        if (!current()) return
         const d = (res && res.data) || {}
-        this.setData({
-          stationStatusText: d.statusText || '',
-          stationStatusNote: d.note || '',
-          stationStatusHint: d.customerHint || ''
-        })
-        // 首页复用同一响应的 stationId/stationName；不新增站点请求。
+        if (typeof d.statusText !== 'string' || !d.statusText.trim()) throw new Error('营业状态尚未核实')
+        this.setData({ stationStatusText: d.statusText, stationStatusNote: d.note || '', stationStatusHint: d.customerHint || '', stationStatusError: '' })
         return res
       } catch (e) {
-        this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '' })
+        if (current()) this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '', stationStatusError: '营业状态尚未读取，请重新核实' })
       }
     },
 
@@ -115,21 +118,27 @@ module.exports = Behavior({
      * ⚠️ **只有站长能调**：该接口带 `@RequireRole("STATION_MANAGER")`，配送员会被直接拒。
      *    `isManager` 由使用本 behavior 的页面算好放进 data（pages/home 与 pages/coordination 都已算）。
      * ⚠️ 拉不到（返回 null）时：**保留旧列表与旧徽标**（不清零，否则站长会以为已经配好了），
-     *    但必须收掉 loading、并在**没有旧列表**时给出错误提示 —— 详见方法内注释。
+     *    但必须收掉 loading，并标明本次尚未核实 —— 详见方法内注释。
      */
     async loadStationPending() {
       if (!this.data.isManager) return
-      const r = await checkSetupReminder()
+      const seq = this._stationPendingSeq = (this._stationPendingSeq || 0) + 1
+      const app = getApp(), generation = app._loginGeneration || 0
+      const identity = () => { const g = getApp().globalData || {}, u = g.userInfo || {}; return JSON.stringify([!!g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+      const owner = identity()
+      let r = null
+      try { r = await checkSetupReminder() } catch (e) { /* 读取或本地提醒记录失败，均不能确认配置齐全 */ }
+      if (seq !== this._stationPendingSeq || getApp() !== app || generation !== (app._loginGeneration || 0) || identity() !== owner) return
       if (!r) {
         // ⚠️ 拉不到**必须收掉 loading 并说出来**，两条都不能省：
         //    ① 不收 loading → 小框永远停在"正在检查待填项…"转圈；
         //    ② 有列表却把 stationPanelError 清掉 → 回到"刚填完的项还显示着要填"那个 bug 的
         //       另一种形态（拿旧快照当新的）。所以：**有旧列表就保留它，但绝不假装它是新的**。
         this.setData({
-          stationPanelLoading: false,
+          stationPanelLoading: false, stationPanelRefreshing: false, stationPanelReadReady: false,
           stationPanelError: (this.data.stationPanelItems || []).length
-            ? ''
-            : '待填项没拉到（网络问题），重开小程序再试'
+            ? '本次待填项未完成核对，以下为上次读取记录'
+            : '待填项尚未读取，请重新核对'
         })
         return
       }
@@ -137,6 +146,11 @@ module.exports = Behavior({
       //    只写 stationPendingCount 是不够的 —— 那样胶囊数字会变、小框里的列表还是旧的，
       //    于是"刚填完的项还显示着要填"（2026-09-24 产品报的 bug，就是这么来的）。
       this.setData(this.setupPatchOf(r))
+    },
+
+    onRetryStationPending() {
+      this.setData({ stationPanelRefreshing: true })
+      this.loadStationPending()
     },
 
     /**
@@ -160,7 +174,7 @@ module.exports = Behavior({
         stationPanelItems: this.data.stationPanelShowAll ? pending.concat(done) : pending,
         stationPanelSummary: pending.length ? (r.summaryText || '') : '',
         stationPanelOnlineHint: r.onlineHint || '',
-        stationPanelError: '',
+        stationPanelError: '', stationPanelReadReady: true, stationPanelRefreshing: false,
         stationPanelLoading: false
       }
     },
@@ -199,7 +213,11 @@ module.exports = Behavior({
      * `isManager` 由使用本 behavior 的页面算好放进 data（pages/home 与 pages/coordination 都已算）。
      */
     onStationStatusTap() {
-      const { stationStatusText, stationStatusNote, isManager } = this.data
+      const { stationStatusText, stationStatusNote, stationStatusError, isManager } = this.data
+      if (stationStatusError) {
+        wx.showModal({ title: '营业状态待核实', content: stationStatusError, confirmText: '重新读取', cancelText: '稍后再看', success: result => { if (result.confirm) this.loadStationStatus((getApp().globalData.userInfo || {}).stationId) } })
+        return
+      }
       if (!stationStatusText) return
       if (isManager) {
         this.openStationPanel()
@@ -232,6 +250,7 @@ module.exports = Behavior({
         stationPanelShow: true,
         // 有缓存就先显示缓存（loading 只用来告诉用户"还没拉到过"）；没缓存才显示"正在检查…"
         stationPanelLoading: !hasCache,
+        stationPanelRefreshing: true,
         stationPanelError: ''
       })
       this.loadStationPending()

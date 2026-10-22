@@ -19,6 +19,7 @@ const {
 const { upload, chooseImages, uploadDraft, isUploadSessionCurrent } = require('../../../utils/upload')
 const businessRules = require('../../../api/business-rules')
 const { API } = require('../../../config/api')
+const { inventoryTypeText } = require('../../../utils/display-message')
 // ⚠️ 水票档位这两个路径直接写常量、不往 api/station-mgmt.js 里加：那个文件正被另一个
 // 工作流（商品图片库）改动，加函数会让两边未提交的改动纠缠在一起。
 const { get, post, del } = require('../../../utils/request')
@@ -73,7 +74,7 @@ Page({
     showSetting: false,
     setting: {},
     pkgRows: [],         // 水票档位（快捷定义）：{id,qty,price,onShelf,deleted}
-    pkgLoading: false,
+    pkgLoading: false, pkgError: '', pkgReady: false, pkgProductId: null,
     stockMode: 'in',     // in=入库(在现有基础上加) | check=盘点(把库存设成输入值)
     stockInput: '',
     stockAfterText: '',
@@ -91,22 +92,22 @@ Page({
     // 预设图选择面板（平台统一图库）：站长不必自己拍照，直接从平台图里挑
     showPresetPicker: false,
     presetImages: [],      // [{ key, path }] 由后端下发
-    presetLoading: false,
+    presetLoading: false, presetError: '', presetReady: false,
 
     // 库存流水
     showRecords: false,
     records: [],
-    recordsLoading: false,
+    recordsLoading: false, recordsError: '', recordsReady: false,
     recordsLimit: 50,       // 「加载更多」按 50 递增（后端上限 1000）
     recordsProductId: null, // 按商品过滤
     recordsFilterName: '',
 
     // 上报记录（自定义商品上报通用库的处理进度）
-    showSubmissions: false,
+    showSubmissions: false, submissionsLoading: false, submissionsError: '', submissionsReady: false,
     submissions: [],
     waterTemplates: WATER_PRODUCT_TEMPLATES,
     templateImage: TEMPLATE_IMAGE,
-    imageNotice: IMAGE_NOTICE,
+    imageNotice: IMAGE_NOTICE, brokenImages: {},
     editTemplateId: ''
   },
 
@@ -122,6 +123,12 @@ Page({
 
   onPullDownRefresh() {
     this.loadData().then(() => wx.stopPullDownRefresh())
+  },
+
+  onDisplayImageError(e) {
+    const src = e.currentTarget.dataset.src
+    if (!src) return
+    this.setData({ brokenImages: { ...this.data.brokenImages, [src]: true } })
   },
 
   async loadData() {
@@ -140,7 +147,7 @@ Page({
           if (!submissionsByProduct[s.productId]) {
             submissionsByProduct[s.productId] = {
               status: s.status,
-              statusText: SUBMISSION_STATUS_TEXT[s.status] || '已上报',
+              statusText: SUBMISSION_STATUS_TEXT[s.status] || '处理状态待核实',
               handleNote: s.handleNote || ''
             }
           }
@@ -174,9 +181,9 @@ Page({
   },
 
   money(v) {
-    if (v === null || v === undefined || v === '') return '0.00'
-    const n = parseFloat(v)
-    return isNaN(n) ? '0.00' : n.toFixed(2)
+    if (v === null || v === undefined || v === '') return '待核实'
+    const n = Number(v)
+    return !Number.isFinite(n) ? '待核实' : n.toFixed(2)
   },
 
   /**
@@ -281,7 +288,7 @@ Page({
       stockInput: '',
       stockAfterText: '',
       warningsInline: [],
-      pkgRows: []
+      pkgRows: [], pkgReady: false, pkgError: ''
     })
     // 档位跟着商品走：打开设置就把该商品已挂的档位拉出来（没挂 = 空表，客户只能散买）
     this.loadPkgRows(item.id)
@@ -311,10 +318,13 @@ Page({
    */
   async loadPkgRows(productId) {
     if (!productId) return
-    this.setData({ pkgLoading: true })
+    const seq = this._pkgSeq = (this._pkgSeq || 0) + 1
+    this.setData({ pkgLoading: true, pkgReady: false, pkgError: '', pkgProductId: productId })
     try {
       const res = await get(PKG_MANAGE + '?productId=' + productId)
-      const rows = (res.data || []).map(p => ({
+      if (seq !== this._pkgSeq) return
+      if (!Array.isArray(res.data)) throw new Error('档位数据未读取')
+      const rows = res.data.map(p => ({
         key: 'p' + p.id,
         id: p.id,
         qty: p.qty,
@@ -322,15 +332,18 @@ Page({
         onShelf: p.status === 1,
         deleted: false
       }))
-      this.setData({ pkgRows: rows })
+      this.setData({ pkgRows: rows, pkgReady: true })
     } catch (err) {
-      // 档位拉不到不该挡住上架设置：给一句提示 + 空表，站长仍可新增
+      // 2026-10-22：原配置未核实时不能把空表当作原价目表；保留草稿，先重读再修改档位。
+      if (seq !== this._pkgSeq) return
       console.warn('[ticket-packages] load failed:', err && err.message)
-      this.setData({ pkgRows: [] })
+      this.setData({ pkgError: '水票档位尚未读取，请先重读原配置，草稿保持不变' })
     } finally {
-      this.setData({ pkgLoading: false })
+      if (seq === this._pkgSeq) this.setData({ pkgLoading: false })
     }
   },
+
+  onRetryPkgRows() { return this.loadPkgRows(this.data.pkgProductId) },
 
   onPkgPriceInput(e) {
     const idx = e.currentTarget.dataset.index
@@ -437,13 +450,13 @@ Page({
     }
     if (stockMode === 'loss') {
       if (qty >= (setting.quantity || 0)) { wx.showToast({ title: '盘亏数须低于当前库存', icon: 'none' }); return }
-      wx.showModal({ title: '登记实盘亏损', editable: true, placeholderText: '请填写实际损失原因及凭据（必填）',
+      wx.showModal({ confirmText: '登记盘亏', cancelText: '暂不登记', title: '登记实盘亏损', editable: true, placeholderText: '请填写实际损失原因及凭据（必填）',
         content: '实物将由 ' + setting.quantity + ' 改为 ' + qty + '；较晚预留订单会变为缺货待补。请联系受影响客户协商延期或取消。',
         success: async res => { if (!res.confirm) return
           try {
             const r = await businessRules.recordLoss(setting.id, { targetQuantity: qty, expectedQuantity: setting.quantity, note: res.content })
             this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': qty }); this.loadData()
-            wx.showModal({ title: '实盘亏损已登记', content: '受影响预留 ' + (r.data.affectedOrders || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
+            wx.showModal({ confirmText: '知道了', title: '实盘亏损已登记', content: '受影响预留 ' + (r.data.affectedOrders || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
           } catch (err) { wx.showToast({ title: err.message || '登记未成功', icon: 'none' }) }
         } })
       return
@@ -505,7 +518,8 @@ Page({
   /** 保存本站设置：价格留空 = 用平台参考价；填 0 = 清除覆盖（后端归一化为 NULL） */
   async onSaveSetting() {
     const s = this.data.setting
-    if (!s || !s.id) return
+    if (!s || !s.id || this.data.saving) return
+    if (s.ticketEnabled && (this.data.pkgLoading || this.data.pkgError)) { wx.showToast({ title: '请先读取原水票档位', icon: 'none' }); return }
     const payload = {
       enabled: s.enabled ? 1 : 0,
       ticketEnabled: s.ticketEnabled ? 1 : 0,
@@ -573,21 +587,26 @@ Page({
   },
 
   async loadRecords() {
-    this.setData({ recordsLoading: true })
+    const seq = this._recordsSeq = (this._recordsSeq || 0) + 1
+    this.setData({ recordsLoading: true, recordsError: '', recordsReady: false, records: [] })
     try {
       const res = await getInventoryRecords(this.data.recordsLimit, this.data.recordsProductId)
-      const records = (res.data || []).map(r => ({
-        ...r,
+      if (seq !== this._recordsSeq) return
+      if (!Array.isArray(res.data)) throw new Error('流水资料未读取')
+      const records = res.data.map(r => ({
+        ...r, typeText: inventoryTypeText(r.type, r.note),
         deltaText: (r.delta > 0 ? '+' : '') + r.delta,
         timeText: (r.createTime || '').replace('T', ' ').slice(0, 16),
         productText: r.productName || ('商品 #' + (r.productId || '')),
         refText: r.refId ? '单据 #' + r.refId : ''
       }))
-      this.setData({ records })
+      this.setData({ records, recordsReady: true })
     } catch (err) {
+      if (seq !== this._recordsSeq) return
+      this.setData({ recordsError: '库存流水尚未读取，请重试' })
       wx.showToast({ title: err.message || '流水加载失败', icon: 'none' })
     } finally {
-      this.setData({ recordsLoading: false })
+      if (seq === this._recordsSeq) this.setData({ recordsLoading: false })
     }
   },
 
@@ -615,21 +634,26 @@ Page({
   /* ==================== 上报记录 ==================== */
 
   async onOpenSubmissions() {
-    this.setData({ showSubmissions: true })
+    const seq = this._submissionsSeq = (this._submissionsSeq || 0) + 1
+    this.setData({ showSubmissions: true, submissionsLoading: true, submissionsError: '', submissionsReady: false })
     try {
       const res = await getMySubmissions()
+      if (seq !== this._submissionsSeq) return
+      if (!Array.isArray(res.data)) throw new Error('上报记录尚未读取')
       const nameById = {}
       this.data.list.forEach(i => { nameById[i.id] = i.displayName })
       const submissions = (res.data || []).map(s => ({
         ...s,
         productName: nameById[s.productId] || ('商品 #' + s.productId),
-        statusText: SUBMISSION_STATUS_TEXT[s.status] || '已上报',
+        statusText: SUBMISSION_STATUS_TEXT[s.status] || '处理状态待核实',
         timeText: (s.createTime || '').replace('T', ' ').slice(0, 16)
       }))
-      this.setData({ submissions })
+      this.setData({ submissions, submissionsReady: true })
     } catch (err) {
+      if (seq !== this._submissionsSeq) return
+      this.setData({ submissionsError: '上报记录尚未读取，请重试' })
       wx.showToast({ title: err.message || '上报记录加载失败', icon: 'none' })
-    }
+    } finally { if (seq === this._submissionsSeq) this.setData({ submissionsLoading: false }) }
   },
 
   closeSubmissions() {
@@ -675,6 +699,7 @@ Page({
   },
 
   openAdd() {
+    this._pkgSeq = (this._pkgSeq || 0) + 1
     try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, false, this._uploadResumeDraftId) } catch (_) { this._uploadDraftId = null }
     this.setData({
       showEdit: true,
@@ -682,7 +707,7 @@ Page({
       editId: null,
       editTemplateId: '',
       editCategoryIndex: 0,
-      pkgRows: [],   // 新商品还没有档位
+      pkgRows: [], pkgReady: true, pkgLoading: false, pkgError: '', pkgProductId: null, // 新商品没有旧档位，可以直接填写草稿
       editForm: {
         name: '', brand: '', spec: '', category: 1,
         price: '', deposit: '', quantity: '', imageUrl: '',
@@ -698,7 +723,7 @@ Page({
     this.setData({
       showEdit: true,
       isAdd: false,
-      editId: item.id,
+      editId: item.id, pkgRows: [], pkgReady: false, pkgError: '', pkgProductId: item.id,
       editTemplateId: '',
       editCategoryIndex: idx >= 0 ? idx : 0,
       editForm: {
@@ -754,6 +779,7 @@ Page({
   async onSaveEdit() {
     if (this.data.saving) return
     const { isAdd, editId, editForm } = this.data
+    if (editForm.ticketEnabled && (this.data.pkgLoading || this.data.pkgError)) { wx.showToast({ title: '请先读取原水票档位', icon: 'none' }); return }
     if (this.data.editTemplateId) {
       const error = templateBusinessError(editForm)
       if (error) { wx.showToast({ title: error, icon: 'none' }); return }
@@ -871,11 +897,13 @@ Page({
   async openPresetPicker() {
     this.setData({ showPresetPicker: true })
     if (this.data.presetImages.length) return   // 已拉过就不重复请求
-    this.setData({ presetLoading: true })
+    this.setData({ presetLoading: true, presetError: '', presetReady: false })
     try {
       const res = await getPresetImages()
-      this.setData({ presetImages: res.data || [] })
+      if (!Array.isArray(res.data)) throw new Error('图库资料未读取')
+      this.setData({ presetImages: res.data, presetReady: true })
     } catch (err) {
+      this.setData({ presetError: '平台图库尚未读取，请重试；也可关闭后上传实际商品照片' })
       wx.showToast({ title: err.message || '预设图加载失败', icon: 'none' })
     } finally {
       this.setData({ presetLoading: false })

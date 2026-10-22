@@ -37,8 +37,8 @@ function decorate(item) {
   item.avatarColor = AVATAR_COLORS[h % AVATAR_COLORS.length]
   const phone = item.phone || ''
   item.phoneMasked = phone.length === 11 ? phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : (phone || '未填写')
-  item.roleText = item.roleText || ROLE_TEXT[item.role] || item.role || ''
-  item.statusText = item.statusText || (item.status === 1 ? '在职' : '离职')
+  item.roleText = item.roleText || ROLE_TEXT[item.role] || '角色待核实'
+  item.statusText = item.statusText || (item.status === 1 ? '在职' : item.status === 0 ? '离职' : '在职状态待核实')
   return item
 }
 
@@ -222,7 +222,7 @@ Page({
 
   onDetach(e) {
     const { id, name } = e.currentTarget.dataset
-    wx.showModal({
+    wx.showModal({ confirmText: '解除绑定',
       title: '解除所属',
       content: `确定解除配送员「${name}」的所属关系？`,
       success: async (res) => {

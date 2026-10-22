@@ -41,7 +41,7 @@
   line-height: 1;
 }
 .section-head .section-title { margin-bottom: 0; }
-.section-note { font-size: 22rpx; color: var(--text-secondary); }
+.section-note { font-size: 24rpx; color: var(--text-secondary); }
 
 /*
   口径说明（2026-09-27 加）：紧跟在指标卡下面，说清"这几个数按什么口径统计的"。
@@ -50,7 +50,7 @@
 */
 .scope-note {
   margin-top: 16rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   line-height: 34rpx;
   color: var(--text-secondary);
 }
@@ -69,9 +69,9 @@
   box-sizing: border-box;
 }
 .metric-value { font-size: 34rpx; font-weight: 700; color: var(--primary-color); }
-.metric-label { font-size: 22rpx; color: var(--text-secondary); }
+.metric-label { font-size: 24rpx; color: var(--text-secondary); }
 .delta { display: flex; align-items: center; gap: 4rpx; font-size: 21rpx; }
-.delta-arrow { font-size: 20rpx; }
+.delta-arrow { font-size: 24rpx; }
 .delta-text { font-size: 21rpx; }
 .delta.up .delta-text, .delta.up .delta-arrow { color: var(--success-color); }
 .delta.down .delta-text, .delta.down .delta-arrow { color: var(--error-color); }
@@ -79,14 +79,14 @@
 /* good/bad 覆盖默认涨跌配色（取消单上涨=红但其实是坏消息要标红，金额上涨=绿） */
 .delta.good .delta-text, .delta.good .delta-arrow { color: var(--success-color); }
 .delta.bad .delta-text, .delta.bad .delta-arrow { color: var(--error-color); }
-.delta-prev { font-size: 20rpx; color: var(--text-secondary); }
+.delta-prev { font-size: 24rpx; color: var(--text-secondary); }
 
 /* ===== 图表 ===== */
 .chart-canvas { width: 100%; }
 .chart-canvas.trend { height: 380rpx; }
 .chart-canvas.donut { height: 300rpx; }
 .metric-switch { display: flex; background: var(--bg-color); border-radius: 10rpx; padding: 4rpx; }
-.ms-item { font-size: 22rpx; padding: 6rpx 18rpx; color: var(--text-secondary); border-radius: 8rpx; }
+.ms-item { font-size: 24rpx; padding: 6rpx 18rpx; color: var(--text-secondary); border-radius: 8rpx; }
 .ms-item.on { background: var(--primary-color); color: #fff; }
 
 /* ===== 双列 ===== */
@@ -114,7 +114,7 @@
   border-radius: 10rpx;
   background: var(--bg-color);
   color: var(--text-secondary);
-  font-size: 22rpx;
+  font-size: 24rpx;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   font-weight: 600;
@@ -126,12 +126,12 @@
 .rank-body.full { width: 100%; }
 .rank-line1 { display: flex; justify-content: space-between; align-items: center; gap: 12rpx; }
 .rank-name { font-size: 25rpx; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rank-val { font-size: 22rpx; color: var(--text-secondary); flex-shrink: 0; }
+.rank-val { font-size: 24rpx; color: var(--text-secondary); flex-shrink: 0; }
 /* 统一排行榜样式：隐藏所有进度条，保持纯文本排行 */
 .rank-track { display: none; }
 .rank-fill { display: none; }
 .rank-fill.green { display: none; }
-.rank-sub { font-size: 20rpx; color: var(--text-secondary); }
+.rank-sub { font-size: 24rpx; color: var(--text-secondary); }
 
 /* ===== 时段分布 ===== */
 .hour-chart {

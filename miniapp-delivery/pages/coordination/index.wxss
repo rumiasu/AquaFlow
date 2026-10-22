@@ -118,7 +118,7 @@
   height: 32rpx;
   line-height: 32rpx;
   padding: 0 8rpx;
-  font-size: 20rpx;
+  font-size: 24rpx;
   border-radius: 16rpx;
   background: rgba(0, 0, 0, 0.08);
   text-align: center;
@@ -156,7 +156,7 @@
 }
 
 .status-tag {
-  font-size: 22rpx;
+  font-size: 24rpx;
   padding: 6rpx 16rpx;
   border-radius: 8rpx;
   font-weight: 500;
@@ -178,7 +178,7 @@
    `.order-card.risk-*` 给整张卡加一条左侧色边，扫一眼列表就知道哪几单要留意。
    `.risk-plain` 是"后端给了个我没见过的等级"的兜底（中性灰）—— 认不出来就别乱标红。 */
 .risk-tag {
-  font-size: 22rpx;
+  font-size: 24rpx;
   padding: 6rpx 16rpx;
   border-radius: 8rpx;
   font-weight: 500;
@@ -237,7 +237,7 @@
 }
 
 .order-time {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
 }
 
@@ -558,7 +558,7 @@
 }
 
 .fee-source-label {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--warning-color);
   flex-shrink: 0;
 }
@@ -597,7 +597,7 @@
 }
 
 .risk-text {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--warning-color);
   line-height: 1.5;
 }
@@ -644,7 +644,7 @@
 
 /* 商品匹配标签 */
 .match-tag {
-  font-size: 20rpx;
+  font-size: 24rpx;
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
   font-weight: 500;
@@ -688,7 +688,7 @@
    （CrossStationDispatchController 的 dispatch-tracking 只填 dispatchKind / deliveryStationName），
    那四个分支恒不渲染 —— 是死代码。要按状态配色就用后端 statusText + 这个通用小标。 */
 .dispatch-status-tag {
-  font-size: 20rpx;
+  font-size: 24rpx;
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
   font-weight: 500;

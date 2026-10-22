@@ -51,7 +51,7 @@ Page({
     selectedMethod: null,
     quote: null,
     barrelPurchaseConfirmed: false,
-    loading: true,
+    loading: true, customerError: '', productError: '', addressError: '', stationError: '', productsLoading: false, addressesLoading: false,
     quoting: false,
     submitting: false,
     unknownOrder: false
@@ -77,35 +77,52 @@ Page({
     }
     const stationId = (app.globalData.userInfo || {}).stationId
     if (!stationId) {
+      this.setData({ loading: false, stationError: '所属水站尚未核实，请返回客户列表后重新进入' })
       wx.showToast({ title: '未识别到所属水站', icon: 'none' })
       return
     }
-    this.setData({ stationId })
+    this.setData({ stationId, stationError: '' })
     this.loadCustomers()
     this.loadProducts()
   },
 
+  onRetryCustomers() { return this.loadCustomers() },
+  onRetryProducts() { return this.loadProducts() },
+  onRetryAddresses() { if (this.data.customer) return this.pickCustomer(this.data.customer) },
+  onBackCustomers() { wx.navigateBack({ delta: 1 }) },
+
   async loadCustomers() {
-    this.setData({ loading: true })
+    const seq = this._customersSeq = (this._customersSeq || 0) + 1
+    this.setData({ loading: true, customerError: '' })
     try {
       const kw = this.data.keyword ? '?keyword=' + encodeURIComponent(this.data.keyword) : ''
       const res = await get(ASSIST + '/customers' + kw)
-      this.setData({ customers: res.data || [] })
+      if (seq !== this._customersSeq) return
+      if (!Array.isArray(res.data)) throw new Error('客户资料尚未读取')
+      this.setData({ customers: res.data })
       this.applyPresetCustomer()
     } catch (err) {
+      if (seq !== this._customersSeq) return
+      this.setData({ customerError: '客户列表尚未读取，请重试' })
       wx.showToast({ title: err.message || '客户加载失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (seq === this._customersSeq) this.setData({ loading: false })
     }
   },
 
   async loadProducts() {
+    const seq = this._productsSeq = (this._productsSeq || 0) + 1
+    this.setData({ productsLoading: true, productError: '' })
     try {
       const res = await get(PRODUCTS_PATH + '?stationId=' + this.data.stationId)
-      this.setData({ products: res.data || [] })
+      if (seq !== this._productsSeq) return
+      if (!Array.isArray(res.data)) throw new Error('商品资料尚未读取')
+      this.setData({ products: res.data })
     } catch (err) {
+      if (seq !== this._productsSeq) return
+      this.setData({ productError: '商品列表尚未读取，请重试后选择商品' })
       wx.showToast({ title: err.message || '商品加载失败', icon: 'none' })
-    }
+    } finally { if (seq === this._productsSeq) this.setData({ productsLoading: false }) }
   },
 
   onKeyword(e) {
@@ -143,9 +160,10 @@ Page({
 
   /** 选定客户后的公共流程（列表点选与「带客户进来」共用，别再写第二份）。 */
   async pickCustomer(customer) {
+    const seq = this._addressesSeq = (this._addressesSeq || 0) + 1
     // 换客户要清空下游选择：地址与报价都是"跟着客户走"的
     this.setData({
-      customer,
+      customer, addressError: '', addressesLoading: true,
       step: 2,
       addresses: [],
       addressId: null,
@@ -156,14 +174,18 @@ Page({
     })
     try {
       const res = await get(ASSIST + '/customers/' + customer.id + '/addresses')
-      const addresses = res.data || []
+      if (seq !== this._addressesSeq || !this.data.customer || this.data.customer.id !== customer.id) return
+      if (!Array.isArray(res.data)) throw new Error('收货地址尚未读取')
+      const addresses = res.data
       this.setData({ addresses })
       if (!addresses.length) {
         wx.showToast({ title: '该客户还没有收货地址', icon: 'none' })
       }
     } catch (err) {
+      if (seq !== this._addressesSeq) return
+      this.setData({ addressError: '该客户的收货地址尚未读取，请重试' })
       wx.showToast({ title: err.message || '地址加载失败', icon: 'none' })
-    }
+    } finally { if (seq === this._addressesSeq) this.setData({ addressesLoading: false }) }
   },
 
   onPickAddress(e) {
@@ -277,7 +299,7 @@ Page({
     if (quote.blocked) {
       // 后端把"起送量/配送范围"配成不接单时会下发 blocked + 原因，这里直接展示，
       // 不要让站长提交后才看到一个失败
-      wx.showModal({ title: '本单不能下', content: quote.blockReason || '不满足本站配送条件', showCancel: false })
+      wx.showModal({ confirmText: '知道了', title: '本单不能下', content: quote.blockReason || '不满足本站配送条件', showCancel: false })
       return
     }
     if ((quote.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) {
@@ -349,12 +371,12 @@ Page({
 
       if (!Number.isInteger(d.orderId) || d.orderId <= 0) {
         this.setData({ unknownOrder: true })
-        wx.showModal({ title: '下单结果待核实', content: '未收到有效订单号，请重试原请求核实，避免重复下单。', showCancel: false })
+        wx.showModal({ confirmText: '知道了', title: '下单结果待核实', content: '未收到有效订单号，请重试原请求核实，避免重复下单。', showCancel: false })
         return
       }
       const warnings = Array.isArray(d.warnings) ? d.warnings : []
       this.setData({ unknownOrder: false })
-      wx.showModal({
+      wx.showModal({ confirmText: '查看订单',
         title: '下单成功',
         content: '订单号 ' + d.orderId + (warnings.length ? '\n\n' + warnings.join('\n') : ''),
         showCancel: false,

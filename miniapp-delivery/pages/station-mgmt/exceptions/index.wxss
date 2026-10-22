@@ -17,7 +17,7 @@
   align-items: center;
   gap: 8rpx;
   padding: 14rpx 30rpx;
-  border-radius: 999rpx;
+  border-radius: 10rpx;
   background: #ffffff;
   font-size: 27rpx;
   color: var(--text-regular);
@@ -41,7 +41,7 @@
   border-radius: 999rpx;
   background: var(--error-color);
   color: #ffffff;
-  font-size: 20rpx;
+  font-size: 24rpx;
 }
 
 .card {
@@ -68,7 +68,7 @@
   color: var(--text-regular);
   padding: 6rpx 18rpx;
   background: var(--bg-gray);
-  border-radius: 999rpx;
+  border-radius: 10rpx;
 }
 
 .filter-on {
@@ -86,7 +86,7 @@
 .empty-hint {
   display: block;
   margin-top: 10rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-placeholder);
 }
 
@@ -110,13 +110,13 @@
 }
 
 .stats-label {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   margin-top: 6rpx;
 }
 
 .stats-note {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   line-height: 1.5;
   margin-top: 16rpx;
@@ -145,7 +145,7 @@
 }
 
 .ex-tag {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-regular);
   background: var(--bg-gray);
   padding: 4rpx 14rpx;
@@ -164,7 +164,7 @@
 }
 
 .ex-id {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   margin-left: auto;
 }
@@ -190,20 +190,20 @@
 
 .ex-time {
   display: block;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   margin-top: 10rpx;
 }
 
 .load-hint {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   text-align: center;
   padding-top: 16rpx;
 }
 
 .page-note {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   line-height: 1.6;
   padding: 0 8rpx 40rpx;
@@ -223,7 +223,7 @@
   align-items: center;
   gap: 8rpx;
   padding: 12rpx 24rpx;
-  border-radius: 999rpx;
+  border-radius: 10rpx;
   background: #ffffff;
   font-size: 25rpx;
   color: var(--text-regular);
@@ -238,7 +238,7 @@
 }
 
 .filter-num {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
 }
 
@@ -252,7 +252,7 @@
   border-radius: 12rpx;
   padding: 18rpx 20rpx;
   margin-bottom: 20rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   line-height: 1.6;
 }
@@ -273,7 +273,7 @@
 
 /* 级别标签：颜色只表达"要不要处理"，不参与任何逻辑判断 */
 .level {
-  font-size: 22rpx;
+  font-size: 24rpx;
   padding: 4rpx 14rpx;
   border-radius: 8rpx;
 }
@@ -294,7 +294,7 @@
 }
 
 .time {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-placeholder);
 }
 
@@ -323,14 +323,14 @@
 }
 
 .foot-item {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
 }
 
 .notify {
   display: block;
   margin-top: 10rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-placeholder);
 }
 

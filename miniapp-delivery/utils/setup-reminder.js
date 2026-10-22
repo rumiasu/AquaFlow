@@ -30,6 +30,17 @@ const BASELINE_KEY = 'setupGuideBaselineDone'
 
 // 在飞的那次请求（见 checkSetupReminder）。模块级变量：所有并发调用共享它。
 let inflight = null
+let inflightOwner = ''
+let inflightApp = null
+
+function readOwner() {
+  const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+  return { app, key: JSON.stringify([app._loginGeneration || 0, !!g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+}
+function sameOwner(owner) {
+  const now = readOwner()
+  return now.app === owner.app && now.key === owner.key
+}
 
 function getSeenKeys() {
   const raw = wx.getStorageSync(SEEN_KEY)
@@ -56,7 +67,9 @@ async function fetchSetupGuide() {
       console.warn('[setup-reminder] 非成功响应:', res && res.message)
       return null
     }
-    return res.data || null
+    const guide = res.data
+    if (!guide || !Array.isArray(guide.items) || !Number.isSafeInteger(guide.pendingCount) || guide.pendingCount < 0) return null
+    return guide
   } catch (err) {
     console.warn('[setup-reminder] 取完善度清单失败（本次不提醒）:', err && err.message)
     return null
@@ -80,11 +93,15 @@ function checkSetupReminder() {
   // ⚠️ **共享同一个在飞的请求**，不要"后来者返回 null" —— 那会让调用方把
   //    "有人正在拉"误判成"拉取失败"，从而弹出一句假的网络错误（2026-09-24 踩过）。
   //    共享还有两个好处：只请求一次；`doCheck` 里的弹窗与记账也只发生一次。
-  if (inflight) return inflight
-  inflight = doCheck().then(
-    (v) => { inflight = null; return v },
-    (e) => { inflight = null; throw e }
+  const owner = readOwner()
+  if (inflight && inflightOwner === owner.key && inflightApp === owner.app) return inflight
+  const pending = doCheck(owner).then(
+    (v) => { if (inflight === pending) inflight = null; return v },
+    (e) => { if (inflight === pending) inflight = null; throw e }
   )
+  inflightOwner = owner.key
+  inflightApp = owner.app
+  inflight = pending
   return inflight
 }
 
@@ -107,15 +124,12 @@ function checkSetupReminder() {
  *   **不会再弹** —— 他刚亲手做的动作，再弹一次是骚扰。要改这个行为前先想清楚：
  *   重新弹的收益（提醒他）与代价（每次清理都弹）哪个大。
  */
-async function doCheck() {
+async function doCheck(owner) {
   const guide = await fetchSetupGuide()
-  if (!guide) return null
+  if (!guide || !sameOwner(owner)) return null
 
   const pending = pendingOf(guide)
-  // 徽标数字优先用后端算好的（边界 5）；后端没给（旧版本）才退回自己数，纯属兜底
-  const pendingCount = Number(guide.pendingCount) >= 0
-    ? Number(guide.pendingCount)
-    : pending.length
+  const pendingCount = guide.pendingCount
   // 渲染数据一起带出去：调用方（behaviors/stationNavbar.js）拿到就写进小框，
   // 不必再拉一次、也不会和徽标数来自两份快照。
   const view = {
@@ -143,7 +157,7 @@ async function doCheck() {
   // 先记账再弹：万一弹窗期间被杀进程，也不会下次重复弹同一条（宁可漏弹一次，不要反复骚扰）
   setSeenKeys(seen.concat(fresh.map(it => it.key)))
 
-  showFreshModal(fresh)
+  showFreshModal(fresh, owner)
   view.freshItems = fresh
   return view
 }
@@ -152,7 +166,7 @@ async function doCheck() {
  * 弹「有新待填项」。只有一条且后端给了 route 时，确认键直接跳过去
  * （本仓明令：弹窗的「确认」必须让流程继续走，只改 UI 状态 = 静默失败，见 §8.30）。
  */
-function showFreshModal(fresh) {
+function showFreshModal(fresh, owner) {
   const first = fresh[0]
   const onlyOne = fresh.length === 1
   const lines = fresh.map(it => '· ' + it.label + '（' + (it.levelText || '') + '）\n  ' + (it.why || ''))
@@ -166,7 +180,7 @@ function showFreshModal(fresh) {
     showCancel: false,
     confirmText: goable ? '去填写' : '知道了',
     success: (res) => {
-      if (res.confirm && goable) {
+      if (res.confirm && goable && sameOwner(owner)) {
         wx.navigateTo({ url: first.route })
       }
     }

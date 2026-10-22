@@ -201,7 +201,7 @@
 /* 距离由服务端算好下发（distanceKm）；没坐标的站显示「位置未设置」，样式弱一档 */
 .station-distance {
   flex-shrink: 0;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--primary-color);
   background: var(--primary-bg);
   border-radius: 8rpx;
@@ -209,7 +209,7 @@
 }
 
 .station-map-link {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--primary-color);
   padding: 6rpx 0;
 }

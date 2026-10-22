@@ -11,7 +11,7 @@
   gap: 8rpx;
 }
 .error-text { font-size: 28rpx; font-weight: 600; color: var(--error-color); }
-.error-hint { font-size: 22rpx; color: var(--text-secondary); line-height: 1.5; }
+.error-hint { font-size: 24rpx; color: var(--text-secondary); line-height: 1.5; }
 
 /* ===== 头部画像卡 ===== */
 .profile-header {
@@ -41,7 +41,7 @@
 .name { font-size: 36rpx; font-weight: 700; color: var(--text-primary); }
 .phone { font-size: 26rpx; color: var(--text-secondary); }
 .badge-row { display: flex; flex-wrap: wrap; gap: 10rpx; margin-top: 4rpx; }
-.badge { font-size: 22rpx; padding: 4rpx 14rpx; border-radius: 20rpx; color: #fff; }
+.badge { font-size: 24rpx; padding: 4rpx 14rpx; border-radius: 20rpx; color: #fff; }
 .badge.role { background: var(--primary-bg); color: var(--primary-color); }
 .badge.perf { color: #fff; }
 .badge.rate { background: var(--primary-bg); color: var(--primary-color); }
@@ -73,7 +73,7 @@
 .metric-value { font-size: 32rpx; font-weight: 700; color: var(--primary-color); }
 .metric-value.small { font-size: 26rpx; }
 .metric-value.warn { color: var(--error-color); }
-.metric-label { font-size: 22rpx; color: var(--text-secondary); margin-top: 8rpx; }
+.metric-label { font-size: 24rpx; color: var(--text-secondary); margin-top: 8rpx; }
 
 /* ===== 明细行 ===== */
 .row {
@@ -102,14 +102,14 @@
 .order-left { flex: 1; display: flex; flex-direction: column; gap: 6rpx; min-width: 0; }
 .order-customer { font-size: 27rpx; color: var(--text-primary); font-weight: 600; }
 .order-address {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .order-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6rpx; flex-shrink: 0; }
-.order-status { font-size: 22rpx; color: var(--text-secondary); }
+.order-status { font-size: 24rpx; color: var(--text-secondary); }
 .order-amount { font-size: 28rpx; color: var(--primary-color); font-weight: 600; }
 
 .loading, .empty {

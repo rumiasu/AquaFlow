@@ -68,7 +68,7 @@ Page({
     saving: false,
 
     notices: [],
-    noticesLoading: false,
+    noticesLoading: false, noticesError: '', statusError: '',
     showEdit: false,
     isAdd: true,
     editId: null,
@@ -96,8 +96,11 @@ Page({
     Promise.all([this.loadStatus(), this.loadNotices()]).then(() => wx.stopPullDownRefresh())
   },
 
+  onRetryStatus() { return this.loadStatus() },
+  onRetryNotices() { return this.loadNotices() },
+
   async loadStatus() {
-    this.setData({ loading: true, statusLoaded: false, current: unknownStatus(),
+    this.setData({ loading: true, statusError: '', statusLoaded: false, current: unknownStatus(),
       picked: null, effectText: '', currentEffect: '' })
     try {
       const res = await getStationStatus()
@@ -125,6 +128,7 @@ Page({
       patch.currentEffect = d.currentEffect || ''
       this.setData(patch)
     } catch (err) {
+      this.setData({ statusError: '营业状态尚未读取，请重试后再修改' })
       wx.showToast({ title: (err && err.message) || '营业状态加载失败', icon: 'none' })
     } finally {
       this.setData({ loading: false })
@@ -204,7 +208,7 @@ Page({
   /* ==================== 公告 ==================== */
 
   async loadNotices() {
-    this.setData({ noticesLoading: true })
+    this.setData({ noticesLoading: true, noticesError: '' })
     try {
       const res = await getNotices()
       const notices = (res.data || []).map(n => ({
@@ -216,6 +220,7 @@ Page({
       }))
       this.setData({ notices })
     } catch (err) {
+      this.setData({ noticesError: '公告尚未读取，请重试后核对' })
       wx.showToast({ title: err.message || '公告加载失败', icon: 'none' })
     } finally {
       this.setData({ noticesLoading: false })

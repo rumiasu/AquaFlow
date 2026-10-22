@@ -37,7 +37,7 @@ function wrapUploadRecovery(page, kind) {
     refresh(this, kind)
     const entry = this.data.uploadRecoveryCases.find(row => row.id === event.currentTarget.dataset.caseid)
     if (!entry) return
-    if (entry.url !== API.ORDER_IMAGE_UPLOAD) { wx.showModal({ title: '图片仍需人工核实', content: '原草稿记录已保留。无法确认时不要重传同一草稿。独立草稿可以继续，原记录不会被删除。', showCancel: false }); return }
+    if (entry.url !== API.ORDER_IMAGE_UPLOAD) { wx.showModal({ confirmText: '知道了', title: '图片仍需人工核实', content: '原草稿记录已保留。无法确认时不要重传同一草稿。独立草稿可以继续，原记录不会被删除。', showCancel: false }); return }
     // [2026-10-14] A failed/empty/cancelled newer read must not leave an older image confirmable.
     this._uploadRecoverySelection = null
     this.setData({ uploadRecoverySelection: null })
@@ -70,7 +70,7 @@ function wrapUploadRecovery(page, kind) {
     const session = captureSession(), current = guard(this, session)
     this.setData({ uploadRecovering: true })
     try {
-      const confirmed = await new Promise(resolve => wx.showModal({ title: '核实这张图片', content: '请确认刚查看的是原来提交的同一张图片。无法确认请取消。', success: result => resolve(result.confirm), fail: () => resolve(false) }))
+      const confirmed = await new Promise(resolve => wx.showModal({ confirmText: '确认原图', title: '核实这张图片', content: '请确认刚查看的是原来提交的同一张图片。无法确认请取消。', success: result => resolve(result.confirm), fail: () => resolve(false) }))
       if (!confirmed || !current()) return
       // [2026-10-14] A final GET may fail while hidden, when its guarded catch cannot update the page.
       // Consume the visible choice before dispatch; keep only this request's proof in s.
@@ -109,7 +109,7 @@ function wrapUploadRecovery(page, kind) {
     if (kind === 'order' || !this._uploadRecoveryActive) return
     const session = captureSession(), current = guard(this, session), t = target(this, kind)
     if (t.id !== 'new' && (!Number.isSafeInteger(t.id) || t.id <= 0)) { wx.showToast({ title: '请先打开对应商品或客户', icon: 'none' }); return }
-    wx.showModal({ title: '另开图片草稿', content: '原草稿和待核实记录会保留。仅在开始一份独立草稿时继续。', success: result => {
+    wx.showModal({ confirmText: '另开草稿', title: '另开图片草稿', content: '原草稿和待核实记录会保留。仅在开始一份独立草稿时继续。', success: result => {
       if (!result.confirm || !current()) return
       try { this._uploadDraftId = uploads.uploadDraft(t, true); if (kind === 'product') this.setData({ 'editForm.imageUrl': '', uploading: false }); else { this.setData({ evidenceList: [], uploading: false }); if (this.resetPreview) this.resetPreview() } }
       catch (error) { wx.showToast({ title: error.message || '草稿暂时无法保存', icon: 'none' }) }

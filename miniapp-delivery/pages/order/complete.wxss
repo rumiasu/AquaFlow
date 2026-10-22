@@ -155,7 +155,7 @@
 .add-reason-icon { font-size: 28rpx; color: var(--warning-color); }
 .add-reason-text { font-size: 26rpx; color: var(--warning-color); font-weight: 500; }
 
-.reason-hint { font-size: 22rpx; color: var(--text-regular); margin-top: 8rpx; text-align: center; }
+.reason-hint { font-size: 24rpx; color: var(--text-regular); margin-top: 8rpx; text-align: center; }
 
 .item-divider { height: 2rpx; background: var(--border-light); margin: 16rpx 0; }
 
@@ -182,7 +182,7 @@
   box-sizing: border-box;
 }
 .more-toggle-text { font-size: 26rpx; color: var(--text-regular); }
-.more-toggle-icon { font-size: 22rpx; color: var(--text-secondary); }
+.more-toggle-icon { font-size: 24rpx; color: var(--text-secondary); }
 
 .collect-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx;
   flex-wrap: wrap;

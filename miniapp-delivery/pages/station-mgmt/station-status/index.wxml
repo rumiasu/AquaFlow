@@ -5,6 +5,7 @@
     本页只管：营业状态 + 留言 + 公告。
   -->
 
+  <view class="ui-state" wx:if="{{statusError}}"><text class="ui-state-copy">{{statusError}}</text><button size="mini" bindtap="onRetryStatus">重新读取营业状态</button></view>
   <!-- ============ 营业状态（软状态：不阻断下单，只提示顾客）============ -->
   <view class="card">
     <view class="card-header">
@@ -67,6 +68,7 @@
       <text class="link" bindtap="openAddNotice">＋ 发公告</text>
     </view>
 
+    <view class="ui-state" wx:if="{{noticesError}}"><text class="ui-state-copy">{{noticesError}}</text><button size="mini" bindtap="onRetryNotices">重新读取公告</button></view>
     <view class="notice" wx:for="{{notices}}" wx:key="id">
       <view class="notice-head">
         <text class="notice-title">{{item.title}}</text>
@@ -82,7 +84,7 @@
         </view>
       </view>
     </view>
-    <view class="empty" wx:if="{{!noticesLoading && notices.length === 0}}"><text>还没有公告，点右上角「＋ 发公告」</text></view>
+    <view class="empty" wx:if="{{!noticesLoading && !noticesError && notices.length === 0}}"><text>还没有公告，点右上角「＋ 发公告」</text></view>
     <view class="empty" wx:if="{{noticesLoading}}"><text>加载中...</text></view>
   </view>
 

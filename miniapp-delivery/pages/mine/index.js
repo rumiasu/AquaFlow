@@ -1,3 +1,4 @@
+const imageDisplay = require('../../behaviors/imageDisplay')
 const { getTodayStats } = require('../../api/delivery')
 const { get, post } = require('../../utils/request')
 const { API, BINDING_STATUS } = require('../../config/api')
@@ -5,14 +6,16 @@ const { API, BINDING_STATUS } = require('../../config/api')
 const { syncTabBar } = require('../../utils/tabbar')
 
 Page({
+  behaviors: [imageDisplay],
+  onDisplayImageError(e) { return imageDisplay.methods.onDisplayImageError.call(this, e) },
   data: {
     isLogin: false,
     userInfo: null,
-    todayStats: {},
+    todayStats: {}, statsLoading: false, statsError: '', statsReady: false,
     // 站长三格（[2026-09-19] 按角色分叉，见 loadManagerStats）：
     // 今日净利与单数（净利为 null = 有商品没填成本 → 显示「未填成本」+ 一行说明，
     // 见 _decorateProfit）、桶异常 / 欠桶客户数
-    todayProfit: null,
+    todayProfit: null, managerStatsLoading: false, managerStatsError: '',
     // [2026-09-20 真机联调] 两个**失败标记**：接口拉不到时绝不能把两格显示成 0。
     // 原来失败只 console.warn，risk 保留默认值 { 0, 0 } —— 界面上「0 桶异常」「欠桶 0 户」
     // 与"真的没有异常/没有欠桶"完全无法区分（AGENTS §8.22），站长会据此直接跳过这两项待办。
@@ -28,8 +31,8 @@ Page({
     // 「暂未创建水站，请前往创建」—— 把"没查到"说成了"你还没建站"，站长可能真的去重复建站
     // （AGENTS §8.22：同一句断言性文案，两种完全不同的原因）。
     stationInfoError: '',
-    staffList: [],
-    bindApplications: [],
+    staffList: [], staffReadReady: false, staffReadError: '', staffReadLoading: false,
+    bindApplications: [], applicationsReadReady: false, applicationsReadError: '', applicationsReadLoading: false,
     mgmtActiveTab: 0,
     /**
      * 「员工」区块是否展开（[2026-09-26 Wave1 轨道 G]；docs/design/29 §5「员工列表可折叠」）。
@@ -65,6 +68,20 @@ Page({
     this._initialized = false
   },
 
+  readIdentity() {
+    const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+    return { app, generation: app._loginGeneration || 0, key: JSON.stringify([!!g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+  },
+  beginRead(kind) {
+    this._readVersions = this._readVersions || {}
+    this._readVersions[kind] = (this._readVersions[kind] || 0) + 1
+    return { ...this.readIdentity(), kind, seq: this._readVersions[kind] }
+  },
+  currentRead(ctx) {
+    const now = this.readIdentity()
+    return ctx.app === now.app && ctx.generation === now.generation && ctx.key === now.key && ctx.seq === this._readVersions[ctx.kind]
+  },
+
   checkLogin() {
     const app = getApp()
     const isLogin = !!(app.globalData && app.globalData.isLogin)
@@ -77,7 +94,7 @@ Page({
       DELIVERY: '配送员', delivery: '配送员',
       STATION_MANAGER: '站长', manager: '站长'
     }
-    const roleLabel = isLogin ? (roleMap[role] || '配送员') : '配送员'
+    const roleLabel = isLogin ? (roleMap[role] || (role ? '身份待核实' : '待选择身份')) : ''
     const isManager = isLogin && (role === 'STATION_MANAGER' || role === 'manager')
     const isDelivery = isLogin && (role === 'DELIVERY' || role === 'delivery')
 
@@ -95,6 +112,13 @@ Page({
       }
     }
 
+    const identity = this.readIdentity()
+    if (!this._visibleIdentity || this._visibleIdentity.app !== identity.app || this._visibleIdentity.generation !== identity.generation || this._visibleIdentity.key !== identity.key) {
+      this._visibleIdentity = identity
+      this.setData({ todayStats: {}, statsReady: false, statsError: '', todayProfit: { netProfitText: '待核实', orderCount: '待核实' },
+        risk: { barrelExceptionCount: 0, owedCustomerCount: 0, barrelExceptionFailed: true, owedCustomerFailed: true },
+        stationInfo: null, stationInfoError: '', staffList: [], bindApplications: [], staffReadReady: false, applicationsReadReady: false, staffReadError: '', applicationsReadError: '' })
+    }
     this.setData({
       isLogin,
       userInfo,
@@ -122,29 +146,40 @@ Page({
    * ⚠️ 站长分支**不能**去请求利润端点以外的东西来凑数：利润端点带 @RequireRole("STATION_MANAGER")，
    * 配送员调用只会拿到一个权限错误（不是"显示 0"）。
    */
+  onRetryStats() { return this.loadStats(this.data.isManager) },
+
   async loadStats(isManager) {
     if (isManager) {
       await this.loadManagerStats()
       return
     }
+    const ctx = this.beginRead('overview')
+    this.setData({ statsLoading: true, statsError: '', statsReady: false })
     try {
       const res = await getTodayStats()
-      this.setData({ todayStats: res.data || {} })
+      if (!this.currentRead(ctx)) return
+      if (!res.data) throw new Error('今日配送统计尚未读取')
+      this.setData({ todayStats: res.data, statsReady: true })
     } catch (err) {
+      if (!this.currentRead(ctx)) return
       // 静默失败会让看板把「没加载出来」显示成 0，误导站长。至少留痕 + 提示。
+      this.setData({ statsError: '今日配送统计尚未核实，请重试' })
       console.error('[Mine] 今日统计加载失败:', err)
       wx.showToast({ title: '今日统计加载失败', icon: 'none' })
-    }
+    } finally { if (this.currentRead(ctx)) this.setData({ statsLoading: false }) }
   },
 
   /** 站长三格：今日净利 / 今日单数 / 桶异常·欠桶。三个请求互不依赖，任一失败只影响自己那一格。 */
   async loadManagerStats() {
+    const ctx = this.beginRead('overview')
+    this.setData({ managerStatsLoading: true, managerStatsError: '' })
     const today = this._todayStr()
     const [profitRes, pendingRes, owedRes] = await Promise.allSettled([
       get(API.MANAGER_GROSS_PROFIT + '?from=' + today + '&to=' + today),
       get(API.MANAGER_PENDING_SUMMARY),
       get(API.MANAGER_OWED_BARRELS)
     ])
+    if (!this.currentRead(ctx)) return
     const next = {}
 
     if (profitRes.status === 'fulfilled' && profitRes.value && profitRes.value.code === 0) {
@@ -152,14 +187,19 @@ Page({
     } else {
       // 取不到就给"—"而不是 0：0 会被读成"今天一分没赚"
       console.warn('[Mine] 今日净利加载失败:', profitRes.reason && profitRes.reason.message)
-      next.todayProfit = { netProfitText: '—', netProfitWarn: false, costMissing: false, orderCount: '—' }
+      next.todayProfit = { netProfitText: '待核实', netProfitWarn: true, costMissing: false, orderCount: '待核实', readFailed: true }
     }
 
-    const risk = { barrelExceptionCount: 0, owedCustomerCount: 0, barrelExceptionFailed: false, owedCustomerFailed: false }
+    const risk = { barrelExceptionCount: null, owedCustomerCount: null, barrelExceptionFailed: true, owedCustomerFailed: true }
     if (pendingRes.status === 'fulfilled' && pendingRes.value && pendingRes.value.code === 0) {
-      const items = ((pendingRes.value.data || {}).items) || []
-      const hit = items.find(i => i.key === 'barrelException')
-      risk.barrelExceptionCount = hit ? Number(hit.count) || 0 : 0
+      const items = (pendingRes.value.data || {}).items
+      if (Array.isArray(items)) {
+        const hit = items.find(i => i && i.key === 'barrelException')
+        if (hit && hit.available !== false && this._knownCount(hit.count)) {
+          risk.barrelExceptionCount = Number(hit.count)
+          risk.barrelExceptionFailed = false
+        }
+      }
     } else {
       // [2026-09-20 真机联调] 原来只 console.warn，risk 留在 0 —— 界面照旧显示「0 桶异常」。
       // 桶异常是"要处理的事"，显示成 0 = 告诉站长"今天没事"，而事实是**没查到**。
@@ -168,9 +208,10 @@ Page({
       console.warn('[Mine] 桶异常数加载失败:', pendingRes.reason && pendingRes.reason.message)
       risk.barrelExceptionFailed = true
     }
-    if (owedRes.status === 'fulfilled' && owedRes.value && owedRes.value.code === 0) {
+    if (owedRes.status === 'fulfilled' && owedRes.value && owedRes.value.code === 0 && Array.isArray(owedRes.value.data)) {
       // 欠桶端点是"客户列表"（没有专门的计数），这里数的是**欠桶客户数**，不是欠桶个数
-      risk.owedCustomerCount = ((owedRes.value.data) || []).length
+      risk.owedCustomerCount = owedRes.value.data.length
+      risk.owedCustomerFailed = false
     } else {
       // 同上：欠桶 0 户 与 "没查到" 必须分开，否则站长会以为没有欠桶客户要收
       console.warn('[Mine] 欠桶客户加载失败:', owedRes.reason && owedRes.reason.message)
@@ -178,10 +219,10 @@ Page({
     }
     next.risk = risk
 
-    this.setData(next)
+    this.setData({ ...next, managerStatsLoading: false, managerStatsError: risk.barrelExceptionFailed || risk.owedCustomerFailed || next.todayProfit.readFailed ? '部分经营数据尚未核实，请重试后核对' : '' })
 
     // 失败时额外出声一次：这两格在卡片里很小，「—」容易被忽略，而它代表"今天该收的账没看到"
-    if (risk.barrelExceptionFailed || risk.owedCustomerFailed || next.todayProfit.netProfitText === '—') {
+    if (risk.barrelExceptionFailed || risk.owedCustomerFailed || next.todayProfit.readFailed) {
       wx.showToast({ title: '部分经营数据没加载出来', icon: 'none' })
     }
   },
@@ -199,14 +240,20 @@ Page({
    */
   _decorateProfit(d) {
     const missing = d.netProfit === null
-    const unknown = d.netProfit === undefined
+    const unknown = !missing && !((typeof d.netProfit === 'number' || typeof d.netProfit === 'string') && String(d.netProfit).trim() !== '' && Number.isFinite(Number(d.netProfit)))
+    const countKnown = this._knownCount(d.orderCount)
     return {
-      netProfitText: missing ? '未填成本' : (unknown ? '—' : '¥' + Number(d.netProfit).toFixed(2)),
+      netProfitText: missing ? '未填成本' : (unknown ? '待核实' : '¥' + Number(d.netProfit).toFixed(2)),
       netProfitWarn: missing || unknown,
       // 缺成本才多显示一行说明（见 wxml）；「没拉到数据」不给这种解释，那是另一回事
       costMissing: missing,
-      orderCount: Number(d.orderCount) || 0
+      orderCount: countKnown ? Number(d.orderCount) : '待核实',
+      readFailed: unknown || !countKnown
     }
+  },
+
+  _knownCount(value) {
+    return (typeof value === 'number' || typeof value === 'string') && String(value).trim() !== '' && Number.isSafeInteger(Number(value)) && Number(value) >= 0
   },
 
   /** 今天的 YYYY-MM-DD（本地时区）。净利端点的 from/to 都传今天 = 只看今天。 */
@@ -231,12 +278,18 @@ Page({
     wx.navigateTo({ url: '/pages/station-mgmt/owed-barrels/index' })
   },
 
+  onRetryRoleData() { return this.loadRoleData() },
+  onRetryStaff() { return Promise.all([this.loadStaffList(), this.loadBindApplications()]) },
+
   async loadRoleData() {
+    const ctx = this.beginRead('station')
     if (this.data.isManager) {
       try {
         const s = await get(API.STATION_GET)
+        if (!this.currentRead(ctx)) return
         this.setData({ stationInfo: s.data || null, stationInfoError: '' })
       } catch (e) {
+        if (!this.currentRead(ctx)) return
         // [2026-09-20 真机联调] 原来只 console.error：stationInfo 为空时页面显示
         // 「暂未创建水站，请前往创建」—— 把接口失败说成"你没建站"（AGENTS §8.22）。
         // 现在留下失败原因，wxml 的空态据此分开说。
@@ -249,11 +302,15 @@ Page({
   },
 
   async loadStaffList() {
+    const ctx = this.beginRead('staff')
+    this.setData({ staffReadLoading: true, staffReadError: '', staffReadReady: false })
     try {
       const r = await get(API.MANAGER_STAFF)
+      if (!this.currentRead(ctx)) return
+      if (!Array.isArray(r.data)) throw new Error('员工列表尚未读取')
       const firstChar = (str) => str ? str.charAt(0) : ''
       this.setData({
-        staffList: (r.data || []).map(s => ({
+        staffReadReady: true, staffList: r.data.map(s => ({
           ...s,
           _loading: false,
           _firstChar: firstChar(s.name || s.nickname || s.nickName || '配')
@@ -261,10 +318,12 @@ Page({
       })
       this.syncStaffUnbindFlags()
     } catch (e) {
+      if (!this.currentRead(ctx)) return
       // 静默失败会让站长看到「本站没有配送员」，可能误以为需要重新添加员工。
       console.error('[Mine] 员工列表加载失败:', e)
+      this.setData({ staffReadError: '员工列表尚未核实，请重试' })
       wx.showToast({ title: '员工列表加载失败', icon: 'none' })
-    }
+    } finally { if (this.currentRead(ctx)) this.setData({ staffReadLoading: false }) }
   },
 
   // [2026-09-16 修复] GET /api/manager/staff 返回的是 Staff 实体，没有 bindStatus 字段，
@@ -284,8 +343,12 @@ Page({
   },
 
   async loadBindApplications() {
+    const ctx = this.beginRead('applications')
+    this.setData({ applicationsReadLoading: true, applicationsReadError: '', applicationsReadReady: false })
     try {
       const r = await get(API.MANAGER_BIND_APPLICATIONS)
+      if (!this.currentRead(ctx)) return
+      if (!Array.isArray(r.data)) throw new Error('待审申请尚未读取')
       const firstChar = (str) => str ? str.charAt(0) : ''
       // [2026-09-16 修复] 后端 applicationToMap 下发的是 staffName / staffPhone /
       // createTime / applyNote，此前前端读 name / phone / applyTime / remark，
@@ -300,16 +363,18 @@ Page({
         _loading: false,
         _firstChar: firstChar(a.staffName || a.nickname || a.name || a.nickName || '申')
       }))
-      const next = { bindApplications: list }
+      const next = { bindApplications: list, applicationsReadReady: true }
       // [2026-09-26] 有待审批申请就**自动展开一次**「员工」区块：折叠的默认态不能把
       // 「有人等着我同意」藏起来（AGENTS §8.22 同款判据）。站长手动收过就不再自动展开。
       if (list.length > 0 && !this._staffTouched) next.staffExpanded = true
       this.setData(next)
       this.syncStaffUnbindFlags()
     } catch (e) {
+      if (!this.currentRead(ctx)) return
       console.error('[Mine] 绑定申请加载失败:', e)
+      this.setData({ applicationsReadError: '绑定与解绑申请尚未核实，请重试' })
       wx.showToast({ title: '绑定申请加载失败', icon: 'none' })
-    }
+    } finally { if (this.currentRead(ctx)) this.setData({ applicationsReadLoading: false }) }
   },
 
   onLogin() {
@@ -493,7 +558,7 @@ Page({
   },
 
   onLogout() {
-    wx.showModal({
+    wx.showModal({ confirmText: '退出登录',
       title: '退出登录',
       content: '确定要退出登录吗？',
       success: (res) => {
@@ -505,12 +570,12 @@ Page({
           this.setData({
             isLogin: false,
             userInfo: null,
-            todayStats: {},
-            todayProfit: null,
+            todayStats: {}, statsLoading: false, statsError: '', statsReady: false,
+            todayProfit: null, managerStatsLoading: false, managerStatsError: '',
             risk: { barrelExceptionCount: 0, owedCustomerCount: 0 },
             stationInfo: null,
-            staffList: [],
-            bindApplications: [],
+            staffList: [], staffReadReady: false, staffReadError: '', staffReadLoading: false,
+            bindApplications: [], applicationsReadReady: false, applicationsReadError: '', applicationsReadLoading: false,
             staffExpanded: false
           })
           wx.showToast({ title: '已退出登录', icon: 'success' })

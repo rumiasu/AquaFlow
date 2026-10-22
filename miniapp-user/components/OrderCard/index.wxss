@@ -205,3 +205,17 @@
 .btn-pay, .btn-reorder, .btn-cancel { min-height: 88rpx; display: flex; align-items: center; justify-content: center; padding: 16rpx 24rpx; line-height: 1.5; font-size: 28rpx; border-radius: var(--radius-md); box-sizing: border-box; margin: 0; }
 .btn-pay { color: #fff; background: var(--primary-color); }
 .order-item-row { flex-wrap: wrap; }
+
+/* 2026-10-22：仅留言省略一行，地址、商品、金额与动作仍按原规则完整展示。 */
+.customer-note-preview {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.5;
+  color: var(--text-regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

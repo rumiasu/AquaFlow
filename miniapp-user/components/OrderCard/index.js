@@ -1,3 +1,4 @@
+const { customerNotePreview } = require('../../utils/customer-note')
 const { withItemUnits } = require('../../utils/order-item-view')
 const { cancelView, cancelResultText } = require('../../utils/customer-cancel-view')
 const { captureSession, isCurrentSession } = require('../../utils/token')
@@ -10,6 +11,7 @@ Component({
 
   data: {
     displayItems: [],
+    customerNotePreview: '',
     statusText: '',
     statusClass: '',
     payStatusText: '',
@@ -27,7 +29,7 @@ Component({
   observers: {
     'order': function (order) {
       if (!order) {
-        this.setData({ canCancel: false, cancelLabel: '', canRepay: false, displayItems: [] })
+        this.setData({ canCancel: false, cancelLabel: '', canRepay: false, displayItems: [], customerNotePreview: '' })
         return
       }
       // 订单状态与支付态文案、支付入口均由后端计算下发（Orders 派生字段 statusText /
@@ -47,6 +49,7 @@ Component({
       const cancel = cancelView(order)
       this.setData({
         displayItems: withItemUnits(order.items),
+        customerNotePreview: customerNotePreview(order),
         statusText: order.statusText || '',
         statusClass,
         payStatusText: order.payStateText || '',

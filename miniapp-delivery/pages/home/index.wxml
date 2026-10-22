@@ -49,6 +49,7 @@
         <view class="contact-row">
           <text class="customer-name">{{item.customerName || item.receiverName}}</text>
         </view>
+        <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
         <view class="card-actions">
           <button class="btn-accept" catchtap="onConfirmCollection" data-id="{{item.id}}">确认收款</button>
         </view>
@@ -149,6 +150,7 @@
         <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}"
               catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
       </view>
+      <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="card-actions">
         <button class="btn-accept" catchtap="onAcceptOrder" data-id="{{item.id}}">接单配送</button>
       </view>
@@ -191,6 +193,7 @@
         <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}"
               catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
       </view>
+      <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="card-actions">
         <button class="btn-complete" catchtap="onCompleteOrder" data-id="{{item.id}}">完成配送</button>
         <button class="btn-mediate-small" catchtap="onMediateOrder" data-id="{{item.id}}">配送遇到问题</button>
@@ -230,6 +233,7 @@
         <text class="customer-phone" wx:if="{{item.receiverPhone || item.customerPhone}}"
           catchtap="onCallCustomer" data-phone="{{item.receiverPhone || item.customerPhone}}">{{item.receiverPhone || item.customerPhone}}</text>
       </view>
+      <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="complete-footer">
         <text class="return-barrel" wx:if="{{item.returnBucketQty > 0}}">回桶 {{item.returnBucketQty}} 个</text>
       </view>

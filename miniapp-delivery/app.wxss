@@ -180,3 +180,17 @@ page {
 
 /* 2026-10-22：主动作保持完整触控高度，长文字允许换行。 */
 .btn-primary, .btn-outline, .btn-gradient, .btn-success { box-sizing: border-box; min-height: 96rpx; display: flex; align-items: center; justify-content: center; line-height: 1.45; white-space: normal; }
+
+/* 2026-10-22：仅留言省略一行，地址、商品、金额与动作仍按原规则完整展示。 */
+.customer-note-preview {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.5;
+  color: var(--text-regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -137,6 +137,7 @@
           <text class="info-label">地址</text>
           <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
         </view>
+        <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
         <view class="card-actions">
           <!--
             转让中（transferKind=staff-transfer）：接收方在「转给我的单」里决策，站长这只剩「撤回」
@@ -199,6 +200,7 @@
             <text class="info-label">地址</text>
             <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
           </view>
+          <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
           <view class="card-actions">
             <button class="btn-primary-small" catchtap="onApproveCancel" data-id="{{item.id}}">同意取消</button>
             <button class="btn-danger-small" catchtap="onRejectCancel" data-id="{{item.id}}">驳回</button>
@@ -231,6 +233,7 @@
             <text class="info-label">地址</text>
             <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
           </view>
+          <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
           <view class="card-actions" wx:if="{{item.approvalAction === 'return'}}">
             <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="staff">同意退回</button>
             <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="staff">拒绝退回</button>
@@ -383,6 +386,7 @@
               <text class="dispatch-value">{{item.feeStationName}}</text>
             </view>
           </view>
+          <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
           <view class="card-actions">
             <button class="btn-primary-small" catchtap="onShowAssign" data-id="{{item.id}}" wx:if="{{item.status === 1}}">接受并分配</button>
             <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}" wx:if="{{item.status === 1 || item.status === 2}}">退回原水站</button>
@@ -437,6 +441,7 @@
               <text class="dispatch-value">{{item.feeStationName}}</text>
             </view>
           </view>
+          <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
           <view class="card-actions" wx:if="{{item.status === 1 || item.status === 2}}">
             <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}">退回原水站</button>
           </view>

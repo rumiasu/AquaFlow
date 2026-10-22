@@ -1,3 +1,4 @@
+const { employeeCustomerNotePreview } = require('../../utils/customer-note')
 // 转让记录页
 const { getTransferRecords } = require('../../api/delivery')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
@@ -12,7 +13,7 @@ function productView(order) {
       && Number.isInteger(Number(row.quantity)) && Number(row.quantity) >= 0
       ? `× ${Number(row.quantity)} ${row.quantityUnit}` : '数量待核对'
   }))
-  return { productItems, productFallback: orderSummary(order) }
+  return { productItems, productFallback: orderSummary(order), customerNotePreview: employeeCustomerNotePreview(order) }
 }
 function validId(value) { return /^[1-9][0-9]*$/.test(String(value)) }
 function validTime(value) { return value == null || value === '' || (typeof value === 'string' && Number.isFinite(new Date(value).getTime())) }

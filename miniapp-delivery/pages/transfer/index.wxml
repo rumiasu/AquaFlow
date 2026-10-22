@@ -43,9 +43,11 @@
       <!-- 地址信息 -->
 
 
+      <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
+
       <!-- 转让备注 -->
       <view class="transfer-note" wx:if="{{item.specialNote}}">
-        <text class="note-label">备注：</text>
+        <text class="note-label">订单记录：</text>
         <text class="note-text">{{item.specialNote}}</text>
       </view>
     </view>

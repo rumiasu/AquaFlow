@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'customer-note-preview.test.js', name: 'independent customer notes, single-line previews, card reuse and safe list boundaries' },
   { file: 'station-directory-read-states.test.js', name: 'staff/application/catalog error and actual-empty view states' },
   { file: 'historical-asset-claim-flow.test.js', name: 'C13 customer claim, manager review and durable unknown-result recovery' },
   { file: 'customer-shop-context.test.js', name: 'shop original station/session reads, cart actions and switch dialog scope' },

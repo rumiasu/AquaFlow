@@ -1,3 +1,4 @@
+const { employeeCustomerNotePreview } = require('../../utils/customer-note')
 const { getPendingOrders, getDeliveringOrders, getCompletedToday, acceptOrder, getDeliveredUnpaid, confirmCollection, transferOrder, returnToStation, getStaffList, respondTransfer, getTransferList, getAssignedToMe } = require('../../api/delivery')
 // 楼层/电梯文案与订单详情页共用同一份实现（口径只有一处）
 const { buildFloorText } = require('../../utils/address')
@@ -180,6 +181,7 @@ Page({
         const summary = summaryOf(o)
         return {
           ...o,
+          customerNotePreview: employeeCustomerNotePreview(o),
           amountText: `¥${Number(o.totalAmount || 0).toFixed(2)}`,
           // 「已付 / 需收 ¥X」：判据只用后端投影 —— needCollect（现金且还没收到钱）
           // 与 payState（钱到底到没到账），**不按 payment_status 的 1/2/3 自己写映射表**（AGENTS §6）。

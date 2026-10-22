@@ -1,3 +1,4 @@
+const { employeeCustomerNotePreview } = require('../../utils/customer-note')
 const { wrapUploadRecovery } = require('../../utils/upload-recovery-page')
 // 订单详情页
 const { getOrderDetail, completeOrder, transferOrder, cancelTransferOrder, returnToStation, getStaffList, dispatchOrder, resolveOrder, requestCancel, confirmCollection } = require('../../api/delivery')
@@ -428,6 +429,7 @@ Page({
           canCollect: canCollect(order, getApp().globalData.userInfo),
           statusText: order.statusText || '',
           statusClass: STATUS_CLASS_MAP[order.status] || 'default',
+          customerNotePreview: employeeCustomerNotePreview(order),
           notes,
           paymentMethodText: order.payMethodText || '',
           isOffline: !!order.needCollect,

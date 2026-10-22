@@ -1,3 +1,4 @@
+const { employeeCustomerNotePreview } = require('../../utils/customer-note')
 const { get, post } = require('../../utils/request')
 const { API } = require('../../config/api')
 const navigation = require('../../utils/navigation')
@@ -117,6 +118,7 @@ function goodsView(o) {
   const summary = orderSummary(o, '—')
   return {
     ...o,
+    customerNotePreview: employeeCustomerNotePreview(o),
     goodsText: summary.meta ? summary.text + ' ' + summary.meta : summary.text
   }
 }

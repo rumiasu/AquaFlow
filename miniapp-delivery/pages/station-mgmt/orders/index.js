@@ -1,3 +1,4 @@
+const { employeeCustomerNotePreview } = require('../../../utils/customer-note')
 // 站长订单管理
 const { getOrders, getCrossStationOrders } = require('../../../api/station-mgmt')
 const historyCustomer = require('../../../utils/station-history-customer')
@@ -116,6 +117,7 @@ Page({
       // 不是文案映射表（AGENTS.md §6：前端禁止自带状态码→中文映射）。
       const list = (res.data || []).map(o => ({
         ...o,
+        customerNotePreview: employeeCustomerNotePreview(o),
         statusText: o.statusText || '未知',
         statusCls: STATUS_CLASS_MAP[o.status] || 'default'
       }))

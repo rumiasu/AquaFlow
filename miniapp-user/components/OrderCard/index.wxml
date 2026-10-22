@@ -33,6 +33,7 @@
       <text class="time">{{order.createTime}}</text>
     </view>
   </view>
+  <view class="customer-note-preview" wx:if="{{customerNotePreview}}">备注：{{customerNotePreview}}</view>
   <view class="card-footer">
     <view class="footer-left">
       <text class="amount" wx:if="{{order.amount || order.totalAmount}}">¥{{order.amount || order.totalAmount}}</text>

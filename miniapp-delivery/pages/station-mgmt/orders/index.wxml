@@ -77,6 +77,7 @@ module.exports = { percent: percent }
         <text class="amount-label">订单金额</text>
         <text class="order-amount">¥{{item.totalAmount}}</text>
       </view>
+      <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
     </view>
     <view class="empty" wx:if="{{!loading && !listError && list.length === 0 && (!crossStation || crossStation.count === 0)}}"><text>暂无订单</text></view>
   </view>

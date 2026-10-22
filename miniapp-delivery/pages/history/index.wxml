@@ -44,6 +44,8 @@
       <!-- 地址信息 -->
 
 
+      <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
+
       <!-- 回桶信息 -->
       <view class="barrel-info" wx:if="{{item.returnBucketQty !== null && item.returnBucketQty !== undefined}}">
         <text class="barrel-label">回桶：</text>

@@ -1,3 +1,4 @@
+const imageDisplay = require('../../../../../behaviors/imageDisplay')
 // 站长资产调整单详情（含快照、证据图、执行 / 撤销）
 const { getAdjustment, executeAdjustment, reverseAdjustment } = require('../../../../../api/station-mgmt')
 
@@ -20,7 +21,7 @@ function parseSnapshot(raw) {
     const obj = typeof raw === 'string' ? JSON.parse(raw) : raw
     return (obj && typeof obj === 'object') ? obj : null
   } catch (e) {
-    // 解析失败不吞掉：页面上退回展示原始串（raw），保证站长能看到真实数据
+    // 原记录仍保留；展示层明确待核实，不能把损坏内容当作有效资产快照。
     return null
   }
 }
@@ -36,13 +37,26 @@ function buildSnapshotRows(beforeRaw, afterRaw) {
   const val = (obj, key) => {
     if (!obj) return '—'
     const v = obj[key]
-    return (v === null || v === undefined) ? '—' : String(v)
+    return v === null || v === undefined ? '未记录' : (Number.isFinite(Number(v)) && v !== '' ? String(v) : '待核实')
   }
   return SNAPSHOT_FIELDS.map(f => ({
     label: f.label,
     before: val(before, f.key),
     after: val(after, f.key)
   }))
+}
+
+/** 登记快照只翻译已核实的字段名；原记录仍保留，不把内部字段或无法解读的值直接显示给员工。 */
+function snapshotDisplay(raw) {
+  const obj = parseSnapshot(raw)
+  if (!obj || Array.isArray(obj)) return '原记录暂不能解读，请保留调整单编号并联系负责人核实'
+  const lines = SNAPSHOT_FIELDS.filter(f => Object.prototype.hasOwnProperty.call(obj, f.key)).map(f => {
+    const value = obj[f.key]
+    return f.label + '：' + (value === null || value === undefined ? '未记录' : value !== '' && Number.isFinite(Number(value)) ? value : '待核实')
+  })
+  const other = Object.keys(obj).filter(key => !SNAPSHOT_FIELDS.some(f => f.key === key)).length
+  if (other) lines.push('另有 ' + other + ' 项登记内容待核实，请联系负责人核对原单')
+  return lines.join('；') || '尚未取得可核实的登记项目'
 }
 
 /**
@@ -68,9 +82,12 @@ function decorate(a) {
     amountText: hasAmount ? Number(amount).toFixed(2) : '',
     hasUnitPrice: hasUnitPrice,
     unitPriceText: hasUnitPrice ? Number(unitPrice).toFixed(2) : '',
-    isMigratedText: a.isMigrated === 1 ? '是（按商品当前押金推断，退款时需二次确认）' : '否',
+    isMigratedText: a.isMigrated === 1 ? '是（按商品当前押金推断，退款时需二次确认）' : a.isMigrated === 0 ? '否' : '是否推断待核实',
+    priceSourceText: ({ 1: '明确登记的单价', 2: '当时商品押金', 3: '当前商品押金（推断）' })[a.priceSource] || '单价来源待核实',
     evidenceList: evidenceList,
     snapshotRows: buildSnapshotRows(a.beforeSnapshot, a.afterSnapshot),
+    beforeDisplay: a.beforeSnapshot ? snapshotDisplay(a.beforeSnapshot) : '',
+    afterDisplay: a.afterSnapshot ? snapshotDisplay(a.afterSnapshot) : '',
     beforeRaw: a.beforeSnapshot || '',
     afterRaw: a.afterSnapshot || '',
     createTimeText: a.createTime || '',
@@ -83,11 +100,14 @@ function decorate(a) {
 }
 
 Page({
+  behaviors: [imageDisplay],
+  onDisplayImageError(e) { return imageDisplay.methods.onDisplayImageError.call(this, e) },
   data: {
     rawExpanded: false,
     id: null,
     loading: true,
     detail: null,
+    loadError: '',
     denied: false,
     deniedText: '',
     executing: false,
@@ -118,8 +138,8 @@ Page({
       reverseClientToken: 'ADJR-' + Date.now() + '-' + Math.floor(Math.random() * 1000)
     })
     if (!id) {
-      this.setData({ loading: false })
-      wx.showToast({ title: '缺少调整单 ID', icon: 'none' })
+      this.setData({ loading: false, loadError: '缺少调整单编号，请返回列表重新选择' })
+      wx.showToast({ title: '缺少调整单编号', icon: 'none' })
       return
     }
     this.loadData()
@@ -133,22 +153,28 @@ Page({
     this.loadData().then(() => wx.stopPullDownRefresh())
   },
 
+  onRetry() { return this.loadData() },
+  onBackList() { wx.navigateBack({ delta: 1 }) },
+
   async loadData() {
     if (!this.data.id) return
-    this.setData({ loading: true })
+    const seq = this._loadSeq = (this._loadSeq || 0) + 1
+    this.setData({ loading: true, loadError: '' })
     try {
       const res = await getAdjustment(this.data.id)
+      if (seq !== this._loadSeq) return
       if (res.code === 0 && res.data) {
         this.setData({ detail: decorate(res.data) })
       } else {
-        this.setData({ detail: null })
+        this.setData({ detail: null, loadError: res.message || '暂未读取到调整单，请重新核对' })
         wx.showToast({ title: res.message || '调整单不存在', icon: 'none' })
       }
     } catch (err) {
-      this.setData({ detail: null })
+      if (seq !== this._loadSeq) return
+      this.setData({ detail: null, loadError: err.message || '调整单读取失败，请重试' })
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (seq === this._loadSeq) this.setData({ loading: false })
     }
   },
 

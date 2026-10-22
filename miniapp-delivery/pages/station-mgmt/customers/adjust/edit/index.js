@@ -1,3 +1,4 @@
+const imageDisplay = require('../../../../../behaviors/imageDisplay')
 const { wrapUploadRecovery } = require('../../../../../utils/upload-recovery-page')
 // 新建站长资产调整单（人工补录 / 代客订正）
 const { getCatalog, previewAdjustment, createAdjustment } = require('../../../../../api/station-mgmt')
@@ -31,6 +32,8 @@ const EVIDENCE_MAX_LEN = 500
 
 Page({
   ...wrapUploadRecovery({
+  behaviors: [imageDisplay],
+  onDisplayImageError(e) { return imageDisplay.methods.onDisplayImageError.call(this, e) },
   ...adjustmentCustomer.methods,
   data: {
     ...adjustmentCustomer.data,
@@ -109,17 +112,17 @@ Page({
         productIndex: -1,
         manualProduct: list.length === 0,
         productHint: list.length === 0
-          ? '本站没有在售商品，请手动填写商品 ID（数字），并核对确实是本站商品'
+          ? '本站没有在售商品，请手动填写商品编号（数字），并核对确实是本站商品'
           : ''
       })
     } catch (err) {
-      // 取不到商品列表时退回手填商品 ID（带校验与提示），而不是让页面直接不可用
+      // 取不到商品列表时退回手填商品编号（带校验与提示），而不是让页面直接不可用
       this.setData({
         productList: [],
         productLabels: [],
         productIndex: -1,
         manualProduct: true,
-        productHint: '商品列表加载失败（' + (err.message || '未知原因') + '），请手动填写商品 ID'
+        productHint: '商品列表加载失败（' + (err.message || '未知原因') + '），请手动填写商品编号'
       })
     }
   },
@@ -310,7 +313,7 @@ Page({
         const raw = String(this.data.productIdInput || '').trim()
         const n = Number(raw)
         if (!raw || !Number.isInteger(n) || n <= 0) {
-          return { error: '商品 ID 必须是正整数，请核对本站商品 ID' }
+          return { error: '商品编号 必须是正整数，请核对本站商品编号' }
         }
         payload.productId = n
       } else {

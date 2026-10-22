@@ -53,6 +53,8 @@ Page({
     }
   },
 
+  onRetryProfile() { return this.loadProfile(this.data.id) },
+
   async loadProfile(id) {
     this.setData({ loading: true, error: '' })
     try {
@@ -95,9 +97,9 @@ Page({
     const type = e.currentTarget.dataset.type
     const t = this.data.grantableTypes.find(x => x.type === type)
     if (!t) return
-    wx.showModal({
+    wx.showModal({ confirmText: '确认授予',
       title: '授予特权',
-      content: (t.text || type) + '：' + (t.desc || ''),
+      content: (t.text || '特权类型待核实') + '：' + (t.desc || ''),
       success: async (r) => {
         if (!r.confirm) return
         try {
@@ -114,7 +116,7 @@ Page({
   /** 撤销。后端在"本来就没有"时会报错——如实弹出，不要无条件提示成功（AGENTS §8.20）。 */
   onRevokePrivilege(e) {
     const type = e.currentTarget.dataset.type
-    wx.showModal({
+    wx.showModal({ confirmText: '确认撤销',
       title: '撤销特权？',
       content: '撤销后该客户在本站立即恢复默认规则。',
       success: async (r) => {
@@ -153,7 +155,7 @@ Page({
 
   /** 金额/文案统一在 JS 侧兜底，模板只做取值，避免出现 undefined/NaN */
   decorateAssets(a) {
-    const money = (v) => Number(v || 0).toFixed(2)
+    const money = (v) => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? '待核实' : Number(v).toFixed(2)
     const int = (v) => Number(v || 0)
 
     a.heldBuckets = int(a.heldBuckets)
@@ -305,14 +307,14 @@ Page({
 
   // 金额格式化在 JS 里做（wxml 不做数值格式化，避免兼容问题）
   decorate(p) {
-    const n = (v) => Number(v || 0).toFixed(2)
+    const n = (v) => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? '待核实' : Number(v).toFixed(2)
     p.avgOrderAmountText = n(p.avgOrderAmount)
     p.totalConsumptionText = n(p.totalConsumption)
     p.monthConsumptionText = n(p.monthConsumption)
     p.depositBalanceText = n(p.depositBalance)
-    p.monthOrders = p.monthOrders || 0
-    p.totalOrders = p.totalOrders || 0
-    p.ticketBalance = p.ticketBalance || 0
+    p.monthOrders = p.monthOrders === null || p.monthOrders === undefined || p.monthOrders === '' ? '待核实' : p.monthOrders
+    p.totalOrders = p.totalOrders === null || p.totalOrders === undefined || p.totalOrders === '' ? '待核实' : p.totalOrders
+    p.ticketBalance = p.ticketBalance === null || p.ticketBalance === undefined || p.ticketBalance === '' ? '待核实' : p.ticketBalance
     return p
   },
 

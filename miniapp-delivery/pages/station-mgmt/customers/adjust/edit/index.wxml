@@ -35,10 +35,10 @@
               <text class="placeholder" wx:else>请选择商品</text>
             </view>
           </picker>
-          <input wx:else class="field-input" type="number" value="{{productIdInput}}" placeholder="手填本站商品 ID（正整数）" bindinput="onManualProductInput" />
+          <input wx:else class="field-input" type="number" value="{{productIdInput}}" placeholder="手填本站商品编号（正整数）" bindinput="onManualProductInput" />
           <view class="field-hint" wx:if="{{productHint}}"><text>{{productHint}}</text></view>
           <view class="field-link" bindtap="onToggleManualProduct">
-            <text>{{manualProduct ? '返回商品列表选择' : '商品不在列表里？手动填写商品 ID'}}</text>
+            <text>{{manualProduct ? '返回商品列表选择' : '商品不在列表里？手动填写商品编号'}}</text>
           </view>
         </view>
       </block>
@@ -84,7 +84,7 @@
         <text class="field-label">证据图（可选，最多 3 张）</text>
         <view class="evidence-row">
           <view class="evidence-item" wx:for="{{evidenceList}}" wx:key="*this">
-            <image class="evidence-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewEvidence" />
+            <view class="evidence-img ui-proof-frame" ><image src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewEvidence" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{item}}" wx:if="{{!displayImageErrors[item]}}" /><view class="ui-image-fallback" wx:else bindtap="onPreviewEvidence" data-index="{{index}}">图片暂无法显示，点此预览原图</view></view>
             <text class="evidence-del" data-index="{{index}}" catchtap="onRemoveEvidence">×</text>
           </view>
           <view class="evidence-add" wx:if="{{evidenceList.length < 3}}" bindtap="onChooseEvidence">

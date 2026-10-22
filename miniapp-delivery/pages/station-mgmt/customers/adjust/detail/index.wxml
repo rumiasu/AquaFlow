@@ -5,7 +5,8 @@
 
   <view class="loading" wx:elif="{{loading && !detail}}"><text>加载中...</text></view>
 
-  <view class="empty" wx:elif="{{!loading && !detail}}"><text>调整单不存在或无权访问</text></view>
+  <view class="ui-state" wx:elif="{{loadError}}"><text class="ui-state-title">调整单尚未读取</text><text class="ui-state-copy" wx:if="{{id}}">调整单编号：{{id}}</text><text class="ui-state-copy">{{loadError}}</text><view class="ui-state-actions"><button wx:if="{{id}}" size="mini" bindtap="onRetry">重新读取</button><button size="mini" bindtap="onBackList">返回列表</button></view></view>
+  <view class="empty" wx:elif="{{!loading && !detail}}"><text>暂未读取到调整单，请返回列表重新选择</text></view>
 
   <block wx:elif="{{detail}}">
     <!-- ============ 单据头 ============ -->
@@ -38,7 +39,7 @@
         <!-- [2026-09-24] 去掉"(后端原值)"：站长不需要知道值是谁给的，
              这里只是把系统记下的原始来源照实显示。 -->
         <text class="label">单价来源（原始记录）</text>
-        <text class="value">{{detail.priceSource}}</text>
+        <text class="value">{{detail.priceSourceText}}</text>
       </view>
       <view class="row">
         <text class="label">客户</text>
@@ -80,8 +81,8 @@
     <view class="card" wx:if="{{detail.evidenceList.length}}">
       <view class="card-title">证据图（{{detail.evidenceList.length}} 张）</view>
       <view class="evidence-row">
-        <image class="evidence-img" wx:for="{{detail.evidenceList}}" wx:key="*this" src="{{item}}"
-               mode="aspectFill" data-index="{{index}}" bindtap="onPreviewEvidence" />
+        <view class="evidence-img ui-proof-frame" wx:for="{{detail.evidenceList}}" wx:key="*this"><image src="{{item}}"
+               mode="aspectFill" data-index="{{index}}" bindtap="onPreviewEvidence" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{item}}" wx:if="{{!displayImageErrors[item]}}" /><view class="ui-image-fallback" wx:else bindtap="onPreviewEvidence" data-index="{{index}}">图片暂无法显示，点此预览原图</view></view>
       </view>
     </view>
 
@@ -101,15 +102,15 @@
     </view>
 
     <view class="card" wx:if="{{detail.beforeRaw || detail.afterRaw}}">
-      <view class="raw-toggle" bindtap="onToggleRaw"><text>原始记录详情</text><text>{{rawExpanded ? '收起' : '展开'}} ›</text></view>
+      <view class="raw-toggle" bindtap="onToggleRaw"><text>登记记录详情</text><text>{{rawExpanded ? '收起' : '展开'}} ›</text></view>
       <block wx:if="{{rawExpanded}}">
-      <view class="raw-block" wx:if="{{detail.beforeRaw}}">
-        <text class="raw-label">调整前原始记录</text>
-        <text class="raw-text">{{detail.beforeRaw}}</text>
+      <view class="raw-block" wx:if="{{detail.beforeDisplay}}">
+        <text class="raw-label">调整前登记记录</text>
+        <text class="raw-text">{{detail.beforeDisplay}}</text>
       </view>
-      <view class="raw-block" wx:if="{{detail.afterRaw}}">
-        <text class="raw-label">调整后原始记录</text>
-        <text class="raw-text">{{detail.afterRaw}}</text>
+      <view class="raw-block" wx:if="{{detail.afterDisplay}}">
+        <text class="raw-label">调整后登记记录</text>
+        <text class="raw-text">{{detail.afterDisplay}}</text>
       </view>
       </block>
     </view>

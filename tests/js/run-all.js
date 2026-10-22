@@ -78,6 +78,7 @@ const SUITES = [
   { file: 'order-quote-debounce.test.js', name: '数量报价防抖、即时失效、登录与页面收尾' },
   { file: 'customer-order-pagination.test.js', name: '客户订单历史分页、筛选与会话竞态' },
   { file: 'employee-request-session.test.js', name: '员工会话周期、独立续期队列与迟到成功隔离' },
+  { file: 'staff-astra-review-regressions.test.js', name: '员工未知送达、绑定隔离、结清守卫与可见事实复审回归' },
   { file: 'manager-closeout-state.test.js', name: '资产调整试算版本、返回资产刷新与工资失败缓存' },
   { file: 'navigation-recovery.test.js', name: '原生导航并发去重、身份栈清理、超时重试与迟到回调' },
   { file: 'navigation-arrival-timeout.test.js', name: 'exact own options and shown page arrival timeout reconciliation' },

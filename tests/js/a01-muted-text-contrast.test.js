@@ -208,11 +208,15 @@ test('approved shared palette preserves disabled and decorative semantic roles',
     ['miniapp-delivery/pages/station-mgmt/customers/index.wxss', '.badge.act-lost', 'background', 'var(--text-secondary)'],
     ['miniapp-user/pages/order/create.wxss', '.submit-btn.disabled', 'background', 'var(--text-placeholder)'],
     ['miniapp-delivery/pages/order/complete.wxss', '.btn-confirm-busy', 'background', 'var(--text-secondary)'],
-    ['miniapp-user/pages/barrel/index.wxss', '.modal-btn.confirm.disabled', 'background', 'var(--text-placeholder)'],
+    ['miniapp-user/pages/barrel/index.wxss', '.modal-btn.confirm.disabled', 'background', 'var(--bg-gray)'],
     ['miniapp-delivery/pages/station-mgmt/barrel-return/index.wxss', '.primary-button[disabled]', 'color', 'var(--text-secondary)'],
     ['miniapp-delivery/pages/role-select/index.wxss', '.role-arrow', 'color', 'var(--text-placeholder)'],
     ['miniapp-user/pages/order/detail.wxss', '.status-card.status-5', 'border-left', '8rpx solid var(--text-secondary)']
   ]) assert.strictEqual(property(rules(read(rel)), selector, name), expected)
+  const sheet = rules(read('miniapp-user/pages/barrel/index.wxss')), palette = palettes['miniapp-user']
+  const selector = '.modal-btn.confirm.disabled'
+  assert(contrast(color(property(sheet, selector, 'color'), palette), color(property(sheet, selector, 'background'), palette)) >= 4.5)
+  assert.strictEqual(property(sheet, selector + ' text', 'color'), 'var(--text-regular)')
 })
 
 if (failed) { console.log('A01_MUTED_TEXT_FAILED ' + failed); process.exitCode = 1 }

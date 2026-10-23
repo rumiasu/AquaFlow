@@ -6,7 +6,8 @@ const ROOT = process.env.AQUAFLOW_UPLOAD_SOURCE_ROOT ? path.resolve(process.env.
 const tests = [], test = (name, fn) => tests.push({ name, fn })
 const flush = async () => { for (let i = 0; i < 12; i++) await new Promise(r => setImmediate(r)) }
 const png = () => Uint8Array.from([137,80,78,71,13,10,26,10,0,255,1,0]).buffer
-const ok = data => ({statusCode:200, data:{code:0,data}})
+// Actual common upload keeps URL data and now additionally returns its durable object key.
+const ok = data => ({statusCode:200, data:{code:0,data,...(typeof data === 'string' ? {objectName:'public/common/synthetic.png'} : {})}})
 const expired = () => ({statusCode:401})
 function fixture(mode = 'cloudContainer', side = 'miniapp-delivery', mutateSource = (name, source) => source, storage = new Map()) {
   const calls = [], http = [], uploads = [], stats = [], reads = [], picks = [], toast = [], routes = [], timers = [], cache = {}
@@ -188,7 +189,7 @@ test('HTTPS uses native uploadFile; refresh once via wx.request; multipart bound
   const f=fixture('https'),r=observe(f.api.upload(f.args()));await flush();f.read();await flush();assert.equal(f.uploads.length,1);assert.equal(f.calls.length,0);assert(!f.uploads[0].header['Content-Type'])
   f.uploads[0].success({statusCode:401,data:''});f.uploads[0].complete?.();assert.equal(f.http.length,1)
   f.http[0].success(ok({accessToken:'synthetic-A2',refreshToken:'synthetic-RA2'}));f.http[0].complete?.();assert.equal(f.uploads.length,2)
-  assert.equal(f.uploads[1].header.Authorization,'Bearer synthetic-A2');f.uploads[1].success({statusCode:200,data:JSON.stringify({code:0,data:'/synthetic'})});await flush();assert(r.value)
+  assert.equal(f.uploads[1].header.Authorization,'Bearer synthetic-A2');f.uploads[1].success({statusCode:200,data:JSON.stringify({code:0,data:'/synthetic',objectName:'public/common/synthetic.png'})});await flush();assert(r.value)
 })
 async function main(){const watchdog=setTimeout(()=>{console.error('MOCK_SUITE_TIMEOUT');process.exit(1)},30000);let passed=0
   try{for(const t of tests){await t.fn();passed++;console.log('PASS '+t.name)}

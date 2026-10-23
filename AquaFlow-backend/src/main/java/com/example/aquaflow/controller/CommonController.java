@@ -34,7 +34,7 @@ public class CommonController {
 
     /**
      * 通用图片上传（公开访问，24h 有效）。
-     * 返回可直接用于 &lt;image&gt; 的临时 URL。
+     * data保留可预览的临时URL；另附objectName供商品持久化，不从签名URL反推对象键。
      */
     @PostMapping("/upload")
     public Result<String> upload(@RequestParam("file") MultipartFile file) {
@@ -58,12 +58,25 @@ public class CommonController {
         try {
             String objectName = cosUtil.uploadPublic(file.getBytes(), "public/common", extension);
             String url = cosUtil.generatePublicUrl(objectName);
-            return Result.success(url);
+            return new ImageUploadReceipt(url, objectName);
         } catch (Exception e) {
             log.error("文件上传失败: {}", e.getMessage(), e);
             // [2026-09-20] 文案由 CosUtil 统一给：未配密钥时直接说"对象存储未配置"，
             // 否则只有一句笼统的"文件上传失败"，联调的人分不清是没配还是配错了。
             return Result.error(cosUtil.uploadFailureMessage());
         }
+    }
+
+    /** 仅此上传响应追加对象键；旧调用方仍按Result&lt;String&gt;读取data，无须改公共Result。 */
+    public static final class ImageUploadReceipt extends Result<String> {
+        private final String objectName;
+
+        public ImageUploadReceipt(String url, String objectName) {
+            setCode(0);
+            setData(url);
+            this.objectName = objectName;
+        }
+
+        public String getObjectName() { return objectName; }
     }
 }

@@ -695,7 +695,7 @@ Page({
     catch (_) { this._uploadDraftId = null }
     this.setData({ editTemplateId: template.id, editForm: { ...this.data.editForm,
       name: template.name, brand: template.brand, spec: template.spec,
-      category: template.category, imageUrl: template.imageUrl, description: template.description } })
+      category: template.category, imageObjectName: '', imageUrl: template.imageUrl, description: template.description } })
   },
 
   openAdd() {
@@ -710,7 +710,7 @@ Page({
       pkgRows: [], pkgReady: true, pkgLoading: false, pkgError: '', pkgProductId: null, // 新商品没有旧档位，可以直接填写草稿
       editForm: {
         name: '', brand: '', spec: '', category: 1,
-        price: '', deposit: '', quantity: '', imageUrl: '',
+        price: '', deposit: '', quantity: '', imageObjectName: '', imageUrl: '',
         description: '', enabled: false, ticketEnabled: false, ticketPrice: ''
       }
     })
@@ -734,7 +734,7 @@ Page({
         price: item.price === null || item.price === undefined ? '' : String(item.price),
         deposit: item.deposit === null || item.deposit === undefined ? '' : String(item.deposit),
         quantity: item.quantity === null || item.quantity === undefined ? '' : String(item.quantity),
-        imageUrl: item.imageUrl || '',
+        imageObjectName: item.imageObjectName || '', imageUrl: item.imageUrl || '',
         description: item.description || '',
         enabled: item.enabled === 1,
         ticketEnabled: item.ticketEnabled === 1,
@@ -814,6 +814,7 @@ Page({
       enabled: editForm.enabled ? 1 : 0,
       ticketEnabled: editForm.ticketEnabled ? 1 : 0,
       imageUrl: editForm.imageUrl || '',
+      imageObjectName: editForm.imageObjectName || '',
       description: editForm.description || ''
     }
     if (editForm.ticketEnabled && !blankNumber(editForm.ticketPrice)) {
@@ -926,6 +927,7 @@ Page({
     if (!path) return
     this.setData({
       'editForm.imageUrl': path,
+      'editForm.imageObjectName': '',
       showPresetPicker: false
     })
   },
@@ -952,7 +954,7 @@ Page({
           })
           if (!isUploadSessionCurrent(res.uploadSession) || currentImageTarget() !== imageTarget || this._uploadDraftId !== uploadDraftId) return
           if (uploadRes.code === 0) {
-            this.setData({ 'editForm.imageUrl': uploadRes.data })
+            this.setData({ 'editForm.imageUrl': uploadRes.data, 'editForm.imageObjectName': uploadRes.objectName })
             wx.showToast({ title: '图片上传成功', icon: 'success' })
           } else {
             wx.showToast({ title: uploadRes.message || '上传失败', icon: 'none' })

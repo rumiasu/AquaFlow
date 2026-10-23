@@ -67,3 +67,5 @@ AI 协作约束在 [AGENTS](../AGENTS.md)，安全边界在 [SECURITY](../SECURI
 2026-10-21 美术审阅截图：见[72 页覆盖与已交付原图包](audit/visual-review-20261021/README.md)，固定 d2dd414 基线，合成视觉样例与实际游客首页分开标注，Canvas 图表内容仍有缺口。
 
 2026-10-23 员工端限定修复、独立定向验收、普通反馈未知结果风险及完整目视缺口见[员工端体验复核交接](audit/staff-experience-review-20261023.md)。源码索引和未渲染HTML不代表全量视觉通过。
+
+2026-10-23 员工商品图临时URL/持久对象键断点、兼容修复及后端先行部署依赖见[商品图对象键链路交接](audit/product-image-key-contract-20261023.md)；不代表实际云库导入或COS上传已完成。

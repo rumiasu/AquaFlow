@@ -99,9 +99,12 @@ function extension(bytes) {
   throw localError('请选择 JPG、PNG 或 WebP 图片')
 }
 
-function checkReceipt(result, url) {
+function checkReceipt(result, url, kind) {
   const value = url === API.ORDER_IMAGE_UPLOAD ? result && result.data && result.data.url : result && result.data
-  if (typeof value !== 'string' || !value.trim()) {
+  const objectName = result && result.objectName
+  const validProductKey = typeof objectName === 'string' && objectName === objectName.trim()
+    && !/[:?#\s\\]/.test(objectName) && objectName.split('/').every(part => part && part !== '.' && part !== '..')
+  if (typeof value !== 'string' || !value.trim() || (kind === 'product-image' && !validProductKey)) {
     throw Object.assign(new Error('图片提交结果待核实，请先查看已有图片，勿重复上传'), { uploadOutcomeUnknown: true })
   }
   return result
@@ -200,7 +203,7 @@ function upload(options) {
     const durableCase = { id: operation.caseId, fingerprint: operation.fingerprint, url: original.url, fields: context.fields, draftId: context.draftId, kind: context.kind, entityId: context.entityId, createdAt: Date.now() }
     stateStore.addCase(context.ownerKey, context.intentKey, durableCase)
     operation.attempted = true
-    const result = checkReceipt(await request(requestOptions, session), original.url)
+    const result = checkReceipt(await request(requestOptions, session), original.url, context.kind)
     stateStore.removeCase(context.ownerKey, context.intentKey, operation.caseId)
     state.completed.set(operation.fingerprint, { session, result })
     return result

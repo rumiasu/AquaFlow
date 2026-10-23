@@ -24,7 +24,7 @@ function fixture(list = []) {
     'utils/upload': {
       uploadDraft: (intent, fresh) => { if (fresh) draftSerial++; return 'synthetic-draft-' + draftSerial },
       chooseImages: options => { state.choose = options }, isUploadSessionCurrent: () => true,
-      upload: async () => { calls.push(['upload']); return { code: 0, data: '/synthetic-photo' } }
+      upload: async () => { calls.push(['upload']); return { code: 0, data: '/synthetic-photo', objectName: 'public/common/synthetic-photo.png' } }
     },
     'utils/request': { get: async () => ({ code: 0, data: [] }) }
   } })

@@ -510,6 +510,8 @@
 | `GET` | `/api/search` | {"STATION_MANAGER"} | `SearchController.search` |
 | `GET` | `/api/system/health` | — | `SystemController.health`（公开，见 §3 白名单；静态存活探针，不查库） |
 
+通用上传成功仍以`data`返回临时预览URL，另附顶级`objectName`为本次实际上传的对象键。商品保存应传`imageObjectName: objectName`，不能把临时URL或`cloud://`文件标识当对象键；未收到可靠对象键时，员工商品上传保持结果待核实。旧的仅预览/证据调用方继续读取字符串`data`，鉴权、上传目录和公共商品归属权限不变。
+
 ---
 
 ## 6. 已删除的端点

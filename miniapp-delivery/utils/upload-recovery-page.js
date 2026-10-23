@@ -111,7 +111,7 @@ function wrapUploadRecovery(page, kind) {
     if (t.id !== 'new' && (!Number.isSafeInteger(t.id) || t.id <= 0)) { wx.showToast({ title: '请先打开对应商品或客户', icon: 'none' }); return }
     wx.showModal({ confirmText: '另开草稿', title: '另开图片草稿', content: '原草稿和待核实记录会保留。仅在开始一份独立草稿时继续。', success: result => {
       if (!result.confirm || !current()) return
-      try { this._uploadDraftId = uploads.uploadDraft(t, true); if (kind === 'product') this.setData({ 'editForm.imageUrl': '', uploading: false }); else { this.setData({ evidenceList: [], uploading: false }); if (this.resetPreview) this.resetPreview() } }
+      try { this._uploadDraftId = uploads.uploadDraft(t, true); if (kind === 'product') this.setData({ 'editForm.imageUrl': '', 'editForm.imageObjectName': '', uploading: false }); else { this.setData({ evidenceList: [], uploading: false }); if (this.resetPreview) this.resetPreview() } }
       catch (error) { wx.showToast({ title: error.message || '草稿暂时无法保存', icon: 'none' }) }
       refresh(this, kind)
     } })

@@ -2,7 +2,7 @@
 const assert = require('assert'), fs = require('fs'), path = require('path')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
 const { parseWxml, renderElements } = require('./wxml-tree')
-const { WATER_PRODUCT_TEMPLATES: templates, TEMPLATE_IMAGE, matchingCatalogProducts } = require('../../miniapp-delivery/utils/water-product-templates')
+const { WATER_PRODUCT_TEMPLATES: templates, TEMPLATE_IMAGE, templatesWithImages, matchingCatalogProducts } = require('../../miniapp-delivery/utils/water-product-templates')
 const done = armWatchdog(), tests = [], test = (name, run) => tests.push({ name, run })
 const event = id => ({ currentTarget: { dataset: { id } } })
 function fixture(list = []) {
@@ -10,6 +10,7 @@ function fixture(list = []) {
     userInfo: { staffId: 1, stationId: 11, role: 'STATION_MANAGER' } } })
   const api = {
     getCatalog: async () => ({ code: 0, data: list }), getMySubmissions: async () => ({ code: 0, data: [] }),
+    getPresetImages: async () => state.getPresets ? state.getPresets() : ({ code: 0, data: state.presets || [] }),
     createMyProduct: async payload => { if (state.create) return state.create(payload); calls.push(['create', payload]); return { code: 0, data: 91 } },
     updateMyProduct: async (id, payload) => { calls.push(['update', id, payload]); return { code: 0 } },
     updateCatalogSetting: async (id, payload) => { calls.push(['setting', id, payload]); return { code: 0 } },
@@ -40,7 +41,7 @@ function fixture(list = []) {
   page.setData({ list }); page.loadPkgRows = async () => {}
   return { page, wx, calls, app, api, state }
 }
-const validBusiness = page => page.setData({ 'editForm.price': '12.50', 'editForm.deposit': '50', 'editForm.quantity': '0' })
+const validBusiness = page => page.setData({ 'editForm.spec': 'SYNTH 已核实净容量', 'editForm.price': '12.50', 'editForm.deposit': '50', 'editForm.quantity': '0' })
 const catalog = (extra = {}) => ({ id: 17, name: templates[0].name, brand: '普利思', spec: '18.5L', category: 1,
   status: 1, selected: false, ownerStationId: null, displayName: templates[0].name, ...extra })
 
@@ -48,7 +49,7 @@ test('three evidence-backed water types carry identity data and no commercial de
   assert.strictEqual(templates.length, 3)
   assert.deepStrictEqual(templates.map(row => row.waterType), ['饮用纯净水', '饮用天然泉水', '饮用天然矿泉水'])
   for (const item of templates) {
-    assert.strictEqual(item.brand, '普利思'); assert.strictEqual(item.spec, '18.5L'); assert.strictEqual(item.unit, '桶')
+    assert.strictEqual(item.brand, '普利思'); assert.strictEqual(item.spec, ''); assert.strictEqual(item.unit, '桶')
     assert(item.sourceUrl.startsWith('https://www.pulisi.com/product/'))
     for (const key of ['price', 'deposit', 'quantity', 'enabled', 'ticketPrice']) assert(!Object.hasOwn(item, key))
   }
@@ -57,7 +58,7 @@ for (const template of templates) test(template.id + ': choosing pre-fills an ed
   const t = fixture(); t.page.onUseWaterTemplate(event(template.id))
   const form = t.page.data.editForm
   assert.strictEqual(form.name, template.name); assert.strictEqual(form.brand, template.brand)
-  assert.strictEqual(form.spec, '18.5L'); assert.strictEqual(form.imageUrl, TEMPLATE_IMAGE)
+  assert.strictEqual(form.spec, ''); assert.strictEqual(form.imageUrl, TEMPLATE_IMAGE)
   for (const key of ['price', 'deposit', 'quantity']) assert.strictEqual(form[key], '')
   assert.strictEqual(form.enabled, false); assert.strictEqual(form.ticketEnabled, false)
   assert.strictEqual(t.calls.length, 0); assert.strictEqual(t.page.data.showEdit, true)
@@ -72,25 +73,25 @@ test('edited identity/spec and confirmed zero stock save through existing statio
   assert.strictEqual(payload.imageUrl, TEMPLATE_IMAGE); assert.strictEqual(payload.quantity, 0)
   assert.strictEqual(payload.price, 12.5); assert.strictEqual(payload.deposit, 50)
   assert.strictEqual(payload.enabled, 0); assert.strictEqual(payload.ticketEnabled, 0)
-  assert(payload.description.includes('示意图')); assert(!('stationId' in payload))
+  assert(payload.description.includes('以实物标签为准')); assert(!('stationId' in payload))
 })
 for (const [field, value] of [['price', ''], ['price', '0'], ['price', '-1'], ['price', '12junk'],
-  ['deposit', ''], ['deposit', '0'], ['quantity', ''], ['quantity', '-1'], ['quantity', '1.5'], ['spec', ' ']]) {
+  ['deposit', ''], ['deposit', '0'], ['quantity', ''], ['quantity', '-1'], ['quantity', '1.5'], ['spec', ''], ['spec', ' ']]) {
   test('template save rejects unconfirmed or malformed ' + field + '=' + value, async () => {
     const t = fixture(); t.page.onUseWaterTemplate(event(templates[0].id)); validBusiness(t.page)
     t.page.setData({ ['editForm.' + field]: value }); await t.page.onSaveEdit()
     assert.strictEqual(t.calls.length, 0); assert(t.wx.__calls.toast.length); assert.strictEqual(t.page.data.showEdit, true)
   })
 }
-test('matching selected public SKU opens its existing settings without duplicate product', () => {
+test('unconfirmed template capacity never guesses even a selected public SKU', () => {
   const t = fixture([catalog({ selected: true })]); t.page.onUseWaterTemplate(event(templates[0].id))
-  assert.strictEqual(t.page.data.setting.id, 17); assert.strictEqual(t.page.data.showSetting, true)
-  assert.strictEqual(t.page.data.showEdit, false); assert.strictEqual(t.calls.length, 0)
+  assert.strictEqual(t.page.data.showEdit, true); assert.strictEqual(t.page.data.editForm.spec, '')
+  assert.strictEqual(t.calls.length, 0)
 })
-test('matching public SKU is selected off shelf then opens station settings', async () => {
+test('unconfirmed template capacity creates only an editable draft without selecting public SKU', async () => {
   const t = fixture([catalog()]); await t.page.onUseWaterTemplate(event(templates[0].id))
-  assert.deepStrictEqual(t.calls, [['select', 17, { enabled: 0 }]])
-  assert.strictEqual(t.page.data.showSetting, true); assert.strictEqual(t.page.data.setting.id, 17)
+  assert.deepStrictEqual(t.calls, []); assert.strictEqual(t.page.data.showEdit, true)
+  assert.strictEqual(t.page.data.editForm.spec, ''); assert.strictEqual(t.page.data.editForm.enabled, false)
 })
 test('even with an exact public SKU, explicit edit opens a station draft with editable capacity', () => {
   const t = fixture([catalog()]); t.page.onEditWaterTemplate(event(templates[0].id))
@@ -101,15 +102,49 @@ test('even with an exact public SKU, explicit edit opens a station draft with ed
 test('different capacity, water type, owner, status or category never guesses a public SKU match', () => {
   for (const extra of [{ spec: '18.9L' }, { name: templates[1].name }, { brand: '其它品牌' },
     { ownerStationId: 11 }, { status: 0 }, { category: 2 }]) {
-    assert.deepStrictEqual(matchingCatalogProducts(templates[0], [catalog(extra)]), [])
+    assert.deepStrictEqual(matchingCatalogProducts({ ...templates[0], spec: '18.5L' }, [catalog(extra)]), [])
     const t = fixture([catalog(extra)]); t.page.onUseWaterTemplate(event(templates[0].id))
     assert.strictEqual(t.page.data.showEdit, true); assert.strictEqual(t.calls.length, 0)
   }
 })
-test('ambiguous public duplicates require choosing from current catalog instead of guessing or creating', () => {
+test('public duplicates do not turn an unknown-capacity reference into a guessed SKU selection', () => {
   const t = fixture([catalog(), catalog({ id: 18 })]); t.page.onUseWaterTemplate(event(templates[0].id))
-  assert.strictEqual(t.page.data.showEdit, false); assert.strictEqual(t.calls.length, 0)
-  assert.strictEqual(t.page.data.keyword, '普利思'); assert.strictEqual(t.page.data.viewList.length, 2)
+  assert.strictEqual(t.page.data.showEdit, true); assert.strictEqual(t.calls.length, 0)
+  assert.strictEqual(t.page.data.editForm.spec, '')
+})
+
+test('brand photo preview and persistent object key survive template creation separately', async () => {
+  const t = fixture(), objectName = 'catalog/synthetic-original.png', path = 'https://images.example.test/photo.png?synthetic=1'
+  t.state.presets = [{ key: templates[0].imagePresetKey, objectName, path }]
+  await t.page.loadWaterTemplateImages(); t.page.onUseWaterTemplate(event(templates[0].id))
+  assert.strictEqual(t.page.data.editForm.imageUrl, path)
+  assert.strictEqual(t.page.data.editForm.imageObjectName, objectName)
+  assert.strictEqual(t.page.data.editForm.spec, '')
+  validBusiness(t.page); await t.page.onSaveEdit()
+  assert.strictEqual(t.calls.length, 1); assert.strictEqual(t.calls[0][1].imageObjectName, objectName)
+  assert.strictEqual(t.calls[0][1].enabled, 0)
+})
+test('missing signed preview keeps a labelled fallback and never turns a URL into an object key', () => {
+  const rows = templatesWithImages([{ key: templates[0].imagePresetKey, objectName: 'catalog/real-key.png', path: null },
+    { key: templates[1].imagePresetKey, objectName: 'https://images.example.test/not-a-key', path: 'https://images.example.test/photo.png' }])
+  assert.strictEqual(rows[0].imageUrl, TEMPLATE_IMAGE); assert.strictEqual(rows[0].imageObjectName, 'catalog/real-key.png')
+  assert.strictEqual(rows[1].imageUrl, TEMPLATE_IMAGE); assert.strictEqual(rows[1].imageObjectName, '')
+})
+test('late preset response updates cards without replacing the active form image', async () => {
+  const t = fixture(); let resolve
+  t.state.getPresets = () => new Promise(r => { resolve = r })
+  const pending = t.page.loadWaterTemplateImages(); t.page.onUseWaterTemplate(event(templates[0].id))
+  t.page.setData({ 'editForm.imageUrl': '/synthetic-user-photo', 'editForm.imageObjectName': 'public/user-photo.png' })
+  resolve({ code: 0, data: [{ key: templates[0].imagePresetKey, objectName: 'catalog/template.png', path: 'https://images.example.test/template.png' }] })
+  await pending
+  assert.strictEqual(t.page.data.editForm.imageUrl, '/synthetic-user-photo')
+  assert.strictEqual(t.page.data.editForm.imageObjectName, 'public/user-photo.png')
+})
+test('preset picker preserves an explicit COS key instead of only a temporary preview URL', () => {
+  const t = fixture(); t.page.openAdd()
+  t.page.onPickPresetImage({ currentTarget: { dataset: { path: 'https://images.example.test/preview.png', objectName: 'catalog/photo.png' } } })
+  assert.strictEqual(t.page.data.editForm.imageObjectName, 'catalog/photo.png')
+  assert.strictEqual(t.page.data.editForm.imageUrl, 'https://images.example.test/preview.png')
 })
 test('unknown template and unbound context create no draft or write', () => {
   const t = fixture(); t.page.onUseWaterTemplate(event('forged-template'))

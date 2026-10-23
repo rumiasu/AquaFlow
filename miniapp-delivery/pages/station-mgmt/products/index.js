@@ -1,5 +1,5 @@
 const { wrapUploadRecovery } = require('../../../utils/upload-recovery-page')
-const { WATER_PRODUCT_TEMPLATES, TEMPLATE_IMAGE, IMAGE_NOTICE, matchingCatalogProducts, templateBusinessError } = require('../../../utils/water-product-templates')
+const { WATER_PRODUCT_TEMPLATES, TEMPLATE_IMAGE, IMAGE_NOTICE, templatesWithImages, matchingCatalogProducts, templateBusinessError } = require('../../../utils/water-product-templates')
 const {
   getCatalog,
   getPresetImages,
@@ -119,6 +119,19 @@ Page({
     }
     this.setData({ stationId: (app.globalData.userInfo || {}).stationId || null })
     this.loadData()
+    this.loadWaterTemplateImages()
+  },
+
+  async loadWaterTemplateImages() {
+    const seq = this._templateImagesSeq = (this._templateImagesSeq || 0) + 1
+    try {
+      const res = await getPresetImages()
+      if (!res || res.code !== 0 || !Array.isArray(res.data)) return
+      if (seq !== this._templateImagesSeq) return
+      this.setData({ waterTemplates: templatesWithImages(res.data), presetImages: res.data, presetReady: true })
+    } catch (_) {
+      // 图片不可用不阻断建档；中性示意图有明确提示，不替换正在编辑的照片。
+    }
   },
 
   onPullDownRefresh() {
@@ -665,7 +678,7 @@ Page({
   /** 优先复用精确公共SKU；否则只填本站新商品草稿，不发创建/上传请求。 */
   onUseWaterTemplate(e) {
     if (this.data.saving || this.data.uploading || !getApp().canAccessStationBusiness()) return
-    const template = WATER_PRODUCT_TEMPLATES.find(item => item.id === e.currentTarget.dataset.id)
+    const template = this.data.waterTemplates.find(item => item.id === e.currentTarget.dataset.id)
     if (!template) return
     const matches = matchingCatalogProducts(template, this.data.list)
     if (matches.length === 1) {
@@ -684,7 +697,7 @@ Page({
   /** 公共SKU本身不可改；需按实物改基础资料时，明确另存本站商品。 */
   onEditWaterTemplate(e) {
     if (this.data.saving || this.data.uploading || !getApp().canAccessStationBusiness()) return
-    const template = WATER_PRODUCT_TEMPLATES.find(item => item.id === e.currentTarget.dataset.id)
+    const template = this.data.waterTemplates.find(item => item.id === e.currentTarget.dataset.id)
     if (template) this.openWaterTemplateDraft(template)
   },
 
@@ -695,7 +708,7 @@ Page({
     catch (_) { this._uploadDraftId = null }
     this.setData({ editTemplateId: template.id, editForm: { ...this.data.editForm,
       name: template.name, brand: template.brand, spec: template.spec,
-      category: template.category, imageObjectName: '', imageUrl: template.imageUrl, description: template.description } })
+      category: template.category, imageObjectName: template.imageObjectName || '', imageUrl: template.imageUrl, description: template.description } })
   },
 
   openAdd() {
@@ -893,7 +906,7 @@ Page({
    *
    * 产品口径（docs/design/14）：平台提供一套**统一商品图**，站长不必自己拍照上传 ——
    * 这样顾客端看到的是同一套视觉，不会出现各站五花八门的糊图。
-   * 图在**小程序包内**（不依赖 COS），由后端下发路径，前端零硬编码。
+   * 后端下发包内路径或COS签名预览，并分开提供持久对象键。
    */
   async openPresetPicker() {
     this.setData({ showPresetPicker: true })
@@ -918,16 +931,16 @@ Page({
   /**
    * 选中某张预设图。
    *
-   * ⚠️ 值必须写进 `imageUrl` 且是**以 / 开头的路径** —— 后端
-   * `CatalogServiceImpl.pickImageValue` 只认这种形式的 imageUrl
-   * （http 开头的一律视为上传回填的过期预签名 URL 而丢弃，对象键已丢失无法反推）。
+   * 预览写imageUrl；COS图另存objectName。包内路径仍保留旧契约，
+   * 不能把临时预览URL当对象键或从URL反推对象键。
    */
   onPickPresetImage(e) {
     const path = e.currentTarget.dataset.path
+    const objectName = e.currentTarget.dataset.objectName || ''
     if (!path) return
     this.setData({
       'editForm.imageUrl': path,
-      'editForm.imageObjectName': '',
+      'editForm.imageObjectName': objectName,
       showPresetPicker: false
     })
   },

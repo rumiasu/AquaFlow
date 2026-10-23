@@ -84,19 +84,20 @@
   <!-- 可选建档模板排在现有商品之后，避免盖过库存与上架任务。 -->
   <view class="water-templates" wx:if="{{!loadError && tab === 'all' && !keyword && (!category || category === 1)}}">
     <view class="water-template-title">常用水商品 · 快速建档</view>
-    <text class="water-template-hint">带入图片、名称和规格；售价、押金、库存由本站确认</text>
+    <text class="water-template-hint">带入图片和名称；规格、售价、押金及库存由本站确认，默认不上架</text>
     <view class="water-template-row" wx:for="{{waterTemplates}}" wx:key="id">
       <image class="water-template-image" wx:if="{{!brokenImages[item.imageUrl]}}" src="{{item.imageUrl}}" mode="aspectFit" binderror="onDisplayImageError" data-src="{{item.imageUrl}}" /><view wx:else class="water-template-image ui-image-fallback">商品示意图暂无法显示</view>
       <view class="water-template-info">
         <text class="water-template-name">{{item.name}}</text>
-        <text class="water-template-spec">{{item.spec}} / {{item.unit}} · 规格可按实物修改</text>
+        <text class="water-template-spec">{{item.spec || '容量待按实物填写'}} / {{item.unit}}</text>
+        <text class="water-template-hint">{{item.imageNotice}}</text>
       </view>
       <view class="water-template-actions">
         <button class="water-template-use" bindtap="onUseWaterTemplate" data-id="{{item.id}}" disabled="{{saving || uploading}}">使用模板</button>
         <text class="water-template-edit" bindtap="onEditWaterTemplate" data-id="{{item.id}}">按实物修改</text>
       </view>
     </view>
-    <text class="water-template-hint">{{imageNotice}}；目录已有同款时优先选用</text>
+    <text class="water-template-hint">参考资料不代表当前规格或官方定价；确认实物后建立本站商品</text>
   </view>
 
     <view class="footer">
@@ -214,7 +215,7 @@
     <view class="modal" catchtap="stopPropagation">
       <view class="modal-header">{{isAdd ? '自己定义商品' : '编辑自定义商品'}}</view>
       <view class="modal-sub">自定义商品只属于本站，不会进通用库；可以上报给开发者补充</view>
-      <view class="template-edit-note" wx:if="{{editTemplateId}}">已带入基础资料，可按实物修改。18.5L来自既有产品资料，当前规格请以实物标签为准；售价、押金和实际库存需本站填写，默认不上架。</view>
+      <view class="template-edit-note" wx:if="{{editTemplateId}}">已带入参考图片与名称。规格以实物标签为准，售价、押金和实际库存需本站填写；没有预设金额，默认不上架。</view>
 
       <view class="modal-img" bindtap="uploadImage">
         <image class="preview" wx:if="{{editForm.imageUrl && !brokenImages[editForm.imageUrl]}}" src="{{editForm.imageUrl}}" binderror="onDisplayImageError" data-src="{{editForm.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
@@ -242,7 +243,7 @@
         </view>
         <view class="form-item half">
           <text class="label">规格</text>
-          <input class="input" placeholder="如：18.9L" value="{{editForm.spec}}" data-field="spec" bindinput="onEditFieldInput" />
+          <input class="input" placeholder="请按实物标签填写净容量" value="{{editForm.spec}}" data-field="spec" bindinput="onEditFieldInput" />
         </view>
       </view>
 
@@ -400,6 +401,7 @@
           wx:for="{{presetImages}}"
           wx:key="key"
           data-path="{{item.path}}"
+          data-object-name="{{item.objectName}}"
           bindtap="onPickPresetImage"
         >
           <image class="preset-thumb" wx:if="{{!brokenImages[item.path]}}" src="{{item.path}}" mode="aspectFit" lazy-load binderror="onDisplayImageError" data-src="{{item.path}}" /><view class="preset-thumb ui-image-fallback" wx:else>图片暂无法显示</view>

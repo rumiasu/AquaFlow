@@ -100,7 +100,7 @@ const getCatalog = () => {
 
 /**
  * 平台预设商品图清单（建自定义商品时选图用）。
- * 返回 [{ key, path }]：key 是稳定标识，path 是小程序包内资源路径，可直接当 image src。
+ * 返回 [{ key, path, objectName }]：path是包内路径或临时预览地址；COS图保存objectName，不能存临时URL。
  * 由后端下发而非前端硬编码 —— 换存储（如改 COS）时前端零改动。
  */
 const getPresetImages = () => {

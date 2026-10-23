@@ -33,7 +33,7 @@ class ProductImageIntegrationTest extends AbstractIntegrationTest {
     private static final String LOCAL_IMAGE_PATH = "/assets/product/pulisi-pure.webp";
 
     @Test
-    @DisplayName("选图清单：下发包内路径，且顾客端读不到")
+    @DisplayName("选图清单：包内路径兼容，COS图分开提供临时地址和持久对象键，顾客端读不到")
     void presetImageListServesPackagePaths() {
         String mgr = newManagerToken("图片站A");
         long customer = createCustomer("顾客甲", "openid-img-a");
@@ -42,13 +42,18 @@ class ProductImageIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, res.code(), "选图清单应可读：" + res.data());
         assertTrue(res.data().isArray(), "必须是数组（可以为空）");
 
-        // ⚠️ 口径（2026-09-20）：**允许为空** —— 平台只保留品牌官网实拍图，
-        //    不再提供自制预设图。这里不断言数量，只断言"只要有，就必须是可用的包内路径"，
-        //    否则将来增减预设图会无意义地弄红用例。
+        // 不把素材数量当业务约束；分别守包内直通与COS预览/对象键分离的契约。
         for (JsonNode n : res.data()) {
             String path = n.path("path").asText();
-            assertTrue(path.startsWith("/assets/product/"),
-                    "下发的必须是两端小程序包内都存在的路径（前端直接当 src 用），实际=" + path);
+            String objectName = n.path("objectName").asText();
+            if (objectName.isEmpty()) {
+                assertTrue(path.startsWith("/assets/product/"), "包内图片仍原样下发");
+            } else {
+                assertFalse(objectName.startsWith("/"), "COS对象键不能伪装成本地资源");
+                assertFalse(objectName.contains("://"), "临时URL不能当作持久对象键");
+                assertTrue(!n.hasNonNull("path") || path.startsWith("https://"),
+                        "COS图仅下发可用HTTPS预览或明确无图，不直接展示对象键");
+            }
         }
 
         assertNotEquals(0, get("/api/manager/catalog/preset-images", customerToken(customer)).code(),

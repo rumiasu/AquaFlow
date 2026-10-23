@@ -5,6 +5,7 @@ Page({
     category: 'bug',
     content: '',
     contact: '',
+    submitting: false,
     historyList: [],
     historyError: '',
     historyLoading: true
@@ -32,18 +33,22 @@ Page({
   },
 
   onSelectCategory(e) {
+    if (this.data.submitting) return
     this.setData({ category: e.currentTarget.dataset.category })
   },
 
   onContentInput(e) {
+    if (this.data.submitting) return
     this.setData({ content: e.detail.value })
   },
 
   onContactInput(e) {
+    if (this.data.submitting) return
     this.setData({ contact: e.detail.value })
   },
 
   async onSubmit() {
+    if (this.data.submitting || this._feedbackConfirmation) return
     const { category, content, contact } = this.data
 
     if (!content.trim()) {
@@ -51,12 +56,18 @@ Page({
       return
     }
 
+    const confirmation = {}
+    this._feedbackConfirmation = confirmation
     wx.showModal({
       title: '提交反馈',
       content: '感谢您的反馈，我们会尽快处理',
       confirmText: '确认提交',
       success: async (res) => {
+        if (this._feedbackConfirmation !== confirmation) return
+        this._feedbackConfirmation = null
         if (res.confirm) {
+          if (this.data.submitting) return
+          this.setData({ submitting: true })
           wx.showLoading({ title: '提交中...' })
           try {
             await submitFeedback({ category, content, contact })
@@ -67,9 +78,12 @@ Page({
           } catch (err) {
             wx.hideLoading()
             wx.showToast({ title: err.message || '提交失败', icon: 'none' })
+          } finally {
+            this.setData({ submitting: false })
           }
         }
-      }
+      },
+      fail: () => { if (this._feedbackConfirmation === confirmation) this._feedbackConfirmation = null }
     })
   }
 })

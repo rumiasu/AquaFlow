@@ -294,7 +294,7 @@
 
 .modal-desc {
   flex-shrink: 0;
-  display: block; font-size: 24rpx; color: var(--text-placeholder);
+  display: block; font-size: 26rpx; color: var(--text-regular);
   text-align: center; margin-bottom: 32rpx;
 }
 
@@ -305,7 +305,7 @@
 /* 「这单我确实送不了」的分组标题（[2026-09-27]）：把"上报问题"与"把单交出去"分开，
    避免配送员把两组动作读成一件事。 */
 .modal-sub-title {
-  display: block; font-size: 24rpx; color: var(--text-placeholder);
+  display: block; font-size: 26rpx; color: var(--text-regular);
   margin: 8rpx 0 12rpx; padding-left: 4rpx;
 }
 
@@ -318,7 +318,7 @@
 
 .modal-item-info { flex: 1; }
 .modal-item-name { display: block; font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
-.modal-item-desc { display: block; font-size: 24rpx; color: var(--text-placeholder); margin-top: 4rpx; }
+.modal-item-desc { display: block; font-size: 26rpx; color: var(--text-regular); margin-top: 4rpx; }
 .modal-item-arrow { font-size: 36rpx; color: var(--text-placeholder); margin-left: 16rpx; }
 
 .modal-cancel {

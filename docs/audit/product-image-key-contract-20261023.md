@@ -15,3 +15,5 @@
 新增`CommonUploadReceiptTest`通过MockMvc检查实际JSON中的URL兼容、顶级对象键和未登录不触碰COS，**本云环境未执行到该测试**：现有Gradle Wrapper需下载`services.gradle.org/distributions/gradle-9.4.1-bin.zip`，默认及一次申请网络权限的同路线尝试均DNS失败，未得到发行包，已停止。该测试及原`ProductImageResolverTest`仍需CI/可用构建环境验证，不能写成已通过；未改Gradle配置或依赖锁。JavaScript检查已注册原CI运行器，未重跑全量后端。
 
 没有实际文件上传、真实数据库写入、云登录/凭据操作、网络商品图采集或部署；既往浏览器和Library被拒入口均未重试。Astra独立审查以最终候选及明确未执行边界另行记录，未部署前此文不代表线上缺陷已经修复。
+
+补充交接：旧服务仅返回URL的实际页面回执已定向检查，原商品key和预览URL保持不变，显示“图片提交结果待核实，勿重复上传”，下一次选图不再发POST，也不提示上传成功；新增后商品套件14条通过。后端`CommonUploadReceiptTest`及既有`ProductImageResolverTest`均在标准`src/test/java`中，由`build.gradle`的JUnit Platform默认发现，原CI的`./gradlew test --no-daemon --console=plain`未设测试过滤；前端对象键套件已进入原`tests/js/run-all.js`，CI直接执行该入口。本地后端仍未执行，推送供CI验证不等于部署。员工上传工作区须在后端先行部署、CI与交付顺序确认后再由协调者安排更新。

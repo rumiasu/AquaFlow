@@ -65,7 +65,7 @@ Page({
       this._returnModalContext = null
       this.setData({ showReturnEmpty: false, returnItems: [] })
     }
-    if (this.data.id) this.restoreReturnIntent()
+    if (this.data.id && this.data.canViewAssets) this.restoreReturnIntent()
   },
   onHide() { this._returnHidden = true },
   onUnload() { this._returnDisposed = true; this._returnHidden = true },

@@ -150,6 +150,13 @@ test('other staff, station and customer never inherit a saved return intent', as
     const t = fixture(undefined, first.wx); change(t); t.page.onShow()
     assert.equal(t.page.data.returnPending, false); assert(t.wx.getStorageSync(key))
   }
+  const courier = fixture(undefined, first.wx)
+  courier.app.isStationManager = () => false
+  courier.page.setData({ canViewAssets: false })
+  courier.page.onShow()
+  assert.equal(courier.page.data.returnRecoveryError, '')
+  assert.equal(courier.page.data.showReturnEmpty, false)
+  await courier.page.onSubmitReturnEmpty(); assert.equal(courier.writes.length, 0)
 })
 test('multiple products replay in the same sorted order and never use edited quantities', async () => {
   const t = fixture(async () => { throw unknown() })

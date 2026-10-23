@@ -22,7 +22,8 @@
       "exit_code": 0,
       "counted_items": 31,
       "ascii_completion": "AQUAFLOW_SUITE_OK 31",
-      "after_final_storage_copy_change": true
+      "after_final_storage_copy_change": true,
+      "after_final_manager_scope_guard": true
     },
     {
       "command": "node tests/js/run-all.js",
@@ -30,7 +31,7 @@
       "suites": 117,
       "counted_items": 3299,
       "ascii_completion_count": 117,
-      "boundary": "Full run completed before final storage-error Chinese copy wrapping; the final 31-case suite was rerun afterward."
+      "boundary": "Full run completed before final storage-error Chinese copy and manager-only recovery read guard; final 31 cases plus manager 19 and COD-context 24 were rerun afterward."
     },
     {
       "command": "python3 audit_js_syntax.py",
@@ -58,12 +59,30 @@
     {
       "command": "node --check (changed Page and return-empty-intent helper)",
       "exit_code": 0
+    },
+    {
+      "command": "node tests/js/manager-first-batch.test.js",
+      "exit_code": 0,
+      "counted_items": 19,
+      "after_final_manager_scope_guard": true
+    },
+    {
+      "command": "node tests/js/customer-cod-context.test.js",
+      "exit_code": 0,
+      "counted_items": 24,
+      "after_final_manager_scope_guard": true
+    },
+    {
+      "command": "node scripts/check-miniapp-text.js",
+      "exit_code": 0,
+      "bom_or_bad_encoding": 0,
+      "developer_words": 0
     }
   ],
   "source_hashes": [
     {
       "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
-      "sha256": "c58e83b4e11f0f8df341985aaaa5b8c4d7e9f4db9416fb3abdf458f7a4de5f61"
+      "sha256": "bdcadd1cdfcd45796cbd0cab7278a9fc08ab1d70da1faf5062346ac094992fa8"
     },
     {
       "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxml",
@@ -75,7 +94,7 @@
     },
     {
       "path": "tests/js/return-empty-intent.test.js",
-      "sha256": "43a9a7c9e42c5bee50e44f6e512de4e41aa4f082b15a1c79afdeb1087fc889b5"
+      "sha256": "312431a3dbfaa3d2130969984d7bbaf45a300a140299be1f2cd60bd0c207d427"
     },
     {
       "path": "tests/js/run-all.js",

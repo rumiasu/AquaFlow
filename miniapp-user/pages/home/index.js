@@ -99,14 +99,19 @@ Page({
       return
     }
 
-    this.checkStation()
-    this.checkNotifications()
-
+    if (!this._homeAddressSession || !isCurrentSession(this._homeAddressSession)) {
+      this._homeChosenAddressId = null
+      this.setData({ address: null, addressHint: '点击设置配送地址' })
+    }
+    this._homeAddressSession = captureSession()
     const selectedAddress = storage.get('selectedAddress')
     if (selectedAddress) {
+      this._homeChosenAddressId = selectedAddress.id
       this.setData({ address: selectedAddress })
       storage.remove('selectedAddress')
     }
+    this.checkStation()
+    this.checkNotifications()
 
     const selectedProductId = storage.get('selectedProductId')
     if (selectedProductId) {
@@ -553,13 +558,16 @@ Page({
       const assetsLoaded = !!summaryRes && !!rightsRes
       const purchaseHint = assetsLoaded ? '' : '桶资产暂未核实，确认页核对后才能提交订单。'
 
-      // 地址：只决定头部卡提示与下单参数，不再单独占一张卡
+      // 2026-10-23：地址列表返回后刷新曾改回默认地址；本周期明确选择的ID必须重读同一条。
       let address = this.data.address
-      if (addressRes && addressRes.data && addressRes.data.length > 0) {
+      const chosenId = isCurrentSession(this._homeAddressSession) ? this._homeChosenAddressId : null
+      if (addressRes) {
         const list = addressRes.data
-        address = list.find(a => a.isDefault) || list[0]
+        address = chosenId != null ? list.find(a => String(a.id) === String(chosenId)) || null
+          : list.find(a => a.isDefault) || list[0] || null
       }
-      const addressHint = address ? `配送至：${formatAddress(address)}` : '点击设置配送地址'
+      const addressHint = address ? `配送至：${formatAddress(address)}`
+        : chosenId != null ? '先前选择的地址已不可用，请重新选择' : '点击设置配送地址'
 
       // 后端下发本站有效价；商品小计不包含独立押金、配送费和楼层费。
       const products = ((productState !== 'error' && stationId && productsRes && productsRes.data) ? productsRes.data : []).map(p => ({
@@ -1011,8 +1019,8 @@ Page({
     }
     if (!address) {
       wx.showModal({
-        title: '还没有配送地址',
-        content: '先设置一个收货地址，水才能送到家',
+        title: this._homeChosenAddressId != null ? '请重新选择配送地址' : '还没有配送地址',
+        content: this._homeChosenAddressId != null ? '先前选择的地址已不可用，请重新选择后再确认订单' : '先设置一个收货地址，水才能送到家',
         confirmText: '去设置',
         success: (r) => {
           if (r.confirm) wx.navigateTo({ url: '/pages/address/list?from=home' })

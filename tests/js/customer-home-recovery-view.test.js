@@ -14,7 +14,7 @@ function fixture(overrides = {}) {
   const page = loadPage('miniapp-user/pages/home/index.js', { wx, app, stubs: {
     'api/product': { getStationProducts: id => { calls.products.push(id); return overrides.products ? overrides.products(id) : Promise.resolve(ok([water])) } },
     'api/order': { getMyLatestStation: async () => ok(null), getOrders: overrides.orders || (async () => ok([])), getOrderDetail: async () => ok(null) },
-    'api/address': { getAddresses: async () => ok([{ id: 12, detail: '当前地址', isDefault: 1 }]) },
+    'api/address': { getAddresses: overrides.addresses || (async () => ok([{ id: 12, detail: '当前地址', isDefault: 1 }])) },
     'api/barrel': { getBarrelSummary: async () => ok({}), getBarrelSummaryByType: id => { calls.rights.push(id); return overrides.rights ? overrides.rights(id) : Promise.resolve(ok([])) } },
     'api/station': { getStationStatus: async () => ok({}), getPublicStations: () => { calls.stations.push(true); return overrides.stations ? overrides.stations() : Promise.resolve(ok([])) } },
     'api/notification': { getUnreadNotifications: () => { calls.notifications.push(true); return overrides.notifications ? overrides.notifications() : Promise.resolve(ok([])) }, markAllRead: async () => ok(null) },
@@ -238,6 +238,55 @@ test('unavailable whole catalog has a specific visible recovery impact rather th
   assert.equal(t.page.data.loadImpactSummary, '商品暂未加载，请重试后选水')
   assert(texts(t.page).includes('商品暂未加载，请重试后选水')); assert(!hasClass(t.page, 'checkout'))
   assert(!texts(t.page).includes('已有信息仍可查看'))
+})
+
+test('WB-04 selected non-default address survives actual onShow refresh and checkout uses its fresh record', async () => {
+  const t = fixture({ addresses: async () => ok([{ id: 12, detail: '默认地址', isDefault: 1 }, { id: 13, detail: '更新后的已选地址', isDefault: 0 }]) })
+  t.wx.setStorageSync('selectedAddress', { id: 13, detail: '选择时的旧地址' })
+  t.page.onShow(); await new Promise(setImmediate)
+  assert.equal(t.page.data.address.id, 13); assert.equal(t.page.data.address.detail, '更新后的已选地址')
+  t.page.onSubmit()
+  const query = new URL('https://synthetic.invalid' + t.wx.__calls.nav.at(-1).url).searchParams
+  assert.equal(query.get('addressId'), '13')
+  assert.equal(query.get('addressDetail'), '更新后的已选地址')
+})
+test('removed selected address remains unselected across retries and cannot silently fall back to another default', async () => {
+  const t = fixture(); t.wx.setStorageSync('selectedAddress', { id: 13 })
+  t.page.onShow(); await new Promise(setImmediate)
+  assert.equal(t.page.data.address, null); assert(t.page.data.addressHint.includes('重新选择'))
+  await t.page.loadData(); assert.equal(t.page.data.address, null)
+  t.page.onSubmit()
+  assert(t.wx.__calls.modal.at(-1).content.includes('先前选择的地址已不可用'))
+  assert(!t.wx.__calls.nav.some(n => n.url.includes('/pages/order/create')))
+})
+test('successful empty address list clears a prior selected address rather than retaining an unavailable record', async () => {
+  const t = fixture({ addresses: async () => ok([]) }); t.wx.setStorageSync('selectedAddress', { id: 13 })
+  t.page.onShow(); await new Promise(setImmediate)
+  assert.equal(t.page.data.address, null); assert(t.page.data.addressHint.includes('不可用'))
+})
+test('address read failure preserves an explicit selection with a visible read-failure boundary', async () => {
+  const t = fixture({ addresses: async () => { throw Error('SYNTH address offline') } })
+  t.wx.setStorageSync('selectedAddress', { id: 13, detail: '本次选择' })
+  t.page.onShow(); await new Promise(setImmediate)
+  assert.equal(t.page.data.address.id, 13); assert(t.page.data.loadError.includes('配送地址'))
+})
+test('a new customer does not inherit the previous explicit address choice', async () => {
+  let rows = [{ id: 12, isDefault: 1 }, { id: 13 }]
+  const t = fixture({ addresses: async () => ok(rows) }); t.wx.setStorageSync('selectedAddress', { id: 13 })
+  t.page.onShow(); await new Promise(setImmediate); assert.equal(t.page.data.address.id, 13)
+  t.app.globalData.customerId = 8; rows = [{ id: 21, isDefault: 1 }]
+  t.page.onShow(); await new Promise(setImmediate)
+  assert.equal(t.page.data.address.id, 21); assert.equal(t.page._homeChosenAddressId, null)
+})
+test('an old address response cannot overwrite a newer explicit choice', async () => {
+  const old = deferred(), latest = deferred(); let calls = 0
+  const t = fixture({ addresses: () => ++calls === 1 ? old.promise : latest.promise })
+  t.wx.setStorageSync('selectedAddress', { id: 13 }); t.page.onShow()
+  t.wx.setStorageSync('selectedAddress', { id: 14 }); t.page.onShow()
+  latest.resolve(ok([{ id: 12, isDefault: 1 }, { id: 14 }]))
+  await new Promise(setImmediate)
+  old.resolve(ok([{ id: 12, isDefault: 1 }, { id: 13 }]))
+  await new Promise(setImmediate); assert.equal(t.page.data.address.id, 14)
 })
 
 async function run() {

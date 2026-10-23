@@ -1,0 +1,45 @@
+{
+  "phase": "P1 targeted fixes after P0",
+  "base_commit": "45e932a43c7643407a6b845a8a6785fe4a9537f6",
+  "checks": [
+    {
+      "change": "明确地址选择先应用再刷新；同登录周期按原ID重读最新地址，已失效时保持待重选，换号清除旧选择。",
+      "added_cases": 6,
+      "tests": [
+        {
+          "command": "node tests/js/customer-home-recovery-view.test.js",
+          "counted_items": 33,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/customer-home-cart-persistence.test.js",
+          "counted_items": 16,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/customer-home-station-context.test.js",
+          "counted_items": 26,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/order-quote-address-binding.test.js",
+          "counted_items": 19,
+          "exit_code": 0
+        }
+      ],
+      "issue": "WB-04",
+      "fix_parent_commit": "45e932a43c7643407a6b845a8a6785fe4a9537f6",
+      "source_hashes": [
+        {
+          "path": "miniapp-user/pages/home/index.js",
+          "sha256": "ddca1d1f37529ae6e35e54e65c4a201d91bfdc95c5263092dbc503b9599cbac3"
+        },
+        {
+          "path": "tests/js/customer-home-recovery-view.test.js",
+          "sha256": "4c4f8f8d0313852eb2cecd747bf1e5b5f5554b9ae37a8ce18206fec876a9fc30"
+        }
+      ]
+    }
+  ],
+  "boundary": "Actual Page handlers / WXML condition projection with synthetic APIs only. No native rendering, real login/payment/refund, backend/MySQL, cloud data, deployment or Actions read. No new full-run claim."
+}

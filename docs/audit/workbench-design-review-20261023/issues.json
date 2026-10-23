@@ -165,7 +165,7 @@
       "id": "WB-04",
       "severity": "P1",
       "title": "首页刷新覆盖客户刚选的非默认地址",
-      "status": "open",
+      "status": "fixed_code_tests_passed_native_pending",
       "evidence_type": "code_defect",
       "routes": [
         "miniapp-user/pages/address/list",
@@ -208,7 +208,15 @@
       },
       "acceptance_check": "非默认地址返回后及结算保持同ID；失效地址明确提示；慢旧列表不覆盖新选择。",
       "native_pixel_verified": false,
-      "probe_cases": 1
+      "probe_cases": 1,
+      "resolution": {
+        "phase": "P1 targeted fixes",
+        "implementation": "明确地址选择先应用再刷新；同登录周期按原ID重读最新地址，已失效时保持待重选，换号清除旧选择。",
+        "formal_test": "node tests/js/customer-home-recovery-view.test.js",
+        "added_cases": 6,
+        "validation": "p1-verification.json",
+        "remaining": "Native pixels / real services not verified."
+      }
     },
     {
       "id": "WB-05",
@@ -442,18 +450,18 @@
   "fix_branch": "codex/fix-workbench-interactions-20261023",
   "open_severity_counts": {
     "P0": 0,
-    "P1": 4,
+    "P1": 3,
     "P2": 4
   },
   "remaining_probe_conversion": {
     "converted": [
       "WB-01 double tap",
-      "WB-01 uncertain retry"
+      "WB-01 uncertain retry",
+      "WB-04"
     ],
     "pending": [
       "WB-02",
       "WB-03",
-      "WB-04",
       "WB-05",
       "WB-07",
       "WB-08"

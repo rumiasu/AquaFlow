@@ -48,4 +48,18 @@ public final class ProductImageKeys {
     public static Map<String, String> all() {
         return PRESET_TO_PATH;
     }
+
+    /** 仅三张已逐项对照原标识的包内缩放图可作回退；历史文件名的pure/mineral互换不能按字面猜。 */
+    public static String localFallback(String objectName) {
+        if ("catalog-sample-20261023-pulisi-purified-87bf702c165d.png".equals(objectName)) {
+            return DIR + "pulisi-mineral.webp"; // 红标：饮用纯净水
+        }
+        if ("catalog-sample-20261023-pulisi-spring-f576447ab103.png".equals(objectName)) {
+            return DIR + "pulisi-spring.webp";
+        }
+        if ("catalog-sample-20261023-pulisi-mineral-cef12b0ef29a.png".equals(objectName)) {
+            return DIR + "pulisi-pure.webp"; // 蓝标：饮用天然矿泉水
+        }
+        return null;
+    }
 }

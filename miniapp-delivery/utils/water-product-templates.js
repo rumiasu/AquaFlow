@@ -17,7 +17,8 @@ function templatesWithImages(presets) {
     const preset = (Array.isArray(presets) ? presets : []).find(item => item.key === template.imagePresetKey)
     if (!preset || typeof preset.objectName !== 'string' || !preset.objectName
         || preset.objectName.startsWith('/') || preset.objectName.includes('://')) return { ...template }
-    const readablePhoto = typeof preset.path === 'string' && preset.path.startsWith('https://')
+    const readablePhoto = typeof preset.path === 'string'
+      && (preset.path.startsWith('https://') || preset.path.startsWith('/assets/product/'))
     return { ...template, imageObjectName: preset.objectName,
       imageUrl: readablePhoto ? preset.path : TEMPLATE_IMAGE,
       imageNotice: readablePhoto ? '品牌资料图，实际包装和规格以实物标签为准' : IMAGE_NOTICE }

@@ -69,7 +69,8 @@ public class ProductImageResolver {
      *   <li>以 {@link #LOCAL_PREFIX}（{@code /}）开头 = **小程序包内本地资源，原样返回**，
      *       且<b>绝不调用签名器</b>（本地图与 COS 配没配无关，这是商品图能显示的根本）；</li>
      *   <li>其它非空值 = COS 对象键，返回签名 URL；</li>
-     *   <li>无法签名（COS 未配置 / 网络失败 / 对象不存在）→ <b>返回 {@code null}，绝不抛异常</b>。
+     *   <li>COS未配置时，三张已核品牌原图使用包内同源缩放图；未知对象或其它签名失败
+     *       <b>返回 {@code null}，绝不抛异常</b>。
      *       这是刻意的降级：一张图签不出来不能让整个选品列表失败（判据同 AGENTS §8.21）。</li>
      * </ol>
      *
@@ -90,6 +91,10 @@ public class ProductImageResolver {
         // 本地资源：前端直接可用，不经 COS（也避免 COS 未配置时抛异常被吞成 null）
         if (imageObjectName.startsWith(LOCAL_PREFIX)) {
             return imageObjectName;
+        }
+        if (cosUtil != null && !cosUtil.isCredentialsConfigured()) {
+            // 只回退已核原图，不给未知对象编造地址；COS可选配置缺失不阻断默认图片。
+            return ProductImageKeys.localFallback(imageObjectName);
         }
         try {
             return testSigner != null
@@ -112,6 +117,6 @@ public class ProductImageResolver {
      * @return 本地资源路径；key 为空或未知时返回 null
      */
     public String resolvePresetKey(String presetKey) {
-        return ProductImageKeys.toPath(presetKey);
+        return resolve(ProductImageKeys.toPath(presetKey));
     }
 }

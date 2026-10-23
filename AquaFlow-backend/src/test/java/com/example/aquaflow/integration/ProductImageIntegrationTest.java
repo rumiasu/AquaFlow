@@ -51,8 +51,8 @@ class ProductImageIntegrationTest extends AbstractIntegrationTest {
             } else {
                 assertFalse(objectName.startsWith("/"), "COS对象键不能伪装成本地资源");
                 assertFalse(objectName.contains("://"), "临时URL不能当作持久对象键");
-                assertTrue(!n.hasNonNull("path") || path.startsWith("https://"),
-                        "COS图仅下发可用HTTPS预览或明确无图，不直接展示对象键");
+                assertTrue(!n.hasNonNull("path") || path.startsWith("https://") || path.startsWith("/assets/product/"),
+                        "COS图下发HTTPS预览、已核原图的包内回退或明确无图，不直接展示对象键");
             }
         }
 

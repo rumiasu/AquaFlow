@@ -13,6 +13,7 @@ class ManagerCatalogPresetImagesTest {
     @Test
     void originalPhotosExposeStableKeysSeparatelyFromSignedPreviews() {
         CosUtil cos = mock(CosUtil.class);
+        when(cos.isCredentialsConfigured()).thenReturn(true);
         when(cos.generatePublicUrl(anyString())).thenAnswer(invocation ->
                 "https://synthetic.example.test/" + invocation.getArgument(0) + "?signature=synthetic");
         ManagerCatalogController controller = new ManagerCatalogController();
@@ -29,5 +30,18 @@ class ManagerCatalogPresetImagesTest {
         assertEquals("/assets/product/barrel-neutral-template.webp", neutral.get("path"));
         assertEquals("", neutral.get("objectName"));
         verify(cos, never()).generatePublicUrl("/assets/product/barrel-neutral-template.webp");
+
+        when(cos.isCredentialsConfigured()).thenReturn(false);
+        var offline = controller.presetImages().getData();
+        var pureFallback = offline.stream().filter(row -> "pulisi-purified-photo".equals(row.get("key"))).findFirst().orElseThrow();
+        assertEquals("/assets/product/pulisi-mineral.webp", pureFallback.get("path"), "红标是纯净水，不能信旧文件名");
+        assertEquals(pure.get("objectName"), pureFallback.get("objectName"), "回退不丢稳定对象键");
+        var springFallback = offline.stream().filter(row -> "pulisi-spring-photo".equals(row.get("key"))).findFirst().orElseThrow();
+        assertEquals("/assets/product/pulisi-spring.webp", springFallback.get("path"));
+        var mineralFallback = offline.stream().filter(row -> "pulisi-mineral-photo".equals(row.get("key"))).findFirst().orElseThrow();
+        assertEquals("/assets/product/pulisi-pure.webp", mineralFallback.get("path"));
+        assertEquals("/assets/product/pulisi-pure.webp", new ProductImageResolver(cos).resolvePresetKey("pulisi-mineral-photo"));
+        assertNull(new ProductImageResolver(cos).resolve("unknown/real-upload.png"), "未知对象仍明确无图，不能猜路径");
+        verify(cos, never()).generatePublicUrl("unknown/real-upload.png");
     }
 }

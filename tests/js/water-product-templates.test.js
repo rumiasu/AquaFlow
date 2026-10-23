@@ -129,6 +129,9 @@ test('missing signed preview keeps a labelled fallback and never turns a URL int
     { key: templates[1].imagePresetKey, objectName: 'https://images.example.test/not-a-key', path: 'https://images.example.test/photo.png' }])
   assert.strictEqual(rows[0].imageUrl, TEMPLATE_IMAGE); assert.strictEqual(rows[0].imageObjectName, 'catalog/real-key.png')
   assert.strictEqual(rows[1].imageUrl, TEMPLATE_IMAGE); assert.strictEqual(rows[1].imageObjectName, '')
+  const offlinePhoto = templatesWithImages([{ key: templates[0].imagePresetKey, objectName: 'catalog/real-key.png', path: '/assets/product/pulisi-mineral.webp' }])[0]
+  assert.strictEqual(offlinePhoto.imageUrl, '/assets/product/pulisi-mineral.webp')
+  assert.strictEqual(offlinePhoto.imageObjectName, 'catalog/real-key.png')
 })
 test('late preset response updates cards without replacing the active form image', async () => {
   const t = fixture(); let resolve

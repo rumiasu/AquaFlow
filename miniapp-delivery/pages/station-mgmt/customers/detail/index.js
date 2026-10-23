@@ -136,6 +136,9 @@ Page({
   },
 
   async loadProfile(id) {
+    // 2026-10-23：保存货到付款期间的返回读取可能比保存更晚回旧值；等保存收尾后核对。
+    if (this.data.saving) { this._profileRefreshAfterSave = true; return }
+    this._profileRefreshAfterSave = false
     const context = this.customerContext(), seq = this._profileReadSeq = (this._profileReadSeq || 0) + 1
     const current = () => seq === this._profileReadSeq && this.currentCustomerContext(context)
     if (!current()) return
@@ -481,12 +484,15 @@ Page({
   // 切换货到付款权限
   async onToggleCod(e) {
     const enabled = e.detail.value
-    if (this.data.saving) return
+    const context = this.customerContext()
+    if (this.data.saving || this.data.loading || !this.data.profile || !this.currentCustomerContext(context)) return
+    this._profileReadSeq = (this._profileReadSeq || 0) + 1
     this.setData({ saving: true })
     try {
       // 显式给全 body：`updateOfflinePayment` 只接受 payload 形态
       // （它曾在 api 模块里以 `(id, boolean)` 重载出现，两次声明直接让整个模块语法错误，2026-09-19）
       const res = await updateOfflinePayment(this.data.id, { offlinePaymentEnabled: enabled ? 1 : 0 })
+      if (!this.currentCustomerContext(context)) return
       if (res.code === 0) {
         this.setData({
           'profile.codEnabled': enabled,
@@ -498,10 +504,12 @@ Page({
         this.setData({ 'profile.codEnabled': !enabled })
       }
     } catch (err) {
+      if (!this.currentCustomerContext(context)) return
       wx.showToast({ title: err.message || '操作失败', icon: 'none' })
       this.setData({ 'profile.codEnabled': !enabled })
     } finally {
       this.setData({ saving: false })
+      if (this._profileRefreshAfterSave && this.currentCustomerContext(context)) this.loadProfile(this.data.id)
     }
   }
 })

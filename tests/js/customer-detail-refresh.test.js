@@ -19,10 +19,20 @@ function fixture(overrides = {}, manager = true) {
     'api/station-mgmt': {
       getCustomerProfile: () => { calls.profile++; return overrides.profile ? overrides.profile(calls.profile) : Promise.resolve(ok({ name: 'SYNTH customer', favoriteProducts: [], tagsList: [], recentOrders: [] })) },
       getCustomerAssets: () => { calls.assets++; return overrides.assets ? overrides.assets(calls.assets) : Promise.resolve(ok(assets(2))) },
-      returnEmptyBuckets: async () => { calls.writes++; return ok({ duplicate: true }) }
+      returnEmptyBuckets: async () => { calls.writes++; return ok({ duplicate: true }) },
+      updateOfflinePayment: overrides.cod || (async () => ok({}))
     },
     'utils/request': { get: () => { calls.privileges++; return overrides.privileges ? overrides.privileges(calls.privileges) : Promise.resolve(ok({ privileges: [], grantableTypes: [] })) } }
   } })
+  const set = page.setData
+  page.setData = (patch, callback) => {
+    const plain = {}
+    for (const [key, value] of Object.entries(patch)) {
+      if (key.startsWith('profile.')) page.data.profile[key.slice('profile.'.length)] = value
+      else plain[key] = value
+    }
+    set(plain, callback)
+  }
   return { page, app, wx, calls }
 }
 test('WB-02 actual initial lifecycle reads once and return from child updates all current data', async () => {
@@ -135,6 +145,31 @@ test('unload invalidates outstanding asset data', async () => {
   const gate = deferred(), t = fixture({ assets: () => gate.promise })
   const load = t.page.onLoad({ id: 7 }); t.page.onUnload(); gate.resolve(ok(assets(9))); await load
   assert.equal(t.page.data.assets, null)
+})
+test('return refresh waits for an in-flight COD save rather than fetching an obsolete profile', async () => {
+  const saved = deferred(); let enabled = false
+  const t = fixture({ cod: () => saved.promise, profile: async () => ok({ name: 'SYNTH', codEnabled: enabled }) })
+  await t.page.onLoad({ id: 7 }); t.page.onShow()
+  const save = t.page.onToggleCod({ detail: { value: true } }); t.page.onHide(); await t.page.onShow()
+  assert.equal(t.calls.profile, 1); assert.equal(t.page.data.saving, true)
+  enabled = true; saved.resolve(ok({})); await save; await new Promise(setImmediate)
+  assert.equal(t.calls.profile, 2); assert.equal(t.page.data.profile.codEnabled, true)
+})
+test('a hidden COD success releases the save lock and returning reads the confirmed profile', async () => {
+  const saved = deferred(); let enabled = false
+  const t = fixture({ cod: () => saved.promise, profile: async () => ok({ name: 'SYNTH', codEnabled: enabled }) })
+  await t.page.onLoad({ id: 7 }); t.page.onShow()
+  const save = t.page.onToggleCod({ detail: { value: true } }); t.page.onHide()
+  enabled = true; saved.resolve(ok({})); await save
+  assert.equal(t.page.data.saving, false); await t.page.onShow()
+  assert.equal(t.page.data.profile.codEnabled, true)
+})
+test('a COD result from the previous owner cannot recreate the cleared old profile', async () => {
+  const saved = deferred(), t = fixture({ cod: () => saved.promise })
+  await t.page.onLoad({ id: 7 }); t.page.onShow()
+  const save = t.page.onToggleCod({ detail: { value: true } }); t.app.globalData.userInfo.stationId = 2
+  t.page.onShow(); assert.equal(t.page.data.profile, null)
+  saved.resolve(ok({})); await save; assert.equal(t.page.data.profile, null)
 })
 ;(async () => {
   let failed = 0

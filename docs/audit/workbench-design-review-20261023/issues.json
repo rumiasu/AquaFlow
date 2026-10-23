@@ -125,9 +125,9 @@
       "probe_cases": 1,
       "resolution": {
         "phase": "P1 targeted fixes",
-        "implementation": "客户详情返回重读资料/资产/特权，首入不双读；按原身份和读取代次隔离旧回执，未核实资产不放行新还桶草稿。",
+        "implementation": "客户详情返回重读并隔离旧回执；与货到付款保存交错时延后资料读取，隐藏/换身份的旧保存回执不重建旧画像。",
         "formal_test": "node tests/js/customer-detail-refresh.test.js",
-        "added_cases": 13,
+        "added_cases": 16,
         "validation": "p1-verification.json",
         "remaining": "Native pixels / real services not verified."
       }

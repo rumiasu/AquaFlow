@@ -21,7 +21,8 @@ Page({
     this.setData({ historyLoading: true, historyError: '' })
     try {
       const res = await getMyFeedbacks()
-      this.setData({ historyList: res.data || [] })
+      if (!res || !Array.isArray(res.data)) throw new Error('反馈记录尚未核实')
+      this.setData({ historyList: res.data })
     } catch (err) {
       // 静默失败会被当成「没有历史反馈」，用户以为反馈丢了。留痕 + 提示。
       this.setData({ historyError: '反馈记录尚未读取，请重试后核对' })

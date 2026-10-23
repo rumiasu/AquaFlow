@@ -222,7 +222,7 @@
       "id": "WB-05",
       "severity": "P1",
       "title": "经营看板切金额未重算趋势值和标题",
-      "status": "open",
+      "status": "fixed_code_tests_passed_native_pending",
       "evidence_type": "code_defect",
       "routes": [
         "miniapp-delivery/pages/station-mgmt/dashboard/index"
@@ -254,7 +254,15 @@
       },
       "acceptance_check": "orders=3/amount=120切换为120再切回3；标题同步；切周期与零值正确。",
       "native_pixel_verified": false,
-      "probe_cases": 1
+      "probe_cases": 1,
+      "resolution": {
+        "phase": "P1 targeted fixes",
+        "implementation": "金额/单量切换从同一report重算values和标题；Canvas宿主显示后绘制，并丢弃旧报表setData回调。",
+        "formal_test": "node tests/js/dashboard-metric-switch.test.js",
+        "added_cases": 8,
+        "validation": "p1-verification.json",
+        "remaining": "Native pixels / real services not verified."
+      }
     },
     {
       "id": "WB-06",
@@ -450,19 +458,19 @@
   "fix_branch": "codex/fix-workbench-interactions-20261023",
   "open_severity_counts": {
     "P0": 0,
-    "P1": 3,
+    "P1": 2,
     "P2": 4
   },
   "remaining_probe_conversion": {
     "converted": [
       "WB-01 double tap",
       "WB-01 uncertain retry",
-      "WB-04"
+      "WB-04",
+      "WB-05"
     ],
     "pending": [
       "WB-02",
       "WB-03",
-      "WB-05",
       "WB-07",
       "WB-08"
     ]

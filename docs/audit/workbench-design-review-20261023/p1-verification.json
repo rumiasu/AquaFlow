@@ -39,6 +39,33 @@
           "sha256": "4c4f8f8d0313852eb2cecd747bf1e5b5f5554b9ae37a8ce18206fec876a9fc30"
         }
       ]
+    },
+    {
+      "change": "金额/单量切换从同一report重算values和标题；Canvas宿主显示后绘制，并丢弃旧报表setData回调。",
+      "added_cases": 8,
+      "tests": [
+        {
+          "command": "node tests/js/dashboard-metric-switch.test.js",
+          "counted_items": 8,
+          "exit_code": 0
+        }
+      ],
+      "issue": "WB-05",
+      "fix_parent_commit": "74b14cc1178da908642eb0dfdb9803b9e92e9aee",
+      "source_hashes": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.js",
+          "sha256": "288179f9377e615e5353180de8447e3f88873d1bea25354d9bdba18985ed8e1d"
+        },
+        {
+          "path": "tests/js/dashboard-metric-switch.test.js",
+          "sha256": "5a89bc3970f08827e99abce184395e3a7ad6fb3b781ad042a55b5f2616734aa5"
+        },
+        {
+          "path": "tests/js/run-all.js",
+          "sha256": "ebef604ad5ff7e8d5cda6c6b19e6275545b2e2ce7658edff4d84759dd743643f"
+        }
+      ]
     }
   ],
   "boundary": "Actual Page handlers / WXML condition projection with synthetic APIs only. No native rendering, real login/payment/refund, backend/MySQL, cloud data, deployment or Actions read. No new full-run claim."

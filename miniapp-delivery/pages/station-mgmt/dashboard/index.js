@@ -47,8 +47,13 @@ Page({
 
   onMetricChange(e) {
     const key = e.currentTarget.dataset.key
-    if (!key || key === this.data.trendMetric) return
-    this.setData({ trendMetric: key }, () => this.drawTrend())
+    const report = this.data.report
+    if (!['orders', 'amount'].includes(key) || key === this.data.trendMetric
+        || this.data.loading || !report || !this.data.metricSwitchable) return
+    // 2026-10-23：只重画曾把单量按金额曲线显示；同一份报表须同时重算值和标题。
+    this.setData({ trendMetric: key }, () => {
+      if (this.data.report === report && !this.data.loading) this.prepareCharts(report)
+    })
   },
 
   onToggleRecords() {
@@ -72,7 +77,10 @@ Page({
       const groups = { trend: ['orders', 'amount'], statusDistribution: ['cnt', 'share'], payMethodDistribution: ['cnt', 'share'], topProducts: ['qty', 'revenue', 'share'], topCustomers: ['orders', 'amount'], staffPerformance: ['totalOrders', 'completedOrders', 'completeRate'], hourDistribution: ['orders'] }
       if (!summary || !fields.every(key => known(summary[key])) || !Object.keys(groups).every(key => Array.isArray(res.data[key]) && res.data[key].every(row => row && groups[key].every(field => known(row[field]))))) throw new Error('经营报表资料不完整，金额和统计尚未核实，请重新读取')
       const report = this.decorate(res.data)
-      this.setData({ report }, () => this.prepareCharts(report))
+      // Canvas位于!loading分支，渲染完成后再绘制，旧报表回调不能覆盖新周期。
+      this.setData({ report, loading: false }, () => {
+        if (seq === this._reportSeq && this.data.report === report) this.prepareCharts(report)
+      })
     } catch (err) {
       if (seq !== this._reportSeq) return
       this.setData({ error: err.message || '加载失败', report: null })

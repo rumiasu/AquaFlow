@@ -106,6 +106,9 @@ Page({
     this.loadData(this.data.isManager).then(() => { wx.stopPullDownRefresh() })
   },
 
+  onShowUnpaidRecords() { wx.pageScrollTo({ selector: '#home-unpaid-records', duration: 180 }) },
+  onBackToTaskFilters() { wx.pageScrollTo({ selector: '#home-task-filters', duration: 180 }) },
+
   /**
    * @param {boolean} isManager **必须显式传入**，不要在函数里回头读 `this.data.isManager`：
    *   依赖"setData 已同步写回 data"这种时序，一旦不成立就会走错分支 —— 配送员去请求

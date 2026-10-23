@@ -153,6 +153,10 @@
 .unpaid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; padding: 16rpx 0; }
 .unpaid-title { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
 .unpaid-count { font-size: 24rpx; color: var(--text-placeholder); }
+.unpaid-shortcut, .unpaid-back-to-tasks { min-height: 88rpx; height: auto; padding: 16rpx 24rpx; line-height: 1.5; box-sizing: border-box; font-size: 28rpx; color: var(--text-regular); }
+.unpaid-shortcut { margin: 16rpx 24rpx; text-align: left; background: var(--warning-bg); }
+.unpaid-back-to-tasks { color: var(--primary-color); background: #fff; margin-bottom: 16rpx; }
+.unpaid-shortcut::after, .unpaid-back-to-tasks::after { border: none; }
 /* [2026-10-06] 折叠/展开切换 */
 .unpaid-toggle { font-size: 24rpx; color: var(--primary-color); margin-left: 16rpx; }
 .status-warning { background: rgba(255,149,0,0.1); color: var(--status-pending); }

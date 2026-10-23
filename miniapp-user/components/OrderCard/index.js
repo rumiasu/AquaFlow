@@ -5,6 +5,16 @@ const { cancelView, cancelResultText } = require('../../utils/customer-cancel-vi
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const { cancelOrder, getOrderDetail } = require('../../api/order')
 
+// 仅生成取消反馈文案；保留原错误及其结果未知标记，由原流程判断。
+function cancelErrorText(error) {
+  const message = error && typeof error.message === 'string' ? error.message.trim() : ''
+  const unknown = '取消结果尚未确认，请重新查询订单'
+  if (error && error.resultUnknown) return unknown
+  return /[\u3400-\u9fff]/.test(message)
+    && !/(?:Exception|Error:|\bat\s+\S+\(|\bSQL\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|https?:\/\/|request:fail|errno|stack|[A-Z][A-Z_]{5,})/.test(message)
+    ? message : unknown
+}
+
 Component({
   properties: {
     order: { type: Object, value: {} }
@@ -114,7 +124,7 @@ Component({
             wx.showToast({ title: cancelResultText(fresh), icon: 'none' })
             this.triggerEvent('cancel', { order })
           } catch (err) {
-            if (current()) wx.showToast({ title: err.message || '取消失败', icon: 'none' })
+            if (current()) wx.showToast({ title: cancelErrorText(err), icon: 'none' })
           } finally {
             release()
           }

@@ -112,6 +112,23 @@ for (const type of ['card', 'detail']) {
     assert.equal(t.wx.__calls.toast.at(-1).title, '已提交取消申请，请等待水站处理'); assert.equal(t.calls.events.length, 0)
   })
 }
+test('card cancellation hides raw request errors and keeps their original metadata', async () => {
+  for (const message of ['Internal Server Error', 'java.lang.IllegalStateException: SQL failure', '服务异常：REQUEST_FAILED']) {
+    // request.js turns an actual Result.message into Error(message); metadata remains owned by the caller.
+    const error = Object.assign(new Error(message), { resultUnknown: true, code: 500, metadata: { retryable: true } })
+    const before = { message: error.message, stack: error.stack, code: error.code, resultUnknown: error.resultUnknown, metadata: error.metadata }
+    const t = fixture('card', 2, { cancel: async () => { throw error } }); t.page.onCancel(); await tick(); await tick()
+    assert.equal(t.wx.__calls.toast.at(-1).title, '取消结果尚未确认，请重新查询订单')
+    assert.equal(t.calls.events.length, 0); assert.equal(t.calls.read, 0); assert.equal(t.calls.cancel.length, 1)
+    assert.deepStrictEqual({ message: error.message, stack: error.stack, code: error.code, resultUnknown: error.resultUnknown, metadata: error.metadata }, before)
+  }
+})
+test('card actual unmarked request Result error cannot expose English internal copy', async () => {
+  const error = new Error('Internal Server Error')
+  const t = fixture('card', 1, { cancel: async () => { throw error } }); t.page.onCancel(); await tick(); await tick()
+  assert.equal(t.wx.__calls.toast.at(-1).title, '取消结果尚未确认，请重新查询订单')
+  assert.equal(error.message, 'Internal Server Error'); assert.equal(t.calls.events.length, 0)
+})
 test('delivered and final orders remain unavailable using actual backend permissions', async () => {
   const t = fixture('card')
   for (const status of [3, 4, 5]) { t.page.update(order(status)); assert.equal(t.page.data.canCancel, false); t.page.onCancel() }

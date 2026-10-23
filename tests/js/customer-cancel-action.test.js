@@ -124,10 +124,12 @@ test('card cancellation hides raw request errors and keeps their original metada
   }
 })
 test('card actual unmarked request Result error cannot expose English internal copy', async () => {
-  const error = new Error('Internal Server Error')
+  for (const message of ['Internal Server Error', '服务暂时不可用（HTTP 503），请稍后重试', '服务异常：REQUEST_FAILED']) {
+  const error = new Error(message)
   const t = fixture('card', 1, { cancel: async () => { throw error } }); t.page.onCancel(); await tick(); await tick()
   assert.equal(t.wx.__calls.toast.at(-1).title, '取消结果尚未确认，请重新查询订单')
-  assert.equal(error.message, 'Internal Server Error'); assert.equal(t.calls.events.length, 0)
+  assert.equal(error.message, message); assert.equal(t.calls.events.length, 0)
+  }
 })
 test('delivered and final orders remain unavailable using actual backend permissions', async () => {
   const t = fixture('card')

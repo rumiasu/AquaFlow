@@ -11,7 +11,7 @@ function cancelErrorText(error) {
   const unknown = '取消结果尚未确认，请重新查询订单'
   if (error && error.resultUnknown) return unknown
   return /[\u3400-\u9fff]/.test(message)
-    && !/(?:Exception|Error:|\bat\s+\S+\(|\bSQL\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|https?:\/\/|request:fail|errno|stack|[A-Z][A-Z_]{5,})/.test(message)
+    && !/(?:Exception|Error:|HTTP\s*\d*|\bat\s+\S+\(|\bSQL\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|https?:\/\/|request:fail|errno|stack|[A-Z][A-Z_]{5,})/.test(message)
     ? message : unknown
 }
 

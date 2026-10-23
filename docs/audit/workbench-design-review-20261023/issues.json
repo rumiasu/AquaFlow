@@ -5,7 +5,7 @@
   "source_branch": "codex/fix-fee-drawer-layout-20261018",
   "review_branch": "codex/review-workbench-20261023",
   "business_code_modified": true,
-  "acceptance_claim": "limited_source_and_synthetic_handler_review",
+  "acceptance_claim": "source_fixes_with_targeted_synthetic_regression_no_native_acceptance",
   "severity_definitions": {
     "P0": "影响使用或记账可信度，阻断相关操作交付",
     "P1": "明显体验或判断错误，相关任务试用前应修",
@@ -284,7 +284,7 @@
       "id": "WB-06",
       "severity": "P2",
       "title": "客户首页列表和复购图片失败没有恢复占位",
-      "status": "open",
+      "status": "fixed_code_tests_passed_native_pending",
       "evidence_type": "code_defect",
       "routes": [
         "miniapp-user/pages/home/index"
@@ -315,13 +315,21 @@
       },
       "acceptance_check": "坏URL出现明确占位且数量操作可用；换URL后可以加载，不无限重试。",
       "native_pixel_verified": false,
-      "probe_cases": 0
+      "probe_cases": 0,
+      "resolution": {
+        "phase": "bounded low-cost P2",
+        "implementation": "首页列表及复购图按原ID+URL处理失败，进入既有占位；保留数量、原订单和报价，不添加网络请求或品牌素材。",
+        "formal_test": "node tests/js/customer-home-recovery-view.test.js",
+        "added_cases": 3,
+        "validation": "p1-verification.json",
+        "remaining": "Native pixels / real services not verified."
+      }
     },
     {
       "id": "WB-07",
       "severity": "P2",
       "title": "恢复清单中暂不可订商品没有说明",
-      "status": "open",
+      "status": "fixed_code_tests_passed_native_pending",
       "evidence_type": "code_defect",
       "routes": [
         "miniapp-user/pages/home/index"
@@ -352,7 +360,15 @@
       },
       "acceptance_check": "恢复两项其中一项下架，原稿保留且有可解释提示；全目录失败仍走既有重试态。",
       "native_pixel_verified": false,
-      "probe_cases": 1
+      "probe_cases": 1,
+      "resolution": {
+        "phase": "bounded low-cost P2",
+        "implementation": "仅成功核对的目录才提示暂不可订已选商品种数并提供重读；原数量保留、商品恢复后重新显示；整目录读取失败不误报下架。未新增逐项管理或自动替换。",
+        "formal_test": "node tests/js/customer-home-recovery-view.test.js",
+        "added_cases": 3,
+        "validation": "p1-verification.json",
+        "remaining": "Native pixels / real services not verified."
+      }
     },
     {
       "id": "WB-08",
@@ -396,7 +412,8 @@
       "native_pixel_verified": false,
       "probe_cases": 1,
       "origin": "inherited_unresolved",
-      "previous_id": "D01"
+      "previous_id": "D01",
+      "deferred_reason": "普通反馈严格幂等需另定原请求识别合同，历史列表无法证明某次超时未写入；本轮不凭正文/时间猜结果，不扩后端协议。"
     },
     {
       "id": "WB-09",
@@ -444,7 +461,8 @@
       },
       "acceptance_check": "从目录及责任提醒都能直达目标，零/失败/长列表不误报，窄屏再核对。",
       "native_pixel_verified": false,
-      "probe_cases": 0
+      "probe_cases": 0,
+      "deferred_reason": "信息顺序改善属代码视觉推断，未有当前像素或任务观察；按本轮先修使用缺陷范围延期。"
     }
   ],
   "coverage_gaps": [
@@ -475,7 +493,7 @@
   "open_severity_counts": {
     "P0": 0,
     "P1": 0,
-    "P2": 4
+    "P2": 2
   },
   "remaining_probe_conversion": {
     "converted": [
@@ -484,10 +502,10 @@
       "WB-04",
       "WB-05",
       "WB-02",
-      "WB-03"
+      "WB-03",
+      "WB-07"
     ],
     "pending": [
-      "WB-07",
       "WB-08"
     ]
   }

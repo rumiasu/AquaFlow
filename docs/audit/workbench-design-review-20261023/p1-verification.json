@@ -1,5 +1,5 @@
 {
-  "phase": "P1 targeted fixes after P0",
+  "phase": "Remaining P1 fixes and bounded low-cost P2",
   "base_commit": "45e932a43c7643407a6b845a8a6785fe4a9537f6",
   "checks": [
     {
@@ -136,7 +136,109 @@
           "sha256": "3e416d668cd5fd005860ef87dc0ca900e971f52d640265309d2fc84ccb4349df"
         }
       ]
+    },
+    {
+      "phase": "bounded low-cost P2",
+      "verification_group": "home-recovery-p2-20261023",
+      "shared_execution": true,
+      "change": "首页列表及复购图按原ID+URL处理失败，进入既有占位；保留数量、原订单和报价，不添加网络请求或品牌素材。",
+      "added_cases": 3,
+      "tests": [
+        {
+          "command": "node tests/js/customer-home-recovery-view.test.js",
+          "counted_items": 39,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/customer-home-cart-persistence.test.js",
+          "counted_items": 16,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/customer-cart-session.test.js",
+          "counted_items": 14,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/customer-home-quote-debounce.test.js",
+          "counted_items": 21,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/key-text-readability.test.js",
+          "counted_items": 8,
+          "exit_code": 0
+        }
+      ],
+      "issue": "WB-06",
+      "fix_parent_commit": "8801cacd652d3a7fea2efdac4660ff5df1e68911",
+      "source_hashes": [
+        {
+          "path": "miniapp-user/pages/home/index.js",
+          "sha256": "664069e1677e44d3338e32b48ab54a8cab2fc21513e5dfcd25f52abcc8149050"
+        },
+        {
+          "path": "miniapp-user/pages/home/index.wxml",
+          "sha256": "bcf24933d832181c6e971c7ae835a8adc07dc923febc3c7dcd195a0f63020059"
+        },
+        {
+          "path": "tests/js/customer-home-recovery-view.test.js",
+          "sha256": "08c34d0968d8a5da25915e3ecb5d550d2e9552d163cf758c3ab53f46b66bb688"
+        }
+      ]
+    },
+    {
+      "phase": "bounded low-cost P2",
+      "verification_group": "home-recovery-p2-20261023",
+      "shared_execution": true,
+      "change": "仅成功核对的目录才提示暂不可订已选商品种数并提供重读；原数量保留、商品恢复后重新显示；整目录读取失败不误报下架。未新增逐项管理或自动替换。",
+      "added_cases": 3,
+      "tests": [
+        {
+          "command": "node tests/js/customer-home-recovery-view.test.js",
+          "counted_items": 39,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/customer-home-cart-persistence.test.js",
+          "counted_items": 16,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/customer-cart-session.test.js",
+          "counted_items": 14,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/customer-home-quote-debounce.test.js",
+          "counted_items": 21,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/key-text-readability.test.js",
+          "counted_items": 8,
+          "exit_code": 0
+        }
+      ],
+      "issue": "WB-07",
+      "fix_parent_commit": "8801cacd652d3a7fea2efdac4660ff5df1e68911",
+      "source_hashes": [
+        {
+          "path": "miniapp-user/pages/home/index.js",
+          "sha256": "664069e1677e44d3338e32b48ab54a8cab2fc21513e5dfcd25f52abcc8149050"
+        },
+        {
+          "path": "miniapp-user/pages/home/index.wxml",
+          "sha256": "bcf24933d832181c6e971c7ae835a8adc07dc923febc3c7dcd195a0f63020059"
+        },
+        {
+          "path": "tests/js/customer-home-recovery-view.test.js",
+          "sha256": "08c34d0968d8a5da25915e3ecb5d550d2e9552d163cf758c3ab53f46b66bb688"
+        }
+      ]
     }
   ],
-  "boundary": "Actual Page handlers / WXML condition projection with synthetic APIs only. No native rendering, real login/payment/refund, backend/MySQL, cloud data, deployment or Actions read. No new full-run claim."
+  "boundary": "Actual Page handlers / WXML condition projection with synthetic APIs only. No native rendering, real login/payment/refund, backend/MySQL, cloud data, deployment or Actions read. No new full-run claim.",
+  "execution_count_boundary": "Entries sharing verification_group refer to the same actual suite execution; do not sum them as separate or new tests.",
+  "actions_status": "Not queried in this phase; previous Forbidden read denial respected."
 }

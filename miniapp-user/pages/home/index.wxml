@@ -137,7 +137,7 @@
              [2026-09-27 走查 C02 修] 摘要分两句：规模（共 N 种 / M 件）+ 具体是哪几款。
              原文只有一句"等N件"（N 是种数、单位写成"件"），客户点之前说不清会加进什么。 -->
         <view class="card again" wx:if="{{againOrder}}">
-          <image class="again-img" wx:if="{{againOrder.img}}" src="{{againOrder.img}}" mode="aspectFit" />
+          <image class="again-img" wx:if="{{againOrder.img}}" src="{{againOrder.img}}" mode="aspectFit" data-id="{{againOrder.id}}" data-url="{{againOrder.img}}" data-kind="again" binderror="onHomeProductImageError" />
           <view class="again-img again-img-empty" wx:else>
             <icon name="barrel" size="48rpx" color="#9CA7B5" />
           </view>
@@ -147,6 +147,13 @@
             <text class="again-preview" wx:if="{{againOrder.preview}}">{{againOrder.preview}}</text>
           </view>
           <view class="again-btn" bindtap="onAgainTap">再订一单</view>
+        </view>
+
+        <view class="home-feedback" wx:if="{{unavailableCartCount > 0 && (catalogState === 'ready' || catalogState === 'empty')}}">
+          <view class="home-feedback-row">
+            <text class="home-feedback-title">有 {{unavailableCartCount}} 种已选商品暂不可订，原数量已保留。</text>
+            <button class="home-feedback-retry" bindtap="onRetryHome" disabled="{{loading || homeRetrying}}">重新核对商品</button>
+          </view>
         </view>
 
         <view class="card catalog-state" wx:if="{{catalogState === 'error'}}">
@@ -178,7 +185,7 @@
             <view class="sec-more" bindtap="onGoShop">更多商品 ›</view>
           </view>
           <view class="prod" wx:for="{{productsView}}" wx:key="id">
-            <image class="prod-img" wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFit" />
+            <image class="prod-img" wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFit" data-id="{{item.id}}" data-url="{{item.imageUrl}}" binderror="onHomeProductImageError" />
             <view class="prod-img prod-img-empty" wx:else>
               <icon name="barrel" size="48rpx" color="#9CA7B5" />
             </view>

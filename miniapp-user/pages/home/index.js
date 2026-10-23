@@ -53,6 +53,7 @@ Page({
     products: [],       // 原始商品列表（后端下发单价/押金）
     productsView: [],   // 渲染用：合并了 qty / priceText / depositText
     cart: {},
+    unavailableCartCount: 0,
     total: { count: 0, waterText: '0', depositText: '0', grandText: '0' },
     againOrder: null,   // { img, summary, items:[{productId, quantity}] }
     activeShip: null,   // { id, title, sub }
@@ -852,8 +853,13 @@ Page({
 
     const waterText = fmtMoney(water)
     const depositText = fmtMoney(deposit)
+    // 2026-10-23：部分已选商品不在当前目录时只隐藏曾被误认完整恢复；不删除原草稿。
+    const productIds = new Set(products.map(p => String(p.id)))
+    const unavailableCartCount = ['ready', 'empty'].includes(this.data.catalogState)
+      ? Object.keys(cart).filter(id => Number(cart[id]) > 0 && !productIds.has(String(id))).length : 0
     this.setData({
       productsView,
+      unavailableCartCount,
       total: {
         count,
         waterText,
@@ -957,6 +963,20 @@ Page({
   // 海报仅为装饰资源；失败保留原生标题与真实商品信息，不阻断订水。
   onPosterArtError() {
     this.setData({ posterArtFailed: true })
+  },
+
+  onHomeProductImageError(e) {
+    const { id, url, kind } = e.currentTarget.dataset
+    if (this._homeHidden || this._homeDestroyed) return
+    if (kind === 'again') {
+      const again = this.data.againOrder
+      if (again && String(again.id) === String(id) && again.img === url) this.setData({ againOrder: { ...again, img: '' } })
+      return
+    }
+    // 2026-10-23：非空坏URL曾始终保留image而不进占位；只更新匹配原URL的显示字段。
+    if (!this.data.products.some(p => String(p.id) === String(id) && p.imageUrl === url)) return
+    this.setData({ products: this.data.products.map(p => String(p.id) === String(id) && p.imageUrl === url ? { ...p, imageUrl: '' } : p) })
+    this.refreshDerived(undefined, false)
   },
 
   onPosterProductImageError() {

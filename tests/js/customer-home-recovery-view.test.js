@@ -289,6 +289,51 @@ test('an old address response cannot overwrite a newer explicit choice', async (
   await new Promise(setImmediate); assert.equal(t.page.data.address.id, 14)
 })
 
+test('WB-07 partially restored cart discloses an unavailable SKU while preserving both original quantities', async () => {
+  const t = fixture(); t.carts[1][11] = 1; await t.page.loadData()
+  assert.equal(t.page.data.unavailableCartCount, 1); assert(texts(t.page).includes('1 种已选商品暂不可订'))
+  assert.equal(t.carts[1][11], 1); assert.equal(t.page.data.total.count, 2)
+  assert.deepEqual(t.page.collectCartItems(), [{ productId: 10, quantity: 2 }])
+  assert(visible(t.page).some(n => n.tag === 'button' && n.text === '重新核对商品' && n.attrs.bindtap === 'onRetryHome'))
+})
+test('unavailable cart hint clears and original quantity returns when the catalog includes that SKU again', async () => {
+  let rows = [water]
+  const t = fixture({ products: async () => ok(rows) }); t.carts[1][11] = 1
+  await t.page.loadData(); rows = [water, { ...water, id: 11 }]; await t.page.loadData()
+  assert.equal(t.page.data.unavailableCartCount, 0); assert.equal(t.page.data.total.count, 3)
+  assert.equal(t.page.data.productsView.find(p => p.id === 11).qty, 1)
+})
+test('whole catalog failure cannot label saved cart products as unavailable', async () => {
+  const t = fixture({ products: async () => { throw Error('SYNTH catalog offline') } })
+  t.carts[1][11] = 1; await t.page.loadData()
+  assert.equal(t.page.data.unavailableCartCount, 0); assert(!texts(t.page).includes('种已选商品暂不可订'))
+  assert.equal(t.carts[1][11], 1)
+})
+test('WB-06 list photo failure activates the existing fallback without changing cart or quoting again', async () => {
+  let quotes = 0
+  const t = fixture({ products: async () => ok([{ ...water, imageUrl: 'SYNTH-broken' }]), quote: async () => { quotes++; return ok({}) } })
+  await t.page.loadData(); const before = quotes
+  t.page.onHomeProductImageError({ currentTarget: { dataset: { id: 10, url: 'SYNTH-broken' } } })
+  assert.equal(t.page.data.productsView[0].imageUrl, ''); assert(hasClass(t.page, 'prod-img-empty'))
+  assert.equal(t.page.data.total.count, 2); assert.equal(t.carts[1][10], 2); assert.equal(quotes, before)
+})
+test('old photo error cannot clear a different current URL and fresh catalog loading permits retry', async () => {
+  const t = fixture({ products: async () => ok([{ ...water, imageUrl: 'SYNTH-current' }]) }); await t.page.loadData()
+  t.page.onHomeProductImageError({ currentTarget: { dataset: { id: 10, url: 'SYNTH-old' } } })
+  assert.equal(t.page.data.productsView[0].imageUrl, 'SYNTH-current')
+  t.page.onHomeProductImageError({ currentTarget: { dataset: { id: 10, url: 'SYNTH-current' } } })
+  await t.page.loadData(); assert.equal(t.page.data.productsView[0].imageUrl, 'SYNTH-current')
+})
+test('repeat photo failure preserves the original order identity, items and action', () => {
+  const t = fixture(); const items = [{ productId: 10, quantity: 2 }]
+  t.page.setData({ againOrder: { id: 101, img: 'SYNTH-broken', items } })
+  t.page.onHomeProductImageError({ currentTarget: { dataset: { kind: 'again', id: 99, url: 'SYNTH-broken' } } })
+  assert.equal(t.page.data.againOrder.img, 'SYNTH-broken')
+  t.page.onHomeProductImageError({ currentTarget: { dataset: { kind: 'again', id: 101, url: 'SYNTH-broken' } } })
+  assert.equal(t.page.data.againOrder.img, ''); assert.deepEqual(t.page.data.againOrder.items, items)
+  t.page.onAgainTap(); assert(t.wx.__calls.nav.at(-1).url.includes('reorderId=101'))
+})
+
 async function run() {
   let failed = 0
   try {

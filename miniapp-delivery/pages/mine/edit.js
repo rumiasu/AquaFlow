@@ -27,6 +27,7 @@ Page({
   },
 
   async onSubmit() {
+    if (this.data.submitting) return
     const { nickname, phone } = this.data
     if (!nickname.trim()) {
       wx.showToast({ title: '请输入昵称', icon: 'none' })

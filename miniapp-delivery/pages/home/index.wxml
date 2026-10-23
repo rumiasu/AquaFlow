@@ -19,44 +19,7 @@
   <view class="load-error" wx:if="{{loadError}}"><text>{{loadError}}</text><button size="mini" bindtap="onRetryVisibleData">重新加载</button></view>
 
   <view class="load-error" wx:if="{{!loading && !readReady.unpaid}}"><text>待收款订单尚未核实，请重新加载后核对，不能据此判断已经结清。</text><button size="mini" bindtap="onRetryVisibleData">核对待收款</button></view>
-  <!-- 未结款项常显，不以折叠隐藏收款事实。 -->
-  <view class="unpaid-section" wx:if="{{deliveredUnpaidOrders.length > 0}}">
-    <view class="unpaid-header">
-      <text class="unpaid-title">已送达 · 待收款</text>
-      <text class="unpaid-count">{{deliveredUnpaidOrders.length}} 单</text>
-    </view>
-    <block>
-      <view class="order-card" wx:for="{{deliveredUnpaidOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
-        <view class="card-header">
-          <view class="tag-row">
-            <text class="status-tag status-warning">已配送待付款</text>
-            <text class="aux-tag aux-offline" wx:if="{{item.isOffline}}">线下</text>
-            <text class="aux-tag aux-unpaid" wx:if="{{item.isUnpaid}}">待收款</text>
-          </view>
-          <text class="order-id">#{{item.id}}</text>
-        </view>
-        <view class="address-info" wx:if="{{item.addressDetail || item.addressSnapshot}}">
-          <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
-        </view>
-        <view class="product-info">
-          <text class="product-name">{{item.itemSummaryText}}</text>
-          <text class="product-qty" wx:if="{{item.itemMetaText}}">{{item.itemMetaText}}</text>
-        </view>
-        <view class="pay-line">
-          <text class="pay-label {{item.isUnpaid ? 'pay-need' : ''}}">{{item.payLabel}}</text>
-          <text class="pay-amount {{item.isUnpaid ? 'pay-need' : ''}}">{{item.amountText}}</text>
-          <text class="pay-extra" wx:if="{{item.returnBucketQty > 0}}">回桶 {{item.returnBucketQty}} 个</text>
-        </view>
-        <view class="contact-row">
-          <text class="customer-name">{{item.customerName || item.receiverName}}</text>
-        </view>
-        <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
-        <view class="card-actions">
-          <button class="btn-accept" catchtap="onConfirmCollection" data-id="{{item.id}}">确认收款</button>
-        </view>
-      </view>
-    </block>
-  </view>
+  <button class="unpaid-shortcut" wx:if="{{deliveredUnpaidOrders.length > 0}}" bindtap="onShowUnpaidRecords">已送达待收款 {{deliveredUnpaidOrders.length}} 单 · 查看收款记录 ›</button>
 
   <!--
     Tab 切换。名字与后端订单状态一一对齐（constant/OrderStatus）：
@@ -67,7 +30,7 @@
     （= 已分配给我的 + 全站待分配的，见 index.js 的合并逻辑）。按「接单配送」= status 1→2。
   -->
   <!-- 2026-10-22：原统计区重复占据首屏，数量并入同一筛选入口；仍取各列表长度，不另算业务总数。 -->
-  <view class="tab-bar">
+  <view id="home-task-filters" class="tab-bar">
     <view class="tab-item {{activeTab === 'assigned' ? 'active' : ''}}" bindtap="switchTab" data-tab="assigned">
       <text class="stat-label">待配送</text>
       <text class="stat-unit">{{readReady.assigned ? assignedOrders.length + ' 单' : '待核实'}}</text>
@@ -242,6 +205,46 @@
     <view class="empty-state" wx:if="{{!loading && readReady.completed && completedOrders.length === 0}}">
       <text class="empty-text">今日暂无已完成订单</text>
     </view>
+  </view>
+
+  <!-- 待收款明细完整保留；配送任务优先，顶部入口可直接定位到此。 -->
+  <view id="home-unpaid-records" class="unpaid-section" wx:if="{{deliveredUnpaidOrders.length > 0}}">
+    <view class="unpaid-header">
+      <text class="unpaid-title">已送达 · 待收款</text>
+      <text class="unpaid-count">{{deliveredUnpaidOrders.length}} 单</text>
+    </view>
+    <button class="unpaid-back-to-tasks" bindtap="onBackToTaskFilters">返回配送任务筛选</button>
+    <block>
+      <view class="order-card" wx:for="{{deliveredUnpaidOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="card-header">
+          <view class="tag-row">
+            <text class="status-tag status-warning">已配送待付款</text>
+            <text class="aux-tag aux-offline" wx:if="{{item.isOffline}}">线下</text>
+            <text class="aux-tag aux-unpaid" wx:if="{{item.isUnpaid}}">待收款</text>
+          </view>
+          <text class="order-id">#{{item.id}}</text>
+        </view>
+        <view class="address-info" wx:if="{{item.addressDetail || item.addressSnapshot}}">
+          <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
+        </view>
+        <view class="product-info">
+          <text class="product-name">{{item.itemSummaryText}}</text>
+          <text class="product-qty" wx:if="{{item.itemMetaText}}">{{item.itemMetaText}}</text>
+        </view>
+        <view class="pay-line">
+          <text class="pay-label {{item.isUnpaid ? 'pay-need' : ''}}">{{item.payLabel}}</text>
+          <text class="pay-amount {{item.isUnpaid ? 'pay-need' : ''}}">{{item.amountText}}</text>
+          <text class="pay-extra" wx:if="{{item.returnBucketQty > 0}}">回桶 {{item.returnBucketQty}} 个</text>
+        </view>
+        <view class="contact-row">
+          <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+        </view>
+        <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
+        <view class="card-actions">
+          <button class="btn-accept" catchtap="onConfirmCollection" data-id="{{item.id}}">确认收款</button>
+        </view>
+      </view>
+    </block>
   </view>
 
   <view class="loading-state" wx:if="{{loading}}"><text class="loading-text">加载中...</text></view>

@@ -58,7 +58,7 @@ Page({
       this._feedbackFlight = null
       if (this._feedbackLoading) { wx.hideLoading(); this._feedbackLoading = false }
       this.setData({ category: 'bug', content: '', contact: '', submitting: false,
-        historyList: [], historyError: '', historyLoading: false })
+        historyList: [], historyError: '当前身份的反馈记录尚未读取，请重新读取', historyLoading: false })
     }
     this._feedbackOwner = owner
     return owner

@@ -4,7 +4,7 @@
   "source_commit": "6e2055f5235e84657f9807f0c0eb7857a2c1ea18",
   "source_branch": "codex/fix-fee-drawer-layout-20261018",
   "review_branch": "codex/review-workbench-20261023",
-  "business_code_modified": false,
+  "business_code_modified": true,
   "acceptance_claim": "limited_source_and_synthetic_handler_review",
   "severity_definitions": {
     "P0": "影响使用或记账可信度，阻断相关操作交付",
@@ -27,7 +27,7 @@
       "id": "WB-01",
       "severity": "P0",
       "title": "同次还空桶连点或超时重试会换幂等键",
-      "status": "open",
+      "status": "fixed_code_tests_passed_native_pending",
       "evidence_type": "code_defect",
       "routes": [
         "miniapp-delivery/pages/station-mgmt/customers/detail/index"
@@ -75,7 +75,16 @@
       "acceptance_check": "连点仅一个请求；可能已执行的超时重试复用原键；离页重进仍核对原登记；明确拒绝可修正。",
       "native_pixel_verified": false,
       "probe_cases": 2,
-      "consequence_confidence": "source_chain_inference_no_database_execution"
+      "consequence_confidence": "source_chain_inference_no_database_execution",
+      "resolution": {
+        "phase": "P0 first delivery",
+        "implementation": "Durable identity/customer-scoped original clientToken; in-flight and stale modal guards; unknown original retry; verified storage and response handling. No backend/SQL change.",
+        "formal_test": "tests/js/return-empty-intent.test.js",
+        "formal_cases": 31,
+        "original_probe_cases_converted": 2,
+        "validation": "fix-verification.json",
+        "remaining": "Native/HTTP/MySQL not run; not a 72-page acceptance claim."
+      }
     },
     {
       "id": "WB-02",
@@ -429,5 +438,25 @@
       "state": "not_run",
       "note": "Old fixture Canvas omission is not evidence that current production Canvas is absent."
     }
-  ]
+  ],
+  "fix_branch": "codex/fix-workbench-interactions-20261023",
+  "open_severity_counts": {
+    "P0": 0,
+    "P1": 4,
+    "P2": 4
+  },
+  "remaining_probe_conversion": {
+    "converted": [
+      "WB-01 double tap",
+      "WB-01 uncertain retry"
+    ],
+    "pending": [
+      "WB-02",
+      "WB-03",
+      "WB-04",
+      "WB-05",
+      "WB-07",
+      "WB-08"
+    ]
+  }
 }

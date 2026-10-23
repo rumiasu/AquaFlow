@@ -1,0 +1,93 @@
+{
+  "phase": "P0 first delivery",
+  "development_base_commit": "6e2055f5235e84657f9807f0c0eb7857a2c1ea18",
+  "review_snapshot_commit": "e77699979af42fa90436b2641d26b2ad7edb595e",
+  "fix_branch": "codex/fix-workbench-interactions-20261023",
+  "fixed": [
+    "WB-01"
+  ],
+  "still_open": [
+    "WB-02",
+    "WB-03",
+    "WB-04",
+    "WB-05",
+    "WB-06",
+    "WB-07",
+    "WB-08",
+    "WB-09"
+  ],
+  "checks": [
+    {
+      "command": "node tests/js/return-empty-intent.test.js",
+      "exit_code": 0,
+      "counted_items": 31,
+      "ascii_completion": "AQUAFLOW_SUITE_OK 31",
+      "after_final_storage_copy_change": true
+    },
+    {
+      "command": "node tests/js/run-all.js",
+      "exit_code": 0,
+      "suites": 117,
+      "counted_items": 3299,
+      "ascii_completion_count": 117,
+      "boundary": "Full run completed before final storage-error Chinese copy wrapping; the final 31-case suite was rerun afterward."
+    },
+    {
+      "command": "python3 audit_js_syntax.py",
+      "exit_code": 0,
+      "files": 182
+    },
+    {
+      "command": "python3 audit_wxml_handlers.py --root miniapp-delivery",
+      "exit_code": 0,
+      "missing_bindings": 0
+    },
+    {
+      "command": "python3 audit_wxss_selectors.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 audit_comments.py",
+      "exit_code": 0,
+      "problems": 0
+    },
+    {
+      "command": "node scripts/check-tracked-inputs.js",
+      "exit_code": 0
+    },
+    {
+      "command": "node --check (changed Page and return-empty-intent helper)",
+      "exit_code": 0
+    }
+  ],
+  "source_hashes": [
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+      "sha256": "c58e83b4e11f0f8df341985aaaa5b8c4d7e9f4db9416fb3abdf458f7a4de5f61"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxml",
+      "sha256": "fcf041e5495e48b694131fc977e1d224d5752e7cdc22266157f219e9f2c4a4e2"
+    },
+    {
+      "path": "miniapp-delivery/utils/return-empty-intent.js",
+      "sha256": "e57b02646c8be1e92c18978cc4edd97eba1fa5552853559400061aef057e3ba7"
+    },
+    {
+      "path": "tests/js/return-empty-intent.test.js",
+      "sha256": "43a9a7c9e42c5bee50e44f6e512de4e41aa4f082b15a1c79afdeb1087fc889b5"
+    },
+    {
+      "path": "tests/js/run-all.js",
+      "sha256": "904b0459172772ae693904e4cd1972f12d23fde5dca9be9327c6bb2f84ff5e20"
+    }
+  ],
+  "not_run": [
+    "WeChat compiler/native/device/keyboard/visual",
+    "HTTP/MySQL/backend build",
+    "real login/payment/refund",
+    "Tencent Cloud data or credentials",
+    "deployment"
+  ],
+  "scope": "Customer detail frontend and one intent helper only; no Java/SQL/fee/status/ledger-policy edits. Audit report preserved and status updated."
+}

@@ -10,6 +10,11 @@
     <text class="error-hint">客户资料尚未核实，请重新读取后再操作。</text><button size="mini" bindtap="onRetryProfile" disabled="{{loading}}">重新读取资料</button>
   </view>
 
+  <view class="asset-error" wx:if="{{returnPending || returnRecoveryError || returnMessage}}">
+    <text class="asset-error-text">{{returnRecoveryError || returnMessage}}</text>
+    <button size="mini" bindtap="onShowReturnEmpty" disabled="{{returnSubmitting}}">核对还桶登记</button>
+  </view>
+
   <block wx:if="{{!loading && profile}}">
     <!-- 头部画像卡 -->
     <view class="profile-header">
@@ -322,18 +327,19 @@
     <view class="modal-tip">
       <text>顾客交回空桶但不带走满桶。只冲减欠桶记录，<text class="strong">不退押金、不减少桶权益</text>；想拿回钱请走「退桶」。</text>
     </view>
+    <view class="modal-tip" wx:if="{{returnMessage || returnRecoveryError}}">{{returnRecoveryError || returnMessage}}</view>
     <view class="return-item" wx:for="{{returnItems}}" wx:key="productId">
       <view class="return-item-main">
         <text class="return-item-name">{{item.productName}}</text>
         <text class="return-item-hint">最多可还 {{item.max}} 个<text wx:if="{{item.over > 0}}">（当前欠桶 {{item.over}} 个）</text></text>
       </view>
       <input class="return-item-input" type="number" value="{{item.qty}}"
-             data-idx="{{index}}" data-max="{{item.max}}" bindinput="onReturnEmptyQtyInput" />
+             data-idx="{{index}}" data-max="{{item.max}}" bindinput="onReturnEmptyQtyInput" disabled="{{returnSubmitting || returnPending}}" />
     </view>
     <view class="modal-footer">
       <view class="modal-btn cancel" bindtap="onCloseReturnEmpty"><text>取消</text></view>
       <view class="modal-btn confirm {{returnSubmitting ? 'disabled' : ''}}" bindtap="onSubmitReturnEmpty">
-        <text>{{returnSubmitting ? '提交中...' : '确认还桶'}}</text>
+        <text>{{returnSubmitting ? '核对中...' : (returnPending ? '重试原登记' : '确认还桶')}}</text>
       </view>
     </view>
   </view>

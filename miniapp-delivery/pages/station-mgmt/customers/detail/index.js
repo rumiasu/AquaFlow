@@ -1,5 +1,6 @@
 // 客户画像（站长视角）
 const { getCustomerProfile, getCustomerAssets, updateOfflinePayment, returnEmptyBuckets } = require('../../../../api/station-mgmt')
+const returnIntent = require('../../../../utils/return-empty-intent')
 // ⚠️ 特权接口走 utils/request + 本文件内的路径常量，不往 api/station-mgmt.js 里加函数：
 // 那个文件正被另一个工作流（商品图片库）改动，往里加东西会让两边未提交的改动纠缠在一起。
 const { get: httpGet, post: httpPost, del: httpDel } = require('../../../../utils/request')
@@ -27,6 +28,9 @@ Page({
     showReturnEmpty: false,
     returnItems: [],
     returnSubmitting: false,
+    returnPending: false,
+    returnMessage: '',
+    returnRecoveryError: '',
     // ===== 客户特权（v40） =====
     // 与资产接口同理，是站长专属：配送员不请求、不渲染该区块。
     privileges: [],
@@ -54,6 +58,56 @@ Page({
   },
 
   onRetryProfile() { return this.loadProfile(this.data.id) },
+
+  onShow() {
+    this._returnHidden = false
+    if (this._returnModalContext && !this.currentReturnContext(this._returnModalContext)) {
+      this._returnModalContext = null
+      this.setData({ showReturnEmpty: false, returnItems: [] })
+    }
+    if (this.data.id) this.restoreReturnIntent()
+  },
+  onHide() { this._returnHidden = true },
+  onUnload() { this._returnDisposed = true; this._returnHidden = true },
+
+  returnContext() {
+    const app = getApp(), user = app.globalData.userInfo || {}
+    if (!app.globalData.isLogin || !app.isStationManager() || !app.canAccessStationBusiness()
+        || ![user.staffId, user.stationId, this.data.id].every(v => Number.isSafeInteger(Number(v)) && Number(v) > 0)) {
+      throw new Error('当前身份或客户尚未核对，请退出本页重新进入')
+    }
+    return { app, generation: app._loginGeneration || 0, customerId: Number(this.data.id),
+      actor: Number(user.staffId) + ':' + Number(user.stationId) }
+  },
+  currentReturnContext(context) {
+    try {
+      const current = this.returnContext()
+      return !this._returnDisposed && current.app === context.app && current.generation === context.generation
+        && current.actor === context.actor && current.customerId === context.customerId
+    } catch (_) { return false }
+  },
+  readReturnIntent(context) {
+    let saved = returnIntent.read(context.actor, context.customerId)
+    const memory = this._returnIntent
+    if (memory && memory.actor === context.actor && memory.customerId === context.customerId) {
+      if (saved && saved.clientToken !== memory.clientToken) throw new Error('原还桶记录已变化，请联系负责人核实')
+      // 存储临时丢失时只补回内存中的原键，绝不能生成另一笔登记。
+      if (!saved) saved = returnIntent.save(memory)
+    }
+    this._returnIntent = saved
+    return saved
+  },
+  restoreReturnIntent() {
+    try {
+      const pending = this.readReturnIntent(this.returnContext())
+      this.setData({ returnPending: !!pending, returnRecoveryError: '', returnSubmitting: !!this._returnFlight,
+        returnMessage: pending ? '原还桶登记结果待核实，请勿再次交桶。核对时只重试原登记。' : '' })
+      return pending
+    } catch (err) {
+      this.setData({ returnRecoveryError: err.message, returnSubmitting: !!this._returnFlight })
+      return null
+    }
+  },
 
   async loadProfile(id) {
     this.setData({ loading: true, error: '' })
@@ -250,6 +304,19 @@ Page({
   // 有了它，随时能把桶还回来，over 可以为负（多还的桶由水站暂存，合法）。
 
   onShowReturnEmpty() {
+    if (this.data.returnSubmitting || this._returnFlight || this._returnHidden || this._returnDisposed) return
+    const pending = this.restoreReturnIntent()
+    if (this.data.returnRecoveryError) return
+    this._returnModalContext = this.returnContext()
+    if (pending) {
+      const barrels = this.data.assets && this.data.assets.barrels || []
+      this.setData({ showReturnEmpty: true, returnItems: pending.items.map(item => {
+        const product = barrels.find(b => Number(b.productId) === item.productId)
+        return { ...item, productName: product && product.productName || '原商品 #' + item.productId, max: item.qty, over: 0 }
+      }) })
+      return
+    }
+    if (this.data.assetsLoading || this.data.assetsError) return
     const barrels = (this.data.assets && this.data.assets.barrels) || []
     const items = barrels
       .filter(b => b.maxReturnableQty > 0)
@@ -269,10 +336,13 @@ Page({
   },
 
   onCloseReturnEmpty() {
+    if (this.data.returnSubmitting || this._returnFlight) return
+    this._returnModalContext = null
     this.setData({ showReturnEmpty: false })
   },
 
   onReturnEmptyQtyInput(e) {
+    if (this.data.returnSubmitting || this.data.returnPending) return
     const idx = Number(e.currentTarget.dataset.idx)
     const max = Number(e.currentTarget.dataset.max)
     let v = parseInt(e.detail.value) || 0
@@ -282,26 +352,62 @@ Page({
   },
 
   async onSubmitReturnEmpty() {
-    const items = (this.data.returnItems || [])
-      .filter(i => i.qty > 0)
-      .map(i => ({ productId: i.productId, qty: i.qty }))
-    if (items.length === 0) {
-      wx.showToast({ title: '请填写还桶数量', icon: 'none' })
+    // 2026-10-23：仅置灰view曾仍能连点；同次交桶每次换键会重复减桶，必须先锁住原意图。
+    if (this._returnFlight || this.data.returnSubmitting || !this.data.showReturnEmpty || this._returnHidden || this._returnDisposed) return
+    if (!this._returnModalContext || !this.currentReturnContext(this._returnModalContext)) {
+      this.setData({ showReturnEmpty: false, returnRecoveryError: '办理身份已变化，请重新打开并核对原还桶登记' })
       return
     }
-    // 幂等 token：后端 uk_record_client_token 保证同一 token 只生效一次，防重复提交
-    const clientToken = 'RE-' + Date.now() + '-' + Math.floor(Math.random() * 100000)
+    let context
+    try { context = this.returnContext() }
+    catch (err) { this.setData({ returnRecoveryError: err.message }); return }
+    const flight = this._returnFlight = { context }
+    let intent, hadPending = false, sent = false
     this.setData({ returnSubmitting: true })
     try {
-      const res = await returnEmptyBuckets(this.data.id, items, clientToken, '站长代客还空桶')
-      const changes = (res && res.data && res.data.changes) || []
-      wx.showToast({ title: '已登记还桶 ' + changes.length + ' 项', icon: 'success' })
-      this.setData({ showReturnEmpty: false })
-      this.loadAssets(this.data.id)
+      intent = this.readReturnIntent(context)
+      hadPending = !!intent
+      if (!intent) intent = returnIntent.prepare(context.actor, context.customerId, (this.data.returnItems || []).filter(i => i.qty > 0))
+      this._returnIntent = intent
+      if (!this.currentReturnContext(context) || this._returnHidden) return
+      this.setData({ returnPending: true, returnRecoveryError: '', returnMessage: '正在核对原还桶登记，请勿再次交桶。' })
+      if (!this._returnKnown || this._returnKnown.clientToken !== intent.clientToken) {
+        sent = true
+        const res = await returnEmptyBuckets(intent.customerId, intent.items, intent.clientToken, intent.note)
+        const data = res && res.data
+        if (!res || ![0, 200].includes(res.code) || !data || !(data.duplicate === true
+            || Array.isArray(data.changes) && data.changes.length === intent.items.length && intent.items.every(item =>
+              data.changes.some(change => Number(change.productId) === item.productId && Number(change.qty) === item.qty)))) {
+          throw new Error('还桶登记回执未能核实')
+        }
+        if (!this.currentReturnContext(context)) return
+        this._returnKnown = intent
+      }
+      returnIntent.clear(intent)
+      this._returnIntent = null
+      if (!this.currentReturnContext(context)) return
+      this.setData({ showReturnEmpty: false, returnPending: false, returnMessage: '', returnRecoveryError: '' })
+      if (!this._returnHidden) {
+        wx.showToast({ title: hadPending ? '原还桶登记已确认' : '还桶已登记', icon: 'success' })
+        this.loadAssets(context.customerId)
+      }
     } catch (err) {
-      wx.showToast({ title: err.message || '登记失败', icon: 'none', duration: 3000 })
+      if (!this.currentReturnContext(context)) return
+      const knownFailure = sent && !hadPending && err && (err.businessRejected === true || err.requestMayHaveOccurred === false)
+      if (knownFailure) {
+        try { returnIntent.clear(intent); this._returnIntent = null }
+        catch (storageError) { this.setData({ returnRecoveryError: storageError.message }); return }
+        this.setData({ returnPending: false, returnMessage: err.message || '本次登记未通过，请核对数量后再办理' })
+      } else if (intent) {
+        this.setData({ returnPending: true, returnMessage: this._returnKnown && this._returnKnown.clientToken === intent.clientToken
+          ? '登记已确认，本地记录尚未清理。请核对原登记，勿再次交桶。'
+          : '原还桶登记结果待核实，请勿再次交桶；只能重试原登记核对。' })
+      } else this.setData({ returnRecoveryError: err.message || '原还桶记录未能保存，请重新核对' })
     } finally {
-      this.setData({ returnSubmitting: false })
+      if (this._returnFlight === flight) {
+        this._returnFlight = null
+        if (this.currentReturnContext(context)) this.setData({ returnSubmitting: false })
+      }
     }
   },
 

@@ -5,19 +5,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
+
 /**
- * 商品图片来源解析器 —— 统一"平台预设图"与"COS 对象键"两种口径。
+ * 商品图片来源解析器 —— 统一包内图、公开永久 HTTPS 原图和 COS 对象键。
  *
- * <p><b>为什么需要它：</b>商品图片有两种来源，前端只认一个 {@code imageUrl} 字段：</p>
+ * <p><b>为什么需要它：</b>商品图片有多种来源，前端只认一个 {@code imageUrl} 字段：</p>
  * <ol>
  *   <li><b>本地资源</b>：值形如 {@code /assets/product/pulisi-pure.webp}，是<b>小程序包内本地资源</b>，
  *       前端可直接当 {@code src} 使用，无需签名、不会过期；</li>
+ *   <li><b>公开永久 HTTPS 原图</b>：不含查询参数、片段或用户信息的图片链接原样返回，不经签名；</li>
  *   <li><b>COS 对象键</b>：值是对象键（如 {@code product/xxx.jpg}），必须经
  *       {@link CosUtil#generatePublicUrl} 签成 24 小时有效的临时 URL 才能显示。</li>
  * </ol>
  *
  * <p><b>判据：以 {@code /} 开头即视为本地资源路径</b>（COS 对象键不带前导斜杠）。
- * 这条规则让两种口径可以共存于同一个 {@code image_object_name} 列：
+ * 多种来源共存于同一个 {@code image_object_name} 列：
  * 现在本地开发放本地路径（COS 未配置也能看到图），将来接入 COS 只需换值，<b>不用改代码</b>。</p>
  *
  * <p>⚠️ 与 cos 未配置时的表现对照：若把本地路径也丢给 {@code generatePublicUrl}，
@@ -64,11 +67,12 @@ public class ProductImageResolver {
      * 把 {@code image_object_name} 解析成前端可直接使用的 URL —— <b>全系统唯一判据</b>，
      * 调用点不要各自写"是不是本地路径 / 签不出来怎么办"。
      *
-     * <p><b>契约（三条，逐条都有确定性用例钉住，见 {@code ProductImageResolverTest}）：</b></p>
+     * <p><b>契约（逐条由确定性用例钉住，见 {@code ProductImageResolverTest}）：</b></p>
      * <ol>
      *   <li>以 {@link #LOCAL_PREFIX}（{@code /}）开头 = **小程序包内本地资源，原样返回**，
      *       且<b>绝不调用签名器</b>（本地图与 COS 配没配无关，这是商品图能显示的根本）；</li>
-     *   <li>其它非空值 = COS 对象键，返回签名 URL；</li>
+     *   <li>公开永久 HTTPS 图片链接原样返回；不符合永久链接约束的外部 URL 返回 null，不能当 COS 键；</li>
+     *   <li>其余非空值作为 COS 对象键，返回签名 URL；</li>
      *   <li>COS未配置时，三张已核品牌原图使用包内同源缩放图；未知对象或其它签名失败
      *       <b>返回 {@code null}，绝不抛异常</b>。
      *       这是刻意的降级：一张图签不出来不能让整个选品列表失败（判据同 AGENTS §8.21）。</li>
@@ -81,8 +85,8 @@ public class ProductImageResolver {
      * 两种结果（因为跑测试的机器 COS 配没配不确定），等于没有确定性地验证过任何一支；
      * 现在成功支与失败支都在单测里用可注入签名器钉死了。</p>
      *
-     * @param imageObjectName 本地资源路径、COS 对象键，或 null/空
-     * @return 本地路径原样返回；COS 对象键返回签名 URL；无法解析时返回 null（绝不抛异常）
+     * @param imageObjectName 本地资源路径、公开永久 HTTPS 原图、COS 对象键，或 null/空
+     * @return 本地路径及合法永久原图原样返回；COS 键返回签名 URL；无法解析时返回 null
      */
     public String resolve(String imageObjectName) {
         if (imageObjectName == null || imageObjectName.isEmpty()) {
@@ -91,6 +95,11 @@ public class ProductImageResolver {
         // 本地资源：前端直接可用，不经 COS（也避免 COS 未配置时抛异常被吞成 null）
         if (imageObjectName.startsWith(LOCAL_PREFIX)) {
             return imageObjectName;
+        }
+        // 公开品牌原图可由数据库直接维护，不依赖 COS 密钥或重新上传小程序。
+        // 临时签名 URL 不得落库：带查询参数/片段/用户信息的 URL 不作为永久图片接受。
+        if (imageObjectName.contains("://")) {
+            return isPermanentHttpsImage(imageObjectName) ? imageObjectName : null;
         }
         if (cosUtil != null && !cosUtil.isCredentialsConfigured()) {
             // 只回退已核原图，不给未知对象编造地址；COS可选配置缺失不阻断默认图片。
@@ -104,6 +113,23 @@ public class ProductImageResolver {
             // 单条失败不影响列表：COS 未配置时就是这种情况，保持原口径（只记日志）
             log.warn("生成商品图片URL失败, objectName={}, error={}", imageObjectName, e.getMessage());
             return null;
+        }
+    }
+
+    private static boolean isPermanentHttpsImage(String value) {
+        try {
+            URI uri = URI.create(value);
+            return "https".equalsIgnoreCase(uri.getScheme())
+                    && uri.getHost() != null
+                    && uri.getRawUserInfo() == null
+                    && uri.getRawQuery() == null
+                    && uri.getRawFragment() == null
+                    && (uri.getPort() == -1 || uri.getPort() == 443)
+                    && uri.getPath() != null
+                    && uri.getPath().toLowerCase(java.util.Locale.ROOT)
+                            .matches(".*\\.(png|jpe?g|webp|gif|avif)");
+        } catch (IllegalArgumentException e) {
+            return false;
         }
     }
 

@@ -38,6 +38,40 @@ class ProductImageResolverTest {
     }
 
     @Test
+    @DisplayName("公开永久品牌原图不经过COS，三种容量分别保留对应图片")
+    void permanentBrandPhotosDoNotNeedCos() {
+        ProductImageResolver resolver = new ProductImageResolver(obj -> {
+            fail("公开原图不得进入COS签名器");
+            return null;
+        });
+        for (String url : new String[] {
+                "https://file-cloud.yst.com.cn/photo/website/2025/02/26/f554d116c81e40e7ac07ca7fc4e48e37.png",
+                "https://file-cloud.yst.com.cn/website/2022/12/14/a5e74273e5e94eabaa2545ffe13e9b70.png",
+                "https://file-cloud.yst.com.cn/photo/website/2025/02/26/91e8adc5b45a4aa8af2ae1c4fc554504.png"}) {
+            assertEquals(url, resolver.resolve(url));
+        }
+    }
+
+    @Test
+    @DisplayName("不把临时签名链接、明文HTTP或非图片地址当永久品牌图")
+    void invalidExternalImageDoesNotLeakIntoSigner() {
+        ProductImageResolver resolver = new ProductImageResolver(obj -> {
+            fail("不支持的外部URL不得被当成COS对象键");
+            return null;
+        });
+        for (String value : new String[] {
+                "https://cos.example.com/product.png?sign=expires",
+                "https://example.com/product.png#fragment",
+                "https://user:password@example.com/product.png",
+                "http://example.com/product.png",
+                "https://example.com:8080/product.png",
+                "https://example.com/product.html",
+                "https://example.com/bad path.png"}) {
+            assertNull(resolver.resolve(value), value);
+        }
+    }
+
+    @Test
     @DisplayName("COS 对象键在 COS 不可用时返回 null 而不是抛异常（单条失败不拖垮列表）")
     void cosKeyFailureIsSwallowed() {
         ProductImageResolver resolver = newResolver();

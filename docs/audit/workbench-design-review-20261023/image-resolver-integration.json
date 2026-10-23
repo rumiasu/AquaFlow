@@ -1,0 +1,65 @@
+{
+  "source_commit_reported_by_parent": "15d4b0743c5963bdc3de5ff553029058ac62f406",
+  "source_parent": "6e2055f5235e84657f9807f0c0eb7857a2c1ea18",
+  "integration_parent": "2e9ce57c1d0888fbec56399ec1aa515f0667bb24",
+  "source_delivery": "Complete diff in trusted delegation; source commit was unpushed locally. Applied only resolver and corresponding test.",
+  "source_identity": {
+    "resolver_before": "3ab7c4859649933b7f9d60dc13e7d2f2c90263c4",
+    "test_before": "d64bbb551cf061e792e8dd82e478142d218b370f",
+    "resolver_imported_exact_blob": "015001decd24124404d0e30b4fda16af421f57d3",
+    "test_imported_exact_blob": "aa1b2e11731711802af0a6841d6e38304d20ece6",
+    "resolver_final_blob": "616ff47904de8958c4255709c7f31eb4510ae25f",
+    "after_import_change": "Javadoc only: synchronize permanent HTTPS source with the existing public contract and remove stale source-count wording.",
+    "resolve_and_following_implementation_identical_to_import": true,
+    "test_file_identical_to_import": true
+  },
+  "parent_local_validation": {
+    "source": "Parent-provided executed local result, not a new cloud run",
+    "test_class": "com.example.aquaflow.util.ProductImageResolverTest",
+    "tests": 8,
+    "failures": 0,
+    "errors": 0,
+    "methods": [
+      "localPathPassThrough",
+      "emptyReturnsNull",
+      "permanentBrandPhotosDoNotNeedCos",
+      "invalidExternalImageDoesNotLeakIntoSigner",
+      "cosKeyFailureIsSwallowed",
+      "cosKeySuccessReturnsSignedUrl",
+      "localPathNeverTouchesSigner",
+      "presetKeyMapping"
+    ]
+  },
+  "cloud_validation": {
+    "command": "bash gradlew test --tests com.example.aquaflow.util.ProductImageResolverTest --no-daemon (isolated build/cache init)",
+    "attempts": 2,
+    "second_attempt_network_permission": true,
+    "exit_code": 1,
+    "result": "not_started_environment_dns",
+    "failed_action": "Download Gradle 9.4.1 distribution",
+    "target": "https://services.gradle.org/distributions/gradle-9.4.1-bin.zip",
+    "reason": "java.net.UnknownHostException: services.gradle.org",
+    "tests_executed": 0,
+    "build_or_unit_pass_claim": false,
+    "source_integrity_checks": [
+      "preimage blobs match delegated diff",
+      "imported postimage blobs match delegated diff",
+      "reverse git apply check succeeded before comment-only alignment",
+      "final differences from imported resolver are Javadoc only",
+      "test file still exactly matches incoming blob",
+      "git diff --check passed"
+    ]
+  },
+  "actions": "No retry or alternate Actions read after prior Forbidden denial.",
+  "deployment": "None performed. Runtime reported by parent remains 011 online / 012 gray 0%; no switch authorization and no claim that 012 is visible.",
+  "source_hashes": [
+    {
+      "path": "AquaFlow-backend/src/main/java/com/example/aquaflow/util/ProductImageResolver.java",
+      "sha256": "25a27cb0685e49d083458bf268148b517f4c9235b788280ff7f159c95d63d87a"
+    },
+    {
+      "path": "AquaFlow-backend/src/test/java/com/example/aquaflow/util/ProductImageResolverTest.java",
+      "sha256": "b1cf0c976fc9cb64f28a6133dd8eca6e140a0adc038d6ae8b4d592229a9a6ffc"
+    }
+  ]
+}

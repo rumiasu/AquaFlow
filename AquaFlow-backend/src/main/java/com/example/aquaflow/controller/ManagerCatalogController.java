@@ -51,8 +51,9 @@ public class ManagerCatalogController {
      * 平台预设商品图清单（站长选图用）。
      *
      * <p>站长建自定义商品时，图片不再是"只能自己拍一张传"——也可以从平台预设里选一张。
-     * 返回 {@code [{key, path, objectName}]}：path是可预览的包内路径或临时HTTPS地址，
-     * COS图另带稳定objectName用于保存，签名失败时path为null。包内图objectName为空。
+     * 返回 {@code [{key, path, objectName}]}：path是包内路径、已核品牌永久原图或COS临时HTTPS地址，
+     * 对象键另用objectName保留，不能拿预览URL覆盖；未知COS图签名失败时path为null。
+     * 包内图objectName为空。
      * 映射真值在 {@code constant/ProductImageKeys}。</p>
      *
      * <p><b>为什么由后端下发而不是前端硬编码：</b>两端小程序的包内资源互相独立、

@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * {@link ProductImageResolver} 的解析口径验证。
  *
- * <p>为什么值得单独测：这是"平台预设图"与"COS 对象键"两种口径的分叉点，
+ * <p>为什么值得单独测：这是包内图、永久原图与COS对象键的分叉点，
  * 判据写错的表现是<b>静默无图</b>（不是报错），肉眼很难发现。</p>
  */
 class ProductImageResolverTest {
@@ -49,6 +49,27 @@ class ProductImageResolverTest {
                 "https://file-cloud.yst.com.cn/website/2022/12/14/a5e74273e5e94eabaa2545ffe13e9b70.png",
                 "https://file-cloud.yst.com.cn/photo/website/2025/02/26/91e8adc5b45a4aa8af2ae1c4fc554504.png"}) {
             assertEquals(url, resolver.resolve(url));
+        }
+    }
+
+    @Test
+    @DisplayName("已入库的三张普利思对象键始终使用对应永久原图，不进入COS签名")
+    void verifiedPulisiKeysNeverDependOnCosSigner() {
+        ProductImageResolver resolver = new ProductImageResolver(obj -> {
+            fail("已核普利思原图不得进入COS签名器，也不能因签名失效而无图");
+            return null;
+        });
+        String[][] photos = {
+                {"catalog-sample-20261023-pulisi-purified-87bf702c165d.png",
+                        "https://www.pulisi.com/data/upload/image/20201207/1607307675540169.png", "pulisi-purified-photo"},
+                {"catalog-sample-20261023-pulisi-spring-f576447ab103.png",
+                        "https://www.pulisi.com/data/upload/image/20200928/1601258020255537.png", "pulisi-spring-photo"},
+                {"catalog-sample-20261023-pulisi-mineral-cef12b0ef29a.png",
+                        "https://www.pulisi.com/data/upload/image/20200928/1601257945414406.png", "pulisi-mineral-photo"}
+        };
+        for (String[] photo : photos) {
+            assertEquals(photo[1], resolver.resolve(photo[0]), "商品目录使用已保存的对象键读取");
+            assertEquals(photo[1], resolver.resolvePresetKey(photo[2]), "选图面板与商品目录同源");
         }
     }
 
@@ -117,12 +138,12 @@ class ProductImageResolverTest {
     }
 
     @Test
-    @DisplayName("预设 key 映射：清单当前为空，任何 key 都返回 null（绝不猜路径）")
+    @DisplayName("中性图预设原样返回，未知和已废弃的预设key仍返回null")
     void presetKeyMapping() {
         ProductImageResolver resolver = newResolver();
-        // 2026-09-20 口径：平台自制图已移除、只用品牌官网实拍图，
-        // 预设清单为空 —— 因此任何 key（哪怕是历史 key）都必须返回 null，
-        // 绝不能"猜"出一条路径来：猜错的表现是界面显示别人的图。
+        assertEquals("/assets/product/barrel-neutral-template.webp",
+                resolver.resolvePresetKey("barrel-neutral-template"));
+        // 当前有明确登记的预设，但不能恢复已经移除的旧key或按名字猜图。
         assertNull(resolver.resolvePresetKey("barrel-water"),
                 "历史 key 不得再映射出路径（对应文件已删除，返回路径就是死链）");
         assertNull(resolver.resolvePresetKey("no-such-key"));

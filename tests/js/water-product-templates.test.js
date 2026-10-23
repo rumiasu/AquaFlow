@@ -124,6 +124,45 @@ test('brand photo preview and persistent object key survive template creation se
   assert.strictEqual(t.calls.length, 1); assert.strictEqual(t.calls[0][1].imageObjectName, objectName)
   assert.strictEqual(t.calls[0][1].enabled, 0)
 })
+const verifiedPulisiPhotos = [
+  ['catalog-sample-20261023-pulisi-purified-87bf702c165d.png', 'https://www.pulisi.com/data/upload/image/20201207/1607307675540169.png', 'pulisi-mineral.webp'],
+  ['catalog-sample-20261023-pulisi-spring-f576447ab103.png', 'https://www.pulisi.com/data/upload/image/20200928/1601258020255537.png', 'pulisi-spring.webp'],
+  ['catalog-sample-20261023-pulisi-mineral-cef12b0ef29a.png', 'https://www.pulisi.com/data/upload/image/20200928/1601257945414406.png', 'pulisi-pure.webp']
+]
+for (const [index, [objectName, photo, legacyFile]] of verifiedPulisiPhotos.entries()) {
+  test(templates[index].id + ': permanent original renders in public catalog and template without losing the stored key', async () => {
+    const t = fixture([catalog({ id: index + 4, name: templates[index].name, imageUrl: photo, imageObjectName: objectName })])
+    await t.page.loadData()
+    const tree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/products/index.wxml'), 'utf8'))
+    const rendered = renderElements(tree, { ...t.page.data, uploadRecoveryCases: [] }, { includeText: true })
+    assert.strictEqual(t.page.data.viewList[0].imageUrl, photo)
+    // WXML投影保留属性绑定原文；同时钉住目录状态与可见图片节点，不当作原生图片加载。
+    assert(rendered.some(row => row.tag === 'image' && row.attrs.src === '{{item.imageUrl}}' && row.attrs.mode === 'aspectFill'))
+    assert(!rendered.some(row => row.text === '商品图待补'))
+    t.state.presets = [{ key: templates[index].imagePresetKey, objectName, path: photo }]
+    await t.page.loadWaterTemplateImages(); t.page.onUseWaterTemplate(event(templates[index].id))
+    assert.strictEqual(t.page.data.editForm.imageUrl, photo)
+    validBusiness(t.page); await t.page.onSaveEdit()
+    assert.strictEqual(t.calls.length, 1); assert.strictEqual(t.calls[0][1].imageObjectName, objectName)
+    assert.strictEqual(t.calls[0][1].imageUrl, photo)
+  })
+  test(templates[index].id + ': both packages retain the identical valid legacy brand asset', () => {
+    const a = fs.readFileSync(path.join(ROOT, 'miniapp-user/assets/product', legacyFile))
+    const b = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/assets/product', legacyFile))
+    assert(a.equals(b)); assert.strictEqual(a.toString('ascii', 0, 4), 'RIFF')
+    assert.strictEqual(a.toString('ascii', 8, 12), 'WEBP')
+  })
+}
+test('a same-name station custom product keeps its own missing image instead of borrowing the public template', async () => {
+  const t = fixture([catalog({ ownerStationId: 11, imageUrl: null, imageObjectName: null })])
+  t.state.presets = [{ key: templates[0].imagePresetKey, objectName: verifiedPulisiPhotos[0][0], path: verifiedPulisiPhotos[0][1] }]
+  await t.page.loadData(); await t.page.loadWaterTemplateImages()
+  assert.strictEqual(t.page.data.viewList[0].imageUrl, null)
+  const tree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/products/index.wxml'), 'utf8'))
+  const rendered = renderElements(tree, { ...t.page.data, uploadRecoveryCases: [] }, { includeText: true })
+  assert(rendered.some(row => row.text === '商品图待补'))
+  assert.strictEqual(t.calls.length, 0)
+})
 test('missing signed preview keeps a labelled fallback and never turns a URL into an object key', () => {
   const rows = templatesWithImages([{ key: templates[0].imagePresetKey, objectName: 'catalog/real-key.png', path: null },
     { key: templates[1].imagePresetKey, objectName: 'https://images.example.test/not-a-key', path: 'https://images.example.test/photo.png' }])

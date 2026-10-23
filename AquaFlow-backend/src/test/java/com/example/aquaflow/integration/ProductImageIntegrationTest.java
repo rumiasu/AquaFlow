@@ -18,8 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * 当对象键存下来，界面都只是"没图"，与"这件商品本来就没配图"无法区分
  * （AGENTS §8.22 同形：零覆盖端点的真实表现是界面空白）。</p>
  *
- * <p>四条口径：① 预设图清单下发的是<b>小程序包内路径</b>；② 本地路径必须<b>原样</b>进
- * {@code imageUrl}（COS 未配置也得显示得出来）；③ COS 对象键签不出来时降级为无图、
+ * <p>四条口径：① 预设图清单下发可读预览与独立对象键，已核品牌键使用永久原图；② 本地路径必须<b>原样</b>进
+ * {@code imageUrl}（COS 未配置也得显示得出来）；③ 未知COS对象键签不出来时降级为无图、
  * 不抛异常、<b>更不当成本地路径</b>；④ 落库时 {@code imageObjectName} 优先，
  * <b>预签名 URL 绝不落库</b>（它签不出有效地址，图会永远不显示）。</p>
  */
@@ -33,7 +33,7 @@ class ProductImageIntegrationTest extends AbstractIntegrationTest {
     private static final String LOCAL_IMAGE_PATH = "/assets/product/pulisi-pure.webp";
 
     @Test
-    @DisplayName("选图清单：包内路径兼容，COS图分开提供临时地址和持久对象键，顾客端读不到")
+    @DisplayName("选图清单：兼容包内图，永久或临时预览与持久对象键分开，顾客端读不到")
     void presetImageListServesPackagePaths() {
         String mgr = newManagerToken("图片站A");
         long customer = createCustomer("顾客甲", "openid-img-a");
@@ -42,7 +42,7 @@ class ProductImageIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, res.code(), "选图清单应可读：" + res.data());
         assertTrue(res.data().isArray(), "必须是数组（可以为空）");
 
-        // 不把素材数量当业务约束；分别守包内直通与COS预览/对象键分离的契约。
+        // 不把素材数量当业务约束；分别守包内直通与预览/对象键分离的契约。
         for (JsonNode n : res.data()) {
             String path = n.path("path").asText();
             String objectName = n.path("objectName").asText();
@@ -70,7 +70,27 @@ class ProductImageIntegrationTest extends AbstractIntegrationTest {
                         productId, LOCAL_IMAGE_PATH),
                 "本地路径应原样落库（不能被当成对象键去签名）");
         assertEquals(LOCAL_IMAGE_PATH, imageUrlOf(get("/api/manager/catalog", mgr).data(), productId),
-                "本地预设路径必须原样下发 —— 本机 COS 未配置时，只有它能显示出来");
+                "包内资源必须原样下发，不受COS配置影响");
+    }
+
+    @Test
+    @DisplayName("三张已核普利思对象键原样保存，商品目录读取对应永久原图")
+    void verifiedPulisiKeysReadPermanentOriginalsThroughCatalog() {
+        String mgr = newManagerToken("品牌原图站");
+        String[][] photos = {
+                {"catalog-sample-20261023-pulisi-purified-87bf702c165d.png",
+                        "https://www.pulisi.com/data/upload/image/20201207/1607307675540169.png"},
+                {"catalog-sample-20261023-pulisi-spring-f576447ab103.png",
+                        "https://www.pulisi.com/data/upload/image/20200928/1601258020255537.png"},
+                {"catalog-sample-20261023-pulisi-mineral-cef12b0ef29a.png",
+                        "https://www.pulisi.com/data/upload/image/20200928/1601257945414406.png"}
+        };
+        for (int i = 0; i < photos.length; i++) {
+            long id = createMyProduct(mgr, "已核品牌图" + i, photos[i][0], photos[i][1]);
+            assertEquals(1, intOf("select count(*) from product where id = ? and image_object_name = ?",
+                    id, photos[i][0]), "永久预览不能改写稳定对象键");
+            assertEquals(photos[i][1], imageUrlOf(get("/api/manager/catalog", mgr).data(), id));
+        }
     }
 
     @Test

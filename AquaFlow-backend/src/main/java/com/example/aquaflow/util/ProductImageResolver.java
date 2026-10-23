@@ -15,8 +15,8 @@ import java.net.URI;
  *   <li><b>本地资源</b>：值形如 {@code /assets/product/pulisi-pure.webp}，是<b>小程序包内本地资源</b>，
  *       前端可直接当 {@code src} 使用，无需签名、不会过期；</li>
  *   <li><b>公开永久 HTTPS 原图</b>：不含查询参数、片段或用户信息的图片链接原样返回，不经签名；</li>
- *   <li><b>COS 对象键</b>：值是对象键（如 {@code product/xxx.jpg}），必须经
- *       {@link CosUtil#generatePublicUrl} 签成 24 小时有效的临时 URL 才能显示。</li>
+ *   <li><b>COS 对象键</b>：三张已核品牌资料图映射到官网永久原图；其它对象键（如
+ *       {@code product/xxx.jpg}）经 {@link CosUtil#generatePublicUrl} 签成临时 URL。</li>
  * </ol>
  *
  * <p><b>判据：以 {@code /} 开头即视为本地资源路径</b>（COS 对象键不带前导斜杠）。
@@ -72,8 +72,8 @@ public class ProductImageResolver {
      *   <li>以 {@link #LOCAL_PREFIX}（{@code /}）开头 = **小程序包内本地资源，原样返回**，
      *       且<b>绝不调用签名器</b>（本地图与 COS 配没配无关，这是商品图能显示的根本）；</li>
      *   <li>公开永久 HTTPS 图片链接原样返回；不符合永久链接约束的外部 URL 返回 null，不能当 COS 键；</li>
-     *   <li>其余非空值作为 COS 对象键，返回签名 URL；</li>
-     *   <li>COS未配置时，三张已核品牌原图使用包内同源缩放图；未知对象或其它签名失败
+     *   <li>三张已核品牌资料对象键始终返回官网永久 HTTPS 原图，不依赖 COS 或客户端包内素材；</li>
+     *   <li>其余非空值作为 COS 对象键，返回签名 URL；COS未配置或签名失败
      *       <b>返回 {@code null}，绝不抛异常</b>。
      *       这是刻意的降级：一张图签不出来不能让整个选品列表失败（判据同 AGENTS §8.21）。</li>
      * </ol>
@@ -86,7 +86,7 @@ public class ProductImageResolver {
      * 现在成功支与失败支都在单测里用可注入签名器钉死了。</p>
      *
      * @param imageObjectName 本地资源路径、公开永久 HTTPS 原图、COS 对象键，或 null/空
-     * @return 本地路径及合法永久原图原样返回；COS 键返回签名 URL；无法解析时返回 null
+     * @return 本地路径、合法永久原图或已核品牌原图；其它COS键返回签名URL；无法解析时返回null
      */
     public String resolve(String imageObjectName) {
         if (imageObjectName == null || imageObjectName.isEmpty()) {
@@ -101,16 +101,22 @@ public class ProductImageResolver {
         if (imageObjectName.contains("://")) {
             return isPermanentHttpsImage(imageObjectName) ? imageObjectName : null;
         }
+        // 2026-10-23：品牌键原来依赖COS，且签名异常会绕过仅“未配置”时的包内回退。
+        // 真机已反馈普利思缺图；已核三图统一走永久原图，旧客户端无需更新素材包。
+        String publicOriginal = ProductImageKeys.verifiedPublicOriginal(imageObjectName);
+        if (publicOriginal != null) {
+            return publicOriginal;
+        }
         if (cosUtil != null && !cosUtil.isCredentialsConfigured()) {
-            // 只回退已核原图，不给未知对象编造地址；COS可选配置缺失不阻断默认图片。
-            return ProductImageKeys.localFallback(imageObjectName);
+            // 已核品牌键已在上方解析；其它上传缺少签名配置时不能编造可读地址。
+            return null;
         }
         try {
             return testSigner != null
                     ? testSigner.apply(imageObjectName)
                     : cosUtil.generatePublicUrl(imageObjectName);
         } catch (Exception e) {
-            // 单条失败不影响列表：COS 未配置时就是这种情况，保持原口径（只记日志）
+            // 未知上传签名失败仍明确无图；不猜成品牌图，单条失败也不拖垮列表。
             log.warn("生成商品图片URL失败, objectName={}, error={}", imageObjectName, e.getMessage());
             return null;
         }
@@ -134,13 +140,13 @@ public class ProductImageResolver {
     }
 
     /**
-     * 把预设图 key 解析成本地资源路径。
+     * 把预设图 key 解析成可展示的包内路径或图片URL。
      *
      * <p>后端下发的始终是<b>路径</b>而非 key，原因是两端小程序的包内资源互相独立、
      * 前端不该硬编码路径段；且将来换成 COS 时前端零改动。</p>
      *
      * @param presetKey 预设图 key（见 {@link ProductImageKeys}）
-     * @return 本地资源路径；key 为空或未知时返回 null
+     * @return 包内路径、品牌原图或签名URL；key为空或未知时返回null
      */
     public String resolvePresetKey(String presetKey) {
         return resolve(ProductImageKeys.toPath(presetKey));

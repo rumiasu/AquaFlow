@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-23",
+  "baseCommit": "ba9e5bf5eab02ce71990290483686cdc1bd12314",
+  "scope": "仅普利思缺图链路，不是全站或72页视觉验收",
+  "issue": {
+    "id": "PULISI-IMG-01",
+    "priority": "P1",
+    "status": "code_fixed_pending_deployment_and_phone_check",
+    "userConfirmedSymptom": "农夫山泉显示了，普利思没有",
+    "confirmedCodeGap": "已核三图旧路径依赖COS，仅凭据未配时回退包内图；签名异常返回null。",
+    "actualLiveFailureModeConfirmed": false,
+    "fix": "精确对象键先映射永久HTTPS原图，原键保存口径不变。",
+    "affectsDelivery": "商品图完整性受影响；未修改订单、支付或库存行为。"
+  },
+  "photos": [
+    {
+      "waterType": "饮用纯净水",
+      "objectName": "catalog-sample-20261023-pulisi-purified-87bf702c165d.png",
+      "imageUrl": "https://www.pulisi.com/data/upload/image/20201207/1607307675540169.png",
+      "primarySource": "https://www.pulisi.com/product/128.html",
+      "legacyAsset": "pulisi-mineral.webp",
+      "bothPackagesIdentical": true,
+      "legacyAssetSha256": "7f9c926018a1f6f0f6433e25c4029a4bdfcbd42a2e9372d81707a995ad8db166",
+      "originalBytesReverified": false
+    },
+    {
+      "waterType": "饮用天然泉水",
+      "objectName": "catalog-sample-20261023-pulisi-spring-f576447ab103.png",
+      "imageUrl": "https://www.pulisi.com/data/upload/image/20200928/1601258020255537.png",
+      "primarySource": "https://www.pulisi.com/product/130.html",
+      "legacyAsset": "pulisi-spring.webp",
+      "bothPackagesIdentical": true,
+      "legacyAssetSha256": "8574095abb01c255dfc0d6e5280e167679cc2ec1fd6747d3caa3abb5b7cb6467",
+      "originalBytesReverified": false
+    },
+    {
+      "waterType": "饮用天然矿泉水",
+      "objectName": "catalog-sample-20261023-pulisi-mineral-cef12b0ef29a.png",
+      "imageUrl": "https://www.pulisi.com/data/upload/image/20200928/1601257945414406.png",
+      "primarySource": "https://www.pulisi.com/product/129.html",
+      "legacyAsset": "pulisi-pure.webp",
+      "bothPackagesIdentical": true,
+      "legacyAssetSha256": "43952a8835401ecd8cd110df5e31c870031a97786d8f93ab98df03bd55ace5bd",
+      "originalBytesReverified": false
+    }
+  ],
+  "junit": {
+    "mode": "实际源码直接编译并运行JUnit Console；非Gradle/CI/HTTP/MySQL结果",
+    "runtime": "OpenJDK 21.0.12.1",
+    "compiler": "java com.sun.tools.javac.Main -source 17 -target 17 -parameters",
+    "sourceOrTypeStubs": false,
+    "cosRequests": 0,
+    "tests": 12,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "classes": {
+      "com.example.aquaflow.util.ProductImageResolverTest": 9,
+      "com.example.aquaflow.controller.ManagerCatalogPresetImagesTest": 1,
+      "com.example.aquaflow.constant.ProductImageKeysTest": 2
+    },
+    "cases": [
+      {
+        "class": "com.example.aquaflow.util.ProductImageResolverTest",
+        "method": "cosKeySuccessReturnsSignedUrl()"
+      },
+      {
+        "class": "com.example.aquaflow.controller.ManagerCatalogPresetImagesTest",
+        "method": "verifiedOriginalsExposePermanentPreviewsWithoutChangingStoredKeys()"
+      },
+      {
+        "class": "com.example.aquaflow.util.ProductImageResolverTest",
+        "method": "localPathNeverTouchesSigner()"
+      },
+      {
+        "class": "com.example.aquaflow.util.ProductImageResolverTest",
+        "method": "localPathPassThrough()"
+      },
+      {
+        "class": "com.example.aquaflow.util.ProductImageResolverTest",
+        "method": "invalidExternalImageDoesNotLeakIntoSigner()"
+      },
+      {
+        "class": "com.example.aquaflow.util.ProductImageResolverTest",
+        "method": "verifiedPulisiKeysNeverDependOnCosSigner()"
+      },
+      {
+        "class": "com.example.aquaflow.util.ProductImageResolverTest",
+        "method": "permanentBrandPhotosDoNotNeedCos()"
+      },
+      {
+        "class": "com.example.aquaflow.constant.ProductImageKeysTest",
+        "method": "verifiedOriginalsMatchExactStoredKeysAndKeepLegacyPackageLabels()"
+      },
+      {
+        "class": "com.example.aquaflow.util.ProductImageResolverTest",
+        "method": "presetKeyMapping()"
+      },
+      {
+        "class": "com.example.aquaflow.util.ProductImageResolverTest",
+        "method": "emptyReturnsNull()"
+      },
+      {
+        "class": "com.example.aquaflow.util.ProductImageResolverTest",
+        "method": "cosKeyFailureIsSwallowed()"
+      },
+      {
+        "class": "com.example.aquaflow.constant.ProductImageKeysTest",
+        "method": "neutralPresetIsExplicitAndUnknownKeysStayUnresolved()"
+      }
+    ],
+    "applicationDependencyCheck": "每个临时依赖JAR均与仓库Gradle verification-metadata.xml的SHA256一致",
+    "consoleVersion": "6.0.3",
+    "consoleChecksum": "Maven Central发布SHA512一致",
+    "reportSha256": "7287d9e4014d2160fd77efb480ebbcccc225504cb5d9c0c87107a88a0fb76c2a"
+  },
+  "negativeControl": {
+    "replacedClass": "ProductImageResolver",
+    "sourceCommit": "ba9e5bf5eab02ce71990290483686cdc1bd12314",
+    "method": "verifiedPulisiKeysNeverDependOnCosSigner",
+    "tests": 1,
+    "expectedFailures": 1,
+    "reason": "旧解析器仍调用COS签名器，被用例拒绝",
+    "reportSha256": "2ac7c69dc3f538297186083fd467e52e16baa80f1790d3913fe06588d6572494"
+  },
+  "javascript": [
+    {
+      "file": "tests/js/water-product-templates.test.js",
+      "passed": 59,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 59",
+      "logSha256": "796ce9776a7e601fc1bd9138b42b5f914c9c9cad45469e79d9afa492e0ee4e3b"
+    },
+    {
+      "file": "tests/js/product-image-persistence.test.js",
+      "passed": 14,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 14",
+      "logSha256": "b7f19c8925cc84ad7e45e6df094398957350ef74cbbb34911fa96e8655a3917c"
+    }
+  ],
+  "fieldChain": {
+    "persisted": "product.image_object_name",
+    "preview": "imageUrl",
+    "presetPersistentKey": "objectName",
+    "presetPreview": "path",
+    "inventoryImageOverride": false,
+    "stationCustomProductsAutoBackfilled": false,
+    "frontendSourceChanges": false
+  },
+  "notExecuted": [
+    "ProductImageIntegrationTest.verifiedPulisiKeysReadPermanentOriginalsThroughCatalog（HTTP/MySQL）",
+    "Gradle完整构建及Spring上下文",
+    "GitHub Actions状态查询（此前Forbidden，未重试）",
+    "生产部署或流量切换",
+    "数据库读取/修改、COS读取/凭据操作",
+    "新修复真机图片加载"
+  ],
+  "evidenceLimits": [
+    {
+      "action": "下载截图像素",
+      "targets": [
+        "libfile_61fe9f411c108191a1d2157c52d900bc"
+      ],
+      "status": "stopped_after_403",
+      "completed": "Library提取文本支持站长公共目录定位，像素未目视",
+      "reason": "截图下载代理隧道403；未绕过或重试",
+      "relatedAttachment": "libfile_76923748156c8191a39f7cd78d74f3dc（仅读取提取文本，未尝试像素下载）"
+    },
+    {
+      "action": "直接下载官网PNG字节",
+      "targets": [
+        "https://www.pulisi.com/data/upload/image/20201207/1607307675540169.png",
+        "https://www.pulisi.com/data/upload/image/20200928/1601258020255537.png",
+        "https://www.pulisi.com/data/upload/image/20200928/1601257945414406.png"
+      ],
+      "status": "stopped_after_403",
+      "completed": "官网产品页及原图链接已由网页读取核对",
+      "reason": "代理隧道403；未重试，不声明当前原图字节哈希"
+    },
+    {
+      "action": "Gradle标准构建",
+      "target": "services.gradle.org/distributions/gradle-9.4.1-bin.zip",
+      "status": "technical_failure_previously_recorded",
+      "reason": "UnknownHostException；本轮通过允许的Maven Central依赖独立运行定向JUnit，未宣称Gradle通过"
+    }
+  ]
+}

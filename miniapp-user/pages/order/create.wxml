@@ -296,7 +296,7 @@
            说清楚 —— 服务端可能已经建单，同键重提会命中幂等拿回原单，不会重复下单。 -->
       <view class="submit-unknown" wx:if="{{submitState === 'unknown'}}">
         <text class="submit-unknown-text">{{unknownResultText}}</text>
-        <view class="submit-unknown-btn" bindtap="onRetryUnknown">重试查一次</view>
+        <view class="submit-unknown-btn" bindtap="onRetryUnknown">恢复原提交</view>
       </view>
       <!-- [2026-09-26] 购物车没动时，这一屏记住"刚下过的那一单"：按钮变成去那张单，
            而不是再建一单（业内主流形态，见 create.js 里 pendingOrder 的说明）。

@@ -203,6 +203,33 @@ test('barrel withdrawal prompt and mutation cannot be duplicated by repeated tap
   assert.equal(writes,1); assert.equal(t.wx.__calls.modal.length,1)
   d.resolve(ok(null)); await new Promise(resolve=>setImmediate(resolve)); assert.equal(t.page._withdrawFlight,false)
 })
+test('unknown order recovery names the original submission action without changing its handler', () => {
+  const t=fixture('order/create')
+  t.page.setData({loading:false,submitState:'unknown',unknownResultText:'原内容和原编号已保留，结果待核对。'})
+  const view=elements('order/create',t.page.data)
+  const recovery=view.find(e=>e.attrs.bindtap==='onRetryUnknown')
+  assert.equal(recovery.text,'恢复原提交');assert(!view.some(e=>e.text==='重试查一次'))
+  assert.ok(view.some(e=>e.text.includes('原内容和原编号已保留')))
+})
+test('typed refund dispute and supplemental note keep separate purpose labels before history', () => {
+  const t=fixture('service/index')
+  t.page.setData({isLogin:true,refundRef:{refundType:'BARREL_RETURN',refundId:7},refundReady:true,
+    dispute:{canOpen:true,statusText:'待核对',actions:[{id:1,actionText:'水站已登记',reason:'原处理记录',createTime:'2026-10-23'}]},
+    disputeReason:'客户已输入的异议 Original',content:'客户已输入的补充说明 Original',pendingRefundNote:true,pendingDispute:true})
+  const view=elements('service/index',t.page.data)
+  const titles=view.filter(e=>e.className==='refund-purpose-title').map(e=>e.text)
+  assert.deepEqual(titles,['提出退款异议','补充退款说明（选填）','退款异议处理记录'])
+  assert.ok(view.some(e=>e.className==='refund-purpose-note'&&e.text.includes('由责任水站核实')))
+  assert.ok(view.some(e=>e.className==='refund-purpose-note'&&e.text.includes('只保存说明，不会办理退款或改变金额')))
+  assert(view.findIndex(e=>e.attrs.bindtap==='onSubmit')<view.findIndex(e=>e.text==='退款异议处理记录'))
+  assert.ok(view.some(e=>e.attrs.bindtap==='onRetryDispute'));assert.ok(view.some(e=>e.attrs.bindtap==='onRetryOriginalNote'))
+})
+test('ordinary feedback retains its existing form without refund-specific purpose labels', () => {
+  const t=fixture('service/index');t.page.setData({isLogin:true,refundRef:null,content:'原普通反馈'})
+  const view=elements('service/index',t.page.data)
+  assert(!view.some(e=>e.className==='refund-purpose-title'))
+  assert.ok(view.some(e=>e.attrs.bindtap==='onSubmit'))
+})
 ;(async()=>{
   let failed=0
   for(const t of tests){try{await t.run();console.log('PASS '+t.name)}catch(error){failed++;console.error('FAIL '+t.name+' '+error.stack)}}

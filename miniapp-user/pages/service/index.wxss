@@ -254,3 +254,7 @@
 .dispute-reason { display: block; width: 100%; height: 180rpx; padding: 20rpx; margin: 20rpx 0; font-size: 28rpx; line-height: 1.65; background: var(--bg-gray); border-radius: 8rpx; color: var(--text-primary); box-sizing: border-box; }
 .feedback-btn.disabled { background: var(--bg-gray); }
 .feedback-btn.disabled text { color: var(--text-regular); }
+.refund-purpose { margin: 28rpx 0 16rpx; }
+.refund-purpose-title { display: block; color: var(--text-primary); font-size: 28rpx; font-weight: 600; line-height: 1.5; }
+.refund-purpose-note { display: block; margin-top: 8rpx; color: var(--text-regular); font-size: 26rpx; line-height: 1.65; }
+.refund-action-history { margin-top: 32rpx; padding-top: 24rpx; border-top: 1rpx solid var(--border-light); }

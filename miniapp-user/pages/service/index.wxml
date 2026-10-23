@@ -47,16 +47,20 @@
     <block wx:else>
       <text class="service-label">{{refundRef.objectText || '正在核对退款记录'}}</text>
       <text class="service-label" wx:if="{{refundLoading}}">正在重新核对退款信息{{refundStale ? '，以下为上次读取的记录' : ''}}…</text>
-      <text class="service-label">仅本人和负责这笔退款的水站可查看，需保留身份。说明可不填，也可稍后再补充证据；提交说明不会办理退款或改变金额。</text>
+      <text class="service-label">仅本人和负责这笔退款的水站可查看，本条沟通需保留身份。</text>
       <view class="load-error" wx:if="{{refundError}}">{{refundError}} <text bindtap="onRetryRefund">重试</text></view>
       <view wx:if="{{(refundReady || refundStale) && dispute}}">
         <text class="service-label">{{dispute.statusText}}</text>
         <text class="service-label" wx:if="{{dispute.lastResult}}">水站已登记结果：{{dispute.lastResult}}</text>
         <text class="service-label">水站可登记结果并结案，无需你确认；结案不会改变退款资格或实际退款。若仍有异议，可以再次提出。</text>
+        <!-- 2026-10-23：目的不能只靠 placeholder，输入后仍须区分异议与补充说明。 -->
+        <view class="refund-purpose" wx:if="{{dispute.canOpen || pendingDispute}}">
+          <text class="refund-purpose-title">提出退款异议</text>
+          <text class="refund-purpose-note">对退款处理有不同意见时填写；提交后由责任水站核实，不会直接退款或改变金额。</text>
+        </view>
         <textarea class="dispute-reason" wx:if="{{dispute.canOpen || pendingDispute}}" maxlength="1000" placeholder="请说明退款异议" value="{{disputeReason}}" bindinput="onDisputeReason" disabled="{{disputeSubmitting || !refundReady}}" />
         <button wx:if="{{dispute.canOpen || pendingDispute}}" loading="{{disputeSubmitting}}" disabled="{{disputeSubmitting || !refundReady}}" bindtap="onOpenDispute">提出退款异议</button>
         <button wx:if="{{pendingDispute}}" disabled="{{disputeSubmitting || !refundReady}}" bindtap="onRetryDispute">重试原异议</button>
-        <view wx:for="{{dispute.actions}}" wx:for-item="entry" wx:key="id"><text class="service-label">{{entry.actionText}} · {{entry.createTime}}</text><text class="history-content">{{entry.reason}}</text></view>
       </view>
     </block>
     <view class="category-list" wx:if="{{!refundRef}}">
@@ -72,6 +76,10 @@
       <view class="category-item {{category === '其他' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="其他">
         <text>其他</text>
       </view>
+    </view>
+    <view class="refund-purpose" wx:if="{{refundRef}}">
+      <text class="refund-purpose-title">补充退款说明（选填）</text>
+      <text class="refund-purpose-note">给同一笔退款补充事实或证据；提交只保存说明，不会办理退款或改变金额。</text>
     </view>
     <textarea class="content-input" placeholder="{{refundRef ? '说明可选，证据可稍后补充' : '请描述您遇到的问题或建议...'}}" maxlength="{{refundRef ? 1000 : 500}}" value="{{content}}" bindinput="onContentInput" />
     <input class="contact-input" placeholder="联系方式（可选）" value="{{contact}}" bindinput="onContactInput" />
@@ -98,6 +106,10 @@
     <view class="load-error" wx:if="{{submitError}}">{{submitError}}<button bindtap="onRetryHistory">核对反馈历史</button></view>
     <text wx:if="{{pendingRefundNote && !submitting}}" class="service-label">上一条说明的结果待确认，恢复时沿用原内容和编号。</text>
     <button wx:if="{{pendingRefundNote && !submitting}}" disabled="{{!refundReady}}" bindtap="onRetryOriginalNote">恢复原说明</button>
+    <view class="refund-action-history" wx:if="{{refundRef && (refundReady || refundStale) && dispute && dispute.actions.length}}">
+      <text class="refund-purpose-title">退款异议处理记录</text>
+      <view wx:for="{{dispute.actions}}" wx:for-item="entry" wx:key="id"><text class="service-label">{{entry.actionText}} · {{entry.createTime}}</text><text class="history-content">{{entry.reason}}</text></view>
+    </view>
   </view>
 
   <!-- 普通反馈历史按需展开；退款说明及其状态/责任保持常显。 -->

@@ -50,25 +50,51 @@ Page({
     const id = options.id
     const canViewAssets = app.isStationManager()
     this.setData({ id, canViewAssets })
-    this.loadProfile(id)
-    if (canViewAssets) {
-      this.loadAssets(id)
-      this.loadPrivileges(id)
-    }
+    this._customerOwner = this.customerContext()
+    this._customerInitialShow = true
+    return this.refreshCustomerData()
   },
 
   onRetryProfile() { return this.loadProfile(this.data.id) },
 
   onShow() {
     this._returnHidden = false
+    if (this._customerOwner && !this.currentCustomerContext(this._customerOwner)) {
+      this.setData({ loading: false, profile: null, assets: null, canViewAssets: false,
+        assetsLoading: false, privileges: [], privilegesLoading: false, showReturnEmpty: false,
+        error: '登录身份或水站已变化，请退出本页后重新进入' })
+      return
+    }
     if (this._returnModalContext && !this.currentReturnContext(this._returnModalContext)) {
       this._returnModalContext = null
       this.setData({ showReturnEmpty: false, returnItems: [] })
     }
     if (this.data.id && this.data.canViewAssets) this.restoreReturnIntent()
+    if (this._customerInitialShow) { this._customerInitialShow = false; return }
+    // 2026-10-23：调整/代客下单返回曾继续显示旧资产；只在返回时重读，首入沿用onLoad。
+    if (this._customerOwner) return this.refreshCustomerData()
   },
-  onHide() { this._returnHidden = true },
-  onUnload() { this._returnDisposed = true; this._returnHidden = true },
+  onHide() {
+    this._returnHidden = true
+    for (const key of ['_profileReadSeq', '_assetReadSeq', '_privilegeReadSeq']) this[key] = (this[key] || 0) + 1
+  },
+  onUnload() { this._returnDisposed = true; this.onHide() },
+
+  customerContext() {
+    const app = getApp(), data = app.globalData, user = data.userInfo || {}
+    return { app, key: JSON.stringify([!!data.isLogin, app._loginGeneration || 0,
+      user.staffId, user.stationId, user.role, user.bindStatus, String(this.data.id)]) }
+  },
+  currentCustomerContext(context) {
+    const current = this.customerContext(), owner = this._customerOwner
+    return !this._returnHidden && !this._returnDisposed && current.app === context.app && current.key === context.key
+      && (!owner || owner.app === context.app && owner.key === context.key)
+  },
+  refreshCustomerData() {
+    const tasks = [this.loadProfile(this.data.id)]
+    if (this.data.canViewAssets) tasks.push(this.loadAssets(this.data.id), this.loadPrivileges(this.data.id))
+    return Promise.all(tasks)
+  },
 
   returnContext() {
     const app = getApp(), user = app.globalData.userInfo || {}
@@ -110,19 +136,24 @@ Page({
   },
 
   async loadProfile(id) {
+    const context = this.customerContext(), seq = this._profileReadSeq = (this._profileReadSeq || 0) + 1
+    const current = () => seq === this._profileReadSeq && this.currentCustomerContext(context)
+    if (!current()) return
     this.setData({ loading: true, error: '' })
     try {
       const res = await getCustomerProfile(id)
+      if (!current()) return
       if (res.code === 0 && res.data) {
         this.setData({ profile: this.decorate(res.data) })
       } else {
         this.setData({ error: res.message || '客户不存在', profile: null })
       }
     } catch (err) {
+      if (!current()) return
       // 把真实错误暴露出来（例如后端未部署该接口会返回 404/网络错误），便于定位"空白"根因
       this.setData({ error: err.message || '加载失败', profile: null })
     } finally {
-      this.setData({ loading: false })
+      if (current()) this.setData({ loading: false })
     }
   },
 
@@ -135,15 +166,20 @@ Page({
    * 且**不**出现在 grantableTypes 里，所以界面上根本不会出现"点了没反应"的开关。
    */
   async loadPrivileges(id) {
+    const context = this.customerContext(), seq = this._privilegeReadSeq = (this._privilegeReadSeq || 0) + 1
+    const current = () => seq === this._privilegeReadSeq && this.currentCustomerContext(context)
+    if (!current()) return
     this.setData({ privilegesLoading: true, privilegesError: '' })
     try {
       const res = await httpGet(privilegesPath(id))
+      if (!current()) return
       const d = res.data || {}
       this.setData({ privileges: d.privileges || [], grantableTypes: d.grantableTypes || [] })
     } catch (err) {
+      if (!current()) return
       this.setData({ privilegesError: err.message || '特权加载失败' })
     } finally {
-      this.setData({ privilegesLoading: false })
+      if (current()) this.setData({ privilegesLoading: false })
     }
   },
 
@@ -192,18 +228,23 @@ Page({
    * 反之亦然，两个区块各自给出错误提示，便于定位。
    */
   async loadAssets(id) {
+    const context = this.customerContext(), seq = this._assetReadSeq = (this._assetReadSeq || 0) + 1
+    const current = () => seq === this._assetReadSeq && this.currentCustomerContext(context)
+    if (!current()) return
     this.setData({ assetsLoading: true, assetsError: '' })
     try {
       const res = await getCustomerAssets(id)
+      if (!current()) return
       if (res && res.code === 0 && res.data) {
         this.setData({ assets: this.decorateAssets(res.data), recordsExpanded: false })
       } else {
         this.setData({ assets: null, assetsError: (res && res.message) || '资产信息不可用' })
       }
     } catch (err) {
+      if (!current()) return
       this.setData({ assets: null, assetsError: err.message || '资产加载失败' })
     } finally {
-      this.setData({ assetsLoading: false })
+      if (current()) this.setData({ assetsLoading: false })
     }
   },
 
@@ -367,6 +408,10 @@ Page({
     try {
       intent = this.readReturnIntent(context)
       hadPending = !!intent
+      if (!intent && (this.data.assetsLoading || this.data.assetsError)) {
+        this.setData({ returnMessage: '请先重新核对客户资产，再办理本次还桶' })
+        return
+      }
       if (!intent) intent = returnIntent.prepare(context.actor, context.customerId, (this.data.returnItems || []).filter(i => i.qty > 0))
       this._returnIntent = intent
       if (!this.currentReturnContext(context) || this._returnHidden) return
@@ -425,11 +470,7 @@ Page({
   },
 
   onPullDownRefresh() {
-    const tasks = [this.loadProfile(this.data.id)]
-    if (this.data.canViewAssets) {
-      tasks.push(this.loadAssets(this.data.id))
-    }
-    Promise.all(tasks).then(() => wx.stopPullDownRefresh())
+    return this.refreshCustomerData().finally(() => wx.stopPullDownRefresh())
   },
 
   onCall(e) {

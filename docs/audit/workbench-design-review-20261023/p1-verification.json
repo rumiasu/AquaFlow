@@ -66,6 +66,43 @@
           "sha256": "ebef604ad5ff7e8d5cda6c6b19e6275545b2e2ce7658edff4d84759dd743643f"
         }
       ]
+    },
+    {
+      "change": "客户详情返回重读资料/资产/特权，首入不双读；按原身份和读取代次隔离旧回执，未核实资产不放行新还桶草稿。",
+      "added_cases": 13,
+      "tests": [
+        {
+          "command": "node tests/js/customer-detail-refresh.test.js",
+          "counted_items": 13,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/return-empty-intent.test.js",
+          "counted_items": 31,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/manager-first-batch.test.js",
+          "counted_items": 19,
+          "exit_code": 0
+        }
+      ],
+      "issue": "WB-02",
+      "fix_parent_commit": "2d86c96b991543852819371aa9cebf36eb26c8e1",
+      "source_hashes": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+          "sha256": "642df78e9fcb3143cf768c24da0910f7ae759139bc84f337fa9c06ca209995a1"
+        },
+        {
+          "path": "tests/js/customer-detail-refresh.test.js",
+          "sha256": "42ac1c94244094ebfbb6f7093aeb311047cd591b7903600e8b62ddfe7c743e52"
+        },
+        {
+          "path": "tests/js/run-all.js",
+          "sha256": "e3b7e8980fcd60c7ab920098bf2d3fa6b053f7a486c3affb364d69f040f7fb22"
+        }
+      ]
     }
   ],
   "boundary": "Actual Page handlers / WXML condition projection with synthetic APIs only. No native rendering, real login/payment/refund, backend/MySQL, cloud data, deployment or Actions read. No new full-run claim."

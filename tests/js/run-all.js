@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'customer-detail-refresh.test.js', name: '站长客户详情返回刷新、读取代次与原身份边界' },
   { file: 'dashboard-metric-switch.test.js', name: '经营趋势单量/金额切换、周期与原报表绘制绑定' },
   { file: 'return-empty-intent.test.js', name: '纯还桶连点、未知原键、存储及身份恢复边界' },
   { file: 'customer-note-preview.test.js', name: 'independent customer notes, single-line previews, card reuse and safe list boundaries' },

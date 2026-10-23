@@ -90,7 +90,7 @@
       "id": "WB-02",
       "severity": "P1",
       "title": "资产调整后返回客户详情不刷新",
-      "status": "open",
+      "status": "fixed_code_tests_passed_native_pending",
       "evidence_type": "code_defect",
       "routes": [
         "miniapp-delivery/pages/station-mgmt/customers/detail/index",
@@ -122,7 +122,15 @@
       },
       "acceptance_check": "调整执行或替客下单后返回自动重读；失败保留旧值并标未核实；首入不双读。",
       "native_pixel_verified": false,
-      "probe_cases": 1
+      "probe_cases": 1,
+      "resolution": {
+        "phase": "P1 targeted fixes",
+        "implementation": "客户详情返回重读资料/资产/特权，首入不双读；按原身份和读取代次隔离旧回执，未核实资产不放行新还桶草稿。",
+        "formal_test": "node tests/js/customer-detail-refresh.test.js",
+        "added_cases": 13,
+        "validation": "p1-verification.json",
+        "remaining": "Native pixels / real services not verified."
+      }
     },
     {
       "id": "WB-03",
@@ -458,7 +466,7 @@
   "fix_branch": "codex/fix-workbench-interactions-20261023",
   "open_severity_counts": {
     "P0": 0,
-    "P1": 2,
+    "P1": 1,
     "P2": 4
   },
   "remaining_probe_conversion": {
@@ -466,10 +474,10 @@
       "WB-01 double tap",
       "WB-01 uncertain retry",
       "WB-04",
-      "WB-05"
+      "WB-05",
+      "WB-02"
     ],
     "pending": [
-      "WB-02",
       "WB-03",
       "WB-07",
       "WB-08"

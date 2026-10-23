@@ -1,0 +1,433 @@
+{
+  "schema_version": 1,
+  "assessment_date": "2026-10-23",
+  "source_commit": "6e2055f5235e84657f9807f0c0eb7857a2c1ea18",
+  "source_branch": "codex/fix-fee-drawer-layout-20261018",
+  "review_branch": "codex/review-workbench-20261023",
+  "business_code_modified": false,
+  "acceptance_claim": "limited_source_and_synthetic_handler_review",
+  "severity_definitions": {
+    "P0": "影响使用或记账可信度，阻断相关操作交付",
+    "P1": "明显体验或判断错误，相关任务试用前应修",
+    "P2": "可延期，不据此阻断整包源码交接"
+  },
+  "evidence_types": {
+    "code_defect": "明确源码/实际处理函数反例，非真实HTTP或数据库验证",
+    "old_screenshot": "原图可证；本轮无此类新增问题",
+    "code_visual_inference": "由结构和样式推断，不能当原生目视结果",
+    "undetermined": "缺少对应运行时/像素证据"
+  },
+  "severity_counts": {
+    "P0": 1,
+    "P1": 4,
+    "P2": 4
+  },
+  "issues": [
+    {
+      "id": "WB-01",
+      "severity": "P0",
+      "title": "同次还空桶连点或超时重试会换幂等键",
+      "status": "open",
+      "evidence_type": "code_defect",
+      "routes": [
+        "miniapp-delivery/pages/station-mgmt/customers/detail/index"
+      ],
+      "user_impact": "可能把一次实物交桶重复记账。前端重复API调用已复现；后端在物理余量足够时可接受两次是源码链推导，未执行数据库写入。",
+      "evidence": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+          "line": 284,
+          "note": "无returnSubmitting入口守卫"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+          "line": 293,
+          "note": "每次生成新clientToken"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+          "line": 301,
+          "note": "未知失败仅toast并解锁"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxml",
+          "line": 335,
+          "note": "view只加disabled样式仍绑定点击"
+        },
+        {
+          "path": "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/BarrelServiceImpl.java",
+          "line": 1078,
+          "note": "仅同token命中幂等返回"
+        },
+        {
+          "path": "AquaFlow-backend/src/main/java/com/example/aquaflow/service/BarrelLedgerService.java",
+          "line": 655,
+          "note": "锁后余量足够即继续减over"
+        }
+      ],
+      "minimal_recommendation": "增加入口在途守卫；同一原身份/客户/数量的交桶意图保存并复用token；未知结果常驻核对与恢复原请求，明确拒绝后才允许改内容换键。",
+      "delivery_impact": {
+        "level": "blocks_affected_capability",
+        "scope": "站长代客还空桶",
+        "blocks_source_review_handoff": false,
+        "required_before": "该操作交作可用能力"
+      },
+      "acceptance_check": "连点仅一个请求；可能已执行的超时重试复用原键；离页重进仍核对原登记；明确拒绝可修正。",
+      "native_pixel_verified": false,
+      "probe_cases": 2,
+      "consequence_confidence": "source_chain_inference_no_database_execution"
+    },
+    {
+      "id": "WB-02",
+      "severity": "P1",
+      "title": "资产调整后返回客户详情不刷新",
+      "status": "open",
+      "evidence_type": "code_defect",
+      "routes": [
+        "miniapp-delivery/pages/station-mgmt/customers/detail/index",
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/index"
+      ],
+      "user_impact": "旧桶数/押金/可还上限看似最新，站长可能误判调整未生效。下拉刷新可恢复，并非永久不可达。",
+      "evidence": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+          "line": 40,
+          "note": "仅onLoad加载，无onShow"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+          "line": 225,
+          "note": "资产调整子页入口"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+          "line": 321,
+          "note": "已有手动下拉恢复"
+        }
+      ],
+      "minimal_recommendation": "返回时重新核对，旧快照明确标注，相关动作等资产更新再开放，避免首入重复请求。",
+      "delivery_impact": {
+        "level": "fix_before_role_trial",
+        "scope": "站长资产办理返回链",
+        "blocks_source_review_handoff": false
+      },
+      "acceptance_check": "调整执行或替客下单后返回自动重读；失败保留旧值并标未核实；首入不双读。",
+      "native_pixel_verified": false,
+      "probe_cases": 1
+    },
+    {
+      "id": "WB-03",
+      "severity": "P1",
+      "title": "画像失败隐藏已成功读取的资产及入口",
+      "status": "open",
+      "evidence_type": "code_defect",
+      "routes": [
+        "miniapp-delivery/pages/station-mgmt/customers/detail/index"
+      ],
+      "user_impact": "局部资料故障扩大为整块资产不可看、资产调整入口不可见；不是资产实际丢失。",
+      "evidence": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+          "line": 49,
+          "note": "画像和资产独立请求"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxml",
+          "line": 13,
+          "note": "整个主体依赖profile"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxml",
+          "line": 43,
+          "note": "资产区位于该父条件内"
+        }
+      ],
+      "minimal_recommendation": "资产区独立于画像状态渲染，保留站长权限闸门与独立错误重试，客户编号作身份兜底。",
+      "delivery_impact": {
+        "level": "fix_before_role_trial",
+        "scope": "站长资产局部失败态",
+        "blocks_source_review_handoff": false
+      },
+      "acceptance_check": "画像失败资产成功仍能看资产；资产失败不伪造空；未授权时不显示。",
+      "native_pixel_verified": false,
+      "probe_cases": 1
+    },
+    {
+      "id": "WB-04",
+      "severity": "P1",
+      "title": "首页刷新覆盖客户刚选的非默认地址",
+      "status": "open",
+      "evidence_type": "code_defect",
+      "routes": [
+        "miniapp-user/pages/address/list",
+        "miniapp-user/pages/home/index",
+        "miniapp-user/pages/order/create"
+      ],
+      "user_impact": "显式选择13后首页变成默认12，结算URL也带12；可能反复选址或漏看变更。没有真实下单或错送。",
+      "evidence": [
+        {
+          "path": "miniapp-user/pages/address/list.js",
+          "line": 58,
+          "note": "保存明确选择"
+        },
+        {
+          "path": "miniapp-user/pages/home/index.js",
+          "line": 102,
+          "note": "先发起异步刷新"
+        },
+        {
+          "path": "miniapp-user/pages/home/index.js",
+          "line": 105,
+          "note": "随后消费已选地址"
+        },
+        {
+          "path": "miniapp-user/pages/home/index.js",
+          "line": 558,
+          "note": "刷新无条件用默认/首地址"
+        },
+        {
+          "path": "miniapp-user/pages/home/index.js",
+          "line": 1035,
+          "note": "覆盖后的地址传入结算"
+        }
+      ],
+      "minimal_recommendation": "最新地址列表仍包含已选ID时优先保留；地址已不可用才提示重选并重报价。",
+      "delivery_impact": {
+        "level": "fix_before_role_trial",
+        "scope": "客户多地址订水",
+        "blocks_source_review_handoff": false
+      },
+      "acceptance_check": "非默认地址返回后及结算保持同ID；失效地址明确提示；慢旧列表不覆盖新选择。",
+      "native_pixel_verified": false,
+      "probe_cases": 1
+    },
+    {
+      "id": "WB-05",
+      "severity": "P1",
+      "title": "经营看板切金额未重算趋势值和标题",
+      "status": "open",
+      "evidence_type": "code_defect",
+      "routes": [
+        "miniapp-delivery/pages/station-mgmt/dashboard/index"
+      ],
+      "user_impact": "选择金额后绘制仍用单量3而非金额120，曲线语义失真；没有修改实际收款账本。",
+      "evidence": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.js",
+          "line": 48,
+          "note": "切metric只drawTrend"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.js",
+          "line": 172,
+          "note": "实际values/title转换在prepareCharts"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.js",
+          "line": 262,
+          "note": "绘制形式已按金额metric改变"
+        }
+      ],
+      "minimal_recommendation": "切换时用当前report重算values/title再画图，保留原报表接口和统计口径。",
+      "delivery_impact": {
+        "level": "blocks_affected_capability",
+        "scope": "准确的金额趋势展示",
+        "blocks_source_review_handoff": false,
+        "required_before": "该报表供经营判断"
+      },
+      "acceptance_check": "orders=3/amount=120切换为120再切回3；标题同步；切周期与零值正确。",
+      "native_pixel_verified": false,
+      "probe_cases": 1
+    },
+    {
+      "id": "WB-06",
+      "severity": "P2",
+      "title": "客户首页列表和复购图片失败没有恢复占位",
+      "status": "open",
+      "evidence_type": "code_defect",
+      "routes": [
+        "miniapp-user/pages/home/index"
+      ],
+      "user_impact": "URL非空但下载失败时无法进入现有空URL占位分支，削弱同类商品识别；具体原生失败图形未目视。",
+      "evidence": [
+        {
+          "path": "miniapp-user/pages/home/index.wxml",
+          "line": 140,
+          "note": "复购图无binderror"
+        },
+        {
+          "path": "miniapp-user/pages/home/index.wxml",
+          "line": 181,
+          "note": "商品图无binderror"
+        },
+        {
+          "path": "miniapp-user/pages/shop/index.wxml",
+          "line": 57,
+          "note": "已有可复用错误处理模式"
+        }
+      ],
+      "minimal_recommendation": "按ID+URL记录图片失败并显示已有占位，保留商品名/规格/数量；正常重读允许重试，不生成品牌实拍。",
+      "delivery_impact": {
+        "level": "nonblocking_followup",
+        "scope": "首页图片失败态",
+        "blocks_source_review_handoff": false
+      },
+      "acceptance_check": "坏URL出现明确占位且数量操作可用；换URL后可以加载，不无限重试。",
+      "native_pixel_verified": false,
+      "probe_cases": 0
+    },
+    {
+      "id": "WB-07",
+      "severity": "P2",
+      "title": "恢复清单中暂不可订商品没有说明",
+      "status": "open",
+      "evidence_type": "code_defect",
+      "routes": [
+        "miniapp-user/pages/home/index"
+      ],
+      "user_impact": "原存两件而目录只有一件时，页面及结算只含一件，顾客不知道另一项暂不可订；原草稿仍在，未被删除。",
+      "evidence": [
+        {
+          "path": "miniapp-user/pages/home/index.js",
+          "line": 574,
+          "note": "读取完整已存cart"
+        },
+        {
+          "path": "miniapp-user/pages/home/index.js",
+          "line": 797,
+          "note": "仅当前products进入视图及计数"
+        },
+        {
+          "path": "miniapp-user/pages/home/index.js",
+          "line": 976,
+          "note": "仅当前products进入结算候选"
+        }
+      ],
+      "minimal_recommendation": "就地显示暂不可订项数量并可查看、明确移除或重选；保留草稿，不自动替换SKU。",
+      "delivery_impact": {
+        "level": "nonblocking_followup",
+        "scope": "部分商品下架后的购物车恢复",
+        "blocks_source_review_handoff": false
+      },
+      "acceptance_check": "恢复两项其中一项下架，原稿保留且有可解释提示；全目录失败仍走既有重试态。",
+      "native_pixel_verified": false,
+      "probe_cases": 1
+    },
+    {
+      "id": "WB-08",
+      "severity": "P2",
+      "title": "普通意见反馈未知结果后可再次提交（已知D01）",
+      "status": "open",
+      "evidence_type": "code_defect",
+      "routes": [
+        "miniapp-delivery/pages/report/index"
+      ],
+      "user_impact": "第一次可能已写入但超时，再确认仍发第二个普通反馈请求，增加重复记录和处理负担；不涉及资金和资产。",
+      "evidence": [
+        {
+          "path": "miniapp-delivery/pages/report/index.js",
+          "line": 188,
+          "note": "未知失败仅toast"
+        },
+        {
+          "path": "miniapp-delivery/pages/report/index.js",
+          "line": 192,
+          "note": "释放提交锁"
+        },
+        {
+          "path": "miniapp-delivery/pages/report/index.wxml",
+          "line": 32,
+          "note": "恢复普通提交"
+        },
+        {
+          "path": "docs/audit/staff-experience-review-20261023.md",
+          "line": 22,
+          "note": "既有重要未解决项D01"
+        }
+      ],
+      "minimal_recommendation": "常驻结果待核实与已有反馈记录入口；不按正文或时间猜唯一反馈。严格幂等需另定普通反馈协议，本轮不扩后端。",
+      "delivery_impact": {
+        "level": "nonblocking_followup",
+        "scope": "普通意见反馈",
+        "blocks_source_review_handoff": false
+      },
+      "acceptance_check": "可能已执行的超时与明确拒绝区分，未知结果不直接诱导重发；已有成功返回恢复不退化。",
+      "native_pixel_verified": false,
+      "probe_cases": 1,
+      "origin": "inherited_unresolved",
+      "previous_id": "D01"
+    },
+    {
+      "id": "WB-09",
+      "severity": "P2",
+      "title": "经营待办把主动退票目录放在部分当前责任之前",
+      "status": "open",
+      "evidence_type": "code_visual_inference",
+      "routes": [
+        "miniapp-delivery/pages/station-mgmt/index",
+        "miniapp-delivery/pages/station-mgmt/business-waiting/index"
+      ],
+      "user_impact": "无特定分区定位且票批次较多时，寻找退款/返还/交接责任可能需要更多滚动；仅信息顺序确证，首屏拥挤及滚动距离是推断。",
+      "evidence": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/index.wxml",
+          "line": 121,
+          "note": "六类事项合并入口"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxml",
+          "line": 12,
+          "note": "可退票目录先于待退款分区"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxml",
+          "line": 18,
+          "note": "待退款分区"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxml",
+          "line": 68,
+          "note": "返还款分区"
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.js",
+          "line": 15,
+          "note": "四类支持传入定位，无全分区导航"
+        }
+      ],
+      "minimal_recommendation": "轻量分区锚点/已有计数跳转；当前责任先于主动退出目录，保留全部入口及各自真实口径。",
+      "delivery_impact": {
+        "level": "nonblocking_suggestion",
+        "scope": "站长经营待办信息层级",
+        "blocks_source_review_handoff": false
+      },
+      "acceptance_check": "从目录及责任提醒都能直达目标，零/失败/长列表不误报，窄屏再核对。",
+      "native_pixel_verified": false,
+      "probe_cases": 0
+    }
+  ],
+  "coverage_gaps": [
+    {
+      "id": "G-01",
+      "kind": "undetermined",
+      "scope": "current native pixels, keyboard, font scaling, safe areas, outdoor readability",
+      "state": "not_run",
+      "delivery_effect": "targeted follow-up for affected capabilities; no 72-screenshot blanket gate"
+    },
+    {
+      "id": "G-02",
+      "kind": "undetermined",
+      "scope": "historical screenshot originals",
+      "state": "not_present_in_environment",
+      "evidence": "docs/audit/visual-review-20261021/coverage.csv",
+      "action_this_run": "used repository metadata only; did not retry previous denied transport"
+    },
+    {
+      "id": "G-03",
+      "kind": "undetermined",
+      "scope": "dashboard Canvas first draw and native rendering",
+      "state": "not_run",
+      "note": "Old fixture Canvas omission is not evidence that current production Canvas is absent."
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "sourceCommit": "6e2055f5235e84657f9807f0c0eb7857a2c1ea18",
+  "meaning": "Exit 0 = documented counterexamples reproduced, not product acceptance.",
+  "boundary": "Actual Page handlers; synthetic API stubs; one WXML condition projection. No HTTP, DB, native rendering, login, money movement or deployment.",
+  "result": "reproduced",
+  "probeCount": 8,
+  "probes": [
+    {
+      "issue": "WB-01",
+      "case": "double tap while first response is pending",
+      "requests": 2,
+      "differentTokens": true
+    },
+    {
+      "issue": "WB-01",
+      "case": "retry after an uncertain response",
+      "requests": 2,
+      "differentTokens": true,
+      "modalOpen": true,
+      "submitting": false
+    },
+    {
+      "issue": "WB-02",
+      "case": "return after a child changes assets",
+      "onShowDefined": false,
+      "reads": {
+        "profile": 1,
+        "assets": 1,
+        "privileges": 1
+      },
+      "displayed": 2,
+      "serverFixture": 3
+    },
+    {
+      "issue": "WB-03",
+      "case": "profile fails, assets succeed",
+      "assetsLoaded": true,
+      "assetsVisibleInWxmlProjection": false,
+      "nativeRendering": false
+    },
+    {
+      "issue": "WB-04",
+      "case": "non-default address selected before returning home",
+      "selected": 13,
+      "afterRefresh": 12,
+      "checkoutAddressId": 12
+    },
+    {
+      "issue": "WB-05",
+      "case": "switch trend from order count to amount",
+      "orders": 3,
+      "amount": 120,
+      "selectedMetric": "amount",
+      "chartValues": [
+        3
+      ],
+      "title": "近7天订单量趋势"
+    },
+    {
+      "issue": "WB-07",
+      "case": "one restored SKU is absent from the current catalog",
+      "savedQuantity": 2,
+      "displayedQuantity": 1,
+      "missingSkuStillSaved": true,
+      "checkoutItems": [
+        {
+          "productId": 10,
+          "quantity": 1
+        }
+      ],
+      "note": "No claim that storage was deleted or an order was submitted."
+    },
+    {
+      "issue": "WB-08",
+      "case": "known ordinary-feedback uncertain response followed by retry",
+      "requests": 2,
+      "submitting": false,
+      "scope": "non-financial ordinary feedback; inherited D01"
+    }
+  ]
+}

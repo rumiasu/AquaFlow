@@ -1,0 +1,2388 @@
+{
+  "source_commit": "6e2055f5235e84657f9807f0c0eb7857a2c1ea18",
+  "prior_inventory_commit": "2000a1866b76905e4eeef4c60e54a7ecd8910297",
+  "customer_routes": 26,
+  "employee_routes": 46,
+  "total_routes": 72,
+  "focused_route_count": 26,
+  "unchanged_prior_template_style_routes": 3,
+  "meaning": "All registered routes indexed with current hashes. 26 routes received targeted source-fragment review, not exhaustive every-role/every-state execution. Existing prior inventory is reused, never relabeled as current native acceptance.",
+  "routes": [
+    {
+      "app": "miniapp-user",
+      "route": "pages/home/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": true,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/home/index.js",
+          "sha256_lf": "78c751c75388611e34078b2bfce7df95d7835f0c344c0fd5d63a495df2af9825",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/home/index.wxml",
+          "sha256_lf": "9d71a0172fc405782ca174b6de5a6a27bb138f76bed5aa652098c89bcdf90219",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/home/index.wxss",
+          "sha256_lf": "ec9e55e7ceaa94652611860492989b87aa8df3f3feb5a0ec786cf26376b128f4",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/home/index.json",
+          "sha256_lf": "1a618772cb7c295817f91950362af0af987361e6a1c29411b3c0e09c7c974ce1",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/home/notice",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/home/notice.js",
+          "sha256_lf": "c79f38cfea07b20cd9104f6dc263ac0629dbb631fceaf3d62ea6cfb144383f99",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/home/notice.wxml",
+          "sha256_lf": "f13dad3c64c4126e08a07484bafa8cd626c82f5a6a03ab043e8fdac3f7dc6a94",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/home/notice.wxss",
+          "sha256_lf": "0faa56d82ba8f42a90b2c132322031e56eaed447d5971fb7d9088253004a1737",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/home/notice.json",
+          "sha256_lf": "7ed0c3057a668d55d7d1eca171c8bcdfa72290c5c4aff3426075042b0a4efd05",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/order/list",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/order/list.js",
+          "sha256_lf": "bd9ee983fa5a7cf86f82e4540fe97c82505bc0987932d8637188c1dafe428989",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/order/list.wxml",
+          "sha256_lf": "eb7077bfb13b59fe4cd230af475bdce2211e0404a325fa38402f26bedeadeee3",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/order/list.wxss",
+          "sha256_lf": "3a65d4551610df81b39fa6f334c94b7ff125f8d17872ad46dfa0e2d29e19a432",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/order/list.json",
+          "sha256_lf": "eada66f6110e94cc7c6e7c76acb7a1b4fbd9d6c9e56e444d5cdeeb24a2e3d2d5",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/order/detail",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/order/detail.js",
+          "sha256_lf": "2a395b0e1ef5ce6f07dd64de3a2aa3b6c82e98f1935ca059e8acb8aeeac5f4ad",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/order/detail.wxml",
+          "sha256_lf": "2eb10141a2a21661c768812a3ceb9c49910a9f82cda2720639d74102a3a3f85f",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/order/detail.wxss",
+          "sha256_lf": "97fbdb2015fb5de0e366ed7c5b1a41fb0895a0ad5afcb5b2a57b179f9ba6f554",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/order/detail.json",
+          "sha256_lf": "8a48a0bae00c50f7b7a3d879a4653dec5862a91accb84ebafa23a575be48b8a5",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/order/create",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/order/create.js",
+          "sha256_lf": "b867f812442e4ace51190a5383f8048c3633abd80fdf83d04f06cf794f8f9581",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/order/create.wxml",
+          "sha256_lf": "8a0252c5e720f253fd67c11b5ba586ac5add2241ce70ca88d09896e6a19314b5",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/order/create.wxss",
+          "sha256_lf": "96ccf357c3b8a0e8a389009369a821d7393c4a7d1ca688654a53a166d54d4924",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/order/create.json",
+          "sha256_lf": "f5420d8c12dc1828f5033d50c5277239d93c736ec668c0e542430bf319596b27",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/order/success",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/order/success.js",
+          "sha256_lf": "b7b84c6f93f77719f05b1a3c3b102d556da447dccd6466b10453efff34348c04",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/order/success.wxml",
+          "sha256_lf": "71e2250bc3a4ee4e5eb5efa6c0c6d202e0ef0b69bbc2bc87ed08f5a629809148",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/order/success.wxss",
+          "sha256_lf": "75a301e3e5c071445b1bd38d3fe3bb52c3c45a3eb8c90891c2d39a4a266131c7",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/order/success.json",
+          "sha256_lf": "b3d978304cd1f087ba8209ff64a6857548d7eb07bc229ee3a66005dc6c03a322",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/address/list",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/address/list.js",
+          "sha256_lf": "4021f9bb92f64db1c21597dcd99ab13b7cb66b733106bea831a0e97eb3d09e4b",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/address/list.wxml",
+          "sha256_lf": "464e17a004526fbe46b19fc3e661150acfb937fb6b22d66152fab8190bfba9af",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/address/list.wxss",
+          "sha256_lf": "c6fdc982196554ce899726bbe68d57de9b10199f0b01e49999b0f75e1faa22a3",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/address/list.json",
+          "sha256_lf": "bdf4aec49fcec09c4cfe90c1d31106678a8ce9fb340dedbffc4aa639d2404279",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/address/edit",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/address/edit.js",
+          "sha256_lf": "e23087ac32e1ceb34c766fbf9152f4c5065963f8d8c1ef1012d0c0d53393d055",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/address/edit.wxml",
+          "sha256_lf": "adc97aae9a8989a8b309c87f03535938799eff65c7d3740a4ab1f5dc83fff5dd",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/address/edit.wxss",
+          "sha256_lf": "862b49a9481dd2ff47dc08bc6c81c422a7a555f8dcd3935a00a8385917ddd62a",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/address/edit.json",
+          "sha256_lf": "131c401c071d32f7bca2c292ba0ea604013d39d6627713509566a549fb874168",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/barrel/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/barrel/index.js",
+          "sha256_lf": "edec92e781eea4908eb68fca8c1d9f8242ad0d0d773c6a55562138aeed9268eb",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/barrel/index.wxml",
+          "sha256_lf": "fcf7f475a44b4b2940c0e8abfa949c8e7d53462da7aaba581ac7e252a807c73d",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/barrel/index.wxss",
+          "sha256_lf": "8c20771dc32d31d3a698305f4b6760e402615173cd5939f2766622306d258be0",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/barrel/index.json",
+          "sha256_lf": "870f9e995c61e49cb59a51b788e123e323c027bb9cc3cc464ba3719ad6a429c6",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/barrel/purchase",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/barrel/purchase.js",
+          "sha256_lf": "a700eee79040b7730a11d7e3e33f395caff71619433c35aa8c287041bda74bf1",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/barrel/purchase.wxml",
+          "sha256_lf": "8e06bb2b97c14ba660ab574119bd40ff59484b13da78ff80293f47377e6d7231",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/barrel/purchase.wxss",
+          "sha256_lf": "ccc5063e0c3a1d2d969641b52f0d0d23bbcd6f591f2234124d35aa62a101777a",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/barrel/purchase.json",
+          "sha256_lf": "80589c4117ceddffee743fc7287528191839c8a365452fda8d323d1dfd364b4c",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/shop/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/shop/index.js",
+          "sha256_lf": "ebf28726d3f8ad63c2948b360ac071c07097df8d3ce3037117fab7eb2c22618f",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/shop/index.wxml",
+          "sha256_lf": "1e9990c77c1685c205cf07527f89b74d916da1b32b9ef5c99541637a5a4364a5",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/shop/index.wxss",
+          "sha256_lf": "2e6f000783107ae52af57e1e4f5ce119464636f85475f45c9735d1531a468b11",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/shop/index.json",
+          "sha256_lf": "09e5f2e856ecb1d890dc2ab8cb43ee4c6e10d53a519399f26c69cb6ccc9edfe5",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/template/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/template/index.js",
+          "sha256_lf": "0156b51d9808332d679b11a3e87af88b301c587b08624e187b68d932c1d7a4ae",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/template/index.wxml",
+          "sha256_lf": "cb1748637b75c081c0ec81bdbae0cab00d04c26f7b43c37bab3e5ec9361e9fc3",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/template/index.wxss",
+          "sha256_lf": "755cfb74a6d788e82300cf7cb065b8a01944edc99c456f72f2f49b955225f13c",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/template/index.json",
+          "sha256_lf": "fb8cc13981d87667ea94b4a911231248ce4518d847f1a0ff8fda91331b2dbf4c",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/ticket/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/ticket/index.js",
+          "sha256_lf": "4d2171e0b264547494c351499d1618cd8c4d92597e2cb68af605810d5e44bd01",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/ticket/index.wxml",
+          "sha256_lf": "c467398903032135028e8e3c473b5d0f02e5ec3c6563db3cc6fcf6377becfed5",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/ticket/index.wxss",
+          "sha256_lf": "2d8fb030cd28814cdbfd01fe150f22024c58ab5896d7e38b55cb70ac247eb495",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/ticket/index.json",
+          "sha256_lf": "70872e86d7e9e2d2ef016184219807057891454109f29f01eacc9af376bb99f1",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/mine/index.js",
+          "sha256_lf": "165565e1beb24fdf5fbefff7e389c39e0ee01e8b5a81e88ebb7eaa34fa8c6efc",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/mine/index.wxml",
+          "sha256_lf": "b6d5544f009344621264bbffe24638fd4d52396a3d06a5ff8bba6a83e7fb406a",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/index.wxss",
+          "sha256_lf": "3512a2804081e60b3b661e9ebc74f41023e76dae4304ff363b74b026df4c673e",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/index.json",
+          "sha256_lf": "a1d47343fa6dabb91822cb5cce8ab8dacdffd9e7b4670c6a3b80244f0007abdd",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/login/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/login/index.js",
+          "sha256_lf": "e6ff4afd282398e2249d69d35a127ef64bb308b5d8bc50510ac0c7a2b30bba51",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/login/index.wxml",
+          "sha256_lf": "fc71cbf1246018ef5c915e0096a162600d66de23a16bc79f35f85bf9dc21a002",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/login/index.wxss",
+          "sha256_lf": "eced41dd1a50eea5a26098aced66fe4db3d5d4b766bde16f62bd64acd49518da",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/login/index.json",
+          "sha256_lf": "62f0d98866ae302e6c463fceaa4b2e98866d543b843076fb06db71f16dc128e3",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/service/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/service/index.js",
+          "sha256_lf": "4396d0eb05c7bed3f485b46a26aefd34633f90b5586f864fd7ec107ea2649dd0",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/service/index.wxml",
+          "sha256_lf": "c56959b20d9b84032ce37ff625c51cbb9fb1005d431d6380671250b7dd1c0fe1",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/service/index.wxss",
+          "sha256_lf": "814840cd645eb63436e69a425cc596d6b2497b2a37194a1e056f4bbca9dca714",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/service/index.json",
+          "sha256_lf": "29d67672104f5f98da021d511311d0d7980afb0035d41e2ffcfb6fe6d97b5694",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/about",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/mine/about.js",
+          "sha256_lf": "11124d0a7f9ba16eb8aab2feafa70b60d3e72bfc7773ba1ad8928b7054ab1877",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/mine/about.wxml",
+          "sha256_lf": "65ac24b5545b4fed217e535197458760e0790993dbec501b234df20f3749c62b",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/about.wxss",
+          "sha256_lf": "52fc1aecd0e7e71088bf4df239ac90f8e53029497f8a887d692757ac2c9ead5f",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/about.json",
+          "sha256_lf": "1ec11cd06692f49d34e2a3198be337eb5b5f721a64e2119b32e504258dcedd83",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/edit",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/mine/edit.js",
+          "sha256_lf": "43b0887878b5788f957f4d817d69d283df6038832e97dca726110bdab18b9649",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/mine/edit.wxml",
+          "sha256_lf": "470246632c7c23f1deec07fa0301f69a84bbf77e37d0a21a584fab06be8ed49d",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/edit.wxss",
+          "sha256_lf": "dd99d2b869a098a48fe85419f06f140efd1720e3c754584b0c59d15f5bcaf645",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/edit.json",
+          "sha256_lf": "72661439c95f029590391af801e1226ea5941eaa776b350823fa27cb4f6937ca",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/agreement/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/mine/agreement/index.js",
+          "sha256_lf": "e056d1c54fc244e0de29720f8c93f12b8e4bb45a7a68e613d443024de902bd4c",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/mine/agreement/index.wxml",
+          "sha256_lf": "716155421bc4f590ac31e39219362f814f7b6e574cfdc601216f671407de258e",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/agreement/index.wxss",
+          "sha256_lf": "330a8a6f53430fbf773531de1101b99249afdd3ee5c8020321a0ef623c4301da",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/agreement/index.json",
+          "sha256_lf": "d11e3d8f8bdcdf96070a103f6a7e26b4147b6ceb85bbf7b3978871e78bf0e02c",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/account-data/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/mine/account-data/index.js",
+          "sha256_lf": "7c5ed38a17b53ad8ea2dd5395f56a5cff1f213d39277285926fab90419a4629f",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/mine/account-data/index.wxml",
+          "sha256_lf": "494ac1406c912f93abfcfd2b3708e032b591a272020ac75317d5797fa51f99bc",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/account-data/index.wxss",
+          "sha256_lf": "2316dd2ff2b1c549e9ec4e1ec39e59d1492401b8be76e7043ed8a75fa9414c73",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/account-data/index.json",
+          "sha256_lf": "04adde6023a71fb9ac191524589bc90741c6bf66aea202912c66a8007e210a9e",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/payment/records",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/payment/records.js",
+          "sha256_lf": "955221e407f227e79fb29e2ec99c8d94d40be2287b0355fa502ae578575ad34e",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/payment/records.wxml",
+          "sha256_lf": "96067dbaeb0ed4343f00ec8f1c4ab10a080438576ac503fc00ca923f715c711d",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/payment/records.wxss",
+          "sha256_lf": "24b4430d73b12b73f5d5c21bb9ab9febad3e40677d660c6b8aaa9d11ebe50c6a",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/payment/records.json",
+          "sha256_lf": "14191271be892a391a0e4c3b373638cd9c81fc0b93e7dc3ddea3d9f760b1af80",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/deposit/records/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/deposit/records/index.js",
+          "sha256_lf": "43d9981bddc3f4965cc7cc12c6aaeea7252eaf15a4b889f7236de9a8e430d28e",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/deposit/records/index.wxml",
+          "sha256_lf": "7cbdc61e1515a8a9345f22239b17fa4e07a7679b0f20b49ad3ba61ee76af8856",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/deposit/records/index.wxss",
+          "sha256_lf": "d48b01632dcadb192f4b190d8e3cf5554e2a951ec5b35ff61d610c6142ec9dfc",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/deposit/records/index.json",
+          "sha256_lf": "92e7a5b822493f0431f008a9f4182592dc6f0e55e02c7e0147409339203216d6",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/notice/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/notice/index.js",
+          "sha256_lf": "ba22512e282a32b6f891df212f4b4c0ca39861f5077fbf1dde8f9475becf1475",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/notice/index.wxml",
+          "sha256_lf": "cbfebcbc26b72121a819fd9960bd2eddce8941a1a608a526585f3b8d98699f02",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/notice/index.wxss",
+          "sha256_lf": "94871e375d443cb0fbdbeb1da4fcdb914c01e84eeabef27181fee6043a1caa03",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/notice/index.json",
+          "sha256_lf": "f224906fdc102757f4785d689e2c6800cdeb938b38d2036f8f1330490197b3c1",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/company",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/mine/company.js",
+          "sha256_lf": "036f727b7b0fb2126ab005b322f60dacaaeda14e3bfdd52f93f90f43fd5e5451",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/mine/company.wxml",
+          "sha256_lf": "cb465c299b67e98c9a5fea518b69e48a66d24d5fad9d99ff1b50987b1f61a45b",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/company.wxss",
+          "sha256_lf": "e6996defc88c9e9d21c53b50a86c840c53ea3b6710e0a0135ddc551abd3f6a5d",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/company.json",
+          "sha256_lf": "6284625c3d1b898ef30dd6e260e7a318670d0669200704913df0670a43f658e4",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/exception/list/list",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/exception/list/list.js",
+          "sha256_lf": "cc651df14075e52ac9a063b2c87dd31e81be2ffeae9164a6190e3d833d02f1d5",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/exception/list/list.wxml",
+          "sha256_lf": "ee8afd1acd7c1e9f07fb302f3daca7e150e322de92aec481e0f232dea990f849",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/exception/list/list.wxss",
+          "sha256_lf": "3ecb9c8a2b1d03707432757281d1459e333f36407baa8460980ec2825396e32a",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/exception/list/list.json",
+          "sha256_lf": "a0a0dc3588e4cb35fd7ed8bb05c24d1a61ddc675b541f406eab7ad9f04502113",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-user",
+      "route": "pages/mine/asset-claims/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-user/pages/mine/asset-claims/index.js",
+          "sha256_lf": "dd18ddba052687c967ff1c862f7f30700e73e67b44ff3230457ceccbde7b9db7",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-user/pages/mine/asset-claims/index.wxml",
+          "sha256_lf": "b3e83b6160a9c9534c4404645a9e5c6e021d201078d82f67403bb9d1fbf511f5",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/asset-claims/index.wxss",
+          "sha256_lf": "42297a91a292fe4285cae19a809c0896f63d61bbb92c60c70dd587443b2bb844",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-user/pages/mine/asset-claims/index.json",
+          "sha256_lf": "be18801b5f79a160cc22e28333ef7f2595a5721654a4ea5c90323931adb5c468",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/login/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/login/index.js",
+          "sha256_lf": "4d1b54e756cfb734c482d2833a448b7c1dc81fdd604aaaf7514f726749fa7f74",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/login/index.wxml",
+          "sha256_lf": "f1874d16f587ede1193bba15091f25749c22aeb720c60753b06c1896b5ffd445",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/login/index.wxss",
+          "sha256_lf": "c135ab7064b6faaabbc150bcbfad94a6d8a1b887a9fb7b9d00065ba62d85a683",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/login/index.json",
+          "sha256_lf": "a889a36d657716d1b06763e576377435373c4f98470d3cce4a99360634c065b7",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/mine/agreement/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/mine/agreement/index.js",
+          "sha256_lf": "7c5d01a6a347afcb2f0c9c68f8756fd615eab00db2bd9b15a41e47121b60ef7a",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/agreement/index.wxml",
+          "sha256_lf": "529fffd4f185dbdeb73ed6b894f61160aa931543ee8a511bdf7c90b14f9d7026",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/agreement/index.wxss",
+          "sha256_lf": "09f66e40c121cb34916ac13661864b6a1cf1a81b32c13db468dc1c1c8288615c",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/agreement/index.json",
+          "sha256_lf": "d11e3d8f8bdcdf96070a103f6a7e26b4147b6ceb85bbf7b3978871e78bf0e02c",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/mine/account-data/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": true,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/mine/account-data/index.js",
+          "sha256_lf": "f85153e22bb8ee069c75803b661876e7e43f04c884cfdce02a0d5aa5976080e7",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/account-data/index.wxml",
+          "sha256_lf": "9724f70e0cc5a7ad7407d245c53d475fcf966b8b34e072c96186ab9e6b5cce26",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/account-data/index.wxss",
+          "sha256_lf": "016ca82269214d800d682ea7e8354e76b9cf7448760c5ae7bf0cd3ddfbddf8c6",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/account-data/index.json",
+          "sha256_lf": "04adde6023a71fb9ac191524589bc90741c6bf66aea202912c66a8007e210a9e",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/role-select/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/role-select/index.js",
+          "sha256_lf": "b291e6d4b76bab71e29a3671e95fbe5e9d66dea87a7f8f7b58bec4300c87afef",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/role-select/index.wxml",
+          "sha256_lf": "dcfbebbb9ec187a2d42ccc3e1b7ffaa359bf8e35830f1654d9bbdc915b590763",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/role-select/index.wxss",
+          "sha256_lf": "f8185cd8cb6936141c11283d7c165894bcba606026ec2248c785adae5e9fb41e",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/role-select/index.json",
+          "sha256_lf": "dae1093f2dcdb6e9080a792b1a8a4ec114b31ab74860ff053a4d498321f07193",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/bind-wait/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/bind-wait/index.js",
+          "sha256_lf": "080e8e91faab6f0598f11363b189b8cef3fe7d9952dd7cd1c16af0da61ec6a2c",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/bind-wait/index.wxml",
+          "sha256_lf": "3d19f77c15445570001a6c36279b1261e6653dfb85da37960cce1771564f31d1",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/bind-wait/index.wxss",
+          "sha256_lf": "6e2e1bfe122aceb7ccda9b16fa93c769202492b02d1caf2149ca0ddc3194933b",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/bind-wait/index.json",
+          "sha256_lf": "5fcd141d0840022fefb2ddab595cfcc8af7fa7e9db0b1df9f5c630bd1c812abb",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/create-station/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": true,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/create-station/index.js",
+          "sha256_lf": "7b76880210be8787bce564b1dbe158970f0d25a6055702e63f430d43bd39b749",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/create-station/index.wxml",
+          "sha256_lf": "361b54e055b4d1296f86f26f1405ec507c945fb71c8a9c316b818a8d0962f3d7",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/create-station/index.wxss",
+          "sha256_lf": "661ffb903b71194a1ef8c35a28357058cfed95247fb47532965d87dbb2aed816",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/create-station/index.json",
+          "sha256_lf": "6e6b554433d0b34e27510a4fa2cd8642a7769df986c28ed3af65907204d8f402",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/apply-bind/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/apply-bind/index.js",
+          "sha256_lf": "02909b42ebcd4559d814c6eb26ed498cac3a2cedebc4aada3a6b49c562ef697e",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/apply-bind/index.wxml",
+          "sha256_lf": "9c3f156d222ad5428d4450ea5592a985d790a1a789540bc7f5fd7fa5c7bf4981",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/apply-bind/index.wxss",
+          "sha256_lf": "2b2b8753f37adfda887e12a7e084f086c795063b43a9cc97bfad4e6321fc4454",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/apply-bind/index.json",
+          "sha256_lf": "6b5b2052654113c1526483ef0a18f62772ab88e7c9dee1ffcdd96c922e19ed54",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/home/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/home/index.js",
+          "sha256_lf": "50b897160dce084d8d0252191e4688d59b30cba27dd855dc7c4aa0f7ad92467e",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/home/index.wxml",
+          "sha256_lf": "4575725f2a7a36fd1489db2a3345f2fd1f8b8f9b3dfe744f502e461e9c4c5fd3",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/home/index.wxss",
+          "sha256_lf": "98beba1dddce0f4f66633d558bc57144e4438b1bdc3ebd51ba3196b220143c35",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/home/index.json",
+          "sha256_lf": "2d48eb31889937c99b8550e6cd1412d812b38d0f72e85f80c223c2cf4bb5059f",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/order/detail",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/order/detail.js",
+          "sha256_lf": "d99b3b580b2bac1c2b37e6769154193933b2b842069b1a9ec1530739ea47de1c",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/order/detail.wxml",
+          "sha256_lf": "1d9524987425f0dfc1d60c5eabc09c6a3d37ca55690693a8efd7639fcde9fc82",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/order/detail.wxss",
+          "sha256_lf": "380e0005348ef9c8e2d6108f3968114472b5745fa350f0f3adef41defa913b87",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/order/detail.json",
+          "sha256_lf": "aac72f9cdcb05be6a11d6a338bc86dabc30ac451e3bac45fe8a38a4d6e6402ee",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/order/complete",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/order/complete.js",
+          "sha256_lf": "9bc8cb667f5dc3d36053a9147cf5966d56eb79098bcf12fccdff3abd7538573e",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/order/complete.wxml",
+          "sha256_lf": "f0c2826a953eb18f6d53ae3b2314be760dc45d37860ac7e5ffeb7b8fff9cdc3c",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/order/complete.wxss",
+          "sha256_lf": "02e989e97ae562538c60b4a8497b27db940470dd6f3534e40318f29a5d0cc45f",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/order/complete.json",
+          "sha256_lf": "91656a08917157e3a28b4426d7fe16655b60d5d8724d8ed5d3a88c555761afe3",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/mine/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/mine/index.js",
+          "sha256_lf": "43aecb485b9f35d02a25a26b001dd32a7c45214d1079d59d4de5ca45d8d46ad9",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/index.wxml",
+          "sha256_lf": "f882c1124ff97d499931fb6bd494c320e1d8344a7c4416b2e82cf5d488979ea7",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/index.wxss",
+          "sha256_lf": "9699731bd0fd1b2c0be24b8bc558a4892489b067d3048b6afbb6c50cc790e972",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/index.json",
+          "sha256_lf": "a3f7ab58bd094a022e990559edc5b1535979f6a44b5d356ac01de55663816e49",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/coordination/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/coordination/index.js",
+          "sha256_lf": "f1b537f5281d44f2bd09d6b4e6bc8782d91047d33654dd4e5660d4d31caa1478",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/coordination/index.wxml",
+          "sha256_lf": "184018e831cd0d5712268d9d450acdc7b724a5c74d576a04d9f45ae2a008bb96",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/coordination/index.wxss",
+          "sha256_lf": "c855675927193459563c01787ddaf07bdfa5d4da722b7349be1f8550500c5b4f",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/coordination/index.json",
+          "sha256_lf": "47896adbe9435e358876d3c6f6ed56ee6995a381f1c17e7d6b96f4d299c3b616",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/index.js",
+          "sha256_lf": "90d49941dd30700f64c4c4c7c6fc284975922fe1f77df638f54ed76966edf249",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/index.wxml",
+          "sha256_lf": "01635204d3ae0f66406238efe5f3482efbab5aeec113ad17251f906954879f30",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/index.wxss",
+          "sha256_lf": "b213c40d6c7d3ef69dca679a3f15cab49039270f3ccdec902006d777b8ed2e90",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/index.json",
+          "sha256_lf": "d44322d0bbcb2c62aad9d0047363d31460a219a0b3c4091061cb34f606a44f94",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/business-waiting/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.js",
+          "sha256_lf": "cceb5425446e0f831eb81363afc948eefaf86b0ed09a98f92501497aaf0604c9",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxml",
+          "sha256_lf": "fa5f4ca6ead9ee043bbf8b7e28e33b3f5d399c4ef0add11e973dba6f29199dd3",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxss",
+          "sha256_lf": "8a2a6826fae34e74c73fc4802e1a127e498fe1155404361ab6c8a0a3587e1c24",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.json",
+          "sha256_lf": "140e0fa863ebd70b35620e031045bc3697814cbb2a16bcbf0989f2a3348cd209",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/dashboard/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": true,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.js",
+          "sha256_lf": "f972e0224ee6ecdffa5b3c3c83d849506e0657f04c84f55ccaa81b9259c0072f",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.wxml",
+          "sha256_lf": "8756fc5805704b7d373eb7ee581070fa92654d9d9ee067f61b940298ee27e7ed",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.wxss",
+          "sha256_lf": "8737ea8897af6873b057d04031de390bfd18fbdb3980df12bf894f5cb0773135",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.json",
+          "sha256_lf": "1797a85422bbb618e57e6189d64a76cfc97c23809963d708e1ffce9f3faf665b",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/orders/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/orders/index.js",
+          "sha256_lf": "bfbba5ac54c85329f7f505ac2021dda3ba43b8acebf2602d41c424d5365b6ad7",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/orders/index.wxml",
+          "sha256_lf": "5b52fde5f594699b941368dbc8814d74305a4f99f077470aecdcb73d3785451d",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/orders/index.wxss",
+          "sha256_lf": "2eaf8a3ec255e5454c81601ea3577ed0635f4fc231acdcea840a3505daca4542",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/orders/index.json",
+          "sha256_lf": "aa0c3edc45a8fef71993f556466bf18e76f136df5ca685563e7325c9361cf3d3",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/index.js",
+          "sha256_lf": "a3af34f9c40d6bca5b91765694da243d82a385396bddb6e3101fa2df7dc6274e",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/index.wxml",
+          "sha256_lf": "65f9af564b09b95222c8c4094e82701a0d50f83fb99c4b799a0c72c87f06bd7c",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/index.wxss",
+          "sha256_lf": "817edc778c0d035ce14469f22c1be9f1dea6a386b719e1c72d566406de697530",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/index.json",
+          "sha256_lf": "ac5280116d2bdee26673a48ca0079a296fd7abfeaa2f35f6eb752f4974be6ab7",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/detail/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": true,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+          "sha256_lf": "1b8fca085e25629fa6e05787559c8c4a85a7fee650b9468554cedc169b864391",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxml",
+          "sha256_lf": "0093952fa8c54e9fb994fc5ace11399424c17c91a1150ae7731fe53f33844f70",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxss",
+          "sha256_lf": "0b871cf66f7a80f78ad5a2d73aa3988d85e318c4b8b95b2f371ed0e7ce01fc0b",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.json",
+          "sha256_lf": "d94571a122d5285199badbe442670add908b799941c2e14a399590e816e12078",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.js",
+          "sha256_lf": "b6cec04b9bf1fa22c7a5bf9232ffe92ad838b485469e06eaef08874a92c53c1f",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.wxml",
+          "sha256_lf": "1c08426f3a99bae28050b1e266bfedc4274a6bb2eb87e4992356ac40e0643ee7",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.wxss",
+          "sha256_lf": "c7c5f7d91b118d68a3e8d1e00d70f409ea1a098d16452912dc2586f8a55a1f77",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.json",
+          "sha256_lf": "2bb1c0a50319464b3dc07e5f05b00231ff6030b291c8b48d611ae5148d0968fa",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/edit/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.js",
+          "sha256_lf": "1b098302d07754c5ee035be2aac37813986ef81e37415b5bcac90128e875854a",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.wxml",
+          "sha256_lf": "3d7e968355319690635a849e80a326428014f9fbb71f169ed95b73a141f404ce",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.wxss",
+          "sha256_lf": "f058101d8def20b73e2b72e460772171f38424f8c009086f29cb5501e7b3e145",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.json",
+          "sha256_lf": "948ee0a0d0b3e1144f55729bfb2e1202ada7ef2d945989e035d82507312dd304",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/detail/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.js",
+          "sha256_lf": "b9bf9d4a163678355c305873168ee103df43a149485468ef4d1bc54f1e8f3ab0",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.wxml",
+          "sha256_lf": "629674d4b220ce37730dd117e7de2e5e8803c1aa8b5d84ca0d6b1cce8c2b3fb5",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.wxss",
+          "sha256_lf": "41f8b134799e2e0ccc962ca337010897439fc783784ed027088786aa3c4de621",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.json",
+          "sha256_lf": "86d9b5b86106de42e14a420e5decbc319cde04117179b60c1e280e0b70901d47",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/products/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/products/index.js",
+          "sha256_lf": "d7cded110782d777a3cd5de4c4f37f64dc73ab6b13dcf96729baa6075e6dca36",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/products/index.wxml",
+          "sha256_lf": "a8cade50b8a9d9c84b1da4eeec783e2a4b12794225b0ea81cf4bcfde6c08290e",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/products/index.wxss",
+          "sha256_lf": "78f05d0595a1e6244fb01dcf2781502be11c13efd9599e3b1b00447343c612cc",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/products/index.json",
+          "sha256_lf": "36f7974382a42bb8a0f229eb52ac781376eaae1f0f576121cee019fa67cdca0d",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/station-status/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-status/index.js",
+          "sha256_lf": "e3ea48b1d0a9d80b40595e10d1520a5f87f11f63cf18804c568a950d9643ffe4",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-status/index.wxml",
+          "sha256_lf": "e448dd7d08b73f89b2326ed5ab60d499628a9226b211615b097fc71be149a6fe",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-status/index.wxss",
+          "sha256_lf": "ef533b6b2caf8a919792dbb35987ce9b3e32221c10cfa0920342f32b8a19f36c",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-status/index.json",
+          "sha256_lf": "9752bf0f87f361da0cbaefead8d92c77774edac2af3cba2fa66349695b61b707",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/station-info/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-info/index.js",
+          "sha256_lf": "6c29fb8dd48eb5e0efbfef7b6678fceb3430f9e3714ef49c5f8c38081529a4c2",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-info/index.wxml",
+          "sha256_lf": "cd5780771224c648bee26a2f55f0d926af730d5645d52f62e4ec7d68753e19f1",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-info/index.wxss",
+          "sha256_lf": "58ce44416126c53ebdf1d134b1c78b5e6bf553e4320b38e0582879a8fd179a98",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/station-info/index.json",
+          "sha256_lf": "7d2a8a49b044e114d1efdddedaf1a464820f41c72896669143e8d2c35c7c0502",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/delivery-config/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/delivery-config/index.js",
+          "sha256_lf": "a2af2537ad93b37bff4792ac2b4685e447c672c6d2e4e3d6d1f337cf04eab883",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxml",
+          "sha256_lf": "8b1264928401adf5c2bb07f8c780f755a45a2adbcee7b471fc6e2a344c32041e",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxss",
+          "sha256_lf": "f11e8c6a08dcc8eedeaa59ad94b85db2c770ceebfa332db6a3acf160dc5c12cb",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/delivery-config/index.json",
+          "sha256_lf": "9583e07026a7fe264f80f2c850d03ff76b3cf2b75ef28c2e593d2b2c84ca8749",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/place-order/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/place-order/index.js",
+          "sha256_lf": "0fd26c990e5b9f9a4238dff1dbf3dc4d16c7774975d92934791fa12a195f8f46",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/place-order/index.wxml",
+          "sha256_lf": "17984bb9d2ad5fdf4c71b73c2db03e230e681d2712bc73c0af554da2a59fada2",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/place-order/index.wxss",
+          "sha256_lf": "e8efb30208c35b45c377a870d53c933b0320f77c6339636a5c3928392b27841a",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/place-order/index.json",
+          "sha256_lf": "b088ffb44c2a3d1f3134529fbe32286c519cbdd863a718f82d0a714b29e450cb",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/receivables/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/receivables/index.js",
+          "sha256_lf": "a032fbff8c6ef94de0550947b8e4b57212500b85fc27b721b270bf13e62f17e8",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/receivables/index.wxml",
+          "sha256_lf": "677afd380665add83b9db7beb7992f27cfd188e3f983106cc327d1c39d09abd1",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/receivables/index.wxss",
+          "sha256_lf": "7b8ccd5105f2532f68af4ac339ccd2edd1c3003ea91394f0f1344c47179d79be",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/receivables/index.json",
+          "sha256_lf": "bcd40868cb2ebdc362d8a857b9cc19e57b0f1189461b5f24b58a96e784ca177f",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/inter-station/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/inter-station/index.js",
+          "sha256_lf": "fb93aa46090a872a22d1859a14ff0d094ffb11d116032a040e48cb3744eec370",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/inter-station/index.wxml",
+          "sha256_lf": "bb08e760c495634907049ec5ee7f2b8df6b1a27f1612450a63d09a365da70315",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/inter-station/index.wxss",
+          "sha256_lf": "f92e5dff2e8749f051471a8e5b029e75864b2c7a5d9a3f91aace3e2634aec512",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/inter-station/index.json",
+          "sha256_lf": "d90415997896746b5a3a2da7f6396310f68e6c455d18fa2359c8c1e034029d2a",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/payroll/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payroll/index.js",
+          "sha256_lf": "fac639ac52d5a64bf000c930caf29354ef98af624ddb5a966c88d959d6fd3ebb",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payroll/index.wxml",
+          "sha256_lf": "68558979a71fff492b4472fc61d85461dd2dea664ebb0c0a1f77dbe88538af0f",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payroll/index.wxss",
+          "sha256_lf": "8d6d4f588b95db2c300c68fb2c8943134bf0c0f950ee20c2710f8c6a6f3b9aae",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payroll/index.json",
+          "sha256_lf": "d16b5413e5be6afe6a3f437827b0d4bbb9bdda801b69dd0166ac4afce983cd58",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/ticket-packages/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.js",
+          "sha256_lf": "b4b9627ac1d387c82a18fa16b19577d83a869b69578a8eda38b8f68ed25db0e0",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxml",
+          "sha256_lf": "6e0a4ac918ad422bb94c27c0ccbddd9eb2e9e8fe060c2cd312a7e94f8cf4b21f",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxss",
+          "sha256_lf": "1b93f8fb191a6b9adfed51e3ac88ec9e8c73e19ac9baadc69e1e6c055e9183a6",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.json",
+          "sha256_lf": "1dd4b60be3a2865cdbbbb320cfa36e4603e4c41a2c734a701b54b84aad2350ed",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/gross-profit/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/gross-profit/index.js",
+          "sha256_lf": "35ad805f2f161ce49e4962a7907c798de8e67774dd0e5d8e12e227236176fa70",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/gross-profit/index.wxml",
+          "sha256_lf": "2dfd3e1c2935c494d508bc4f35d6390f93a2faf20fd8cb358742182fcd0e1cff",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/gross-profit/index.wxss",
+          "sha256_lf": "665ff9b78b0006247a56aa7cd81f8d1f543bfe1f4982faa05686eac4d961afb7",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/gross-profit/index.json",
+          "sha256_lf": "1ff99002171547347cc817a95dfe488d376b048746ede49969876cff455dcbee",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/barrel-return/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/barrel-return/index.js",
+          "sha256_lf": "a66cd7400a5962f8aed6077ceb59f3112742455b79697eb98e0d09da1c8a6dad",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxml",
+          "sha256_lf": "62d037b41ee42d178ac8b55c3ca73fcd6bbacf6c1a67045c1f517fc77cd6af3a",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxss",
+          "sha256_lf": "0b2e50bb5122663e0aad1a8a7012bda3469a2b49d4c3e4795b245f2f5716b35f",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/barrel-return/index.json",
+          "sha256_lf": "cd41f73aeddd56d52c6762618de7bbb6291a1775af9eb864d383d2b9ebad6da2",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/owed-barrels/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/owed-barrels/index.js",
+          "sha256_lf": "bbc1fdba7422fee63ecfcc4a8d820b3f98ad0fcd6af224fb6f223b838f2ea570",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/owed-barrels/index.wxml",
+          "sha256_lf": "515df6c9de663a2d203de38c26ed35b33e99728148fc466c02f6f8179a8fca5d",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/owed-barrels/index.wxss",
+          "sha256_lf": "ae3cc5fa65fb3dccd21a4f1c72afb25cce1aa11be3b225bec7932fa3e465da94",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/owed-barrels/index.json",
+          "sha256_lf": "55cdbc151808d87a78fbfb2a87b1b31ffa56943976e9875a457f54408d1376de",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/exceptions/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/exceptions/index.js",
+          "sha256_lf": "73b5a8742faba1e356b771f3a4a2c60f2387a1367d69eaf8c61ba12c4601c134",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/exceptions/index.wxml",
+          "sha256_lf": "9e2774ad0081ed0c40465d4d88749ec088217e30fd4c6d52a3fc9f493afe10d7",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/exceptions/index.wxss",
+          "sha256_lf": "3f75b581d205d8b24d6f1c09cf32645c2341c30b11c9b77129e4a8965dd9f312",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/exceptions/index.json",
+          "sha256_lf": "5fa3117c9cfdc327e1c624f35f4b31a16c19054c78e8c53140f90b43fcfcfdc9",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/customer-feedback/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customer-feedback/index.js",
+          "sha256_lf": "7bcd7a49111925f661258ca1a4acc7c1ef90fa5881976ddf3f906897c3a69413",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxml",
+          "sha256_lf": "3ac58c2406ce25b8e8c6850709ddb5bb28c17683cc524c46cf7789f851608800",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxss",
+          "sha256_lf": "ac68835c1f40ded177e08de9e36cdda68fff85914c0f0e9f80fa70e3b99e0f56",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customer-feedback/index.json",
+          "sha256_lf": "053727a5da00614602819c520ae9da3bf1749a69d0589ac00a031f7525344864",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/payments/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payments/index.js",
+          "sha256_lf": "0be38432a07a6d286101b1136348968afb5c6b2f7c50f13c448fe5c1427f4806",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payments/index.wxml",
+          "sha256_lf": "42e1edd0180203f2f32c16b052dc9959bc0f9ca1cd990ceacc2805f7edca9d71",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payments/index.wxss",
+          "sha256_lf": "1d4086a24ee402da0bf374b597a6182a301c875205813b28ce75eae429378b91",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/payments/index.json",
+          "sha256_lf": "756f9094d84580d0f826b232fa778f56505e348ed7707c8f94306ff92ea40829",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/staff/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/index.js",
+          "sha256_lf": "55db2bb89cf93fa51647d73d669ce43772df8c2cdbbef97fcce529fc720b22b5",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/index.wxml",
+          "sha256_lf": "c811ee899b06d18935d6a9f641d1d44af3ba2d79ada071b5841379bc3387c0c2",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/index.wxss",
+          "sha256_lf": "f05dd4a01965600d98ee5c4046902013bf38b412860132dee31126698f8bf3f0",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/index.json",
+          "sha256_lf": "ee942b1d9661712a5f25399a746f6f09b5a9abcabf2c3512f143b1f4db522275",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/staff/profile/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/profile/index.js",
+          "sha256_lf": "698a622c3c73a4ec06688eb9482cf5ec3c0514c7cf667341b4b457faebe2aab6",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/profile/index.wxml",
+          "sha256_lf": "4a290c577595b7167ea8fc3e84dc47a152407f7ccda34d11604a463b9a15692c",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/profile/index.wxss",
+          "sha256_lf": "64fe069adb8c6e88c07c409a4799237e8399f55266e2bc99d514bd1696cf061f",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/staff/profile/index.json",
+          "sha256_lf": "c6bd6af18613b05e12476d419bea18ea70905f7fed9da60b7dbc582baa7062b9",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/barrel-records/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/barrel-records/index.js",
+          "sha256_lf": "358536f1f8f2b88713f99c8ba32bd9bcbf56e5d58999ac411f9a22b009a76b09",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/barrel-records/index.wxml",
+          "sha256_lf": "f6f6f2d8d1531f12c227f80f9879815f7b05ca6b504cc2da4ad1dbef948551ed",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/barrel-records/index.wxss",
+          "sha256_lf": "c9d94ef7ec5ddfdcbbe9d95f2108a02e90f4a33a99ef4f6bb23a09ce16c80855",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/barrel-records/index.json",
+          "sha256_lf": "9d1b3173547d088f0785e0745dc9389a442351150df9890b4d84cd237fe14280",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/my-earnings/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/my-earnings/index.js",
+          "sha256_lf": "4b04e9a03e4a75884d4a5e5840c54bb1b9acd3c8280944ac31e6f3bda8dc1438",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/my-earnings/index.wxml",
+          "sha256_lf": "26353dc532c82b8d9959837fb0aac3edec9fe52c7c64a43eb6eb384af084596f",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/my-earnings/index.wxss",
+          "sha256_lf": "f0dfb731398034f52edde452147857467f142b187188d6a01531b811ac52567c",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/my-earnings/index.json",
+          "sha256_lf": "7b7209e6096bee7feaf5d4a50dea7cecab3df4d0b75d93b819bf126c9024228e",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/history/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/history/index.js",
+          "sha256_lf": "d2fa450047380550026a82512a02cf5a53cff944d788709cd1bad3330179b5ed",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/history/index.wxml",
+          "sha256_lf": "fb0945af134e5f6c711005f36f5b8ea0704d221ac8ecd2ad41f90089db6cca51",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/history/index.wxss",
+          "sha256_lf": "ccc58decfa9ed1cc876662fd4e35d98faa06eea536a80a508a4ae8994898f413",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/history/index.json",
+          "sha256_lf": "197deb5a66632cb8f235ecc3bfd95f119c5dc088d6ee0fb2d22c9b2c84f71915",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/transfer/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/transfer/index.js",
+          "sha256_lf": "e98d17f7d2eea3182901f8ba11a056a71472483f355c46043e50cd75ef035392",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/transfer/index.wxml",
+          "sha256_lf": "23a6cdf52e7d03839f92e2d2bc710328e59568faebee7563735e3ea58fe6a93d",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/transfer/index.wxss",
+          "sha256_lf": "b137a44b688e3aba2d5f32dad8b6b03389a4f199349d7f3f5dbe454da08f4570",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/transfer/index.json",
+          "sha256_lf": "e9a13339f4e82988fdb715a7dac6830611eefb277eb1efac0dfecf4c4b2862d3",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/report/index",
+      "current_review": "targeted_source_fragments_and_related_tests",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": true,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/report/index.js",
+          "sha256_lf": "c02e76d0175c4091d90e0131efcdeacbbcb1e053be3bea73a867d08bef1b88a5",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/report/index.wxml",
+          "sha256_lf": "1c8f887539a0240e397173903f3188789f6dc6e47f3bdc9b6098c6daf5361bf7",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/report/index.wxss",
+          "sha256_lf": "36075dfd22603f5a98b703478e6e62a55a5b05873866dd072b155bea42565b9c",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/report/index.json",
+          "sha256_lf": "c025a56b2ec1773851cd29344fb147f9cc286fe4143f097b99871a46c0266165",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/settings/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/settings/index.js",
+          "sha256_lf": "dc38ab9a39c60ea801de76355843647b573ae2122b7111e22276ff68ec4d430e",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/settings/index.wxml",
+          "sha256_lf": "e683c377499b7b5a1ff3f00db4919e6fbc4f1a7f376f4f5824a7b44a11cc0b16",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/settings/index.wxss",
+          "sha256_lf": "e1ccad126427a3c7435e8c24bfeb14a3141434ab0d66e2e65964b565afc7dbb8",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/settings/index.json",
+          "sha256_lf": "161cf61467946d5836ebaaf7db7cdf682e8f4f28a91873aa9315718dafaf7b45",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/mine/edit",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": false,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/mine/edit.js",
+          "sha256_lf": "04ed14401642902727f2384c55cc192c395f48ab09a8d99318c618d1584f8718",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/edit.wxml",
+          "sha256_lf": "808da7ee6fdd6b057403782e8e2fb46b3ddc7056a83d0df1587db5b3a42a3b00",
+          "matches_prior_record": false
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/edit.wxss",
+          "sha256_lf": "c07035894fcc6298e8122fd5377987ea62888fdba2451327c55d4e21fca06bc6",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/mine/edit.json",
+          "sha256_lf": "3793456be5af76e83eddf561f7e1a4fcaeda4151fbd1e20ee0a6eabb9d1f1315",
+          "matches_prior_record": null
+        }
+      ]
+    },
+    {
+      "app": "miniapp-delivery",
+      "route": "pages/station-mgmt/asset-claims/index",
+      "current_review": "registration_and_prior_inventory_comparison_only",
+      "all_handler_paths_reviewed": false,
+      "counterexample_handler_execution": false,
+      "native_pixels_viewed_this_run": false,
+      "old_d2_screenshot_reference": "docs/audit/visual-review-20261021/coverage.csv",
+      "old_original_available_this_run": false,
+      "prior_template_style_hashes_match": true,
+      "files": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/asset-claims/index.js",
+          "sha256_lf": "3983b1523273a449bd5cd81ea579a3ae3cb75ae670cbb2bf4e60537a17df96a2",
+          "matches_prior_record": null
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/asset-claims/index.wxml",
+          "sha256_lf": "e7363071164f50517ab15efa85b4925a43629f647c759dbcc6804bbe9af78913",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/asset-claims/index.wxss",
+          "sha256_lf": "f253ea27500032521df97ab7d3b1af92fb4f518801136dd676aa8f9d74ef167d",
+          "matches_prior_record": true
+        },
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/asset-claims/index.json",
+          "sha256_lf": "70080895fa4ae563bbc278595655761560db21a5893a4ab8979a661bdffae26f",
+          "matches_prior_record": null
+        }
+      ]
+    }
+  ]
+}

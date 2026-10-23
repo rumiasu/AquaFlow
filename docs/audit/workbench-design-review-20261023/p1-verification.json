@@ -103,6 +103,39 @@
           "sha256": "e3b7e8980fcd60c7ab920098bf2d3fa6b053f7a486c3affb364d69f040f7fb22"
         }
       ]
+    },
+    {
+      "change": "把本站资产区移出profile父条件；独立保留资产加载/错误/真实空态和权限闸门，画像失败时显示客户编号及现有调整入口。",
+      "added_cases": 6,
+      "tests": [
+        {
+          "command": "node tests/js/customer-detail-refresh.test.js",
+          "counted_items": 19,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/return-empty-intent.test.js",
+          "counted_items": 31,
+          "exit_code": 0
+        },
+        {
+          "command": "node tests/js/manager-first-batch.test.js",
+          "counted_items": 19,
+          "exit_code": 0
+        }
+      ],
+      "issue": "WB-03",
+      "fix_parent_commit": "6b1e49bf830aa4d52156a538f07d564e867bd503",
+      "source_hashes": [
+        {
+          "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxml",
+          "sha256": "9b417e5518afa38dc987e3515eee74a07966a93a01434924c6a090950b6a879b"
+        },
+        {
+          "path": "tests/js/customer-detail-refresh.test.js",
+          "sha256": "3e416d668cd5fd005860ef87dc0ca900e971f52d640265309d2fc84ccb4349df"
+        }
+      ]
     }
   ],
   "boundary": "Actual Page handlers / WXML condition projection with synthetic APIs only. No native rendering, real login/payment/refund, backend/MySQL, cloud data, deployment or Actions read. No new full-run claim."

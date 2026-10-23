@@ -7,7 +7,7 @@
          —— 那是写给开发看的排障话术，不该出现在站长面前（产品反馈："接口这些有些专业了"）。
          面向站长只需要告诉他**能做什么**；真要排障，看 console 与后端日志。
          ⚠️ 保留"这不代表该客户没有数据"这层意思：失败与"确实没有"必须能区分（§8.22）。 -->
-    <text class="error-hint">客户资料尚未核实，请重新读取后再操作。</text><button size="mini" bindtap="onRetryProfile" disabled="{{loading}}">重新读取资料</button>
+    <text class="error-hint">{{canViewAssets ? '客户资料尚未核实，可重试读取；本站资产在下方单独核对。' : '客户资料尚未核实，请重新读取后再操作。'}}</text><button size="mini" bindtap="onRetryProfile" disabled="{{loading}}">重新读取资料</button>
   </view>
 
   <view class="asset-error" wx:if="{{returnPending || returnRecoveryError || returnMessage}}">
@@ -44,11 +44,14 @@
       </view>
     </view>
 
-    <!-- 本站资产优先于历史消费统计；不得把失败渲染为空资产。 -->
+  </block>
+
+    <!-- 2026-10-23：画像失败曾把成功资产一同隐藏；资产按独立权限/读取状态显示。 -->
     <view class="section" wx:if="{{canViewAssets}}">
       <view class="section-title-row">
         <view class="section-title no-mb">本站资产</view>
-        <text class="section-note">仅统计 {{assets.stationName || '本水站'}}</text>
+        <text class="section-note" wx:if="{{!profile}}">客户编号：{{id}}</text>
+        <text class="section-note">仅统计 {{assets && assets.stationName || '本水站'}}</text>
         <text class="link-btn" bindtap="onOpenAdjust">资产调整</text>
       </view>
 
@@ -169,6 +172,7 @@
       </block>
     </view>
 
+  <block wx:if="{{!loading && profile}}">
     <view class="section">
       <view class="section-title">消费概览</view>
       <view class="metric-grid">

@@ -1,10 +1,15 @@
 // Actual Page lifecycle and read boundaries; synthetic APIs, no HTTP/native claims.
 const assert = require('node:assert/strict')
-const { loadPage, createApp, createWx, armWatchdog } = require('./harness')
+const fs = require('node:fs'), path = require('node:path')
+const { loadPage, createApp, createWx, armWatchdog, ROOT } = require('./harness')
+const { parseWxml, renderElements, validateConditionalSiblings } = require('./wxml-tree')
 const done = armWatchdog(30000), tests = [], test = (name, run) => tests.push({ name, run })
 const ok = data => ({ code: 0, data })
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 const assets = n => ({ customerId: 7, independentRights: true, actualBuckets: n, heldBuckets: n, barrels: [], tickets: [], records: [] })
+const tree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/customers/detail/index.wxml'), 'utf8'))
+const visible = page => renderElements(tree, page.data, { includeText: true })
+const text = page => visible(page).map(node => node.text || '').join('\n')
 function fixture(overrides = {}, manager = true) {
   const wx = createWx(), calls = { profile: 0, assets: 0, privileges: 0, writes: 0, stopped: 0 }
   wx.stopPullDownRefresh = () => { calls.stopped++ }
@@ -12,7 +17,7 @@ function fixture(overrides = {}, manager = true) {
     userInfo: { staffId: 1, stationId: 1, role: manager ? 'STATION_MANAGER' : 'DELIVERY' } } })
   const page = loadPage('miniapp-delivery/pages/station-mgmt/customers/detail/index.js', { app, wx, stubs: {
     'api/station-mgmt': {
-      getCustomerProfile: () => { calls.profile++; return overrides.profile ? overrides.profile(calls.profile) : Promise.resolve(ok({ name: 'SYNTH customer' })) },
+      getCustomerProfile: () => { calls.profile++; return overrides.profile ? overrides.profile(calls.profile) : Promise.resolve(ok({ name: 'SYNTH customer', favoriteProducts: [], tagsList: [], recentOrders: [] })) },
       getCustomerAssets: () => { calls.assets++; return overrides.assets ? overrides.assets(calls.assets) : Promise.resolve(ok(assets(2))) },
       returnEmptyBuckets: async () => { calls.writes++; return ok({ duplicate: true }) }
     },
@@ -86,6 +91,45 @@ test('new return draft waits for a current asset read while original pending int
   t.page.onShowReturnEmpty(); t.page.setData({ assetsLoading: true })
   await t.page.onSubmitReturnEmpty(); assert.equal(t.calls.writes, 0)
   assert(t.page.data.returnMessage.includes('核对客户资产'))
+})
+test('WB-03 failed profile still shows verified assets, customer ID and the existing adjustment action', async () => {
+  const t = fixture({ profile: async () => { throw Error('资料暂未核实') } })
+  await t.page.onLoad({ id: 7 })
+  validateConditionalSiblings(tree)
+  assert(t.page.data.assets); assert.equal(t.page.data.profile, null)
+  assert(text(t.page).includes('本站资产')); assert(text(t.page).includes('客户编号：7'))
+  assert(visible(t.page).some(n => n.attrs.bindtap === 'onOpenAdjust'))
+  t.page.onOpenAdjust(); assert(t.wx.__calls.nav.at(-1).url.includes('customerId=7'))
+})
+test('failed assets remain an independent error while verified customer profile stays readable', async () => {
+  const t = fixture({ assets: async () => { throw Error('资产未能读取') } }); await t.page.onLoad({ id: 7 })
+  assert(text(t.page).includes('SYNTH customer')); assert(text(t.page).includes('资产未能读取'))
+  assert(!text(t.page).includes('该客户在本站暂无任何水桶'))
+  assert(visible(t.page).some(n => n.attrs.bindtap === 'onRefreshAssets'))
+})
+test('two independent read failures do not masquerade as an empty asset account', async () => {
+  const t = fixture({ profile: async () => { throw Error('资料未能读取') }, assets: async () => { throw Error('资产未能读取') } })
+  await t.page.onLoad({ id: 7 })
+  assert(text(t.page).includes('资料未能读取')); assert(text(t.page).includes('资产未能读取'))
+  assert(!visible(t.page).some(n => n.className === 'asset-empty'))
+})
+test('courier profile failure cannot reveal manager assets or adjustment controls', async () => {
+  const t = fixture({ profile: async () => { throw Error('资料未能读取') } }, false)
+  await t.page.onLoad({ id: 7 })
+  assert.equal(t.calls.assets, 0); assert(!text(t.page).includes('本站资产'))
+  assert(!visible(t.page).some(n => n.attrs.bindtap === 'onOpenAdjust'))
+})
+test('a pending profile read does not conceal an already verified asset panel', async () => {
+  const gate = deferred(), t = fixture({ profile: () => gate.promise })
+  const load = t.page.onLoad({ id: 7 }); await new Promise(setImmediate)
+  assert.equal(t.page.data.loading, true); assert(t.page.data.assets)
+  assert(visible(t.page).some(n => n.className.includes('asset-grid')))
+  gate.resolve(ok({ name: 'SYNTH customer' })); await load
+})
+test('a genuinely empty verified asset account still has its own empty state when profile fails', async () => {
+  const t = fixture({ profile: async () => { throw Error('资料暂未核实') }, assets: async () => ok({ ...assets(0), empty: true }) })
+  await t.page.onLoad({ id: 7 })
+  assert(text(t.page).includes('该客户在本站暂无任何水桶、水票或押金'))
 })
 test('unload invalidates outstanding asset data', async () => {
   const gate = deferred(), t = fixture({ assets: () => gate.promise })

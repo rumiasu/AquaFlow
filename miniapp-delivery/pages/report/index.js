@@ -31,6 +31,7 @@ Page({
     this._pageGeneration = (this._pageGeneration || 0) + 1
     this._feedbackConfirmation = null
     this._syncFeedbackOwner()
+    this._applyFeedbackSuccess()
     this.setData({ submitting: !!this._feedbackFlight })
     return this.loadHistory()
   },
@@ -56,6 +57,7 @@ Page({
       this._feedbackConfirmation = null
       this._historyVersion = (this._historyVersion || 0) + 1
       this._feedbackFlight = null
+      this._feedbackSuccess = null
       if (this._feedbackLoading) { wx.hideLoading(); this._feedbackLoading = false }
       this.setData({ category: 'bug', content: '', contact: '', submitting: false,
         historyList: [], historyError: '当前身份的反馈记录尚未读取，请重新读取', historyLoading: false })
@@ -67,6 +69,19 @@ Page({
   _feedbackCurrent(owner, generation) {
     return !this._unloaded && !this._hidden && (this._pageGeneration || 0) === generation
       && sameOwner(owner, feedbackOwner())
+  },
+
+  _applyFeedbackSuccess() {
+    const completed = this._feedbackSuccess
+    if (!completed || this._unloaded || this._hidden) return
+    this._feedbackSuccess = null
+    if (!sameOwner(completed.owner, feedbackOwner())) return
+    // 明确成功属于原请求；返回时只处理其原稿，不能清掉后来恢复的新草稿。
+    const draft = completed.draft
+    if (this.data.category === draft.category && this.data.content === draft.content && this.data.contact === draft.contact) {
+      this.setData({ content: '', contact: '', category: 'bug' })
+    }
+    wx.showToast({ title: '反馈已提交，感谢！', icon: 'success' })
   },
 
   _releaseFeedbackFlight(flight) {
@@ -165,10 +180,11 @@ Page({
           wx.showLoading({ title: '提交中...' })
           try {
             await submitFeedback(draft)
-            if (this._feedbackFlight !== flight || !this._feedbackCurrent(flight.owner, flight.generation)) return
-            wx.showToast({ title: '反馈已提交，感谢！', icon: 'success' })
-            this.setData({ content: '', contact: '', category: 'bug' })
-            this.loadHistory()
+            if (this._feedbackFlight !== flight || this._unloaded || !sameOwner(flight.owner, feedbackOwner())) return
+            // 已发出请求的明确成功不因hide丢失；页面再可见时消费一次结果。
+            this._feedbackSuccess = flight
+            this._applyFeedbackSuccess()
+            if (!this._hidden) this.loadHistory()
           } catch (err) {
             if (this._feedbackFlight !== flight || !this._feedbackCurrent(flight.owner, flight.generation)) return
             wx.showToast({ title: err.message || '提交失败', icon: 'none' })

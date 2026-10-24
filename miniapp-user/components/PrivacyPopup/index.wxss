@@ -45,6 +45,8 @@
 
 .privacy-btn {
   flex: 1;
+  margin: 0;
+  border: 0;
   height: 80rpx;
   border-radius: var(--radius-md);
   font-size: 30rpx;
@@ -52,6 +54,9 @@
   align-items: center;
   justify-content: center;
 }
+
+/* 2026-10-24：使用原生授权 button，沿用弹窗按钮样式，去掉平台默认边框。 */
+.privacy-btn::after { border: none; }
 
 .privacy-btn.reject {
   background: #f5f5f5;

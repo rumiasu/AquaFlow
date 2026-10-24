@@ -14,6 +14,15 @@
 //   2. `status`（1 营业 / 2 停业）是**硬状态**，停业会真拒单 —— 本页**不提供修改入口**，
 //      只原样带回。别顺手把它做成开关。
 const { getMyStation, updateStation, updateStationCoordinates } = require('../../../api/station-mgmt')
+function stationSession() {
+  const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+  return { app, generation: app._loginGeneration || 0, stationId: Number(u.stationId),
+    identity: JSON.stringify([!!g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+}
+function sameStationSession(proof) {
+  const now = stationSession()
+  return proof && proof.app === now.app && proof.generation === now.generation && proof.identity === now.identity && now.app.canAccessStationBusiness()
+}
 
 Page({
   data: {
@@ -33,15 +42,38 @@ Page({
       app.routeByRole(true)
       return
     }
-    this.loadData()
+    if (!sameStationSession(this._stationSession)) {
+      this._coordinateVersion = (this._coordinateVersion || 0) + 1
+      this._coordinatePick = null
+      this.setData({ coordSaving: false })
+    }
+    this._stationSession = stationSession()
+    // 原生地图会正常 hide/show；同一选点周期返回时不重读覆盖输入，也不使合法回调失效。
+    if (!this._coordinatePick || !this.coordinateCurrent(this._coordinatePick)) return this.loadData()
+  },
+
+  onUnload() {
+    this._stationUnloaded = true
+    this._coordinateVersion = (this._coordinateVersion || 0) + 1
+    this._stationReadVersion = (this._stationReadVersion || 0) + 1
+    this._coordinatePick = null
+  },
+
+  coordinateCurrent(proof) {
+    return !this._stationUnloaded && this._coordinatePick === proof && proof.version === this._coordinateVersion
+      && sameStationSession(proof.session) && Number(this.data.origin && this.data.origin.id) === proof.session.stationId
   },
 
   onRetry() { return this.loadData() },
 
   async loadData() {
+    if (this._stationUnloaded) return
+    const session = stationSession(), version = this._stationReadVersion = (this._stationReadVersion || 0) + 1
+    const current = () => !this._stationUnloaded && sameStationSession(session) && version === this._stationReadVersion
     this.setData({ loading: true, loadError: '' })
     try {
       const res = await getMyStation()
+      if (!current()) return
       const d = res.data
       if (!d || !d.id) throw new Error('水站资料尚未读取')
       this.setData({
@@ -58,12 +90,13 @@ Page({
         }
       })
     } catch (err) {
+      if (!current()) return
       // 静默失败会让页面显示成空白表单，站长一保存就把站名冲没了 —— 必须出声。
       this.setData({ loadError: '水站资料尚未读取，请重新读取后修改' })
       console.error('[StationInfo] 读取水站资料失败:', err)
       wx.showToast({ title: (err && err.message) || '读取水站资料失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (current()) this.setData({ loading: false })
     }
   },
 
@@ -124,11 +157,23 @@ Page({
    * 选点给的地址通常更粗，覆盖等于把他的信息删了。
    */
   onPickCoordinates() {
+    const session = stationSession()
+    if (this._stationUnloaded || this.data.coordSaving || this.data.saving || !sameStationSession(session)
+      || !Number.isSafeInteger(session.stationId) || session.stationId <= 0 || Number(this.data.origin && this.data.origin.id) !== session.stationId) return
+    const proof = { session, version: this._coordinateVersion = (this._coordinateVersion || 0) + 1, used: false }
+    this._stationSession = session
+    this._coordinatePick = proof
+    this.setData({ coordSaving: true })
     wx.chooseLocation({
       success: async (res) => {
-        this.setData({ coordSaving: true })
+        if (!this.coordinateCurrent(proof) || proof.used) return
+        proof.used = true
         try {
+          if (typeof res.latitude !== 'number' || typeof res.longitude !== 'number' || !Number.isFinite(res.latitude) || !Number.isFinite(res.longitude)
+            || Math.abs(res.latitude) > 90 || Math.abs(res.longitude) > 180) throw Error('选点坐标未能核实，请重新选择')
+          // 写接口按当前登录站判权；必须在发出之前核对发起身份，不能仅拦迟到渲染。
           await updateStationCoordinates(res.latitude, res.longitude)
+          if (!this.coordinateCurrent(proof)) return
 
           const typed = (this.data.form.address || '').trim()
           const picked = ((res.name || '') + (res.address || '')).trim()
@@ -143,17 +188,23 @@ Page({
           if (fillAddress) {
             // 地址框本来是空的 → 不存在覆盖风险，顺手一起存掉，
             // 省掉"再点一次保存资料"（站长会以为又要填两遍）
-            await this.onSave()
+            const form = this.data.form, origin = this.data.origin
+            if (!this.coordinateCurrent(proof)) return
+            if (!(form.name || '').trim()) { wx.showToast({ title: '坐标已保存，请补全站名后保存地址', icon: 'none' }); return }
+            await updateStation(origin.id, { name: form.name.trim(), phone: (form.phone || '').trim(), address: picked, status: origin.status })
+            if (this.coordinateCurrent(proof)) wx.showToast({ title: '坐标与地址已保存', icon: 'success' })
           } else {
             wx.showToast({ title: '坐标已保存', icon: 'success' })
           }
         } catch (err) {
-          wx.showToast({ title: err.message || '坐标保存失败', icon: 'none' })
+          if (this.coordinateCurrent(proof)) wx.showToast({ title: err.message || '坐标保存失败', icon: 'none' })
         } finally {
-          this.setData({ coordSaving: false })
+          if (this.coordinateCurrent(proof)) { this._coordinatePick = null; this.setData({ coordSaving: false }) }
         }
       },
       fail: (err) => {
+        if (!this.coordinateCurrent(proof)) return
+        this._coordinatePick = null; this.setData({ coordSaving: false })
         const msg = (err && err.errMsg) || ''
         if (msg.indexOf('auth') >= 0 || msg.indexOf('deny') >= 0) {
           wx.showToast({ title: '需要位置权限，请在设置中开启', icon: 'none' })
@@ -164,18 +215,28 @@ Page({
 
   /** 清除坐标：清除后范围校验跳过（不会拒单），所以文案要说清后果 */
   onClearCoordinates() {
+    if (this.data.coordSaving || this.data.saving) return
+    const session = stationSession(), version = this._coordinateVersion = (this._coordinateVersion || 0) + 1
+    this._coordinatePick = null
+    const current = () => !this._stationUnloaded && sameStationSession(session) && version === this._coordinateVersion
+      && Number(this.data.origin && this.data.origin.id) === session.stationId
+    if (!current()) return
+    let used = false
     wx.showModal({ confirmText: '确认清除',
       title: '清除水站坐标',
       content: '清除后系统无法判断订单是否超出配送范围，会跳过范围校验（不会拒单）。确认清除？',
       success: async (res) => {
-        if (!res.confirm) return
+        if (!res.confirm || !current() || used) return
+        used = true
+        this.setData({ coordSaving: true })
         try {
           await updateStationCoordinates(null, null)
+          if (!current()) return
           this.setData({ 'coord.lat': null, 'coord.lng': null })
           wx.showToast({ title: '已清除', icon: 'success' })
         } catch (err) {
-          wx.showToast({ title: err.message || '清除失败', icon: 'none' })
-        }
+          if (current()) wx.showToast({ title: err.message || '清除失败', icon: 'none' })
+        } finally { if (current()) this.setData({ coordSaving: false }) }
       }
     })
   }

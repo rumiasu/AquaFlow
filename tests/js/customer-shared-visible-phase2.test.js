@@ -116,7 +116,8 @@ test('actual request wrappers preserve Chinese business rejections and hide HTTP
       const a = component('AssetStationView', { stations: (...args) => assetApi.listAssetStations(...args) }, { request: reply }); await a.p.openPicker()
       for (const copy of [n.text(), a.text()]) {
         assert(!copy.includes('HTTP')); assert(!copy.includes('503'))
-        assert(copy.includes(failure === 'business' ? '无权查看此记录' : '请重试'))
+        if (failure === 'business') assert(copy.includes('无权查看此记录'))
+        else { assert(copy.includes('服务暂时不可用')); assert(/(?:请|稍后)重试/.test(copy)) }
       }
     }
   } finally { global.__wxConfig = previousEnv }
@@ -219,15 +220,30 @@ test('empty, loading and icon components retain natural copy, hide contract and 
   const loading = component('Loading'); assert(loading.text().includes('加载中')); loading.p.setProps({ show: false }); assert.equal(loading.nodes().length, 0)
   const icon = component('Icon'); icon.p.setProps({ name: 'missing-icon', color: '#2E4A68' }); assert(icon.p.data.src.startsWith('data:image/svg+xml,')); assert(!icon.p.data.src.startsWith('http'))
 })
-test('privacy dialog never resolves consent automatically and retains explicit reject and agree callbacks', () => {
+test('privacy dialog resolves explicit disagree and native agree events with the platform contract', () => {
   let need; const results = []
   const t = component('PrivacyPopup', {}, { onNeedPrivacyAuthorization: fn => { need = fn } })
   need(result => results.push(result)); assert.equal(t.p.data.show, true); assert.equal(results.length, 0)
   assert(t.nodes().some(n => n.attrs['open-type'] === 'openPrivacyContract'))
-  t.p.onReject(); assert.deepStrictEqual(results, [{ buttonId: '' }]); assert.equal(t.p.data.show, false)
-  need(result => results.push(result)); t.p.onAgree(); t.p.onAgree()
-  assert.deepStrictEqual(results, [{ buttonId: '' }, { buttonId: 'privacy-agree-btn' }])
-  assert(read('miniapp-user/components/PrivacyPopup/index.wxml').includes('id="privacy-agree-btn"'))
+  t.p.onReject(); assert.deepStrictEqual(results, [{ event: 'disagree' }]); assert.equal(t.p.data.show, false)
+  need(result => results.push(result))
+  const agree = t.nodes().find(n => n.attrs.id === 'privacy-agree-btn')
+  assert.equal(agree.tag, 'button'); assert.equal(agree.attrs['open-type'], 'agreePrivacyAuthorization')
+  assert.equal(agree.attrs.bindtap, undefined)
+  t.p[agree.attrs.bindagreeprivacyauthorization](); t.p[agree.attrs.bindagreeprivacyauthorization]()
+  assert.deepStrictEqual(results, [{ event: 'disagree' }, { event: 'agree', buttonId: 'privacy-agree-btn' }])
+})
+test('already agreed users continue without a new privacy prompt or authorization request', () => {
+  let need; const requests = [], picked = []
+  const t = component('PrivacyPopup', {}, { onNeedPrivacyAuthorization: fn => { need = fn },
+    requirePrivacyAuthorize: () => requests.push('authorize'), getPrivacySetting: () => requests.push('setting'),
+    chooseImage: options => { picked.push(true); options.success({ tempFilePaths: ['/tmp/already-agreed.jpg'] }) } })
+  // The platform does not emit onNeedPrivacyAuthorization for an already agreed user.
+  assert.equal(typeof need, 'function'); let result
+  t.config.pageLifetimes.show.call(t.p); t.config.pageLifetimes.show.call(t.p)
+  t.wx.chooseImage({ success: value => { result = value } })
+  assert.equal(picked.length, 1); assert.deepStrictEqual(result.tempFilePaths, ['/tmp/already-agreed.jpg'])
+  assert.equal(t.p.data.show, false); assert.equal(t.nodes().length, 0); assert.deepStrictEqual(requests, [])
 })
 test('component styles reserve safe areas, scrolling and physical tap targets without changing financial data', () => {
   const picker = read('miniapp-user/components/AssetStationView/index.wxss'), privacy = read('miniapp-user/components/PrivacyPopup/index.wxss')

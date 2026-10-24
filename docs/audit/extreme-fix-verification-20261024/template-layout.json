@@ -1,0 +1,245 @@
+{
+  "scope": "Actual WXML/WXSS mapped into static Chromium HTML; font-size scale and reduced keyboard viewport are synthetic; not WeChat/native rendering",
+  "results": [
+    {
+      "case": "normal",
+      "fontScale": 1,
+      "errorLength": 0,
+      "viewport": 568,
+      "modal": {
+        "top": 84.25,
+        "bottom": 568,
+        "height": 483.75
+      },
+      "body": {
+        "top": 146.65625,
+        "bottom": 515.84375,
+        "height": 369.1875
+      },
+      "footer": {
+        "top": 515.84375,
+        "bottom": 568,
+        "height": 52.15625
+      },
+      "confirm": {
+        "top": 523.65625,
+        "bottom": 561.1875,
+        "height": 37.53125
+      },
+      "cancel": {
+        "top": 523.65625,
+        "bottom": 561.1875,
+        "height": 37.53125
+      },
+      "error": null
+    },
+    {
+      "case": "keyboard",
+      "fontScale": 1,
+      "errorLength": 0,
+      "viewport": 308,
+      "modal": {
+        "top": 36.96875,
+        "bottom": 308,
+        "height": 271.03125
+      },
+      "body": {
+        "top": 99.375,
+        "bottom": 255.84375,
+        "height": 156.46875
+      },
+      "footer": {
+        "top": 255.84375,
+        "bottom": 308,
+        "height": 52.15625
+      },
+      "confirm": {
+        "top": 263.65625,
+        "bottom": 301.1875,
+        "height": 37.53125
+      },
+      "cancel": {
+        "top": 263.65625,
+        "bottom": 301.1875,
+        "height": 37.53125
+      },
+      "error": null
+    },
+    {
+      "case": "small-large-font",
+      "fontScale": 1.3,
+      "errorLength": 0,
+      "viewport": 568,
+      "modal": {
+        "top": 84.25,
+        "bottom": 568,
+        "height": 483.75
+      },
+      "body": {
+        "top": 146.65625,
+        "bottom": 515.84375,
+        "height": 369.1875
+      },
+      "footer": {
+        "top": 515.84375,
+        "bottom": 568,
+        "height": 52.15625
+      },
+      "confirm": {
+        "top": 523.65625,
+        "bottom": 561.1875,
+        "height": 37.53125
+      },
+      "cancel": {
+        "top": 523.65625,
+        "bottom": 561.1875,
+        "height": 37.53125
+      },
+      "error": null
+    },
+    {
+      "case": "small-large-font-error",
+      "fontScale": 1.3,
+      "errorLength": 69,
+      "viewport": 568,
+      "modal": {
+        "top": 84.25,
+        "bottom": 568,
+        "height": 483.75
+      },
+      "body": {
+        "top": 146.65625,
+        "bottom": 515.84375,
+        "height": 369.1875
+      },
+      "footer": {
+        "top": 515.84375,
+        "bottom": 568,
+        "height": 52.15625
+      },
+      "confirm": {
+        "top": 523.65625,
+        "bottom": 561.1875,
+        "height": 37.53125
+      },
+      "cancel": {
+        "top": 523.65625,
+        "bottom": 561.1875,
+        "height": 37.53125
+      },
+      "error": {
+        "top": 607.75,
+        "bottom": 723.875,
+        "height": 116.125
+      }
+    },
+    {
+      "case": "keyboard-font-1-3-error",
+      "fontScale": 1.3,
+      "errorLength": 69,
+      "viewport": 308,
+      "modal": {
+        "top": 36.96875,
+        "bottom": 308,
+        "height": 271.03125
+      },
+      "body": {
+        "top": 99.375,
+        "bottom": 255.84375,
+        "height": 156.46875
+      },
+      "footer": {
+        "top": 255.84375,
+        "bottom": 308,
+        "height": 52.15625
+      },
+      "confirm": {
+        "top": 263.65625,
+        "bottom": 301.1875,
+        "height": 37.53125
+      },
+      "cancel": {
+        "top": 263.65625,
+        "bottom": 301.1875,
+        "height": 37.53125
+      },
+      "error": {
+        "top": 560.46875,
+        "bottom": 676.59375,
+        "height": 116.125
+      }
+    },
+    {
+      "case": "keyboard-large-error",
+      "fontScale": 1.5,
+      "errorLength": 69,
+      "viewport": 308,
+      "modal": {
+        "top": 36.96875,
+        "bottom": 308,
+        "height": 271.03125
+      },
+      "body": {
+        "top": 99.375,
+        "bottom": 255.84375,
+        "height": 156.46875
+      },
+      "footer": {
+        "top": 255.84375,
+        "bottom": 308,
+        "height": 52.15625
+      },
+      "confirm": {
+        "top": 263.65625,
+        "bottom": 301.1875,
+        "height": 37.53125
+      },
+      "cancel": {
+        "top": 263.65625,
+        "bottom": 301.1875,
+        "height": 37.53125
+      },
+      "error": {
+        "top": 615.46875,
+        "bottom": 776.90625,
+        "height": 161.4375
+      }
+    },
+    {
+      "case": "counterfactual-error-in-body",
+      "fontScale": 1.5,
+      "errorLength": 69,
+      "viewport": 308,
+      "modal": {
+        "top": 36.96875,
+        "bottom": 308,
+        "height": 271.03125
+      },
+      "body": {
+        "top": 99.375,
+        "bottom": 255.84375,
+        "height": 156.46875
+      },
+      "footer": {
+        "top": 255.84375,
+        "bottom": 308,
+        "height": 52.15625
+      },
+      "confirm": {
+        "top": 263.65625,
+        "bottom": 301.1875,
+        "height": 37.53125
+      },
+      "cancel": {
+        "top": 263.65625,
+        "bottom": 301.1875,
+        "height": 37.53125
+      },
+      "error": {
+        "top": 615.46875,
+        "bottom": 776.90625,
+        "height": 161.4375
+      }
+    }
+  ]
+}

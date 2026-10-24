@@ -1,0 +1,96 @@
+[
+  {
+    "name": "setting save is single flight and blocks close or change target",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n18 !== 17\n"
+  },
+  {
+    "name": "bypassed target change after setting await cannot attach new rows or close new editor",
+    "pass": false,
+    "error": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ [\n+   {\n+     price: 90,\n+     productId: 17,\n+     qty: 9\n+   }\n+ ]\n- []\n"
+  },
+  {
+    "name": "bypassed target change after custom update await cannot save new rows onto old product",
+    "pass": false,
+    "error": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ [\n+   {\n+     price: 90,\n+     productId: 17,\n+     qty: 9\n+   }\n+ ]\n- []\n"
+  },
+  {
+    "name": "live package mutation during base save cannot replace the snapshot",
+    "pass": false,
+    "error": "The expression evaluated to a falsy value:\n\n  assert(!t.packages.some(body => body.price === 999))\n"
+  },
+  {
+    "name": "identity, station, login generation or permission change stops later package writes",
+    "pass": false,
+    "error": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ [\n+   {\n+     price: 50,\n+     productId: 17,\n+     qty: 5\n+   }\n+ ]\n- []\n"
+  },
+  {
+    "name": "identity changed before save cannot dispatch an old open editor under the new actor",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n1 !== 0\n"
+  },
+  {
+    "name": "token renewal within the same identity does not discard a valid snapshot",
+    "pass": true
+  },
+  {
+    "name": "created id survives package failure; retry only continues that id with original rows",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\nnull !== 91\n"
+  },
+  {
+    "name": "partial package progress resumes after the last confirmed row and survives page recreation",
+    "pass": false,
+    "error": "next.page.onContinueCreatedProduct is not a function"
+  },
+  {
+    "name": "trusted create response after identity change retains only the original owner recovery and never touches the new editor",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\nfalse !== true\n"
+  },
+  {
+    "name": "unknown or malformed create never guesses a catalog id or blindly creates again; existing edit remains usable",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n2 !== 1\n"
+  },
+  {
+    "name": "clear business rejection permits a corrected new create; unrecorded intent never dispatches",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n1 !== 0\n"
+  },
+  {
+    "name": "failure to persist a trusted created id retains it in memory and cannot reopen create",
+    "pass": false,
+    "error": "Cannot read properties of undefined (reading 'productId')"
+  },
+  {
+    "name": "inbound dispatches one durable original intent and matching receipt refreshes authoritative stock",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n2 !== 1\n"
+  },
+  {
+    "name": "lost inbound response replays same key and original quantity, never double increments or replaces with new input",
+    "pass": false,
+    "error": "Cannot read properties of undefined (reading 'quantity')"
+  },
+  {
+    "name": "inbound recovery survives reentry and requires a full matching receipt, including legacy and business failures",
+    "pass": false,
+    "error": "The expression evaluated to a falsy value:\n\n  assert(t.page.data.inboundRecovery)\n"
+  },
+  {
+    "name": "inbound confirmation cancel, hide, identity or permission change cannot issue the pending replay",
+    "pass": false,
+    "error": "Cannot read properties of undefined (reading 'success')"
+  },
+  {
+    "name": "inbound storage failure blocks first dispatch; receipt cleanup failure retains the original replay key",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n1 !== 0\n"
+  },
+  {
+    "name": "product recovery controls remain reachable in balanced conditional WXML",
+    "pass": false,
+    "error": "The expression evaluated to a falsy value:\n\n  assert(source.includes('bindtap=\"onContinueCreatedProduct\"'))\n"
+  }
+]

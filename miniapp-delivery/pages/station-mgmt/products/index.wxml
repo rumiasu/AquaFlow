@@ -2,6 +2,12 @@
 <view class="container">
   <!-- 隐私授权弹窗：本页用 wx.chooseImage 传商品图，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
   <privacy-popup />
+  <view class="work-read-error" wx:if="{{productCreationRecovery}}">
+    <text>{{productCreationRecovery.productId ? '原商品已创建，建档尚未全部完成' : '原商品创建结果待核实'}}</text>
+    <text>{{productCreationRecovery.message}}</text>
+    <button wx:if="{{productCreationRecovery.phase === 'packages-pending'}}" bindtap="onContinueCreatedProduct" disabled="{{saving || inboundBusy}}">继续原商品档位</button>
+    <button wx:else bindtap="onVerifyProductCreation" disabled="{{saving || inboundBusy}}">重新读取商品目录</button>
+  </view>
   <!-- 顶部：分段 + 搜索 + 分类筛选 -->
   <view class="top-bar">
     <view class="tabs">
@@ -136,21 +142,27 @@
       </view>
       <scroll-view class="product-edit-body" scroll-y enhanced show-scrollbar>
         <view class="product-edit-content">
+          <view class="ui-state" wx:if="{{inboundRecovery}}">
+            <text class="ui-state-title">原入库 {{inboundRecovery.quantity}} 件</text>
+            <text class="ui-state-copy">原编号和数量已保留。继续原入库会核实或执行这笔记录，不使用新输入数量，不重复增加已完成的原入库。</text>
+            <button bindtap="onContinueOriginalInbound" loading="{{inboundBusy}}" disabled="{{saving || inboundBusy}}">继续原入库</button>
+          </view>
+          <view class="ui-state" wx:if="{{inboundError || productSaveError}}"><text class="ui-state-copy">{{inboundError || productSaveError}}</text></view>
 
       <view class="form-row">
         <view class="form-item">
-          <text class="label">库存(件) · 当前 {{setting.quantity}}</text>
+          <text class="label">库存(件) · 当前 {{setting.quantity == null ? '待核实' : setting.quantity}}</text>
           <!-- 模式显式切换：原实现是"一个输入框 + 两个按钮"，点错「盘点为」会把库存直接覆盖成输入值 -->
           <view class="seg">
             <text class="seg-item {{stockMode === 'in' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="in">＋ 入库</text>
             <text class="seg-item {{stockMode === 'check' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="check">＝ 盘点</text>
             <text class="seg-item {{stockMode === 'loss' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="loss">实盘亏损</text>
           </view>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="number" placeholder="{{stockMode === 'in' ? '要入库的数量' : '盘点后的库存数'}}" value="{{stockInput}}" bindinput="onStockInput" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="number" placeholder="{{stockMode === 'in' ? '要入库的数量' : '盘点后的库存数'}}" value="{{stockInput}}" bindinput="onStockInput"  disabled="{{saving || inboundBusy}}" />
           <view class="stock-preview" wx:if="{{stockAfterText}}">
             <text>{{stockAfterText}}</text>
           </view>
-          <button class="btn-inline" bindtap="onSubmitStock">{{stockMode === 'in' ? '确认入库' : '确认盘点'}}</button>
+          <button class="btn-inline" bindtap="onSubmitStock" loading="{{inboundBusy}}" disabled="{{saving || inboundBusy}}">{{stockMode === 'in' ? (inboundRecovery ? '继续原入库' : '确认入库') : '确认盘点'}}</button>
           <text class="link" bindtap="onFilterRecordsByCurrent">只看这个商品的流水 ›</text>
         </view>
       </view>
@@ -164,36 +176,36 @@
       <view class="form-row">
         <view class="form-item">
           <text class="label">本站售价(元)</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="留空=平台价 ¥{{setting.refPriceText}}；填 0 = 恢复平台价" value="{{setting.salePrice}}" data-field="salePrice" bindinput="onSettingFieldInput" bindblur="onPriceBlur" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="留空=平台价 ¥{{setting.refPriceText}}；填 0 = 恢复平台价" value="{{setting.salePrice}}" data-field="salePrice" bindinput="onSettingFieldInput" bindblur="onPriceBlur"  disabled="{{saving || inboundBusy}}" />
         </view>
         <!-- 押金只对桶装水开放（2026-09-19）：瓶装水/一次性桶/饮水器都没有"回收退押"这件事，
              填了也收不进来（后端按"只有桶装水能设押金"直接拒绝），所以这里不显示输入框。 -->
         <view class="form-item" wx:if="{{setting.category === 1}}">
           <text class="label">本站押金(元)</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="留空=平台押金 ¥{{setting.refDepositText}}" value="{{setting.depositPrice}}" data-field="depositPrice" bindinput="onSettingFieldInput" bindblur="onPriceBlur" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="留空=平台押金 ¥{{setting.refDepositText}}" value="{{setting.depositPrice}}" data-field="depositPrice" bindinput="onSettingFieldInput" bindblur="onPriceBlur"  disabled="{{saving || inboundBusy}}" />
         </view>
       </view>
 
       <view class="switch-row">
         <view class="switch-item">
           <text class="switch-label">上架商城</text>
-          <switch checked="{{setting.enabled}}" bindchange="onSettingShelfChange" />
+          <switch checked="{{setting.enabled}}" bindchange="onSettingShelfChange"  disabled="{{saving || inboundBusy}}" />
         </view>
         <view class="switch-item">
           <text class="switch-label">优先展示</text>
-          <switch checked="{{setting.priorityDisplay}}" bindchange="onSettingPriorityChange" />
+          <switch checked="{{setting.priorityDisplay}}" bindchange="onSettingPriorityChange"  disabled="{{saving || inboundBusy}}" />
         </view>
       </view>
 
       <view class="switch-row">
         <view class="switch-item">
           <text class="switch-label">推出水票</text>
-          <switch checked="{{setting.ticketEnabled}}" bindchange="onSettingTicketChange" />
+          <switch checked="{{setting.ticketEnabled}}" bindchange="onSettingTicketChange"  disabled="{{saving || inboundBusy}}" />
         </view>
       </view>
       <view class="form-item" wx:if="{{setting.ticketEnabled}}">
         <text class="label">水票散买单张价(元/张)</text>
-        <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="如：20" value="{{setting.ticketPrice}}" data-field="ticketPrice" bindinput="onSettingFieldInput" />
+        <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="如：20" value="{{setting.ticketPrice}}" data-field="ticketPrice" bindinput="onSettingFieldInput"  disabled="{{saving || inboundBusy}}" />
       </view>
 
       <!--
@@ -215,10 +227,10 @@
         </view>
 
         <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" disabled="{{pkgLoading || pkgError || !pkgReady}}" placeholder="张数" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" disabled="{{saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="张数" />
           <text class="pkg-unit">张</text>
           <text class="pkg-arrow"></text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{pkgLoading || pkgError || !pkgReady}}" placeholder="总价" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="总价" />
           <text class="pkg-unit">元</text>
           <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销' : '删除'}}</text>
         </view>
@@ -235,8 +247,8 @@
         </view>
       </scroll-view>
       <view class="modal-footer product-edit-footer">
-        <button class="btn-cancel" bindtap="closeSetting">取消</button>
-        <button class="btn-save" bindtap="onSaveSetting" loading="{{saving}}" disabled="{{saving || (setting.ticketEnabled && (pkgLoading || pkgError))}}">保存本站设置</button>
+        <button class="btn-cancel" bindtap="closeSetting" disabled="{{saving || inboundBusy}}">取消</button>
+        <button class="btn-save" bindtap="onSaveSetting" loading="{{saving}}" disabled="{{saving || inboundBusy || (setting.ticketEnabled && (pkgLoading || pkgError))}}">保存本站设置</button>
       </view>
   </view>
 
@@ -249,6 +261,12 @@
       </view>
       <scroll-view class="product-edit-body" scroll-y enhanced show-scrollbar>
         <view class="product-edit-content">
+          <view class="ui-state" wx:if="{{productCreationPending}}">
+            <text class="ui-state-copy">{{productCreationRecovery.message}}</text>
+            <button wx:if="{{productCreationRecovery.phase === 'packages-pending'}}" bindtap="onContinueCreatedProduct" disabled="{{saving || inboundBusy}}">继续原商品档位</button>
+            <button wx:else bindtap="onVerifyProductCreation" disabled="{{saving || inboundBusy}}">重新读取商品目录</button>
+          </view>
+          <view class="ui-state" wx:if="{{productSaveError}}"><text class="ui-state-copy">{{productSaveError}}</text></view>
           <view class="template-edit-note" wx:if="{{editTemplateId}}">
             <text>已带入名称与图片，规格以实物标签为准；金额和库存由本站填写，默认不上架。</text>
             <button class="edit-help-toggle" bindtap="onToggleEditHelp">{{editHelpExpanded ? '收起说明' : '查看建档说明'}}</button>
@@ -284,62 +302,62 @@
 
       <view class="form-item">
         <text class="label">商品名称</text>
-        <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" placeholder="如：农夫山泉18.9L" value="{{editForm.name}}" data-field="name" bindinput="onEditFieldInput" />
+        <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" placeholder="如：农夫山泉18.9L" value="{{editForm.name}}" data-field="name" bindinput="onEditFieldInput"  disabled="{{saving || inboundBusy || productCreationPending}}" />
       </view>
 
       <view class="form-row">
         <view class="form-item half">
           <text class="label">品牌</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" placeholder="如：农夫山泉" value="{{editForm.brand}}" data-field="brand" bindinput="onEditFieldInput" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" placeholder="如：农夫山泉" value="{{editForm.brand}}" data-field="brand" bindinput="onEditFieldInput"  disabled="{{saving || inboundBusy || productCreationPending}}" />
         </view>
         <view class="form-item half">
           <text class="label">规格</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" placeholder="请按实物标签填写净容量" value="{{editForm.spec}}" data-field="spec" bindinput="onEditFieldInput" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" placeholder="请按实物标签填写净容量" value="{{editForm.spec}}" data-field="spec" bindinput="onEditFieldInput"  disabled="{{saving || inboundBusy || productCreationPending}}" />
         </view>
       </view>
 
       <view class="form-row">
         <view class="form-item half">
           <text class="label">类型</text>
-          <picker bindchange="onEditCategoryChange" value="{{editCategoryIndex}}" range="{{categoryNames}}">
+          <picker bindchange="onEditCategoryChange" value="{{editCategoryIndex}}" range="{{categoryNames}}" disabled="{{saving || inboundBusy || productCreationPending}}">
             <view class="picker-text">{{categoryNames[editCategoryIndex] || '请选择'}}</view>
           </picker>
         </view>
         <view class="form-item half">
           <text class="label">售价(元)</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="0.00" value="{{editForm.price}}" data-field="price" bindinput="onEditFieldInput" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="0.00" value="{{editForm.price}}" data-field="price" bindinput="onEditFieldInput"  disabled="{{saving || inboundBusy || productCreationPending}}" />
         </view>
       </view>
 
       <view class="form-item">
         <text class="label">商品说明（可修改）</text>
-        <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" placeholder="选填，按实际商品填写" value="{{editForm.description}}" data-field="description" bindinput="onEditFieldInput" />
+        <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" placeholder="选填，按实际商品填写" value="{{editForm.description}}" data-field="description" bindinput="onEditFieldInput"  disabled="{{saving || inboundBusy || productCreationPending}}" />
       </view>
 
       <view class="form-row">
         <view class="form-item half" wx:if="{{editForm.category === 1}}">
           <text class="label">押金(元)</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="0" value="{{editForm.deposit}}" data-field="deposit" bindinput="onEditFieldInput" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="0" value="{{editForm.deposit}}" data-field="deposit" bindinput="onEditFieldInput"  disabled="{{saving || inboundBusy || productCreationPending}}" />
         </view>
         <view class="form-item half">
           <text class="label">库存(件)</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="number" placeholder="0" value="{{editForm.quantity}}" data-field="quantity" bindinput="onEditFieldInput" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="number" placeholder="0" value="{{editForm.quantity}}" data-field="quantity" bindinput="onEditFieldInput"  disabled="{{saving || inboundBusy || productCreationPending}}" />
         </view>
       </view>
 
       <view class="switch-row">
         <view class="switch-item">
           <text class="switch-label">上架商城</text>
-          <switch checked="{{editForm.enabled}}" bindchange="onEditSwitchChange" data-field="enabled" />
+          <switch checked="{{editForm.enabled}}" bindchange="onEditSwitchChange" data-field="enabled"  disabled="{{saving || inboundBusy || productCreationPending}}" />
         </view>
         <view class="switch-item" wx:if="{{editForm.category !== 3}}">
           <text class="switch-label">推出水票</text>
-          <switch checked="{{editForm.ticketEnabled}}" bindchange="onEditSwitchChange" data-field="ticketEnabled" />
+          <switch checked="{{editForm.ticketEnabled}}" bindchange="onEditSwitchChange" data-field="ticketEnabled"  disabled="{{saving || inboundBusy || productCreationPending}}" />
         </view>
       </view>
       <view class="form-item" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
         <text class="label">水票散买单张价(元/张)</text>
-        <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="如：20" value="{{editForm.ticketPrice}}" data-field="ticketPrice" bindinput="onEditFieldInput" />
+        <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="digit" placeholder="如：20" value="{{editForm.ticketPrice}}" data-field="ticketPrice" bindinput="onEditFieldInput"  disabled="{{saving || inboundBusy || productCreationPending}}" />
       </view>
 
       <!-- 档位：与「本站设置」共用同一份行数据（新建商品时用 create 返回的 id 挂上去） -->
@@ -355,10 +373,10 @@
           <text class="link" catchtap="onOpenTicketPackages">更多档位设置 ›</text>
         </view>
         <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" disabled="{{pkgLoading || pkgError || !pkgReady}}" placeholder="张数" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" disabled="{{saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="张数" />
           <text class="pkg-unit">张</text>
           <text class="pkg-arrow"></text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{pkgLoading || pkgError || !pkgReady}}" placeholder="总价" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="总价" />
           <text class="pkg-unit">元</text>
           <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销' : '删除'}}</text>
         </view>
@@ -372,7 +390,7 @@
       </scroll-view>
       <view class="modal-footer product-edit-footer">
         <button class="btn-cancel" bindtap="closeEdit" disabled="{{saving}}">取消</button>
-        <button class="btn-save" bindtap="onSaveEdit" loading="{{saving}}" disabled="{{saving || productImageBusy || productImageState === 'unknown' || (editForm.ticketEnabled && (pkgLoading || pkgError))}}">{{saving ? '保存中…' : isAdd ? '创建商品' : '保存修改'}}</button>
+        <button class="btn-save" bindtap="onSaveEdit" loading="{{saving}}" disabled="{{saving || inboundBusy || productCreationPending || productImageBusy || productImageState === 'unknown' || (editForm.ticketEnabled && (pkgLoading || pkgError))}}">{{saving ? '保存中…' : productCreationPending ? '先完成原建档' : isAdd ? '创建商品' : '保存修改'}}</button>
       </view>
   </view>
 

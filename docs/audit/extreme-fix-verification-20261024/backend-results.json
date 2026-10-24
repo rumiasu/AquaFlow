@@ -1,0 +1,28 @@
+{
+  "unitAndArchitecture": {
+    "tests": 14,
+    "failures": 0,
+    "errors": 0,
+    "scope": "10 inbound command/MVC contract tests + 4 layering checks; no application DB or production requests"
+  },
+  "sqlIntegration": {
+    "assertionsPassed": 10,
+    "engine": "H2 2.3.232 synthetic memory database, MySQL mode; actual mappers, stock/ledger/audit receipt service and Spring transaction manager",
+    "realMySqlVerified": false,
+    "checks": [
+      "same-key concurrency once",
+      "same-key changed quantity rejection",
+      "receipt failure stock+ledger rollback",
+      "safe original-key retry",
+      "corrupt receipt fails closed",
+      "legacy no-key negative control adds twice"
+    ]
+  },
+  "compilation": {
+    "mainJavaSources": 439,
+    "testJavaSources": 224,
+    "tool": "JDK21 javac -source 17 -target 17 -parameters with pinned dependencies",
+    "java17RuntimeVerified": false,
+    "gradleCiClaim": false
+  }
+}

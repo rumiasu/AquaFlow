@@ -20,6 +20,7 @@ function fixture(list = []) {
   }
   let draftSerial = 0
   const page = loadPage('miniapp-delivery/pages/station-mgmt/products/index.js', { wx, app, stubs: {
+    'config/api': { API: { GENERAL_UPLOAD: '/api/common/upload' }, getTransportConfig: () => ({ mode: 'cloudContainer', env: 'synthetic-env', service: 'synthetic-service' }) },
     'api/station-mgmt': api, 'api/business-rules': { recordLoss: async (id, payload) => { calls.push(['loss', id, payload]); return { data: { affectedOrders: [] } } } },
     'utils/upload-recovery-page': { wrapUploadRecovery: page => page },
     'utils/upload': {

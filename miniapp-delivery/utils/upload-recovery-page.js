@@ -100,6 +100,7 @@ function wrapUploadRecovery(page, kind) {
   }
   page.onUploadResumeDraft = function (event) {
     if (!this._uploadRecoveryActive) return
+    if (kind === 'adjustment' && typeof this.formLocked === 'function' && this.formLocked()) { wx.showToast({ title: '请先核实原调整单，图片草稿暂不能切换', icon: 'none' }); return }
     if (kind === 'product' && (this.data.saving || this.data.uploading || this.data.productImageBusy)) { wx.showToast({ title: '图片或商品正在处理中，请稍候', icon: 'none' }); return }
     refresh(this, kind)
     const entry = this.data.uploadRecoveryCases.find(row => row.id === event.currentTarget.dataset.caseid)
@@ -118,11 +119,13 @@ function wrapUploadRecovery(page, kind) {
   }
   page.onUploadNewDraft = function () {
     if (kind === 'order' || !this._uploadRecoveryActive) return
+    if (kind === 'adjustment' && typeof this.formLocked === 'function' && this.formLocked()) { wx.showToast({ title: '请先核实原调整单，图片草稿暂不能切换', icon: 'none' }); return }
     if (kind === 'product' && (this.data.saving || this.data.uploading || this.data.productImageBusy)) { wx.showToast({ title: '图片或商品正在处理中，请稍候', icon: 'none' }); return }
     const session = captureSession(), current = guard(this, session), t = target(this, kind)
     if (t.id !== 'new' && (!Number.isSafeInteger(t.id) || t.id <= 0)) { wx.showToast({ title: '请先打开对应商品或客户', icon: 'none' }); return }
     wx.showModal({ confirmText: '另开草稿', title: '另开图片草稿', content: '原草稿和待核实记录会保留。仅在开始一份独立草稿时继续。', success: result => {
       if (!result.confirm || !current()) return
+      if (kind === 'adjustment' && typeof this.formLocked === 'function' && this.formLocked()) return
       if (kind === 'product' && (this.data.saving || this.data.uploading || this.data.productImageBusy)) return
       try {
         if (kind === 'product' && typeof this.rememberProductImageDraft === 'function') this.rememberProductImageDraft()

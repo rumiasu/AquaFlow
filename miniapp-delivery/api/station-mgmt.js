@@ -237,8 +237,9 @@ const deleteNotice = (id) => {
 }
 
 /** 批量入库（加库存，写 INBOUND 流水）。items: [{productId, quantity}] */
-const inboundProducts = (stationId, items) => {
-  return post(API.INVENTORY_INBOUND + '?stationId=' + stationId, { items })
+const inboundProducts = (stationId, items, clientRequestId) => {
+  const url = clientRequestId ? API.INVENTORY_INBOUND_RECEIPT : API.INVENTORY_INBOUND
+  return post(url + '?stationId=' + stationId, { items, ...(clientRequestId ? { clientRequestId } : {}) })
 }
 
 /** 本站库存流水（倒序）。传 productId 只看某种商品；limit 用于"加载更多" */

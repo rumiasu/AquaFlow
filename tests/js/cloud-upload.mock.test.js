@@ -15,6 +15,8 @@ function fixture(mode = 'cloudContainer', side = 'miniapp-delivery', mutateSourc
   let initFail = false, initWait = null, releaseInit
   const second = png(); new Uint8Array(second)[11] = 2
   const files = new Map([['/synthetic.png', png()], ['/second.png', second]])
+  const businessKey = key => typeof key === 'string' && (key === 'aq_delivery_uploadRecovery_v1' || key.startsWith('aq_delivery_adjustmentCreate_v1:')
+    || key.startsWith('aq_product_creation_v1:') || key.startsWith('inventory-inbound-intent:'))
   const wx = {
     cloud:{Cloud:class {init() {return initFail ? Promise.reject(Error('synthetic')) : initWait || Promise.resolve()} callContainer(options) {
       return new Promise((resolve,reject) => calls.push({options,resolve,reject}))
@@ -22,7 +24,7 @@ function fixture(mode = 'cloudContainer', side = 'miniapp-delivery', mutateSourc
     getFileSystemManager:() => ({stat:options=>stats.push(options),readFile:options=>reads.push(options)}),
     chooseImage:options=>picks.push(options), showToast:o=>toast.push(o),
     request:options=>http.push(options), uploadFile:options=>uploads.push(options),
-    setStorageSync(key,value){if(key==='aq_delivery_uploadRecovery_v1')storage.set(key,value)},removeStorageSync(){},getStorageSync(key){if(key==='aq_delivery_uploadRecovery_v1')return storage.get(key)||'';throw Error('cached credentials must not be borrowed')}
+    setStorageSync(key,value){if(businessKey(key))storage.set(key,value)},removeStorageSync(key){if(businessKey(key))storage.delete(key)},getStorageSync(key){if(businessKey(key))return storage.get(key)||'';throw Error('cached credentials must not be borrowed')}
   }
   const config = {getTransportConfig:()=>mode==='cloudContainer'?{mode,env:'synthetic-env',service:'synthetic-service'}:{mode,baseUrl:'https://synthetic.invalid'},
     API:{REFRESH:'/api/auth/refresh',GENERAL_UPLOAD:'/api/common/upload',ORDER_IMAGE_UPLOAD:'/api/order-images/upload'}}

@@ -11,6 +11,9 @@ public interface InventoryService {
 
     void inbound(Long stationId, List<InventoryInboundDTO.ItemDTO> items);
 
+    /** 站长原编号入库：同站/员工/编号同内容只入库一次，与库存流水、回执同事务。 */
+    java.util.Map<String, Object> inboundWithReceipt(Long stationId, List<InventoryInboundDTO.ItemDTO> items, String clientRequestId);
+
     void checkStock(Long stationId, Long productId, Integer needQuantity);
 
     /**

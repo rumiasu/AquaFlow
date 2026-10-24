@@ -1,0 +1,120 @@
+{
+  "scope": "Final bounded affected-module composition; actual page/component logic and synthetic APIs/SDK/storage; no native or production validation",
+  "results": [
+    {
+      "suite": "extreme-product-save.test.js",
+      "passed": true,
+      "count": 19,
+      "exitCode": 0
+    },
+    {
+      "suite": "inbound-intent.test.js",
+      "passed": true,
+      "count": 8,
+      "exitCode": 0
+    },
+    {
+      "suite": "extreme-adjustment-map.test.js",
+      "passed": true,
+      "count": 22,
+      "exitCode": 0
+    },
+    {
+      "suite": "extreme-template-privacy.test.js",
+      "passed": true,
+      "count": 21,
+      "exitCode": 0
+    },
+    {
+      "suite": "product-image-persistence.test.js",
+      "passed": true,
+      "count": 14,
+      "exitCode": 0
+    },
+    {
+      "suite": "water-product-templates.test.js",
+      "passed": true,
+      "count": 59,
+      "exitCode": 0
+    },
+    {
+      "suite": "product-sheet-recovery.test.js",
+      "passed": true,
+      "count": 26,
+      "exitCode": 0
+    },
+    {
+      "suite": "page-recovery.test.js",
+      "passed": true,
+      "count": 17,
+      "exitCode": 0
+    },
+    {
+      "suite": "persistence-page-boundaries.test.js",
+      "passed": true,
+      "count": 21,
+      "exitCode": 0
+    },
+    {
+      "suite": "upload-recovery-lifecycle.test.js",
+      "passed": true,
+      "count": 21,
+      "exitCode": 0
+    },
+    {
+      "suite": "upload-r2-review.test.js",
+      "passed": true,
+      "count": 40,
+      "exitCode": 0
+    },
+    {
+      "suite": "page-mutation-controls.test.js",
+      "passed": true,
+      "count": 8,
+      "exitCode": 0
+    },
+    {
+      "suite": "cloud-upload.mock.test.js",
+      "passed": true,
+      "count": 37,
+      "exitCode": 0
+    },
+    {
+      "suite": "customer-shared-visible-phase2.test.js",
+      "passed": true,
+      "count": 27,
+      "exitCode": 0
+    },
+    {
+      "suite": "customer-night-review-recovery.test.js",
+      "passed": true,
+      "count": 17,
+      "exitCode": 0
+    },
+    {
+      "suite": "manager-closeout-state.test.js",
+      "passed": true,
+      "count": 39,
+      "exitCode": 0
+    },
+    {
+      "suite": "manager-first-batch.test.js",
+      "passed": true,
+      "count": 19,
+      "exitCode": 0
+    },
+    {
+      "suite": "modal-copy-limit.test.js",
+      "passed": true,
+      "count": 1,
+      "exitCode": 0
+    },
+    {
+      "suite": "wechat-shared-module-import.test.js",
+      "passed": true,
+      "count": 7,
+      "exitCode": 0
+    }
+  ],
+  "total": 423
+}

@@ -29,6 +29,31 @@ const ADJUST_OPTIONS = [
 // 证据图上限：后端 evidence 字段 500 字符，超了直接拒绝而不是悄悄截断（截断会存下坏 URL）
 const MAX_EVIDENCE = 3
 const EVIDENCE_MAX_LEN = 500
+const ADJUSTMENT_INTENT_PREFIX = 'aq_delivery_adjustmentCreate_v1:'
+const adjustmentFlights = new WeakMap()
+function adjustmentSession() {
+  const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+  return { app, generation: app._loginGeneration || 0, stationId: Number(u.stationId),
+    identity: JSON.stringify([!!g.isLogin, u.staffId, u.stationId, u.role]), actor: JSON.stringify([u.staffId, u.stationId]) }
+}
+function adjustmentFlightMap(app = getApp()) {
+  if (!adjustmentFlights.has(app)) adjustmentFlights.set(app, new Map())
+  return adjustmentFlights.get(app)
+}
+function adjustmentStorageKey(customerId, session = adjustmentSession()) { return ADJUSTMENT_INTENT_PREFIX + session.actor + ':' + customerId }
+function readAdjustmentIntent(customerId) {
+  const key = adjustmentStorageKey(customerId), local = adjustmentFlightMap().get(key)
+  if (local) return { record: local.record, pending: local.pending }
+  const value = wx.getStorageSync(key)
+  if (!value) return null
+  if (value.version !== 1 || value.actor !== adjustmentSession().actor || Number(value.customerId) !== Number(customerId)
+    || !value.body || Number(value.body.customerId) !== Number(customerId) || typeof value.body.clientToken !== 'string' || !value.body.clientToken) throw Error('原调整记录无法识别，请保留记录并返回列表核对')
+  return { record: value, pending: false }
+}
+function adjustmentUnknown(error) {
+  return !!(error && (error.requestMayHaveOccurred || error.resultUnknown || error.malformedResponse || error.businessRejected === false
+    || Number(error.statusCode) >= 500 || Number(error.backendCode) >= 500 || error.sessionChanged))
+}
 
 Page({
   ...wrapUploadRecovery({
@@ -65,10 +90,12 @@ Page({
     previewing: false,
 
     submitting: false,
+    adjustmentSubmitUnknown: false, adjustmentRecoveryError: '',
     clientToken: ''
   },
 
   onLoad(options) {
+    this._adjustmentUnloaded = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       this.setData({ denied: true })
@@ -91,6 +118,23 @@ Page({
     })
     this.loadProducts()
     if (customerId) this.loadSelectedCustomer(customerId)
+    this.syncAdjustmentRecovery()
+  },
+
+  onShow() { this.syncAdjustmentRecovery() },
+
+  syncAdjustmentRecovery() {
+    if (!this.data.customerId || this._adjustmentUnloaded) return
+    try {
+      const value = readAdjustmentIntent(this.data.customerId)
+      this._adjustmentOriginal = value
+      this.setData({ adjustmentSubmitUnknown: !!value && !value.pending, adjustmentRecoveryError: '',
+        submitting: !!value && value.pending,
+        ...(value ? { clientToken: value.record.body.clientToken } : {}) })
+    } catch (_) {
+      this._adjustmentOriginal = null
+      this.setData({ adjustmentRecoveryError: '原调整记录暂时无法读取，请返回列表核对，勿重复创建' })
+    }
   },
 
   /** 本站已上架商品（后端按登录站长判定水站，前端不传 stationId） */
@@ -128,7 +172,7 @@ Page({
   },
 
   // ===== 表单输入：任何改动都作废上一次试算结果，避免提交与试算不一致 =====
-  formLocked() { return this.data.submitting || this._createdAdjustment },
+  formLocked() { this.syncAdjustmentRecovery(); return this.data.submitting || this._createdAdjustment || !!this._adjustmentOriginal || !!this.data.adjustmentRecoveryError },
 
   previewDraftKey() {
     return JSON.stringify([this.data.customerId, this.data.option && this.data.option.value,
@@ -159,7 +203,7 @@ Page({
     if (this._previewLoading) { wx.hideLoading(); this._previewLoading = null }
     const patch = { preview: null, previewRows: [], previewExtra: null, previewing: false }
     // 原内容重试复用原键；已发送的内容被编辑后，不能拿旧键创建另一种调整。
-    if (this._submittedIntent && this._submittedIntent.draft !== this.previewDraftKey()) {
+    if (!this.formLocked() && this._submittedIntent && this._submittedIntent.draft !== this.previewDraftKey()) {
       patch.clientToken = 'ADJ-' + Date.now() + '-' + Math.random().toString(36).slice(2)
       this._submittedIntent = null
     }
@@ -173,11 +217,14 @@ Page({
   },
 
   onUnload() {
+    this._adjustmentUnloaded = true
     adjustmentCustomer.methods.onUnload.call(this)
     this.resetPreview()
     if (this._submitLoading) { wx.hideLoading(); this._submitLoading = null }
     clearTimeout(this._returnTimer)
   },
+
+  onHide() { this._confirmingOriginal = null; this._confirmingPreview = null },
 
   onTypeChange(e) {
     if (this.formLocked()) return
@@ -421,6 +468,12 @@ Page({
    * 二次确认用**回调式** wx.showModal，确认文案里带上类型与数量/金额。
    */
   onSubmit() {
+    this.syncAdjustmentRecovery()
+    if (this.data.adjustmentRecoveryError) {
+      wx.showModal({ title: '原调整结果待核对', content: this.data.adjustmentRecoveryError, confirmText: '返回列表', showCancel: false,
+        success: () => wx.navigateBack() }); return
+    }
+    if (this._adjustmentOriginal && !this._adjustmentOriginal.pending && !this.data.submitting) return this.retryOriginalAdjustment()
     if (this.formLocked() || this.data.uploading || this._confirmingPreview) return
     const built = this.buildPayload()
     if (built.error) {
@@ -468,21 +521,86 @@ Page({
     const body = Object.assign({}, payload, { clientToken: context.clientToken })
     if (evidence) body.evidence = evidence
 
+    return this.sendOriginalAdjustment(body, context, false)
+  },
+
+  retryOriginalAdjustment() {
+    const original = this._adjustmentOriginal
+    if (!original || original.pending || this.data.submitting || this._confirmingOriginal) return
+    const session = adjustmentSession(), customerId = this.data.customerId, body = original.record.body
+    const current = () => this.adjustmentWriteCurrent(session, customerId)
+    this._confirmingOriginal = original
+    const option = ADJUST_OPTIONS.find(value => value.value === body.adjustType)
+    const amount = body.amount == null ? '数量 ' + body.qty : '金额 ¥' + body.amount
+    wx.showModal({ title: '继续原调整单', confirmText: '重试原单', cancelText: '查看列表',
+      content: '客户 #' + customerId + '，' + (option ? option.label : body.adjustType) + '，' + amount + '。\n原因：' + body.reason + '\n已存在则返回原单；尚未创建则按原编号和原内容创建一次待执行单，不直接改写资产。',
+      success: result => {
+        if (this._confirmingOriginal !== original) return
+        this._confirmingOriginal = null
+        if (result.confirm && current()) return this.sendOriginalAdjustment(body, null, true)
+        if (!result.confirm && current()) wx.navigateBack()
+      }, complete: () => { if (this._confirmingOriginal === original) this._confirmingOriginal = null } })
+  },
+
+  adjustmentWriteCurrent(session, customerId) {
+    const now = adjustmentSession()
+    return !this._adjustmentUnloaded && this._uploadRecoveryActive !== false && Number(customerId) === Number(this.data.customerId)
+      && session.app === now.app && session.generation === now.generation && session.identity === now.identity && now.app.canAccessStationBusiness()
+  },
+
+  async sendOriginalAdjustment(body, context, retrying) {
+    if (this.data.submitting || this._adjustmentUnloaded) return
+    const session = adjustmentSession(), customerId = Number(body.customerId), key = adjustmentStorageKey(customerId, session)
+    if (!this.adjustmentWriteCurrent(session, customerId)) return
+    let existing
+    try { existing = readAdjustmentIntent(customerId) }
+    catch (_) {
+      this.setData({ adjustmentRecoveryError: '原调整记录暂时无法读取，请返回列表核对，勿重复创建' })
+      wx.showToast({ title: '原调整记录暂时无法读取，尚未提交', icon: 'none' }); return
+    }
+    if (existing && (existing.pending || (!retrying && existing.record.body.clientToken !== body.clientToken))) return
+    const record = existing ? existing.record : { version: 1, actor: session.actor, customerId, body: JSON.parse(JSON.stringify(body)) }
+    if (JSON.stringify(record.body) !== JSON.stringify(body)) return
+    try {
+      wx.setStorageSync(key, record)
+      if (JSON.stringify(wx.getStorageSync(key)) !== JSON.stringify(record)) throw Error('not saved')
+    } catch (_) { wx.showToast({ title: '原调整记录未能保存，尚未提交', icon: 'none' }); return }
+    const flight = { record, pending: true }
+    adjustmentFlightMap(session.app).set(key, flight)
+    const current = () => this.adjustmentWriteCurrent(session, customerId)
     this.setData({ submitting: true })
     this._submittedIntent = context
-    this._submitLoading = context
-    wx.showLoading({ title: '提交中...' })
+    this._submitLoading = flight
+    wx.showLoading({ title: retrying ? '继续原单中…' : '提交中...', mask: true })
+    let failure
     try {
-      await createAdjustment(body)
+      const response = await createAdjustment(record.body), detail = response && response.data
+      if (!detail || !['number','string'].includes(typeof detail.id) || !Number.isSafeInteger(Number(detail.id)) || Number(detail.id) <= 0
+        || (detail.customerId != null && Number(detail.customerId) !== customerId)
+        || (detail.stationId != null && Number(detail.stationId) !== session.stationId)
+        || (detail.adjustType != null && detail.adjustType !== record.body.adjustType)
+        || (response.code != null && response.code !== 0 && response.code !== 200)) throw Object.assign(Error('原调整结果尚未核实'), { resultUnknown: true })
+      wx.removeStorageSync(key)
+      if (wx.getStorageSync(key)) throw Object.assign(Error('原记录尚未清理，请继续核对原单'), { resultUnknown: true })
+      adjustmentFlightMap(session.app).delete(key)
+      if (!current()) return
       this._createdAdjustment = true
-      if (!this.previewMatches(context)) return
-      wx.showToast({ title: '已创建，待执行', icon: 'success' })
-      this._returnTimer = setTimeout(() => { if (this.previewMatches(context)) wx.navigateBack() }, 1500)
+      wx.showToast({ title: retrying ? '已核实原调整单' : '已创建，待执行', icon: 'success' })
+      if (retrying) wx.redirectTo({ url: '/pages/station-mgmt/customers/adjust/detail/index?id=' + detail.id })
+      else this._returnTimer = setTimeout(() => { if (current()) wx.navigateBack() }, 1500)
     } catch (err) {
-      if (this.previewMatches(context)) wx.showToast({ title: err.message || '创建失败', icon: 'none', duration: 3000 })
+      failure = retrying ? Object.assign(Error('原调整仍待核实'), { resultUnknown: true }) : err
+      if (adjustmentUnknown(failure)) {
+        flight.pending = false
+        try { wx.setStorageSync(key, record) } catch (_) { /* 内存继续锁住原意图，不换键。 */ }
+      } else {
+        try { wx.removeStorageSync(key); if (wx.getStorageSync(key)) throw Error('not cleared'); adjustmentFlightMap(session.app).delete(key) }
+        catch (_) { flight.pending = false }
+      }
+      if (current()) wx.showToast({ title: adjustmentUnknown(failure) ? '原调整结果待核实，请点保存核实原单' : err.message || '创建失败', icon: 'none', duration: 3000 })
     } finally {
-      if (this._submitLoading === context) { wx.hideLoading(); this._submitLoading = null }
-      this.setData({ submitting: false })
+      if (this._submitLoading === flight) { wx.hideLoading(); this._submitLoading = null }
+      if (current()) { this.setData({ submitting: false }); this.syncAdjustmentRecovery() }
     }
   }
 }, 'adjustment')

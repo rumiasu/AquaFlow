@@ -18,7 +18,8 @@ const {
 } = require('../../../api/station-mgmt')
 const { upload, chooseImages, uploadDraft, isUploadSessionCurrent } = require('../../../utils/upload')
 const businessRules = require('../../../api/business-rules')
-const { API } = require('../../../config/api')
+const { API, getTransportConfig } = require('../../../config/api')
+const inboundIntent = require('../../../utils/inbound-intent')
 const { inventoryTypeText } = require('../../../utils/display-message')
 // ⚠️ 水票档位这两个路径直接写常量、不往 api/station-mgmt.js 里加：那个文件正被另一个
 // 工作流（商品图片库）改动，加函数会让两边未提交的改动纠缠在一起。
@@ -52,6 +53,21 @@ function sameProductSession(proof) {
   const now = productSession()
   return proof && proof.app === now.app && proof.generation === now.generation && proof.key === now.key
 }
+const productCopy = value => JSON.parse(JSON.stringify(value))
+const productIdOf = value => (typeof value === 'number' || typeof value === 'string')
+  && /^[1-9]\d*$/.test(String(value)) && Number.isSafeInteger(Number(value)) ? Number(value) : null
+const createSaveMemory = new Map()
+const creationKey = () => {
+  const g = getApp().globalData || {}, u = g.userInfo || {}, c = getTransportConfig()
+  if (!g.isLogin || !productIdOf(u.staffId) || !productIdOf(u.stationId)) throw Error('请重新登录后核对原商品建档')
+  // 持久意图按环境及员工/水站隔离；权限字段变化不能令同一人的原建档记录消失。
+  const route = c.mode === 'cloudContainer' ? [c.mode, c.env, c.service] : [c.mode, c.baseUrl]
+  return 'aq_product_creation_v1:' + JSON.stringify([route, u.staffId + ':' + u.stationId])
+}
+const saveScopeError = () => Object.assign(Error('原商品保存范围已变化，后续操作已暂停'), { productSaveScopeChanged: true })
+const saveOutcomeUnknown = error => !!(error && (error.requestMayHaveOccurred === true || error.resultUnknown
+  || error.malformedResponse || Number(error.statusCode) >= 500 || Number(error.backendCode) >= 500
+  || error.businessRejected !== true && error.requestMayHaveOccurred !== false))
 
 /** 上报处理状态文案（后端 product_submission.status：0 待处理 / 1 已纳入 / 2 已驳回） */
 const SUBMISSION_STATUS_TEXT = { 0: '待处理', 1: '已纳入通用库', 2: '已驳回' }
@@ -89,6 +105,8 @@ Page({
     stockAfterText: '',
     warningsInline: [],
     saving: false,
+    productSaveError: '', productCreationRecovery: null, productCreationPending: false,
+    inboundBusy: false, inboundRecovery: null, inboundError: '',
 
     // 自定义商品弹窗
     showEdit: false,
@@ -124,6 +142,16 @@ Page({
   },
 
   onShow() {
+    this._productHidden = false
+    const visibleSession = productSession()
+    if (this._productPageSession && !sameProductSession(this._productPageSession)) {
+      this._pkgSeq = (this._pkgSeq || 0) + 1
+      this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
+      this._productEditEpoch = (this._productEditEpoch || 0) + 1
+      this.setData({ showSetting: false, showEdit: false, setting: {}, editForm: {}, pkgRows: [],
+        pkgReady: false, productSaveError: '', inboundRecovery: null, inboundError: '', inboundBusy: false })
+    }
+    this._productPageSession = visibleSession
     this.captureProductEditorWindow()
     if (!this._productResizeHandler && typeof wx.onWindowResize === 'function') {
       this._productResizeHandler = event => this.layoutProductEditor(event && event.size && event.size.windowHeight)
@@ -135,13 +163,110 @@ Page({
       return
     }
     this.setData({ stationId: (app.globalData.userInfo || {}).stationId || null })
+    try { this.syncProductCreationRecovery() } catch (_) { /* 风险常显，仍允许只读目录核对。 */ }
     this.loadData()
     this.loadWaterTemplateImages()
   },
 
   onUnload() {
+    this._productDestroyed = true
     if (this._productResizeHandler && typeof wx.offWindowResize === 'function') wx.offWindowResize(this._productResizeHandler)
     this._productResizeHandler = null
+  },
+
+  onHide() {
+    this._productHidden = true
+    if (this._inboundFlight && this._inboundFlight.cancelConfirmation) this._inboundFlight.cancelConfirmation()
+  },
+
+  productWriteLocked() { return !!(this._productSaveFlight || this._inboundFlight || this.data.saving || this.data.inboundBusy) },
+
+  productSaveProof(kind, targetId) {
+    return { kind, targetId, session: (kind === 'setting' ? this._productSettingOwner : kind === 'edit' ? this._productEditOwner : null) || productSession(),
+      epoch: kind === 'setting' ? this._productSettingEpoch || 0 : this._productEditEpoch || 0,
+      draft: kind === 'recovery' ? '' : JSON.stringify([kind === 'setting' ? this.data.setting : this.data.editForm, this.data.pkgRows]) }
+  },
+
+  productSaveCurrent(proof) {
+    if (!proof || this._productHidden || this._productDestroyed || !sameProductSession(proof.session)
+      || !getApp().canAccessStationBusiness()) return false
+    if (proof.kind === 'recovery') return true
+    return proof.epoch === (proof.kind === 'setting' ? this._productSettingEpoch || 0 : this._productEditEpoch || 0)
+      && proof.targetId === (proof.kind === 'setting' ? this.data.setting.id : this.data.isAdd ? 'new' : this.data.editId)
+      && proof.draft === JSON.stringify([proof.kind === 'setting' ? this.data.setting : this.data.editForm, this.data.pkgRows])
+  },
+
+  readProductCreation() {
+    const key = creationKey(), memory = createSaveMemory.get(key)
+    // 已收到的商品编号先保留在本页内存；存储故障不能把已创建误判为可重新创建。
+    const record = memory || wx.getStorageSync(key)
+    if (!record) return null
+    if (record.version !== 1 || record.key !== key || !['create-unknown', 'packages-pending'].includes(record.phase)
+      || !Array.isArray(record.rows) || record.rows.some(row => !row || typeof row !== 'object' || Array.isArray(row)
+        || row.id != null && !productIdOf(row.id))
+      || !Number.isSafeInteger(record.nextRow) || record.nextRow < 0 || record.nextRow > record.rows.length
+      || record.phase === 'packages-pending' && !productIdOf(record.productId)) throw Error('原商品建档记录不完整，请保留记录并联系负责人核实')
+    createSaveMemory.set(key, record)
+    return record
+  },
+
+  writeProductCreation(record) {
+    createSaveMemory.set(record.key, record)
+    wx.setStorageSync(record.key, productCopy(record))
+    if (JSON.stringify(wx.getStorageSync(record.key)) !== JSON.stringify(record)) throw Error('原商品建档进度未能可靠保存，请保留本页并重试原进度')
+  },
+
+  clearProductCreation(record) {
+    wx.removeStorageSync(record.key)
+    if (wx.getStorageSync(record.key)) throw Error('原商品建档记录未能清理，请继续核对原商品，勿另建')
+    createSaveMemory.delete(record.key)
+  },
+
+  syncProductCreationRecovery() {
+    try {
+      const record = this.readProductCreation()
+      this.setData({ productCreationRecovery: record ? { productId: record.productId || null, name: record.name,
+        phase: record.phase, message: record.productId
+          ? '商品 #' + record.productId + ' 已创建，原水票档位尚未全部保存。继续只处理这个商品，不会再次创建。'
+          : '上次新建商品结果待核实。重新读取目录不会自动确认成功，请保留本页并联系负责人核实；核实前不重复新建，已有商品仍可编辑。' } : null,
+        productCreationPending: !!(record && (this.data.isAdd || Number(this.data.editId) === record.productId)) })
+      return record
+    } catch (error) {
+      this.setData({ productCreationPending: true, productSaveError: error.message,
+        productCreationRecovery: { phase: 'unreadable', message: error.message } })
+      throw error
+    }
+  },
+
+  async onVerifyProductCreation() { return this.loadData() },
+
+  async onContinueCreatedProduct() {
+    if (this.productWriteLocked()) return
+    let record
+    try { record = this.syncProductCreationRecovery() } catch (_) { return }
+    if (!record || record.phase !== 'packages-pending') return
+    const proof = this.productSaveProof('recovery', record.productId), flight = this._productSaveFlight = {}
+    if (this.data.showEdit && this.data.isAdd && record.draftId && record.draftId === this._uploadDraftId) {
+      this.setData({ isAdd: false, editId: record.productId, pkgProductId: record.productId })
+    }
+    this.setData({ saving: true, productSaveError: '' })
+    try {
+      await this.savePkgRows(record.productId, record.rows, () => this.productSaveCurrent(proof), index => {
+        record.nextRow = index; this.writeProductCreation(record)
+      }, record.nextRow)
+      if (!this.productSaveCurrent(proof)) throw saveScopeError()
+      this.clearProductCreation(record)
+      this.syncProductCreationRecovery()
+      wx.showToast({ title: '原商品档位已保存', icon: 'success' })
+      this.loadData()
+    } catch (error) {
+      if (this.productSaveCurrent(proof)) {
+        try { this.syncProductCreationRecovery() } catch (_) { /* 保留读取失败提示及已知编号。 */ }
+        this.setData({ productSaveError: '商品 #' + record.productId + ' 已创建，原档位仍待完成。' + error.message })
+      }
+    } finally {
+      if (this._productSaveFlight === flight) { this._productSaveFlight = null; if (!this._productDestroyed) this.setData({ saving: false }) }
+    }
   },
 
   productWindowHeight() {
@@ -326,6 +451,7 @@ Page({
   },
 
   onOpenSetting(e) {
+    if (this.productWriteLocked()) return
     const item = e.currentTarget.dataset.item
     if (!item) return
     if (!item.selected) {
@@ -333,6 +459,9 @@ Page({
       return
     }
     this.captureProductEditorWindow()
+    this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
+    this._productSettingClosed = false
+    this._productSettingOwner = productSession()
     this.setData({
       showSetting: true,
       setting: {
@@ -357,21 +486,28 @@ Page({
       stockInput: '',
       stockAfterText: '',
       warningsInline: [],
+      productSaveError: '',
       pkgRows: [], pkgReady: false, pkgError: ''
     })
     // 档位跟着商品走：打开设置就把该商品已挂的档位拉出来（没挂 = 空表，客户只能散买）
     this.loadPkgRows(item.id)
+    try { this.syncInboundRecovery() } catch (_) { /* 读取失败常显并阻止首发。 */ }
   },
 
   closeSetting() {
+    if (this.productWriteLocked()) return
+    this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
+    this._productSettingClosed = true
     this.setData({ showSetting: false })
   },
 
   onSettingShelfChange(e) {
+    if (this.productWriteLocked()) return
     this.setData({ 'setting.enabled': e.detail.value })
   },
 
   onSettingTicketChange(e) {
+    if (this.productWriteLocked()) return
     this.setData({ 'setting.ticketEnabled': e.detail.value })
   },
 
@@ -415,17 +551,20 @@ Page({
   onRetryPkgRows() { return this.loadPkgRows(this.data.pkgProductId) },
 
   onPkgPriceInput(e) {
+    if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
     const idx = e.currentTarget.dataset.index
     this.setData({ ['pkgRows[' + idx + '].price']: e.detail.value })
   },
 
   onPkgQtyInput(e) {
+    if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
     const idx = e.currentTarget.dataset.index
     this.setData({ ['pkgRows[' + idx + '].qty']: e.detail.value })
   },
 
   /** 加一档：默认按常见档位递推（10 / 20 / 100），已存在的就不重复加 */
   onAddPkgRow() {
+    if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
     const rows = this.data.pkgRows.slice()
     const used = rows.filter(r => !r.deleted).map(r => String(r.qty))
     const preset = [10, 20, 100].find(q => !used.includes(String(q))) || ''
@@ -435,6 +574,7 @@ Page({
 
   /** 已存在的档位只标记删除（保存时才真删，再点一次可撤销）；没保存过的新行直接移除。 */
   onRemovePkgRow(e) {
+    if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
     const idx = e.currentTarget.dataset.index
     const rows = this.data.pkgRows.slice()
     const row = rows[idx]
@@ -454,26 +594,34 @@ Page({
   },
 
   /** 把档位行落库：有价的新增/改价走 upsert；被清空价格或被标记删除的走 DELETE。 */
-  async savePkgRows(productId) {
-    const rows = this.data.pkgRows || []
-    for (const r of rows) {
+  async savePkgRows(productId, snapshot, current = () => true, progress, startIndex = 0) {
+    const rows = productCopy(snapshot || this.data.pkgRows || [])
+    for (let index = startIndex; index < rows.length; index++) {
+      if (!current()) throw saveScopeError()
+      const r = rows[index]
       const price = parseFloat(r.price)
       const qty = parseInt(r.qty, 10)
       if (r.id && (r.deleted || !r.price || isNaN(price) || price <= 0)) {
         await del(PKG + '/' + r.id)
+        if (!current()) throw saveScopeError()
+        if (progress) progress(index + 1)
         continue
       }
-      if (r.deleted) continue
-      if (!qty || qty <= 0 || isNaN(price) || price <= 0) continue   // 没填完的行不提交，也不报错
-      await post(PKG, { productId, qty, price })
+      if (!r.deleted && qty && qty > 0 && !isNaN(price) && price > 0) {
+        await post(PKG, { productId, qty, price })
+        if (!current()) throw saveScopeError()
+      }
+      if (progress) progress(index + 1)
     }
   },
 
   onSettingPriorityChange(e) {
+    if (this.productWriteLocked()) return
     this.setData({ 'setting.priorityDisplay': e.detail.value })
   },
 
   onSettingFieldInput(e) {
+    if (this.productWriteLocked()) return
     const field = e.currentTarget.dataset.field
     this.setData({ ['setting.' + field]: e.detail.value })
   },
@@ -484,10 +632,12 @@ Page({
    */
 
   onStockModeChange(e) {
+    if (this.productWriteLocked()) return
     this.setData({ stockMode: e.currentTarget.dataset.mode }, () => this.refreshStockPreview())
   },
 
   onStockInput(e) {
+    if (this.productWriteLocked()) return
     this.setData({ stockInput: e.detail.value }, () => this.refreshStockPreview())
   },
 
@@ -507,15 +657,19 @@ Page({
 
   /** 一个按钮走两种模式：入库直接提交，盘点先确认再提交 */
   onSubmitStock() {
+    if (this.productWriteLocked()) return
     const { stockMode, stockInput, setting } = this.data
+    if (stockMode === 'in') {
+      try { if (inboundIntent.read(this.inboundActor(), setting.id)) return this.doInbound() }
+      catch (error) { this.setData({ inboundError: error.message }); return }
+    }
     const qty = exactNumber(stockInput)
     if (qty === null || !Number.isSafeInteger(qty) || qty < 0 || (stockMode === 'in' && qty <= 0)) {
       wx.showToast({ title: stockMode === 'in' ? '请输入入库数量' : '请输入盘点数量', icon: 'none' })
       return
     }
     if (stockMode === 'in') {
-      this.doInbound(qty)
-      return
+      return this.doInbound(qty)
     }
     if (stockMode === 'loss') {
       if (qty >= (setting.quantity || 0)) { wx.showToast({ title: '盘亏数须低于当前库存', icon: 'none' }); return }
@@ -542,19 +696,76 @@ Page({
   },
 
   /** 入库：在现有库存上加（写 INBOUND 流水） */
-  async doInbound(qty) {
-    const s = this.data.setting
-    if (!this.data.stationId) {
-      wx.showToast({ title: '登录态缺少水站信息', icon: 'none' })
-      return
-    }
+  inboundActor() {
+    const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+    if (!g.isLogin || !productIdOf(u.staffId) || !productIdOf(u.stationId) || !app.canAccessStationBusiness()
+      || !['STATION_MANAGER', 'manager', 'MANAGER'].includes(u.role)
+      || this.data.stationId && Number(this.data.stationId) !== Number(u.stationId)) throw Error('身份或水站已变化，请重新进入商品页核对原入库')
+    return u.staffId + ':' + u.stationId
+  },
+
+  syncInboundRecovery() {
     try {
-      await inboundProducts(this.data.stationId, [{ productId: s.id, quantity: qty }])
-      wx.showToast({ title: '入库成功', icon: 'success' })
-      this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': (s.quantity || 0) + qty })
-      this.loadData()
+      const id = this.data.setting && this.data.setting.id
+      const intent = id ? inboundIntent.read(this.inboundActor(), id) : null
+      this.setData({ inboundRecovery: intent ? { productId: intent.items[0].productId,
+        quantity: intent.items[0].quantity, clientRequestId: intent.clientRequestId } : null })
+      return intent
+    } catch (error) { this.setData({ inboundRecovery: null, inboundError: error.message }); throw error }
+  },
+
+  onContinueOriginalInbound() { return this.doInbound() },
+
+  async doInbound(qty) {
+    if (this.productWriteLocked() || this._productSettingClosed || this._productHidden || this._productDestroyed) return
+    const s = productCopy(this.data.setting || {}), session = this._productSettingOwner || productSession(), epoch = this._productSettingEpoch || 0
+    const current = () => sameProductSession(session) && getApp().canAccessStationBusiness() && !this._productHidden && !this._productDestroyed
+      && epoch === (this._productSettingEpoch || 0) && Number(this.data.setting.id) === Number(s.id) && this.data.stockMode === 'in'
+    const flight = this._inboundFlight = {}
+    this.setData({ inboundBusy: true, inboundError: '' })
+    let intent, applied = false
+    try {
+      if (!current()) return
+      const actor = this.inboundActor(), original = inboundIntent.read(actor, s.id)
+      intent = original || inboundIntent.prepare(actor, [{ productId: Number(s.id), quantity: qty }])
+      this.syncInboundRecovery()
+      if (original) {
+        const confirmed = await new Promise(resolve => {
+          flight.cancelConfirmation = () => resolve(false)
+          wx.showModal({ title: '继续原入库', confirmText: '继续入库', cancelText: '暂不继续',
+            content: '商品 #' + intent.items[0].productId + '，原入库数量 ' + intent.items[0].quantity + ' 件。\n继续会沿用原编号核实或执行这笔入库，不会使用当前新输入数量，也不会重复增加已完成的原入库。',
+            success: result => resolve(!!result.confirm), fail: () => resolve(false) })
+        })
+        delete flight.cancelConfirmation
+        if (!confirmed) return
+      }
+      if (!current()) throw saveScopeError()
+      const body = inboundIntent.payload(intent)
+      const result = await inboundProducts(intent.stationId, body.items, body.clientRequestId)
+      if (!current()) return
+      if (!inboundIntent.acceptsReceipt(intent, result)) throw Object.assign(Error('原入库回执尚未核实，请联系水站负责人核对后继续原入库'), { malformedResponse: true })
+      applied = true
+      inboundIntent.clear(intent)
+      this.syncInboundRecovery()
+      this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': null })
+      await this.loadData()
+      if (!current()) return
+      const item = !this.data.loadError && this.data.list.find(row => Number(row.id) === Number(s.id))
+      const actual = item && exactNumber(item.quantity)
+      if (Number.isSafeInteger(actual) && actual >= 0) this.setData({ 'setting.quantity': actual })
+      else this.setData({ inboundError: '原入库已确认，当前库存尚未重新读取，请重新加载商品核对。' })
+      wx.showToast({ title: '原入库 ' + intent.items[0].quantity + ' 件已确认', icon: 'success' })
     } catch (err) {
-      wx.showToast({ title: err.message || '入库失败', icon: 'none' })
+      if (current()) {
+        try { this.syncInboundRecovery() } catch (_) { /* 保留读取失败的阻断提示。 */ }
+        const message = applied ? '原入库已确认，记录清理仍待核实。' + err.message
+          : intent ? (saveOutcomeUnknown(err) ? '原入库结果待核实。' : '原入库未完成。') + (err.message || '') + ' 原编号和数量保留，请继续原入库核实，勿另记新数量。'
+            : err.message || '原入库记录未能保存，尚未提交'
+        this.setData({ inboundError: message })
+        wx.showToast({ title: message, icon: 'none' })
+      }
+    } finally {
+      if (this._inboundFlight === flight) { this._inboundFlight = null; if (!this._productDestroyed) this.setData({ inboundBusy: false }) }
     }
   },
 
@@ -573,6 +784,7 @@ Page({
 
   /** 价格输入失焦时统一成两位小数（真机上少打一个小数点很常见） */
   onPriceBlur(e) {
+    if (this.productWriteLocked()) return
     const field = e.currentTarget.dataset.field
     const raw = this.data.setting[field]
     if (raw === '' || raw === null || raw === undefined) return
@@ -586,8 +798,8 @@ Page({
 
   /** 保存本站设置：价格留空 = 用平台参考价；填 0 = 清除覆盖（后端归一化为 NULL） */
   async onSaveSetting() {
-    const s = this.data.setting
-    if (!s || !s.id || this.data.saving) return
+    const s = productCopy(this.data.setting || {})
+    if (!s.id || this.productWriteLocked() || this._productSettingClosed) return
     if (s.ticketEnabled && (this.data.pkgLoading || this.data.pkgError)) { wx.showToast({ title: '请先读取原水票档位', icon: 'none' }); return }
     const payload = {
       enabled: s.enabled ? 1 : 0,
@@ -609,20 +821,30 @@ Page({
     if (s.category === 1 && !blankNumber(s.depositPrice)) payload.depositPrice = exactNumber(s.depositPrice)
     if (!blankNumber(s.ticketPrice)) payload.ticketPrice = exactNumber(s.ticketPrice)
 
-    this.setData({ saving: true })
+    // 2026-10-25：原保存曾在await后读取新商品档位；保存目标、表单与档位须在首个请求前冻结。
+    const rows = productCopy(this.data.pkgRows || []), proof = this.productSaveProof('setting', s.id)
+    if (!this.productSaveCurrent(proof)) { wx.showToast({ title: '身份或商品已变化，请重新进入', icon: 'none' }); return }
+    const flight = this._productSaveFlight = {}
+    this.setData({ saving: true, productSaveError: '' })
     try {
       const res = await updateCatalogSetting(s.id, payload)
+      if (!this.productSaveCurrent(proof)) throw saveScopeError()
       this.toastWarnings(res)
       // 档位跟在同一次"保存"里落库（站长不必再跑一趟水票档位页）——
       // 关掉水票开关时不动档位：档位是价目表，下架商品不该顺手把它删了。
-      if (s.ticketEnabled) await this.savePkgRows(s.id)
+      if (s.ticketEnabled) await this.savePkgRows(s.id, rows, () => this.productSaveCurrent(proof))
+      if (!this.productSaveCurrent(proof)) throw saveScopeError()
       wx.showToast({ title: '已保存', icon: 'success' })
+      this._productSettingClosed = true
       this.setData({ showSetting: false })
       this.loadData()
     } catch (err) {
-      wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+      if (this.productSaveCurrent(proof)) {
+        this.setData({ productSaveError: err.message || '保存结果尚未核实，请核对原商品配置' })
+        wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+      }
     } finally {
-      this.setData({ saving: false })
+      if (this._productSaveFlight === flight) { this._productSaveFlight = null; if (!this._productDestroyed) this.setData({ saving: false }) }
     }
   },
 
@@ -758,6 +980,7 @@ Page({
   },
 
   openWaterTemplateDraft(template) {
+    if (this.productWriteLocked()) return
     if (this.data.saving || this.data.productImageBusy || this.data.uploading) return
     this.openAdd()
     // 2026-10-21：换模板是新商品意图，独立图片草稿保留原未知记录并隔离旧选图回调。
@@ -768,7 +991,9 @@ Page({
   },
 
   openAdd() {
-    if (this.data.saving || this.data.productImageBusy || this.data.uploading) return
+    if (this.productWriteLocked() || this.data.productImageBusy || this.data.uploading) return
+    this._productEditorClosed = false
+    this._productEditOwner = productSession()
     this.rememberProductImageDraft()
     this._productEditEpoch = (this._productEditEpoch || 0) + 1
     this._productImageFailure = null
@@ -779,6 +1004,7 @@ Page({
     try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, !this._uploadResumeDraftId, this._uploadResumeDraftId) } catch (_) { this._uploadDraftId = null }
     this.setData({
       showEdit: true,
+      productSaveError: '',
       isAdd: true,
       editId: null,
       editTemplateId: '',
@@ -795,10 +1021,13 @@ Page({
     this.setData({ editHelpExpanded: false })
     if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
     this.refreshProductImageState()
+    try { this.syncProductCreationRecovery() } catch (_) { /* 由恢复提示阻止另建。 */ }
   },
 
   openEdit(e) {
-    if (this.data.saving || this.data.productImageBusy || this.data.uploading) return
+    if (this.productWriteLocked() || this.data.productImageBusy || this.data.uploading) return
+    this._productEditorClosed = false
+    this._productEditOwner = productSession()
     this.rememberProductImageDraft()
     this._productEditEpoch = (this._productEditEpoch || 0) + 1
     this._productImageFailure = null
@@ -809,6 +1038,7 @@ Page({
     const idx = CATEGORY_OPTIONS.findIndex(c => c.value === item.category)
     this.setData({
       showEdit: true,
+      productSaveError: '',
       productImagePreviewUrl: '',
       isAdd: false,
       editId: item.id, pkgRows: [], pkgReady: false, pkgError: '', pkgProductId: item.id,
@@ -831,13 +1061,15 @@ Page({
     })
     // 编辑自定义商品时同样把档位带出来（与「本站设置」共用同一份行数据与保存逻辑）
     this.loadPkgRows(item.id)
+    try { this.syncProductCreationRecovery() } catch (_) { /* 由恢复提示阻止另建。 */ }
     this.setData({ editHelpExpanded: false })
     if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
     this.refreshProductImageState()
   },
 
   closeEdit() {
-    if (this.data.saving) return
+    if (this.productWriteLocked()) return
+    this._productEditorClosed = true
     this.rememberProductImageDraft()
     this._productEditEpoch = (this._productEditEpoch || 0) + 1
     this.setData({ showEdit: false })
@@ -935,11 +1167,13 @@ Page({
   preventMove() {},
 
   onEditFieldInput(e) {
+    if (this.productWriteLocked() || this.data.productCreationPending) return
     const field = e.currentTarget.dataset.field
     this.setData({ ['editForm.' + field]: e.detail.value })
   },
 
   onEditCategoryChange(e) {
+    if (this.productWriteLocked() || this.data.productCreationPending) return
     const idx = Number(e.detail.value)
     const cat = CATEGORY_OPTIONS[idx].value
     const updates = { editCategoryIndex: idx, 'editForm.category': cat }
@@ -952,16 +1186,23 @@ Page({
   },
 
   onEditSwitchChange(e) {
+    if (this.productWriteLocked() || this.data.productCreationPending) return
     const field = e.currentTarget.dataset.field
     this.setData({ ['editForm.' + field]: e.detail.value })
   },
 
   async onSaveEdit() {
-    if (this.data.saving) return
+    if (this.productWriteLocked() || this._productEditorClosed) return
+    let existingCreation
+    try { existingCreation = this.syncProductCreationRecovery() } catch (_) { return }
+    if (existingCreation && (this.data.isAdd || Number(this.data.editId) === existingCreation.productId)) {
+      if (existingCreation.phase === 'packages-pending') return this.onContinueCreatedProduct()
+      wx.showToast({ title: '原商品创建结果待核实，不能再次新建', icon: 'none' }); return
+    }
     if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
     this.refreshProductImageState()
     if (this.data.productImageBusy || this.data.productImageState === 'unknown') { wx.showToast({ title: this.data.productImageBusy ? '图片仍在处理中，请稍候再保存' : '当前图片尚未确认，可重新选图；商品资料已保留', icon: 'none' }); return }
-    const { isAdd, editId, editForm } = this.data
+    const { isAdd, editId } = this.data, editForm = productCopy(this.data.editForm || {})
     if (editForm.ticketEnabled && (this.data.pkgLoading || this.data.pkgError)) { wx.showToast({ title: '请先读取原水票档位', icon: 'none' }); return }
     if (this.data.editTemplateId) {
       const error = templateBusinessError(editForm)
@@ -1010,27 +1251,60 @@ Page({
       payload.quantity = quantity
     }
 
-    this.setData({ saving: true })
+    const rows = productCopy(this.data.pkgRows || []), proof = this.productSaveProof('edit', isAdd ? 'new' : editId)
+    if (!this.productSaveCurrent(proof)) { wx.showToast({ title: '身份或商品已变化，请重新进入', icon: 'none' }); return }
+    const flight = this._productSaveFlight = {}
+    let creation = null, createDispatched = false
+    this.setData({ saving: true, productSaveError: '' })
     try {
       if (isAdd) {
         // createMyProduct 返回的是新建商品的 id（Result<Long>）—— 拿到它才能把档位挂上去，
         // 否则「新建商品」这一步永远配不出档位，站长还得回头去水票档位页补一次
-        const created = await createMyProduct(payload)
-        const newId = created && created.data
-        if (editForm.ticketEnabled && newId) await this.savePkgRows(newId)
+        creation = { version: 1, key: creationKey(), phase: 'create-unknown', productId: null, draftId: this._uploadDraftId || '',
+          name: payload.name, rows: editForm.ticketEnabled ? rows : [], nextRow: 0 }
+        this.writeProductCreation(creation)
+        if (!this.productSaveCurrent(proof)) throw saveScopeError()
+        createDispatched = true
+        const created = await createMyProduct(payload), newId = productIdOf(created && created.data)
+        if (!newId || created && created.code != null && created.code !== 0) throw Object.assign(Error('新建商品回执不完整，请核实原商品，勿重复创建'), { malformedResponse: true })
+        // 已取得可信ID即进入第二阶段；即使档位失败或页面离开，原商品编号也不得丢失。
+        creation.productId = newId; creation.phase = 'packages-pending'
+        this.writeProductCreation(creation)
+        if (!this.productSaveCurrent(proof)) throw saveScopeError()
+        this.setData({ isAdd: false, editId: newId, pkgProductId: newId })
+        proof.targetId = newId
+        await this.savePkgRows(newId, creation.rows, () => this.productSaveCurrent(proof), index => {
+          creation.nextRow = index; this.writeProductCreation(creation)
+        })
+        if (!this.productSaveCurrent(proof)) throw saveScopeError()
+        this.clearProductCreation(creation)
+        this.syncProductCreationRecovery()
         wx.showToast({ title: '已创建', icon: 'success' })
       } else {
         const res = await updateMyProduct(editId, payload)
+        if (!this.productSaveCurrent(proof)) throw saveScopeError()
         this.toastWarnings(res)
-        if (editForm.ticketEnabled) await this.savePkgRows(editId)
+        if (editForm.ticketEnabled) await this.savePkgRows(editId, rows, () => this.productSaveCurrent(proof))
+        if (!this.productSaveCurrent(proof)) throw saveScopeError()
         wx.showToast({ title: '已保存', icon: 'success' })
       }
+      this._productEditorClosed = true
       this.setData({ showEdit: false })
       this.loadData()
     } catch (err) {
-      wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+      if (creation && !creation.productId && (!createDispatched || !saveOutcomeUnknown(err) && !err.productSaveScopeChanged)) {
+        try { this.clearProductCreation(creation); creation = null } catch (_) { /* 清理失败仍保留阻断，不另建。 */ }
+      }
+      if (this.productSaveCurrent(proof)) {
+        try { this.syncProductCreationRecovery() } catch (_) { /* 保留原记录核实提示。 */ }
+        const message = creation && creation.productId ? '商品 #' + creation.productId + ' 已创建，原保存进度仍待核对。' + err.message
+          : creation && createDispatched ? '原商品创建结果待核实，请先核对目录，勿重复新建。'
+            : !createDispatched && isAdd ? '原建档记录未能保存，尚未提交。' + err.message : err.message || '保存失败'
+        this.setData({ productSaveError: message })
+        wx.showToast({ title: message, icon: 'none' })
+      }
     } finally {
-      this.setData({ saving: false })
+      if (this._productSaveFlight === flight) { this._productSaveFlight = null; if (!this._productDestroyed) this.setData({ saving: false }) }
     }
   },
 
@@ -1079,6 +1353,7 @@ Page({
    * 后端下发包内路径或COS签名预览，并分开提供持久对象键。
    */
   async openPresetPicker() {
+    if (this.data.productCreationPending) return
     this.refreshProductImageState()
     if (this.data.saving || this.data.productImageBusy || this.data.productImageState === 'unknown') return
     this.setData({ showPresetPicker: true })
@@ -1107,6 +1382,7 @@ Page({
    * 不能把临时预览URL当对象键或从URL反推对象键。
    */
   onPickPresetImage(e) {
+    if (this.data.productCreationPending) return
     this.refreshProductImageState()
     if (this.data.saving || this.data.productImageBusy || this.data.productImageState === 'unknown') return
     const path = e.currentTarget.dataset.path
@@ -1124,6 +1400,7 @@ Page({
   },
 
   async uploadImage() {
+    if (this.data.productCreationPending) return
     this.refreshProductImageState()
     if (this.data.saving || this.data.productImageBusy) return
     const currentImageTarget = () => this.data.isAdd ? 'new' : Number(this.data.editId)

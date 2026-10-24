@@ -77,16 +77,18 @@
         <view class="load-error" wx:if="{{formLoadError}}">{{formLoadError}}<button bindtap="loadFormData" disabled="{{formLoading}}">重试读取商品与地址</button></view>
         <text class="form-status" wx:if="{{formReady && !products.length}}">本站暂无可选择的商品。</text>
         <view class="item-list">
-          <view class="item-row" wx:for="{{form.items}}" wx:key="index">
+          <view class="item-row" wx:for="{{form.items}}" wx:for-item="row" wx:for-index="rowIndex" wx:key="rowKey">
             <view class="item-select">
               <view class="form-options compact">
                 <view
-                  class="form-option mini {{item.productId === p.id ? 'active' : ''}}"
+                  class="form-option mini {{row.productId === p.id ? 'active' : ''}}"
                   wx:for="{{products}}"
                   wx:for-item="p"
+                  wx:for-index="productIndex"
                   wx:key="id"
                   bindtap="onSelectProduct"
-                  data-index="{{index}}"
+                  data-index="{{rowIndex}}"
+                  data-row-key="{{row.rowKey}}"
                   data-id="{{p.id}}"
                 >
                   <text>{{p.name}}</text>
@@ -94,15 +96,15 @@
               </view>
             </view>
             <view class="item-qty">
-              <view class="qty-btn {{item.quantity <= 1 ? 'disabled' : ''}}" bindtap="onQuantityChange" data-index="{{index}}" data-type="minus">
+              <view class="qty-btn {{row.quantity <= 1 ? 'disabled' : ''}}" bindtap="onQuantityChange" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}" data-type="minus">
                 <text>-</text>
               </view>
-              <input class="qty-input" type="number" value="{{item.quantity}}" bindinput="onQuantityInput" disabled="{{submitting}}" data-index="{{index}}" />
-              <view class="qty-btn" bindtap="onQuantityChange" data-index="{{index}}" data-type="add">
+              <input class="qty-input" type="number" value="{{row.quantity}}" bindinput="onQuantityInput" disabled="{{submitting}}" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}" />
+              <view class="qty-btn" bindtap="onQuantityChange" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}" data-type="add">
                 <text>+</text>
               </view>
             </view>
-            <text class="item-remove" bindtap="onRemoveItem" data-index="{{index}}" wx:if="{{form.items.length > 1}}">×</text>
+            <text class="item-remove" bindtap="onRemoveItem" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}" wx:if="{{form.items.length > 1}}">×</text>
           </view>
         </view>
       </view>
@@ -127,10 +129,11 @@
         <text class="form-label">备注</text>
         <input class="form-input" placeholder="如：放门口" value="{{form.specialNote}}" bindinput="onNoteInput" disabled="{{submitting}}" />
       </view>
+      <!-- 2026-10-24：长错误随正文滚动，避免键盘和大字体下把保存/取消按钮挤出屏幕。 -->
+      <text class="save-error" wx:if="{{saveError}}">{{saveError}}</text>
     </view>
 
     <view class="modal-footer">
-      <text class="save-error" wx:if="{{saveError}}">{{saveError}}</text>
       <view class="modal-btn cancel" bindtap="onCloseEditModal">
         <text>取消</text>
       </view>

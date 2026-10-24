@@ -7,6 +7,10 @@ import com.example.aquaflow.entity.Inventory;
 import com.example.aquaflow.entity.InventoryRecord;
 import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.mapper.InventoryRecordMapper;
+import com.example.aquaflow.mapper.AuditLogMapper;
+import com.example.aquaflow.mapper.StationMapper;
+import com.example.aquaflow.mapper.ProductMapper;
+import com.example.aquaflow.service.AuditLogService;
 import com.example.aquaflow.service.InventoryLedgerService;
 import com.example.aquaflow.service.InventoryReservationService;
 import com.example.aquaflow.service.InventoryService;
@@ -14,8 +18,16 @@ import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Comparator;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 @Service
 public class InventoryServiceImpl implements InventoryService {
@@ -25,6 +37,11 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Autowired
     private InventoryRecordMapper inventoryRecordMapper;
+
+    @Autowired private StationMapper stationMapper;
+    @Autowired private ProductMapper productMapper;
+    @Autowired private AuditLogMapper auditLogMapper;
+    @Autowired private AuditLogService auditLogService;
 
     /**
      * 库存流水唯一写入口（拆出来是为了打断与预留服务的循环依赖：入库后要补预留，
@@ -62,6 +79,64 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void inbound(Long stationId, List<InventoryInboundDTO.ItemDTO> items) {
+        applyInbound(stationId, items);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
+    public Map<String, Object> inboundWithReceipt(Long stationId, List<InventoryInboundDTO.ItemDTO> items, String clientRequestId) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && !Integer.valueOf(Isolation.READ_COMMITTED.value()).equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel()))
+            throw new BusinessException("请从独立入库操作继续原请求");
+        AuthContext.requireManager();
+        Long actor = AuthContext.getUserId();
+        if (!"staff".equals(AuthContext.getUserType()) || actor == null || actor <= 0 || actor > Integer.MAX_VALUE
+                || !AuthContext.requireStationId().equals(stationId)) throw new BusinessException("只能向本站入库");
+        if (clientRequestId == null || !clientRequestId.matches("[A-Za-z0-9_-]{16,80}"))
+            throw new BusinessException("入库编号无效，请核对原入库记录");
+        List<InventoryInboundDTO.ItemDTO> ordered = normalizedInbound(items);
+        StringBuilder canonical = new StringBuilder();
+        for (InventoryInboundDTO.ItemDTO item : ordered) canonical.append(item.getProductId()).append(':').append(item.getQuantity()).append(';');
+        String target = "inbound:" + inboundDigest(actor + "|" + stationId + "|" + clientRequestId);
+        String detail = "v1|" + stationId + "|" + inboundDigest(canonical.toString());
+        // 2026-10-24：单纯前端锁挡不住超时重发。站行锁先于库存锁，回执与数量、流水一起提交。
+        if (stationMapper.getByIdForUpdate(stationId) == null) throw new BusinessException("当前水站不存在");
+        List<String> receipts = auditLogMapper.inboundReceipts(actor, target);
+        if (!receipts.isEmpty()) {
+            if (receipts.size() != 1 || !detail.equals(receipts.get(0)))
+                throw new BusinessException("原入库内容或回执不一致，请保留原编号核实，勿另开重复入库");
+            return inboundReceipt(stationId, ordered, clientRequestId);
+        }
+        applyInbound(stationId, ordered);
+        // 不用独立事务；回执写失败必须连库存和补位全部回滚。
+        auditLogService.log("INVENTORY_INBOUND", "RECEIPT", target, detail, null);
+        return inboundReceipt(stationId, ordered, clientRequestId);
+    }
+
+    private static List<InventoryInboundDTO.ItemDTO> normalizedInbound(List<InventoryInboundDTO.ItemDTO> items) {
+        if (items == null || items.isEmpty() || items.size() > 200) throw new BusinessException("请填写入库商品与数量");
+        var ids = new HashSet<Long>();
+        var ordered = new ArrayList<InventoryInboundDTO.ItemDTO>();
+        for (InventoryInboundDTO.ItemDTO item : items) {
+            if (item == null || item.getProductId() == null || item.getProductId() <= 0 || item.getQuantity() == null
+                    || item.getQuantity() <= 0 || !ids.add(item.getProductId())) throw new BusinessException("入库商品或数量无效，请重新核对");
+            var copy = new InventoryInboundDTO.ItemDTO();
+            copy.setProductId(item.getProductId()); copy.setQuantity(item.getQuantity()); ordered.add(copy);
+        }
+        ordered.sort(Comparator.comparing(InventoryInboundDTO.ItemDTO::getProductId));
+        return ordered;
+    }
+
+    private static Map<String, Object> inboundReceipt(Long stationId, List<InventoryInboundDTO.ItemDTO> items, String clientRequestId) {
+        return Map.of("clientRequestId", clientRequestId, "stationId", stationId, "items", items, "status", "APPLIED");
+    }
+
+    private static String inboundDigest(String value) {
+        try { return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
+        catch (java.security.NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+    }
+
+    private void applyInbound(Long stationId, List<InventoryInboundDTO.ItemDTO> items) {
         Long operatorId = AuthContext.getUserId();
         // ⚠️ 按 productId 升序处理（返工 V05）：每轮都会锁住 (站,商品) 的 inventory 行并做补位，
         // 照请求顺序处理时，两张商品顺序相反的入库单会互相等锁（固定锁环 → 死锁，MySQL 只回滚其中一个，
@@ -73,6 +148,10 @@ public class InventoryServiceImpl implements InventoryService {
             if (item.getQuantity() == null || item.getQuantity() <= 0) {
                 throw new BusinessException("入库数量必须大于0");
             }
+            // 通用库/本站商品才可入库；有原回执的重放已在此之前返回，不会因后续目录变化重做。
+            var product = productMapper.getById(item.getProductId());
+            if (product == null || product.getOwnerStationId() != null && !stationId.equals(product.getOwnerStationId()))
+                throw new BusinessException("商品不存在或不属于本站可用目录");
             inventoryMapper.upsertQuantity(stationId, item.getProductId(), item.getQuantity());
             // [AQ-029] 入库写流水，与库存变动同事务
             recordChange(stationId, item.getProductId(), item.getQuantity(), InventoryChangeType.INBOUND,

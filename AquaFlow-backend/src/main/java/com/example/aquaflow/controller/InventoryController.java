@@ -46,8 +46,21 @@ public class InventoryController {
         if (!AuthContext.requireStationId().equals(stationId)) {
             return Result.error("只能向本站入库");
         }
+        if (inventoryInboundDTO.getClientRequestId() != null) {
+            return Result.success(inventoryService.inboundWithReceipt(stationId,
+                    inventoryInboundDTO.getItems(), inventoryInboundDTO.getClientRequestId()));
+        }
+        // 兼容无编号旧客户端；其重试没有去重保证，新员工端只接受匹配编号的回执。
         inventoryService.inbound(stationId, inventoryInboundDTO.getItems());
         return Result.success();
+    }
+
+    /** 员工端原编号入库；独立路径使新前端遇旧后端时404，而非被旧逻辑忽略编号后重复累加。 */
+    @RequireRole({"STATION_MANAGER"})
+    @PostMapping("/inbound-with-receipt")
+    public Result inboundWithReceipt(@RequestParam Long stationId, @RequestBody InventoryInboundDTO dto) {
+        if (!AuthContext.requireStationId().equals(stationId)) return Result.error("只能向本站入库");
+        return Result.success(inventoryService.inboundWithReceipt(stationId, dto.getItems(), dto.getClientRequestId()));
     }
 
     /**

@@ -13,6 +13,22 @@ function viewError(error, fallback = '暂时无法完成，请稍后重试') {
     ? text : fallback
 }
 
+// 2026-10-24：嵌套商品循环曾把商品序号当成表单行号；拒绝失效/越界事件，避免写出额外行。
+function formRowIndex(event, items) {
+  const dataset = event && event.currentTarget && event.currentTarget.dataset || {}
+  const raw = dataset.index
+  if (typeof raw !== 'number' && !(typeof raw === 'string' && /^\d+$/.test(raw))) return -1
+  const index = Number(raw)
+  return Number.isSafeInteger(index) && index >= 0 && Array.isArray(items) && index < items.length && items[index]
+    && typeof items[index].rowKey === 'string' && dataset.rowKey === items[index].rowKey
+    ? index : -1
+}
+
+function formItem(page, productId = null, quantity = 1) {
+  page._itemSeq = (page._itemSeq || 0) + 1
+  return { rowKey: 'template-row-' + page._itemSeq, productId, quantity }
+}
+
 Page({
   data: {
     loading: true, loaded: false, needLogin: false, accessDenied: false, formLoading: false, formReady: false, submitting: false, saveError: '',
@@ -90,7 +106,7 @@ Page({
         name: '',
         addressId: null,
         specialNote: '',
-        items: [{ productId: null, quantity: 1 }]
+        items: [formItem(this)]
       }
     })
     this.loadFormData()
@@ -100,8 +116,8 @@ Page({
     if (this.data.submitting || this.data.loadError) return
     const { template } = e.currentTarget.dataset
     const items = (template.items && template.items.length > 0)
-      ? template.items.map(i => ({ productId: i.productId || i.waterTypeId, quantity: i.quantity || 1 }))
-      : [{ productId: null, quantity: 1 }]
+      ? template.items.map(i => formItem(this, i.productId || i.waterTypeId, i.quantity || 1))
+      : [formItem(this)]
     this.setData({
       showEditModal: true, saveError: '', formReady: false,
       isEditing: true,
@@ -191,27 +207,32 @@ Page({
 
   onAddItem() {
     if (this.data.submitting) return
-    const items = this.data.form.items.concat([{ productId: null, quantity: 1 }])
+    const items = this.data.form.items.concat([formItem(this)])
     this.setData({ 'form.items': items })
   },
 
   onRemoveItem(e) {
     if (this.data.submitting) return
-    const { index } = e.currentTarget.dataset
+    const index = formRowIndex(e, this.data.form.items)
+    if (index < 0) return
     const items = this.data.form.items.filter((_, i) => i !== index)
-    if (items.length === 0) items.push({ productId: null, quantity: 1 })
+    if (items.length === 0) items.push(formItem(this))
     this.setData({ 'form.items': items })
   },
 
   onSelectProduct(e) {
     if (this.data.submitting) return
-    const { index, id } = e.currentTarget.dataset
-    this.setData({ [`form.items[${index}].productId`]: parseInt(id) })
+    const index = formRowIndex(e, this.data.form.items)
+    const id = Number(e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id)
+    if (index < 0 || !Number.isSafeInteger(id) || id <= 0 || !this.data.products.some(product => Number(product.id) === id)) return
+    this.setData({ [`form.items[${index}].productId`]: id })
   },
 
   onQuantityChange(e) {
     if (this.data.submitting) return
-    const { index, type } = e.currentTarget.dataset
+    const index = formRowIndex(e, this.data.form.items)
+    if (index < 0) return
+    const { type } = e.currentTarget.dataset
     let items = this.data.form.items
     let qty = items[index].quantity || 1
     if (type === 'add') qty++
@@ -221,7 +242,8 @@ Page({
 
   onQuantityInput(e) {
     if (this.data.submitting) return
-    const { index } = e.currentTarget.dataset
+    const index = formRowIndex(e, this.data.form.items)
+    if (index < 0) return
     const qty = parseInt(e.detail.value) || 1
     this.setData({ [`form.items[${index}].quantity`]: Math.max(1, qty) })
   },
@@ -246,7 +268,8 @@ Page({
   async onSaveTemplate() {
     if (this.data.submitting || this._saveFlight) return
     const { form, isEditing, editingTemplate } = this.data
-    const validItems = form.items.filter(i => i.productId)
+    // rowKey 只用于本地行身份；接口仍只收商品和数量。
+    const validItems = form.items.filter(i => i.productId).map(i => ({ productId: i.productId, quantity: i.quantity }))
     if (!validItems.length) { wx.showToast({ title: '请选择至少一种商品', icon: 'none' }); return }
     const session = captureSession()
     this._saveFlight = true

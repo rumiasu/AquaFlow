@@ -246,6 +246,7 @@ const API = {
   // 库存
   INVENTORY: '/api/inventory',
   INVENTORY_INBOUND: '/api/inventory/inbound',
+  INVENTORY_INBOUND_RECEIPT: '/api/inventory/inbound-with-receipt',
   INVENTORY_RECORDS: '/api/inventory/records',
   INVENTORY_LOSS: (id) => `/api/inventory/${id}/loss`,
 

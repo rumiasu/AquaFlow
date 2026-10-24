@@ -11,6 +11,7 @@ function pageFixture() {
   const wx = createWx(), state = {}, writes = [], app = createApp({ globalData: { isLogin: true,
     userInfo: { staffId: 1, stationId: 11, role: 'STATION_MANAGER' } } })
   const page = loadPage('miniapp-delivery/pages/station-mgmt/products/index.js', { wx, app, stubs: {
+    'config/api': { API: { GENERAL_UPLOAD: '/api/common/upload' }, getTransportConfig: () => ({ mode: 'cloudContainer', env: 'synthetic-env', service: 'synthetic-service' }) },
     'api/station-mgmt': {
       createMyProduct: async body => { writes.push(body); return { code: 0, data: 42 } },
       updateMyProduct: async (id, body) => { writes.push(body); return { code: 0 } }

@@ -13,7 +13,7 @@
     </view>
     <view class="privacy-buttons">
       <button class="btn-reject" bindtap="onReject">不同意</button>
-      <button class="btn-agree" id="privacy-agree-btn" bindtap="onAgree">同意</button>
+      <button class="btn-agree" id="privacy-agree-btn" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="onAgree">同意</button>
     </view>
   </view>
 </view>

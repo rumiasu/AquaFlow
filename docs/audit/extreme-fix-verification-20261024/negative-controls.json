@@ -1,0 +1,26 @@
+{
+  "baseSha": "f4b9d676a856ed9d5b214525ae710e400a1e165b",
+  "groups": [
+    {
+      "suite": "extreme-product-save.test.js",
+      "fixedPassed": 19,
+      "baselinePassed": 1,
+      "baselineFailed": 18
+    },
+    {
+      "suite": "extreme-adjustment-map.test.js",
+      "fixedPassed": 22,
+      "baselinePassed": 4,
+      "baselineFailed": 18
+    },
+    {
+      "suite": "extreme-template-privacy.test.js",
+      "fixedPassed": 21,
+      "originalBaselineScope": 15,
+      "originalBaselinePassed": 3,
+      "originalBaselineFailed": 12,
+      "additionalLifecycleChecks": 6
+    }
+  ],
+  "interpretation": "Failures include added state/structure contracts; the primary pre-fix counterexamples are actual wrong-row/target requests, duplicate submits and draft-key rotation. Missing new fields/functions alone are not treated as business proof."
+}

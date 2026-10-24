@@ -11,7 +11,7 @@ function pageFixture(kind,storage=new Map(),mutate=(n,s)=>s) {
  vm.runInNewContext(mutate('page',fs.readFileSync(path.join(ROOT,'miniapp-delivery',files[kind]),'utf8')),{
   Page:value=>{definition=value},getApp:()=>f.app,wx:f.wx,console:{warn(){},error(){},log(){}},
   getCurrentPages:()=>[],setTimeout,clearTimeout,setInterval:()=>1,clearInterval(){},
-  require(id){if(id.endsWith('/upload-recovery-page'))return f.load('upload-recovery-page');if(id.endsWith('/upload'))return f.api;
+  require(id){if(id.endsWith('/upload-recovery-page'))return f.load('upload-recovery-page');if(id.endsWith('/inbound-intent'))return f.load('inbound-intent');if(id.endsWith('/upload'))return f.api;
    if(id.endsWith('/request'))return f.load('request');if(id.includes('config/api'))return f.config;return stub}
  },{filename:files[kind]})
  const p={...definition,data:JSON.parse(JSON.stringify(definition.data)),setData(values){for(const[k,v]of Object.entries(values)){const parts=k.split('.');let o=this.data;for(let i=0;i<parts.length-1;i++){o[parts[i]]=o[parts[i]]||{};o=o[parts[i]]}o[parts[parts.length-1]]=v}}}

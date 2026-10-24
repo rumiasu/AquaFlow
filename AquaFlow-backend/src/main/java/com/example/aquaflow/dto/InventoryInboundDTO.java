@@ -7,6 +7,8 @@ import java.util.List;
 @Data
 public class InventoryInboundDTO {
     private List<ItemDTO> items;
+    /** 原入库意图编号；旧客户端可不传，新客户端必须沿用原编号恢复未知结果。 */
+    private String clientRequestId;
 
     @Data
     public static class ItemDTO {

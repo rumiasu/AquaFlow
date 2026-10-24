@@ -110,16 +110,19 @@
   <!-- 图片结果未确认时独立留在正文，不与固定的新建入口争用底部位置。 -->
   <view wx:if="{{uploadRecoveryCases.length || uploadRecoveryReadFailed}}" class="upload-recovery-panel product-upload-recovery">
     <text class="recovery-title" wx:if="{{uploadRecoveryReadFailed}}">图片记录待核实</text>
-    <text class="recovery-title" wx:else>{{uploadRecoveryCases.length}} 张图片待核实</text>
-    <text class="recovery-note">上传结果尚未确认，原记录和草稿已保留。请先核实原图片，再继续同一份草稿。</text>
+    <text class="recovery-title" wx:else>{{uploadRecoveryCases.length}} 次上传暂未确认</text>
+    <text class="recovery-note">这些记录未取得完整上传回执，不能当作成功。已确认的新图可正常保存，旧记录单独保留。</text>
     <button class="recovery-toggle" wx:if="{{uploadRecoveryReadFailed}}" bindtap="refreshUploadRecovery" disabled="{{productImageBusy || saving || uploadRecovering}}">重新读取图片记录</button>
     <button class="recovery-toggle {{uploadRecoveryExpanded ? 'is-secondary' : ''}}" wx:else bindtap="onToggleUploadRecovery" disabled="{{productImageBusy || saving || uploadRecovering}}">{{uploadRecoveryExpanded ? '收起记录' : '查看待核实图片'}}</button>
     <block wx:if="{{uploadRecoveryExpanded && uploadRecoveryCases.length}}">
-      <view class="recovery-case" wx:for="{{uploadRecoveryCases}}" wx:key="id">
-        <text class="recovery-case-label">{{item.label}}</text>
+      <picker wx:if="{{uploadRecoveryCases.length > 1}}" mode="selector" range="{{uploadRecoveryCases}}" range-key="label" value="{{productUploadRecoveryIndex}}" bindchange="onChooseProductUploadRecord" disabled="{{productImageBusy || saving || uploadRecovering}}">
+        <view class="recovery-record-picker">选择记录（{{productUploadRecoveryIndex + 1}} / {{uploadRecoveryCases.length}}）⌄</view>
+      </picker>
+      <view class="recovery-case" wx:if="{{productUploadRecoveryCurrent}}">
+        <text class="recovery-case-label">{{productUploadRecoveryCurrent.label}}</text>
         <view class="recovery-case-actions">
-          <button class="recovery-primary" disabled="{{productImageBusy || saving || uploadRecovering}}" data-caseid="{{item.id}}" bindtap="onUploadResumeDraft">继续原草稿</button>
-          <text class="recovery-record-link" data-caseid="{{item.id}}" bindtap="onUploadRecover" role="button">查看原记录说明</text>
+          <button class="recovery-primary" disabled="{{productImageBusy || saving || uploadRecovering}}" data-caseid="{{productUploadRecoveryCurrent.id}}" bindtap="onUploadResumeDraft">继续原草稿</button>
+          <text class="recovery-record-link" data-caseid="{{productUploadRecoveryCurrent.id}}" bindtap="onUploadRecover" role="button">查看原记录说明</text>
         </view>
       </view>
       <view class="recovery-new-draft">
@@ -127,6 +130,11 @@
         <button class="recovery-independent" disabled="{{productImageBusy || saving || uploadRecovering}}" bindtap="onUploadNewDraft">另开独立图片草稿</button>
       </view>
     </block>
+  </view>
+
+  <view class="product-editor-resume" wx:if="{{productEditorResume && !showEdit}}">
+    <text>上次编辑尚未保存，仅在本页暂存。</text>
+    <button bindtap="onResumeProductEditor" disabled="{{saving || inboundBusy}}">继续未保存编辑</button>
   </view>
 
   <view class="footer" wx:if="{{!showEdit && !showSetting && !showRecords && !showSubmissions && !showPresetPicker}}">
@@ -253,10 +261,16 @@
   </view>
 
   <!-- ============ 自己定义商品 ============ -->
-  <view class="modal-mask" wx:if="{{showEdit}}" catchtouchmove="preventMove" bindtap="closeEdit"></view>
+  <!-- Native container owns Back; no synthetic page-stack entry or global navigation interception. -->
+  <page-container show="{{showEdit}}" position="bottom" overlay="{{true}}" close-on-slide-down="{{false}}" duration="{{0}}" custom-style="height:100%;background:transparent;" bindbeforeleave="onProductEditorBeforeLeave" bindclickoverlay="closeEdit">
+  <view class="product-editor-stage" wx:if="{{showEdit}}">
+  <view class="modal-mask product-editor-dismiss-area" catchtouchmove="preventMove" bindtap="closeEdit"></view>
   <view class="modal product-edit-modal" wx:if="{{showEdit}}" style="{{productEditSheetStyle}}" catchtap="stopPropagation">
       <view class="product-edit-header">
-        <view class="modal-header">{{isAdd ? '自己定义商品' : '编辑自定义商品'}}</view>
+        <view class="product-edit-heading">
+          <view class="modal-header">{{isAdd ? '自己定义商品' : '编辑自定义商品'}}</view>
+          <button class="product-edit-close" bindtap="closeEdit" disabled="{{saving || inboundBusy}}" aria-label="关闭编辑">关闭 ×</button>
+        </view>
         <text class="modal-sub">商品仅供本站使用，可在保存后另行上报。</text>
       </view>
       <scroll-view class="product-edit-body" scroll-y enhanced show-scrollbar>
@@ -393,6 +407,38 @@
         <button class="btn-save" bindtap="onSaveEdit" loading="{{saving}}" disabled="{{saving || inboundBusy || productCreationPending || productImageBusy || productImageState === 'unknown' || (editForm.ticketEnabled && (pkgLoading || pkgError))}}">{{saving ? '保存中…' : productCreationPending ? '先完成原建档' : isAdd ? '创建商品' : '保存修改'}}</button>
       </view>
   </view>
+  </view>
+  <!-- ============ 平台统一图库（选图） ============ -->
+  <!-- 图在**小程序包内**：后端下发路径，前端直接当 src 用，不依赖 COS、不会过期 -->
+  <view class="modal-mask product-preset-mask" wx:if="{{showPresetPicker}}" catchtouchmove="preventMove" bindtap="closePresetPicker">
+    <view class="modal" catchtap="stopPropagation">
+      <view class="modal-header">选择平台图</view>
+      <view class="modal-sub">通用桶装水示意图，不代表具体品牌包装；选中后可更换为实际商品图</view>
+
+      <view class="preset-loading" wx:if="{{presetLoading}}"><text>加载中...</text></view>
+      <view class="ui-state" wx:elif="{{presetError}}"><text class="ui-state-copy">{{presetError}}</text><button size="mini" bindtap="openPresetPicker">重新读取图库</button></view>
+      <view class="preset-empty" wx:elif="{{presetReady && presetImages.length === 0}}"><text>暂无可选图片</text></view>
+
+      <view class="preset-grid" wx:else>
+        <view
+          class="preset-item {{editForm.imageUrl === item.path ? 'active' : ''}}"
+          wx:for="{{presetImages}}"
+          wx:key="key"
+          data-path="{{item.path}}"
+          data-object-name="{{item.objectName}}"
+          bindtap="onPickPresetImage"
+        >
+          <image class="preset-thumb" wx:if="{{!brokenImages[item.path]}}" src="{{item.path}}" mode="aspectFit" lazy-load binderror="onDisplayImageError" data-src="{{item.path}}" /><view class="preset-thumb ui-image-fallback" wx:else>图片暂无法显示</view>
+          <text class="preset-check" wx:if="{{editForm.imageUrl === item.path}}">已选</text>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-save" bindtap="closePresetPicker">关闭</button>
+      </view>
+    </view>
+  </view>
+  </page-container>
 
   <!-- ============ 库存流水 ============ -->
   <view class="modal-mask" wx:if="{{showRecords}}" catchtouchmove="preventMove" bindtap="closeRecords">
@@ -454,34 +500,4 @@
     </view>
   </view>
 
-  <!-- ============ 平台统一图库（选图） ============ -->
-  <!-- 图在**小程序包内**：后端下发路径，前端直接当 src 用，不依赖 COS、不会过期 -->
-  <view class="modal-mask product-preset-mask" wx:if="{{showPresetPicker}}" catchtouchmove="preventMove" bindtap="closePresetPicker">
-    <view class="modal" catchtap="stopPropagation">
-      <view class="modal-header">选择平台图</view>
-      <view class="modal-sub">通用桶装水示意图，不代表具体品牌包装；选中后可更换为实际商品图</view>
-
-      <view class="preset-loading" wx:if="{{presetLoading}}"><text>加载中...</text></view>
-      <view class="ui-state" wx:elif="{{presetError}}"><text class="ui-state-copy">{{presetError}}</text><button size="mini" bindtap="openPresetPicker">重新读取图库</button></view>
-      <view class="preset-empty" wx:elif="{{presetReady && presetImages.length === 0}}"><text>暂无可选图片</text></view>
-
-      <view class="preset-grid" wx:else>
-        <view
-          class="preset-item {{editForm.imageUrl === item.path ? 'active' : ''}}"
-          wx:for="{{presetImages}}"
-          wx:key="key"
-          data-path="{{item.path}}"
-          data-object-name="{{item.objectName}}"
-          bindtap="onPickPresetImage"
-        >
-          <image class="preset-thumb" wx:if="{{!brokenImages[item.path]}}" src="{{item.path}}" mode="aspectFit" lazy-load binderror="onDisplayImageError" data-src="{{item.path}}" /><view class="preset-thumb ui-image-fallback" wx:else>图片暂无法显示</view>
-          <text class="preset-check" wx:if="{{editForm.imageUrl === item.path}}">已选</text>
-        </view>
-      </view>
-
-      <view class="modal-footer">
-        <button class="btn-save" bindtap="closePresetPicker">关闭</button>
-      </view>
-    </view>
-  </view>
 </view>

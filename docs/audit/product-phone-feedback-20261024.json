@@ -1,0 +1,50 @@
+{
+  "baseline": "74a425025b2c26449158b47fa13c571dba319eeb",
+  "changedSide": [
+    "miniapp-delivery"
+  ],
+  "backendChanged": false,
+  "requiresBackendReupload": false,
+  "requiresMigration": false,
+  "requiresConfiguration": false,
+  "deployed": false,
+  "actualPhoneAttachmentsViewed": true,
+  "nativeWeChatVerified": false,
+  "scope": [
+    "upload recovery records presentation and successful receipt refresh",
+    "custom product close region and native container return wiring"
+  ],
+  "findings": [
+    {
+      "id": "PHONE01",
+      "status": "fixed-in-code",
+      "claim": "Successful uploads always leave a recovery record",
+      "verified": "not reproduced for valid complete receipt; screenshot proves unknown records only",
+      "action": "refresh completed upload/save list; one selectable retained unknown record; no automatic deletion of unresolved cases",
+      "remaining": "specific cause of the three live unknown outcomes needs nonsecret response diagnostics"
+    },
+    {
+      "id": "PHONE02",
+      "status": "fixed-in-code",
+      "claim": "Editor too hard to close; native Back leaves page",
+      "verified": "phone pixels and prior WXML has sibling plain views without native container",
+      "action": "60x44px close,56px full-width dismiss region,page-container,session-scoped in-page resume,preserve in-flight save lock",
+      "remaining": "native Android/iOS Back and keyboard/device verification"
+    }
+  ],
+  "tests": {
+    "newPassed": 16,
+    "affectedFrontendPassed": 278,
+    "baselinePassed": 3,
+    "baselineFailed": 13,
+    "staticLayoutsPassed": 3
+  },
+  "externalReadLimitations": [
+    {
+      "action": "urllib GET",
+      "target": "https://api.github.com/repos/wechat-miniprogram/api-typings/git/trees/master?recursive=1",
+      "result": "proxy 403 denied; stopped, no retry",
+      "impact": "none; official Demo source already available through web"
+    }
+  ]
+}

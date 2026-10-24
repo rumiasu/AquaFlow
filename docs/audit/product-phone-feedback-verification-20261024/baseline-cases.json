@@ -1,0 +1,79 @@
+[
+  {
+    "name": "three confirmed uploads and re-entry never leave a recovery record",
+    "pass": false,
+    "error": "f.p.onResumeProductEditor is not a function"
+  },
+  {
+    "name": "repeated picker selection of the same bytes reuses confirmed receipt without a new POST",
+    "pass": true
+  },
+  {
+    "name": "explicit pre-upload rejection leaves no record and can be retried manually",
+    "pass": true
+  },
+  {
+    "name": "unknown original remains intact when a fresh independent upload succeeds",
+    "pass": true
+  },
+  {
+    "name": "three unknown attempts render one selectable record and preserve every durable case",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n3 !== 1\n"
+  },
+  {
+    "name": "successful late receipt after close clears marker and resumes the confirmed photo",
+    "pass": false,
+    "error": "f.p.onResumeProductEditor is not a function"
+  },
+  {
+    "name": "close and resume preserve unknown local preview and block repeat POST",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ undefined\n- true\n"
+  },
+  {
+    "name": "a changed account cannot resume a previous editor or expose its photo",
+    "pass": false,
+    "error": "f.p.onResumeProductEditor is not a function"
+  },
+  {
+    "name": "late native close after an account switch cannot save the old form under the new owner",
+    "pass": false,
+    "error": "f.p.onProductEditorBeforeLeave is not a function"
+  },
+  {
+    "name": "native container owns only the editor and preserves the original two-page stack on first Back",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+  },
+  {
+    "name": "close button and dismiss area stay outside scroll handling; touching the form cannot close it",
+    "pass": false,
+    "error": "Cannot read properties of undefined (reading 'node')"
+  },
+  {
+    "name": "custom editor reserves 56px close strip and reachable footer, resize=false",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n292 !== 244\n"
+  },
+  {
+    "name": "custom editor reserves 56px close strip and reachable footer, resize=true",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n292 !== 244\n"
+  },
+  {
+    "name": "successful create removes the resumable editor instead of offering completed input again",
+    "pass": false,
+    "error": "f.page.onResumeProductEditor is not a function"
+  },
+  {
+    "name": "native Back during save keeps the original write lock until the receipt finishes",
+    "pass": false,
+    "error": "f.page.onProductEditorBeforeLeave is not a function"
+  },
+  {
+    "name": "native Back with unknown create retains its original recovery and never sends a second create",
+    "pass": false,
+    "error": "f.page.onProductEditorBeforeLeave is not a function"
+  }
+]

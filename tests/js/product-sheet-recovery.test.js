@@ -27,7 +27,7 @@ test('custom and station editors keep native scrollers free of catchtouchmove an
     const footer = node.children.find(n => hasClass(n, 'product-edit-footer'))
     assert(footer && nodes(footer, n => n.tag === 'button').length === 2)
     assert.equal(nodes(body, n => hasClass(n, 'product-edit-footer')).length, 0)
-    const backdrop = nodes(root, n => hasClass(n, 'modal-mask') && n.attrs['wx:if'] === node.attrs['wx:if'])
+    const backdrop = nodes(root, n => hasClass(n, 'modal-mask') && (n.attrs['wx:if'] === node.attrs['wx:if'] || hasClass(n, 'product-editor-dismiss-area')))
     assert(backdrop.some(b => b.node.attrs.catchtouchmove === 'preventMove' && !b.ancestors.includes(node)))
   }
   const css = source('wxss')

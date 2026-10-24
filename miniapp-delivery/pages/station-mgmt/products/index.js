@@ -116,7 +116,7 @@ Page({
     editCategoryIndex: 0,
     uploading: false,
     productImageState: 'empty', productImageHint: '尚未设置商品图片', productImageCaseId: '', productImageBusy: false,
-    productImagePreviewUrl: '', productEditSheetStyle: '',
+    productImagePreviewUrl: '', productEditSheetStyle: '', productEditorResume: false,
     editHelpExpanded: false,
 
     // 预设图选择面板（平台统一图库）：站长不必自己拍照，直接从平台图里挑
@@ -148,8 +148,9 @@ Page({
       this._pkgSeq = (this._pkgSeq || 0) + 1
       this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
       this._productEditEpoch = (this._productEditEpoch || 0) + 1
+      this._closedProductEditor = null
       this.setData({ showSetting: false, showEdit: false, setting: {}, editForm: {}, pkgRows: [],
-        pkgReady: false, productSaveError: '', inboundRecovery: null, inboundError: '', inboundBusy: false })
+        pkgReady: false, productSaveError: '', inboundRecovery: null, inboundError: '', inboundBusy: false, productEditorResume: false })
     }
     this._productPageSession = visibleSession
     this.captureProductEditorWindow()
@@ -284,11 +285,14 @@ Page({
 
   layoutProductEditor(resizedHeight) {
     const measured = Number(resizedHeight), currentHeight = measured > 0 ? measured : this.productWindowHeight()
-    if (!currentHeight) { this.setData({ productEditSheetStyle: 'height:88vh;max-height:88vh;bottom:8px;' }); return }
+    if (!currentHeight) { this.setData({ productEditSheetStyle: this.data.showEdit
+      ? 'height:calc(100vh - 64px);max-height:calc(100vh - 64px);bottom:8px;'
+      : 'height:88vh;max-height:88vh;bottom:8px;' }); return }
     const baseline = this._productBaseWindowHeight || currentHeight, keyboard = this._productKeyboardHeight || 0
     // 2026-10-24：Android 可能已缩小窗口；只补键盘未被 resize 吃掉的部分，不能重复扣高度。
     const consumed = Math.max(0, baseline - currentHeight), bottom = Math.max(0, keyboard - consumed)
-    const height = Math.max(0, Math.floor(currentHeight - bottom - 16))
+    // Reserve a full-width 56px dismissal area above the custom editor, including with the keyboard open.
+    const height = Math.max(0, Math.floor(currentHeight - bottom - (this.data.showEdit ? 64 : 16)))
     this.setData({ productEditSheetStyle: 'height:' + height + 'px;max-height:' + height + 'px;bottom:' + (bottom + 8) + 'px;' })
   },
 
@@ -993,8 +997,9 @@ Page({
   openAdd() {
     if (this.productWriteLocked() || this.data.productImageBusy || this.data.uploading) return
     this._productEditorClosed = false
-    this._productEditOwner = productSession()
+    this._closedProductEditor = null
     this.rememberProductImageDraft()
+    this._productEditOwner = productSession()
     this._productEditEpoch = (this._productEditEpoch || 0) + 1
     this._productImageFailure = null
     this._productPreviewUnavailable = null
@@ -1004,6 +1009,7 @@ Page({
     try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, !this._uploadResumeDraftId, this._uploadResumeDraftId) } catch (_) { this._uploadDraftId = null }
     this.setData({
       showEdit: true,
+      productEditorResume: false,
       productSaveError: '',
       isAdd: true,
       editId: null,
@@ -1018,6 +1024,7 @@ Page({
       }
     })
     if (this._uploadResumeDraftId) this.restoreProductImageDraft(this._uploadResumeDraftId)
+    this.layoutProductEditor()
     this.setData({ editHelpExpanded: false })
     if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
     this.refreshProductImageState()
@@ -1027,8 +1034,9 @@ Page({
   openEdit(e) {
     if (this.productWriteLocked() || this.data.productImageBusy || this.data.uploading) return
     this._productEditorClosed = false
-    this._productEditOwner = productSession()
+    this._closedProductEditor = null
     this.rememberProductImageDraft()
+    this._productEditOwner = productSession()
     this._productEditEpoch = (this._productEditEpoch || 0) + 1
     this._productImageFailure = null
     this._productPreviewUnavailable = null
@@ -1038,6 +1046,7 @@ Page({
     const idx = CATEGORY_OPTIONS.findIndex(c => c.value === item.category)
     this.setData({
       showEdit: true,
+      productEditorResume: false,
       productSaveError: '',
       productImagePreviewUrl: '',
       isAdd: false,
@@ -1061,6 +1070,7 @@ Page({
     })
     // 编辑自定义商品时同样把档位带出来（与「本站设置」共用同一份行数据与保存逻辑）
     this.loadPkgRows(item.id)
+    this.layoutProductEditor()
     try { this.syncProductCreationRecovery() } catch (_) { /* 由恢复提示阻止另建。 */ }
     this.setData({ editHelpExpanded: false })
     if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
@@ -1069,17 +1079,61 @@ Page({
 
   closeEdit() {
     if (this.productWriteLocked()) return
+    this.leaveProductEditor()
+  },
+
+  // page-container consumes the first native Back. Its leave event is a close, never a navigateBack.
+  // Native close cannot be vetoed with an invented onBackPress handler. A dispatched save keeps its
+  // immutable proof/lock until it settles; its hidden form cannot be changed or submitted again.
+  onProductEditorBeforeLeave() {
+    if (this.data.showEdit) this.leaveProductEditor()
+  },
+
+  leaveProductEditor() {
+    if (!this.data.showEdit) return
     this._productEditorClosed = true
+    const owner = this._productEditOwner || productSession()
+    if (!sameProductSession(owner)) {
+      this._closedProductEditor = null
+      this._productEditEpoch = (this._productEditEpoch || 0) + 1
+      this.setData({ showEdit: false, showPresetPicker: false, productEditorResume: false, editForm: {}, pkgRows: [], productImagePreviewUrl: '' })
+      return
+    }
     this.rememberProductImageDraft()
+    this._closedProductEditor = { session: owner, draftId: this._uploadDraftId }
+    if (!this.productWriteLocked()) this._productEditEpoch = (this._productEditEpoch || 0) + 1
+    this.setData({ showEdit: false, showPresetPicker: false, productEditorResume: true })
+    if (typeof wx.hideKeyboard === 'function') wx.hideKeyboard()
+    this.refreshProductImageState()
+  },
+
+  onResumeProductEditor() {
+    if (this.productWriteLocked()) return
+    const saved = this._closedProductEditor
+    if (!saved || !sameProductSession(saved.session) || !getApp().canAccessStationBusiness()) {
+      this._closedProductEditor = null; this.setData({ productEditorResume: false }); return
+    }
+    const task = this._productImageTask
+    if (task && sameProductSession(task.session) && task.draftId === saved.draftId) {
+      wx.showToast({ title: '图片仍在处理中，请稍候继续编辑', icon: 'none' }); return
+    }
+    this._productEditOwner = productSession()
     this._productEditEpoch = (this._productEditEpoch || 0) + 1
-    this.setData({ showEdit: false })
+    this._productEditorClosed = false
+    if (saved.draftId) {
+      this._uploadDraftId = saved.draftId
+      this.restoreProductImageDraft(saved.draftId)
+    }
+    this.setData({ showEdit: true, productEditorResume: false })
+    this.captureProductEditorWindow()
+    if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
     this.refreshProductImageState()
   },
 
   onToggleEditHelp() { this.setData({ editHelpExpanded: !this.data.editHelpExpanded }) },
 
   rememberProductImageDraft() {
-    if (!this._uploadDraftId) return
+    if (!this._uploadDraftId || this._productEditOwner && !sameProductSession(this._productEditOwner)) return
     const drafts = this._productEditorDrafts || (this._productEditorDrafts = new Map())
     const snapshot = {}
     for (const field of ['isAdd','editId','editForm','editTemplateId','editCategoryIndex','pkgRows','pkgReady','pkgError','pkgProductId','productImagePreviewUrl']) snapshot[field] = this.data[field]
@@ -1289,7 +1343,9 @@ Page({
         wx.showToast({ title: '已保存', icon: 'success' })
       }
       this._productEditorClosed = true
-      this.setData({ showEdit: false })
+      this._closedProductEditor = null
+      this.setData({ showEdit: false, productEditorResume: false })
+      if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
       this.loadData()
     } catch (err) {
       if (creation && !creation.productId && (!createDispatched || !saveOutcomeUnknown(err) && !err.productSaveScopeChanged)) {
@@ -1419,7 +1475,12 @@ Page({
     const current = () => sameProductSession(task.session) && currentImageTarget() === imageTarget && this._uploadDraftId === uploadDraftId && task.epoch === (this._productEditEpoch || 0)
     const settled = () => {
       if (this._productImageTask === task) this._productImageTask = null
-      if (sameProductSession(task.session)) this.refreshProductImageState()
+      if (sameProductSession(task.session)) {
+        // Upload removed its durable marker before resolving. Refresh the visible list as well,
+        // including receipts received after the editor closed, rather than reusing stale case data.
+        if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
+        this.refreshProductImageState()
+      }
     }
     this.refreshProductImageState()
     try {

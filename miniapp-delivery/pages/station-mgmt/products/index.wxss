@@ -598,6 +598,15 @@
 
 .product-edit-modal { position:fixed; left:0; right:0; bottom:0; z-index:21; display:flex; flex-direction:column; height:88vh; max-height:88vh; padding:0; overflow:hidden; border-radius:20rpx 20rpx 0 0; }
 .product-edit-header { flex-shrink:0; padding:28rpx 28rpx 20rpx; border-bottom:1rpx solid var(--border-color); }
+.product-editor-stage { position:relative; height:100%; width:100%; }
+.product-editor-dismiss-area { position:absolute; top:0; right:0; bottom:0; left:0; background:transparent; }
+.product-edit-heading { display:flex; align-items:flex-start; gap:16rpx; }
+.product-edit-heading .modal-header { flex:1; min-width:0; }
+.product-edit-close { flex:none; display:flex; align-items:center; justify-content:center; min-width:60px; min-height:44px; height:auto; margin:-12rpx -12rpx 0 0; padding:12rpx; background:var(--primary-bg); color:var(--primary-color); font-size:26rpx; line-height:1.5; border-radius:10rpx; }
+.product-edit-close::after { border:0; }
+.product-editor-resume { margin:24rpx 0; padding:20rpx; background:var(--bg-card); border:1rpx solid var(--border-color); border-radius:12rpx; font-size:26rpx; line-height:1.6; }
+.product-editor-resume button { margin:16rpx 0 0; color:var(--primary-color); background:var(--primary-bg); font-size:28rpx; }
+.recovery-record-picker { padding:20rpx 12rpx; margin-top:20rpx; background:var(--bg-card); color:var(--primary-color); font-size:26rpx; line-height:1.5; border:1rpx solid var(--border-color); border-radius:10rpx; }
 .product-edit-header .modal-sub { display:block; }
 .product-edit-header .modal-header,.product-edit-header .modal-sub { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; word-break:break-word; }
 .product-edit-body { flex:1; min-height:0; height:0; width:100%; }

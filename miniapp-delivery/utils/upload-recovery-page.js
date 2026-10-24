@@ -19,20 +19,33 @@ function refresh(page, kind) {
       : (row.kind === 'product-image' ? '商品图片草稿 ' : '调整证据草稿 ') + row.draftId.slice(-6) + ' 待核实' }))
     if (!selectionCurrent(page, kind, page._uploadRecoverySelection) || !cases.some(row => row.id === page._uploadRecoverySelection.caseId)) page._uploadRecoverySelection = null
     const s = page._uploadRecoverySelection
+    // Product uploads keep unknown evidence, but display one draft at a time rather than a wall of repeated actions.
+    const productSelection = kind === 'product' ? Math.max(0, cases.findIndex(row => row.id === page._productUploadRecoveryId)) : 0
+    if (kind === 'product') page._productUploadRecoveryId = cases[productSelection] && cases[productSelection].id
     page.setData({ uploadRecoveryCases: cases, uploadCaseIds: cases.map(row => row.id), uploadRecoveryReadFailed: false,
-      uploadRecoverySelection: s ? { caseId: s.caseId, imageId: s.imageId, url: s.url } : null })
+      uploadRecoverySelection: s ? { caseId: s.caseId, imageId: s.imageId, url: s.url } : null,
+      ...(kind === 'product' ? { productUploadRecoveryIndex: productSelection, productUploadRecoveryCurrent: cases[productSelection] || null,
+        uploadRecoveryExpanded: cases.length ? !!page.data.uploadRecoveryExpanded : false } : {}) })
     if (kind === 'product' && typeof page.refreshProductImageState === 'function') page.refreshProductImageState()
   } catch (_) {
-    page._uploadRecoverySelection = null; page.setData({ uploadRecoveryReadFailed: true, uploadRecoveryCases: [], uploadCaseIds: [], uploadRecoverySelection: null })
+    page._uploadRecoverySelection = null; page.setData({ uploadRecoveryReadFailed: true, uploadRecoveryCases: [], uploadCaseIds: [], uploadRecoverySelection: null,
+      ...(kind === 'product' ? { productUploadRecoveryCurrent: null } : {}) })
     if (kind === 'product' && typeof page.refreshProductImageState === 'function') page.refreshProductImageState()
   }
 }
 function wrapUploadRecovery(page, kind) {
   page.data = { ...page.data, uploadRecoveryCases: [], uploadCaseIds: [], uploadRecoverySelection: null, uploadRecoveryReadFailed: false, uploadRecovering: false,
-    ...(kind === 'product' ? { uploadRecoveryExpanded: false } : {}) }
+    ...(kind === 'product' ? { uploadRecoveryExpanded: false, productUploadRecoveryIndex: 0, productUploadRecoveryCurrent: null } : {}) }
   page._uploadRecoveryActive = true; page._uploadRecoveryEpoch = 0
   page.refreshUploadRecovery = function () { refresh(this, kind) }
   if (kind === 'product') page.onToggleUploadRecovery = function () { this.setData({ uploadRecoveryExpanded: !this.data.uploadRecoveryExpanded }); refresh(this, kind) }
+  if (kind === 'product') page.onChooseProductUploadRecord = function (event) {
+    if (!this._uploadRecoveryActive || this.data.saving || this.data.productImageBusy) return
+    const index = Number(event && event.detail && event.detail.value), row = this.data.uploadRecoveryCases[index]
+    if (!Number.isSafeInteger(index) || index < 0 || !row) return
+    this._productUploadRecoveryId = row.id
+    refresh(this, kind)
+  }
   function guard(instance, session) {
     const epoch = instance._uploadRecoveryEpoch, captured = JSON.stringify(target(instance, kind))
     return () => instance._uploadRecoveryActive && instance._uploadRecoveryEpoch === epoch && currentSession(session)

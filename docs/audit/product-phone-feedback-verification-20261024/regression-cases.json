@@ -1,0 +1,66 @@
+[
+  {
+    "name": "three confirmed uploads and re-entry never leave a recovery record",
+    "pass": true
+  },
+  {
+    "name": "repeated picker selection of the same bytes reuses confirmed receipt without a new POST",
+    "pass": true
+  },
+  {
+    "name": "explicit pre-upload rejection leaves no record and can be retried manually",
+    "pass": true
+  },
+  {
+    "name": "unknown original remains intact when a fresh independent upload succeeds",
+    "pass": true
+  },
+  {
+    "name": "three unknown attempts render one selectable record and preserve every durable case",
+    "pass": true
+  },
+  {
+    "name": "successful late receipt after close clears marker and resumes the confirmed photo",
+    "pass": true
+  },
+  {
+    "name": "close and resume preserve unknown local preview and block repeat POST",
+    "pass": true
+  },
+  {
+    "name": "a changed account cannot resume a previous editor or expose its photo",
+    "pass": true
+  },
+  {
+    "name": "late native close after an account switch cannot save the old form under the new owner",
+    "pass": true
+  },
+  {
+    "name": "native container owns only the editor and preserves the original two-page stack on first Back",
+    "pass": true
+  },
+  {
+    "name": "close button and dismiss area stay outside scroll handling; touching the form cannot close it",
+    "pass": true
+  },
+  {
+    "name": "custom editor reserves 56px close strip and reachable footer, resize=false",
+    "pass": true
+  },
+  {
+    "name": "custom editor reserves 56px close strip and reachable footer, resize=true",
+    "pass": true
+  },
+  {
+    "name": "successful create removes the resumable editor instead of offering completed input again",
+    "pass": true
+  },
+  {
+    "name": "native Back during save keeps the original write lock until the receipt finishes",
+    "pass": true
+  },
+  {
+    "name": "native Back with unknown create retains its original recovery and never sends a second create",
+    "pass": true
+  }
+]

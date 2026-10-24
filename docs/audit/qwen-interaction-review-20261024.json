@@ -29,8 +29,8 @@
       "priority": "P1",
       "verification": "partly_confirmed",
       "finding": "detail已有在途锁，未知结果后缺核实恢复",
-      "status": "partially_fixed",
-      "change": "详情六类受控动作保留原在途与身份守卫，新增跨页持久未知结果核实；只认当前正向事实，不以未付证明失败。普通反馈WB08仍未全面闭环。"
+      "status": "fixed_current_contract",
+      "change": "a540未知写恢复保留；普通配送反馈补持久原编号与原回执。旧无编号和财务拒付边界明确保留。"
     },
     {
       "id": "QW04",
@@ -77,42 +77,48 @@
       "priority": "P2",
       "verification": "overstated",
       "finding": "三次下单提示有各自条件，不是必经",
-      "status": "deferred"
+      "status": "fixed_scoped",
+      "change": "有综合确认时合并逐商品押金购买授权，不另弹第二个押金确认；报价/意图变化重新授权；仅精确重复软提醒去重。"
     },
     {
       "id": "QW10",
       "priority": "P2",
       "verification": "partly_confirmed",
       "finding": "钱的名称可统一，权益份数不能与金额合并",
-      "status": "deferred"
+      "status": "fixed_scoped",
+      "change": "当前结算同笔费用统一本次新增桶押金，容量数量仍为用桶权益份数。"
     },
     {
       "id": "QW11",
       "priority": "P2",
       "verification": "partly_confirmed",
       "finding": "新桶账仍可展开；负over不全是多还实物",
-      "status": "deferred"
+      "status": "fixed_scoped",
+      "change": "已知正数暂存或待领取摘要移到折叠外，不称多还实物或补造0。"
     },
     {
       "id": "QW12",
       "priority": "P2",
       "verification": "overstated",
       "finding": "显式hover数量不能证明普遍无反馈",
-      "status": "deferred"
+      "status": "fixed_scoped",
+      "change": "指定自绘入口补按压反馈；原生button维持默认，不宣称全端触控验收。"
     },
     {
       "id": "QW13",
       "priority": "P2",
       "verification": "partly_confirmed",
       "finding": "合法6位色值有局部漂移，旧36被37替代",
-      "status": "deferred"
+      "status": "fixed_scoped",
+      "change": "已确认五页及原生选中/开关对齐主token；信息色不全局替换。通用色值lint延期。"
     },
     {
       "id": "QW14",
       "priority": "P2",
       "verification": "partly_confirmed",
       "finding": "部分空态缺行动；桶新模型已有押金入口",
-      "status": "deferred"
+      "status": "fixed_scoped",
+      "change": "订单/桶成功空态补订水与资产选站，不改下单水站。"
     },
     {
       "id": "QW15",
@@ -134,14 +140,16 @@
       "priority": "P2",
       "verification": "partly_confirmed",
       "finding": "待收款卡片无拨号但详情联系仍可达",
-      "status": "deferred"
+      "status": "fixed_scoped",
+      "change": "待收款仅使用receiverPhone快照复用拨号，无画像兜底或新增查询。"
     },
     {
       "id": "QW18",
       "priority": "P2",
       "verification": "partly_confirmed",
       "finding": "缺3/5筛选；已加载角标范围已说明",
-      "status": "deferred"
+      "status": "fixed_scoped",
+      "change": "台账补3/5真实筛选与六页签换行，保留已加载范围。"
     },
     {
       "id": "QW19",
@@ -155,8 +163,8 @@
       "priority": "P1",
       "verification": "confirmed_existing",
       "finding": "普通反馈后端重复建单仍是既有问题",
-      "status": "retained_with_detail_mitigation",
-      "change": "详情未知反馈保守阻断，未对后端建立原申请幂等凭据；首页普通反馈和拒付等无法可靠匹配的核实仍需后续闭环，不宣称全部修复。"
+      "status": "fixed_keyed_delivery_reports",
+      "change": "普通反馈同键同内容回原异常；新键可新事件。持久DELIVERY_REPORT/RECEIPT不得清理。旧无键未知反馈不自动补键重放，财务拒付未扩。"
     }
   ],
   "verification": {
@@ -275,5 +283,200 @@
     "newConfigurationRequired": false,
     "pulisiMappingPreserved": true,
     "boundary": "本轮仅代码同步；不干扰013旧基线部署，不声明线上已包含本修复。新前端与后端宜作为同批版本同步。"
+  },
+  "finalCloseout": {
+    "baselineCommit": "a5401d5d23a6bc0b35790d103c48824cf9394075",
+    "codeCommit": "2b4e16974adab30b5c5a9af2e7fb40bdad80c898",
+    "candidateIdentification": "包含本冻结记录的最终提交；完整SHA以Git及任务交接为准",
+    "status": "frozen_for_one_sync_batch",
+    "sourceCommits": [
+      "5e1bbf2",
+      "8f9e703",
+      "2b4e169"
+    ],
+    "deploymentPerformed": false,
+    "wechatUploadPerformed": false,
+    "productionConfigOrCredentialsChanged": false,
+    "databaseMigrationRequired": false,
+    "newRequiredEnvironmentVariables": false,
+    "operationalContract": "audit_log module=DELIVERY_REPORT/action=RECEIPT为持久业务幂等回执，归档/清理须保留；新客户端须配支持该契约的后端，旧无键请求不保证幂等。",
+    "verification": {
+      "frontendSuites": [
+        {
+          "suite": "wb08-report-intent.test.js",
+          "passed": 33,
+          "failed": 0
+        },
+        {
+          "suite": "scoped-p2-entry-finish.test.js",
+          "passed": 12,
+          "failed": 0
+        },
+        {
+          "suite": "checkout-consent-closeout.test.js",
+          "passed": 8,
+          "failed": 0
+        },
+        {
+          "suite": "delivery-detail-actions.test.js",
+          "passed": 73,
+          "failed": 0
+        },
+        {
+          "suite": "qwen-collection-recovery.test.js",
+          "passed": 47,
+          "failed": 0
+        },
+        {
+          "suite": "delivery-home-station-identity.test.js",
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "suite": "order-create-flow.test.js",
+          "passed": 43,
+          "failed": 0
+        },
+        {
+          "suite": "combined-order-deposit.test.js",
+          "passed": 14,
+          "failed": 0
+        },
+        {
+          "suite": "checkout-presentation.test.js",
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "suite": "customer-order-pagination.test.js",
+          "passed": 12,
+          "failed": 0
+        },
+        {
+          "suite": "asset-view-station-flow.test.js",
+          "passed": 24,
+          "failed": 0
+        },
+        {
+          "suite": "manager-second-batch.test.js",
+          "passed": 15,
+          "failed": 0
+        },
+        {
+          "suite": "customer-night-visual-states.test.js",
+          "passed": 32,
+          "failed": 0
+        },
+        {
+          "suite": "wechat-shared-module-import.test.js",
+          "passed": 7,
+          "failed": 0
+        },
+        {
+          "suite": "modal-copy-limit.test.js",
+          "passed": 1,
+          "failed": 0
+        }
+      ],
+      "frontendPassed": 355,
+      "newFrontendPassed": 53,
+      "negativeControls": [
+        {
+          "scope": "wb08-report-intent",
+          "baselinePassed": 6,
+          "checks": 33
+        },
+        {
+          "scope": "scoped-p2-entry-finish",
+          "baselinePassed": 1,
+          "checks": 12
+        },
+        {
+          "scope": "checkout-consent-closeout",
+          "baselinePassed": 3,
+          "checks": 8
+        },
+        {
+          "scope": "backend old feedback",
+          "expectedFailure": "actual insert twice, expected once"
+        }
+      ],
+      "backendUnitAndArchitecturePassed": 14,
+      "newBackendUnitPassed": 10,
+      "actualMapperSpringTransactionH2Passed": 12,
+      "compiledJavaSources": {
+        "main": 439,
+        "tests": 222
+      },
+      "javascriptSyntaxFiles": 185,
+      "javascriptSyntaxFailures": 0,
+      "newMySqlHttpRegressionMethodsCompiledNotRun": 3,
+      "limits": [
+        "没有精确授权MySQL测试目标，未运行会清表的应用集成或上下文",
+        "H2不代表生产MySQL并发或计划",
+        "未查询Actions，CI未核实",
+        "微信原生触控/窄屏/安全区/图片域名待集中手测",
+        "未执行真实登录、资金操作或发布"
+      ]
+    },
+    "deferred": [
+      {
+        "id": "QW16",
+        "reason": "模板没有可信商品类别/单位，保留中性件，不猜单位或全量读取商品。"
+      },
+      {
+        "id": "QW19",
+        "reason": "合法级联不造成已证实消失；状态专属底色等微调等待原生抽验，不全局换皮。"
+      },
+      {
+        "id": "global-color-lint",
+        "reason": "有合法信息/警告语义色，白名单需另定豁免，不作全局替换。"
+      },
+      {
+        "id": "legacy-unkeyed-and-refusal",
+        "reason": "旧未知无编号不能编造；财务拒付不套用普通反馈回执改变语义。"
+      },
+      {
+        "id": "COS-platform-role",
+        "reason": "本轮只读：当前代码未接平台临时凭据，实际平台的运行角色机制未核实。"
+      }
+    ],
+    "cosContract": {
+      "document": "docs/operations/01-部署与运维.md",
+      "implementedAuthentication": "static BasicCOSCredentials only",
+      "nonSecretCurrentNames": [
+        "COS_REGION",
+        "COS_BUCKET_NAME"
+      ],
+      "secretNamesOnly": [
+        "COS_SECRET_ID",
+        "COS_SECRET_KEY"
+      ],
+      "proposedNotImplementedNames": [
+        "COS_AUTH_MODE",
+        "COS_ROLE_NAME"
+      ],
+      "temporarySessionAndRefreshSdkCapabilityConfirmed": true,
+      "currentPlatformRuntimeRoleVerified": false,
+      "secretOrMetadataRead": false,
+      "permissionsModified": false,
+      "officialSources": [
+        "https://cloud.tencent.com/document/product/436/68283",
+        "https://github.com/tencentyun/cos-java-sdk-v5/blob/master/src/main/java/com/qcloud/cos/auth/InstanceCredentialsProvider.java",
+        "https://github.com/tencentyun/cos-java-sdk-v5/blob/master/src/main/java/com/qcloud/cos/auth/InstanceMetadataCredentialsEndpointProvider.java"
+      ]
+    },
+    "stopCondition": "本冻结范围源码、定向验证、契约、清单齐备即停止加项，不部署或逐版本要求确认。",
+    "evidenceSha256": {
+      "frontend-results": "3dd489c6b5aed36bf3023de95182d4855794f0187040475f3c640ca8b1be1d39",
+      "backend-unit": "3dbe9e37ec42afb7feabd8cebb5f9c49414ed063028193ba19f22ed53c35e8fc",
+      "backend-sql": "31934df9888fc1e63bcc79114fad442cb9be6d599e6f2ba8ccc3106e82cd9367",
+      "compile-main": "efb628a7f71b77c369fcadf773d5a62d8dfd68753efeeb8828a4028e883a83fc",
+      "compile-tests": "1d6d0ca519acfd3053c4dc8322963d6bfe612eeec62e2b7569bcc4b55d1162b1",
+      "feedback-negative": "7ee895e91a3601d42c4ff59733adfba4d7e9be9567b47fc6f6ea77225c0f0f60",
+      "p2-negative": "bfacefc71178b708db90127cdcf2b2b255b9afc1e86e45757a1bb4717c2d78bf",
+      "checkout-negative": "a57989c45f99023ee0b575fe9b9486a3b8f3f88e6b594c7003293cbb9847ffab",
+      "backend-negative": "4dda54f396b8bca38ab2fb96fa3fd23efcb55412e1019638aee9d8ade6bde735"
+    }
   }
 }

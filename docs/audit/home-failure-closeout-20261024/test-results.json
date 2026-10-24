@@ -1,0 +1,42 @@
+{
+  "scope": "Offline affected handlers/storage/UI mocks only; no native/production/DB operations",
+  "suites": [
+    {
+      "file": "tests/js/home-failure-layout.test.js",
+      "passed": 6,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/customer-home-recovery-view.test.js",
+      "passed": 42,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/station-view-boundary.test.js",
+      "passed": 12,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/customer-home-station-context.test.js",
+      "passed": 26,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/qwen-collection-recovery.test.js",
+      "passed": 47,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/delivery-home-station-identity.test.js",
+      "passed": 17,
+      "failed": 0
+    }
+  ],
+  "passed": 150,
+  "failed": 0,
+  "jsSyntax": {
+    "files": 188,
+    "failures": 0
+  },
+  "fullSuiteRun": false
+}

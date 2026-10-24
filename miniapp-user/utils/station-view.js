@@ -5,5 +5,10 @@ function stationText(value, fallback) {
   const text = typeof value === 'string' ? value.trim() : ''
   return !text || TECHNICAL.test(text) || PLACEHOLDER.test(text) ? fallback : text
 }
-const stationName = station => stationText(station && station.name, '水站名称暂未加载')
+// Exact historical local scenario-test station. Never translate arbitrary English or mutate saved identity.
+const SYNTHETIC_NAMES = Object.freeze({ 'SYNTH Task5 Scenario Station': '示例水站（测试）' })
+const stationName = station => {
+  const name = station && typeof station.name === 'string' ? station.name.trim() : ''
+  return Object.prototype.hasOwnProperty.call(SYNTHETIC_NAMES, name) ? SYNTHETIC_NAMES[name] : stationText(name, '水站名称暂未加载')
+}
 module.exports = { stationText, stationName }

@@ -1,0 +1,41 @@
+{
+  "baseline": "d088919a0293c60d2fe7c54f0abc7482d2d80f15",
+  "sourceFiles": [
+    {
+      "file": "miniapp-delivery/pages/home/index.js",
+      "sha256": "23c844a1d99467c1ced804fcb3840719fb7357cdd0f9ce817946e8f236014047"
+    },
+    {
+      "file": "miniapp-delivery/pages/home/index.wxml",
+      "sha256": "70d41de4cf0be02a7e3f759336732a3f7252c7c6ee1dc22b7db4878a86e34f82"
+    },
+    {
+      "file": "miniapp-delivery/pages/home/index.wxss",
+      "sha256": "89647d9b47d0728a338afe48cfc4eb12d322321488c35810f2179b77aef3c88f"
+    },
+    {
+      "file": "miniapp-delivery/styles/station-navbar.wxss",
+      "sha256": "3524c4a04f7c0bf775d2487ff51ad941d24dafdf2a6e729004b71291968685ff"
+    },
+    {
+      "file": "miniapp-delivery/templates/station-navbar.wxml",
+      "sha256": "065f3e22f26c2ed242a6c74112ab6cec7af90f5d3cb60924a0ceb2381b0253f8"
+    },
+    {
+      "file": "miniapp-user/pages/home/index.js",
+      "sha256": "0e553823b9358d481e09c1185502bc105b3e0a0599ba3537a0f6adb6f647f550"
+    },
+    {
+      "file": "miniapp-user/pages/home/index.wxml",
+      "sha256": "66422404a18952eeed1bf843c4bab88a18f1466e0de000fcd418c265323df3f8"
+    },
+    {
+      "file": "miniapp-user/utils/station-view.js",
+      "sha256": "40bb8cd9acf517947afbd513575aeb8cfc55a28e8694b7ea29f062947e3945e9"
+    }
+  ],
+  "backendChanged": false,
+  "databaseOrCacheModified": false,
+  "configurationChanged": false,
+  "deployed": false
+}

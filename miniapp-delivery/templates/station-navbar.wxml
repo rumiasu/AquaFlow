@@ -21,10 +21,10 @@
       <view class="navbar-left" style="max-width:{{navLeftMax || 92}}px;">
         <!-- 变黄的判据有两条：① 后端下发的客户提示（customerHint）非空；② **有待填项**
              （2026-09-24：条件项刚成立时营业状态本身是正常的，必须靠徽标提醒）。 -->
-        <view class="status-chip {{(stationStatusError || stationStatusHint || stationPendingCount > 0) ? 'status-chip-warn' : ''}}"
+        <view class="status-chip {{stationStatusError ? 'status-chip-unloaded' : ((stationStatusHint || stationPendingCount > 0) ? 'status-chip-warn' : '')}}"
               wx:if="{{stationStatusText || stationStatusError}}" bindtap="onStationStatusTap">
           <text class="status-dot" wx:if="{{!stationPendingCount}}"></text>
-          <text class="status-chip-text">{{stationStatusText || '状态待核实'}}</text>
+          <text class="status-chip-text">{{stationStatusText || '状态未加载'}}</text>
           <!-- 「待填 N 项」徽标：排在留言**前面**且 flex-shrink:0 永不截断 —— 要截断的是后面的
                留言（.navbar-left 只有 42% 宽）。数字来自后端 setup-guide 的 pendingCount。 -->
           <text class="status-chip-badge" wx:if="{{stationPendingCount > 0}}">待填{{stationPendingCount > 99 ? '99+' : stationPendingCount}}</text>
@@ -47,8 +47,8 @@
         <text class="st-panel-title">水站状态</text>
       </view>
 
-      <view class="st-status {{(stationStatusError || stationStatusHint || stationPendingCount > 0) ? 'st-status-warn' : ''}}">
-        <text class="st-status-text">{{stationStatusText || '状态待核实'}}</text>
+      <view class="st-status {{stationStatusError ? 'st-status-unloaded' : ((stationStatusHint || stationPendingCount > 0) ? 'st-status-warn' : '')}}">
+        <text class="st-status-text">{{stationStatusText || '状态未加载'}}</text>
         <text class="st-status-note" wx:if="{{stationStatusNote}}">{{stationStatusNote}}</text>
       </view>
 

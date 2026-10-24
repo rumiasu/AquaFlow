@@ -1,0 +1,234 @@
+{
+  "baseline": "d088919",
+  "scope": "Actual WXML/WXSS; synthetic state matching parent-observed simulator text. 375 CSS px iPhone assumption + 320 stress; not native WeChat or exact original attachment dimensions.",
+  "results": [
+    {
+      "name": "before-customer-iphone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "side": "miniapp-user",
+      "before": true,
+      "scrollWidth": 375,
+      "text": "送水到家\n服务水站\nSYNTH Task5 Scenario Station\n切换 ›\n部分信息暂未加载\n商品、订单状态、桶资产、配送地址与提醒暂未核实\n重试\n详情\n收货地址\n点击设置配送地址\n›\n↻\n商品暂时没加载出来\n重新加载后再选水，你之前选的数量会保留\n重新加载\n切换水站\n选择服务水站\n关闭\n暂无可用水站",
+      "legacyBanners": 0,
+      "mergedBanners": 0,
+      "customerRetry": 2,
+      "copy": null,
+      "retry": null,
+      "feedback": {
+        "top": 158,
+        "bottom": 228.5,
+        "left": 12,
+        "right": 363,
+        "height": 70.5
+      },
+      "tabs": null,
+      "catalogError": 1
+    },
+    {
+      "name": "after-customer-iphone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "side": "miniapp-user",
+      "before": false,
+      "scrollWidth": 375,
+      "text": "送水到家\n服务水站\n示例水站（测试）\n切换 ›\n部分信息暂未加载\n5项信息暂未加载\n原选购数量已保留，加载后可继续选水\n重新加载\n详情\n收货地址\n点击设置配送地址\n›\n选择服务水站\n关闭\n暂无可用水站",
+      "legacyBanners": 0,
+      "mergedBanners": 0,
+      "customerRetry": 1,
+      "copy": null,
+      "retry": null,
+      "feedback": {
+        "top": 158,
+        "bottom": 228.5,
+        "left": 12,
+        "right": 363,
+        "height": 70.5
+      },
+      "tabs": null,
+      "catalogError": 0
+    },
+    {
+      "name": "before-delivery-iphone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "side": "miniapp-delivery",
+      "before": true,
+      "scrollWidth": 375,
+      "text": "状态待核实\n配送\n当前水站：名称未核实\n有 5 项尚未读取，列表可能不完整，请重新加载重新加载\n待收款订单尚未核实，请重新加载后核对，不能据此判断已经结清。核对待收款\n待配送\n待核实\n配送中\n待核实\n今日送达\n待核实",
+      "legacyBanners": 2,
+      "mergedBanners": 0,
+      "customerRetry": 0,
+      "copy": null,
+      "retry": null,
+      "feedback": null,
+      "tabs": {
+        "top": 281.5,
+        "bottom": 331.5,
+        "left": 12,
+        "right": 363,
+        "height": 50
+      },
+      "catalogError": 0
+    },
+    {
+      "name": "after-delivery-iphone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "side": "miniapp-delivery",
+      "before": false,
+      "scrollWidth": 375,
+      "text": "状态未加载\n配送\n当前水站：名称未核实\n5项信息暂未加载\n待收款未加载，不代表结清。\n重新加载\n待配送\n—\n配送中\n—\n今日送达\n—",
+      "legacyBanners": 0,
+      "mergedBanners": 1,
+      "customerRetry": 0,
+      "copy": {
+        "top": 119.5,
+        "bottom": 164.078125,
+        "left": 24,
+        "right": 271,
+        "height": 44.578125
+      },
+      "retry": {
+        "top": 119.78125,
+        "bottom": 163.78125,
+        "left": 279,
+        "right": 353,
+        "height": 44
+      },
+      "feedback": {
+        "top": 111.5,
+        "bottom": 172.078125,
+        "left": 12,
+        "right": 363,
+        "height": 60.578125
+      },
+      "tabs": {
+        "top": 180.078125,
+        "bottom": 230.078125,
+        "left": 12,
+        "right": 363,
+        "height": 50
+      },
+      "catalogError": 0
+    },
+    {
+      "name": "before-customer-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "side": "miniapp-user",
+      "before": true,
+      "scrollWidth": 320,
+      "text": "送水到家\n服务水站\nSYNTH Task5 Scenario Station\n切换 ›\n部分信息暂未加载\n商品、订单状态、桶资产、配送地址与提醒暂未核实\n重试\n详情\n收货地址\n点击设置配送地址\n›\n↻\n商品暂时没加载出来\n重新加载后再选水，你之前选的数量会保留\n重新加载\n切换水站\n选择服务水站\n关闭\n暂无可用水站",
+      "legacyBanners": 0,
+      "mergedBanners": 0,
+      "customerRetry": 2,
+      "copy": null,
+      "retry": null,
+      "feedback": {
+        "top": 161.21875,
+        "bottom": 235.0625,
+        "left": 10.234375,
+        "right": 309.765625,
+        "height": 73.84375
+      },
+      "tabs": null,
+      "catalogError": 1
+    },
+    {
+      "name": "after-customer-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "side": "miniapp-user",
+      "before": false,
+      "scrollWidth": 320,
+      "text": "送水到家\n服务水站\n示例水站（测试）\n切换 ›\n部分信息暂未加载\n5项信息暂未加载\n原选购数量已保留，加载后可继续选水\n重新加载\n详情\n收货地址\n点击设置配送地址\n›\n选择服务水站\n关闭\n暂无可用水站",
+      "legacyBanners": 0,
+      "mergedBanners": 0,
+      "customerRetry": 1,
+      "copy": null,
+      "retry": null,
+      "feedback": {
+        "top": 149.34375,
+        "bottom": 241.484375,
+        "left": 10.234375,
+        "right": 309.765625,
+        "height": 92.140625
+      },
+      "tabs": null,
+      "catalogError": 0
+    },
+    {
+      "name": "before-delivery-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "side": "miniapp-delivery",
+      "before": true,
+      "scrollWidth": 320,
+      "text": "状态待核实\n配送\n当前水站：名称未核实\n有 5 项尚未读取，列表可能不完整，请重新加载重新加载\n待收款订单尚未核实，请重新加载后核对，不能据此判断已经结清。核对待收款\n待配送\n待核实\n配送中\n待核实\n今日送达\n待核实",
+      "legacyBanners": 2,
+      "mergedBanners": 0,
+      "customerRetry": 0,
+      "copy": null,
+      "retry": null,
+      "feedback": null,
+      "tabs": {
+        "top": 292.5,
+        "bottom": 372.78125,
+        "left": 10.234375,
+        "right": 309.765625,
+        "height": 80.28125
+      },
+      "catalogError": 0
+    },
+    {
+      "name": "after-delivery-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "side": "miniapp-delivery",
+      "before": false,
+      "scrollWidth": 320,
+      "text": "状态未加载\n配送\n当前水站：名称未核实\n5项信息暂未加载\n待收款未加载，不代表结清。\n重新加载\n待配送\n—\n配送中\n—\n今日送达\n—",
+      "legacyBanners": 0,
+      "mergedBanners": 1,
+      "customerRetry": 0,
+      "copy": {
+        "top": 116.875,
+        "bottom": 165.5625,
+        "left": 19.765625,
+        "right": 206.3125,
+        "height": 48.6875
+      },
+      "retry": {
+        "top": 119.21875,
+        "bottom": 163.21875,
+        "left": 213.125,
+        "right": 301.234375,
+        "height": 44
+      },
+      "feedback": {
+        "top": 110.0625,
+        "bottom": 172.375,
+        "left": 10.234375,
+        "right": 309.765625,
+        "height": 62.3125
+      },
+      "tabs": {
+        "top": 179.1875,
+        "bottom": 257.765625,
+        "left": 10.234375,
+        "right": 309.765625,
+        "height": 78.578125
+      },
+      "catalogError": 0
+    }
+  ]
+}

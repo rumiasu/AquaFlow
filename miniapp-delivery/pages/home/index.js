@@ -251,7 +251,7 @@ Page({
         // 走同一个 enrichOrder：金额/收款口径、商品摘要、楼层文案全部同一套映射，不另写一份。
         incomingTransfers: (transferRes.data || []).map(enrichOrder),
         loadError: failedCount
-          ? '有 ' + failedCount + ' 项尚未读取，列表可能不完整，请重新加载'
+          ? failedCount + '项信息暂未加载'
           : '',
         loading: false
       })

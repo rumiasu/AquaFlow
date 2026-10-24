@@ -323,7 +323,14 @@
 }
 .modal-cancel::after { border: none; }
 
-/* 提示条 `.load-error` 的样式定义在 app.wxss（全局，多个页面都会用），此处不要再写一份。 */
+/* 首页读取失败合并为一个区块；文字、操作独立成列，避免原生按钮与正文内联断句。 */
+.home-read-feedback { display:flex; align-items:center; gap:16rpx; margin:16rpx 24rpx; padding:16rpx 20rpx; border-left:4rpx solid var(--primary-color); border-radius:10rpx; background:var(--bg-gray); }
+.home-read-feedback-copy { flex:1; min-width:0; }
+.home-read-feedback-title,.home-read-feedback-note { display:block; white-space:normal; overflow-wrap:anywhere; line-height:1.6; }
+.home-read-feedback-title { color:var(--text-primary); font-size:28rpx; font-weight:600; }
+.home-read-feedback-note { margin-top:6rpx; color:var(--text-regular); font-size:24rpx; }
+.home-read-feedback-retry { flex:0 0 auto; min-height:44px; margin:0; padding:12rpx 18rpx; font-size:14px; line-height:1.5; background:var(--primary-bg); color:var(--primary-color); }
+@media (max-width:340px) { .tab-item { flex-direction:column; gap:4rpx; } }
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
 .card-actions button, .modal-cancel { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }

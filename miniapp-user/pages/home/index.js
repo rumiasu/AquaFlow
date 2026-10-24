@@ -216,7 +216,8 @@ Page({
     if (overview.includes('配送地址')) labels.push('配送地址')
     if (issues.notifications) labels.push('提醒')
     const impact = labels.length === 1 && labels[0] === '商品' ? '商品暂未加载，请重试后选水'
-      : labels.length > 1 ? labels.slice(0, -1).join('、') + '与' + labels[labels.length - 1] + '暂未核实'
+      : labels.length > 2 ? labels.length + '项信息暂未加载'
+        : labels.length > 1 ? labels.slice(0, -1).join('、') + '与' + labels[labels.length - 1] + '暂未核实'
         : labels.length ? labels[0] + '暂未核实' : '相关信息暂未核实'
     this.setData({ loadIssueDetails: details, loadError: details.map(item => item.text).join('；'),
       loadImpactSummary: details.length ? impact : '',

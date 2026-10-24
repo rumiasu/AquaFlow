@@ -16,9 +16,13 @@
   -->
   <!-- 2026-10-14：配送角色标题不能代替具体站名；仅显示已核对的当前绑定站。 -->
   <view class="home-station-identity"><text>{{homeStationLabel}}</text></view>
-  <view class="load-error" wx:if="{{loadError}}"><text>{{loadError}}</text><button size="mini" bindtap="onRetryVisibleData">重新加载</button></view>
-
-  <view class="load-error" wx:if="{{!loading && !readReady.unpaid}}"><text>待收款订单尚未核实，请重新加载后核对，不能据此判断已经结清。</text><button size="mini" bindtap="onRetryVisibleData">核对待收款</button></view>
+  <view class="home-read-feedback" wx:if="{{loadError || (!loading && !readReady.unpaid)}}">
+    <view class="home-read-feedback-copy">
+      <text class="home-read-feedback-title">{{loadError || '待收款记录暂未加载'}}</text>
+      <text class="home-read-feedback-note" wx:if="{{!readReady.unpaid}}">待收款未加载，不代表结清。</text>
+    </view>
+    <button class="home-read-feedback-retry" bindtap="onRetryVisibleData" loading="{{loading}}" disabled="{{loading}}">重新加载</button>
+  </view>
   <button class="unpaid-shortcut" wx:if="{{deliveredUnpaidOrders.length > 0}}" bindtap="onShowUnpaidRecords">已送达待收款 {{deliveredUnpaidOrders.length}} 单 · 查看收款记录 ›</button>
   <view class="collection-recovery" wx:if="{{collectionVerifiedText}}"><text>{{collectionVerifiedText}}</text></view>
   <view class="collection-recovery" wx:for="{{collectionRecoveryItems}}" wx:key="id">
@@ -40,15 +44,15 @@
   <view id="home-task-filters" class="tab-bar">
     <view class="tab-item {{activeTab === 'assigned' ? 'active' : ''}}" bindtap="switchTab" data-tab="assigned">
       <text class="stat-label">待配送</text>
-      <text class="stat-unit">{{readReady.assigned ? assignedOrders.length + ' 单' : '待核实'}}</text>
+      <text class="stat-unit">{{readReady.assigned ? assignedOrders.length + ' 单' : '—'}}</text>
     </view>
     <view class="tab-item {{activeTab === 'delivering' ? 'active' : ''}}" bindtap="switchTab" data-tab="delivering">
       <text class="stat-label">配送中</text>
-      <text class="stat-unit">{{readReady.delivering ? deliveringOrders.length + ' 单' : '待核实'}}</text>
+      <text class="stat-unit">{{readReady.delivering ? deliveringOrders.length + ' 单' : '—'}}</text>
     </view>
     <view class="tab-item {{activeTab === 'completed' ? 'active' : ''}}" bindtap="switchTab" data-tab="completed">
       <text class="stat-label">今日送达</text>
-      <text class="stat-unit">{{readReady.completed ? completedOrders.length + ' 单' : '待核实'}}</text>
+      <text class="stat-unit">{{readReady.completed ? completedOrders.length + ' 单' : '—'}}</text>
     </view>
   </view>
 

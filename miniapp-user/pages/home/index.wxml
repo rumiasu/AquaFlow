@@ -71,8 +71,9 @@
       <view class="home-feedback-copy">
         <text class="home-feedback-title">部分信息暂未加载</text>
         <text class="home-feedback-sub">{{loadImpactSummary}}{{loading || notificationsLoading || homeRetrying ? ' · 正在重试' : ''}}</text>
+        <text class="home-feedback-sub" wx:if="{{catalogState === 'error'}}">原选购数量已保留，加载后可继续选水</text>
       </view>
-      <button class="home-feedback-retry" bindtap="onRetryHome" disabled="{{loading || notificationsLoading || homeRetrying}}">{{loading || notificationsLoading || homeRetrying ? '重试中' : '重试'}}</button>
+      <button class="home-feedback-retry" bindtap="onRetryHome" disabled="{{loading || notificationsLoading || homeRetrying}}">{{loading || notificationsLoading || homeRetrying ? '重试中' : '重新加载'}}</button>
       <button class="home-feedback-toggle" bindtap="onToggleLoadDetails">{{showLoadDetails ? '收起' : '详情'}}</button>
     </view>
     <view class="home-feedback-details" wx:if="{{showLoadDetails}}">
@@ -162,7 +163,7 @@
           </view>
         </view>
 
-        <view class="card catalog-state" wx:if="{{catalogState === 'error'}}">
+        <view class="card catalog-state" wx:if="{{catalogState === 'error' && !loadError}}">
           <view class="catalog-state-mark" aria-hidden="true">↻</view>
           <text class="catalog-state-title">商品暂时没加载出来</text>
           <text class="catalog-state-desc">重新加载后再选水，你之前选的数量会保留</text>

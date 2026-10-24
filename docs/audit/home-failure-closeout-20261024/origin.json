@@ -1,0 +1,31 @@
+{
+  "knownName": "SYNTH Task5 Scenario Station",
+  "knownOrigin": {
+    "authority": "Parent task read-only local inspection supplied in delegation; not accessed from this cloud workspace",
+    "script": "task-5/scenario-api.cjs:14",
+    "creationApi": "/api/auth/create-station",
+    "localService": "127.0.0.1:8097",
+    "isolatedDatabase": "aquaflow_test_scenario_20261015t1247z_t5",
+    "supportingRecords": ["samples.json:1686 contains same-name quote response", "handoff-bundle.json:222 says samples not cleaned and lists CleanupEmpty"],
+    "cleanupBoundary": "Existing receipt restored scenario samples, not an empty database; no empty-restore-receipt. Does not prove current database state."
+  },
+  "repositoryEvidence": {
+    "firstLiteralCommit": "e073ba2",
+    "file": "tests/js/customer-home-recovery-view.test.js",
+    "originalUsage": "Synthetic Page state in an offline regression; later changed to mocked selectedStation restore",
+    "storageImplementation": "tests/js/harness.js Map, not WeChat storage",
+    "productionGeneratorFound": false
+  },
+  "currentScreenshot": {
+    "authority": "Parent actually viewed both PNGs",
+    "runtimeType": "WeChat developer-tool iPhone simulator, not physical phone proof",
+    "activeDataSource": "unconfirmed: old selectedStation cache, old running project, or scenario service",
+    "actualWechatStorageRead": false
+  },
+  "fix": {
+    "exactMatchDisplayLabel": "示例水站（测试）",
+    "arbitraryEnglishRenamed": false,
+    "stationIdOrRawCacheChanged": false,
+    "productionOrOldTestDatabaseChanged": false
+  }
+}

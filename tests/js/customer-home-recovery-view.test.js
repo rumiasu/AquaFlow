@@ -91,12 +91,12 @@ test('pending catalog is loading, never an empty-product conclusion or checkout'
 })
 test('failed catalog retains the saved cart and offers actual retry and station-switch actions', async () => {
   const t = fixture({ products: async () => { throw Error('offline') } }); await t.page.loadData()
-  assert.equal(t.page.data.catalogState, 'error'); assert(texts(t.page).includes('商品暂时没加载出来'))
+  assert.equal(t.page.data.catalogState, 'error'); assert(texts(t.page).includes('原选购数量已保留'))
   assert(!texts(t.page).includes('该水站暂无可订商品')); assert(!hasClass(t.page, 'checkout'))
   assert.deepStrictEqual(t.carts[1], { 10: 2 })
   const buttons = visible(t.page).filter(n => n.tag === 'button')
   assert(buttons.some(n => n.text === '重新加载' && n.attrs.bindtap === 'onRetryHome'))
-  assert(buttons.some(n => n.text === '切换水站' && n.attrs.bindtap === 'onOpenStationList'))
+  assert(!hasClass(t.page, 'catalog-state'), 'the shared failure banner replaces the duplicate catalog card')
 })
 test('business failure and malformed catalog payload never masquerade as successful empty', async () => {
   for (const response of [{ code: 1, data: [] }, ok({})]) {
@@ -180,10 +180,11 @@ test('a queued checkout tap cannot use previous products during loading, failure
   }
 })
 
-test('a genuine English station name is displayed verbatim through the actual restore handler', async () => {
+test('the exact historical scenario-test name is labelled in Chinese without changing cached identity', async () => {
   const t = fixture(); t.wx.setStorageSync('selectedStation', { id: 1, name: 'SYNTH Task5 Scenario Station' })
   t.page.loadData = async () => {}; await t.page.checkStation()
-  assert(texts(t.page).includes('SYNTH Task5 Scenario Station'))
+  assert(texts(t.page).includes('示例水站（测试）'))
+  assert.equal(t.wx.getStorageSync('selectedStation').name, 'SYNTH Task5 Scenario Station')
 })
 
 test('notification failure remains visible through pending retry and another failure, clearing only on confirmed success', async () => {

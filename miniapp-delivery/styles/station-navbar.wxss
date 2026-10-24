@@ -333,3 +333,8 @@
   font-weight: 600;
   border-left: 1rpx solid #E8ECF1;
 }
+
+/* 读取失败不等于休息/延迟等营业警告；真实提示与待填徽标仍沿用警告色。 */
+.status-chip-unloaded,.st-status-unloaded { background:var(--bg-gray); color:var(--text-regular); }
+.status-chip-unloaded .status-chip-text,.status-chip-unloaded .status-chip-note,.st-status-unloaded .st-status-text { color:var(--text-regular); }
+.status-chip-unloaded .status-dot { background:var(--text-secondary); }

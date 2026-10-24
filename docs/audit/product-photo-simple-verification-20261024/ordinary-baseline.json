@@ -1,0 +1,66 @@
+[
+  {
+    "name": "company response loss allows an explicit retry and cancel without a comparison task",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n1 !== 2\n"
+  },
+  {
+    "name": "existing address update can be retried without losing input or declaring false success",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n1 !== 2\n"
+  },
+  {
+    "name": "unacknowledged address create is reused after one owned list read proves the desired address exists",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+  },
+  {
+    "name": "address lookup does not claim a match for {}",
+    "pass": false,
+    "error": "only a valid matching resource avoids a second explicit POST\n\n1 !== 2\n"
+  },
+  {
+    "name": "address lookup does not claim a match for {\"floor\":0}",
+    "pass": false,
+    "error": "only a valid matching resource avoids a second explicit POST\n\n1 !== 2\n"
+  },
+  {
+    "name": "address lookup does not claim a match for {\"hasElevator\":0}",
+    "pass": false,
+    "error": "only a valid matching resource avoids a second explicit POST\n\n1 !== 2\n"
+  },
+  {
+    "name": "address lookup does not claim a match for {\"isDefault\":1}",
+    "pass": false,
+    "error": "only a valid matching resource avoids a second explicit POST\n\n1 !== 2\n"
+  },
+  {
+    "name": "failed address lookup never claims success and permits only the user requested create retry",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n1 !== 2\n"
+  },
+  {
+    "name": "default address response loss refreshes once automatically without a manual verification panel",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n1 !== 2\n"
+  },
+  {
+    "name": "session change during retry lookup cannot create an address for the new identity",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\nfalse !== true\n"
+  },
+  {
+    "name": "ordinary form retries retain their in-flight lock",
+    "pass": true
+  },
+  {
+    "name": "shop native container Back closes the actual panel without navigating",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+  },
+  {
+    "name": "template native container Back closes the actual panel without navigating",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+  }
+]

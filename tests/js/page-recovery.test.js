@@ -51,7 +51,7 @@ for(const kind of ['complete','detail']) {
   assert.equal(restarted.calls.length,0);assert.equal(restarted.stats.length,0);assert.equal(restarted.p.data.uploadCaseIds.length,1)
  })
 }
-for(const kind of ['product','adjustment']) {
+for(const kind of ['adjustment']) {
  test(kind+' real page retains common case without fake success or order recovery GET',async()=>{
   const f=pageFixture(kind),id=await unknownFromPage(f);f.p.onUploadRecover(event(id));await flush();assert.equal(f.modals.length,1);assert.equal(f.calls.length,1);assert.equal(f.p.data.uploadCaseIds.length,1)
  })
@@ -69,8 +69,8 @@ for(const kind of ['product','adjustment']) {
  })
 }
 test('account/station switch hides previous owner cases and does not lock independent owner draft',async()=>{
- const shared=new Map(),a=pageFixture('product',shared);await unknownFromPage(a);const b=pageFixture('product',shared);b.switchAccount();b.p.refreshUploadRecovery();assert.equal(b.p.data.uploadCaseIds.length,0)
- b.p.uploadImage();b.picks[0].success({tempFilePaths:['/synthetic.png']});await flush();b.read();await flush();assert.equal(b.calls.length,1);b.calls[0].resolve(ok('/synthetic-B'));await flush()
+ const shared=new Map(),a=pageFixture('adjustment',shared);await unknownFromPage(a);const b=pageFixture('adjustment',shared);b.switchAccount();b.p.refreshUploadRecovery();assert.equal(b.p.data.uploadCaseIds.length,0)
+ b.p.onChooseEvidence();b.picks[0].success({tempFilePaths:['/synthetic.png']});await flush();b.read();await flush();assert.equal(b.calls.length,1);b.calls[0].resolve(ok('/synthetic-B'));await flush()
 })
 test('persistent marker exists before POST response; abrupt restart blocks the original operation',async()=>{
  const shared=new Map(),f=pageFixture('complete',shared);f.p.onAddFloorPhoto();f.picks[0].success({tempFilePaths:['/synthetic.png']});await flush();f.read();await flush();assert.equal(f.calls.length,1)
@@ -85,7 +85,7 @@ test('storage failure before dispatch prevents POST and cannot be treated as suc
  const f=pageFixture('complete');f.wx.setStorageSync=()=>{throw Error('synthetic storage failure')};f.p.onAddFloorPhoto();f.picks[0].success({tempFilePaths:['/synthetic.png']});await flush();f.read();await flush();assert.equal(f.calls.length,0)
 })
 test('actual WXML binds every recovery control to a real page method',async()=>{
- for(const kind of Object.keys(files)){const f=pageFixture(kind),wxml=fs.readFileSync(path.join(ROOT,'miniapp-delivery',files[kind].replace('.js','.wxml')),'utf8');assert(/bindtap="onUploadRecover"/.test(wxml));assert.equal(typeof f.p.onUploadRecover,'function')
+ for(const kind of Object.keys(files)){const f=pageFixture(kind),wxml=fs.readFileSync(path.join(ROOT,'miniapp-delivery',files[kind].replace('.js','.wxml')),'utf8');if(kind==='product'){assert(!/bindtap="onUploadRecover"/.test(wxml));assert.equal(typeof f.p.onRetryProductImage,'function');continue}assert(/bindtap="onUploadRecover"/.test(wxml));assert.equal(typeof f.p.onUploadRecover,'function')
   if(['product','adjustment'].includes(kind)){for(const name of ['onUploadResumeDraft','onUploadNewDraft']){assert(wxml.includes('bindtap="'+name+'"'));assert.equal(typeof f.p[name],'function')}}}
 })
 async function main(){let passed=0;const timer=setTimeout(()=>{console.error('PAGE_RECOVERY_TIMEOUT');process.exit(1)},30000)

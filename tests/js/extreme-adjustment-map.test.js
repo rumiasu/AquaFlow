@@ -140,11 +140,12 @@ test('financial in-flight memory lock survives lost storage and keeps an unknown
   t.page.onSubmit(); assert.equal(t.modals.at(-1).confirmText, '重试原单')
   await t.modals.at(-1).success({ confirm: true }); await tick(); assert.equal(t.writes.length, 1)
 })
-test('ordinary product independent/resume image drafts keep their original unknown case', async () => {
-  const t = uploadPage('product'), id = await unknownFromPage(t), original = t.p._uploadDraftId
-  t.p.onUploadNewDraft(); t.modals[0].success({ confirm: true }); await flush()
-  assert.notEqual(t.p._uploadDraftId, original); assert.ok(t.p.data.uploadCaseIds.includes(id))
-  t.p.onUploadResumeDraft(recoveryEvent(id)); assert.equal(t.p._uploadDraftId, original)
+test('ordinary product photo failure permits reselection without changing the financial recovery contract', async () => {
+  const t = uploadPage('product'); t.p.openAdd(); t.p.uploadImage(); t.picks[0].success({ tempFilePaths: ['/synthetic.png'] }); await flush()
+  t.read(); await flush(); t.calls[0].resolve({ statusCode: 200, data: { code: 1 } }); await flush()
+  assert.equal(t.p.data.productImageState, 'failed'); assert.equal(t.api.uploadCases().length, 0)
+  t.p.uploadImage(); assert.equal(t.picks.length, 2); assert.equal(t.modals.length, 0)
+  t.picks[1].fail({ errMsg: 'chooseImage:fail cancel' }); await flush()
 })
 test('ordinary order image recovery still verifies by GET and never repeats upload', async () => {
   const t = uploadPage('complete'), id = await unknownFromPage(t)

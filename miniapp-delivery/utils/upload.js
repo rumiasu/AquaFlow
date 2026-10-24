@@ -9,6 +9,9 @@ const stateStore = require('./upload-state')
 const MAX_FILE_BYTES = 5 * 1024 * 1024
 const MAX_BODY_BYTES = MAX_FILE_BYTES + 64 * 1024
 const intents = new Map()
+// Product images are replaceable resources, not financial submissions. Draft identity is in-memory
+// and isolates editor callbacks; legacy durable unknown records must not gate a manual retry.
+const productDrafts = new Map()
 const pathFlights = new Map()
 const pickerBatches = new WeakMap()
 let picking = false
@@ -147,7 +150,10 @@ function uploadContext(options, session) {
     entityId = intent.kind === 'product-image' && intent.id === 'new' ? 'new' : integer(intent.id)
     kind = intent.kind
     draftId = intent.draftId
-    stateStore.checkDraft(ownerKey, draftId, kind, entityId)
+    if (kind === 'product-image') {
+      const record = productDrafts.get(ownerKey) && productDrafts.get(ownerKey).records.get(draftId)
+      if (!record || record.entityId !== entityId) throw localError('图片上传参数不正确，请重新选择')
+    } else stateStore.checkDraft(ownerKey, draftId, kind, entityId)
     intentKey = JSON.stringify([options.url, kind, stationId, entityId, draftId])
   }
   return { fields, intentKey: JSON.stringify([ownerKey, intentKey]), ownerKey, draftId, kind, entityId }
@@ -156,7 +162,7 @@ function getIntent(context) {
   const key = context.intentKey
   let state = intents.get(key)
   if (!state) { state = { pending: new Set(), content: new Map(), completed: new Map(), unknown: new Map() }; intents.set(key, state) }
-  stateStore.cases(context.ownerKey, key).forEach(record => {
+  if (context.kind !== 'product-image') stateStore.cases(context.ownerKey, key).forEach(record => {
     if (!Array.from(state.pending).some(operation => operation.caseId === record.id)) state.unknown.set(record.id, record)
   })
   return state
@@ -212,10 +218,10 @@ function upload(options) {
     if (state.unknown.size) throw blockedError(state)
     operation.caseId = stateStore.id('upload-case')
     const durableCase = { id: operation.caseId, fingerprint: operation.fingerprint, url: original.url, fields: context.fields, draftId: context.draftId, kind: context.kind, entityId: context.entityId, createdAt: Date.now() }
-    stateStore.addCase(context.ownerKey, context.intentKey, durableCase)
+    if (context.kind !== 'product-image') stateStore.addCase(context.ownerKey, context.intentKey, durableCase)
     operation.attempted = true
     const result = checkReceipt(await request(requestOptions, session), original.url, context.kind)
-    stateStore.removeCase(context.ownerKey, context.intentKey, operation.caseId)
+    if (context.kind !== 'product-image') stateStore.removeCase(context.ownerKey, context.intentKey, operation.caseId)
     state.completed.set(operation.fingerprint, { session, result })
     return result
   }
@@ -223,6 +229,13 @@ function upload(options) {
     finishOperation()
     return result
   }, error => {
+    if (context.kind === 'product-image') {
+      // Keep diagnostics internally, never present an upload receipt task to the station manager.
+      // A timeout can leave an unused object; an explicit retry uploads a photo, never replays a product write.
+      error.message = '图片上传失败，请重试'
+      finishOperation()
+      throw error
+    }
     const ambiguous = operation.attempted && !error.uploadRejected && ((error.sessionChanged && error.requestMayHaveOccurred !== false) || error.requestMayHaveOccurred
       || error.malformedResponse || error.statusCode >= 500 || error.backendCode === 500
       || error.backendCode === 1 || error.uploadOutcomeUnknown || error.uploadStateFailure)
@@ -279,11 +292,20 @@ function uploadDraft(intent, fresh = false, selected) {
   if (!intent || !['product-image','customer-adjustment-evidence'].includes(intent.kind)) throw localError('图片草稿不正确')
   const session = captureSession(), ownerKey = stateStore.owner(getTransportConfig(), session)
   const entityId = intent.kind === 'product-image' && intent.id === 'new' ? 'new' : integer(intent.id)
+  if (intent.kind === 'product-image') {
+    let bucket = productDrafts.get(ownerKey)
+    if (!bucket) { bucket = { current: new Map(), records: new Map() }; productDrafts.set(ownerKey, bucket) }
+    let draftId = selected || (!fresh && bucket.current.get(entityId))
+    if (draftId && (!bucket.records.has(draftId) || bucket.records.get(draftId).entityId !== entityId)) throw localError('图片草稿已变化，请重新选择')
+    if (!draftId) { draftId = stateStore.id('draft'); bucket.records.set(draftId, { entityId }) }
+    bucket.current.set(entityId, draftId)
+    return draftId
+  }
   return stateStore.draft(ownerKey, intent.kind, entityId, fresh, selected)
 }
 function uploadCases() {
   const session = captureSession(), ownerKey = stateStore.owner(getTransportConfig(), session)
-  return stateStore.cases(ownerKey).filter(record => !Array.from(intents.values())
+  return stateStore.cases(ownerKey).filter(record => record.kind !== 'product-image' && !Array.from(intents.values())
     .some(state => Array.from(state.pending).some(operation => operation.caseId === record.id)))
 }
 module.exports = { upload, chooseImages, recoverOrderUpload, uploadDraft, uploadCases, isUploadSessionCurrent: currentSession }

@@ -59,7 +59,7 @@ test('silent cleanup discard after verified GET cannot unlock, announce success 
   assert.equal(f.p.data.uploadRecoverySelection,null)
   assert(!f.toast.some(t=>t.title==='已核实原图片'))
 })
-for (const kind of ['product','adjustment']) test(kind + ' two unknown drafts survive restart, resume individually, and permit a third independent draft', async () => {
+for (const kind of ['adjustment']) test(kind + ' two unknown drafts survive restart, resume individually, and permit a third independent draft', async () => {
   const shared = new Map(), f = pageFixture(kind,shared), first = await unknownFromPage(f), d1 = f.p._uploadDraftId
   f.p.onUploadNewDraft(); f.modals[0].success({confirm:true}); await flush()
   const nextPick = f.picks.length

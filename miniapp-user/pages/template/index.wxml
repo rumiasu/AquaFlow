@@ -53,6 +53,7 @@
     </view>
   </block>
 
+  <page-container show="{{showEditModal}}" position="bottom" overlay="{{false}}" close-on-slide-down="{{false}}" duration="{{0}}" custom-style="height:100%;background:transparent;" bindbeforeleave="onTemplateBeforeLeave">
   <view class="modal-mask" wx:if="{{showEditModal}}" bindtap="onCloseEditModal"></view>
   <view class="modal-content {{showEditModal ? 'show' : ''}}" catchtap="">
     <view class="modal-header">
@@ -142,4 +143,5 @@
       </view>
     </view>
   </view>
+  </page-container>
 </view>

@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs'), path = require('node:path')
 const { parseWxml, renderElements } = require('./wxml-tree')
-const { pageFixture, unknownFromPage, event } = require('./page-recovery.test')
+const { pageFixture } = require('./page-recovery.test')
 const { pageFixture: saveFixture, validForm, key, preview } = require('./product-image-persistence.test')
 const { fixture, flush, observe, ok, ROOT } = require('./cloud-upload.mock.test')
 const source = name => fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/products/index.' + name), 'utf8')
@@ -35,13 +35,11 @@ test('custom and station editors keep native scrollers free of catchtouchmove an
   assert(/\.product-edit-body\s*\{[^}]*flex:1;[^}]*min-height:0;[^}]*height:0;/s.test(css))
   assert(/\.product-edit-footer\s*\{[^}]*flex-shrink:0;[^}]*safe-area-inset-bottom/s.test(css))
 })
-test('recovery card stays in page flow before the CTA and CTA is hidden under editor', () => {
-  const root = tree(), cards = nodes(root, n => hasClass(n, 'product-upload-recovery'))
-  assert.equal(cards.length, 1); assert(cards[0].ancestors.some(n => hasClass(n, 'container')))
-  const footer = nodes(root, n => hasClass(n, 'footer'))[0].node
-  assert(footer.attrs['wx:if'].includes('!showEdit') && footer.attrs['wx:if'].includes('!showSetting'))
-  assert(cards[0].node.line < footer.line)
-  assert(/\.product-upload-recovery\s*\{[^}]*position:static;/s.test(source('wxss')))
+test('product photos have no recovery list or human confirmation controls', () => {
+  const root = tree()
+  assert.equal(nodes(root, n => hasClass(n, 'product-upload-recovery')).length, 0)
+  assert(!source('wxml').includes('onUploadRecover')); assert(!source('wxml').includes('查看待核实图片'))
+  const f = pageFixture('product'); assert.equal(f.p.onUploadRecover, undefined)
 })
 test('empty image state shows one upload action and no contradictory change-image caption', () => {
   const f = pageFixture('product'); f.p.openAdd()
@@ -50,13 +48,13 @@ test('empty image state shows one upload action and no contradictory change-imag
   assert.equal(buttons.length, 1); assert(buttons[0].text.includes('上传商品图片'))
   assert(!view.some(n => /点击换图/.test(n.text || '')))
 })
-test('six image states expose mutually exclusive actions without hiding busy or unknown status', () => {
+test('five photo states expose upload actions without human verification', () => {
   const f = pageFixture('product'); f.p.openAdd()
-  for (const state of ['empty', 'ready', 'selecting', 'uploading', 'failed', 'unknown']) {
+  for (const state of ['empty', 'ready', 'selecting', 'uploading', 'failed']) {
     const busy = state === 'selecting' || state === 'uploading'
     const view = renderElements(tree(), { ...f.p.data, loading: false, productImageState: state, productImageBusy: busy, productImageCaseId: 'synthetic-case', productImageHint: '合成状态提示' }, { includeText: true })
     const actions = view.filter(n => n.tag === 'button' && n.className.split(' ').includes('product-image-action'))
-    assert.equal(actions.length, busy ? 0 : state === 'unknown' ? 1 : 2, state)
+    assert.equal(actions.length, busy ? 0 : 2, state)
     assert(view.some(n => n.className.split(' ').includes('product-image-status') && n.text === '合成状态提示'))
     assert(!view.some(n => n.tag === 'button' && n.attrs.bindtap === 'onUploadRecover'))
   }
@@ -86,28 +84,16 @@ test('saving while picker is open cannot submit a product', async () => {
   const f = saveFixture(); f.page.openAdd(); validForm(f.page); f.page.uploadImage()
   await f.page.onSaveEdit(); assert.equal(f.writes.length, 0)
 })
-test('selected photo previews immediately without replacing saved key and unknown retains it', async () => {
+test('failed photo retains local preview and old valid reference, then can be selected again', async () => {
   const f = pageFixture('product'); f.p.openAdd()
   f.p.setData({ 'editForm.imageUrl': preview, 'editForm.imageObjectName': key })
   f.p.uploadImage(); f.picks[0].success({ tempFilePaths: ['/synthetic.png'] }); await flush()
   assert.equal(f.p.data.productImagePreviewUrl, '/synthetic.png')
-  assert.equal(f.p.data.editForm.imageUrl, preview); assert.equal(f.p.data.editForm.imageObjectName, key)
   f.read(); await flush(); f.calls[0].resolve({ statusCode: 200, data: { code: 1 } }); await flush()
-  assert.equal(f.p.data.productImageState, 'unknown'); assert.equal(f.p.data.productImagePreviewUrl, '/synthetic.png')
-  const count = f.picks.length; f.p.uploadImage(); await flush(); assert.equal(f.picks.length, count)
-})
-test('independent image draft preserves all entered business fields, original case and resumable preview', async () => {
-  const f = pageFixture('product'); f.p.openAdd()
-  f.p.setData({ 'editForm.name': '合成长名称商品', 'editForm.price': '12.30', 'editForm.deposit': '50', 'editForm.quantity': '7', 'editForm.description': '合成长说明' })
-  const id = await unknownFromPage(f), oldDraft = f.p._uploadDraftId
-  const form = { ...f.p.data.editForm }
-  f.p.onUploadNewDraft(); f.modals.at(-1).success({ confirm: true }); await flush()
-  assert.notEqual(f.p._uploadDraftId, oldDraft); assert(f.p.data.uploadCaseIds.includes(id))
-  for (const field of ['name', 'price', 'deposit', 'quantity', 'description']) assert.equal(f.p.data.editForm[field], form[field])
-  assert.equal(f.p.data.editForm.imageUrl, ''); assert.equal(f.p.data.editForm.imageObjectName, '')
-  f.p.onUploadResumeDraft(event(id)); assert.equal(f.p._uploadDraftId, oldDraft)
-  assert.equal(f.p.data.editForm.name, form.name); assert.equal(f.p.data.productImagePreviewUrl, '/synthetic.png')
-  assert.equal(f.p.data.productImageState, 'unknown')
+  assert.equal(f.p.data.productImageState, 'failed'); assert.equal(f.p.data.editForm.imageObjectName, key)
+  assert.equal(f.api.uploadCases().length, 0)
+  f.p.uploadImage(); assert.equal(f.picks.length, 2); f.picks[1].fail({ errMsg: 'chooseImage:fail cancel' }); await flush()
+  assert.equal(f.p.data.productImageState, 'failed', 'cancel does not turn an unuploaded preview into success')
 })
 test('late image receipt after closing and new product cannot overwrite new editor', async () => {
   const f = pageFixture('product'); f.p.openAdd(); f.p.uploadImage()
@@ -117,33 +103,12 @@ test('late image receipt after closing and new product cannot overwrite new edit
   assert.equal(f.p.data.editForm.name, '另一商品'); assert.equal(f.p.data.editForm.imageUrl, '')
   assert.equal(f.p.data.editForm.imageObjectName, ''); assert.equal(f.p.data.productImagePreviewUrl, '')
 })
-test('unknown has one useful primary replacement action and a secondary explanation link', () => {
+test('failed photo offers direct retry and reselection without a modal', () => {
   const f = pageFixture('product'); f.p.openAdd()
-  const view = renderElements(tree(), { ...f.p.data, loading: false, productImageState: 'unknown', productImageCaseId: 'synthetic-case' }, { includeText: true })
-  const actions = view.filter(n => n.tag === 'button' && n.className.split(' ').includes('product-image-action'))
-  assert.equal(actions.length, 1); assert.equal(actions[0].attrs.bindtap, 'onReplaceUnconfirmedProductImage')
-  assert(view.some(n => n.tag === 'text' && n.attrs.bindtap === 'onUploadRecover'))
-})
-test('unknown replacement confirms once, keeps old record and form, then chooses under a fresh image draft', async () => {
-  const f = pageFixture('product'); f.p.openAdd(); f.p.setData({ 'editForm.name': '合成商品', 'editForm.price': '12' })
-  const id = await unknownFromPage(f), draft = f.p._uploadDraftId, count = f.picks.length
-  f.p.onReplaceUnconfirmedProductImage(); f.p.onReplaceUnconfirmedProductImage()
-  assert.equal(f.modals.length, 1); assert.equal(f.modals[0].confirmText, '重新选图')
-  f.modals[0].success({ confirm: true }); await flush()
-  assert.notEqual(f.p._uploadDraftId, draft); assert.equal(f.p.data.editForm.name, '合成商品')
-  assert.equal(f.p.data.editForm.price, '12'); assert(f.p.data.uploadCaseIds.includes(id))
-  assert.equal(f.picks.length, count + 1); assert.equal(f.calls.length, 1)
-  f.picks[count].fail({ errMsg: 'chooseImage:fail cancel' }); await flush()
-  f.p.onUploadResumeDraft(event(id)); assert.equal(f.p.data.productImagePreviewUrl, '/synthetic.png')
-})
-for (const change of ['cancel', 'edit', 'identity']) test('replacement confirmation cannot switch drafts after ' + change, async () => {
-  const f = pageFixture('product'); f.p.openAdd(); await unknownFromPage(f)
-  const draft = f.p._uploadDraftId, count = f.picks.length
-  f.p.onReplaceUnconfirmedProductImage()
-  if (change === 'edit') f.p.closeEdit()
-  if (change === 'identity') f.app._loginGeneration++
-  f.modals[0].success({ confirm: change !== 'cancel' }); await flush()
-  assert.equal(f.p._uploadDraftId, draft); assert.equal(f.picks.length, count)
+  const view = renderElements(tree(), { ...f.p.data, loading: false, productImageState: 'failed', productImagePreviewUrl: '/synthetic.png' }, { includeText: true })
+  assert(view.some(n => n.tag === 'button' && n.attrs.bindtap === 'onRetryProductImage'))
+  assert(view.some(n => n.tag === 'button' && n.attrs.bindtap === 'uploadImage'))
+  assert(!view.some(n => /待核实|继续原草稿|独立图片草稿/.test(n.text || '')))
 })
 test('confirmed upload without signed preview keeps local preview and saves only the actual key', async () => {
   const f = saveFixture(); f.page.openAdd(); validForm(f.page)
@@ -161,12 +126,12 @@ test('pre-send read failure is retryable, retains the chosen preview and confirm
   f.p.uploadImage(); f.picks[0].success({ tempFilePaths: ['/synthetic.png'] }); await flush()
   f.stats[0].fail(); await flush()
   assert.equal(f.p.data.productImageState, 'failed'); assert.equal(f.p.data.productImagePreviewUrl, '/synthetic.png')
-  assert.equal(f.p.data.editForm.imageObjectName, key); assert.equal(f.p.data.uploadCaseIds.length, 0)
+  assert.equal(f.p.data.editForm.imageObjectName, key); assert.equal(f.api.uploadCases().length, 0)
   f.p.uploadImage(); assert.equal(f.picks.length, 2)
 })
 
 async function sendReceipt(body, options = {}) {
-  const f = fixture(), result = observe(f.api.upload(f.args(options)))
+  const f = fixture(), result = observe(f.api.upload(f.args({ intent: { kind: 'product-image', id: 42 }, ...options })))
   await flush(); f.read(); await flush(); f.calls[0].resolve({ statusCode: 200, data: body }); await flush()
   return { f, result }
 }
@@ -180,9 +145,9 @@ for (const body of [
   { code: 0, data: preview },
   { code: 1, uploadOutcome: 'rejected', uploadDiagnosticCode: 'NOT_A_TRUSTED_CODE' },
   { code: 1, uploadOutcome: 'unknown', uploadDiagnosticCode: 'UPLOAD_STORAGE_UNCONFIRMED' }
-]) test('unverifiable receipt retains unknown: ' + JSON.stringify(body), async () => {
+]) test('unverifiable product receipt fails without a recovery task: ' + JSON.stringify(body), async () => {
   const { f, result } = await sendReceipt(body)
-  assert(result.error && result.error.uploadOutcomeUnknown); assert.equal(f.api.uploadCases().length, 1)
+  assert(result.error && /上传失败/.test(result.error.message)); assert.equal(f.api.uploadCases().length, 0)
 })
 test('explicit pre-PUT rejection releases upload marker and exposes only fixed diagnostic code', async () => {
   const { f, result } = await sendReceipt({ code: 1, message: '图片上传暂不可用', uploadOutcome: 'rejected', uploadDiagnosticCode: 'UPLOAD_STORAGE_UNAVAILABLE' })

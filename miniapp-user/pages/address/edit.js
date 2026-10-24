@@ -1,8 +1,19 @@
-const { getAddressDetail, createAddress, updateAddress } = require('../../api/address')
+const { getAddressDetail, getAddresses, createAddress, updateAddress } = require('../../api/address')
 const { validateForm, rules } = require('../../utils/validator')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 // 与首页/列表/下单页共用同一份地址解析逻辑（含直辖市修正），避免各自维护导致数据再次污染
 const { parseRegion } = require('../../utils/address')
+
+// One authorized list read before retrying an unacknowledged create. It confirms that the desired
+// address exists, not which request created it. No broad customer enumeration or generated ID.
+function sameAddress(row, payload) {
+  if (!row || !Number.isSafeInteger(Number(row.id)) || Number(row.id) <= 0) return false
+  const text = value => value == null ? '' : String(value)
+  const number = value => value == null || value === '' ? null : Number(value)
+  return ['name','phone','province','city','district','detail','label'].every(key => text(row[key]) === text(payload[key]))
+    && ['lat','lng','floor','hasElevator'].every(key => number(row[key]) === number(payload[key]))
+    && Number(row.isDefault || 0) === Number(payload.isDefault || 0)
+}
 
 Page({
   data: {
@@ -82,7 +93,7 @@ Page({
     this._readId = (this._readId || 0) + 1
     this._invalidateLocation()
     const patch = { loading: false, locating: false, accessDenied: true, sessionChanged: true, loadError: '登录身份已变化，请退出本页后重新进入。' }
-    if (this.data.submitting) { patch.saveUnknown = true; patch.saveMessage = '登录身份已变化，原保存结果待核实。输入已保留，请使用原账号核对。' }
+    if (this.data.submitting) { patch.saveUnknown = false; patch.saveMessage = '登录身份已变化，输入已保留，请重新登录后保存。' }
     this.setData(patch)
     return false
   },
@@ -256,7 +267,7 @@ Page({
 
   async onSubmit() {
     if (!this.ensurePageSession()) return
-    if (this.data.submitting || this.data.saveSucceeded || this.data.saveUnknown || this.data.loading || this.data.loadError || this.data.accessDenied || !this.data.formReady || (this.data.isEdit && !this.data.loaded)) return
+    if (this.data.submitting || this.data.saveSucceeded || this.data.loading || this.data.loadError || this.data.accessDenied || !this.data.formReady || (this.data.isEdit && !this.data.loaded)) return
     const { formData, isEdit, addressId } = this.data
 
     if (!formData.province && !formData.city && !formData.district) {
@@ -299,9 +310,22 @@ Page({
       if (isEdit) {
         await updateAddress(addressId, submitData)
       } else {
-        await createAddress(submitData)
+        let present = false
+        if (this._lastCreatePayload === JSON.stringify(submitData)) {
+          try {
+            const res = await getAddresses()
+            if (this._disposed || !this.ensurePageSession()) return
+            present = !!(res && Array.isArray(res.data) && res.data.some(row => sameAddress(row, submitData)))
+          } catch (readError) {
+            if (this._disposed || !this.ensurePageSession()) return
+            if (this.isAccessError(readError)) throw readError
+            // A failed lookup is not success. Only this explicit user retry may submit again.
+          }
+        }
+        if (!present) await createAddress(submitData)
       }
-      if (this._disposed) return
+      if (this._disposed || !this.ensurePageSession()) return
+      this._lastCreatePayload = null
       this.setData({ saveSucceeded: true, saveMessage: '地址已保存，即将返回地址列表。' })
       wx.showToast({ title: '地址已保存', icon: 'success' })
       this._backTimer = setTimeout(() => { if (!this._disposed) this.onBackToList() }, 1000)
@@ -310,10 +334,11 @@ Page({
       console.error('Save address error:', error)
       const denied = this.isAccessError(error)
       const rejected = error && (error.businessRejected === true || String(error.code || error.statusCode) === '401' || String(error.code || error.statusCode) === '403')
-      this.setData({ accessDenied: denied, saveUnknown: !rejected, saveMessage: denied
+      if (!isEdit && !rejected && !denied) this._lastCreatePayload = JSON.stringify(submitData)
+      this.setData({ accessDenied: denied, saveUnknown: false, saveMessage: denied
         ? '当前账号无权保存此地址，输入已保留，请使用客户账号登录。'
         : rejected ? '地址未保存，输入已保留，请核对信息后重试。'
-          : '保存结果尚未确认，输入已保留。请先返回地址列表核对，暂勿重复提交。' })
+          : '暂未收到保存结果，输入已保留，可直接重试。' })
       if (denied) {
         wx.showModal({
           title: '暂时无法保存',

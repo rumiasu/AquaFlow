@@ -60,7 +60,7 @@ test('selected object replacement on the second read cannot release the case',as
 test('invalid/missing image IDs produce no generated or undefined visible identity',async()=>{
  const f=pageFixture('complete'),id=await unknownFromPage(f);await select(f,id,[{...image,id:null},{...image,id:true},{...image,id:undefined}]);assert.equal(f.actions.length,0);assert.equal(f.api.uploadCases().length,1)
 })
-for(const kind of ['product','adjustment']){
+for(const kind of ['adjustment']){
  test(kind+' a draft switch before picker return discards the old choice without POST',async()=>{
   const f=pageFixture(kind);if(kind==='product')f.p.openAdd();f.p[f.pick]();const first=f.p._uploadDraftId;f.p.onUploadNewDraft()
   if(kind==='product'){assert.equal(f.modals.length,0,'busy chooser cannot switch image draft');assert.equal(f.p._uploadDraftId,first);f.p.closeEdit();f.p.openAdd()}
@@ -86,8 +86,8 @@ test('new customer uses its own draft automatically instead of borrowing a stale
  f.p.onChooseEvidence();assert.notEqual(f.p._uploadDraftId,old);f.picks[1].success({tempFilePaths:['/second.png']});await flush();f.read(f.stats.length-1);await flush();f.calls[1].resolve(ok('/synthetic-43'));await flush();assert(f.api.uploadCases().some(x=>x.id===id))
 })
 test('registry rejects guessed draft IDs without deleting any original unknown cases',async()=>{
- const f=pageFixture('product');await unknownFromPage(f);const before=f.storage.get(KEY)
- await assert.rejects(f.api.upload(f.args({intent:{kind:'product-image',id:'new',draftId:'draft-guessed'}})));assert.equal(f.storage.get(KEY),before);assert.equal(f.calls.length,1)
+ const f=pageFixture('adjustment');await unknownFromPage(f);const before=f.storage.get(KEY)
+ await assert.rejects(f.api.upload(f.args({intent:{kind:'customer-adjustment-evidence',id:42,draftId:'draft-guessed'}})));assert.equal(f.storage.get(KEY),before);assert.equal(f.calls.length,1)
 })
 test('all four real page lifecycle hooks and new confirmation controls preserve current context',async()=>{
  for(const kind of ['complete','detail','product','adjustment']){const f=pageFixture(kind);assert.equal(typeof f.p.onHide,'function');assert.equal(typeof f.p.onUnload,'function');assert.equal(typeof f.p.onShow,'function')

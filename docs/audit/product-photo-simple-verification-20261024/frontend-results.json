@@ -1,0 +1,114 @@
+{
+  "scope": "Affected miniapp handlers and synthetic API/SDK/storage only; no native WeChat, real photo uploads, production or CI claim",
+  "totalPassed": 421,
+  "suites": [
+    {
+      "suite": "product-simple-upload",
+      "exitCode": 0,
+      "passed": 15,
+      "sentinel": true
+    },
+    {
+      "suite": "ordinary-form-retry",
+      "exitCode": 0,
+      "passed": 13,
+      "sentinel": true
+    },
+    {
+      "suite": "customer-profile-visible-states",
+      "exitCode": 0,
+      "passed": 49,
+      "sentinel": true
+    },
+    {
+      "suite": "product-phone-feedback",
+      "exitCode": 0,
+      "passed": 16,
+      "sentinel": true
+    },
+    {
+      "suite": "product-sheet-recovery",
+      "exitCode": 0,
+      "passed": 21,
+      "sentinel": true
+    },
+    {
+      "suite": "product-image-persistence",
+      "exitCode": 0,
+      "passed": 14,
+      "sentinel": true
+    },
+    {
+      "suite": "extreme-product-save",
+      "exitCode": 0,
+      "passed": 19,
+      "sentinel": true
+    },
+    {
+      "suite": "water-product-templates",
+      "exitCode": 0,
+      "passed": 59,
+      "sentinel": true
+    },
+    {
+      "suite": "page-recovery",
+      "exitCode": 0,
+      "passed": 14,
+      "sentinel": true
+    },
+    {
+      "suite": "upload-recovery-lifecycle",
+      "exitCode": 0,
+      "passed": 20,
+      "sentinel": true
+    },
+    {
+      "suite": "upload-r2-review",
+      "exitCode": 0,
+      "passed": 31,
+      "sentinel": true
+    },
+    {
+      "suite": "cloud-upload.mock",
+      "exitCode": 0,
+      "passed": 37,
+      "sentinel": true
+    },
+    {
+      "suite": "persistence-page-boundaries",
+      "exitCode": 0,
+      "passed": 18,
+      "sentinel": true
+    },
+    {
+      "suite": "page-mutation-controls",
+      "exitCode": 0,
+      "passed": 8,
+      "sentinel": true
+    },
+    {
+      "suite": "extreme-adjustment-map",
+      "exitCode": 0,
+      "passed": 22,
+      "sentinel": true
+    },
+    {
+      "suite": "extreme-template-privacy",
+      "exitCode": 0,
+      "passed": 21,
+      "sentinel": true
+    },
+    {
+      "suite": "customer-night-review-recovery",
+      "exitCode": 0,
+      "passed": 17,
+      "sentinel": true
+    },
+    {
+      "suite": "customer-shared-visible-phase2",
+      "exitCode": 0,
+      "passed": 27,
+      "sentinel": true
+    }
+  ]
+}

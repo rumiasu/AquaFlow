@@ -45,7 +45,8 @@ function fixture(mode = 'cloudContainer', side = 'miniapp-delivery', mutateSourc
   function read(index=0) { const options=stats[index]; const bytes=files.get(options.path); options.success({stats:{size:bytes.byteLength}});
     if(reads.length) reads[reads.length-1].success({data:bytes}) }
   function switchAccount() {app._loginGeneration++;app.globalData={...app.globalData,accessToken:'synthetic-B',refreshToken:'synthetic-RB',userInfo:{staffId:2,role:'STATION_MANAGER',stationId:2}}}
-  const args = (extra={}) => {const options={url:config.API.GENERAL_UPLOAD,filePath:'/synthetic.png',intent:{kind:'product-image',id:42},...extra};if(options.url===config.API.GENERAL_UPLOAD && options.intent && ['product-image','customer-adjustment-evidence'].includes(options.intent.kind)) options.intent={...options.intent,draftId:options.intent.draftId||api.uploadDraft(options.intent)};return options}
+  // Durable recovery assertions use adjustment evidence. Product photos have a separate retryable contract.
+  const args = (extra={}) => {const options={url:config.API.GENERAL_UPLOAD,filePath:'/synthetic.png',intent:{kind:'customer-adjustment-evidence',id:42},...extra};if(options.url===config.API.GENERAL_UPLOAD && options.intent && ['product-image','customer-adjustment-evidence'].includes(options.intent.kind)) options.intent={...options.intent,draftId:options.intent.draftId||api.uploadDraft(options.intent)};return options}
   return {api,args,app,wx,calls,http,uploads,stats,reads,picks,toast,routes,timers,files,read,switchAccount,load,storage,config,failInit(){initFail=true},
     pauseInit(){initWait=new Promise(resolve=>{releaseInit=resolve})},releaseInit(){releaseInit()}}
 }

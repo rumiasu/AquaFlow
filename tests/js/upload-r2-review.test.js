@@ -12,7 +12,7 @@ const KEY = 'aq_delivery_uploadRecovery_v1'
 const tests = []
 const test = (name, run) => tests.push({ name, run })
 
-for (const kind of ['complete', 'product', 'adjustment']) {
+for (const kind of ['complete', 'adjustment']) {
   test(kind + ' refuses an acknowledged storage write that silently discards the marker', async () => {
     const f = pageFixture(kind)
     const write = f.wx.setStorageSync
@@ -42,7 +42,7 @@ test('a selected image and an ordinary confirmation cannot resolve a different f
   assert.equal(f.p.data.uploadRecoverySelection, null)
 })
 
-for (const dimension of ['account', 'station', 'order', 'entry', 'product', 'customer', 'route']) {
+for (const dimension of ['account', 'station', 'order', 'entry', 'customer', 'route']) {
   test('valid unknown metadata keeps an independent ' + dimension + ' upload available', async () => {
     const kind = dimension === 'product' ? 'product' : dimension === 'customer' ? 'adjustment' : 'complete'
     const storage = new Map(), f = pageFixture(kind, storage)
@@ -111,7 +111,7 @@ const corruptions = [
   ['case-index-wrong-target', (value, owner, b) => { const k = Object.keys(b.cases)[0], parts = JSON.parse(k), inner = JSON.parse(parts[1]); inner[1] = 'wrong-target'; parts[1] = JSON.stringify(inner); b.cases[JSON.stringify(parts)] = b.cases[k]; delete b.cases[k] }],
   ['duplicate-case-id', (value, owner, b) => { const rows = Object.values(b.cases)[0]; rows.push({ ...rows[0] }) }]
 ]
-for (const kind of ['complete', 'product', 'adjustment']) {
+for (const kind of ['complete', 'adjustment']) {
   const variants = corruptions.concat(kind === 'complete' ? [] : [
     ['current-index-missing', (value, owner, b) => { b.current = {} }],
     ['current-index-wrong-target', (value, owner, b) => { const k = Object.keys(b.current)[0]; b.current['wrong-target'] = b.current[k]; delete b.current[k] }]
@@ -140,16 +140,15 @@ for (const kind of ['complete', 'product', 'adjustment']) {
 const bindings = {
   complete: ['onUploadRecover', 'onUploadPreviewSelected', 'onUploadConfirmSelected'],
   detail: ['onUploadRecover', 'onUploadPreviewSelected', 'onUploadConfirmSelected'],
-  product: ['onUploadRecover', 'onUploadResumeDraft', 'onUploadNewDraft'],
   adjustment: ['onUploadRecover', 'onUploadResumeDraft', 'onUploadNewDraft']
 }
-test('all 12 reported WXML bindings exist on the actual registered Page objects', async () => {
+test('all 9 retained evidence WXML bindings exist on the actual registered Page objects', async () => {
   let count = 0
   for (const [kind, names] of Object.entries(bindings)) {
     const f = pageFixture(kind)
     for (const name of names) { assert.equal(typeof f.p[name], 'function', kind + ':' + name); count++ }
   }
-  assert.equal(count, 12)
+  assert.equal(count, 9)
 })
 
 test('wrapper binding audit detects missing implementation, unused imports and unrelated wrappers', async () => {

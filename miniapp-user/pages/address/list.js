@@ -27,7 +27,7 @@ Page({
     if (isCurrentSession(this._pageSession)) return true
     this._readId = (this._readId || 0) + 1
     const patch = { loading: false, accessDenied: true, loadError: '登录身份已变化，请退出本页后重新进入。' }
-    if (this.data.mutationPending) patch.actionUnknown = true; patch.actionMessage = this.data.mutationPending ? '登录身份已变化，原操作结果待核实，请使用原账号核对。' : this.data.actionMessage
+    if (this.data.mutationPending) patch.actionUnknown = false; patch.actionMessage = this.data.mutationPending ? '登录身份已变化，请重新登录后继续。' : this.data.actionMessage
     this.setData(patch)
     return false
   },
@@ -84,13 +84,17 @@ Page({
       this.setData({ actionMessage: action === 'delete' ? '地址已删除。请以刷新后的列表为准。' : '默认地址已设置。请以刷新后的列表为准。' })
       await this.loadAddresses()
     } catch (error) {
-      if (this._disposed) return
+      if (this._disposed || !this.ensurePageSession()) return
       console.error('Change address error:', error)
       const view = failureView(error)
       const known = error && (error.businessRejected === true || String(error.code || error.statusCode) === '401' || String(error.code || error.statusCode) === '403')
-      this.setData({ accessDenied: view.denied, actionUnknown: !known,
-        actionMessage: view.denied && !known ? '账号访问受限，操作结果尚未确认。请使用原账号登录后刷新核对，暂勿重复操作。' : view.denied ? view.text : known ? '操作未通过，请刷新地址后重试。'
-          : '操作结果尚未确认，请先刷新列表核对，暂勿重复操作。' })
+      this.setData({ accessDenied: view.denied, actionUnknown: false,
+        actionMessage: view.denied ? view.text : known ? '操作未通过，请重试。' : '连接中断，正在更新地址列表…' })
+      if (!view.denied && !known) {
+        await this.loadAddresses()
+        if (!this._disposed && this.ensurePageSession()) this.setData({ actionMessage: this.data.loadError
+          ? '地址列表未能更新，请重新读取后继续。' : '地址列表已更新。' })
+      }
     } finally {
       if (!this._disposed) this.setData({ mutationPending: false })
     }

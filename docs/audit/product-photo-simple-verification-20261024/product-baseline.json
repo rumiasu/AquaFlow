@@ -1,0 +1,72 @@
+[
+  {
+    "name": "legacy unknown product record is never shown, never blocks uploading, and is not deleted",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+  },
+  {
+    "name": "corrupt legacy upload registry cannot turn a photo into a recovery task or block a new image",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+  },
+  {
+    "name": "local recovery storage failure does not block uploading a replaceable product photo",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+  },
+  {
+    "name": "timeout is a failed photo with a single explicit manual retry",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'unknown'\n- 'failed'\n"
+  },
+  {
+    "name": "business is a failed photo with a single explicit manual retry",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'unknown'\n- 'failed'\n"
+  },
+  {
+    "name": "http500 is a failed photo with a single explicit manual retry",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'unknown'\n- 'failed'\n"
+  },
+  {
+    "name": "incomplete is a failed photo with a single explicit manual retry",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'unknown'\n- 'failed'\n"
+  },
+  {
+    "name": "late response to timed-out image A cannot overwrite a newer selection B",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n1 !== 2\n"
+  },
+  {
+    "name": "manual retry after an expired local path fails locally, retains form and allows reselection",
+    "pass": false,
+    "error": "f.p.onRetryProductImage is not a function"
+  },
+  {
+    "name": "closing during upload and reopening after failure restores a failed local preview, not success",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'unknown'\n- 'failed'\n"
+  },
+  {
+    "name": "failed new preview is excluded when saving product, old image=false",
+    "pass": true
+  },
+  {
+    "name": "failed new preview is excluded when saving product, old image=true",
+    "pass": true
+  },
+  {
+    "name": "stored key without a preview remains a verified server resource, not a failed photo",
+    "pass": true
+  },
+  {
+    "name": "concurrent same-file product uploads coalesce and confirmed bytes reuse their receipt",
+    "pass": true
+  },
+  {
+    "name": "the photo region exposes only progress/success/failure and direct actions",
+    "pass": true
+  }
+]

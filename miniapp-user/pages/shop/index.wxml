@@ -96,6 +96,7 @@
     </view>
   </view>
 
+  <page-container show="{{showStationPicker}}" position="bottom" overlay="{{false}}" close-on-slide-down="{{false}}" duration="{{0}}" custom-style="height:100%;background:transparent;" bindbeforeleave="onStationPickerBeforeLeave">
   <view class="station-picker-mask" wx:if="{{showStationPicker}}" bindtap="onCloseStationPicker"></view>
   <view class="station-picker {{showStationPicker ? 'show' : ''}}">
     <view class="station-picker-header">
@@ -126,4 +127,5 @@
       <button wx:if="{{stationListError}}" bindtap="loadStationList" disabled="{{stationListLoading}}">重新加载水站</button>
     </view>
   </view>
+  </page-container>
 </view>

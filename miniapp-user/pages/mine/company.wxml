@@ -8,9 +8,7 @@
     <view class="state-actions"><button class="state-button" bindtap="onRetry" loading="{{loading}}" disabled="{{loading || saving}}">重新读取</button><button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button></view>
   </view>
   <view class="state-card {{saveSucceeded ? 'state-success' : ''}}" wx:if="{{saveMessage}}">
-    <text class="state-title" wx:if="{{saveUnknown}}">保存结果待核对</text><text class="state-note">{{saveMessage}}</text>
-    <button wx:if="{{saveUnknown}}" class="state-button" bindtap="onRetry" loading="{{loading}}" disabled="{{loading}}">读取已保存资料</button>
-    <button wx:if="{{saveUnknown && comparisonReady && info && !loadError && !loading}}" class="state-button secondary" bindtap="onResumeEdit">已核对，继续编辑</button>
+    <text class="state-note">{{saveMessage}}</text>
   </view>
   <block wx:if="{{(info || editing) && (!accessDenied || editing) && !sessionChanged}}">
     <view class="company-card">
@@ -31,17 +29,9 @@
         <text class="update-note">此处为企业登记资料；订单实际账期以水站设置及下单记录为准。</text>
       </block>
     </view>
-    <view class="company-card comparison-card" wx:if="{{editing && saveUnknown && comparisonReady && !loading && !loadError}}">
-      <text class="state-title">刚读取的已保存资料</text>
-      <text class="state-note">{{info ? info.companyName : '未查询到企业资料，请联系水站核实'}}</text>
-      <text class="state-note" wx:if="{{info}}">联系人：{{info.contactPerson || '未填写'}}
-电话：{{info.contactPhone || '未填写'}}
-付款方式：{{info.paymentMethod || '未填写'}}
-登记账期：{{info.dueDays === null || info.dueDays === undefined ? '未登记' : info.dueDays + ' 天'}}</text>
-    </view>
     <view class="action-bar">
       <button wx:if="{{!editing}}" class="edit-btn" bindtap="onStartEdit" disabled="{{loading || !!loadError || accessDenied}}">编辑企业资料</button>
-      <view wx:else class="btn-row"><button class="btn cancel" bindtap="onCancelEdit" disabled="{{saving}}">{{saveUnknown ? '保留输入' : '取消编辑'}}</button><button class="btn confirm" bindtap="onSave" loading="{{saving}}" disabled="{{saving || loading || !!loadError || saveUnknown || accessDenied || !info}}">{{saving ? '正在保存' : '保存资料'}}</button></view>
+      <view wx:else class="btn-row"><button class="btn cancel" bindtap="onCancelEdit" disabled="{{saving}}">取消编辑</button><button class="btn confirm" bindtap="onSave" loading="{{saving}}" disabled="{{saving || loading || !!loadError || accessDenied || !info}}">{{saving ? '正在保存' : '保存资料'}}</button></view>
     </view>
   </block>
   <view class="state-card" wx:if="{{loaded && !loading && !loadError && !info && !editing}}">

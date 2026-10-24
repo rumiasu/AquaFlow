@@ -1,0 +1,62 @@
+[
+  {
+    "name": "legacy unknown product record is never shown, never blocks uploading, and is not deleted",
+    "pass": true
+  },
+  {
+    "name": "corrupt legacy upload registry cannot turn a photo into a recovery task or block a new image",
+    "pass": true
+  },
+  {
+    "name": "local recovery storage failure does not block uploading a replaceable product photo",
+    "pass": true
+  },
+  {
+    "name": "timeout is a failed photo with a single explicit manual retry",
+    "pass": true
+  },
+  {
+    "name": "business is a failed photo with a single explicit manual retry",
+    "pass": true
+  },
+  {
+    "name": "http500 is a failed photo with a single explicit manual retry",
+    "pass": true
+  },
+  {
+    "name": "incomplete is a failed photo with a single explicit manual retry",
+    "pass": true
+  },
+  {
+    "name": "late response to timed-out image A cannot overwrite a newer selection B",
+    "pass": true
+  },
+  {
+    "name": "manual retry after an expired local path fails locally, retains form and allows reselection",
+    "pass": true
+  },
+  {
+    "name": "closing during upload and reopening after failure restores a failed local preview, not success",
+    "pass": true
+  },
+  {
+    "name": "failed new preview is excluded when saving product, old image=false",
+    "pass": true
+  },
+  {
+    "name": "failed new preview is excluded when saving product, old image=true",
+    "pass": true
+  },
+  {
+    "name": "stored key without a preview remains a verified server resource, not a failed photo",
+    "pass": true
+  },
+  {
+    "name": "concurrent same-file product uploads coalesce and confirmed bytes reuse their receipt",
+    "pass": true
+  },
+  {
+    "name": "the photo region exposes only progress/success/failure and direct actions",
+    "pass": true
+  }
+]

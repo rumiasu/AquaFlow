@@ -107,31 +107,6 @@
     <text class="water-template-hint">图片供识别商品，包装与规格请核对实物。</text>
   </view>
 
-  <!-- 图片结果未确认时独立留在正文，不与固定的新建入口争用底部位置。 -->
-  <view wx:if="{{uploadRecoveryCases.length || uploadRecoveryReadFailed}}" class="upload-recovery-panel product-upload-recovery">
-    <text class="recovery-title" wx:if="{{uploadRecoveryReadFailed}}">图片记录待核实</text>
-    <text class="recovery-title" wx:else>{{uploadRecoveryCases.length}} 次上传暂未确认</text>
-    <text class="recovery-note">这些记录未取得完整上传回执，不能当作成功。已确认的新图可正常保存，旧记录单独保留。</text>
-    <button class="recovery-toggle" wx:if="{{uploadRecoveryReadFailed}}" bindtap="refreshUploadRecovery" disabled="{{productImageBusy || saving || uploadRecovering}}">重新读取图片记录</button>
-    <button class="recovery-toggle {{uploadRecoveryExpanded ? 'is-secondary' : ''}}" wx:else bindtap="onToggleUploadRecovery" disabled="{{productImageBusy || saving || uploadRecovering}}">{{uploadRecoveryExpanded ? '收起记录' : '查看待核实图片'}}</button>
-    <block wx:if="{{uploadRecoveryExpanded && uploadRecoveryCases.length}}">
-      <picker wx:if="{{uploadRecoveryCases.length > 1}}" mode="selector" range="{{uploadRecoveryCases}}" range-key="label" value="{{productUploadRecoveryIndex}}" bindchange="onChooseProductUploadRecord" disabled="{{productImageBusy || saving || uploadRecovering}}">
-        <view class="recovery-record-picker">选择记录（{{productUploadRecoveryIndex + 1}} / {{uploadRecoveryCases.length}}）⌄</view>
-      </picker>
-      <view class="recovery-case" wx:if="{{productUploadRecoveryCurrent}}">
-        <text class="recovery-case-label">{{productUploadRecoveryCurrent.label}}</text>
-        <view class="recovery-case-actions">
-          <button class="recovery-primary" disabled="{{productImageBusy || saving || uploadRecovering}}" data-caseid="{{productUploadRecoveryCurrent.id}}" bindtap="onUploadResumeDraft">继续原草稿</button>
-          <text class="recovery-record-link" data-caseid="{{productUploadRecoveryCurrent.id}}" bindtap="onUploadRecover" role="button">查看原记录说明</text>
-        </view>
-      </view>
-      <view class="recovery-new-draft">
-        <text class="recovery-note">另开独立图片草稿不会清除以上记录，原图片仍需核实。</text>
-        <button class="recovery-independent" disabled="{{productImageBusy || saving || uploadRecovering}}" bindtap="onUploadNewDraft">另开独立图片草稿</button>
-      </view>
-    </block>
-  </view>
-
   <view class="product-editor-resume" wx:if="{{productEditorResume && !showEdit}}">
     <text>上次编辑尚未保存，仅在本页暂存。</text>
     <button bindtap="onResumeProductEditor" disabled="{{saving || inboundBusy}}">继续未保存编辑</button>
@@ -292,23 +267,18 @@
               <image class="preview" wx:if="{{(productImagePreviewUrl || editForm.imageUrl) && !brokenImages[productImagePreviewUrl || editForm.imageUrl]}}" src="{{productImagePreviewUrl || editForm.imageUrl}}" binderror="onDisplayImageError" data-src="{{productImagePreviewUrl || editForm.imageUrl}}" mode="aspectFit" />
               <view class="preview placeholder" wx:else>
                 <text wx:if="{{productImageBusy || productImageState === 'selecting' || productImageState === 'uploading'}}">正在处理图片</text>
-                <text wx:elif="{{productImageState === 'unknown'}}">原图片待核实</text>
                 <text wx:elif="{{productImagePreviewUrl || editForm.imageUrl}}">图片暂无法显示</text>
                 <text wx:else>暂无商品图片</text>
               </view>
             </view>
-            <text class="product-image-caption" wx:if="{{productImagePreviewUrl}}">{{productImageState === 'unknown' ? '所选图片预览，上传结果待核实' : productImageBusy ? '所选图片预览，正在处理' : '所选图片预览'}}</text>
+            <text class="product-image-caption" wx:if="{{productImagePreviewUrl}}">{{productImageBusy ? '所选图片预览，正在上传' : productImageState === 'failed' ? '仅本地预览，尚未上传成功' : '所选图片预览'}}</text>
             <text class="product-image-caption" wx:elif="{{editForm.imageUrl}}">当前商品图片</text>
-            <text class="product-image-status {{productImageState === 'unknown' || productImageState === 'failed' ? 'is-warning' : ''}}" wx:if="{{productImageHint}}">{{productImageHint}}</text>
+            <text class="product-image-status {{productImageState === 'failed' ? 'is-warning' : ''}}" wx:if="{{productImageHint}}">{{productImageHint}}</text>
             <view class="product-image-actions">
-              <block wx:if="{{productImageState === 'unknown'}}">
-                <button class="product-image-action" bindtap="onReplaceUnconfirmedProductImage" disabled="{{productImageBusy || uploadRecovering || saving}}">重新选择图片</button>
-                <text class="product-image-record-link" wx:if="{{productImageCaseId}}" data-caseid="{{productImageCaseId}}" bindtap="onUploadRecover" role="button">查看原记录说明</text>
-                <text class="product-image-record-link" wx:else bindtap="closeEdit" role="button">查看原记录说明</text>
-              </block>
-              <block wx:elif="{{!productImageBusy && productImageState !== 'selecting' && productImageState !== 'uploading'}}">
-                <button class="product-image-action" bindtap="uploadImage" disabled="{{saving || uploadRecovering}}">{{productImageState === 'failed' ? '重新选择图片' : editForm.imageUrl ? '更换商品图片' : '上传商品图片'}}</button>
-                <button class="product-image-action secondary" bindtap="openPresetPicker" disabled="{{saving || uploadRecovering}}">从图库选择</button>
+              <block wx:if="{{!productImageBusy}}">
+                <button class="product-image-action" wx:if="{{productImageState === 'failed' && productImagePreviewUrl}}" bindtap="onRetryProductImage" disabled="{{saving}}">重试上传</button>
+                <button class="product-image-action {{productImageState === 'failed' ? 'secondary' : ''}}" bindtap="uploadImage" disabled="{{saving}}">{{productImageState === 'failed' ? '重新选择图片' : editForm.imageUrl ? '更换商品图片' : '上传商品图片'}}</button>
+                <button class="product-image-action secondary" bindtap="openPresetPicker" disabled="{{saving}}">从图库选择</button>
               </block>
             </view>
             <text class="water-template-hint" wx:if="{{editForm.imageUrl === templateImage}}">{{imageNotice}}</text>
@@ -404,7 +374,7 @@
       </scroll-view>
       <view class="modal-footer product-edit-footer">
         <button class="btn-cancel" bindtap="closeEdit" disabled="{{saving}}">取消</button>
-        <button class="btn-save" bindtap="onSaveEdit" loading="{{saving}}" disabled="{{saving || inboundBusy || productCreationPending || productImageBusy || productImageState === 'unknown' || (editForm.ticketEnabled && (pkgLoading || pkgError))}}">{{saving ? '保存中…' : productCreationPending ? '先完成原建档' : isAdd ? '创建商品' : '保存修改'}}</button>
+        <button class="btn-save" bindtap="onSaveEdit" loading="{{saving}}" disabled="{{saving || inboundBusy || productCreationPending || productImageBusy || (editForm.ticketEnabled && (pkgLoading || pkgError))}}">{{saving ? '保存中…' : productCreationPending ? '先完成原建档' : isAdd ? '创建商品' : '保存修改'}}</button>
       </view>
   </view>
   </view>

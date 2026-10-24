@@ -1,0 +1,80 @@
+{
+  "baseline": "fe05a667127510955f9f58fa53c80f37e04ee485",
+  "scope": "Product photo retry simplification plus bounded ordinary-form and modal-return scan",
+  "changedSides": [
+    "miniapp-delivery",
+    "miniapp-user"
+  ],
+  "backendChanged": false,
+  "requiresBackendUpload": false,
+  "requiresMigration": false,
+  "configurationChanged": false,
+  "deployed": false,
+  "nativeWeChatVerified": false,
+  "frontendPassed": 421,
+  "newPhotoCases": 15,
+  "newOrdinaryCases": 13,
+  "fixed": [
+    {
+      "id": "PHOTO01",
+      "priority": "P1",
+      "route": "miniapp-delivery/pages/station-mgmt/products/index",
+      "action": "Remove photo human verification UI and durable retry gate; preserve preview/form; explicit retry only; validated server reference required"
+    },
+    {
+      "id": "ORD01",
+      "priority": "P1",
+      "route": "miniapp-user/pages/mine/company",
+      "action": "Preserve inputs and permit direct PUT retry/cancel after unacknowledged response"
+    },
+    {
+      "id": "ORD02",
+      "priority": "P1",
+      "route": "miniapp-user/pages/address/edit",
+      "action": "Allow manual save retry, with one owned-address exact-content lookup before repeat create"
+    },
+    {
+      "id": "ORD03",
+      "priority": "P2",
+      "route": "miniapp-user/pages/address/list",
+      "action": "Automatic one-time list refresh after unacknowledged delete/default response"
+    },
+    {
+      "id": "ORD04",
+      "priority": "P2",
+      "routes": [
+        "miniapp-user/pages/shop/index",
+        "miniapp-user/pages/template/index"
+      ],
+      "action": "Native container Back closes actual panel without navigation; in-flight configuration-save lock retained"
+    }
+  ],
+  "deferred": [
+    {
+      "id": "PHOTO-ATTACHMENTS",
+      "routes": [
+        "miniapp-delivery/pages/order/complete",
+        "miniapp-delivery/pages/order/detail",
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/edit"
+      ],
+      "reason": "Human image-recovery UI still exists; changing linked order-image/evidence contracts requires a separate bounded verification; not claimed necessary for photo content review"
+    },
+    {
+      "id": "EX09",
+      "reason": "Previously known ordinary feedback duplicate submission remains; no new backend idempotence in this batch"
+    }
+  ],
+  "retained": [
+    "payment/refund unknown-result protections",
+    "inventory inbound receipt/idempotency",
+    "return-empty intent",
+    "asset adjustment snapshot/token",
+    "product creation original trusted-ID recovery",
+    "identity and permission isolation"
+  ],
+  "limitations": [
+    "No actual photo upload or COS verification",
+    "One list lookup is not server-side address-create idempotency",
+    "Unacknowledged manual photo retries can leave unused cloud objects; no deletion performed"
+  ]
+}

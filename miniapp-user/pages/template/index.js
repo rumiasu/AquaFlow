@@ -259,6 +259,12 @@ Page({
     this.setData({ 'form.specialNote': e.detail.value })
   },
 
+  onTemplateBeforeLeave() {
+    if (!this.data.showEditModal) return
+    this._formSeq = (this._formSeq || 0) + 1
+    // Native Back closes only the form. An already-dispatched save retains its existing lock.
+    this.setData({ showEditModal: false, formLoading: false })
+  },
   onCloseEditModal() {
     if (this.data.submitting) return
     this._formSeq = (this._formSeq || 0) + 1

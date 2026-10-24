@@ -5,6 +5,7 @@ const { fixture: uploadFixture, flush, observe } = require('./cloud-upload.mock.
 const { WATER_PRODUCT_TEMPLATES } = require('../../miniapp-delivery/utils/water-product-templates')
 const key = 'public/common/synthetic-product.png'
 const preview = 'https://synthetic.invalid/public/common/synthetic-product.png?q-signature=synthetic'
+const okReceipt = () => ({ statusCode: 200, data: { code: 0, data: preview, objectName: key } })
 const tests = [], test = (name, run) => tests.push({ name, run })
 
 function pageFixture() {
@@ -67,10 +68,10 @@ test('explicit independent image draft clears both image fields without borrowin
   const { pageFixture: actualPageFixture } = require('./page-recovery.test')
   const f = actualPageFixture('product')
   f.p.setData({ 'editForm.imageObjectName': key, 'editForm.imageUrl': preview })
-  f.p.onUploadNewDraft(); f.modals[0].success({ confirm: true }); await flush()
+  f.p.openAdd(); await flush()
   assert.equal(f.p.data.editForm.imageObjectName, ''); assert.equal(f.p.data.editForm.imageUrl, '')
 })
-test('old service URL-only receipt preserves the existing photo, explains unknown result and blocks reupload', async () => {
+test('URL-only receipt fails without replacing the stored photo, and permits direct reselection', async () => {
   const { pageFixture: actualPageFixture } = require('./page-recovery.test')
   const f = actualPageFixture('product')
   f.p.setData({ isAdd: false, editId: 42, 'editForm.imageObjectName': key, 'editForm.imageUrl': preview })
@@ -79,29 +80,29 @@ test('old service URL-only receipt preserves the existing photo, explains unknow
   f.calls[0].resolve({ statusCode: 200, data: { code: 0, data: 'https://synthetic.invalid/new-preview-only.png' } })
   await flush()
   assert.equal(f.p.data.editForm.imageObjectName, key); assert.equal(f.p.data.editForm.imageUrl, preview)
-  assert.equal(f.p.data.uploading, false); assert.equal(f.p.data.uploadCaseIds.length, 1)
-  assert(f.toast.some(row => row.title === '图片暂未确认，所选预览已保留'))
-  assert.equal(f.p.data.productImageState, 'unknown')
+  assert.equal(f.p.data.uploading, false); assert.equal(f.api.uploadCases().length, 0)
+  assert(f.toast.some(row => row.title === '图片上传失败，可重试'))
+  assert.equal(f.p.data.productImageState, 'failed')
   assert.equal(f.p.data.productImagePreviewUrl, '/synthetic.png')
   assert(!f.toast.some(row => row.title === '图片上传成功'))
   const pickerCount = f.picks.length
   f.p.uploadImage(); await flush()
-  assert.equal(f.picks.length, pickerCount, 'unknown current image is blocked before opening another picker')
-  assert.equal(f.calls.length, 1); assert.equal(f.api.uploadCases().length, 1)
+  assert.equal(f.picks.length, pickerCount + 1, 'failed image permits another picker without confirmation'); f.picks.at(-1).fail({ errMsg: 'cancel' }); await flush()
+  assert.equal(f.calls.length, 1); assert.equal(f.api.uploadCases().length, 0)
   assert.equal(f.p.data.editForm.imageObjectName, key); assert.equal(f.p.data.editForm.imageUrl, preview)
 })
-test('product receipt with true key remains usable and releases its upload marker', async () => {
-  const f = uploadFixture(), r = observe(f.api.upload(f.args())); await flush(); f.read(); await flush()
+test('product receipt with true key is usable without a recovery marker', async () => {
+  const f = uploadFixture(), r = observe(f.api.upload(f.args({ intent: { kind: 'product-image', id: 42 } }))); await flush(); f.read(); await flush()
   f.calls[0].resolve({ statusCode: 200, data: { code: 0, data: preview, objectName: key } }); await flush()
   assert(r.value); assert.equal(r.value.objectName, key); assert.equal(f.api.uploadCases().length, 0)
 })
 for (const invalid of [undefined, '', preview, 'cloud://synthetic/product.png', '/public/common/a.png', '../a.png']) {
-  test('missing or non-object product key remains unknown and blocks repeat: ' + String(invalid), async () => {
-    const f = uploadFixture(), r = observe(f.api.upload(f.args())); await flush(); f.read(); await flush()
+  test('missing or non-object product key fails without creating a user recovery task: ' + String(invalid), async () => {
+    const f = uploadFixture(), r = observe(f.api.upload(f.args({ intent: { kind: 'product-image', id: 42 } }))); await flush(); f.read(); await flush()
     f.calls[0].resolve({ statusCode: 200, data: { code: 0, data: preview, objectName: invalid } }); await flush()
-    assert(r.error && r.error.uploadOutcomeUnknown); assert.equal(f.api.uploadCases().length, 1)
-    const again = observe(f.api.upload(f.args({ filePath: '/second.png' }))); await flush()
-    assert(again.error && again.error.uploadOutcomeUnknown); assert.equal(f.calls.length, 1)
+    assert(r.error && r.error.uploadOutcomeUnknown); assert.equal(f.api.uploadCases().length, 0)
+    const again = observe(f.api.upload(f.args({ filePath: '/second.png', intent: { kind: 'product-image', id: 42 } }))); await flush(); f.read(1); await flush()
+    assert.equal(f.calls.length, 2); f.calls[1].resolve(okReceipt()); await flush(); assert(again.value)
   })
 }
 test('legacy general evidence consumers still accept URL data without object metadata', async () => {

@@ -1,0 +1,54 @@
+[
+  {
+    "name": "company response loss allows an explicit retry and cancel without a comparison task",
+    "pass": true
+  },
+  {
+    "name": "existing address update can be retried without losing input or declaring false success",
+    "pass": true
+  },
+  {
+    "name": "unacknowledged address create is reused after one owned list read proves the desired address exists",
+    "pass": true
+  },
+  {
+    "name": "address lookup does not claim a match for {}",
+    "pass": true
+  },
+  {
+    "name": "address lookup does not claim a match for {\"floor\":0}",
+    "pass": true
+  },
+  {
+    "name": "address lookup does not claim a match for {\"hasElevator\":0}",
+    "pass": true
+  },
+  {
+    "name": "address lookup does not claim a match for {\"isDefault\":1}",
+    "pass": true
+  },
+  {
+    "name": "failed address lookup never claims success and permits only the user requested create retry",
+    "pass": true
+  },
+  {
+    "name": "default address response loss refreshes once automatically without a manual verification panel",
+    "pass": true
+  },
+  {
+    "name": "session change during retry lookup cannot create an address for the new identity",
+    "pass": true
+  },
+  {
+    "name": "ordinary form retries retain their in-flight lock",
+    "pass": true
+  },
+  {
+    "name": "shop native container Back closes the actual panel without navigating",
+    "pass": true
+  },
+  {
+    "name": "template native container Back closes the actual panel without navigating",
+    "pass": true
+  }
+]

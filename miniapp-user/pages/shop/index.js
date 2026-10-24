@@ -205,6 +205,9 @@ Page({
     this.setData({ showStationPicker: true })
     this.loadStationList()
   },
+  onStationPickerBeforeLeave() {
+    if (this.data.showStationPicker) this.onCloseStationPicker()
+  },
   onCloseStationPicker() {
     this._shopSelectSeq = (this._shopSelectSeq || 0) + 1
     this._shopListSeq = (this._shopListSeq || 0) + 1

@@ -2,7 +2,7 @@
 // Real page/upload/store handlers with synthetic SDK, filesystem and page-container host contract.
 // This is not a WeChat native rendering or hardware Back test.
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path')
-const { pageFixture, unknownFromPage } = require('./page-recovery.test')
+const { pageFixture } = require('./page-recovery.test')
 const { fixture: saveFixture } = require('./extreme-product-save.test')
 const { flush, ok, ROOT } = require('./cloud-upload.mock.test')
 const { parseWxml, renderElements, validateConditionalSiblings } = require('./wxml-tree')
@@ -30,13 +30,13 @@ test('three confirmed uploads and re-entry never leave a recovery record', async
   const storage = new Map(), f = pageFixture('product', storage)
   for (let i = 0; i < 3; i++) {
     f.p.openAdd(); await dispatch(f); f.calls[i].resolve(receipt()); await flush()
-    assert.equal(f.api.uploadCases().length, 0); assert.equal(f.p.data.uploadRecoveryCases.length, 0)
+    assert.equal(f.api.uploadCases().length, 0)
     assert.equal(f.p.data.productImageState, 'ready')
     f.p.closeEdit(); f.p.onResumeProductEditor()
     assert.equal(f.p.data.editForm.imageObjectName, key); assert.equal(f.p.data.productImageState, 'ready')
   }
-  const next = pageFixture('product', storage); next.p.refreshUploadRecovery()
-  assert.equal(next.p.data.uploadCaseIds.length, 0)
+  const next = pageFixture('product', storage); next.p.openAdd()
+  assert.equal(next.api.uploadCases().length, 0)
 })
 test('repeated picker selection of the same bytes reuses confirmed receipt without a new POST', async () => {
   const f = pageFixture('product'); f.p.openAdd(); await dispatch(f)
@@ -48,64 +48,54 @@ test('repeated picker selection of the same bytes reuses confirmed receipt witho
 test('explicit pre-upload rejection leaves no record and can be retried manually', async () => {
   const f = pageFixture('product'); f.p.openAdd(); await dispatch(f)
   f.calls[0].resolve({ statusCode: 200, data: { code: 1, uploadOutcome: 'rejected', uploadDiagnosticCode: 'UPLOAD_STORAGE_UNAVAILABLE' } }); await flush()
-  assert.equal(f.p.data.uploadCaseIds.length, 0); assert.equal(f.p.data.productImageState, 'failed')
+  assert.equal(f.api.uploadCases().length, 0); assert.equal(f.p.data.productImageState, 'failed')
   await dispatch(f); assert.equal(f.calls.length, 2)
-  f.calls[1].resolve(receipt()); await flush(); assert.equal(f.p.data.uploadCaseIds.length, 0)
+  f.calls[1].resolve(receipt()); await flush(); assert.equal(f.api.uploadCases().length, 0)
 })
-test('unknown original remains intact when a fresh independent upload succeeds', async () => {
-  const f = pageFixture('product'); f.p.openAdd(); const id = await unknownFromPage(f)
-  f.p.onReplaceUnconfirmedProductImage(); f.modals.at(-1).success({ confirm: true }); await flush()
-  const pick = f.picks.length - 1, read = f.stats.length
-  f.picks[pick].success({ tempFilePaths: ['/second.png'] }); await flush(); f.read(read); await flush()
-  f.calls.at(-1).resolve(receipt()); await flush()
-  assert.deepEqual(Array.from(f.api.uploadCases(), row => row.id), [id])
-  assert.equal(f.p.data.productImageState, 'ready'); assert.equal(f.p.data.uploadCaseIds.length, 1)
+test('failed upload retries directly without asking the user to verify or open a new draft', async () => {
+  const f = pageFixture('product'); f.p.openAdd(); await dispatch(f)
+  f.calls[0].reject(Error('synthetic timeout')); await flush()
+  assert.equal(f.p.data.productImageState, 'failed')
+  const pending = f.p.onRetryProductImage(); await flush(); f.read(1); await flush()
+  assert.equal(f.calls.length, 2); assert.equal(f.modals.length, 0); assert.equal(f.picks.length, 1)
+  f.calls[1].resolve(receipt()); await pending
+  assert.equal(f.p.data.productImageState, 'ready'); assert.equal(f.api.uploadCases().length, 0)
 })
-test('three unknown attempts render one selectable record and preserve every durable case', async () => {
-  const f = pageFixture('product'); const ids = []
-  for (let i = 0; i < 3; i++) { f.p.openAdd(); await dispatch(f); f.calls.at(-1).reject(Error('synthetic timeout')); await flush(); ids.push(f.p.data.uploadCaseIds.at(-1)) }
-  f.p.closeEdit(); f.p.onToggleUploadRecovery()
-  const raw = f.storage.get('aq_delivery_uploadRecovery_v1')
-  let rendered = renderElements(tree(), { ...f.p.data, loading: false }, { includeText: true })
-  assert.equal(rendered.filter(n => n.tag === 'button' && n.attrs.bindtap === 'onUploadResumeDraft').length, 1)
-  assert.equal(rendered.filter(n => n.tag === 'picker' && n.attrs.bindchange === 'onChooseProductUploadRecord').length, 1)
-  for (let i = 0; i < 3; i++) {
-    f.p.onChooseProductUploadRecord({ detail: { value: String(i) } })
-    assert.equal(f.p.data.productUploadRecoveryCurrent.id, ids[i])
-  }
-  const selected = f.p.data.productUploadRecoveryCurrent.id
-  for (const value of [-1, 100, 'bad', 0.5]) f.p.onChooseProductUploadRecord({ detail: { value } })
-  assert.equal(f.p.data.productUploadRecoveryCurrent.id, selected)
-  assert.equal(f.storage.get('aq_delivery_uploadRecovery_v1'), raw)
-  assert.equal(f.api.uploadCases().length, 3)
-  f.p.onToggleUploadRecovery()
-  rendered = renderElements(tree(), { ...f.p.data, loading: false })
-  assert.equal(rendered.filter(n => n.attrs.bindtap === 'onUploadResumeDraft').length, 0)
+test('three failed attempts expose no recovery list or manual receipt workflow', async () => {
+  const f = pageFixture('product')
+  for (let i = 0; i < 3; i++) { f.p.openAdd(); await dispatch(f); f.calls.at(-1).reject(Error('synthetic timeout')); await flush() }
+  assert.equal(f.api.uploadCases().length, 0)
+  const rendered = renderElements(tree(), { ...f.p.data, loading: false }, { includeText: true })
+  assert.equal(rendered.filter(n => ['onUploadResumeDraft','onUploadRecover','onUploadNewDraft'].includes(n.attrs.bindtap)).length, 0)
+  assert(!rendered.some(n => /图片待核实|次上传暂未确认|原图片.*核实/.test(n.text || '')))
+  assert.equal(f.storage.get('aq_delivery_uploadRecovery_v1'), undefined)
 })
 test('successful late receipt after close clears marker and resumes the confirmed photo', async () => {
   const f = pageFixture('product'); f.p.openAdd(); f.p.setData({ 'editForm.name': '合成未保存资料' }); await dispatch(f)
   f.p.closeEdit(); assert.equal(f.p.data.showEdit, false)
   f.p.onResumeProductEditor(); assert.equal(f.p.data.showEdit, false, 'do not resume an unfinished picker task')
   f.calls[0].resolve(receipt()); await flush()
-  assert.equal(f.api.uploadCases().length, 0); assert.equal(f.p.data.uploadCaseIds.length, 0)
+  assert.equal(f.api.uploadCases().length, 0); assert.equal(f.api.uploadCases().length, 0)
   f.p.onResumeProductEditor()
   assert.equal(f.p.data.editForm.name, '合成未保存资料'); assert.equal(f.p.data.editForm.imageObjectName, key)
   assert.equal(f.p.data.productImageState, 'ready')
 })
-test('close and resume preserve unknown local preview and block repeat POST', async () => {
+test('close and resume retain failed preview and form while allowing a manual retry', async () => {
   const f = pageFixture('product'); f.p.openAdd(); f.p.setData({ 'editForm.name': '合成草稿', pkgRows: [{ qty: '3', price: '30' }] })
-  const id = await unknownFromPage(f), draft = f.p._uploadDraftId
-  f.p.closeEdit(); assert.equal(f.p.data.productEditorResume, true)
-  f.p.onResumeProductEditor()
+  await dispatch(f); f.calls[0].reject(Error('synthetic timeout')); await flush()
+  const draft = f.p._uploadDraftId
+  f.p.closeEdit(); f.p.onResumeProductEditor()
   assert.equal(f.p._uploadDraftId, draft); assert.equal(f.p.data.editForm.name, '合成草稿')
   assert.equal(f.p.data.pkgRows[0].qty, '3'); assert.equal(f.p.data.productImagePreviewUrl, '/synthetic.png')
-  assert.equal(f.p.data.productImageState, 'unknown'); assert(f.p.data.uploadCaseIds.includes(id))
-  f.p.uploadImage(); assert.equal(f.calls.length, 1); assert.equal(f.picks.length, 1)
+  assert.equal(f.p.data.productImageState, 'failed')
+  const pending = f.p.onRetryProductImage(); await flush(); f.read(1); await flush()
+  f.calls[1].resolve(receipt()); await pending
+  assert.equal(f.calls.length, 2); assert.equal(f.p.data.productImageState, 'ready')
 })
 test('a changed account cannot resume a previous editor or expose its photo', async () => {
   const f = pageFixture('product'); f.p.openAdd(); f.p.closeEdit(); f.switchAccount(); f.p.onResumeProductEditor()
   assert.equal(f.p.data.showEdit, false); assert.equal(f.p.data.productEditorResume, false)
-  assert.equal(f.p.data.uploadCaseIds.length, 0)
+  assert.equal(f.api.uploadCases().length, 0)
 })
 test('late native close after an account switch cannot save the old form under the new owner', () => {
   const f = pageFixture('product'); f.p.openAdd(); f.p.setData({ 'editForm.name': '合成原账号资料' })

@@ -8,8 +8,8 @@
     <view class="state-actions"><button class="state-button" bindtap="onRetry" disabled="{{loading}}" loading="{{loading}}">重新读取</button><button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button></view>
   </view>
   <view class="state-card {{saveSucceeded ? 'state-success' : ''}}" wx:if="{{saveMessage}}">
-    <text class="state-title" wx:if="{{saveUnknown}}">保存结果待核对</text><text class="state-note">{{saveMessage}}</text>
-    <button wx:if="{{saveUnknown || saveSucceeded}}" class="state-button" bindtap="onBackToList">{{saveSucceeded ? '返回地址列表' : '返回列表核对'}}</button>
+    <text class="state-note">{{saveMessage}}</text>
+    <button wx:if="{{saveSucceeded}}" class="state-button" bindtap="onBackToList">返回地址列表</button>
     <button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button>
   </view>
 
@@ -93,7 +93,7 @@
         <view class="check-box {{formData.isDefault ? 'checked' : ''}}"></view>
         <text class="default-text">设为默认地址</text>
       </view>
-      <button class="save-btn" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting || saveSucceeded || saveUnknown || loading || !!loadError || accessDenied}}">{{submitting ? '正在保存' : saveSucceeded ? '地址已保存' : saveUnknown ? '请先核对结果' : '保存地址'}}</button>
+      <button class="save-btn" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting || saveSucceeded || loading || !!loadError || accessDenied}}">{{submitting ? '正在保存' : saveSucceeded ? '地址已保存' : saveUnknown ? '请先核对结果' : '保存地址'}}</button>
     </view>
   </view>
 </view>

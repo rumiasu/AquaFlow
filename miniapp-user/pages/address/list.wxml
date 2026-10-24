@@ -15,7 +15,6 @@
   </view>
   <view class="state-card" wx:if="{{actionMessage}}">
     <text class="state-note">{{actionMessage}}</text>
-    <button wx:if="{{actionUnknown}}" class="state-button" bindtap="onRetry" disabled="{{loading}}">刷新并核对</button>
   </view>
   <view class="address-list" wx:if="{{!accessDenied}}">
     <view class="address-item {{from === 'home' || from === 'order' ? 'selectable' : ''}}" wx:for="{{addresses}}" wx:key="id" bindtap="onSelectAddress" data-item="{{item}}">

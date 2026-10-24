@@ -107,7 +107,7 @@ test('address: default action blocks duplicate requests; select uses order route
   assert.equal(f.calls.write.length, 1)
   assert.strictEqual(f.calls.write[0].value, address)
 })
-test('address: delete confirmation and unknown result lock until read', async () => {
+test('address: delete confirmation is retained and uncertain response refreshes once automatically', async () => {
   let writes = 0
   const f = fixture('address', { api: { getAddresses: async () => ok([address]), deleteAddress: async () => { writes++; throw unavailable() } } })
   await f.p.loadAddresses()
@@ -116,10 +116,9 @@ test('address: delete confirmation and unknown result lock until read', async ()
   f.calls.modal[0].success({ confirm: true })
   await new Promise(resolve => setImmediate(resolve))
   assert.equal(writes, 1)
-  assert.equal(f.p.data.actionUnknown, true)
+  assert.equal(f.p.data.actionUnknown, false)
   await f.p.changeAddress(3, 'delete')
-  assert.equal(writes, 1)
-  await f.p.onRetry()
+  assert.equal(writes, 2)
   assert.equal(f.p.data.actionUnknown, false)
   assert(visible('address', f.p.data).includes('地址列表已更新'))
 })
@@ -175,12 +174,12 @@ test('edit: save unknown preserves input and rejects duplicate resubmission', as
   assert.equal(f.p.data.submitting, true)
   d.reject(unavailable()); await pending
   assert.equal(f.p.data.formData.name, 'Alice 原名')
-  assert.equal(f.p.data.saveUnknown, true)
+  assert.equal(f.p.data.saveUnknown, false)
   assert.equal(sent.hasElevator, null)
   assert.equal(sent.floor, null)
   await f.p.onSubmit()
-  assert.equal(writes, 1)
-  assert(visible('edit', f.p.data).includes('返回列表核对'))
+  assert.equal(writes, 2)
+  assert(!visible('edit', f.p.data).includes('返回列表核对'))
 })
 test('edit: definite rejection retains input and retry; successful save stays locked', async () => {
   let writes = 0
@@ -233,37 +232,23 @@ test('company: onShow and slow reads retain active edits; save sends unmodified 
   assert.equal(f.p.data.editing, false)
   assert.equal(f.p.data.saveSucceeded, true)
 })
-test('company: unknown save needs a successful comparison read and preserves form', async () => {
-  let writes = 0, fails = false
-  const f = fixture('company', { api: {
-    getCompanyInfo: async () => { if (fails) throw unavailable(); return ok(company) },
-    updateCompanyInfo: async () => { writes++; throw unavailable() }
-  } })
-  await f.p.loadInfo()
-  f.p.onStartEdit()
-  f.p.onInput(event('companyName', 'Unsaved 用户输入'))
-  await f.p.onSave()
-  assert.equal(f.p.data.saveUnknown, true)
-  f.p.onResumeEdit()
-  await f.p.onSave()
-  assert.equal(writes, 1)
-  fails = true; await f.p.onRetry()
+test('company: unacknowledged save preserves input and permits direct retry or cancel', async () => {
+  let writes = 0
+  const f = fixture('company', { api: { getCompanyInfo: async () => ok(company), updateCompanyInfo: async () => { writes++; throw unavailable() } } })
+  await f.p.loadInfo(); f.p.onStartEdit(); f.p.onInput(event('companyName', 'Unsaved 用户输入'))
+  await f.p.onSave(); assert.equal(f.p.data.saveUnknown, false)
   assert.equal(f.p.data.form.companyName, 'Unsaved 用户输入')
-  assert.equal(f.p.data.comparisonReady, false)
-  fails = false; await f.p.onRetry()
-  assert.equal(f.p.data.comparisonReady, true)
-  assert.equal(f.p.data.form.companyName, 'Unsaved 用户输入')
-  assert(visible('company', f.p.data).includes('刚读取的已保存资料'))
-  f.p.onResumeEdit()
-  assert.equal(f.p.data.saveUnknown, false)
+  await f.p.onSave(); assert.equal(writes, 2)
+  assert(!visible('company', f.p.data).includes('已核对，继续编辑'))
+  f.p.onCancelEdit(); assert.equal(f.p.data.editing, false); assert.equal(f.calls.modal.length, 0)
 })
-test('company: successful null read clears stale info; missing save result remains unknown', async () => {
+test('company: successful null read clears stale info; missing save result remains retryable', async () => {
   let current = company
   const f = fixture('company', { api: { getCompanyInfo: async () => ok(current), updateCompanyInfo: async () => ok(null) } })
   await f.p.loadInfo()
   f.p.onStartEdit()
   await f.p.onSave()
-  assert.equal(f.p.data.saveUnknown, true)
+  assert.equal(f.p.data.saveUnknown, false)
   assert.equal(f.p.data.editing, true)
   current = null
   await f.p.loadInfo()
@@ -376,7 +361,7 @@ test('ownership: a write reply after session switch cannot show successful save'
   f.switchSession()
   d.resolve(ok(company)); await pending
   assert.equal(f.p.data.saveSucceeded, false)
-  assert.equal(f.p.data.saveUnknown, true)
+  assert.equal(f.p.data.saveUnknown, false)
   assert.equal(f.p.data.accessDenied, true)
 })
 test('edit: a retry started after typing also preserves dirty input', async () => {
@@ -391,7 +376,7 @@ test('metadata: session change is unknown, not a definite business rejection', a
   const f = fixture('edit', { api: { createAddress: async () => { throw error } } })
   f.p.setData({ 'formData.detail': '原门牌' })
   await f.p.onSubmit()
-  assert.equal(f.p.data.saveUnknown, true)
+  assert.equal(f.p.data.saveUnknown, false)
   assert(!f.p.data.saveMessage.includes('地址未保存'))
   assert.strictEqual(f.calls.logs[0][1], error)
 })

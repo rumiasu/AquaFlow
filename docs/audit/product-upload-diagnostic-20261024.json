@@ -1,0 +1,86 @@
+{
+  "baseline": "6b3cbcf08b2dfb3dca982b5a2d14802384772e72",
+  "scope": "Product photo upload diagnostic only; no deployment or live access",
+  "userDiagnostic": "AF-IMG2 stage=server http=200 backend=1 code=UPLOAD_STORAGE_UNCONFIRMED sdk=- uncertain=0",
+  "rootCause": {
+    "status": "undetermined",
+    "narrowedBranch": "CommonController.upload: file.getBytes / CosUtil.uploadPublic catch",
+    "missingEvidence": [
+      "same-attempt timestamp and service revision",
+      "exception class and deepest cause",
+      "COS statusCode,errorCode,requestId if service exception"
+    ]
+  },
+  "confirmedDefect": {
+    "file": "miniapp-delivery/utils/request.js",
+    "line": 126,
+    "description": "server uploadOutcome unknown was omitted from frontend diagnostic metadata",
+    "fixed": true,
+    "actualUploadFailureFixed": false
+  },
+  "counterexample": {
+    "input": {
+      "statusCode": 200,
+      "data": {
+        "code": 1,
+        "uploadOutcome": "unknown",
+        "uploadDiagnosticCode": "UPLOAD_STORAGE_UNCONFIRMED"
+      }
+    },
+    "runs": [
+      {
+        "variant": "baseline-without-metadata-transfer",
+        "diagnostic": "AF-IMG2 stage=server http=200 backend=1 code=UPLOAD_STORAGE_UNCONFIRMED sdk=- uncertain=0",
+        "message": "图片上传失败，请重试"
+      },
+      {
+        "variant": "fixed",
+        "diagnostic": "AF-IMG2 stage=server http=200 backend=1 code=UPLOAD_STORAGE_UNCONFIRMED sdk=- uncertain=1",
+        "message": "图片上传失败，请重试"
+      }
+    ]
+  },
+  "tests": {
+    "javascript": [
+      {
+        "suite": "phone-catalog-home",
+        "cases": 12,
+        "passed": 12
+      },
+      {
+        "suite": "product-simple-upload",
+        "cases": 15,
+        "passed": 15
+      },
+      {
+        "suite": "employee-request-session",
+        "cases": 19,
+        "passed": 19
+      },
+      {
+        "suite": "cloud-upload.mock",
+        "cases": 37,
+        "passed": 37
+      }
+    ],
+    "backend": {
+      "suite": "CommonUploadReceiptTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "mode": "standalone MockMvc; current selected sources compiled; pinned local dependencies; mocks only"
+    }
+  },
+  "boundaries": {
+    "frontendProductionChanges": [
+      "miniapp-delivery/utils/request.js: diagnostic metadata transfer only"
+    ],
+    "backendProductionChanges": false,
+    "customerChanges": false,
+    "deployed": false,
+    "cloudCredentialsRead": false,
+    "liveDatabaseAccess": false,
+    "liveStorageAccess": false,
+    "deployedBackendShaVerified": false
+  }
+}

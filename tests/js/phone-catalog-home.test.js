@@ -75,6 +75,19 @@ test('copied upload diagnostics whitelist fields and never copy paths, identitie
   assert(!/secret|signed\.invalid|photo\.jpg/.test(text))
   assert(!diagnosticText({ ...d, uploadDiagnosticCode: 'secret', cloudErrorCode: 'secret', statusCode: 'secret' }).includes('secret'))
 })
+test('server storage uncertainty survives transport while explicit pre-upload rejections stay certain', async () => {
+  for (const [code, outcome, uncertain] of [
+    ['UPLOAD_STORAGE_UNCONFIRMED', 'unknown', 1],
+    ['UPLOAD_STORAGE_UNCONFIRMED', undefined, 1],
+    ['UPLOAD_STORAGE_UNAVAILABLE', 'rejected', 0],
+    ['UPLOAD_FILE_TYPE_INVALID', 'rejected', 0]
+  ]) {
+    const f = transportFixture(), result = observe(f.load('request').request({ url: '/api/common/upload', method: 'POST' }))
+    await flush(); f.calls[0].resolve({ statusCode: 200, data: { code: 1, uploadDiagnosticCode: code, uploadOutcome: outcome } }); await flush()
+    assert(result.error); assert.equal(result.error.uploadOutcomeUnknown, uncertain === 1)
+    assert.match(diagnosticText(result.error), new RegExp('uncertain=' + uncertain + '$'))
+  }
+})
 test('failed upload offers copy only after failure, retains diagnostics when editor resumes, then clears on success', async () => {
   const f = product(), copied = []; f.wx.setClipboardData = o => { copied.push(o.data); o.success() }; f.p.openAdd()
   const pick = async () => { f.p.uploadImage(); f.picks.at(-1).success({ tempFilePaths: ['/synthetic.png'] }); await flush(); f.read(f.stats.length - 1); await flush() }
@@ -82,6 +95,7 @@ test('failed upload offers copy only after failure, retains diagnostics when edi
   await pick(); f.calls[0].resolve({ statusCode: 200, data: { code: 1, uploadDiagnosticCode: 'UPLOAD_STORAGE_UNCONFIRMED', uploadOutcome: 'unknown' } }); await flush()
   assert.equal(f.p.data.productImageState, 'failed'); f.p.onCopyProductImageProblem()
   assert.match(copied[0], /UPLOAD_STORAGE_UNCONFIRMED/)
+  assert.match(copied[0], /uncertain=1$/, 'server storage outcome must not be mislabelled as confirmed by the clipboard diagnostic')
   f.p.closeEdit(); f.p.onResumeProductEditor(); f.p.onCopyProductImageProblem(); assert.equal(copied[1], copied[0])
   const retry = f.p.onRetryProductImage(); await flush(); f.read(f.stats.length - 1); await flush()
   f.calls[1].resolve({ statusCode: 200, data: { code: 0, data: 'https://synthetic.invalid/photo.png', objectName: 'public/common/synthetic.png' } }); await retry; await flush()

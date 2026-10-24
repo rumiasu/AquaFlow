@@ -2,6 +2,8 @@ package com.example.aquaflow.controller;
 
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.CosUtil;
+import com.qcloud.cos.exception.CosClientException;
+import com.qcloud.cos.exception.CosServiceException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
@@ -107,5 +109,32 @@ class CommonUploadReceiptTest {
                 .andExpect(jsonPath("$.uploadDiagnosticCode").value("UPLOAD_STORAGE_UNCONFIRMED"))
                 .andExpect(jsonPath("$.objectName").doesNotExist());
         verify(cos, never()).generatePublicUrl(anyString());
+    }
+
+    @Test
+    void storageServiceRejectionAndClientTimeoutHaveTheSamePublicCodeButNeverReachPreviewSigning() throws Exception {
+        CosServiceException denied = new CosServiceException("synthetic service rejection");
+        denied.setStatusCode(403);
+        denied.setErrorCode("AccessDenied");
+        denied.setRequestId("synthetic-request-id");
+        CosClientException timeout = new CosClientException("synthetic client timeout",
+                new java.net.SocketTimeoutException("synthetic timeout"));
+        for (RuntimeException failure : new RuntimeException[] { denied, timeout }) {
+            CosUtil cos = mock(CosUtil.class);
+            when(cos.isCredentialsConfigured()).thenReturn(true);
+            when(cos.uploadPublic(any(byte[].class), anyString(), anyString())).thenThrow(failure);
+            CommonController controller = new CommonController();
+            ReflectionTestUtils.setField(controller, "cosUtil", cos);
+            AuthContext.set(new AuthContext.AuthUser(1L, "staff", "STATION_MANAGER", 11L));
+            MockMvcBuilders.standaloneSetup(controller).build()
+                    .perform(multipart("/api/common/upload").file(new MockMultipartFile("file", "synthetic.png", "image/png", new byte[]{1})))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(1))
+                    .andExpect(jsonPath("$.message").value("图片上传暂未确认，请稍后查看"))
+                    .andExpect(jsonPath("$.uploadOutcome").value("unknown"))
+                    .andExpect(jsonPath("$.uploadDiagnosticCode").value("UPLOAD_STORAGE_UNCONFIRMED"))
+                    .andExpect(jsonPath("$.objectName").doesNotExist());
+            verify(cos, never()).generatePublicUrl(anyString());
+        }
     }
 }

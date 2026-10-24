@@ -1,0 +1,54 @@
+{
+  "backendChanged": false,
+  "databaseMigration": false,
+  "configurationChange": false,
+  "credentialOrPermissionChange": false,
+  "productionDeployment": false,
+  "sourceFiles": [
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/products/index.js",
+      "sha256": "aade73dd9f43be89eccd5d4ed27b19c99ecb6129be3c89e9c0c9d085621b5b49",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/products/index.wxml",
+      "sha256": "1d8fd4847b027ef5340beda26b2ce0ef42cc6366ea186afa8a4c7444077d85cf",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/products/index.wxss",
+      "sha256": "34f42600f5312b7a81cd64965e1245bb6bda006ed20f19b4f7a451d187eb6174",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/utils/transport.js",
+      "sha256": "e8f875be2acad38dbff953e3a8b46f503532123504cafdd8674638112218f759",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/utils/upload-diagnostic.js",
+      "sha256": "06d39c1471396bd64d32ac32203444c943fa6953d177df0080bc4415af26838d",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/home/index.js",
+      "sha256": "e4089a4d18e279b0aa3d4014fa569f8e579d53fd0a7cd40b3f1f9fe1537c428e",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/home/index.wxml",
+      "sha256": "55a97040841efda30db943045dab8d3143aa180f29d9345ac52d71f8f906ef0b",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/home/index.wxss",
+      "sha256": "69d06ccf649b7fecebdb2831f66a3e087ecc46bc4da9a4d32c6304c64de7feb5",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/utils/transport.js",
+      "sha256": "e8f875be2acad38dbff953e3a8b46f503532123504cafdd8674638112218f759",
+      "bom": false
+    }
+  ]
+}

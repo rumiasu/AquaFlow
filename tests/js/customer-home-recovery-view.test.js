@@ -49,7 +49,7 @@ test('actual WXML has legal branches and reserves the whole menu navigation regi
   const nodes = visible(t.page), nav = nodes.findIndex(n => n.className === 'home-nav')
   const hero = nodes.findIndex(n => n.className === 'hero')
   assert(nav >= 0 && hero > nav)
-  assert.equal(nodes.find(n => n.className === 'home-nav-title').text, '订水')
+  assert.equal(nodes.find(n => n.className === 'home-nav-title').text, '送水到家')
 })
 test('navigation falls back on throwing, missing and malformed platform data', () => {
   assert.deepStrictEqual(homeNavLayout({ getWindowInfo() { throw Error('window unavailable') }, getSystemInfoSync: () => ({ statusBarHeight: 24, windowWidth: 320 }), getMenuButtonBoundingClientRect: () => ({ top: 0, left: 0, height: 0 }) }), { statusBarHeight: 24, navBarHeight: 44, navContentWidth: 180 })

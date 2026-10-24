@@ -138,8 +138,8 @@ for (const [index, [objectName, photo, legacyFile]] of verifiedPulisiPhotos.entr
     const rendered = renderElements(tree, { ...t.page.data, uploadRecoveryCases: [] }, { includeText: true })
     assert.strictEqual(t.page.data.viewList[0].imageUrl, photo)
     // WXML投影保留属性绑定原文；同时钉住目录状态与可见图片节点，不当作原生图片加载。
-    assert(rendered.some(row => row.tag === 'image' && row.attrs.src === '{{item.imageUrl}}' && row.attrs.mode === 'aspectFill'))
-    assert(!rendered.some(row => row.text === '商品图待补'))
+    assert(rendered.some(row => row.tag === 'image' && row.attrs.src === '{{item.imageUrl}}' && row.attrs.mode === 'aspectFit'))
+    assert(!rendered.some(row => row.text === '暂无图片'))
     t.state.presets = [{ key: templates[index].imagePresetKey, objectName, path: photo }]
     await t.page.loadWaterTemplateImages(); t.page.onUseWaterTemplate(event(templates[index].id))
     assert.strictEqual(t.page.data.editForm.imageUrl, photo)
@@ -161,7 +161,7 @@ test('a same-name station custom product keeps its own missing image instead of 
   assert.strictEqual(t.page.data.viewList[0].imageUrl, null)
   const tree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/products/index.wxml'), 'utf8'))
   const rendered = renderElements(tree, { ...t.page.data, uploadRecoveryCases: [] }, { includeText: true })
-  assert(rendered.some(row => row.text === '商品图待补'))
+  assert(rendered.some(row => row.text === '暂无图片'))
   assert.strictEqual(t.calls.length, 0)
 })
 test('missing signed preview keeps a labelled fallback and never turns a URL into an object key', () => {
@@ -272,7 +272,7 @@ for (const file of ['pages/home/index.wxml', 'pages/shop/index.wxml', 'pages/ord
 }
 test('manager template cards expose actual handlers and the editable field/notice', () => {
   const t = fixture(), tree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/products/index.wxml'), 'utf8'))
-  const rows = renderElements(tree, { ...t.page.data, uploadRecoveryCases: [] }, { includeText: true })
+  const rows = renderElements(tree, { ...t.page.data, loading: false, showWaterTemplates: true, uploadRecoveryCases: [] }, { includeText: true })
   assert.strictEqual(rows.filter(row => row.attrs.bindtap === 'onUseWaterTemplate').length, 3)
   t.page.onUseWaterTemplate(event(templates[0].id))
   const edit = renderElements(tree, { ...t.page.data, uploadRecoveryCases: [] }, { includeText: true })

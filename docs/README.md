@@ -75,3 +75,5 @@ AI 协作约束在 [AGENTS](../AGENTS.md)，安全边界在 [SECURITY](../SECURI
 该批第10项权限内名称的后端收尾、合法缺名兜底及统一上传清单见[名称字段交接](audit/scoped-name-completion-20261024.md)；本次无迁移/新配置，实际MySQL及手机验收边界单列。
 
 2026-10-24 用户交回Qwen交互报告的回桶/收款事实、误报澄清、有限修复及验证边界见[交互报告复核](audit/qwen-interaction-review-20261024.md)和[机读处置记录](audit/qwen-interaction-review-20261024.json)，不以源码检查代替原生视觉或生产验收。
+
+2026-10-24 四张手机反馈的目录层级、顾客首页、选站错误出口及上传诊断交接见[本轮手机修复记录](audit/phone-catalog-home-20261024.md)。上传实机失败原因尚缺同次响应，未认定权限问题；本批只改双端，无后端重传。

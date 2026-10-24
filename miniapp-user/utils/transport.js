@@ -3,6 +3,14 @@
 const { getTransportConfig } = require('../config/api')
 let initialization = null
 
+function cloudFailure(error, phase, dispatched) {
+  return {
+    errMsg: phase === 'init' ? '云连接初始化未成功，请核实环境关联后重试' : '云连接失败，请核实环境关联与服务访问权限后重试',
+    requestMayHaveOccurred: dispatched, transportPhase: phase,
+    cloudErrorCode: error && Number.isSafeInteger(error.errCode) ? error.errCode : null
+  }
+}
+
 function queryPath(path, query) {
   if (!query) return path
   const qs = Object.keys(query).filter(k => query[k] !== undefined && query[k] !== null)
@@ -69,13 +77,13 @@ function send(options) {
   }
   // 2026-10-13: SDK timeout is not proof of rollback. Bound initialization + invocation locally,
   // ignore late results, and never automatically replay a cloud failure through another route.
-  const timer = setTimeout(() => finish('fail', { errMsg: 'request:fail timeout', requestMayHaveOccurred: dispatched }), timeout)
+  const timer = setTimeout(() => finish('fail', { errMsg: 'request:fail timeout', requestMayHaveOccurred: dispatched, transportPhase: 'timeout' }), timeout)
   const task = { abort: () => finish('fail', {
     errMsg: '网络请求已停止等待，结果仍需核实', localOnly: true, requestMayHaveOccurred: dispatched
   }) }
   let ready
   try { ready = readyCloud(config) } catch (error) {
-    finish('fail', { errMsg: error.message, transportConfiguration: true })
+    finish('fail', { ...cloudFailure(error, 'init', false), errMsg: error.message, transportConfiguration: true })
     return task
   }
   ready.then(client => {
@@ -89,8 +97,8 @@ function send(options) {
       dispatched = true
       call = client.callContainer({ path, method: options.method || 'GET', data: options.data,
         header: { ...options.header, 'X-WX-SERVICE': config.service }, dataType: 'json', timeout })
-    } catch (_) {
-      finish('fail', { errMsg: '云连接失败，请核实环境关联与服务访问权限后重试', requestMayHaveOccurred: true })
+    } catch (error) {
+      finish('fail', cloudFailure(error, 'call', true))
       return
     }
     if (!call || typeof call.then !== 'function') {
@@ -101,8 +109,8 @@ function send(options) {
       // Keep HTTP status and project envelope intact, including malformed responses for existing guards.
       finish('success', result && typeof result === 'object'
         ? { statusCode: result.statusCode, data: result.data, header: result.header } : result)
-    }, () => finish('fail', { errMsg: '云连接失败，请核实环境关联与服务访问权限后重试', requestMayHaveOccurred: true }))
-  }, () => finish('fail', { errMsg: '云连接初始化未成功，请核实环境关联后重试', requestMayHaveOccurred: false }))
+    }, error => finish('fail', cloudFailure(error, 'call', true)))
+  }, error => finish('fail', cloudFailure(error, 'init', false)))
   return task
 }
 

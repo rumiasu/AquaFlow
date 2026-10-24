@@ -20,6 +20,7 @@ const businessRules = require('../../../api/business-rules')
 const { API, getTransportConfig } = require('../../../config/api')
 const inboundIntent = require('../../../utils/inbound-intent')
 const { inventoryTypeText } = require('../../../utils/display-message')
+const { uploadDiagnostic, diagnosticText } = require('../../../utils/upload-diagnostic')
 // ⚠️ 水票档位这两个路径直接写常量、不往 api/station-mgmt.js 里加：那个文件正被另一个
 // 工作流（商品图片库）改动，加函数会让两边未提交的改动纠缠在一起。
 const { get, post, del, captureSession } = require('../../../utils/request')
@@ -134,6 +135,7 @@ Page({
     showSubmissions: false, submissionsLoading: false, submissionsError: '', submissionsReady: false,
     submissions: [],
     waterTemplates: WATER_PRODUCT_TEMPLATES,
+    showWaterTemplates: false,
     templateImage: TEMPLATE_IMAGE,
     imageNotice: IMAGE_NOTICE, brokenImages: {},
     editTemplateId: ''
@@ -955,11 +957,22 @@ Page({
 
   /* ==================== 自己定义商品 ==================== */
 
+  onToggleWaterTemplates() {
+    if (this.data.loading || this.data.loadError) return
+    const showWaterTemplates = !this.data.showWaterTemplates
+    this.setData({ showWaterTemplates }, () => {
+      if (showWaterTemplates && typeof wx.pageScrollTo === 'function') {
+        wx.pageScrollTo({ selector: '.water-templates', duration: 200 })
+      }
+    })
+  },
+
   /** 优先复用精确公共SKU；否则只填本站新商品草稿，不发创建/上传请求。 */
   onUseWaterTemplate(e) {
     if (this.data.saving || this.data.uploading || !getApp().canAccessStationBusiness()) return
     const template = this.data.waterTemplates.find(item => item.id === e.currentTarget.dataset.id)
     if (!template) return
+    this.setData({ showWaterTemplates: false })
     const matches = matchingCatalogProducts(template, this.data.list)
     if (matches.length === 1) {
       const item = matches[0]
@@ -978,7 +991,7 @@ Page({
   onEditWaterTemplate(e) {
     if (this.data.saving || this.data.uploading || !getApp().canAccessStationBusiness()) return
     const template = this.data.waterTemplates.find(item => item.id === e.currentTarget.dataset.id)
-    if (template) this.openWaterTemplateDraft(template)
+    if (template) { this.setData({ showWaterTemplates: false }); this.openWaterTemplateDraft(template) }
   },
 
   openWaterTemplateDraft(template) {
@@ -1133,6 +1146,7 @@ Page({
     for (const field of ['isAdd','editId','editForm','editTemplateId','editCategoryIndex','pkgRows','pkgReady','pkgError','pkgProductId','productImagePreviewUrl']) snapshot[field] = this.data[field]
     snapshot._imageChoice = this._productImageChoiceSeq || 0
     snapshot._imageFailed = !!(this._productImageFailure && this._productImageFailure.draftId === this._uploadDraftId)
+    snapshot._imageDiagnostic = snapshot._imageFailed ? this._productImageFailure.diagnostic : null
     snapshot._previewUnavailable = !!(this._productPreviewUnavailable && this._productPreviewUnavailable.draftId === this._uploadDraftId)
     drafts.set(productSession().key + ':' + this._uploadDraftId, JSON.parse(JSON.stringify(snapshot)))
   },
@@ -1141,9 +1155,9 @@ Page({
     const snapshot = this._productEditorDrafts && this._productEditorDrafts.get(productSession().key + ':' + id)
     if (snapshot) {
       const restored = JSON.parse(JSON.stringify(snapshot))
-      this._productImageFailure = restored._imageFailed ? { draftId: id } : null
+      this._productImageFailure = restored._imageFailed ? { draftId: id, diagnostic: restored._imageDiagnostic } : null
       this._productPreviewUnavailable = restored._previewUnavailable ? { draftId: id } : null
-      delete restored._imageChoice; delete restored._imageFailed; delete restored._previewUnavailable
+      delete restored._imageChoice; delete restored._imageFailed; delete restored._previewUnavailable; delete restored._imageDiagnostic
       this.setData({ ...restored, showEdit: true })
     }
   },
@@ -1403,6 +1417,14 @@ Page({
     return this.uploadImage(this.data.productImagePreviewUrl)
   },
 
+  onCopyProductImageProblem() {
+    if (this.data.productImageState !== 'failed' || !this._productEditOwner || !sameProductSession(this._productEditOwner)) return
+    const diagnostic = this._productImageFailure && this._productImageFailure.diagnostic
+    wx.setClipboardData({ data: diagnosticText(diagnostic),
+      success: () => wx.showToast({ title: '问题信息已复制', icon: 'none' }),
+      fail: () => wx.showToast({ title: '未能复制，请重试', icon: 'none' }) })
+  },
+
   async uploadImage(event) {
     if (this.data.productCreationPending) return
     this.refreshProductImageState()
@@ -1466,19 +1488,14 @@ Page({
           }
         } catch (err) {
           // 仅固定诊断码/数值状态可出日志；不得带本地路径、预览URL、账号或服务原文。
-          const diagnostics = ['UPLOAD_LOGIN_REQUIRED','UPLOAD_FILE_TOO_LARGE','UPLOAD_FILE_TYPE_INVALID','UPLOAD_STORAGE_UNAVAILABLE','UPLOAD_STORAGE_UNCONFIRMED','UPLOAD_PREVIEW_UNAVAILABLE','UPLOAD_RECEIPT_INCOMPLETE']
-          console.warn('[product-image-upload]', {
-            statusCode: Number.isInteger(err.statusCode) ? err.statusCode : null,
-            backendCode: Number.isInteger(err.backendCode) ? err.backendCode : null,
-            uploadDiagnosticCode: diagnostics.includes(err.uploadDiagnosticCode) ? err.uploadDiagnosticCode : null,
-            uploadOutcomeUnknown: !!err.uploadOutcomeUnknown
-          })
+          const diagnostic = uploadDiagnostic(err)
+          console.warn('[product-image-upload]', diagnostic)
           if (!isUploadSessionCurrent(res.uploadSession) || !sameProductSession(task.session)) return
           const snapshots = this._productEditorDrafts, savedKey = task.session.key + ':' + uploadDraftId
           const saved = snapshots && snapshots.get(savedKey)
-          if (saved && saved._imageChoice === task.choice) { saved._imageFailed = true; snapshots.set(savedKey, saved) }
+          if (saved && saved._imageChoice === task.choice) { saved._imageFailed = true; saved._imageDiagnostic = diagnostic; snapshots.set(savedKey, saved) }
           if (!current()) return
-          this._productImageFailure = { draftId: uploadDraftId }
+          this._productImageFailure = { draftId: uploadDraftId, diagnostic }
           wx.showToast({ title: '图片上传失败，可重试', icon: 'none' })
         } finally {
           settled()

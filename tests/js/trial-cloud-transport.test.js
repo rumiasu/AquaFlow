@@ -112,7 +112,9 @@ for (const side of ['miniapp-user', 'miniapp-delivery']) {
     if (kind === 'SDK') delete t.wx.cloud
     if (kind === 'init-method' || kind === 'call-method') t.wx.cloud.Cloud = class { constructor() { this.init = () => Promise.resolve(); this.callContainer = () => Promise.resolve(ok()); delete this[kind === 'init-method' ? 'init' : 'callContainer'] } }
     const state = observed(t.request.get('/api/test')); await flush()
-    assert(state.error); assert.match(state.error.message, /未配置|缺少|不支持/)
+    assert(state.error); assert.match(state.error.message, /未配置|缺少|不支持|服务暂不可用/)
+    assert.strictEqual(state.error.transportConfiguration, true)
+    assert.notStrictEqual(state.error.requestMayHaveOccurred, true)
     assert.strictEqual(t.calls.length, 0); assert.strictEqual(t.http.length, 0)
   })
   test(side + ': failed initialization is retryable only on an explicit later request', async () => {

@@ -1,0 +1,1178 @@
+{
+  "baseline": "88aedb0",
+  "scope": "Actual WXML/WXSS; synthetic data; static Chromium only; no native SDK, keyboard, back or live upload proof",
+  "results": [
+    {
+      "name": "before-catalog-phone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "before": true,
+      "scenario": "catalog",
+      "viewport": 375,
+      "scrollWidth": 375,
+      "top": {
+        "left": 12,
+        "right": 363,
+        "top": 12,
+        "bottom": 323.796875,
+        "height": 311.796875,
+        "width": 351
+      },
+      "card": {
+        "left": 24,
+        "right": 351,
+        "top": 335.796875,
+        "bottom": 622.875,
+        "height": 287.078125,
+        "width": 327
+      },
+      "info": {
+        "left": 111,
+        "right": 338,
+        "top": 348.796875,
+        "bottom": 452.875,
+        "height": 104.078125,
+        "width": 227
+      },
+      "action": {
+        "left": 37,
+        "right": 338,
+        "top": 460.875,
+        "bottom": 609.875,
+        "height": 149,
+        "width": 301
+      },
+      "footer": {
+        "left": 0,
+        "right": 375,
+        "top": 635,
+        "bottom": 720,
+        "height": 85,
+        "width": 375
+      },
+      "create": {
+        "left": 12,
+        "right": 363,
+        "top": 646,
+        "bottom": 694,
+        "height": 48,
+        "width": 351
+      },
+      "templateEntry": null,
+      "templates": 1,
+      "placeholderFont": 22,
+      "nav": null,
+      "heading": null,
+      "stationPicker": null,
+      "overflowing": []
+    },
+    {
+      "name": "after-catalog-phone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "before": false,
+      "scenario": "catalog",
+      "viewport": 375,
+      "scrollWidth": 375,
+      "top": {
+        "left": 12,
+        "right": 363,
+        "top": 12,
+        "bottom": 253,
+        "height": 241,
+        "width": 351
+      },
+      "card": {
+        "left": 24,
+        "right": 351,
+        "top": 265,
+        "bottom": 439.078125,
+        "height": 174.078125,
+        "width": 327
+      },
+      "info": {
+        "left": 101,
+        "right": 340,
+        "top": 276,
+        "bottom": 428.078125,
+        "height": 152.078125,
+        "width": 239
+      },
+      "action": {
+        "left": 101,
+        "right": 340,
+        "top": 380.078125,
+        "bottom": 428.078125,
+        "height": 48,
+        "width": 239
+      },
+      "footer": {
+        "left": 0,
+        "right": 375,
+        "top": 635,
+        "bottom": 720,
+        "height": 85,
+        "width": 375
+      },
+      "create": {
+        "left": 106,
+        "right": 363,
+        "top": 646,
+        "bottom": 694,
+        "height": 48,
+        "width": 257
+      },
+      "templateEntry": {
+        "left": 12,
+        "right": 98,
+        "top": 646,
+        "bottom": 694,
+        "height": 48,
+        "width": 86
+      },
+      "templates": 0,
+      "placeholderFont": 12,
+      "nav": null,
+      "heading": null,
+      "stationPicker": null,
+      "overflowing": []
+    },
+    {
+      "name": "before-templates-phone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "before": true,
+      "scenario": "templates",
+      "viewport": 375,
+      "scrollWidth": 375,
+      "top": {
+        "left": 12,
+        "right": 363,
+        "top": -928,
+        "bottom": -616.203125,
+        "height": 311.796875,
+        "width": 351
+      },
+      "card": {
+        "left": 24,
+        "right": 351,
+        "top": -604.203125,
+        "bottom": -317.125,
+        "height": 287.078125,
+        "width": 327
+      },
+      "info": {
+        "left": 111,
+        "right": 338,
+        "top": -591.203125,
+        "bottom": -487.125,
+        "height": 104.078125,
+        "width": 227
+      },
+      "action": {
+        "left": 37,
+        "right": 338,
+        "top": -479.125,
+        "bottom": -330.125,
+        "height": 149,
+        "width": 301
+      },
+      "footer": {
+        "left": 0,
+        "right": 375,
+        "top": 635,
+        "bottom": 720,
+        "height": 85,
+        "width": 375
+      },
+      "create": {
+        "left": 12,
+        "right": 363,
+        "top": 646,
+        "bottom": 694,
+        "height": 48,
+        "width": 351
+      },
+      "templateEntry": null,
+      "templates": 1,
+      "placeholderFont": 22,
+      "nav": null,
+      "heading": null,
+      "stationPicker": null,
+      "overflowing": []
+    },
+    {
+      "name": "after-templates-phone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "before": false,
+      "scenario": "templates",
+      "viewport": 375,
+      "scrollWidth": 375,
+      "top": {
+        "left": 12,
+        "right": 363,
+        "top": -713,
+        "bottom": -472,
+        "height": 241,
+        "width": 351
+      },
+      "card": {
+        "left": 24,
+        "right": 351,
+        "top": -460,
+        "bottom": -285.921875,
+        "height": 174.078125,
+        "width": 327
+      },
+      "info": {
+        "left": 101,
+        "right": 340,
+        "top": -449,
+        "bottom": -296.921875,
+        "height": 152.078125,
+        "width": 239
+      },
+      "action": {
+        "left": 101,
+        "right": 340,
+        "top": -344.921875,
+        "bottom": -296.921875,
+        "height": 48,
+        "width": 239
+      },
+      "footer": {
+        "left": 0,
+        "right": 375,
+        "top": 635,
+        "bottom": 720,
+        "height": 85,
+        "width": 375
+      },
+      "create": {
+        "left": 92,
+        "right": 363,
+        "top": 646,
+        "bottom": 694,
+        "height": 48,
+        "width": 271
+      },
+      "templateEntry": {
+        "left": 12,
+        "right": 84,
+        "top": 646,
+        "bottom": 694,
+        "height": 48,
+        "width": 72
+      },
+      "templates": 1,
+      "placeholderFont": 12,
+      "nav": null,
+      "heading": null,
+      "stationPicker": null,
+      "overflowing": []
+    },
+    {
+      "name": "before-home-phone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "before": true,
+      "scenario": "home",
+      "viewport": 375,
+      "scrollWidth": 375,
+      "top": null,
+      "card": {
+        "left": 12,
+        "right": 363,
+        "top": 128,
+        "bottom": 413.09375,
+        "height": 285.09375,
+        "width": 351
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 12,
+        "right": 247,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 235
+      },
+      "heading": {
+        "left": 12,
+        "right": 363,
+        "top": 74,
+        "bottom": 116,
+        "height": 42,
+        "width": 351
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 375,
+        "top": 720,
+        "bottom": 873,
+        "height": 153,
+        "width": 375
+      },
+      "overflowing": []
+    },
+    {
+      "name": "after-home-phone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "before": false,
+      "scenario": "home",
+      "viewport": 375,
+      "scrollWidth": 375,
+      "top": null,
+      "card": {
+        "left": 12,
+        "right": 363,
+        "top": 151,
+        "bottom": 436.09375,
+        "height": 285.09375,
+        "width": 351
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 12,
+        "right": 247,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 235
+      },
+      "heading": {
+        "left": 12,
+        "right": 363,
+        "top": 74,
+        "bottom": 139,
+        "height": 65,
+        "width": 351
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 375,
+        "top": 720,
+        "bottom": 873,
+        "height": 153,
+        "width": 375
+      },
+      "overflowing": []
+    },
+    {
+      "name": "before-home-selected-phone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "before": true,
+      "scenario": "home-selected",
+      "viewport": 375,
+      "scrollWidth": 375,
+      "top": null,
+      "card": {
+        "left": 12,
+        "right": 363,
+        "top": 141,
+        "bottom": 185,
+        "height": 44,
+        "width": 351
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 12,
+        "right": 247,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 235
+      },
+      "heading": {
+        "left": 12,
+        "right": 363,
+        "top": 74,
+        "bottom": 137,
+        "height": 63,
+        "width": 351
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 375,
+        "top": 720,
+        "bottom": 873,
+        "height": 153,
+        "width": 375
+      },
+      "overflowing": []
+    },
+    {
+      "name": "after-home-selected-phone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "before": false,
+      "scenario": "home-selected",
+      "viewport": 375,
+      "scrollWidth": 375,
+      "top": null,
+      "card": {
+        "left": 12,
+        "right": 363,
+        "top": 163,
+        "bottom": 207,
+        "height": 44,
+        "width": 351
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 12,
+        "right": 247,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 235
+      },
+      "heading": {
+        "left": 12,
+        "right": 363,
+        "top": 74,
+        "bottom": 159,
+        "height": 85,
+        "width": 351
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 375,
+        "top": 720,
+        "bottom": 873,
+        "height": 153,
+        "width": 375
+      },
+      "overflowing": []
+    },
+    {
+      "name": "before-station-error-phone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "before": true,
+      "scenario": "station-error",
+      "viewport": 375,
+      "scrollWidth": 375,
+      "top": null,
+      "card": {
+        "left": 12,
+        "right": 363,
+        "top": 128,
+        "bottom": 413.09375,
+        "height": 285.09375,
+        "width": 351
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 12,
+        "right": 247,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 235
+      },
+      "heading": {
+        "left": 12,
+        "right": 363,
+        "top": 74,
+        "bottom": 116,
+        "height": 42,
+        "width": 351
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 375,
+        "top": 513,
+        "bottom": 720,
+        "height": 207,
+        "width": 375
+      },
+      "overflowing": []
+    },
+    {
+      "name": "after-station-error-phone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "before": false,
+      "scenario": "station-error",
+      "viewport": 375,
+      "scrollWidth": 375,
+      "top": null,
+      "card": {
+        "left": 12,
+        "right": 363,
+        "top": 151,
+        "bottom": 436.09375,
+        "height": 285.09375,
+        "width": 351
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 12,
+        "right": 247,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 235
+      },
+      "heading": {
+        "left": 12,
+        "right": 363,
+        "top": 74,
+        "bottom": 139,
+        "height": 65,
+        "width": 351
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 375,
+        "top": 513,
+        "bottom": 720,
+        "height": 207,
+        "width": 375
+      },
+      "overflowing": []
+    },
+    {
+      "name": "before-catalog-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": true,
+      "scenario": "catalog",
+      "viewport": 320,
+      "scrollWidth": 339,
+      "top": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 10.234375,
+        "bottom": 324.375,
+        "height": 314.140625,
+        "width": 299.53125
+      },
+      "card": {
+        "left": 20.46875,
+        "right": 299.53125,
+        "top": 334.609375,
+        "bottom": 657.203125,
+        "height": 322.59375,
+        "width": 279.0625
+      },
+      "info": {
+        "left": 94.828125,
+        "right": 288.296875,
+        "top": 345.84375,
+        "bottom": 511.9375,
+        "height": 166.09375,
+        "width": 193.46875
+      },
+      "action": {
+        "left": 31.703125,
+        "right": 288.296875,
+        "top": 518.75,
+        "bottom": 645.96875,
+        "height": 127.21875,
+        "width": 256.59375
+      },
+      "footer": {
+        "left": 0,
+        "right": 320,
+        "top": 491.921875,
+        "bottom": 568,
+        "height": 76.078125,
+        "width": 320
+      },
+      "create": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 501.453125,
+        "bottom": 543.46875,
+        "height": 42.015625,
+        "width": 299.53125
+      },
+      "templateEntry": null,
+      "templates": 1,
+      "placeholderFont": 24.4053,
+      "nav": null,
+      "heading": null,
+      "stationPicker": null,
+      "overflowing": [
+        {
+          "tag": "SPAN",
+          "cls": "name",
+          "right": 339.171875
+        }
+      ]
+    },
+    {
+      "name": "after-catalog-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": false,
+      "scenario": "catalog",
+      "viewport": 320,
+      "scrollWidth": 320,
+      "top": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 10.234375,
+        "bottom": 248.5625,
+        "height": 238.328125,
+        "width": 299.53125
+      },
+      "card": {
+        "left": 20.46875,
+        "right": 299.53125,
+        "top": 258.796875,
+        "bottom": 505.328125,
+        "height": 246.53125,
+        "width": 279.0625
+      },
+      "info": {
+        "left": 86.3125,
+        "right": 290,
+        "top": 268.328125,
+        "bottom": 495.796875,
+        "height": 227.46875,
+        "width": 203.6875
+      },
+      "action": {
+        "left": 86.3125,
+        "right": 290,
+        "top": 402.6875,
+        "bottom": 495.796875,
+        "height": 93.109375,
+        "width": 203.6875
+      },
+      "footer": {
+        "left": 0,
+        "right": 320,
+        "top": 485.9375,
+        "bottom": 568,
+        "height": 82.0625,
+        "width": 320
+      },
+      "create": {
+        "left": 121.625,
+        "right": 309.765625,
+        "top": 495.46875,
+        "bottom": 543.46875,
+        "height": 48,
+        "width": 188.140625
+      },
+      "templateEntry": {
+        "left": 10.234375,
+        "right": 114.8125,
+        "top": 495.46875,
+        "bottom": 543.46875,
+        "height": 48,
+        "width": 104.578125
+      },
+      "templates": 0,
+      "placeholderFont": 13.312,
+      "nav": null,
+      "heading": null,
+      "stationPicker": null,
+      "overflowing": []
+    },
+    {
+      "name": "before-templates-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": true,
+      "scenario": "templates",
+      "viewport": 320,
+      "scrollWidth": 339,
+      "top": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": -1048.765625,
+        "bottom": -734.625,
+        "height": 314.140625,
+        "width": 299.53125
+      },
+      "card": {
+        "left": 20.46875,
+        "right": 299.53125,
+        "top": -724.390625,
+        "bottom": -401.796875,
+        "height": 322.59375,
+        "width": 279.0625
+      },
+      "info": {
+        "left": 94.828125,
+        "right": 288.296875,
+        "top": -713.15625,
+        "bottom": -547.0625,
+        "height": 166.09375,
+        "width": 193.46875
+      },
+      "action": {
+        "left": 31.703125,
+        "right": 288.296875,
+        "top": -540.25,
+        "bottom": -413.03125,
+        "height": 127.21875,
+        "width": 256.59375
+      },
+      "footer": {
+        "left": 0,
+        "right": 320,
+        "top": 491.921875,
+        "bottom": 568,
+        "height": 76.078125,
+        "width": 320
+      },
+      "create": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 501.453125,
+        "bottom": 543.46875,
+        "height": 42.015625,
+        "width": 299.53125
+      },
+      "templateEntry": null,
+      "templates": 1,
+      "placeholderFont": 24.4053,
+      "nav": null,
+      "heading": null,
+      "stationPicker": null,
+      "overflowing": [
+        {
+          "tag": "SPAN",
+          "cls": "name",
+          "right": 339.171875
+        }
+      ]
+    },
+    {
+      "name": "after-templates-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": false,
+      "scenario": "templates",
+      "viewport": 320,
+      "scrollWidth": 320,
+      "top": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": -906.765625,
+        "bottom": -668.4375,
+        "height": 238.328125,
+        "width": 299.53125
+      },
+      "card": {
+        "left": 20.46875,
+        "right": 299.53125,
+        "top": -658.203125,
+        "bottom": -411.671875,
+        "height": 246.53125,
+        "width": 279.0625
+      },
+      "info": {
+        "left": 86.3125,
+        "right": 290,
+        "top": -648.671875,
+        "bottom": -421.203125,
+        "height": 227.46875,
+        "width": 203.6875
+      },
+      "action": {
+        "left": 86.3125,
+        "right": 290,
+        "top": -514.3125,
+        "bottom": -421.203125,
+        "height": 93.109375,
+        "width": 203.6875
+      },
+      "footer": {
+        "left": 0,
+        "right": 320,
+        "top": 485.9375,
+        "bottom": 568,
+        "height": 82.0625,
+        "width": 320
+      },
+      "create": {
+        "left": 103.4375,
+        "right": 309.765625,
+        "top": 495.46875,
+        "bottom": 543.46875,
+        "height": 48,
+        "width": 206.328125
+      },
+      "templateEntry": {
+        "left": 10.234375,
+        "right": 96.625,
+        "top": 495.46875,
+        "bottom": 543.46875,
+        "height": 48,
+        "width": 86.390625
+      },
+      "templates": 1,
+      "placeholderFont": 13.312,
+      "nav": null,
+      "heading": null,
+      "stationPicker": null,
+      "overflowing": []
+    },
+    {
+      "name": "before-home-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": true,
+      "scenario": "home",
+      "viewport": 320,
+      "scrollWidth": 320,
+      "top": null,
+      "card": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 125.96875,
+        "bottom": 393.703125,
+        "height": 267.734375,
+        "width": 299.53125
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 10.234375,
+        "right": 190.234375,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 180
+      },
+      "heading": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 73.109375,
+        "bottom": 115.734375,
+        "height": 42.625,
+        "width": 299.53125
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 320,
+        "top": 568,
+        "bottom": 701.96875,
+        "height": 133.96875,
+        "width": 320
+      },
+      "overflowing": []
+    },
+    {
+      "name": "after-home-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": false,
+      "scenario": "home",
+      "viewport": 320,
+      "scrollWidth": 320,
+      "top": null,
+      "card": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 150.296875,
+        "bottom": 418.03125,
+        "height": 267.734375,
+        "width": 299.53125
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 10.234375,
+        "right": 190.234375,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 180
+      },
+      "heading": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 73.109375,
+        "bottom": 140.0625,
+        "height": 66.953125,
+        "width": 299.53125
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 320,
+        "top": 568,
+        "bottom": 701.96875,
+        "height": 133.96875,
+        "width": 320
+      },
+      "overflowing": []
+    },
+    {
+      "name": "before-home-selected-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": true,
+      "scenario": "home-selected",
+      "viewport": 320,
+      "scrollWidth": 320,
+      "top": null,
+      "card": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 142.140625,
+        "bottom": 182.203125,
+        "height": 40.0625,
+        "width": 299.53125
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 10.234375,
+        "right": 190.234375,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 180
+      },
+      "heading": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 73.109375,
+        "bottom": 138.734375,
+        "height": 65.625,
+        "width": 299.53125
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 320,
+        "top": 568,
+        "bottom": 701.96875,
+        "height": 133.96875,
+        "width": 320
+      },
+      "overflowing": []
+    },
+    {
+      "name": "after-home-selected-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": false,
+      "scenario": "home-selected",
+      "viewport": 320,
+      "scrollWidth": 320,
+      "top": null,
+      "card": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 165.515625,
+        "bottom": 205.578125,
+        "height": 40.0625,
+        "width": 299.53125
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 10.234375,
+        "right": 190.234375,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 180
+      },
+      "heading": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 73.109375,
+        "bottom": 162.109375,
+        "height": 89,
+        "width": 299.53125
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 320,
+        "top": 568,
+        "bottom": 701.96875,
+        "height": 133.96875,
+        "width": 320
+      },
+      "overflowing": []
+    },
+    {
+      "name": "before-station-error-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": true,
+      "scenario": "station-error",
+      "viewport": 320,
+      "scrollWidth": 320,
+      "top": null,
+      "card": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 125.96875,
+        "bottom": 393.703125,
+        "height": 267.734375,
+        "width": 299.53125
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 10.234375,
+        "right": 190.234375,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 180
+      },
+      "heading": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 73.109375,
+        "bottom": 115.734375,
+        "height": 42.625,
+        "width": 299.53125
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 320,
+        "top": 387.96875,
+        "bottom": 568,
+        "height": 180.03125,
+        "width": 320
+      },
+      "overflowing": []
+    },
+    {
+      "name": "after-station-error-small-large-font",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": false,
+      "scenario": "station-error",
+      "viewport": 320,
+      "scrollWidth": 320,
+      "top": null,
+      "card": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 150.296875,
+        "bottom": 418.03125,
+        "height": 267.734375,
+        "width": 299.53125
+      },
+      "info": null,
+      "action": null,
+      "footer": null,
+      "create": null,
+      "templateEntry": null,
+      "templates": 0,
+      "placeholderFont": null,
+      "nav": {
+        "left": 10.234375,
+        "right": 190.234375,
+        "top": 24,
+        "bottom": 68,
+        "height": 44,
+        "width": 180
+      },
+      "heading": {
+        "left": 10.234375,
+        "right": 309.765625,
+        "top": 73.109375,
+        "bottom": 140.0625,
+        "height": 66.953125,
+        "width": 299.53125
+      },
+      "stationPicker": {
+        "left": 0,
+        "right": 320,
+        "top": 387.96875,
+        "bottom": 568,
+        "height": 180.03125,
+        "width": 320
+      },
+      "overflowing": []
+    }
+  ]
+}

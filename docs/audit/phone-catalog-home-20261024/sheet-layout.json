@@ -1,0 +1,122 @@
+{
+  "scope": "Static Chromium mapping of real WXML/WXSS; synthetic form; no native WeChat/keyboard/Back proof",
+  "results": [
+    {
+      "name": "small",
+      "width": 320,
+      "height": 568,
+      "scale": 1,
+      "sheet": {
+        "top": 56,
+        "bottom": 560,
+        "left": 0,
+        "right": 320,
+        "height": 504
+      },
+      "close": {
+        "top": 62.828125,
+        "bottom": 106.828125,
+        "left": 253.171875,
+        "right": 313.171875,
+        "height": 44
+      },
+      "footer": {
+        "top": 488.421875,
+        "bottom": 560,
+        "left": 0,
+        "right": 320,
+        "height": 71.578125
+      },
+      "body": {
+        "top": 137.515625,
+        "bottom": 488.421875,
+        "left": 0,
+        "right": 320,
+        "height": 350.90625
+      },
+      "before": 0,
+      "after": 626,
+      "overflow": true,
+      "closeStripHit": "closeEdit",
+      "insideCloses": false
+    },
+    {
+      "name": "keyboard-large-font",
+      "width": 320,
+      "height": 308,
+      "scale": 1.3,
+      "sheet": {
+        "top": 56,
+        "bottom": 300,
+        "left": 0,
+        "right": 320,
+        "height": 244
+      },
+      "close": {
+        "top": 62.828125,
+        "bottom": 106.828125,
+        "left": 253.171875,
+        "right": 313.171875,
+        "height": 44
+      },
+      "footer": {
+        "top": 227.359375,
+        "bottom": 300,
+        "left": 0,
+        "right": 320,
+        "height": 72.640625
+      },
+      "body": {
+        "top": 142.828125,
+        "bottom": 227.359375,
+        "left": 0,
+        "right": 320,
+        "height": 84.53125
+      },
+      "before": 0,
+      "after": 898,
+      "overflow": true,
+      "closeStripHit": "closeEdit",
+      "insideCloses": false
+    },
+    {
+      "name": "phone",
+      "width": 375,
+      "height": 720,
+      "scale": 1,
+      "sheet": {
+        "top": 56,
+        "bottom": 712,
+        "left": 0,
+        "right": 375,
+        "height": 656
+      },
+      "close": {
+        "top": 64,
+        "bottom": 108,
+        "left": 307,
+        "right": 367,
+        "height": 44
+      },
+      "footer": {
+        "top": 631,
+        "bottom": 712,
+        "left": 0,
+        "right": 375,
+        "height": 81
+      },
+      "body": {
+        "top": 143.796875,
+        "bottom": 631,
+        "left": 0,
+        "right": 375,
+        "height": 487.203125
+      },
+      "before": 0,
+      "after": 658,
+      "overflow": true,
+      "closeStripHit": "closeEdit",
+      "insideCloses": false
+    }
+  ]
+}

@@ -13,6 +13,7 @@ const { storage, stationStorage, payMethodStorage } = require('../../utils/stora
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
 const { itemUnit } = require('../../utils/order-item-view')
+const { displayMessage } = require('../../utils/display-message')
 const { homeNavLayout, catalogState } = require('./home-view-state')
 
 // 金额展示：整数不带小数点，非整数保留两位（纯展示，不涉及计算口径）
@@ -385,19 +386,18 @@ Page({
       const res = await getPublicStations()
       if (!current()) return
       // 业务失败仍是 HTTP 200，一律判 body.code（AGENTS §8.1）；code!=0 也要出声，不能沿用旧列表
-      if (res && res.code === 0 && res.data) {
+      if (res && res.code === 0 && Array.isArray(res.data)) {
         const activeStations = res.data.filter(s => s.status === 1)
         this.setData({ stationList: activeStations, stationListError: '' })
       } else {
-        const msg = (res && res.message) || '服务端返回异常'
-        console.warn('[home] 水站列表返回非成功响应:', msg)
-        this.setData({ stationList: [], stationListError: msg })
+        console.warn('[home] 水站列表返回非成功响应:', res)
+        this.setData({ stationList: [], stationListError: displayMessage(res && res.message, '水站列表暂时无法加载，请稍后重试') })
       }
     } catch (e) {
       if (!current()) return
       console.error('[home] 加载水站列表失败:', e)
       // 2026-10-20：旧列表仍可点击且遮住失败提示；失败须清行，不能把过期候选冒充本次读取成功。
-      this.setData({ stationList: [], stationListError: (e && e.message) || '网络异常' })
+      this.setData({ stationList: [], stationListError: displayMessage(e && e.message, '水站列表暂时无法加载，请稍后重试') })
       wx.showToast({ title: '水站列表没加载出来，请重试', icon: 'none' })
     } finally {
       if (current()) this.setData({ stationListLoading: false })

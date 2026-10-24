@@ -1,0 +1,29 @@
+{
+  "scope": "offline source counterexamples; no native request or real data",
+  "cases": [
+    {
+      "version": "88aedb0",
+      "scenario": "station-failure",
+      "internalError": "connect ECONNREFUSED 127.0.0.1:8080",
+      "visibleEnglish": false
+    },
+    {
+      "version": "working",
+      "scenario": "station-failure",
+      "internalError": "水站列表暂时无法加载，请稍后重试",
+      "visibleEnglish": false
+    },
+    {
+      "version": "88aedb0",
+      "scenario": "sdk-error-metadata",
+      "cloudErrorCode": null,
+      "transportPhase": null
+    },
+    {
+      "version": "working",
+      "scenario": "sdk-error-metadata",
+      "cloudErrorCode": -501000,
+      "transportPhase": "call"
+    }
+  ]
+}

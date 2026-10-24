@@ -16,24 +16,26 @@
       <text class="tab {{tab === 'mine' ? 'active' : ''}}" bindtap="onTabChange" data-tab="mine">我的商品</text>
     </view>
     <input class="search-input" placeholder="搜索名称/品牌/规格" value="{{keyword}}" bindinput="onKeywordInput" />
-    <view class="chips">
+    <view class="chips category-filters">
       <text class="chip {{category === 0 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="0">全部</text>
       <text class="chip {{category === 1 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="1">桶装水</text>
       <text class="chip {{category === 2 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="2">瓶装水</text>
       <text class="chip {{category === 3 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="3">饮水器</text>
     </view>
     <!-- 快捷筛选：一眼找到"该处理的"（未上架 / 低库存 / 已开水票 / 我改过价的） -->
-    <view class="chips">
-      <text class="chip quick {{quick === 'offShelf' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="offShelf">未上架</text>
-      <text class="chip quick {{quick === 'lowStock' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="lowStock">低库存(&lt;20)</text>
-      <text class="chip quick {{quick === 'ticket' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="ticket">已开水票</text>
-      <text class="chip quick {{quick === 'priceOverridden' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="priceOverridden">我改过价</text>
-    </view>
+    <scroll-view class="quick-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+      <view class="chips quick-filters">
+        <text class="chip quick {{quick === 'offShelf' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="offShelf">未上架</text>
+        <text class="chip quick {{quick === 'lowStock' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="lowStock">库存少于20</text>
+        <text class="chip quick {{quick === 'ticket' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="ticket">已开水票</text>
+        <text class="chip quick {{quick === 'priceOverridden' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="priceOverridden">我改过价</text>
+      </view>
+    </scroll-view>
     <view class="hint-row">
-      <text class="hint">共 {{viewList.length}} 个 · 价格与库存都是本站的设置</text>
+      <text class="hint">共 {{viewList.length}} 个商品</text>
       <view class="hint-actions">
         <text class="link" bindtap="onOpenSubmissions">上报记录</text>
-        <text class="link" bindtap="onOpenRecords">库存流水 ›</text>
+        <text class="link" bindtap="onOpenRecords">库存流水</text>
       </view>
     </view>
   </view>
@@ -45,9 +47,9 @@
   <view class="list" wx:if="{{!loading && !loadError}}">
     <view class="card" wx:for="{{viewList}}" wx:key="id" data-item="{{item}}" data-id="{{item.id}}" bindtap="onOpenSetting">
       <view class="thumb" wx:if="{{item.imageUrl && !brokenImages[item.imageUrl]}}">
-        <image src="{{item.imageUrl}}" binderror="onDisplayImageError" data-src="{{item.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+        <image src="{{item.imageUrl}}" binderror="onDisplayImageError" data-src="{{item.imageUrl}}" mode="aspectFit" style="width:100%;height:100%;" />
       </view>
-      <view class="thumb placeholder" wx:else><text>商品图待补</text></view>
+      <view class="thumb placeholder" wx:else><text>暂无图片</text></view>
 
       <view class="info">
         <view class="name-row">
@@ -68,29 +70,28 @@
           <text class="tag ticket" wx:if="{{item.selected && item.ticketEnabled === 1}}">水票 ¥{{item.ticketPrice}}</text>
           <text class="tag star" wx:if="{{item.selected && item.priorityDisplay === 1}}">优先展示</text>
         </view>
-      </view>
-
-      <view class="action">
-        <text class="btn-mini" wx:if="{{!item.selected}}" catchtap="onSelectProduct" data-id="{{item.id}}">选用</text>
-        <text class="btn-mini ghost" wx:else catchtap="onOpenSetting" data-item="{{item}}">设置</text>
-        <view class="mine-actions" wx:if="{{item.ownerStationId}}">
-          <text class="btn-link" catchtap="openEdit" data-item="{{item}}">编辑</text>
-          <text class="btn-link" catchtap="onSubmitToPlatform" data-item="{{item}}">上报</text>
-          <text class="btn-link danger" catchtap="onDeactivate" data-item="{{item}}">停用</text>
+        <view class="action">
+          <text class="btn-mini" wx:if="{{!item.selected}}" catchtap="onSelectProduct" data-id="{{item.id}}">选用</text>
+          <text class="btn-mini ghost" wx:else catchtap="onOpenSetting" data-item="{{item}}">设置</text>
+          <view class="mine-actions" wx:if="{{item.ownerStationId}}">
+            <text class="btn-link" catchtap="openEdit" data-item="{{item}}">编辑</text>
+            <text class="btn-link" catchtap="onSubmitToPlatform" data-item="{{item}}">上报</text>
+            <text class="btn-link danger" catchtap="onDeactivate" data-item="{{item}}">停用</text>
+          </view>
         </view>
       </view>
     </view>
 
     <view class="empty" wx:if="{{viewList.length === 0}}">
-      <text wx:if="{{tab === 'mine'}}">还没有自定义商品，点下面的「＋ 自己定义商品」加一个</text>
+      <text wx:if="{{tab === 'mine'}}">还没有自定义商品，点下面的「＋ 自定义商品」添加</text>
       <text wx:else>没有匹配的商品</text>
     </view>
   </view>
   <view class="loading" wx:if="{{loading}}">加载中...</view>
 
-  <!-- 可选建档模板排在现有商品之后，避免盖过库存与上架任务。 -->
-  <view class="water-templates" wx:if="{{!loadError && tab === 'all' && !keyword && (!category || category === 1)}}">
-    <view class="water-template-title">常用水商品 · 快速建档</view>
+  <!-- 模板属于新建入口，主动展开，不在正常目录里重复铺商品。 -->
+  <view class="water-templates" wx:if="{{showWaterTemplates && !loading && !loadError}}">
+    <view class="water-template-heading"><text class="water-template-title">从模板新建</text><button class="water-template-close" bindtap="onToggleWaterTemplates">收起</button></view>
     <text class="water-template-hint">选好模板后，按实物填写规格、金额和库存，默认不上架。</text>
     <view class="water-template-row" wx:for="{{waterTemplates}}" wx:key="id">
       <image class="water-template-image" wx:if="{{!brokenImages[item.imageUrl]}}" src="{{item.imageUrl}}" mode="aspectFit" binderror="onDisplayImageError" data-src="{{item.imageUrl}}" /><view wx:else class="water-template-image ui-image-fallback">商品示意图暂无法显示</view>
@@ -104,7 +105,6 @@
         <text class="water-template-edit" bindtap="onEditWaterTemplate" data-id="{{item.id}}">按实物修改</text>
       </view>
     </view>
-    <text class="water-template-hint">图片供识别商品，包装与规格请核对实物。</text>
   </view>
 
   <view class="product-editor-resume" wx:if="{{productEditorResume && !showEdit}}">
@@ -113,7 +113,8 @@
   </view>
 
   <view class="footer" wx:if="{{!showEdit && !showSetting && !showRecords && !showSubmissions && !showPresetPicker}}">
-    <button class="btn-define" bindtap="openAdd">＋ 自己定义商品</button>
+    <button class="btn-template" bindtap="onToggleWaterTemplates" disabled="{{loading || !!loadError}}">{{showWaterTemplates ? '收起模板' : '从模板新建'}}</button>
+    <button class="btn-define" bindtap="openAdd">＋ 自定义商品</button>
   </view>
 
   <!-- ============ 本站设置 ============ -->
@@ -281,6 +282,7 @@
                 <button class="product-image-action secondary" bindtap="openPresetPicker" disabled="{{saving}}">从图库选择</button>
               </block>
             </view>
+            <button class="product-image-help" wx:if="{{productImageState === 'failed'}}" bindtap="onCopyProductImageProblem">复制问题信息</button>
             <text class="water-template-hint" wx:if="{{editForm.imageUrl === templateImage}}">{{imageNotice}}</text>
           </view>
 

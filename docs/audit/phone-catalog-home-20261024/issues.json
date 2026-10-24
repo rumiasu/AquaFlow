@@ -1,0 +1,68 @@
+{
+  "baseline": "88aedb0552d27c897254ffc7f316af91bd7e49b7",
+  "scope": "本轮四张手机截图及顾客首页；未做全站复审或生产操作",
+  "issues": [
+    {
+      "id": "CATALOG-PHONE-LAYOUT",
+      "priority": "P1",
+      "status": "fixed-in-source",
+      "scene": "员工商品与库存目录筛选、选用及自定义商品无图",
+      "evidenceType": ["actual-phone-screenshots", "current-source", "static-before-after"],
+      "evidence": ["libfile_5f32ebe382a481919f5a726f7c58262b", "libfile_2a5d1097594c8191b75b68d2b10b6244", "libfile_cf152820ed248191956354e7cb6fba2a", "layout.json"],
+      "source": ["miniapp-delivery/pages/station-mgmt/products/index.wxml:12", "miniapp-delivery/pages/station-mgmt/products/index.wxss:567", "miniapp-delivery/pages/station-mgmt/products/index.js:960"],
+      "fix": "轻筛选；操作进入商品信息列；缩小缺图占位并支持长编号换行；模板默认收起，通过新建区主动展开。原业务事件和目标不变。",
+      "nativeAcceptance": "not-run"
+    },
+    {
+      "id": "CUSTOMER-STATION-ENGLISH",
+      "priority": "P2",
+      "status": "not-reproduced-at-88aedb0-defensively-hardened",
+      "scene": "后端未启动或网络失败时选择水站",
+      "evidenceType": ["user-report", "current-source", "offline-handler-counterexample"],
+      "evidence": ["counterexamples.json"],
+      "source": ["miniapp-user/pages/home/index.js:374", "miniapp-user/pages/home/index.wxml:290"],
+      "finding": "基线选站渲染已用固定中文；原文留在内部状态。旧新两版反例用户可见英文均为false，不能称本轮复现并修复了实机英文。",
+      "fix": "本页出口再用共享过滤；数组校验；保留有用中文业务解释及加载/失败/真实空状态。",
+      "nativeAcceptance": "reported-version-unknown"
+    },
+    {
+      "id": "CUSTOMER-HOME-HIERARCHY",
+      "priority": "P2",
+      "status": "fixed-in-source",
+      "evidenceType": ["user-request", "current-source", "static-before-after"],
+      "source": ["miniapp-user/pages/home/index.wxml:36", "miniapp-user/pages/home/index.wxss:816"],
+      "fix": "送水到家标题、简短饮水引导和实际服务水站分层；不增加时效或优惠承诺。",
+      "nativeAcceptance": "not-run"
+    },
+    {
+      "id": "PRODUCT-UPLOAD-PHONE-FAILURE",
+      "priority": "P1",
+      "status": "unresolved-runtime-cause",
+      "evidenceType": ["actual-phone-screenshots", "source-contract-review"],
+      "evidence": ["libfile_d2f6fc6ece948191b7f497dd8cbc350b", "libfile_cf152820ed248191956354e7cb6fba2a"],
+      "source": ["miniapp-delivery/utils/upload.js:111", "miniapp-delivery/utils/multipart-body.js:23", "AquaFlow-backend/src/main/java/com/example/aquaflow/controller/CommonController.java:40"],
+      "finding": "截图证明本地预览及上传失败，未证明服务接收。multipart字段和后端一致；官方类型支持ArrayBuffer。未找到可确认的协议或COS签名代码缺陷。",
+      "missingEvidence": "同次AF-IMG2短诊断或product-image-upload四字段；没有真实响应，不能判定COS权限。",
+      "blocksUploadAcceptance": true,
+      "nativeAcceptance": "failed-in-user-report-root-cause-not-localized"
+    },
+    {
+      "id": "UPLOAD-SAFE-DIAGNOSTIC",
+      "priority": "P2",
+      "status": "fixed-in-source",
+      "evidenceType": ["current-source", "offline-handler-counterexample"],
+      "evidence": ["counterexamples.json", "test-results.json"],
+      "source": ["miniapp-delivery/utils/transport.js:6", "miniapp-user/utils/transport.js:6", "miniapp-delivery/utils/upload-diagnostic.js:1", "miniapp-delivery/pages/station-mgmt/products/index.js:1420"],
+      "fix": "保留数字SDK错误码、固定阶段；仅上传失败时提供复制白名单问题信息，成功隐藏；不复制消息、身份、URL、令牌、密钥或本地路径，不增加自动重试。",
+      "resolvesRuntimeUploadCause": false
+    }
+  ],
+  "handoff": {
+    "miniappsToUpload": ["miniapp-delivery", "miniapp-user"],
+    "backendRebuildNeeded": false,
+    "migrationNeeded": false,
+    "configurationChangeNeeded": false,
+    "deployedByThisTask": false,
+    "allPagesVisuallyAccepted": false
+  }
+}

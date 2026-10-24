@@ -812,3 +812,10 @@
 .home-feedback-retry, .home-feedback-toggle, .home-text-action { min-height: 44px; min-width: 44px; }
 .home-primary { min-height: 48px; }
 .station-welcome-house { z-index: 0; }
+
+/* 手机反馈：服务标题、站名与切换入口分层，不增加宣传卡。 */
+.home-nav-title { padding-left:18rpx; border-left:6rpx solid var(--primary-color); }
+.home-station-heading,.hero-intro { min-width:0; width:100%; }
+.home-section-label { display:block; margin-bottom:8rpx; font-size:24rpx; line-height:1.5; color:var(--text-regular); }
+.hero-intro .hero-brand { display:block; font-size:36rpx; font-weight:600; line-height:1.5; color:var(--text-primary); }
+.home-station-heading .station-chip { box-sizing:border-box; width:100%; }

@@ -31,6 +31,7 @@ const SUITES = [
   { file: 'extreme-template-privacy.test.js', name: '常用订单稳定行身份、首次隐私授权官方合同与滚动错误' },
   { file: 'pending-reminder-lifecycle.test.js', name: 'manager reminder latest query and login lifecycle isolation offline' },
   { file: 'customer-home-recovery-view.test.js', name: '首页安全导航、加载恢复、未选站与商品空态' },
+  { file: 'phone-catalog-home.test.js', name: '手机目录层级、水站错误出口与脱敏图片诊断' },
   { file: 'customer-profile-visible-states.test.js', name: '顾客地址、公告、企业资料与异常记录可见状态和恢复' },
   { file: 'customer-shared-visible-phase2.test.js', name: '顾客公告详情与公共组件可见状态、真实重试入口和中文错误' },
   { file: 'customer-night-visual-states.test.js', name: '顾客夜间十九路由可见状态、缺值与恢复入口' },

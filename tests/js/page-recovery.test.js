@@ -12,7 +12,7 @@ function pageFixture(kind,storage=new Map(),mutate=(n,s)=>s) {
   Page:value=>{definition=value},getApp:()=>f.app,wx:f.wx,console:{warn(){},error(){},log(){}},
   getCurrentPages:()=>[],setTimeout,clearTimeout,setInterval:()=>1,clearInterval(){},
   require(id){if(id.endsWith('/upload-recovery-page'))return f.load('upload-recovery-page');if(id.endsWith('/inbound-intent'))return f.load('inbound-intent');if(id.endsWith('/upload'))return f.api;
-   if(id.endsWith('/request'))return f.load('request');if(id.includes('config/api'))return f.config;return stub}
+   if(id.endsWith('/request'))return f.load('request');if(id.endsWith('/upload-diagnostic'))return f.load('upload-diagnostic');if(id.includes('config/api'))return f.config;return stub}
  },{filename:files[kind]})
  const p={...definition,data:JSON.parse(JSON.stringify(definition.data)),setData(values){for(const[k,v]of Object.entries(values)){const parts=k.split('.');let o=this.data;for(let i=0;i<parts.length-1;i++){o[parts[i]]=o[parts[i]]||{};o=o[parts[i]]}o[parts[parts.length-1]]=v}}}
  Object.assign(p.data,{orderId:42,floorPhotos:[],photos:[],floorUploading:false,uploading:false,isAdd:true,editId:null,customerId:42,evidenceList:[],denied:false,submitting:false,previewing:false})

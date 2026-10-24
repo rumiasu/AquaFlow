@@ -1,0 +1,75 @@
+{
+  "baseline": "88aedb0552d27c897254ffc7f316af91bd7e49b7",
+  "scope": "Affected offline handlers, filesystem/storage/UI/SDK mocks; no native device, production request or backend execution",
+  "passed": 310,
+  "failed": 0,
+  "fullProjectSuiteRun": false,
+  "suites": [
+    {
+      "suite": "tests/js/phone-catalog-home.test.js",
+      "passed": 11,
+      "failed": 0,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 11"
+    },
+    {
+      "suite": "tests/js/customer-home-recovery-view.test.js",
+      "passed": 42,
+      "failed": 0,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 42"
+    },
+    {
+      "suite": "tests/js/water-product-templates.test.js",
+      "passed": 59,
+      "failed": 0,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 59"
+    },
+    {
+      "suite": "tests/js/product-simple-upload.test.js",
+      "passed": 15,
+      "failed": 0,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 15"
+    },
+    {
+      "suite": "tests/js/product-phone-feedback.test.js",
+      "passed": 16,
+      "failed": 0,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 16"
+    },
+    {
+      "suite": "tests/js/product-image-persistence.test.js",
+      "passed": 14,
+      "failed": 0,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 14"
+    },
+    {
+      "suite": "tests/js/cloud-upload.mock.test.js",
+      "passed": 37,
+      "failed": 0,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 37"
+    },
+    {
+      "suite": "tests/js/trial-cloud-transport.test.js",
+      "passed": 50,
+      "failed": 0,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 50"
+    },
+    {
+      "suite": "tests/js/product-sheet-recovery.test.js",
+      "passed": 21,
+      "failed": 0,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 21"
+    },
+    {
+      "suite": "tests/js/extreme-product-save.test.js",
+      "passed": 19,
+      "failed": 0,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 19"
+    },
+    {
+      "suite": "tests/js/customer-home-station-context.test.js",
+      "passed": 26,
+      "failed": 0,
+      "completionSentinel": "AQUAFLOW_SUITE_OK 26"
+    }
+  ]
+}

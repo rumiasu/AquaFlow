@@ -35,15 +35,21 @@
   </view>
   <view class="home-nav" style="padding-top: {{statusBarHeight}}px;">
     <view class="home-nav-row" style="height: {{navBarHeight}}px; width: {{navContentWidth}}px;">
-      <text class="home-nav-title">订水</text>
+      <text class="home-nav-title">送水到家</text>
     </view>
   </view>
   <view class="hero">
-    <view class="station-chip" bindtap="onOpenStationList" wx:if="{{isLogin && currentStationId}}">
-      <text class="station-chip-name">{{currentStation.name || '选择水站'}}</text>
-      <text class="station-chip-arrow">切换 ›</text>
+    <view class="home-station-heading" wx:if="{{isLogin && currentStationId}}">
+      <text class="home-section-label">服务水站</text>
+      <view class="station-chip" bindtap="onOpenStationList">
+        <text class="station-chip-name">{{currentStation.name || '选择水站'}}</text>
+        <text class="station-chip-arrow">切换 ›</text>
+      </view>
     </view>
-    <text class="hero-brand" wx:else>社区订水</text>
+    <view class="hero-intro" wx:else>
+      <text class="home-section-label">日常饮水</text>
+      <text class="hero-brand">家里用水，随手就订</text>
+    </view>
   </view>
 
   <!--

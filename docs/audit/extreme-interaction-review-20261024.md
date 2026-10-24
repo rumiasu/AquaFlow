@@ -252,7 +252,7 @@ EX10静态投影已实际view，7个对照场景均保存在证据目录。1.3�
 
 - 最终19组受影响前端组合 **423项通过**，其中4个新增套件为商品19、入库意图8、调整/地图22、模板/隐私21。不是全站/72页验收。见[组合结果](extreme-fix-verification-20261024/frontend-results.json)。
 - 商品与调整组精确f4负对照分别仅1/19、4/22通过；模板/隐私原15项负对照3/15通过，后补6个监听归属/并发授权/离页取消检查另行通过。主要反例是实际错目标请求、错误行与额外行、重复提交和财务换键；不把新增字段或方法缺失本身当成业务实锤。见[负对照记录](extreme-fix-verification-20261024/negative-controls.json)。
-- **14项后端检查通过**：10个入库服务/MVC合同与4个分层门禁。另用实际Mapper、库存/流水/回执服务和Spring事务管理器，在专用内存H2中通过**10条断言**：同键并发只加一次、原数量变更拒绝、回执写失败整体回滚、原键重试、损坏回执保守拒绝；旧无键负对照确实增加两次。没有真实业务库双改或生产MySQL并发证明。见[后端结果](extreme-fix-verification-20261024/backend-results.json)、[SQL记录](extreme-fix-verification-20261024/sql-probe.log)。
+- **14项后端检查通过**：10个入库服务/MVC合同与4个分层门禁。另用实际Mapper、库存/流水/回执服务和Spring事务管理器，在专用内存H2中通过**10条断言**：同键并发只加一次、原数量变更拒绝、回执写失败整体回滚、原键重试、损坏回执保守拒绝；旧无键负对照确实增加两次。没有真实业务库双改或生产MySQL并发证明。见[后端结果](extreme-fix-verification-20261024/backend-results.json)、[SQL记录](extreme-fix-verification-20261024/sql-probe.json)。
 - 当前工作区全部439个Java主源、224个Java测试源编译通过，使用JDK21的source/target17及参数元数据；不是Java17运行或Gradle/CI通过声明。186个小程序JS解析失败0。差异、BOM、WXML绑定及条件链检查通过。
 - 保留f4已修商品图、普利思永久HTTPS映射及长表单结构；本轮未修改COS解析、权限或凭据。旧图片/模板与四页上传生命周期检查在组合中继续通过。只为新增业务恢复存储给离线夹具补精确命名空间，凭据读取仍拒绝；另修正phase2原有HTTP503文案断言误配，f4也会失败，未为该测试改产品请求文案。
 - 当前模板布局静态投影7个对照均可达，原1.5倍字/长错误/308px场景已实际view；[几何](extreme-fix-verification-20261024/template-layout.json)、[代表投影](extreme-fix-verification-20261024/template-keyboard-large-error.png)。微信原生隐私首次同意/拒绝/返回、手机键盘与真实上传回读仍未验，不能说原生通过。

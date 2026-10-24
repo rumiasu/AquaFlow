@@ -1,0 +1,19 @@
+{
+  "scope": "Actual mapper/service/Spring transaction checks against synthetic H2 memory only",
+  "passed": 10,
+  "failed": 0,
+  "realMySqlVerified": false,
+  "productionWrites": 0,
+  "checks": [
+    "first request obtains the station lock",
+    "second same-key request attempts the same station lock",
+    "concurrent same-key calls return the same original applied receipt",
+    "actual SQL increments stock only once",
+    "one actual inventory ledger and one receipt commit",
+    "same original key with another quantity is rejected",
+    "receipt insert failure rolls stock and ledger back together",
+    "rolled-back original key can be safely retried once",
+    "corrupt original receipt never creates a replacement increment",
+    "legacy negative control applies the same submitted quantity twice"
+  ]
+}

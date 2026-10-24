@@ -25,13 +25,18 @@ function unknownError() {
 
 // Keep the picker and its async upload callback single-flight; cancellation has no upload side effect.
 function chooseImages(options) {
-  if (picking) return
+  if (picking) return false
   picking = true
   const session = captureSession()
   const batch = []
   pickerBatches.set(session, batch)
   let selected = false
-  const release = () => { pickerBatches.delete(session); picking = false }
+  let released = false
+  const release = () => {
+    if (released) return
+    released = true; pickerBatches.delete(session); picking = false
+    if (typeof options.onPickerSettled === 'function') options.onPickerSettled()
+  }
   try {
     wx.chooseImage({ ...options,
       success: res => {
@@ -54,6 +59,7 @@ function chooseImages(options) {
       complete: () => { if (!selected) release() }
     })
   } catch (_) { release(); throw localError('选取图片失败，请重试') }
+  return true
 }
 
 function readImage(filePath, session) {
@@ -104,8 +110,13 @@ function checkReceipt(result, url, kind) {
   const objectName = result && result.objectName
   const validProductKey = typeof objectName === 'string' && objectName === objectName.trim()
     && !/[:?#\s\\]/.test(objectName) && objectName.split('/').every(part => part && part !== '.' && part !== '..')
-  if (typeof value !== 'string' || !value.trim() || (kind === 'product-image' && !validProductKey)) {
-    throw Object.assign(new Error('图片提交结果待核实，请先查看已有图片，勿重复上传'), { uploadOutcomeUnknown: true })
+  // A confirmed object PUT is a usable product reference even when signing its preview fails.
+  // Legacy URL-only consumers still require a URL, and a local preview is never a receipt.
+  const storedProduct = kind === 'product-image' && validProductKey && result.uploadOutcome === 'stored' && result.previewUnavailable === true
+  if ((!storedProduct && (typeof value !== 'string' || !value.trim())) || (kind === 'product-image' && !validProductKey)) {
+    throw Object.assign(new Error('图片提交结果待核实，请先查看已有图片，勿重复上传'), {
+      uploadOutcomeUnknown: true, uploadDiagnosticCode: 'UPLOAD_RECEIPT_INCOMPLETE'
+    })
   }
   return result
 }
@@ -212,7 +223,7 @@ function upload(options) {
     finishOperation()
     return result
   }, error => {
-    const ambiguous = operation.attempted && ((error.sessionChanged && error.requestMayHaveOccurred !== false) || error.requestMayHaveOccurred
+    const ambiguous = operation.attempted && !error.uploadRejected && ((error.sessionChanged && error.requestMayHaveOccurred !== false) || error.requestMayHaveOccurred
       || error.malformedResponse || error.statusCode >= 500 || error.backendCode === 500
       || error.backendCode === 1 || error.uploadOutcomeUnknown || error.uploadStateFailure)
     if (ambiguous) {

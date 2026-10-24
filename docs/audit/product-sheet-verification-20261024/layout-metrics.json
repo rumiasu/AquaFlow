@@ -1,0 +1,139 @@
+{
+  "scope": "Static HTML projection of actual WXML/WXSS, Chromium; synthetic image/data; not WeChat/native or screenshot reproduction",
+  "results": [
+    {
+      "id": "small-editor",
+      "sheet": {
+        "x": 0,
+        "y": 8,
+        "width": 320,
+        "height": 552,
+        "bottom": 560
+      },
+      "body": {
+        "x": 0,
+        "y": 72.375,
+        "width": 320,
+        "height": 432.046875,
+        "bottom": 504.421875
+      },
+      "scrollHeight": 1049,
+      "clientHeight": 432,
+      "scrollTop": 617,
+      "before": 0,
+      "footer": {
+        "x": 0,
+        "y": 504.421875,
+        "width": 320,
+        "height": 55.578125,
+        "bottom": 560
+      },
+      "viewport": 568
+    },
+    {
+      "id": "keyboard-editor",
+      "sheet": {
+        "x": 0,
+        "y": 8,
+        "width": 320,
+        "height": 292,
+        "bottom": 300
+      },
+      "body": {
+        "x": 0,
+        "y": 72.375,
+        "width": 320,
+        "height": 172.046875,
+        "bottom": 244.421875
+      },
+      "scrollHeight": 1080,
+      "clientHeight": 172,
+      "scrollTop": 908,
+      "before": 0,
+      "footer": {
+        "x": 0,
+        "y": 244.421875,
+        "width": 320,
+        "height": 55.578125,
+        "bottom": 300
+      },
+      "viewport": 308
+    },
+    {
+      "id": "safearea-editor",
+      "sheet": {
+        "x": 0,
+        "y": 8,
+        "width": 390,
+        "height": 828,
+        "bottom": 836
+      },
+      "body": {
+        "x": 0,
+        "y": 86.25,
+        "width": 390,
+        "height": 648.21875,
+        "bottom": 734.46875
+      },
+      "scrollHeight": 1313,
+      "clientHeight": 648,
+      "scrollTop": 665,
+      "before": 0,
+      "footer": {
+        "x": 0,
+        "y": 734.46875,
+        "width": 390,
+        "height": 101.53125,
+        "bottom": 836
+      },
+      "viewport": 844
+    },
+    {
+      "id": "long-setting-keyboard",
+      "sheet": {
+        "x": 0,
+        "y": 8,
+        "width": 320,
+        "height": 292,
+        "bottom": 300
+      },
+      "body": {
+        "x": 0,
+        "y": 111.875,
+        "width": 320,
+        "height": 132.546875,
+        "bottom": 244.421875
+      },
+      "scrollHeight": 770,
+      "clientHeight": 133,
+      "scrollTop": 637,
+      "before": 0,
+      "footer": {
+        "x": 0,
+        "y": 244.421875,
+        "width": 320,
+        "height": 55.578125,
+        "bottom": 300
+      },
+      "viewport": 308
+    },
+    {
+      "id": "catalog-recovery",
+      "card": {
+        "x": 10.234375,
+        "y": 359.921875,
+        "width": 299.53125,
+        "height": 129.421875,
+        "bottom": 489.34375
+      },
+      "footer": {
+        "x": 0,
+        "y": 508.984375,
+        "width": 320,
+        "height": 59.015625,
+        "bottom": 568
+      },
+      "viewport": 568
+    }
+  ]
+}

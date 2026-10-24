@@ -1,0 +1,20 @@
+{
+  "baseSha": "cd1eb91604a742771a59c33e909706d0f7b53826",
+  "candidate": "commit containing this file",
+  "scope": "employee product editor, recovery presentation, common-upload receipt",
+  "deploymentPerformed": false,
+  "databaseMigrationRequired": false,
+  "newConfigurationRequired": false,
+  "uploadRequiredForUse": ["miniapp-delivery", "AquaFlow-backend"],
+  "issues": [
+    {"id":"PRODUCT-SHEET-01","priority":"P1","status":"fixed-in-code","claim":"long editor submission unreachable","evidence":["miniapp-delivery/pages/station-mgmt/products/index.wxml:product-edit-modal","miniapp-delivery/pages/station-mgmt/products/index.js:layoutProductEditor"],"nativeVerified":false},
+    {"id":"PRODUCT-SHEET-02","priority":"P1","status":"fixed-in-code","claim":"recovery actions overlap main CTA","evidence":["miniapp-delivery/pages/station-mgmt/products/index.wxml:product-upload-recovery"],"originalPixelsViewedByThisThread":false},
+    {"id":"PRODUCT-SHEET-03","priority":"P1","status":"fixed-in-code","claim":"no selected local preview and draft resume resets input","evidence":["miniapp-delivery/pages/station-mgmt/products/index.js:uploadImage","miniapp-delivery/pages/station-mgmt/products/index.js:rememberProductImageDraft"]},
+    {"id":"PRODUCT-SHEET-04","priority":"P1","status":"fixed-in-code","claim":"confirmed PUT key lost when preview signing fails","evidence":["AquaFlow-backend/src/main/java/com/example/aquaflow/controller/CommonController.java:upload","AquaFlow-backend/src/test/java/com/example/aquaflow/controller/CommonUploadReceiptTest.java"],"provenAsCauseOfUserIncident":false},
+    {"id":"PRODUCT-SHEET-05","priority":"P1","status":"fixed-in-code","claim":"picker phase does not guard save or draft switch","evidence":["miniapp-delivery/pages/station-mgmt/products/index.js:refreshProductImageState"],"clarification":"pre-existing global picker lock already prevented a direct duplicate picker POST"},
+    {"id":"PRODUCT-SHEET-06","priority":"P2","status":"fixed-in-code","claim":"contradictory empty image action and repetitive template copy","evidence":["miniapp-delivery/pages/station-mgmt/products/index.wxml:product-image-section"]}
+  ],
+  "verification":{"frontendSuites":12,"frontendCasesPassed":412,"newCasesPassed":26,"baselineNewCaseFailures":18,"backendMvcPassed":5,"staticBrowserLayouts":5,"weChatNativeVerified":false,"realStorageUploadVerified":false},
+  "remaining":["WeChat native short-screen/keyboard reachability and actual upload reload","original Library screenshots could not materialize due to DNS failure","generic old unknown uploads have no authorized per-draft server lookup","unsaved full product text is only restored within the same page instance"],
+  "configurationFact":"user confirmed aqua account/bucket permission; this task did not inspect or alter production configuration"
+}

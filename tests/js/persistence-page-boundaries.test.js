@@ -62,12 +62,18 @@ test('invalid/missing image IDs produce no generated or undefined visible identi
 })
 for(const kind of ['product','adjustment']){
  test(kind+' a draft switch before picker return discards the old choice without POST',async()=>{
-  const f=pageFixture(kind);f.p[f.pick]();const first=f.p._uploadDraftId;f.p.onUploadNewDraft();f.modals[0].success({confirm:true});await flush();assert.notEqual(f.p._uploadDraftId,first)
+  const f=pageFixture(kind);f.p[f.pick]();const first=f.p._uploadDraftId;f.p.onUploadNewDraft()
+  if(kind==='product'){assert.equal(f.modals.length,0,'busy chooser cannot switch image draft');assert.equal(f.p._uploadDraftId,first);f.p.closeEdit();f.p.openAdd()}
+  else f.modals[0].success({confirm:true})
+  await flush();assert.notEqual(f.p._uploadDraftId,first)
   f.picks[0].success({tempFilePaths:['/synthetic.png']});await flush();assert.equal(f.calls.length,0);assert.equal(f.stats.length,0)
  })
  test(kind+' late success from an abandoned draft cannot fill a newly chosen draft',async()=>{
   const f=pageFixture(kind);f.p[f.pick]();f.picks[0].success({tempFilePaths:['/synthetic.png']});await flush();f.read();await flush()
-  f.p.onUploadNewDraft();f.modals[0].success({confirm:true});await flush();f.calls[0].resolve(ok('/synthetic-old'));await flush()
+  f.p.onUploadNewDraft()
+  if(kind==='product'){assert.equal(f.modals.length,0,'in-flight upload cannot switch image draft');f.p.closeEdit();f.p.openAdd()}
+  else f.modals[0].success({confirm:true})
+  await flush();f.calls[0].resolve(ok('/synthetic-old'));await flush()
   assert.equal(f.p.data.uploading,false);if(kind==='product')assert.equal(f.p.data.editForm.imageUrl,'');else assert.deepEqual(f.p.data.evidenceList,[])
  })
  test(kind+' cancelled or stale new-draft prompt retains original draft and case',async()=>{

@@ -1,0 +1,13 @@
+{
+  "suite": "CommonUploadReceiptTest",
+  "scope": "Real Spring MVC serialization, mocked COS only; no storage/network/database",
+  "tests": 5,
+  "failures": 0,
+  "errors": 0,
+  "baselineCounterexample": {
+    "tests": 5,
+    "passed": 1,
+    "failed": 4
+  },
+  "compilation": "JDK21 javac -source 17 -target 17; existing pinned dependency classpath; no Gradle/CI claim"
+}

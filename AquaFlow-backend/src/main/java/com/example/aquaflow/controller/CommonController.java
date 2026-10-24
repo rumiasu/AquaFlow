@@ -33,38 +33,70 @@ public class CommonController {
     ));
 
     /**
-     * 通用图片上传（公开访问，24h 有效）。
-     * data保留可预览的临时URL；另附objectName供商品持久化，不从签名URL反推对象键。
+     * 通用图片上传（预览链接24h有效；桶仍私有）。
+     * data是临时预览URL；已存储但预览不可用时为空并标previewUnavailable。
+     * objectName供商品持久化，不从签名URL反推对象键。
      */
     @PostMapping("/upload")
     public Result<String> upload(@RequestParam("file") MultipartFile file) {
         if (AuthContext.getUserId() == null) {
-            return Result.error("请先登录");
+            return rejected("请先登录", "UPLOAD_LOGIN_REQUIRED");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            return Result.error("文件大小不能超过5MB");
+            return rejected("文件大小不能超过5MB", "UPLOAD_FILE_TOO_LARGE");
         }
 
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || !originalFilename.contains(".")) {
-            return Result.error("文件类型不支持");
+            return rejected("文件类型不支持", "UPLOAD_FILE_TYPE_INVALID");
         }
         String extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            return Result.error("仅支持 JPG、JPEG、PNG、WEBP 格式");
+            return rejected("仅支持 JPG、JPEG、PNG、WEBP 格式", "UPLOAD_FILE_TYPE_INVALID");
+        }
+
+        if (!cosUtil.isCredentialsConfigured()) {
+            return rejected("图片上传暂不可用，请联系水站管理员", "UPLOAD_STORAGE_UNAVAILABLE");
         }
 
         log.info("文件上传: {}, 用户: {}", originalFilename, AuthContext.getUserId());
+        String objectName;
         try {
-            String objectName = cosUtil.uploadPublic(file.getBytes(), "public/common", extension);
-            String url = cosUtil.generatePublicUrl(objectName);
-            return new ImageUploadReceipt(url, objectName);
+            objectName = cosUtil.uploadPublic(file.getBytes(), "public/common", extension);
         } catch (Exception e) {
             log.error("文件上传失败: {}", e.getMessage(), e);
-            // [2026-09-20] 文案由 CosUtil 统一给：未配密钥时直接说"对象存储未配置"，
-            // 否则只有一句笼统的"文件上传失败"，联调的人分不清是没配还是配错了。
-            return Result.error(cosUtil.uploadFailureMessage());
+            // COS SDK可能已经重试；最终拒绝或超时也不能证明第一次PUT没有成功。
+            return new ImageUploadFailure("图片上传暂未确认，请稍后查看", "unknown", "UPLOAD_STORAGE_UNCONFIRMED");
         }
+        try {
+            String url = cosUtil.generatePublicUrl(objectName);
+            if (url == null || url.isBlank()) throw new IllegalStateException("empty preview");
+            return new ImageUploadReceipt(url, objectName);
+        } catch (Exception e) {
+            // [2026-10-24] PUT已确认后，预览失败不应丢掉已验证对象键并诱导重复上传。
+            log.warn("图片已存储但预览暂不可用，diagnostic=UPLOAD_PREVIEW_UNAVAILABLE");
+            return new ImageUploadReceipt(null, objectName);
+        }
+    }
+
+    private static Result<String> rejected(String message, String diagnosticCode) {
+        return new ImageUploadFailure(message, "rejected", diagnosticCode);
+    }
+
+    /** 附加固定诊断分类，不包含账号、桶名、签名URL或SDK原始报文。 */
+    public static final class ImageUploadFailure extends Result<String> {
+        private final String uploadOutcome;
+        private final String uploadDiagnosticCode;
+
+        public ImageUploadFailure(String message, String uploadOutcome, String uploadDiagnosticCode) {
+            setCode(1);
+            setMessage(message);
+            this.uploadOutcome = uploadOutcome;
+            this.uploadDiagnosticCode = uploadDiagnosticCode;
+        }
+
+        public String getUploadOutcome() { return uploadOutcome; }
+        public String getUploadDiagnosticCode() { return uploadDiagnosticCode; }
     }
 
     /** 仅此上传响应追加对象键；旧调用方仍按Result&lt;String&gt;读取data，无须改公共Result。 */
@@ -78,5 +110,8 @@ public class CommonController {
         }
 
         public String getObjectName() { return objectName; }
+        public String getUploadOutcome() { return "stored"; }
+        public boolean isPreviewUnavailable() { return getData() == null; }
+        public String getUploadDiagnosticCode() { return getData() == null ? "UPLOAD_PREVIEW_UNAVAILABLE" : null; }
     }
 }

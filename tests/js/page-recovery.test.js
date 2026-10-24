@@ -60,12 +60,12 @@ for(const kind of ['product','adjustment']) {
   const pick=f.picks.length;f.p[f.pick]();f.picks[pick].success({tempFilePaths:['/second.png']});await flush();f.read(f.stats.length-1);await flush();assert.equal(f.calls.length,2)
   f.calls[1].resolve(ok('/synthetic-independent'));await flush();assert(f.p.data.uploadCaseIds.includes(id))
   f.p.onUploadResumeDraft(event(id));assert.equal(f.p._uploadDraftId,oldDraft)
-  const before=f.calls.length,pick2=f.picks.length;f.p[f.pick]();f.picks[pick2].success({tempFilePaths:['/second.png']});await flush();assert.equal(f.calls.length,before)
+  const before=f.calls.length,pick2=f.picks.length;f.p[f.pick]();if(kind==='product')assert.equal(f.picks.length,pick2);else f.picks[pick2].success({tempFilePaths:['/second.png']});await flush();assert.equal(f.calls.length,before)
  })
  test(kind+' restart restores the original draft ID and unknown case; normal login cleanup cannot discard it',async()=>{
   const shared=new Map(),f=pageFixture(kind,shared),id=await unknownFromPage(f),draft=f.p._uploadDraftId
   const r=pageFixture(kind,shared);r.p.refreshUploadRecovery();assert(r.p.data.uploadCaseIds.includes(id));r.p.onUploadResumeDraft(event(id));assert.equal(r.p._uploadDraftId,draft)
-  r.app._loginGeneration++;const n=r.picks.length;r.p[r.pick]();r.picks[n].success({tempFilePaths:['/second.png']});await flush();assert.equal(r.calls.length,0)
+  r.app._loginGeneration++;const n=r.picks.length;r.p[r.pick]();if(kind==='product')assert.equal(r.picks.length,n);else r.picks[n].success({tempFilePaths:['/second.png']});await flush();assert.equal(r.calls.length,0)
  })
 }
 test('account/station switch hides previous owner cases and does not lock independent owner draft',async()=>{

@@ -237,10 +237,13 @@ for (const mode of ['in', 'check', 'loss']) test('stock ' + mode + ' rejects fra
   const t = fixture(); t.page.setData({ stationId: 11, stockMode: mode, stockInput: '1.5', setting: { id: 17, quantity: 10 } })
   t.page.onSubmitStock(); await Promise.resolve(); assert.strictEqual(t.calls.length, 0)
 })
-test('switching templates preserves the old upload draft and blocks its late picker callback', async () => {
+test('busy picker blocks template switching; closing and reopening isolates its late callback', async () => {
   const t = fixture(); t.page.onUseWaterTemplate(event(templates[0].id)); const oldDraft = t.page._uploadDraftId
   await t.page.uploadImage(); const oldChoice = t.state.choose
   t.page.onUseWaterTemplate(event(templates[1].id))
+  assert.strictEqual(t.page._uploadDraftId, oldDraft)
+  assert.strictEqual(t.page.data.editForm.name, templates[0].name)
+  t.page.closeEdit(); t.page.onUseWaterTemplate(event(templates[1].id))
   assert.notStrictEqual(t.page._uploadDraftId, oldDraft)
   await oldChoice.success({ tempFilePaths: ['synthetic-old-photo'], uploadSession: {} })
   assert.strictEqual(t.calls.length, 0); assert.strictEqual(t.page.data.editForm.name, templates[1].name)

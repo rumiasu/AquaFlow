@@ -72,7 +72,7 @@ for (const kind of ['product','adjustment']) test(kind + ' two unknown drafts su
   assert.equal(r.api.uploadCases().length,2)
   for (const [id,draft] of [[first,d1],[second,d2]]) {
     r.p.onUploadResumeDraft(event(id)); assert.equal(r.p._uploadDraftId,draft)
-    const n = r.picks.length; r.p[r.pick](); r.picks[n].success({tempFilePaths:['/synthetic.png']}); await flush()
+    const n = r.picks.length; r.p[r.pick](); if(kind==='product')assert.equal(r.picks.length,n);else r.picks[n].success({tempFilePaths:['/synthetic.png']}); await flush()
     assert.equal(r.stats.length+r.calls.length,0)
   }
   r.p.onUploadNewDraft(); r.modals[0].success({confirm:true}); await flush()

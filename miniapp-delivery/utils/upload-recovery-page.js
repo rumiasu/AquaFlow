@@ -21,12 +21,18 @@ function refresh(page, kind) {
     const s = page._uploadRecoverySelection
     page.setData({ uploadRecoveryCases: cases, uploadCaseIds: cases.map(row => row.id), uploadRecoveryReadFailed: false,
       uploadRecoverySelection: s ? { caseId: s.caseId, imageId: s.imageId, url: s.url } : null })
-  } catch (_) { page._uploadRecoverySelection = null; page.setData({ uploadRecoveryReadFailed: true, uploadRecoveryCases: [], uploadCaseIds: [], uploadRecoverySelection: null }) }
+    if (kind === 'product' && typeof page.refreshProductImageState === 'function') page.refreshProductImageState()
+  } catch (_) {
+    page._uploadRecoverySelection = null; page.setData({ uploadRecoveryReadFailed: true, uploadRecoveryCases: [], uploadCaseIds: [], uploadRecoverySelection: null })
+    if (kind === 'product' && typeof page.refreshProductImageState === 'function') page.refreshProductImageState()
+  }
 }
 function wrapUploadRecovery(page, kind) {
-  page.data = { ...page.data, uploadRecoveryCases: [], uploadCaseIds: [], uploadRecoverySelection: null, uploadRecoveryReadFailed: false, uploadRecovering: false }
+  page.data = { ...page.data, uploadRecoveryCases: [], uploadCaseIds: [], uploadRecoverySelection: null, uploadRecoveryReadFailed: false, uploadRecovering: false,
+    ...(kind === 'product' ? { uploadRecoveryExpanded: false } : {}) }
   page._uploadRecoveryActive = true; page._uploadRecoveryEpoch = 0
   page.refreshUploadRecovery = function () { refresh(this, kind) }
+  if (kind === 'product') page.onToggleUploadRecovery = function () { this.setData({ uploadRecoveryExpanded: !this.data.uploadRecoveryExpanded }); refresh(this, kind) }
   function guard(instance, session) {
     const epoch = instance._uploadRecoveryEpoch, captured = JSON.stringify(target(instance, kind))
     return () => instance._uploadRecoveryActive && instance._uploadRecoveryEpoch === epoch && currentSession(session)
@@ -94,10 +100,15 @@ function wrapUploadRecovery(page, kind) {
   }
   page.onUploadResumeDraft = function (event) {
     if (!this._uploadRecoveryActive) return
+    if (kind === 'product' && (this.data.saving || this.data.uploading || this.data.productImageBusy)) { wx.showToast({ title: '图片或商品正在处理中，请稍候', icon: 'none' }); return }
     refresh(this, kind)
     const entry = this.data.uploadRecoveryCases.find(row => row.id === event.currentTarget.dataset.caseid)
     if (!entry || !entry.draftId) return
     try {
+      if (kind === 'product' && typeof this.resumeProductImageDraft === 'function') {
+        this.resumeProductImageDraft(entry)
+        refresh(this, kind); wx.showToast({ title: '已继续原草稿，待核实记录保留', icon: 'none' }); return
+      }
       const t = target(this, kind)
       if (kind === 'product' && entry.entityId === 'new') { this._uploadResumeDraftId = entry.draftId; try { this.openAdd() } finally { this._uploadResumeDraftId = null } }
       else if (t.id !== entry.entityId) { wx.showToast({ title: '请先打开对应商品或客户', icon: 'none' }); return }
@@ -107,11 +118,20 @@ function wrapUploadRecovery(page, kind) {
   }
   page.onUploadNewDraft = function () {
     if (kind === 'order' || !this._uploadRecoveryActive) return
+    if (kind === 'product' && (this.data.saving || this.data.uploading || this.data.productImageBusy)) { wx.showToast({ title: '图片或商品正在处理中，请稍候', icon: 'none' }); return }
     const session = captureSession(), current = guard(this, session), t = target(this, kind)
     if (t.id !== 'new' && (!Number.isSafeInteger(t.id) || t.id <= 0)) { wx.showToast({ title: '请先打开对应商品或客户', icon: 'none' }); return }
     wx.showModal({ confirmText: '另开草稿', title: '另开图片草稿', content: '原草稿和待核实记录会保留。仅在开始一份独立草稿时继续。', success: result => {
       if (!result.confirm || !current()) return
-      try { this._uploadDraftId = uploads.uploadDraft(t, true); if (kind === 'product') this.setData({ 'editForm.imageUrl': '', 'editForm.imageObjectName': '', uploading: false }); else { this.setData({ evidenceList: [], uploading: false }); if (this.resetPreview) this.resetPreview() } }
+      if (kind === 'product' && (this.data.saving || this.data.uploading || this.data.productImageBusy)) return
+      try {
+        if (kind === 'product' && typeof this.rememberProductImageDraft === 'function') this.rememberProductImageDraft()
+        this._uploadDraftId = uploads.uploadDraft(t, true)
+        if (kind === 'product') {
+          this.setData({ 'editForm.imageUrl': '', 'editForm.imageObjectName': '', uploading: false })
+          if (typeof this.onProductImageDraftChanged === 'function') this.onProductImageDraftChanged()
+        } else { this.setData({ evidenceList: [], uploading: false }); if (this.resetPreview) this.resetPreview() }
+      }
       catch (error) { wx.showToast({ title: error.message || '草稿暂时无法保存', icon: 'none' }) }
       refresh(this, kind)
     } })

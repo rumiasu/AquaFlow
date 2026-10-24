@@ -1,0 +1,106 @@
+[
+  {
+    "name": "custom and station editors keep native scrollers free of catchtouchmove ancestors and footer outside body",
+    "pass": true
+  },
+  {
+    "name": "recovery card stays in page flow before the CTA and CTA is hidden under editor",
+    "pass": true
+  },
+  {
+    "name": "empty image state shows one upload action and no contradictory change-image caption",
+    "pass": true
+  },
+  {
+    "name": "six image states expose mutually exclusive actions without hiding busy or unknown status",
+    "pass": true
+  },
+  {
+    "name": "short-screen keyboard footer geometry subtracts keyboard once, resize=false",
+    "pass": true
+  },
+  {
+    "name": "short-screen keyboard footer geometry subtracts keyboard once, resize=true",
+    "pass": true
+  },
+  {
+    "name": "picker is busy immediately and cancellation releases product save guard",
+    "pass": true
+  },
+  {
+    "name": "saving while picker is open cannot submit a product",
+    "pass": true
+  },
+  {
+    "name": "selected photo previews immediately without replacing saved key and unknown retains it",
+    "pass": true
+  },
+  {
+    "name": "independent image draft preserves all entered business fields, original case and resumable preview",
+    "pass": true
+  },
+  {
+    "name": "late image receipt after closing and new product cannot overwrite new editor",
+    "pass": true
+  },
+  {
+    "name": "unknown has one useful primary replacement action and a secondary explanation link",
+    "pass": true
+  },
+  {
+    "name": "unknown replacement confirms once, keeps old record and form, then chooses under a fresh image draft",
+    "pass": true
+  },
+  {
+    "name": "replacement confirmation cannot switch drafts after cancel",
+    "pass": true
+  },
+  {
+    "name": "replacement confirmation cannot switch drafts after edit",
+    "pass": true
+  },
+  {
+    "name": "replacement confirmation cannot switch drafts after identity",
+    "pass": true
+  },
+  {
+    "name": "confirmed upload without signed preview keeps local preview and saves only the actual key",
+    "pass": true
+  },
+  {
+    "name": "pre-send read failure is retryable, retains the chosen preview and confirmed previous image",
+    "pass": true
+  },
+  {
+    "name": "confirmed stored product key survives unavailable preview, without an unknown marker",
+    "pass": true
+  },
+  {
+    "name": "unverifiable receipt retains unknown: {\"code\":0,\"data\":null,\"objectName\":\"public/common/synthetic-product.png\"}",
+    "pass": true
+  },
+  {
+    "name": "unverifiable receipt retains unknown: {\"code\":0,\"data\":null,\"objectName\":\"https://synthetic.invalid/public/common/synthetic-product.png?q-signature=synthetic\",\"uploadOutcome\":\"stored\",\"previewUnavailable\":true}",
+    "pass": true
+  },
+  {
+    "name": "unverifiable receipt retains unknown: {\"code\":0,\"data\":\"https://synthetic.invalid/public/common/synthetic-product.png?q-signature=synthetic\"}",
+    "pass": true
+  },
+  {
+    "name": "unverifiable receipt retains unknown: {\"code\":1,\"uploadOutcome\":\"rejected\",\"uploadDiagnosticCode\":\"NOT_A_TRUSTED_CODE\"}",
+    "pass": true
+  },
+  {
+    "name": "unverifiable receipt retains unknown: {\"code\":1,\"uploadOutcome\":\"unknown\",\"uploadDiagnosticCode\":\"UPLOAD_STORAGE_UNCONFIRMED\"}",
+    "pass": true
+  },
+  {
+    "name": "explicit pre-PUT rejection releases upload marker and exposes only fixed diagnostic code",
+    "pass": true
+  },
+  {
+    "name": "preview-unavailable receipt cannot satisfy legacy evidence URL contract",
+    "pass": true
+  }
+]

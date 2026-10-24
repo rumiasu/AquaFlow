@@ -43,6 +43,15 @@ const exactNumber = value => {
   const number = Number(text)
   return Number.isFinite(number) ? number : null
 }
+function productSession() {
+  const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+  return { app, generation: app._loginGeneration || 0,
+    key: JSON.stringify([!!g.isLogin, u.staffId, u.stationId, u.role, u.bindStatus]) }
+}
+function sameProductSession(proof) {
+  const now = productSession()
+  return proof && proof.app === now.app && proof.generation === now.generation && proof.key === now.key
+}
 
 /** 上报处理状态文案（后端 product_submission.status：0 待处理 / 1 已纳入 / 2 已驳回） */
 const SUBMISSION_STATUS_TEXT = { 0: '待处理', 1: '已纳入通用库', 2: '已驳回' }
@@ -88,6 +97,9 @@ Page({
     editForm: {},
     editCategoryIndex: 0,
     uploading: false,
+    productImageState: 'empty', productImageHint: '尚未设置商品图片', productImageCaseId: '', productImageBusy: false,
+    productImagePreviewUrl: '', productEditSheetStyle: '',
+    editHelpExpanded: false,
 
     // 预设图选择面板（平台统一图库）：站长不必自己拍照，直接从平台图里挑
     showPresetPicker: false,
@@ -112,6 +124,11 @@ Page({
   },
 
   onShow() {
+    this.captureProductEditorWindow()
+    if (!this._productResizeHandler && typeof wx.onWindowResize === 'function') {
+      this._productResizeHandler = event => this.layoutProductEditor(event && event.size && event.size.windowHeight)
+      wx.onWindowResize(this._productResizeHandler)
+    }
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
@@ -120,6 +137,41 @@ Page({
     this.setData({ stationId: (app.globalData.userInfo || {}).stationId || null })
     this.loadData()
     this.loadWaterTemplateImages()
+  },
+
+  onUnload() {
+    if (this._productResizeHandler && typeof wx.offWindowResize === 'function') wx.offWindowResize(this._productResizeHandler)
+    this._productResizeHandler = null
+  },
+
+  productWindowHeight() {
+    try {
+      const info = typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()
+      return Number.isFinite(info.windowHeight) && info.windowHeight > 0 ? info.windowHeight : 0
+    } catch (_) { return 0 }
+  },
+
+  captureProductEditorWindow() {
+    const height = this.productWindowHeight()
+    if (!this._productKeyboardHeight || !this._productBaseWindowHeight) this._productBaseWindowHeight = height
+    this.layoutProductEditor()
+  },
+
+  layoutProductEditor(resizedHeight) {
+    const measured = Number(resizedHeight), currentHeight = measured > 0 ? measured : this.productWindowHeight()
+    if (!currentHeight) { this.setData({ productEditSheetStyle: 'height:88vh;max-height:88vh;bottom:8px;' }); return }
+    const baseline = this._productBaseWindowHeight || currentHeight, keyboard = this._productKeyboardHeight || 0
+    // 2026-10-24：Android 可能已缩小窗口；只补键盘未被 resize 吃掉的部分，不能重复扣高度。
+    const consumed = Math.max(0, baseline - currentHeight), bottom = Math.max(0, keyboard - consumed)
+    const height = Math.max(0, Math.floor(currentHeight - bottom - 16))
+    this.setData({ productEditSheetStyle: 'height:' + height + 'px;max-height:' + height + 'px;bottom:' + (bottom + 8) + 'px;' })
+  },
+
+  onProductKeyboardHeightChange(e) {
+    const height = Number(e && e.detail && e.detail.height)
+    if (!Number.isFinite(height) || height < 0) return
+    this._productKeyboardHeight = height
+    this.layoutProductEditor()
   },
 
   async loadWaterTemplateImages() {
@@ -142,6 +194,9 @@ Page({
     const src = e.currentTarget.dataset.src
     if (!src) return
     this.setData({ brokenImages: { ...this.data.brokenImages, [src]: true } })
+    if (src === this.data.productImagePreviewUrl || src === this.data.editForm.imageUrl) {
+      console.warn('[product-image-preview]', { diagnosticCode: 'IMAGE_PREVIEW_UNAVAILABLE', confirmedObjectKey: !!this.data.editForm.imageObjectName })
+    }
   },
 
   async loadData() {
@@ -277,6 +332,7 @@ Page({
       this.onSelectProduct(e)
       return
     }
+    this.captureProductEditorWindow()
     this.setData({
       showSetting: true,
       setting: {
@@ -702,24 +758,32 @@ Page({
   },
 
   openWaterTemplateDraft(template) {
+    if (this.data.saving || this.data.productImageBusy || this.data.uploading) return
     this.openAdd()
     // 2026-10-21：换模板是新商品意图，独立图片草稿保留原未知记录并隔离旧选图回调。
-    try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, true) }
-    catch (_) { this._uploadDraftId = null }
     this.setData({ editTemplateId: template.id, editForm: { ...this.data.editForm,
       name: template.name, brand: template.brand, spec: template.spec,
       category: template.category, imageObjectName: template.imageObjectName || '', imageUrl: template.imageUrl, description: template.description } })
+    this.refreshProductImageState()
   },
 
   openAdd() {
+    if (this.data.saving || this.data.productImageBusy || this.data.uploading) return
+    this.rememberProductImageDraft()
+    this._productEditEpoch = (this._productEditEpoch || 0) + 1
+    this._productImageFailure = null
+    this._productPreviewUnavailable = null
+    this.captureProductEditorWindow()
     this._pkgSeq = (this._pkgSeq || 0) + 1
-    try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, false, this._uploadResumeDraftId) } catch (_) { this._uploadDraftId = null }
+    // 普通新商品是独立意图；仅明确“继续原草稿”才复用原图片编号，避免迟到上传污染新表单。
+    try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, !this._uploadResumeDraftId, this._uploadResumeDraftId) } catch (_) { this._uploadDraftId = null }
     this.setData({
       showEdit: true,
       isAdd: true,
       editId: null,
       editTemplateId: '',
       editCategoryIndex: 0,
+      productImagePreviewUrl: '',
       pkgRows: [], pkgReady: true, pkgLoading: false, pkgError: '', pkgProductId: null, // 新商品没有旧档位，可以直接填写草稿
       editForm: {
         name: '', brand: '', spec: '', category: 1,
@@ -727,14 +791,25 @@ Page({
         description: '', enabled: false, ticketEnabled: false, ticketPrice: ''
       }
     })
+    if (this._uploadResumeDraftId) this.restoreProductImageDraft(this._uploadResumeDraftId)
+    this.setData({ editHelpExpanded: false })
+    if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
+    this.refreshProductImageState()
   },
 
   openEdit(e) {
+    if (this.data.saving || this.data.productImageBusy || this.data.uploading) return
+    this.rememberProductImageDraft()
+    this._productEditEpoch = (this._productEditEpoch || 0) + 1
+    this._productImageFailure = null
+    this._productPreviewUnavailable = null
+    this.captureProductEditorWindow()
     const item = e.currentTarget.dataset.item
     try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: Number(item.id) }) } catch (_) { this._uploadDraftId = null }
     const idx = CATEGORY_OPTIONS.findIndex(c => c.value === item.category)
     this.setData({
       showEdit: true,
+      productImagePreviewUrl: '',
       isAdd: false,
       editId: item.id, pkgRows: [], pkgReady: false, pkgError: '', pkgProductId: item.id,
       editTemplateId: '',
@@ -756,10 +831,102 @@ Page({
     })
     // 编辑自定义商品时同样把档位带出来（与「本站设置」共用同一份行数据与保存逻辑）
     this.loadPkgRows(item.id)
+    this.setData({ editHelpExpanded: false })
+    if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
+    this.refreshProductImageState()
   },
 
   closeEdit() {
+    if (this.data.saving) return
+    this.rememberProductImageDraft()
+    this._productEditEpoch = (this._productEditEpoch || 0) + 1
     this.setData({ showEdit: false })
+    this.refreshProductImageState()
+  },
+
+  onToggleEditHelp() { this.setData({ editHelpExpanded: !this.data.editHelpExpanded }) },
+
+  rememberProductImageDraft() {
+    if (!this._uploadDraftId) return
+    const drafts = this._productEditorDrafts || (this._productEditorDrafts = new Map())
+    const snapshot = {}
+    for (const field of ['isAdd','editId','editForm','editTemplateId','editCategoryIndex','pkgRows','pkgReady','pkgError','pkgProductId','productImagePreviewUrl']) snapshot[field] = this.data[field]
+    drafts.set(productSession().key + ':' + this._uploadDraftId, JSON.parse(JSON.stringify(snapshot)))
+  },
+
+  restoreProductImageDraft(id) {
+    const snapshot = this._productEditorDrafts && this._productEditorDrafts.get(productSession().key + ':' + id)
+    if (snapshot) this.setData({ ...JSON.parse(JSON.stringify(snapshot)), showEdit: true })
+  },
+
+  resumeProductImageDraft(entry) {
+    this.rememberProductImageDraft()
+    if (entry.entityId === 'new') {
+      this._uploadResumeDraftId = entry.draftId
+      try { this.openAdd() } finally { this._uploadResumeDraftId = null }
+    } else {
+      if (this.data.isAdd || Number(this.data.editId) !== entry.entityId) throw Error('请先打开对应商品')
+      this._uploadDraftId = uploadDraft({ kind: 'product-image', id: entry.entityId }, false, entry.draftId)
+      this.restoreProductImageDraft(entry.draftId)
+      this.onProductImageDraftChanged(true)
+    }
+  },
+
+  onProductImageDraftChanged(preservePreview = false) {
+    this._productEditEpoch = (this._productEditEpoch || 0) + 1
+    this._productImageFailure = null
+    this._productPreviewUnavailable = null
+    if (!preservePreview) this.setData({ productImagePreviewUrl: '' })
+    this.refreshProductImageState()
+  },
+
+  onReplaceUnconfirmedProductImage() {
+    if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
+    this.refreshProductImageState()
+    if (this.data.saving || this.data.productImageBusy || this.data.productImageState !== 'unknown') return
+    const previous = this._productReplaceTask
+    if (previous && sameProductSession(previous.session) && previous.epoch === (this._productEditEpoch || 0)) return
+    const target = this.data.isAdd ? 'new' : Number(this.data.editId)
+    if (target !== 'new' && (!Number.isSafeInteger(target) || target <= 0)) return
+    const proof = { session: productSession(), epoch: this._productEditEpoch || 0,
+      recoveryEpoch: this._uploadRecoveryEpoch, draftId: this._uploadDraftId, target }
+    this._productReplaceTask = proof
+    const release = () => { if (this._productReplaceTask === proof) this._productReplaceTask = null }
+    const current = () => this._productReplaceTask === proof && sameProductSession(proof.session)
+      && proof.epoch === (this._productEditEpoch || 0) && proof.recoveryEpoch === this._uploadRecoveryEpoch
+      && this._uploadRecoveryActive !== false && proof.draftId === this._uploadDraftId
+      && (this.data.isAdd ? 'new' : Number(this.data.editId)) === proof.target
+    try {
+      wx.showModal({ title: '重新选择图片', confirmText: '重新选图',
+        content: '原图片可能已上传，原草稿和待核实记录会保留。将另开独立图片草稿选择新图；只有新图的引用确认后才能保存商品，商品资料保持不变。',
+        success: result => {
+          if (!result.confirm || !current() || this.data.saving || this.data.productImageBusy) { release(); return }
+          try {
+            this.rememberProductImageDraft()
+            // 保留旧未知记录；新编号持久保存成功后才清图片字段，绝不重放原上传或创建商品。
+            const draftId = uploadDraft({ kind: 'product-image', id: proof.target }, true)
+            this._uploadDraftId = draftId
+            this.setData({ 'editForm.imageUrl': '', 'editForm.imageObjectName': '', productImagePreviewUrl: '' })
+            this.onProductImageDraftChanged()
+            if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
+            release()
+            this.uploadImage()
+          } catch (error) { release(); wx.showToast({ title: error.message || '新图片草稿未能保存，原资料保留', icon: 'none' }) }
+        }, fail: release, complete: release })
+    } catch (_) { release(); wx.showToast({ title: '暂时无法重新选图，原资料保留', icon: 'none' }) }
+  },
+
+  refreshProductImageState() {
+    const task = this._productImageTask
+    const busy = !!(task && sameProductSession(task.session) && task.epoch === (this._productEditEpoch || 0) && task.draftId === this._uploadDraftId)
+    const currentCase = (this.data.uploadRecoveryCases || []).find(row => row.kind === 'product-image' && row.draftId === this._uploadDraftId)
+    const failed = this._productImageFailure && this._productImageFailure.draftId === this._uploadDraftId
+    const state = busy ? task.phase : (this.data.uploadRecoveryReadFailed || currentCase ? 'unknown'
+      : (failed ? 'failed' : (this.data.editForm.imageUrl || this.data.editForm.imageObjectName ? 'ready' : 'empty')))
+    const hints = { empty: '尚未设置商品图片', ready: '商品图片已选好，可更换', selecting: '正在选择图片…', uploading: '图片上传中，请稍候…',
+      failed: '所选图片未上传成功，可重新选择；保存商品会沿用原图或留空。', unknown: '原图片结果待核实，可重新选图；旧记录会保留，仅确认后的新图可保存。' }
+    const unavailable = this._productPreviewUnavailable && this._productPreviewUnavailable.draftId === this._uploadDraftId
+    this.setData({ productImageState: state, productImageHint: state === 'ready' && unavailable ? '图片已上传，预览暂不可用；商品资料可保存。' : hints[state], productImageCaseId: currentCase ? currentCase.id : '', productImageBusy: busy, uploading: busy && task.phase === 'uploading' })
   },
 
   stopPropagation() {},
@@ -791,6 +958,9 @@ Page({
 
   async onSaveEdit() {
     if (this.data.saving) return
+    if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
+    this.refreshProductImageState()
+    if (this.data.productImageBusy || this.data.productImageState === 'unknown') { wx.showToast({ title: this.data.productImageBusy ? '图片仍在处理中，请稍候再保存' : '当前图片尚未确认，可重新选图；商品资料已保留', icon: 'none' }); return }
     const { isAdd, editId, editForm } = this.data
     if (editForm.ticketEnabled && (this.data.pkgLoading || this.data.pkgError)) { wx.showToast({ title: '请先读取原水票档位', icon: 'none' }); return }
     if (this.data.editTemplateId) {
@@ -909,6 +1079,8 @@ Page({
    * 后端下发包内路径或COS签名预览，并分开提供持久对象键。
    */
   async openPresetPicker() {
+    this.refreshProductImageState()
+    if (this.data.saving || this.data.productImageBusy || this.data.productImageState === 'unknown') return
     this.setData({ showPresetPicker: true })
     if (this.data.presetImages.length) return   // 已拉过就不重复请求
     this.setData({ presetLoading: true, presetError: '', presetReady: false })
@@ -935,52 +1107,99 @@ Page({
    * 不能把临时预览URL当对象键或从URL反推对象键。
    */
   onPickPresetImage(e) {
+    this.refreshProductImageState()
+    if (this.data.saving || this.data.productImageBusy || this.data.productImageState === 'unknown') return
     const path = e.currentTarget.dataset.path
     const objectName = e.currentTarget.dataset.objectName || ''
     if (!path) return
     this.setData({
       'editForm.imageUrl': path,
       'editForm.imageObjectName': objectName,
+      productImagePreviewUrl: '',
       showPresetPicker: false
     })
+    this._productImageFailure = null
+    this._productPreviewUnavailable = null
+    this.refreshProductImageState()
   },
 
   async uploadImage() {
+    this.refreshProductImageState()
+    if (this.data.saving || this.data.productImageBusy) return
     const currentImageTarget = () => this.data.isAdd ? 'new' : Number(this.data.editId)
     const imageTarget = currentImageTarget()
     let uploadDraftId
     try { uploadDraftId = uploadDraft({ kind: 'product-image', id: imageTarget }) }
     catch (error) { this.refreshUploadRecovery(); wx.showToast({ title: error.message || '图片草稿无法保存', icon: 'none' }); return }
     this._uploadDraftId = uploadDraftId
-    chooseImages({
+    if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
+    this.refreshProductImageState()
+    if (this.data.productImageState === 'unknown') { wx.showToast({ title: '请使用重新选择图片，原记录会保留', icon: 'none' }); return }
+    const task = { session: productSession(), draftId: uploadDraftId, epoch: this._productEditEpoch || 0, phase: 'selecting' }
+    this._productImageTask = task
+    this._productImageFailure = null
+    this.rememberProductImageDraft()
+    const current = () => sameProductSession(task.session) && currentImageTarget() === imageTarget && this._uploadDraftId === uploadDraftId && task.epoch === (this._productEditEpoch || 0)
+    const settled = () => {
+      if (this._productImageTask === task) this._productImageTask = null
+      if (sameProductSession(task.session)) this.refreshProductImageState()
+    }
+    this.refreshProductImageState()
+    try {
+    const accepted = chooseImages({
       count: 1,
+      onPickerSettled: settled,
       success: async (res) => {
-        if (currentImageTarget() !== imageTarget || this._uploadDraftId !== uploadDraftId) return
-        this.setData({ uploading: true })
+        if (!current()) { settled(); return }
+        const tempFile = res.tempFilePaths[0]
+        task.phase = 'uploading'
+        // 临时选图只用于当前草稿预览；结果未确认前绝不写进可保存的 URL / 对象键。
+        this.setData({ productImagePreviewUrl: tempFile })
+        this.rememberProductImageDraft()
+        this.refreshProductImageState()
         try {
-          const tempFile = res.tempFilePaths[0]
           const uploadRes = await upload({
             filePath: tempFile, session: res.uploadSession,
             url: API.GENERAL_UPLOAD,
             intent: { kind: 'product-image', id: imageTarget, draftId: uploadDraftId },
             name: 'file'
           })
-          if (!isUploadSessionCurrent(res.uploadSession) || currentImageTarget() !== imageTarget || this._uploadDraftId !== uploadDraftId) return
+          if (!isUploadSessionCurrent(res.uploadSession) || !sameProductSession(task.session)) return
           if (uploadRes.code === 0) {
-            this.setData({ 'editForm.imageUrl': uploadRes.data, 'editForm.imageObjectName': uploadRes.objectName })
-            wx.showToast({ title: '图片上传成功', icon: 'success' })
+            const imageUrl = typeof uploadRes.data === 'string' ? uploadRes.data : ''
+            const snapshots = this._productEditorDrafts, key = task.session.key + ':' + uploadDraftId
+            const saved = snapshots && snapshots.get(key)
+            if (saved) { saved.editForm.imageUrl = imageUrl; saved.editForm.imageObjectName = uploadRes.objectName; snapshots.set(key, saved) }
+            if (!current()) return
+            this._productPreviewUnavailable = uploadRes.previewUnavailable ? { draftId: uploadDraftId } : null
+            this.setData({ 'editForm.imageUrl': imageUrl, 'editForm.imageObjectName': uploadRes.objectName })
+            wx.showToast({ title: uploadRes.previewUnavailable ? '图片已上传，预览暂不可用' : '图片上传成功', icon: uploadRes.previewUnavailable ? 'none' : 'success' })
           } else {
-            wx.showToast({ title: uploadRes.message || '上传失败', icon: 'none' })
+            throw Object.assign(new Error('图片结果待核实，勿重复上传'), { uploadOutcomeUnknown: true })
           }
         } catch (err) {
-          this.refreshUploadRecovery()
-          if (!isUploadSessionCurrent(res.uploadSession) || currentImageTarget() !== imageTarget || this._uploadDraftId !== uploadDraftId) return
-          wx.showToast({ title: err.message || '上传失败', icon: 'none' })
+          // 仅固定诊断码/数值状态可出日志；不得带本地路径、预览URL、账号或服务原文。
+          const diagnostics = ['UPLOAD_LOGIN_REQUIRED','UPLOAD_FILE_TOO_LARGE','UPLOAD_FILE_TYPE_INVALID','UPLOAD_STORAGE_UNAVAILABLE','UPLOAD_STORAGE_UNCONFIRMED','UPLOAD_PREVIEW_UNAVAILABLE','UPLOAD_RECEIPT_INCOMPLETE']
+          console.warn('[product-image-upload]', {
+            statusCode: Number.isInteger(err.statusCode) ? err.statusCode : null,
+            backendCode: Number.isInteger(err.backendCode) ? err.backendCode : null,
+            uploadDiagnosticCode: diagnostics.includes(err.uploadDiagnosticCode) ? err.uploadDiagnosticCode : null,
+            uploadOutcomeUnknown: !!err.uploadOutcomeUnknown
+          })
+          if (typeof this.refreshUploadRecovery === 'function') this.refreshUploadRecovery()
+          if (!isUploadSessionCurrent(res.uploadSession) || !current()) return
+          if (!err.uploadOutcomeUnknown && !err.uploadStateFailure) this._productImageFailure = { draftId: uploadDraftId }
+          wx.showToast({ title: err.uploadOutcomeUnknown ? '图片暂未确认，所选预览已保留' : err.message || '上传失败', icon: 'none' })
         } finally {
-          if (isUploadSessionCurrent(res.uploadSession) && currentImageTarget() === imageTarget && this._uploadDraftId === uploadDraftId) this.setData({ uploading: false })
+          settled()
         }
       }
     })
+    if (accepted === false) settled()
+    } catch (error) {
+      if (current()) { this._productImageFailure = { draftId: uploadDraftId }; wx.showToast({ title: error.message || '选取图片失败', icon: 'none' }) }
+      settled()
+    }
   },
 
   /**

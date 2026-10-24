@@ -19,7 +19,7 @@ function pageFixture() {
     'utils/upload': {
       uploadDraft: () => 'synthetic-draft', isUploadSessionCurrent: () => true,
       chooseImages: options => { state.picker = options },
-      upload: async () => ({ code: 0, data: preview, objectName: key })
+      upload: async () => state.uploadResult || ({ code: 0, data: preview, objectName: key })
     }
   } })
   page.setData = function (patch, cb) {
@@ -79,9 +79,13 @@ test('old service URL-only receipt preserves the existing photo, explains unknow
   await flush()
   assert.equal(f.p.data.editForm.imageObjectName, key); assert.equal(f.p.data.editForm.imageUrl, preview)
   assert.equal(f.p.data.uploading, false); assert.equal(f.p.data.uploadCaseIds.length, 1)
-  assert(f.toast.some(row => row.title.includes('图片提交结果待核实') && row.title.includes('勿重复上传')))
+  assert(f.toast.some(row => row.title === '图片暂未确认，所选预览已保留'))
+  assert.equal(f.p.data.productImageState, 'unknown')
+  assert.equal(f.p.data.productImagePreviewUrl, '/synthetic.png')
   assert(!f.toast.some(row => row.title === '图片上传成功'))
-  f.p.uploadImage(); f.picks[1].success({ tempFilePaths: ['/second.png'] }); await flush()
+  const pickerCount = f.picks.length
+  f.p.uploadImage(); await flush()
+  assert.equal(f.picks.length, pickerCount, 'unknown current image is blocked before opening another picker')
   assert.equal(f.calls.length, 1); assert.equal(f.api.uploadCases().length, 1)
   assert.equal(f.p.data.editForm.imageObjectName, key); assert.equal(f.p.data.editForm.imageUrl, preview)
 })

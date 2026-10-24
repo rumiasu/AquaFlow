@@ -24,6 +24,7 @@ const SUITES = [
   { file: 'coordination-todo-context.test.js', name: 'manager responsibility card identity cache, late reads and page lifecycle offline' },
   { file: 'water-product-templates.test.js', name: 'evidence-backed water templates, editable defaults and explicit station business inputs offline' },
   { file: 'product-image-persistence.test.js', name: 'uploaded product object keys, edit/preset persistence and ambiguous receipt protection offline' },
+  { file: 'product-sheet-recovery.test.js', name: '商品长表单滚动结构、键盘几何、本地预览与分级上传回执' },
   { file: 'pending-reminder-lifecycle.test.js', name: 'manager reminder latest query and login lifecycle isolation offline' },
   { file: 'customer-home-recovery-view.test.js', name: '首页安全导航、加载恢复、未选站与商品空态' },
   { file: 'customer-profile-visible-states.test.js', name: '顾客地址、公告、企业资料与异常记录可见状态和恢复' },

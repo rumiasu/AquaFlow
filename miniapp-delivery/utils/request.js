@@ -117,6 +117,13 @@ function responseFailure(error, res) {
   error.statusCode = res && res.statusCode
   error.backendCode = res && res.data && res.data.code
   error.originalMessage = res && res.data && res.data.message
+  // Only the upload controller's explicit pre-PUT rejection can release its durable marker.
+  const body = res && res.data
+  const uploadCodes = ['UPLOAD_LOGIN_REQUIRED', 'UPLOAD_FILE_TOO_LARGE', 'UPLOAD_FILE_TYPE_INVALID', 'UPLOAD_STORAGE_UNAVAILABLE', 'UPLOAD_STORAGE_UNCONFIRMED']
+  if (res.statusCode === 200 && body && body.code === 1 && uploadCodes.includes(body.uploadDiagnosticCode)) {
+    error.uploadDiagnosticCode = body.uploadDiagnosticCode
+    error.uploadRejected = body.uploadOutcome === 'rejected' && body.uploadDiagnosticCode !== 'UPLOAD_STORAGE_UNCONFIRMED'
+  }
   return error
 }
 

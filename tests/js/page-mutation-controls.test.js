@@ -18,7 +18,7 @@ const controls=[
  // Canonical storage validation now independently rejects a key with its draft component removed.
  // Mutate draft selection instead, so this negative still exercises an actual cross-draft lock.
  {name:'merge-independent-common-drafts',change:mutate('upload-state','let selectedId = selected || (!fresh && b.current[target])','let selectedId = selected || b.current[target]'),check:async change=>{
-  const f=pageFixture('product',new Map(),change);await unknownFromPage(f);f.p.onUploadNewDraft();f.modals[0].success({confirm:true});await flush();f.p.uploadImage();f.picks[1].success({tempFilePaths:['/second.png']});await flush();assert.equal(f.stats.length,2)}},
+  const f=pageFixture('product',new Map(),change);await unknownFromPage(f);f.p.onUploadNewDraft();f.modals[0].success({confirm:true});await flush();f.p.uploadImage();if(f.picks[1])f.picks[1].success({tempFilePaths:['/second.png']});await flush();assert.equal(f.stats.length,2)}},
  {name:'remove-account-station-storage-isolation',change:mutate('upload-state','return JSON.stringify([route, Number(user.staffId), Number(user.stationId)])','return JSON.stringify([route, 1, 1])'),check:async change=>{
   const shared=new Map(),a=pageFixture('product',shared,change);await unknownFromPage(a);const b=pageFixture('product',shared,change);b.switchAccount();b.p.refreshUploadRecovery();assert.equal(b.p.data.uploadCaseIds.length,0)}},
  {name:'clear-case-on-empty-recovery-read',change:mutate('upload',"if (!row || state.pending.size || state.unknown.get(proof.caseId) !== record\n    || (proof.objectName && row.objectName !== proof.objectName) || (proof.isCurrent && !proof.isCurrent()))","if (false)"),check:async change=>{

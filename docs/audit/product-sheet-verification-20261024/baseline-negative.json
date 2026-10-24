@@ -1,0 +1,124 @@
+[
+  {
+    "name": "custom and station editors keep native scrollers free of catchtouchmove ancestors and footer outside body",
+    "pass": false,
+    "error": "Cannot read properties of undefined (reading 'attrs')"
+  },
+  {
+    "name": "recovery card stays in page flow before the CTA and CTA is hidden under editor",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+  },
+  {
+    "name": "empty image state shows one upload action and no contradictory change-image caption",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+  },
+  {
+    "name": "six image states expose mutually exclusive actions without hiding busy or unknown status",
+    "pass": false,
+    "error": "empty\n\n0 !== 2\n"
+  },
+  {
+    "name": "short-screen keyboard footer geometry subtracts keyboard once, resize=false",
+    "pass": false,
+    "error": "f.p.captureProductEditorWindow is not a function"
+  },
+  {
+    "name": "short-screen keyboard footer geometry subtracts keyboard once, resize=true",
+    "pass": false,
+    "error": "f.p.captureProductEditorWindow is not a function"
+  },
+  {
+    "name": "picker is busy immediately and cancellation releases product save guard",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ undefined\n- 'selecting'\n"
+  },
+  {
+    "name": "saving while picker is open cannot submit a product",
+    "pass": true
+  },
+  {
+    "name": "selected photo previews immediately without replacing saved key and unknown retains it",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ undefined\n- '/synthetic.png'\n"
+  },
+  {
+    "name": "independent image draft preserves all entered business fields, original case and resumable preview",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n'' !== '合成长名称商品'\n"
+  },
+  {
+    "name": "late image receipt after closing and new product cannot overwrite new editor",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'https://synthetic.invalid/public/common/synthetic-product.png?q-signature=synthetic'\n- ''\n"
+  },
+  {
+    "name": "unknown has one useful primary replacement action and a secondary explanation link",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+  },
+  {
+    "name": "unknown replacement confirms once, keeps old record and form, then chooses under a fresh image draft",
+    "pass": false,
+    "error": "f.p.onReplaceUnconfirmedProductImage is not a function"
+  },
+  {
+    "name": "replacement confirmation cannot switch drafts after cancel",
+    "pass": false,
+    "error": "f.p.onReplaceUnconfirmedProductImage is not a function"
+  },
+  {
+    "name": "replacement confirmation cannot switch drafts after edit",
+    "pass": false,
+    "error": "f.p.onReplaceUnconfirmedProductImage is not a function"
+  },
+  {
+    "name": "replacement confirmation cannot switch drafts after identity",
+    "pass": false,
+    "error": "f.p.onReplaceUnconfirmedProductImage is not a function"
+  },
+  {
+    "name": "confirmed upload without signed preview keeps local preview and saves only the actual key",
+    "pass": true
+  },
+  {
+    "name": "pre-send read failure is retryable, retains the chosen preview and confirmed previous image",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ undefined\n- 'failed'\n"
+  },
+  {
+    "name": "confirmed stored product key survives unavailable preview, without an unknown marker",
+    "pass": false,
+    "error": "The expression evaluated to a falsy value:\n\n  assert(result.value && !result.error)\n"
+  },
+  {
+    "name": "unverifiable receipt retains unknown: {\"code\":0,\"data\":null,\"objectName\":\"public/common/synthetic-product.png\"}",
+    "pass": true
+  },
+  {
+    "name": "unverifiable receipt retains unknown: {\"code\":0,\"data\":null,\"objectName\":\"https://synthetic.invalid/public/common/synthetic-product.png?q-signature=synthetic\",\"uploadOutcome\":\"stored\",\"previewUnavailable\":true}",
+    "pass": true
+  },
+  {
+    "name": "unverifiable receipt retains unknown: {\"code\":0,\"data\":\"https://synthetic.invalid/public/common/synthetic-product.png?q-signature=synthetic\"}",
+    "pass": true
+  },
+  {
+    "name": "unverifiable receipt retains unknown: {\"code\":1,\"uploadOutcome\":\"rejected\",\"uploadDiagnosticCode\":\"NOT_A_TRUSTED_CODE\"}",
+    "pass": true
+  },
+  {
+    "name": "unverifiable receipt retains unknown: {\"code\":1,\"uploadOutcome\":\"unknown\",\"uploadDiagnosticCode\":\"UPLOAD_STORAGE_UNCONFIRMED\"}",
+    "pass": true
+  },
+  {
+    "name": "explicit pre-PUT rejection releases upload marker and exposes only fixed diagnostic code",
+    "pass": false,
+    "error": "The expression evaluated to a falsy value:\n\n  assert(result.error && !result.error.uploadOutcomeUnknown && result.error.uploadRejected)\n"
+  },
+  {
+    "name": "preview-unavailable receipt cannot satisfy legacy evidence URL contract",
+    "pass": true
+  }
+]

@@ -1,0 +1,46 @@
+{
+  "baseline": "3fba0d505415aebc7f9d823488570c5d864e1b26",
+  "productSourceChanged": false,
+  "backendChanged": false,
+  "configurationOrDataChanged": false,
+  "realWechatCompilerExecuted": false,
+  "productionDeployment": false,
+  "suites": [
+    {
+      "file": "tests/js/native-home-module-closure.test.js",
+      "passed": 8,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/station-view-boundary.test.js",
+      "passed": 12,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/home-failure-layout.test.js",
+      "passed": 6,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/customer-home-recovery-view.test.js",
+      "passed": 42,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/customer-native-startup.test.js",
+      "passed": 7,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/plain-user-copy.test.js",
+      "passed": 10,
+      "failed": 0
+    }
+  ],
+  "passed": 85,
+  "failed": 0,
+  "sourcePackages": 2,
+  "sourceJs": 188,
+  "literalRequires": 452,
+  "scannerCrossCheckedWithLocalParser": true
+}

@@ -31,3 +31,5 @@
 已实际查看：[顾客改前](home-failure-closeout-20261024/before-customer-iphone.png)、[顾客改后](home-failure-closeout-20261024/after-customer-iphone.png)、[配送改前](home-failure-closeout-20261024/before-delivery-iphone.png)、[配送改后](home-failure-closeout-20261024/after-delivery-iphone.png)、[小屏顾客](home-failure-closeout-20261024/after-customer-small-large-font.png)、[小屏配送](home-failure-closeout-20261024/after-delivery-small-large-font.png)。配送375宽页签顶由281.5px提前至180.1px；顾客主要重试由两个减为一个；新提示列与按钮无重叠、无横向溢出。
 
 本批需统一同步上传两个小程序。**后端未改，无需重打；无迁移、新配置或数据库/缓存清理，本任务未部署。** 保留d088回退。旧场景库、生产数据均未触碰；此前真实图片上传失败仍按原记录未定位，未纳入本批。
+
+后续原生反馈：3fba同步后工具出现首页模块白屏，原生验收及上传暂停，见[模块调查](home-module-investigation-20261024.md)。本篇处理器/静态布局通过不覆盖微信实际模块打包；后续门禁提交保持本篇业务源码，不宣称白屏已修。

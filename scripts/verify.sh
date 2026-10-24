@@ -126,6 +126,7 @@ if command -v node >/dev/null 2>&1; then
   #   check-sql-catalog.js：sql/ 与 sql/README.md（迁移清单**正本**）双向一致。
   #     实测曾有 83 个 .sql 里 21 个无出处，含 clear_data.sql（清全库）与 reset_passwords.sql（重置全部员工密码）。
   node scripts/check-tracked-inputs.js || { echo "❌ 入库件检查未通过"; exit 1; }
+  node scripts/check-miniapp-requires.js || { echo "❌ 小程序模块依赖或打包输入不完整"; exit 1; }
   node scripts/check-sql-catalog.js || { echo "❌ 迁移清单一致性未通过"; exit 1; }
   #   check-ledger-claims.js：台账 §2 的「度量方法」列落成可执行断言（F-49，2026-09-30 第六批）。
   #     MUST（领域不变量）不达标即红；FINDING 与 §4 状态位互证 —— 台账标 FIXED 却实测不达标 = 红。

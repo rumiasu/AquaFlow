@@ -298,6 +298,8 @@ console.log('\n[4] 本轮新增的门禁')
 // 本机所有门禁全绿，而新克隆的 CI 第一步就会红。
 gate('CI/发布依赖件是否入库（防"克隆后缺失"）',
   'node', ['scripts/check-tracked-inputs.js'])
+gate('小程序原生模块依赖与打包输入',
+  'node', ['scripts/check-miniapp-requires.js'])
 // sql/ 与 sql/README.md 双向一致（2026-09-28 新增）：正向"每个脚本都要有出处"、
 // 反向"必跑清单点到的脚本必须真实存在"。README 是迁移清单的正本，脱节会让运维在改生产库时做错决定。
 gate('迁移清单与 sql/ 目录双向一致',

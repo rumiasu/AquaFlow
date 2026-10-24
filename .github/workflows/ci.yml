@@ -78,6 +78,9 @@ jobs:
       - name: 「克隆得到吗」门禁（CI/发布依赖件是否入库）
         run: node scripts/check-tracked-inputs.js
 
+      - name: Check miniapp require closure and package inputs
+        run: node scripts/check-miniapp-requires.js
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:

@@ -1,0 +1,98 @@
+{
+  "scope": "Native-style registry model with complete real source closure. Only platform/App registration is simulated; no business module stubs. Not a WeChat compiler test.",
+  "result": [
+    {
+      "name": "both actual package trees have tracked, case-correct, nonexcluded literal require closures",
+      "pass": true
+    },
+    {
+      "name": "the actual complete home source registers without any business-module stubs",
+      "pass": true
+    },
+    {
+      "name": "omitting station-view from the actual module registry reproduces the reported native error",
+      "pass": true
+    },
+    {
+      "name": "scanner ignores commented/sample require text but sees actual calls and flags dynamic resolution",
+      "pass": true
+    },
+    {
+      "name": "package gate rejects missing newly required module",
+      "pass": true
+    },
+    {
+      "name": "package gate rejects case newly required module",
+      "pass": true
+    },
+    {
+      "name": "package gate rejects ignored newly required module",
+      "pass": true
+    },
+    {
+      "name": "package gate rejects untracked newly required module",
+      "pass": true
+    }
+  ],
+  "registrations": [
+    {
+      "omitted": [],
+      "loaded": [
+        "pages/home/index.js",
+        "api/product.js",
+        "utils/request.js",
+        "config/api.js",
+        "utils/release-api-url.js",
+        "utils/token.js",
+        "utils/storage-keys.js",
+        "utils/transport.js",
+        "utils/snapshot.js",
+        "utils/display-message.js",
+        "api/order.js",
+        "utils/orderIntent.js",
+        "api/address.js",
+        "api/barrel.js",
+        "api/notification.js",
+        "api/station.js",
+        "api/payment.js",
+        "utils/storage.js",
+        "utils/address.js",
+        "utils/order-item-view.js",
+        "utils/station-view.js",
+        "pages/home/home-view-state.js"
+      ],
+      "networkRequests": 0,
+      "pageRegistered": true
+    },
+    {
+      "omitted": [
+        "utils/station-view.js"
+      ],
+      "loaded": [
+        "pages/home/index.js",
+        "api/product.js",
+        "utils/request.js",
+        "config/api.js",
+        "utils/release-api-url.js",
+        "utils/token.js",
+        "utils/storage-keys.js",
+        "utils/transport.js",
+        "utils/snapshot.js",
+        "utils/display-message.js",
+        "api/order.js",
+        "utils/orderIntent.js",
+        "api/address.js",
+        "api/barrel.js",
+        "api/notification.js",
+        "api/station.js",
+        "api/payment.js",
+        "utils/storage.js",
+        "utils/address.js",
+        "utils/order-item-view.js"
+      ],
+      "error": "module 'utils/station-view.js' is not defined, require args is '../../utils/station-view'",
+      "networkRequests": 0,
+      "pageRegistered": false
+    }
+  ]
+}

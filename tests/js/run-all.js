@@ -60,6 +60,7 @@ const SUITES = [
   { file: 'experience-candidate-regressions.test.js', name: '支付未知事实、当前搜索、退桶试算与原申请、配送核实和下单站别' },
   { file: 'directed-return-decision.test.js', name: '指定退回所见申请绑定、跨轮弹窗与刷新处理' },
   { file: 'customer-native-startup.test.js', name: '用户端 App 注册期冷启动与原生协议模块加载' },
+  { file: 'native-home-module-closure.test.js', name: '实际首页原生模块闭包、漏装反例与打包输入' },
   { file: '../../scripts/test-miniapp-environments.js', name: 'trial environment isolation and dev shortcut gates' },
   { file: 'employee-native-startup.test.js', name: '员工端 App 注册期与原生协议草稿加载' },
   { file: 'asset-view-station-flow.test.js', name: '本人资产站目录、历史资产切站、购买站别与会话隔离' },

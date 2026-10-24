@@ -73,3 +73,5 @@ AI 协作约束在 [AGENTS](../AGENTS.md)，安全边界在 [SECURITY](../SECURI
 2026-10-24 用户交回GLM前端10项报告的逐条复核、9项修复、名称字段P2剩余及定向回归边界见[前端报告处置记录](audit/frontend-disposition-20261024.md)，不代表原生72页视觉全验收。
 
 该批第10项权限内名称的后端收尾、合法缺名兜底及统一上传清单见[名称字段交接](audit/scoped-name-completion-20261024.md)；本次无迁移/新配置，实际MySQL及手机验收边界单列。
+
+2026-10-24 用户交回Qwen交互报告的回桶/收款事实、误报澄清、有限修复及验证边界见[交互报告复核](audit/qwen-interaction-review-20261024.md)和[机读处置记录](audit/qwen-interaction-review-20261024.json)，不以源码检查代替原生视觉或生产验收。

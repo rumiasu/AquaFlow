@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-24",
+  "baselineCommit": "a7c6d105647e70b962e23ed255aacf93af07a517",
+  "scope": "Qwen交互主张有限复核及必要最小修复",
+  "p0Confirmed": false,
+  "nativeVisualAcceptance": false,
+  "productionDeployed": false,
+  "productionDatabaseAccessed": false,
+  "review": [
+    {"id":"QW01","priority":"P1","verification":"partly_confirmed","finding":"回桶历史错筛2；永远空/恒0为过度概括","status":"verified_pending_fix"},
+    {"id":"QW02","priority":"P1","verification":"confirmed","finding":"今日回桶遗漏3且更新时间导致日期漂移","status":"verified_pending_fix"},
+    {"id":"QW03","priority":"P1","verification":"partly_confirmed","finding":"detail已有在途锁，未知结果后缺核实恢复","status":"verified_pending_fix"},
+    {"id":"QW04","priority":"P1","verification":"confirmed","finding":"home无订单级收款锁；home/detail确认缺金额后果","status":"verified_pending_fix"},
+    {"id":"QW05","priority":"P1","verification":"partly_confirmed","finding":"收款重复入账未证实；退回站长重放可重复待审批","status":"verified_pending_fix"},
+    {"id":"QW06","priority":"P1","verification":"confirmed","finding":"应收登记缺所选可信合计确认，并非外部扣款","status":"verified_pending_fix"},
+    {"id":"QW07","priority":"P2","verification":"confirmed","finding":"现金待收款导航与收款互斥","status":"verified_pending_fix"},
+    {"id":"QW08","priority":"P2","verification":"confirmed","finding":"未登录登录/重载共显，template新建按钮同位","status":"verified_pending_fix"},
+    {"id":"QW09","priority":"P2","verification":"overstated","finding":"三次下单提示有各自条件，不是必经","status":"deferred"},
+    {"id":"QW10","priority":"P2","verification":"partly_confirmed","finding":"钱的名称可统一，权益份数不能与金额合并","status":"deferred"},
+    {"id":"QW11","priority":"P2","verification":"partly_confirmed","finding":"新桶账仍可展开；负over不全是多还实物","status":"deferred"},
+    {"id":"QW12","priority":"P2","verification":"overstated","finding":"显式hover数量不能证明普遍无反馈","status":"deferred"},
+    {"id":"QW13","priority":"P2","verification":"partly_confirmed","finding":"合法6位色值有局部漂移，旧36被37替代","status":"deferred"},
+    {"id":"QW14","priority":"P2","verification":"partly_confirmed","finding":"部分空态缺行动；桶新模型已有押金入口","status":"deferred"},
+    {"id":"QW15","priority":"P2","verification":"partly_confirmed","finding":"shop已处理safe，template仅固定按钮未偏移","status":"verified_pending_fix"},
+    {"id":"QW16","priority":"P2","verification":"partly_confirmed","finding":"template固定件但无计费/数量错误证据","status":"deferred"},
+    {"id":"QW17","priority":"P2","verification":"partly_confirmed","finding":"待收款卡片无拨号但详情联系仍可达","status":"deferred"},
+    {"id":"QW18","priority":"P2","verification":"partly_confirmed","finding":"缺3/5筛选；已加载角标范围已说明","status":"deferred"},
+    {"id":"QW19","priority":"P2","verification":"overstated","finding":"合法级联未证实状态标签消失","status":"deferred"},
+    {"id":"WB08","priority":"P1","verification":"confirmed_existing","finding":"普通反馈后端重复建单仍是既有问题","status":"retained"}
+  ],
+  "verification": {
+    "initialBackendAssertions": 17,
+    "initialFrontendCounterexamples": 2,
+    "initialExistingFrontendChecks": 154,
+    "boundary": "源码、隔离内存SQL与平台替身；不是生产MySQL并发、真实渠道或原生视觉验收"
+  }
+}

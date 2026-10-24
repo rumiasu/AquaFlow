@@ -346,7 +346,7 @@ Page({
       if (!current()) return
       const d = res && res.data
       if (!d || !Number.isSafeInteger(d.settledCount) || d.settledCount < 0 || amountCents(d.settledAmount) === null) {
-        throw Object.assign(new Error('登记回执不完整'), { malformedResponse: true })
+        throw Object.assign(new Error('收款登记结果暂未查到'), { malformedResponse: true })
       }
       wx.showModal({ confirmText: '知道了',
         title: '核销完成',

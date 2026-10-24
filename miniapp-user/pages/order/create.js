@@ -1672,7 +1672,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         await new Promise((resolve) => {
           // 回查也失败时只能说明结果未知，续办始终绑定这张原单。
           const unknown = outcome.state === 'unknown'
-          const title = unknown ? '订单已提交，支付结果未知' : '订单已提交，但支付还没成功'
+          const title = unknown ? '订单已提交，付款结果待确认' : '订单已提交，但支付还没成功'
           const body = outcome.state === 'paid'
             ? '款项已经结清，可以放心等配送。'
             : unknown ? '订单已经建好了（订单号 ' + orderId + '），暂时查不到是否已付款。请点「查原单」刷新核实；若继续支付，仍办理这张原订单。'

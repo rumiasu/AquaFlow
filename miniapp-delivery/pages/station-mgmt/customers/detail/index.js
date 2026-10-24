@@ -426,7 +426,7 @@ Page({
         if (!res || ![0, 200].includes(res.code) || !data || !(data.duplicate === true
             || Array.isArray(data.changes) && data.changes.length === intent.items.length && intent.items.every(item =>
               data.changes.some(change => Number(change.productId) === item.productId && Number(change.qty) === item.qty)))) {
-          throw new Error('还桶登记回执未能核实')
+          throw new Error('还桶登记结果暂未查到')
         }
         if (!this.currentReturnContext(context)) return
         this._returnKnown = intent

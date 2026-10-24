@@ -182,7 +182,7 @@ test('PAY: 双超时弹窗和恢复卡片都保留未知，重进与续办仍绑
   const t = order(fail, fail); await t.page.onSubmit()
   observations.push({ case: caseName, hint: t.hint(), modalTitles: t.wx.__calls.modal.map(m => m.title),
     orderWrites: t.writes.length, paymentIds: t.payments, readIds: t.reads, cachedOrder: t.wx.getStorageSync('recentOrder.v1') })
-  assert(t.wx.__calls.modal.some(m => m.title.includes('支付结果未知')))
+  assert(t.wx.__calls.modal.some(m => m.title.includes('付款结果待确认')))
   assert(t.hint().includes('待确认')); assert(!t.hint().includes('还没付款'))
   t.page.setData({ lastSubmittedOrder: null }); t.page._restorePendingOrderFromStorage(); t.page._syncPendingOrderState()
   assert(t.hint().includes('待确认')); await t.page.onSubmit()

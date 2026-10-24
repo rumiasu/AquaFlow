@@ -7,6 +7,7 @@ const navigation = require('./navigation')
 /** 员工可见错误文案。诊断原文由调用方保留，不能用展示文案判断请求是否已执行。 */
 function displayMessage(value, fallback = '操作未完成，请稍后重试') {
   const text = typeof value === 'string' ? value.trim() : ''
+  if (/^云连接(?:失败|初始化未成功)/.test(text)) return '暂时连不上服务，请稍后重试'
   if (!text) return fallback
   // 2026-10-22：接口异常曾把堆栈、内部码和英文直接带到弹窗；只保留可读的中文业务原因。
   if (!/[\u3400-\u9fff]/.test(text)
@@ -156,7 +157,7 @@ function validRefreshData(data) {
  */
 function toNetworkError(err) {
   const raw = (err && (err.errMsg || err.message)) || ''
-  const message = err && err.transportConfiguration ? '服务连接未配置完成，请联系负责人核实'
+  const message = err && err.transportConfiguration ? '服务暂不可用，请稍后重试'
     : /time\s*out/i.test(raw) ? '网络超时，请检查手机网络后重试'
     : /fail/i.test(raw) ? '网络连接失败，请检查网络后重试' : displayMessage(raw, '网络连接失败，请重试')
   return Object.assign(new Error(message), err, {
@@ -235,7 +236,7 @@ function handle401(originalOptions, resolve, reject, session) {
           wx.setStorageSync(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken)
         } catch (_) {
           // The server has already rotated the pair; do not reuse the old refresh.
-          failFlight(flight, new Error('登录凭据未能保存，请重新登录'))
+          failFlight(flight, new Error('登录信息未能保存，请重新登录'))
           return
         }
         settleFlight(flight, null, accessToken)

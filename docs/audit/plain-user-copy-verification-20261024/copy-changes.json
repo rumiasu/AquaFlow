@@ -1,0 +1,89 @@
+{
+  "baseline": "c1eb51cdb89408eb0097d319aacdd2a6894345aa",
+  "changes": [
+    {
+      "file": "miniapp-user/app.js",
+      "before": "title: '体验环境暂不可用', content: error.errMsg || '请联系项目负责人核实体验设置。'",
+      "after": "title: '服务暂不可用', content: '暂时无法连接服务，请稍后重试。'",
+      "occurrences": 2,
+      "kind": "visible-text"
+    },
+    {
+      "file": "miniapp-user/pages/order/create.js",
+      "before": "'订单已提交，支付结果未知'",
+      "after": "'订单已提交，付款结果待确认'",
+      "occurrences": 1,
+      "kind": "visible-text"
+    },
+    {
+      "file": "miniapp-delivery/app.js",
+      "before": "'登录凭据未能保存，请重新登录'",
+      "after": "'登录信息未能保存，请重新登录'",
+      "occurrences": 1,
+      "kind": "visible-text"
+    },
+    {
+      "file": "miniapp-delivery/utils/request.js",
+      "before": "'服务连接未配置完成，请联系负责人核实'",
+      "after": "'服务暂不可用，请稍后重试'",
+      "occurrences": 1,
+      "kind": "visible-text"
+    },
+    {
+      "file": "miniapp-delivery/utils/request.js",
+      "before": "'登录凭据未能保存，请重新登录'",
+      "after": "'登录信息未能保存，请重新登录'",
+      "occurrences": 1,
+      "kind": "visible-text"
+    },
+    {
+      "file": "miniapp-delivery/pages/order/complete.js",
+      "before": "title: '结果未知'",
+      "after": "title: '送达结果待确认'",
+      "occurrences": 1,
+      "kind": "visible-text"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/products/index.js",
+      "before": "'原入库回执尚未核实，请联系水站负责人核对后继续原入库'",
+      "after": "'入库结果暂未查到，请继续原入库，勿重复登记'",
+      "occurrences": 1,
+      "kind": "visible-text"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/products/index.js",
+      "before": "'新建商品回执不完整，请核实原商品，勿重复创建'",
+      "after": "'新建结果暂未查到，请查看商品目录，勿重复新建'",
+      "occurrences": 1,
+      "kind": "visible-text"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/receivables/index.js",
+      "before": "'登记回执不完整'",
+      "after": "'收款登记结果暂未查到'",
+      "occurrences": 1,
+      "kind": "visible-text"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+      "before": "'还桶登记回执未能核实'",
+      "after": "'还桶登记结果暂未查到'",
+      "occurrences": 1,
+      "kind": "visible-text"
+    },
+    {
+      "file": "miniapp-user/utils/display-message.js",
+      "before": "  const text = typeof value === 'string' ? value.trim() : ''\n",
+      "after": "  const text = typeof value === 'string' ? value.trim() : ''\n  if (/^云连接(?:失败|初始化未成功)/.test(text)) return '暂时连不上服务，请稍后重试'\n",
+      "occurrences": 1,
+      "kind": "display-only-normalization"
+    },
+    {
+      "file": "miniapp-delivery/utils/request.js",
+      "before": "  const text = typeof value === 'string' ? value.trim() : ''\n",
+      "after": "  const text = typeof value === 'string' ? value.trim() : ''\n  if (/^云连接(?:失败|初始化未成功)/.test(text)) return '暂时连不上服务，请稍后重试'\n",
+      "occurrences": 1,
+      "kind": "display-only-normalization"
+    }
+  ]
+}

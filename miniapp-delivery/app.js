@@ -168,7 +168,7 @@ App({
       else wx.removeStorageSync(STORAGE_KEYS.USER_INFO)
     } catch (_) {
       this.clearLoginState()
-      throw new Error('登录凭据未能保存，请重新登录')
+      throw new Error('登录信息未能保存，请重新登录')
     }
     if (navigation.sessionKey() !== previousSession) navigation.invalidate()
     return userInfo

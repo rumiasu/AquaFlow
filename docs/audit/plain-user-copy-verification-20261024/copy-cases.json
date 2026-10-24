@@ -1,0 +1,42 @@
+[
+  {
+    "name": "miniapp-user shows a concise connection notice and retains original diagnostic/write flags",
+    "pass": true
+  },
+  {
+    "name": "miniapp-user keeps pre-dispatch configuration failure nonexecuted without developer instructions in visible copy",
+    "pass": true
+  },
+  {
+    "name": "miniapp-user preserves ordinary business reasons and amounts rather than expanding every term",
+    "pass": true
+  },
+  {
+    "name": "miniapp-delivery shows a concise connection notice and retains original diagnostic/write flags",
+    "pass": true
+  },
+  {
+    "name": "miniapp-delivery keeps pre-dispatch configuration failure nonexecuted without developer instructions in visible copy",
+    "pass": true
+  },
+  {
+    "name": "miniapp-delivery preserves ordinary business reasons and amounts rather than expanding every term",
+    "pass": true
+  },
+  {
+    "name": "startup error hides raw SDK text while keeping the original error and login validation request",
+    "pass": true
+  },
+  {
+    "name": "startup error hides raw SDK text while keeping the original error and login validation request",
+    "pass": true
+  },
+  {
+    "name": "changed financial result titles remain pending and receipt errors retain explicit safety markers",
+    "pass": true
+  },
+  {
+    "name": "familiar accounting words and existing consequence explanations remain concise and unchanged",
+    "pass": true
+  }
+]

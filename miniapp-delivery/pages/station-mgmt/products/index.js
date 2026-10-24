@@ -745,7 +745,7 @@ Page({
       const body = inboundIntent.payload(intent)
       const result = await inboundProducts(intent.stationId, body.items, body.clientRequestId)
       if (!current()) return
-      if (!inboundIntent.acceptsReceipt(intent, result)) throw Object.assign(Error('原入库回执尚未核实，请联系水站负责人核对后继续原入库'), { malformedResponse: true })
+      if (!inboundIntent.acceptsReceipt(intent, result)) throw Object.assign(Error('入库结果暂未查到，请继续原入库，勿重复登记'), { malformedResponse: true })
       applied = true
       inboundIntent.clear(intent)
       this.syncInboundRecovery()
@@ -1263,7 +1263,7 @@ Page({
         if (!this.productSaveCurrent(proof)) throw saveScopeError()
         createDispatched = true
         const created = await createMyProduct(payload), newId = productIdOf(created && created.data)
-        if (!newId || created && created.code != null && created.code !== 0) throw Object.assign(Error('新建商品回执不完整，请核实原商品，勿重复创建'), { malformedResponse: true })
+        if (!newId || created && created.code != null && created.code !== 0) throw Object.assign(Error('新建结果暂未查到，请查看商品目录，勿重复新建'), { malformedResponse: true })
         // 已取得可信ID即进入第二阶段；即使档位失败或页面离开，原商品编号也不得丢失。
         creation.productId = newId; creation.phase = 'packages-pending'
         this.writeProductCreation(creation)

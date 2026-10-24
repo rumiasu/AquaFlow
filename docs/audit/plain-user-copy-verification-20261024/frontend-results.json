@@ -1,0 +1,66 @@
+{
+  "scope": "Copy/display changes with synthetic request/page handlers; no real payments, uploads, native WeChat or CI claim",
+  "totalPassed": 283,
+  "suites": [
+    {
+      "suite": "plain-user-copy",
+      "exitCode": 0,
+      "passed": 10,
+      "sentinel": true
+    },
+    {
+      "suite": "experience-fact-states",
+      "exitCode": 0,
+      "passed": 20,
+      "sentinel": true
+    },
+    {
+      "suite": "delivery-runtime-copy",
+      "exitCode": 0,
+      "passed": 26,
+      "sentinel": true
+    },
+    {
+      "suite": "qwen-collection-recovery",
+      "exitCode": 0,
+      "passed": 47,
+      "sentinel": true
+    },
+    {
+      "suite": "extreme-product-save",
+      "exitCode": 0,
+      "passed": 19,
+      "sentinel": true
+    },
+    {
+      "suite": "barrel-return-visible-identity",
+      "exitCode": 0,
+      "passed": 35,
+      "sentinel": true
+    },
+    {
+      "suite": "request-report-copy",
+      "exitCode": 0,
+      "passed": 14,
+      "sentinel": true
+    },
+    {
+      "suite": "cloud-upload.mock",
+      "exitCode": 0,
+      "passed": 37,
+      "sentinel": true
+    },
+    {
+      "suite": "request-session-boundary",
+      "exitCode": 0,
+      "passed": 60,
+      "sentinel": true
+    },
+    {
+      "suite": "product-simple-upload",
+      "exitCode": 0,
+      "passed": 15,
+      "sentinel": true
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "baseline": "c1eb51cdb89408eb0097d319aacdd2a6894345aa",
+  "files": [
+    {
+      "file": "miniapp-user/app.js",
+      "matchesApprovedTextChangesExactly": true,
+      "syntax": "passed"
+    },
+    {
+      "file": "miniapp-user/pages/order/create.js",
+      "matchesApprovedTextChangesExactly": true,
+      "syntax": "passed"
+    },
+    {
+      "file": "miniapp-delivery/app.js",
+      "matchesApprovedTextChangesExactly": true,
+      "syntax": "passed"
+    },
+    {
+      "file": "miniapp-delivery/utils/request.js",
+      "matchesApprovedTextChangesExactly": true,
+      "syntax": "passed"
+    },
+    {
+      "file": "miniapp-delivery/pages/order/complete.js",
+      "matchesApprovedTextChangesExactly": true,
+      "syntax": "passed"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/products/index.js",
+      "matchesApprovedTextChangesExactly": true,
+      "syntax": "passed"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/receivables/index.js",
+      "matchesApprovedTextChangesExactly": true,
+      "syntax": "passed"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+      "matchesApprovedTextChangesExactly": true,
+      "syntax": "passed"
+    },
+    {
+      "file": "miniapp-user/utils/display-message.js",
+      "matchesApprovedTextChangesExactly": true,
+      "syntax": "passed"
+    }
+  ],
+  "scope": "Every production diff is exactly the enumerated display text changes; no WXML/WXSS, request body, action/state/permission/key change"
+}

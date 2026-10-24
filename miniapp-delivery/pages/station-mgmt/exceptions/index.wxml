@@ -46,7 +46,7 @@
             </view>
             <view class="ex-row">
               <text class="ex-label">订单</text>
-              <text class="ex-value">#{{item.orderId}} · 客户 #{{item.customerId}}</text>
+              <text class="ex-value">订单编号：{{item.orderId}} · {{item.customerText}}</text>
             </view>
             <view class="ex-row">
               <text class="ex-label">桶</text>

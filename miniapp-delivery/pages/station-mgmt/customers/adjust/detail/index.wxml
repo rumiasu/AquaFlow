@@ -43,11 +43,11 @@
       </view>
       <view class="row">
         <text class="label">客户</text>
-        <text class="value">#{{detail.customerId}}</text>
+        <text class="value">{{detail.customerText}}</text>
       </view>
       <view class="row" wx:if="{{detail.productId}}">
         <text class="label">商品</text>
-        <text class="value">#{{detail.productId}}</text>
+        <text class="value">{{detail.productText}}</text>
       </view>
       <view class="row">
         <text class="label">创建时间</text>

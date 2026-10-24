@@ -116,7 +116,12 @@ Page({
       this.setData({
         mode,
         stationName: '',
-        applyStationName: userInfo.applyStationName || ''
+        // 2026-10-24：解绑展示当前绑定站，不能借用以前另一个水站的绑定申请名称。
+        applyStationName: mode === 'PENDING_UNBIND'
+          ? (bindData && bindData.stationName || meData && meData.stationName
+            || (String(userInfo.stationId) === String(stationId) ? userInfo.stationName : '') || (stationId ? '水站编号：' + stationId : ''))
+          : (bindData && bindData.applyStationName || (String(userInfo.applyStationId) === String(applyStationId) ? userInfo.applyStationName : '')
+            || (applyStationId ? '水站编号：' + applyStationId : ''))
       })
     } catch (err) {
       if (!this.bindingCurrent(active)) return

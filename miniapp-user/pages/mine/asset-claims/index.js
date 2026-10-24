@@ -27,7 +27,7 @@ Page({
       this.setData({ form: emptyForm(), records: [], catalog: [], stations: [], notice: '', pending: false })
     }
     this._actor = owner; this._customer = customer; this._session = session
-    this.setData({ stationId: this._stationId, stationName: this._stationId ? '水站 #' + this._stationId : '请选择认领水站', submitting: false })
+    this.setData({ stationId: this._stationId, stationName: this._stationId ? '水站编号：' + this._stationId : '请选择认领水站', submitting: false })
     return Promise.all([this.loadStations(), this.load()])
   },
   context(read) { return { session: this._session, actor: this._actor, station: this._stationId, epoch: this._epoch, read } },
@@ -41,9 +41,9 @@ Page({
       const rows = claim.data(await getPublicStations())
       if (!this.current(c) || sequence !== this._stationRead) return
       if (!Array.isArray(rows) || rows.some(r => !r || !claim.id(r.id))) throw Error('stations')
-      const stations = rows.map(r => ({ id: claim.id(r.id), name: r.name || '水站 #' + r.id }))
+      const stations = rows.map(r => ({ id: claim.id(r.id), name: r.name || '水站编号：' + r.id }))
       this.setData({ stations, stationsError: '', stationName: (stations.find(r => r.id === this._stationId) || {}).name
-        || (this._stationId ? '水站 #' + this._stationId : '请选择认领水站') })
+        || (this._stationId ? '水站编号：' + this._stationId : '请选择认领水站') })
     } catch (e) { if (this.current(c) && sequence === this._stationRead) this.setData({ stationsError: '可选水站暂未加载，请重试' }) }
   },
   async load() {

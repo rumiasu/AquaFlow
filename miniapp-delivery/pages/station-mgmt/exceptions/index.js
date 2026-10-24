@@ -27,6 +27,7 @@ const { API } = require('../../../config/api')
 // 告警走 api 模块里的包装函数（不直接拼路径）：那个函数是这个端点的**唯一**调用实现，
 // 绕开它会立刻变成"定义了没人用"的死包装函数（本仓 §0.3 的判据：定义 ≠ 调用）。
 const { getAlerts } = require('../../../api/station-mgmt')
+const { referenceText } = require('../../../utils/display-message')
 
 const EXCEPTIONS = API.MANAGER_EXCEPTIONS
 
@@ -292,6 +293,7 @@ Page({
         id: r.id,
         orderId: r.orderId,
         customerId: r.customerId,
+        customerText: referenceText(r.customerName, r.customerId, '客户'),
         pending: !!r.pending,
         categoryText: r.categoryText,
         statusText: r.statusText,

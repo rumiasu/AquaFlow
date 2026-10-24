@@ -7,7 +7,7 @@
     <text wx:if="{{!statusReady}}">申请信息尚未核实，请刷新后查看最新状态。</text>
     <text wx:elif="{{mode === 'PENDING_UNBIND'}}">您已申请解除与当前水站的绑定，请等待站长确认。</text>
     <text wx:else>您已申请绑定水站，请等待站长确认。</text>
-    <text wx:if="{{applyStationName}}">申请绑定：{{applyStationName}}</text>
+    <text wx:if="{{applyStationName}}">{{mode === 'PENDING_UNBIND' ? '申请解绑：' : '申请绑定：'}}{{applyStationName}}</text>
   </view>
   <view class="status-card">
     <view class="status-row">

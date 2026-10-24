@@ -1,6 +1,7 @@
 const imageDisplay = require('../../../../../behaviors/imageDisplay')
 // 站长资产调整单详情（含快照、证据图、执行 / 撤销）
 const { getAdjustment, executeAdjustment, reverseAdjustment } = require('../../../../../api/station-mgmt')
+const { referenceText } = require('../../../../../utils/display-message')
 
 /**
  * 快照字段的展示标签。
@@ -75,6 +76,8 @@ function decorate(a) {
     ? String(a.evidence).split(',').map(s => s.trim()).filter(Boolean)
     : []
   return Object.assign({}, a, {
+    customerText: referenceText(a.customerName, a.customerId, '客户'),
+    productText: referenceText(a.productName, a.productId, '商品'),
     hasQty: hasQty,
     // 带符号展示：正数补 + 号。仅 OVER_ADJUST 可能为负（负=核销欠桶）
     qtyText: hasQty ? (qty > 0 ? '+' + qty : String(qty)) : '',

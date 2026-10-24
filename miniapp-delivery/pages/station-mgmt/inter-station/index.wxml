@@ -100,9 +100,9 @@
     <button class="btn-outline-small" bindtap="onRetryAftercareRead" disabled="{{aftercareBusy || aftercareLoading}}">查询原责任记录</button>
     <text wx:if="{{aftercareReady && !aftercareItems.length}}">暂无可核对的实际消费退款凭据。</text>
     <view class="card" wx:for="{{aftercareItems}}" wx:key="refundPaymentId">
-      <text>{{item.refundVerified ? '已核实退' : '原退款凭据待核'}} #{{item.refundPaymentId}} · 记录金额 ¥{{item.refundAmount}} · 关联站 {{item.refundStationId}}</text>
+      <text>{{item.refundVerified ? '已核实退' : '原退款凭据待核'}} #{{item.refundPaymentId}} · 记录金额 ¥{{item.refundAmount}} · 关联{{item.refundStationText}}</text>
       <text>{{item.statusText}}</text>
-      <text wx:if="{{item.amount !== null}}">站 {{item.otherStationId}} 向实际退款站 {{item.refundStationId}} 分担 ¥{{item.amount}}；其余由实际退款站承担。</text>
+      <text wx:if="{{item.amount !== null}}">{{item.otherStationText}} 向实际退款站 {{item.refundStationText}} 分担 ¥{{item.amount}}；其余由实际退款站承担。</text>
       <text wx:else>具体责任金额待核对，不自动追收原整单报酬。</text>
       <text wx:if="{{item.reason}}">{{item.reason}}</text>
       <view class="actions">

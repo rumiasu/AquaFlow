@@ -3,6 +3,7 @@ const businessRules = require('../../../api/business-rules')
 const { getPendingReturnRecord, syncPendingReminder } = require('../../../utils/pending-reminder')
 const { positiveId, readPage } = require('../../../utils/business-history-page')
 const refundRecovery = require('../../../utils/barrel-refund-recovery')
+const { referenceText } = require('../../../utils/display-message')
 
 // 资格只是交款前的只读快照，现有退款写接口仍核对原渠道、状态和账目。
 const CHANNEL_CASH = 'CASH'
@@ -47,7 +48,7 @@ Page({
     list: [], recordId: null, loading: false, recordsReady: false, loadError: '',
     scope: 'ACTIVE', nextBeforeId: null, recordSearch: '', searchError: '', moreError: '',
     selectedId: null, selected: null, sheetOpen: false, showMore: false,
-    operatorScopeText: '', scopeStationId: null,
+    operatorScopeText: '', scopeStationId: null, scopeStationName: '', scopeStationText: '',
     eligibility: null, eligibilityLoading: false, eligibilityError: '',
     actionBusy: false, actionError: '', recoveryNeeded: false, refundRecoveryNeeded: false,
     undelivered: [], undeliveredCount: 0, undeliveredAmount: '0', undeliveredExpanded: false, undeliveredError: ''
@@ -67,7 +68,8 @@ Page({
     // 2026-10-19 M03：办理弹层要就近显示**真实角色**（来自登录态，不是写死文案），
     // 与申请归属/当前站一起让经理一眼分辨「谁在办、办哪个站的哪条申请」。
     const u = (app.globalData || {}).userInfo || {}
-    this.setData({ operatorScopeText: u.role === 'STATION_MANAGER' ? '站长办理' : (u.role === 'DELIVERY' ? '配送员查看' : ''), scopeStationId: u.stationId || null })
+    this.setData({ operatorScopeText: u.role === 'STATION_MANAGER' ? '站长办理' : (u.role === 'DELIVERY' ? '配送员查看' : ''), scopeStationId: u.stationId || null,
+      scopeStationName: u.stationName || '', scopeStationText: referenceText(u.stationName || (u.stationId ? '本站' : ''), u.stationId, '水站') })
     if (!this.restoreRefundRecovery()) return
     const pending = this._pendingAction
     this.loadUndelivered()
@@ -125,8 +127,9 @@ Page({
       amountText: money(item.depositRefund),
       paidText: item.refundProgress ? money(item.refundProgress.paid) : '',
       remainingText: item.refundProgress ? item.refundProgress.verified === false ? '待核实' : money(item.refundProgress.remaining) : '',
-      productText: item.productName || (item.productId != null ? '商品 #' + item.productId : '商品待核实'),
-      customerText: item.customerName || '客户编号：' + item.customerId,
+      productText: referenceText(item.productName, item.productId, '商品'),
+      customerText: referenceText(item.customerName, item.customerId, '客户'),
+      stationText: referenceText(item.stationName || (sameId(item.stationId, this.data.scopeStationId) ? this.data.scopeStationName || '本站' : ''), item.stationId, '水站'),
       requiredText: required === 0 ? '无需实际交桶' : required != null ? '需实际交桶 ' + required + ' 个' : '交桶数量待核实',
       delivered: isReturn && item.status === 3 && !!item.refundPaidTime,
       noDeliveryRecord: isReturn && item.status === 3 && !item.refundPaidTime,
@@ -240,7 +243,8 @@ Page({
       const data = checked(await getRefundUndelivered(), '未交付记录未能核对')
       if (!this.validRead(seq, '_undeliveredSeq', snapshot)) return
       if (!data || !Array.isArray(data.records)) throw new Error('未交付记录未能核对')
-      this.setData({ undelivered: data.records, undeliveredCount: data.count || 0, undeliveredAmount: money(data.amount || 0), undeliveredError: '' })
+      this.setData({ undelivered: data.records.map(row => ({ ...row, customerText: referenceText(row.customerName, row.customerId, '客户') })),
+        undeliveredCount: data.count || 0, undeliveredAmount: money(data.amount || 0), undeliveredError: '' })
     } catch (err) {
       if (this.validRead(seq, '_undeliveredSeq', snapshot)) this.setData({ undeliveredError: '历史交付记录未能核对，请重试；已显示内容为上次结果' })
     }

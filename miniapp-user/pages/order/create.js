@@ -1197,11 +1197,12 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 原实现客户看完提示只能自己去找购票入口 —— 而全仓根本没有跳转购票页的地方，等于死路。
         // 判定用后端下发的结构化 reason，**不比对 title 文案**（文案是给人看的，不是判据）。
         const canBuyTicket = tp.reason === 'INSUFFICIENT'
+        const ticketHint = typeof tp.hint === 'string' ? tp.hint.trim() : ''
         // 2026-10-24：非缺票情形没有自动切换动作，按钮仅确认知悉，正文指向手动选择。
         wx.showModal({
           title: tp.title || '暂不能用票支付',
-          content: canBuyTicket ? (tp.hint || '水票不足以覆盖本单，请改选支付方式或先补齐水票')
-            : (tp.hint ? tp.hint.replace(/[。！？；，、\s]+$/, '') + '。' : '') + '请关闭提示后，在支付方式中手动选择其它可用方式。',
+          content: canBuyTicket ? (ticketHint || '水票不足以覆盖本单，请改选支付方式或先补齐水票')
+            : (ticketHint ? ticketHint.replace(/[。！？；，、\s]+$/, '') + '。' : '') + '请关闭提示后，在支付方式中手动选择其它可用方式。',
           showCancel: canBuyTicket,
           confirmText: canBuyTicket ? '去买水票' : '知道了',
           cancelText: '留在本页',

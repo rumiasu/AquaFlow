@@ -28,6 +28,7 @@ const { priceByListed } = require('../../../api/delivery')
 const aftercareApi = require('../../../api/business-rules')
 const intents = require('../../../utils/exception-action-intent')
 const { positiveId } = require('../../../utils/business-history-page')
+const { referenceText } = require('../../../utils/display-message')
 const aftercareFocus = actor => 'aftercare-order:' + actor
 const exactMoney = value => (typeof value === 'string' || typeof value === 'number') && /^\d+(?:\.\d{1,2})?$/.test(String(value)) && Number(value) <= 99999999.99
 
@@ -144,6 +145,19 @@ Page({
       _settledText: settledText,
       _payMethodText: it.paymentMethodText || ''
     })
+  },
+
+  aftercareStationText(id, name) {
+    // 2026-10-24：只复用同会话已授权台账中的站名，售后行缺名也不额外扫描站点/客户。
+    let known = name
+    if (!known && this._ledgerReadSession && this.aftercareCurrent(this._ledgerReadSession)) {
+      for (const row of this.data.items.concat(this.data.dangling)) {
+        if (String(row.fromStationId) === String(id) && row.fromStationName) { known = row.fromStationName; break }
+        if (String(row.toStationId) === String(id) && row.toStationName) { known = row.toStationName; break }
+      }
+    }
+    const current = this.aftercareSession()
+    return referenceText(known || (id != null && current && String(id) === String(current.station) ? '本站' : ''), id, '水站')
   },
 
   /** 登记结清：只有**付款方**（本站）能点；凭据说明可空 —— 钱是线下走的，系统只留痕。 */
@@ -319,7 +333,8 @@ Page({
             || !['canPropose','canAgree','canPay'].every(k => typeof row[k] === 'boolean')
             || ![row.refundStationId,row.otherStationId].some(station => String(station) === String(snapshot.station))
             || row.status !== 'UNRESOLVED' && !exactMoney(row.amount)) throw new Error('原实退或责任金额未能核对')
-        const result = Object.assign({}, row)
+        const result = Object.assign({}, row, { refundStationText: this.aftercareStationText(row.refundStationId, row.refundStationName),
+          otherStationText: this.aftercareStationText(row.otherStationId, row.otherStationName) })
         for (const action of ['PROPOSE','AGREE','PAID']) {
           const pending = intents.read(snapshot.actor, 'AFTERCARE:' + row.refundPaymentId, 'AFTERCARE_' + action)
           if (!pending) continue

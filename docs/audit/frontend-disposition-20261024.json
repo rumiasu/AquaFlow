@@ -1,0 +1,398 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-24",
+  "baselineCommit": "9665f5ffbcfb6e6a68ab3a1625d8e7a524cabaa3",
+  "firstFixCommit": "604de131feb81eaa3c6930036a25a9aec70802d5",
+  "scope": "用户提供的10项GLM源码报告有限复核及最小修复",
+  "summary": {
+    "reviewed": 10,
+    "fixed": 9,
+    "partiallyFixed": 1,
+    "newP0": 0,
+    "openP1WithinReviewedScope": 0,
+    "nativeVisualAcceptance": false
+  },
+  "issues": [
+    {
+      "id": "GLM-01",
+      "priority": "P2",
+      "verification": "confirmed",
+      "status": "fixed",
+      "finding": "HTTP状态码进入顾客提示，订单展示过滤未兜住HTTP",
+      "evidence": [
+        {
+          "file": "miniapp-user/utils/request.js",
+          "line": 73
+        },
+        {
+          "file": "miniapp-user/utils/display-message.js",
+          "line": 2
+        }
+      ],
+      "change": "可见提示改为恢复动作，statusCode/backendCode/originalMessage保留诊断；订单错误复用同一展示过滤。",
+      "deliveryImpact": "不阻断代码交付；需手测错误提示。"
+    },
+    {
+      "id": "GLM-02",
+      "priority": "P2",
+      "verification": "confirmed",
+      "status": "fixed",
+      "finding": "通用身份变化错误误用购票场景",
+      "evidence": [
+        {
+          "file": "miniapp-user/utils/request.js",
+          "line": 20
+        }
+      ],
+      "change": "通用层改为重新进入后操作；购票页面独立保留查询原购买记录提示及原请求。",
+      "deliveryImpact": "不改变登录周期和令牌续期逻辑。"
+    },
+    {
+      "id": "GLM-03",
+      "priority": "P1",
+      "verification": "confirmed",
+      "status": "fixed",
+      "finding": "技术字段、请求方法和内部异常可能穿透顾客提示",
+      "evidence": [
+        {
+          "file": "miniapp-user/utils/display-message.js",
+          "line": 2
+        },
+        {
+          "file": "miniapp-user/utils/request.js",
+          "line": 244
+        },
+        {
+          "file": "miniapp-user/pages/order/create.js",
+          "line": 53
+        }
+      ],
+      "change": "同构员工展示过滤，保留正常中文业务原因、金额、容量；请求及反馈保留原诊断。幂等冲突与认领能力判断读取originalMessage，拒绝/未知结果逻辑不靠展示兜底。",
+      "deliveryImpact": "本范围已修，定向会话、幂等与反馈回归通过。"
+    },
+    {
+      "id": "GLM-04",
+      "priority": "P2",
+      "verification": "confirmed",
+      "status": "fixed",
+      "finding": "报价失败原因与暂停下单提示缺分句",
+      "evidence": [
+        {
+          "file": "miniapp-user/pages/order/create.js",
+          "line": 1050
+        }
+      ],
+      "change": "统一去除末尾重复标点，再用句号连接；报价失败仍禁止建单。",
+      "deliveryImpact": "不改变金额及报价有效性闸门。"
+    },
+    {
+      "id": "GLM-05",
+      "priority": "P1",
+      "verification": "confirmed",
+      "status": "fixed",
+      "finding": "首页当前订单忽略后端statusText并二选一写状态",
+      "evidence": [
+        {
+          "file": "miniapp-user/pages/home/index.js",
+          "line": 659
+        }
+      ],
+      "change": "优先后端statusText，缺失显示订单状态待核实。",
+      "deliveryImpact": "不伪造配送进度；实际状态筛选与订单ID不变。"
+    },
+    {
+      "id": "GLM-06",
+      "priority": "P1",
+      "verification": "confirmed",
+      "status": "fixed",
+      "finding": "不能补票时改选方式按钮仅关闭弹窗",
+      "evidence": [
+        {
+          "file": "miniapp-user/pages/order/create.js",
+          "line": 1199
+        }
+      ],
+      "change": "改为知道了，正文引导手动选择其它可用方式；不自动切换渠道或金额，缺票仍能去买水票。可选提示畸形也不抛错。",
+      "deliveryImpact": "按钮文案与实际动作一致，零自动建单/支付。"
+    },
+    {
+      "id": "GLM-07",
+      "priority": "P2",
+      "verification": "confirmed",
+      "status": "fixed",
+      "finding": "非开发版支付不可用文案暴露模拟渠道及项目负责人",
+      "evidence": [
+        {
+          "file": "miniapp-user/pages/order/create.js",
+          "line": 867
+        }
+      ],
+      "change": "顾客提示暂无可用支付方式，请联系水站；禁用渠道名称和说明面向顾客，开发版模拟识别及禁用守卫保留。",
+      "deliveryImpact": "不开放原本不可用的支付渠道。"
+    },
+    {
+      "id": "GLM-08",
+      "priority": "P1",
+      "verification": "confirmed",
+      "status": "fixed",
+      "finding": "顾客退桶原申请仅显示商品编号，难识别原申请",
+      "evidence": [
+        {
+          "file": "miniapp-user/pages/barrel/index.js",
+          "line": 271
+        }
+      ],
+      "change": "首发未知、恢复弹窗和资产重读使用当前资产中的对应商品名/规格；无名称明确显示商品编号。请求体、数量、账号/站别和幂等键均保留。",
+      "deliveryImpact": "恢复身份回归通过；未发生真实退桶或退款。"
+    },
+    {
+      "id": "GLM-09",
+      "priority": "P2",
+      "verification": "partially_confirmed",
+      "status": "fixed",
+      "finding": "解绑页水站名称标签仍写申请绑定",
+      "evidence": [
+        {
+          "file": "miniapp-delivery/pages/bind-wait/index.wxml",
+          "line": 10
+        },
+        {
+          "file": "miniapp-delivery/pages/bind-wait/index.js",
+          "line": 120
+        }
+      ],
+      "change": "标题和正文原本已区分模式，报告对此应收窄；修复剩余标签，并使解绑优先取当前绑定站，不借用旧申请站名。",
+      "deliveryImpact": "状态未核实时仍等待核实，不更改解绑操作与权限。"
+    },
+    {
+      "id": "GLM-10",
+      "priority": "P2",
+      "verification": "partially_confirmed",
+      "status": "partially_fixed",
+      "finding": "指定页面部分实体仅显示编号",
+      "evidence": [
+        {
+          "file": "miniapp-delivery/pages/station-mgmt/business-waiting/index.js",
+          "line": 84
+        },
+        {
+          "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.js",
+          "line": 79
+        },
+        {
+          "file": "miniapp-delivery/pages/station-mgmt/exceptions/index.js",
+          "line": 296
+        },
+        {
+          "file": "miniapp-delivery/pages/station-mgmt/inter-station/index.js",
+          "line": 150
+        },
+        {
+          "file": "miniapp-delivery/pages/station-mgmt/barrel-return/index.js",
+          "line": 131
+        },
+        {
+          "file": "miniapp-user/pages/mine/asset-claims/index.wxml",
+          "line": 52
+        }
+      ],
+      "change": "已有响应名称优先、ID辅助；待办和退桶办理补本站上下文，售后仅复用当前会话授权台账的站名。缺名明确写编号；不新增客户/站点扫描或逐条名称请求。",
+      "deliveryImpact": "不阻断本轮交付；后端未返回的真实名称仍是P2缺口。"
+    }
+  ],
+  "remaining": [
+    {
+      "priority": "P2",
+      "route": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index",
+      "field": "productName",
+      "reason": "现有decorate返回customerName但未返回productName；客户名已实际修复，商品仍明确编号。后续需在权限内补商品投影及回归。",
+      "evidence": [
+        {
+          "file": "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/StationAdjustmentServiceImpl.java",
+          "line": 369
+        }
+      ]
+    },
+    {
+      "priority": "P2",
+      "route": "miniapp-delivery/pages/station-mgmt/exceptions/index",
+      "field": "customerName",
+      "reason": "当前分页返回OrderBarrelException且无姓名字段；仅在UI预留名称优先、明确编号。应从有权限的订单/客户来源批量投影，不能用全客户扫描或跨站客户画像补齐。",
+      "evidence": [
+        {
+          "file": "AquaFlow-backend/src/main/java/com/example/aquaflow/mapper/OrderBarrelExceptionMapper.java",
+          "line": 41
+        }
+      ]
+    },
+    {
+      "priority": "P2",
+      "route": "miniapp-delivery/pages/station-mgmt/barrel-return/index",
+      "field": "customerName/productName（含历史交付提醒）",
+      "reason": "BarrelRecord现有实体无名称字段，历史交付查询select *也未补名称。本站上下文和名称优先已修；实际姓名/商品名补齐仍需统一后端批量投影。",
+      "evidence": [
+        {
+          "file": "AquaFlow-backend/src/main/java/com/example/aquaflow/mapper/BarrelRecordMapper.java",
+          "line": 104
+        }
+      ]
+    },
+    {
+      "priority": "P2",
+      "route": "miniapp-delivery/pages/station-mgmt/business-waiting/index;miniapp-delivery/pages/station-mgmt/inter-station/index",
+      "field": "未随响应返回且当前授权台账也没有的他站名称",
+      "reason": "已有名称或本站身份可显示，未知他站仍保留明确水站编号；不猜站名、不新增全量读取。后续需后端同批提供名称。"
+    }
+  ],
+  "correctionsToSourceReport": [
+    "解绑标题/正文原本已分模式，只剩名称标签错误。",
+    "站间台账主列表已有fromStationName/toStationName，缺口主要在售后责任片段。",
+    "退桶主列表已有名称优先代码，但当前实体/部分响应缺名；历史交付提醒曾仅取编号。",
+    "历史认领商品行已含名称和辅助ID，原本不是纯裸编号；本轮只修记录行水站名称。"
+  ],
+  "tests": {
+    "mode": "实际Page/请求/会话模块，平台及API替身；没有原生点击、真实登录或支付退款",
+    "uniqueSuites": 17,
+    "passedItems": 698,
+    "completionRule": "每个套件必须有ASCII AQUAFLOW_SUITE_OK收尾，不能只看退出码",
+    "results": [
+      {
+        "suite": "tests/js/request-malformed-envelope.test.js",
+        "passed": 149,
+        "sentinel": "AQUAFLOW_SUITE_OK 149",
+        "logSha256": "98878ab5d5d4451df09ae92ddf2093a0a85327f783fe884ef1cf908bfb55f6bc"
+      },
+      {
+        "suite": "tests/js/request-report-copy.test.js",
+        "passed": 14,
+        "sentinel": "AQUAFLOW_SUITE_OK 14",
+        "logSha256": "1c1fe27be81a7eff3d84e686c19c7f4277c78aae3bc0ca9bca1cbd078f4b143b"
+      },
+      {
+        "suite": "tests/js/request-session-boundary.test.js",
+        "passed": 60,
+        "sentinel": "AQUAFLOW_SUITE_OK 60",
+        "logSha256": "1e8d2a12abe26c19315007cdf73520dd264a631edeabb854256d6f4993d9983e"
+      },
+      {
+        "suite": "tests/js/order-intent-storage-recovery.test.js",
+        "passed": 51,
+        "sentinel": "AQUAFLOW_SUITE_OK 51",
+        "logSha256": "70cf76ba2c698ae09a2d8512232f0a29a94cad884f0cec58bf5f321ed6b915cf"
+      },
+      {
+        "suite": "tests/js/payment-quote-capability.test.js",
+        "passed": 29,
+        "sentinel": "AQUAFLOW_SUITE_OK 29",
+        "logSha256": "2a45b2c9aba82ce1ccecddf26888096a6f1decd49215e115d4379d88aae13d35"
+      },
+      {
+        "suite": "tests/js/checkout-presentation.test.js",
+        "passed": 17,
+        "sentinel": "AQUAFLOW_SUITE_OK 17",
+        "logSha256": "03d0bc427eb86f8af8261a720de69838b8c124c5360c69850fcee0a2e05247d0"
+      },
+      {
+        "suite": "tests/js/order-create-flow.test.js",
+        "passed": 43,
+        "sentinel": "AQUAFLOW_SUITE_OK 43",
+        "logSha256": "f9cacf3fa1ce832d9724b8b22f3a92e9860679031ca07684e099b7fd020dbf4b"
+      },
+      {
+        "suite": "tests/js/customer-home-recovery-view.test.js",
+        "passed": 42,
+        "sentinel": "AQUAFLOW_SUITE_OK 42",
+        "logSha256": "898dac5d1b39c92f4ff65b29c20b71f9e0f8cf8ed4492f05794c993bafeac796"
+      },
+      {
+        "suite": "tests/js/customer-night-visual-states.test.js",
+        "passed": 32,
+        "sentinel": "AQUAFLOW_SUITE_OK 32",
+        "logSha256": "931bc9a4c85776ab822f310157f7c0452b39571dc6b41416b7c2887c7ce3ab63"
+      },
+      {
+        "suite": "tests/js/ticket-purchase-recovery-boundary.test.js",
+        "passed": 40,
+        "sentinel": "AQUAFLOW_SUITE_OK 40",
+        "logSha256": "0d64d35fcd01d0daf7ff623ae82e602f260e1d7a30b8c5912b59648a1c7695a0"
+      },
+      {
+        "suite": "tests/js/display-reference-regression.test.js",
+        "passed": 10,
+        "sentinel": "AQUAFLOW_SUITE_OK 10",
+        "logSha256": "261db011a159eed066d5f485a9a33d4948822c564e7d10375c7a7fb0d0e1effd"
+      },
+      {
+        "suite": "tests/js/historical-asset-claim-flow.test.js",
+        "passed": 64,
+        "sentinel": "AQUAFLOW_SUITE_OK 64",
+        "logSha256": "9234479ca8a305338f575233e0090d84d65510b452d624fe87546c498214955e"
+      },
+      {
+        "suite": "tests/js/business-pending-flow.test.js",
+        "passed": 55,
+        "sentinel": "AQUAFLOW_SUITE_OK 55",
+        "logSha256": "0caf0a5429552318b42e77c7beae6951e66c10df6c17a91f9aea60d334a1fa70"
+      },
+      {
+        "suite": "tests/js/staff-astra-review-regressions.test.js",
+        "passed": 47,
+        "sentinel": "AQUAFLOW_SUITE_OK 47",
+        "logSha256": "5b780baddff5254da392160fdb812bdcd023a70b379edaf5d16f83e65ea3c948"
+      },
+      {
+        "suite": "tests/js/historical-business-entry-flow.test.js",
+        "passed": 12,
+        "sentinel": "AQUAFLOW_SUITE_OK 12",
+        "logSha256": "1812d7e19b3ea71ab50bc00f8f0214908347868b131fe5b3bf3ceeabe167fc43"
+      },
+      {
+        "suite": "tests/js/inter-station-ledger.test.js",
+        "passed": 18,
+        "sentinel": "AQUAFLOW_SUITE_OK 18",
+        "logSha256": "eab0856e39cedad067b7dbe0770c56d9a416b60a1fec4f4c8cbdaca3895aa5b6"
+      },
+      {
+        "suite": "tests/js/barrel-return-refund.test.js",
+        "passed": 15,
+        "sentinel": "AQUAFLOW_SUITE_OK 15",
+        "logSha256": "38a8dabe548c9cb26be84224c112dd320dd3aa54b05a2d5ab44c4c6b880b5191"
+      }
+    ],
+    "negativeControl": {
+      "baseline": "9665f5f",
+      "replacedSources": [
+        "miniapp-user/utils/request.js",
+        "miniapp-delivery/utils/request.js"
+      ],
+      "tests": 149,
+      "passedExisting": 139,
+      "expectedNewFailures": 10,
+      "purpose": "旧请求层无法满足10项新增可见文案/元数据检查；负对照不计入通过项"
+    },
+    "syntax": {
+      "appJsChecked": 183,
+      "parseFailures": 0,
+      "laterChangedFilesRechecked": [
+        "miniapp-user/pages/barrel/index.js",
+        "miniapp-user/pages/order/create.js"
+      ]
+    },
+    "newSuiteRegistered": "tests/js/run-all.js"
+  },
+  "boundaries": {
+    "backendBusinessCodeChanged": false,
+    "pulisiPatchPreserved": true,
+    "deploymentPerformed": false,
+    "databaseAccessed": false,
+    "realLoginPaymentOrRefund": false,
+    "actionsQueried": false,
+    "fullProjectTestsRun": false,
+    "native72PageAcceptanceClaimed": false
+  },
+  "excludedKnownIssues": [
+    "WB08普通反馈未知结果重复提交",
+    "WB09经营待办排序推断"
+  ],
+  "blockers": []
+}

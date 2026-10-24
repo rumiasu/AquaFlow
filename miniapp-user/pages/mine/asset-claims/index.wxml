@@ -49,7 +49,7 @@
   <view class="claim-muted" wx:if="{{ready && !records.length}}">暂无认领记录。</view>
   <view class="claim-card" wx:for="{{records}}" wx:key="id">
     <view class="claim-heading"><text class="claim-title">申请 #{{item.id}}</text><text class="claim-status">{{item.statusText}}</text></view>
-    <text class="claim-row">水站 #{{item.stationId}} · {{item.createTime}}</text>
+    <text class="claim-row">{{item.stationName || (item.stationId === stationId ? stationName : '水站编号：' + item.stationId)}} · {{item.createTime}}</text>
     <text class="claim-amount">历史实收押金余额：¥{{item.depositText}}</text>
     <view class="claim-line" wx:for="{{item.items}}" wx:for-item="line" wx:key="productId">
       <text class="claim-title">{{line.name}} {{line.spec}} · 商品 #{{line.productId}}</text>

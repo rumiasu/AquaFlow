@@ -1,5 +1,5 @@
 const api = require('../../../api/business-rules')
-const { barrelModeText } = require('../../../utils/display-message')
+const { barrelModeText, referenceText } = require('../../../utils/display-message')
 const { syncPendingReminder } = require('../../../utils/pending-reminder')
 const closeoutIntent = require('../../../utils/exception-action-intent')
 const { positiveId, readPage } = require('../../../utils/business-history-page')
@@ -58,7 +58,7 @@ Page({
         keys.forEach(key => {
           if ((key !== 'stock' && data.schemaAvailable !== true) || !Array.isArray(data[key]) || totals[key] == null || !Number.isFinite(Number(totals[key]))) {
             fail([key], '暂时无法核对，请重试或联系负责人')
-          } else { ready[key] = true; patch[key] = key === 'barrels' ? data[key].map(row => ({ ...row, barrelModeText: barrelModeText(row.barrelMode) })) : data[key] }
+          } else { ready[key] = true; patch[key] = data[key].map(row => this.waitingRow(row, key, session.stationId)) }
         })
       } else if (i === 1) {
         try {
@@ -81,6 +81,15 @@ Page({
     }
   },
   onRetry() { return this.loadData() },
+  waitingRow(row, kind, stationId) {
+    const station = (name, id) => referenceText(name || (id != null && String(id) === String(stationId) ? '本站' : ''), id, '水站')
+    const view = { ...row, responsibleStationText: station(row.responsibleStationName, row.responsibleStationId) }
+    if (kind === 'recoveries') Object.assign(view, { fromStationText: station(row.fromStationName, row.fromStationId),
+      toStationText: station(row.toStationName, row.toStationId) })
+    if (kind === 'barrels') Object.assign(view, { barrelModeText: barrelModeText(row.barrelMode),
+      sourceStationText: station(row.sourceStationName, row.sourceStationId), targetStationText: station(row.targetStationName, row.targetStationId) })
+    return view
+  },
   refusalRequest() { return this.data.refusalOrderId ? { scope: this.data.refusalScope, orderId: this.data.refusalOrderId } : { scope: this.data.refusalScope } },
   decorateRefusals(rows, s) {
     const actor = 'STAFF:' + s.staffId + ':' + s.stationId

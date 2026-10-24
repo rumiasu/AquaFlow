@@ -193,7 +193,7 @@
       <view class="return-tip"><text>办理水站：{{stationName || '水站 #' + viewStationId}}</text>
 
         <!-- [2026-10-10] 新模型的上限是可退权益，原固定“桶”会把已付未领容量说成实物；只切换单位，数量/押金试算不变。 -->
-        <text wx:if="{{pendingReturn}}">原申请：商品 #{{pendingReturn.body.productId}}，数量 {{pendingReturn.body.quantity}}；原内容与编号已保留</text>
+        <text wx:if="{{pendingReturn}}">原申请：{{pendingReturnProductText || '商品编号：' + pendingReturn.body.productId}}，数量 {{pendingReturn.body.quantity}}；原内容与编号已保留</text>
         <text wx:elif="{{!loading && !refreshing && !summaryFailed && !holdingsFailed}}">当前可退 <text class="highlight">{{maxReturnQty}}</text> {{summary.independentRights ? '份权益' : '桶'}}</text>
         <text wx:else>当前可退数量尚未核实，请重新加载。</text>
       </view>

@@ -9,4 +9,12 @@ function barrelModeText(mode) {
   return ({ RETURN_EMPTY: '补同型空桶', SETTLE_BARREL: '按约定折款' })[mode] || '桶交接方案待核实'
 }
 
-module.exports = { inventoryTypeText, barrelModeText }
+// 2026-10-24：只展示当前响应/会话已授权给本页的名称；缺名明确保留编号，不额外查询客户。
+function referenceText(name, id, kind = '商品') {
+  const text = typeof name === 'string' ? name.trim() : ''
+  const number = id == null ? '' : String(id).trim()
+  return text ? text + (number ? '（' + kind + '编号：' + number + '）' : '')
+    : number ? kind + '编号：' + number : kind + '待核实'
+}
+
+module.exports = { inventoryTypeText, barrelModeText, referenceText }

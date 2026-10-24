@@ -48,7 +48,7 @@ Page({
     needLogin: false,
     refreshing: false,
     summaryStale: false, holdingsStale: false, recordsStale: false, returnError: '',
-    pendingReturn: null, returnRecoveryError: '',
+    pendingReturn: null, pendingReturnProductText: '', returnRecoveryError: '',
     // null 是未加载；成功读取后才显示数值，失败不能冒充零资产。
     // [2026-09-16] 字段名必须与后端 BarrelServiceImpl.getBarrelSummary 的下发键一致 ——
     // 这里原先留着已删除的 deliveryBuckets（含已送达行，口径错误，后端已移除），
@@ -218,7 +218,7 @@ Page({
       })
       Object.keys(map).forEach(k => customerBarrelAsset.push(map[k]))
 
-      if (holdingsOK) this.setData({ customerBarrelAsset })
+      if (holdingsOK) this.setData({ customerBarrelAsset, pendingReturnProductText: this.returnProductText(this.data.pendingReturn, customerBarrelAsset) })
       this._lastAssetScope = context
 
       // 历史物理交回上限 = occupied（权益汇总 + over），不是含配送中的 held；新申请下方另用 availableRights。
@@ -260,7 +260,7 @@ Page({
     if (!context.session.loggedIn || !context.session.customerId || !context.stationId) return null
     try {
       const saved = returnIntent.read(context.session.customerId, context.stationId)
-      this.setData({ pendingReturn: saved, returnRecoveryError: '' })
+      this.setData({ pendingReturn: saved, pendingReturnProductText: this.returnProductText(saved), returnRecoveryError: '' })
       return saved
     } catch (error) {
       this.setData({ pendingReturn: null, returnRecoveryError: viewError(error, '原申请暂不能读取，请保留记录并联系办理水站。') })
@@ -268,11 +268,23 @@ Page({
     }
   },
 
+  returnProductText(saved, assets) {
+    if (!saved || !saved.body) return ''
+    // 2026-10-24：仅用本页有效资产辅助识别；首发未知、重试和资产重读都不能修改原申请身份。
+    const scope = this._lastAssetScope
+    const rows = assets || (scope && String(scope.stationId) === String(saved.body.stationId) && assetViewStation.current(this, scope)
+      ? this.data.customerBarrelAsset : [])
+    const product = rows.find(row => String(row.productId) === String(saved.body.productId))
+    return product && product.productName ? product.productName + (product.productSpec ? ' ' + product.productSpec : '')
+      : '商品编号：' + saved.body.productId
+  },
+
   onShowReturnModal() {
     const pending = this.syncReturnRecovery(assetViewStation.beginRead(this, 'returnRecovery'))
     if (this.data.returnRecoveryError) return
     if (pending) {
       this.setData({ showReturnModal: true, returnError: '原申请结果尚未确认。请原样重试或联系本站核对，核实前不能另发申请。',
+        pendingReturnProductText: this.returnProductText(pending),
         returnForm: { ...pending.body, pickupModeText: pending.pickupModeText }, preview: null, previewReady: false,
         previewHint: '原申请金额与办理结果仍待核实，重试不会修改原内容。' })
       return
@@ -442,7 +454,7 @@ Page({
         saved = returnIntent.prepare(context.session.customerId, { productId, quantity, note: note || '', stationId,
           pickupMode: pickupMode || 'STORE', companionOrderId: companionOrderId || null }, pickupModeText)
       }
-      this.setData({ pendingReturn: saved, returnRecoveryError: '', returnError: '' })
+      this.setData({ pendingReturn: saved, pendingReturnProductText: this.returnProductText(saved), returnRecoveryError: '', returnError: '' })
       const body = saved.body
       const response = await requestBarrelReturn(body.productId, body.quantity, body.note, body.stationId,
         { idempotencyKey: body.idempotencyKey, pickupMode: body.pickupMode, companionOrderId: body.companionOrderId })
@@ -462,7 +474,7 @@ Page({
         try { returnIntent.clear(saved); saved = null }
         catch (storageError) { this.setData({ returnRecoveryError: viewError(storageError, '原申请记录清理未成功，请保留原内容并重新核对。') }) }
       }
-      this.setData({ pendingReturn: saved, returnError: (saved ? '原申请结果尚未确认，请原样重试或联系本站核对。' : '')
+      this.setData({ pendingReturn: saved, pendingReturnProductText: this.returnProductText(saved), returnError: (saved ? '原申请结果尚未确认，请原样重试或联系本站核对。' : '')
         + viewError(error, saved ? '原内容和编号已保留。' : '本次未能提交，请核实后重试。') })
     } finally {
       if (this._returnSubmitFlight === flight) { this._returnSubmitFlight = null; this.setData({ submitting: false }) }

@@ -202,6 +202,13 @@ for (const reason of ['DEPOSIT', 'PRODUCT_DISABLED']) test(reason + ' acknowledg
   assert.equal(t.calls.orders.length, 0); assert.equal(t.calls.payments.length, 0)
   assert.equal(t.wx.__calls.nav.length, 0)
 })
+test('non-purchaseable ticket reason remains readable when optional hint metadata is malformed', async () => {
+  const t = order(async () => ({ data: { ...validQuote().data, ticketPay: { fullyCovered: false, reason: 'DEPOSIT', hint: {} } } }))
+  await t.page.refreshQuote(); t.wx.__modalAutoConfirm = false; await t.page.onSubmit()
+  const modal = t.wx.__calls.modal.at(-1)
+  assert.equal(modal.confirmText, '知道了'); assert.equal(typeof modal.content, 'string')
+  assert.match(modal.content, /手动选择/); assert.equal(t.calls.orders.length, 0)
+})
 test('trial removes a quote-explicit simulated WeChat method before order submission', async () => {
   const data = { ...validQuote().data, defaultMethod: 1,
     methods: [{ id: 1, name: '模拟支付', desc: '模拟微信支付，仅开发联调', enabled: true }, { id: 3, name: '水票支付', enabled: true }],
@@ -225,6 +232,14 @@ test('trial reports when the only offered channel is simulated before creating a
   assert(!/模拟|项目负责人/.test(t.page.data.quoteError))
   await t.page.onSubmit()
   assert.equal(t.calls.orders.length, 0)
+})
+test('develop still identifies the simulated channel and retains its diagnostic description', async () => {
+  const data = { ...validQuote().data, defaultMethod: 1,
+    methods: [{ id: 1, name: '模拟微信支付', desc: '仅开发联调，模拟支付', enabled: true }], wechatPay: simulated }
+  const t = order(async () => ({ data }), {}, 'develop'); await t.page.refreshQuote()
+  assert.equal(t.page.data.payMethods[0].name, '模拟微信支付')
+  assert.equal(t.page.data.payMethods[0].desc, '仅开发联调，模拟支付'); assert.equal(t.page.data.wechatPay.simulated, true)
+  assert.equal(t.page.data.payMethods[0].enabled, true); assert.equal(t.calls.orders.length, 0)
 })
 test('trial does not offer the quote-explicit simulated channel for independent barrel rights', async () => {
   const t = barrel(simulated, true, 'trial')

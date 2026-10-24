@@ -189,7 +189,28 @@ test('missing return-application receipt preserves original key and input rather
   t.page.setData({loading:false,showReturnModal:true,previewReady:true,returnForm:{productId:5,quantity:1,note:'原输入 Original',pickupMode:'STORE'}})
   await t.page.onSubmitReturn()
   assert.ok(t.page.data.returnError.includes('尚未确认'));assert.equal(t.page.data.showReturnModal,true);assert.equal(t.page.data.returnForm.note,'原输入 Original');assert.ok(t.page.data.pendingReturn.body.idempotencyKey)
+  assert.equal(t.page.data.pendingReturnProductText, '商品编号：5', '首发未知结果也必须能识别原商品')
   assert.ok(!t.wx.__calls.toast.some(x=>x.icon==='success'))
+})
+for (const hasAsset of [true, false]) test('original return uses the matching asset name or explicit product number: ' + hasAsset, () => {
+  const t = fixture('barrel/index'); t.page.onLoad({})
+  const intent = require('../../miniapp-user/pages/barrel/return-intent')
+  const saved = intent.prepare(7, { stationId: 11, productId: 5, quantity: 2, pickupMode: 'STORE', companionOrderId: null, note: '原申请备注' }, '到店办理')
+  const original = JSON.stringify(saved)
+  t.page._lastAssetScope = require('../../miniapp-user/utils/asset-view-station').beginRead(t.page)
+  t.page.setData({ summary: {}, customerBarrelAsset: hasAsset ? [{ productId: 5, productName: '已核商品', productSpec: '18.5L' }] : [] })
+  t.page.onShowReturnModal()
+  const text = elements('barrel/index', t.page.data).map(row => row.text).join('\n')
+  assert(text.includes(hasAsset ? '原申请：已核商品 18.5L' : '原申请：商品编号：5'))
+  assert.equal(JSON.stringify(t.page.data.pendingReturn), original)
+  assert.equal(JSON.stringify(intent.read(7, 11)), original)
+  assert.equal(t.page.data.returnForm.quantity, 2); assert.equal(t.page.data.returnForm.idempotencyKey, saved.body.idempotencyKey)
+  if (hasAsset) {
+    t.page._lastAssetScope = { ...t.page._lastAssetScope, stationId: 22 }
+    t.page.onShowReturnModal()
+    assert.equal(t.page.data.pendingReturnProductText, '商品编号：5', '旧站资产不能为当前原申请补名称')
+    assert.equal(JSON.stringify(intent.read(7, 11)), original)
+  }
 })
 test('ticket malformed price tiers stay failed with retry rather than a no-tier claim', async () => {
   const t = fixture('ticket/index', { 'api/ticket': { getTicketPackages: async () => ok({}) } })

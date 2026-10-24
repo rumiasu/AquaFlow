@@ -36,6 +36,14 @@ test('明确业务拒绝不会清键；获得封锁回执后可开始新意图',
   await t.page.onBuySubmit()
   assert.notStrictEqual(t.calls.purchase[0].idempotencyKey, t.calls.purchase[1].idempotencyKey)
 })
+test('购票场景保留原购买提示，通用身份变化错误不清原请求', async () => {
+  const t = setup({ purchase: async () => { throw Object.assign(Error('登录身份已变化，请重新进入后操作'), { sessionChanged: true }) } })
+  await t.page.onBuySubmit()
+  assert(t.page.data.purchaseNotice.includes('查询原购买记录'))
+  assert(t.page.data.pendingPurchase)
+  assert.strictEqual(t.wx.getStorageSync(key).body.idempotencyKey, t.calls.purchase[0].idempotencyKey)
+  assert.strictEqual(t.calls.purchase.length, 1)
+})
 for (const status of [1, 2, 3, 4]) {
   test('已有原款状态' + status + '不能被结束为无款', async () => {
     const t = setup({ close: async k => ({ code: 0, data: { closed: false, idempotencyKey: k, payment: payment({ status }) } }) })

@@ -8,6 +8,8 @@ const { STORAGE_KEYS } = require('../../utils/storage-keys')
 
 // 只清理错误的展示文字；原对象的 code、resultUnknown、businessRejected 均不改动。
 function viewError(error, fallback = '暂时无法完成，请稍后重试') {
+  // 通用请求层不再写死购票场景；本页仍提醒核对原购买，避免另起一次购买。
+  if (error && error.sessionChanged) return '登录身份已变化，请重新进入后查询原购买记录'
   const text = error && typeof error.message === 'string' ? error.message.trim() : ''
   return /[\u3400-\u9fff]/.test(text)
     && !/(?:Exception|Error:|\bat\s+\S+\(|\bSQL\b|https?:\/\/|request:fail|errno|stack|[A-Z][A-Z_]{5,})/.test(text)

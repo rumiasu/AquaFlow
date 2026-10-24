@@ -108,6 +108,7 @@ const SUITES = [
   { file: 'customer-history-recovery.test.js', name: '独立押金历史凭据与失败恢复' },
   { file: 'page-failure-recovery.test.js', name: '五页加载、失败重试与请求竞态' },
   { file: 'business-pending-flow.test.js', name: '站长业务责任：首页待办、原申请定位与失败重试' },
+  { file: 'display-reference-regression.test.js', name: '绑定解绑标签、权限内名称与明确编号回退' },
   { file: 'order-create-flow.test.js', name: '客户下单闭环（工作包 B）' },
   { file: 'order-intent-storage-recovery.test.js', name: '下单存储故障原键恢复与真实新意图边界' },
   { file: 'order-legacy-known-upgrade.test.js', name: '旧版已确认订单幂等事实升级归并与未知记录保护' },

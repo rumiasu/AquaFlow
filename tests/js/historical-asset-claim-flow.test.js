@@ -130,6 +130,16 @@ test('older customer refresh cannot clear the newest loading state', async () =>
 test('guest does not read or submit claims', async () => {
   let n = 0; const t = user({ mine: async () => { n++; return ok([]) } }); t.app.globalData.isLogin = false; await t.page.onShow(); await t.page.onSubmit(); assert.equal(n, 0); assert.equal(t.calls.length, 0)
 })
+test('customer history reuses the current authorized station name without changing the claim identity', async () => {
+  const response = record(), before = JSON.stringify(response)
+  const t = user({ mine: async () => ok([response]) }); await t.page.onShow()
+  const { parseWxml, renderElements } = require('./wxml-tree')
+  const tree = parseWxml(fs.readFileSync(require('path').join(__dirname, '../../miniapp-user/pages/mine/asset-claims/index.wxml'), 'utf8'))
+  const rows = renderElements(tree, t.page.data, { includeText: true })
+  assert(rows.some(row => row.className === 'claim-row' && row.text.startsWith('合成一站 ·')))
+  assert.equal(t.page.data.records[0].stationId, 1); assert.equal(JSON.stringify(response), before)
+  assert.equal(t.calls.length, 0)
+})
 test('manager sees original figures and customer-provided material', async () => {
   const t = manager(); await t.page.onShow(); assert.equal(t.page.data.records[0].depositText, '75.00'); t.page.onSelect(ev('id', 9)); assert.equal(t.page.data.selected.items[0].held, 1)
 })

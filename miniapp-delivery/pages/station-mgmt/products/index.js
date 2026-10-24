@@ -277,7 +277,8 @@ Page({
     } catch (_) { return 0 }
   },
 
-  captureProductEditorWindow() {
+  captureProductEditorWindow(resetKeyboard = false) {
+    if (resetKeyboard) this._productKeyboardHeight = 0
     const height = this.productWindowHeight()
     if (!this._productKeyboardHeight || !this._productBaseWindowHeight) this._productBaseWindowHeight = height
     this.layoutProductEditor()
@@ -285,15 +286,13 @@ Page({
 
   layoutProductEditor(resizedHeight) {
     const measured = Number(resizedHeight), currentHeight = measured > 0 ? measured : this.productWindowHeight()
-    if (!currentHeight) { this.setData({ productEditSheetStyle: this.data.showEdit
-      ? 'height:calc(100vh - 64px);max-height:calc(100vh - 64px);bottom:8px;'
-      : 'height:88vh;max-height:88vh;bottom:8px;' }); return }
+    if (!currentHeight) { this.setData({ productEditSheetStyle: 'height:calc(100vh - 56px);max-height:calc(100vh - 56px);bottom:0px;' }); return }
     const baseline = this._productBaseWindowHeight || currentHeight, keyboard = this._productKeyboardHeight || 0
     // 2026-10-24：Android 可能已缩小窗口；只补键盘未被 resize 吃掉的部分，不能重复扣高度。
     const consumed = Math.max(0, baseline - currentHeight), bottom = Math.max(0, keyboard - consumed)
     // Reserve a full-width 56px dismissal area above the custom editor, including with the keyboard open.
-    const height = Math.max(0, Math.floor(currentHeight - bottom - (this.data.showEdit ? 64 : 16)))
-    this.setData({ productEditSheetStyle: 'height:' + height + 'px;max-height:' + height + 'px;bottom:' + (bottom + 8) + 'px;' })
+    const height = Math.max(0, Math.floor(currentHeight - bottom - 56))
+    this.setData({ productEditSheetStyle: 'height:' + height + 'px;max-height:' + height + 'px;bottom:' + bottom + 'px;' })
   },
 
   onProductKeyboardHeightChange(e) {
@@ -458,11 +457,16 @@ Page({
     if (this.productWriteLocked()) return
     const item = e.currentTarget.dataset.item
     if (!item) return
+    if (item.ownerStationId) {
+      const stationId = (getApp().globalData.userInfo || {}).stationId
+      if (Number(item.ownerStationId) !== Number(stationId)) { wx.showToast({ title: '只能编辑本站商品', icon: 'none' }); return }
+      return this.openEdit(e)
+    }
     if (!item.selected) {
       this.onSelectProduct(e)
       return
     }
-    this.captureProductEditorWindow()
+    this.captureProductEditorWindow(true)
     this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
     this._productSettingClosed = false
     this._productSettingOwner = productSession()
@@ -502,7 +506,20 @@ Page({
     if (this.productWriteLocked()) return
     this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
     this._productSettingClosed = true
+    this._productKeyboardHeight = 0
+    if (typeof wx.hideKeyboard === 'function') wx.hideKeyboard()
     this.setData({ showSetting: false })
+  },
+
+  onProductMore(e) {
+    if (this.productWriteLocked()) return
+    const item = e.currentTarget.dataset.item, session = productSession()
+    if (!item || Number(item.ownerStationId) !== Number((getApp().globalData.userInfo || {}).stationId)) return
+    wx.showActionSheet({ itemList: ['上报平台', '停用商品'], success: result => {
+      if (!sameProductSession(session) || this.productWriteLocked()) return
+      if (result.tapIndex === 0) this.onSubmitToPlatform(e)
+      if (result.tapIndex === 1) this.onDeactivate(e)
+    } })
   },
 
   onSettingShelfChange(e) {
@@ -655,8 +672,7 @@ Page({
     }
     const after = this.data.stockMode === 'in' ? current + qty : qty
     const delta = after - current
-    const sign = delta > 0 ? '+' : ''
-    this.setData({ stockAfterText: '变更后库存 ' + after + '（' + sign + delta + '）' })
+    this.setData({ stockAfterText: (this.data.stockMode === 'in' ? '入库后 ' : '核对后 ') + after + ' 件（' + (delta < 0 ? '少 ' + (-delta) : delta > 0 ? '多 ' + delta : '无变化') + (delta === 0 ? '' : ' 件') + '）' })
   },
 
   /** 一个按钮走两种模式：入库直接提交，盘点先确认再提交 */
@@ -669,30 +685,30 @@ Page({
     }
     const qty = exactNumber(stockInput)
     if (qty === null || !Number.isSafeInteger(qty) || qty < 0 || (stockMode === 'in' && qty <= 0)) {
-      wx.showToast({ title: stockMode === 'in' ? '请输入入库数量' : '请输入盘点数量', icon: 'none' })
+      wx.showToast({ title: stockMode === 'in' ? '请输入入库数量' : '请输入实际数量', icon: 'none' })
       return
     }
     if (stockMode === 'in') {
       return this.doInbound(qty)
     }
     if (stockMode === 'loss') {
-      if (qty >= (setting.quantity || 0)) { wx.showToast({ title: '盘亏数须低于当前库存', icon: 'none' }); return }
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '登记盘亏', cancelText: '暂不登记', title: '登记实盘亏损', editable: true, placeholderText: '请填写实际损失原因及凭据（必填）',
-        content: '实物将由 ' + setting.quantity + ' 改为 ' + qty + '；较晚预留订单会变为缺货待补。请联系受影响客户协商延期或取消。',
+      if (qty >= (setting.quantity || 0)) { wx.showToast({ title: '剩余数量须少于当前库存', icon: 'none' }); return }
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '登记短缺', cancelText: '暂不登记', title: '登记实物短缺', editable: true, placeholderText: '短缺原因及凭据（必填）',
+        content: '实际库存由 ' + setting.quantity + ' 件改为 ' + qty + ' 件。低于已预留数量时，较晚的订单会转为缺货待补，请与客户协商延期或取消。',
         success: async res => { if (!res.confirm) return
           try {
             const r = await businessRules.recordLoss(setting.id, { targetQuantity: qty, expectedQuantity: setting.quantity, note: res.content })
             this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': qty }); this.loadData()
-            wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '实盘亏损已登记', content: '受影响预留 ' + (r.data.affectedOrders || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
+            wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '实物短缺已登记', content: '受影响订单 ' + (r.data.affectedOrders || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
           } catch (err) { wx.showToast({ title: err.message || '登记未成功', icon: 'none' }) }
         } })
       return
     }
     const after = qty
     wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-      title: '确认盘点',
-      content: '「' + setting.name + '」库存将直接设为 ' + after + '（当前 ' + (setting.quantity || 0) + '）。盘点会写一条调整流水，确认？',
-      confirmText: '确认盘点',
+      title: '确认实际库存',
+      content: '「' + setting.name + '」库存由 ' + (setting.quantity || 0) + ' 件改为 ' + after + ' 件，并记录数量差额。',
+      confirmText: '确认数量',
       success: (res) => {
         if (res.confirm) this.doStockCheck(after)
       }
@@ -770,6 +786,7 @@ Page({
       }
     } finally {
       if (this._inboundFlight === flight) { this._inboundFlight = null; if (!this._productDestroyed) this.setData({ inboundBusy: false }) }
+      if (current() && !this.data.showEdit && this._closedProductEditor) this.rememberProductImageDraft()
     }
   },
 
@@ -777,12 +794,12 @@ Page({
   async doStockCheck(target) {
     const s = this.data.setting
     try {
-      await setCatalogStock(s.id, target, '商品页盘点')
-      wx.showToast({ title: '已盘点', icon: 'success' })
+      await setCatalogStock(s.id, target, '商品页核对库存')
+      wx.showToast({ title: '库存已核对', icon: 'success' })
       this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': target })
       this.loadData()
     } catch (err) {
-      wx.showToast({ title: err.message || '盘点失败', icon: 'none' })
+      wx.showToast({ title: err.message || '库存核对未成功', icon: 'none' })
     }
   },
 
@@ -909,6 +926,9 @@ Page({
   onFilterRecordsByCurrent() {
     const s = this.data.setting
     if (!s || !s.id) return
+    // The native editor layer must close before the ordinary records modal can be shown.
+    // leaveProductEditor retains the same unsaved form; it is not a product save.
+    if (this.data.showEdit) this.leaveProductEditor()
     this.setData({ recordsProductId: s.id, recordsFilterName: s.name, recordsLimit: 50, showRecords: true })
     this.loadRecords()
   },
@@ -1014,7 +1034,7 @@ Page({
     this._productEditEpoch = (this._productEditEpoch || 0) + 1
     this._productImageFailure = null
     this._productPreviewUnavailable = null
-    this.captureProductEditorWindow()
+    this.captureProductEditorWindow(true)
     this._pkgSeq = (this._pkgSeq || 0) + 1
     // 每份新商品保持独立图片意图；关闭后的同页继续使用原编号。
     try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, true) } catch (_) { this._uploadDraftId = null }
@@ -1031,7 +1051,7 @@ Page({
       editForm: {
         name: '', brand: '', spec: '', category: 1,
         price: '', deposit: '', quantity: '', imageObjectName: '', imageUrl: '',
-        description: '', enabled: false, ticketEnabled: false, ticketPrice: ''
+        description: '', enabled: false, priorityDisplay: false, ticketEnabled: false, ticketPrice: ''
       }
     })
     this.layoutProductEditor()
@@ -1049,12 +1069,16 @@ Page({
     this._productEditEpoch = (this._productEditEpoch || 0) + 1
     this._productImageFailure = null
     this._productPreviewUnavailable = null
-    this.captureProductEditorWindow()
+    this.captureProductEditorWindow(true)
     const item = e.currentTarget.dataset.item
+    this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
+    this._productSettingClosed = false
+    this._productSettingOwner = this._productEditOwner
     try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: Number(item.id) }) } catch (_) { this._uploadDraftId = null }
     const idx = CATEGORY_OPTIONS.findIndex(c => c.value === item.category)
     this.setData({
       showEdit: true,
+      showSetting: false,
       productEditorResume: false,
       productSaveError: '',
       productImagePreviewUrl: '',
@@ -1062,17 +1086,21 @@ Page({
       editId: item.id, pkgRows: [], pkgReady: false, pkgError: '', pkgProductId: item.id,
       editTemplateId: '',
       editCategoryIndex: idx >= 0 ? idx : 0,
+      setting: { id: item.id, name: item.displayName || item.name, category: item.category || 1,
+        quantity: item.quantity == null ? null : item.quantity, ownerStationId: item.ownerStationId },
+      stockMode: 'in', stockInput: '', stockAfterText: '', inboundError: '',
       editForm: {
         name: item.name || '',
         brand: item.brand || '',
         spec: item.spec || '',
         category: item.category || 1,
-        price: item.price === null || item.price === undefined ? '' : String(item.price),
-        deposit: item.deposit === null || item.deposit === undefined ? '' : String(item.deposit),
-        quantity: item.quantity === null || item.quantity === undefined ? '' : String(item.quantity),
+        price: item.salePrice > 0 ? String(item.salePrice) : item.price == null ? '' : String(item.price),
+        deposit: item.depositPrice > 0 ? String(item.depositPrice) : item.deposit == null ? '' : String(item.deposit),
+        quantity: '',
         imageObjectName: item.imageObjectName || '', imageUrl: item.imageUrl || '',
         description: item.description || '',
         enabled: item.enabled === 1,
+        priorityDisplay: item.priorityDisplay === 1,
         ticketEnabled: item.ticketEnabled === 1,
         ticketPrice: item.ticketPrice === null || item.ticketPrice === undefined ? '' : String(item.ticketPrice)
       }
@@ -1083,6 +1111,7 @@ Page({
     try { this.syncProductCreationRecovery() } catch (_) { /* 由恢复提示阻止另建。 */ }
     this.setData({ editHelpExpanded: false })
     this.refreshProductImageState()
+    try { this.syncInboundRecovery() } catch (_) { /* 原入库继续按原编号处理。 */ }
   },
 
   closeEdit() {
@@ -1111,6 +1140,7 @@ Page({
     this._closedProductEditor = { session: owner, draftId: this._uploadDraftId }
     if (!this.productWriteLocked()) this._productEditEpoch = (this._productEditEpoch || 0) + 1
     this.setData({ showEdit: false, showPresetPicker: false, productEditorResume: true })
+    this._productKeyboardHeight = 0
     if (typeof wx.hideKeyboard === 'function') wx.hideKeyboard()
     this.refreshProductImageState()
   },
@@ -1133,7 +1163,13 @@ Page({
       this.restoreProductImageDraft(saved.draftId)
     }
     this.setData({ showEdit: true, productEditorResume: false })
-    this.captureProductEditorWindow()
+    if (!this.data.isAdd) {
+      this._productSettingOwner = this._productEditOwner
+      this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
+      this._productSettingClosed = false
+      try { this.syncInboundRecovery() } catch (_) { /* 保留原入库提示。 */ }
+    }
+    this.captureProductEditorWindow(true)
     this.refreshProductImageState()
   },
 
@@ -1143,7 +1179,8 @@ Page({
     if (!this._uploadDraftId || this._productEditOwner && !sameProductSession(this._productEditOwner)) return
     const drafts = this._productEditorDrafts || (this._productEditorDrafts = new Map())
     const snapshot = {}
-    for (const field of ['isAdd','editId','editForm','editTemplateId','editCategoryIndex','pkgRows','pkgReady','pkgError','pkgProductId','productImagePreviewUrl']) snapshot[field] = this.data[field]
+    for (const field of ['isAdd','editId','editForm','editTemplateId','editCategoryIndex','pkgRows','pkgReady','pkgError','pkgProductId','productImagePreviewUrl',
+      'setting','stockMode','stockInput','stockAfterText','inboundError']) snapshot[field] = this.data[field]
     snapshot._imageChoice = this._productImageChoiceSeq || 0
     snapshot._imageFailed = !!(this._productImageFailure && this._productImageFailure.draftId === this._uploadDraftId)
     snapshot._imageDiagnostic = snapshot._imageFailed ? this._productImageFailure.diagnostic : null
@@ -1248,6 +1285,7 @@ Page({
       deposit,
       enabled: editForm.enabled ? 1 : 0,
       ticketEnabled: editForm.ticketEnabled ? 1 : 0,
+      priorityDisplay: editForm.priorityDisplay ? 1 : 0,
       imageUrl: editForm.imageUrl || '',
       imageObjectName: editForm.imageObjectName || '',
       description: editForm.description || ''
@@ -1258,8 +1296,11 @@ Page({
     if (isAdd && !blankNumber(editForm.quantity)) {
       payload.quantity = quantity
     }
-    if (!isAdd && !blankNumber(editForm.quantity)) {
-      payload.quantity = quantity
+    if (!isAdd) {
+      // A station-owned product now has one price editor. Keep its visible effective prices
+      // as the owned product's prices and clear former station overrides in the same PUT.
+      payload.salePrice = 0
+      payload.depositPrice = 0
     }
 
     const rows = productCopy(this.data.pkgRows || []), proof = this.productSaveProof('edit', isAdd ? 'new' : editId)

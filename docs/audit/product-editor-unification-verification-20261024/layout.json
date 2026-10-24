@@ -1,0 +1,731 @@
+{
+  "baseline": "bc3dedd",
+  "scope": "Static HTML projection of real source; synthetic product data; native switches substituted; no real keyboard/back/WeChat/COS proof",
+  "results": [
+    {
+      "name": "catalog-phone",
+      "kind": "catalog",
+      "width": 460,
+      "height": 1024,
+      "scale": 1,
+      "dpr": 2,
+      "before": true,
+      "scrollWidth": 460,
+      "sheet": null,
+      "footer": null,
+      "body": null,
+      "scroller": null,
+      "actions": [
+        {
+          "rect": {
+            "top": 547.796875,
+            "bottom": 596.703125,
+            "left": 123.65625,
+            "right": 417.296875,
+            "height": 48.90625,
+            "width": 293.640625
+          },
+          "buttons": []
+        },
+        {
+          "rect": {
+            "top": 824.96875,
+            "bottom": 873.875,
+            "left": 123.65625,
+            "right": 417.296875,
+            "height": 48.90625,
+            "width": 293.640625
+          },
+          "buttons": []
+        }
+      ],
+      "overflowing": []
+    },
+    {
+      "name": "catalog-phone",
+      "kind": "catalog",
+      "width": 460,
+      "height": 1024,
+      "scale": 1,
+      "dpr": 2,
+      "before": false,
+      "scrollWidth": 460,
+      "sheet": null,
+      "footer": null,
+      "body": null,
+      "scroller": null,
+      "actions": [
+        {
+          "rect": {
+            "top": 552.703125,
+            "bottom": 606.515625,
+            "left": 123.65625,
+            "right": 417.296875,
+            "height": 53.8125,
+            "width": 293.640625
+          },
+          "buttons": [
+            {
+              "text": "编辑商品",
+              "rect": {
+                "top": 562.515625,
+                "bottom": 606.515625,
+                "left": 123.65625,
+                "right": 345.9375,
+                "height": 44,
+                "width": 222.28125
+              }
+            },
+            {
+              "text": "更多",
+              "rect": {
+                "top": 562.515625,
+                "bottom": 606.515625,
+                "left": 353.296875,
+                "right": 417.296875,
+                "height": 44,
+                "width": 64
+              }
+            }
+          ]
+        },
+        {
+          "rect": {
+            "top": 839.6875,
+            "bottom": 893.5,
+            "left": 123.65625,
+            "right": 417.296875,
+            "height": 53.8125,
+            "width": 293.640625
+          },
+          "buttons": [
+            {
+              "text": "编辑商品",
+              "rect": {
+                "top": 849.5,
+                "bottom": 893.5,
+                "left": 123.65625,
+                "right": 409.9375,
+                "height": 44,
+                "width": 286.28125
+              }
+            }
+          ]
+        }
+      ],
+      "overflowing": [],
+      "catalogBottomClearance": {
+        "lastActionBottom": 885.5,
+        "footerTop": 934.46875
+      }
+    },
+    {
+      "name": "catalog-small-font",
+      "kind": "catalog",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": true,
+      "scrollWidth": 320,
+      "sheet": null,
+      "footer": null,
+      "body": null,
+      "scroller": null,
+      "actions": [
+        {
+          "rect": {
+            "top": 516.859375,
+            "bottom": 609.96875,
+            "left": 86.3125,
+            "right": 290,
+            "height": 93.109375,
+            "width": 203.6875
+          },
+          "buttons": []
+        },
+        {
+          "rect": {
+            "top": 805.359375,
+            "bottom": 852.765625,
+            "left": 86.3125,
+            "right": 290,
+            "height": 47.40625,
+            "width": 203.6875
+          },
+          "buttons": []
+        }
+      ],
+      "overflowing": []
+    },
+    {
+      "name": "catalog-small-font",
+      "kind": "catalog",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": false,
+      "scrollWidth": 320,
+      "sheet": null,
+      "footer": null,
+      "body": null,
+      "scroller": null,
+      "actions": [
+        {
+          "rect": {
+            "top": 520.265625,
+            "bottom": 571.078125,
+            "left": 86.3125,
+            "right": 290,
+            "height": 50.8125,
+            "width": 203.6875
+          },
+          "buttons": [
+            {
+              "text": "编辑商品",
+              "rect": {
+                "top": 527.078125,
+                "bottom": 571.078125,
+                "left": 86.3125,
+                "right": 220.890625,
+                "height": 44,
+                "width": 134.578125
+              }
+            },
+            {
+              "text": "更多",
+              "rect": {
+                "top": 527.078125,
+                "bottom": 571.078125,
+                "left": 226,
+                "right": 290,
+                "height": 44,
+                "width": 64
+              }
+            }
+          ]
+        },
+        {
+          "rect": {
+            "top": 769.875,
+            "bottom": 820.6875,
+            "left": 86.3125,
+            "right": 290,
+            "height": 50.8125,
+            "width": 203.6875
+          },
+          "buttons": [
+            {
+              "text": "编辑商品",
+              "rect": {
+                "top": 776.6875,
+                "bottom": 820.6875,
+                "left": 86.3125,
+                "right": 284.890625,
+                "height": 44,
+                "width": 198.578125
+              }
+            }
+          ]
+        }
+      ],
+      "overflowing": [],
+      "catalogBottomClearance": {
+        "lastActionBottom": 466.6875,
+        "footerTop": 485.9375
+      }
+    },
+    {
+      "name": "platform-reopen",
+      "kind": "platform",
+      "width": 460,
+      "height": 1024,
+      "scale": 1,
+      "dpr": 2,
+      "stale": true,
+      "before": true,
+      "scrollWidth": 460,
+      "sheet": {
+        "top": 8,
+        "bottom": 716,
+        "left": 0,
+        "right": 460,
+        "height": 708,
+        "width": 460
+      },
+      "footer": {
+        "top": 630.84375,
+        "bottom": 716,
+        "left": 0,
+        "right": 460,
+        "height": 85.15625,
+        "width": 460
+      },
+      "body": {
+        "top": 100.140625,
+        "bottom": 630.84375,
+        "left": 0,
+        "right": 460,
+        "height": 530.703125,
+        "width": 460
+      },
+      "scroller": {
+        "before": 0,
+        "after": 3,
+        "scrollHeight": 534,
+        "clientHeight": 531
+      },
+      "actions": [
+        {
+          "rect": {
+            "top": 547.796875,
+            "bottom": 596.703125,
+            "left": 123.65625,
+            "right": 417.296875,
+            "height": 48.90625,
+            "width": 293.640625
+          },
+          "buttons": []
+        },
+        {
+          "rect": {
+            "top": 824.96875,
+            "bottom": 873.875,
+            "left": 123.65625,
+            "right": 417.296875,
+            "height": 48.90625,
+            "width": 293.640625
+          },
+          "buttons": []
+        }
+      ],
+      "overflowing": []
+    },
+    {
+      "name": "platform-reopen",
+      "kind": "platform",
+      "width": 460,
+      "height": 1024,
+      "scale": 1,
+      "dpr": 2,
+      "stale": true,
+      "before": false,
+      "scrollWidth": 460,
+      "sheet": {
+        "top": 56,
+        "bottom": 1024,
+        "left": 0,
+        "right": 460,
+        "height": 968,
+        "width": 460
+      },
+      "footer": {
+        "top": 938.84375,
+        "bottom": 1024,
+        "left": 0,
+        "right": 460,
+        "height": 85.15625,
+        "width": 460
+      },
+      "body": {
+        "top": 153.5,
+        "bottom": 938.84375,
+        "left": 0,
+        "right": 460,
+        "height": 785.34375,
+        "width": 460
+      },
+      "scroller": {
+        "before": 0,
+        "after": 0,
+        "scrollHeight": 785,
+        "clientHeight": 785
+      },
+      "actions": [
+        {
+          "rect": {
+            "top": 552.703125,
+            "bottom": 606.515625,
+            "left": 123.65625,
+            "right": 417.296875,
+            "height": 53.8125,
+            "width": 293.640625
+          },
+          "buttons": [
+            {
+              "text": "编辑商品",
+              "rect": {
+                "top": 562.515625,
+                "bottom": 606.515625,
+                "left": 123.65625,
+                "right": 345.9375,
+                "height": 44,
+                "width": 222.28125
+              }
+            },
+            {
+              "text": "更多",
+              "rect": {
+                "top": 562.515625,
+                "bottom": 606.515625,
+                "left": 353.296875,
+                "right": 417.296875,
+                "height": 44,
+                "width": 64
+              }
+            }
+          ]
+        },
+        {
+          "rect": {
+            "top": 839.6875,
+            "bottom": 893.5,
+            "left": 123.65625,
+            "right": 417.296875,
+            "height": 53.8125,
+            "width": 293.640625
+          },
+          "buttons": [
+            {
+              "text": "编辑商品",
+              "rect": {
+                "top": 849.5,
+                "bottom": 893.5,
+                "left": 123.65625,
+                "right": 409.9375,
+                "height": 44,
+                "width": 286.28125
+              }
+            }
+          ]
+        }
+      ],
+      "overflowing": []
+    },
+    {
+      "name": "platform-small-font",
+      "kind": "platform",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": true,
+      "scrollWidth": 320,
+      "sheet": {
+        "top": 8,
+        "bottom": 560,
+        "left": 0,
+        "right": 320,
+        "height": 552,
+        "width": 320
+      },
+      "footer": {
+        "top": 481.125,
+        "bottom": 560,
+        "left": 0,
+        "right": 320,
+        "height": 78.875,
+        "width": 320
+      },
+      "body": {
+        "top": 84.21875,
+        "bottom": 481.125,
+        "left": 0,
+        "right": 320,
+        "height": 396.90625,
+        "width": 320
+      },
+      "scroller": {
+        "before": 0,
+        "after": 38,
+        "scrollHeight": 435,
+        "clientHeight": 397
+      },
+      "actions": [
+        {
+          "rect": {
+            "top": 516.859375,
+            "bottom": 609.96875,
+            "left": 86.3125,
+            "right": 290,
+            "height": 93.109375,
+            "width": 203.6875
+          },
+          "buttons": []
+        },
+        {
+          "rect": {
+            "top": 805.359375,
+            "bottom": 852.765625,
+            "left": 86.3125,
+            "right": 290,
+            "height": 47.40625,
+            "width": 203.6875
+          },
+          "buttons": []
+        }
+      ],
+      "overflowing": []
+    },
+    {
+      "name": "platform-small-font",
+      "kind": "platform",
+      "width": 320,
+      "height": 568,
+      "scale": 1.3,
+      "before": false,
+      "scrollWidth": 320,
+      "sheet": {
+        "top": 56,
+        "bottom": 568,
+        "left": 0,
+        "right": 320,
+        "height": 512,
+        "width": 320
+      },
+      "footer": {
+        "top": 489.125,
+        "bottom": 568,
+        "left": 0,
+        "right": 320,
+        "height": 78.875,
+        "width": 320
+      },
+      "body": {
+        "top": 142.828125,
+        "bottom": 489.125,
+        "left": 0,
+        "right": 320,
+        "height": 346.296875,
+        "width": 320
+      },
+      "scroller": {
+        "before": 0,
+        "after": 291,
+        "scrollHeight": 637,
+        "clientHeight": 346
+      },
+      "actions": [
+        {
+          "rect": {
+            "top": 520.265625,
+            "bottom": 571.078125,
+            "left": 86.3125,
+            "right": 290,
+            "height": 50.8125,
+            "width": 203.6875
+          },
+          "buttons": [
+            {
+              "text": "编辑商品",
+              "rect": {
+                "top": 527.078125,
+                "bottom": 571.078125,
+                "left": 86.3125,
+                "right": 220.890625,
+                "height": 44,
+                "width": 134.578125
+              }
+            },
+            {
+              "text": "更多",
+              "rect": {
+                "top": 527.078125,
+                "bottom": 571.078125,
+                "left": 226,
+                "right": 290,
+                "height": 44,
+                "width": 64
+              }
+            }
+          ]
+        },
+        {
+          "rect": {
+            "top": 769.875,
+            "bottom": 820.6875,
+            "left": 86.3125,
+            "right": 290,
+            "height": 50.8125,
+            "width": 203.6875
+          },
+          "buttons": [
+            {
+              "text": "编辑商品",
+              "rect": {
+                "top": 776.6875,
+                "bottom": 820.6875,
+                "left": 86.3125,
+                "right": 284.890625,
+                "height": 44,
+                "width": 198.578125
+              }
+            }
+          ]
+        }
+      ],
+      "overflowing": []
+    },
+    {
+      "name": "custom-keyboard-font",
+      "kind": "owned",
+      "width": 320,
+      "height": 308,
+      "scale": 1.3,
+      "before": true,
+      "scrollWidth": 320,
+      "sheet": {
+        "top": 8,
+        "bottom": 300,
+        "left": 0,
+        "right": 320,
+        "height": 292,
+        "width": 320
+      },
+      "footer": {
+        "top": 221.125,
+        "bottom": 300,
+        "left": 0,
+        "right": 320,
+        "height": 78.875,
+        "width": 320
+      },
+      "body": {
+        "top": 112.5,
+        "bottom": 221.125,
+        "left": 0,
+        "right": 320,
+        "height": 108.625,
+        "width": 320
+      },
+      "scroller": {
+        "before": 0,
+        "after": 279,
+        "scrollHeight": 388,
+        "clientHeight": 109
+      },
+      "actions": [
+        {
+          "rect": {
+            "top": 516.859375,
+            "bottom": 609.96875,
+            "left": 86.3125,
+            "right": 290,
+            "height": 93.109375,
+            "width": 203.6875
+          },
+          "buttons": []
+        },
+        {
+          "rect": {
+            "top": 805.359375,
+            "bottom": 852.765625,
+            "left": 86.3125,
+            "right": 290,
+            "height": 47.40625,
+            "width": 203.6875
+          },
+          "buttons": []
+        }
+      ],
+      "overflowing": []
+    },
+    {
+      "name": "custom-keyboard-font",
+      "kind": "owned",
+      "width": 320,
+      "height": 308,
+      "scale": 1.3,
+      "before": false,
+      "scrollWidth": 320,
+      "sheet": {
+        "top": 56,
+        "bottom": 308,
+        "left": 0,
+        "right": 320,
+        "height": 252,
+        "width": 320
+      },
+      "footer": {
+        "top": 229.125,
+        "bottom": 308,
+        "left": 0,
+        "right": 320,
+        "height": 78.875,
+        "width": 320
+      },
+      "body": {
+        "top": 142.828125,
+        "bottom": 229.125,
+        "left": 0,
+        "right": 320,
+        "height": 86.296875,
+        "width": 320
+      },
+      "scroller": {
+        "before": 0,
+        "after": 913,
+        "scrollHeight": 999,
+        "clientHeight": 86
+      },
+      "actions": [
+        {
+          "rect": {
+            "top": 520.265625,
+            "bottom": 571.078125,
+            "left": 86.3125,
+            "right": 290,
+            "height": 50.8125,
+            "width": 203.6875
+          },
+          "buttons": [
+            {
+              "text": "编辑商品",
+              "rect": {
+                "top": 527.078125,
+                "bottom": 571.078125,
+                "left": 86.3125,
+                "right": 220.890625,
+                "height": 44,
+                "width": 134.578125
+              }
+            },
+            {
+              "text": "更多",
+              "rect": {
+                "top": 527.078125,
+                "bottom": 571.078125,
+                "left": 226,
+                "right": 290,
+                "height": 44,
+                "width": 64
+              }
+            }
+          ]
+        },
+        {
+          "rect": {
+            "top": 769.875,
+            "bottom": 820.6875,
+            "left": 86.3125,
+            "right": 290,
+            "height": 50.8125,
+            "width": 203.6875
+          },
+          "buttons": [
+            {
+              "text": "编辑商品",
+              "rect": {
+                "top": 776.6875,
+                "bottom": 820.6875,
+                "left": 86.3125,
+                "right": 284.890625,
+                "height": 44,
+                "width": 198.578125
+              }
+            }
+          ]
+        }
+      ],
+      "overflowing": []
+    }
+  ]
+}

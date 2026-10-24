@@ -1,0 +1,50 @@
+[
+  {
+    "name": "selected product cards expose one edit action and an owner-only secondary menu",
+    "pass": true
+  },
+  {
+    "name": "owned catalog entry opens one complete editor with effective price and display state",
+    "pass": true
+  },
+  {
+    "name": "one owned PUT saves visible prices and priority without overwriting live inventory",
+    "pass": true
+  },
+  {
+    "name": "platform products keep basic information read-only and save only station configuration",
+    "pass": true
+  },
+  {
+    "name": "a different station owner cannot enter the local editor",
+    "pass": true
+  },
+  {
+    "name": "reopening platform clears stale keyboard offset and reaches viewport bottom",
+    "pass": true
+  },
+  {
+    "name": "reopening owned clears stale keyboard offset and reaches viewport bottom",
+    "pass": true
+  },
+  {
+    "name": "reopening resume clears stale keyboard offset and reaches viewport bottom",
+    "pass": true
+  },
+  {
+    "name": "physical shortage uses remaining quantity and keeps order-impact confirmation",
+    "pass": true
+  },
+  {
+    "name": "secondary menu retains report/deactivate and discards a callback from a previous account",
+    "pass": true
+  },
+  {
+    "name": "unsaved owned form restores its own stock target after viewing another product",
+    "pass": true
+  },
+  {
+    "name": "late inbound receipt after native Back updates the resumed draft and price save never rewrites that quantity",
+    "pass": true
+  }
+]

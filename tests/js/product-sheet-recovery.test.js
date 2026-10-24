@@ -66,10 +66,10 @@ for (const resized of [false, true]) test('short-screen keyboard footer geometry
   f.p.onProductKeyboardHeightChange({ detail: { height: 260 } })
   const style = f.p.data.productEditSheetStyle
   const sheetHeight = Number(/height:(\d+)px/.exec(style)[1]), bottom = Number(/bottom:(\d+)px/.exec(style)[1])
-  assert.equal(sheetHeight, 292); assert.equal(bottom, resized ? 8 : 268)
+  assert.equal(sheetHeight, 252); assert.equal(bottom, resized ? 0 : 260)
   assert(sheetHeight + bottom <= height)
   height = 568; f.p.onProductKeyboardHeightChange({ detail: { height: 0 } })
-  assert(f.p.data.productEditSheetStyle.includes('height:552px'))
+  assert(f.p.data.productEditSheetStyle.includes('height:512px'))
   const inputs = nodes(tree(), n => n.tag === 'input' && n.attrs['bindkeyboardheightchange'])
   assert(inputs.length > 10); assert(inputs.every(({ node }) => node.attrs['adjust-position'] === '{{false}}'))
 })

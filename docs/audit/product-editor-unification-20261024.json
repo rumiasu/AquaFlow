@@ -1,0 +1,95 @@
+{
+  "baseline": "bc3dedd87f40eaa4c2720f248b6521683b7144fc",
+  "scope": "employee product/inventory UI only",
+  "javascript": {
+    "cases": 168,
+    "suites": 8,
+    "allPassed": true,
+    "suiteCounts": [
+      19,
+      12,
+      12,
+      14,
+      16,
+      21,
+      15,
+      59
+    ],
+    "suiteNames": [
+      "extreme-product-save",
+      "phone-catalog-home",
+      "product-editor-unification",
+      "product-image-persistence",
+      "product-phone-feedback",
+      "product-sheet-recovery",
+      "product-simple-upload",
+      "water-product-templates"
+    ]
+  },
+  "newCases": {
+    "total": 12,
+    "passed": 12,
+    "baselinePassed": 0,
+    "note": "Includes new design requirements and defenses; not twelve separately proven production failures"
+  },
+  "visual": {
+    "scenes": 5,
+    "beforeAfterProjections": 10,
+    "nativeWeChat": false,
+    "syntheticData": true,
+    "physicallyViewedProjections": true,
+    "image920x2048": "460x1024 CSS viewport at DPR2",
+    "smallScreen": "320x568 font1.3; 320x308 keyboard-sized viewport font1.3"
+  },
+  "originalPhotos": {
+    "ids": [
+      "libfile_78c4304291208191b19608b2c8cf7393",
+      "libfile_ce849c56130081919ea7a15e35a320cc"
+    ],
+    "localMaterialization": "prepare succeeded; helper download failed twice per image; stopped",
+    "directRead": "image asset pointer only; no locally viewable pixels",
+    "thisAgentViewedOriginals": false,
+    "parentViewedOriginals": true
+  },
+  "permissions": {
+    "platform": [
+      "station salePrice/depositPrice",
+      "enabled",
+      "priorityDisplay",
+      "ticketEnabled/ticketPrice/packages",
+      "existing stock commands"
+    ],
+    "platformReadOnly": [
+      "name",
+      "brand",
+      "spec",
+      "category",
+      "image",
+      "description"
+    ],
+    "owned": [
+      "basic product details",
+      "effective price/deposit",
+      "enabled/priorityDisplay",
+      "ticket settings/packages",
+      "existing stock commands"
+    ],
+    "ownershipEnforcedByExistingBackend": true
+  },
+  "compatibility": {
+    "backendProductionChanged": false,
+    "customerChanged": false,
+    "migrationRequired": false,
+    "configurationRequired": false,
+    "employeeUploadRequiredForUi": true,
+    "automaticallyDeployed": false,
+    "cosChanges": false,
+    "financialStatusMachineChanged": false,
+    "existingCreateAndInboundRecoveryRetained": true
+  },
+  "modalButtonLengthGate": {
+    "passed": true,
+    "cases": 1
+  },
+  "ownedPriceNormalization": "Effective price/deposit copied into this owned product; previous station overrides cleared in same existing transactional PUT; platform base data never submitted"
+}

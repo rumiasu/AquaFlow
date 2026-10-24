@@ -26,6 +26,7 @@ const SUITES = [
   { file: 'product-image-persistence.test.js', name: 'uploaded product object keys, edit/preset persistence and ambiguous receipt protection offline' },
   { file: 'product-sheet-recovery.test.js', name: '商品长表单滚动结构、键盘几何、本地预览与分级上传回执' },
   { file: 'extreme-product-save.test.js', name: '商品原目标快照、部分创建恢复与原编号入库' },
+  { file: 'product-editor-unification.test.js', name: '商品统一编辑入口、本站字段权限、库存命令与贴底重开几何' },
   { file: 'inbound-intent.test.js', name: '持久原入库编号、身份路由隔离和回执匹配' },
   { file: 'extreme-adjustment-map.test.js', name: '调整单原意图与图片草稿隔离、地图会话周期' },
   { file: 'extreme-template-privacy.test.js', name: '常用订单稳定行身份、首次隐私授权官方合同与滚动错误' },

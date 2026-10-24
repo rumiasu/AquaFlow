@@ -1,0 +1,62 @@
+[
+  {
+    "name": "selected product cards expose one edit action and an owner-only secondary menu",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 2\n"
+  },
+  {
+    "name": "owned catalog entry opens one complete editor with effective price and display state",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\nfalse !== true\n"
+  },
+  {
+    "name": "one owned PUT saves visible prices and priority without overwriting live inventory",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+  },
+  {
+    "name": "platform products keep basic information read-only and save only station configuration",
+    "pass": false,
+    "error": "The expression evaluated to a falsy value:\n\n  assert(visible(t).some(n => (n.text || '').includes('名称、图片和规格由平台维护')))\n"
+  },
+  {
+    "name": "a different station owner cannot enter the local editor",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\ntrue !== false\n"
+  },
+  {
+    "name": "reopening platform clears stale keyboard offset and reaches viewport bottom",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n268 !== 0\n"
+  },
+  {
+    "name": "reopening owned clears stale keyboard offset and reaches viewport bottom",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n268 !== 0\n"
+  },
+  {
+    "name": "reopening resume clears stale keyboard offset and reaches viewport bottom",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n268 !== 0\n"
+  },
+  {
+    "name": "physical shortage uses remaining quantity and keeps order-impact confirmation",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\n'登记实盘亏损' !== '登记实物短缺'\n"
+  },
+  {
+    "name": "secondary menu retains report/deactivate and discards a callback from a previous account",
+    "pass": false,
+    "error": "t.page.onProductMore is not a function"
+  },
+  {
+    "name": "unsaved owned form restores its own stock target after viewing another product",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\nnull !== 17\n"
+  },
+  {
+    "name": "late inbound receipt after native Back updates the resumed draft and price save never rewrites that quantity",
+    "pass": false,
+    "error": "Expected values to be strictly equal:\n\nundefined !== '15'\n"
+  }
+]

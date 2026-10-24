@@ -138,8 +138,8 @@ for (const resize of [false, true]) test('custom editor reserves 56px close stri
   if (resize) height = 308
   f.p.onProductKeyboardHeightChange({ detail: { height: 260 } })
   const style = f.p.data.productEditSheetStyle, h = Number(/height:(\d+)px/.exec(style)[1]), bottom = Number(/bottom:(\d+)px/.exec(style)[1])
-  assert.equal(h, 244); assert.equal(height - h - bottom, 56)
-  assert(bottom >= 8); assert(h + bottom < height)
+  assert.equal(h, 252); assert.equal(height - h - bottom, 56)
+  assert.equal(bottom, resize ? 0 : 260); assert(h + bottom <= height)
 })
 test('successful create removes the resumable editor instead of offering completed input again', async () => {
   const f = saveFixture(); f.openAdd(); f.page.closeEdit(); f.page.onResumeProductEditor()

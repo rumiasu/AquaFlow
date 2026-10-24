@@ -206,7 +206,7 @@ public class DeliveryTaskController {
      */
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
     @PostMapping("/orders/report/{id}")
-    public Result<Void> reportOrder(@PathVariable Long id, @RequestBody @Valid DeliveryOrderActionDTO.Report body) {
+    public Result<Map<String, Object>> reportOrder(@PathVariable Long id, @RequestBody @Valid DeliveryOrderActionDTO.Report body) {
         Orders order = deliveryConsoleService.findOrder(id);
         if (order == null) {
             return Result.error("订单不存在");
@@ -231,13 +231,13 @@ public class DeliveryTaskController {
         detail.put("reason", reason);
         detail.put("reasonKey", body.getReasonKey());
         detail.put("staffId", staffId);
-        log("REPORT_EXCEPTION", id, detail);
+        log("REPORT_EXCEPTION", id, detail); // 尝试留痕，不是幂等成功凭据。
 
         // 留痕 + 建异常单**一起交给 service 的同一个事务**（见方法上的说明）：非法 reasonKey 会让它
         // 抛业务异常（code=1 可读文案），此时备注与异常单一起回滚，不留半成品。
         // 控制器不写库、也不开事务 —— 与全仓其它 controller 的形状一致。
-        orderBarrelExceptionService.recordDeliveryProblem(id, body.getReasonKey(),
-                body.getNote(), "[配送异常] " + reason + "（上报人ID=" + staffId + "）");
+        var recorded = orderBarrelExceptionService.recordDeliveryProblem(id, body.getReasonKey(),
+                body.getNote(), "[配送异常] " + reason + "（上报人ID=" + staffId + "）", body.getClientRequestId());
 
         // 【为什么这里没有推送站长】NotificationService 的 6 个方法目前**全是空壳**：
         // 只按站长列表打日志，拼好的 message 从未发出（其余 5 个方法连调用方都没有，
@@ -248,7 +248,11 @@ public class DeliveryTaskController {
         //   站长可见性：异常单会让站长端「待处理桶异常」的待办数字 +1、异常列表多一条
         //               （产品裁定：本次不做真推送，靠列表/待办数字暴露）；
         //   待办：接入真实推送渠道（微信订阅消息）后，在这里补一次真正的通知。
-        return Result.success();
+        Map<String, Object> receipt = new HashMap<>();
+        receipt.put("id", recorded.getId());
+        receipt.put("orderId", id);
+        receipt.put("clientRequestId", body.getClientRequestId());
+        return Result.success(receipt);
     }
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})

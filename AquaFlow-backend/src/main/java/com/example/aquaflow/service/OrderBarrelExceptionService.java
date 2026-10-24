@@ -147,6 +147,10 @@ public interface OrderBarrelExceptionService {
      */
     OrderBarrelExceptionDTO recordDeliveryProblem(Long orderId, String reasonKey, String staffNote, String noteText);
 
+    /** 带原意图编号的普通反馈；同键同内容返回原异常ID，不改变拒付或补偿语义。 */
+    OrderBarrelExceptionDTO recordDeliveryProblem(Long orderId, String reasonKey, String staffNote, String noteText,
+                                                String clientRequestId);
+
     /**
      * 站长审批处理
      */

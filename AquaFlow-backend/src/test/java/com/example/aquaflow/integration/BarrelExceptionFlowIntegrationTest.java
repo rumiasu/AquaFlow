@@ -6,6 +6,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -54,6 +58,75 @@ class BarrelExceptionFlowIntegrationTest extends AbstractIntegrationTest {
 
     private String mgrToken() {
         return staffToken(mgr, "STATION_MANAGER", station);
+    }
+
+    @Test
+    @DisplayName("普通反馈原键重试返回原异常，已处理不重开，新键允许真实后续事件")
+    void deliveryReportRetriesUseTheOriginalReceiptWhileNewEventsUseNewKeys() {
+        seed();
+        long order = createOrder(customer, addr, station, product, 2, 1);
+        String path = "/api/delivery/orders/report/" + order;
+        String original = reportBody("DR-original-event-001");
+        Api first = post(path, mgrToken(), original), retry = post(path, mgrToken(), original);
+        assertEquals(0, first.code()); assertEquals(0, retry.code());
+        long id = first.data().path("id").asLong(); assertTrue(id > 0);
+        assertEquals(first.data(), retry.data());
+        assertEquals(order, first.data().path("orderId").asLong());
+        assertEquals("DR-original-event-001", first.data().path("clientRequestId").asText());
+        assertEquals(1, intOf("SELECT COUNT(*) FROM order_barrel_exception WHERE order_id=?", order));
+        assertEquals(1, intOf("SELECT exception_count FROM orders WHERE id=?", order));
+        String note = jdbc.queryForObject("SELECT special_note FROM orders WHERE id=?", String.class, order);
+        assertEquals(note.indexOf("[配送异常]"), note.lastIndexOf("[配送异常]"), "重试不能重复追加订单备注");
+        assertEquals(1, intOf("SELECT COUNT(*) FROM audit_log WHERE user_id=? AND module='DELIVERY_REPORT' AND action='RECEIPT'", mgr));
+
+        assertFalse(post(path, mgrToken(), original.replace("水桶破损", "另一项说明")).isSuccess(), "原键不能修改反馈内容");
+        jdbc.update("UPDATE order_barrel_exception SET status='IGNORED' WHERE id=?", id);
+        assertEquals(id, post(path, mgrToken(), original).data().path("id").asLong(), "站长已处理也应核实原记录");
+        Api next = post(path, mgrToken(), reportBody("DR-later-event-002"));
+        assertEquals(0, next.code());
+        assertTrue(next.data().path("id").asLong() != id, "相同原因的后续新事件不能被永久吞掉");
+        assertEquals(2, intOf("SELECT COUNT(*) FROM order_barrel_exception WHERE order_id=?", order));
+        assertEquals(0, intOf("SELECT COUNT(*) FROM payment_record"), "普通反馈不创建收退款");
+    }
+
+    @Test
+    @DisplayName("普通反馈并发原键重试只建一条异常与持久回执")
+    void concurrentDeliveryReportRetriesCreateOneExceptionAndReceipt() throws Exception {
+        seed();
+        long order = createOrder(customer, addr, station, product, 2, 1);
+        String token = mgrToken(), body = reportBody("DR-concurrent-event-001");
+        var start = new CountDownLatch(1); var executor = Executors.newFixedThreadPool(2);
+        Callable<Api> report = () -> { assertTrue(start.await(5, TimeUnit.SECONDS)); return post("/api/delivery/orders/report/" + order, token, body); };
+        try {
+            var one = executor.submit(report); var two = executor.submit(report); start.countDown();
+            Api first = one.get(15, TimeUnit.SECONDS), second = two.get(15, TimeUnit.SECONDS);
+            assertEquals(0, first.code(), "首发反馈: " + first); assertEquals(0, second.code(), "并发重试: " + second);
+            assertEquals(first.data(), second.data());
+            assertEquals(1, intOf("SELECT COUNT(*) FROM order_barrel_exception WHERE order_id=?", order));
+            assertEquals(1, intOf("SELECT exception_count FROM orders WHERE id=?", order));
+            assertEquals(1, intOf("SELECT COUNT(*) FROM audit_log WHERE user_id=? AND module='DELIVERY_REPORT' AND action='RECEIPT'", mgr));
+        } finally { start.countDown(); executor.shutdownNow(); }
+    }
+
+    @Test
+    @DisplayName("普通反馈凭据损坏或原异常缺失时保持待核实，不以新记录替代")
+    void deliveryReportBrokenOrDanglingReceiptCannotCreateAReplacement() {
+        seed(); long order = createOrder(customer, addr, station, product, 2, 1);
+        String path = "/api/delivery/orders/report/" + order, body = reportBody("DR-receipt-proof-001");
+        Api first = post(path, mgrToken(), body); assertEquals(0, first.code());
+        long id = first.data().path("id").asLong();
+        String detail = jdbc.queryForObject("SELECT detail FROM audit_log WHERE user_id=? AND module='DELIVERY_REPORT' AND action='RECEIPT'", String.class, mgr);
+        jdbc.update("UPDATE audit_log SET detail='bad-proof' WHERE user_id=? AND module='DELIVERY_REPORT' AND action='RECEIPT'", mgr);
+        assertFalse(post(path, mgrToken(), body).isSuccess());
+        assertEquals(1, intOf("SELECT COUNT(*) FROM order_barrel_exception WHERE order_id=?", order));
+        jdbc.update("UPDATE audit_log SET detail=? WHERE user_id=? AND module='DELIVERY_REPORT' AND action='RECEIPT'", detail, mgr);
+        jdbc.update("DELETE FROM order_barrel_exception WHERE id=?", id);
+        assertFalse(post(path, mgrToken(), body).isSuccess());
+        assertEquals(0, intOf("SELECT COUNT(*) FROM order_barrel_exception WHERE order_id=?", order));
+    }
+
+    private String reportBody(String key) {
+        return "{\"reason\":\"水桶破损\",\"reasonKey\":\"barrel_damaged\",\"clientRequestId\":\"" + key + "\"}";
     }
 
     private String completeBody(long itemId, int expected, int actual, boolean collected) {

@@ -273,7 +273,7 @@
 | `GET` | `/api/delivery/orders/pending-approvals` | "STATION_MANAGER" | `StationDeliveryConsoleController.getPendingApprovals` |
 | `GET` | `/api/delivery/orders/pool` | "STATION_MANAGER" | `CrossStationDispatchController.getPoolOrders` |
 | `POST` | `/api/delivery/orders/reject/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.rejectOrder` |
-| `POST` | `/api/delivery/orders/report/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.reportOrder` |
+| `POST` | `/api/delivery/orders/report/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.reportOrder`；普通反馈原意图契约见本文末尾 |
 | `POST` | `/api/delivery/orders/return/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.returnToStation` |
 | `POST` | `/api/delivery/orders/return/{id}/approve` | "STATION_MANAGER" | `StationDeliveryConsoleController.approveReturn` |
 | `POST` | `/api/delivery/orders/return/{id}/reject` | "STATION_MANAGER" | `StationDeliveryConsoleController.rejectReturn` |
@@ -734,3 +734,12 @@
 沿C-03资格与实际现金退款原路由，无新增可执行线上交易入口。新资格额外返回`channelPendingRefundAmount`（原渠道/原款证据待核的金额）、`pendingChannelReason`、`expiredOriginalCash`（存在已核超365天现金来源）；已核范围下`remainingRefundAmount = availableRefundAmount + frozenRefundAmount + channelPendingRefundAmount`。`disputeRetainedAmount`仅说明争议覆盖，不可重复相加。旧后台缺新字段按原有能力处理，不从旧响应推断超期资格。旧员工端遇超期原微信或混合来源不可办理现金。
 
 必须实际交付后才发送原现金命令和原键/本次金额；同键恢复自己的不可变实退。原渠道结果未知、原时间缺失、原款余额不足或跨微信收款责任站均不得改交现金；其他独立原款的可退部分不吞掉剩余责任。可信原时间仅未来服务端已验签匹配支付对象可记录，没有客户端时间/商户补录接口，也未启用真实渠道。
+
+
+## 普通配送反馈原意图契约（2026-10-24）
+
+`POST /api/delivery/orders/report/{id}` 保持原站别/本人任务授权。请求在原有 `reason`、`reasonKey`、可选 `note` 之外接受可选 `clientRequestId`（8–64位字母、数字、横线或下划线）。同一次原反馈必须保存并复用编号与完整内容；后续真实新事件使用新编号，不能仅按订单和原因永久合并。
+
+成功响应 `data={id, orderId, clientRequestId}`，`id` 为原异常记录。按同员工/订单/编号作用域重试返回同记录，即使原异常已经处理也不重开；同键改内容、回执损坏/重复或原异常缺失均明确拒绝，不能自动另建。订单行锁与回执当前读串行化，异常、备注和专用 `DELIVERY_REPORT / RECEIPT` 回执同事务提交；该回执必须永久保留，见[运维责任](../operations/01-部署与运维.md)。
+
+新前端仅凭三项匹配的回执结束原意图；超时不表示失败，原键POST可核实或完成原反馈。无键旧请求仍兼容原行为，不保证重试幂等；旧无键未知记录不能自动补键重放。本契约仅普通配送反馈，不改变客户拒付、资金处理或补偿流程。后端应先支持此契约再同步对应小程序版本；本说明不代表已部署或真实渠道验收。

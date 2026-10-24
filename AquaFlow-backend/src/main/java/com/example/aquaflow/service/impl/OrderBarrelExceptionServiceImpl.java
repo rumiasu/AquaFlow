@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionService {
+    @Autowired private com.example.aquaflow.service.AuditLogService auditLogService;
     @Autowired private com.example.aquaflow.service.RecordDisplayNameService displayNames;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.service.ConfirmedRefusalService confirmedRefusals;
@@ -184,10 +185,27 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OrderBarrelExceptionDTO recordDeliveryProblem(Long orderId, String reasonKey, String staffNote, String noteText) {
-        Orders order = orderMapper.getById(orderId);
+        return recordDeliveryProblem(orderId, reasonKey, staffNote, noteText, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public OrderBarrelExceptionDTO recordDeliveryProblem(Long orderId, String reasonKey, String staffNote, String noteText,
+                                                         String clientRequestId) {
+        if (clientRequestId != null && !clientRequestId.matches("[A-Za-z0-9_-]{8,64}"))
+            throw new BusinessException("反馈编号不合法，请保留原反馈并重新核实");
+        // 2026-10-24：原网络重试会再建异常并追加备注。订单锁跨实例串行，回执必须当前读且同事务写入。
+        Orders order = orderMapper.getByIdForUpdate(orderId);
         if (order == null) {
             throw new BusinessException("订单不存在: " + orderId);
         }
+        Long actor = AuthContext.getUserId();
+        if (actor == null || !"staff".equals(AuthContext.getUserType()) || !AuthContext.isDelivery() && !AuthContext.isManager())
+            throw new BusinessException("仅员工可以上报配送反馈");
+        if (!AuthContext.requireStationId().equals(com.example.aquaflow.util.StationUtil.deliveryStation(order)))
+            throw new BusinessException("无权操作他站订单");
+        if (AuthContext.isDelivery() && !actor.equals(order.getDeliveryStaffId()))
+            throw new BusinessException("仅可上报分配给自己的订单");
         // 类别由**服务端**按原因 key 映射（不由客户端传类别）：配送员分不清 RETURN_REFUSE（当场拒收）
         // 与 CUSTOMER_REFUSE（收了但不给钱），也不该关心。非法 key 直接拒 —— 不猜、不兜底成"其他"，
         // 否则"上报了一个不存在的现场原因"这件事永远查不出来（同 ExceptionCategory.textOf 的 default 教训）。
@@ -196,6 +214,29 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
             throw new BusinessException("配送问题类型不合法，请从小程序给的原因里选一项");
         }
         String label = ExceptionCategory.ReportReason.textOf(reasonKey);
+
+        String receiptTarget = clientRequestId == null ? null : "report:" + reportDigest(actor.toString(), orderId.toString(), clientRequestId);
+        String requestDigest = reportDigest(reasonKey, staffNote, noteText);
+        if (receiptTarget != null) {
+            List<String> receipts = exceptionMapper.reportReceiptsForUpdate(actor, receiptTarget);
+            if (!receipts.isEmpty()) {
+                if (receipts.size() != 1) throw reportNeedsVerification();
+                String evidence = receipts.get(0);
+                if (evidence == null || !evidence.matches("v1\\|[0-9a-f]{64}\\|[1-9][0-9]{0,18}")) throw reportNeedsVerification();
+                String[] parts = evidence.split("\\|", -1);
+                if (!requestDigest.equals(parts[1]))
+                    throw new BusinessException("同一反馈编号不能修改内容，请先核实原反馈");
+                long originalId;
+                try { originalId = Long.parseLong(parts[2]); }
+                catch (NumberFormatException invalid) { throw reportNeedsVerification(); }
+                OrderBarrelException original = exceptionMapper.getByIdForUpdate(originalId);
+                if (original == null || !orderId.equals(original.getOrderId())
+                        || !actor.equals(original.getDeliveryStaffId()) || !"DELIVERY_PROBLEM".equals(original.getType())
+                        || !category.equals(original.getCategory())) throw reportNeedsVerification();
+                // 已由站长处理也仍是这次原反馈；不能重建一条待处理记录。
+                return toDTO(original);
+            }
+        }
 
         OrderBarrelException ex = new OrderBarrelException();
         ex.setOrderId(orderId);
@@ -222,13 +263,21 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         //    若备注已由调用方先落库，就会留下"备注说上报了、异常单没建"的半成品
         //    （§8.17 判据：用户以为做成了、账上没动，一律算缺陷）。
         if (noteText != null && !noteText.isBlank()) {
-            orderMapper.appendSpecialNote(orderId, noteText);
+            if (orderMapper.appendSpecialNote(orderId, noteText) != 1) throw reportNeedsVerification();
         }
 
         exceptionMapper.insert(ex);
+        if (ex.getId() == null || ex.getId() <= 0) throw reportNeedsVerification();
+
+        if (receiptTarget != null) {
+            // 持久幂等凭据，不能随普通审计清理；不是预提交的 REPORT_EXCEPTION 尝试日志。
+            auditLogService.log(OrderBarrelExceptionMapper.REPORT_RECEIPT_MODULE,
+                    OrderBarrelExceptionMapper.REPORT_RECEIPT_ACTION, receiptTarget,
+                    "v1|" + requestDigest + "|" + ex.getId(), null);
+        }
 
         // 订单异常标记：让订单本身带得住"这单有异常"（与 recordException 同一条专用列更新）。
-        orderMapper.markBarrelException(orderId, category, ex.getId(), null, null);
+        if (orderMapper.markBarrelException(orderId, category, ex.getId(), null, null) != 1) throw reportNeedsVerification();
 
         // 站长端可见性（产品裁定：本次**不做真推送**，靠站长端列表 / 待办数字暴露）：
         // 这条异常单 status=STAFF_RECORDED，而「待处理桶异常」那个待办数字正是按它计数的，
@@ -243,6 +292,20 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         log.info("[OrderBarrelException] 配送员现场上报建单: orderId={}, exceptionId={}, reasonKey={}, category={}",
                 orderId, ex.getId(), reasonKey, category);
         return toDTO(ex);
+    }
+
+    private static BusinessException reportNeedsVerification() {
+        return new BusinessException("原反馈结果暂不能核实，请保留原编号并联系水站核对，勿另建反馈");
+    }
+
+    /** 长度前缀保留空值/分隔符，防止不同备注拼接成相同意图；只存摘要，不把编号塞进用户备注。 */
+    private static String reportDigest(String... parts) {
+        StringBuilder canonical = new StringBuilder("delivery-report-v1|");
+        for (String part : parts) canonical.append(part == null ? -1 : part.length()).append(':').append(part == null ? "" : part);
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException unavailable) { throw new IllegalStateException(unavailable); }
     }
 
     @Override

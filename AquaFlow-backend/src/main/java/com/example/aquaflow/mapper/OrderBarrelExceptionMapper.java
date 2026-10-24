@@ -8,6 +8,19 @@ import java.util.List;
 @Mapper
 public interface OrderBarrelExceptionMapper {
 
+    // 2026-10-24：这组 audit 行是普通反馈的持久业务回执，归档/清理普通审计时必须保留。
+    // 不能用控制器预提交的 ORDER/REPORT_EXCEPTION 充当成功凭据；幂等唯一性由订单行锁串行保证。
+    String REPORT_RECEIPT_MODULE = "DELIVERY_REPORT";
+    String REPORT_RECEIPT_ACTION = "RECEIPT";
+
+    /** 订单锁之后当前读，按 actor 索引限制扫描；多条凭据也须显式核实，不能静默择一。 */
+    @Select("select detail from audit_log where user_id=#{actor} and module='" + REPORT_RECEIPT_MODULE
+            + "' and action='" + REPORT_RECEIPT_ACTION + "' and target=#{target} order by id limit 2 for update")
+    List<String> reportReceiptsForUpdate(@Param("actor") Long actor, @Param("target") String target);
+
+    @Select("select * from order_barrel_exception where id=#{id} for update")
+    OrderBarrelException getByIdForUpdate(@Param("id") Long id);
+
     @Insert("insert into order_barrel_exception(" +
             "order_id, customer_id, station_id, delivery_staff_id, " +
             "delivery_qty, return_qty, discrepancy, category, type, " +

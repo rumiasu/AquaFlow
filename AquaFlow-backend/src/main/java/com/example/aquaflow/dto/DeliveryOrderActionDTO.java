@@ -137,6 +137,9 @@ public final class DeliveryOrderActionDTO {
         private String reasonKey;
         /** 配送员可补一句说明，写进异常单备注。 */
         private String note;
+        /** 同一次普通反馈重试须复用原编号；真实后续事件须使用新编号。旧端可省略。 */
+        @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z0-9_-]{8,64}", message = "反馈编号需为8-64位字母、数字、横线或下划线")
+        private String clientRequestId;
     }
 
     // ==================== complete（回桶明细，Map 直传 service，需结构化） ====================

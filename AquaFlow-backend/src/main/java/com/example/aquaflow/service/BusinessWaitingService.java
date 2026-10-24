@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Lazy;
 import java.util.*;
 @Service
 public class BusinessWaitingService {
+    @Autowired private RecordDisplayNameService displayNames;
     @Autowired private BarrelBusinessPolicy policy;
     @Autowired private BusinessWaitingMapper mapper;
     @Autowired private ApprovedBarrelReturnService approvedReturns;
@@ -40,6 +41,7 @@ public class BusinessWaitingService {
         if (station == null) throw new BusinessException("当前账号未绑定水站");
         var record = mapper.returnRecord(recordId, station);
         if (record == null) throw new BusinessException("未找到本站的退桶申请，请核实申请编号");
+        displayNames.barrels(station, List.of(record));
         record.setReturnDetail(approvedReturns.detail(recordId));
         record.setRefundProgress(approvedReturns.refundProgress(record));
         if (record.getCustomerId() != null && record.getProductId() != null) {
@@ -78,6 +80,13 @@ public class BusinessWaitingService {
         out.put("returns", policy.hasSchema() ? describe(mapper.delayedReturns(station), "returns") : List.of());
         out.put("recoveries", policy.hasSchema() ? describe(mapper.waitingRecoveries(station), "recoveries") : List.of());
         out.put("barrels", policy.hasSchema() ? describe(mapper.waitingBarrels(station), "barrels") : List.of());
+        List<Map<String,Object>> rows = new ArrayList<>();
+        for (String section : List.of("stock", "returns", "recoveries", "barrels")) {
+            @SuppressWarnings("unchecked")
+            var sectionRows = (List<Map<String,Object>>) out.get(section);
+            rows.addAll(sectionRows);
+        }
+        displayNames.stations(rows, "responsibleStation", "fromStation", "toStation", "sourceStation", "targetStation");
         return out;
     }
 

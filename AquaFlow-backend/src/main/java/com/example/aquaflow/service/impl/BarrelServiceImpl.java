@@ -46,6 +46,7 @@ import java.util.Set;
 @Service
 @lombok.extern.slf4j.Slf4j
 public class BarrelServiceImpl implements BarrelService {
+    @Autowired private com.example.aquaflow.service.RecordDisplayNameService displayNames;
     @Autowired private com.example.aquaflow.service.ApprovedBarrelReturnService approvedReturnService;
     @Autowired private com.example.aquaflow.service.ScopedDisputeService disputes;
     @Autowired private com.example.aquaflow.mapper.ScopedRefusalRefundMapper scopedRefunds;
@@ -123,6 +124,7 @@ public class BarrelServiceImpl implements BarrelService {
     public List<BarrelRecord> listStationRecords(Long stationId, Integer limit) {
         int n = (limit == null || limit <= 0) ? 500 : Math.min(limit, 2000);
         List<BarrelRecord> records = barrelRecordMapper.listByStationId(stationId, n);
+        displayNames.barrels(stationId, records);
         for (BarrelRecord r : records) {
             if (r.getType() != null && r.getType() == 2 && r.getCustomerId() != null && r.getProductId() != null) {
                 r.setOwedBuckets(barrelLedgerService.overQty(r.getCustomerId(), stationId, r.getProductId()));
@@ -147,6 +149,7 @@ public class BarrelServiceImpl implements BarrelService {
                 : businessWaitingMapper.legacyReturnApplications(stationId, beforeId, "ACTIVE".equals(scope), limit + 1);
         boolean more = found.size() > limit;
         List<BarrelRecord> records = new ArrayList<>(found.subList(0, Math.min(limit, found.size())));
+        displayNames.barrels(stationId, records);
         for (BarrelRecord r : records) {
             { r.setReturnDetail(approvedReturnService.detail(r.getId())); r.setRefundProgress(approvedReturnService.refundProgress(r)); }
             if (r.getCustomerId() != null && r.getProductId() != null)
@@ -743,6 +746,7 @@ public class BarrelServiceImpl implements BarrelService {
         int n = (limit == null || limit <= 0) ? 200 : Math.min(limit, 1000);
         int count = barrelRecordMapper.countRefundUndelivered(stationId);
         List<BarrelRecord> records = barrelRecordMapper.listRefundUndelivered(stationId, n);
+        displayNames.barrels(stationId, records);
         Map<String, Object> data = new HashMap<>();
         data.put("count", count);
         data.put("amount", barrelRecordMapper.sumRefundUndelivered(stationId));

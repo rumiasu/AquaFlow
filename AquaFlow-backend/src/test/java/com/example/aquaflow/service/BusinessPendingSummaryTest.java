@@ -30,6 +30,7 @@ class BusinessPendingSummaryTest {
         ReflectionTestUtils.setField(service, "policy", policy);
         ReflectionTestUtils.setField(service, "approvedReturns", returns);
         ReflectionTestUtils.setField(service, "barrelLedger", ledger);
+        ReflectionTestUtils.setField(service, "displayNames", mock(RecordDisplayNameService.class));
         when(policy.hasSchema()).thenReturn(true);
         when(mapper.countWaitingReturns(anyLong())).thenReturn(Map.of("returnsTotal", 1, "returnRefund", 1));
         when(mapper.countWaitingRecoveries(anyLong())).thenReturn(Map.of("recoverySend", 2, "recoveryReceive", 3));

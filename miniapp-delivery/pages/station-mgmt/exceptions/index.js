@@ -293,7 +293,10 @@ Page({
         id: r.id,
         orderId: r.orderId,
         customerId: r.customerId,
-        customerText: referenceText(r.customerName, r.customerId, '客户'),
+        // 2026-10-24：跨站只读订单收件人快照，不能把它标成他站客户档案姓名。
+        customerText: typeof r.customerName === 'string' && r.customerName.trim() ? referenceText(r.customerName, r.customerId, '客户')
+          : typeof r.receiverName === 'string' && r.receiverName.trim() ? '收件人：' + r.receiverName.trim() + '（客户编号：' + r.customerId + '）'
+            : referenceText(null, r.customerId, '客户'),
         pending: !!r.pending,
         categoryText: r.categoryText,
         statusText: r.statusText,

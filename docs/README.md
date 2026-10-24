@@ -71,3 +71,5 @@ AI 协作约束在 [AGENTS](../AGENTS.md)，安全边界在 [SECURITY](../SECURI
 2026-10-23 员工商品图临时URL/持久对象键断点、兼容修复及后端先行部署依赖见[商品图对象键链路交接](audit/product-image-key-contract-20261023.md)；不代表实际云库导入或COS上传已完成。
 
 2026-10-24 用户交回GLM前端10项报告的逐条复核、9项修复、名称字段P2剩余及定向回归边界见[前端报告处置记录](audit/frontend-disposition-20261024.md)，不代表原生72页视觉全验收。
+
+该批第10项权限内名称的后端收尾、合法缺名兜底及统一上传清单见[名称字段交接](audit/scoped-name-completion-20261024.md)；本次无迁移/新配置，实际MySQL及手机验收边界单列。

@@ -369,6 +369,12 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         m.put("customerName", customer == null ? null : customer.getName());
         m.put("customerPhone", customer == null ? null : customer.getPhone());
         m.put("productId", a.getProductId());
+        // 2026-10-24：名称只辅助识别本站原调整单，不能借此展示他站私有商品。
+        Product product = a.getProductId() == null ? null : productMapper.getById(a.getProductId());
+        boolean visibleProduct = product != null && (product.getOwnerStationId() == null
+                || Objects.equals(a.getStationId(), product.getOwnerStationId()));
+        m.put("productName", visibleProduct ? product.getName() : null);
+        m.put("productSpec", visibleProduct ? product.getSpec() : null);
         m.put("adjustType", a.getAdjustType());
         m.put("adjustTypeText", AdjustType.textOf(a.getAdjustType()));
         m.put("qty", a.getQty());

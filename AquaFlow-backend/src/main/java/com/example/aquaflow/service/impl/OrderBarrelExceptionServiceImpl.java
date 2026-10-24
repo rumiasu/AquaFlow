@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionService {
+    @Autowired private com.example.aquaflow.service.RecordDisplayNameService displayNames;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.service.ConfirmedRefusalService confirmedRefusals;
 
@@ -518,6 +519,7 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         long total = exceptionMapper.countByStation(stationId, query.getStatus(), query.getCategory(), query.getStaffId());
 
         List<OrderBarrelExceptionDTO> records = list.stream().map(this::toDTO).collect(Collectors.toList());
+        displayNames.exceptions(stationId, records);
         return new Page<>(records, total, query.getPage(), query.getSize());
     }
 

@@ -18,6 +18,7 @@ public class StationAftercareService {
     private final StationAftercareMapper mapper;
     private final ConsumptionRefundMapper locks;
     private final StationRecoveryMapper settlements;
+    private final RecordDisplayNameService displayNames;
     public boolean hasCase(Long order) {return mapper.count(order)>0;}
     public List<Long> pendingOrders(Long station) {
         AuthContext.requireManager();if(!Objects.equals(station,AuthContext.requireStationId()))throw new BusinessException("只能核对本站责任订单");
@@ -50,6 +51,7 @@ public class StationAftercareService {
             item.put("canPay",eligible && proof && row!=null && "AGREED".equals(state) && decimal(row.get("proposed_amount")).signum()>0 && Objects.equals(other,station));
             item.put("history",mapper.history(payment));items.add(item);
         }
+        displayNames.stations(items, "refundStation", "otherStation");
         return Map.of("orderId",id,"items",items,"eligible",eligible,"note",eligible?"客户退款已独立登记；按每笔实际责任额协商，不自动追回整单报酬。金额为另一站向实际退款站分担，其余由退款站承担。":"原结清或退款证据未满足部分售后条件；保留原记录，不自动分担或记已付款。");
     }
 

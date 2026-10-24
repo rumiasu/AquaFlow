@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-24",
+  "baselineCommit": "6b1afb44b5393ea4f53cf9ee46e59475b0b24aba",
+  "scope": "只收尾GLM-10已列出的名称字段，不扩新功能",
+  "status": "implemented_with_authorized_fallbacks",
+  "issueResolved": "GLM-10",
+  "evidence": {
+    "namesMapper": {
+      "file": "AquaFlow-backend/src/main/java/com/example/aquaflow/mapper/RecordDisplayNameMapper.java",
+      "line": 11
+    },
+    "namesService": {
+      "file": "AquaFlow-backend/src/main/java/com/example/aquaflow/service/RecordDisplayNameService.java",
+      "line": 18
+    },
+    "adjustment": {
+      "file": "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/StationAdjustmentServiceImpl.java",
+      "line": 374
+    },
+    "exceptions": {
+      "file": "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/OrderBarrelExceptionServiceImpl.java",
+      "line": 522
+    },
+    "returns": {
+      "file": "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/BarrelServiceImpl.java",
+      "line": 127
+    },
+    "waiting": {
+      "file": "AquaFlow-backend/src/main/java/com/example/aquaflow/service/BusinessWaitingService.java",
+      "line": 89
+    },
+    "aftercare": {
+      "file": "AquaFlow-backend/src/main/java/com/example/aquaflow/service/StationAftercareService.java",
+      "line": 54
+    },
+    "receiverLabel": {
+      "file": "miniapp-delivery/pages/station-mgmt/exceptions/index.js",
+      "line": 296
+    }
+  },
+  "resolved": [
+    {
+      "area": "调整单商品名",
+      "source": "既有ProductMapper.getById；原单先验站别，公共/本站商品才返回名称和规格",
+      "fallback": "已删或他站私有商品明确商品编号"
+    },
+    {
+      "area": "异常客户名",
+      "source": "当前页记录ID+站别批量JOIN；同站客户档案名，跨站只返回订单receiverName快照",
+      "fallback": "收件人快照单独标收件人；订单缺失/无关/姓名缺失明确客户编号"
+    },
+    {
+      "area": "退桶客户/商品/办理站名",
+      "source": "退还type=2批量JOIN；客户画像认绑定∪本站订单，商品认公共∪本站私有",
+      "fallback": "无画像准入、已删记录或他站私有商品只保留编号；不对配送type=8新增画像读取"
+    },
+    {
+      "area": "已授权他站名",
+      "source": "待办各区合并ID、售后已授权双方ID，复用既有按ID批量stationNames查询",
+      "fallback": "站已删除/缺名时保留明确水站编号"
+    }
+  ],
+  "deployment": {
+    "targetRef": "refs/heads/codex/fix-fee-drawer-layout-20261018",
+    "finalCommit": "由包含本记录的提交及任务回执确定；按最终SHA统一构建",
+    "backendChanged": true,
+    "customerFrontendChangedInFollowup": false,
+    "employeeFrontendChangedInFollowup": [
+      "pages/station-mgmt/exceptions/index.js（区分收件人快照）"
+    ],
+    "syncBothMiniappsFromFinalCommit": true,
+    "migrationRequired": false,
+    "configurationChanges": [],
+    "cosCredentialChanges": false,
+    "productionDeployed": false,
+    "actionsQueried": false,
+    "previous012NotAltered": true,
+    "schemaCompatibility": {
+      "sourceSchemaUnchangedSince": "6e2055f5235e84657f9807f0c0eb7857a2c1ea18",
+      "sha256": "eadc72b17b7851838e33613f84d940f389f66dfc041336e6f76958cfe4f82528",
+      "requiredExistingColumns": {
+        "order_barrel_exception": [
+          "id",
+          "order_id",
+          "customer_id",
+          "station_id"
+        ],
+        "orders": [
+          "id",
+          "customer_id",
+          "station_id",
+          "delivery_station_id",
+          "receiver_name"
+        ],
+        "customer": [
+          "id",
+          "name"
+        ],
+        "customer_station_config": [
+          "customer_id",
+          "station_id"
+        ],
+        "product": [
+          "id",
+          "owner_station_id",
+          "name",
+          "spec"
+        ],
+        "station": [
+          "id",
+          "name"
+        ],
+        "barrel_record": [
+          "id",
+          "customer_id",
+          "station_id",
+          "product_id",
+          "type"
+        ]
+      },
+      "migrationRequiredByCode": false,
+      "live012SchemaQueried": false
+    },
+    "pulisiBackendOnly": {
+      "supportedForExistingThreeKeys": true,
+      "mappingPreservedFrom": "9665f5ffbcfb6e6a68ab3a1625d8e7a524cabaa3",
+      "databaseEditsOrCosCredentialsRequired": false,
+      "newFrontendAssetsRequiredForThesePhotos": false,
+      "scope": "公共商品4–6若保留已知三条对象键，统一解析器会返回对应永久HTTPS；实际加载仍待统一部署后手机验证"
+    },
+    "beforeUpload": [
+      "在受保护测试库运行RecordDisplayNameMapperIntegrationTest（3项MySQL/HTTP），使用仓库既有测试目标护栏",
+      "父任务从最终SHA同步本地并构建后端；保留当前012回退版本；本云任务不执行上传",
+      "两端同步最终SHA后按授权流程交微信手测，不能把静态/替身检查当真机验收"
+    ],
+    "onlineDatabaseModified": false
+  },
+  "verification": {
+    "compiler": "OpenJDK 21.0.12.1 com.sun.tools.javac.Main -source 17 -target 17 -parameters",
+    "actualMainSourcesCompiled": 439,
+    "actualTestSourcesCompiled": 220,
+    "sourceOrTypeStubs": false,
+    "dependencyJarCountVerifiedAgainstProjectSha256": 132,
+    "fullGradleOrApplicationContextRun": false,
+    "junit": {
+      "classes": {
+        "com.example.aquaflow.service.RecordDisplayNameServiceTest": 15,
+        "com.example.aquaflow.service.StationAdjustmentIdempotencySafetyTest": 23,
+        "com.example.aquaflow.service.BusinessPendingSummaryTest": 8,
+        "com.example.aquaflow.service.CashRefundRecoveryTest": 7,
+        "com.example.aquaflow.util.CustomerProfileMaskTest": 11,
+        "com.example.aquaflow.constant.ProductImageKeysTest": 2,
+        "com.example.aquaflow.util.ProductImageResolverTest": 9,
+        "com.example.aquaflow.service.StationAdjustmentPreviewGuardTest": 5,
+        "com.example.aquaflow.controller.ManagerCatalogPresetImagesTest": 1
+      },
+      "passed": 81,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "newServiceCases": [
+        "emptyOrForeignRecordsNeverBecomeAnUnboundedNameQuery()",
+        "preciseReturnNameReadHappensOnlyAfterTheStationScopedOriginalRecordExists()",
+        "adjustmentDenialHappensBeforeReadingProductOrCustomerNames()",
+        "absentRowsAndDeletedNamesStayAbsentInsteadOfBorrowingAnotherRecord()",
+        "aftercareAddsOnlyNamesForAlreadyAuthorizedPartiesAndDoesNotChangeItsActions()",
+        "adjustmentMissingOrOtherStationPrivateProductKeepsItsIdentifierWithoutName()",
+        "exceptionListActuallyAttachesNamesAfterItsStationScopedPageRead()",
+        "exceptionProfileAndReceiverSnapshotRemainDistinctAndBatchScoped()",
+        "webSerializerIncludesReadOnlyNamesAndKeepsReceiverSeparateFromCustomerProfile()",
+        "historicalUndeliveredReturnsKeepAmountsAndReceiveNamesInOneBatch()",
+        "aLargeReturnPageUsesOneBoundedBatchAndPreservesOriginalFacts()",
+        "allStationRolesShareOneDistinctBatchAndUnknownStationStaysNull()",
+        "foreignAftercareRequestCannotReachTheNameQuery()",
+        "adjustmentReadsGlobalAndOwnPrivateProductNamesWithoutChangingTheRecord()",
+        "waitingSectionsShareOneStationNameReadWithoutChangingPendingCounts()"
+      ],
+      "xmlSha256": "554a31e41d4396d84fc6f1f9ddc7b22f0b009ceb236929a3f35162b88a868c0c"
+    },
+    "sqlBehavior": {
+      "mode": "实际编译后的MyBatis Mapper＋本JVM内存H2 2.3.232 MySQL mode，不是实际MySQL或012数据",
+      "passedScenarios": 14,
+      "cases": [
+        "own exception profile and order receiver stay distinct",
+        "cross-station profile masked even if customer is bound to delivery station",
+        "unrelated order supplies no profile or snapshot",
+        "exception station and id both constrain result",
+        "empty and null exception ids never enumerate",
+        "null station does not read names",
+        "missing historical order does not borrow a current profile",
+        "binding-only asset customer and global product readable",
+        "owned order authorizes profile and own product",
+        "foreign-only profile and private product withheld",
+        "deleted references keep record id but no invented names",
+        "retired own product remains a valid historical label",
+        "foreign records and delivery ledgers are excluded",
+        "empty and null barrel ids never enumerate"
+      ],
+      "completionSentinel": "AQUAFLOW_SQL_PROBE_OK 14",
+      "probeSource": "scoped-name-verification-20261024/RecordDisplayNameSqlProbe.java",
+      "probeSourceSha256": "9fb5533c7bfe3bb20081071421ea09a12b9a2ee828c40f07c3fe3b81a080d95c",
+      "h2AddedToApplicationDependencies": false
+    },
+    "frontend": {
+      "suiteCount": 5,
+      "passed": 111,
+      "suites": [
+        {
+          "file": "tests/js/display-reference-regression.test.js",
+          "passed": 11,
+          "sentinel": "AQUAFLOW_SUITE_OK 11",
+          "logSha256": "ef0140e0d1260b94ec5e1d660fa573c1686eb0657bdbc64a67265dc65738d173"
+        },
+        {
+          "file": "tests/js/historical-business-entry-flow.test.js",
+          "passed": 12,
+          "sentinel": "AQUAFLOW_SUITE_OK 12",
+          "logSha256": "1812d7e19b3ea71ab50bc00f8f0214908347868b131fe5b3bf3ceeabe167fc43"
+        },
+        {
+          "file": "tests/js/business-pending-flow.test.js",
+          "passed": 55,
+          "sentinel": "AQUAFLOW_SUITE_OK 55",
+          "logSha256": "0caf0a5429552318b42e77c7beae6951e66c10df6c17a91f9aea60d334a1fa70"
+        },
+        {
+          "file": "tests/js/inter-station-ledger.test.js",
+          "passed": 18,
+          "sentinel": "AQUAFLOW_SUITE_OK 18",
+          "logSha256": "eab0856e39cedad067b7dbe0770c56d9a416b60a1fec4f4c8cbdaca3895aa5b6"
+        },
+        {
+          "file": "tests/js/barrel-return-refund.test.js",
+          "passed": 15,
+          "sentinel": "AQUAFLOW_SUITE_OK 15",
+          "logSha256": "38a8dabe548c9cb26be84224c112dd320dd3aa54b05a2d5ab44c4c6b880b5191"
+        }
+      ],
+      "changedJsSyntaxChecked": true
+    },
+    "notExecuted": [
+      "RecordDisplayNameMapperIntegrationTest三项真实MySQL/HTTP执行（已编译）",
+      "完整Gradle构建/整应用Spring上下文/CI状态查询",
+      "当前012线上information_schema读取及新版本手机验收",
+      "生产上传、流量切换、实际登录/支付/退款"
+    ]
+  },
+  "remainingImplementationWorkWithinThisScope": [],
+  "policyFallbacksAreNotMissingFeatures": true,
+  "native72PageAcceptance": false
+}

@@ -77,6 +77,15 @@ test('aftercare reuses only names from the current authorized ledger and drops t
   assert.equal(t.page.aftercareStationText(22), '水站编号：22')
   assert.equal(t.page.aftercareStationText(44), '本站（水站编号：44）')
 })
+test('cross-station exception identifies the receiver snapshot without claiming a customer profile', async () => {
+  const route = 'station-mgmt/exceptions/index'
+  const t = fixture(route, { 'utils/request': { get: async () => ok({ total: 1,
+    records: [{ id: 9, orderId: 81, customerId: 8, customerName: ' ', receiverName: '订单收件人' }] }) } })
+  await t.page.loadList(true)
+  assert.equal(t.page.data.items[0].customerText, '收件人：订单收件人（客户编号：8）')
+  assert(view(route, t.page.data).includes('收件人：订单收件人'))
+  assert.equal(t.page.data.items[0].customerId, 8)
+})
 test('barrel return names and historical delivery alerts preserve original customer/product ids', async () => {
   const route = 'station-mgmt/barrel-return/index', response = { id: 9, customerId: 8, customerName: '已核客户',
     productId: 5, productName: '已核商品', stationId: 11, type: 2, status: 1, quantity: 1, depositRefund: 30 }

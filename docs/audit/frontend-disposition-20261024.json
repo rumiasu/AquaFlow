@@ -394,5 +394,13 @@
     "WB08普通反馈未知结果重复提交",
     "WB09经营待办排序推断"
   ],
-  "blockers": []
+  "blockers": [],
+  "followUp": {
+    "date": "2026-10-24",
+    "issue": "GLM-10",
+    "status": "implemented_with_authorized_fallbacks",
+    "report": "scoped-name-completion-20261024.md",
+    "evidence": "scoped-name-completion-20261024.json",
+    "note": "原summary与remaining保留为初次审查快照；本条记录当前收尾，未承诺每条历史记录都有可见名称。"
+  }
 }

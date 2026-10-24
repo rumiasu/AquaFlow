@@ -23,6 +23,12 @@ public class BarrelRecord {
     /** 商品ID(桶装水) */
     private Long productId;
 
+    /** 展示投影，不对应数据库列；仅由已授权退还记录的批量查询补齐。 */
+    private transient String customerName;
+    private transient String productName;
+    private transient String productSpec;
+    private transient String stationName;
+
     /** 类型: 1 新增押金桶 2 退桶 3 丢失 4 损坏 5 赔偿 6 人工调整 7 纯还桶 8 配送收发明细 */
     private Integer type;
 

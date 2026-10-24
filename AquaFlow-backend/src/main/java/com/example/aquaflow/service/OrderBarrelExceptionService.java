@@ -282,6 +282,14 @@ public interface OrderBarrelExceptionService {
         private Long id;
         private Long orderId;
         private Long customerId;
+        /** 本站客户画像名称；跨站履约不补他站画像，只能展示独立收件人快照。 */
+        private String customerName;
+        private String receiverName;
+
+        public String getCustomerName() { return customerName; }
+        public void setCustomerName(String name) { this.customerName = name; }
+        public String getReceiverName() { return receiverName; }
+        public void setReceiverName(String name) { this.receiverName = name; }
         private Long stationId;
         private Long deliveryStaffId;
         private Integer deliveryQty;

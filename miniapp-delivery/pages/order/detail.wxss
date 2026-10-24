@@ -634,3 +634,4 @@
 .write-recovery text { display: block; white-space: normal; }
 .write-recovery button { margin: 16rpx 0 0; min-height: 88rpx; padding: 16rpx 24rpx; }
 .sheet-item:active, .sheet-cancel:active { background: var(--bg-gray); }
+.press-feedback { background: var(--bg-gray); opacity: 0.82; }

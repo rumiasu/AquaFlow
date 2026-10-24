@@ -7,6 +7,7 @@
   </view>
   <view class="info-card write-recovery" wx:if="{{writeUnknown}}">
     <text>{{writeRecoveryText}}</text>
+    <button wx:if="{{canRetryReport}}" size="mini" bindtap="onRetryReport" disabled="{{loading}}">重试原反馈</button>
     <button size="mini" bindtap="onVerifyOrderWrite" loading="{{loading}}" disabled="{{loading}}">核实当前订单</button>
     <button size="mini" bindtap="onReturnToTasks">返回任务列表</button>
   </view>
@@ -252,7 +253,7 @@
     <scroll-view class="sheet-actions" scroll-y>
 
     <!-- 异常反馈（原 action-bar 第三钮）：记录现场问题，通知站长（实现 utils/delivery-problem，与首页共用） -->
-    <view class="sheet-item" wx:if="{{order.canReport}}" data-act="onReport" bindtap="onMoreAction">
+    <view class="sheet-item" wx:if="{{order.canReport}}" data-act="onReport" bindtap="onMoreAction" hover-class="press-feedback">
       <view class="sheet-item-info">
         <text class="sheet-item-name">异常反馈</text>
         <text class="sheet-item-desc">记录现场问题，通知站长</text>
@@ -262,7 +263,7 @@
 
     <!-- 转给同事：转单待对方确认期间收起「转给同事」——后端本来就拒绝第二条待确认转单，
          两个按钮并排只会让人先点错一个（2026-09-29 清单2）。 -->
-    <view class="sheet-item" wx:if="{{order.canTransfer}}" data-act="onTransfer" bindtap="onMoreAction">
+    <view class="sheet-item" wx:if="{{order.canTransfer}}" data-act="onTransfer" bindtap="onMoreAction" hover-class="press-feedback">
       <view class="sheet-item-info">
         <text class="sheet-item-name">转单给其他配送员</text>
         <text class="sheet-item-desc">从本站配送员里选一位，他同意后这单归他送</text>
@@ -273,7 +274,7 @@
     <!-- 撤回转单（2026-09-29 拍板 清单2）：转单改双方同意制后，发起人的反悔出口。
          只画**转让行**（transferPendingSubKind === 'TRANSFER'）：退回站长 / 站内取消申请
          各有各的决策路径；站间指定退回（DIRECTED）走协调页那套「召回/退回」，不在这条路上。 -->
-    <view class="sheet-item" wx:if="{{order.canWithdrawTransfer}}" data-act="onCancelTransfer" bindtap="onMoreAction">
+    <view class="sheet-item" wx:if="{{order.canWithdrawTransfer}}" data-act="onCancelTransfer" bindtap="onMoreAction" hover-class="press-feedback">
       <view class="sheet-item-info">
         <text class="sheet-item-name">{{cancelTransferBusy ? '撤回中…' : '撤回转单'}}</text>
         <text class="sheet-item-desc">对方还没确认前可以反悔</text>
@@ -282,7 +283,7 @@
     </view>
 
     <!-- 退回站长：提交退回申请，站长确认后重新派人 -->
-    <view class="sheet-item" wx:if="{{order.canReturn}}" data-act="onReturnToStation" bindtap="onMoreAction">
+    <view class="sheet-item" wx:if="{{order.canReturn}}" data-act="onReturnToStation" bindtap="onMoreAction" hover-class="press-feedback">
       <view class="sheet-item-info">
         <text class="sheet-item-name">退回站长</text>
         <text class="sheet-item-desc">提交退回申请，站长确认后重新派人</text>
@@ -292,7 +293,7 @@
 
     <!-- 申请取消：**只有「配送中(2)」给这个入口**（2026-09-22 修）。
          待配送(1) 本来就有「拒单」正门（走 rejectOrder，不经审批）；已送达(3) 不可取消。 -->
-    <view class="sheet-item" wx:if="{{order.canRequestCancel}}" data-act="onRequestCancel" bindtap="onMoreAction">
+    <view class="sheet-item" wx:if="{{order.canRequestCancel}}" data-act="onRequestCancel" bindtap="onMoreAction" hover-class="press-feedback">
       <view class="sheet-item-info">
         <text class="sheet-item-name">申请取消订单</text>
         <text class="sheet-item-desc">提交后需站长审批</text>
@@ -304,7 +305,7 @@
          后端 POST /api/manager/exceptions?orderId= 是 STATION_MANAGER 专属，这里只对站长画。
          弹层里唯一的错误色条目（真正动账在原处理器的第 2 步确认弹窗）。 -->
     <view class="sheet-item sheet-item-danger" wx:if="{{isManager && order.status === 3 && order.needCollect}}"
-          data-act="onRefusalWriteOff" bindtap="onMoreAction">
+          data-act="onRefusalWriteOff" bindtap="onMoreAction" hover-class="press-feedback">
       <view class="sheet-item-info">
         <text class="sheet-item-name">{{refusalBusy ? '处理中…' : (order.independentBusinessRules ? '确认客户拒付（保留欠款）' : '客户拒付（走历史核销）')}}</text>
         <text class="sheet-item-desc">已送达待收款时登记拒付，两步确认</text>
@@ -313,7 +314,7 @@
     </view>
 
     </scroll-view>
-    <view class="sheet-cancel" bindtap="onCloseMoreActions">取消</view>
+    <view class="sheet-cancel" bindtap="onCloseMoreActions" hover-class="press-feedback">取消</view>
   </view>
 </view>
 

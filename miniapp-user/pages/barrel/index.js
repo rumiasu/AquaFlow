@@ -240,6 +240,21 @@ Page({
 
   onRetryAssets() { return this.loadData() },
   onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
+  onChooseAssetStation() {
+    if (this._assetHidden || this.data.needLogin || this.data.submitting || this.data.recoveringPurchase) return
+    const session = captureSession()
+    if (!session.loggedIn || !session.customerId) return this.onLogin()
+    const picker = this.selectComponent('#asset-station-view')
+    if (picker) picker.openPicker()
+  },
+  // 2026-10-24：空桶账的下一步只导航；资产查看站与下单站继续各自保留，不自动互相覆盖。
+  onGoOrderHome() {
+    if (this._assetHidden || this.data.needLogin || !this.data.viewStationId || this.data.loading || this.data.refreshing
+      || this.data.summaryFailed || this.data.holdingsFailed || this.data.loadError || this.data.customerBarrelAsset.length) return
+    const session = captureSession()
+    if (!session.loggedIn || !session.customerId) return this.onLogin()
+    wx.switchTab({ url: '/pages/home/index' })
+  },
   onAssetStationChange(e) {
     if (!assetViewStation.select(this, e.detail)) return
     this.setData({ showReturnModal: false, preview: null, previewReady: false, previewHint: '', previewing: false, expandedProductId: null })

@@ -38,7 +38,9 @@ Page({
       { id: 0, name: '全部' },
       { id: 1, name: '待配送' },
       { id: 2, name: '配送中' },
-      { id: 4, name: '已完成' }
+      { id: 3, name: '已送达' },
+      { id: 4, name: '已完成' },
+      { id: 5, name: '已取消' }
     ],
     currentTab: 0,
     // 跨站履约单（本站是履约站、归属站是别站）：默认**归并成一行**，点开才看逐单明细。
@@ -100,9 +102,9 @@ Page({
     }
     const page = reset ? 1 : this.data.page + 1
     const stationId = query.stationId
-    // tab → 订单状态码：0=全部(null) 1=待配送 2=配送中 4=已完成。
+    // 2026-10-24：补齐送达与取消筛选；页签 id 沿用状态码，角标仍只计当前已加载记录。
     // 旧实现把 tab=2(配送中) 错映射成 status=3(已送达)，导致「配送中」标签筛出的是已送达订单。
-    const statusMap = { 0: null, 1: 1, 2: 2, 4: 4 }
+    const statusMap = { 0: null, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 }
     const status = statusMap[query.currentTab]
 
     this.setData({ loading: !!reset, loadingMore: !reset, listError: '' })

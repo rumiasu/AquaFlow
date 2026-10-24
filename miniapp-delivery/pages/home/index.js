@@ -110,6 +110,8 @@ Page({
     this._collectionLife = (this._collectionLife || 0) + 1
     ;(this._collectionDialogs || new Map()).forEach(item => { if (item.cancel) item.cancel() })
     this._collectionDialogs = new Map()
+    ;(this._reportDialogs || new Set()).forEach(cancel => cancel())
+    this._reportDialogs = new Set()
     if (this._collectionLoading) { wx.hideLoading(); this._collectionLoading = null }
     this._taskReadSeq = (this._taskReadSeq || 0) + 1
     this.resetHomeStationIdentity()
@@ -401,7 +403,8 @@ Page({
     const records = writeRecovery.list(), dialogs = this._collectionDialogs || new Map()
     const fields = ['assignedOrders', 'deliveringOrders', 'completedOrders', 'deliveredUnpaidOrders', 'incomingTransfers']
     const updates = { collectionRecoveryItems: records.map(record => ({ id: record.id,
-      pending: record.phase === 'pending', text: writeRecovery.message(record) })) }
+      pending: record.phase === 'pending', text: writeRecovery.message(record),
+      canRetryReport: record.phase === 'unknown' && !!writeRecovery.reportPayload(record) })) }
     for (const field of fields) updates[field] = (this.data[field] || []).map(order => {
       const record = records.find(value => String(value.id) === String(order.id))
       return { ...order, collectionBusy: !!record || dialogs.has(String(order.id)) }
@@ -491,13 +494,39 @@ Page({
    * 现场问题反而没有留痕。现在异常上报排在最前、说明也最直白；
    * 转单与退回站长降为"这单我确实送不了"的后续安排，排在后面。
    *
-   * 上报只落备注 + 审计（不生成异常单），订单仍在我名下 —— 所以上报完不刷新列表（没有任何字段变），
-   * 只给一句"站长看得到"。实现与原因文案见 utils/delivery-problem.js（与详情页共用一份）。
+   * 普通反馈会生成异常单，订单仍在我名下；保存本次原意图，未知时只重试原反馈。
+   * 实现与原因文案见 utils/delivery-problem.js（与详情页共用一份）。
    */
   onReportProblem() {
     const id = this.data.currentOrderId
     this.setData({ showMediateModal: false })
-    reportDeliveryProblem(id)
+    return this._reportProblem(id, true)
+  },
+
+  onRetryReport(e) {
+    const id = e.currentTarget.dataset.id, record = writeRecovery.read(id)
+    if (!record || record.phase !== 'unknown' || !writeRecovery.reportPayload(record)) { this._syncCollectionRecovery(); return }
+    return this._reportProblem(id, false)
+  },
+
+  _reportProblem(id, requireSelection) {
+    const ctx = this._collectionContext()
+    const current = () => this._collectionCurrent(ctx) && (!requireSelection || String(this.data.currentOrderId) === String(id))
+    const order = [...this.data.deliveringOrders, ...this.data.deliveredUnpaidOrders].find(value => String(value.id) === String(id)) || {}
+    return reportDeliveryProblem(id, { order, isCurrent: current,
+      onStateChange: () => this._syncCollectionRecovery(), onDone: () => this.loadData(this.data.isManager),
+      dialog: (options, sheet) => new Promise(resolve => {
+        if (!current()) { resolve({ confirm: false }); return }
+        const dialogs = this._reportDialogs || (this._reportDialogs = new Set())
+        const cancel = () => finish({ confirm: false })
+        const finish = answer => { dialogs.delete(cancel); resolve(current() ? answer : { confirm: false }) }
+        dialogs.add(cancel)
+        wx[sheet ? 'showActionSheet' : 'showModal']({ ...options, success: finish, fail: cancel })
+      }),
+      setLoading: active => {
+        if (active) { this._collectionLoading = ctx; wx.showLoading({ title: '反馈处理中…', mask: true }) }
+        else if (this._collectionLoading === ctx) { wx.hideLoading(); this._collectionLoading = null }
+      } })
   },
 
   async onMediateToColleague() {

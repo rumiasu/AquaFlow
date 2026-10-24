@@ -18,7 +18,7 @@ module.exports = { percent: percent }
   </view>
 
   <view class="tab-bar">
-    <view class="tab-item {{currentTab === item.id ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="id" data-id="{{item.id}}" bindtap="onTabChange">
+    <view class="tab-item {{currentTab === item.id ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="id" data-id="{{item.id}}" bindtap="onTabChange" hover-class="entry-pressed">
       <text>{{item.name}}</text>
       <text class="tab-badge" wx:if="{{currentTab === item.id && list.length > 0}}">{{list.length}}</text>
     </view>
@@ -60,7 +60,7 @@ module.exports = { percent: percent }
 
     <!-- 卡片上的状态文案取后端下发的 item.statusText（Orders.getStatusText → OrderStatus.textOf），
          前端不写状态码→中文映射；statusCls 只负责配色 -->
-    <view class="order-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+    <view class="order-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap" hover-class="entry-pressed">
       <view class="card-header">
         <text class="status-tag status-{{item.statusCls}}">{{item.statusText}}</text>
         <text class="order-id">#{{item.id}}</text>

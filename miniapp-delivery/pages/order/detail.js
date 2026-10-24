@@ -146,6 +146,7 @@ Page({
     writeUnknown: false,
     writeRecoveryText: '',
     writeVerifiedText: '',
+    canRetryReport: false,
     // 楼梯凭证（v43）：站长与配送员都能看、都能补传；不强制，所以"没有也不拦"
     floorPhotos: [], floorPhotosState: 'idle',
     floorUploading: false,
@@ -241,6 +242,7 @@ Page({
     const record = writeRecovery.read(this.data.orderId)
     this.setData({ writePending: !!pending || !!(record && record.phase === 'pending'),
       writeUnknown: !!(record && record.phase === 'unknown'), writeRecoveryText: writeRecovery.message(record),
+      canRetryReport: !!(record && record.phase === 'unknown' && writeRecovery.reportPayload(record)),
       actionBusy: !!pending || !!record || !!this._actionTask,
       cancelTransferBusy: !!pending && pending.actionName === 'onCancelTransfer',
       refusalBusy: !!pending && pending.actionName === 'onRefusalWriteOff' })
@@ -622,10 +624,29 @@ Page({
   // 见 utils/delivery-problem.js —— 原因会被后端原样写进订单备注、站长照着那行字看，
   // 两处各维护一份迟早对不上。）
   onReport() {
-    return this._runOrderAction('onReport', ctx => reportDeliveryProblem(ctx.id, {
-      isCurrent: ctx.current, dialog: (options, sheet) => this._actionDialog(ctx, options, sheet),
-      write: operation => this._actionWrite(ctx, operation)
-    }))
+    return this._runOrderAction('onReport', ctx => reportDeliveryProblem(ctx.id, this._reportOptions(ctx)))
+  },
+
+  _reportOptions(ctx) {
+    return { order: this.data.order, isCurrent: ctx.current,
+      dialog: (options, sheet) => this._actionDialog(ctx, options, sheet),
+      onStateChange: () => this._syncWriteBusy(), onDone: () => this.loadOrderDetail(ctx.id),
+      setLoading: active => {
+        if (active) { this._loadingTask = ctx; wx.showLoading({ title: '反馈处理中…', mask: true }) }
+        else if (this._loadingTask === ctx) { wx.hideLoading(); this._loadingTask = null }
+      } }
+  },
+
+  async onRetryReport() {
+    if (this._hidden || this._unloaded || this.data.loading || this._actionTask) return
+    const record = writeRecovery.read(this.data.orderId)
+    if (!record || record.phase !== 'unknown' || !writeRecovery.reportPayload(record)) { this._syncWriteBusy(); return }
+    const ctx = this._context()
+    // 原反馈按原身份/原键核实，不按后来订单状态猜第一次未执行。
+    ctx.current = () => this._isCurrent(ctx)
+    this._actionTask = ctx
+    try { return await reportDeliveryProblem(ctx.id, this._reportOptions(ctx)) }
+    finally { if (this._actionTask === ctx) { this._actionTask = null; if (this._isCurrent(ctx)) this._syncWriteBusy() } }
   },
 
   onAcceptTransfer() {

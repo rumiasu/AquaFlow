@@ -119,6 +119,14 @@ Page({
 
   onRetry() { return this.loadOrders() },
 
+  // 2026-10-24：真实空列表给出订水入口，沿用首页选站流程，不在历史页改变下单水站。
+  onGoOrderHome() {
+    if (this._destroyed || this.data.loading || this.data.loadError || !this.data.page || this.data.orders.length) return
+    const session = captureSession()
+    if (!session.loggedIn || !session.customerId) return wx.navigateTo({ url: '/pages/login/index' })
+    wx.switchTab({ url: '/pages/home/index' })
+  },
+
   onReorder(e) {
     const { order } = e.detail
     wx.navigateTo({ url: `/pages/order/create?reorderId=${order.id}` })

@@ -57,8 +57,9 @@
 
 .container { box-sizing:border-box; }
 .history-controls,.order-card { box-shadow:none; border-radius:12rpx; border:1rpx solid var(--border-color); }
-.tab-bar { border-radius:10rpx; }
-.tab-item { min-height:88rpx; padding:20rpx 6rpx; box-sizing:border-box; font-size:28rpx; }
+.tab-bar { border-radius:10rpx; flex-wrap:wrap; }
+.tab-item { flex:1 0 30%; min-height:88rpx; padding:20rpx 6rpx; box-sizing:border-box; font-size:28rpx; }
+.entry-pressed { background:var(--primary-bg); }
 .card-header,.customer-info,.cross-head,.cross-sub { flex-wrap:wrap; gap:12rpx; }
 .customer-name { font-size:34rpx; overflow-wrap:break-word; }
 .customer-phone { font-size:28rpx; color:var(--text-regular); }

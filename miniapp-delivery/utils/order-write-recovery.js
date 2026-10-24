@@ -2,6 +2,7 @@
 // 不存凭据；身份/站别隔离，正常 token 续期不换恢复范围。已发出的请求离页仍占有原锁。
 const PREFIX = 'aquaflow:order-write-recovery:v1:'
 const active = new WeakMap()
+let reportSequence = 0
 function owner() {
   const app = getApp(), user = (app.globalData || {}).userInfo || {}
   return JSON.stringify([user.staffId, user.stationId, user.role])
@@ -30,13 +31,14 @@ function list() {
   const localIds = Array.from(flights().values()).filter(token => token.value.owner === owner()).map(token => token.value.id)
   return Array.from(new Set([...(Array.isArray(ids) ? ids : []), ...localIds].map(String))).map(read).filter(Boolean)
 }
-function begin(id, actionName, order) {
+function begin(id, actionName, order, report) {
   if (read(id)) throw new Error('原操作结果待核实，请勿重复提交')
   const storageKey = key(id), value = { version: 1, owner: owner(), id, actionName,
     before: { status: order.status, paymentStatus: order.paymentStatus,
       deliveryStaffId: order.deliveryStaffId, transferPending: !!order.transferPending,
       transferPendingSubKind: order.transferPendingSubKind }, stamp: Date.now(),
     nonce: Date.now().toString(36) + Math.random().toString(36).slice(2) }
+  if (report) value.report = { ...report }
   try {
     const indexKey = PREFIX + owner() + ':orders', old = list().map(item => item.id)
     wx.setStorageSync(indexKey, Array.from(new Set([...old, id])))
@@ -48,6 +50,29 @@ function begin(id, actionName, order) {
   }
   const token = { storageKey, value, app: getApp(), phase: 'pending' }
   flights(token.app).set(storageKey, token)
+  return token
+}
+// 普通反馈的恢复只重放已保存的原键/原文；其他写操作及旧无键记录仍走保守核实。
+function reportPayload(record) {
+  const payload = record && record.actionName === 'onReport' && record.report
+  if (!payload || typeof payload.clientRequestId !== 'string' || !/^DR-[A-Za-z0-9_-]+$/.test(payload.clientRequestId)
+    || payload.clientRequestId.length > 64 || typeof payload.reason !== 'string' || !payload.reason.trim()
+    || payload.reason.length > 50 || typeof payload.reasonKey !== 'string' || !payload.reasonKey) return null
+  return { clientRequestId: payload.clientRequestId, reason: payload.reason, reasonKey: payload.reasonKey }
+}
+function beginReport(id, order, reason) {
+  const payload = { reason: reason.label, reasonKey: reason.key,
+    clientRequestId: 'DR-' + Date.now().toString(36) + '-' + (++reportSequence).toString(36) + '-' + (Math.random().toString(36).slice(2) || '0') }
+  return begin(id, 'onReport', order || {}, payload)
+}
+function retryReport(id) {
+  const record = read(id)
+  if (!record || record.phase !== 'unknown' || !reportPayload(record)) throw new Error('原反馈记录未能识别，请联系站长核对，勿重复上报')
+  // 不换键、不换内容，复用后端原反馈凭据；重启后磁盘记录也沿用同一份原意图。
+  const value = { ...record }
+  delete value.phase
+  const token = { storageKey: key(id), value, app: getApp(), phase: 'pending' }
+  flights(token.app).set(token.storageKey, token)
   return token
 }
 function uncertain(error) {
@@ -86,6 +111,8 @@ function reconcile(id, order) {
   if (!record || record.phase === 'pending' || record.corrupt || !order
     || String(order.id) !== String(id)) return ''
   const before = record.before, action = record.actionName
+  // 订单取消/负责人变化也不能证明普通反馈是否建单；只能认原反馈键匹配的回执。
+  if (action === 'onReport') return ''
   let text = ''
   if (action === 'onConfirmCollection') {
     if (order.paymentStatus === 2) text = '当前订单已记为已付款，请勿再次收款。'
@@ -104,7 +131,8 @@ function reconcile(id, order) {
 }
 function message(record) {
   if (!record) return ''
+  if (record.actionName === 'onReport' && record.phase === 'unknown' && reportPayload(record)) return '原配送反馈结果待核实。可重试原反馈，沿用原原因和记录编号，不会另建一条反馈。'
   return record.phase === 'pending' ? '原操作仍在处理中，请稍候，勿重复提交。'
     : '原操作结果尚未确认。请核实当前订单；仍是原状态也不能证明未执行。核实完成前勿重复提交，请联系站长核对记录。'
 }
-module.exports = { read, list, begin, finish, uncertain, reconcile, message }
+module.exports = { read, list, begin, finish, uncertain, reconcile, message, reportPayload, beginReport, retryReport }

@@ -319,6 +319,7 @@
   margin-bottom: 16rpx; transition: background 0.15s;
 }
 .modal-item:active { background: var(--bg-gray); }
+.press-feedback { background: var(--bg-gray); opacity: 0.82; }
 
 .modal-item-info { flex: 1; }
 .modal-item-name { display: block; font-size: 30rpx; font-weight: 600; color: var(--text-primary); }

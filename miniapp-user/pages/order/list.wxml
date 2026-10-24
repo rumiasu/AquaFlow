@@ -4,7 +4,7 @@
   <view class="tab-bar">
     <view wx:for="{{tabs}}" wx:key="index"
       class="tab-item {{currentTab === index ? 'active' : ''}}"
-      data-index="{{index}}" bindtap="onTabChange">
+      data-index="{{index}}" bindtap="onTabChange" hover-class="tab-pressed">
       {{item.name}}
     </view>
   </view>
@@ -33,5 +33,9 @@
 
   <!-- 空状态：只在**确实取到了、且列表为空**时才说"暂无订单"；
        加载中与加载失败都不许落到这句（!loading && !loadError 两道闸门）。 -->
-  <view class="local-empty" wx:if="{{!loading && !loadError && orders.length === 0}}"><text>暂无订单</text></view>
+  <view class="local-empty" wx:if="{{!loading && !loadError && page > 0 && orders.length === 0}}">
+    <text>{{currentTab === 0 ? '暂无订单' : '当前分类暂无订单'}}</text>
+    <text class="empty-next-note">可回到订水页确认水站并选水。</text>
+    <button class="empty-order-action" bindtap="onGoOrderHome">去订水</button>
+  </view>
 </view>

@@ -4,7 +4,7 @@
 .page-intro-note { display: block; margin-top: 10rpx; font-size: 28rpx; line-height: 1.6; color: #526174; }
 .address-list { margin-top: 20rpx; }
 .address-item { background: #fff; border: 1rpx solid #dce3ed; border-radius: 20rpx; padding: 24rpx; margin-bottom: 20rpx; }
-.address-item.selectable:active { background: #edf3fb; border-color: #1264d1; }
+.address-item.selectable:active { background: #edf3fb; border-color: var(--primary-color); }
 .address-header { display: flex; align-items: center; gap: 12rpx 16rpx; flex-wrap: wrap; margin-bottom: 16rpx; }
 .address-name { color: #172b4d; font-size: 32rpx; font-weight: 600; word-break: break-all; }
 .address-phone { color: #526174; font-size: 28rpx; }
@@ -15,7 +15,7 @@
 .action-btn { background: #f0f5fc; color: #155aaf; border-radius: 12rpx; min-width: 112rpx; min-height: 88rpx; margin: 0; padding: 16rpx; line-height: 1.8; font-size: 26rpx; box-sizing: border-box; }
 .action-btn.delete { background: #fff1ef; color: #a82e22; }
 .select-hint { display: block; text-align: right; color: #155aaf; font-size: 28rpx; line-height: 1.6; padding-top: 20rpx; }
-.add-btn { position: fixed; left: 24rpx; right: 24rpx; bottom: calc(24rpx + env(safe-area-inset-bottom)); min-height: 96rpx; margin: 0; border-radius: 18rpx; background: #1264d1; color: #fff; padding: 20rpx; font-size: 30rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
+.add-btn { position: fixed; left: 24rpx; right: 24rpx; bottom: calc(24rpx + env(safe-area-inset-bottom)); min-height: 96rpx; margin: 0; border-radius: 18rpx; background: var(--primary-color); color: #fff; padding: 20rpx; font-size: 30rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
 
 /* 本页状态反馈：正文可读、操作至少 88rpx，蓝色只承担可执行动作。 */
 .state-card { background: #fff; border: 1rpx solid #dce3ed; border-radius: 20rpx; padding: 28rpx; margin: 20rpx 0; }
@@ -25,7 +25,7 @@
 .state-success { border-color: #bddacb; }
 .state-banner { background: #eaf2ff; color: #235393; padding: 20rpx 24rpx; border-radius: 16rpx; font-size: 26rpx; line-height: 1.6; margin: 20rpx 0; }
 .state-actions { display: flex; gap: 16rpx; flex-wrap: wrap; margin-top: 16rpx; }
-.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: #1264d1; color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
+.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
 .state-actions .state-button { margin-top: 0; }
 .state-button.secondary { color: #155aaf; background: #edf3fb; }
 button { font-family: inherit; }

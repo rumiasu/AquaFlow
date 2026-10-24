@@ -60,7 +60,7 @@ const returnToStation = (id, data) => {
   return post(`${API.DELIVERY_RETURN}/${id}`, data)
 }
 
-// 异常反馈
+// 普通反馈：clientRequestId 标识本次现场事件；未知结果只重放原键原文，回执含 id/orderId/clientRequestId。
 const reportOrder = (id, data) => {
   return post(`${API.DELIVERY_REPORT}/${id}`, data)
 }

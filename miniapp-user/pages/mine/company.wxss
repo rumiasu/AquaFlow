@@ -12,7 +12,7 @@
 .update-note { display: block; color: #637083; font-size: 26rpx; line-height: 1.7; margin-top: 20rpx; }
 .action-bar { margin-top: 28rpx; }
 .edit-btn, .btn { padding: 20rpx; border-radius: 16rpx; font-size: 30rpx; line-height: 1.8; min-height: 96rpx; font-weight: 600; box-sizing: border-box; margin: 0; }
-.edit-btn, .confirm { color: #fff; background: #1264d1; }
+.edit-btn, .confirm { color: #fff; background: var(--primary-color); }
 .btn-row { display: flex; gap: 20rpx; flex-wrap: wrap; }
 .btn { flex: 1; min-width: 220rpx; }
 .cancel { color: #155aaf; background: #edf3fb; }
@@ -26,7 +26,7 @@
 .state-success { border-color: #bddacb; }
 .state-banner { background: #eaf2ff; color: #235393; padding: 20rpx 24rpx; border-radius: 16rpx; font-size: 26rpx; line-height: 1.6; margin: 20rpx 0; }
 .state-actions { display: flex; gap: 16rpx; flex-wrap: wrap; margin-top: 16rpx; }
-.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: #1264d1; color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
+.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
 .state-actions .state-button { margin-top: 0; }
 .state-button.secondary { color: #155aaf; background: #edf3fb; }
 button { font-family: inherit; }

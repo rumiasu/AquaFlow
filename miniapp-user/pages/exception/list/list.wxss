@@ -21,11 +21,11 @@
 .progress-info { display: flex; align-items: center; margin-bottom: 20rpx; }
 .step { display: flex; flex-direction: column; align-items: center; flex: 1; }
 .step-dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: #c8d2df; }
-.step.active .step-dot { background: #1264d1; }
+.step.active .step-dot { background: var(--primary-color); }
 .step-text { font-size: 26rpx; color: #637083; line-height: 1.6; text-align: center; margin-top: 8rpx; }
 .step.active .step-text { color: #155aaf; }
 .step-line { flex: 1; height: 2rpx; background: #c8d2df; }
-.step-line.active { background: #1264d1; }
+.step-line.active { background: var(--primary-color); }
 .detail-link { display: block; color: #155aaf; font-size: 28rpx; text-align: right; min-height: 64rpx; line-height: 64rpx; }
 .load-more { padding: 0 0 24rpx; text-align: center; }
 .detail-mask { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(15, 30, 50, .5); z-index: 100; display: flex; align-items: flex-end; }
@@ -48,7 +48,7 @@
 .state-success { border-color: #bddacb; }
 .state-banner { background: #eaf2ff; color: #235393; padding: 20rpx 24rpx; border-radius: 16rpx; font-size: 26rpx; line-height: 1.6; margin: 20rpx 0; }
 .state-actions { display: flex; gap: 16rpx; flex-wrap: wrap; margin-top: 16rpx; }
-.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: #1264d1; color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
+.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
 .state-actions .state-button { margin-top: 0; }
 .state-button.secondary { color: #155aaf; background: #edf3fb; }
 button { font-family: inherit; }

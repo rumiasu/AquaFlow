@@ -23,6 +23,7 @@
   <view class="collection-recovery" wx:if="{{collectionVerifiedText}}"><text>{{collectionVerifiedText}}</text></view>
   <view class="collection-recovery" wx:for="{{collectionRecoveryItems}}" wx:key="id">
     <text>订单 #{{item.id}}：{{item.text}}</text>
+    <button wx:if="{{item.canRetryReport}}" size="mini" catchtap="onRetryReport" data-id="{{item.id}}">重试原反馈</button>
     <button size="mini" catchtap="onVerifyCollection" data-id="{{item.id}}">核实当前订单</button>
     <button size="mini" catchtap="onOpenRecoveryOrder" data-id="{{item.id}}">查看订单详情</button>
   </view>
@@ -244,6 +245,7 @@
         </view>
         <view class="contact-row">
           <text class="customer-name">{{item.customerName || item.receiverName}}</text>
+          <text class="customer-phone" wx:if="{{item.receiverPhone}}" catchtap="onCallCustomer" data-phone="{{item.receiverPhone}}">{{item.receiverPhone}}</text>
         </view>
         <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
         <view class="card-actions">
@@ -270,7 +272,7 @@
       <text class="modal-desc">先上报问题留痕，再决定这单怎么安排</text>
       <scroll-view class="modal-scroll" scroll-y>
       <view class="modal-list">
-        <view class="modal-item" bindtap="onReportProblem">
+        <view class="modal-item" bindtap="onReportProblem" hover-class="press-feedback">
           <view class="modal-item-info">
             <text class="modal-item-name">上报配送问题</text>
             <text class="modal-item-desc">记录现场问题，通知站长</text>
@@ -280,14 +282,14 @@
       </view>
       <text class="modal-sub-title">这单我确实送不了</text>
       <view class="modal-list">
-        <view class="modal-item" bindtap="onMediateToColleague">
+        <view class="modal-item" bindtap="onMediateToColleague" hover-class="press-feedback">
           <view class="modal-item-info">
             <text class="modal-item-name">请同事接手这单</text>
             <text class="modal-item-desc">从本站配送员里选一位，他同意后这单归他送</text>
           </view>
           <text class="modal-item-arrow">›</text>
         </view>
-        <view class="modal-item" bindtap="onMediateToStation">
+        <view class="modal-item" bindtap="onMediateToStation" hover-class="press-feedback">
           <view class="modal-item-info">
             <text class="modal-item-name">退回去让站长重新安排</text>
             <text class="modal-item-desc">这单回到待分配，站长确认后重新派人</text>

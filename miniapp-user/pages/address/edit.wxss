@@ -231,7 +231,7 @@
 .state-success { border-color: #bddacb; }
 .state-banner { background: #eaf2ff; color: #235393; padding: 20rpx 24rpx; border-radius: 16rpx; font-size: 26rpx; line-height: 1.6; margin: 20rpx 0; }
 .state-actions { display: flex; gap: 16rpx; flex-wrap: wrap; margin-top: 16rpx; }
-.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: #1264d1; color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
+.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
 .state-actions .state-button { margin-top: 0; }
 .state-button.secondary { color: #155aaf; background: #edf3fb; }
 button { font-family: inherit; }
@@ -246,10 +246,10 @@ button[disabled] { color: #637083; background: #e8edf3; opacity: 1; }
 .field-help { color: #526174; font-size: 26rpx; }
 .page-intro-title { color: #172b4d; }
 .page-intro-note { color: #526174; font-size: 28rpx; }
-.auto-btn, .save-btn { background: #1264d1; margin: 0; line-height: 1.8; box-sizing: border-box; }
+.auto-btn, .save-btn { background: var(--primary-color); margin: 0; line-height: 1.8; box-sizing: border-box; }
 .auto-btn text { font-size: 28rpx; }
 .label-chip { font-size: 28rpx; color: #526174; }
-.label-chip.active { color: #155aaf; background: #edf3fb; border-color: #1264d1; }
+.label-chip.active { color: #155aaf; background: #edf3fb; border-color: var(--primary-color); }
 .default-text { color: #526174; font-size: 28rpx; }
 .default-toggle { min-width: 280rpx; }
 .save-btn { min-width: 260rpx; }

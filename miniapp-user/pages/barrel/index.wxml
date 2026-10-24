@@ -12,6 +12,7 @@
     <view class="load-error" wx:if="{{returnRecoveryError}}">{{returnRecoveryError}}<view bindtap="onRetryAssets">重新读取原凭据 ›</view></view>
     <view class="load-error" wx:if="{{pendingReturn}}">本站有一笔原退还申请结果待核实，核实前请勿另发申请。<button bindtap="onShowReturnModal" disabled="{{submitting}}">核对原申请</button></view>
     <button class="rights-purchase-btn" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
+    <button class="empty-asset-action" wx:if="{{!needLogin && !viewStationId}}" bindtap="onChooseAssetStation">选择资产水站</button>
 
     <!-- 当前水站：桶权益与押金按「客户 × 水站」隔离。不写清楚，客户换个站会以为桶/押金丢了。
          文案与样式照抄 pages/deposit/records（同一条提示条，保持一致）。 -->
@@ -58,10 +59,9 @@
       <text>欠桶 {{summary.owedBuckets}} 个：不影响下单；退桶前需先还清对应商品的欠桶</text>
     </view>
 
-    <!-- 多还的桶寄在水站：over<0 是合法状态，以前被当成 0 完全不显示，
-         于是顾客还了 3 个只拿走 1 个却看不出来，这是"我的桶呢"类咨询的直接来源 -->
+    <!-- 2026-10-24：暂存与未领都可能形成账面余额，不能一概说成已经多还的实物。 -->
     <view class="storage-tip" wx:if="{{summary.storageBuckets > 0 && !summary.independentRights}}">
-      <text>另有 {{summary.storageBuckets}} 个空桶寄存在水站（您多还的桶，可随时取回或用于下次换水）</text>
+      <text>暂存或待领取 {{summary.storageBuckets}} 个：这是账面记录，实际交接情况请向资产水站核实。</text>
     </view>
 
     <view class="section">
@@ -88,10 +88,10 @@
               <text class="bucket-id">{{item.productName}} {{item.productSpec}}</text>
               <text class="bucket-time" wx:if="{{!item.independentRights}}">账面汇总 {{item.heldTotalQty}} 桶<text wx:if="{{item.inTransitQty > 0}}">（含遗留配送中 {{item.inTransitQty}}）</text> / 欠桶 {{item.owedQty}}</text>
               <text class="bucket-time" wx:if="{{item.independentRights}}">有效权益 {{item.assetQty}} 份 · 当前可用 {{item.availableRights}} 份</text>
-              <view class="bucket-detail-toggle" data-id="{{item.productId}}" bindtap="onToggleBarrelDetail">{{expandedProductId === item.productId ? '收起明细' : '查看桶账明细'}} ›</view>
+              <text class="bucket-time" wx:if="{{item.storageQty != null && item.storageQty > 0}}">暂存或待领取 {{item.storageQty}} 个（账面记录，非实物盘点）</text>
+              <view class="bucket-detail-toggle" data-id="{{item.productId}}" bindtap="onToggleBarrelDetail" hover-class="bucket-detail-pressed">{{expandedProductId === item.productId ? '收起明细' : '查看桶账明细'}} ›</view>
               <view class="bucket-account-detail" wx:if="{{expandedProductId === item.productId}}">
                 <text>账面桶数 {{item.occupiedQty}} 个 · 欠桶 {{item.owedQty}} 个</text>
-                <text wx:if="{{item.storageQty > 0}}">暂存或待领取 {{item.storageQty}} 个</text>
                 <text>账面数量根据权益及借还记录汇总，并非实物盘点。</text>
                 <text wx:if="{{item.independentRights}}">当前可用权益已扣除订单及退还等占用。</text>
               </view>
@@ -105,7 +105,14 @@
 
       <!-- 空态：原文「暂无长期桶资产」同样是建模语言；改成顾客视角的一句话 -->
       <view class="local-empty" wx:elif="{{holdingsFailed}}"><text>商品桶账暂未加载，请重新加载</text></view>
-      <view class="local-empty" wx:else><text>该站暂无桶账记录</text></view>
+      <view class="local-empty" wx:else>
+        <text>该站暂无桶账记录</text>
+        <block wx:if="{{!needLogin && viewStationId && !summaryFailed && !refreshing && !loadError}}">
+          <text class="empty-next-note">订水使用当前下单水站{{orderStationName ? '（' + orderStationName + '）' : '，请在订水页确认'}}；查看资产水站不会更改下单水站。</text>
+          <button class="empty-asset-action" bindtap="onGoOrderHome">去订水</button>
+          <button class="empty-asset-action secondary" bindtap="onChooseAssetStation">查看其他资产水站</button>
+        </block>
+      </view>
     </view>
 
     <view class="section">

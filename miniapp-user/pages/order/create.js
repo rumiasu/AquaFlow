@@ -1262,12 +1262,15 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const session = captureSession(), seq = this._quoteRequestSeq
     const lines = this.data.barrelPurchases || []
     const busy = lines.some(l => Number(l.busyRights) > 0)
-    const text = lines.map(l => (l.productName || '桶装水') + '：新增 ' + l.quantity + ' 份押金 ¥' + Number(l.amount).toFixed(2)).join('；')
-    wx.showModal({ title: '确认本次新增押金',
+    const text = lines.map(l => (l.productName || '商品编号 ' + l.productId) + '：新增用桶权益 ' + l.quantity
+      + ' 份，单价 ¥' + Number(l.unitPrice).toFixed(2) + '，本次桶押金 ¥' + Number(l.amount).toFixed(2)).join('；')
+    const confirmationKey = this._confirmationKey()
+    wx.showModal({ title: '确认本次新增桶押金',
       content: text + '。与本单水款一起付款，收齐款项后押金生效。' + (busy ? '已有容量正在办理其他订单，可等待释放，或明确再买一份。' : '也可返回，在水桶与押金页单独办理。'),
       confirmText: '一起付款', cancelText: busy ? '等待释放' : '返回修改',
       success: result => {
-        if (!result.confirm || seq !== this._quoteRequestSeq || !isCurrentSession(session) || !this._hasCurrentQuote() || !this.data.quoteReady || this.data.blocked) return
+        if (!result.confirm || seq !== this._quoteRequestSeq || confirmationKey !== this._confirmationKey()
+          || !isCurrentSession(session) || !this._hasCurrentQuote() || !this.data.quoteReady || this.data.blocked) return
         this.setData({ barrelPurchaseConfirmed: true })
         if (continueSubmission) continueSubmission()
         else this.onSubmit()
@@ -1781,7 +1784,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
    *   于是营业中/欠桶这类软提醒**静默消失**。形参与名字现在都对齐"解包后的 data"。
    */
   showOrderWarnings(orderData) {
-    const warnings = (orderData && orderData.warnings) || []
+    const rawWarnings = (orderData && orderData.warnings) || []
+    const warnings = Array.isArray(rawWarnings) ? Array.from(new Set(rawWarnings)) : []
     if (!Array.isArray(warnings) || !warnings.length) return Promise.resolve()
     return new Promise((resolve) => {
       wx.showModal({
@@ -1867,9 +1871,9 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       return
     }
     if (!this._finalSubmissionAllowed()) return
-    if ((this.data.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) {
-      this.confirmBarrelPurchase(() => this._finishConfirmedOrder(proof)); return
-    }
+    // 综合确认已逐商品列明数量、单价和本次押金，并明确包含购买授权；同一报价只确认一次。
+    // proof 的完整报价快照已在上方核对，费用或内容变化必须重新确认。
+    if ((this.data.barrelPurchases || []).length) this.setData({ barrelPurchaseConfirmed: true })
     return this._finishConfirmedOrder(proof)
   },
 

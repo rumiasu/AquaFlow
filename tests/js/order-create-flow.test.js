@@ -348,14 +348,14 @@ await test('首次须知不阻断现金确认；取消现金确认仍是零建�
   assert.strictEqual(page.data.showUnifiedConfirm, false)
 })
 
-await test('新增押金数量和价格仍须单独授权，拒绝则零建单', async () => {
+await test('新增押金数量和价格仍须明确购买授权，拒绝则零建单', async () => {
   const { page, calls, wx } = newPage({ method: 1 })
   wx.__modalAutoConfirm = false
   page.setData({ firstStationAsset: true, barrelPurchases: [{ productId: 5, productName: '桶装水', quantity: 2, unitPrice: 30, amount: 60 }] })
   await page.onSubmit()
   assert.strictEqual(calls.createOrder.length, 0)
   assert.strictEqual(page.data.barrelPurchaseConfirmed, false)
-  const modal = wx.__calls.modal.find(m => m.title === '确认本次新增押金')
+  const modal = wx.__calls.modal.find(m => m.title === '确认本次新增桶押金')
   assert.ok(modal); assert.ok(modal.content.includes('2')); assert.ok(modal.content.includes('60.00'))
 })
 

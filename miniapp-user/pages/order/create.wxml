@@ -164,7 +164,7 @@
              不写"随时可退"这类承诺。 -->
         <view class="fee-row fee-deposit" wx:if="{{extraDepositBuckets > 0}}">
           <view class="fee-label-group">
-            <text class="fee-label">新增桶押金</text>
+            <text class="fee-label">本次新增桶押金</text>
             <text class="fee-caption">本次新增 {{extraDepositBuckets}} 份</text>
           </view>
           <text class="fee-value">¥{{extraDepositAmountText}}</text>
@@ -246,7 +246,7 @@
             <text class="asset-fact-value">{{assetNotice.stationName || '当前水站'}}</text>
           </view>
           <view class="asset-fact-row" wx:if="{{assetNotice.buckets > 0}}">
-            <text class="asset-fact-label">水桶押金</text>
+            <text class="asset-fact-label">本次新增桶押金</text>
             <text class="asset-fact-value strong">¥{{assetNotice.depositAmount}}·可退</text>
           </view>
           <view class="asset-fact-row">
@@ -507,7 +507,7 @@
         <!-- 新增桶押金（口径同正文费用摘要：extraDepositBuckets / extraDepositAmountText） -->
         <view class="detail-section" wx:if="{{quoteReady && !feeBreakdownReady}}"><text class="fee-hint">配送费与楼层费明细尚未核实，请重新报价查看。</text></view>
         <view class="detail-section" wx:if="{{extraDepositBuckets > 0}}">
-          <view class="detail-section-title">新增桶押金</view>
+          <view class="detail-section-title">本次新增桶押金</view>
           <view class="detail-row" wx:for="{{products}}" wx:key="id" wx:if="{{item.category === 1 && item.shortage > 0}}">
             <view class="detail-row-left">
               <text class="detail-item-name">{{item.name}}</text>
@@ -611,13 +611,20 @@
         </view>
 
         <!-- 费用预览 -->
+        <view class="unified-section" wx:if="{{barrelPurchases.length > 0}}">
+          <view class="unified-section-header"><text class="unified-section-title">本次新增桶押金</text></view>
+          <view class="rule-item" wx:for="{{barrelPurchases}}" wx:key="productId">
+            <text>{{item.productName || '商品编号 ' + item.productId}}：新增用桶权益 {{item.quantity}} 份，单价 ¥{{item.unitPrice}}，本次桶押金 ¥{{item.amount}}</text>
+          </view>
+          <text class="popup-desc">点击“确认下单”即同意购买以上用桶权益，与本单水款一起付款，收齐款项后生效。已有容量被占用时，也可返回等待释放或单独办理。</text>
+        </view>
         <view class="unified-fee-preview">
           <view class="fee-row">
             <text class="fee-label">水费</text>
             <text class="fee-value">¥{{totalWaterCostText}}</text>
           </view>
           <view class="fee-row" wx:if="{{extraDepositBuckets > 0}}">
-            <text class="fee-label">新增桶押金</text>
+            <text class="fee-label">本次新增桶押金</text>
             <text class="fee-value">¥{{extraDepositAmountText}}</text>
           </view>
           <view class="fee-row" wx:if="{{feeBreakdownReady && deliveryFeeText}}">

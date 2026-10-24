@@ -1,9 +1,15 @@
 package com.example.aquaflow.integration;
 
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.util.BusinessTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
+
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,6 +34,114 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @TestPropertySource(properties = "app.dev-login-enabled=true")
 class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTest {
+
+    @Autowired private BusinessTime businessTime;
+
+    @Test
+    @DisplayName("回桶历史仅含本人已送达3/4：保留零回桶及日期待核实的旧单")
+    void barrelHistoryIncludesDeliveredZeroAndUndatedLegacyButNeverActiveCancelledOrAnotherStaff() {
+        long station = createStation("回桶历史口径站");
+        long delivery = createStaff("回桶历史配送员", "DELIVERY", station, 1);
+        long other = createStaff("另一配送员", "DELIVERY", station, 1);
+        long customer = createCustomer("回桶历史客户", "history-delivery-events");
+        long address = createAddress(customer, "回桶历史地址");
+        long product = createProduct("回桶历史水", 1, "10.00", "0.00", 0, "0.00");
+        long unpaid = deliveryReadOrder(customer, address, station, product, delivery, 3, 0);
+        long completed = deliveryReadOrder(customer, address, station, product, delivery, 4, 2);
+        deliveryReadOrder(customer, address, station, product, delivery, 2, 9);
+        deliveryReadOrder(customer, address, station, product, delivery, 5, 9);
+        deliveryReadOrder(customer, address, station, product, other, 4, 9);
+
+        Api history = get("/api/delivery/barrel-records", staffToken(delivery, "DELIVERY", station));
+        assertEquals(Set.of(unpaid, completed), deliveryReadIds(history));
+        for (var row : history.data()) {
+            assertTrue(row.path("deliveryTime").isNull() || row.path("deliveryTime").isMissingNode(),
+                    "没有送达凭据的旧单不能以修改日伪装送达日");
+            if (row.path("id").asLong() == unpaid) assertEquals(0, row.path("returnBucketQty").asInt());
+        }
+    }
+
+    @Test
+    @DisplayName("今日送达按业务日及事件时间：审计优先、桶流水备用、边界去重，补收款不改日期")
+    void dailyDeliveryEventsRespectPrecedenceBoundariesAndRemainStableAfterCollection() {
+        long station = createStation("今日送达口径站");
+        long delivery = createStaff("今日送达配送员", "DELIVERY", station, 1);
+        long other = createStaff("今日另一配送员", "DELIVERY", station, 1);
+        long customer = createCustomer("今日送达客户", "daily-delivery-events");
+        long address = createAddress(customer, "今日送达地址");
+        long product = createProduct("今日送达水", 1, "10.00", "0.00", 0, "0.00");
+        long secondProduct = createProduct("第二款送达水", 1, "10.00", "0.00", 0, "0.00");
+        long bottle = createProduct("无需回桶的瓶装水", 2, "10.00", "0.00", 0, "0.00");
+        LocalDateTime start = businessTime.today().atStartOfDay(), until = start.plusDays(1);
+        long unpaid = deliveryReadOrder(customer, address, station, product, delivery, 3, 2);
+        long zeroNonBarrel = deliveryReadOrder(customer, address, station, bottle, delivery, 4, 0);
+        long type8Only = deliveryReadOrder(customer, address, station, product, delivery, 3, 3);
+        long yesterday = deliveryReadOrder(customer, address, station, product, delivery, 4, 4);
+        long tomorrowBoundary = deliveryReadOrder(customer, address, station, product, delivery, 4, 1);
+        long unknown = deliveryReadOrder(customer, address, station, product, delivery, 4, 9);
+        long otherOrder = deliveryReadOrder(customer, address, station, product, other, 4, 9);
+        long stillDelivering = deliveryReadOrder(customer, address, station, product, delivery, 2, 9);
+        deliveryCompleteEvent(unpaid, start);
+        deliveryCompleteEvent(unpaid, until.plusHours(1)); // 首次送达有效，后续重复事件不挪日期。
+        deliveryLedgerEvent(customer, station, product, unpaid, start.minusSeconds(1));
+        deliveryCompleteEvent(zeroNonBarrel, until.minusSeconds(1)); // 无type8也要计入零桶/非桶完成。
+        createOrderItem(type8Only, product, "第一款水", 1, "10.00", "0.00", 1);
+        createOrderItem(type8Only, secondProduct, "第二款水", 1, "10.00", "0.00", 1);
+        deliveryLedgerEvent(customer, station, product, type8Only, start.plusHours(11));
+        deliveryLedgerEvent(customer, station, secondProduct, type8Only, start.plusHours(11));
+        deliveryCompleteEvent(yesterday, start.minusHours(12));
+        deliveryLedgerEvent(customer, station, product, yesterday, start.plusHours(11));
+        deliveryCompleteEvent(tomorrowBoundary, until);
+        deliveryCompleteEvent(otherOrder, start.plusHours(10));
+        deliveryCompleteEvent(stillDelivering, start.plusHours(10));
+        jdbc.update("INSERT INTO audit_log(module,action,target,create_time) VALUES('PAYMENT','COMPLETE',?,?)",
+                "order:" + unknown, start.plusHours(10));
+        jdbc.update("INSERT INTO audit_log(module,action,target,create_time) VALUES('ORDER','COLLECT',?,?)",
+                "order:" + unknown, start.plusHours(10));
+        String token = staffToken(delivery, "DELIVERY", station);
+        Set<Long> expected = Set.of(unpaid, zeroNonBarrel, type8Only);
+        assertEquals(expected, deliveryReadIds(get("/api/delivery/orders/completed-today", token)));
+        Api before = get("/api/delivery/stats/today", token);
+        assertEquals(0, before.code());
+        assertEquals(3, before.data().path("completedCount").asInt());
+        assertEquals(5, before.data().path("returnBarrels").asInt());
+        assertEquals(1, before.data().path("deliveryTimeUnverifiedCount").asInt());
+
+        // 仅模拟持久状态变化，不调用支付：收款/备注的修改时间不能决定实物送达日。
+        jdbc.update("UPDATE orders SET status=4,payment_status=2,update_time=? WHERE id=?", until.plusDays(2), unpaid);
+        jdbc.update("UPDATE orders SET update_time=? WHERE id=?", start.plusHours(12), yesterday);
+        assertEquals(expected, deliveryReadIds(get("/api/delivery/orders/completed-today", token)));
+        Api after = get("/api/delivery/stats/today", token);
+        assertEquals(0, after.code());
+        assertEquals(before.data().path("completedCount"), after.data().path("completedCount"));
+        assertEquals(before.data().path("returnBarrels"), after.data().path("returnBarrels"));
+        assertEquals(1, after.data().path("deliveryTimeUnverifiedCount").asInt());
+    }
+
+    private long deliveryReadOrder(long customer, long address, long station, long product,
+                                   long staff, int status, int returned) {
+        long order = createOrderFull(customer, address, station, product, status, status == 3 ? 1 : 2, 2,
+                "10.00", "0.00", "10.00", false, 0);
+        jdbc.update("UPDATE orders SET delivery_staff_id=?,return_bucket_qty=? WHERE id=?", staff, returned, order);
+        return order;
+    }
+
+    private void deliveryCompleteEvent(long order, LocalDateTime time) {
+        jdbc.update("INSERT INTO audit_log(module,action,target,create_time) VALUES('ORDER','COMPLETE',?,?)", "order:" + order, time);
+    }
+
+    private void deliveryLedgerEvent(long customer, long station, long product, long order, LocalDateTime time) {
+        jdbc.update("INSERT INTO barrel_record(customer_id,station_id,product_id,related_order_id,type,quantity,status,create_time) "
+                + "VALUES(?,?,?,?,8,1,3,?)", customer, station, product, order, time);
+    }
+
+    private Set<Long> deliveryReadIds(Api response) {
+        assertEquals(0, response.code(), "配送列表查询失败: " + response);
+        assertTrue(response.data().isArray(), "历史与今日列表仍须返回数组");
+        Set<Long> ids = new HashSet<>();
+        response.data().forEach(row -> assertTrue(ids.add(row.path("id").asLong()), "多商品桶流水不能重复订单"));
+        return ids;
+    }
 
     @Test
     @DisplayName("配送端列表端点：站长/配送员都能读到，顾客一律被拒")

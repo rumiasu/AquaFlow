@@ -131,7 +131,7 @@
     <view class="stats-row" wx:else>
       <view class="stats-item">
         <text class="stats-value">{{statsReady && todayStats.completedCount !== null && todayStats.completedCount !== undefined ? todayStats.completedCount : '待核实'}}</text>
-        <text class="stats-label">今日完成</text>
+        <text class="stats-label">今日送达</text>
       </view>
       <view class="stats-divider"></view>
       <view class="stats-item">
@@ -147,6 +147,7 @@
   </view>
 
   <view class="ui-state" wx:if="{{isLogin && !isManager && statsError}}"><text class="ui-state-copy">{{statsError}}</text><button size="mini" bindtap="onRetryStats">重新核对配送统计</button></view>
+  <view class="ui-state" wx:if="{{isLogin && !isManager && statsReady && todayStats.deliveryTimeUnverifiedCount > 0}}"><text class="ui-state-copy">另有 {{todayStats.deliveryTimeUnverifiedCount}} 张历史订单的送达日期待核实，未计入今日。</text></view>
   <view class="ui-state" wx:if="{{isLogin && isManager && managerStatsError}}"><text class="ui-state-copy">{{managerStatsError}}</text><button size="mini" bindtap="onRetryStats">重新核对经营统计</button></view>
   <!-- 站长：水站摘要 + 配送员管理 / 绑定申请 Tab -->
   <block wx:if="{{isLogin && isManager}}">

@@ -2,6 +2,7 @@ package com.example.aquaflow.mapper;
 
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.entity.Orders;
+import com.example.aquaflow.entity.OrderTransfer;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
@@ -9,6 +10,16 @@ import java.util.Map;
 
 @Mapper
 public interface OrderMapper {
+
+    // 2026-10-24：update_time 会被补收款/备注改写；只用送达凭据定日期。
+    // COMPLETE 覆盖零回桶和非桶订单，type=8 兼容尚无该审计事件的桶流水；无凭据保持未知。
+    String DELIVERY_EVENT_TIME = "coalesce(completed.delivery_time,barrels.delivery_time)";
+    // audit_log 没有 target 联合索引；每类凭据先聚合一次，不能为每张订单反复相关扫描。
+    String DELIVERY_EVENT_JOINS = " left join (select target,min(create_time) as delivery_time from audit_log "
+            + "where module='ORDER' and action='COMPLETE' group by target) completed "
+            + "on completed.target=concat('order:',o.id) "
+            + "left join (select related_order_id,min(create_time) as delivery_time from barrel_record "
+            + "where type=8 group by related_order_id) barrels on barrels.related_order_id=o.id ";
 
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void save(Orders orders);
@@ -25,6 +36,11 @@ public interface OrderMapper {
     /** Serialize delivery and colleague handoff on the order before reading request rows. */
     @Select("select * from orders where id = #{id} for update")
     Orders getByIdForUpdate(@Param("id") Long id);
+
+    /** 在订单行锁之后当前读申请，重复退回不能追加第二条，其他 STAFF 待办也不能被覆盖。 */
+    @Select("select * from order_transfer where order_id=#{orderId} and kind='STAFF' "
+            + "and status='PENDING' order by id for update")
+    List<OrderTransfer> listPendingStaffRequestsForUpdate(@Param("orderId") Long orderId);
 
     /** 服务端操作凭据，只用于指定退回的历史状态核实与只读安排提示。 */
     @Select("select id, action, detail from audit_log where module='ORDER' and target=concat('order:',#{orderId}) "
@@ -619,23 +635,35 @@ public interface OrderMapper {
 
     // 「今日完成」：itemSummary / itemKindCount 见 listPendingByStationId 上方的单位与截断说明；
     // 楼层/电梯照抄 listByDeliveryStaffId —— 配送员回到站里复盘/补录时同样要知道这单上没上楼。
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + DELIVERY_EVENT_TIME + " as deliveryTime, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
             "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
             "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
-            "where o.delivery_staff_id = #{staffId} and o.status = #{status} and date(o.update_time) = #{date}")
-    List<Orders> listByDeliveryStaffIdAndDate(@Param("staffId") Long staffId, @Param("status") Integer status, @Param("date") java.time.LocalDate date);
+            DELIVERY_EVENT_JOINS +
+            "where o.delivery_staff_id = #{staffId} and o.status in (3,4) " +
+            "and " + DELIVERY_EVENT_TIME + " >= #{from} and " + DELIVERY_EVENT_TIME + " < #{until} " +
+            "order by deliveryTime desc, o.id desc")
+    List<Orders> listDeliveredByDeliveryStaffIdAndPeriod(@Param("staffId") Long staffId,
+            @Param("from") java.time.LocalDateTime from, @Param("until") java.time.LocalDateTime until);
 
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    /** 无事件的历史单保留在历史列表，但不能用最后修改日冒充送达日。 */
+    @Select("select count(*) from orders o " + DELIVERY_EVENT_JOINS
+            + "where o.delivery_staff_id=#{staffId} and o.status in (3,4) "
+            + "and " + DELIVERY_EVENT_TIME + " is null")
+    int countDeliveryTimeUnverified(@Param("staffId") Long staffId);
+
+    // 2026-10-24：原筛选配送中(2)会漏已送达且混入未交付订单；零回桶同样是一次真实交付。
+    @Select("select o.*, " + DELIVERY_EVENT_TIME + " as deliveryTime, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
-            "where o.delivery_staff_id = #{staffId} and o.status = " + OrderStatus.DELIVERING + " " +
-            "order by o.update_time desc")
+            DELIVERY_EVENT_JOINS +
+            "where o.delivery_staff_id = #{staffId} and o.status in (3,4) " +
+            "order by deliveryTime desc, o.id desc")
     List<Orders> listBarrelRecords(@Param("staffId") Long staffId);
 
     @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +

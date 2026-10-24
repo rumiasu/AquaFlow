@@ -44,12 +44,14 @@ import java.util.Map;
  */
 @Service
 public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
+
+    @Autowired
+    private com.example.aquaflow.util.BusinessTime businessTime;
     @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
     @org.springframework.beans.factory.annotation.Autowired private com.example.aquaflow.service.DispatchAgreementService dispatchAgreements;
     @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderBarrelPurchases;
 
-    /** 见 {@link DeliveryConsoleService} 类注释：时间源照搬原状，未纳入 F-16 的 BusinessTime 改造。 */
     @Autowired
     private OrderMapper orderMapper;
     @Autowired
@@ -129,8 +131,13 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
 
     @Override
     public List<Orders> listCompletedToday(Long staffId) {
-        return maskCrossStationProfiles(orderMapper.listByDeliveryStaffIdAndDate(
-                staffId, OrderStatus.COMPLETED, java.time.LocalDate.now()));
+        return maskCrossStationProfiles(deliveredToday(staffId));
+    }
+
+    private List<Orders> deliveredToday(Long staffId) {
+        java.time.LocalDate today = businessTime.today();
+        return orderMapper.listDeliveredByDeliveryStaffIdAndPeriod(staffId,
+                today.atStartOfDay(), today.plusDays(1).atStartOfDay());
     }
 
     @Override
@@ -166,9 +173,10 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
     @Override
     public Map<String, Object> todayStats(Long staffId, Long stationId) {
         Map<String, Object> stats = new HashMap<>();
-        var completed = orderMapper.listByDeliveryStaffIdAndDate(
-                staffId, OrderStatus.COMPLETED, java.time.LocalDate.now());
+        // 2026-10-24：实物送达与收款结清分开；补收款不能把昨日回桶搬到今天。
+        var completed = deliveredToday(staffId);
         stats.put("completedCount", completed.size());
+        stats.put("deliveryTimeUnverifiedCount", orderMapper.countDeliveryTimeUnverified(staffId));
         var delivering = orderMapper.listByDeliveryStaffId(staffId, OrderStatus.DELIVERING);
         stats.put("deliveringCount", delivering.size());
         int totalReturn = completed.stream()

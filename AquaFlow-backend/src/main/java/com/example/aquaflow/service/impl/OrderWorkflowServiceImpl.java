@@ -1609,6 +1609,17 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                 && (order.getDeliveryStaffId() == null || !order.getDeliveryStaffId().equals(AuthContext.getUserId()))) {
             throw new BusinessException("只能退回自己名下的订单");
         }
+        // 2026-10-24：原重复点击会再次插申请并追加备注；在同一订单行锁内当前读，
+        // 仅同一归属的原退回申请幂等返回，其他待办或历史重复申请须先核实。
+        List<OrderTransfer> pending = orderMapper.listPendingStaffRequestsForUpdate(orderId);
+        if (!pending.isEmpty()) {
+            OrderTransfer request = pending.get(0);
+            if (pending.size() == 1 && request.getId() != null
+                    && OrderTransfer.SUB_RETURN_STATION.equals(request.getSubKind())
+                    && java.util.Objects.equals(request.getFromStaffId(), order.getDeliveryStaffId())
+                    && java.util.Objects.equals(request.getFromStationId(), deliveryStation(order))) return;
+            throw new BusinessException("该订单已有待处理的站内申请，请先核实原申请");
+        }
         String r = reason != null ? reason : "配送员退回站长";
 
         // AQ-016: 退回待审期间订单仍带原配送员（与 [退回站长] 标记配合，旧 UI 用 deliveryStaffId 判定"转单中"）。

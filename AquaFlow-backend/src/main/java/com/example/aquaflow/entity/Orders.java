@@ -496,6 +496,9 @@ public class Orders {
     /** 更新时间 */
     private LocalDateTime updateTime;
 
+    /** 只读送达事件时间；无可信历史凭据时为空，不以最后修改时间推断。 */
+    private transient LocalDateTime deliveryTime;
+
     /** 首个商品名称(列表联查字段) */
     private String firstProductName;
 

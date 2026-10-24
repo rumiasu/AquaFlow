@@ -9,11 +9,11 @@ let passed = 0
 async function test(name, fn) { await fn(); passed++; console.log('PASS ' + name) }
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 const envelope = data => ({ code: 0, data })
-const order = id => ({ id, quantity: 1, returnBucketQty: 1, barrelDiscrepancy: 0, createTime: '2026-10-02T10:00:00', updateTime: '2026-10-02T10:00:00' })
+const order = id => ({ id, quantity: 1, returnBucketQty: 1, barrelDiscrepancy: 0, createTime: '2026-10-02T10:00:00', updateTime: '2026-10-02T10:00:00', deliveryTime: '2026-10-02T10:00:00' })
 const owed = id => ({ customerId: id, productId: 5, overQty: 2, owedDaysText: '7天', urgent: true })
 const notice = (id = 12, content = '真实正文') => ({ id, title: '真实公告', content, createTime: '2026-10-02T10:00:00' })
 const specs = [
-  { file: 'miniapp-delivery/pages/barrel-records/index', key: 'records', module: 'api/delivery', fn: 'getBarrelRecords', row: order, time: 'updateTime' },
+  { file: 'miniapp-delivery/pages/barrel-records/index', key: 'records', module: 'api/delivery', fn: 'getBarrelRecords', row: order, time: 'deliveryTime' },
   { file: 'miniapp-delivery/pages/history/index', key: 'orders', module: 'api/delivery', fn: 'getDeliveryHistory', row: order, time: 'createTime' },
   { file: 'miniapp-delivery/pages/transfer/index', key: 'orders', module: 'api/delivery', fn: 'getTransferRecords', row: order, time: 'updateTime' },
   { file: 'miniapp-delivery/pages/station-mgmt/owed-barrels/index', key: 'list', module: 'api/station-mgmt', fn: 'getOwedBarrels', row: owed }

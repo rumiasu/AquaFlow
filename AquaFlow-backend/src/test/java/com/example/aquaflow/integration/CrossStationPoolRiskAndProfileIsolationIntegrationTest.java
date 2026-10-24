@@ -242,14 +242,16 @@ class CrossStationPoolRiskAndProfileIsolationIntegrationTest extends AbstractInt
         JsonNode crossDetail = get("/api/delivery/orders/" + cross, driver).data();
         assertProfileMasked(crossDetail, "跨站订单详情");
         assertEquals(ADDRESS_TEXT, crossDetail.path("addressSnapshot").asText(), "配送地址快照照常下发");
-        // ③ 回桶记录（同一批 status=2 的单，另一张列表）
-        assertProfileMasked(rowById(get("/api/delivery/barrel-records", driver).data(), cross),
-                "回桶记录列表");
         // ④ 站长端员工画像的「当前进行中」（Map 直出，靠 SQL 显式 as 出的两列判跨站）
         JsonNode row = rowById(get("/api/staff/" + driverB + "/profile", tokenB).data().path("currentOrders"), cross);
         assertNotNull(row, "员工画像的当前进行中应含这一单");
         assertTrue(row.path("customerName").isNull(), "员工画像里也不得出现别站客户姓名，实际=" + row);
         assertEquals(RECEIVER_NAME, row.path("receiverName").asText(), "收件人快照照常（配送必需）");
+
+        // ③ 回桶历史只含实际送达的3/4；零回桶仍保留，跨站画像继续遮蔽。
+        assertNullById(get("/api/delivery/barrel-records", driver).data(), cross, "配送中还没有回桶历史");
+        jdbc.update("UPDATE orders SET status=3,return_bucket_qty=0 WHERE id=?", cross);
+        assertProfileMasked(rowById(get("/api/delivery/barrel-records", driver).data(), cross), "零回桶送达历史");
 
         // ⑤ 反向：本站自己的单照常显示客户姓名（防一刀切）
         long myCustomer = createCustomer("本站客户丙", "openid-mine-c");

@@ -37,13 +37,13 @@ Page({
       const res = await getBarrelRecords()
       if (!this._current(version, context)) return
       if (!res || (res.code !== 0 && res.code !== 200) || !Array.isArray(res.data)
-          || !res.data.every(r => r && typeof r === 'object' && !Array.isArray(r) && validId(r.id) && validTime(r.updateTime)
+          || !res.data.every(r => r && typeof r === 'object' && !Array.isArray(r) && validId(r.id) && validTime(r.deliveryTime)
             && ['returnBucketQty', 'barrelDiscrepancy'].every(k => r[k] == null || Number.isInteger(r[k])))) {
         throw new Error('收到的数据不完整，请重试。')
       }
       const records = res.data.map(r => {
         const disc = r.barrelDiscrepancy || 0
-        return { ...r, timeText: this.formatDate(r.updateTime), discAbsText: Math.abs(disc) + '',
+        return { ...r, timeText: r.deliveryTime ? this.formatDate(r.deliveryTime) : '送达日期待核实', discAbsText: Math.abs(disc) + '',
           discLabel: disc > 0 ? '欠桶' : '多还', discTagClass: disc > 0 ? 'owe' : 'extra' }
       })
       const totalReturn = records.reduce((s, r) => s + (r.returnBucketQty || 0), 0)

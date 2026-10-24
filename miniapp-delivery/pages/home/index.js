@@ -1,5 +1,7 @@
 const { employeeCustomerNotePreview } = require('../../utils/customer-note')
-const { getPendingOrders, getDeliveringOrders, getCompletedToday, acceptOrder, getDeliveredUnpaid, confirmCollection, transferOrder, returnToStation, getStaffList, respondTransfer, getTransferList, getAssignedToMe } = require('../../api/delivery')
+const { getPendingOrders, getDeliveringOrders, getCompletedToday, acceptOrder, getDeliveredUnpaid, confirmCollection, transferOrder, returnToStation, getStaffList, respondTransfer, getTransferList, getAssignedToMe, getOrderDetail } = require('../../api/delivery')
+const { moneyText, collectionPrompt, canConfirmCash } = require('../../utils/collection-confirmation')
+const writeRecovery = require('../../utils/order-write-recovery')
 // 楼层/电梯文案与订单详情页共用同一份实现（口径只有一处）
 const { buildFloorText } = require('../../utils/address')
 const { orderSummary } = require('../../utils/order-item-view')
@@ -35,6 +37,8 @@ Page({
     onlyAssigned: false,
     // 部分列表接口失败时的提示文案（空串 = 全部正常）。见 loadData 里的说明。
     loadError: '', readReady: {},
+    collectionRecoveryItems: [],
+    collectionVerifiedText: '',
     showMediateModal: false,
     currentOrderId: null,
     // [2026-10-06] 待收款区折叠状态：默认收起，点击展开
@@ -48,6 +52,8 @@ Page({
 
   onShow() {
     this._homeIdentityHidden = false
+    this.setData({ collectionVerifiedText: '' })
+    this._syncCollectionRecovery()
     this.resetHomeStationIdentity()
     const app = getApp()
     // 自绘底栏：配送员只有 配送/我的 两项（本页是配送员的主页）
@@ -99,7 +105,15 @@ Page({
     }
   },
 
-  onHide() { this._homeIdentityHidden = true; this.resetHomeStationIdentity() },
+  onHide() {
+    this._homeIdentityHidden = true
+    this._collectionLife = (this._collectionLife || 0) + 1
+    ;(this._collectionDialogs || new Map()).forEach(item => { if (item.cancel) item.cancel() })
+    this._collectionDialogs = new Map()
+    if (this._collectionLoading) { wx.hideLoading(); this._collectionLoading = null }
+    this._taskReadSeq = (this._taskReadSeq || 0) + 1
+    this.resetHomeStationIdentity()
+  },
   onUnload() { this.onHide() },
 
   onPullDownRefresh() {
@@ -115,6 +129,8 @@ Page({
    *   站长专属的"未分配列表"拿到权限错误，或者站长少看一屏还没派出去的单。
    */
   async loadData(isManager) {
+    if (this._homeIdentityHidden) return
+    const context = this._collectionContext()
     const manager = isManager === true
     const seq = this._taskReadSeq = (this._taskReadSeq || 0) + 1
     this.setData({ loading: true, readReady: {}, onlyAssigned: !manager })
@@ -141,7 +157,7 @@ Page({
       if (manager) requests.push(getPendingOrders())
       const results = await Promise.allSettled(requests)
 
-      if (seq !== this._taskReadSeq) return
+      if (seq !== this._taskReadSeq || !this._collectionCurrent(context)) return
       const valid = r => r && r.status === 'fulfilled' && r.value && (r.value.code === 0 || r.value.code === 200) && Array.isArray(r.value.data)
       const unwrap = r => valid(r) ? r.value : { data: [] }
       const readReady = { assigned: valid(results[0]) && (!manager || valid(results[5])), delivering: valid(results[1]), completed: valid(results[2]), unpaid: valid(results[3]), transfers: valid(results[4]) }
@@ -189,7 +205,7 @@ Page({
         return {
           ...o,
           customerNotePreview: employeeCustomerNotePreview(o),
-          amountText: o.totalAmount === null || o.totalAmount === undefined || o.totalAmount === '' || !Number.isFinite(Number(o.totalAmount)) ? '金额待核实' : `¥${Number(o.totalAmount).toFixed(2)}`,
+          amountText: moneyText(o.totalAmount) || '金额待核实',
           // 「已付 / 需收 ¥X」：判据只用后端投影 —— needCollect（现金且还没收到钱）
           // 与 payState（钱到底到没到账），**不按 payment_status 的 1/2/3 自己写映射表**（AGENTS §6）。
           payLabel: o.needCollect ? '需收' : (o.payState === 'PAID' ? '已付' : '未收'),
@@ -237,8 +253,9 @@ Page({
           : '',
         loading: false
       })
+      this._syncCollectionRecovery()
     } catch (err) {
-      if (seq !== this._taskReadSeq) return
+      if (seq !== this._taskReadSeq || !this._collectionCurrent(context)) return
       console.error('加载数据失败:', err)
       this.setData({ loading: false, loadError: '配送任务暂未读取，请重新加载后核对' })
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
@@ -373,29 +390,89 @@ Page({
     wx.navigateTo({ url: `/pages/order/complete?id=${id}&from=home` })
   },
 
-  async onConfirmCollection(e) {
-    const id = e.currentTarget.dataset.id
-    wx.showModal({
-      title: '确认收款',
-      content: '确认已收到此订单款项？',
-      confirmText: '确认收款',
-      confirmColor: '#2E9E6B',
-      success: async (res) => {
-        if (res.confirm) {
-          wx.showLoading({ title: '收款确认中...' })
-          try {
-            await confirmCollection(id)
-            wx.hideLoading()
-            wx.showToast({ title: '收款成功', icon: 'success' })
-            this.loadData(this.data.isManager)
-          } catch (err) {
-            wx.hideLoading()
-            wx.showToast({ title: err.message || '收款失败', icon: 'none' })
-          }
-        }
-      }
-    })
+  _collectionContext() { return { session: homeStationSession(), life: this._collectionLife || 0 } },
+  _collectionCurrent(ctx) {
+    const now = homeStationSession()
+    return !this._homeIdentityHidden && ctx.life === (this._collectionLife || 0)
+      && ctx.session.app === now.app && ctx.session.generation === now.generation
+      && ctx.session.identity === now.identity && now.app.canAccessStationBusiness()
   },
+  _syncCollectionRecovery() {
+    const records = writeRecovery.list(), dialogs = this._collectionDialogs || new Map()
+    const fields = ['assignedOrders', 'deliveringOrders', 'completedOrders', 'deliveredUnpaidOrders', 'incomingTransfers']
+    const updates = { collectionRecoveryItems: records.map(record => ({ id: record.id,
+      pending: record.phase === 'pending', text: writeRecovery.message(record) })) }
+    for (const field of fields) updates[field] = (this.data[field] || []).map(order => {
+      const record = records.find(value => String(value.id) === String(order.id))
+      return { ...order, collectionBusy: !!record || dialogs.has(String(order.id)) }
+    })
+    this.setData(updates)
+  },
+  // 2026-10-24：确认框打开前按订单锁定；离页取消旧确认，已发送请求和未知结果跨页面保留。
+  async onConfirmCollection(e) {
+    const id = e.currentTarget.dataset.id, ctx = this._collectionContext(), tokenId = String(id)
+    if (!this._collectionCurrent(ctx)) return
+    const dialogs = this._collectionDialogs || (this._collectionDialogs = new Map())
+    if (dialogs.has(tokenId) || writeRecovery.read(id)) { this._syncCollectionRecovery(); return }
+    if (!['deliveringOrders', 'deliveredUnpaidOrders'].some(field => (this.data[field] || []).some(o => String(o.id) === tokenId))) return
+    const dialog = { context: ctx }
+    dialogs.set(tokenId, dialog)
+    this._syncCollectionRecovery()
+    let recovery, failure
+    try {
+      const response = await getOrderDetail(id)
+      if (!this._collectionCurrent(ctx) || dialogs.get(tokenId) !== dialog) return
+      const order = response && response.data
+      if (!order || String(order.id) !== tokenId || !canConfirmCash(order, getApp().globalData.userInfo)) {
+        wx.showToast({ title: '当前订单不可确认收款，请刷新核对', icon: 'none' }); return
+      }
+      const content = collectionPrompt(order)
+      if (!content) { wx.showToast({ title: '收款金额待核实，请刷新订单后确认', icon: 'none' }); return }
+      const answer = await new Promise(resolve => {
+        dialog.cancel = () => resolve({ confirm: false })
+        wx.showModal({ title: '确认收款', content, confirmText: '确认收款', confirmColor: '#2E9E6B',
+          success: resolve, fail: () => resolve({ confirm: false }) })
+      })
+      if (!answer.confirm || !this._collectionCurrent(ctx) || dialogs.get(tokenId) !== dialog) return
+      recovery = writeRecovery.begin(id, 'onConfirmCollection', order)
+      this._syncCollectionRecovery()
+      this._collectionLoading = ctx
+      wx.showLoading({ title: '收款确认中...', mask: true })
+      await confirmCollection(id)
+      if (this._collectionCurrent(ctx)) {
+        this.setData({ collectionVerifiedText: '订单 #' + id + '：已登记收款，请勿再次向客户收取这笔钱。' })
+        wx.showToast({ title: '已登记收款，请勿重复收取', icon: 'none' })
+      }
+    } catch (err) {
+      failure = err
+      if (this._collectionCurrent(ctx) && (!recovery || !writeRecovery.uncertain(err))) wx.showToast({ title: err.message || '收款信息未核实，请重新读取', icon: 'none' })
+    } finally {
+      if (recovery) writeRecovery.finish(recovery, failure)
+      if (dialogs.get(tokenId) === dialog) dialogs.delete(tokenId)
+      if (this._collectionLoading === ctx) { wx.hideLoading(); this._collectionLoading = null }
+      if (this._collectionCurrent(ctx)) {
+        this._syncCollectionRecovery()
+        if (recovery && !failure) await this.loadData(this.data.isManager)
+      }
+    }
+  },
+  async onVerifyCollection(e) {
+    const id = e.currentTarget.dataset.id, ctx = this._collectionContext(), record = writeRecovery.read(id)
+    if (!this._collectionCurrent(ctx)) return
+    this._syncCollectionRecovery()
+    if (!record) return this.loadData(this.data.isManager)
+    if (record.phase === 'pending') { wx.showToast({ title: '原操作仍在处理中，请稍候', icon: 'none' }); return }
+    try {
+      const response = await getOrderDetail(id)
+      if (!this._collectionCurrent(ctx)) return
+      const text = writeRecovery.reconcile(id, response && response.data)
+      this._syncCollectionRecovery()
+      if (text) this.setData({ collectionVerifiedText: '订单 #' + id + '：' + text })
+      wx.showToast({ title: text || '结果仍待核实，请勿重复提交', icon: 'none' })
+      if (text) await this.loadData(this.data.isManager)
+    } catch (_) { if (this._collectionCurrent(ctx)) wx.showToast({ title: '核实未完成，请稍后再查，勿重复提交', icon: 'none' }) }
+  },
+  onOpenRecoveryOrder(e) { wx.navigateTo({ url: '/pages/order/detail?id=' + e.currentTarget.dataset.id }) },
 
   onMediateOrder(e) {
     const id = e.currentTarget.dataset.id

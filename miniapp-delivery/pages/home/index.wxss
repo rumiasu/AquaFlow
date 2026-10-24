@@ -341,3 +341,6 @@
 .home-station-identity { font-weight: 600; }
 .pay-label, .pay-amount { font-size: 30rpx; }
 .modal-item { min-height: 96rpx; box-sizing: border-box; }
+.collection-recovery { margin: 20rpx 24rpx; padding: 24rpx; background: var(--warning-bg); color: var(--text-primary); border-radius: 12rpx; font-size: 28rpx; line-height: 1.6; }
+.collection-recovery text { display: block; white-space: normal; }
+.collection-recovery button { margin: 16rpx 0 0; min-height: 88rpx; padding: 16rpx 24rpx; }

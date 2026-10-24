@@ -153,7 +153,7 @@
 
 .add-btn {
   position: fixed;
-  bottom: 40rpx;
+  bottom: calc(40rpx + env(safe-area-inset-bottom));
   left: 24rpx;
   right: 24rpx;
   height: 88rpx;
@@ -365,7 +365,7 @@
 .add-btn, .modal-btn { border-radius: var(--radius-md); min-height: 88rpx; box-shadow: none; }
 
 /* 本页所有状态共用的可读与触控边界。 */
-.container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
+.container { padding-bottom: calc(152rpx + env(safe-area-inset-bottom)); }
 .form-status, .save-error { display: block; font-size: 28rpx; line-height: 1.65; padding: 16rpx 0; }
 .save-error { width: 100%; color: #9a3412; }
 .modal-footer { flex-wrap: wrap; }

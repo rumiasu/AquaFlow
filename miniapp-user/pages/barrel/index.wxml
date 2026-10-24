@@ -8,7 +8,7 @@
     <text class="stale-note" wx:if="{{summaryStale || holdingsStale || recordsStale}}">部分内容未更新，以下保留上次读取的信息；相关退还操作需重新核对后办理。</text>
     <!-- [2026-09-20] 部分桶接口失败时的提示：没有它，失败渲染出来的「权益 0 · 占用 0」
          与"确实没有桶"长得一模一样（loadError 为空串时不渲染）。 -->
-    <view class="load-error" wx:if="{{loadError}}">{{loadError}}<view bindtap="onRetryAssets">重新加载 ›</view></view>
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}<view wx:if="{{!needLogin}}" bindtap="onRetryAssets">重新加载 ›</view></view>
     <view class="load-error" wx:if="{{returnRecoveryError}}">{{returnRecoveryError}}<view bindtap="onRetryAssets">重新读取原凭据 ›</view></view>
     <view class="load-error" wx:if="{{pendingReturn}}">本站有一笔原退还申请结果待核实，核实前请勿另发申请。<button bindtap="onShowReturnModal" disabled="{{submitting}}">核对原申请</button></view>
     <button class="rights-purchase-btn" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>

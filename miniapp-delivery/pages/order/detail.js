@@ -1,5 +1,7 @@
 const imageDisplay = require('../../behaviors/imageDisplay')
 const { employeeCustomerNotePreview } = require('../../utils/customer-note')
+const { moneyText, collectionPrompt, canConfirmCash } = require('../../utils/collection-confirmation')
+const writeRecovery = require('../../utils/order-write-recovery')
 const { wrapUploadRecovery } = require('../../utils/upload-recovery-page')
 // 订单详情页
 const { getOrderDetail, completeOrder, transferOrder, cancelTransferOrder, returnToStation, getStaffList, dispatchOrder, resolveOrder, requestCancel, confirmCollection } = require('../../api/delivery')
@@ -127,14 +129,7 @@ const MORE_ACTIONS = {
 }
 // 与现有 confirm-offline-pay 的角色、履约站、自身分配、现金及状态守卫一致。
 function canCollect(order, user = {}) {
-  const same = (a, b) => a != null && b != null && String(a) === String(b)
-  const manager = user.role === 'STATION_MANAGER' || user.role === 'manager'
-  const delivery = user.role === 'DELIVERY' || user.role === 'delivery'
-  const station = order.deliveryStationId == null ? order.stationId : order.deliveryStationId
-  return !!(order.needCollect && order.paymentMethod === 2
-    && (order.paymentStatus === 0 || order.paymentStatus === 1)
-    && (order.status === 2 || order.status === 3) && same(station, user.stationId)
-    && (manager || (delivery && same(order.deliveryStaffId, user.staffId))))
+  return canConfirmCash(order, user)
 }
 
 Page({
@@ -148,6 +143,9 @@ Page({
     detailError: '',
     detailOutcomeText: '',
     writePending: false,
+    writeUnknown: false,
+    writeRecoveryText: '',
+    writeVerifiedText: '',
     // 楼梯凭证（v43）：站长与配送员都能看、都能补传；不强制，所以"没有也不拦"
     floorPhotos: [], floorPhotosState: 'idle',
     floorUploading: false,
@@ -240,14 +238,19 @@ Page({
 
   _syncWriteBusy() {
     const pending = this._pendingWrite()
-    this.setData({ writePending: !!pending, actionBusy: !!pending || !!this._actionTask,
+    const record = writeRecovery.read(this.data.orderId)
+    this.setData({ writePending: !!pending || !!(record && record.phase === 'pending'),
+      writeUnknown: !!(record && record.phase === 'unknown'), writeRecoveryText: writeRecovery.message(record),
+      actionBusy: !!pending || !!record || !!this._actionTask,
       cancelTransferBusy: !!pending && pending.actionName === 'onCancelTransfer',
       refusalBusy: !!pending && pending.actionName === 'onRefusalWriteOff' })
   },
 
   _blockPendingWrite() {
-    if (!this._pendingWrite()) return false
-    wx.showToast({ title: '操作仍在处理中，请稍候', icon: 'none' })
+    const record = writeRecovery.read(this.data.orderId)
+    if (!this._pendingWrite() && !record) return false
+    this._syncWriteBusy()
+    wx.showToast({ title: record && record.phase === 'unknown' ? '原操作结果待核实，请勿重复提交' : '操作仍在处理中，请稍候', icon: 'none' })
     return true
   },
 
@@ -276,7 +279,7 @@ Page({
     } finally {
       if (this._actionTask === ctx) {
         this._actionTask = null
-        if (this._isCurrent(ctx)) this.setData({ actionBusy: false, cancelTransferBusy: false, refusalBusy: false })
+        if (this._isCurrent(ctx)) this._syncWriteBusy()
       }
     }
   },
@@ -300,6 +303,7 @@ Page({
 
   async _actionWrite(ctx, write) {
     if (!ctx.current() || this._blockPendingWrite()) return false
+    const recovery = writeRecovery.begin(ctx.id, ctx.actionName, this.data.order || {})
     const pending = this._pendingWrites || (this._pendingWrites = new Set())
     pending.add(ctx)
     this._syncWriteBusy()
@@ -312,8 +316,11 @@ Page({
       return this._isCurrent(ctx)
     } catch (err) {
       failure = err
+      // 2026-10-24：超时不等于拒绝。保留原订单记录并只开放核实，不能回到可直接重发的失败态。
+      if (writeRecovery.uncertain(err)) return false
       throw err
     } finally {
+      writeRecovery.finish(recovery, failure)
       pending.delete(ctx)
       if (this._loadingTask === ctx) { wx.hideLoading(); this._loadingTask = null }
       if (!this._hidden && !this._unloaded && this._sameOrderSession(ctx)) {
@@ -321,7 +328,7 @@ Page({
         // 已返回同一订单时，由新页面读取最终结果，旧 handler 不再继续弹窗或导航。
         if (!this._isCurrent(ctx)) {
           await this.loadOrderDetail(ctx.id)
-          if (failure && !this._hidden && !this._unloaded && this._sameOrderSession(ctx)) {
+          if (failure && !writeRecovery.uncertain(failure) && !this._hidden && !this._unloaded && this._sameOrderSession(ctx)) {
             wx.showToast({ title: failure.message || '操作失败，请重试', icon: 'none' })
           }
         }
@@ -393,7 +400,7 @@ Page({
     }
     this._syncWriteBusy()
     if (!this._sameOrderSession(this._withdrawOutcome)) this._withdrawOutcome = null
-    this.setData({ loading: true, detailError: '',
+    this.setData({ loading: true, detailError: '', writeVerifiedText: '',
       detailOutcomeText: this._withdrawOutcome ? '已撤回转单，订单仍由你配送' : '',
       showMoreActions: false, floorPhotos: [], floorPhotosState: 'idle', deliveryPhotos: [], deliveryPhotosState: 'idle', payments: [], canRefundPayment: false })
 
@@ -401,6 +408,10 @@ Page({
       const res = await getOrderDetail(id)
       if (!this._isCurrent(ctx)) return
       const order = res.data
+      if (!order || String(order.id) !== String(id) || (res.code != null && res.code !== 0 && res.code !== 200)) {
+        this.setData({ loading: false, detailError: '订单详情未核实，请重新读取' }); return false
+      }
+      const verified = writeRecovery.reconcile(id, order)
 
       // 状态文案、支付方式文案、是否需现场收款、转单状态：全部由后端计算下发。
       // 注意：此前这里读取的 transferStatus / returnStatus / isTransferTarget 三个字段
@@ -442,8 +453,7 @@ Page({
           // 事实卡金额行（2026-10-07 #19 R4）：金额只做定长格式化，口径是后端 totalAmount；
           // 收款章的文案是后端 payStateText，章的配色（need/paid/plain）由后端投影
           // needCollect / payState 选出 —— 与完成配送页 _moneyView 同一套判据，前端不自推。
-          amountText: (order.totalAmount === null || order.totalAmount === undefined || order.totalAmount === '')
-            ? '' : '¥' + Number(order.totalAmount).toFixed(2),
+          amountText: moneyText(order.totalAmount) || '金额待核实',
           payChipClass: order.needCollect ? 'need' : (order.payState === 'PAID' ? 'paid' : 'plain'),
           // 备货情况（契约 C4）：出发前/上门前用一句话说清"这单备齐了没、还缺哪些商品"。
           // 与金额、状态文案一样取自后端投影（stockPrep），前端不拿 inventory.quantity 自己推算。
@@ -462,7 +472,7 @@ Page({
           // 回桶行（见 buildReturnPlan 的注释：这一行以前永远显示 0 个）
           ...buildReturnPlan(order)
         },
-        loading: false, detailError: '', detailOutcomeText: '',
+        loading: false, detailError: '', detailOutcomeText: '', writeVerifiedText: verified,
         // 「更多操作」按钮有没有内容：任一低频动作可显示即 true（判据与弹层条目一一对应）。
         // 拒付三件套与 wxml 同一组条件：站长 + 已送达(3) + 还要收款。
         hasMoreActions: !!(acts.canReport || acts.canTransfer || acts.canWithdrawTransfer
@@ -470,6 +480,7 @@ Page({
           || (managerView && order.status === 3 && order.needCollect)),
         showMoreActions: false
       })
+      this._syncWriteBusy()
       this._withdrawOutcome = null
       this.loadFloorPhotos(id, ctx)
       // 送达凭证（原名"签收凭证"，[2026-09-26] 改名）：配送员在完成配送页拍的那几张，
@@ -487,9 +498,14 @@ Page({
   },
 
   onRetryDetail() {
-    if (this._hidden || this._unloaded || this.data.loading || this._blockPendingWrite()) return
+    if (this._hidden || this._unloaded || this.data.loading || this._pendingWrite()) return
+    const record = writeRecovery.read(this.data.orderId)
+    if (record && record.phase === 'pending') return
     return this.loadOrderDetail(this.data.orderId)
   },
+
+  onVerifyOrderWrite() { this._syncWriteBusy(); return this.onRetryDetail() },
+  onReturnToTasks() { wx.switchTab({ url: '/pages/home/index' }) },
 
   // 拨打电话
   onCallPhone() {
@@ -541,10 +557,16 @@ Page({
 
   onConfirmCollection() {
     return this._runOrderAction('onConfirmCollection', async ctx => {
+      const content = collectionPrompt(this.data.order)
+      const amount = moneyText(this.data.order.totalAmount)
+      if (!content) { wx.showToast({ title: '收款金额待核实，请刷新订单后确认', icon: 'none' }); return }
       const answer = await this._actionDialog(ctx, {
-        title: '确认收款', content: '确认已收到此订单款项？', confirmText: '确认收款', confirmColor: '#2E4A68'
+        title: '确认收款', content, confirmText: '确认收款', confirmColor: '#2E4A68'
       })
       if (!answer.confirm || !ctx.current()) return
+      if (moneyText(this.data.order.totalAmount) !== amount) {
+        wx.showToast({ title: '收款金额已变化，请重新核对后确认', icon: 'none' }); return
+      }
       if (!await this._actionWrite(ctx, () => confirmCollection(ctx.id))) return
       wx.showToast({ title: '收款成功', icon: 'success' })
       await this.loadOrderDetail(ctx.id)
@@ -652,7 +674,8 @@ Page({
     return this._runOrderAction('onTransfer', async ctx => {
       const user = getApp().globalData.userInfo || {}
       let result
-      if (!await this._actionWrite(ctx, async () => { result = await getStaffList(user.stationId) })) return
+      // 同事目录是读取，不能把它的超时登记成订单写入结果未知。
+      result = await getStaffList(user.stationId)
       if (!ctx.current()) return
       const colleagues = (result.data || []).filter(s => String(s.id) !== String(user.staffId))
       if (!colleagues.length) {

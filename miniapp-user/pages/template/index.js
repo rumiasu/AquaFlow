@@ -15,7 +15,7 @@ function viewError(error, fallback = '暂时无法完成，请稍后重试') {
 
 Page({
   data: {
-    loading: true, loaded: false, formLoading: false, formReady: false, submitting: false, saveError: '',
+    loading: true, loaded: false, needLogin: false, accessDenied: false, formLoading: false, formReady: false, submitting: false, saveError: '',
     templates: [],
     showEditModal: false,
     editingTemplate: null,
@@ -56,7 +56,8 @@ Page({
     const session = captureSession(), seq = this._readSeq = (this._readSeq || 0) + 1
     const current = () => !this._hidden && !this._unloaded && seq === this._readSeq && isCurrentSession(session)
     this.setData({ needLogin: !session.loggedIn || !session.customerId })
-    if (!session.loggedIn || !session.customerId) { this.setData({ loading: false, loaded: false, templates: [], loadError: '请先登录后查看本人常用订水配置。' }); return }
+    if (!session.loggedIn || !session.customerId) { this.setData({ loading: false, loaded: false, accessDenied: false,
+      showEditModal: false, templates: [], loadError: '请先登录后查看本人常用订水配置。' }); return }
     this.setData({ loading: !this.data.loaded, loadError: '' })
     try {
       const sid = this.data.stationId || await resolveStationId()
@@ -65,11 +66,12 @@ Page({
       const res = await getTemplates(sid)
       if (!current()) return
       if (!res || res.code !== 0 || !Array.isArray(res.data)) throw new Error('常用订水配置暂未加载，请重试')
-      this.setData({ templates: res.data, stationId: sid, loaded: true, loadError: '' })
+      this.setData({ templates: res.data, stationId: sid, loaded: true, accessDenied: false, loadError: '' })
     } catch (error) {
       if (!current()) return
       const denied = /无权|权限|登录/.test(error && error.message || '')
-      if (denied) this.setData({ templates: [], loaded: false })
+      if (denied) this.setData({ templates: [], loaded: false, accessDenied: true, showEditModal: false,
+        needLogin: /登录/.test(error && error.message || '') })
       this.setData({ loadError: (this.data.loaded ? '刷新失败，以下为上次读取的配置。' : '') + viewError(error, '常用订水配置暂未加载，请重试。') })
     } finally { if (current()) this.setData({ loading: false }) }
   },
@@ -77,7 +79,9 @@ Page({
   onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
 
   onAddTemplate() {
-    if (this.data.submitting) return
+    if (this.data.submitting || this.data.needLogin || this.data.accessDenied) return
+    const session = captureSession()
+    if (!session.loggedIn || !session.customerId) { this.loadData(); return }
     this.setData({
       showEditModal: true, saveError: '', formReady: false,
       isEditing: false,

@@ -20,10 +20,16 @@
 
   <view class="load-error" wx:if="{{!loading && !readReady.unpaid}}"><text>待收款订单尚未核实，请重新加载后核对，不能据此判断已经结清。</text><button size="mini" bindtap="onRetryVisibleData">核对待收款</button></view>
   <button class="unpaid-shortcut" wx:if="{{deliveredUnpaidOrders.length > 0}}" bindtap="onShowUnpaidRecords">已送达待收款 {{deliveredUnpaidOrders.length}} 单 · 查看收款记录 ›</button>
+  <view class="collection-recovery" wx:if="{{collectionVerifiedText}}"><text>{{collectionVerifiedText}}</text></view>
+  <view class="collection-recovery" wx:for="{{collectionRecoveryItems}}" wx:key="id">
+    <text>订单 #{{item.id}}：{{item.text}}</text>
+    <button size="mini" catchtap="onVerifyCollection" data-id="{{item.id}}">核实当前订单</button>
+    <button size="mini" catchtap="onOpenRecoveryOrder" data-id="{{item.id}}">查看订单详情</button>
+  </view>
 
   <!--
     Tab 切换。名字与后端订单状态一一对齐（constant/OrderStatus）：
-      待配送 = status 1（还没开始送）· 配送中 = status 2 · 已完成 = status 4。
+      待配送 = status 1（还没开始送）· 配送中 = status 2 · 今日送达 = 今日实际送达的 status 3/4。
     ⚠️ [2026-09-19] 第一个页签原叫「待接单」，改叫「待配送」：**站长自己也会接单**
     （acceptOrder 允许 DELIVERY 与 STATION_MANAGER），一个"待接单"的标签在站长眼里
     读起来像"还没人派单"，而它实际装的是"本站所有还没开始配送的单"
@@ -40,7 +46,7 @@
       <text class="stat-unit">{{readReady.delivering ? deliveringOrders.length + ' 单' : '待核实'}}</text>
     </view>
     <view class="tab-item {{activeTab === 'completed' ? 'active' : ''}}" bindtap="switchTab" data-tab="completed">
-      <text class="stat-label">已完成</text>
+      <text class="stat-label">今日送达</text>
       <text class="stat-unit">{{readReady.completed ? completedOrders.length + ' 单' : '待核实'}}</text>
     </view>
   </view>
@@ -168,17 +174,17 @@
     </view>
   </view>
 
-  <!-- 已完成列表 -->
+  <!-- 今日实际送达列表：支付状态另列，不能把已送达未收款说成已完成。 -->
   <view class="order-list" wx:elif="{{activeTab === 'completed'}}">
     <view class="order-card" wx:for="{{completedOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
       <view class="card-header">
         <view class="tag-row">
-          <text class="status-tag status-completed">已完成</text>
+          <text class="status-tag {{item.isUnpaid ? 'status-warning' : 'status-completed'}}">{{item.statusText || '当前状态待核实'}}</text>
           <text class="aux-tag aux-offline" wx:if="{{item.isOffline}}">线下</text>
           <text class="aux-tag aux-unpaid" wx:if="{{item.isUnpaid}}">待收款</text>
         </view>
         <text class="order-id">#{{item.id}}</text>
-        <text class="order-time" wx:if="{{item.updateTime}}">{{item.updateTime}}</text>
+        <text class="order-time">{{item.deliveryTime || '送达日期待核实'}}</text>
       </view>
       <view class="address-info" wx:if="{{item.addressDetail || item.addressSnapshot}}">
         <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
@@ -203,7 +209,7 @@
       </view>
     </view>
     <view class="empty-state" wx:if="{{!loading && readReady.completed && completedOrders.length === 0}}">
-      <text class="empty-text">今日暂无已完成订单</text>
+      <text class="empty-text">今日暂无已送达订单</text>
     </view>
   </view>
 
@@ -241,7 +247,7 @@
         </view>
         <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
         <view class="card-actions">
-          <button class="btn-accept" catchtap="onConfirmCollection" data-id="{{item.id}}">确认收款</button>
+          <button class="btn-accept" catchtap="onConfirmCollection" data-id="{{item.id}}" disabled="{{item.collectionBusy}}">{{item.collectionBusy ? '收款待核实' : '确认收款'}}</button>
         </view>
       </view>
     </block>

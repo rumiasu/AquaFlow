@@ -54,10 +54,12 @@ async function test(name, fn) {
 
   function receivablePage(get, post = async () => ({ data: { settledCount: 1, settledAmount: 20 } })) {
     const p = loadPage('miniapp-delivery/pages/station-mgmt/receivables/index.js', {
-      wx: createWx(), app: createApp(), stubs: { 'utils/request': { get, post, put: async () => ({ data: {} }) } }
+      wx: createWx(), app: createApp({ _loginGeneration: 1, globalData: { isLogin: true, accessToken: 'synthetic',
+        userInfo: { staffId: 1, stationId: 11, role: 'STATION_MANAGER' } } }),
+      stubs: { 'utils/request': { get, post, put: async () => ({ data: {} }) } }
     })
     p.setData({ overview: { outstandingAmount: 70 }, customer: { customerId: 2, customerName: '乙', outstandingAmount: 20, dueDays: 7 },
-      orders: [{ orderId: 5, checked: true }], selectedCount: 1 })
+      orders: [{ orderId: 5, customerId: 2, totalAmount: 20, status: 3, paymentStatus: 1, settlementStatus: 1, checked: true }], selectedCount: 1 })
     return p
   }
   function deferred() {
@@ -151,14 +153,17 @@ async function test(name, fn) {
     assert.strictEqual(p.data.loading, false)
     assert.strictEqual(p.data.overview.outstandingAmount, 50)
   })
-  await test('收款前慢明细不能重新带回已收订单', async () => {
+  await test('明细重读未完成前不能登记旧勾选，重新核对后可登记并刷新', async () => {
     const slow = deferred()
     let calls = 0
     const p = receivablePage(async url => url.includes('/orders?') ? (++calls === 1 ? slow.promise : { data: [] }) : summary(50))
     const oldLoad = p.loadOrders()
     await p.onSettle()
-    slow.resolve({ data: [{ orderId: 5, totalAmount: 20 }] })
+    assert.strictEqual(p.__wx.__calls.modal.filter(m => m.title === '核销完成').length, 0)
+    slow.resolve({ data: [{ orderId: 5, customerId: 2, totalAmount: 20, status: 3, paymentStatus: 1, settlementStatus: 1 }] })
     await oldLoad
+    p.onToggleOrder({ currentTarget: { dataset: { id: 5 } } })
+    await p.onSettle()
     assert.deepStrictEqual(p.data.orders, [])
     assert.strictEqual(p.data.ordersLoading, false)
   })

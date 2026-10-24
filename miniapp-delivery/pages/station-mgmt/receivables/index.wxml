@@ -1,5 +1,5 @@
 <!-- 站长端「应收账款」台账。规格见 docs/design/20 §1 / §1.5。
-     金额、逾期天数、核销金额**全部**由服务端下发，本页只展示与勾选（wxml 里没有任何算术）。 -->
+     单笔金额、逾期天数与核销结果由服务端下发；所选合计按整数分相加用于登记前核对。 -->
 <view class="page">
 
   <!-- 总览 -->
@@ -110,7 +110,7 @@
             bindtap="onToggleOrder" data-id="{{item.orderId}}">
         <view class="check {{item.checked ? 'check-on' : ''}}"></view>
         <view class="row-main">
-          <text class="row-title">订单 #{{item.orderId}} · ¥{{item.totalAmount}}</text>
+          <text class="row-title">订单 #{{item.orderId}} · {{item.amountText}}</text>
           <text class="row-sub">
             下单 {{item.createDateText}}
             <text wx:if="{{item.dueDateText}}"> · 应付 {{item.dueDateText}}</text>
@@ -122,7 +122,7 @@
     </view>
 
     <view class="card">
-      <view class="settlement-caution">已选 {{selectedCount}} 单 · 请先核实这几笔钱已实际收到</view>
+      <view class="settlement-caution">已选 {{selectedCount}} 单 · 所选合计 {{selectedAmountText || '待核实'}} · 请先核实这几笔钱已实际收到</view>
       <view class="btn-primary {{settling || loadError || ordersError || !selectedCount ? 'btn-disabled' : ''}}" bindtap="onSettle">
         {{settling ? '登记中…' : '登记已收款（收款 + 销账）'}}
       </view>

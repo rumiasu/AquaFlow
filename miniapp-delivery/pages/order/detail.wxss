@@ -629,3 +629,8 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+.write-recovery { font-size: 28rpx; line-height: 1.6; color: var(--text-regular); }
+.write-recovery text { display: block; white-space: normal; }
+.write-recovery button { margin: 16rpx 0 0; min-height: 88rpx; padding: 16rpx 24rpx; }
+.sheet-item:active, .sheet-cancel:active { background: var(--bg-gray); }

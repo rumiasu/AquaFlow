@@ -3,7 +3,14 @@
   <privacy-popup />
   <view class="info-card" wx:if="{{writePending}}">
     <text>操作仍在处理中，请稍候</text>
+    <button size="mini" bindtap="onVerifyOrderWrite" disabled="{{loading}}">刷新处理状态</button>
   </view>
+  <view class="info-card write-recovery" wx:if="{{writeUnknown}}">
+    <text>{{writeRecoveryText}}</text>
+    <button size="mini" bindtap="onVerifyOrderWrite" loading="{{loading}}" disabled="{{loading}}">核实当前订单</button>
+    <button size="mini" bindtap="onReturnToTasks">返回任务列表</button>
+  </view>
+  <view class="info-card write-recovery" wx:if="{{writeVerifiedText}}"><text>{{writeVerifiedText}}</text></view>
   <view class="info-card" wx:if="{{detailError}}">
     <text wx:if="{{detailOutcomeText}}">{{detailOutcomeText}}</text>
     <text>详情刷新失败：{{detailError}}</text>
@@ -208,11 +215,11 @@
   </view>
 
   <!-- ══ 操作区（2026-10-07 #11，正本 docs/design/36 §3）══
-       主区：完成配送（主，仅 canComplete），导航/确认收款（次），更多操作（低频）。
+       主区：完成配送（主，仅 canComplete），导航与确认收款（各自保留），更多操作（低频）。
        低频动作全部收进下方半屏弹层；所有显示条件（canComplete / canReport / canTransfer /
        canWithdrawTransfer / canReturn / canRequestCancel / 拒付三件套）保留原业务判据；处理器补单次执行和页面身份保护。 -->
   <view class="action-bar" wx:if="{{order.id && !loading && !detailError && !order.transferTarget}}">
-    <button class="action-btn action-nav" bindtap="onNavigate" wx:if="{{!order.canCollect}}">
+    <button class="action-btn action-nav" bindtap="onNavigate">
       <text>导航</text>
     </button>
     <button class="action-btn action-collect" bindtap="onConfirmCollection" wx:if="{{order.canCollect}}" disabled="{{actionBusy}}">

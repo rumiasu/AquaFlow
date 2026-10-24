@@ -2,14 +2,51 @@
 // 那两个文件正被另一个工作流（商品图片库）改动，共用会让两边未提交的改动纠缠在一起。
 // 路径常量写在本文件里，理由同上。
 const { get, post, put } = require('../../../utils/request')
+const { amountCents } = require('../../../utils/collection-confirmation')
 
 const AR = '/api/manager/receivables'
 const CREDIT_TERMS = '/api/manager/customers/'
 
+// 只合计本次勾选的服务端订单金额；按分相加，不推算价格或客户余额。
+const validId = value => (typeof value === 'number' || typeof value === 'string')
+  && /^[1-9]\d*$/.test(String(value)) && Number.isSafeInteger(Number(value))
+const amountText = cents => '¥' + Math.floor(cents / 100) + '.' + String(cents % 100).padStart(2, '0')
+function receivableSession() {
+  const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+  return { app, generation: app._loginGeneration || 0,
+    identity: JSON.stringify([!!g.isLogin, !!g.accessToken, u.staffId, u.role, u.stationId, u.bindStatus]),
+    allowed: !!(g.isLogin && g.accessToken && validId(u.staffId) && validId(u.stationId)
+      && ['STATION_MANAGER', 'manager', 'MANAGER'].includes(u.role) && app.canAccessStationBusiness()) }
+}
+const sameSession = (a, b) => a && b && a.app === b.app && a.generation === b.generation && a.identity === b.identity
+const canRegister = order => order && order.paymentStatus === 1 && order.settlementStatus === 1
+  && [1, 2, 3, 4].includes(order.status)
+function selectedReceivables(orders, customer) {
+  const selected = (orders || []).filter(o => o.checked), rows = [], seen = new Map()
+  let cents = 0
+  for (const order of selected) {
+    if (!validId(order.orderId) || !customer || !validId(customer.customerId)
+      || String(order.customerId) !== String(customer.customerId) || !canRegister(order)) {
+      return { error: '所选订单的客户或收款状态待核实，请重新加载明细' }
+    }
+    const amount = amountCents(order.totalAmount), id = Number(order.orderId)
+    if (amount === null) return { error: '所选订单金额待核实，请重新加载明细' }
+    if (seen.has(id)) {
+      if (seen.get(id) !== amount) return { error: '同一订单金额不一致，请重新加载明细' }
+      continue
+    }
+    seen.set(id, amount); cents += amount
+    if (!Number.isSafeInteger(cents)) return { error: '所选合计超出可核实范围，请减少所选订单' }
+    rows.push({ id, amountText: amountText(amount) })
+  }
+  return { rows, ids: rows.map(row => row.id), amountText: amountText(cents),
+    signature: JSON.stringify(selected.map(o => [o.orderId, o.customerId, o.totalAmount, o.paymentStatus, o.settlementStatus, o.status])) }
+}
+
 /**
  * 站长端「应收账款」台账：待收款 + 账期 + 逾期。规格见 docs/design/20 §1 / §1.5。
  *
- * 口径（全部由服务端算，**前端不重算任何金额**）：
+ * 口径（单笔金额、总览与核销结果均由服务端算）：
  *   · 待收款 = 支付状态为「待收款」且未取消的订单合计（与站长看板的待收款合计同源）
  *   · 账期   = 下单时**快照**进订单的应付日期（due_date）；没设账期的客户为 null（即时结清）
  *   · 逾期   = 有应付日期且已过期的那部分；**逾期只提醒、不改任何金额**
@@ -20,7 +57,7 @@ const CREDIT_TERMS = '/api/manager/customers/'
  *   3. **核销**：把选中的挂账订单「收款 + 核销」一次做完（服务端同一事务）。
  *
  * ⚠️ 四条不要改的地方：
- *   · **不要在这里自己算钱**（合计、逾期金额一律用服务端下发的值）。两条算法迟早算出两个数。
+ *   · 不重算价格、客户余额或逾期金额；登记前只按整数分合计本次所选的已知订单金额。
  *   · 「只看逾期」**只过滤列表的行**（按服务端下发的 `overdueAmount` / `overdueOrderCount`），
  *     顶部三个总览数字**照旧是全量** —— 那三个数由服务端算好，前端不重算，
  *     所以筛选时在标题上说清"列表按逾期筛过"，不假装总额变了。
@@ -48,7 +85,7 @@ Page({
     orders: [],
     ordersLoading: false,
     ordersError: '',
-    selectedCount: 0,
+    selectedCount: 0, selectedAmountText: '',
     settling: false,
     // 账期编辑弹层
     termsVisible: false,
@@ -73,15 +110,29 @@ Page({
   },
 
   onShow() {
+    this._hidden = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
       return
     }
+    const session = receivableSession()
+    if (this._viewSession && !sameSession(this._viewSession, session)) {
+      this.setData({ overview: null, allCustomers: [], customers: [], customer: null, orders: [],
+        selectedCount: 0, selectedAmountText: '', ordersLoading: false, ordersError: '' })
+    }
+    this._viewSession = session
     this.load()
   },
 
+  onHide() {
+    this._hidden = true
+    this._settleRevision = (this._settleRevision || 0) + 1
+    if (this._settleFlight && this._settleFlight.cancelConfirmation) this._settleFlight.cancelConfirmation()
+  },
   onUnload() {
+    this.onHide()
+    this._unloaded = true
     this._overviewRequest = (this._overviewRequest || 0) + 1
     this._ordersRequest = (this._ordersRequest || 0) + 1
   },
@@ -103,11 +154,13 @@ Page({
 
   onFilterAll() {
     if (!this.data.onlyOverdue) return
+    this._settleRevision = (this._settleRevision || 0) + 1
     this.setData({ onlyOverdue: false }, () => this._applyOverdueFilter())
   },
 
   onFilterOverdue() {
     if (this.data.onlyOverdue) return
+    this._settleRevision = (this._settleRevision || 0) + 1
     this.setData({ onlyOverdue: true }, () => this._applyOverdueFilter())
   },
 
@@ -127,16 +180,19 @@ Page({
   /** 从明细返回客户列表时也要刷新（核销后数字会变）。 */
   onBack() {
     this._ordersRequest = (this._ordersRequest || 0) + 1
-    this.setData({ customer: null, orders: [], selectedCount: 0, ordersLoading: false, ordersError: '' })
+    this._settleRevision = (this._settleRevision || 0) + 1
+    this.setData({ customer: null, orders: [], selectedCount: 0, selectedAmountText: '', ordersLoading: false, ordersError: '' })
     this.load()
   },
 
   async load() {
+    const session = receivableSession()
     const request = this._overviewRequest = (this._overviewRequest || 0) + 1
+    const isCurrent = () => request === this._overviewRequest && !this._unloaded && sameSession(session, receivableSession())
     this.setData({ loading: true, loadError: '' })
     try {
       const res = await get(AR)
-      if (request !== this._overviewRequest) return
+      if (!isCurrent()) return
       const d = res && res.data
       if (!d || !Array.isArray(d.customers)) throw new Error('待收账款数据不完整，请重试')
       const current = this.data.customer
@@ -153,11 +209,11 @@ Page({
       })
       this._applyOverdueFilter()
     } catch (err) {
-      if (request !== this._overviewRequest) return
+      if (!isCurrent()) return
       this.setData({ loadError: err.message || '待收账款没加载出来，请重试' })
       wx.showToast({ title: err.message || '台账加载失败', icon: 'none' })
     } finally {
-      if (request === this._overviewRequest) this.setData({ loading: false })
+      if (isCurrent()) this.setData({ loading: false })
     }
   },
 
@@ -170,15 +226,17 @@ Page({
     const id = Number(e.currentTarget.dataset.id)
     const customer = this.data.customers.find(c => c.customerId === id)
     if (!customer) return
-    this.setData({ customer, orders: [], selectedCount: 0 })
+    this._settleRevision = (this._settleRevision || 0) + 1
+    this.setData({ customer, orders: [], selectedCount: 0, selectedAmountText: '' })
     await this.loadOrders()
   },
 
   async loadOrders() {
+    const session = receivableSession()
     const c = this.data.customer
     if (!c) return
     const request = this._ordersRequest = (this._ordersRequest || 0) + 1
-    const isCurrent = () => request === this._ordersRequest && this.data.customer &&
+    const isCurrent = () => request === this._ordersRequest && !this._unloaded && sameSession(session, receivableSession()) && this.data.customer &&
       this.data.customer.customerId === c.customerId
     this.setData({ ordersLoading: true, ordersError: '' })
     try {
@@ -189,9 +247,11 @@ Page({
       const orders = res.data.map(o => Object.assign({}, o, {
         createDateText: String(o.createTime || '').slice(0, 10),
         dueDateText: o.dueDate ? String(o.dueDate).slice(0, 10) : '',
-        overdue: o.overdueDays > 0
+        overdue: o.overdueDays > 0, checked: false,
+        amountText: amountCents(o.totalAmount) === null ? '金额待核实' : amountText(amountCents(o.totalAmount))
       }))
-      this.setData({ orders, selectedCount: 0 })
+      this._ordersReadSession = session
+      this.setData({ orders, selectedCount: 0, selectedAmountText: '' })
     } catch (err) {
       if (!isCurrent()) return
       this.setData({ ordersError: err.message || '待收明细没加载出来，请重试' })
@@ -215,39 +275,79 @@ Page({
     if (this.data.loadError || this.data.ordersError) return
     const id = Number(e.currentTarget.dataset.id)
     const orders = this.data.orders.map(o =>
-      o.orderId === id ? Object.assign({}, o, { checked: !o.checked }) : o)
-    this.setData({ orders, selectedCount: orders.filter(o => o.checked).length })
+      o.orderId === id && canRegister(o) ? Object.assign({}, o, { checked: !o.checked }) : o)
+    this.updateSelection(orders)
+  },
+
+  updateSelection(orders) {
+    this._settleRevision = (this._settleRevision || 0) + 1
+    const selection = selectedReceivables(orders, this.data.customer)
+    this.setData({ orders, selectedCount: new Set(orders.filter(o => o.checked).map(o => String(o.orderId))).size,
+      selectedAmountText: selection.error ? '金额待核实' : selection.amountText })
   },
 
   onSelectAll() {
+    if (this.data.loadError || this.data.ordersError) return
     const orders = this.data.orders || []
     // 只要还有没勾的就全勾上，全勾了就全取消
-    const all = this.data.selectedCount < orders.length
-    const next = orders.map(o => Object.assign({}, o, { checked: all }))
-    this.setData({ orders: next, selectedCount: all ? next.length : 0 })
+    const all = orders.some(o => canRegister(o) && !o.checked)
+    const next = orders.map(o => Object.assign({}, o, { checked: all && canRegister(o) }))
+    this.updateSelection(next)
   },
 
   /**
    * 核销选中的订单：服务端「收款 + 核销」同一事务。
-   * 回显用服务端返回的 settledAmount，不用前端累加（少一处会算出两个数的地方）。
+   * 提交前合计所选订单的已知金额；完成回显仍以服务端 settledAmount 为准。
    */
   async onSettle() {
     if (this.data.loadError || this.data.ordersError) {
       wx.showToast({ title: '数据尚未成功刷新，请先重新加载', icon: 'none' })
       return
     }
-    if (this.data.settling) return
-    const c = this.data.customer
-    const ids = (this.data.orders || []).filter(o => o.checked).map(o => o.orderId)
-    if (!ids.length) {
+    if (this.data.settling || this._settleFlight) return
+    const c = this.data.customer && { ...this.data.customer }
+    const selection = selectedReceivables(this.data.orders, c), session = receivableSession()
+    if (!session.allowed || this._hidden || this._unloaded
+      || this._viewSession && !sameSession(this._viewSession, session)
+      || this._ordersReadSession && !sameSession(this._ordersReadSession, session)) {
+      wx.showToast({ title: '身份或权限已变化，请返回后重新核对', icon: 'none' }); return
+    }
+    if (selection.error) { wx.showToast({ title: selection.error, icon: 'none' }); return }
+    if (!selection.ids.length) {
       wx.showToast({ title: '请先勾选要核销的订单', icon: 'none' })
       return
     }
 
+    const flight = this._settleFlight = {}, revision = this._settleRevision || 0
+    const overviewRequest = this._overviewRequest, ordersRequest = this._ordersRequest, onlyOverdue = this.data.onlyOverdue
+    const current = () => !this._hidden && !this._unloaded && sameSession(session, receivableSession()) && receivableSession().allowed
+    const confirmationCurrent = () => {
+      const next = selectedReceivables(this.data.orders, this.data.customer)
+      return current() && !this.data.loadError && !this.data.ordersError && !this.data.ordersLoading
+        && revision === (this._settleRevision || 0) && overviewRequest === this._overviewRequest && ordersRequest === this._ordersRequest
+        && this.data.onlyOverdue === onlyOverdue && this.data.customer && this.data.customer.customerId === c.customerId
+        && this.data.customer.customerName === c.customerName && !next.error && next.signature === selection.signature
+    }
     this.setData({ settling: true })
     try {
-      const res = await post(AR + '/settle', { customerId: c.customerId, orderIds: ids })
-      const d = res.data || {}
+      const confirmed = await new Promise(resolve => {
+        flight.cancelConfirmation = () => resolve(false)
+        wx.showModal({ title: '确认登记已收款', confirmText: '已收登记', cancelText: '再核对',
+          content: '客户：' + (c.customerName || '客户 #' + c.customerId) + '（#' + c.customerId + '）\n'
+            + selection.rows.map(row => '订单 #' + row.id + '：' + row.amountText).join('\n')
+            + '\n所选 ' + selection.ids.length + ' 单，合计 ' + selection.amountText
+            + '\n\n请确认上述款项已实际收到。登记后会记为已收款并销掉这些应收账，不会代客户付款。',
+          success: result => resolve(!!result.confirm), fail: () => resolve(false) })
+      })
+      delete flight.cancelConfirmation
+      if (!confirmed) return
+      if (!confirmationCurrent()) { wx.showToast({ title: '所选订单或查看条件已变化，请重新核对后登记', icon: 'none' }); return }
+      const res = await post(AR + '/settle', { customerId: c.customerId, orderIds: selection.ids })
+      if (!current()) return
+      const d = res && res.data
+      if (!d || !Number.isSafeInteger(d.settledCount) || d.settledCount < 0 || amountCents(d.settledAmount) === null) {
+        throw Object.assign(new Error('登记回执不完整'), { malformedResponse: true })
+      }
       wx.showModal({ confirmText: '知道了',
         title: '核销完成',
         content: '已核销 ' + d.settledCount + ' 单，金额 ¥' + d.settledAmount +
@@ -255,13 +355,28 @@ Page({
           (d.alreadySettledCount ? '\n另有 ' + d.alreadySettledCount + ' 单此前已核销（已跳过）' : ''),
         showCancel: false
       })
-      this.setData({ selectedCount: 0 })
+      this.setData({ selectedCount: 0, selectedAmountText: '' })
       await Promise.all([this.load(), this.loadOrders()])
     } catch (err) {
-      // 服务端整批回滚并说明是哪一单、为什么（不会出现"部分核销"）
-      wx.showModal({ confirmText: '知道了', title: '核销未完成', content: err.message || '请稍后重试', showCancel: false })
+      if (!current()) return
+      const unknown = err && (err.requestMayHaveOccurred === true || err.resultUnknown || err.malformedResponse
+        || Number(err.statusCode) >= 500 || Number(err.backendCode) >= 500)
+      if (unknown) {
+        this._settleRevision = (this._settleRevision || 0) + 1
+        this.setData({ orders: this.data.orders.map(o => ({ ...o, checked: false })), selectedCount: 0, selectedAmountText: '',
+          ordersError: '登记结果待核实，请重新加载明细；核实前请勿重复登记，也不要再次向客户收款。' })
+        wx.showModal({ confirmText: '知道了', title: '登记结果待核实', showCancel: false,
+          content: '此次操作只登记已收到的钱，不会向客户扣款。回应未能确认，登记可能已完成，请勿再次向客户收款。\n\n已清除勾选，正在重新读取台账与待收明细核实，不会自动重发登记。' })
+        await Promise.all([this.load(), this.loadOrders()])
+        const verificationError = this.data.ordersError || this.data.loadError
+        if (current() && verificationError) this.setData({ ordersError: '登记结果仍待核实。' + verificationError
+          + '。核实前请勿重复登记，也不要再次向客户收款。' })
+      } else {
+        // 明确拒绝保留原原因；请求可能执行的异常只进入上面的只读核实分支。
+        wx.showModal({ confirmText: '知道了', title: '核销未完成', content: err.message || '请稍后重试', showCancel: false })
+      }
     } finally {
-      this.setData({ settling: false })
+      if (this._settleFlight === flight) { this._settleFlight = null; if (!this._unloaded) this.setData({ settling: false }) }
     }
   },
 

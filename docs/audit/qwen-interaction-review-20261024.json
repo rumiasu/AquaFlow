@@ -8,31 +8,272 @@
   "productionDeployed": false,
   "productionDatabaseAccessed": false,
   "review": [
-    {"id":"QW01","priority":"P1","verification":"partly_confirmed","finding":"回桶历史错筛2；永远空/恒0为过度概括","status":"verified_pending_fix"},
-    {"id":"QW02","priority":"P1","verification":"confirmed","finding":"今日回桶遗漏3且更新时间导致日期漂移","status":"verified_pending_fix"},
-    {"id":"QW03","priority":"P1","verification":"partly_confirmed","finding":"detail已有在途锁，未知结果后缺核实恢复","status":"verified_pending_fix"},
-    {"id":"QW04","priority":"P1","verification":"confirmed","finding":"home无订单级收款锁；home/detail确认缺金额后果","status":"verified_pending_fix"},
-    {"id":"QW05","priority":"P1","verification":"partly_confirmed","finding":"收款重复入账未证实；退回站长重放可重复待审批","status":"verified_pending_fix"},
-    {"id":"QW06","priority":"P1","verification":"confirmed","finding":"应收登记缺所选可信合计确认，并非外部扣款","status":"verified_pending_fix"},
-    {"id":"QW07","priority":"P2","verification":"confirmed","finding":"现金待收款导航与收款互斥","status":"verified_pending_fix"},
-    {"id":"QW08","priority":"P2","verification":"confirmed","finding":"未登录登录/重载共显，template新建按钮同位","status":"verified_pending_fix"},
-    {"id":"QW09","priority":"P2","verification":"overstated","finding":"三次下单提示有各自条件，不是必经","status":"deferred"},
-    {"id":"QW10","priority":"P2","verification":"partly_confirmed","finding":"钱的名称可统一，权益份数不能与金额合并","status":"deferred"},
-    {"id":"QW11","priority":"P2","verification":"partly_confirmed","finding":"新桶账仍可展开；负over不全是多还实物","status":"deferred"},
-    {"id":"QW12","priority":"P2","verification":"overstated","finding":"显式hover数量不能证明普遍无反馈","status":"deferred"},
-    {"id":"QW13","priority":"P2","verification":"partly_confirmed","finding":"合法6位色值有局部漂移，旧36被37替代","status":"deferred"},
-    {"id":"QW14","priority":"P2","verification":"partly_confirmed","finding":"部分空态缺行动；桶新模型已有押金入口","status":"deferred"},
-    {"id":"QW15","priority":"P2","verification":"partly_confirmed","finding":"shop已处理safe，template仅固定按钮未偏移","status":"verified_pending_fix"},
-    {"id":"QW16","priority":"P2","verification":"partly_confirmed","finding":"template固定件但无计费/数量错误证据","status":"deferred"},
-    {"id":"QW17","priority":"P2","verification":"partly_confirmed","finding":"待收款卡片无拨号但详情联系仍可达","status":"deferred"},
-    {"id":"QW18","priority":"P2","verification":"partly_confirmed","finding":"缺3/5筛选；已加载角标范围已说明","status":"deferred"},
-    {"id":"QW19","priority":"P2","verification":"overstated","finding":"合法级联未证实状态标签消失","status":"deferred"},
-    {"id":"WB08","priority":"P1","verification":"confirmed_existing","finding":"普通反馈后端重复建单仍是既有问题","status":"retained"}
+    {
+      "id": "QW01",
+      "priority": "P1",
+      "verification": "partly_confirmed",
+      "finding": "回桶历史错筛2；永远空/恒0为过度概括",
+      "status": "fixed",
+      "change": "历史限本人3/4且保留零回桶和无日期旧单，展示只读deliveryTime，不回退更新时间。"
+    },
+    {
+      "id": "QW02",
+      "priority": "P1",
+      "verification": "confirmed",
+      "finding": "今日回桶遗漏3且更新时间导致日期漂移",
+      "status": "fixed",
+      "change": "今日列表与统计共用BusinessTime业务日半开区间；最早COMPLETE优先，type8备用，预聚合JOIN不按明细复制订单；未知历史日期单列。"
+    },
+    {
+      "id": "QW03",
+      "priority": "P1",
+      "verification": "partly_confirmed",
+      "finding": "detail已有在途锁，未知结果后缺核实恢复",
+      "status": "partially_fixed",
+      "change": "详情六类受控动作保留原在途与身份守卫，新增跨页持久未知结果核实；只认当前正向事实，不以未付证明失败。普通反馈WB08仍未全面闭环。"
+    },
+    {
+      "id": "QW04",
+      "priority": "P1",
+      "verification": "confirmed",
+      "finding": "home无订单级收款锁；home/detail确认缺金额后果",
+      "status": "fixed",
+      "change": "home/detail使用可信金额和记账后果确认；home按订单单飞。未知记录跨home/detail、离页及续期保留，存储故障有内存兜底；只读查询失败可重试不生成未知写。"
+    },
+    {
+      "id": "QW05",
+      "priority": "P1",
+      "verification": "partly_confirmed",
+      "finding": "收款重复入账未证实；退回站长重放可重复待审批",
+      "status": "fixed",
+      "change": "订单锁后当前读STAFF待审批申请；唯一同归属RETURN_STATION幂等返回，其他或重复待办拒绝；不追加备注/申请。收款原有后端守卫保留。"
+    },
+    {
+      "id": "QW06",
+      "priority": "P1",
+      "verification": "confirmed",
+      "finding": "应收登记缺所选可信合计确认，并非外部扣款",
+      "status": "fixed",
+      "change": "整数分汇总所选可信订单，确认客户/逐单/合计/已实际收到；旧确认随身份、选中和读取条件变化失效。未知回执清勾选、只GET核实，不自动重发。"
+    },
+    {
+      "id": "QW07",
+      "priority": "P2",
+      "verification": "confirmed",
+      "finding": "现金待收款导航与收款互斥",
+      "status": "fixed",
+      "change": "导航与现金收款入口并存。"
+    },
+    {
+      "id": "QW08",
+      "priority": "P2",
+      "verification": "confirmed",
+      "finding": "未登录登录/重载共显，template新建按钮同位",
+      "status": "fixed",
+      "change": "未登录仅登录行动，template无权/未登录隐藏并守卫新建。"
+    },
+    {
+      "id": "QW09",
+      "priority": "P2",
+      "verification": "overstated",
+      "finding": "三次下单提示有各自条件，不是必经",
+      "status": "deferred"
+    },
+    {
+      "id": "QW10",
+      "priority": "P2",
+      "verification": "partly_confirmed",
+      "finding": "钱的名称可统一，权益份数不能与金额合并",
+      "status": "deferred"
+    },
+    {
+      "id": "QW11",
+      "priority": "P2",
+      "verification": "partly_confirmed",
+      "finding": "新桶账仍可展开；负over不全是多还实物",
+      "status": "deferred"
+    },
+    {
+      "id": "QW12",
+      "priority": "P2",
+      "verification": "overstated",
+      "finding": "显式hover数量不能证明普遍无反馈",
+      "status": "deferred"
+    },
+    {
+      "id": "QW13",
+      "priority": "P2",
+      "verification": "partly_confirmed",
+      "finding": "合法6位色值有局部漂移，旧36被37替代",
+      "status": "deferred"
+    },
+    {
+      "id": "QW14",
+      "priority": "P2",
+      "verification": "partly_confirmed",
+      "finding": "部分空态缺行动；桶新模型已有押金入口",
+      "status": "deferred"
+    },
+    {
+      "id": "QW15",
+      "priority": "P2",
+      "verification": "partly_confirmed",
+      "finding": "shop已处理safe，template仅固定按钮未偏移",
+      "status": "fixed",
+      "change": "仅template固定按钮和对应内容预留补安全区，shop原已具备。"
+    },
+    {
+      "id": "QW16",
+      "priority": "P2",
+      "verification": "partly_confirmed",
+      "finding": "template固定件但无计费/数量错误证据",
+      "status": "deferred"
+    },
+    {
+      "id": "QW17",
+      "priority": "P2",
+      "verification": "partly_confirmed",
+      "finding": "待收款卡片无拨号但详情联系仍可达",
+      "status": "deferred"
+    },
+    {
+      "id": "QW18",
+      "priority": "P2",
+      "verification": "partly_confirmed",
+      "finding": "缺3/5筛选；已加载角标范围已说明",
+      "status": "deferred"
+    },
+    {
+      "id": "QW19",
+      "priority": "P2",
+      "verification": "overstated",
+      "finding": "合法级联未证实状态标签消失",
+      "status": "deferred"
+    },
+    {
+      "id": "WB08",
+      "priority": "P1",
+      "verification": "confirmed_existing",
+      "finding": "普通反馈后端重复建单仍是既有问题",
+      "status": "retained_with_detail_mitigation",
+      "change": "详情未知反馈保守阻断，未对后端建立原申请幂等凭据；首页普通反馈和拒付等无法可靠匹配的核实仍需后续闭环，不宣称全部修复。"
+    }
   ],
   "verification": {
     "initialBackendAssertions": 17,
     "initialFrontendCounterexamples": 2,
     "initialExistingFrontendChecks": 154,
-    "boundary": "源码、隔离内存SQL与平台替身；不是生产MySQL并发、真实渠道或原生视觉验收"
+    "boundary": "源码、隔离内存SQL与平台替身；不是生产MySQL并发、真实渠道或原生视觉验收",
+    "final": {
+      "backendUnitChecks": {
+        "passed": 41,
+        "failed": 0,
+        "newChecksIncluded": 8
+      },
+      "mapperH2Checks": {
+        "passed": 9,
+        "failed": 0,
+        "standaloneSource": "tests/java/DeliveryEventSqlProbe.java"
+      },
+      "newFrontendChecks": [
+        {
+          "suite": "delivery-event-time-view.test.js",
+          "passed": 5,
+          "baselinePassed": 0,
+          "baselineFailed": 5
+        },
+        {
+          "suite": "qwen-collection-recovery.test.js",
+          "passed": 47,
+          "baselinePassed": 7,
+          "baselineFailed": 40
+        },
+        {
+          "suite": "scoped-receivables-login.test.js",
+          "passed": 52,
+          "baselinePassed": 1,
+          "baselineFailed": 51
+        }
+      ],
+      "relatedFrontendChecks": [
+        {
+          "suite": "delivery-detail-actions.test.js",
+          "passed": 73
+        },
+        {
+          "suite": "delivery-home-station-identity.test.js",
+          "passed": 17
+        },
+        {
+          "suite": "customer-order-receivables-truth.test.js",
+          "passed": 25
+        },
+        {
+          "suite": "page-failure-recovery.test.js",
+          "passed": 110
+        }
+      ],
+      "nativePackagingChecks": [
+        {
+          "suite": "wechat-shared-module-import.test.js",
+          "passed": 7
+        },
+        {
+          "suite": "modal-copy-limit.test.js",
+          "passed": 1
+        }
+      ],
+      "javaCompile": {
+        "mainSources": 439,
+        "testSources": 221,
+        "passed": true,
+        "addedHttpTestsCompiledSeparately": 2
+      },
+      "javascriptSyntax": {
+        "files": 185,
+        "failed": 0
+      },
+      "negativeBackendBehaviors": [
+        "旧历史返回集错误",
+        "旧每日日期返回集错误",
+        "旧退回申请实际插入2条而非1条"
+      ],
+      "notRun": [
+        "受保护MySQL/HTTP集成与Spring上下文（未提供可用的精确测试库目标）",
+        "生产MySQL执行计划/事务并发",
+        "CI Actions状态查询",
+        "原生手机视觉/触控",
+        "真实登录、收款、退款及部署"
+      ]
+    },
+    "evidenceSha256": {
+      "focused-unit-final.log": "b481a4adba38015e27ebe4513b3bf4f2a485ae12036280bc51fa7f6070f69549",
+      "sql-probe-final.log": "154cfa4602afd0bf33ca64c9fd3c539a0ca00f0736803374b7d1cee194e5d415",
+      "baseline-history.log": "f3b8fcea6d55afb01a6c6eb8c055b9bac5b71021b295e48b1df60e4bff4056d4",
+      "baseline-daily.log": "db3597ff310beefcad6a8e8e6842442e4f9dc5c8896caf5b7503ea68481dea29",
+      "baseline-return.log": "bd5434ea49a8a2496663347deb4bffbdd62729b7809dec8987d63e1fb96ef9fb",
+      "qwen-collection-new.log": "9e0c20b71551a35dbdcf2c181a7ad773de70857026ee1471d0f6f9494edd7557",
+      "qwen-collection-baseline.log": "c0437df562a4de7ac9faf1f27de9cd5d05662eae55b2674653629effba8a1d00",
+      "af-qwen-receivables-positive.log": "b1ef6e2f015844cddaa849c40467567d151906613fd1a4f0ab3454181204bacd",
+      "receivables-negative-final.log": "74e1a33f46edf0758ade4943633e7c144e4684db4fa5fba418f3bd8d4ef01421",
+      "delivery-event-time-view.test.js.log": "ebffcfd62162efe35e4aaa4060ac8c00d12da973496f5d593ecc5e8ccc68978f",
+      "page-failure-recovery.test.js.log": "cf38755a295a5cf7b493c7ab425d3903765806d652d14f6e4b2f8fd18df2f1b8",
+      "compile-main.log": "efb628a7f71b77c369fcadf773d5a62d8dfd68753efeeb8828a4028e883a83fc",
+      "compile-tests.log": "1d6d0ca519acfd3053c4dc8322963d6bfe612eeec62e2b7569bcc4b55d1162b1",
+      "formal-integration-compile.log": "e6719c4e7b4d72693fd71e32dd4c25cf4475c27a9e38f3ed822ef1a327375b1b"
+    }
+  },
+  "fixCommits": [
+    "e7a4166",
+    "feb0304"
+  ],
+  "deployment": {
+    "backendUploadRequired": true,
+    "customerMiniappUploadRequired": true,
+    "staffMiniappUploadRequired": true,
+    "databaseMigrationRequired": false,
+    "newConfigurationRequired": false,
+    "pulisiMappingPreserved": true,
+    "boundary": "本轮仅代码同步；不干扰013旧基线部署，不声明线上已包含本修复。新前端与后端宜作为同批版本同步。"
   }
 }

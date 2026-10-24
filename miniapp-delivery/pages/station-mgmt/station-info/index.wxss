@@ -31,14 +31,14 @@
 .btn-primary {
   width: 100%; margin-top: 32rpx; padding: 22rpx;
   background: var(--primary-gradient); color: #fff;
-  border: none; border-radius: 12rpx; font-size: 30rpx;
+  border: none; border-radius: 12rpx; font-size: 16px;
 }
 .btn-primary.btn-disabled { opacity: 0.6; }
 /* 清除坐标：破坏性操作，用描边按钮（不是实心红），避免误触 */
 .btn-danger-ghost {
   width: 100%; margin-top: 16rpx; padding: 22rpx;
   background: transparent; color: var(--error-color);
-  border: 1rpx solid var(--error-color); border-radius: 12rpx; font-size: 28rpx;
+  border: 1rpx solid var(--error-color); border-radius: 12rpx; font-size: 14px;
 }
 
 .page-note { font-size: 24rpx; color: var(--text-secondary); line-height: 1.6; padding: 8rpx 8rpx 40rpx; }
@@ -52,4 +52,4 @@
 .field-input { min-height:96rpx; border:1rpx solid var(--border-color); border-radius:10rpx; font-size:30rpx; box-sizing:border-box; }
 .field-textarea { border:1rpx solid var(--border-color); border-radius:10rpx; font-size:30rpx; line-height:1.6; }
 .field-hint,.card-sub { color:var(--text-regular); font-size:28rpx; line-height:1.6; overflow-wrap:anywhere; }
-.btn-primary,.btn-danger-ghost { min-height:96rpx; height:auto; line-height:1.5; border-radius:10rpx; padding:20rpx; box-sizing:border-box; font-size:30rpx; }
+.btn-primary,.btn-danger-ghost { min-height: 48px; height:auto; line-height:1.5; border-radius:10rpx; padding:20rpx; box-sizing:border-box; font-size: 16px; }

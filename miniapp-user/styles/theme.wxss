@@ -112,4 +112,4 @@
 }
 
 /* 2026-10-22：主动作保持完整触控高度，长文字允许换行。 */
-.btn-primary, .btn-outline, .btn-gradient, .btn-success { box-sizing: border-box; min-height: 88rpx; display: flex; align-items: center; justify-content: center; line-height: 1.45; white-space: normal; }
+.btn-primary, .btn-outline, .btn-gradient, .btn-success { box-sizing: border-box; min-height: 48px; display: flex; align-items: center; justify-content: center; line-height: 1.45; white-space: normal; }

@@ -137,17 +137,16 @@
 
 .btn-action {
   border-radius: 20rpx;
-  font-size: 30rpx;
+  font-size: 14px;
   padding: 24rpx 0;
   text-align: center;
   border: none;
   font-weight: 600;
-  height: 88rpx;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
-}
+  line-height: 1; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 .btn-action::after {
   border: none;
@@ -279,7 +278,7 @@
 .value { min-width: 0; white-space: normal; word-break: break-all; }
 .item-name { font-size: 32rpx; }
 .item-price, .fee-total .value { font-size: 36rpx; font-weight: 700; }
-.btn-action { min-height: 96rpx; height: auto; padding: 24rpx 20rpx; box-sizing: border-box; border-radius: var(--radius-md); line-height: 1.5; display: flex; align-items: center; justify-content: center; }
+.btn-action { min-height: 44px; height: auto; padding: 24rpx 20rpx; box-sizing: border-box; border-radius: var(--radius-md); line-height: 1.5; display: flex; align-items: center; justify-content: center; }
 .action-section { gap: 16rpx; flex-wrap: wrap; }
 
 /* 本页所有状态共用的可读与触控边界。 */

@@ -177,7 +177,7 @@
 }
 
 .btn-reorder, .btn-cancel {
-  font-size: 24rpx;
+  font-size: 14px;
   padding: 8rpx 24rpx;
   border-radius: 30rpx;
   line-height: 1.6;
@@ -202,7 +202,7 @@
 .order-id { font-size: 26rpx; }
 .status-tag, .pay-tag { font-size: 24rpx; line-height: 1.5; }
 .address { font-size: 28rpx; word-break: break-all; }
-.btn-pay, .btn-reorder, .btn-cancel { min-height: 88rpx; display: flex; align-items: center; justify-content: center; padding: 16rpx 24rpx; line-height: 1.5; font-size: 28rpx; border-radius: var(--radius-md); box-sizing: border-box; margin: 0; }
+.btn-pay, .btn-reorder, .btn-cancel { min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 16rpx 24rpx; line-height: 1.5; font-size: 14px; border-radius: var(--radius-md); box-sizing: border-box; margin: 0; }
 .btn-pay { color: #fff; background: var(--primary-color); }
 .order-item-row { flex-wrap: wrap; }
 

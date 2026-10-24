@@ -224,11 +224,11 @@ Page({
         ? `确认已收到该客户支付 ¥${item.amountText}？确认后订单将标记为已付款。`
         : `确认已收到该客户的${item.purposeText} ¥${item.amountText}？请核对款项用途和实际到账后登记。`
 
-    wx.showModal({
+    wx.showModal({ cancelColor: '#637083',
       title: '确认收款',
       content: what,
       confirmText: '确认到账',
-      confirmColor: '#2E9E6B',
+      confirmColor: '#1264D6',
       success: async (res) => {
         if (!res.confirm || this.data.view !== 'pending' || seq !== this._paymentsSeq) return
         wx.showLoading({ title: '确认中...' })

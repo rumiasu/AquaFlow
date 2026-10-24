@@ -147,7 +147,7 @@ Page({
   /** 让站长填一句理由（必填）。返回 null = 取消或没填。 */
   askNote(title, placeholder) {
     return new Promise((resolve) => {
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title,
         editable: true,
         placeholderText: placeholder,
@@ -184,7 +184,7 @@ Page({
       const res = await get(EXCEPTIONS + '/' + id)
       dto = (res && res.data) || null
     } catch (err) {
-      wx.showModal({ confirmText: '知道了', title: '读取异常单失败', content: (err && err.message) || '请稍后重试', showCancel: false })
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '读取异常单失败', content: (err && err.message) || '请稍后重试', showCancel: false })
       return
     }
     if (!dto) return
@@ -193,7 +193,7 @@ Page({
     if (dto.suggestedTicketQty) lines.push(`退水票 ${dto.suggestedTicketQty} 张`)
     if (dto.suggestedCashAmount) lines.push(`退现金 ¥${dto.suggestedCashAmount}`)
     if (!lines.length) {
-      wx.showModal({ confirmText: '知道了',
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '系统没有给出补偿建议',
         content: '这张异常单没有可执行的补偿项，只能选择「忽略」。',
         showCancel: false
@@ -205,12 +205,12 @@ Page({
     if (note === null) return
 
     const ok = await new Promise((resolve) => {
-      wx.showModal({
+      wx.showModal({ cancelColor: '#637083',
         title: '确认按系统建议补偿',
         content: `本单将执行：${lines.join('、')}。\n\n`
           + '金额与数量由系统算出，不能修改；执行后不可撤销，如需纠正只能另建反向调整单。',
         confirmText: '确认执行',
-        confirmColor: '#B5442C',
+        confirmColor: '#BD3328',
         success: (r) => resolve(r.confirm)
       })
     })
@@ -241,7 +241,7 @@ Page({
       return true
     } catch (err) {
       wx.hideLoading()
-      wx.showModal({ confirmText: '知道了',
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '处理失败',
         content: (err && err.message) || '请稍后重试',
         showCancel: false
@@ -260,7 +260,7 @@ Page({
       this.load()
     } catch (err) {
       wx.hideLoading()
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '补偿执行失败',
         content: ((err && err.message) || '请稍后重试') + '\n\n处理意见已登记，可在本单上重试执行。',
         confirmText: '重试',

@@ -14,10 +14,9 @@
   padding: 20rpx 24rpx;
   margin-bottom: 24rpx;
   border-radius: var(--radius-sm);
-  background: var(--warning-bg);
-  border-left: 6rpx solid var(--warning-color);
-  flex-wrap: wrap;
-}
+  background: var(--bg-gray);
+  border-left: 4rpx solid var(--primary-color);
+  flex-wrap: wrap; color: var(--text-regular); }
 
 .doc-notice-tag {
   flex-shrink: 0;
@@ -86,7 +85,7 @@
   line-height: 1.6;
 }
 
-.doc-notice button { min-height: 88rpx; padding: 18rpx 28rpx; font-size: 26rpx; line-height: 1.6; border-radius: var(--radius-sm); color: var(--primary-color); background: #fff; margin: 0; }
+.doc-notice button { min-height: 44px; padding: 18rpx 28rpx; font-size: 14px; line-height: 1.6; border-radius: var(--radius-sm); color: var(--primary-color); background: #fff; margin: 0; }
 .doc-heading { border-left: 5rpx solid var(--primary-color); padding-left: 16rpx; }
 .doc-body { white-space: pre-wrap; word-break: break-all; }
 

@@ -1,0 +1,14 @@
+{
+  "baseline": "74c1ce15c1770da81982dd7a9f6a9942a05f6609",
+  "items": [
+    { "id": "FEEDBACK-SURFACES", "priority": "P1", "status": "fixed-in-source", "evidence": "Shared warm feedback backgrounds and local overrides; css-changes.json", "nativeAccepted": false },
+    { "id": "ACTION-CONSISTENCY", "priority": "P1", "status": "fixed-in-source", "evidence": "44/48px target floors, disabled rules, 169 direct modal options and 5 wrappers; coverage.json/native-proof.json", "nativeAccepted": false },
+    { "id": "SERVICE-STATION-ENGLISH", "priority": "unconfirmed", "status": "exact-phrase-and-source-unresolved", "mitigation": "Strict technical/placeholder display guard; genuine English names, source identity and notes preserved", "blocker": "Both new Library PNGs failed initial supported materialization and one fresh-transfer retry; no pixels viewed", "evidence": "screenshot-access.json" },
+    { "id": "PRODUCT-UPLOAD-RUNTIME", "priority": "P1", "status": "carried-unresolved", "mitigation": "No new upload changes; previous safe diagnostics remain", "blocker": "No same-attempt real response", "resolvedByThisVisualBatch": false }
+  ],
+  "backendChanged": false,
+  "migrationNeeded": false,
+  "miniappsToUpload": ["miniapp-user", "miniapp-delivery"],
+  "productionDeployed": false,
+  "allPagesVisuallyAccepted": false
+}

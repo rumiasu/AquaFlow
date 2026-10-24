@@ -1,0 +1,1325 @@
+{
+  "baseline": "74c1ce15c1770da81982dd7a9f6a9942a05f6609",
+  "sourceFiles": [
+    {
+      "file": "miniapp-delivery/app.wxss",
+      "sha256": "555488ff427ab338837e85b52d21c3eb2e0f2921e3483332a62f7b71dc7f04f0",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/behaviors/stationNavbar.js",
+      "sha256": "b1c55008bfdf59fc032235f3196daeb41a7f7d7cc1d63fb3c54221db454b0646",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/components/HelpTip/index.js",
+      "sha256": "c69adcf28c3783589bc7db0912e17da6ccdb5c1ec37006a0b05d1752abe05f36",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/components/PrivacyPopup/index.wxss",
+      "sha256": "27c0175bf29892216d0964745eea3c43eef4eb1960055de513982fe39e2182da",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/bind-wait/index.js",
+      "sha256": "a5b67cf44876e3bb800ce556edd52566a96a1b99bd4be1900266feeb24f1295f",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/bind-wait/index.wxss",
+      "sha256": "200d15d5e4e7dbf0028df0b798d8cf41f04d66bb085e015922f1467a5a99ce47",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/coordination/index.js",
+      "sha256": "9c19e1f5ffbfb5edc02b77b8bf4e5bc5a6d8baa2d5acc3536e9adb96e484c01a",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/coordination/index.wxss",
+      "sha256": "51e9ba16a18817df5b738f7eca4146faa61808cbf86af6780a7606c56db73ace",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/home/index.js",
+      "sha256": "0a130388a61a935aa35cd70e64c9a8eff67c3071f6662774c667ed0c060b8c62",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/home/index.wxss",
+      "sha256": "a78a67b4eff24fc7f7f4e9bef69e7b3a06c46642713f539ff5ea98dea88669ae",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/login/index.js",
+      "sha256": "25de32c1db3172ab6d11f5197f54338bfdd9e0f5e573e3ff61be7371db945e52",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/login/index.wxss",
+      "sha256": "5ade652425e1c28285e312c2fd459de776c0aa2a866e3e25e3b930ae2c57b2ac",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/mine/account-data/index.wxss",
+      "sha256": "5557e9f67e550085b3684cfe4c4550308c6b00b71b2d728f883ef6a843a8b2c9",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/mine/agreement/index.wxss",
+      "sha256": "3efd7a6a7d3ef2602ccd11db4fc11ef426630c25398775d0989ee4aee34676aa",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/mine/edit.wxss",
+      "sha256": "a213920b62b040b1d1a48ff16ca06472a4b20fbfe06062fd8af97f4e8e0187a5",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/mine/index.js",
+      "sha256": "1fb514dcebfc448795d46a8ea3b916a7001a3081ae903eb55618db53d99daafd",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/mine/index.wxss",
+      "sha256": "bf098fffd04a864cbb6de333eaee51da48fa6bbff7b6856c90f7815312dade70",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/order/complete.js",
+      "sha256": "416b458252226c88abc4acc54a3de8aebecfc91360dfb8ce50690069303358c1",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/order/complete.wxss",
+      "sha256": "c52e4fbccefdd53517165c78c522b69f56dbf9b604e49ee167197abf3d9165ff",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/order/detail.js",
+      "sha256": "9cf3cbda04bd3d9a32c238aeb66085ba234028166c76fff7c180bd631fe044c9",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/order/detail.wxss",
+      "sha256": "146c06e8d051188c7c1a0c64d8e2d3ebcd9fd749eafb73d78c9a38ddd0b33a7a",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/report/index.js",
+      "sha256": "ed6e8676f5cef4a50b918e7827abb129453cfc7748f0051277eaa76daaef716c",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/report/index.wxss",
+      "sha256": "9cd370d9501ad37e9dc8411ae01fcbdddda5e4ef6794eda397df7313e56f50a3",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/role-select/index.js",
+      "sha256": "b20348618cb9839c0442d8b23fd77fcb4a501b830582f4942046c236915ae30c",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/role-select/index.wxss",
+      "sha256": "695a530bac5395b16672b4528067bc2508c022023d2db4e7030239e59900b501",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/settings/index.js",
+      "sha256": "38db5179406f1cec64db415d708c1cf96f5dc38a1de20c89ffd42234386a534a",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/settings/index.wxss",
+      "sha256": "bb6a78d2cfb85a76e37ad0f67fa28fb7873c6d2cf8b4e8bf83c1657374be1c49",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/apply-bind/index.js",
+      "sha256": "5b604c544262ffca64897f9c603c60723ab469f63408008f83c1195494748eda",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/apply-bind/index.wxss",
+      "sha256": "d7cba743751142fa86cd3a5566395d4a501bf49bb2a252cccd5c974087b1d8ac",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/asset-claims/index.wxss",
+      "sha256": "f590af2c6b64f1286cc22a9b8bc5d195207b424e340acbc69a78373f720d03de",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/barrel-return/index.js",
+      "sha256": "28bb07702ab1692991bde65fd794b6cc09dca43da163ff78afda548eccb61e4d",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxss",
+      "sha256": "b79d830182e43ff0570c70a9be6903ca4ebb786dcc8c7dd5879a2aad47c02cf2",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/business-waiting/index.js",
+      "sha256": "eed5303e83f9b07cd9af572f4d484ecf77990c7212644d0ff89fc211f1183efe",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxss",
+      "sha256": "b8e169104e53a034564cb3998d10edca74b8c8917769c2f2650cbee887de41c5",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/create-station/index.js",
+      "sha256": "355be299edabdbec7fd5e5fc6189106a53536e71d3594b4ca096cbd8cbe294b1",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/create-station/index.wxss",
+      "sha256": "3c73bc7c8b2f3da1adb7a99ddd4d3f84fe28de9acff2d690832ad32a1566705e",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxss",
+      "sha256": "b4aeb77b99c2fe84626af9ae279e1b40be70314307d586a3acd922cecd3f378d",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.js",
+      "sha256": "338333a0352c8f4067507f5c56adac4cf93107c5da514d5383cfafcf43094d67",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.wxss",
+      "sha256": "3c3ff8875ba5d6390d2da7da95918344225b6417a2987c29825d994dbaa6c493",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.js",
+      "sha256": "d2e1647b414a6f2bb3a9faa8209e8d00f7d928b95cd17ca2b795f1c13b48e784",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.wxss",
+      "sha256": "665739478a959d37e0ef1076311249841d29a0925b95079419cef9491429b9ff",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.js",
+      "sha256": "180ff50687c1f636561033912c92a5b8bb7a7598ad20c34631021787ddc83364",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.wxss",
+      "sha256": "b8d5342d783cdcf7cdfdf5610e1ea649cb0dbf428171d2c1404ffdb038b67daf",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+      "sha256": "f0a6dfae06a153c41409518568ebe8ac46dc599206da2944aa1f7990d8d9cdce",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxss",
+      "sha256": "7348c14d357efb24d3b40815fef940fddbc693c4d98f1558f6b94fccfcb0670c",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/index.js",
+      "sha256": "f18b52cfe3347dd8a8f41c463a7cc21081b66fbb20044fc7a64ee1db02dcf5f9",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/index.wxss",
+      "sha256": "eb7a477707ab46bd40b79f75df636edd4d4dcba73d7dba5cad6c907c61f36dae",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxss",
+      "sha256": "d127700f5b6c7dbc5a88ec49a0041bd021269bf6409751bba92fe84535ace2b7",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/exceptions/index.js",
+      "sha256": "b499b52fa0cb01acca47788345fc5cf82cc9cc9e8b37b76fee0ed7f442c31b3b",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/exceptions/index.wxss",
+      "sha256": "41400c6de6b7b3e45ecb7c4db0523df3c54c8b232668f8e93db499d5cb4ddac6",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/gross-profit/index.js",
+      "sha256": "c34761100d00d315bbd199805fd776c8078be409add5db53fe14995a0a653499",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/gross-profit/index.wxss",
+      "sha256": "6158a62d596f8cdcc85aeb16457cac669c00652c12709e2be13557238c4fa8bc",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/inter-station/index.js",
+      "sha256": "a42130c16d82c1bff2378a484fe039854abb99050dbf8975f69220f31ccb8431",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/inter-station/index.wxss",
+      "sha256": "77e27275d440820f64f2161fe7d7ab55b548eaa8bafbc57122b51c977e26b71a",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/payments/index.js",
+      "sha256": "4bbebc74524376daaa3f6f560d762e402ba2a1c2312e1489fa0fbb6fa1ec18ab",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/payments/index.wxss",
+      "sha256": "6485c959d93c834f149b4840b1ebceb894f41bc1179fb576b1e9632ef253fe59",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/payroll/index.js",
+      "sha256": "eba0cefb53a26f6a50a54497c54fa66e56561bea0ec0aafff39040b6568642e7",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/payroll/index.wxss",
+      "sha256": "e76457dab515e068339d0c0db7a8d394d6178f86e2c71942b379ec76fe7c76b2",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/place-order/index.js",
+      "sha256": "23b506f400ceb6779f905979fc8d59a6dd4ad4d3b1f4cf74439fd789f0d0e39d",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/place-order/index.wxss",
+      "sha256": "ea7f8f0f4e897e03a92efc75297ece67f2c43a082fb7ea7587e045ef44fae743",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/products/index.js",
+      "sha256": "c28ac0d0602faa00ba0eac9ff125b95199c61ba6317e0d50fa0fb3ac206c537b",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/products/index.wxss",
+      "sha256": "370bad5746805833e2e67e05c8caf018ce28bb01ffbf51a591b40e118faf0bd6",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/receivables/index.js",
+      "sha256": "dde8ab7a24c002d3423396b817f37288b565613c53dbfe4ea409df6f4589ee61",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/receivables/index.wxss",
+      "sha256": "f67523c2c39c7b64be25c09623bde99970d91b440a346f96e4b0f94d5bafb045",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/staff/index.js",
+      "sha256": "44a23d0f208d9d7ee1f5e82735168cb7be97ea30a71f3d6caa4e467a25356a2e",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/staff/index.wxss",
+      "sha256": "c0ff12d00bc7ae1748b06ee4a72076bcb4772bee18183c04941369699fce6756",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/station-info/index.js",
+      "sha256": "3990af8a9b03f530a2c0132325d9a885d3dc8f7d846602a4efc3d7d0f05191b3",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/station-info/index.wxss",
+      "sha256": "2bc7010cc6ecbdc49ba5ee4c481cf80fcf122f6c2c67c9b8666aac7e5a62b3fc",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/station-status/index.js",
+      "sha256": "1427058c6c2c5a5309f70c830a9e81a39fcc94ab68347e3f0c1e5017809cb087",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/station-status/index.wxss",
+      "sha256": "53ed263e961f00e6a22821fae2925e75fb035b8df66e1e7713dae2bab93dd7fa",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.js",
+      "sha256": "9aa26f14dcff63113c1f52b28787051ee114c463d1e4fd9196cd9a6b7163b7a1",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxss",
+      "sha256": "89c7af01545df0062d44d5e353455e32d4aa4ccf4091c7f7c06228532ebb02d0",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/styles/station-navbar.wxss",
+      "sha256": "aa0e66f03b92351835b2b10c3b0e9ad790c00c41155c99e76927dc3a332734fd",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/utils/delivery-problem.js",
+      "sha256": "000111380641de6a358cc9654faa3e5687ab64c72fa820e160cc3d11cf149d5f",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/utils/navigation.js",
+      "sha256": "d9d5b035c881d7a6dd512452761e72035e7dac838c27e4ed44d77082de9fa37c",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/utils/setup-reminder.js",
+      "sha256": "57313ceded0d8dc8f17452868ac216341da8e080e03a6d65eebf99d56bcd2041",
+      "bom": false
+    },
+    {
+      "file": "miniapp-delivery/utils/upload-recovery-page.js",
+      "sha256": "0ffed6b9368a657d1aaf27ad5a7070b8d6127a32143fb92681aadace2a041d24",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/app.js",
+      "sha256": "7810facc3c50b877cdf52ab3639840eb7050904570866f108af6a6f13dba9706",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/app.wxss",
+      "sha256": "38eab4de4b07e4554c6e92f318feb781d3f685bf5c23f8b157532c30d7eeff2c",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/components/OrderCard/index.js",
+      "sha256": "77f6340413f9f47c3cd919c0d8910b2699cb049f392b228a7c357734e9275748",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/components/OrderCard/index.wxss",
+      "sha256": "39b0cb886b8e19b6e1c7725871b72a4f25f085f2dc6b7ce149b2ec22902b12bd",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/components/PrivacyPopup/index.wxss",
+      "sha256": "e9500b546f5a76e15a467d2078b7b3bac5fc0aeb7d740b92a6283bf978387782",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/address/edit.js",
+      "sha256": "43fe11b82bcaa138cc3f343044df56be22cb3146f329e5e447e224b1eed99bd2",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/address/edit.wxss",
+      "sha256": "7a5750266141f8365d94477dbee81b8ac2c57280a1bbee0a59b31670e1eea1af",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/address/list.js",
+      "sha256": "f2fb0952471650b3e0957b886577327128df79f7a8456ac240611a90dbd15ec5",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/address/list.wxss",
+      "sha256": "2a2d482b45c15b41e242712d6ebe49a4f89f375a9b6b4d98f1d02e693ea4eb64",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/barrel/index.js",
+      "sha256": "b1414ef98a804540e50d9fbcf4b4af449bba4c37c080d5cc0c5a5899d69da317",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/barrel/index.wxss",
+      "sha256": "a6ff530fa57b8a33d834ca3852d5e00d99f36f39b6726af23dcc5adee859bc22",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/barrel/purchase.js",
+      "sha256": "cafcbae2bc74653c23bb48a6dc975e2f603a78dd250db75b482b7c8f4b951103",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/barrel/purchase.wxss",
+      "sha256": "a1b63f67bb441c09aa9c965727a9714c2ab72f26cc704765046bec465bba1a05",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/deposit/records/index.wxss",
+      "sha256": "8df464d067c5d85fa038d39594a29fb8b48eef6bf4ebcfe642f8c625486480d4",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/exception/list/list.wxss",
+      "sha256": "fb0f01938ea60889747f6f43d344e6a5daf7883b9024e7a192cfb1fd6a341aa0",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/home/index.js",
+      "sha256": "80d8bea84cd604dc8f5fc470fbaf5b832893c21b521cf955f004154294bb8809",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/home/index.wxml",
+      "sha256": "5e8650f7b1b02472903495706efb85ea1ea8af3dc01eaf60921126f1bb58e6da",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/home/index.wxss",
+      "sha256": "139bcd0c7bf053241ed4cbfe8a70a1c4250275b41775d7397758b409f080b249",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/login/index.wxss",
+      "sha256": "14e8427102d5266cd41261c7aaa1125efbd6361c5f6e200d5aa8cd17f9612483",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/mine/account-data/index.wxss",
+      "sha256": "cb599e64ad064ee19128aea10eba92e9bc5511531864111b371c01155c3225d6",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/mine/agreement/index.wxss",
+      "sha256": "817a2d42e98b057fd556ea419776bf54d7a8d7c226f7b0e1ac9c2d0939ecfa32",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/mine/asset-claims/index.wxss",
+      "sha256": "51f22681f881e3eefb75e87c5e7799e79aceb53c6bf7fbbcd9cef545a49e21f6",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/mine/company.wxss",
+      "sha256": "b1ffb251b3ea67e4bb802bb300f5d9a5944b14eb2d5294fa7b1ddc444facc791",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/mine/edit.wxss",
+      "sha256": "1960ade57a2b6eec31617f4c0f847c9a1bd2105e6a0a7fd00a8e6472d52eea5a",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/mine/index.js",
+      "sha256": "11c43c92b1a1cd85a8579e8dc213f255594cf76940c9384e7cf6a67d01ea9e51",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/mine/index.wxss",
+      "sha256": "5a3c3a5bf77191cd322ea1cc3d6f4c71fc707beaf2b7a40796ec5420e251473c",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/notice/index.wxss",
+      "sha256": "eda11f2a863680574a51b88a624d344963b80bc50033b34ec151fc7cf4ab9b12",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/order/create.js",
+      "sha256": "5f311cac34eefbe0d0a4a15e08455a27130a9d0a9a48d43dd15ecaea3b357cf3",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/order/create.wxss",
+      "sha256": "9f14f39ef979a07d32c62f4ebfffc48cbff26513e6718f2c2d226b0e8b0978ed",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/order/detail.js",
+      "sha256": "ccf837e2092e485f293182a46df7f43828d946c02f9aef135837c23f10740713",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/order/detail.wxss",
+      "sha256": "afed277af83a3fac9412a53c49f4474f6b9122b17b9fcb5080630b3331193f30",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/order/success.wxss",
+      "sha256": "5f221de1fbeb1a15684a177aa7f2deb1bb25d0b540ce4ec1fe77d9d4504db912",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/payment/records.wxss",
+      "sha256": "3310e4ac17fbfb5be286ade3c3eb9cb40fd6494a325a431082f1f278d0bec650",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/service/index.js",
+      "sha256": "7dd4807beb2be81a694dc784ce37c0a2fca6755b2f7a00c99568485bd80cfa89",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/service/index.wxss",
+      "sha256": "a63cfde1f9e4a7f7d3f106e62fea0776a5320e276629a1bcbff222bcad4635d3",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/shop/index.js",
+      "sha256": "25904e7b96d7717f9d8beeeb3d7b6e8a8eb50bbfbd1666ccb0ca86e3ca8ad800",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/shop/index.wxss",
+      "sha256": "ebf4d99e94ff9f87068d1bb856a4145f13d5db0daa921619de0aa08853efd763",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/template/index.js",
+      "sha256": "be8df4f5ce3917895ab551660a4a30f304a569cad2c02d52a68edd95e85bce2a",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/template/index.wxss",
+      "sha256": "c21d0bbbbb6f8e709e6c0f5f2363e997375e6e6c4bc0b65b1faaf6c40725bdd6",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/ticket/index.js",
+      "sha256": "03ba1e2615fc858f1cac12e015fbb8b5e1ad55655bb1f20a90aa247f4c907d5a",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/pages/ticket/index.wxss",
+      "sha256": "697e47554bea3c562bde1f2851060bcfa6e3c7ffc3c626cb381f6bc5d0f55721",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/styles/common.wxss",
+      "sha256": "7f9b5eb2d1a11d1abc759430249ac08eebaefdcae7a34eae5e525c3b86f04ed5",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/styles/theme.wxss",
+      "sha256": "58518775da4febda3e67f2e1ae7b8429edb185f6d09ec4e550bbc6498903a175",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/utils/pay.js",
+      "sha256": "d16be6d2792c1cbff77a0c43ba6b29cc324bab0df383f6f5fc7a560bee2a918a",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/utils/request.js",
+      "sha256": "b076676e8ef570cf24ecf5e76c035125aa98f4234cd482d9a63662f0f0fbfcf0",
+      "bom": false
+    },
+    {
+      "file": "miniapp-user/utils/station-view.js",
+      "sha256": "b7a3a85bda639f8ebd33a0b99e3f6011ae93e77eaab4b6c021c0204f99d68be0",
+      "bom": false
+    }
+  ],
+  "counts": {
+    "sourceFiles": 123,
+    "cssFiles": 68,
+    "jsFiles": 54,
+    "routes": 72,
+    "routesWithLocalChanges": 60,
+    "recordedCssRuleChanges": 346
+  },
+  "routes": [
+    {
+      "side": "miniapp-user",
+      "route": "pages/home/index",
+      "localChanges": [
+        "miniapp-user/pages/home/index.js",
+        "miniapp-user/pages/home/index.wxml",
+        "miniapp-user/pages/home/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/home/notice",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/order/list",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/order/detail",
+      "localChanges": [
+        "miniapp-user/pages/order/detail.js",
+        "miniapp-user/pages/order/detail.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/order/create",
+      "localChanges": [
+        "miniapp-user/pages/order/create.js",
+        "miniapp-user/pages/order/create.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/order/success",
+      "localChanges": [
+        "miniapp-user/pages/order/success.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/address/list",
+      "localChanges": [
+        "miniapp-user/pages/address/list.js",
+        "miniapp-user/pages/address/list.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/address/edit",
+      "localChanges": [
+        "miniapp-user/pages/address/edit.js",
+        "miniapp-user/pages/address/edit.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/barrel/index",
+      "localChanges": [
+        "miniapp-user/pages/barrel/index.js",
+        "miniapp-user/pages/barrel/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/barrel/purchase",
+      "localChanges": [
+        "miniapp-user/pages/barrel/purchase.js",
+        "miniapp-user/pages/barrel/purchase.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/shop/index",
+      "localChanges": [
+        "miniapp-user/pages/shop/index.js",
+        "miniapp-user/pages/shop/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/template/index",
+      "localChanges": [
+        "miniapp-user/pages/template/index.js",
+        "miniapp-user/pages/template/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/ticket/index",
+      "localChanges": [
+        "miniapp-user/pages/ticket/index.js",
+        "miniapp-user/pages/ticket/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/index",
+      "localChanges": [
+        "miniapp-user/pages/mine/index.js",
+        "miniapp-user/pages/mine/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/login/index",
+      "localChanges": [
+        "miniapp-user/pages/login/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/service/index",
+      "localChanges": [
+        "miniapp-user/pages/service/index.js",
+        "miniapp-user/pages/service/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/about",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/edit",
+      "localChanges": [
+        "miniapp-user/pages/mine/edit.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/agreement/index",
+      "localChanges": [
+        "miniapp-user/pages/mine/agreement/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/account-data/index",
+      "localChanges": [
+        "miniapp-user/pages/mine/account-data/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/payment/records",
+      "localChanges": [
+        "miniapp-user/pages/payment/records.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/deposit/records/index",
+      "localChanges": [
+        "miniapp-user/pages/deposit/records/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/notice/index",
+      "localChanges": [
+        "miniapp-user/pages/notice/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/company",
+      "localChanges": [
+        "miniapp-user/pages/mine/company.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/exception/list/list",
+      "localChanges": [
+        "miniapp-user/pages/exception/list/list.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-user",
+      "route": "pages/mine/asset-claims/index",
+      "localChanges": [
+        "miniapp-user/pages/mine/asset-claims/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/login/index",
+      "localChanges": [
+        "miniapp-delivery/pages/login/index.js",
+        "miniapp-delivery/pages/login/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/mine/agreement/index",
+      "localChanges": [
+        "miniapp-delivery/pages/mine/agreement/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/mine/account-data/index",
+      "localChanges": [
+        "miniapp-delivery/pages/mine/account-data/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/role-select/index",
+      "localChanges": [
+        "miniapp-delivery/pages/role-select/index.js",
+        "miniapp-delivery/pages/role-select/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/bind-wait/index",
+      "localChanges": [
+        "miniapp-delivery/pages/bind-wait/index.js",
+        "miniapp-delivery/pages/bind-wait/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/create-station/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/create-station/index.js",
+        "miniapp-delivery/pages/station-mgmt/create-station/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/apply-bind/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/apply-bind/index.js",
+        "miniapp-delivery/pages/station-mgmt/apply-bind/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/home/index",
+      "localChanges": [
+        "miniapp-delivery/pages/home/index.js",
+        "miniapp-delivery/pages/home/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/order/detail",
+      "localChanges": [
+        "miniapp-delivery/pages/order/detail.js",
+        "miniapp-delivery/pages/order/detail.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/order/complete",
+      "localChanges": [
+        "miniapp-delivery/pages/order/complete.js",
+        "miniapp-delivery/pages/order/complete.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/mine/index",
+      "localChanges": [
+        "miniapp-delivery/pages/mine/index.js",
+        "miniapp-delivery/pages/mine/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/coordination/index",
+      "localChanges": [
+        "miniapp-delivery/pages/coordination/index.js",
+        "miniapp-delivery/pages/coordination/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/index",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/business-waiting/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/business-waiting/index.js",
+        "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/dashboard/index",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/orders/index",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/customers/index.js",
+        "miniapp-delivery/pages/station-mgmt/customers/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/detail/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+        "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/index.js",
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/edit/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.js",
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customers/adjust/detail/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.js",
+        "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/products/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/products/index.js",
+        "miniapp-delivery/pages/station-mgmt/products/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/station-status/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/station-status/index.js",
+        "miniapp-delivery/pages/station-mgmt/station-status/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/station-info/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/station-info/index.js",
+        "miniapp-delivery/pages/station-mgmt/station-info/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/delivery-config/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/place-order/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/place-order/index.js",
+        "miniapp-delivery/pages/station-mgmt/place-order/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/receivables/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/receivables/index.js",
+        "miniapp-delivery/pages/station-mgmt/receivables/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/inter-station/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/inter-station/index.js",
+        "miniapp-delivery/pages/station-mgmt/inter-station/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/payroll/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/payroll/index.js",
+        "miniapp-delivery/pages/station-mgmt/payroll/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/ticket-packages/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/ticket-packages/index.js",
+        "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/gross-profit/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/gross-profit/index.js",
+        "miniapp-delivery/pages/station-mgmt/gross-profit/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/barrel-return/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/barrel-return/index.js",
+        "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/owed-barrels/index",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/exceptions/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/exceptions/index.js",
+        "miniapp-delivery/pages/station-mgmt/exceptions/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/customer-feedback/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/payments/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/payments/index.js",
+        "miniapp-delivery/pages/station-mgmt/payments/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/staff/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/staff/index.js",
+        "miniapp-delivery/pages/station-mgmt/staff/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/staff/profile/index",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/barrel-records/index",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/my-earnings/index",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/history/index",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/transfer/index",
+      "localChanges": [],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/report/index",
+      "localChanges": [
+        "miniapp-delivery/pages/report/index.js",
+        "miniapp-delivery/pages/report/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/settings/index",
+      "localChanges": [
+        "miniapp-delivery/pages/settings/index.js",
+        "miniapp-delivery/pages/settings/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/mine/edit",
+      "localChanges": [
+        "miniapp-delivery/pages/mine/edit.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    },
+    {
+      "side": "miniapp-delivery",
+      "route": "pages/station-mgmt/asset-claims/index",
+      "localChanges": [
+        "miniapp-delivery/pages/station-mgmt/asset-claims/index.wxss"
+      ],
+      "globalFeedbackAndButtons": true,
+      "nativeVisualAcceptance": false
+    }
+  ],
+  "manualStyleIntegration": [
+    "shared default buttons and disabled state",
+    "cash collection selection uses blue as selection, not warning",
+    "native wrapper defaults: four computed calls and one Object.assign",
+    "exception warning badge uses shared semantic token"
+  ],
+  "exceptions": [
+    "valid English station names and manager-authored notes are preserved",
+    "semantic pending/error/success state badges retain their colors",
+    "warning regions retain orange/red accents and all financial recovery copy",
+    "three old navy shadow rgba values remain as negligible shadows, not button/feedback surfaces",
+    "customer info icon #1677FF is an existing explicitly allowed icon value",
+    "native WeChat modal background/layout belongs to OS and is not restyled"
+  ],
+  "backendChanged": false,
+  "migration": false,
+  "configuration": false,
+  "deployed": false,
+  "verification": {
+    "jsSyntax": {
+      "files": 188,
+      "failures": 0
+    },
+    "wxmlConditionalBranches": true,
+    "noBom": true,
+    "diffWhitespace": true
+  }
+}

@@ -258,11 +258,10 @@
 }
 
 .alert-card {
-  background: #ffffff;
+  background: var(--bg-gray);
   border-radius: 16rpx;
   padding: 24rpx;
-  margin-bottom: 20rpx;
-}
+  margin-bottom: 20rpx; border-left: 4rpx solid var(--warning-color); }
 
 .alert-head {
   display: flex;
@@ -348,7 +347,7 @@
 .ex-btn {
   padding: 10rpx 26rpx;
   border-radius: 999rpx;
-  font-size: 24rpx;
+  font-size: 14px;
   line-height: 1.4;
 }
 
@@ -366,5 +365,5 @@
 
 .page { background: var(--bg-color); }.card,.alert-card { border-radius: 12rpx; box-shadow: none; }.tabs { flex-wrap: wrap; }.tab { flex: 1; min-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; padding: 20rpx; justify-content: center; }
 .card-head { align-items: flex-start; flex-wrap: wrap; gap: 12rpx; }.filter { min-height: 88rpx; box-sizing: border-box; display: flex; align-items: center; padding: 20rpx; border-radius: 8rpx; margin-left: auto; }
-.ex { border-radius: 0; border: 0; border-top: 1rpx solid var(--border-color); padding: 24rpx 0; }.ex-pending { margin: 0; border-left: 4rpx solid var(--warning-color); padding-left: 18rpx; }.ex-head { flex-wrap: wrap; gap: 12rpx; }.ex-value { min-width: 0; word-break: break-all; }.ex-actions { flex-wrap: wrap; gap: 12rpx; }.ex-btn { min-height: 88rpx; box-sizing: border-box; padding: 20rpx; border-radius: 8rpx; white-space: normal; word-break: break-all; line-height: 1.6; flex: 1 1 200rpx; display: flex; align-items: center; justify-content: center; }
+.ex { border-radius: 0; border: 0; border-top: 1rpx solid var(--border-color); padding: 24rpx 0; }.ex-pending { margin: 0; border-left: 4rpx solid var(--warning-color); padding-left: 18rpx; }.ex-head { flex-wrap: wrap; gap: 12rpx; }.ex-value { min-width: 0; word-break: break-all; }.ex-actions { flex-wrap: wrap; gap: 12rpx; }.ex-btn { min-height: 44px; box-sizing: border-box; padding: 20rpx; border-radius: 8rpx; white-space: normal; word-break: break-all; line-height: 1.6; flex: 1 1 200rpx; display: flex; align-items: center; justify-content: center; }
 .stats-note,.page-note,.hint,.content { color: var(--text-regular); font-size: 25rpx; line-height: 1.7; }.stats-row { flex-wrap: wrap; }.stats-item { min-width: 0; word-break: break-all; }.filter-bar { flex-wrap: wrap; }.filter-item,.load-hint { min-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; padding: 20rpx; display: flex; align-items: center; justify-content: center; }

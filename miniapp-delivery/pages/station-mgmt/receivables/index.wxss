@@ -130,20 +130,19 @@
   padding: 12rpx 28rpx;
   border: 1rpx solid var(--border-color);
   border-radius: 12rpx;
-  font-size: 25rpx;
+  font-size: 14px;
   color: var(--text-regular);
   margin-right: 16rpx;
 }
 .btn-primary {
-  height: 84rpx;
-  line-height: 84rpx;
+  height: auto;
+  line-height: 1.5;
   text-align: center;
   background: var(--primary-gradient);
   color: #fff;
   border-radius: 12rpx;
-  font-size: 30rpx;
-  font-weight: 600;
-}
+  font-size: 16px;
+  font-weight: 600; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-inline {
   flex: 1;
   margin-left: 16rpx;
@@ -200,11 +199,10 @@
    只染"预警/冻结"为红、"关注"为黄 —— 与后端 CustomerRiskService 的两档口径一致：
    关注是**正常经营**（月结客户天天如此），别做成告警的样子。 */
 .risk-box {
-  background: var(--bg-color);
+  background: var(--bg-gray);
   border-radius: 12rpx;
   padding: 18rpx 20rpx;
-  margin-bottom: 20rpx;
-}
+  margin-bottom: 20rpx; border-left: 4rpx solid var(--warning-color); }
 .risk-line {
   display: flex;
   justify-content: space-between;
@@ -277,7 +275,7 @@
 .row-amount { margin-left: auto; font-size: 34rpx; word-break: break-all; }
 .row-main { min-width: 0; overflow: visible; }
 .btn-row { flex-wrap: wrap; gap: 12rpx; }
-.btn-ghost,.btn-primary,.filter-item,.link { box-sizing: border-box; min-height: 88rpx; height: auto; padding: 20rpx; border-radius: 8rpx; line-height: 1.6; display: flex; justify-content: center; align-items: center; white-space: normal; word-break: break-all; }
+.btn-ghost,.btn-primary,.filter-item,.link { box-sizing: border-box; min-height: 48px; height: auto; padding: 20rpx; border-radius: 8rpx; line-height: 1.6; display: flex; justify-content: center; align-items: center; white-space: normal; word-break: break-all; }
 .btn-primary { background: var(--primary-color); }
 .btn-ghost { margin-right: 0; flex: 1; min-width: 150rpx; }
 .btn-inline { margin-left: 0; }.link { padding: 16rpx; }

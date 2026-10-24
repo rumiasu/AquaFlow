@@ -22,7 +22,7 @@ Page({
   },
 
   onSelectStationManager() {
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '选择身份',
       content: '您将以「站长」身份使用，需要创建属于您的水站。是否继续？',
       confirmText: '确认站长',
@@ -33,7 +33,7 @@ Page({
   },
 
   onSelectDelivery() {
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '选择身份',
       content: '您将以「配送员」身份使用，需填写资料并申请绑定水站，站长审批通过后生效。是否继续？',
       confirmText: '继续',

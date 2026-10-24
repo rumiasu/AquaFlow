@@ -37,16 +37,16 @@
    免得站长以为"这也是某个牌子的票"。 */
 .chip-unified {
   border-color: var(--warning-color);
-  color: var(--warning-color);
-  background: var(--warning-bg);
+  color: var(--primary-color);
+  background: var(--primary-bg);
 }
 .chip-unified.chip-on {
   border-color: var(--warning-color);
-  color: #fff;
-  background: var(--warning-color);
+  color: var(--primary-color);
+  background: var(--primary-bg);
 }
 .hint-unified {
-  color: var(--warning-color);
+  color: var(--primary-color);
 }
 
 /* [v54] 平台预设档：横排的"一键填入"卡片，数字全部来自后端，前端不做算术 */
@@ -61,7 +61,7 @@
   margin: 0 16rpx 16rpx 0;
   border: 1rpx dashed var(--warning-color);
   border-radius: 12rpx;
-  background: var(--warning-bg);
+  background: var(--primary-bg);
 }
 .preset-chip:last-child {
   margin-right: 0;
@@ -70,7 +70,7 @@
   display: block;
   font-size: 26rpx;
   font-weight: 600;
-  color: var(--warning-color);
+  color: var(--primary-color);
 }
 .preset-price {
   display: block;
@@ -151,8 +151,8 @@
   padding: 10rpx 22rpx;
   border: 1rpx solid var(--border-color);
   color: var(--text-primary);
-  border-radius: 28rpx;
-  font-size: 24rpx;
+  border-radius:12rpx;
+  font-size: 14px;
   margin-bottom: 10rpx;
   white-space: nowrap;
   text-align: center;
@@ -163,24 +163,22 @@
 }
 
 .btn-primary {
-  height: 84rpx;
-  line-height: 84rpx;
+  height: auto;
+  line-height: 1.5;
   text-align: center;
   background: var(--primary-color);
   color: #fff;
   border-radius: 12rpx;
-  font-size: 30rpx;
-  margin-top: 20rpx;
-}
+  font-size: 16px;
+  margin-top: 20rpx; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-ghost {
-  height: 80rpx;
-  line-height: 80rpx;
+  height: auto;
+  line-height: 1.5;
   text-align: center;
   border: 1rpx solid var(--border-color);
   border-radius: 12rpx;
-  font-size: 28rpx;
-  color: var(--text-primary);
-}
+  font-size: 14px;
+  color: var(--text-primary); min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-disabled {
   background: var(--primary-bg);
 }
@@ -212,6 +210,6 @@
 .field { align-items: flex-start; flex-direction: column; gap: 12rpx; border-color: var(--border-color); }.field-label { width: auto; }.field-input { flex: none; width: 100%; min-width: 0; height: 88rpx; box-sizing: border-box; border-radius: 8rpx; }
 .row { display: block; border-color: var(--border-color); padding: 24rpx 0; }.row-main { overflow: visible; min-width: 0; }.row-between { gap: 12rpx; align-items: flex-start; flex-wrap: wrap; }.row-title { word-break: break-all; font-weight: 600; }.row-amount { word-break: break-all; }
 .actions { flex-direction: row; flex-wrap: wrap; gap: 16rpx; margin: 18rpx 0 0; }.mini-btn { flex: 1; min-width: 160rpx; margin: 0; }
-.mini-btn,.btn-primary,.btn-ghost,.history-link { min-height: 88rpx; height: auto; box-sizing: border-box; padding: 20rpx; border-radius: 8rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; white-space: normal; word-break: break-all; }
+.mini-btn,.btn-primary,.btn-ghost,.history-link { min-height: 48px; height: auto; box-sizing: border-box; padding: 20rpx; border-radius: 8rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; white-space: normal; word-break: break-all; }
 .hint,.row-sub,.product-spec { color: var(--text-regular); font-size: 25rpx; line-height: 1.6; }.hint.warning,.hint-unified { color: var(--warning-color); }
-.preset-chip { border-radius: 8rpx; background: var(--bg-color); border-color: var(--border-color); }.product-search { min-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; }
+.preset-chip { border-radius: 8rpx; background: var(--primary-bg); border-color: var(--border-color); }.product-search { min-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; }

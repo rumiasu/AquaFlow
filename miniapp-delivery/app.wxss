@@ -171,15 +171,15 @@ page {
   margin: 16rpx 24rpx 0;
   padding: 16rpx 20rpx;
   border-radius: 12rpx;
-  background: rgba(255, 149, 0, 0.12);
-  border-left: 6rpx solid var(--warning-color);
+  background: var(--bg-gray);
+  border-left: 4rpx solid var(--primary-color);
   color: var(--text-regular);
   font-size: 24rpx;
   line-height: 1.5;
 }
 
 /* 2026-10-22：主动作保持完整触控高度，长文字允许换行。 */
-.btn-primary, .btn-outline, .btn-gradient, .btn-success { box-sizing: border-box; min-height: 96rpx; display: flex; align-items: center; justify-content: center; line-height: 1.45; white-space: normal; }
+.btn-primary, .btn-outline, .btn-gradient, .btn-success { box-sizing: border-box; min-height: 48px; display: flex; align-items: center; justify-content: center; line-height: 1.45; white-space: normal; }
 
 /* 2026-10-22：仅留言省略一行，地址、商品、金额与动作仍按原规则完整展示。 */
 .customer-note-preview {
@@ -197,18 +197,19 @@ page {
 
 /* 员工界面：恢复状态与正文层级。仅本端使用，不承载业务状态判断。 */
 page { color: var(--text-primary); font-size: 28rpx; line-height: 1.55; background: var(--bg-color); }
-button { box-sizing: border-box; font-size: 28rpx; line-height: 1.5; white-space: normal; word-break: break-all; border-radius: 12rpx; }
-button[disabled] { color: var(--text-regular); background: var(--bg-gray); }
+button { box-sizing:border-box; min-height:44px; padding:16rpx 24rpx; font-size:14px; line-height:1.5; white-space:normal; word-break:break-all; border-radius:8rpx; color:var(--primary-color); background:var(--primary-bg); }
+button::after { border:0; }
+button[disabled],button[disabled][class] { color:var(--text-regular) !important; background:var(--bg-gray) !important; border-color:var(--border-color) !important; }
 input, textarea { color: var(--text-primary); box-sizing: border-box; }
 .ui-state { box-sizing: border-box; margin: 24rpx; padding: 28rpx; border: 1rpx solid var(--border-color); border-radius: 12rpx; background: var(--bg-white); }
 .ui-state-title { display: block; color: var(--text-primary); font-size: 32rpx; font-weight: 600; line-height: 1.45; }
 .ui-state-copy { display: block; margin-top: 12rpx; color: var(--text-regular); font-size: 28rpx; line-height: 1.65; word-break: break-all; }
 .ui-state-actions { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 24rpx; }
-.ui-state button { margin: 20rpx 0 0; min-height: 80rpx; padding: 16rpx 24rpx; background: var(--primary-bg); color: var(--primary-color); font-weight: 600; }
+.ui-state button { margin: 20rpx 0 0; min-height: 44px; padding: 16rpx 24rpx; background: var(--primary-bg); color: var(--primary-color); font-weight: 600; }
 .ui-state-actions button { margin: 0; flex: 1 1 220rpx; }
 .ui-state button::after { border: none; }
-.ui-stale { display: block; padding: 16rpx 20rpx; margin: 16rpx 0; background: var(--warning-bg); color: var(--warning-color); font-size: 26rpx; line-height: 1.6; border-radius: 8rpx; }
-.load-error button { margin: 16rpx 0 0; color: var(--primary-color); background: #fff; min-height: 72rpx; padding: 12rpx 20rpx; }
+.ui-stale { display: block; padding: 16rpx 20rpx; margin: 16rpx 0; background: var(--bg-gray); color: var(--text-regular); font-size: 26rpx; line-height: 1.6; border-radius: 8rpx; border-left: 4rpx solid var(--primary-color); }
+.load-error button { margin: 16rpx 0 0; color: var(--primary-color); background: #fff; min-height: 44px; padding: 12rpx 20rpx; }
 .ui-proof-frame { overflow: hidden; }
 .ui-image-fallback { width: 100%; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 12rpx; background: var(--bg-gray); color: var(--text-regular); font-size: 24rpx; line-height: 1.5; text-align: center; word-break: break-all; }
 .ui-proof-image { display: block; width: 100%; height: 280rpx; }

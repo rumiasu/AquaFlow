@@ -77,12 +77,11 @@
 .btn-primary,
 .btn-outline {
   flex: 1;
-  height: 88rpx;
-  line-height: 88rpx;
-  border-radius: 44rpx;
-  font-size: 30rpx;
-  font-weight: 500;
-}
+  height: auto;
+  line-height: 1.5;
+  border-radius:12rpx;
+  font-size: 16px;
+  font-weight: 500; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 .btn-primary {
   background: var(--primary-color);
@@ -98,9 +97,8 @@
 
 .tip-row {
   padding: 24rpx 32rpx;
-  background: var(--warning-bg);
-  border-radius: 16rpx;
-}
+  background: var(--bg-gray);
+  border-radius: 16rpx; border-left: 4rpx solid var(--primary-color); color: var(--text-regular); }
 
 .tip-text {
   font-size: 26rpx;
@@ -128,4 +126,4 @@
 .logout-row:active { opacity: 0.8; }
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
-.btn-primary, .btn-outline { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; flex: 1 1 240rpx; }
+.btn-primary, .btn-outline { height: auto; min-height: 48px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; flex: 1 1 240rpx; }

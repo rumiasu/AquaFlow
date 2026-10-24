@@ -174,7 +174,7 @@ function showFreshModal(fresh, owner) {
     + (onlyOne ? '' : '\n\n补完可以在营业状态小框里看到进度。')
   const goable = onlyOne && first && first.route
 
-  wx.showModal({
+  wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
     title: fresh.length > 1 ? '有 ' + fresh.length + ' 项新的要填' : '有一项新的要填',
     content,
     showCancel: false,

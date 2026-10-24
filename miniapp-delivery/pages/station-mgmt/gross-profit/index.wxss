@@ -78,15 +78,14 @@
 }
 
 .notice {
-  background: var(--warning-bg);
+  background: var(--bg-gray);
   border: 1rpx solid var(--warning-bg);
   border-radius: 12rpx;
   padding: 18rpx 20rpx;
   font-size: 24rpx;
   color: var(--warning-color);
   line-height: 38rpx;
-  margin-bottom: 12rpx;
-}
+  margin-bottom: 12rpx; border-left: 4rpx solid var(--warning-color); }
 
 /* 收入构成与净利（[2026-09-19]）：一张"减法账"，每行一个数字，合计行加重。
    颜色沿用本页既有的语义：绿 = 正常给数（.hero-ok），橙 = 给不出数/需注意（.hero-warn）。 */
@@ -168,23 +167,21 @@
 }
 
 .btn-primary {
-  height: 84rpx;
-  line-height: 84rpx;
+  height: auto;
+  line-height: 1.5;
   text-align: center;
   background: var(--primary-color);
   color: #fff;
   border-radius: 12rpx;
-  font-size: 30rpx;
-}
+  font-size: 16px; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-ghost {
-  height: 80rpx;
-  line-height: 80rpx;
+  height: auto;
+  line-height: 1.5;
   text-align: center;
   border: 1rpx solid var(--border-color);
   border-radius: 12rpx;
   font-size: 27rpx;
-  color: var(--text-primary);
-}
+  color: var(--text-primary); min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-ghost.block {
   margin-top: 18rpx;
 }
@@ -257,5 +254,5 @@
 .chip { min-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; padding: 20rpx; display: flex; align-items: center; line-height: 1.6; white-space: normal; word-break: break-all; }
 .hero { flex-wrap: wrap; gap: 20rpx 0; padding: 24rpx; }.hero-item { min-width: 0; word-break: break-all; }.hero-item:last-child { flex: 0 0 100%; text-align: left; border-top: 1rpx solid var(--border-color); padding-top: 20rpx; }.hero-item:last-child .hero-num { font-size: 42rpx; }
 .hero-label,.hint,.row-sub { font-size: 25rpx; color: var(--text-regular); line-height: 1.6; }.row-main { min-width: 0; overflow: visible; }.row-between,.ledger-row { gap: 16rpx; align-items: flex-start; }.row-between { flex-wrap: wrap; }.row-title { word-break: break-all; }.row-amount { margin-left: auto; word-break: break-all; }.ledger-row,.row,.ledger-strong { border-color: var(--border-color); }.ledger-value { text-align: right; word-break: break-all; }
-.btn-primary,.btn-ghost { min-height: 88rpx; height: auto; box-sizing: border-box; padding: 20rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; border-radius: 8rpx; white-space: normal; word-break: break-all; }
+.btn-primary,.btn-ghost { min-height: 48px; height: auto; box-sizing: border-box; padding: 20rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; border-radius: 8rpx; white-space: normal; word-break: break-all; }
 .dialog { top: 12%; left: 24rpx; right: 24rpx; max-height: 78vh; overflow-y: auto; box-sizing: border-box; border-radius: 12rpx; }.dialog-footer { flex-wrap: wrap; gap: 12rpx; }.dialog-footer .flex1 { margin-right: 0; flex: 1 1 150rpx; }.dialog-input { height: 88rpx; }

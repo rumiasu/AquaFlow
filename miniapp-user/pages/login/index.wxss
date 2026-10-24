@@ -8,15 +8,15 @@
 .app-name { font-size: 44rpx; font-weight: 700; color: var(--text-primary); display: block; margin-bottom: 12rpx; }
 .app-desc { font-size: 28rpx; color: var(--text-regular); }
 .login-section { padding: 28rpx; border: 1rpx solid var(--border-color); background: #fff; border-radius: var(--radius-md); }
-.wx-login-btn { width: 100%; min-height: 96rpx; height: auto; padding: 22rpx 20rpx; background: var(--primary-color); border-radius: var(--radius-md); color: #fff; font-size: 32rpx; line-height: 1.6; font-weight: 600; }
+.wx-login-btn { width: 100%; min-height: 44px; height: auto; padding: 22rpx 20rpx; background: var(--primary-color); border-radius: var(--radius-md); color: #fff; font-size: 32rpx; line-height: 1.6; font-weight: 600; }
 .wx-login-btn[disabled] { background: var(--bg-gray); color: var(--text-secondary); }
 .wx-login-btn::after { border: 0; }
 .agreement { margin-top: 24rpx; line-height: 1.8; }
 .agreement-text { font-size: 26rpx; color: var(--text-regular); }
 .agreement-link { color: var(--primary-color); text-decoration: underline; display: inline-block; padding: 20rpx 0; }
-.dev-login-btn { margin-top: 16rpx; padding: 24rpx 0; min-height: 88rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
-.dev-login-btn text { color: var(--text-regular); font-size: 26rpx; text-decoration: underline; }
+.dev-login-btn { margin-top: 16rpx; padding: 24rpx 0; min-height: 44px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.dev-login-btn text { color: var(--text-regular); font-size: 14px; text-decoration: underline; }
 
 /* 本页所有状态共用的可读与触控边界。 */
-.login-error { margin-top: 24rpx; padding: 20rpx; border-radius: 12rpx; background: #fff7ed; color: #9a3412; font-size: 28rpx; line-height: 1.65; }
+.login-error { margin-top: 24rpx; padding: 20rpx; border-radius: 12rpx; background: var(--bg-gray); color: var(--text-regular); font-size: 28rpx; line-height: 1.65; border-left: 4rpx solid var(--error-color); }
 .agreement-link { min-height: 88rpx; box-sizing: border-box; }

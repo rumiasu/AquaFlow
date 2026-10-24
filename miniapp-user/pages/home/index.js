@@ -14,6 +14,7 @@ const { captureSession, isCurrentSession } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
 const { itemUnit } = require('../../utils/order-item-view')
 const { displayMessage } = require('../../utils/display-message')
+const { stationName, stationText } = require('../../utils/station-view')
 const { homeNavLayout, catalogState } = require('./home-view-state')
 
 // 金额展示：整数不带小数点，非整数保留两位（纯展示，不涉及计算口径）
@@ -63,6 +64,7 @@ Page({
     barrelLine1: '',
     barrelLine2: '',
     currentStation: null,
+    currentStationName: '',
     currentStationId: null,
     // 水站营业状态（软状态，v32）：文案与"要不要提醒"全部由后端下发，前端不做 1..4 映射。
     // stationStatusHint 非空 = 需要提醒（休息中/配送延迟/暂停配送），只影响配色，不阻断下单。
@@ -163,9 +165,9 @@ Page({
       if (!current()) return
       const d = (res && res.data) || {}
       this.setData({
-        stationStatusText: d.statusText || '',
-        stationStatusNote: d.note || '',
-        stationStatusHint: d.customerHint || ''
+        stationStatusText: stationText(d.statusText, '水站营业说明暂未加载'),
+        stationStatusNote: stationText(d.note, d.note ? '水站说明暂未加载，请稍后重试' : ''),
+        stationStatusHint: stationText(d.customerHint, d.customerHint ? '营业提醒暂未加载，请稍后重试' : '')
       })
     } catch (e) {
       if (current()) this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '' })
@@ -176,7 +178,7 @@ Page({
   onStationStatusTap() {
     const { stationStatusText, stationStatusNote } = this.data
     if (!stationStatusText) return
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '水站状态',
       content: stationStatusNote ? stationStatusText + '\n' + stationStatusNote : stationStatusText,
       showCancel: false,
@@ -247,7 +249,7 @@ Page({
   },
 
   showNoStation() {
-    this.setData({ state: 'noStation', loading: false, currentStation: null, currentStationId: null,
+    this.setData({ state: 'noStation', loading: false, currentStation: null, currentStationName: '', currentStationId: null,
       products: [], productsView: [], catalogState: 'idle', activeShip: null, againOrder: null,
       barrelVisible: false, purchaseHint: '' })
   },
@@ -270,7 +272,7 @@ Page({
       if (stationStorage.getId()) {
         this.setData({
           currentStationId: stationStorage.getId(),
-          currentStation: stationStorage.get()
+          currentStation: stationStorage.get(), currentStationName: stationName(stationStorage.get())
         })
         await this.loadData()
         completed = true
@@ -285,7 +287,7 @@ Page({
           const s = stationRes.data
           const station = { id: s.stationId, name: s.stationName || '水站' }
           stationStorage.set(station)
-          this.setData({ currentStationId: station.id, currentStation: station })
+          this.setData({ currentStationId: station.id, currentStation: station, currentStationName: stationName(station) })
           await this.loadData()
           completed = true
           return
@@ -345,7 +347,7 @@ Page({
           const n = notifications[i]
           if (!current()) return
           const shown = await new Promise((resolve) => {
-            wx.showModal({
+            wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
               title: n.title || '消息提醒',
               content: n.content || '',
               showCancel: false,
@@ -387,7 +389,7 @@ Page({
       if (!current()) return
       // 业务失败仍是 HTTP 200，一律判 body.code（AGENTS §8.1）；code!=0 也要出声，不能沿用旧列表
       if (res && res.code === 0 && Array.isArray(res.data)) {
-        const activeStations = res.data.filter(s => s.status === 1)
+        const activeStations = res.data.filter(s => s.status === 1).map(s => ({ ...s, displayName: stationName(s) }))
         this.setData({ stationList: activeStations, stationListError: '' })
       } else {
         console.warn('[home] 水站列表返回非成功响应:', res)
@@ -430,7 +432,7 @@ Page({
       const noticeDisabled = stationStorage.getSwitchNoticeDisabled()
       if (!noticeDisabled && this.data.currentStationId && this.data.currentStationId !== stationId) {
         const confirm = await new Promise(resolve => {
-          wx.showModal({
+          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
             title: '切换水站提醒',
             content: '不同水站的水票、桶及押金等资产不互通，请确认后再切换。',
             confirmText: '继续',
@@ -441,7 +443,7 @@ Page({
         })
         if (!current() || !confirm) return
         const dontShow = await new Promise(resolve => {
-          wx.showModal({
+          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
             title: '提示',
             content: '下次不再提示？',
             confirmText: '不再提示',
@@ -1039,7 +1041,7 @@ Page({
       return
     }
     if (!address) {
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: this._homeChosenAddressId != null ? '请重新选择配送地址' : '还没有配送地址',
         content: this._homeChosenAddressId != null ? '先前选择的地址已不可用，请重新选择后再确认订单' : '先设置一个收货地址，水才能送到家',
         confirmText: '去设置',

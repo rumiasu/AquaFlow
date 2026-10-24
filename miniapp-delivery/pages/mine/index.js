@@ -442,7 +442,7 @@ Page({
 
   // 配送员申请解绑(需站长审批通过后 station_id=NULL)
   onApplyUnbind() {
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '申请解绑',
       content: '确认向站长提交解绑申请？站长确认前仍可正常配送；确认后将进入未绑定状态。',
       confirmText: '提交申请',
@@ -493,10 +493,10 @@ Page({
   async onRemoveStaff(e) {
     const id = e.currentTarget.dataset.id
     const list = this.data.staffList
-    wx.showModal({
+    wx.showModal({ cancelColor: '#637083',
       title: '解除配送员',
       content: '确定解除该配送员？该操作不可撤销。',
-      confirmColor: '#B5442C',
+      confirmColor: '#BD3328',
       confirmText: '解除',
       success: async (res) => {
         if (!res.confirm) return
@@ -558,7 +558,7 @@ Page({
   },
 
   onLogout() {
-    wx.showModal({ confirmText: '退出登录',
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '退出登录',
       title: '退出登录',
       content: '确定要退出登录吗？',
       success: (res) => {

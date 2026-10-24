@@ -176,11 +176,11 @@ Page({
     if (!item) return
     if (this.data.executing) return
     const what = item.hasQty ? `数量 ${item.qtyText}` : `金额 ¥${item.amountText}`
-    wx.showModal({
+    wx.showModal({ cancelColor: '#637083',
       title: '执行调整单',
       content: `确定执行 ${item.adjustNo}？\n类型：${item.adjustTypeText}，${what}。\n执行后立即改写该客户在本站的资产，事后只能通过「撤销」生成反向单，不能删除。`,
       confirmText: '执行',
-      confirmColor: '#2E4A68',
+      confirmColor: '#1264D6',
       success: async (res) => {
         if (!res.confirm) return
         this.setData({ executing: true })

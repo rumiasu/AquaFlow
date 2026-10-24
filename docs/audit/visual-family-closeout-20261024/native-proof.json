@@ -1,0 +1,379 @@
+{
+  "baseline": "74c1ce15c1770da81982dd7a9f6a9942a05f6609",
+  "scope": "Compare parsed programs after omitting modal color properties and no-op conditional spread defaults. Home station display guard is the single explicit exception. Parser is local Node-bundled Acorn; tooling only.",
+  "literalCalls": 169,
+  "reviewedWrappers": 5,
+  "files": [
+    {
+      "file": "miniapp-delivery/behaviors/stationNavbar.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "a4e52c17f4d1cf1303f51ba5d42d1cdddaef44f9bdf521ceca88b73688847e34",
+      "afterSha256": "b1c55008bfdf59fc032235f3196daeb41a7f7d7cc1d63fb3c54221db454b0646"
+    },
+    {
+      "file": "miniapp-delivery/components/HelpTip/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "1631856ac9a23f125b897deb590ca3375a79c9faf9fa662843a936715f804784",
+      "afterSha256": "c69adcf28c3783589bc7db0912e17da6ccdb5c1ec37006a0b05d1752abe05f36"
+    },
+    {
+      "file": "miniapp-delivery/pages/bind-wait/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "ebba7beaaedd737496e4dccd4e6c73f9e124eac9528465511004f38b7cc712fe",
+      "afterSha256": "a5b67cf44876e3bb800ce556edd52566a96a1b99bd4be1900266feeb24f1295f"
+    },
+    {
+      "file": "miniapp-delivery/pages/coordination/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "f1b537f5281d44f2bd09d6b4e6bc8782d91047d33654dd4e5660d4d31caa1478",
+      "afterSha256": "9c19e1f5ffbfb5edc02b77b8bf4e5bc5a6d8baa2d5acc3536e9adb96e484c01a"
+    },
+    {
+      "file": "miniapp-delivery/pages/home/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "1e5cbeea50d71f35b66fbd5e52651f19d290e87001b8ea90b77c872e6196b43a",
+      "afterSha256": "0a130388a61a935aa35cd70e64c9a8eff67c3071f6662774c667ed0c060b8c62"
+    },
+    {
+      "file": "miniapp-delivery/pages/login/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "4d1b54e756cfb734c482d2833a448b7c1dc81fdd604aaaf7514f726749fa7f74",
+      "afterSha256": "25de32c1db3172ab6d11f5197f54338bfdd9e0f5e573e3ff61be7371db945e52"
+    },
+    {
+      "file": "miniapp-delivery/pages/mine/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "43aecb485b9f35d02a25a26b001dd32a7c45214d1079d59d4de5ca45d8d46ad9",
+      "afterSha256": "1fb514dcebfc448795d46a8ea3b916a7001a3081ae903eb55618db53d99daafd"
+    },
+    {
+      "file": "miniapp-delivery/pages/order/complete.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "95885119e5e062fbdd2adbc31d0ec35a2f5c62493a800db2215905774084f592",
+      "afterSha256": "416b458252226c88abc4acc54a3de8aebecfc91360dfb8ce50690069303358c1"
+    },
+    {
+      "file": "miniapp-delivery/pages/order/detail.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "0482a43d4db662e01e4625cf5339bb0c95e1663ecca83a42497f27b8290ab7db",
+      "afterSha256": "9cf3cbda04bd3d9a32c238aeb66085ba234028166c76fff7c180bd631fe044c9"
+    },
+    {
+      "file": "miniapp-delivery/pages/report/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "c02e76d0175c4091d90e0131efcdeacbbcb1e053be3bea73a867d08bef1b88a5",
+      "afterSha256": "ed6e8676f5cef4a50b918e7827abb129453cfc7748f0051277eaa76daaef716c"
+    },
+    {
+      "file": "miniapp-delivery/pages/role-select/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "b291e6d4b76bab71e29a3671e95fbe5e9d66dea87a7f8f7b58bec4300c87afef",
+      "afterSha256": "b20348618cb9839c0442d8b23fd77fcb4a501b830582f4942046c236915ae30c"
+    },
+    {
+      "file": "miniapp-delivery/pages/settings/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "dc38ab9a39c60ea801de76355843647b573ae2122b7111e22276ff68ec4d430e",
+      "afterSha256": "38db5179406f1cec64db415d708c1cf96f5dc38a1de20c89ffd42234386a534a"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/apply-bind/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "02909b42ebcd4559d814c6eb26ed498cac3a2cedebc4aada3a6b49c562ef697e",
+      "afterSha256": "5b604c544262ffca64897f9c603c60723ab469f63408008f83c1195494748eda"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/barrel-return/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "e754f242082fb2e2d058636addfc98cdfaa151d77c4973398583e9de66ee451e",
+      "afterSha256": "28bb07702ab1692991bde65fd794b6cc09dca43da163ff78afda548eccb61e4d"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/business-waiting/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "376cb5714adbd5ed418db2f4361352df07aa99f11bab797c467e67d440a0d875",
+      "afterSha256": "eed5303e83f9b07cd9af572f4d484ecf77990c7212644d0ff89fc211f1183efe"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/create-station/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "7b76880210be8787bce564b1dbe158970f0d25a6055702e63f430d43bd39b749",
+      "afterSha256": "355be299edabdbec7fd5e5fc6189106a53536e71d3594b4ca096cbd8cbe294b1"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "082fbe2e81cc24eb42301a5714b005af8ca8253ac039744621ddd0d6ba6f39b3",
+      "afterSha256": "338333a0352c8f4067507f5c56adac4cf93107c5da514d5383cfafcf43094d67"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "504ead7e5400cb45615dcf0ff60c1d57249a04cae4c358a14b968166f556fcc3",
+      "afterSha256": "d2e1647b414a6f2bb3a9faa8209e8d00f7d928b95cd17ca2b795f1c13b48e784"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "b6cec04b9bf1fa22c7a5bf9232ffe92ad838b485469e06eaef08874a92c53c1f",
+      "afterSha256": "180ff50687c1f636561033912c92a5b8bb7a7598ad20c34631021787ddc83364"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/detail/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "818cd4c809905fe7721c5d332b1623e0213c436f36b084123b1d61fa9781fd36",
+      "afterSha256": "f0a6dfae06a153c41409518568ebe8ac46dc599206da2944aa1f7990d8d9cdce"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "a3af34f9c40d6bca5b91765694da243d82a385396bddb6e3101fa2df7dc6274e",
+      "afterSha256": "f18b52cfe3347dd8a8f41c463a7cc21081b66fbb20044fc7a64ee1db02dcf5f9"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/exceptions/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "328a6688bb2f8547cc1e2d7ef9551ddb2437f99ffb936a976a899bad729c39dd",
+      "afterSha256": "b499b52fa0cb01acca47788345fc5cf82cc9cc9e8b37b76fee0ed7f442c31b3b"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/gross-profit/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "35ad805f2f161ce49e4962a7907c798de8e67774dd0e5d8e12e227236176fa70",
+      "afterSha256": "c34761100d00d315bbd199805fd776c8078be409add5db53fe14995a0a653499"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/inter-station/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "dfae7890728b9ec173b7957d8ec1316cb323518b4db61092898e8330a0c8c90d",
+      "afterSha256": "a42130c16d82c1bff2378a484fe039854abb99050dbf8975f69220f31ccb8431"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/payments/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "0be38432a07a6d286101b1136348968afb5c6b2f7c50f13c448fe5c1427f4806",
+      "afterSha256": "4bbebc74524376daaa3f6f560d762e402ba2a1c2312e1489fa0fbb6fa1ec18ab"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/payroll/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "fac639ac52d5a64bf000c930caf29354ef98af624ddb5a966c88d959d6fd3ebb",
+      "afterSha256": "eba0cefb53a26f6a50a54497c54fa66e56561bea0ec0aafff39040b6568642e7"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/place-order/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "0fd26c990e5b9f9a4238dff1dbf3dc4d16c7774975d92934791fa12a195f8f46",
+      "afterSha256": "23b506f400ceb6779f905979fc8d59a6dd4ad4d3b1f4cf74439fd789f0d0e39d"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/products/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "aade73dd9f43be89eccd5d4ed27b19c99ecb6129be3c89e9c0c9d085621b5b49",
+      "afterSha256": "c28ac0d0602faa00ba0eac9ff125b95199c61ba6317e0d50fa0fb3ac206c537b"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/receivables/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "31555f0e6e2286bafc52d4d780496d476bb09dd78655d6d025598abf31668c47",
+      "afterSha256": "dde8ab7a24c002d3423396b817f37288b565613c53dbfe4ea409df6f4589ee61"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/staff/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "55db2bb89cf93fa51647d73d669ce43772df8c2cdbbef97fcce529fc720b22b5",
+      "afterSha256": "44a23d0f208d9d7ee1f5e82735168cb7be97ea30a71f3d6caa4e467a25356a2e"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/station-info/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "3a53de73ace5932dccf624943aabf5cfad15998776d64a9659a96a6d4a9d7f62",
+      "afterSha256": "3990af8a9b03f530a2c0132325d9a885d3dc8f7d846602a4efc3d7d0f05191b3"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/station-status/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "e3ea48b1d0a9d80b40595e10d1520a5f87f11f63cf18804c568a950d9643ffe4",
+      "afterSha256": "1427058c6c2c5a5309f70c830a9e81a39fcc94ab68347e3f0c1e5017809cb087"
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "b4b9627ac1d387c82a18fa16b19577d83a869b69578a8eda38b8f68ed25db0e0",
+      "afterSha256": "9aa26f14dcff63113c1f52b28787051ee114c463d1e4fd9196cd9a6b7163b7a1"
+    },
+    {
+      "file": "miniapp-delivery/utils/delivery-problem.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "725c9787099275dbc61c95a417667af6c5c89c7f7f9649d16e920fa186127566",
+      "afterSha256": "000111380641de6a358cc9654faa3e5687ab64c72fa820e160cc3d11cf149d5f"
+    },
+    {
+      "file": "miniapp-delivery/utils/navigation.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "c143050357a5053d40ca732ed803b8aafd6cfe08e072f678cbf4da9c48e17228",
+      "afterSha256": "d9d5b035c881d7a6dd512452761e72035e7dac838c27e4ed44d77082de9fa37c"
+    },
+    {
+      "file": "miniapp-delivery/utils/setup-reminder.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "79a36bcedfc7511a5d14370a800d50d64759805a8a9cc1e27ec9e1a55ad97996",
+      "afterSha256": "57313ceded0d8dc8f17452868ac216341da8e080e03a6d65eebf99d56bcd2041"
+    },
+    {
+      "file": "miniapp-delivery/utils/upload-recovery-page.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "6e035fe983f35dbb5e0148cf2fad2e75d47105a585f3482949a356a34bce6e1b",
+      "afterSha256": "0ffed6b9368a657d1aaf27ad5a7070b8d6127a32143fb92681aadace2a041d24"
+    },
+    {
+      "file": "miniapp-user/app.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "bd5191db3d48b1895b01fb9fcd14cadaaee57a91cb8c278a154fd5c586faf08a",
+      "afterSha256": "7810facc3c50b877cdf52ab3639840eb7050904570866f108af6a6f13dba9706"
+    },
+    {
+      "file": "miniapp-user/components/OrderCard/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "4daf53e7b224d00191ce8b60f60111eb46142462ce468e1fbdbb8e8f6fb424c7",
+      "afterSha256": "77f6340413f9f47c3cd919c0d8910b2699cb049f392b228a7c357734e9275748"
+    },
+    {
+      "file": "miniapp-user/pages/address/edit.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "a868d09caa926141c6c46db4703f52938b12d222acf66ed5ecc55200df927f7d",
+      "afterSha256": "43fe11b82bcaa138cc3f343044df56be22cb3146f329e5e447e224b1eed99bd2"
+    },
+    {
+      "file": "miniapp-user/pages/address/list.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "77e7fc1f5826cdf6813feff39e344462cc8a06af7f35131acfe1df5d3f835cbd",
+      "afterSha256": "f2fb0952471650b3e0957b886577327128df79f7a8456ac240611a90dbd15ec5"
+    },
+    {
+      "file": "miniapp-user/pages/barrel/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "3aea8e50aa685893cf36a91786a1b99d15e435f04039990f758572322c13406a",
+      "afterSha256": "b1414ef98a804540e50d9fbcf4b4af449bba4c37c080d5cc0c5a5899d69da317"
+    },
+    {
+      "file": "miniapp-user/pages/barrel/purchase.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "a700eee79040b7730a11d7e3e33f395caff71619433c35aa8c287041bda74bf1",
+      "afterSha256": "cafcbae2bc74653c23bb48a6dc975e2f603a78dd250db75b482b7c8f4b951103"
+    },
+    {
+      "file": "miniapp-user/pages/home/index.js",
+      "onlyModalStyleAstChanged": false,
+      "approvedViewException": true,
+      "beforeSha256": "e4089a4d18e279b0aa3d4014fa569f8e579d53fd0a7cd40b3f1f9fe1537c428e",
+      "afterSha256": "80d8bea84cd604dc8f5fc470fbaf5b832893c21b521cf955f004154294bb8809"
+    },
+    {
+      "file": "miniapp-user/pages/mine/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "165565e1beb24fdf5fbefff7e389c39e0ee01e8b5a81e88ebb7eaa34fa8c6efc",
+      "afterSha256": "11c43c92b1a1cd85a8579e8dc213f255594cf76940c9384e7cf6a67d01ea9e51"
+    },
+    {
+      "file": "miniapp-user/pages/order/create.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "8c3b5382d19cdc5268e861e12c09647ee6fe78541abcf4ed0783317b90237352",
+      "afterSha256": "5f311cac34eefbe0d0a4a15e08455a27130a9d0a9a48d43dd15ecaea3b357cf3"
+    },
+    {
+      "file": "miniapp-user/pages/order/detail.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "2a395b0e1ef5ce6f07dd64de3a2aa3b6c82e98f1935ca059e8acb8aeeac5f4ad",
+      "afterSha256": "ccf837e2092e485f293182a46df7f43828d946c02f9aef135837c23f10740713"
+    },
+    {
+      "file": "miniapp-user/pages/service/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "4396d0eb05c7bed3f485b46a26aefd34633f90b5586f864fd7ec107ea2649dd0",
+      "afterSha256": "7dd4807beb2be81a694dc784ce37c0a2fca6755b2f7a00c99568485bd80cfa89"
+    },
+    {
+      "file": "miniapp-user/pages/shop/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "628e964402ed4b8a6700acaccab9828190fce2edd35f25d25a222eaf036a5424",
+      "afterSha256": "25904e7b96d7717f9d8beeeb3d7b6e8a8eb50bbfbd1666ccb0ca86e3ca8ad800"
+    },
+    {
+      "file": "miniapp-user/pages/template/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "a04513e1519d7417ab62eea1f9f539672107dc2dc21ee98bec6728d8f3c453d8",
+      "afterSha256": "be8df4f5ce3917895ab551660a4a30f304a569cad2c02d52a68edd95e85bce2a"
+    },
+    {
+      "file": "miniapp-user/pages/ticket/index.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "6a4f3bfbf5e0651e2883e42454aa0bb49ffb082b5ff76082fc3be9c3c1c69496",
+      "afterSha256": "03ba1e2615fc858f1cac12e015fbb8b5e1ad55655bb1f20a90aa247f4c907d5a"
+    },
+    {
+      "file": "miniapp-user/utils/pay.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "dfab8e9c8250aabcd9222eeac4a9462b7a10aac2284f33de5fc19cae339b5cc6",
+      "afterSha256": "d16be6d2792c1cbff77a0c43ba6b29cc324bab0df383f6f5fc7a560bee2a918a"
+    },
+    {
+      "file": "miniapp-user/utils/request.js",
+      "onlyModalStyleAstChanged": true,
+      "approvedViewException": false,
+      "beforeSha256": "fa6152532b67e63cefd11d7d8e0d9b7fd486fbef2b16b104a93678d87e53fc7b",
+      "afterSha256": "b076676e8ef570cf24ecf5e76c035125aa98f4234cd482d9a63662f0f0fbfcf0"
+    }
+  ]
+}

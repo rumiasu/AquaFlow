@@ -8,7 +8,7 @@
 .order-id { font-size: 30rpx; font-weight: 600; color: #172b4d; word-break: break-all; line-height: 1.6; }
 .time { font-size: 26rpx; color: #637083; line-height: 1.6; }
 .status-badge { color: #526174; background: #f0f3f7; font-size: 26rpx; padding: 6rpx 16rpx; border-radius: 10rpx; line-height: 1.6; }
-.status-badge.warning { color: #9a3412; background: #fff3e8; }
+.status-badge.warning { color: var(--warning-color); background: var(--warning-bg); }
 .status-badge.primary, .status-badge.info { color: #155aaf; background: #edf3fb; }
 .status-badge.success { color: #226344; background: #edf8f1; }
 .card-body { padding: 24rpx; }
@@ -31,7 +31,7 @@
 .detail-mask { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(15, 30, 50, .5); z-index: 100; display: flex; align-items: flex-end; }
 .detail-panel { background: #fff; border-radius: 28rpx 28rpx 0 0; width: 100%; padding: 24rpx 24rpx calc(24rpx + env(safe-area-inset-bottom)); box-sizing: border-box; }
 .detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; }
-.close-button { min-height: 88rpx; padding: 16rpx 20rpx; font-size: 28rpx; line-height: 1.8; color: #155aaf; background: #edf3fb; border-radius: 12rpx; margin: 0; }
+.close-button { min-height: 44px; padding: 16rpx 20rpx; font-size: 14px; line-height: 1.8; color: #155aaf; background: #edf3fb; border-radius: 12rpx; margin: 0; }
 .detail-scroll { height: 52vh; margin-top: 16rpx; }
 .detail-content { padding: 8rpx 4rpx 24rpx; }
 .detail-order { display: block; font-size: 32rpx; color: #172b4d; font-weight: 600; line-height: 1.6; word-break: break-all; margin-bottom: 16rpx; }
@@ -48,7 +48,7 @@
 .state-success { border-color: #bddacb; }
 .state-banner { background: #eaf2ff; color: #235393; padding: 20rpx 24rpx; border-radius: 16rpx; font-size: 26rpx; line-height: 1.6; margin: 20rpx 0; }
 .state-actions { display: flex; gap: 16rpx; flex-wrap: wrap; margin-top: 16rpx; }
-.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
+.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 44px; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 14px; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
 .state-actions .state-button { margin-top: 0; }
 .state-button.secondary { color: #155aaf; background: #edf3fb; }
 button { font-family: inherit; }

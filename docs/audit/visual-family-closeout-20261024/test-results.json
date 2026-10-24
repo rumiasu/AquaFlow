@@ -1,0 +1,98 @@
+{
+  "scope": "Affected offline handlers/SDK/FS/UI mocks; no real financial actions or backend execution",
+  "suites": [
+    {
+      "file": "tests/js/station-view-boundary.test.js",
+      "passed": 12,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/customer-home-station-context.test.js",
+      "passed": 26,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/customer-home-recovery-view.test.js",
+      "passed": 42,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/phone-catalog-home.test.js",
+      "passed": 11,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/qwen-collection-recovery.test.js",
+      "passed": 47,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/delivery-detail-actions.test.js",
+      "passed": 73,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/delivery-detail-return-row.test.js",
+      "passed": 9,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/customer-order-detail-recovery.test.js",
+      "passed": 26,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/customer-detail-refresh.test.js",
+      "passed": 22,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/payroll-adjust-intent.test.js",
+      "passed": 9,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/employee-native-startup.test.js",
+      "passed": 7,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/customer-native-startup.test.js",
+      "passed": 7,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/product-phone-feedback.test.js",
+      "passed": 16,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/fee-detail-layout.test.js",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/barrel-return-refund.test.js",
+      "passed": 15,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/barrel-preview-station.test.js",
+      "passed": 5,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/barrel-return-visible-identity.test.js",
+      "passed": 35,
+      "failed": 0
+    },
+    {
+      "file": "tests/js/refund-feedback-flow.test.js",
+      "passed": 17,
+      "failed": 0
+    }
+  ],
+  "passed": 380,
+  "failed": 0,
+  "fullSuiteRun": false
+}

@@ -99,9 +99,8 @@
   justify-content: space-between;
   gap: 16rpx;
   border-top: 1rpx solid var(--border-color);
-  background: var(--warning-bg);
-  padding: 18rpx 28rpx;
-}
+  background: var(--bg-gray);
+  padding: 18rpx 28rpx; border-left:4rpx solid var(--warning-color); }
 .assets-unloaded-text {
   flex: 1;
   font-size: var(--font-xs);
@@ -194,7 +193,7 @@
 .user-tag, .assets-station, .asset-unit, .asset-hint, .asset-note-text, .assets-unloaded-text, .group-title, .menu-desc { font-size: 26rpx; color: var(--text-regular); }
 .assets-head { gap: 16rpx; flex-wrap: wrap; padding: 24rpx 20rpx 8rpx; }
 .asset-cell { padding: 24rpx 12rpx; min-height: 160rpx; }
-.assets-unloaded-tip { min-height: 96rpx; box-sizing: border-box; }
+.assets-unloaded-tip { min-height: 96rpx; box-sizing: border-box; border-left:4rpx solid var(--warning-color); }
 .asset-note { align-items: flex-start; flex-wrap: wrap; }
 .asset-note-link { min-height: 88rpx; display: flex; align-items: center; color: var(--primary-color); }
 .menu-row { min-height: 104rpx; box-sizing: border-box; padding: 24rpx; flex-wrap: wrap; gap: 12rpx; }
@@ -203,7 +202,7 @@
 .group-title { font-weight: 600; padding-top: 28rpx; }
 
 /* 本页所有状态共用的可读与触控边界。 */
-.asset-refresh-note { display: block; margin: 12rpx 0; font-size: 26rpx; line-height: 1.6; color: #9a3412; }
+.asset-refresh-note { display: block; margin: 12rpx 0; font-size: 26rpx; line-height: 1.6; color: var(--warning-color); }
 .assets-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .asset-cell, .menu-name, .menu-desc, .user-info { min-width: 0; overflow-wrap: anywhere; }
 .avatar-placeholder { display: flex; align-items: center; justify-content: center; background: var(--bg-gray); color: var(--text-regular); font-size: 32rpx; font-weight: 600; }

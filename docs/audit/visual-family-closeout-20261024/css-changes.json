@@ -1,0 +1,2420 @@
+{
+  "changes": [
+    {
+      "file": "miniapp-user/app.wxss",
+      "rules": [
+        {
+          "selector": ".product-image-note",
+          "role": "legacy-palette",
+          "before": "display: block; font-size: 24rpx; line-height: 1.5; color: #65615A;",
+          "after": "display: block; font-size: 24rpx; line-height: 1.5; color: var(--text-regular);"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/styles/common.wxss",
+      "rules": [
+        {
+          "selector": ".load-error",
+          "role": "ordinary",
+          "before": "margin: 16rpx 24rpx 0;\n  padding: 16rpx 20rpx;\n  border-radius: 12rpx;\n  background: rgba(201, 118, 75, 0.12);\n  border-left: 6rpx solid var(--warning-color);\n  color: var(--text-regular);\n  font-size: 24rpx;\n  line-height: 1.5;",
+          "after": "margin: 16rpx 24rpx 0;\n  padding: 16rpx 20rpx;\n  border-radius: 12rpx;\n  background: var(--bg-gray);\n  border-left: 4rpx solid var(--primary-color);\n  color: var(--text-regular);\n  font-size: 24rpx;\n  line-height: 1.5;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/styles/theme.wxss",
+      "rules": [
+        {
+          "selector": ".btn-primary, .btn-outline, .btn-gradient, .btn-success",
+          "role": "button",
+          "before": "box-sizing: border-box; min-height: 88rpx; display: flex; align-items: center; justify-content: center; line-height: 1.45; white-space: normal;",
+          "after": "box-sizing: border-box; min-height: 48px; display: flex; align-items: center; justify-content: center; line-height: 1.45; white-space: normal;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/components/OrderCard/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-reorder, .btn-cancel",
+          "role": "button",
+          "before": "font-size: 24rpx;\n  padding: 8rpx 24rpx;\n  border-radius: 30rpx;\n  line-height: 1.6;\n  margin: 0;",
+          "after": "font-size: 14px;\n  padding: 8rpx 24rpx;\n  border-radius: 30rpx;\n  line-height: 1.6;\n  margin: 0;"
+        },
+        {
+          "selector": ".btn-pay, .btn-reorder, .btn-cancel",
+          "role": "button",
+          "before": "min-height: 88rpx; display: flex; align-items: center; justify-content: center; padding: 16rpx 24rpx; line-height: 1.5; font-size: 28rpx; border-radius: var(--radius-md); box-sizing: border-box; margin: 0;",
+          "after": "min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 16rpx 24rpx; line-height: 1.5; font-size: 14px; border-radius: var(--radius-md); box-sizing: border-box; margin: 0;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/components/PrivacyPopup/index.wxss",
+      "rules": [
+        {
+          "selector": ".privacy-btn",
+          "role": "button",
+          "before": "flex: 1;\n  margin: 0;\n  border: 0;\n  height: 80rpx;\n  border-radius: var(--radius-md);\n  font-size: 30rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;",
+          "after": "flex: 1;\n  margin: 0;\n  border: 0;\n  height: 80rpx;\n  border-radius: var(--radius-md);\n  font-size: 14px;\n  display: flex;\n  align-items: center;\n  justify-content: center;"
+        },
+        {
+          "selector": ".privacy-btn, .btn-reject, .btn-agree",
+          "role": "button",
+          "before": "min-height: 96rpx; height: auto; line-height: 1.5; padding: 24rpx 12rpx; box-sizing: border-box; font-size: 28rpx;",
+          "after": "min-height: 44px; height: auto; line-height: 1.5; padding: 24rpx 12rpx; box-sizing: border-box; font-size: 14px;"
+        },
+        {
+          "selector": ".privacy-btn",
+          "role": "button",
+          "before": "flex: 1;\n  margin: 0;\n  border: 0;\n  height: 80rpx;\n  border-radius: var(--radius-md);\n  font-size: 14px;\n  display: flex;\n  align-items: center;\n  justify-content: center;",
+          "after": "flex: 1;\n  margin: 0;\n  border: 0;\n  height: auto;\n  border-radius: var(--radius-md);\n  font-size: 14px;\n  display: flex;\n  align-items: center;\n  justify-content: center; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/address/edit.wxss",
+      "rules": [
+        {
+          "selector": ".auto-btn text",
+          "role": "button",
+          "before": "color: #fff;\n  font-size: 24rpx;\n  font-weight: 600;",
+          "after": "color: #fff;\n  font-size: 14px;\n  font-weight: 600;"
+        },
+        {
+          "selector": ".save-btn",
+          "role": "button",
+          "before": "height: 88rpx;\n  padding: 0 40rpx;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: #fff;\n  font-size: 28rpx;\n  font-weight: 500;",
+          "after": "height: 88rpx;\n  padding: 0 40rpx;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: #fff;\n  font-size: 14px;\n  font-weight: 500;"
+        },
+        {
+          "selector": ".state-button",
+          "role": "button",
+          "before": "margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box;",
+          "after": "margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 44px; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 14px; font-weight: 600; line-height: 1.8; box-sizing: border-box;"
+        },
+        {
+          "selector": ".auto-btn text",
+          "role": "button",
+          "before": "font-size: 28rpx;",
+          "after": "font-size: 14px;"
+        },
+        {
+          "selector": ".auto-btn",
+          "role": "button",
+          "before": "display: flex;\n  align-items: center;\n  gap: 8rpx;\n  background: var(--primary-color);\n  border-radius: var(--radius-sm);\n  padding: 0 28rpx;\n  height: 88rpx;\n  flex-shrink: 0;",
+          "after": "display: flex;\n  align-items: center;\n  gap: 8rpx;\n  background: var(--primary-color);\n  border-radius: var(--radius-sm);\n  padding: 0 28rpx;\n  height: auto;\n  flex-shrink: 0; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".save-btn",
+          "role": "button",
+          "before": "height: 88rpx;\n  padding: 0 40rpx;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: #fff;\n  font-size: 14px;\n  font-weight: 500;",
+          "after": "height: auto;\n  padding: 0 40rpx;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: #fff;\n  font-size: 14px;\n  font-weight: 500; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/address/list.wxss",
+      "rules": [
+        {
+          "selector": ".action-btn",
+          "role": "button",
+          "before": "background: #f0f5fc; color: #155aaf; border-radius: 12rpx; min-width: 112rpx; min-height: 88rpx; margin: 0; padding: 16rpx; line-height: 1.8; font-size: 26rpx; box-sizing: border-box;",
+          "after": "background: #f0f5fc; color: #155aaf; border-radius: 12rpx; min-width: 112rpx; min-height: 44px; margin: 0; padding: 16rpx; line-height: 1.8; font-size: 14px; box-sizing: border-box;"
+        },
+        {
+          "selector": ".add-btn",
+          "role": "button",
+          "before": "position: fixed; left: 24rpx; right: 24rpx; bottom: calc(24rpx + env(safe-area-inset-bottom)); min-height: 96rpx; margin: 0; border-radius: 18rpx; background: var(--primary-color); color: #fff; padding: 20rpx; font-size: 30rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box;",
+          "after": "position: fixed; left: 24rpx; right: 24rpx; bottom: calc(24rpx + env(safe-area-inset-bottom)); min-height: 44px; margin: 0; border-radius: 18rpx; background: var(--primary-color); color: #fff; padding: 20rpx; font-size: 14px; font-weight: 600; line-height: 1.8; box-sizing: border-box;"
+        },
+        {
+          "selector": ".state-button",
+          "role": "button",
+          "before": "margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box;",
+          "after": "margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 44px; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 14px; font-weight: 600; line-height: 1.8; box-sizing: border-box;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/barrel/index.wxss",
+      "rules": [
+        {
+          "selector": ".rights-purchase-btn",
+          "role": "button",
+          "before": "margin: 0;\n  padding: 14rpx 24rpx;\n  background: var(--primary-bg);\n  border: 1rpx solid var(--primary-color);\n  border-radius: var(--radius-md);\n  color: var(--primary-color);\n  font-size: 26rpx;\n  font-weight: 500;\n  line-height: 1.6;\n  min-height: 88rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;",
+          "after": "margin: 0;\n  padding: 14rpx 24rpx;\n  background: var(--primary-bg);\n  border: 1rpx solid var(--primary-color);\n  border-radius: var(--radius-md);\n  color: var(--primary-color);\n  font-size: 14px;\n  font-weight: 500;\n  line-height: 1.6;\n  min-height: 44px;\n  display: flex;\n  align-items: center;\n  justify-content: center;"
+        },
+        {
+          "selector": ".eco-btn text",
+          "role": "button",
+          "before": "font-size: 26rpx;\n  color: var(--primary-color);\n  font-weight: 500;",
+          "after": "font-size: 14px;\n  color: var(--primary-color);\n  font-weight: 500;"
+        },
+        {
+          "selector": ".modal-btn",
+          "role": "button",
+          "before": "flex: 1;\n  height: auto;\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 30rpx;\n  min-height: 96rpx;\n  padding: 16rpx;\n  box-sizing: border-box;",
+          "after": "flex: 1;\n  height: auto;\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;\n  min-height: 44px;\n  padding: 16rpx;\n  box-sizing: border-box;"
+        },
+        {
+          "selector": ".barrel-record > button",
+          "role": "button",
+          "before": "min-height: 88rpx; margin: 20rpx 0 0; border-radius: var(--radius-sm); font-size: 26rpx; color: var(--primary-color); background: var(--primary-bg); white-space: normal;",
+          "after": "min-height: 44px; margin: 20rpx 0 0; border-radius: var(--radius-sm); font-size: 14px; color: var(--primary-color); background: var(--primary-bg); white-space: normal;"
+        },
+        {
+          "selector": ".eco-btn",
+          "role": "button",
+          "before": "min-height: 88rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: var(--radius-sm);",
+          "after": "min-height: 44px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: var(--radius-sm);"
+        },
+        {
+          "selector": ".stale-note",
+          "role": "risk",
+          "before": "display: block; margin: 20rpx 24rpx; color: #9a3412; background: #fff7ed; padding: 20rpx; font-size: 26rpx; line-height: 1.65;",
+          "after": "display: block; margin: 20rpx 24rpx; color: var(--warning-color); background: var(--bg-gray); padding: 20rpx; font-size: 26rpx; line-height: 1.65; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".preview-hint",
+          "role": "risk",
+          "before": "background-color: var(--warning-bg);\n  border-radius: 12rpx;\n  padding: 16rpx 20rpx;\n  margin-bottom: 16rpx;",
+          "after": "background: var(--bg-gray);\n  border-radius: 12rpx;\n  padding: 16rpx 20rpx;\n  margin-bottom: 16rpx; border-left:4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".preview-blocked",
+          "role": "risk",
+          "before": "background-color: var(--warning-bg);\n  border-radius: 12rpx;\n  padding: 16rpx 20rpx;\n  margin-bottom: 16rpx;",
+          "after": "background: var(--bg-gray);\n  border-radius: 12rpx;\n  padding: 16rpx 20rpx;\n  margin-bottom: 16rpx; border-left:4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".preview-warn",
+          "role": "risk",
+          "before": "background-color: var(--warning-bg);\n  border-radius: 12rpx;\n  padding: 12rpx 20rpx;\n  margin-bottom: 16rpx;",
+          "after": "background: var(--bg-gray);\n  border-radius: 12rpx;\n  padding: 12rpx 20rpx;\n  margin-bottom: 16rpx; border-left:4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".qty-btn",
+          "role": "button",
+          "before": "width: 88rpx;\n  height: 88rpx;\n  border-radius: 12rpx;\n  background-color: var(--bg-gray);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  flex-shrink: 0;",
+          "after": "width: 88rpx;\n  height: auto;\n  border-radius: 12rpx;\n  background-color: var(--bg-gray);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  flex-shrink: 0; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/barrel/purchase.wxss",
+      "rules": [
+        {
+          "selector": "button",
+          "role": "button",
+          "before": "margin-top: 20rpx; min-height: 88rpx; height: auto; padding: 18rpx 24rpx; border: 1rpx solid var(--border-color); border-radius: 16rpx; background: var(--bg-card); color: var(--text-primary); font-size: 28rpx; line-height: 1.6; white-space: normal; overflow-wrap: anywhere;",
+          "after": "margin-top: 20rpx; min-height: 44px; height: auto; padding: 18rpx 24rpx; border: 1rpx solid var(--border-color); border-radius: 16rpx; background: var(--bg-card); color: var(--text-primary); font-size: 14px; line-height: 1.6; white-space: normal; overflow-wrap: anywhere;"
+        },
+        {
+          "selector": ".recovery",
+          "role": "risk",
+          "before": "margin: 24rpx 0; padding: 24rpx; border: 1rpx solid var(--warning-color); border-radius: 16rpx; background: var(--warning-bg);",
+          "after": "margin: 24rpx 0; padding: 24rpx; border: 1rpx solid var(--warning-color); border-radius: 16rpx; background: var(--bg-gray); border-left:4rpx solid var(--warning-color);"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/home/index.wxss",
+      "rules": [
+        {
+          "selector": ".stepper-btn",
+          "role": "button",
+          "before": "width: 52rpx;\n  height: 52rpx;\n  border-radius: var(--radius-md);\n  border: 1rpx solid var(--border-color);\n  background: #fff;\n  font-size: 30rpx;\n  color: var(--text-primary);\n  display: flex;\n  align-items: center;\n  justify-content: center;",
+          "after": "width: 52rpx;\n  height: 52rpx;\n  border-radius: var(--radius-md);\n  border: 1rpx solid var(--border-color);\n  background: #fff;\n  font-size: 14px;\n  color: var(--text-primary);\n  display: flex;\n  align-items: center;\n  justify-content: center;"
+        },
+        {
+          "selector": ".cta",
+          "role": "button",
+          "before": "background: var(--primary-color);\n  color: #fff;\n  border-radius: 20rpx;\n  font-size: 30rpx;\n  font-weight: 600;\n  padding: 24rpx 68rpx;\n  letter-spacing: 2rpx;\n  flex: none;\n  text-align: center;",
+          "after": "background: var(--primary-color);\n  color: #fff;\n  border-radius: 20rpx;\n  font-size: 16px;\n  font-weight: 600;\n  padding: 24rpx 68rpx;\n  letter-spacing: 2rpx;\n  flex: none;\n  text-align: center;"
+        },
+        {
+          "selector": ".again-btn",
+          "role": "button",
+          "before": "box-sizing: border-box; min-height: 88rpx; padding: 20rpx 24rpx; background: var(--primary-color); color: #fff; display: flex; align-items: center; font-weight: 600;",
+          "after": "box-sizing: border-box; min-height: 44px; padding: 20rpx 24rpx; background: var(--primary-color); color: #fff; display: flex; align-items: center; font-weight: 600;"
+        },
+        {
+          "selector": ".cta",
+          "role": "button",
+          "before": "box-sizing: border-box; min-height: 96rpx; padding: 20rpx 32rpx; border-radius: var(--radius-md); letter-spacing: 0;",
+          "after": "box-sizing: border-box; min-height: 48px; padding: 20rpx 32rpx; border-radius: var(--radius-md); letter-spacing: 0;"
+        },
+        {
+          "selector": ".home-primary",
+          "role": "button",
+          "before": "width: 100%; box-sizing: border-box; min-height: 96rpx; margin: 32rpx 0 0; padding: 24rpx; border-radius: 18rpx; background: var(--primary-color); color: white; font-size: 30rpx; font-weight: 600; line-height: 1.5; display: flex; align-items: center; justify-content: center;",
+          "after": "width: 100%; box-sizing: border-box; min-height: 48px; margin: 32rpx 0 0; padding: 24rpx; border-radius: 18rpx; background: var(--primary-color); color: white; font-size: 16px; font-weight: 600; line-height: 1.5; display: flex; align-items: center; justify-content: center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/login/index.wxss",
+      "rules": [
+        {
+          "selector": ".wx-login-btn",
+          "role": "button",
+          "before": "width: 100%; min-height: 96rpx; height: auto; padding: 22rpx 20rpx; background: var(--primary-color); border-radius: var(--radius-md); color: #fff; font-size: 32rpx; line-height: 1.6; font-weight: 600;",
+          "after": "width: 100%; min-height: 44px; height: auto; padding: 22rpx 20rpx; background: var(--primary-color); border-radius: var(--radius-md); color: #fff; font-size: 32rpx; line-height: 1.6; font-weight: 600;"
+        },
+        {
+          "selector": ".dev-login-btn",
+          "role": "button",
+          "before": "margin-top: 16rpx; padding: 24rpx 0; min-height: 88rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box;",
+          "after": "margin-top: 16rpx; padding: 24rpx 0; min-height: 44px; display: flex; align-items: center; justify-content: center; box-sizing: border-box;"
+        },
+        {
+          "selector": ".dev-login-btn text",
+          "role": "button",
+          "before": "color: var(--text-regular); font-size: 26rpx; text-decoration: underline;",
+          "after": "color: var(--text-regular); font-size: 14px; text-decoration: underline;"
+        },
+        {
+          "selector": ".login-error",
+          "role": "error",
+          "before": "margin-top: 24rpx; padding: 20rpx; border-radius: 12rpx; background: #fff7ed; color: #9a3412; font-size: 28rpx; line-height: 1.65;",
+          "after": "margin-top: 24rpx; padding: 20rpx; border-radius: 12rpx; background: var(--bg-gray); color: var(--text-regular); font-size: 28rpx; line-height: 1.65; border-left: 4rpx solid var(--error-color);"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/mine/company.wxss",
+      "rules": [
+        {
+          "selector": ".edit-btn, .btn",
+          "role": "button",
+          "before": "padding: 20rpx; border-radius: 16rpx; font-size: 30rpx; line-height: 1.8; min-height: 96rpx; font-weight: 600; box-sizing: border-box; margin: 0;",
+          "after": "padding: 20rpx; border-radius: 16rpx; font-size: 14px; line-height: 1.8; min-height: 44px; font-weight: 600; box-sizing: border-box; margin: 0;"
+        },
+        {
+          "selector": ".state-button",
+          "role": "button",
+          "before": "margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box;",
+          "after": "margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 44px; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 14px; font-weight: 600; line-height: 1.8; box-sizing: border-box;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/mine/edit.wxss",
+      "rules": [
+        {
+          "selector": ".save-error",
+          "role": "error",
+          "before": "font-size: 28rpx; line-height: 1.65; color: #9a3412; background: #fff7ed; padding: 24rpx; border-radius: 12rpx;",
+          "after": "font-size: 28rpx; line-height: 1.65; color: var(--text-regular); background: var(--bg-gray); padding: 24rpx; border-radius: 12rpx; border-left: 4rpx solid var(--error-color);"
+        },
+        {
+          "selector": ".submit-btn",
+          "role": "button",
+          "before": "margin-top: 24rpx;\n  height: 96rpx;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  box-shadow: none;",
+          "after": "margin-top: 24rpx;\n  height: auto;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/mine/index.wxss",
+      "rules": [
+        {
+          "selector": ".asset-refresh-note",
+          "role": "legacy-palette",
+          "before": "display: block; margin: 12rpx 0; font-size: 26rpx; line-height: 1.6; color: #9a3412;",
+          "after": "display: block; margin: 12rpx 0; font-size: 26rpx; line-height: 1.6; color: var(--warning-color);"
+        },
+        {
+          "selector": ".assets-unloaded-tip",
+          "role": "risk",
+          "before": "display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 16rpx;\n  border-top: 1rpx solid var(--border-color);\n  background: var(--warning-bg);\n  padding: 18rpx 28rpx;",
+          "after": "display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 16rpx;\n  border-top: 1rpx solid var(--border-color);\n  background: var(--bg-gray);\n  padding: 18rpx 28rpx; border-left:4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".assets-unloaded-tip",
+          "role": "risk",
+          "before": "min-height: 96rpx; box-sizing: border-box;",
+          "after": "min-height: 96rpx; box-sizing: border-box; border-left:4rpx solid var(--warning-color);"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/notice/index.wxss",
+      "rules": [
+        {
+          "selector": ".state-button",
+          "role": "button",
+          "before": "margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box;",
+          "after": "margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 44px; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 14px; font-weight: 600; line-height: 1.8; box-sizing: border-box;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/order/create.wxss",
+      "rules": [
+        {
+          "selector": ".popup-btns .btn-cancel",
+          "role": "button",
+          "before": "flex: 1;\n  height: 88rpx;\n  border-radius: 20rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 30rpx;\n  background: var(--bg-gray);\n  color: var(--text-regular);\n  border: none;\n  line-height: 88rpx;\n  padding: 0;",
+          "after": "flex: 1;\n  height: 88rpx;\n  border-radius: 20rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;\n  background: var(--bg-gray);\n  color: var(--text-regular);\n  border: none;\n  line-height: 88rpx;\n  padding: 0;"
+        },
+        {
+          "selector": ".popup-btns .btn-ok",
+          "role": "button",
+          "before": "flex: 1;\n  height: 88rpx;\n  border-radius: 20rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 30rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border: none;\n  line-height: 88rpx;\n  padding: 0;",
+          "after": "flex: 1;\n  height: 88rpx;\n  border-radius: 20rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;\n  background: var(--primary-color);\n  color: #fff;\n  border: none;\n  line-height: 88rpx;\n  padding: 0;"
+        },
+        {
+          "selector": ".asset-rules",
+          "role": "risk",
+          "before": "background: rgba(201, 118, 75, 0.10);\n  border: 1rpx solid var(--border-color);\n  border-radius: var(--radius-md);\n  padding: 24rpx;\n  margin-bottom: 24rpx;",
+          "after": "background: var(--bg-gray);\n  border: 1rpx solid var(--border-color);\n  border-radius: var(--radius-md);\n  padding: 24rpx;\n  margin-bottom: 24rpx; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".submit-unknown",
+          "role": "risk",
+          "before": "background: rgba(201, 118, 75, 0.12);\n  border: 1rpx solid var(--warning-color);\n  border-radius: var(--radius-md);\n  padding: 20rpx 24rpx;\n  margin-bottom: 16rpx;",
+          "after": "background: var(--bg-gray);\n  border: 1rpx solid var(--warning-color);\n  border-radius: var(--radius-md);\n  padding: 20rpx 24rpx;\n  margin-bottom: 16rpx; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".station-status-banner",
+          "role": "risk",
+          "before": "display: flex;\n  align-items: flex-start;\n  gap: 12rpx;\n  margin: 0 0 16rpx;\n  padding: 20rpx 24rpx;\n  background: rgba(201, 118, 75, 0.10);\n  border-radius: var(--radius-md);",
+          "after": "display: flex;\n  align-items: flex-start;\n  gap: 12rpx;\n  margin: 0 0 16rpx;\n  padding: 20rpx 24rpx;\n  background: var(--bg-gray);\n  border-radius: var(--radius-md); border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".fee-warn",
+          "role": "risk",
+          "before": "margin: 0 0 16rpx;\n  padding: 16rpx 20rpx;\n  background: rgba(201, 118, 75, 0.12);\n  border-left: 6rpx solid var(--warning-color);\n  border-radius: var(--radius-sm);",
+          "after": "margin: 0 0 16rpx;\n  padding: 16rpx 20rpx;\n  background: var(--bg-gray);\n  border-left: 4rpx solid var(--warning-color);\n  border-radius: var(--radius-sm);"
+        },
+        {
+          "selector": ".detail-rule",
+          "role": "risk",
+          "before": "padding: 20rpx;\n  background: var(--warning-bg);\n  border-radius: 12rpx;\n  margin-bottom: 24rpx;",
+          "after": "padding: 20rpx;\n  background: var(--bg-gray);\n  border-radius: 12rpx;\n  margin-bottom: 24rpx; border-left:4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".popup-btns .btn-cancel",
+          "role": "button",
+          "before": "flex: 1;\n  height: 88rpx;\n  border-radius: 20rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;\n  background: var(--bg-gray);\n  color: var(--text-regular);\n  border: none;\n  line-height: 88rpx;\n  padding: 0;",
+          "after": "flex: 1;\n  height: auto;\n  border-radius: 20rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;\n  background: var(--bg-gray);\n  color: var(--text-regular);\n  border: none;\n  line-height: 1.5;\n  padding: 0; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".popup-btns .btn-ok",
+          "role": "button",
+          "before": "flex: 1;\n  height: 88rpx;\n  border-radius: 20rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;\n  background: var(--primary-color);\n  color: #fff;\n  border: none;\n  line-height: 88rpx;\n  padding: 0;",
+          "after": "flex: 1;\n  height: auto;\n  border-radius: 20rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;\n  background: var(--primary-color);\n  color: #fff;\n  border: none;\n  line-height: 1.5;\n  padding: 0; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/order/detail.wxss",
+      "rules": [
+        {
+          "selector": ".btn-action",
+          "role": "button",
+          "before": "border-radius: 20rpx;\n  font-size: 30rpx;\n  padding: 24rpx 0;\n  text-align: center;\n  border: none;\n  font-weight: 600;\n  height: 88rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  line-height: 1;",
+          "after": "border-radius: 20rpx;\n  font-size: 14px;\n  padding: 24rpx 0;\n  text-align: center;\n  border: none;\n  font-weight: 600;\n  height: 88rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  line-height: 1;"
+        },
+        {
+          "selector": ".btn-action",
+          "role": "button",
+          "before": "min-height: 96rpx; height: auto; padding: 24rpx 20rpx; box-sizing: border-box; border-radius: var(--radius-md); line-height: 1.5; display: flex; align-items: center; justify-content: center;",
+          "after": "min-height: 44px; height: auto; padding: 24rpx 20rpx; box-sizing: border-box; border-radius: var(--radius-md); line-height: 1.5; display: flex; align-items: center; justify-content: center;"
+        },
+        {
+          "selector": ".btn-action",
+          "role": "button",
+          "before": "border-radius: 20rpx;\n  font-size: 14px;\n  padding: 24rpx 0;\n  text-align: center;\n  border: none;\n  font-weight: 600;\n  height: 88rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  line-height: 1;",
+          "after": "border-radius: 20rpx;\n  font-size: 14px;\n  padding: 24rpx 0;\n  text-align: center;\n  border: none;\n  font-weight: 600;\n  height: auto;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  line-height: 1; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/order/success.wxss",
+      "rules": [
+        {
+          "selector": ".pay-btn",
+          "role": "button",
+          "before": "width: 100%;\n  height: auto;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  box-shadow: none;\n  min-height: 96rpx;\n  padding: 20rpx;\n  box-sizing: border-box;",
+          "after": "width: 100%;\n  height: auto;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  box-shadow: none;\n  min-height: 44px;\n  padding: 20rpx;\n  box-sizing: border-box;"
+        },
+        {
+          "selector": ".load-error button",
+          "role": "button",
+          "before": "min-height: 88rpx; font-size: 28rpx; line-height: 1.6; padding: 20rpx;",
+          "after": "min-height: 44px; font-size: 14px; line-height: 1.6; padding: 20rpx;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/payment/records.wxss",
+      "rules": [
+        {
+          "selector": ".retry-button",
+          "role": "button",
+          "before": "margin: 24rpx 0 0;\n  padding: 20rpx 28rpx;\n  display: inline-block;\n  width: auto;\n  min-height: 88rpx;\n  line-height: 1.6;\n  font-size: 26rpx;\n  color: var(--primary-color);\n  background: var(--primary-bg);\n  border-radius: var(--radius-md);",
+          "after": "margin: 24rpx 0 0;\n  padding: 20rpx 28rpx;\n  display: inline-block;\n  width: auto;\n  min-height: 44px;\n  line-height: 1.6;\n  font-size: 14px;\n  color: var(--primary-color);\n  background: var(--primary-bg);\n  border-radius: var(--radius-md);"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/service/index.wxss",
+      "rules": [
+        {
+          "selector": ".call-btn,\n.copy-btn",
+          "role": "button",
+          "before": "padding: 12rpx 24rpx;\n  border-radius: var(--radius-sm);\n  font-size: 26rpx;\n  font-weight: 500;\n  min-height: 88rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  box-sizing: border-box;\n  flex-shrink: 0;",
+          "after": "padding: 12rpx 24rpx;\n  border-radius: var(--radius-sm);\n  font-size: 14px;\n  font-weight: 500;\n  min-height: 44px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  box-sizing: border-box;\n  flex-shrink: 0;"
+        },
+        {
+          "selector": ".feedback-btn text",
+          "role": "button",
+          "before": "color: #fff;\n  font-size: 30rpx;\n  font-weight: 600;",
+          "after": "color: #fff;\n  font-size: 16px;\n  font-weight: 600;"
+        },
+        {
+          "selector": ".service-section button, .history-main button",
+          "role": "button",
+          "before": "min-height: 88rpx; height: auto; padding: 18rpx 24rpx; border-radius: var(--radius-sm); color: var(--primary-color); background: var(--primary-bg); font-size: 26rpx; line-height: 1.6; white-space: normal;",
+          "after": "min-height: 44px; height: auto; padding: 18rpx 24rpx; border-radius: var(--radius-sm); color: var(--primary-color); background: var(--primary-bg); font-size: 14px; line-height: 1.6; white-space: normal;"
+        },
+        {
+          "selector": ".feedback-btn",
+          "role": "button",
+          "before": "height: 96rpx;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  margin-top: 24rpx;\n  box-shadow: none;",
+          "after": "height: auto;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  margin-top: 24rpx;\n  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/shop/index.wxss",
+      "rules": [
+        {
+          "selector": ".buy-btn",
+          "role": "button",
+          "before": "height: 52rpx;\n  line-height: 52rpx;\n  padding: 0 28rpx;\n  background: var(--primary-gradient);\n  color: #fff;\n  border-radius: 26rpx;\n  font-size: 26rpx;\n  font-weight: 600;\n  box-shadow: 0 4rpx 12rpx rgba(30, 64, 175, 0.2);\n  text-align: center;\n  margin-top: 8rpx;",
+          "after": "height: 52rpx;\n  line-height: 52rpx;\n  padding: 0 28rpx;\n  background: var(--primary-gradient);\n  color: #fff;\n  border-radius: 26rpx;\n  font-size: 14px;\n  font-weight: 600;\n  box-shadow: 0 4rpx 12rpx rgba(30, 64, 175, 0.2);\n  text-align: center;\n  margin-top: 8rpx;"
+        },
+        {
+          "selector": ".cart-btn",
+          "role": "button",
+          "before": "flex: 1;\n  height: 52rpx;\n  line-height: 52rpx;\n  padding: 0 16rpx;\n  background: var(--bg-gray);\n  color: var(--primary-color);\n  border: 1rpx solid var(--primary-color);\n  border-radius: 26rpx;\n  font-size: 26rpx;\n  font-weight: 500;\n  text-align: center;",
+          "after": "flex: 1;\n  height: 52rpx;\n  line-height: 52rpx;\n  padding: 0 16rpx;\n  background: var(--bg-gray);\n  color: var(--primary-color);\n  border: 1rpx solid var(--primary-color);\n  border-radius: 26rpx;\n  font-size: 14px;\n  font-weight: 500;\n  text-align: center;"
+        },
+        {
+          "selector": ".station-status-banner",
+          "role": "risk",
+          "before": "display: flex;\n  align-items: flex-start;\n  gap: 12rpx;\n  margin: 16rpx 24rpx 0;\n  padding: 20rpx 24rpx;\n  background: var(--warning-bg);\n  border-radius: 16rpx;",
+          "after": "display: flex;\n  align-items: flex-start;\n  gap: 12rpx;\n  margin: 16rpx 24rpx 0;\n  padding: 20rpx 24rpx;\n  background: var(--bg-gray);\n  border-radius: 16rpx; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".buy-btn, .cart-btn",
+          "role": "button",
+          "before": "min-width: 140rpx; min-height: 88rpx; height: auto; box-sizing: border-box; line-height: 1.4; padding: 20rpx 12rpx; display: flex; justify-content: center; align-items: center; font-size: 26rpx; border-radius: var(--radius-md); box-shadow: none; margin-top: 0;",
+          "after": "min-width: 140rpx; min-height: 44px; height: auto; box-sizing: border-box; line-height: 1.4; padding: 20rpx 12rpx; display: flex; justify-content: center; align-items: center; font-size: 14px; border-radius: var(--radius-md); box-shadow: none; margin-top: 0;"
+        },
+        {
+          "selector": ".station-picker button, .load-error button",
+          "role": "button",
+          "before": "min-height: 88rpx; font-size: 28rpx; line-height: 1.6; padding: 20rpx;",
+          "after": "min-height: 44px; font-size: 14px; line-height: 1.6; padding: 20rpx;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/template/index.wxss",
+      "rules": [
+        {
+          "selector": ".add-btn",
+          "role": "button",
+          "before": "position: fixed;\n  bottom: calc(40rpx + env(safe-area-inset-bottom));\n  left: 24rpx;\n  right: 24rpx;\n  height: 88rpx;\n  background: var(--primary-gradient);\n  border-radius: 44rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: #fff;\n  font-size: 30rpx;\n  font-weight: 600;\n  box-shadow: var(--shadow-primary);",
+          "after": "position: fixed;\n  bottom: calc(40rpx + env(safe-area-inset-bottom));\n  left: 24rpx;\n  right: 24rpx;\n  height: 88rpx;\n  background: var(--primary-gradient);\n  border-radius: 44rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: #fff;\n  font-size: 14px;\n  font-weight: 600;\n  box-shadow: var(--shadow-primary);"
+        },
+        {
+          "selector": ".form-add-btn",
+          "role": "button",
+          "before": "font-size: 26rpx;\n  color: var(--primary-light);",
+          "after": "font-size: 14px;\n  color: var(--primary-light);"
+        },
+        {
+          "selector": ".modal-btn",
+          "role": "button",
+          "before": "flex: 1;\n  height: 76rpx;\n  border-radius: 38rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 28rpx;",
+          "after": "flex: 1;\n  height: 76rpx;\n  border-radius: 38rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;"
+        },
+        {
+          "selector": ".action-edit, .action-delete, .form-add-btn, .modal-close",
+          "role": "button",
+          "before": "min-height: 88rpx; padding: 0 16rpx; display: inline-flex; align-items: center; box-sizing: border-box;",
+          "after": "min-height: 44px; padding: 0 16rpx; display: inline-flex; align-items: center; box-sizing: border-box;"
+        },
+        {
+          "selector": ".item-qty .qty-btn, .item-qty .qty-input, .item-remove",
+          "role": "button",
+          "before": "min-width: 88rpx; height: 88rpx; font-size: 28rpx; display: flex; align-items: center; justify-content: center;",
+          "after": "min-width: 88rpx; height: 88rpx; font-size: 14px; display: flex; align-items: center; justify-content: center;"
+        },
+        {
+          "selector": ".add-btn, .modal-btn",
+          "role": "button",
+          "before": "border-radius: var(--radius-md); min-height: 88rpx; box-shadow: none;",
+          "after": "border-radius: var(--radius-md); min-height: 44px; box-shadow: none;"
+        },
+        {
+          "selector": ".save-error",
+          "role": "error",
+          "before": "width: 100%; color: #9a3412;",
+          "after": "width: 100%; color: var(--warning-color);"
+        },
+        {
+          "selector": ".load-error button",
+          "role": "button",
+          "before": "min-height: 88rpx; font-size: 28rpx;",
+          "after": "min-height: 44px; font-size: 14px;"
+        },
+        {
+          "selector": ".add-btn",
+          "role": "button",
+          "before": "position: fixed;\n  bottom: calc(40rpx + env(safe-area-inset-bottom));\n  left: 24rpx;\n  right: 24rpx;\n  height: 88rpx;\n  background: var(--primary-gradient);\n  border-radius: 44rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: #fff;\n  font-size: 14px;\n  font-weight: 600;\n  box-shadow: var(--shadow-primary);",
+          "after": "position: fixed;\n  bottom: calc(40rpx + env(safe-area-inset-bottom));\n  left: 24rpx;\n  right: 24rpx;\n  height: auto;\n  background: var(--primary-gradient);\n  border-radius:12rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: #fff;\n  font-size: 14px;\n  font-weight: 600;\n  box-shadow: var(--shadow-primary); min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".item-qty .qty-btn, .item-qty .qty-input, .item-remove",
+          "role": "button",
+          "before": "min-width: 88rpx; height: 88rpx; font-size: 14px; display: flex; align-items: center; justify-content: center;",
+          "after": "min-width: 88rpx; height: auto; font-size: 14px; display: flex; align-items: center; justify-content: center; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/ticket/index.wxss",
+      "rules": [
+        {
+          "selector": ".modal-btn",
+          "role": "button",
+          "before": "flex: 1;\n  height: auto;\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  min-height: 96rpx;\n  padding: 16rpx 12rpx;\n  box-sizing: border-box;",
+          "after": "flex: 1;\n  height: auto;\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  min-height: 44px;\n  padding: 16rpx 12rpx;\n  box-sizing: border-box;"
+        },
+        {
+          "selector": ".modal-btn.cancel text",
+          "role": "button",
+          "before": "color: var(--text-regular);\n  font-size: 30rpx;",
+          "after": "color: var(--text-regular);\n  font-size: 14px;"
+        },
+        {
+          "selector": ".modal-btn.confirm text",
+          "role": "button",
+          "before": "color: #fff;\n  font-size: 30rpx;\n  font-weight: 600;",
+          "after": "color: #fff;\n  font-size: 14px;\n  font-weight: 600;"
+        },
+        {
+          "selector": "button.recovery-btn",
+          "role": "button",
+          "before": "margin: 0;\n  padding: 18rpx 24rpx;\n  border-radius: var(--radius-sm);\n  font-size: 26rpx;\n  line-height: 1.4;\n  min-height: 88rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  flex: 1 1 240rpx;",
+          "after": "margin: 0;\n  padding: 18rpx 24rpx;\n  border-radius: var(--radius-sm);\n  font-size: 14px;\n  line-height: 1.4;\n  min-height: 44px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  flex: 1 1 240rpx;"
+        },
+        {
+          "selector": ".stale-note",
+          "role": "risk",
+          "before": "display: block; padding: 20rpx 24rpx; color: #9a3412; background: #fff7ed; font-size: 26rpx; line-height: 1.65;",
+          "after": "display: block; padding: 20rpx 24rpx; color: var(--warning-color); background: var(--bg-gray); font-size: 26rpx; line-height: 1.65; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".load-error button",
+          "role": "button",
+          "before": "min-height: 88rpx; font-size: 28rpx; padding: 18rpx;",
+          "after": "min-height: 44px; font-size: 14px; padding: 18rpx;"
+        },
+        {
+          "selector": ".recovery-card",
+          "role": "risk",
+          "before": "margin: 16rpx 24rpx 0;\n  padding: 20rpx 24rpx;\n  border-radius: var(--radius-sm);\n  background: var(--warning-bg);\n  border-left: 6rpx solid var(--warning-color);",
+          "after": "margin: 16rpx 24rpx 0;\n  padding: 20rpx 24rpx;\n  border-radius: var(--radius-sm);\n  background: var(--bg-gray);\n  border-left: 6rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".buy-ticket-btn",
+          "role": "button",
+          "before": "height: 96rpx;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  box-shadow: none;",
+          "after": "height: auto;\n  background: var(--primary-color);\n  border-radius: var(--radius-md);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".qty-btn",
+          "role": "button",
+          "before": "width: 88rpx;\n  height: 88rpx;\n  border-radius: 12rpx;\n  border: 2rpx solid var(--border-color);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 32rpx;\n  color: var(--text-primary);\n  flex-shrink: 0;",
+          "after": "width: 88rpx;\n  height: auto;\n  border-radius: 12rpx;\n  border: 2rpx solid var(--border-color);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 32rpx;\n  color: var(--text-primary);\n  flex-shrink: 0; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/deposit/records/index.wxss",
+      "rules": [
+        {
+          "selector": ".error-btn",
+          "role": "button",
+          "before": "margin-top: 28rpx;\n  height: auto;\n  line-height: 1.6;\n  text-align: center;\n  border-radius: var(--radius-md);\n  background-color: var(--primary-color);\n  color: #fff;\n  font-size: 28rpx;\n  min-height: 88rpx;\n  padding: 20rpx;\n  box-sizing: border-box;",
+          "after": "margin-top: 28rpx;\n  height: auto;\n  line-height: 1.6;\n  text-align: center;\n  border-radius: var(--radius-md);\n  background-color: var(--primary-color);\n  color: #fff;\n  font-size: 14px;\n  min-height: 44px;\n  padding: 20rpx;\n  box-sizing: border-box;"
+        },
+        {
+          "selector": ".error-btn",
+          "role": "button",
+          "before": "min-height: 88rpx;",
+          "after": "min-height: 44px;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/exception/list/list.wxss",
+      "rules": [
+        {
+          "selector": ".status-badge.warning",
+          "role": "legacy-palette",
+          "before": "color: #9a3412; background: #fff3e8;",
+          "after": "color: var(--warning-color); background: #fff3e8;"
+        },
+        {
+          "selector": ".close-button",
+          "role": "button",
+          "before": "min-height: 88rpx; padding: 16rpx 20rpx; font-size: 28rpx; line-height: 1.8; color: #155aaf; background: #edf3fb; border-radius: 12rpx; margin: 0;",
+          "after": "min-height: 44px; padding: 16rpx 20rpx; font-size: 14px; line-height: 1.8; color: #155aaf; background: #edf3fb; border-radius: 12rpx; margin: 0;"
+        },
+        {
+          "selector": ".state-button",
+          "role": "button",
+          "before": "margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box;",
+          "after": "margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 44px; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 14px; font-weight: 600; line-height: 1.8; box-sizing: border-box;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/mine/agreement/index.wxss",
+      "rules": [
+        {
+          "selector": ".doc-notice",
+          "role": "info",
+          "before": "display: flex;\n  align-items: flex-start;\n  gap: 12rpx;\n  padding: 20rpx 24rpx;\n  margin-bottom: 24rpx;\n  border-radius: var(--radius-sm);\n  background: var(--warning-bg);\n  border-left: 6rpx solid var(--warning-color);\n  flex-wrap: wrap;",
+          "after": "display: flex;\n  align-items: flex-start;\n  gap: 12rpx;\n  padding: 20rpx 24rpx;\n  margin-bottom: 24rpx;\n  border-radius: var(--radius-sm);\n  background: var(--bg-gray);\n  border-left: 4rpx solid var(--primary-color);\n  flex-wrap: wrap; color: var(--text-regular);"
+        },
+        {
+          "selector": ".doc-notice button",
+          "role": "button",
+          "before": "min-height: 88rpx; padding: 18rpx 28rpx; font-size: 26rpx; line-height: 1.6; border-radius: var(--radius-sm); color: var(--primary-color); background: #fff; margin: 0;",
+          "after": "min-height: 44px; padding: 18rpx 28rpx; font-size: 14px; line-height: 1.6; border-radius: var(--radius-sm); color: var(--primary-color); background: #fff; margin: 0;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/mine/asset-claims/index.wxss",
+      "rules": [
+        {
+          "selector": ".claim-title",
+          "role": "legacy-palette",
+          "before": "display: block; font-size: 29rpx; font-weight: 600; line-height: 1.6; color: var(--text-primary, #25384a);",
+          "after": "display: block; font-size: 29rpx; font-weight: 600; line-height: 1.6; color: var(--text-primary, #182230);"
+        },
+        {
+          "selector": ".claim-notice",
+          "role": "risk",
+          "before": "background: #fff4df; color: #765524;",
+          "after": "background: var(--bg-gray); color: var(--warning-color); border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".claim-error",
+          "role": "error",
+          "before": "background: #fff0ed; color: #a33c28;",
+          "after": "background: var(--bg-gray); color: var(--text-regular); border-left: 4rpx solid var(--error-color);"
+        },
+        {
+          "selector": ".claim-amount",
+          "role": "legacy-palette",
+          "before": "display: block; font-size: 29rpx; line-height: 1.7; font-weight: 600; margin-top: 16rpx; color: var(--text-primary, #25384a);",
+          "after": "display: block; font-size: 29rpx; line-height: 1.7; font-weight: 600; margin-top: 16rpx; color: var(--text-primary, #182230);"
+        },
+        {
+          "selector": ".claim-input",
+          "role": "legacy-palette",
+          "before": "display: block; box-sizing: border-box; width: 100%; min-height: 88rpx; padding: 18rpx; margin-top: 12rpx; background: var(--bg-gray); border-radius: 10rpx; font-size: 28rpx; color: var(--text-primary, #25384a);",
+          "after": "display: block; box-sizing: border-box; width: 100%; min-height: 88rpx; padding: 18rpx; margin-top: 12rpx; background: var(--bg-gray); border-radius: 10rpx; font-size: 28rpx; color: var(--text-primary, #182230);"
+        },
+        {
+          "selector": ".claim-primary, .claim-secondary",
+          "role": "button",
+          "before": "margin-top: 18rpx; min-height: 88rpx; font-size: 28rpx; border-radius: 12rpx;",
+          "after": "margin-top: 18rpx; min-height: 48px; font-size: 16px; border-radius: 12rpx;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-user/pages/mine/account-data/index.wxss",
+      "rules": [
+        {
+          "selector": ".card button",
+          "role": "button",
+          "before": "min-height: 88rpx; padding: 18rpx 24rpx; border-radius: var(--radius-sm); color: var(--primary-color); background: var(--primary-bg); font-size: 26rpx; line-height: 1.6; margin: 16rpx 0 0; white-space: normal;",
+          "after": "min-height: 44px; padding: 18rpx 24rpx; border-radius: var(--radius-sm); color: var(--primary-color); background: var(--primary-bg); font-size: 14px; line-height: 1.6; margin: 16rpx 0 0; white-space: normal;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/app.wxss",
+      "rules": [
+        {
+          "selector": ".load-error",
+          "role": "ordinary",
+          "before": "margin: 16rpx 24rpx 0;\n  padding: 16rpx 20rpx;\n  border-radius: 12rpx;\n  background: rgba(255, 149, 0, 0.12);\n  border-left: 6rpx solid var(--warning-color);\n  color: var(--text-regular);\n  font-size: 24rpx;\n  line-height: 1.5;",
+          "after": "margin: 16rpx 24rpx 0;\n  padding: 16rpx 20rpx;\n  border-radius: 12rpx;\n  background: var(--bg-gray);\n  border-left: 4rpx solid var(--primary-color);\n  color: var(--text-regular);\n  font-size: 24rpx;\n  line-height: 1.5;"
+        },
+        {
+          "selector": ".btn-primary, .btn-outline, .btn-gradient, .btn-success",
+          "role": "button",
+          "before": "box-sizing: border-box; min-height: 96rpx; display: flex; align-items: center; justify-content: center; line-height: 1.45; white-space: normal;",
+          "after": "box-sizing: border-box; min-height: 48px; display: flex; align-items: center; justify-content: center; line-height: 1.45; white-space: normal;"
+        },
+        {
+          "selector": "button",
+          "role": "button",
+          "before": "box-sizing: border-box; font-size: 28rpx; line-height: 1.5; white-space: normal; word-break: break-all; border-radius: 12rpx;",
+          "after": "box-sizing: border-box; font-size: 14px; line-height: 1.5; white-space: normal; word-break: break-all; border-radius: 12rpx;"
+        },
+        {
+          "selector": ".ui-state button",
+          "role": "button",
+          "before": "margin: 20rpx 0 0; min-height: 80rpx; padding: 16rpx 24rpx; background: var(--primary-bg); color: var(--primary-color); font-weight: 600;",
+          "after": "margin: 20rpx 0 0; min-height: 44px; padding: 16rpx 24rpx; background: var(--primary-bg); color: var(--primary-color); font-weight: 600;"
+        },
+        {
+          "selector": ".ui-stale",
+          "role": "ordinary",
+          "before": "display: block; padding: 16rpx 20rpx; margin: 16rpx 0; background: var(--warning-bg); color: var(--warning-color); font-size: 26rpx; line-height: 1.6; border-radius: 8rpx;",
+          "after": "display: block; padding: 16rpx 20rpx; margin: 16rpx 0; background: var(--bg-gray); color: var(--text-regular); font-size: 26rpx; line-height: 1.6; border-radius: 8rpx; border-left: 4rpx solid var(--primary-color);"
+        },
+        {
+          "selector": ".load-error button",
+          "role": "button",
+          "before": "margin: 16rpx 0 0; color: var(--primary-color); background: #fff; min-height: 72rpx; padding: 12rpx 20rpx;",
+          "after": "margin: 16rpx 0 0; color: var(--primary-color); background: #fff; min-height: 44px; padding: 12rpx 20rpx;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/styles/station-navbar.wxss",
+      "rules": [
+        {
+          "selector": ".st-btn",
+          "role": "button",
+          "before": "flex: 1;\n  text-align: center;\n  padding: 28rpx 0;\n  font-size: 30rpx;",
+          "after": "flex: 1;\n  text-align: center;\n  padding: 28rpx 0;\n  font-size: 14px;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/components/PrivacyPopup/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-reject",
+          "role": "button",
+          "before": "flex: 1;\n  background: var(--bg-gray);\n  color: #666666;\n  border: none;\n  border-radius: var(--radius-md);\n  font-size: 28rpx;\n  padding: 24rpx 0;",
+          "after": "flex: 1;\n  background: var(--bg-gray);\n  color: #666666;\n  border: none;\n  border-radius: var(--radius-md);\n  font-size: 14px;\n  padding: 24rpx 0;"
+        },
+        {
+          "selector": ".btn-agree",
+          "role": "button",
+          "before": "flex: 1;\n  background: var(--primary-gradient);\n  color: #fff;\n  border: none;\n  border-radius: var(--radius-md);\n  font-size: 28rpx;\n  font-weight: 600;\n  padding: 24rpx 0;",
+          "after": "flex: 1;\n  background: var(--primary-gradient);\n  color: #fff;\n  border: none;\n  border-radius: var(--radius-md);\n  font-size: 14px;\n  font-weight: 600;\n  padding: 24rpx 0;"
+        },
+        {
+          "selector": ".privacy-btn, .btn-reject, .btn-agree",
+          "role": "button",
+          "before": "min-height: 96rpx; height: auto; line-height: 1.5; padding: 24rpx 12rpx; box-sizing: border-box; font-size: 28rpx;",
+          "after": "min-height: 44px; height: auto; line-height: 1.5; padding: 24rpx 12rpx; box-sizing: border-box; font-size: 14px;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/bind-wait/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-primary,\n.btn-outline",
+          "role": "button",
+          "before": "flex: 1;\n  height: 88rpx;\n  line-height: 88rpx;\n  border-radius: 44rpx;\n  font-size: 30rpx;\n  font-weight: 500;",
+          "after": "flex: 1;\n  height: 88rpx;\n  line-height: 88rpx;\n  border-radius: 44rpx;\n  font-size: 16px;\n  font-weight: 500;"
+        },
+        {
+          "selector": ".tip-row",
+          "role": "info",
+          "before": "padding: 24rpx 32rpx;\n  background: var(--warning-bg);\n  border-radius: 16rpx;",
+          "after": "padding: 24rpx 32rpx;\n  background: var(--bg-gray);\n  border-radius: 16rpx; border-left: 4rpx solid var(--primary-color); color: var(--text-regular);"
+        },
+        {
+          "selector": ".btn-primary, .btn-outline",
+          "role": "button",
+          "before": "height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; flex: 1 1 240rpx;",
+          "after": "height: auto; min-height: 48px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; flex: 1 1 240rpx;"
+        },
+        {
+          "selector": ".btn-primary,\n.btn-outline",
+          "role": "button",
+          "before": "flex: 1;\n  height: 88rpx;\n  line-height: 88rpx;\n  border-radius: 44rpx;\n  font-size: 16px;\n  font-weight: 500;",
+          "after": "flex: 1;\n  height: auto;\n  line-height: 1.5;\n  border-radius:12rpx;\n  font-size: 16px;\n  font-weight: 500; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/coordination/index.wxss",
+      "rules": [
+        {
+          "selector": ".no-auth-btn",
+          "role": "button",
+          "before": "width: 100%;\n  height: 88rpx;\n  line-height: 88rpx;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 44rpx;\n  font-size: 30rpx;\n  border: none;\n  max-width: 480rpx;",
+          "after": "width: 100%;\n  height: 88rpx;\n  line-height: 88rpx;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 44rpx;\n  font-size: 14px;\n  border: none;\n  max-width: 480rpx;"
+        },
+        {
+          "selector": ".btn-outline,\n.btn-primary,\n.btn-danger",
+          "role": "button",
+          "before": "flex: 1;\n  height: 76rpx;\n  line-height: 76rpx;\n  border-radius: 38rpx;\n  font-size: 28rpx;\n  font-weight: 500;\n  padding: 0;\n  border: none;",
+          "after": "flex: 1;\n  height: 76rpx;\n  line-height: 76rpx;\n  border-radius: 38rpx;\n  font-size: 16px;\n  font-weight: 500;\n  padding: 0;\n  border: none;"
+        },
+        {
+          "selector": ".btn-outline-small,\n.btn-primary-small,\n.btn-danger-small",
+          "role": "button",
+          "before": "flex: 1;\n  height: 68rpx;\n  line-height: 68rpx;\n  border-radius: 34rpx;\n  font-size: 26rpx;\n  font-weight: 500;\n  padding: 0;\n  border: none;",
+          "after": "flex: 1;\n  height: 68rpx;\n  line-height: 68rpx;\n  border-radius: 34rpx;\n  font-size: 14px;\n  font-weight: 500;\n  padding: 0;\n  border: none;"
+        },
+        {
+          "selector": ".risk-box",
+          "role": "risk",
+          "before": "display: flex;\n  flex-direction: column;\n  padding: 14rpx 16rpx;\n  margin-bottom: 12rpx;\n  background: var(--warning-bg);\n  border: 1rpx solid var(--warning-bg);\n  border-radius: 10rpx;",
+          "after": "display: flex;\n  flex-direction: column;\n  padding: 14rpx 16rpx;\n  margin-bottom: 12rpx;\n  background: var(--bg-gray);\n  border: 1rpx solid var(--warning-bg);\n  border-radius: 10rpx; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".dispatch-stale",
+          "role": "ordinary",
+          "before": "padding: 12rpx 16rpx;\n  background: var(--warning-bg);\n  border-radius: 10rpx;\n  margin-bottom: 12rpx;",
+          "after": "padding: 12rpx 16rpx;\n  background: var(--bg-gray);\n  border-radius: 10rpx;\n  margin-bottom: 12rpx; border-left: 4rpx solid var(--primary-color); color: var(--text-regular);"
+        },
+        {
+          "selector": ".card-actions button, .no-auth-btn, .modal-cancel, .todo-card button",
+          "role": "button",
+          "before": "height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;",
+          "after": "height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;"
+        },
+        {
+          "selector": ".dispatch-stale button",
+          "role": "button",
+          "before": "min-height: 96rpx; height: auto; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; border-radius: 12rpx;",
+          "after": "min-height: 44px; height: auto; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; border-radius: 12rpx;"
+        },
+        {
+          "selector": ".fee-box",
+          "role": "risk",
+          "before": "padding: 14rpx 16rpx;\n  background: var(--warning-bg);\n  border: 2rpx solid var(--warning-bg);\n  border-radius: 10rpx;\n  margin-bottom: 12rpx;",
+          "after": "padding: 14rpx 16rpx;\n  background: var(--bg-gray);\n  border: 2rpx solid var(--warning-bg);\n  border-radius: 10rpx;\n  margin-bottom: 12rpx; border-left:4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".no-auth-btn",
+          "role": "button",
+          "before": "width: 100%;\n  height: 88rpx;\n  line-height: 88rpx;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 44rpx;\n  font-size: 14px;\n  border: none;\n  max-width: 480rpx;",
+          "after": "width: 100%;\n  height: auto;\n  line-height: 1.5;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius:12rpx;\n  font-size: 14px;\n  border: none;\n  max-width: 480rpx; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/home/index.wxss",
+      "rules": [
+        {
+          "selector": ".transfer-in-card",
+          "role": "risk",
+          "before": "background: var(--warning-bg); border-radius: 12rpx; padding: 24rpx; margin-bottom: 16rpx;\n  border-left: 8rpx solid var(--warning-color); box-shadow: none;",
+          "after": "background: var(--bg-gray); border-radius: 12rpx; padding: 24rpx; margin-bottom: 16rpx;\n  border-left: 4rpx solid var(--warning-color); box-shadow: none;"
+        },
+        {
+          "selector": ".btn-reject-transfer",
+          "role": "button",
+          "before": "flex: 1; background: #fff; color: var(--text-regular); border: 1rpx solid var(--border-light);\n  border-radius: 40rpx; font-size: 28rpx; padding: 16rpx 0; line-height: 1.4;",
+          "after": "flex: 1; background: #fff; color: var(--text-regular); border: 1rpx solid var(--border-light);\n  border-radius: 40rpx; font-size: 14px; padding: 16rpx 0; line-height: 1.4;"
+        },
+        {
+          "selector": ".status-delivering",
+          "role": "legacy-palette",
+          "before": "background: rgba(46,74,104,0.1); color: var(--status-delivering);",
+          "after": "background: var(--primary-bg); color: var(--status-delivering);"
+        },
+        {
+          "selector": ".btn-accept",
+          "role": "button",
+          "before": "flex: 1; height: 88rpx; line-height: 88rpx; background: var(--primary-color); color: #fff;\n  border-radius: 44rpx; font-size: 28rpx; font-weight: 600; border: none;\n  box-shadow: none;",
+          "after": "flex: 1; height: 88rpx; line-height: 88rpx; background: var(--primary-color); color: #fff;\n  border-radius: 44rpx; font-size: 14px; font-weight: 600; border: none;\n  box-shadow: none;"
+        },
+        {
+          "selector": ".btn-complete",
+          "role": "button",
+          "before": "flex: 1; height: 88rpx; line-height: 88rpx; background: #0960D7; color: #fff;\n  border-radius: 44rpx; font-size: 28rpx; font-weight: 600; border: none;\n  box-shadow: none;",
+          "after": "flex: 1; height: 88rpx; line-height: 88rpx; background: #0960D7; color: #fff;\n  border-radius: 44rpx; font-size: 14px; font-weight: 600; border: none;\n  box-shadow: none;"
+        },
+        {
+          "selector": ".btn-outline-small",
+          "role": "button",
+          "before": "height: 64rpx; line-height: 64rpx; padding: 0 24rpx;\n  background: #fff; color: var(--text-secondary);\n  border-radius: 32rpx; font-size: 24rpx; border: 2rpx solid var(--border-color);",
+          "after": "height: 64rpx; line-height: 64rpx; padding: 0 24rpx;\n  background: #fff; color: var(--text-secondary);\n  border-radius: 32rpx; font-size: 14px; border: 2rpx solid var(--border-color);"
+        },
+        {
+          "selector": ".unpaid-section",
+          "role": "risk",
+          "before": "margin: 16rpx 24rpx;\n  padding: 20rpx;\n  background: var(--warning-bg);\n  border-radius: 12rpx;",
+          "after": "margin: 16rpx 24rpx;\n  padding: 20rpx;\n  background: var(--bg-gray);\n  border-radius: 12rpx; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".unpaid-shortcut",
+          "role": "risk",
+          "before": "margin: 16rpx 24rpx; text-align: left; background: var(--warning-bg);",
+          "after": "margin: 16rpx 24rpx; text-align: left; background: var(--bg-gray); border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".aux-tag.aux-target",
+          "role": "legacy-palette",
+          "before": "background: rgba(46, 74, 104, 0.12);\n  color: var(--primary-color);",
+          "after": "background: var(--primary-bg);\n  color: var(--primary-color);"
+        },
+        {
+          "selector": ".btn-outline",
+          "role": "button",
+          "before": "height: 72rpx;\n  line-height: 72rpx;\n  flex: 1;\n  background: #ffffff;\n  color: var(--text-regular);\n  border: 2rpx solid var(--border-color);\n  border-radius: 36rpx;\n  font-size: 28rpx;\n  font-weight: 500;",
+          "after": "height: 72rpx;\n  line-height: 72rpx;\n  flex: 1;\n  background: #ffffff;\n  color: var(--text-regular);\n  border: 2rpx solid var(--border-color);\n  border-radius: 36rpx;\n  font-size: 14px;\n  font-weight: 500;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "height: 72rpx;\n  line-height: 72rpx;\n  flex: 1;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 36rpx;\n  font-size: 28rpx;\n  font-weight: 600;\n  border: none;",
+          "after": "height: 72rpx;\n  line-height: 72rpx;\n  flex: 1;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 36rpx;\n  font-size: 16px;\n  font-weight: 600;\n  border: none;"
+        },
+        {
+          "selector": ".btn-primary-small",
+          "role": "button",
+          "before": "height: 64rpx;\n  line-height: 64rpx;\n  padding: 0 24rpx;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 32rpx;\n  font-size: 24rpx;\n  font-weight: 500;\n  border: none;",
+          "after": "height: 64rpx;\n  line-height: 64rpx;\n  padding: 0 24rpx;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 32rpx;\n  font-size: 14px;\n  font-weight: 500;\n  border: none;"
+        },
+        {
+          "selector": ".btn-mediate",
+          "role": "button",
+          "before": "flex: 1; height: 88rpx; line-height: 88rpx;\n  background: var(--warning-bg); color: var(--warning-color);\n  border-radius: 44rpx; font-size: 28rpx; font-weight: 600; border: none;",
+          "after": "flex: 1; height: 88rpx; line-height: 88rpx;\n  background: var(--warning-bg); color: var(--warning-color);\n  border-radius: 44rpx; font-size: 14px; font-weight: 600; border: none;"
+        },
+        {
+          "selector": ".btn-mediate-small",
+          "role": "button",
+          "before": "height: 88rpx; line-height: 88rpx; padding: 0 24rpx;\n  background: var(--warning-bg); color: var(--warning-color);\n  border-radius: 44rpx; font-size: 26rpx; font-weight: 500; border: none;",
+          "after": "height: 88rpx; line-height: 88rpx; padding: 0 24rpx;\n  background: var(--warning-bg); color: var(--warning-color);\n  border-radius: 44rpx; font-size: 14px; font-weight: 500; border: none;"
+        },
+        {
+          "selector": ".btn-reject",
+          "role": "button",
+          "before": "flex: 1; height: 64rpx; line-height: 64rpx;\n  background: var(--error-bg); color: var(--error-color);\n  border-radius: 32rpx; font-size: 26rpx; font-weight: 600; border: none;",
+          "after": "flex: 1; height: 64rpx; line-height: 64rpx;\n  background: var(--error-bg); color: var(--error-color);\n  border-radius: 32rpx; font-size: 14px; font-weight: 600; border: none;"
+        },
+        {
+          "selector": ".card-actions button, .modal-cancel",
+          "role": "button",
+          "before": "height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;",
+          "after": "height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;"
+        },
+        {
+          "selector": ".collection-recovery",
+          "role": "ordinary",
+          "before": "margin: 20rpx 24rpx; padding: 24rpx; background: var(--warning-bg); color: var(--text-primary); border-radius: 12rpx; font-size: 28rpx; line-height: 1.6;",
+          "after": "margin: 20rpx 24rpx; padding: 24rpx; background: var(--bg-gray); color: var(--text-regular); border-radius: 12rpx; font-size: 28rpx; line-height: 1.6; border-left: 4rpx solid var(--primary-color);"
+        },
+        {
+          "selector": ".collection-recovery button",
+          "role": "button",
+          "before": "margin: 16rpx 0 0; min-height: 88rpx; padding: 16rpx 24rpx;",
+          "after": "margin: 16rpx 0 0; min-height: 44px; padding: 16rpx 24rpx;"
+        },
+        {
+          "selector": ".btn-reject-transfer",
+          "role": "button",
+          "before": "flex: 1; background: #fff; color: var(--text-regular); border: 1rpx solid var(--border-light);\n  border-radius: 40rpx; font-size: 14px; padding: 16rpx 0; line-height: 1.4;",
+          "after": "flex: 1; background: #fff; color: var(--text-regular); border: 1rpx solid var(--border-light);\n  border-radius:12rpx; font-size: 14px; padding: 16rpx 0; line-height: 1.4;"
+        },
+        {
+          "selector": ".btn-accept",
+          "role": "button",
+          "before": "flex: 1; height: 88rpx; line-height: 88rpx; background: var(--primary-color); color: #fff;\n  border-radius: 44rpx; font-size: 14px; font-weight: 600; border: none;\n  box-shadow: none;",
+          "after": "flex: 1; height: auto; line-height: 1.5; background: var(--primary-color); color: #fff;\n  border-radius:12rpx; font-size: 14px; font-weight: 600; border: none;\n  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-complete",
+          "role": "button",
+          "before": "flex: 1; height: 88rpx; line-height: 88rpx; background: #0960D7; color: #fff;\n  border-radius: 44rpx; font-size: 14px; font-weight: 600; border: none;\n  box-shadow: none;",
+          "after": "flex: 1; height: auto; line-height: 1.5; background: #0960D7; color: #fff;\n  border-radius:12rpx; font-size: 14px; font-weight: 600; border: none;\n  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-outline-small",
+          "role": "button",
+          "before": "height: 64rpx; line-height: 64rpx; padding: 0 24rpx;\n  background: #fff; color: var(--text-secondary);\n  border-radius: 32rpx; font-size: 14px; border: 2rpx solid var(--border-color);",
+          "after": "height: auto; line-height: 1.5; padding: 0 24rpx;\n  background: #fff; color: var(--text-secondary);\n  border-radius:12rpx; font-size: 14px; border: 2rpx solid var(--border-color); min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-outline",
+          "role": "button",
+          "before": "height: 72rpx;\n  line-height: 72rpx;\n  flex: 1;\n  background: #ffffff;\n  color: var(--text-regular);\n  border: 2rpx solid var(--border-color);\n  border-radius: 36rpx;\n  font-size: 14px;\n  font-weight: 500;",
+          "after": "height: auto;\n  line-height: 1.5;\n  flex: 1;\n  background: #ffffff;\n  color: var(--text-regular);\n  border: 2rpx solid var(--border-color);\n  border-radius:12rpx;\n  font-size: 14px;\n  font-weight: 500; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "height: 72rpx;\n  line-height: 72rpx;\n  flex: 1;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 36rpx;\n  font-size: 16px;\n  font-weight: 600;\n  border: none;",
+          "after": "height: auto;\n  line-height: 1.5;\n  flex: 1;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius:12rpx;\n  font-size: 16px;\n  font-weight: 600;\n  border: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-primary-small",
+          "role": "button",
+          "before": "height: 64rpx;\n  line-height: 64rpx;\n  padding: 0 24rpx;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 32rpx;\n  font-size: 14px;\n  font-weight: 500;\n  border: none;",
+          "after": "height: auto;\n  line-height: 1.5;\n  padding: 0 24rpx;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius:12rpx;\n  font-size: 14px;\n  font-weight: 500;\n  border: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-mediate",
+          "role": "button",
+          "before": "flex: 1; height: 88rpx; line-height: 88rpx;\n  background: var(--warning-bg); color: var(--warning-color);\n  border-radius: 44rpx; font-size: 14px; font-weight: 600; border: none;",
+          "after": "flex: 1; height: auto; line-height: 1.5;\n  background: var(--primary-bg); color: var(--primary-color);\n  border-radius:12rpx; font-size: 14px; font-weight: 600; border: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-mediate-small",
+          "role": "button",
+          "before": "height: 88rpx; line-height: 88rpx; padding: 0 24rpx;\n  background: var(--warning-bg); color: var(--warning-color);\n  border-radius: 44rpx; font-size: 14px; font-weight: 500; border: none;",
+          "after": "height: auto; line-height: 1.5; padding: 0 24rpx;\n  background: var(--primary-bg); color: var(--primary-color);\n  border-radius:12rpx; font-size: 14px; font-weight: 500; border: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-reject",
+          "role": "button",
+          "before": "flex: 1; height: 64rpx; line-height: 64rpx;\n  background: var(--error-bg); color: var(--error-color);\n  border-radius: 32rpx; font-size: 14px; font-weight: 600; border: none;",
+          "after": "flex: 1; height: auto; line-height: 1.5;\n  background: var(--error-bg); color: var(--error-color);\n  border-radius:12rpx; font-size: 14px; font-weight: 600; border: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/login/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-dev",
+          "role": "button",
+          "before": "width: 100%;\n  height: 80rpx;\n  background: #fff;\n  color: var(--text-secondary);\n  border-radius: 12rpx;\n  font-size: 28rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  border: 1rpx solid var(--border-color);\n  margin-top: 24rpx;",
+          "after": "width: 100%;\n  height: 80rpx;\n  background: #fff;\n  color: var(--text-secondary);\n  border-radius: 12rpx;\n  font-size: 14px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  border: 1rpx solid var(--border-color);\n  margin-top: 24rpx;"
+        },
+        {
+          "selector": ".btn-primary, .btn-dev",
+          "role": "button",
+          "before": "height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;",
+          "after": "height: auto; min-height: 48px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "width: 100%;\n  height: 96rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 32rpx;\n  font-weight: 600;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  border: none;\n  box-shadow: none;",
+          "after": "width: 100%;\n  height: auto;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 32rpx;\n  font-weight: 600;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  border: none;\n  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-dev",
+          "role": "button",
+          "before": "width: 100%;\n  height: 80rpx;\n  background: #fff;\n  color: var(--text-secondary);\n  border-radius: 12rpx;\n  font-size: 14px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  border: 1rpx solid var(--border-color);\n  margin-top: 24rpx;",
+          "after": "width: 100%;\n  height: auto;\n  background: #fff;\n  color: var(--text-secondary);\n  border-radius: 12rpx;\n  font-size: 14px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  border: 1rpx solid var(--border-color);\n  margin-top: 24rpx; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/mine/edit.wxss",
+      "rules": [
+        {
+          "selector": ".submit-btn",
+          "role": "button",
+          "before": "margin: var(--spacing-xl) var(--spacing-md);\n  background: var(--primary-color);\n  border-radius: 12rpx;\n  height: auto;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  min-height: 96rpx;\n  padding: 20rpx 24rpx;\n  box-sizing: border-box;",
+          "after": "margin: var(--spacing-xl) var(--spacing-md);\n  background: var(--primary-color);\n  border-radius: 12rpx;\n  height: auto;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  min-height: 44px;\n  padding: 20rpx 24rpx;\n  box-sizing: border-box;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/mine/index.wxss",
+      "rules": [
+        {
+          "selector": ".bind-action-btn",
+          "role": "button",
+          "before": "flex: 1;\n  border-radius: 999rpx;\n  font-size: 28rpx;\n  font-weight: 600;\n  padding: 20rpx 0;\n  border: none;",
+          "after": "flex: 1;\n  border-radius: 999rpx;\n  font-size: 14px;\n  font-weight: 600;\n  padding: 20rpx 0;\n  border: none;"
+        },
+        {
+          "selector": ".staff-remove-btn",
+          "role": "button",
+          "before": "flex-shrink: 0;\n  border: none;\n  border-radius: 999rpx;\n  font-size: 24rpx;\n  padding: 10rpx 26rpx;\n  line-height: 1.4;\n  background: var(--error-bg);\n  color: var(--error-color);",
+          "after": "flex-shrink: 0;\n  border: none;\n  border-radius: 999rpx;\n  font-size: 14px;\n  padding: 10rpx 26rpx;\n  line-height: 1.4;\n  background: var(--error-bg);\n  color: var(--error-color);"
+        },
+        {
+          "selector": ".staff-btn",
+          "role": "button",
+          "before": "border: none;\n  border-radius: 999rpx;\n  font-size: 24rpx;\n  padding: 8rpx 22rpx;\n  line-height: 1.4;",
+          "after": "border: none;\n  border-radius: 999rpx;\n  font-size: 14px;\n  padding: 8rpx 22rpx;\n  line-height: 1.4;"
+        },
+        {
+          "selector": ".logout-btn text",
+          "role": "button",
+          "before": "font-size: 28rpx;\n  color: var(--error-color);",
+          "after": "font-size: 14px;\n  color: var(--error-color);"
+        },
+        {
+          "selector": ".btn-login",
+          "role": "button",
+          "before": "background: var(--primary-gradient);\n  color: #fff;\n  border: none;\n  border-radius: 999rpx;\n  font-size: 28rpx;\n  font-weight: 600;\n  padding: 24rpx 48rpx;",
+          "after": "background: var(--primary-gradient);\n  color: #fff;\n  border: none;\n  border-radius: 999rpx;\n  font-size: 14px;\n  font-weight: 600;\n  padding: 24rpx 48rpx;"
+        },
+        {
+          "selector": ".bind-action-btn, .btn-login, .staff-btn, .staff-remove-btn",
+          "role": "button",
+          "before": "height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;",
+          "after": "height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;"
+        },
+        {
+          "selector": ".logout-btn",
+          "role": "button",
+          "before": "min-height: 96rpx; box-sizing: border-box;",
+          "after": "min-height: 44px; box-sizing: border-box;"
+        },
+        {
+          "selector": ".bind-info-line.bind-info-warning",
+          "role": "risk",
+          "before": "background: var(--warning-bg);",
+          "after": "background: var(--bg-gray); border-left:4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".bind-info-line.bind-info-wait",
+          "role": "risk",
+          "before": "background: var(--warning-bg);",
+          "after": "background: var(--bg-gray); border-left:4rpx solid var(--warning-color);"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/order/complete.wxss",
+      "rules": [
+        {
+          "selector": ".money-prep",
+          "role": "risk",
+          "before": "display: flex;\n  align-items: center;\n  justify-content: space-between;\n  margin-top: var(--spacing-md);\n  padding: 12rpx 16rpx;\n  background: var(--warning-bg);\n  border-radius: var(--radius-md);",
+          "after": "display: flex;\n  align-items: center;\n  justify-content: space-between;\n  margin-top: var(--spacing-md);\n  padding: 12rpx 16rpx;\n  background: var(--bg-gray);\n  border-radius: var(--radius-md); border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".discrepancy-section",
+          "role": "risk",
+          "before": "margin-top: 16rpx; padding: 16rpx; background: var(--warning-bg); border-radius: var(--radius-md); border: 2rpx solid var(--warning-bg);",
+          "after": "margin-top: 16rpx; padding: 16rpx; background: var(--bg-gray); border-radius: var(--radius-md); border: 2rpx solid var(--warning-bg); border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".section-collect",
+          "role": "risk",
+          "before": "background: var(--warning-bg); border: 2rpx solid rgba(255, 149, 0, 0.2);",
+          "after": "background: var(--bg-gray); border: 2rpx solid rgba(255, 149, 0, 0.2); border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".btn-confirm",
+          "role": "button",
+          "before": "width: 100%; background: var(--primary-color); color: #fff; border: none; border-radius: 12rpx; font-size: var(--font-lg); font-weight: 700; line-height: 1.5; padding: var(--spacing-lg) 0;\n  min-height: 96rpx;\n  white-space: normal;",
+          "after": "width: 100%; background: var(--primary-color); color: #fff; border: none; border-radius: 12rpx; font-size: var(--font-lg); font-weight: 700; line-height: 1.5; padding: var(--spacing-lg) 0;\n  min-height: 44px;\n  white-space: normal;"
+        },
+        {
+          "selector": ".add-reason-btn, .dispute-entry, .modal-item, .modal-cancel",
+          "role": "button",
+          "before": "min-height: 96rpx; box-sizing: border-box;",
+          "after": "min-height: 44px; box-sizing: border-box;"
+        },
+        {
+          "selector": ".container > button, .upload-recovery-panel button",
+          "role": "button",
+          "before": "height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;",
+          "after": "height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;"
+        },
+        {
+          "selector": ".upload-recovery-panel",
+          "role": "risk",
+          "before": "margin: 24rpx 24rpx calc(260rpx + env(safe-area-inset-bottom)); padding: 24rpx; border: 2rpx solid var(--warning-color); border-radius: 12rpx; background: var(--warning-bg); line-height: 1.6;",
+          "after": "margin: 24rpx 24rpx calc(260rpx + env(safe-area-inset-bottom)); padding: 24rpx; border: 2rpx solid var(--warning-color); border-radius: 12rpx; background: var(--bg-gray); line-height: 1.6; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".step-btn",
+          "role": "button",
+          "before": "width: 96rpx; height: 96rpx; border-radius: 12rpx; background: var(--bg-color); display: flex; align-items: center; justify-content: center; font-size: 40rpx; font-weight: 300; color: var(--text-primary); border: 2rpx solid var(--border-color);\n  box-sizing: border-box;",
+          "after": "width: 96rpx; height: auto; border-radius: 12rpx; background: var(--bg-color); display: flex; align-items: center; justify-content: center; font-size: 40rpx; font-weight: 300; color: var(--text-primary); border: 2rpx solid var(--border-color);\n  box-sizing: border-box; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/order/detail.wxss",
+      "rules": [
+        {
+          "selector": ".action-btn",
+          "role": "button",
+          "before": "flex: 1;\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  padding: 16rpx 8rpx;\n  border: none;\n  border-radius: var(--radius-md);\n  font-size: 28rpx;\n  font-weight: 600;\n  line-height: 1.4;\n  min-height: 96rpx;\n  height: auto;\n  white-space: normal;",
+          "after": "flex: 1;\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  padding: 16rpx 8rpx;\n  border: none;\n  border-radius: var(--radius-md);\n  font-size: 14px;\n  font-weight: 600;\n  line-height: 1.4;\n  min-height: 44px;\n  height: auto;\n  white-space: normal;"
+        },
+        {
+          "selector": ".action-nav, .action-collect",
+          "role": "legacy-palette",
+          "before": "background: rgba(46, 74, 104, 0.1);\n  color: var(--primary-color);",
+          "after": "background: var(--primary-bg);\n  color: var(--primary-color);"
+        },
+        {
+          "selector": ".info-card button",
+          "role": "button",
+          "before": "height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;",
+          "after": "height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;"
+        },
+        {
+          "selector": ".write-recovery button",
+          "role": "button",
+          "before": "margin: 16rpx 0 0; min-height: 88rpx; padding: 16rpx 24rpx;",
+          "after": "margin: 16rpx 0 0; min-height: 44px; padding: 16rpx 24rpx;"
+        },
+        {
+          "selector": ".floor-warn",
+          "role": "risk",
+          "before": "margin-left: 12rpx;\n  padding: 4rpx 14rpx;\n  font-size: 24rpx;\n  color: var(--warning-color);\n  background: var(--warning-bg);\n  border-radius: 999rpx;",
+          "after": "margin-left: 12rpx;\n  padding: 4rpx 14rpx;\n  font-size: 24rpx;\n  color: var(--warning-color);\n  background: var(--bg-gray);\n  border-radius: 999rpx; border-left:4rpx solid var(--warning-color);"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/report/index.wxss",
+      "rules": [
+        {
+          "selector": ".history-cat",
+          "role": "legacy-palette",
+          "before": "font-size: var(--font-sm); color: var(--primary-color); background: rgba(46,74,104,.08); padding: 4rpx 16rpx; border-radius: 20rpx;",
+          "after": "font-size: var(--font-sm); color: var(--primary-color); background: var(--primary-bg); padding: 4rpx 16rpx; border-radius: 20rpx;"
+        },
+        {
+          "selector": ".btn-submit",
+          "role": "button",
+          "before": "height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;",
+          "after": "height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/role-select/index.wxss",
+      "rules": [
+        {
+          "selector": ".station-manager .role-icon",
+          "role": "legacy-palette",
+          "before": "background: rgba(46, 74, 104, 0.1);",
+          "after": "background: var(--primary-bg);"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/settings/index.wxss",
+      "rules": [
+        {
+          "selector": ".logout-btn",
+          "role": "button",
+          "before": "min-height: 96rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box; font-size: 30rpx; color: var(--error-color);",
+          "after": "min-height: 44px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; font-size: 14px; color: var(--error-color);"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/mine/agreement/index.wxss",
+      "rules": [
+        {
+          "selector": ".doc-notice",
+          "role": "info",
+          "before": "display: flex;\n  align-items: flex-start;\n  gap: 12rpx;\n  padding: 20rpx 24rpx;\n  margin-bottom: 32rpx;\n  border-radius: var(--radius-sm);\n  background: var(--warning-bg);\n  border-left: 6rpx solid var(--warning-color);",
+          "after": "display: flex;\n  align-items: flex-start;\n  gap: 12rpx;\n  padding: 20rpx 24rpx;\n  margin-bottom: 32rpx;\n  border-radius: var(--radius-sm);\n  background: var(--bg-gray);\n  border-left: 4rpx solid var(--primary-color); color: var(--text-regular);"
+        },
+        {
+          "selector": ".doc-notice button",
+          "role": "button",
+          "before": "height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;",
+          "after": "height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/mine/account-data/index.wxss",
+      "rules": [
+        {
+          "selector": "button",
+          "role": "button",
+          "before": "height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; background: var(--primary-color); color: #fff;",
+          "after": "height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; background: var(--primary-color); color: #fff;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/apply-bind/index.wxss",
+      "rules": [
+        {
+          "selector": ".search-btn",
+          "role": "button",
+          "before": "width: 160rpx;\n  height: 80rpx;\n  line-height: 80rpx;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 14rpx;\n  font-size: 28rpx;\n  padding: 0;\n  border: none;",
+          "after": "width: 160rpx;\n  height: 80rpx;\n  line-height: 80rpx;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 14rpx;\n  font-size: 14px;\n  padding: 0;\n  border: none;"
+        },
+        {
+          "selector": ".station-item.selected",
+          "role": "legacy-palette",
+          "before": "background: rgba(46, 74, 104, 0.06);\n  border-color: var(--primary-color);",
+          "after": "background: var(--primary-bg);\n  border-color: var(--primary-color);"
+        },
+        {
+          "selector": ".search-btn",
+          "role": "button",
+          "before": "width: 160rpx;\n  height: 80rpx;\n  line-height: 80rpx;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 14rpx;\n  font-size: 14px;\n  padding: 0;\n  border: none;",
+          "after": "width: 160rpx;\n  height: auto;\n  line-height: 1.5;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 14rpx;\n  font-size: 14px;\n  padding: 0;\n  border: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxss",
+      "rules": [
+        {
+          "selector": ".alert-card",
+          "role": "risk",
+          "before": "padding: 24rpx; margin-bottom: 24rpx; border-radius: 20rpx; background: var(--warning-bg);",
+          "after": "padding: 24rpx; margin-bottom: 24rpx; border-radius: 20rpx; background: var(--bg-gray); border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".notice.warning",
+          "role": "risk",
+          "before": "color: var(--warning-color); background: var(--warning-bg);",
+          "after": "color: var(--warning-color); background: var(--bg-gray); border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".primary-button,.secondary-button,.reject-button",
+          "role": "button",
+          "before": "min-height: 86rpx; box-sizing: border-box; padding: 20rpx; border-radius: 16rpx; font-size: 28rpx; line-height: 1.6; font-weight: 500; white-space: normal; word-break: break-all;",
+          "after": "min-height: 86rpx; box-sizing: border-box; padding: 20rpx; border-radius: 16rpx; font-size: 14px; line-height: 1.6; font-weight: 500; white-space: normal; word-break: break-all;"
+        },
+        {
+          "selector": ".text-button",
+          "role": "button",
+          "before": "margin: 0; padding: 16rpx 10rpx; background: transparent; color: var(--primary-color); font-size: 25rpx; line-height: 1.6; min-height: 72rpx;",
+          "after": "margin: 0; padding: 16rpx 10rpx; background: transparent; color: var(--primary-color); font-size: 14px; line-height: 1.6; min-height: 44px;"
+        },
+        {
+          "selector": ".small-button",
+          "role": "button",
+          "before": "margin: 0; padding: 12rpx 18rpx; border: 2rpx solid var(--border-color); border-radius: 12rpx; background: var(--bg-card); color: var(--primary-color); font-size: 24rpx; line-height: 1.6;",
+          "after": "margin: 0; padding: 12rpx 18rpx; border: 2rpx solid var(--border-color); border-radius: 12rpx; background: var(--bg-card); color: var(--primary-color); font-size: 14px; line-height: 1.6;"
+        },
+        {
+          "selector": ".container button,.approval-sheet button",
+          "role": "button",
+          "before": "min-height: 88rpx; height: auto; box-sizing: border-box; border-radius: 8rpx; white-space: normal; word-break: break-all; line-height: 1.6;",
+          "after": "min-height: 44px; height: auto; box-sizing: border-box; border-radius: 8rpx; white-space: normal; word-break: break-all; line-height: 1.6;"
+        },
+        {
+          "selector": ".container button[size=\"mini\"]",
+          "role": "button",
+          "before": "padding: 20rpx; font-size: 26rpx;",
+          "after": "padding: 20rpx; font-size: 14px;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxss",
+      "rules": [
+        {
+          "selector": "button",
+          "role": "button",
+          "before": "margin-top: 16rpx;\n  padding: 14rpx 20rpx;\n  background: var(--primary-bg);\n  border: 1rpx solid var(--primary-color);\n  border-radius: var(--radius-md);\n  color: var(--primary-color);\n  font-size: 26rpx;\n  line-height: 1.6;",
+          "after": "margin-top: 16rpx;\n  padding: 14rpx 20rpx;\n  background: var(--primary-bg);\n  border: 1rpx solid var(--primary-color);\n  border-radius: var(--radius-md);\n  color: var(--primary-color);\n  font-size: 14px;\n  line-height: 1.6;"
+        },
+        {
+          "selector": "button,button[size=\"mini\"]",
+          "role": "button",
+          "before": "box-sizing: border-box; min-height: 88rpx; max-width: 100%; padding: 20rpx; border-radius: 8rpx; font-size: 28rpx; line-height: 1.6; white-space: normal; word-break: break-all;",
+          "after": "box-sizing: border-box; min-height: 44px; max-width: 100%; padding: 20rpx; border-radius: 8rpx; font-size: 14px; line-height: 1.6; white-space: normal; word-break: break-all;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/create-station/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-submit",
+          "role": "button",
+          "before": "border-radius:12rpx; min-height:96rpx; background:var(--primary-color);",
+          "after": "border-radius:12rpx; min-height: 44px; background:var(--primary-color);"
+        },
+        {
+          "selector": ".btn-submit",
+          "role": "button",
+          "before": "width: 100%;\n  height: 96rpx;\n  line-height: 96rpx;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius: 48rpx;\n  font-size: 32rpx;\n  font-weight: 600;\n  border: none;",
+          "after": "width: 100%;\n  height: auto;\n  line-height: 1.5;\n  background: var(--primary-color);\n  color: #ffffff;\n  border-radius:12rpx;\n  font-size: 32rpx;\n  font-weight: 600;\n  border: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxss",
+      "rules": [
+        {
+          "selector": ".retry-btn",
+          "role": "button",
+          "before": "display: inline-block;\n  margin-top: 28rpx;\n  padding: 14rpx 44rpx;\n  border-radius: 999rpx;\n  background: var(--primary-bg);\n  border: 1rpx solid var(--primary-color);\n  color: var(--primary-color);\n  font-size: 26rpx;",
+          "after": "display: inline-block;\n  margin-top: 28rpx;\n  padding: 14rpx 44rpx;\n  border-radius: 999rpx;\n  background: var(--primary-bg);\n  border: 1rpx solid var(--primary-color);\n  color: var(--primary-color);\n  font-size: 14px;"
+        },
+        {
+          "selector": ".fb-card button,.retry-btn",
+          "role": "button",
+          "before": "min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; font-size:28rpx;",
+          "after": "min-height: 44px; height:auto; line-height:1.5; padding:20rpx; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; font-size: 14px;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/index.wxss",
+      "rules": [
+        {
+          "selector": ".search-btn",
+          "role": "button",
+          "before": "background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 0 32rpx; display: flex; align-items: center; font-size: 28rpx;",
+          "after": "background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 0 32rpx; display: flex; align-items: center; font-size: 14px;"
+        },
+        {
+          "selector": ".manage-btn",
+          "role": "button",
+          "before": "background: var(--primary-color); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 26rpx; text-align: center;",
+          "after": "background: var(--primary-color); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 14px; text-align: center;"
+        },
+        {
+          "selector": ".cod-btn",
+          "role": "button",
+          "before": "background: transparent; color: var(--primary-color); border: 1rpx solid var(--primary-color); border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 28rpx; text-align: center;",
+          "after": "background: transparent; color: var(--primary-color); border: 1rpx solid var(--primary-color); border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 14px; text-align: center;"
+        },
+        {
+          "selector": ".modal-btn",
+          "role": "button",
+          "before": "padding: 12rpx 32rpx; margin-left: 16rpx; border-radius: 8rpx; font-size: 28rpx; color: var(--text-regular); border: 1rpx solid var(--border-color);",
+          "after": "padding: 12rpx 32rpx; margin-left: 16rpx; border-radius: 8rpx; font-size: 14px; color: var(--text-regular); border: 1rpx solid var(--border-color);"
+        },
+        {
+          "selector": ".manage-btn,.cod-btn,.call-link",
+          "role": "button",
+          "before": "flex:1; min-width:130rpx; min-height:88rpx; box-sizing:border-box; display:flex; align-items:center; justify-content:center; padding:12rpx; border-radius:10rpx; font-size:28rpx;",
+          "after": "flex:1; min-width:130rpx; min-height: 44px; box-sizing:border-box; display:flex; align-items:center; justify-content:center; padding:12rpx; border-radius:10rpx; font-size: 14px;"
+        },
+        {
+          "selector": ".search-btn,.chip,.scope-retry,.ent-entry-set",
+          "role": "button",
+          "before": "min-height:88rpx; box-sizing:border-box; display:flex; align-items:center; justify-content:center; border-radius:10rpx;",
+          "after": "min-height: 44px; box-sizing:border-box; display:flex; align-items:center; justify-content:center; border-radius:10rpx;"
+        },
+        {
+          "selector": ".modal-btn",
+          "role": "button",
+          "before": "min-height:88rpx; height:auto; line-height:1.5; box-sizing:border-box; display:flex; align-items:center; justify-content:center; padding:18rpx; border-radius:10rpx;",
+          "after": "min-height: 44px; height:auto; line-height:1.5; box-sizing:border-box; display:flex; align-items:center; justify-content:center; padding:18rpx; border-radius:10rpx;"
+        },
+        {
+          "selector": ".search-btn",
+          "role": "button",
+          "before": "background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 0 32rpx; display: flex; align-items: center; font-size: 14px;",
+          "after": "background: var(--primary-gradient); color: #fff; border-radius:12rpx; padding: 0 32rpx; display: flex; align-items: center; font-size: 14px;"
+        },
+        {
+          "selector": ".manage-btn",
+          "role": "button",
+          "before": "background: var(--primary-color); color: #fff; border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 14px; text-align: center;",
+          "after": "background: var(--primary-color); color: #fff; border-radius:12rpx; padding: 14rpx 28rpx; font-size: 14px; text-align: center;"
+        },
+        {
+          "selector": ".cod-btn",
+          "role": "button",
+          "before": "background: transparent; color: var(--primary-color); border: 1rpx solid var(--primary-color); border-radius: 40rpx; padding: 14rpx 28rpx; font-size: 14px; text-align: center;",
+          "after": "background: transparent; color: var(--primary-color); border: 1rpx solid var(--primary-color); border-radius:12rpx; padding: 14rpx 28rpx; font-size: 14px; text-align: center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxss",
+      "rules": [
+        {
+          "selector": ".guide-card",
+          "role": "info",
+          "before": "border: 2rpx solid var(--warning-bg);\n  background: var(--warning-bg);",
+          "after": "border: 2rpx solid var(--warning-bg);\n  background: var(--bg-gray); border-left: 4rpx solid var(--primary-color); color: var(--text-regular);"
+        },
+        {
+          "selector": ".btn-fill",
+          "role": "button",
+          "before": "margin-top: 20rpx;\n  background: var(--warning-color);\n  color: #fff;\n  font-size: 28rpx;\n  border-radius: 40rpx;",
+          "after": "margin-top: 20rpx;\n  background: var(--warning-color);\n  color: #fff;\n  font-size: 14px;\n  border-radius: 40rpx;"
+        },
+        {
+          "selector": ".setup-card",
+          "role": "info",
+          "before": "border: 2rpx solid var(--warning-bg); background: var(--warning-bg);",
+          "after": "border: 2rpx solid var(--warning-bg); background: var(--bg-gray); border-left: 4rpx solid var(--primary-color); color: var(--text-regular);"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "margin-top: 24rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 30rpx;",
+          "after": "margin-top: 24rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;"
+        },
+        {
+          "selector": ".btn-primary,.btn-fill",
+          "role": "button",
+          "before": "min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; box-sizing:border-box; font-size:30rpx;",
+          "after": "min-height: 48px; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; box-sizing:border-box; font-size: 16px;"
+        },
+        {
+          "selector": ".btn-fill",
+          "role": "button",
+          "before": "margin-top: 20rpx;\n  background: var(--warning-color);\n  color: #fff;\n  font-size: 14px;\n  border-radius: 40rpx;",
+          "after": "margin-top: 20rpx;\n  background: var(--warning-color);\n  color: #fff;\n  font-size: 14px;\n  border-radius:12rpx;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/exceptions/index.wxss",
+      "rules": [
+        {
+          "selector": ".alert-card",
+          "role": "risk",
+          "before": "background: #ffffff;\n  border-radius: 16rpx;\n  padding: 24rpx;\n  margin-bottom: 20rpx;",
+          "after": "background: var(--bg-gray);\n  border-radius: 16rpx;\n  padding: 24rpx;\n  margin-bottom: 20rpx; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".ex-btn",
+          "role": "button",
+          "before": "padding: 10rpx 26rpx;\n  border-radius: 999rpx;\n  font-size: 24rpx;\n  line-height: 1.4;",
+          "after": "padding: 10rpx 26rpx;\n  border-radius: 999rpx;\n  font-size: 14px;\n  line-height: 1.4;"
+        },
+        {
+          "selector": ".ex-btn",
+          "role": "button",
+          "before": "min-height: 88rpx; box-sizing: border-box; padding: 20rpx; border-radius: 8rpx; white-space: normal; word-break: break-all; line-height: 1.6; flex: 1 1 200rpx; display: flex; align-items: center; justify-content: center;",
+          "after": "min-height: 44px; box-sizing: border-box; padding: 20rpx; border-radius: 8rpx; white-space: normal; word-break: break-all; line-height: 1.6; flex: 1 1 200rpx; display: flex; align-items: center; justify-content: center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/gross-profit/index.wxss",
+      "rules": [
+        {
+          "selector": ".notice",
+          "role": "risk",
+          "before": "background: var(--warning-bg);\n  border: 1rpx solid var(--warning-bg);\n  border-radius: 12rpx;\n  padding: 18rpx 20rpx;\n  font-size: 24rpx;\n  color: var(--warning-color);\n  line-height: 38rpx;\n  margin-bottom: 12rpx;",
+          "after": "background: var(--bg-gray);\n  border: 1rpx solid var(--warning-bg);\n  border-radius: 12rpx;\n  padding: 18rpx 20rpx;\n  font-size: 24rpx;\n  color: var(--warning-color);\n  line-height: 38rpx;\n  margin-bottom: 12rpx; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 30rpx;",
+          "after": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;"
+        },
+        {
+          "selector": ".btn-primary,.btn-ghost",
+          "role": "button",
+          "before": "min-height: 88rpx; height: auto; box-sizing: border-box; padding: 20rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; border-radius: 8rpx; white-space: normal; word-break: break-all;",
+          "after": "min-height: 48px; height: auto; box-sizing: border-box; padding: 20rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; border-radius: 8rpx; white-space: normal; word-break: break-all;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;",
+          "after": "height: auto;\n  line-height: 1.5;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-ghost",
+          "role": "button",
+          "before": "height: 80rpx;\n  line-height: 80rpx;\n  text-align: center;\n  border: 1rpx solid var(--border-color);\n  border-radius: 12rpx;\n  font-size: 27rpx;\n  color: var(--text-primary);",
+          "after": "height: auto;\n  line-height: 1.5;\n  text-align: center;\n  border: 1rpx solid var(--border-color);\n  border-radius: 12rpx;\n  font-size: 27rpx;\n  color: var(--text-primary); min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/inter-station/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-outline-small",
+          "role": "button",
+          "before": "font-size: 24rpx;\n  line-height: 2.2;\n  padding: 0 24rpx;\n  margin-left: 12rpx;\n  border: 1rpx solid var(--border-color);\n  border-radius: 10rpx;\n  background: #ffffff;\n  color: var(--text-primary);",
+          "after": "font-size: 14px;\n  line-height: 2.2;\n  padding: 0 24rpx;\n  margin-left: 12rpx;\n  border: 1rpx solid var(--border-color);\n  border-radius: 10rpx;\n  background: #ffffff;\n  color: var(--text-primary);"
+        },
+        {
+          "selector": ".btn-ok-small",
+          "role": "button",
+          "before": "font-size: 24rpx;\n  line-height: 2.2;\n  padding: 0 24rpx;\n  margin-left: 12rpx;\n  border-radius: 10rpx;\n  background: var(--primary-color);\n  color: #ffffff;",
+          "after": "font-size: 14px;\n  line-height: 2.2;\n  padding: 0 24rpx;\n  margin-left: 12rpx;\n  border-radius: 10rpx;\n  background: var(--primary-color);\n  color: #ffffff;"
+        },
+        {
+          "selector": ".aftercare-section button",
+          "role": "button",
+          "before": "min-height: 80rpx; margin: 16rpx 0; padding: 16rpx 20rpx; font-size: 26rpx; line-height: 1.6; white-space: normal; word-break: break-all; border-radius: 12rpx; color: var(--primary-color); background: var(--bg-card); border: 1rpx solid var(--border-color);",
+          "after": "min-height: 44px; margin: 16rpx 0; padding: 16rpx 20rpx; font-size: 14px; line-height: 1.6; white-space: normal; word-break: break-all; border-radius: 12rpx; color: var(--primary-color); background: var(--bg-card); border: 1rpx solid var(--border-color);"
+        },
+        {
+          "selector": ".page button,.aftercare-section button",
+          "role": "button",
+          "before": "box-sizing: border-box; min-height: 88rpx; height: auto; max-width: 100%; padding: 20rpx; border-radius: 8rpx; font-size: 27rpx; line-height: 1.6; white-space: normal; word-break: break-all;",
+          "after": "box-sizing: border-box; min-height: 44px; height: auto; max-width: 100%; padding: 20rpx; border-radius: 8rpx; font-size: 27rpx; line-height: 1.6; white-space: normal; word-break: break-all;"
+        },
+        {
+          "selector": ".reversal-section",
+          "role": "risk",
+          "before": "padding: 22rpx; background: var(--warning-bg); border-left: 6rpx solid var(--warning-color); border-radius: 8rpx;",
+          "after": "padding: 22rpx; background: var(--bg-gray); border-left: 6rpx solid var(--warning-color); border-radius: 8rpx;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/payments/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-confirm",
+          "role": "button",
+          "before": "flex: 1; padding: 16rpx; border-radius: 12rpx; font-size: 26rpx; border: none; background: var(--primary-gradient); color: #fff;",
+          "after": "flex: 1; padding: 16rpx; border-radius: 12rpx; font-size: 14px; border: none; background: var(--primary-gradient); color: #fff;"
+        },
+        {
+          "selector": ".load-error",
+          "role": "ordinary",
+          "before": "background: var(--warning-bg); border-radius: 12rpx; padding: 20rpx; margin-bottom: 20rpx; font-size: 24rpx; color: var(--warning-color); line-height: 1.6;",
+          "after": "background: var(--bg-gray); border-radius: 12rpx; padding: 20rpx; margin-bottom: 20rpx; font-size: 24rpx; color: var(--text-regular); line-height: 1.6; border-left: 4rpx solid var(--primary-color);"
+        },
+        {
+          "selector": ".payment-caution",
+          "role": "risk",
+          "before": "background: var(--warning-bg); color: var(--text-regular); padding: 20rpx; border-left: 4rpx solid var(--warning-color); margin-bottom: 20rpx; border-radius: 8rpx; font-size: 25rpx;",
+          "after": "background: var(--bg-gray); color: var(--text-regular); padding: 20rpx; border-left: 4rpx solid var(--warning-color); margin-bottom: 20rpx; border-radius: 8rpx; font-size: 25rpx;"
+        },
+        {
+          "selector": ".container button",
+          "role": "button",
+          "before": "min-height: 88rpx; height: auto; box-sizing: border-box; border-radius: 8rpx; padding: 20rpx; line-height: 1.6; white-space: normal; word-break: break-all;",
+          "after": "min-height: 44px; height: auto; box-sizing: border-box; border-radius: 8rpx; padding: 20rpx; line-height: 1.6; white-space: normal; word-break: break-all;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/payroll/index.wxss",
+      "rules": [
+        {
+          "selector": ".pill-btn",
+          "role": "button",
+          "before": "padding: 10rpx 24rpx;\n  border: 1rpx solid var(--primary-color);\n  color: var(--primary-color);\n  border-radius: 999rpx;\n  font-size: 24rpx;\n  margin: 0 12rpx 10rpx 0;\n  white-space: nowrap;",
+          "after": "padding: 10rpx 24rpx;\n  border: 1rpx solid var(--primary-color);\n  color: var(--primary-color);\n  border-radius: 999rpx;\n  font-size: 14px;\n  margin: 0 12rpx 10rpx 0;\n  white-space: nowrap;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "min-height: 88rpx;\n  line-height: 40rpx;\n  padding: 24rpx 20rpx;\n  text-align: center;\n  background: var(--primary-gradient);\n  color: #fff;\n  border-radius: 20rpx;\n  font-size: 28rpx;\n  font-weight: 600;\n  margin-top: 28rpx;",
+          "after": "min-height: 48px;\n  line-height: 40rpx;\n  padding: 24rpx 20rpx;\n  text-align: center;\n  background: var(--primary-gradient);\n  color: #fff;\n  border-radius: 20rpx;\n  font-size: 16px;\n  font-weight: 600;\n  margin-top: 28rpx;"
+        },
+        {
+          "selector": ".btn-ghost",
+          "role": "button",
+          "before": "min-height: 88rpx;\n  line-height: 40rpx;\n  padding: 24rpx 20rpx;\n  text-align: center;\n  border: 1rpx solid var(--border-color);\n  border-radius: 20rpx;\n  font-size: 28rpx;\n  color: var(--text-primary);\n  margin-top: 18rpx;",
+          "after": "min-height: 44px;\n  line-height: 40rpx;\n  padding: 24rpx 20rpx;\n  text-align: center;\n  border: 1rpx solid var(--border-color);\n  border-radius: 20rpx;\n  font-size: 14px;\n  color: var(--text-primary);\n  margin-top: 18rpx;"
+        },
+        {
+          "selector": ".load-error",
+          "role": "ordinary",
+          "before": "background: #FFF3E0; color: var(--text-regular); padding: 24rpx; border-radius: 20rpx; margin-bottom: 24rpx; font-size: 25rpx; line-height: 38rpx; overflow-wrap: anywhere;",
+          "after": "background: var(--bg-gray); color: var(--text-regular); padding: 24rpx; border-radius: 20rpx; margin-bottom: 24rpx; font-size: 25rpx; line-height: 38rpx; overflow-wrap: anywhere; border-left: 4rpx solid var(--primary-color);"
+        },
+        {
+          "selector": ".retry-button",
+          "role": "button",
+          "before": "background: #fff; color: var(--primary-color); font-size: 26rpx; line-height: 40rpx; padding: 20rpx; margin-top: 16rpx;",
+          "after": "background: #fff; color: var(--primary-color); font-size: 14px; line-height: 40rpx; padding: 20rpx; margin-top: 16rpx;"
+        },
+        {
+          "selector": ".pay-caution",
+          "role": "risk",
+          "before": "display: block; background: var(--warning-bg); color: var(--warning-color); padding: 16rpx; font-size: 25rpx; line-height: 1.6; margin-bottom: 16rpx; border-left: 4rpx solid var(--warning-color);",
+          "after": "display: block; background: var(--bg-gray); color: var(--warning-color); padding: 16rpx; font-size: 25rpx; line-height: 1.6; margin-bottom: 16rpx; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".page button",
+          "role": "button",
+          "before": "min-height: 88rpx; height: auto; white-space: normal; word-break: break-all; border-radius: 8rpx;",
+          "after": "min-height: 44px; height: auto; white-space: normal; word-break: break-all; border-radius: 8rpx;"
+        },
+        {
+          "selector": ".btn-primary,.btn-ghost",
+          "role": "button",
+          "before": "min-height: 88rpx; height: auto; line-height: 1.6; padding: 20rpx; box-sizing: border-box; white-space: normal; word-break: break-all;",
+          "after": "min-height: 48px; height: auto; line-height: 1.6; padding: 20rpx; box-sizing: border-box; white-space: normal; word-break: break-all;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/place-order/index.wxss",
+      "rules": [
+        {
+          "selector": ".search-btn",
+          "role": "button",
+          "before": "margin-left: 16rpx;\n  padding: 0 28rpx;\n  height: 72rpx;\n  line-height: 72rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 26rpx;",
+          "after": "margin-left: 16rpx;\n  padding: 0 28rpx;\n  height: 72rpx;\n  line-height: 72rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 14px;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 30rpx;",
+          "after": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;"
+        },
+        {
+          "selector": ".search-btn",
+          "role": "button",
+          "before": "min-height:88rpx; height:auto; line-height:1.5; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx;",
+          "after": "min-height: 44px; height:auto; line-height:1.5; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx;"
+        },
+        {
+          "selector": ".search-btn",
+          "role": "button",
+          "before": "margin-left: 16rpx;\n  padding: 0 28rpx;\n  height: 72rpx;\n  line-height: 72rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 14px;",
+          "after": "margin-left: 16rpx;\n  padding: 0 28rpx;\n  height: auto;\n  line-height: 1.5;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 14px; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;",
+          "after": "height: auto;\n  line-height: 1.5;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".qty-btn",
+          "role": "button",
+          "before": "width:96rpx; height:96rpx; line-height:96rpx; font-size:36rpx; border-radius:10rpx;",
+          "after": "width:96rpx; height: auto; line-height: 1.5; font-size:36rpx; border-radius:10rpx; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/products/index.wxss",
+      "rules": [
+        {
+          "selector": ".water-template-hint",
+          "role": "legacy-palette",
+          "before": "display: block; font-size: 24rpx; line-height: 1.5; color: #65615A;",
+          "after": "display: block; font-size: 24rpx; line-height: 1.5; color: var(--text-regular);"
+        },
+        {
+          "selector": ".water-template-spec",
+          "role": "legacy-palette",
+          "before": "display: block; font-size: 24rpx; line-height: 1.5; color: #65615A;",
+          "after": "display: block; font-size: 24rpx; line-height: 1.5; color: var(--text-regular);"
+        },
+        {
+          "selector": ".template-edit-note",
+          "role": "legacy-palette",
+          "before": "margin: 16rpx 0; padding: 16rpx; background: var(--bg-color); color: #65615A; font-size: 24rpx; line-height: 1.6; border-radius: 12rpx;",
+          "after": "margin: 16rpx 0; padding: 16rpx; background: var(--bg-color); color: var(--text-regular); font-size: 24rpx; line-height: 1.6; border-radius: 12rpx;"
+        },
+        {
+          "selector": ".tag.mine",
+          "role": "legacy-palette",
+          "before": "background: rgba(201, 118, 75, 0.12); color: var(--warning-color);",
+          "after": "background: var(--primary-bg); color: var(--primary-color);"
+        },
+        {
+          "selector": ".tag.ticket",
+          "role": "legacy-palette",
+          "before": "background: rgba(201, 118, 75, 0.12); color: var(--warning-color);",
+          "after": "background: var(--primary-bg); color: var(--primary-color);"
+        },
+        {
+          "selector": ".btn-mini",
+          "role": "button",
+          "before": "font-size: 24rpx;\n  color: #fff;\n  background: var(--primary-color);\n  border-radius: 12rpx;\n  padding: 10rpx 24rpx;",
+          "after": "font-size: 14px;\n  color: #fff;\n  background: var(--primary-color);\n  border-radius: 12rpx;\n  padding: 10rpx 24rpx;"
+        },
+        {
+          "selector": ".btn-link",
+          "role": "button",
+          "before": "font-size: 24rpx; color: var(--text-secondary); padding: 4rpx 0;",
+          "after": "font-size: 14px; color: var(--text-secondary); padding: 4rpx 0;"
+        },
+        {
+          "selector": ".btn-define",
+          "role": "button",
+          "before": "width: 100%;\n  height: 88rpx;\n  line-height: 88rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 30rpx;\n  font-weight: 600;\n  border: none;",
+          "after": "width: 100%;\n  height: 88rpx;\n  line-height: 88rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;\n  font-weight: 600;\n  border: none;"
+        },
+        {
+          "selector": ".btn-cancel, .btn-save, .btn-danger",
+          "role": "button",
+          "before": "flex: 1;\n  height: 84rpx;\n  line-height: 84rpx;\n  border-radius: var(--radius-round);\n  font-size: 28rpx;\n  border: none;",
+          "after": "flex: 1;\n  height: 84rpx;\n  line-height: 84rpx;\n  border-radius: var(--radius-round);\n  font-size: 16px;\n  border: none;"
+        },
+        {
+          "selector": ".btn-inline",
+          "role": "button",
+          "before": "margin-top: 16rpx;\n  height: 76rpx;\n  line-height: 76rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 28rpx;\n  border: none;",
+          "after": "margin-top: 16rpx;\n  height: 76rpx;\n  line-height: 76rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 14px;\n  border: none;"
+        },
+        {
+          "selector": ".warn-inline",
+          "role": "risk",
+          "before": "margin-top: 20rpx;\n  padding: 18rpx 20rpx;\n  background: rgba(201, 118, 75, 0.12);\n  border-radius: 12rpx;",
+          "after": "margin-top: 20rpx;\n  padding: 18rpx 20rpx;\n  background: var(--bg-gray);\n  border-radius: 12rpx; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".btn-mini,.btn-link,.water-template-use,.water-template-edit,.link,.seg-item,.btn-inline",
+          "role": "button",
+          "before": "min-height:88rpx; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; padding:12rpx 16rpx; font-size:28rpx; border-radius:8rpx;",
+          "after": "min-height: 44px; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; padding:12rpx 16rpx; font-size: 14px; border-radius:8rpx;"
+        },
+        {
+          "selector": ".btn-cancel,.btn-save,.btn-danger,.btn-define",
+          "role": "button",
+          "before": "min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; display:flex; justify-content:center; align-items:center; box-sizing:border-box; font-size:30rpx;",
+          "after": "min-height: 48px; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; display:flex; justify-content:center; align-items:center; box-sizing:border-box; font-size: 16px;"
+        },
+        {
+          "selector": ".work-read-error",
+          "role": "ordinary",
+          "before": "padding:24rpx; margin:20rpx 0; background:var(--warning-bg); border-left:6rpx solid var(--warning-color); border-radius:8rpx; color:var(--text-primary); font-size:28rpx; line-height:1.6;",
+          "after": "padding:24rpx; margin:20rpx 0; background: var(--bg-gray); border-left: 4rpx solid var(--primary-color); border-radius:8rpx; color: var(--text-regular); font-size:28rpx; line-height:1.6;"
+        },
+        {
+          "selector": ".work-read-error button",
+          "role": "button",
+          "before": "min-height:96rpx; line-height:1.5; padding:20rpx; box-sizing:border-box; border-radius:10rpx; color:var(--primary-color); background:#fff; margin-top:20rpx; font-size:28rpx;",
+          "after": "min-height: 44px; line-height:1.5; padding:20rpx; box-sizing:border-box; border-radius:10rpx; color:var(--primary-color); background:#fff; margin-top:20rpx; font-size: 14px;"
+        },
+        {
+          "selector": ".product-upload-recovery",
+          "role": "risk",
+          "before": "position:static; margin:24rpx 0; padding:24rpx; border:1rpx solid var(--warning-color); border-radius:12rpx; background:var(--warning-bg);",
+          "after": "position:static; margin:24rpx 0; padding:24rpx; border:1rpx solid var(--warning-color); border-radius:12rpx; background: var(--bg-gray); border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".product-editor-resume button",
+          "role": "button",
+          "before": "margin:16rpx 0 0; color:var(--primary-color); background:var(--primary-bg); font-size:28rpx;",
+          "after": "margin:16rpx 0 0; color:var(--primary-color); background:var(--primary-bg); font-size: 14px;"
+        },
+        {
+          "selector": ".product-image-status.is-warning",
+          "role": "error",
+          "before": "padding:16rpx; border:1rpx solid var(--warning-color); border-radius:10rpx; background:var(--warning-bg); color:var(--text-primary);",
+          "after": "padding:16rpx; border:1rpx solid var(--warning-color); border-radius:10rpx; background: var(--bg-gray); color: var(--text-regular); border-left: 4rpx solid var(--error-color);"
+        },
+        {
+          "selector": ".product-image-action",
+          "role": "button",
+          "before": "flex:1; min-width:220rpx; min-height:88rpx; margin:0; padding:18rpx 16rpx; height:auto; box-sizing:border-box; display:flex; align-items:center; justify-content:center; border-radius:10rpx; background:var(--primary-color); color:#fff; font-size:28rpx; line-height:1.5; white-space:normal;",
+          "after": "flex:1; min-width:220rpx; min-height: 44px; margin:0; padding:18rpx 16rpx; height:auto; box-sizing:border-box; display:flex; align-items:center; justify-content:center; border-radius:10rpx; background:var(--primary-color); color:#fff; font-size: 14px; line-height:1.5; white-space:normal;"
+        },
+        {
+          "selector": ".btn-define",
+          "role": "button",
+          "before": "width: 100%;\n  height: 88rpx;\n  line-height: 88rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;\n  font-weight: 600;\n  border: none;",
+          "after": "width: 100%;\n  height: auto;\n  line-height: 1.5;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;\n  font-weight: 600;\n  border: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-cancel, .btn-save, .btn-danger",
+          "role": "button",
+          "before": "flex: 1;\n  height: 84rpx;\n  line-height: 84rpx;\n  border-radius: var(--radius-round);\n  font-size: 16px;\n  border: none;",
+          "after": "flex: 1;\n  height: auto;\n  line-height: 1.5;\n  border-radius: var(--radius-round);\n  font-size: 16px;\n  border: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/receivables/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-ghost",
+          "role": "button",
+          "before": "padding: 12rpx 28rpx;\n  border: 1rpx solid var(--border-color);\n  border-radius: 12rpx;\n  font-size: 25rpx;\n  color: var(--text-regular);\n  margin-right: 16rpx;",
+          "after": "padding: 12rpx 28rpx;\n  border: 1rpx solid var(--border-color);\n  border-radius: 12rpx;\n  font-size: 14px;\n  color: var(--text-regular);\n  margin-right: 16rpx;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-gradient);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 30rpx;\n  font-weight: 600;",
+          "after": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-gradient);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;\n  font-weight: 600;"
+        },
+        {
+          "selector": ".risk-box",
+          "role": "risk",
+          "before": "background: var(--bg-color);\n  border-radius: 12rpx;\n  padding: 18rpx 20rpx;\n  margin-bottom: 20rpx;",
+          "after": "background: var(--bg-gray);\n  border-radius: 12rpx;\n  padding: 18rpx 20rpx;\n  margin-bottom: 20rpx; border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".btn-ghost,.btn-primary,.filter-item,.link",
+          "role": "button",
+          "before": "box-sizing: border-box; min-height: 88rpx; height: auto; padding: 20rpx; border-radius: 8rpx; line-height: 1.6; display: flex; justify-content: center; align-items: center; white-space: normal; word-break: break-all;",
+          "after": "box-sizing: border-box; min-height: 48px; height: auto; padding: 20rpx; border-radius: 8rpx; line-height: 1.6; display: flex; justify-content: center; align-items: center; white-space: normal; word-break: break-all;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-gradient);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;\n  font-weight: 600;",
+          "after": "height: auto;\n  line-height: 1.5;\n  text-align: center;\n  background: var(--primary-gradient);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;\n  font-weight: 600; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/staff/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-add",
+          "role": "button",
+          "before": "width: 100%; padding: 20rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 28rpx; font-weight: 600;",
+          "after": "width: 100%; padding: 20rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 14px; font-weight: 600;"
+        },
+        {
+          "selector": ".search-btn",
+          "role": "button",
+          "before": "background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 0 32rpx; display: flex; align-items: center; font-size: 28rpx;",
+          "after": "background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 0 32rpx; display: flex; align-items: center; font-size: 14px;"
+        },
+        {
+          "selector": ".btn-profile",
+          "role": "button",
+          "before": "padding: 14rpx 28rpx; background: transparent; color: var(--primary-color); border: 1rpx solid var(--primary-color); border-radius: 12rpx; font-size: 26rpx;",
+          "after": "padding: 14rpx 28rpx; background: transparent; color: var(--primary-color); border: 1rpx solid var(--primary-color); border-radius: 12rpx; font-size: 14px;"
+        },
+        {
+          "selector": ".btn-detach",
+          "role": "button",
+          "before": "padding: 14rpx 28rpx; background: transparent; color: var(--error-color); border: 1rpx solid var(--error-color); border-radius: 12rpx; font-size: 26rpx;",
+          "after": "padding: 14rpx 28rpx; background: transparent; color: var(--error-color); border: 1rpx solid var(--error-color); border-radius: 12rpx; font-size: 14px;"
+        },
+        {
+          "selector": ".btn-approve",
+          "role": "button",
+          "before": "padding: 14rpx 28rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 26rpx;",
+          "after": "padding: 14rpx 28rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 14px;"
+        },
+        {
+          "selector": ".btn-reject",
+          "role": "button",
+          "before": "padding: 14rpx 28rpx; background: transparent; color: var(--text-regular); border: 1rpx solid var(--border-color); border-radius: var(--radius-round); font-size: 26rpx;",
+          "after": "padding: 14rpx 28rpx; background: transparent; color: var(--text-regular); border: 1rpx solid var(--border-color); border-radius: var(--radius-round); font-size: 14px;"
+        },
+        {
+          "selector": ".btn-submit",
+          "role": "button",
+          "before": "width: 100%; padding: 20rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 28rpx; font-weight: 600; margin-bottom: 12rpx;",
+          "after": "width: 100%; padding: 20rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 14px; font-weight: 600; margin-bottom: 12rpx;"
+        },
+        {
+          "selector": ".btn-cancel",
+          "role": "button",
+          "before": "width: 100%; padding: 20rpx; background: var(--bg-gray); color: var(--text-secondary); border: none; border-radius: var(--radius-round); font-size: 28rpx;",
+          "after": "width: 100%; padding: 20rpx; background: var(--bg-gray); color: var(--text-secondary); border: none; border-radius: var(--radius-round); font-size: 14px;"
+        },
+        {
+          "selector": ".btn-add",
+          "role": "button",
+          "before": "background:var(--primary-color); border-radius:10rpx; min-height:96rpx;",
+          "after": "background:var(--primary-color); border-radius:10rpx; min-height: 44px;"
+        },
+        {
+          "selector": ".search-btn,.chip",
+          "role": "button",
+          "before": "min-height:88rpx; display:flex; align-items:center; justify-content:center; border-radius:10rpx; box-sizing:border-box; font-size:28rpx;",
+          "after": "min-height: 44px; display:flex; align-items:center; justify-content:center; border-radius:10rpx; box-sizing:border-box; font-size: 14px;"
+        },
+        {
+          "selector": ".btn-profile,.btn-detach,.btn-approve,.btn-reject",
+          "role": "button",
+          "before": "min-height:88rpx; height:auto; line-height:1.5; padding:18rpx 24rpx; display:flex; justify-content:center; align-items:center; box-sizing:border-box; flex:1; min-width:200rpx; font-size:28rpx; border-radius:10rpx; margin:0;",
+          "after": "min-height: 44px; height:auto; line-height:1.5; padding:18rpx 24rpx; display:flex; justify-content:center; align-items:center; box-sizing:border-box; flex:1; min-width:200rpx; font-size: 14px; border-radius:10rpx; margin:0;"
+        },
+        {
+          "selector": ".btn-submit,.btn-cancel",
+          "role": "button",
+          "before": "min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; box-sizing:border-box; font-size:30rpx;",
+          "after": "min-height: 44px; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; box-sizing:border-box; font-size: 14px;"
+        },
+        {
+          "selector": ".work-read-error",
+          "role": "ordinary",
+          "before": "padding:24rpx; margin:20rpx 0; background:var(--warning-bg); border-left:6rpx solid var(--warning-color); border-radius:8rpx; color:var(--text-primary); font-size:28rpx; line-height:1.6;",
+          "after": "padding:24rpx; margin:20rpx 0; background: var(--bg-gray); border-left: 4rpx solid var(--primary-color); border-radius:8rpx; color: var(--text-regular); font-size:28rpx; line-height:1.6;"
+        },
+        {
+          "selector": ".work-read-error button",
+          "role": "button",
+          "before": "min-height:96rpx; line-height:1.5; padding:20rpx; box-sizing:border-box; border-radius:10rpx; color:var(--primary-color); background:#fff; margin-top:20rpx; font-size:28rpx;",
+          "after": "min-height: 44px; line-height:1.5; padding:20rpx; box-sizing:border-box; border-radius:10rpx; color:var(--primary-color); background:#fff; margin-top:20rpx; font-size: 14px;"
+        },
+        {
+          "selector": ".search-btn",
+          "role": "button",
+          "before": "background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 0 32rpx; display: flex; align-items: center; font-size: 14px;",
+          "after": "background: var(--primary-gradient); color: #fff; border-radius:12rpx; padding: 0 32rpx; display: flex; align-items: center; font-size: 14px;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/station-info/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "width: 100%; margin-top: 32rpx; padding: 22rpx;\n  background: var(--primary-gradient); color: #fff;\n  border: none; border-radius: 12rpx; font-size: 30rpx;",
+          "after": "width: 100%; margin-top: 32rpx; padding: 22rpx;\n  background: var(--primary-gradient); color: #fff;\n  border: none; border-radius: 12rpx; font-size: 16px;"
+        },
+        {
+          "selector": ".btn-danger-ghost",
+          "role": "button",
+          "before": "width: 100%; margin-top: 16rpx; padding: 22rpx;\n  background: transparent; color: var(--error-color);\n  border: 1rpx solid var(--error-color); border-radius: 12rpx; font-size: 28rpx;",
+          "after": "width: 100%; margin-top: 16rpx; padding: 22rpx;\n  background: transparent; color: var(--error-color);\n  border: 1rpx solid var(--error-color); border-radius: 12rpx; font-size: 14px;"
+        },
+        {
+          "selector": ".btn-primary,.btn-danger-ghost",
+          "role": "button",
+          "before": "min-height:96rpx; height:auto; line-height:1.5; border-radius:10rpx; padding:20rpx; box-sizing:border-box; font-size:30rpx;",
+          "after": "min-height: 48px; height:auto; line-height:1.5; border-radius:10rpx; padding:20rpx; box-sizing:border-box; font-size: 16px;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/station-status/index.wxss",
+      "rules": [
+        {
+          "selector": ".option.active",
+          "role": "legacy-palette",
+          "before": "border-color: var(--primary-color);\n  background: rgba(46, 74, 104, 0.08);",
+          "after": "border-color: var(--primary-color);\n  background: var(--primary-bg);"
+        },
+        {
+          "selector": ".preview",
+          "role": "info",
+          "before": "margin-top: 20rpx;\n  padding: 20rpx;\n  border-radius: 12rpx;\n  background: var(--warning-bg);",
+          "after": "margin-top: 20rpx;\n  padding: 20rpx;\n  border-radius: 12rpx;\n  background: var(--bg-gray); border-left: 4rpx solid var(--primary-color); color: var(--text-regular);"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "margin-top: 28rpx;\n  height: 88rpx;\n  line-height: 88rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 44rpx;\n  font-size: 30rpx;\n  font-weight: 600;\n  border: none;",
+          "after": "margin-top: 28rpx;\n  height: 88rpx;\n  line-height: 88rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 44rpx;\n  font-size: 16px;\n  font-weight: 600;\n  border: none;"
+        },
+        {
+          "selector": ".btn-link",
+          "role": "button",
+          "before": "font-size: 24rpx; color: var(--primary-color);",
+          "after": "font-size: 14px; color: var(--primary-color);"
+        },
+        {
+          "selector": ".btn-cancel",
+          "role": "button",
+          "before": "flex: 1;\n  height: 84rpx;\n  line-height: 84rpx;\n  border-radius: 42rpx;\n  font-size: 28rpx;\n  border: none;\n  background: rgba(0, 0, 0, 0.05);\n  color: var(--text-secondary);",
+          "after": "flex: 1;\n  height: 84rpx;\n  line-height: 84rpx;\n  border-radius: 42rpx;\n  font-size: 14px;\n  border: none;\n  background: rgba(0, 0, 0, 0.05);\n  color: var(--text-secondary);"
+        },
+        {
+          "selector": ".link,.btn-link",
+          "role": "button",
+          "before": "min-height:88rpx; box-sizing:border-box; display:inline-flex; align-items:center; padding:12rpx 16rpx; font-size:28rpx;",
+          "after": "min-height: 44px; box-sizing:border-box; display:inline-flex; align-items:center; padding:12rpx 16rpx; font-size: 14px;"
+        },
+        {
+          "selector": ".btn-primary,.btn-cancel",
+          "role": "button",
+          "before": "min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; font-size:30rpx; box-sizing:border-box;",
+          "after": "min-height: 48px; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; font-size: 16px; box-sizing:border-box;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "margin-top: 28rpx;\n  height: 88rpx;\n  line-height: 88rpx;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 44rpx;\n  font-size: 16px;\n  font-weight: 600;\n  border: none;",
+          "after": "margin-top: 28rpx;\n  height: auto;\n  line-height: 1.5;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius:12rpx;\n  font-size: 16px;\n  font-weight: 600;\n  border: none; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-cancel",
+          "role": "button",
+          "before": "flex: 1;\n  height: 84rpx;\n  line-height: 84rpx;\n  border-radius: 42rpx;\n  font-size: 14px;\n  border: none;\n  background: rgba(0, 0, 0, 0.05);\n  color: var(--text-secondary);",
+          "after": "flex: 1;\n  height: auto;\n  line-height: 1.5;\n  border-radius: 42rpx;\n  font-size: 14px;\n  border: none;\n  background: rgba(0, 0, 0, 0.05);\n  color: var(--text-secondary); min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxss",
+      "rules": [
+        {
+          "selector": ".chip-unified",
+          "role": "legacy-palette",
+          "before": "border-color: var(--warning-color);\n  color: var(--warning-color);\n  background: var(--warning-bg);",
+          "after": "border-color: var(--warning-color);\n  color: var(--primary-color);\n  background: var(--primary-bg);"
+        },
+        {
+          "selector": ".chip-unified.chip-on",
+          "role": "legacy-palette",
+          "before": "border-color: var(--warning-color);\n  color: #fff;\n  background: var(--warning-color);",
+          "after": "border-color: var(--warning-color);\n  color: var(--primary-color);\n  background: var(--primary-bg);"
+        },
+        {
+          "selector": ".hint-unified",
+          "role": "legacy-palette",
+          "before": "color: var(--warning-color);",
+          "after": "color: var(--primary-color);"
+        },
+        {
+          "selector": ".preset-chip",
+          "role": "legacy-palette",
+          "before": "min-width: 180rpx;\n  flex: 1;\n  padding: 16rpx 18rpx;\n  margin: 0 16rpx 16rpx 0;\n  border: 1rpx dashed var(--warning-color);\n  border-radius: 12rpx;\n  background: var(--warning-bg);",
+          "after": "min-width: 180rpx;\n  flex: 1;\n  padding: 16rpx 18rpx;\n  margin: 0 16rpx 16rpx 0;\n  border: 1rpx dashed var(--warning-color);\n  border-radius: 12rpx;\n  background: var(--primary-bg);"
+        },
+        {
+          "selector": ".preset-qty",
+          "role": "legacy-palette",
+          "before": "display: block;\n  font-size: 26rpx;\n  font-weight: 600;\n  color: var(--warning-color);",
+          "after": "display: block;\n  font-size: 26rpx;\n  font-weight: 600;\n  color: var(--primary-color);"
+        },
+        {
+          "selector": ".mini-btn",
+          "role": "button",
+          "before": "padding: 10rpx 22rpx;\n  border: 1rpx solid var(--border-color);\n  color: var(--text-primary);\n  border-radius: 28rpx;\n  font-size: 24rpx;\n  margin-bottom: 10rpx;\n  white-space: nowrap;\n  text-align: center;",
+          "after": "padding: 10rpx 22rpx;\n  border: 1rpx solid var(--border-color);\n  color: var(--text-primary);\n  border-radius: 28rpx;\n  font-size: 14px;\n  margin-bottom: 10rpx;\n  white-space: nowrap;\n  text-align: center;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 30rpx;\n  margin-top: 20rpx;",
+          "after": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;\n  margin-top: 20rpx;"
+        },
+        {
+          "selector": ".btn-ghost",
+          "role": "button",
+          "before": "height: 80rpx;\n  line-height: 80rpx;\n  text-align: center;\n  border: 1rpx solid var(--border-color);\n  border-radius: 12rpx;\n  font-size: 28rpx;\n  color: var(--text-primary);",
+          "after": "height: 80rpx;\n  line-height: 80rpx;\n  text-align: center;\n  border: 1rpx solid var(--border-color);\n  border-radius: 12rpx;\n  font-size: 14px;\n  color: var(--text-primary);"
+        },
+        {
+          "selector": ".mini-btn,.btn-primary,.btn-ghost,.history-link",
+          "role": "button",
+          "before": "min-height: 88rpx; height: auto; box-sizing: border-box; padding: 20rpx; border-radius: 8rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; white-space: normal; word-break: break-all;",
+          "after": "min-height: 48px; height: auto; box-sizing: border-box; padding: 20rpx; border-radius: 8rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; white-space: normal; word-break: break-all;"
+        },
+        {
+          "selector": ".preset-chip",
+          "role": "legacy-palette",
+          "before": "border-radius: 8rpx; background: var(--bg-color); border-color: var(--border-color);",
+          "after": "border-radius: 8rpx; background: var(--primary-bg); border-color: var(--border-color);"
+        },
+        {
+          "selector": ".mini-btn",
+          "role": "button",
+          "before": "padding: 10rpx 22rpx;\n  border: 1rpx solid var(--border-color);\n  color: var(--text-primary);\n  border-radius: 28rpx;\n  font-size: 14px;\n  margin-bottom: 10rpx;\n  white-space: nowrap;\n  text-align: center;",
+          "after": "padding: 10rpx 22rpx;\n  border: 1rpx solid var(--border-color);\n  color: var(--text-primary);\n  border-radius:12rpx;\n  font-size: 14px;\n  margin-bottom: 10rpx;\n  white-space: nowrap;\n  text-align: center;"
+        },
+        {
+          "selector": ".btn-primary",
+          "role": "button",
+          "before": "height: 84rpx;\n  line-height: 84rpx;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;\n  margin-top: 20rpx;",
+          "after": "height: auto;\n  line-height: 1.5;\n  text-align: center;\n  background: var(--primary-color);\n  color: #fff;\n  border-radius: 12rpx;\n  font-size: 16px;\n  margin-top: 20rpx; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        },
+        {
+          "selector": ".btn-ghost",
+          "role": "button",
+          "before": "height: 80rpx;\n  line-height: 80rpx;\n  text-align: center;\n  border: 1rpx solid var(--border-color);\n  border-radius: 12rpx;\n  font-size: 14px;\n  color: var(--text-primary);",
+          "after": "height: auto;\n  line-height: 1.5;\n  text-align: center;\n  border: 1rpx solid var(--border-color);\n  border-radius: 12rpx;\n  font-size: 14px;\n  color: var(--text-primary); min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/asset-claims/index.wxss",
+      "rules": [
+        {
+          "selector": ".claim-title",
+          "role": "legacy-palette",
+          "before": "display: block; font-size: 29rpx; font-weight: 600; line-height: 1.6; color: var(--text-primary, #25384a);",
+          "after": "display: block; font-size: 29rpx; font-weight: 600; line-height: 1.6; color: var(--text-primary, #182230);"
+        },
+        {
+          "selector": ".claim-notice",
+          "role": "risk",
+          "before": "background: #fff4df; color: #765524;",
+          "after": "background: var(--bg-gray); color: var(--warning-color); border-left: 4rpx solid var(--warning-color);"
+        },
+        {
+          "selector": ".claim-error",
+          "role": "error",
+          "before": "background: #fff0ed; color: #a33c28;",
+          "after": "background: var(--bg-gray); color: var(--text-regular); border-left: 4rpx solid var(--error-color);"
+        },
+        {
+          "selector": ".claim-muted, .claim-row",
+          "role": "legacy-palette",
+          "before": "display: block; font-size: 25rpx; line-height: 1.7; margin-top: 12rpx; color: var(--text-secondary, #716d64);",
+          "after": "display: block; font-size: 25rpx; line-height: 1.7; margin-top: 12rpx; color: var(--text-secondary, #637083);"
+        },
+        {
+          "selector": ".claim-amount",
+          "role": "legacy-palette",
+          "before": "display: block; font-size: 29rpx; line-height: 1.7; font-weight: 600; margin-top: 16rpx; color: var(--text-primary, #25384a);",
+          "after": "display: block; font-size: 29rpx; line-height: 1.7; font-weight: 600; margin-top: 16rpx; color: var(--text-primary, #182230);"
+        },
+        {
+          "selector": ".claim-line",
+          "role": "legacy-palette",
+          "before": "padding-top: 22rpx; margin-top: 22rpx; border-top: 1rpx solid #e7e5df;",
+          "after": "padding-top: 22rpx; margin-top: 22rpx; border-top: 1rpx solid var(--border-color);"
+        },
+        {
+          "selector": ".claim-picker",
+          "role": "legacy-palette",
+          "before": "padding: 22rpx 14rpx; background: #f4f4f1; border-radius: 10rpx; font-size: 27rpx;",
+          "after": "padding: 22rpx 14rpx; background: var(--bg-gray); border-radius: 10rpx; font-size: 27rpx;"
+        },
+        {
+          "selector": ".claim-input",
+          "role": "legacy-palette",
+          "before": "display: block; box-sizing: border-box; width: 100%; min-height: 84rpx; padding: 18rpx; margin-top: 12rpx; background: #f6f6f2; border-radius: 10rpx; font-size: 28rpx; color: var(--text-primary, #25384a);",
+          "after": "display: block; box-sizing: border-box; width: 100%; min-height: 84rpx; padding: 18rpx; margin-top: 12rpx; background: var(--bg-gray); border-radius: 10rpx; font-size: 28rpx; color: var(--text-primary, #182230);"
+        },
+        {
+          "selector": ".claim-primary, .claim-secondary",
+          "role": "button",
+          "before": "margin-top: 18rpx; min-height: 88rpx; font-size: 28rpx; border-radius: 12rpx;",
+          "after": "margin-top: 18rpx; min-height: 48px; font-size: 16px; border-radius: 12rpx;"
+        },
+        {
+          "selector": ".claim-secondary",
+          "role": "button",
+          "before": "background: #f1f1ec; color: #1264D6;",
+          "after": "background: var(--bg-gray); color: #1264D6;"
+        },
+        {
+          "selector": ".claim-primary,.claim-secondary",
+          "role": "button",
+          "before": "min-height:96rpx; height:auto; line-height:1.5; box-sizing:border-box; border-radius:10rpx; padding:20rpx; font-size:30rpx;",
+          "after": "min-height: 48px; height:auto; line-height:1.5; box-sizing:border-box; border-radius:10rpx; padding:20rpx; font-size: 16px;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-new",
+          "role": "button",
+          "before": "flex-shrink: 0;\n  padding: 16rpx 32rpx;\n  border-radius: 12rpx;\n  background: var(--primary-gradient);\n  color: #fff;\n  font-size: 26rpx;\n  font-weight: 600;\n  box-shadow: var(--shadow-primary);",
+          "after": "flex-shrink: 0;\n  padding: 16rpx 32rpx;\n  border-radius: 12rpx;\n  background: var(--primary-gradient);\n  color: #fff;\n  font-size: 14px;\n  font-weight: 600;\n  box-shadow: var(--shadow-primary);"
+        },
+        {
+          "selector": ".btn-ghost, .btn-exec",
+          "role": "button",
+          "before": "flex: 1;\n  height: 72rpx;\n  border-radius: 12rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 26rpx;",
+          "after": "flex: 1;\n  height: 72rpx;\n  border-radius: 12rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;"
+        },
+        {
+          "selector": ".btn-new,.btn-ghost,.btn-exec",
+          "role": "button",
+          "before": "min-height:88rpx; display:flex; justify-content:center; align-items:center; padding:16rpx 24rpx; box-sizing:border-box; border-radius:10rpx; font-size:28rpx;",
+          "after": "min-height: 44px; display:flex; justify-content:center; align-items:center; padding:16rpx 24rpx; box-sizing:border-box; border-radius:10rpx; font-size: 14px;"
+        },
+        {
+          "selector": ".btn-ghost, .btn-exec",
+          "role": "button",
+          "before": "flex: 1;\n  height: 72rpx;\n  border-radius: 12rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;",
+          "after": "flex: 1;\n  height: auto;\n  border-radius: 12rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxss",
+      "rules": [
+        {
+          "selector": ".link-btn",
+          "role": "button",
+          "before": "font-size: 24rpx;\n  color: var(--primary-color);\n  padding: 6rpx 18rpx;\n  border: 1rpx solid var(--primary-color);\n  border-radius: 999rpx;",
+          "after": "font-size: 14px;\n  color: var(--primary-color);\n  padding: 6rpx 18rpx;\n  border: 1rpx solid var(--primary-color);\n  border-radius: 999rpx;"
+        },
+        {
+          "selector": ".priv-btn",
+          "role": "button",
+          "before": "padding: 10rpx 24rpx;\n  border: 1rpx solid var(--primary-color);\n  color: var(--primary-color);\n  border-radius: 28rpx;\n  font-size: 24rpx;\n  margin-left: 12rpx;\n  white-space: nowrap;",
+          "after": "padding: 10rpx 24rpx;\n  border: 1rpx solid var(--primary-color);\n  color: var(--primary-color);\n  border-radius: 28rpx;\n  font-size: 14px;\n  margin-left: 12rpx;\n  white-space: nowrap;"
+        },
+        {
+          "selector": ".modal-btn",
+          "role": "button",
+          "before": "flex: 1; height: 84rpx; border-radius: 12rpx;\n  display: flex; align-items: center; justify-content: center;\n  font-size: 28rpx;",
+          "after": "flex: 1; height: 84rpx; border-radius: 12rpx;\n  display: flex; align-items: center; justify-content: center;\n  font-size: 14px;"
+        },
+        {
+          "selector": ".link-btn,.priv-btn,.asset-retry,.record-toggle",
+          "role": "button",
+          "before": "min-height:88rpx; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; padding:16rpx; font-size:28rpx; border-radius:8rpx;",
+          "after": "min-height: 44px; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; padding:16rpx; font-size: 14px; border-radius:8rpx;"
+        },
+        {
+          "selector": ".modal-btn",
+          "role": "button",
+          "before": "min-height:96rpx; font-size:30rpx;",
+          "after": "min-height: 44px; font-size: 14px;"
+        },
+        {
+          "selector": ".priv-btn",
+          "role": "button",
+          "before": "padding: 10rpx 24rpx;\n  border: 1rpx solid var(--primary-color);\n  color: var(--primary-color);\n  border-radius: 28rpx;\n  font-size: 14px;\n  margin-left: 12rpx;\n  white-space: nowrap;",
+          "after": "padding: 10rpx 24rpx;\n  border: 1rpx solid var(--primary-color);\n  color: var(--primary-color);\n  border-radius:12rpx;\n  font-size: 14px;\n  margin-left: 12rpx;\n  white-space: nowrap;"
+        },
+        {
+          "selector": ".modal-btn",
+          "role": "button",
+          "before": "flex: 1; height: 84rpx; border-radius: 12rpx;\n  display: flex; align-items: center; justify-content: center;\n  font-size: 14px;",
+          "after": "flex: 1; height: auto; border-radius: 12rpx;\n  display: flex; align-items: center; justify-content: center;\n  font-size: 14px; min-height:44px; display:flex; align-items:center; justify-content:center;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.wxss",
+      "rules": [
+        {
+          "selector": ".btn-main, .btn-danger",
+          "role": "button",
+          "before": "height: 92rpx;\n  border-radius: var(--radius-round);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 30rpx;\n  font-weight: 600;",
+          "after": "height: 92rpx;\n  border-radius: var(--radius-round);\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;\n  font-weight: 600;"
+        },
+        {
+          "selector": ".btn-main,.btn-danger",
+          "role": "button",
+          "before": "min-height:104rpx; box-sizing:border-box; border-radius:10rpx; display:flex; justify-content:center; align-items:center; padding:20rpx; font-size:30rpx; line-height:1.5;",
+          "after": "min-height:104rpx; box-sizing:border-box; border-radius:10rpx; display:flex; justify-content:center; align-items:center; padding:20rpx; font-size: 14px; line-height:1.5;"
+        }
+      ]
+    },
+    {
+      "file": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.wxss",
+      "rules": [
+        {
+          "selector": ".sign-btn",
+          "role": "button",
+          "before": "flex: 1;\n  text-align: center;\n  padding: 20rpx 12rpx;\n  border-radius: 12rpx;\n  border: 2rpx solid var(--border-color);\n  background: #fff;\n  font-size: 24rpx;\n  color: var(--text-regular);",
+          "after": "flex: 1;\n  text-align: center;\n  padding: 20rpx 12rpx;\n  border-radius: 12rpx;\n  border: 2rpx solid var(--border-color);\n  background: #fff;\n  font-size: 14px;\n  color: var(--text-regular);"
+        },
+        {
+          "selector": ".btn-half",
+          "role": "button",
+          "before": "flex: 1;\n  height: 92rpx;\n  border-radius: 12rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 30rpx;",
+          "after": "flex: 1;\n  height: 92rpx;\n  border-radius: 12rpx;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;"
+        },
+        {
+          "selector": ".sign-btn",
+          "role": "button",
+          "before": "min-width:240rpx; min-height:96rpx; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx;",
+          "after": "min-width:240rpx; min-height: 44px; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx;"
+        },
+        {
+          "selector": ".btn-half",
+          "role": "button",
+          "before": "min-height:96rpx; display:flex; align-items:center; justify-content:center; border-radius:10rpx; font-size:30rpx; box-sizing:border-box;",
+          "after": "min-height: 44px; display:flex; align-items:center; justify-content:center; border-radius:10rpx; font-size: 14px; box-sizing:border-box;"
+        },
+        {
+          "selector": ".preview-note.warn",
+          "role": "risk",
+          "before": "background: var(--warning-bg); color: var(--warning-color);",
+          "after": "background: var(--bg-gray); color: var(--warning-color); border-left:4rpx solid var(--warning-color);"
+        }
+      ]
+    }
+  ]
+}

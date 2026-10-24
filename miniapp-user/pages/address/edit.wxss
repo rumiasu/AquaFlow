@@ -52,13 +52,12 @@
   background: var(--primary-color);
   border-radius: var(--radius-sm);
   padding: 0 28rpx;
-  height: 88rpx;
-  flex-shrink: 0;
-}
+  height: auto;
+  flex-shrink: 0; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 .auto-btn text {
   color: #fff;
-  font-size: 24rpx;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -200,7 +199,7 @@
 }
 
 .save-btn {
-  height: 88rpx;
+  height: auto;
   padding: 0 40rpx;
   background: var(--primary-color);
   border-radius: var(--radius-md);
@@ -208,9 +207,8 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 28rpx;
-  font-weight: 500;
-}
+  font-size: 14px;
+  font-weight: 500; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 .save-btn.disabled {
   background: var(--text-placeholder);
@@ -231,7 +229,7 @@
 .state-success { border-color: #bddacb; }
 .state-banner { background: #eaf2ff; color: #235393; padding: 20rpx 24rpx; border-radius: 16rpx; font-size: 26rpx; line-height: 1.6; margin: 20rpx 0; }
 .state-actions { display: flex; gap: 16rpx; flex-wrap: wrap; margin-top: 16rpx; }
-.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 88rpx; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 28rpx; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
+.state-button { margin: 20rpx 0 0; padding: 16rpx 24rpx; min-height: 44px; background: var(--primary-color); color: #fff; border-radius: 14rpx; font-size: 14px; font-weight: 600; line-height: 1.8; box-sizing: border-box; }
 .state-actions .state-button { margin-top: 0; }
 .state-button.secondary { color: #155aaf; background: #edf3fb; }
 button { font-family: inherit; }
@@ -247,7 +245,7 @@ button[disabled] { color: #637083; background: #e8edf3; opacity: 1; }
 .page-intro-title { color: #172b4d; }
 .page-intro-note { color: #526174; font-size: 28rpx; }
 .auto-btn, .save-btn { background: var(--primary-color); margin: 0; line-height: 1.8; box-sizing: border-box; }
-.auto-btn text { font-size: 28rpx; }
+.auto-btn text { font-size: 14px; }
 .label-chip { font-size: 28rpx; color: #526174; }
 .label-chip.active { color: #155aaf; background: #edf3fb; border-color: var(--primary-color); }
 .default-text { color: #526174; font-size: 28rpx; }

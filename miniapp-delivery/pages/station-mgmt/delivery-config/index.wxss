@@ -13,18 +13,17 @@
 /* 金额门槛引导（2026-09-19）：上架非桶装商品后必须补金额门槛，这里给一条显眼的提示 */
 .guide-card {
   border: 2rpx solid var(--warning-bg);
-  background: var(--warning-bg);
-}
+  background: var(--bg-gray); border-left: 4rpx solid var(--primary-color); color: var(--text-regular); }
 .btn-fill {
   margin-top: 20rpx;
   background: var(--warning-color);
   color: #fff;
-  font-size: 28rpx;
-  border-radius: 40rpx;
+  font-size: 14px;
+  border-radius:12rpx;
 }
 
 /* 配置完善度（2026-09-19）：逐条列"还差什么 / 为什么必须填 / 去哪填" */
-.setup-card { border: 2rpx solid var(--warning-bg); background: var(--warning-bg); }
+.setup-card { border: 2rpx solid var(--warning-bg); background: var(--bg-gray); border-left: 4rpx solid var(--primary-color); color: var(--text-regular); }
 .setup-item { border-top: 1rpx solid var(--warning-bg); padding: 16rpx 0; }
 .setup-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12rpx; }
 .setup-label { font-size: 27rpx; font-weight: 600; color: var(--warning-color); }
@@ -142,7 +141,7 @@
   background: var(--primary-color);
   color: #fff;
   border-radius: 12rpx;
-  font-size: 30rpx;
+  font-size: 16px;
 }
 
 /* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
@@ -157,4 +156,4 @@
 .option.active { background:var(--primary-bg); }
 .option-name { font-size:30rpx; }
 .option-desc,.card-sub,.setup-label,.setup-why,.setup-where { font-size:26rpx; line-height:1.6; color:var(--text-regular); }
-.btn-primary,.btn-fill { min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; box-sizing:border-box; font-size:30rpx; }
+.btn-primary,.btn-fill { min-height: 48px; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; box-sizing:border-box; font-size: 16px; }

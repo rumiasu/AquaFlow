@@ -222,7 +222,7 @@ Page({
 
   onDetach(e) {
     const { id, name } = e.currentTarget.dataset
-    wx.showModal({ confirmText: '解除绑定',
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '解除绑定',
       title: '解除所属',
       content: `确定解除配送员「${name}」的所属关系？`,
       success: async (res) => {

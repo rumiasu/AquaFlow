@@ -245,7 +245,7 @@ Page({
   },
 
   onLogout() {
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '提示',
       content: '确定退出登录吗？',
       success: (res) => {

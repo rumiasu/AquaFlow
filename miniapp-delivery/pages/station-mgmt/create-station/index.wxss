@@ -127,15 +127,14 @@
 
 .btn-submit {
   width: 100%;
-  height: 96rpx;
-  line-height: 96rpx;
+  height: auto;
+  line-height: 1.5;
   background: var(--primary-color);
   color: #ffffff;
-  border-radius: 48rpx;
+  border-radius:12rpx;
   font-size: 32rpx;
   font-weight: 600;
-  border: none;
-}
+  border: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 /* 退出出口：本页是 reLaunch 进来的（页面栈无上一页），没有它站长就出不去 */
 .footer-action {
@@ -162,5 +161,5 @@
 .location-sub { color:var(--text-regular); font-size:26rpx; line-height:1.6; }
 .location-sub.warn { color:var(--warning-color); }
 .footer { border-color:var(--border-color); }
-.btn-submit { border-radius:12rpx; min-height:96rpx; background:var(--primary-color); }
+.btn-submit { border-radius:12rpx; min-height: 44px; background:var(--primary-color); }
 .footer-action { min-height:88rpx; box-sizing:border-box; display:flex; align-items:center; justify-content:center; margin-top:12rpx; color:var(--text-regular); }

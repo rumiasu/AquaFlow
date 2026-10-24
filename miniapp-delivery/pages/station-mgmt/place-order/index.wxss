@@ -60,13 +60,12 @@
 .search-btn {
   margin-left: 16rpx;
   padding: 0 28rpx;
-  height: 72rpx;
-  line-height: 72rpx;
+  height: auto;
+  line-height: 1.5;
   background: var(--primary-color);
   color: #fff;
   border-radius: 12rpx;
-  font-size: 26rpx;
-}
+  font-size: 14px; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 .row {
   display: flex;
@@ -173,14 +172,13 @@
 }
 
 .btn-primary {
-  height: 84rpx;
-  line-height: 84rpx;
+  height: auto;
+  line-height: 1.5;
   text-align: center;
   background: var(--primary-color);
   color: #fff;
   border-radius: 12rpx;
-  font-size: 30rpx;
-}
+  font-size: 16px; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-disabled {
   background: var(--primary-bg);
 }
@@ -204,12 +202,12 @@
 .card { border-radius:12rpx; box-shadow:none; border:1rpx solid var(--border-color); }
 .card-title { font-size:32rpx; }
 .search-input { min-width:0; min-height:88rpx; font-size:28rpx; border-radius:10rpx; }
-.search-btn { min-height:88rpx; height:auto; line-height:1.5; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; }
+.search-btn { min-height: 44px; height:auto; line-height:1.5; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; }
 .row { min-height:112rpx; box-sizing:border-box; border-color:var(--border-color); gap:16rpx; flex-wrap:wrap; }
 .row-main { min-width:200rpx; overflow:visible; }
 .row-title { font-size:32rpx; line-height:1.5; }
 .row-sub,.hint { color:var(--text-regular); font-size:28rpx; line-height:1.6; }
-.qty-btn { width:96rpx; height:96rpx; line-height:96rpx; font-size:36rpx; border-radius:10rpx; }
+.qty-btn { width:96rpx; height: auto; line-height: 1.5; font-size:36rpx; border-radius:10rpx; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .qty { flex-shrink:0; }
 .fee-line { font-size:30rpx; line-height:1.6; }
 .fee-total { font-size:38rpx; color:var(--text-primary); border-top:2rpx solid var(--border-color); }

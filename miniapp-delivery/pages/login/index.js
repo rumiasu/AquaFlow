@@ -136,7 +136,7 @@ Page({
       this.loadAgreements()
       console.error('[wx-login] login failed')
       const msg = (error && error.message) || '登录失败'
-      wx.showModal({ confirmText: '知道了', title: '登录失败', content: msg, showCancel: false })
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '登录失败', content: msg, showCancel: false })
     } finally {
       this.setData({ loading: false })
     }

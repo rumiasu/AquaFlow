@@ -160,8 +160,8 @@
   flex-wrap: wrap;
   gap: 12rpx;
 }
-.bind-info-line.bind-info-warning { background: var(--warning-bg); }
-.bind-info-line.bind-info-wait { background: var(--warning-bg); }
+.bind-info-line.bind-info-warning { background: var(--bg-gray); border-left:4rpx solid var(--warning-color); }
+.bind-info-line.bind-info-wait { background: var(--bg-gray); border-left:4rpx solid var(--warning-color); }
 .bind-info-line.bind-info-danger { background: var(--error-bg); }
 .bind-info-line.bind-info-none { background: var(--bg-gray); }
 
@@ -189,7 +189,7 @@
 .bind-action-btn {
   flex: 1;
   border-radius: 999rpx;
-  font-size: 28rpx;
+  font-size: 14px;
   font-weight: 600;
   padding: 20rpx 0;
   border: none;
@@ -483,7 +483,7 @@
   flex-shrink: 0;
   border: none;
   border-radius: 999rpx;
-  font-size: 24rpx;
+  font-size: 14px;
   padding: 10rpx 26rpx;
   line-height: 1.4;
   background: var(--error-bg);
@@ -505,7 +505,7 @@
 .staff-btn {
   border: none;
   border-radius: 999rpx;
-  font-size: 24rpx;
+  font-size: 14px;
   padding: 8rpx 22rpx;
   line-height: 1.4;
 }
@@ -562,7 +562,7 @@
 }
 
 .logout-btn text {
-  font-size: 28rpx;
+  font-size: 14px;
   color: var(--error-color);
 }
 
@@ -583,7 +583,7 @@
   color: #fff;
   border: none;
   border-radius: 999rpx;
-  font-size: 28rpx;
+  font-size: 14px;
   font-weight: 600;
   padding: 24rpx 48rpx;
 }
@@ -598,7 +598,7 @@
 }
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
-.bind-action-btn, .btn-login, .staff-btn, .staff-remove-btn { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.bind-action-btn, .btn-login, .staff-btn, .staff-remove-btn { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
 .staff-action-col { flex-direction: row; flex-wrap: wrap; width: 100%; }
 .staff-action-col button { flex: 1; }
 .user-info, .manager-entry-text { min-width: 0; overflow-wrap: anywhere; }
@@ -606,7 +606,7 @@
 .section-toggle, .section-link { min-height: 96rpx; display: inline-flex; align-items: center; }
 .role-chip { border-radius: 8rpx; }
 .stats-item { min-width: 0; }
-.logout-btn { min-height: 96rpx; box-sizing: border-box; }
+.logout-btn { min-height: 44px; box-sizing: border-box; }
 
 /* 白底身份区不沿用旧深色页头的白字。 */
 .role-chip.role-delivery { background: var(--primary-bg); color: var(--primary-color); }

@@ -348,10 +348,10 @@
   padding: 16rpx 8rpx;
   border: none;
   border-radius: var(--radius-md);
-  font-size: 28rpx;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
-  min-height: 96rpx;
+  min-height: 44px;
   height: auto;
   white-space: normal;
 }
@@ -362,7 +362,7 @@
 
 
 .action-nav, .action-collect {
-  background: rgba(46, 74, 104, 0.1);
+  background: var(--primary-bg);
   color: var(--primary-color);
 }
 
@@ -495,9 +495,8 @@
   padding: 4rpx 14rpx;
   font-size: 24rpx;
   color: var(--warning-color);
-  background: var(--warning-bg);
-  border-radius: 999rpx;
-}
+  background: var(--bg-gray);
+  border-radius: 999rpx; border-left:4rpx solid var(--warning-color); }
 
 .floor-proof-head {
   display: flex;
@@ -618,7 +617,7 @@
 .sheet-item, .pay-refund, .floor-proof-add { min-height: 96rpx; box-sizing: border-box; }
 .sheet-item-info { min-width: 0; }
 .sheet-item-name, .sheet-item-desc, .info-value { white-space: normal; word-break: break-all; }
-.info-card button { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.info-card button { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
 .pay-refund, .floor-proof-add { display: inline-flex; align-items: center; justify-content: center; }
 
 .customer-note-full {
@@ -632,6 +631,6 @@
 
 .write-recovery { font-size: 28rpx; line-height: 1.6; color: var(--text-regular); }
 .write-recovery text { display: block; white-space: normal; }
-.write-recovery button { margin: 16rpx 0 0; min-height: 88rpx; padding: 16rpx 24rpx; }
+.write-recovery button { margin: 16rpx 0 0; min-height: 44px; padding: 16rpx 24rpx; }
 .sheet-item:active, .sheet-cancel:active { background: var(--bg-gray); }
 .press-feedback { background: var(--bg-gray); opacity: 0.82; }

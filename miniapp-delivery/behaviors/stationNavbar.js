@@ -215,7 +215,7 @@ module.exports = Behavior({
     onStationStatusTap() {
       const { stationStatusText, stationStatusNote, stationStatusError, isManager } = this.data
       if (stationStatusError) {
-        wx.showModal({ title: '营业状态待核实', content: stationStatusError, confirmText: '重新读取', cancelText: '稍后再看', success: result => { if (result.confirm) this.loadStationStatus((getApp().globalData.userInfo || {}).stationId) } })
+        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '营业状态待核实', content: stationStatusError, confirmText: '重新读取', cancelText: '稍后再看', success: result => { if (result.confirm) this.loadStationStatus((getApp().globalData.userInfo || {}).stationId) } })
         return
       }
       if (!stationStatusText) return
@@ -223,7 +223,7 @@ module.exports = Behavior({
         this.openStationPanel()
         return
       }
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '水站状态',
         content: stationStatusNote ? stationStatusText + '\n' + stationStatusNote : stationStatusText,
         showCancel: false,

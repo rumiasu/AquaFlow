@@ -184,7 +184,7 @@ Page({
    * 不给出口，用户就会一直卡在这里，这正是"注册卡死"的直接成因。
    */
   onLogout() {
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '退出登录',
       content: '退出后可用其他微信账号登录。',
       confirmText: '退出',

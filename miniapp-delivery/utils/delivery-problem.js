@@ -51,7 +51,7 @@ function reportDeliveryProblem(orderId, opts) {
       && now.app.canAccessStationBusiness() && (typeof options.isCurrent !== 'function' || options.isCurrent())
   }
   const dialog = options.dialog || ((config, sheet) => new Promise(resolve => {
-    wx[sheet ? 'showActionSheet' : 'showModal']({ ...config, success: resolve, fail: () => resolve({ confirm: false }) })
+    wx[sheet ? 'showActionSheet' : 'showModal']({ ...(sheet ? config : { confirmColor: '#1264D6', cancelColor: '#637083', ...config }), success: resolve, fail: () => resolve({ confirm: false }) })
   }))
   return (async () => {
     if (!current() || !Number.isSafeInteger(Number(orderId)) || Number(orderId) <= 0) return

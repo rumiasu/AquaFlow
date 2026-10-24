@@ -221,7 +221,7 @@ Page({
 
     if (!stationId || stationId <= 0) {
       this.setData({ loading: false })
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '请选择服务水站',
         content: '下单前要先选一家水站。水桶、水票和押金都算在这家水站名下，别家水站用不了。',
         confirmText: '去选站',
@@ -364,7 +364,7 @@ async loadItemsProducts() {
       // 无站点：提示去选择水站
       this.setData({ loading: false, productsError: '请先选择服务水站，再重新读取完整商品清单。' })
       const confirm = await new Promise(resolve => {
-        wx.showModal({
+        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '请选择服务水站',
           content: '下单前要先选一家水站。水桶、水票和押金都算在这家水站名下，别家水站用不了。',
           confirmText: '去选站',
@@ -556,7 +556,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       const orderStationId = order.deliveryStationId || order.stationId
 
       if (currentStationId && orderStationId && currentStationId !== orderStationId) {
-        wx.showModal({
+        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '水站不一致',
           content: '本次将使用上次配送水站的商品和价格，水票与押金按该站核实。是否继续？',
           confirmText: '继续',
@@ -1121,7 +1121,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       wx.showToast({ title: '正在核实报价，请稍候', icon: 'none' }); return
     }
     if (this.data.quoteError || !this.data.quoteReady || !this._hasCurrentQuote()) {
-      wx.showModal({ title: '报价尚未核实', content: this.data.quoteError || '请先核实最新金额和支付方式，再提交订单。',
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '报价尚未核实', content: this.data.quoteError || '请先核实最新金额和支付方式，再提交订单。',
         confirmText: '重试报价', cancelText: '留在本页',
         success: result => { if (result.confirm) this.onRetryQuote() } })
       return
@@ -1132,7 +1132,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     // reason 由后端下发（与 createOrder 的拒绝判据同源），前端不自己判断该不该拦。
     if (this.data.blocked) {
       const missing = (this.data.missingRights || [])[0]
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '暂不可下单',
         content: this.data.blockReason || '当前订单暂不满足下单条件，请调整后重试',
         showCancel: !!missing,
@@ -1199,7 +1199,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         const canBuyTicket = tp.reason === 'INSUFFICIENT'
         const ticketHint = typeof tp.hint === 'string' ? tp.hint.trim() : ''
         // 2026-10-24：非缺票情形没有自动切换动作，按钮仅确认知悉，正文指向手动选择。
-        wx.showModal({
+        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: tp.title || '暂不能用票支付',
           content: canBuyTicket ? (ticketHint || '水票不足以覆盖本单，请改选支付方式或先补齐水票')
             : (ticketHint ? ticketHint.replace(/[。！？；，、\s]+$/, '') + '。' : '') + '请关闭提示后，在支付方式中手动选择其它可用方式。',
@@ -1265,7 +1265,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const text = lines.map(l => (l.productName || '商品编号 ' + l.productId) + '：新增用桶权益 ' + l.quantity
       + ' 份，单价 ¥' + Number(l.unitPrice).toFixed(2) + '，本次桶押金 ¥' + Number(l.amount).toFixed(2)).join('；')
     const confirmationKey = this._confirmationKey()
-    wx.showModal({ title: '确认本次新增桶押金',
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '确认本次新增桶押金',
       content: text + '。与本单水款一起付款，收齐款项后押金生效。' + (busy ? '已有容量正在办理其他订单，可等待释放，或明确再买一份。' : '也可返回，在水桶与押金页单独办理。'),
       confirmText: '一起付款', cancelText: busy ? '等待释放' : '返回修改',
       success: result => {
@@ -1542,14 +1542,14 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         orderIntent.settleRequest(requestRecord, 'prepared')
         if (current()) {
           this.setData({ submitState: 'idle', unknownResultText: '' })
-          wx.showModal({ title: '订单未创建', content: errorText(error, '本次下单未被接受') + '\n\n请调整后重新提交。', showCancel: false, confirmText: '知道了' })
+          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '订单未创建', content: errorText(error, '本次下单未被接受') + '\n\n请调整后重新提交。', showCancel: false, confirmText: '知道了' })
         }
         return
       }
       // 停业/地址校验可能在幂等查找之前拒绝重放；businessRejected 不能证明历史 unknown 原单不存在。
       if (!current()) return
       this._showOrderRecoveryBlocked('原提交结果尚未确认，保留原编号和内容，请重试核实或到我的订单查看。')
-      wx.showModal({ title: '原提交还需核实', content: errorText(error, '本次结果尚未确认。') + '\n\n'
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '原提交还需核实', content: errorText(error, '本次结果尚未确认。') + '\n\n'
         + '原单可能已创建。重试只办理原提交，不会更换编号或内容。', confirmText: '重试', cancelText: '先查看',
         success: result => {
           if (result.confirm && current() && !this._quoteHidden && requestRecord.phase === 'unknown') this._createOrder(false)
@@ -1678,7 +1678,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
             : unknown ? '订单已经建好了（订单号 ' + orderId + '），暂时查不到是否已付款。请点「查原单」刷新核实；若继续支付，仍办理这张原订单。'
             : errorText(outcome.error, '支付暂未完成，请核对原订单')
               + '。订单已经建好了（订单号 ' + orderId + '），但这一笔支付没有完成。'
-          wx.showModal({
+          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
             title,
             content: body,
             showCancel: outcome.state !== 'paid',
@@ -1788,7 +1788,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const warnings = Array.isArray(rawWarnings) ? Array.from(new Set(rawWarnings)) : []
     if (!Array.isArray(warnings) || !warnings.length) return Promise.resolve()
     return new Promise((resolve) => {
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '下单成功，请注意',
         content: warnings.join('\n'),
         showCancel: false,
@@ -1895,7 +1895,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     this.enterprisePrompted = true
     this.checkPendingEnterpriseApply().then((hasPending) => {
       if (hasPending) return
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '企业订水',
         content: hint,
         confirmText: '申请企业',
@@ -1925,7 +1925,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
    * 联系人/电话/税号都可留空：站长审核时看得到是谁在下单（订单里有收货人）。
    */
   askEnterpriseName() {
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '企业名称',
       editable: true,
       placeholderText: '请填写营业执照上的企业全称',
@@ -1950,7 +1950,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 电话可用就用收货人电话兜底：站长要打电话核实时不至于拿到一条没有任何联系方式的申请
         contactPhone: address.phone || undefined
       })
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '申请已提交',
         content: '水站站长审核通过后，你会成为企业客户。本次下单不受影响，可以继续。',
         showCancel: false,

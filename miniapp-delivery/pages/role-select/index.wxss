@@ -70,7 +70,7 @@
 }
 
 .station-manager .role-icon {
-  background: rgba(46, 74, 104, 0.1);
+  background: var(--primary-bg);
 }
 
 .delivery .role-icon {

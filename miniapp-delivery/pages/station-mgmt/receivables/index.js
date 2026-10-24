@@ -332,7 +332,7 @@ Page({
     try {
       const confirmed = await new Promise(resolve => {
         flight.cancelConfirmation = () => resolve(false)
-        wx.showModal({ title: '确认登记已收款', confirmText: '已收登记', cancelText: '再核对',
+        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '确认登记已收款', confirmText: '已收登记', cancelText: '再核对',
           content: '客户：' + (c.customerName || '客户 #' + c.customerId) + '（#' + c.customerId + '）\n'
             + selection.rows.map(row => '订单 #' + row.id + '：' + row.amountText).join('\n')
             + '\n所选 ' + selection.ids.length + ' 单，合计 ' + selection.amountText
@@ -348,7 +348,7 @@ Page({
       if (!d || !Number.isSafeInteger(d.settledCount) || d.settledCount < 0 || amountCents(d.settledAmount) === null) {
         throw Object.assign(new Error('收款登记结果暂未查到'), { malformedResponse: true })
       }
-      wx.showModal({ confirmText: '知道了',
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '核销完成',
         content: '已核销 ' + d.settledCount + ' 单，金额 ¥' + d.settledAmount +
           (d.collectedCount ? '\n本次同时记账收款 ' + d.collectedCount + ' 单' : '') +
@@ -365,7 +365,7 @@ Page({
         this._settleRevision = (this._settleRevision || 0) + 1
         this.setData({ orders: this.data.orders.map(o => ({ ...o, checked: false })), selectedCount: 0, selectedAmountText: '',
           ordersError: '登记结果待核实，请重新加载明细；核实前请勿重复登记，也不要再次向客户收款。' })
-        wx.showModal({ confirmText: '知道了', title: '登记结果待核实', showCancel: false,
+        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '登记结果待核实', showCancel: false,
           content: '此次操作只登记已收到的钱，不会向客户扣款。回应未能确认，登记可能已完成，请勿再次向客户收款。\n\n已清除勾选，正在重新读取台账与待收明细核实，不会自动重发登记。' })
         await Promise.all([this.load(), this.loadOrders()])
         const verificationError = this.data.ordersError || this.data.loadError
@@ -373,7 +373,7 @@ Page({
           + '。核实前请勿重复登记，也不要再次向客户收款。' })
       } else {
         // 明确拒绝保留原原因；请求可能执行的异常只进入上面的只读核实分支。
-        wx.showModal({ confirmText: '知道了', title: '核销未完成', content: err.message || '请稍后重试', showCancel: false })
+        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '核销未完成', content: err.message || '请稍后重试', showCancel: false })
       }
     } finally {
       if (this._settleFlight === flight) { this._settleFlight = null; if (!this._unloaded) this.setData({ settling: false }) }
@@ -424,7 +424,7 @@ Page({
     if (this.data.recalcBusy) return
     const c = this.data.customer
     const res = await new Promise((resolve) => {
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '重算未结账单',
         content: '把「还没结清」的挂账单按当前账期重算应付日期。\n\n已付款或已取消的单不受影响；每张被改动的单都会留下记录。',
         confirmText: '重算',
@@ -494,7 +494,7 @@ Page({
 
   /** 逾期只是提示：这里没有任何"按逾期加收/罚款"的入口。 */
   onShowTermsHelp() {
-    wx.showModal({ confirmText: '知道了',
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
       title: '账期怎么用',
       content: '账期是"月结多少天"，只影响之后下的单：下单时按它算出应付日期并快照进订单，' +
         '事后改账期不会改动历史订单的到期日。\n\n只有现金（货到付款）单才有应付日期；' +

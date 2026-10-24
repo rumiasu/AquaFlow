@@ -497,7 +497,7 @@ Page({
   },
 
   onEcoRuleTap() {
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '水桶回收规则',
       // 退桶扣减押金后的钱**不留站内余额**（原「待拍板」项已于 2026-09-27 拍板收口，勿再挂）：
       // 产品口径「不现场给钱的不要退」= 核销与"钱交到顾客手上"是同一次操作 —— 优先原路退回，
@@ -530,7 +530,7 @@ Page({
     if (!Number.isInteger(version) || version < 1) return
     const current = () => !this._arrangementHidden && life === (this._arrangementLife || 0) && isCurrentSession(session)
     this._returnConfirmFlight = true
-    wx.showModal({ title: '确认取桶费与安排', content: '退押金 ¥' + record.depositRefund + '；需交回 ' + detail.requiredBarrels + ' 个桶；' + detail.pickupModeText + '；另付取桶费 ¥' + detail.pickupFee + '。交接后由水站按原渠道实际退款；如未收到，可提出异议。',
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '确认取桶费与安排', content: '退押金 ¥' + record.depositRefund + '；需交回 ' + detail.requiredBarrels + ' 个桶；' + detail.pickupModeText + '；另付取桶费 ¥' + detail.pickupFee + '。交接后由水站按原渠道实际退款；如未收到，可提出异议。',
       success: async (res) => {
         if (!res.confirm || !current()) { this._returnConfirmFlight = false; return }
         try { await confirmBarrelReturn(record.id, version); if (current()) await this.loadData() }
@@ -573,7 +573,7 @@ Page({
     finally { this._arrangementFlight=false }
   },
   arrangementDialog(options,sheet=false) {
-    return new Promise(resolve => wx[sheet?'showActionSheet':'showModal']({ ...options,
+    return new Promise(resolve => wx[sheet?'showActionSheet':'showModal']({ ...(sheet ? options : { confirmColor: '#1264D6', cancelColor: '#637083', ...options }),
       success:res => resolve(sheet || res.confirm ? res : null), fail:() => resolve(null) }))
   },
   onReturnWithdraw(e) {
@@ -583,7 +583,7 @@ Page({
     const context = assetViewStation.beginRead(this, 'withdrawDialog')
     this._withdrawFlight = true
     const release = () => { this._withdrawFlight = false }
-    wx.showModal({ title: '撤回退桶申请', content: '尚未交接的申请可撤回，已锁定权益恢复使用。', fail: release, success: async (res) => {
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '撤回退桶申请', content: '尚未交接的申请可撤回，已锁定权益恢复使用。', fail: release, success: async (res) => {
       if (!res.confirm || !assetViewStation.current(this, context)) { release(); return }
       try { await withdrawBarrelReturn(record.id); if (assetViewStation.current(this, context)) await this.loadData() }
       catch (err) { if (assetViewStation.current(this, context)) wx.showToast({ title: viewError(err, '撤回失败'), icon: 'none' }) }

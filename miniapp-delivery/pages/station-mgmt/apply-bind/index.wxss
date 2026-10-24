@@ -81,15 +81,14 @@
 
 .search-btn {
   width: 160rpx;
-  height: 80rpx;
-  line-height: 80rpx;
+  height: auto;
+  line-height: 1.5;
   background: var(--primary-color);
   color: #ffffff;
   border-radius: 14rpx;
-  font-size: 28rpx;
+  font-size: 14px;
   padding: 0;
-  border: none;
-}
+  border: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 .station-list {
   display: flex;
@@ -109,7 +108,7 @@
 }
 
 .station-item.selected {
-  background: rgba(46, 74, 104, 0.06);
+  background: var(--primary-bg);
   border-color: var(--primary-color);
 }
 

@@ -677,19 +677,19 @@ Page({
     }
     if (stockMode === 'loss') {
       if (qty >= (setting.quantity || 0)) { wx.showToast({ title: '盘亏数须低于当前库存', icon: 'none' }); return }
-      wx.showModal({ confirmText: '登记盘亏', cancelText: '暂不登记', title: '登记实盘亏损', editable: true, placeholderText: '请填写实际损失原因及凭据（必填）',
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '登记盘亏', cancelText: '暂不登记', title: '登记实盘亏损', editable: true, placeholderText: '请填写实际损失原因及凭据（必填）',
         content: '实物将由 ' + setting.quantity + ' 改为 ' + qty + '；较晚预留订单会变为缺货待补。请联系受影响客户协商延期或取消。',
         success: async res => { if (!res.confirm) return
           try {
             const r = await businessRules.recordLoss(setting.id, { targetQuantity: qty, expectedQuantity: setting.quantity, note: res.content })
             this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': qty }); this.loadData()
-            wx.showModal({ confirmText: '知道了', title: '实盘亏损已登记', content: '受影响预留 ' + (r.data.affectedOrders || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
+            wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '实盘亏损已登记', content: '受影响预留 ' + (r.data.affectedOrders || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
           } catch (err) { wx.showToast({ title: err.message || '登记未成功', icon: 'none' }) }
         } })
       return
     }
     const after = qty
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认盘点',
       content: '「' + setting.name + '」库存将直接设为 ' + after + '（当前 ' + (setting.quantity || 0) + '）。盘点会写一条调整流水，确认？',
       confirmText: '确认盘点',
@@ -736,7 +736,7 @@ Page({
       if (original) {
         const confirmed = await new Promise(resolve => {
           flight.cancelConfirmation = () => resolve(false)
-          wx.showModal({ title: '继续原入库', confirmText: '继续入库', cancelText: '暂不继续',
+          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '继续原入库', confirmText: '继续入库', cancelText: '暂不继续',
             content: '商品 #' + intent.items[0].productId + '，原入库数量 ' + intent.items[0].quantity + ' 件。\n继续会沿用原编号核实或执行这笔入库，不会使用当前新输入数量，也不会重复增加已完成的原入库。',
             success: result => resolve(!!result.confirm), fail: () => resolve(false) })
         })
@@ -855,11 +855,11 @@ Page({
   /** 盘点：把库存设成输入值（差额会落 ADJUST 流水）—— 已被 onSubmitStock 取代，见下 */
   onRemoveProduct() {
     const s = this.data.setting
-    wx.showModal({
+    wx.showModal({ cancelColor: '#637083',
       title: '移除本站配置',
       content: '移除后顾客在本站看不到该商品；库存必须先盘点为 0。确认移除？',
       confirmText: '移除',
-      confirmColor: '#B5442C',
+      confirmColor: '#BD3328',
       success: (res) => {
         if (!res.confirm) return
         removeCatalogProduct(s.id)
@@ -1323,11 +1323,11 @@ Page({
   /** 停用本站自定义商品（软删：历史订单/桶账仍能引用它） */
   onDeactivate(e) {
     const item = e.currentTarget.dataset.item
-    wx.showModal({
+    wx.showModal({ cancelColor: '#637083',
       title: '停用商品',
       content: '停用后本站顾客看不到它，历史订单不受影响。确认停用？',
       confirmText: '停用',
-      confirmColor: '#B5442C',
+      confirmColor: '#BD3328',
       success: (res) => {
         if (!res.confirm) return
         deleteMyProduct(item.id)
@@ -1343,7 +1343,7 @@ Page({
   /** 上报给开发者，请其考虑补进通用库 */
   onSubmitToPlatform(e) {
     const item = e.currentTarget.dataset.item
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '上报给开发者',
       editable: true,
       placeholderText: '补充说明（规格/品牌/进货渠道等，可留空）',
@@ -1530,7 +1530,7 @@ Page({
       return m ? parseFloat(m[1]) : 0
     })
     if (times.some(t => t >= 10)) {
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '价格请再核对一次',
         content: warnings.join('\n'),
         showCancel: false,

@@ -539,7 +539,7 @@ Page({
     const application = this.data.entApplies.find(item => String(item.id) === String(id))
     const company = (application && application.companyName) || name || '企业名称未填写'
     const contact = (application && application.contactPerson) || '联系人未填写'
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认为企业客户',
       content: `${stationLabel}\n申请企业：${company}\n${contact}\n通过后转为企业客户，企业资料同步建档。`,
       confirmText: '通过',
@@ -554,7 +554,7 @@ Page({
   onEntReject(e) {
     const { id, name } = e.currentTarget.dataset
     const stationLabel = this.currentStationScopeLabel()
-    wx.showModal({
+    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',
       title: '驳回申请',
       content: `${stationLabel}\n申请企业：${name || '企业名称未填写'}\n驳回理由会随申请留存（可不填）。`,
       editable: false,
@@ -562,7 +562,7 @@ Page({
       cancelText: '取消',
       success: (confirmation) => {
         if (!confirmation.confirm) return
-        wx.showModal({
+        wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',
           title: '驳回理由',
           content: '',
           editable: true,

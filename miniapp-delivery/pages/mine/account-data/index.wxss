@@ -24,5 +24,5 @@ textarea { width: 100%; height: 220rpx; margin-bottom: 24rpx; font-size: 26rpx;
 }
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
-button { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; background: var(--primary-color); color: #fff; }
+button { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; background: var(--primary-color); color: #fff; }
 picker .body { min-height: 96rpx; display: flex; align-items: center; border-bottom: 1rpx solid var(--border-color); }

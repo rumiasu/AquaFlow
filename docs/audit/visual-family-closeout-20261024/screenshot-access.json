@@ -1,0 +1,24 @@
+{
+  "screenshots": [
+    {
+      "libraryId": "libfile_8bbba711068c8191988c7e58b0d1b5cf",
+      "fileName": "image(20261024-111033).png",
+      "mimeType": "image/png",
+      "sizeBytes": 360478
+    },
+    {
+      "libraryId": "libfile_972c0c736c7c8191ac8eba71baca9050",
+      "fileName": "image(20261024-111034).png",
+      "mimeType": "image/png",
+      "sizeBytes": 140247
+    }
+  ],
+  "route": "current Library prepare_materialize + unchanged official file transfer helper",
+  "initialAttempt": "failed: library file transfer failed: download failed",
+  "boundedRetry": "fresh transfer prepared; helper failed with same message; stopped",
+  "pixelsViewed": false,
+  "exactEnglish": null,
+  "actualFieldSource": null,
+  "denied": false,
+  "remainingBlocker": "New screenshot pixels and original English phrase are unavailable. Continue only source-based fixes; genuine English names preserved."
+}

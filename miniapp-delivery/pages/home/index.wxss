@@ -45,15 +45,15 @@
    与普通待配送卡刻意区分：左侧一道琥珀色边 + 浅底，因为它是一张**要我决定**的卡，
    不是"等着我去送"的卡。同意后它变成下面的普通卡（后端把归属改到我名下）。 */
 .transfer-in-card {
-  background: var(--warning-bg); border-radius: 12rpx; padding: 24rpx; margin-bottom: 16rpx;
-  border-left: 8rpx solid var(--warning-color); box-shadow: none;
+  background: var(--bg-gray); border-radius: 12rpx; padding: 24rpx; margin-bottom: 16rpx;
+  border-left: 4rpx solid var(--warning-color); box-shadow: none;
 }
 .status-transfer { background: rgba(240,160,32,0.14); color: var(--warning-color); }
 .transfer-from { font-size: 24rpx; color: var(--text-secondary); }
 /* 不接受：次要动作，不做成和"同意"抢视线的实心按钮 */
 .btn-reject-transfer {
   flex: 1; background: #fff; color: var(--text-regular); border: 1rpx solid var(--border-light);
-  border-radius: 40rpx; font-size: 28rpx; padding: 16rpx 0; line-height: 1.4;
+  border-radius:12rpx; font-size: 14px; padding: 16rpx 0; line-height: 1.4;
 }
 .btn-reject-transfer::after { border: none; }
 
@@ -66,7 +66,7 @@
 }
 
 .status-pending { background: rgba(255,149,0,0.1); color: var(--status-pending); }
-.status-delivering { background: rgba(46,74,104,0.1); color: var(--status-delivering); }
+.status-delivering { background: var(--primary-bg); color: var(--status-delivering); }
 .status-completed { background: rgba(52,199,89,0.1); color: var(--status-completed); }
 
 .order-id { font-size: 24rpx; color: var(--text-secondary); font-weight: 500; }
@@ -121,24 +121,21 @@
    配送员是站在车边、手上可能戴着东西点的，64rpx 那一版明显偏小。
    胶囊圆角跟着高度走（半径 = 高度一半）。 */
 .btn-accept {
-  flex: 1; height: 88rpx; line-height: 88rpx; background: var(--primary-color); color: #fff;
-  border-radius: 44rpx; font-size: 28rpx; font-weight: 600; border: none;
-  box-shadow: none;
-}
+  flex: 1; height: auto; line-height: 1.5; background: var(--primary-color); color: #fff;
+  border-radius:12rpx; font-size: 14px; font-weight: 600; border: none;
+  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-accept::after { border: none; }
 
 .btn-complete {
-  flex: 1; height: 88rpx; line-height: 88rpx; background: #0960D7; color: #fff;
-  border-radius: 44rpx; font-size: 28rpx; font-weight: 600; border: none;
-  box-shadow: none;
-}
+  flex: 1; height: auto; line-height: 1.5; background: #0960D7; color: #fff;
+  border-radius:12rpx; font-size: 14px; font-weight: 600; border: none;
+  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-complete::after { border: none; }
 
 .btn-outline-small {
-  height: 64rpx; line-height: 64rpx; padding: 0 24rpx;
+  height: auto; line-height: 1.5; padding: 0 24rpx;
   background: #fff; color: var(--text-secondary);
-  border-radius: 32rpx; font-size: 24rpx; border: 2rpx solid var(--border-color);
-}
+  border-radius:12rpx; font-size: 14px; border: 2rpx solid var(--border-color); min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-outline-small::after { border: none; }
 
 .complete-footer { margin-top: 8rpx; }
@@ -147,14 +144,13 @@
 /* ========== 待收款 ========== */
 .unpaid-section { margin: 16rpx 24rpx;
   padding: 20rpx;
-  background: var(--warning-bg);
-  border-radius: 12rpx;
-}
+  background: var(--bg-gray);
+  border-radius: 12rpx; border-left: 4rpx solid var(--warning-color); }
 .unpaid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; padding: 16rpx 0; }
 .unpaid-title { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
 .unpaid-count { font-size: 24rpx; color: var(--text-placeholder); }
 .unpaid-shortcut, .unpaid-back-to-tasks { min-height: 88rpx; height: auto; padding: 16rpx 24rpx; line-height: 1.5; box-sizing: border-box; font-size: 28rpx; color: var(--text-regular); }
-.unpaid-shortcut { margin: 16rpx 24rpx; text-align: left; background: var(--warning-bg); }
+.unpaid-shortcut { margin: 16rpx 24rpx; text-align: left; background: var(--bg-gray); border-left: 4rpx solid var(--warning-color); }
 .unpaid-back-to-tasks { color: var(--primary-color); background: #fff; margin-bottom: 16rpx; }
 .unpaid-shortcut::after, .unpaid-back-to-tasks::after { border: none; }
 /* [2026-10-06] 折叠/展开切换 */
@@ -202,48 +198,45 @@
 }
 
 .aux-tag.aux-target {
-  background: rgba(46, 74, 104, 0.12);
+  background: var(--primary-bg);
   color: var(--primary-color);
 }
 
 /* ========== 按钮补充 ========== */
 .btn-outline {
-  height: 72rpx;
-  line-height: 72rpx;
+  height: auto;
+  line-height: 1.5;
   flex: 1;
   background: #ffffff;
   color: var(--text-regular);
   border: 2rpx solid var(--border-color);
-  border-radius: 36rpx;
-  font-size: 28rpx;
-  font-weight: 500;
-}
+  border-radius:12rpx;
+  font-size: 14px;
+  font-weight: 500; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-outline::after { border: none; }
 
 .btn-primary {
-  height: 72rpx;
-  line-height: 72rpx;
+  height: auto;
+  line-height: 1.5;
   flex: 1;
   background: var(--primary-color);
   color: #ffffff;
-  border-radius: 36rpx;
-  font-size: 28rpx;
+  border-radius:12rpx;
+  font-size: 16px;
   font-weight: 600;
-  border: none;
-}
+  border: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-primary::after { border: none; }
 
 .btn-primary-small {
-  height: 64rpx;
-  line-height: 64rpx;
+  height: auto;
+  line-height: 1.5;
   padding: 0 24rpx;
   background: var(--primary-color);
   color: #ffffff;
-  border-radius: 32rpx;
-  font-size: 24rpx;
+  border-radius:12rpx;
+  font-size: 14px;
   font-weight: 500;
-  border: none;
-}
+  border: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-primary-small::after { border: none; }
 
 /* ========== 加载 ========== */
@@ -253,25 +246,22 @@
 /* ========== 「配送遇到问题」（§7 把「调解」换成配送员看得懂的说法；按钮变长了，
    所以这里只保证它与旁边的主按钮同高对齐，宽度按文字走） ========== */
 .btn-mediate {
-  flex: 1; height: 88rpx; line-height: 88rpx;
-  background: var(--warning-bg); color: var(--warning-color);
-  border-radius: 44rpx; font-size: 28rpx; font-weight: 600; border: none;
-}
+  flex: 1; height: auto; line-height: 1.5;
+  background: var(--primary-bg); color: var(--primary-color);
+  border-radius:12rpx; font-size: 14px; font-weight: 600; border: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-mediate::after { border: none; }
 
 .btn-mediate-small {
-  height: 88rpx; line-height: 88rpx; padding: 0 24rpx;
-  background: var(--warning-bg); color: var(--warning-color);
-  border-radius: 44rpx; font-size: 26rpx; font-weight: 500; border: none;
-}
+  height: auto; line-height: 1.5; padding: 0 24rpx;
+  background: var(--primary-bg); color: var(--primary-color);
+  border-radius:12rpx; font-size: 14px; font-weight: 500; border: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-mediate-small::after { border: none; }
 
 /* ========== 拒绝按钮（红色系） ========== */
 .btn-reject {
-  flex: 1; height: 64rpx; line-height: 64rpx;
+  flex: 1; height: auto; line-height: 1.5;
   background: var(--error-bg); color: var(--error-color);
-  border-radius: 32rpx; font-size: 26rpx; font-weight: 600; border: none;
-}
+  border-radius:12rpx; font-size: 14px; font-weight: 600; border: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-reject::after { border: none; }
 
 /* ========== 自定义弹窗 ========== */
@@ -336,12 +326,12 @@
 /* 提示条 `.load-error` 的样式定义在 app.wxss（全局，多个页面都会用），此处不要再写一份。 */
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
-.card-actions button, .modal-cancel { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.card-actions button, .modal-cancel { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
 .card-actions button { flex: 1 1 240rpx; }
 .unpaid-section .order-card { margin-bottom: 12rpx; }
 .home-station-identity { font-weight: 600; }
 .pay-label, .pay-amount { font-size: 30rpx; }
 .modal-item { min-height: 96rpx; box-sizing: border-box; }
-.collection-recovery { margin: 20rpx 24rpx; padding: 24rpx; background: var(--warning-bg); color: var(--text-primary); border-radius: 12rpx; font-size: 28rpx; line-height: 1.6; }
+.collection-recovery { margin: 20rpx 24rpx; padding: 24rpx; background: var(--bg-gray); color: var(--text-regular); border-radius: 12rpx; font-size: 28rpx; line-height: 1.6; border-left: 4rpx solid var(--primary-color); }
 .collection-recovery text { display: block; white-space: normal; }
-.collection-recovery button { margin: 16rpx 0 0; min-height: 88rpx; padding: 16rpx 24rpx; }
+.collection-recovery button { margin: 16rpx 0 0; min-height: 44px; padding: 16rpx 24rpx; }

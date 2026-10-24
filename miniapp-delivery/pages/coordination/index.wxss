@@ -34,15 +34,14 @@
 
 .no-auth-btn {
   width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
+  height: auto;
+  line-height: 1.5;
   background: var(--primary-color);
   color: #ffffff;
-  border-radius: 44rpx;
-  font-size: 30rpx;
+  border-radius:12rpx;
+  font-size: 14px;
   border: none;
-  max-width: 480rpx;
-}
+  max-width: 480rpx; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 /* ========== 常驻「水站管理」入口（首页，紧跟自绘导航栏） ==========
    [2026-09-26 Wave1 轨道 G] 它是本页**唯一不受服务端事项影响**的入口（零待办、部分加载失败
@@ -327,7 +326,7 @@
   height: 76rpx;
   line-height: 76rpx;
   border-radius: 38rpx;
-  font-size: 28rpx;
+  font-size: 16px;
   font-weight: 500;
   padding: 0;
   border: none;
@@ -340,7 +339,7 @@
   height: 68rpx;
   line-height: 68rpx;
   border-radius: 34rpx;
-  font-size: 26rpx;
+  font-size: 14px;
   font-weight: 500;
   padding: 0;
   border: none;
@@ -515,11 +514,10 @@
 /* 放在卡片最上面（标题行之下、商品行之前）：抢单决策的第一信息是钱，不是商品名 */
 .fee-box {
   padding: 14rpx 16rpx;
-  background: var(--warning-bg);
+  background: var(--bg-gray);
   border: 2rpx solid var(--warning-bg);
   border-radius: 10rpx;
-  margin-bottom: 12rpx;
-}
+  margin-bottom: 12rpx; border-left:4rpx solid var(--warning-color); }
 
 .fee-row-main {
   display: flex;
@@ -584,10 +582,9 @@
   flex-direction: column;
   padding: 14rpx 16rpx;
   margin-bottom: 12rpx;
-  background: var(--warning-bg);
+  background: var(--bg-gray);
   border: 1rpx solid var(--warning-bg);
-  border-radius: 10rpx;
-}
+  border-radius: 10rpx; border-left: 4rpx solid var(--warning-color); }
 
 .risk-title {
   font-size: 24rpx;
@@ -723,10 +720,9 @@
    与上面 .dispatch-info 同一形状，只是底色偏暖表示"要你决定"，与"信息展示"区分开。 */
 .dispatch-stale {
   padding: 12rpx 16rpx;
-  background: var(--warning-bg);
+  background: var(--bg-gray);
   border-radius: 10rpx;
-  margin-bottom: 12rpx;
-}
+  margin-bottom: 12rpx; border-left: 4rpx solid var(--primary-color); color: var(--text-regular); }
 
 .dispatch-stale-text {
   display: block;
@@ -846,7 +842,7 @@
 .section-caption { padding: 20rpx 4rpx; color: var(--text-regular); font-size: 26rpx; }
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
-.card-actions button, .no-auth-btn, .modal-cancel, .todo-card button { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.card-actions button, .no-auth-btn, .modal-cancel, .todo-card button { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
 .card-actions button { flex: 1 1 240rpx; }
 .todo-item { min-height: 112rpx; box-sizing: border-box; }
 /* 2026-10-22：单项仍占四分之一列曾留下大片空白；改成一行，计数和金额口径不动。 */
@@ -860,4 +856,4 @@
 .info-phone { flex-basis: 100%; margin-left: 116rpx; font-size: 28rpx; }
 .fee-row-main, .fee-source, .queue-head { flex-wrap: wrap; gap: 12rpx; }
 .modal-item-info { min-width: 0; overflow-wrap: anywhere; }
-.dispatch-stale button { min-height: 96rpx; height: auto; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; border-radius: 12rpx; }
+.dispatch-stale button { min-height: 44px; height: auto; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; border-radius: 12rpx; }

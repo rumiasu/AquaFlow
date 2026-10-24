@@ -12,12 +12,12 @@
 .empty-hint { display: block; margin-top: 12rpx; font-size: 24rpx; color: var(--text-secondary); }
 
 .toolbar { margin-bottom: 20rpx; }
-.btn-add { width: 100%; padding: 20rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 28rpx; font-weight: 600; }
+.btn-add { width: 100%; padding: 20rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 14px; font-weight: 600; }
 .btn-add::after { border: none; }
 
 .search-bar { display: flex; gap: 16rpx; margin-bottom: 20rpx; }
 .search-input { flex: 1; background: var(--bg-card); border-radius: 40rpx; padding: 16rpx 28rpx; font-size: 28rpx; }
-.search-btn { background: var(--primary-gradient); color: #fff; border-radius: 40rpx; padding: 0 32rpx; display: flex; align-items: center; font-size: 28rpx; }
+.search-btn { background: var(--primary-gradient); color: #fff; border-radius:12rpx; padding: 0 32rpx; display: flex; align-items: center; font-size: 14px; }
 
 .filter-chips { display: flex; gap: 16rpx; margin-bottom: 20rpx; }
 .chip { font-size: 26rpx; color: var(--text-secondary); padding: 10rpx 28rpx; border-radius: 30rpx; background: var(--bg-card); }
@@ -39,16 +39,16 @@
 .staff-note { font-size: 24rpx; color: var(--text-secondary); }
 .card-actions { display: flex; flex-direction: column; gap: 12rpx; flex-shrink: 0; }
 /* 卡片动作统一口径：主操作实心主色，次操作描边，危险操作红色描边 */
-.btn-profile { padding: 14rpx 28rpx; background: transparent; color: var(--primary-color); border: 1rpx solid var(--primary-color); border-radius: 12rpx; font-size: 26rpx; }
+.btn-profile { padding: 14rpx 28rpx; background: transparent; color: var(--primary-color); border: 1rpx solid var(--primary-color); border-radius: 12rpx; font-size: 14px; }
 .btn-profile::after { border: none; }
-.btn-detach { padding: 14rpx 28rpx; background: transparent; color: var(--error-color); border: 1rpx solid var(--error-color); border-radius: 12rpx; font-size: 26rpx; }
+.btn-detach { padding: 14rpx 28rpx; background: transparent; color: var(--error-color); border: 1rpx solid var(--error-color); border-radius: 12rpx; font-size: 14px; }
 .btn-detach::after { border: none; }
 /* 站长行没有「解除」按钮，用一行灰字说明原因（不渲染任何东西会让站长以为界面坏了） */
 .self-note { font-size: 24rpx; color: var(--text-placeholder); text-align: center; line-height: 1.5; }
-.btn-approve { padding: 14rpx 28rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 26rpx; }
+.btn-approve { padding: 14rpx 28rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 14px; }
 .btn-approve::after { border: none; }
 .btn-approve[disabled] { opacity: 0.45; }
-.btn-reject { padding: 14rpx 28rpx; background: transparent; color: var(--text-regular); border: 1rpx solid var(--border-color); border-radius: var(--radius-round); font-size: 26rpx; }
+.btn-reject { padding: 14rpx 28rpx; background: transparent; color: var(--text-regular); border: 1rpx solid var(--border-color); border-radius: var(--radius-round); font-size: 14px; }
 .btn-reject::after { border: none; }
 .empty { text-align: center; padding: 120rpx 0; font-size: 28rpx; color: var(--text-secondary); }
 
@@ -57,9 +57,9 @@
 .modal-title { font-size: 32rpx; font-weight: 600; color: var(--text-primary); text-align: center; margin-bottom: 24rpx; }
 .modal-input { width: 100%; padding: 20rpx; border: 2rpx solid var(--border-color); border-radius: 12rpx; font-size: 28rpx; margin-bottom: 16rpx; box-sizing: border-box; }
 .modal-hint { font-size: 24rpx; color: var(--text-secondary); text-align: center; margin-bottom: 24rpx; display: block; }
-.btn-submit { width: 100%; padding: 20rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 28rpx; font-weight: 600; margin-bottom: 12rpx; }
+.btn-submit { width: 100%; padding: 20rpx; background: var(--primary-gradient); color: #fff; border: none; border-radius: 12rpx; font-size: 14px; font-weight: 600; margin-bottom: 12rpx; }
 .btn-submit::after { border: none; }
-.btn-cancel { width: 100%; padding: 20rpx; background: var(--bg-gray); color: var(--text-secondary); border: none; border-radius: var(--radius-round); font-size: 28rpx; }
+.btn-cancel { width: 100%; padding: 20rpx; background: var(--bg-gray); color: var(--text-secondary); border: none; border-radius: var(--radius-round); font-size: 14px; }
 .btn-cancel::after { border: none; }
 
 /* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
@@ -69,9 +69,9 @@
 
 .container { box-sizing:border-box; }
 .tab { min-height:88rpx; box-sizing:border-box; font-size:30rpx; }
-.btn-add { background:var(--primary-color); border-radius:10rpx; min-height:96rpx; }
+.btn-add { background:var(--primary-color); border-radius:10rpx; min-height: 44px; }
 .search-input { min-width:0; min-height:88rpx; border-radius:10rpx; }
-.search-btn,.chip { min-height:88rpx; display:flex; align-items:center; justify-content:center; border-radius:10rpx; box-sizing:border-box; font-size:28rpx; }
+.search-btn,.chip { min-height: 44px; display:flex; align-items:center; justify-content:center; border-radius:10rpx; box-sizing:border-box; font-size: 14px; }
 .search-btn { background:var(--primary-color); }
 .staff-card { display:flex; flex-wrap:wrap; gap:16rpx; border-radius:12rpx; box-shadow:none; border:1rpx solid var(--border-color); padding:24rpx; }
 .avatar { width:72rpx; height:72rpx; font-size:30rpx; border-radius:10rpx; }
@@ -80,13 +80,13 @@
 .staff-name { font-size:34rpx; overflow-wrap:break-word; }
 .staff-phone,.staff-note { font-size:28rpx; line-height:1.6; color:var(--text-regular); }
 .card-actions { width:100%; flex-direction:row; display:flex; flex-wrap:wrap; gap:12rpx; padding-top:16rpx; border-top:1rpx solid var(--border-color); }
-.btn-profile,.btn-detach,.btn-approve,.btn-reject { min-height:88rpx; height:auto; line-height:1.5; padding:18rpx 24rpx; display:flex; justify-content:center; align-items:center; box-sizing:border-box; flex:1; min-width:200rpx; font-size:28rpx; border-radius:10rpx; margin:0; }
+.btn-profile,.btn-detach,.btn-approve,.btn-reject { min-height: 44px; height:auto; line-height:1.5; padding:18rpx 24rpx; display:flex; justify-content:center; align-items:center; box-sizing:border-box; flex:1; min-width:200rpx; font-size: 14px; border-radius:10rpx; margin:0; }
 .self-note { min-height:88rpx; display:flex; align-items:center; color:var(--text-regular); font-size:26rpx; }
 .hint,.modal-hint { font-size:26rpx; line-height:1.6; color:var(--text-regular); }
 .modal-content { max-height:84vh; overflow-y:auto; border-radius:16rpx; }
 .modal-input { min-height:96rpx; border-radius:10rpx; border:1rpx solid var(--border-color); box-sizing:border-box; }
-.btn-submit,.btn-cancel { min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; box-sizing:border-box; font-size:30rpx; }
+.btn-submit,.btn-cancel { min-height: 44px; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; box-sizing:border-box; font-size: 14px; }
 
-.work-read-error { padding:24rpx; margin:20rpx 0; background:var(--warning-bg); border-left:6rpx solid var(--warning-color); border-radius:8rpx; color:var(--text-primary); font-size:28rpx; line-height:1.6; }
+.work-read-error { padding:24rpx; margin:20rpx 0; background: var(--bg-gray); border-left: 4rpx solid var(--primary-color); border-radius:8rpx; color: var(--text-regular); font-size:28rpx; line-height:1.6; }
 .work-read-error text { display:block; }
-.work-read-error button { min-height:96rpx; line-height:1.5; padding:20rpx; box-sizing:border-box; border-radius:10rpx; color:var(--primary-color); background:#fff; margin-top:20rpx; font-size:28rpx; }
+.work-read-error button { min-height: 44px; line-height:1.5; padding:20rpx; box-sizing:border-box; border-radius:10rpx; color:var(--primary-color); background:#fff; margin-top:20rpx; font-size: 14px; }

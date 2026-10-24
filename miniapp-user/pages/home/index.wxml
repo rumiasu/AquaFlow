@@ -42,7 +42,7 @@
     <view class="home-station-heading" wx:if="{{isLogin && currentStationId}}">
       <text class="home-section-label">服务水站</text>
       <view class="station-chip" bindtap="onOpenStationList">
-        <text class="station-chip-name">{{currentStation.name || '选择水站'}}</text>
+        <text class="station-chip-name">{{currentStationName || '水站名称暂未加载'}}</text>
         <text class="station-chip-arrow">切换 ›</text>
       </view>
     </view>
@@ -276,7 +276,7 @@
             wx:for="{{stationList}}" wx:key="id"
             bindtap="onSelectStation" data-id="{{item.id}}">
         <view class="station-picker-item-info">
-          <text class="station-picker-item-name">{{item.name}}</text>
+          <text class="station-picker-item-name">{{item.displayName || '水站名称暂未加载'}}</text>
           <text class="station-picker-item-addr" wx:if="{{item.address}}">{{item.address}}</text>
         </view>
         <text class="station-picker-item-check" wx:if="{{item.id === currentStationId}}">当前</text>

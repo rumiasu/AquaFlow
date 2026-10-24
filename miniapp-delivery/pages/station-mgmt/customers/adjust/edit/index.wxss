@@ -50,7 +50,7 @@
   border-radius: 12rpx;
   border: 2rpx solid var(--border-color);
   background: #fff;
-  font-size: 24rpx;
+  font-size: 14px;
   color: var(--text-regular);
 }
 .sign-btn.active {
@@ -107,7 +107,7 @@
   margin-top: 16rpx;
   line-height: 1.6;
 }
-.preview-note.warn { background: var(--warning-bg); color: var(--warning-color); }
+.preview-note.warn { background: var(--bg-gray); color: var(--warning-color); border-left:4rpx solid var(--warning-color); }
 
 /* 底部操作 */
 .footer { display: flex; gap: 20rpx; margin: 0 24rpx; }
@@ -118,7 +118,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30rpx;
+  font-size: 14px;
 }
 .btn-half.ghost { background: #fff; color: var(--primary-color); border: 2rpx solid var(--primary-color); }
 .btn-half.primary { background: var(--primary-gradient); color: #fff; font-weight: 600; }
@@ -154,9 +154,9 @@
 .field-hint,.footer-tip,.preview-note { font-size:28rpx; line-height:1.6; color:var(--text-regular); }
 .field-link { min-height:88rpx; display:flex; align-items:center; font-size:28rpx; }
 .sign-row { flex-wrap:wrap; }
-.sign-btn { min-width:240rpx; min-height:96rpx; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; }
+.sign-btn { min-width:240rpx; min-height: 44px; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; }
 .preview-head,.preview-row { font-size:28rpx; gap:12rpx; }
 .col { min-width:0; overflow-wrap:anywhere; }
-.btn-half { min-height:96rpx; display:flex; align-items:center; justify-content:center; border-radius:10rpx; font-size:30rpx; box-sizing:border-box; }
+.btn-half { min-height: 44px; display:flex; align-items:center; justify-content:center; border-radius:10rpx; font-size: 14px; box-sizing:border-box; }
 .footer { gap:16rpx; }
 .footer-tip { padding-bottom:28rpx; }

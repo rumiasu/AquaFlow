@@ -73,7 +73,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30rpx;
+  font-size: 14px;
   font-weight: 600;
 }
 .btn-main { background: var(--primary-gradient); color: #fff; }
@@ -106,7 +106,7 @@
 .col { min-width:0; overflow-wrap:anywhere; }
 .raw-toggle { min-height:88rpx; display:flex; justify-content:space-between; align-items:center; font-size:28rpx; color:var(--primary-color); gap:20rpx; }
 .raw-text { font-size:25rpx; line-height:1.7; overflow-wrap:anywhere; }
-.btn-main,.btn-danger { min-height:104rpx; box-sizing:border-box; border-radius:10rpx; display:flex; justify-content:center; align-items:center; padding:20rpx; font-size:30rpx; line-height:1.5; }
+.btn-main,.btn-danger { min-height:104rpx; box-sizing:border-box; border-radius:10rpx; display:flex; justify-content:center; align-items:center; padding:20rpx; font-size: 14px; line-height:1.5; }
 .footer-tip { font-size:28rpx; line-height:1.6; }
 
 .footer .btn-main,.footer .btn-danger { white-space:normal; }

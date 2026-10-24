@@ -223,7 +223,7 @@ Page({
     // 清掉之后该商品会一直显示「未填成本、利润算不出」，而且**历史期间的利润也一起变**。
     // 写法与「拒单」「资产调整单」那两处一致：说清"会发生什么 + 能不能恢复"。
     const ok = await new Promise((resolve) => {
-      wx.showModal({
+      wx.showModal({ cancelColor: '#637083',
         title: '确认清除进货成本',
         content: `将清除「${p.productName || '该商品'}」的进货成本价。\n\n`
           + '清除后：\n'
@@ -231,7 +231,7 @@ Page({
           + '2. 历史期间的利润也会跟着变（成本不是批次快照）\n\n'
           + '可以随时重新填入成本价恢复。',
         confirmText: '确认清除',
-        confirmColor: '#B5442C',
+        confirmColor: '#BD3328',
         success: (r) => resolve(r.confirm), fail: () => resolve(false)
       })
     })
@@ -261,13 +261,13 @@ Page({
     const note = this.data.report && this.data.report.helpNote
     if (!note) {
       // 老版本服务端没有 helpNote：给一句能用的最小说明，别弹一个空框
-      wx.showModal({ confirmText: '知道了',
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '利润怎么算',
         content: '利润 = 该期间的销售收入 − 卖出数量 × 当前进货成本价。没填成本的商品会显示「未填成本」。',
         showCancel: false
       })
       return
     }
-    wx.showModal({ confirmText: '知道了', title: '利润怎么算', content: note, showCancel: false })
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '利润怎么算', content: note, showCancel: false })
   }
 })

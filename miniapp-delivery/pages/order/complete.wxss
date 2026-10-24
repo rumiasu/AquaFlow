@@ -111,9 +111,8 @@
   justify-content: space-between;
   margin-top: var(--spacing-md);
   padding: 12rpx 16rpx;
-  background: var(--warning-bg);
-  border-radius: var(--radius-md);
-}
+  background: var(--bg-gray);
+  border-radius: var(--radius-md); border-left: 4rpx solid var(--warning-color); }
 .money-prep-text { flex: 1; font-size: var(--font-sm); color: var(--warning-color); line-height: 34rpx; }
 .money-prep-link { font-size: var(--font-sm); color: var(--warning-color); font-weight: 600; flex-shrink: 0; margin-left: 12rpx; }
 
@@ -131,16 +130,15 @@
    64rpx 那一版在真机上偏小、还容易点空（点了没反应最容易被当成"坏了"）。 */
 /* 数量输入在局部层内绘制，滚经固定底栏时随控件一起被盖住；窄屏不压缩加减触区。 */
 .barrel-stepper { position: relative; z-index: 0; display: flex; flex-shrink: 0; align-items: center; gap: 12rpx; }
-.step-btn { width: 96rpx; height: 96rpx; border-radius: 12rpx; background: var(--bg-color); display: flex; align-items: center; justify-content: center; font-size: 40rpx; font-weight: 300; color: var(--text-primary); border: 2rpx solid var(--border-color);
-  box-sizing: border-box;
-}
+.step-btn { width: 96rpx; height: auto; border-radius: 12rpx; background: var(--bg-color); display: flex; align-items: center; justify-content: center; font-size: 40rpx; font-weight: 300; color: var(--text-primary); border: 2rpx solid var(--border-color);
+  box-sizing: border-box; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .step-btn:active { background: var(--primary-bg); }
 .step-btn-disabled { opacity: 0.4; }
 .step-input { width: 112rpx; height: 96rpx; text-align: center; font-size: 38rpx; font-weight: 700; border: 2rpx solid var(--border-color); border-radius: var(--radius-md);
   box-sizing: border-box;
 }
 
-.discrepancy-section { margin-top: 16rpx; padding: 16rpx; background: var(--warning-bg); border-radius: var(--radius-md); border: 2rpx solid var(--warning-bg); }
+.discrepancy-section { margin-top: 16rpx; padding: 16rpx; background: var(--bg-gray); border-radius: var(--radius-md); border: 2rpx solid var(--warning-bg); border-left: 4rpx solid var(--warning-color); }
 .discrepancy-warn { font-size: 26rpx; color: var(--error-color); font-weight: 600; margin-bottom: 12rpx; }
 
 .reason-list { display: flex; flex-direction: column; gap: 12rpx; margin-bottom: 12rpx; }
@@ -165,7 +163,7 @@
 .first-order-text { font-size: 30rpx; font-weight: 600; color: var(--success-color); display: block; margin-bottom: 8rpx; }
 .first-order-desc { font-size: 24rpx; color: var(--success-color); display: block; line-height: 1.5; }
 
-.section-collect { background: var(--warning-bg); border: 2rpx solid rgba(255, 149, 0, 0.2); }
+.section-collect { background: var(--bg-gray); border: 2rpx solid rgba(255, 149, 0, 0.2); border-left: 4rpx solid var(--warning-color); }
 .collect-card { background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 20rpx; box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.03); }
 .collect-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8rpx; }
 .collect-label { font-size: 26rpx; color: var(--text-regular); }
@@ -192,9 +190,9 @@
   box-sizing: border-box;
   min-width: 220rpx;
 }
-.collect-option.active { border-color: var(--warning-color); background: rgba(255, 149, 0, 0.1); }
+.collect-option.active { border-color: var(--primary-color); background: var(--primary-bg); }
 .collect-option-name { font-size: 28rpx; font-weight: 600; color: var(--text-primary); display: block; }
-.collect-option.active .collect-option-name { color: var(--warning-color); }
+.collect-option.active .collect-option-name { color: var(--primary-color); }
 .collect-option-desc { font-size: 24rpx; color: var(--text-regular); display: block; margin-top: 8rpx; line-height: 1.5; padding: 0 8rpx; }
 
 .section-tip { display: block; font-size: var(--font-sm); color: var(--text-regular); margin-bottom: var(--spacing-md); }
@@ -213,7 +211,7 @@
 
 .footer { position: fixed; z-index: 20; bottom: 0; left: 0; right: 0; background: var(--bg-card); padding: var(--spacing-lg) var(--spacing-md); padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom)); box-shadow: 0 -4rpx 20rpx rgba(0,0,0,.06); }
 .btn-confirm { width: 100%; background: var(--primary-color); color: #fff; border: none; border-radius: 12rpx; font-size: var(--font-lg); font-weight: 700; line-height: 1.5; padding: var(--spacing-lg) 0;
-  min-height: 96rpx;
+  min-height: 44px;
   white-space: normal;
 }
 .btn-confirm::after { border: none; }
@@ -294,9 +292,9 @@
 .reason-item { flex-wrap: wrap; gap: 12rpx; }
 .reason-remove { min-width: 96rpx; min-height: 96rpx; display: flex; align-items: center; justify-content: center; }
 .reason-qty-input { min-height: 96rpx; }
-.add-reason-btn, .dispute-entry, .modal-item, .modal-cancel { min-height: 96rpx; box-sizing: border-box; }
-.container > button, .upload-recovery-panel button { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
-.upload-recovery-panel { margin: 24rpx 24rpx calc(260rpx + env(safe-area-inset-bottom)); padding: 24rpx; border: 2rpx solid var(--warning-color); border-radius: 12rpx; background: var(--warning-bg); line-height: 1.6; }
+.add-reason-btn, .dispute-entry, .modal-item, .modal-cancel { min-height: 44px; box-sizing: border-box; }
+.container > button, .upload-recovery-panel button { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.upload-recovery-panel { margin: 24rpx 24rpx calc(260rpx + env(safe-area-inset-bottom)); padding: 24rpx; border: 2rpx solid var(--warning-color); border-radius: 12rpx; background: var(--bg-gray); line-height: 1.6; border-left: 4rpx solid var(--warning-color); }
 .upload-recovery-panel text { display: block; overflow-wrap: anywhere; }
 .upload-recovery-panel image { display: block; max-width: 100%; }
 

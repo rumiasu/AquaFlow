@@ -67,8 +67,8 @@ Page({
   onDeleteAddress(e) {
     if (this.data.mutationPending || this.data.actionUnknown || this.data.accessDenied || this.data.loading || this.data.loadError) return
     const { id } = e.currentTarget.dataset
-    wx.showModal({ title: '删除收货地址', content: '删除后将不能再选择此地址，确认删除吗？',
-      confirmText: '删除', confirmColor: '#B42318',
+    wx.showModal({ cancelColor: '#637083',  title: '删除收货地址', content: '删除后将不能再选择此地址，确认删除吗？',
+      confirmText: '删除', confirmColor: '#BD3328',
       success: res => { if (res.confirm) this.changeAddress(id, 'delete') } })
   },
   onSetDefault(e) { return this.changeAddress(e.currentTarget.dataset.id, 'default') },

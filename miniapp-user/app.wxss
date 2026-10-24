@@ -19,4 +19,4 @@ image {
 }
 
 /* 2026-10-21：模板图是无品牌示意，不冒充品牌包装实拍。 */
-.product-image-note { display: block; font-size: 24rpx; line-height: 1.5; color: #65615A; }
+.product-image-note { display: block; font-size: 24rpx; line-height: 1.5; color: var(--text-regular); }

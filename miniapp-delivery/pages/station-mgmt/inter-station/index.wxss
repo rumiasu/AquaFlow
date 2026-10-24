@@ -129,7 +129,7 @@
 }
 
 .btn-outline-small {
-  font-size: 24rpx;
+  font-size: 14px;
   line-height: 2.2;
   padding: 0 24rpx;
   margin-left: 12rpx;
@@ -144,7 +144,7 @@
 }
 
 .btn-ok-small {
-  font-size: 24rpx;
+  font-size: 14px;
   line-height: 2.2;
   padding: 0 24rpx;
   margin-left: 12rpx;
@@ -168,7 +168,7 @@
 .aftercare-section input, .aftercare-section textarea { display: block; box-sizing: border-box; width: 100%; margin: 18rpx 0; padding: 18rpx 20rpx; background: var(--bg-card); border: 1rpx solid var(--border-color); border-radius: 12rpx; color: var(--text-primary); font-size: 28rpx; line-height: 1.6; }
 .aftercare-section input { height: 88rpx; }
 .aftercare-section textarea { height: 200rpx; }
-.aftercare-section button { min-height: 80rpx; margin: 16rpx 0; padding: 16rpx 20rpx; font-size: 26rpx; line-height: 1.6; white-space: normal; word-break: break-all; border-radius: 12rpx; color: var(--primary-color); background: var(--bg-card); border: 1rpx solid var(--border-color); }
+.aftercare-section button { min-height: 44px; margin: 16rpx 0; padding: 16rpx 20rpx; font-size: 14px; line-height: 1.6; white-space: normal; word-break: break-all; border-radius: 12rpx; color: var(--primary-color); background: var(--bg-card); border: 1rpx solid var(--border-color); }
 .aftercare-section button[disabled] { color: var(--text-secondary); background: var(--bg-gray); }
 .aftercare-section .actions button { margin: 0; }
 .aftercare-section .aftercare-error { padding: 16rpx; border-radius: 12rpx; color: var(--error-color); background: var(--error-bg); }
@@ -180,9 +180,9 @@
 .sum-card { border-radius: 0; min-width: 0; padding: 18rpx 4rpx; margin-right: 0; align-items: flex-start; word-break: break-all; }
 .sum-label,.scope-note,.sub-text { font-size: 25rpx; color: var(--text-regular); line-height: 1.6; }
 .card { border-radius: 10rpx; }.row { align-items: flex-start; gap: 14rpx; flex-wrap: wrap; }.row-main { min-width: 0; word-break: break-all; }.row-amount { margin-left: auto; font-size: 36rpx; word-break: break-all; }
-.reversal-section { padding: 22rpx; background: var(--warning-bg); border-left: 6rpx solid var(--warning-color); border-radius: 8rpx; }
+.reversal-section { padding: 22rpx; background: var(--bg-gray); border-left: 6rpx solid var(--warning-color); border-radius: 8rpx; }
 .actions { justify-content: flex-start; }.actions button { flex: 1 1 240rpx; }
-.page button,.aftercare-section button { box-sizing: border-box; min-height: 88rpx; height: auto; max-width: 100%; padding: 20rpx; border-radius: 8rpx; font-size: 27rpx; line-height: 1.6; white-space: normal; word-break: break-all; }
+.page button,.aftercare-section button { box-sizing: border-box; min-height: 44px; height: auto; max-width: 100%; padding: 20rpx; border-radius: 8rpx; font-size: 27rpx; line-height: 1.6; white-space: normal; word-break: break-all; }
 .aftercare-section .card { padding: 24rpx 0; border: 0; border-top: 1rpx solid var(--border-color); border-radius: 0; background: transparent; }
 .aftercare-section { background: #fff; padding: 24rpx; border-radius: 12rpx; }
 .aftercare-section input,.aftercare-section textarea { background: var(--bg-color); border-radius: 8rpx; }

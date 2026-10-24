@@ -120,10 +120,10 @@ Page({
   },
 
   onClearCache() {
-    wx.showModal({ confirmText: '清除缓存',
+    wx.showModal({ cancelColor: '#637083',  confirmText: '清除缓存',
       title: '清除缓存',
       content: '清除本地缓存，不影响登录状态。确定继续吗？',
-      confirmColor: '#C9764B',
+      confirmColor: '#A95516',
       success: (res) => {
         if (res.confirm) {
           const accessToken = wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
@@ -140,10 +140,10 @@ Page({
   },
 
   onLogout() {
-    wx.showModal({ confirmText: '退出登录',
+    wx.showModal({ cancelColor: '#637083',  confirmText: '退出登录',
       title: '退出登录',
       content: '确定要退出登录吗？',
-      confirmColor: '#B5442C',
+      confirmColor: '#BD3328',
       success: (res) => {
         if (res.confirm) {
           app.logout()

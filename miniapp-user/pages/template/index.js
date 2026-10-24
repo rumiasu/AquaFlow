@@ -316,7 +316,7 @@ Page({
     this._mutation = true
     const release = () => { this._mutation = false }
     const { id } = e.currentTarget.dataset
-    wx.showModal({
+    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',
       title: '确认删除',
       content: '删除后此配置不再保留；已有订单不受影响。', fail: release,
       success: async (res) => {

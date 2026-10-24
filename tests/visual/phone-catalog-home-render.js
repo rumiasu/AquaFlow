@@ -6,6 +6,7 @@ const { parseWxml, validateConditionalSiblings } = require('../js/wxml-tree')
 const { pageFixture } = require('../js/page-recovery.test')
 const { fixture: homeFixture } = require('../js/customer-home-recovery-view.test')
 const { WATER_PRODUCT_TEMPLATES, TEMPLATE_IMAGE } = require('../../miniapp-delivery/utils/water-product-templates')
+const { stationName } = require('../../miniapp-user/utils/station-view')
 const ROOT = path.resolve(__dirname, '../..'), OUT = process.argv[2] || '/tmp/af-phone-round3-layout'
 const baseline = process.argv[3] || '88aedb0'
 const read = (file, before) => before ? execFileSync('git', ['show', baseline + ':' + file], { cwd: ROOT, encoding: 'utf8' }) : fs.readFileSync(path.join(ROOT, file), 'utf8')
@@ -75,7 +76,7 @@ function catalogData() {
         let data
         if (side === 'miniapp-delivery') { data = catalogData(); data.showWaterTemplates = scenario === 'templates' }
         else {
-          const f = homeFixture(); if (scenario === 'home-selected') f.page.setData({ state: 'ready', catalogState: 'empty', currentStation: { name: '合成长水站名称与编号ABC12345678901234567890' } }); else f.page.showNoStation()
+          const f = homeFixture(); if (scenario === 'home-selected') { const station = { name: '合成长水站名称与编号ABC12345678901234567890' }; f.page.setData({ state: 'ready', catalogState: 'empty', currentStation: station, currentStationName: stationName(station) }) } else f.page.showNoStation()
           data = { ...f.page.data, homeWaterBackdropFailed: true,
             statusBarHeight: 24, navBarHeight: 44, navContentWidth: item.width - 140, showStationList: scenario === 'station-error', stationListError: scenario === 'station-error' ? '水站列表暂时无法加载，请稍后重试' : '' }
         }

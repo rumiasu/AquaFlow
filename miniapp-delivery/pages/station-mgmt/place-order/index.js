@@ -299,12 +299,12 @@ Page({
     if (quote.blocked) {
       // 后端把"起送量/配送范围"配成不接单时会下发 blocked + 原因，这里直接展示，
       // 不要让站长提交后才看到一个失败
-      wx.showModal({ confirmText: '知道了', title: '本单不能下', content: quote.blockReason || '不满足本站配送条件', showCancel: false })
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '本单不能下', content: quote.blockReason || '不满足本站配送条件', showCancel: false })
       return
     }
     if ((quote.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) {
       const busy = quote.barrelPurchases.some(l => Number(l.busyRights) > 0)
-      wx.showModal({ title: '客户确认本次新增押金',
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '客户确认本次新增押金',
         content: quote.barrelPurchases.map(l => (l.productName || '桶装水') + '：新增 ' + l.quantity + ' 份押金 ¥' + l.amount).join('；')
           + '。请向客户确认与水款一起支付，收齐款项后生效。' + (busy ? '客户也可等待已有容量释放。' : '也可单独办理押金。'),
         confirmText: '已确认', cancelText: busy ? '等待释放' : '返回修改',
@@ -358,7 +358,7 @@ Page({
           .map(s => (s.productName || ('商品' + s.productId)) + ' 需 ' + s.requested + '，库存 ' + s.stock)
           .join('\n')
         const that = this
-        wx.showModal({
+        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '库存不足',
           content: (lines || '存在缺货商品') + '\n\n仍要下单吗？缺货部分后续补送。',
           confirmText: '仍然下单',
@@ -371,12 +371,12 @@ Page({
 
       if (!Number.isInteger(d.orderId) || d.orderId <= 0) {
         this.setData({ unknownOrder: true })
-        wx.showModal({ confirmText: '知道了', title: '下单结果待核实', content: '未收到有效订单号，请重试原请求核实，避免重复下单。', showCancel: false })
+        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '下单结果待核实', content: '未收到有效订单号，请重试原请求核实，避免重复下单。', showCancel: false })
         return
       }
       const warnings = Array.isArray(d.warnings) ? d.warnings : []
       this.setData({ unknownOrder: false })
-      wx.showModal({ confirmText: '查看订单',
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '查看订单',
         title: '下单成功',
         content: '订单号 ' + d.orderId + (warnings.length ? '\n\n' + warnings.join('\n') : ''),
         showCancel: false,

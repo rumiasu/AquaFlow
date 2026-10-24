@@ -315,7 +315,7 @@ Page({
   modal(action, options) {
     return new Promise(resolve => {
       if (!this.actionCurrent(action)) { resolve(null); return }
-      wx.showModal(Object.assign({}, options, { success: result => resolve(this.actionCurrent(action) && result.confirm ? result : null), fail: () => resolve(null) }))
+      wx.showModal(Object.assign({ confirmColor: '#1264D6', cancelColor: '#637083' }, options, { success: result => resolve(this.actionCurrent(action) && result.confirm ? result : null), fail: () => resolve(null) }))
     })
   },
   onPrimary() {

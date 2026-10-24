@@ -310,7 +310,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: none;
-  min-height: 96rpx;
+  min-height: 44px;
   padding: 20rpx;
   box-sizing: border-box;
 }
@@ -333,5 +333,5 @@
 }
 .result-loading { width: 100%; padding: 36rpx 0; }
 .load-error { width: 100%; margin-bottom: 24rpx; box-sizing: border-box; }
-.load-error button { min-height: 88rpx; font-size: 28rpx; line-height: 1.6; padding: 20rpx; }
+.load-error button { min-height: 44px; font-size: 14px; line-height: 1.6; padding: 20rpx; }
 .template-hint, .action-desc, .tip-text { font-size: 26rpx; line-height: 1.65; }

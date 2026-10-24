@@ -117,4 +117,4 @@
 }
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
-.logout-btn { min-height: 96rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box; font-size: 30rpx; color: var(--error-color); }
+.logout-btn { min-height: 44px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; font-size: 14px; color: var(--error-color); }

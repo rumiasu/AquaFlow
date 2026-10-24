@@ -142,7 +142,7 @@ function offerErrorReport(message, options, session) {
   if (!message || offeredReports.has(message)) return
   offeredReports.add(message)
 
-  wx.showModal({
+  wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
     title: '遇到点问题',
     content: '系统好像开小差了。要把这个问题告诉水站吗？',
     confirmText: '上报',

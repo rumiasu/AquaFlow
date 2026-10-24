@@ -101,6 +101,11 @@
 /* 隐藏 */
 .hidden { display: none; }
 
+/* Native page buttons default to secondary actions; explicit primary/danger classes keep their role. */
+button { box-sizing:border-box; min-height:44px; height:auto; padding:16rpx 24rpx; border-radius:8rpx; font-size:14px; line-height:1.5; white-space:normal; word-break:break-all; color:var(--primary-color); background:var(--primary-bg); }
+button::after { border:0; }
+button[disabled],button[disabled][class] { color:var(--text-regular) !important; background:var(--bg-gray) !important; border-color:var(--border-color) !important; }
+
 /*
  * [2026-09-20 真机联调] 「部分数据没加载出来」提示条。
  * 为什么需要它：多处列表/汇总请求失败时被静默降级成空数据，页面渲染出的
@@ -113,8 +118,8 @@
   margin: 16rpx 24rpx 0;
   padding: 16rpx 20rpx;
   border-radius: 12rpx;
-  background: rgba(201, 118, 75, 0.12);
-  border-left: 6rpx solid var(--warning-color);
+  background: var(--bg-gray);
+  border-left: 4rpx solid var(--primary-color);
   color: var(--text-regular);
   font-size: 24rpx;
   line-height: 1.5;

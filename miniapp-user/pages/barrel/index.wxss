@@ -85,10 +85,10 @@
   border: 1rpx solid var(--primary-color);
   border-radius: var(--radius-md);
   color: var(--primary-color);
-  font-size: 26rpx;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.6;
-  min-height: 88rpx;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -418,7 +418,7 @@
 }
 
 .eco-btn text {
-  font-size: 26rpx;
+  font-size: 14px;
   color: var(--primary-color);
   font-weight: 500;
 }
@@ -517,14 +517,13 @@
 
 .qty-btn {
   width: 88rpx;
-  height: 88rpx;
+  height: auto;
   border-radius: 12rpx;
   background-color: var(--bg-gray);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-}
+  flex-shrink: 0; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 .qty-btn.disabled {
   opacity: 0.4;
@@ -597,11 +596,10 @@
   ⚠️ 与 .preview-blocked 是并列的两块，改配色时两处一起改。
 */
 .preview-hint {
-  background-color: var(--warning-bg);
+  background: var(--bg-gray);
   border-radius: 12rpx;
   padding: 16rpx 20rpx;
-  margin-bottom: 16rpx;
-}
+  margin-bottom: 16rpx; border-left:4rpx solid var(--warning-color); }
 
 .preview-hint text {
   font-size: 26rpx;
@@ -609,11 +607,10 @@
 }
 
 .preview-blocked {
-  background-color: var(--warning-bg);
+  background: var(--bg-gray);
   border-radius: 12rpx;
   padding: 16rpx 20rpx;
-  margin-bottom: 16rpx;
-}
+  margin-bottom: 16rpx; border-left:4rpx solid var(--warning-color); }
 
 .preview-blocked text {
   font-size: 26rpx;
@@ -640,11 +637,10 @@
 }
 
 .preview-warn {
-  background-color: var(--warning-bg);
+  background: var(--bg-gray);
   border-radius: 12rpx;
   padding: 12rpx 20rpx;
-  margin-bottom: 16rpx;
-}
+  margin-bottom: 16rpx; border-left:4rpx solid var(--warning-color); }
 
 .preview-warn text {
   font-size: 26rpx;
@@ -724,8 +720,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30rpx;
-  min-height: 96rpx;
+  font-size: 14px;
+  min-height: 44px;
   padding: 16rpx;
   box-sizing: border-box;
 }
@@ -775,14 +771,14 @@
 
 .bucket-detail-toggle { min-height: 88rpx; display: flex; align-items: center; }
 .asset-bucket-item { align-items: flex-start; gap: 16rpx; }
-.barrel-record > button { min-height: 88rpx; margin: 20rpx 0 0; border-radius: var(--radius-sm); font-size: 26rpx; color: var(--primary-color); background: var(--primary-bg); white-space: normal; }
+.barrel-record > button { min-height: 44px; margin: 20rpx 0 0; border-radius: var(--radius-sm); font-size: 14px; color: var(--primary-color); background: var(--primary-bg); white-space: normal; }
 
 .eco-card { display: flex; flex-wrap: wrap; align-items: center; gap: 16rpx; padding: 20rpx 24rpx; border-radius: var(--radius-md); }
 .eco-content { flex: 1; min-width: 280rpx; margin-bottom: 0; }
-.eco-btn { min-height: 88rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: var(--radius-sm); }
+.eco-btn { min-height: 44px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: var(--radius-sm); }
 
 /* 本页所有状态共用的可读与触控边界。 */
-.stale-note { display: block; margin: 20rpx 24rpx; color: #9a3412; background: #fff7ed; padding: 20rpx; font-size: 26rpx; line-height: 1.65; }
+.stale-note { display: block; margin: 20rpx 24rpx; color: var(--warning-color); background: var(--bg-gray); padding: 20rpx; font-size: 26rpx; line-height: 1.65; border-left: 4rpx solid var(--warning-color); }
 .container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
 .bucket-detail, .bucket-info { min-width: 0; overflow-wrap: anywhere; }
 .record-actions button[disabled] { color: var(--text-regular); background: var(--bg-gray); }

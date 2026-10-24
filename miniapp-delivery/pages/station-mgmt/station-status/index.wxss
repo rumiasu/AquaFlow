@@ -51,7 +51,7 @@
 
 .option.active {
   border-color: var(--primary-color);
-  background: rgba(46, 74, 104, 0.08);
+  background: var(--primary-bg);
 }
 
 .option-name { display: block; font-size: 28rpx; font-weight: 600; }
@@ -78,22 +78,20 @@
   margin-top: 20rpx;
   padding: 20rpx;
   border-radius: 12rpx;
-  background: var(--warning-bg);
-}
+  background: var(--bg-gray); border-left: 4rpx solid var(--primary-color); color: var(--text-regular); }
 .preview-label { display: block; font-size: 24rpx; color: var(--warning-color); }
 .preview-text { display: block; font-size: 26rpx; color: var(--text-primary); margin-top: 8rpx; line-height: 1.5; }
 
 .btn-primary {
   margin-top: 28rpx;
-  height: 88rpx;
-  line-height: 88rpx;
+  height: auto;
+  line-height: 1.5;
   background: var(--primary-color);
   color: #fff;
-  border-radius: 44rpx;
-  font-size: 30rpx;
+  border-radius:12rpx;
+  font-size: 16px;
   font-weight: 600;
-  border: none;
-}
+  border: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
 .btn-primary.flex1 { flex: 1; margin-top: 0; }
 
 .link { font-size: 26rpx; color: var(--primary-color); }
@@ -116,7 +114,7 @@
 }
 .notice-time { font-size: 24rpx; color: var(--text-secondary); }
 .notice-actions { display: flex; gap: 24rpx; }
-.btn-link { font-size: 24rpx; color: var(--primary-color); }
+.btn-link { font-size: 14px; color: var(--primary-color); }
 .btn-link.danger { color: var(--error-color); }
 
 .empty { text-align: center; font-size: 24rpx; color: var(--text-secondary); padding: 40rpx 0; }
@@ -155,14 +153,13 @@
 
 .btn-cancel {
   flex: 1;
-  height: 84rpx;
-  line-height: 84rpx;
+  height: auto;
+  line-height: 1.5;
   border-radius: 42rpx;
-  font-size: 28rpx;
+  font-size: 14px;
   border: none;
   background: rgba(0, 0, 0, 0.05);
-  color: var(--text-secondary);
-}
+  color: var(--text-secondary); min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 /* 2026-10-22：经营任务层级与窄屏触控；业务状态和数据来源保持原样。 */
 .card { border-radius:12rpx; border:1rpx solid var(--border-color); }
@@ -177,7 +174,7 @@
 .textarea,.input { border:1rpx solid var(--border-color); border-radius:10rpx; font-size:30rpx; }
 .preview { border-radius:8rpx; }
 .preview-label,.preview-text,.notice-content { font-size:28rpx; line-height:1.6; }
-.link,.btn-link { min-height:88rpx; box-sizing:border-box; display:inline-flex; align-items:center; padding:12rpx 16rpx; font-size:28rpx; }
-.btn-primary,.btn-cancel { min-height:96rpx; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; font-size:30rpx; box-sizing:border-box; }
+.link,.btn-link { min-height: 44px; box-sizing:border-box; display:inline-flex; align-items:center; padding:12rpx 16rpx; font-size: 14px; }
+.btn-primary,.btn-cancel { min-height: 48px; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; font-size: 16px; box-sizing:border-box; }
 .modal { max-height:86vh; border-radius:16rpx; }
 .modal-footer { flex-wrap:wrap; gap:16rpx; }

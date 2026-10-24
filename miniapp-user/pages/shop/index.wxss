@@ -309,7 +309,7 @@
   background: var(--primary-gradient);
   color: #fff;
   border-radius: 26rpx;
-  font-size: 26rpx;
+  font-size: 14px;
   font-weight: 600;
   box-shadow: 0 4rpx 12rpx rgba(30, 64, 175, 0.2);
   text-align: center;
@@ -334,7 +334,7 @@
   color: var(--primary-color);
   border: 1rpx solid var(--primary-color);
   border-radius: 26rpx;
-  font-size: 26rpx;
+  font-size: 14px;
   font-weight: 500;
   text-align: center;
 }
@@ -394,9 +394,8 @@
   gap: 12rpx;
   margin: 16rpx 24rpx 0;
   padding: 20rpx 24rpx;
-  background: var(--warning-bg);
-  border-radius: 16rpx;
-}
+  background: var(--bg-gray);
+  border-radius: 16rpx; border-left: 4rpx solid var(--warning-color); }
 
 .station-status-banner .banner-icon {
   font-size: 30rpx;
@@ -425,7 +424,7 @@
 .product-brand, .product-deposit { font-size: 26rpx; color: var(--text-regular); line-height: 1.5; }
 .product-price { font-size: 38rpx; }
 .btn-row { flex-wrap: wrap; }
-.buy-btn, .cart-btn { min-width: 140rpx; min-height: 88rpx; height: auto; box-sizing: border-box; line-height: 1.4; padding: 20rpx 12rpx; display: flex; justify-content: center; align-items: center; font-size: 26rpx; border-radius: var(--radius-md); box-shadow: none; margin-top: 0; }
+.buy-btn, .cart-btn { min-width: 140rpx; min-height: 44px; height: auto; box-sizing: border-box; line-height: 1.4; padding: 20rpx 12rpx; display: flex; justify-content: center; align-items: center; font-size: 14px; border-radius: var(--radius-md); box-shadow: none; margin-top: 0; }
 .station-picker-close { min-height: 88rpx; display: flex; align-items: center; }
 .fab-cart { border-radius: var(--radius-lg); box-shadow: var(--shadow-md); bottom: calc(32rpx + env(safe-area-inset-bottom)); }
 .fab-cart:active { transform: none; }
@@ -433,7 +432,7 @@
 /* 本页所有状态共用的可读与触控边界。 */
 .container { padding-bottom: calc(144rpx + env(safe-area-inset-bottom)); }
 .search-clear, .station-picker-close { min-width: 88rpx; min-height: 88rpx; display: flex; align-items: center; justify-content: center; }
-.station-picker button, .load-error button { min-height: 88rpx; font-size: 28rpx; line-height: 1.6; padding: 20rpx; }
+.station-picker button, .load-error button { min-height: 44px; font-size: 14px; line-height: 1.6; padding: 20rpx; }
 .product-info, .name-row { min-width: 0; }
 .product-brand, .catalog-note { color: var(--text-regular); line-height: 1.6; }
 

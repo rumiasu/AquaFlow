@@ -712,18 +712,17 @@
 
 .popup-btns .btn-cancel {
   flex: 1;
-  height: 88rpx;
+  height: auto;
   border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30rpx;
+  font-size: 14px;
   background: var(--bg-gray);
   color: var(--text-regular);
   border: none;
-  line-height: 88rpx;
-  padding: 0;
-}
+  line-height: 1.5;
+  padding: 0; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 .popup-btns .btn-cancel::after {
   border: none;
@@ -731,18 +730,17 @@
 
 .popup-btns .btn-ok {
   flex: 1;
-  height: 88rpx;
+  height: auto;
   border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30rpx;
+  font-size: 14px;
   background: var(--primary-color);
   color: #fff;
   border: none;
-  line-height: 88rpx;
-  padding: 0;
-}
+  line-height: 1.5;
+  padding: 0; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 .popup-btns .btn-ok::after {
   border: none;
@@ -849,12 +847,11 @@
 /* 缺货清单的容器：走"要留意"的警示族（与 .load-error / .fee-warn 同一套 token），
    不再是另一套红粉色（§6：不要在本页另立一套色值）。 */
 .asset-rules {
-  background: rgba(201, 118, 75, 0.10);
+  background: var(--bg-gray);
   border: 1rpx solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 24rpx;
-  margin-bottom: 24rpx;
-}
+  margin-bottom: 24rpx; border-left: 4rpx solid var(--warning-color); }
 
 /* 首次资产告知里的"事实"区（契约 A2）：水站 / 本次押金 / 本单合计 —— 三行都要看得清。
    [2026-09-26 轨道 E] 底色由琥珀改为中性（--bg-gray）：这一块是"事实"，不是警告；
@@ -899,12 +896,11 @@
 /* 提交结果无法确认时的提示条（契约 A1/A3）：说清"重试会沿用同一次提交"，并给一个重试入口。
    配色走"要留意"的警示族 token（原来是另一套黄）。 */
 .submit-unknown {
-  background: rgba(201, 118, 75, 0.12);
+  background: var(--bg-gray);
   border: 1rpx solid var(--warning-color);
   border-radius: var(--radius-md);
   padding: 20rpx 24rpx;
-  margin-bottom: 16rpx;
-}
+  margin-bottom: 16rpx; border-left: 4rpx solid var(--warning-color); }
 
 .submit-unknown-text {
   display: block;
@@ -1099,10 +1095,9 @@
    展开区里的说明文字用 .detail-intro / .detail-rule-item / .detail-bold，仍在用。 */
 .detail-rule {
   padding: 20rpx;
-  background: var(--warning-bg);
+  background: var(--bg-gray);
   border-radius: 12rpx;
-  margin-bottom: 24rpx;
-}
+  margin-bottom: 24rpx; border-left:4rpx solid var(--warning-color); }
 
 .detail-checkbox {
   color: var(--text-secondary);
@@ -1414,9 +1409,8 @@
   gap: 12rpx;
   margin: 0 0 16rpx;
   padding: 20rpx 24rpx;
-  background: rgba(201, 118, 75, 0.10);
-  border-radius: var(--radius-md);
-}
+  background: var(--bg-gray);
+  border-radius: var(--radius-md); border-left: 4rpx solid var(--warning-color); }
 
 .station-status-banner .banner-icon {
   flex: none;
@@ -1436,8 +1430,8 @@
 .fee-warn {
   margin: 0 0 16rpx;
   padding: 16rpx 20rpx;
-  background: rgba(201, 118, 75, 0.12);
-  border-left: 6rpx solid var(--warning-color);
+  background: var(--bg-gray);
+  border-left: 4rpx solid var(--warning-color);
   border-radius: var(--radius-sm);
 }
 .fee-warn-text {

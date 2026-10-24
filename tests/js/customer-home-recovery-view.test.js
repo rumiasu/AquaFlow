@@ -180,8 +180,9 @@ test('a queued checkout tap cannot use previous products during loading, failure
   }
 })
 
-test('interface or customer station name is displayed verbatim, including a synthetic historical name', () => {
-  const t = fixture(); t.page.setData({ currentStation: { id: 1, name: 'SYNTH Task5 Scenario Station' } })
+test('a genuine English station name is displayed verbatim through the actual restore handler', async () => {
+  const t = fixture(); t.wx.setStorageSync('selectedStation', { id: 1, name: 'SYNTH Task5 Scenario Station' })
+  t.page.loadData = async () => {}; await t.page.checkStation()
   assert(texts(t.page).includes('SYNTH Task5 Scenario Station'))
 })
 

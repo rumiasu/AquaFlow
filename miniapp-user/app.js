@@ -79,12 +79,12 @@ App({
         // Config/SDK validation can fail synchronously inside onLaunch before getApp is available.
         // That immediate branch cannot belong to a later login; async init failures still need the guard.
         if (error && error.transportConfiguration) {
-          wx.showModal({ title: '服务暂不可用', content: '暂时无法连接服务，请稍后重试。', showCancel: false })
+          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '服务暂不可用', content: '暂时无法连接服务，请稍后重试。', showCancel: false })
           return
         }
         if (!isCurrentCredentials(session)) return
         if (error && error.requestMayHaveOccurred === false) {
-          wx.showModal({ title: '服务暂不可用', content: '暂时无法连接服务，请稍后重试。', showCancel: false })
+          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '服务暂不可用', content: '暂时无法连接服务，请稍后重试。', showCancel: false })
           return
         }
         console.warn('[App] 验证登录状态失败，保留本地状态')

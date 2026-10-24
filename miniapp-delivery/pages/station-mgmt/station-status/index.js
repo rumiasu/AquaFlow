@@ -342,7 +342,7 @@ Page({
     // 只有"编辑一条原本已发布的公告、并选了存草稿"才需要二次确认
     const willUnpublish = !isAdd && editStatus === 1 && nextStatus === 0
     if (willUnpublish) {
-      wx.showModal({
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '转为草稿并下架？',
         content: '保存后这条公告会立刻从顾客端消失（内容不会丢，之后还能在列表里重新发布）。',
         // ⚠️ **按钮文案最多 4 个字符**（微信 showModal 的硬限制）。写过 5 个字的
@@ -414,11 +414,11 @@ Page({
 
   onDeleteNotice(e) {
     const item = e.currentTarget.dataset.item
-    wx.showModal({
+    wx.showModal({ cancelColor: '#637083',
       title: '删除公告',
       content: '删除后客户立刻看不到该公告，确认删除？',
       confirmText: '删除',
-      confirmColor: '#B5442C',
+      confirmColor: '#BD3328',
       success: (res) => {
         if (!res.confirm) return
         deleteNotice(item.id)

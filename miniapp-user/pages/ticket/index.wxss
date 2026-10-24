@@ -244,14 +244,13 @@
 }
 
 .buy-ticket-btn {
-  height: 96rpx;
+  height: auto;
   background: var(--primary-color);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: none;
-}
+  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 .buy-ticket-btn text {
   color: #fff;
@@ -366,7 +365,7 @@
 
 .qty-btn {
   width: 88rpx;
-  height: 88rpx;
+  height: auto;
   border-radius: 12rpx;
   border: 2rpx solid var(--border-color);
   display: flex;
@@ -374,8 +373,7 @@
   justify-content: center;
   font-size: 32rpx;
   color: var(--text-primary);
-  flex-shrink: 0;
-}
+  flex-shrink: 0; min-height:44px; display:flex; align-items:center; justify-content:center; }
 
 .qty-btn.disabled {
   opacity: 0.4;
@@ -451,7 +449,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 96rpx;
+  min-height: 44px;
   padding: 16rpx 12rpx;
   box-sizing: border-box;
 }
@@ -462,7 +460,7 @@
 
 .modal-btn.cancel text {
   color: var(--text-regular);
-  font-size: 30rpx;
+  font-size: 14px;
 }
 
 .modal-btn.confirm {
@@ -472,7 +470,7 @@
 
 .modal-btn.confirm text {
   color: #fff;
-  font-size: 30rpx;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -584,7 +582,7 @@
   margin: 16rpx 24rpx 0;
   padding: 20rpx 24rpx;
   border-radius: var(--radius-sm);
-  background: var(--warning-bg);
+  background: var(--bg-gray);
   border-left: 6rpx solid var(--warning-color);
 }
 .recovery-title {
@@ -609,9 +607,9 @@ button.recovery-btn {
   margin: 0;
   padding: 18rpx 24rpx;
   border-radius: var(--radius-sm);
-  font-size: 26rpx;
+  font-size: 14px;
   line-height: 1.4;
-  min-height: 88rpx;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -637,7 +635,7 @@ button.recovery-btn[disabled] {
   color: var(--error-color);
   border: 1rpx solid var(--error-color);
 }
-.stale-note { display: block; padding: 20rpx 24rpx; color: #9a3412; background: #fff7ed; font-size: 26rpx; line-height: 1.65; }
+.stale-note { display: block; padding: 20rpx 24rpx; color: var(--warning-color); background: var(--bg-gray); font-size: 26rpx; line-height: 1.65; border-left: 4rpx solid var(--warning-color); }
 .modal-label, .pkg-sub, .pkg-lock, .ticket-expire, .ticket-use, .record-time { font-size: 26rpx; line-height: 1.65; }
 .modal-close, .ticket-help, .pkg-clear, .load-error > view { min-height: 88rpx; display: flex; align-items: center; }
 
@@ -646,7 +644,7 @@ button.recovery-btn[disabled] {
 .modal-label { color: var(--text-regular); }
 .container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
 .pkg-item { min-width: 0; overflow-wrap: anywhere; }
-.load-error button { min-height: 88rpx; font-size: 28rpx; padding: 18rpx; }
+.load-error button { min-height: 44px; font-size: 14px; padding: 18rpx; }
 
 .local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }
 .modal-btn.confirm[disabled], .modal-btn.confirm.disabled { background: var(--bg-gray); color: var(--text-regular); }

@@ -97,7 +97,7 @@ Page({
 
       if (bindStatus === BINDING_STATUS.REJECTED || bindStatus === BINDING_STATUS.UNBOUND) {
         if (!silent && bindStatus === BINDING_STATUS.REJECTED) {
-          wx.showModal({ confirmText: '知道了',
+          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
             title: '申请被拒绝',
             content: '站长拒绝了您的绑定申请，请重新申请。',
             showCancel: false,
@@ -136,7 +136,7 @@ Page({
    * 没有这个按钮就只能干等站长，属于用户报的"卡死"的一部分。
    */
   onLogout() {
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '退出登录',
       content: '退出后可用其他微信账号登录。',
       confirmText: '退出',
@@ -151,7 +151,7 @@ Page({
       wx.showToast({ title: '解绑审批中，无法撤回', icon: 'none' })
       return
     }
-    wx.showModal({ confirmText: '确认撤回',
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认撤回',
       title: '撤回申请',
       content: '确定要撤回当前绑定申请吗？',
       success: async (res) => {

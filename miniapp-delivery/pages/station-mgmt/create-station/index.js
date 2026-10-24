@@ -49,7 +49,7 @@ Page({
    * 没有出口就只能在"必须建站"与"退不出"之间卡住。
    */
   onLogout() {
-    wx.showModal({
+    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '退出登录',
       content: '退出后可用其他微信账号登录。',
       confirmText: '退出',

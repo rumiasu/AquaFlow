@@ -315,11 +315,11 @@ Page({
       && this.data.order && String(this.data.order.id) === String(order.id)
       && this.data.order.status === order.status && this.data.order.canCancel === true
     const release = () => { if (this._cancelFlight === flight) this._cancelFlight = null }
-    wx.showModal({
+    wx.showModal({ cancelColor: '#637083',
       title: view.title,
       content: view.content,
       confirmText: view.confirmText,
-      confirmColor: '#f5222d',
+      confirmColor: '#BD3328',
       fail: release,
       success: async (res) => {
         if (!res.confirm || !current()) { release(); return }

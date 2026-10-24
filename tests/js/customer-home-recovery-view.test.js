@@ -24,6 +24,13 @@ function fixture(overrides = {}) {
   page.setData({ isLogin: true, currentStationId: 1, currentStation: station(1), loading: false })
   return { page, wx, app, carts, calls }
 }
+for (const [status, statusText, expected] of [[1, '水站已受理，待配送', '水站已受理，待配送'], [2, '本单正在配送', '本单正在配送'], [2, undefined, '订单状态待核实']]) {
+  test('current order title uses server text or a neutral fallback: ' + statusText, async () => {
+    const t = fixture({ orders: async () => ok([{ id: 81, status, statusText }]) })
+    await t.page.renderActiveShip({ id: 81, status, statusText }, 1)
+    assert.equal(t.page.data.activeShip.title, expected)
+  })
+}
 const tree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/home/index.wxml'), 'utf8'))
 const pageTree = { ...tree, children: tree.children.filter(n => n.tag !== 'template') }
 const visible = page => renderElements(pageTree, page.data, { includeText: true })

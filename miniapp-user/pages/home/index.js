@@ -655,7 +655,8 @@ Page({
     }
     // ⚠️ 只陈述后端已下发的事实：不写"备货中"（待配送≠已备货）、不写"正在赶来/马上到"
     //（配送中≠承诺到达时间）。两条都曾是本页的过度承诺（docs/design/29 §3）。
-    const title = order.status === 2 ? '配送中' : '待配送'
+    // 2026-10-24：后端状态文案优先；缺失时不凭前端二选一伪造配送进度。
+    const title = typeof order.statusText === 'string' && order.statusText.trim() ? order.statusText : '订单状态待核实'
     let sub = ''
     // [2026-09-20] 原来 `.catch(() => null)`：明细拉不到时 sub 是空串 —— 与"这单确实没有商品明细"
     // 无法区分（状态条本身还在，只是没有商品那一行，客户看不出来是没网）。

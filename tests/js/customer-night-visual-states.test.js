@@ -28,6 +28,14 @@ test('error presentation hides raw exception text and preserves the original unk
   assert.ok(!errorText(error).includes('Exception')); assert.equal(error.code, 500); assert.equal(error.resultUnknown, true)
   assert.equal(money(null), '待核实'); assert.equal(money(''), '待核实'); assert.equal(money(0), '0.00')
 })
+test('order error presentation filters HTTP and internal request fields without changing diagnostic data', () => {
+  const { errorText } = require('../../miniapp-user/pages/order/visual')
+  for (const message of ['服务暂不可用（HTTP 503）', '缺少 stationId', '请求失败 GET /api/orders']) {
+    const error = Object.assign(Error(message), { statusCode: 503, businessRejected: true })
+    assert.equal(errorText(error, '请稍后重试'), '请稍后重试')
+    assert.equal(error.message, message); assert.equal(error.statusCode, 503); assert(error.businessRejected)
+  }
+})
 test('result without an order id has an explicit failure and no save-template action', () => {
   const t = fixture('order/success')
   t.page.onLoad({})

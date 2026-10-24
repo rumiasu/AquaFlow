@@ -42,6 +42,8 @@ function fixture(outcomes = ['unknown', 'success'], firstFault = 'normal', metho
       if (result === 'productRejected') throw Object.assign(Error('商品已下架或停售: Synthetic'), { businessRejected: true })
       if (result === 'addressRejected') throw Object.assign(Error('地址不存在'), { businessRejected: true })
       if (result === 'conflict') throw Object.assign(Error('该幂等键已用于另一笔内容不同的下单请求，请重新发起'), { businessRejected: true })
+      if (result === 'filteredConflict') throw Object.assign(Error('请求失败'), { businessRejected: true,
+        originalMessage: '幂等请求 clientToken 已用于不同内容' })
       if (result === 'duplicate') throw Object.assign(Error('该请求已提交过（同一幂等键），请到订单列表查看结果'), { businessRejected: true })
       if (result === 'needConfirm') return { data: { needConfirm: true, shortages: [] } }
       if (!orders.has(body.idempotencyKey)) orders.set(body.idempotencyKey, 800 + orders.size)
@@ -231,7 +233,7 @@ for (const outcome of ['productRejected', 'addressRejected', 'conflict', 'duplic
   })
 }
 
-for (const outcome of ['conflict', 'duplicate']) test('first ambiguous ' + outcome + ' stays unknown despite businessRejected flag', async () => {
+for (const outcome of ['conflict', 'duplicate', 'filteredConflict']) test('first ambiguous ' + outcome + ' stays unknown despite businessRejected flag', async () => {
   const t = fixture([outcome, 'success']); await t.page.refreshQuote(); await t.page._createOrder(false)
   assert.equal(t.page._originalOrderRequest.phase, 'unknown')
   t.page.setData({ products: [{ ...t.page.data.products[0], id: 6 }] }); await t.page.refreshQuote(); await t.page._createOrder(false)

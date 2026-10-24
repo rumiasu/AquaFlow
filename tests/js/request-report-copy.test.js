@@ -25,7 +25,8 @@ async function prompt(t) {
   const result = {statusCode:200,data:{code:500,message:'SYNTH_INTERNAL_ERROR <original>'}}
   const resultBefore = JSON.stringify(result); t.sent.at(-1).success(result)
   const error = await pending
-  assert(error instanceof Error); assert.equal(error.message,result.data.message)
+  assert(error instanceof Error); assert.equal(error.originalMessage,result.data.message)
+  assert.equal(error.message,'请求失败'); assert.equal(error.backendCode,500)
   assert.equal(JSON.stringify(result),resultBefore); assert.equal(JSON.stringify(body),before)
   assert.equal(t.sent.filter(x=>x.url.endsWith('/feedback')).length,0,'report waits for explicit confirmation')
   return { error, descriptors:Object.getOwnPropertyDescriptors(error), originalRequest:t.sent.at(-1) }
@@ -49,7 +50,7 @@ for (const outcome of [...outcomes,...unsafeOutcomes]) test('report '+outcome.na
   t.wx.__calls.modal[0].success({confirm:true}); assert.equal(t.sent.length,2)
   const report=t.sent[1], requestBefore=JSON.stringify({data:report.data,header:report.header,method:report.method,timeout:report.timeout})
   assert(report.url.endsWith('/feedback')); assert.equal(report.method,'POST')
-  assert.equal(report.data.category,'错误报告'); assert(report.data.content.includes(original.error.message))
+  assert.equal(report.data.category,'错误报告'); assert(report.data.content.includes(original.error.originalMessage))
   assert.equal(report.data.anonymous,undefined); assert.equal(report.header.Authorization,'Bearer synthetic-access-7')
   const callbackInput=outcome.network||outcome.response, inputBefore=JSON.stringify(callbackInput)
   if(outcome.network)report.fail(outcome.network);else report.success(outcome.response)
@@ -65,10 +66,10 @@ for (const outcome of [...outcomes,...unsafeOutcomes]) test('report '+outcome.na
 test('one generic sentence is rejected by all seven original semantic report outcomes',()=>{
   for(const outcome of outcomes) assert.throws(()=>assertSemanticCopy(COPY,outcome.expected),assert.AssertionError,outcome.name)
 })
-test('ordinary business errors retain their original Error message and businessRejected marker',async()=>{
+test('ordinary business errors retain original diagnostics and businessRejected outside visible copy',async()=>{
   const t=setup(), pending=t.request.post('/synthetic/business',{idempotencyKey:'business-key'}).catch(error=>error)
   t.sent[0].success({statusCode:200,data:{code:1,message:'SYNTH_BUSINESS_ORIGINAL'}})
-  const error=await pending;assert.equal(error.message,'SYNTH_BUSINESS_ORIGINAL');assert.strictEqual(error.businessRejected,true)
+  const error=await pending;assert.equal(error.originalMessage,'SYNTH_BUSINESS_ORIGINAL');assert.equal(error.message,'请求失败');assert.strictEqual(error.businessRejected,true)
   assert.equal(t.wx.__calls.toast.length,0);assert.equal(t.wx.__calls.modal.length,0);assert.equal(t.sent.length,1)
 })
 test('late response from a previous session keeps sessionChanged marker and sends no automatic report',async()=>{

@@ -116,9 +116,10 @@ function clear(value) {
 }
 function errorText(error, fallback) {
   const text = error && error.message || ''
+  const diagnostic = error && typeof error.originalMessage === 'string' ? error.originalMessage : text
   if (error && error.sessionChanged) return '登录身份已变化，请重新进入后查看原申请'
-  if (/接口不存在|HTTP\s*404|参数格式不正确[:：]\s*id\b|不支持/.test(text) || error && (error.backendCode === 404 || error.statusCode === 404)) return '当前服务暂不能办理历史资产认领，请稍后重试或联系水站'
-  if (/权限不足|仅客户|仅站长|无权访问/.test(text)) return '当前身份无法办理认领，请重新登录后查看'
+  if (/接口不存在|HTTP\s*404|参数格式不正确[:：]\s*id\b|不支持/.test(diagnostic) || error && (error.backendCode === 404 || error.statusCode === 404)) return '当前服务暂不能办理历史资产认领，请稍后重试或联系水站'
+  if (/权限不足|仅客户|仅站长|无权访问/.test(diagnostic)) return '当前身份无法办理认领，请重新登录后查看'
   return error && (error.localClaimError || error.businessRejected) && !/接口|数据库|SQL|端点|schema|后端/.test(text) ? text : fallback
 }
 module.exports = { id, quantity, money, body, reviewBody, data, catalog, record, records, read, prepare, clear, errorText }

@@ -2,6 +2,7 @@
 const { API } = require('../config/api')
 const { send } = require('./transport')
 const { snapshot } = require('./snapshot')
+const { displayMessage } = require('./display-message')
 const { STORAGE_KEYS } = require('../utils/storage-keys')
 const { captureSession, isCurrentSession, isCurrentCredentials, acceptRefreshedTokens, beginSession } = require('./token')
 
@@ -17,7 +18,7 @@ const request = (options) => {
 }
 
 function sessionChangedError() {
-  const error = new Error('登录身份已变化，请重新进入后查询原购买')
+  const error = new Error('登录身份已变化，请重新进入后操作')
   error.sessionChanged = true
   return error
 }
@@ -46,7 +47,7 @@ function sendRequest(options, session, accessToken, retried) {
       success: (res) => {
         if (!isCurrentSession(session)) { reject(sessionChangedError()); return }
         const error = responseError(res)
-        if (error) { reject(error); return }
+        if (error) { reject(responseFailure(error, res)); return }
         if (res.statusCode === 200) {
           if (res.data.code === 0 || res.data.code === 200) {
             resolve(res.data)
@@ -59,18 +60,17 @@ function sendRequest(options, session, accessToken, retried) {
             // [2026-09-14] 系统级错误（后端 code=500）用户既看不懂也做不了，
             // 主动询问是否上报给水站；业务错误（code=1）的文案本身已"能看懂、能处理"，
             // 不再弹窗打扰（见 offerErrorReport 的说明）。
-            if (res.data.code === 500) offerErrorReport(msg, options, session)
+            if (res.data.code === 500) offerErrorReport(typeof res.data.message === 'string' ? res.data.message : msg, options, session)
             const failure = new Error(msg)
             if (res.data.code === 1) failure.businessRejected = true
-            reject(failure)
+            reject(responseFailure(failure, res))
           }
         } else if (res.statusCode === 401) {
           if (retried) reject(new Error('登录已过期'))
           else handle401(options, session).then(resolve, reject)
         } else {
-          // [2026-09-20] 原来直接把状态码拼给用户看（「网络错误 500」）—— 顾客看不懂也没法处理。
-          // 保留状态码在括号里，排查时仍能一眼看出是 4xx 还是 5xx。
-          reject(new Error('服务暂时不可用（HTTP ' + res.statusCode + '），请稍后重试'))
+          // 2026-10-24：状态码只留诊断元数据，顾客看到可执行的恢复提示。
+          reject(responseFailure(new Error('服务暂时不可用，请稍后重试'), res))
         }
       },
       fail: (err) => {
@@ -99,13 +99,9 @@ function sendRequest(options, session, accessToken, retried) {
  */
 function toNetworkError(err) {
   const raw = (err && (err.errMsg || err.message)) || ''
-  if (/time\s*out/i.test(raw)) {
-    return new Error('网络超时，请检查手机网络后重试')
-  }
-  if (/fail/i.test(raw)) {
-    return new Error('网络连接失败，请检查网络后重试')
-  }
-  return new Error(raw || '网络连接失败，请重试')
+  const message = /time\s*out/i.test(raw) ? '网络超时，请检查手机网络后重试'
+    : /fail/i.test(raw) ? '网络连接失败，请检查网络后重试' : displayMessage(raw, '网络连接失败，请重试')
+  return Object.assign(new Error(message), err, { message, originalMessage: raw })
 }
 
 /* ==================== 系统级错误「一键上报给水站」 ==================== */
@@ -178,7 +174,8 @@ function submitErrorReport(message, options, session) {
     if (!isCurrentSession(session)) return
     offeredReports.delete(message)
     // 只生成展示文案；原异常、响应、会话与请求结果不作改写。
-    const raw = error && typeof error.message === 'string' ? error.message.trim() : ''
+    const diagnostic = error && view !== 'network' && typeof error.originalMessage === 'string' ? error.originalMessage : error && error.message
+    const raw = typeof diagnostic === 'string' ? diagnostic.trim() : ''
     const reason = /[\u4e00-\u9fff]/.test(raw) && !/[A-Za-z\r\n]/.test(raw) ? raw : ''
     const unknown = '上报结果未确认，请稍后核对'
     const titles = {
@@ -213,8 +210,8 @@ function submitErrorReport(message, options, session) {
       } else if (res.statusCode === 401 || (res.statusCode === 200 && res.data.code === 401)) {
         failed(new Error('登录已过期，请重新登录后上报'), 'expired')
       } else {
-        failed(new Error(res.statusCode === 200 ? responseMessage(res.data)
-          : '服务暂时不可用（HTTP ' + res.statusCode + '），请稍后重试'),
+        failed(responseFailure(new Error(res.statusCode === 200 ? responseMessage(res.data)
+          : '服务暂时不可用，请稍后重试'), res),
           res.statusCode === 200 ? (res.data.code === 1 ? 'rejected' : 'unknown') : 'http')
       }
     },
@@ -243,8 +240,14 @@ function responseError(res) {
 
 function malformedResponseError() { return new Error('收到的数据不完整，请重试') }
 
+// 原始诊断独立保存；调用方仍按状态码/拒绝标记/原文守恢复边界，不比较展示兜底。
+function responseFailure(error, res) {
+  return Object.assign(error, { statusCode: res && res.statusCode,
+    backendCode: res && res.data && res.data.code, originalMessage: res && res.data && res.data.message })
+}
+
 function responseMessage(body, fallback = '请求失败') {
-  return body && typeof body.message === 'string' && body.message.trim() ? body.message : fallback
+  return displayMessage(body && body.message, fallback)
 }
 
 function validRefreshData(data) {

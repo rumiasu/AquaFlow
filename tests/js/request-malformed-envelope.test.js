@@ -220,6 +220,41 @@ test('customer stale malformed refresh cannot clear new same-session credentials
   record(state, await success(t.sent[2], envelope({ code: 0, data: {} })))
   assert.strictEqual(t.app.globalData.refreshToken, 'refresh-new'); assert.strictEqual(t.wx.__calls.nav.length, 0)
 })
+for (const statusCode of [403, 404, 503]) test('customer HTTP ' + statusCode + ' keeps diagnostics outside visible copy', async () => {
+  const t = setup('miniapp-user'), state = observed(t.request.get('/probe/read'))
+  rejected(state, await success(t.sent[0], { statusCode, data: { message: 'GET /api/internal stationId=11' } }))
+  assert.strictEqual(state.error.message, '服务暂时不可用，请稍后重试')
+  assert.strictEqual(state.error.statusCode, statusCode)
+  assert.strictEqual(state.error.originalMessage, 'GET /api/internal stationId=11')
+})
+for (const message of ['请求失败 GET /api/orders', '缺少 stationId', '服务错误 HTTP 503', '数据异常 SELECT * FROM orders']) {
+  test('customer filters technical business message but retains code/raw/rejection: ' + message, async () => {
+    const t = setup('miniapp-user'), state = observed(t.request.post('/probe/write', body()))
+    rejected(state, await success(t.sent[0], envelope({ code: 1, message })))
+    assert.strictEqual(state.error.message, '请求失败'); assert.strictEqual(state.error.originalMessage, message)
+    assert.strictEqual(state.error.businessRejected, true); assert.strictEqual(state.error.backendCode, 1)
+  })
+}
+test('customer preserves useful Chinese business amounts and product sizes', async () => {
+  const t = setup('miniapp-user'), state = observed(t.request.post('/probe/write', body()))
+  const message = '18.5L商品库存不足，还差2桶，请先调整数量；应付¥40.00'
+  rejected(state, await success(t.sent[0], envelope({ code: 1, message })))
+  assert.strictEqual(state.error.message, message); assert.strictEqual(state.error.originalMessage, message)
+})
+test('customer identity change on an ordinary read gives a general recovery instruction', async () => {
+  const t = setup('miniapp-user'), state = observed(t.request.get('/probe/profile'))
+  t.app.setLoginInfo('access-B', 'refresh-B', { customerId: 8 })
+  rejected(state, await success(t.sent[0], envelope({ code: 0, data: {} })))
+  assert.strictEqual(state.error.sessionChanged, true)
+  assert.strictEqual(state.error.message, '登录身份已变化，请重新进入后操作')
+})
+test('customer network fallback hides technical details and retains original transport flags', async () => {
+  const t = setup('miniapp-user'), state = observed(t.request.post('/probe/write', body()))
+  const raw = { errMsg: '内部参数 stationId 缺失', errno: 73, requestMayHaveOccurred: false }
+  rejected(state, await failure(t.sent[0], raw))
+  assert.strictEqual(state.error.message, '网络连接失败，请重试'); assert.strictEqual(state.error.originalMessage, raw.errMsg)
+  assert.strictEqual(state.error.errno, 73); assert.strictEqual(state.error.requestMayHaveOccurred, false)
+})
 async function main() {
   const done = armWatchdog(120000)
   let passed = 0

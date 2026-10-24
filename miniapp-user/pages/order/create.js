@@ -51,8 +51,9 @@ function pickOrderId(data) {
 
 /** 首发的事务性业务拒绝可确认本次未建单；幂等冲突/重复提交可能已有历史单，不能据此解锁。 */
 function isDefiniteFirstOrderRejection(error) {
-  return !!error && error.businessRejected === true && typeof error.message === 'string' && !!error.message.trim()
-    && !/(幂等|已提交过|重复提交|重复请求|请求摘要|内容不同)/.test(error.message)
+  const diagnostic = error && (typeof error.originalMessage === 'string' ? error.originalMessage : error.message)
+  return !!error && error.businessRejected === true && typeof diagnostic === 'string' && !!diagnostic.trim()
+    && !/(幂等|已提交过|重复提交|重复请求|请求摘要|内容不同)/.test(diagnostic)
 }
 
 /**
@@ -862,12 +863,13 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 缺失/损坏列表不能被客户端补成可用渠道；金额与支付方式须一起核实。
         // 当前页面仅能执行 PayMethod.java ALL 中的渠道；名称与可用性仍取服务端。
         const wechatPay = d.wechatPay || null
+        // 2026-10-24：非开发版保留渠道禁用守卫，名称/说明只呈现顾客可用的下一步；开发版仍保留模拟标识。
         const mockWechatBlocked = !!(wechatPay && wechatPay.simulated === true && !isDevelopEnv())
         const payMethods = Array.isArray(d.methods) ? d.methods.map(method => method && method.id === 1 && mockWechatBlocked
-          ? { ...method, enabled: false, name: '模拟微信支付（仅开发版可用）' }
+          ? { ...method, enabled: false, name: '微信支付（暂不可用）', desc: '请选择其它可用方式或联系水站' }
           : method) : d.methods
         if (mockWechatBlocked && Array.isArray(payMethods) && !payMethods.some(method => method && method.enabled)) {
-          throw new Error('当前环境未配置可用支付方式，不能使用模拟微信支付。请联系项目负责人。')
+          throw new Error('暂无可用支付方式，请联系水站')
         }
         if (!Array.isArray(payMethods) || !payMethods.length || payMethods.some(m => !m
           || !Number.isInteger(m.id) || ![1, 2, 3].includes(m.id) || typeof m.enabled !== 'boolean'
@@ -1045,7 +1047,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         payMethods: [], wechatPay: null, ticketPay: null, ticketCoverText: '',
         ticketShortfallHint: '', ticketCanBuy: false, ticketAltMethod: null, missingRights: [],
         barrelPurchases: [], barrelPurchaseConfirmed: false,
-        quoteError: '没能核实最新金额和支付方式。' + errorText(e, '请稍后重试。') + '已暂停下单，请重试报价',
+        quoteError: '没能核实最新金额和支付方式。' + errorText(e, '请稍后重试').replace(/[。！？；，、\s]+$/, '') + '。已暂停下单，请重试报价。',
         blockReason: '最新金额和支付方式尚未核实，请重试报价',
         checkoutWarnings: ['最新金额和支付方式尚未核实，请重试报价']
       })
@@ -1195,11 +1197,13 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 原实现客户看完提示只能自己去找购票入口 —— 而全仓根本没有跳转购票页的地方，等于死路。
         // 判定用后端下发的结构化 reason，**不比对 title 文案**（文案是给人看的，不是判据）。
         const canBuyTicket = tp.reason === 'INSUFFICIENT'
+        // 2026-10-24：非缺票情形没有自动切换动作，按钮仅确认知悉，正文指向手动选择。
         wx.showModal({
           title: tp.title || '暂不能用票支付',
-          content: tp.hint || '水票不足以覆盖本单，请改选支付方式或先补齐水票',
+          content: canBuyTicket ? (tp.hint || '水票不足以覆盖本单，请改选支付方式或先补齐水票')
+            : (tp.hint ? tp.hint.replace(/[。！？；，、\s]+$/, '') + '。' : '') + '请关闭提示后，在支付方式中手动选择其它可用方式。',
           showCancel: canBuyTicket,
-          confirmText: canBuyTicket ? '去买水票' : '改选方式',
+          confirmText: canBuyTicket ? '去买水票' : '知道了',
           cancelText: '留在本页',
           success: (r) => {
             // 只有"余额不够"才把人引去买票；"商品根本不能用票"时补票没用（后端 hint 已写明）

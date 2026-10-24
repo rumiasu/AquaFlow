@@ -183,13 +183,34 @@ test('微信页面实际绑定能力标签与重试动作，不再写死支付�
   const create = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxml'), 'utf8')
   assert(create.includes('bindtap="onRetryQuote"'))
 })
+for (const ending of ['', '。', '！']) test('quote reason has a clear sentence boundary: ' + ending, async () => {
+  const t = order(async () => { throw Error('库存待核实，请重试' + ending) })
+  await t.page.refreshQuote()
+  assert.match(t.page.data.quoteError, /请重试。已暂停下单/)
+  assert(!/[。！]{2}/.test(t.page.data.quoteError)); assert.equal(t.calls.orders.length, 0)
+})
+for (const reason of ['DEPOSIT', 'PRODUCT_DISABLED']) test(reason + ' acknowledgement guides manual selection without changing price/method', async () => {
+  const t = order(async () => ({ data: { ...validQuote().data, ticketPay: { fullyCovered: false, reason, hint: '本单暂不能使用水票' } } }))
+  await t.page.refreshQuote(); t.wx.__modalAutoConfirm = false
+  const method = t.page.data.selectedMethod, amount = t.page.data.totalAmount
+  await t.page.onSubmit()
+  const modal = t.wx.__calls.modal.at(-1)
+  assert.equal(modal.confirmText, '知道了'); assert.equal(modal.showCancel, false)
+  assert.match(modal.content, /手动选择其它可用方式/)
+  modal.success({ confirm: true })
+  assert.equal(t.page.data.selectedMethod, method); assert.equal(t.page.data.totalAmount, amount)
+  assert.equal(t.calls.orders.length, 0); assert.equal(t.calls.payments.length, 0)
+  assert.equal(t.wx.__calls.nav.length, 0)
+})
 test('trial removes a quote-explicit simulated WeChat method before order submission', async () => {
   const data = { ...validQuote().data, defaultMethod: 1,
-    methods: [{ id: 1, name: '模拟支付', enabled: true }, { id: 3, name: '水票支付', enabled: true }],
+    methods: [{ id: 1, name: '模拟支付', desc: '模拟微信支付，仅开发联调', enabled: true }, { id: 3, name: '水票支付', enabled: true }],
     wechatPay: simulated }
   const t = order(async () => ({ data }), {}, 'trial')
   await t.page.refreshQuote()
   assert.equal(t.page.data.payMethods.find(method => method.id === 1).enabled, false)
+  assert.equal(t.page.data.payMethods.find(method => method.id === 1).name, '微信支付（暂不可用）')
+  assert(!/模拟|开发/.test(t.page.data.payMethods.find(method => method.id === 1).desc))
   assert.equal(t.page.data.wechatPay.enabled, false)
   assert.equal(t.page.data.selectedMethod, 3)
   assert.equal(t.calls.orders.length, 0, 'quote-only step must not create an order')
@@ -200,7 +221,8 @@ test('trial reports when the only offered channel is simulated before creating a
   const t = order(async () => ({ data }), {}, 'trial')
   await t.page.refreshQuote()
   assert.equal(t.page.data.quoteReady, false)
-  assert.match(t.page.data.quoteError, /不能使用模拟微信支付/)
+  assert.match(t.page.data.quoteError, /暂无可用支付方式，请联系水站/)
+  assert(!/模拟|项目负责人/.test(t.page.data.quoteError))
   await t.page.onSubmit()
   assert.equal(t.calls.orders.length, 0)
 })

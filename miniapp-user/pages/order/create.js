@@ -82,6 +82,8 @@ Page({
     address: null,
     addressText: '',
     checkoutWarnings: [],
+    quoteBlockSummary: '',
+    quoteBlockDetail: '',
     note: '',
     barrelByType: [],
     barrelSummary: [],
@@ -751,6 +753,23 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     this._quoteTimer = null
   },
 
+  // 2026-10-25：底栏只投影已有阻断原因；过滤技术原文，不参与报价或提交判断。
+  _syncQuoteBlockNotice() {
+    const visible = this.data.blocked && !this.data.submitting && !this.data.pendingOrderId && this.data.submitState !== 'unknown'
+    const reason = visible ? errorText({ message: this.data.blockReason }, '最新金额和支付方式尚未核实，请重试报价') : ''
+    const chars = Array.from(reason)
+    this.setData({
+      quoteBlockSummary: chars.length > 28 ? chars.slice(0, 28).join('') + '…' : reason,
+      quoteBlockDetail: chars.length > 28 ? reason : ''
+    }, () => this._measureOrderRecoveryBar())
+  },
+
+  onViewQuoteBlockReason() {
+    if (!this.data.blocked || !this.data.quoteBlockDetail || this.data.submitting || this.data.pendingOrderId || this.data.submitState === 'unknown') return
+    wx.showModal({ title: '暂不可下单', content: this.data.quoteBlockDetail, showCancel: false,
+      confirmText: '知道了', confirmColor: '#1264D6' })
+  },
+
   invalidateQuote() {
     const seq = this._quoteRequestSeq = (this._quoteRequestSeq || 0) + 1
     this._quotedContext = null
@@ -762,7 +781,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       extraDepositAmountText: '', floorFeeText: '', deliveryFeeText: '', feeTotalText: '',
       ticketPay: null, ticketCoverText: '', ticketShortfallHint: '', ticketCanBuy: false, ticketAltMethod: null,
       assetNotice: { stationName: this.data.stationName || '', depositAmount: '—', buckets: 0, totalAmountText: '—' },
-      showUnifiedConfirm: false, showDetailPopup: false })
+      showUnifiedConfirm: false, showDetailPopup: false }, () => this._syncQuoteBlockNotice())
     return seq
   },
 
@@ -806,13 +825,13 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       && isCurrentSession(session) && contextKey === this._quoteContextKey()
 
     if (this.data.productsLoading || this.data.productsError) {
-      this.setData({ quoteLoading: false, blockReason: '请先核实完整商品清单' })
+      this.setData({ quoteLoading: false, blockReason: '请先核实完整商品清单' }, () => this._syncQuoteBlockNotice())
       return false
     }
 
     // 2026-10-11：并行商品加载曾把 address=null 报价当最终金额；地址未核实时不发报价、不保留旧金额。
     if (this.data.addressLoading || this.data.addressLoadError || !address || !address.id) {
-      this.setData({ quoteLoading: false, blockReason: '请先核实配送地址' })
+      this.setData({ quoteLoading: false, blockReason: '请先核实配送地址' }, () => this._syncQuoteBlockNotice())
       return false
     }
 
@@ -1054,7 +1073,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       wx.showToast({ title: '报价加载失败，已暂停下单', icon: 'none' })
       return false
     } finally {
-      if (current()) this.setData({ quoteLoading: false })
+      if (current()) this.setData({ quoteLoading: false }, () => this._syncQuoteBlockNotice())
     }
   },
   onRetryQuote() { return this.refreshQuote() },
@@ -1375,23 +1394,29 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     return this._orderResultNavigator
   },
 
-  /** 仅更新布局；清除恢复态时立即回到原240rpx占位，不改导航或付款状态。 */
+  /** 仅更新布局；恢复提示或报价原因消失后重测，不改导航或付款状态。 */
   _setOrderNavigationPresentation(state) {
     this._orderRecoveryLayoutSeq = (this._orderRecoveryLayoutSeq || 0) + 1
     this.setData({ orderNavigationBusy: state.busy, orderNavigationError: state.error,
       orderNavigationRecoveryStyle: state.error ? this.data.orderNavigationRecoveryStyle : ''
-    }, () => { if (state.error) this._measureOrderRecoveryBar() })
+    }, () => this._measureOrderRecoveryBar())
   },
 
-  /** 2026-10-10：恢复卡曾遮住备注；整栏实测高度已含安全区，另留24rpx间距，随换行/窗口变化重测。 */
+  /** 恢复卡与报价原因均按整栏实测高度留白；测量失败由页面样式保底，不影响业务。 */
   _measureOrderRecoveryBar() {
-    const error = this.data.orderNavigationError
+    const notice = () => this.data.orderNavigationError || (this.data.blocked && !this.data.submitting
+      && !this.data.pendingOrderId && this.data.submitState !== 'unknown' && this.data.quoteBlockSummary) || ''
+    const key = notice()
     const seq = this._orderRecoveryLayoutSeq = (this._orderRecoveryLayoutSeq || 0) + 1
-    if (!error || this._orderNavigationHidden || this._quoteDestroyed || typeof wx.createSelectorQuery !== 'function') return
+    if (!key) {
+      if (this.data.orderNavigationRecoveryStyle) this.setData({ orderNavigationRecoveryStyle: '' })
+      return
+    }
+    if (this._orderNavigationHidden || this._quoteDestroyed || typeof wx.createSelectorQuery !== 'function') return
     const session = captureSession(), stationId = this.data.stationId
     try {
       wx.createSelectorQuery().in(this).select('.bottom-bar').boundingClientRect(rect => {
-        if (seq !== this._orderRecoveryLayoutSeq || error !== this.data.orderNavigationError
+        if (seq !== this._orderRecoveryLayoutSeq || key !== notice()
             || this._orderNavigationHidden || this._quoteDestroyed || !isCurrentSession(session)
             || stationId !== this.data.stationId) return
         if (!rect || !Number.isFinite(rect.height) || rect.height <= 0) return

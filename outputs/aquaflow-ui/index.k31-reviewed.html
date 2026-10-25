@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AquaFlow · K3.1 最小勘误副本</title>
+  <style>
+    :root {
+      --primary: #1264D6;
+      --primary-dark: #0D4FA8;
+      --primary-bg: #EAF3FF;
+      --success: #16834A;
+      --success-bg: #EAF6EE;
+      --warning: #A95516;
+      --warning-bg: #FFF3E8;
+      --error: #BD3328;
+      --error-bg: #FFF0EE;
+      --ink: #182230;
+      --text: #4B596A;
+      --muted: #637083;
+      --placeholder: #9CA7B5;
+      --page: #F5F6F7;
+      --surface: #FFFFFF;
+      --soft: #F0F2F5;
+      --line: #E8ECF1;
+      --line-strong: #DAE0E8;
+      --shadow: 0 8px 30px rgba(24, 34, 48, .07);
+      --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; color: var(--ink); background: #F3F5F8; font-family: var(--font); -webkit-font-smoothing: antialiased; }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    svg { display: block; }
+    .icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+    .icon.sm { width: 16px; height: 16px; }
+    .icon.lg { width: 24px; height: 24px; }
+    .shell { max-width: 1540px; margin: 0 auto; padding: 0 40px 80px; }
+    .topbar { height: 76px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line-strong); }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: -.02em; }
+    .brand-mark { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; color: #fff; background: var(--primary); }
+    .brand small { display: block; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: .08em; margin-top: 2px; }
+    .toplinks { display: flex; gap: 28px; font-size: 13px; color: var(--text); }
+    .toplinks a:hover { color: var(--primary); }
+    .hero { padding: 58px 0 38px; display: grid; grid-template-columns: 1.35fr .65fr; gap: 56px; align-items: end; }
+    .eyebrow { display: flex; align-items: center; gap: 9px; color: var(--primary); font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .eyebrow:before { content: ""; width: 24px; height: 2px; background: var(--primary); }
+    h1 { margin: 18px 0 16px; font-size: clamp(34px, 4vw, 54px); line-height: 1.14; letter-spacing: -.045em; font-weight: 750; }
+    .hero p { max-width: 720px; margin: 0; color: var(--text); font-size: 16px; line-height: 1.85; }
+    .hero-meta { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line-strong); padding-top: 22px; gap: 12px; }
+    .hero-meta strong { display: block; font-size: 28px; letter-spacing: -.04em; }
+    .hero-meta span { color: var(--muted); font-size: 12px; }
+    .notice { display: flex; gap: 12px; align-items: flex-start; padding: 15px 18px; border: 1px solid #D7E5F7; border-radius: 12px; background: #F5F9FF; color: var(--text); font-size: 13px; line-height: 1.7; margin-bottom: 40px; }
+    .notice .icon { color: var(--primary); margin-top: 2px; }
+    .filterbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 0; background: rgba(243,245,248,.94); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter { border: 1px solid var(--line-strong); background: #fff; color: var(--text); border-radius: 9px; padding: 9px 15px; font-size: 13px; }
+    .filter.active { color: #fff; border-color: var(--primary); background: var(--primary); }
+    .filter-note { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .section { padding-top: 42px; }
+    .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 24px; }
+    .section-heading h2 { margin: 0 0 8px; font-size: 26px; letter-spacing: -.035em; }
+    .section-heading p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .section-index { color: #A4AFBD; font-size: 12px; font-weight: 700; letter-spacing: .1em; }
+    .gallery { display: grid; grid-template-columns: repeat(3, minmax(340px, 1fr)); gap: 28px; align-items: start; }
+    .mock { min-width: 0; }
+    .mock-label { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 0 4px 12px; }
+    .mock-label h3 { margin: 0 0 4px; font-size: 15px; }
+    .mock-label p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .route { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: #8793A2; font-size: 9px; white-space: nowrap; padding-top: 3px; }
+    .phone { height: 780px; background: var(--page); border: 7px solid #202833; border-radius: 34px; overflow: hidden; box-shadow: 0 18px 40px rgba(24,34,48,.14); position: relative; display: flex; flex-direction: column; }
+    .statusbar { height: 28px; flex: 0 0 28px; padding: 7px 16px 0; display: flex; align-items: center; justify-content: space-between; background: #fff; font-size: 9px; font-weight: 650; position: relative; z-index: 5; }
+    .status-icons { display: flex; align-items: center; gap: 4px; }
+    .signal { width: 12px; height: 8px; background: linear-gradient(to right, var(--ink) 2px, transparent 2px 3px, var(--ink) 3px 5px, transparent 5px 6px, var(--ink) 6px 8px, transparent 8px 9px, var(--ink) 9px 11px); clip-path: polygon(0 100%, 0 75%, 20% 75%, 20% 50%, 40% 50%, 40% 25%, 60% 25%, 60% 0, 80% 0, 80% 100%); }
+    .battery { width: 15px; height: 8px; border: 1px solid var(--ink); border-radius: 2px; padding: 1px; position: relative; }
+    .battery:before { content: ""; display: block; height: 100%; width: 75%; background: var(--ink); border-radius: 1px; }
+    .battery:after { content: ""; position: absolute; right: -3px; top: 2px; width: 2px; height: 3px; background: var(--ink); border-radius: 0 1px 1px 0; }
+    .appbar { flex: 0 0 48px; min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px; background: #fff; border-bottom: 1px solid var(--line); }
+    .appbar-title { font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
+    .appbar-sub { color: var(--muted); font-size: 10px; font-weight: 400; margin-left: 7px; }
+    .appbar-actions { display: flex; align-items: center; gap: 8px; color: var(--text); }
+    .nav-back { width: 28px; height: 28px; display: grid; place-items: center; margin-left: -6px; }
+    .capsule { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: 20px; padding: 4px 8px; font-size: 12px; color: var(--text); }
+    .app-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 14px 14px 24px; }
+    .app-scroll::-webkit-scrollbar { display: none; }
+    .app-scroll.with-checkout { padding-bottom: 94px; }
+    .app-scroll.with-tab { padding-bottom: 22px; }
+    .home-bg { background: linear-gradient(180deg, #F2F8FD 0, var(--page) 220px); }
+    .bottom-tab { flex: 0 0 64px; height: 64px; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 8px 5px; background: rgba(255,255,255,.98); border-top: 1px solid var(--line); position: relative; z-index: 5; }
+    .tab-item { min-width: 58px; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); font-size: 10px; }
+    .tab-item.active { color: var(--primary); font-weight: 600; }
+    .tab-dot { width: 5px; height: 5px; background: var(--error); border-radius: 50%; position: absolute; margin: -3px 0 0 13px; }
+    .home-indicator { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); width: 100px; height: 3px; border-radius: 4px; background: #26313D; opacity: .8; }
+    .sticky-action { position: absolute; z-index: 6; left: 0; right: 0; bottom: 0; padding: 10px 14px 15px; background: rgba(255,255,255,.98); border-top: 1px solid var(--line); display: flex; gap: 12px; align-items: center; }
+    .sticky-action.above-tab { bottom: 64px; }
+    .sticky-total { flex: 1; min-width: 0; }
+    .sticky-total small { display: block; color: var(--muted); font-size: 10px; }
+    .sticky-total strong { font-size: 21px; letter-spacing: -.03em; }
+    .sticky-total span { color: var(--muted); font-size: 9px; display: block; margin-top: 2px; }
+    .btn { min-height: 42px; border: 0; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 15px; font-size: 12px; font-weight: 650; line-height: 1.4; }
+    .btn.primary { background: var(--primary); color: #fff; }
+    .btn.secondary { background: var(--primary-bg); color: var(--primary); }
+    .btn.outline { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+    .btn.ghost { background: var(--soft); color: var(--text); }
+    .btn.danger { background: #fff; color: var(--error); border: 1px solid #E7B7B1; }
+    .btn.disabled { background: var(--soft); color: var(--placeholder); }
+    .btn.block { width: 100%; }
+    .btn.large { min-height: 46px; font-size: 13px; }
+    .btn.small { min-height: 34px; padding: 7px 11px; font-size: 11px; }
+    .station-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .station-name { min-width: 0; }
+    .station-name small, .mini-label { display: block; color: var(--muted); font-size: 10px; margin-bottom: 3px; }
+    .station-name strong { font-size: 14px; }
+    .text-link { color: var(--primary); font-size: 11px; display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+    .open-status { display: inline-flex; align-items: center; gap: 5px; color: var(--success); background: var(--success-bg); border-radius: 20px; padding: 5px 8px; font-size: 9px; }
+    .open-status:before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+    .card.flat { box-shadow: none; }
+    .card-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .card-title strong { font-size: 14px; }
+    .card-title span { color: var(--muted); font-size: 10px; }
+    .row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .grow { flex: 1; min-width: 0; }
+    .muted { color: var(--muted); }
+    .secondary { color: var(--text); }
+    .tiny { font-size: 10px; line-height: 1.55; }
+    .small-text { font-size: 11px; line-height: 1.6; }
+    .body-text { font-size: 12px; line-height: 1.65; }
+    .strong { font-weight: 650; color: var(--ink); }
+    .address-card { display: flex; align-items: center; gap: 10px; }
+    .address-card .icon { color: var(--primary); }
+    .address-card strong { display: block; font-size: 12px; line-height: 1.5; }
+    .address-card span { color: var(--muted); font-size: 10px; }
+    .active-order { border-left: 3px solid var(--primary); }
+    .active-order strong { display: block; margin: 4px 0; font-size: 13px; }
+    .again-card { display: flex; align-items: center; gap: 11px; }
+    .again-card strong { display: block; font-size: 12px; margin-bottom: 4px; }
+    .product-art { width: 48px; height: 58px; flex: 0 0 48px; display: grid; place-items: center; background: #F2F7FA; border-radius: 9px; color: #7CA2B5; }
+    .product-art svg { width: 31px; height: 46px; }
+    .product-row { display: flex; align-items: flex-start; gap: 11px; padding: 13px 0; border-top: 1px solid var(--line); }
+    .product-row:first-of-type { border-top: 0; padding-top: 0; }
+    .product-info { flex: 1; min-width: 0; }
+    .product-info strong { display: block; font-size: 12px; line-height: 1.45; }
+    .product-info .spec { display: block; color: var(--muted); font-size: 10px; margin: 3px 0 9px; }
+    .price { color: var(--ink); font-size: 17px; font-weight: 750; letter-spacing: -.03em; }
+    .price small { font-size: 9px; color: var(--muted); font-weight: 400; letter-spacing: 0; }
+    .stepper { display: inline-flex; align-items: center; gap: 10px; }
+    .stepper button { width: 30px; height: 30px; padding: 0; border-radius: 8px; border: 1px solid var(--line-strong); background: #fff; color: var(--primary); display: grid; place-items: center; font-size: 18px; line-height: 1; }
+    .stepper button.plus { color: #fff; background: var(--primary); border-color: var(--primary); }
+    .stepper button:disabled { color: var(--placeholder); background: var(--soft); border-color: var(--line); }
+    .stepper span { min-width: 14px; text-align: center; font-size: 12px; font-weight: 650; }
+    .stepper.large button { width: 38px; height: 38px; }
+    .asset-link { display: flex; align-items: center; gap: 10px; }
+    .asset-link .icon { color: var(--muted); }
+    .asset-link strong { font-size: 12px; display: block; }
+    .asset-link span { color: var(--muted); font-size: 10px; }
+    .section-title { margin: 16px 2px 9px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .section-title strong { font-size: 13px; }
+    .section-title span { color: var(--muted); font-size: 10px; }
+    .tag { display: inline-flex; align-items: center; gap: 4px; min-height: 22px; padding: 3px 8px; border-radius: 6px; color: var(--primary); background: var(--primary-bg); font-size: 9px; font-weight: 600; white-space: nowrap; }
+    .tag.success { color: var(--success); background: var(--success-bg); }
+    .tag.warning { color: var(--warning); background: var(--warning-bg); }
+    .tag.error { color: var(--error); background: var(--error-bg); }
+    .tag.neutral { color: var(--text); background: var(--soft); }
+    .divider { height: 1px; background: var(--line); margin: 12px 0; }
+    .info-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 7px 0; font-size: 11px; line-height: 1.55; }
+    .info-row .label { color: var(--muted); flex: 0 0 auto; }
+    .info-row .value { text-align: right; color: var(--ink); min-width: 0; }
+    .info-row .value.strong { font-weight: 650; }
+    .info-row.total { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 12px; align-items: center; }
+    .info-row.total .value { font-size: 20px; font-weight: 750; }
+    .pay-option { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); }
+    .pay-option:first-child { border-top: 0; }
+    .radio { width: 17px; height: 17px; border: 1.5px solid #AAB4C0; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; }
+    .radio.on { border-color: var(--primary); }
+    .radio.on:after { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--primary); }
+    .pay-option strong { font-size: 12px; display: block; }
+    .pay-option span { font-size: 10px; color: var(--muted); }
+    .input { width: 100%; min-height: 42px; border: 1px solid var(--line-strong); border-radius: 9px; background: #fff; color: var(--ink); padding: 10px 12px; font-size: 12px; outline: none; }
+    .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+    textarea.input { min-height: 74px; resize: vertical; }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 7px; }
+    .field .helper { display: block; color: var(--muted); font-size: 9px; margin-top: 6px; line-height: 1.5; }
+    .alert { display: flex; align-items: flex-start; gap: 8px; padding: 10px 11px; border-radius: 9px; background: var(--soft); color: var(--text); font-size: 10px; line-height: 1.55; margin-bottom: 12px; border-left: 3px solid var(--primary); }
+    .alert.warning { background: var(--warning-bg); color: var(--warning); border-left-color: var(--warning); }
+    .alert.error { background: var(--error-bg); color: var(--error); border-left-color: var(--error); }
+    .alert.success { background: var(--success-bg); color: var(--success); border-left-color: var(--success); }
+    .alert .icon { width: 15px; height: 15px; margin-top: 1px; }
+    .status-head { padding: 16px 14px; background: #fff; border-bottom: 1px solid var(--line); margin: -14px -14px 14px; }
+    .status-head h4 { font-size: 20px; margin: 9px 0 5px; letter-spacing: -.03em; }
+    .status-head p { color: var(--muted); font-size: 10px; margin: 0; }
+    .amount-head { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 15px; }
+    .amount-head strong { font-size: 25px; letter-spacing: -.04em; }
+    .amount-head span { font-size: 10px; color: var(--muted); }
+    .timeline { padding: 2px 0 0 3px; }
+    .time-row { display: flex; gap: 10px; position: relative; padding-bottom: 15px; }
+    .time-row:before { content: ""; position: absolute; left: 4px; top: 12px; bottom: -1px; width: 1px; background: var(--line-strong); }
+    .time-row:last-child:before { display: none; }
+    .time-dot { width: 9px; height: 9px; margin-top: 4px; border: 2px solid #fff; border-radius: 50%; background: var(--placeholder); box-shadow: 0 0 0 1px var(--placeholder); flex: 0 0 auto; z-index: 1; }
+    .time-row.done .time-dot { background: var(--success); box-shadow: 0 0 0 1px var(--success); }
+    .time-row.current .time-dot { background: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+    .time-row strong { font-size: 11px; display: block; }
+    .time-row span { font-size: 9px; color: var(--muted); }
+    .asset-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+    .asset-stat { padding: 3px 10px; border-left: 1px solid var(--line); }
+    .asset-stat:first-child { border-left: 0; padding-left: 0; }
+    .asset-stat strong { display: block; font-size: 21px; letter-spacing: -.04em; }
+    .asset-stat span { color: var(--muted); font-size: 9px; }
+    .asset-product { padding: 13px 0; border-top: 1px solid var(--line); }
+    .asset-product:first-child { border-top: 0; }
+    .asset-numbers { display: flex; gap: 16px; margin-top: 9px; }
+    .asset-numbers div { font-size: 9px; color: var(--muted); }
+    .asset-numbers strong { color: var(--ink); font-size: 12px; margin-right: 3px; }
+    .task-tabs { display: flex; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-bottom: 12px; }
+    .task-tab { flex: 1; min-height: 43px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 8px; color: var(--muted); font-size: 10px; }
+    .task-tab span { font-size: 9px; }
+    .task-tab.active { background: var(--primary-bg); color: var(--primary); font-weight: 650; }
+    .task-card { padding: 14px; }
+    .task-address { font-size: 14px; line-height: 1.5; font-weight: 700; margin: 12px 0 4px; letter-spacing: -.01em; }
+    .task-floor { color: var(--text); font-size: 10px; margin-bottom: 12px; }
+    .task-goods { padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 11px; line-height: 1.6; }
+    .task-goods span { display: block; color: var(--muted); font-size: 9px; }
+    .task-money { display: flex; align-items: center; justify-content: space-between; margin: 11px 0; }
+    .task-money strong { font-size: 18px; }
+    .task-money .need { color: var(--warning); }
+    .task-contact { display: flex; align-items: center; justify-content: space-between; font-size: 11px; margin-bottom: 12px; }
+    .contact-actions { display: flex; gap: 6px; }
+    .icon-btn { width: 34px; height: 34px; border: 1px solid var(--line-strong); background: #fff; color: var(--primary); border-radius: 9px; display: grid; place-items: center; }
+    .task-actions { display: flex; gap: 8px; }
+    .task-actions .btn { flex: 1; }
+    .identity { padding: 9px 11px; background: #EDF2F7; color: var(--text); border-radius: 8px; font-size: 10px; margin-bottom: 10px; }
+    .unpaid-shortcut { width: 100%; text-align: left; border: 1px solid #F0D8C7; background: #FFF9F4; color: var(--warning); border-radius: 9px; padding: 10px 11px; font-size: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; }
+    .customer-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .customer-head strong { font-size: 15px; }
+    .money-highlight { background: #FFF9F4; border: 1px solid #F1DFD2; }
+    .money-highlight .big-money { font-size: 25px; font-weight: 750; color: var(--warning); letter-spacing: -.04em; }
+    .return-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+    .return-row .small-text { flex: 1; }
+    .choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .choice { padding: 11px; border: 1px solid var(--line-strong); border-radius: 9px; background: #fff; }
+    .choice.selected { border-color: var(--primary); background: var(--primary-bg); }
+    .choice strong { font-size: 11px; display: block; }
+    .choice span { font-size: 9px; color: var(--muted); }
+    .photo-upload { height: 70px; border: 1px dashed #B7C1CC; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; color: var(--muted); font-size: 9px; background: #FAFBFC; }
+    .todo-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+    .todo-item { padding: 4px 10px; border-left: 1px solid var(--line); }
+    .todo-item:first-child { border-left: 0; padding-left: 0; }
+    .todo-item strong { display: block; color: var(--warning); font-size: 20px; }
+    .todo-item span { font-size: 9px; color: var(--text); display: block; line-height: 1.4; }
+    .mgmt-link { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; border-radius: 11px; background: var(--ink); color: #fff; margin-bottom: 12px; }
+    .mgmt-link strong { font-size: 13px; }
+    .mgmt-link span { color: #C9D2DE; font-size: 9px; display: block; margin-top: 2px; }
+    .scroll-tabs { display: flex; gap: 6px; overflow: hidden; margin-bottom: 12px; }
+    .scroll-tabs .tag { min-height: 30px; padding: 6px 10px; }
+    .entry-group { margin-bottom: 17px; }
+    .entry-group h4 { margin: 0 2px 8px; font-size: 12px; display: flex; align-items: center; gap: 7px; }
+    .entry-group h4:before { content: ""; width: 3px; height: 12px; background: var(--primary); border-radius: 3px; }
+    .entry-list { background: #fff; border: 1px solid var(--line); border-radius: 11px; padding: 0 13px; }
+    .entry-row { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 10px 0; border-top: 1px solid var(--line); }
+    .entry-row:first-child { border-top: 0; }
+    .entry-row .entry-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: var(--soft); color: var(--text); }
+    .entry-row strong { display: block; font-size: 11px; }
+    .entry-row span { display: block; color: var(--muted); font-size: 9px; margin-top: 2px; }
+    .badge { min-width: 18px; height: 18px; border-radius: 10px; display: inline-grid; place-items: center; background: var(--error); color: #fff; padding: 0 5px; font-size: 9px; }
+    .range { display: flex; gap: 4px; padding: 3px; background: #E9EDF2; border-radius: 9px; margin-bottom: 12px; }
+    .range span { flex: 1; text-align: center; padding: 7px 3px; color: var(--muted); font-size: 10px; border-radius: 7px; }
+    .range .active { background: #fff; color: var(--primary); font-weight: 650; box-shadow: 0 1px 4px rgba(24,34,48,.06); }
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+    .metric { padding: 13px; min-height: 92px; border-bottom: 1px solid var(--line); }
+    .metric:nth-child(odd) { border-right: 1px solid var(--line); }
+    .metric:nth-last-child(-n+2) { border-bottom: 0; }
+    .metric small { color: var(--muted); font-size: 9px; display: block; }
+    .metric strong { display: block; margin: 6px 0 5px; font-size: 20px; letter-spacing: -.04em; }
+    .delta { color: var(--success); font-size: 9px; }
+    .delta.down { color: var(--error); }
+    .chart { width: 100%; height: 120px; }
+    .bar-row { display: grid; grid-template-columns: 50px 1fr 32px; gap: 8px; align-items: center; margin: 10px 0; font-size: 9px; }
+    .bar-track { height: 6px; border-radius: 4px; background: var(--soft); overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; background: var(--primary); }
+    .rank { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+    .rank:first-child { border-top: 0; }
+    .rank-no { width: 20px; height: 20px; display: grid; place-items: center; background: var(--soft); border-radius: 6px; font-size: 9px; color: var(--text); }
+    .rank strong { font-size: 10px; }
+    .rank span { font-size: 9px; color: var(--muted); }
+    .component-board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .component-panel { background: #fff; border: 1px solid var(--line-strong); border-radius: 16px; padding: 24px; min-width: 0; }
+    .component-panel h3 { margin: 0 0 5px; font-size: 16px; }
+    .component-panel > p { margin: 0 0 22px; color: var(--muted); font-size: 12px; }
+    .demo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 13px 0; }
+    .demo-label { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin: 20px 0 8px; }
+    .icon-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+    .icon-cell { aspect-ratio: 1; border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; color: var(--text); }
+    .icon-cell span { font-size: 9px; color: var(--muted); }
+    .toast { display: inline-flex; align-items: center; gap: 8px; padding: 11px 15px; border-radius: 9px; background: #253141; color: #fff; font-size: 11px; box-shadow: 0 8px 24px rgba(24,34,48,.18); }
+    .empty-demo { text-align: center; padding: 24px 12px; border: 1px solid var(--line); border-radius: 12px; }
+    .empty-illustration { width: 68px; height: 68px; margin: 0 auto 12px; border-radius: 22px; background: var(--soft); display: grid; place-items: center; color: #93A1B0; }
+    .empty-illustration .icon { width: 30px; height: 30px; }
+    .empty-demo strong { display: block; font-size: 13px; }
+    .empty-demo p { color: var(--muted); font-size: 10px; line-height: 1.6; margin: 6px auto 14px; max-width: 230px; }
+    .skeleton { padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+    .sk { border-radius: 6px; background: linear-gradient(90deg, #EDF0F3 25%, #F7F8FA 50%, #EDF0F3 75%); background-size: 200% 100%; animation: shimmer 1.8s infinite; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    .sk-row { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+    .sk-row:last-child { margin-bottom: 0; }
+    .sheet-demo { border: 1px solid var(--line); border-radius: 16px 16px 10px 10px; overflow: hidden; box-shadow: 0 -8px 30px rgba(24,34,48,.06); }
+    .sheet-handle { width: 34px; height: 4px; border-radius: 3px; background: #D2D8DF; margin: 8px auto; }
+    .sheet-head { display: flex; justify-content: space-between; padding: 8px 16px 12px; border-bottom: 1px solid var(--line); }
+    .sheet-body { padding: 5px 16px 12px; }
+    .sheet-footer { display: flex; gap: 9px; padding: 12px 16px 16px; border-top: 1px solid var(--line); }
+    .sheet-footer .btn { flex: 1; }
+    .token-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 10px; }
+    .token-card { background: #fff; border: 1px solid var(--line-strong); border-radius: 16px; padding: 22px; }
+    .token-card h3 { font-size: 14px; margin: 0 0 16px; }
+    .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+    .swatch-color { height: 52px; border-radius: 9px; border: 1px solid rgba(24,34,48,.06); margin-bottom: 7px; }
+    .swatch span { font-size: 9px; color: var(--muted); }
+    .type-demo { display: grid; gap: 10px; }
+    .type-demo div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 9px; }
+    .type-demo div:last-child { border: 0; padding-bottom: 0; }
+    .type-demo small { color: var(--muted); white-space: nowrap; }
+    .spec-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+    .spec-item { background: var(--page); border-radius: 10px; padding: 12px; }
+    .spec-item strong { display: block; font-size: 12px; margin-bottom: 4px; }
+    .spec-item span { font-size: 10px; color: var(--muted); line-height: 1.5; }
+    .footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line-strong); display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 11px; line-height: 1.7; }
+    [hidden] { display: none !important; }
+    @media (max-width: 1180px) { .gallery { grid-template-columns: repeat(2, minmax(340px, 1fr)); } .hero { grid-template-columns: 1fr; gap: 28px; } .hero-meta { max-width: 480px; } }
+    @media (max-width: 800px) { .shell { padding: 0 20px 50px; } .toplinks { display: none; } .hero { padding-top: 38px; } .gallery, .component-board, .token-section { grid-template-columns: 1fr; } .gallery { justify-items: center; } .mock { width: min(100%, 410px); } .filter-note { display: none; } .swatches { grid-template-columns: repeat(3, 1fr); } .icon-grid { grid-template-columns: repeat(4, 1fr); } .spec-list { grid-template-columns: 1fr; } .section-heading { align-items: flex-start; } .section-index { display: none; } }
+    @media (max-width: 390px) { .shell { padding-left: 10px; padding-right: 10px; } .phone { border-width: 5px; border-radius: 27px; } .topbar { padding: 0 8px; } h1 { font-size: 34px; } }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .sk { animation: none; } }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.8s6.5 7.1 6.5 11.3a6.5 6.5 0 0 1-13 0C5.5 9.9 12 2.8 12 2.8Z"/><path d="M9 15.2c.5 1.2 1.5 1.8 3 1.8"/></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-7h6v7"/></symbol>
+      <symbol id="i-order" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.7-4.2 3.4-6 8-6s7.3 1.8 8 6"/></symbol>
+      <symbol id="i-location" viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><path d="M7.2 3.5 4.4 5.2c-1.2.7-.8 3.5 1.5 7.2s5 6.2 7.4 7.1c2.1.8 3.6.3 4.2-.7l1-1.6-5-3-1.7 1.7c-1.5-.6-2.8-1.6-4.1-3s-2.2-2.8-2.7-4.3l2.2-2.1v-4Z"/></symbol>
+      <symbol id="i-navigation" viewBox="0 0 24 24"><path d="m21 3-8 18-2.5-7.5L3 11 21 3Z"/><path d="m10.5 13.5 4-4"/></symbol>
+      <symbol id="i-barrel" viewBox="0 0 24 24"><path d="M8 3h8M9 3v3c0 1-3 2.5-3 6v8h12v-8c0-3.5-3-5-3-6V3"/><path d="M6 12h12M9 16h6"/></symbol>
+      <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 7h18v4c-2 0-2 2 0 2v4H3v-4c2 0 2-2 0-2V7Z"/><path d="M12 7v2M12 12v2"/></symbol>
+      <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M3 6h16v14H3V6Z"/><path d="M3 6V4h13v2M14 11h7v5h-7a2.5 2.5 0 0 1 0-5Z"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5M12 17v.1"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v.1"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 7h4l2-3h6l2 3h4v13H3V7Z"/><circle cx="12" cy="13" r="4"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+      <symbol id="i-box" viewBox="0 0 24 24"><path d="m3 7 9-4 9 4-9 4-9-4Z"/><path d="m3 7 9 4 9-4v10l-9 4-9-4V7ZM12 11v10"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l-2-.6-.7-1.6.9-1.9-2.1-2.1-1.9.9-1.7-.7-.6-2h-3l-.6 2-1.6.7-1.9-.9-2.1 2.1.9 1.9-.7 1.6-2 .6v3l2 .6.7 1.6-.9 1.9 2.1 2.1 1.9-.9 1.6.7.6 2h3l.6-2 1.7-.7 1.9.9 2.1-2.1-.9-1.9.7-1.6 2-.6Z"/></symbol>
+      <symbol id="i-staff" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c.4-4 2.4-6 6-6s5.6 2 6 6M16 5c3 0 4 1.3 4 3s-1 3-3 3M17 14c2.7.3 4 2.3 4 5"/></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="i-empty" viewBox="0 0 24 24"><path d="M4 8h16l-1 12H5L4 8ZM8 8V4h8v4M9 13h6"/></symbol>
+      <symbol id="water-bottle" viewBox="0 0 44 64"><path d="M16 3h12v8c0 3 10 7 10 16v31H6V27c0-9 10-13 10-16V3Z" fill="#DCECF2" stroke="#8AAAB8" stroke-width="1.5"/><path d="M7 32c8-4 20 5 30 0v18H7V32Z" fill="#B8DCEA"/><path d="M14 4h16M9 22h26" stroke="#8AAAB8" stroke-width="1.5"/><rect x="11" y="33" width="22" height="12" rx="3" fill="#F7FBFC"/><path d="M18 37c4 0 5 4 8 4" fill="none" stroke="#7CA2B5" stroke-width="1.4"/></symbol>
+    </defs>
+  </svg>
+
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark"><svg class="icon lg"><use href="#i-drop"/></svg></div>
+        <div>AquaFlow<small>双端体验优化 · 设计预览</small></div>
+      </div>
+      <nav class="toplinks"><a href="#tokens">视觉规范</a><a href="#customer">用户端</a><a href="#delivery">配送端</a><a href="#components">组件与状态</a></nav>
+    </header>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Clear · Calm · Reliable</div>
+        <h1>让订水更轻，<br>让每一趟配送更确定。</h1>
+        <p>沿用项目现有功能蓝与浅灰白底，统一两端的排版、间距和组件语言。用户端围绕“选水与核对费用”，配送端围绕“地址、钱货与下一步”，站长端围绕“待办与经营事实”。不改变既有功能、权限和操作流程。</p>
+      </div>
+      <div class="hero-meta">
+        <div><strong>26</strong><span>用户端现有路由</span></div>
+        <div><strong>46</strong><span>配送端现有路由</span></div>
+        <div><strong>9</strong><span>代表页静态预览</span></div>
+      </div>
+    </section>
+
+    <div class="notice"><svg class="icon"><use href="#i-info"/></svg><div><strong class="strong">预览边界：</strong>本文件是保留K3原稿后的最小勘误副本，仅纠正收款默认值、支付方式与桶账示例；样式未经本轮重做。本文件是可离线打开的静态设计稿，示例姓名、单号、金额均为合成数据，仅用于表达信息层级与视觉状态；不调用接口，不代表业务逻辑或微信支付已变更。手机框内内容可滚动查看。</div></div>
+
+    <div class="filterbar">
+      <div class="filters" role="group" aria-label="筛选预览">
+        <button class="filter active" data-filter="all">全部</button>
+        <button class="filter" data-filter="customer">用户端</button>
+        <button class="filter" data-filter="delivery">配送端</button>
+        <button class="filter" data-filter="components">组件与状态</button>
+      </div>
+      <span class="filter-note">390 CSS px 等效移动端 · 44–48 px 触控目标</span>
+    </div>
+
+    <section class="section" id="tokens" data-category="components">
+      <div class="section-heading"><div><h2>统一视觉基础</h2><p>一套语义色、一套字体层级、一套 4 px 基础间距；密度随任务调整，不随页面随意变化。</p></div><span class="section-index">01 / FOUNDATION</span></div>
+      <div class="token-section">
+        <div class="token-card">
+          <h3>色彩只表达品牌与真实状态</h3>
+          <div class="swatches">
+            <div class="swatch"><div class="swatch-color" style="background:#1264D6"></div><span>主交互<br>#1264D6</span></div>
+            <div class="swatch"><div class="swatch-color" style="background:#182230"></div><span>正文<br>#182230</span></div>
+            <div class="swatch"><div class="swatch-color" style="background:#637083"></div><span>辅助<br>#637083</span></div>
+            <div class="swatch"><div class="swatch-color" style="background:#16834A"></div><span>成功<br>#16834A</span></div>
+            <div class="swatch"><div class="swatch-color" style="background:#A95516"></div><span>待关注<br>#A95516</span></div>
+            <div class="swatch"><div class="swatch-color" style="background:#BD3328"></div><span>危险<br>#BD3328</span></div>
+          </div>
+          <div class="spec-list"><div class="spec-item"><strong>背景与表面</strong><span>#F5F6F7 页面底<br>#FFFFFF 内容面</span></div><div class="spec-item"><strong>边框优先</strong><span>常规卡片不加厚阴影；仅在吸底、弹层等需要分层时使用轻阴影。</span></div><div class="spec-item"><strong>不只靠颜色</strong><span>状态章始终带文字；失败、待收款、禁用均给出原因或下一步。</span></div></div>
+        </div>
+        <div class="token-card">
+          <h3>字体、间距、圆角与触控</h3>
+          <div class="type-demo"><div><strong style="font-size:22px">页面关键结论</strong><small>20–22 / 700</small></div><div><strong style="font-size:16px">区块与卡片标题</strong><small>16–18 / 600</small></div><div><span style="font-size:14px">正文、地址、商品与操作信息</span><small>14–16 / 400–600</small></div><div><span style="font-size:12px;color:var(--muted)">辅助说明、时间、单号</span><small>12–13 / 400</small></div></div>
+          <div class="spec-list"><div class="spec-item"><strong>4 px 间距步长</strong><span>页面边距 16；卡内 16；区块间 20–24；关联项 8–12。</span></div><div class="spec-item"><strong>紧凑圆角</strong><span>卡片 12；按钮与输入 10；状态章 6；不用全胶囊化。</span></div><div class="spec-item"><strong>触控与安全区</strong><span>普通动作 ≥44 px；现场主动作 48 px；底栏预留安全区。</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="customer" data-category="customer">
+      <div class="section-heading"><div><h2>用户端 · 买水与资产</h2><p>首屏先回答“在哪订、送到哪、现在是什么状态”，费用与资产边界在动作前讲清。</p></div><span class="section-index">02 / CUSTOMER</span></div>
+      <div class="gallery">
+        <article class="mock">
+          <div class="mock-label"><div><h3>订水首页</h3><p>服务水站 → 地址 → 当前订单 → 复购与选水</p></div><span class="route">home/index</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><div class="status-icons"><span class="signal"></span><span class="battery"></span></div></div>
+            <div class="appbar"><div class="appbar-title">送水到家</div><div class="capsule">••• &nbsp;◉</div></div>
+            <div class="app-scroll home-bg with-checkout">
+              <div class="station-line"><div class="station-name"><small>服务水站</small><strong>泉清水站 · 济阳店</strong></div><a class="text-link">切换 <svg class="icon sm"><use href="#i-arrow"/></svg></a></div>
+              <div style="margin-bottom:12px"><span class="open-status">营业中 · 今日可订</span></div>
+              <div class="card address-card"><svg class="icon"><use href="#i-location"/></svg><div class="grow"><strong>济阳区纬三路 12 号 · 3 单元 502</strong><span>林先生 &nbsp; 138****6217</span></div><svg class="icon sm muted"><use href="#i-arrow"/></svg></div>
+              <div class="card active-order"><div class="row-between"><span class="mini-label" style="margin:0">当前订单</span><span class="tag">配送中</span></div><strong>2 桶纯净水正在配送</strong><div class="row-between"><span class="tiny muted">订单 #AF20261023018</span><a class="text-link">查看进度 <svg class="icon sm"><use href="#i-arrow"/></svg></a></div></div>
+              <div class="card again-card"><div class="product-art"><svg><use href="#water-bottle"/></svg></div><div class="grow"><strong>照上次订</strong><span class="tiny muted">纯净水 2 桶 · 送到原地址</span></div><button class="btn secondary small">再订一单</button></div>
+              <div class="section-title"><strong>选水订购</strong><a class="text-link"><svg class="icon sm"><use href="#i-search"/></svg> 搜索 / 全部商品</a></div>
+              <div class="card">
+                <div class="product-row"><div class="product-art"><svg><use href="#water-bottle"/></svg></div><div class="product-info"><strong>泉清饮用纯净水</strong><span class="spec">18.9 L · 循环桶</span><div class="row-between"><span class="price">¥16 <small>/ 桶</small></span><div class="stepper"><button>−</button><span>2</span><button class="plus">+</button></div></div></div></div>
+                <div class="product-row"><div class="product-art"><svg><use href="#water-bottle"/></svg></div><div class="product-info"><strong>山泉饮用天然水</strong><span class="spec">18.9 L · 循环桶</span><div class="row-between"><span class="price">¥18 <small>/ 桶</small></span><div class="stepper"><button disabled>−</button><span>0</span><button class="plus">+</button></div></div></div></div>
+              </div>
+              <div class="card asset-link"><svg class="icon lg"><use href="#i-barrel"/></svg><div class="grow"><strong>水桶与押金</strong><span>已有 2 个可用桶 · 查看退桶与押金</span></div><svg class="icon sm muted"><use href="#i-arrow"/></svg></div>
+            </div>
+            <div class="sticky-action above-tab"><div class="sticky-total"><small>零售预估 <strong>¥32</strong></small><span>已选 2 件 · 支付金额以确认页报价为准</span></div><button class="btn primary">确认订单</button></div>
+            <div class="bottom-tab"><div class="tab-item active"><svg class="icon"><use href="#i-home"/></svg><span>订水</span></div><div class="tab-item"><svg class="icon"><use href="#i-order"/></svg><span>订单</span></div><div class="tab-item"><svg class="icon"><use href="#i-user"/></svg><span>我的</span></div><i class="home-indicator"></i></div>
+          </div>
+        </article>
+
+        <article class="mock">
+          <div class="mock-label"><div><h3>确认订单</h3><p>地址与商品可改，费用来自同一次服务端报价</p></div><span class="route">order/create</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><div class="status-icons"><span class="signal"></span><span class="battery"></span></div></div>
+            <div class="appbar"><div class="row"><span class="nav-back"><svg class="icon"><use href="#i-back"/></svg></span><div class="appbar-title">确认本次订水</div></div><div class="capsule">••• &nbsp;◉</div></div>
+            <div class="app-scroll with-checkout">
+              <div class="alert"><svg class="icon"><use href="#i-info"/></svg><span>本次下单：泉清水站 · 济阳店<br>桶、水票与押金按水站分别记录。</span></div>
+              <div class="card address-card"><svg class="icon"><use href="#i-location"/></svg><div class="grow"><strong>林先生 &nbsp; 138****6217</strong><span>济阳区纬三路 12 号 · 3 单元 502</span></div><svg class="icon sm muted"><use href="#i-arrow"/></svg></div>
+              <div class="card"><div class="card-title"><strong>商品清单</strong><span>零售参考</span></div><div class="product-row"><div class="product-art"><svg><use href="#water-bottle"/></svg></div><div class="product-info"><strong>泉清饮用纯净水</strong><span class="spec">18.9 L · ¥16 / 桶</span><div class="row-between"><span class="price">¥32 <small>小计</small></span><div class="stepper"><button>−</button><span>2</span><button class="plus">+</button></div></div></div></div></div>
+              <div class="card"><div class="card-title"><strong>支付方式</strong></div><div class="pay-option"><span class="radio on"></span><svg class="icon muted"><use href="#i-wallet"/></svg><div class="grow"><strong>货到付款</strong><span>送达后向配送员付款</span></div></div><div class="pay-option"><span class="radio"></span><svg class="icon muted"><use href="#i-ticket"/></svg><div class="grow"><strong>水票支付</strong><span>可用 6 张 · 本单需 2 张</span></div></div></div>
+              <div class="card"><div class="card-title"><strong>费用摘要</strong><a class="text-link">费用明细 <svg class="icon sm"><use href="#i-arrow"/></svg></a></div><div class="info-row"><span class="label">本次报价水费</span><span class="value">¥32.00</span></div><div class="info-row"><span class="label">新增桶押金</span><span class="value">¥0.00</span></div><div class="info-row"><span class="label">配送费</span><span class="value">¥2.00</span></div><div class="info-row"><span class="label">楼层费</span><span class="value">¥1.00</span></div><div class="info-row total"><span class="label strong">本次合计</span><span class="value">¥35.00</span></div><p class="tiny muted" style="margin:8px 0 0">修改地址、数量或支付方式后将重新报价。</p></div>
+              <div class="field"><label>备注（选填）</label><input class="input" value="送达前请联系"></div>
+            </div>
+            <div class="sticky-action"><div class="sticky-total"><small>本次需付 <strong>¥35.00</strong></small><span>报价已核实 · 明细</span></div><button class="btn primary">立即下单</button></div>
+          </div>
+        </article>
+
+        <article class="mock">
+          <div class="mock-label"><div><h3>订单详情</h3><p>配送与付款双状态，商品和地址先于管理信息</p></div><span class="route">order/detail</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><div class="status-icons"><span class="signal"></span><span class="battery"></span></div></div>
+            <div class="appbar"><div class="row"><span class="nav-back"><svg class="icon"><use href="#i-back"/></svg></span><div class="appbar-title">订单详情</div></div><div class="capsule">••• &nbsp;◉</div></div>
+            <div class="app-scroll">
+              <div class="status-head"><div class="row-between"><span class="tag">配送中</span><span class="tag success">已付款</span></div><h4>这单正在配送</h4><p>订单 #AF20261023018 · 10 月 25 日 09:26 下单</p><div class="amount-head"><div><span>订单金额</span><strong>¥35.00</strong></div><a class="text-link">费用明细 <svg class="icon sm"><use href="#i-arrow"/></svg></a></div></div>
+              <div class="card"><div class="card-title"><strong>配送信息</strong></div><div class="address-card" style="margin-bottom:12px"><svg class="icon"><use href="#i-location"/></svg><div class="grow"><strong>济阳区纬三路 12 号 · 3 单元 502</strong><span>林先生 &nbsp; 138****6217 · 5 楼有电梯</span></div></div><div class="divider"></div><div class="info-row"><span class="label">送水水站</span><span class="value">泉清水站 · 济阳店</span></div><div class="info-row"><span class="label">配送员</span><span class="value">本站已安排</span></div><button class="btn outline block small"><svg class="icon sm"><use href="#i-phone"/></svg> 联系水站</button></div>
+              <div class="card"><div class="card-title"><strong>商品清单</strong><span>共 2 件</span></div><div class="product-row"><div class="product-art"><svg><use href="#water-bottle"/></svg></div><div class="product-info"><strong>泉清饮用纯净水</strong><span class="spec">18.9 L · ¥16 / 桶</span><div class="row-between"><span class="small-text muted">× 2</span><span class="strong small-text">¥32.00</span></div></div></div><div class="info-row"><span class="label">配送费 / 楼层费</span><span class="value">¥2.00 / ¥1.00</span></div><div class="info-row total"><span class="label strong">合计</span><span class="value">¥35.00</span></div></div>
+              <div class="card"><div class="card-title"><strong>订单进度</strong></div><div class="timeline"><div class="time-row done"><i class="time-dot"></i><div><strong>订单已提交</strong><span>09:26</span></div></div><div class="time-row done"><i class="time-dot"></i><div><strong>水站已接单</strong><span>09:31</span></div></div><div class="time-row current"><i class="time-dot"></i><div><strong>配送员已出发</strong><span>10:08 · 当前状态</span></div></div><div class="time-row"><i class="time-dot"></i><div><strong>等待送达</strong><span>送达后可查看回桶记录</span></div></div></div></div>
+              <div class="card"><div class="info-row"><span class="label">支付方式</span><span class="value">水票支付（本单已结清）</span></div><div class="info-row"><span class="label">备注</span><span class="value">送达前请联系</span></div></div>
+              <button class="btn secondary block">再次购买</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="mock">
+          <div class="mock-label"><div><h3>水桶与押金</h3><p>先按水站与商品看事实，再办理退桶或独立押金</p></div><span class="route">barrel/index</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><div class="status-icons"><span class="signal"></span><span class="battery"></span></div></div>
+            <div class="appbar"><div class="row"><span class="nav-back"><svg class="icon"><use href="#i-back"/></svg></span><div class="appbar-title">水桶与押金</div></div><div class="capsule">••• &nbsp;◉</div></div>
+            <div class="app-scroll">
+              <div class="station-line"><div class="station-name"><small>资产所属水站</small><strong>泉清水站 · 济阳店</strong></div><a class="text-link">押金流水 <svg class="icon sm"><use href="#i-arrow"/></svg></a></div>
+              <div class="card"><div class="asset-summary"><div class="asset-stat"><strong>3</strong><span>有效权益（份）</span></div><div class="asset-stat"><strong>2</strong><span>当前可用（份）</span></div><div class="asset-stat"><strong>¥100</strong><span>押金余额</span></div></div><div class="divider"></div><p class="tiny muted" style="margin:0">押金余额不等于本次可退金额；可退数量与金额以办理预览为准。</p></div>
+              <div class="section-title"><strong>按商品查看</strong><span>权益与占用分别说明</span></div><p class="small-text muted">以下为账面权益与占用，并非实物盘点；需交桶数以退还预览为准。</p>
+              <div class="card"><div class="asset-product"><div class="row-between"><div><strong class="body-text">泉清饮用纯净水</strong><span class="tiny muted">18.9 L · 循环桶</span></div><span class="tag neutral">2 份权益</span></div><div class="asset-numbers"><div><strong>2</strong>当前可用（份）</div><div><strong>0</strong>订单占用（份）</div></div></div><div class="asset-product"><div class="row-between"><div><strong class="body-text">山泉饮用天然水</strong><span class="tiny muted">18.9 L · 循环桶</span></div><span class="tag neutral">1 份权益</span></div><div class="asset-numbers"><div><strong>0</strong>当前可用（份）</div><div><strong>1</strong>订单占用（份）</div></div></div></div>
+              <div class="card"><div class="card-title"><strong>可办理事项</strong></div><button class="btn primary block large">申请退桶退押金</button><p class="tiny muted" style="margin:8px 0 14px">先预览需交桶数、退款金额和办理安排，再确认申请。</p><button class="btn outline block">单独办理桶押金</button></div>
+              <div class="card"><div class="card-title"><strong>最近桶账记录</strong><a class="text-link">全部 <svg class="icon sm"><use href="#i-arrow"/></svg></a></div><div class="info-row"><span class="label">10 月 23 日 · 换水回桶</span><span class="value strong">−1 桶</span></div><div class="info-row"><span class="label">10 月 18 日 · 新增押金</span><span class="value strong">+1 份权益</span></div><div class="info-row"><span class="label">10 月 18 日 · 押金收款</span><span class="value strong">¥50.00</span></div></div>
+              <div class="alert"><svg class="icon"><use href="#i-info"/></svg><span>不同水站的桶、水票与押金不通用；切换水站不会清空原记录。</span></div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="delivery" data-category="delivery">
+      <div class="section-heading"><div><h2>配送端 · 现场履约与经营管理</h2><p>提高关键事实密度和动作尺寸；不增加装饰性仪表盘，不让站长记系统术语。</p></div><span class="section-index">03 / DELIVERY</span></div>
+      <div class="gallery">
+        <article class="mock">
+          <div class="mock-label"><div><h3>配送任务</h3><p>地址 → 商品 → 收款 → 联系与主动作</p></div><span class="route">home/index</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><div class="status-icons"><span class="signal"></span><span class="battery"></span></div></div>
+            <div class="appbar"><div class="appbar-title">配送<span class="appbar-sub">营业中</span></div><div class="capsule">••• &nbsp;◉</div></div>
+            <div class="app-scroll with-tab">
+              <div class="identity">当前水站：泉清水站 · 济阳店</div>
+              <button class="unpaid-shortcut"><span>已送达待收款 2 单</span><strong>查看收款记录 ›</strong></button>
+              <div class="task-tabs"><div class="task-tab active">待配送<span>3 单</span></div><div class="task-tab">配送中<span>2 单</span></div><div class="task-tab">今日送达<span>8 单</span></div></div>
+              <div class="card task-card"><div class="row-between"><span class="tag warning">待配送</span><span class="tiny muted">#AF0236</span></div><div class="task-address">济阳区纬三路 12 号<br>3 单元 502</div><div class="task-floor">5 楼 · 有电梯</div><div class="task-goods">泉清纯净水 2 桶<span>共 1 种商品 · 备注：送达前请联系</span></div><div class="task-money"><span class="tag warning">送达后收款</span><strong class="need">¥35.00</strong></div><div class="task-contact"><span>林先生 · 138****6217</span><div class="contact-actions"><button class="icon-btn"><svg class="icon sm"><use href="#i-phone"/></svg></button><button class="icon-btn"><svg class="icon sm"><use href="#i-navigation"/></svg></button></div></div><button class="btn primary block large">接单配送</button></div>
+              <div class="card task-card"><div class="row-between"><span class="tag warning">待配送</span><span class="tiny muted">#AF0241</span></div><div class="task-address">济阳区华阳路 76 号<br>2 号楼 1 单元 301</div><div class="task-floor">3 楼 · 无电梯</div><div class="task-goods">天然水 1 桶，瓶装水 1 箱<span>共 2 种商品</span></div><div class="task-money"><span class="tag success">已付款</span><strong>¥42.00</strong></div><div class="task-contact"><span>周女士 · 136****1082</span><div class="contact-actions"><button class="icon-btn"><svg class="icon sm"><use href="#i-phone"/></svg></button><button class="icon-btn"><svg class="icon sm"><use href="#i-navigation"/></svg></button></div></div><button class="btn primary block large">接单配送</button></div>
+            </div>
+            <div class="bottom-tab"><div class="tab-item"><svg class="icon"><use href="#i-home"/></svg><span>首页</span><i class="tab-dot"></i></div><div class="tab-item active"><svg class="icon"><use href="#i-navigation"/></svg><span>配送</span></div><div class="tab-item"><svg class="icon"><use href="#i-user"/></svg><span>我的</span></div><i class="home-indicator"></i></div>
+          </div>
+        </article>
+
+        <article class="mock">
+          <div class="mock-label"><div><h3>完成配送</h3><p>本次送货 / 实际回桶 / 本次收款，三段一单</p></div><span class="route">order/complete</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><div class="status-icons"><span class="signal"></span><span class="battery"></span></div></div>
+            <div class="appbar"><div class="row"><span class="nav-back"><svg class="icon"><use href="#i-back"/></svg></span><div class="appbar-title">核对并完成配送</div></div><div class="capsule">••• &nbsp;◉</div></div>
+            <div class="app-scroll with-checkout">
+              <p class="tiny muted" style="margin:0 2px 12px">原订单 #AF20261023018 · 提交前请核对钱货</p>
+              <div class="section-title" style="margin-top:0"><strong>本次送货</strong></div>
+              <div class="card"><div class="customer-head"><strong>林先生</strong><span class="tag warning">货到付款</span></div><div class="info-row"><span class="label">地址</span><span class="value strong">纬三路 12 号 3 单元 502</span></div><div class="info-row"><span class="label">联系电话</span><span class="value" style="color:var(--primary)">138****6217 · 拨打</span></div><div class="divider"></div><div class="info-row"><span class="label">泉清饮用纯净水</span><span class="value strong">2 桶</span></div></div>
+              <div class="card money-highlight"><span class="tiny muted">本单尚应收</span><div class="row-between" style="margin-top:4px"><strong class="big-money">¥35.00</strong><span class="tag warning">待收款</span></div><p class="tiny muted" style="margin:6px 0 0">含新增桶押金 ¥0.00 · 金额来自原订单</p></div>
+              <div class="section-title"><strong>实际收回空桶</strong><span>按商品核对</span></div>
+              <div class="card"><strong class="body-text">泉清饮用纯净水</strong><div class="return-row"><span class="small-text">送出 <strong>2</strong> 桶</span><div class="stepper large"><button>−</button><span>2</span><button class="plus">+</button></div><span class="small-text">实回 <strong>2</strong> 桶</span></div><p class="tiny muted" style="margin:10px 0 0">默认值来自本单回桶建议，可改为实际数量。</p></div>
+              <div class="section-title"><strong>本次收款</strong><span>请按现场事实选择</span></div>
+              <div class="choice-grid"><div class="choice"><div class="row"><span class="radio"></span><strong>已收齐</strong></div><span>钱已到手，这单结清</span></div><div class="choice"><div class="row"><span class="radio"></span><strong>未收款</strong></div><span>保留待收款并交站长核对</span></div></div>
+              <div class="section-title"><strong>送达凭证</strong><span>选填</span></div><div class="photo-upload"><svg class="icon lg"><use href="#i-camera"/></svg><span>添加送达现场照片 · 最多 3 张</span></div>
+            </div>
+            <div class="sticky-action"><button class="btn primary block large">确认完成配送</button></div>
+          </div>
+        </article>
+
+        <article class="mock">
+          <div class="mock-label"><div><h3>站长工作台</h3><p>真实待办优先，管理入口常驻，不堆零计数</p></div><span class="route">coordination/index</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><div class="status-icons"><span class="signal"></span><span class="battery"></span></div></div>
+            <div class="appbar"><div class="appbar-title">首页<span class="appbar-sub">营业中</span></div><div class="capsule">••• &nbsp;◉</div></div>
+            <div class="app-scroll with-tab">
+              <div class="identity">泉清水站 · 济阳店 <span style="float:right">站长 · 陈建国</span></div>
+              <div class="card"><div class="card-title"><strong>本站待办</strong><a class="text-link">全部待处理 <svg class="icon sm"><use href="#i-arrow"/></svg></a></div><div class="todo-grid"><div class="todo-item"><strong>3</strong><span>待分配订单</span></div><div class="todo-item"><strong>2</strong><span>待确认收款<br>¥86.00</span></div><div class="todo-item"><strong>1</strong><span>退桶审批</span></div></div></div>
+              <div class="mgmt-link"><div><strong>水站管理</strong><span>订单、客户、资金、库存与经营数据</span></div><svg class="icon"><use href="#i-arrow"/></svg></div>
+              <div class="scroll-tabs"><span class="tag">待分配 3</span><span class="tag neutral">审批 1</span><span class="tag neutral">抢单池</span><span class="tag neutral">外派</span></div>
+              <div class="row-between" style="margin:4px 2px 10px"><strong class="body-text">待分配</strong><a class="text-link">查全部订单 <svg class="icon sm"><use href="#i-arrow"/></svg></a></div>
+              <div class="card task-card"><div class="row-between"><span class="tag warning">待分配</span><span class="tiny muted">#AF0236</span></div><div class="info-row"><span class="label">客户</span><span class="value strong">林先生 · 138****6217</span></div><div class="info-row"><span class="label">商品</span><span class="value">泉清纯净水 2 桶</span></div><div class="task-address" style="font-size:12px;margin-top:8px">济阳区纬三路 12 号 · 3 单元 502</div><div class="task-actions"><button class="btn primary">分配配送员</button><button class="btn outline">外派</button></div></div>
+              <div class="card task-card"><div class="row-between"><span class="tag warning">待分配</span><span class="tiny muted">#AF0241</span></div><div class="info-row"><span class="label">客户</span><span class="value strong">周女士 · 136****1082</span></div><div class="info-row"><span class="label">商品</span><span class="value">天然水 1 桶，瓶装水 1 箱</span></div><div class="task-address" style="font-size:12px;margin-top:8px">济阳区华阳路 76 号 · 2 号楼 301</div><div class="task-actions"><button class="btn primary">分配配送员</button><button class="btn outline">外派</button></div></div>
+            </div>
+            <div class="bottom-tab"><div class="tab-item active"><svg class="icon"><use href="#i-home"/></svg><span>首页</span><i class="tab-dot"></i></div><div class="tab-item"><svg class="icon"><use href="#i-navigation"/></svg><span>配送</span></div><div class="tab-item"><svg class="icon"><use href="#i-user"/></svg><span>我的</span></div><i class="home-indicator"></i></div>
+          </div>
+        </article>
+
+        <article class="mock">
+          <div class="mock-label"><div><h3>水站管理</h3><p>五组行列表；徽标只提醒真实待办，未知不当零</p></div><span class="route">station-mgmt/index</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><div class="status-icons"><span class="signal"></span><span class="battery"></span></div></div>
+            <div class="appbar"><div class="row"><span class="nav-back"><svg class="icon"><use href="#i-back"/></svg></span><div class="appbar-title">水站工作台</div></div><div class="capsule">••• &nbsp;◉</div></div>
+            <div class="app-scroll">
+              <p class="tiny muted" style="margin:0 2px 15px">先处理待办，再查订单、客户与经营情况。</p>
+              <div class="entry-group"><h4>订单与客户</h4><div class="entry-list"><div class="entry-row"><div class="entry-icon"><svg class="icon sm"><use href="#i-order"/></svg></div><div class="grow"><strong>订单管理</strong><span>查全部订单、按状态筛选</span></div><svg class="icon sm muted"><use href="#i-arrow"/></svg></div><div class="entry-row"><div class="entry-icon"><svg class="icon sm"><use href="#i-alert"/></svg></div><div class="grow"><strong>异常订单</strong><span>桶异常单与处理记录</span></div><svg class="icon sm muted"><use href="#i-arrow"/></svg></div><div class="entry-row"><div class="entry-icon"><svg class="icon sm"><use href="#i-user"/></svg></div><div class="grow"><strong>客户</strong><span>普通、企业、待审</span></div><svg class="icon sm muted"><use href="#i-arrow"/></svg></div><div class="entry-row"><div class="entry-icon"><svg class="icon sm"><use href="#i-order"/></svg></div><div class="grow"><strong>客户反馈</strong><span>退款争议与处理记录</span></div><span class="badge">2</span><svg class="icon sm muted"><use href="#i-arrow"/></svg></div></div></div>
+              <div class="entry-group"><h4>收款与工资</h4><div class="entry-list"><div class="entry-row"><div class="entry-icon"><svg class="icon sm"><use href="#i-wallet"/></svg></div><div class="grow"><strong>应收账款</strong><span>待收款、账期、登记已收款</span></div><span class="badge">3</span><svg class="icon sm muted"><use href="#i-arrow"/></svg></div><div class="entry-row"><div class="entry-icon"><svg class="icon sm"><use href="#i-check"/></svg></div><div class="grow"><strong>待确认收款</strong><span>核对到账、确认收款</span></div><svg class="icon sm muted"><use href="#i-arrow"/></svg></div><div class="entry-row"><div class="entry-icon"><svg class="icon sm"><use href="#i-chart"/></svg></div><div class="grow"><strong>计件工资</strong><span>按桶计价与结算单</span></div><svg class="icon sm muted"><use href="#i-arrow"/></svg></div></div></div>
+              <div class="entry-group"><h4>桶与库存</h4><div class="entry-list"><div class="entry-row"><div class="entry-icon"><svg class="icon sm"><use href="#i-barrel"/></svg></div><div class="grow"><strong>退桶审批</strong><span>审核退桶、退押金</span></div><span class="badge">1</span><svg class="icon sm muted"><use href="#i-arrow"/></svg></div><div class="entry-row"><div class="entry-icon"><svg class="icon sm"><use href="#i-box"/></svg></div><div class="grow"><strong>商品与库存</strong><span>上架、定价、水票</span></div><svg class="icon sm muted"><use href="#i-arrow"/></svg></div></div></div>
+              <div class="entry-group"><h4>水站设置 / 经营数据</h4><div class="entry-list"><div class="entry-row"><div class="entry-icon"><svg class="icon sm"><use href="#i-settings"/></svg></div><div class="grow"><strong>配送计费与营业设置</strong><span>费用、公告、员工与水站资料</span></div><svg class="icon sm muted"><use href="#i-arrow"/></svg></div><div class="entry-row"><div class="entry-icon"><svg class="icon sm"><use href="#i-chart"/></svg></div><div class="grow"><strong>经营看板</strong><span>趋势、分布、排行</span></div><svg class="icon sm muted"><use href="#i-arrow"/></svg></div></div></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="mock">
+          <div class="mock-label"><div><h3>经营看板</h3><p>指标、口径与趋势同一屏阅读，不用装饰性大卡</p></div><span class="route">station-mgmt/dashboard</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><div class="status-icons"><span class="signal"></span><span class="battery"></span></div></div>
+            <div class="appbar"><div class="row"><span class="nav-back"><svg class="icon"><use href="#i-back"/></svg></span><div class="appbar-title">经营看板</div></div><div class="capsule">••• &nbsp;◉</div></div>
+            <div class="app-scroll">
+              <div class="range"><span>今日</span><span class="active">近 7 日</span><span>近 30 日</span><span>自定义</span></div>
+              <div class="metric-grid"><div class="metric"><small>订单数</small><strong>126</strong><span class="delta">↑ 8.6% · 上期 116</span></div><div class="metric"><small>营业额</small><strong>¥2,184</strong><span class="delta">↑ 6.2% · 上期 ¥2,056</span></div><div class="metric"><small>订单已付款</small><strong>¥1,962</strong><span class="delta">↑ 4.8% · 非本站实收</span></div><div class="metric"><small>待收款</small><strong>¥222</strong><span class="delta down">8 单 · 查看应收</span></div></div>
+              <div class="alert"><svg class="icon"><use href="#i-info"/></svg><span>营业额按结算站统计；“订单已付款”不等于本站实际到账。</span></div>
+              <div class="card"><div class="card-title"><strong>订单与金额趋势</strong><span>单量 ⌄</span></div><svg class="chart" viewBox="0 0 300 120" preserveAspectRatio="none"><g stroke="#E8ECF1" stroke-width="1"><path d="M10 20H290M10 50H290M10 80H290M10 110H290"/></g><path d="M10 95 C35 82 45 87 60 72 S90 62 110 70 S140 84 160 55 S195 30 210 45 S240 58 260 28 S280 24 290 18 L290 110 L10 110Z" fill="#EAF3FF"/><path d="M10 95 C35 82 45 87 60 72 S90 62 110 70 S140 84 160 55 S195 30 210 45 S240 58 260 28 S280 24 290 18" fill="none" stroke="#1264D6" stroke-width="2.5" stroke-linecap="round"/><g fill="#1264D6"><circle cx="10" cy="95" r="3"/><circle cx="60" cy="72" r="3"/><circle cx="110" cy="70" r="3"/><circle cx="160" cy="55" r="3"/><circle cx="210" cy="45" r="3"/><circle cx="260" cy="28" r="3"/><circle cx="290" cy="18" r="3"/></g><g fill="#637083" font-size="8" font-family="sans-serif"><text x="10" y="120">10/19</text><text x="95" y="120">10/21</text><text x="185" y="120">10/23</text><text x="265" y="120">10/25</text></g></svg></div>
+              <div class="card"><div class="card-title"><strong>订单状态分布</strong><span>共 126 单</span></div><div class="bar-row"><span>已完成</span><div class="bar-track"><div class="bar-fill" style="width:78%"></div></div><strong>98</strong></div><div class="bar-row"><span>配送中</span><div class="bar-track"><div class="bar-fill" style="width:14%"></div></div><strong>18</strong></div><div class="bar-row"><span>待配送</span><div class="bar-track"><div class="bar-fill" style="width:6%"></div></div><strong>7</strong></div><div class="bar-row"><span>已取消</span><div class="bar-track"><div class="bar-fill" style="width:2%;background:#9CA7B5"></div></div><strong>3</strong></div></div>
+              <div class="card"><div class="card-title"><strong>热销商品</strong><span>前 3</span></div><div class="rank"><span class="rank-no">1</span><div class="grow"><strong>泉清饮用纯净水</strong><span> 86 桶</span></div><strong>¥1,376</strong></div><div class="rank"><span class="rank-no">2</span><div class="grow"><strong>山泉饮用天然水</strong><span> 28 桶</span></div><strong>¥504</strong></div><div class="rank"><span class="rank-no">3</span><div class="grow"><strong>瓶装饮用水</strong><span> 19 箱</span></div><strong>¥304</strong></div></div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="components" data-category="components">
+      <div class="section-heading"><div><h2>组件与反馈状态</h2><p>小型组件也纳入同一规范：默认、选中、禁用、处理中、失败与真实空结果都有明确样式。</p></div><span class="section-index">04 / COMPONENTS</span></div>
+      <div class="component-board">
+        <div class="component-panel">
+          <h3>按钮、状态章与图标</h3><p>同一任务区只保留一个主按钮；危险操作不做成大面积红块。</p>
+          <div class="demo-label">动作层级</div><div class="demo-row"><button class="btn primary">主要动作</button><button class="btn secondary">次要动作</button><button class="btn outline">描边动作</button></div><div class="demo-row"><button class="btn ghost">普通辅助</button><button class="btn danger">危险操作</button><button class="btn disabled" disabled>暂不可操作</button></div>
+          <div class="demo-label">业务状态</div><div class="demo-row"><span class="tag">配送中</span><span class="tag success">已完成</span><span class="tag warning">待收款</span><span class="tag error">读取失败</span><span class="tag neutral">线下</span></div>
+          <div class="demo-label">线性图标 · 统一 1.8 px 线宽</div><div class="icon-grid"><div class="icon-cell"><svg class="icon"><use href="#i-home"/></svg><span>首页</span></div><div class="icon-cell"><svg class="icon"><use href="#i-order"/></svg><span>订单</span></div><div class="icon-cell"><svg class="icon"><use href="#i-barrel"/></svg><span>水桶</span></div><div class="icon-cell"><svg class="icon"><use href="#i-location"/></svg><span>地址</span></div><div class="icon-cell"><svg class="icon"><use href="#i-phone"/></svg><span>联系</span></div><div class="icon-cell"><svg class="icon"><use href="#i-navigation"/></svg><span>导航</span></div><div class="icon-cell"><svg class="icon"><use href="#i-wallet"/></svg><span>资金</span></div><div class="icon-cell"><svg class="icon"><use href="#i-ticket"/></svg><span>水票</span></div><div class="icon-cell"><svg class="icon"><use href="#i-box"/></svg><span>库存</span></div><div class="icon-cell"><svg class="icon"><use href="#i-chart"/></svg><span>经营</span></div><div class="icon-cell"><svg class="icon"><use href="#i-staff"/></svg><span>员工</span></div><div class="icon-cell"><svg class="icon"><use href="#i-settings"/></svg><span>设置</span></div></div>
+        </div>
+
+        <div class="component-panel">
+          <h3>表单、选择与数量</h3><p>标签在输入框上方；错误靠近字段；数量步进器保留完整触控热区。</p>
+          <div class="field"><label>收货人</label><input class="input" value="林先生"><span class="helper">使用订单快照，不改变客户档案。</span></div>
+          <div class="field"><label>联系电话</label><input class="input" value="138 0000 6217"></div>
+          <div class="field"><label>备注（选填）</label><textarea class="input">送达前请联系；水放在门口请先拍照。</textarea><span class="helper">最多 200 字，长内容允许换行。</span></div>
+          <div class="demo-label">数量与单选</div><div class="demo-row" style="justify-content:space-between"><span class="body-text strong">泉清纯净水 · 18.9 L</span><div class="stepper large"><button>−</button><span>2</span><button class="plus">+</button></div></div>
+          <div class="choice-grid" style="margin-top:14px"><div class="choice"><div class="row"><span class="radio"></span><strong>已收齐</strong></div><span>明确选择，不默认勾选</span></div><div class="choice"><div class="row"><span class="radio"></span><strong>未收款</strong></div><span>保留后续核对入口</span></div></div>
+          <div class="alert warning" style="margin:16px 0 0"><svg class="icon"><use href="#i-alert"/></svg><span>实际回桶比建议少 1 桶。可填写原因，未填写部分保留差额。</span></div>
+        </div>
+
+        <div class="component-panel">
+          <h3>提示、空状态与加载状态</h3><p>普通读取失败不滥用红色；“没有数据”和“没加载出来”严格区分。</p>
+          <div class="demo-row"><div class="toast"><svg class="icon sm"><use href="#i-check"/></svg>资料已保存</div><div class="toast"><svg class="icon sm"><use href="#i-info"/></svg>已复制地址</div></div>
+          <div class="alert"><svg class="icon"><use href="#i-info"/></svg><span><strong>部分信息暂未加载</strong><br>已显示成功读取的内容；可重新加载，不把未知显示成 0。</span></div>
+          <div class="empty-demo"><div class="empty-illustration"><svg class="icon"><use href="#i-empty"/></svg></div><strong>今天还没有已送达订单</strong><p>完成配送后，记录会出现在这里。你也可以先查看待配送任务。</p><button class="btn secondary small">查看待配送</button></div>
+          <div class="demo-label">骨架屏 · 匹配真实内容结构</div><div class="skeleton"><div class="sk-row"><div class="sk" style="width:48px;height:58px"></div><div class="grow"><div class="sk" style="height:12px;width:62%;margin-bottom:9px"></div><div class="sk" style="height:9px;width:40%;margin-bottom:12px"></div><div class="sk" style="height:16px;width:82%"></div></div></div><div class="sk" style="height:1px;margin:14px 0"></div><div class="sk-row"><div class="sk" style="height:12px;width:35%"></div><div class="sk" style="height:24px;width:30%;margin-left:auto"></div></div></div>
+        </div>
+
+        <div class="component-panel">
+          <h3>弹窗、底部动作单与费用抽屉</h3><p>标题说任务，正文说后果；长内容独立滚动，操作固定且不遮安全区。</p>
+          <div class="sheet-demo"><div class="sheet-handle"></div><div class="sheet-head"><strong class="body-text">费用明细</strong><svg class="icon sm muted"><use href="#i-close"/></svg></div><div class="sheet-body"><div class="info-row"><span class="label">泉清纯净水 × 2</span><span class="value">¥32.00</span></div><div class="info-row"><span class="label">本次报价水费</span><span class="value strong">¥32.00</span></div><div class="divider"></div><div class="info-row"><span class="label">新增桶押金</span><span class="value">¥0.00</span></div><div class="info-row"><span class="label">配送费</span><span class="value">¥2.00</span></div><div class="info-row"><span class="label">楼层费</span><span class="value">¥1.00</span></div><div class="info-row total"><span class="label strong">本次需付</span><span class="value">¥35.00</span></div></div><div class="sheet-footer"><button class="btn ghost">关闭</button><button class="btn primary">返回订单</button></div></div>
+          <div class="demo-label">资金与风险确认</div><div class="alert warning"><svg class="icon"><use href="#i-alert"/></svg><span>确认前显示实际收桶数、退款金额与责任后果。结果未知时先核实原申请，不直接再次退款。</span></div>
+          <div class="sheet-demo"><div class="sheet-body" style="padding-top:16px"><strong class="body-text">确认已收到 ¥35.00？</strong><p class="small-text muted">确认后这笔待收款将记为已付款。请只在款项实际到手后操作。</p></div><div class="sheet-footer"><button class="btn ghost">取消</button><button class="btn primary">确认已收款</button></div></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer"><div><strong>AquaFlow 双端视觉与交互优化</strong><br>静态代表页：用户端 4 页 · 配送端 5 页 · 共享组件 4 组</div><div>基于两端 app.json 当前 72 个路由梳理<br>不改业务状态机、报价、权限、支付、退款与桶账口径</div></footer>
+  </main>
+
+  <script>
+    const filterButtons = document.querySelectorAll('.filter');
+    const categories = document.querySelectorAll('[data-category]');
+    filterButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        filterButtons.forEach(item => item.classList.remove('active'));
+        button.classList.add('active');
+        const filter = button.dataset.filter;
+        categories.forEach(section => {
+          section.hidden = filter !== 'all' && section.dataset.category !== filter;
+        });
+      });
+    });
+  </script>
+</body>
+</html>

@@ -291,6 +291,7 @@
     <!-- ══ 底部：只放三样 —— 实付 / 需扣水票 + 明细入口 + 当前主动作（§3）══
          「结果未知」与「已下单提示」两行**不许删**：它们防的是"重试变第二单"，
          是 §2「有订单号后网络失败围绕原单恢复」的实现。两行只在对应状态下出现，不占常显位置。 -->
+    <view class="quote-block-spacer" aria-hidden="true" wx:if="{{blocked && quoteBlockSummary && !submitting && !pendingOrderId && submitState !== 'unknown' && !orderNavigationRecoveryStyle}}"></view>
     <view class="bottom-bar" wx:if="{{!loading}}">
       <!-- 提交结果无法确认（契约 A1/A3）：**不跳成功页、不支付**，把"重试会沿用同一次提交"
            说清楚 —— 服务端可能已经建单，同键重提会命中幂等拿回原单，不会重复下单。 -->
@@ -314,6 +315,11 @@
         <text class="pending-order-sub" bindtap="onViewPendingOrder">看订单详情 ›</text>
       </view>
 
+      <!-- 已有阻断原因靠近提交；长文可查看，原报价/恢复闸门保持不变。 -->
+      <view class="quote-block-notice" wx:if="{{blocked && quoteBlockSummary && !submitting && !pendingOrderId && submitState !== 'unknown'}}">
+        <text class="quote-block-summary">{{quoteBlockSummary}}</text>
+        <button class="quote-block-detail" wx:if="{{quoteBlockDetail}}" bindtap="onViewQuoteBlockReason">查看原因</button>
+      </view>
       <view class="bar-main">
         <view class="total-info" bindtap="onShowDetail">
           <!-- 水票整单结清：底栏只留抵扣行（扣几张 + 抵扣多少）+「本次需付 ¥0.00」，

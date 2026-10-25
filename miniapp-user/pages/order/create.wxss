@@ -536,7 +536,7 @@
   line-height: 1.6;
 }
 
-/* ========== 底部提交栏（§3：只放三样 —— 实付 / 需扣水票 + 明细入口 + 当前主动作）==========
+/* ========== 底部提交栏：金额、明细、主动作及必要阻断原因 ==========
    「结果未知」与「已下单提示」两条仍在这个容器里，但只在对应状态出现（它们防的是
    "重试变第二单"，不许删）。逐项费用已于 2026-09-26 搬到正文「费用摘要」，底栏不再重复列。 */
 .bottom-bar {
@@ -550,6 +550,13 @@
   padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
   z-index: 100;
 }
+
+/* 2026-10-25：测量前给原因行留白；长文在原生弹窗阅读，不能挤掉提交按钮。 */
+.quote-block-spacer { height: calc(100px + env(safe-area-inset-bottom)); }
+.quote-block-notice { display: flex; align-items: center; gap: 12rpx; padding-bottom: 12rpx; }
+.quote-block-summary { flex: 1; min-width: 0; color: var(--text-primary); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.quote-block-detail { flex: none; margin: 0; padding: 0 8px; min-height: 44px; height: auto; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--primary-color); font-size: 14px; line-height: 1.5; }
+.quote-block-detail::after { border: none; }
 
 /* 实付 + 主动作同一行；上面可能压着「结果未知 / 已下单」两条提示 */
 .bar-main {

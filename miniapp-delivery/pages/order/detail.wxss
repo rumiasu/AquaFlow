@@ -351,7 +351,8 @@
   font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
-  min-height: 44px;
+  /* 现场导航、收款与履约动作共用48px下限，不改变主次样式。 */
+  min-height: 48px;
   height: auto;
   white-space: normal;
 }
@@ -610,7 +611,7 @@
 }
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
-.contact-card .info-row { min-height: 96rpx; box-sizing: border-box; align-items: center; gap: 16rpx; }
+.contact-card .info-row { min-height: 48px; box-sizing: border-box; align-items: center; gap: 16rpx; }
 .contact-card .info-text { min-width: 0; word-break: break-all; }
 .contact-card .info-row:first-child { align-items: flex-start; padding: 8rpx 0 20rpx; }
 .contact-card .info-row:nth-child(2) .info-text { font-size: 32rpx; font-weight: 600; }

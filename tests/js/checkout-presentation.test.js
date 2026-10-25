@@ -2,6 +2,7 @@
 const assert = require('assert')
 const { loadPage, createWx, armWatchdog, ROOT } = require('./harness')
 const fs = require('fs'), path = require('path')
+const { parseWxml, renderElements } = require('./wxml-tree')
 const done = armWatchdog(), tests = []
 const test = (name, run) => tests.push({ name, run })
 const reason = '水票不能支付新增押金，请改选付款方式、或先独立办理押金；已有容量被占用时也可等待释放'
@@ -289,6 +290,69 @@ test('下单内联和弹窗押金说明均区分未领桶、实际交接与退�
   assert.strictEqual((text.match(/退还申请、实际交接和退款分别办理。/g) || []).length, 2)
   assert.ok(!text.includes('归还空桶后押金退还给你'))
   assert.ok(!text.includes('将空桶归还水站后，押金退还给你'))
+})
+
+test('底栏展示当前报价阻断原因，长原因可读完整内容且不触发资金动作', async () => {
+  const longReason = reason + '。请核对本次商品与支付方式后重新报价。'
+  const t = fixture(async () => { const r = quote(); r.data.blockReason = longReason; return r })
+  await t.page.refreshQuote()
+  assert.strictEqual(t.page.data.blockReason, longReason)
+  assert.ok(t.page.data.quoteBlockSummary.startsWith('水票不能支付新增押金'))
+  assert.strictEqual(t.page.data.quoteBlockDetail, longReason)
+  t.page.onViewQuoteBlockReason()
+  assert.strictEqual(t.wx.__calls.modal.at(-1).content, longReason)
+  assert.strictEqual(t.calls.orders, 0); assert.strictEqual(t.calls.payments, 0)
+})
+
+test('底栏原因随新报价失效和恢复，成功报价不残留旧阻断', async () => {
+  let blocked = true
+  const t = fixture(async () => { const r = quote(); r.data.blocked = blocked; return r })
+  await t.page.refreshQuote()
+  t.page.invalidateQuote()
+  assert.strictEqual(t.page.data.quoteBlockSummary, '正在核实最新报价，请稍候')
+  assert.strictEqual(t.page.data.quoteBlockDetail, '')
+  blocked = false
+  await t.page.refreshQuote()
+  assert.strictEqual(t.page.data.blocked, false)
+  assert.strictEqual(t.page.data.quoteBlockSummary, '')
+  assert.strictEqual(t.page.data.quoteBlockDetail, '')
+  assert.strictEqual(t.calls.orders, 0); assert.strictEqual(t.calls.payments, 0)
+})
+
+test('底栏不透传技术错误，原拒绝事实保留；恢复原单期间不出现新报价提示', async () => {
+  const raw = 'HTTP 500 /api/payment stationId=1，报价异常'
+  const t = fixture(async () => { const r = quote(); r.data.blockReason = raw; return r })
+  await t.page.refreshQuote()
+  assert.strictEqual(t.page.data.blockReason, raw)
+  assert.strictEqual(t.page.data.quoteBlockSummary, '最新金额和支付方式尚未核实，请重试报价')
+  const source = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxml'), 'utf8')
+  const find = n => (n.attrs && n.attrs.class === 'quote-block-notice' ? n : (n.children || []).map(find).find(Boolean))
+  const notice = find(parseWxml(source))
+  const tree = { children: [notice] }
+  const base = { ...t.page.data, submitting: false, pendingOrderId: null, submitState: 'idle' }
+  assert.ok(renderElements(tree, base, { includeText: true }).some(n => n.text === base.quoteBlockSummary))
+  for (const state of [{ submitting: true }, { pendingOrderId: 81 }, { submitState: 'unknown' }, { blocked: false }]) {
+    assert.strictEqual(renderElements(tree, { ...base, ...state }).length, 0)
+  }
+  assert.strictEqual(t.calls.orders, 0); assert.strictEqual(t.calls.payments, 0)
+})
+
+test('底栏新增原因按实测高度留白，旧测量回调不能覆盖当前布局', () => {
+  const t = fixture(), callbacks = []
+  t.wx.createSelectorQuery = () => {
+    const q = { in: () => q, select: () => q, boundingClientRect: cb => { callbacks.push(cb); return q }, exec: () => {} }
+    return q
+  }
+  t.page.setData({ blocked: true, blockReason: reason })
+  t.page._syncQuoteBlockNotice()
+  t.page.setData({ blockReason: '请先核实配送地址' })
+  t.page._syncQuoteBlockNotice()
+  callbacks[0]({ height: 300 })
+  assert.strictEqual(t.page.data.orderNavigationRecoveryStyle, '')
+  callbacks[1]({ height: 150 })
+  assert.strictEqual(t.page.data.orderNavigationRecoveryStyle, 'padding-bottom:calc(150px + 24rpx)')
+  t.page.setData({ blocked: false }); t.page._syncQuoteBlockNotice()
+  assert.strictEqual(t.page.data.orderNavigationRecoveryStyle, '')
 })
 
 ;(async () => {

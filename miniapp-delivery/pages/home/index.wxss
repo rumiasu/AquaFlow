@@ -79,8 +79,9 @@
   flex-wrap: wrap;
 }
 .customer-name { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
-.customer-phone { font-size: 30rpx; color: var(--primary-color); padding: 4rpx 0;
-  min-height: 96rpx;
+.customer-phone { font-size: 16px; color: var(--primary-color); padding: 4rpx 0;
+  /* 2026-10-25：96rpx 在窄屏不足44px；现场联系用固定触控下限。 */
+  min-height: 48px;
   display: flex;
   align-items: center;
   word-break: break-all;
@@ -112,24 +113,22 @@
 .address-text { font-size: 36rpx; font-weight: 700; color: var(--text-primary); line-height: 1.4;
   overflow-wrap: anywhere;
 }
-.address-text.floor-text { font-size: 26rpx; font-weight: 400; color: var(--text-secondary); }
+.address-text.floor-text { font-size: 14px; font-weight: 400; color: var(--text-secondary); }
 
 .card-actions { display: flex; gap: 12rpx; margin-top: 8rpx;
   flex-wrap: wrap;
 }
-/* 卡上的主动作（接单配送 / 完成配送 / 确认收款）按 §6 的控件尺寸给到 88rpx：
-   配送员是站在车边、手上可能戴着东西点的，64rpx 那一版明显偏小。
-   胶囊圆角跟着高度走（半径 = 高度一半）。 */
+/* 2026-10-25：现场主动作至少48px；保留原动作层级，长文案可撑高。 */
 .btn-accept {
   flex: 1; height: auto; line-height: 1.5; background: var(--primary-color); color: #fff;
   border-radius:12rpx; font-size: 14px; font-weight: 600; border: none;
-  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
+  box-shadow: none; min-height:48px; display:flex; align-items:center; justify-content:center; }
 .btn-accept::after { border: none; }
 
 .btn-complete {
   flex: 1; height: auto; line-height: 1.5; background: #0960D7; color: #fff;
   border-radius:12rpx; font-size: 14px; font-weight: 600; border: none;
-  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
+  box-shadow: none; min-height:48px; display:flex; align-items:center; justify-content:center; }
 .btn-complete::after { border: none; }
 
 .btn-outline-small {
@@ -335,9 +334,11 @@
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
 .card-actions button, .modal-cancel { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
 .card-actions button { flex: 1 1 240rpx; }
+.card-actions .btn-accept, .card-actions .btn-complete { min-height: 48px; }
 .unpaid-section .order-card { margin-bottom: 12rpx; }
 .home-station-identity { font-weight: 600; }
-.pay-label, .pay-amount { font-size: 30rpx; }
+.pay-label { font-size: 14px; }
+.pay-amount { font-size: 16px; }
 .modal-item { min-height: 96rpx; box-sizing: border-box; }
 .collection-recovery { margin: 20rpx 24rpx; padding: 24rpx; background: var(--bg-gray); color: var(--text-regular); border-radius: 12rpx; font-size: 28rpx; line-height: 1.6; border-left: 4rpx solid var(--primary-color); }
 .collection-recovery text { display: block; white-space: normal; }

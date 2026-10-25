@@ -1,0 +1,93 @@
+{
+  "baseline": "632a24af1ff0beebcda75c1cdc4170816d5b11de",
+  "target_branch": "codex/fix-fee-drawer-layout-20261018",
+  "source_sha256": {
+    "miniapp-delivery/pages/home/index.wxss": "f82e06050dfcb7c55d8b0f69629bc4c4dd7081fe5b9dd7bf6e68a464803290b3",
+    "miniapp-delivery/pages/order/complete.wxss": "f546fb54aee4c082d6a04cb00a4ac9722b05e6e98b94cebaf2074cdcf5cb5972",
+    "miniapp-delivery/pages/order/detail.wxss": "41d8a43e20ff64eb3a3786e32a293309215acb9a30057ca9dff56d5e97fae5b4",
+    "miniapp-user/pages/order/create.js": "0260f5f1c73468cae8ebd80ad494400fe3457f3e876efc5f0960300f409ba79b",
+    "miniapp-user/pages/order/create.wxml": "42629853de0fe1eec83e4831e1a87b25364655d3928e372b8497ae097156bd03",
+    "miniapp-user/pages/order/create.wxss": "fdb5ca1d6affe62152ec52950cc67ef173c2b57a25f48a9866c5d74eae58a297",
+    "tests/js/checkout-presentation.test.js": "e1a6b530a8364ee1cdc9db65c9d18b096bd42ebb819fbf979caacb79a3da558a"
+  },
+  "tested_patch_sha256": "163223e346e5ce4d6bc8e2890308c8ed5d8b07de95666ce6b10f720ae4f1d7d7",
+  "regression": {
+    "origin": "Completed before quota interruption; unchanged source patch verified on resume",
+    "total": 176,
+    "rerun_on_resume": false,
+    "suites": [
+      {
+        "suite": "checkout-presentation",
+        "exit": 0,
+        "sentinel": "AQUAFLOW_SUITE_OK 21",
+        "log_sha256": "2356ce0ee66dbe6ffd0f7581036c4858ca5595284e3ec0fa0c8e58c3f684abf0"
+      },
+      {
+        "suite": "order-quote-debounce",
+        "exit": 0,
+        "sentinel": "AQUAFLOW_SUITE_OK 8",
+        "log_sha256": "181d947f5979706d1e49b8906bc9a446997b4628c3a52e8728d1d11ea6418273"
+      },
+      {
+        "suite": "order-result-navigation",
+        "exit": 0,
+        "sentinel": "AQUAFLOW_SUITE_OK 32",
+        "log_sha256": "05ad5833a1aab18a1e6f39f56722da9b01aa08790fa9617ad2b3eee705310a97"
+      },
+      {
+        "suite": "delivery-complete-flow",
+        "exit": 0,
+        "sentinel": "AQUAFLOW_SUITE_OK 34",
+        "log_sha256": "a840401c99ae60671835645892b231bedec856146b1584662327ec0493e71672"
+      },
+      {
+        "suite": "delivery-detail-actions",
+        "exit": 0,
+        "sentinel": "AQUAFLOW_SUITE_OK 73",
+        "log_sha256": "baa11c41bb141ffc83890bea72679d4eff3e443b333de5a03a63c7bf6dda5ed0"
+      },
+      {
+        "suite": "key-text-readability",
+        "exit": 0,
+        "sentinel": "AQUAFLOW_SUITE_OK 8",
+        "log_sha256": "03bdad746568a40da610d5d7b140eebb84e9681a86206dad060c7bebc686d6c0"
+      }
+    ]
+  },
+  "resume_checks": {
+    "node_check": true,
+    "git_diff_check": true,
+    "utf8_no_bom": true,
+    "original_design_hashes_unchanged": true,
+    "design_visual_review_completed": true,
+    "selected_collection_examples": 0,
+    "checked_collection_radios": 0,
+    "mixed_payment_example": false,
+    "unverified_physical_claim": false,
+    "book_balance_notice": true
+  },
+  "prior_browser_projection": {
+    "widths_css_px": [
+      320,
+      390
+    ],
+    "large_text_sample": {
+      "width": 320,
+      "scale": 1.3
+    },
+    "delivery_primary_and_contact_min_height_css_px": 48,
+    "checkout_long_reason_accessible": true,
+    "checkout_footer_does_not_cover_last_content": true,
+    "native_wechat": false
+  },
+  "not_performed": [
+    "WeChat native compilation",
+    "Physical device acceptance",
+    "Full 72-page review",
+    "Backend regression",
+    "WeChat upload",
+    "Deployment",
+    "Database operations"
+  ],
+  "resume_verified_utc": "2026-10-25T05:13:18.243294+00:00"
+}

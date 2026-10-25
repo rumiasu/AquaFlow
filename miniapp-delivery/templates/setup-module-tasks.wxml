@@ -1,0 +1,10 @@
+<template name="setupModuleTasks">
+  <view class="setup-module-bar" wx:if="{{loading || error || (ready && tasks.length)}}">
+    <text class="setup-module-title">本模块上线准备</text>
+    <text class="setup-module-copy" wx:if="{{loading}}">正在核对必填任务…</text>
+    <view wx:elif="{{error}}"><text class="setup-module-copy">{{error}}</text><button bindtap="refreshModuleSetup">重新核对</button></view>
+    <view class="setup-module-actions" wx:else>
+      <button wx:for="{{tasks}}" wx:key="key" data-key="{{item.key}}" bindtap="onModuleSetupTask">{{item.label}} ›</button>
+    </view>
+  </view>
+</template>

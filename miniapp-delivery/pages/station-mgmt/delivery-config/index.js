@@ -1,3 +1,4 @@
+const { initialModuleData, moduleTaskPatch, refreshModuleTasks } = require('../../../utils/setup-progress')
 // ⚠️ 这里直接用 utils/request 而不是 api/station-mgmt.js 的封装（含 2026-09-19 加的 /api/manager/setup-guide）：
 // 后者的接口清单当前正被另一个工作流（商品图片库）改动，共用文件会让两边未提交的改动纠缠在一起。
 // 路径常量也写在本文件里，同样是为了避开共享的 config/api.js。
@@ -39,10 +40,24 @@ const FLOOR_MODES = [
   { value: 'PER_BUCKET', name: '按桶', desc: '无电梯 2 元/桶这类口头报价，多桶时金额增长快' }
 ]
 
+// 布局映射只用于锚点和错误定位，不参与计费或提交数据转换。
+const FEE_FIELD_SECTIONS = {
+  minOrderBuckets: 'minOrder', minOrderAmount: 'minOrder', minOrderMode: 'minOrder', minOrderFee: 'minOrder',
+  deliveryRadiusM: 'range', overRadiusMode: 'range', remoteFee: 'range',
+  baseDeliveryFee: 'delivery', freeDeliveryBuckets: 'delivery', freeDeliveryAmount: 'delivery',
+  floorFreeLevel: 'floor', floorFeePerLevel: 'floor', floorFeeMode: 'floor'
+}
+
 Page({
   data: {
+    ...initialModuleData(),
     loading: true, configReady: false, configError: '', setupError: '',
     saving: false,
+    activeSection: 'minOrder', setupExpanded: false, setupRequiredText: '',
+    sectionTabs: [{ key: 'minOrder', label: '起送条件' }, { key: 'range', label: '配送范围' },
+      { key: 'delivery', label: '配送费' }, { key: 'floor', label: '楼层费' }],
+    fieldError: '', fieldErrorText: '', saveError: '', feeKeyboardOffset: 0, feeBodyStyle: '',
+    modeDescriptions: { minOrderMode: LIMIT_MODES[0].desc, overRadiusMode: LIMIT_MODES[0].desc, floorFeeMode: FLOOR_MODES[0].desc },
     configured: false,
     // 「配送范围」那段说明的正文（在 loadSetup 里拼好）。为什么不在 wxml 里拼：
     // 见 loadSetup 的 ⚠️（WXML 表达式解析器不支持带换行的字符串拼接，会编译报错）。
@@ -83,7 +98,16 @@ Page({
     setupPending: []
   },
 
+  refreshModuleSetup() { return this.loadSetup() },
+  onModuleSetupTask(e) {
+    const key = e.currentTarget.dataset.key
+    if (!(this.data.moduleSetupTasks || []).some(it => it.key === key)) return
+    this.setData({ activeSection: 'minOrder' }, () => this.scrollToFeeTarget('#fee-minOrder'))
+  },
+
   onShow() {
+    this.captureFeeWindow()
+    this.setData({ feeKeyboardOffset: 0 })
     return this.reload()
   },
 
@@ -141,7 +165,7 @@ Page({
   async loadSetup() {
     if (this._unloaded) return
     const context = this.captureLoad('_setupVersion')
-    this.setData({ setupError: '' })
+    this.setData({ setupError: '', moduleSetupLoading: true, moduleSetupReady: false, moduleSetupError: '' })
     try {
       const res = await getSetupGuide()
       if (!this.isLoadCurrent('_setupVersion', context)) return
@@ -164,6 +188,7 @@ Page({
       const pos = items.find(i => i && i.key === 'stationPosition')
       const rangeHelp = '按站点坐标到收货地址的直线距离判断。'
       this.setData({
+        ...moduleTaskPatch(d, '/pages/station-mgmt/delivery-config/index'),
         rangeHelpText: (pos && !pos.done)
           ? rangeHelp + '本站还没选点，所以现在这条校验会被跳过、不拦单。'
           : rangeHelp,
@@ -174,13 +199,14 @@ Page({
           doneCount: Number(d.doneCount || 0),
           totalCount: Number(d.totalCount || items.length)
         },
+        setupRequiredText: pending.filter(it => it.level === 'P0' || it.levelText === '必填').map(it => it.label).join('、'),
         setupPending: pending
       })
     } catch (err) {
       if (!this.isLoadCurrent('_setupVersion', context)) return
       console.warn('[DeliveryConfig] 完善度清单获取失败（当作没有）:', err && err.message)
       // 拉不到就**不显示**那句"没选点"：宁可不提醒，也不要凭空断言"你没选点"（说错了更糟）
-      this.setData({ setupError: '配置完善度清单尚未读取，请重试', rangeHelpText: '按站点坐标到收货地址的直线距离判断。', setup: { items: [], summaryText: '', p0PendingCount: 0, doneCount: 0, totalCount: 0 }, setupPending: [] })
+      this.setData({ ...moduleTaskPatch(null, '/pages/station-mgmt/delivery-config/index'), setupError: '配置完善度清单尚未读取，请重试', rangeHelpText: '按站点坐标到收货地址的直线距离判断。', setup: { items: [], summaryText: '', p0PendingCount: 0, doneCount: 0, totalCount: 0 }, setupPending: [], setupRequiredText: '' })
     }
   },
 
@@ -223,12 +249,12 @@ Page({
         },
         guide,
         guideText: this.describeGuide(guide)
-      })
+      }, () => { this.syncModeDescriptions(); this.measureFeeSaveBar() })
     } catch (err) {
       if (this.isLoadCurrent('_configVersion', context)) this.setData({ configError: '配送计费尚未读取，请重新核对；当前不能修改计费规则' })
       if (this.isLoadCurrent('_configVersion', context)) wx.showToast({ title: (err && err.message) || '配置加载失败', icon: 'none' })
     } finally {
-      if (this.isLoadCurrent('_configVersion', context)) this.setData({ loading: false })
+      if (this.isLoadCurrent('_configVersion', context)) this.setData({ loading: false }, () => this.measureFeeSaveBar())
     }
   },
 
@@ -266,15 +292,88 @@ Page({
     wx.showToast({ title: '已填入建议值，确认后保存', icon: 'none' })
   },
 
+  onReady() { this.captureFeeWindow(); this.measureFeeSaveBar() },
+  onResize() { this.onFeeKeyboardHeightChange({ detail: { height: this._feeKeyboardHeight || 0 } }) },
+  onHide() { this._feeKeyboardHeight = 0; this._feeFocusedField = ''; this.setData({ feeKeyboardOffset: 0 }) },
+
+  captureFeeWindow() {
+    try { const info = typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()
+      if (info && Number.isFinite(info.windowHeight) && !this._feeKeyboardHeight) this._feeWindowHeight = info.windowHeight
+    } catch (_) { /* 保留样式中的安全区和底部占位。 */ }
+  },
+
+  onToggleSetup() { this.setData({ setupExpanded: !this.data.setupExpanded }) },
+  syncModeDescriptions() {
+    const form = this.data.form, desc = (items, value) => (items.find(it => it.value === value) || {}).desc || ''
+    this.setData({ modeDescriptions: { minOrderMode: desc(LIMIT_MODES, form.minOrderMode),
+      overRadiusMode: desc(LIMIT_MODES, form.overRadiusMode), floorFeeMode: desc(FLOOR_MODES, form.floorFeeMode) } })
+  },
+
+  onSectionTap(e) {
+    const section = e.currentTarget.dataset.section
+    if (!this.data.sectionTabs.some(it => it.key === section)) return
+    this.setData({ activeSection: section }, () => this.scrollToFeeTarget('#fee-' + section))
+  },
+
+  // 2026-10-25：锚点减去真实导航高度，避免固定导航盖住标题或校验字段。
+  scrollToFeeTarget(selector) {
+    if (typeof wx.createSelectorQuery !== 'function' || typeof wx.pageScrollTo !== 'function') return
+    try {
+      const query = wx.createSelectorQuery().in(this)
+      query.select(selector).boundingClientRect()
+      query.select('.fee-section-nav').boundingClientRect()
+      query.selectViewport().scrollOffset()
+      query.exec(rects => {
+        if (this._unloaded || !rects || !rects[0] || !Number.isFinite(rects[0].top)) return
+        const nav = rects[1] && Number.isFinite(rects[1].height) ? rects[1].height : 64
+        const scroll = rects[2] && Number.isFinite(rects[2].scrollTop) ? rects[2].scrollTop : 0
+        wx.pageScrollTo({ scrollTop: Math.max(0, rects[0].top + scroll - nav - 12), duration: 180 })
+      })
+    } catch (_) { /* 测量失败不改表单，仍可正常滚动和保存。 */ }
+  },
+
+  feeFieldFailure(field, message) {
+    this.setData({ fieldError: field, fieldErrorText: message, activeSection: FEE_FIELD_SECTIONS[field] || this.data.activeSection },
+      () => this.scrollToFeeTarget('#fee-field-' + field))
+    wx.showToast({ title: message, icon: 'none' })
+  },
+
+  onFeeFieldFocus(e) { this._feeFocusedField = e.currentTarget.dataset.field; if (!this._feeWindowHeight) this.captureFeeWindow() },
+  onFeeKeyboardHeightChange(e) {
+    const height = Number(e.detail && e.detail.height) || 0
+    this._feeKeyboardHeight = Math.max(0, height)
+    let current = this._feeWindowHeight
+    try { current = (typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()).windowHeight } catch (_) {}
+    const consumed = Math.max(0, (this._feeWindowHeight || current || 0) - (current || 0))
+    const offset = Math.max(0, this._feeKeyboardHeight - consumed)
+    this.setData({ feeKeyboardOffset: offset }, () => { this.measureFeeSaveBar();
+      if (height && this._feeFocusedField) this.scrollToFeeTarget('#fee-field-' + this._feeFocusedField)
+    })
+    if (!height) this.captureFeeWindow()
+  },
+
+  measureFeeSaveBar() {
+    if (typeof wx.createSelectorQuery !== 'function') return
+    const version = this._feeLayoutVersion = (this._feeLayoutVersion || 0) + 1
+    try { wx.createSelectorQuery().in(this).select('.fee-save-bar').boundingClientRect(rect => {
+      if (this._unloaded || version !== this._feeLayoutVersion || !rect || !Number.isFinite(rect.height) || rect.height <= 0) return
+      this.setData({ feeBodyStyle: 'padding-bottom:calc(' + (rect.height + this.data.feeKeyboardOffset) + 'px + 24rpx)' })
+    }).exec() } catch (_) { /* 未拿到测量时由静态安全区占位保底。 */ }
+  },
+
   onInput(e) {
     const field = e.currentTarget.dataset.field
-    this.setData({ ['form.' + field]: e.detail.value })
+    if (!Object.prototype.hasOwnProperty.call(this.data.form, field)) return
+    this.setData({ ['form.' + field]: e.detail.value, saveError: '',
+      fieldError: this.data.fieldError === field ? '' : this.data.fieldError })
   },
 
   onPickMode(e) {
     const field = e.currentTarget.dataset.field
     const value = e.currentTarget.dataset.value
-    this.setData({ ['form.' + field]: value })
+    const modes = field === 'floorFeeMode' ? FLOOR_MODES : LIMIT_MODES
+    if (!['minOrderMode', 'overRadiusMode', 'floorFeeMode'].includes(field) || !modes.some(it => it.value === value)) return
+    this.setData({ ['form.' + field]: value, fieldError: '', saveError: '' }, () => this.syncModeDescriptions())
   },
 
   /**
@@ -312,20 +411,22 @@ Page({
 
     // 只在"选了加收费用"时才提醒填金额 —— 选了 FEE 却不填金额，等于门槛白配了
     if (payload.minOrderMode === 'FEE' && !payload.minOrderFee) {
-      wx.showToast({ title: '选「加收费用」请填写加收金额', icon: 'none' })
+      this.feeFieldFailure('minOrderFee', '选「加收费用」请填写加收金额')
       return
     }
     if (payload.overRadiusMode === 'FEE' && !payload.remoteFee) {
-      wx.showToast({ title: '选「加收费用」请填写远程费金额', icon: 'none' })
+      this.feeFieldFailure('remoteFee', '选「加收费用」请填写远程费金额')
       return
     }
 
-    this.setData({ saving: true })
+    this.setData({ saving: true, fieldError: '', saveError: '' })
     try {
       await saveDeliveryConfig(payload)
       wx.showToast({ title: '已保存', icon: 'success' })
       this.load()
+      this.loadSetup()
     } catch (err) {
+      this.setData({ saveError: err.message || '保存失败，输入已保留，请核对后重试' })
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })
     } finally {
       this.setData({ saving: false })

@@ -1,0 +1,6 @@
+.setup-module-bar { margin-bottom:20rpx; padding:16rpx 20rpx; background:var(--bg-gray); border-left:4rpx solid #D47A16; border-radius:10rpx; }
+.setup-module-title { display:block; font-size:14px; font-weight:600; color:var(--text-primary); line-height:1.5; }
+.setup-module-copy { display:block; margin-top:8rpx; font-size:13px; color:var(--text-regular); line-height:1.6; }
+.setup-module-actions { display:flex; flex-wrap:wrap; gap:8rpx; margin-top:8rpx; }
+.setup-module-bar button { display:flex; align-items:center; justify-content:center; min-height:44px; height:auto; margin:0; padding:8rpx 16rpx; font-size:14px; line-height:1.5; background:#fff; color:var(--primary-color); }
+.setup-module-bar button::after { border:0; }

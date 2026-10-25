@@ -118,11 +118,11 @@ test('onShow loads superseded by pull cannot repaint after the refreshed result'
   c[0].resolve(config(1)); s[0].resolve(setup('old')); await show; await flush()
   assert.equal(t.page.data.form.baseDeliveryFee, '6'); assert.equal(t.page.data.setup.summaryText, 'fresh'); assert.equal(t.state.stops, 1)
 })
-test('existing save payload still distinguishes blank from zero and reloads configuration', async () => {
+test('existing save payload still distinguishes blank from zero and reloads configuration plus preparation', async () => {
   const t = fixture(); t.page.setData({ form: { ...t.page.data.form, baseDeliveryFee: '0', floorFreeLevel: '' } })
   await t.page.onSave(); await flush(); assert.equal(t.puts.length, 1); assert.equal(t.puts[0].url, CONFIG)
   assert.equal(t.puts[0].body.baseDeliveryFee, 0); assert.equal(t.puts[0].body.floorFreeLevel, null)
-  assert.deepStrictEqual(t.calls, [CONFIG]); assert.equal(t.page.data.saving, false)
+  assert.deepStrictEqual(t.calls, [CONFIG, SETUP]); assert.equal(t.page.data.saving, false)
 })
 test('direct loads after unload send no requests and write nothing', async () => {
   const t = fixture(); t.page.onUnload(); const n = t.writes.length

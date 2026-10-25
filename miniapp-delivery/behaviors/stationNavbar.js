@@ -39,12 +39,14 @@ const { checkSetupReminder } = require('../utils/setup-reminder')
 // 不走 api/station-mgmt.js —— 那一族是站长接口，混在一起容易让人以为配送员也能调。
 const STATION_STATUS = '/api/stations'
 
+const { groupSetupItems, progressPatch } = require('../utils/setup-progress')
 const navigation = require('../utils/navigation')
 
 module.exports = Behavior({
   data: {
     // 水站营业状态（软状态）：文案由后端下发，前端不做 1..4 映射
-    stationStatusText: '',
+    stationStatusText: '', stationOperatingStatus: null,
+    setupProgressKnown: false, setupDoneCount: null, setupTotalCount: null, setupRequiredPending: null,
     stationStatusNote: '',
     stationStatusHint: '', stationStatusError: '',
     // 自绘导航栏尺寸（navigationStyle=custom）
@@ -91,19 +93,19 @@ module.exports = Behavior({
       const owner = identity()
       const current = () => seq === this._stationStatusSeq && getApp() === app && generation === (app._loginGeneration || 0) && identity() === owner
       if (!stationId) {
-        this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '', stationStatusError: '' })
+        this.setData({ stationOperatingStatus: null, stationStatusText: '', stationStatusNote: '', stationStatusHint: '', stationStatusError: '' })
         return
       }
-      this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '', stationStatusError: '' })
+      this.setData({ stationOperatingStatus: null, stationStatusText: '', stationStatusNote: '', stationStatusHint: '', stationStatusError: '' })
       try {
         const res = await get(STATION_STATUS + '/' + stationId + '/status')
         if (!current()) return
         const d = (res && res.data) || {}
         if (typeof d.statusText !== 'string' || !d.statusText.trim()) throw new Error('营业状态尚未核实')
-        this.setData({ stationStatusText: d.statusText, stationStatusNote: d.note || '', stationStatusHint: d.customerHint || '', stationStatusError: '' })
+        this.setData({ stationOperatingStatus: Number.isInteger(d.operatingStatus) ? d.operatingStatus : null, stationStatusText: d.statusText, stationStatusNote: d.note || '', stationStatusHint: d.customerHint || '', stationStatusError: '' })
         return res
       } catch (e) {
-        if (current()) this.setData({ stationStatusText: '', stationStatusNote: '', stationStatusHint: '', stationStatusError: '营业状态尚未读取，请重新核实' })
+        if (current()) this.setData({ stationOperatingStatus: null, stationStatusText: '', stationStatusNote: '', stationStatusHint: '', stationStatusError: '营业状态尚未读取，请重新核实' })
       }
     },
 
@@ -135,7 +137,7 @@ module.exports = Behavior({
         //    ② 有列表却把 stationPanelError 清掉 → 回到"刚填完的项还显示着要填"那个 bug 的
         //       另一种形态（拿旧快照当新的）。所以：**有旧列表就保留它，但绝不假装它是新的**。
         this.setData({
-          stationPanelLoading: false, stationPanelRefreshing: false, stationPanelReadReady: false,
+          stationPanelLoading: false, stationPanelRefreshing: false, stationPanelReadReady: false, setupProgressKnown: false,
           stationPanelError: (this.data.stationPanelItems || []).length
             ? '本次待填项未完成核对，以下为上次读取记录'
             : '待填项尚未读取，请重新核对'
@@ -166,12 +168,13 @@ module.exports = Behavior({
       const pending = r.pending || []
       const done = (r.all || []).filter(it => it && it.done)
       return {
+        ...progressPatch(r),
         stationPendingCount: r.pendingCount || 0,
         stationPanelPending: pending,
         stationPanelDone: done,
         // 渲染用的那一份：**跟着当前页签走**（见 switchPanelTab）。
         // ⚠️ 在 js 里拼好、wxml 只渲染 —— 别写成 `wx:for="{{showAll ? a : b}}"`。
-        stationPanelItems: this.data.stationPanelShowAll ? pending.concat(done) : pending,
+        stationPanelItems: groupSetupItems(this.data.stationPanelShowAll ? pending.concat(done) : pending),
         stationPanelSummary: pending.length ? (r.summaryText || '') : '',
         stationPanelOnlineHint: r.onlineHint || '',
         stationPanelError: '', stationPanelReadReady: true, stationPanelRefreshing: false,
@@ -197,7 +200,7 @@ module.exports = Behavior({
       // ⚠️ 一次 setData 把开关与列表一起改（见 setupPatchOf 的 ⚠️），中间不要插第二次
       this.setData({
         stationPanelShowAll: showAll,
-        stationPanelItems: showAll ? pending.concat(done) : pending
+        stationPanelItems: groupSetupItems(showAll ? pending.concat(done) : pending)
       })
     },
 

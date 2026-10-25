@@ -1,0 +1,164 @@
+{
+  "suites": [
+    {
+      "suite": "product-editor-unification",
+      "exit": 0,
+      "count": 15,
+      "log_sha256": "123efa0cbf57222a796bd862c1051fdbff2a017a416672131ada36c93779103d"
+    },
+    {
+      "suite": "extreme-product-save",
+      "exit": 0,
+      "count": 19,
+      "log_sha256": "21e920f90061c38fe8fc4fa281ffc5ae304abca20392334db29526de1b929599"
+    },
+    {
+      "suite": "product-sheet-recovery",
+      "exit": 0,
+      "count": 21,
+      "log_sha256": "f7686d5d97612c0e9406e41aaa8e158319ad1095c0d16c4655f299965a754af0"
+    },
+    {
+      "suite": "product-image-persistence",
+      "exit": 0,
+      "count": 14,
+      "log_sha256": "822045a946b9400938ee2c2a00b7d6160cd806e5ea18d0f7f3d05ac4dd8c5faa"
+    },
+    {
+      "suite": "water-product-templates",
+      "exit": 0,
+      "count": 59,
+      "log_sha256": "e6bb248bad004746f44a0bf852e035b64a9b93c47be661b6d1a3cf8b26970f8d"
+    },
+    {
+      "suite": "modal-copy-limit",
+      "exit": 0,
+      "count": 1,
+      "log_sha256": "5c6136367f8e8ade6b4524c8c891a14ce133713060b3f27815fe32c39905619b"
+    },
+    {
+      "suite": "delivery-config-layout",
+      "exit": 0,
+      "count": 8,
+      "log_sha256": "5101b0c35fa62519a2f72018d8e49989c6bbd6ef04749ed7d22d784d89d78e1f"
+    },
+    {
+      "suite": "delivery-config-pull-refresh",
+      "exit": 0,
+      "count": 21,
+      "log_sha256": "78405d019aa60e65528d8064923f625f0aacb7e552e83e99c9183c53daa89f3a"
+    },
+    {
+      "suite": "setup-navigation",
+      "exit": 0,
+      "count": 6,
+      "log_sha256": "406f6f8f72a8df7715d5af8c0f503afb42b474dff8a20bdf894110cb5415b128"
+    },
+    {
+      "suite": "delivery-home-station-identity",
+      "exit": 0,
+      "count": 17,
+      "log_sha256": "08451b6b77e499c4e21674f88dce37104f981afb9bbd426c1f90faf3cb18207e"
+    },
+    {
+      "suite": "station-status-loading",
+      "exit": 0,
+      "count": 10,
+      "log_sha256": "69c8c71d30e6102167719b11c4378246d4084c4b139e4c854767e7a6a5bab5c6"
+    },
+    {
+      "suite": "extreme-adjustment-map",
+      "exit": 0,
+      "count": 22,
+      "log_sha256": "859bad38ae4c21f85226221e8db7043028b977d9b535186cb01d1627fb02466c"
+    },
+    {
+      "suite": "business-pending-flow",
+      "exit": 0,
+      "count": 55,
+      "log_sha256": "0caf0a5429552318b42e77c7beae6951e66c10df6c17a91f9aea60d334a1fa70"
+    },
+    {
+      "suite": "coordination-todo-context",
+      "exit": 0,
+      "count": 16,
+      "log_sha256": "77dc8d327eb20272c3070c2e3726ba740624d87014cb4d7f74966fa4cdf6e136"
+    }
+  ],
+  "total": 284,
+  "source_sha256": {
+    "miniapp-delivery/behaviors/stationNavbar.js": "38f5c263988c19ef5a43f7539bb16539efac184a39d13b1710b525fc3d3914f8",
+    "miniapp-delivery/pages/coordination/index.wxml": "4b7de7befe975177c357777619c80df0081cdc8a557f667558fda762be2326d8",
+    "miniapp-delivery/pages/coordination/index.wxss": "8c7fa4f3fe8e1f324f01ddc82a395eaa6dc926fb4433b321f7dd53f9d0b32be1",
+    "miniapp-delivery/pages/station-mgmt/delivery-config/index.js": "9fcae2561aaa0e7a9ff19830672d53a9f9922ad26aece676ba44b08e8946a460",
+    "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxml": "9bf578d9d602073389f70cbbb17546a50ad386ca65ff49b3e2d2ec19d0d73bff",
+    "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxss": "791f3d77461059d43f5877eff85003080a756549f9d2a145accd0554ea5fa144",
+    "miniapp-delivery/pages/station-mgmt/products/index.js": "c6efaca8dcaee581460b563fbc748bbd545ee73953f798e2852678e49f0ada71",
+    "miniapp-delivery/pages/station-mgmt/products/index.wxml": "9275441ba10c914823b7669c820311f73dedcdd5fce819d7b8b73a56473e24dd",
+    "miniapp-delivery/pages/station-mgmt/products/index.wxss": "a98e487386ae6c11e1638287b88adaee214f7135846460dc808d50989bf9b8a8",
+    "miniapp-delivery/pages/station-mgmt/station-info/index.js": "c9f6fa551be2600e65a119745cbac21d5d125b2a5b998f01ca36a3cbaf8efe95",
+    "miniapp-delivery/pages/station-mgmt/station-info/index.wxml": "e795490ee33cde7fa73bdebd9af9a0638eb7da77aab5460cb32040faca9a9404",
+    "miniapp-delivery/pages/station-mgmt/station-info/index.wxss": "8574a72c5ff27f5723ba9ace1d97efd74fbd67da73831458b9ff838f2f202f30",
+    "miniapp-delivery/styles/station-navbar.wxss": "e2714eb7b6f5925e0f4c2b8514c46138ddec628e31d5c923b2a99c47bb96e65a",
+    "miniapp-delivery/templates/station-navbar.wxml": "32adbac223ecf80f4358de7fdb9d95b7dddddfe1de310e2476c8416f8ed09aa2",
+    "miniapp-delivery/utils/setup-reminder.js": "b2e569d37b66f0cf588ed34e4b3365068f3cd915adbe5314cb7aa369144c8618",
+    "tests/js/delivery-config-pull-refresh.test.js": "2d7339ddd6fd3919ba41dcaf36c0aaaa8a49b89f8a4f7c88b2e83ad1caa11b76",
+    "tests/js/product-editor-unification.test.js": "4d4d98bc104198801e1ae3171c397ffc6990d53ec739020deeab2527cddde6bb",
+    "tests/js/product-sheet-recovery.test.js": "48386471ee7d385df0ff6280bdc357e6a3389d937d8d0e58b12be02b981e60aa",
+    "tests/js/run-all.js": "2c4514c27fd8354e611843085519a30f87a07857a6c4ce01b9d23550d59213d7",
+    "miniapp-delivery/styles/setup-module-tasks.wxss": "ac61a7c6b5cb0a7c917d2b08f6a30c9f170ee0e107542018fb409a837a836dca",
+    "miniapp-delivery/templates/setup-module-tasks.wxml": "102817914a1918b31a68f6a11cd1e8e3b0477823c3ff21ef918142ad50225535",
+    "miniapp-delivery/utils/setup-progress.js": "de85f50277c27dfd8bb5a23ad43b6fbcb4e1034947223b99c440401704ab666e",
+    "tests/js/delivery-config-layout.test.js": "758eb97c9c30940e1877b8d99bf6c14d7f0d993452bec4436e2e7877ece89858",
+    "tests/js/setup-navigation.test.js": "f6269ebb26e07414d06b46525fbf436948dab759ef6bd6c55cf498464aa33104"
+  },
+  "static": {
+    "js_parse": true,
+    "utf8_no_bom": true,
+    "diff_check": true,
+    "wxss_selectors": true,
+    "fee_payload_text_unchanged": true,
+    "backend_unchanged": true,
+    "customer_source_unchanged": true
+  },
+  "baseline": "4f1ce6206da46a77fdd238932906903d3d3c34b6",
+  "target_branch": "codex/fix-fee-drawer-layout-20261018",
+  "visual_projection": {
+    "native_wechat": false,
+    "widths_css_px": [
+      320,
+      390
+    ],
+    "large_text_sample": {
+      "width": 320,
+      "scale": 1.3
+    },
+    "horizontal_overflow": false,
+    "product_more_color_rgb": [
+      189,
+      51,
+      40
+    ],
+    "product_more_height_px": 44,
+    "fee_option_height_px": 44,
+    "fee_last_section_bottom_px": 625.65625,
+    "fee_footer_top_px": 667.2421875,
+    "product_footer_bottom_390_px": 740,
+    "viewport_height_px": 740,
+    "setup_dot_animation": "none",
+    "module_task_button_height_px": 44
+  },
+  "reference_images": {
+    "pixel_read": false,
+    "metadata_ocr_read": true,
+    "reason": "Library materialization helper lacks Windows os.setxattr; no pixel comparison claimed"
+  },
+  "not_performed": [
+    "WeChat native compile",
+    "physical device keyboard and safe-area acceptance",
+    "backend tests",
+    "WeChat upload",
+    "deployment",
+    "database operations"
+  ]
+}

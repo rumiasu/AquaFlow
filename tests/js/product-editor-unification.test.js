@@ -16,13 +16,13 @@ const openOwned = t => { t.page.onOpenSetting(event(item())); t.page.setData({ p
 const deferred = () => { let resolve; return { promise: new Promise(r => { resolve = r }), resolve } }
 function sheetGeometry(page) { const s = page.data.productEditSheetStyle; return { height: Number(/height:(\d+)px/.exec(s)[1]), bottom: Number(/bottom:(\d+)px/.exec(s)[1]) } }
 
-test('selected product cards expose one edit action and an owner-only secondary menu', () => {
+test('selected product cards expose identical edit and more actions for both sources', () => {
   validateConditionalSiblings(tree)
   const t = fixture(), rows = [item(), item({ id: 18, ownerStationId: null })]
   t.page.setData({ loading: false, viewList: rows, list: rows })
   const controls = visible(t)
   assert.equal(controls.filter(n => n.tag === 'button' && n.text === '编辑商品').length, 2)
-  assert.equal(controls.filter(n => n.attrs.catchtap === 'onProductMore').length, 1)
+  assert.equal(controls.filter(n => n.attrs.catchtap === 'onProductMore').length, 2)
   assert(!controls.some(n => ['openEdit', 'onDeactivate', 'onSubmitToPlatform'].includes(n.attrs.catchtap)))
   assert(!controls.some(n => n.text === '设置'))
 })
@@ -46,16 +46,30 @@ test('one owned PUT saves visible prices and priority without overwriting live i
   assert.equal(body.salePrice, 0); assert.equal(body.depositPrice, 0); assert.equal(body.priorityDisplay, 1)
   assert(!Object.hasOwn(body, 'quantity')); assert.equal(body.enabled, 1)
 })
-test('platform products keep basic information read-only and save only station configuration', async () => {
+test('platform products use the shared image and edit layout while saving only station configuration', async () => {
   const t = fixture(); t.page.onOpenSetting(event(item({ ownerStationId: null })))
   t.page.setData({ pkgReady: true })
-  assert.equal(t.page.data.showSetting, true); assert.equal(t.page.data.showEdit, false)
-  assert(visible(t).some(n => (n.text || '').includes('名称、图片和规格由平台维护')))
-  t.page.onSettingFieldInput({ currentTarget: { dataset: { field: 'salePrice' } }, detail: { value: '16' } })
-  await t.page.onSaveSetting()
+  assert.equal(t.page.data.showSetting, true); assert.equal(t.page.data.showEdit, true)
+  const controls = visible(t)
+  assert(controls.some(n => n.attrs.class === 'modal-img product-edit-image'))
+  assert(controls.some(n => (n.text || '').includes('图片暂不支持本站修改')))
+  for (const field of ['name','brand','spec','description']) assert(controls.some(n => n.attrs['data-field'] === field && n.attrs.disabled))
+  assert(controls.some(n => n.attrs.bindtap === 'uploadImage' && n.attrs.disabled))
+  assert(!controls.some(n => n.attrs.bindtap === 'onRemoveProduct'))
+  t.page.onEditFieldInput({ currentTarget: { dataset: { field: 'name' } }, detail: { value: 'must not change public template' } })
+  assert.equal(t.page.data.editForm.name, '合成商品')
+  t.page.onEditFieldInput({ currentTarget: { dataset: { field: 'price' } }, detail: { value: '16' } })
+  await t.page.onSaveEdit()
   assert.equal(t.calls.length, 1); assert.equal(t.calls[0][0], 'setting'); assert.equal(t.calls[0][2].salePrice, 16)
   assert(!['name', 'brand', 'spec', 'imageObjectName', 'price', 'quantity'].some(k => Object.hasOwn(t.calls[0][2], k)))
 })
+test('late platform form mutation cannot attach packages or close the changed editor', async () => {
+  const t = fixture(), gate = deferred(); t.page.onOpenSetting(event(item({ ownerStationId: null, ticketEnabled: 1 })))
+  t.page.setData({ pkgReady: true }); t.state.setting = () => gate.promise
+  const save = t.page.onSaveEdit(); t.page.setData({ 'editForm.price': '99' }); gate.resolve({ code: 0 }); await save
+  assert.equal(t.packages.length, 0); assert.equal(t.page.data.showEdit, true)
+})
+
 test('a different station owner cannot enter the local editor', () => {
   const t = fixture(); t.page.onOpenSetting(event(item({ ownerStationId: 22 })))
   assert.equal(t.page.data.showEdit, false); assert.equal(t.page.data.showSetting, false); assert.equal(t.calls.length, 0)
@@ -72,26 +86,40 @@ test('physical shortage uses remaining quantity and keeps order-impact confirmat
   const t = fixture(); openOwned(t); let modal; t.wx.showModal = o => { modal = o }
   t.page.onStockModeChange({ currentTarget: { dataset: { mode: 'loss' } } })
   t.page.onStockInput({ detail: { value: '8' } }); t.page.onSubmitStock()
-  assert.equal(modal.title, '登记实物短缺'); assert.equal(modal.confirmText, '登记短缺')
+  assert.equal(modal.title, '登记商品短缺'); assert.equal(modal.confirmText, '登记短缺')
   assert(modal.content.includes('10 件改为 8 件')); assert(modal.content.includes('缺货待补'))
   assert.equal(modal.editable, true); assert.equal(t.calls.length, 0)
   assert.equal(t.page.data.stockAfterText, '核对后 8 件（少 2 件）')
   assert(!visible(t).some(n => /实盘亏损|＝ 盘点/.test(n.text || '')))
 })
-test('secondary menu retains report/deactivate and discards a callback from a previous account', () => {
-  const t = fixture(); let menu, reports = 0, stops = 0
-  t.wx.showActionSheet = o => { menu = o }; t.page.onSubmitToPlatform = () => reports++; t.page.onDeactivate = () => stops++
-  t.page.onProductMore(event(item())); assert.deepEqual(Array.from(menu.itemList), ['上报平台', '停用商品'])
-  menu.success({ tapIndex: 0 }); assert.equal(reports, 1)
-  t.page.onProductMore(event(item())); t.app.globalData.userInfo.staffId = 2; menu.success({ tapIndex: 1 })
-  assert.equal(stops, 0)
+test('both sources have one removal entry under more and stale account callbacks do nothing', () => {
+  const t = fixture(); let menu, owned = 0, selected = 0
+  t.wx.showActionSheet = o => { menu = o }; t.page.onDeactivate = () => owned++; t.page.onRemoveProduct = () => selected++
+  t.page.onProductMore(event(item())); assert.deepEqual(Array.from(menu.itemList), ['移除商品']); assert.equal(menu.itemColor, '#BD3328')
+  menu.success({ tapIndex: 0 }); assert.equal(owned, 1)
+  t.page.onProductMore(event(item({ ownerStationId: null }))); menu.success({ tapIndex: 0 }); assert.equal(selected, 1)
+  t.page.onProductMore(event(item())); t.app.globalData.userInfo.staffId = 2; menu.success({ tapIndex: 0 })
+  assert.equal(owned, 1)
 })
-test('unsaved owned form restores its own stock target after viewing another product', () => {
+
+test('closing a platform editor releases the page scroll lock and restores its save mode on resume', () => {
+  const t = fixture(); t.page.onOpenSetting(event(item({ ownerStationId: null }))); t.page.closeEdit()
+  assert.equal(t.page.data.showEdit, false); assert.equal(t.page.data.showSetting, false)
+  t.page.onResumeProductEditor(); assert.equal(t.page.data.showEdit, true); assert.equal(t.page.data.showSetting, true)
+})
+
+test('opening new product after a platform editor resets the shared save mode', async () => {
+  const t = fixture(); t.page.onOpenSetting(event(item({ ownerStationId: null }))); t.page.closeEdit(); t.openAdd()
+  assert.equal(t.page.data.showSetting, false)
+  await t.page.onSaveEdit(); assert.equal(t.calls[0][0], 'create')
+})
+
+test('shared editor resumes the most recently closed product with its own stock and mode', () => {
   const t = fixture(); openOwned(t); t.page.onStockInput({ detail: { value: '3' } })
   t.page.closeEdit(); t.page.onOpenSetting(event(item({ id: 18, ownerStationId: null, quantity: 99 }))); t.page.closeSetting()
   t.page.onResumeProductEditor()
-  assert.equal(t.page.data.editId, 17); assert.equal(t.page.data.setting.id, 17)
-  assert.equal(t.page.data.setting.quantity, 10); assert.equal(t.page.data.stockInput, '3')
+  assert.equal(t.page.data.editId, 18); assert.equal(t.page.data.setting.id, 18)
+  assert.equal(t.page.data.setting.quantity, 99); assert.equal(t.page.data.stockInput, ''); assert.equal(t.page.data.showSetting, true)
 })
 test('late inbound receipt after native Back updates the resumed draft and price save never rewrites that quantity', async () => {
   const t = fixture(), gate = deferred(); openOwned(t)

@@ -1,3 +1,4 @@
+const { initialModuleData, refreshModuleTasks } = require('../../../utils/setup-progress')
 const { WATER_PRODUCT_TEMPLATES, TEMPLATE_IMAGE, IMAGE_NOTICE, templatesWithImages, matchingCatalogProducts, templateBusinessError } = require('../../../utils/water-product-templates')
 const {
   getCatalog,
@@ -83,6 +84,7 @@ const SUBMISSION_STATUS_TEXT = { 0: '待处理', 1: '已纳入通用库', 2: '�
  */
 Page({
   data: {
+    ...initialModuleData(),
     loading: true,
     loadError: '',
     tab: 'all',          // all=全部目录 | selected=已选用 | mine=我的商品
@@ -141,6 +143,13 @@ Page({
     editTemplateId: ''
   },
 
+  refreshModuleSetup() { return refreshModuleTasks(this, '/pages/station-mgmt/products/index') },
+  onModuleSetupTask(e) {
+    const key = e.currentTarget.dataset.key
+    if (!(this.data.moduleSetupTasks || []).some(it => it.key === key)) return
+    if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({ selector: '#setup-products', duration: 180 })
+  },
+
   onShow() {
     this._productHidden = false
     const visibleSession = productSession()
@@ -185,7 +194,7 @@ Page({
   productSaveProof(kind, targetId) {
     return { kind, targetId, session: (kind === 'setting' ? this._productSettingOwner : kind === 'edit' ? this._productEditOwner : null) || productSession(),
       epoch: kind === 'setting' ? this._productSettingEpoch || 0 : this._productEditEpoch || 0,
-      draft: kind === 'recovery' ? '' : JSON.stringify([kind === 'setting' ? this.data.setting : this.data.editForm, this.data.pkgRows]) }
+      draft: kind === 'recovery' ? '' : JSON.stringify([kind === 'setting' ? [this.data.setting, this.data.editForm] : this.data.editForm, this.data.pkgRows]) }
   },
 
   productSaveCurrent(proof) {
@@ -194,7 +203,7 @@ Page({
     if (proof.kind === 'recovery') return true
     return proof.epoch === (proof.kind === 'setting' ? this._productSettingEpoch || 0 : this._productEditEpoch || 0)
       && proof.targetId === (proof.kind === 'setting' ? this.data.setting.id : this.data.isAdd ? 'new' : this.data.editId)
-      && proof.draft === JSON.stringify([proof.kind === 'setting' ? this.data.setting : this.data.editForm, this.data.pkgRows])
+      && proof.draft === JSON.stringify([proof.kind === 'setting' ? [this.data.setting, this.data.editForm] : this.data.editForm, this.data.pkgRows])
   },
 
   readProductCreation() {
@@ -328,6 +337,7 @@ Page({
   },
 
   async loadData() {
+    this.refreshModuleSetup()
     this.setData({ loading: true, loadError: '' })
     try {
       const res = await getCatalog()
@@ -453,57 +463,22 @@ Page({
     }
   },
 
+  // 2026-10-25：选用后统一进入一个编辑面板；公共资料限制逐字段说明，不能写回公共模板。
   onOpenSetting(e) {
     if (this.productWriteLocked()) return
     const item = e.currentTarget.dataset.item
     if (!item) return
-    if (item.ownerStationId) {
-      const stationId = (getApp().globalData.userInfo || {}).stationId
-      if (Number(item.ownerStationId) !== Number(stationId)) { wx.showToast({ title: '只能编辑本站商品', icon: 'none' }); return }
-      return this.openEdit(e)
+    const stationId = (getApp().globalData.userInfo || {}).stationId
+    if (item.ownerStationId && Number(item.ownerStationId) !== Number(stationId)) {
+      wx.showToast({ title: '只能编辑本站商品', icon: 'none' }); return
     }
-    if (!item.selected) {
-      this.onSelectProduct(e)
-      return
-    }
-    this.captureProductEditorWindow(true)
-    this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
-    this._productSettingClosed = false
-    this._productSettingOwner = productSession()
-    this.setData({
-      showSetting: true,
-      setting: {
-        id: item.id,
-        name: item.displayName,
-        category: item.category || 1,
-        categoryLabel: item.categoryLabel,
-        spec: item.spec || '',
-        brand: item.brand || '',
-        refPriceText: item.refPriceText,
-        refDepositText: item.refDepositText,
-        enabled: item.enabled === 1,
-        salePrice: item.salePrice === null || item.salePrice === undefined ? '' : String(item.salePrice),
-        depositPrice: item.depositPrice === null || item.depositPrice === undefined ? '' : String(item.depositPrice),
-        ticketEnabled: item.ticketEnabled === 1,
-        ticketPrice: item.ticketPrice === null || item.ticketPrice === undefined ? '' : String(item.ticketPrice),
-        priorityDisplay: item.priorityDisplay === 1,
-        quantity: item.quantity || 0,
-        ownerStationId: item.ownerStationId || null
-      },
-      stockMode: 'in',
-      stockInput: '',
-      stockAfterText: '',
-      warningsInline: [],
-      productSaveError: '',
-      pkgRows: [], pkgReady: false, pkgError: ''
-    })
-    // 档位跟着商品走：打开设置就把该商品已挂的档位拉出来（没挂 = 空表，客户只能散买）
-    this.loadPkgRows(item.id)
-    try { this.syncInboundRecovery() } catch (_) { /* 读取失败常显并阻止首发。 */ }
+    if (!item.selected) return this.onSelectProduct(e)
+    return this.openEdit(e, !item.ownerStationId)
   },
 
   closeSetting() {
     if (this.productWriteLocked()) return
+    if (this.data.showEdit) return this.closeEdit()
     this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
     this._productSettingClosed = true
     this._productKeyboardHeight = 0
@@ -514,11 +489,12 @@ Page({
   onProductMore(e) {
     if (this.productWriteLocked()) return
     const item = e.currentTarget.dataset.item, session = productSession()
-    if (!item || Number(item.ownerStationId) !== Number((getApp().globalData.userInfo || {}).stationId)) return
-    wx.showActionSheet({ itemList: ['上报平台', '停用商品'], success: result => {
-      if (!sameProductSession(session) || this.productWriteLocked()) return
-      if (result.tapIndex === 0) this.onSubmitToPlatform(e)
-      if (result.tapIndex === 1) this.onDeactivate(e)
+    const stationId = (getApp().globalData.userInfo || {}).stationId
+    if (!item || !item.selected || item.ownerStationId && Number(item.ownerStationId) !== Number(stationId)) return
+    wx.showActionSheet({ itemList: ['移除商品'], itemColor: '#BD3328', success: result => {
+      if (result.tapIndex !== 0 || !sameProductSession(session) || this.productWriteLocked()) return
+      if (item.ownerStationId) this.onDeactivate(e)
+      else this.onRemoveProduct(e)
     } })
   },
 
@@ -693,13 +669,13 @@ Page({
     }
     if (stockMode === 'loss') {
       if (qty >= (setting.quantity || 0)) { wx.showToast({ title: '剩余数量须少于当前库存', icon: 'none' }); return }
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '登记短缺', cancelText: '暂不登记', title: '登记实物短缺', editable: true, placeholderText: '短缺原因及凭据（必填）',
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '登记短缺', cancelText: '暂不登记', title: '登记商品短缺', editable: true, placeholderText: '短缺原因及凭据（必填）',
         content: '实际库存由 ' + setting.quantity + ' 件改为 ' + qty + ' 件。低于已预留数量时，较晚的订单会转为缺货待补，请与客户协商延期或取消。',
         success: async res => { if (!res.confirm) return
           try {
             const r = await businessRules.recordLoss(setting.id, { targetQuantity: qty, expectedQuantity: setting.quantity, note: res.content })
             this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': qty }); this.loadData()
-            wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '实物短缺已登记', content: '受影响订单 ' + (r.data.affectedOrders || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
+            wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '商品短缺已登记', content: '受影响订单 ' + (r.data.affectedOrders || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
           } catch (err) { wx.showToast({ title: err.message || '登记未成功', icon: 'none' }) }
         } })
       return
@@ -857,7 +833,9 @@ Page({
       if (!this.productSaveCurrent(proof)) throw saveScopeError()
       wx.showToast({ title: '已保存', icon: 'success' })
       this._productSettingClosed = true
-      this.setData({ showSetting: false })
+      this._productEditorClosed = true
+      this._closedProductEditor = null
+      this.setData({ showSetting: false, showEdit: false, productEditorResume: false })
       this.loadData()
     } catch (err) {
       if (this.productSaveCurrent(proof)) {
@@ -869,23 +847,20 @@ Page({
     }
   },
 
-  /** 盘点：把库存设成输入值（差额会落 ADJUST 流水）—— 已被 onSubmitStock 取代，见下 */
-  onRemoveProduct() {
-    const s = this.data.setting
-    wx.showModal({ cancelColor: '#637083',
-      title: '移除本站配置',
-      content: '移除后顾客在本站看不到该商品；库存必须先盘点为 0。确认移除？',
-      confirmText: '移除',
-      confirmColor: '#BD3328',
-      success: (res) => {
-        if (!res.confirm) return
-        removeCatalogProduct(s.id)
-          .then(() => {
-            wx.showToast({ title: '已移除', icon: 'success' })
-            this.setData({ showSetting: false })
-            this.loadData()
-          })
-          .catch(err => wx.showToast({ title: err.message || '移除失败', icon: 'none' }))
+  /** 移除本站选用关系；确认回调必须仍属于同一身份，库存门槛由原接口校验。 */
+  onRemoveProduct(e) {
+    if (this.productWriteLocked()) return
+    const item = e && e.currentTarget ? e.currentTarget.dataset.item : this.data.setting
+    const session = productSession()
+    if (!item || !item.id || item.ownerStationId) return
+    wx.showModal({ cancelColor: '#637083', title: '移除商品',
+      content: '移除后顾客在本站看不到该商品；库存必须先核对为 0。确认移除？',
+      confirmText: '移除', confirmColor: '#BD3328', success: res => {
+        if (!res.confirm || !sameProductSession(session) || this.productWriteLocked()) return
+        removeCatalogProduct(item.id).then(() => {
+          if (!sameProductSession(session)) return
+          wx.showToast({ title: '已移除', icon: 'success' }); this.loadData()
+        }).catch(err => { if (sameProductSession(session)) wx.showToast({ title: err.message || '移除失败', icon: 'none' }) })
       }
     })
   },
@@ -1039,7 +1014,7 @@ Page({
     // 每份新商品保持独立图片意图；关闭后的同页继续使用原编号。
     try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, true) } catch (_) { this._uploadDraftId = null }
     this.setData({
-      showEdit: true,
+      showEdit: true, showSetting: false,
       productEditorResume: false,
       productSaveError: '',
       isAdd: true,
@@ -1060,7 +1035,7 @@ Page({
     try { this.syncProductCreationRecovery() } catch (_) { /* 由恢复提示阻止另建。 */ }
   },
 
-  openEdit(e) {
+  openEdit(e, platform = false) {
     if (this.productWriteLocked() || this.data.productImageBusy || this.data.uploading) return
     this._productEditorClosed = false
     this._closedProductEditor = null
@@ -1078,7 +1053,7 @@ Page({
     const idx = CATEGORY_OPTIONS.findIndex(c => c.value === item.category)
     this.setData({
       showEdit: true,
-      showSetting: false,
+      showSetting: platform,
       productEditorResume: false,
       productSaveError: '',
       productImagePreviewUrl: '',
@@ -1087,15 +1062,20 @@ Page({
       editTemplateId: '',
       editCategoryIndex: idx >= 0 ? idx : 0,
       setting: { id: item.id, name: item.displayName || item.name, category: item.category || 1,
-        quantity: item.quantity == null ? null : item.quantity, ownerStationId: item.ownerStationId },
+        quantity: item.quantity == null ? null : item.quantity, ownerStationId: item.ownerStationId,
+        salePrice: item.salePrice == null ? '' : String(item.salePrice),
+        depositPrice: item.depositPrice == null ? '' : String(item.depositPrice),
+        enabled: item.enabled === 1, priorityDisplay: item.priorityDisplay === 1,
+        ticketEnabled: item.ticketEnabled === 1, ticketPrice: item.ticketPrice == null ? '' : String(item.ticketPrice),
+        refPriceText: item.refPriceText, refDepositText: item.refDepositText },
       stockMode: 'in', stockInput: '', stockAfterText: '', inboundError: '',
       editForm: {
         name: item.name || '',
         brand: item.brand || '',
         spec: item.spec || '',
         category: item.category || 1,
-        price: item.salePrice > 0 ? String(item.salePrice) : item.price == null ? '' : String(item.price),
-        deposit: item.depositPrice > 0 ? String(item.depositPrice) : item.deposit == null ? '' : String(item.deposit),
+        price: platform ? (item.salePrice == null ? '' : String(item.salePrice)) : item.salePrice > 0 ? String(item.salePrice) : item.price == null ? '' : String(item.price),
+        deposit: platform ? (item.depositPrice == null ? '' : String(item.depositPrice)) : item.depositPrice > 0 ? String(item.depositPrice) : item.deposit == null ? '' : String(item.deposit),
         quantity: '',
         imageObjectName: item.imageObjectName || '', imageUrl: item.imageUrl || '',
         description: item.description || '',
@@ -1105,7 +1085,7 @@ Page({
         ticketPrice: item.ticketPrice === null || item.ticketPrice === undefined ? '' : String(item.ticketPrice)
       }
     })
-    // 编辑自定义商品时同样把档位带出来（与「本站设置」共用同一份行数据与保存逻辑）
+    // 两类商品共享表单、图片区和档位，保存仍使用各自已有的本站写入边界。
     this.loadPkgRows(item.id)
     this.layoutProductEditor()
     try { this.syncProductCreationRecovery() } catch (_) { /* 由恢复提示阻止另建。 */ }
@@ -1133,13 +1113,14 @@ Page({
     if (!sameProductSession(owner)) {
       this._closedProductEditor = null
       this._productEditEpoch = (this._productEditEpoch || 0) + 1
-      this.setData({ showEdit: false, showPresetPicker: false, productEditorResume: false, editForm: {}, pkgRows: [], productImagePreviewUrl: '' })
+      this.setData({ showEdit: false, showSetting: false, showPresetPicker: false, productEditorResume: false, editForm: {}, pkgRows: [], productImagePreviewUrl: '' })
       return
     }
     this.rememberProductImageDraft()
-    this._closedProductEditor = { session: owner, draftId: this._uploadDraftId }
+    this._closedProductEditor = { session: owner, draftId: this._uploadDraftId, settingMode: !!this.data.showSetting }
     if (!this.productWriteLocked()) this._productEditEpoch = (this._productEditEpoch || 0) + 1
-    this.setData({ showEdit: false, showPresetPicker: false, productEditorResume: true })
+    this._productSettingClosed = true
+    this.setData({ showEdit: false, showSetting: false, showPresetPicker: false, productEditorResume: true })
     this._productKeyboardHeight = 0
     if (typeof wx.hideKeyboard === 'function') wx.hideKeyboard()
     this.refreshProductImageState()
@@ -1162,7 +1143,7 @@ Page({
       this._uploadDraftId = saved.draftId
       this.restoreProductImageDraft(saved.draftId)
     }
-    this.setData({ showEdit: true, productEditorResume: false })
+    this.setData({ showEdit: true, showSetting: !!saved.settingMode, productEditorResume: false })
     if (!this.data.isAdd) {
       this._productSettingOwner = this._productEditOwner
       this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
@@ -1179,7 +1160,7 @@ Page({
     if (!this._uploadDraftId || this._productEditOwner && !sameProductSession(this._productEditOwner)) return
     const drafts = this._productEditorDrafts || (this._productEditorDrafts = new Map())
     const snapshot = {}
-    for (const field of ['isAdd','editId','editForm','editTemplateId','editCategoryIndex','pkgRows','pkgReady','pkgError','pkgProductId','productImagePreviewUrl',
+    for (const field of ['showSetting','isAdd','editId','editForm','editTemplateId','editCategoryIndex','pkgRows','pkgReady','pkgError','pkgProductId','productImagePreviewUrl',
       'setting','stockMode','stockInput','stockAfterText','inboundError']) snapshot[field] = this.data[field]
     snapshot._imageChoice = this._productImageChoiceSeq || 0
     snapshot._imageFailed = !!(this._productImageFailure && this._productImageFailure.draftId === this._uploadDraftId)
@@ -1218,11 +1199,12 @@ Page({
   onEditFieldInput(e) {
     if (this.productWriteLocked() || this.data.productCreationPending) return
     const field = e.currentTarget.dataset.field
+    if (this.data.showSetting && !['price', 'deposit', 'ticketPrice'].includes(field)) return
     this.setData({ ['editForm.' + field]: e.detail.value })
   },
 
   onEditCategoryChange(e) {
-    if (this.productWriteLocked() || this.data.productCreationPending) return
+    if (this.productWriteLocked() || this.data.productCreationPending || this.data.showSetting) return
     const idx = Number(e.detail.value)
     const cat = CATEGORY_OPTIONS[idx].value
     const updates = { editCategoryIndex: idx, 'editForm.category': cat }
@@ -1242,6 +1224,13 @@ Page({
 
   async onSaveEdit() {
     if (this.productWriteLocked() || this._productEditorClosed) return
+    if (this.data.showSetting) {
+      const f = this.data.editForm
+      this.setData({ 'setting.salePrice': f.price, 'setting.depositPrice': f.deposit,
+        'setting.ticketPrice': f.ticketPrice, 'setting.enabled': f.enabled,
+        'setting.priorityDisplay': f.priorityDisplay, 'setting.ticketEnabled': f.ticketEnabled })
+      return this.onSaveSetting()
+    }
     let existingCreation
     try { existingCreation = this.syncProductCreationRecovery() } catch (_) { return }
     if (existingCreation && (this.data.isAdd || Number(this.data.editId) === existingCreation.productId)) {
@@ -1363,17 +1352,20 @@ Page({
 
   /** 停用本站自定义商品（软删：历史订单/桶账仍能引用它） */
   onDeactivate(e) {
-    const item = e.currentTarget.dataset.item
+    if (this.productWriteLocked()) return
+    const item = e.currentTarget.dataset.item, session = productSession()
+    if (!item || Number(item.ownerStationId) !== Number((getApp().globalData.userInfo || {}).stationId)) return
     wx.showModal({ cancelColor: '#637083',
-      title: '停用商品',
-      content: '停用后本站顾客看不到它，历史订单不受影响。确认停用？',
-      confirmText: '停用',
+      title: '移除商品',
+      content: '移除后本站顾客看不到它，历史订单仍保留。确认移除？',
+      confirmText: '移除',
       confirmColor: '#BD3328',
       success: (res) => {
-        if (!res.confirm) return
+        if (!res.confirm || !sameProductSession(session) || this.productWriteLocked()) return
         deleteMyProduct(item.id)
           .then(() => {
-            wx.showToast({ title: '已停用', icon: 'success' })
+            if (!sameProductSession(session)) return
+            wx.showToast({ title: '已移除', icon: 'success' })
             this.loadData()
           })
           .catch(err => wx.showToast({ title: err.message || '操作失败', icon: 'none' }))
@@ -1406,6 +1398,7 @@ Page({
    * 后端下发包内路径或COS签名预览，并分开提供持久对象键。
    */
   async openPresetPicker() {
+    if (this.data.showSetting) return
     if (this.data.productCreationPending) return
     this.refreshProductImageState()
     if (this.data.saving || this.data.productImageBusy) return
@@ -1435,6 +1428,7 @@ Page({
    * 不能把临时预览URL当对象键或从URL反推对象键。
    */
   onPickPresetImage(e) {
+    if (this.data.showSetting) return
     if (this.data.productCreationPending) return
     this.refreshProductImageState()
     if (this.data.saving || this.data.productImageBusy) return
@@ -1467,6 +1461,7 @@ Page({
   },
 
   async uploadImage(event) {
+    if (this.data.showSetting) return
     if (this.data.productCreationPending) return
     this.refreshProductImageState()
     if (this.data.saving || this.data.productImageBusy) return

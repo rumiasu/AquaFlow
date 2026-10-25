@@ -1,3 +1,4 @@
+const { initialModuleData, refreshModuleTasks } = require('../../../utils/setup-progress')
 // 站长端「水站资料」：站名 / 电话 / 地址 / 坐标。
 //
 // [2026-09-19 新建] 在此之前这几个字段是**死的**：宫格 F 分区那格「水站资料」点了只是
@@ -26,6 +27,7 @@ function sameStationSession(proof) {
 
 Page({
   data: {
+    ...initialModuleData(),
     loading: true, loadError: '',
     // 原值（含后端下发但本页不编辑的 status），保存时原样带回
     origin: null,
@@ -34,6 +36,14 @@ Page({
     // lat 为 null = 还没选点，此时配送范围校验会跳过（不是拒单）
     coord: { lat: null, lng: null },
     coordSaving: false
+  },
+
+  refreshModuleSetup() { return refreshModuleTasks(this, '/pages/station-mgmt/station-info/index') },
+  onModuleSetupTask(e) {
+    const key = e.currentTarget.dataset.key
+    if (!(this.data.moduleSetupTasks || []).some(it => it.key === key)) return
+    const target = key === 'stationPhone' ? '#setup-station-phone' : '#setup-station-position'
+    if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({ selector: target, duration: 180 })
   },
 
   onShow() {
@@ -53,6 +63,7 @@ Page({
   },
 
   onUnload() {
+    this._moduleSetupClosed = true
     this._stationUnloaded = true
     this._coordinateVersion = (this._coordinateVersion || 0) + 1
     this._stationReadVersion = (this._stationReadVersion || 0) + 1
@@ -67,6 +78,7 @@ Page({
   onRetry() { return this.loadData() },
 
   async loadData() {
+    this.refreshModuleSetup()
     if (this._stationUnloaded) return
     const session = stationSession(), version = this._stationReadVersion = (this._stationReadVersion || 0) + 1
     const current = () => !this._stationUnloaded && sameStationSession(session) && version === this._stationReadVersion
@@ -192,9 +204,9 @@ Page({
             if (!this.coordinateCurrent(proof)) return
             if (!(form.name || '').trim()) { wx.showToast({ title: '坐标已保存，请补全站名后保存地址', icon: 'none' }); return }
             await updateStation(origin.id, { name: form.name.trim(), phone: (form.phone || '').trim(), address: picked, status: origin.status })
-            if (this.coordinateCurrent(proof)) wx.showToast({ title: '坐标与地址已保存', icon: 'success' })
+            if (this.coordinateCurrent(proof)) { this.refreshModuleSetup(); wx.showToast({ title: '坐标与地址已保存', icon: 'success' }) }
           } else {
-            wx.showToast({ title: '坐标已保存', icon: 'success' })
+            this.refreshModuleSetup(); wx.showToast({ title: '坐标已保存', icon: 'success' })
           }
         } catch (err) {
           if (this.coordinateCurrent(proof)) wx.showToast({ title: err.message || '坐标保存失败', icon: 'none' })
@@ -232,7 +244,7 @@ Page({
         try {
           await updateStationCoordinates(null, null)
           if (!current()) return
-          this.setData({ 'coord.lat': null, 'coord.lng': null })
+          this.setData({ 'coord.lat': null, 'coord.lng': null }); this.refreshModuleSetup()
           wx.showToast({ title: '已清除', icon: 'success' })
         } catch (err) {
           if (current()) wx.showToast({ title: err.message || '清除失败', icon: 'none' })

@@ -44,7 +44,7 @@
   <view class="st-mask" wx:if="{{stationPanelShow}}" bindtap="closeStationPanel" catchtouchmove="preventMove">
     <view class="st-panel" catchtap="preventMove">
       <view class="st-panel-head">
-        <text class="st-panel-title">水站状态</text>
+        <text class="st-panel-title">上线准备与水站状态</text>
       </view>
 
       <view class="st-status {{stationStatusError ? 'st-status-unloaded' : ((stationStatusHint || stationPendingCount > 0) ? 'st-status-warn' : '')}}">
@@ -71,6 +71,7 @@
                （onlineHint，后端下发，见 StationSetupGuideService#onlineHintOf）。 -->
           <scroll-view class="st-list" scroll-y>
             <view class="st-item" wx:for="{{stationPanelItems}}" wx:key="key">
+              <text class="st-module-title" wx:if="{{item.moduleStart}}">{{item.where}}</text>
               <view class="st-item-row" bindtap="onPanelGoFill" data-route="{{item.route}}">
                 <text class="st-item-title {{item.done ? 'st-item-title-done' : ''}}">{{item.label}} · {{item.levelText}}</text>
                 <!-- 「?」默认收起说明（2026-09-24 产品反馈："每一项都详细解释，好啰嗦"）。

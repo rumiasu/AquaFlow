@@ -1,3 +1,4 @@
+@import "../../../styles/setup-module-tasks.wxss";
 /* 商品与库存（站长）：选品目录 + 本站设置 + 自己定义商品。
    2026-09-16 重构后本页承担 11 项功能中的：选品、本站设置（上架/价格/水票/优先展示）、
    库存入库与盘点、库存流水、自定义商品增删改、上报通用库。 */
@@ -672,7 +673,7 @@
 .card .action { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12rpx; padding-top:16rpx; margin-top:8rpx; }
 .product-card-primary,.product-card-more { display:flex; align-items:center; justify-content:center; min-height:44px; min-width:0; width:auto; height:auto; margin:0; padding:12rpx 20rpx; border-radius:10rpx; font-size:14px; line-height:1.5; white-space:normal; }
 .product-card-primary { background:var(--primary-color); color:#fff; font-weight:600; }
-.product-card-more { min-width:64px; color:var(--text-regular); background:var(--bg-gray); border:1rpx solid var(--border-color); }
+.product-card-more { min-width:64px; color:var(--error-color); background:var(--bg-gray); border:1rpx solid var(--error-color); }
 .product-card-primary::after,.product-card-more::after { border:0; }
 .product-source-note { display:block; padding:20rpx; margin-bottom:24rpx; color:var(--text-regular); background:var(--bg-gray); font-size:26rpx; line-height:1.6; border-radius:10rpx; }
 .product-section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:16rpx; margin-bottom:16rpx; }
@@ -690,3 +691,7 @@
 .product-display-switches .switch-item { flex:1; min-width:240rpx; }
 .stock-editor .seg { display:flex; flex-wrap:nowrap; gap:4rpx; }
 .stock-editor .seg-item { flex:1; min-width:0; padding:12rpx 6rpx; white-space:normal; }
+
+/* 来源标识只留在缩略卡右上角，两类商品共用动作与编辑布局。 */
+.name-row .tag.platform, .name-row .tag.mine { margin-left:auto; flex-shrink:0; }
+.product-edit-content .input[disabled] { color:var(--text-regular); background:var(--bg-gray); }

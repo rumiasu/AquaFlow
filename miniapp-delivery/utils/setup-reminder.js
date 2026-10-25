@@ -134,6 +134,7 @@ async function doCheck(owner) {
   // 不必再拉一次、也不会和徽标数来自两份快照。
   const view = {
     pendingCount,
+    doneCount: guide.doneCount, totalCount: guide.totalCount, p0PendingCount: guide.p0PendingCount,
     pending,
     // 全部项（含已完成的）。小框里"显示已配好的"那个开关要用它 —— 只下发未完成的话，
     // 前端想列已配好的就得自己再拉一次（又是两份快照，正是本文件存在的理由）。

@@ -84,6 +84,8 @@ const SUITES = [
   { file: 'checkout-consent-closeout.test.js', name: '合并押金授权、报价变化重确认与精确提示去重' },
   { file: 'scoped-receivables-login.test.js', name: '应收可信合计确认及未登录单一恢复行动' },
   { file: 'delivery-config-pull-refresh.test.js', name: '配送计费下拉刷新、会话/卸载隔离与双请求收尾' },
+  { file: 'delivery-config-layout.test.js', name: '配送计费单页导航、输入保留、字段定位与键盘安全区布局' },
+  { file: 'setup-navigation.test.js', name: '上线准备真实进度、模块必填过滤、跳转与保存后刷新' },
   { file: 'customer-home-quote-debounce.test.js', name: '首页报价防抖、同步失效、会话与离页收尾' },
   { file: '../../miniapp_route_check.js', name: '原身份路由检查器、真实导航回调与错误路径保护' },
   { file: 'miniapp-platform-wiring.test.js', name: '原生下拉配置、两端登录入口与协议页动态跳转' },

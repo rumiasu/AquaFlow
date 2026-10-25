@@ -338,3 +338,5 @@
 .status-chip-unloaded,.st-status-unloaded { background:var(--bg-gray); color:var(--text-regular); }
 .status-chip-unloaded .status-chip-text,.status-chip-unloaded .status-chip-note,.st-status-unloaded .st-status-text { color:var(--text-regular); }
 .status-chip-unloaded .status-dot { background:var(--text-secondary); }
+
+.st-module-title { display:block; padding:16rpx 0 8rpx; font-size:14px; font-weight:600; color:var(--text-primary); }

@@ -15,10 +15,10 @@ function nodes(root, predicate) {
 const hasClass = (n, c) => (n.attrs && n.attrs.class || '').split(/\s+/).includes(c)
 const tree = () => parseWxml(source('wxml'))
 
-test('custom and station editors keep native scrollers free of catchtouchmove ancestors and footer outside body', () => {
+test('one shared editor keeps native scrollers free of catchtouchmove ancestors and footer outside body', () => {
   const root = tree(), sheets = nodes(root, n => hasClass(n, 'product-edit-modal'))
   assert.equal(root.children.find(n => n.tag === 'page-meta').attrs['page-style'], "{{showEdit || showSetting ? 'overflow: hidden;' : ''}}")
-  assert.equal(sheets.length, 2)
+  assert.equal(sheets.length, 1)
   for (const { node, ancestors } of sheets) {
     assert(![...ancestors, node].some(n => n.attrs && 'catchtouchmove' in n.attrs))
     const body = node.children.find(n => n.tag === 'scroll-view')

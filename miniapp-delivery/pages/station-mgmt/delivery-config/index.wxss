@@ -1,3 +1,4 @@
+@import "../../../styles/setup-module-tasks.wxss";
 /* 配送计费配置（v36+）：沿用站内其它管理页的卡片 + 选项样式约定 */
 .container {
   padding: 24rpx 24rpx 160rpx;
@@ -157,3 +158,22 @@
 .option-name { font-size:30rpx; }
 .option-desc,.card-sub,.setup-label,.setup-why,.setup-where { font-size:26rpx; line-height:1.6; color:var(--text-regular); }
 .btn-primary,.btn-fill { min-height: 48px; height:auto; line-height:1.5; padding:20rpx; border-radius:10rpx; box-sizing:border-box; font-size: 16px; }
+
+/* 2026-10-25：四段仍在单页统一保存；导航/选项只改变定位和可见说明，不能清除未保存输入。 */
+.container { padding-bottom:calc(104px + env(safe-area-inset-bottom)); }
+.fee-section-nav { position:sticky; top:0; z-index:30; display:flex; gap:4px; padding:8px 0; margin-bottom:16rpx; background:var(--bg-color); }
+.fee-nav-item { flex:1; min-width:0; min-height:44px; margin:0; padding:8px 2px; font-size:13px; line-height:1.4; display:flex; align-items:center; justify-content:center; color:var(--text-regular); background:#fff; border:1rpx solid var(--border-color); border-radius:8rpx; }
+.fee-nav-item.active { color:var(--primary-color); background:var(--primary-bg); border-color:var(--primary-color); font-weight:600; }
+.fee-nav-item::after,.setup-summary::after { border:0; }
+.setup-card { padding:12rpx 20rpx; }
+.setup-summary { display:flex; align-items:center; justify-content:space-between; gap:12rpx; margin:0; padding:8rpx 0; min-height:44px; background:transparent; color:var(--text-primary); text-align:left; font-size:14px; line-height:1.5; }
+.setup-summary text:last-child { flex-shrink:0; color:var(--primary-color); }
+.setup-required { display:block; margin-bottom:8rpx; color:var(--text-regular); font-size:13px; line-height:1.6; }
+.options { flex-direction:row; flex-wrap:nowrap; gap:8rpx; margin-top:8rpx; }
+.option { flex:1; min-width:0; min-height:44px; padding:12rpx 4rpx; margin:0; display:flex; align-items:center; justify-content:center; }
+.option-name { font-size:14px; line-height:1.5; text-align:center; }
+.selected-mode-desc { font-size:13px; line-height:1.6; margin-top:12rpx; }
+.fee-save-bar { position:fixed; left:0; right:0; z-index:40; padding:12px 24rpx calc(12px + env(safe-area-inset-bottom)); background:#fff; border-top:1rpx solid var(--border-color); }
+.fee-save-bar.keyboard-open { padding-bottom:12px; }
+.fee-save-bar .btn-primary { margin:0; width:100%; }
+.fee-field-error { display:block; margin-top:8rpx; font-size:13px; line-height:1.6; color:var(--error-color); }

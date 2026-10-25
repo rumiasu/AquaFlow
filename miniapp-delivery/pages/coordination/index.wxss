@@ -857,3 +857,11 @@
 .fee-row-main, .fee-source, .queue-head { flex-wrap: wrap; gap: 12rpx; }
 .modal-item-info { min-width: 0; overflow-wrap: anywhere; }
 .dispatch-stale button { min-height: 44px; height: auto; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; border-radius: 12rpx; }
+
+/* 常亮提示点；不使用呼吸或闪烁，已营业后只保留紧凑查看入口。 */
+.setup-launch-entry { display:flex; align-items:center; gap:12rpx; margin-bottom:20rpx; padding:20rpx; border:1rpx solid #E8C598; border-radius:12rpx; background:#FFF8ED; color:var(--text-primary); font-size:14px; line-height:1.5; }
+.setup-launch-dot { width:8px; height:8px; flex-shrink:0; border-radius:50%; background:#D47A16; }
+.setup-launch-main { flex:1; min-width:0; }
+.setup-launch-main text { display:block; }
+.setup-launch-state { margin-top:4rpx; font-size:13px; color:var(--text-regular); }
+.setup-launch-quiet { min-height:36px; display:flex; align-items:center; justify-content:flex-end; margin-bottom:8rpx; font-size:13px; color:var(--text-regular); }

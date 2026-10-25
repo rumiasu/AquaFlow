@@ -1,3 +1,4 @@
+<import src="../../../templates/setup-module-tasks.wxml" />
 <!--
   站长端「水站资料」：站名 / 电话 / 地址 / 坐标。
   [2026-09-19 新建] 见 index.js 文件头：这几个字段此前在小程序里是死的（只能读不能改）。
@@ -5,6 +6,7 @@
      本页**不提供**它的入口 —— 停业会真拒单、且不在公开选站列表里，不该藏在资料表单里顺手改掉。
 -->
 <view class="container">
+  <template is="setupModuleTasks" data="{{tasks:moduleSetupTasks,loading:moduleSetupLoading,ready:moduleSetupReady,error:moduleSetupError}}" />
   <!-- 隐私授权弹窗：本页用 wx.chooseLocation 选水站坐标，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
   <privacy-popup />
 
@@ -27,7 +29,7 @@
 
       <view class="field">
         <text class="field-label">联系电话</text>
-        <input class="field-input" type="number" placeholder="客户找你用的号码" maxlength="20"
+        <input id="setup-station-phone" class="field-input" type="number" placeholder="客户找你用的号码" maxlength="20"
                value="{{form.phone}}" bindinput="onPhoneInput" />
       </view>
 
@@ -46,7 +48,7 @@
     </view>
 
     <!-- ============ 水站坐标（配送范围判定用）============ -->
-    <view class="card">
+    <view class="card" id="setup-station-position">
       <view class="card-head">
         <text class="card-title">水站坐标</text>
         <!-- [2026-09-24] 说明藏进「?」：本页是"来填字段"的，为什么必须填已经在

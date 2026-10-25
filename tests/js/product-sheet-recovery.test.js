@@ -15,21 +15,28 @@ function nodes(root, predicate) {
 const hasClass = (n, c) => (n.attrs && n.attrs.class || '').split(/\s+/).includes(c)
 const tree = () => parseWxml(source('wxml'))
 
-test('one shared editor keeps native scrollers free of catchtouchmove ancestors and footer outside body', () => {
+test('editor and inventory sheets keep native scrollers free of touch blockers and footers outside bodies', () => {
   const root = tree(), sheets = nodes(root, n => hasClass(n, 'product-edit-modal'))
-  assert.equal(root.children.find(n => n.tag === 'page-meta').attrs['page-style'], "{{showEdit || showSetting ? 'overflow: hidden;' : ''}}")
-  assert.equal(sheets.length, 1)
+  assert.equal(root.children.find(n => n.tag === 'page-meta').attrs['page-style'], "{{showEdit || showSetting || showInventory ? 'overflow: hidden;' : ''}}")
+  assert.equal(sheets.length, 2)
   for (const { node, ancestors } of sheets) {
     assert(![...ancestors, node].some(n => n.attrs && 'catchtouchmove' in n.attrs))
     const body = node.children.find(n => n.tag === 'scroll-view')
     assert(body && 'scroll-y' in body.attrs)
-    assert.equal(body.attrs.class, 'product-edit-body')
+    assert.equal(body.attrs.class.includes('product-edit-body'), true)
     const footer = node.children.find(n => hasClass(n, 'product-edit-footer'))
-    assert(footer && nodes(footer, n => n.tag === 'button').length === 3)
-    for (const inactive of [false, true]) {
-      const shown = renderElements({children:[footer]}, {productInactive:inactive,saving:false,inboundBusy:false,productCreationPending:false,productImageBusy:false,editForm:{},isAdd:false}, {includeText:true}).filter(n=>n.tag==='button')
-      assert.equal(shown.length, inactive ? 1 : 2)
-      if(inactive)assert(!shown.some(n=>n.attrs.bindtap==='onSaveEdit'))
+    assert(footer)
+    if (hasClass(node, 'inventory-sheet')) {
+      assert.equal(nodes(footer, n => n.tag === 'button').length, 2)
+      const shown = renderElements({children:[footer]}, {saving:false,inboundBusy:false,stockOperationBusy:false}, {includeText:true}).filter(n=>n.tag==='button')
+      assert.equal(shown.length, 2)
+    } else {
+      assert.equal(nodes(footer, n => n.tag === 'button').length, 3)
+      for (const inactive of [false, true]) {
+        const shown = renderElements({children:[footer]}, {productInactive:inactive,saving:false,inboundBusy:false,productCreationPending:false,productImageBusy:false,editForm:{},isAdd:false}, {includeText:true}).filter(n=>n.tag==='button')
+        assert.equal(shown.length, inactive ? 1 : 2)
+        if(inactive)assert(!shown.some(n=>n.attrs.bindtap==='onSaveEdit'))
+      }
     }
     assert.equal(nodes(body, n => hasClass(n, 'product-edit-footer')).length, 0)
     const backdrop = nodes(root, n => hasClass(n, 'modal-mask') && (n.attrs['wx:if'] === node.attrs['wx:if'] || hasClass(n, 'product-editor-dismiss-area')))
@@ -76,7 +83,16 @@ for (const resized of [false, true]) test('short-screen keyboard footer geometry
   height = 568; f.p.onProductKeyboardHeightChange({ detail: { height: 0 } })
   assert(f.p.data.productEditSheetStyle.includes('height:512px'))
   const inputs = nodes(tree(), n => n.tag === 'input' && n.attrs['bindkeyboardheightchange'])
-  assert(inputs.length > 10); assert(inputs.every(({ node }) => node.attrs['adjust-position'] === '{{false}}'))
+  assert(inputs.length > 10); assert(inputs.every(({ node }) => node.attrs['adjust-position'] === '{{false}}' && node.attrs.bindblur === 'onProductKeyboardBlur'))
+})
+test('keyboard blur restores sheet height when native height-zero callback is missing', async () => {
+  const f = pageFixture('product'); f.wx.getWindowInfo = () => ({ windowHeight: 568 }); f.p.openAdd()
+  f.p.onProductKeyboardHeightChange({ detail: { height: 260 } })
+  assert(f.p.data.productEditSheetStyle.includes('bottom:260px'))
+  f.p.onProductKeyboardBlur()
+  await new Promise(resolve => setTimeout(resolve, 220))
+  assert(f.p.data.productEditSheetStyle.includes('height:512px'))
+  assert(f.p.data.productEditSheetStyle.includes('bottom:0px'))
 })
 test('picker is busy immediately and cancellation releases product save guard', async () => {
   const f = pageFixture('product'); f.p.openAdd(); f.p.uploadImage()

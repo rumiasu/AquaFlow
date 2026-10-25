@@ -235,7 +235,7 @@ test('explicit zero station prices still clear overrides without changing shelf 
   assert.deepStrictEqual(t.calls, [['setting', 17, { enabled: 0, ticketEnabled: 0, priorityDisplay: 0, salePrice: 0, depositPrice: 0, ticketPrice: 0 }]])
 })
 for (const mode of ['in', 'check', 'loss']) test('stock ' + mode + ' rejects fractional quantity instead of truncating', async () => {
-  const t = fixture(); t.page.setData({ stationId: 11, stockMode: mode, stockInput: '1.5', setting: { id: 17, quantity: 10 } })
+  const t = fixture(); t.page.setData({ stationId: 11, showInventory: true, stockMode: mode, stockInput: '1.5', setting: { id: 17, quantity: 10 } })
   t.page.onSubmitStock(); await Promise.resolve(); assert.strictEqual(t.calls.length, 0)
 })
 test('busy picker blocks template switching; closing and reopening isolates its late callback', async () => {

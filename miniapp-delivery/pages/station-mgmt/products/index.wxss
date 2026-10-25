@@ -726,3 +726,32 @@
 .product-initial-stock { margin-top:20rpx; }
 .stock-editor { background:var(--bg-card); }
 .stock-editor .product-section-heading { margin-bottom:14rpx; }
+
+/* Inventory is a separate task from editing the product and its sales settings. */
+.card .action { display:flex; flex-wrap:wrap; align-items:stretch; }
+.card .action > button { flex:1 1 120rpx; min-width:0; }
+.card .action > .product-card-more { flex:0 0 auto; }
+.product-card-secondary { margin:0; border-radius:10rpx; }
+.product-card-secondary::after { border:0; }
+.inventory-draft-resume { display:flex; flex-wrap:wrap; align-items:center; gap:12rpx; margin:16rpx 24rpx; padding:18rpx; border:1rpx solid var(--warning-color); border-radius:12rpx; background:var(--warning-bg); color:var(--text-primary); font-size:26rpx; line-height:1.5; }
+.inventory-draft-resume text { flex:1 1 100%; }
+.inventory-draft-resume button { flex:1; min-width:0; min-height:44px; margin:0; padding:10rpx 12rpx; color:var(--primary-color); background:var(--primary-bg); font-size:14px; }
+.inventory-draft-resume .discard-draft { color:var(--text-regular); background:#fff; border:1rpx solid var(--border-color); }
+.inventory-draft-resume button::after { border:0; }
+.inventory-sheet { box-sizing:border-box; }
+.inventory-body { background:var(--bg-color); }
+.inventory-content { padding:24rpx 28rpx 32rpx; }
+.inventory-operation-nav { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8rpx; margin-bottom:20rpx; }
+.inventory-operation-nav button { min-width:0; min-height:44px; margin:0; padding:8rpx 4rpx; color:var(--text-regular); background:#fff; border:1rpx solid var(--border-color); border-radius:10rpx; font-size:13px; line-height:1.4; }
+.inventory-operation-nav button.active { color:var(--primary-color); background:var(--primary-bg); border-color:var(--primary-color); font-weight:600; }
+.inventory-operation-nav button.inventory-history { color:var(--primary-color); }
+.inventory-operation-nav button::after { border:0; }
+.inventory-operation-card { padding:22rpx; border:1rpx solid var(--border-color); border-radius:12rpx; background:#fff; }
+.inventory-operation-card .product-section-heading { margin-bottom:8rpx; }
+.inventory-operation-card .input { margin-top:12rpx; }
+.inventory-submit-note { display:block; margin-top:16rpx; color:var(--text-regular); font-size:24rpx; line-height:1.5; }
+.ticket-retail-setting { margin-top:20rpx; padding:18rpx 20rpx 8rpx; border-top:1rpx solid var(--border-color); border-radius:10rpx; background:var(--bg-gray); }
+.ticket-retail-setting .product-section-heading { margin-bottom:4rpx; }
+.ticket-retail-setting .product-section-title { font-size:27rpx; }
+.ticket-retail-setting .product-section-caption { font-size:23rpx; }
+.ticket-retail-setting .form-item { margin-top:8rpx; }

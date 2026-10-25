@@ -24,16 +24,19 @@ test('selected product cards expose identical edit and more actions for both sou
   t.page.setData({ loading: false, viewList: rows, list: rows })
   const controls = visible(t)
   assert.equal(controls.filter(n => n.tag === 'button' && n.text === '编辑商品').length, 2)
+  assert.equal(controls.filter(n => n.tag === 'button' && n.text === '库存操作').length, 2)
   assert.equal(controls.filter(n => n.attrs.catchtap === 'onProductMore').length, 2)
+  assert(controls.filter(n => n.tag === 'button' && n.text === '库存操作').every(n => n.attrs.catchtap === 'onOpenInventory'))
   assert(!controls.some(n => ['openEdit', 'onDeactivate', 'onSubmitToPlatform'].includes(n.attrs.catchtap)))
   assert(!controls.some(n => n.text === '设置'))
 })
-test('editor separates product details, sales and inventory while keeping the save bar outside the scroller', () => {
+test('product editor keeps details and sales separate while inventory is a separate panel', () => {
   validateConditionalSiblings(tree)
   const t = fixture(); openOwned(t); const controls = visible(t)
   assert(controls.some(n => (n.attrs.class || '').includes('product-edit-group-details')))
   assert(controls.some(n => (n.attrs.class || '').includes('product-edit-group-pricing')))
-  assert(controls.some(n => (n.attrs.class || '').includes('stock-editor')))
+  assert(!controls.some(n => (n.attrs.class || '').includes('stock-editor')))
+  assert(!controls.some(n => n.attrs.bindtap === 'onSubmitStock'))
   assert(controls.some(n => (n.attrs.class || '').includes('product-image-status')))
   assert(!controls.some(n => (n.attrs.class || '').includes('product-image-caption')))
   assert(source.indexOf('</scroll-view>') < source.indexOf('class="modal-footer product-edit-footer"'))
@@ -41,16 +44,54 @@ test('editor separates product details, sales and inventory while keeping the sa
   assert.match(styles, /\.product-image-action,\.product-image-action\.secondary[^}]*min-width:0[^}]*background:var\(--bg-gray\)/s)
   assert.match(styles, /\.product-edit-group \.product-display-switches\s*\{\s*display:block/s)
   assert.match(styles, /\.product-display-switches \.switch-item\s*\{[^}]*justify-content:space-between/s)
+  assert.match(styles, /\.inventory-operation-nav\s*\{[^}]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/s)
+  assert.match(styles, /\.inventory-operation-nav button\s*\{[^}]*min-height:44px/s)
+  assert.match(styles, /\.card \.action\s*\{[^}]*display:flex;[^}]*flex-wrap:wrap/s)
 })
-test('owned catalog entry opens one complete editor with effective price and display state', () => {
+test('selected catalog entry opens a short editor without embedding inventory actions', () => {
   const t = fixture(); openOwned(t)
   assert.equal(t.page.data.showEdit, true); assert.equal(t.page.data.showSetting, false)
   assert.equal(t.page.data.editId, 17); assert.equal(t.page.data.setting.id, 17)
   assert.equal(t.page.data.editForm.price, '15'); assert.equal(t.page.data.editForm.deposit, '50')
   assert.equal(t.page.data.editForm.priorityDisplay, true)
   const controls = visible(t)
-  assert(controls.some(n => n.attrs.bindtap === 'onSubmitStock'))
+  assert(!controls.some(n => n.attrs.bindtap === 'onSubmitStock'))
   assert(!controls.some(n => n.attrs['data-field'] === 'quantity'), 'existing inventory is managed with explicit stock commands')
+})
+test('inventory action opens a standalone panel and restores an unsubmitted stock draft', () => {
+  const t = fixture(); const row = item({ displayName: '库存样品' })
+  t.page.setData({ list: [row] })
+  t.page.onOpenInventory(event(row))
+  assert.equal(t.page.data.showInventory, true); assert.equal(t.page.data.showEdit, false)
+  assert.equal(t.page.data.setting.id, row.id); assert.equal(t.page.data.stockMode, 'in')
+  let controls = visible(t)
+  assert(controls.some(n => n.attrs.bindtap === 'onSubmitStock'))
+  assert(controls.some(n => n.attrs.bindtap === 'onFilterRecordsByCurrent'))
+  t.page.onStockInput({ detail: { value: '4' } })
+  t.page.onProductInventoryBeforeLeave()
+  assert.equal(t.page.data.showInventory, false); assert.equal(t.page.data.inventoryDraftAvailable, true)
+  assert(visible(t).some(n => n.attrs.bindtap === 'onResumeInventoryDraft'))
+  t.page.onResumeInventoryDraft()
+  assert.equal(t.page.data.showInventory, true); assert.equal(t.page.data.stockInput, '4')
+})
+test('ticket packages render before the secondary single-ticket price field', () => {
+  const t = fixture(); openOwned(t); t.page.setData({ 'editForm.ticketEnabled': true, pkgReady: true })
+  const controls = visible(t), packageIndex = controls.findIndex(n => (n.attrs.class || '').includes('pkg-block'))
+  const singleIndex = controls.findIndex(n => (n.attrs.class || '').includes('ticket-retail-setting'))
+  assert(packageIndex >= 0 && singleIndex > packageIndex)
+  assert(controls.some(n => n.text === '可选设置'))
+})
+test('manual scrolling updates only the active product editor section', () => {
+  const t = fixture(); openOwned(t)
+  const query = { in() { return this }, select() { return { boundingClientRect: () => this } },
+    selectAll() { return { boundingClientRect: () => this } }, exec(callback) { callback([{ top: 100 }, [{ top: 120 }, { top: 360 }]]) } }
+  t.wx.createSelectorQuery = () => query
+  t.page.measureProductEditorSections()
+  assert.deepEqual(t.page._productSectionOffsets, { details: 20, pricing: 260 })
+  t.page.onProductEditorScroll({ detail: { scrollTop: 260 } })
+  assert.equal(t.page.data.productEditorSection, 'pricing')
+  t.page.onProductEditorScroll({ detail: { scrollTop: 8 } })
+  assert.equal(t.page.data.productEditorSection, 'details')
 })
 test('one owned PUT saves visible prices and priority without overwriting live inventory', async () => {
   const t = fixture(); openOwned(t)
@@ -90,22 +131,30 @@ test('a different station owner cannot enter the local editor', () => {
   const t = fixture(); t.page.onOpenSetting(event(item({ ownerStationId: 22 })))
   assert.equal(t.page.data.showEdit, false); assert.equal(t.page.data.showSetting, false); assert.equal(t.calls.length, 0)
 })
-for (const kind of ['platform', 'owned', 'resume']) test('reopening ' + kind + ' clears stale keyboard offset and reaches viewport bottom', () => {
+test('inventory entry rejects another station and an unselected public template', () => {
+  const t = fixture()
+  t.page.onOpenInventory(event(item({ ownerStationId: 22 })))
+  assert.equal(t.page.data.showInventory, false)
+  t.page.onOpenInventory(event(item({ ownerStationId: null, selected: false })))
+  assert.equal(t.page.data.showInventory, false)
+})
+for (const kind of ['platform', 'owned', 'resume', 'inventory']) test('reopening ' + kind + ' clears stale keyboard offset and reaches viewport bottom', () => {
   const t = fixture(); t.wx.getWindowInfo = () => ({ windowHeight: 568 }); t.openAdd()
   t.page.onProductKeyboardHeightChange({ detail: { height: 260 } }); t.page.closeEdit()
   // Some hosts omit the final height=0 callback when its focused input is removed.
   if (kind === 'resume') t.page.onResumeProductEditor()
+  else if (kind === 'inventory') { t.page.setData({ list: [item()] }); t.page.onOpenInventory(event(item())) }
   else t.page.onOpenSetting(event(item({ ownerStationId: kind === 'platform' ? null : 11 })))
   const g = sheetGeometry(t.page); assert.equal(g.bottom, 0); assert.equal(g.height + g.bottom, 568 - 56)
 })
 test('physical shortage uses remaining quantity and keeps order-impact confirmation', () => {
-  const t = fixture(); openOwned(t); let modal; t.wx.showModal = o => { modal = o }
+  const t = fixture(); const row = item(); t.page.setData({ list: [row] }); t.page.onOpenInventory(event(row)); let modal; t.wx.showModal = o => { modal = o }
   t.page.onStockModeChange({ currentTarget: { dataset: { mode: 'loss' } } })
   t.page.onStockInput({ detail: { value: '8' } }); t.page.onSubmitStock()
   assert.equal(modal.title, '登记商品短缺'); assert.equal(modal.confirmText, '登记短缺')
   assert(modal.content.includes('10 件改为 8 件')); assert(modal.content.includes('缺货待补'))
   assert.equal(modal.editable, true); assert.equal(t.calls.length, 0)
-  assert.equal(t.page.data.stockAfterText, '核对后 8 件（少 2 件）')
+  assert.equal(t.page.data.stockAfterText, '短缺登记后 8 件（少 2 件）')
   assert(!visible(t).some(n => /实盘亏损|＝ 盘点/.test(n.text || '')))
 })
 test('both sources have one removal entry under more and stale account callbacks do nothing', () => {

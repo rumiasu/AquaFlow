@@ -165,6 +165,8 @@ test('lost inbound response replays same key and original quantity, never double
     assert.equal(incoming, key); return receipt
   }
   await t.page.doInbound(5); assert.equal(t.page.data.inboundRecovery.quantity, 5)
+  t.page.onOpenInventory({ currentTarget: { dataset: { item: item() } } })
+  assert.equal(t.page.data.showInventory, true); assert.equal(t.page.data.stockMode, 'in')
   t.page.setData({ stockInput: '9' }); await t.page.onSubmitStock()
   const calls = t.calls.filter(c => c[0] === 'inbound'); assert.equal(calls.length, 2)
   assert.deepEqual(calls[1].slice(1), calls[0].slice(1)); assert(t.wx.__calls.modal.at(-1).content.includes('5 件'))

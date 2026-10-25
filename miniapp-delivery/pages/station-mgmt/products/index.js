@@ -98,14 +98,15 @@ Page({
 
     // 本站设置弹窗
     productInactive: false,
-    showSetting: false, stationImageEditable: false, stationImageOverridden: false, platformImageObjectName: '', platformImageUrl: '', editOriginalImageObjectName: '', restorePlatformImage: false,
+    showSetting: false, showInventory: false, stationImageEditable: false, stationImageOverridden: false, platformImageObjectName: '', platformImageUrl: '', editOriginalImageObjectName: '', restorePlatformImage: false,
     productEditorSection: 'details', productScrollTarget: '',
     setting: {},
     pkgRows: [],         // 水票档位（快捷定义）：{id,qty,price,onShelf,deleted}
     pkgLoading: false, pkgError: '', pkgReady: false, pkgProductId: null,
     stockMode: 'in',     // in=入库(在现有基础上加) | check=盘点(把库存设成输入值)
     stockInput: '',
-    stockAfterText: '',
+    stockAfterText: '', stockOperationBusy: false, stockConfirmPending: false,
+    inventoryDraftAvailable: false, inventoryDraftName: '',
     warningsInline: [],
     saving: false,
     productSaveError: '', productCreationRecovery: null, productCreationPending: false,
@@ -163,13 +164,17 @@ Page({
       this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
       this._productEditEpoch = (this._productEditEpoch || 0) + 1
       this._closedProductEditor = null
-      this.setData({ list: [], viewList: [], reportableProducts: [], warningsInline: [], showRecords:false, records:[], showSubmissions:false, submissions:[], loadError: '', loading: true, showSetting: false, showEdit: false, setting: {}, editForm: {}, pkgRows: [],
-        pkgReady: false, productSaveError: '', inboundRecovery: null, inboundError: '', inboundBusy: false, productEditorResume: false })
+      this._closedInventoryDraft = null
+      this.setData({ list: [], viewList: [], reportableProducts: [], warningsInline: [], showRecords:false, records:[], showSubmissions:false, submissions:[], loadError: '', loading: true, showSetting: false, showEdit: false, showInventory: false, setting: {}, editForm: {}, pkgRows: [],
+        pkgReady: false, productSaveError: '', inboundRecovery: null, inboundError: '', inboundBusy: false, stockOperationBusy: false, stockConfirmPending: false, inventoryDraftAvailable: false, inventoryDraftName: '', stockInput: '', stockMode: 'in', productEditorResume: false })
     }
     this._productPageSession = visibleSession
     this.captureProductEditorWindow()
     if (!this._productResizeHandler && typeof wx.onWindowResize === 'function') {
-      this._productResizeHandler = event => this.layoutProductEditor(event && event.size && event.size.windowHeight)
+      this._productResizeHandler = event => {
+        this.layoutProductEditor(event && event.size && event.size.windowHeight)
+        if (this.data.showEdit) setTimeout(() => this.measureProductEditorSections(), 0)
+      }
       wx.onWindowResize(this._productResizeHandler)
     }
     const app = getApp()
@@ -187,6 +192,7 @@ Page({
     this._productDestroyed = true
     this._catalogReadSeq = (this._catalogReadSeq || 0) + 1
     if (this._productResizeHandler && typeof wx.offWindowResize === 'function') wx.offWindowResize(this._productResizeHandler)
+    if (this._productKeyboardBlurTimer) clearTimeout(this._productKeyboardBlurTimer)
     this._productResizeHandler = null
   },
 
@@ -195,7 +201,7 @@ Page({
     if (this._inboundFlight && this._inboundFlight.cancelConfirmation) this._inboundFlight.cancelConfirmation()
   },
 
-  productWriteLocked() { return !!(this._productSaveFlight || this._inboundFlight || this.data.saving || this.data.inboundBusy) },
+  productWriteLocked() { return !!(this._productSaveFlight || this._inboundFlight || this._stockOperationFlight || this.data.saving || this.data.inboundBusy || this.data.stockOperationBusy) },
 
   productSaveProof(kind, targetId) {
     return { kind, targetId, session: (kind === 'setting' ? this._productSettingOwner : kind === 'edit' ? this._productEditOwner : null) || productSession(),
@@ -293,9 +299,12 @@ Page({
   },
 
   captureProductEditorWindow(resetKeyboard = false) {
-    if (resetKeyboard) this._productKeyboardHeight = 0
+    if (resetKeyboard) {
+      this._productKeyboardHeight = 0
+      if (this._productKeyboardBlurTimer) { clearTimeout(this._productKeyboardBlurTimer); this._productKeyboardBlurTimer = null }
+    }
     const height = this.productWindowHeight()
-    if (!this._productKeyboardHeight || !this._productBaseWindowHeight) this._productBaseWindowHeight = height
+    if (resetKeyboard || !this._productKeyboardHeight || !this._productBaseWindowHeight) this._productBaseWindowHeight = height
     this.layoutProductEditor()
   },
 
@@ -313,8 +322,25 @@ Page({
   onProductKeyboardHeightChange(e) {
     const height = Number(e && e.detail && e.detail.height)
     if (!Number.isFinite(height) || height < 0) return
+    if (this._productKeyboardBlurTimer) { clearTimeout(this._productKeyboardBlurTimer); this._productKeyboardBlurTimer = null }
     this._productKeyboardHeight = height
-    this.layoutProductEditor()
+    const current = this.productWindowHeight()
+    if (height === 0 && current) this._productBaseWindowHeight = current
+    this.layoutProductEditor(current)
+  },
+
+  onProductKeyboardBlur() {
+    if (this._productKeyboardBlurTimer) clearTimeout(this._productKeyboardBlurTimer)
+    // Some native keyboard dismissals omit keyboardheightchange(height=0). A short grace
+    // period lets a focus change to another field cancel this reset before the sheet moves.
+    this._productKeyboardBlurTimer = setTimeout(() => {
+      this._productKeyboardBlurTimer = null
+      if (!this._productKeyboardHeight) return
+      this._productKeyboardHeight = 0
+      const current = this.productWindowHeight()
+      if (current) this._productBaseWindowHeight = current
+      this.layoutProductEditor(current)
+    }, 180)
   },
 
   async loadWaterTemplateImages() {
@@ -488,6 +514,75 @@ Page({
     }
     if (!item.selected) return this.onSelectProduct(e)
     return this.openEdit(e, !item.ownerStationId)
+  },
+
+  onOpenInventory(e) {
+    if (this.productWriteLocked()) return
+    const item = e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.item
+    if (!item || !item.id) return
+    const app = getApp(), stationId = (app.globalData.userInfo || {}).stationId
+    if (!app.canAccessStationBusiness()) { app.routeByRole(true); return }
+    if (item.ownerStationId && Number(item.ownerStationId) !== Number(stationId)) {
+      wx.showToast({ title: '只能操作本站商品库存', icon: 'none' }); return
+    }
+    if (!item.selected && !item.ownerStationId) return
+    const owner = productSession(), previous = this._closedInventoryDraft
+    const resume = previous && sameProductSession(previous.session) && Number(previous.item.id) === Number(item.id)
+      ? previous : null
+    this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
+    this._productSettingOwner = owner
+    this._productSettingClosed = false
+    this._closedProductEditor = null
+    this._productEditorClosed = false
+    this.captureProductEditorWindow(true)
+    this.setData({
+      showEdit: false, showSetting: false, showInventory: true, productEditorResume: false,
+      productInactive: item.status === 0 || item.status === 2,
+      setting: { id: item.id, name: item.displayName || item.name, category: item.category || 1,
+        quantity: item.quantity == null ? null : item.quantity, ownerStationId: item.ownerStationId,
+        salePrice: item.salePrice == null ? '' : String(item.salePrice),
+        depositPrice: item.depositPrice == null ? '' : String(item.depositPrice),
+        enabled: item.enabled === 1, priorityDisplay: item.priorityDisplay === 1,
+        ticketEnabled: item.ticketEnabled === 1, ticketPrice: item.ticketPrice == null ? '' : String(item.ticketPrice),
+        refPriceText: item.refPriceText, refDepositText: item.refDepositText },
+      stockMode: resume ? resume.stockMode : 'in', stockInput: resume ? resume.stockInput : '',
+      stockAfterText: '', stockConfirmPending: false, inboundError: '', inboundRecovery: null,
+      inventoryDraftAvailable: false, inventoryDraftName: '', productScrollTarget: ''
+    }, () => this.refreshStockPreview())
+    try { this.syncInboundRecovery() } catch (_) { /* 原入库仍按原编号恢复，不改用当前输入。 */ }
+    this.layoutProductEditor()
+    if (resume) this._closedInventoryDraft = null
+  },
+
+  closeInventory() {
+    if (!this.data.showInventory) return
+    const item = (this.data.list || []).find(row => Number(row.id) === Number(this.data.setting.id))
+    const hasDraft = String(this.data.stockInput || '').trim() !== '' || this.data.stockMode !== 'in'
+    if (hasDraft && item) {
+      this._closedInventoryDraft = { session: this._productSettingOwner || productSession(), item: productCopy(item),
+        stockMode: this.data.stockMode, stockInput: this.data.stockInput }
+    } else this._closedInventoryDraft = null
+    this._productSettingClosed = true
+    if (!this.productWriteLocked()) this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
+    this._productKeyboardHeight = 0
+    if (this._productKeyboardBlurTimer) { clearTimeout(this._productKeyboardBlurTimer); this._productKeyboardBlurTimer = null }
+    if (typeof wx.hideKeyboard === 'function') wx.hideKeyboard()
+    this.setData({ showInventory: false, inventoryDraftAvailable: !!this._closedInventoryDraft,
+      inventoryDraftName: this._closedInventoryDraft ? (this._closedInventoryDraft.item.displayName || this._closedInventoryDraft.item.name || '商品') : '',
+      stockConfirmPending: false, stockAfterText: '' })
+  },
+
+  onProductInventoryBeforeLeave() { this.closeInventory() },
+
+  onResumeInventoryDraft() {
+    const draft = this._closedInventoryDraft
+    if (!draft || !sameProductSession(draft.session)) { this.onDiscardInventoryDraft(); return }
+    return this.onOpenInventory({ currentTarget: { dataset: { item: draft.item } } })
+  },
+
+  onDiscardInventoryDraft() {
+    this._closedInventoryDraft = null
+    this.setData({ inventoryDraftAvailable: false, inventoryDraftName: '', stockInput: '', stockMode: 'in', stockAfterText: '' })
   },
 
   closeSetting() {
@@ -679,17 +774,46 @@ Page({
    */
 
   onStockModeChange(e) {
-    if (this.productWriteLocked()) return
-    this.setData({ stockMode: e.currentTarget.dataset.mode }, () => this.refreshStockPreview())
+    if (this.productWriteLocked() || !this.data.showInventory) return
+    const mode = e.currentTarget.dataset.mode
+    if (!['in', 'check', 'loss'].includes(mode)) return
+    if (this.data.inboundRecovery && mode !== 'in') {
+      wx.showToast({ title: '请先继续原入库核实', icon: 'none' }); return
+    }
+    this.setData({ stockMode: mode }, () => this.refreshStockPreview())
   },
 
   onStockInput(e) {
-    if (this.productWriteLocked()) return
+    if (this.productWriteLocked() || !this.data.showInventory) return
     this.setData({ stockInput: e.detail.value }, () => this.refreshStockPreview())
+  },
+
+  inventoryOperationProof() {
+    return { session: this._productSettingOwner || productSession(), epoch: this._productSettingEpoch || 0,
+      productId: Number(this.data.setting && this.data.setting.id) }
+  },
+
+  inventoryOperationCurrent(proof, requireOpen = true) {
+    return !!proof && Number.isSafeInteger(proof.productId) && proof.productId > 0
+      && sameProductSession(proof.session) && getApp().canAccessStationBusiness()
+      && !this._productHidden && !this._productDestroyed
+      && proof.epoch === (this._productSettingEpoch || 0)
+      && Number(this.data.setting && this.data.setting.id) === proof.productId
+      && (!requireOpen || this.data.showInventory && !this._productSettingClosed)
+  },
+
+  clearStockConfirmation() {
+    this._stockConfirmPending = false
+    if (!this._productDestroyed) this.setData({ stockConfirmPending: false })
   },
 
   /** 实时算出"提交后库存会变成几"，让站长在点按钮之前就看到结果 */
   refreshStockPreview() {
+    if (this.data.stockMode === 'in' && this.data.inboundRecovery) {
+      const intent = this.data.inboundRecovery
+      this.setData({ stockAfterText: '继续原入库 ' + intent.quantity + ' 件；不会使用当前输入' })
+      return
+    }
     const qty = parseInt(this.data.stockInput, 10)
     const current = Number(this.data.setting.quantity || 0)
     if (isNaN(qty) || qty < 0) {
@@ -698,13 +822,17 @@ Page({
     }
     const after = this.data.stockMode === 'in' ? current + qty : qty
     const delta = after - current
-    this.setData({ stockAfterText: (this.data.stockMode === 'in' ? '入库后 ' : '核对后 ') + after + ' 件（' + (delta < 0 ? '少 ' + (-delta) : delta > 0 ? '多 ' + delta : '无变化') + (delta === 0 ? '' : ' 件') + '）' })
+    const label = this.data.stockMode === 'in' ? '入库后 ' : this.data.stockMode === 'loss' ? '短缺登记后 ' : '核对后 '
+    this.setData({ stockAfterText: label + after + ' 件（' + (delta < 0 ? '少 ' + (-delta) : delta > 0 ? '多 ' + delta : '无变化') + (delta === 0 ? '' : ' 件') + '）' })
   },
 
   /** 一个按钮走两种模式：入库直接提交，盘点先确认再提交 */
   onSubmitStock() {
-    if (this.productWriteLocked()) return
+    if (this.productWriteLocked() || !this.data.showInventory || this._stockConfirmPending) return
     const { stockMode, stockInput, setting } = this.data
+    if (this.data.inboundRecovery && stockMode !== 'in') {
+      wx.showToast({ title: '请先继续原入库核实', icon: 'none' }); return
+    }
     if (stockMode === 'in') {
       try { if (inboundIntent.read(this.inboundActor(), setting.id)) return this.doInbound() }
       catch (error) { this.setData({ inboundError: error.message }); return }
@@ -719,26 +847,54 @@ Page({
     }
     if (stockMode === 'loss') {
       if (qty >= (setting.quantity || 0)) { wx.showToast({ title: '剩余数量须少于当前库存', icon: 'none' }); return }
+      const proof = this.inventoryOperationProof()
+      this._stockConfirmPending = true
+      this.setData({ stockConfirmPending: true })
       wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '登记短缺', cancelText: '暂不登记', title: '登记商品短缺', editable: true, placeholderText: '短缺原因及凭据（必填）',
         content: '实际库存由 ' + setting.quantity + ' 件改为 ' + qty + ' 件。低于已预留数量时，较晚的订单会转为缺货待补，请与客户协商延期或取消。',
-        success: async res => { if (!res.confirm) return
-          try {
-            const r = await businessRules.recordLoss(setting.id, { targetQuantity: qty, expectedQuantity: setting.quantity, note: res.content })
-            this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': qty }); this.loadData()
-            wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '商品短缺已登记', content: '受影响订单 ' + (r.data.affectedOrders || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
-          } catch (err) { wx.showToast({ title: err.message || '登记未成功', icon: 'none' }) }
-        } })
+        success: res => {
+          this.clearStockConfirmation()
+          if (!res.confirm || !this.inventoryOperationCurrent(proof)) return
+          return this.doRecordStockLoss(qty, res.content, proof)
+        }, fail: () => this.clearStockConfirmation() })
       return
     }
     const after = qty
+    const proof = this.inventoryOperationProof()
+    this._stockConfirmPending = true
+    this.setData({ stockConfirmPending: true })
     wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认实际库存',
       content: '「' + setting.name + '」库存由 ' + (setting.quantity || 0) + ' 件改为 ' + after + ' 件，并记录数量差额。',
       confirmText: '确认数量',
       success: (res) => {
-        if (res.confirm) this.doStockCheck(after)
-      }
+        this.clearStockConfirmation()
+        if (res.confirm && this.inventoryOperationCurrent(proof)) this.doStockCheck(after, proof)
+      }, fail: () => this.clearStockConfirmation()
     })
+  },
+
+  async doRecordStockLoss(targetQuantity, note, proof = this.inventoryOperationProof()) {
+    if (this.productWriteLocked() || !this.inventoryOperationCurrent(proof)) return
+    const setting = productCopy(this.data.setting || {}), flight = this._stockOperationFlight = {}
+    this.setData({ stockOperationBusy: true, inboundError: '' })
+    try {
+      const result = await businessRules.recordLoss(setting.id, { targetQuantity, expectedQuantity: setting.quantity, note })
+      if (!this.inventoryOperationCurrent(proof, false)) return
+      this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': targetQuantity })
+      this._closedInventoryDraft = null
+      this.setData({ inventoryDraftAvailable: false, inventoryDraftName: '' })
+      this.loadData()
+      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083', confirmText: '知道了', title: '商品短缺已登记',
+        content: '受影响订单 ' + ((result && result.data && result.data.affectedOrders) || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
+    } catch (err) {
+      if (this.inventoryOperationCurrent(proof, false)) wx.showToast({ title: err.message || '登记未成功', icon: 'none' })
+    } finally {
+      if (this._stockOperationFlight === flight) {
+        this._stockOperationFlight = null
+        if (!this._productDestroyed) this.setData({ stockOperationBusy: false })
+      }
+    }
   },
 
   /** 入库：在现有库存上加（写 INBOUND 流水） */
@@ -755,12 +911,13 @@ Page({
       const id = this.data.setting && this.data.setting.id
       const intent = id ? inboundIntent.read(this.inboundActor(), id) : null
       this.setData({ inboundRecovery: intent ? { productId: intent.items[0].productId,
-        quantity: intent.items[0].quantity, clientRequestId: intent.clientRequestId } : null })
+        quantity: intent.items[0].quantity, clientRequestId: intent.clientRequestId } : null,
+        ...(intent && this.data.showInventory ? { stockMode: 'in' } : {}) }, () => this.refreshStockPreview())
       return intent
     } catch (error) { this.setData({ inboundRecovery: null, inboundError: error.message }); throw error }
   },
 
-  onContinueOriginalInbound() { return this.doInbound() },
+  onContinueOriginalInbound() { if (this.data.showInventory) return this.doInbound() },
 
   async doInbound(qty) {
     if (this.productWriteLocked() || this._productSettingClosed || this._productHidden || this._productDestroyed) return
@@ -817,15 +974,25 @@ Page({
   },
 
   /** 盘点：把库存设成目标值（写 ADJUST 流水） */
-  async doStockCheck(target) {
-    const s = this.data.setting
+  async doStockCheck(target, proof = this.inventoryOperationProof()) {
+    if (this.productWriteLocked() || !this.inventoryOperationCurrent(proof)) return
+    const s = productCopy(this.data.setting || {}), flight = this._stockOperationFlight = {}
+    this.setData({ stockOperationBusy: true, inboundError: '' })
     try {
       await setCatalogStock(s.id, target, '商品页核对库存')
+      if (!this.inventoryOperationCurrent(proof, false)) return
       wx.showToast({ title: '库存已核对', icon: 'success' })
       this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': target })
+      this._closedInventoryDraft = null
+      this.setData({ inventoryDraftAvailable: false, inventoryDraftName: '' })
       this.loadData()
     } catch (err) {
-      wx.showToast({ title: err.message || '库存核对未成功', icon: 'none' })
+      if (this.inventoryOperationCurrent(proof, false)) wx.showToast({ title: err.message || '库存核对未成功', icon: 'none' })
+    } finally {
+      if (this._stockOperationFlight === flight) {
+        this._stockOperationFlight = null
+        if (!this._productDestroyed) this.setData({ stockOperationBusy: false })
+      }
     }
   },
 
@@ -961,6 +1128,7 @@ Page({
     // The native editor layer must close before the ordinary records modal can be shown.
     // leaveProductEditor retains the same unsaved form; it is not a product save.
     if (this.data.showEdit) this.leaveProductEditor()
+    if (this.data.showInventory) this.closeInventory()
     this.setData({ recordsProductId: s.id, recordsFilterName: s.name, recordsLimit: 50, showRecords: true })
     this.loadRecords()
   },
@@ -1066,12 +1234,14 @@ Page({
     this._productEditEpoch = (this._productEditEpoch || 0) + 1
     this._productImageFailure = null
     this._productPreviewUnavailable = null
+    this._productEditorScrollTop = 0
+    this._productSectionOffsets = null
     this.captureProductEditorWindow(true)
     this._pkgSeq = (this._pkgSeq || 0) + 1
     // 每份新商品保持独立图片意图；关闭后的同页继续使用原编号。
     try { this._uploadDraftId = uploadDraft({ kind: 'product-image', id: 'new' }, true) } catch (_) { this._uploadDraftId = null }
     this.setData({
-      showEdit: true, showSetting: false,
+      showEdit: true, showSetting: false, showInventory: false,
       productEditorResume: false,
       productSaveError: '',
       productInactive: false, isAdd: true,
@@ -1090,6 +1260,7 @@ Page({
     this.setData({ editHelpExpanded: false })
     this.refreshProductImageState()
     try { this.syncProductCreationRecovery() } catch (_) { /* 由恢复提示阻止另建。 */ }
+    setTimeout(() => this.measureProductEditorSections(), 0)
   },
 
   openEdit(e, platform = false) {
@@ -1101,6 +1272,8 @@ Page({
     this._productEditEpoch = (this._productEditEpoch || 0) + 1
     this._productImageFailure = null
     this._productPreviewUnavailable = null
+    this._productEditorScrollTop = 0
+    this._productSectionOffsets = null
     this.captureProductEditorWindow(true)
     const item = e.currentTarget.dataset.item
     this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
@@ -1110,6 +1283,7 @@ Page({
     const idx = CATEGORY_OPTIONS.findIndex(c => c.value === item.category)
     this.setData({
       showEdit: true,
+      showInventory: false,
       showSetting: platform,
       stationImageEditable: item.stationImageEditable === true,
       productInactive: item.status === 0 || item.status === 2,
@@ -1155,6 +1329,7 @@ Page({
     this.setData({ editHelpExpanded: false })
     this.refreshProductImageState()
     try { this.syncInboundRecovery() } catch (_) { /* 原入库继续按原编号处理。 */ }
+    setTimeout(() => this.measureProductEditorSections(), 0)
   },
 
   closeEdit() {
@@ -1219,8 +1394,32 @@ Page({
 
   onProductSectionTap(e) {
     const section = e.currentTarget.dataset.section
-    if (!['details', 'pricing', 'stock'].includes(section) || this.data.isAdd && section === 'stock') return
+    if (!['details', 'pricing'].includes(section) || !this.data.showEdit) return
     this.setData({ productEditorSection: section, productScrollTarget: '' }, () => this.setData({ productScrollTarget: 'product-section-' + section }))
+  },
+
+  measureProductEditorSections() {
+    if (!this.data.showEdit || !wx.createSelectorQuery) return
+    try {
+      const query = wx.createSelectorQuery().in(this)
+      query.select('.product-edit-body').boundingClientRect()
+      query.selectAll('.product-section-heading').boundingClientRect()
+      query.exec(result => {
+        const body = result && result[0], headings = result && result[1]
+        if (!body || !Array.isArray(headings) || headings.length < 2 || !this.data.showEdit) return
+        const top = Number(this._productEditorScrollTop || 0)
+        this._productSectionOffsets = { details: headings[0].top - body.top + top, pricing: headings[1].top - body.top + top }
+      })
+    } catch (_) { this._productSectionOffsets = null }
+  },
+
+  onProductEditorScroll(e) {
+    const top = Number(e && e.detail && e.detail.scrollTop) || 0
+    this._productEditorScrollTop = top
+    const offsets = this._productSectionOffsets
+    if (!offsets) return
+    const section = top + 24 >= offsets.pricing ? 'pricing' : 'details'
+    if (section !== this.data.productEditorSection) this.setData({ productEditorSection: section })
   },
   onRestorePlatformImage() {
     if (this.data.productInactive) return

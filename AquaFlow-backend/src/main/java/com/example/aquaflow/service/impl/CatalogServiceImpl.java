@@ -16,6 +16,8 @@ import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.BarrelScope;
 import com.example.aquaflow.util.ProductImageResolver;
+import com.example.aquaflow.util.StationProductImage;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -110,6 +112,11 @@ public class CatalogServiceImpl implements CatalogService {
         if (vo.getStatus() != null && vo.getStatus() == 0 && !selecting) {
             throw new BusinessException("该商品已被开发者下架，无法在本站配置");
         }
+        // 2026-10-25: validate before any write; station images never update the public product row.
+        if (dto.getImageObjectName() != null && vo.getOwnerStationId() != null) {
+            throw new BusinessException("本站自定义商品图片请在商品编辑中保存");
+        }
+        String stationImage = dto.getImageObjectName() == null ? null : StationProductImage.normalize(dto.getImageObjectName());
         Inventory current = inventoryMapper.getByStationAndProduct(stationId, productId);
 
         // [2026-09-19] 押金只对桶装水生效：非桶装商品**不允许**设站级押金。
@@ -157,7 +164,24 @@ public class CatalogServiceImpl implements CatalogService {
         setting.setPriorityDisplay(priority);
 
         inventoryService.saveStationSetting(setting);
+        if (dto.getImageObjectName() != null) {
+            int changed = inventoryMapper.updateStationImage(stationId, productId, stationImage);
+            if (changed == 0) {
+                Inventory checked = inventoryMapper.getByStationAndProductForUpdate(stationId, productId);
+                if (checked == null || !Objects.equals(checked.getImageObjectNameOverride(), stationImage)) {
+                    throw new BusinessException("商品图片保存尚未确认，请重新读取商品核对");
+                }
+            }
+        }
         return priceWarnings(vo, setting);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public String getStationImage(Long stationId, Long productId) {
+        Inventory current = inventoryMapper.getByStationAndProduct(stationId, productId);
+        if (current == null) throw new BusinessException("本站商品图片保存结果尚未读取");
+        return current.getImageObjectNameOverride();
     }
 
     @Override
@@ -441,6 +465,7 @@ public class CatalogServiceImpl implements CatalogService {
     private List<ProductWithInventoryVO> withImageUrls(List<ProductWithInventoryVO> list) {
         for (ProductWithInventoryVO vo : list) {
             vo.setImageUrl(imageResolver.resolve(vo.getImageObjectName()));
+            vo.setPlatformImageUrl(imageResolver.resolve(vo.getPlatformImageObjectName()));
         }
         return list;
     }

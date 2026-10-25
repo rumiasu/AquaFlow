@@ -90,7 +90,13 @@ public class ManagerCatalogController {
     public Result<Map<String, Object>> updateSetting(@PathVariable Long productId,
                                                      @RequestBody StationCatalogSettingDTO dto) {
         Long stationId = AuthContext.requireStationId();
-        return withWarnings(catalogService.saveStationSetting(stationId, productId, dto, false));
+        Result<Map<String, Object>> result = withWarnings(catalogService.saveStationSetting(stationId, productId, dto, false));
+        if (dto.getImageObjectName() != null) {
+            String image = catalogService.getStationImage(stationId, productId);
+            result.getData().put("stationImageSaved", true);
+            result.getData().put("stationImageRef", image == null ? "" : image);
+        }
+        return result;
     }
 
     /** 移除本站配置（不再卖）：库存必须先盘点为 0，否则报错。 */

@@ -21,8 +21,9 @@ public interface OrderItemMapper {
      * 2026-10-07：历史/转单曾只取第一商品并乘全单数量；批量补快照避免逐单详情 N+1。
      */
     @Select("<script>select oi.id, oi.order_id, oi.product_id, oi.product_name_snapshot, " +
-            "oi.spec_snapshot, oi.quantity, p.category, p.image_object_name " +
-            "from order_item oi left join product p on p.id = oi.product_id " +
+            "oi.spec_snapshot, oi.quantity, p.category, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name " +
+            "from order_item oi left join product p on p.id = oi.product_id left join orders o on o.id = oi.order_id " +
+            "left join inventory i on i.product_id = oi.product_id and i.station_id = o.station_id " +
             "where oi.order_id in " +
             "<foreach collection='orderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach> " +
             "order by oi.order_id, oi.id</script>")

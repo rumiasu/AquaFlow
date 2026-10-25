@@ -241,8 +241,8 @@ public class StationSetupGuideService {
         result.put("p0PendingCount", p0Pending);
         // 汇总文案由后端给出，前端不要自己拼（同本仓"文案由后端下发"的约定）
         result.put("summaryText", p0Pending > 0
-                ? "还有 " + p0Pending + " 项必填没配好（" + done + "/" + items.size() + " 项已完成）"
-                : "必填项都已配好（" + done + "/" + items.size() + " 项已完成）");
+                ? "还需完成 " + p0Pending + " 项必填"
+                : "已具备上线条件");
         result.put("onlineHint", onlineHintOf(station, p0Pending));
         return result;
     }
@@ -265,7 +265,9 @@ public class StationSetupGuideService {
      */
     private static String onlineHintOf(Station station, int p0Pending) {
         if (p0Pending <= 0) {
-            return "必填项都配好了 —— 点下面的「设置营业状态」就能上线接单";
+            return station != null && StationOperatingStatus.isPendingLaunch(station.getOperatingStatus())
+                    ? "已具备上线条件，可到营业状态开始营业"
+                    : "必填准备已具备，当前状态：" + (station == null ? "待核实" : station.getOperatingStatusText());
         }
         Integer op = station == null ? null : station.getOperatingStatus();
         if (StationOperatingStatus.isPendingLaunch(op)) {

@@ -9,7 +9,8 @@ import java.math.BigDecimal;
  *
  * <p>规格见 {@code docs/design/12-商品与库存重构.md} §6.1。要点：</p>
  * <ul>
- *   <li>通用库商品的名称/规格/图片/描述由开发者维护，站长不可改 —— 所以本 DTO 里**没有**这些字段；</li>
+ *   <li>通用库商品的名称/规格/描述由开发者维护，本站设置不包含这些公共字段；</li>
+ *   <li>图片允许本站覆盖，单独存入本站库存配置，不修改公共原图；</li>
  *   <li><b>库存不在这里</b>（走 {@code POST /api/manager/catalog/{id}/stock}），否则会绕过
  *       {@code inventory_record} 流水；</li>
  *   <li>价格三态：{@code null} = 保持原值；{@code 0} = 清除覆盖（回落通用库参考价）；
@@ -21,6 +22,9 @@ public class StationCatalogSettingDTO {
 
     /** 本站是否上架（0 否 1 是）。选用时不传 = 默认 0（未上架）——"选了就自动卖"是对账事故的高发点 */
     private Integer enabled;
+
+    /** NULL保持本站图片；空串恢复公共原图；非空只接受持久图片引用。 */
+    private String imageObjectName;
 
     /** 本站售价（覆盖通用库参考价 product.price） */
     private BigDecimal salePrice;

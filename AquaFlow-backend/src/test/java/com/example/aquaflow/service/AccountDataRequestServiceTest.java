@@ -57,7 +57,7 @@ class AccountDataRequestServiceTest {
         AuthContext.set(new AuthContext.AuthUser(7L,"staff","DELIVERY",2L));when(mapper.staffExists(7L)).thenReturn(1);
         var row=new AccountDataRequest();row.setId(3L);row.setRequestType("CLOSURE");row.setStatus("SUBMITTED");row.setNote("");
         when(mapper.mine(3L,"staff",7L)).thenReturn(row);var result=service(false).detail(3L);
-        assertNull(result.closureCheck());assertTrue(result.checkNotice().contains("未完成员工清结检查"));assertFalse(service(false).options().closureCheckSupported());
+        assertNull(result.closureCheck());assertTrue(result.checkNotice().contains("未完成员工清结检查"));assertFalse(service(false).options().closureCheckSupported());assertFalse(service(false).options().notice().contains("注销前检查"));
         assertThrows(BusinessException.class,()->service(false).detail(4L));verifyNoInteractions(closure);
     }
     @Test void paginationDoesNotLoseOlderRequestsAndUnknownStatusIsConservative() {

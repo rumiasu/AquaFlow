@@ -33,6 +33,12 @@ public class ProductWithInventoryVO {
     private String brand;
     private String spec;
     private String imageObjectName;
+    private String platformImageObjectName;
+    private String platformImageUrl;
+    private String stationImageObjectName;
+    /** Capability comes from the paired backend; old clients cannot fake successful image persistence. */
+    public boolean getStationImageEditable() { return ownerStationId == null && inventoryId != null; }
+
     private String description;
     private BigDecimal price;
     private BigDecimal deposit;

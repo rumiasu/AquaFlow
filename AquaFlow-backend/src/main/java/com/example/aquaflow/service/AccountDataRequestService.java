@@ -54,9 +54,9 @@ public class AccountDataRequestService {
     public Options options() {
         Actor actor=actor();
         return new Options(enabled,enabled?contact:null,enabled?"申请登记后等待人工核实，本入口不会自动处理资料或注销账户。"
-                :"资料请求受理尚未启用，受理人和联系渠道待核实；本人注销前检查仍可单独使用。","customer".equals(actor.type),
-                List.of(new RequestType("ACCESS","查询资料"),new RequestType("CORRECTION","更正资料"),new RequestType("EXPORT","导出资料"),
-                        new RequestType("DELETION","删除资料"),new RequestType("CLOSURE","账户注销申请")));
+                :"申请暂未开放，可查询已登记的申请记录。","customer".equals(actor.type),
+                List.of(new RequestType("ACCESS","资料查询申请"),new RequestType("CORRECTION","资料更正申请"),new RequestType("EXPORT","资料导出申请"),
+                        new RequestType("DELETION","资料删除申请"),new RequestType("CLOSURE","账户注销申请")));
     }
     @Transactional
     public AccountDataRequestVO submit(AccountDataRequestDTO dto) {
@@ -65,7 +65,7 @@ public class AccountDataRequestService {
         String digest=digest(type,note);
         AccountDataRequest replay=mapper.findReplay(actor.type,actor.id,key);
         if(replay!=null)return same(replay,digest); // A paused intake still permits querying a previous request.
-        if(!enabled)throw new BusinessException("资料请求受理尚未启用，不能登记申请；本人注销前检查可单独使用");
+        if(!enabled)throw new BusinessException("资料请求受理尚未启用，不能登记申请；可查询已登记的申请记录");
         AccountDataRequest value=new AccountDataRequest();value.setActorType(actor.type);value.setActorId(actor.id);
         value.setRequestType(type);value.setNote(note);value.setIdempotencyKey(key);value.setRequestDigest(digest);
         value.setStatus("SUBMITTED");value.setCreateTime(LocalDateTime.now(clock));mapper.insert(value);
@@ -92,8 +92,8 @@ public class AccountDataRequestService {
         return view(value);
     }
     private AccountDataRequestVO view(AccountDataRequest value) {
-        String typeText=switch(value.getRequestType()) { case "ACCESS"->"查询资料";case "CORRECTION"->"更正资料";
-            case "EXPORT"->"导出资料";case "DELETION"->"删除资料";case "CLOSURE"->"账户注销申请";default->"请求类型待核实"; };
+        String typeText=switch(value.getRequestType()) { case "ACCESS"->"资料查询申请";case "CORRECTION"->"资料更正申请";
+            case "EXPORT"->"资料导出申请";case "DELETION"->"资料删除申请";case "CLOSURE"->"账户注销申请";default->"请求类型待核实"; };
         return new AccountDataRequestVO(value.getId(),value.getRequestType(),typeText,value.getNote(),value.getStatus(),
                 "SUBMITTED".equals(value.getStatus())?"已登记，待人工核实":"状态待人工核实",value.getCreateTime(),
                 "仅登记请求，不表示资料已导出、更正、删除或匿名化；账户、凭据和业务台账不会由本入口改变。");

@@ -68,26 +68,26 @@ public interface InventoryMapper {
     void upsertQuantity(@Param("stationId") Long stationId, @Param("productId") Long productId, @Param("quantity") Integer quantity);
 
     /**
-     * 插入或更新本站的商品配置（上架开关 / 本站售价 / 本站押金 / 水票开关与价格 / 优先展示 / 库存）。
-     * 不存在则插入，已存在则整行覆盖。
-     *
-     * <p>⚠️ <b>调用方必须先取当前行，把没打算改的字段一并带上</b>（尤其是本站售价/本站押金/数量）：
-     * 本方法是"整行覆盖"语义，漏传就会被写成 NULL/0。历史上正是因为这里缺省落 0，
-     * 站长只想改水票价格时把本站库存静默清零 → 对账不平（见 ManagerProductController 的 [P1-2] 注释）。</p>
-     *
-     * <p>⚠️ 写 {@code quantity} 会<b>绕过 inventory_record 流水</b>。库存增减一律走
-     * {@code InventoryService#setStock}（写 ADJUST 流水）；本方法只允许在"新建行"或
-     * "带回原值"两种场景下带上 quantity。</p>
+     * 插入或更新本站商品设置。新行初始化 quantity，已有行保留实时库存和图片覆盖。
+     * 价格与开关仍需调用方带回未编辑字段；库存调整只走有流水的 setStock。
+     * duplicate 分支不得覆盖 quantity，避免旧快照撤销并发入库。
      */
     @Insert("insert into inventory(station_id, product_id, quantity, enabled, sale_price, deposit_price, " +
             "ticket_enabled, ticket_price, priority_display, create_time, update_time) " +
             "values(#{stationId}, #{productId}, #{quantity}, #{enabled}, #{salePrice}, #{depositPrice}, " +
             "#{ticketEnabled}, #{ticketPrice}, #{priorityDisplay}, NOW(), NOW()) " +
-            "on duplicate key update quantity = #{quantity}, enabled = #{enabled}, " +
+            "on duplicate key update enabled = #{enabled}, " +
             "sale_price = #{salePrice}, deposit_price = #{depositPrice}, " +
             "ticket_enabled = #{ticketEnabled}, ticket_price = #{ticketPrice}, " +
             "priority_display = #{priorityDisplay}, update_time = NOW()")
     void upsertSettings(Inventory inventory);
+
+    /** 只更新本站该商品的图片引用；其他设置写入不会覆盖此列。 */
+    @Update("update inventory set image_object_name_override=#{imageObjectName}, update_time=NOW() " +
+            "where station_id=#{stationId} and product_id=#{productId}")
+    int updateStationImage(@Param("stationId") Long stationId, @Param("productId") Long productId,
+                           @Param("imageObjectName") String imageObjectName);
+
 
     @Update("update inventory set priority_display=#{priorityDisplay}, update_time=NOW() where id=#{id}")
     void updatePriorityDisplay(@Param("id") Long id, @Param("priorityDisplay") Integer priorityDisplay);

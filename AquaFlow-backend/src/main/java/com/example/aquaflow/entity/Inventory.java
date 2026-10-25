@@ -41,6 +41,9 @@ public class Inventory {
      */
     private BigDecimal salePrice;
 
+    /** 本站图片覆盖；NULL使用商品原图，不修改公共模板。 */
+    private String imageObjectNameOverride;
+
     /**
      * 本站押金（覆盖 product.deposit 这个"通用库参考押金"）。
      * <p><b>NULL 或 &lt;=0 表示"不覆盖"</b>：0 押金会让 {@code customer_barrel_lot.unit_price = 0}，

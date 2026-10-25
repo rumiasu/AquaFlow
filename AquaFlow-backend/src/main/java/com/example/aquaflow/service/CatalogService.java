@@ -30,6 +30,9 @@ public interface CatalogService {
      */
     List<String> saveStationSetting(Long stationId, Long productId, StationCatalogSettingDTO dto, boolean selecting);
 
+    /** 读回本站图片持久引用，仅用于保存回执，不返回预览签名。 */
+    String getStationImage(Long stationId, Long productId);
+
     /** 移除本站配置（不再卖）：要求本站库存已为 0，否则报错。 */
     void removeFromStation(Long stationId, Long productId);
 

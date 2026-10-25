@@ -114,7 +114,7 @@ public interface ProductMapper {
      * 顾客照它下单只会拿到"缺货待补"。判据正本：{@code InventoryReservationService.availableQty}
      * （{@code status = 1} 即 {@code ReservationStatus.RESERVED}）。</p>
      */
-    @Select("select p.id, p.name, p.category, p.brand, p.spec, p.image_object_name, p.description, " +
+    @Select("select p.id, p.name, p.category, p.brand, p.spec, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
             "p.price, p.deposit, p.max_per_order, " +
             "i.sale_price, i.deposit_price, i.ticket_enabled, i.ticket_price, i.priority_display, " +
             "(i.quantity - coalesce((select sum(r.reserved_qty) from inventory_reservation r " +
@@ -133,7 +133,7 @@ public interface ProductMapper {
      * <b>可见性</b>（这个商品能不能给他看）由 Controller 按 {@code owner_station_id} + {@code status} 判定。</p>
      * <p>{@code available_qty} 口径同 {@link #listSellableByStationWithInventory}（实物 − 活跃预留，C4）。</p>
      */
-    @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, p.image_object_name, p.description, " +
+    @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
             "p.price, p.deposit, p.max_per_order, p.status, " +
             "i.sale_price, i.deposit_price, i.ticket_enabled, i.ticket_price, i.priority_display, " +
             "(i.quantity - coalesce((select sum(r.reserved_qty) from inventory_reservation r " +
@@ -157,8 +157,9 @@ public interface ProductMapper {
 
     // ===== 管理端: 商品 + 库存联合查询（同样必须带归属过滤） =====
 
-    @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, p.image_object_name, p.description, " +
+    @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
             "p.price, p.deposit, p.max_per_order, p.status, p.sort, p.create_time, p.update_time, " +
+            "p.image_object_name as platform_image_object_name, i.image_object_name_override as station_image_object_name, " +
             "i.id as inventory_id, i.quantity, i.enabled, i.sale_price, i.deposit_price, " +
             "i.ticket_enabled, i.ticket_price, i.priority_display " +
             "from product p " +
@@ -167,8 +168,9 @@ public interface ProductMapper {
             "order by i.priority_display desc, p.sort asc, p.id asc")
     List<ProductWithInventoryVO> listWithInventory(@Param("stationId") Long stationId);
 
-    @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, p.image_object_name, p.description, " +
+    @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
             "p.price, p.deposit, p.max_per_order, p.status, p.sort, p.create_time, p.update_time, " +
+            "p.image_object_name as platform_image_object_name, i.image_object_name_override as station_image_object_name, " +
             "i.id as inventory_id, i.quantity, i.enabled, i.sale_price, i.deposit_price, " +
             "i.ticket_enabled, i.ticket_price, i.priority_display " +
             "from product p " +

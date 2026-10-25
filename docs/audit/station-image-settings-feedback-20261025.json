@@ -1,0 +1,260 @@
+{
+  "js_suites": [
+    {
+      "suite": "product-editor-unification",
+      "exit": 0,
+      "count": 19,
+      "log_sha256": "78468a623b29c5bc8b40f895d8f9239019a497daa10e705f1c0bb1a915d7b419"
+    },
+    {
+      "suite": "extreme-product-save",
+      "exit": 0,
+      "count": 19,
+      "log_sha256": "21e920f90061c38fe8fc4fa281ffc5ae304abca20392334db29526de1b929599"
+    },
+    {
+      "suite": "product-sheet-recovery",
+      "exit": 0,
+      "count": 21,
+      "log_sha256": "f7686d5d97612c0e9406e41aaa8e158319ad1095c0d16c4655f299965a754af0"
+    },
+    {
+      "suite": "product-image-persistence",
+      "exit": 0,
+      "count": 14,
+      "log_sha256": "822045a946b9400938ee2c2a00b7d6160cd806e5ea18d0f7f3d05ac4dd8c5faa"
+    },
+    {
+      "suite": "water-product-templates",
+      "exit": 0,
+      "count": 59,
+      "log_sha256": "e6bb248bad004746f44a0bf852e035b64a9b93c47be661b6d1a3cf8b26970f8d"
+    },
+    {
+      "suite": "modal-copy-limit",
+      "exit": 0,
+      "count": 1,
+      "log_sha256": "d972d646b5bab7e713bb0beebb04fb6bfe1c59cd23e22961075bfa160ac9246a"
+    },
+    {
+      "suite": "delivery-config-layout",
+      "exit": 0,
+      "count": 11,
+      "log_sha256": "a602de7996d421c37f62a55751ebfcbf638643ac4b47e29dd5fa5a3e1098a484"
+    },
+    {
+      "suite": "delivery-config-pull-refresh",
+      "exit": 0,
+      "count": 21,
+      "log_sha256": "78405d019aa60e65528d8064923f625f0aacb7e552e83e99c9183c53daa89f3a"
+    },
+    {
+      "suite": "setup-navigation",
+      "exit": 0,
+      "count": 6,
+      "log_sha256": "406f6f8f72a8df7715d5af8c0f503afb42b474dff8a20bdf894110cb5415b128"
+    },
+    {
+      "suite": "delivery-home-station-identity",
+      "exit": 0,
+      "count": 17,
+      "log_sha256": "08451b6b77e499c4e21674f88dce37104f981afb9bbd426c1f90faf3cb18207e"
+    },
+    {
+      "suite": "station-status-loading",
+      "exit": 0,
+      "count": 10,
+      "log_sha256": "69c8c71d30e6102167719b11c4378246d4084c4b139e4c854767e7a6a5bab5c6"
+    },
+    {
+      "suite": "business-pending-flow",
+      "exit": 0,
+      "count": 55,
+      "log_sha256": "0caf0a5429552318b42e77c7beae6951e66c10df6c17a91f9aea60d334a1fa70"
+    },
+    {
+      "suite": "manager-first-batch",
+      "exit": 0,
+      "count": 19,
+      "log_sha256": "7dd792172477a0873db11e958d956b98f406beaace56c2528fce7bc0d46b22db"
+    },
+    {
+      "suite": "account-data-request-flow",
+      "exit": 0,
+      "count": 14,
+      "log_sha256": "47211a1a3577a5cba9ac10f554d251c2c2444e56923805aefce90432f1773320"
+    },
+    {
+      "suite": "settings-feedback",
+      "exit": 0,
+      "count": 9,
+      "log_sha256": "b3a3e0d050bfb0edac33ebe3aa3d966340fe92e7484b0836b2cdb2b2d854ed6e"
+    },
+    {
+      "suite": "key-text-readability",
+      "exit": 0,
+      "count": 8,
+      "log_sha256": "7fae333c2c4cf23416acf8f464dbe7fee037cb0873fb554472e57e97152a3cbb"
+    },
+    {
+      "suite": "delivery-runtime-copy",
+      "exit": 0,
+      "count": 26,
+      "log_sha256": "08395365ea6830d647571d351bce1c05c585298d82f0698bd151e357f1c67197"
+    },
+    {
+      "suite": "scoped-receivables-login",
+      "exit": 0,
+      "count": 52,
+      "log_sha256": "b1ef6e2f015844cddaa849c40467567d151906613fd1a4f0ab3454181204bacd"
+    },
+    {
+      "suite": "customer-order-receivables-truth",
+      "exit": 0,
+      "count": 25,
+      "log_sha256": "57613ccdd72d954949963be10bfe75ce7d1bf0a3c56dc7b70e46f96a319e2836"
+    }
+  ],
+  "js_total": 406,
+  "backend_suites": [
+    {
+      "suite": "com.example.aquaflow.controller.ManagerCatalogPresetImagesTest",
+      "count": 1,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.example.aquaflow.service.AccountDataRequestServiceTest",
+      "count": 6,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.example.aquaflow.service.StationProductImageTest",
+      "count": 10,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.example.aquaflow.util.ProductImageResolverTest",
+      "count": 9,
+      "failures": 0,
+      "errors": 0
+    }
+  ],
+  "backend_total": 26,
+  "static": {
+    "utf8_no_bom": true,
+    "js_parse": true,
+    "json_parse": true,
+    "wxss": true,
+    "diff_check": true,
+    "fee_payload_unchanged": true,
+    "schema_only_additive_column": true
+  },
+  "source_sha256": {
+    "AquaFlow-backend/sql/README.md": "290d36236c3c5a653e06a60127116e24ac625f9ddf5ef7cfbcd58db54a6577c4",
+    "AquaFlow-backend/sql/schema.sql": "048a34bb5a687c824e7537625d48d15a1cc83fe6b6ad332280a03c41a0c19533",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/controller/ManagerCatalogController.java": "cc0bcfb311fa02f0a959b92b5930abbfe8e9bfc7a5fadf5265eaf3ed35cd6380",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/dto/ProductWithInventoryVO.java": "5f874c459dba45083f3914ca4b1a462e11ff23fd32ce69c48e06eca4293ad3f4",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/dto/StationCatalogSettingDTO.java": "56df948765479e0eab763563055a3b46f9b1ada4bdd0f0b43271b7b6f1b1d463",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/entity/Inventory.java": "048767890031963d201cbb0ee4788dcbf15cb1a5a1cfdabc78af63c48115812b",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/mapper/InventoryMapper.java": "e158199cb77d0808ce39d15a232be3b2d0faffaccce4b40efbd13489c5f4fec2",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/mapper/OrderItemMapper.java": "d0764c49f1cab6962c586ed782479d3232aeb5ca369cc021fa154645b6e5fa50",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/mapper/ProductMapper.java": "7680c9ee98c52814b9def0d1e0fded2e6faf60e1784245a91fe649a649c5f233",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/service/AccountDataRequestService.java": "52a1e17bdd84d1f37feaccc454d71341f03c424dc3e6107a20e1e761aa56d6bf",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/service/CatalogService.java": "d87c79c60a816beee6a0c0055c55d18be04db5e73966c0c4e0577ef80b387e38",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/CatalogServiceImpl.java": "a336850e6ebf4322bd364a1be4b4f412789ab37ae332e25bbc731b7a4751047c",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/StationSetupGuideService.java": "88cfd42f63a895a73339a9ed2e4d79cfe5f00a3f13a198b095f2aecf46e9cae3",
+    "AquaFlow-backend/src/test/java/com/example/aquaflow/service/AccountDataRequestServiceTest.java": "6102edc161dc33b2de96607b80e6b44fcdf9b1e8c4525f727a9d017b2569b808",
+    "miniapp-delivery/behaviors/stationNavbar.js": "abad1bf52f58f39db6d8d2eecc797bf853a098c2ac9d73124b64a2a0b81ebb12",
+    "miniapp-delivery/pages/coordination/index.wxml": "4db0669ace2c3a98f7f60b08d83d16270ee805e319a4c178c13236e886a7d9de",
+    "miniapp-delivery/pages/home/index.wxml": "a0cbb60979baa6e86757ee727147d5ea18d770d6d14cc99b69d0887faa7527a4",
+    "miniapp-delivery/pages/home/index.wxss": "74a57f3b92c9ede1d17a5dbca7a5b12707c3eab183c4605edf333abe3328354a",
+    "miniapp-delivery/pages/mine/account-data/index.js": "832ad1f3591da17348070b4d64f2e1fa64ffb46848bbe371088203cf83f42f2d",
+    "miniapp-delivery/pages/mine/account-data/index.json": "faa0ab92709917c935fe1a09ab846c8824749d7716c4290fa0b5a9048296c2c7",
+    "miniapp-delivery/pages/mine/account-data/index.wxml": "bd70fe2b0e25a0ef1ad383c0c367af533df533777deb719924980e4e0e531e23",
+    "miniapp-delivery/pages/mine/edit.json": "5dfcae7d40b0571c80cbc182393fca4d26f7faaa2341647c5ee1aa033772ed18",
+    "miniapp-delivery/pages/mine/index.js": "fa7124a1a822fd43b2eed64066a84a6eb01774187d2326e40f3174b5e48368bd",
+    "miniapp-delivery/pages/mine/index.wxml": "83d9c95fcd152a34780f79f125a38b15d9115716015791c0fdc2bd102802a0ee",
+    "miniapp-delivery/pages/mine/index.wxss": "e6c027f41919f5e73c4463f36f094a022f3274faef0aa007c01bb6759e7c5ac7",
+    "miniapp-delivery/pages/station-mgmt/delivery-config/index.js": "d8ae6abfaff85964c65b608fabd7f0bfdbe0565a66cad6f6e2dc8914890f4598",
+    "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxml": "e79de9060c93ba41024c5f46c200d2023846bcd8168e1d5b1bcc082961594bb5",
+    "miniapp-delivery/pages/station-mgmt/index.js": "3f81fc3ab3b1f34a0096c8d4d42b090d7277cb48c4c17903453f8c2056de238b",
+    "miniapp-delivery/pages/station-mgmt/index.wxml": "8587582c76654d30178255a892cc041a4f8775c4593325d1b2a34c561bf2308a",
+    "miniapp-delivery/pages/station-mgmt/index.wxss": "fe2eaacf3a6eb90c6556fafc90e071063b15ab4f2fcfd65f9aa9d143746e4421",
+    "miniapp-delivery/pages/station-mgmt/products/index.js": "cd0fd2cfc8e079cb9e41392a389ff2b69c77b169a9c60eb961662165e103345f",
+    "miniapp-delivery/pages/station-mgmt/products/index.wxml": "eda9261fa8b50e98b8803dc27b0f2d9e84a7fee990033d9a618cf49a4d7937e9",
+    "miniapp-delivery/pages/station-mgmt/products/index.wxss": "2fa65c7f479fdd5bf3181fe9292ee1f494ae585b294f2e20958713d67047a28b",
+    "miniapp-delivery/pages/station-mgmt/receivables/index.wxml": "00546363507af916372b6eebd32ab95b1a11e246ef2c5d946ca49a32b6fbcd6e",
+    "miniapp-delivery/pages/station-mgmt/receivables/index.wxss": "82d9d6994b2a7b0f484e79de024df30d8722fc7b46b75d5be7650fd228555143",
+    "miniapp-delivery/pages/station-mgmt/station-info/index.js": "1e96f9fe0996c813841e01928cea6b6ecaaffc6dee537173ddf71c706530f734",
+    "miniapp-delivery/pages/station-mgmt/station-info/index.wxml": "6de3a93b6773f636271b0acc30d5fb87be2608aea062bc20e334e5ff895b5940",
+    "miniapp-delivery/pages/station-mgmt/station-info/index.wxss": "cffe0a0ee6dfcaec76f7a9b0905b7ab34e2c3ed7d7adda975936d4967f5ce59a",
+    "miniapp-delivery/pages/station-mgmt/station-status/index.js": "f4df1befcadb7bedbb117592f31a37d5bd814e646337a9932bd1b0426e816339",
+    "miniapp-delivery/pages/station-mgmt/station-status/index.wxml": "1ede27de45abffaf3f5cafddf06d57396d8a69ca138f49e06b66d543f3919ba6",
+    "miniapp-delivery/pages/station-mgmt/station-status/index.wxss": "a7877f2c89119e527f69a1883c380d2d7b50b06e15eda322840864bc176bf244",
+    "miniapp-delivery/pages/station-mgmt/ticket-packages/index.js": "4482362673f86ba6ee8c712ec214f02e0b03fe79618fdfdbf388f5c46118ce94",
+    "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxml": "c855e80d3e2c029fdd957558e6107280850125247a2b4dbeef8e78acbfddb6b9",
+    "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxss": "caba287cf3acedd7ebeb66532c9e4c5181542e743e4163fac42adcb6b7483e8d",
+    "miniapp-delivery/templates/station-navbar.wxml": "110f9a64eb424d26f866a581aab2d82208473ac452e03618dcabebcdd6a79b5a",
+    "miniapp-delivery/utils/setup-progress.js": "580c6d65727517c6fb44c82875451de359c41a744ea8b7295d1d8f66be1fdb97",
+    "miniapp-user/pages/mine/account-data/index.js": "b4a36809a849416f4f59405879513d84fee2ab4d71ad7cb0fe331b8bc1891c32",
+    "miniapp-user/pages/mine/account-data/index.json": "f6241a1f0554a103efdae5d9e291a7d324d706e43a9e4b2f7820b470647080e2",
+    "miniapp-user/pages/mine/account-data/index.wxml": "5e877c0da2559cb6a92c84523f5c6c28d472d967885690551d2f69af70ab9420",
+    "miniapp-user/pages/mine/index.wxml": "26351397ba762434016300be5177c79f8cdf9d738b15aa4dd8d5a6878517bc15",
+    "tests/js/account-data-request-flow.test.js": "3a88003c92e70a90300a8189756cc037a842cf94d1c009402964c5325fb4793f",
+    "tests/js/business-pending-flow.test.js": "a87a02a90f23581e8585165b560a0d1b4ede070919f3b4334cd59b27bad6a6e0",
+    "tests/js/delivery-config-layout.test.js": "ac6d2f8d612de32a009eef7cdca1edf486de0aec5ebca217570b0aded816d01d",
+    "tests/js/harness.js": "51d35038a0b5a77b0af084aa73303b488d46284826a13d17bf5eb5f4235fca13",
+    "tests/js/product-editor-unification.test.js": "e183ec631f7bc848f20bcf9741493eb52d85597934ee5cb2befbd096d92571db",
+    "tests/js/run-all.js": "3a75487fa0921d7316ff8c9d7438387c56ba5139e746ff12420507ca705fe60e",
+    "tests/js/setup-navigation.test.js": "715b0a4565d48090c6bc05c7f5a68f04b99f0abf19a3cb8f0aff6f4e182a06f9",
+    "AquaFlow-backend/sql/migration_v84_station_product_image.sql": "fe85d516acb901b9735314e78df021fe484b7720f23318a2baa7f3efb92c0523",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/util/StationProductImage.java": "eedd18b860920d3546e799a478ce6dfeee2e5d4baf09499d693ab26c07880c5e",
+    "AquaFlow-backend/src/test/java/com/example/aquaflow/service/StationProductImageTest.java": "bd74356d57e4f1df69c1cd749c994f26ac0ef689899b3f5f166fa07e29e0dc59",
+    "miniapp-delivery/styles/settings-sections.wxss": "28d15198ac8c36bacb5a75b0cd0c18ad5251248454650c0c893dc2efe0450e69",
+    "miniapp-delivery/utils/settings-sections.js": "eb2384815fa8b608aeb3d583db416363424d997e48e394c7d887068ad4422fdc",
+    "tests/js/settings-feedback.test.js": "293f29ff879c679bf996891157721b99e5d164aaa92c2073534e2dba0229e005"
+  },
+  "additional_navigation_recovery": {
+    "suite": "navigation-recovery",
+    "count": 31,
+    "failures": 0,
+    "evidence": "2026-10-25 direct node execution completed with AQUAFLOW_SUITE_OK 31; no product changes afterward in navigation handlers or harness"
+  },
+  "front_end_total": 437,
+  "baseline": "f4bd8977734b0d392dd0a010770b57ff700e87a7",
+  "visual": {
+    "kind": "source component projections with synthetic state",
+    "viewports": [
+      320,
+      390
+    ],
+    "font_scales": [
+      1,
+      1.3,
+      1.5
+    ],
+    "inspected": [
+      "receivables main/auxiliary amount regions",
+      "management priorities and collapsed groups",
+      "customer account application purpose/independent closure check",
+      "platform product image actions and footer",
+      "delivery fee compact navigation and fixed save bar"
+    ],
+    "receivables_samples": {
+      "main": "999999999999.99",
+      "overdue": "99999999.99",
+      "customers": 9999
+    },
+    "native_wechat_tested": false,
+    "original_library_pixels_available": false
+  },
+  "not_run": [
+    "real database or v84 migration",
+    "native WeChat, physical device, real upload/COS storage acceptance",
+    "deployments, WeChat upload/review",
+    "unrelated full regression suite"
+  ]
+}

@@ -18,7 +18,7 @@ const navigation = require('../../utils/navigation')
 
 Page({
   data: {
-    expandedGroups: {records:false,settings:false,reports:false},
+    expandedGroups: {aftercare:false,assets:false,settings:false,reports:false},
     // [2026-10-06] 关键入口待办角标：应收账款 / 业务待办与退出 / 退桶审批 / 退款争议
     receivablesBadgeCount: null,
     businessWaitingBadgeCount: null,
@@ -29,6 +29,7 @@ Page({
   },
 
   onShow() {
+    this._managerHidden=false
     navigation.show(this)
     const app = getApp()
     if (!app.canAccessStationBusiness() || !app.isStationManager()) {
@@ -38,7 +39,7 @@ Page({
     this.loadBadgeCounts()
   },
 
-  onHide() { navigation.hide(this) },
+  onHide() { this._managerHidden=true; this._badgeSeq=(this._badgeSeq||0)+1; navigation.hide(this) },
   onUnload() {
     navigation.dispose(this)
     this._badgeSeq = (this._badgeSeq || 0) + 1
@@ -50,13 +51,18 @@ Page({
    * 复用已有 API，不新增接口。
    */
   async loadBadgeCounts() {
+    const app=getApp(), g=app.globalData||{}, u=g.userInfo||{}
+    const identity=()=>{const a=getApp(),d=a.globalData||{},v=d.userInfo||{};return JSON.stringify([a._loginGeneration||0,!!d.isLogin,v.staffId,v.stationId,v.role,v.bindStatus])}
+    const owner=identity()
     const seq = this._badgeSeq = (this._badgeSeq || 0) + 1
+    const current=()=>seq===this._badgeSeq && getApp()===app && owner===identity() && !this._managerHidden && app.canAccessStationBusiness() && app.isStationManager()
+    if(!current())return
     this.setData({ badgeLoading: true, badgeError: '', receivablesBadgeCount: null,
       businessWaitingBadgeCount: null, barrelReturnBadgeCount: null, refundDisputeBadgeCount: null })
     try {
       // 2026-10-06：收款流水、退款对象和 INFO 留痕曾被误作三类待办；只认分类汇总。
       const res = await get(API.MANAGER_PENDING_SUMMARY)
-      if (seq !== this._badgeSeq) return
+      if (!current()) return
       const data = res.data || {}, items = Array.isArray(data.items) ? data.items : []
       const validCount = n => Number.isSafeInteger(n) && n >= 0 ? n : null
       const countOf = key => {
@@ -71,13 +77,13 @@ Page({
         badgeError: [receivables, business, returns, disputes].includes(null) ? '部分待办数量未核对，点击重试' : ''
       })
     } catch (e) {
-      if (seq === this._badgeSeq) this.setData({ badgeError: '待办数量未核对，点击重试' })
-    } finally { if (seq === this._badgeSeq) this.setData({ badgeLoading: false }) }
+      if (current()) this.setData({ badgeError: '待办数量未核对，点击重试' })
+    } finally { if (current()) this.setData({ badgeLoading: false }) }
   },
 
   onToggleGroup(e) {
     const key=e.currentTarget.dataset.group
-    if (!['records','settings','reports'].includes(key)) return
+    if (!['aftercare','assets','settings','reports'].includes(key)) return
     this.setData({expandedGroups:{...this.data.expandedGroups,[key]:!this.data.expandedGroups[key]}})
   },
 

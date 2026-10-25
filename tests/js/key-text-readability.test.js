@@ -235,13 +235,13 @@ test('提交禁用态可读，站长未核对徽标文字在白卡上达到 4.5:
   const entryForeground = resolveColor(
     getProperty([managerIndexSheet], '.entry-unknown', 'color'), deliveryTokens)
   const entryBackground = resolveColor(
-    getProperty([managerIndexSheet], '.entry-card', 'background'), deliveryTokens)
+    getProperty([managerIndexSheet], '.pending-card', 'background'), deliveryTokens)
   const entryRatio = contrast(entryForeground.rgb, entryBackground.rgb)
-  assertRenderedClass(managerIndexWxml, 'entry-badge', 'pending count badge')
+  assertRenderedClass(managerIndexWxml, 'pending-value', 'pending count badge')
   const badgeForeground = resolveColor(
-    getProperty([managerIndexSheet], '.entry-badge', 'color'), deliveryTokens)
+    getProperty([managerIndexSheet], '.pending-value', 'color'), deliveryTokens)
   const badgeBackground = resolveColor(
-    getProperty([managerIndexSheet], '.entry-badge', 'background'), deliveryTokens)
+    getProperty([managerIndexSheet], '.pending-card', 'background'), deliveryTokens)
   const badgeRatio = contrast(badgeForeground.rgb, badgeBackground.rgb)
   assert.ok(badgeRatio >= 4.5, 'entry-badge contrast is ' + badgeRatio.toFixed(4) + ':1')
 
@@ -288,7 +288,7 @@ test('关键正文/金额/站点名与辅助标签/状态在 320 和 390 宽度�
     [assetWxml, [assetSheet], '.picker-message', 14, '水站加载/错误/空态'],
     [assetWxml, [assetSheet], '.picker-retry', 14, '水站列表操作'],
     [managerHomeWxml, [managerHomeSheet], '.todo-amount', 14, '待办金额'],
-    [managerIndexWxml, [managerIndexSheet], '.entry-badge', 14, '待办徽标计数'],
+    [managerIndexWxml, [managerIndexSheet], '.pending-value', 14, '待办徽标计数'],
     [managerIndexWxml, [managerIndexSheet], '.badge-error', 14, '站长徽标加载错误'],
     [managerIndexWxml, [managerIndexSheet], '.pending-entry .entry-title', 14, 'pending entry title'],
   ]
@@ -351,7 +351,7 @@ test('提高字号后动态站名、待办标签、金额和计数仍可换行�
   assert.ok(['break-word', 'anywhere'].includes(getProperty([managerHomeSheet], '.todo-label', 'overflow-wrap')))
   assert.strictEqual(getProperty([managerHomeSheet], '.todo-amount', 'white-space'), 'normal')
   assert.ok(['break-word', 'anywhere'].includes(getProperty([managerHomeSheet], '.todo-amount', 'overflow-wrap')))
-  assert.strictEqual(getProperty([managerIndexSheet], '.entry-badge', 'height'), 'auto')
+  assert.strictEqual(getProperty([managerIndexSheet], '.pending-value', 'height'), 'auto')
   assert.strictEqual(getProperty([managerIndexSheet], '.entry-unknown', 'white-space'), 'normal')
   assert.ok(['break-word', 'anywhere'].includes(getProperty([managerIndexSheet], '.entry-unknown', 'overflow-wrap')))
 

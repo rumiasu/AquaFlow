@@ -21,10 +21,10 @@
     <!-- 准备进度只用同一份后端清单；已营业或必填齐全时收为查看入口。 -->
     <view class="setup-launch-entry" wx:if="{{stationOperatingStatus == null || (stationOperatingStatus === 3 && (!setupProgressKnown || setupRequiredPending > 0))}}" bindtap="openStationPanel">
       <text class="setup-launch-dot"></text>
-      <view class="setup-launch-main"><text wx:if="{{setupProgressKnown}}">上线准备：已完成 {{setupDoneCount}}/{{setupTotalCount}} 项</text><text wx:else>上线准备：进度待核实</text><text class="setup-launch-state">{{stationStatusText || '营业状态待核实'}}</text></view>
+      <view class="setup-launch-main"><text wx:if="{{setupProgressKnown}}">{{setupRequiredPending > 0 ? '还需完成 ' + setupRequiredPending + ' 项必填' : '已具备上线条件'}}</text><text wx:else>上线准备：进度待核实</text><text class="setup-launch-state">{{stationStatusText || '营业状态待核实'}}</text></view>
       <text>查看 ›</text>
     </view>
-    <view class="setup-launch-quiet" wx:else bindtap="openStationPanel">{{setupProgressKnown ? '查看上线准备' : '查看上线准备（进度待核实）'}} ›</view>
+    <view class="setup-launch-quiet" wx:else bindtap="openStationPanel">{{setupProgressKnown ? (setupRequiredPending > 0 ? '还需完成 ' + setupRequiredPending + ' 项必填' : '已具备上线条件') : '上线准备待核实'}} · 查看 ›</view>
 
     <view class="ui-state" wx:if="{{queuesLoading}}"><text class="ui-state-copy">正在核对调度清单…</text></view>
 
@@ -45,7 +45,7 @@
            「我的」页有门（mine 的「管理 ›」与菜单项），**工作台自己反而没有**；
         ③ **不附功能清单**（§6：同级入口不用每个附一串功能清单）。
       位置：紧跟自绘导航栏（站名 + 营业状态胶囊）之后、提醒区之前 —— 即 §5 的层级
-      「站名/营业状态开头 → 常驻水站管理 → 待分配与审批 → 其他待处理」。
+      「站名/营业状态开头 → 待分配与审批 → 其他待处理」。
     -->
 
 
@@ -68,7 +68,7 @@
       三条不能被改坏：
         ① **P0 红点**由 `loadTodo` 的 `applyRedDot(d)` 按完整 payload 的 `p0Total` 算，
            与本卡内容**无关**（别改成拿 todo.items 推）；
-        ② **功能没删**：完整功能目录「水站管理」是常驻入口（在本卡之外），零值照样进得去；
+        ② **功能没删**：完整功能目录从「我的」高亮管理卡进入，零值照样进得去；
         ③ 同一身份/水站读取失败时保留上次卡并显示未核对提示；切换身份不借用旧卡，首次失败也能重试。
       数量非零的项标红（`hasCount`）—— 现在能进卡的项恒为非零，这个类是"提醒色"不是"等级色"。
     -->
@@ -97,10 +97,6 @@
     </view>
 
     <!-- Tab 切换：角标即当下的待办数，点进去才展开明细 -->
-    <view class="mgmt-entry" bindtap="onGoStationMgmt">
-      <text class="mgmt-entry-title">水站管理</text>
-      <text class="mgmt-entry-arrow">›</text>
-    </view>
     <view class="guide-entry" bindtap="onOpenGuide">使用帮助 ›</view>
 
     <scroll-view class="tab-bar" scroll-x enable-flex>

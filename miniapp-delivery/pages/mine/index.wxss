@@ -614,3 +614,6 @@
 .arrow { color: var(--text-secondary); }
 .manager-entry-arrow { background: transparent; border-radius: 8rpx; }
 .manager-entry-desc { font-size: 26rpx; line-height: 1.6; }
+
+.station-info-link {min-height:48px;padding:12rpx 8rpx;border-radius:12rpx;}
+.station-entry-pressed {opacity:.75;background:rgba(0,100,180,.08);}

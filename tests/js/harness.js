@@ -78,6 +78,7 @@ function createApp(extra) {
   return Object.assign({
     globalData: { isLogin: true, customerId: 7, tempStationId: null, stationId: null },
     canAccessStationBusiness: () => true,
+    isStationManager: () => true,
     routeByRole: () => {},
     getCart: () => ({}),
     clearCart: () => {}

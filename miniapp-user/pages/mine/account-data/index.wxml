@@ -1,17 +1,18 @@
 <view class="page">
   <view class="card">
-    <text class="title">账户资料与请求</text>
-    <text class="body" wx:if="{{options}}">{{options.notice}}</text>
-    <text class="body" wx:if="{{options && !options.intakeEnabled}}">申请受理尚未开放，当前不能提交申请。受理人、联系渠道和处理规则待核实。</text>
+    <text class="title">资料申请与注销检查</text>
+    <text class="body">用于申请查询、更正、导出、删除个人资料或注销账户。</text>
+    <text class="body" wx:if="{{options && !options.intakeEnabled}}">申请暂未开放</text>
     <text class="body" wx:if="{{options.intakeEnabled && options.intakeContact}}">受理联系渠道：{{options.intakeContact}}</text>
-    <text class="body">这里不会自动导出、删除或匿名化资料，也不会注销账户或清理未结业务。</text>
+    <button class="details-toggle" size="mini" bindtap="onToggleDetails">办理说明 {{detailsExpanded ? '收起 −' : '展开 +'}}</button>
+    <view wx:if="{{detailsExpanded}}"><text class="body">申请登记后需人工核实，登记不代表办理完成。</text><text class="body" wx:if="{{options.notice}}">{{options.notice}}</text><text class="body">不会自动导出、删除或匿名化资料，也不会注销账户或清理未结业务。</text></view>
     <text class="error" wx:if="{{error}}">{{error}}</text>
     <button wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
     <button size="mini" bindtap="onRetry" disabled="{{loading}}" loading="{{loading}}">重新查询</button>
   </view>
   <view class="card" wx:if="{{options.closureCheckSupported}}">
     <text class="title">注销前检查</text>
-    <text class="body">仅查询本人未结事项。检查结果不是注销许可，检查失败或有未结事项不表示已注销。</text>
+    <text class="body">检查本人未结事项，不会注销账户。</text>
     <button size="mini" bindtap="onCheck" disabled="{{loading}}">查询未结事项</button>
     <text class="body" wx:if="{{check}}">{{check.message}}</text>
     <view wx:for="{{check.blockingItems}}" wx:key="index"><text class="body">{{item.stationName}}：{{item.label}}</text></view>
@@ -24,7 +25,7 @@
     <button bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting || loading}}">{{pending ? '重试原申请' : '登记申请'}}</button>
   </view>
   <view class="card">
-    <text class="title">本人申请记录</text>
+    <text class="title">我的申请记录</text>
     <text class="body" wx:if="{{options && items.length === 0 && !loading && !error}}">暂无登记记录。</text>
     <view class="record" wx:for="{{items}}" wx:key="id" data-id="{{item.id}}" bindtap="onDetail"><text class="body">{{item.requestTypeText}} · {{item.statusText}} ›</text></view>
     <button size="mini" wx:if="{{nextBeforeId}}" bindtap="onMore" disabled="{{loading}}">更多记录</button>

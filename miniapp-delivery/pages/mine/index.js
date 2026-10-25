@@ -391,6 +391,8 @@ Page({
   },
 
   onGoStationMgmt() {
+    const app = getApp()
+    if (!this.data.isLogin || !this.data.isManager || !app.isStationManager() || !app.canAccessStationBusiness()) return
     wx.navigateTo({ url: '/pages/station-mgmt/index' })
   },
 
@@ -399,13 +401,10 @@ Page({
     wx.navigateTo({ url: '/pages/station-mgmt/staff/index' })
   },
 
-  /**
-   * 水站资料页（站名/电话/地址/坐标）。
-   * ⚠️ [2026-09-26 Wave1 轨道 G] 本页的「编辑资料 ›」入口已按去重要求**收掉**（水站只留摘要，
-   * 编辑走「水站管理 → 水站资料」；目标页与端点在宫格那一格里原样还在）。
-   * 处理函数**按 00 卡「先保留处理函数与入口，只调布局」保留**，不要顺手删。
-   */
+  /** 整行水站资料入口，仅当前站长可进入。 */
   onGoStationInfo() {
+    const app = getApp()
+    if (!this.data.isLogin || !this.data.isManager || !app.isStationManager() || !app.canAccessStationBusiness()) return
     wx.navigateTo({ url: '/pages/station-mgmt/station-info/index' })
   },
 

@@ -15,6 +15,16 @@
     失败与"确实没单"必须能区分（AGENTS §8.17 / §8.22）。loadError 为空串时整块不渲染。
   -->
   <!-- 2026-10-14：配送角色标题不能代替具体站名；仅显示已核对的当前绑定站。 -->
+
+  <view wx:if="{{isManager}}">
+    <view class="setup-launch-entry" wx:if="{{stationOperatingStatus == null || (stationOperatingStatus === 3 && (!setupProgressKnown || setupRequiredPending > 0))}}" bindtap="openStationPanel">
+      <text class="setup-launch-dot"></text><view class="setup-launch-main"><text>{{setupProgressKnown ? (setupRequiredPending > 0 ? '还需完成 ' + setupRequiredPending + ' 项必填' : '已具备上线条件') : '上线准备待核实'}}</text><text class="setup-launch-state">{{stationStatusText || '营业状态待核实'}}</text></view><text>查看 ›</text>
+    </view>
+    <view class="setup-launch-quiet" wx:else bindtap="openStationPanel">{{setupProgressKnown && setupRequiredPending === 0 ? '已具备上线条件' : '查看上线准备'}} · {{stationStatusText}} ›</view>
+  </view>
+  <view class="delivery-launch-state" wx:elif="{{stationOperatingStatus === 3}}"><text>本站{{stationStatusText}}</text><text>请联系站长完成上线准备；已接配送任务仍可处理。</text></view>
+  <view class="delivery-launch-state" wx:elif="{{stationOperatingStatus == null}}"><text>营业状态待核实</text><text>可重新进入配送页核对，已接任务仍可处理。</text></view>
+
   <view class="home-station-identity"><text>{{homeStationLabel}}</text></view>
   <view class="home-read-feedback" wx:if="{{loadError || (!loading && !readReady.unpaid)}}">
     <view class="home-read-feedback-copy">

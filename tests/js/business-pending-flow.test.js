@@ -111,7 +111,7 @@ async function main() {
     const entry = rendered.find(n => n.attrs['data-url'] === target)
     assert(entry); assert.equal(entry.attrs.bindtap, 'onNavigate')
     assert(rendered.some(n => n.className === 'entry-badge' && n.text === '1'))
-    assert(rendered.some(n => n.text.includes('退款争议待处理')))
+    assert(rendered.some(n => n.text.includes('处理退款争议')))
     assert(!rendered.some(n => n.text.includes('顾客报上来的问题（只读）')))
     menu.onNavigate({ currentTarget: { dataset: { url: entry.attrs['data-url'] } } })
     assert.equal(wx.__calls.nav.at(-1).url, target)

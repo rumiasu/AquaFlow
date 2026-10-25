@@ -14,6 +14,7 @@ function setup(root, overrides = {}, enabled = true) {
 }
 const select = t => { t.page.onType({ detail: { value: '0' } }); t.page.onNote({ detail: { value: '核实未结事项' } }) }
 for (const root of ['miniapp-user', 'miniapp-delivery']) {
+  test(root+': details toggle preserves form and check without requests',()=>{const t=setup(root);t.page.setData({note:'keep',check:{message:'keep check'}});t.page.onToggleDetails();assert.equal(t.page.data.detailsExpanded,true);t.page.onToggleDetails();assert.equal(t.page.data.detailsExpanded,false);assert.equal(t.page.data.note,'keep');assert.equal(t.page.data.check.message,'keep check');assert.equal(t.calls.submit.length,0)})
   test(root + ': closed intake cannot submit and only customer has a read-only check', async () => {
     const t = setup(root, {}, false); t.page.onShow(); await tick(); select(t); await t.page.onSubmit(); await t.page.onCheck()
     assert.equal(t.calls.submit.length, 0); assert.equal(t.calls.check, root === 'miniapp-user' ? 1 : 0)

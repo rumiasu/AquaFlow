@@ -1,7 +1,9 @@
 const api = require('../../../api/account-data-requests')
 const { captureSession, isCurrentSession } = require('../../../utils/token')
 Page({
-  data: { options: null, loading: false, error: '', items: [], nextBeforeId: null, selectedIndex: -1,
+  onToggleDetails() { this.setData({detailsExpanded:!this.data.detailsExpanded}) },
+  data: {
+    detailsExpanded:false, options: null, loading: false, error: '', items: [], nextBeforeId: null, selectedIndex: -1,
     selectedLabel: '请选择请求类型', note: '', submitting: false, pending: false, submitNotice: '', detail: null, check: null },
   onShow() {
     if (this._unloaded) return

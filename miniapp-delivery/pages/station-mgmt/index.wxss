@@ -77,3 +77,12 @@
 /* 金额/待办计数与未知状态保留320px下的既有文字地板。 */
 .pending-entry .entry-title, .entry-badge, .badge-error { font-size: 34rpx; }
 .pending-entry .entry-desc, .entry-unknown { font-size: 30rpx; }
+
+/* 同级菜单使用同一字号，待办靠真实计数提示。 */
+.entry-title,.pending-entry .entry-title {font-size:34rpx;line-height:1.4;font-weight:500;}
+.entry-desc,.pending-entry .entry-desc {font-size:30rpx;line-height:1.5;}
+.entry-row {min-height:48px;box-sizing:border-box;padding:20rpx 24rpx;}
+.group-toggle {justify-content:space-between;min-height:48px;font-size:28rpx;}
+.entry-pressed {background:var(--bg-gray);}
+
+.entry-unknown {flex-shrink:0;white-space:nowrap;}

@@ -18,6 +18,7 @@ const navigation = require('../../utils/navigation')
 
 Page({
   data: {
+    expandedGroups: {records:false,settings:false,reports:false},
     // [2026-10-06] 关键入口待办角标：应收账款 / 业务待办与退出 / 退桶审批 / 退款争议
     receivablesBadgeCount: null,
     businessWaitingBadgeCount: null,
@@ -30,7 +31,7 @@ Page({
   onShow() {
     navigation.show(this)
     const app = getApp()
-    if (!app.canAccessStationBusiness()) {
+    if (!app.canAccessStationBusiness() || !app.isStationManager()) {
       app.routeByRole(true)
       return
     }
@@ -74,7 +75,15 @@ Page({
     } finally { if (seq === this._badgeSeq) this.setData({ badgeLoading: false }) }
   },
 
+  onToggleGroup(e) {
+    const key=e.currentTarget.dataset.group
+    if (!['records','settings','reports'].includes(key)) return
+    this.setData({expandedGroups:{...this.data.expandedGroups,[key]:!this.data.expandedGroups[key]}})
+  },
+
   onNavigate(e) {
+    const app=getApp()
+    if (!app.isStationManager() || !app.canAccessStationBusiness()) return
     const url = e.currentTarget.dataset.url
     if (!url) return
     if (TAB_BAR_PAGES.indexOf(url) >= 0) {

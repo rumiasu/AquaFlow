@@ -454,3 +454,22 @@ v78三张CREATE TABLE已与迁移逐字合入schema；原提交快照INSERT SELE
 ## v84 本站商品图片覆盖（2026-10-25）
 
 已有库须先执行 `migration_v84_station_product_image.sql`，再更新后端和员工端。该脚本幂等新增 inventory 图片覆盖列，不修改公共商品、不重写已有数据。新建库的 schema.sql 已包含此列。NULL 回落商品原图，空串恢复请求在服务端归一化为 NULL。此轮交付未执行真实库迁移。
+
+若数据库控制台把脚本分句到不同会话，导致 `PREPARE` 报 near NULL，不要反复执行整段脚本。先在目标库同一会话确认：
+
+```sql
+SELECT DATABASE() AS target_database;
+SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE()
+  AND TABLE_NAME = 'inventory'
+  AND COLUMN_NAME = 'image_object_name_override';
+```
+
+确认当前库名正确后，若查询已有该列且定义为 `VARCHAR(512)`、可空、默认 `NULL`，无需再迁移；若没有该列，在同一目标库单独执行下面这一条，再重复上面的列查询核对：
+
+```sql
+ALTER TABLE inventory ADD COLUMN image_object_name_override VARCHAR(512) DEFAULT NULL COMMENT '本站商品图覆盖，NULL使用商品原图';
+```
+
+这是 v84 的手动等价路径，不要在列已存在时再次执行 `ALTER`。若列已存在但类型、可空性、默认值或注释不符，先停止并核实库结构；本说明不代表本轮已检查或修改生产数据库。

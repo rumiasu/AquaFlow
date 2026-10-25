@@ -158,8 +158,9 @@
             <text class="edit-help-detail" wx:if="{{editHelpExpanded}}">模板用于快速填写商品资料，不代表当前实物规格或官方定价。请核对商品包装、净容量和本站售价；需要时可换成实际商品图。</text>
           </view>
 
-          <view class="product-section-heading" id="product-section-details"><text class="product-section-title">商品资料</text></view>
-          <text class="product-field-help" wx:if="{{showSetting}}">名称、品牌、规格、类型和说明由公共商品维护；{{productInactive ? '公共商品已停用，本站不能恢复公共商品；可在此办理库存。' : (stationImageEditable ? '图片可更换为本站图片。售价、上架、水票与库存可在此调整。' : '图片编辑状态未就绪，请重新读取商品；价格与上架设置仍可修改。')}}</text>
+          <view class="product-edit-group product-edit-group-details">
+          <view class="product-section-heading" id="product-section-details"><text class="product-section-title">商品资料与图片</text></view>
+          <text class="product-field-help" wx:if="{{showSetting}}">{{productInactive ? '公共商品已停用，本站不能恢复公共商品；可在此办理库存。' : (stationImageEditable ? '商品名称、规格等资料由公共模板维护；本站可改售价与销售设置。' : '图片编辑状态未就绪，请重新读取商品；本站售价与销售设置仍可调整。')}}</text>
           <view class="product-image-section">
             <view class="modal-img product-edit-image">
               <image class="preview" wx:if="{{(productImagePreviewUrl || editForm.imageUrl) && !brokenImages[productImagePreviewUrl || editForm.imageUrl]}}" src="{{productImagePreviewUrl || editForm.imageUrl}}" binderror="onDisplayImageError" data-src="{{productImagePreviewUrl || editForm.imageUrl}}" mode="aspectFit" />
@@ -169,8 +170,6 @@
                 <text wx:else>暂无商品图片</text>
               </view>
             </view>
-            <text class="product-image-caption" wx:if="{{productImagePreviewUrl}}">{{productImageBusy ? '所选图片预览，正在上传' : productImageState === 'failed' ? '仅本地预览，尚未上传成功' : '所选图片预览'}}</text>
-            <text class="product-image-caption" wx:elif="{{editForm.imageUrl}}">当前商品图片</text>
             <text class="product-image-status {{productImageState === 'failed' ? 'is-warning' : ''}}" wx:if="{{productImageHint}}">{{productImageHint}}</text>
             <view class="product-image-actions">
               <block wx:if="{{!productImageBusy}}">
@@ -215,7 +214,9 @@
         <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" placeholder="选填，按实际商品填写" value="{{editForm.description}}" data-field="description" bindinput="onEditFieldInput"  disabled="{{productInactive || saving || inboundBusy || productCreationPending || showSetting}}" />
       </view>
 
-      <view class="product-section-heading product-section-spaced" id="product-section-pricing"><text class="product-section-title">价格与展示</text></view>
+          </view>
+          <view class="product-edit-group product-edit-group-pricing">
+      <view class="product-section-heading" id="product-section-pricing"><text class="product-section-title">售价与销售设置</text></view>
       <view class="form-row">
         <view class="form-item half">
           <text class="label">本站售价(元)</text>
@@ -228,11 +229,6 @@
         </view>
 
       </view>
-
-        <view class="form-item" wx:if="{{isAdd}}">
-          <text class="label">初始库存(件)</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="number" placeholder="0" value="{{editForm.quantity}}" data-field="quantity" bindinput="onEditFieldInput"  disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
-        </view>
 
       <view class="switch-row product-display-switches">
         <view class="switch-item">
@@ -279,10 +275,19 @@
         <text class="link" wx:if="{{pkgReady && !pkgLoading && !pkgError}}" catchtap="onAddPkgRow">＋ 加一档</text>
       </view>
 
+          </view>
+          <view class="product-edit-group product-form-section stock-editor product-initial-stock" wx:if="{{isAdd}}">
+            <view class="product-section-heading"><text class="product-section-title">初始库存</text><text class="product-section-caption">随商品创建保存</text></view>
+            <view class="form-item">
+              <text class="label">现有库存（件）</text>
+              <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" class="input" type="number" placeholder="按实物填写；没有库存填 0" value="{{editForm.quantity}}" data-field="quantity" bindinput="onEditFieldInput" disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
+            </view>
+          </view>
+
           <block wx:if="{{!isAdd}}">
             <view class="ui-state" wx:if="{{inboundRecovery}}"><text class="ui-state-copy">原入库 {{inboundRecovery.quantity}} 件尚待完成，请继续原入库，勿另记一笔。</text><button bindtap="onContinueOriginalInbound" loading="{{inboundBusy}}" disabled="{{productInactive || saving || inboundBusy}}">继续原入库</button></view>
             <view class="ui-state" wx:if="{{inboundError}}"><text class="ui-state-copy">{{inboundError}}</text></view>
-      <view class="product-form-section stock-editor" id="product-section-stock">
+      <view class="product-edit-group product-form-section stock-editor" id="product-section-stock">
         <view class="product-section-heading"><text class="product-section-title">库存</text><text class="product-section-caption">当前 {{setting.quantity == null ? '未加载' : setting.quantity}} 件</text></view>
         <view class="seg">
           <text class="seg-item {{stockMode === 'in' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="in">进货入库</text>

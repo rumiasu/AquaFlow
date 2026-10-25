@@ -179,3 +179,24 @@
 .fee-field-error { display:block; margin-top:8rpx; font-size:13px; line-height:1.6; color:var(--error-color); }
 
 .fee-options-locked {opacity:.55;}
+
+/* 单页四段保留统一保存；顶部只作规则核对与锚点，不代表额外的上线门槛。 */
+.fee-rules-card { margin:16rpx 0 20rpx; padding:20rpx; border:1rpx solid var(--border-color); border-left:4rpx solid var(--primary-color); border-radius:12rpx; background:#fff; }
+.fee-rules-heading,.fee-rule-summary-head { display:flex; align-items:center; justify-content:space-between; gap:12rpx; }
+.fee-rules-title { font-size:30rpx; font-weight:600; color:var(--text-primary); }
+.fee-rules-badge,.fee-rule-summary-state { flex-shrink:0; font-size:24rpx; line-height:1.5; color:var(--text-regular); }
+.fee-rules-badge.is-saved { color:var(--success-color); }
+.fee-rules-badge.is-pending { color:var(--warning-color); }
+.fee-rules-note { display:block; margin:8rpx 0 12rpx; font-size:25rpx; line-height:1.55; color:var(--text-regular); }
+.fee-rule-summary { display:block; width:100%; height:auto; min-height:44px; margin:10rpx 0 0; padding:14rpx 16rpx; box-sizing:border-box; text-align:left; white-space:normal; border:1rpx solid var(--border-color); border-radius:10rpx; background:var(--bg-gray); }
+.fee-rule-summary::after { border:0; }
+.fee-rule-summary-title { min-width:0; font-size:27rpx; font-weight:600; color:var(--text-primary); }
+.fee-rule-summary-copy { display:block; margin-top:6rpx; font-size:25rpx; line-height:1.55; color:var(--text-regular); overflow-wrap:anywhere; }
+.fee-rule-summary-link { display:block; margin-top:6rpx; text-align:right; font-size:24rpx; color:var(--primary-color); }
+.fee-section-heading { gap:10rpx; }
+.fee-section-number { flex:none; width:42rpx; height:42rpx; line-height:42rpx; text-align:center; border-radius:50%; color:var(--primary-color); background:var(--primary-bg); font-size:22rpx; font-weight:600; }
+.fee-choice-row { display:flex; gap:8rpx; margin:8rpx 0 12rpx; }
+.fee-choice { flex:1; min-width:0; min-height:44px; height:auto; margin:0; padding:10rpx 8rpx; box-sizing:border-box; white-space:normal; line-height:1.45; font-size:25rpx; color:var(--text-regular); background:var(--bg-gray); border:1rpx solid var(--border-color); border-radius:8rpx; }
+.fee-choice::after { border:0; }
+.fee-choice.active { color:var(--primary-color); background:var(--primary-bg); border-color:var(--primary-color); font-weight:600; }
+.fee-inline-help { display:block; margin:12rpx 0 4rpx; color:var(--text-regular); font-size:24rpx; line-height:1.6; }

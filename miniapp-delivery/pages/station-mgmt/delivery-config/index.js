@@ -25,7 +25,7 @@ const getSetupGuide = () => get(SETUP_GUIDE_PATH)
  * ⚠️ 三条口径，改这个页面时必须守住：
  *   1. 三个「处理方式」是三选一：WARN 仅提示 / REJECT 不接单 / FEE 加收费用。
  *      **默认必须是 WARN** —— 默认硬拦等于站长一建站就把客户挡在门外。
- *   2. 数值留空表示"不限"或"不收"，不要用 0 去表达"不限"（0 是合法的收费金额）。
+ *   2. 限制项的 null/0 语义分别沿用后端规则；收费金额 0 表示不收，免运费门槛 0 则会让对应订单都达到门槛。
  *   3. 费用会在下单时**快照进订单**，所以改这里的配置**不会**影响历史订单的金额。
  */
 
@@ -39,6 +39,97 @@ const FLOOR_MODES = [
   { value: 'PER_ORDER', name: '按单', desc: '每单加收一次，客户更容易接受（推荐）' },
   { value: 'PER_BUCKET', name: '按桶', desc: '无电梯 2 元/桶这类口头报价，多桶时金额增长快' }
 ]
+
+const THRESHOLD_FIELDS = ['minOrderBuckets', 'minOrderAmount', 'deliveryRadiusM', 'freeDeliveryBuckets', 'freeDeliveryAmount']
+const RULE_FIELDS = {
+  minOrder: ['minOrderBuckets', 'minOrderAmount', 'minOrderMode', 'minOrderFee'],
+  range: ['deliveryRadiusM', 'overRadiusMode', 'remoteFee'],
+  delivery: ['baseDeliveryFee', 'freeDeliveryBuckets', 'freeDeliveryAmount'],
+  floor: ['floorFreeLevel', 'floorFeePerLevel', 'floorFeeMode']
+}
+
+function thresholdDefaults(form) {
+  const present = field => form[field] !== '' && form[field] !== null && form[field] !== undefined
+  const positive = field => present(field) && Number(form[field]) > 0
+  return {
+    minOrderBuckets: positive('minOrderBuckets'), minOrderAmount: positive('minOrderAmount'),
+    deliveryRadiusM: positive('deliveryRadiusM'),
+    // 零免运费门槛是有效且影响所有适用订单的配置，不能折叠成“不设门槛”。
+    freeDeliveryBuckets: present('freeDeliveryBuckets'), freeDeliveryAmount: present('freeDeliveryAmount')
+  }
+}
+
+function buildRuleState(form, enabled, configured, savedForm, savedEnabled) {
+  const same = (a, b) => String(a == null ? '' : a) === String(b == null ? '' : b)
+  const changed = Object.keys(form || {}).some(k => !savedForm || !same(form[k], savedForm[k]))
+    || THRESHOLD_FIELDS.some(k => !savedEnabled || !!enabled[k] !== !!savedEnabled[k])
+  const modeName = value => value === 'REJECT' ? '超限不接单' : value === 'FEE' ? '超限加收' : '超限仅提示'
+  const numberText = (value, unit) => value === '' || value == null ? '待填写' : `${value}${unit}`
+  const limitText = (field, isEnabled, unit, zeroText) => {
+    if (!isEnabled) return '不限'
+    if (form[field] === '' || form[field] == null) return '待填写'
+    return Number(form[field]) === 0 ? zeroText : numberText(form[field], unit)
+  }
+  const minParts = [
+    `桶数 ${limitText('minOrderBuckets', enabled.minOrderBuckets, ' 桶', '0 桶（按现行规则等同不限）')}`,
+    `金额 ${limitText('minOrderAmount', enabled.minOrderAmount, ' 元', '0 元（按现行规则等同不限）')}`
+  ]
+  const minHandling = form.minOrderMode === 'FEE'
+    ? `${modeName(form.minOrderMode)} ${numberText(form.minOrderFee, ' 元')}` : modeName(form.minOrderMode)
+  const radius = limitText('deliveryRadiusM', enabled.deliveryRadiusM, ' 米', '0 米（按现行规则不执行距离限制）')
+  const rangeHandling = form.overRadiusMode === 'FEE'
+    ? `${modeName(form.overRadiusMode)} ${numberText(form.remoteFee, ' 元')}` : modeName(form.overRadiusMode)
+  const freeParts = []
+  if (enabled.freeDeliveryBuckets) freeParts.push(Number(form.freeDeliveryBuckets) === 0
+    ? '0 桶门槛（所有桶装订单都达到）' : `桶数 ≥ ${numberText(form.freeDeliveryBuckets, ' 桶')}（仅桶装订单）`)
+  if (enabled.freeDeliveryAmount) freeParts.push(Number(form.freeDeliveryAmount) === 0
+    ? '0 元门槛（所有非负金额订单都达到）' : `金额 ≥ ${numberText(form.freeDeliveryAmount, ' 元')}`)
+  const baseFeeText = form.baseDeliveryFee === '' || form.baseDeliveryFee == null
+    ? '空值保存按现有规则不收费' : Number(form.baseDeliveryFee) === 0 ? '0 元（不收费）' : numberText(form.baseDeliveryFee, ' 元')
+  const deliveryText = `基础配送费 ${baseFeeText}；${freeParts.length
+    ? `达到任一免运费门槛：${freeParts.join('；')}` : '未设置免运费门槛，基础配送费照收'}`
+  const floorFree = form.floorFreeLevel === '' || form.floorFreeLevel == null
+    ? '空值保存后按 1 层免费' : `${form.floorFreeLevel} 层免费`
+  const floorFee = Number(form.floorFeePerLevel) > 0
+    ? `${numberText(form.floorFeePerLevel, ' 元')}/${form.floorFeeMode === 'PER_BUCKET' ? '桶' : '单'}`
+    : '每层费用为空或 0，不收楼层费'
+  const descriptions = {
+    minOrder: `桶数或金额任一达标即可；${minParts.join('；')}；${minHandling}`,
+    range: `半径 ${radius}；${rangeHandling}`,
+    delivery: deliveryText,
+    floor: `无电梯且高于 ${floorFree} 时：${floorFee}。未确认楼层或电梯信息时不收。`
+  }
+  const labels = { minOrder: '起送条件', range: '配送范围', delivery: '配送费', floor: '楼层费' }
+  const summaries = Object.keys(RULE_FIELDS).map(key => {
+    const sectionChanged = RULE_FIELDS[key].some(field => !savedForm || !same(form[field], savedForm[field]))
+      || THRESHOLD_FIELDS.filter(field => RULE_FIELDS[key].includes(field)).some(field => !savedEnabled || !!enabled[field] !== !!savedEnabled[field])
+    return { key, label: labels[key], text: descriptions[key],
+      stateText: configured ? (sectionChanged ? '未保存草稿' : '已保存') : (sectionChanged ? '未保存草稿' : '默认值待确认') }
+  })
+  return { hasUnsavedChanges: changed, ruleSummaries: summaries }
+}
+
+function deliveryConfigReadbackMatches(form, payload) {
+  const zeroMatchesNull = new Set(['minOrderBuckets', 'minOrderAmount', 'deliveryRadiusM', 'baseDeliveryFee',
+    'minOrderFee', 'remoteFee', 'floorFeePerLevel'])
+  const number = value => value === '' || value == null ? null : Number(value)
+  return Object.keys(payload).every(field => {
+    let expected = payload[field], actual = form[field]
+    if (field === 'floorFreeLevel') {
+      expected = expected == null ? 1 : Number(expected)
+      actual = number(actual)
+      actual = actual == null ? 1 : actual
+      return actual === expected
+    }
+    if (typeof payload[field] === 'number' || payload[field] === null) {
+      expected = expected == null ? null : Number(expected)
+      actual = number(actual)
+      if (zeroMatchesNull.has(field) && (actual === 0 || actual == null) && (expected === 0 || expected == null)) return true
+      return actual === expected
+    }
+    return actual === expected
+  })
+}
 
 // 布局映射只用于锚点和错误定位，不参与计费或提交数据转换。
 const FEE_FIELD_SECTIONS = {
@@ -59,12 +150,15 @@ Page({
     fieldError: '', fieldErrorText: '', saveError: '', feeKeyboardOffset: 0, feeBodyStyle: '',
     modeDescriptions: { minOrderMode: LIMIT_MODES[0].desc, overRadiusMode: LIMIT_MODES[0].desc, floorFeeMode: FLOOR_MODES[0].desc },
     configured: false,
+    thresholdEnabled: { minOrderBuckets: false, minOrderAmount: false, deliveryRadiusM: false,
+      freeDeliveryBuckets: false, freeDeliveryAmount: false },
+    savedForm: null, savedThresholdEnabled: null, hasUnsavedChanges: false, ruleSummaries: [],
     // 「配送范围」那段说明的正文（在 loadSetup 里拼好）。为什么不在 wxml 里拼：
     // 见 loadSetup 的 ⚠️（WXML 表达式解析器不支持带换行的字符串拼接，会编译报错）。
     rangeHelpText: '按站点坐标到收货地址的直线距离判断。',
     limitModes: LIMIT_MODES,
     floorModes: FLOOR_MODES,
-    // 表单值一律用字符串存：留空表示"不限/不收"，用 '' 才能与数字 0 区分开
+    // 表单值用字符串存；限制项由明确选项控制，保留空串和数字 0 的业务差异。
     form: {
       minOrderBuckets: '',
       minOrderAmount: '',
@@ -102,7 +196,8 @@ Page({
   onModuleSetupTask(e) {
     const key = e.currentTarget.dataset.key
     if (!(this.data.moduleSetupTasks || []).some(it => it.key === key)) return
-    this.setData({ activeSection: 'minOrder' }, () => this.scrollToFeeTarget('#fee-minOrder'))
+    // 真实 P0 任务保留；入口先打开四项规则摘要，再由用户选择具体段落。
+    this.setData({ activeSection: 'minOrder' }, () => this.scrollToFeeTarget('#fee-rules'))
   },
 
   onShow() {
@@ -220,7 +315,7 @@ Page({
       if (!this.isLoadCurrent('_configVersion', context)) return
       const d = res.data || {}
       const c = d.config || {}
-      // 后端把 null 原样下发（表示"不限/不收"），这里统一转成 '' 便于输入框编辑
+      // 后端原样返回 null；编辑框用空串承载，另由明确的规则选项决定是否提交 null。
       const s = (v) => (v === null || v === undefined ? '' : String(v))
       const g = d.guidance || {}
       const guide = {
@@ -231,9 +326,7 @@ Page({
         suggestedMinOrderAmount: g.suggestedMinOrderAmount == null ? null : Number(g.suggestedMinOrderAmount),
         suggestedFreeDeliveryAmount: g.suggestedFreeDeliveryAmount == null ? null : Number(g.suggestedFreeDeliveryAmount)
       }
-      this.setData({
-        configReady: true, configured: d.configured === true,
-        form: {
+      const form = {
           minOrderBuckets: s(c.minOrderBuckets),
           minOrderAmount: s(c.minOrderAmount),
           minOrderMode: c.minOrderMode || 'WARN',
@@ -247,7 +340,13 @@ Page({
           floorFreeLevel: s(c.floorFreeLevel),
           floorFeePerLevel: s(c.floorFeePerLevel),
           floorFeeMode: c.floorFeeMode || 'PER_ORDER'
-        },
+        }
+      const thresholdEnabled = thresholdDefaults(form)
+      const configured = d.configured === true
+      this.setData({
+        configReady: true, configured, form, savedForm: { ...form },
+        thresholdEnabled, savedThresholdEnabled: { ...thresholdEnabled },
+        ...buildRuleState(form, thresholdEnabled, configured, form, thresholdEnabled),
         guide,
         guideText: this.describeGuide(guide)
       }, () => { this.syncModeDescriptions(); this.measureFeeSaveBar() })
@@ -290,7 +389,14 @@ Page({
       wx.showToast({ title: '没有可填入的建议值，请手动填写', icon: 'none' })
       return
     }
-    this.setData(updates)
+    const nextForm = { ...form }
+    if (updates['form.minOrderAmount']) nextForm.minOrderAmount = updates['form.minOrderAmount']
+    if (updates['form.freeDeliveryAmount']) nextForm.freeDeliveryAmount = updates['form.freeDeliveryAmount']
+    const enabled = { ...this.data.thresholdEnabled,
+      ...(updates['form.minOrderAmount'] ? { minOrderAmount: true } : {}),
+      ...(updates['form.freeDeliveryAmount'] ? { freeDeliveryAmount: true } : {}) }
+    this.setData({ ...updates, thresholdEnabled: enabled,
+      ...buildRuleState(nextForm, enabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled) })
     wx.showToast({ title: '已填入建议值，确认后保存', icon: 'none' })
   },
 
@@ -402,8 +508,19 @@ Page({
     if (this.data.saving) return
     const field = e.currentTarget.dataset.field
     if (!Object.prototype.hasOwnProperty.call(this.data.form, field)) return
-    this.setData({ ['form.' + field]: e.detail.value, saveError: '',
+    const form = { ...this.data.form, [field]: e.detail.value }
+    this.setData({ form, ...buildRuleState(form, this.data.thresholdEnabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled), saveError: '',
       fieldError: this.data.fieldError === field ? '' : this.data.fieldError })
+  },
+
+  onThresholdToggle(e) {
+    if (this.data.saving) return
+    const field = e.currentTarget.dataset.field
+    if (!THRESHOLD_FIELDS.includes(field)) return
+    const enabled = { ...this.data.thresholdEnabled, [field]: e.currentTarget.dataset.enabled === 'on' }
+    this.setData({ thresholdEnabled: enabled,
+      ...buildRuleState(this.data.form, enabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled),
+      saveError: '', fieldError: this.data.fieldError === field ? '' : this.data.fieldError })
   },
 
   onPickMode(e) {
@@ -412,7 +529,8 @@ Page({
     const value = e.currentTarget.dataset.value
     const modes = field === 'floorFeeMode' ? FLOOR_MODES : LIMIT_MODES
     if (!['minOrderMode', 'overRadiusMode', 'floorFeeMode'].includes(field) || !modes.some(it => it.value === value)) return
-    this.setData({ ['form.' + field]: value, fieldError: '', saveError: '' }, () => { this.syncModeDescriptions(); this.measureFeeSections() })
+    const form = { ...this.data.form, [field]: value }
+    this.setData({ form, ...buildRuleState(form, this.data.thresholdEnabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled), fieldError: '', saveError: '' }, () => { this.syncModeDescriptions(); this.measureFeeSections() })
   },
 
   /**
@@ -432,21 +550,35 @@ Page({
       return isNaN(n) ? null : n
     }
 
+    const enabled = this.data.thresholdEnabled || thresholdDefaults(f)
+    const requiredLabels = {
+      minOrderBuckets: '设置起送桶数后请填写数值', minOrderAmount: '设置起送金额后请填写数值',
+      deliveryRadiusM: '设置配送半径后请填写数值', freeDeliveryBuckets: '设置免运费桶数后请填写数值',
+      freeDeliveryAmount: '设置免运费金额后请填写数值'
+    }
+    for (const field of THRESHOLD_FIELDS) {
+      if (enabled[field] && num(f[field]) === null) {
+        this.feeFieldFailure(field, requiredLabels[field])
+        return
+      }
+    }
+
     const payload = {
-      minOrderBuckets: num(f.minOrderBuckets),
-      minOrderAmount: num(f.minOrderAmount),
+      minOrderBuckets: enabled.minOrderBuckets ? num(f.minOrderBuckets) : null,
+      minOrderAmount: enabled.minOrderAmount ? num(f.minOrderAmount) : null,
       minOrderMode: f.minOrderMode,
       minOrderFee: num(f.minOrderFee),
-      deliveryRadiusM: num(f.deliveryRadiusM),
+      deliveryRadiusM: enabled.deliveryRadiusM ? num(f.deliveryRadiusM) : null,
       overRadiusMode: f.overRadiusMode,
       remoteFee: num(f.remoteFee),
       baseDeliveryFee: num(f.baseDeliveryFee),
-      freeDeliveryBuckets: num(f.freeDeliveryBuckets),
-      freeDeliveryAmount: num(f.freeDeliveryAmount),
+      freeDeliveryBuckets: enabled.freeDeliveryBuckets ? num(f.freeDeliveryBuckets) : null,
+      freeDeliveryAmount: enabled.freeDeliveryAmount ? num(f.freeDeliveryAmount) : null,
       floorFreeLevel: num(f.floorFreeLevel),
       floorFeePerLevel: num(f.floorFeePerLevel),
       floorFeeMode: f.floorFeeMode
     }
+    const submittedForm = { ...f }, submittedEnabled = { ...enabled }
 
     // 只在"选了加收费用"时才提醒填金额 —— 选了 FEE 却不填金额，等于门槛白配了
     if (payload.minOrderMode === 'FEE' && !payload.minOrderFee) {
@@ -461,9 +593,18 @@ Page({
     this.setData({ saving: true, fieldError: '', saveError: '' })
     try {
       await saveDeliveryConfig(payload)
-      wx.showToast({ title: '已保存', icon: 'success' })
       await this.load()
       this.loadSetup()
+      if (this.data.configReady && this.data.configured && deliveryConfigReadbackMatches(this.data.form, payload)) {
+        wx.showToast({ title: '已保存并核对', icon: 'success' })
+      } else {
+        const readbackKnown = this.data.configReady && this.data.configured
+        if (readbackKnown) this.setData({ form: submittedForm, thresholdEnabled: submittedEnabled,
+          ...buildRuleState(submittedForm, submittedEnabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled) })
+        this.setData({ saveError: readbackKnown
+          ? '保存请求已提交，但回读内容与本次修改不一致；当前输入已保留，请重新读取后核对。'
+          : '保存请求已提交，但配置回读未能确认；当前输入已保留，请重新读取后再判断状态。' })
+      }
     } catch (err) {
       this.setData({ saveError: err.message || '保存失败，输入已保留，请核对后重试' })
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })

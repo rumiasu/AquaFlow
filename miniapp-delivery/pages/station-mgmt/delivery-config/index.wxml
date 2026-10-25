@@ -22,6 +22,17 @@
     前端不自建 key→文案映射。只列"还没配好的"，P0 排前面。
   -->
   <template is="setupModuleTasks" data="{{tasks:moduleSetupTasks,loading:moduleSetupLoading,ready:moduleSetupReady,error:moduleSetupError}}" />
+  <view class="fee-rules-card" id="fee-rules" wx:if="{{configReady && !loading && !configError}}">
+    <view class="fee-rules-heading"><text class="fee-rules-title">本页规则</text><text class="fee-rules-badge {{configured ? 'is-saved' : 'is-pending'}}">{{configured ? '后台已配置' : '默认值待确认'}}</text></view>
+    <text class="fee-rules-note" wx:if="{{hasUnsavedChanges && configured}}">有未保存修改；当前订单仍按已保存规则计算。</text>
+    <text class="fee-rules-note" wx:elif="{{configured}}">规则状态来自后台读取；修改后需保存并核对回读。</text>
+    <text class="fee-rules-note" wx:else>以下是后台当前返回的默认规则；首次使用请确认并保存，不会替你填入自选门槛。</text>
+    <button wx:for="{{ruleSummaries}}" wx:key="key" class="fee-rule-summary" data-section="{{item.key}}" bindtap="onSectionTap">
+      <view class="fee-rule-summary-head"><text class="fee-rule-summary-title">{{item.label}}</text><text class="fee-rule-summary-state">{{item.stateText}}</text></view>
+      <text class="fee-rule-summary-copy">{{item.text}}</text>
+      <text class="fee-rule-summary-link">查看并编辑 ›</text>
+    </button>
+  </view>
   <view class="fee-section-nav">
     <button wx:for="{{sectionTabs}}" wx:key="key" class="fee-nav-item {{activeSection === item.key ? 'active' : ''}}" data-section="{{item.key}}" bindtap="onSectionTap">{{item.label}}</button>
   </view>
@@ -40,20 +51,20 @@
 
   <!-- ============ 起送量 ============ -->
   <view class="card fee-section" id="fee-minOrder">
-    <view class="card-title-row">
+    <view class="card-title-row fee-section-heading"><text class="fee-section-number">01</text>
       <text class="card-title">起送条件</text>
       <help-tip title="起送量" text="桶数与金额满足其一即达门槛；两项都留空 = 不限起送量。没有桶装水的订单（纯瓶装水/饮水机）只按金额核验。" />
     </view>
 
     <view class="field">
       <text class="label">起送桶数</text>
-      <input disabled="{{saving}}" id="fee-field-minOrderBuckets" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="如 2（留空=不限）" value="{{form.minOrderBuckets}}" bindinput="onInput" data-field="minOrderBuckets" />
-      <text class="fee-field-error" wx:if="{{fieldError === 'minOrderBuckets'}}">{{fieldErrorText}}</text>
+      <view class="fee-choice-row"><button class="fee-choice {{!thresholdEnabled.minOrderBuckets ? 'active' : ''}}" bindtap="onThresholdToggle" data-field="minOrderBuckets" data-enabled="off" disabled="{{saving}}">不限</button><button class="fee-choice {{thresholdEnabled.minOrderBuckets ? 'active' : ''}}" bindtap="onThresholdToggle" data-field="minOrderBuckets" data-enabled="on" disabled="{{saving}}">设置桶数</button></view>
+      <view wx:if="{{thresholdEnabled.minOrderBuckets}}"><input disabled="{{saving}}" id="fee-field-minOrderBuckets" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="输入桶数；0 按现行规则等同不限" value="{{form.minOrderBuckets}}" bindinput="onInput" data-field="minOrderBuckets" /><text class="fee-field-error" wx:if="{{fieldError === 'minOrderBuckets'}}">{{fieldErrorText}}</text></view>
     </view>
     <view class="field">
       <text class="label">起送金额（元）</text>
-      <input disabled="{{saving}}" id="fee-field-minOrderAmount" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="{{guide.suggestedMinOrderAmount ? '建议 ' + guide.suggestedMinOrderAmount + '（留空=不限）' : '如 30（留空=不限）'}}" value="{{form.minOrderAmount}}" bindinput="onInput" data-field="minOrderAmount" />
-      <text class="fee-field-error" wx:if="{{fieldError === 'minOrderAmount'}}">{{fieldErrorText}}</text>
+      <view class="fee-choice-row"><button class="fee-choice {{!thresholdEnabled.minOrderAmount ? 'active' : ''}}" bindtap="onThresholdToggle" data-field="minOrderAmount" data-enabled="off" disabled="{{saving}}">不限</button><button class="fee-choice {{thresholdEnabled.minOrderAmount ? 'active' : ''}}" bindtap="onThresholdToggle" data-field="minOrderAmount" data-enabled="on" disabled="{{saving}}">设置金额</button></view>
+      <view wx:if="{{thresholdEnabled.minOrderAmount}}"><input disabled="{{saving}}" id="fee-field-minOrderAmount" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="输入金额；0 按现行规则等同不限" value="{{form.minOrderAmount}}" bindinput="onInput" data-field="minOrderAmount" /><text class="fee-field-error" wx:if="{{fieldError === 'minOrderAmount'}}">{{fieldErrorText}}</text></view>
     </view>
 
     <text class="label">未达起送量时</text>
@@ -74,7 +85,7 @@
 
   <!-- ============ 配送范围 ============ -->
   <view class="card fee-section" id="fee-range">
-    <view class="card-title-row">
+    <view class="card-title-row fee-section-heading"><text class="fee-section-number">02</text>
       <text class="card-title">配送范围</text>
       <!-- 正文在 js 里拼好（wxml 里不许做字符串拼接，见 delivery-config/index.js 的 ⚠️）。
            2026-09-24 产品要求：坐标这类概念也藏起来 → 原来那句可见警告并进这里。 -->
@@ -83,8 +94,8 @@
 
     <view class="field">
       <text class="label">配送半径（米）</text>
-      <input disabled="{{saving}}" id="fee-field-deliveryRadiusM" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="如 3000（留空=不限）" value="{{form.deliveryRadiusM}}" bindinput="onInput" data-field="deliveryRadiusM" />
-      <text class="fee-field-error" wx:if="{{fieldError === 'deliveryRadiusM'}}">{{fieldErrorText}}</text>
+      <view class="fee-choice-row"><button class="fee-choice {{!thresholdEnabled.deliveryRadiusM ? 'active' : ''}}" bindtap="onThresholdToggle" data-field="deliveryRadiusM" data-enabled="off" disabled="{{saving}}">不限</button><button class="fee-choice {{thresholdEnabled.deliveryRadiusM ? 'active' : ''}}" bindtap="onThresholdToggle" data-field="deliveryRadiusM" data-enabled="on" disabled="{{saving}}">设置半径</button></view>
+      <view wx:if="{{thresholdEnabled.deliveryRadiusM}}"><input disabled="{{saving}}" id="fee-field-deliveryRadiusM" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="输入米数；0 按现行规则不限制距离" value="{{form.deliveryRadiusM}}" bindinput="onInput" data-field="deliveryRadiusM" /><text class="fee-field-error" wx:if="{{fieldError === 'deliveryRadiusM'}}">{{fieldErrorText}}</text></view>
     </view>
 
     <text class="label">超出范围时</text>
@@ -105,31 +116,32 @@
 
   <!-- ============ 运费 ============ -->
   <view class="card fee-section" id="fee-delivery">
-    <view class="card-title-row">
+    <view class="card-title-row fee-section-heading"><text class="fee-section-number">03</text>
       <text class="card-title">配送费</text>
       <help-tip title="配送费" text="达到免运费门槛（桶数或金额任一）即免收；两项门槛都留空 = 一直收基础配送费。" />
     </view>
 
     <view class="field">
       <text class="label">基础配送费（元）</text>
-      <input disabled="{{saving}}" id="fee-field-baseDeliveryFee" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="如 3（0 或留空=不收）" value="{{form.baseDeliveryFee}}" bindinput="onInput" data-field="baseDeliveryFee" />
+      <input disabled="{{saving}}" id="fee-field-baseDeliveryFee" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="输入基础费用；0 元表示不收" value="{{form.baseDeliveryFee}}" bindinput="onInput" data-field="baseDeliveryFee" />
       <text class="fee-field-error" wx:if="{{fieldError === 'baseDeliveryFee'}}">{{fieldErrorText}}</text>
     </view>
+    <text class="fee-inline-help">达到下方任一已设置门槛可免基础配送费；桶数门槛只作用于桶装订单。两项都不设时，基础配送费照收。</text>
     <view class="field">
       <text class="label">免运费桶数</text>
-      <input disabled="{{saving}}" id="fee-field-freeDeliveryBuckets" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="如 2" value="{{form.freeDeliveryBuckets}}" bindinput="onInput" data-field="freeDeliveryBuckets" />
-      <text class="fee-field-error" wx:if="{{fieldError === 'freeDeliveryBuckets'}}">{{fieldErrorText}}</text>
+      <view class="fee-choice-row"><button class="fee-choice {{!thresholdEnabled.freeDeliveryBuckets ? 'active' : ''}}" bindtap="onThresholdToggle" data-field="freeDeliveryBuckets" data-enabled="off" disabled="{{saving}}">不设桶数门槛</button><button class="fee-choice {{thresholdEnabled.freeDeliveryBuckets ? 'active' : ''}}" bindtap="onThresholdToggle" data-field="freeDeliveryBuckets" data-enabled="on" disabled="{{saving}}">设置桶数门槛</button></view>
+      <view wx:if="{{thresholdEnabled.freeDeliveryBuckets}}"><input disabled="{{saving}}" id="fee-field-freeDeliveryBuckets" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="输入桶数；0 表示所有桶装订单达到" value="{{form.freeDeliveryBuckets}}" bindinput="onInput" data-field="freeDeliveryBuckets" /><text class="fee-field-error" wx:if="{{fieldError === 'freeDeliveryBuckets'}}">{{fieldErrorText}}</text></view>
     </view>
     <view class="field">
       <text class="label">免运费金额（元）</text>
-      <input disabled="{{saving}}" id="fee-field-freeDeliveryAmount" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="{{guide.suggestedFreeDeliveryAmount ? '建议 ' + guide.suggestedFreeDeliveryAmount : '如 40'}}" value="{{form.freeDeliveryAmount}}" bindinput="onInput" data-field="freeDeliveryAmount" />
-      <text class="fee-field-error" wx:if="{{fieldError === 'freeDeliveryAmount'}}">{{fieldErrorText}}</text>
+      <view class="fee-choice-row"><button class="fee-choice {{!thresholdEnabled.freeDeliveryAmount ? 'active' : ''}}" bindtap="onThresholdToggle" data-field="freeDeliveryAmount" data-enabled="off" disabled="{{saving}}">不设金额门槛</button><button class="fee-choice {{thresholdEnabled.freeDeliveryAmount ? 'active' : ''}}" bindtap="onThresholdToggle" data-field="freeDeliveryAmount" data-enabled="on" disabled="{{saving}}">设置金额门槛</button></view>
+      <view wx:if="{{thresholdEnabled.freeDeliveryAmount}}"><input disabled="{{saving}}" id="fee-field-freeDeliveryAmount" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="输入金额；0 表示所有非负金额订单达到" value="{{form.freeDeliveryAmount}}" bindinput="onInput" data-field="freeDeliveryAmount" /><text class="fee-field-error" wx:if="{{fieldError === 'freeDeliveryAmount'}}">{{fieldErrorText}}</text></view>
     </view>
   </view>
 
   <!-- ============ 楼层费 ============ -->
   <view class="card fee-section" id="fee-floor">
-    <view class="card-title-row">
+    <view class="card-title-row fee-section-heading"><text class="fee-section-number">04</text>
       <text class="card-title">楼层费（向客户收）</text>
       <help-tip title="楼层费" text="只在「无电梯」且超出免费楼层时收。客户没填楼层、或没确认电梯时，不收、只在结算页提示。" />
     </view>
@@ -157,7 +169,7 @@
   </view>
 
   <view class="fee-save-bar {{feeKeyboardOffset ? 'keyboard-open' : ''}}" style="bottom:{{feeKeyboardOffset}}px;">
-    <button class="btn-primary" bindtap="onSave" loading="{{saving}}" disabled="{{saving || loading || !configReady}}">保存配送计费</button>
+    <button class="btn-primary" bindtap="onSave" loading="{{saving}}" disabled="{{saving || loading || !configReady}}">{{!configured ? (hasUnsavedChanges ? '保存并确认规则' : '确认并保存默认规则') : '保存计费修改'}}</button>
   </view>
   </block>
 </view>

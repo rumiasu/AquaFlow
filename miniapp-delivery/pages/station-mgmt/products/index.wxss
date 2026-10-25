@@ -704,3 +704,25 @@
 .price-warning {margin:16rpx 0;padding:24rpx;background:var(--warning-bg);border-radius:12rpx;color:var(--text-primary);font-size:28rpx;line-height:1.6;}
 .price-warning text {display:block;}.price-warning-title {font-weight:600;}.price-warning button {min-height:44px;margin-top:12rpx;}
 .product-card-secondary,.report-product-entry {min-height:44px;padding:12rpx;font-size:14px;line-height:1.5;background:var(--primary-bg);color:var(--primary-color);}
+
+/* 编辑面板按资料、售价/销售、库存分组；浅边界帮助扫读，不与保存动作争主次。 */
+.product-edit-content { background:var(--bg-color); }
+.product-edit-group { margin:0 0 20rpx; padding:20rpx; border:1rpx solid var(--border-color); border-radius:12rpx; background:#fff; }
+.product-edit-group-details { padding-top:20rpx; }
+.product-edit-group-pricing { margin-top:20rpx; }
+.product-edit-group .product-section-heading { margin:0 0 12rpx; padding:0 0 12rpx; border-bottom:1rpx solid var(--border-color); }
+.product-edit-group .product-section-heading.product-section-spaced { margin-top:0; padding-top:0; }
+.product-edit-group .form-item { min-width:0; }
+.product-edit-group .form-row { gap:12rpx; }
+.product-image-section { margin-bottom:0; }
+.product-image-status { margin-top:10rpx; min-height:1.5em; }
+.product-image-actions { gap:8rpx; margin-top:10rpx; }
+.product-image-action,.product-image-action.secondary { flex:0 1 auto; min-width:0; min-height:44px; padding:10rpx 16rpx; background:var(--bg-gray); color:var(--primary-color); border:1rpx solid var(--border-color); font-size:13px; }
+.product-image-action:active { background:var(--primary-bg); }
+.product-edit-group .product-display-switches { display:block; margin-top:16rpx; }
+.product-edit-group .product-display-switches .switch-item { min-width:0; min-height:52px; margin:0; padding:8rpx 0; justify-content:space-between; border-bottom:1rpx solid var(--border-color); }
+.product-edit-group .product-display-switches .switch-item:last-child { border-bottom:0; }
+.product-edit-group .switch-label { font-size:14px; line-height:1.5; color:var(--text-primary); }
+.product-initial-stock { margin-top:20rpx; }
+.stock-editor { background:var(--bg-card); }
+.stock-editor .product-section-heading { margin-bottom:14rpx; }

@@ -47,17 +47,17 @@
 
     <view class="field">
       <text class="label">起送桶数</text>
-      <input id="fee-field-minOrderBuckets" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="如 2（留空=不限）" value="{{form.minOrderBuckets}}" bindinput="onInput" data-field="minOrderBuckets" />
+      <input disabled="{{saving}}" id="fee-field-minOrderBuckets" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="如 2（留空=不限）" value="{{form.minOrderBuckets}}" bindinput="onInput" data-field="minOrderBuckets" />
       <text class="fee-field-error" wx:if="{{fieldError === 'minOrderBuckets'}}">{{fieldErrorText}}</text>
     </view>
     <view class="field">
       <text class="label">起送金额（元）</text>
-      <input id="fee-field-minOrderAmount" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="{{guide.suggestedMinOrderAmount ? '建议 ' + guide.suggestedMinOrderAmount + '（留空=不限）' : '如 30（留空=不限）'}}" value="{{form.minOrderAmount}}" bindinput="onInput" data-field="minOrderAmount" />
+      <input disabled="{{saving}}" id="fee-field-minOrderAmount" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="{{guide.suggestedMinOrderAmount ? '建议 ' + guide.suggestedMinOrderAmount + '（留空=不限）' : '如 30（留空=不限）'}}" value="{{form.minOrderAmount}}" bindinput="onInput" data-field="minOrderAmount" />
       <text class="fee-field-error" wx:if="{{fieldError === 'minOrderAmount'}}">{{fieldErrorText}}</text>
     </view>
 
     <text class="label">未达起送量时</text>
-    <view class="options">
+    <view class="options {{saving ? 'fee-options-locked' : ''}}">
       <view class="option {{form.minOrderMode === item.value ? 'active' : ''}}" wx:for="{{limitModes}}" wx:key="value"
             bindtap="onPickMode" data-field="minOrderMode" data-value="{{item.value}}">
         <text class="option-name">{{item.name}}</text>
@@ -67,7 +67,7 @@
 
     <view class="field" wx:if="{{form.minOrderMode === 'FEE'}}">
       <text class="label">加收金额（元）</text>
-      <input id="fee-field-minOrderFee" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="如 5" value="{{form.minOrderFee}}" bindinput="onInput" data-field="minOrderFee" />
+      <input disabled="{{saving}}" id="fee-field-minOrderFee" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="如 5" value="{{form.minOrderFee}}" bindinput="onInput" data-field="minOrderFee" />
       <text class="fee-field-error" wx:if="{{fieldError === 'minOrderFee'}}">{{fieldErrorText}}</text>
     </view>
   </view>
@@ -83,12 +83,12 @@
 
     <view class="field">
       <text class="label">配送半径（米）</text>
-      <input id="fee-field-deliveryRadiusM" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="如 3000（留空=不限）" value="{{form.deliveryRadiusM}}" bindinput="onInput" data-field="deliveryRadiusM" />
+      <input disabled="{{saving}}" id="fee-field-deliveryRadiusM" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="如 3000（留空=不限）" value="{{form.deliveryRadiusM}}" bindinput="onInput" data-field="deliveryRadiusM" />
       <text class="fee-field-error" wx:if="{{fieldError === 'deliveryRadiusM'}}">{{fieldErrorText}}</text>
     </view>
 
     <text class="label">超出范围时</text>
-    <view class="options">
+    <view class="options {{saving ? 'fee-options-locked' : ''}}">
       <view class="option {{form.overRadiusMode === item.value ? 'active' : ''}}" wx:for="{{limitModes}}" wx:key="value"
             bindtap="onPickMode" data-field="overRadiusMode" data-value="{{item.value}}">
         <text class="option-name">{{item.name}}</text>
@@ -98,7 +98,7 @@
 
     <view class="field" wx:if="{{form.overRadiusMode === 'FEE'}}">
       <text class="label">远程费（元）</text>
-      <input id="fee-field-remoteFee" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="如 8" value="{{form.remoteFee}}" bindinput="onInput" data-field="remoteFee" />
+      <input disabled="{{saving}}" id="fee-field-remoteFee" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="如 8" value="{{form.remoteFee}}" bindinput="onInput" data-field="remoteFee" />
       <text class="fee-field-error" wx:if="{{fieldError === 'remoteFee'}}">{{fieldErrorText}}</text>
     </view>
   </view>
@@ -112,17 +112,17 @@
 
     <view class="field">
       <text class="label">基础配送费（元）</text>
-      <input id="fee-field-baseDeliveryFee" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="如 3（0 或留空=不收）" value="{{form.baseDeliveryFee}}" bindinput="onInput" data-field="baseDeliveryFee" />
+      <input disabled="{{saving}}" id="fee-field-baseDeliveryFee" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="如 3（0 或留空=不收）" value="{{form.baseDeliveryFee}}" bindinput="onInput" data-field="baseDeliveryFee" />
       <text class="fee-field-error" wx:if="{{fieldError === 'baseDeliveryFee'}}">{{fieldErrorText}}</text>
     </view>
     <view class="field">
       <text class="label">免运费桶数</text>
-      <input id="fee-field-freeDeliveryBuckets" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="如 2" value="{{form.freeDeliveryBuckets}}" bindinput="onInput" data-field="freeDeliveryBuckets" />
+      <input disabled="{{saving}}" id="fee-field-freeDeliveryBuckets" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="如 2" value="{{form.freeDeliveryBuckets}}" bindinput="onInput" data-field="freeDeliveryBuckets" />
       <text class="fee-field-error" wx:if="{{fieldError === 'freeDeliveryBuckets'}}">{{fieldErrorText}}</text>
     </view>
     <view class="field">
       <text class="label">免运费金额（元）</text>
-      <input id="fee-field-freeDeliveryAmount" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="{{guide.suggestedFreeDeliveryAmount ? '建议 ' + guide.suggestedFreeDeliveryAmount : '如 40'}}" value="{{form.freeDeliveryAmount}}" bindinput="onInput" data-field="freeDeliveryAmount" />
+      <input disabled="{{saving}}" id="fee-field-freeDeliveryAmount" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="{{guide.suggestedFreeDeliveryAmount ? '建议 ' + guide.suggestedFreeDeliveryAmount : '如 40'}}" value="{{form.freeDeliveryAmount}}" bindinput="onInput" data-field="freeDeliveryAmount" />
       <text class="fee-field-error" wx:if="{{fieldError === 'freeDeliveryAmount'}}">{{fieldErrorText}}</text>
     </view>
   </view>
@@ -136,17 +136,17 @@
 
     <view class="field">
       <text class="label">免费楼层</text>
-      <input id="fee-field-floorFreeLevel" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="如 1" value="{{form.floorFreeLevel}}" bindinput="onInput" data-field="floorFreeLevel" />
+      <input disabled="{{saving}}" id="fee-field-floorFreeLevel" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="number" placeholder="如 1" value="{{form.floorFreeLevel}}" bindinput="onInput" data-field="floorFreeLevel" />
       <text class="fee-field-error" wx:if="{{fieldError === 'floorFreeLevel'}}">{{fieldErrorText}}</text>
     </view>
     <view class="field">
       <text class="label">每超一层加收（元）</text>
-      <input id="fee-field-floorFeePerLevel" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="如 2（留空=不收楼层费）" value="{{form.floorFeePerLevel}}" bindinput="onInput" data-field="floorFeePerLevel" />
+      <input disabled="{{saving}}" id="fee-field-floorFeePerLevel" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" class="input" type="digit" placeholder="如 2（留空=不收楼层费）" value="{{form.floorFeePerLevel}}" bindinput="onInput" data-field="floorFeePerLevel" />
       <text class="fee-field-error" wx:if="{{fieldError === 'floorFeePerLevel'}}">{{fieldErrorText}}</text>
     </view>
 
     <text class="label">计费口径</text>
-    <view class="options">
+    <view class="options {{saving ? 'fee-options-locked' : ''}}">
       <view class="option {{form.floorFeeMode === item.value ? 'active' : ''}}" wx:for="{{floorModes}}" wx:key="value"
             bindtap="onPickMode" data-field="floorFeeMode" data-value="{{item.value}}">
         <text class="option-name">{{item.name}}</text>

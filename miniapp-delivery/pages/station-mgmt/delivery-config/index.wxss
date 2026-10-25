@@ -177,3 +177,5 @@
 .fee-save-bar.keyboard-open { padding-bottom:12px; }
 .fee-save-bar .btn-primary { margin:0; width:100%; }
 .fee-field-error { display:block; margin-top:8rpx; font-size:13px; line-height:1.6; color:var(--error-color); }
+
+.fee-options-locked {opacity:.55;}

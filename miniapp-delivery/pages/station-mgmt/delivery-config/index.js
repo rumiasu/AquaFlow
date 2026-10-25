@@ -277,6 +277,7 @@ Page({
 
   /** 一键填入建议值（只填后端给了建议的那几项，其余不动）。 */
   onFillSuggested() {
+    if (this.data.saving) return
     const { guide, form } = this.data
     const updates = {}
     if (guide.suggestedMinOrderAmount != null && !form.minOrderAmount) {
@@ -398,6 +399,7 @@ Page({
   },
 
   onInput(e) {
+    if (this.data.saving) return
     const field = e.currentTarget.dataset.field
     if (!Object.prototype.hasOwnProperty.call(this.data.form, field)) return
     this.setData({ ['form.' + field]: e.detail.value, saveError: '',
@@ -405,6 +407,7 @@ Page({
   },
 
   onPickMode(e) {
+    if (this.data.saving) return
     const field = e.currentTarget.dataset.field
     const value = e.currentTarget.dataset.value
     const modes = field === 'floorFeeMode' ? FLOOR_MODES : LIMIT_MODES
@@ -459,7 +462,7 @@ Page({
     try {
       await saveDeliveryConfig(payload)
       wx.showToast({ title: '已保存', icon: 'success' })
-      this.load()
+      await this.load()
       this.loadSetup()
     } catch (err) {
       this.setData({ saveError: err.message || '保存失败，输入已保留，请核对后重试' })

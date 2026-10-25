@@ -25,7 +25,12 @@ test('one shared editor keeps native scrollers free of catchtouchmove ancestors 
     assert(body && 'scroll-y' in body.attrs)
     assert.equal(body.attrs.class, 'product-edit-body')
     const footer = node.children.find(n => hasClass(n, 'product-edit-footer'))
-    assert(footer && nodes(footer, n => n.tag === 'button').length === 2)
+    assert(footer && nodes(footer, n => n.tag === 'button').length === 3)
+    for (const inactive of [false, true]) {
+      const shown = renderElements({children:[footer]}, {productInactive:inactive,saving:false,inboundBusy:false,productCreationPending:false,productImageBusy:false,editForm:{},isAdd:false}, {includeText:true}).filter(n=>n.tag==='button')
+      assert.equal(shown.length, inactive ? 1 : 2)
+      if(inactive)assert(!shown.some(n=>n.attrs.bindtap==='onSaveEdit'))
+    }
     assert.equal(nodes(body, n => hasClass(n, 'product-edit-footer')).length, 0)
     const backdrop = nodes(root, n => hasClass(n, 'modal-mask') && (n.attrs['wx:if'] === node.attrs['wx:if'] || hasClass(n, 'product-editor-dismiss-area')))
     assert(backdrop.some(b => b.node.attrs.catchtouchmove === 'preventMove' && !b.ancestors.includes(node)))

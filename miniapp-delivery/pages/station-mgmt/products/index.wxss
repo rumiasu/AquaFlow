@@ -700,3 +700,7 @@
 .product-section-nav button { flex:1; min-width:0; min-height:44px; margin:0; padding:8rpx 4rpx; font-size:14px; line-height:1.5; color:var(--text-regular); background:var(--bg-gray); }
 .product-section-nav button.active { color:var(--primary-color); background:var(--primary-bg); }
 .product-section-nav button::after { border:0; }
+
+.price-warning {margin:16rpx 0;padding:24rpx;background:var(--warning-bg);border-radius:12rpx;color:var(--text-primary);font-size:28rpx;line-height:1.6;}
+.price-warning text {display:block;}.price-warning-title {font-weight:600;}.price-warning button {min-height:44px;margin-top:12rpx;}
+.product-card-secondary,.report-product-entry {min-height:44px;padding:12rpx;font-size:14px;line-height:1.5;background:var(--primary-bg);color:var(--primary-color);}

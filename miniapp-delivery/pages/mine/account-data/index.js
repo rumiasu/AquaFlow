@@ -12,7 +12,7 @@ function isCurrentSession(session) {
 Page({
   onToggleDetails() { this.setData({detailsExpanded:!this.data.detailsExpanded}) },
   data: {
-    detailsExpanded:false, options: null, loading: false, error: '', items: [], nextBeforeId: null, selectedIndex: -1,
+    detailsExpanded:false, checkError:'', options: null, loading: false, error: '', items: [], nextBeforeId: null, selectedIndex: -1,
     selectedLabel: '请选择请求类型', note: '', submitting: false, pending: false, submitNotice: '', detail: null, check: null },
   onShow() {
     if (this._unloaded) return
@@ -28,7 +28,7 @@ Page({
   current(epoch) { return !this._unloaded && !this._hidden && epoch === this._epoch && isCurrentSession(this._session) },
   async load() {
     const epoch = this._epoch
-    this.setData({ loading: true, error: '', options: null, items: [], detail: null, check: null })
+    this.setData({ loading: true, error: '', options: null, items: [], detail: null, check: null, checkError: '' })
     try {
       const res = await api.options()
       if (!this.current(epoch)) return
@@ -92,9 +92,9 @@ Page({
   },
   async onCheck() {
     if (this.data.loading || !this.data.options || !this.data.options.closureCheckSupported || typeof api.closureCheck !== 'function') return
-    const epoch = this._epoch; this.setData({ loading: true, check: null })
+    const epoch = this._epoch; this.setData({ loading: true, check: null, checkError: '' })
     try { const res = await api.closureCheck(); if (this.current(epoch)) this.setData({ check: res.data }) }
-    catch (error) { if (this.current(epoch)) this.setData({ error: '注销前检查未完成，请重试。' }) }
+    catch (error) { if (this.current(epoch)) this.setData({ checkError: '注销前检查未完成，请重试。' }) }
     finally { if (this.current(epoch)) this.setData({ loading: false }) }
   }
 })

@@ -12,6 +12,7 @@
   <view class="card" wx:if="{{options.closureCheckSupported}}">
     <text class="title">注销前检查</text>
     <text class="body">检查本人未结事项，不会注销账户。</text>
+    <text class="error" wx:if="{{checkError}}">{{checkError}}</text>
     <button size="mini" bindtap="onCheck" disabled="{{loading}}">查询未结事项</button>
     <text class="body" wx:if="{{check}}">{{check.message}}</text>
     <view wx:for="{{check.blockingItems}}" wx:key="index"><text class="body">{{item.stationName}}：{{item.label}}</text></view>

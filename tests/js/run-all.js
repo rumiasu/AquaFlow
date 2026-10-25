@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  {file:'fix-grid-regressions.test.js',name:'商品身份/停用恢复、保存输入、申请错误与管理宫格回归'},
   {file:'settings-feedback.test.js',name:'设置模块导航、管理权限与入口、配送上线事实和应收统计布局'},
   { file: 'customer-detail-refresh.test.js', name: '站长客户详情返回刷新、读取代次与原身份边界' },
   { file: 'dashboard-metric-switch.test.js', name: '经营趋势单量/金额切换、周期与原报表绘制绑定' },

@@ -144,9 +144,12 @@ public class StationSetupGuideService {
         } else if (!locationOk) {
             posWhy = "有地址但没坐标 —— 算不出配送距离，你设的「配送范围」会整段失效（超范围单照接）";
             posSuggestion = "到「水站资料」点一下地图选点补坐标即可，地址已经有了、不用重填";
-        } else {
+        } else if (!addressOk) {
             posWhy = "有坐标但没地址 —— 客户选站与找路只能看到站名";
             posSuggestion = "到「水站资料」补一下地址（选点时会自动带出来）";
+        } else {
+            posWhy = "地址和坐标均已保存，可供客户找路并计算配送距离";
+            posSuggestion = null;
         }
         items.add(item("stationPosition", "水站位置", P0, addressOk && locationOk, "水站资料",
                 posWhy, null, (addressOk && locationOk) ? null : posSuggestion));
@@ -154,7 +157,7 @@ public class StationSetupGuideService {
         List<Inventory> inventory = inventoryMapper.listByStationId(stationId);
         List<Inventory> onShelf = new ArrayList<>();
         for (Inventory inv : inventory) {
-            if (inv != null && Integer.valueOf(1).equals(inv.getEnabled()) && inv.getProductId() != null) {
+            if (inv != null && Integer.valueOf(1).equals(inv.getEnabled()) && Integer.valueOf(1).equals(inv.getStatus()) && inv.getProductId() != null) {
                 onShelf.add(inv);
             }
         }
@@ -179,6 +182,7 @@ public class StationSetupGuideService {
         items.add(item("staffPayroll", "员工工资结构", P1, deliveryStaff == 0 || rateOk, "工资设置",
                 deliveryStaff == 0
                         ? "本站还没有配送员；一旦有人，就要先定工资结构，否则他送的水会按 0 元记工钱"
+                        : rateOk ? "站级默认计件单价已配置；可在计件工资页核对商品单价与结算规则"
                         : "有 " + deliveryStaff + " 名配送员，但没配计件单价 —— 他们送的水会按 0 元记工钱（结算单也是 0）",
                 null,
                 (deliveryStaff > 0 && !rateOk)

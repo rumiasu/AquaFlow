@@ -60,7 +60,7 @@
              ⚠️ 只在**确实有已配好的项**时才渲染：没有就不给这个页签（切过去是空列表，等于骗人）。 -->
         <view class="st-tabs" wx:if="{{stationPanelDone.length > 0}}">
           <view class="st-tab {{stationPanelShowAll ? '' : 'st-tab-on'}}" bindtap="onPanelShowPending">待完善 {{stationPanelPending.length}}</view>
-          <view class="st-tab {{stationPanelShowAll ? 'st-tab-on' : ''}}" bindtap="onPanelShowDone">状态事实 {{stationPanelDone.length}}</view>
+          <view class="st-tab {{stationPanelShowAll ? 'st-tab-on' : ''}}" bindtap="onPanelShowDone">状态事实 {{stationPanelPending.length + stationPanelDone.length}}</view>
         </view>
 
         <text class="st-sub" wx:if="{{stationPanelLoading}}">正在检查待填项…</text>

@@ -273,6 +273,17 @@ public class CatalogServiceImpl implements CatalogService {
             // 通用库商品也会走到这里 —— 它由开发者维护，站长没有编辑权
             throw new BusinessException("商品不存在，或不是本站自定义商品（通用库商品由平台维护）");
         }
+        boolean inactive = Integer.valueOf(0).equals(product.getStatus()) || Integer.valueOf(2).equals(product.getStatus());
+        if (dto.getStatus() != null && !Integer.valueOf(1).equals(dto.getStatus())) {
+            throw new BusinessException("停用商品请使用移除入口，恢复时状态只能为在售");
+        }
+        if (inactive && !Integer.valueOf(1).equals(dto.getStatus())) {
+            throw new BusinessException("该本站商品已停用，请先恢复商品");
+        }
+        if (inactive && !Integer.valueOf(0).equals(dto.getEnabled())) {
+            throw new BusinessException("恢复商品须先保持未上架，再核对资料后决定上架");
+        }
+        if (dto.getStatus() != null) product.setStatus(1);
         if (dto.getCategory() != null) {
             requireCategory(dto.getCategory());
             product.setCategory(dto.getCategory());

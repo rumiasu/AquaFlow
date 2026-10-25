@@ -17,6 +17,8 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.io.IOException;
+import java.net.HttpURLConnection;
 
 /**
  * 微信登录：code2Session（用 wx.login 的 code 换 openid + session_key）。
@@ -50,17 +52,59 @@ public class WeChatLoginService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public WeChatLoginService() {
-        this(3000, 5000);
+        this(3000, 5000, false);
     }
 
-    /** Both the normal exchange and the 40029 diagnostic use these finite transport timeouts. */
+    /** Existing direct callers retain the default public HTTPS trust behavior. */
+    public WeChatLoginService(int connectTimeoutMs, int readTimeoutMs) {
+        this(connectTimeoutMs, readTimeoutMs, false);
+    }
+
+    /** Both exchange paths share finite timeouts and the explicitly enabled instance-local TLS bridge. */
     @Autowired
     public WeChatLoginService(@Value("${wechat.miniapp.connect-timeout-ms:3000}") int connectTimeoutMs,
-                              @Value("${wechat.miniapp.read-timeout-ms:5000}") int readTimeoutMs) {
+                              @Value("${wechat.miniapp.read-timeout-ms:5000}") int readTimeoutMs,
+                              @Value("${wechat.miniapp.cloud-call-tls-enabled:false}") boolean cloudCallTlsEnabled) {
+        this(connectTimeoutMs, readTimeoutMs,
+                cloudCallTlsEnabled ? WeChatCloudCallTls::loadOfficialForRequest : null);
+    }
+
+    /** Fixture seam; application configuration can select only the fixed official certificate loader above. */
+    WeChatLoginService(int connectTimeoutMs, int readTimeoutMs,
+                       java.util.function.Supplier<WeChatCloudCallTls.Material> cloudCallCertificate) {
         if (connectTimeoutMs <= 0 || readTimeoutMs <= 0) {
             throw new IllegalArgumentException("微信换码连接与读取超时必须为正毫秒数");
         }
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory factory;
+        if (cloudCallCertificate != null) {
+            factory = new SimpleClientHttpRequestFactory() {
+                private volatile WeChatCloudCallTls.Material activeCertificate;
+
+                @Override
+                protected void prepareConnection(HttpURLConnection connection, String method) throws IOException {
+                    WeChatCloudCallTls.requireApprovedDestination(connection);
+                    super.prepareConnection(connection, method);
+                    var tls = activeCertificate;
+                    if (tls == null) {
+                        try {
+                            tls = cloudCallCertificate.get();
+                        } catch (IllegalStateException unavailable) {
+                            log.warn("微信云调用证书暂不可用: path=/app/cert/certificate.crt, failureType={}",
+                                    unavailable.getClass().getSimpleName());
+                            throw new IOException("WX_CLOUD_CALL_TLS_CERTIFICATE_UNAVAILABLE", unavailable);
+                        }
+                        // Cache only success. Concurrent first requests may initialize independently so
+                        // none waits behind another request's certificate-readiness deadline.
+                        activeCertificate = tls;
+                        log.info("微信云调用TLS客户端已初始化: host=api.weixin.qq.com, certificateSha256={}, certificateNotAfter={}",
+                                tls.sha256(), tls.notAfter());
+                    }
+                    tls.prepare(connection);
+                }
+            };
+        } else {
+            factory = new SimpleClientHttpRequestFactory();
+        }
         factory.setConnectTimeout(connectTimeoutMs);
         factory.setReadTimeout(readTimeoutMs);
         restTemplate = new RestTemplate(factory);

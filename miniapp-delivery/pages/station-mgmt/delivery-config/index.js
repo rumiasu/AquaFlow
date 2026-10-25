@@ -144,7 +144,8 @@ Page({
     ...initialModuleData(),
     loading: true, configReady: false, configError: '', setupError: '',
     saving: false,
-    activeSection: 'minOrder', setupExpanded: false, setupRequiredText: '',
+    activeSection: 'minOrder', expandedSection: 'minOrder', showRuleDetails: false,
+    setupExpanded: false, setupRequiredText: '',
     sectionTabs: [{ key: 'minOrder', label: '起送条件' }, { key: 'range', label: '配送范围' },
       { key: 'delivery', label: '配送费' }, { key: 'floor', label: '楼层费' }],
     fieldError: '', fieldErrorText: '', saveError: '', feeKeyboardOffset: 0, feeBodyStyle: '',
@@ -197,7 +198,7 @@ Page({
     const key = e.currentTarget.dataset.key
     if (!(this.data.moduleSetupTasks || []).some(it => it.key === key)) return
     // 真实 P0 任务保留；入口先打开四项规则摘要，再由用户选择具体段落。
-    this.setData({ activeSection: 'minOrder' }, () => this.scrollToFeeTarget('#fee-rules'))
+    this.setData({ activeSection: 'minOrder', expandedSection: 'minOrder' }, () => this.scrollToFeeTarget('#fee-rules'))
   },
 
   onShow() {
@@ -411,6 +412,7 @@ Page({
   },
 
   onToggleSetup() { this.setData({ setupExpanded: !this.data.setupExpanded }) },
+  onToggleRuleDetails() { this.setData({ showRuleDetails: !this.data.showRuleDetails }) },
   syncModeDescriptions() {
     const form = this.data.form, desc = (items, value) => (items.find(it => it.value === value) || {}).desc || ''
     this.setData({ modeDescriptions: { minOrderMode: desc(LIMIT_MODES, form.minOrderMode),
@@ -454,7 +456,7 @@ Page({
   onSectionTap(e) {
     const section = e.currentTarget.dataset.section
     if (!this.data.sectionTabs.some(it => it.key === section)) return
-    this.setData({ activeSection: section }, () => this.scrollToFeeTarget('#fee-' + section))
+    this.setData({ activeSection: section, expandedSection: section }, () => this.scrollToFeeTarget('#fee-' + section))
   },
 
   // 2026-10-25：锚点减去真实导航高度，避免固定导航盖住标题或校验字段。
@@ -476,7 +478,8 @@ Page({
   },
 
   feeFieldFailure(field, message) {
-    this.setData({ fieldError: field, fieldErrorText: message, activeSection: FEE_FIELD_SECTIONS[field] || this.data.activeSection },
+    const section = FEE_FIELD_SECTIONS[field] || this.data.activeSection
+    this.setData({ fieldError: field, fieldErrorText: message, activeSection: section, expandedSection: section },
       () => this.scrollToFeeTarget('#fee-field-' + field))
     wx.showToast({ title: message, icon: 'none' })
   },

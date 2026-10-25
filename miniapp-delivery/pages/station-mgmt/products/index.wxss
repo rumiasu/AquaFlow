@@ -491,8 +491,13 @@
 }
 
 .pkg-row-deleted {
-  opacity: 0.45;
+  opacity: 0.68;
 }
+
+.pkg-delete-pending,
+.pkg-validation-error { display:block; margin:8rpx 0 0; font-size:24rpx; line-height:1.5; }
+.pkg-delete-pending { color:var(--error-color); }
+.pkg-validation-error { color:var(--error-color); }
 
 .pkg-input {
   background: var(--bg-card);

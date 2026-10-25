@@ -58,6 +58,16 @@ test('selected catalog entry opens a short editor without embedding inventory ac
   assert(!controls.some(n => n.attrs.bindtap === 'onSubmitStock'))
   assert(!controls.some(n => n.attrs['data-field'] === 'quantity'), 'existing inventory is managed with explicit stock commands')
 })
+
+test('platform product editor opens on prices while keeping template details reachable', () => {
+  const t = fixture()
+  t.page.onOpenSetting(event(item({ ownerStationId: null, stationImageEditable: true })))
+  assert.equal(t.page.data.productEditorSection, 'pricing')
+  assert.equal(t.page.data.productScrollTarget, 'product-section-pricing')
+  const controls = visible(t)
+  assert(controls.some(n => n.attrs['data-section'] === 'pricing' && (n.attrs.class || '').includes('active')))
+  assert(controls.some(n => n.attrs['data-section'] === 'details'))
+})
 test('inventory action opens a standalone panel and restores an unsubmitted stock draft', () => {
   const t = fixture(); const row = item({ displayName: '库存样品' })
   t.page.setData({ list: [row] })
@@ -80,6 +90,60 @@ test('ticket packages render before the secondary single-ticket price field', ()
   const singleIndex = controls.findIndex(n => (n.attrs.class || '').includes('ticket-retail-setting'))
   assert(packageIndex >= 0 && singleIndex > packageIndex)
   assert(controls.some(n => n.text === '可选设置'))
+})
+
+test('blank, zero, or invalid existing ticket prices block every write until explicitly deleted', async () => {
+  for (const price of ['', '0', 'not-a-price']) {
+    const t = fixture(); openOwned(t)
+    t.page.setData({ 'setting.ticketEnabled': true, pkgReady: true,
+      pkgRows: [{ key: 'p31', id: 31, qty: '10', price, deleted: false }] })
+    await t.page.onSaveSetting()
+    assert.equal(t.calls.length, 0, `price ${JSON.stringify(price)} must not update the product`)
+    assert.equal(t.packages.length, 0, `price ${JSON.stringify(price)} must not delete or upsert a tier`)
+    assert.match(t.page.data.pkgValidationError || '', /水票档位/)
+  }
+  for (const qty of ['0', 'not-a-count', '1.5']) {
+    const t = fixture(); openOwned(t)
+    t.page.setData({ 'setting.ticketEnabled': true, pkgReady: true,
+      pkgRows: [{ key: 'p31', id: 31, qty, price: '190', deleted: false }] })
+    await t.page.onSaveSetting()
+    assert.equal(t.calls.length, 0)
+    assert.equal(t.packages.length, 0)
+    assert.match(t.page.data.pkgValidationError || '', /张数无效/)
+  }
+})
+
+test('explicit ticket deletion can be undone before save and only an explicit delete reaches DELETE', async () => {
+  const undo = fixture(); openOwned(undo)
+  undo.page.setData({ 'setting.ticketEnabled': true, pkgRows: [{ key: 'p31', id: 31, qty: '10', price: '190', deleted: false }] })
+  undo.page.onRemovePkgRow({ currentTarget: { dataset: { index: 0 } } })
+  assert.equal(undo.page.data.pkgRows[0].deleted, true)
+  undo.page.onRemovePkgRow({ currentTarget: { dataset: { index: 0 } } })
+  await undo.page.onSaveSetting()
+  assert(!undo.packages.some(p => p.delete), 'undo must cancel the pending delete')
+
+  const remove = fixture(); openOwned(remove)
+  remove.page.setData({ 'setting.ticketEnabled': true, pkgRows: [{ key: 'p31', id: 31, qty: '10', price: '190', deleted: false }] })
+  remove.page.onRemovePkgRow({ currentTarget: { dataset: { index: 0 } } })
+  await remove.page.onSaveSetting()
+  assert.deepEqual(remove.packages, [{ delete: '/api/ticket-packages/31' }])
+})
+
+test('a partially filled new ticket tier blocks product creation before any write', async () => {
+  const t = fixture(); t.openAdd()
+  t.page.setData({ pkgRows: [{ key: 'new-tier', id: null, qty: '10', price: '', deleted: false }] })
+  await t.page.onSaveEdit()
+  assert.equal(t.calls.filter(call => call[0] === 'create').length, 0)
+  assert.equal(t.packages.length, 0)
+  assert.match(t.page.data.pkgValidationError || '', /水票档位/)
+})
+
+test('an untouched blank new ticket row is ignored and does not block product creation', async () => {
+  const t = fixture(); t.openAdd()
+  t.page.setData({ pkgRows: [{ key: 'new-tier', id: null, qty: '', price: '', deleted: false }] })
+  await t.page.onSaveEdit()
+  assert.equal(t.calls.filter(call => call[0] === 'create').length, 1)
+  assert.equal(t.packages.length, 0)
 })
 test('manual scrolling updates only the active product editor section', () => {
   const t = fixture(); openOwned(t)

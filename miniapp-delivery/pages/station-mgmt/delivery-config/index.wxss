@@ -193,6 +193,11 @@
 .fee-rule-summary-title { min-width:0; font-size:27rpx; font-weight:600; color:var(--text-primary); }
 .fee-rule-summary-copy { display:block; margin-top:6rpx; font-size:25rpx; line-height:1.55; color:var(--text-regular); overflow-wrap:anywhere; }
 .fee-rule-summary-link { display:block; margin-top:6rpx; text-align:right; font-size:24rpx; color:var(--primary-color); }
+.fee-rule-toggle,.fee-section-toggle { width:auto; min-height:40px; height:auto; margin:8rpx 0 0; padding:8rpx 12rpx; color:var(--primary-color); background:transparent; font-size:13px; line-height:1.4; }
+.fee-rule-toggle::after,.fee-section-toggle::after { border:0; }
+.fee-rule-toggle { display:block; padding-left:0; padding-right:0; }
+.fee-section-toggle { margin-left:auto; }
+.fee-editor-fields { padding-top:4rpx; }
 .fee-section-heading { gap:10rpx; }
 .fee-section-number { flex:none; width:42rpx; height:42rpx; line-height:42rpx; text-align:center; border-radius:50%; color:var(--primary-color); background:var(--primary-bg); font-size:22rpx; font-weight:600; }
 .fee-choice-row { display:flex; gap:8rpx; margin:8rpx 0 12rpx; }

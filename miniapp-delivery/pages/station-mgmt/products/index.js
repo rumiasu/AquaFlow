@@ -45,6 +45,21 @@ const exactNumber = value => {
   const number = Number(text)
   return Number.isFinite(number) ? number : null
 }
+// Existing tier rows are durable records: only the explicit deleted flag may delete one.
+// An untouched new blank row is harmless; a partly filled or invalid row blocks the whole save.
+function ticketPackageValidationError(rows, startIndex = 0) {
+  for (let index = Math.max(0, startIndex); index < rows.length; index++) {
+    const row = rows[index] || {}
+    if (row.deleted) continue
+    const qtyText = String(row.qty == null ? '' : row.qty).trim()
+    const priceText = String(row.price == null ? '' : row.price).trim()
+    if (!row.id && !qtyText && !priceText) continue
+    const qty = exactNumber(qtyText), price = exactNumber(priceText)
+    if (qty === null || !Number.isSafeInteger(qty) || qty <= 0) return `水票档位第 ${index + 1} 档张数无效，请填写正整数`
+    if (price === null || price <= 0) return `水票档位第 ${index + 1} 档总价无效，请填写大于 0 的金额；如要移除，请点删除`
+  }
+  return ''
+}
 function productSession() {
   const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
   return { app, generation: app._loginGeneration || 0,
@@ -102,7 +117,7 @@ Page({
     productEditorSection: 'details', productScrollTarget: '',
     setting: {},
     pkgRows: [],         // 水票档位（快捷定义）：{id,qty,price,onShelf,deleted}
-    pkgLoading: false, pkgError: '', pkgReady: false, pkgProductId: null,
+    pkgLoading: false, pkgError: '', pkgReady: false, pkgProductId: null, pkgValidationError: '',
     stockMode: 'in',     // in=入库(在现有基础上加) | check=盘点(把库存设成输入值)
     stockInput: '',
     stockAfterText: '', stockOperationBusy: false, stockConfirmPending: false,
@@ -695,13 +710,13 @@ Page({
   onPkgPriceInput(e) {
     if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
     const idx = e.currentTarget.dataset.index
-    this.setData({ ['pkgRows[' + idx + '].price']: e.detail.value })
+    this.setData({ ['pkgRows[' + idx + '].price']: e.detail.value, pkgValidationError: '' })
   },
 
   onPkgQtyInput(e) {
     if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
     const idx = e.currentTarget.dataset.index
-    this.setData({ ['pkgRows[' + idx + '].qty']: e.detail.value })
+    this.setData({ ['pkgRows[' + idx + '].qty']: e.detail.value, pkgValidationError: '' })
   },
 
   /** 加一档：默认按常见档位递推（10 / 20 / 100），已存在的就不重复加 */
@@ -711,7 +726,7 @@ Page({
     const used = rows.filter(r => !r.deleted).map(r => String(r.qty))
     const preset = [10, 20, 100].find(q => !used.includes(String(q))) || ''
     rows.push({ key: 'n' + Date.now() + rows.length, id: null, qty: preset, price: '', deleted: false })
-    this.setData({ pkgRows: rows })
+    this.setData({ pkgRows: rows, pkgValidationError: '' })
   },
 
   /** 已存在的档位只标记删除（保存时才真删，再点一次可撤销）；没保存过的新行直接移除。 */
@@ -726,7 +741,7 @@ Page({
     } else {
       rows.splice(idx, 1)
     }
-    this.setData({ pkgRows: rows })
+    this.setData({ pkgRows: rows, pkgValidationError: '' })
   },
 
   onOpenTicketPackages() {
@@ -735,22 +750,22 @@ Page({
     wx.navigateTo({ url: '/pages/station-mgmt/ticket-packages/index' + (id ? '?productId=' + encodeURIComponent(id) : '') })
   },
 
-  /** 把档位行落库：有价的新增/改价走 upsert；被清空价格或被标记删除的走 DELETE。 */
+  /** 把档位行落库：合法行走 upsert；仅明确标记删除的已有档位走 DELETE。 */
   async savePkgRows(productId, snapshot, current = () => true, progress, startIndex = 0) {
     const rows = productCopy(snapshot || this.data.pkgRows || [])
+    const validationError = ticketPackageValidationError(rows, startIndex)
+    if (validationError) throw new Error(validationError)
     for (let index = startIndex; index < rows.length; index++) {
       if (!current()) throw saveScopeError()
       const r = rows[index]
-      const price = parseFloat(r.price)
-      const qty = parseInt(r.qty, 10)
-      if (r.id && (r.deleted || !r.price || isNaN(price) || price <= 0)) {
+      if (r.id && r.deleted) {
         await del(PKG + '/' + r.id)
         if (!current()) throw saveScopeError()
         if (progress) progress(index + 1)
         continue
       }
-      if (!r.deleted && qty && qty > 0 && !isNaN(price) && price > 0) {
-        await post(PKG, { productId, qty, price })
+      if (!r.deleted && (r.id || String(r.qty == null ? '' : r.qty).trim() || String(r.price == null ? '' : r.price).trim())) {
+        await post(PKG, { productId, qty: exactNumber(r.qty), price: exactNumber(r.price) })
         if (!current()) throw saveScopeError()
       }
       if (progress) progress(index + 1)
@@ -1016,6 +1031,11 @@ Page({
     const s = productCopy(this.data.setting || {})
     if (!s.id || this.productWriteLocked() || this._productSettingClosed) return
     if (s.ticketEnabled && (this.data.pkgLoading || this.data.pkgError)) { wx.showToast({ title: '请先读取原水票档位', icon: 'none' }); return }
+    const rows = productCopy(this.data.pkgRows || [])
+    if (s.ticketEnabled) {
+      const packageError = ticketPackageValidationError(rows)
+      if (packageError) { this.setData({ pkgValidationError: packageError }); wx.showToast({ title: packageError, icon: 'none' }); return }
+    }
     const payload = {
       enabled: s.enabled ? 1 : 0,
       ticketEnabled: s.ticketEnabled ? 1 : 0,
@@ -1039,7 +1059,7 @@ Page({
     if (!blankNumber(s.ticketPrice)) payload.ticketPrice = exactNumber(s.ticketPrice)
 
     // 2026-10-25：原保存曾在await后读取新商品档位；保存目标、表单与档位须在首个请求前冻结。
-    const rows = productCopy(this.data.pkgRows || []), proof = this.productSaveProof('setting', s.id)
+    const proof = this.productSaveProof('setting', s.id)
     if (!this.productSaveCurrent(proof)) { wx.showToast({ title: '身份或商品已变化，请重新进入', icon: 'none' }); return }
     const flight = this._productSaveFlight = {}
     this.setData({ saving: true, productSaveError: '' })
@@ -1249,7 +1269,7 @@ Page({
       editTemplateId: '',
       editCategoryIndex: 0,
       productImagePreviewUrl: '',
-      pkgRows: [], pkgReady: true, pkgLoading: false, pkgError: '', pkgProductId: null, // 新商品没有旧档位，可以直接填写草稿
+      pkgRows: [], pkgReady: true, pkgLoading: false, pkgError: '', pkgProductId: null, pkgValidationError: '', // 新商品没有旧档位，可以直接填写草稿
       editForm: {
         name: '', brand: '', spec: '', category: 1,
         price: '', deposit: '', quantity: '', imageObjectName: '', imageUrl: '',
@@ -1290,9 +1310,10 @@ Page({
       stationImageOverridden: !!item.stationImageObjectName,
       platformImageObjectName: item.platformImageObjectName || '', platformImageUrl: item.platformImageUrl || '',
       editOriginalImageObjectName: item.imageObjectName || '', restorePlatformImage: false,
-      productEditorSection: 'details', productScrollTarget: '',
+      productEditorSection: platform ? 'pricing' : 'details',
+      productScrollTarget: platform ? 'product-section-pricing' : '',
       productEditorResume: false,
-      productSaveError: '',
+      productSaveError: '', pkgValidationError: '',
       productImagePreviewUrl: '',
       isAdd: false,
       editId: item.id, pkgRows: [], pkgReady: false, pkgError: '', pkgProductId: item.id,
@@ -1553,6 +1574,11 @@ Page({
       wx.showToast({ title: '库存须填写非负整数', icon: 'none' })
       return
     }
+    const rows = productCopy(this.data.pkgRows || [])
+    if (editForm.ticketEnabled) {
+      const packageError = ticketPackageValidationError(rows)
+      if (packageError) { this.setData({ pkgValidationError: packageError }); wx.showToast({ title: packageError, icon: 'none' }); return }
+    }
     const payload = {
       name: editForm.name.trim(),
       brand: editForm.brand || '',
@@ -1580,7 +1606,7 @@ Page({
       payload.depositPrice = 0
     }
 
-    const rows = productCopy(this.data.pkgRows || []), proof = this.productSaveProof('edit', isAdd ? 'new' : editId)
+    const proof = this.productSaveProof('edit', isAdd ? 'new' : editId)
     if (!this.productSaveCurrent(proof)) { wx.showToast({ title: '身份或商品已变化，请重新进入', icon: 'none' }); return }
     const flight = this._productSaveFlight = {}
     let creation = null, createDispatched = false

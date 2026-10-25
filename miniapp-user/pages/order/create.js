@@ -78,6 +78,7 @@ Page({
     loading: true,
     items: [],
     products: [],
+    removedProducts: [],
     productsError: '', productsLoading: false,
     address: null,
     addressText: '',
@@ -357,6 +358,9 @@ async loadItemsProducts() {
     this.setData({ productsLoading: true, productsError: '正在核实完整商品清单，请稍候。', quoteLoading: false })
     try {
     const products = []
+    const priorProducts = [...(this.data.products || []), ...(this.data.removedProducts || [])]
+    const priorOrder = new Map(priorProducts.filter(p => p && p.id != null && Number.isFinite(Number(p._checkoutOrder)))
+      .map(p => [String(p.id), Number(p._checkoutOrder)]))
 
     // 1. 必须有选中的服务水站
     let effectiveStationId = stationId
@@ -401,7 +405,9 @@ async loadItemsProducts() {
     // 说成"你没选商品"）。已读商品可展示，完整清单核实后才能报价和下单。
     let productFailCount = 0
     let productFailReason = ''
+    let itemOrder = 0
     for (const it of items) {
+      const checkoutOrder = itemOrder++
       try {
         // 必须带 stationId：本站自定义商品只有该站能读（后端按 owner_station_id 过滤）
         const res = await getProductDetail(it.productId, effectiveStationId)
@@ -412,6 +418,7 @@ async loadItemsProducts() {
           // 避免"有的地方改了、有的地方没改"又变成双口径（本仓计价双轨的历史事故）。
           const p = {
             ...d,
+            _checkoutOrder: priorOrder.has(String(d.id)) ? priorOrder.get(String(d.id)) : checkoutOrder,
             specText: specTextOf(d.spec),
             quantityUnit: itemUnit(d),
             price: d.effectivePrice != null ? d.effectivePrice : d.price,
@@ -700,7 +707,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   onQtyChange(e) {
-    if (this.data.productsLoading || this.data.productsError) return
+    if (this.orderLineEditingLocked()) return
     const { index, type } = e.currentTarget.dataset
     const products = [...this.data.products]
     let qty = products[index].quantity || 1
@@ -717,7 +724,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   onQtyInput(e) {
-    if (this.data.productsLoading || this.data.productsError) return
+    if (this.orderLineEditingLocked()) return
     const { index } = e.currentTarget.dataset
     const qty = Math.max(1, parseInt(e.detail.value) || 1)
     const products = [...this.data.products]
@@ -728,6 +735,55 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     this.setData({ products, items })
     this.syncBarrelSummary()
     this.scheduleQuote()
+  },
+
+  orderLineEditingLocked() {
+    if (this.data.productsLoading || this.data.productsError || this.data.submitting || this.data.submitState === 'creating'
+        || this.data.submitState === 'unknown' || this.data.pendingOrderId || this.data.orderNavigationBusy || this.data.orderNavigationError) return true
+    return !!(this._pendingOrderForCurrentCart && this._pendingOrderForCurrentCart())
+  },
+
+  applyCheckoutProducts(products, removedProducts) {
+    const items = products.map(p => ({ productId: p.id, quantity: p.quantity || 1 }))
+    this.cancelScheduledQuote()
+    this.setData({ products, items, removedProducts })
+    this.syncBarrelSummary()
+    if (products.length) {
+      this.scheduleQuote()
+      return
+    }
+    // Removing the final line clears the old quote instead of turning an empty cart into
+    // a failed quote. The explicit empty-cart gate still blocks all submit paths.
+    this.invalidateQuote({ emptyCart: true })
+  },
+
+  onRemoveProduct(e) {
+    if (this.orderLineEditingLocked()) return
+    const index = Number(e && e.currentTarget && e.currentTarget.dataset.index)
+    const products = (this.data.products || []).slice(), product = products[index]
+    if (!product) return
+    const removed = (this.data.removedProducts || []).slice()
+    const saved = { ...product, _checkoutOrder: Number.isFinite(Number(product._checkoutOrder)) ? Number(product._checkoutOrder) : index }
+    products.splice(index, 1)
+    removed.push(saved)
+    this.applyCheckoutProducts(products, removed)
+  },
+
+  onUndoRemovedProduct(e) {
+    if (this.orderLineEditingLocked()) return
+    const index = Number(e && e.currentTarget && e.currentTarget.dataset.index)
+    const removed = (this.data.removedProducts || []).slice(), product = removed[index]
+    if (!product) return
+    const products = (this.data.products || []).concat([{ ...product }])
+    products.sort((a, b) => Number(a._checkoutOrder) - Number(b._checkoutOrder))
+    removed.splice(index, 1)
+    this.applyCheckoutProducts(products, removed)
+  },
+
+  onContinueSelectingWater() {
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+    if (pages.length > 1) wx.navigateBack()
+    else wx.switchTab({ url: '/pages/home/index' })
   },
 
   onNoteInput(e) {
@@ -770,12 +826,13 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       confirmText: '知道了', confirmColor: '#1264D6' })
   },
 
-  invalidateQuote() {
+  invalidateQuote(options = {}) {
+    const emptyCart = options.emptyCart === true
     const seq = this._quoteRequestSeq = (this._quoteRequestSeq || 0) + 1
     this._quotedContext = null
     this._unifiedConfirmation = null
-    this.setData({ quoteLoading: true, quoteReady: false, quoteError: '', blocked: true, checkoutWarnings: [],
-      blockReason: '正在核实最新报价，请稍候', payMethods: [], wechatPay: null, missingRights: [], barrelPurchases: [], barrelPurchaseConfirmed: false,
+    this.setData({ quoteLoading: !emptyCart, quoteReady: false, quoteError: '', blocked: !emptyCart, checkoutWarnings: [],
+      blockReason: emptyCart ? '' : '正在核实最新报价，请稍候', payMethods: [], wechatPay: null, missingRights: [], barrelPurchases: [], barrelPurchaseConfirmed: false,
       totalAmount: 0, totalWaterCost: 0, totalDeposit: 0, extraDepositBuckets: 0, extraDepositAmount: 0, deliveryFee: 0, floorFee: 0,
       totalWaterCostText: '—', totalAmountText: '—', payableAmountText: '—', payableAmountLabel: '本次需付',
       extraDepositAmountText: '', floorFeeText: '', deliveryFeeText: '', feeTotalText: '',
@@ -1133,6 +1190,11 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const pending = this._pendingOrderForCurrentCart()
     if (pending) {
       this.onViewPendingOrder()
+      return
+    }
+
+    if (!(this.data.products || []).length) {
+      wx.showToast({ title: '请先选水，再确认下单', icon: 'none' })
       return
     }
 

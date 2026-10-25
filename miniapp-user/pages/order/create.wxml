@@ -66,7 +66,7 @@
       <view class="section-header">
         <text class="section-title">商品清单 · 零售参考</text>
       </view>
-      <view class="product-list">
+      <view class="product-list" wx:if="{{products.length}}">
         <view class="product-card" wx:for="{{products}}" wx:key="id">
           <image wx:if="{{item.imageUrl}}" class="product-image" src="{{item.imageUrl}}" mode="aspectFit" data-id="{{item.id}}" data-url="{{item.imageUrl}}" binderror="onProductImageError"></image>
           <view wx:else class="product-image product-image-empty"><text>商品图暂未提供</text></view>
@@ -86,7 +86,7 @@
                   <view class="qty-hit" bindtap="onQtyChange" data-index="{{index}}" data-type="minus">
                     <view class="qty-btn {{item.quantity <= 1 ? 'disabled' : ''}}"><text>−</text></view>
                   </view>
-                  <input class="qty-input" type="number" value="{{item.quantity}}" bindinput="onQtyInput" data-index="{{index}}" />
+                  <input class="qty-input" type="number" value="{{item.quantity}}" bindinput="onQtyInput" data-index="{{index}}" disabled="{{productsLoading || productsError || submitting || submitState === 'creating' || pendingOrderId || submitState === 'unknown' || orderNavigationBusy || orderNavigationError}}" />
                   <view class="qty-hit" bindtap="onQtyChange" data-index="{{index}}" data-type="add">
                     <view class="qty-btn"><text>+</text></view>
                   </view>
@@ -97,7 +97,21 @@
               <text class="subtotal-label">零售小计</text>
               <text class="subtotal-value">¥{{item.subtotalText}}</text>
             </view>
+            <view class="product-line-actions">
+              <button class="product-remove" bindtap="onRemoveProduct" data-index="{{index}}" disabled="{{productsLoading || productsError || submitting || submitState === 'creating' || pendingOrderId || submitState === 'unknown' || orderNavigationBusy || orderNavigationError}}">移除</button>
+            </view>
           </view>
+        </view>
+      </view>
+      <view class="empty-cart" wx:if="{{!products.length && !productsLoading && !productsError}}">
+        <text class="empty-cart-copy">当前没有选择商品</text>
+        <button class="empty-cart-action" bindtap="onContinueSelectingWater">继续选水</button>
+      </view>
+      <view class="removed-products" wx:if="{{removedProducts.length}}">
+        <text class="removed-products-title">已移除商品</text>
+        <view class="removed-product-row" wx:for="{{removedProducts}}" wx:key="id">
+          <text class="removed-product-name">{{item.name}}</text>
+          <button class="removed-product-undo" bindtap="onUndoRemovedProduct" data-index="{{index}}" disabled="{{productsLoading || productsError || submitting || submitState === 'creating' || pendingOrderId || submitState === 'unknown' || orderNavigationBusy || orderNavigationError}}">撤销</button>
         </view>
       </view>
     </view>
@@ -332,8 +346,8 @@
           </view>
         </view>
         <!-- 硬拦 > 提交中 > 已有订单 > 常态；普通须知不增加提交门槛。 -->
-        <view class="submit-btn {{(submitting || blocked) ? 'disabled' : ''}}" bindtap="onSubmit">
-          <text>{{blocked ? '暂不可下单' : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid || pendingOrderPaymentState !== 'unpaid' ? '查看这笔订单' : '继续支付') : '立即下单'))}}</text>
+        <view class="submit-btn {{(submitting || blocked || !products.length) ? 'disabled' : ''}}" bindtap="onSubmit">
+          <text>{{!products.length ? '先选商品' : (blocked ? '暂不可下单' : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid || pendingOrderPaymentState !== 'unpaid' ? '查看这笔订单' : '继续支付') : '立即下单'))}}</text>
         </view>
       </view>
     </view>

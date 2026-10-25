@@ -148,7 +148,7 @@
       </view>
       <view class="product-section-nav">
         <button class="{{productEditorSection === 'details' ? 'active' : ''}}" data-section="details" bindtap="onProductSectionTap">资料与图片</button>
-        <button class="{{productEditorSection === 'pricing' ? 'active' : ''}}" data-section="pricing" bindtap="onProductSectionTap">价格与展示</button>
+        <button class="{{productEditorSection === 'pricing' ? 'active' : ''}}" data-section="pricing" bindtap="onProductSectionTap">价格与销售</button>
       </view>
       <scroll-view class="product-edit-body" scroll-y enhanced show-scrollbar scroll-into-view="{{productScrollTarget}}" scroll-with-animation bindscroll="onProductEditorScroll">
         <view class="product-edit-content">
@@ -262,14 +262,18 @@
           </view>
           <text class="link" catchtap="onOpenTicketPackages">更多档位设置 ›</text>
         </view>
-        <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" disabled="{{productInactive || saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="张数" />
-          <text class="pkg-unit">张</text>
-          <text class="pkg-arrow"></text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{productInactive || saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="总价" />
-          <text class="pkg-unit">元</text>
-          <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销' : '删除'}}</text>
+        <view class="pkg-row-wrap" wx:for="{{pkgRows}}" wx:key="key">
+          <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}">
+            <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" disabled="{{productInactive || saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="张数" />
+            <text class="pkg-unit">张</text>
+            <text class="pkg-arrow"></text>
+            <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{productInactive || saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="总价" />
+            <text class="pkg-unit">元</text>
+            <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销删除' : '删除'}}</text>
+          </view>
+          <text class="pkg-delete-pending" wx:if="{{item.deleted}}">待删除，保存后移除；点“撤销删除”可恢复</text>
         </view>
+        <text class="pkg-validation-error" wx:if="{{pkgValidationError}}">{{pkgValidationError}}</text>
         <text class="pkg-empty" wx:if="{{pkgLoading}}">正在读取水票档位…</text>
         <view class="ui-state" wx:elif="{{pkgError}}"><text class="ui-state-copy">{{pkgError}}</text><button size="mini" bindtap="onRetryPkgRows">重新读取档位</button></view>
         <text class="pkg-empty" wx:elif="{{pkgReady && !pkgRows.length}}">尚无水票档位</text>

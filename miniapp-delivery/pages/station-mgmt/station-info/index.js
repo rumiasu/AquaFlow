@@ -1,3 +1,4 @@
+const { jumpToSettingSection } = require('../../../utils/settings-sections')
 const { initialModuleData, refreshModuleTasks } = require('../../../utils/setup-progress')
 // 站长端「水站资料」：站名 / 电话 / 地址 / 坐标。
 //
@@ -26,7 +27,9 @@ function sameStationSession(proof) {
 }
 
 Page({
+  onSettingsSection(e) { jumpToSettingSection(this, e) },
   data: {
+    settingsSections: [{"target": "info-basics", "label": "联系资料"}, {"target": "setup-station-position", "label": "地图坐标"}],
     ...initialModuleData(),
     loading: true, loadError: '',
     // 原值（含后端下发但本页不编辑的 status），保存时原样带回

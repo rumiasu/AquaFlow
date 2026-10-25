@@ -1,3 +1,4 @@
+const { jumpToSettingSection } = require('../../../utils/settings-sections')
 const {
   getStationStatus,
   updateStationStatus,
@@ -50,7 +51,9 @@ function statusData(res) {
 }
 
 Page({
+  onSettingsSection(e) { jumpToSettingSection(this, e) },
   data: {
+    settingsSections: [{"target": "status-operation", "label": "营业状态"}, {"target": "status-notices", "label": "本站公告"}],
     loading: true,
     statusLoaded: false,
     statusOptions: STATUS_OPTIONS,

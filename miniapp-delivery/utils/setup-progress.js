@@ -14,9 +14,7 @@ function groupSetupItems(items) {
   return Array.from(groups.values()).flatMap(rows => rows.map((it, index) => ({ ...it, moduleStart: index === 0 })))
 }
 function progressPatch(guide) {
-  const known = guide && Number.isSafeInteger(guide.doneCount) && Number.isSafeInteger(guide.totalCount)
-    && guide.totalCount > 0 && guide.doneCount >= 0 && guide.doneCount <= guide.totalCount
-    && Number.isSafeInteger(guide.p0PendingCount) && guide.p0PendingCount >= 0
+  const known = guide && Number.isSafeInteger(guide.p0PendingCount) && guide.p0PendingCount >= 0
   return { setupProgressKnown: !!known, setupDoneCount: known ? guide.doneCount : null,
     setupTotalCount: known ? guide.totalCount : null, setupRequiredPending: known ? guide.p0PendingCount : null }
 }

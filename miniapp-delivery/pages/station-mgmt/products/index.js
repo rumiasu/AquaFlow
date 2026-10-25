@@ -97,7 +97,8 @@ Page({
     stationId: null,
 
     // 本站设置弹窗
-    showSetting: false,
+    showSetting: false, stationImageEditable: false, stationImageOverridden: false, platformImageObjectName: '', platformImageUrl: '', editOriginalImageObjectName: '', restorePlatformImage: false,
+    productEditorSection: 'details', productScrollTarget: '',
     setting: {},
     pkgRows: [],         // 水票档位（快捷定义）：{id,qty,price,onShelf,deleted}
     pkgLoading: false, pkgError: '', pkgReady: false, pkgProductId: null,
@@ -810,6 +811,8 @@ Page({
         return
       }
     }
+    if (s.imageObjectName != null) payload.imageObjectName = s.imageObjectName
+
     // 空字符串不传（= 保持原值）；填了数字才传，0 会被后端解释为"清除覆盖"
     if (!blankNumber(s.salePrice)) payload.salePrice = exactNumber(s.salePrice)
     // 押金只对桶装水(category=1)提交：非桶装不显示这个输入框，若把表单里的残留值一并提交，
@@ -826,6 +829,10 @@ Page({
     try {
       const res = await updateCatalogSetting(s.id, payload)
       if (!this.productSaveCurrent(proof)) throw saveScopeError()
+      if (payload.imageObjectName != null && (!res || !res.data || res.data.stationImageSaved !== true
+          || res.data.stationImageRef !== payload.imageObjectName.trim())) {
+        throw new Error('本站设置可能已保存，图片保存尚未确认，请重新读取商品核对')
+      }
       this.toastWarnings(res)
       // 档位跟在同一次"保存"里落库（站长不必再跑一趟水票档位页）——
       // 关掉水票开关时不动档位：档位是价目表，下架商品不该顺手把它删了。
@@ -1054,6 +1061,11 @@ Page({
     this.setData({
       showEdit: true,
       showSetting: platform,
+      stationImageEditable: item.stationImageEditable === true,
+      stationImageOverridden: !!item.stationImageObjectName,
+      platformImageObjectName: item.platformImageObjectName || '', platformImageUrl: item.platformImageUrl || '',
+      editOriginalImageObjectName: item.imageObjectName || '', restorePlatformImage: false,
+      productEditorSection: 'details', productScrollTarget: '',
       productEditorResume: false,
       productSaveError: '',
       productImagePreviewUrl: '',
@@ -1154,13 +1166,26 @@ Page({
     this.refreshProductImageState()
   },
 
+  onProductSectionTap(e) {
+    const section = e.currentTarget.dataset.section
+    if (!['details', 'pricing', 'stock'].includes(section) || this.data.isAdd && section === 'stock') return
+    this.setData({ productEditorSection: section, productScrollTarget: '' }, () => this.setData({ productScrollTarget: 'product-section-' + section }))
+  },
+  onRestorePlatformImage() {
+    if (!this.data.showSetting || !this.data.stationImageEditable || this.productWriteLocked() || this.data.productImageBusy) return
+    this._productImageFailure = null; this._productPreviewUnavailable = null
+    this.setData({ 'editForm.imageObjectName': '', 'editForm.imageUrl': this.data.platformImageUrl,
+      restorePlatformImage: true, productImagePreviewUrl: '' })
+    this.refreshProductImageState()
+  },
+
   onToggleEditHelp() { this.setData({ editHelpExpanded: !this.data.editHelpExpanded }) },
 
   rememberProductImageDraft() {
     if (!this._uploadDraftId || this._productEditOwner && !sameProductSession(this._productEditOwner)) return
     const drafts = this._productEditorDrafts || (this._productEditorDrafts = new Map())
     const snapshot = {}
-    for (const field of ['showSetting','isAdd','editId','editForm','editTemplateId','editCategoryIndex','pkgRows','pkgReady','pkgError','pkgProductId','productImagePreviewUrl',
+    for (const field of ['stationImageEditable','stationImageOverridden','platformImageObjectName','platformImageUrl','editOriginalImageObjectName','restorePlatformImage','productEditorSection','productScrollTarget','showSetting','isAdd','editId','editForm','editTemplateId','editCategoryIndex','pkgRows','pkgReady','pkgError','pkgProductId','productImagePreviewUrl',
       'setting','stockMode','stockInput','stockAfterText','inboundError']) snapshot[field] = this.data[field]
     snapshot._imageChoice = this._productImageChoiceSeq || 0
     snapshot._imageFailed = !!(this._productImageFailure && this._productImageFailure.draftId === this._uploadDraftId)
@@ -1225,7 +1250,14 @@ Page({
   async onSaveEdit() {
     if (this.productWriteLocked() || this._productEditorClosed) return
     if (this.data.showSetting) {
+      this.refreshProductImageState()
+      if (this.data.productImageBusy) { wx.showToast({title: '图片仍在处理中，请稍候再保存', icon: 'none'}); return }
       const f = this.data.editForm
+      const restored = this.data.restorePlatformImage && !f.imageObjectName && f.imageUrl === this.data.platformImageUrl
+      const image = restored ? '' : f.imageObjectName || (f.imageUrl && f.imageUrl.startsWith('/') ? f.imageUrl : '')
+      const imageChanged = restored || image !== this.data.editOriginalImageObjectName
+      if (imageChanged && !this.data.stationImageEditable) { wx.showToast({ title: '本站图片编辑尚未就绪，请重新读取商品', icon: 'none' }); return }
+      this.setData({ 'setting.imageObjectName': imageChanged ? image : null })
       this.setData({ 'setting.salePrice': f.price, 'setting.depositPrice': f.deposit,
         'setting.ticketPrice': f.ticketPrice, 'setting.enabled': f.enabled,
         'setting.priorityDisplay': f.priorityDisplay, 'setting.ticketEnabled': f.ticketEnabled })
@@ -1398,7 +1430,7 @@ Page({
    * 后端下发包内路径或COS签名预览，并分开提供持久对象键。
    */
   async openPresetPicker() {
-    if (this.data.showSetting) return
+    if (this.data.showSetting && !this.data.stationImageEditable) { wx.showToast({ title: '本站图片编辑尚未就绪，请重新读取商品', icon: 'none' }); return }
     if (this.data.productCreationPending) return
     this.refreshProductImageState()
     if (this.data.saving || this.data.productImageBusy) return
@@ -1428,7 +1460,7 @@ Page({
    * 不能把临时预览URL当对象键或从URL反推对象键。
    */
   onPickPresetImage(e) {
-    if (this.data.showSetting) return
+    if (this.data.showSetting && !this.data.stationImageEditable) { wx.showToast({ title: '本站图片编辑尚未就绪，请重新读取商品', icon: 'none' }); return }
     if (this.data.productCreationPending) return
     this.refreshProductImageState()
     if (this.data.saving || this.data.productImageBusy) return
@@ -1461,7 +1493,7 @@ Page({
   },
 
   async uploadImage(event) {
-    if (this.data.showSetting) return
+    if (this.data.showSetting && !this.data.stationImageEditable) { wx.showToast({ title: '本站图片编辑尚未就绪，请重新读取商品', icon: 'none' }); return }
     if (this.data.productCreationPending) return
     this.refreshProductImageState()
     if (this.data.saving || this.data.productImageBusy) return

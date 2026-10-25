@@ -1,3 +1,4 @@
+@import "../../../styles/settings-sections.wxss";
 /* 营业状态 + 公告（站长）。营业状态是软状态：只影响顾客看到的提示，不阻断下单。 */
 
 .container {

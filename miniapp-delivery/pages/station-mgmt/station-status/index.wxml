@@ -1,4 +1,6 @@
 <view class="container">
+  <view class="settings-section-nav"><button wx:for="{{settingsSections}}" wx:key="target" data-target="{{item.target}}" bindtap="onSettingsSection">{{item.label}}</button></view>
+
   <!--
     [2026-09-19] 「水站坐标」那一块已**搬到 pages/station-mgmt/station-info/**：
     坐标属于"水站资料"（固定信息），不是"营业状态"（临时状态）；两处各写一份会分叉。
@@ -7,7 +9,7 @@
 
   <view class="ui-state" wx:if="{{statusError}}"><text class="ui-state-copy">{{statusError}}</text><button size="mini" bindtap="onRetryStatus">重新读取营业状态</button></view>
   <!-- ============ 营业状态（软状态：不阻断下单，只提示顾客）============ -->
-  <view class="card">
+  <view class="card" id="status-operation">
     <view class="card-header">
       <text class="card-title">营业状态</text>
       <text class="badge badge-on" wx:if="{{current.operatingStatus === 1}}">{{current.statusText}}</text>
@@ -58,7 +60,7 @@
   </view>
 
   <!-- ============ 公告 ============ -->
-  <view class="card">
+  <view class="card" id="status-notices">
     <view class="card-header">
       <view class="card-title-row">
         <text class="card-title">本站公告</text>

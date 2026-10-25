@@ -6,6 +6,8 @@
      本页**不提供**它的入口 —— 停业会真拒单、且不在公开选站列表里，不该藏在资料表单里顺手改掉。
 -->
 <view class="container">
+  <view class="settings-section-nav"><button wx:for="{{settingsSections}}" wx:key="target" data-target="{{item.target}}" bindtap="onSettingsSection">{{item.label}}</button></view>
+
   <template is="setupModuleTasks" data="{{tasks:moduleSetupTasks,loading:moduleSetupLoading,ready:moduleSetupReady,error:moduleSetupError}}" />
   <!-- 隐私授权弹窗：本页用 wx.chooseLocation 选水站坐标，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
   <privacy-popup />
@@ -15,7 +17,7 @@
   <view class="ui-state" wx:elif="{{loadError}}"><text class="ui-state-title">资料待核实</text><text class="ui-state-copy">{{loadError}}</text><button size="mini" bindtap="onRetry">重新读取资料</button></view>
   <block wx:elif="{{origin}}">
     <!-- ============ 基本资料 ============ -->
-    <view class="card">
+    <view class="card" id="info-basics">
       <view class="card-title-row">
         <text class="card-title">基本资料</text>
         <help-tip title="基本资料" text="客户在下单页靠这些信息认出你，改了要让他们看得懂（如「城东店」而不是「总店」）。" />

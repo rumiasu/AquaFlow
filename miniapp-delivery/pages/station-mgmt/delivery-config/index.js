@@ -136,6 +136,7 @@ Page({
 
   onUnload() {
     this._unloaded = true
+    if (this._feeSpyTimer) clearTimeout(this._feeSpyTimer)
     this._configVersion = (this._configVersion || 0) + 1
     this._setupVersion = (this._setupVersion || 0) + 1
     this._pullVersion = (this._pullVersion || 0) + 1
@@ -293,7 +294,7 @@ Page({
   },
 
   onReady() { this.captureFeeWindow(); this.measureFeeSaveBar() },
-  onResize() { this.onFeeKeyboardHeightChange({ detail: { height: this._feeKeyboardHeight || 0 } }) },
+  onResize() { this.onFeeKeyboardHeightChange({ detail: { height: this._feeKeyboardHeight || 0 } }); this.measureFeeSections() },
   onHide() { this._feeKeyboardHeight = 0; this._feeFocusedField = ''; this.setData({ feeKeyboardOffset: 0 }) },
 
   captureFeeWindow() {
@@ -306,7 +307,41 @@ Page({
   syncModeDescriptions() {
     const form = this.data.form, desc = (items, value) => (items.find(it => it.value === value) || {}).desc || ''
     this.setData({ modeDescriptions: { minOrderMode: desc(LIMIT_MODES, form.minOrderMode),
-      overRadiusMode: desc(LIMIT_MODES, form.overRadiusMode), floorFeeMode: desc(FLOOR_MODES, form.floorFeeMode) } })
+      overRadiusMode: desc(LIMIT_MODES, form.overRadiusMode), floorFeeMode: desc(FLOOR_MODES, form.floorFeeMode) } }, () => this.measureFeeSections())
+  },
+
+  onPageScroll(e) {
+    this._feeScrollTop = Math.max(0, Number(e.scrollTop) || 0)
+    if (this._feeSpyTimer || this._unloaded) return
+    this._feeSpyTimer = setTimeout(() => { this._feeSpyTimer = null; this.syncFeeSection() }, 80)
+  },
+  onFeeManualScroll() { this._feeProgramUntil = 0; this.measureFeeSections() },
+  syncFeeSection() {
+    if (this._unloaded || !this.data.configReady || !this._feeSections || Date.now() < (this._feeProgramUntil || 0)) return
+    const top = this._feeScrollTop || 0, offset = this._feeNavHeight || 64
+    let active = this._feeSections[0].key
+    for (const section of this._feeSections) if (section.top <= top + offset + 20) active = section.key
+    let height = this._feeWindowHeight || 0
+    try { height = (typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()).windowHeight || height } catch (_) {}
+    if (height > 0 && this._feePageHeight > height && top + height >= this._feePageHeight - 8) active = 'floor'
+    if (active !== this.data.activeSection) this.setData({activeSection: active})
+  },
+  measureFeeSections() {
+    if (typeof wx.createSelectorQuery !== 'function') return
+    const seq = this._feeSpyVersion = (this._feeSpyVersion || 0) + 1
+    try {
+      const q = wx.createSelectorQuery().in(this)
+      this.data.sectionTabs.forEach(it => q.select('#fee-' + it.key).boundingClientRect())
+      q.select('.fee-section-nav').boundingClientRect(); q.select('.container').boundingClientRect(); q.selectViewport().scrollOffset()
+      q.exec(rows => {
+        if (this._unloaded || seq !== this._feeSpyVersion || !rows || this.data.sectionTabs.some((_,i) => !rows[i] || !Number.isFinite(rows[i].top))) return
+        const scroll = rows[6] && Number.isFinite(rows[6].scrollTop) ? rows[6].scrollTop : this._feeScrollTop || 0
+        this._feeSections = this.data.sectionTabs.map((it,i) => ({key:it.key, top:rows[i].top + scroll}))
+        this._feeNavHeight = rows[4] && rows[4].height || 64
+        this._feePageHeight = rows[5] && rows[5].height || 0
+        this.syncFeeSection()
+      })
+    } catch (_) { /* 保留导航点击和手动滚动。 */ }
   },
 
   onSectionTap(e) {
@@ -327,6 +362,7 @@ Page({
         if (this._unloaded || !rects || !rects[0] || !Number.isFinite(rects[0].top)) return
         const nav = rects[1] && Number.isFinite(rects[1].height) ? rects[1].height : 64
         const scroll = rects[2] && Number.isFinite(rects[2].scrollTop) ? rects[2].scrollTop : 0
+        this._feeProgramUntil = Date.now() + 320
         wx.pageScrollTo({ scrollTop: Math.max(0, rects[0].top + scroll - nav - 12), duration: 180 })
       })
     } catch (_) { /* 测量失败不改表单，仍可正常滚动和保存。 */ }
@@ -357,7 +393,7 @@ Page({
     const version = this._feeLayoutVersion = (this._feeLayoutVersion || 0) + 1
     try { wx.createSelectorQuery().in(this).select('.fee-save-bar').boundingClientRect(rect => {
       if (this._unloaded || version !== this._feeLayoutVersion || !rect || !Number.isFinite(rect.height) || rect.height <= 0) return
-      this.setData({ feeBodyStyle: 'padding-bottom:calc(' + (rect.height + this.data.feeKeyboardOffset) + 'px + 24rpx)' })
+      this.setData({ feeBodyStyle: 'padding-bottom:calc(' + (rect.height + this.data.feeKeyboardOffset) + 'px + 24rpx)' }, () => this.measureFeeSections())
     }).exec() } catch (_) { /* 未拿到测量时由静态安全区占位保底。 */ }
   },
 
@@ -373,7 +409,7 @@ Page({
     const value = e.currentTarget.dataset.value
     const modes = field === 'floorFeeMode' ? FLOOR_MODES : LIMIT_MODES
     if (!['minOrderMode', 'overRadiusMode', 'floorFeeMode'].includes(field) || !modes.some(it => it.value === value)) return
-    this.setData({ ['form.' + field]: value, fieldError: '', saveError: '' }, () => this.syncModeDescriptions())
+    this.setData({ ['form.' + field]: value, fieldError: '', saveError: '' }, () => { this.syncModeDescriptions(); this.measureFeeSections() })
   },
 
   /**

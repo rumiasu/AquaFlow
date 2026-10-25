@@ -52,9 +52,9 @@ test('platform products use the shared image and edit layout while saving only s
   assert.equal(t.page.data.showSetting, true); assert.equal(t.page.data.showEdit, true)
   const controls = visible(t)
   assert(controls.some(n => n.attrs.class === 'modal-img product-edit-image'))
-  assert(controls.some(n => (n.text || '').includes('图片暂不支持本站修改')))
+  assert(controls.some(n => (n.text || '').includes('图片可更换为本站图片')))
   for (const field of ['name','brand','spec','description']) assert(controls.some(n => n.attrs['data-field'] === field && n.attrs.disabled))
-  assert(controls.some(n => n.attrs.bindtap === 'uploadImage' && n.attrs.disabled))
+  assert.equal(controls.find(n => n.attrs.bindtap === 'uploadImage').attrs.disabled, '{{saving}}'); assert.equal(t.page.data.saving, false)
   assert(!controls.some(n => n.attrs.bindtap === 'onRemoveProduct'))
   t.page.onEditFieldInput({ currentTarget: { dataset: { field: 'name' } }, detail: { value: 'must not change public template' } })
   assert.equal(t.page.data.editForm.name, '合成商品')
@@ -131,6 +131,13 @@ test('late inbound receipt after native Back updates the resumed draft and price
   await t.page.onSaveEdit(); const saved = t.calls.find(c => c[0] === 'edit')
   assert(saved); assert(!Object.hasOwn(saved[2], 'quantity')); assert.equal(t.state.stock, 15)
 })
+
+
+function imageEditor(t) { t.page.onOpenSetting(event(item({ownerStationId:null,stationImageEditable:true,stationImageObjectName:'public/common/old.jpg',imageObjectName:'public/common/old.jpg',imageUrl:'https://example.com/old.jpg',platformImageObjectName:'catalog-sample-original.png',platformImageUrl:'https://example.com/base.png'})));t.page.setData({pkgReady:true}) }
+test('platform image saves a durable station key and requires a stored receipt',async()=>{const t=fixture();imageEditor(t);t.page.setData({'editForm.imageObjectName':'public/common/new.jpg'});t.state.setting=async(id,body)=>({code:0,data:{stationImageSaved:true,stationImageRef:body.imageObjectName}});await t.page.onSaveEdit();assert.equal(t.calls[0][0],'setting');assert.equal(t.calls[0][2].imageObjectName,'public/common/new.jpg');assert(!Object.hasOwn(t.calls[0][2],'name'));assert.equal(t.page.data.showEdit,false)})
+test('old backend or mismatching receipt leaves image result visibly unconfirmed',async()=>{for(const response of [{code:0},{code:0,data:{stationImageSaved:true,stationImageRef:'public/common/other.jpg'}}]){const t=fixture();imageEditor(t);t.page.setData({'editForm.imageObjectName':'public/common/new.jpg'});t.state.setting=async()=>response;await t.page.onSaveEdit();assert.equal(t.page.data.showEdit,true);assert(t.page.data.productSaveError.includes('图片保存尚未确认'))}})
+test('restore sends explicit empty override and does not alter public metadata',async()=>{const t=fixture();imageEditor(t);t.page.onRestorePlatformImage();assert.equal(t.page.data.editForm.imageUrl,'https://example.com/base.png');t.state.setting=async(id,body)=>({code:0,data:{stationImageSaved:true,stationImageRef:''}});await t.page.onSaveEdit();assert.equal(t.calls[0][2].imageObjectName,'');assert.equal(t.calls[0][0],'setting')})
+test('an unready capability blocks changed images while unchanged settings remain editable',async()=>{const t=fixture();imageEditor(t);t.page.setData({stationImageEditable:false,'editForm.imageObjectName':'public/common/new.jpg'});await t.page.onSaveEdit();assert.equal(t.calls.length,0);t.page.setData({'editForm.imageObjectName':'public/common/old.jpg'});await t.page.onSaveEdit();assert.equal(t.calls.length,1);assert(!Object.hasOwn(t.calls[0][2],'imageObjectName'))})
 
 ;(async () => {
   const done = armWatchdog(30000), results = []

@@ -1,3 +1,4 @@
+@import "../../../styles/settings-sections.wxss";
 .page {
   padding: 24rpx;
   padding-bottom: 60rpx;

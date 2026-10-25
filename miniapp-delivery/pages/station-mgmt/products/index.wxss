@@ -695,3 +695,8 @@
 /* 来源标识只留在缩略卡右上角，两类商品共用动作与编辑布局。 */
 .name-row .tag.platform, .name-row .tag.mine { margin-left:auto; flex-shrink:0; }
 .product-edit-content .input[disabled] { color:var(--text-regular); background:var(--bg-gray); }
+
+.product-section-nav { display:flex; gap:8rpx; flex-shrink:0; padding:8rpx 24rpx 16rpx; background:#fff; }
+.product-section-nav button { flex:1; min-width:0; min-height:44px; margin:0; padding:8rpx 4rpx; font-size:14px; line-height:1.5; color:var(--text-regular); background:var(--bg-gray); }
+.product-section-nav button.active { color:var(--primary-color); background:var(--primary-bg); }
+.product-section-nav button::after { border:0; }

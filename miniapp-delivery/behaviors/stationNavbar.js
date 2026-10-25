@@ -169,7 +169,7 @@ module.exports = Behavior({
       const done = (r.all || []).filter(it => it && it.done)
       return {
         ...progressPatch(r),
-        stationPendingCount: r.pendingCount || 0,
+        stationPendingCount: Number.isSafeInteger(r.p0PendingCount) ? r.p0PendingCount : null,
         stationPanelPending: pending,
         stationPanelDone: done,
         // 渲染用的那一份：**跟着当前页签走**（见 switchPanelTab）。

@@ -1,5 +1,5 @@
 <import src="../../../templates/setup-module-tasks.wxml" />
-<view class="container" style="{{feeBodyStyle}}">
+<view class="container" style="{{feeBodyStyle}}" bindtouchstart="onFeeManualScroll">
   <view class="ui-state" wx:if="{{configError}}"><text class="ui-state-title">计费规则待核实</text><text class="ui-state-copy">{{configError}}</text><button size="mini" bindtap="reload">重新读取计费</button></view>
   <view class="card">
     <view class="card-header">

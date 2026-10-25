@@ -1,3 +1,4 @@
+const { jumpToSettingSection } = require('../../../utils/settings-sections')
 // ⚠️ 直接用 utils/request，不引 api/station-mgmt.js 与 config/api.js：
 // 那两个文件正被另一个工作流（商品图片库）改动，共用会让两边未提交的改动纠缠在一起。
 // 路径常量写在本文件里，理由同上。
@@ -38,7 +39,9 @@ const PRODUCTS = '/api/products/sale-by-station'
  * ==========================================================================================
  */
 Page({
+  onSettingsSection(e) { jumpToSettingSection(this, e) },
   data: {
+    settingsSections: [{"target": "ticket-products", "label": "选择商品"}, {"target": "ticket-tiers", "label": "现有档位"}, {"target": "ticket-edit", "label": "新增或修改"}],
     stationId: null,
     loading: true,
     products: [],

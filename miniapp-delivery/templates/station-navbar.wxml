@@ -59,8 +59,8 @@
              只能回设置里找"）。⚠️ 原来那个开关是**列表下面的一句灰字**，实测根本没人发现 —— 挪到列表**上方**。
              ⚠️ 只在**确实有已配好的项**时才渲染：没有就不给这个页签（切过去是空列表，等于骗人）。 -->
         <view class="st-tabs" wx:if="{{stationPanelDone.length > 0}}">
-          <view class="st-tab {{stationPanelShowAll ? '' : 'st-tab-on'}}" bindtap="onPanelShowPending">待填 {{stationPanelPending.length}}</view>
-          <view class="st-tab {{stationPanelShowAll ? 'st-tab-on' : ''}}" bindtap="onPanelShowDone">已配好 {{stationPanelDone.length}}</view>
+          <view class="st-tab {{stationPanelShowAll ? '' : 'st-tab-on'}}" bindtap="onPanelShowPending">待完善 {{stationPanelPending.length}}</view>
+          <view class="st-tab {{stationPanelShowAll ? 'st-tab-on' : ''}}" bindtap="onPanelShowDone">状态事实 {{stationPanelDone.length}}</view>
         </view>
 
         <text class="st-sub" wx:if="{{stationPanelLoading}}">正在检查待填项…</text>
@@ -82,7 +82,7 @@
                      而「已配好」是个**状态标签**、看着不可点 —— 用户压根不知道能点进去。
                      "是否完成"由**灰色标题 + 它落在哪个页签下**表达，右边这个位置只放**动作**。
                      整行 bindtap 对两种行都生效，所以已配好的项照样点得进去。 -->
-                <text class="st-item-go" wx:if="{{item.route}}">{{item.done ? '去修改' : '去填写'}} ›</text>
+                <text class="st-item-go" wx:if="{{item.route}}">{{item.done ? '查看设置' : '去填写'}} ›</text>
               </view>
               <view class="st-item-why-box" wx:if="{{item.whyOpen}}">
                 <text class="st-item-why">{{item.why}}</text>
@@ -102,8 +102,8 @@
         <!-- 拉不到时**不许**说"都配好了"（那正是本仓最忌讳的静默失效：没拉到 ≠ 没问题） -->
         <text class="st-sub" wx:elif="{{stationPanelError}}">请核对成功后再判断配置是否齐全。</text>
 
-        <!-- 全配好时不再重复 summaryText（这时它只是"N/N 已完成"），只留那句可执行的下一步 -->
-        <text class="st-online-hint" wx:elif="{{stationPanelReadReady}}">{{stationPanelOnlineHint || '待填项都配好了'}}</text><text class="st-sub" wx:else>待填项尚未核实</text>
+        <!-- 全配好时不再重复 summaryText（当前只显示真实必填状态），只留那句可执行的下一步 -->
+        <text class="st-online-hint" wx:elif="{{stationPanelReadReady}}">{{stationPanelOnlineHint || '已具备上线条件'}}</text><text class="st-sub" wx:else>待填项尚未核实</text>
       </view>
 
       <!-- ⚠️ 原来这里有个「显示已配好的 N 项 / 只看没配好的」开关 —— 2026-09-24 删掉。

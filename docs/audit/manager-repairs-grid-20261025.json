@@ -1,0 +1,248 @@
+{
+  "baseline": "b16f8c675005521141e7c82e1bdf1a9233bc4e6d",
+  "created_at_utc": "2026-10-25T09:31:28.009151+00:00",
+  "source_sha256": {
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/CatalogServiceImpl.java": "3a558bb65ec513aa6cfb9e9af666199b98c37236defabc21db501ed650106ada",
+    "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/StationSetupGuideService.java": "8cc0ac49f6f111a547db9d6106321515c95f6b2ea15e384c01f9ff205d2fc077",
+    "AquaFlow-backend/src/test/java/com/example/aquaflow/service/ManagerFeedbackRepairTest.java": "c99cb488b7047f9179686f1fea8602b17d124af16f8bbe2ad4d08f30297a95ae",
+    "miniapp-delivery/assets/management/adjust.png": "6e6b6f2395cac659fa57c2028fe198db18ed707473177c9c5a1565314c0e3f0b",
+    "miniapp-delivery/assets/management/claims.png": "8325fb7497afb6c2042fec3559826951872392f8ad52ba4d659fb08d99ede16d",
+    "miniapp-delivery/assets/management/customers.png": "28b84371c0bc27e419ef8c1c4259adc3c9dcc82943565c71f55345fa17542338",
+    "miniapp-delivery/assets/management/dashboard.png": "8840c4eb6a857bf99b08904410a25239f8eff1db9a810d8af0cff7b0b1af52c2",
+    "miniapp-delivery/assets/management/delivery.png": "36ac6ea5e268ab2abbaf49f62342e4951a8dc6172d61bcedcc9218198e0f5713",
+    "miniapp-delivery/assets/management/exception.png": "217d6a5ec3d1c4931f62960ac774e60239159a1665e254736151af72709d616c",
+    "miniapp-delivery/assets/management/feedback.png": "dc3b3f273ffd5e3378b1824c38883e0231bb76e3a920ad58fc7f52420623258f",
+    "miniapp-delivery/assets/management/notice.png": "c5aca8b364d5790cb7e096f1d496e8273bc1ad8d6a3316078e79a75fe643a0bc",
+    "miniapp-delivery/assets/management/orders.png": "36aaca33f0adac9c24821b00cf2e305ddc46720d7b81711c484563f5202e51a5",
+    "miniapp-delivery/assets/management/owed.png": "48346ac333fa3ce0921c8410f413c1c7b15676cccdbeea69a8f7cf8c7318557c",
+    "miniapp-delivery/assets/management/payments.png": "112a0fbca1fb0698c9335bd9e4c187d5036c87d5d4fe7aea16642430ad10439f",
+    "miniapp-delivery/assets/management/payroll.png": "337a0ff15814614f96b0cda25c1de773400dfdb0d7e9a420bedbd170a1181d94",
+    "miniapp-delivery/assets/management/products.png": "130c8a4b3303bf6794ccc09789ebcdad2cd880b9e38ba5b104561d92958f3b3b",
+    "miniapp-delivery/assets/management/profit.png": "95a06776e720414187f78abf669b49273daa4b4c9f5583887552dafb40d0c2e1",
+    "miniapp-delivery/assets/management/receivables.png": "2e3b3d2f3ea67e91f7d5ee8e88ed5957c05697ce5ac24ef3fbb023afd64f0133",
+    "miniapp-delivery/assets/management/returns.png": "f95f8da31a7bdcd292a92cc48fcefe09df8c45c6b4158e76cae7dcddc08e2ad0",
+    "miniapp-delivery/assets/management/settlement.png": "ce2dca6c6c900010dbeae1df3084f74dc46724da4d4b1459cef262a34cc4c997",
+    "miniapp-delivery/assets/management/staff.png": "e38ab8ab085c9659a0881db021a534e9c885da2d26ce09ff407e6f45224b75d8",
+    "miniapp-delivery/assets/management/station.png": "0c76a5da2fc50836c90fc45a10316435124c181748c20e7585a4e19cebf87760",
+    "miniapp-delivery/assets/management/waiting.png": "e4fe36bb20af88c07551cdfe93f591aaa0c3acfc9c5036dd8bc8ec118e47e56a",
+    "miniapp-delivery/pages/mine/account-data/index.js": "0d6a7a0b485ed0a8ca84253fb756b0e707395803e87ad96969588cfa0e9884b7",
+    "miniapp-delivery/pages/mine/account-data/index.wxml": "f86d7f23a51f48f6cfdf7e6067f00a7cb0121ef8059dfca541edeaa3535751e9",
+    "miniapp-delivery/pages/station-mgmt/delivery-config/index.js": "d66dd5c51d83bc5f9014a1a4eb70e05414066d12a43a3709a67792e9f7001c41",
+    "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxml": "9ff222787d4bb374d017a015d5d96bef7177256bf6756add2a1a349bbe432354",
+    "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxss": "a9c30feaed1ac7543794ebb82f000d2b81e47a143263eee8d6aade8605ed30c9",
+    "miniapp-delivery/pages/station-mgmt/index.js": "375c481a159ec95f4ba2d0b451409db1618bbdaf88b9818f1ced360bdb288e70",
+    "miniapp-delivery/pages/station-mgmt/index.wxml": "56160ed2295b3e0df659335c1147e0e5172806ef0d859be3a81fa92532f9955b",
+    "miniapp-delivery/pages/station-mgmt/index.wxss": "10251746cdc2d0109a79bba8f897afd7d761365e7efad954da44275bdb7188f5",
+    "miniapp-delivery/pages/station-mgmt/products/index.js": "eafbfccc389921255f06c69f7fdd3f7721a79d1d10df007952b487a305f018d7",
+    "miniapp-delivery/pages/station-mgmt/products/index.wxml": "1d9b3b136e27931382c22e4ac5e3a486587aec40fc21847cd056210550ecd1c5",
+    "miniapp-delivery/pages/station-mgmt/products/index.wxss": "28eb79ab720ee7f6f986546b6014ded36e5c5dd33752fd49cb6b44054e6a68d8",
+    "miniapp-delivery/templates/station-navbar.wxml": "ea521bb987eb7c5873d48895946708f405f1965102c7414aadf1e54829fb2840",
+    "miniapp-user/pages/mine/account-data/index.js": "1547c81324b2c56b71fb6796bc786cb4d3e8e9727a6fb9d3499d6882ca46cfa3",
+    "miniapp-user/pages/mine/account-data/index.wxml": "ccdd27483eca4a278ade864226d17b4624a150546200a1029525438a93d0f426",
+    "scripts/generate-management-icons.py": "dd4769024b41c59aab33f184b55e45e23a3a32da2be431079dbe3a515c39d062",
+    "tests/js/business-pending-flow.test.js": "f2f2ce9ff819ab8e4932451354904fab9c784888794c3233d3649a5988dc27b3",
+    "tests/js/fix-grid-regressions.test.js": "527eaaa8358bd1e0142acb6020954f9e360c6d755831c0d5c313348777aafb67",
+    "tests/js/key-text-readability.test.js": "aa17f6dc56ce2e5d8175990a581208fd02bddcdd009e05a83988d70dbb2c7aaf",
+    "tests/js/product-editor-unification.test.js": "2008d5b58cbd043b6b2dcbfbc513858c376c456cb96404e70bec3ad9cd499142",
+    "tests/js/product-sheet-recovery.test.js": "cc5839a015217d6650b795b723353977690baf42963179bd83e10572377dc046",
+    "tests/js/run-all.js": "eec63ad7970da488e3b897f03a085ba4d6a656303ac50e94b98393afab787c96",
+    "tests/js/settings-feedback.test.js": "96726c77190000d757ffde0c19f2477bb29239d14c4b0a91ca14f15096baf52a"
+  },
+  "reproduction": {
+    "baseline": "b16f8c675005521141e7c82e1bdf1a9233bc4e6d",
+    "kind": "read-only review of actual handlers and synthetic API/identity callbacks; no live DB/HTTP",
+    "catalog_scope": {
+      "currentStation": 22,
+      "oldVisibleImage": "public/common/synthetic-a.jpg",
+      "wrongStationSaveBody": {
+        "station": 22,
+        "productId": 17,
+        "salePrice": 13
+      }
+    },
+    "retired_state": {
+      "productStatus": 0,
+      "inventoryEnabled": 1,
+      "selected": true,
+      "visibleOnShelf": true,
+      "visibleEdit": true
+    },
+    "fee_edit_during_save": {
+      "sent": 3,
+      "editedWhilePending": "9",
+      "afterResponse": "3"
+    },
+    "setup_copy": {
+      "addressAndLocationPresent": "有坐标但没地址",
+      "configuredPayroll": "没配计件单价"
+    },
+    "account_check_error": "A check failure writes general error, which silently blocks onSubmit even with intake enabled",
+    "report_and_warning": "More contains only remove; empty history still claims More can report; inline warnings have no WXML rendering and final toast overrides warning toast",
+    "source_sha256": {
+      "miniapp-delivery/pages/station-mgmt/products/index.js": "cd0fd2cfc8e079cb9e41392a389ff2b69c77b169a9c60eb961662165e103345f",
+      "miniapp-delivery/pages/station-mgmt/products/index.wxml": "eda9261fa8b50e98b8803dc27b0f2d9e84a7fee990033d9a618cf49a4d7937e9",
+      "miniapp-delivery/pages/station-mgmt/delivery-config/index.js": "d8ae6abfaff85964c65b608fabd7f0bfdbe0565a66cad6f6e2dc8914890f4598",
+      "miniapp-user/pages/mine/account-data/index.js": "b4a36809a849416f4f59405879513d84fee2ab4d71ad7cb0fe331b8bc1891c32",
+      "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/StationSetupGuideService.java": "88cfd42f63a895a73339a9ed2e4d79cfe5f00a3f13a198b095f2aecf46e9cae3"
+    }
+  },
+  "js_suites": [
+    {
+      "suite": "fix-grid-regressions",
+      "exit": 0,
+      "count": 13,
+      "log_sha256": "14667fbb0e66983dff0d53f8d880f345eaa8467d7c57e25feb513b4d5ed3a3e7"
+    },
+    {
+      "suite": "product-editor-unification",
+      "exit": 0,
+      "count": 19,
+      "log_sha256": "78468a623b29c5bc8b40f895d8f9239019a497daa10e705f1c0bb1a915d7b419"
+    },
+    {
+      "suite": "extreme-product-save",
+      "exit": 0,
+      "count": 19,
+      "log_sha256": "21e920f90061c38fe8fc4fa281ffc5ae304abca20392334db29526de1b929599"
+    },
+    {
+      "suite": "product-sheet-recovery",
+      "exit": 0,
+      "count": 21,
+      "log_sha256": "f7686d5d97612c0e9406e41aaa8e158319ad1095c0d16c4655f299965a754af0"
+    },
+    {
+      "suite": "product-image-persistence",
+      "exit": 0,
+      "count": 14,
+      "log_sha256": "822045a946b9400938ee2c2a00b7d6160cd806e5ea18d0f7f3d05ac4dd8c5faa"
+    },
+    {
+      "suite": "delivery-config-layout",
+      "exit": 0,
+      "count": 11,
+      "log_sha256": "a602de7996d421c37f62a55751ebfcbf638643ac4b47e29dd5fa5a3e1098a484"
+    },
+    {
+      "suite": "delivery-config-pull-refresh",
+      "exit": 0,
+      "count": 21,
+      "log_sha256": "78405d019aa60e65528d8064923f625f0aacb7e552e83e99c9183c53daa89f3a"
+    },
+    {
+      "suite": "setup-navigation",
+      "exit": 0,
+      "count": 6,
+      "log_sha256": "406f6f8f72a8df7715d5af8c0f503afb42b474dff8a20bdf894110cb5415b128"
+    },
+    {
+      "suite": "account-data-request-flow",
+      "exit": 0,
+      "count": 14,
+      "log_sha256": "47211a1a3577a5cba9ac10f554d251c2c2444e56923805aefce90432f1773320"
+    },
+    {
+      "suite": "settings-feedback",
+      "exit": 0,
+      "count": 9,
+      "log_sha256": "b3a3e0d050bfb0edac33ebe3aa3d966340fe92e7484b0836b2cdb2b2d854ed6e"
+    },
+    {
+      "suite": "manager-first-batch",
+      "exit": 0,
+      "count": 19,
+      "log_sha256": "7dd792172477a0873db11e958d956b98f406beaace56c2528fce7bc0d46b22db"
+    },
+    {
+      "suite": "business-pending-flow",
+      "exit": 0,
+      "count": 55,
+      "log_sha256": "0caf0a5429552318b42e77c7beae6951e66c10df6c17a91f9aea60d334a1fa70"
+    },
+    {
+      "suite": "navigation-recovery",
+      "exit": 0,
+      "count": 31,
+      "log_sha256": "8cbcb1264478d3962e5fc6895cb8cb94b0a86aacdc993570f2fde3af5d961954"
+    },
+    {
+      "suite": "key-text-readability",
+      "exit": 0,
+      "count": 8,
+      "log_sha256": "dcf9ba3ba92d085ef6d4c7510178e77c4512c4d88c4218dcf9cd1dc3290e0fa8"
+    }
+  ],
+  "js_total": 260,
+  "backend_suites": [
+    {
+      "suite": "ManagerFeedbackRepairTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "xml_sha256": "335ec15c849c9bbb39d22a1363221a71f82729e9457eadb4616076937c17a5d3"
+    },
+    {
+      "suite": "StationProductImageTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "xml_sha256": "533d2fbfde016e7151e4c09e8b83eeed965790444b6432090605a2ddf122bf28"
+    }
+  ],
+  "backend_total": 18,
+  "static": {
+    "utf8_no_bom": true,
+    "changed_js_parse": true,
+    "wxss_selectors_both_apps": true,
+    "changed_wxml_handlers": true,
+    "global_wxml_auditor_existing_behavior_false_positives": 2,
+    "git_diff_check": true,
+    "fee_payload_13_fields_unchanged": true,
+    "twenty_management_routes_preserved": true,
+    "mine_entry_source_unchanged": true,
+    "v84_unchanged": true,
+    "new_icons": 20,
+    "icon_size": [
+      72,
+      72
+    ]
+  },
+  "visual": {
+    "kind": "Local browser source component projection with synthetic state; not WeChat rendering",
+    "inspected": [
+      "320px management pending: 9999 customers and exact count units",
+      "320px 150% text expanded grid: three equal 95px tiles, 20 destinations, icons loaded, no page overflow",
+      "320px pending summary failure: unknown instead of zero",
+      "320px inactive platform stock panel: disabled metadata, single close footer, stock actions still available",
+      "320px existing Mine entry card: title/subtitle layering and blue card retained"
+    ],
+    "viewport": 320,
+    "text_scale": [
+      1,
+      1.5
+    ],
+    "native_wechat_tested": false,
+    "screenshot_pixels_seen": true,
+    "original_library_pixels_available": false
+  },
+  "delivery": {
+    "backend_update_required": true,
+    "customer_and_employee_one_batch": true,
+    "new_migration_this_batch": false,
+    "v84_still_required_if_absent": true,
+    "order": [
+      "verify target/prior increments/backup",
+      "v84 column and shape verification",
+      "new backend and business response verification",
+      "paired clients"
+    ]
+  },
+  "not_run": [
+    "real MySQL migration or database calls",
+    "native WeChat/physical device/keyboard/sticky behavior",
+    "real COS upload/save/restore",
+    "container build/application start/deploy",
+    "WeChat upload/review",
+    "unrelated full regression suite"
+  ]
+}

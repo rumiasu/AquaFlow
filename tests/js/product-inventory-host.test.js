@@ -52,19 +52,45 @@ test('daily stock actions stay primary and shortage/report loss stays a separate
   const primary = find(hosts[0].node, n => n.attrs?.class === 'inventory-primary-nav')[0]
   const primaryButtons = renderElements(primary.node, t.page.data, { includeText: true }).filter(n => n.tag === 'button')
   assert.deepEqual(primaryButtons.map(n => n.text), ['补货入库', '盘点校正'])
+  t.page.onStockInput({ detail: { value: '4' } })
+  const visible = nativeView(t)
+  const operationIndex = visible.findIndex(n => n.attrs.class === 'inventory-operation-card')
+  const lossIndex = visible.findIndex(n => n.attrs.class === 'inventory-loss-entry')
+  assert(operationIndex >= 0 && lossIndex > operationIndex, 'normal stock action must precede secondary exception area')
+  const changePreview = find(hosts[0].node, n => n.attrs?.class === 'inventory-change-preview')[0]
+  assert(changePreview && changePreview.ancestors.some(a => a.attrs?.class === 'inventory-summary'))
+  assert(visible.some(n => n.attrs.class === 'inventory-change-preview'))
+  assert(visible.some(n => n.text === '本次预计变化 +4 件'))
+  assert(visible.some(n => n.text === '调整后库存 14 件'))
+  assert(!visible.some(n => n.attrs.class === 'stock-preview' && n.text.includes('本次变化')))
   const lossTrigger = find(hosts[0].node, n => n.attrs?.class === 'inventory-loss-trigger')[0]
   assert(lossTrigger.ancestors.some(n => n.attrs?.class === 'inventory-loss-entry'))
   assert(!lossTrigger.ancestors.some(n => n.attrs?.class === 'inventory-primary-nav'))
-  assert(nativeView(t).some(n => n.text.includes('异常处理')))
+  assert(visible.some(n => n.text.includes('异常处理')))
 
   t.page.onStockModeChange({ currentTarget: { dataset: { mode: 'loss' } } })
   const lossContext = find(hosts[0].node, n => n.attrs?.class === 'inventory-loss-context')[0]
   assert(lossContext.ancestors.some(n => n.tag === 'scroll-view'))
+  const exceptionView = nativeView(t)
+  assert(exceptionView.some(n => n.text.includes('按订单需要顺序减少预留')))
+  assert(exceptionView.some(n => n.text.includes('补货、协商延期或取消退款')))
+  assert(exceptionView.some(n => n.text === '核对影响并登记'))
+  assert(exceptionView.some(n => n.attrs.class === 'inventory-return-trigger'))
+  assert(!exceptionView.some(n => n.attrs?.class === 'inventory-primary-nav'))
+  assert(!exceptionView.some(n => n.attrs?.class === 'inventory-loss-entry'))
+})
+
+test('deposit reference uses only a real positive catalog value and reserves the matching helper line when absent', () => {
+  const t = setup({ ownerStationId: null, deposit: 50, refDepositText: '50.00' })
+  t.page.onOpenSetting(event(t.item))
+  assert.equal(t.page.data.setting.hasRefDeposit, true)
+  assert(nativeView(t).some(n => n.text === '参考押金 ¥50.00'))
+  const noReference = row({ ownerStationId: null, deposit: 0, refDepositText: '0.00' })
+  t.page.onOpenSetting(event(noReference))
+  assert.equal(t.page.data.setting.hasRefDeposit, false)
   const visible = nativeView(t)
-  assert(visible.some(n => n.text.includes('按订单需要顺序减少预留')))
-  assert(visible.some(n => n.text.includes('补货、协商延期或取消退款')))
-  assert(visible.some(n => n.text === '核对影响并登记'))
-  assert(!visible.some(n => n.attrs?.class === 'inventory-loss-entry'))
+  assert(!visible.some(n => (n.text || '').includes('参考押金')))
+  assert(visible.some(n => n.attrs.class === 'product-field-help product-field-help-slot'))
 })
 
 test('ticket setup task filters enabled ticket products and scrolls to the editable catalog', () => {

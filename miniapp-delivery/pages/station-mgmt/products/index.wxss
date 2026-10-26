@@ -688,6 +688,7 @@
 .product-section-spaced { margin-top:32rpx; padding-top:24rpx; border-top:1rpx solid var(--border-color); }
 .product-form-section { margin:24rpx 0; padding:24rpx 0 0; }
 .product-field-help { display:block; margin:8rpx 0 12rpx; color:var(--text-regular); font-size:24rpx; line-height:1.6; word-break:break-word; }
+.product-field-help-slot { box-sizing:border-box; min-height:38.4rpx; }
 .product-stock-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12rpx; margin:16rpx 0 8rpx; }
 .stock-submit,.stock-records { flex:1; min-width:200rpx; min-height:44px; height:auto; margin:0; padding:14rpx 16rpx; font-size:26rpx; line-height:1.5; border-radius:10rpx; white-space:normal; }
 .stock-submit { color:var(--primary-color); background:var(--primary-bg); font-weight:600; }
@@ -746,10 +747,14 @@
 .inventory-draft-resume button::after { border:0; }
 .inventory-sheet { box-sizing:border-box; }
 .inventory-summary { display:flex; align-items:center; justify-content:space-between; gap:20rpx; padding-top:12rpx; }
+.inventory-summary > view { min-width:0; flex:1; }
 .inventory-eyebrow { display:block; max-width:460rpx; color:var(--text-regular); font-size:28rpx; line-height:1.5; }
 .inventory-stock-number { display:block; margin-top:10rpx; color:var(--text-primary); font-size:64rpx; font-weight:700; line-height:1.2; font-variant-numeric:tabular-nums; }
 .inventory-stock-number text { font-size:26rpx; font-weight:400; color:var(--text-regular); }
 .inventory-stock-label { display:block; margin-top:8rpx; font-size:24rpx; color:var(--text-regular); }
+.inventory-change-preview { display:flex; flex-wrap:wrap; gap:4rpx 12rpx; margin-top:14rpx; padding:12rpx 14rpx; border-left:4rpx solid var(--primary-color); border-radius:8rpx; background:var(--primary-bg); color:var(--primary-color); font-size:24rpx; line-height:1.5; }
+.inventory-change-label { width:100%; font-weight:600; }
+.inventory-change-line { font-weight:600; font-variant-numeric:tabular-nums; }
 .inventory-summary .inventory-history { margin:0; min-height:44px; padding:10rpx 0 10rpx 20rpx; color:var(--primary-color); background:transparent; font-size:26rpx; line-height:1.5; }
 .inventory-summary .inventory-history::after { border:0; }
 .inventory-body { background:var(--bg-color); }
@@ -767,6 +772,7 @@
 .inventory-loss-context { margin:0 0 18rpx; padding:16rpx 18rpx; border-left:4rpx solid #B64A3E; border-radius:10rpx; background:#FFF3F0; }
 .inventory-loss-context .inventory-loss-title { color:#8F2F28; }
 .inventory-loss-context .inventory-loss-copy { margin-top:8rpx; }
+.inventory-return-trigger { width:auto; min-height:40px; height:auto; margin:12rpx 0 0; padding:6rpx 12rpx; color:var(--primary-color); background:#fff; border:1rpx solid var(--border-color); border-radius:8rpx; font-size:12px; line-height:1.45; }
 .inventory-operation-card { padding:22rpx; border:1rpx solid var(--border-color); border-radius:12rpx; background:#fff; }
 .inventory-operation-card .product-field-help { margin:12rpx 0 24rpx; line-height:1.6; }
 .inventory-operation-card .input { min-height:112rpx; padding:24rpx; font-size:38rpx; font-weight:600; background:var(--bg-color); }

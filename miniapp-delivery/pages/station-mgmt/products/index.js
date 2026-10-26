@@ -440,6 +440,7 @@ Page({
         categoryLabel: i.categoryText || '',
         refPriceText: this.money(i.price),
         refDepositText: this.money(i.deposit),
+        hasRefDeposit: Number(i.deposit) > 0,
         effectivePriceText: this.money(i.effectivePrice),
         effectiveDepositText: this.money(i.effectiveDeposit),
         stockText: i.selected ? String(i.quantity || 0) : '—',
@@ -579,7 +580,7 @@ Page({
         depositPrice: item.depositPrice == null ? '' : String(item.depositPrice),
         enabled: item.enabled === 1, priorityDisplay: item.priorityDisplay === 1,
         ticketEnabled: item.ticketEnabled === 1, ticketPrice: item.ticketPrice == null ? '' : String(item.ticketPrice),
-        refPriceText: item.refPriceText, refDepositText: item.refDepositText },
+        refPriceText: item.refPriceText, refDepositText: item.refDepositText, hasRefDeposit: Number(item.deposit) > 0 },
       stockMode: resume ? resume.stockMode : 'in', stockInput: resume ? resume.stockInput : '',
       stockAfterText: '', stockConfirmPending: false, inboundError: '', inboundRecovery: null,
       inventoryDraftAvailable: false, inventoryDraftName: '', productScrollTarget: ''
@@ -1383,7 +1384,7 @@ Page({
         depositPrice: item.depositPrice == null ? '' : String(item.depositPrice),
         enabled: item.enabled === 1, priorityDisplay: item.priorityDisplay === 1,
         ticketEnabled: item.ticketEnabled === 1, ticketPrice: item.ticketPrice == null ? '' : String(item.ticketPrice),
-        refPriceText: item.refPriceText, refDepositText: item.refDepositText },
+        refPriceText: item.refPriceText, refDepositText: item.refDepositText, hasRefDeposit: Number(item.deposit) > 0 },
       stockMode: 'in', stockInput: '', stockAfterText: '', inboundError: '',
       editForm: {
         name: item.name || '',

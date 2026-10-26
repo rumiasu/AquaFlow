@@ -59,6 +59,9 @@ async function test(name, run) { await run(); passed++; console.log('PASS ' + na
       assert.strictEqual(page.data.current.operatingStatus, 3)
       assert.strictEqual(page.data.current.statusText, '待上线')
       assert.strictEqual(page.data.effectText, pending.currentEffect)
+      assert.strictEqual(page.data.effectLabel, '当前状态下顾客端显示：')
+      page.onPickStatus({ currentTarget: { dataset: { value: 1 } } })
+      assert.strictEqual(page.data.effectLabel, '选中后顾客端显示：')
       assert.ok(!page.data.statusOptions.some(x => x.value === 3))
     })
     await test('required-setup rejection keeps the known pending state and does not report success', async () => {

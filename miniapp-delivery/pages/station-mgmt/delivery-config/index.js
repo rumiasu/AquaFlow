@@ -226,7 +226,9 @@ Page({
 
   onShow() {
     this.captureFeeWindow()
-    this.setData({ feeKeyboardOffset: 0 })
+    this._feeKeyboardHeight = 0
+    this._feeFocusedField = ''
+    this.setData({ feeKeyboardOffset: 0, feeBodyStyle: '' }, () => this.measureFeeSaveBar())
     return this.reload()
   },
 
@@ -439,7 +441,12 @@ Page({
 
   onReady() { this.captureFeeWindow(); this.measureFeeSaveBar() },
   onResize() { this.onFeeKeyboardHeightChange({ detail: { height: this._feeKeyboardHeight || 0 } }); this.measureFeeSections() },
-  onHide() { this.persistFeeDraft(); this._feeKeyboardHeight = 0; this._feeFocusedField = ''; this.setData({ feeKeyboardOffset: 0 }) },
+  onHide() {
+    this.persistFeeDraft()
+    this._feeKeyboardHeight = 0
+    this._feeFocusedField = ''
+    this.setData({ feeKeyboardOffset: 0, feeBodyStyle: '' })
+  },
 
   feeDraftKey() {
     const u = (getApp().globalData || {}).userInfo || {}
@@ -602,10 +609,26 @@ Page({
     wx.showToast({ title: message, icon: 'none' })
   },
 
-  onFeeFieldFocus(e) { this._feeFocusedField = e.currentTarget.dataset.field; if (!this._feeWindowHeight) this.captureFeeWindow() },
+  onFeeFieldFocus(e) {
+    this._feeFocusedField = e.currentTarget.dataset.field || ''
+    if (!this._feeWindowHeight) this.captureFeeWindow()
+  },
+  onFeeFieldBlur(e) {
+    const field = e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.field
+    if (field && this._feeFocusedField && field !== this._feeFocusedField) return
+    // Keyboard cancel/dismiss does not consistently send a final height=0 event on every client.
+    // Blur is the authoritative end of the focused-input lifecycle: release both the fixed-save
+    // offset and its matching body spacer while leaving the local draft untouched.
+    this._feeFocusedField = ''
+    this._feeKeyboardHeight = 0
+    this.setData({ feeKeyboardOffset: 0 }, () => this.measureFeeSaveBar())
+  },
   onFeeKeyboardHeightChange(e) {
-    const height = Number(e.detail && e.detail.height) || 0
-    this._feeKeyboardHeight = Math.max(0, height)
+    const reportedHeight = Math.max(0, Number(e.detail && e.detail.height) || 0)
+    // Ignore stale non-zero callbacks after the active input blurred; otherwise they can
+    // resurrect the save-bar offset and blank scroll spacer after the keyboard was dismissed.
+    const height = this._feeFocusedField ? reportedHeight : 0
+    this._feeKeyboardHeight = height
     let current = this._feeWindowHeight
     try { current = (typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()).windowHeight } catch (_) {}
     const consumed = Math.max(0, (this._feeWindowHeight || current || 0) - (current || 0))

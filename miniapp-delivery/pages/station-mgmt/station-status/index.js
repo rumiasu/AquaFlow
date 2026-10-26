@@ -58,10 +58,10 @@ Page({
     statusLoaded: false,
     statusOptions: STATUS_OPTIONS,
     current: unknownStatus(),
-    // 「顾客那边会怎样」：跟着**当前显示的那个状态**走 —— 打开页面显示当前状态的，
+    // 「顾客端显示效果」：跟着**当前显示的那个状态**走 —— 打开页面显示当前状态的，
     // 点了别的选项就换成那个选项的，**再点一次同一个就撤回当前状态**（见 onPickStatus）。
     // 文案全部来自后端（options[].effect / currentEffect）。
-    effectLabel: '当前状态，顾客那边：',
+    effectLabel: '当前状态下顾客端显示：',
     effectText: '',
     // 当前状态的效果（单独存一份）：点选项再撤回时要还原成它。
     // ⚠️ 不能从 `current.customerHint` 里取 —— 那是给**顾客**看的一句话，口径与 effect 不同。
@@ -126,7 +126,7 @@ Page({
       if (opts.length) patch.statusOptions = opts
       // 打开页面先显示**当前状态**的效果；点了别的选项再换成那个选项的。
       // ⚠️ 待上线**不在可选项里**，所以它的效果只能从 currentEffect 拿（见后端 toView）。
-      patch.effectLabel = '当前状态，顾客那边：'
+      patch.effectLabel = '当前状态下顾客端显示：'
       patch.effectText = d.currentEffect || ''
       patch.currentEffect = d.currentEffect || ''
       this.setData(patch)
@@ -139,7 +139,7 @@ Page({
   },
 
   /**
-   * 选一个状态 → **就地显示"选了它顾客那边会怎样"**（2026-09-24 产品要求）。
+   * 选一个状态 → **就地显示选中后顾客端会看到什么**（2026-09-24 产品要求）。
    * **再点一次已选中的那个 = 取消锁定**，回到"当前状态"那一句（2026-09-24 追加）。
    *
    * ⚠️ 文案来自后端下发的 `options[].effect` / `currentEffect`，**前端不拼句子**：原来这里是前端用
@@ -157,7 +157,7 @@ Page({
     if (value === this.data.picked && this.data.picked !== current) {
       this.setData({
         picked: current,
-        effectLabel: '当前状态，顾客那边：',
+        effectLabel: '当前状态下顾客端显示：',
         effectText: this.data.currentEffect || ''
       })
       return
@@ -166,7 +166,7 @@ Page({
     const opt = (this.data.statusOptions || []).find(o => o.value === value)
     this.setData({
       picked: value,
-      effectLabel: '选了它，顾客那边：',
+      effectLabel: '选中后顾客端显示：',
       effectText: (opt && opt.effect) || ''
     })
   },
@@ -191,7 +191,7 @@ Page({
         },
         picked: d.operatingStatus,
         noteInput: d.note || '',
-        effectLabel: '当前状态，顾客那边：',
+        effectLabel: '当前状态下顾客端显示：',
         effectText: d.currentEffect || '',
         currentEffect: d.currentEffect || ''
       })

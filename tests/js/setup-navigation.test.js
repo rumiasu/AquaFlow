@@ -45,8 +45,8 @@ function home() {
   page.setData({ isManager: true, stationOperatingStatus: 3, stationStatusText: '待上线' })
   return { page, state, routes }
 }
-function homeCue(page) {
-  const tree = parseWxml(fs.readFileSync(path.join(repo, 'miniapp-delivery/pages/coordination/index.wxml'), 'utf8'))
+function homeCue(page, relative = 'miniapp-delivery/pages/coordination/index.wxml') {
+  const tree = parseWxml(fs.readFileSync(path.join(repo, relative), 'utf8'))
   const found = []
   function walk(node) {
     if (node.attrs && ['setup-launch-entry', 'setup-launch-quiet'].includes(node.attrs.class)) found.push(node)
@@ -56,16 +56,20 @@ function homeCue(page) {
   return renderElements({ children: found }, page.data, { includeText: true })
 }
 
-test('home progress uses backend P0 counts and folds for launched or required-complete stations', async () => {
+test('top setup row appears only for pending-launch status while status management remains available', async () => {
   const t = home()
   await t.page.loadStationPending()
   assert.equal(t.page.data.setupDoneCount, 2)
   assert.equal(t.page.data.setupTotalCount, 7)
   assert(homeCue(t.page).some(node => (node.text || '').includes('还需完成 3 项必填')))
-  t.page.setData({ stationOperatingStatus: 1 })
-  assert(!homeCue(t.page).some(node => node.attrs.class === 'setup-launch-entry'))
-  t.page.setData({ stationOperatingStatus: 3, setupRequiredPending: 0 })
-  assert(!homeCue(t.page).some(node => node.attrs.class === 'setup-launch-entry'))
+  for (const relative of ['miniapp-delivery/pages/home/index.wxml', 'miniapp-delivery/pages/coordination/index.wxml']) {
+    for (const status of [3, 1, 2, 4, null]) {
+      t.page.setData({ stationOperatingStatus: status, setupRequiredPending: 0 })
+      const hasTopRow = homeCue(t.page, relative).some(node => node.attrs.class === 'setup-launch-entry')
+      assert.equal(hasTopRow, status === 3, relative + ' status ' + status)
+    }
+  }
+  assert(overviewSource.includes('bindtap="goStationStatus"'), 'status-page entry must remain available from the panel')
 })
 test('failed or incomplete progress never becomes a zero-item completion', async () => {
   const t = home()

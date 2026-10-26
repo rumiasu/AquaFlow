@@ -205,3 +205,24 @@
 .fee-choice::after { border:0; }
 .fee-choice.active { color:var(--primary-color); background:var(--primary-bg); border-color:var(--primary-color); font-weight:600; }
 .fee-inline-help { display:block; margin:12rpx 0 4rpx; color:var(--text-regular); font-size:24rpx; line-height:1.6; }
+
+/* 2026-10-26：四项教程直接属于上线准备；编辑状态随标题排布，数值与不限同一行。 */
+.fee-setup-card { margin:16rpx 0 20rpx; padding:20rpx; border:1rpx solid var(--border-color); border-left:4rpx solid var(--primary-color); border-radius:12rpx; background:#fff; }
+.fee-rule-summary-head { align-items:baseline; flex-wrap:wrap; gap:6rpx 12rpx; }
+.fee-rule-summary-title { flex:1; }
+.fee-rule-summary-state { margin-left:auto; font-size:22rpx; }
+.fee-rule-summary-guide { display:block; font-size:26rpx; line-height:1.6; color:var(--text-primary); margin-top:8rpx; }
+.fee-rule-summary-copy { font-size:23rpx; color:var(--text-secondary); }
+.fee-section-heading { flex-wrap:nowrap; gap:8rpx; }
+.fee-section-heading .card-title { flex:1; min-width:0; font-size:29rpx; }
+.fee-section-toggle { flex:none; min-height:44px; margin:0 0 0 auto; padding:4rpx; font-size:23rpx; white-space:nowrap; }
+.fee-threshold-row { display:flex; align-items:center; gap:12rpx; }
+.fee-threshold-row .input { flex:1; width:0; min-width:0; }
+.fee-unlimited { flex:none; width:auto; min-height:44px; padding:8rpx 12rpx; display:flex; align-items:center; gap:8rpx; font-size:24rpx; }
+.fee-checkbox { flex:none; width:28rpx; height:28rpx; line-height:28rpx; border:1rpx solid currentColor; border-radius:4rpx; text-align:center; }
+.fee-threshold-note,.fee-draft-note { display:block; margin-top:10rpx; font-size:24rpx; line-height:1.6; color:var(--text-regular); }
+.fee-next { width:100%; margin:24rpx 0 0; min-height:44px; height:auto; padding:16rpx; background:var(--primary-bg); color:var(--primary-color); font-size:27rpx; line-height:1.5; border-radius:10rpx; }
+.fee-next::after,.fee-exit::after { border:0; }
+.fee-save-actions { display:flex; align-items:center; gap:16rpx; }
+.fee-save-actions .btn-primary { flex:1; width:0; min-width:0; }
+.fee-exit { flex:none; margin:0; min-height:48px; padding:12rpx 16rpx; font-size:27rpx; background:var(--bg-gray); color:var(--text-regular); line-height:1.5; display:flex; align-items:center; }

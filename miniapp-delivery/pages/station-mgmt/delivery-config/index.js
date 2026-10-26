@@ -47,6 +47,29 @@ const RULE_FIELDS = {
   delivery: ['baseDeliveryFee', 'freeDeliveryBuckets', 'freeDeliveryAmount'],
   floor: ['floorFreeLevel', 'floorFeePerLevel', 'floorFeeMode']
 }
+const SECTION_ORDER = Object.keys(RULE_FIELDS)
+const SECTION_GUIDES = {
+  minOrder: '先确认几桶或多少元起送，再选择未达门槛时怎么处理。',
+  range: '确认可配送的距离，再选择超出范围时怎么处理。',
+  delivery: '确认基础配送费，再决定达到多少桶或多少元免配送费。',
+  floor: '确认免费楼层、每层费用，以及按单还是按桶收取。'
+}
+const INTEGER_FIELDS = ['minOrderBuckets', 'deliveryRadiusM', 'freeDeliveryBuckets', 'floorFreeLevel']
+const DRAFT_PREFIX = 'delivery-fee-draft-v1:'
+
+function fieldProblem(field, value, form, enabled) {
+  if (THRESHOLD_FIELDS.includes(field) && !enabled[field]) return ''
+  if ((field === 'minOrderFee' && form.minOrderMode !== 'FEE')
+      || (field === 'remoteFee' && form.overRadiusMode !== 'FEE') || field.endsWith('Mode')) return ''
+  const required = (THRESHOLD_FIELDS.includes(field) && enabled[field])
+    || field === 'minOrderFee' || field === 'remoteFee'
+  if (value === '' || value == null) return required ? '请填写数值，或明确选择不限 / 不设门槛' : ''
+  const text = String(value), n = Number(text)
+  if (!/^\d+(\.\d{1,2})?$/.test(text) || !Number.isFinite(n) || n < 0) return '请填写非负数，金额最多两位小数'
+  if (INTEGER_FIELDS.includes(field) && (!Number.isSafeInteger(n) || n > 2147483647)) return '请填写有效的非负整数'
+  if ((field === 'minOrderFee' || field === 'remoteFee') && n <= 0) return '选择加收费用后，请填写大于 0 的金额'
+  return ''
+}
 
 function thresholdDefaults(form) {
   const present = field => form[field] !== '' && form[field] !== null && form[field] !== undefined
@@ -97,13 +120,13 @@ function buildRuleState(form, enabled, configured, savedForm, savedEnabled) {
     minOrder: `桶数或金额任一达标即可；${minParts.join('；')}；${minHandling}`,
     range: `半径 ${radius}；${rangeHandling}`,
     delivery: deliveryText,
-    floor: `无电梯且高于 ${floorFree} 时：${floorFee}。未确认楼层或电梯信息时不收。`
+    floor: `无电梯：${floorFree}，超出后${floorFee}。未确认楼层或电梯信息时不收。`
   }
   const labels = { minOrder: '起送条件', range: '配送范围', delivery: '配送费', floor: '楼层费' }
   const summaries = Object.keys(RULE_FIELDS).map(key => {
     const sectionChanged = RULE_FIELDS[key].some(field => !savedForm || !same(form[field], savedForm[field]))
       || THRESHOLD_FIELDS.filter(field => RULE_FIELDS[key].includes(field)).some(field => !savedEnabled || !!enabled[field] !== !!savedEnabled[field])
-    return { key, label: labels[key], text: descriptions[key],
+    return { key, label: labels[key], text: descriptions[key], guide: SECTION_GUIDES[key],
       stateText: configured ? (sectionChanged ? '未保存草稿' : '已保存') : (sectionChanged ? '未保存草稿' : '默认值待确认') }
   })
   return { hasUnsavedChanges: changed, ruleSummaries: summaries }
@@ -154,6 +177,7 @@ Page({
     thresholdEnabled: { minOrderBuckets: false, minOrderAmount: false, deliveryRadiusM: false,
       freeDeliveryBuckets: false, freeDeliveryAmount: false },
     savedForm: null, savedThresholdEnabled: null, hasUnsavedChanges: false, ruleSummaries: [],
+    draftNotice: '', draftStorageError: '', completedSections: {}, exitGuardError: '',
     // 「配送范围」那段说明的正文（在 loadSetup 里拼好）。为什么不在 wxml 里拼：
     // 见 loadSetup 的 ⚠️（WXML 表达式解析器不支持带换行的字符串拼接，会编译报错）。
     rangeHelpText: '按站点坐标到收货地址的直线距离判断。',
@@ -161,11 +185,11 @@ Page({
     floorModes: FLOOR_MODES,
     // 表单值用字符串存；限制项由明确选项控制，保留空串和数字 0 的业务差异。
     form: {
-      minOrderBuckets: '',
-      minOrderAmount: '',
+      minOrderBuckets: '0',
+      minOrderAmount: '0',
       minOrderMode: 'WARN',
       minOrderFee: '',
-      deliveryRadiusM: '',
+      deliveryRadiusM: '0',
       overRadiusMode: 'WARN',
       remoteFee: '',
       baseDeliveryFee: '',
@@ -197,8 +221,7 @@ Page({
   onModuleSetupTask(e) {
     const key = e.currentTarget.dataset.key
     if (!(this.data.moduleSetupTasks || []).some(it => it.key === key)) return
-    // 真实 P0 任务保留；入口先打开四项规则摘要，再由用户选择具体段落。
-    this.setData({ activeSection: 'minOrder', expandedSection: 'minOrder' }, () => this.scrollToFeeTarget('#fee-rules'))
+    this.setData({ activeSection: 'minOrder', expandedSection: 'minOrder' }, () => this.scrollToFeeTarget('#fee-minOrder'))
   },
 
   onShow() {
@@ -231,6 +254,7 @@ Page({
   },
 
   onUnload() {
+    this.persistFeeDraft()
     this._unloaded = true
     if (this._feeSpyTimer) clearTimeout(this._feeSpyTimer)
     this._configVersion = (this._configVersion || 0) + 1
@@ -309,6 +333,13 @@ Page({
 
   async load() {
     if (this._unloaded) return
+    // 2026-10-26：onShow/下拉原先会覆盖未保存输入。仅保存后的核对读取允许替换草稿。
+    if (!this._readingSavedFee && this.data.configReady && this._feeOwner === staffSession().key
+        && (this.data.hasUnsavedChanges || !this.data.configured)) {
+      this.setData({ draftNotice: '当前输入已保留；请在底部保存后完成上线准备。' })
+      this.syncFeeExitGuard()
+      return
+    }
     const context = this.captureLoad('_configVersion')
     this.setData({ loading: true, configReady: false, configError: '' })
     try {
@@ -343,14 +374,20 @@ Page({
           floorFeeMode: c.floorFeeMode || 'PER_ORDER'
         }
       const thresholdEnabled = thresholdDefaults(form)
+      // 0 与 null 在这三项的现行规则中均不限；不为免运费门槛猜值（其 0 会免所有适用订单）。
+      for (const field of ['minOrderBuckets', 'minOrderAmount', 'deliveryRadiusM']) if (form[field] === '') form[field] = '0'
       const configured = d.configured === true
+      this._feeOwner = context.key
       this.setData({
         configReady: true, configured, form, savedForm: { ...form },
         thresholdEnabled, savedThresholdEnabled: { ...thresholdEnabled },
         ...buildRuleState(form, thresholdEnabled, configured, form, thresholdEnabled),
         guide,
         guideText: this.describeGuide(guide)
-      }, () => { this.syncModeDescriptions(); this.measureFeeSaveBar() })
+      }, () => {
+        if (!this._readingSavedFee) this.restoreFeeDraft()
+        this.syncModeDescriptions(); this.measureFeeSaveBar(); this.syncFeeExitGuard()
+      })
     } catch (err) {
       if (this.isLoadCurrent('_configVersion', context)) this.setData({ configError: '配送计费尚未读取，请重新核对；当前不能修改计费规则' })
       if (this.isLoadCurrent('_configVersion', context)) wx.showToast({ title: (err && err.message) || '配置加载失败', icon: 'none' })
@@ -396,14 +433,95 @@ Page({
     const enabled = { ...this.data.thresholdEnabled,
       ...(updates['form.minOrderAmount'] ? { minOrderAmount: true } : {}),
       ...(updates['form.freeDeliveryAmount'] ? { freeDeliveryAmount: true } : {}) }
-    this.setData({ ...updates, thresholdEnabled: enabled,
-      ...buildRuleState(nextForm, enabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled) })
+    this.updateFeeDraft(nextForm, enabled, { completedSections: {} })
     wx.showToast({ title: '已填入建议值，确认后保存', icon: 'none' })
   },
 
   onReady() { this.captureFeeWindow(); this.measureFeeSaveBar() },
   onResize() { this.onFeeKeyboardHeightChange({ detail: { height: this._feeKeyboardHeight || 0 } }); this.measureFeeSections() },
-  onHide() { this._feeKeyboardHeight = 0; this._feeFocusedField = ''; this.setData({ feeKeyboardOffset: 0 }) },
+  onHide() { this.persistFeeDraft(); this._feeKeyboardHeight = 0; this._feeFocusedField = ''; this.setData({ feeKeyboardOffset: 0 }) },
+
+  feeDraftKey() {
+    const u = (getApp().globalData || {}).userInfo || {}
+    return u.staffId && u.stationId ? DRAFT_PREFIX + u.staffId + ':' + u.stationId : ''
+  },
+  persistFeeDraft() {
+    const key = this.feeDraftKey()
+    if (!key || !this.data.configReady || this._feeOwner !== staffSession().key) return
+    try {
+      if (this.data.hasUnsavedChanges || !this.data.configured || this.data.saveError) {
+        wx.setStorageSync(key, { owner: this._feeOwner, form: this.data.form, enabled: this.data.thresholdEnabled,
+          savedForm: this.data.savedForm, savedEnabled: this.data.savedThresholdEnabled,
+          completed: this.data.completedSections, expanded: this.data.expandedSection })
+      } else wx.removeStorageSync(key)
+    } catch (_) { this.setData({ draftStorageError: '本机暂存失败，请留在本页完成保存。' }) }
+  },
+  restoreFeeDraft() {
+    const key = this.feeDraftKey()
+    if (!key) return
+    try {
+      const d = wx.getStorageSync(key)
+      if (!d || d.owner !== staffSession().key || !d.form || !d.enabled
+          || !Object.keys(this.data.form).every(k => typeof d.form[k] === 'string')
+          || !THRESHOLD_FIELDS.every(k => typeof d.enabled[k] === 'boolean')) return
+      const unchanged = JSON.stringify(d.savedForm) === JSON.stringify(this.data.savedForm)
+        && JSON.stringify(d.savedEnabled) === JSON.stringify(this.data.savedThresholdEnabled)
+      this.setData({ form: d.form, thresholdEnabled: d.enabled, completedSections: d.completed || {},
+        expandedSection: SECTION_ORDER.includes(d.expanded) ? d.expanded : 'minOrder',
+        ...buildRuleState(d.form, d.enabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled),
+        draftNotice: unchanged ? '已恢复上次未保存的输入，请核对后在底部保存。'
+          : '已恢复未保存输入；已保存规则有变化，请逐项核对后再保存。' })
+    } catch (_) { this.setData({ draftStorageError: '本机草稿暂时无法读取，请保留当前输入并保存。' }) }
+  },
+  syncFeeExitGuard() {
+    if (this._unloaded) return
+    const needed = this.data.configReady && (this.data.hasUnsavedChanges || !this.data.configured || !!this.data.saveError)
+    if (needed && typeof wx.enableAlertBeforeUnload === 'function') {
+      wx.enableAlertBeforeUnload({ message: '配送计费尚未保存，上线准备还未完成。',
+        fail: () => { if (!this._unloaded) this.setData({ exitGuardError: '退出提醒未能开启，请先保存或使用本页返回按钮。' }) } })
+    } else if (!needed && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload({})
+  },
+  onExitFee() {
+    if (this.data.saving) return
+    const leave = () => {
+      this.persistFeeDraft()
+      if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload({})
+      wx.navigateBack({ delta: 1, fail: () => this.syncFeeExitGuard() })
+    }
+    if (!this.data.hasUnsavedChanges && this.data.configured && !this.data.saveError) return leave()
+    wx.showModal({ title: '计费规则尚未保存', content: '上线准备还未完成。离开后可继续本机草稿，当前订单仍按已保存规则计算。',
+      confirmText: '暂时离开', cancelText: '继续填写', success: res => { if (res.confirm) leave() } })
+  },
+  updateFeeDraft(form, enabled, extra = {}) {
+    this.setData({ form, thresholdEnabled: enabled,
+      ...buildRuleState(form, enabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled), ...extra },
+    () => { this.persistFeeDraft(); this.syncFeeExitGuard() })
+  },
+  onCompleteSection(e) {
+    if (this.data.saving) return
+    const section = e.currentTarget.dataset.section || this.data.expandedSection
+    if (!RULE_FIELDS[section]) return
+    for (const field of RULE_FIELDS[section]) {
+      const error = fieldProblem(field, this.data.form[field], this.data.form, this.data.thresholdEnabled)
+      if (error) return this.feeFieldFailure(field, error)
+    }
+    const next = SECTION_ORDER[SECTION_ORDER.indexOf(section) + 1]
+    const completedSections = { ...this.data.completedSections, [section]: true }
+    const allReviewed = SECTION_ORDER.every(key => completedSections[key])
+    // 2026-10-26：直接跳到最后一项不等于核对过四项，不能提前给出「四项已核对」。
+    this.setData({ completedSections, fieldError: '',
+      ...(next ? { activeSection: next, expandedSection: next } : {}),
+      draftNotice: next ? '本项输入已保留，请继续下一项；最后仍需点击底部保存。'
+        : allReviewed ? '四项已核对，请点击底部保存完成上线准备。' : '本项已核对，请继续核对其余项目，最后在底部保存。' },
+    () => { this.persistFeeDraft(); this.syncFeeExitGuard(); if (next) this.scrollToFeeTarget('#fee-' + next) })
+  },
+  onFeeFieldConfirm(e) {
+    const field = e.currentTarget.dataset.field
+    if (!Object.prototype.hasOwnProperty.call(this.data.form, field)) return
+    // confirm 可能先于最后一次 input；以当前输入事件为准，不逐位跳转。
+    if (e.detail && typeof e.detail.value === 'string' && this.data.form[field] !== e.detail.value) this.onInput(e)
+    this.onCompleteSection({ currentTarget: { dataset: { section: FEE_FIELD_SECTIONS[field] } } })
+  },
 
   captureFeeWindow() {
     try { const info = typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()
@@ -512,7 +630,8 @@ Page({
     const field = e.currentTarget.dataset.field
     if (!Object.prototype.hasOwnProperty.call(this.data.form, field)) return
     const form = { ...this.data.form, [field]: e.detail.value }
-    this.setData({ form, ...buildRuleState(form, this.data.thresholdEnabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled), saveError: '',
+    const enabled = { ...this.data.thresholdEnabled, ...(THRESHOLD_FIELDS.includes(field) ? { [field]: true } : {}) }
+    this.updateFeeDraft(form, enabled, { completedSections: { ...this.data.completedSections, [FEE_FIELD_SECTIONS[field]]: false }, saveError: '',
       fieldError: this.data.fieldError === field ? '' : this.data.fieldError })
   },
 
@@ -521,8 +640,7 @@ Page({
     const field = e.currentTarget.dataset.field
     if (!THRESHOLD_FIELDS.includes(field)) return
     const enabled = { ...this.data.thresholdEnabled, [field]: e.currentTarget.dataset.enabled === 'on' }
-    this.setData({ thresholdEnabled: enabled,
-      ...buildRuleState(this.data.form, enabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled),
+    this.updateFeeDraft(this.data.form, enabled, { completedSections: { ...this.data.completedSections, [FEE_FIELD_SECTIONS[field]]: false },
       saveError: '', fieldError: this.data.fieldError === field ? '' : this.data.fieldError })
   },
 
@@ -533,7 +651,8 @@ Page({
     const modes = field === 'floorFeeMode' ? FLOOR_MODES : LIMIT_MODES
     if (!['minOrderMode', 'overRadiusMode', 'floorFeeMode'].includes(field) || !modes.some(it => it.value === value)) return
     const form = { ...this.data.form, [field]: value }
-    this.setData({ form, ...buildRuleState(form, this.data.thresholdEnabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled), fieldError: '', saveError: '' }, () => { this.syncModeDescriptions(); this.measureFeeSections() })
+    this.updateFeeDraft(form, this.data.thresholdEnabled, { completedSections: { ...this.data.completedSections, [FEE_FIELD_SECTIONS[field]]: false }, fieldError: '', saveError: '' })
+    this.syncModeDescriptions(); this.measureFeeSections()
   },
 
   /**
@@ -554,6 +673,10 @@ Page({
     }
 
     const enabled = this.data.thresholdEnabled || thresholdDefaults(f)
+    for (const field of Object.keys(f)) {
+      const problem = fieldProblem(field, f[field], f, enabled)
+      if (problem) return this.feeFieldFailure(field, problem)
+    }
     const requiredLabels = {
       minOrderBuckets: '设置起送桶数后请填写数值', minOrderAmount: '设置起送金额后请填写数值',
       deliveryRadiusM: '设置配送半径后请填写数值', freeDeliveryBuckets: '设置免运费桶数后请填写数值',
@@ -594,25 +717,39 @@ Page({
     }
 
     this.setData({ saving: true, fieldError: '', saveError: '' })
+    const saveContext = staffSession()
+    const stillHere = () => !this._unloaded && saveContext.app === getApp()
+      && saveContext.generation === staffSession().generation && saveContext.key === staffSession().key
     try {
-      await saveDeliveryConfig(payload)
-      await this.load()
+      const receipt = await saveDeliveryConfig(payload)
+      if (!stillHere()) return
+      if (receipt && receipt.code != null && receipt.code !== 0) throw new Error(receipt.message || '保存未成功，请重试')
+      this._readingSavedFee = true
+      try { await this.load() } finally { this._readingSavedFee = false }
+      if (!stillHere()) return
       this.loadSetup()
       if (this.data.configReady && this.data.configured && deliveryConfigReadbackMatches(this.data.form, payload)) {
+        const confirmed = { ...this.data.form }
+        for (const field of THRESHOLD_FIELDS) if (!submittedEnabled[field]) confirmed[field] = submittedForm[field]
+        this.setData({ form: confirmed, savedForm: { ...confirmed }, thresholdEnabled: submittedEnabled,
+          savedThresholdEnabled: { ...submittedEnabled }, completedSections: {}, hasUnsavedChanges: false,
+          ...buildRuleState(confirmed, submittedEnabled, true, confirmed, submittedEnabled), draftNotice: '', saveError: '' })
+        this.persistFeeDraft(); this.syncFeeExitGuard()
         wx.showToast({ title: '已保存并核对', icon: 'success' })
       } else {
         const readbackKnown = this.data.configReady && this.data.configured
-        if (readbackKnown) this.setData({ form: submittedForm, thresholdEnabled: submittedEnabled,
+        this.setData({ configReady: true, loading: false, configError: '', form: submittedForm, thresholdEnabled: submittedEnabled,
           ...buildRuleState(submittedForm, submittedEnabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled) })
-        this.setData({ saveError: readbackKnown
+        this.setData({ hasUnsavedChanges: true, saveError: readbackKnown
           ? '保存请求已提交，但回读内容与本次修改不一致；当前输入已保留，请重新读取后核对。'
           : '保存请求已提交，但配置回读未能确认；当前输入已保留，请重新读取后再判断状态。' })
       }
     } catch (err) {
+      if (!stillHere()) return
       this.setData({ saveError: err.message || '保存失败，输入已保留，请核对后重试' })
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })
     } finally {
-      this.setData({ saving: false })
+      if (stillHere()) { this.setData({ saving: false }); this.persistFeeDraft(); this.syncFeeExitGuard() }
     }
   }
 })

@@ -11,7 +11,19 @@ function groupSetupItems(items) {
   const groups = new Map()
   for (const it of items || []) { if (!it) continue; const key = pathOf(it.route) || it.where || ''
     if (!groups.has(key)) groups.set(key, []); groups.get(key).push(it) }
-  return Array.from(groups.values()).flatMap(rows => rows.map((it, index) => ({ ...it, moduleStart: index === 0 })))
+  // 2026-10-26：总览按模块导航，不能让同一页面的每个字段各占一张卡、重复「去填写」。
+  // 仍保留原条目和路由；文案只组合已下发的 label，不在这里重判完成条件。
+  return Array.from(groups.values()).flatMap(rows => {
+    const pending = rows.filter(it => !it.done)
+    const labels = Array.from(new Set((pending.length ? pending : rows).map(it => it.label).filter(Boolean)))
+    // 2026-10-26：总览的‘怎么做’只给一行；长说明曾挤满弹层，完整操作留在模块页。
+    const first = (pending.length ? pending : rows)[0]
+    const instruction = String(first.action || first.suggestion || ('进入' + (first.where || '模块') + '填写' + first.label)).replace(/\s+/g, ' ').trim()
+    const chars = Array.from(instruction.replace(/[。；;]+$/, ''))
+    const moduleHowTo = chars.slice(0, 16).join('') + (chars.length > 16 || rows.length > 1 ? '等' : '')
+    return rows.map((it, index) => ({ ...it, moduleStart: index === 0, moduleHowTo,
+      moduleDone: pending.length === 0, moduleLabels: labels.join('、'), moduleRows: index === 0 ? rows : [] }))
+  })
 }
 function progressPatch(guide) {
   const known = guide && Number.isSafeInteger(guide.p0PendingCount) && guide.p0PendingCount >= 0

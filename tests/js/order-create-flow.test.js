@@ -25,6 +25,19 @@ function productSectionTree() {
   return { tag: '#root', attrs: {}, children: [section] }
 }
 const productTree = productSectionTree()
+// 2026-10-26: parseWxml only checks tags; evaluate the actual submit text too so a
+// missing ternary parenthesis cannot hide behind otherwise passing flow tests.
+function submitButtonTree() {
+  const visit = node => {
+    if (node.attrs && node.attrs.bindtap === 'onSubmit' && /submit-btn/.test(node.attrs.class || '')) return node
+    for (const child of node.children || []) { const found = visit(child); if (found) return found }
+    return null
+  }
+  const button = visit(checkoutTree)
+  assert(button, 'checkout submit button exists')
+  return { tag: '#root', attrs: {}, children: [button] }
+}
+const submitTree = submitButtonTree()
 
 // 完成哨兵：**只用 ASCII**。受限沙箱下子进程往文件描述符写中文会被编码毁成 `?`，
 // 于是中文完成标记匹配不到、正常套件被误判成"未跑完"（2026-09-27 实测）。
@@ -884,6 +897,28 @@ await test('empty cart offers return to shopping, blocks submit, and locked orde
   const removeControl = renderElements(productTree, { ...empty.page.data, products: [{ id: 5 }], loading: false }, { includeText: true })
     .find(n => n.attrs.bindtap === 'onRemoveProduct')
   assert(removeControl && /submitState === 'creating'/.test(removeControl.attrs.disabled || '') && /submitState === 'unknown'/.test(removeControl.attrs.disabled || ''))
+})
+
+await test('submit button binding parses and preserves empty, blocked, submitting and payment recovery priority', () => {
+  const base = { products: [{ id: 5 }], blocked: false, submitting: false, pendingOrderId: null,
+    pendingOrderPaid: false, pendingOrderPaymentState: 'unpaid' }
+  const cases = [
+    [{}, '立即下单'],
+    [{ pendingOrderId: 77 }, '继续支付'],
+    [{ pendingOrderId: 77, pendingOrderPaid: true }, '查看这笔订单'],
+    ...['paid', 'unknown', 'pending', 'refunded', 'cancelled'].map(pendingOrderPaymentState =>
+      [{ pendingOrderId: 77, pendingOrderPaymentState }, '查看这笔订单']),
+    [{ submitting: true, pendingOrderId: 77 }, '提交中...'],
+    [{ blocked: true, submitting: true, pendingOrderId: 77 }, '暂不可下单'],
+    [{ products: [], blocked: true, submitting: true, pendingOrderId: 77 }, '先选商品']
+  ]
+  for (const [overrides, expected] of cases) {
+    const elements = renderElements(submitTree, { ...base, ...overrides }, { includeText: true })
+    const button = elements.find(n => n.attrs.bindtap === 'onSubmit')
+    assert.strictEqual(button.attrs.bindtap, 'onSubmit')
+    assert.strictEqual(elements.find(n => n.tag === 'text').text, expected, JSON.stringify(overrides))
+    assert.strictEqual(/\bdisabled\b/.test(button.className), !!(overrides.submitting || overrides.blocked || overrides.products?.length === 0))
+  }
 })
 
 console.log('')

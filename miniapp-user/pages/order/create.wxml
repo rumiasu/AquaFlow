@@ -346,8 +346,9 @@
           </view>
         </view>
         <!-- 硬拦 > 提交中 > 已有订单 > 常态；普通须知不增加提交门槛。 -->
+        <!-- 2026-10-26：此嵌套三元曾漏一个右括号，导致整端 WXML 编译失败；每层条件须完整闭合。 -->
         <view class="submit-btn {{(submitting || blocked || !products.length) ? 'disabled' : ''}}" bindtap="onSubmit">
-          <text>{{!products.length ? '先选商品' : (blocked ? '暂不可下单' : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid || pendingOrderPaymentState !== 'unpaid' ? '查看这笔订单' : '继续支付') : '立即下单'))}}</text>
+          <text>{{!products.length ? '先选商品' : (blocked ? '暂不可下单' : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid || pendingOrderPaymentState !== 'unpaid' ? '查看这笔订单' : '继续支付') : '立即下单')))}}</text>
         </view>
       </view>
     </view>

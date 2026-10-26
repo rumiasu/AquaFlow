@@ -58,9 +58,9 @@ function orderPage(paymentResult, queryResult, action = '查原单') {
   // 2026-10-10：旧布尔值把确认固定当重试，主次交换后会测错路径；按用户所选动作定位按钮。
   const showModal = env.wx.showModal.bind(env.wx)
   env.wx.showModal = modal => {
-    if (modal.title.startsWith('订单已提交')) {
+    if (env.page.data.lastSubmittedOrder) {
       assert([modal.confirmText, modal.cancelText].includes(action), 'requested payment action must be visible')
-      if (modal.title.includes('支付结果未知')) {
+      if (env.page.data.lastSubmittedOrder.paymentState === 'unknown') {
         assert.strictEqual(modal.confirmText, '查原单')
         assert.strictEqual(modal.cancelText, '再试一次')
       }
@@ -121,8 +121,11 @@ test('A control: 原单确认已付后不重付；未付确认后的续办始终
 test('A: 支付接口回应成功但原单回查超时，也只能告知结果未知', async () => {
   const t = orderPage(call => success(call, { status: 1 }), timeout)
   await t.page.onSubmit()
-  const modal = t.wx.__calls.modal.find(m => m.title.includes('支付结果未知'))
-  assert(modal && modal.content.includes('订单号 777') && modal.confirmText === '查原单')
+  assert.strictEqual(t.wx.__calls.modal.length, 1)
+  const modal = t.wx.__calls.modal[0]
+  assert.match(modal.title, /(?:付款|支付).*待确认|(?:付款|支付)结果未知/)
+  assert(modal.content.includes('订单号 777') && modal.content.includes('暂时查不到是否已付款'))
+  assert.strictEqual(modal.confirmText, '查原单')
   assert.strictEqual(modal.cancelText, '再试一次')
   assert.strictEqual(t.writes.length, 1); assert.strictEqual(t.payments.length, 1)
   assert.deepStrictEqual(t.reads, [777])

@@ -136,7 +136,14 @@ for (const mode of ['https', 'cloudContainer']) {
 test('cloud cached startup missing SDK is explicit, keeps cache, and makes no early global App read', async () => {
   const t = boot('miniapp-user', 'cloudContainer', true, { missingSDK: true }); await flush()
   assert.strictEqual(t.calls.length, 0); assert.strictEqual(t.earlyReads(), 0); assert.strictEqual(t.app.globalData.isLogin, true)
-  assert.match(t.wx.__calls.modal[0].content, /缺少云连接能力/)
+  assert.strictEqual(t.wx.__calls.modal.length, 1)
+  const modal = t.wx.__calls.modal[0]
+  assert.match(modal.title, /服务.*不可用/)
+  assert.match(modal.content, /无法连接服务.*(?:稍后|重试)/)
+  assert.strictEqual(modal.showCancel, false)
+  assert.strictEqual(t.wx.getStorageSync(t.K.ACCESS_TOKEN), 'synthetic-cached-access')
+  assert.strictEqual(t.wx.getStorageSync(t.K.REFRESH_TOKEN), 'synthetic-cached-refresh')
+  assert.strictEqual(t.wx.__calls.nav.length, 0)
 })
 test('cloud cached startup initialization rejection keeps cache and explains setup', async () => {
   const t = boot('miniapp-user', 'cloudContainer', true, { init: () => Promise.reject(Error('synthetic init failure')) }); await flush()

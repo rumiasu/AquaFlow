@@ -1,5 +1,6 @@
 const assert=require('assert'),fs=require('fs'),path=require('path')
 const { loadPage,createWx,createApp,armWatchdog,ROOT }=require('./harness')
+const { parseWxml }=require('./wxml-tree')
 const done=armWatchdog(30000),tests=[]
 const test=(name,run)=>tests.push({name,run})
 const tick=()=>new Promise(r=>setImmediate(r))
@@ -38,6 +39,25 @@ test('onShow clears previous identity numbers before its new response',async()=>
 test('unload invalidates pending asset responses',async()=>{const d=deferred(),t=fixture({summary:()=>d.promise});const p=t.page.loadAssets();t.page.onUnload();d.resolve({code:0,data:{depositBalance:999,heldBuckets:9}});await p;assert.equal(t.page.data.deposit,null)})
 test('logout prevents earlier asset response from repopulating the visitor page',async()=>{const d=deferred(),t=fixture({summary:()=>d.promise});t.app.clearLoginInfo=()=>{t.app.globalData.isLogin=false;t.app.globalData.customerId=null};const p=t.page.loadAssets();t.page.onLogout();d.resolve({code:0,data:{depositBalance:999,heldBuckets:9}});await p;assert.equal(t.page.data.isLogin,false);assert.equal(t.page.data.deposit,null)})
 test('retry performs only the current three reads and recovers real assets',async()=>{let n=0;const t=fixture({summary:async()=>++n===1?Promise.reject(Error('失败')):{code:0,data:{depositBalance:30,heldBuckets:3}}});await t.page.loadAssets();await t.page.onRetryAssets();assert.equal(n,2);assert.equal(t.page.data.deposit,30);assert.equal(t.calls.includes('unused-stats'),false);assert.equal(t.page.data.unloadedCount,0)})
-test('asset clicks use actual WXML routes and preserve deposit handling and bill access',()=>{const w=source(),t=fixture(),app=jsonParse('miniapp-user/app.json');const grid=w.match(/<view class="assets-grid">([\s\S]*?)<view class="assets-unloaded-tip"/)[1];const routes=[...grid.matchAll(/data-url="([^"]+)"/g)].map(x=>x[1]);assert.deepStrictEqual(routes,['/pages/deposit/records/index','/pages/ticket/index','/pages/barrel/index']);for(const url of routes){assert.ok(app.pages.includes(url.slice(1)));t.page.onMenuTap({currentTarget:{dataset:{url}}});assert.equal(t.wx.__calls.nav.at(-1).type,'navigateTo');assert.equal(t.wx.__calls.nav.at(-1).url,url+'?stationId=1');assert.deepStrictEqual(t.wx.getStorageSync('selectedStation'),{id:1,name:'测试站'})}assert.ok(w.includes('data-url="/pages/payment/records"'));assert.ok(w.includes('data-url="/pages/barrel/index" bindtap="onMenuTap">退桶退押金'));const barrel=fs.readFileSync(path.join(ROOT,'miniapp-user/pages/barrel/index.wxml'),'utf8');assert.ok(barrel.includes('bindtap="onPurchaseRights"'));assert.ok(barrel.includes('bindtap="onShowReturnModal"'))})
+test('asset clicks use actual WXML routes and preserve deposit handling and bill access',()=>{
+ const w=source(),t=fixture(),app=jsonParse('miniapp-user/app.json')
+ const hasClass=(node,name)=>(node.attrs?.class || '').split(/\s+/).includes(name)
+ const findGrid=node=>hasClass(node,'assets-grid')?node:(node.children || []).map(findGrid).find(Boolean)
+ const grid=findGrid(parseWxml(w));assert.ok(grid,'资产格子必须存在')
+ const cells=grid.children.filter(n=>hasClass(n,'asset-cell')),routes=cells.map(n=>n.attrs['data-url'])
+ // 水票是当前主入口；另外两项的展示顺序不决定是否可达，三项均须保留且不得重复。
+ assert.deepStrictEqual([...routes].sort(),['/pages/deposit/records/index','/pages/ticket/index','/pages/barrel/index'].sort())
+ const primary=cells.filter(n=>hasClass(n,'asset-cell-primary'))
+ assert.equal(primary.length,1);assert.equal(primary[0].attrs['data-url'],'/pages/ticket/index')
+ for(const cell of cells){
+  const url=cell.attrs['data-url'];assert.equal(cell.attrs.bindtap,'onMenuTap');assert.ok(app.pages.includes(url.slice(1)))
+  t.page.onMenuTap({currentTarget:{dataset:{url}}})
+  assert.equal(t.wx.__calls.nav.at(-1).type,'navigateTo');assert.equal(t.wx.__calls.nav.at(-1).url,url+'?stationId=1')
+  assert.deepStrictEqual(t.wx.getStorageSync('selectedStation'),{id:1,name:'测试站'})
+ }
+ assert.ok(w.includes('data-url="/pages/payment/records"'));assert.ok(w.includes('data-url="/pages/barrel/index" bindtap="onMenuTap">退桶退押金'))
+ const barrel=fs.readFileSync(path.join(ROOT,'miniapp-user/pages/barrel/index.wxml'),'utf8')
+ assert.ok(barrel.includes('bindtap="onPurchaseRights"'));assert.ok(barrel.includes('bindtap="onShowReturnModal"'))
+})
 function jsonParse(file){return JSON.parse(fs.readFileSync(path.join(ROOT,file),'utf8'))}
 ;(async()=>{let failed=0;for(const t of tests){try{await t.run();console.log('PASS '+t.name)}catch(e){failed++;console.error('FAIL '+t.name+' '+e.stack)}}done();console.log('RESULT '+(tests.length-failed)+'/'+tests.length);if(failed)process.exitCode=1;else console.log('AQUAFLOW_SUITE_OK '+tests.length)})()

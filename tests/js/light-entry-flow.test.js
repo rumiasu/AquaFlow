@@ -81,10 +81,25 @@ test('a rejected catalog response cannot masquerade as successfully priced produ
 
 test('completed contact uses the receiver snapshot and catches the card tap', async () => {
   const text=fs.readFileSync(path.join(ROOT,'miniapp-delivery/pages/home/index.wxml'),'utf8')
-  const completed=text.slice(text.indexOf('<!-- 已完成列表 -->'),text.indexOf('<view class="loading-state"'))
-  assert.ok(completed.includes('catchtap="onCallCustomer" data-phone="{{item.receiverPhone || item.customerPhone}}"'))
+  // 业务注释不是定位接口；以实际completed分支渲染收件快照与客户档案冲突的场景。
+  const findCompleted = node => node.attrs?.['wx:elif']?.replace(/\s/g, '') === "{{activeTab==='completed'}}"
+    ? node : (node.children || []).map(findCompleted).find(Boolean)
+  const completed = findCompleted(parseWxml(text))
+  assert.ok(completed, 'completed列表必须存在')
   const wx=createWx(), calls=[]; wx.makePhoneCall=options=>calls.push(options.phoneNumber)
   const page=loadPage('miniapp-delivery/pages/home/index.js',{wx,app:createApp()})
+  for (const [receiverPhone, customerPhone, expected] of [
+    ['synthetic-receiver', 'synthetic-profile', 'synthetic-receiver'],
+    ['', 'synthetic-profile', 'synthetic-profile'], ['', '', null]
+  ]) {
+    const nodes = renderElements(completed, { ...page.data, completedOrders: [{ id: 7, receiverPhone, customerPhone }] }, { includeText: true })
+    const contacts = nodes.filter(n => n.attrs.catchtap === 'onCallCustomer')
+    assert.equal(contacts.length, expected ? 1 : 0)
+    if (expected) {
+      assert.equal(contacts[0].text, expected)
+      assert.equal(contacts[0].attrs['data-phone'].replace(/\s/g, ''), '{{item.receiverPhone||item.customerPhone}}')
+    }
+  }
   page.onCallCustomer({currentTarget:{dataset:{phone:'synthetic-receiver'}}})
   assert.deepStrictEqual(calls,['synthetic-receiver'])
   page.onCallCustomer({currentTarget:{dataset:{phone:''}}})

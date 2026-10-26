@@ -915,7 +915,8 @@ Page({
       const proof = this.inventoryOperationProof()
       this._stockConfirmPending = true
       this.setData({ stockConfirmPending: true })
-      wx.showModal({ confirmColor: '#A83B32', cancelColor: '#637083',  confirmText: '确认登记报损', cancelText: '返回修改', title: '确认登记短缺 / 报损', editable: true, placeholderText: '短缺原因及依据（必填）',
+      // 2026-10-26：原按钮6字超过原生弹窗限制；缩短按钮，影响说明保留在标题和正文。
+      wx.showModal({ confirmColor: '#A83B32', cancelColor: '#637083',  confirmText: '确认报损', cancelText: '返回修改', title: '确认登记短缺 / 报损', editable: true, placeholderText: '短缺原因及依据（必填）',
         content: '实物数量将从 ' + setting.quantity + ' 件调整为 ' + qty + ' 件。系统会按订单需要顺序减少订单预留并提示受影响订单；请在业务待办中跟进补货、协商延期或取消退款。确认后会保留短缺原因、库存流水和审计记录。',
         success: res => {
           this.clearStockConfirmation()

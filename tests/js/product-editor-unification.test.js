@@ -217,7 +217,7 @@ test('physical shortage uses remaining quantity and keeps order-impact confirmat
   const t = fixture(); const row = item(); t.page.setData({ list: [row] }); t.page.onOpenInventory(event(row)); let modal; t.wx.showModal = o => { modal = o }
   t.page.onStockModeChange({ currentTarget: { dataset: { mode: 'loss' } } })
   t.page.onStockInput({ detail: { value: '8' } }); t.page.onSubmitStock()
-  assert.equal(modal.title, '确认登记短缺 / 报损'); assert.equal(modal.confirmText, '确认登记报损')
+  assert.equal(modal.title, '确认登记短缺 / 报损'); assert.equal(modal.confirmText, '确认报损')
   assert(modal.content.includes('从 10 件调整为 8 件')); assert(modal.content.includes('按订单需要顺序减少订单预留'))
   assert(modal.content.includes('补货、协商延期或取消退款'))
   assert.equal(modal.editable, true); assert.equal(t.calls.length, 0)

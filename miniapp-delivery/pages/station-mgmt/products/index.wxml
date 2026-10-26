@@ -1,5 +1,5 @@
 <import src="../../../templates/setup-module-tasks.wxml" />
-<page-meta page-style="{{showEdit || showSetting || showInventory ? 'overflow: hidden;' : ''}}" />
+<page-meta page-style="{{showEdit || showSetting || showInventory || showRecords ? 'overflow: hidden;' : ''}}" />
 <view class="container">
   <template is="setupModuleTasks" data="{{tasks:moduleSetupTasks,loading:moduleSetupLoading,ready:moduleSetupReady,error:moduleSetupError}}" />
   <!-- 隐私授权弹窗：本页用 wx.chooseImage 传商品图，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
@@ -57,6 +57,9 @@
       <view class="info">
         <view class="name-row">
           <text class="name">{{item.displayName}}</text>
+          <text class="tag off" wx:if="{{item.status === 0 || item.status === 2}}">{{item.status === 2 ? '已停售' : '已停用'}}</text>
+          <text class="tag on" wx:if="{{item.selected && item.enabled === 1 && item.status !== 0 && item.status !== 2}}">已上架</text>
+          <text class="tag off" wx:if="{{item.selected && item.enabled !== 1 && item.status !== 0 && item.status !== 2}}">未上架</text>
           <text class="tag platform" wx:if="{{!item.ownerStationId}}">平台</text>
           <text class="tag mine" wx:if="{{item.ownerStationId}}">自定义</text>
           <text class="tag submit" wx:if="{{item.submission}}">上报·{{item.submission.statusText}}</text>
@@ -67,9 +70,6 @@
 
         <view class="tags">
           <text class="tag stock" wx:if="{{item.selected}}">库存 {{item.stockText}}</text>
-          <text class="tag off" wx:if="{{item.status === 0 || item.status === 2}}">{{item.status === 2 ? '已停售' : '已停用'}}</text>
-          <text class="tag on" wx:if="{{item.selected && item.enabled === 1 && item.status !== 0 && item.status !== 2}}">已上架</text>
-          <text class="tag off" wx:if="{{item.selected && item.enabled !== 1 && item.status !== 0 && item.status !== 2}}">未上架</text>
           <text class="tag price" wx:if="{{item.selected}}">本站价 ¥{{item.effectivePriceText}}</text>
           <text class="tag ticket" wx:if="{{item.selected && item.ticketEnabled === 1}}">水票 ¥{{item.ticketPrice}}</text>
           <text class="tag star" wx:if="{{item.selected && item.priorityDisplay === 1}}">优先展示</text>
@@ -136,7 +136,7 @@
   <!-- ============ 自己定义商品 ============ -->
   <!-- 2026-10-26: only one native page-container per page. A second inventory container
        never opened while page-meta still locked scrolling. Both tasks share this host. -->
-  <page-container show="{{showEdit || showInventory}}" position="bottom" overlay="{{true}}" close-on-slide-down="{{false}}" duration="{{0}}" custom-style="height:100%;background:transparent;" bindbeforeleave="onProductPanelBeforeLeave" bindclickoverlay="closeProductPanel">
+  <page-container show="{{showEdit || showInventory || showRecords}}" position="bottom" overlay="{{true}}" close-on-slide-down="{{false}}" duration="{{0}}" custom-style="height:100%;background:transparent;" bindbeforeleave="onProductPanelBeforeLeave" bindclickoverlay="closeProductPanel">
   <view class="product-editor-stage" wx:if="{{showEdit}}">
   <view class="modal-mask product-editor-dismiss-area" catchtouchmove="preventMove" bindtap="closeEdit"></view>
   <view class="modal product-edit-modal" wx:if="{{showEdit}}" style="{{productEditSheetStyle}}" catchtap="stopPropagation">
@@ -255,23 +255,25 @@
       <view class="pkg-block" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
         <view class="pkg-head">
           <view class="pkg-title-row">
-            <text class="pkg-title">水票档位</text>
+            <text class="pkg-title">水票套餐</text>
             <!-- [2026-09-24] 这段说明原来在本文件里**原样出现了两次**（另一处在独立档位模块），
                  每次都平铺一整行。现在统一收进「?」；两处文字必须保持逐字一致 ——
                  改一处要一起改，否则同一条规则两个说法。 -->
-            <help-tip title="水票档位" text="填「张数 + 总价」，例如 10 张 190 元；清空总价 = 删除该档位（保存后生效）。没有档位时客户只能按单张价购买。" />
+            <help-tip title="水票档位" text="填写每份张数和套餐总价，1 张也可以。只有点删除才会移除旧套餐；未填写的默认草稿不会保存。" />
           </view>
           <text class="link" catchtap="onOpenTicketPackages">更多档位设置 ›</text>
         </view>
         <view class="pkg-row-wrap" wx:for="{{pkgRows}}" wx:key="key">
+          <view class="pkg-row-labels"><text>每份张数</text><text>套餐总价</text><text class="pkg-draft-badge" wx:if="{{item.defaultDraft && !item.touched}}">未保存草稿</text></view>
           <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}">
             <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" disabled="{{productInactive || saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="张数" />
-            <text class="pkg-unit">张</text>
+            <text class="pkg-unit">张 / 份</text>
             <text class="pkg-arrow"></text>
-            <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{productInactive || saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="总价" />
+            <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{productInactive || saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="价格待填写" />
             <text class="pkg-unit">元</text>
             <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销删除' : '删除'}}</text>
           </view>
+          <view class="pkg-shelf" wx:if="{{!item.deleted && !item.defaultDraft}}"><text>{{item.onShelf === false ? '已下架' : '在售'}}</text><switch checked="{{item.onShelf !== false}}" data-index="{{index}}" bindchange="onPkgShelfChange" disabled="{{productInactive || saving || inboundBusy || pkgLoading || pkgError}}" /></view>
           <text class="pkg-delete-pending" wx:if="{{item.deleted}}">待删除，保存后移除；点“撤销删除”可恢复</text>
         </view>
         <text class="pkg-validation-error" wx:if="{{pkgValidationError}}">{{pkgValidationError}}</text>
@@ -281,14 +283,6 @@
         <text class="link" wx:if="{{pkgReady && !pkgLoading && !pkgError}}" catchtap="onAddPkgRow">＋ 加一档</text>
       </view>
 
-      <view class="ticket-retail-setting" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
-        <view class="product-section-heading"><text class="product-section-title">单张购买</text><text class="product-section-caption">可选设置</text></view>
-        <text class="product-field-help">水票档位优先展示；需要单张购买时，再设置单张价格。</text>
-        <view class="form-item">
-          <text class="label">单张价（元/张）</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="digit" placeholder="如：20" value="{{editForm.ticketPrice}}" data-field="ticketPrice" bindinput="onEditFieldInput" disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
-        </view>
-      </view>
 
           </view>
           <view class="product-edit-group product-form-section stock-editor product-initial-stock" wx:if="{{isAdd}}">
@@ -347,7 +341,7 @@
             <view class="modal-header">商品库存</view>
             <button class="product-edit-close" bindtap="closeInventory" disabled="{{saving || inboundBusy || stockOperationBusy}}" aria-label="关闭库存操作">关闭 ×</button>
           </view>
-          <text class="modal-sub">{{setting.name}} · 当前库存 {{setting.quantity == null ? '尚未读取' : setting.quantity + ' 件'}}</text>
+          <view class="inventory-summary"><view><text class="inventory-eyebrow">{{setting.name}}</text><text class="inventory-stock-number">{{setting.quantity == null ? '—' : setting.quantity}}<text> 件</text></text><text class="inventory-stock-label">{{setting.quantity == null ? '库存尚未读取' : '当前实物库存'}}</text></view><button class="inventory-history" bindtap="onFilterRecordsByCurrent" disabled="{{inboundBusy || stockOperationBusy}}">查看流水 ›</button></view>
         </view>
         <scroll-view class="product-edit-body inventory-body" scroll-y enhanced show-scrollbar>
           <view class="inventory-content">
@@ -360,17 +354,17 @@
               <button class="{{stockMode === 'in' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="in" disabled="{{saving || inboundBusy || stockOperationBusy}}">入库</button>
               <button class="{{stockMode === 'check' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="check" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy}}">核对</button>
               <button class="{{stockMode === 'loss' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="loss" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy}}">短缺</button>
-              <button class="inventory-history" bindtap="onFilterRecordsByCurrent" disabled="{{inboundBusy || stockOperationBusy}}">流水</button>
             </view>
             <view class="inventory-operation-card">
               <view class="product-section-heading">
                 <text class="product-section-title">{{stockMode === 'in' ? '进货入库' : stockMode === 'check' ? '核对库存' : '登记商品短缺'}}</text>
-                <text class="product-section-caption">{{setting.quantity == null ? '库存待读取' : '现有 ' + setting.quantity + ' 件'}}</text>
+                <text class="product-section-caption">{{stockMode === 'in' ? '增加数量' : '更新实物总数'}}</text>
               </view>
               <text class="product-field-help">{{stockMode === 'in' ? '填写本次到货数量，库存会在现有数量上增加。' : stockMode === 'check' ? '填写实物总数，不是增减数量；确认后会记录差额。' : '填写实物剩余总数；登记前需填写短缺原因，并提示受影响订单。'}}</text>
               <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="number" placeholder="{{stockMode === 'in' ? '本次到货数量' : '实际剩余总数'}}" value="{{stockInput}}" bindinput="onStockInput" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy || setting.quantity == null}}" />
-              <view class="stock-preview" wx:if="{{stockAfterText}}"><text>{{stockAfterText}}</text></view>
-              <text class="inventory-submit-note">本次操作立即登记，不修改商品资料或售价。</text>
+              <view class="stock-preview" wx:if="{{stockAfterText && inboundRecovery}}"><text>{{stockAfterText}}</text></view>
+              <view class="stock-preview" wx:elif="{{stockAfterText}}"><text class="inventory-preview-label">操作后库存</text><text class="inventory-preview-result">{{stockAfterNumber}} 件</text><text class="inventory-preview-delta">本次变化 {{stockDeltaText}}</text></view>
+              <text class="inventory-submit-note">{{stockMode === 'loss' ? '提交后需确认短缺原因及受影响订单' : '商品资料与售价保持不变'}}</text>
             </view>
           </view>
         </scroll-view>
@@ -380,13 +374,10 @@
         </view>
       </view>
     </view>
-  </page-container>
-
   <!-- ============ 库存流水 ============ -->
-  <view class="modal-mask" wx:if="{{showRecords}}" catchtouchmove="preventMove" bindtap="closeRecords">
-    <view class="modal" catchtap="stopPropagation">
-      <view class="modal-header">库存流水</view>
-      <view class="modal-sub">入库、库存核对、商品短缺和配送出库均有记录；下单预留及取消释放不改变实物</view>
+  <view class="modal-mask records-mask" wx:if="{{showRecords}}" bindtap="closeRecords">
+    <view class="modal inventory-records-sheet" catchtap="stopPropagation">
+      <view class="records-heading"><view><view class="modal-header">库存流水</view><text class="records-subtitle">按时间查看实物库存变化</text></view><button class="product-edit-close" bindtap="closeRecords">关闭 ×</button></view>
 
       <view class="filter-row">
         <text class="filter-chip" wx:if="{{recordsFilterName}}">
@@ -397,27 +388,27 @@
       </view>
 
       <view class="ui-state" wx:if="{{recordsError}}"><text class="ui-state-copy">{{recordsError}}</text><button size="mini" bindtap="loadRecords">重新读取流水</button></view>
-      <view class="records" wx:elif="{{recordsReady && !recordsLoading}}">
-        <view class="record" wx:for="{{records}}" wx:key="id">
+      <scroll-view class="records inventory-records-body" scroll-y enhanced show-scrollbar wx:elif="{{recordsReady && !recordsLoading}}">
+        <view class="record inventory-record {{item.direction}}" wx:for="{{records}}" wx:key="id">
           <view class="record-main">
             <text class="record-product">{{item.productText}}</text>
             <text class="record-meta">{{item.timeText}} · {{item.refText}}</text>
           </view>
-          <text class="record-type">{{item.typeText}}</text>
-          <text class="record-delta {{item.delta > 0 ? 'plus' : 'minus'}}">{{item.deltaText}}</text>
+          <view class="record-change"><text class="record-type">{{item.typeText}}</text><text class="record-delta {{item.delta > 0 ? 'plus' : 'minus'}}">{{item.deltaText}}<text> 件</text></text></view>
+          <view class="record-detail"><text>{{item.note || '已登记库存变化'}}</text><text>{{item.resultText}}</text></view>
         </view>
         <view class="empty" wx:if="{{records.length === 0}}"><text>暂无流水</text></view>
         <view class="load-more" wx:if="{{records.length >= recordsLimit}}" bindtap="onLoadMoreRecords">
           <text>加载更多（当前 {{records.length}} 条）</text>
         </view>
-      </view>
+      </scroll-view>
       <view class="loading" wx:elif="{{recordsLoading}}">正在读取库存流水…</view>
 
-      <view class="modal-footer">
-        <button class="btn-save" bindtap="closeRecords">关闭</button>
-      </view>
+
     </view>
   </view>
+
+  </page-container>
 
   <!-- ============ 上报记录（自定义商品上报通用库的处理进度）============ -->
   <view class="modal-mask" wx:if="{{showSubmissions}}" catchtouchmove="preventMove" bindtap="closeSubmissions">

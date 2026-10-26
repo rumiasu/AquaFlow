@@ -49,7 +49,7 @@
           <text class="balance-count">{{accountsFailed && !accountsStale ? '—' : totalTickets}}</text>
           <text class="balance-unit">张</text>
         </view>
-        <text class="balance-total" wx:if="{{totalValue > 0}}">按当前票价估算 ¥{{totalValue}}（非退款金额）</text>
+        <text class="balance-total" wx:if="{{totalValue > 0}}">剩余批次票面额 ¥{{totalValue}}（非退款金额）</text>
       </view>
       <view class="balance-icon"><icon name="ticket" size="56rpx" color="rgba(255,255,255,0.9)" /></view>
     </view>
@@ -162,7 +162,7 @@
         >
           <text class="product-name">{{item.name}}</text>
           <!-- 面值 = 本站水票价（后端 effectiveTicketPrice），与扣款同源 -->
-          <text class="product-price" wx:if="{{item.effectiveTicketPrice}}">¥{{item.effectiveTicketPrice}}/张</text>
+          <text class="product-price">查看套餐</text>
         </view>
       </view>
 
@@ -171,50 +171,39 @@
              · UNIFIED = 站级统一折扣按**这款水自己的价**折算出来的档位。
            总价与均价全部用服务端下发的值，这里不做 price/qty 的算术。 -->
       <block wx:if="{{buyPackages.length}}">
-        <text class="modal-label">选择购票档位</text>
+        <text class="modal-label">选择水票套餐</text>
         <view class="pkg-list">
           <view
-            class="pkg-item {{(buyForm.packageId && buyForm.packageId === item.packageId) || (buyForm.unifiedQty && buyForm.unifiedQty === item.qty && item.source === 'UNIFIED') ? 'active' : ''}}"
+            class="pkg-item {{buyForm.selectedTierKey === item.selectionKey ? 'active' : ''}}"
             wx:for="{{buyPackages}}"
-            wx:key="qty"
-            data-id="{{item.packageId || item.qty}}"
+            wx:key="selectionKey"
+            data-id="{{item.packageId || item.id || item.qty}}"
             data-source="{{item.source}}"
             bindtap="onBuyPackageSelect"
           >
             <text class="pkg-title">{{item.title || item.qty + ' 张'}}</text>
             <text class="pkg-price">¥{{item.price}}</text>
-            <text class="pkg-sub">{{item.qty}} 张 · 均价 ¥{{item.unitPrice}}/张</text>
+            <text class="pkg-sub">每份 {{item.qty}} 张 · ¥{{item.unitPrice}}/张</text>
           </view>
-        </view>
-        <view class="pkg-clear" bindtap="onBuyPackageClear">
-          {{buyForm.packageId || buyForm.unifiedQty ? '不按档位，改为散买' : '当前：按单张散买'}}
         </view>
       </block>
 
       <!--
         [2026-09-20] 档位（优惠价目表）没拉到时的说明。原来这里什么都不显示 ——
         客户看到的就是"这款水没有优惠档位"，与"确实没配档位"无法区分（AGENTS §8.22）。
-        不阻断买票（照旧可以按单张散买），只把实情说出来。
+        套餐未核实时提示重新读取；原购买仍按持久凭据恢复。
       -->
       <text class="modal-label" wx:if="{{packagesLoading}}">正在读取购票档位…</text>
       <view class="load-error" wx:if="{{packagesError}}">{{packagesError}}<button bindtap="onRetryPackages">重新加载档位</button></view>
-      <text class="modal-label" wx:if="{{packagesLoaded && !buyPackages.length && !packagesError}}">本商品未设置购票档位，散买价格请见下方。</text>
+      <text class="modal-label" wx:if="{{packagesLoaded && !buyPackages.length && !packagesError}}">本商品暂未设置可购套餐，请联系水站。</text>
 
-      <!-- 数量：张数由所选档位决定（后端会校验张数必须等于档位张数） -->
-      <text class="modal-label">购买数量</text>
-      <text class="modal-label" wx:if="{{buyForm.productId && !buyForm.packageId && !buyForm.unifiedQty && !(buyForm.faceValue > 0)}}">单张票价尚未核实，请选择购票档位或联系水站。</text>
-      <view class="qty-row">
-        <view class="qty-btn {{buyForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onBuyQtyStep" data-type="minus">
-          <text>-</text>
-        </view>
-        <input class="qty-input" type="number" value="{{buyForm.quantity}}" bindinput="onBuyQuantityInput" />
-        <view class="qty-btn" bindtap="onBuyQtyStep" data-type="add">
-          <text>+</text>
-        </view>
+      <view class="purchase-copies" wx:if="{{buyForm.selectedTierKey}}">
+        <view class="copies-heading"><text>购买份数</text><text>每份 {{buyForm.packageQty}} 张 · ¥{{buyForm.packagePrice}}</text></view>
+        <view class="qty-row"><button class="qty-btn" bindtap="onBuyQtyStep" data-type="minus" disabled="{{submitting || buyForm.copies <= 1}}">−</button><input class="qty-input" type="number" value="{{buyForm.copies}}" bindinput="onBuyQuantityInput" disabled="{{submitting}}" /><button class="qty-btn" bindtap="onBuyQtyStep" data-type="add" disabled="{{submitting}}">＋</button></view>
+        <view class="purchase-total"><text>共 {{buyForm.quantity == null ? '—' : buyForm.quantity}} 张</text><text>合计 ¥{{buyForm.totalPrice == null ? '—' : buyForm.totalPrice}}</text></view>
+        <text class="purchase-copies-error" wx:if="{{purchaseCopiesError}}">{{purchaseCopiesError}}</text>
+        <text class="pkg-lock">按整份购买，单次最多 5000 张。付款金额以本次购买结果为准。</text>
       </view>
-      <text class="pkg-lock" wx:if="{{buyForm.packageId || buyForm.unifiedQty}}">
-        已按档位锁定张数；改数量会自动退回「按单张散买」。
-      </text>
 
       <!-- 支付方式 -->
       <text class="modal-label">支付方式</text>
@@ -239,8 +228,8 @@
       <view class="modal-btn cancel" bindtap="onClosePurchase">
         <text>取消</text>
       </view>
-      <button class="modal-btn confirm {{submitting ? 'disabled' : ''}}" bindtap="onBuySubmit" disabled="{{submitting || !buyForm.productId || buyForm.totalPrice == null || (!buyForm.packageId && !buyForm.unifiedQty && !(buyForm.faceValue > 0))}}">
-        <text>{{submitting ? '购买中…' : (!buyForm.productId ? '请先选择商品' : (buyForm.totalPrice == null ? '金额待核实' : (!buyForm.packageId && !buyForm.unifiedQty && !(buyForm.faceValue > 0) ? '请先选择购票档位' : '确认购买 ¥' + buyForm.totalPrice)))}}</text>
+      <button class="modal-btn confirm {{submitting ? 'disabled' : ''}}" bindtap="onBuySubmit" disabled="{{submitting || !buyForm.productId || !buyForm.selectedTierKey || buyForm.totalPrice == null}}">
+        <text>{{submitting ? '购买中…' : !buyForm.productId ? '请先选择商品' : !buyForm.selectedTierKey ? '请选择水票套餐' : purchaseCopiesError ? '请核对购买份数' : buyForm.totalPrice == null ? '金额待核实' : '确认购买 ¥' + buyForm.totalPrice}}</text>
       </button>
     </view>
   </view>

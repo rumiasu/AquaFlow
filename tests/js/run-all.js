@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'ticket-package-copies.test.js', name: '套餐默认草稿、1张兼容、多份总价、原款恢复与删除/下架保存' },
   { file: 'product-inventory-host.test.js', name: '单一原生商品容器、库存可见/关闭、滚动锁、连点、切换、失败与键盘恢复' },
   {file:'fix-grid-regressions.test.js',name:'商品身份/停用恢复、保存输入、申请错误与管理宫格回归'},
   {file:'settings-feedback.test.js',name:'设置模块导航、管理权限与入口、配送上线事实和应收统计布局'},

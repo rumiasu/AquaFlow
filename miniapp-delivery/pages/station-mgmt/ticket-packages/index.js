@@ -329,7 +329,7 @@ Page({
     const id = Number(e.currentTarget.dataset.id)
     wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',  confirmText: '确认删除',
       title: this.data.isUnified ? '删除这个折扣档？' : '删除这个档位？',
-      content: '只删这一行配置。已经卖出去的水票不受影响 —— 它们的单价在批次里另存了快照。',
+        content: '移除后顾客不能再选这一档。1 张档会保留停用占位，避免旧价格重新启用；已售水票及原付款记录不变。',
       success: async (r) => {
         if (!r.confirm) return
         try {

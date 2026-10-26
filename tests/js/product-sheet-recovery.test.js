@@ -17,7 +17,7 @@ const tree = () => parseWxml(source('wxml'))
 
 test('editor and inventory sheets keep native scrollers free of touch blockers and footers outside bodies', () => {
   const root = tree(), sheets = nodes(root, n => hasClass(n, 'product-edit-modal'))
-  assert.equal(root.children.find(n => n.tag === 'page-meta').attrs['page-style'], "{{showEdit || showSetting || showInventory ? 'overflow: hidden;' : ''}}")
+  assert.equal(root.children.find(n => n.tag === 'page-meta').attrs['page-style'], "{{showEdit || showSetting || showInventory || showRecords ? 'overflow: hidden;' : ''}}")
   assert.equal(sheets.length, 2)
   for (const { node, ancestors } of sheets) {
     assert(![...ancestors, node].some(n => n.attrs && 'catchtouchmove' in n.attrs))
@@ -83,7 +83,11 @@ for (const resized of [false, true]) test('short-screen keyboard footer geometry
   height = 568; f.p.onProductKeyboardHeightChange({ detail: { height: 0 } })
   assert(f.p.data.productEditSheetStyle.includes('height:512px'))
   const inputs = nodes(tree(), n => n.tag === 'input' && n.attrs['bindkeyboardheightchange'])
-  assert(inputs.length > 10); assert(inputs.every(({ node }) => node.attrs['adjust-position'] === '{{false}}' && node.attrs.bindblur === 'onProductKeyboardBlur'))
+  // Assert the active controls, not the old count that included a separate retail-price input.
+    for (const handler of ['onEditFieldInput', 'onPkgQtyInput', 'onPkgPriceInput', 'onStockInput']) {
+      assert(inputs.some(n => n.node.attrs.bindinput === handler), 'missing editable control: ' + handler)
+    }
+    assert(!inputs.some(n => n.node.attrs['data-field'] === 'ticketPrice')); assert(inputs.every(({ node }) => node.attrs['adjust-position'] === '{{false}}' && node.attrs.bindblur === 'onProductKeyboardBlur'))
 })
 test('keyboard blur restores sheet height when native height-zero callback is missing', async () => {
   const f = pageFixture('product'); f.wx.getWindowInfo = () => ({ windowHeight: 568 }); f.p.openAdd()

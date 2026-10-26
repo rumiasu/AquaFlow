@@ -234,7 +234,7 @@ function newPage(scenario) {
     const before = t.page.data.pendingPurchase.body
     t.page.onClosePurchase()
     t.page.onBuyPaymentMethodSelect({ currentTarget: { dataset: { id: 2 } } })
-    t.page.applyLooseQty(10)
+    t.page.applyPurchaseCopies(10)
     assert.deepStrictEqual(t.page.data.pendingPurchase.body, before)
     assert.strictEqual(t.page.data.buyForm.quantity, 1)
     assert.strictEqual(t.page.data.buyForm.paymentMethod, 1)

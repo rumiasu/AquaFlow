@@ -107,7 +107,7 @@ test('one native container owns both tasks and preserves the original two-page s
   const root = tree(), containers = find(root, n => n.tag === 'page-container')
   assert.equal(containers.length, 1)
   const node = containers[0].node
-  assert.equal(node.attrs.show, '{{showEdit || showInventory}}'); assert(!('wx:if' in node.attrs))
+  assert.equal(node.attrs.show, '{{showEdit || showInventory || showRecords}}'); assert(!('wx:if' in node.attrs))
   assert.equal(node.attrs['close-on-slide-down'], '{{false}}')
   const f = pageFixture('product'), stack = ['pages/home/index', 'pages/station-mgmt/products/index']
   f.p.openAdd()

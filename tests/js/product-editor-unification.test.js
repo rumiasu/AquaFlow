@@ -44,7 +44,7 @@ test('product editor keeps details and sales separate while inventory is a separ
   assert.match(styles, /\.product-image-action,\.product-image-action\.secondary[^}]*min-width:0[^}]*background:var\(--bg-gray\)/s)
   assert.match(styles, /\.product-edit-group \.product-display-switches\s*\{\s*display:block/s)
   assert.match(styles, /\.product-display-switches \.switch-item\s*\{[^}]*justify-content:space-between/s)
-  assert.match(styles, /\.inventory-operation-nav\s*\{[^}]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/s)
+  assert.match(styles, /\.inventory-operation-nav\s*\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/s)
   assert.match(styles, /\.inventory-operation-nav button\s*\{[^}]*min-height:44px/s)
   assert.match(styles, /\.card \.action\s*\{[^}]*display:flex;[^}]*flex-wrap:wrap/s)
 })
@@ -84,12 +84,12 @@ test('inventory action opens a standalone panel and restores an unsubmitted stoc
   t.page.onResumeInventoryDraft()
   assert.equal(t.page.data.showInventory, true); assert.equal(t.page.data.stockInput, '4')
 })
-test('ticket packages render before the secondary single-ticket price field', () => {
+test('ticket configuration uses package rows without a separate retail-price input', () => {
   const t = fixture(); openOwned(t); t.page.setData({ 'editForm.ticketEnabled': true, pkgReady: true })
   const controls = visible(t), packageIndex = controls.findIndex(n => (n.attrs.class || '').includes('pkg-block'))
   const singleIndex = controls.findIndex(n => (n.attrs.class || '').includes('ticket-retail-setting'))
-  assert(packageIndex >= 0 && singleIndex > packageIndex)
-  assert(controls.some(n => n.text === '可选设置'))
+  assert(packageIndex >= 0 && singleIndex === -1)
+  assert(!controls.some(n => n.attrs['data-field'] === 'ticketPrice'))
 })
 
 test('blank, zero, or invalid existing ticket prices block every write until explicitly deleted', async () => {

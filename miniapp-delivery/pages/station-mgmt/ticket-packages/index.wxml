@@ -24,7 +24,7 @@
     <view class="empty" wx:if="{{!loading && !productLoadError && products.length <= 1}}">本站还没有上架商品。</view>
     <view class="empty" wx:if="{{productKeyword && visibleProducts.length === 1 && products.length > 1}}">没有匹配商品，请换个关键词。</view>
     <view class="hint" wx:if="{{productId && !isUnified}}">
-      档位是按「本站 + 本商品」挂的。顾客买票时只看到上架的档位；没挂档位就按单张水票价散买。
+      套餐按「本站 + 本商品」设置。顾客选择在售套餐并按整份购买；需要单张购买时，可设置 1 张套餐。
     </view>
     <view class="hint hint-unified" wx:if="{{isUnified}}">
       这里配的是「统一折扣」：买多少张打几折。价格不在这里填 ——

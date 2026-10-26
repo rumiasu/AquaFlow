@@ -46,11 +46,17 @@ const exactNumber = value => {
   return Number.isFinite(number) ? number : null
 }
 // Existing tier rows are durable records: only the explicit deleted flag may delete one.
+const untouchedPackageDraft = row => row && row.defaultDraft && !row.touched && blankNumber(row.price)
+const initialPackageDraft = () => ({ key: 'initial-package', id: null, qty: '10', price: '', defaultDraft: true, touched: false, deleted: false })
+const retailCompatibilityPrice = (rows, previous) => {
+  const one = rows.find(row => exactNumber(row.qty) === 1)
+  return one ? (one.deleted || one.onShelf === false ? '0' : one.price) : previous
+}
 // An untouched new blank row is harmless; a partly filled or invalid row blocks the whole save.
 function ticketPackageValidationError(rows, startIndex = 0) {
   for (let index = Math.max(0, startIndex); index < rows.length; index++) {
     const row = rows[index] || {}
-    if (row.deleted) continue
+    if (row.deleted || untouchedPackageDraft(row)) continue
     const qtyText = String(row.qty == null ? '' : row.qty).trim()
     const priceText = String(row.price == null ? '' : row.price).trim()
     if (!row.id && !qtyText && !priceText) continue
@@ -595,13 +601,15 @@ Page({
   // One native host routes Back/overlay to its currently visible task, including native
   // Back during a write (which retains the original operation proof in the close handler).
   onProductPanelBeforeLeave() {
-    if (this.data.showInventory) this.onProductInventoryBeforeLeave()
+    if (this.data.showRecords) this.closeRecords()
+    else if (this.data.showInventory) this.onProductInventoryBeforeLeave()
     else this.onProductEditorBeforeLeave()
   },
 
   closeProductPanel() {
     if (this.productWriteLocked()) return
-    if (this.data.showInventory) this.closeInventory()
+    if (this.data.showRecords) this.closeRecords()
+    else if (this.data.showInventory) this.closeInventory()
     else this.closeEdit()
   },
 
@@ -709,7 +717,11 @@ Page({
         onShelf: p.status === 1,
         deleted: false
       }))
-      this.setData({ pkgRows: rows, pkgReady: true })
+      // 2026-10-26: expose existing retail configuration as a one-ticket tier. This is
+      // only a draft until the user saves; no read performs a migration or deletion.
+      const retail = this.data.editForm.ticketPrice
+      if (exactNumber(retail) > 0 && !rows.some(row => Number(row.qty) === 1)) rows.unshift({ key: 'legacy-retail', id: null, qty: '1', price: String(retail), legacyRetail: true, deleted: false })
+      this.setData({ pkgRows: rows.length ? rows : [initialPackageDraft()], pkgReady: true })
     } catch (err) {
       // 2026-10-22：原配置未核实时不能把空表当作原价目表；保留草稿，先重读再修改档位。
       if (seq !== this._pkgSeq) return
@@ -725,13 +737,19 @@ Page({
   onPkgPriceInput(e) {
     if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
     const idx = e.currentTarget.dataset.index
-    this.setData({ ['pkgRows[' + idx + '].price']: e.detail.value, pkgValidationError: '' })
+    this.setData({ ['pkgRows[' + idx + '].price']: e.detail.value, ['pkgRows[' + idx + '].touched']: true, pkgValidationError: '' })
   },
 
   onPkgQtyInput(e) {
     if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
     const idx = e.currentTarget.dataset.index
-    this.setData({ ['pkgRows[' + idx + '].qty']: e.detail.value, pkgValidationError: '' })
+    this.setData({ ['pkgRows[' + idx + '].qty']: e.detail.value, ['pkgRows[' + idx + '].touched']: true, pkgValidationError: '' })
+  },
+
+  onPkgShelfChange(e) {
+    if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
+    const idx = e.currentTarget.dataset.index
+    this.setData({ ['pkgRows[' + idx + '].onShelf']: e.detail.value, ['pkgRows[' + idx + '].touched']: true })
   },
 
   /** 加一档：默认按常见档位递推（10 / 20 / 100），已存在的就不重复加 */
@@ -751,6 +769,7 @@ Page({
     const rows = this.data.pkgRows.slice()
     const row = rows[idx]
     if (!row) return
+    if (row.legacyRetail) this.setData({ 'editForm.ticketPrice': '0', 'setting.ticketPrice': '0' })
     if (row.id) {
       row.deleted = !row.deleted
     } else {
@@ -773,6 +792,7 @@ Page({
     for (let index = startIndex; index < rows.length; index++) {
       if (!current()) throw saveScopeError()
       const r = rows[index]
+      if (untouchedPackageDraft(r)) { if (progress) progress(index + 1); continue }
       if (r.id && r.deleted) {
         await del(PKG + '/' + r.id)
         if (!current()) throw saveScopeError()
@@ -780,7 +800,10 @@ Page({
         continue
       }
       if (!r.deleted && (r.id || String(r.qty == null ? '' : r.qty).trim() || String(r.price == null ? '' : r.price).trim())) {
-        await post(PKG, { productId, qty: exactNumber(r.qty), price: exactNumber(r.price) })
+        const body = { productId, qty: exactNumber(r.qty), price: exactNumber(r.price) }
+        if (r.id) body.id = r.id
+        if (typeof r.onShelf === 'boolean') body.status = r.onShelf ? 1 : 0
+        await post(PKG, body)
         if (!current()) throw saveScopeError()
       }
       if (progress) progress(index + 1)
@@ -844,16 +867,16 @@ Page({
       this.setData({ stockAfterText: '继续原入库 ' + intent.quantity + ' 件；不会使用当前输入' })
       return
     }
-    const qty = parseInt(this.data.stockInput, 10)
+    const qty = exactNumber(this.data.stockInput)
     const current = Number(this.data.setting.quantity || 0)
-    if (isNaN(qty) || qty < 0) {
+    if (qty === null || !Number.isSafeInteger(qty) || qty < 0) {
       this.setData({ stockAfterText: '' })
       return
     }
     const after = this.data.stockMode === 'in' ? current + qty : qty
     const delta = after - current
     const label = this.data.stockMode === 'in' ? '入库后 ' : this.data.stockMode === 'loss' ? '短缺登记后 ' : '核对后 '
-    this.setData({ stockAfterText: label + after + ' 件（' + (delta < 0 ? '少 ' + (-delta) : delta > 0 ? '多 ' + delta : '无变化') + (delta === 0 ? '' : ' 件') + '）' })
+    this.setData({ stockAfterNumber: after, stockDeltaText: (delta > 0 ? '+' : '') + delta + ' 件', stockAfterText: label + after + ' 件（' + (delta < 0 ? '少 ' + (-delta) : delta > 0 ? '多 ' + delta : '无变化') + (delta === 0 ? '' : ' 件') + '）' })
   },
 
   /** 一个按钮走两种模式：入库直接提交，盘点先确认再提交 */
@@ -1047,6 +1070,7 @@ Page({
     if (!s.id || this.productWriteLocked() || this._productSettingClosed) return
     if (s.ticketEnabled && (this.data.pkgLoading || this.data.pkgError)) { wx.showToast({ title: '请先读取原水票档位', icon: 'none' }); return }
     const rows = productCopy(this.data.pkgRows || [])
+    if (s.ticketEnabled) s.ticketPrice = retailCompatibilityPrice(rows, s.ticketPrice)
     if (s.ticketEnabled) {
       const packageError = ticketPackageValidationError(rows)
       if (packageError) { this.setData({ pkgValidationError: packageError }); wx.showToast({ title: packageError, icon: 'none' }); return }
@@ -1146,6 +1170,12 @@ Page({
         productText: r.productName || ('商品 #' + (r.productId || '')),
         refText: r.refId ? '单据 #' + r.refId : ''
       }))
+      // The current API has no historical result-stock snapshot. Never infer it from
+      // this limited, filtered list or label the current stock as a historical result.
+      for (const record of records) {
+        record.direction = Number(record.delta) > 0 ? 'increase' : Number(record.delta) < 0 ? 'decrease' : 'neutral'
+        record.resultText = Number.isSafeInteger(record.afterQuantity) ? '结果库存 ' + record.afterQuantity + ' 件' : '结果库存未记录'
+      }
       this.setData({ records, recordsReady: true })
     } catch (err) {
       if (seq !== this._recordsSeq) return
@@ -1160,11 +1190,11 @@ Page({
   onFilterRecordsByCurrent() {
     const s = this.data.setting
     if (!s || !s.id) return
-    // The native editor layer must close before the ordinary records modal can be shown.
-    // leaveProductEditor retains the same unsaved form; it is not a product save.
+    // 2026-10-26: keep the native host open throughout this handoff. Closing the old
+    // panel first emitted beforeleave later and immediately closed the new records view.
+    this.setData({ recordsProductId: s.id, recordsFilterName: s.name, recordsLimit: 50, showRecords: true })
     if (this.data.showEdit) this.leaveProductEditor()
     if (this.data.showInventory) this.closeInventory()
-    this.setData({ recordsProductId: s.id, recordsFilterName: s.name, recordsLimit: 50, showRecords: true })
     this.loadRecords()
   },
 
@@ -1284,7 +1314,7 @@ Page({
       editTemplateId: '',
       editCategoryIndex: 0,
       productImagePreviewUrl: '',
-      pkgRows: [], pkgReady: true, pkgLoading: false, pkgError: '', pkgProductId: null, pkgValidationError: '', // 新商品没有旧档位，可以直接填写草稿
+      pkgRows: [initialPackageDraft()], pkgReady: true, pkgLoading: false, pkgError: '', pkgProductId: null, pkgValidationError: '', // 新商品没有旧档位，可以直接填写草稿
       editForm: {
         name: '', brand: '', spec: '', category: 1,
         price: '', deposit: '', quantity: '', imageObjectName: '', imageUrl: '',
@@ -1581,7 +1611,8 @@ Page({
     }
     const deposit = blankNumber(editForm.deposit) ? 0 : exactNumber(editForm.deposit)
     const quantity = blankNumber(editForm.quantity) ? null : exactNumber(editForm.quantity)
-    const ticketPrice = blankNumber(editForm.ticketPrice) ? null : exactNumber(editForm.ticketPrice)
+    const compatibilityPrice = editForm.ticketEnabled ? retailCompatibilityPrice(this.data.pkgRows || [], editForm.ticketPrice) : editForm.ticketPrice
+    const ticketPrice = blankNumber(compatibilityPrice) ? null : exactNumber(compatibilityPrice)
     if (deposit === null || (editForm.ticketEnabled && !blankNumber(editForm.ticketPrice) && ticketPrice === null)) {
       wx.showToast({ title: '请输入完整的数字金额', icon: 'none' })
       return
@@ -1591,6 +1622,7 @@ Page({
       return
     }
     const rows = productCopy(this.data.pkgRows || [])
+    if (editForm.ticketEnabled) editForm.ticketPrice = retailCompatibilityPrice(rows, editForm.ticketPrice)
     if (editForm.ticketEnabled) {
       const packageError = ticketPackageValidationError(rows)
       if (packageError) { this.setData({ pkgValidationError: packageError }); wx.showToast({ title: packageError, icon: 'none' }); return }

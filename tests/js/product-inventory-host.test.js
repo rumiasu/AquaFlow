@@ -109,11 +109,23 @@ test('inventory blur without height-zero callback and a later edit reopen recove
   t.page.closeProductPanel(); assert(!locked(t))
 })
 
-test('inventory history closes the shared native host before displaying the ordinary records layer', () => {
+test('inventory history switches within one native host and Back releases its page lock', () => {
   const t = setup(); open(t); t.page.loadRecords = () => {}
   t.page.onFilterRecordsByCurrent()
-  assert.equal(t.page.data.showRecords, true); assert.equal(nativeView(t).length, 0); assert(!locked(t))
+  assert.equal(t.page.data.showRecords, true); assert(nativeView(t).some(n => n.text === '库存流水')); assert(locked(t))
   assert.equal(t.page.data.recordsProductId, t.item.id)
+  t.page[hosts[0].node.attrs.bindbeforeleave](); assert.equal(t.page.data.showRecords,false); assert(!locked(t))
+  assert.equal(t.wx.__calls.nav.length,0)
+})
+
+test('inventory to records handoff never closes the native host between tasks', async () => {
+  const t = setup(); open(t); t.page.onStockInput({ detail: { value: '4' } })
+  const frames = [], set = t.page.setData.bind(t.page)
+  t.page.setData = (patch, callback) => { set(patch, callback); frames.push(nativeView(t).length > 0) }
+  t.page.onFilterRecordsByCurrent()
+  assert(frames.every(Boolean), 'an intermediate hidden host emits a late native beforeleave')
+  assert.equal(t.page.data.showInventory, false); assert.equal(t.page.data.showRecords, true)
+  t.page.closeRecords(); assert(!locked(t)); open(t); assert.equal(t.page.data.stockInput, '4')
 })
 
 async function main() {

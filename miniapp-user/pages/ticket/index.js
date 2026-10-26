@@ -27,6 +27,7 @@ Page({
     packagesLoading: false,
     packagesLoaded: false,
     purchaseNotice: '',
+    purchaseCopiesError: '',
     accounts: [],
     records: [],
     currentTab: 0,
@@ -45,13 +46,13 @@ Page({
       quantity: 1,
       totalPrice: 0,
       paymentMethod: 1,
-      // 选中的档位 id（null = 散买，按单张水票价）。**只用于定制档位**。
+      // 仅定制套餐传 id；旧单张兼容套餐和统一折扣保留各自原请求形状。
       packageId: null,
       // 选中的**统一折扣档张数**（null = 没选统一档）。与 packageId 互斥。
       // ⚠️ 只传张数、不传价：价格由后端按"这款水自己的价 × 该档折扣"现算
       // （产品口径「对应水怎么统一打折」），客户端算价就等于自己定价。
       unifiedQty: null,
-      // 散买单张价。选了档位后 faceValue 会变成档位均价，用它才能退回散买口径
+      // 保留旧缓存属性供原购买恢复；新购买只选择套餐。
       looseFaceValue: 0
     },
     // 当前商品在本站能买的档位（定制档位 or 站级统一折扣折算出来的档位，见后端 TicketTierService）
@@ -84,7 +85,7 @@ Page({
     loadError: '',          // 汇总提示（顶部提示条）
     accountsFailed: false,  // 水票余额没拉到 → 余额显示「—」而不是 0
     recordsFailed: false,   // 消费记录没拉到 → 空态改成"没加载出来"
-    packagesError: '',      // 档位没拉到（不影响买散票，只在购票弹窗里说明）
+    packagesError: '',      // 套餐未读取时提示重试，不另起无套餐购买
   },
 
   onLoad(options) { assetViewStation.init(this, options) },
@@ -122,7 +123,7 @@ Page({
       || b.idempotencyKey.trim() !== b.idempotencyKey || b.idempotencyKey.length > 64
       || (b.packageId != null && !positive(b.packageId)) || (b.unifiedQty != null && !positive(b.unifiedQty))
       || (b.packageId != null && b.unifiedQty != null)
-      || (b.unifiedQty != null && Number(b.unifiedQty) !== Number(b.quantity))) return false
+      || (b.unifiedQty != null && Number(b.quantity) % Number(b.unifiedQty) !== 0)) return false
     return !Object.prototype.hasOwnProperty.call(saved, 'result') || this.validPurchaseResult(saved, saved.result)
   },
   validPurchaseResult(saved, result) {
@@ -340,7 +341,8 @@ Page({
       this.setData({ accounts, records: recordsOK ? recordsRes.data : previous ? previous.records : [],
         totalTickets: accountsOK ? accounts.reduce((sum, a) => sum + Number(a.remainQuantity), 0) : previous ? previous.totalTickets : null,
         // 延续原展示金额；不将当前售价估值称作可退款金额。
-        totalValue: accountsOK ? accounts.reduce((sum, a) => sum + Number(a.remainQuantity) * (a.effectiveTicketPrice || a.faceValue || a.price || 0), 0) : previous ? previous.totalValue : null,
+        totalValue: accountsOK ? (accounts.every(a => a.rightAmount != null && String(a.rightAmount).trim() !== '' && Number.isFinite(Number(a.rightAmount)) && Number(a.rightAmount) >= 0)
+          ? accounts.reduce((sum, a) => sum + Number(a.rightAmount), 0) : null) : previous ? previous.totalValue : null,
         accountsFailed: !accountsOK, recordsFailed: !recordsOK,
         accountsStale: !accountsOK && !!previous && previous.totalTickets != null,
         recordsStale: !recordsOK && !!previous && previous.records.length > 0,
@@ -403,7 +405,8 @@ Page({
       'buyForm.packageId': null,
       'buyForm.unifiedQty': null,
       'buyForm.quantity': 1,
-      'buyForm.totalPrice': price
+      'buyForm.totalPrice': null,
+      'buyForm.selectedTierKey': '', 'buyForm.copies': 1, 'buyForm.packageQty': null, 'buyForm.packagePrice': null, purchaseCopiesError: ''
     })
     this.loadBuyPackages(product.id)
   },
@@ -415,8 +418,8 @@ Page({
    * {@code UNIFIED} = 站级统一折扣按**这款水自己的价**折算出来的档位。两者在界面上
    * **长得一样**（产品口径：「在用户端看起来没区别」），前端只需记住选了哪一个。</p>
    *
-   * <p>没档位就返回空数组 —— 此时页面保持"散买"（按单张水票价）。但对于**走统一折扣的商品**，
-   * 散买没有价可依（它没配水票价），所以后端会拒；页面对这种商品不显示散买入口。</p>
+   * <p>没有可用套餐时返回空数组并提示联系水站；旧单张配置由服务端投影为 1 张兼容套餐，
+   * 新购买不再另走没有套餐的数量输入。</p>
    */
   async loadBuyPackages(productId) {
     const context = assetViewStation.beginRead(this, 'packages')
@@ -428,17 +431,17 @@ Page({
       const amountKnown = value => ['number', 'string'].includes(typeof value) && String(value).trim() !== '' && Number.isFinite(Number(value)) && Number(value) >= 0
       if (res.data.some(row => !row || !Number.isSafeInteger(Number(row.qty)) || Number(row.qty) <= 0
         || !amountKnown(row.price) || !amountKnown(row.unitPrice)
-        || !['CUSTOM', 'UNIFIED'].includes(row.source)
+        || !['CUSTOM', 'UNIFIED', 'RETAIL'].includes(row.source) || row.source === 'RETAIL' && Number(row.qty) !== 1
         || row.source === 'CUSTOM' && !(Number(row.packageId || row.id) > 0))) throw new Error('购票档位金额或张数尚未核实，请重试')
-      this.setData({ buyPackages: res.data, packagesLoaded: true })
+      this.setData({ buyPackages: res.data.map(row => ({ ...row, selectionKey: row.source + ':' + (row.packageId || row.id || row.qty) })), packagesLoaded: true })
     } catch (err) {
       if (!assetViewStation.current(this, context) || String(this.data.buyForm.productId) !== String(productId) || !this.data.showPurchase) return
       // [2026-09-20 真机联调] 这里原来是**刻意的静默降级**（"档位拉不到不该挡住买票"）——
       // 不阻断买票这条判据仍然成立（下面照旧退回散买），但"静默"是错的：档位 = 越买越便宜的
       // 价目表，拉不到时客户看到的是"这款水没有优惠"，与"确实没配档位"完全无法区分
-      //（AGENTS §8.22）。现在改成**出声但不阻断**：弹窗内留一条说明 + 一次轻提示。
+      //（AGENTS §8.22）。套餐未核实时保留内容，并提示重新读取后再选择。
       console.warn('[Ticket] load ticket packages failed:', err && err.message)
-      this.setData({ packagesError: '购票档位暂未加载，请重试。散买是否可用以本商品单张票价和购买结果为准。' })
+      this.setData({ packagesError: '购票套餐尚未读取，请重试后选择套餐。' })
       wx.showToast({ title: '优惠档位没加载出来', icon: 'none' })
     } finally {
       if (assetViewStation.current(this, context) && String(this.data.buyForm.productId) === String(productId) && this.data.showPurchase) this.setData({ packagesLoading: false })
@@ -458,65 +461,44 @@ Page({
   onBuyPackageSelect(e) {
     if (this.purchaseEditBlocked()) return
     const { id, source } = e.currentTarget.dataset
-    // 统一档没有 packageId，只能按 qty 找；定制档按 id 找
-    const pkg = this.data.buyPackages.find(p => source === 'UNIFIED'
-      ? (p.source === 'UNIFIED' && String(p.qty) === String(id))
-      : (p.source !== 'UNIFIED' && String(p.packageId || p.id) === String(id)))
+    const pkg = this.data.buyPackages.find(p => p.source === source && String(p.packageId || p.id || p.qty) === String(id))
     if (!pkg) return
-    const custom = pkg.source !== 'UNIFIED'
     this.setData({
-      'buyForm.packageId': custom ? (pkg.packageId || pkg.id) : null,
-      'buyForm.unifiedQty': custom ? null : pkg.qty,
-      'buyForm.quantity': pkg.qty,
-      'buyForm.faceValue': pkg.unitPrice,
-      'buyForm.totalPrice': pkg.price
+      'buyForm.packageId': pkg.source === 'CUSTOM' ? (pkg.packageId || pkg.id) : null,
+      'buyForm.unifiedQty': pkg.source === 'UNIFIED' ? pkg.qty : null,
+      'buyForm.selectedTierKey': pkg.selectionKey || pkg.source + ':' + (pkg.packageId || pkg.id || pkg.qty),
+      'buyForm.packageQty': Number(pkg.qty), 'buyForm.packagePrice': Number(pkg.price),
+      purchaseCopiesError: '', 'buyForm.copies': 1, 'buyForm.quantity': Number(pkg.qty),
+      'buyForm.faceValue': pkg.unitPrice, 'buyForm.totalPrice': pkg.price
     })
   },
 
-  /** 退回散买：张数与单价都回到按单张水票价的口径。 */
-  onBuyPackageClear() {
-    if (this.purchaseEditBlocked()) return
-    const loose = this.data.buyForm.looseFaceValue
-    this.setData({
-      'buyForm.packageId': null,
-      'buyForm.unifiedQty': null,
-      'buyForm.quantity': 1,
-      'buyForm.faceValue': loose,
-      'buyForm.totalPrice': loose
-    })
-  },
-
-  /** 步进器 +/-（tap 事件，data-type=minus/add），数量下限 1 */
   onBuyQtyStep(e) {
-    const { type } = e.currentTarget.dataset
-    const cur = this.data.buyForm.quantity || 1
-    const next = type === 'add' ? cur + 1 : Math.max(1, cur - 1)
-    if (next === cur) return
-    this.applyLooseQty(next)
+    const current = Number(this.data.buyForm.copies) || 1
+    this.applyPurchaseCopies(e.currentTarget.dataset.type === 'add' ? current + 1 : Math.max(1, current - 1))
   },
+  onBuyQuantityInput(e) { this.applyPurchaseCopies(e.detail.value) },
 
-  /** 手动输入数量（input 事件） */
-  onBuyQuantityInput(e) {
-    this.applyLooseQty(Math.max(1, parseInt(e.detail.value) || 1))
-  },
-
-  /**
-   * 改张数即放弃已选档位，回到散买口径。
-   *
-   * 档位价对应的是**固定张数**（后端会校验 quantity === pkg.qty）。张数一变，档位价就不再适用；
-   * 若留着 packageId，提交会被后端以"购买张数与档位不一致，请重新选择"拒回 ——
-   * 与其让客户撞一次错误，不如在这里直接退回散买并把单价换回单张水票价。
-   */
-  applyLooseQty(qty) {
+  // 2026-10-26: preview uses whole copies of the selected server tier. The request
+  // still carries total tickets; the server independently validates and prices it.
+  applyPurchaseCopies(value) {
     if (this.purchaseEditBlocked()) return
-    const loose = this.data.buyForm.looseFaceValue
-    this.setData({
-      'buyForm.packageId': null,
-      'buyForm.unifiedQty': null,
-      'buyForm.quantity': qty,
-      'buyForm.faceValue': loose,
-      'buyForm.totalPrice': loose == null ? null : loose * qty
-    })
+    const form = this.data.buyForm
+    if (!form.selectedTierKey) return
+    const copies = /^[1-9]\d*$/.test(String(value)) ? Number(value) : null
+    const quantity = copies != null ? copies * form.packageQty : null
+    const cents = Math.round(form.packagePrice * 100)
+    const totalCents = cents * copies
+    const countValid = Number.isSafeInteger(quantity) && quantity > 0 && quantity <= 5000
+    const moneyValid = Number.isSafeInteger(totalCents) && totalCents > 0 && totalCents <= 9999999999
+    const valid = countValid && moneyValid
+    // 2026-10-26: invalid/overflow input previously erased totals without explaining why.
+    // Keep the selected tier and the exact input; block a new purchase until corrected.
+    const purchaseCopiesError = copies == null ? '请填写大于 0 的整数份数'
+      : !countValid ? '单次最多购买 5000 张，请减少份数'
+      : !moneyValid ? '合计金额超出支持范围，请减少份数' : ''
+    this.setData({ purchaseCopiesError, 'buyForm.copies': value, 'buyForm.quantity': valid ? quantity : null,
+      'buyForm.totalPrice': valid ? (totalCents / 100).toFixed(2) : null })
   },
 
   /** 选择支付方式（tap 事件，data-id） */
@@ -558,6 +540,9 @@ Page({
       }
       return this.submitPurchaseIntent(saved, true)
     }
+    // New limits cannot invalidate an already persisted original purchase/query.
+    if (!Number.isSafeInteger(Number(quantity)) || Number(quantity) > 5000) { wx.showToast({ title: '单次购买最多 5000 张', icon: 'none' }); return }
+    if (this.data.packagesLoaded && !this.data.buyForm.selectedTierKey) { wx.showToast({ title: '请选择购票套餐', icon: 'none' }); return }
     if (this.data.buyForm.totalPrice === null) { wx.showToast({ title: '请先核实本次购票金额', icon: 'none' }); return }
     body.idempotencyKey = this.genPurchaseIdempotencyKey()
     return this.submitPurchaseIntent({ customerId, body, productName: this.data.buyForm.productName || '水票',

@@ -78,13 +78,13 @@
           <block wx:if="{{item.status === 0 || item.status === 2}}">
             <button class="product-card-primary" wx:if="{{item.ownerStationId}}" catchtap="onRestoreProduct" data-item="{{item}}" disabled="{{saving}}">恢复商品</button>
             <button class="product-card-secondary" wx:if="{{item.selected || item.ownerStationId}}" catchtap="onOpenInventory" data-item="{{item}}">库存操作</button>
-            <button class="product-card-more" wx:if="{{!item.ownerStationId && item.selected}}" catchtap="onProductMore" data-item="{{item}}">更多</button>
+            <button class="product-card-remove" wx:if="{{!item.ownerStationId && item.selected}}" catchtap="onRequestRemoveProduct" data-item="{{item}}">移除</button>
           </block>
           <block wx:else>
             <button class="product-card-primary" wx:if="{{!item.selected}}" catchtap="onSelectProduct" data-id="{{item.id}}">选用商品</button>
             <button class="product-card-primary" wx:else catchtap="onOpenSetting" data-item="{{item}}">编辑商品</button>
             <button class="product-card-secondary" wx:if="{{item.selected || item.ownerStationId}}" catchtap="onOpenInventory" data-item="{{item}}">库存操作</button>
-            <button class="product-card-more" wx:if="{{item.selected}}" catchtap="onProductMore" data-item="{{item}}">更多</button>
+            <button class="product-card-remove" wx:if="{{item.selected}}" catchtap="onRequestRemoveProduct" data-item="{{item}}">移除</button>
           </block>
         </view>
       </view>
@@ -131,11 +131,12 @@
     <button class="btn-define" bindtap="openAdd">＋ 自定义商品</button>
   </view>
 
-  <!-- 2026-10-25：全部选用商品复用下面的编辑面板；移除只从卡片“更多”进入。 -->
+  <!-- 2026-10-26：全部选用商品复用下面的编辑面板；卡片直接提供带确认的移除入口。 -->
 
   <!-- ============ 自己定义商品 ============ -->
-  <!-- Native container owns Back; no synthetic page-stack entry or global navigation interception. -->
-  <page-container show="{{showEdit}}" position="bottom" overlay="{{true}}" close-on-slide-down="{{false}}" duration="{{0}}" custom-style="height:100%;background:transparent;" bindbeforeleave="onProductEditorBeforeLeave" bindclickoverlay="closeEdit">
+  <!-- 2026-10-26: only one native page-container per page. A second inventory container
+       never opened while page-meta still locked scrolling. Both tasks share this host. -->
+  <page-container show="{{showEdit || showInventory}}" position="bottom" overlay="{{true}}" close-on-slide-down="{{false}}" duration="{{0}}" custom-style="height:100%;background:transparent;" bindbeforeleave="onProductPanelBeforeLeave" bindclickoverlay="closeProductPanel">
   <view class="product-editor-stage" wx:if="{{showEdit}}">
   <view class="modal-mask product-editor-dismiss-area" catchtouchmove="preventMove" bindtap="closeEdit"></view>
   <view class="modal product-edit-modal" wx:if="{{showEdit}}" style="{{productEditSheetStyle}}" catchtap="stopPropagation">
@@ -337,10 +338,7 @@
       </view>
     </view>
   </view>
-  </page-container>
-
   <!-- ============ 独立库存操作面板 ============ -->
-  <page-container show="{{showInventory}}" position="bottom" overlay="{{true}}" close-on-slide-down="{{false}}" duration="{{0}}" custom-style="height:100%;background:transparent;" bindbeforeleave="onProductInventoryBeforeLeave" bindclickoverlay="closeInventory">
     <view class="product-editor-stage" wx:if="{{showInventory}}">
       <view class="modal-mask product-editor-dismiss-area" catchtouchmove="preventMove" bindtap="closeInventory"></view>
       <view class="modal product-edit-modal inventory-sheet" style="{{productEditSheetStyle}}" catchtap="stopPropagation">

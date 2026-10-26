@@ -18,14 +18,14 @@ const openOwned = t => { t.page.onOpenSetting(event(item())); t.page.setData({ p
 const deferred = () => { let resolve; return { promise: new Promise(r => { resolve = r }), resolve } }
 function sheetGeometry(page) { const s = page.data.productEditSheetStyle; return { height: Number(/height:(\d+)px/.exec(s)[1]), bottom: Number(/bottom:(\d+)px/.exec(s)[1]) } }
 
-test('selected product cards expose identical edit and more actions for both sources', () => {
+test('selected product cards expose identical edit, inventory and direct removal actions for both sources', () => {
   validateConditionalSiblings(tree)
   const t = fixture(), rows = [item(), item({ id: 18, ownerStationId: null })]
   t.page.setData({ loading: false, viewList: rows, list: rows })
   const controls = visible(t)
   assert.equal(controls.filter(n => n.tag === 'button' && n.text === '编辑商品').length, 2)
   assert.equal(controls.filter(n => n.tag === 'button' && n.text === '库存操作').length, 2)
-  assert.equal(controls.filter(n => n.attrs.catchtap === 'onProductMore').length, 2)
+  assert.equal(controls.filter(n => n.attrs.catchtap === 'onRequestRemoveProduct' && n.text === '移除').length, 2)
   assert(controls.filter(n => n.tag === 'button' && n.text === '库存操作').every(n => n.attrs.catchtap === 'onOpenInventory'))
   assert(!controls.some(n => ['openEdit', 'onDeactivate', 'onSubmitToPlatform'].includes(n.attrs.catchtap)))
   assert(!controls.some(n => n.text === '设置'))
@@ -221,14 +221,17 @@ test('physical shortage uses remaining quantity and keeps order-impact confirmat
   assert.equal(t.page.data.stockAfterText, '短缺登记后 8 件（少 2 件）')
   assert(!visible(t).some(n => /实盘亏损|＝ 盘点/.test(n.text || '')))
 })
-test('both sources have one removal entry under more and stale account callbacks do nothing', () => {
-  const t = fixture(); let menu, owned = 0, selected = 0
-  t.wx.showActionSheet = o => { menu = o }; t.page.onDeactivate = () => owned++; t.page.onRemoveProduct = () => selected++
-  t.page.onProductMore(event(item())); assert.deepEqual(Array.from(menu.itemList), ['移除商品']); assert.equal(menu.itemColor, '#BD3328')
-  menu.success({ tapIndex: 0 }); assert.equal(owned, 1)
-  t.page.onProductMore(event(item({ ownerStationId: null }))); menu.success({ tapIndex: 0 }); assert.equal(selected, 1)
-  t.page.onProductMore(event(item())); t.app.globalData.userInfo.staffId = 2; menu.success({ tapIndex: 0 })
-  assert.equal(owned, 1)
+test('direct removal still opens original danger confirmation and stale account confirmation does nothing', () => {
+  for (const ownerStationId of [11, null]) {
+    const t = fixture(); let modal
+    t.wx.showActionSheet = () => assert.fail('single removal action must not open a menu')
+    t.wx.showModal = o => { modal = o }
+    t.page.onRequestRemoveProduct(event(item({ ownerStationId })))
+    assert.equal(modal.title, '移除商品'); assert.equal(modal.confirmText, '移除'); assert.equal(modal.confirmColor, '#BD3328')
+    assert(modal.content.includes(ownerStationId ? '历史订单仍保留' : '库存必须先核对为 0'))
+    modal.success({ confirm: false }); assert.equal(t.calls.length, 0)
+    t.app.globalData.userInfo.staffId = 2; modal.success({ confirm: true }); assert.equal(t.calls.length, 0)
+  }
 })
 
 test('closing a platform editor releases the page scroll lock and restores its save mode on resume', () => {

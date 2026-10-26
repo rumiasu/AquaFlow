@@ -1,0 +1,213 @@
+{
+  "baselineCommit": "ae934ec16b4f6139173ebee84f6751ad0fca3703",
+  "baselineSuites": 140,
+  "candidateSuites": 141,
+  "baselineSentinelCases": 3297,
+  "candidateSentinelCases": 3308,
+  "matchingExistingSuiteResults": true,
+  "newRegressionSuites": [
+    {
+      "file": "product-inventory-host.test.js",
+      "status": 0,
+      "cases": 11
+    }
+  ],
+  "newFailures": [],
+  "baselineFailures": [
+    {
+      "file": "customer-night-visual-states.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "FAIL missing quote amounts do not become a zero-money quote while genuine zero remains valid evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL unknown order recovery names the original submission action without changing its handler evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input"
+      ]
+    },
+    {
+      "file": "upload-r2-review.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "FAIL wrapper binding audit detects missing implementation, unused imports and unrelated wrappers",
+        "AssertionError [ERR_ASSERTION]: null == 0",
+        "AssertionError [ERR_ASSERTION]: 1 == 0"
+      ]
+    },
+    {
+      "file": "trial-deployment-materials.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "FAIL synthetic configuration checks without starting Java or connecting ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL missing DB_URL refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL missing DB_USERNAME refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL missing DB_PASSWORD refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL missing JWT_SECRET refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL missing WX_APP_ID refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL missing WX_APP_SECRET refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL missing WX_STAFF_APP_ID refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL missing WX_STAFF_APP_SECRET refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL missing CORS_ALLOWED_ORIGINS refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL placeholder/blank refuses: \"__REQUIRED__\" ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL placeholder/blank refuses: \"__REPLACE__\" ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL placeholder/blank refuses: \"${UNRESOLVED}\" ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL placeholder/blank refuses: \"   \" ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL unsafe/unsupported SPRING_PROFILES_ACTIVE refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL unsafe/unsupported DEV_LOGIN_ENABLED refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL unsafe/unsupported MOCK_WECHAT_PAY refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL unsafe/unsupported APP_DEV_LOGIN_ENABLED refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL unsafe/unsupported APP_PAYMENT_MOCK_WECHAT_PAY refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL unsafe/unsupported SERVER_FORWARD_HEADERS_STRATEGY refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL unsafe/unsupported SPRING_SQL_INIT_MODE refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL unsafe/unsupported SPRING_APPLICATION_JSON refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL unsafe/unsupported JAVA_TOOL_OPTIONS refuses before launch ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model INDEPENDENT_BARREL_RIGHTS_ENABLED false refuses even in check-only ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model INDEPENDENT_BARREL_RIGHTS_ENABLED explicit blank refuses ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model INDEPENDENT_BARREL_RIGHTS_ENABLED true preserves the model ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model conflict cannot hide false in INDEPENDENT_BARREL_RIGHTS_ENABLED ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model AQUAFLOW_BARREL_INDEPENDENT_RIGHTS_ENABLED false refuses even in check-only ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model AQUAFLOW_BARREL_INDEPENDENT_RIGHTS_ENABLED explicit blank refuses ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model AQUAFLOW_BARREL_INDEPENDENT_RIGHTS_ENABLED true preserves the model ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model conflict cannot hide false in AQUAFLOW_BARREL_INDEPENDENT_RIGHTS_ENABLED ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model AQUAFLOW_BARREL_INDEPENDENTRIGHTSENABLED false refuses even in check-only ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model AQUAFLOW_BARREL_INDEPENDENTRIGHTSENABLED explicit blank refuses ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model AQUAFLOW_BARREL_INDEPENDENTRIGHTSENABLED true preserves the model ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model conflict cannot hide false in AQUAFLOW_BARREL_INDEPENDENTRIGHTSENABLED ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL independent model defaults are true when omitted; final launch pins the actual c19 property ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL short JWT and non-MySQL input refuse ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL caller cannot override launch args ifError got unwanted exception: spawnSync sh ENOENT",
+        "FAIL empty template refuses; secrets stay blank and flags are safe ifError got unwanted exception: spawnSync sh ENOENT"
+      ]
+    },
+    {
+      "file": "trial-cloud-app-lifecycle.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "FAIL cloud cached startup missing SDK is explicit, keeps cache, and makes no early global App read: AssertionError [ERR_ASSERTION]: The input did not match the regular expression /缺少云连接能力/. Input:"
+      ]
+    },
+    {
+      "file": "order-result-navigation.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "FAIL 已付后redirect超时保留原单付款事实，不能进入建单失败catch: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL 恢复重试连点只导航同原单，创建付款回查增量均零: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL 我的订单使用顾客tab，连点单飞且失败后仍能重试原单: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL 兜底后的晚成功不能抹掉恢复提示；旧成功/失败不能释放新尝试: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL 支付状态0导航失败不能显示已确认付款: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL 支付状态1导航失败不能显示已确认付款: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL 支付状态3导航失败不能显示已确认付款: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL 支付状态4导航失败不能显示已确认付款: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL 支付状态unknown导航失败不能显示已确认付款: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL 同登录周期正常续期仍可处理当前导航失败和恢复: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL 索引存储失败也保留已付原单导航恢复，不重建单: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input",
+        "FAIL 恢复按钮位于既有吸底操作区，页尾失败也可发现且旧提示不重复: evalmachine.<anonymous>:1",
+        "SyntaxError: Unexpected end of input"
+      ]
+    },
+    {
+      "file": "experience-unknown-inputs.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "FAIL 空详情保留未知及原订单，不能宣称未付款: The expression evaluated to a falsy value:",
+        "FAIL 数字详情保留未知及原订单，不能宣称未付款: The expression evaluated to a falsy value:",
+        "FAIL 缺少支付字段保留未知及原订单，不能宣称未付款: The expression evaluated to a falsy value:",
+        "FAIL 空支付值保留未知及原订单，不能宣称未付款: The expression evaluated to a falsy value:",
+        "FAIL 空字符串保留未知及原订单，不能宣称未付款: The expression evaluated to a falsy value:",
+        "FAIL 非法枚举保留未知及原订单，不能宣称未付款: The expression evaluated to a falsy value:",
+        "FAIL 布尔值保留未知及原订单，不能宣称未付款: The expression evaluated to a falsy value:",
+        "FAIL 数组值保留未知及原订单，不能宣称未付款: The expression evaluated to a falsy value:"
+      ]
+    },
+    {
+      "file": "experience-fact-states.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "FAIL PAY: 双超时弹窗和恢复卡片都保留未知，重进与续办仍绑定原单: Unexpected end of input",
+        "FAIL PAY: 回读确实未付与已付，恢复卡片保持各自事实；旧未知缓存不猜未付: Unexpected end of input"
+      ]
+    },
+    {
+      "file": "experience-candidate-regressions.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "FAIL A: 支付接口回应成功但原单回查超时，也只能告知结果未知: The expression evaluated to a falsy value:",
+        "FAIL G: 当前报价站在已有资产、非桶商品、首次提示收起时都可见；迟到旧站不能覆盖: Unexpected end of input",
+        "FAIL G: 再来一单保留既有履约站默认，展示与报价提交一致，不改首页选择站: Unexpected end of input"
+      ]
+    },
+    {
+      "file": "light-entry-flow.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "FAIL completed contact uses the receiver snapshot and catches the card tap AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:"
+      ]
+    },
+    {
+      "file": "first-water-deposit-flow.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "FAIL 两款水独立办第一款后，第二款随单押金仍须明确确认",
+        "AssertionError [ERR_ASSERTION]: '确认本次新增桶押金' == '确认本次新增押金'"
+      ]
+    },
+    {
+      "file": "verification-safety.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "AssertionError [ERR_ASSERTION]:       0 [main] bash (34028) D:\\backend\\Git\\bin\\..\\usr\\bin\\bash.exe: *** fatal error - NtCreateDirectoryObject(\\BaseNamedObjects\\msys-2.0S5-36c3d1bbee7837d2): 0xC0000022"
+      ]
+    },
+    {
+      "file": "page-mutation-controls.test.js",
+      "status": 1,
+      "sentinelCases": 0,
+      "failures": [
+        "AssertionError [ERR_ASSERTION]: missing mutation anchor"
+      ]
+    }
+  ],
+  "note": "Same Windows/Node environment and unmodified production runSuite function; all common statuses, counts and failure signatures match after normalizing only bash process ID/elapsed prefix. Original per-suite logs remain available locally. Per-case sentinel sums include suites importing other suites, so they are not a unique-case count.",
+  "nativeCleanup": [
+    {
+      "port": 9457,
+      "mockRestored": true,
+      "panelsClosed": true,
+      "syntheticProjectVerified": true
+    },
+    {
+      "port": 9456,
+      "mockRestored": true,
+      "panelsClosed": true,
+      "syntheticProjectVerified": true
+    }
+  ],
+  "nativeGeometry": {
+    "left": 0,
+    "top": 56,
+    "width": 390,
+    "height": 697
+  },
+  "referenceLibraryPixelsRead": false
+}

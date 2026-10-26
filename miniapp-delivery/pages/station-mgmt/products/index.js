@@ -541,6 +541,9 @@ Page({
       wx.showToast({ title: '只能操作本站商品库存', icon: 'none' }); return
     }
     if (!item.selected && !item.ownerStationId) return
+    // 2026-10-26: repeated delivery of the same tap must not clear an active quantity draft.
+    if (this.data.showInventory && Number(this.data.setting.id) === Number(item.id)
+      && sameProductSession(this._productSettingOwner)) return
     const owner = productSession(), previous = this._closedInventoryDraft
     const resume = previous && sameProductSession(previous.session) && Number(previous.item.id) === Number(item.id)
       ? previous : null
@@ -588,6 +591,19 @@ Page({
   },
 
   onProductInventoryBeforeLeave() { this.closeInventory() },
+
+  // One native host routes Back/overlay to its currently visible task, including native
+  // Back during a write (which retains the original operation proof in the close handler).
+  onProductPanelBeforeLeave() {
+    if (this.data.showInventory) this.onProductInventoryBeforeLeave()
+    else this.onProductEditorBeforeLeave()
+  },
+
+  closeProductPanel() {
+    if (this.productWriteLocked()) return
+    if (this.data.showInventory) this.closeInventory()
+    else this.closeEdit()
+  },
 
   onResumeInventoryDraft() {
     const draft = this._closedInventoryDraft
@@ -646,16 +662,15 @@ Page({
   },
   onDismissPriceWarnings() { this.setData({warningsInline:[]}) },
 
-  onProductMore(e) {
+  onRequestRemoveProduct(e) {
     if (this.productWriteLocked()) return
-    const item = e.currentTarget.dataset.item, session = productSession()
+    const item = e.currentTarget.dataset.item
     const stationId = (getApp().globalData.userInfo || {}).stationId
     if (!item || !item.selected || item.ownerStationId && [0,2].includes(item.status) || item.ownerStationId && Number(item.ownerStationId) !== Number(stationId)) return
-    wx.showActionSheet({ itemList: ['移除商品'], itemColor: '#BD3328', success: result => {
-      if (result.tapIndex !== 0 || !sameProductSession(session) || this.productWriteLocked()) return
-      if (item.ownerStationId) this.onDeactivate(e)
-      else this.onRemoveProduct(e)
-    } })
+    // 2026-10-26: the old one-item "more" menu only added a tap. Keep the original
+    // source-specific confirmation, session checks and inventory rules unchanged.
+    if (item.ownerStationId) this.onDeactivate(e)
+    else this.onRemoveProduct(e)
   },
 
   onSettingShelfChange(e) {
@@ -1285,6 +1300,7 @@ Page({
 
   openEdit(e, platform = false) {
     if (this.productWriteLocked() || this.data.productImageBusy || this.data.uploading) return
+    if (this.data.showInventory) this.closeInventory()
     this._productEditorClosed = false
     this._closedProductEditor = null
     this.rememberProductImageDraft()

@@ -1,0 +1,126 @@
+'use strict'
+// Execute production handlers and project the native single-container contract. This is
+// a regression guard for template/host wiring, not a WeChat renderer or hardware test.
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), vm = require('node:vm')
+const { fixture } = require('./extreme-product-save.test')
+const { ROOT, armWatchdog } = require('./harness')
+const { parseWxml, renderElements } = require('./wxml-tree')
+const repo = process.env.AQUAFLOW_REPO || ROOT
+const source = fs.readFileSync(path.join(repo, 'miniapp-delivery/pages/station-mgmt/products/index.wxml'), 'utf8')
+const tree = parseWxml(source), tests = [], test = (name, run) => tests.push({ name, run })
+function find(node, predicate, ancestors = [], result = []) {
+  if (predicate(node)) result.push({ node, ancestors })
+  for (const child of node.children || []) find(child, predicate, [...ancestors, node], result)
+  return result
+}
+const hosts = find(tree, n => n.tag === 'page-container')
+const meta = find(tree, n => n.tag === 'page-meta')[0].node
+const bind = (value, data) => vm.runInNewContext(value.replace(/^{{|}}$/g, ''), { ...data })
+const row = (extra = {}) => ({ id: 17, ownerStationId: 11, status: 1, selected: true, name: '合成库存商品', displayName: '合成库存商品',
+  category: 1, quantity: 10, price: 12, deposit: 50, salePrice: 12, enabled: 1, ticketEnabled: 0, ...extra })
+const event = item => ({ currentTarget: { dataset: { item, id: item.id } } })
+function setup(extra) {
+  const t = fixture(), item = row(extra); let hidden = 0
+  t.wx.getWindowInfo = () => ({ windowHeight: 568 })
+  t.wx.hideKeyboard = () => hidden++
+  t.page.setData({ list: [item], viewList: [item], loading: false })
+  return { ...t, item, hidden: () => hidden }
+}
+// WeChat only honors the first native container; the old generic WXML projection
+// walked the hidden second host's children and incorrectly claimed inventory was visible.
+const nativeView = t => bind(hosts[0].node.attrs.show, t.page.data)
+  ? renderElements(hosts[0].node, t.page.data, { includeText: true }) : []
+const locked = t => bind(meta.attrs['page-style'], t.page.data).includes('hidden')
+const open = t => t.page.onOpenInventory(event(t.item))
+
+test('inventory card tap opens visible content in the single native host, with unobstructed scroll body and footer', () => {
+  assert.equal(hosts.length, 1, 'a second native page-container silently fails to open')
+  const t = setup(), button = renderElements(tree, t.page.data, { includeText: true }).find(n => n.text === '库存操作')
+  assert.equal(button.attrs.catchtap, 'onOpenInventory')
+  t.page[button.attrs.catchtap](event(t.item))
+  assert(locked(t)); const visible = nativeView(t)
+  assert(visible.some(n => n.text === '商品库存')); assert(visible.some(n => n.attrs.bindtap === 'onSubmitStock'))
+  const body = find(hosts[0].node, n => (n.attrs?.class || '').includes('inventory-body'))[0]
+  assert.equal(body.node.tag, 'scroll-view'); assert('scroll-y' in body.node.attrs)
+  assert(!body.ancestors.some(n => n.attrs && 'catchtouchmove' in n.attrs))
+  assert(!find(body.node, n => (n.attrs?.class || '').includes('product-edit-footer')).length)
+  assert.equal(t.calls.length, 0)
+})
+
+test('repeated inventory taps preserve the typed quantity, host and operation generation without writes', () => {
+  const t = setup(); open(t); t.page.onStockInput({ detail: { value: '4' } })
+  const epoch = t.page._productSettingEpoch
+  for (let i = 0; i < 20; i++) open(t)
+  assert.equal(t.page.data.stockInput, '4'); assert.equal(t.page._productSettingEpoch, epoch)
+  assert(nativeView(t).some(n => n.text === '商品库存')); assert.equal(t.calls.length, 0)
+})
+
+for (const action of ['closeInventory', 'closeProductPanel', 'onProductPanelBeforeLeave']) test(action + ' closes inventory, releases page scroll lock and hides keyboard', () => {
+  const t = setup(); open(t); t.page.onProductKeyboardHeightChange({ detail: { height: 260 } })
+  t.page[action]()
+  assert(!locked(t)); assert.equal(nativeView(t).length, 0); assert.equal(t.page.data.showInventory, false)
+  assert.equal(t.page._productKeyboardHeight, 0); assert.equal(t.hidden(), 1); assert.equal(t.wx.__calls.nav.length, 0)
+})
+
+test('canceling stock confirmation writes nothing and closing afterwards restores page scrolling', () => {
+  const t = setup(); open(t); let modal; t.wx.showModal = o => { modal = o }
+  t.page.onStockModeChange({ currentTarget: { dataset: { mode: 'check' } } })
+  t.page.onStockInput({ detail: { value: '8' } }); t.page.onSubmitStock()
+  modal.success({ confirm: false }); assert.equal(t.page.data.stockConfirmPending, false); assert.equal(t.calls.length, 0)
+  assert(nativeView(t).some(n => n.text === '商品库存'))
+  t.page.closeProductPanel(); assert(!locked(t))
+})
+
+test('inventory to product editor switching shares one host and restores the unsubmitted stock draft', () => {
+  const t = setup(); open(t); t.page.onStockInput({ detail: { value: '4' } })
+  t.page.onOpenSetting(event(t.item))
+  assert.equal(t.page.data.showInventory, false); assert.equal(t.page.data.showEdit, true)
+  assert(!nativeView(t).some(n => n.text === '商品库存'))
+  t.page[hosts[0].node.attrs.bindbeforeleave](); assert(!locked(t))
+  open(t); assert.equal(t.page.data.stockInput, '4'); assert(nativeView(t).some(n => n.text === '商品库存'))
+  t.page[hosts[0].node.attrs.bindclickoverlay](); assert(!locked(t))
+})
+
+test('failed inbound releases write lock and leaves a visible error and usable close control', async () => {
+  const t = setup(); open(t)
+  t.state.inbound = async () => { throw Object.assign(Error('合成入库失败'), { businessRejected: true }) }
+  t.page.onStockInput({ detail: { value: '2' } }); await t.page.onSubmitStock()
+  assert.equal(t.page.data.inboundBusy, false); assert.equal(t.page.data.showInventory, true)
+  assert(t.page.data.inboundError); assert(nativeView(t).some(n => n.attrs.bindtap === 'closeInventory'))
+  t.page.closeProductPanel(); assert(!locked(t))
+})
+
+test('unknown stock is visibly unread and cannot enable quantity input or a stock submission', () => {
+  const t = setup({ quantity: null }); open(t)
+  const visible = nativeView(t), input = visible.find(n => n.tag === 'input' && n.attrs.bindinput === 'onStockInput')
+  assert(bind(input.attrs.disabled, t.page.data))
+  const submit = visible.find(n => n.attrs.bindtap === 'onSubmitStock'); assert(bind(submit.attrs.disabled, t.page.data))
+  assert(visible.some(n => n.text.includes('尚未读取'))); t.page.closeProductPanel(); assert(!locked(t))
+})
+
+test('inventory blur without height-zero callback and a later edit reopen recover full sheet geometry', async () => {
+  const t = setup(); open(t); t.page.onProductKeyboardHeightChange({ detail: { height: 260 } })
+  assert(t.page.data.productEditSheetStyle.includes('bottom:260px'))
+  t.page.onProductKeyboardBlur(); await new Promise(resolve => setTimeout(resolve, 220))
+  assert(t.page.data.productEditSheetStyle.includes('bottom:0px'))
+  assert(t.page.data.productEditSheetStyle.includes('height:512px'))
+  t.page.closeProductPanel(); t.page.onOpenSetting(event(t.item))
+  assert(t.page.data.productEditSheetStyle.includes('bottom:0px'))
+  t.page.closeProductPanel(); assert(!locked(t))
+})
+
+test('inventory history closes the shared native host before displaying the ordinary records layer', () => {
+  const t = setup(); open(t); t.page.loadRecords = () => {}
+  t.page.onFilterRecordsByCurrent()
+  assert.equal(t.page.data.showRecords, true); assert.equal(nativeView(t).length, 0); assert(!locked(t))
+  assert.equal(t.page.data.recordsProductId, t.item.id)
+})
+
+async function main() {
+  const done = armWatchdog(30000); let failed = 0
+  try {
+    for (const t of tests) { try { await t.run(); console.log('PASS ' + t.name) } catch (e) { failed++; console.error('FAIL ' + t.name + ': ' + e.stack) } }
+    if (failed) process.exitCode = 1; else console.log('AQUAFLOW_SUITE_OK ' + tests.length)
+  } finally { done() }
+}
+if (require.main === module) main().catch(e => { console.error(e); process.exitCode = 1 })

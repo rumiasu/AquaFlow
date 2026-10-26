@@ -24,7 +24,7 @@ public class TicketPurchaseDTO {
     /** 要购买的水票对应商品ID */
     private Long productId;
 
-    /** 购买张数 */
+    /** 购买总张数；按档位时必须为单份张数的正整数倍，单次最多 5000 张。 */
     private Integer quantity;
 
     /** 支付方式：1=微信 2=现金(货到付款) 3=水票，以 constant/PayMethod 为准 */
@@ -37,7 +37,7 @@ public class TicketPurchaseDTO {
      * 水票档位ID（v36，可空）。
      *
      * <p>传了就是"按**定制**档位套餐买"：张数与总价一律以**服务端档位配置**为准，
-     * 请求体里的 quantity 必须与档位张数一致，否则拒绝 —— 只信客户端传的套餐价
+     * 请求体里的 quantity 必须为档位张数的正整数倍，否则拒绝 —— 只信客户端传的套餐价
      * 等于让客户端自己定价。</p>
      *
      * <p>不传且不传 {@link #unifiedQty} = 按散买单张价（{@code inventory.ticket_price}）。</p>

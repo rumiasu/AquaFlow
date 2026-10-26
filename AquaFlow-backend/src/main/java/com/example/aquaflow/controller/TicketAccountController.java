@@ -80,8 +80,7 @@ public class TicketAccountController {
         result.put("paymentMethod", pr.getPaymentMethod());
         result.put("packageId", pr.getTicketPackageId());
         // 统一档张数必须随原款返回，不能把同张数的散买误认成原档位。
-        String unifiedNote = "线上购买水票（站级统一折扣 " + pr.getTicketQty() + " 张档）";
-        result.put("unifiedQty", unifiedNote.equals(pr.getNote()) ? pr.getTicketQty() : null);
+        result.put("unifiedQty", com.example.aquaflow.util.TicketPurchaseIntent.originalUnifiedQty(pr));
         return result;
     }
 

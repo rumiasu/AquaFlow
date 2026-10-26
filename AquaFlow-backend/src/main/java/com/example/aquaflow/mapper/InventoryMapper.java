@@ -8,6 +8,12 @@ import java.util.List;
 @Mapper
 public interface InventoryMapper {
 
+    /** One-ticket tier compatibility only; never touches physical stock or other pricing. */
+    @Update("update inventory set ticket_price=#{price}, update_time=NOW() "
+            + "where station_id=#{stationId} and product_id=#{productId}")
+    int updateTicketPrice(@Param("stationId") Long stationId, @Param("productId") Long productId,
+                          @Param("price") java.math.BigDecimal price);
+
     @Insert("insert into inventory(station_id, product_id, quantity, enabled, ticket_enabled, ticket_price, priority_display, create_time, update_time) " +
             "values(#{stationId}, #{productId}, #{quantity}, #{enabled}, #{ticketEnabled}, #{ticketPrice}, #{priorityDisplay}, #{createTime}, #{updateTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

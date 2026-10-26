@@ -12,6 +12,17 @@ import java.util.Objects;
 public final class TicketPurchaseIntent {
     private TicketPurchaseIntent() {}
 
+    /** Recover the single-copy unified tier from the original immutable payment note. */
+    public static Integer originalUnifiedQty(PaymentRecord record) {
+        String note = record.getNote();
+        if (note == null) return null;
+        var matcher = java.util.regex.Pattern.compile("^线上购买水票（站级统一折扣 ([1-9][0-9]{0,3}) 张档）$").matcher(note);
+        if (!matcher.matches()) return null;
+        int perCopy = Integer.parseInt(matcher.group(1));
+        Integer total = record.getTicketQty();
+        return perCopy <= 5000 && total != null && total > 0 && total % perCopy == 0 ? perCopy : null;
+    }
+
     public static String digest(Long customer, Long station, Long product, Integer qty,
                                 Integer method, Long pack, Integer unified) {
         String canonical = "ticket-v1|" + customer + "|" + station + "|" + product + "|" + qty

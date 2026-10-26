@@ -527,6 +527,7 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         if (qty == null || qty <= 0) {
             throw new BusinessException("购买数量必须大于0");
         }
+        if (qty > 5000) throw new BusinessException("单次购买水票不能超过 5000 张");
         // [2026-09-20] 收款方式只允许「微信/线下收款申请(1)」与「现金(2)」。
         // 3 = 水票：购票场景下"用水票买水票"没有任何业务含义，而此前是**传什么存什么**，
         // 实测 paymentMethod=3 也能建出一条待收款流水（凭据记的收款方式与事实不符）。
@@ -576,20 +577,25 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         BigDecimal unitPrice;
         BigDecimal totalAmount;
         if (packageId != null) {
+            if (!custom) throw new BusinessException("该商品专属水票尚未开通，请重新选择套餐");
             com.example.aquaflow.entity.TicketPackage pkg = ticketPackageMapper.getById(packageId);
             if (pkg == null || !pkg.isOnShelf()) {
                 throw new BusinessException("该水票档位不存在或已下架");
             }
+            if (pkg.getPrice() == null || pkg.getPrice().signum() <= 0 || pkg.getUnitPrice() == null || pkg.getUnitPrice().signum() < 0)
+                throw new BusinessException("该套餐价格尚未核实，请重新选择");
             // 档位是站级的：A 站的档位不能拿到 B 站用（否则 A 站买的便宜票在 B 站有价差）
             if (!java.util.Objects.equals(stationId, pkg.getStationId())
                     || !java.util.Objects.equals(productId, pkg.getProductId())) {
                 throw new BusinessException("该档位与本水站/本商品不匹配");
             }
-            if (!pkg.getQty().equals(qty)) {
+            // 2026-10-26: quantity is the total ticket count. Only whole packages are
+            // accepted; compute the number of copies and price here, never from UI totals.
+            if (pkg.getQty() == null || pkg.getQty() <= 0 || qty % pkg.getQty() != 0) {
                 throw new BusinessException("购买张数与档位不一致，请重新选择");
             }
             unitPrice = pkg.getUnitPrice();
-            totalAmount = pkg.getPrice();
+            totalAmount = pkg.getPrice().multiply(BigDecimal.valueOf(qty / pkg.getQty()));
         } else if (unifiedQty != null) {
             // 走统一折扣：**只有档位可买**（折扣长在张数档上，没有"单张统一价"这种东西）
             if (custom) {
@@ -598,22 +604,35 @@ public class TicketAccountServiceImpl implements TicketAccountService {
             }
             com.example.aquaflow.entity.StationTicketDiscount tier =
                     ticketTierService.requireUnifiedTier(stationId, unifiedQty);
-            if (!tier.getQty().equals(qty)) {
+            if (tier.getQty() == null || tier.getQty() <= 0 || qty % tier.getQty() != 0) {
                 throw new BusinessException("购买张数与折扣档不一致，请重新选择");
             }
             java.util.Map<String, BigDecimal> priced =
                     ticketTierService.priceUnifiedTier(product, inv, tier);
             unitPrice = priced.get("unitPrice");
-            totalAmount = priced.get("totalPrice");
+            totalAmount = priced.get("totalPrice").multiply(BigDecimal.valueOf(qty / tier.getQty()));
         } else {
             if (!custom) {
                 // 这款水没有"单张水票价"可依（定制票没开），散买没有折扣依据 → 只能按档买
                 throw new BusinessException("该商品请按统一折扣档位购买");
             }
-            // 散买：唯一计价入口（站级水票价 → product.ticket_price 阶梯）
-            unitPrice = PriceUtil.calcUnitPrice(product, inv, PayMethod.TICKET);
+            // Keep the old request shape/digest (packageId=null). A configured one-ticket
+            // tier owns this price, including its disabled tombstone; never resurrect from retail.
+            com.example.aquaflow.entity.TicketPackage single = ticketPackageMapper.getByStationProductQty(stationId, productId, 1);
+            if (single != null) {
+                if (!single.isOnShelf()) throw new BusinessException("1 张套餐已下架，请重新选择套餐");
+                if (single.getPrice() == null || single.getPrice().signum() <= 0) throw new BusinessException("1 张套餐价格尚未核实");
+                unitPrice = single.getPrice();
+            } else {
+                if (inv.getTicketPrice() == null || inv.getTicketPrice().signum() <= 0)
+                    throw new BusinessException("请选择水票套餐，不支持单张购买");
+                unitPrice = inv.getTicketPrice();
+            }
             totalAmount = unitPrice.multiply(BigDecimal.valueOf(qty));
         }
+
+        if (totalAmount == null || totalAmount.signum() <= 0 || totalAmount.compareTo(new BigDecimal("99999999.99")) > 0)
+            throw new BusinessException("本次购票金额超出支持范围，请减少购买份数");
 
         PaymentRecord record = new PaymentRecord();
         record.setCustomerId(customerId);

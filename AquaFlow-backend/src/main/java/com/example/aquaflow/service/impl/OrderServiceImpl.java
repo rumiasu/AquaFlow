@@ -39,6 +39,9 @@ import java.util.Map;
 @Service
 @Slf4j
 public class OrderServiceImpl implements OrderService {
+
+    @Autowired
+    private TicketTierService ticketTierService;
     @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderPurchases;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
@@ -432,7 +435,7 @@ public class OrderServiceImpl implements OrderService {
                 boolean ticketEnabled = inv.getTicketEnabled() != null && Integer.valueOf(1).equals(inv.getTicketEnabled());
                 BigDecimal stTicketPrice = inv.getTicketPrice();
                 boolean hasPrice = stTicketPrice != null && stTicketPrice.compareTo(BigDecimal.ZERO) > 0;
-                boolean customOk = ticketEnabled && hasPrice;
+                boolean customOk = ticketTierService.usesCustomTicket(product, inv);
                 boolean unifiedOk = !customOk
                         && BarrelScope.isBarrel(product)
                         && ticketAccountService.unifiedDiscountConfigured(stationId);

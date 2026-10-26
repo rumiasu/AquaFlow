@@ -3,15 +3,12 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.TicketPackage;
-import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.TicketPackageMapper;
 import com.example.aquaflow.util.AuthContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 
 /**
@@ -38,6 +35,9 @@ public class TicketPackageController {
     @Autowired
     private com.example.aquaflow.service.impl.TicketTierService ticketTierService;
 
+    @Autowired
+    private com.example.aquaflow.service.TicketPackageService ticketPackageService;
+
     /**
      * 客户端查某站某商品**能买哪些档位**。
      *
@@ -53,8 +53,9 @@ public class TicketPackageController {
      */
     @GetMapping
     public Result<List<java.util.Map<String, Object>>> listForCustomer(@RequestParam Long stationId,
-                                                                      @RequestParam Long productId) {
-        return Result.success(ticketTierService.customerTiers(stationId, productId));
+                                                                      @RequestParam Long productId,
+                                                                      @RequestParam(defaultValue = "false") boolean includeRetail) {
+        return Result.success(ticketTierService.customerTiers(stationId, productId, includeRetail));
     }
 
     /** 站长查本站某商品的全部**定制**档位（含已下架）。统一折扣档走 /api/ticket-discounts。 */
@@ -74,35 +75,7 @@ public class TicketPackageController {
     @RequireRole({"STATION_MANAGER"})
     @PostMapping
     public Result<TicketPackage> save(@RequestBody TicketPackage body) {
-        Long stationId = AuthContext.requireStationId();
-        if (body.getProductId() == null) {
-            return Result.error("productId 不能为空");
-        }
-        if (body.getQty() == null || body.getQty() <= 0) {
-            return Result.error("档位张数必须大于 0");
-        }
-        if (body.getQty() > 5000) {
-            // 与 addTicket 的单次上限一致：水票是预付资产，档位张数不该出现天文数字
-            return Result.error("档位张数不能超过 5000");
-        }
-        if (body.getPrice() == null || body.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
-            return Result.error("档位总价必须大于 0");
-        }
-
-        TicketPackage pkg = new TicketPackage();
-        pkg.setStationId(stationId);       // 忽略请求体里的 stationId
-        pkg.setProductId(body.getProductId());
-        pkg.setQty(body.getQty());
-        pkg.setPrice(body.getPrice().setScale(2, RoundingMode.HALF_UP));
-        pkg.setUnitPrice(body.getPrice().divide(BigDecimal.valueOf(body.getQty()), 2, RoundingMode.HALF_UP));
-        pkg.setTitle(body.getTitle());
-        pkg.setStatus(body.getStatus() != null ? body.getStatus() : 1);
-        pkg.setSort(body.getSort() != null ? body.getSort() : 0);
-
-        ticketPackageMapper.upsert(pkg);
-        log.info("[v36] 站长保存水票档位: stationId={}, productId={}, qty={}, price={}, unitPrice={}",
-                stationId, pkg.getProductId(), pkg.getQty(), pkg.getPrice(), pkg.getUnitPrice());
-        return Result.success(ticketPackageMapper.getByStationProductQty(stationId, pkg.getProductId(), pkg.getQty()));
+        return Result.success(ticketPackageService.save(AuthContext.requireStationId(), body));
     }
 
     /**
@@ -114,10 +87,7 @@ public class TicketPackageController {
     @RequireRole({"STATION_MANAGER"})
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
-        int affected = ticketPackageMapper.delete(id, AuthContext.requireStationId());
-        if (affected == 0) {
-            throw new BusinessException("档位不存在或不属于本站");
-        }
+        ticketPackageService.delete(AuthContext.requireStationId(), id);
         return Result.success();
     }
 }

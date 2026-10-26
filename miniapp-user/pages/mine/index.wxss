@@ -1,8 +1,9 @@
-/* 我的 · 锁定视觉系统。本页无主按钮/步进器/状态点 → 蓝色 0 处常驻，页面安静是对的。 */
+/* 我的：先读水票与资产数值，再按需进入流水、桶账与办理。 */
 .page {
   min-height: 100vh;
   background: var(--bg-color);
-  padding: 24rpx 24rpx 60rpx;
+  padding: 24rpx 24rpx calc(60rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 
 .card {
@@ -68,27 +69,44 @@
 .assets-grid {
   display: flex;
   flex-wrap: wrap;
+  padding: 16rpx 20rpx 4rpx;
 }
 .asset-cell {
-  width: 33.333333%;
+  width: 50%;
   min-width: 0;
   box-sizing: border-box;
   padding: 24rpx 16rpx;
+  min-height: 44px;
   display: flex;
   flex-direction: column;
 }
-.asset-cell + .asset-cell {
+.asset-cell:last-child {
   border-left: 1rpx solid var(--border-color);
 }
+.asset-cell-primary {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  padding: 24rpx;
+  background: var(--primary-bg);
+  border-radius: 12rpx;
+}
+.asset-primary-main { flex: 1; min-width: 0; }
+.asset-primary-action { flex: none; color: var(--primary-color); font-size: 28rpx; font-weight: 600; }
+.asset-primary-main .asset-value { display: block; font-size: 64rpx; }
+.asset-entry { margin-top: 12rpx; color: var(--primary-color); font-size: 28rpx; line-height: 1.5; }
 .asset-value {
   overflow-wrap: anywhere;
-  font-size: 38rpx;
+  font-size: 48rpx;
   font-weight: 700;
+  line-height: 1.35;
+  margin-top: 8rpx;
 }
 /* [2026-09-27 走查 C05 修] 未加载的格子：**不能长得像 0** —— 字号调小、用中性灰、
    文案是「暂未加载」。样式与文案一起表达"这一项没拿到"，而不是"这一项是零"。 */
-.asset-value-unloaded {
-  font-size: var(--font-md);
+.asset-value.asset-value-unloaded {
+  font-size: 30rpx;
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -119,9 +137,8 @@
   color: var(--text-regular);
 }
 .asset-label {
-  font-size: var(--font-sm);
+  font-size: 28rpx;
   color: var(--text-regular);
-  margin-top: 8rpx;
 }
 .asset-hint {
   margin-top: 6rpx;
@@ -192,7 +209,6 @@
 .avatar { width: 88rpx; height: 88rpx; }
 .user-tag, .assets-station, .asset-unit, .asset-hint, .asset-note-text, .assets-unloaded-text, .group-title, .menu-desc { font-size: 26rpx; color: var(--text-regular); }
 .assets-head { gap: 16rpx; flex-wrap: wrap; padding: 24rpx 20rpx 8rpx; }
-.asset-cell { padding: 24rpx 12rpx; min-height: 160rpx; }
 .assets-unloaded-tip { min-height: 96rpx; box-sizing: border-box; border-left:4rpx solid var(--warning-color); }
 .asset-note { align-items: flex-start; flex-wrap: wrap; }
 .asset-note-link { min-height: 88rpx; display: flex; align-items: center; color: var(--primary-color); }
@@ -203,6 +219,6 @@
 
 /* 本页所有状态共用的可读与触控边界。 */
 .asset-refresh-note { display: block; margin: 12rpx 0; font-size: 26rpx; line-height: 1.6; color: var(--warning-color); }
-.assets-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .asset-cell, .menu-name, .menu-desc, .user-info { min-width: 0; overflow-wrap: anywhere; }
+.asset-primary-action { overflow-wrap: anywhere; max-width: 44%; }
 .avatar-placeholder { display: flex; align-items: center; justify-content: center; background: var(--bg-gray); color: var(--text-regular); font-size: 32rpx; font-weight: 600; }

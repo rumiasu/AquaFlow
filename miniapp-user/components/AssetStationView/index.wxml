@@ -1,19 +1,26 @@
 <view class="scope-card">
+  <view class="scope-heading">
+    <text class="scope-caption">资产水站</text>
+    <text class="scope-badge">正在查看资产</text>
+  </view>
   <view class="scope-row" bindtap="openPicker" aria-role="button" aria-label="切换资产查看水站" aria-disabled="{{busy}}">
     <view class="scope-main">
-      <text class="scope-caption">正在查看资产</text>
       <text class="scope-name">{{stationName || (stationId ? '资产水站名称待核实' : '请选择资产水站')}}</text>
       <text class="scope-status" wx:if="{{statusText}}">{{statusText}}</text>
     </view>
     <text class="scope-switch">{{busy ? '办理中' : '切换 ›'}}</text>
   </view>
-  <text class="scope-tip">桶、押金与水票按站独立，不能跨站使用</text>
-  <text class="scope-order">下单水站：{{orderStationName || '暂未确认'}} · 切换查看不会更改</text>
+  <text class="scope-context">按站独立 · 查看不更改下单水站</text>
 </view>
 <view class="picker-mask" wx:if="{{open}}" bindtap="close"></view>
 <view class="picker" wx:if="{{open}}" catchtap="stopPropagation">
   <view class="picker-head"><text>选择查看水站</text><button class="picker-close" bindtap="close">关闭</button></view>
   <text class="picker-tip">只列出与你有绑定、资产或历史记录的水站</text>
+  <!-- 2026-10-26：归属规则保留在选站时阅读，避免两段说明在每个资产页压过真实数值。 -->
+  <view class="picker-scope">
+    <text class="scope-tip">桶、押金与水票按站独立，不能跨站使用</text>
+    <text class="scope-order">下单水站：{{orderStationName || '暂未确认'}} · 切换查看不会更改</text>
+  </view>
   <scroll-view class="picker-list" scroll-y>
     <view class="picker-row {{stationId === item.id ? 'selected' : ''}}" wx:for="{{stations}}" wx:key="id" data-id="{{item.id}}" bindtap="choose">
       <view class="picker-main"><text class="picker-name">{{item.name}}</text><text class="picker-status">{{item.statusText}}</text></view>

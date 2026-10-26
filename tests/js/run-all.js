@@ -69,6 +69,7 @@ const SUITES = [
   { file: 'native-home-module-closure.test.js', name: '实际首页原生模块闭包、漏装反例与打包输入' },
   { file: '../../scripts/test-miniapp-environments.js', name: 'trial environment isolation and dev shortcut gates' },
   { file: 'employee-native-startup.test.js', name: '员工端 App 注册期与原生协议草稿加载' },
+  { file: 'customer-assets-hierarchy.test.js', name: 'Customer asset hierarchy, honest loading state and station-safe navigation' },
   { file: 'asset-view-station-flow.test.js', name: '本人资产站目录、历史资产切站、购买站别与会话隔离' },
   { file: 'customer-delivery-arrangement.test.js', name: '客户真实配送安排提示与迟到响应保护' },
   { file: 'historical-business-entry-flow.test.js', name: '完整历史退还与拒付原案分页、定位和原请求恢复' },

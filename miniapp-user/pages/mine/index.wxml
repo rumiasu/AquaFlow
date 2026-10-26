@@ -18,26 +18,30 @@
     <asset-station-view id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
     <view class="card assets-card">
       <view class="assets-head">
-        <text class="assets-title">本站资产</text>
-        <text class="assets-station" wx:if="{{stationName}}">{{stationName}}</text>
+        <text class="assets-title">我的资产</text>
+        <text class="assets-station">当前查看水站</text>
       </view>
       <text class="asset-refresh-note" wx:if="{{assetsLoading}}">正在读取本站资产…</text>
       <text class="asset-refresh-note" wx:if="{{staleAssetsText}}">{{staleAssetsText}}</text>
       <view class="assets-grid">
-        <view class="asset-cell" data-url="/pages/deposit/records/index" bindtap="onMenuTap">
+        <!-- 2026-10-26：高频水票入口单独突出；仍走同一个站级资产导航，不能改成全局下单站。 -->
+        <view class="asset-cell asset-cell-primary" data-url="/pages/ticket/index" bindtap="onMenuTap" aria-role="button" aria-label="查看水票与购买水票">
+          <view class="asset-primary-main">
+            <text class="asset-label">可用水票</text>
+            <text class="asset-value {{ticketLoaded ? '' : 'asset-value-unloaded'}}">{{ticketText}}<text class="asset-unit" wx:if="{{ticketLoaded}}"> 张</text></text>
+          </view>
+          <text class="asset-primary-action">查看 / 购票 ›</text>
+        </view>
+        <view class="asset-cell" data-url="/pages/deposit/records/index" bindtap="onMenuTap" aria-role="button" aria-label="查看押金余额与流水">
+          <text class="asset-label">押金余额</text>
           <text class="asset-value {{depositLoaded ? '' : 'asset-value-unloaded'}}">{{depositLoaded ? '¥' + depositText : depositText}}</text>
-          <text class="asset-label">押金余额 ›</text>
-          <text class="asset-hint">查看增减流水</text>
+          <text class="asset-entry">查看流水 ›</text>
         </view>
-        <view class="asset-cell" data-url="/pages/ticket/index" bindtap="onMenuTap">
-          <text class="asset-value {{ticketLoaded ? '' : 'asset-value-unloaded'}}">{{ticketText}}<text class="asset-unit" wx:if="{{ticketLoaded}}"> 张</text></text>
-          <text class="asset-label">水票 ›</text>
-          <text class="asset-hint">剩余可用张数</text>
-        </view>
-        <view class="asset-cell" data-url="/pages/barrel/index" bindtap="onMenuTap">
+        <view class="asset-cell" data-url="/pages/barrel/index" bindtap="onMenuTap" aria-role="button" aria-label="查看我的桶与退还办理">
+          <text class="asset-label">我的桶</text>
           <text class="asset-value {{barrelLoaded ? '' : 'asset-value-unloaded'}}">{{barrelText}}<text class="asset-unit" wx:if="{{barrelLoaded}}"> 个</text></text>
-          <text class="asset-label">我的桶 ›</text>
           <text class="asset-hint" wx:if="{{barrelLoaded}}">{{barrelHint}}</text>
+          <text class="asset-entry">查看 / 退还 ›</text>
         </view>
       </view>
       <view class="asset-note" wx:if="{{assetStationRequired}}">
@@ -50,7 +54,7 @@
       </view>
       <!-- 还空桶说明（务实版）：还空桶≠退押金，顾客侧不用也不能自己记账 -->
       <view class="asset-note">
-        <text class="asset-note-text">空桶怎么还？不用自己操作：送水时配送员会顺手收走，还空桶不扣押金。</text>
+        <text class="asset-note-text">送水时可交回空桶，还空桶不扣押金。</text>
         <view class="asset-note-link" data-url="/pages/barrel/index" bindtap="onMenuTap">退桶退押金 ›</view>
       </view>
     </view>

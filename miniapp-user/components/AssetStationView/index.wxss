@@ -1,12 +1,15 @@
-.scope-card { margin-bottom: 24rpx; padding: 24rpx; background: var(--bg-card); border: 1rpx solid var(--border-color); border-radius: 20rpx; }
+.scope-card { margin: 20rpx 0; padding: 20rpx 24rpx; background: var(--bg-card); border: 1rpx solid var(--border-color); border-radius: var(--radius-lg); }
+.scope-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8rpx 16rpx; }
+.scope-badge { padding: 4rpx 12rpx; border-radius: 8rpx; background: var(--primary-bg); color: var(--primary-color); font-size: 26rpx; line-height: 1.5; }
 .scope-row { display: flex; align-items: center; gap: 20rpx; }
 .scope-main, .picker-main { flex: 1; min-width: 0; }
-.scope-caption { display: block; font-size: 30rpx; color: var(--text-regular); }
-.scope-name { display: block; margin-top: 8rpx; font-size: 34rpx; font-weight: 600; color: var(--text-primary); overflow-wrap: break-word; }
-.scope-switch { flex-shrink: 0; color: var(--primary-color); font-size: 34rpx; padding: 12rpx 0; }
+.scope-caption { font-size: 30rpx; color: var(--text-regular); }
+.scope-name { display: block; font-size: 34rpx; font-weight: 600; line-height: 1.4; color: var(--text-primary); overflow-wrap: break-word; }
+.scope-switch { flex-shrink: 0; color: var(--primary-color); font-size: 34rpx; padding: 12rpx 0; min-height: 44px; display: flex; align-items: center; box-sizing: border-box; }
+.scope-context { display: block; margin-top: 4rpx; font-size: 28rpx; line-height: 1.5; color: var(--text-secondary); }
 .scope-tip, .scope-order { display: block; font-size: 34rpx; line-height: 1.6; color: var(--text-regular); margin-top: 8rpx; overflow-wrap: break-word; }
 .scope-status { display: block; font-size: 30rpx; line-height: 1.6; color: var(--text-regular); margin-top: 8rpx; overflow-wrap: break-word; }
-.scope-order { padding-top: 12rpx; margin-top: 12rpx; border-top: 1rpx solid var(--border-color); }
+.picker-scope { padding: 0 16rpx 16rpx; margin-bottom: 12rpx; border-radius: 12rpx; background: var(--bg-gray); }
 .picker-mask { position: fixed; inset: 0; z-index: 1100; background: rgba(0,0,0,.4); }
 .picker { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1101; padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom)); border-radius: 28rpx 28rpx 0 0; background: var(--bg-card); }
 .picker-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 34rpx; gap: 16rpx; }
@@ -23,10 +26,7 @@
 .picker-message { display: block; padding: 28rpx 8rpx; font-size: 34rpx; color: var(--text-regular); line-height: 1.7; white-space: normal; overflow-wrap: break-word; }
 .picker-retry { margin-top: 20rpx; font-size: 34rpx; color: var(--primary-color); background: var(--bg-gray); }
 
-.scope-card { border-radius: var(--radius-lg); padding: 24rpx; box-shadow: none; }
-.scope-switch, .picker-close { min-height: 88rpx; display: flex; align-items: center; box-sizing: border-box; }
-.scope-row { flex-wrap: wrap; }
-.scope-main { min-width: 240rpx; }
+.picker-close { min-height: 88rpx; display: flex; align-items: center; box-sizing: border-box; }
 .picker { border-radius: 20rpx 20rpx 0 0; }
 
 /* 弹层不进入胶囊区；小屏触控尺寸不随rpx缩小。 */

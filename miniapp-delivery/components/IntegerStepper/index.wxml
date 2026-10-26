@@ -1,0 +1,8 @@
+<view class="integer-control">
+  <view class="integer-row">
+    <button class="step-button" data-direction="minus" bindtap="onStep" disabled="{{minusDisabled}}" aria-label="{{label}}减少{{step}}">−</button>
+    <input class="integer-input" type="number" value="{{inputValue}}" placeholder="{{placeholder}}" disabled="{{disabled}}" maxlength="10" confirm-type="done" bindinput="onInput" bindconfirm="onConfirm" aria-label="{{label}}，最少{{min}}，最多{{max}}" />
+    <button class="step-button" data-direction="add" bindtap="onStep" disabled="{{plusDisabled}}" aria-label="{{label}}增加{{step}}">＋</button>
+  </view>
+  <text class="input-error" wx:if="{{inputError}}">{{inputError}}</text>
+</view>

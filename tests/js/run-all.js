@@ -114,6 +114,7 @@ const SUITES = [
   { file: 'wechat-shared-module-import.test.js', name: '微信共享依赖顶层导入与展开require静态约束' },
   { file: 'order-history-query-boundary.test.js', name: '订单无效筛选、条件快照与在途响应隔离' },
   { file: 'payment-history-cache-boundary.test.js', name: '购票历史客户缓存、失败重试与返回重入隔离' },
+  { file: 'ticket-tier-picker-stepper.test.js', name: '票档商品抽屉、草稿切换、整数输入与写操作保护' },
   { file: 'manager-second-batch.test.js', name: '票档位商品上下文、客户日期历史、取回范围与迟到响应' },
   { file: 'manager-first-batch.test.js', name: '统一确认闸门、本站客户选择、分类角标与异常分页' },
   { file: 'backup-safety.test.js', name: '备份完整目标、危险SQL拒绝、二进制执行与默认保留（无库）' },

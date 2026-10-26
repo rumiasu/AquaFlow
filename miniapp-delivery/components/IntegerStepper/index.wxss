@@ -1,0 +1,7 @@
+:host { display: block; width: 100%; min-width: 0; }
+.integer-row { display: flex; align-items: center; width: 100%; border: 1rpx solid var(--border-color, #DAE0E8); border-radius: 8rpx; background: var(--bg-white, #fff); box-sizing: border-box; }
+.step-button { flex: none; width: 48px; min-height: 48px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; line-height: 1.4; color: var(--primary-color, #1264D6); background: var(--primary-bg, #EAF3FF); border-radius: 6rpx; }
+.step-button::after { border: none; }
+.step-button[disabled] { color: var(--text-secondary, #637083); background: var(--bg-gray, #F0F2F5); opacity: .6; }
+.integer-input { flex: 1; width: 0; min-width: 0; height: 48px; text-align: center; font-size: 16px; color: var(--text-primary, #182230); }
+.input-error { display: block; margin-top: 8rpx; font-size: 14px; line-height: 1.6; color: var(--error-color, #BD3328); }

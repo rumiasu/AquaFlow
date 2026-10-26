@@ -39,3 +39,58 @@ JAR为46,906,889字节，SHA256 `ed182ea0d251d7c4b08b7096c32daed7825652196c2886c
 TLS源码、SQL、云连接配置和服务器下载逻辑未改。现云环境必须保留 `WECHAT_MINIAPP_CLOUD_CALL_TLS_ENABLED=true`；`.env.example`的关闭默认值不是现有平台配置的替换值。020已上线且用户登录成功是既有用户事实，本轮没有重新登录验证线上020。
 
 本轮未执行云部署、微信“上传”、审核或正式发布。切换资产合成模拟器机型时曾误触“预览”，生成一个临时开发预览二维码，随后关闭；未将其当真机通过或交付版本。正式业务测试应使用本次正式源码与获准的体验环境，不能使用合成验收工程。
+
+## 2026-10-26 晚：管理端商品选择与张数输入补修
+
+本节供接手集成和验收的工程师使用，只覆盖管理端 `pages/station-mgmt/ticket-packages/index` 与新增 `components/IntegerStepper`。云端已从授权远端核实开发分支 `codex/fix-fee-drawer-layout-20261018` 为 `9ee0db72fe68750bbfe60b6e55eaacc0658301e4`，在独立分支 `codex/ux-ticket-quantity-20261026` 实施，未推共享分支。远端默认 `main` 是 `4b0310ab70e388be6501333a9ec9d33a38547500`，不能当本批交付基线。
+
+### 审计与页面取舍
+
+实际查看了用户截图 `1000041449.jpg` 的像素，内容是管理端“水票档位”：商品/站级折扣混排、选中商品名称规格重复、张数为纯输入。截图显示“0 个”已有档位，未展示已有档位选项或底部保存区；不据此猜测这两处旧样式。该截图成功读取只属于本节新增证据，不改写上文旧批次“未读取原图”的历史记录。
+
+| 页面 | 本批决定 | 共用策略/冲突 |
+| --- | --- | --- |
+| 管理端水票档位 | 优先实施：商品摘要、可搜索底部单选列表、张数步进 | 站级折扣保留为两项短分段中的独立模式；商品列表只含真实商品 |
+| 客户端水票购买 | 延后；先验管理端实际反馈页 | 套餐较多时用滚动单选面板；2–3 个短套餐仍可直显，不统一强制套抽屉 |
+| 客户端首页订水 | 延后 | 已有减加与购物车/报价逻辑，接入手输必须沿用原数量、报价失效与库存语义 |
+| 客户端独立押金购买 | 延后 | 离散数量可复用整数模式，但保留原购买恢复和报价逻辑 |
+| 客户端结算 `order/create.wxml/wxss` | 本批不改 | 与待集成的详情准备提示/报表/订单明细 UI 工作存在文件重叠，交父任务协调 |
+
+整数组件仅注册在员工端本页，支持 `value/min/max/step/disabled`，通过 `change.detail.value` 回传原始草稿。未新增依赖、跨小程序包引用或自动保存。今后库存若使用，须传可核实的库存/限购上限；大批数量仍以手输为主。金额、折扣、手机号均不使用此组件。
+
+### 证据与反省
+
+故障先于审美：基线 `index.js:171–176` 在切商品时直接清空表单，`index.js:234–238` 仅检查数值大于零，分数、指数写法和超过5000张可进入请求；基线 `onToggleStatus` 没有在途锁。本批增加草稿保留/放弃选择、按商品/站级模式隔离草稿、1–5000整数就近校验、原生禁用和操作锁。商品切换立即清空旧档位，迟到响应、离页和换员工/水站不覆盖当前上下文。返回时如原写入仍在途，等其结束再回读当前档位，不自动再写一次。失败保留草稿；失败/损坏列表与成功空列表分开表达。
+
+版面取舍：截图中的用途说明、大收款记录链接、商品卡及外部“当前商品”占用了编辑入口之前的空间，源码对应基线 `index.wxml:9–38`。本批将规则解释放在现有问号说明与“档位怎么定”，保留明确保存语义；商品只展示一个缩略图/名称/规格摘要和更换入口，收款历史移至页尾。底部列表便于比较长名称/规格，属于基于本页内容的设计判断；不是“所有选项都应抽屉化”的结论。
+
+### 已实现行为与验证
+
+- 商品选择先暂选，确认才切；取消、遮罩关闭和原生返回只关闭面板。使用单个原生 `page-container` 接管返回与滚动锁，没有额外设置页面 `overflow:hidden`。列表独立滚动，确认区含底部安全区；搜索“完成”、选中商品、确认和关闭会收键盘。
+- 切换前存在草稿时，选择“保留草稿并切换”或“放弃草稿并切换”；取消原生菜单则继续原稿。保留的草稿在同一页面实例内切回恢复，去查看收款记录再返回仍保留；退出页面/进程后不新增持久恢复承诺。
+- 张数保留空白及“如10”占位，未擅自设默认10。减加每次1张，边界1/5000禁用；非法手输不静默裁剪，只提示纠正。金额/折扣仍是 `digit` 精确输入，原API、金额转换及服务端均价展示不变；开关档位沿用原行金额，不发送客户端计算的均价。
+- `node tests/js/ticket-tier-picker-stepper.test.js`：**32项通过**；`manager-second-batch` **15项**、`manager-closeout-state` **39项**、`ticket-package-copies` **13项**通过，共 **99项**，各套有 `AQUAFLOW_SUITE_OK` 结束标记。覆盖原页面处理函数和组件事件，不将源码字符串检查当作原生交互证明。
+- 双端JS解析、文本/BOM、WXSS同元素类检查及依赖/打包输入检查通过。全仓WXML事件扫描仍为基线两处 `openStationPanel` 报告：`pages/home/index.js` 与 `pages/coordination/index.js` 均注册 `stationNavbar` Behavior，真实方法在 `behaviors/stationNavbar.js`；本批没有新增缺失绑定，未修改扫描器或添加空实现掩盖报告。
+
+### 集成和剩余验收
+
+改动范围：员工端水票档位四文件、整数组件四文件、新增流程测试、既有管理端两条预期更新、总测试入口注册、本记录。`tests/js/run-all.js` 是其他并行任务可能同时追加的汇合点，集成时保留各新增注册。未改 `miniapp-user/**`、支付业务 `api/order.js`/`utils/pay.js`、后端、SQL、业务库、云配置，也未获取或代推受限本地补丁。
+
+精确文件清单：
+
+```text
+docs/audit/20261026-ticket-fees-assets/README.md
+miniapp-delivery/components/IntegerStepper/index.js
+miniapp-delivery/components/IntegerStepper/index.json
+miniapp-delivery/components/IntegerStepper/index.wxml
+miniapp-delivery/components/IntegerStepper/index.wxss
+miniapp-delivery/pages/station-mgmt/ticket-packages/index.js
+miniapp-delivery/pages/station-mgmt/ticket-packages/index.json
+miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxml
+miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxss
+tests/js/manager-second-batch.test.js
+tests/js/run-all.js
+tests/js/ticket-tier-picker-stepper.test.js
+```
+
+尚待用户用真实小程序验收：长名称与相同名称不同规格、系统大字、320×568短屏、搜索键盘出现/完成、长列表上下滚动、确认区不被键盘/安全区遮挡、取消/遮罩/原生返回后的页面滚动恢复、保留/放弃后切回，以及失败重试时的就近提示。云端测试未运行微信开发者工具或实体手机，不宣称像素已验收；没有真实支付、预览、上传或发布。未跑后端集成测试或无关全仓流程套件。

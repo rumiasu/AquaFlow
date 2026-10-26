@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'three-flow-regressions.test.js', name: '商品档位返回核对、配送回执生命周期与购票读取中断恢复' },
   { file: 'ticket-package-copies.test.js', name: '套餐默认草稿、1张兼容、多份总价、原款恢复与删除/下架保存' },
   { file: 'delivery-fee-tutorial.test.js', name: '配送计费四条上线教程、草稿推进、明确保存、失败与退出恢复' },
   { file: 'product-inventory-host.test.js', name: '单一原生商品容器、库存可见/关闭、滚动锁、连点、切换、失败与键盘恢复' },

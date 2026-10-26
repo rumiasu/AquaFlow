@@ -48,6 +48,42 @@ const exactNumber = value => {
 // Existing tier rows are durable records: only the explicit deleted flag may delete one.
 const untouchedPackageDraft = row => row && row.defaultDraft && !row.touched && blankNumber(row.price)
 const initialPackageDraft = () => ({ key: 'initial-package', id: null, qty: '10', price: '', defaultDraft: true, touched: false, deleted: false })
+const packageFields = row => ({ qty: exactNumber(row.qty), price: exactNumber(row.price),
+  title: row.title == null ? null : row.title, sort: row.sort == null ? 0 : row.sort,
+  status: row.onShelf === false ? 0 : 1 })
+const packageChanged = row => !untouchedPackageDraft(row) && (row.deleted || !row.original
+  || JSON.stringify(packageFields(row)) !== JSON.stringify(row.original))
+function packageRow(saved) {
+  const row = { key: 'p' + saved.id, id: saved.id, qty: saved.qty,
+    price: saved.price == null ? '' : String(saved.price), title: saved.title, sort: saved.sort,
+    onShelf: saved.status === 1, deleted: false }
+  row.original = packageFields(row)
+  return row
+}
+const packageListKey = rows => JSON.stringify(rows.filter(row => row.id).map(row =>
+  [String(row.id), row.original || packageFields(row)]).sort((a, b) => a[0].localeCompare(b[0])))
+/** Rebase only explicitly edited fields; a child page's newer title/sort must survive a parent price edit. */
+function rebasePackageDrafts(drafts, fresh) {
+  const rows = fresh.map(row => ({ ...row }))
+  for (const draft of drafts) {
+    if (!packageChanged(draft)) continue
+    const index = rows.findIndex(row => draft.id ? String(row.id) === String(draft.id) : Number(row.qty) === Number(draft.qty))
+    if (draft.deleted && index < 0) continue
+    const latest = rows[index]
+    const next = latest ? { ...latest, deleted: !!draft.deleted } : { ...draft, id: null, key: 'draft-' + draft.key }
+    if (!latest) delete next.original
+    const fields = packageFields(draft)
+    for (const field of ['qty', 'price', 'status', 'title', 'sort']) {
+      const explicit = draft.original ? fields[field] !== draft.original[field]
+        : field === 'qty' || field === 'price' || field === 'status' && typeof draft.onShelf === 'boolean'
+          || (field === 'title' || field === 'sort') && Object.prototype.hasOwnProperty.call(draft, field)
+      if (explicit) next[field === 'status' ? 'onShelf' : field] = field === 'status' ? fields[field] === 1 : draft[field]
+    }
+    if (index < 0) rows.push(next)
+    else rows[index] = next
+  }
+  return rows.length ? rows : [initialPackageDraft()]
+}
 const retailCompatibilityPrice = (rows, previous) => {
   const one = rows.find(row => exactNumber(row.qty) === 1)
   return one ? (one.deleted || one.onShelf === false ? '0' : one.price) : previous
@@ -189,6 +225,9 @@ Page({
     this._productHidden = false
     const visibleSession = productSession()
     if (this._productPageSession && !sameProductSession(this._productPageSession)) {
+      this._ticketPackageVisit = null
+      this._pkgBaselineRows = []
+      this._pkgBaselineProductId = null
       this._catalogReadSeq = (this._catalogReadSeq || 0) + 1
       this._recordsSeq = (this._recordsSeq || 0) + 1
       this._submissionsSeq = (this._submissionsSeq || 0) + 1
@@ -218,9 +257,16 @@ Page({
     try { this.syncProductCreationRecovery() } catch (_) { /* 风险常显，仍允许只读目录核对。 */ }
     this.loadData()
     this.loadWaterTemplateImages()
+    // 2026-10-26：子页已改票价时，旧编辑器曾重写整份旧档位；只核对档位，不重载商品草稿。
+    if ((this.data.showEdit || this.data.productEditorResume) && this.data.pkgProductId
+      && (String(this._ticketPackageVisit || '') === String(this.data.pkgProductId) || this.data.pkgLoading)) {
+      this._ticketPackageVisit = null
+      this.loadPkgRows(this.data.pkgProductId, { reconcile: true })
+    }
   },
 
   onUnload() {
+    if (this._pkgReturnCancel) this._pkgReturnCancel()
     this._productDestroyed = true
     this._catalogReadSeq = (this._catalogReadSeq || 0) + 1
     if (this._productResizeHandler && typeof wx.offWindowResize === 'function') wx.offWindowResize(this._productResizeHandler)
@@ -230,6 +276,7 @@ Page({
 
   onHide() {
     this._productHidden = true
+    if (this._pkgReturnCancel) this._pkgReturnCancel()
     if (this._inboundFlight && this._inboundFlight.cancelConfirmation) this._inboundFlight.cancelConfirmation()
   },
 
@@ -713,38 +760,58 @@ Page({
    * ⚠️ 金额一律发服务端算：unitPrice 由后端用 price/qty 推导，前端不传、也不显示自己算的均价
    *    （档位均价是水票批次的快照值，前端算会与快照不一致）。
    */
-  async loadPkgRows(productId) {
+  async loadPkgRows(productId, { reconcile = false } = {}) {
     if (!productId) return
+    const owner = productSession(), epoch = this._productEditEpoch || 0
     const seq = this._pkgSeq = (this._pkgSeq || 0) + 1
+    const current = () => seq === this._pkgSeq && sameProductSession(owner) && !this._productHidden && !this._productDestroyed
+      && epoch === (this._productEditEpoch || 0) && String(this.data.pkgProductId) === String(productId)
     this.setData({ pkgLoading: true, pkgReady: false, pkgError: '', pkgProductId: productId })
     try {
       const res = await get(PKG_MANAGE + '?productId=' + productId)
-      if (seq !== this._pkgSeq) return
+      if (!current()) return
       if (!Array.isArray(res.data)) throw new Error('档位数据未读取')
-      const rows = res.data.map(p => ({
-        key: 'p' + p.id,
-        id: p.id,
-        qty: p.qty,
-        price: p.price === null || p.price === undefined ? '' : String(p.price),
-        onShelf: p.status === 1,
-        deleted: false
-      }))
+      const fresh = res.data.map(packageRow)
+      let rows = fresh
+      if (reconcile) {
+        const drafts = productCopy(this.data.pkgRows || [])
+        const changed = drafts.some(packageChanged)
+        const remoteChanged = String(this._pkgBaselineProductId) !== String(productId)
+          || packageListKey(this._pkgBaselineRows || []) !== packageListKey(fresh)
+        if (changed && remoteChanged) {
+          this.setData({ pkgError: '档位已有新版本，请选择如何处理本页档位修改；商品资料草稿保持不变。' })
+          const useFresh = await new Promise(resolve => {
+            let settled = false
+            const finish = value => { if (settled) return; settled = true; if (this._pkgReturnCancel === cancel) this._pkgReturnCancel = null; resolve(value) }
+            const cancel = () => finish(null)
+            this._pkgReturnCancel = cancel
+            try { wx.showModal({ title: '核对水票档位',
+              content: '其他页面已更新档位，本页也有未保存的档位修改。使用新档会替换本页档位草稿；保留修改将在下次保存时提交这些修改。两种选择都保留商品资料草稿。',
+              confirmText: '使用新档', cancelText: '保留修改', confirmColor: '#1264D6', cancelColor: '#637083',
+              success: answer => finish(!!answer.confirm), fail: cancel }) } catch (_) { cancel() }
+          })
+          if (!current() || useFresh === null) return
+          rows = useFresh ? fresh : rebasePackageDrafts(drafts, fresh)
+        } else if (changed) rows = rebasePackageDrafts(drafts, fresh)
+      }
+      this._pkgBaselineRows = productCopy(fresh)
+      this._pkgBaselineProductId = String(productId)
       // 2026-10-26: expose existing retail configuration as a one-ticket tier. This is
       // only a draft until the user saves; no read performs a migration or deletion.
       const retail = this.data.editForm.ticketPrice
-      if (exactNumber(retail) > 0 && !rows.some(row => Number(row.qty) === 1)) rows.unshift({ key: 'legacy-retail', id: null, qty: '1', price: String(retail), legacyRetail: true, deleted: false })
-      this.setData({ pkgRows: rows.length ? rows : [initialPackageDraft()], pkgReady: true })
+      if (!reconcile && exactNumber(retail) > 0 && !rows.some(row => Number(row.qty) === 1)) rows.unshift({ key: 'legacy-retail', id: null, qty: '1', price: String(retail), legacyRetail: true, deleted: false })
+      this.setData({ pkgRows: rows.length ? rows : [initialPackageDraft()], pkgReady: true, pkgError: '' })
     } catch (err) {
       // 2026-10-22：原配置未核实时不能把空表当作原价目表；保留草稿，先重读再修改档位。
-      if (seq !== this._pkgSeq) return
+      if (!current()) return
       console.warn('[ticket-packages] load failed:', err && err.message)
       this.setData({ pkgError: '水票档位尚未读取，请先重读原配置，草稿保持不变' })
     } finally {
-      if (seq === this._pkgSeq) this.setData({ pkgLoading: false })
+      if (current()) this.setData({ pkgLoading: false })
     }
   },
 
-  onRetryPkgRows() { return this.loadPkgRows(this.data.pkgProductId) },
+  onRetryPkgRows() { if (!this.data.pkgLoading) return this.loadPkgRows(this.data.pkgProductId, { reconcile: true }) },
 
   onPkgPriceInput(e) {
     if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
@@ -793,7 +860,10 @@ Page({
   onOpenTicketPackages() {
     // 2026-10-06：从商品设置进入曾丢失当前商品，必须沿用这一份设置上下文。
     const id = this.data.setting && this.data.setting.id
-    wx.navigateTo({ url: '/pages/station-mgmt/ticket-packages/index' + (id ? '?productId=' + encodeURIComponent(id) : '') })
+    if (this.productWriteLocked() || this._ticketPackageVisit) return
+    this._ticketPackageVisit = id ? String(id) : null
+    wx.navigateTo({ url: '/pages/station-mgmt/ticket-packages/index' + (id ? '?productId=' + encodeURIComponent(id) : ''),
+      fail: () => { this._ticketPackageVisit = null } })
   },
 
   /** 把档位行落库：合法行走 upsert；仅明确标记删除的已有档位走 DELETE。 */
@@ -811,10 +881,14 @@ Page({
         if (progress) progress(index + 1)
         continue
       }
+      // 2026-10-26：未修改的持久档位曾被重写，覆盖子页新票价并清空名称/排序。
+      if (r.id && !packageChanged(r)) { if (progress) progress(index + 1); continue }
       if (!r.deleted && (r.id || String(r.qty == null ? '' : r.qty).trim() || String(r.price == null ? '' : r.price).trim())) {
         const body = { productId, qty: exactNumber(r.qty), price: exactNumber(r.price) }
         if (r.id) body.id = r.id
         if (typeof r.onShelf === 'boolean') body.status = r.onShelf ? 1 : 0
+        if (r.original || Object.prototype.hasOwnProperty.call(r, 'title')) body.title = r.title == null ? null : r.title
+        if (r.original || Object.prototype.hasOwnProperty.call(r, 'sort')) body.sort = r.sort == null ? 0 : r.sort
         await post(PKG, body)
         if (!current()) throw saveScopeError()
       }

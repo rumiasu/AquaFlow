@@ -196,17 +196,20 @@ Page({
   },
 
   onShow() {
+    if (this._completionDestroyed) return
     this._completionHidden = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
       return
     }
+    this.syncCompletionReceipt()
   },
 
   onHide() { this.invalidateCompletion() },
-  onUnload() { this.invalidateCompletion() },
+  onUnload() { this.invalidateCompletion(); this._completionDestroyed = true },
   invalidateCompletion() {
+    if (this._completionLoadingFlight) { wx.hideLoading(); this._completionLoadingFlight = null }
     this._completionHidden = true
     this._completionEpoch = (this._completionEpoch || 0) + 1
     this._completionAction = null
@@ -220,12 +223,26 @@ Page({
   },
   completionContextCurrent(context) {
     const now = this.completionContext()
-    return !this._completionHidden && context && context.app === now.app && context.generation === now.generation
+    return !this._completionHidden && !this._completionDestroyed && context && context.app === now.app && context.generation === now.generation
       && context.identity === now.identity && context.epoch === now.epoch
       && String(context.orderId) === String(now.orderId) && context.orderVersion === now.orderVersion
   },
   completionActionCurrent(action) {
     return action && this._completionAction === action && !action.used && this.completionContextCurrent(action.context)
+  },
+  sameCompletionOwner(context) {
+    const now = this.completionContext()
+    return context && context.app === now.app && context.generation === now.generation
+      && context.identity === now.identity && String(context.orderId) === String(now.orderId)
+  },
+  /** A dispatched request survives leaving; reconcile its receipt only in the original order and identity. */
+  syncCompletionReceipt() {
+    const receipt = this._completionReceipt
+    if (!receipt || this._completionHidden || this._completionDestroyed || !this.sameCompletionOwner(receipt.context)) return
+    this._completionReceipt = null
+    if (receipt.state === 'success') this._orderLoadSeq = (this._orderLoadSeq || 0) + 1
+    this.setData({ resultState: receipt.state, unknownHint: receipt.hint || '',
+      ...(receipt.state === 'success' ? { showStockPrepPrompt: false, stockPrepText: '' } : {}) })
   },
 
   onRetryOrder() { if (this.data.orderId && !this.data.orderLoading) return this.loadOrder(this.data.orderId) },
@@ -849,7 +866,9 @@ Page({
     }
     if (action) { action.used = true; this._completionAction = null }
     const { orderId, items, noteText, collected, needCollect, reportedFloor } = this.data
-    this.setData({ submittingComplete: true, resultState: 'submitting' })
+    const flight = { context: this.completionContext() }
+    this._completionWriteFlight = flight
+    this.setData({ submittingComplete: true, resultState: 'submitting', unknownHint: '' })
 
     const itemReturns = items.map(it => ({
       orderItemId: it.id,
@@ -860,6 +879,7 @@ Page({
     }))
 
     wx.showLoading({ title: '提交中...' })
+    this._completionLoadingFlight = flight
     try {
       await completeOrder(orderId, {
         itemReturns,
@@ -871,14 +891,21 @@ Page({
         // 与客户地址里填的不一致时后端会在收益明细里标记出来（防虚报）。
         reportedFloor: reportedFloor === '' || reportedFloor === null ? null : Number(reportedFloor)
       })
-      wx.hideLoading()
+      if (this._completionLoadingFlight === flight) { wx.hideLoading(); this._completionLoadingFlight = null }
+      // 2026-10-26：晚回执曾在其他页面弹成功并返回两层；请求保留，提示与导航只归原生命周期。
+      if (!this.completionContextCurrent(flight.context)) {
+        this._completionReceipt = { context: flight.context, state: 'success' }
+        return
+      }
       // [2026-09-27 走查 D03 修] 成功态**只在这里**置位：页头的大绿勾与「完成配送」由它驱动。
       // 原来这两个视觉元素是一进页面就画的，"还没提交就已经成功"。
       // 成功回执后不再需要备货；保留原投影，并作废早于回执的在途读取。
       this._orderLoadSeq = (this._orderLoadSeq || 0) + 1
+      const navigationContext = this.completionContext()
       this.setData({ resultState: 'success', showStockPrepPrompt: false, stockPrepText: '' })
       wx.showToast({ title: '配送完成！', icon: 'success' })
       setTimeout(() => {
+        if (!this.completionContextCurrent(navigationContext) || this.data.resultState !== 'success') return
         if (this.data.from === 'home') {
           wx.switchTab({ url: '/pages/home/index' })
         } else {
@@ -888,7 +915,7 @@ Page({
     } catch (err) {
       // 停在原页、保留现场填写的内容，让人按提示改（契约 C3：给能做的下一步，不吞异常）。
       // 服务端文案已按 C3 改成"一句事实 + 订单号"，内部术语只留在后端日志里。
-      wx.hideLoading()
+      if (this._completionLoadingFlight === flight) { wx.hideLoading(); this._completionLoadingFlight = null }
       // [2026-09-27 走查 D03 修] 失败与**结果未知**必须分开：
       //   · 网络断开/超时 ⇒ 请求可能已经送到服务端（订单可能已经完成），
       //     这时**不能**显示失败、更不能让人盲目重提交（重复提交虽被 CAS 挡住，但那会给出误导性的报错）；
@@ -899,6 +926,12 @@ Page({
       const isNetwork = err && err.requestMayHaveOccurred !== false && !err.businessRejected && (
         err.requestMayHaveOccurred === true || msg.indexOf('网络') === 0 || msg.indexOf('网络超时') >= 0
         || err.malformedResponse || err.sessionChanged || Number(err.statusCode) >= 500 || Number(err.backendCode) >= 500)
+      if (!this.completionContextCurrent(flight.context)) {
+        this._completionReceipt = { context: flight.context, state: isNetwork ? 'unknown' : 'failed',
+          hint: isNetwork ? '原送达提交结果待核实，请打开原订单查看最新状态，勿重复交付。'
+            : '原送达提交未能完成：' + (msg || '请核对原订单后重试') }
+        return
+      }
       if (isNetwork) {
         this.setData({
           resultState: 'unknown',
@@ -922,7 +955,11 @@ Page({
       }
     } finally {
       // 成功/失败都要放开闸门，否则失败后连重试都点不动
-      this.setData({ submittingComplete: false })
+      if (this._completionWriteFlight === flight) {
+        this._completionWriteFlight = null
+        if (!this._completionDestroyed && this.sameCompletionOwner(flight.context)) this.setData({ submittingComplete: false })
+        this.syncCompletionReceipt()
+      }
     }
   }
 }, 'order')

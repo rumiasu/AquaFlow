@@ -35,8 +35,8 @@
     结果未知（网络断开/超时，提交可能已经生效）：必须常驻可见 —— 只弹一次窗，
     下一次进来看页面与"什么都没发生"一样，人会直接再点一次提交。
   -->
-  <view class="load-error" wx:if="{{resultState === 'unknown' && unknownHint}}">{{unknownHint}}</view>
-  <button wx:if="{{resultState === 'unknown'}}" size="mini" bindtap="onVerifyOriginalOrder">核实原订单 #{{orderId}}</button>
+  <view class="load-error" wx:if="{{(resultState === 'unknown' || resultState === 'failed') && unknownHint}}">{{unknownHint}}</view>
+  <button wx:if="{{resultState === 'unknown' || resultState === 'success' || (resultState === 'failed' && unknownHint)}}" size="mini" bindtap="onVerifyOriginalOrder">核实原订单 #{{orderId}}</button>
 
   <!--
     [2026-09-26] 本页按 §4 收敛成**三段**（仍是一页）：本次送货 / 实际收回空桶 / 本次收款。

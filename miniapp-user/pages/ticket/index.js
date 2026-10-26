@@ -89,8 +89,13 @@ Page({
   },
 
   onLoad(options) { assetViewStation.init(this, options) },
-  onHide() { assetViewStation.suspend(this) },
-  onUnload() { assetViewStation.suspend(this) },
+  onHide() {
+    assetViewStation.suspend(this)
+    // 2026-10-26：旧档位回调离页后会失效，原加载锁却未释放，返回后无法就近重试。
+    if (this.data.packagesLoading) this.setData({ packagesLoading: false, packagesLoaded: false,
+      packagesError: '购票档位读取已暂停，请重新加载；所选商品保持不变。' })
+  },
+  onUnload() { this.onHide() },
   async onShow() {
     assetViewStation.activate(this)
     this.restorePurchaseIntent()

@@ -170,8 +170,19 @@ Page({
   refreshModuleSetup() { return refreshModuleTasks(this, '/pages/station-mgmt/products/index') },
   onModuleSetupTask(e) {
     const key = e.currentTarget.dataset.key
-    if (!(this.data.moduleSetupTasks || []).some(it => it.key === key)) return
-    if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({ selector: '#setup-products', duration: 180 })
+    const task = (this.data.moduleSetupTasks || []).find(it => it.key === key)
+    if (!task) return
+    const scrollToProducts = () => {
+      if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({ selector: '#setup-products', duration: 180 })
+    }
+    if (key === 'ticketPackage' && !task.done) {
+      this.setData({ tab: 'selected', quick: 'ticket', keyword: '', category: 0 }, () => {
+        this.applyFilter()
+        scrollToProducts()
+      })
+      return
+    }
+    scrollToProducts()
   },
 
   onShow() {
@@ -875,7 +886,7 @@ Page({
     }
     const after = this.data.stockMode === 'in' ? current + qty : qty
     const delta = after - current
-    const label = this.data.stockMode === 'in' ? '入库后 ' : this.data.stockMode === 'loss' ? '短缺登记后 ' : '核对后 '
+    const label = this.data.stockMode === 'in' ? '入库后 ' : this.data.stockMode === 'loss' ? '报损登记后 ' : '盘点校正后 '
     this.setData({ stockAfterNumber: after, stockDeltaText: (delta > 0 ? '+' : '') + delta + ' 件', stockAfterText: label + after + ' 件（' + (delta < 0 ? '少 ' + (-delta) : delta > 0 ? '多 ' + delta : '无变化') + (delta === 0 ? '' : ' 件') + '）' })
   },
 
@@ -903,11 +914,12 @@ Page({
       const proof = this.inventoryOperationProof()
       this._stockConfirmPending = true
       this.setData({ stockConfirmPending: true })
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '登记短缺', cancelText: '暂不登记', title: '登记商品短缺', editable: true, placeholderText: '短缺原因及凭据（必填）',
-        content: '实际库存由 ' + setting.quantity + ' 件改为 ' + qty + ' 件。低于已预留数量时，较晚的订单会转为缺货待补，请与客户协商延期或取消。',
+      wx.showModal({ confirmColor: '#A83B32', cancelColor: '#637083',  confirmText: '确认登记报损', cancelText: '返回修改', title: '确认登记短缺 / 报损', editable: true, placeholderText: '短缺原因及依据（必填）',
+        content: '实物数量将从 ' + setting.quantity + ' 件调整为 ' + qty + ' 件。系统会按订单需要顺序减少订单预留并提示受影响订单；请在业务待办中跟进补货、协商延期或取消退款。确认后会保留短缺原因、库存流水和审计记录。',
         success: res => {
           this.clearStockConfirmation()
           if (!res.confirm || !this.inventoryOperationCurrent(proof)) return
+          if (!String(res.content || '').trim()) { wx.showToast({ title: '请填写短缺原因及依据', icon: 'none' }); return }
           return this.doRecordStockLoss(qty, res.content, proof)
         }, fail: () => this.clearStockConfirmation() })
       return
@@ -917,9 +929,9 @@ Page({
     this._stockConfirmPending = true
     this.setData({ stockConfirmPending: true })
     wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-      title: '确认实际库存',
-      content: '「' + setting.name + '」库存由 ' + (setting.quantity || 0) + ' 件改为 ' + after + ' 件，并记录数量差额。',
-      confirmText: '确认数量',
+      title: '确认盘点校正',
+      content: '「' + setting.name + '」实物总数将从 ' + (setting.quantity || 0) + ' 件校正为 ' + after + ' 件，并记录数量差额；低于订单预留量时服务端会拒绝校正。',
+      confirmText: '确认校正',
       success: (res) => {
         this.clearStockConfirmation()
         if (res.confirm && this.inventoryOperationCurrent(proof)) this.doStockCheck(after, proof)

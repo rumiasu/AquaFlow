@@ -68,6 +68,13 @@ async function test(name, fn) {
     return { promise, resolve, reject }
   }
   const summary = (amount, customers = []) => ({ data: { outstandingAmount: amount, customers } })
+  await test('long amount hint is computed in JS for native WXML compatibility', async () => {
+    const p = receivablePage(async url => url.includes('/orders?') ? { data: [] } : summary('123456789012'))
+    await p.load()
+    assert.strictEqual(p.data.overviewAmountLong, true)
+    const wxml = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/receivables/index.wxml'), 'utf8')
+    assert(!wxml.includes("('' + overview.outstandingAmount).length"))
+  })
   await test('收款成功同时刷新总额、客户集合和当前客户摘要，保留客户与筛选', async () => {
     const urls = []
     const p = receivablePage(async url => { urls.push(url); return url.includes('/orders?') ? { data: [] } : summary(50, [{ customerId: 1, outstandingAmount: 50 }]) })

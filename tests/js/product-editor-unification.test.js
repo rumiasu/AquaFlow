@@ -44,8 +44,10 @@ test('product editor keeps details and sales separate while inventory is a separ
   assert.match(styles, /\.product-image-action,\.product-image-action\.secondary[^}]*min-width:0[^}]*background:var\(--bg-gray\)/s)
   assert.match(styles, /\.product-edit-group \.product-display-switches\s*\{\s*display:block/s)
   assert.match(styles, /\.product-display-switches \.switch-item\s*\{[^}]*justify-content:space-between/s)
-  assert.match(styles, /\.inventory-operation-nav\s*\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/s)
-  assert.match(styles, /\.inventory-operation-nav button\s*\{[^}]*min-height:44px/s)
+  assert.match(styles, /\.inventory-primary-nav\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/s)
+  assert.match(styles, /\.inventory-loss-entry\s*\{[^}]*border-left:4rpx solid/s)
+  assert(source.includes('class="inventory-loss-entry"'))
+  assert(!source.includes('inventory-operation-nav'))
   assert.match(styles, /\.card \.action\s*\{[^}]*display:flex;[^}]*flex-wrap:wrap/s)
 })
 test('selected catalog entry opens a short editor without embedding inventory actions', () => {
@@ -215,11 +217,21 @@ test('physical shortage uses remaining quantity and keeps order-impact confirmat
   const t = fixture(); const row = item(); t.page.setData({ list: [row] }); t.page.onOpenInventory(event(row)); let modal; t.wx.showModal = o => { modal = o }
   t.page.onStockModeChange({ currentTarget: { dataset: { mode: 'loss' } } })
   t.page.onStockInput({ detail: { value: '8' } }); t.page.onSubmitStock()
-  assert.equal(modal.title, '登记商品短缺'); assert.equal(modal.confirmText, '登记短缺')
-  assert(modal.content.includes('10 件改为 8 件')); assert(modal.content.includes('缺货待补'))
+  assert.equal(modal.title, '确认登记短缺 / 报损'); assert.equal(modal.confirmText, '确认登记报损')
+  assert(modal.content.includes('从 10 件调整为 8 件')); assert(modal.content.includes('按订单需要顺序减少订单预留'))
+  assert(modal.content.includes('补货、协商延期或取消退款'))
   assert.equal(modal.editable, true); assert.equal(t.calls.length, 0)
-  assert.equal(t.page.data.stockAfterText, '短缺登记后 8 件（少 2 件）')
+  assert.equal(t.page.data.stockAfterText, '报损登记后 8 件（少 2 件）')
   assert(!visible(t).some(n => /实盘亏损|＝ 盘点/.test(n.text || '')))
+})
+test('shortage confirmation requires a reason before calling the loss API', () => {
+  const t = fixture(); const row = item(); t.page.setData({ list: [row] }); t.page.onOpenInventory(event(row)); let modal
+  t.wx.showModal = o => { modal = o }
+  t.page.onStockModeChange({ currentTarget: { dataset: { mode: 'loss' } } })
+  t.page.onStockInput({ detail: { value: '8' } }); t.page.onSubmitStock()
+  modal.success({ confirm: true, content: '  ' })
+  assert.equal(t.calls.length, 0)
+  assert.equal(t.page.data.stockConfirmPending, false)
 })
 test('direct removal still opens original danger confirmation and stale account confirmation does nothing', () => {
   for (const ownerStationId of [11, null]) {

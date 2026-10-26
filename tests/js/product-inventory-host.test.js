@@ -47,6 +47,37 @@ test('inventory card tap opens visible content in the single native host, with u
   assert.equal(t.calls.length, 0)
 })
 
+test('daily stock actions stay primary and shortage/report loss stays a separate reviewable exception', () => {
+  const t = setup(); open(t)
+  const primary = find(hosts[0].node, n => n.attrs?.class === 'inventory-primary-nav')[0]
+  const primaryButtons = renderElements(primary.node, t.page.data, { includeText: true }).filter(n => n.tag === 'button')
+  assert.deepEqual(primaryButtons.map(n => n.text), ['补货入库', '盘点校正'])
+  const lossTrigger = find(hosts[0].node, n => n.attrs?.class === 'inventory-loss-trigger')[0]
+  assert(lossTrigger.ancestors.some(n => n.attrs?.class === 'inventory-loss-entry'))
+  assert(!lossTrigger.ancestors.some(n => n.attrs?.class === 'inventory-primary-nav'))
+  assert(nativeView(t).some(n => n.text.includes('异常处理')))
+
+  t.page.onStockModeChange({ currentTarget: { dataset: { mode: 'loss' } } })
+  const lossContext = find(hosts[0].node, n => n.attrs?.class === 'inventory-loss-context')[0]
+  assert(lossContext.ancestors.some(n => n.tag === 'scroll-view'))
+  const visible = nativeView(t)
+  assert(visible.some(n => n.text.includes('按订单需要顺序减少预留')))
+  assert(visible.some(n => n.text.includes('补货、协商延期或取消退款')))
+  assert(visible.some(n => n.text === '核对影响并登记'))
+  assert(!visible.some(n => n.attrs?.class === 'inventory-loss-entry'))
+})
+
+test('ticket setup task filters enabled ticket products and scrolls to the editable catalog', () => {
+  const t = setup({ ticketEnabled: 1 }), scrolls = []
+  t.wx.pageScrollTo = options => scrolls.push(options)
+  t.page.setData({ moduleSetupTasks: [{ key: 'ticketPackage', done: false }] })
+  t.page.onModuleSetupTask({ currentTarget: { dataset: { key: 'ticketPackage' } } })
+  assert.equal(t.page.data.tab, 'selected')
+  assert.equal(t.page.data.quick, 'ticket')
+  assert.deepEqual(t.page.data.viewList.map(item => item.id), [t.item.id])
+  assert.deepEqual(scrolls, [{ selector: '#setup-products', duration: 180 }])
+})
+
 test('repeated inventory taps preserve the typed quantity, host and operation generation without writes', () => {
   const t = setup(); open(t); t.page.onStockInput({ detail: { value: '4' } })
   const epoch = t.page._productSettingEpoch

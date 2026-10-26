@@ -271,29 +271,6 @@
   border-bottom-color: var(--primary-color);
 }
 
-/* 展开后的说明块：why（为什么必须填）+ suggestion（具体怎么做） */
-.st-item-why-box {
-  margin-top: 14rpx;
-  padding: 16rpx 20rpx;
-  border-radius: 10rpx;
-  background: var(--bg-color);
-}
-
-.st-item-why {
-  display: block;
-  font-size: 24rpx;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.st-item-suggestion {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  color: var(--success-color);
-  line-height: 1.6;
-}
-
 .st-summary {
   display: block;
   padding: 12rpx 0 0;
@@ -342,12 +319,5 @@
 .st-module-card { margin:12rpx 0; padding:18rpx; border:1rpx solid var(--border-color); border-radius:10rpx; }
 .st-module-head { gap:12rpx; min-height:40px; }
 .st-module-title { flex:1; min-width:0; font-size:15px; font-weight:600; color:var(--text-primary); }
-.st-module-summary { display:flex; align-items:center; gap:12rpx; }
-.st-module-copy { flex:1; min-width:0; font-size:13px; line-height:1.6; color:var(--text-secondary); }
-.st-module-how { flex:none; min-height:44px; margin:0; padding:8rpx 0 8rpx 12rpx; display:flex; align-items:center; background:transparent; color:var(--primary-color); font-size:13px; line-height:1.5; }
-.st-module-how::after { border:0; }
-.st-module-detail + .st-module-detail { margin-top:16rpx; padding-top:16rpx; border-top:1rpx solid var(--border-color); }
-.st-module-detail-title { display:block; margin-bottom:8rpx; font-size:13px; font-weight:600; color:var(--text-primary); }
-
-/* 单行提示的宽度随模块卡收缩；细节在对应模块查看。 */
-.st-module-howto { display:block; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; line-height:1.6; color:var(--text-regular); }
+.st-module-summary { display:block; }
+.st-module-copy { display:block; min-width:0; font-size:13px; line-height:1.6; color:var(--text-secondary); }

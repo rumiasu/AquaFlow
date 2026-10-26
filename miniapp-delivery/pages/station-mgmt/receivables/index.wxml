@@ -4,7 +4,7 @@
 
   <!-- 总览 -->
   <view class="receivable-overview" wx:if="{{overview}}">
-    <view class="receivable-overview-main"><scroll-view scroll-x class="receivable-amount-scroll"><text class="receivable-amount">¥{{overview.outstandingAmount}}</text></scroll-view><text class="receivable-label">待收款合计</text><text class="receivable-label" wx:if="{{('' + overview.outstandingAmount).length > 11}}">长金额可左右滑动查看</text></view>
+    <view class="receivable-overview-main"><scroll-view scroll-x class="receivable-amount-scroll"><text class="receivable-amount">¥{{overview.outstandingAmount}}</text></scroll-view><text class="receivable-label">待收款合计</text><text class="receivable-label" wx:if="{{overviewAmountLong}}">长金额可左右滑动查看</text></view>
     <view class="receivable-overview-details">
       <view class="receivable-metric"><text class="receivable-aux {{overview.overdueAmount > 0 ? 'hero-danger' : ''}}">¥{{overview.overdueAmount}}</text><text class="receivable-label">其中已逾期</text></view>
       <view class="receivable-metric"><text class="receivable-aux">{{overview.customerCount}}</text><text class="receivable-label">欠款客户</text><text class="receivable-label" wx:if="{{overview.overdueCustomerCount > 0}}">{{overview.overdueCustomerCount}} 家逾期</text></view>

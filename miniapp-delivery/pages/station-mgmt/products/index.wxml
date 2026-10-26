@@ -350,27 +350,36 @@
               <button bindtap="onContinueOriginalInbound" loading="{{inboundBusy}}" disabled="{{saving || inboundBusy || stockOperationBusy}}">继续原入库</button>
             </view>
             <view class="ui-state" wx:if="{{inboundError}}"><text class="ui-state-copy">{{inboundError}}</text></view>
-            <view class="inventory-operation-nav">
-              <button class="{{stockMode === 'in' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="in" disabled="{{saving || inboundBusy || stockOperationBusy}}">入库</button>
-              <button class="{{stockMode === 'check' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="check" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy}}">核对</button>
-              <button class="{{stockMode === 'loss' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="loss" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy}}">短缺</button>
+            <view class="inventory-primary-nav">
+              <button class="{{stockMode === 'in' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="in" disabled="{{saving || inboundBusy || stockOperationBusy}}">补货入库</button>
+              <button class="{{stockMode === 'check' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="check" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy}}">盘点校正</button>
+            </view>
+            <view class="inventory-loss-entry" wx:if="{{stockMode !== 'loss'}}">
+              <view class="inventory-loss-heading"><text class="inventory-loss-title">异常处理</text><text class="inventory-loss-label">登记短缺 / 报损</text></view>
+              <text class="inventory-loss-copy">实物短缺可能减少订单预留，并影响后续订单处理。登记时会提示受影响订单。</text>
+              <button class="inventory-loss-trigger" bindtap="onStockModeChange" data-mode="loss" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy}}">登记短缺 / 报损 ›</button>
+            </view>
+            <view class="inventory-loss-context" wx:if="{{stockMode === 'loss'}}">
+              <text class="inventory-loss-title">登记短缺 / 报损</text>
+              <text class="inventory-loss-copy">实盘数低于当前数时，系统会按订单需要顺序减少预留。受影响订单需后续补货、协商延期或取消退款；登记会保留原因、库存流水和审计记录。</text>
+              <text class="inventory-loss-copy">请先填写实物剩余总数，再核对受影响订单并填写短缺原因后确认。</text>
             </view>
             <view class="inventory-operation-card">
               <view class="product-section-heading">
-                <text class="product-section-title">{{stockMode === 'in' ? '进货入库' : stockMode === 'check' ? '核对库存' : '登记商品短缺'}}</text>
-                <text class="product-section-caption">{{stockMode === 'in' ? '增加数量' : '更新实物总数'}}</text>
+                <text class="product-section-title">{{stockMode === 'in' ? '补货入库' : stockMode === 'check' ? '盘点校正' : '登记短缺 / 报损'}}</text>
+                <text class="product-section-caption">{{stockMode === 'in' ? '增加数量' : stockMode === 'check' ? '录入实物总数' : '异常库存处理'}}</text>
               </view>
-              <text class="product-field-help">{{stockMode === 'in' ? '填写本次到货数量，库存会在现有数量上增加。' : stockMode === 'check' ? '填写实物总数，不是增减数量；确认后会记录差额。' : '填写实物剩余总数；登记前需填写短缺原因，并提示受影响订单。'}}</text>
-              <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="number" placeholder="{{stockMode === 'in' ? '本次到货数量' : '实际剩余总数'}}" value="{{stockInput}}" bindinput="onStockInput" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy || setting.quantity == null}}" />
+              <text class="product-field-help">{{stockMode === 'in' ? '填写本次到货数量，库存会在现有数量上增加。' : stockMode === 'check' ? '填写当前实物总数并记录差额；低于订单预留量时校正会被拒绝，请使用下方的异常处理入口。' : '填写当前实物剩余总数，必须低于账面库存。'}}</text>
+              <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="number" placeholder="{{stockMode === 'in' ? '本次到货数量' : stockMode === 'check' ? '实盘库存总数' : '实盘剩余总数'}}" value="{{stockInput}}" bindinput="onStockInput" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy || setting.quantity == null}}" />
               <view class="stock-preview" wx:if="{{stockAfterText && inboundRecovery}}"><text>{{stockAfterText}}</text></view>
               <view class="stock-preview" wx:elif="{{stockAfterText}}"><text class="inventory-preview-label">操作后库存</text><text class="inventory-preview-result">{{stockAfterNumber}} 件</text><text class="inventory-preview-delta">本次变化 {{stockDeltaText}}</text></view>
-              <text class="inventory-submit-note">{{stockMode === 'loss' ? '提交后需确认短缺原因及受影响订单' : '商品资料与售价保持不变'}}</text>
+              <text class="inventory-submit-note">{{stockMode === 'loss' ? '下一步将先核对订单影响，再填写原因并确认登记。' : '商品资料与售价保持不变。'}}</text>
             </view>
           </view>
         </scroll-view>
         <view class="modal-footer product-edit-footer">
           <button class="btn-cancel" bindtap="closeInventory" disabled="{{inboundBusy || stockOperationBusy}}">关闭</button>
-          <button class="btn-save" bindtap="onSubmitStock" loading="{{inboundBusy || stockOperationBusy}}" disabled="{{saving || inboundBusy || stockOperationBusy || stockConfirmPending || (setting.quantity == null && !inboundRecovery)}}">{{stockMode === 'in' ? (inboundRecovery ? '继续原入库' : '确认入库') : stockMode === 'loss' ? '登记短缺' : '确认实际数量'}}</button>
+          <button class="{{stockMode === 'loss' ? 'btn-loss' : 'btn-save'}}" bindtap="onSubmitStock" loading="{{inboundBusy || stockOperationBusy}}" disabled="{{saving || inboundBusy || stockOperationBusy || stockConfirmPending || (setting.quantity == null && !inboundRecovery)}}">{{stockMode === 'in' ? (inboundRecovery ? '继续原入库' : '确认入库') : stockMode === 'loss' ? '核对影响并登记' : '确认盘点数量'}}</button>
         </view>
       </view>
     </view>

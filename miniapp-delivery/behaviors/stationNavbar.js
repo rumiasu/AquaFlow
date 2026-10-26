@@ -263,26 +263,6 @@ module.exports = Behavior({
       this.setData({ stationPanelShow: false })
     },
 
-    /**
-     * 小框里点「?」→ 展开/收起**这一项**的说明（why + suggestion）。
-     *
-     * [2026-09-24 产品反馈]「现在的界面好啰嗦，每一项都详细解释，加一个问号藏在里面」——
-     * 原来每行固定挂一整句 why，4 项就占掉半个弹窗，而站长多数时候只想知道"还差哪几项"。
-     * 收起态每行只剩「项名 · 级别  ?  去填写」。
-     *
-     * ⚠️ wxml 里这个「?」必须用 **catchtap**：用 bindtap 会冒泡到整行的 `onPanelGoFill`，
-     *    用户想看一眼原因就被直接拽到别的页面去了。
-     * ⚠️ 一次 setData 改完整个数组（见 setupPatchOf 的 ⚠️），中间不要插第二次。
-     *    只替换命中那一个对象，其余保留原引用，渲染层不必重画没动过的行。
-     */
-    onPanelToggleWhy(e) {
-      const key = e.currentTarget.dataset.key
-      if (!key) return
-      const items = (this.data.stationPanelItems || []).map(it =>
-        it.key === key ? Object.assign({}, it, { whyOpen: !it.whyOpen }) : it)
-      this.setData({ stationPanelItems: items })
-    },
-
     /** 小框里点一条待填项 → 先关框再跳（不关的话返回时框还盖着，像"没反应"） */
     onPanelGoFill(e) {
       const route = e.currentTarget.dataset.route

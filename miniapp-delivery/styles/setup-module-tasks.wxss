@@ -1,6 +1,15 @@
-.setup-module-bar { margin-bottom:20rpx; padding:16rpx 20rpx; background:var(--bg-gray); border-left:4rpx solid #D47A16; border-radius:10rpx; }
+.setup-module-bar { margin-bottom:20rpx; padding:18rpx 20rpx; background:var(--bg-gray); border-left:4rpx solid #D47A16; border-radius:10rpx; }
 .setup-module-title { display:block; font-size:14px; font-weight:600; color:var(--text-primary); line-height:1.5; }
-.setup-module-copy { display:block; margin-top:8rpx; font-size:13px; color:var(--text-regular); line-height:1.6; }
-.setup-module-actions { display:flex; flex-wrap:wrap; gap:8rpx; margin-top:8rpx; }
-.setup-module-bar button { display:flex; align-items:center; justify-content:center; min-height:44px; height:auto; margin:0; padding:8rpx 16rpx; font-size:14px; line-height:1.5; background:#fff; color:var(--primary-color); }
+.setup-module-copy { display:block; margin-top:7rpx; font-size:13px; color:var(--text-regular); line-height:1.6; }
+.setup-module-task { margin-top:12rpx; padding:12rpx 14rpx; background:#fff; border:1rpx solid var(--border-color); border-radius:9rpx; }
+.setup-module-task-head { display:flex; align-items:center; gap:8rpx; min-height:34px; }
+.setup-module-task-name { flex:1; min-width:0; font-size:14px; font-weight:600; color:var(--text-primary); line-height:1.5; }
+.setup-module-level,.setup-module-state { flex-shrink:0; font-size:11px; line-height:1.5; }
+.setup-module-level { color:var(--text-regular); }
+.setup-module-level.is-optional { padding:2rpx 8rpx; border-radius:6rpx; color:#8B5A0A; background:#FFF5DF; }
+.setup-module-state.is-done { color:#16834B; }
+.setup-module-state.is-pending { color:#A45D0A; }
+.setup-module-evidence { display:block; margin-top:6rpx; font-size:12px; color:var(--text-regular); line-height:1.55; }
+.setup-module-bar button { display:flex; align-items:center; justify-content:center; min-height:42px; height:auto; margin:10rpx 0 0; padding:7rpx 14rpx; font-size:13px; line-height:1.45; background:#F2F7FF; color:var(--primary-color); }
 .setup-module-bar button::after { border:0; }
+.setup-module-bar .setup-module-refresh { width:auto; min-height:38px; margin:12rpx auto 0; padding:6rpx 12rpx; background:transparent; color:var(--text-regular); font-size:12px; }

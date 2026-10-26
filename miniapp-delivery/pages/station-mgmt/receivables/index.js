@@ -77,6 +77,7 @@ Page({
      */
     onlyOverdue: false,
     overview: null,
+    overviewAmountLong: false,
     /** 服务端下发的**全量**客户列表（`customers` 是它按筛选后的展示副本） */
     allCustomers: [],
     customers: [],
@@ -201,8 +202,10 @@ Page({
       const customer = current && (d.customers.find(c => c.customerId === current.customerId) ||
         Object.assign({}, current, { outstandingAmount: 0, orderCount: 0, creditOrderCount: 0,
           overdueAmount: 0, overdueOrderCount: 0, maxOverdueDays: 0, earliestDueDate: null }))
+      const overviewAmountLong = ('' + d.outstandingAmount).length > 11
       this.setData({
         overview: d,
+        overviewAmountLong,
         customer,
         // 全量留一份：筛选是**展示层**的事，切来切去不该重新请求（也不该动总览数字）
         allCustomers: d.customers || []

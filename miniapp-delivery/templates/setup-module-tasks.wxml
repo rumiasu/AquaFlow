@@ -1,10 +1,20 @@
 <template name="setupModuleTasks">
   <view class="setup-module-bar" wx:if="{{loading || error || (ready && tasks.length)}}">
-    <text class="setup-module-title">本模块上线准备</text>
-    <text class="setup-module-copy" wx:if="{{loading}}">正在核对必填任务…</text>
+    <text class="setup-module-title">本页上线准备</text>
+    <text class="setup-module-copy" wx:if="{{loading}}">正在读取本页准备事项…</text>
     <view wx:elif="{{error}}"><text class="setup-module-copy">{{error}}</text><button bindtap="refreshModuleSetup">重新核对</button></view>
-    <view class="setup-module-actions" wx:else>
-      <button wx:for="{{tasks}}" wx:key="key" data-key="{{item.key}}" bindtap="onModuleSetupTask">{{item.label}} ›</button>
+    <view wx:else>
+      <view class="setup-module-task" wx:for="{{tasks}}" wx:key="key">
+        <view class="setup-module-task-head">
+          <text class="setup-module-task-name">{{item.label}}</text>
+          <text class="setup-module-level {{item.key === 'ticketPackage' ? 'is-optional' : ''}}">{{item.key === 'ticketPackage' ? '选填' : item.levelText}}</text>
+          <text class="setup-module-state {{item.done ? 'is-done' : 'is-pending'}}">{{item.done ? (item.key === 'ticketPackage' ? '已满足' : '已完成') : '待填写'}}</text>
+        </view>
+        <text class="setup-module-copy">{{item.done ? item.why : (item.suggestion || item.why)}}</text>
+        <text class="setup-module-evidence" wx:if="{{item.completionEvidence}}">完成依据：{{item.completionEvidence}}</text>
+        <button data-key="{{item.key}}" bindtap="onModuleSetupTask">{{item.key === 'catalogOnShelf' ? (item.done ? '查看商品' : '去上架商品') : item.key === 'ticketPackage' ? (item.done ? '查看水票设置' : '查看水票商品') : (item.done ? '查看或修改' : '去填写')}}</button>
+      </view>
+      <button class="setup-module-refresh" bindtap="refreshModuleSetup">重新核对完成状态</button>
     </view>
   </view>
 </template>

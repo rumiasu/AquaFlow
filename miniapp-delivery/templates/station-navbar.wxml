@@ -66,20 +66,16 @@
         <text class="st-sub" wx:if="{{stationPanelLoading}}">正在检查待填项…</text>
 
         <block wx:elif="{{stationPanelItems && stationPanelItems.length > 0}}">
-          <!-- 2026-10-26：总览只作模块导航；字段说明统一放到「怎么做」，详细教程在对应页面。 -->
+          <!-- 总览提供模块入口和准备状态；填写说明放在对应详情页。 -->
           <scroll-view class="st-list" scroll-y>
             <block wx:for="{{stationPanelItems}}" wx:key="key">
             <view class="st-item st-module-card" wx:if="{{item.moduleStart}}">
               <view class="st-item-row st-module-head" bindtap="onPanelGoFill" data-route="{{item.route}}">
-                <text class="st-module-title">{{item.where || item.label}}</text>
+                <text class="st-module-title">{{item.moduleTitle || item.where || item.label}}</text>
                 <text class="st-item-go" wx:if="{{item.route}}">{{item.moduleDone ? '查看设置' : '去填写'}} ›</text>
               </view>
               <view class="st-module-summary">
-                <text class="st-module-copy">{{item.moduleDone ? '已具备：' : '待完善：'}}{{item.moduleLabels}}</text>
-                <button class="st-module-how" catchtap="onPanelToggleWhy" data-key="{{item.key}}">{{item.whyOpen ? '收起说明' : '怎么做'}}</button>
-              </view>
-              <view class="st-item-why-box" wx:if="{{item.whyOpen}}">
-                <text class="st-module-howto">{{item.moduleHowTo}}</text>
+                <text class="st-module-copy">{{item.moduleSummary}}</text>
               </view>
             </view>
             </block>

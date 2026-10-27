@@ -15,24 +15,27 @@ import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.util.Map;
 
-/** 模拟渠道只可在显式隔离的本机测试库运行；小程序版本不构成授权。 */
+/** 模拟渠道只可在已核实的本机合成测试或独立云 sandbox 运行；小程序版本不构成授权。 */
 @Component
 public final class MockPaymentPolicy {
     public static final String PREFIX = "SIM-WX:";
     private final boolean enabled;
     private final Set<Long> customers;
+    private final PaymentSandboxBinding sandbox;
 
     public MockPaymentPolicy(Environment environment, DataSource datasource) {
         enabled = environment.getProperty("app.payment.mock-wechat-pay", Boolean.class, false);
+        sandbox = PaymentSandboxBinding.active(environment) ? PaymentSandboxBinding.from(environment) : null;
         if (!enabled) { customers = Set.of(); return; }
         Set<String> profiles = Set.copyOf(Arrays.asList(environment.getActiveProfiles()));
         String url = environment.getProperty("spring.datasource.url", "");
         // 2026-10-26：原开关对所有非 prod 环境生效；现在须同时满足隔离声明、受限库和逐户授权。
-        if (profiles.contains("prod") || profiles.stream().anyMatch(p -> !Set.of("local", "test", "payment-sandbox").contains(p))
-                || !(profiles.contains("test") || profiles.contains("payment-sandbox"))
+        // 2026-10-27：云 sandbox 走显式目标/实例/标记校验；test 的本机规则不随之放宽。
+        if (profiles.contains("prod") || (sandbox == null && (profiles.stream().anyMatch(p -> !Set.of("local", "test").contains(p))
+                || !profiles.contains("test")))
                 || !environment.getProperty("app.payment.mock-isolated-environment", Boolean.class, false)
-                || !safeUrl(url)) {
-            throw new IllegalStateException("模拟支付仅允许显式隔离的本机 payment-sandbox/test 环境与专用测试库");
+                || (sandbox == null && !safeUrl(url))) {
+            throw new IllegalStateException("模拟支付仅允许已核实的独立 payment-sandbox 或本机合成 test 环境");
         }
         String ids = environment.getProperty("app.payment.mock-customer-ids", "");
         if (!ids.matches("[1-9][0-9]*(,[1-9][0-9]*)*"))
@@ -41,11 +44,13 @@ public final class MockPaymentPolicy {
         catch (NumberFormatException invalid) { throw new IllegalStateException("模拟支付测试客户编号无效"); }
         String schema = url.substring(url.indexOf('/', "jdbc:mysql://".length()) + 1).split("\\?", 2)[0];
         // 核实际连接而不只看配置：连接池 init SQL / catalog 覆盖不能把安全库名导向业务库。
-        try (var connection = datasource.getConnection(); var statement = connection.createStatement();
-             var result = statement.executeQuery("SELECT DATABASE()")) {
-            if (!url.equals(connection.getMetaData().getURL()) || !schema.equals(connection.getCatalog())
-                    || !result.next() || !schema.equals(result.getString(1)))
-                throw new IllegalStateException("模拟支付实际数据库连接与隔离目标不一致");
+        try (var connection = datasource.getConnection()) {
+            if(sandbox!=null) sandbox.verify(connection);
+            else try(var statement=connection.createStatement();var result=statement.executeQuery("SELECT DATABASE()")) {
+                if (!url.equals(connection.getMetaData().getURL()) || !schema.equals(connection.getCatalog())
+                        || !result.next() || !schema.equals(result.getString(1)))
+                    throw new IllegalStateException("模拟支付实际数据库连接与隔离目标不一致");
+            }
         } catch (SQLException failure) { throw new IllegalStateException("无法核实模拟支付隔离数据库，拒绝启用"); }
     }
 
@@ -66,6 +71,22 @@ public final class MockPaymentPolicy {
     }
 
     public boolean allows(Long customer) { return enabled && customer != null && customers.contains(customer); }
+
+    /** Authenticated customer capability; the write path independently rechecks policy and order ownership. */
+    public Map<String,Object> channel(Long customer) {
+        Map<String,Object> channel=PayMethod.payChannel(PayMethod.WECHAT,allows(customer));
+        if(allows(customer)) {
+            Map<String,Object> authorization=new java.util.LinkedHashMap<>();
+            authorization.put("version",1);authorization.put("customerId",customer);
+            authorization.put("scope",sandbox==null?"LOCAL_TEST":"PAYMENT_SANDBOX");
+            if(sandbox!=null) {
+                authorization.put("environmentId",sandbox.environmentId());authorization.put("serviceId",sandbox.serviceId());
+                authorization.put("bindingId",sandbox.bindingId());
+            }
+            channel.put("simulationAuthorization",authorization);
+        }
+        return channel;
+    }
 
     /** 调用方仍须先核对订单/购买归属；员工不可用代录收款入口触发模拟付款。 */
     public void requireSelf(Long customer) {

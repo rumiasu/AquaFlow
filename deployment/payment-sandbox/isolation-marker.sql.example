@@ -1,0 +1,13 @@
+-- Preparation TEMPLATE, not an application migration. Requires separate target/backup and write approval.
+-- No automatic startup execution. Service account should only read this marker.
+CREATE TABLE aquaflow_payment_sandbox_identity (
+  id int NOT NULL PRIMARY KEY,
+  purpose varchar(32) NOT NULL,
+  environment_id varchar(100) NOT NULL,
+  service_id varchar(100) NOT NULL,
+  binding_id varchar(100) NOT NULL,
+  server_uuid varchar(36) NOT NULL
+);
+INSERT INTO aquaflow_payment_sandbox_identity
+  (id,purpose,environment_id,service_id,binding_id,server_uuid)
+VALUES (1,'PAYMENT_SANDBOX','__REQUIRED__','__REQUIRED__','__REQUIRED__','__REQUIRED__');

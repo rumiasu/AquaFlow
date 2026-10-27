@@ -47,7 +47,7 @@ app:
     # ⚠️ 真实渠道接入时应**删掉**这个开关与 PaymentServiceImpl.isMockWechatPay，
     #    而不是把它留成"永真"。旧 local 配置须同时满足下列显式隔离与账号授权。
     mock-wechat-pay: ${MOCK_WECHAT_PAY:false}
-    # 只允许 payment-sandbox/test profile、受限本机测试库及明确客户编号；单开旧开关拒启。
+    # test 只允许受限本机合成库；payment-sandbox 另验明确部署/实例/标记，见 deployment/payment-sandbox。
     mock-isolated-environment: ${MOCK_PAYMENT_ISOLATED:false}
     mock-customer-ids: ${MOCK_PAYMENT_CUSTOMER_IDS:}
 

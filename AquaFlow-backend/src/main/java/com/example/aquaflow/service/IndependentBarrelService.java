@@ -73,7 +73,7 @@ public class IndependentBarrelService {
         result.put("availableRights", ledger.availableRights(customerId, stationId, productId));
         result.put("notice", "仅办理桶押金，本次不送水和桶；收到押金后生效。首次领取对应桶无需还桶，已有欠桶优先补足。");
         result.put("onlineAvailable", mockPolicy.allows(customerId));
-        result.put("wechatPay", PayMethod.payChannel(PayMethod.WECHAT, mockPolicy.allows(customerId)));
+        result.put("wechatPay", mockPolicy.channel(customerId));
         return result;
     }
 
@@ -155,6 +155,9 @@ public class IndependentBarrelService {
         result.put("purchase", purchase); result.put("paymentId", payment.getId());
         result.put("amount", payment.getAmount()); result.put("status", payment.getStatus());
         result.put("statusText", payment.getStatusText());
+        result.put("simulated",payment.isSimulated());
+        result.put("methodText",payment.getMethodText());
+        result.put("simulationResultText",payment.getSimulationResultText());
         return result;
     }
 

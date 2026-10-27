@@ -21,7 +21,8 @@ class MockPaymentPolicyTest {
                 .withProperty("app.payment.mock-isolated-environment","true")
                 .withProperty("app.payment.mock-customer-ids","7")
                 .withProperty("spring.datasource.url",URL);
-        e.setActiveProfiles("payment-sandbox"); return e;
+        // Local JDBC doubles exercise the original test boundary; cloud sandbox has its own explicit binding tests.
+        e.setActiveProfiles("test"); return e;
     }
     private DataSource datasource(String url, String catalog, String actual) throws Exception {
         var ds=mock(DataSource.class); var c=mock(Connection.class); var m=mock(DatabaseMetaData.class);

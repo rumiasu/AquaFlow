@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * 启动时给**还没有密码**的员工补初始密码 —— <b>仅限非生产环境</b>。
+ * 启动时给**还没有密码**的员工补初始密码 —— <b>仅限本地/合成测试，不用于云 sandbox</b>。
  *
  * <h3>为什么 prod 必须排除（2026-09-29 关雷）</h3>
  * <ul>
@@ -28,8 +28,8 @@ import java.util.List;
  *       这才是安全默认。</li>
  * </ul>
  *
- * <p><b>唯一闸</b>：{@code @Profile("!prod")}（与 {@code DevLoginController} 同一手法，
- * prod 下本 Bean 根本不存在）。原 {@code app.password-initializer.enabled} 开关已于 2026-09-29
+ * <p><b>唯一闸</b>：{@code @Profile("!prod & !payment-sandbox")}（与 {@code DevLoginController} 同一手法，
+ * prod 和独立云 sandbox 下本 Bean 均不存在）。原 {@code app.password-initializer.enabled} 开关已于 2026-09-29
  * 随拍板 A 一并删除（见下），非 prod 是否补密码不再可配 —— 本地/测试库需要默认口令的既有用例与
  * seed 脚本依赖它一直开着，没有关的需求。</p>
  *
@@ -42,7 +42,8 @@ import java.util.List;
  */
 @Component
 @Order(1)
-@Profile("!prod")
+// 2026-10-27：云测试使用真实微信登录，不能因换 sandbox profile 就补公开默认密码。
+@Profile("!prod & !payment-sandbox")
 public class PasswordInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(PasswordInitializer.class);

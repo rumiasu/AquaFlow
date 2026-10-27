@@ -41,6 +41,19 @@ class IsolatedMockPaymentConcurrencyIntegrationTest extends AbstractIntegrationT
     }
     private String body(long order) { return "{\"orderId\":"+order+",\"paymentMethod\":1,\"amount\":0.01}"; }
 
+    @Test void capabilitiesUseAuthenticatedCustomerAndNeverCreateMoney() {
+        long[] s=seed();
+        Api result=get("/api/payments/capabilities",customerToken(s[2]));assertEquals(0,result.code(),result.toString());
+        var channel=result.data().path("wechatPay");assertTrue(channel.path("enabled").asBoolean());
+        assertEquals("LOCAL_TEST",channel.path("simulationAuthorization").path("scope").asText());
+        assertEquals(s[2],channel.path("simulationAuthorization").path("customerId").asLong());
+        long other=createCustomer("未授权能力客户","sandbox-cap-other");
+        var denied=get("/api/payments/capabilities",customerToken(other));assertEquals(0,denied.code());
+        assertFalse(denied.data().path("wechatPay").path("enabled").asBoolean());
+        assertEquals(1,get("/api/payments/capabilities",staffToken(s[1],"STATION_MANAGER",s[0])).code());
+        assertEquals(0,intOf("select count(*) from payment_record"));assertEquals(0,intOf("select count(*) from deposit_record"));
+    }
+
     private void money(String expected,String sql,Object... args) {
         assertEquals(0,new BigDecimal(expected).compareTo(decimalOf(sql,args)),sql);
     }

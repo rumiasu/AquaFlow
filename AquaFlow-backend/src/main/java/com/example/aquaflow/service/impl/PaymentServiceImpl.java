@@ -201,6 +201,11 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    public Map<String,Object> channelCapabilities(Long customerId) {
+        return Map.of("wechatPay",mockPolicy.channel(customerId));
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public PaymentRecord createPayment(Long orderId, Long customerId, BigDecimal amount, BigDecimal waterAmount,
                                         BigDecimal barrelDeposit, Integer excessBarrels, Integer paymentMethod,
@@ -1230,7 +1235,7 @@ public class PaymentServiceImpl implements PaymentService {
         // 发起 createPayment，取决于服务端的渠道能力，不是前端按 id==1 猜。
         // 报价能力按 MockPaymentPolicy 的本客户授权下发，发起和确认时仍复核。
         // 与 canSelfPay 里微信那一支同源 —— 两边不可能分叉。
-        result.put("wechatPay", PayMethod.payChannel(PayMethod.WECHAT, mockWechatPay));
+        result.put("wechatPay", mockPolicy.channel(customerId));
 
         if (items == null || items.isEmpty() || stationId == null) {
             result.put("waterAmount", BigDecimal.ZERO);
@@ -1244,7 +1249,7 @@ public class PaymentServiceImpl implements PaymentService {
             // 键名与下方同形：前端读 d.ticketPay 时不必判 undefined（本仓对"判 undefined 就会长出第二套默认值"有记录）
             result.put("ticketPay", null);
             // 空单也要下发渠道能力（同上面的键名理由）：前端据它决定"微信建单后发不发付款请求"
-            result.put("wechatPay", PayMethod.payChannel(PayMethod.WECHAT, mockWechatPay));
+            result.put("wechatPay", mockPolicy.channel(customerId));
             result.put("blocked", false);
             result.put("blockReason", null);
             result.put("totalAmount", BigDecimal.ZERO);

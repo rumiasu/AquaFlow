@@ -104,6 +104,10 @@ public class RequiredConfigChecker {
 
         // [2026-09-30 拍板 A] 数据源三件 prod 强校验（缺了在启动期拒，不留到首个查库请求才炸）。
         checkProdDatasource();
+        if (com.example.aquaflow.payment.PaymentSandboxBinding.active(environment)) {
+            com.example.aquaflow.payment.PaymentSandboxBinding.from(environment);
+            if (devLoginEnabled) throw new IllegalStateException("payment-sandbox 禁止开发登录");
+        }
 
         if (isBlank(cosSecretId) || isBlank(cosSecretKey)) {
             log.warn("COS_SECRET_ID / COS_SECRET_KEY 未配置，对象存储上传功能将不可用（不影响启动）");
@@ -131,7 +135,7 @@ public class RequiredConfigChecker {
      * profile 判断走 {@link Environment#matchesProfiles(String...)}（活跃 profile 为空时才回退到
      * {@code spring.profiles.default}，本仓默认是 local）。</p>
      *
-     * <p>与 {@code DevLoginController} 的 {@code @Profile("!prod")} 是两道闸：那个注解让 prod
+     * <p>与 {@code DevLoginController} 的 {@code @Profile("!prod & !payment-sandbox")} 是两道闸：那个注解让 prod
      * 根本不创建后门端点；这里再拦一道，防的是"将来有人摘掉那个注解"或"把后门开关当普通配置改"。</p>
      */
     private void checkProdSafetySwitches() {

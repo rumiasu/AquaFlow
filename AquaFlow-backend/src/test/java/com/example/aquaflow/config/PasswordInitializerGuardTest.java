@@ -4,11 +4,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Profile;
 
-import java.util.Arrays;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * 「默认口令」这颗雷的护栏回归（2026-09-29 关雷）。
@@ -27,9 +26,11 @@ class PasswordInitializerGuardTest {
     void excludedFromProd() {
         Profile profile = PasswordInitializer.class.getAnnotation(Profile.class);
         assertNotNull(profile, "@Profile 被拿掉了 —— prod 会重新拿到 admin123/123456 这两个人人皆知的口令");
-        assertTrue(List.of(profile.value()).contains("!prod"),
-                () -> "@Profile 的值是 " + Arrays.toString(profile.value())
-                        + "，必须包含 \"!prod\"（prod 下本 Bean 根本不该存在，同 DevLoginController）");
+        var expression=org.springframework.core.env.Profiles.of(profile.value());
+        assertFalse(expression.matches("prod"::equals));
+        assertFalse(expression.matches("payment-sandbox"::equals));
+        assertTrue(expression.matches("local"::equals));
+        assertTrue(expression.matches("test"::equals));
     }
 
     // 原「必须保留 app.password-initializer.enabled 开关」用例已随 2026-09-29 拍板 A 删除：

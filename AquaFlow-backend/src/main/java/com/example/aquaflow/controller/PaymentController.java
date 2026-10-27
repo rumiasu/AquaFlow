@@ -148,6 +148,12 @@ public class PaymentController {
         return null;
     }
 
+    /** 顾客端三条线上付款入口共用；本人身份取自 AuthContext，不接受客户编号参数。 */
+    @GetMapping("/capabilities")
+    public Result<Map<String,Object>> capabilities() {
+        return Result.success(paymentService.channelCapabilities(AuthContext.requireCustomerId()));
+    }
+
     /** 服务端支付试算（下单前展示，金额以服务端为准） */
     @PostMapping("/quote")
     public Result<Map<String, Object>> quote(@RequestBody @Valid PaymentQuoteDTO dto) {

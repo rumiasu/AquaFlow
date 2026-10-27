@@ -340,6 +340,7 @@
 | `GET` | `/api/payments/all` | {"STATION_MANAGER"} | `PaymentController.listAllBackup` |
 | `GET` | `/api/payments/by-customer` | {"STATION_MANAGER"} | `PaymentController.listByCustomerId` |
 | `GET` | `/api/payments/by-order` | {"STATION_MANAGER"} | `PaymentController.listByOrderId` |
+| `GET` | `/api/payments/capabilities` | 客户会话 | `PaymentController.capabilities`；身份仅取登录态，只读本人 `wechatPay` 能力，不创建/确认收款。模拟授权含 version、scope、customerId；云 sandbox 另含 environmentId/serviceId/bindingId，不含凭据或数据库目标。 |
 | `GET` | `/api/payments/customer/{customerId}` | {"STATION_MANAGER"} | `PaymentController.listByCustomerIdForStaff` |
 | `GET` | `/api/payments/pending` | {"STATION_MANAGER"} | `PaymentController.listPending` |
 | `POST` | `/api/payments/quote` | {"STATION_MANAGER"} | `PaymentController.quote` |

@@ -46,7 +46,7 @@
     建议值由后端按"本站最便宜的一桶水"算好（前端只展示与回填，不自算倍数、不自造文案）。
   -->
   <view class="card guide-card" wx:if="{{guide.requiredAmountFields.length}}">
-    <text class="card-title">还差金额门槛</text>
+    <text class="card-title">可选：补充金额条件</text>
     <text class="card-sub">{{guideText}}</text>
     <button class="btn-fill" bindtap="onFillSuggested">一键填入建议值</button>
   </view>

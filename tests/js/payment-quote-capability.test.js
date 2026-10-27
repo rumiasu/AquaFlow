@@ -69,7 +69,7 @@ test('请求失败清掉旧支付能力且保持阻断，可重试恢复后提�
 test('报价从未确认时点击只引导核实，不建单', async () => {
   const t = order(); t.wx.__modalAutoConfirm = false; await t.page.onSubmit()
   assert.equal(t.calls.orders.length, 0)
-  assert.equal(t.wx.__calls.modal.at(-1).confirmText, '重试报价')
+  assert.equal(t.wx.__calls.modal.at(-1).confirmText, '重新计算费用')
 })
 test('刷新中点击不能建单，报价完成后需再次明确提交', async () => {
   const gate = deferred(), t = order(() => gate.promise)
@@ -187,7 +187,7 @@ test('微信页面实际绑定能力标签与重试动作，不再写死支付�
 for (const ending of ['', '。', '！']) test('quote reason has a clear sentence boundary: ' + ending, async () => {
   const t = order(async () => { throw Error('库存待核实，请重试' + ending) })
   await t.page.refreshQuote()
-  assert.match(t.page.data.quoteError, /请重试。已暂停下单/)
+  assert.equal(t.page.data.quoteError, '库存待核实，请重试。')
   assert(!/[。！]{2}/.test(t.page.data.quoteError)); assert.equal(t.calls.orders.length, 0)
 })
 for (const reason of ['DEPOSIT', 'PRODUCT_DISABLED']) test(reason + ' acknowledgement guides manual selection without changing price/method', async () => {

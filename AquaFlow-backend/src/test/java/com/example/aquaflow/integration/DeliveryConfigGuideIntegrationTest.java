@@ -11,19 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * 金额门槛的强制引导（2026-09-19 产品裁定）：「上架瓶装水/饮水机等非桶装水业务时，
- * 最好指引着强制完成金额类字段填写」＋「记得给默认值降低填写门槛」。
- *
- * <p>为什么要强制：起送量与免运费都是「桶数**或**金额」两条条件，而桶数条件是为**循环桶**设的。
- * 非桶装商品一件都不占桶，所以只配桶数门槛的站，那条规则对这类订单**不生效**
- * （{@code DeliveryFeeUtil} 的"条件不适用"分支）。站长却以为自己设了门槛 —— 这就是要拦的那一刻。</p>
- *
- * <p>本类锁四件事：① 上架非桶装商品时缺金额门槛 → 明确拒绝并给建议值；
- * ② 补齐后可上架，且**下架**（enabled=0）不受这道校验影响；③ 配置接口下发引导信息与建议值；
- * ④ 建议值口径 = 本站最便宜的一桶水 × 2 / × 3（前端只展示，不许自算）。</p>
- */
-@DisplayName("配送计费引导：商品先保存，缺项进入上线准备与报价保护")
+/** 商品保存与配送金额建议分离；已保存不限有效，建议不改变计费或强迫配置正金额。 */
+@DisplayName("配送计费引导：商品先保存，金额建议可选，未保存计费仍待确认")
 class DeliveryConfigGuideIntegrationTest extends AbstractIntegrationTest {
 
     private long station;
@@ -66,8 +55,8 @@ class DeliveryConfigGuideIntegrationTest extends AbstractIntegrationTest {
     /* ==================== ① 强制：缺金额门槛时不许上架非桶装 ==================== */
 
     @Test
-    @DisplayName("缺金额门槛仍可上架，缺项进入上线准备")
-    void shelvingNonBarrelRequiresAmountThresholds() {
+    @DisplayName("未设金额门槛仍可上架，已有规则就绪并保留可选建议")
+    void shelvingNonBarrelKeepsAmountSuggestionsOptional() {
         seed();
         configBucketOnly();
 

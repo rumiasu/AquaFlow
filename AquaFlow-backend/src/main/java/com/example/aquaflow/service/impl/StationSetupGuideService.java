@@ -175,10 +175,10 @@ public class StationSetupGuideService {
         var feeConfig = stationDeliveryConfigMapper.getByStationId(stationId);
         var missingAmounts = feeConfig == null || !deliveryConfigGuideService.hasNonBarrelOnShelf(stationId)
                 ? java.util.Collections.<String>emptyList() : deliveryConfigGuideService.missingAmountFields(feeConfig);
-        boolean feeReady = feeConfig != null && missingAmounts.isEmpty();
+        boolean feeReady = feeConfig != null;
         String missingText = String.join("、", missingAmounts.stream().map(key -> "minOrderAmount".equals(key) ? "起送金额" : "免运费金额").collect(java.util.stream.Collectors.toList()));
         items.add(item("deliveryFee", "配送计费", P0, feeReady, "配送计费",
-                feeConfig == null ? "尚未保存配送计费规则" : missingAmounts.isEmpty() ? "配送计费规则已保存" : "非桶装商品需要补充" + missingText,
+                feeConfig == null ? "尚未保存配送计费规则" : missingAmounts.isEmpty() ? "配送计费规则已保存" : "规则已保存，非桶装订单不按桶数门槛判断；可选补充" + missingText,
                 null, feeReady ? null : feeConfig == null ? "到「配送计费」按教程设置并保存；不收费也请明确保存" : "到「配送计费」按教程填写" + missingText + "并保存"));
 
         // ---- P1：影响钱或客户体验 ----

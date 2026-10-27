@@ -204,6 +204,38 @@ class DeliveryFeeIntegrationTest extends AbstractIntegrationTest {
                 "floorFreeLevel 传 -3 归零（不强制回默认 1，因为 0 层也是合法配置）");
     }
 
+    @Test
+    void savedUnlimitedAmountsAndWarnModeRemainUsableAfterListingNonBarrelProducts() {
+        long[] ids=seedConfiguredStation(); long station=ids[0],customer=ids[1],address=ids[2],barrel=ids[3];
+        String manager=staffToken(ids[4],"STATION_MANAGER",station),token=customerToken(customer);
+        assertEquals(0,put("/api/manager/delivery-config",manager,"{\"minOrderBuckets\":2,\"minOrderAmount\":null,\"minOrderMode\":\"WARN\",\"freeDeliveryBuckets\":3,\"freeDeliveryAmount\":null,\"baseDeliveryFee\":3.00}").code());
+        long bottle=createProduct("合成非桶装",2,"10.00","0.00",0,"0.00"); createInventoryFull(station,bottle,100,0,"0.00");
+        Api barrelQuote=quote(token,station,address,barrel,1); assertTrue(barrelQuote.isSuccess()); assertFalse(barrelQuote.data().path("blocked").asBoolean());
+        Api bottleQuote=quote(token,station,address,bottle,1); assertTrue(bottleQuote.isSuccess()); assertFalse(bottleQuote.data().path("blocked").asBoolean());
+        assertEquals(0,new BigDecimal("3.00").compareTo(new BigDecimal(bottleQuote.data().path("deliveryFee").asText())));
+        String mixed="{\"stationId\":"+station+",\"addressId\":"+address+",\"paymentMethod\":1,\"items\":[{\"productId\":"+barrel+",\"quantity\":1},{\"productId\":"+bottle+",\"quantity\":1}]}";
+        Api mixedQuote=post("/api/payments/quote",token,mixed); assertTrue(mixedQuote.isSuccess()); assertFalse(mixedQuote.data().path("blocked").asBoolean());
+        Api created=order(token,station,address,bottle,1); assertTrue(created.isSuccess(),created.message());
+        assertEquals(0,new BigDecimal(bottleQuote.data().path("totalAmount").asText()).compareTo(decimalOf("select total_amount from orders where id=?",created.data().path("orderId").asLong())));
+        var guide=get("/api/manager/setup-guide",manager); assertTrue(guide.isSuccess());
+        boolean feeDone=false; for(var item:guide.data().path("items")) if("deliveryFee".equals(item.path("key").asText())) feeDone=item.path("done").asBoolean();
+        assertTrue(feeDone,"saved unlimited configuration is ready; suggestions must not become mandatory");
+    }
+
+    @Test
+    void bucketRejectScopeAndExplicitZeroAmountThresholdsFollowTheSavedConfiguration() {
+        long[] ids=seedConfiguredStation(); long station=ids[0],customer=ids[1],address=ids[2],barrel=ids[3];
+        String manager=staffToken(ids[4],"STATION_MANAGER",station),token=customerToken(customer);
+        long bottle=createProduct("合成瓶装",2,"10.00","0.00",0,"0.00");createInventoryFull(station,bottle,100,0,"0.00");
+        assertTrue(put("/api/manager/delivery-config",manager,"{\"minOrderBuckets\":2,\"minOrderMode\":\"REJECT\",\"freeDeliveryBuckets\":3,\"baseDeliveryFee\":3.00}").isSuccess());
+        assertTrue(quote(token,station,address,barrel,1).data().path("blocked").asBoolean());
+        assertFalse(quote(token,station,address,bottle,1).data().path("blocked").asBoolean());
+        assertTrue(put("/api/manager/delivery-config",manager,"{\"minOrderBuckets\":2,\"minOrderAmount\":0,\"minOrderMode\":\"REJECT\",\"freeDeliveryBuckets\":3,\"freeDeliveryAmount\":0,\"baseDeliveryFee\":3.00}").isSuccess());
+        Api zero=quote(token,station,address,bottle,1);assertTrue(zero.isSuccess());assertFalse(zero.data().path("blocked").asBoolean());
+        assertEquals(0,BigDecimal.ZERO.compareTo(new BigDecimal(zero.data().path("deliveryFee").asText())));
+        var guidance=get("/api/manager/delivery-config",manager);assertEquals(0,guidance.data().path("guidance").path("requiredAmountFields").size());
+    }
+
     // ---------- helpers ----------
 
     /** @return {station, customer, address, product, manager} */

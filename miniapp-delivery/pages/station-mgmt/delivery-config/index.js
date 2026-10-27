@@ -76,7 +76,7 @@ function thresholdDefaults(form) {
   const present = field => form[field] !== '' && form[field] !== null && form[field] !== undefined
   const positive = field => present(field) && Number(form[field]) > 0
   return {
-    minOrderBuckets: positive('minOrderBuckets'), minOrderAmount: positive('minOrderAmount'),
+    minOrderBuckets: present('minOrderBuckets'), minOrderAmount: present('minOrderAmount'),
     deliveryRadiusM: positive('deliveryRadiusM'),
     // 零免运费门槛是有效且影响所有适用订单的配置，不能折叠成“不设门槛”。
     freeDeliveryBuckets: present('freeDeliveryBuckets'), freeDeliveryAmount: present('freeDeliveryAmount')
@@ -133,12 +133,13 @@ function buildRuleState(form, enabled, configured, savedForm, savedEnabled) {
   return { hasUnsavedChanges: changed, ruleSummaries: summaries }
 }
 
-function deliveryConfigReadbackMatches(form, payload) {
-  const zeroMatchesNull = new Set(['minOrderBuckets', 'minOrderAmount', 'deliveryRadiusM', 'baseDeliveryFee',
+function deliveryConfigReadbackMatches(form, payload, enabled) {
+  const zeroMatchesNull = new Set(['deliveryRadiusM', 'baseDeliveryFee',
     'minOrderFee', 'remoteFee', 'floorFeePerLevel'])
   const number = value => value === '' || value == null ? null : Number(value)
   return Object.keys(payload).every(field => {
     let expected = payload[field], actual = form[field]
+    if (THRESHOLD_FIELDS.includes(field) && enabled && enabled[field] === false) actual = null
     if (field === 'floorFreeLevel') {
       expected = expected == null ? 1 : Number(expected)
       actual = number(actual)
@@ -357,6 +358,7 @@ Page({
         nonBarrelOnShelf: g.nonBarrelOnShelf === true,
         requiredAmountFields: Array.isArray(g.requiredAmountFields) ? g.requiredAmountFields : [],
         cheapestWaterPrice: g.cheapestWaterPrice == null ? null : Number(g.cheapestWaterPrice),
+        cheapestPrice: g.cheapestPrice == null ? g.cheapestWaterPrice : Number(g.cheapestPrice),
         cheapestPriceBasis: g.cheapestPriceBasis || '',
         suggestedMinOrderAmount: g.suggestedMinOrderAmount == null ? null : Number(g.suggestedMinOrderAmount),
         suggestedFreeDeliveryAmount: g.suggestedFreeDeliveryAmount == null ? null : Number(g.suggestedFreeDeliveryAmount)
@@ -405,10 +407,9 @@ Page({
       return ''
     }
     const names = g.requiredAmountFields.map(f => (f === 'minOrderAmount' ? '起送量金额' : '免运费金额'))
-    const parts = [`你上架了${g.nonBarrelOnShelf ? '瓶装水/一次性桶/饮水器' : '非桶装商品'}，` +
-      `但这些商品不占桶，只配桶数门槛对它没有意义 —— 请补上：${names.join('、')}。`]
+    const parts = [`桶数条件只适用于含桶装水的订单。金额选择不限时，非桶装订单按已保存规则正常配送；需要金额条件时，可补充${names.join('、')}。`]
     if (g.cheapestPriceBasis) {
-      parts.push(`建议值按${g.cheapestPriceBasis} ¥${g.cheapestWaterPrice} 推算（起送约两桶水、免运费约三桶水），可直接点下方按钮填入。`)
+      parts.push(`建议值按${g.cheapestPriceBasis} ¥${g.cheapestPrice == null ? g.cheapestWaterPrice : g.cheapestPrice} 推算（起送约两桶水、免运费约三桶水），填入后仍需确认并保存。`)
     } else {
       parts.push('本站还没有已上架的商品，无法推算建议值，请手动填写。')
     }
@@ -420,10 +421,10 @@ Page({
     if (this.data.saving) return
     const { guide, form } = this.data
     const updates = {}
-    if (guide.suggestedMinOrderAmount != null && !form.minOrderAmount) {
+    if (guide.suggestedMinOrderAmount != null && (!this.data.thresholdEnabled.minOrderAmount || form.minOrderAmount === '' || form.minOrderAmount == null)) {
       updates['form.minOrderAmount'] = String(guide.suggestedMinOrderAmount)
     }
-    if (guide.suggestedFreeDeliveryAmount != null && !form.freeDeliveryAmount) {
+    if (guide.suggestedFreeDeliveryAmount != null && (!this.data.thresholdEnabled.freeDeliveryAmount || form.freeDeliveryAmount === '' || form.freeDeliveryAmount == null)) {
       updates['form.freeDeliveryAmount'] = String(guide.suggestedFreeDeliveryAmount)
     }
     if (!Object.keys(updates).length) {
@@ -752,7 +753,7 @@ Page({
       try { await this.load() } finally { this._readingSavedFee = false }
       if (!stillHere()) return
       this.loadSetup()
-      if (this.data.configReady && this.data.configured && deliveryConfigReadbackMatches(this.data.form, payload)) {
+      if (this.data.configReady && this.data.configured && deliveryConfigReadbackMatches(this.data.form, payload, this.data.thresholdEnabled)) {
         const confirmed = { ...this.data.form }
         for (const field of THRESHOLD_FIELDS) if (!submittedEnabled[field]) confirmed[field] = submittedForm[field]
         this.setData({ form: confirmed, savedForm: { ...confirmed }, thresholdEnabled: submittedEnabled,

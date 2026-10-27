@@ -688,6 +688,9 @@
 | `POST` | `/api/asset-claims` | 客户本人 | `HistoricalAssetClaimController.submit`；客户ID只取登录态，未绑定可申请，不立即绑定／记账 |
 | `GET` | `/api/asset-claims` | 客户本人 | `HistoricalAssetClaimController.mine`；必填stationId，最近100条原申请结果 |
 | `GET` | `/api/asset-claims/{id}` | 客户本人 | `HistoricalAssetClaimController.detail`；跨客户及员工访问拒绝 |
+| `POST` | `/api/asset-claims/photo` | 客户本人 | `HistoricalAssetClaimController.uploadPhoto`；multipart字段stationId/clientToken/file，单张JPG/PNG/WebP不超过5MB；按本人及原申请凭据幂等保存私有对象，已提交无照申请不能事后追加 |
+| `GET` | `/api/asset-claims/photo` | 客户本人 | `HistoricalAssetClaimController.myPhoto`；stationId/clientToken必填，只读本人照片状态；返回exists及一小时签名url，签名暂不可用时exists=true/url=null |
+| `GET` | `/api/manager/asset-claims/{id}/photo` | STATION_MANAGER | `HistoricalAssetClaimController.claimPhoto`；先核本站原申请权限，再取其凭证的私有短期链接；跨站、客户与配送员拒绝 |
 | `GET` | `/api/manager/asset-claims` | STATION_MANAGER | `HistoricalAssetClaimController.pending`；本站最早100条待核对，只返回主动提交的材料 |
 | `GET` | `/api/manager/asset-claims/{id}` | STATION_MANAGER | `HistoricalAssetClaimController.managerDetail`；只查本站原申请和决定，供未知结果恢复 |
 | `POST` | `/api/manager/asset-claims/{id}/review` | STATION_MANAGER | `HistoricalAssetClaimController.review`；通过时核对／绑定／期初账同事务，无第三次客户确认 |
@@ -705,7 +708,7 @@
 
 | 方法 | 路径 | 身份 | 处理 |
 |---|---|---|---|
-| `GET` | `/api/asset-claims/products` | 客户本人 | `HistoricalAssetClaimController.products`；必填stationId且站须存在；返回本站已配置、属通用库／本站的商品，含下架／停售；只含id/name/spec/category，不给未选用通用商品或异站私有商品 |
+| `GET` | `/api/asset-claims/products` | 客户本人 | `HistoricalAssetClaimController.products`；必填stationId且站须存在；返回本站已配置、属通用库／本站的商品，含下架／停售；含id/name/spec/category及可空imageUrl，图片优先本站覆盖；不返回价格、库存、未选用通用商品或异站私有商品 |
 
 申请响应新增服务端`statusText`，两端不重复定义状态中文。提交校验与目录所有权一致，遗留异常库存引用不扩大异站商品资格。站长名称复用既有`getCatalog`。本批无新迁移／交易入口，沿f76859f事务，v80必需；新页面须配本批目录／文案增量。旧f76859f的products路径可被{id}匹配而返回“参数格式不正确：id”，前端已按服务不可用处理；缺能力／越权／畸形结果不冒充成功或0。核心页只增加静态入口。
 

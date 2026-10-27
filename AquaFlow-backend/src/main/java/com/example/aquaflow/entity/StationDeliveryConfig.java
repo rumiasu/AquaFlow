@@ -67,7 +67,7 @@ public class StationDeliveryConfig {
     private LocalDateTime updateTime;
 
     /**
-     * 「没配」时的默认配置：不收费、不拦单、只提示。
+     * 编辑器默认配置：尚未保存时不可用于报价或下单；保存后按这些明确规则计算。
      *
      * <p>用默认值而不是在业务层判 null，是为了让"存量水站没有配置行"这件事在
      * {@code DeliveryFeeUtil} 里根本不存在分支 —— 少一个分支就少一处口径分叉。</p>

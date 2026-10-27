@@ -124,7 +124,8 @@
       <view class="payment-methods">
         <text wx:if="{{quoteLoading}}">正在核实金额和支付方式…</text>
         <view class="load-error" wx:if="{{quoteError}}">{{quoteError}}</view>
-        <button wx:if="{{quoteError}}" bindtap="onRetryQuote" disabled="{{quoteLoading}}">重新计算费用</button>
+        <button wx:if="{{quoteError && !quoteNeedsStation}}" bindtap="onRetryQuote" disabled="{{quoteLoading}}">重新计算费用</button>
+        <button wx:if="{{quoteError && quoteNeedsStation}}" bindtap="onCallStation">联系水站</button>
         <view class="payment-method {{selectedMethod === item.id ? 'selected' : ''}} {{item.enabled ? '' : 'disabled'}}"
               wx:for="{{payMethods}}" wx:key="id"
               bindtap="onSelectMethod" data-id="{{item.id}}" data-enabled="{{item.enabled}}">
@@ -222,7 +223,7 @@
         <view class="fee-row" wx:if="{{!feeBreakdownReady}}"><text class="fee-label">配送费、楼层费明细</text><text class="fee-value">待核实</text></view>
       </block>
 
-      <text class="fee-hint" wx:if="{{!quoteReady}}">{{quoteLoading ? '正在核实本次费用…' : '费用尚未核实，请先确认地址并重新报价。'}}</text>
+      <text class="fee-hint" wx:if="{{!quoteReady && !quoteError}}">{{quoteLoading ? '正在核实本次费用…' : '请确认地址后重新计算费用。'}}</text>
 
       <view class="fee-row total">
         <text class="fee-label total">{{isTicketPay ? payableAmountLabel : '合计'}}</text>
@@ -342,7 +343,7 @@
         <!-- 硬拦 > 提交中 > 已有订单 > 常态；普通须知不增加提交门槛。 -->
         <!-- 2026-10-26：此嵌套三元曾漏一个右括号，导致整端 WXML 编译失败；每层条件须完整闭合。 -->
         <view class="submit-btn {{(submitting || blocked || !products.length) ? 'disabled' : ''}}" bindtap="onSubmit">
-          <text>{{!products.length ? '先选商品' : (blocked ? '暂不可下单' : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid || pendingOrderPaymentState !== 'unpaid' ? '查看这笔订单' : '继续支付') : '立即下单')))}}</text>
+          <text>{{!products.length ? '先选商品' : (blocked ? (quoteNeedsStation ? '待水站完善' : '暂不可下单') : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid || pendingOrderPaymentState !== 'unpaid' ? '查看这笔订单' : '继续支付') : '立即下单')))}}</text>
         </view>
       </view>
     </view>

@@ -28,9 +28,6 @@ public class DeliveryFeeServiceImpl implements DeliveryFeeService {
     private StationDeliveryConfigMapper stationDeliveryConfigMapper;
 
     @Autowired
-    private DeliveryConfigGuideService deliveryConfigGuideService;
-
-    @Autowired
     private StationMapper stationMapper;
 
     @Autowired
@@ -54,10 +51,9 @@ public class DeliveryFeeServiceImpl implements DeliveryFeeService {
         if (config == null) {
             throw new BusinessException("水站配送计费尚未设置，请联系水站完善后再下单");
         }
-        if (deliveryConfigGuideService.hasNonBarrelOnShelf(stationId)
-                && !deliveryConfigGuideService.missingAmountFields(config).isEmpty()) {
-            throw new BusinessException("水站配送计费尚未完成，请联系水站完善后再下单");
-        }
+        // A persisted null amount threshold means no amount condition. The calculator
+        // applies bucket conditions only to orders containing barrels; catalog changes
+        // must not turn an already saved WARN/unlimited configuration into a site-wide block.
 
         Double distanceMeters = null;
         Integer floor = null;

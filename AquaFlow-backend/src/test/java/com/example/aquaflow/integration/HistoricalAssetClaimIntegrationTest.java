@@ -259,7 +259,8 @@ class HistoricalAssetClaimIntegrationTest extends AbstractIntegrationTest {
         assertTrue(catalog.isSuccess(),catalog.toString());assertEquals(1,catalog.data().size());
         assertEquals(product,catalog.data().get(0).path("id").asLong());
         var fields=new java.util.HashSet<String>();catalog.data().get(0).fieldNames().forEachRemaining(fields::add);
-        assertEquals(java.util.Set.of("id","name","spec","category"),fields);
+        assertEquals(java.util.Set.of("id","name","spec","category","imageObjectName","imageUrl"),fields);
+        assertTrue(catalog.data().get(0).path("imageObjectName").isNull(),"private storage key must not be exposed");
         assertFalse(post("/api/asset-claims",customerToken(customer),body("foreign-own").replace("\"productId\":"+product,"\"productId\":"+foreign)).isSuccess());
         assertEquals(0,rows("historical_asset_claim"));
         var submitted=submit("off-shelf-own");assertTrue(submitted.isSuccess(),submitted.toString());

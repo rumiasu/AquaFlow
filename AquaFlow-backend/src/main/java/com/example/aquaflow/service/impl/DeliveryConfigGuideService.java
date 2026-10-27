@@ -22,25 +22,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 配送计费配置的**引导与校验**（2026-09-19）：把"金额类门槛该填多少"这件事从站长脑子里挪到系统里。
- *
- * <p><b>为什么需要</b>：起送量与免运费各有两个条件（桶数 / 金额，取或）。桶数条件是为**循环桶**设的，
- * 瓶装水 / 一次性桶 / 饮水机这类非桶装商品一件都不占桶 —— 所以只配了桶数门槛的水站，
- * 一旦上架非桶装商品，那条规则就**没有可核验的条件**（{@code DeliveryFeeUtil} 已按产品口径
- * 「没用桶数时，核验金额即可」处理：金额也没配 → 该规则不生效）。结果是站长以为"我设了 2 桶起送"，
- * 实际那类订单既不受控也不提示。</p>
- *
- * <p><b>本类做两件事</b>：</p>
- * <ol>
- *   <li>{@link #guidance(Long)} —— 告诉前端：哪些金额字段缺、建议填多少（用于占位提示与"一键填入"）；</li>
- *   <li>{@link #requireAmountFieldsForNonBarrel(Long)} —— 上架非桶装商品前的**硬校验**：
- *       配了桶数门槛却没有对应金额门槛时直接拒绝，并把建议值写进错误文案。</li>
- * </ol>
- *
- * <p><b>建议值口径</b>（刻意简单可解释，站长能一眼看懂，不是黑盒）：以本站**已上架桶装水的最低价**
- * 为"一桶水的钱"，起送量建议 = 该价 × {@value #MIN_ORDER_BUCKETS_EQUIVALENT}（约两桶），
- * 免运费建议 = × {@value #FREE_DELIVERY_BUCKETS_EQUIVALENT}（约三桶）。本站没有已上架桶装水时
- * 回落到已上架商品最低价，再没有就**不给建议**（前端只提示"请填写"，不塞一个凭空捏造的数）。</p>
+ * 配送金额条件的可选建议。桶数条件只作用于含桶装水的订单；已保存的 null 金额
+ * 表示没有金额条件，明确的0也保留原计算语义。建议值不是上架、保存或报价的门槛。
  */
 @Service
 public class DeliveryConfigGuideService {
@@ -83,9 +66,10 @@ public class DeliveryConfigGuideService {
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("nonBarrelOnShelf", nonBarrelOnShelf);
-        // 只有"配了桶数门槛"时缺金额才算问题：站长根本没启用这条规则时不打扰他
+        // 兼容字段名 requiredAmountFields，当前仅表达可选金额建议，不作为就绪门禁
         data.put("requiredAmountFields", required);
         data.put("cheapestWaterPrice", cheapestWater);
+        data.put("cheapestPrice", cheapestAny);
         data.put("cheapestPriceBasis", cheapestWater != null ? "本站已上架桶装水最低价"
                 : (cheapestAny != null ? "本站已上架商品最低价（没有桶装水）" : null));
         data.put("suggestedMinOrderAmount",
@@ -135,13 +119,13 @@ public class DeliveryConfigGuideService {
         throw new BusinessException(sb.toString());
     }
 
-    /** 缺的金额字段：只有"配了对应桶数门槛"才要求补金额，否则算没启用这条规则。 */
+    /** 可建议的金额字段：仅对应桶数条件已设置且金额为 null；0 是已知配置。 */
     public List<String> missingAmountFields(StationDeliveryConfig cfg) {
         List<String> missing = new ArrayList<>();
-        if (positive(cfg.getMinOrderBuckets()) && !positive(cfg.getMinOrderAmount())) {
+        if (positive(cfg.getMinOrderBuckets()) && cfg.getMinOrderAmount() == null) {
             missing.add("minOrderAmount");
         }
-        if (positive(cfg.getFreeDeliveryBuckets()) && !positive(cfg.getFreeDeliveryAmount())) {
+        if (positive(cfg.getFreeDeliveryBuckets()) && cfg.getFreeDeliveryAmount() == null) {
             missing.add("freeDeliveryAmount");
         }
         return missing;

@@ -20,7 +20,7 @@ function fixture(options = {}) {
       calls.push({ method: 'GET', url })
       if (url.includes('setup-guide')) return { code: 0, data: { items: [{ key: 'deliveryFee', label: '配送计费', level: 'P0', done: state.configured, route: '/pages/station-mgmt/delivery-config/index' }] } }
       if (state.readFail) throw Error('synthetic read failure')
-      return { code: 0, data: { config: { ...state.config }, configured: state.configured } }
+      return { code: 0, data: { config: { ...state.config }, configured: state.configured, guidance: state.guidance } }
     },
     put: async (url, body) => {
       calls.push({ method: 'PUT', url, body })
@@ -74,6 +74,22 @@ test('zero free-delivery threshold stays effective while disabled threshold send
   const t = fixture(); await t.p.load(); t.p.onInput(ev('freeDeliveryBuckets', '0')); await t.p.onSave()
   assert.equal(t.puts()[0].body.freeDeliveryBuckets, 0); assert.equal(t.puts()[0].body.freeDeliveryAmount, null)
   assert(t.p.data.ruleSummaries[2].text.includes('所有桶装订单都达到'))
+})
+test('one-click suggestion replaces the disabled zero placeholder, activates its field and still needs save', async () => {
+  const t=fixture({state:{configured:true,config:{...defaults(),minOrderBuckets:2,baseDeliveryFee:5},guidance:{nonBarrelOnShelf:true,requiredAmountFields:['minOrderAmount'],cheapestWaterPrice:10,cheapestPrice:10,cheapestPriceBasis:'本站已上架桶装水最低价',suggestedMinOrderAmount:20}}})
+  await t.p.load(); assert.equal(t.p.data.form.minOrderAmount,'0'); assert.equal(t.p.data.thresholdEnabled.minOrderAmount,false)
+  t.p.onFillSuggested(); assert.equal(t.p.data.form.minOrderAmount,'20'); assert.equal(t.p.data.thresholdEnabled.minOrderAmount,true)
+  assert.equal(t.puts().length,0); assert.equal(t.state.config.minOrderAmount,null)
+  await t.p.onSave(); assert.equal(t.puts()[0].body.minOrderAmount,20); assert.equal(t.puts()[0].body.baseDeliveryFee,5)
+})
+test('saved unlimited amounts remain null while explicit zero thresholds survive reload and save', async () => {
+  const unlimited=fixture({state:{configured:true,config:{...defaults(),minOrderBuckets:2,baseDeliveryFee:5}}})
+  await unlimited.p.load(); await unlimited.p.onSave()
+  assert.equal(unlimited.puts()[0].body.minOrderAmount,null); assert.equal(unlimited.puts()[0].body.minOrderMode,'WARN')
+  assert.equal(unlimited.p.data.configured,true); assert.equal(unlimited.p.data.hasUnsavedChanges,false)
+  const zero=fixture({state:{configured:true,config:{...defaults(),minOrderBuckets:0,minOrderAmount:0}}})
+  await zero.p.load(); assert.equal(zero.p.data.thresholdEnabled.minOrderBuckets,true); assert.equal(zero.p.data.thresholdEnabled.minOrderAmount,true)
+  await zero.p.onSave(); assert.equal(zero.puts()[0].body.minOrderBuckets,0); assert.equal(zero.puts()[0].body.minOrderAmount,0)
 })
 test('four explicit default completions still require one manual save', async () => {
   const t = fixture(); await t.p.load()

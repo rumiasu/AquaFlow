@@ -119,6 +119,7 @@ Page({
     feeBreakdownReady: false,
     barrelPurchases: [], barrelPurchaseConfirmed: false,
     quoteError: '',
+    quoteNeedsStation: false,
     // [2026-09-26] 收款渠道能力（后端 quote 的 wechatPay 原样存下来）：建单成功后要不要对
     // **同一张订单**发起 createPayment，判据是这里的 enabled（= 服务端模拟渠道开着），
     // 前端不按 id===1 猜渠道、也不碰真实 wx.requestPayment。null = 还没报价，按"不可用"处理。
@@ -812,7 +813,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   // 2026-10-25：底栏只投影已有阻断原因；过滤技术原文，不参与报价或提交判断。
   _syncQuoteBlockNotice() {
-    const visible = this.data.blocked && !this.data.submitting && !this.data.pendingOrderId && this.data.submitState !== 'unknown'
+    const visible = this.data.blocked && !this.data.quoteError && !this.data.submitting && !this.data.pendingOrderId && this.data.submitState !== 'unknown'
     const reason = visible ? errorText({ message: this.data.blockReason }, '最新金额和支付方式尚未核实，请重试报价') : ''
     const chars = Array.from(reason)
     this.setData({
@@ -832,7 +833,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const seq = this._quoteRequestSeq = (this._quoteRequestSeq || 0) + 1
     this._quotedContext = null
     this._unifiedConfirmation = null
-    this.setData({ quoteLoading: !emptyCart, quoteReady: false, quoteError: '', blocked: !emptyCart, checkoutWarnings: [],
+    this.setData({ quoteLoading: !emptyCart, quoteReady: false, quoteError: '', quoteNeedsStation: false, blocked: !emptyCart, checkoutWarnings: [],
       blockReason: emptyCart ? '' : '正在核实最新报价，请稍候', payMethods: [], wechatPay: null, missingRights: [], barrelPurchases: [], barrelPurchaseConfirmed: false,
       totalAmount: 0, totalWaterCost: 0, totalDeposit: 0, extraDepositBuckets: 0, extraDepositAmount: 0, deliveryFee: 0, floorFee: 0,
       totalWaterCostText: '—', totalAmountText: '—', payableAmountText: '—', payableAmountLabel: '本次需付',
@@ -911,7 +912,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       })
       if (!current()) return false
       if (!res || (res.code !== undefined && ![0, 200].includes(res.code)) || !res.data) {
-        throw new Error(errorText(res, '报价结果未核实，请重试'))
+        throw Object.assign(new Error(errorText(res, '报价结果未核实，请重试')), { businessRejected: !!res && res.code === 1 })
       }
       {
         const d = res.data
@@ -1120,15 +1121,17 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 失败保持 quoteReady=false；点击与提交前等待两处都检查，只有重试成功才能重新提交。
       console.error('[OrderCreate] refreshQuote 失败:', e)
       const reason = errorText(e, '暂时无法读取报价，请稍后重试').replace(/[。！？；，、\s]+$/, '')
+      const quoteNeedsStation = e && e.businessRejected === true && /^水站配送计费/.test(reason)
       this.setData({
         blocked: true,
         quoteReady: false,
         payMethods: [], wechatPay: null, ticketPay: null, ticketCoverText: '',
         ticketShortfallHint: '', ticketCanBuy: false, ticketAltMethod: null, missingRights: [],
         barrelPurchases: [], barrelPurchaseConfirmed: false,
-        quoteError: reason + '。已暂停下单，请重试报价。',
+        quoteNeedsStation,
+        quoteError: reason + '。',
         blockReason: reason,
-        checkoutWarnings: [reason]
+        checkoutWarnings: []
       })
       wx.showToast({ title: '报价加载失败，已暂停下单', icon: 'none' })
       return false
@@ -1205,9 +1208,10 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       wx.showToast({ title: '正在核实报价，请稍候', icon: 'none' }); return
     }
     if (this.data.quoteError || !this.data.quoteReady || !this._hasCurrentQuote()) {
-      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '报价尚未核实', content: this.data.quoteError || '请先核实最新金额和支付方式，再提交订单。',
-        confirmText: '重试报价', cancelText: '留在本页',
-        success: result => { if (result.confirm) this.onRetryQuote() } })
+      const needsStation = this.data.quoteNeedsStation
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: needsStation ? '水站待完善配送计费' : '费用尚未确认', content: this.data.quoteError || '请先确认本次费用和支付方式，再提交订单。',
+        confirmText: needsStation ? '联系水站' : '重新计算费用', cancelText: '留在本页',
+        success: result => { if (result.confirm) needsStation ? this.onCallStation() : this.onRetryQuote() } })
       return
     }
 

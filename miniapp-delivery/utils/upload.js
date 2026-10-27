@@ -221,7 +221,8 @@ function upload(options) {
     if (context.kind !== 'product-image') stateStore.addCase(context.ownerKey, context.intentKey, durableCase)
     operation.attempted = true
     const result = checkReceipt(await request(requestOptions, session), original.url, context.kind)
-    if (context.kind !== 'product-image') stateStore.removeCase(context.ownerKey, context.intentKey, operation.caseId)
+    operation.receiptValidated = true
+    if (context.kind !== 'product-image') stateStore.confirmCase(context.ownerKey, context.intentKey, operation.caseId)
     state.completed.set(operation.fingerprint, { session, result })
     return result
   }
@@ -244,7 +245,8 @@ function upload(options) {
       state.unknown.set(caseId, { id: caseId, fingerprint: operation.fingerprint, url: original.url, fields: context.fields, draftId: context.draftId, kind: context.kind, entityId: context.entityId, createdAt: Date.now() })
       error.uploadOutcomeUnknown = true
       error.uploadCaseIds = Array.from(state.unknown.keys())
-      error.message = '图片提交结果待核实，请先查看已有图片，勿重复上传'
+      error.message = operation.receiptValidated ? '图片已上传，但确认记录保存失败；请查看已有图片，勿重复上传'
+        : '图片提交结果待核实，请先查看已有图片，勿重复上传'
     }
     if (!ambiguous && operation.caseId) {
       try { stateStore.removeCase(context.ownerKey, context.intentKey, operation.caseId) } catch (_) { error.uploadOutcomeUnknown = true }
@@ -282,7 +284,7 @@ async function recoverOrderUpload(options, proof) {
     && typeof item.objectName === 'string' && !!item.objectName && typeof item.url === 'string' && !!item.url.trim())
   if (!row || state.pending.size || state.unknown.get(proof.caseId) !== record
     || (proof.objectName && row.objectName !== proof.objectName) || (proof.isCurrent && !proof.isCurrent())) throw localError('图片结果尚未核实')
-  stateStore.removeCase(context.ownerKey, context.intentKey, proof.caseId)
+  stateStore.confirmCase(context.ownerKey, context.intentKey, proof.caseId)
   state.completed.set(record.fingerprint, { session, result: { code: 0, data: row } })
   state.unknown.delete(proof.caseId)
   return { code: 0, data: row, remainingUnknown: state.unknown.size }

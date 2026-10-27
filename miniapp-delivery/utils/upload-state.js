@@ -11,9 +11,10 @@ function validDraft(row) {
     && kinds.includes(row.kind) && (positive(row.entityId) || (row.kind === 'product-image' && row.entityId === 'new')) && positive(row.createdAt)
 }
 function validCase(row, b) {
-  if (!keys(row, ['id','fingerprint','url','fields','draftId','kind','entityId','createdAt','phase'])
+  if (!keys(row, ['id','fingerprint','url','fields','draftId','kind','entityId','createdAt','phase','confirmedAt'])
     || typeof row.id !== 'string' || !/^upload-case-[a-z0-9-]{1,100}$/.test(row.id) || !/^[a-f0-9]{64}$/.test(row.fingerprint)
-    || !positive(row.createdAt) || row.phase !== 'unknown') return false
+    || !positive(row.createdAt) || !['unknown','confirmed'].includes(row.phase)
+    || (row.phase === 'confirmed' ? !positive(row.confirmedAt) : row.confirmedAt !== undefined)) return false
   if (row.url === '/api/order-images/upload') return row.kind === 'order-image' && row.draftId === null && row.entityId === null
     && keys(row.fields, ['orderId','type']) && positive(row.fields.orderId) && [1,2,3].includes(row.fields.type)
   const d = b.drafts[row.draftId]
@@ -119,7 +120,7 @@ function cases(ownerKey, intentKey) {
   const all = branch(load(), ownerKey).cases
   const entries = intentKey ? all[intentKey] || [] : Object.values(all).flat()
   if (!Array.isArray(entries)) throw failure()
-  return entries.map(row => {
+  return entries.filter(row => row.phase === 'unknown').map(row => {
     if (!row || typeof row.id !== 'string' || !/^[a-f0-9]{64}$/.test(row.fingerprint)
       || !['/api/order-images/upload','/api/common/upload'].includes(row.url)) throw failure()
     return row
@@ -139,4 +140,14 @@ function removeCase(ownerKey, intentKey, caseId) {
   b.cases[intentKey] = rows.filter(row => row.id !== caseId)
   save(value)
 }
-module.exports = { KEY, owner, draft, checkDraft, cases, addCase, removeCase, id }
+// Called only after a validated upload receipt or explicit verified original-image GET.
+// Keep the original fingerprint/target as audit evidence instead of deleting a successful row.
+function confirmCase(ownerKey, intentKey, caseId) {
+  const value = load(), b = branch(value, ownerKey), rows = b.cases[intentKey] || []
+  const row = rows.find(row => row.id === caseId)
+  if (!row) throw failure()
+  if (row.phase === 'confirmed') return
+  row.phase = 'confirmed'; row.confirmedAt = Date.now()
+  save(value)
+}
+module.exports = { KEY, owner, draft, checkDraft, cases, addCase, removeCase, confirmCase, id }

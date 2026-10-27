@@ -5,6 +5,7 @@
   <view class="settings-section-nav"><button wx:for="{{settingsSections}}" wx:key="target" data-target="{{item.target}}" disabled="{{!productId && item.target !== 'ticket-products'}}" bindtap="onSettingsSection">{{item.label}}</button></view>
 
 
+  <view class="card" wx:if="{{ticketReadinessText || ticketReadinessError}}"><text>{{ticketReadinessText || ticketReadinessError}}</text><button wx:if="{{ticketReadinessError}}" bindtap="refreshTicketReadiness">重新核对水票准备</button></view>
   <view class="card" id="ticket-products">
     <view class="title-line"><view class="card-title">水票售价</view><help-tip title="水票售价" text="这里设置本站票价，不是客户持券账或购买记录。商品套餐按本站与商品设置；需要单张购买时可设置1张套餐。统一折扣按各款水自己的水票价折算；商品挂过自己的档位时，以该商品档位为准。" /></view>
     <view class="scope-switch">

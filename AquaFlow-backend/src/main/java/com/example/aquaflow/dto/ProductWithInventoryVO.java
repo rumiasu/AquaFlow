@@ -56,6 +56,9 @@ public class ProductWithInventoryVO {
     /** 本站售价（NULL/0 = 未覆盖，用 product.price 这个通用库参考价） */
     private BigDecimal salePrice;
 
+    /** 来自本站 inventory 的持久确认状态，不根据全局参考价猜测。 */
+    private Integer pricingConfirmed;
+
     /** 本站押金（NULL/0 = 未覆盖，用 product.deposit） */
     private BigDecimal depositPrice;
 

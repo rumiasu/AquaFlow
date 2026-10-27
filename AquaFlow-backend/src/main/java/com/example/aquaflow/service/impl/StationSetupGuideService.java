@@ -102,6 +102,9 @@ public class StationSetupGuideService {
     private DeliveryConfigGuideService deliveryConfigGuideService;
 
     @Autowired
+    private TicketTierService ticketTierService;
+
+    @Autowired
     private StaffMapper staffMapper;
 
     @Autowired
@@ -205,14 +208,14 @@ public class StationSetupGuideService {
         boolean unifiedTicket = stationId != null && stationTicketDiscountMapper.countOnShelf(stationId) > 0;
         Map<Long, Boolean> ticketProductHasPackage = new LinkedHashMap<>();
         List<String> ticketedWithoutPackage = new ArrayList<>();
-        if (!unifiedTicket) {
+        {
             for (Inventory inv : onShelf) {
                 if (inv.getTicketEnabled() == null || !Integer.valueOf(1).equals(inv.getTicketEnabled())) {
                     continue;
                 }
                 Product p = productMapper.getById(inv.getProductId());
-                List<TicketPackage> pkgs = ticketPackageMapper.listOnShelf(stationId, inv.getProductId());
-                boolean has = pkgs != null && !pkgs.isEmpty();
+                // 与新客户端实际售票档位同源：包括可用的单张散买，尊重停用1张档占位。
+                boolean has = !ticketTierService.customerTiers(stationId, inv.getProductId(), true).isEmpty();
                 ticketProductHasPackage.put(inv.getProductId(), has);
                 if (!has) {
                     ticketedWithoutPackage.add(p != null && p.getName() != null ? p.getName() : ("商品 " + inv.getProductId()));
@@ -223,12 +226,11 @@ public class StationSetupGuideService {
         items.add(item("ticketPackage", "水票档位", P1, ticketOk, "商品与库存",
                 ticketOk
                         ? (unifiedTicket
-                                ? "本站用的是站级「统一折扣」，价目表已配好"
-                                : "没有「开了水票却没配档位」的商品")
-                        : "这些商品开了水票但没有档位，客户想买票却看不到价目表：" + String.join("、", ticketedWithoutPackage),
+                                ? "商品已有可购买票价，含适用的站级统一折扣"
+                                : "商品已有可购买的单张价或套餐价；优惠档位可按需设置")
+                        : "这些商品已开水票但暂时没有可购买票价：" + String.join("、", ticketedWithoutPackage),
                 null, ticketOk ? null
-                        : "两种配法任选其一：给这些商品逐个配 10 / 20 / 100 张的档位，"
-                          + "或到「水票档位」页改用**站级统一折扣**（一次配好，全站商品共用）"));
+                        : "到商品编辑设置1张或多张套餐，或在「水票档位」设置适用的站级统一折扣；已有单张价可继续使用。"));
 
         items.add(item("stationNotice", "营业公告", P2, true, "营业状态与公告",
                 "歇业/放假时客户能提前知道（软状态，不阻断下单）", null, null));

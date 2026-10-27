@@ -41,6 +41,9 @@ public class Inventory {
      */
     private BigDecimal salePrice;
 
+    /** 本站已成功确认定价设置；独立于是否覆盖参考价，0押金/继承参考价也可确认。 */
+    private Integer pricingConfirmed;
+
     /** 本站图片覆盖；NULL使用商品原图，不修改公共模板。 */
     private String imageObjectNameOverride;
 

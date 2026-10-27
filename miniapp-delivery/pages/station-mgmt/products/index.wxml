@@ -100,11 +100,11 @@
         </view>
         <text class="sub" wx:if="{{item.brand || item.spec}}">{{item.brand}} {{item.spec}}</text>
         <text class="water-template-hint" wx:if="{{item.imageUrl === templateImage}}">{{imageNotice}}</text>
-        <text class="sub muted">{{item.categoryLabel}} · 参考价 ¥{{item.refPriceText}}<text wx:if="{{item.deposit > 0 && item.category === 1}}"> · 参考押金 ¥{{item.refDepositText}}</text></text>
+        <view class="sub muted"><text>{{item.categoryLabel}}</text><text wx:if="{{item.pricingConfirmed !== 1}}"> · 参考价 ¥{{item.refPriceText}}<text wx:if="{{item.deposit > 0 && item.category === 1}}"> · 参考押金 ¥{{item.refDepositText}}</text></text></view>
 
         <view class="tags">
           <text class="tag stock" wx:if="{{item.selected}}">库存 {{item.stockText}}</text>
-          <text class="tag price" wx:if="{{item.selected}}">本站价 ¥{{item.effectivePriceText}}</text>
+          <text class="tag price" wx:if="{{item.selected}}">{{item.pricingConfirmed === 1 ? '本站已保存' : '当前使用价'}} ¥{{item.effectivePriceText}}</text>
           <text class="tag ticket" wx:if="{{item.selected && item.ticketEnabled === 1}}">水票 ¥{{item.ticketPrice}}</text>
           <text class="tag star" wx:if="{{item.selected && item.priorityDisplay === 1}}">优先展示</text>
         </view>
@@ -261,14 +261,17 @@
       <view class="form-row">
         <view class="form-item half">
           <text class="label">本站售价(元)</text>
-          <text class="product-field-help" wx:if="{{showSetting}}">参考价 ¥{{setting.refPriceText}}</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="digit" placeholder="{{showSetting ? '留空不改；0 恢复参考价' : '0.00'}}" value="{{editForm.price}}" data-field="price" bindinput="onEditFieldInput"  disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
+          <text class="product-field-help" wx:if="{{showSetting && !setting.pricingConfirmed}}">参考价 ¥{{setting.refPriceText}}</text>
+          <text class="product-field-help" wx:elif="{{showSetting}}">本站已保存 ¥{{setting.effectivePriceText}}</text>
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="digit" placeholder="{{showSetting ? '留空保留当前价；0使用商品默认价' : '0.00'}}" value="{{editForm.price}}" data-field="price" bindinput="onEditFieldInput"  disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
         </view>
         <view class="form-item half" wx:if="{{editForm.category === 1}}">
           <text class="label">押金(元)</text>
-          <text class="product-field-help product-field-help-slot" wx:if="{{showSetting && setting.hasRefDeposit}}">参考押金 ¥{{setting.refDepositText}}</text>
+          <text class="product-field-help" wx:if="{{!showSetting}}">请核对桶装商品押金；改为非桶装时不收押金。</text>
+          <text class="product-field-help product-field-help-slot" wx:if="{{showSetting && setting.pricingConfirmed}}">本站已保存 ¥{{setting.effectiveDepositText}}</text>
+          <text class="product-field-help product-field-help-slot" wx:elif="{{showSetting && setting.hasRefDeposit}}">参考押金 ¥{{setting.refDepositText}}</text>
           <view class="product-field-help product-field-help-slot" wx:elif="{{showSetting}}" aria-hidden="true"></view>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="digit" placeholder="{{showSetting ? '留空不改；0 恢复参考押金' : '0'}}" value="{{editForm.deposit}}" data-field="deposit" bindinput="onEditFieldInput"  disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="digit" placeholder="{{showSetting ? '留空保留当前押金；0使用商品默认值' : '0'}}" value="{{editForm.deposit}}" data-field="deposit" bindinput="onEditFieldInput"  disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
         </view>
 
       </view>
@@ -290,6 +293,7 @@
       <text class="product-field-help" wx:if="{{editForm.enabled && editForm.category !== 1}}">商品可先保存上架。若配送计费设置了桶数门槛，请在「配送计费」补齐对应金额门槛；上线准备会提示缺项。</text>
       <!-- 档位：与「本站设置」共用同一份行数据（新建商品时用 create 返回的 id 挂上去） -->
       <view class="pkg-block" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
+        <text class="product-field-help">开关不会自动生成票价。已有单张价可保留；新票价可设置1张或多张套餐，也可到「水票档位」设置适用的统一折扣。未填写的默认草稿不阻止保存商品。</text>
         <view class="pkg-head">
           <view class="pkg-title-row">
             <text class="pkg-title">水票套餐</text>

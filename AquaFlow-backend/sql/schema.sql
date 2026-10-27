@@ -340,6 +340,7 @@ CREATE TABLE IF NOT EXISTS `inventory` (
   `quantity` int NOT NULL DEFAULT '0' COMMENT '在库实物数量（≠可用量！可用量 = 本列 − inventory_reservation 里本站该商品活跃凭据的 reserved_qty 之和，见 v63 与 docs/design/28）',
   `enabled` int NOT NULL DEFAULT '1',
   `sale_price` decimal(10,2) DEFAULT NULL COMMENT '本站售价; NULL=回落 product.price(通用库参考价)。计价唯一入口 util/PriceUtil#calcUnitPrice',
+  `pricing_confirmed` tinyint NOT NULL DEFAULT '0' COMMENT '本站定价成功确认：0未知/未确认，1已确认',
   `image_object_name_override` varchar(512) DEFAULT NULL COMMENT '本站商品图覆盖，NULL使用商品原图',
   `cost_price` decimal(10,2) DEFAULT NULL COMMENT '本站进货成本单价（NULL=未填，毛利报表会标注未填而不是按 0 算成全额毛利）。⚠️ 成本变了之后历史毛利会用新成本重算 —— 见 migration_v39 头注释',
   `deposit_price` decimal(10,2) DEFAULT NULL COMMENT '本站押金(仅桶装水使用); NULL=回落 product.deposit。下单时必须快照进 customer_barrel_in_transit.unit_price',

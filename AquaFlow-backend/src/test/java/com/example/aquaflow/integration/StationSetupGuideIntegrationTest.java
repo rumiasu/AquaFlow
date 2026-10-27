@@ -172,7 +172,7 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
     void ticketPackageItemTracksOnShelfPackages() {
         seed();
         long water = createProduct("引导目录票水", 1, "20.00", "50.00", 1, "20.00");
-        createInventoryFull(station, water, 100, 1, "20.00");   // ticket_enabled=1
+        createInventoryFull(station, water, 100, 1, "0.00");   // 未提供单张价，也没有在售套餐
 
         JsonNode before = guide();
         assertFalse(done(before, "ticketPackage"), "开了票但没档位 → 未完善");
@@ -184,6 +184,15 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
                 station, water, 10, new java.math.BigDecimal("180.00"),
                 new java.math.BigDecimal("18.00"), "10 张超值装");
         assertTrue(done(guide(), "ticketPackage"), "配了上架档位 → 该项完成");
+    }
+
+    @Test
+    void retailTicketPriceDoesNotRequireAnOptionalDiscountPackage() {
+        seed();
+        long water=createProduct("可散买票水",1,"20.00","0.00",0,"0.00");
+        createInventoryFull(station,water,100,1,"18.00");
+        assertTrue(done(guide(),"ticketPackage"));
+        assertTrue(why(guide(),"ticketPackage").contains("单张"));
     }
 
     @Test

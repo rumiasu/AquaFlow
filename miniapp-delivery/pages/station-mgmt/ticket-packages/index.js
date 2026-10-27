@@ -60,7 +60,22 @@ Page({
     // 它只是「一键填入」的草稿 —— 点了只填表单，不自动保存；站长能改数字再存。
     presets: [],
     form: { qty: '', price: '', discount: '', title: '', sort: '' },
-    saving: false
+    saving: false,
+    ticketReadinessText: '', ticketReadinessError: ''
+  },
+
+  async refreshTicketReadiness() {
+    const context = this.readContext(), seq = this._ticketGuideSeq = (this._ticketGuideSeq || 0) + 1
+    try {
+      const response = await get('/api/manager/setup-guide')
+      if (!this.isReadCurrent(context) || seq !== this._ticketGuideSeq) return
+      const row = response && response.code === 0 && response.data && Array.isArray(response.data.items)
+        && response.data.items.find(row => row.key === 'ticketPackage')
+      if (!row || typeof row.why !== 'string' || !row.why.trim()) throw Error('水票准备状态暂未读取，请重试')
+      this.setData({ ticketReadinessText: row.why + (!row.done && row.suggestion ? '；' + row.suggestion : ''), ticketReadinessError: '' })
+    } catch (error) {
+      if (this.isReadCurrent(context) && seq === this._ticketGuideSeq) this.setData({ ticketReadinessText: '', ticketReadinessError: '水票准备状态暂未读取，请重试' })
+    }
   },
 
   onLoad(options) {
@@ -168,6 +183,7 @@ Page({
     }
     this._draftActor = actor
     this.setData({ stationId })
+    this.refreshTicketReadiness()
     this._refreshAfterWrite = this.data.saving
     if (!this.data.saving) this.loadProducts()
     this.loadPresets()
@@ -262,6 +278,7 @@ Page({
       formDirty: Object.values(form).some(value => String(value).trim() !== ''), qtyError: this.quantityError(form.qty)
     })
     await this.loadPackages()
+      this.refreshTicketReadiness()
   },
 
   async loadPackages() {
@@ -381,6 +398,7 @@ Page({
         wx.showToast({ title: '已保存（' + qty + ' 张 ' + (saved.discountPerMille / 100) + ' 折）', icon: 'none' })
         this.resetForm()
         await this.loadPackages()
+      this.refreshTicketReadiness()
         return
       }
 
@@ -403,6 +421,7 @@ Page({
       wx.showToast({ title: '已保存（均价 ¥' + saved.unitPrice + '）', icon: 'none' })
       this.resetForm()
       await this.loadPackages()
+      this.refreshTicketReadiness()
     } catch (err) {
       if (this.isReadCurrent(context)) wx.showToast({ title: err.message || '保存失败', icon: 'none' })
     } finally {
@@ -425,6 +444,7 @@ Page({
       if (!this.isReadCurrent(context)) return
       wx.showToast({ title: unified ? (row.status === 1 ? '已停用' : '已生效') : (row.status === 1 ? '已下架' : '已上架'), icon: 'success' })
       await this.loadPackages()
+      this.refreshTicketReadiness()
     } catch (err) {
       if (this.isReadCurrent(context)) wx.showToast({ title: err.message || '操作失败', icon: 'none' })
     } finally { this.finishMutation() }
@@ -451,6 +471,7 @@ Page({
           if (!this.isReadCurrent(context)) return
           wx.showToast({ title: '已删除', icon: 'success' })
           await this.loadPackages()
+      this.refreshTicketReadiness()
         } catch (err) {
           if (this.isReadCurrent(context)) wx.showToast({ title: err.message || '删除失败', icon: 'none' })
         } finally { this.finishMutation() }

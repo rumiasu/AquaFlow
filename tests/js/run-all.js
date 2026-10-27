@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'station-pricing-confirmation.test.js', name: '本站首次定价、保存确认、零押金与失败保留' },
   { file: 'business-dialog.test.js', name: '业务弹窗主题、数字、队列与离页取消' },
   { file: 'photo-recovery-presentation.test.js', name: '照片成功无核实任务、异常证据折叠保留' },
   { file: 'profit-visual-feedback.test.js', name: '利润报表合作款、口径折叠与今日送达卡片' },

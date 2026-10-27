@@ -160,7 +160,7 @@ public interface ProductMapper {
     @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
             "p.price, p.deposit, p.max_per_order, p.status, p.sort, p.create_time, p.update_time, " +
             "p.image_object_name as platform_image_object_name, i.image_object_name_override as station_image_object_name, " +
-            "i.id as inventory_id, i.quantity, i.enabled, i.sale_price, i.deposit_price, " +
+            "i.id as inventory_id, i.quantity, i.enabled, i.sale_price, i.deposit_price, i.pricing_confirmed, " +
             "i.ticket_enabled, i.ticket_price, i.priority_display " +
             "from product p " +
             "left join inventory i on i.product_id = p.id and i.station_id = #{stationId} " +
@@ -171,7 +171,7 @@ public interface ProductMapper {
     @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
             "p.price, p.deposit, p.max_per_order, p.status, p.sort, p.create_time, p.update_time, " +
             "p.image_object_name as platform_image_object_name, i.image_object_name_override as station_image_object_name, " +
-            "i.id as inventory_id, i.quantity, i.enabled, i.sale_price, i.deposit_price, " +
+            "i.id as inventory_id, i.quantity, i.enabled, i.sale_price, i.deposit_price, i.pricing_confirmed, " +
             "i.ticket_enabled, i.ticket_price, i.priority_display " +
             "from product p " +
             "left join inventory i on i.product_id = p.id and i.station_id = #{stationId} " +

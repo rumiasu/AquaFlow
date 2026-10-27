@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'behavior-handler-audit.test.js', name: '已注册导航Behavior事件、导入导出及缺失实现反向检查' },
   { file: 'three-flow-regressions.test.js', name: '商品档位返回核对、配送回执生命周期与购票读取中断恢复' },
   { file: 'payment-single-flight.test.js', name: '支付跨页面单飞、原单超时重试、会话隔离与模拟收据' },
   { file: 'gross-profit-presentation.test.js', name: '毛利指标口径说明、布局与空数据展示' },

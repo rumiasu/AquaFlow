@@ -134,12 +134,15 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
         JsonNode g = guide();
         assertEquals(0, g.path("p0PendingCount").asInt(),
                 "三项都补了 → P0 应归零，实际清单=" + g.path("items"));
-        assertTrue(g.path("summaryText").asText("").contains("都已配好"),
+        assertEquals("已具备上线条件", g.path("summaryText").asText(""),
                 "汇总文案要跟着变，实际=" + g.path("summaryText"));
-        // 必填都齐了 → 那句话要指向**可执行的下一步**（面板底部就有那个按钮），
-        // 不能只说"已完成"（本仓口径：文案要给出下一步）
-        assertTrue(g.path("onlineHint").asText("").contains("设置营业状态"),
-                "配齐后应指向「设置营业状态」这个动作，实际=" + g.path("onlineHint"));
+        // 2026-10-27：已营业站展示真实状态，不能继续断言旧的统一「设置营业状态」提示。
+        assertEquals("必填准备已具备，当前状态：正常运营", g.path("onlineHint").asText(""));
+        jdbc.update("UPDATE station SET operating_status=3 WHERE id=?",station);
+        JsonNode pendingLaunch=guide();
+        assertEquals(0,pendingLaunch.path("p0PendingCount").asInt());
+        assertEquals("已具备上线条件，可到营业状态开始营业",pendingLaunch.path("onlineHint").asText(""),
+                "待上线站配齐后仍须给出开始营业的下一步");
     }
 
     @Test

@@ -210,6 +210,7 @@
 |---|---|---|---|
 | `GET` | `/api/inventory` | {"STATION_MANAGER"} | `InventoryController.list` |
 | `POST` | `/api/inventory/inbound` | {"STATION_MANAGER"} | `InventoryController.inbound` |
+| `POST` | `/api/inventory/inbound-with-receipt` | {"STATION_MANAGER"} | `InventoryController.inboundWithReceipt` |
 | `GET` | `/api/inventory/records` | {"STATION_MANAGER"} | `InventoryController.records` |
 | `GET` | `/api/manager/catalog` | "STATION_MANAGER" | `ManagerCatalogController.list` |
 | `GET` | `/api/manager/catalog/preset-images` | "STATION_MANAGER" | `ManagerCatalogController.presetImages` |
@@ -743,3 +744,14 @@
 成功响应 `data={id, orderId, clientRequestId}`，`id` 为原异常记录。按同员工/订单/编号作用域重试返回同记录，即使原异常已经处理也不重开；同键改内容、回执损坏/重复或原异常缺失均明确拒绝，不能自动另建。订单行锁与回执当前读串行化，异常、备注和专用 `DELIVERY_REPORT / RECEIPT` 回执同事务提交；该回执必须永久保留，见[运维责任](../operations/01-部署与运维.md)。
 
 新前端仅凭三项匹配的回执结束原意图；超时不表示失败，原键POST可核实或完成原反馈。无键旧请求仍兼容原行为，不保证重试幂等；旧无键未知记录不能自动补键重放。本契约仅普通配送反馈，不改变客户拒付、资金处理或补偿流程。后端应先支持此契约再同步对应小程序版本；本说明不代表已部署或真实渠道验收。
+
+## 库存入库原编号回执（2026-10-27 补登记）
+
+员工端 `POST /api/inventory/inbound-with-receipt?stationId=<本站>` 仅允许本站站长。
+请求体为 `clientRequestId`（16–80 位字母、数字、横线或下划线）与 `items`；每项包含
+`productId` 和正整数 `quantity`，每次 1–200 个不重复商品。首次入库仍核对通用/本站商品权限。
+
+成功 `data={clientRequestId, stationId, items, status:"APPLIED"}`，商品按编号排序。
+同一员工、站别、原编号及相同内容重试返回原回执，不再增加库存、流水或补位；同键改内容、
+重复或损坏回执均拒绝。站行锁与库存、流水和回执处于同一事务，未知结果应保存原编号核实，
+不能自动换编号另开入库。旧 `POST /api/inventory/inbound` 继续兼容原行为，不提供该原编号保证。

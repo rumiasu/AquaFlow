@@ -113,7 +113,8 @@ class DeliveryItemProjectionIntegrationTest extends AbstractIntegrationTest {
         assertEquals(2, delivering.path("itemKindCount").asInt());
         assertEquals(6, delivering.path("addressFloor").asInt());
 
-        jdbc.update("UPDATE orders SET status=4 WHERE id=?", order);
+        // 2026-10-27：今日完成按实际送达时间筛选；只改状态的夹具没有完成事件，不能因此放宽生产列表。
+        jdbc.update("UPDATE orders SET status=4, delivery_time=now() WHERE id=?", order);
         JsonNode completed = rowOf(get("/api/delivery/orders/completed-today", del), order);
         assertEquals(summary, completed.path("itemSummary").asText(""), "「今日完成」列表同口径");
         assertEquals(2, completed.path("itemKindCount").asInt());

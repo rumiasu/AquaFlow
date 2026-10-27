@@ -101,6 +101,8 @@ wechat:
     # 正常换码与 40029 另一端诊断共用；必须为正毫秒数。不是整次登录的硬截止时间。
     connect-timeout-ms: ${WX_CONNECT_TIMEOUT_MS:3000}
     read-timeout-ms: ${WX_READ_TIMEOUT_MS:5000}
+    # 2026-10-27：显式登记已有 TLS 桥接开关，保持默认关闭；不改变现有证书或主机名校验。
+    cloud-call-tls-enabled: ${WECHAT_MINIAPP_CLOUD_CALL_TLS_ENABLED:false}
 
 jwt:
   # JWT 签名密钥泄露 = 任何人可伪造任意身份的 token。必须外部注入，且长度 >= 32。

@@ -87,7 +87,10 @@ class DeliveryListItemSummaryTest {
         String text = sql.getSql().replaceAll("\\s+", " ").toLowerCase();
         assertTrue(text.contains("left join product p on p.id = oi.product_id"));
         assertTrue(text.contains("oi.product_name_snapshot")); assertTrue(text.contains("oi.spec_snapshot"));
-        assertTrue(text.contains("p.category, p.image_object_name"));
+        // 2026-10-27：本站图片覆盖已进入投影，不能再把合法 coalesce 回落误判为缺少商品图片。
+        assertTrue(text.contains("p.category, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name"));
+        assertTrue(text.contains("left join orders o on o.id = oi.order_id"));
+        assertTrue(text.contains("left join inventory i on i.product_id = oi.product_id and i.station_id = o.station_id"));
         assertTrue(text.contains("order by oi.order_id, oi.id"));
         assertEquals(2, sql.getParameterMappings().size());
         assertFalse(text.contains("price")); assertFalse(text.contains("customer"));

@@ -50,6 +50,110 @@ def upload_wrapper_handlers(js, source):
         return set()
     return set(re.findall(r'^\s*page\.([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function\b', wrapped, re.M))
 
+
+def code_mask(source):
+    """保留位置和换行，屏蔽注释/字符串，避免把示例里的伪方法认作实现。"""
+    out = list(source)
+    state = None
+    i = 0
+    while i < len(source):
+        char = source[i]
+        pair = source[i:i + 2]
+        if state in ('\"', "'", '`'):
+            if char == '\\':
+                out[i] = ' '
+                i += 1
+                if i < len(source) and source[i] not in '\r\n':
+                    out[i] = ' '
+            else:
+                if char not in '\r\n':
+                    out[i] = ' '
+                if char == state:
+                    state = None
+        elif state == '//':
+            if char in '\r\n':
+                state = None
+            else:
+                out[i] = ' '
+        elif state == '/*':
+            if char not in '\r\n':
+                out[i] = ' '
+            if pair == '*/':
+                out[i:i + 2] = [' ', ' ']
+                i += 1
+                state = None
+        elif pair in ('//', '/*'):
+            out[i:i + 2] = [' ', ' ']
+            state = pair
+            i += 1
+        elif char in ('\"', "'", '`'):
+            state = char
+            out[i] = ' '
+        i += 1
+    return ''.join(out)
+
+
+def object_end(code, start):
+    depth = 0
+    for pos in range(start, len(code)):
+        if code[pos] == '{':
+            depth += 1
+        elif code[pos] == '}':
+            depth -= 1
+            if depth == 0:
+                return pos + 1
+    return None
+
+
+def top_level(code, start, pos):
+    return code[start:pos].count('{') - code[start:pos].count('}') == 1
+
+
+def station_behavior_handlers(js, source):
+    """只认页面真实注册的本站导航 Behavior，核对导入、导出及 methods 的直接成员。"""
+    # 2026-10-27：Page behaviors 提供的入口曾被漏掉；不能按事件名豁免或把未注册导入算成实现。
+    code = code_mask(source)
+    page = re.search(r'\bPage\s*\(\s*(\{)', code)
+    if not page:
+        return set()
+    start = page.start(1)
+    end = object_end(code, start)
+    if end is None:
+        return set()
+    registered = set()
+    for match in re.finditer(r'\bbehaviors\s*:\s*\[([^\]]*)\]', code[start:end]):
+        if top_level(code, start, start + match.start()):
+            registered.update(token.strip() for token in match.group(1).split(','))
+    handlers = set()
+    for match in re.finditer(r'\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*require\([\'\"]([^\'\"]+)[\'\"]\)', source):
+        if match.group(1) not in registered or not code[match.start():match.end()].lstrip().startswith('const'):
+            continue
+        relative = match.group(2)
+        helper = os.path.abspath(os.path.join(os.path.dirname(js), relative + ('' if relative.endswith('.js') else '.js')))
+        expected = os.path.join(root, 'miniapp-delivery', 'behaviors', 'stationNavbar.js')
+        if helper != expected or not os.path.isfile(helper):
+            continue
+        body = code_mask(io.open(helper, encoding='utf-8').read())
+        export = re.search(r'module\.exports\s*=\s*Behavior\s*\(\s*(\{)', body)
+        if not export:
+            continue
+        bstart = export.start(1)
+        bend = object_end(body, bstart)
+        if bend is None:
+            continue
+        for methods in re.finditer(r'\bmethods\s*:\s*(\{)', body[bstart:bend]):
+            if not top_level(body, bstart, bstart + methods.start()):
+                continue
+            mstart = bstart + methods.start(1)
+            mend = object_end(body, mstart)
+            if mend is None:
+                continue
+            block = body[mstart:mend]
+            for pattern in (JS_DEF_RE, JS_DEF2_RE):
+                handlers.update(found.group(1) for found in pattern.finditer(block)
+                                if top_level(block, 0, found.start(1)))
+    return handlers
+
 total = 0
 pages_with_issue = 0
 report = []
@@ -71,6 +175,7 @@ for app in MINIAPPS:
         jsrc = io.open(js, encoding='utf-8').read()
         defined = set(JS_DEF_RE.findall(jsrc)) | set(JS_DEF2_RE.findall(jsrc))
         defined |= upload_wrapper_handlers(js, jsrc)
+        defined |= station_behavior_handlers(js, jsrc)
         missing = sorted(n for n in bound if n not in defined)
         if missing:
             rel = os.path.relpath(wxml, root).replace('\\', '/')

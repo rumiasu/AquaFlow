@@ -417,6 +417,10 @@
 | `POST` | `/api/manager/earning-items/{id}/status` | {"STATION_MANAGER"} | `ManagerPayrollController.setEarningItemStatus` |
 | `GET` | `/api/manager/earnings` | {"STATION_MANAGER"} | `ManagerPayrollController.listEarnings` |
 | `GET` | `/api/manager/payroll` | {"STATION_MANAGER"} | `ManagerPayrollController.listPayrolls` |
+| `GET` | `/api/manager/payroll/preview` | {"STATION_MANAGER"} | `ManagerPayrollController.previewPayroll` |
+| `POST` | `/api/manager/payroll/settle` | {"STATION_MANAGER"} | `ManagerPayrollController.settlePayroll` |
+| `GET` | `/api/manager/payroll/{id}/settlement-preview` | {"STATION_MANAGER"} | `ManagerPayrollController.historicalSettlementPreview` |
+| `POST` | `/api/manager/payroll/{id}/settle` | {"STATION_MANAGER"} | `ManagerPayrollController.settleHistoricalPayroll` |
 | `POST` | `/api/manager/payroll` | {"STATION_MANAGER"} | `ManagerPayrollController.generatePayroll` |
 | `POST` | `/api/manager/payroll/adjust` | {"STATION_MANAGER"} | `ManagerPayrollController.adjustEarning` |
 | `POST` | `/api/manager/payroll/{id}/confirm` | {"STATION_MANAGER"} | `ManagerPayrollController.confirmPayroll` |

@@ -1,5 +1,5 @@
 <view class="container">
-  <view class="page-intro"><text class="page-intro-title">公告消息</text><text class="page-intro-note">查看水站与系统发布的信息</text></view>
+  <view class="page-intro"><text class="page-intro-title">公告</text></view>
   <view class="state-card" wx:if="{{loading && !loaded}}"><text class="state-title">正在读取公告</text><text class="state-note">请稍候，最新消息正在路上。</text></view>
   <view class="state-banner" wx:if="{{loading && loaded}}">正在更新，以下为上次读取的公告。</view>
   <view class="state-card state-error" wx:if="{{loadError}}">

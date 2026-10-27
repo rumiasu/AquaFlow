@@ -20,7 +20,7 @@
     </view>
     <!-- [2026-09-24] 原文"服务端按「结束日 + 1 天」做上界"是实现口径（对应 AGENTS §8.19），
          站长只需要知道"结束日当天算在内、今天的销量不会漏"这一条结论。 -->
-    <view class="hint">结束日当天算在内，今天的销量不会漏。</view>
+    <view class="hint">包含结束日当天。</view>
   </view>
 
   <view class="empty" wx:if="{{loading}}">加载中…</view>

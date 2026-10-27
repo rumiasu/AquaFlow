@@ -47,7 +47,7 @@
   <button class="purchase-back" bindtap="onBack">{{fromOrder ? '返回继续订水' : '返回'}}</button>
   <view class="history">
     <text class="section-title">已有桶押金购买记录</text>
-    <text class="tip">商品下架不影响查询原购买记录。已交钱但水站尚未确认的，请先联系水站核实，勿直接撤回。</text>
+    <text class="tip">商品下架后仍可查看购买记录。已付款但水站未确认，请先联系水站核实，勿直接撤回。</text>
     <text class="tip" wx:if="{{purchasesLoading}}">正在加载购买记录…</text>
     <view wx:elif="{{purchasesError}}">
       <text class="error">{{purchasesError}}</text>

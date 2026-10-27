@@ -209,8 +209,8 @@ console.log('员工端运行时事实表达（真实执行页面处理函数）'
     const wxml = renderedWxml('miniapp-delivery/pages/station-mgmt/payments/index.wxml')
     assert.strictEqual(wxml.indexOf('钱已收到'), -1,
       '「钱已收到」把"待收款"说成了到账；本列表按 payment_record.status = 1 过滤，那不是到账证明')
-    assert.ok(wxml.indexOf('还没核实到账') > -1 || wxml.indexOf('确实收到') > -1,
-      '要按事实写：请核实实际到账后再确认')
+    assert.ok(wxml.includes('待确认不代表已到账') && wxml.includes('核实实际到账后再登记'),
+      '待确认不是到账证明，须核实实际到账后再登记')
   })
 
   await test('M01 前端不自带 1/2/3 映射表：statusText 有值用后端的，缺值兜底仍说"待核实"', async () => {

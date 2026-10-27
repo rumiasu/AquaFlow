@@ -61,7 +61,7 @@
 
     <!-- 2026-10-24：暂存与未领都可能形成账面余额，不能一概说成已经多还的实物。 -->
     <view class="storage-tip" wx:if="{{summary.storageBuckets > 0 && !summary.independentRights}}">
-      <text>暂存或待领取 {{summary.storageBuckets}} 个：这是账面记录，实际交接情况请向资产水站核实。</text>
+      <text>暂存或待领取记录：{{summary.storageBuckets}} 个，实际交接请向资产水站确认。</text>
     </view>
 
     <view class="section">
@@ -108,7 +108,7 @@
       <view class="local-empty" wx:else>
         <text>该站暂无桶账记录</text>
         <block wx:if="{{!needLogin && viewStationId && !summaryFailed && !refreshing && !loadError}}">
-          <text class="empty-next-note">订水使用当前下单水站{{orderStationName ? '（' + orderStationName + '）' : '，请在订水页确认'}}；查看资产水站不会更改下单水站。</text>
+          <text class="empty-next-note">订水使用当前下单水站{{orderStationName ? '（' + orderStationName + '）' : '，请在订水页确认'}}；查看资产不会更改下单水站。</text>
           <button class="empty-asset-action" bindtap="onGoOrderHome">去订水</button>
           <button class="empty-asset-action secondary" bindtap="onChooseAssetStation">查看其他资产水站</button>
         </block>

@@ -120,7 +120,7 @@ test('missing storage quantity never becomes a displayed zero; genuine zero rema
 test('legacy summary uses a neutral storage or unclaimed label rather than claiming physically returned barrels', async () => {
   const t = await barrel({ summary: { independentRights: false, storageBuckets: 2 }, holdings: [holding({ independentRights: false })] })
   const text = barrelView(t).map(node => node.text).join('\n')
-  assert(text.includes('暂存或待领取 2 个：这是账面记录')); assert(!text.includes('您多还的桶'))
+  assert(text.includes('暂存或待领取记录：2 个，实际交接请向资产水站确认')); assert(!text.includes('您多还的桶'))
 })
 test('only the scoped primary actions and native selections adopt the established primary token', () => {
   const cssFiles = ['pages/address/edit.wxss', 'pages/address/list.wxss', 'pages/notice/index.wxss', 'pages/mine/company.wxss', 'pages/exception/list/list.wxss']

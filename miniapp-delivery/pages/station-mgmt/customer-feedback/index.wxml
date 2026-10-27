@@ -1,14 +1,11 @@
 <view class="container">
   <view class="work-head"><text class="work-title">反馈与退款争议</text><text class="work-desc">先核对争议状态，再登记处理结果。</text></view>
 
-  <!-- 口径说明：把"这里是什么、这里能做什么"讲清楚，免得站长把它与「我的反馈」混为一谈。
-       匿名那句也必须写在这里：不写的话，站长看到「匿名顾客」会以为是页面出错了
-       （而且**后端确实没有**这人的姓名/客户号，不是前端没显示）。 -->
+  <!-- 普通反馈与退款争议的处理范围不同，保留结案后果。 -->
   <view class="hint" wx:if="{{!denied}}">
     <!-- [2026-09-24] 去掉"后端暂无回复/处置功能"这类开发措辞：站长需要知道的是
          **"这里只能看，回不了"** —— 不然他会到处找回复按钮。 -->
-    <text>这里汇总顾客反馈与退款争议。水站可登记结果并结案，顾客可重新提出异议；结案不会办理退款或改变金额，普通反馈仅供查看。</text>
-    <text>顾客提交时可以选择匿名；匿名反馈不会带上姓名与客户号，只能显示为「匿名顾客」。</text>
+    <text>普通反馈仅供查看。退款争议结案不会办理退款或改变金额，顾客可再次提出异议。</text>
   </view>
 
   <!-- 权限不足：不说"暂无数据"，否则配送员会以为本站真的没有反馈 -->
@@ -28,7 +25,7 @@
         <view wx:if="{{selectedDispute && selectedDispute.refundType === item.refundType && selectedDispute.refundId === item.refundId}}">
           <text class="content" wx:if="{{disputeError}}">{{disputeError}}</text>
           <block wx:if="{{disputeReady}}">
-            <text class="content">无需顾客确认结案；必须记录核实依据和结果。这里不收退钱，也不取消顾客既有权利。</text>
+            <text class="content">结案无需顾客确认，请记录核实依据和结果。结案不收退钱，也不取消顾客既有权利。</text>
             <textarea wx:if="{{selectedDispute.canClose || pendingDispute}}" maxlength="1000" placeholder="核实依据、处理结果与后续安排" value="{{disputeResult}}" bindinput="onDisputeResult" />
             <button wx:if="{{selectedDispute.canClose || pendingDispute}}" loading="{{disputeSubmitting}}" disabled="{{disputeSubmitting}}" bindtap="onCloseDispute">登记结果并结案</button>
             <button wx:if="{{pendingDispute}}" disabled="{{disputeSubmitting}}" bindtap="onRetryCloseDispute">重试原结案</button>
@@ -42,7 +39,7 @@
     <view class="state error" wx:if="{{type === 'error'}}">
       <text class="state-title">加载失败</text>
       <text class="state-msg">{{errMsg}}</text>
-      <text class="state-hint">这不代表本站没有客户反馈 —— 请点下方重试或下拉刷新。</text>
+      <text class="state-hint">请重试或下拉刷新。</text>
       <view class="retry-btn" bindtap="onRetry">重试</view>
     </view>
 
@@ -82,7 +79,7 @@
         </view>
         <button wx:if="{{item.refundType && item.refundId}}" size="mini" bindtap="onOpenRefundNote" data-id="{{item.id}}">补充说明</button>
         <view wx:if="{{selectedFeedbackId === item.id}}" class="refund-note-form">
-          <text class="content">说明可选，证据可以后补。这里只追加记录，原说明会保留。</text>
+          <text class="content">证据可后补，原说明会保留。</text>
           <textarea maxlength="1000" placeholder="补充说明（可选）" value="{{noteContent}}" bindinput="onNoteInput" />
           <button loading="{{noteSubmitting}}" disabled="{{noteSubmitting}}" bindtap="onSubmitRefundNote">提交说明</button>
           <text wx:if="{{pendingRefundNote && !noteSubmitting}}" class="content" bindtap="onRetryOriginalNote">上一条结果待确认，点此重试原说明</text>

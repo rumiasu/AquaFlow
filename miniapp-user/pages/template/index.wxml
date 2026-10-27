@@ -12,7 +12,7 @@
     <button class="add-btn" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
 
     <view class="info-bar">
-      <text class="info-text">保存常用商品、数量与地址，保存配置不会创建订单。首页「照上次订」使用最近一笔已送达订单。</text>
+      <text class="info-text">保存商品、数量和地址，不会下单。首页「照上次订」使用最近送达的订单。</text>
     </view>
 
     <view class="section" wx:if="{{templates.length > 0}}">

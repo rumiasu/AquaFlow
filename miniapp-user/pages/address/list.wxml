@@ -6,7 +6,7 @@
   <view class="state-card" wx:if="{{loading && !loaded}}">
     <text class="state-title">正在读取地址</text><text class="state-note">请稍候，读取成功后可管理或选择地址。</text>
   </view>
-  <view class="state-banner" wx:if="{{loading && loaded}}">正在更新，以下为上次读取的地址，暂不可选择。</view>
+  <view class="state-banner" wx:if="{{loading && loaded}}">正在更新地址，暂显示上次加载的地址，不可选择。</view>
   <view class="state-card state-error" wx:if="{{loadError}}">
     <text class="state-title">{{accessDenied ? '暂时无法访问地址' : '地址读取失败'}}</text>
     <text class="state-note">{{loadError}}</text>

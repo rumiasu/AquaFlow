@@ -133,7 +133,7 @@ test('returning home after salary followup does not repeat it or suppress unrela
   await f.page.onSubmitAdd(); assert.equal(f.wx.__calls.modal.length,1); assert.deepEqual(f.wx.getStorageSync('setupGuideSeenKeys'),['existing','staffPayroll'])
   const module={exports:{}}, source=require('node:fs').readFileSync(path.resolve(__dirname,'../../miniapp-delivery/utils/setup-reminder.js'),'utf8')
   const guide={pendingCount:1,items:f.state.guide.items}
-  require('node:vm').runInNewContext(source,{module,wx:f.wx,getApp:()=>f.a,console,require:()=>({getSetupGuide:async()=>({code:0,data:guide})})})
+   require('node:vm').runInNewContext(source,{module,wx:f.wx,getApp:()=>f.a,console,require:name=>name.endsWith('business-dialog')?{showBusinessModal:options=>f.wx.showModal(options)}:({getSetupGuide:async()=>({code:0,data:guide})})})
   await module.exports.checkSetupReminder(); assert.equal(f.wx.__calls.modal.length,1)
   guide.items=guide.items.concat({key:'newOtherTask',done:false,label:'其他新配置'}); guide.pendingCount=2
   await module.exports.checkSetupReminder(); assert.equal(f.wx.__calls.modal.length,2); assert(f.wx.__calls.modal[1].content.includes('其他新配置'))

@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * ② 补齐后可上架，且**下架**（enabled=0）不受这道校验影响；③ 配置接口下发引导信息与建议值；
  * ④ 建议值口径 = 本站最便宜的一桶水 × 2 / × 3（前端只展示，不许自算）。</p>
  */
-@DisplayName("配送计费引导：上架非桶装商品前必须补金额门槛（含建议值）")
+@DisplayName("配送计费引导：商品先保存，缺项进入上线准备与报价保护")
 class DeliveryConfigGuideIntegrationTest extends AbstractIntegrationTest {
 
     private long station;

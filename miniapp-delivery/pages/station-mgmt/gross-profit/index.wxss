@@ -289,3 +289,21 @@
 .hero-label,.hint,.row-sub { font-size: 25rpx; color: var(--text-regular); line-height: 1.6; }.row-main { min-width: 0; overflow: visible; }.row-between,.ledger-row { gap: 16rpx; align-items: flex-start; }.row-between { flex-wrap: wrap; }.row-title { word-break: break-all; }.row-amount { margin-left: auto; word-break: break-all; }.ledger-row,.row,.ledger-strong { border-color: var(--border-color); }.ledger-value { text-align: right; word-break: break-all; }
 .btn-primary,.btn-ghost { min-height: 48px; height: auto; box-sizing: border-box; padding: 20rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; border-radius: 8rpx; white-space: normal; word-break: break-all; }
 .dialog { top: 12%; left: 24rpx; right: 24rpx; max-height: 78vh; overflow-y: auto; box-sizing: border-box; border-radius: 12rpx; }.dialog-footer { flex-wrap: wrap; gap: 12rpx; }.dialog-footer .flex1 { margin-right: 0; flex: 1 1 150rpx; }.dialog-input { height: 88rpx; }
+
+/* 低矮金额对比与逐组展开，长金额允许换行。 */
+.profit-chart-card { padding-bottom: 20rpx; }
+.profit-chart-row { display: flex; align-items: center; gap: 12rpx; min-height: 44rpx; margin: 8rpx 0; }
+.profit-chart-label { flex: 0 0 112rpx; color: var(--text-regular); font-size: 24rpx; }
+.profit-chart-track { flex: 1; min-width: 36rpx; height: 12rpx; border-radius: 8rpx; background: #EEF2F7; overflow: hidden; }
+.profit-chart-bar { height: 100%; border-radius: 8rpx; background: #3179D8; }
+.chart-cost { background: #9AACC2; }
+.chart-profit { background: #65A6E7; }
+.profit-chart-bar.chart-negative { background: #C77719; }
+.profit-chart-value { flex: 0 1 200rpx; min-width: 0; text-align: right; font-size: 24rpx; color: var(--text-primary); overflow-wrap: anywhere; word-break: break-all; }
+.profit-chart-note { display: block; margin-top: 12rpx; font-size: 23rpx; color: var(--text-regular); line-height: 1.5; }
+.profit-help-entry { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
+.profit-help-entry-title { color: var(--text-primary); font-size: 27rpx; font-weight: 600; }
+.profit-help-toggle { min-height: 48px; }
+.cooperation-card .ledger-label { min-width: 0; overflow-wrap: anywhere; }
+.cooperation-card .ledger-value { min-width: 0; max-width: 45%; }
+.profit-help-all { min-height: 44px; box-sizing: border-box; }

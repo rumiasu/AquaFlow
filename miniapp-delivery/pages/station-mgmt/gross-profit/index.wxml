@@ -71,6 +71,19 @@
       <text class="missing-cost-action" wx:if="{{missingCost.length}}">点商品名补录成本价</text>
     </view>
 
+    <view class="card profit-chart-card">
+      <view class="card-title">本期金额对比</view>
+      <block wx:if="{{profitChart.length && missingReady && !missingCost.length && !report.missingCostHint}}">
+        <view class="profit-chart-row" wx:for="{{profitChart}}" wx:key="key">
+          <text class="profit-chart-label">{{item.label}}</text>
+          <view class="profit-chart-track"><view class="profit-chart-bar chart-{{item.key}} {{item.negative ? 'chart-negative' : ''}}" style="width: {{item.width}}%;"></view></view>
+          <text class="profit-chart-value">{{item.text}}</text>
+        </view>
+        <text class="profit-chart-note">条长按金额绝对值比较；负数以橙色标示。</text>
+      </block>
+      <text class="profit-chart-note" wx:else>金额或成本待核实，暂不显示对比。</text>
+    </view>
+
     <!--
       收入构成与净利（[2026-09-19] 新增）：与上面的利润是**同一批订单**（同结算站、同时间窗、排除已取消），
       所以两张卡的数字必须对得上 —— 上面「收入合计」= 这里的 订单收入 + 水票收入
@@ -131,13 +144,26 @@
       -->
     </view>
 
-    <!-- 合作款独立于销售净利，所有数字与说明由后端下发。 -->
-    <view class="card" wx:if="{{report.cooperation}}">
+    <!-- 合作款独立于销售利润；摘要与折叠明细均直接展示服务端行。 -->
+    <view class="card cooperation-card" wx:if="{{report.cooperation}}">
       <view class="card-title">合作款与登记实款</view>
-      <view class="ledger-row" wx:for="{{report.cooperation.rows}}" wx:key="key">
+      <view class="ledger-row" wx:for="{{cooperationView.summary}}" wx:key="key">
         <text class="ledger-label">{{item.label}}</text>
         <text class="ledger-value">{{item.amountText}}</text>
       </view>
+      <view class="profit-help-group" wx:for="{{cooperationView.sections}}" wx:key="key">
+        <view class="profit-help-toggle" bindtap="onToggleCooperationGroup" data-group="{{item.key}}" role="button" aria-label="{{item.title}}，{{item.expanded ? '收起' : '展开'}}">
+          <text class="profit-help-title">{{item.title}}</text>
+          <text class="profit-help-action">{{item.expanded ? '收起' : '展开'}}</text>
+        </view>
+        <view wx:if="{{item.expanded}}">
+          <view class="ledger-row" wx:for="{{item.rows}}" wx:for-item="row" wx:key="key">
+            <text class="ledger-label">{{row.label}}</text>
+            <text class="ledger-value">{{row.amountText}}</text>
+          </view>
+        </view>
+      </view>
+      <text class="profit-chart-note" wx:if="{{!cooperationView.summary.length && !cooperationView.sections.length}}">{{report.cooperation.scopeNote || '合作款数据待核实'}}</text>
     </view>
 
     <!-- 成本口径集中在页面底部的分组说明，避免与收入构成重复铺开。 -->
@@ -175,7 +201,11 @@
   </block>
 
   <view class="card profit-help-card" wx:if="{{report}}">
-    <view class="card-title">统计口径与计算说明</view>
+    <view class="profit-help-entry" bindtap="onToggleHelpVisible" role="button" aria-label="统计口径与计算说明，{{profitHelpVisible ? '收起' : '展开'}}">
+      <text class="profit-help-entry-title">ⓘ 统计口径与计算说明</text>
+      <text class="profit-help-action">{{profitHelpVisible ? '收起' : '查看'}}</text>
+    </view>
+    <block wx:if="{{profitHelpVisible}}">
     <view class="profit-help-group" wx:for="{{profitHelpSections}}" wx:key="key">
       <view class="profit-help-toggle" bindtap="onToggleHelpGroup" data-group="{{item.key}}">
         <text class="profit-help-title">{{item.title}}</text>
@@ -187,6 +217,7 @@
     </view>
     <view class="profit-help-all" wx:if="{{profitHelpSections.length}}" bindtap="onShowHelp">展开或收起全部说明</view>
     <view class="profit-help-all" wx:else bindtap="onShowHelp">查看利润说明</view>
+    </block>
   </view>
 
   <!-- 成本编辑 -->

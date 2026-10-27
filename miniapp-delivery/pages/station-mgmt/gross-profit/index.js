@@ -44,6 +44,34 @@ function buildProfitHelpSections(report) {
     .map(group => ({ ...group, notes: group.notes.filter(value => typeof value === 'string' && value.trim()), expanded: false }))
 }
 
+// 只分组服务端已有行，未知字段也保留在“其他合作款”中。
+function buildCooperationView(cooperation, moneyText) {
+  const rows = cooperation && Array.isArray(cooperation.rows) ? cooperation.rows : []
+  const summaryKeys = ['pendingPayAmount', 'pendingReceiveAmount', 'recordedCashNetAmount']
+  const groups = [
+    { key: 'agreement', title: '合作约定与客户款', keys: ['agreedPayAmount', 'agreedReceiveAmount', 'quoteDifferenceAmount', 'customerReceivedAmount', 'customerRefundedAmount'] },
+    { key: 'settlement', title: '合作交款与收款', keys: ['settledPayAmount', 'settledReceiveAmount'] },
+    { key: 'recovery', title: '退款后返还', keys: ['recoveryPendingPayAmount', 'recoveryPendingReceiveAmount', 'recoverySentPayAmount', 'recoveryReceivedAmount', 'recoveryAwaitingConfirmationAmount'] }
+  ]
+  const formatted = rows.map(row => ({ ...row, amountText: moneyText(row.amount) }))
+  const known = new Set(summaryKeys.concat(...groups.map(group => group.keys)))
+  const sections = groups.map(group => ({ key: group.key, title: group.title, expanded: false, rows: formatted.filter(row => group.keys.includes(row.key)) }))
+  sections.push({ key: 'other', title: '其他合作款', expanded: false, rows: formatted.filter(row => !known.has(row.key)) })
+  return { summary: formatted.filter(row => summaryKeys.includes(row.key)), sections: sections.filter(group => group.rows.length) }
+}
+
+// 条长只表示服务端金额的相对大小，不计算利润；负值用绝对值长度及明确标记。
+function buildProfitChart(report, profitView) {
+  const fields = [
+    { key: 'revenue', label: '收入合计', value: report.totalRevenue, text: profitView.totalRevenueText },
+    { key: 'cost', label: '进货成本', value: report.totalCost, text: profitView.totalCostText },
+    { key: 'profit', label: '利润', value: report.totalProfit, text: profitView.totalProfitText }
+  ]
+  if (fields.some(item => item.value === null || item.value === undefined || item.value === '' || !Number.isFinite(Number(item.value)))) return []
+  const max = Math.max(...fields.map(item => Math.abs(Number(item.value))))
+  return fields.map(item => ({ ...item, negative: Number(item.value) < 0, width: max ? Math.abs(Number(item.value)) / max * 100 : 0 }))
+}
+
 /**
  * 站长端「利润 + 净利」：进货成本 + 期间报表。规格见 docs/design/20 §2。
  *
@@ -80,6 +108,9 @@ Page({
     missingCost: [],
     profitHelpSections: [],
     profitHelpAllExpanded: false,
+    profitHelpVisible: false,
+    cooperationView: { summary: [], sections: [] },
+    profitChart: [],
     // 从「我的 → 今日净利」跳进来时置为 'today'：只用于副标题文案与默认期间
     range: '',
     // 成本编辑弹层
@@ -161,7 +192,9 @@ Page({
       const report = { ...d, items: d.items.map(item => ({ ...item, revenueTotalText: this._moneyText(item.revenueTotal), costAmountText: this._moneyText(item.costAmount), soldQtyText: item.soldQty === null || item.soldQty === undefined ? '待核实' : item.soldQty })) }
       if (d.cooperation && Array.isArray(d.cooperation.rows)) report.cooperation = { ...d.cooperation, rows: d.cooperation.rows.map(item => ({ ...item, amountText: this._moneyText(item.amount) })) }
       Object.assign(patch, {
-        report, profitView, profitHelpSections: buildProfitHelpSections(report), profitHelpAllExpanded: false,
+        report, profitView, profitHelpSections: buildProfitHelpSections(report), profitHelpAllExpanded: false, profitHelpVisible: false,
+        cooperationView: buildCooperationView(d.cooperation, value => this._moneyText(value)),
+        profitChart: buildProfitChart(d, profitView),
         from: d.from || this.data.from, to: d.to || this.data.to
       })
     } else patch.reportError = '当前期间报表尚未读取，收入、成本与利润待核实'
@@ -310,6 +343,16 @@ Page({
       profitHelpAllExpanded: expanded,
       profitHelpSections: groups.map(group => ({ ...group, expanded }))
     })
+  },
+
+  onToggleHelpVisible() {
+    this.setData({ profitHelpVisible: !this.data.profitHelpVisible })
+  },
+
+  onToggleCooperationGroup(e) {
+    const key = e.currentTarget.dataset.group
+    const view = this.data.cooperationView
+    this.setData({ cooperationView: { ...view, sections: view.sections.map(group => group.key === key ? { ...group, expanded: !group.expanded } : group) } })
   },
 
   onToggleHelpGroup(e) {

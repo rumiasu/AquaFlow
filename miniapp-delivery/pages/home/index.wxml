@@ -190,7 +190,7 @@
 
   <!-- 今日实际送达列表：支付状态另列，不能把已送达未收款说成已完成。 -->
   <view class="order-list" wx:elif="{{activeTab === 'completed'}}">
-    <view class="order-card" wx:for="{{completedOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+    <view class="order-card {{item.status === 4 && !item.isUnpaid ? 'completed-order-card' : ''}}" wx:for="{{completedOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
       <view class="card-header">
         <view class="tag-row">
           <text class="status-tag {{item.isUnpaid ? 'status-warning' : 'status-completed'}}">{{item.statusText || '当前状态待核实'}}</text>

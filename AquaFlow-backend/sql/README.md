@@ -224,6 +224,7 @@ SOURCE seed_platform_pulisi_185.sql;
 | 67 | `migration_v82_partial_station_aftercare.sql` | C-04 原消费实退逐笔责任方案/双方核对/付款方实际交付及不可变原键审计，不执行转款，不加到账确认。schema已吸收，旧库须先备份停写装结构，再换匹配代码；已有责任/实付不删表回退。 |
 | 68 | `migration_v83_deposit_refund_original_time.sql` | C-08 可信原支付 UTC 时刻、未知退款原请求保全、实退 UTC 旁证；旧数据不回填时间。schema 已吸收，先安装结构再换匹配后端，未有可信原款仍待核，不启用真实渠道。 |
 | 69 | `migration_v85_station_pricing_confirmation.sql` | 每站每商品的成功定价确认标记；仅回填已有站级正价格覆盖或本站自定义价格的可证据记录，不改价格、押金、库存、上架或更新时间。先执行一次增量，再安装配套后端/员工端；可重复执行。真实库未执行。 |
+| 70 | `migration_v86_historical_asset_claim_photo.sql` | 历史认领可选照片旁表；按客户与申请凭据关联，不改既有资产。新库 schema 已包含，存量库需先核对目标并安装增量，再启用配套功能；本次未执行真实库迁移。 |
 
 ## 历史迁移演进（脚本已删除，结论保留）
 

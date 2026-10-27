@@ -21,7 +21,8 @@ function user(overrides = {}, reuse = {}) {
   const api = Object.assign({ mine: async () => ok([]), products: async () => ok([product]),
     submit: async b => { calls.push(JSON.parse(JSON.stringify(b))); return ok(record(b)) } }, overrides)
   const page = loadPage('miniapp-user/pages/mine/asset-claims/index.js', { wx, app, stubs: {
-    'api/asset-claims': api, 'api/station': { getPublicStations: async () => ok([{ id: 1, name: '合成一站' }, { id: 2, name: '合成二站' }]) }
+    'api/asset-claims': api, 'utils/claim-photo': reuse.photo || { lookup: async () => ({ exists: false }), upload: async () => ({ exists: true }) },
+    'api/station': { getPublicStations: async () => ok([{ id: 1, name: '合成一站' }, { id: 2, name: '合成二站' }]) }
   } })
   const activate = () => { global.wx = wx; global.getApp = () => app }
   return { page, wx, app, calls, api, activate }
@@ -30,6 +31,7 @@ function manager(overrides = {}, reuse = {}) {
   const wx = reuse.wx || createWx(), app = reuse.app || createApp({ globalData: { isLogin: true, accessToken: 'synthetic-token',
     userInfo: { staffId: 5, stationId: 1, role: 'STATION_MANAGER', bindStatus: 'BOUND' } } }), calls = []
   const api = Object.assign({ pending: async () => ok([record()]), detail: async () => ok(record()),
+    photo: async () => ok({ exists: false, url: null }),
     review: async (id, b) => { calls.push({ id, body: JSON.parse(JSON.stringify(b)) }); return ok(record(body(), b.approve ? 'APPROVED' : 'REJECTED')) } }, overrides)
   const page = loadPage('miniapp-delivery/pages/station-mgmt/asset-claims/index.js', { wx, app, stubs: {
     'api/asset-claims': api, 'api/station-mgmt': { getCatalog: async () => ok([product]) }
@@ -75,6 +77,35 @@ test('a failed draft save does not discard the form when changing station', asyn
   t.wx.setStorageSync = () => { throw Error('disk failure') }
   await t.page.onStation({ detail: { value: '1' } })
   assert.equal(t.page.data.stationId, 1); assert.equal(t.page.data.form.depositBalance, '75.00'); assert(t.page.data.notice)
+})
+test('photo failure preserves the form, blocks submit, and retry checks the original token', async () => {
+  let calls = 0, token; const photo = { lookup: async (station, key) => { token = key; return { exists: false } },
+    upload: async () => { if (++calls === 1) throw Error('network'); return { exists: true, url: null } } }
+  const t = user({}, { photo }); await t.page.onShow(); fill(t)
+  t.page.setData({ form: { ...t.page.data.form, photoPath: 'synthetic.jpg', photoToken: 'claim-photo-key', photoConfirmed: false } })
+  await t.page.onRetryPhoto(); assert.equal(t.page.data.form.note, '合成历史清单'); assert(!t.page.data.form.photoConfirmed)
+  await t.page.onSubmit(); assert.equal(t.calls.length, 0)
+  await t.page.onRetryPhoto(); assert.equal(token, 'claim-photo-key'); assert(t.page.data.form.photoConfirmed)
+  await t.page.onSubmit(); assert.equal(t.calls[0].clientToken, token)
+})
+test('changing identity during photo lookup never starts an upload', async () => {
+  const gate = deferred(); let writes = 0
+  const t = user({}, { photo: { lookup: () => gate.promise, upload: async () => { writes++; return { exists: true } } } })
+  await t.page.onShow(); fill(t)
+  t.page.setData({ form: { ...t.page.data.form, photoPath: 'synthetic.jpg', photoToken: 'claim-photo-key', photoConfirmed: false } })
+  const work = t.page.onRetryPhoto(); t.app.globalData.customerId = 8; gate.resolve({ exists: false }); await work
+  assert.equal(writes, 0)
+})
+test('removing an unconfirmed photo permits a no-photo submission with a new token', async () => {
+  const t = user(); await t.page.onShow(); fill(t)
+  t.page.setData({ form: { ...t.page.data.form, photoPath: 'synthetic.jpg', photoToken: 'old-photo-key', photoConfirmed: false } })
+  t.page.onRemovePhoto(); await t.page.onSubmit(); assert.equal(t.calls.length, 1); assert.notEqual(t.calls[0].clientToken, 'old-photo-key')
+})
+test('manager must verify a photo before approving and may retry a failed read', async () => {
+  let failed = true; const t = manager({ photo: async () => { if (failed) throw Error('network'); return ok({ exists: true, url: 'https://example.test/photo' }) } })
+  await t.page.onShow(); await t.page.onSelect(ev('id', 9)); await t.page.onApprove(); assert.equal(t.calls.length, 0); assert(t.page.data.photoError)
+  failed = false; await t.page.onRetryPhoto(); assert.equal(t.page.data.photoUrl, 'https://example.test/photo')
+  await t.page.onApprove(); assert.equal(t.calls.length, 1)
 })
 test('submit is the customer confirmation; pending receipt is never labelled effective', async () => {
   const t = user(); await t.page.onShow(); fill(t); await t.page.onSubmit()
@@ -165,28 +196,28 @@ test('customer history reuses the current authorized station name without changi
   assert.equal(t.calls.length, 0)
 })
 test('manager sees original figures and customer-provided material', async () => {
-  const t = manager(); await t.page.onShow(); assert.equal(t.page.data.records[0].depositText, '75.00'); t.page.onSelect(ev('id', 9)); assert.equal(t.page.data.selected.items[0].held, 1)
+  const t = manager(); await t.page.onShow(); assert.equal(t.page.data.records[0].depositText, '75.00'); await t.page.onSelect(ev('id', 9)); assert.equal(t.page.data.selected.items[0].held, 1)
 })
 test('manager approval needs no customer third confirmation and duplicate click writes once', async () => {
-  const flight = deferred(); let n = 0; const t = manager({ review: () => { n++; return flight.promise } }); await t.page.onShow(); t.page.onSelect(ev('id', 9))
+  const flight = deferred(); let n = 0; const t = manager({ review: () => { n++; return flight.promise } }); await t.page.onShow(); await t.page.onSelect(ev('id', 9))
   const a = t.page.onApprove(), b = t.page.onApprove(); assert.equal(n, 1); flight.resolve(ok(record(body(), 'APPROVED'))); await Promise.all([a, b])
   assert.equal(t.page.data.selected.status, 'APPROVED'); assert.equal(t.page.data.records.length, 0); assert.equal(t.wx.__calls.modal.length, 0)
 })
 test('manager rejection requires a reason and displays the returned rejection', async () => {
-  const t = manager(); await t.page.onShow(); t.page.onSelect(ev('id', 9)); await t.page.onReject(); assert.equal(t.calls.length, 0)
+  const t = manager(); await t.page.onShow(); await t.page.onSelect(ev('id', 9)); await t.page.onReject(); assert.equal(t.calls.length, 0)
   t.page.onNote(ev('note', '合成差异：请核对持桶数')); await t.page.onReject(); assert.equal(t.calls.length, 1); assert.equal(t.page.data.selected.status, 'REJECTED')
 })
 test('manager pending response cannot be presented as completed approval', async () => {
-  const t = manager({ review: async () => ok(record()) }); await t.page.onShow(); t.page.onSelect(ev('id', 9)); await t.page.onApprove(); assert(t.page.data.pending); assert.equal(t.page.data.selected.status, 'PENDING')
+  const t = manager({ review: async () => ok(record()) }); await t.page.onShow(); await t.page.onSelect(ev('id', 9)); await t.page.onApprove(); assert(t.page.data.pending); assert.equal(t.page.data.selected.status, 'PENDING')
 })
 test('manager unknown decision restores by original id before any new write', async () => {
-  const t = manager({ review: async () => { throw Error('synthetic timeout') } }); await t.page.onShow(); t.page.onSelect(ev('id', 9)); await t.page.onApprove(); assert(t.page.data.pending); t.page.onUnload()
+  const t = manager({ review: async () => { throw Error('synthetic timeout') } }); await t.page.onShow(); await t.page.onSelect(ev('id', 9)); await t.page.onApprove(); assert(t.page.data.pending); t.page.onUnload()
   const next = manager({ pending: async () => ok([]), detail: async () => ok(record(body(), 'APPROVED')) }, t)
   await next.page.onShow(); assert.equal(next.page.data.selected.status, 'APPROVED'); assert.equal(next.calls.length, 0); assert.equal(next.page.data.pending, false)
 })
 test('manager pending original decision retries with unchanged note and action', async () => {
   let first; const t = manager({ review: async (id, b) => { first = JSON.parse(JSON.stringify(b)); throw Error('synthetic timeout') } })
-  await t.page.onShow(); t.page.onSelect(ev('id', 9)); t.page.onNote(ev('note', '合成原核对')); await t.page.onApprove(); t.page.onNote(ev('note', '不应覆盖'))
+  await t.page.onShow(); await t.page.onSelect(ev('id', 9)); t.page.onNote(ev('note', '合成原核对')); await t.page.onApprove(); t.page.onNote(ev('note', '不应覆盖'))
   t.api.review = async (id, b) => { t.calls.push({ id, body: b }); return ok(record(body(), 'APPROVED')) }
   await t.page.onRecover(); await t.page.onRetryReview(); assert.deepStrictEqual(t.calls[0].body, first)
 })
@@ -207,14 +238,14 @@ test('manager malformed, unauthorized and unsupported list remain failed, not ze
   }
 })
 test('manager wrong claim response cannot complete or clear original decision', async () => {
-  const t = manager({ review: async () => ok({ ...record(body(), 'APPROVED'), id: 10 }) }); await t.page.onShow(); t.page.onSelect(ev('id', 9)); await t.page.onApprove(); assert(t.page.data.pending)
+  const t = manager({ review: async () => ok({ ...record(body(), 'APPROVED'), id: 10 }) }); await t.page.onShow(); await t.page.onSelect(ev('id', 9)); await t.page.onApprove(); assert(t.page.data.pending)
 })
 test('station selection is page-local and cannot move the order cart station', async () => {
   const t = user({ mine: async () => ok([]), products: async () => ok([product]) }); await t.page.onShow(); await t.page.onStation(ev('station', '1'))
   assert.equal(t.page.data.stationId, 2); assert.equal(t.wx.getStorageSync('selectedStation').id, 1)
 })
 test('manager reopening preserves original note even if the original lookup fails, and cannot write', async () => {
-  const t = manager({ review: async () => { throw Error('synthetic timeout') } }); await t.page.onShow(); t.page.onSelect(ev('id', 9))
+  const t = manager({ review: async () => { throw Error('synthetic timeout') } }); await t.page.onShow(); await t.page.onSelect(ev('id', 9))
   t.page.onNote(ev('note', '合成原说明')); await t.page.onApprove(); t.page.onUnload()
   const next = manager({ detail: async () => { throw Error('synthetic lookup failure') } }, t); await next.page.onShow()
   assert.equal(next.page.data.reviewNote, '合成原说明'); assert.equal(next.page.data.originalDecision, '核对通过')
@@ -255,7 +286,7 @@ test('incomplete or different successful receipt cannot clear an original custom
 test('unreadable new manager cache cannot borrow or clear the previous manager original intent', async () => {
   let lookups = 0
   const t = manager({ review: async () => { throw Error('synthetic timeout') }, detail: async () => { lookups++; return ok(record(body(), 'APPROVED')) } })
-  await t.page.onShow(); t.page.onSelect(ev('id', 9)); await t.page.onApprove()
+  await t.page.onShow(); await t.page.onSelect(ev('id', 9)); await t.page.onApprove()
   const original = t.wx.getStorageSync('asset-claim-intent:manager:5:1:reviews:1')
   t.app.globalData.userInfo.staffId = 6; t.wx.setStorageSync('asset-claim-intent:manager:6:1:reviews:1', { version: 99 })
   await t.page.onShow(); await t.page.onRecover()
@@ -272,10 +303,10 @@ test('two real page handlers complete submit, reject feedback, corrected reapply
     const next = { ...record(old.requestJson, b.approve ? 'APPROVED' : 'REJECTED'), id, reviewNote: b.note }
     history.splice(history.indexOf(old), 1, next); return ok(next)
   } })
-  await m.page.onShow(); m.page.onSelect(ev('id', 9)); m.page.onNote(ev('note', '合成差异：请核对持桶数')); await m.page.onReject()
+  await m.page.onShow(); await m.page.onSelect(ev('id', 9)); m.page.onNote(ev('note', '合成差异：请核对持桶数')); await m.page.onReject()
   u.activate(); await u.page.onShow(); assert.equal(u.page.data.records[0].status, 'REJECTED'); assert(u.page.data.canCreate)
   fill(u); u.page.data.form.items[0].held = '2'; u.page.data.form.note = '合成更正清单'; await u.page.onSubmit()
-  m.activate(); await m.page.onShow(); m.page.onSelect(ev('id', 10)); await m.page.onApprove()
+  m.activate(); await m.page.onShow(); await m.page.onSelect(ev('id', 10)); await m.page.onApprove()
   u.activate(); await u.page.onShow(); assert.equal(u.page.data.records[0].status, 'APPROVED'); assert.equal(u.page.data.records[0].items[0].held, 2)
   assert.equal(u.page.data.canCreate, false); assert.equal(submitted.length, 2); assert(submitted.every(b => b.confirmed === true))
   assert.equal(decisions.length, 2); assert.equal(decisions[0].approve, false); assert.equal(decisions[1].approve, true)

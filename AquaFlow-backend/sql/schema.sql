@@ -1413,6 +1413,16 @@ CREATE TABLE IF NOT EXISTS historical_asset_claim (
      OR (status<>'PENDING' AND reviewer_id IS NOT NULL AND review_time IS NOT NULL))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- v86：历史认领的可选私有凭证，使用客户与申请凭据关联。
+CREATE TABLE IF NOT EXISTS historical_asset_claim_photo (
+  customer_id BIGINT NOT NULL,
+  station_id BIGINT NOT NULL,
+  client_token VARCHAR(64) COLLATE utf8mb4_bin NOT NULL,
+  object_name VARCHAR(512) NOT NULL,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (customer_id, client_token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- v81: scoped dispute holds and actual partial refund evidence.
 CREATE TABLE IF NOT EXISTS customer_refusal_freeze_scope (
   order_id bigint NOT NULL, product_id bigint NOT NULL,

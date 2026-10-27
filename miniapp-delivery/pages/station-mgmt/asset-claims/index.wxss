@@ -48,3 +48,4 @@
 .claim-primary,.claim-secondary { min-height: 48px; height:auto; line-height:1.5; box-sizing:border-box; border-radius:10rpx; padding:20rpx; font-size: 16px; }
 .claim-actions { flex-wrap:wrap; gap:16rpx; }
 .claim-actions button { min-width:240rpx; }
+.claim-photo { display:block; width:220rpx; height:220rpx; margin-top:12rpx; background:var(--bg-gray); border-radius:10rpx; }

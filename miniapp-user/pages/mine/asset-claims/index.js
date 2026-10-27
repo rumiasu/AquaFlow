@@ -3,6 +3,7 @@ const { getPublicStations } = require('../../../api/station')
 const { stationStorage } = require('../../../utils/storage')
 const { captureSession, isCurrentSession } = require('../../../utils/token')
 const claim = require('../../../utils/asset-claim')
+const photo = require('../../../utils/claim-photo')
 const emptyForm = () => ({ depositBalance: '', note: '', items: [] })
 const copy = value => JSON.parse(JSON.stringify(value))
 Page({
@@ -28,7 +29,7 @@ Page({
       this.setData({ form: this.readDraft(this._stationId), records: [], catalog: [], stations: [], notice: '', pending: false })
     }
     this._actor = owner; this._customer = customer; this._session = session
-    this.setData({ stationId: this._stationId, stationName: this._stationId ? '水站编号：' + this._stationId : '请选择认领水站', submitting: false })
+    this.setData({ stationId: this._stationId, stationName: this._stationId ? '水站编号：' + this._stationId : '请选择认领水站', submitting: false, photoUploading: !!this._photoFlight })
     return Promise.all([this.loadStations(), this.load()])
   },
   context(read) { return { session: this._session, actor: this._actor, station: this._stationId, epoch: this._epoch, read } },
@@ -95,7 +96,7 @@ Page({
   onRetry() { if (!this.data.loading && !this._flight) return this.load() },
   onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
   async onStation(e) {
-    if (this._flight || this.data.submitting || !this.current(this.context())) return
+    if (this._flight || this._photoFlight || this.data.submitting || !this.current(this.context())) return
     const index = Number(e.detail.value), station = this.data.stations[index]
     if (!Number.isInteger(index) || !station) return
     if (!this.saveDraft(this.data.form)) return
@@ -135,11 +136,52 @@ Page({
     else return
     this.setData({ form }); this.saveDraft(form)
   },
+  onChoosePhoto() {
+    if (!this.data.canCreate || this._flight || this._photoFlight || this.data.pending) return
+    const c = this.context(), picking = {}; this._photoFlight = picking
+    if (wx.hideKeyboard) wx.hideKeyboard({})
+    try {
+      wx.chooseImage({ count: 1, sizeType: ['compressed'], sourceType: ['album', 'camera'],
+        success: result => {
+          if (!this.current(c) || !result.tempFilePaths || !result.tempFilePaths[0]) return
+          const form = { ...this.data.form, photoPath: result.tempFilePaths[0], photoConfirmed: false,
+            photoToken: 'claim-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) }
+          this.setData({ form, notice: '' }); const saved = this.saveDraft(form)
+          this._photoFlight = null; if (saved) this.onRetryPhoto()
+        },
+        fail: error => { if (this.current(c) && !/cancel/i.test(error && error.errMsg || '')) this.setData({ notice: '选择照片失败，请重试。' }) },
+        complete: () => { if (this._photoFlight === picking) this._photoFlight = null }
+      })
+    } catch (_) { this._photoFlight = null; this.setData({ notice: '选择照片失败，请重试。' }) }
+  },
+  async onRetryPhoto() {
+    if (!this.current(this.context()) || this._flight || this._photoFlight || this.data.pending || !this.data.form.photoPath || !this.data.form.photoToken) return
+    const c = this.context(), form = this.data.form, flight = {}; this._photoFlight = flight
+    if (!this.saveDraft(form)) { this._photoFlight = null; return }
+    this.setData({ photoUploading: true, notice: '' })
+    try {
+      let result = await photo.lookup(c.station, form.photoToken)
+      if (!this.current(c)) return
+      if (!result.exists) result = await photo.upload(form.photoPath, c.station, form.photoToken)
+      if (!this.current(c)) return
+      if (!result.exists) throw Error('照片未保存')
+      const next = { ...this.data.form, photoConfirmed: true }
+      this.setData({ form: next, notice: result.url ? '照片已添加。' : '照片已保存，预览暂不可用。' }); this.saveDraft(next)
+    } catch (_) { if (this.current(c)) this.setData({ notice: '照片未能确认，请重试或移除照片；填写内容已保留。' }) }
+    finally { if (this._photoFlight === flight) { this._photoFlight = null; if (!this._hidden && !this._unloaded && this._actor === c.actor && isCurrentSession(c.session)) this.setData({ photoUploading: false }) } }
+  },
+  onRemovePhoto() {
+    if (this._photoFlight || this._flight || this.data.pending || !this.data.canCreate) return
+    const form = { ...this.data.form, photoPath: '', photoToken: '', photoConfirmed: false }
+    if (!this.saveDraft(form)) return
+    this.setData({ form, notice: '' })
+  },
   async onSubmit() {
-    if (!this.data.canCreate || this._flight || !this.current(this.context())) return
+    if (!this.data.canCreate || this._flight || this._photoFlight || !this.current(this.context())) return
+    if (this.data.form.photoPath && !this.data.form.photoConfirmed) { this.setData({ notice: '请先重试或移除照片。' }); return }
     try {
       const body = claim.body({ ...this.data.form, stationId: this._stationId, confirmed: true,
-        clientToken: 'claim-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) })
+        clientToken: this.data.form.photoToken || 'claim-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) })
       this._intent = claim.prepare(this._actor, 'station:' + this._stationId, 'SUBMIT', body)
       return this.send(this._intent)
     } catch (e) { this.setData({ error: claim.errorText(e, '原申请未能保存，请重试') }) }

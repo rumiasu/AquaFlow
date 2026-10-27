@@ -53,3 +53,4 @@
 .claim-product-info { flex: 1; min-width: 0; }
 .claim-add { color: var(--primary-color); font-size: 26rpx; }
 .claim-refresh { margin: 0; padding: 0 18rpx; min-height: 44px; font-size: 24rpx; background: var(--primary-bg); color: var(--primary-color); }
+.claim-photo { display: block; width: 200rpx; height: 200rpx; margin-top: 12rpx; background: var(--bg-gray); border-radius: 10rpx; }

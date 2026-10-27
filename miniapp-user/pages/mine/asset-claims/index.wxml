@@ -40,7 +40,16 @@
       <button class="claim-secondary" wx:if="{{!pending}}" data-index="{{index}}" bindtap="onRemoveProduct" disabled="{{submitting}}">移除此行</button>
     </view>
     <view class="claim-field"><text>补充说明（必填）</text><textarea class="claim-input claim-textarea" value="{{form.note}}" maxlength="500" data-field="note" bindinput="onField" disabled="{{pending || submitting}}" placeholder="填写便于水站核对的信息" /></view>
-    <button class="claim-primary" wx:if="{{!pending}}" bindtap="onSubmit" loading="{{submitting}}" disabled="{{!canCreate || submitting}}">确认清单并提交</button>
+    <view class="claim-field" wx:if="{{!pending}}">
+      <text>押金条照片（选填）</text>
+      <image wx:if="{{form.photoPath}}" class="claim-photo" src="{{form.photoPath}}" mode="aspectFit" />
+      <text class="claim-muted" wx:if="{{form.photoPath}}">{{photoUploading ? '正在上传…' : (form.photoConfirmed ? '已添加' : '照片待重试')}}</text>
+      <button class="claim-secondary" wx:if="{{!form.photoPath}}" bindtap="onChoosePhoto" disabled="{{submitting || photoUploading}}">添加照片</button>
+      <button class="claim-secondary" wx:if="{{form.photoPath && !form.photoConfirmed}}" bindtap="onRetryPhoto" disabled="{{submitting || photoUploading}}">重试照片</button>
+      <button class="claim-secondary" wx:if="{{form.photoPath && !form.photoConfirmed}}" bindtap="onChoosePhoto" disabled="{{submitting || photoUploading}}">重新选择</button>
+      <button class="claim-secondary" wx:if="{{form.photoPath}}" bindtap="onRemovePhoto" disabled="{{submitting || photoUploading}}">移除照片</button>
+    </view>
+    <button class="claim-primary" wx:if="{{!pending}}" bindtap="onSubmit" loading="{{submitting}}" disabled="{{!canCreate || submitting || photoUploading}}">确认清单并提交</button>
     <button class="claim-primary" wx:else bindtap="onRecover" loading="{{submitting}}" disabled="{{!ready || loading || submitting}}">恢复原申请</button>
     <text class="claim-muted" wx:if="{{pending}}">原清单和申请凭据已保留，恢复时沿用原申请，不重新申请。</text>
   </view>

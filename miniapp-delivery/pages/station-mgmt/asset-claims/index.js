@@ -46,6 +46,7 @@ Page({
       const selected = records.find(r => r.id === this._selectedId) || null
       this.setData({ records, catalog: products, catalogReady: !catalogError, ready: true, error: catalogError,
         selected, reviewNote: this._intent ? this._intent.body.note || '' : selected ? this.data.reviewNote : '', submitting: false })
+      if (selected) await this.loadPhoto(selected.id)
       if (this._intent) await this.loadOriginal(c)
     } catch (e) { if (this.current(c)) this.setData({ ready: false, error: claim.errorText(e, '认领清单暂时无法加载，请重试') }) }
     finally { if (this.current(c)) this.setData({ loading: false, submitting: false }) }
@@ -55,14 +56,30 @@ Page({
     if (!this.current(this.context()) || !this.data.ready || this.data.pending || this._flight) return
     const id = claim.id(e.currentTarget.dataset.id), selected = this.data.records.find(r => r.id === id)
     if (!selected) return
-    this._selectedId = id; this.setData({ selected, reviewNote: '', notice: '' })
+    this._selectedId = id; this.setData({ selected, reviewNote: '', notice: '' }); return this.loadPhoto(id)
   },
+  async loadPhoto(id) {
+    const c = this.context(this._read)
+    this.setData({ photoReady: false, photoLoading: true, photoUrl: '', photoError: '', photoExists: false })
+    try {
+      const response = await api.photo(id), value = claim.data(response)
+      if (!this.current(c) || this._selectedId !== id) return
+      if (!value || typeof value.exists !== 'boolean') throw Error('photo')
+      this.setData({ photoReady: true, photoExists: value.exists, photoUrl: typeof value.url === 'string' ? value.url : '',
+        photoError: value.exists && !value.url ? '照片暂时无法显示，请重试。' : '' })
+    } catch (_) { if (this.current(c) && this._selectedId === id) this.setData({ photoError: '照片暂时无法核实，请重试。' }) }
+    finally { if (this.current(c) && this._selectedId === id) this.setData({ photoLoading: false }) }
+  },
+  onRetryPhoto() { if (this._selectedId && !this.data.photoLoading) return this.loadPhoto(this._selectedId) },
+  onPreviewPhoto() { if (this.data.photoUrl) wx.previewImage({ urls: [this.data.photoUrl] }) },
+  onPhotoError() { this.setData({ photoUrl: '', photoError: '照片暂时无法显示，请重试。' }) },
   onNote(e) { if (this.current(this.context()) && !this.data.pending && !this._flight && this.data.selected) this.setData({ reviewNote: e.detail.value }) },
   onApprove() { return this.decide(true) },
   onReject() { return this.decide(false) },
   decide(approve) {
     const selected = this.data.selected
     if (!this.current(this.context()) || this._flight || this.data.pending || !this.data.ready || !this.data.catalogReady
+      || (approve && (!this.data.photoReady || this.data.photoError))
       || !selected || selected.id !== this._selectedId || selected.status !== 'PENDING'
       || !this.data.records.some(r => r.id === selected.id)) return
     try {
@@ -81,7 +98,8 @@ Page({
       const response = await api.review(intent.objectId, copy(intent.body)); if (!this.current(c)) return
       const received = claim.record(claim.data(response), { id: intent.objectId, stationId: c.station, customerId: customer }, this.data.catalog)
       if (received.status === 'PENDING') throw Object.assign(Error('核对结果尚未确定，请查询原申请'), { localClaimError: true })
-      verified = true; this.showResult(received); claim.clear(intent); this._intent = null; this._verifiedOriginal = false
+      verified = true; await this.showResult(received); if (!this.current(c)) return
+      claim.clear(intent); this._intent = null; this._verifiedOriginal = false
       this.setData({ pending: false, originalVerified: false, notice: '已查询到原申请的核对结果，请查看清单。' })
     } catch (e) {
       if (!this.current(c)) return
@@ -96,12 +114,14 @@ Page({
     this._selectedId = received.id
     this.setData({ selected: received, records: received.status === 'PENDING' ? this.data.records
       : this.data.records.filter(r => r.id !== received.id) })
+    return this.loadPhoto(received.id)
   },
   async loadOriginal(c) {
     const intent = this._intent; if (!intent || !this.current(c)) return
     const response = await api.detail(intent.objectId); if (!this.current(c)) return
     const received = claim.record(claim.data(response), { id: intent.objectId, stationId: c.station }, this.data.catalog)
-    this.showResult(received)
+    await this.showResult(received)
+    if (!this.current(c)) return
     if (received.status !== 'PENDING') {
       claim.clear(intent); this._intent = null; this._verifiedOriginal = false
       this.setData({ pending: false, originalVerified: false, notice: '原申请已有核对结果，请查看记录。' })
@@ -121,6 +141,7 @@ Page({
   },
   onRetryReview() {
     if (this._intent && this._verifiedOriginal && this.data.catalogReady && this.data.selected
+      && (!this._intent.body.approve || (this.data.photoReady && !this.data.photoError))
       && this.data.selected.status === 'PENDING' && !this._flight && this.current(this.context())) return this.send(this._intent)
   }
 })

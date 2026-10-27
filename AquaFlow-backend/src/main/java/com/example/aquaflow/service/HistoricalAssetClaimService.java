@@ -53,6 +53,8 @@ public class HistoricalAssetClaimService {
             if(!digest.equals(existing.getRequestDigest())) throw new BusinessException("同一申请凭据不能用于不同清单");
             return existing; // 原请求恢复不受后续商品/水站配置变化影响。
         }
+        Long photoStation=claims.photoStation(customer,canonical.clientToken());
+        if(photoStation!=null&&!photoStation.equals(canonical.stationId())) throw new BusinessException("照片与水站不一致，请重新选择照片");
         if(stations.getById(canonical.stationId())==null) throw new BusinessException("水站不存在");
         validateProducts(canonical);
         if(claims.active(customer,canonical.stationId())!=0) throw new BusinessException("本站已有待核对或已生效认领，请查看原申请");

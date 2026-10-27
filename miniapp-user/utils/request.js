@@ -43,6 +43,7 @@ function sendRequest(options, session, accessToken, retried) {
       beforeDispatch: () => isCurrentSession(session),
       method: options.method || 'GET',
       data: snapshot(options.data),
+      filePath: options.filePath, name: options.name, formData: options.formData,
       header,
       timeout: 15000,
       success: (res) => {

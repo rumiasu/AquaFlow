@@ -10,7 +10,7 @@
     <text class="claim-row">已保存的决定：{{originalDecision}}</text>
     <text class="claim-material" wx:if="{{reviewNote}}">原说明：{{reviewNote}}</text>
     <button class="claim-secondary" bindtap="onRecover" disabled="{{submitting || loading}}">查询原申请</button>
-    <button class="claim-primary" wx:if="{{originalVerified}}" bindtap="onRetryReview" loading="{{submitting}}" disabled="{{submitting || loading || !catalogReady}}">重试原处理</button>
+    <button class="claim-primary" wx:if="{{originalVerified}}" bindtap="onRetryReview" loading="{{submitting}}" disabled="{{submitting || loading || !catalogReady || (originalDecision === '核对通过' && (!photoReady || photoError))}}">重试原处理</button>
   </view>
   <view class="claim-muted" wx:if="{{ready && !records.length}}">暂无待核对申请。</view>
   <view class="claim-card claim-select" wx:for="{{records}}" wx:key="id" data-id="{{item.id}}" bindtap="onSelect">
@@ -32,13 +32,18 @@
       <text class="claim-row">桶容量单价（元/份）：{{item.unitPriceText}}</text>
     </view>
     <text class="claim-material">客户说明：{{selected.note}}</text>
+    <text class="claim-row">押金条照片</text>
+    <text class="claim-muted" wx:if="{{photoLoading}}">正在核实照片…</text>
+    <text class="claim-muted" wx:if="{{photoReady && !photoExists}}">未附照片</text>
+    <image wx:if="{{photoUrl}}" class="claim-photo" src="{{photoUrl}}" mode="aspectFit" bindtap="onPreviewPhoto" binderror="onPhotoError" />
+    <view wx:if="{{photoError}}"><text class="claim-error">{{photoError}}</text><button class="claim-secondary" bindtap="onRetryPhoto">重试照片</button></view>
     <text class="claim-material" wx:if="{{selected.reviewNote}}">核对反馈：{{selected.reviewNote}}</text>
     <block wx:if="{{selected.status === 'PENDING' && !pending}}">
       <text class="claim-muted">原清单不可改写。有差异请拒绝并说明，客户可更正后重新申请；已生效差异沿原资产调整办理。</text>
       <textarea class="claim-input claim-textarea" value="{{reviewNote}}" maxlength="500" bindinput="onNote" placeholder="核对说明；拒绝时必填，最多500字" disabled="{{submitting}}" />
       <view class="claim-actions">
         <button class="claim-secondary" bindtap="onReject" disabled="{{!ready || !catalogReady || submitting || loading}}">拒绝并反馈</button>
-        <button class="claim-primary" bindtap="onApprove" loading="{{submitting}}" disabled="{{!ready || !catalogReady || submitting || loading}}">核对通过</button>
+        <button class="claim-primary" bindtap="onApprove" loading="{{submitting}}" disabled="{{!ready || !catalogReady || !photoReady || photoError || submitting || loading}}">核对通过</button>
       </view>
     </block>
   </view>

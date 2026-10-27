@@ -5,6 +5,9 @@
 -->
 <view class="container">
   <view class="work-head"><text class="work-title">员工与申请</text><text class="work-desc">管理在职人员，核对绑定与解绑申请。</text></view>
+  <view class="work-read-error" wx:if="{{payrollFollowupLoading}}"><text>员工已保存，正在核对薪资结构…</text></view>
+  <view class="work-read-error" wx:elif="{{payrollFollowupError}}"><text>{{payrollFollowupError}}</text><button bindtap="onRetryPayrollFollowup">重新核对薪资</button></view>
+  <view class="work-read-error" wx:elif="{{payrollFollowup}}"><text>{{payrollFollowup.levelText}}：{{payrollFollowup.label}}。{{payrollFollowup.why}}</text><button bindtap="onConfigurePayroll">配置薪资结构</button></view>
 
   <view class="tabs">
     <view class="tab {{activeTab === 'staff' ? 'tab-on' : ''}}" bindtap="onTabSwitch" data-tab="staff">
@@ -19,6 +22,7 @@
   <block wx:if="{{activeTab === 'staff'}}">
     <view class="toolbar">
       <button class="btn-add" bindtap="onShowAdd">＋ 新增配送员</button>
+      <button class="btn-profile" bindtap="onPayrollSettings">薪资结构</button>
     </view>
 
     <view class="search-bar">
@@ -108,8 +112,8 @@
       <input class="modal-input" placeholder="姓名" value="{{formName}}" bindinput="onNameInput" />
       <input class="modal-input" placeholder="电话" type="number" value="{{formPhone}}" bindinput="onPhoneInput" />
       <text class="modal-hint">新增后将自动归属到当前水站</text>
-      <button class="btn-submit" bindtap="onSubmitAdd">确认添加</button>
-      <button class="btn-cancel" bindtap="onCloseModal">取消</button>
+      <button class="btn-submit" bindtap="onSubmitAdd" disabled="{{adding}}">{{adding ? '添加中…' : '确认添加'}}</button>
+      <button class="btn-cancel" bindtap="onCloseModal" disabled="{{adding}}">取消</button>
     </view>
   </view>
 </view>

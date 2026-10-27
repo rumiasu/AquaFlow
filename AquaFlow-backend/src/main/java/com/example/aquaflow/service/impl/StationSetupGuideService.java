@@ -188,15 +188,18 @@ public class StationSetupGuideService {
             deliveryStaff = staffs == null ? 0 : staffs.size();
         }
         StaffPieceRate defaultRate = staffPieceRateMapper.getByStationAndProduct(stationId, 0L);
+        // 2026-10-27：商品专属价也是真实工资规则；全部在架商品已覆盖时不能反复说未配工资。
         boolean rateOk = defaultRate != null && defaultRate.getPerBucketAmount() != null;
+        if (!rateOk && !onShelf.isEmpty()) rateOk = onShelf.stream().allMatch(inv ->
+                staffPieceRateMapper.getByStationAndProduct(stationId, inv.getProductId()) != null);
         items.add(item("staffPayroll", "员工工资结构", P1, deliveryStaff == 0 || rateOk, "工资设置",
                 deliveryStaff == 0
                         ? "本站还没有配送员；一旦有人，就要先定工资结构，否则他送的水会按 0 元记工钱"
-                        : rateOk ? "站级默认计件单价已配置；可在计件工资页核对商品单价与结算规则"
-                        : "有 " + deliveryStaff + " 名配送员，但没配计件单价 —— 他们送的水会按 0 元记工钱（结算单也是 0）",
+                        : rateOk ? "默认单价或当前在架商品的专属计件价已配置；新增商品时请继续核对工资规则"
+                        : "有 " + deliveryStaff + " 名配送员，但尚未配置默认计件单价；未配置部分不会产生计件流水，应发工资需要核实",
                 null,
                 (deliveryStaff > 0 && !rateOk)
-                        ? "到「计件工资」页填站级默认单价；若采用固定工资结算，本期先忽略此项（固定工资模式尚未实现，见 docs/design/25）"
+                        ? "到「计件工资」页填写默认计件单价；不计件请明确填0。已有漏算工钱需核实后补录，不会按新单价追算历史"
                         : null));
 
         // ⚠️ 水票档位有**两套并存的定价方式**，判据必须两套都认（2026-09-24 修的真实缺陷）：

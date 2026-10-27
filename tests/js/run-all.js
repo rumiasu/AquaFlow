@@ -18,6 +18,7 @@ const SUITES = [
   { file: 'business-dialog.test.js', name: '业务弹窗主题、数字、队列与离页取消' },
   { file: 'photo-recovery-presentation.test.js', name: '照片成功无核实任务、异常证据折叠保留' },
   { file: 'profit-visual-feedback.test.js', name: '利润报表合作款、口径折叠与今日送达卡片' },
+  { file: 'payroll-preview-followup.test.js', name: '工资只读预览、实际线下发薪登记与新增员工薪资配置引导' },
   { file: 'behavior-handler-audit.test.js', name: '已注册导航Behavior事件、导入导出及缺失实现反向检查' },
   { file: 'three-flow-regressions.test.js', name: '商品档位返回核对、配送回执生命周期与购票读取中断恢复' },
   { file: 'payment-single-flight.test.js', name: '支付跨页面单飞、原单超时重试、会话隔离与模拟收据' },

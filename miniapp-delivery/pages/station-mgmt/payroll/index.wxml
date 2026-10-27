@@ -6,7 +6,7 @@
 
   <view class="tabs">
     <view class="tab {{tab === 'rate' ? 'tab-on' : ''}}" bindtap="onTab" data-tab="rate">计件单价</view>
-    <view class="tab {{tab === 'settle' ? 'tab-on' : ''}}" bindtap="onTab" data-tab="settle">结算单</view>
+    <view class="tab {{tab === 'settle' ? 'tab-on' : ''}}" bindtap="onTab" data-tab="settle">工资与结算</view>
     <view class="tab {{tab === 'items' ? 'tab-on' : ''}}" bindtap="onTab" data-tab="items">自定义条目</view>
     <view class="tab-help" bindtap="onShowHelp">怎么算</view>
   </view>
@@ -60,13 +60,13 @@
         <input class="input" type="digit" value="{{rateForm.perBucketAmount}}"
                disabled="{{savingRate}}" bindinput="onRateInput" data-field="perBucketAmount" placeholder="{{'元/' + selectedRateUnit}}" />
       </view>
-      <view class="field">
+      <view class="field" wx:if="{{rateForm.productId === '0'}}">
         <text class="label">楼层补贴 / 层</text>
         <input class="input" type="digit" value="{{rateForm.floorBonusPerLevel}}"
                disabled="{{savingRate}}" bindinput="onRateInput" data-field="floorBonusPerLevel" placeholder="元/层" />
       </view>
-      <view class="field">
-        <text class="label">几层以内不补</text>
+      <view class="field" wx:if="{{rateForm.productId === '0'}}">
+        <text class="label">几层以内不补{{rateForm.floorBonusPerLevel > 0 ? '（必填）' : ''}}</text>
         <input class="input" type="number" value="{{rateForm.floorFreeLevel}}"
                disabled="{{savingRate}}" bindinput="onRateInput" data-field="floorFreeLevel" placeholder="层数" />
       </view>
@@ -115,15 +115,15 @@
   <block wx:if="{{tab === 'settle'}}">
     <view class="card">
       <view class="card-title-row">
-        <text class="card-title">生成结算单</text>
-        <help-tip title="结算单期间" text="{{tips.period}}" />
+        <text class="card-title">本期工资</text>
+        <help-tip title="工资期间" text="{{tips.period}}" />
       </view>
-      <text class="card-sub">选人 + 选期间，一次把这个期间里还没结的工钱都结进去。</text>
+      <text class="card-sub">选择员工和期间即可查看应发工资。结算用于登记已在线下实际发薪。</text>
       <view class="empty" wx:if="{{!loading && !payrollReadError && !staffList.length}}">本站还没有员工。</view>
       <block wx:else>
         <view class="field">
           <text class="label">配送员</text>
-          <picker mode="selector" range="{{staffList}}" range-key="name" bindchange="onGenStaff">
+          <picker mode="selector" range="{{staffList}}" range-key="name" bindchange="onGenStaff" disabled="{{generating}}">
             <view class="picker {{genForm.staffId ? '' : 'picker-empty'}}">
               <block wx:for="{{staffList}}" wx:key="id">
                 <text wx:if="{{item.id === genForm.staffId}}">{{item.name}}</text>
@@ -135,23 +135,35 @@
         <view class="field-2col">
           <view class="field col">
             <text class="label">开始</text>
-            <picker mode="date" value="{{genForm.periodStart}}" bindchange="onGenDate" data-field="periodStart">
+            <picker mode="date" value="{{genForm.periodStart}}" bindchange="onGenDate" data-field="periodStart" disabled="{{generating}}">
               <view class="picker {{genForm.periodStart ? '' : 'picker-empty'}}">{{genForm.periodStart || '请选择'}}</view>
             </picker>
           </view>
           <view class="field col">
             <text class="label">结束</text>
-            <picker mode="date" value="{{genForm.periodEnd}}" bindchange="onGenDate" data-field="periodEnd">
+            <picker mode="date" value="{{genForm.periodEnd}}" bindchange="onGenDate" data-field="periodEnd" disabled="{{generating}}">
               <view class="picker {{genForm.periodEnd ? '' : 'picker-empty'}}">{{genForm.periodEnd || '请选择'}}</view>
             </picker>
           </view>
         </view>
+        <view class="empty" wx:if="{{previewLoading}}">工资计算中…</view>
+        <view class="load-error" wx:elif="{{previewError}}"><text>{{previewError}}</text><button class="btn-ghost" bindtap="loadPreview">重新计算</button></view>
+        <view class="payroll-preview-summary" wx:elif="{{preview}}">
+          <view class="slip-hero"><text class="slip-hero-amount">{{preview.complete ? '¥' + preview.payableText : preview.payableText}}</text><text class="slip-hero-label">{{preview.statusText}}</text></view>
+          <view class="kv"><text class="kv-k">已结算已发</text><text class="kv-v">{{preview.statusKnown === false ? preview.paidText : '¥' + preview.paidText}}</text></view>
+          <view class="kv"><text class="kv-k">已记录未发</text><text class="kv-v">{{preview.statusKnown === false ? preview.unpaidText : '¥' + preview.unpaidText}}</text></view>
+          <text class="card-sub" wx:if="{{!preview.complete}}">已记录合计 ¥{{preview.recordedText}}；缺规则或凭据的部分尚未计入，应发金额不能按零处理。</text>
+          <text class="card-sub" wx:if="{{preview.warning}}">{{preview.warning}}</text>
+          <button class="btn-ghost" wx:if="{{preview.missingRule}}" bindtap="onGoRates">配置薪资结构</button>
+          <view class="row" wx:for="{{preview.earnings}}" wx:key="id"><view class="row-main"><text class="row-title">{{item.displayText}}</text><text class="row-sub">{{item.note}}</text></view><text class="row-amount">¥{{item.amount}}</text></view>
+          <text class="card-sub" wx:if="{{preview.earningCount > 50}}">共{{preview.earningCount}}条，先展示前50条；金额按本期全部记录计算。</text>
+        </view>
         <view class="field">
           <text class="label">备注（可选）</text>
-          <input class="input" value="{{genForm.note}}" bindinput="onGenNote" placeholder="如 9 月上半月" />
+          <input class="input" value="{{genForm.note}}" bindinput="onGenNote" placeholder="如 9 月上半月" disabled="{{generating}}" />
         </view>
-        <button class="btn-primary" disabled="{{!isManager || generating || loading || payrollReadError}}" bindtap="onGenerate">
-          {{generating ? '生成中…' : '生成结算单'}}
+        <button class="btn-primary" disabled="{{!isManager || generating || adjusting || recording || savingRate || loading || payrollReadError || previewLoading || previewError || !preview || !preview.canSettle}}" bindtap="onSettle">
+          {{generating ? '登记中…' : '结算 · 登记已发工资'}}
         </button>
       </block>
     </view>
@@ -215,12 +227,10 @@
         </view>
         <text class="slip-sub" wx:if="{{item.paidTime}}">发放时间 {{item.paidTime}}</text>
         <text class="slip-sub" wx:if="{{item.note}}">备注：{{item.note}}</text>
-        <text class="pay-caution" wx:if="{{item.status === 2}}">先实际交款，再标记发放；系统只记录发放时间。</text>
+        <text class="pay-caution" wx:if="{{item.status === 1 || item.status === 2}}">未发工资：先核对并实际发薪，再登记结算。</text>
         <view class="slip-actions">
-          <button class="slip-action slip-action-main" wx:if="{{isManager && item.status === 1}}" catchtap="onConfirmPayroll"
-                  disabled="{{payrollBusyId !== null || loading || payrollReadError}}" data-id="{{item.id}}">{{payrollBusyId === item.id ? '处理中…' : '确认结算单'}}</button>
-          <button class="slip-action slip-action-pay" wx:if="{{isManager && item.status === 2}}" catchtap="onPayPayroll"
-                  disabled="{{payrollBusyId !== null || loading || payrollReadError}}" data-id="{{item.id}}">{{payrollBusyId === item.id ? '处理中…' : '标记发放'}}</button>
+          <button class="slip-action slip-action-main" wx:if="{{isManager && (item.status === 1 || item.status === 2)}}" catchtap="onSettlePayroll"
+                  disabled="{{generating || adjusting || recording || savingRate || payrollBusyId !== null || loading || payrollReadError}}" data-id="{{item.id}}">{{payrollBusyId === item.id ? '处理中…' : '结算'}}</button>
           <button class="slip-action slip-action-detail" catchtap="onOpenPayroll" data-id="{{item.id}}">查看明细</button>
         </view>
       </view>

@@ -146,7 +146,7 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("有配送员但没配计件单价 → 工资结构未完善（真实库正是这个状态）")
+    @DisplayName("有配送员但没配计件单价 → 工资结构未完善，应发待核实")
     void payrollItemRequiresPieceRateWhenStaffExists() {
         seed();
         long delivery = createStaff("引导目录配送员", "DELIVERY", station, 1);
@@ -154,8 +154,8 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
 
         JsonNode before = guide();
         assertFalse(done(before, "staffPayroll"), "有员工 + 没单价 → 未完善");
-        assertTrue(why(before, "staffPayroll").contains("0 元"),
-                "后果要说清（送的水会按 0 元记工钱），实际=" + why(before, "staffPayroll"));
+        assertTrue(why(before, "staffPayroll").contains("需要核实"),
+                "后果应明确待核实，不能把缺规则当0元，实际=" + why(before, "staffPayroll"));
         // 本条是「条件项刚成立」的样板：本站原来没有配送员（工资结构算完成），
         // 加了一个人之后它才变成未完成。徽标用的是 pendingCount（含 P1），
         // 所以它 **大于** p0PendingCount —— 把徽标接到 p0PendingCount 上会在这里被测出来。

@@ -536,3 +536,8 @@ button[disabled] { background: var(--bg-color) !important; color: var(--text-sec
 .payroll-date-row picker,.payroll-date-row > text[bindtap] { min-height: 88rpx; box-sizing: border-box; display: flex; align-items: center; padding: 16rpx; }.payroll-search { height: 88rpx; box-sizing: border-box; background: var(--bg-color); }
 
 .btn-primary,.btn-ghost { min-height: 48px; height: auto; line-height: 1.6; padding: 20rpx; box-sizing: border-box; white-space: normal; word-break: break-all; }
+
+/* 2026-10-27：历史单的短标签宽度不足以容纳“已结算已发”，新工资预览须完整显示账务含义。 */
+.payroll-preview-summary .kv { gap: 16rpx; font-size: 28rpx; line-height: 1.6; }
+.payroll-preview-summary .kv-k { width: 7em; flex-shrink: 0; }
+.payroll-preview-summary .kv-v { flex: 1; min-width: 0; text-align: right; overflow-wrap: anywhere; }

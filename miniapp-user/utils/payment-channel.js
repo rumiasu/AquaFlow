@@ -12,6 +12,8 @@ const simulationAllowed = (channel, session = captureSession()) => {
   if (isReleaseEnv()) return false
   const proof = channel.simulationAuthorization
   if (!proof || proof.version !== 1 || !session.customerId || String(proof.customerId) !== String(session.customerId)) return false
+  // 只采信当前已认证连接返回的服务端测试能力，无需客户端维护服务/顾客许可清单。
+  if (proof.scope === 'SERVER_TEST') return true
   if (proof.scope === 'LOCAL_TEST') return isDevelopEnv()
   if (proof.scope !== 'PAYMENT_SANDBOX') return false
   const expected = API_CONFIG.paymentSandbox || {}

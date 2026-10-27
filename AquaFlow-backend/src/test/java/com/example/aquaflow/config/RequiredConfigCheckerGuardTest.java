@@ -63,6 +63,17 @@ class RequiredConfigCheckerGuardTest {
                 "全解析的配置被误杀 —— 会把正常生产环境挡在门外");
     }
 
+    @Test void explicitServerTestModeKeepsProdConfigurationAndNeverAllowsDevLogin() {
+        var env=new MockEnvironment().withProperty("app.payment.test-mode","true")
+                .withProperty("spring.datasource.url","jdbc:mysql://synthetic.invalid:3306/aquaflow_trial")
+                .withProperty("spring.datasource.username","synthetic").withProperty("spring.datasource.password","synthetic");
+        env.setActiveProfiles("prod");var c=checker(env);
+        ReflectionTestUtils.setField(c,"mockWechatPay",true);assertDoesNotThrow(c::check);
+        ReflectionTestUtils.setField(c,"devLoginEnabled",true);assertThrows(IllegalStateException.class,c::check);
+        ReflectionTestUtils.setField(c,"devLoginEnabled",false);env.setProperty("app.payment.test-mode","false");
+        assertThrows(IllegalStateException.class,c::check);
+    }
+
     @Test
     @DisplayName("非 prod（local/test）不校验数据源 —— 本地不读 DB_URL 环境变量")
     void nonProdSkipsDatasourceCheck() {

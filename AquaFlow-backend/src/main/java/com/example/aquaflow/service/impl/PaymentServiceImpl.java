@@ -61,12 +61,14 @@ public class PaymentServiceImpl implements PaymentService {
      * 订单付款状态只前进（{@code markPaidIfCollectable}）、对账等式。</p>
      *
      * <p>⚠️ 不能直接 INSERT PAID 或另写入账：订单、购票及独立押金必须复用 confirmPayment。
-     * MockPaymentPolicy 同时核对隔离环境、实际数据库与账号白名单，单开旧开关会拒启。
-     * 生产必须保持 false。
+     * 全测试部署由 PAYMENT_TEST_MODE 显式开启；旧合成测试配置仍由 MockPaymentPolicy 校验。
+     * 真实业务部署必须关闭测试模式；该开关不接入真实支付。
      * 真实渠道接入时应删掉本开关与 {@link #isMockWechatPay}，而不是把它留成"永真"。</p>
      */
     @org.springframework.beans.factory.annotation.Value("${app.payment.mock-wechat-pay:false}")
     private boolean mockWechatPay;
+    @org.springframework.beans.factory.annotation.Value("${app.payment.test-mode:false}")
+    private boolean paymentTestMode;
 
     /**
      * 本次请求是否走微信**模拟**渠道。
@@ -75,7 +77,7 @@ public class PaymentServiceImpl implements PaymentService {
      * （同一个坑本仓已踩过：报价与下单各写一套判据）。</p>
      */
     private boolean isMockWechatPay(Integer paymentMethod) {
-        return mockWechatPay && Integer.valueOf(PayMethod.WECHAT).equals(paymentMethod);
+        return (mockWechatPay || paymentTestMode) && Integer.valueOf(PayMethod.WECHAT).equals(paymentMethod);
     }
 
     /**
@@ -835,7 +837,7 @@ public class PaymentServiceImpl implements PaymentService {
                 paymentRecordMapper.updateStatusTo(r.getId(), PaymentStatus.REFUNDED, PaymentStatus.PAID);
 
                 // 生成退款记录（形状与站长手工退款共用同一个私有方法，见 insertRefundRecord）
-                if (mockWechatPay || r.isSimulated()) mockPolicy.requireRefund(r);
+                if (mockWechatPay || paymentTestMode || r.isSimulated()) mockPolicy.requireRefund(r);
                 insertRefundRecord(r, refundNoteForOrder(r, reason));
                 // 微信渠道未接入（PayMethod.availableMethods() 里该项恒 disabled），这里**没有**任何
                 // API 调用会发生。注释从原文的 `// TODO: 微信支付退款 - 若 paymentMethod=1，调用微信退款 API`
@@ -1229,7 +1231,10 @@ public class PaymentServiceImpl implements PaymentService {
         result.put("offlinePaymentBlockReason", offlineBlockReason);
         // 可用支付方式由后端下发（含文案与默认选中项），前端禁止自带 1/2/3 映射表，
         // 否则再次出现"前端 2=水票、后端 2=现金"这类错位。
-        result.put("methods", PayMethod.availableMethods(allowOffline, mockWechatPay));
+        var methods = PayMethod.availableMethods(allowOffline, mockWechatPay);
+        if (paymentTestMode) methods.stream().filter(m -> Integer.valueOf(PayMethod.WECHAT).equals(m.get("id")))
+                .forEach(m -> { m.put("name", mockPolicy.channel(customerId).get("label")); m.put("desc", "仅同步测试记录，不扣真实款"); });
+        result.put("methods", methods);
         result.put("defaultMethod", PayMethod.defaultMethod(allowOffline, mockWechatPay));
         // [2026-09-26] 「微信这一项当前走哪条渠道」下发给前端：建单成功后要不要对**同一张单**
         // 发起 createPayment，取决于服务端的渠道能力，不是前端按 id==1 猜。

@@ -9,6 +9,16 @@ const entry = (t, kind, body) => kind === 'order'
     : t.load('miniapp-user/api/barrel.js').purchaseBarrelRight(body)
 const body = () => ({ orderId: 42, productId: 5, quantity: 1, stationId: 3, paymentMethod: 1, idempotencyKey: 'original-synthetic-key' })
 for (const kind of ['order', 'ticket', 'barrel']) {
+  test(kind + ': server test mode needs no client binding and release still refuses', async () => {
+    const channel = { ...localChannel(), simulationAuthorization: { version: 1, scope: 'SERVER_TEST', customerId: 7 } }
+    for (const version of ['develop', 'trial', 'release']) {
+      const t = fixture({ version, channel, binding: { environmentId: '', serviceId: '', bindingId: '', apiBaseUrl: '' } })
+      if (version === 'release') { await assert.rejects(entry(t, kind, body())); assert.equal(t.posts.length, 0) }
+      else { await entry(t, kind, body()); assert.equal(t.posts.length, 1) }
+    }
+    const wrong = fixture({ version: 'trial', channel: { ...channel, simulationAuthorization: { ...channel.simulationAuthorization, customerId: 8 } } })
+    await assert.rejects(entry(wrong, kind, body())); assert.equal(wrong.posts.length, 0)
+  })
   test(kind + ': authorized trial uses one common capability before the original write', async () => {
     const t = fixture({ version: 'trial', channel: sandbox() }), input = body()
     await entry(t, kind, input)

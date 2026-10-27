@@ -1,4 +1,6 @@
-# 云托管体验版模拟支付包构建规格
+# 旧独立 sandbox 构建规格（当前测试更新不使用）
+
+当前用户已选择现有服务普通更新加 `PAYMENT_TEST_MODE=true`，无需本目录的 profile、UUID、marker 或顾客白名单。操作见 [普通更新流程](../limited-trial/README.md)。本目录保留为旧隔离方式兼容资料。
 
 写给负责测试交付的工程师。本目录提供独立镜像入口和待配置模板，不创建云服务、数据库、账号、权限或凭据，不构成部署授权。原 `deployment/limited-trial` 和 prod 包继续关闭模拟。
 

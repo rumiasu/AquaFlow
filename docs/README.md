@@ -29,7 +29,7 @@
 
 AI 协作约束在 [AGENTS](../AGENTS.md)，安全边界在 [SECURITY](../SECURITY.md)。[系统架构](architecture/01-系统架构.md)说明维护边界，不代替业务决策。
 
-独立云体验版模拟支付的构建、待配置字段与部署边界见 [payment-sandbox 构建规格](../deployment/payment-sandbox/README.md)；该包与原 prod 入口分开，材料不构成部署许可。
+现有云服务临时测试付款沿用 [普通更新流程](../deployment/limited-trial/README.md)，仅新增默认关闭的 `PAYMENT_TEST_MODE`，不要求独立服务或准备 SQL。
 
 ## 2. 现行模块规格
 

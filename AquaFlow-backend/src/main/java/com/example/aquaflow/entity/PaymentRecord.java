@@ -136,7 +136,7 @@ public class PaymentRecord {
                 && transactionNo != null && transactionNo.matches("SIM-WX:[0-9a-f-]{36}");
     }
 
-    public String getSimulationResultText() { return isSimulated() ? "模拟支付成功（未扣款）" : null; }
+    public String getSimulationResultText() { return isSimulated() ? "测试付款成功（不扣真实款）" : null; }
 
     /** 支付状态文案（0 未支付 / 1 待收款 / 2 已付款 / 3 已退款 / 4 已取消），真相源是 PaymentStatus */
     public String getStatusText() {

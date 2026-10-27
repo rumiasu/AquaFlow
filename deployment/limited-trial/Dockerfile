@@ -9,6 +9,7 @@ RUN install -d -m 0755 /opt/aquaflow
 COPY --chmod=0644 app.jar /opt/aquaflow/app.jar
 COPY --chmod=0644 entrypoint.sh /opt/aquaflow/entrypoint.sh
 ENV SPRING_PROFILES_ACTIVE=prod \
+    PAYMENT_TEST_MODE=false \
     DEV_LOGIN_ENABLED=false \
     MOCK_WECHAT_PAY=false \
     SERVER_FORWARD_HEADERS_STRATEGY=none \

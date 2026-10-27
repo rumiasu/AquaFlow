@@ -31,6 +31,10 @@ function run(env, args = ['--check-only']) {
 test('synthetic configuration checks without starting Java or connecting', () => {
   const r = run(fixture()); assert.strictEqual(r.status, 0); assert.match(r.text, /AQUAFLOW_TRIAL_CONFIG_SHAPE_OK/)
 })
+test('existing prod entry accepts one explicit payment test switch without sandbox preparation', () => {
+  assert.strictEqual(run({ ...fixture(), PAYMENT_TEST_MODE: 'true' }).status, 0)
+  assert.strictEqual(run({ ...fixture(), PAYMENT_TEST_MODE: 'not-a-boolean' }).status, 2)
+})
 for (const key of requiredKeys) test('missing '+key+' refuses before launch', () => {
   const e = fixture(); delete e[key]; const r = run(e, []); assert.strictEqual(r.status, 2); assert.ok(r.text.includes(key))
 })

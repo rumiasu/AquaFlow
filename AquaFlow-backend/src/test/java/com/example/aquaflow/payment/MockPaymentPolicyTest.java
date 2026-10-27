@@ -55,6 +55,22 @@ class MockPaymentPolicyTest {
         }
         verifyNoInteractions(ds);
     }
+    @Test void serverTestModeAloneSupportsExistingProdEntryWithoutDatabaseOrCustomerPreparation() {
+        var e = new MockEnvironment().withProperty("app.payment.test-mode", "true")
+                .withProperty("app.payment.mock-wechat-pay", "false")
+                .withProperty("spring.datasource.url", "jdbc:mysql://synthetic-managed-db.invalid:3306/aquaflow_trial");
+        e.setActiveProfiles("prod");var ds=mock(DataSource.class);var p=new MockPaymentPolicy(e,ds);
+        for(long id:new long[]{7,1001}) {
+            assertTrue(p.allows(id));customer(id);p.requireSelf(id);
+            var proof=(java.util.Map<?,?>)p.channel(id).get("simulationAuthorization");
+            assertEquals("SERVER_TEST",proof.get("scope"));assertEquals(id,proof.get("customerId"));
+            assertEquals("测试付款（不扣真实款）",p.channel(id).get("label"));
+        }
+        assertFalse(p.allows(null));assertFalse(p.allows(0L));verifyNoInteractions(ds);
+        customer(7);assertThrows(BusinessException.class,()->p.requireSelf(1001L));
+        AuthContext.set(new AuthContext.AuthUser(7L,"staff","STATION_MANAGER",1L));
+        assertThrows(BusinessException.class,()->p.requireSelf(7L));
+    }
     @Test void prodMixedAndUnknownProfilesRefuse() {
         for(String profile:new String[]{"prod","production","staging"}) {
             var e=environment(); e.setActiveProfiles("test",profile);

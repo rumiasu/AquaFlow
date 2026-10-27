@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestPropertySource(properties={"aquaflow.barrel.independent-rights-enabled=true",
         "aquaflow.barrel.maintenance-enabled=false","app.payment.mock-wechat-pay=true","app.payment.mock-customer-ids=1"})
 class IsolatedMockPaymentConcurrencyIntegrationTest extends AbstractIntegrationTest {
-    private long[] seed() {
+    protected long[] seed() {
         long station=createStation("隔离模拟站"), manager=createStaff("隔离站长","STATION_MANAGER",station,1);
         long customer=createCustomer("授权测试客户","isolated-mock-one"), product=createProduct("模拟桶装水",1,"10.00","30.00",0,"0.00");
         assertEquals(1,customer,"每例须在已确认独立库中清表，不能放宽白名单迁就非隔离数据");
@@ -39,7 +39,7 @@ class IsolatedMockPaymentConcurrencyIntegrationTest extends AbstractIntegrationT
         assertEquals(1,intOf("select pending_qty from barrel_right_reservation where owner_type='ORDER' and owner_id=? and status='ACTIVE'",order));
         return new long[]{station,manager,customer,product,address,order};
     }
-    private String body(long order) { return "{\"orderId\":"+order+",\"paymentMethod\":1,\"amount\":0.01}"; }
+    protected String body(long order) { return "{\"orderId\":"+order+",\"paymentMethod\":1,\"amount\":0.01}"; }
 
     @Test void capabilitiesUseAuthenticatedCustomerAndNeverCreateMoney() {
         long[] s=seed();
@@ -54,12 +54,12 @@ class IsolatedMockPaymentConcurrencyIntegrationTest extends AbstractIntegrationT
         assertEquals(0,intOf("select count(*) from payment_record"));assertEquals(0,intOf("select count(*) from deposit_record"));
     }
 
-    private void money(String expected,String sql,Object... args) {
+    protected void money(String expected,String sql,Object... args) {
         assertEquals(0,new BigDecimal(expected).compareTo(decimalOf(sql,args)),sql);
     }
 
     /** 同一归属的原款、押金批次和分配必须成套落账；付款尚未交出实物。 */
-    private void assertPaid(long[] s,long payment) {
+    protected void assertPaid(long[] s,long payment) {
         assertTrue(payment>0);
         assertEquals(OrderStatus.PENDING,intOf("select status from orders where id=?",s[5]));
         assertEquals(PaymentStatus.PAID,intOf("select payment_status from orders where id=?",s[5]));

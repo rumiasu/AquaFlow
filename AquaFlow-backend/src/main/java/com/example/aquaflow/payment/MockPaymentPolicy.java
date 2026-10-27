@@ -15,16 +15,20 @@ import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.util.Map;
 
-/** 模拟渠道只可在已核实的本机合成测试或独立云 sandbox 运行；小程序版本不构成授权。 */
+/** 服务端显式测试模式授权模拟；小程序版本或请求参数不能开启它。旧合成测试配置仍兼容。 */
 @Component
 public final class MockPaymentPolicy {
     public static final String PREFIX = "SIM-WX:";
     private final boolean enabled;
     private final Set<Long> customers;
     private final PaymentSandboxBinding sandbox;
+    private final boolean testMode;
 
     public MockPaymentPolicy(Environment environment, DataSource datasource) {
-        enabled = environment.getProperty("app.payment.mock-wechat-pay", Boolean.class, false);
+        testMode = environment.getProperty("app.payment.test-mode", Boolean.class, false);
+        enabled = testMode || environment.getProperty("app.payment.mock-wechat-pay", Boolean.class, false);
+        // 2026-10-27：已确认的全测试部署只需一个服务端开关，不再要求逐户/实例/标记准备。
+        if (testMode) { sandbox = null; customers = Set.of(); return; }
         sandbox = PaymentSandboxBinding.active(environment) ? PaymentSandboxBinding.from(environment) : null;
         if (!enabled) { customers = Set.of(); return; }
         Set<String> profiles = Set.copyOf(Arrays.asList(environment.getActiveProfiles()));
@@ -70,15 +74,16 @@ public final class MockPaymentPolicy {
         return true;
     }
 
-    public boolean allows(Long customer) { return enabled && customer != null && customers.contains(customer); }
+    public boolean allows(Long customer) { return enabled && customer != null && customer > 0 && (testMode || customers.contains(customer)); }
 
     /** Authenticated customer capability; the write path independently rechecks policy and order ownership. */
     public Map<String,Object> channel(Long customer) {
         Map<String,Object> channel=PayMethod.payChannel(PayMethod.WECHAT,allows(customer));
+        if (testMode && allows(customer)) channel.put("label", "测试付款（不扣真实款）");
         if(allows(customer)) {
             Map<String,Object> authorization=new java.util.LinkedHashMap<>();
             authorization.put("version",1);authorization.put("customerId",customer);
-            authorization.put("scope",sandbox==null?"LOCAL_TEST":"PAYMENT_SANDBOX");
+            authorization.put("scope",testMode?"SERVER_TEST":sandbox==null?"LOCAL_TEST":"PAYMENT_SANDBOX");
             if(sandbox!=null) {
                 authorization.put("environmentId",sandbox.environmentId());authorization.put("serviceId",sandbox.serviceId());
                 authorization.put("bindingId",sandbox.bindingId());

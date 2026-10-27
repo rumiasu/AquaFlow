@@ -45,7 +45,9 @@ app:
     # 全部照跑，一个字没放宽。退款路径随之联动，见 PaymentService 接口头的说明。
     #
     # ⚠️ 真实渠道接入时应**删掉**这个开关与 PaymentServiceImpl.isMockWechatPay，
-    #    而不是把它留成"永真"。旧 local 配置须同时满足下列显式隔离与账号授权。
+    #    而不是把它留成"永真"。旧 local 配置仍走下面的合成测试兼容约束。
+    # 全测试部署沿用现有启动方式，仅显式开启此变量；不改变登录、金额及事务确认。
+    test-mode: ${PAYMENT_TEST_MODE:false}
     mock-wechat-pay: ${MOCK_WECHAT_PAY:false}
     # test 只允许受限本机合成库；payment-sandbox 另验明确部署/实例/标记，见 deployment/payment-sandbox。
     mock-isolated-environment: ${MOCK_PAYMENT_ISOLATED:false}

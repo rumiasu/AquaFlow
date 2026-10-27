@@ -28,10 +28,10 @@ import java.util.List;
  *       这才是安全默认。</li>
  * </ul>
  *
- * <p><b>唯一闸</b>：{@code @Profile("!prod & !payment-sandbox")}（与 {@code DevLoginController} 同一手法，
+ * <p><b>profile 闸</b>：{@code @Profile("!prod & !payment-sandbox")}（与 {@code DevLoginController} 同一手法，
  * prod 和独立云 sandbox 下本 Bean 均不存在）。原 {@code app.password-initializer.enabled} 开关已于 2026-09-29
- * 随拍板 A 一并删除（见下），非 prod 是否补密码不再可配 —— 本地/测试库需要默认口令的既有用例与
- * seed 脚本依赖它一直开着，没有关的需求。</p>
+ * 随拍板 A 一并删除（见下），显式测试付款模式也不创建本 Bean；其余本地/合成测试需要默认口令的既有用例与
+ * seed 脚本继续使用原行为。</p>
  *
  * <p>写库走 {@link StaffMapper#updatePasswordIfEmpty}（CAS 只填空），不再用整行覆盖的
  * {@code update()}：补密码这件小事不该握着改 role / station_id 的能力。</p>
@@ -44,6 +44,7 @@ import java.util.List;
 @Order(1)
 // 2026-10-27：云测试使用真实微信登录，不能因换 sandbox profile 就补公开默认密码。
 @Profile("!prod & !payment-sandbox")
+@org.springframework.boot.autoconfigure.condition.ConditionalOnExpression("!${app.payment.test-mode:false}")
 public class PasswordInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(PasswordInitializer.class);

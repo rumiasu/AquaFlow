@@ -12,6 +12,17 @@ import static org.mockito.Mockito.*;
 
 /** Real Spring profile/BPP selection without any network or business database. */
 class PaymentSandboxStartupTest {
+    @Test void simpleTestModeDoesNotCreateDefaultPasswordsOrDevLoginOnAnyExistingProfile() {
+        for(String profile:new String[]{"prod","local","test"}) {
+            try(var context=new AnnotationConfigApplicationContext()) {
+                var e=new org.springframework.mock.env.MockEnvironment().withProperty("app.payment.test-mode","true")
+                        .withProperty("app.dev-login-enabled","true");e.setActiveProfiles(profile);context.setEnvironment(e);
+                context.register(PasswordInitializer.class,DevLoginController.class);context.refresh();
+                assertTrue(context.getBeansOfType(PasswordInitializer.class).isEmpty());
+                assertTrue(context.getBeansOfType(DevLoginController.class).isEmpty());
+            }
+        }
+    }
     @Test void sandboxHasNeitherPasswordInitializationNorDevLoginAndDoesNotBorrowConnection() {
         var source=mock(DataSource.class);var staff=mock(StaffMapper.class);
         try(var context=new AnnotationConfigApplicationContext()) {

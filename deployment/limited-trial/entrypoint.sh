@@ -26,6 +26,8 @@ case "$DB_URL" in jdbc:mysql://*) : ;; *) reject 'DB_URL must be a MySQL JDBC UR
 [ "${SPRING_PROFILES_ACTIVE:-}" = prod ] || reject 'SPRING_PROFILES_ACTIVE must be prod'
 [ "${DEV_LOGIN_ENABLED:-}" = false ] || reject 'DEV_LOGIN_ENABLED must be false'
 [ "${MOCK_WECHAT_PAY:-}" = false ] || reject 'MOCK_WECHAT_PAY must be false'
+# Existing test service keeps the prod entry. Only this explicit server setting opts into simulated receipts.
+case "${PAYMENT_TEST_MODE:-false}" in true|false) : ;; *) reject 'PAYMENT_TEST_MODE must be true or false' ;; esac
 [ "${APP_DEV_LOGIN_ENABLED:-false}" = false ] || reject 'APP_DEV_LOGIN_ENABLED must be false'
 [ "${APP_PAYMENT_MOCK_WECHAT_PAY:-false}" = false ] || reject 'APP_PAYMENT_MOCK_WECHAT_PAY must be false'
 [ "${SERVER_FORWARD_HEADERS_STRATEGY:-}" = none ] || reject 'SERVER_FORWARD_HEADERS_STRATEGY must be none'

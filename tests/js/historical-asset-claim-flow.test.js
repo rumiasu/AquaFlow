@@ -52,6 +52,30 @@ test('natural entries and both native page registrations exist without a new cor
 test('customer reads a true empty history and can prepare a claim without a prior binding', async () => {
   const t = user(); await t.page.onShow(); assert.equal(t.page.data.ready, true); assert.deepStrictEqual(t.page.data.records, []); assert.equal(t.page.data.catalog.length, 1)
 })
+test('product cards preserve image and spec, and unavailable image falls back without losing the form', async () => {
+  const t = user({ products: async () => ok([{ ...product, imageUrl: '/assets/product/example.png' }]) }); await t.page.onShow()
+  assert.equal(t.page.data.catalog[0].imageUrl, '/assets/product/example.png')
+  t.page.onAddProduct({ currentTarget: { dataset: { index: 0 } } })
+  assert.equal(t.page.data.form.items[0].spec, '18.5L')
+  t.page.onImageError({ currentTarget: { dataset: { index: 0 } } })
+  assert.equal(t.page.data.catalog[0].imageUrl, ''); assert.equal(t.page.data.form.items.length, 1)
+})
+test('empty deposit is not treated as zero and drafts survive station changes and reopening', async () => {
+  const t = user(); await t.page.onShow()
+  t.page.onAddProduct({ currentTarget: { dataset: { index: 0 } } })
+  t.page.onField(ev('rights', '2', 0)); t.page.onField(ev('note', '旧押金条'))
+  await t.page.onSubmit(); assert.equal(t.calls.length, 0); assert(t.page.data.error)
+  await t.page.onStation({ detail: { value: '1' } }); assert.equal(t.page.data.form.items.length, 0)
+  await t.page.onStation({ detail: { value: '0' } }); assert.equal(t.page.data.form.items[0].rights, '2')
+  t.page.onUnload(); const next = user({}, t); await next.page.onShow()
+  assert.equal(next.page.data.form.note, '旧押金条'); assert.equal(next.page.data.form.depositBalance, '')
+})
+test('a failed draft save does not discard the form when changing station', async () => {
+  const t = user(); await t.page.onShow(); fill(t)
+  t.wx.setStorageSync = () => { throw Error('disk failure') }
+  await t.page.onStation({ detail: { value: '1' } })
+  assert.equal(t.page.data.stationId, 1); assert.equal(t.page.data.form.depositBalance, '75.00'); assert(t.page.data.notice)
+})
 test('submit is the customer confirmation; pending receipt is never labelled effective', async () => {
   const t = user(); await t.page.onShow(); fill(t); await t.page.onSubmit()
   assert.equal(t.calls.length, 1); assert.equal(t.calls[0].confirmed, true); assert.equal(t.calls[0].depositBalance, '75.00')

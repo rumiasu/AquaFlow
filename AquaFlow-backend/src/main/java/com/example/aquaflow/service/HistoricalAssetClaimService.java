@@ -7,6 +7,7 @@ import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.*;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.BarrelScope;
+import com.example.aquaflow.util.ProductImageResolver;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
@@ -31,12 +32,13 @@ public class HistoricalAssetClaimService {
     private final StationAdjustmentService adjustments;
     private final ObjectMapper json=new ObjectMapper();
     private final Validator validator;
+    private final ProductImageResolver images;
 
     public HistoricalAssetClaimService(HistoricalAssetClaimMapper claims,CustomerStationConfigMapper bindings,
         StationMapper stations,ProductMapper products,InventoryMapper inventories,BarrelLedgerService barrels,
-        StationAdjustmentService adjustments,Validator validator) {
+        StationAdjustmentService adjustments,Validator validator,ProductImageResolver images) {
         this.claims=claims;this.bindings=bindings;this.stations=stations;this.products=products;
-        this.inventories=inventories;this.barrels=barrels;this.adjustments=adjustments;this.validator=validator;
+        this.inventories=inventories;this.barrels=barrels;this.adjustments=adjustments;this.validator=validator;this.images=images;
     }
 
     @Transactional(rollbackFor=Exception.class)
@@ -70,7 +72,8 @@ public class HistoricalAssetClaimService {
     public List<HistoricalAssetClaimDTO.ProductOption> catalog(Long station) {
         AuthContext.requireCustomerId();
         if(station==null||stations.getById(station)==null) throw new BusinessException("水站不存在");
-        return claims.catalog(station);
+        return claims.catalog(station).stream().map(p -> new HistoricalAssetClaimDTO.ProductOption(
+            p.id(),p.name(),p.spec(),p.category(),null,images.resolve(p.imageObjectName()))).toList();
     }
     public List<HistoricalAssetClaim> pending() { return claims.pending(managerStation()); }
     public HistoricalAssetClaim managerDetail(Long id) {

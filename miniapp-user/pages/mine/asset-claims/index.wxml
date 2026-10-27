@@ -1,44 +1,45 @@
 <view class="claim-page">
-  <view class="claim-banner">历史资产认领不发起付款或退款。提交表示你已核对清单，水站核对通过后即入账，可在此查看结果。</view>
+  <view class="claim-banner">补录以前在水站的桶权益、押金和水票。提交后由水站核对。</view>
   <view class="claim-card">
-    <text class="claim-title">认领水站</text>
+    <text class="claim-title">选择水站</text>
     <picker range="{{stations}}" range-key="name" bindchange="onStation" disabled="{{submitting || !stations.length}}">
       <view class="claim-picker">{{stationName}}　›</view>
     </picker>
-    <text class="claim-muted" wx:if="{{stationId}}">水站编号：{{stationId}} · 此处选站不改变订水清单</text>
     <view class="claim-error" wx:if="{{stationsError}}" bindtap="loadStations">{{stationsError}} · 点击重试</view>
   </view>
   <view class="claim-error" wx:if="{{error}}">{{error}}</view>
   <button class="claim-primary" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
   <view class="claim-notice" wx:if="{{notice}}">{{notice}}</view>
-  <button class="claim-secondary" wx:if="{{stationId}}" loading="{{loading}}" disabled="{{loading || submitting}}" bindtap="onRetry">刷新认领记录</button>
+  <view class="claim-heading" wx:if="{{stationId}}"><text class="claim-title">认领记录</text><button class="claim-refresh" loading="{{loading}}" disabled="{{loading || submitting}}" bindtap="onRetry">刷新</button></view>
   <view class="claim-muted" wx:if="{{loading}}">正在核实认领信息…</view>
 
   <view class="claim-card" wx:if="{{canCreate || pending}}">
-    <text class="claim-title">{{pending ? '原申请清单（结果待确认）' : '填写历史资产'}}</text>
+    <text class="claim-title">{{pending ? '原申请（结果待确认）' : '填写以前的权益'}}</text>
     <view class="claim-field">
-      <text>历史实收押金余额（元）</text>
-      <input class="claim-input" type="digit" maxlength="12" value="{{form.depositBalance}}" data-field="depositBalance" bindinput="onField" disabled="{{pending || submitting}}" />
-      <text class="claim-muted">填写水站实际保管的旧押金余额，与桶容量单价分开核对。</text>
+      <text>以前交的押金总额（元）</text>
+      <input class="claim-input" type="digit" maxlength="12" value="{{form.depositBalance}}" data-field="depositBalance" bindinput="onField" disabled="{{pending || submitting}}" placeholder="请输入金额，没有填0" />
     </view>
     <view class="claim-field" wx:if="{{!pending}}">
-      <picker range="{{catalog}}" range-key="name" value="{{productIndex}}" bindchange="onProduct" disabled="{{submitting || !catalog.length}}">
-        <view class="claim-picker">{{productIndex >= 0 ? catalog[productIndex].name : '选择需要认领的历史商品'}}　›</view>
-      </picker>
-      <button class="claim-secondary" bindtap="onAddProduct" disabled="{{productIndex < 0 || submitting}}">添加商品</button>
-      <text class="claim-muted" wx:if="{{!catalog.length}}">本站暂未配置可认领商品；如仅核对旧押金，可不添加商品。</text>
+      <text class="claim-title">选择以前的商品</text>
+      <view class="claim-product" wx:for="{{catalog}}" wx:key="id" data-index="{{index}}" bindtap="onAddProduct">
+        <image wx:if="{{item.imageUrl}}" class="claim-product-image" src="{{item.imageUrl}}" mode="aspectFit" data-index="{{index}}" binderror="onImageError" />
+        <view wx:else class="claim-product-image claim-no-image">暂无图片</view>
+        <view class="claim-product-info"><text class="claim-title">{{item.name}}</text><text class="claim-muted" wx:if="{{item.spec}}">{{item.spec}}</text></view>
+        <text class="claim-add">添加 +</text>
+      </view>
+      <text class="claim-muted" wx:if="{{!catalog.length}}">暂无商品，可只填写押金。</text>
     </view>
     <view class="claim-line" wx:for="{{form.items}}" wx:key="productId">
-      <text class="claim-title">{{item.name}} · 商品 #{{item.productId}}</text>
+      <text class="claim-title">{{item.name}} {{item.spec}}</text>
       <block wx:if="{{pending || item.category === 1}}">
-        <view class="claim-field"><text>已付用桶权益（份）</text><input class="claim-input" type="number" maxlength="10" value="{{item.rights}}" data-index="{{index}}" data-field="rights" bindinput="onField" disabled="{{pending || submitting}}" /></view>
+        <view class="claim-field"><text>已付的桶权益（桶）</text><input class="claim-input" type="number" maxlength="10" value="{{item.rights}}" data-index="{{index}}" data-field="rights" bindinput="onField" disabled="{{pending || submitting}}" /></view>
         <view class="claim-field"><text>实际持有水桶（只）</text><input class="claim-input" type="number" maxlength="10" value="{{item.held}}" data-index="{{index}}" data-field="held" bindinput="onField" disabled="{{pending || submitting}}" /></view>
-        <view class="claim-field"><text>已核实历史桶单价（元/份，可不填）</text><input class="claim-input" type="digit" maxlength="12" value="{{item.unitPrice}}" data-index="{{index}}" data-field="unitPrice" bindinput="onField" disabled="{{pending || submitting}}" placeholder="未填写时按补录规则推断" /></view>
+        <view class="claim-field"><text>以前每桶权益金额（元，选填）</text><input class="claim-input" type="digit" maxlength="12" value="{{item.unitPrice}}" data-index="{{index}}" data-field="unitPrice" bindinput="onField" disabled="{{pending || submitting}}" placeholder="不清楚可留空" /></view>
       </block>
       <view class="claim-field"><text>历史水票（张）</text><input class="claim-input" type="number" maxlength="10" value="{{item.tickets}}" data-index="{{index}}" data-field="tickets" bindinput="onField" disabled="{{pending || submitting}}" /></view>
       <button class="claim-secondary" wx:if="{{!pending}}" data-index="{{index}}" bindtap="onRemoveProduct" disabled="{{submitting}}">移除此行</button>
     </view>
-    <view class="claim-field"><text>历史材料与核对说明（必填，最多500字）</text><textarea class="claim-input claim-textarea" value="{{form.note}}" maxlength="500" data-field="note" bindinput="onField" disabled="{{pending || submitting}}" placeholder="说明旧台账、商品及桶票数量，便于本站核对" /></view>
+    <view class="claim-field"><text>补充说明（必填）</text><textarea class="claim-input claim-textarea" value="{{form.note}}" maxlength="500" data-field="note" bindinput="onField" disabled="{{pending || submitting}}" placeholder="填写便于水站核对的信息" /></view>
     <button class="claim-primary" wx:if="{{!pending}}" bindtap="onSubmit" loading="{{submitting}}" disabled="{{!canCreate || submitting}}">确认清单并提交</button>
     <button class="claim-primary" wx:else bindtap="onRecover" loading="{{submitting}}" disabled="{{!ready || loading || submitting}}">恢复原申请</button>
     <text class="claim-muted" wx:if="{{pending}}">原清单和申请凭据已保留，恢复时沿用原申请，不重新申请。</text>

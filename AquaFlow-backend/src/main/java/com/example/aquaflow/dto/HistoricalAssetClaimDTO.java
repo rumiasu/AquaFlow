@@ -24,5 +24,5 @@ public record HistoricalAssetClaimDTO(
     ) {}
     public record Review(@NotNull Boolean approve, @Size(max=500) String note) {}
     /** 认领选择用，含本站下架商品；不提供库存、成本或交易价格。 */
-    public record ProductOption(Long id, String name, String spec, Integer category) {}
+    public record ProductOption(Long id, String name, String spec, Integer category, String imageObjectName, String imageUrl) {}
 }

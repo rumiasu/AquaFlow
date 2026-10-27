@@ -669,3 +669,4 @@
     </view>
   </view>
 </root-portal>
+<business-dialog id="business-dialog" />

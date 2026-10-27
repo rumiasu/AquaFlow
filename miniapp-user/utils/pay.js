@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('./business-dialog')
 // 支付结果提示（全端统一语义）
 const { isReleaseEnv } = require('../config/api')
 //
@@ -39,7 +40,7 @@ const notifyPayResult = (record) => {
     return false
   }
   // PENDING / UNPAID：款项尚未到账，明确告知客户接下来会发生什么
-  wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+  showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
     title: '等待收款确认',
     content: '付款信息已提交，需水站确认收款后订单才算完成。如长时间未确认请联系水站。',
     showCancel: false,

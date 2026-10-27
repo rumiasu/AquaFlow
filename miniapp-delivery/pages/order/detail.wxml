@@ -319,7 +319,8 @@
 </view>
 
 <view wx:if="{{uploadRecoveryCases.length || uploadRecoveryReadFailed}}" class="upload-recovery-panel">
-  <text>待核实图片记录</text>
+  <button size="mini" bindtap="onToggleUploadRecovery">{{uploadRecoveryReadFailed ? '图片异常记录读取失败' : '图片上传异常（' + uploadRecoveryCases.length + '）'}} · {{uploadRecoveryExpanded ? '收起' : '查看'}}</button>
+  <block wx:if="{{uploadRecoveryExpanded}}">
   <view wx:if="{{uploadRecoverySelection}}">
     <text>待确认图片 #{{uploadRecoverySelection.imageId}}</text>
     <view class="ui-proof-image ui-proof-frame" ><image src="{{uploadRecoverySelection.url}}" mode="aspectFit" bindtap="onUploadPreviewSelected" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{uploadRecoverySelection.url}}" wx:if="{{!displayImageErrors[uploadRecoverySelection.url]}}" /><view class="ui-image-fallback" wx:else bindtap="onUploadPreviewSelected" >图片暂无法显示，点此预览原图</view></view>
@@ -330,4 +331,6 @@
     <text>{{item.label}}</text>
     <button size="mini" disabled="{{uploadRecovering}}" data-caseid="{{item.id}}" bindtap="onUploadRecover">核实图片</button>
   </view>
+  </block>
 </view>
+<business-dialog id="business-dialog" />

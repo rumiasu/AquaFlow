@@ -29,6 +29,7 @@ function fixture() {
       getCurrentPages: () => [{ route: 'pages/home/index' }], setTimeout, clearTimeout,
       console: { log() {}, warn() {}, error() {} },
       require(id) {
+        if (id.endsWith("business-dialog")) return { showBusinessModal: options => wx.showModal(options) }
         if (id.includes('storage-keys')) return dependencies.keys
         if (id.endsWith('config/api')) return config
         if (id.endsWith('/navigation')) return dependencies.navigation

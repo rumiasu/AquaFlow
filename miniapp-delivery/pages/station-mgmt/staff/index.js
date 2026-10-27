@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 // 站长端「员工」——员工列表 + 员工画像入口 + 绑定/解绑申请审核。
 //
 // [2026-09-19 IA 重组] 这里合并了原先散在「我的」tab 里的第二份员工管理
@@ -222,7 +223,7 @@ Page({
 
   onDetach(e) {
     const { id, name } = e.currentTarget.dataset
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '解除绑定',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '解除绑定',
       title: '解除所属',
       content: `确定解除配送员「${name}」的所属关系？`,
       success: async (res) => {

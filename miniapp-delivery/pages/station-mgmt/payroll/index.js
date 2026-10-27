@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 // ⚠️ 直接用 utils/request，不引 api/station-mgmt.js 与 config/api.js：
 // 那两个文件正被另一个工作流（商品图片库）改动，共用会让两边未提交的改动纠缠在一起。
 // 路径常量写在本文件里，理由同上。
@@ -606,7 +607,7 @@ Page({
         note: f.note || null
       })
       const p = (res.data || {}).payroll || {}
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '结算单已生成',
         content: (p.payrollNo || '') + '\n合计 ¥' + p.totalAmount + '\n（状态：' + (p.statusText || '') + '）',
         showCancel: false
@@ -682,7 +683,7 @@ Page({
     this.setData({ payrollBusyId: id })
     let consumed = false
     const that = this
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: action === 'pay' ? '登记已实际发放' : '确认结算单',
       confirmText: buttonText || '确认办理',
       cancelText: '暂不办理',
@@ -859,7 +860,7 @@ Page({
     this.setData({ itemBusyId: id })
     let consumed = false
     const that = this
-    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',  confirmText: '确认删除',
+    showBusinessModal({ confirmColor: '#BD3328', cancelColor: '#637083',  confirmText: '确认删除',
       title: '删除条目',
       content: '删除「' + it.name + '」？已被工资流水用过的条目不能删，只能停用。',
       success(r) {
@@ -1001,7 +1002,7 @@ Page({
   },
 
   onShowHelp() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
       title: '计件工资怎么算',
       content: '按商品数量计件，不按单：单位随商品显示，' +
         '楼层补贴按超过免费层数的层数算。商品专属价优先，没配的商品用「默认单价」。\n\n' +

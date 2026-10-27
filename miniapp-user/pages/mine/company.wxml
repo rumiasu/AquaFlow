@@ -38,3 +38,4 @@
     <text class="state-title">尚未登记企业资料</text><text class="state-note">请联系水站登记企业信息，登记后可在这里维护。</text><button class="state-button secondary" bindtap="onRetry">刷新资料</button>
   </view>
 </view>
+<business-dialog id="business-dialog" />

@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { initialModuleData, moduleTaskPatch, refreshModuleTasks } = require('../../../utils/setup-progress')
 // ⚠️ 这里直接用 utils/request 而不是 api/station-mgmt.js 的封装（含 2026-09-19 加的 /api/manager/setup-guide）：
 // 后者的接口清单当前正被另一个工作流（商品图片库）改动，共用文件会让两边未提交的改动纠缠在一起。
@@ -496,7 +497,7 @@ Page({
       wx.navigateBack({ delta: 1, fail: () => this.syncFeeExitGuard() })
     }
     if (!this.data.hasUnsavedChanges && this.data.configured && !this.data.saveError) return leave()
-    wx.showModal({ title: '计费规则尚未保存', content: '上线准备还未完成。离开后可继续本机草稿，当前订单仍按已保存规则计算。',
+    showBusinessModal({ title: '计费规则尚未保存', content: '上线准备还未完成。离开后可继续本机草稿，当前订单仍按已保存规则计算。',
       confirmText: '暂时离开', cancelText: '继续填写', success: res => { if (res.confirm) leave() } })
   },
   updateFeeDraft(form, enabled, extra = {}) {

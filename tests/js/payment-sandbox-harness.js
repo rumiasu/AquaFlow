@@ -24,7 +24,7 @@ function fixture(options = {}) {
     if (cache.has(file)) return cache.get(file)
     const module = { exports: {} }; cache.set(file, module.exports)
     const context = { module, wx: { showToast: x => toast.push(x), showModal: x => modal.push(x) }, require(name) {
-      const p = path.resolve(path.dirname(file), name + (name.endsWith('.js') ? '' : '.js'))
+      const p = path.resolve(path.dirname(file), name + (name.endsWith('.js') ? '' : '.js')).replace(/\\/g, '/')
       if (p.endsWith('/utils/request.js')) return request
       if (p.endsWith('/config/api.js')) return config
       if (p.endsWith('/utils/token.js')) return token

@@ -12,9 +12,8 @@ import java.time.LocalDateTime;
  * <p><b>只存经营参数，不存计算结果</b> —— 算出来的费用落在 {@code orders.delivery_fee} /
  * {@code orders.floor_fee} 上（下单时快照），因为站长改配置不能改到历史订单的金额。</p>
  *
- * <p><b>「没配」= 不收费、不拦单</b>：{@link #defaults(Long)} 给出一份全 0 的配置，
- * 所以「该站没有配置行」与「配置全是 0」行为完全一致，不需要在业务里到处判 null。
- * 这一条很重要 —— 本表是后加的，存量水站全都没有配置行，它们的下单行为必须**一个字都不变**。</p>
+ * <p><b>编辑器默认值（不代表站长已确认计费）</b>：{@link #defaults(Long)} 给出一份全 0 的配置，
+ * 报价与下单入口要求配置行存在；只有明确保存全 0 才代表站长确认不收费。</p>
  */
 @Data
 public class StationDeliveryConfig {

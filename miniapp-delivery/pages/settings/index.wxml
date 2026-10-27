@@ -70,3 +70,4 @@
     <text class="version-text">水站员工端 · 版本 1.0.0</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

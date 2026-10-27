@@ -172,6 +172,24 @@ await test('纯瓶装水单：没有回桶这回事 —— 整块不渲染，也
 })
 
 // ---------------------------------------------------------------- C1 现金未收
+await test('零回桶只需一次确认，重复点击和重复回调不重复提交', async () => {
+  const { page, calls, wx } = newPage(paidOrder())
+  await page.loadOrder(55)
+  page.setData({ items: page.data.items.map(item => ({ ...item, actual: 0, discrepancy: item.expected })) })
+  wx.__modalAutoConfirm = false
+  await page.onConfirmComplete()
+  await page.onConfirmComplete()
+  assert.strictEqual(wx.__calls.modal.length, 1)
+  const modal = wx.__calls.modal[0]
+  assert.ok(modal.content.includes('实回 0 桶'))
+  assert.strictEqual(calls.completeOrder.length, 0)
+  modal.success({ confirm: true })
+  modal.success({ confirm: true })
+  await new Promise(resolve => setTimeout(resolve, 10))
+  assert.strictEqual(calls.completeOrder.length, 1)
+  assert.strictEqual(calls.completeOrder[0].body.itemReturns[0].actual, 0)
+})
+
 await test('现金未收款：没表态就不许提交（不默认已收、也不默认未收）', async () => {
   const { page, calls, wx } = newPage(baseOrder())
   await page.loadOrder(55)

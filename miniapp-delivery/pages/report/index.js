@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { submitFeedback, getMyFeedbacks } = require('../../api/feedback')
 
 function feedbackOwner() {
@@ -156,7 +157,7 @@ Page({
     const draft = { category, content, contact }
     const confirmation = { owner, generation: this._pageGeneration || 0, draft }
     this._feedbackConfirmation = confirmation
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '提交反馈',
       content: '感谢您的反馈，我们会尽快处理',
       confirmText: '确认提交',

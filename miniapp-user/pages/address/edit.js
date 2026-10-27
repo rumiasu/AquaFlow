@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { getAddressDetail, getAddresses, createAddress, updateAddress } = require('../../api/address')
 const { validateForm, rules } = require('../../utils/validator')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
@@ -212,7 +213,7 @@ Page({
   _showLocationPermission(operation) {
     if (!this._isCurrentLocation(operation)) return
     operation.phase = 'permission'
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '需要位置权限',
       content: '请在设置中开启位置权限，也可继续手动填写地址。',
       confirmText: '去设置',
@@ -340,7 +341,7 @@ Page({
         : rejected ? '地址未保存，输入已保留，请核对信息后重试。'
           : '暂未收到保存结果，输入已保留，可直接重试。' })
       if (denied) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '暂时无法保存',
           content: '当前账号无法保存此地址，请使用所属客户账号重新登录。已填内容保留。',
           showCancel: false,

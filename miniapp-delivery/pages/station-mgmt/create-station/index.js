@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { post } = require('../../../utils/request')
 const { API } = require('../../../config/api')
 // 与客户端收货地址共用同一套省市区拆分规则，避免同一串定位结果两端拆得不一样
@@ -49,7 +50,7 @@ Page({
    * 没有出口就只能在"必须建站"与"退不出"之间卡住。
    */
   onLogout() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '退出登录',
       content: '退出后可用其他微信账号登录。',
       confirmText: '退出',

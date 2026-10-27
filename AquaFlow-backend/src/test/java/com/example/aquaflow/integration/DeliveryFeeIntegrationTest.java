@@ -72,16 +72,20 @@ class DeliveryFeeIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("没配过配置的水站：费用恒 0，total 仍等于 水费 + 押金（升级前行为一个字不变）")
-    void unconfiguredStationBehavesAsBefore() {
-        long station = createStation("未配置站");
+    @DisplayName("未保存配送计费不能报价或下单，明确保存零费用后可下单")
+    void unconfiguredStationCannotMasqueradeAsZeroFees() {
+        long station = createUnconfiguredStation("未配置站");
         long manager = createStaff("未配置站长", "STATION_MANAGER", station, 1);
         long customer = createCustomer("未配置客户", "feecfg-none-openid");
         long address = createAddress(customer, "未配置小区 1 号");
         long product = createProduct("未配置水", 1, "20.00", "30.00", 0, "0.00");
         createInventoryFull(station, product, 100, 0, "0.00");
 
-        Api created = order(customerToken(customer), station, address, product, 2);
+        String customerAuth = customerToken(customer);
+        assertTrue(quote(customerAuth, station, address, product, 2).code() != 0);
+        assertTrue(order(customerAuth, station, address, product, 2).code() != 0);
+        assertEquals(0, put("/api/manager/delivery-config", staffToken(manager, "STATION_MANAGER", station), "{\"baseDeliveryFee\":0}").code());
+        Api created = order(customerAuth, station, address, product, 2);
         assertEquals(0, created.code(), "下单: " + created);
         long orderId = created.data().path("orderId").asLong();
 
@@ -167,8 +171,8 @@ class DeliveryFeeIntegrationTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("配置 API：站点取自登录态、负值归零、非法模式回落 WARN")
     void configApiGuards() {
-        long station = createStation("配置站");
-        long otherStation = createStation("配置他站");
+        long station = createUnconfiguredStation("配置站");
+        long otherStation = createUnconfiguredStation("配置他站");
         long manager = createStaff("配置站长", "STATION_MANAGER", station, 1);
         String mgr = staffToken(manager, "STATION_MANAGER", station);
 

@@ -112,3 +112,4 @@
     <text class="tip-text">配送时间以水站安排为准，进度可在「查看订单」里看到</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

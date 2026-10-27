@@ -99,6 +99,9 @@ public class StationSetupGuideService {
     private StationDeliveryConfigMapper stationDeliveryConfigMapper;
 
     @Autowired
+    private DeliveryConfigGuideService deliveryConfigGuideService;
+
+    @Autowired
     private StaffMapper staffMapper;
 
     @Autowired
@@ -166,10 +169,14 @@ public class StationSetupGuideService {
                 "客户看不到任何商品就没法下单；「选品」不等于「上架」，还要填售价与库存",
                 null, onShelf.isEmpty() ? "先选 1~2 款常卖的水上架（其余可以后补）" : null));
 
-        boolean feeConfigured = stationDeliveryConfigMapper.getByStationId(stationId) != null;
-        items.add(item("deliveryFee", "配送计费", P0, feeConfigured, "配送计费",
-                "没保存过 = 起送量 / 配送范围 / 运费 / 楼层费一条都没生效（全按 0 处理）",
-                null, feeConfigured ? null : "哪怕本站不收配送费，也去页面点一次保存 —— 保存过才算「明确表示不收」"));
+        var feeConfig = stationDeliveryConfigMapper.getByStationId(stationId);
+        var missingAmounts = feeConfig == null || !deliveryConfigGuideService.hasNonBarrelOnShelf(stationId)
+                ? java.util.Collections.<String>emptyList() : deliveryConfigGuideService.missingAmountFields(feeConfig);
+        boolean feeReady = feeConfig != null && missingAmounts.isEmpty();
+        String missingText = String.join("、", missingAmounts.stream().map(key -> "minOrderAmount".equals(key) ? "起送金额" : "免运费金额").collect(java.util.stream.Collectors.toList()));
+        items.add(item("deliveryFee", "配送计费", P0, feeReady, "配送计费",
+                feeConfig == null ? "尚未保存配送计费规则" : missingAmounts.isEmpty() ? "配送计费规则已保存" : "非桶装商品需要补充" + missingText,
+                null, feeReady ? null : feeConfig == null ? "到「配送计费」按教程设置并保存；不收费也请明确保存" : "到「配送计费」按教程填写" + missingText + "并保存"));
 
         // ---- P1：影响钱或客户体验 ----
         int deliveryStaff = 0;
@@ -247,27 +254,16 @@ public class StationSetupGuideService {
         result.put("summaryText", p0Pending > 0
                 ? "还需完成 " + p0Pending + " 项必填"
                 : "已具备上线条件");
-        result.put("onlineHint", onlineHintOf(station, p0Pending));
+        result.put("onlineHint", onlineHintOf(station, p0Pending, feeReady));
         return result;
     }
 
-    /**
-     * 「还差这些」之后那句"下一步做什么"（2026-09-24 产品要求：待填项那里加一句"全部填完可设置上线"）。
-     *
-     * <p>⚠️ 三种站况必须给**不同**的话，不能一句"配好就能上线"打天下：</p>
-     * <ul>
-     *   <li><b>已在营业 + 还有必填没配</b>（例：甘泉桶装水）—— 它早就在正常运营了，
-     *       对它说"配好就能上线"是**假话**，会让站长以为自己的站还没上线。这时候该说的是
-     *       "不影响接单，配好规则才算得准"。</li>
-     *   <li><b>待上线 + 还有必填没配</b> —— 这才是产品那句话的主场。</li>
-     *   <li><b>必填都配好了</b> —— 直接指向面板底部那个「设置营业状态」按钮（本仓口径：
-     *       文案要给出可执行的下一步，不要只说"已完成"）。</li>
-     * </ul>
-     *
-     * <p>营业状态是**软状态**（v32，见 {@code constant.StationOperatingStatus}）：这里只做提示，
-     * 文案里**不许**写成"不配好就不能营业"—— 系统从不因待填项阻断下单。</p>
-     */
-    private static String onlineHintOf(Station station, int p0Pending) {
+    /** 营业状态仍独立展示；计费缺项单独说明报价与下单边界，不阻止保存商品。 */
+    private static String onlineHintOf(Station station, int p0Pending, boolean feeReady) {
+        if (!feeReady) {
+            return "当前营业状态：" + (station == null ? "待核实" : station.getOperatingStatusText())
+                    + "；商品可先保存上架，配送计费完善前顾客暂不能下单";
+        }
         if (p0Pending <= 0) {
             return station != null && StationOperatingStatus.isPendingLaunch(station.getOperatingStatus())
                     ? "已具备上线条件，可到营业状态开始营业"

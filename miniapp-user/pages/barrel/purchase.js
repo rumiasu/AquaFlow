@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { getStationProducts } = require('../../api/product')
 const { quoteBarrelRight, purchaseBarrelRight, getBarrelRightPurchases, withdrawBarrelRightPurchase } = require('../../api/barrel')
 const { resolveStationId } = require('../../utils/station')
@@ -192,7 +193,7 @@ Page({
       return
     }
     this._withdrawPromptOpen = true
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '撤回未付款的押金购买', content: '已交钱但尚未确认的，请先联系水站核实收款；已确认押金须走退还申请。', success: async r => {
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '撤回未付款的押金购买', content: '已交钱但尚未确认的，请先联系水站核实收款；已确认押金须走退还申请。', success: async r => {
       this._withdrawPromptOpen = false
       if (!r.confirm) return
       const current = this.data.purchases.find(p => String(p.id) === String(id))
@@ -288,7 +289,7 @@ Page({
             ? (recovering ? '原押金已确认' : '本次桶押金已确认') + '，当前可用权益以资产页为准。若仍有待领取容量，水桶随下一次送水送达，本次新领的桶无需回空桶。押金与水款分别办理，本次仅办理桶押金，订水需另行提交。'
             : '请向该水站交付押金并索取收据。水站确认实际收款后，才可以使用这份权益买票和下单。'
       const returnToOrder = record.status === 'PAID' && res.data.status === 2 && this.canReturnToOrder(body.stationId)
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: recovering || res.data.status === 3 || record.status === 'CANCELLED'
           ? '原桶押金购买已查回' : (record.status === 'PAID' ? '桶押金已确认' : '桶押金待确认'),
         content: (res.data.simulated === true ? (res.data.simulationResultText || res.data.methodText || '模拟付款（未扣款）') + '。' : '') + content,
@@ -347,7 +348,7 @@ Page({
     const context = this.syncRecovery(), entry = this.originalFor(context)
     if (!entry || !this.data.canAnother || this.data.busy || this.data.recoveryBusy) return
     const seq = this._anotherSeq = (this._anotherSeq || 0) + 1
-    const confirm = await new Promise(resolve => wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '另买一笔桶押金',
+    const confirm = await new Promise(resolve => showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '另买一笔桶押金',
       content: '原购买仍会保留，新购买将另行登记。已交款但尚未确认的，请先联系原水站核实。',
       confirmText: '另买', cancelText: '返回', success: result => resolve(result.confirm), fail: () => resolve(false) }))
     if (!confirm || !isCurrentSession(context.session) || seq !== this._anotherSeq || this.data.busy || this.data.recoveryBusy) return

@@ -32,3 +32,4 @@
     <text class="tip-text">未绑定请联系站长录入</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

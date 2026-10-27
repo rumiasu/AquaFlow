@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../../utils/business-dialog')
 // 客户画像（站长视角）
 const { getCustomerProfile, getCustomerAssets, updateOfflinePayment, returnEmptyBuckets } = require('../../../../api/station-mgmt')
 const returnIntent = require('../../../../utils/return-empty-intent')
@@ -190,7 +191,7 @@ Page({
     const type = e.currentTarget.dataset.type
     const t = this.data.grantableTypes.find(x => x.type === type)
     if (!t) return
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认授予',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认授予',
       title: '授予特权',
       content: (t.text || '特权类型待核实') + '：' + (t.desc || ''),
       success: async (r) => {
@@ -209,7 +210,7 @@ Page({
   /** 撤销。后端在"本来就没有"时会报错——如实弹出，不要无条件提示成功（AGENTS §8.20）。 */
   onRevokePrivilege(e) {
     const type = e.currentTarget.dataset.type
-    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',  confirmText: '确认撤销',
+    showBusinessModal({ confirmColor: '#BD3328', cancelColor: '#637083',  confirmText: '确认撤销',
       title: '撤销特权？',
       content: '撤销后该客户在本站立即恢复默认规则。',
       success: async (r) => {

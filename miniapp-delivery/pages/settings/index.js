@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 // 设置页
 const app = getApp()
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
@@ -120,7 +121,7 @@ Page({
   },
 
   onClearCache() {
-    wx.showModal({ cancelColor: '#637083',  confirmText: '清除缓存',
+    showBusinessModal({ cancelColor: '#637083',  confirmText: '清除缓存',
       title: '清除缓存',
       content: '清除本地缓存，不影响登录状态。确定继续吗？',
       confirmColor: '#A95516',
@@ -140,7 +141,7 @@ Page({
   },
 
   onLogout() {
-    wx.showModal({ cancelColor: '#637083',  confirmText: '退出登录',
+    showBusinessModal({ cancelColor: '#637083',  confirmText: '退出登录',
       title: '退出登录',
       content: '确定要退出登录吗？',
       confirmColor: '#BD3328',

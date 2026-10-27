@@ -4,7 +4,7 @@ const {pageFixture,unknownFromPage,event,image}=require('./page-recovery.test')
 const {flush,ok,observe}=require('./cloud-upload.mock.test')
 const {select,finalRead}=require('./persistence-page-boundaries.test')
 const KEY='aq_delivery_uploadRecovery_v1'
-function mutate(target,from,to){return(name,source)=>{if(name!==target)return source;assert(source.includes(from),'missing mutation anchor');return source.replace(from,to)}}
+function mutate(target,from,to){return(name,source)=>{if(name!==target)return source;source=source.replace(/\r\n/g,'\n');assert(source.includes(from),'missing mutation anchor');return source.replace(from,to)}}
 const controls=[
  {name:'remove-page-hidden-epoch-guard',change:mutate('upload-recovery-page','instance._uploadRecoveryActive && instance._uploadRecoveryEpoch === epoch &&',''),check:async change=>{
   const f=pageFixture('complete',new Map(),change),id=await unknownFromPage(f);await select(f,id);await finalRead(f);f.p.onHide();f.calls[2].resolve(ok([image]));await flush();assert.equal(f.api.uploadCases().length,1)}},

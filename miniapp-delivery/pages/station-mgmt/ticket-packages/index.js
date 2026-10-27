@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { jumpToSettingSection } = require('../../../utils/settings-sections')
 // ⚠️ 直接用 utils/request，不引 api/station-mgmt.js 与 config/api.js：
 // 那两个文件正被另一个工作流（商品图片库）改动，共用会让两边未提交的改动纠缠在一起。
@@ -438,7 +439,7 @@ Page({
     this.setData({ saving: true })
     this.hideKeyboard()
     let handled = false
-    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083', confirmText: '确认删除',
+    showBusinessModal({ confirmColor: '#BD3328', cancelColor: '#637083', confirmText: '确认删除',
       title: unified ? '删除这个折扣档？' : '删除这个档位？',
       content: '移除后顾客不能再选这一档。1 张档会保留停用占位，避免旧价格重新启用；已售水票及原付款记录不变。',
       success: async r => {
@@ -459,7 +460,7 @@ Page({
   },
 
   onHelp() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
       title: '档位怎么定',
       content: '【某款水的档位】挂"10 张 / 20 张 / 100 张"各卖多少钱，越买越便宜。' +
         '它是定价结构不是促销 —— 永远可买、不叠加、不互斥。\n\n' +

@@ -39,3 +39,4 @@
     <button class="empty-order-action" bindtap="onGoOrderHome">去订水</button>
   </view>
 </view>
+<business-dialog id="business-dialog" />

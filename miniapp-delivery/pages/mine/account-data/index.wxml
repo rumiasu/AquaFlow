@@ -40,3 +40,4 @@
     <view wx:for="{{detail.closureCheck.blockingItems}}" wx:key="index"><text class="body">{{item.stationName}}：{{item.label}}</text></view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

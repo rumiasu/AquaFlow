@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { getTicketAccounts, getTicketRecords, getTicketPackages, purchaseTicket, getTicketPurchaseResult, closeTicketPurchaseIntent } = require('../../api/ticket')
 const { getStationProducts } = require('../../api/product')
 const { getBarrelSummaryByType } = require('../../api/barrel')
@@ -19,7 +20,7 @@ function viewError(error, fallback = '暂时无法完成，请稍后重试') {
 }
 
 Page({
-  onExitHelp() { wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title:'剩余水票退出',content:'请联系原购买水站，站长核实原购买批次、剩余张数及退款金额后办理。已用票不退；赠票及没有原款来源的批次须另行核实。退票与退桶、退押金分别办理。',showCancel:false }) },
+  onExitHelp() { showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title:'剩余水票退出',content:'请联系原购买水站，站长核实原购买批次、剩余张数及退款金额后办理。已用票不退；赠票及没有原款来源的批次须另行核实。退票与退桶、退押金分别办理。',showCancel:false }) },
   data: {
     loading: true,
     needLogin: false,
@@ -255,7 +256,7 @@ Page({
     const saved = this.restorePurchaseIntent()
     if (!saved || saved.result || this.data.submitting || this.data.recoveringPurchase) return
     const session = captureSession()
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '结束原购买', content: '仅在确认原购买没有登记款项后才能结束；如已登记款项，将为你查回原款，不办理取消或退款。',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '结束原购买', content: '仅在确认原购买没有登记款项后才能结束；如已登记款项，将为你查回原款，不办理取消或退款。',
       confirmText: '核实结束', success: r => {
         if (r.confirm && isCurrentSession(session)) this.closeOriginalPurchase(saved, session)
       } })
@@ -284,7 +285,7 @@ Page({
     const saved = this.restorePurchaseIntent()
     if (!saved || !saved.result || this.data.submitting || this.data.recoveringPurchase) return
     const session = captureSession()
-    const confirmed = await new Promise(resolve => wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '另买一笔水票', content: this.purchaseSummary(saved)
+    const confirmed = await new Promise(resolve => showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '另买一笔水票', content: this.purchaseSummary(saved)
       + ' 继续将登记另一笔购买，请勿为等待到账的原款重复购买。', confirmText: '另买一笔',
       success: r => resolve(r.confirm), fail: () => resolve(false) }))
     if (!confirmed || !isCurrentSession(session) || this.data.submitting || this.data.recoveringPurchase) return
@@ -601,7 +602,7 @@ Page({
       await this.loadData()
       if (!isCurrentSession(session)) return
       if (status === 1) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '等待到账',
           content: '水站还没确认收到这笔钱，确认后水票自动到账。如已付款较长时间仍未到账，请联系水站。',
           showCancel: false,
@@ -612,7 +613,7 @@ Page({
       if (!isCurrentSession(session)) return
       console.error('Purchase ticket error:', error)
       if ((viewError(error, '')).includes('先') && (viewError(error, '')).includes('桶')) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '先交桶押金', content: viewError(error, '请先核实该商品的用桶权益。'), confirmText: '交桶押金', success: (r) => {
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '先交桶押金', content: viewError(error, '请先核实该商品的用桶权益。'), confirmText: '交桶押金', success: (r) => {
           if (r.confirm) wx.navigateTo({ url: '/pages/barrel/purchase?stationId=' + saved.body.stationId + '&productId=' + productId })
         } })
       } else {

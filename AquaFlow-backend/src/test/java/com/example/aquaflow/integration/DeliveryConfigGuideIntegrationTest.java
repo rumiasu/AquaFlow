@@ -33,7 +33,7 @@ class DeliveryConfigGuideIntegrationTest extends AbstractIntegrationTest {
     private long barrel;       // category=1 桶装水
 
     private void seed() {
-        station = createStation("引导站");
+        station = createUnconfiguredStation("引导站");
         manager = createStaff("引导站长", "STATION_MANAGER", station, 1);
         mgrToken = staffToken(manager, "STATION_MANAGER", station);
         // 桶装水 12 元/桶（本站最便宜的一桶水 → 建议 起送 24、免运费 36）
@@ -66,25 +66,25 @@ class DeliveryConfigGuideIntegrationTest extends AbstractIntegrationTest {
     /* ==================== ① 强制：缺金额门槛时不许上架非桶装 ==================== */
 
     @Test
-    @DisplayName("只配桶数门槛时上架一次性桶被拒；文案含缺哪一项与建议值；补齐后可上架")
+    @DisplayName("缺金额门槛仍可上架，缺项进入上线准备")
     void shelvingNonBarrelRequiresAmountThresholds() {
         seed();
         configBucketOnly();
 
-        Api rejected = shelves(disposable);
-        assertNotEquals(0, rejected.code(), "缺金额门槛时上架非桶装必须被拒，实际=" + rejected);
-        String msg = rejected.message() != null ? rejected.message() : "";
-        assertTrue(msg.contains("起送量金额"), "文案要点名缺哪一项，实际=" + msg);
-        assertTrue(msg.contains("免运费金额"), "两项都缺时要都点出来，实际=" + msg);
-        assertTrue(msg.contains("24") || msg.contains("建议"),
-                "文案要给建议值（本站最低水价 12 × 2 = 24），实际=" + msg);
+        Api saved = shelves(disposable);
+        assertEquals(0, saved.code(), "缺金额门槛不应阻止上架");
         // 用 COUNT 而不是标量查询：0 行时标量查询会抛异常，反而看不出"行没了"还是"没改"
         assertEquals(1, intOf("SELECT COUNT(*) FROM inventory WHERE station_id=? AND product_id=?",
                         station, disposable),
                 "被拒的上架不该动到库存行（行本身要还在）");
-        assertEquals(0, intOf("SELECT COUNT(*) FROM inventory WHERE station_id=? AND product_id=? AND enabled=1",
+        assertEquals(1, intOf("SELECT COUNT(*) FROM inventory WHERE station_id=? AND product_id=? AND enabled=1",
                         station, disposable),
-                "被拒的上架不得把商品变成已上架");
+                "商品应已上架");
+
+        Api guide = get("/api/manager/setup-guide", mgrToken);
+        assertEquals(0, guide.code());
+        assertTrue(guide.data().toString().contains("起送金额"));
+        assertTrue(guide.data().toString().contains("免运费金额"));
 
         // 桶装水上架不受这道校验影响（它走桶数门槛，本来就是对的）
         assertEquals(0, shelves(barrel).code(), "桶装水上架不该被金额门槛校验拦住");

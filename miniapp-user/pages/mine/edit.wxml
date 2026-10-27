@@ -17,3 +17,4 @@
     <text>{{submitting ? '保存中...' : '保存资料'}}</text>
   </button>
 </view>
+<business-dialog id="business-dialog" />

@@ -28,7 +28,7 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
     private String mgrToken;
 
     private void seed() {
-        station = createStation("引导目录站");
+        station = createUnconfiguredStation("引导目录站");
         manager = createStaff("引导目录站长", "STATION_MANAGER", station, 1);
         mgrToken = staffToken(manager, "STATION_MANAGER", station);
         // 电话是建站必填项之一（2026-09-19 起），夹具直接落库所以要自己给上
@@ -108,7 +108,7 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
         // 夹具站是"正常运营 + 还有必填没配"（AbstractIntegrationTest.createStation 显式写 operating_status=1）：
         // 这时说"配好就能上线"是**假话** —— 它早就在营业了。必须说"不影响接单"。
         String hintNormal = g.path("onlineHint").asText("");
-        assertTrue(hintNormal.contains("不填也能接单"),
+        assertTrue(hintNormal.contains("配送计费完善前顾客暂不能下单"),
                 "已在营业的站不许说'配好就能上线'（会让人以为自己的站还没上线），实际=" + hintNormal);
 
         // 同一份清单、只把营业状态改成「待上线」→ 文案必须跟着变

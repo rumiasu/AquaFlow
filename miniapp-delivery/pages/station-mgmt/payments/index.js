@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { getPendingPayments, confirmPayment } = require('../../../api/station-mgmt')
 const historyCustomer = require('../../../utils/station-history-customer')
 const { get } = require('../../../utils/request')
@@ -224,7 +225,7 @@ Page({
         ? `确认已收到该客户支付 ¥${item.amountText}？确认后订单将标记为已付款。`
         : `确认已收到该客户的${item.purposeText} ¥${item.amountText}？请核对款项用途和实际到账后登记。`
 
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '确认收款',
       content: what,
       confirmText: '确认到账',

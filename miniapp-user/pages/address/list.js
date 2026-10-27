@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const { getAddresses, deleteAddress, setDefaultAddress } = require('../../api/address')
 const { storage } = require('../../utils/storage')
@@ -67,7 +68,7 @@ Page({
   onDeleteAddress(e) {
     if (this.data.mutationPending || this.data.actionUnknown || this.data.accessDenied || this.data.loading || this.data.loadError) return
     const { id } = e.currentTarget.dataset
-    wx.showModal({ cancelColor: '#637083',  title: '删除收货地址', content: '删除后将不能再选择此地址，确认删除吗？',
+    showBusinessModal({ cancelColor: '#637083',  title: '删除收货地址', content: '删除后将不能再选择此地址，确认删除吗？',
       confirmText: '删除', confirmColor: '#BD3328',
       success: res => { if (res.confirm) this.changeAddress(id, 'delete') } })
   },

@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 // 站长端「站间结算」台账（v67 / 2026-09-27 产品拍板 4.a + 4.b）。
 //
 // **这一页回答什么**：跨站单的钱收在**归属站**（票钱/微信款在它手上）、营收却算**接单站**
@@ -179,7 +180,7 @@ Page({
       return
     }
     const id = row.orderId, amount = row._amountText
-    const showReceipt = () => wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    const showReceipt = () => showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '登记这笔已结清',
       // editable 的输入框用于凭据说明（转账流水号/经手人）：可留空，
       // 因为"什么时候算办完"靠的是时间与登记人，凭据说明是加分项而不是门槛。
@@ -214,7 +215,7 @@ Page({
       },
       complete: () => { if (!action.used && this._settleAction === action) this._settleAction = null }
     })
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '核对站间结清',
       content: '订单 #' + id + '\n结清金额：¥' + amount
         + '\n付款站：' + (row.fromStationName || '水站（编号' + row.fromStationId + '）')
@@ -239,7 +240,7 @@ Page({
   /** 卖出站改按挂牌价结这一单（差价由本站承担）——**是站长点，系统不会自动改**。 */
   onPriceByListed(e) {
     const id = e.currentTarget.dataset.id
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '按挂牌价结这一单',
       content: '改成按挂牌价结后，接单站能拿到更多，多出来的差价由本站承担。'
         + '系统不会自动改价，也不会改动客户已付的钱。确定要改吗？',
@@ -264,7 +265,7 @@ Page({
   onReverse(e) {
     const id = e.currentTarget.dataset.id
     const amount = e.currentTarget.dataset.amount
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '冲销这一笔',
       content: `这一单已经取消或退款，¥${amount} 这笔站间应付不再成立。`
         + '冲销只改状态、不删记录，事后仍查得到。若钱**已经真的付给对方**了，请先与对方协商，不要直接冲销。',
@@ -388,7 +389,7 @@ Page({
       if (String(wx.getStorageSync(aftercareFocus(snapshot.actor))) !== String(this.data.aftercareOrderId)) throw new Error('原订单定位未能保存，请勿办理交付')
       this.setData({ aftercarePending: true })
       if (action === 'PAID') {
-        const confirm = await new Promise(resolve => wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '仅登记已实际交付', content: '原退款 #' + row.refundPaymentId + '，原责任款 ¥' + intent.context.amount.toFixed(2) + '。仅核对已经实际交给对方的这一笔并同步原登记，不执行转账；已交过请勿再次交款。', confirmText: '仅登记', cancelText: '暂不登记', success: res => resolve(res.confirm), fail: () => resolve(false) }))
+        const confirm = await new Promise(resolve => showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '仅登记已实际交付', content: '原退款 #' + row.refundPaymentId + '，原责任款 ¥' + intent.context.amount.toFixed(2) + '。仅核对已经实际交给对方的这一笔并同步原登记，不执行转账；已交过请勿再次交款。', confirmText: '仅登记', cancelText: '暂不登记', success: res => resolve(res.confirm), fail: () => resolve(false) }))
         if (!this.aftercareCurrent(snapshot)) return
         if (!confirm) { if (!prior) { intents.clear(intent); this.setData({ aftercarePending: false }) } return }
       }

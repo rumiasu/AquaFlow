@@ -3,6 +3,7 @@ package com.example.aquaflow.service.impl;
 import com.example.aquaflow.entity.Address;
 import com.example.aquaflow.entity.Station;
 import com.example.aquaflow.entity.StationDeliveryConfig;
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.AddressMapper;
 import com.example.aquaflow.mapper.StationDeliveryConfigMapper;
 import com.example.aquaflow.mapper.StationMapper;
@@ -27,6 +28,9 @@ public class DeliveryFeeServiceImpl implements DeliveryFeeService {
     private StationDeliveryConfigMapper stationDeliveryConfigMapper;
 
     @Autowired
+    private DeliveryConfigGuideService deliveryConfigGuideService;
+
+    @Autowired
     private StationMapper stationMapper;
 
     @Autowired
@@ -44,13 +48,15 @@ public class DeliveryFeeServiceImpl implements DeliveryFeeService {
     @Override
     public DeliveryFeeUtil.FeeResult calcForOrder(Long customerId, Long stationId, Long addressId,
                                                   int totalBuckets, BigDecimal waterAmount) {
-        // 「没配」与「配置全 0」行为完全一致 —— 用 defaults 兜底，业务侧不需要判 null。
-        // 本表是后加的，存量水站全都没有配置行，它们必须与升级前一个字不差。
         StationDeliveryConfig config = stationId == null
-                ? StationDeliveryConfig.defaults(null)
+                ? null
                 : stationDeliveryConfigMapper.getByStationId(stationId);
         if (config == null) {
-            config = StationDeliveryConfig.defaults(stationId);
+            throw new BusinessException("水站配送计费尚未设置，请联系水站完善后再下单");
+        }
+        if (deliveryConfigGuideService.hasNonBarrelOnShelf(stationId)
+                && !deliveryConfigGuideService.missingAmountFields(config).isEmpty()) {
+            throw new BusinessException("水站配送计费尚未完成，请联系水站完善后再下单");
         }
 
         Double distanceMeters = null;

@@ -17,3 +17,4 @@
     <text class="state-title">暂时没有公告</text><text class="state-note">新公告发布后会显示在这里。</text><button class="state-button secondary" bindtap="onRetry">刷新公告</button>
   </view>
 </view>
+<business-dialog id="business-dialog" />

@@ -163,7 +163,7 @@ test('wrapper binding audit detects missing implementation, unused imports and u
     fs.writeFileSync(helper, source)
     fs.writeFileSync(page, registered)
     fs.writeFileSync(page.replace('.js', '.wxml'), '<button bindtap="onUploadRecover"/>')
-    const audit = () => spawnSync('python3', [path.join(ROOT, 'audit_wxml_handlers.py'), '--root', dir], { encoding: 'utf8' })
+    const audit = () => spawnSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(ROOT, 'audit_wxml_handlers.py'), '--root', dir], { encoding: 'utf8' })
     assert.equal(audit().status, 0)
     fs.writeFileSync(helper, source.replace('page.onUploadRecover =', 'page.noRecovery ='))
     assert.equal(audit().status, 1)

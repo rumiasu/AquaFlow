@@ -50,3 +50,4 @@
   </view>
   <view class="loading" wx:if="{{historyLoading && historyList.length === 0}}">加载中...</view>
 </view>
+<business-dialog id="business-dialog" />

@@ -46,6 +46,7 @@ function fixture(name, overrides = {}) {
   vm.runInNewContext(fs.readFileSync(path.join(ROOT, scope[name] + '.js'), 'utf8'), {
     Page: value => { definition = value }, wx, getApp: () => ({ globalData: { isLogin: true } }),
     require: p => {
+      if (p.endsWith("business-dialog")) return { showBusinessModal: options => wx.showModal(options) }
       const key = Object.keys(deps).find(k => p.endsWith(k))
       if (!key) throw Error('Unexpected dependency ' + p)
       return deps[key]

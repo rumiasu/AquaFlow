@@ -287,3 +287,6 @@
 .value, .item-info, .status-sub { min-width: 0; overflow-wrap: anywhere; }
 .action-section { flex-wrap: wrap; }
 .load-error { font-size: 28rpx; line-height: 1.65; white-space: normal; }
+.contact-actions { display: flex; gap: 16rpx; width: 100%; }
+.contact-actions .btn-action { flex: 1; min-width: 0; width: auto; margin: 0; }
+.btn-contact-primary { background: var(--primary-color); color: #fff; }

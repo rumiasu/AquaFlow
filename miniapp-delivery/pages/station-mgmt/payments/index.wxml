@@ -71,3 +71,4 @@
     <text>{{view === 'pending' ? '暂无待确认收款' : '当前查询范围内暂无线上购票收款记录'}}</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

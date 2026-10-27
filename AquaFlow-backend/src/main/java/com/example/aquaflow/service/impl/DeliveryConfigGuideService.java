@@ -136,7 +136,7 @@ public class DeliveryConfigGuideService {
     }
 
     /** 缺的金额字段：只有"配了对应桶数门槛"才要求补金额，否则算没启用这条规则。 */
-    private List<String> missingAmountFields(StationDeliveryConfig cfg) {
+    public List<String> missingAmountFields(StationDeliveryConfig cfg) {
         List<String> missing = new ArrayList<>();
         if (positive(cfg.getMinOrderBuckets()) && !positive(cfg.getMinOrderAmount())) {
             missing.add("minOrderAmount");
@@ -148,13 +148,13 @@ public class DeliveryConfigGuideService {
     }
 
     /** 本站是否已上架（enabled=1）任何非桶装商品 —— 决定要不要对站长提这件事。 */
-    private boolean hasNonBarrelOnShelf(Long stationId) {
+    public boolean hasNonBarrelOnShelf(Long stationId) {
         for (Inventory inv : inventoryMapper.listByStationId(stationId)) {
             if (inv == null || !Integer.valueOf(1).equals(inv.getEnabled()) || inv.getProductId() == null) {
                 continue;
             }
             Product p = productMapper.getById(inv.getProductId());
-            if (p != null && !BarrelScope.isBarrel(p)) {
+            if (p != null && Integer.valueOf(1).equals(p.getStatus()) && !BarrelScope.isBarrel(p)) {
                 return true;
             }
         }

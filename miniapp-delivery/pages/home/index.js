@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { employeeCustomerNotePreview } = require('../../utils/customer-note')
 const { getPendingOrders, getDeliveringOrders, getCompletedToday, acceptOrder, getDeliveredUnpaid, confirmCollection, transferOrder, returnToStation, getStaffList, respondTransfer, getTransferList, getAssignedToMe, getOrderDetail } = require('../../api/delivery')
 const { moneyText, collectionPrompt, canConfirmCash } = require('../../utils/collection-confirmation')
@@ -295,7 +296,7 @@ Page({
     // #47: 防重复点击
     if (this._accepting) return
     this._accepting = true
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认接单',
       confirmText: '接单配送', cancelText: '暂不接单',
       content: '确定接受此配送任务？',
@@ -332,7 +333,7 @@ Page({
     const id = e.currentTarget.dataset.id
     if (this._transferBusy) return
     this._transferBusy = true
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认接收',
       content: '同意后这单归你配送，确定吗？',
       confirmText: '同意',
@@ -362,7 +363,7 @@ Page({
     const id = e.currentTarget.dataset.id
     if (this._transferBusy) return
     this._transferBusy = true
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '不接受转单',
       content: '这单会留在对方名下，确定不接受吗？',
       confirmText: '不接受',
@@ -433,7 +434,7 @@ Page({
       if (!content) { wx.showToast({ title: '收款金额待核实，请刷新订单后确认', icon: 'none' }); return }
       const answer = await new Promise(resolve => {
         dialog.cancel = () => resolve({ confirm: false })
-        wx.showModal({ cancelColor: '#637083',  title: '确认收款', content, confirmText: '确认收款', confirmColor: '#1264D6',
+        showBusinessModal({ cancelColor: '#637083',  title: '确认收款', content, confirmText: '确认收款', confirmColor: '#1264D6',
           success: resolve, fail: () => resolve({ confirm: false }) })
       })
       if (!answer.confirm || !this._collectionCurrent(ctx) || dialogs.get(tokenId) !== dialog) return
@@ -547,7 +548,7 @@ Page({
       console.error('加载配送员失败:', e)
     }
     if (loadError) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '加载失败',
         content: '没能取到同事名单（' + loadError + '），请稍后重试',
         showCancel: false
@@ -555,7 +556,7 @@ Page({
       return
     }
     if (staffList.length === 0) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '暂无同事', content: '本站暂无其他在职配送员可转单', showCancel: false })
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '暂无同事', content: '本站暂无其他在职配送员可转单', showCancel: false })
       return
     }
     const itemList = staffList.map(s => s.name || ('配送员' + s.id))
@@ -563,7 +564,7 @@ Page({
       itemList: itemList,
       success: async (res) => {
         const target = staffList[res.tapIndex]
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '转单确认',
           content: `确认将订单转给 ${target.name || '同事'}？需对方确认后生效。`,
           confirmText: '申请转单',
@@ -589,7 +590,7 @@ Page({
   async onMediateToStation() {
     const id = this.data.currentOrderId
     this.setData({ showMediateModal: false })
-    wx.showModal({ confirmColor: '#A95516', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#A95516', cancelColor: '#637083',
       title: '退回站长',
       content: '确定申请退回站长吗？退回后需站长确认，订单将重新分配。',
       confirmText: '申请退回',

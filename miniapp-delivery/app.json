@@ -92,7 +92,8 @@
   },
   "usingComponents": {
     "privacy-popup": "/components/PrivacyPopup/index",
-    "help-tip": "/components/HelpTip/index"
+    "help-tip": "/components/HelpTip/index",
+    "business-dialog": "/components/BusinessDialog/index"
   },
   "sitemapLocation": "sitemap.json"
 }

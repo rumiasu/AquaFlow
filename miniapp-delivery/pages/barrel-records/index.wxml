@@ -44,3 +44,4 @@
     <text>暂无空桶回收记录</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

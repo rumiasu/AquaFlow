@@ -208,3 +208,4 @@
   </view>
   </block>
 </view>
+<business-dialog id="business-dialog" />

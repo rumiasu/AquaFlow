@@ -133,3 +133,4 @@
   <view class="history-status" wx:if="{{!refundRef && historyLoading}}">正在读取反馈历史…</view>
   <view class="history-status" wx:if="{{!refundRef && historyLoaded && !historyLoading && !historyError && !history.length}}">暂无反馈记录。</view>
 </view>
+<business-dialog id="business-dialog" />

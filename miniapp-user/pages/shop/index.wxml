@@ -129,3 +129,4 @@
   </view>
   </page-container>
 </view>
+<business-dialog id="business-dialog" />

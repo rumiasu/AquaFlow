@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { getStationProducts } = require('../../api/product')
 const { getPublicStations, getStationStatus } = require('../../api/station')
 const { getBaseUrl, API } = require('../../config/api')
@@ -233,7 +234,7 @@ Page({
     const noticeDisabled = stationStorage.getSwitchNoticeDisabled()
     if (!noticeDisabled && this.data.currentStationId && this.data.currentStationId !== id) {
       const confirm = await new Promise(resolve => {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '切换水站提醒',
           content: '不同水站的水票、桶及押金等资产不互通，请确认后再切换。',
           confirmText: '继续',
@@ -247,7 +248,7 @@ Page({
       }
       // 记住用户选择
       const dontShow = await new Promise(resolve => {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '提示',
           content: '下次不再提示？',
           confirmText: '不再提示',

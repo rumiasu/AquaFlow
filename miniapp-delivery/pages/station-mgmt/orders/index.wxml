@@ -84,3 +84,4 @@ module.exports = { percent: percent }
   <view class="history-more" wx:if="{{hasMore}}" bindtap="onLoadMore">{{loadingMore ? '加载中…' : '加载更多历史订单'}}</view>
   <view class="loading" wx:if="{{loading}}">加载中...</view>
 </view>
+<business-dialog id="business-dialog" />

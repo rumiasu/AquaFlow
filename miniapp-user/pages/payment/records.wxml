@@ -27,3 +27,4 @@
     <view class="local-empty" wx:if="{{records.length === 0}}"><text>{{error ? '上次查询暂无账单记录' : '暂无账单记录'}}</text></view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

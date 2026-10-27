@@ -108,6 +108,7 @@
           <text class="tag ticket" wx:if="{{item.selected && item.ticketEnabled === 1}}">水票 ¥{{item.ticketPrice}}</text>
           <text class="tag star" wx:if="{{item.selected && item.priorityDisplay === 1}}">优先展示</text>
         </view>
+      </view>
         <view class="action">
           <block wx:if="{{item.status === 0 || item.status === 2}}">
             <button class="product-card-primary" wx:if="{{item.ownerStationId}}" catchtap="onRestoreProduct" data-item="{{item}}" disabled="{{saving}}">恢复商品</button>
@@ -121,7 +122,6 @@
             <button class="product-card-remove" wx:if="{{item.selected}}" catchtap="onRequestRemoveProduct" data-item="{{item}}">移除</button>
           </block>
         </view>
-      </view>
     </view>
 
     <view class="empty" wx:if="{{viewList.length === 0}}">
@@ -287,6 +287,7 @@
           <switch checked="{{editForm.ticketEnabled}}" bindchange="onEditSwitchChange" data-field="ticketEnabled"  disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
         </view>
       </view>
+      <text class="product-field-help" wx:if="{{editForm.enabled && editForm.category !== 1}}">商品可先保存上架。若配送计费设置了桶数门槛，请在「配送计费」补齐对应金额门槛；上线准备会提示缺项。</text>
       <!-- 档位：与「本站设置」共用同一份行数据（新建商品时用 create 返回的 id 挂上去） -->
       <view class="pkg-block" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
         <view class="pkg-head">
@@ -480,3 +481,4 @@
   </view>
 
 </view>
+<business-dialog id="business-dialog" />

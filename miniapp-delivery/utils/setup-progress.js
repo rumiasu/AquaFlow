@@ -16,7 +16,7 @@ function completionEvidence(item) {
     stationPhone: '联系电话已保存；刷新准备状态后显示完成。',
     stationPosition: '站点地址和地图坐标均已保存；缺少任一项都不会通过核对。',
     catalogOnShelf: '至少一款商品已启用并上架。',
-    deliveryFee: '站点配送计费配置已保存。',
+    deliveryFee: '配送计费已保存；在售非桶装商品所需金额门槛也已配置。',
     staffPayroll: '有配送员时，站点默认计件单价已保存；没有配送员可跳过。',
     ticketPackage: '水票是选填：不启用可跳过；启用后需有在售档位，或有效的站点统一折扣。'
   }

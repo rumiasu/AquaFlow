@@ -136,3 +136,4 @@
   <button wx:if="{{unknownOrder}}" bindtap="onRetryOriginal" disabled="{{submitting}}">核实原下单请求</button>
 
 </view>
+<business-dialog id="business-dialog" />

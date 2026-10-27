@@ -67,6 +67,7 @@ async function oldCaseAndCurrentEvidence(t) {
   t.read(t.stats.length - 1); await flush(); t.calls[1].resolve(ok('/synthetic-confirmed-evidence')); await flush()
   t.page.refreshUploadRecovery(); assert.equal(t.page.data.uploadRecoveryCases.length, 1)
   const tree = parseWxml(fs.readFileSync(path.join(sourceRoot, EDIT.replace('.js', '.wxml')), 'utf8'))
+  t.page.onToggleUploadRecovery()
   assert.ok(renderElements(tree, t.page.data).some(value => value.attrs.bindtap === 'onUploadNewDraft'))
   return oldCase
 }

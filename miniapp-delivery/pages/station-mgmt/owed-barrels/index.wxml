@@ -40,3 +40,4 @@
     <text class="empty-hint" wx:if="{{minDays > 0}}">试试切到「全部」</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

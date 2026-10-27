@@ -64,9 +64,6 @@ public class CatalogServiceImpl implements CatalogService {
     @Autowired
     private ProductImageResolver imageResolver;
 
-    /** 上架非桶装商品前的金额门槛校验与建议值（2026-09-19），见 DeliveryConfigGuideService。 */
-    @Autowired
-    private DeliveryConfigGuideService deliveryConfigGuideService;
 
     /**
      * 站级价偏离通用库参考价多少算"要提醒"（默认 ±50%）。
@@ -129,17 +126,7 @@ public class CatalogServiceImpl implements CatalogService {
                     + " 是" + vo.getCategoryText() + "，不收押金（也无需退）");
         }
 
-        // [2026-09-19] 上架**非桶装**商品前的金额门槛硬校验（产品：「没用桶数时，核验金额即可」
-        // ＋「选择了上架瓶装水/饮水机等非桶装水业务，最好指引着强制完成金额类字段填写」）：
-        // 非桶装不占桶，站长若只配了桶数门槛、没配金额门槛，那条规则对这类订单就是不生效的
-        // （见 DeliveryFeeUtil.belowMinOrder 的"条件不适用"分支）。与其让站长以为自己设了门槛，
-        // 不如在上架这一刻拦住、并给出按本站最低水价算的建议值 —— 界面上一键就能填完。
-        // 只在"本次要上架"时校验：关掉上架（enabled=0）不受影响，避免把下架操作也卡住。
-        boolean enabling = Integer.valueOf(1).equals(dto.getEnabled())
-                || (dto.getEnabled() == null && current != null && Integer.valueOf(1).equals(current.getEnabled()));
-        if (enabling && !BarrelScope.isBarrelCategory(vo.getCategory())) {
-            deliveryConfigGuideService.requireAmountFieldsForNonBarrel(stationId);
-        }
+        // 商品可先保存上架；配送计费缺项由上线准备提示，并在报价与下单处阻止漏计费。
 
         Inventory setting = new Inventory();
         setting.setStationId(stationId);

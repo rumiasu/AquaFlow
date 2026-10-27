@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { submitFeedback, getMyFeedback, appendRefundNote, getRefundNotes, getRefundOptions, getRefundDisputes, openRefundDispute } = require('../../api/feedback')
 const noteIntent = require('../../utils/refund-note-intent')
 const disputeIntent = require('../../utils/exception-action-intent')
@@ -269,7 +270,7 @@ Page({
       // 把两种完全不同的情况说成同一件事，客户无从判断是自己网络的问题还是水站没留电话。
       // 现在分开：接口失败 → 说明原因 + 不谎称"没有电话"；查到了但确实为空 → 直说没登记。
       if (this.data.phoneError) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '电话没查出来',
           content: '没能取到水站的客服电话（' + this.data.phoneError + '）。'
             + '这不代表水站没有留电话 —— 请稍后重试，或换个网络再试。',

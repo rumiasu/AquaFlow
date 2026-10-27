@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 // 我的 · Step6 重构（2026-09-12）
 // 结构：用户行 → 押金/水票/桶三项卡 → 账单 / 我的信息 / 服务 三组菜单。
 // 数字全部读后端派生口径（押金/水票张数/水桶），前端不做业务加减。
@@ -245,7 +246,7 @@ Page({
   },
 
   onLogout() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '提示',
       content: '确定退出登录吗？',
       success: (res) => {

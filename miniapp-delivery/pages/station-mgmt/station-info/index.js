@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { jumpToSettingSection } = require('../../../utils/settings-sections')
 const { initialModuleData, refreshModuleTasks } = require('../../../utils/setup-progress')
 // 站长端「水站资料」：站名 / 电话 / 地址 / 坐标。
@@ -237,7 +238,7 @@ Page({
       && Number(this.data.origin && this.data.origin.id) === session.stationId
     if (!current()) return
     let used = false
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认清除',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认清除',
       title: '清除水站坐标',
       content: '清除后系统无法判断订单是否超出配送范围，会跳过范围校验（不会拒单）。确认清除？',
       success: async (res) => {

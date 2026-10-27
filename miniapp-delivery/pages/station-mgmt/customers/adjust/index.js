@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../../utils/business-dialog')
 // 站长资产调整单列表（本站；带 customerId 时只看该客户）
 const { listAdjustments, executeAdjustment, getCustomerAssets } = require('../../../../api/station-mgmt')
 const adjustmentCustomer = require('../../../../utils/adjustment-customer')
@@ -176,7 +177,7 @@ Page({
     if (!item) return
     if (this.data.executing) return
     const what = item.hasQty ? `数量 ${item.qtyText}` : `金额 ¥${item.amountText}`
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '执行调整单',
       content: `确定执行 ${item.adjustNo}？\n类型：${item.adjustTypeText}，${what}。\n执行后立即改写该客户在本站的资产，事后只能通过「撤销」生成反向单，不能删除。`,
       confirmText: '执行',

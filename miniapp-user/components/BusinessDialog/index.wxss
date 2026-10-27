@@ -1,0 +1,9 @@
+.business-mask{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:32rpx;box-sizing:border-box;background:rgba(15,23,42,.5)}
+.business-dialog{width:100%;max-width:640rpx;max-height:85vh;box-sizing:border-box;padding:36rpx 28rpx 28rpx;border-radius:24rpx;background:#fff;color:#172033;box-shadow:0 16rpx 64rpx rgba(0,0,0,.16)}
+.business-title{display:block;font-size:34rpx;line-height:1.45;font-weight:700;overflow-wrap:anywhere}
+.business-body{display:block;max-height:52vh;margin:24rpx 0;white-space:pre-wrap;font-size:28rpx;line-height:1.75;overflow-wrap:anywhere}
+.business-copy{color:#526174}.business-number{color:#1264d6;font-weight:700;font-size:32rpx}
+.business-actions{display:flex;gap:16rpx}.business-actions button{flex:1;min-width:0;min-height:48px;height:auto;margin:0;padding:20rpx 12rpx;font-size:30rpx;line-height:1.5;border-radius:14rpx;white-space:normal}.business-actions button::after{border:0}
+.business-cancel{background:#eef2f7;color:#526174}.business-confirm{background:#1264d6;color:#fff}.business-danger{background:#bd3328}
+.business-input{margin-top:16rpx;padding:20rpx;background:#eef2f7;border-radius:12rpx;min-height:44px;color:inherit}
+.business-dark .business-dialog{background:#202a3b;color:#f1f5f9}.business-dark .business-copy{color:#c8d2df}.business-dark .business-number{color:#8ebcff}.business-dark .business-cancel,.business-dark .business-input{background:#334155;color:#e2e8f0}

@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const imageDisplay = require('../../behaviors/imageDisplay')
 const { wrapUploadRecovery } = require('../../utils/upload-recovery-page')
 const { completeOrder, getOrderDetail } = require('../../api/delivery')
@@ -756,29 +757,7 @@ Page({
     }
     if (!this._validate()) { this._completionAction = null; return }
 
-    const { items, isFirstBarrelOrder } = this.data
-    const hasAnyReturn = items.some(it => it.actual > 0)
-
-    // 首单（押金桶）本来就不回桶，不再问"全部为 0 是否确认"（契约 C1）：
-    // 首单页面连步进器都不画，actual 恒为 0 ⇒ 每个首单都必弹一次这个窗，纯噪音。
-    if (!isFirstBarrelOrder && !hasAnyReturn && items.length > 0) {
-      action.stage = 'returns'
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-        title: '确认回桶数',
-        content: '本单桶装水的回桶数都是 0，是否确认无误？',
-        confirmText: '确认无误',
-        success: (res) => {
-          if (!this.completionActionCurrent(action) || action.stage !== 'returns') return
-          if (res.confirm) this._showConfirmDialog(action)
-          else this._completionAction = null
-        },
-        fail: () => { if (this._completionAction === action) this._completionAction = null }
-      })
-      return
-    }
-
-    // 不再单独问一次"确认未收款"：收款在页面上已经要人明确选过（collectedChosen），
-    // 下面那份摘要会把它写成"已送达，待收款"——同一件事问两遍正是契约 C2 要收敛掉的。
+    // 回桶数与完成配送共用一次确认；收款仍须在页面上明确选择。
     this._showConfirmDialog(action)
   },
 
@@ -811,7 +790,7 @@ Page({
     s += '\n' + view.confirmationResultText
     s += '\n计件工钱在配送完成后记账，本次配送操作不能撤回。'
 
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '确认完成配送',
       content: s.trim(),
       confirmText: '确认完成',
@@ -840,7 +819,7 @@ Page({
       const order = res && res.data
       if (!order || String(order.id) !== String(orderId)) throw new Error('原订单尚未核实')
       if (Number(order.status) !== 2) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '请核对原订单', content: [3, 4].includes(Number(order.status)) ? '原订单已送达或已完成，无需重复提交。请打开原订单查看收款与交付记录。' : '原订单当前不是配送中，请打开原订单核对最新状态。', showCancel: false, confirmText: '知道了' })
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '请核对原订单', content: [3, 4].includes(Number(order.status)) ? '原订单已送达或已完成，无需重复提交。请打开原订单查看收款与交付记录。' : '原订单当前不是配送中，请打开原订单核对最新状态。', showCancel: false, confirmText: '知道了' })
         return false
       }
       // 核实只授权本次确认；保留未知提示和原输入，最终写入前仍须核对同一会话、页面和订单。
@@ -938,7 +917,7 @@ Page({
           unknownHint: '这次提交没等到回应（' + msg + '）。配送结果可能已登记，'
             + '请点「核实原订单」查看最新状态：若已送达或已完成，无需重提；若仍在配送中，可保留现场填写再提交。'
         })
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '送达结果待确认',
           content: '这次提交没等到回应（' + msg + '）。请点页面上的「核实原订单」查看最新状态；已送达或已完成就无需重提，仍在配送中可用原内容再提交。',
           showCancel: false,
@@ -946,7 +925,7 @@ Page({
         })
       } else {
         this.setData({ resultState: 'failed' })
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '没能完成配送',
           content: msg || '提交失败，请检查网络后重试',
           showCancel: false,

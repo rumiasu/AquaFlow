@@ -407,6 +407,14 @@ public abstract class AbstractIntegrationTest {
         //    sql/migration_v61_station_pending_launch.sql），省略会让**所有用例建的站**都变成
         //    "尚未上线"，进而给每个下单响应塞一条 `warnings`，污染一大批契约断言。
         //    "新站默认待上线"由 StationOperatingStatusIntegrationTest 里那条刻意不写该列的用例验。
+        long stationId = createUnconfiguredStation(name);
+        // Normal-operating fixtures explicitly confirm zero fees. New/unconfigured station
+        // tests use createUnconfiguredStation so missing configuration can never masquerade as free.
+        jdbc.update("INSERT INTO station_delivery_config(station_id) VALUES (?)", stationId);
+        return stationId;
+    }
+
+    protected long createUnconfiguredStation(String name) {
         return insert("INSERT INTO station(name, status, operating_status) VALUES (?, 1, 1)", name);
     }
 

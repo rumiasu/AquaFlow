@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../../../utils/business-dialog')
 const imageDisplay = require('../../../../../behaviors/imageDisplay')
 // 站长资产调整单详情（含快照、证据图、执行 / 撤销）
 const { getAdjustment, executeAdjustment, reverseAdjustment } = require('../../../../../api/station-mgmt')
@@ -198,7 +199,7 @@ Page({
     const detail = this.data.detail
     if (!detail || this.data.executing) return
     const what = detail.hasQty ? `数量 ${detail.qtyText}` : `金额 ¥${detail.amountText}`
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '执行调整单',
       content: `确定执行 ${detail.adjustNo}？\n类型：${detail.adjustTypeText}，${what}。\n执行后立即改写该客户在本站的资产，事后只能通过「撤销」生成反向单。`,
       confirmText: '执行',
@@ -231,7 +232,7 @@ Page({
   onReverse() {
     const detail = this.data.detail
     if (!detail || this.data.reversing) return
-    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#BD3328', cancelColor: '#637083',
       title: '撤销原因（必填）',
       content: '撤销会生成一张反向单并立即执行，原单置「已撤销」。请输入撤销原因：',
       editable: true,
@@ -244,7 +245,7 @@ Page({
           return
         }
         const what = detail.hasQty ? `数量 ${detail.qtyText}` : `金额 ¥${detail.amountText}`
-        wx.showModal({ cancelColor: '#637083',
+        showBusinessModal({ cancelColor: '#637083',
           title: '确认撤销',
           content: `将撤销 ${detail.adjustNo}（${detail.adjustTypeText}，${what}）并生成反向单立即生效。\n原因：${reason}`,
           confirmText: '确认撤销',

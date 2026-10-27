@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 /**
  * 「?」解释按钮（2026-09-24 新建）。
  *
@@ -48,7 +49,7 @@ Component({
       const text = (this.data.text || '').trim()
       // 没内容就什么都不做：宁可点了没反应，也不要弹一个空框
       if (!text) return
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: this.data.title || '说明',
         content: text,
         showCancel: false,

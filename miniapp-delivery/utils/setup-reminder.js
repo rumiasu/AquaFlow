@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('./business-dialog')
 // 站长端「待填项提醒」：**条件刚成立的项**（例：刚招了配送员 → 「员工工资结构」从"不用填"
 // 变成"必须填"）立刻弹窗提醒，不用等站长自己去点营业状态胶囊。
 //
@@ -175,7 +176,7 @@ function showFreshModal(fresh, owner) {
     + (onlyOne ? '' : '\n\n补完可以在营业状态小框里看到进度。')
   const goable = onlyOne && first && first.route
 
-  wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+  showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
     title: fresh.length > 1 ? '有 ' + fresh.length + ' 项新的要填' : '有一项新的要填',
     content,
     showCancel: false,

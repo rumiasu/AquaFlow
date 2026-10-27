@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 // 首页 · Step4 锁稿落地（2026-09-11）
 // [2026-09-26 Wave1 轨道 B] 信息顺序重排为：水站与营业状态 / 收货地址 / 当前订单（有才显示）/
 // 再买上次 / 商品列表 / 水桶与押金入口。顺序与文案见 docs/design/29 §3「订水首页」。
@@ -178,7 +179,7 @@ Page({
   onStationStatusTap() {
     const { stationStatusText, stationStatusNote } = this.data
     if (!stationStatusText) return
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '水站状态',
       content: stationStatusNote ? stationStatusText + '\n' + stationStatusNote : stationStatusText,
       showCancel: false,
@@ -348,7 +349,7 @@ Page({
           const n = notifications[i]
           if (!current()) return
           const shown = await new Promise((resolve) => {
-            wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+            showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
               title: n.title || '消息提醒',
               content: n.content || '',
               showCancel: false,
@@ -433,7 +434,7 @@ Page({
       const noticeDisabled = stationStorage.getSwitchNoticeDisabled()
       if (!noticeDisabled && this.data.currentStationId && this.data.currentStationId !== stationId) {
         const confirm = await new Promise(resolve => {
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
             title: '切换水站提醒',
             content: '不同水站的水票、桶及押金等资产不互通，请确认后再切换。',
             confirmText: '继续',
@@ -444,7 +445,7 @@ Page({
         })
         if (!current() || !confirm) return
         const dontShow = await new Promise(resolve => {
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
             title: '提示',
             content: '下次不再提示？',
             confirmText: '不再提示',
@@ -1042,7 +1043,7 @@ Page({
       return
     }
     if (!address) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: this._homeChosenAddressId != null ? '请重新选择配送地址' : '还没有配送地址',
         content: this._homeChosenAddressId != null ? '先前选择的地址已不可用，请重新选择后再确认订单' : '先设置一个收货地址，水才能送到家',
         confirmText: '去设置',

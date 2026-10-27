@@ -52,7 +52,7 @@ async function main() {
     assert.equal((await normal).data.status, 1)
   })
   await test('only backend PAID can report success and simulated receipt remains visibly simulated', () => {
-    const toast = [], modal = [], context = { module: { exports: {} }, require: () => ({ isReleaseEnv: () => false }), wx: { showToast: x => toast.push(x), showModal: x => modal.push(x) } }
+    const toast = [], modal = [], context = { module: { exports: {} }, require: name => name.endsWith('business-dialog') ? { showBusinessModal: x => modal.push(x) } : ({ isReleaseEnv: () => false }), wx: { showToast: x => toast.push(x), showModal: x => modal.push(x) } }
     vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'miniapp-user/utils/pay.js'), 'utf8'), context)
     const notify = context.module.exports.notifyPayResult
     assert.equal(notify({ status: 1, simulated: true }), false); assert.equal(toast.length, 0); assert.equal(modal.length, 1)

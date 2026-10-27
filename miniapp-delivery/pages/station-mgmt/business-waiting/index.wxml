@@ -86,3 +86,4 @@
     <text class="hint" wx:if="{{ready.barrels && counts.barrels > barrels.length}}">共 {{counts.barrels}} 笔，本次显示最早 {{barrels.length}} 笔；办理后重新核对后续记录。</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

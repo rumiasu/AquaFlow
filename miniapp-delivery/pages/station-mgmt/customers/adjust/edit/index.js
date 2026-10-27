@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../../../utils/business-dialog')
 const imageDisplay = require('../../../../../behaviors/imageDisplay')
 const { wrapUploadRecovery } = require('../../../../../utils/upload-recovery-page')
 // 新建站长资产调整单（人工补录 / 代客订正）
@@ -470,7 +471,7 @@ Page({
   onSubmit() {
     this.syncAdjustmentRecovery()
     if (this.data.adjustmentRecoveryError) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '原调整结果待核对', content: this.data.adjustmentRecoveryError, confirmText: '返回列表', showCancel: false,
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '原调整结果待核对', content: this.data.adjustmentRecoveryError, confirmText: '返回列表', showCancel: false,
         success: () => wx.navigateBack() }); return
     }
     if (this._adjustmentOriginal && !this._adjustmentOriginal.pending && !this.data.submitting) return this.retryOriginalAdjustment()
@@ -496,7 +497,7 @@ Page({
     }
     content += '创建后为「待执行」，需再点「执行」才会改写客户资产。'
 
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '确认创建调整单',
       content: content,
       confirmText: '创建',
@@ -532,7 +533,7 @@ Page({
     this._confirmingOriginal = original
     const option = ADJUST_OPTIONS.find(value => value.value === body.adjustType)
     const amount = body.amount == null ? '数量 ' + body.qty : '金额 ¥' + body.amount
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '继续原调整单', confirmText: '重试原单', cancelText: '查看列表',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '继续原调整单', confirmText: '重试原单', cancelText: '查看列表',
       content: '客户 #' + customerId + '，' + (option ? option.label : body.adjustType) + '，' + amount + '。\n原因：' + body.reason + '\n已存在则返回原单；尚未创建则按原编号和原内容创建一次待执行单，不直接改写资产。',
       success: result => {
         if (this._confirmingOriginal !== original) return

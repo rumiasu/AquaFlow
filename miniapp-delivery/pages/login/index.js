@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { wxLoginStaff, devLogin } = require('../../api/auth')
 const { UserInfoKey } = require('../../utils/constant')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
@@ -136,7 +137,7 @@ Page({
       this.loadAgreements()
       console.error('[wx-login] login failed')
       const msg = (error && error.message) || '登录失败'
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '登录失败', content: msg, showCancel: false })
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '登录失败', content: msg, showCancel: false })
     } finally {
       this.setData({ loading: false })
     }

@@ -71,7 +71,8 @@
   },
   "usingComponents": {
     "privacy-popup": "/components/PrivacyPopup/index",
-    "icon": "/components/Icon/index"
+    "icon": "/components/Icon/index",
+    "business-dialog": "/components/BusinessDialog/index"
   },
   "sitemapLocation": "sitemap.json"
 }

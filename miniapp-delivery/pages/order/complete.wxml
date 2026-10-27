@@ -272,7 +272,7 @@
              → 载入时自动展开，并在下面说明原因；
           ② 现场起了争议（跟客户对楼层/爬楼说法不一致）→ 点下面那行「楼梯有争议」展开。
         ⚠️ 它**不影响**向客户收的楼层费 —— 那笔钱在下单时就按地址快照了。
-        ⚠️ 展开后不提供"收起"：填了一半又收起来只会让人以为白填了。
+        ⚠️ 展开后不提供'收起'：填了一半又收起来只会让人以为白填了。
     -->
     <view class="section" wx:if="{{floorBlockOpen}}">
       <view class="section-title-row">
@@ -355,7 +355,8 @@
 </view>
 
 <view wx:if="{{uploadRecoveryCases.length || uploadRecoveryReadFailed}}" class="upload-recovery-panel">
-  <text>待核实图片记录</text>
+  <button size="mini" bindtap="onToggleUploadRecovery">{{uploadRecoveryReadFailed ? '图片异常记录读取失败' : '图片上传异常（' + uploadRecoveryCases.length + '）'}} · {{uploadRecoveryExpanded ? '收起' : '查看'}}</button>
+  <block wx:if="{{uploadRecoveryExpanded}}">
   <view wx:if="{{uploadRecoverySelection}}">
     <text>待确认图片 #{{uploadRecoverySelection.imageId}}</text>
     <view class="ui-proof-image ui-proof-frame" ><image src="{{uploadRecoverySelection.url}}" mode="aspectFit" bindtap="onUploadPreviewSelected" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{uploadRecoverySelection.url}}" wx:if="{{!displayImageErrors[uploadRecoverySelection.url]}}" /><view class="ui-image-fallback" wx:else bindtap="onUploadPreviewSelected" >图片暂无法显示，点此预览原图</view></view>
@@ -366,4 +367,6 @@
     <text>{{item.label}}</text>
     <button size="mini" disabled="{{uploadRecovering}}" data-caseid="{{item.id}}" bindtap="onUploadRecover">核实图片</button>
   </view>
+  </block>
 </view>
+<business-dialog id="business-dialog" />

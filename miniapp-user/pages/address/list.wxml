@@ -36,3 +36,4 @@
   </view>
   <button class="add-btn" bindtap="onAddAddress" disabled="{{mutationPending || accessDenied}}">新增收货地址</button>
 </view>
+<business-dialog id="business-dialog" />

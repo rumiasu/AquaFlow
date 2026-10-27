@@ -760,6 +760,8 @@
 .card .action > .product-card-remove { flex:0 0 auto; }
 .product-card-secondary { margin:0; border-radius:10rpx; }
 .product-card-secondary::after { border:0; }
+.card { flex-wrap:wrap; }
+.card .action { flex:0 0 100%; width:100%; margin:0; }
 .inventory-draft-resume { display:flex; flex-wrap:wrap; align-items:center; gap:12rpx; margin:16rpx 24rpx; padding:18rpx; border:1rpx solid var(--warning-color); border-radius:12rpx; background:var(--warning-bg); color:var(--text-primary); font-size:26rpx; line-height:1.5; }
 .inventory-draft-resume text { flex:1 1 100%; }
 .inventory-draft-resume button { flex:1; min-width:0; min-height:44px; margin:0; padding:10rpx 12rpx; color:var(--primary-color); background:var(--primary-bg); font-size:14px; }

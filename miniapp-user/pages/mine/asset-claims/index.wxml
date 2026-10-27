@@ -62,3 +62,4 @@
     <text class="claim-muted" wx:if="{{item.status === 'PENDING'}}">等待本站核对；通过后即入账，无需再次确认清单。</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

@@ -39,10 +39,16 @@ class ManagerFeedbackRepairTest {
     @Test void invalidStatusCannotBypassExistingRemoveCommand() {
         var c=catalog(1);var dto=new ManagerProductDTO.Update();dto.setStatus(0);assertThrows(BusinessException.class,()->c.service.updateMyProduct(11L,17L,dto));verify(c.products,never()).updateOwned(any(),anyLong());
     }
+    @Test void nonBarrelCanSaveAndEnableBeforeDeliveryFeePreparation() {
+        var c=catalog(1);
+        var dto=new com.example.aquaflow.dto.StationCatalogSettingDTO();dto.setEnabled(1);
+        c.service.saveStationSetting(11L,17L,dto,false);
+        verify(c.inventory).saveStationSetting(argThat(i->Integer.valueOf(1).equals(i.getEnabled())));
+    }
     private record Guide(StationSetupGuideService service,Station station,Inventory inventory,StaffPieceRateMapper rates) {}
     private Guide guide() {
         var service=new StationSetupGuideService();var stations=mock(StationMapper.class);var inventories=mock(InventoryMapper.class);var staff=mock(StaffMapper.class);var rates=mock(StaffPieceRateMapper.class);var fees=mock(StationDeliveryConfigMapper.class);
-        ReflectionTestUtils.setField(service,"stationMapper",stations);ReflectionTestUtils.setField(service,"inventoryMapper",inventories);ReflectionTestUtils.setField(service,"staffMapper",staff);ReflectionTestUtils.setField(service,"staffPieceRateMapper",rates);ReflectionTestUtils.setField(service,"stationDeliveryConfigMapper",fees);ReflectionTestUtils.setField(service,"productMapper",mock(ProductMapper.class));ReflectionTestUtils.setField(service,"ticketPackageMapper",mock(TicketPackageMapper.class));ReflectionTestUtils.setField(service,"stationTicketDiscountMapper",mock(StationTicketDiscountMapper.class));
+        ReflectionTestUtils.setField(service,"stationMapper",stations);ReflectionTestUtils.setField(service,"inventoryMapper",inventories);ReflectionTestUtils.setField(service,"staffMapper",staff);ReflectionTestUtils.setField(service,"staffPieceRateMapper",rates);ReflectionTestUtils.setField(service,"stationDeliveryConfigMapper",fees);ReflectionTestUtils.setField(service,"deliveryConfigGuideService",mock(com.example.aquaflow.service.impl.DeliveryConfigGuideService.class));ReflectionTestUtils.setField(service,"productMapper",mock(ProductMapper.class));ReflectionTestUtils.setField(service,"ticketPackageMapper",mock(TicketPackageMapper.class));ReflectionTestUtils.setField(service,"stationTicketDiscountMapper",mock(StationTicketDiscountMapper.class));
         var s=new Station();s.setId(11L);s.setPhone("synthetic");s.setAddress("synthetic address");s.setLat(BigDecimal.ONE);s.setLng(BigDecimal.ONE);when(stations.getById(11L)).thenReturn(s);
         var i=new Inventory();i.setProductId(17L);i.setStatus(1);i.setEnabled(1);i.setTicketEnabled(0);when(inventories.listByStationId(11L)).thenReturn(List.of(i));when(fees.getByStationId(11L)).thenReturn(new StationDeliveryConfig());when(staff.listByStationIdAndRole(11L,"DELIVERY")).thenReturn(List.of(new Staff()));
         var rate=new StaffPieceRate();rate.setPerBucketAmount(new BigDecimal("2"));when(rates.getByStationAndProduct(11L,0L)).thenReturn(rate);return new Guide(service,s,i,rates);

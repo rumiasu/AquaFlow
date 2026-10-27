@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { initialModuleData, refreshModuleTasks } = require('../../../utils/setup-progress')
 const { WATER_PRODUCT_TEMPLATES, TEMPLATE_IMAGE, IMAGE_NOTICE, templatesWithImages, matchingCatalogProducts, templateBusinessError } = require('../../../utils/water-product-templates')
 const {
@@ -725,7 +726,7 @@ Page({
     if (this.productWriteLocked()) return
     const item=e.currentTarget.dataset.item, owner=productSession()
     if (!item || ![0,2].includes(item.status) || Number(item.ownerStationId)!==Number((getApp().globalData.userInfo||{}).stationId)) return
-    wx.showModal({title:'恢复本站商品',content:'恢复后仍为未上架；库存和历史记录保留。请核对商品资料后再决定上架。',confirmText:'恢复',confirmColor:'#1264D6',success:async r=>{
+    showBusinessModal({title:'恢复本站商品',content:'恢复后仍为未上架；库存和历史记录保留。请核对商品资料后再决定上架。',confirmText:'恢复',confirmColor:'#1264D6',success:async r=>{
       if (!r.confirm || !sameProductSession(owner) || this.productWriteLocked()) return
       const flight=this._productSaveFlight={};this.setData({saving:true})
       try { await updateMyProduct(item.id,{status:1,enabled:0})
@@ -807,7 +808,7 @@ Page({
             const finish = value => { if (settled) return; settled = true; if (this._pkgReturnCancel === cancel) this._pkgReturnCancel = null; resolve(value) }
             const cancel = () => finish(null)
             this._pkgReturnCancel = cancel
-            try { wx.showModal({ title: '核对水票档位',
+            try { showBusinessModal({ title: '核对水票档位',
               content: '其他页面已更新档位，本页也有未保存的档位修改。使用新档会替换本页档位草稿；保留修改将在下次保存时提交这些修改。两种选择都保留商品资料草稿。',
               confirmText: '使用新档', cancelText: '保留修改', confirmColor: '#1264D6', cancelColor: '#637083',
               success: answer => finish(!!answer.confirm), fail: cancel }) } catch (_) { cancel() }
@@ -1012,7 +1013,7 @@ Page({
       this._stockConfirmPending = true
       this.setData({ stockConfirmPending: true })
       // 2026-10-26：原按钮6字超过原生弹窗限制；缩短按钮，影响说明保留在标题和正文。
-      wx.showModal({ confirmColor: '#A83B32', cancelColor: '#637083',  confirmText: '确认报损', cancelText: '返回修改', title: '确认登记短缺 / 报损', editable: true, placeholderText: '短缺原因及依据（必填）',
+      showBusinessModal({ confirmColor: '#A83B32', cancelColor: '#637083',  confirmText: '确认报损', cancelText: '返回修改', title: '确认登记短缺 / 报损', editable: true, placeholderText: '短缺原因及依据（必填）',
         content: '实物数量将从 ' + setting.quantity + ' 件调整为 ' + qty + ' 件。系统会按订单需要顺序减少订单预留并提示受影响订单；请在业务待办中跟进补货、协商延期或取消退款。确认后会保留短缺原因、库存流水和审计记录。',
         success: res => {
           this.clearStockConfirmation()
@@ -1026,7 +1027,7 @@ Page({
     const proof = this.inventoryOperationProof()
     this._stockConfirmPending = true
     this.setData({ stockConfirmPending: true })
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认盘点校正',
       content: '「' + setting.name + '」实物总数将从 ' + (setting.quantity || 0) + ' 件校正为 ' + after + ' 件，并记录数量差额；低于订单预留量时服务端会拒绝校正。',
       confirmText: '确认校正',
@@ -1048,7 +1049,7 @@ Page({
       this._closedInventoryDraft = null
       this.setData({ inventoryDraftAvailable: false, inventoryDraftName: '' })
       this.loadData()
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083', confirmText: '知道了', title: '商品短缺已登记',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083', confirmText: '知道了', title: '商品短缺已登记',
         content: '受影响订单 ' + ((result && result.data && result.data.affectedOrders) || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
     } catch (err) {
       if (this.inventoryOperationCurrent(proof, false)) wx.showToast({ title: err.message || '登记未成功', icon: 'none' })
@@ -1098,7 +1099,7 @@ Page({
       if (original) {
         const confirmed = await new Promise(resolve => {
           flight.cancelConfirmation = () => resolve(false)
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '继续原入库', confirmText: '继续入库', cancelText: '暂不继续',
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '继续原入库', confirmText: '继续入库', cancelText: '暂不继续',
             content: '商品 #' + intent.items[0].productId + '，原入库数量 ' + intent.items[0].quantity + ' 件。\n继续会沿用原编号核实或执行这笔入库，不会使用当前新输入数量，也不会重复增加已完成的原入库。',
             success: result => resolve(!!result.confirm), fail: () => resolve(false) })
         })
@@ -1246,7 +1247,7 @@ Page({
     const item = e && e.currentTarget ? e.currentTarget.dataset.item : this.data.setting
     const session = productSession()
     if (!item || !item.id || item.ownerStationId) return
-    wx.showModal({ cancelColor: '#637083', title: '移除商品',
+    showBusinessModal({ cancelColor: '#637083', title: '移除商品',
       content: '移除后顾客在本站看不到该商品；库存必须先核对为 0。确认移除？',
       confirmText: '移除', confirmColor: '#BD3328', success: res => {
         if (!res.confirm || !sameProductSession(session) || this.productWriteLocked()) return
@@ -1827,7 +1828,7 @@ Page({
     if (this.productWriteLocked()) return
     const item = e.currentTarget.dataset.item, session = productSession()
     if (!item || Number(item.ownerStationId) !== Number((getApp().globalData.userInfo || {}).stationId)) return
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '移除商品',
       content: '移除后本站顾客看不到它，历史订单仍保留。确认移除？',
       confirmText: '移除',
@@ -1849,7 +1850,7 @@ Page({
   onSubmitToPlatform(e) {
     const item = e.currentTarget.dataset.item, owner=productSession()
     if (!item || this.productWriteLocked() || [0,2].includes(item.status) || Number(item.ownerStationId)!==Number((getApp().globalData.userInfo||{}).stationId)) return
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '上报给开发者',
       editable: true,
       placeholderText: '补充说明（规格/品牌/进货渠道等，可留空）',
@@ -2040,7 +2041,7 @@ Page({
       return m ? parseFloat(m[1]) : 0
     })
     if (times.some(t => t >= 10)) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '价格请再核对一次',
         content: warnings.join('\n'),
         showCancel: false,

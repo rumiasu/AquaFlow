@@ -16,3 +16,4 @@
     <text class="notice-content-empty" wx:else>这条公告暂无正文</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

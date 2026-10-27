@@ -99,7 +99,7 @@ class DeliveryFeePoolVisibilityIntegrationTest extends AbstractIntegrationTest {
 
     /** 站级配送计费配置（v35）：只配"基础配送费 + 楼层费"，起送量/范围一律不限。 */
     private void insertDeliveryConfig(long stationId) {
-        jdbc.update("INSERT INTO station_delivery_config(station_id, min_order_mode, over_radius_mode, "
+        jdbc.update("REPLACE INTO station_delivery_config(station_id, min_order_mode, over_radius_mode, "
                         + "base_delivery_fee, floor_free_level, floor_fee_per_level, floor_fee_mode) "
                         + "VALUES (?, 'WARN', 'WARN', ?, 1, ?, 'PER_ORDER')",
                 stationId, new BigDecimal(BASE_DELIVERY_FEE), new BigDecimal(FLOOR_FEE_PER_LEVEL));

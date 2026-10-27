@@ -296,3 +296,4 @@
     <button class="btn-login" bindtap="onGoLogin">前往登录</button>
   </view>
 </view>
+<business-dialog id="business-dialog" />

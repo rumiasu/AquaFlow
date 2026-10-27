@@ -53,6 +53,8 @@ function orderPage(paymentResult, queryResult, action = '查原单') {
       payments.push(copy(call.data)); paymentResult(call, payments.length)
     } else if (method === 'GET' && /\/orders\/777(?:\?|$)/.test(call.url)) {
       reads.push(777); queryResult(call, reads.length)
+    } else if (call.url.endsWith('/api/payments/capabilities')) {
+      success(call, { wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟付款', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } } })
     } else success(call, {})
   })
   // 2026-10-10：旧布尔值把确认固定当重试，主次交换后会测错路径；按用户所选动作定位按钮。

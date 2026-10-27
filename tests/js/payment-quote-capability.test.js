@@ -119,7 +119,8 @@ test('旧会话迟到报价不能解锁提交', async () => {
   t.app.globalData.isLogin = false; gate.resolve(validQuote()); await refresh
   assert.equal(t.page.data.quoteReady, false)
 })
-const simulated = { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）' }
+const simulated = { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）',
+  simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } }
 function barrel(capability, onlineAvailable = true, envVersion = 'develop') {
   global.__wxConfig = { envVersion }
   const state = { capability, onlineAvailable }
@@ -248,6 +249,22 @@ test('trial does not offer the quote-explicit simulated channel for independent 
   t.page.setData({ paymentMethod: 1 })
   await t.page.onPurchase()
   assert.equal(t.calls.length, 0)
+})
+test('trial explicitly bound to the sandbox shows the authorized order and barrel labels', async () => {
+  const config = require('../../miniapp-user/config/api').API_CONFIG
+  const previous = { binding: config.paymentSandbox, trial: config.trial }
+  const identity = { environmentId: 'synthetic-env', serviceId: 'synthetic-service', bindingId: 'synthetic-binding-001', apiBaseUrl: '' }
+  config.paymentSandbox = identity
+  config.trial = { transport: 'cloudContainer', cloudContainer: { env: identity.environmentId, service: identity.serviceId } }
+  const capability = { ...simulated, simulationAuthorization: { version: 1, scope: 'PAYMENT_SANDBOX', customerId: 7, ...identity } }
+  try {
+    const a = order(async () => ({ data: { ...validQuote().data, methods: [{ id: 1, name: capability.label, enabled: true }],
+      defaultMethod: 1, wechatPay: capability } }), {}, 'trial')
+    await a.page.refreshQuote(); assert.equal(a.page.data.wechatPay.enabled, true); assert.equal(a.page.data.selectedMethod, 1)
+    assert.equal(a.page.data.payMethods[0].name, capability.label); assert.equal(a.calls.orders.length, 0)
+    const b = barrel(capability, true, 'trial'); await b.page.onLoad({ stationId: 1 })
+    assert.equal(b.page.data.onlinePayEnabled, true); assert.equal(b.page.data.onlinePayLabel, capability.label)
+  } finally { config.paymentSandbox = previous.binding; config.trial = previous.trial }
 })
 ;(async () => { let passed = 0, failed = 0
   for (const t of tests) { try { await t.run(); passed++; console.log('PASS ' + t.name) }

@@ -67,8 +67,12 @@ const paymentApp = { globalData: { isLogin: true, customerId: 101,
   accessToken: 'synthetic-environment-access', refreshToken: 'synthetic-environment-refresh' } }
 global.getApp = () => paymentApp
 let paymentPosts = 0
+let simulatedCapability = true
+const paymentConfig = require(path.join(root, 'miniapp-user/config/api'))
+const priorProdUrl = paymentConfig.API_CONFIG.prod.baseUrl
+paymentConfig.API_CONFIG.prod.baseUrl = 'https://production.synthetic.test'
 require.cache[requestPath] = { id: requestPath, filename: requestPath, loaded: true,
-  exports: { get() {}, put() {}, post() { paymentPosts += 1; return Promise.resolve({ ok: true }) } } }
+  exports: { get() { return Promise.resolve({ code: 0, data: { wechatPay: { method: 1, enabled: true, simulated: simulatedCapability, label: '渠道夹具' } } }) }, put() {}, post() { paymentPosts += 1; return Promise.resolve({ ok: true }) } } }
 delete require.cache[orderPath]
 const orderApi = require(orderPath)
 try {
@@ -77,12 +81,15 @@ try {
     const postsBefore = paymentPosts
     let simulated
     assert.doesNotThrow(() => { simulated = orderApi.createPayment({ orderId: 1, paymentMethod: 1 }, { simulatedWechatPay: true }) })
-    await rejectsAsync(simulated, /develop/, `miniapp-user: explicit simulated order payment is rejected in ${envVersion}`)
+    await rejectsAsync(simulated, /授权|模拟/, `miniapp-user: unauthorized simulated order payment is rejected in ${envVersion}`)
     check(paymentPosts === postsBefore, `${envVersion}: simulated payment request never reaches transport`)
+    simulatedCapability = false
     const real = await orderApi.createPayment({ orderId: 2, paymentMethod: 1 }, { simulatedWechatPay: false })
+    simulatedCapability = true
     check(real.ok === true && paymentPosts === postsBefore + 1, `${envVersion}: method 1 without mock marker remains available`)
   }
 } finally {
+  paymentConfig.API_CONFIG.prod.baseUrl = priorProdUrl
   delete require.cache[orderPath]
   if (priorRequestModule) require.cache[requestPath] = priorRequestModule
   else delete require.cache[requestPath]

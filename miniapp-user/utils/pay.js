@@ -1,4 +1,5 @@
 // 支付结果提示（全端统一语义）
+const { isReleaseEnv } = require('../config/api')
 //
 // 背景：订单详情 / 列表 / 成功页曾各自写 `createPayment(...).then(() => toast('支付成功'))`。
 // 但 POST /api/payments 对微信(1)、现金(2) 只创建一条 PENDING 流水，并不改订单付款状态，
@@ -20,6 +21,9 @@ const PAY_STATUS = {
  * @returns {boolean} 是否已真正支付成功
  */
 const notifyPayResult = (record) => {
+  if (record && record.simulated === true && isReleaseEnv()) {
+    wx.showToast({ title: '当前版本不可使用模拟付款', icon: 'none' }); return false
+  }
   const status = record && record.status != null ? Number(record.status) : PAY_STATUS.PENDING
 
   if (status === PAY_STATUS.PAID) {

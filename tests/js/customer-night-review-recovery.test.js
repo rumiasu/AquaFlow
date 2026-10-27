@@ -59,7 +59,8 @@ test('R1: incomplete-product retry locks submission until every original item an
       if (!retry && id === 6) throw Error('网络超时'); return ok({ id, name: '用户商品' + id, category: 2, price: 20 }) } },
     'api/payment': { getQuote: async () => ok({ waterAmount: 40, totalAmount: 40, barrelDeposit: 0, extraDeposit: 0,
       deliveryFee: 0, floorFee: 0, methods: [{ id: 1, name: '微信支付', enabled: true }],
-      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付' } }) },
+      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付',
+        simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } } }) },
     'api/station': { getStationStatus: async () => ok({}) },
     'api/order': { createOrder: body => { bodies.push(body); return new Promise(() => {}) } }
   })

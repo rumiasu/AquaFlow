@@ -166,6 +166,7 @@ function order(paymentResult, readResult) {
     if (call.method === 'POST' && Array.isArray(call.data.items)) { writes.push(copy(call.data)); success(call, { orderId: 777, warnings: [] }) }
     else if (call.method === 'POST' && call.data.orderId) { payments.push(call.data.orderId); paymentResult(call) }
     else if (/\/orders\/777(?:\?|$)/.test(call.url)) { reads.push(777); readResult(call) }
+    else if (call.url.endsWith('/api/payments/capabilities')) success(call, { wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟付款', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } } })
     else success(call, {})
   })
   // Unknown outcome's primary confirm now reads the original order.

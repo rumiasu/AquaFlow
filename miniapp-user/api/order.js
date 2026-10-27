@@ -1,6 +1,6 @@
 const { get, post, put } = require('../utils/request')
 const { API } = require('../config/api')
-const { isDevelopEnv } = require('../config/api')
+const { withOnlinePayment } = require('../utils/payment-channel')
 const { captureSession, isCurrentSession } = require('../utils/token')
 const orderIntent = require('../utils/orderIntent')
 
@@ -31,11 +31,6 @@ const createOrder = (data) => {
 
 const paymentFlights = new Map()
 const createPayment = (data, channel = {}) => {
-  // Reject only a channel explicitly identified by its capability response.
-  // A future real WeChat integration may also use paymentMethod=1.
-  if (channel.simulatedWechatPay === true && !isDevelopEnv()) {
-    return Promise.reject(new Error('模拟微信支付仅在 develop 环境可用'))
-  }
   const { orderId, ...rest } = data
   // 2026-10-26：页面各自的 paying 标记挡不住列表/详情同时付款；跨页面按原会话、原单单飞。
   // 超时后仍重试原 orderId，服务端订单锁和唯一键负责持久幂等。
@@ -43,7 +38,7 @@ const createPayment = (data, channel = {}) => {
   const key = `${session.epoch}:${orderId}`
   const existing = paymentFlights.get(key)
   if (existing) return existing
-  const flight = Promise.resolve(post(`${API.PAYMENTS}`, { orderId, ...rest }))
+  const flight = withOnlinePayment(data, () => post(`${API.PAYMENTS}`, { orderId, ...rest }), channel)
   const result = flight.then(value => {
     paymentFlights.delete(key)
     return value

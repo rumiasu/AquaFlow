@@ -143,6 +143,7 @@ function order(data) {
     if (call.method === 'POST' && Array.isArray(call.data.items)) { writes.push(call.data); success(call, { orderId: 777, warnings: [] }) }
     else if (call.method === 'POST' && call.data.orderId) { payments.push(call.data.orderId); fail(call) }
     else if (/\/orders\/777(?:\?|$)/.test(call.url)) { reads.push(777); success(call, data) }
+    else if (call.url.endsWith('/api/payments/capabilities')) success(call, { wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟付款', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } } })
     else success(call, {})
   })
   // 2026-10-26：按原单及未知事实选择查单动作，标题改写不能让夹具误选成再次付款。

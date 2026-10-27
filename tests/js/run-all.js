@@ -17,6 +17,8 @@ const SUITES = [
   { file: 'behavior-handler-audit.test.js', name: '已注册导航Behavior事件、导入导出及缺失实现反向检查' },
   { file: 'three-flow-regressions.test.js', name: '商品档位返回核对、配送回执生命周期与购票读取中断恢复' },
   { file: 'payment-single-flight.test.js', name: '支付跨页面单飞、原单超时重试、会话隔离与模拟收据' },
+  { file: 'payment-sandbox-channel.test.js', name: '独立云模拟渠道身份、三入口前检、体验版授权和正式版拒绝' },
+  { file: 'payment-sandbox-entrypoint.test.js', name: '独立模拟镜像入口必需配置、身份错配和覆盖拒绝' },
   { file: 'gross-profit-presentation.test.js', name: '毛利指标口径说明、布局与空数据展示' },
   { file: 'ticket-package-copies.test.js', name: '套餐默认草稿、1张兼容、多份总价、原款恢复与删除/下架保存' },
   { file: 'delivery-fee-tutorial.test.js', name: '配送计费四条上线教程、草稿推进、明确保存、失败与退出恢复' },

@@ -4,7 +4,7 @@ const { resolveStationId } = require('../../utils/station')
 const { stationStorage } = require('../../utils/storage')
 const { getAssetStation } = require('../../api/asset-stations')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
-const { isDevelopEnv } = require('../../config/api')
+const { simulationAllowed } = require('../../utils/payment-channel')
 const intents = require('../../utils/independent-purchase-intent')
 
 // 只清理错误的展示文字；原对象的 code、resultUnknown、businessRejected 均不改动。
@@ -126,7 +126,7 @@ Page({
       const labelled = !!channel && channel.method === 1 && typeof channel.enabled === 'boolean'
         && typeof channel.simulated === 'boolean' && typeof channel.label === 'string' && !!channel.label.trim()
         && typeof res.data.onlineAvailable === 'boolean' && res.data.onlineAvailable === channel.enabled
-      const mockChannelAllowed = !channel || channel.simulated !== true || isDevelopEnv()
+      const mockChannelAllowed = simulationAllowed(channel)
       this.setData({ quote: res.data, stationName: res.data.stationName,
         onlinePayEnabled: res.data.onlineAvailable === true && labelled && channel.enabled === true && mockChannelAllowed,
         onlinePayLabel: labelled && mockChannelAllowed ? channel.label : '',
@@ -291,7 +291,8 @@ Page({
       wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: recovering || res.data.status === 3 || record.status === 'CANCELLED'
           ? '原桶押金购买已查回' : (record.status === 'PAID' ? '桶押金已确认' : '桶押金待确认'),
-        content, showCancel: returnToOrder, confirmText: returnToOrder ? '继续订水' : '确定',
+        content: (res.data.simulated === true ? (res.data.simulationResultText || res.data.methodText || '模拟付款（未扣款）') + '。' : '') + content,
+        showCancel: returnToOrder, confirmText: returnToOrder ? '继续订水' : '确定',
         ...(returnToOrder ? { cancelText: '留在此页', success: result => {
           if (result.confirm && isCurrentSession(session) && this.canReturnToOrder(body.stationId)) this.onBack()
         } } : {})

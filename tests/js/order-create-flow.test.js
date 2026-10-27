@@ -102,7 +102,7 @@ function newPage(scenario) {
             // 渠道能力（后端 quote 的 wechatPay）：默认**微信走模拟渠道可用**，
             // 这样"微信要不要发支付请求"的用例只需覆盖自己的那一条。
             // 要测"渠道没开"就显式传 quote.wechatPay = { enabled: false }。
-            wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）' }
+            wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } }
           }, sc.quote || {})
         }
       }
@@ -300,7 +300,7 @@ await test('"已下单"态：付款没结清 ⇒ 提示"还没付款"；结清�
     quote: {
       methods: [{ id: 1, name: '微信支付', desc: '模拟支付', enabled: true }],
       defaultMethod: 1,
-      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付' }
+      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } }
     },
     createOrder: [{ data: { orderId: 11, needConfirm: false, warnings: [] } }],
     createPayment: [{ data: { status: 2 } }],
@@ -555,7 +555,7 @@ await test('微信（模拟渠道开启）：建 1 单 → 同单模拟支付 �
         { id: 1, name: '微信支付', desc: '模拟支付（点击即成功，仅联调期开启）', enabled: true }
       ],
       defaultMethod: 1,
-      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）' }
+      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } }
     },
     createOrder: [{ data: { orderId: 90, needConfirm: false, warnings: [] } }],
     createPayment: [{ data: { status: 2 } }],
@@ -599,7 +599,7 @@ await test('微信支付请求成功但服务端仍待收款(1) ⇒ 不假报已
     quote: {
       methods: [{ id: 1, name: '微信支付', desc: '模拟支付', enabled: true }],
       defaultMethod: 1,
-      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付' }
+      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } }
     },
     createOrder: [{ data: { orderId: 92, needConfirm: false, warnings: [] } }],
     createPayment: [{ data: { status: 1 } }],            // 幂等返回旧 PENDING 流水的形状

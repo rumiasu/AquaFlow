@@ -12,7 +12,8 @@ const quote = (body, extra = {}) => ({ code: 0, data: {
   waterAmount: 20, floorFee: body.addressId === B.id ? 8 : 0,
   totalAmount: body.addressId === B.id ? 28 : 20, blocked: false,
   methods: [{ id: 1, name: '微信支付', enabled: true }, { id: 2, name: '货到付款', enabled: true }, { id: 3, name: '水票支付', enabled: true }],
-  defaultMethod: 3, allowOfflinePayment: true, wechatPay: { enabled: true, simulated: true },
+  defaultMethod: 3, allowOfflinePayment: true, wechatPay: { enabled: true, simulated: true,
+    simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } },
   ticketPay: body.paymentMethod === 3 ? { fullyCovered: true, coverQty: 1, coverAmount: 20, payableAmount: 0 } : null,
   ...extra
 } })

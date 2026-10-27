@@ -13,7 +13,8 @@ function fixture(method = 2, purchases = true) {
   let response = { data: { independentRights: true, waterAmount: 20, extraDeposit: purchases ? 50 : 0,
     extraDepositBuckets: purchases ? 1 : 0, totalAmount: purchases ? 70 : 20, blocked: false,
     barrelPurchases: purchases ? [line] : [], methods: [{ id: 1, name: '模拟微信支付', enabled: true }, { id: 2, name: '现金', enabled: true }],
-    defaultMethod: method, wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付' } } }
+    defaultMethod: method, wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付',
+      simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } } } }
   const page = loadPage(path.join(repo, 'miniapp-user/pages/order/create.js'), { wx, app, stubs: {
     'api/payment': { getQuote: async () => response },
     'api/order': { getOrderDetail: async () => ({ data: { paymentStatus: 2 } }),

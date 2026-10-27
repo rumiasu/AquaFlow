@@ -17,6 +17,8 @@ const { assertReleaseBaseUrl } = require('../utils/release-api-url')
 //   ⚠️ 换地址跑 `scripts/set-dev-api-host.ps1 -Apply`（它**同时改两端**；只改一端会让那一端白屏，
 //      现象同样是"网络错误"，很难联想到是 IP 不对）。
 const API_CONFIG = {
+  // Non-secret approved sandbox identity; empty values authorize no simulated trial channel.
+  paymentSandbox: { environmentId: '', serviceId: '', bindingId: '', apiBaseUrl: '' },
   // devtoolsBaseUrl：开发者工具跑在**同一台笔记本**上，走回环即可 —— 换网络、开关热点都不影响写代码。
   dev: { baseUrl: 'http://192.168.0.243:8080', devtoolsBaseUrl: 'http://127.0.0.1:8080' },
   // Non-secret trial identifiers only; HTTPS remains the default and empty settings fail closed.

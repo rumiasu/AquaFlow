@@ -10,7 +10,7 @@ const { submitEnterpriseApply, getMyEnterpriseApplies } = require('../../api/ent
 const { storage, stationStorage, payMethodStorage } = require('../../utils/storage')
 const { resolveStationId } = require('../../utils/station')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
-const { isDevelopEnv } = require('../../config/api')
+const { simulationAllowed } = require('../../utils/payment-channel')
 const { formatAddress } = require('../../utils/address')
 const { itemUnit } = require('../../utils/order-item-view')
 const orderIntent = require('../../utils/orderIntent')
@@ -940,7 +940,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 当前页面仅能执行 PayMethod.java ALL 中的渠道；名称与可用性仍取服务端。
         const wechatPay = d.wechatPay || null
         // 2026-10-24：非开发版保留渠道禁用守卫，名称/说明只呈现顾客可用的下一步；开发版仍保留模拟标识。
-        const mockWechatBlocked = !!(wechatPay && wechatPay.simulated === true && !isDevelopEnv())
+        const mockWechatBlocked = !!(wechatPay && wechatPay.simulated === true
+          && !simulationAllowed(wechatPay))
         const payMethods = Array.isArray(d.methods) ? d.methods.map(method => method && method.id === 1 && mockWechatBlocked
           ? { ...method, enabled: false, name: '微信支付（暂不可用）', desc: '请选择其它可用方式或联系水站' }
           : method) : d.methods

@@ -2,9 +2,11 @@ const { getTicketAccounts, getTicketRecords, getTicketPackages, purchaseTicket, 
 const { getStationProducts } = require('../../api/product')
 const { getBarrelSummaryByType } = require('../../api/barrel')
 const assetViewStation = require('../../utils/asset-view-station')
-const { getBaseUrl, API } = require('../../config/api')
+const { getBaseUrl, API, isReleaseEnv } = require('../../config/api')
 const { getAccessToken, getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
+const { readOnlineChannel } = require('../../utils/payment-channel')
+const { notifyPayResult } = require('../../utils/pay')
 
 // 只清理错误的展示文字；原对象的 code、resultUnknown、businessRejected 均不改动。
 function viewError(error, fallback = '暂时无法完成，请稍后重试') {
@@ -215,8 +217,12 @@ Page({
     if (String(getCustomerId()) !== String(saved.customerId)) return
     if (!this.validPurchaseResult(saved, result)) throw new Error('购买结果或内容暂不能确认，请保留原购买并查询')
     if (Number(result.status) === 2) {
+      if (result.simulated === true && isReleaseEnv()) {
+        notifyPayResult(result); throw new Error('当前版本不可使用模拟付款，请保留原记录核实')
+      }
       this.clearPurchaseIntent(saved)
-      wx.showToast({ title: '购买成功，水票已到账', icon: 'success' })
+      if (result.simulated === true) notifyPayResult(result)
+      else wx.showToast({ title: '购买成功，水票已到账', icon: 'success' })
     } else this.savePurchaseIntent(Object.assign({}, saved, { result }))
   },
   async onQueryPurchaseResult() {
@@ -380,6 +386,22 @@ Page({
       return
     }
     this.setData({ showPurchase: true })
+    this.refreshOnlineChannel()
+  },
+
+  async refreshOnlineChannel() {
+    const session = captureSession(), seq = this._channelSeq = (this._channelSeq || 0) + 1
+    this.setData({ buyMethods: [{ id: 1, name: '微信支付', desc: '正在核实付款方式' }] })
+    try {
+      const channel = await readOnlineChannel()
+      if (isCurrentSession(session) && seq === this._channelSeq && this.data.showPurchase) {
+        this.setData({ buyMethods: [{ id: 1, name: channel.label, desc: channel.simulated ? '仅供测试，不会扣款' : '付款到账后水票即可使用' }] })
+      }
+    } catch (_) {
+      if (isCurrentSession(session) && seq === this._channelSeq && this.data.showPurchase) {
+        this.setData({ buyMethods: [{ id: 1, name: '微信支付', desc: '付款方式暂未核实，提交前会再次核实' }] })
+      }
+    }
   },
 
   onClosePurchase() {

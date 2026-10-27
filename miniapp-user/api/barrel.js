@@ -1,6 +1,7 @@
 // 水桶相关接口（后端: BarrelController）
 const { get, post, put } = require('../utils/request')
 const { API } = require('../config/api')
+const { withOnlinePayment } = require('../utils/payment-channel')
 
 // GET /api/barrels/summary (customerId 从 JWT 获取)
 const getBarrelSummary = (stationId) => {
@@ -32,7 +33,10 @@ const previewBarrelReturn = (productId, quantity, stationId) => {
 }
 
 const quoteBarrelRight = (stationId, productId, quantity) => get(API.BARREL_RIGHT_QUOTE, { stationId, productId, quantity })
-const purchaseBarrelRight = (data) => post(API.BARREL_RIGHT_PURCHASE, data)
+const purchaseBarrelRight = (data) => {
+  const input = { ...data }
+  return withOnlinePayment(input, () => post(API.BARREL_RIGHT_PURCHASE, input))
+}
 const getBarrelRightPurchases = (stationId) => get(API.BARREL_RIGHTS, { stationId })
 const withdrawBarrelRightPurchase = (id) => put(API.BARREL_RIGHT_WITHDRAW(id), {})
 const confirmBarrelReturn = (id, expectedVersion) => put(API.BARREL_RETURN_CONFIRM(id), { expectedVersion })

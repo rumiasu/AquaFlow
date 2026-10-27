@@ -74,6 +74,9 @@ public class TicketAccountController {
         result.put("amount", pr.getAmount());
         result.put("status", pr.getStatus());
         result.put("statusText", pr.getStatusText());
+        result.put("simulated", pr.isSimulated());
+        result.put("methodText", pr.getMethodText());
+        result.put("simulationResultText", pr.getSimulationResultText());
         result.put("stationId", pr.getStationId());
         result.put("productId", pr.getTicketWaterTypeId());
         result.put("quantity", pr.getTicketQty());

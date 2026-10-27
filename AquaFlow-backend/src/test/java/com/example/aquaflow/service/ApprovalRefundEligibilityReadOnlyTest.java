@@ -48,6 +48,7 @@ class ApprovalRefundEligibilityReadOnlyTest {
 
     @BeforeEach void setup() {
         service=new ApprovedBarrelReturnService();
+        ReflectionTestUtils.setField(service,"mockPolicy",mock(com.example.aquaflow.payment.MockPaymentPolicy.class));
         transactions=mock(PlatformTransactionManager.class); transaction=new SimpleTransactionStatus();
         when(transactions.getTransaction(any(TransactionDefinition.class))).thenReturn(transaction);
         ReflectionTestUtils.setField(service,"transactionManager",transactions);
@@ -109,7 +110,10 @@ class ApprovalRefundEligibilityReadOnlyTest {
         unavailable(result,"线上原渠道退款尚不可用"); assertEquals("ONLINE",result.get("channel"));
     }
     @Test void mockOnlineCapabilityUsesOriginalOnlineChannel() {
-        original.setPaymentMethod(PayMethod.WECHAT); ReflectionTestUtils.setField(service,"mockWechatPay",true);
+        original.setPaymentMethod(PayMethod.WECHAT);
+        var mockPolicy=mock(com.example.aquaflow.payment.MockPaymentPolicy.class);
+        when(mockPolicy.allows(7L)).thenReturn(true);when(mockPolicy.canRefund(original)).thenReturn(true);
+        ReflectionTestUtils.setField(service,"mockPolicy",mockPolicy);
         assertEquals(true,read().get("available")); assertEquals("ONLINE",read().get("channel"));
     }
     @Test void missingKnownOriginalAndUnsupportedChannelRemainUnknown() {

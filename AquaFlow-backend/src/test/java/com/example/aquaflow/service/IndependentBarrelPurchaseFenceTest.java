@@ -33,6 +33,7 @@ class IndependentBarrelPurchaseFenceTest {
             new BusinessTime(Clock.fixed(Instant.parse("2026-10-02T00:00:00Z"), ZoneOffset.UTC)));
     final IndependentBarrelService service = new IndependentBarrelService();
     @BeforeEach void setup() {
+        ReflectionTestUtils.setField(service,"mockPolicy",mock(com.example.aquaflow.payment.MockPaymentPolicy.class));
         var policy = mock(BarrelBusinessPolicy.class); when(policy.isEnabled()).thenReturn(true);
         var product = new Product(); product.setId(5L); product.setCategory(1); product.setStatus(1); product.setDeposit(new BigDecimal("30.00"));
         var station = new Station(); station.setId(1L); station.setStatus(1);

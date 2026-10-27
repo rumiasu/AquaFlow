@@ -27,41 +27,49 @@
 
   <view class="ui-state" wx:if="{{reportError}}"><text class="ui-state-title">本期经营数据待核实</text><text class="ui-state-copy">{{reportError}}</text><button size="mini" bindtap="onRetryReport">重新读取报表</button></view>
   <view class="ui-state" wx:if="{{missingError}}"><text class="ui-state-copy">{{missingError}}</text><button size="mini" bindtap="onRetryReport">重新读取成本清单</button></view>
-    <!-- 未填成本的商品：快速补录入口（状态与出路都摆在这一行里，别藏） -->
-    <view class="card" wx:if="{{missingCost.length}}">
-      <view class="card-title">未填成本的商品（{{missingCost.length}} 个）</view>
+    <view class="missing-cost-strip" wx:if="{{!report && missingCost.length}}">
+      <text class="missing-cost-title">利润暂不完整</text>
+      <text class="missing-cost-copy">有 {{missingCost.length}} 个商品尚未填写成本，点商品名补录。</text>
       <view class="chips">
         <view class="chip chip-warn" wx:for="{{missingCost}}" wx:key="productId"
               bindtap="onOpenCostFromMissing" data-id="{{item.productId}}">+ {{item.productName}}</view>
       </view>
-      <view class="hint">点商品名就能补录成本价，补完利润立刻算得出来。</view>
     </view>
 
   <block wx:if="{{report}}">
     <!-- 合计 -->
     <view class="hero">
       <view class="hero-item">
+        <text class="hero-label">收入合计</text>
         <text class="hero-num">{{profitView.totalRevenueText}}</text>
         <!-- [2026-09-25] 标签从「水费收入」改成「收入合计」：这个数是 totalRevenue，
              它=订单收入（水费）+ 水票收入（买票实收），下面那张卡会逐项拆开。
              老标签会让站长把票款也算进"水费"，正好是报表口径最容易混的一处。 -->
-        <text class="hero-label">收入合计</text>
       </view>
       <view class="hero-item">
-        <text class="hero-num">{{profitView.totalCostText}}</text>
         <text class="hero-label">进货成本</text>
+        <text class="hero-num">{{profitView.totalCostText}}</text>
       </view>
       <view class="hero-item">
         <!-- 缺成本时后端把 totalProfit 下发成 null：这里显示「未填成本」（js 里算好的展示态），
              下面的 missingCostHint 会接着说清是哪些商品 —— 既不显示 0，也不整块不显示。 -->
+        <text class="hero-label">利润</text>
         <text class="hero-num {{profitView.totalProfitWarn ? 'hero-warn' : 'hero-ok'}}">
           {{profitView.totalProfitText}}
         </text>
-        <text class="hero-label">利润</text>
       </view>
     </view>
 
-    <view class="notice" wx:if="{{report.missingCostHint}}">{{report.missingCostHint}}</view>
+    <view class="missing-cost-strip" wx:if="{{report.missingCostHint || missingCost.length}}">
+      <text class="missing-cost-title">利润暂不完整</text>
+      <text class="missing-cost-copy" wx:if="{{report.missingCostHint}}">{{report.missingCostHint}}</text>
+      <text class="missing-cost-copy" wx:elif="{{missingCost.length}}">有 {{missingCost.length}} 个商品尚未填写成本，利润不能完整计算。</text>
+      <view class="chips" wx:if="{{missingCost.length}}">
+        <view class="chip chip-warn" wx:for="{{missingCost}}" wx:key="productId"
+              bindtap="onOpenCostFromMissing" data-id="{{item.productId}}">+ {{item.productName}}</view>
+      </view>
+      <text class="missing-cost-action" wx:if="{{missingCost.length}}">点商品名补录成本价</text>
+    </view>
 
     <!--
       收入构成与净利（[2026-09-19] 新增）：与上面的利润是**同一批订单**（同结算站、同时间窗、排除已取消），
@@ -118,10 +126,9 @@
       <!--
         [2026-09-26 产品反馈"利润里太罗嗦了"] 这两段口径提示从"铺在屏幕上"改成**一行版**，
         完整解释（为什么一张水票单的利润是负的、工钱什么时候产生、人工调整为何不计入…）
-        由服务端下发 helpNote，收进页面底部的「利润怎么算」。
+        按统计范围、费用水票和成本风险分组收在页面底部，文字仍由服务端下发。
         ⚠️ 别把长文搬回这里，也别在前端 js 里抄一份口径。
       -->
-      <view class="hint">{{report.profitBasisNote}}</view>
     </view>
 
     <!-- 合作款独立于销售净利，所有数字与说明由后端下发。 -->
@@ -131,11 +138,9 @@
         <text class="ledger-label">{{item.label}}</text>
         <text class="ledger-value">{{item.amountText}}</text>
       </view>
-      <view class="hint">{{report.cooperation.scopeNote}}</view>
     </view>
 
-    <!-- 成本口径：一行版（长解释同上，见「利润怎么算」） -->
-    <view class="hint" wx:if="{{report.costBasisNote}}">{{report.costBasisNote}}</view>
+    <!-- 成本口径集中在页面底部的分组说明，避免与收入构成重复铺开。 -->
 
     <!-- 明细 -->
     <view class="card">
@@ -169,8 +174,19 @@
     </view>
   </block>
 
-  <view class="card">
-    <view class="btn-ghost block" bindtap="onShowHelp">利润怎么算</view>
+  <view class="card profit-help-card" wx:if="{{report}}">
+    <view class="card-title">统计口径与计算说明</view>
+    <view class="profit-help-group" wx:for="{{profitHelpSections}}" wx:key="key">
+      <view class="profit-help-toggle" bindtap="onToggleHelpGroup" data-group="{{item.key}}">
+        <text class="profit-help-title">{{item.title}}</text>
+        <text class="profit-help-action">{{item.expanded ? '收起' : '展开'}}</text>
+      </view>
+      <view class="profit-help-body" wx:if="{{item.expanded}}">
+        <text class="profit-help-note" wx:for="{{item.notes}}" wx:for-item="note" wx:key="index">{{note}}</text>
+      </view>
+    </view>
+    <view class="profit-help-all" wx:if="{{profitHelpSections.length}}" bindtap="onShowHelp">展开或收起全部说明</view>
+    <view class="profit-help-all" wx:else bindtap="onShowHelp">查看利润说明</view>
   </view>
 
   <!-- 成本编辑 -->

@@ -1,4 +1,3 @@
-@import "../../../styles/setup-module-tasks.wxss";
 /* 商品与库存（站长）：选品目录 + 本站设置 + 自己定义商品。
    2026-09-16 重构后本页承担 11 项功能中的：选品、本站设置（上架/价格/水票/优先展示）、
    库存入库与盘点、库存流水、自定义商品增删改、上报通用库。 */
@@ -10,6 +9,27 @@
   padding-bottom: 220rpx;
   box-sizing: border-box;
 }
+
+.product-setup-guide { padding: 22rpx 24rpx; margin-bottom: 20rpx; background: #fff; border: 1rpx solid var(--border-light); border-radius: 18rpx; }
+.product-setup-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
+.product-setup-guide-heading { flex: 1; min-width: 0; }
+.product-setup-guide-title { display: block; color: var(--text-primary); font-size: 30rpx; font-weight: 700; line-height: 1.4; }
+.product-setup-guide-summary { display: block; margin-top: 6rpx; color: var(--text-secondary); font-size: 25rpx; line-height: 1.5; }
+.product-setup-guide-toggle { flex: none; padding: 12rpx 0 12rpx 12rpx; color: var(--primary-color); font-size: 25rpx; }
+.product-setup-guide-loading, .product-setup-guide-error { margin-top: 16rpx; color: var(--text-regular); font-size: 27rpx; line-height: 1.55; }
+.product-setup-task { padding: 18rpx 0; border-top: 1rpx solid var(--border-light); }
+.product-setup-task-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8rpx; }
+.product-setup-task-name { color: var(--text-primary); font-size: 28rpx; font-weight: 600; }
+.product-setup-required, .product-setup-optional { padding: 2rpx 10rpx; border-radius: 999rpx; color: #8A4B10; background: #FFF3DB; font-size: 22rpx; line-height: 1.5; }
+.product-setup-optional { color: #526276; background: #EEF2F6; }
+.product-setup-state { margin-left: auto; font-size: 24rpx; }
+.product-setup-state.is-done { color: var(--success-color); }
+.product-setup-state.is-pending { color: var(--warning-color); }
+.product-setup-task-copy, .product-setup-evidence { display: block; margin-top: 8rpx; color: var(--text-regular); font-size: 25rpx; line-height: 1.55; }
+.product-setup-evidence { color: var(--text-secondary); }
+.product-setup-task button, .product-setup-guide-error button, .product-setup-refresh { min-height: 44px; height: auto; margin: 12rpx 0 0; padding: 8rpx 20rpx; border-radius: 10rpx; color: var(--primary-color); background: #F2F7FF; font-size: 14px; line-height: 1.5; }
+.product-setup-task button::after, .product-setup-guide-error button::after, .product-setup-refresh::after { border: 0; }
+.product-setup-refresh { width: 100%; color: var(--text-secondary); background: transparent; }
 
 .water-templates { background: var(--bg-card); padding: 24rpx; border-radius: 20rpx; margin-bottom: 20rpx; }
 .water-template-title { font-size: 30rpx; font-weight: 600; margin-bottom: 10rpx; }

@@ -104,6 +104,29 @@ test('ticket setup task filters enabled ticket products and scrolls to the edita
   assert.deepEqual(scrolls, [{ selector: '#setup-products', duration: 180 }])
 })
 
+test('product detail preparation separates optional tickets and collapses after required items are ready', async () => {
+  const t = fixture(undefined, { freshSetupHelpers: true })
+  t.state.setupGuide = { code: 0, data: { pendingCount: 1, p0PendingCount: 0, doneCount: 1, totalCount: 2, items: [
+    { key: 'catalogOnShelf', route: '/pages/station-mgmt/products/index', level: 'P0', levelText: '必填', label: '上架商品', done: true, why: '已保存一个在售商品' },
+    { key: 'ticketPackage', route: '/pages/station-mgmt/ticket-packages/index', level: 'P1', levelText: '选填', label: '水票档位', done: false, why: '未启用水票' }
+  ] } }
+  await t.page.refreshModuleSetup()
+  assert.equal(t.page.data.productSetupRequiredPending, 0, 'optional water tickets do not count as required pending work')
+  assert.equal(t.page.data.productSetupGuideExpanded, false, 'the required-ready guide starts collapsed')
+  const guide = find(tree, node => node.attrs?.class === 'product-setup-guide')[0].node
+  let view = renderElements(guide, t.page.data, { includeText: true })
+  assert.equal(view.find(node => node.attrs?.class === 'product-setup-guide-toggle').text, '展开准备事项')
+  t.page.onToggleProductSetupGuide()
+  assert.equal(t.page.data.productSetupGuideExpanded, true)
+  view = renderElements(guide, t.page.data, { includeText: true })
+  const optionalTemplate = find(guide, node => node.attrs?.class === 'product-setup-task product-setup-optional-row')[0].node
+  const optionalView = renderElements(optionalTemplate, t.page.data, { includeText: true })
+  assert(view.some(node => node.attrs?.class === 'product-setup-task product-setup-optional-row'))
+  assert(optionalView.some(node => node.text === '选填'))
+  assert(!optionalView.some(node => node.text === '已完成' || node.text === '待完善'), 'optional water tickets have no completion state')
+  assert(t.page.data.productSetupRequiredTasks[0].completionEvidence)
+})
+
 test('repeated inventory taps preserve the typed quantity, host and operation generation without writes', () => {
   const t = setup(); open(t); t.page.onStockInput({ detail: { value: '4' } })
   const epoch = t.page._productSettingEpoch

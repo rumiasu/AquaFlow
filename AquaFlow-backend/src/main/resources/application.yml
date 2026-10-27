@@ -37,7 +37,7 @@ app:
     wechat-pay-timeout-minutes: ${WECHAT_PAY_TIMEOUT_MINUTES:30}
   payment:
     # 微信支付**模拟渠道**（2026-09-20）：开启后顾客选「微信支付」点一下就成功，
-    # 用于真实支付渠道接入前的全链路联调。**生产必须保持 false** —— 开启等于零元购。
+    # 用于隔离开发测试，未发生真实扣款；生产必须 false，单开旧开关也会拒启。
     #
     # 它**只**取代"真实付款"这一下（把 payment_record 由 PENDING 直接置为 PAID）：
     # 金额服务端重算、活跃流水唯一键 uk_payment_active_order、水票扣减、押金入账
@@ -45,8 +45,11 @@ app:
     # 全部照跑，一个字没放宽。退款路径随之联动，见 PaymentService 接口头的说明。
     #
     # ⚠️ 真实渠道接入时应**删掉**这个开关与 PaymentServiceImpl.isMockWechatPay，
-    #    而不是把它留成"永真"。本地默认在 application-local.yml 里打开。
+    #    而不是把它留成"永真"。旧 local 配置须同时满足下列显式隔离与账号授权。
     mock-wechat-pay: ${MOCK_WECHAT_PAY:false}
+    # 只允许 payment-sandbox/test profile、受限本机测试库及明确客户编号；单开旧开关拒启。
+    mock-isolated-environment: ${MOCK_PAYMENT_ISOLATED:false}
+    mock-customer-ids: ${MOCK_PAYMENT_CUSTOMER_IDS:}
 
 spring:
   application:

@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 
 @Service
 public class TicketAccountServiceImpl implements TicketAccountService {
+    @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
 
@@ -657,6 +658,7 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         // ⚠️ 统一折扣档没有 ticket_package 行（价格按各款水现算、不落库），这里就是 NULL ——
         // 那不是漏记：判别方式见上面的备注与 ticket_qty。
         record.setTicketPackageId(packageId);
+        mockPolicy.prepare(record);
         record.setCreateTime(LocalDateTime.now());
         record.setUpdateTime(LocalDateTime.now());
         try {

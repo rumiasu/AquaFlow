@@ -35,7 +35,7 @@
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
     <view class="load-error" wx:if="{{productsError}}">{{productsError}}<button bindtap="onRetryProducts" disabled="{{submitting || productsLoading}}" loading="{{productsLoading}}">重新读取完整商品清单</button></view>
 
-    <text class="station-asset-boundary">桶容量、水票与押金按本次水站分别记录，其他水站不能通用。</text>
+    <text class="station-asset-boundary">桶、水票和押金按水站分别记录，不能跨站使用。</text>
 
     <!-- ══ ① 收货地址：§3 要求的第一个区块（原来排在商品清单之后）══
          空态分两种：[2026-09-20] 原来只有「请选择配送地址」一句 —— 地址接口失败时 address
@@ -143,6 +143,27 @@
       </view>
     </view>
 
+    <!-- 配送计费提示（v35）：起送量未达 / 超范围 / 楼层未填等。
+         ⚠️ 计费文案一律由后端下发（DeliveryFeeUtil 产出），前端不自造 ——
+         前后端各写一套必然对不上。 -->
+    <!-- 水票不足提示（后端下发结论，前端只展示）。
+         它必须说清"不支持票 + 现金/微信混合支付、票不会被扣"，否则客户会以为可以补差价。
+         [2026-09-27 走查 C03] 结论下面再加**下一步的两个动作**，而不是只留一句结论：
+           ① 「去买水票」——只在 `reason === 'INSUFFICIENT'`（余额不够）时出现；
+              **商品根本不能用票时补票没用**，把人引去买票是错的（走查原文的硬要求）。
+           ② 「改用 X 支付」——只**切换页面上的选择**并重走一次报价，**绝不自动提交**
+              （走查验收原文：「不得自动改变支付方式并提交」）。
+         两个动作的可用性与文案都出自后端下发的数据（`ticketPay.reason` / `methods[].name`），
+         前端既不自判也不自造标签。 -->
+    <!-- 只合并相同提示的展示；阻断判据、服务端文案与客户下一步动作保持原样。 -->
+    <view class="fee-warn" wx:if="{{checkoutWarnings.length > 0}}">
+      <text class="fee-warn-text" wx:for="{{checkoutWarnings}}" wx:key="*this">{{item}}</text>
+      <view class="warn-actions" wx:if="{{isTicketPay && ticketShortfallHint}}">
+        <view class="warn-action" wx:if="{{ticketAltMethod}}" bindtap="onSwitchPayMethod" data-id="{{ticketAltMethod}}">{{ticketAltLabel}}</view>
+        <view class="warn-action" wx:if="{{ticketCanBuy}}" bindtap="onGoBuyTicket">去买水票</view>
+      </view>
+    </view>
+
     <!-- ══ ④ 费用摘要 ══
          §3：显示水费、新增桶押金、配送费、楼层费及合计，金额来自**同一次**服务端报价；
              重要新增费用不能只藏在底栏明细里。
@@ -214,27 +235,6 @@
       <text class="fee-hint">以上是本次下单报价；改地址、数量或支付方式后会重新计算。</text>
     </view>
 
-    <!-- 配送计费提示（v35）：起送量未达 / 超范围 / 楼层未填等。
-         ⚠️ 计费文案一律由后端下发（DeliveryFeeUtil 产出），前端不自造 ——
-         前后端各写一套必然对不上。 -->
-    <!-- 水票不足提示（后端下发结论，前端只展示）。
-         它必须说清"不支持票 + 现金/微信混合支付、票不会被扣"，否则客户会以为可以补差价。
-         [2026-09-27 走查 C03] 结论下面再加**下一步的两个动作**，而不是只留一句结论：
-           ① 「去买水票」——只在 `reason === 'INSUFFICIENT'`（余额不够）时出现；
-              **商品根本不能用票时补票没用**，把人引去买票是错的（走查原文的硬要求）。
-           ② 「改用 X 支付」——只**切换页面上的选择**并重走一次报价，**绝不自动提交**
-              （走查验收原文：「不得自动改变支付方式并提交」）。
-         两个动作的可用性与文案都出自后端下发的数据（`ticketPay.reason` / `methods[].name`），
-         前端既不自判也不自造标签。 -->
-    <!-- 只合并相同提示的展示；阻断判据、服务端文案与客户下一步动作保持原样。 -->
-    <view class="fee-warn" wx:if="{{checkoutWarnings.length > 0}}">
-      <text class="fee-warn-text" wx:for="{{checkoutWarnings}}" wx:key="*this">{{item}}</text>
-      <view class="warn-actions" wx:if="{{isTicketPay && ticketShortfallHint}}">
-        <view class="warn-action" wx:if="{{ticketAltMethod}}" bindtap="onSwitchPayMethod" data-id="{{ticketAltMethod}}">{{ticketAltLabel}}</view>
-        <view class="warn-action" wx:if="{{ticketCanBuy}}" bindtap="onGoBuyTicket">去买水票</view>
-      </view>
-    </view>
-
     <!-- ══ ⑤ 备注（可选）：§3 里它排在费用摘要之后、底部主动作之前 ══ -->
     <view class="section">
       <view class="section-header">
@@ -271,7 +271,6 @@
         <text class="asset-bar-desc" wx:if="{{assetNotice.buckets > 0}}">押金可按规则申请退还；未领桶无需交桶，已领桶按批准安排交回。</text>
         <text class="asset-bar-desc" wx:else>本次无需再付水桶押金。</text>
         <text class="asset-bar-desc" wx:if="{{assetNotice.onlineAdvice}}">{{assetNotice.onlineAdvice}}</text>
-        <text class="asset-bar-desc">你的水桶、水票和押金都记在这个水站名下，其他水站无法使用。</text>
         <view class="asset-detail-link" wx:if="{{!showAssetDetail}}" bindtap="onAssetDetailTap">
           <text class="detail-link-text">查看水桶与押金的详细说明</text>
           <text class="asset-more-glyph">›</text>
@@ -503,13 +502,16 @@
         <!-- 商品费用 -->
         <view class="detail-section" wx:if="{{quoteReady}}">
           <view class="detail-section-title">商品零售参考</view>
-          <view class="detail-row" wx:for="{{products}}" wx:key="id">
+          <view class="detail-row detail-product-row" wx:for="{{products}}" wx:key="id">
             <view class="detail-row-left">
               <text class="detail-item-name">{{item.name}}</text>
-              <text class="detail-item-spec" wx:if="{{item.specText}}">{{item.specText}}</text>
+              <view class="detail-item-meta">
+                <text class="detail-item-spec" wx:if="{{item.specText}}">{{item.specText}}</text>
+                <text class="detail-item-unit-price" wx:if="{{item.price}}">¥{{item.price}}/{{item.quantityUnit}}</text>
+                <text class="detail-item-qty">x{{item.quantity}}</text>
+              </view>
             </view>
             <view class="detail-row-right">
-              <text class="detail-item-qty">x{{item.quantity}}</text>
               <text class="detail-item-price">¥{{item.subtotalText}}</text>
             </view>
           </view>
@@ -529,10 +531,12 @@
         <view class="detail-section" wx:if="{{quoteReady && !feeBreakdownReady}}"><text class="fee-hint">配送费与楼层费明细尚未核实，请重新报价查看。</text></view>
         <view class="detail-section" wx:if="{{extraDepositBuckets > 0}}">
           <view class="detail-section-title">本次新增桶押金</view>
-          <view class="detail-row" wx:for="{{products}}" wx:key="id" wx:if="{{item.category === 1 && item.shortage > 0}}">
+          <view class="detail-row detail-product-row" wx:for="{{products}}" wx:key="id" wx:if="{{item.category === 1 && item.shortage > 0}}">
             <view class="detail-row-left">
               <text class="detail-item-name">{{item.name}}</text>
-              <text class="detail-item-spec">¥{{item.deposit}}/个，缺{{item.shortage}}个</text>
+              <view class="detail-item-meta">
+                <text class="detail-item-spec">¥{{item.deposit}}/个 · 缺 {{item.shortage}}个</text>
+              </view>
             </view>
             <view class="detail-row-right">
               <text class="detail-item-price">¥{{item.shortageDepositText}}</text>

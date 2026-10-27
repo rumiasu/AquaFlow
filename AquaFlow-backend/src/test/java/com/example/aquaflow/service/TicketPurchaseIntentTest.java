@@ -131,6 +131,7 @@ class TicketPurchaseIntentTest {
         when(inventory.getByStationAndProduct(1L, 5L)).thenReturn(selected);
         when(tiers.usesCustomTicket(product, selected)).thenReturn(true);
         var service = new TicketAccountServiceImpl();
+        ReflectionTestUtils.setField(service,"mockPolicy",mock(com.example.aquaflow.payment.MockPaymentPolicy.class));
         ReflectionTestUtils.setField(service, "paymentRecordMapper", mapper);
         ReflectionTestUtils.setField(service, "productMapper", catalog);
         ReflectionTestUtils.setField(service, "inventoryMapper", inventory);

@@ -23,7 +23,7 @@ const notifyPayResult = (record) => {
   const status = record && record.status != null ? Number(record.status) : PAY_STATUS.PENDING
 
   if (status === PAY_STATUS.PAID) {
-    wx.showToast({ title: '支付成功', icon: 'success' })
+    wx.showToast({ title: record.simulated ? (record.simulationResultText || record.methodText) : '支付成功', icon: record.simulated ? 'none' : 'success' })
     return true
   }
   if (status === PAY_STATUS.REFUNDED) {

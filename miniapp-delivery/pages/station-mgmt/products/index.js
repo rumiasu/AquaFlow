@@ -200,10 +200,32 @@ Page({
     showWaterTemplates: false,
     templateImage: TEMPLATE_IMAGE,
     imageNotice: IMAGE_NOTICE, brokenImages: {},
-    editTemplateId: ''
+    editTemplateId: '',
+    productSetupRequiredTasks: [],
+    productSetupOptionalTask: null,
+    productSetupRequiredPending: null,
+    productSetupGuideExpanded: true
   },
 
-  refreshModuleSetup() { return refreshModuleTasks(this, '/pages/station-mgmt/products/index') },
+  refreshModuleSetup() {
+    return refreshModuleTasks(this, '/pages/station-mgmt/products/index').then(guide => {
+      if (!guide || !this.data.moduleSetupReady) return guide
+      const tasks = this.data.moduleSetupTasks || []
+      const required = tasks.filter(item => item.key !== 'ticketPackage' && item.level === 'P0')
+      const pending = required.filter(item => !item.done).length
+      this.setData({
+        productSetupRequiredTasks: required,
+        productSetupOptionalTask: tasks.find(item => item.key === 'ticketPackage') || null,
+        productSetupRequiredPending: pending,
+        productSetupGuideExpanded: pending > 0
+      })
+      return guide
+    })
+  },
+  onToggleProductSetupGuide() {
+    if (!this.data.moduleSetupReady || this.data.moduleSetupError || this.data.productSetupRequiredPending > 0) return
+    this.setData({ productSetupGuideExpanded: !this.data.productSetupGuideExpanded })
+  },
   onModuleSetupTask(e) {
     const key = e.currentTarget.dataset.key
     const task = (this.data.moduleSetupTasks || []).find(it => it.key === key)

@@ -10,6 +10,39 @@ const GP = API.MANAGER_GROSS_PROFIT
 const MISSING_COST = GP + '/missing-cost'
 const COST = GP + '/cost'
 
+function buildProfitHelpSections(report) {
+  const note = typeof report.helpNote === 'string' ? report.helpNote.trim() : ''
+  const parts = note ? note.split(/\n(?=\d+\.\s)/) : []
+  let preface = ''
+  if (parts.length > 1) preface = parts.shift().trim()
+  else if (parts.length === 1 && !/^\s*\d+\.\s/.test(parts[0])) preface = parts.shift().trim()
+  const clauses = {}
+  parts.forEach(part => {
+    const match = part.match(/^(\d+)\.\s*/)
+    if (match) clauses[Number(match[1])] = part.slice(match[0].length).trim()
+  })
+  const scopeNotes = [preface, clauses[1]]
+  const feeNotes = [clauses[2], clauses[3], clauses[4], clauses[5], report.cooperation && report.cooperation.scopeNote]
+  const costNotes = [clauses[6], clauses[7]]
+  if (!note) {
+    scopeNotes.push(report.profitBasisNote)
+    costNotes.push(report.costBasisNote)
+  } else {
+    if (!scopeNotes.some(value => value)) scopeNotes.push(report.profitBasisNote)
+    if (!costNotes.some(value => value)) costNotes.push(report.costBasisNote)
+  }
+  const known = new Set([1, 2, 3, 4, 5, 6, 7])
+  const otherNotes = Object.keys(clauses).filter(key => !known.has(Number(key)))
+    .sort((a, b) => Number(a) - Number(b)).map(key => clauses[key])
+  return [
+    { key: 'scope', title: '统计时间与收入范围', notes: scopeNotes },
+    { key: 'fees', title: '费用、水票与合作款', notes: feeNotes },
+    { key: 'costs', title: '成本与未计利润', notes: costNotes },
+    { key: 'other', title: '其他计算说明', notes: otherNotes }
+  ].filter(group => group.notes.some(value => typeof value === 'string' && value.trim()))
+    .map(group => ({ ...group, notes: group.notes.filter(value => typeof value === 'string' && value.trim()), expanded: false }))
+}
+
 /**
  * 站长端「利润 + 净利」：进货成本 + 期间报表。规格见 docs/design/20 §2。
  *
@@ -44,6 +77,8 @@ Page({
     // 否则 `'¥' + undefined` 会渲染成「¥undefined」——最坏的一种"看起来正常"。
     profitView: {},
     missingCost: [],
+    profitHelpSections: [],
+    profitHelpAllExpanded: false,
     // 从「我的 → 今日净利」跳进来时置为 'today'：只用于副标题文案与默认期间
     range: '',
     // 成本编辑弹层
@@ -125,7 +160,7 @@ Page({
       const report = { ...d, items: d.items.map(item => ({ ...item, revenueTotalText: this._moneyText(item.revenueTotal), costAmountText: this._moneyText(item.costAmount), soldQtyText: item.soldQty === null || item.soldQty === undefined ? '待核实' : item.soldQty })) }
       if (d.cooperation && Array.isArray(d.cooperation.rows)) report.cooperation = { ...d.cooperation, rows: d.cooperation.rows.map(item => ({ ...item, amountText: this._moneyText(item.amount) })) }
       Object.assign(patch, {
-        report, profitView,
+        report, profitView, profitHelpSections: buildProfitHelpSections(report), profitHelpAllExpanded: false,
         from: d.from || this.data.from, to: d.to || this.data.to
       })
     } else patch.reportError = '当前期间报表尚未读取，收入、成本与利润待核实'
@@ -258,16 +293,30 @@ Page({
    * ⚠️ 前端**不要**自己抄一份口径文案进来（本仓铁律：口径只有一个来源，见 AGENTS §6）。
    */
   onShowHelp() {
-    const note = this.data.report && this.data.report.helpNote
-    if (!note) {
+    const groups = this.data.profitHelpSections || []
+    if (!groups.length) {
+      const note = this.data.report && this.data.report.helpNote
       // 老版本服务端没有 helpNote：给一句能用的最小说明，别弹一个空框
       wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '利润怎么算',
-        content: '利润 = 该期间的销售收入 − 卖出数量 × 当前进货成本价。没填成本的商品会显示「未填成本」。',
+        content: note || '利润 = 该期间的销售收入 − 卖出数量 × 当前进货成本价。没填成本的商品会显示「未填成本」。',
         showCancel: false
       })
       return
     }
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '利润怎么算', content: note, showCancel: false })
+    const expanded = !this.data.profitHelpAllExpanded
+    this.setData({
+      profitHelpAllExpanded: expanded,
+      profitHelpSections: groups.map(group => ({ ...group, expanded }))
+    })
+  },
+
+  onToggleHelpGroup(e) {
+    const key = e.currentTarget.dataset.group
+    const groups = this.data.profitHelpSections || []
+    this.setData({
+      profitHelpAllExpanded: false,
+      profitHelpSections: groups.map(group => group.key === key ? { ...group, expanded: !group.expanded } : group)
+    })
   }
 })

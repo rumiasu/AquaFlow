@@ -27,7 +27,7 @@ public class ConsumptionRefundService {
     @Autowired private BarrelBusinessPolicy policy;
     @Autowired private StationRecoveryService recoveries;
     @Autowired @Lazy private PaymentService paymentService;
-    @Value("${app.payment.mock-wechat-pay:false}") private boolean mockWechatPay;
+    @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
     public boolean usesIndependentRules(Long paymentId) {
         if(policy.isEnabled())return true;
         if(!policy.hasSchema())return false;
@@ -63,7 +63,7 @@ public class ConsumptionRefundService {
             if (nz(original.getBarrelDeposit()).signum()>0) throw new BusinessException("历史票款包含押金，请由站长拆分核实资产后处理");
             paymentService.refundPayment(paymentId,note); return;
         }
-        if (original.getPaymentMethod()==PayMethod.WECHAT && !mockWechatPay) throw new BusinessException("微信退款渠道尚未接入，不能登记为已自动退款");
+        mockPolicy.requireRefund(original);
         Map<String,Object> prior=orderPurchases.currentRefundTotals(paymentId);
         BigDecimal water=nz(original.getWaterAmount()).subtract(decimal(prior.get("waterAmount")));
         BigDecimal delivery=nz(order.getDeliveryFee()).subtract(decimal(prior.get("deliveryFee")));
@@ -87,6 +87,7 @@ public class ConsumptionRefundService {
         refund.setDeliveryFee(delivery.negate()); refund.setFloorFee(floor.negate()); refund.setStatus(PaymentStatus.REFUNDED);
         refund.setOperatorId(AuthContext.getUserId()); String memo="消费退款 "+scope+"；"+(note==null?"":note);
         refund.setNote(memo.substring(0,Math.min(200,memo.length()))); refund.setCreateTime(LocalDateTime.now()); refund.setUpdateTime(LocalDateTime.now());
+        mockPolicy.markRefund(original,refund);
         payments.insert(refund);
         if (receipts.record(paymentId,refund.getId(),order.getId(),scope,water,delivery,floor,AuthContext.getUserId(),note)!=1)
             throw new BusinessException("退款凭据未保存，本次操作回滚");

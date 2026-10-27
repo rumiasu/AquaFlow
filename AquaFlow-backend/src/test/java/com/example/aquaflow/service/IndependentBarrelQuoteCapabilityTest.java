@@ -29,7 +29,9 @@ class IndependentBarrelQuoteCapabilityTest {
         ReflectionTestUtils.setField(service, "stationMapper", stations);
         ReflectionTestUtils.setField(service, "inventoryMapper", inventory);
         ReflectionTestUtils.setField(service, "ledger", ledger);
-        ReflectionTestUtils.setField(service, "mockWechatPay", mockEnabled);
+        var mockPolicy = mock(com.example.aquaflow.payment.MockPaymentPolicy.class);
+        when(mockPolicy.allows(7L)).thenReturn(mockEnabled);
+        ReflectionTestUtils.setField(service, "mockPolicy", mockPolicy);
         Station station = new Station(); station.setStatus(1); station.setName("本站");
         Product product = new Product(); product.setCategory(1); product.setStatus(1);
         product.setName("桶装水"); product.setDeposit(new BigDecimal("60.00"));

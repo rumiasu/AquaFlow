@@ -48,20 +48,33 @@
 /* 合计：三个数字一眼看完；利润算不出（缺成本）时给警示色而不是 0 */
 .hero {
   display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
   background: #fff;
   border-radius: 16rpx;
-  padding: 28rpx 12rpx;
+  padding: 18rpx;
   margin-bottom: 12rpx;
+  box-sizing: border-box;
 }
 .hero-item {
-  flex: 1;
-  text-align: center;
+  flex: none;
+  width: calc(50% - 6rpx);
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 14rpx;
+  border-radius: 12rpx;
+  background: var(--bg-gray);
+  text-align: left;
 }
 .hero-num {
   display: block;
-  font-size: 34rpx;
+  margin-top: 6rpx;
+  font-size: 31rpx;
   font-weight: 600;
   color: var(--text-primary);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 .hero-ok {
   color: var(--success-color);
@@ -72,9 +85,29 @@
 }
 .hero-label {
   display: block;
-  font-size: 23rpx;
+  font-size: 25rpx;
   color: var(--text-secondary);
-  margin-top: 8rpx;
+  line-height: 1.4;
+}
+
+.missing-cost-strip { padding: 14rpx 18rpx; margin-bottom: 12rpx; border: 1rpx solid var(--warning-bg); border-left: 4rpx solid var(--warning-color); border-radius: 12rpx; background: #FFFBF3; }
+.missing-cost-title { display: block; color: var(--warning-color); font-size: 27rpx; font-weight: 700; line-height: 1.4; }
+.missing-cost-copy, .missing-cost-action { display: block; margin-top: 4rpx; color: var(--text-regular); font-size: 24rpx; line-height: 1.5; }
+.missing-cost-action { color: var(--text-secondary); }
+.missing-cost-strip .chips { gap: 8rpx; margin-top: 8rpx; }
+.missing-cost-strip .chip { margin: 0; padding: 8rpx 14rpx; font-size: 24rpx; }
+
+.profit-help-card { padding-bottom: 14rpx; }
+.profit-help-group { border-top: 1rpx solid #E8ECF1; }
+.profit-help-toggle { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; min-height: 76rpx; }
+.profit-help-title { min-width: 0; color: var(--text-primary); font-size: 27rpx; font-weight: 600; }
+.profit-help-action, .profit-help-all { flex: none; color: var(--primary-color); font-size: 25rpx; }
+.profit-help-body { padding: 0 0 16rpx; }
+.profit-help-note { display: block; margin-top: 10rpx; color: var(--text-regular); font-size: 24rpx; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+.profit-help-all { padding-top: 16rpx; border-top: 1rpx solid #E8ECF1; text-align: center; }
+
+@media screen and (max-width: 359px) {
+  .hero-item { width: 100%; }
 }
 
 .notice {
@@ -252,7 +285,7 @@
 .page { min-height: 100vh; box-sizing: border-box; background: var(--bg-color); }.card,.hero { border-radius: 12rpx; }
 .period-card { display: flex; flex-wrap: wrap; gap: 12rpx; }.period-card .card-title { width: 100%; margin-bottom: 0; }.period-card > picker { flex: 1 1 260rpx; min-width: 0; }.period-card .chips,.period-card .hint { width: 100%; }.picker { margin-bottom: 0; height: 88rpx; line-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; }
 .chip { min-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; padding: 20rpx; display: flex; align-items: center; line-height: 1.6; white-space: normal; word-break: break-all; }
-.hero { flex-wrap: wrap; gap: 20rpx 0; padding: 24rpx; }.hero-item { min-width: 0; word-break: break-all; }.hero-item:last-child { flex: 0 0 100%; text-align: left; border-top: 1rpx solid var(--border-color); padding-top: 20rpx; }.hero-item:last-child .hero-num { font-size: 42rpx; }
+.hero { flex-wrap: wrap; gap: 12rpx; padding: 18rpx; }.hero-item { min-width: 0; word-break: break-all; }
 .hero-label,.hint,.row-sub { font-size: 25rpx; color: var(--text-regular); line-height: 1.6; }.row-main { min-width: 0; overflow: visible; }.row-between,.ledger-row { gap: 16rpx; align-items: flex-start; }.row-between { flex-wrap: wrap; }.row-title { word-break: break-all; }.row-amount { margin-left: auto; word-break: break-all; }.ledger-row,.row,.ledger-strong { border-color: var(--border-color); }.ledger-value { text-align: right; word-break: break-all; }
 .btn-primary,.btn-ghost { min-height: 48px; height: auto; box-sizing: border-box; padding: 20rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; border-radius: 8rpx; white-space: normal; word-break: break-all; }
 .dialog { top: 12%; left: 24rpx; right: 24rpx; max-height: 78vh; overflow-y: auto; box-sizing: border-box; border-radius: 12rpx; }.dialog-footer { flex-wrap: wrap; gap: 12rpx; }.dialog-footer .flex1 { margin-right: 0; flex: 1 1 150rpx; }.dialog-input { height: 88rpx; }

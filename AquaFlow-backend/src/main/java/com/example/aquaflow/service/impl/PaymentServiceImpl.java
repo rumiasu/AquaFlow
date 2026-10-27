@@ -40,6 +40,8 @@ import java.util.Objects;
 @Service
 @Slf4j
 public class PaymentServiceImpl implements PaymentService {
+    @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
+    @Autowired private com.example.aquaflow.payment.MockWechatPaymentAdapter mockAdapter;
     @Autowired private com.example.aquaflow.mapper.ConsumptionRefundMapper paymentLocks;
     @Autowired private com.example.aquaflow.service.ConfirmedRefusalService confirmedRefusals;
     @Autowired private com.example.aquaflow.service.IndependentBarrelService independentBarrelService;
@@ -53,16 +55,14 @@ public class PaymentServiceImpl implements PaymentService {
      *
      * <p>[2026-09-20 产品裁定] 真实微信支付尚未接入，但联调需要一个能走通的微信单。
      * 口径是「<b>点击即成功，只取代真实支付这一下，别的一律按真实标准</b>」—— 因此本开关
-     * <b>只改一件事</b>：{@code createPayment} 里 method=1 的流水由 PENDING 改为 PAID。
+     * 模拟原款先 INSERT PENDING，再由内部适配器调用共用确认服务。
      * 其余全部**原样保留**：金额服务端重算、活跃流水唯一键
      * （{@code uk_payment_active_order}）、水票扣减、押金入账（{@code applyDepositOnPaid}）、
      * 订单付款状态只前进（{@code markPaidIfCollectable}）、对账等式。</p>
      *
-     * <p>⚠️ <b>不能只写 {@code status = PAID} 就完事</b>：下面那两个 if 分支是按
-     * "status 已是 PAID"触发的，改这一处就自动带上了押金入账与订单置已付 ——
-     * 若另起一段单独写，就会出现"流水说付了、押金没进账"（AGENTS §8.4 的老坑）。</p>
-     *
-     * <p>⚠️ 生产**必须保持 false**：开启等于任何人选微信支付都能零元购。
+     * <p>⚠️ 不能直接 INSERT PAID 或另写入账：订单、购票及独立押金必须复用 confirmPayment。
+     * MockPaymentPolicy 同时核对隔离环境、实际数据库与账号白名单，单开旧开关会拒启。
+     * 生产必须保持 false。
      * 真实渠道接入时应删掉本开关与 {@link #isMockWechatPay}，而不是把它留成"永真"。</p>
      */
     @org.springframework.beans.factory.annotation.Value("${app.payment.mock-wechat-pay:false}")
@@ -211,6 +211,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (!PayMethod.isValid(paymentMethod)) {
             throw new BusinessException("不支持的支付方式：" + paymentMethod);
         }
+        if (isMockWechatPay(paymentMethod)) mockPolicy.requireSelf(customerId);
         if (orderId != null) {
             Orders current=paymentLocks.lockOrder(orderId);
             if(current==null || !Objects.equals(current.getCustomerId(),customerId))throw new BusinessException("订单不存在或不属于当前客户");
@@ -294,22 +295,19 @@ public class PaymentServiceImpl implements PaymentService {
         // ===== 支付状态判定：绝不能由客户端参数直接决定"已支付" =====
         // 水票(3)：先按订单项原子扣减水票，扣减成功才算已支付
         // 微信(1)：真实渠道下是 PENDING，PAID 只能由微信支付异步回调写入（TODO: 接入统一下单 + 回调验签）；
-        //         **模拟渠道**下当场置 PAID（见字段 mockWechatPay 的说明）
+        //         模拟也先 PENDING，经内部适配器调用 confirmPayment，不另写业务账。
         // 现金(2)：PENDING，货到付款，由站长确认收款后写入
         // 历史实现：paymentMethod==1 或 2 直接置 PAID（"测试阶段"注释），等于任何人都可零元购 ——
-        // 注意区别：当年的错在于**无条件**置 PAID；现在是**开关控制**且默认关闭，判据没有放宽。
+        // 模拟权限由 MockPaymentPolicy 复核，不能以小程序 develop/trial 或单一开关替代。
         Integer status;
         if (Integer.valueOf(PayMethod.TICKET).equals(paymentMethod)) {
             deductTickets(orderId);
-            status = PaymentStatus.PAID;
-        } else if (isMockWechatPay(paymentMethod)) {
-            // 只跳过"真实付款"这一下；走到这里时金额重算、活跃流水唯一键、幂等检查都已跑完。
-            log.warn("[模拟微信支付] 开关 app.payment.mock-wechat-pay=true，跳过真实渠道直接置为已付款: orderId={}", orderId);
             status = PaymentStatus.PAID;
         } else {
             status = PaymentStatus.PENDING;
         }
         record.setStatus(status);
+        mockPolicy.prepare(record);
 
         try {
             paymentRecordMapper.insert(record);
@@ -341,7 +339,8 @@ public class PaymentServiceImpl implements PaymentService {
             applyDepositOnPaid(orderId);
         }
 
-        return record;
+        // 2026-10-26：原模拟分支直接 INSERT PAID，漏走共用确认入口；现在只替换渠道结果。
+        return record.isSimulated() ? confirmMockChannelIfApplicable(record.getId()) : record;
     }
 
     @Override
@@ -357,6 +356,21 @@ public class PaymentServiceImpl implements PaymentService {
             if(current==null || current.getStatus()==OrderStatus.CANCELLED || current.getPaymentStatus()==PaymentStatus.REFUNDED || current.getPaymentStatus()==PaymentStatus.CANCELLED)
                 throw new BusinessException("订单已经取消或退款，不能再确认收款");
             requireNewPurchaseDebtClear(current);
+        }
+        // 订单→流水的固定锁序；锁后重读，不能让等待中的请求使用旧 PENDING 快照。
+        record = paymentLocks.lockPayment(paymentId);
+        if (record == null) throw new BusinessException("支付记录不存在");
+        if (record.isSimulated() || isMockWechatPay(record.getPaymentMethod())) {
+            mockPolicy.requireSelf(record.getCustomerId());
+            if (!record.isSimulated()) throw new BusinessException("原款没有模拟渠道凭据，不能模拟确认");
+            if (record.getOrderId() != null) {
+                Orders current = orderMapper.getById(record.getOrderId());
+                if (current == null || !Objects.equals(current.getCustomerId(), record.getCustomerId())
+                        || !Objects.equals(current.getPaymentMethod(), PayMethod.WECHAT)
+                        || current.getTotalAmount() == null || record.getAmount() == null
+                        || current.getTotalAmount().compareTo(record.getAmount()) != 0)
+                    throw new BusinessException("原订单归属、方式或金额不一致，不能确认付款");
+            }
         }
         if (record.getStatus() != PaymentStatus.PENDING) {
             throw new BusinessException(record.getStatus() == PaymentStatus.PAID
@@ -398,7 +412,9 @@ public class PaymentServiceImpl implements PaymentService {
 
         if (record.getOrderId() != null) {
             // 确认收款 = 收钱 → 0/1 任一状态都前进到 已付款(2)；水票创建时已是 2，此处 affected=0 属幂等
-            orderMapper.markPaidIfCollectable(record.getOrderId());
+            int marked = orderMapper.markPaidIfCollectable(record.getOrderId());
+            if (record.isSimulated() && marked != 1)
+                throw new BusinessException("订单付款状态已变化，本次确认回滚，请核对原结果");
             // [AQ-009] 支付成功时才入账预收桶押金（此前在下单时即入账，那时客户一分未付）
             applyDepositOnPaid(record.getOrderId());
         }
@@ -429,13 +445,18 @@ public class PaymentServiceImpl implements PaymentService {
         if (!isMockWechatPay(record.getPaymentMethod())) {
             return record;
         }
-        if (!Integer.valueOf(PaymentStatus.PENDING).equals(record.getStatus())) {
-            // 幂等重放（同一 idempotencyKey 拿回已付款的那条）走这里：原样返回，不抛异常。
-            return record;
+        mockPolicy.requireSelf(record.getCustomerId());
+        if (record.getOrderId() != null) {
+            Orders order = paymentLocks.lockOrder(record.getOrderId());
+            if (order == null || Integer.valueOf(OrderStatus.CANCELLED).equals(order.getStatus())
+                    || Integer.valueOf(PaymentStatus.REFUNDED).equals(order.getPaymentStatus())
+                    || Integer.valueOf(PaymentStatus.CANCELLED).equals(order.getPaymentStatus()))
+                throw new BusinessException("订单已关闭，不能确认模拟付款");
         }
-        log.warn("[模拟微信支付] 开关 app.payment.mock-wechat-pay=true，购票当场置为已付款并入账水票: paymentId={}, customerId={}, qty={}",
-                paymentId, record.getCustomerId(), record.getTicketQty());
-        confirmPayment(paymentId);
+        record = paymentLocks.lockPayment(paymentId);
+        if (record == null) throw new BusinessException("支付记录不存在");
+        mockAdapter.complete(record, com.example.aquaflow.payment.MockWechatPaymentAdapter.Outcome.SUCCESS,
+                () -> confirmPayment(paymentId));
         return paymentRecordMapper.getById(paymentId);
     }
 
@@ -809,7 +830,8 @@ public class PaymentServiceImpl implements PaymentService {
                 paymentRecordMapper.updateStatusTo(r.getId(), PaymentStatus.REFUNDED, PaymentStatus.PAID);
 
                 // 生成退款记录（形状与站长手工退款共用同一个私有方法，见 insertRefundRecord）
-                insertRefundRecord(r, refundNoteForOrder(r.getPaymentMethod(), reason));
+                if (mockWechatPay || r.isSimulated()) mockPolicy.requireRefund(r);
+                insertRefundRecord(r, refundNoteForOrder(r, reason));
                 // 微信渠道未接入（PayMethod.availableMethods() 里该项恒 disabled），这里**没有**任何
                 // API 调用会发生。注释从原文的 `// TODO: 微信支付退款 - 若 paymentMethod=1，调用微信退款 API`
                 // 改写成结论：TODO 会被下一次读到它的人当成"已经处理过"，而实际口径是**永不自动退**。
@@ -960,7 +982,7 @@ public class PaymentServiceImpl implements PaymentService {
         // 微信退款 API 调用。若照旧把流水标成已退款，界面会显示"已退款"，而钱仍在客户账上没动。
         // [2026-09-20] 模拟渠道开启时放行：那笔钱本来就是模拟进来的，"原路退回"同样是模拟，
         // 两边口径一致；否则会出现"模拟能付、但一取消订单就退不掉"的怪状态，联调走不完。
-        if (Integer.valueOf(PayMethod.WECHAT).equals(record.getPaymentMethod()) && !mockWechatPay) {
+        if (Integer.valueOf(PayMethod.WECHAT).equals(record.getPaymentMethod()) && !mockPolicy.canRefund(record)) {
             throw new BusinessException("微信支付渠道未接入，无法自动原路退回，请线下退款并登记");
         }
 
@@ -1087,6 +1109,7 @@ public class PaymentServiceImpl implements PaymentService {
         refundRecord.setExcessBarrels(original.getExcessBarrels() != null ? -original.getExcessBarrels() : 0);
         refundRecord.setPaymentMethod(original.getPaymentMethod());
         refundRecord.setStatus(PaymentStatus.REFUNDED);
+        if (original.isSimulated()) mockPolicy.markRefund(original, refundRecord);
         refundRecord.setNote(truncateNote(refundNote));
         refundRecord.setCreateTime(LocalDateTime.now());
         refundRecord.setUpdateTime(LocalDateTime.now());
@@ -1117,14 +1140,15 @@ public class PaymentServiceImpl implements PaymentService {
      * 一句渠道说明：微信追加「未接入，需线下退款并登记」，现金追加「钱由站长当面退还」。
      * 这两句是给人看的凭据说明 —— 站长在支付流水里必须能一眼看出"这笔钱到底有没有真的退出去"。</p>
      *
-     * <p>[2026-09-20] 因此改成**实例方法**：微信那支现在要看 {@code mockWechatPay}
-     * （模拟渠道开启时文案改为「原路退回亦为模拟」）。这是注释契约的一部分 ——
+     * <p>微信退款文案必须看原款的持久模拟标识与授权，不能只看当前开关。
+     * 这是注释契约的一部分 ——
      * 把测试期的模拟资金记成真实退款凭据，比缺一句文案危险得多。</p>
      */
-    private String refundNoteForOrder(Integer paymentMethod, String reason) {
+    private String refundNoteForOrder(PaymentRecord original, String reason) {
+        Integer paymentMethod = original.getPaymentMethod();
         String base = "退款：" + (reason != null ? reason : "订单取消");
         if (Integer.valueOf(PayMethod.WECHAT).equals(paymentMethod)) {
-            if (mockWechatPay) {
+            if (mockPolicy.canRefund(original)) {
                 // [2026-09-20] 模拟渠道：这笔钱本来就是模拟收到的，"原路退回"同样是模拟，
                 // 备注必须写明是模拟，否则日后翻流水会把测试数据当成真实资金记录。
                 base = base + "（模拟微信渠道，原路退回亦为模拟）";
@@ -1190,6 +1214,7 @@ public class PaymentServiceImpl implements PaymentService {
     public Map<String, Object> quote(Long customerId, Long stationId, Integer paymentMethod,
                                      List<Map<String, Object>> items, Long addressId) {
         Map<String, Object> result = new HashMap<>();
+        boolean mockWechatPay = mockPolicy.allows(customerId);
 
         // 货到付款能不能选：走唯一判据（开关 + 欠款即停），并把原因一并下发 ——
         // 前端只知道 false 是不知道为什么的。
@@ -1203,7 +1228,7 @@ public class PaymentServiceImpl implements PaymentService {
         result.put("defaultMethod", PayMethod.defaultMethod(allowOffline, mockWechatPay));
         // [2026-09-26] 「微信这一项当前走哪条渠道」下发给前端：建单成功后要不要对**同一张单**
         // 发起 createPayment，取决于服务端的渠道能力，不是前端按 id==1 猜。
-        // 判据唯一实现在 PaymentServiceImpl.isMockWechatPay（同一个 mockWechatPay 开关），
+        // 报价能力按 MockPaymentPolicy 的本客户授权下发，发起和确认时仍复核。
         // 与 canSelfPay 里微信那一支同源 —— 两边不可能分叉。
         result.put("wechatPay", PayMethod.payChannel(PayMethod.WECHAT, mockWechatPay));
 
@@ -1611,7 +1636,9 @@ public class PaymentServiceImpl implements PaymentService {
             return true;
         }
         if (method == PayMethod.WECHAT) {
-            return mockWechatPay;
+            boolean allowed = mockPolicy.allows(order.getCustomerId());
+            order.setSelfPaySimulated(allowed);
+            return allowed;
         }
         return false;
     }

@@ -43,7 +43,7 @@ public class ApprovedBarrelReturnService {
     @Autowired private PaymentRecordMapper paymentMapper;
     @Autowired private ConsumptionRefundMapper paymentLocks;
     @Autowired private DepositRecordService depositService;
-    @Value("${app.payment.mock-wechat-pay:false}") private boolean mockWechatPay;
+    @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
 
     public BarrelReturnDetail detail(Long recordId) { return policy.hasSchema()?detailMapper.get(recordId):null; }
     @Autowired private CustomerBarrelLotMapper refundLots;
@@ -80,6 +80,7 @@ public class ApprovedBarrelReturnService {
     /** 由只读 TransactionTemplate 调用；本方法不捕获业务异常，失败必须先完成回滚。 */
     private Map<String,Object> readRefundEligibility(Long id, Long stationId, RefundEligibilityRead read,boolean scopedClient) {
         BarrelRecord record = owned(id,stationId);
+        boolean mockWechatPay = canSimulateReturn(record);
         BarrelReturnDetail detail = detail(id);
         Map<String,Object> view = read.view;
         view.put("recordId",id);
@@ -224,10 +225,12 @@ public class ApprovedBarrelReturnService {
         requireDetail(record.getId());
         PaymentRecord original=paymentLocks.lockPayment(paymentId);
         if(original.getStatus()!=PaymentStatus.PAID)throw new BusinessException("这笔收桶服务费未收取或已退款");
+        mockPolicy.requireRefund(original);
         PaymentRecord refund=new PaymentRecord(); refund.setCustomerId(original.getCustomerId()); refund.setStationId(original.getStationId());
         refund.setAmount(original.getAmount().negate()); refund.setWaterAmount(BigDecimal.ZERO); refund.setBarrelDeposit(BigDecimal.ZERO);
         refund.setDeliveryFee(original.getAmount().negate()); refund.setPaymentMethod(original.getPaymentMethod()); refund.setStatus(PaymentStatus.REFUNDED);
         refund.setOperatorId(AuthContext.getUserId()); refund.setNote("收桶服务费原款退款，申请 "+record.getId());
+        mockPolicy.markRefund(original,refund);
         refund.setCreateTime(LocalDateTime.now()); refund.setUpdateTime(LocalDateTime.now()); paymentMapper.insert(refund);
         if(detailMapper.feeRefund(paymentId,refund.getId(),record.getId(),original.getAmount(),AuthContext.getUserId(),note)!=1
                 || paymentMapper.updateStatusTo(paymentId,PaymentStatus.REFUNDED,PaymentStatus.PAID)!=1)throw new BusinessException("收桶费退款状态已变更，操作已回滚");
@@ -475,7 +478,7 @@ public class ApprovedBarrelReturnService {
             throw new BusinessException("本申请有争议限额或分次实退记录，请沿原申请核对可退及待退金额后办理");
         String channel = BarrelRefundDTO.normalizeChannel(refundChannel);
         if (channel==null) throw new BusinessException("请选择有效退款方式");
-        if (BarrelRefundDTO.CHANNEL_ONLINE.equals(channel) && !mockWechatPay)
+        if (BarrelRefundDTO.CHANNEL_ONLINE.equals(channel) && !canSimulateReturn(record))
             throw new BusinessException("线上退款尚不可用，本申请仍保留待退款责任");
         Long payer = refundPaidBy==null ? operatorId : refundPaidBy;
         Staff staff = payer==null ? null : staffMapper.getById(payer);
@@ -511,6 +514,7 @@ public class ApprovedBarrelReturnService {
                 PaymentRecord refund = new PaymentRecord(); refund.setCustomerId(record.getCustomerId()); refund.setStationId(stationId);
                 refund.setAmount(d.getAmount().negate()); refund.setWaterAmount(BigDecimal.ZERO); refund.setBarrelDeposit(d.getAmount().negate());
                 refund.setPaymentMethod(original.getPaymentMethod()); refund.setStatus(PaymentStatus.REFUNDED);
+                mockPolicy.markRefund(original,refund);
                 refund.setOperatorId(payer); refund.setNote("独立押金按原渠道退还，申请 " + id);
                 refund.setCreateTime(LocalDateTime.now()); refund.setUpdateTime(LocalDateTime.now()); paymentMapper.insert(refund);
                 detailMapper.refundProof(refund.getId(),purchase.getId(),id,d.getAmount());
@@ -548,6 +552,25 @@ public class ApprovedBarrelReturnService {
         String level = String.valueOf(risk.refundCreditAssessment(customerId,stationId).get("level"));
         if (CustomerRiskService.ALERT.equals(level) || CustomerRiskService.FREEZE.equals(level))
             throw new BusinessException(risk.refundCreditBlockedReason(customerId,stationId));
+    }
+
+    /** 2026-10-26：全局模拟开关曾放行未知来源的线上退款；必须逐笔核对持久模拟原款。 */
+    private boolean canSimulateReturn(BarrelRecord record) {
+        if (!mockPolicy.allows(record.getCustomerId())) return false;
+        boolean online = false;
+        for (var held : detailMapper.heldLots(record.getId())) {
+            Long lot = ((Number)held.get("lotId")).longValue();
+            BarrelRightPurchase standalone = businessMapper.purchaseByLot(lot);
+            OrderBarrelPurchase combined = orderPurchases.byLot(lot);
+            if (standalone == null && combined == null) return false;
+            PaymentRecord original = paymentMapper.getById(standalone != null ? standalone.getPaymentId() : combined.getPaymentId());
+            if (original == null) return false;
+            if (Integer.valueOf(PayMethod.WECHAT).equals(original.getPaymentMethod())) {
+                if (!mockPolicy.canRefund(original)) return false;
+                online = true;
+            }
+        }
+        return online;
     }
 
     public Map<String,Object> refundProgress(BarrelRecord record) {

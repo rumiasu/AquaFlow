@@ -29,6 +29,7 @@ const createOrder = (data) => {
   return post(API.CREATE_ORDER, data)
 }
 
+const paymentFlights = new Map()
 const createPayment = (data, channel = {}) => {
   // Reject only a channel explicitly identified by its capability response.
   // A future real WeChat integration may also use paymentMethod=1.
@@ -36,7 +37,22 @@ const createPayment = (data, channel = {}) => {
     return Promise.reject(new Error('模拟微信支付仅在 develop 环境可用'))
   }
   const { orderId, ...rest } = data
-  return post(`${API.PAYMENTS}`, { orderId, ...rest })
+  // 2026-10-26：页面各自的 paying 标记挡不住列表/详情同时付款；跨页面按原会话、原单单飞。
+  // 超时后仍重试原 orderId，服务端订单锁和唯一键负责持久幂等。
+  const session = captureSession()
+  const key = `${session.epoch}:${orderId}`
+  const existing = paymentFlights.get(key)
+  if (existing) return existing
+  const flight = Promise.resolve(post(`${API.PAYMENTS}`, { orderId, ...rest }))
+  const result = flight.then(value => {
+    paymentFlights.delete(key)
+    return value
+  }, error => {
+    paymentFlights.delete(key)
+    throw error
+  })
+  paymentFlights.set(key, result)
+  return result
 }
 
 const cancelOrder = (id) => {

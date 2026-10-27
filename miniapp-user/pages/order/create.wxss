@@ -1314,51 +1314,71 @@
 
 .detail-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 16rpx;
   padding: 12rpx 0;
 }
 
 .detail-row-left {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
+  display: block;
   flex: 1;
   min-width: 0;
 }
 
 /* 确认弹窗里的明细行：同样不截断（2026-09-27 产品口径） */
 .detail-item-name {
+  display: block;
+  max-width: 100%;
   font-size: 34rpx;
   color: var(--text-primary);
-  word-break: break-all;
+  line-height: 1.4;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
+.detail-item-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4rpx 16rpx; min-width: 0; margin-top: 4rpx; }
 .detail-item-spec {
   font-size: 30rpx;
   color: var(--text-regular);
-  flex-shrink: 0;
+  line-height: 1.45;
 }
 
 .detail-row-right {
   display: flex;
-  align-items: center;
-  gap: 16rpx;
+  align-items: flex-start;
+  justify-content: flex-end;
   flex-shrink: 0;
+  width: 168rpx;
+  max-width: 42%;
+  box-sizing: border-box;
   margin-left: 16rpx;
+  padding-top: 2rpx;
 }
 
 .detail-item-qty {
+  /* 2026-10-27：28rpx 在窄屏不足 12px，数量须与金额一起保持可读。 */
   font-size: 34rpx;
-  color: var(--text-primary);
+  color: var(--text-regular);
+  line-height: 1.45;
+}
+
+.detail-item-unit-price {
+  font-size: 30rpx;
+  color: var(--text-regular);
+  line-height: 1.45;
 }
 
 .detail-item-price {
+  flex: none;
+  max-width: 100%;
+  min-width: 0;
   font-size: 34rpx;
   font-weight: 600;
   color: var(--text-primary);
-  min-width: 100rpx;
   text-align: right;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .detail-subtotal-row {

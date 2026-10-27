@@ -168,14 +168,15 @@ class CombinedOrderBarrelPurchaseIntegrationTest extends AbstractIntegrationTest
     }
     @Test void unavailableOriginalChannelRollsBackCancellationInsteadOfPretendingRefundSucceeded() {
         seed();long id=order("channel",1,1);long payment=pay(id,1);
-        org.springframework.test.util.ReflectionTestUtils.setField(orderPurchases,"mockWechatPay",false);
+        String simulated=jdbc.queryForObject("select transaction_no from payment_record where id=?",String.class,payment);
+        jdbc.update("update payment_record set transaction_no=null where id=?",payment);
         try {
             assertEquals(1,put("/api/orders/"+id+"/customer-cancel",cus,null).code());
             assertEquals(1,ledger.rightQty(customer,station,product));
             assertEquals(1,intOf("select count(*) from barrel_right_reservation where owner_id=? and status='ACTIVE'",id));
             assertEquals(2,intOf("select status from payment_record where id=?",payment));
             assertEquals(0,intOf("select count(*) from payment_record where amount<0"));balanced();
-        } finally {org.springframework.test.util.ReflectionTestUtils.setField(orderPurchases,"mockWechatPay",true);}
+        } finally {jdbc.update("update payment_record set transaction_no=? where id=?",simulated,payment);}
     }
     @Test void legacyWholePaymentRefundCannotBypassCompositionAndReceiptCorruptionIsDetected() {
         seed();long id=order("whole-refund",1,1);long payment=pay(id,1);

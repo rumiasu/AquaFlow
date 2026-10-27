@@ -1,7 +1,41 @@
-<import src="../../../templates/setup-module-tasks.wxml" />
 <page-meta page-style="{{showEdit || showSetting || showInventory || showRecords ? 'overflow: hidden;' : ''}}" />
 <view class="container">
-  <template is="setupModuleTasks" data="{{tasks:moduleSetupTasks,loading:moduleSetupLoading,ready:moduleSetupReady,error:moduleSetupError}}" />
+  <view class="product-setup-guide" wx:if="{{moduleSetupLoading || moduleSetupError || (moduleSetupReady && moduleSetupTasks.length)}}">
+    <view class="product-setup-guide-head">
+      <view class="product-setup-guide-heading">
+        <text class="product-setup-guide-title">商品库存上线准备</text>
+        <text class="product-setup-guide-summary" wx:if="{{moduleSetupReady && !moduleSetupError}}">{{productSetupRequiredPending > 0 ? ('还有 ' + productSetupRequiredPending + ' 项必填待完成') : '必填项已核对'}} · 水票选填</text>
+        <text class="product-setup-guide-summary" wx:if="{{moduleSetupLoading}}">正在核对商品与水票设置…</text>
+      </view>
+      <text class="product-setup-guide-toggle" wx:if="{{moduleSetupReady && !moduleSetupError && productSetupRequiredPending === 0}}" bindtap="onToggleProductSetupGuide">{{productSetupGuideExpanded ? '收起' : '展开准备事项'}}</text>
+    </view>
+    <view wx:if="{{moduleSetupLoading}}" class="product-setup-guide-loading">正在读取已保存的准备状态…</view>
+    <view wx:elif="{{moduleSetupError}}" class="product-setup-guide-error">
+      <text>{{moduleSetupError}}</text>
+      <button size="mini" bindtap="refreshModuleSetup">重新核对</button>
+    </view>
+    <block wx:elif="{{productSetupGuideExpanded}}">
+      <view class="product-setup-task" wx:for="{{productSetupRequiredTasks}}" wx:key="key">
+        <view class="product-setup-task-head">
+          <text class="product-setup-task-name">{{item.label}}</text>
+          <text class="product-setup-required">必填</text>
+          <text class="product-setup-state {{item.done ? 'is-done' : 'is-pending'}}">{{item.done ? '已完成' : '待完善'}}</text>
+        </view>
+        <text class="product-setup-task-copy">{{item.done ? item.why : (item.suggestion || item.why)}}</text>
+        <text class="product-setup-evidence" wx:if="{{item.completionEvidence}}">完成依据：{{item.completionEvidence}}</text>
+        <button data-key="{{item.key}}" bindtap="onModuleSetupTask">{{item.done ? '查看商品' : '去上架商品'}}</button>
+      </view>
+      <view class="product-setup-task product-setup-optional-row" wx:if="{{productSetupOptionalTask}}">
+        <view class="product-setup-task-head">
+          <text class="product-setup-task-name">水票设置</text>
+          <text class="product-setup-optional">选填</text>
+        </view>
+        <text class="product-setup-task-copy">可在商品设置中启用水票档位；也可以跳过，不影响必填上线准备。</text>
+        <button data-key="ticketPackage" bindtap="onModuleSetupTask">查看水票设置</button>
+      </view>
+      <button class="product-setup-refresh" bindtap="refreshModuleSetup">重新核对完成状态</button>
+    </block>
+  </view>
   <!-- 隐私授权弹窗：本页用 wx.chooseImage 传商品图，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
   <privacy-popup />
   <view class="work-read-error" wx:if="{{productCreationRecovery}}">

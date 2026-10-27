@@ -33,8 +33,7 @@ public class IndependentBarrelService {
     @Autowired private BarrelLedgerService ledger;
     @Autowired private DepositRecordService depositService;
     @Autowired @Lazy private PaymentService paymentService;
-    @org.springframework.beans.factory.annotation.Value("${app.payment.mock-wechat-pay:false}")
-    private boolean mockWechatPay;
+    @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
 
     /** 查询不创建权益；没有实际支付结果时仅返回待付款购买凭据。 */
     public List<BarrelRightPurchase> list(Long customerId, Long stationId) {
@@ -73,8 +72,8 @@ public class IndependentBarrelService {
         result.put("stationName",station.getName());
         result.put("availableRights", ledger.availableRights(customerId, stationId, productId));
         result.put("notice", "仅办理桶押金，本次不送水和桶；收到押金后生效。首次领取对应桶无需还桶，已有欠桶优先补足。");
-        result.put("onlineAvailable", mockWechatPay);
-        result.put("wechatPay", PayMethod.payChannel(PayMethod.WECHAT, mockWechatPay));
+        result.put("onlineAvailable", mockPolicy.allows(customerId));
+        result.put("wechatPay", PayMethod.payChannel(PayMethod.WECHAT, mockPolicy.allows(customerId)));
         return result;
     }
 
@@ -99,7 +98,7 @@ public class IndependentBarrelService {
         if (dto.getPaymentMethod() == null || (dto.getPaymentMethod() != PayMethod.WECHAT && dto.getPaymentMethod() != PayMethod.CASH))
             throw new BusinessException("桶押金不能使用水票支付");
         Map<String,Object> quoted = quote(customerId, dto.getStationId(), dto.getProductId(), dto.getQuantity());
-        if (dto.getPaymentMethod() == PayMethod.WECHAT && !mockWechatPay)
+        if (dto.getPaymentMethod() == PayMethod.WECHAT && !mockPolicy.allows(customerId))
             throw new BusinessException("线上支付暂不可用，请到归属水站办理并取得收款确认");
         PaymentRecord payment = new PaymentRecord();
         payment.setCustomerId(customerId); payment.setStationId(dto.getStationId());
@@ -107,6 +106,7 @@ public class IndependentBarrelService {
         payment.setWaterAmount(BigDecimal.ZERO); payment.setBarrelDeposit(payment.getAmount());
         payment.setPaymentMethod(dto.getPaymentMethod()); payment.setStatus(PaymentStatus.PENDING);
         payment.setNote("独立桶押金，收到款项才生效");
+        mockPolicy.prepare(payment);
         payment.setCreateTime(LocalDateTime.now()); payment.setUpdateTime(LocalDateTime.now());
         try {
             paymentMapper.insert(payment);

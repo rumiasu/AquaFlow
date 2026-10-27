@@ -61,6 +61,11 @@ for (const app of apps) {
 const requestPath = require.resolve(path.join(root, 'miniapp-user/utils/request.js'))
 const orderPath = require.resolve(path.join(root, 'miniapp-user/api/order.js'))
 const priorRequestModule = require.cache[requestPath]
+const priorGetApp = global.getApp
+// 2026-10-27：支付 API 已按登录周期单飞，环境门禁夹具也须提供稳定的真实会话入口。
+const paymentApp = { globalData: { isLogin: true, customerId: 101,
+  accessToken: 'synthetic-environment-access', refreshToken: 'synthetic-environment-refresh' } }
+global.getApp = () => paymentApp
 let paymentPosts = 0
 require.cache[requestPath] = { id: requestPath, filename: requestPath, loaded: true,
   exports: { get() {}, put() {}, post() { paymentPosts += 1; return Promise.resolve({ ok: true }) } } }
@@ -81,6 +86,8 @@ try {
   delete require.cache[orderPath]
   if (priorRequestModule) require.cache[requestPath] = priorRequestModule
   else delete require.cache[requestPath]
+  if (priorGetApp === undefined) delete global.getApp
+  else global.getApp = priorGetApp
 }
 
 for (const app of apps) {

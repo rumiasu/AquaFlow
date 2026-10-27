@@ -31,7 +31,7 @@ public class OrderBarrelPurchaseService {
     @Autowired private ConsumptionRefundMapper consumption;
     @Autowired private RefundReceiptReader receiptReader;
     @Autowired private OrderMapper orders;
-    @Value("${app.payment.mock-wechat-pay:false}") private boolean mockWechatPay;
+    @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
 
     /** 报价和建单共享缺口算法；写路径按商品升序锁定并使用当前读。 */
     public record Line(Long productId, String productName, int quantity, BigDecimal unitPrice,
@@ -263,10 +263,10 @@ public class OrderBarrelPurchaseService {
     }
 
     private PaymentRecord refund(PaymentRecord original,BigDecimal amount,BigDecimal water,BigDecimal deposit,BigDecimal delivery,BigDecimal floor,String note,Long payer) {
-        if (Integer.valueOf(PayMethod.WECHAT).equals(original.getPaymentMethod()) && !mockWechatPay)
-            throw new BusinessException("原微信退款渠道尚不可用，不能登记为实际退款，请联系水站核实原款");
+        mockPolicy.requireRefund(original);
         assertRefundRoom(original,amount);
         PaymentRecord r=new PaymentRecord();r.setOrderId(original.getOrderId());r.setCustomerId(original.getCustomerId());r.setStationId(original.getStationId());
+        mockPolicy.markRefund(original,r);
         r.setPaymentMethod(original.getPaymentMethod());r.setStatus(PaymentStatus.REFUNDED);r.setAmount(amount.negate());
         r.setWaterAmount(water.negate());r.setBarrelDeposit(deposit.negate());r.setDeliveryFee(delivery.negate());r.setFloorFee(floor.negate());
         r.setOperatorId(payer);r.setNote(note.substring(0,Math.min(200,note.length())));r.setCreateTime(LocalDateTime.now());r.setUpdateTime(LocalDateTime.now());payments.insert(r);return r;

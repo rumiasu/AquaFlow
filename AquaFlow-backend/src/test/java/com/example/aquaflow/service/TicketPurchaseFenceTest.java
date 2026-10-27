@@ -48,6 +48,7 @@ class TicketPurchaseFenceTest {
     @Test void sealedKeyBlocksLatePurchaseBeforePaymentOrCatalogRead() {
         var f = fences.lock(7L, "key"); f.setClosedTime(LocalDateTime.of(2026, 10, 2, 8, 0));
         var purchase = new TicketAccountServiceImpl(); var catalog = mock(ProductMapper.class);
+        ReflectionTestUtils.setField(purchase,"mockPolicy",mock(com.example.aquaflow.payment.MockPaymentPolicy.class));
         ReflectionTestUtils.setField(purchase, "purchaseFenceService", service);
         ReflectionTestUtils.setField(purchase, "paymentRecordMapper", payments);
         ReflectionTestUtils.setField(purchase, "productMapper", catalog);
@@ -112,6 +113,7 @@ class TicketPurchaseFenceTest {
     }
     @Test void creationThenConfirmationFailureStillReturnsOriginalWhenClosing() {
         var purchase = new TicketAccountServiceImpl(); var catalog = mock(ProductMapper.class);
+        ReflectionTestUtils.setField(purchase,"mockPolicy",mock(com.example.aquaflow.payment.MockPaymentPolicy.class));
         var product = new Product(); product.setId(5L); product.setCategory(2); product.setTicketEnabled(1); product.setStatus(1);
         product.setTicketPrice(new BigDecimal("8.00")); var tiers = mock(TicketTierService.class);
         var inventory = mock(InventoryMapper.class);

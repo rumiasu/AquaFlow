@@ -91,14 +91,12 @@
                     <view class="qty-btn"><text>+</text></view>
                   </view>
                 </view>
+                <button class="product-remove" bindtap="onRemoveProduct" data-index="{{index}}" disabled="{{productsLoading || productsError || submitting || submitState === 'creating' || pendingOrderId || submitState === 'unknown' || orderNavigationBusy || orderNavigationError}}">移除</button>
               </view>
             </view>
             <view class="product-subtotal" wx:if="{{item.quantity > 1}}">
               <text class="subtotal-label">零售小计</text>
               <text class="subtotal-value">¥{{item.subtotalText}}</text>
-            </view>
-            <view class="product-line-actions">
-              <button class="product-remove" bindtap="onRemoveProduct" data-index="{{index}}" disabled="{{productsLoading || productsError || submitting || submitState === 'creating' || pendingOrderId || submitState === 'unknown' || orderNavigationBusy || orderNavigationError}}">移除</button>
             </view>
           </view>
         </view>
@@ -126,7 +124,7 @@
       <view class="payment-methods">
         <text wx:if="{{quoteLoading}}">正在核实金额和支付方式…</text>
         <view class="load-error" wx:if="{{quoteError}}">{{quoteError}}</view>
-        <button wx:if="{{quoteError}}" bindtap="onRetryQuote" disabled="{{quoteLoading}}">重试报价</button>
+        <button wx:if="{{quoteError}}" bindtap="onRetryQuote" disabled="{{quoteLoading}}">重新计算费用</button>
         <view class="payment-method {{selectedMethod === item.id ? 'selected' : ''}} {{item.enabled ? '' : 'disabled'}}"
               wx:for="{{payMethods}}" wx:key="id"
               bindtap="onSelectMethod" data-id="{{item.id}}" data-enabled="{{item.enabled}}">
@@ -187,7 +185,7 @@
       <block wx:if="{{ticketCoverText}}">
         <!-- 票能整单结清：只说扣了几张、抵扣多少，不逐项列费用（口径见上） -->
         <text class="fee-cover">{{ticketCoverText}}</text>
-        <text class="fee-hint">本单用水票全额结清，本次无需再付现金。</text>
+        <text class="fee-hint">本单可用水票全额抵扣，无需另付现金。</text>
       </block>
       <block wx:elif="{{quoteReady}}">
         <view class="fee-row">
@@ -232,7 +230,7 @@
       </view>
       <!-- 金额出处：改地址/数量/支付方式后报价会重算，所以这里报的是"本次报价"，
            不把它说成最终订单金额（真正的订单金额由服务端在下单时算）。 -->
-      <text class="fee-hint">以上是本次下单报价；改地址、数量或支付方式后会重新计算。</text>
+      <text class="fee-hint">修改地址、数量或支付方式后，费用会重新计算。</text>
     </view>
 
     <!-- ══ ⑤ 备注（可选）：§3 里它排在费用摘要之后、底部主动作之前 ══ -->
@@ -276,7 +274,7 @@
           <text class="asset-more-glyph">›</text>
         </view>
         <view class="asset-detail" wx:if="{{showAssetDetail}}">
-          <text class="detail-intro">为了让你清楚每一笔桶和押金的来去，请在下单前了解以下 4 点：</text>
+          <text class="detail-intro">桶与押金规则</text>
           <view class="detail-rule-item">
             <text class="detail-rule-text"><text class="detail-bold">押金可以退还。</text>未领桶无需交桶，已领桶按批准安排交回；退还申请、实际交接和退款分别办理。</text>
           </view>
@@ -285,9 +283,6 @@
           </view>
           <view class="detail-rule-item">
             <text class="detail-rule-text"><text class="detail-bold">更换水站不会清空原有记录。</text>换到别的水站下单后，原水站的桶、水票与押金仍然保留，回到原水站即可继续使用。</text>
-          </view>
-          <view class="detail-rule-item">
-            <text class="detail-rule-text"><text class="detail-bold">如有疑问，建议先与本站确认。</text>对桶数、押金或水票有疑问时，请先联系本站，我们会为你核实。</text>
           </view>
           <view class="detail-call" bindtap="onCallStation">
             <text class="detail-call-text">{{stationPhone ? '拨打水站电话 ' + stationPhone : '联系水站'}}</text>
@@ -428,7 +423,7 @@
           <text class="asset-more-glyph">›</text>
         </view>
         <view class="asset-detail" wx:if="{{showAssetDetail}}">
-          <text class="detail-intro">为了让你清楚每一笔桶和押金的来去，请在下单前了解以下 4 点：</text>
+          <text class="detail-intro">桶与押金规则</text>
           <view class="detail-rule-item">
             <text class="detail-rule-text"><text class="detail-bold">押金可以退还。</text>未领桶无需交桶，已领桶按批准安排交回；退还申请、实际交接和退款分别办理。</text>
           </view>
@@ -437,9 +432,6 @@
           </view>
           <view class="detail-rule-item">
             <text class="detail-rule-text"><text class="detail-bold">更换水站不会清空原有记录。</text>换到别的水站下单后，原水站的桶、水票与押金仍然保留，回到原水站即可继续使用。</text>
-          </view>
-          <view class="detail-rule-item">
-            <text class="detail-rule-text"><text class="detail-bold">如有疑问，建议先与本站确认。</text>对桶数、押金或水票有疑问时，请先联系本站，我们会为你核实。</text>
           </view>
           <!-- 电话行：取到就拨号，取不到就去「客服」页（那里自己会说明"是没查到"还是"没登记"）——
                不留一个点了没反应的按钮。 -->

@@ -1675,8 +1675,9 @@
 .popup-content { max-height: 88vh; box-sizing: border-box; }
 .product-info, .fee-label-group, .method-info { min-width: 0; overflow-wrap: anywhere; }
 .product-image-empty { display: flex; align-items: center; justify-content: center; padding: 12rpx; background: var(--bg-gray); color: var(--text-regular); font-size: 26rpx; text-align: center; line-height: 1.5; }
-.product-line-actions { display:flex; justify-content:flex-end; margin-top:8rpx; }
-.product-remove { min-height:44px; height:auto; margin:0; padding:6rpx 20rpx; color:var(--text-secondary); background:transparent; border:1rpx solid var(--border-color); border-radius:999rpx; font-size:24rpx; line-height:1.4; }
+.product-purchase-row { flex-direction:column; align-items:stretch; gap:12rpx; }
+.stepper-wrap { display:flex; flex-wrap:wrap; align-items:stretch; gap:12rpx; width:100%; margin-left:0; }
+.product-remove { flex:0 0 auto; min-width:64px; min-height:44px; height:auto; margin:0 0 0 auto; padding:10rpx 16rpx; color:var(--text-regular); background:var(--bg-gray); border:1rpx solid var(--border-color); border-radius:10rpx; font-size:14px; line-height:1.5; }
 .product-remove::after,.removed-product-undo::after,.empty-cart-action::after { border:0; }
 .product-remove[disabled],.removed-product-undo[disabled] { opacity:.48; }
 .empty-cart { display:flex; flex-direction:column; align-items:center; gap:16rpx; padding:36rpx 24rpx; border:1rpx dashed var(--border-color); border-radius:16rpx; background:var(--bg-gray); }

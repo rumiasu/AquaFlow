@@ -756,9 +756,9 @@
 
 /* Inventory is a separate task from editing the product and its sales settings. */
 .card .action { display:flex; flex-wrap:wrap; align-items:stretch; }
-.card .action > button { flex:1 1 120rpx; min-width:0; }
-.card .action > .product-card-remove { flex:0 0 auto; }
-.product-card-secondary { margin:0; border-radius:10rpx; }
+.card .action > button { flex:1 1 calc(50% - 6rpx); min-width:0; }
+.card .action > .product-card-remove { flex:0 0 auto; margin-left:auto; padding:8rpx 16rpx; border:0; background:transparent; color:var(--text-regular); }
+.product-card-secondary { display:flex; align-items:center; justify-content:center; height:auto; margin:0; border-radius:10rpx; }
 .product-card-secondary::after { border:0; }
 .card { flex-wrap:wrap; }
 .card .action { flex:0 0 100%; width:100%; margin:0; }

@@ -911,7 +911,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       })
       if (!current()) return false
       if (!res || (res.code !== undefined && ![0, 200].includes(res.code)) || !res.data) {
-        throw new Error('报价结果未核实，请重试')
+        throw new Error(errorText(res, '报价结果未核实，请重试'))
       }
       {
         const d = res.data
@@ -1119,15 +1119,16 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 真机弱网下会提交一张金额陈旧的订单（钱的事，宁可挡住）。
       // 失败保持 quoteReady=false；点击与提交前等待两处都检查，只有重试成功才能重新提交。
       console.error('[OrderCreate] refreshQuote 失败:', e)
+      const reason = errorText(e, '暂时无法读取报价，请稍后重试').replace(/[。！？；，、\s]+$/, '')
       this.setData({
         blocked: true,
         quoteReady: false,
         payMethods: [], wechatPay: null, ticketPay: null, ticketCoverText: '',
         ticketShortfallHint: '', ticketCanBuy: false, ticketAltMethod: null, missingRights: [],
         barrelPurchases: [], barrelPurchaseConfirmed: false,
-        quoteError: '没能核实最新金额和支付方式。' + errorText(e, '请稍后重试').replace(/[。！？；，、\s]+$/, '') + '。已暂停下单，请重试报价。',
-        blockReason: '最新金额和支付方式尚未核实，请重试报价',
-        checkoutWarnings: ['最新金额和支付方式尚未核实，请重试报价']
+        quoteError: reason + '。已暂停下单，请重试报价。',
+        blockReason: reason,
+        checkoutWarnings: [reason]
       })
       wx.showToast({ title: '报价加载失败，已暂停下单', icon: 'none' })
       return false

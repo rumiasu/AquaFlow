@@ -57,6 +57,32 @@ test('failed debounced quote keeps submission blocked and clears loading', async
   await timer.advance(300); assert.equal(t.calls.quotes.length, 1); assert.equal(t.page.data.quoteReady, false)
   assert.equal(t.page.data.quoteLoading, false); assert.ok(t.page.data.quoteError); assert.equal(t.page.data.blocked, true)
 })
+for (const message of ['水站配送计费尚未设置，请联系水站完善后再下单', '网络超时，请检查手机网络后重试', '支付方式未核实，请重试报价或联系水站']) {
+  test('actual quote failure is visible in the footer while money and submit stay unverified: ' + message, async () => {
+    const t = fixture(async () => { throw Error(message) })
+    await t.page.refreshQuote()
+    assert.equal(t.page.data.blockReason, message)
+    assert.deepEqual(t.page.data.checkoutWarnings, [message])
+    assert(t.page.data.quoteError.includes(message)); assert(t.page.data.quoteBlockSummary)
+    assert.equal(t.page.data.totalAmountText, '—'); assert.equal(t.page.data.quoteReady, false)
+    await t.page.onSubmit(); assert.equal(t.calls.orders.length, 0)
+  })
+}
+test('rejected quote body preserves its safe reason and successful retry alone restores readiness', async () => {
+  let failed = true
+  const t = fixture(body => Promise.resolve(failed ? { code: 1, message: '水站配送计费尚未完成，请联系水站完善后再下单' } : quote(body.items[0].quantity)))
+  await t.page.refreshQuote(); assert(t.page.data.blockReason.includes('配送计费尚未完成'))
+  failed = false; await t.page.onRetryQuote()
+  assert.equal(t.page.data.quoteReady, true); assert.equal(t.page.data.quoteError, '')
+  assert.equal(t.page.data.blocked, false); assert.equal(t.calls.orders.length, 0)
+})
+test('technical failure text is filtered without inventing an amount or enabling submit', async () => {
+  const t = fixture(async () => { throw Error('SQL SELECT pricing_confirmed /api/payments/quote HTTP 500') })
+  await t.page.refreshQuote()
+  assert.equal(t.page.data.blockReason, '暂时无法读取报价，请稍后重试')
+  assert.equal(t.page.data.quoteReady, false); assert.equal(t.page.data.totalAmountText, '—')
+  await t.page.onSubmit(); assert.equal(t.calls.orders.length, 0)
+})
 test('unload clears scheduled quote without issuing another request', async timer => {
   const t = fixture(); t.input(3); t.page.onUnload(); await timer.advance(300); assert.equal(t.calls.quotes.length, 0)
 })

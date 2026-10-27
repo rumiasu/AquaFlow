@@ -102,7 +102,8 @@
 .hidden { display: none; }
 
 /* Native page buttons default to secondary actions; explicit primary/danger classes keep their role. */
-button { box-sizing:border-box; min-height:44px; height:auto; padding:16rpx 24rpx; border-radius:8rpx; font-size:14px; line-height:1.5; white-space:normal; word-break:break-all; color:var(--primary-color); background:var(--primary-bg); }
+button { box-sizing:border-box; display:flex; align-items:center; justify-content:center; min-height:44px; height:auto; padding:16rpx 24rpx; border-radius:8rpx; font-size:14px; line-height:1.5; white-space:normal; word-break:break-all; text-align:center; color:var(--primary-color); background:var(--primary-bg); }
+button[size="mini"] { display:inline-flex; vertical-align:middle; }
 button::after { border:0; }
 button[disabled],button[disabled][class] { color:var(--text-regular) !important; background:var(--bg-gray) !important; border-color:var(--border-color) !important; }
 

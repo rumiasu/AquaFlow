@@ -80,7 +80,7 @@
 
   <view class="price-warning" wx:if="{{warningsInline.length}}"><text class="price-warning-title">已保存，请核对价格</text><text wx:for="{{warningsInline}}" wx:key="index">{{item}}</text><button size="mini" bindtap="onDismissPriceWarnings">收起提醒</button></view>
   <!-- 选品 / 我的商品列表 -->
-  <view class="work-read-error" wx:if="{{!loading && loadError}}"><text>{{loadError}}</text><text>商品尚未核实，这不代表没有商品。</text><button bindtap="loadData">重新加载商品</button></view>
+  <view class="work-read-error" wx:if="{{!loading && loadError}}"><text>{{loadError}}</text><text>商品加载失败，请重试。</text><button bindtap="loadData">重新加载商品</button></view>
   <view class="list" id="setup-products" wx:if="{{!loading && !loadError}}">
     <view class="card" wx:for="{{viewList}}" wx:key="id" data-item="{{item}}" data-id="{{item.id}}" bindtap="onOpenSetting">
       <view class="thumb" wx:if="{{item.imageUrl && !brokenImages[item.imageUrl]}}">

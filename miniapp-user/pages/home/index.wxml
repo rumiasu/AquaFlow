@@ -158,7 +158,7 @@
 
         <view class="home-feedback" wx:if="{{unavailableCartCount > 0 && (catalogState === 'ready' || catalogState === 'empty')}}">
           <view class="home-feedback-row">
-            <text class="home-feedback-title">有 {{unavailableCartCount}} 种已选商品暂不可订，原数量已保留。</text>
+            <text class="home-feedback-title">{{unavailableCartCount}} 种商品暂不可订，已保留选择。</text>
             <button class="home-feedback-retry" bindtap="onRetryHome" disabled="{{loading || homeRetrying}}">重新核对商品</button>
           </view>
         </view>
@@ -257,7 +257,7 @@
            首页算不出运费（还没选地址），所以这里**不做费用承诺**，只报件数并指向结算页报价。 -->
       <text class="sum-sub">{{total.count > 0 ? '已选 ' + total.count + ' 件 · 支付金额以结算页报价为准' : '选中数量后自动合计'}}</text>
       <text class="sum-recovery" wx:if="{{total.count > 0 && purchaseHint}}">{{purchaseHint}}</text>
-      <text class="sum-recovery" wx:elif="{{total.count > 0 && homeQuoteState === 'error'}}">费用暂未核实，确认页核对后才能提交订单。</text>
+      <text class="sum-recovery" wx:elif="{{total.count > 0 && homeQuoteState === 'error'}}">费用待确认，请在确认页查看。</text>
     </view>
     <!-- 主按钮：蓝色合法出现处 ②；置灰用 #9CA7B5，不是浅蓝 -->
     <view class="cta {{total.count > 0 ? '' : 'off'}}" bindtap="onSubmit">确认订单</view>

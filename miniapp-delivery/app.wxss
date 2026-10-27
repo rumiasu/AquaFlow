@@ -197,7 +197,8 @@ page {
 
 /* 员工界面：恢复状态与正文层级。仅本端使用，不承载业务状态判断。 */
 page { color: var(--text-primary); font-size: 28rpx; line-height: 1.55; background: var(--bg-color); }
-button { box-sizing:border-box; min-height:44px; padding:16rpx 24rpx; font-size:14px; line-height:1.5; white-space:normal; word-break:break-all; border-radius:8rpx; color:var(--primary-color); background:var(--primary-bg); }
+button { box-sizing:border-box; display:flex; align-items:center; justify-content:center; min-height:44px; padding:16rpx 24rpx; font-size:14px; line-height:1.5; white-space:normal; word-break:break-all; text-align:center; border-radius:8rpx; color:var(--primary-color); background:var(--primary-bg); }
+button[size="mini"] { display:inline-flex; vertical-align:middle; }
 button::after { border:0; }
 button[disabled],button[disabled][class] { color:var(--text-regular) !important; background:var(--bg-gray) !important; border-color:var(--border-color) !important; }
 input, textarea { color: var(--text-primary); box-sizing: border-box; }

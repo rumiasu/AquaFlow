@@ -155,7 +155,7 @@ test('asset read failure is explicit beside selected cart and never called a ver
 })
 test('unverified home quote keeps the amount caveat and confirmation destination without claiming payment', async () => {
   const t = fixture({ quote: async () => { throw Error('offline') } }); await t.page.loadData()
-  assert.equal(t.page.data.homeQuoteState, 'error'); assert(texts(t.page).includes('费用暂未核实'))
+  assert.equal(t.page.data.homeQuoteState, 'error'); assert(texts(t.page).includes('费用待确认，请在确认页查看'))
   assert(t.page.data.total.detailText.includes('未核实'))
   t.page.onSubmit(); assert(t.wx.__calls.nav[0].url.startsWith('/pages/order/create?'))
   assert(!t.wx.__calls.nav[0].url.includes('pay=true'))
@@ -300,7 +300,7 @@ test('an old address response cannot overwrite a newer explicit choice', async (
 
 test('WB-07 partially restored cart discloses an unavailable SKU while preserving both original quantities', async () => {
   const t = fixture(); t.carts[1][11] = 1; await t.page.loadData()
-  assert.equal(t.page.data.unavailableCartCount, 1); assert(texts(t.page).includes('1 种已选商品暂不可订'))
+  assert.equal(t.page.data.unavailableCartCount, 1); assert(texts(t.page).includes('1 种商品暂不可订，已保留选择'))
   assert.equal(t.carts[1][11], 1); assert.equal(t.page.data.total.count, 2)
   assert.deepEqual(t.page.collectCartItems(), [{ productId: 10, quantity: 2 }])
   assert(visible(t.page).some(n => n.tag === 'button' && n.text === '重新核对商品' && n.attrs.bindtap === 'onRetryHome'))

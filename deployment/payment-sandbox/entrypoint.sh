@@ -35,6 +35,11 @@ case "${MOCK_WECHAT_PAY:-}" in true) required MOCK_PAYMENT_CUSTOMER_IDS "${MOCK_
 [ "${PAYMENT_SANDBOX_SERVICE_ID}" = "${PAYMENT_SANDBOX_RUNTIME_SERVICE_ID}" ] || reject 'runtime service mismatch'
 [ "${SERVER_FORWARD_HEADERS_STRATEGY:-}" = none ] || reject 'forward headers must remain none'
 [ "${SPRING_SQL_INIT_MODE:-}" = never ] || reject 'automatic SQL initialization is forbidden'
+# Match the established trial asset model; conflicting aliases must not fall back to legacy interpretation.
+[ "${INDEPENDENT_BARREL_RIGHTS_ENABLED-true}" = true ] || reject 'independent barrel rights must be true'
+[ "${AQUAFLOW_BARREL_INDEPENDENT_RIGHTS_ENABLED-true}" = true ] || reject 'independent barrel rights alias must be true'
+[ "${AQUAFLOW_BARREL_INDEPENDENTRIGHTSENABLED-true}" = true ] || reject 'independent barrel rights alias must be true'
+export INDEPENDENT_BARREL_RIGHTS_ENABLED=true AQUAFLOW_BARREL_INDEPENDENT_RIGHTS_ENABLED=true AQUAFLOW_BARREL_INDEPENDENTRIGHTSENABLED=true
 [ -z "${SPRING_APPLICATION_JSON:-}${SPRING_CONFIG_IMPORT:-}${SPRING_CONFIG_LOCATION:-}${SPRING_CONFIG_ADDITIONAL_LOCATION:-}${SPRING_PROFILES_INCLUDE:-}${JAVA_TOOL_OPTIONS:-}${JDK_JAVA_OPTIONS:-}${_JAVA_OPTIONS:-}" ] || reject 'unreviewed configuration/JVM override'
 case "$#:${1:-}" in
   1:--check-only) printf '%s\n' 'AQUAFLOW_PAYMENT_SANDBOX_SHAPE_OK (offline only; identity/DB not yet verified)'; exit 0 ;;

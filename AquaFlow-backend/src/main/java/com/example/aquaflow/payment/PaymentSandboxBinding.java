@@ -35,6 +35,7 @@ public record PaymentSandboxBinding(String environmentId, String serviceId, Stri
         requireRuntimeConfiguration(env);
         if(!env.getProperty("app.payment.mock-isolated-environment",Boolean.class,false)
                 || env.getProperty("app.dev-login-enabled",Boolean.class,false)
+                || !env.getProperty("aquaflow.barrel.independent-rights-enabled",Boolean.class,false)
                 || !"never".equals(env.getProperty("spring.sql.init.mode"))) throw refuse();
         String environment=required(env,PREFIX+"environment-id"), service=required(env,PREFIX+"service-id");
         String binding=required(env,PREFIX+"binding-id"), host=required(env,PREFIX+"db-host"), port=required(env,PREFIX+"db-port");

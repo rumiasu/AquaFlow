@@ -31,7 +31,8 @@ for (const [key, value] of [['SPRING_PROFILES_ACTIVE', 'prod'], ['SPRING_PROFILE
   ['DEV_LOGIN_ENABLED', 'true'], ['APP_DEV_LOGIN_ENABLED', 'true'], ['MOCK_PAYMENT_ISOLATED', 'false'], ['MOCK_PAYMENT_CUSTOMER_IDS', ''],
   ['PAYMENT_SANDBOX_RUNTIME_ENV_ID', 'another-environment'], ['PAYMENT_SANDBOX_RUNTIME_SERVICE_ID', 'another-service'],
   ['APP_PAYMENT_MOCK_WECHAT_PAY', 'false'], ['SPRING_SQL_INIT_MODE', 'always'], ['JAVA_TOOL_OPTIONS', '-Dsynthetic=1'],
-  ['SPRING_CONFIG_LOCATION', 'synthetic.yml']]) check(key + ' override refuses', () => {
+  ['SPRING_CONFIG_LOCATION', 'synthetic.yml'], ['INDEPENDENT_BARREL_RIGHTS_ENABLED', 'false'],
+  ['AQUAFLOW_BARREL_INDEPENDENT_RIGHTS_ENABLED', 'false'], ['AQUAFLOW_BARREL_INDEPENDENTRIGHTSENABLED', 'false']]) check(key + ' override refuses', () => {
   const e = environment(); e[key] = value; assert.equal(run(e).result.status, 2)
 })
 check('extra launch arguments cannot switch the independent image into prod', () => assert.equal(run(environment(), ['--spring.profiles.active=prod']).result.status, 2))

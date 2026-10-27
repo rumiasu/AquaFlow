@@ -47,6 +47,7 @@ class PaymentSandboxBindingTest {
         for(String key:List.of("app.payment.sandbox.runtime-environment-id","app.payment.sandbox.runtime-service-id"))
             assertThrows(IllegalStateException.class,()->PaymentSandboxBinding.from(PaymentSandboxFixtures.environment().withProperty(key,"wrong-identity")));
         assertThrows(IllegalStateException.class,()->PaymentSandboxBinding.from(PaymentSandboxFixtures.environment().withProperty("app.dev-login-enabled","true")));
+        assertThrows(IllegalStateException.class,()->PaymentSandboxBinding.from(PaymentSandboxFixtures.environment().withProperty("aquaflow.barrel.independent-rights-enabled","false")));
         assertThrows(IllegalStateException.class,()->PaymentSandboxBinding.from(PaymentSandboxFixtures.environment().withProperty("app.payment.sandbox.binding-id","__REQUIRED__")));
     }
 

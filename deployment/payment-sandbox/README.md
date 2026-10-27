@@ -5,6 +5,7 @@
 ## 已实现的边界
 
 - 只激活 `payment-sandbox`，不得混入 `test`、`local`、`prod` 或未知 profile。开发登录与默认密码补齐器均不创建；DB、JWT、两端微信登录和 CORS 必需配置缺失即拒绝。TLS 实现和真实微信登录保留。
+- 独立桶权益固定开启，入口拒绝三个相关环境变量别名的 false/空值，数据源边界再次拒绝最终配置 false；与现有体验包一致，不把已存在资产转回旧模型。
 - 默认 `MOCK_WECHAT_PAY=false`、无授权顾客。开启须同时有显式隔离声明、逐个顾客 ID、经核准部署绑定及数据库标记。小程序版本不是后端授权。
 - JDBC 必须是单一明确主机、显式端口和库名，与许可字段逐字匹配。库名不承担安全证明，不强制叫 aquaflow_test；例如用户已确认用途的 aquaflow_trial 仍须另核实例、地址、备份和标记，模板没有许可它。
 - 云 sandbox 必须加密连接，JDBC `sslMode` 只接受 REQUIRED、VERIFY_CA、VERIFY_IDENTITY；后两种校验证书的能力依赖核准的 JVM 信任配置。不得为连通关闭 TLS。其余驱动参数只允许代码中的有限清单，连接初始化 SQL、catalog 重写、额外驱动属性、自动 SQL/迁移入口被拒绝。

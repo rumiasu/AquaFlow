@@ -11,6 +11,7 @@ public final class PaymentSandboxFixtures {
         var e=new MockEnvironment();e.setActiveProfiles("payment-sandbox");
         return e.withProperty("app.payment.mock-wechat-pay","true")
                 .withProperty("app.payment.mock-isolated-environment","true").withProperty("app.payment.mock-customer-ids","7")
+                .withProperty("aquaflow.barrel.independent-rights-enabled","true")
                 .withProperty("app.dev-login-enabled","false").withProperty("spring.sql.init.mode","never")
                 .withProperty("spring.datasource.url",URL).withProperty("spring.datasource.username","synthetic")
                 .withProperty("spring.datasource.password","discard-synthetic-only")

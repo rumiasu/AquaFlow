@@ -49,7 +49,7 @@
       </view>
       <!-- 有格子没加载出来时的显式提示 + 重试（toast 会消失，这一条不会） -->
       <view class="assets-unloaded-tip" wx:if="{{unloadedCount > 0}}" bindtap="onRetryAssets">
-        <text class="assets-unloaded-text">有 {{unloadedCount}} 项尚未重新核实，未加载不代表 0</text>
+        <text class="assets-unloaded-text">{{unloadedCount}} 项资产暂未加载</text>
         <text class="assets-unloaded-retry">重新加载 ›</text>
       </view>
       <!-- 还空桶说明（务实版）：还空桶≠退押金，顾客侧不用也不能自己记账 -->
@@ -59,74 +59,33 @@
       </view>
     </view>
 
-    <!-- 账单 -->
-    <view class="group-title">账单</view>
-    <view class="card menu-card">
-      <view class="menu-row" data-url="/pages/payment/records" bindtap="onMenuTap">
-        <text class="menu-name">账单记录</text>
-        <text class="row-arrow">›</text>
+    <!-- 常用操作与低频服务分开，资产流水仍从上方资产卡进入。 -->
+    <view class="group-title">常用操作</view>
+    <view class="card quick-actions">
+      <view class="quick-action" data-url="/pages/payment/records" bindtap="onMenuTap" aria-role="button" aria-label="账单记录">
+        <view class="quick-icon"><icon name="bill" size="36rpx" color="#2E4A68" /></view><text class="quick-label">账单记录</text>
       </view>
-      <!-- 押金流水：上面三项卡里的「押金」只回答"现在多少"，这一页回答"为什么变" -->
-      <view class="menu-row" data-url="/pages/deposit/records/index" bindtap="onMenuTap">
-        <text class="menu-name">押金流水</text>
-        <text class="menu-desc">押金的每一笔增减</text>
-        <text class="row-arrow">›</text>
+      <view class="quick-action" data-url="/pages/address/list" bindtap="onMenuTap" aria-role="button" aria-label="地址管理">
+        <view class="quick-icon"><icon name="location" size="36rpx" color="#2E4A68" /></view><text class="quick-label">地址管理</text>
       </view>
-    </view>
-
-    <!-- 我的信息 -->
-    <view class="group-title">我的信息</view>
-    <view class="asset-refresh-note" wx:if="{{companyInfoFailed}}" bindtap="onRetryAssets">企业资料状态尚未核实，点此重新读取；已知入口仅供核对。</view>
-    <view class="card menu-card">
-      <view class="menu-row" data-url="/pages/mine/account-data/index" bindtap="onMenuTap">
-        <text class="menu-name">资料申请与注销检查</text>
-        <text class="row-arrow">›</text>
+      <view class="quick-action" data-url="/pages/template/index" bindtap="onMenuTap" aria-role="button" aria-label="常用订水配置">
+        <view class="quick-icon"><icon name="droplet" size="36rpx" color="#2E4A68" /></view><text class="quick-label">常用订水</text>
       </view>
-      <view class="menu-row" data-url="/pages/address/list" bindtap="onMenuTap">
-        <text class="menu-name">地址管理</text>
-        <text class="row-arrow">›</text>
-      </view>
-      <view class="menu-row" wx:if="{{isCompany}}" data-url="/pages/mine/company" bindtap="onMenuTap">
-        <text class="menu-name">企业资料</text>
-        <text class="menu-desc">月结客户</text>
-        <text class="row-arrow">›</text>
-      </view>
-      <view class="menu-row" data-url="/pages/template/index" bindtap="onMenuTap">
-        <text class="menu-name">常用订水配置</text>
-        <text class="row-arrow">›</text>
+      <view class="quick-action" wx:if="{{isCompany}}" data-url="/pages/mine/company" bindtap="onMenuTap" aria-role="button" aria-label="企业资料">
+        <view class="quick-icon"><icon name="building" size="36rpx" color="#2E4A68" /></view><text class="quick-label">企业资料</text>
       </view>
     </view>
+    <view class="asset-refresh-note" wx:if="{{companyInfoFailed}}" bindtap="onRetryAssets">企业资料状态暂未核实，点此重试。</view>
 
-    <!-- 服务 -->
     <view class="group-title">服务</view>
     <view class="card menu-card">
-      <view class="menu-row" data-url="/pages/mine/asset-claims/index" bindtap="onMenuTap">
-        <text class="menu-name">历史资产认领</text>
-        <text class="menu-desc">旧押金、桶容量与水票核对</text>
-        <text class="row-arrow">›</text>
-      </view>
-      <view class="menu-row" data-url="/pages/shop/index" bindtap="onMenuTap">
-        <text class="menu-name">更多商品</text>
-        <text class="menu-desc">查看水站全部在售商品</text>
-        <text class="row-arrow">›</text>
-      </view>
-      <view class="menu-row" data-url="/pages/notice/index" bindtap="onMenuTap">
-        <text class="menu-name">公告</text>
-        <text class="row-arrow">›</text>
-      </view>
-      <view class="menu-row" data-url="/pages/service/index" bindtap="onMenuTap">
-        <text class="menu-name">客服与反馈</text>
-        <text class="row-arrow">›</text>
-      </view>
-      <view class="menu-row" data-url="/pages/exception/list/list" bindtap="onMenuTap">
-        <text class="menu-name">服务记录</text>
-        <text class="menu-desc">送水异常的处理进度</text>
-        <text class="row-arrow">›</text>
-      </view>
-      <view class="menu-row" data-url="/pages/mine/about" bindtap="onMenuTap">
-        <text class="menu-name">关于我们</text>
-        <text class="row-arrow">›</text>
-      </view>
+      <view class="menu-row" data-url="/pages/mine/asset-claims/index" bindtap="onMenuTap"><text class="menu-name">历史资产认领</text><text class="row-arrow">›</text></view>
+      <view class="menu-row" data-url="/pages/shop/index" bindtap="onMenuTap"><text class="menu-name">更多商品</text><text class="row-arrow">›</text></view>
+      <view class="menu-row" data-url="/pages/notice/index" bindtap="onMenuTap"><text class="menu-name">公告</text><text class="row-arrow">›</text></view>
+      <view class="menu-row" data-url="/pages/service/index" bindtap="onMenuTap"><text class="menu-name">客服与反馈</text><text class="row-arrow">›</text></view>
+      <view class="menu-row" data-url="/pages/exception/list/list" bindtap="onMenuTap"><text class="menu-name">服务记录</text><text class="row-arrow">›</text></view>
+      <view class="menu-row" data-url="/pages/mine/account-data/index" bindtap="onMenuTap"><text class="menu-name">个人资料与注销</text><text class="row-arrow">›</text></view>
+      <view class="menu-row" data-url="/pages/mine/about" bindtap="onMenuTap"><text class="menu-name">关于我们</text><text class="row-arrow">›</text></view>
     </view>
 
     <view class="logout" bindtap="onLogout">退出登录</view>

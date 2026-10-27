@@ -32,4 +32,4 @@ assert(!labels(refund).includes('匿名提交')); assert(labels(refund).join(' '
 for (const file of ['miniapp-user/pages/mine/index.wxss', 'miniapp-user/pages/service/index.wxss']) {
   const css = read(file); assert(!css.includes('\ufeff')); assert(css.includes('88rpx'))
 }
-console.log('AQUAFLOW_MINE_SERVICE_OK')
+console.log('AQUAFLOW_SUITE_OK 1')

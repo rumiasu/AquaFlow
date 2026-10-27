@@ -33,4 +33,4 @@ const disputeView = view('miniapp-delivery/pages/station-mgmt/customer-feedback/
 const disputeText = text(disputeView)
 for (const phrase of ['普通反馈仅供查看', '结案不会办理退款或改变金额', '顾客可再次提出异议', '结案无需顾客确认', '不取消顾客既有权利']) assert(disputeText.includes(phrase), phrase)
 assert(disputeView.some(n => n.attrs.bindtap === 'onCloseDispute'))
-console.log('AQUAFLOW_COPY_BOUNDARIES_OK')
+console.log('AQUAFLOW_SUITE_OK 1')

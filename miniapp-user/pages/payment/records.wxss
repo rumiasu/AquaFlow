@@ -64,7 +64,7 @@
 }
 
 .record-status {
-  display: inline-block;
+  display: inline-flex;
   padding: 6rpx 14rpx;
   border-radius: 999rpx;
   background: var(--bg-gray);

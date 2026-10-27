@@ -14,6 +14,8 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'mine-service-hierarchy.test.js', name: '我的资产层级、资料入口与反馈恢复边界' },
+  { file: 'copy-clarity-boundaries.test.js', name: '精简界面说明并保留付款及退款状态边界' },
   { file: 'station-pricing-confirmation.test.js', name: '本站首次定价、保存确认、零押金与失败保留' },
   { file: 'business-dialog.test.js', name: '业务弹窗主题、数字、队列与离页取消' },
   { file: 'photo-recovery-presentation.test.js', name: '照片成功无核实任务、异常证据折叠保留' },
